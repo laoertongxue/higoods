@@ -76,7 +76,7 @@ function mergePreparationRuntimeItem(
   const downloads = runtime.downloads.filter((download) => download.itemId === item.itemId)
   const selectionOverridden = Array.isArray(selectedItemIds)
   const selectedByMerchandiser = selectionOverridden
-    ? item.requiredKind === '必做' || selectedItemIds.includes(item.itemId)
+    ? selectedItemIds.includes(item.itemId)
     : item.selectedByMerchandiser
   if (!uploads.length && !downloads.length && !selectionOverridden) return item
   const lastUpload = uploads.slice().sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))[0]

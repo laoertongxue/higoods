@@ -15,7 +15,15 @@ export type PreparationItemType =
   | '染色调色（面料）'
   | '辅料下单'
 
-export type PreparationOutputType = '正式技术包' | '生产单' | '印花单' | '染色单' | '辅料采购单'
+export type PreparationOutputType =
+  | '正式版本技术包'
+  | '生产需求单'
+  | '生产单'
+  | '印花需求单'
+  | '印花加工单'
+  | '染色需求单'
+  | '染色加工单'
+  | '辅料采购单'
 export type PreparationOutputStatus = '预计生成' | '已生成'
 
 export type PreparationRecordStatus = '未开始' | '进行中' | '部分超时' | '已完成' | '已关闭'
@@ -303,25 +311,35 @@ function orderHref(orderNo: string): string {
 
 function outputsFor(
   recordNo: string,
+  demandNo: string,
   orderNo: string,
   ready: boolean,
   outputPublishedAt: string,
   items: PreparationItemSeed[],
 ): ProductionPreparationOutput[] {
+  if (!demandNo || !orderNo) return []
+
   const generatedAt = ready ? outputPublishedAt : ''
   const status: PreparationOutputStatus = ready ? '已生成' : '预计生成'
   const prefix = ready ? '' : '预计'
   const selectedItems = items.filter((item) => item.selectedByMerchandiser !== false)
   const outputs: ProductionPreparationOutput[] = [
-    { outputType: '正式技术包', outputNo: `${prefix}TP-${orderNo}`, outputHref: `/fcs/production/orders/${encodeURIComponent(orderNo)}/tech-pack`, outputStatus: status, outputGeneratedAt: generatedAt },
+    { outputType: '正式版本技术包', outputNo: `${prefix}TP-${orderNo}`, outputHref: `/fcs/production/orders/${encodeURIComponent(orderNo)}/tech-pack`, outputStatus: status, outputGeneratedAt: generatedAt },
+    { outputType: '生产需求单', outputNo: `${prefix}${demandNo}`, outputHref: `/fcs/production/demand-inbox?keyword=${encodeURIComponent(demandNo)}`, outputStatus: status, outputGeneratedAt: generatedAt },
     { outputType: '生产单', outputNo: orderNo, outputHref: orderHref(orderNo), outputStatus: status, outputGeneratedAt: generatedAt },
   ]
 
   if (selectedItems.some((item) => item.itemType === '数码印/DTF/DTG花型')) {
-    outputs.push({ outputType: '印花单', outputNo: `${prefix}PR-${recordNo.slice(-3)}`, outputHref: '/fcs/craft/printing/orders', outputStatus: status, outputGeneratedAt: generatedAt })
+    outputs.push(
+      { outputType: '印花需求单', outputNo: `${prefix}PRD-${recordNo.slice(-3)}`, outputHref: '/fcs/process/print-requirements', outputStatus: status, outputGeneratedAt: generatedAt },
+      { outputType: '印花加工单', outputNo: `${prefix}PRO-${recordNo.slice(-3)}`, outputHref: '/fcs/process/print-orders', outputStatus: status, outputGeneratedAt: generatedAt },
+    )
   }
   if (selectedItems.some((item) => item.itemType === '染色调色（纱线）' || item.itemType === '染色调色（面料）')) {
-    outputs.push({ outputType: '染色单', outputNo: `${prefix}DY-${recordNo.slice(-3)}`, outputHref: '/fcs/craft/dyeing/orders', outputStatus: status, outputGeneratedAt: generatedAt })
+    outputs.push(
+      { outputType: '染色需求单', outputNo: `${prefix}DYD-${recordNo.slice(-3)}`, outputHref: '/fcs/process/dye-requirements', outputStatus: status, outputGeneratedAt: generatedAt },
+      { outputType: '染色加工单', outputNo: `${prefix}DYO-${recordNo.slice(-3)}`, outputHref: '/fcs/process/dye-orders', outputStatus: status, outputGeneratedAt: generatedAt },
+    )
   }
   if (selectedItems.some((item) => item.itemType === '辅料下单')) {
     outputs.push({ outputType: '辅料采购单', outputNo: `${prefix}AP-${recordNo.slice(-3)}`, outputHref: '/fcs/purchase/accessory-orders', outputStatus: status, outputGeneratedAt: generatedAt })
@@ -395,31 +413,57 @@ function opt(
 }
 
 function createItems(recordId: string, productionOrderNo: string, seeds: PreparationItemSeed[]): ProductionPreparationItem[] {
-  return seeds.map((seed, index) => ({
-    itemId: `${recordId}-item-${String(index + 1).padStart(2, '0')}`,
-    recordId,
-    sourceObjectType: '生产单',
-    sourceObjectNo: productionOrderNo,
-    sourceHref: orderHref(productionOrderNo),
-    evidenceType: '系统记录',
-    evidenceSummary: '',
-    overdueHours: 0,
-    remark: '',
-    uploads: [],
-    downloads: [],
-    ...seed,
-  }))
+  return seeds.map((seed, index) => {
+    const itemId = `${recordId}-item-${String(index + 1).padStart(2, '0')}`
+    const shouldBackfillUpload = seed.selectedByMerchandiser !== false && seed.status === '已完成' && Boolean(seed.actualFinishAt)
+    const uploads = seed.uploads?.length
+      ? seed.uploads
+      : shouldBackfillUpload
+        ? [{
+            uploadId: `${itemId}-history-upload-01`,
+            recordId,
+            itemId,
+            itemType: seed.itemType,
+            fileName: `${seed.itemType}-${seed.actualFinishAt.slice(0, 10)}.pdf`,
+            fileType: 'application/pdf',
+            fileSize: 1024,
+            fileDataUrl: 'data:application/pdf;base64,JVBERi0xLjQ=',
+            uploadedBy: seed.ownerName,
+            uploadedAt: seed.actualFinishAt,
+            note: seed.evidenceSummary || '历史完成资料',
+          }]
+        : []
+
+    return {
+      itemId,
+      recordId,
+      sourceObjectType: '生产单',
+      sourceObjectNo: productionOrderNo,
+      sourceHref: productionOrderNo ? orderHref(productionOrderNo) : '',
+      evidenceType: '系统记录',
+      evidenceSummary: '',
+      overdueHours: 0,
+      remark: '',
+      ...seed,
+      uploads,
+      downloads: seed.downloads ?? [],
+    }
+  })
 }
 
 function record(seed: RecordSeed): ProductionPreparationRecord {
+  const workItemsConfirmedBy = seed.workItemsConfirmedBy ?? seed.prepTypeConfirmedBy
+  const workItemsConfirmedAt = seed.workItemsConfirmedAt ?? seed.prepTypeConfirmedAt
   return {
     ...seed,
     largeGoodsThresholdQty: 300,
     reachedThresholdAt: seed.largeGoodsReachedAt,
-    productionOrderHref: orderHref(seed.productionOrderNo),
-    workItemsConfirmedBy: seed.workItemsConfirmedBy ?? seed.prepTypeConfirmedBy,
-    workItemsConfirmedAt: seed.workItemsConfirmedAt ?? seed.prepTypeConfirmedAt,
-    outputs: outputsFor(seed.recordNo, seed.productionOrderNo, seed.outputReady, seed.outputPublishedAt, seed.items),
+    productionOrderHref: seed.productionOrderNo ? orderHref(seed.productionOrderNo) : '',
+    workItemsConfirmedBy,
+    workItemsConfirmedAt,
+    outputs: workItemsConfirmedBy && workItemsConfirmedAt
+      ? outputsFor(seed.recordNo, seed.productionDemandNo, seed.productionOrderNo, seed.outputReady, seed.outputPublishedAt, seed.items)
+      : [],
     items: createItems(seed.recordId, seed.productionOrderNo, seed.items),
   }
 }
@@ -430,7 +474,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     recordNo: 'PREP-202603-001',
     spuCode: 'SPU-WV-260301',
     spuName: '纯梭织通勤衬衫',
-    imageUrl: '/mock/products/spring-print-dress.jpg',
+    imageUrl: '/shirt-sample.jpg',
     selectionName: '妮娜',
     buyerName: '沈若琳',
     merchandiserName: 'Maya',
@@ -449,23 +493,23 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     workItemsConfirmedBy: '',
     workItemsConfirmedAt: '',
     prepTypeOverrideReason: '',
-    productionDemandNo: 'PD-202603-001',
-    productionOrderNo: 'PO-202603-001',
-    techPackVersionLabel: 'TP-v3.2',
-    techPackPublishedAt: '2026-03-04T17:40:00',
-    status: '进行中',
-    currentBlockerText: '花型完成图已上传，面料染色未选择，梭织齐码仍在整理',
+    productionDemandNo: '',
+    productionOrderNo: '',
+    techPackVersionLabel: '',
+    techPackPublishedAt: '',
+    status: '未开始',
+    currentBlockerText: '刚达到做大货要求，待跟单确认商品类型和梭织纸样、版衣、辅料、花型等准备项',
     expectedFinishAt: '2026-03-05T18:00:00',
     closedReason: '',
     outputReady: false,
     outputPublishedAt: '',
     items: [
-      req('梭织基码纸样', '已完成', '版师团队', '陈版师', '2026-03-01T12:00:00', '2026-03-03T12:00:00', '2026-03-02T18:00:00', '梭织主线', [], '梭织基码', { evidenceSummary: 'M 码梭织基码纸样已上传' }),
-      req('版衣制作', '已完成', '车板团队', 'Ayu', '2026-03-02T18:00:00', '2026-03-03T18:00:00', '2026-03-03T16:30:00', '梭织主线', ['prep-202603-001-item-01'], '版衣', { evidenceSummary: '版衣照片已上传' }),
-      req('梭织齐码纸样', '进行中', '版师团队', '陈版师', '2026-03-03T16:30:00', '2026-03-05T16:30:00', '', '梭织主线', ['prep-202603-001-item-02'], '梭织齐码', { evidenceSummary: 'S-L 齐码纸样整理中' }),
-      req('辅料下单', '已完成', '采购团队', '武汉辅料组', '2026-03-01T12:00:00', '2026-03-03T12:00:00', '2026-03-02T15:00:00', '辅料并行', [], '主辅料', { evidenceSummary: '纽扣和洗标采购单已同步' }),
-      opt('数码印/DTF/DTG花型', true, '待确认', '花型团队', '林小美', '2026-03-01T12:00:00', '2026-03-03T12:00:00', '', '花型并行', '花型', { evidenceSummary: '完成图已上传，待买手确认', patternTaskNo: 'PAT-202603-001', patternDesignerId: 'designer-linxiaomei', patternDesignerName: '林小美', patternTeamName: '中国花型组', assignedAt: '2026-03-01T12:10:00', completionImageIds: ['img-001'], patternFileIds: ['ai-001'], buyerReviewStatus: '待确认' }),
-      opt('染色调色（面料）', false, '待判断', '染色团队', '待确认', '', '', '', '染色并行', '面料染色', { evidenceSummary: '跟单未选择面料染色调色' }),
+      req('梭织基码纸样', '待判断', '版师团队', '待确认', '', '', '', '梭织主线', [], '梭织基码', { evidenceSummary: '待跟单确认是否进入梭织基码准备' }),
+      req('版衣制作', '待判断', '车板团队', '待确认', '', '', '', '梭织主线', ['prep-202603-001-item-01'], '版衣', { evidenceSummary: '待跟单确认版衣制作节点' }),
+      req('梭织齐码纸样', '待判断', '版师团队', '待确认', '', '', '', '梭织主线', ['prep-202603-001-item-02'], '梭织齐码', { evidenceSummary: '待跟单确认齐码纸样准备' }),
+      req('辅料下单', '待判断', '采购团队', '待确认', '', '', '', '辅料并行', [], '主辅料', { evidenceSummary: '待跟单确认是否需要辅料下单' }),
+      opt('数码印/DTF/DTG花型', true, '待判断', '花型团队', '待确认', '', '', '', '花型并行', '花型', { evidenceSummary: '待跟单确认数码印花型准备项', completionImageIds: [], patternFileIds: [], buyerReviewStatus: '未提交' }),
+      opt('染色调色（面料）', false, '待判断', '染色团队', '待确认', '', '', '', '染色并行', '面料染色', { evidenceSummary: '待跟单确认是否需要面料染色调色' }),
     ],
   }),
   record({
@@ -473,7 +517,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     recordNo: 'PREP-202603-002',
     spuCode: 'SPU-MX-260302',
     spuName: '毛织拼接梭织短袖上衣',
-    imageUrl: '/mock/products/contrast-knit-top.jpg',
+    imageUrl: '/cardigan-sample.jpg',
     selectionName: '艾拉',
     buyerName: '赵嘉宁',
     merchandiserName: 'Raka',
@@ -517,7 +561,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     recordNo: 'PREP-202603-003',
     spuCode: 'SPU-PT-260303',
     spuName: 'DTF 直喷休闲短袖',
-    imageUrl: '/mock/products/casual-print-tee.jpg',
+    imageUrl: '/tshirt-sample.jpg',
     selectionName: '乔安',
     buyerName: '沈若琳',
     merchandiserName: 'Maya',
@@ -553,7 +597,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     recordNo: 'PREP-202603-004',
     spuCode: 'SPU-KN-260304',
     spuName: '毛织连帽短开衫',
-    imageUrl: '/mock/products/hoodie-set.jpg',
+    imageUrl: '/cardigan-sample.jpg',
     selectionName: '可岚',
     buyerName: '李乔',
     merchandiserName: 'Nadia',
@@ -593,7 +637,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     recordNo: 'PREP-202603-005',
     spuCode: 'SPU-WV-260305',
     spuName: '纯梭织户外轻量夹克',
-    imageUrl: '/mock/products/light-jacket.jpg',
+    imageUrl: '/jacket-sample.jpg',
     selectionName: '米朵',
     buyerName: '李乔',
     merchandiserName: 'Nadia',
@@ -634,7 +678,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     recordNo: 'PREP-202603-006',
     spuCode: 'SPU-KN-260306',
     spuName: '毛织商务针织衫',
-    imageUrl: '/mock/products/slim-shirt.jpg',
+    imageUrl: '/shirt-sample.jpg',
     selectionName: '若伊',
     buyerName: '赵嘉宁',
     merchandiserName: 'Raka',
@@ -674,7 +718,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     recordNo: 'PREP-202604-001',
     spuCode: 'SPU-WV-260401',
     spuName: '纯梭织亚麻衬衫',
-    imageUrl: '/mock/products/kemeja-linen-pria.jpg',
+    imageUrl: '/shirt-sample.jpg',
     selectionName: '拉娜',
     buyerName: 'Alicia',
     merchandiserName: 'Raka',
@@ -715,7 +759,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     recordNo: 'PREP-202604-002',
     spuCode: 'SPU-KN-260402',
     spuName: '毛织缎面拼色上衣',
-    imageUrl: '/mock/products/blus-wanita-satin.jpg',
+    imageUrl: '/lace-dress-sample.jpg',
     selectionName: '苏拉',
     buyerName: 'Alicia',
     merchandiserName: 'Sinta',
@@ -755,7 +799,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     recordNo: 'PREP-202604-003',
     spuCode: 'SPU-PT-260403',
     spuName: '直喷水洗短裤',
-    imageUrl: '/mock/products/celana-pendek-pria.jpg',
+    imageUrl: '/denim-shorts-sample.jpg',
     selectionName: '迪诺',
     buyerName: 'Alicia',
     merchandiserName: 'Raka',
@@ -791,7 +835,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     recordNo: 'PREP-202604-004',
     spuCode: 'SPU-MX-260404',
     spuName: '毛织罗纹拼接休闲T恤',
-    imageUrl: '/mock/products/spring-casual-tee.jpg',
+    imageUrl: '/tshirt-sample.jpg',
     selectionName: '桑妮',
     buyerName: '沈若琳',
     merchandiserName: 'Maya',
@@ -825,7 +869,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
       req('毛织齐码纸样', '待开始', '毛织团队', 'Yuni', '2026-04-09T09:00:00', '2026-04-10T18:00:00', '', '双齐码并行', ['prep-202604-004-item-03'], '毛织齐码', { evidenceSummary: '等待版衣确认' }),
       req('梭织齐码纸样', '待开始', '版师团队', '陈晓岚', '2026-04-09T09:00:00', '2026-04-10T18:00:00', '', '双齐码并行', ['prep-202604-004-item-03'], '梭织齐码', { evidenceSummary: '等待版衣确认' }),
       req('辅料下单', '已完成', '采购团队', '何珊', '2026-04-05T09:00:00', '2026-04-07T18:00:00', '2026-04-07T15:30:00', '辅料并行', [], '主辅料', { evidenceSummary: '领标和罗纹辅料已下单' }),
-      opt('数码印/DTF/DTG花型', true, '待确认', '花型团队', 'Sari', '2026-04-05T09:00:00', '2026-04-08T18:00:00', '', '花型并行', '花型', { evidenceSummary: '花型完成图待买手确认', overdueHours: 6, patternTaskNo: 'PAT-202604-004', patternDesignerId: 'designer-sari', patternDesignerName: 'Sari', patternTeamName: 'Jakarta 花型组', assignedAt: '2026-04-05T09:20:00', completionImageIds: ['img-pattern-004'], patternFileIds: ['file-pattern-004'], buyerReviewStatus: '待确认' }),
+      opt('数码印/DTF/DTG花型', true, '待确认', '花型团队', '林小美', '2026-04-05T09:00:00', '2026-04-08T18:00:00', '', '花型并行', '花型', { evidenceSummary: '花型完成图待买手确认', overdueHours: 6, patternTaskNo: 'PAT-202604-004', patternDesignerId: 'designer-linxiaomei', patternDesignerName: '林小美', patternTeamName: '中国花型组', assignedAt: '2026-04-05T09:20:00', completionImageIds: ['img-pattern-004'], patternFileIds: ['file-pattern-004'], buyerReviewStatus: '待确认' }),
       opt('染色调色（纱线）', false, '待判断', '染色团队', '待确认', '', '', '', '染色并行', '纱线染色', { evidenceSummary: '跟单未选择纱线染色' }),
       opt('染色调色（面料）', true, '进行中', '染色团队', 'Rini', '2026-04-05T09:00:00', '2026-04-08T18:00:00', '', '染色并行', '面料染色', { evidenceSummary: '面料染色二次复核', overdueHours: 4 }),
     ],
@@ -835,7 +879,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     recordNo: 'PREP-202604-005',
     spuCode: 'SPU-PT-260405',
     spuName: 'DTG 图案基础T恤',
-    imageUrl: '/mock/products/basic-print-tee.jpg',
+    imageUrl: '/tshirt-sample.jpg',
     selectionName: '露西',
     buyerName: '沈若琳',
     merchandiserName: 'Maya',
@@ -871,7 +915,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     recordNo: 'PREP-202604-006',
     spuCode: 'SPU-MX-260406',
     spuName: '毛织梭织拼接开衫',
-    imageUrl: '/mock/products/sweater-rajut-wanita.jpg',
+    imageUrl: '/cardigan-sample.jpg',
     selectionName: '贝拉',
     buyerName: 'Alicia',
     merchandiserName: 'Sinta',
