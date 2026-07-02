@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import {
   EMPTY_PREPARATION_RUNTIME_STATE,
+  PREPARATION_RUNTIME_STORAGE_KEY,
   appendDownloadRecord,
   isBasePatternItem,
   mergePreparationRuntimeRecords,
@@ -252,6 +253,72 @@ const runtimeMissingUploadRecord = mergePreparationRuntimeRecords(productionPrep
   | { outputs?: unknown[] }
   | undefined
 assert.equal(runtimeMissingUploadRecord?.outputs?.length ?? 0, 0, '缺一个 runtime 上传时不得生成产出对象')
+
+const unconfirmedOutputLoopFixture = productionPreparationRecords.find(
+  (record: { recordNo?: string }) => record.recordNo === 'PREP-202603-001',
+) as
+  | {
+      recordId: string
+      recordNo: string
+      productionDemandNo: string
+      productionOrderNo: string
+      outputReady: boolean
+      items: Array<{ itemId: string; itemType: string; selectedByMerchandiser?: boolean; status: string }>
+    }
+  | undefined
+assert.ok(unconfirmedOutputLoopFixture, '缺少 PREP-202603-001 未确认输出闭环 fixture')
+assert.equal(unconfirmedOutputLoopFixture.productionDemandNo, '', 'PREP-202603-001 静态必须没有生产需求单号')
+assert.equal(unconfirmedOutputLoopFixture.productionOrderNo, '', 'PREP-202603-001 静态必须没有生产单号')
+const unconfirmedRuntimeSelectedItemTypes = ['梭织基码纸样', '版衣制作', '梭织齐码纸样', '辅料下单'] as const
+const unconfirmedRuntimeSelectedItems = unconfirmedOutputLoopFixture.items.filter((item) =>
+  unconfirmedRuntimeSelectedItemTypes.includes(item.itemType as typeof unconfirmedRuntimeSelectedItemTypes[number]),
+)
+assert.equal(unconfirmedRuntimeSelectedItems.length, unconfirmedRuntimeSelectedItemTypes.length, 'PREP-202603-001 缺少纯梭织确认准备项')
+const unconfirmedConfirmedState = {
+  ...EMPTY_PREPARATION_RUNTIME_STATE,
+  confirmedRecords: {
+    [unconfirmedOutputLoopFixture.recordId]: {
+      confirmedBy: '测试用户',
+      confirmedAt: '2026-07-02T12:00',
+      confirmedProductPrepType: '非烫画&非毛织（纯梭织）',
+      selectedItemTypes: [...unconfirmedRuntimeSelectedItemTypes],
+      overrideReason: '',
+    },
+  },
+  downloads: [],
+}
+const unconfirmedMissingEvidenceRecord = mergePreparationRuntimeRecords(productionPreparationRecords, {
+  ...unconfirmedConfirmedState,
+  uploads: unconfirmedRuntimeSelectedItems.slice(0, -1).map((item, index) =>
+    runtimeUploadFor(unconfirmedOutputLoopFixture, item, index + 40),
+  ),
+}).find((record: { recordNo?: string }) => record.recordNo === unconfirmedOutputLoopFixture.recordNo) as
+  | { outputReady?: boolean; outputs?: unknown[] }
+  | undefined
+assert.equal(unconfirmedMissingEvidenceRecord?.outputReady, false, '未确认记录 runtime 缺上传证据时不得 ready')
+assert.equal(unconfirmedMissingEvidenceRecord?.outputs?.length ?? 0, 0, '未确认记录 runtime 缺上传证据时不得生成产出')
+const unconfirmedRuntimeReadyRecord = mergePreparationRuntimeRecords(productionPreparationRecords, {
+  ...unconfirmedConfirmedState,
+  uploads: unconfirmedRuntimeSelectedItems.map((item, index) =>
+    runtimeUploadFor(unconfirmedOutputLoopFixture, item, index + 40),
+  ),
+}).find((record: { recordNo?: string }) => record.recordNo === unconfirmedOutputLoopFixture.recordNo) as
+  | {
+      outputReady?: boolean
+      productionDemandNo?: string
+      productionOrderNo?: string
+      outputs?: Array<{ outputType?: string; outputNo?: string }>
+    }
+  | undefined
+assert.equal(unconfirmedRuntimeReadyRecord?.outputReady, true, '未确认记录 runtime 补齐上传证据后必须 ready')
+assert.equal(unconfirmedRuntimeReadyRecord?.productionDemandNo, 'PD-202603-001', 'runtime ready 后必须生成稳定生产需求单号')
+assert.equal(unconfirmedRuntimeReadyRecord?.productionOrderNo, 'PO-202603-001', 'runtime ready 后必须生成稳定生产单号')
+for (const outputType of ['正式版本技术包', '生产需求单', '生产单', '辅料采购单'] as const) {
+  assert.ok(
+    unconfirmedRuntimeReadyRecord?.outputs?.some((output) => output.outputType === outputType),
+    `未确认记录 runtime 补齐上传证据后产出缺少「${outputType}」`,
+  )
+}
 
 const readyReconfirmationFixture = productionPreparationRecords.find(
   (record: { recordNo?: string }) => record.recordNo === 'PREP-202604-001',
@@ -958,7 +1025,11 @@ const pageModule = await import('../src/pages/production/preparation-timing.ts')
 const renderProductionPreparationTimingPage = pageModule.renderProductionPreparationTimingPage as
   | ((path?: string) => string | Promise<string>)
   | undefined
+const handleProductionPreparationTimingEvent = pageModule.handleProductionPreparationTimingEvent as
+  | ((target: HTMLElement) => boolean)
+  | undefined
 assert.equal(typeof renderProductionPreparationTimingPage, 'function', '页面必须导出 renderProductionPreparationTimingPage')
+assert.equal(typeof handleProductionPreparationTimingEvent, 'function', '页面必须导出 handleProductionPreparationTimingEvent')
 
 const { appStore } = await import('../src/state/store.ts')
 async function renderAt(path: string): Promise<string> {
@@ -966,6 +1037,66 @@ async function renderAt(path: string): Promise<string> {
   const html = await renderProductionPreparationTimingPage(path)
   assert.equal(typeof html, 'string', 'renderProductionPreparationTimingPage 必须返回 HTML 字符串')
   return html
+}
+
+const staticDownloadFixture = productionPreparationRecords.find(
+  (record: { recordNo?: string }) => record.recordNo === 'PREP-202603-003',
+) as
+  | {
+      recordId: string
+      items: Array<{
+        itemId: string
+        uploads?: Array<{ uploadId: string; fileName: string; fileDataUrl?: string }>
+      }>
+    }
+  | undefined
+const staticDownloadItem = staticDownloadFixture?.items.find((item) => item.uploads?.length)
+const staticDownloadUpload = staticDownloadItem?.uploads?.[0]
+assert.ok(staticDownloadFixture && staticDownloadItem && staticDownloadUpload, '缺少静态历史上传下载 fixture')
+const originalWindow = (globalThis as { window?: unknown }).window
+const originalDocument = (globalThis as { document?: unknown }).document
+const storage = new Map<string, string>()
+;(globalThis as { window?: unknown }).window = {
+  localStorage: {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => storage.set(key, value),
+    removeItem: (key: string) => storage.delete(key),
+    clear: () => storage.clear(),
+  },
+  dispatchEvent: () => true,
+}
+;(globalThis as { document?: unknown }).document = {
+  createElement: () => ({ href: '', download: '', click: () => undefined, remove: () => undefined }),
+  body: { appendChild: () => undefined },
+}
+try {
+  const handledStaticDownload = handleProductionPreparationTimingEvent({
+    closest: (selector: string) =>
+      selector === '[data-prep-action]'
+        ? {
+            dataset: {
+              prepAction: 'download-upload',
+              uploadId: staticDownloadUpload.uploadId,
+            },
+          }
+        : null,
+  } as unknown as HTMLElement)
+  assert.equal(handledStaticDownload, true, '静态历史上传下载事件必须被处理')
+  const storedRuntime = JSON.parse(storage.get(PREPARATION_RUNTIME_STORAGE_KEY) ?? '{}') as {
+    downloads?: Array<{ uploadId?: string; itemId?: string; fileName?: string }>
+  }
+  assert.ok(
+    storedRuntime.downloads?.some(
+      (download) =>
+        download.uploadId === staticDownloadUpload.uploadId &&
+        download.itemId === staticDownloadItem.itemId &&
+        download.fileName === staticDownloadUpload.fileName,
+    ),
+    '静态历史上传点击下载后必须写入下载记录',
+  )
+} finally {
+  ;(globalThis as { window?: unknown }).window = originalWindow
+  ;(globalThis as { document?: unknown }).document = originalDocument
 }
 
 const ledgerHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&patternDesigner=林小美')

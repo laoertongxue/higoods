@@ -1481,7 +1481,11 @@ export function handleProductionPreparationTimingEvent(target: HTMLElement): boo
   if (!uploadId) return true
 
   const runtime = loadPreparationRuntimeState()
-  const upload = runtime.uploads.find((item) => item.uploadId === uploadId)
+  const upload = runtime.uploads.find((item) => item.uploadId === uploadId) ??
+    mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
+      .flatMap((record) => record.items)
+      .flatMap((item) => item.uploads ?? [])
+      .find((item) => item.uploadId === uploadId)
   if (!upload) return true
 
   savePreparationRuntimeState(appendDownloadRecord(runtime, {

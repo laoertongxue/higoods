@@ -92,6 +92,12 @@ export function mergePreparationRuntimeRecords(
     const outputReady = selectionOverridden
       ? runtimeOutputReady
       : record.outputReady || (hasRuntimeUpload && runtimeOutputReady)
+    const productionDemandNo = selectionOverridden && outputReady
+      ? record.productionDemandNo || runtimeProductionDemandNo(record.recordNo)
+      : record.productionDemandNo
+    const productionOrderNo = selectionOverridden && outputReady
+      ? record.productionOrderNo || runtimeProductionOrderNo(record.recordNo)
+      : record.productionOrderNo
     const outputPublishedAt = outputReady
       ? record.outputPublishedAt || latestCompletionEvidenceAt(items)
       : selectionOverridden ? '' : record.outputPublishedAt
@@ -104,12 +110,14 @@ export function mergePreparationRuntimeRecords(
       prepTypeOverrideReason,
       workItemsConfirmedBy,
       workItemsConfirmedAt,
+      productionDemandNo,
+      productionOrderNo,
       outputReady,
       outputPublishedAt,
       outputs: buildPreparationOutputs({
         recordNo: record.recordNo,
-        productionDemandNo: record.productionDemandNo,
-        productionOrderNo: record.productionOrderNo,
+        productionDemandNo,
+        productionOrderNo,
         outputReady,
         outputPublishedAt,
         workItemsConfirmedBy,
@@ -129,6 +137,18 @@ function resolveRuntimeSelection(confirmation?: ConfirmedPreparationRecord): Run
     return { overridden: true, itemIds: new Set(confirmation.selectedItemIds) }
   }
   return { overridden: false }
+}
+
+function runtimeDocumentSuffix(recordNo: string): string {
+  return recordNo.replace(/^PREP-/, '') || recordNo
+}
+
+function runtimeProductionDemandNo(recordNo: string): string {
+  return `PD-${runtimeDocumentSuffix(recordNo)}`
+}
+
+function runtimeProductionOrderNo(recordNo: string): string {
+  return `PO-${runtimeDocumentSuffix(recordNo)}`
 }
 
 function buildRuntimeTemplateItems(
