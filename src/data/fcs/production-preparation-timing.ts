@@ -30,6 +30,30 @@ export type PreparationItemStatus =
   | '已完成'
   | '已超时'
 
+export interface PreparationUploadRecord {
+  uploadId: string
+  recordId: string
+  itemId: string
+  itemType: PreparationItemType
+  fileName: string
+  fileType: string
+  fileSize: number
+  fileDataUrl: string
+  uploadedBy: string
+  uploadedAt: string
+  note: string
+}
+
+export interface PreparationDownloadRecord {
+  downloadId: string
+  recordId: string
+  itemId: string
+  uploadId: string
+  fileName: string
+  downloadedBy: string
+  downloadedAt: string
+}
+
 export interface ProductionPreparationItem {
   itemId: string
   recordId: string
@@ -62,6 +86,8 @@ export interface ProductionPreparationItem {
   completionImageIds?: string[]
   patternFileIds?: string[]
   buyerReviewStatus?: '未提交' | '待确认' | '已通过' | '需调整'
+  uploads?: PreparationUploadRecord[]
+  downloads?: PreparationDownloadRecord[]
 }
 
 export interface ProductionPreparationOutput {
@@ -69,6 +95,7 @@ export interface ProductionPreparationOutput {
   outputNo: string
   outputHref: string
   outputStatus: PreparationOutputStatus
+  outputGeneratedAt: string
 }
 
 export interface ProductionPreparationRecord {
@@ -94,6 +121,8 @@ export interface ProductionPreparationRecord {
   prepTypeSource: '系统推导' | '人工修正'
   prepTypeConfirmedBy: string
   prepTypeConfirmedAt: string
+  workItemsConfirmedBy: string
+  workItemsConfirmedAt: string
   prepTypeOverrideReason: string
   productionDemandNo: string
   productionOrderNo: string
@@ -248,12 +277,20 @@ type PreparationItemSeed = Omit<
       | 'sequenceGroup'
       | 'dependsOnItemIds'
       | 'parallelGroup'
+      | 'uploads'
+      | 'downloads'
     >
   >
 
 type RecordSeed = Omit<
   ProductionPreparationRecord,
-  'largeGoodsThresholdQty' | 'reachedThresholdAt' | 'productionOrderHref' | 'outputs' | 'items'
+  | 'largeGoodsThresholdQty'
+  | 'reachedThresholdAt'
+  | 'productionOrderHref'
+  | 'workItemsConfirmedBy'
+  | 'workItemsConfirmedAt'
+  | 'outputs'
+  | 'items'
 > & {
   items: PreparationItemSeed[]
 }
@@ -266,24 +303,26 @@ function outputsFor(
   recordNo: string,
   orderNo: string,
   ready: boolean,
+  outputPublishedAt: string,
   items: PreparationItemSeed[],
 ): ProductionPreparationOutput[] {
+  const generatedAt = ready ? outputPublishedAt : ''
   const status: PreparationOutputStatus = ready ? '已生成' : '预计生成'
   const prefix = ready ? '' : '预计'
   const selectedItems = items.filter((item) => item.selectedByMerchandiser !== false)
   const outputs: ProductionPreparationOutput[] = [
-    { outputType: '正式技术包', outputNo: `${prefix}TP-${orderNo}`, outputHref: `/fcs/production/orders/${encodeURIComponent(orderNo)}/tech-pack`, outputStatus: status },
-    { outputType: '生产单', outputNo: orderNo, outputHref: orderHref(orderNo), outputStatus: status },
+    { outputType: '正式技术包', outputNo: `${prefix}TP-${orderNo}`, outputHref: `/fcs/production/orders/${encodeURIComponent(orderNo)}/tech-pack`, outputStatus: status, outputGeneratedAt: generatedAt },
+    { outputType: '生产单', outputNo: orderNo, outputHref: orderHref(orderNo), outputStatus: status, outputGeneratedAt: generatedAt },
   ]
 
   if (selectedItems.some((item) => item.itemType === '数码印/DTF/DTG花型')) {
-    outputs.push({ outputType: '印花单', outputNo: `${prefix}PR-${recordNo.slice(-3)}`, outputHref: '/fcs/craft/printing/orders', outputStatus: status })
+    outputs.push({ outputType: '印花单', outputNo: `${prefix}PR-${recordNo.slice(-3)}`, outputHref: '/fcs/craft/printing/orders', outputStatus: status, outputGeneratedAt: generatedAt })
   }
   if (selectedItems.some((item) => item.itemType === '染色调色（纱线）' || item.itemType === '染色调色（面料）')) {
-    outputs.push({ outputType: '染色单', outputNo: `${prefix}DY-${recordNo.slice(-3)}`, outputHref: '/fcs/craft/dyeing/orders', outputStatus: status })
+    outputs.push({ outputType: '染色单', outputNo: `${prefix}DY-${recordNo.slice(-3)}`, outputHref: '/fcs/craft/dyeing/orders', outputStatus: status, outputGeneratedAt: generatedAt })
   }
   if (selectedItems.some((item) => item.itemType === '辅料下单')) {
-    outputs.push({ outputType: '辅料采购单', outputNo: `${prefix}AP-${recordNo.slice(-3)}`, outputHref: '/fcs/purchase/accessory-orders', outputStatus: status })
+    outputs.push({ outputType: '辅料采购单', outputNo: `${prefix}AP-${recordNo.slice(-3)}`, outputHref: '/fcs/purchase/accessory-orders', outputStatus: status, outputGeneratedAt: generatedAt })
   }
 
   return outputs
@@ -364,6 +403,8 @@ function createItems(recordId: string, productionOrderNo: string, seeds: Prepara
     evidenceSummary: '',
     overdueHours: 0,
     remark: '',
+    uploads: [],
+    downloads: [],
     ...seed,
   }))
 }
@@ -374,7 +415,9 @@ function record(seed: RecordSeed): ProductionPreparationRecord {
     largeGoodsThresholdQty: 300,
     reachedThresholdAt: seed.largeGoodsReachedAt,
     productionOrderHref: orderHref(seed.productionOrderNo),
-    outputs: outputsFor(seed.recordNo, seed.productionOrderNo, seed.outputReady, seed.items),
+    workItemsConfirmedBy: seed.prepTypeConfirmedBy,
+    workItemsConfirmedAt: seed.prepTypeConfirmedAt,
+    outputs: outputsFor(seed.recordNo, seed.productionOrderNo, seed.outputReady, seed.outputPublishedAt, seed.items),
     items: createItems(seed.recordId, seed.productionOrderNo, seed.items),
   }
 }

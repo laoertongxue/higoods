@@ -172,6 +172,23 @@ assert.ok(
   ),
   '每条记录必须包含选品、做大货入口字段和商品类型确认字段',
 )
+assert.ok(
+  productionPreparationRecords.every(
+    (record: {
+      workItemsConfirmedBy?: string
+      workItemsConfirmedAt?: string
+      outputs?: Array<{ outputGeneratedAt?: string; outputStatus?: string }>
+      items?: Array<{ uploads?: unknown[]; downloads?: unknown[] }>
+    }) =>
+      record.workItemsConfirmedBy &&
+      record.workItemsConfirmedAt &&
+      record.outputs?.every((output) =>
+        output.outputStatus === '预计生成' ? output.outputGeneratedAt === '' : Boolean(output.outputGeneratedAt),
+      ) &&
+      record.items?.every((item) => Array.isArray(item.uploads) && Array.isArray(item.downloads)),
+  ),
+  '生产准备记录必须有工作项确认信息，准备项必须有上传下载数组，已生成产出必须有产出时间',
+)
 
 const overriddenRecord = productionPreparationRecords.find(
   (record: { prepTypeSource?: string }) => record.prepTypeSource === '人工修正',
