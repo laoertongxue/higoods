@@ -3,7 +3,6 @@ import { appStore } from '../../state/store.ts'
 import {
   appendDownloadRecord,
   buildUploadRecordsFromFiles,
-  createLocalId,
   isBasePatternItem,
   loadPreparationRuntimeState,
   mergePreparationRuntimeRecords,
@@ -603,12 +602,13 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
   const activeItem = detailRecord && hasConfirmedWorkItems(detailRecord)
     ? detailRecord.items.find((item) => item.itemId === activeItemId) ?? null
     : null
+  const action = valueOf(params, 'action')
 
   return `
     ${renderLedgerFilter(params, month)}
     ${renderKpis(records, month, filter)}
     ${renderLedgerTable(records, month, params)}
-    ${detailRecord ? renderDetailDrawer(detailRecord, params, month) : ''}
+    ${detailRecord && !action ? renderDetailDrawer(detailRecord, params, month) : ''}
     ${detailRecord ? renderConfirmItemsDialog(detailRecord, params, month) : ''}
     ${detailRecord && activeItem ? renderOperateItemDialog(detailRecord, activeItem, params, month) : ''}
   `
@@ -928,7 +928,7 @@ function renderPreparationTypeItem(
 
 function renderConfirmItemsDialog(record: ProductionPreparationRecord, params: URLSearchParams, month: string): string {
   if (valueOf(params, 'action') !== 'confirm-items') return ''
-  const closeHref = buildLedgerActionHref(params, month, { recordId: record.recordId })
+  const closeHref = buildLedgerHrefFromParams(params, month)
   return `
     <div class="fixed inset-0 z-50">
       <button class="absolute inset-0 bg-black/45" data-nav="${escapeHtml(closeHref)}" aria-label="关闭"></button>
@@ -984,7 +984,7 @@ function renderOperateItemDialog(
   month: string,
 ): string {
   if (valueOf(params, 'action') !== 'operate-item') return ''
-  const closeHref = buildLedgerActionHref(params, month, { recordId: record.recordId })
+  const closeHref = buildLedgerHrefFromParams(params, month)
   const isAccessory = item.itemType === '辅料下单'
   return `
     <div class="fixed inset-0 z-50">
@@ -1001,6 +1001,14 @@ function renderOperateItemDialog(
                 <label class="block text-sm">
                   <span class="text-muted-foreground">面辅料采购单号</span>
                   <input type="text" name="purchaseOrderNo" class="mt-1 w-full rounded-md border px-3 py-2" required placeholder="输入面辅料采购单号，系统自动读取下单时间" />
+                </label>
+                <label class="block text-sm">
+                  <span class="text-muted-foreground">辅料下单时间</span>
+                  <input type="datetime-local" name="orderedAt" class="mt-1 w-full rounded-md border px-3 py-2" required />
+                </label>
+                <label class="block text-sm">
+                  <span class="text-muted-foreground">下单凭证</span>
+                  <input type="file" name="files" class="mt-1 w-full rounded-md border px-3 py-2" multiple required />
                 </label>
               `
               : `
@@ -1377,12 +1385,12 @@ function appendPreparationUploads(records: PreparationUploadRecord[]): void {
   requestPreparationTimingRender()
 }
 
-function closePreparationDialog(recordId: string): void {
+function closePreparationDialog(): void {
   const currentPathname = appStore.getState().pathname || PAGE_PATH
   const params = new URLSearchParams(new URL(currentPathname, 'http://higoods.local').searchParams)
   params.delete('action')
   params.delete('itemId')
-  params.set('recordId', recordId)
+  params.delete('recordId')
   const query = params.toString()
   appStore.navigate(query ? `${PAGE_PATH}?${query}` : PAGE_PATH, { historyMode: 'replace' })
 }
@@ -1412,7 +1420,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
         },
       },
     })
-    closePreparationDialog(recordId)
+    closePreparationDialog()
     return true
   }
 
@@ -1432,31 +1440,12 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
   const fileInput = form.querySelector<HTMLInputElement>('input[type="file"][name="files"]')
   const files = Array.from(fileInput?.files ?? [])
   const purchaseOrderNo = String(formData.get('purchaseOrderNo') ?? '').trim()
+  const orderedAt = String(formData.get('orderedAt') ?? '').trim()
   const note = String(formData.get('note') ?? '').trim()
   const isAccessory = item.itemType === '辅料下单'
 
-  if (isAccessory && purchaseOrderNo) {
-    const orderedAt = currentIsoMinute()
-    const uploadRecords: PreparationUploadRecord[] = [{
-      uploadId: createLocalId('accessory'),
-      recordId,
-      itemId,
-      itemType: item.itemType,
-      fileName: `面辅料采购单-${purchaseOrderNo}`,
-      fileType: 'text/plain',
-      fileSize: 0,
-      fileDataUrl: '',
-      uploadedBy: '当前用户',
-      uploadedAt: orderedAt,
-      note: [note, `面辅料采购单号：${purchaseOrderNo}`, `下单时间：${orderedAt}`].filter(Boolean).join('；'),
-    }]
-    appendPreparationUploads(uploadRecords)
-    closePreparationDialog(recordId)
-    return true
-  }
-
   const uploadNote = isAccessory && purchaseOrderNo
-    ? [note, `面辅料采购单号：${purchaseOrderNo}`].filter(Boolean).join('；')
+    ? [note, `面辅料采购单号：${purchaseOrderNo}`, `辅料下单时间：${orderedAt || currentIsoMinute()}`].filter(Boolean).join('；')
     : note
 
   if (!files.length) {
@@ -1473,7 +1462,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
       note: uploadNote,
     })
     appendPreparationUploads(uploadRecords)
-    closePreparationDialog(recordId)
+    closePreparationDialog()
   } catch (error) {
     console.error('生产准备上传失败', error)
   }

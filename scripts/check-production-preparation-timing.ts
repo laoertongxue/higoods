@@ -1057,6 +1057,7 @@ const originalWindow = (globalThis as { window?: unknown }).window
 const originalDocument = (globalThis as { document?: unknown }).document
 const storage = new Map<string, string>()
 ;(globalThis as { window?: unknown }).window = {
+  location: { pathname: '/fcs/production/preparation-timing', search: '?tab=ledger&month=2026-03' },
   localStorage: {
     getItem: (key: string) => storage.get(key) ?? null,
     setItem: (key: string, value: string) => storage.set(key, value),
@@ -1124,6 +1125,7 @@ for (const text of [
   '达到做大货要求',
   '商品类型',
   '跟单确认',
+  '确认工作项',
   '共 6 条，第 1/2 页',
   '上一页',
   '下一页',
@@ -1186,6 +1188,75 @@ const unconfirmedOperateHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001&itemId=prep-202603-001-item-03&action=operate-item',
 )
 assert.ok(!unconfirmedOperateHtml.includes('data-prep-operate-item-form'), '未确认工作项前不应允许 URL 直达工作项操作弹窗')
+const operateWithoutDrawerHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&patternDesigner=Diah&recordId=prep-202604-003&itemId=prep-202604-003-item-01&action=operate-item',
+)
+assertHtmlIncludes(operateWithoutDrawerHtml, 'data-prep-operate-item-form', '准备项操作入口必须打开操作弹窗')
+assert.ok(!operateWithoutDrawerHtml.includes('<aside'), '点击准备项操作入口不应同时打开详情侧边栏')
+const confirmWithoutDrawerHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&patternDesigner=Diah&recordId=prep-202604-003&action=confirm-items',
+)
+assertHtmlIncludes(confirmWithoutDrawerHtml, 'data-prep-confirm-items-form', '确认工作项入口必须打开确认弹窗')
+assert.ok(!confirmWithoutDrawerHtml.includes('<aside'), '点击确认工作项入口不应同时打开详情侧边栏')
+
+const originalWindowForSerialGate = (globalThis as { window?: unknown }).window
+;(globalThis as { window?: unknown }).window = {
+  location: { pathname: '/fcs/production/preparation-timing', search: '?tab=ledger&month=2026-03' },
+  localStorage: {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => storage.set(key, value),
+    removeItem: (key: string) => storage.delete(key),
+    clear: () => storage.clear(),
+  },
+}
+try {
+  storage.clear()
+  storage.set(PREPARATION_RUNTIME_STORAGE_KEY, JSON.stringify({
+    confirmedRecords: {
+      'prep-202603-001': {
+        confirmedBy: '当前跟单',
+        confirmedAt: '2026-07-02T10:00:00',
+        confirmedProductPrepType: '毛织',
+        selectedItemTypes: ['毛织基码纸样', '版衣制作', '毛织齐码纸样', '辅料下单'],
+        overrideReason: '',
+      },
+    },
+    uploads: [{
+      uploadId: 'serial-base-upload',
+      recordId: 'prep-202603-001',
+      itemId: 'prep-202603-001-runtime-毛织基码纸样',
+      itemType: '毛织基码纸样',
+      fileName: '毛织基码纸样.pdf',
+      fileType: 'application/pdf',
+      fileSize: 1024,
+      fileDataUrl: 'data:application/pdf;base64,JVBERi0xLjQ=',
+      uploadedBy: '当前用户',
+      uploadedAt: '2026-07-02T10:05:00',
+      note: '毛织基码纸样已上传',
+    }],
+    downloads: [],
+  }))
+  const serialGateHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03')
+  const serialRowStart = serialGateHtml.indexOf('PREP-202603-001')
+  const serialRowEnd = serialGateHtml.indexOf('</tr>', serialRowStart)
+  const serialRowHtml = serialGateHtml.slice(serialRowStart, serialRowEnd)
+  assertHtmlIncludes(
+    serialRowHtml,
+    'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-03&amp;recordId=prep-202603-001&amp;itemId=prep-202603-001-item-02&amp;action=operate-item"',
+    '跟单切换为毛织且毛织基码纸样完成后，版衣制作入口必须可点击',
+  )
+  assert.ok(
+    !serialRowHtml.includes('line-through opacity-60">上传版衣照片'),
+    '毛织基码纸样完成后，版衣制作入口不应继续置灰',
+  )
+  assert.ok(
+    serialRowHtml.includes('line-through opacity-60">上传毛织齐码纸样'),
+    '版衣制作未完成前，齐码纸样入口仍应置灰',
+  )
+} finally {
+  ;(globalThis as { window?: unknown }).window = originalWindowForSerialGate
+  storage.clear()
+}
 
 const unselectedOptionalRecord = productionPreparationRecords.find(
   (record: { recordNo?: string }) => record.recordNo === 'PREP-202603-001',
@@ -1221,19 +1292,10 @@ assertHtmlIncludes(
 )
 assertHtmlIncludes(
   filteredRowActionHtml,
-  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;patternDesigner=Diah&amp;recordId=prep-202604-003&amp;action=confirm-items"',
-  '筛选列表行的确认工作项入口必须继承当前筛选条件',
-)
-assertHtmlIncludes(
-  filteredRowActionHtml,
   'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;patternDesigner=Diah&amp;recordId=prep-202604-003&amp;itemId=prep-202604-003-item-01&amp;action=operate-item"',
   '筛选列表行的准备项操作入口必须继承当前筛选条件',
 )
-assertHtmlIncludes(
-  filteredRowActionHtml,
-  '确认工作项',
-  '准备台账必须展示确认工作项入口',
-)
+assert.ok(!filteredRowActionHtml.includes('确认工作项'), '已确认准备项记录不应继续展示确认工作项入口')
 const filteredDetailActionHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&patternDesigner=Diah&recordId=prep-202604-003',
 )

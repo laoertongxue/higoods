@@ -163,7 +163,16 @@ function buildRuntimeTemplateItems(
   const generatedItems = templateItems
     .filter((item) => !existingByType.has(item.itemType))
     .map((item) => createRuntimeTemplateItem(record, confirmation, selection, item, existingByType, templateItems))
-  return [...record.items, ...generatedItems]
+  const items = [...record.items, ...generatedItems]
+  const itemsByType = new Map(items.map((item) => [item.itemType, item]))
+  const templateTypes = new Set(templateItems.map((item) => item.itemType))
+  return items.map((item) => templateTypes.has(item.itemType)
+    ? {
+        ...item,
+        dependsOnItemIds: runtimeDependencyTypes(item.itemType, templateItems)
+          .map((itemType) => itemIdForType(record, itemsByType, itemType)),
+      }
+    : item)
 }
 
 function runtimeTemplateItemId(recordId: string, itemType: PreparationItemType): string {
