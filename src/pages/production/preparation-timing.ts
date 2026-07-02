@@ -14,6 +14,7 @@ import {
   type MonthlyPreparationStatRow,
   type PreparationItemType,
   type PreparationRecordStatus,
+  type ProductPrepType,
   type ProductionPreparationFilter,
   type ProductionPreparationItem,
   type ProductionPreparationRecord,
@@ -30,7 +31,6 @@ const LEDGER_FILTER_KEYS = [
   'patternDesigner',
   'overdueOnly',
   'keyword',
-  'quickFilter',
 ] as const
 
 interface StatsTableRow extends MonthlyPreparationStatRow {
@@ -71,6 +71,13 @@ function statusTone(status: string): 'slate' | 'blue' | 'green' | 'amber' | 'red
   return 'slate'
 }
 
+function productPrepTone(type: ProductPrepType): 'slate' | 'blue' | 'green' | 'amber' | 'red' {
+  if (type === '烫画&直喷') return 'blue'
+  if (type === '毛织') return 'amber'
+  if (type === '毛织&梭织') return 'red'
+  return 'green'
+}
+
 function renderOptions(options: Array<string | { value: string; label: string }>, selected: string): string {
   return options
     .map((option) => {
@@ -90,7 +97,6 @@ function parseFilter(params: URLSearchParams): ProductionPreparationFilter {
   const ownerTeam = valueOf(params, 'ownerTeam')
   const patternDesigner = valueOf(params, 'patternDesigner')
   const keyword = valueOf(params, 'keyword')
-  const quickFilter = valueOf(params, 'quickFilter')
 
   if (merchandiserName) filter.merchandiserName = merchandiserName
   if (buyerName) filter.buyerName = buyerName
@@ -100,9 +106,6 @@ function parseFilter(params: URLSearchParams): ProductionPreparationFilter {
   if (patternDesigner) filter.patternDesigner = patternDesigner
   if (params.get('overdueOnly') === 'true') filter.overdueOnly = true
   if (keyword) filter.keyword = keyword
-  if (quickFilter === '我的花型任务' || quickFilter === '待上传完成图' || quickFilter === '待买手确认') {
-    filter.quickFilter = quickFilter
-  }
   return filter
 }
 
@@ -168,7 +171,7 @@ function applyPreparationActionMocks(
     if (record.recordId !== recordId) return record
     let touched = false
     const items = record.items.map((item) => {
-      if (item.itemId !== itemId || item.itemType !== '花型') return item
+      if (item.itemId !== itemId || item.itemType !== '数码印/DTF/DTG花型') return item
       touched = true
       let nextItem: ProductionPreparationItem = { ...item }
 
@@ -192,6 +195,7 @@ function applyPreparationActionMocks(
         nextItem = {
           ...nextItem,
           required: true,
+          selectedByMerchandiser: true,
           status: submittedBuyerReviewStatus === '已通过' ? '已完成' : '待确认',
           completionImageIds: withUniqueValue(nextItem.completionImageIds, `mock-image-${nextItem.itemId}`),
           patternFileIds: withUniqueValue(nextItem.patternFileIds, `mock-file-${nextItem.itemId}`),
@@ -217,7 +221,7 @@ function filterLedgerRecords(
 }
 
 function requiredItems(record: ProductionPreparationRecord): ProductionPreparationItem[] {
-  return record.items.filter((item) => item.required && item.status !== '无需')
+  return record.items.filter((item) => item.selectedByMerchandiser !== false && item.status !== '无需')
 }
 
 function completionProgress(record: ProductionPreparationRecord): { completed: number; total: number; rate: number } {
@@ -225,6 +229,15 @@ function completionProgress(record: ProductionPreparationRecord): { completed: n
   const completed = items.filter((item) => item.status === '已完成').length
   const rate = items.length ? Math.round((completed / items.length) * 100) : 0
   return { completed, total: items.length, rate }
+}
+
+function isPreparationOutputReady(record: ProductionPreparationRecord): boolean {
+  const items = requiredItems(record)
+  return items.length > 0 && items.every((item) => item.status === '已完成')
+}
+
+function outputStatusText(record: ProductionPreparationRecord): string {
+  return isPreparationOutputReady(record) ? '正式产出已生成' : '预计产出'
 }
 
 function earliestOverdueItem(record: ProductionPreparationRecord): ProductionPreparationItem | null {
@@ -251,13 +264,8 @@ function renderHeader(activeTab: 'ledger' | 'stats', month: string): string {
   ] as const
 
   return `
-    <header class="rounded-xl border bg-card p-5">
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 class="text-2xl font-semibold text-foreground">生产准备时效</h1>
-          <p class="mt-2 text-sm text-muted-foreground">按生产准备记录跟进基码、版衣、齐码、花型、染色、辅料等准备项完成情况。</p>
-          <p class="mt-3 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-700">统计口径：生产准备记录 + 准备项 = 1。无需项和已关闭记录不计入完成数量。</p>
-        </div>
+    <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <h1 class="text-2xl font-semibold text-foreground">生产准备时效</h1>
         <nav class="flex rounded-lg border bg-background p-1 text-sm">
           ${tabs.map((tab) => `
             <button
@@ -267,14 +275,12 @@ function renderHeader(activeTab: 'ledger' | 'stats', month: string): string {
             >${escapeHtml(tab.label)}</button>
           `).join('')}
         </nav>
-      </div>
     </header>
   `
 }
 
 function renderLedgerFilter(params: URLSearchParams, month: string): string {
   const options = getProductionPreparationFilterOptions()
-  const quickFilter = valueOf(params, 'quickFilter')
 
   return `
     <section data-prep-filter-scope class="rounded-xl border bg-card p-5">
@@ -312,10 +318,6 @@ function renderLedgerFilter(params: URLSearchParams, month: string): string {
       <div class="mt-4 flex flex-wrap items-center gap-2">
         <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-prep-filter-scope]" data-nav-base="${PAGE_PATH}">筛选</button>
         <button type="button" class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${PAGE_PATH}?tab=ledger&month=${escapeHtml(DEFAULT_MONTH)}">重置</button>
-        <span class="mx-1 text-xs text-muted-foreground">快捷筛选</span>
-        ${renderQuickFilterButton('我的花型任务', `${PAGE_PATH}?tab=ledger&itemType=花型&patternDesigner=林小美&quickFilter=我的花型任务`, quickFilter)}
-        ${renderQuickFilterButton('待上传完成图', `${PAGE_PATH}?tab=ledger&itemType=花型&quickFilter=待上传完成图`, quickFilter)}
-        ${renderQuickFilterButton('待买手确认', `${PAGE_PATH}?tab=ledger&itemType=花型&quickFilter=待买手确认`, quickFilter)}
       </div>
     </section>
   `
@@ -341,19 +343,11 @@ function renderSelectField(
   `
 }
 
-function renderQuickFilterButton(label: string, href: string, activeQuickFilter: string): string {
-  return `
-    <button
-      type="button"
-      data-nav="${escapeHtml(href)}"
-      class="inline-flex h-8 items-center rounded-full border px-3 text-xs ${activeQuickFilter === label ? 'border-blue-300 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
-    >${escapeHtml(label)}</button>
-  `
-}
-
 function renderKpis(records: ProductionPreparationRecord[], month: string, filter: ProductionPreparationFilter): string {
   const helperKpis = new Map(buildProductionPreparationKpis(records).map((kpi) => [kpi.key, kpi]))
-  const items = flattenProductionPreparationItems(records).filter((item) => item.required && item.recordStatus !== '已关闭')
+  const items = flattenProductionPreparationItems(records).filter(
+    (item) => item.selectedByMerchandiser !== false && item.status !== '无需' && item.recordStatus !== '已关闭',
+  )
   const monthCompletedCount = buildMonthlyPreparationCompletionDetails(month, filter).length
   const todayKey = `${month}-10`
   const cards = [
@@ -390,7 +384,7 @@ function renderKpis(records: ProductionPreparationRecord[], month: string, filte
     {
       label: '待分配花型任务',
       value: items.filter((item) =>
-        item.itemType === '花型' &&
+        item.itemType === '数码印/DTF/DTG花型' &&
         (item.status === '待分配' || item.ownerName.includes('待分配') || (!item.patternDesignerName && item.status !== '已完成')),
       ).length,
       unit: '项',
@@ -428,7 +422,7 @@ function renderLedgerTable(records: ProductionPreparationRecord[], month: string
         <table class="w-full min-w-[1280px] text-sm">
           <thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
             <tr>
-              ${['商品', '买手/跟单', '进入准备时间', '关联生产单', '正式技术包', '整体状态', '完成进度', '当前卡点', '最早超时项', '预计完成时间', '操作'].map((head) => `<th class="px-4 py-3 font-medium">${escapeHtml(head)}</th>`).join('')}
+              ${['商品', '商品类型', '选品/买手/跟单', '达到做大货要求', '进入准备时间', '整体状态', '完成进度', '当前卡点', '产出状态', '预计完成时间', '操作'].map((head) => `<th class="px-4 py-3 font-medium">${escapeHtml(head)}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
@@ -447,8 +441,9 @@ function renderLedgerTable(records: ProductionPreparationRecord[], month: string
 function renderLedgerRow(record: ProductionPreparationRecord, month: string, params: URLSearchParams): string {
   const progress = completionProgress(record)
   const overdueItem = earliestOverdueItem(record)
+  const outputReady = isPreparationOutputReady(record)
   const firstActionItem = overdueItem ?? requiredItems(record).find((item) => item.status !== '已完成') ?? record.items[0]
-  const patternItem = record.items.find((item) => item.itemType === '花型')
+  const patternItem = record.items.find((item) => item.itemType === '数码印/DTF/DTG花型')
   const detailHref = buildLedgerActionHref(params, month, { recordId: record.recordId })
   const updateHref = buildLedgerActionHref(params, month, { recordId: record.recordId, itemId: firstActionItem?.itemId }) + '#prep-items'
   const assignHref = patternItem
@@ -471,17 +466,24 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string, par
         </div>
       </td>
       <td class="px-4 py-4">
-        <div>${escapeHtml(record.buyerName)}</div>
+        ${renderBadge(record.confirmedProductPrepType, productPrepTone(record.confirmedProductPrepType))}
+        <div class="mt-1 text-xs text-muted-foreground">系统推导：${escapeHtml(record.derivedProductPrepType)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">跟单确认：${escapeHtml(record.prepTypeSource)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">准备项确认：已选择 ${progress.total} 项</div>
+      </td>
+      <td class="px-4 py-4">
+        <div>选品：${escapeHtml(record.selectionName)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">买手：${escapeHtml(record.buyerName)}</div>
         <div class="mt-1 text-xs text-muted-foreground">跟单：${escapeHtml(record.merchandiserName)}</div>
       </td>
-      <td class="px-4 py-4 whitespace-nowrap">${escapeHtml(formatDateTime(record.enteredAt))}</td>
       <td class="px-4 py-4">
-        <button type="button" class="font-mono text-blue-600 hover:underline" data-nav="${escapeHtml(record.productionOrderHref)}">${escapeHtml(record.productionOrderNo)}</button>
-        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.productionDemandNo)}</div>
+        <div>做大货阈值：${record.largeGoodsThresholdQty}</div>
+        <div class="mt-1 text-xs text-muted-foreground">达到数量：${record.largeGoodsReachedQty} 件</div>
+        <div class="mt-1 text-xs text-muted-foreground">用时天数：${record.largeGoodsReachedDays} 天</div>
       </td>
-      <td class="px-4 py-4">
-        <div>${escapeHtml(record.techPackVersionLabel)}</div>
-        <div class="mt-1 text-xs text-muted-foreground">发布：${escapeHtml(formatDateTime(record.techPackPublishedAt))}</div>
+      <td class="px-4 py-4 whitespace-nowrap">
+        ${escapeHtml(formatDateTime(record.enteredAt))}
+        <div class="mt-1 text-xs text-muted-foreground">达到做大货要求：${escapeHtml(formatDateTime(record.largeGoodsReachedAt))}</div>
       </td>
       <td class="px-4 py-4">${renderBadge(record.status, statusTone(record.status))}</td>
       <td class="px-4 py-4">
@@ -495,10 +497,11 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string, par
       </td>
       <td class="px-4 py-4 max-w-[220px] text-xs text-muted-foreground">${escapeHtml(record.currentBlockerText || '暂无卡点')}</td>
       <td class="px-4 py-4">
+        ${renderBadge(outputStatusText(record), outputReady ? 'green' : 'amber')}
         ${
           overdueItem
-            ? `<div class="text-red-600">${escapeHtml(overdueItem.itemType)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(overdueItem.ownerName)}｜超时 ${overdueItem.overdueHours} 小时</div>`
-            : '<span class="text-xs text-muted-foreground">暂无</span>'
+            ? `<div class="mt-1 text-xs text-red-600">最早超时：${escapeHtml(overdueItem.itemType)}</div>`
+            : '<div class="mt-1 text-xs text-muted-foreground">暂无超时</div>'
         }
       </td>
       <td class="px-4 py-4 whitespace-nowrap">${escapeHtml(formatDateTime(record.expectedFinishAt))}</td>
@@ -544,7 +547,7 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
 function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSearchParams, month: string): string {
   const action = valueOf(params, 'action')
   const activeItemId = valueOf(params, 'itemId')
-  const activeItem = record.items.find((item) => item.itemId === activeItemId) ?? record.items.find((item) => item.itemType === '花型')
+  const activeItem = record.items.find((item) => item.itemId === activeItemId) ?? record.items.find((item) => item.itemType === '数码印/DTF/DTG花型')
   const closeHref = buildLedgerHrefFromParams(params, month)
 
   return `
@@ -558,12 +561,14 @@ function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSear
         <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(closeHref)}">关闭</button>
       </div>
       <div class="flex-1 space-y-5 overflow-y-auto p-5">
-        ${renderBasicInfo(record)}
+        ${renderSourceInfo(record)}
+        ${renderProductTypeConfirmation(record)}
+        ${renderPreparationSelection(record)}
         ${renderTimeline(record)}
         <section id="prep-items" class="rounded-xl border bg-card p-4">
           <div class="mb-4 flex items-center justify-between">
             <h3 class="font-semibold">准备项明细卡片</h3>
-            <span class="text-xs text-muted-foreground">必做项 ${requiredItems(record).length} 项</span>
+            <span class="text-xs text-muted-foreground">已选择 ${requiredItems(record).length} 项</span>
           </div>
           <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
             ${record.items.map((item) => renderItemCard(record, item, item.itemId === activeItemId, month, params)).join('')}
@@ -571,7 +576,7 @@ function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSear
         </section>
         ${action === 'assign' && activeItem ? renderAssignPanel(record, activeItem, params, month) : ''}
         ${action === 'upload' && activeItem ? renderUploadPanel(record, activeItem, params, month) : ''}
-        ${renderRelatedObjects(record)}
+        ${renderPreparationOutputs(record)}
         ${renderOperationLogs(record)}
       </div>
     </aside>
@@ -599,6 +604,106 @@ function renderBasicInfo(record: ProductionPreparationRecord): string {
             <div class="mt-1 font-medium">${escapeHtml(value)}</div>
           </div>
         `).join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderSourceInfo(record: ProductionPreparationRecord): string {
+  const fields = [
+    ['选品', record.selectionName],
+    ['买手', record.buyerName],
+    ['跟单', record.merchandiserName],
+    ['做大货阈值', `${record.largeGoodsThresholdQty} 件`],
+    ['达到数量', `${record.largeGoodsReachedQty} 件`],
+    ['达到做大货要求', formatDateTime(record.largeGoodsReachedAt)],
+    ['达到天数', `${record.largeGoodsReachedDays} 天`],
+    ['进入准备时间', formatDateTime(record.enteredAt)],
+  ]
+  return `
+    <section class="rounded-xl border bg-card p-4">
+      <h3 class="mb-3 font-semibold">来源信息</h3>
+      <div class="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+        ${fields.map(([label, value]) => `
+          <div class="rounded-lg bg-muted/40 p-3">
+            <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
+            <div class="mt-1 font-medium">${escapeHtml(value)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  `
+}
+
+function renderTagList(tags: string[]): string {
+  return tags.length
+    ? tags.map((tag) => `<span class="rounded-full bg-muted px-2 py-0.5 text-xs">${escapeHtml(tag)}</span>`).join('')
+    : '<span class="text-xs text-muted-foreground">无</span>'
+}
+
+function renderProductTypeConfirmation(record: ProductionPreparationRecord): string {
+  return `
+    <section class="rounded-xl border bg-card p-4">
+      <div class="mb-3 flex items-center justify-between">
+        <h3 class="font-semibold">商品类型确认</h3>
+        ${renderBadge(record.prepTypeSource, record.prepTypeSource === '人工修正' ? 'amber' : 'green')}
+      </div>
+      <div class="grid gap-3 text-sm md:grid-cols-2">
+        <div class="rounded-lg bg-muted/40 p-3">
+          <div class="text-xs text-muted-foreground">工艺标签</div>
+          <div class="mt-2 flex flex-wrap gap-1">${renderTagList(record.craftTags)}</div>
+        </div>
+        <div class="rounded-lg bg-muted/40 p-3">
+          <div class="text-xs text-muted-foreground">品类标签</div>
+          <div class="mt-2 flex flex-wrap gap-1">${renderTagList(record.categoryTags)}</div>
+        </div>
+        <div class="rounded-lg bg-muted/40 p-3">
+          <div class="text-xs text-muted-foreground">系统推导</div>
+          <div class="mt-1 font-medium">${escapeHtml(record.derivedProductPrepType)}</div>
+        </div>
+        <div class="rounded-lg bg-muted/40 p-3">
+          <div class="text-xs text-muted-foreground">跟单确认</div>
+          <div class="mt-1 font-medium">${escapeHtml(record.confirmedProductPrepType)}</div>
+        </div>
+        <div class="rounded-lg bg-muted/40 p-3">
+          <div class="text-xs text-muted-foreground">确认人</div>
+          <div class="mt-1 font-medium">${escapeHtml(record.prepTypeConfirmedBy)}</div>
+        </div>
+        <div class="rounded-lg bg-muted/40 p-3">
+          <div class="text-xs text-muted-foreground">确认时间</div>
+          <div class="mt-1 font-medium">${escapeHtml(formatDateTime(record.prepTypeConfirmedAt))}</div>
+        </div>
+      </div>
+      ${record.prepTypeOverrideReason ? `<p class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">修正原因：${escapeHtml(record.prepTypeOverrideReason)}</p>` : ''}
+    </section>
+  `
+}
+
+function renderPreparationSelection(record: ProductionPreparationRecord): string {
+  const required = record.items.filter((item) => item.requiredKind === '必做')
+  const optional = record.items.filter((item) => item.requiredKind === '选填')
+  const renderSelectionItem = (item: ProductionPreparationItem) => `
+    <div class="flex items-start justify-between gap-3 rounded-lg border bg-background p-3">
+      <div>
+        <div class="font-medium">${escapeHtml(item.itemType)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.sequenceGroup)}｜${escapeHtml(item.parallelGroup)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">确认时间：${escapeHtml(item.selectedAt ? formatDateTime(item.selectedAt) : '未选择')}</div>
+      </div>
+      ${renderBadge(item.requiredKind === '必做' ? '必做' : item.selectedByMerchandiser ? '已选择' : '未选择', item.requiredKind === '必做' || item.selectedByMerchandiser ? 'green' : 'slate')}
+    </div>
+  `
+  return `
+    <section class="rounded-xl border bg-card p-4">
+      <h3 class="mb-3 font-semibold">准备项确认</h3>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <div class="mb-2 text-sm font-medium">必做项</div>
+          <div class="space-y-2">${required.map(renderSelectionItem).join('')}</div>
+        </div>
+        <div>
+          <div class="mb-2 text-sm font-medium">选填项</div>
+          <div class="space-y-2">${optional.map(renderSelectionItem).join('') || '<div class="rounded-lg border bg-background p-3 text-sm text-muted-foreground">无选填项</div>'}</div>
+        </div>
       </div>
     </section>
   `
@@ -650,7 +755,7 @@ function renderItemCard(
         <div><dt class="text-muted-foreground">凭证类型</dt><dd>${escapeHtml(item.evidenceType || '-')}</dd></div>
       </dl>
       <p class="mt-3 text-xs text-muted-foreground">${escapeHtml(item.evidenceSummary || item.remark || '暂无说明')}</p>
-      ${item.itemType === '花型' ? renderPatternFields(record, item, month, params) : ''}
+      ${item.itemType === '数码印/DTF/DTG花型' ? renderPatternFields(record, item, month, params) : ''}
     </article>
   `
 }
@@ -778,20 +883,24 @@ function renderUploadPanel(
   `
 }
 
-function renderRelatedObjects(record: ProductionPreparationRecord): string {
-  const objects = [
-    ['生产需求单', record.productionDemandNo, '/fcs/production/demand-inbox'],
-    ['关联生产单', record.productionOrderNo, record.productionOrderHref],
-    ['正式技术包', record.techPackVersionLabel, `/fcs/production/orders/${encodeURIComponent(record.productionOrderNo)}/tech-pack`],
-  ]
+function renderPreparationOutputs(record: ProductionPreparationRecord): string {
+  const outputReady = isPreparationOutputReady(record)
+  const title = outputReady ? '正式产出' : '预计产出'
+  const missingItems = requiredItems(record).filter((item) => item.status !== '已完成')
   return `
     <section class="rounded-xl border bg-card p-4">
-      <h3 class="mb-3 font-semibold">关联对象</h3>
+      <div class="mb-3 flex items-center justify-between">
+        <h3 class="font-semibold">${escapeHtml(title)}</h3>
+        ${renderBadge(outputReady ? '已生成' : '预计生成', outputReady ? 'green' : 'amber')}
+      </div>
+      ${outputReady && record.outputPublishedAt ? `<p class="mb-3 text-sm text-muted-foreground">统一生成时间：${escapeHtml(formatDateTime(record.outputPublishedAt))}</p>` : ''}
+      ${!outputReady && missingItems.length ? `<p class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">仍需完成：${escapeHtml(missingItems.map((item) => item.itemType).join('、'))}</p>` : ''}
       <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-        ${objects.map(([label, value, href]) => `
-          <button type="button" class="rounded-lg border bg-background p-3 text-left hover:bg-muted" data-nav="${escapeHtml(href)}">
-            <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
-            <div class="mt-1 font-medium">${escapeHtml(value)}</div>
+        ${record.outputs.map((output) => `
+          <button type="button" class="rounded-lg border bg-background p-3 text-left hover:bg-muted" data-nav="${escapeHtml(output.outputHref)}">
+            <div class="text-xs text-muted-foreground">${escapeHtml(output.outputType)}</div>
+            <div class="mt-1 font-medium">${escapeHtml(outputReady ? output.outputNo.replace(/^预计/, '') : output.outputNo)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(outputReady ? '已生成' : output.outputStatus)}</div>
           </button>
         `).join('')}
       </div>
@@ -882,9 +991,13 @@ function buildStatsRows(month: string, details: MonthlyPreparationCompletionDeta
       averageDurationHours: rows.length ? Number((durationTotal / rows.length).toFixed(1)) : 0,
       latestFinishedAt: rows.reduce((latest, row) => (row.actualFinishAt > latest ? row.actualFinishAt : latest), ''),
       ownerTeamText,
-      basisText: `${month} 实际完成，已关闭记录和无需项不计入`,
+      basisText: `${month} 实际完成，已关闭记录、无需项和未选择选填项不计入`,
     }
   })
+}
+
+function getGroupedCompletedCount(stats: StatsTableRow[], itemTypes: PreparationItemType[]): number {
+  return itemTypes.reduce((sum, itemType) => sum + (stats.find((row) => row.itemType === itemType)?.completedCount ?? 0), 0)
 }
 
 function renderStatsSummary(details: MonthlyPreparationCompletionDetail[], stats: StatsTableRow[]): string {
@@ -893,14 +1006,12 @@ function renderStatsSummary(details: MonthlyPreparationCompletionDetail[], stats
   const averageHours = details.length
     ? Number((details.reduce((sum, detail) => sum + detail.durationHours, 0) / details.length).toFixed(1))
     : 0
-  const getCompletedByType = (itemType: PreparationItemType) =>
-    stats.find((row) => row.itemType === itemType)?.completedCount ?? 0
   const cards = [
     ['本月完成准备项', details.length, '项'],
-    ['完成基码', getCompletedByType('基码纸样'), '项'],
-    ['完成齐码', getCompletedByType('齐码纸样'), '项'],
-    ['完成花型', getCompletedByType('花型'), '项'],
-    ['完成染色', getCompletedByType('染色调色'), '项'],
+    ['完成基码', getGroupedCompletedCount(stats, ['梭织基码纸样', '毛织基码纸样']), '项'],
+    ['完成齐码', getGroupedCompletedCount(stats, ['梭织齐码纸样', '毛织齐码纸样']), '项'],
+    ['完成花型', getGroupedCompletedCount(stats, ['数码印/DTF/DTG花型']), '项'],
+    ['完成染色', getGroupedCompletedCount(stats, ['染色调色（纱线）', '染色调色（面料）']), '项'],
     ['按时完成', onTime, '项'],
     ['超时完成', overdue, '项'],
     ['平均耗时', averageHours, '小时'],
@@ -959,10 +1070,10 @@ function renderDetailTable(month: string, details: MonthlyPreparationCompletionD
         <h2 class="font-semibold">明细表</h2>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[1320px] text-sm">
+        <table class="w-full min-w-[1480px] text-sm">
           <thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
             <tr>
-              ${['统计月份', '准备记录编号', 'SPU', '商品名', '生产单号', '买手', '跟单', '准备项', '责任团队', '责任人', '计划完成时间', '实际完成时间', '是否超时', '证据摘要'].map((head) => `<th class="px-4 py-3 font-medium">${escapeHtml(head)}</th>`).join('')}
+              ${['统计月份', '准备记录编号', 'SPU', '商品名', '生产单号', '商品类型', '买手', '跟单', '准备项', '必做/选填', '责任团队', '责任人', '计划完成时间', '实际完成时间', '是否超时', '证据摘要'].map((head) => `<th class="px-4 py-3 font-medium">${escapeHtml(head)}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
@@ -975,9 +1086,11 @@ function renderDetailTable(month: string, details: MonthlyPreparationCompletionD
                     <td class="px-4 py-3 font-mono text-xs">${escapeHtml(detail.spuCode)}</td>
                     <td class="px-4 py-3 font-medium">${escapeHtml(detail.spuName)}</td>
                     <td class="px-4 py-3 font-mono text-xs">${escapeHtml(detail.productionOrderNo)}</td>
+                    <td class="px-4 py-3">${escapeHtml(detail.confirmedProductPrepType)}</td>
                     <td class="px-4 py-3">${escapeHtml(detail.buyerName)}</td>
                     <td class="px-4 py-3">${escapeHtml(detail.merchandiserName)}</td>
                     <td class="px-4 py-3">${escapeHtml(detail.itemType)}</td>
+                    <td class="px-4 py-3">${escapeHtml(detail.requiredKind)}</td>
                     <td class="px-4 py-3">${escapeHtml(detail.ownerTeam)}</td>
                     <td class="px-4 py-3">${escapeHtml(detail.ownerName)}</td>
                     <td class="px-4 py-3">${escapeHtml(formatDateTime(detail.plannedFinishAt))}</td>
@@ -986,7 +1099,7 @@ function renderDetailTable(month: string, details: MonthlyPreparationCompletionD
                     <td class="px-4 py-3 max-w-[260px] text-xs text-muted-foreground">${escapeHtml(detail.evidenceSummary || '-')}</td>
                   </tr>
                 `).join('')
-                : '<tr><td colspan="14" class="h-24 px-4 text-center text-muted-foreground">当前月份暂无完成明细</td></tr>'
+                : '<tr><td colspan="16" class="h-24 px-4 text-center text-muted-foreground">当前月份暂无完成明细</td></tr>'
             }
           </tbody>
         </table>
@@ -996,8 +1109,12 @@ function renderDetailTable(month: string, details: MonthlyPreparationCompletionD
 }
 
 function buildStatsCsvRows(month: string, rows: StatsTableRow[]): string[][] {
+  const baseCodeCount = getGroupedCompletedCount(rows, ['梭织基码纸样', '毛织基码纸样'])
+  const fullSizeCount = getGroupedCompletedCount(rows, ['梭织齐码纸样', '毛织齐码纸样'])
+  const patternCount = getGroupedCompletedCount(rows, ['数码印/DTF/DTG花型'])
+  const dyeCount = getGroupedCompletedCount(rows, ['染色调色（纱线）', '染色调色（面料）'])
   return [
-    ['统计月份', '准备项', '完成数量', '按时完成数量', '超时完成数量', '平均耗时小时', '责任团队', '最近完成时间', '口径说明'],
+    ['统计月份', '准备项', '完成数量', '按时完成数量', '超时完成数量', '平均耗时小时', '责任团队', '最近完成时间', '口径说明', '完成基码', '完成齐码', '完成花型', '完成染色'],
     ...rows.map((row) => [
       month,
       row.itemType,
@@ -1008,22 +1125,28 @@ function buildStatsCsvRows(month: string, rows: StatsTableRow[]): string[][] {
       row.ownerTeamText,
       row.latestFinishedAt,
       row.basisText,
+      String(baseCodeCount),
+      String(fullSizeCount),
+      String(patternCount),
+      String(dyeCount),
     ]),
   ]
 }
 
 function buildDetailCsvRows(month: string, rows: MonthlyPreparationCompletionDetail[]): string[][] {
   return [
-    ['统计月份', '准备记录编号', 'SPU', '商品名', '生产单号', '买手', '跟单', '准备项', '责任团队', '责任人', '计划完成时间', '实际完成时间', '是否超时', '证据摘要'],
+    ['统计月份', '准备记录编号', 'SPU', '商品名', '生产单号', '商品类型', '买手', '跟单', '准备项', '必做/选填', '责任团队', '责任人', '计划完成时间', '实际完成时间', '是否超时', '证据摘要'],
     ...rows.map((row) => [
       month,
       row.recordNo,
       row.spuCode,
       row.spuName,
       row.productionOrderNo,
+      row.confirmedProductPrepType,
       row.buyerName,
       row.merchandiserName,
       row.itemType,
+      row.requiredKind,
       row.ownerTeam,
       row.ownerName,
       row.plannedFinishAt,
@@ -1044,7 +1167,7 @@ function renderStatsTab(params: URLSearchParams, month: string): string {
 
   return `
     <section class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-      顶部口径说明：统计完成数量时，以准备项实际完成时间所在月份为准；已关闭记录、无需项不计入完成数量。
+      顶部口径说明：统计完成数量时，以准备项实际完成时间所在月份为准；已关闭记录、无需项、未选择选填项不计入完成数量。
     </section>
     ${renderStatsFilter(params, month)}
     <div class="flex flex-wrap gap-2">
