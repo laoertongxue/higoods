@@ -103,6 +103,11 @@ assert.ok(
   '生产准备上传必须等待文件读取完成后再保存 runtime',
 )
 assertIncludes(
+  'src/pages/production/preparation-timing.ts',
+  'const generatedAt = outputGeneratedAt(record)',
+  '产出表格必须用记录当前完成状态推导产出时间，避免 runtime 上传完成后产出时间为空',
+)
+assertIncludes(
   'src/data/fcs/production-preparation-timing-runtime.ts',
   'FileReader',
   '生产准备时效上传必须读取真实文件',
@@ -237,14 +242,19 @@ assert.ok(
       outputs?: Array<{ outputGeneratedAt?: string; outputStatus?: string }>
       items?: Array<{ uploads?: unknown[]; downloads?: unknown[] }>
     }) =>
-      record.workItemsConfirmedBy &&
-      record.workItemsConfirmedAt &&
       record.outputs?.every((output) =>
         output.outputStatus === '预计生成' ? output.outputGeneratedAt === '' : Boolean(output.outputGeneratedAt),
       ) &&
       record.items?.every((item) => Array.isArray(item.uploads) && Array.isArray(item.downloads)),
   ),
-  '生产准备记录必须有工作项确认信息，准备项必须有上传下载数组，已生成产出必须有产出时间',
+  '准备项必须有上传下载数组，已生成产出必须有产出时间',
+)
+assert.ok(
+  productionPreparationRecords.some(
+    (record: { workItemsConfirmedBy?: string; workItemsConfirmedAt?: string }) =>
+      !record.workItemsConfirmedBy && !record.workItemsConfirmedAt,
+  ),
+  'mock 数据必须覆盖进入列表后尚未由跟单确认工作项的记录',
 )
 
 const overriddenRecord = productionPreparationRecords.find(
@@ -600,6 +610,11 @@ const pendingOutputHtml = await renderAt('/fcs/production/preparation-timing?tab
 const pendingOutputDrawerHtml = detailDrawerHtml(pendingOutputHtml, 'PREP-202603-001')
 assertHtmlIncludes(pendingOutputDrawerHtml, '预计产出', '未全部完成记录必须只展示预计产出')
 assert.ok(!pendingOutputDrawerHtml.includes('正式产出'), '未全部完成记录不应展示正式产出')
+assertHtmlIncludes(pendingOutputHtml, '待跟单确认后开放操作', '未确认工作项的记录必须提示先确认工作项')
+const unconfirmedOperateHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001&itemId=prep-202603-001-item-03&action=operate-item',
+)
+assert.ok(!unconfirmedOperateHtml.includes('data-prep-operate-item-form'), '未确认工作项前不应允许 URL 直达工作项操作弹窗')
 
 const unselectedOptionalRecord = productionPreparationRecords.find(
   (record: { recordNo?: string }) => record.recordNo === 'PREP-202603-001',
@@ -672,7 +687,7 @@ assertHtmlIncludes(operateItemHtml, '<input type="hidden" name="itemId" value="p
 assertHtmlIncludes(operateItemHtml, '上传文件', '非辅料工作项操作弹窗必须要求上传文件')
 assertHtmlIncludes(operateItemHtml, '上传记录', '工作项操作弹窗必须展示上传历史')
 const accessoryOperateHtml = await renderAt(
-  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001&itemId=prep-202603-001-item-04&action=operate-item',
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-002&itemId=prep-202603-002-item-06&action=operate-item',
 )
 assertHtmlIncludes(accessoryOperateHtml, 'name="orderedAt"', '辅料下单操作弹窗必须填写下单时间')
 assertHtmlIncludes(accessoryOperateHtml, '下单凭证', '辅料下单操作弹窗必须展示下单凭证文案')

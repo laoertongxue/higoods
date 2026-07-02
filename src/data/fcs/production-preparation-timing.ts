@@ -293,6 +293,8 @@ type RecordSeed = Omit<
   | 'items'
 > & {
   items: PreparationItemSeed[]
+  workItemsConfirmedBy?: string
+  workItemsConfirmedAt?: string
 }
 
 function orderHref(orderNo: string): string {
@@ -415,8 +417,8 @@ function record(seed: RecordSeed): ProductionPreparationRecord {
     largeGoodsThresholdQty: 300,
     reachedThresholdAt: seed.largeGoodsReachedAt,
     productionOrderHref: orderHref(seed.productionOrderNo),
-    workItemsConfirmedBy: seed.prepTypeConfirmedBy,
-    workItemsConfirmedAt: seed.prepTypeConfirmedAt,
+    workItemsConfirmedBy: seed.workItemsConfirmedBy ?? seed.prepTypeConfirmedBy,
+    workItemsConfirmedAt: seed.workItemsConfirmedAt ?? seed.prepTypeConfirmedAt,
     outputs: outputsFor(seed.recordNo, seed.productionOrderNo, seed.outputReady, seed.outputPublishedAt, seed.items),
     items: createItems(seed.recordId, seed.productionOrderNo, seed.items),
   }
@@ -444,6 +446,8 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeSource: '系统推导',
     prepTypeConfirmedBy: 'Maya',
     prepTypeConfirmedAt: '2026-03-01T11:35:00',
+    workItemsConfirmedBy: '',
+    workItemsConfirmedAt: '',
     prepTypeOverrideReason: '',
     productionDemandNo: 'PD-202603-001',
     productionOrderNo: 'PO-202603-001',
