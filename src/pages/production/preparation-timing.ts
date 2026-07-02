@@ -22,7 +22,6 @@ import {
   type PreparationItemType,
   type PreparationRecordStatus,
   type PreparationUploadRecord,
-  type ProductPrepType,
   type ProductionPreparationFilter,
   type ProductionPreparationItem,
   type ProductionPreparationRecord,
@@ -30,6 +29,7 @@ import {
 
 const PAGE_PATH = '/fcs/production/preparation-timing'
 const DEFAULT_MONTH = '2026-03'
+const LEDGER_PAGE_SIZE = 5
 const LEDGER_FILTER_KEYS = [
   'merchandiserName',
   'buyerName',
@@ -40,6 +40,18 @@ const LEDGER_FILTER_KEYS = [
   'overdueOnly',
   'keyword',
 ] as const
+
+const PREPARATION_ACTION_LABELS: Record<PreparationItemType, string> = {
+  梭织基码纸样: '上传梭织基码纸样',
+  毛织基码纸样: '上传毛织基码纸样',
+  版衣制作: '上传版衣照片',
+  梭织齐码纸样: '上传梭织齐码纸样',
+  毛织齐码纸样: '上传毛织齐码纸样',
+  '数码印/DTF/DTG花型': '上传花型文件',
+  '染色调色（纱线）': '上传纱线调色结果',
+  '染色调色（面料）': '上传面料调色结果',
+  辅料下单: '登记辅料下单',
+}
 
 interface StatsTableRow extends MonthlyPreparationStatRow {
   ownerTeamText: string
@@ -79,13 +91,6 @@ function statusTone(status: string): 'slate' | 'blue' | 'green' | 'amber' | 'red
   return 'slate'
 }
 
-function productPrepTone(type: ProductPrepType): 'slate' | 'blue' | 'green' | 'amber' | 'red' {
-  if (type === '烫画&直喷') return 'blue'
-  if (type === '毛织') return 'amber'
-  if (type === '毛织&梭织') return 'red'
-  return 'green'
-}
-
 function renderOptions(options: Array<string | { value: string; label: string }>, selected: string): string {
   return options
     .map((option) => {
@@ -123,6 +128,8 @@ function getLedgerQueryValues(params: URLSearchParams, month: string): Record<st
     const value = valueOf(params, key)
     if (value) values[key] = value
   }
+  const page = valueOf(params, 'page')
+  if (page) values.page = page
   return values
 }
 
@@ -154,20 +161,35 @@ function hasConfirmedWorkItems(record: ProductionPreparationRecord): boolean {
   return Boolean(record.workItemsConfirmedBy && record.workItemsConfirmedAt)
 }
 
+function hasUploadEvidence(upload: PreparationUploadRecord): boolean {
+  return Boolean(upload.fileName && upload.uploadedAt && upload.uploadedBy)
+}
+
+function hasCompletionEvidence(item: ProductionPreparationItem): boolean {
+  return Boolean(
+    item.status === '已完成' &&
+      item.actualFinishAt &&
+      item.uploads?.some(hasUploadEvidence),
+  )
+}
+
 function completionProgress(record: ProductionPreparationRecord): { completed: number; total: number; rate: number } {
+  if (!hasConfirmedWorkItems(record)) return { completed: 0, total: 0, rate: 0 }
   const items = requiredItems(record)
-  const completed = items.filter((item) => item.status === '已完成').length
+  const completed = items.filter(hasCompletionEvidence).length
   const rate = items.length ? Math.round((completed / items.length) * 100) : 0
   return { completed, total: items.length, rate }
 }
 
 function isPreparationOutputReady(record: ProductionPreparationRecord): boolean {
+  if (!hasConfirmedWorkItems(record) || record.outputs.length === 0) return false
   const items = requiredItems(record)
-  return items.length > 0 && items.every((item) => item.status === '已完成')
+  return items.length > 0 && items.every(hasCompletionEvidence)
 }
 
-function outputStatusText(record: ProductionPreparationRecord): string {
-  return isPreparationOutputReady(record) ? '正式产出已生成' : '预计产出'
+function renderItemStatusBadge(item: ProductionPreparationItem): string {
+  if (item.status === '已完成' && !hasCompletionEvidence(item)) return renderBadge('证据缺失', 'red')
+  return renderBadge(item.status, statusTone(item.status))
 }
 
 function outputGeneratedAt(record: ProductionPreparationRecord): string {
@@ -177,6 +199,46 @@ function outputGeneratedAt(record: ProductionPreparationRecord): string {
     .map((item) => item.actualFinishAt)
     .filter(Boolean)
     .sort((left, right) => right.localeCompare(left))[0] ?? ''
+}
+
+function ledgerPageCount(records: ProductionPreparationRecord[]): number {
+  return Math.max(1, Math.ceil(records.length / LEDGER_PAGE_SIZE))
+}
+
+function getLedgerPage(params: URLSearchParams, records: ProductionPreparationRecord[]): number {
+  const rawPage = Number.parseInt(valueOf(params, 'page'), 10)
+  const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1
+  return Math.min(page, ledgerPageCount(records))
+}
+
+function paginateLedgerRecords(records: ProductionPreparationRecord[], page: number): ProductionPreparationRecord[] {
+  const start = (page - 1) * LEDGER_PAGE_SIZE
+  return records.slice(start, start + LEDGER_PAGE_SIZE)
+}
+
+function renderLedgerPagination(
+  records: ProductionPreparationRecord[],
+  page: number,
+  month: string,
+  params: URLSearchParams,
+): string {
+  const pageCount = ledgerPageCount(records)
+  const prevHref = page > 1 ? buildLedgerActionHref(params, month, { page: page - 1 }) : ''
+  const nextHref = page < pageCount ? buildLedgerActionHref(params, month, { page: page + 1 }) : ''
+  const renderButton = (label: string, href: string) =>
+    href
+      ? `<button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(href)}">${escapeHtml(label)}</button>`
+      : `<button type="button" class="rounded-md border px-3 py-1.5 text-xs text-muted-foreground opacity-50" disabled>${escapeHtml(label)}</button>`
+
+  return `
+    <div class="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3 text-sm">
+      <span class="text-muted-foreground">共 ${records.length} 条，第 ${page}/${pageCount} 页</span>
+      <div class="flex items-center gap-2">
+        ${renderButton('上一页', prevHref)}
+        ${renderButton('下一页', nextHref)}
+      </div>
+    </div>
+  `
 }
 
 function earliestOverdueItem(record: ProductionPreparationRecord): ProductionPreparationItem | null {
@@ -347,7 +409,84 @@ function renderKpis(records: ProductionPreparationRecord[], month: string, filte
   `
 }
 
+function renderProductTypeCell(record: ProductionPreparationRecord, confirmed: boolean): string {
+  const label = confirmed ? record.confirmedProductPrepType : '待跟单确认'
+  return `
+    <div class="min-w-[170px]">
+      <div class="text-sm font-medium">跟单确认：${escapeHtml(label)}</div>
+      ${
+        record.prepTypeOverrideReason
+          ? `<div class="mt-1 text-xs text-amber-700">人工修正原因：${escapeHtml(record.prepTypeOverrideReason)}</div>`
+          : ''
+      }
+    </div>
+  `
+}
+
+function renderLedgerOutputList(record: ProductionPreparationRecord): string {
+  if (!record.outputs.length) {
+    return `<div class="text-xs text-muted-foreground">${hasConfirmedWorkItems(record) ? '待全部准备项完成后生成' : '待跟单确认'}</div>`
+  }
+
+  return `
+    <div class="space-y-1 text-xs">
+      ${record.outputs.map((output) => {
+        const text = `${output.outputType}：${output.outputNo} ${formatDateTime(output.outputGeneratedAt)}`
+        return `<button type="button" class="block text-left text-blue-600 hover:underline" data-nav="${escapeHtml(output.outputHref)}">${escapeHtml(text)}</button>`
+      }).join('')}
+    </div>
+  `
+}
+
+function preparationActionLabel(item: ProductionPreparationItem): string {
+  return PREPARATION_ACTION_LABELS[item.itemType]
+}
+
+function renderLedgerActions(
+  record: ProductionPreparationRecord,
+  confirmed: boolean,
+  month: string,
+  params: URLSearchParams,
+): string {
+  const detailHref = buildLedgerActionHref(params, month, { recordId: record.recordId })
+  const confirmHref = buildLedgerActionHref(params, month, { recordId: record.recordId, action: 'confirm-items' })
+  const itemButtons = confirmed
+    ? requiredItems(record).map((item) => {
+        const href = buildLedgerActionHref(params, month, {
+          recordId: record.recordId,
+          itemId: item.itemId,
+          action: 'operate-item',
+        })
+        return `<button type="button" class="text-left text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(href)}">${escapeHtml(preparationActionLabel(item))}</button>`
+      }).join('')
+    : ''
+  const productionOrderHref = record.productionOrderNo
+    ? `/fcs/production/orders?keyword=${encodeURIComponent(record.productionOrderNo)}`
+    : ''
+
+  if (!confirmed) {
+    return `
+      <div class="flex min-w-[160px] flex-col items-start gap-2">
+        <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(confirmHref)}">确认工作项</button>
+        <span class="text-xs text-muted-foreground">待跟单确认后开放操作</span>
+      </div>
+    `
+  }
+
+  return `
+    <div class="flex min-w-[180px] flex-col items-start gap-2">
+      <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(detailHref)}">查看详情</button>
+      <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(confirmHref)}">确认工作项</button>
+      ${itemButtons}
+      ${productionOrderHref ? `<button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(productionOrderHref)}">查看生产单</button>` : ''}
+    </div>
+  `
+}
+
 function renderLedgerTable(records: ProductionPreparationRecord[], month: string, params: URLSearchParams): string {
+  const page = getLedgerPage(params, records)
+  const pageRecords = paginateLedgerRecords(records, page)
+
   return `
     <section class="rounded-xl border bg-card">
       <div class="flex items-center justify-between border-b px-5 py-4">
@@ -355,24 +494,25 @@ function renderLedgerTable(records: ProductionPreparationRecord[], month: string
           <h2 class="text-base font-semibold">准备台账</h2>
           <p class="text-xs text-muted-foreground">台账月份按进入准备时间筛选，避免混入其他月份完成项。</p>
         </div>
-        <span class="text-xs text-muted-foreground">共 ${records.length} 条</span>
+        <span class="text-xs text-muted-foreground">共 ${records.length} 条，第 ${page}/${ledgerPageCount(records)} 页</span>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full min-w-[1280px] text-sm">
           <thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
             <tr>
-              ${['商品', '商品类型', '选品/买手/跟单', '达到做大货要求', '进入准备时间', '整体状态', '完成进度', '当前卡点', '产出状态', '预计完成时间', '操作'].map((head) => `<th class="px-4 py-3 font-medium">${escapeHtml(head)}</th>`).join('')}
+              ${['商品', '商品类型', '选品/买手/跟单', '达到做大货要求', '进入准备时间', '整体状态', '完成进度', '当前卡点', '产出', '预计完成时间', '操作'].map((head) => `<th class="px-4 py-3 font-medium">${escapeHtml(head)}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
             ${
-              records.length
-                ? records.map((record) => renderLedgerRow(record, month, params)).join('')
+              pageRecords.length
+                ? pageRecords.map((record) => renderLedgerRow(record, month, params)).join('')
                 : `<tr><td colspan="11" class="h-28 px-4 text-center text-muted-foreground">当前筛选条件下暂无生产准备记录</td></tr>`
             }
           </tbody>
         </table>
       </div>
+      ${renderLedgerPagination(records, page, month, params)}
     </section>
   `
 }
@@ -380,16 +520,7 @@ function renderLedgerTable(records: ProductionPreparationRecord[], month: string
 function renderLedgerRow(record: ProductionPreparationRecord, month: string, params: URLSearchParams): string {
   const progress = completionProgress(record)
   const overdueItem = earliestOverdueItem(record)
-  const outputReady = isPreparationOutputReady(record)
   const confirmed = hasConfirmedWorkItems(record)
-  const firstActionItem = confirmed
-    ? overdueItem ?? requiredItems(record).find((item) => item.status !== '已完成') ?? record.items[0]
-    : null
-  const detailHref = buildLedgerActionHref(params, month, { recordId: record.recordId })
-  const confirmHref = buildLedgerActionHref(params, month, { recordId: record.recordId, action: 'confirm-items' })
-  const activeActionHref = firstActionItem
-    ? buildLedgerActionHref(params, month, { recordId: record.recordId, itemId: firstActionItem.itemId, action: 'operate-item' })
-    : ''
 
   return `
     <tr class="border-b align-top last:border-b-0 hover:bg-muted/30">
@@ -404,10 +535,7 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string, par
         </div>
       </td>
       <td class="px-4 py-4">
-        ${renderBadge(record.confirmedProductPrepType, productPrepTone(record.confirmedProductPrepType))}
-        <div class="mt-1 text-xs text-muted-foreground">系统推导：${escapeHtml(record.derivedProductPrepType)}</div>
-        <div class="mt-1 text-xs text-muted-foreground">跟单确认：${escapeHtml(record.prepTypeSource)}</div>
-        <div class="mt-1 text-xs text-muted-foreground">准备项确认：${confirmed ? `已选择 ${progress.total} 项` : '待跟单确认'}</div>
+        ${renderProductTypeCell(record, confirmed)}
       </td>
       <td class="px-4 py-4">
         <div>选品：${escapeHtml(record.selectionName)}</div>
@@ -435,7 +563,7 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string, par
       </td>
       <td class="px-4 py-4 max-w-[220px] text-xs text-muted-foreground">${escapeHtml(record.currentBlockerText || '暂无卡点')}</td>
       <td class="px-4 py-4">
-        ${renderBadge(outputStatusText(record), outputReady ? 'green' : 'amber')}
+        ${renderLedgerOutputList(record)}
         ${
           overdueItem
             ? `<div class="mt-1 text-xs text-red-600">最早超时：${escapeHtml(overdueItem.itemType)}</div>`
@@ -444,13 +572,7 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string, par
       </td>
       <td class="px-4 py-4 whitespace-nowrap">${escapeHtml(formatDateTime(record.expectedFinishAt))}</td>
       <td class="sticky right-0 bg-card px-4 py-4">
-        <div class="flex min-w-[160px] flex-col items-start gap-2">
-          <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(detailHref)}">查看详情</button>
-          <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(confirmHref)}">确认工作项</button>
-          ${activeActionHref ? `<button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(activeActionHref)}">操作当前卡点</button>` : ''}
-          ${confirmed ? '' : '<span class="text-xs text-muted-foreground">待跟单确认后开放操作</span>'}
-          <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="/fcs/production/orders?keyword=${escapeHtml(encodeURIComponent(record.productionOrderNo))}">查看生产单</button>
-        </div>
+        ${renderLedgerActions(record, confirmed, month, params)}
       </td>
     </tr>
   `
@@ -658,11 +780,11 @@ function renderTimeline(record: ProductionPreparationRecord): string {
           <div class="grid grid-cols-[120px_1fr_auto] items-center gap-3 text-sm">
             <div class="text-xs text-muted-foreground">${escapeHtml(item.plannedStartAt ? formatDateTime(item.plannedStartAt) : '未排期')}</div>
             <div class="h-2 overflow-hidden rounded-full bg-muted">
-              <div class="h-full ${item.status === '已完成' ? 'bg-green-500' : item.status === '已超时' || item.overdueHours > 0 ? 'bg-red-500' : 'bg-blue-500'}" style="width:${item.status === '已完成' ? 100 : item.status === '无需' ? 0 : 56}%"></div>
+              <div class="h-full ${hasCompletionEvidence(item) ? 'bg-green-500' : item.status === '已超时' || item.overdueHours > 0 || (item.status === '已完成' && !hasCompletionEvidence(item)) ? 'bg-red-500' : 'bg-blue-500'}" style="width:${hasCompletionEvidence(item) ? 100 : item.status === '无需' ? 0 : 56}%"></div>
             </div>
             <div class="flex min-w-[180px] items-center justify-between gap-2">
               <span>${escapeHtml(item.itemType)}</span>
-              ${renderBadge(item.status, statusTone(item.status))}
+              ${renderItemStatusBadge(item)}
             </div>
           </div>
         `).join('')}
@@ -679,7 +801,7 @@ function renderItemCard(item: ProductionPreparationItem, active: boolean): strin
           <div class="font-medium">${escapeHtml(item.itemType)}</div>
           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.ownerTeam)}｜${escapeHtml(item.ownerName)}</div>
         </div>
-        ${renderBadge(item.status, statusTone(item.status))}
+        ${renderItemStatusBadge(item)}
       </div>
       <dl class="mt-3 grid grid-cols-2 gap-2 text-xs">
         <div><dt class="text-muted-foreground">计划开始</dt><dd>${escapeHtml(item.plannedStartAt ? formatDateTime(item.plannedStartAt) : '-')}</dd></div>
@@ -687,6 +809,11 @@ function renderItemCard(item: ProductionPreparationItem, active: boolean): strin
         <div><dt class="text-muted-foreground">实际完成</dt><dd>${escapeHtml(item.actualFinishAt ? formatDateTime(item.actualFinishAt) : '-')}</dd></div>
         <div><dt class="text-muted-foreground">凭证类型</dt><dd>${escapeHtml(item.evidenceType || '-')}</dd></div>
       </dl>
+      ${
+        item.status === '已完成' && !hasCompletionEvidence(item)
+          ? '<p class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">异常：已完成但缺少上传文件、上传人或上传时间，请补传完成凭证。</p>'
+          : ''
+      }
       <p class="mt-3 text-xs text-muted-foreground">${escapeHtml(item.evidenceSummary || item.remark || '暂无说明')}</p>
       ${item.itemType === '数码印/DTF/DTG花型' ? renderPatternFields(item) : ''}
       <div class="mt-3">${renderItemUploadHistory(item)}</div>
@@ -712,6 +839,7 @@ function renderPatternFields(item: ProductionPreparationItem): string {
 function renderItemUploadHistory(item: ProductionPreparationItem): string {
   const uploads = item.uploads ?? []
   const downloads = item.downloads ?? []
+  const missingCompletionEvidence = item.status === '已完成' && !hasCompletionEvidence(item)
   return `
     <div class="rounded-lg border bg-muted/30 p-3">
       <div class="text-sm font-medium">上传记录</div>
@@ -725,7 +853,9 @@ function renderItemUploadHistory(item: ProductionPreparationItem): string {
                 <button type="button" class="mt-2 text-blue-600 hover:underline" data-prep-action="download-upload" data-upload-id="${escapeHtml(upload.uploadId)}" data-item-id="${escapeHtml(item.itemId)}">下载</button>
               </div>
             `).join('')
-            : '<div class="text-xs text-muted-foreground">暂无上传记录</div>'
+            : missingCompletionEvidence
+              ? '<div class="text-xs text-red-600">异常：已完成但没有可用上传记录</div>'
+              : '<div class="text-xs text-muted-foreground">暂无上传记录</div>'
         }
       </div>
       ${
@@ -828,40 +958,46 @@ function renderOperateItemDialog(
 
 function renderPreparationOutputs(record: ProductionPreparationRecord): string {
   const outputReady = isPreparationOutputReady(record)
-  const title = outputReady ? '正式产出' : '预计产出'
-  const missingItems = requiredItems(record).filter((item) => item.status !== '已完成')
+  const missingItems = requiredItems(record).filter((item) => !hasCompletionEvidence(item))
   const generatedAt = outputGeneratedAt(record)
+  const emptyText = hasConfirmedWorkItems(record) ? '待全部准备项完成后生成' : '待跟单确认'
   return `
     <section class="rounded-xl border bg-card p-4">
       <div class="mb-3 flex items-center justify-between">
-        <h3 class="font-semibold">${escapeHtml(title)}</h3>
-        ${renderBadge(outputReady ? '已生成' : '预计生成', outputReady ? 'green' : 'amber')}
+        <h3 class="font-semibold">产出</h3>
+        ${renderBadge(outputReady ? '已生成' : '待生成', outputReady ? 'green' : 'amber')}
       </div>
       ${!outputReady && missingItems.length ? `<p class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">仍需完成：${escapeHtml(missingItems.map((item) => item.itemType).join('、'))}</p>` : ''}
-      <div class="overflow-hidden rounded-lg border">
-        <table class="w-full text-sm">
-          <thead class="bg-muted/60 text-xs text-muted-foreground">
-            <tr>
-              <th class="px-3 py-2 text-left">产出对象名称</th>
-              <th class="px-3 py-2 text-left">产出对象编号</th>
-              <th class="px-3 py-2 text-left">状态</th>
-              <th class="px-3 py-2 text-left">产出时间</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${record.outputs.map((output) => `
-              <tr class="border-t">
-                <td class="px-3 py-2">${escapeHtml(output.outputType)}</td>
-                <td class="px-3 py-2">
-                  <button type="button" class="text-blue-600 hover:underline" data-nav="${escapeHtml(output.outputHref)}">${escapeHtml(outputReady ? output.outputNo.replace(/^预计/, '') : output.outputNo)}</button>
-                </td>
-                <td class="px-3 py-2">${renderBadge(outputReady ? '已生成' : output.outputStatus, outputReady ? 'green' : 'amber')}</td>
-                <td class="px-3 py-2">${escapeHtml(generatedAt ? formatDateTime(generatedAt) : '-')}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
+      ${
+        record.outputs.length
+          ? `
+            <div class="overflow-hidden rounded-lg border">
+              <table class="w-full text-sm">
+                <thead class="bg-muted/60 text-xs text-muted-foreground">
+                  <tr>
+                    <th class="px-3 py-2 text-left">产出对象名称</th>
+                    <th class="px-3 py-2 text-left">产出对象编号</th>
+                    <th class="px-3 py-2 text-left">状态</th>
+                    <th class="px-3 py-2 text-left">产出时间</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${record.outputs.map((output) => `
+                    <tr class="border-t">
+                      <td class="px-3 py-2">${escapeHtml(output.outputType)}</td>
+                      <td class="px-3 py-2">
+                        <button type="button" class="text-blue-600 hover:underline" data-nav="${escapeHtml(output.outputHref)}">${escapeHtml(output.outputNo)}</button>
+                      </td>
+                      <td class="px-3 py-2">${renderBadge(output.outputStatus, output.outputStatus === '已生成' ? 'green' : 'amber')}</td>
+                      <td class="px-3 py-2">${escapeHtml(formatDateTime(output.outputGeneratedAt || generatedAt))}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `
+          : `<div class="rounded-lg border bg-muted/30 px-4 py-6 text-sm text-muted-foreground">${escapeHtml(emptyText)}</div>`
+      }
     </section>
   `
 }

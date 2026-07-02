@@ -643,22 +643,29 @@ for (const text of [
   '做大货阈值：300',
   '达到做大货要求',
   '商品类型',
-  '系统推导',
   '跟单确认',
-  '准备项确认',
-  '预计产出',
+  '共 6 条，第 1/2 页',
+  '上一页',
+  '下一页',
 ] as const) {
   assertHtmlIncludes(adjustedLedgerHtml, text, `调整后准备台账 HTML 缺少「${text}」`)
 }
+assert.ok(!adjustedLedgerHtml.includes('PREP-202603-006'), '准备台账第一页 tbody 不应渲染第 6 条记录')
+const adjustedLedgerPage2Html = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03&page=2')
+assertHtmlIncludes(adjustedLedgerPage2Html, '共 6 条，第 2/2 页', '准备台账第二页必须显示分页状态')
+assertHtmlIncludes(adjustedLedgerPage2Html, 'PREP-202603-006', '准备台账第二页必须渲染第 6 条记录')
+assert.ok(!adjustedLedgerPage2Html.includes('PREP-202603-001'), '准备台账第二页 tbody 不应继续渲染第一页记录')
+const aprilLedgerPage2Html = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-04&page=2')
+const combinedLedgerPagesHtml = `${adjustedLedgerHtml}\n${adjustedLedgerPage2Html}\n${aprilLedgerPage2Html}`
 for (const text of ['产出', '正式版本技术包', '生产需求单', '印花需求单', '染色需求单', '辅料采购单'] as const) {
-  assertHtmlIncludes(adjustedLedgerHtml, text, `调整后准备台账 HTML 缺少「${text}」`)
+  assertHtmlIncludes(combinedLedgerPagesHtml, text, `调整后准备台账 HTML 缺少「${text}」`)
 }
-for (const text of ['产出状态', '操作当前卡点', '准备项确认：'] as const) {
+for (const text of ['产出状态', '操作当前卡点', '准备项确认：', '系统推导：', '预计产出'] as const) {
   assert.ok(!adjustedLedgerHtml.includes(text), `调整后准备台账 HTML 不应显示「${text}」`)
 }
 
 const readyOutputHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-003')
-assertHtmlIncludes(readyOutputHtml, '正式产出', '全部完成记录必须展示正式产出')
+assertHtmlIncludes(readyOutputHtml, '产出', '全部完成记录必须展示产出')
 assertHtmlIncludes(readyOutputHtml, '已生成', '全部完成记录的产出状态必须为已生成')
 for (const text of ['产出对象名称', '产出对象编号', '产出时间'] as const) {
   assertHtmlIncludes(readyOutputHtml, text, `产出表格缺少「${text}」`)
@@ -690,7 +697,8 @@ for (const outputType of expectedOutputTypes) {
 
 const pendingOutputHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001')
 const pendingOutputDrawerHtml = detailDrawerHtml(pendingOutputHtml, 'PREP-202603-001')
-assertHtmlIncludes(pendingOutputDrawerHtml, '预计产出', '未全部完成记录必须只展示预计产出')
+assertHtmlIncludes(pendingOutputDrawerHtml, '待跟单确认', '未确认工作项记录必须展示产出空态')
+assert.ok(!pendingOutputDrawerHtml.includes('预计产出'), '未全部完成记录不应展示预计产出')
 assert.ok(!pendingOutputDrawerHtml.includes('正式产出'), '未全部完成记录不应展示正式产出')
 assertHtmlIncludes(pendingOutputHtml, '待跟单确认后开放操作', '未确认工作项的记录必须提示先确认工作项')
 const unconfirmedOperateHtml = await renderAt(
@@ -807,7 +815,7 @@ for (const text of [
   'data:text/csv;charset=utf-8',
   '商品类型',
   '必做/选填',
-  '非烫画&amp;非毛织（纯梭织）',
+  '烫画&amp;直喷',
 ] as const) {
   assertHtmlIncludes(statsHtml, text, `月度统计 HTML 缺少「${text}」`)
 }
@@ -848,7 +856,7 @@ const statsCsvHeader = [
 assertHtmlIncludes(statsHtml, encodeURIComponent(statsCsvHeader), '月度统计 CSV 缺少完成基码/齐码/花型/染色汇总字段')
 assertHtmlIncludes(
   statsHtml,
-  encodeURIComponent('非烫画&非毛织（纯梭织）'),
+  encodeURIComponent('烫画&直喷'),
   '完成明细 CSV 缺少商品类型数据',
 )
 
