@@ -1,13 +1,17 @@
 import { escapeHtml, formatDateTime } from '../../utils.ts'
 import { appStore } from '../../state/store.ts'
 import {
+  isBasePatternItem,
+  loadPreparationRuntimeState,
+  mergePreparationRuntimeRecords,
+} from '../../data/fcs/production-preparation-timing-runtime.ts'
+import {
   buildMonthlyPreparationCompletionDetails,
   buildProductionPreparationKpis,
   filterProductionPreparationRecords,
   flattenProductionPreparationItems,
   getProductionPreparationFilterOptions,
   getProductionPreparationRecord,
-  patternDesignerOptions,
   preparationItemTypes,
   productionPreparationRecords,
   type MonthlyPreparationCompletionDetail,
@@ -128,88 +132,6 @@ function buildLedgerActionHref(
   values: Record<string, string | number | boolean | null | undefined>,
 ): string {
   return buildHref({ ...getLedgerQueryValues(params, month), ...values })
-}
-
-function resolveSubmittedBuyerReviewStatus(status: string): '待确认' | '已通过' | '需调整' {
-  if (status === '已通过' || status === '需调整') return status
-  return '待确认'
-}
-
-function renderLedgerFilterHiddenFields(params: URLSearchParams): string {
-  return LEDGER_FILTER_KEYS
-    .map((key) => {
-      const value = valueOf(params, key)
-      return value ? `<input type="hidden" name="${key}" value="${escapeHtml(value)}" />` : ''
-    })
-    .filter(Boolean)
-    .join('')
-}
-
-function getMockDesigner(designerName: string) {
-  return patternDesignerOptions.find((designer) => designer.name === designerName || designer.id === designerName) ?? null
-}
-
-function withUniqueValue(values: string[] | undefined, value: string): string[] {
-  return Array.from(new Set([...(values ?? []), value].filter(Boolean)))
-}
-
-function applyPreparationActionMocks(
-  records: ProductionPreparationRecord[],
-  params: URLSearchParams,
-): ProductionPreparationRecord[] {
-  const recordId = valueOf(params, 'recordId')
-  const itemId = valueOf(params, 'itemId')
-  const assignedDesignerName = valueOf(params, 'mockAssignedDesigner')
-  const assignedDesigner = getMockDesigner(assignedDesignerName)
-  const assignedTeamName = valueOf(params, 'mockPatternTeam') || assignedDesigner?.teamName || ''
-  const uploadSubmitted = valueOf(params, 'mockCompletionUploaded') === '1'
-  const buyerReviewStatus = valueOf(params, 'buyerReviewStatus')
-
-  if (!recordId || !itemId || (!assignedDesigner && !uploadSubmitted)) return records
-
-  return records.map((record) => {
-    if (record.recordId !== recordId) return record
-    let touched = false
-    const items = record.items.map((item) => {
-      if (item.itemId !== itemId || item.itemType !== '数码印/DTF/DTG花型') return item
-      touched = true
-      let nextItem: ProductionPreparationItem = { ...item }
-
-      if (assignedDesigner) {
-        nextItem = {
-          ...nextItem,
-          required: true,
-          status: nextItem.status === '无需' || nextItem.status === '待分配' ? '进行中' : nextItem.status,
-          ownerTeam: '花型团队',
-          ownerName: assignedDesigner.name,
-          patternDesignerId: assignedDesigner.id,
-          patternDesignerName: assignedDesigner.name,
-          patternTeamName: assignedTeamName,
-          assignedAt: nextItem.assignedAt || `${record.enteredAt.slice(0, 10)}T10:00:00`,
-          evidenceSummary: nextItem.evidenceSummary || `已分配给 ${assignedDesigner.name}`,
-        }
-      }
-
-      if (uploadSubmitted) {
-        const submittedBuyerReviewStatus = resolveSubmittedBuyerReviewStatus(buyerReviewStatus)
-        nextItem = {
-          ...nextItem,
-          required: true,
-          selectedByMerchandiser: true,
-          status: submittedBuyerReviewStatus === '已通过' ? '已完成' : '待确认',
-          completionImageIds: withUniqueValue(nextItem.completionImageIds, `mock-image-${nextItem.itemId}`),
-          patternFileIds: withUniqueValue(nextItem.patternFileIds, `mock-file-${nextItem.itemId}`),
-          buyerReviewStatus: submittedBuyerReviewStatus,
-          evidenceSummary: '已模拟提交完成图和花型文件，等待买手确认',
-        }
-      }
-
-      return nextItem
-    })
-
-    if (!touched) return record
-    return { ...record, items }
-  })
 }
 
 function filterLedgerRecords(
@@ -443,14 +365,10 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string, par
   const overdueItem = earliestOverdueItem(record)
   const outputReady = isPreparationOutputReady(record)
   const firstActionItem = overdueItem ?? requiredItems(record).find((item) => item.status !== '已完成') ?? record.items[0]
-  const patternItem = record.items.find((item) => item.itemType === '数码印/DTF/DTG花型')
   const detailHref = buildLedgerActionHref(params, month, { recordId: record.recordId })
-  const updateHref = buildLedgerActionHref(params, month, { recordId: record.recordId, itemId: firstActionItem?.itemId }) + '#prep-items'
-  const assignHref = patternItem
-    ? buildLedgerActionHref(params, month, { recordId: record.recordId, itemId: patternItem.itemId, action: 'assign' })
-    : ''
-  const uploadHref = patternItem
-    ? buildLedgerActionHref(params, month, { recordId: record.recordId, itemId: patternItem.itemId, action: 'upload' })
+  const confirmHref = buildLedgerActionHref(params, month, { recordId: record.recordId, action: 'confirm-items' })
+  const activeActionHref = firstActionItem
+    ? buildLedgerActionHref(params, month, { recordId: record.recordId, itemId: firstActionItem.itemId, action: 'operate-item' })
     : ''
 
   return `
@@ -508,15 +426,8 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string, par
       <td class="sticky right-0 bg-card px-4 py-4">
         <div class="flex min-w-[160px] flex-col items-start gap-2">
           <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(detailHref)}">查看详情</button>
-          <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(updateHref)}">更新准备项</button>
-          ${
-            patternItem
-              ? `
-                <button type="button" class="inline-flex h-7 items-center rounded-md border px-2 text-xs text-blue-600 hover:bg-muted" data-nav="${escapeHtml(assignHref)}">分配花型师</button>
-                <button type="button" class="inline-flex h-7 items-center rounded-md border px-2 text-xs text-blue-600 hover:bg-muted" data-nav="${escapeHtml(uploadHref)}">上传完成图片</button>
-              `
-              : ''
-          }
+          <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(confirmHref)}">确认工作项</button>
+          ${activeActionHref ? `<button type="button" class="text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(activeActionHref)}">操作当前卡点</button>` : ''}
           <button type="button" class="text-sm text-blue-600 hover:underline" data-nav="/fcs/production/orders?keyword=${escapeHtml(encodeURIComponent(record.productionOrderNo))}">查看生产单</button>
         </div>
       </td>
@@ -526,28 +437,35 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string, par
 
 function renderLedgerTab(params: URLSearchParams, month: string): string {
   const filter = parseFilter(params)
-  const mockedRecords = applyPreparationActionMocks(productionPreparationRecords, params)
-  const records = filterLedgerRecords(filter, month, mockedRecords)
+  const runtime = loadPreparationRuntimeState()
+  const recordsWithRuntime = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
+  const records = filterLedgerRecords(filter, month, recordsWithRuntime)
   const recordId = valueOf(params, 'recordId')
-  const fallbackRecord = recordId ? getProductionPreparationRecord(recordId) : null
+  const sourceFallbackRecord = recordId ? getProductionPreparationRecord(recordId) : null
+  const fallbackRecord = recordId
+    ? recordsWithRuntime.find((record) => record.recordId === recordId) ??
+      (sourceFallbackRecord ? mergePreparationRuntimeRecords([sourceFallbackRecord], runtime)[0] : null)
+    : null
   const detailRecord = recordId
     ? records.find((record) => record.recordId === recordId) ??
-      (fallbackRecord ? applyPreparationActionMocks([fallbackRecord], params)[0] : null) ??
+      fallbackRecord ??
       null
     : null
+  const activeItemId = valueOf(params, 'itemId')
+  const activeItem = detailRecord?.items.find((item) => item.itemId === activeItemId) ?? null
 
   return `
     ${renderLedgerFilter(params, month)}
     ${renderKpis(records, month, filter)}
     ${renderLedgerTable(records, month, params)}
     ${detailRecord ? renderDetailDrawer(detailRecord, params, month) : ''}
+    ${detailRecord ? renderConfirmItemsDialog(detailRecord, params, month) : ''}
+    ${detailRecord && activeItem ? renderOperateItemDialog(detailRecord, activeItem, params, month) : ''}
   `
 }
 
 function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSearchParams, month: string): string {
-  const action = valueOf(params, 'action')
   const activeItemId = valueOf(params, 'itemId')
-  const activeItem = record.items.find((item) => item.itemId === activeItemId) ?? record.items.find((item) => item.itemType === '数码印/DTF/DTG花型')
   const closeHref = buildLedgerHrefFromParams(params, month)
 
   return `
@@ -571,11 +489,9 @@ function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSear
             <span class="text-xs text-muted-foreground">已选择 ${requiredItems(record).length} 项</span>
           </div>
           <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-            ${record.items.map((item) => renderItemCard(record, item, item.itemId === activeItemId, month, params)).join('')}
+            ${record.items.map((item) => renderItemCard(item, item.itemId === activeItemId)).join('')}
           </div>
         </section>
-        ${action === 'assign' && activeItem ? renderAssignPanel(record, activeItem, params, month) : ''}
-        ${action === 'upload' && activeItem ? renderUploadPanel(record, activeItem, params, month) : ''}
         ${renderPreparationOutputs(record)}
         ${renderOperationLogs(record)}
       </div>
@@ -732,13 +648,7 @@ function renderTimeline(record: ProductionPreparationRecord): string {
   `
 }
 
-function renderItemCard(
-  record: ProductionPreparationRecord,
-  item: ProductionPreparationItem,
-  active: boolean,
-  month: string,
-  params: URLSearchParams,
-): string {
+function renderItemCard(item: ProductionPreparationItem, active: boolean): string {
   return `
     <article class="rounded-xl border p-4 ${active ? 'border-blue-300 bg-blue-50/40' : 'bg-background'}">
       <div class="flex items-start justify-between gap-3">
@@ -755,131 +665,141 @@ function renderItemCard(
         <div><dt class="text-muted-foreground">凭证类型</dt><dd>${escapeHtml(item.evidenceType || '-')}</dd></div>
       </dl>
       <p class="mt-3 text-xs text-muted-foreground">${escapeHtml(item.evidenceSummary || item.remark || '暂无说明')}</p>
-      ${item.itemType === '数码印/DTF/DTG花型' ? renderPatternFields(record, item, month, params) : ''}
+      ${item.itemType === '数码印/DTF/DTG花型' ? renderPatternFields(item) : ''}
+      <div class="mt-3">${renderItemUploadHistory(item)}</div>
     </article>
   `
 }
 
-function renderPatternFields(
-  record: ProductionPreparationRecord,
-  item: ProductionPreparationItem,
-  month: string,
-  params: URLSearchParams,
-): string {
-  const assignHref = buildLedgerActionHref(params, month, { recordId: record.recordId, itemId: item.itemId, action: 'assign' })
-  const uploadHref = buildLedgerActionHref(params, month, { recordId: record.recordId, itemId: item.itemId, action: 'upload' })
-  const itemReviewStatus =
-    valueOf(params, 'action') === 'upload' && valueOf(params, 'itemId') === item.itemId
-      ? resolveSubmittedBuyerReviewStatus(valueOf(params, 'buyerReviewStatus') || item.buyerReviewStatus || '')
-      : item.buyerReviewStatus || '未提交'
+function renderPatternFields(item: ProductionPreparationItem): string {
   return `
     <div class="mt-3 rounded-lg border bg-muted/30 p-3 text-xs">
       <div class="grid grid-cols-2 gap-2">
         <div><span class="text-muted-foreground">花型任务：</span>${escapeHtml(item.patternTaskNo || '未生成')}</div>
         <div><span class="text-muted-foreground">花型团队：</span>${escapeHtml(item.patternTeamName || '-')}</div>
         <div><span class="text-muted-foreground">花型师：</span>${escapeHtml(item.patternDesignerName || '待分配')}</div>
-        <div><span class="text-muted-foreground">买手确认：</span>${escapeHtml(itemReviewStatus)}</div>
+        <div><span class="text-muted-foreground">买手确认：</span>${escapeHtml(item.buyerReviewStatus || '未提交')}</div>
         <div><span class="text-muted-foreground">完成图：</span>${item.completionImageIds?.length ?? 0} 张</div>
         <div><span class="text-muted-foreground">花型文件：</span>${item.patternFileIds?.length ?? 0} 个</div>
-      </div>
-      <div class="mt-3 flex flex-wrap gap-2">
-        <button type="button" class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-background" data-nav="${escapeHtml(assignHref)}">分配花型师</button>
-        <button type="button" class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-background" data-nav="${escapeHtml(uploadHref)}">上传完成图片</button>
       </div>
     </div>
   `
 }
 
-function renderAssignPanel(
-  record: ProductionPreparationRecord,
-  item: ProductionPreparationItem,
-  params: URLSearchParams,
-  month: string,
-): string {
-  const assignedDesigner = valueOf(params, 'mockAssignedDesigner')
-  const teams = Array.from(new Set(patternDesignerOptions.map((designer) => designer.teamName)))
-  const defaultDesigner = assignedDesigner || item.patternDesignerName || '林小美'
-
+function renderItemUploadHistory(item: ProductionPreparationItem): string {
+  const uploads = item.uploads ?? []
+  const downloads = item.downloads ?? []
   return `
-    <section data-pattern-assign-scope class="rounded-xl border border-blue-200 bg-blue-50/50 p-4">
-      <input type="hidden" name="tab" value="ledger" />
-      <input type="hidden" name="month" value="${escapeHtml(month)}" />
-      ${renderLedgerFilterHiddenFields(params)}
-      <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
-      <input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />
-      <input type="hidden" name="action" value="assign" />
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <h3 class="font-semibold">花型师分配原型区域</h3>
-          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.patternTaskNo || item.itemId)}｜${escapeHtml(record.spuName)}</p>
-        </div>
-        ${assignedDesigner ? `<span class="rounded-full bg-green-100 px-3 py-1 text-xs text-green-700">已模拟分配给 ${escapeHtml(assignedDesigner)}</span>` : ''}
+    <div class="rounded-lg border bg-muted/30 p-3">
+      <div class="text-sm font-medium">上传记录</div>
+      <div class="mt-2 space-y-2">
+        ${
+          uploads.length
+            ? uploads.map((upload) => `
+              <div class="rounded-md bg-background p-2 text-xs">
+                <div class="font-medium">${escapeHtml(upload.fileName)}</div>
+                <div class="mt-1 text-muted-foreground">${escapeHtml(upload.uploadedBy)}｜${escapeHtml(formatDateTime(upload.uploadedAt))}｜${Math.ceil(upload.fileSize / 1024)}KB</div>
+                <button type="button" class="mt-2 text-blue-600 hover:underline" data-prep-action="download-upload" data-upload-id="${escapeHtml(upload.uploadId)}" data-item-id="${escapeHtml(item.itemId)}">下载</button>
+              </div>
+            `).join('')
+            : '<div class="text-xs text-muted-foreground">暂无上传记录</div>'
+        }
       </div>
-      <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-        ${renderSelectField('花型团队', 'mockPatternTeam', teams, item.patternTeamName || teams[0] || '')}
-        ${renderSelectField(
-          '花型师',
-          'mockAssignedDesigner',
-          patternDesignerOptions.map((designer) => ({ value: designer.name, label: `${designer.name}｜${designer.teamName}` })),
-          defaultDesigner,
-        )}
-        <label class="flex flex-col gap-1 text-sm md:col-span-2">
-          <span class="text-muted-foreground">分配说明</span>
-          <textarea name="assignmentNote" class="min-h-20 rounded-md border bg-background px-3 py-2" placeholder="填写交付重点、花位比例、买手备注">${escapeHtml(valueOf(params, 'assignmentNote'))}</textarea>
-        </label>
-      </div>
-      <button type="button" class="mt-4 inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-pattern-assign-scope]" data-nav-base="${PAGE_PATH}">确认分配</button>
-    </section>
+      ${
+        isBasePatternItem(item.itemType)
+          ? `
+            <div class="mt-3 text-sm font-medium">下载记录</div>
+            <div class="mt-2 space-y-1 text-xs text-muted-foreground">
+              ${
+                downloads.length
+                  ? downloads.map((download) => `<div>${escapeHtml(download.fileName)}｜${escapeHtml(download.downloadedBy)}｜${escapeHtml(formatDateTime(download.downloadedAt))}</div>`).join('')
+                  : '<div>暂无下载记录</div>'
+              }
+            </div>
+          `
+          : ''
+      }
+    </div>
   `
 }
 
-function renderUploadPanel(
+function renderConfirmItemsDialog(record: ProductionPreparationRecord, params: URLSearchParams, month: string): string {
+  if (valueOf(params, 'action') !== 'confirm-items') return ''
+  const closeHref = buildLedgerActionHref(params, month, { recordId: record.recordId })
+  return `
+    <div class="fixed inset-0 z-50">
+      <button class="absolute inset-0 bg-black/45" data-nav="${escapeHtml(closeHref)}" aria-label="关闭"></button>
+      <section class="absolute left-1/2 top-10 w-[720px] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl bg-background p-5 shadow-2xl">
+        <h3 class="text-lg font-semibold">确认生产准备工作项</h3>
+        <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.spuName)}｜${escapeHtml(record.spuCode)}</p>
+        <form class="mt-4 space-y-4" data-prep-confirm-items-form>
+          <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
+          <div class="grid gap-3 md:grid-cols-2">
+            ${record.items.map((item) => `
+              <label class="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                ${item.requiredKind === '必做' ? `<input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />` : ''}
+                <input type="checkbox" name="itemId" value="${escapeHtml(item.itemId)}" ${item.requiredKind === '必做' || item.selectedByMerchandiser ? 'checked' : ''} ${item.requiredKind === '必做' ? 'disabled' : ''} />
+                <span>
+                  <span class="font-medium">${escapeHtml(item.itemType)}</span>
+                  <span class="mt-1 block text-xs text-muted-foreground">${escapeHtml(item.requiredKind)}｜${escapeHtml(item.sequenceGroup)}</span>
+                </span>
+              </label>
+            `).join('')}
+          </div>
+          <div class="flex justify-end gap-2">
+            <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="${escapeHtml(closeHref)}">取消</button>
+            <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white">确认工作项</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  `
+}
+
+function renderOperateItemDialog(
   record: ProductionPreparationRecord,
   item: ProductionPreparationItem,
   params: URLSearchParams,
   month: string,
 ): string {
-  const uploadSubmitted = valueOf(params, 'mockCompletionUploaded') === '1'
-  const panelReviewStatus = resolveSubmittedBuyerReviewStatus(valueOf(params, 'buyerReviewStatus') || item.buyerReviewStatus || '')
+  if (valueOf(params, 'action') !== 'operate-item') return ''
+  const closeHref = buildLedgerActionHref(params, month, { recordId: record.recordId })
+  const isAccessory = item.itemType === '辅料下单'
   return `
-    <section data-pattern-upload-scope class="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
-      <input type="hidden" name="tab" value="ledger" />
-      <input type="hidden" name="month" value="${escapeHtml(month)}" />
-      ${renderLedgerFilterHiddenFields(params)}
-      <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
-      <input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />
-      <input type="hidden" name="action" value="upload" />
-      <input type="hidden" name="mockCompletionUploaded" value="1" />
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <h3 class="font-semibold">上传完成图片原型区域</h3>
-          <p class="mt-1 text-xs text-muted-foreground">已有完成图 ${item.completionImageIds?.length ?? 0} 张，花型文件 ${item.patternFileIds?.length ?? 0} 个。</p>
-        </div>
-        ${renderBadge(panelReviewStatus, statusTone(panelReviewStatus))}
-      </div>
-      <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-        <label class="flex flex-col gap-1 text-sm">
-          <span class="text-muted-foreground">图片</span>
-          <input type="file" accept="image/*" multiple class="rounded-md border bg-background px-3 py-2 text-sm" />
-        </label>
-        <label class="flex flex-col gap-1 text-sm">
-          <span class="text-muted-foreground">花型文件</span>
-          <input type="file" accept=".ai,.psd,.pdf,.png,.jpg,.jpeg" multiple class="rounded-md border bg-background px-3 py-2 text-sm" />
-        </label>
-        ${renderSelectField(
-          '买手确认状态',
-          'buyerReviewStatus',
-          ['待确认', '已通过', '需调整'],
-          panelReviewStatus,
-        )}
-      </div>
-      ${
-        uploadSubmitted
-          ? '<div class="mt-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">已模拟提交完成资料</div>'
-          : ''
-      }
-      <button type="button" class="mt-4 inline-flex h-9 items-center rounded-md bg-amber-600 px-4 text-sm text-white hover:bg-amber-700" data-nav-from-fields="[data-pattern-upload-scope]" data-nav-base="${PAGE_PATH}">提交完成资料</button>
-    </section>
+    <div class="fixed inset-0 z-50">
+      <button class="absolute inset-0 bg-black/45" data-nav="${escapeHtml(closeHref)}" aria-label="关闭"></button>
+      <section class="absolute left-1/2 top-10 w-[760px] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl bg-background p-5 shadow-2xl">
+        <h3 class="text-lg font-semibold">${escapeHtml(item.itemType)}</h3>
+        <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.spuName)}</p>
+        <form class="mt-4 space-y-4" data-prep-operate-item-form>
+          <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
+          <input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />
+          ${
+            isAccessory
+              ? `
+                <label class="block text-sm">
+                  <span class="text-muted-foreground">下单时间</span>
+                  <input type="datetime-local" name="orderedAt" class="mt-1 w-full rounded-md border px-3 py-2" required />
+                </label>
+              `
+              : ''
+          }
+          <label class="block text-sm">
+            <span class="text-muted-foreground">${isAccessory ? '下单凭证' : '上传文件'}</span>
+            <input type="file" name="files" class="mt-1 w-full rounded-md border px-3 py-2" multiple ${isAccessory ? '' : 'required'} />
+          </label>
+          <label class="block text-sm">
+            <span class="text-muted-foreground">说明</span>
+            <textarea name="note" class="mt-1 min-h-20 w-full rounded-md border px-3 py-2"></textarea>
+          </label>
+          ${renderItemUploadHistory(item)}
+          <div class="flex justify-end gap-2">
+            <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="${escapeHtml(closeHref)}">取消</button>
+            <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white">提交</button>
+          </div>
+        </form>
+      </section>
+    </div>
   `
 }
 

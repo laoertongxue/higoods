@@ -22,14 +22,6 @@ function assertHtmlIncludes(html: string, text: string, message: string): void {
   assert.ok(html.includes(text), message)
 }
 
-function markedSectionHtml(html: string, marker: string): string {
-  const start = html.indexOf(marker)
-  assert.ok(start >= 0, `HTML 缺少 ${marker}`)
-  const end = html.indexOf('</section>', start)
-  assert.ok(end > start, `${marker} section 未闭合`)
-  return html.slice(start, end)
-}
-
 function detailDrawerHtml(html: string, recordNo: string): string {
   const asideStart = html.indexOf('<aside')
   assert.ok(asideStart >= 0, '详情抽屉未找到起始标签')
@@ -580,15 +572,6 @@ const pendingOutputHtml = await renderAt('/fcs/production/preparation-timing?tab
 const pendingOutputDrawerHtml = detailDrawerHtml(pendingOutputHtml, 'PREP-202603-001')
 assertHtmlIncludes(pendingOutputDrawerHtml, '预计产出', '未全部完成记录必须只展示预计产出')
 assert.ok(!pendingOutputDrawerHtml.includes('正式产出'), '未全部完成记录不应展示正式产出')
-const dynamicReadyOutputHtml = await renderAt(
-  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordId=prep-202604-003&itemId=prep-202604-003-item-01&action=upload&mockCompletionUploaded=1&buyerReviewStatus=已通过',
-)
-const dynamicReadyOutputDrawerHtml = detailDrawerHtml(dynamicReadyOutputHtml, 'PREP-202604-003')
-assertHtmlIncludes(dynamicReadyOutputDrawerHtml, '正式产出', '动态完成最后一项后必须展示正式产出')
-assertHtmlIncludes(dynamicReadyOutputDrawerHtml, '已生成', '动态完成最后一项后产出状态必须为已生成')
-assert.ok(!dynamicReadyOutputDrawerHtml.includes('预计产出'), '动态完成最后一项后不应继续显示预计产出')
-assert.ok(!dynamicReadyOutputDrawerHtml.includes('预计TP-PO-202604-003'), '动态完成最后一项后不应保留预计技术包编号')
-assert.ok(!dynamicReadyOutputDrawerHtml.includes('预计PR-003'), '动态完成最后一项后不应保留预计印花单编号')
 
 const unselectedOptionalRecord = productionPreparationRecords.find(
   (record: { recordNo?: string }) => record.recordNo === 'PREP-202603-001',
@@ -614,18 +597,6 @@ assert.ok(
   '未选择的选填项不应进入月度完成明细',
 )
 
-const assignedLedgerHtml = await renderAt(
-  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordId=prep-202604-003&itemId=prep-202604-003-item-01&action=assign&mockAssignedDesigner=林小美',
-)
-assertHtmlIncludes(assignedLedgerHtml, '花型师：</span>林小美', '花型师模拟分配后，准备项卡片必须显示新花型师')
-const assignedDesignerHtml = await renderAt(
-  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&patternDesigner=林小美&recordId=prep-202604-003&itemId=prep-202604-003-item-01&mockAssignedDesigner=林小美',
-)
-assertHtmlIncludes(
-  assignedDesignerHtml,
-  'PREP-202604-003',
-  '花型师模拟分配后，按该花型师筛选必须能命中对应任务',
-)
 const filteredRowActionHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&patternDesigner=Diah',
 )
@@ -636,94 +607,47 @@ assertHtmlIncludes(
 )
 assertHtmlIncludes(
   filteredRowActionHtml,
-  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;patternDesigner=Diah&amp;recordId=prep-202604-003&amp;itemId=prep-202604-003-item-01#prep-items"',
-  '筛选列表行的更新准备项入口必须继承当前筛选条件',
+  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;patternDesigner=Diah&amp;recordId=prep-202604-003&amp;action=confirm-items"',
+  '筛选列表行的确认工作项入口必须继承当前筛选条件',
 )
 assertHtmlIncludes(
   filteredRowActionHtml,
-  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;patternDesigner=Diah&amp;recordId=prep-202604-003&amp;itemId=prep-202604-003-item-01&amp;action=assign"',
-  '筛选列表行的分配花型师入口必须继承当前筛选条件',
+  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;patternDesigner=Diah&amp;recordId=prep-202604-003&amp;itemId=prep-202604-003-item-01&amp;action=operate-item"',
+  '筛选列表行的操作当前卡点入口必须继承当前筛选条件',
 )
 assertHtmlIncludes(
   filteredRowActionHtml,
-  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;patternDesigner=Diah&amp;recordId=prep-202604-003&amp;itemId=prep-202604-003-item-01&amp;action=upload"',
-  '筛选列表行的上传完成图片入口必须继承当前筛选条件',
+  '确认工作项',
+  '准备台账必须展示确认工作项入口',
 )
+assertHtmlIncludes(filteredRowActionHtml, '操作当前卡点', '准备台账必须展示操作当前卡点入口')
 const filteredDetailActionHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&patternDesigner=Diah&recordId=prep-202604-003',
 )
-assertHtmlIncludes(
-  filteredDetailActionHtml,
-  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;patternDesigner=Diah&amp;recordId=prep-202604-003&amp;itemId=prep-202604-003-item-01&amp;action=assign"',
-  '详情抽屉内花型卡片的分配花型师入口必须继承当前筛选条件',
+assertHtmlIncludes(filteredDetailActionHtml, '上传记录', '详情抽屉必须展示工作项上传历史')
+assertHtmlIncludes(pendingOutputDrawerHtml, '下载记录', '基码纸样卡片必须展示下载记录')
+assert.ok(!filteredDetailActionHtml.includes('花型师分配原型区域'), '详情抽屉不应再嵌入花型师分配原型区域')
+assert.ok(!filteredDetailActionHtml.includes('上传完成图片原型区域'), '详情抽屉不应再嵌入上传完成图片原型区域')
+assert.ok(!filteredDetailActionHtml.includes('分配花型师'), '详情抽屉不应再展示分配花型师入口')
+assert.ok(!filteredDetailActionHtml.includes('上传完成图片'), '详情抽屉不应再展示上传完成图片入口')
+const confirmItemsHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&patternDesigner=Diah&recordId=prep-202604-003&action=confirm-items',
 )
-assertHtmlIncludes(
-  filteredDetailActionHtml,
-  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;patternDesigner=Diah&amp;recordId=prep-202604-003&amp;itemId=prep-202604-003-item-01&amp;action=upload"',
-  '详情抽屉内花型卡片的上传完成图片入口必须继承当前筛选条件',
+assertHtmlIncludes(confirmItemsHtml, 'data-prep-confirm-items-form', '确认工作项弹窗必须输出表单标记')
+assertHtmlIncludes(confirmItemsHtml, '确认生产准备工作项', '确认工作项弹窗必须显示标题')
+assertHtmlIncludes(confirmItemsHtml, '<input type="hidden" name="recordId" value="prep-202604-003" />', '确认工作项表单必须带 recordId')
+const operateItemHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&patternDesigner=Diah&recordId=prep-202604-003&itemId=prep-202604-003-item-01&action=operate-item',
 )
-const filteredAssignScope = markedSectionHtml(
-  await renderAt(
-    '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&patternDesigner=Diah&recordId=prep-202604-003&itemId=prep-202604-003-item-01&action=assign',
-  ),
-  'data-pattern-assign-scope',
+assertHtmlIncludes(operateItemHtml, 'data-prep-operate-item-form', '工作项操作弹窗必须输出表单标记')
+assertHtmlIncludes(operateItemHtml, '<input type="hidden" name="itemId" value="prep-202604-003-item-01" />', '工作项操作表单必须带 itemId')
+assertHtmlIncludes(operateItemHtml, '上传文件', '非辅料工作项操作弹窗必须要求上传文件')
+assertHtmlIncludes(operateItemHtml, '上传记录', '工作项操作弹窗必须展示上传历史')
+const accessoryOperateHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001&itemId=prep-202603-001-item-04&action=operate-item',
 )
-assertHtmlIncludes(
-  filteredAssignScope,
-  '<input type="hidden" name="recordStatus" value="进行中" />',
-  '确认分配提交 scope 必须保留记录状态筛选',
-)
-assertHtmlIncludes(
-  filteredAssignScope,
-  '<input type="hidden" name="patternDesigner" value="Diah" />',
-  '确认分配提交 scope 必须保留花型师筛选',
-)
-const filteredUploadScope = markedSectionHtml(
-  await renderAt(
-    '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&patternDesigner=Diah&recordId=prep-202604-003&itemId=prep-202604-003-item-01&action=upload',
-  ),
-  'data-pattern-upload-scope',
-)
-assertHtmlIncludes(
-  filteredUploadScope,
-  '<input type="hidden" name="recordStatus" value="进行中" />',
-  '提交完成资料 scope 必须保留记录状态筛选',
-)
-assertHtmlIncludes(
-  filteredUploadScope,
-  '<input type="hidden" name="patternDesigner" value="Diah" />',
-  '提交完成资料 scope 必须保留花型师筛选',
-)
-const uploadLedgerHtml = await renderAt(
-  '/fcs/production/preparation-timing?tab=ledger&recordId=prep-202603-001&itemId=prep-202603-001-item-05&action=upload&mockCompletionUploaded=1&buyerReviewStatus=待确认',
-)
-assertHtmlIncludes(uploadLedgerHtml, '已模拟提交完成资料', '上传完成图片提交后必须有页面反馈')
-assertHtmlIncludes(uploadLedgerHtml, '完成图：</span>2 张', '上传完成图片提交后必须更新完成图数量展示')
-assertHtmlIncludes(uploadLedgerHtml, '买手确认：</span>待确认', '上传完成图片提交后必须更新买手确认状态展示')
-const uploadPanelHtml = await renderAt(
-  '/fcs/production/preparation-timing?tab=ledger&recordId=prep-202604-003&itemId=prep-202604-003-item-01&action=upload',
-)
-const uploadPanelScope = markedSectionHtml(uploadPanelHtml, 'data-pattern-upload-scope')
-assertHtmlIncludes(
-  uploadPanelScope,
-  '<option value="待确认" selected>待确认</option>',
-  '上传完成图片面板默认提交状态必须是待确认',
-)
-assertHtmlIncludes(uploadPanelScope, '>待确认</span>', '上传完成图片面板状态标识默认必须是待确认')
-assert.ok(!uploadPanelScope.includes('<option value="未提交"'), '上传完成图片提交选择框不应允许未提交')
-assert.ok(!uploadPanelScope.includes('>未提交</span>'), '上传完成图片面板状态标识不应显示未提交')
-assert.ok(
-  !uploadPanelHtml.includes('买手确认：</span>未提交'),
-  '打开上传完成图片流程时，同一抽屉内花型卡片不应继续显示买手确认未提交',
-)
-const staleUploadStatusHtml = await renderAt(
-  '/fcs/production/preparation-timing?tab=ledger&recordId=prep-202604-003&itemId=prep-202604-003-item-01&action=upload&mockCompletionUploaded=1&buyerReviewStatus=未提交',
-)
-assertHtmlIncludes(
-  staleUploadStatusHtml,
-  '买手确认：</span>待确认',
-  '上传完成图片提交后即使旧参数传入未提交，也必须归一为待确认',
-)
+assertHtmlIncludes(accessoryOperateHtml, 'name="orderedAt"', '辅料下单操作弹窗必须填写下单时间')
+assertHtmlIncludes(accessoryOperateHtml, '下单凭证', '辅料下单操作弹窗必须展示下单凭证文案')
 const detailWithFiltersHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&recordId=prep-202604-001',
 )
@@ -813,11 +737,12 @@ for (const oldCall of [
 ] as const) {
   assert.ok(!pageSource.includes(oldCall), `统计卡片不得继续使用旧统计调用 ${oldCall}`)
 }
-assertIncludes(
-  'src/pages/production/preparation-timing.ts',
-  "selectedByMerchandiser: true",
-  '上传完成图片 mock 必须保留已选择状态',
-)
+assert.ok(!pageSource.includes('applyPreparationActionMocks'), '页面不得继续依赖 URL action mock')
+assert.ok(!pageSource.includes('mockCompletionUploaded'), '页面不得继续使用 mockCompletionUploaded 模拟上传')
+assert.ok(!pageSource.includes('已模拟提交完成资料'), '页面不得继续显示模拟上传文案')
+assert.ok(pageSource.includes('loadPreparationRuntimeState'), '页面必须读取 production preparation runtime')
+assert.ok(pageSource.includes('mergePreparationRuntimeRecords'), '页面必须合并 production preparation runtime')
+assert.ok(pageSource.includes('data-prep-action="download-upload"'), '页面必须输出上传文件下载 data 属性')
 
 for (const statusCode of ['PENDING', 'DONE', 'IN_PROGRESS', 'CANCELLED', 'ON_HOLD'] as const) {
   assert.ok(!ledgerHtml.includes(statusCode), `准备台账 HTML 不得包含英文状态码 ${statusCode}`)
