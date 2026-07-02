@@ -72,6 +72,14 @@ import {
   type PatchEffectivePoint,
   type ProductionPatchType,
 } from '../../data/fcs/production-tech-pack-change-domain'
+import {
+  handleProductionPreparationTimingEvent,
+  handleProductionPreparationTimingSubmit,
+} from './preparation-timing'
+
+function isProductionPreparationTimingPath(): boolean {
+  return typeof window !== 'undefined' && window.location.pathname === '/fcs/production/preparation-timing'
+}
 
 function getDefaultTechPackChangeTargetVersionId(productionOrderId: string): string {
   const relation = getProductionOrderTechPackRelation(productionOrderId)
@@ -656,6 +664,8 @@ function updateProductionField(
 }
 
 export function handleProductionEvent(target: HTMLElement): boolean {
+  if (isProductionPreparationTimingPath() && handleProductionPreparationTimingEvent(target)) return true
+
   const fieldNode = target.closest<HTMLElement>('[data-prod-field]')
   if (
     fieldNode instanceof HTMLInputElement ||
@@ -1817,7 +1827,9 @@ export function handleProductionEvent(target: HTMLElement): boolean {
   return false
 }
 
-export function handleProductionSubmit(_form: HTMLFormElement): boolean {
+export async function handleProductionSubmit(form: HTMLFormElement): Promise<boolean> {
+  if (isProductionPreparationTimingPath()) return handleProductionPreparationTimingSubmit(form)
+
   return false
 }
 

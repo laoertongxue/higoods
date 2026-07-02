@@ -1,9 +1,12 @@
 import { escapeHtml, formatDateTime } from '../../utils.ts'
 import { appStore } from '../../state/store.ts'
 import {
+  appendDownloadRecord,
+  buildUploadRecordsFromFiles,
   isBasePatternItem,
   loadPreparationRuntimeState,
   mergePreparationRuntimeRecords,
+  savePreparationRuntimeState,
 } from '../../data/fcs/production-preparation-timing-runtime.ts'
 import {
   buildMonthlyPreparationCompletionDetails,
@@ -18,6 +21,7 @@ import {
   type MonthlyPreparationStatRow,
   type PreparationItemType,
   type PreparationRecordStatus,
+  type PreparationUploadRecord,
   type ProductPrepType,
   type ProductionPreparationFilter,
   type ProductionPreparationItem,
@@ -1113,4 +1117,136 @@ export function renderProductionPreparationTimingPage(pathname?: string): string
       ${activeTab === 'stats' ? renderStatsTab(params, month) : renderLedgerTab(params, month)}
     </div>
   `
+}
+
+function currentIsoMinute(): string {
+  return new Date().toISOString().slice(0, 16)
+}
+
+function localUploadId(): string {
+  return `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function requestPreparationTimingRender(): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event('higood:request-render'))
+}
+
+function appendPreparationUploads(records: PreparationUploadRecord[]): void {
+  if (!records.length) return
+  const runtime = loadPreparationRuntimeState()
+  savePreparationRuntimeState({
+    ...runtime,
+    uploads: [...runtime.uploads, ...records],
+  })
+  requestPreparationTimingRender()
+}
+
+export async function handleProductionPreparationTimingSubmit(form: HTMLFormElement): Promise<boolean> {
+  const formData = new FormData(form)
+
+  if (form.matches('[data-prep-confirm-items-form]')) {
+    const recordId = String(formData.get('recordId') ?? '').trim()
+    if (!recordId) return true
+    const selectedItemIds = formData.getAll('itemId').map((itemId) => String(itemId).trim()).filter(Boolean)
+    const runtime = loadPreparationRuntimeState()
+    savePreparationRuntimeState({
+      ...runtime,
+      confirmedRecords: {
+        ...runtime.confirmedRecords,
+        [recordId]: {
+          confirmedBy: '当前跟单',
+          confirmedAt: currentIsoMinute(),
+          selectedItemIds,
+        },
+      },
+    })
+    return true
+  }
+
+  if (!form.matches('[data-prep-operate-item-form]')) return false
+
+  const recordId = String(formData.get('recordId') ?? '').trim()
+  const itemId = String(formData.get('itemId') ?? '').trim()
+  if (!recordId || !itemId) return true
+
+  const runtime = loadPreparationRuntimeState()
+  const record = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
+    .find((item) => item.recordId === recordId)
+  const item = record?.items.find((candidate) => candidate.itemId === itemId)
+  if (!item) return true
+
+  const fileInput = form.querySelector<HTMLInputElement>('input[type="file"][name="files"]')
+  const files = Array.from(fileInput?.files ?? [])
+  const orderedAt = String(formData.get('orderedAt') ?? '').trim()
+  const note = String(formData.get('note') ?? '').trim()
+  const orderedAtRecord: PreparationUploadRecord[] =
+    item.itemType === '辅料下单' && orderedAt
+      ? [{
+          uploadId: localUploadId(),
+          recordId,
+          itemId,
+          itemType: item.itemType,
+          fileName: '辅料下单时间',
+          fileType: 'text/plain',
+          fileSize: 0,
+          fileDataUrl: '',
+          uploadedBy: '当前用户',
+          uploadedAt: orderedAt,
+          note,
+        }]
+      : []
+
+  if (!files.length) {
+    appendPreparationUploads(orderedAtRecord)
+    return true
+  }
+
+  try {
+    const uploadRecords = await buildUploadRecordsFromFiles({
+      recordId,
+      itemId,
+      itemType: item.itemType,
+      files,
+      uploadedBy: '当前用户',
+      note,
+    })
+    appendPreparationUploads([...uploadRecords, ...orderedAtRecord])
+  } catch (error) {
+    console.error('生产准备上传失败', error)
+  }
+
+  return true
+}
+
+export function handleProductionPreparationTimingEvent(target: HTMLElement): boolean {
+  const actionNode = target.closest<HTMLElement>('[data-prep-action]')
+  if (!actionNode || actionNode.dataset.prepAction !== 'download-upload') return false
+
+  const uploadId = actionNode.dataset.uploadId
+  if (!uploadId) return true
+
+  const runtime = loadPreparationRuntimeState()
+  const upload = runtime.uploads.find((item) => item.uploadId === uploadId)
+  if (!upload) return true
+
+  savePreparationRuntimeState(appendDownloadRecord(runtime, {
+    recordId: upload.recordId,
+    itemId: upload.itemId,
+    uploadId: upload.uploadId,
+    fileName: upload.fileName,
+    downloadedBy: '当前用户',
+  }))
+
+  if (upload.fileDataUrl) {
+    const link = document.createElement('a')
+    link.href = upload.fileDataUrl
+    link.download = upload.fileName
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  }
+
+  requestPreparationTimingRender()
+  return true
 }

@@ -88,6 +88,30 @@ assertIncludes(
   'renderProductionPreparationTimingPage',
   'route-renderers.ts 缺少生产准备时效 renderer',
 )
+assertIncludes(
+  'src/pages/production/events.ts',
+  'handleProductionPreparationTimingSubmit',
+  '生产准备时效必须接入真实提交处理',
+)
+assertIncludes(
+  'src/pages/production/events.ts',
+  'handleProductionPreparationTimingEvent',
+  '生产准备时效必须接入下载处理',
+)
+assert.ok(
+  !source('src/pages/production/preparation-timing.ts').includes('void buildUploadRecordsFromFiles'),
+  '生产准备上传必须等待文件读取完成后再保存 runtime',
+)
+assertIncludes(
+  'src/data/fcs/production-preparation-timing-runtime.ts',
+  'FileReader',
+  '生产准备时效上传必须读取真实文件',
+)
+assertIncludes(
+  'src/pages/production/preparation-timing.ts',
+  'data-prep-action="download-upload"',
+  '上传文件必须有下载入口',
+)
 
 const {
   buildMonthlyPreparationCompletionDetails,
