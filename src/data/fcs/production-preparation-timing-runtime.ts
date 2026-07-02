@@ -3,6 +3,7 @@ import {
   type PreparationDownloadRecord,
   type PreparationItemType,
   type PreparationUploadRecord,
+  type ProductPrepType,
   type ProductionPreparationItem,
   type ProductionPreparationRecord,
 } from './production-preparation-timing'
@@ -12,8 +13,15 @@ export const PREPARATION_RUNTIME_STORAGE_KEY = 'higood.production-preparation.ru
 interface ConfirmedPreparationRecord {
   confirmedBy: string
   confirmedAt: string
+  confirmedProductPrepType?: ProductPrepType
+  selectedItemTypes?: PreparationItemType[]
+  overrideReason?: string
   selectedItemIds?: string[]
 }
+
+type RuntimeSelection =
+  | { overridden: false }
+  | { overridden: true; itemTypes?: Set<PreparationItemType>; itemIds?: Set<string> }
 
 export interface PreparationRuntimeState {
   confirmedRecords: Record<string, ConfirmedPreparationRecord>
@@ -64,10 +72,18 @@ export function mergePreparationRuntimeRecords(
 ): ProductionPreparationRecord[] {
   return records.map((record) => {
     const confirmation = runtime.confirmedRecords[record.recordId]
-    const items = record.items.map((item) => mergePreparationRuntimeItem(item, runtime, confirmation?.selectedItemIds))
+    const selection = resolveRuntimeSelection(confirmation)
+    const items = record.items.map((item) => mergePreparationRuntimeItem(item, runtime, selection))
     const workItemsConfirmedBy = confirmation?.confirmedBy ?? record.workItemsConfirmedBy
     const workItemsConfirmedAt = confirmation?.confirmedAt ?? record.workItemsConfirmedAt
-    const selectionOverridden = Array.isArray(confirmation?.selectedItemIds)
+    const confirmedProductPrepType = confirmation?.confirmedProductPrepType ?? record.confirmedProductPrepType
+    const prepTypeSource = confirmation?.confirmedProductPrepType
+      ? confirmation.confirmedProductPrepType === record.derivedProductPrepType ? '系统推导' : '人工修正'
+      : record.prepTypeSource
+    const prepTypeOverrideReason = confirmation?.confirmedProductPrepType
+      ? confirmation.overrideReason ?? ''
+      : record.prepTypeOverrideReason
+    const selectionOverridden = selection.overridden
     const hasRuntimeUpload = runtime.uploads.some((upload) => upload.recordId === record.recordId)
     const runtimeOutputReady = isRuntimeOutputReady(items, workItemsConfirmedBy, workItemsConfirmedAt)
     const outputReady = selectionOverridden
@@ -78,6 +94,11 @@ export function mergePreparationRuntimeRecords(
       : selectionOverridden ? '' : record.outputPublishedAt
     return {
       ...record,
+      confirmedProductPrepType,
+      prepTypeSource,
+      prepTypeConfirmedBy: confirmation?.confirmedBy ?? record.prepTypeConfirmedBy,
+      prepTypeConfirmedAt: confirmation?.confirmedAt ?? record.prepTypeConfirmedAt,
+      prepTypeOverrideReason,
       workItemsConfirmedBy,
       workItemsConfirmedAt,
       outputReady,
@@ -95,6 +116,16 @@ export function mergePreparationRuntimeRecords(
       items,
     }
   })
+}
+
+function resolveRuntimeSelection(confirmation?: ConfirmedPreparationRecord): RuntimeSelection {
+  if (Array.isArray(confirmation?.selectedItemTypes)) {
+    return { overridden: true, itemTypes: new Set(confirmation.selectedItemTypes) }
+  }
+  if (Array.isArray(confirmation?.selectedItemIds)) {
+    return { overridden: true, itemIds: new Set(confirmation.selectedItemIds) }
+  }
+  return { overridden: false }
 }
 
 function isSelectedPreparationItem(item: ProductionPreparationItem): boolean {
@@ -137,15 +168,16 @@ function latestCompletionEvidenceAt(items: ProductionPreparationItem[]): string 
 function mergePreparationRuntimeItem(
   item: ProductionPreparationItem,
   runtime: PreparationRuntimeState,
-  selectedItemIds?: string[],
+  selection: RuntimeSelection,
 ): ProductionPreparationItem {
   const uploads = runtime.uploads.filter((upload) => upload.itemId === item.itemId)
   const downloads = runtime.downloads.filter((download) => download.itemId === item.itemId)
-  const selectionOverridden = Array.isArray(selectedItemIds)
-  const selectedByMerchandiser = selectionOverridden
-    ? item.requiredKind === '必做' || selectedItemIds.includes(item.itemId)
+  const selectedByMerchandiser = selection.overridden
+    ? selection.itemTypes
+      ? selection.itemTypes.has(item.itemType)
+      : item.requiredKind === '必做' || Boolean(selection.itemIds?.has(item.itemId))
     : item.selectedByMerchandiser
-  if (!uploads.length && !downloads.length && !selectionOverridden) return item
+  if (!uploads.length && !downloads.length && !selection.overridden) return item
   const lastUpload = uploads.slice().sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))[0]
   return {
     ...item,

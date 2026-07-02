@@ -16,12 +16,14 @@ import {
   getProductionPreparationFilterOptions,
   getProductionPreparationRecord,
   preparationItemTypes,
+  preparationTypeDefaultItems,
   productionPreparationRecords,
   type MonthlyPreparationCompletionDetail,
   type MonthlyPreparationStatRow,
   type PreparationItemType,
   type PreparationRecordStatus,
   type PreparationUploadRecord,
+  type ProductPrepType,
   type ProductionPreparationFilter,
   type ProductionPreparationItem,
   type ProductionPreparationRecord,
@@ -858,6 +860,50 @@ function renderItemUploadHistory(item: ProductionPreparationItem): string {
   `
 }
 
+const PRODUCT_PREP_TYPES = Object.keys(preparationTypeDefaultItems) as ProductPrepType[]
+
+function isDefaultTypeItemChecked(
+  record: ProductionPreparationRecord,
+  blockType: ProductPrepType,
+  itemType: PreparationItemType,
+  defaultSelected: boolean,
+): boolean {
+  if (blockType !== record.confirmedProductPrepType) return defaultSelected
+  const item = record.items.find((candidate) => candidate.itemType === itemType)
+  return item?.selectedByMerchandiser ?? defaultSelected
+}
+
+function renderPreparationTypeItem(
+  record: ProductionPreparationRecord,
+  blockType: ProductPrepType,
+  templateItem: { itemType: PreparationItemType; defaultSelected: boolean; locked: boolean },
+  active: boolean,
+): string {
+  const item = record.items.find((candidate) => candidate.itemType === templateItem.itemType)
+  const checked = templateItem.locked || isDefaultTypeItemChecked(record, blockType, templateItem.itemType, templateItem.defaultSelected)
+  const disabledAttr = active ? '' : 'disabled'
+  const checkedAttr = checked ? 'checked' : ''
+  const input = templateItem.locked
+    ? `
+      <input type="hidden" name="selectedItemType" value="${escapeHtml(templateItem.itemType)}" ${disabledAttr} />
+      <input type="checkbox" value="${escapeHtml(templateItem.itemType)}" data-prep-fixed-item ${checkedAttr} ${disabledAttr} />
+    `
+    : `<input type="checkbox" name="selectedItemType" value="${escapeHtml(templateItem.itemType)}" data-prep-item-checkbox ${checkedAttr} ${disabledAttr} />`
+  const tagText = templateItem.locked ? '默认必选' : templateItem.defaultSelected ? '默认勾选，可取消' : '可选'
+  const detailText = item
+    ? `${item.requiredKind}｜${item.sequenceGroup}`
+    : '类型模板项，当前记录暂无历史节点'
+  return `
+    <label class="flex items-start gap-2 rounded-lg border p-3 text-sm">
+      ${input}
+      <span>
+        <span class="font-medium">${escapeHtml(templateItem.itemType)}</span>
+        <span class="mt-1 block text-xs text-muted-foreground">${escapeHtml(tagText)}｜${escapeHtml(detailText)}</span>
+      </span>
+    </label>
+  `
+}
+
 function renderConfirmItemsDialog(record: ProductionPreparationRecord, params: URLSearchParams, month: string): string {
   if (valueOf(params, 'action') !== 'confirm-items') return ''
   const closeHref = buildLedgerActionHref(params, month, { recordId: record.recordId })
@@ -869,18 +915,36 @@ function renderConfirmItemsDialog(record: ProductionPreparationRecord, params: U
         <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.spuName)}｜${escapeHtml(record.spuCode)}</p>
         <form class="mt-4 space-y-4" data-prep-confirm-items-form>
           <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
-          <div class="grid gap-3 md:grid-cols-2">
-            ${record.items.map((item) => `
-              <label class="flex items-start gap-2 rounded-lg border p-3 text-sm">
-                ${item.requiredKind === '必做' ? `<input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />` : ''}
-                <input type="checkbox" name="itemId" value="${escapeHtml(item.itemId)}" ${item.requiredKind === '必做' || item.selectedByMerchandiser ? 'checked' : ''} ${item.requiredKind === '必做' ? 'disabled' : ''} />
-                <span>
-                  <span class="font-medium">${escapeHtml(item.itemType)}</span>
-                  <span class="mt-1 block text-xs text-muted-foreground">${escapeHtml(item.requiredKind)}｜${escapeHtml(item.sequenceGroup)}</span>
-                </span>
-              </label>
-            `).join('')}
-          </div>
+          <section class="rounded-lg border p-4">
+            <div class="text-sm font-semibold">1. 确认商品类型</div>
+            <div class="mt-3 grid gap-2 md:grid-cols-2">
+              ${PRODUCT_PREP_TYPES.map((type) => `
+                <label class="flex items-center gap-2 rounded-lg border p-3 text-sm">
+                  <input type="radio" name="confirmedProductPrepType" data-prep-type-radio value="${escapeHtml(type)}" ${type === record.confirmedProductPrepType ? 'checked' : ''} />
+                  <span>${escapeHtml(type)}</span>
+                </label>
+              `).join('')}
+            </div>
+          </section>
+          <section class="rounded-lg border p-4">
+            <div class="text-sm font-semibold">2. 确认准备项</div>
+            <div class="mt-3 space-y-3">
+              ${PRODUCT_PREP_TYPES.map((type) => {
+                const active = type === record.confirmedProductPrepType
+                return `
+                  <div data-prep-type-block="${escapeHtml(type)}" ${active ? '' : 'hidden'}>
+                    <div class="grid gap-3 md:grid-cols-2">
+                      ${preparationTypeDefaultItems[type].map((item) => renderPreparationTypeItem(record, type, item, active)).join('')}
+                    </div>
+                  </div>
+                `
+              }).join('')}
+            </div>
+          </section>
+          <label class="block text-sm">
+            <span class="text-muted-foreground">修正原因</span>
+            <textarea name="overrideReason" class="mt-1 min-h-20 w-full rounded-md border px-3 py-2" placeholder="商品类型与系统建议不一致时填写">${escapeHtml(record.prepTypeOverrideReason)}</textarea>
+          </label>
           <div class="flex justify-end gap-2">
             <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="${escapeHtml(closeHref)}">取消</button>
             <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white">确认工作项</button>
@@ -921,7 +985,7 @@ function renderOperateItemDialog(
           }
           <label class="block text-sm">
             <span class="text-muted-foreground">${isAccessory ? '下单凭证' : '上传文件'}</span>
-            <input type="file" name="files" class="mt-1 w-full rounded-md border px-3 py-2" multiple ${isAccessory ? '' : 'required'} />
+            <input type="file" name="files" class="mt-1 w-full rounded-md border px-3 py-2" multiple required />
           </label>
           <label class="block text-sm">
             <span class="text-muted-foreground">说明</span>
@@ -1300,7 +1364,11 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
   if (form.matches('[data-prep-confirm-items-form]')) {
     const recordId = String(formData.get('recordId') ?? '').trim()
     if (!recordId) return true
-    const selectedItemIds = formData.getAll('itemId').map((itemId) => String(itemId).trim()).filter(Boolean)
+    const confirmedProductPrepType = String(formData.get('confirmedProductPrepType') ?? '').trim() as ProductPrepType
+    const selectedItemTypes = formData.getAll('selectedItemType')
+      .map((itemType) => String(itemType).trim() as PreparationItemType)
+      .filter(Boolean)
+    const overrideReason = String(formData.get('overrideReason') ?? '').trim()
     const runtime = loadPreparationRuntimeState()
     savePreparationRuntimeState({
       ...runtime,
@@ -1309,7 +1377,9 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
         [recordId]: {
           confirmedBy: '当前跟单',
           confirmedAt: currentIsoMinute(),
-          selectedItemIds,
+          confirmedProductPrepType,
+          selectedItemTypes,
+          overrideReason,
         },
       },
     })
@@ -1351,7 +1421,6 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
       : []
 
   if (!files.length) {
-    appendPreparationUploads(orderedAtRecord)
     return true
   }
 
@@ -1372,7 +1441,38 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
   return true
 }
 
+function syncPreparationTypeBlocks(typeRadio: HTMLInputElement): void {
+  if (!typeRadio.checked) return
+  const form = typeRadio.closest<HTMLFormElement>('[data-prep-confirm-items-form]')
+  if (!form) return
+  const selectedType = typeRadio.value
+  form.querySelectorAll<HTMLElement>('[data-prep-type-block]').forEach((block) => {
+    const active = block.dataset.prepTypeBlock === selectedType
+    block.hidden = !active
+    block.querySelectorAll<HTMLInputElement>('input[name="selectedItemType"], input[type="checkbox"]').forEach((input) => {
+      input.disabled = !active
+    })
+    if (active) {
+      block.querySelectorAll<HTMLInputElement>('[data-prep-fixed-item]').forEach((input) => {
+        input.checked = true
+      })
+    }
+  })
+}
+
 export function handleProductionPreparationTimingEvent(target: HTMLElement): boolean {
+  const typeRadio = target.closest<HTMLInputElement>('[data-prep-type-radio]')
+  if (typeRadio) {
+    syncPreparationTypeBlocks(typeRadio)
+    return false
+  }
+
+  const fixedItemCheckbox = target.closest<HTMLInputElement>('[data-prep-fixed-item]')
+  if (fixedItemCheckbox) {
+    fixedItemCheckbox.checked = true
+    return false
+  }
+
   const actionNode = target.closest<HTMLElement>('[data-prep-action]')
   if (!actionNode || actionNode.dataset.prepAction !== 'download-upload') return false
 
