@@ -414,11 +414,6 @@ function renderProductTypeCell(record: ProductionPreparationRecord, confirmed: b
   return `
     <div class="min-w-[170px]">
       <div class="text-sm font-medium">跟单确认：${escapeHtml(label)}</div>
-      ${
-        record.prepTypeOverrideReason
-          ? `<div class="mt-1 text-xs text-amber-700">人工修正原因：${escapeHtml(record.prepTypeOverrideReason)}</div>`
-          : ''
-      }
     </div>
   `
 }

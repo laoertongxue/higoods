@@ -655,13 +655,14 @@ const adjustedLedgerPage2Html = await renderAt('/fcs/production/preparation-timi
 assertHtmlIncludes(adjustedLedgerPage2Html, '共 6 条，第 2/2 页', '准备台账第二页必须显示分页状态')
 assertHtmlIncludes(adjustedLedgerPage2Html, 'PREP-202603-006', '准备台账第二页必须渲染第 6 条记录')
 assert.ok(!adjustedLedgerPage2Html.includes('PREP-202603-001'), '准备台账第二页 tbody 不应继续渲染第一页记录')
+const aprilLedgerHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-04')
 const aprilLedgerPage2Html = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-04&page=2')
-const combinedLedgerPagesHtml = `${adjustedLedgerHtml}\n${adjustedLedgerPage2Html}\n${aprilLedgerPage2Html}`
+const combinedLedgerPagesHtml = `${adjustedLedgerHtml}\n${adjustedLedgerPage2Html}\n${aprilLedgerHtml}\n${aprilLedgerPage2Html}`
 for (const text of ['产出', '正式版本技术包', '生产需求单', '印花需求单', '染色需求单', '辅料采购单'] as const) {
   assertHtmlIncludes(combinedLedgerPagesHtml, text, `调整后准备台账 HTML 缺少「${text}」`)
 }
-for (const text of ['产出状态', '操作当前卡点', '准备项确认：', '系统推导：', '预计产出'] as const) {
-  assert.ok(!adjustedLedgerHtml.includes(text), `调整后准备台账 HTML 不应显示「${text}」`)
+for (const text of ['产出状态', '操作当前卡点', '准备项确认：', '系统推导：', '人工修正原因：', '预计产出'] as const) {
+  assert.ok(!combinedLedgerPagesHtml.includes(text), `调整后准备台账 HTML 不应显示「${text}」`)
 }
 
 const readyOutputHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-003')
