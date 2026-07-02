@@ -1,11 +1,22 @@
+export type ProductPrepType =
+  | '非烫画&非毛织（纯梭织）'
+  | '烫画&直喷'
+  | '毛织'
+  | '毛织&梭织'
+
 export type PreparationItemType =
-  | '基码纸样'
+  | '梭织基码纸样'
+  | '毛织基码纸样'
   | '版衣制作'
-  | '齐码纸样'
-  | '花型'
-  | '染色调色'
+  | '梭织齐码纸样'
+  | '毛织齐码纸样'
+  | '数码印/DTF/DTG花型'
+  | '染色调色（纱线）'
+  | '染色调色（面料）'
   | '辅料下单'
-  | '毛织纸样'
+
+export type PreparationOutputType = '正式技术包' | '生产单' | '印花单' | '染色单' | '辅料采购单'
+export type PreparationOutputStatus = '预计生成' | '已生成'
 
 export type PreparationRecordStatus = '未开始' | '进行中' | '部分超时' | '已完成' | '已关闭'
 
@@ -24,6 +35,12 @@ export interface ProductionPreparationItem {
   recordId: string
   itemType: PreparationItemType
   required: boolean
+  requiredKind: '必做' | '选填'
+  selectedByMerchandiser: boolean
+  selectedAt: string
+  sequenceGroup: string
+  dependsOnItemIds: string[]
+  parallelGroup: string
   status: PreparationItemStatus
   ownerTeam: string
   ownerName: string
@@ -47,17 +64,37 @@ export interface ProductionPreparationItem {
   buyerReviewStatus?: '未提交' | '待确认' | '已通过' | '需调整'
 }
 
+export interface ProductionPreparationOutput {
+  outputType: PreparationOutputType
+  outputNo: string
+  outputHref: string
+  outputStatus: PreparationOutputStatus
+}
+
 export interface ProductionPreparationRecord {
   recordId: string
   recordNo: string
   spuCode: string
   spuName: string
   imageUrl: string
+  selectionName: string
   buyerName: string
   merchandiserName: string
   sourceReason: '销量达标' | '人工加入' | '前置打板' | '新类目'
+  craftTags: string[]
+  categoryTags: string[]
+  largeGoodsThresholdQty: number
+  largeGoodsReachedQty: number
+  largeGoodsReachedAt: string
+  largeGoodsReachedDays: number
   reachedThresholdAt: string
   enteredAt: string
+  derivedProductPrepType: ProductPrepType
+  confirmedProductPrepType: ProductPrepType
+  prepTypeSource: '系统推导' | '人工修正'
+  prepTypeConfirmedBy: string
+  prepTypeConfirmedAt: string
+  prepTypeOverrideReason: string
   productionDemandNo: string
   productionOrderNo: string
   productionOrderHref: string
@@ -67,6 +104,9 @@ export interface ProductionPreparationRecord {
   currentBlockerText: string
   expectedFinishAt: string
   closedReason: string
+  outputReady: boolean
+  outputPublishedAt: string
+  outputs: ProductionPreparationOutput[]
   items: ProductionPreparationItem[]
 }
 
@@ -134,13 +174,15 @@ export interface ProductionPreparationFilterOptions {
 }
 
 export const preparationItemTypes: PreparationItemType[] = [
-  '基码纸样',
+  '梭织基码纸样',
+  '毛织基码纸样',
   '版衣制作',
-  '齐码纸样',
-  '花型',
-  '染色调色',
+  '梭织齐码纸样',
+  '毛织齐码纸样',
+  '数码印/DTF/DTG花型',
+  '染色调色（纱线）',
+  '染色调色（面料）',
   '辅料下单',
-  '毛织纸样',
 ]
 
 export const preparationRecordStatuses: PreparationRecordStatus[] = [
@@ -182,11 +224,29 @@ type PreparationItemSeed = Omit<
   | 'evidenceSummary'
   | 'overdueHours'
   | 'remark'
+  | 'requiredKind'
+  | 'selectedByMerchandiser'
+  | 'selectedAt'
+  | 'sequenceGroup'
+  | 'dependsOnItemIds'
+  | 'parallelGroup'
 > &
   Partial<
     Pick<
       ProductionPreparationItem,
-      'sourceObjectType' | 'sourceObjectNo' | 'sourceHref' | 'evidenceType' | 'evidenceSummary' | 'overdueHours' | 'remark'
+      | 'sourceObjectType'
+      | 'sourceObjectNo'
+      | 'sourceHref'
+      | 'evidenceType'
+      | 'evidenceSummary'
+      | 'overdueHours'
+      | 'remark'
+      | 'requiredKind'
+      | 'selectedByMerchandiser'
+      | 'selectedAt'
+      | 'sequenceGroup'
+      | 'dependsOnItemIds'
+      | 'parallelGroup'
     >
   >
 
@@ -205,6 +265,12 @@ function createItems(recordId: string, productionOrderNo: string, seeds: Prepara
     evidenceSummary: '',
     overdueHours: 0,
     remark: '',
+    requiredKind: seed.required ? '必做' : '选填',
+    selectedByMerchandiser: seed.required,
+    selectedAt: seed.required ? seed.plannedStartAt : '',
+    sequenceGroup: 'parallel',
+    dependsOnItemIds: [],
+    parallelGroup: '准备并行',
     ...seed,
   }))
 }
@@ -1493,8 +1559,8 @@ function matchesKeyword(record: ProductionPreparationRecord, keyword: string): b
 
 function hasPatternUploadGap(item: ProductionPreparationItem): boolean {
   return (
-    item.itemType === '花型' &&
-    item.required &&
+    item.itemType === '数码印/DTF/DTG花型' &&
+    item.selectedByMerchandiser === true &&
     item.status !== '无需' &&
     (!item.completionImageIds?.length || !item.patternFileIds?.length)
   )
@@ -1508,10 +1574,13 @@ function matchesCompletionItemFilter(item: FlattenedPreparationItem, filter: Pro
 
   if (filter.itemType && filter.itemType !== '全部' && item.itemType !== filter.itemType) return false
   if (filter.ownerTeam && item.ownerTeam !== filter.ownerTeam) return false
-  if (patternDesigner && (item.itemType !== '花型' || item.patternDesignerName !== patternDesigner)) return false
+  if (patternDesigner && (item.itemType !== '数码印/DTF/DTG花型' || item.patternDesignerName !== patternDesigner)) return false
   if (filter.overdueOnly && !(item.status === '已超时' || item.overdueHours > 0)) return false
   if (filter.quickFilter === '待上传完成图' && !hasPatternUploadGap(item)) return false
-  if (filter.quickFilter === '待买手确认' && !(item.itemType === '花型' && item.buyerReviewStatus === '待确认')) {
+  if (
+    filter.quickFilter === '待买手确认' &&
+    !(item.itemType === '数码印/DTF/DTG花型' && item.buyerReviewStatus === '待确认')
+  ) {
     return false
   }
 
@@ -1544,7 +1613,7 @@ export function filterProductionPreparationRecords(
     if (filter.ownerTeam && !record.items.some((item) => item.ownerTeam === filter.ownerTeam)) return false
     if (
       patternDesigner &&
-      !record.items.some((item) => item.itemType === '花型' && item.patternDesignerName === patternDesigner)
+      !record.items.some((item) => item.itemType === '数码印/DTF/DTG花型' && item.patternDesignerName === patternDesigner)
     ) {
       return false
     }
@@ -1554,7 +1623,7 @@ export function filterProductionPreparationRecords(
     if (filter.quickFilter === '待上传完成图' && !record.items.some(hasPatternUploadGap)) return false
     if (
       filter.quickFilter === '待买手确认' &&
-      !record.items.some((item) => item.itemType === '花型' && item.buyerReviewStatus === '待确认')
+      !record.items.some((item) => item.itemType === '数码印/DTF/DTG花型' && item.buyerReviewStatus === '待确认')
     ) {
       return false
     }
@@ -1596,12 +1665,12 @@ export function buildProductionPreparationKpis(
   records: ProductionPreparationRecord[] = productionPreparationRecords,
 ): ProductionPreparationKpi[] {
   const activeRecords = records.filter((record) => record.status !== '已关闭')
-  const requiredItems = flattenProductionPreparationItems(activeRecords).filter((item) => item.required)
+  const requiredItems = flattenProductionPreparationItems(activeRecords).filter((item) => item.selectedByMerchandiser)
   const completedCount = requiredItems.filter((item) => item.status === '已完成').length
   const overdueCount = requiredItems.filter((item) => item.status === '已超时' || item.overdueHours > 0).length
   const completionRate = requiredItems.length ? Math.round((completedCount / requiredItems.length) * 100) : 0
   const pendingBuyerReviewCount = requiredItems.filter(
-    (item) => item.itemType === '花型' && item.buyerReviewStatus === '待确认',
+    (item) => item.itemType === '数码印/DTF/DTG花型' && item.buyerReviewStatus === '待确认',
   ).length
 
   return [
@@ -1614,17 +1683,17 @@ export function buildProductionPreparationKpis(
     },
     {
       key: 'required-items',
-      label: '必做准备项',
+      label: '已选准备项',
       value: requiredItems.length,
       unit: '项',
-      hint: '基码、版衣、齐码及条件必做项',
+      hint: '必做项和跟单已选择选填项',
     },
     {
       key: 'completion-rate',
       label: '完成率',
       value: completionRate,
       unit: '%',
-      hint: '已完成必做项 / 全部必做项',
+      hint: '已完成已选项 / 全部已选项',
     },
     {
       key: 'overdue-items',
@@ -1653,7 +1722,7 @@ export function buildMonthlyPreparationCompletionDetails(
       (item) =>
         matchesCompletionItemFilter(item, recordFilter) &&
         item.recordStatus !== '已关闭' &&
-        item.required === true &&
+        item.selectedByMerchandiser === true &&
         item.status === '已完成' &&
         item.actualFinishAt.startsWith(month),
     )
