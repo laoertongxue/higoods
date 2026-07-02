@@ -113,8 +113,7 @@ for (const record of productionPreparationRecords as Array<{
   outputs?: unknown[]
   items: EvidenceItem[]
 }>) {
-  const confirmed = Boolean(record.workItemsConfirmedBy && record.workItemsConfirmedAt)
-  if (!confirmed) {
+  if (!(record.workItemsConfirmedBy && record.workItemsConfirmedAt)) {
     assert.equal(selectedEvidenceItems(record).filter((item) => item.status === '已完成').length, 0, `${record.recordNo} 未确认准备项前不得有已完成项`)
     assert.equal(record.productionDemandNo || '', '', `${record.recordNo} 未确认准备项前不得有生产需求单`)
     assert.equal(record.productionOrderNo || '', '', `${record.recordNo} 未确认准备项前不得有生产单`)
@@ -150,10 +149,9 @@ const generatedOutputTypes = new Set(
     .filter(Boolean),
 )
 
-if (generatedOutputTypes.size > 0) {
-  for (const outputType of expectedOutputTypes) {
-    assert.ok(generatedOutputTypes.has(outputType), `已生成产出对象缺少「${outputType}」`)
-  }
+assert.ok(generatedOutputTypes.size > 0, '必须存在已生成产出对象')
+for (const outputType of expectedOutputTypes) {
+  assert.ok(generatedOutputTypes.has(outputType), `已生成产出对象缺少「${outputType}」`)
 }
 ```
 

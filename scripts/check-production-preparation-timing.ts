@@ -204,7 +204,7 @@ for (const record of productionPreparationRecords as Array<{
     record.imageUrl && existsSync(`public${record.imageUrl}`),
     `${record.recordNo} 商品图片不存在或缺少 imageUrl：${record.imageUrl ?? ''}`,
   )
-  if (!record.workItemsConfirmedBy && !record.workItemsConfirmedAt) {
+  if (!(record.workItemsConfirmedBy && record.workItemsConfirmedAt)) {
     assert.equal(
       selectedEvidenceItems(record).filter((item) => item.status === '已完成').length,
       0,
@@ -305,7 +305,7 @@ assert.ok(
 assert.ok(
   productionPreparationRecords.some(
     (record: { workItemsConfirmedBy?: string; workItemsConfirmedAt?: string }) =>
-      !record.workItemsConfirmedBy && !record.workItemsConfirmedAt,
+      !(record.workItemsConfirmedBy && record.workItemsConfirmedAt),
   ),
   'mock 数据必须覆盖进入列表后尚未由跟单确认工作项的记录',
 )
@@ -683,10 +683,9 @@ const generatedOutputTypes = new Set(
     .map((output) => output.outputType)
     .filter(Boolean),
 )
-if (generatedOutputTypes.size > 0) {
-  for (const outputType of expectedOutputTypes) {
-    assert.ok(generatedOutputTypes.has(outputType), `已生成产出对象缺少「${outputType}」`)
-  }
+assert.ok(generatedOutputTypes.size > 0, '必须存在已生成产出对象')
+for (const outputType of expectedOutputTypes) {
+  assert.ok(generatedOutputTypes.has(outputType), `已生成产出对象缺少「${outputType}」`)
 }
 
 const pendingOutputHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001')
@@ -739,14 +738,13 @@ assertHtmlIncludes(
 assertHtmlIncludes(
   filteredRowActionHtml,
   'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;patternDesigner=Diah&amp;recordId=prep-202604-003&amp;itemId=prep-202604-003-item-01&amp;action=operate-item"',
-  '筛选列表行的操作当前卡点入口必须继承当前筛选条件',
+  '筛选列表行的准备项操作入口必须继承当前筛选条件',
 )
 assertHtmlIncludes(
   filteredRowActionHtml,
   '确认工作项',
   '准备台账必须展示确认工作项入口',
 )
-assertHtmlIncludes(filteredRowActionHtml, '操作当前卡点', '准备台账必须展示操作当前卡点入口')
 const filteredDetailActionHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&patternDesigner=Diah&recordId=prep-202604-003',
 )
