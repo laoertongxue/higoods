@@ -1377,6 +1377,16 @@ function appendPreparationUploads(records: PreparationUploadRecord[]): void {
   requestPreparationTimingRender()
 }
 
+function closePreparationDialog(recordId: string): void {
+  const currentPathname = appStore.getState().pathname || PAGE_PATH
+  const params = new URLSearchParams(new URL(currentPathname, 'http://higoods.local').searchParams)
+  params.delete('action')
+  params.delete('itemId')
+  params.set('recordId', recordId)
+  const query = params.toString()
+  appStore.navigate(query ? `${PAGE_PATH}?${query}` : PAGE_PATH, { historyMode: 'replace' })
+}
+
 export async function handleProductionPreparationTimingSubmit(form: HTMLFormElement): Promise<boolean> {
   const formData = new FormData(form)
 
@@ -1402,6 +1412,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
         },
       },
     })
+    closePreparationDialog(recordId)
     return true
   }
 
@@ -1440,6 +1451,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
       note: [note, `面辅料采购单号：${purchaseOrderNo}`, `下单时间：${orderedAt}`].filter(Boolean).join('；'),
     }]
     appendPreparationUploads(uploadRecords)
+    closePreparationDialog(recordId)
     return true
   }
 
@@ -1461,6 +1473,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
       note: uploadNote,
     })
     appendPreparationUploads(uploadRecords)
+    closePreparationDialog(recordId)
   } catch (error) {
     console.error('生产准备上传失败', error)
   }
