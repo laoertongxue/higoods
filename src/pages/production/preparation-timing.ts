@@ -1340,10 +1340,6 @@ function currentIsoMinute(): string {
   return new Date().toISOString().slice(0, 16)
 }
 
-function localUploadId(): string {
-  return `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-}
-
 function requestPreparationTimingRender(): void {
   if (typeof window === 'undefined') return
   window.dispatchEvent(new Event('higood:request-render'))
@@ -1404,22 +1400,9 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
   const files = Array.from(fileInput?.files ?? [])
   const orderedAt = String(formData.get('orderedAt') ?? '').trim()
   const note = String(formData.get('note') ?? '').trim()
-  const orderedAtRecord: PreparationUploadRecord[] =
-    item.itemType === '辅料下单' && orderedAt
-      ? [{
-          uploadId: localUploadId(),
-          recordId,
-          itemId,
-          itemType: item.itemType,
-          fileName: '辅料下单时间',
-          fileType: 'text/plain',
-          fileSize: 0,
-          fileDataUrl: '',
-          uploadedBy: '当前用户',
-          uploadedAt: orderedAt,
-          note,
-        }]
-      : []
+  const uploadNote = item.itemType === '辅料下单' && orderedAt
+    ? [note, `辅料下单时间：${orderedAt}`].filter(Boolean).join('；')
+    : note
 
   if (!files.length) {
     return true
@@ -1432,9 +1415,9 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
       itemType: item.itemType,
       files,
       uploadedBy: '当前用户',
-      note,
+      note: uploadNote,
     })
-    appendPreparationUploads([...uploadRecords, ...orderedAtRecord])
+    appendPreparationUploads(uploadRecords)
   } catch (error) {
     console.error('生产准备上传失败', error)
   }
