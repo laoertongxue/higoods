@@ -145,6 +145,26 @@ function hasUploadEvidence(item: EvidenceItem): boolean {
   )
 }
 
+function runtimeUploadFor(
+  record: { recordId: string },
+  item: { itemId: string; itemType: string },
+  index: number,
+) {
+  return {
+    uploadId: `runtime-ready-upload-${index + 1}`,
+    recordId: record.recordId,
+    itemId: item.itemId,
+    itemType: item.itemType,
+    fileName: `runtime-ready-${index + 1}.pdf`,
+    fileType: 'application/pdf',
+    fileSize: 1024,
+    fileDataUrl: 'data:application/pdf;base64,JVBERi0xLjQ=',
+    uploadedBy: '测试用户',
+    uploadedAt: `2026-07-02T10:${String(index + 10).padStart(2, '0')}`,
+    note: 'runtime 完成证据',
+  }
+}
+
 assert.equal(isBasePatternItem('梭织基码纸样'), true, '梭织基码纸样必须记录下载')
 assert.equal(isBasePatternItem('毛织基码纸样'), true, '毛织基码纸样必须记录下载')
 assert.equal(isBasePatternItem('梭织齐码纸样'), false, '齐码纸样不属于基码下载审计')
@@ -179,6 +199,58 @@ const mergedRecords = mergePreparationRuntimeRecords(productionPreparationRecord
   downloads: [],
 })
 assert.equal(mergedRecords[0].items[0].actualFinishAt, '2026-07-02T10:30', '上传后工作项完成时间必须取上传时间')
+
+const runtimeOutputFixture = productionPreparationRecords.find(
+  (record: { recordNo?: string }) => record.recordNo === 'PREP-202603-002',
+) as
+  | {
+      recordId: string
+      recordNo: string
+      outputReady: boolean
+      outputs: unknown[]
+      items: Array<{ itemId: string; itemType: string; selectedByMerchandiser?: boolean; status: string }>
+    }
+  | undefined
+assert.ok(runtimeOutputFixture, '缺少 PREP-202603-002 runtime 产出回归 fixture')
+assert.equal(runtimeOutputFixture.outputReady, false, 'PREP-202603-002 静态必须保持未 ready')
+assert.equal(runtimeOutputFixture.outputs.length, 0, 'PREP-202603-002 静态未 ready 不得生成产出')
+const runtimeOutputItems = runtimeOutputFixture.items.filter(
+  (item) => item.selectedByMerchandiser !== false && item.status !== '无需',
+)
+const runtimeReadyUploads = runtimeOutputItems.map((item, index) =>
+  runtimeUploadFor(runtimeOutputFixture, item, index),
+)
+const runtimeReadyRecord = mergePreparationRuntimeRecords(productionPreparationRecords, {
+  ...EMPTY_PREPARATION_RUNTIME_STATE,
+  uploads: runtimeReadyUploads,
+  downloads: [],
+}).find((record: { recordNo?: string }) => record.recordNo === 'PREP-202603-002') as
+  | {
+      outputPublishedAt?: string
+      outputs?: Array<{ outputType?: string; outputGeneratedAt?: string }>
+    }
+  | undefined
+assert.ok(runtimeReadyRecord, 'runtime 合并后缺少 PREP-202603-002')
+assert.equal(runtimeReadyRecord.outputPublishedAt, '2026-07-02T10:17', 'runtime ready 产出时间必须取最晚完成证据')
+assert.ok((runtimeReadyRecord.outputs?.length ?? 0) > 0, 'runtime 证据齐全后必须生成产出对象')
+for (const outputType of ['正式版本技术包', '生产需求单', '生产单', '染色需求单', '染色加工单', '辅料采购单'] as const) {
+  assert.ok(
+    runtimeReadyRecord.outputs?.some((output) => output.outputType === outputType),
+    `runtime 证据齐全后产出缺少「${outputType}」`,
+  )
+}
+assert.ok(
+  runtimeReadyRecord.outputs?.every((output) => output.outputGeneratedAt === '2026-07-02T10:17'),
+  'runtime 证据齐全后每个产出对象必须使用最晚完成证据时间',
+)
+const runtimeMissingUploadRecord = mergePreparationRuntimeRecords(productionPreparationRecords, {
+  ...EMPTY_PREPARATION_RUNTIME_STATE,
+  uploads: runtimeReadyUploads.slice(0, -1),
+  downloads: [],
+}).find((record: { recordNo?: string }) => record.recordNo === 'PREP-202603-002') as
+  | { outputs?: unknown[] }
+  | undefined
+assert.equal(runtimeMissingUploadRecord?.outputs?.length ?? 0, 0, '缺一个 runtime 上传时不得生成产出对象')
 
 assert.ok(Array.isArray(productionPreparationRecords), 'productionPreparationRecords 必须是数组')
 assert.ok(productionPreparationRecords.length >= 12, 'productionPreparationRecords 不少于 12 条')

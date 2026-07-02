@@ -67,16 +67,23 @@ export function mergePreparationRuntimeRecords(
     const items = record.items.map((item) => mergePreparationRuntimeItem(item, runtime, confirmation?.selectedItemIds))
     const workItemsConfirmedBy = confirmation?.confirmedBy ?? record.workItemsConfirmedBy
     const workItemsConfirmedAt = confirmation?.confirmedAt ?? record.workItemsConfirmedAt
+    const hasRuntimeUpload = runtime.uploads.some((upload) => upload.recordId === record.recordId)
+    const outputReady = record.outputReady || (hasRuntimeUpload && isRuntimeOutputReady(items, workItemsConfirmedBy, workItemsConfirmedAt))
+    const outputPublishedAt = outputReady
+      ? record.outputPublishedAt || latestCompletionEvidenceAt(items)
+      : record.outputPublishedAt
     return {
       ...record,
       workItemsConfirmedBy,
       workItemsConfirmedAt,
+      outputReady,
+      outputPublishedAt,
       outputs: buildPreparationOutputs({
         recordNo: record.recordNo,
         productionDemandNo: record.productionDemandNo,
         productionOrderNo: record.productionOrderNo,
-        outputReady: record.outputReady,
-        outputPublishedAt: record.outputPublishedAt,
+        outputReady,
+        outputPublishedAt,
         workItemsConfirmedBy,
         workItemsConfirmedAt,
         items,
@@ -84,6 +91,43 @@ export function mergePreparationRuntimeRecords(
       items,
     }
   })
+}
+
+function isSelectedPreparationItem(item: ProductionPreparationItem): boolean {
+  return item.selectedByMerchandiser !== false && item.status !== '无需'
+}
+
+function hasUploadEvidence(upload: PreparationUploadRecord): boolean {
+  return Boolean(upload.fileName && upload.uploadedAt && upload.uploadedBy)
+}
+
+function hasCompletionEvidence(item: ProductionPreparationItem): boolean {
+  return Boolean(
+    item.status === '已完成' &&
+      item.actualFinishAt &&
+      item.uploads?.some(hasUploadEvidence),
+  )
+}
+
+function isRuntimeOutputReady(
+  items: ProductionPreparationItem[],
+  workItemsConfirmedBy: string,
+  workItemsConfirmedAt: string,
+): boolean {
+  if (!(workItemsConfirmedBy && workItemsConfirmedAt)) return false
+  const selectedItems = items.filter(isSelectedPreparationItem)
+  return selectedItems.length > 0 && selectedItems.every(hasCompletionEvidence)
+}
+
+function latestCompletionEvidenceAt(items: ProductionPreparationItem[]): string {
+  return items
+    .filter(isSelectedPreparationItem)
+    .flatMap((item) => [
+      item.actualFinishAt,
+      ...(item.uploads ?? []).filter(hasUploadEvidence).map((upload) => upload.uploadedAt),
+    ])
+    .filter(Boolean)
+    .sort((left, right) => right.localeCompare(left))[0] ?? ''
 }
 
 function mergePreparationRuntimeItem(
