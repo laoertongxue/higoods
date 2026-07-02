@@ -1766,8 +1766,8 @@ root.addEventListener('submit', async (event) => {
   const target = event.target
   if (!(target instanceof HTMLFormElement)) return
 
+  event.preventDefault()
   if (await dispatchPageSubmit(target)) {
-    event.preventDefault()
     await render()
   }
 })
