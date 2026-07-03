@@ -1518,7 +1518,7 @@ function renderQualityRecordListPage(): string {
         <h1 class="text-base font-bold">${escapeHtml(getQualityRecordFilterLabel(state.qualityRecordFilterView))}</h1>
         <p class="mt-1 text-[11px] leading-5 text-muted-foreground">只看质检事实和对账单引用，扣款只展示对账引用，不在 PDA 端重新计算。</p>
         <div class="mt-3">${renderQualityRecordFilterTabs()}</div>
-        <input class="mt-3 h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="质检单 / 生产单 / SKU / 来源工厂 / 返工接收对象 / 对账单" value="${escapeHtml(state.qualitySearch)}" data-pda-sett-field="quality-search" data-skip-page-rerender="true" />
+        <input class="mt-3 h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="质检单 / 生产单 / SKU / 来源工厂 / 返工接收对象 / 对账单" value="${escapeHtml(state.qualitySearch)}" data-pda-sett-field="quality-search" data-fast-page-render />
       </section>
       ${rows.length > 0 ? rows.map(renderQualityRecordCard).join('') : '<div class="rounded-lg border border-dashed bg-card px-4 py-8 text-center text-sm text-muted-foreground">当前筛选下没有质检记录</div>'}
       ${renderQualityRecordDrawer()}
