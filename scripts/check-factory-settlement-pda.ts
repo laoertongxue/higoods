@@ -70,7 +70,7 @@ const factoriesWithStatements = indonesiaFactories.filter((factory) => listSettl
 assert.ok(factoriesWithStatements.length > 0, '缺少 PDA 对账单样例')
 
 const statements = factoriesWithStatements.flatMap((factory) => listSettlementStatementsByParty(factory.id))
-assert.ok(statements.some((statement) => statement.factoryFeedbackStatus === 'WAIT_FACTORY_CONFIRM'), '缺少待确认对账单样例')
+assert.ok(statements.some((statement) => statement.factoryFeedbackStatus === 'PENDING_FACTORY_CONFIRM'), '缺少待确认对账单样例')
 assert.ok(statements.some((statement) => statement.factoryFeedbackStatus === 'FACTORY_APPEALED'), '缺少异议中对账单样例')
 assert.ok(statements.some((statement) => statement.prepaidAt || statement.paymentWritebackId || statement.status === 'PREPAID'), '缺少已付款对账单样例')
 assert.ok(statements.some((statement) => !(statement.prepaidAt || statement.paymentWritebackId || statement.status === 'PREPAID')), '缺少未付款对账单样例')

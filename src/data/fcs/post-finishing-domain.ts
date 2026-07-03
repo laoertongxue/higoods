@@ -2087,7 +2087,7 @@ let qcOrders: PostFinishingQcOrder[] = [
   buildQcOrder(2, SOURCE_CONTEXTS[0], receiptRecords[0], { status: '质检完成', passedQty: 5000, defectiveQty: 0, needPackaging: true, station: 'B' }),
   withoutWarehouseAllocations(buildQcOrder(3, SOURCE_CONTEXTS[3], receiptRecords[3], { status: '质检完成', passedQty: 360, defectiveQty: 30, needButton: true, needIroning: true, needPackaging: true, buttonAttachMode: '人工装扣', station: 'A' })),
   withoutWarehouseAllocations(buildQcOrder(4, SOURCE_CONTEXTS[3], receiptRecords[3], { status: '质检完成', passedQty: 386, defectiveQty: 4, needPackaging: true, station: 'B' })),
-  buildQcOrder(5, SOURCE_CONTEXTS[5], receiptRecords[5], { status: '质检完成', passedQty: 206, defectiveQty: 4, needButtonhole: true, needButton: true, buttonAttachMode: '机器装扣', station: 'A' }),
+  withMultiSkuDefectReasonMock(buildQcOrder(5, SOURCE_CONTEXTS[5], receiptRecords[5], { status: '质检完成', passedQty: 206, defectiveQty: 4, needButtonhole: true, needButton: true, buttonAttachMode: '机器装扣', station: 'A' })),
   withPendingDefectReasonMock(buildQcOrder(6, SOURCE_CONTEXTS[5], receiptRecords[5], { status: '质检中', passedQty: 0, defectiveQty: 0, station: 'B' })),
 ]
 
