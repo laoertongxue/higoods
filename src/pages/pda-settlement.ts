@@ -1487,7 +1487,7 @@ function renderQualityRecordDrawer(): string {
           <div class="text-xs font-semibold">${escapeHtml(item.skuCode)}</div>
           ${renderRow('颜色 / 尺码', `${item.colorName} / ${item.sizeName}`)}
           <div class="mt-1 text-[11px] leading-5 text-muted-foreground">
-            质检 ${item.inspectedQty} ${item.qtyUnit} · 合格 ${item.qualifiedQty} ${item.qtyUnit} · 返工 ${item.reworkQty} ${item.qtyUnit} · 瑕疵 ${item.defectQty} ${item.qtyUnit}
+            质检 ${item.inspectedQty} ${escapeHtml(item.qtyUnit)} · 合格 ${item.qualifiedQty} ${escapeHtml(item.qtyUnit)} · 返工 ${item.reworkQty} ${escapeHtml(item.qtyUnit)} · 瑕疵 ${item.defectQty} ${escapeHtml(item.qtyUnit)}
           </div>
           <div class="mt-1 text-[11px] leading-5 text-muted-foreground">
             返工接收对象：${escapeHtml(item.reworkReceiveFactoryName)} · 瑕疵原因：${escapeHtml(item.defectReasonSummary)}
@@ -1516,9 +1516,9 @@ function renderQualityRecordListPage(): string {
       <button class="text-xs text-muted-foreground" data-nav="${escapeHtml(buildSettlementHomeHref())}">返回结算首页</button>
       <section class="rounded-lg border bg-card px-4 py-4">
         <h1 class="text-base font-bold">${escapeHtml(getQualityRecordFilterLabel(state.qualityRecordFilterView))}</h1>
-        <p class="mt-1 text-[11px] leading-5 text-muted-foreground">只看质检事实和对账单引用，扣款信息弱展示。</p>
+        <p class="mt-1 text-[11px] leading-5 text-muted-foreground">只看质检事实和对账单引用，扣款只展示对账引用，不在 PDA 端重新计算。</p>
         <div class="mt-3">${renderQualityRecordFilterTabs()}</div>
-        <input class="mt-3 h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="质检单 / 生产单 / SKU / 来源工厂 / 返工接收对象 / 对账单" value="${escapeHtml(state.qualitySearch)}" data-pda-sett-field="quality-search" />
+        <input class="mt-3 h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="质检单 / 生产单 / SKU / 来源工厂 / 返工接收对象 / 对账单" value="${escapeHtml(state.qualitySearch)}" data-pda-sett-field="quality-search" data-skip-page-rerender="true" />
       </section>
       ${rows.length > 0 ? rows.map(renderQualityRecordCard).join('') : '<div class="rounded-lg border border-dashed bg-card px-4 py-8 text-center text-sm text-muted-foreground">当前筛选下没有质检记录</div>'}
       ${renderQualityRecordDrawer()}
@@ -1612,13 +1612,11 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
     const qcId = actionNode.dataset.qcId
     if (!qcId) return true
     state.qualityDrawerId = qcId
-    appStore.patch({})
     return true
   }
 
   if (action === 'close-quality-record-drawer') {
     state.qualityDrawerId = null
-    appStore.patch({})
     return true
   }
 
