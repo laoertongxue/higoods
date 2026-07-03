@@ -67,7 +67,6 @@ function filterTasks(tasks: PostFinishingTaskView[], filters: ReturnType<typeof 
 function renderTaskRows(tasks: PostFinishingTaskView[]): string {
   return tasks.map((task) => {
     const sourceLabel = task.sourceFactoryNames.join('、') || '待上游交出'
-    const unQcQty = Math.max(task.receivedQty - task.qcDoneQty, task.waitQcQty + task.qcInProgressQty)
     return `
       <tr class="align-top">
         <td class="px-3 py-3">
@@ -83,7 +82,7 @@ function renderTaskRows(tasks: PostFinishingTaskView[]): string {
           <div class="text-xs text-muted-foreground">${escapeHtml(task.spuCode)}</div>
         </td>
         <td class="px-3 py-3 text-sm">${formatGarmentQty(task.plannedGarmentQty, task.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(unQcQty, task.qtyUnit)}</td>
+        <td class="px-3 py-3 text-sm">${formatGarmentQty(task.waitQcQty, task.qtyUnit)}</td>
         <td class="px-3 py-3 text-sm">${formatGarmentQty(task.qcDoneQty, task.qtyUnit)}</td>
         <td class="px-3 py-3 text-sm">${formatGarmentQty(task.waitHandoverQty, task.qtyUnit)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(sourceLabel)}</td>
@@ -144,7 +143,7 @@ function renderTaskDetail(task: PostFinishingTaskView): string {
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         ${renderPostMetricCard('生产单', task.productionOrderNo, task.spuName)}
         ${renderPostMetricCard('计划数量', formatGarmentQty(task.plannedGarmentQty, task.qtyUnit), task.techPackVersionLabel)}
-        ${renderPostMetricCard('未质检数量', formatGarmentQty(Math.max(task.receivedQty - task.qcDoneQty, task.waitQcQty + task.qcInProgressQty), task.qtyUnit), `${task.qcOrderCount} 张质检单`)}
+        ${renderPostMetricCard('待质检数量', formatGarmentQty(task.waitQcQty, task.qtyUnit), `${task.qcOrderCount} 张质检单`)}
         ${renderPostMetricCard('待交出数量', formatGarmentQty(task.waitHandoverQty, task.qtyUnit), `${task.recheckOrderCount} 张复检单`)}
       </div>
       <div class="flex flex-wrap gap-2">
@@ -172,7 +171,7 @@ export function renderPostFinishingTasksPage(): string {
   const selectedTaskId = currentParams().get('taskId') || ''
   const selectedTask = selectedTaskId ? getPostFinishingTaskById(selectedTaskId) : undefined
   const totalPlannedQty = tasks.reduce((sum, task) => sum + task.plannedGarmentQty, 0)
-  const totalWaitQcQty = tasks.reduce((sum, task) => sum + task.waitQcQty + task.qcInProgressQty, 0)
+  const totalWaitQcQty = tasks.reduce((sum, task) => sum + task.waitQcQty, 0)
   const totalWaitHandoverQty = tasks.reduce((sum, task) => sum + task.waitHandoverQty, 0)
   const rows = renderTaskRows(pagination.rows)
   return `
@@ -181,7 +180,7 @@ export function renderPostFinishingTasksPage(): string {
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         ${renderPostMetricCard('后道任务', String(tasks.length), '生产单级主线')}
         ${renderPostMetricCard('计划数量', formatGarmentQty(totalPlannedQty), '全部生产单')}
-        ${renderPostMetricCard('未质检数量', formatGarmentQty(totalWaitQcQty), '待质检与质检中')}
+        ${renderPostMetricCard('待质检数量', formatGarmentQty(totalWaitQcQty), '可创建质检单')}
         ${renderPostMetricCard('待交出数量', formatGarmentQty(totalWaitHandoverQty), '复检完成待交出')}
       </div>
       ${renderPostFilterPanel({
@@ -192,7 +191,7 @@ export function renderPostFinishingTasksPage(): string {
         keywordPlaceholder: '后道任务 / 生产单 / 款式 / 技术包版本',
       })}
       ${renderPostSection('后道任务列表', `${renderPostTable(
-        ['后道任务', `${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 技术包`, '款式衣服', '计划数量', '未质检', '已质检', '待交出', '上游来源', '操作'],
+        ['后道任务', `${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 技术包`, '款式衣服', '计划数量', '待质检数量', '已质检数量', '待交出', '上游来源', '操作'],
         rows || '<tr><td colspan="9" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无后道任务</td></tr>',
         'min-w-[1280px]',
       )}<div class="mt-4">${renderPostPagination(pagination)}</div>`)}

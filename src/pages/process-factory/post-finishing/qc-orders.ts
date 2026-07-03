@@ -8,7 +8,9 @@ import {
   listPostFinishingQcOrderEntities,
   listPostFinishingQcOrders,
   listPostFinishingWaitQcSkuItems,
+  submitPostFinishingPdaQcResult,
   type PostFinishingActionRecord,
+  type PostFinishingQcOrder,
   type PostFinishingQcPostProjectJudgement,
   type PostFinishingQcSkuResult,
   type PostFinishingWaitQcSkuItem,
@@ -53,7 +55,7 @@ function linkWith(overrides: Record<string, string | undefined>): string {
 }
 
 function closeDialogLink(): string {
-  return linkWith({ createQc: undefined, completeQc: undefined, viewQc: undefined })
+  return linkWith({ createQc: undefined, completeQc: undefined, viewQc: undefined, inputQc: undefined, qcProductionOrderNo: undefined })
 }
 
 function navigateInPrototype(url: string): void {
@@ -62,6 +64,14 @@ function navigateInPrototype(url: string): void {
 
 function isCreateDialogOpen(): boolean {
   return Boolean(currentParams().get('createQc'))
+}
+
+function isQuickInputDialogOpen(): boolean {
+  return Boolean(currentParams().get('inputQc'))
+}
+
+function getQuickProductionOrderNo(): string {
+  return currentParams().get('qcProductionOrderNo') || ''
 }
 
 function getCompleteId(): string {
@@ -242,12 +252,185 @@ function renderQcFilterPanel(options: {
   `
 }
 
+function collectQuickQcInput(): { allocations: Array<{ warehouseRecordId: string; qcQty: number }>; resultsBySkuId: Map<string, Omit<PostFinishingQcSkuResult, 'qcSkuResultId' | 'skuLineId'>>; invalidMessage: string } {
+  let invalidMessage = ''
+  const allocations: Array<{ warehouseRecordId: string; qcQty: number }> = []
+  const resultsBySkuId = new Map<string, Omit<PostFinishingQcSkuResult, 'qcSkuResultId' | 'skuLineId'>>()
+  Array.from(document.querySelectorAll<HTMLElement>('[data-qc-quick-source-row]')).forEach((row) => {
+    const numberOf = (selector: string) => Number((row.querySelector(selector) as HTMLInputElement | null)?.value || 0)
+    const inspectedQty = numberOf('[data-qc-quick-inspected]')
+    if (inspectedQty <= 0) return
+    const waitQty = Number(row.dataset.waitQcQty || 0)
+    const qualifiedQty = numberOf('[data-qc-quick-qualified]')
+    const reworkQty = numberOf('[data-qc-quick-rework]')
+    const defectAcceptedQty = numberOf('[data-qc-quick-defect]')
+    if (!invalidMessage && inspectedQty > waitQty) invalidMessage = `${row.dataset.skuCode || 'SKU'} 的送检数量不能超过待质检数量`
+    if (!invalidMessage && qualifiedQty > inspectedQty) invalidMessage = `${row.dataset.skuCode || 'SKU'} 的合格数量不能大于送检数量`
+    if (!invalidMessage && inspectedQty !== qualifiedQty + reworkQty + defectAcceptedQty) invalidMessage = `${row.dataset.skuCode || 'SKU'} 的送检数量必须等于合格数量、返工数量、瑕疵数量之和`
+    const postProjectJudgements: PostFinishingQcPostProjectJudgement[] = Array.from(row.querySelectorAll<HTMLInputElement>('[data-qc-quick-post-project]')).map((checkbox) => ({
+      projectName: checkbox.value as PostFinishingQcPostProjectJudgement['projectName'],
+      needed: checkbox.checked,
+      qty: checkbox.checked ? qualifiedQty : 0,
+      buttonAttachMode: checkbox.value === '装扣子' && checkbox.checked
+        ? row.querySelector<HTMLInputElement>('[data-qc-quick-button-mode]:checked')?.value as PostFinishingQcPostProjectJudgement['buttonAttachMode'] | undefined
+        : undefined,
+    }))
+    const needsButtonMode = postProjectJudgements.some((item) => item.projectName === '装扣子' && item.needed)
+    if (!invalidMessage && needsButtonMode && !postProjectJudgements.find((item) => item.projectName === '装扣子')?.buttonAttachMode) {
+      invalidMessage = `${row.dataset.skuCode || 'SKU'} 选择装扣子时必须选择人工装扣或机器装扣`
+    }
+    const reworkFactory = row.querySelector<HTMLSelectElement>('[data-qc-sku-rework-factory]')?.selectedOptions[0]
+    const reworkReceiveFactoryId = reworkQty > 0 ? reworkFactory?.dataset.factoryId || undefined : undefined
+    const reworkReceiveFactoryName = reworkQty > 0 ? reworkFactory?.dataset.factoryName || row.dataset.sourceFactoryName || undefined : undefined
+    const isExternalRework = reworkQty > 0 && reworkFactory?.value !== 'source'
+    const reworkDeductionUnitAmountIdr = isExternalRework ? Math.max(numberOf('[data-qc-rework-deduction-unit-amount]') || 0, 0) : 0
+    const reworkDeductionAmountIdr = Math.round(reworkQty * reworkDeductionUnitAmountIdr)
+    const sourceChargeback = reworkDeductionAmountIdr > 0
+      ? {
+          currency: 'IDR' as const,
+          unitAmount: reworkDeductionUnitAmountIdr,
+          amount: reworkDeductionAmountIdr,
+          reason: '后道工厂接收返工' as const,
+        }
+      : undefined
+    const defectReasonItems = Array.from(row.querySelectorAll<HTMLInputElement>('[data-qc-defect-reason]'))
+      .map((input, reasonIndex) => ({
+        reasonItemId: `${row.dataset.skuId || 'QC'}-QUICK-REASON-${reasonIndex + 1}`,
+        reasonName: input.dataset.reasonName || '',
+        qty: Number(input.value || 0),
+        liabilityType: '工厂' as const,
+        responsibleFactoryId: row.dataset.sourceFactoryId || undefined,
+        responsibleFactoryName: row.dataset.sourceFactoryName || undefined,
+      }))
+      .filter((item) => item.reasonName && item.qty > 0)
+    const reasonQty = defectReasonItems.reduce((sum, item) => sum + item.qty, 0)
+    if (!invalidMessage && defectAcceptedQty > 0 && reasonQty !== defectAcceptedQty) {
+      invalidMessage = `${row.dataset.skuCode || 'SKU'} 的瑕疵原因合计必须等于瑕疵数量`
+    }
+    allocations.push({ warehouseRecordId: row.dataset.warehouseRecordId || '', qcQty: inspectedQty })
+    resultsBySkuId.set(row.dataset.skuId || '', {
+      skuId: row.dataset.skuId || '',
+      skuCode: row.dataset.skuCode || '',
+      skuImageUrl: row.dataset.skuImageUrl || undefined,
+      colorName: row.dataset.colorName || '',
+      sizeName: row.dataset.sizeName || '',
+      inspectedQty,
+      qualifiedQty,
+      unqualifiedQty: reworkQty + defectAcceptedQty,
+      reworkQty,
+      defectAcceptedQty,
+      platformReasonQty: 0,
+      factoryReasonQty: reworkQty + defectAcceptedQty,
+      responsibleFactoryId: reworkQty + defectAcceptedQty > 0 ? row.dataset.sourceFactoryId : undefined,
+      responsibleFactoryName: reworkQty + defectAcceptedQty > 0 ? row.dataset.sourceFactoryName : undefined,
+      reworkReceiveFactoryId,
+      reworkReceiveFactoryName,
+      reworkDeductionUnitAmountIdr,
+      reworkDeductionAmountIdr,
+      sourceChargeback,
+      defectReasonItems,
+      postProjectJudgements,
+      qtyUnit: row.dataset.qtyUnit || '件',
+    })
+  })
+  if (!invalidMessage && !allocations.length) invalidMessage = '请至少填写一个 SKU 的送检数量。'
+  return { allocations: allocations.filter((item) => item.warehouseRecordId), resultsBySkuId, invalidMessage }
+}
+
+function buildQuickQcResults(created: PostFinishingQcOrder, resultsBySkuId: Map<string, Omit<PostFinishingQcSkuResult, 'qcSkuResultId' | 'skuLineId'>>): PostFinishingQcSkuResult[] {
+  return created.skuLines.map((line, index) => {
+    const result = resultsBySkuId.get(line.skuId)
+    return {
+      qcSkuResultId: `${created.qcOrderId}-QUICK-${index + 1}`,
+      skuLineId: line.skuLineId,
+      skuId: line.skuId,
+      skuCode: line.skuCode,
+      skuImageUrl: line.imageUrl,
+      colorName: line.colorName,
+      sizeName: line.sizeName,
+      inspectedQty: result?.inspectedQty ?? line.plannedQty,
+      qualifiedQty: result?.qualifiedQty ?? line.plannedQty,
+      unqualifiedQty: result?.unqualifiedQty ?? 0,
+      reworkQty: result?.reworkQty ?? 0,
+      defectAcceptedQty: result?.defectAcceptedQty ?? 0,
+      platformReasonQty: 0,
+      factoryReasonQty: result?.factoryReasonQty ?? 0,
+      responsibleFactoryId: result?.responsibleFactoryId,
+      responsibleFactoryName: result?.responsibleFactoryName,
+      reworkReceiveFactoryId: result?.reworkReceiveFactoryId,
+      reworkReceiveFactoryName: result?.reworkReceiveFactoryName,
+      reworkDeductionUnitAmountIdr: result?.reworkDeductionUnitAmountIdr,
+      reworkDeductionAmountIdr: result?.reworkDeductionAmountIdr,
+      sourceChargeback: result?.sourceChargeback,
+      defectReasonItems: result?.defectReasonItems ?? [],
+      postProjectJudgements: result?.postProjectJudgements ?? [],
+      qtyUnit: line.qtyUnit,
+    }
+  })
+}
+
+function navigateAfterQcSubmit(qc: PostFinishingQcOrder): void {
+  if (qc.qcStatus !== '质检完成') {
+    navigateInPrototype('/fcs/craft/post-finishing/qc-orders?tab=qc&pendingDefectReason=required')
+    return
+  }
+  if (qc.generatedPostOrderId) {
+    navigateInPrototype(`/fcs/craft/post-finishing/work-orders?keyword=${encodeURIComponent(qc.generatedPostOrderId)}`)
+    return
+  }
+  if (qc.generatedRecheckOrderId) {
+    navigateInPrototype(`/fcs/craft/post-finishing/recheck-orders?keyword=${encodeURIComponent(qc.generatedRecheckOrderId)}`)
+    return
+  }
+  navigateInPrototype('/fcs/craft/post-finishing/qc-orders?tab=qc&status=质检完成')
+}
+
 function registerQcPageActions(): void {
   if (typeof window === 'undefined') return
   const win = window as Window & {
     __postCreateQcOrder?: () => void
+    __postQuickInputQcPreview?: () => void
+    __postQuickInputQcOrder?: () => void
     __postCompleteQcOrder?: (qcOrderId: string) => void
     __syncQcCompleteForm?: () => void
+    __syncQuickQcInput?: () => void
+  }
+  win.__postQuickInputQcPreview = () => {
+    const productionOrderNo = (document.querySelector('[data-qc-production-order-no]') as HTMLInputElement | null)?.value || ''
+    const nextUrl = linkWith({
+      inputQc: '1',
+      qcProductionOrderNo: productionOrderNo,
+      createQc: undefined,
+      completeQc: undefined,
+      viewQc: undefined,
+    })
+    const preview = document.querySelector<HTMLElement>('[data-qc-quick-preview]')
+    if (preview) preview.innerHTML = renderQuickInputQcPreview(productionOrderNo)
+    const submit = document.querySelector<HTMLButtonElement>('[data-qc-quick-submit]')
+    if (submit) submit.disabled = !resolveQuickInputWaitItems(productionOrderNo).length
+    window.history.pushState({}, '', nextUrl)
+  }
+  win.__postQuickInputQcOrder = () => {
+    const station = (
+      document.querySelector('[data-qc-quick-station]') as HTMLSelectElement | null
+      || document.querySelector('[data-qc-create-station]') as HTMLSelectElement | null
+    )?.value || '后道质检台 A'
+    const { allocations, resultsBySkuId, invalidMessage } = collectQuickQcInput()
+    if (invalidMessage) {
+      window.alert(invalidMessage)
+      return
+    }
+    try {
+      const created = createPostFinishingQcOrder({ allocations, qcStationName: station, inspectorName: '后道质检员' })
+      const qcSkuResults = buildQuickQcResults(created, resultsBySkuId)
+      const hasDefectAcceptedQty = qcSkuResults.some((item) => item.defectAcceptedQty > 0)
+      const submitted = hasDefectAcceptedQty
+        ? submitPostFinishingPdaQcResult({ qcOrderId: created.qcOrderId, qcStationName: station, inspectorName: '后道质检员', qcSkuResults })
+        : completePostFinishingQcOrder({ qcOrderId: created.qcOrderId, qcStationName: station, inspectorName: '后道质检员', qcSkuResults })
+      navigateAfterQcSubmit(submitted)
+    } catch (error) {
+      window.alert(String(error).replace(/^Error:\s*/, '') || '录入质检数据失败。')
+    }
   }
   win.__postCreateQcOrder = () => {
     const postTaskId = getCurrentPostTaskId() || undefined
@@ -432,6 +615,29 @@ function registerQcPageActions(): void {
       })
     })
   }
+  win.__syncQuickQcInput = () => {
+    document.querySelectorAll<HTMLElement>('[data-qc-quick-source-row]').forEach((row) => {
+      const button = row.querySelector<HTMLInputElement>('[data-qc-quick-post-project][value="装扣子"]')
+      const buttonhole = row.querySelector<HTMLInputElement>('[data-qc-quick-post-project][value="开扣眼"]')
+      const forceIroningAndPackaging = Boolean(button?.checked || buttonhole?.checked)
+      row.querySelectorAll<HTMLInputElement>('[data-qc-quick-post-project-lockable]').forEach((checkbox) => {
+        checkbox.checked = forceIroningAndPackaging || checkbox.checked
+        checkbox.disabled = forceIroningAndPackaging
+      })
+      row.querySelectorAll<HTMLInputElement>('[data-qc-quick-button-mode]').forEach((radio) => {
+        radio.disabled = !button?.checked
+        if (!button?.checked) radio.checked = false
+      })
+      const reworkQty = Number(row.querySelector<HTMLInputElement>('[data-qc-quick-rework]')?.value || 0)
+      const reworkFactory = row.querySelector<HTMLSelectElement>('[data-qc-sku-rework-factory]')
+      const deductionUnitAmount = row.querySelector<HTMLInputElement>('[data-qc-rework-deduction-unit-amount]')
+      if (deductionUnitAmount) {
+        const disabled = reworkQty <= 0 || reworkFactory?.value === 'source'
+        deductionUnitAmount.disabled = disabled
+        if (disabled) deductionUnitAmount.value = ''
+      }
+    })
+  }
 }
 
 function renderPageHeader(): string {
@@ -440,7 +646,7 @@ function renderPageHeader(): string {
     task
       ? `<button type="button" class="rounded-md border px-3 py-2 text-sm font-medium hover:bg-slate-50" data-nav="${escapeHtml(buildUnifiedPrintPreviewLink({ documentType: 'PRODUCTION_QC_MASTER', sourceType: 'POST_FINISHING_TASK', sourceId: task.postTaskId }))}">打印生产单质检总单</button>`
       : '',
-    `<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-nav="${escapeHtml(linkWith({ createQc: '1', completeQc: undefined, viewQc: undefined }))}">创建质检单</button>`,
+    `<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-nav="${escapeHtml(linkWith({ inputQc: '1', createQc: undefined, completeQc: undefined, viewQc: undefined }))}">创建质检单</button>`,
   ].filter(Boolean).join('')
   const header = renderPostFinishingPageHeader(
     '质检单',
@@ -474,31 +680,169 @@ function renderModal(title: string, body: string): string {
   `
 }
 
+function renderQuickQcSkuRow(item: PostFinishingWaitQcSkuItem, index: number, checked = false): string {
+  const locationLabel = item.locationCode ? `${item.areaName || '未分区'} / ${item.locationCode}` : item.areaName || '未分区'
+  const targetFactoryName = getPostFinishingTaskById(item.postTaskId)?.managedPostFactoryName || '当前后道工厂'
+  const reasonInputs = POST_FINISHING_QC_DEFECT_REASONS.map((reason) => `
+    <label class="grid min-w-0 grid-cols-[72px_minmax(0,1fr)] items-center gap-2 text-xs">
+      <span class="text-muted-foreground">${escapeHtml(reason)}</span>
+      <input class="h-8 min-w-0 rounded-md border px-2 text-sm" type="number" min="0" step="1" data-qc-defect-reason data-reason-name="${escapeHtml(reason)}" />
+    </label>
+  `).join('')
+  return `
+    <article
+      data-qc-quick-source-row
+      data-warehouse-record-id="${escapeHtml(item.warehouseRecordId)}"
+      data-wait-qc-qty="${item.waitQcQty}"
+      data-sku-id="${escapeHtml(item.skuId)}"
+      data-sku-code="${escapeHtml(item.skuCode)}"
+      data-sku-image-url="${escapeHtml(item.skuImageUrl || '')}"
+      data-color-name="${escapeHtml(item.colorName)}"
+      data-size-name="${escapeHtml(item.sizeName)}"
+      data-source-factory-id=""
+      data-source-factory-name="${escapeHtml(item.sourceFactoryName)}"
+      data-qty-unit="${escapeHtml(item.qtyUnit)}"
+      class="space-y-4 rounded-xl border bg-white p-4 ${checked ? 'ring-1 ring-blue-200' : ''}"
+    >
+      <div class="flex min-w-0 gap-3">
+        <img class="h-14 w-14 rounded-lg border object-cover" src="${escapeHtml(item.skuImageUrl || 'https://placehold.co/96x96?text=SKU')}" alt="${escapeHtml(item.skuCode)}" />
+        <div class="min-w-0 flex-1">
+          <div class="text-xs text-muted-foreground">商品图片</div>
+          <div class="mt-1 text-sm font-semibold">${escapeHtml(item.skuCode)}</div>
+          <div class="text-xs text-muted-foreground">${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${renderProductionOrderIdentityCell(item.productionOrderNo)} / ${escapeHtml(item.sourceTaskNo)}</div>
+        </div>
+        <div class="text-right text-xs text-muted-foreground">
+          <div>${escapeHtml(item.sourceFactoryName)}</div>
+          <div>${escapeHtml(locationLabel)}</div>
+        </div>
+      </div>
+      <div class="space-y-3 rounded-lg bg-slate-50 p-3">
+        <div class="text-xs font-medium text-muted-foreground">质检与返工</div>
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">送检数量</span><input class="h-9 w-full rounded-md border px-2 text-sm" data-qc-quick-inspected type="number" min="0" max="${item.waitQcQty}" value="${item.waitQcQty}" /></label>
+          <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">合格数量</span><input class="h-9 w-full rounded-md border px-2 text-sm" data-qc-quick-qualified type="number" min="0" value="${item.waitQcQty}" /></label>
+          <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">返工数量</span><input class="h-9 w-full rounded-md border px-2 text-sm" data-qc-quick-rework type="number" min="0" value="" oninput="window.__syncQuickQcInput()" /></label>
+          <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">返工接收工厂</span><select class="h-9 w-full rounded-md border px-2 text-sm" data-qc-sku-rework-factory onchange="window.__syncQuickQcInput()">
+            <option value="source" data-factory-id="" data-factory-name="${escapeHtml(item.sourceFactoryName)}">原工厂（${escapeHtml(item.sourceFactoryName)}）</option>
+            <option value="post" data-factory-id="" data-factory-name="${escapeHtml(targetFactoryName)}">当前后道工厂（${escapeHtml(targetFactoryName)}）</option>
+          </select></label>
+          <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">返工扣款单价（IDR）</span><input class="h-9 w-full rounded-md border px-2 text-sm" data-qc-rework-deduction-unit-amount type="number" min="0" step="1" value="" /></label>
+        </div>
+        <p class="text-xs text-muted-foreground">返工接收工厂不是原工厂时填写返工扣款；对账单确认后才影响本期应付。</p>
+      </div>
+      <div class="space-y-3 rounded-lg bg-slate-50 p-3">
+        <div class="text-xs font-medium text-muted-foreground">瑕疵与后道</div>
+        <div class="grid gap-4 lg:grid-cols-[160px_minmax(0,1fr)_260px]">
+          <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">瑕疵数量</span><input class="h-9 w-full rounded-md border px-2 text-sm" data-qc-quick-defect type="number" min="0" value="" /></label>
+          <div class="min-w-0 space-y-1">
+            <div class="text-xs text-muted-foreground">瑕疵原因</div>
+            <div class="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3">${reasonInputs}</div>
+          </div>
+          <div class="space-y-1">
+            <div class="text-xs text-muted-foreground">后道项目</div>
+            <div class="grid gap-2 sm:grid-cols-2">
+              ${QC_POST_PROJECTS.map((project) => {
+                const lockable = project === '熨烫' || project === '包装'
+                return `<label class="flex items-center gap-2 rounded-md border bg-white px-2 py-1.5 text-xs">
+                  <input type="checkbox" data-qc-quick-post-project ${lockable ? 'data-qc-quick-post-project-lockable="1"' : ''} value="${escapeHtml(project)}" onchange="window.__syncQuickQcInput()" />
+                  <span>${escapeHtml(project)}</span>
+                </label>`
+              }).join('')}
+              <div class="col-span-full grid gap-2 rounded-md border bg-white p-2 text-xs sm:grid-cols-2">
+                <label class="flex items-center gap-2"><input type="radio" name="quick-button-mode-${escapeHtml(item.waitQcSkuKey)}-${index}" value="人工装扣" data-qc-quick-button-mode disabled /><span>人工装扣</span></label>
+                <label class="flex items-center gap-2"><input type="radio" name="quick-button-mode-${escapeHtml(item.waitQcSkuKey)}-${index}" value="机器装扣" data-qc-quick-button-mode disabled /><span>机器装扣</span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+  `
+}
+
+function resolveQuickInputWaitItems(productionOrderNo: string): PostFinishingWaitQcSkuItem[] {
+  const matchedWaitItems = productionOrderNo ? listPostFinishingWaitQcSkuItems({ productionOrderNo }).filter((item) => item.waitQcQty > 0) : []
+  return productionOrderNo
+    ? matchedWaitItems.length ? matchedWaitItems : listPostFinishingWaitQcSkuItems().filter((item) => item.waitQcQty > 0)
+    : []
+}
+
+function renderQuickInputQcPreview(productionOrderNo: string): string {
+  const waitItems = resolveQuickInputWaitItems(productionOrderNo)
+  const grouped = waitItems.reduce((map, item) => {
+    const key = `${item.productionOrderNo}__${item.spuId}`
+    const rows = map.get(key) || []
+    rows.push(item)
+    map.set(key, rows)
+    return map
+  }, new Map<string, PostFinishingWaitQcSkuItem[]>())
+  const firstTask = getPostFinishingTaskById(waitItems[0]?.postTaskId || '')
+  const summary = waitItems.length
+    ? `<div class="grid gap-3 md:grid-cols-5">
+        ${renderReadonlyField('生产单号', productionOrderNo)}
+        ${renderReadonlyField('待质检 SKU', `${waitItems.length} 个`)}
+        ${renderReadonlyField('待质检数量', formatGarmentQty(waitItems.reduce((sum, item) => sum + item.waitQcQty, 0), waitItems[0]?.qtyUnit || '件'))}
+        ${renderReadonlyField('生产时间', firstTask?.createdAt || '—')}
+        ${renderReadonlyField('后道工厂', firstTask?.managedPostFactoryName || '当前后道工厂')}
+      </div>`
+    : ''
+  const groups = Array.from(grouped.values()).map((items) => {
+    const first = items[0]
+    const task = getPostFinishingTaskById(first.postTaskId)
+    const rows = items.map((item, index) => renderQuickQcSkuRow(item, index)).join('')
+    return `
+      <section class="space-y-3 rounded-xl border bg-slate-50 p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div class="text-sm font-semibold">${escapeHtml(first.spuName)}</div>
+            <div class="text-xs text-muted-foreground">${escapeHtml(first.spuCode)} / 质检总单 ${renderQcMasterOrderCode(first.postTaskNo || first.postTaskId, first.productionOrderNo, first.postTaskNo || first.postTaskId)}</div>
+          </div>
+          <div class="text-xs text-muted-foreground">${escapeHtml(task?.managedPostFactoryName || '当前后道工厂')} / 来源 ${escapeHtml(first.sourceFactoryName)}</div>
+        </div>
+        <div class="space-y-3">${rows}</div>
+      </section>
+    `
+  }).join('')
+  return `
+    ${summary}
+    ${groups || (!productionOrderNo ? '<div class="rounded-xl border bg-slate-50 px-4 py-8 text-center text-sm text-muted-foreground">输入生产单号后展示待质检 SKU</div>' : '')}
+  `
+}
+
+function renderQuickInputQcDialog(): string {
+  if (!isQuickInputDialogOpen()) return ''
+  const productionOrderNo = getQuickProductionOrderNo()
+  const waitItems = resolveQuickInputWaitItems(productionOrderNo)
+  return renderModal('创建质检单', `
+    <div data-qc-quick-input-dialog class="space-y-4">
+      <div class="grid items-end gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+        <input type="hidden" name="inputQc" value="1" />
+        <label class="space-y-1 text-sm">
+          <span class="text-xs text-muted-foreground">生产单号</span>
+          <input class="h-10 w-full rounded-md border px-3 text-sm" data-qc-production-order-no name="qcProductionOrderNo" value="${escapeHtml(productionOrderNo)}" placeholder="输入生产单号" />
+        </label>
+        <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" onclick="window.__postQuickInputQcPreview()">查看</button>
+        <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-slate-50" data-nav="${escapeHtml(linkWith({ inputQc: '1', qcProductionOrderNo: undefined }))}">重置</button>
+      </div>
+      <div data-qc-quick-preview class="space-y-4">${renderQuickInputQcPreview(productionOrderNo)}</div>
+      <div class="flex justify-end gap-2">
+        <button class="rounded-md border px-3 py-2 text-sm" data-nav="${escapeHtml(closeDialogLink())}">取消</button>
+        <button data-qc-quick-submit class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" ${waitItems.length ? 'onclick="window.__postQuickInputQcOrder()"' : 'disabled'}>确认完成质检</button>
+      </div>
+    </div>
+  `)
+}
+
 function renderCreateQcDialog(): string {
   if (!isCreateDialogOpen()) return ''
   const postTaskId = getCurrentPostTaskId() || undefined
   const waitItems = listPostFinishingWaitQcSkuItems({ postTaskId }).filter((item) => item.waitQcQty > 0)
   const task = postTaskId ? getPostFinishingTaskById(postTaskId) : undefined
   const selectedKey = currentParams().get('createQc') || ''
-  const rows = waitItems.map((item) => {
+  const rows = waitItems.map((item, index) => {
     const checked = item.waitQcSkuKey === selectedKey || item.warehouseRecordId === selectedKey
-    const locationLabel = item.locationCode ? `${item.areaName || '未分区'} / ${item.locationCode}` : item.areaName || '未分区'
-    return `
-      <tr data-qc-source-row data-warehouse-record-id="${escapeHtml(item.warehouseRecordId)}" class="align-top ${checked ? 'bg-blue-50/60' : ''}">
-        <td class="px-3 py-3"><input type="checkbox" data-qc-source-check ${checked ? 'checked' : ''} /></td>
-        <td class="px-3 py-3">
-          <img class="h-14 w-14 rounded-lg border object-cover" src="${escapeHtml(item.skuImageUrl || 'https://placehold.co/96x96?text=SKU')}" alt="${escapeHtml(item.skuCode)}" />
-        </td>
-        <td class="px-3 py-3 text-sm"><div class="font-semibold">${escapeHtml(item.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</div></td>
-        <td class="px-3 py-3 text-sm">${renderProductionOrderIdentityCell(item.productionOrderNo)}<div class="text-xs text-muted-foreground">质检总单：${renderQcMasterOrderCode(item.postTaskNo || item.postTaskId, item.productionOrderNo, item.postTaskNo || item.postTaskId)}</div><div class="text-xs text-muted-foreground">上游任务：${escapeHtml(item.sourceTaskNo)}</div></td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(item.sourceFactoryName)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(locationLabel)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(item.currentStockQty, item.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(item.waitQcQty, item.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(item.qcInProgressQty, item.qtyUnit)}</td>
-        <td class="px-3 py-3"><input class="h-9 w-28 rounded-md border px-2 text-sm" data-qc-source-qty type="number" min="1" max="${item.waitQcQty}" value="${item.waitQcQty}" /></td>
-      </tr>
-    `
+    return renderQuickQcSkuRow(item, index, checked)
   }).join('')
   return renderModal('创建质检单', `
     <div class="space-y-4">
@@ -516,15 +860,10 @@ function renderCreateQcDialog(): string {
           <div class="mt-1 font-medium text-foreground">${task ? `${renderQcMasterOrderCode(task.postTaskNo || task.postTaskId, task.productionOrderNo, task.postTaskNo || task.postTaskId)} / ${renderProductionOrderCode(task.productionOrderNo)}` : '同一张质检单只能选择同一生产单下的同一款式 SKU'}</div>
         </div>
       </div>
-      <div class="overflow-x-auto rounded-xl border">
-        <table class="min-w-[1280px] w-full text-sm">
-          <thead class="bg-slate-50 text-xs text-muted-foreground"><tr><th class="px-3 py-2 text-left">选择</th><th class="px-3 py-2 text-left">图片</th><th class="px-3 py-2 text-left">SKU</th><th class="px-3 py-2 text-left">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 上游任务</th><th class="px-3 py-2 text-left">上游工厂</th><th class="px-3 py-2 text-left">取货库区 / 库位</th><th class="px-3 py-2 text-left">当前库存</th><th class="px-3 py-2 text-left">待质检数量</th><th class="px-3 py-2 text-left">质检中数量</th><th class="px-3 py-2 text-left">本次质检数量</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="10" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无可创建质检单的库存 SKU</td></tr>'}</tbody>
-        </table>
-      </div>
+      <div class="space-y-3">${rows || '<div class="rounded-xl border bg-slate-50 px-4 py-8 text-center text-sm text-muted-foreground">暂无可创建质检单的库存 SKU</div>'}</div>
       <div class="flex justify-end gap-2">
-        <button class="rounded-md border px-3 py-2 text-sm">保存草稿</button>
-        <button class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" ${rows ? 'onclick="window.__postCreateQcOrder()"' : 'disabled'}>创建质检单</button>
+        <button class="rounded-md border px-3 py-2 text-sm" data-nav="${escapeHtml(closeDialogLink())}">取消</button>
+        <button class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" ${rows ? 'onclick="window.__postQuickInputQcOrder()"' : 'disabled'}>确认完成质检</button>
       </div>
     </div>
   `)
@@ -815,6 +1154,10 @@ function resolveRecordRecheckOrder(record: PostFinishingActionRecord): ReturnTyp
   return recheckOrderId ? getPostFinishingRecheckOrderById(recheckOrderId) : undefined
 }
 
+function resolveRecordQcOrder(record: PostFinishingActionRecord): PostFinishingQcOrder | undefined {
+  return listPostFinishingQcOrderEntities().find((item) => item.qcOrderId === record.actionRecordId || item.qcOrderId === record.linkedQcOrderId || item.qcOrderNo === record.actionRecordNo)
+}
+
 function renderMasterPrintButton(record: PostFinishingActionRecord, snapshot?: ReturnType<typeof buildPostFinishingQcDeductionRecord>): string {
   const sourceId = resolveQcMasterPrintSourceId(record, snapshot)
   if (!sourceId) return ''
@@ -999,7 +1342,8 @@ function filterQc(
     if (pendingDefectReason === '无需补齐' && hasPendingDefectReason) return false
     const buttonModes = summarizeButtonAttachModes(record)
     if (buttonMode !== '全部' && !buttonModes.includes(buttonMode)) return false
-    return postFilterTextMatches(filters.keyword, [record.actionRecordNo, record.postOrderNo, record.sourceFactoryName, record.targetFactoryName, record.qcStationName, record.skuLines[0]?.spuCode, record.skuLines[0]?.spuName, record.status, buttonModes])
+    const qcOrder = resolveRecordQcOrder(record)
+    return postFilterTextMatches(filters.keyword, [record.actionRecordNo, record.postOrderNo, qcOrder?.postTaskId, qcOrder?.postTaskNo, qcOrder?.productionOrderNo, record.sourceFactoryName, record.targetFactoryName, record.qcStationName, record.skuLines[0]?.spuCode, record.skuLines[0]?.spuName, record.status, buttonModes])
   })
 }
 
@@ -1030,7 +1374,7 @@ export function renderPostFinishingQcOrdersPage(): string {
   const postTaskId = getCurrentPostTaskId() || undefined
   const waitItems = listPostFinishingWaitQcSkuItems({ postTaskId })
   const allQc = listPostFinishingQcOrders().filter((record) => (
-    !postTaskId || record.warehouseAllocations?.some((allocation) => allocation.postTaskId === postTaskId)
+    !postTaskId || resolveRecordQcOrder(record)?.postTaskId === postTaskId || record.warehouseAllocations?.some((allocation) => allocation.postTaskId === postTaskId)
   ))
   const activeTab = getActiveQcTab()
   const buttonMode = getButtonModeFilter()
@@ -1063,6 +1407,7 @@ export function renderPostFinishingQcOrdersPage(): string {
         factoryOptions: [...waitItems.map((item) => item.sourceFactoryName), ...allQc.map((item) => item.targetFactoryName)],
       })}
       ${activeSection}
+      ${renderQuickInputQcDialog()}
       ${renderCreateQcDialog()}
       ${renderCompleteQcDialog()}
       ${renderViewDialog()}

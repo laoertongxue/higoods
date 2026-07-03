@@ -38,6 +38,11 @@ export const SEWING_SELF_RETURN_DEFAULT_AREA_ID = 'PFP-SELF-RETURN-TEMP'
 export const SEWING_SELF_RETURN_DEFAULT_AREA_NAME = '车缝自助交货暂存区'
 export const SEWING_SELF_RETURN_DEFAULT_LOCATION_ID = 'PFP-SELF-RETURN-TEMP-LOC-DEFAULT'
 export const SEWING_SELF_RETURN_DEFAULT_LOCATION_CODE = '默认库位'
+const POST_FINISHING_TASK_MOCK_ORDER_NOS = new Set(['PO-202603-0001', 'PO-202603-0006', 'PO-202603-0008'])
+
+function normalizeProductionOrderNo(value: string | undefined): string {
+  return String(value || '').replace(/\s+/g, '').trim()
+}
 
 export interface PostFinishingSkuLine {
   skuLineId: string
@@ -1504,7 +1509,7 @@ function buildPostFinishingTaskView(order: ProductionOrder): PostFinishingTaskVi
   const waitQcQty = sumWaitProcessAvailableQty(waitProcessRecords)
   const waitQcOrderQty = sumQcOrderQty(qcRecords, '待质检')
   const qcInProgressQty = sumQcOrderQty(qcRecords, '质检中')
-  const qcDoneQty = sumQcOrderQty(qcRecords, '质检完成')
+  const qcDoneQty = Math.min(sumQcOrderQty(qcRecords, '质检完成'), plannedQty)
   const waitPostQty = roundQty(postRecords.filter((record) => record.postStatus === '待后道').reduce((sum, record) => sum + record.plannedGarmentQty, 0))
   const postDoingQty = roundQty(postRecords.filter((record) => record.postStatus === '后道中').reduce((sum, record) => sum + record.plannedGarmentQty, 0))
   const postDoneQty = roundQty(postRecords.filter((record) => record.postStatus === '后道完成' || record.recheckStatus === '复检完成').reduce((sum, record) => sum + record.plannedGarmentQty, 0))
@@ -1576,6 +1581,28 @@ function buildPostFinishingTaskView(order: ProductionOrder): PostFinishingTaskVi
 
 const SOURCE_CONTEXTS: PostFinishingSourceContext[] = [
   {
+    contextId: 'POST-SRC-0001',
+    styleId: 'STYLE-202603-004',
+    styleNo: 'SPU-2024-004',
+    styleName: 'Kaos Polos Premium',
+    spuId: 'SPU-2024-004',
+    spuCode: 'SPU-2024-004',
+    spuName: 'Kaos Polos Premium',
+    productionOrderId: 'PO-202603-0001',
+    productionOrderNo: 'PO-202603-0001',
+    sourceTaskId: 'TASK-KOL-202603-004-A',
+    sourceTaskNo: 'KOL样衣任务-202603-004-A',
+    sourceFactoryId: 'F-KOL-004',
+    sourceFactoryName: 'KOL样衣工厂',
+    sourceFactoryType: '车缝厂',
+    canCreateWithoutTask: false,
+    skuLines: [
+      sku('SKU-2024-004-WHT-M', 'SPU-2024-004', 'SPU-2024-004', 'Kaos Polos Premium', 'White', 'M', 1800),
+      sku('SKU-2024-004-WHT-L', 'SPU-2024-004', 'SPU-2024-004', 'Kaos Polos Premium', 'White', 'L', 1700),
+      sku('SKU-2024-004-WHT-XL', 'SPU-2024-004', 'SPU-2024-004', 'Kaos Polos Premium', 'White', 'XL', 1500),
+    ],
+  },
+  {
     contextId: 'POST-SRC-001',
     styleId: 'STYLE-202603-010',
     styleNo: 'SPU-2024-010',
@@ -1633,7 +1660,11 @@ const SOURCE_CONTEXTS: PostFinishingSourceContext[] = [
     sourceFactoryName: 'PT Nusa Wool Factory',
     sourceFactoryType: '毛织厂',
     canCreateWithoutTask: false,
-    skuLines: [sku('SKU-2024-012-BGE-M', 'SPU-2024-012', 'SPU-2024-012', 'Cardigan Wanita', 'Beige', 'M', 260)],
+    skuLines: [
+      sku('SKU-2024-012-BGE-M', 'SPU-2024-012', 'SPU-2024-012', 'Cardigan Wanita', 'Beige', 'M', 140),
+      sku('SKU-2024-012-BGE-L', 'SPU-2024-012', 'SPU-2024-012', 'Cardigan Wanita', 'Beige', 'L', 120),
+      sku('SKU-2024-012-BGE-XL', 'SPU-2024-012', 'SPU-2024-012', 'Cardigan Wanita', 'Beige', 'XL', 130),
+    ],
   },
   {
     contextId: 'POST-SRC-004',
@@ -1672,7 +1703,10 @@ const SOURCE_CONTEXTS: PostFinishingSourceContext[] = [
     sourceFactoryName: 'PT Mulia Garment',
     sourceFactoryType: '车缝厂',
     canCreateWithoutTask: false,
-    skuLines: [sku('SKU-2024-014-GRN-M', 'SPU-2024-014', 'SPU-2024-014', 'Rompi Pria Casual', 'Green', 'M', 210)],
+    skuLines: [
+      sku('SKU-2024-014-GRN-M', 'SPU-2024-014', 'SPU-2024-014', 'Rompi Pria Casual', 'Green', 'M', 120),
+      sku('SKU-2024-014-GRN-L', 'SPU-2024-014', 'SPU-2024-014', 'Rompi Pria Casual', 'Green', 'L', 90),
+    ],
   },
 ]
 
@@ -2044,15 +2078,17 @@ function withMultiSkuDefectReasonMock(qc: PostFinishingQcOrder): PostFinishingQc
   }
 }
 
+function withoutWarehouseAllocations(qc: PostFinishingQcOrder): PostFinishingQcOrder {
+  return { ...qc, warehouseAllocations: [] }
+}
+
 let qcOrders: PostFinishingQcOrder[] = [
-  buildQcOrder(1, SOURCE_CONTEXTS[0], receiptRecords[0], { status: '质检完成', passedQty: 388, defectiveQty: 12, needIroning: true, needPackaging: true, station: 'A' }),
-  buildQcOrder(2, SOURCE_CONTEXTS[1], receiptRecords[1], { status: '质检完成', passedQty: 340, defectiveQty: 0, station: 'B' }),
-  buildQcOrder(3, SOURCE_CONTEXTS[2], receiptRecords[2], { status: '待质检', passedQty: 0, defectiveQty: 0, allocationQty: 120, station: 'C' }),
-  buildQcOrder(4, SOURCE_CONTEXTS[3], receiptRecords[3], { status: '质检完成', passedQty: 188, defectiveQty: 12, needButtonhole: true, needButton: true, needIroning: true, buttonAttachMode: '机器装扣', station: 'A' }),
-  withPendingDefectReasonMock(buildQcOrder(5, SOURCE_CONTEXTS[4], receiptRecords[4], { status: '质检中', passedQty: 0, defectiveQty: 0, station: 'B' })),
-  buildQcOrder(6, SOURCE_CONTEXTS[4], receiptRecords[4], { status: '质检完成', passedQty: 206, defectiveQty: 4, needPackaging: true, station: 'C' }),
-  buildQcOrder(7, SOURCE_CONTEXTS[1], receiptRecords[1], { status: '质检完成', passedQty: 334, defectiveQty: 6, station: 'A' }),
-  withMultiSkuDefectReasonMock(buildQcOrder(8, SOURCE_CONTEXTS[1], receiptRecords[1], { status: '质检完成', passedQty: 334, defectiveQty: 6, needButton: true, buttonAttachMode: '人工装扣', allocationQty: 340, station: 'B' })),
+  buildQcOrder(1, SOURCE_CONTEXTS[0], receiptRecords[0], { status: '质检完成', passedQty: 4980, defectiveQty: 20, needButton: true, needIroning: true, needPackaging: true, buttonAttachMode: '人工装扣', station: 'A' }),
+  buildQcOrder(2, SOURCE_CONTEXTS[0], receiptRecords[0], { status: '质检完成', passedQty: 5000, defectiveQty: 0, needPackaging: true, station: 'B' }),
+  withoutWarehouseAllocations(buildQcOrder(3, SOURCE_CONTEXTS[3], receiptRecords[3], { status: '质检完成', passedQty: 360, defectiveQty: 30, needButton: true, needIroning: true, needPackaging: true, buttonAttachMode: '人工装扣', station: 'A' })),
+  withoutWarehouseAllocations(buildQcOrder(4, SOURCE_CONTEXTS[3], receiptRecords[3], { status: '质检完成', passedQty: 386, defectiveQty: 4, needPackaging: true, station: 'B' })),
+  buildQcOrder(5, SOURCE_CONTEXTS[5], receiptRecords[5], { status: '质检完成', passedQty: 206, defectiveQty: 4, needButtonhole: true, needButton: true, buttonAttachMode: '机器装扣', station: 'A' }),
+  withPendingDefectReasonMock(buildQcOrder(6, SOURCE_CONTEXTS[5], receiptRecords[5], { status: '质检中', passedQty: 0, defectiveQty: 0, station: 'B' })),
 ]
 
 function getContext(contextId: string): PostFinishingSourceContext {
@@ -2528,11 +2564,8 @@ function buildPendingRecheckFromQc(qc: PostFinishingQcOrder, index: number, post
 }
 
 let recheckOrders: PostFinishingRecheckOrder[] = [
-  buildDirectRecheckFromQc(qcOrders[1], 2),
-  buildDirectRecheckFromQc(qcOrders[6], 7),
-  buildDirectRecheckFromQc(qcOrders[7], 6),
-  buildPostRecheck(qcOrders[3], 'POST-WO-004', 'HD-2026-004', 4),
-]
+  qcOrders.find((item) => item.qcOrderNo === 'QC-POST-2026-001'),
+].flatMap((qc, index) => qc ? [buildDirectRecheckFromQc(qc, index + 1)] : [])
 
 qcOrders = qcOrders.map((qc, index) => {
   const needsPost = postFlags(qc).length > 0
@@ -2716,7 +2749,9 @@ export function listPostFinishingReceiptRecords(): PostFinishingReceiptRecord[] 
 }
 
 export function listPostFinishingTasks(): PostFinishingTaskView[] {
-  return productionOrders.map(buildPostFinishingTaskView)
+  return productionOrders
+    .filter((order) => POST_FINISHING_TASK_MOCK_ORDER_NOS.has(order.productionOrderNo))
+    .map(buildPostFinishingTaskView)
 }
 
 export function getPostFinishingTaskById(postTaskId: string): PostFinishingTaskView | undefined {
@@ -2756,9 +2791,10 @@ function sumQcInProgressQty(warehouseRecordId: string): number {
 
 export function listPostFinishingWaitQcSkuItems(input: { postTaskId?: string; productionOrderNo?: string } = {}): PostFinishingWaitQcSkuItem[] {
   const targetTask = input.postTaskId ? getPostFinishingTaskById(input.postTaskId) : undefined
-  const targetProductionOrderNo = input.productionOrderNo || targetTask?.productionOrderNo
+  const targetProductionOrderNo = normalizeProductionOrderNo(input.productionOrderNo || targetTask?.productionOrderNo)
   return listPostFinishingWaitProcessWarehouseRecords()
-    .filter((record) => !targetProductionOrderNo || record.sourceProductionOrderNo === targetProductionOrderNo)
+    .filter((record) => POST_FINISHING_TASK_MOCK_ORDER_NOS.has(record.sourceProductionOrderNo))
+    .filter((record) => !targetProductionOrderNo || normalizeProductionOrderNo(record.sourceProductionOrderNo) === targetProductionOrderNo)
     .map((record) => {
       const context = findSourceContextForWarehouseRecord(record)
       const sourceLine = context?.skuLines.find((line) => line.skuId === record.skuId || line.skuCode === record.skuCode)
