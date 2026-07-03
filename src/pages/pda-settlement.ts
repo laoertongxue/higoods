@@ -2,20 +2,6 @@ import { appStore } from '../state/store'
 import { renderPdaFrame } from './pda-shell'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
-import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
-import {
-  getFutureMobileFactoryQcDetail,
-  getFutureMobileFactoryQcSummary,
-  listPdaSettlementWritebackItems,
-  listFutureMobileFactoryQcBuckets,
-  listFutureMobileFactorySoonOverdueQcItems,
-  type FutureMobileFactoryQcListItem,
-} from '../data/fcs/quality-deduction-selectors'
-import {
-  getPreSettlementLedgerById,
-  listPreSettlementLedgers,
-  tracePreSettlementLedgerSource,
-} from '../data/fcs/pre-settlement-ledger-repository'
 import {
   createSettlementChangeRequest,
   getSettlementActiveRequestByFactory,
@@ -36,19 +22,13 @@ import {
   getProxyNotificationStatusLabel,
   getStatementDraftById,
   getStatementConfirmationSourceLabel,
-  getStatementSettlementProgressView,
   isStatementProxyConfirmed,
-  listFeishuPaymentApprovals,
   listPaymentWritebacks,
-  listSettlementBatchesByParty,
   listSettlementBatchesByStatement,
-  listSettlementStatementsByParty,
   submitStatementFactoryAppeal,
   submitStatementFactoryConfirmation,
 } from '../data/fcs/store-domain-settlement-seeds'
-import { deriveSettlementCycleFields } from '../data/fcs/store-domain-statement-grain'
 import { cycleTypeConfig, pricingModeConfig } from '../data/fcs/settlement-types'
-import { getSettlementPageBoundary } from '../data/fcs/settlement-flow-boundaries'
 import {
   getCurrentPdaUser,
   listFactoryPdaRoles,
@@ -62,13 +42,7 @@ import {
 } from './pda-runtime'
 import type {
   FactoryFeedbackStatus,
-  FeishuPaymentApproval,
-  FeishuPaymentApprovalStatus,
   PaymentWriteback,
-  PreSettlementLedger,
-  PreSettlementLedgerPriceSourceType,
-  PreSettlementLedgerStatus,
-  PrepaymentBatchStatus,
   SettlementBatch,
   StatementAppealRecord,
   StatementDraft,
@@ -112,46 +86,6 @@ interface FactoryContext {
   factoryName: string
   settlementPartyId: string
   operatorName: string
-}
-
-interface SettlementCycleSummary {
-  cycleId: string
-  cycleLabel: string
-  cycleStartAt: string
-  cycleEndAt: string
-  plannedPrepaymentAt?: string
-  ledgers: PreSettlementLedger[]
-  taskLedgers: PreSettlementLedger[]
-  qualityLedgers: PreSettlementLedger[]
-  statements: StatementDraft[]
-  batches: SettlementBatch[]
-  pendingQualityItems: FutureMobileFactoryQcListItem[]
-  soonQualityItems: FutureMobileFactoryQcListItem[]
-  disputingQualityItems: FutureMobileFactoryQcListItem[]
-  processedQualityItems: FutureMobileFactoryQcListItem[]
-  historyQualityItems: FutureMobileFactoryQcListItem[]
-  taskEarningAmount: number
-  qualityDeductionAmount: number
-  netPayableAmount: number
-  pendingQualityCount: number
-  soonOverdueCount: number
-  disputingCount: number
-  proxyConfirmedCount: number
-  hasPendingOrDisputing: boolean
-  primaryStatement: StatementDraft | null
-  primaryBatch: SettlementBatch | null
-  latestApproval: FeishuPaymentApproval | null
-  latestWriteback: PaymentWriteback | null
-  currentEffectiveVersionNo?: string
-  statementSnapshotVersionNo?: string
-  batchSnapshotVersionNo?: string
-  hasSnapshotVersionDiff: boolean
-  snapshotDifferenceNote?: string
-}
-
-const FX_RATE_TABLE: Record<string, { rate: number; appliedAt: string }> = {
-  'CNY->IDR': { rate: 2175, appliedAt: '2026-03-12 10:00:00' },
-  'IDR->CNY': { rate: 0.00046, appliedAt: '2026-03-12 10:00:00' },
 }
 
 const state: PdaSettlementState = {
@@ -205,21 +139,11 @@ function renderSettlementNoPermission(): string {
   `
 }
 
-function nowTimestamp(date: Date = new Date()): string {
-  return date.toISOString().replace('T', ' ').slice(0, 19)
-}
-
 function parseDateMs(value?: string): number {
   if (!value) return 0
   const normalized = value.includes('T') ? value : value.replace(' ', 'T')
   const parsed = new Date(normalized).getTime()
   return Number.isFinite(parsed) ? parsed : 0
-}
-
-function getCurrentSettlementSearchParams(): URLSearchParams {
-  const pathname = appStore.getState().pathname
-  const [, query] = pathname.split('?')
-  return new URLSearchParams(query || '')
 }
 
 function getCurrentFactoryContext(): FactoryContext {
@@ -246,90 +170,6 @@ function getCurrentEffectiveSettlementInfo(factoryCode: string): SettlementEffec
 
 function formatAmount(amount: number, currency = 'IDR'): string {
   return `${amount.toLocaleString('zh-CN')} ${currency}`
-}
-
-function getConvertedCurrencyDisplay(input: {
-  amount: number
-  originalCurrency: string
-  settlementCurrency: string
-  referenceAt?: string
-}): {
-  settlementAmount: number
-  settlementAmountLabel: string
-  originalAmountLabel: string
-  fxRate: number
-  fxAppliedAt: string
-  isConverted: boolean
-  rateLabel: string
-} {
-  const { amount, originalCurrency, settlementCurrency, referenceAt } = input
-  if (originalCurrency === settlementCurrency) {
-    return {
-      settlementAmount: amount,
-      settlementAmountLabel: formatAmount(amount, settlementCurrency),
-      originalAmountLabel: formatAmount(amount, originalCurrency),
-      fxRate: 1,
-      fxAppliedAt: referenceAt || '—',
-      isConverted: false,
-      rateLabel: `1 ${originalCurrency} = 1 ${settlementCurrency}`,
-    }
-  }
-
-  const fx = FX_RATE_TABLE[`${originalCurrency}->${settlementCurrency}`] ?? {
-    rate: 1,
-    appliedAt: referenceAt || '—',
-  }
-  const settlementAmount = Number((amount * fx.rate).toFixed(2))
-  return {
-    settlementAmount,
-    settlementAmountLabel: formatAmount(settlementAmount, settlementCurrency),
-    originalAmountLabel: formatAmount(amount, originalCurrency),
-    fxRate: fx.rate,
-    fxAppliedAt: fx.appliedAt,
-    isConverted: true,
-    rateLabel: `1 ${originalCurrency} = ${formatAmount(fx.rate, settlementCurrency)}`,
-  }
-}
-
-function formatAmountWithSettlement(input: {
-  amount: number
-  originalCurrency: string
-  settlementCurrency: string
-  referenceAt?: string
-}): string {
-  const display = getConvertedCurrencyDisplay(input)
-  if (!display.isConverted) return display.settlementAmountLabel
-  return `${display.settlementAmountLabel}（原 ${display.originalAmountLabel} · ${display.rateLabel} · ${formatDateTime(display.fxAppliedAt)}）`
-}
-
-function formatSettlementAwareAmount(amount: number, originalCurrency = 'CNY', referenceAt?: string, settlementCurrency = 'IDR'): string {
-  return formatAmountWithSettlement({
-    amount,
-    originalCurrency,
-    settlementCurrency,
-    referenceAt,
-  })
-}
-
-function getBadgeClass(kind: 'blue' | 'amber' | 'red' | 'green' | 'gray' | 'purple'): string {
-  switch (kind) {
-    case 'blue':
-      return 'border-blue-200 bg-blue-50 text-blue-700'
-    case 'amber':
-      return 'border-amber-200 bg-amber-50 text-amber-700'
-    case 'red':
-      return 'border-red-200 bg-red-50 text-red-700'
-    case 'green':
-      return 'border-emerald-200 bg-emerald-50 text-emerald-700'
-    case 'purple':
-      return 'border-purple-200 bg-purple-50 text-purple-700'
-    default:
-      return 'border-zinc-200 bg-zinc-100 text-zinc-700'
-  }
-}
-
-function renderStatusBadge(text: string, variant: 'blue' | 'amber' | 'red' | 'green' | 'gray' | 'purple'): string {
-  return `<span class="inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-medium ${getBadgeClass(variant)}">${escapeHtml(text)}</span>`
 }
 
 function renderRow(
@@ -382,37 +222,14 @@ function maskBankAccountNo(accountNo: string): string {
   return `${raw.slice(0, 4)} **** **** ${raw.slice(-4)}`
 }
 
-function getRemainingDeadlineSummary(deadline?: string): string {
-  const deadlineMs = parseDateMs(deadline)
-  if (!deadlineMs) return '无需响应'
-  const diff = deadlineMs - Date.now()
-  if (diff <= 0) return '已超时'
-  const hours = Math.ceil(diff / (3600 * 1000))
-  if (hours < 24) return `剩余 ${hours} 小时`
-  const days = Math.floor(hours / 24)
-  return `剩余 ${days} 天 ${hours % 24} 小时`
-}
-
-function dedupeStrings(values: Array<string | null | undefined>): string[] {
-  return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
-}
-
 function getStatementStatusLabel(status: StatementStatus): string {
   if (status === 'DRAFT') return '草稿中'
   if (status === 'PENDING_FACTORY_CONFIRM') return '待工厂确认'
   if (status === 'FACTORY_CONFIRMED') return '工厂已确认'
-  if (status === 'READY_FOR_PREPAYMENT') return '待入预付款'
-  if (status === 'IN_PREPAYMENT_BATCH') return '已入预付款批次'
-  if (status === 'PREPAID') return '已预付'
+  if (status === 'READY_FOR_PREPAYMENT') return '待付款'
+  if (status === 'IN_PREPAYMENT_BATCH') return '付款处理中'
+  if (status === 'PREPAID') return '已付款'
   return '已关闭'
-}
-
-function getStatementStatusVariant(status: StatementStatus): 'blue' | 'amber' | 'green' | 'gray' {
-  if (status === 'DRAFT') return 'amber'
-  if (status === 'PENDING_FACTORY_CONFIRM') return 'blue'
-  if (status === 'FACTORY_CONFIRMED' || status === 'READY_FOR_PREPAYMENT' || status === 'PREPAID') return 'green'
-  if (status === 'IN_PREPAYMENT_BATCH') return 'blue'
-  return 'gray'
 }
 
 function getFactoryFeedbackLabel(status: FactoryFeedbackStatus): string {
@@ -424,330 +241,13 @@ function getFactoryFeedbackLabel(status: FactoryFeedbackStatus): string {
   return '已处理完成'
 }
 
-function getFactoryFeedbackVariant(status: FactoryFeedbackStatus): 'blue' | 'amber' | 'red' | 'green' | 'gray' {
-  if (status === 'PENDING_FACTORY_CONFIRM') return 'amber'
-  if (status === 'FACTORY_CONFIRMED') return 'green'
-  if (status === 'FACTORY_APPEALED') return 'red'
-  if (status === 'PLATFORM_HANDLING') return 'blue'
-  return 'gray'
-}
-
-function getLedgerTypeLabel(type: PreSettlementLedger['ledgerType']): string {
-  return type === 'TASK_EARNING' ? '任务收入流水' : '返工扣款流水'
-}
-
-function getLedgerStatusLabel(status: PreSettlementLedgerStatus): string {
-  if (status === 'OPEN') return '待入对账单'
-  if (status === 'IN_STATEMENT') return '已入对账单'
-  if (status === 'IN_PREPAYMENT_BATCH') return '已入预付款批次'
-  if (status === 'PREPAID') return '已预付'
-  return '预留后续最终分账'
-}
-
-function getLedgerStatusVariant(status: PreSettlementLedgerStatus): 'blue' | 'amber' | 'green' | 'gray' | 'purple' {
-  if (status === 'OPEN') return 'amber'
-  if (status === 'IN_STATEMENT') return 'blue'
-  if (status === 'IN_PREPAYMENT_BATCH') return 'purple'
-  if (status === 'PREPAID') return 'green'
-  return 'gray'
-}
-
-function getLedgerPriceSourceLabel(type?: PreSettlementLedgerPriceSourceType): string {
-  if (type === 'DISPATCH') return '派单价'
-  if (type === 'BID') return '中标价'
-  return '兼容口径'
-}
-
-function getPrepaymentBatchStatusLabel(status: PrepaymentBatchStatus): string {
-  if (status === 'DRAFT') return '草稿'
-  if (status === 'READY_TO_APPLY_PAYMENT') return '待申请付款'
-  if (status === 'FEISHU_APPROVAL_CREATED') return '已提交飞书付款审批'
-  if (status === 'FEISHU_PAID_PENDING_WRITEBACK') return '飞书已付款待回写'
-  if (status === 'PREPAID') return '已预付'
-  if (status === 'CLOSED') return '已关闭'
-  if (status === 'FEISHU_APPROVAL_REJECTED') return '审批已驳回'
-  return '审批已取消'
-}
-
-function getPrepaymentBatchStatusVariant(status: PrepaymentBatchStatus): 'blue' | 'amber' | 'green' | 'gray' | 'purple' | 'red' {
-  if (status === 'DRAFT' || status === 'READY_TO_APPLY_PAYMENT') return 'amber'
-  if (status === 'FEISHU_APPROVAL_CREATED') return 'blue'
-  if (status === 'FEISHU_PAID_PENDING_WRITEBACK') return 'purple'
-  if (status === 'PREPAID' || status === 'CLOSED') return 'green'
-  if (status === 'FEISHU_APPROVAL_REJECTED') return 'red'
-  return 'gray'
-}
-
-function getFeishuStatusLabel(status: FeishuPaymentApprovalStatus): string {
-  if (status === 'CREATED') return '已创建'
-  if (status === 'APPROVING') return '审批中'
-  if (status === 'APPROVED_PENDING_PAYMENT') return '审批通过待付款'
-  if (status === 'PAID') return '已付款'
-  if (status === 'REJECTED') return '已驳回'
-  return '已取消'
-}
-
-function getFeishuStatusVariant(status: FeishuPaymentApprovalStatus): 'blue' | 'amber' | 'green' | 'gray' | 'purple' | 'red' {
-  if (status === 'CREATED' || status === 'APPROVING' || status === 'APPROVED_PENDING_PAYMENT') return 'blue'
-  if (status === 'PAID') return 'green'
-  if (status === 'REJECTED') return 'red'
-  return 'gray'
-}
-
-function getQualityResponseVariant(label: string): 'blue' | 'amber' | 'red' | 'green' | 'gray' {
-  if (label.includes('待工厂处理')) return 'amber'
-  if (label.includes('自动确认')) return 'blue'
-  if (label.includes('已确认')) return 'green'
-  if (label.includes('异议')) return 'red'
-  return 'gray'
-}
-
-function getQualityDisputeVariant(label: string): 'blue' | 'amber' | 'red' | 'green' | 'gray' | 'purple' {
-  if (label.includes('待平台处理') || label.includes('平台处理中') || label.includes('异议')) return 'amber'
-  if (label.includes('最终维持工厂责任')) return 'red'
-  if (label.includes('最终部分工厂责任')) return 'blue'
-  if (label.includes('最终非工厂责任')) return 'purple'
-  if (label.includes('已关闭') || label.includes('无异议')) return 'gray'
-  return 'gray'
-}
-
-function getQualitySettlementVariant(label: string): 'blue' | 'amber' | 'green' | 'gray' | 'purple' {
-  if (label.includes('正式返工扣款流水') || label.includes('预结算单')) return 'blue'
-  if (label.includes('预付款批次') || label.includes('已预付')) return 'purple'
-  if (label.includes('待确认') || label.includes('待平台处理')) return 'amber'
-  if (label.includes('已生成正式返工扣款流水')) return 'green'
-  return 'gray'
-}
-
-function getQualityCycleCollections(factoryId: string) {
-  const buckets = listFutureMobileFactoryQcBuckets(factoryId)
-  const soonItems = listFutureMobileFactorySoonOverdueQcItems(factoryId)
-  const grouped = {
-    pending: new Map<string, FutureMobileFactoryQcListItem[]>(),
-    soon: new Map<string, FutureMobileFactoryQcListItem[]>(),
-    disputing: new Map<string, FutureMobileFactoryQcListItem[]>(),
-    processed: new Map<string, FutureMobileFactoryQcListItem[]>(),
-    history: new Map<string, FutureMobileFactoryQcListItem[]>(),
-  }
-
-  const push = (view: keyof typeof grouped, item: FutureMobileFactoryQcListItem) => {
-    const cycleId = deriveSettlementCycleFields(factoryId, item.inspectedAt).settlementCycleId
-    const current = grouped[view].get(cycleId) ?? []
-    current.push(item)
-    grouped[view].set(cycleId, current)
-  }
-
-  buckets.pending.forEach((item) => push('pending', item))
-  soonItems.forEach((item) => push('soon', item))
-  buckets.disputing.forEach((item) => push('disputing', item))
-  buckets.processed.forEach((item) => push('processed', item))
-  buckets.history.forEach((item) => push('history', item))
-
-  return grouped
-}
-
 function sortByDateDesc<T>(items: T[], selector: (item: T) => string | undefined): T[] {
   return items.slice().sort((left, right) => parseDateMs(selector(right)) - parseDateMs(selector(left)))
-}
-
-function getBatchApproval(batch: SettlementBatch | null): FeishuPaymentApproval | null {
-  if (!batch) return null
-  return sortByDateDesc(listFeishuPaymentApprovals(batch.batchId), (item) => item.latestSyncedAt ?? item.createdAt)[0] ?? null
 }
 
 function getBatchWriteback(batch: SettlementBatch | null): PaymentWriteback | null {
   if (!batch) return null
   return sortByDateDesc(listPaymentWritebacks(batch.batchId), (item) => item.writtenBackAt)[0] ?? null
-}
-
-function joinVersionText(values: Array<string | undefined>): string | undefined {
-  const unique = dedupeStrings(values)
-  if (unique.length === 0) return undefined
-  return unique.join(' / ')
-}
-
-function buildSnapshotDifferenceNote(input: {
-  effectiveVersionNo?: string
-  statementSnapshotVersionNo?: string
-  batchSnapshotVersionNo?: string
-}): string | undefined {
-  const { effectiveVersionNo, statementSnapshotVersionNo, batchSnapshotVersionNo } = input
-  if (!effectiveVersionNo) return undefined
-  const different = [statementSnapshotVersionNo, batchSnapshotVersionNo].some(
-    (value) => value && value !== effectiveVersionNo,
-  )
-  if (!different) return undefined
-  return `当前生效：${effectiveVersionNo}；单据使用：${statementSnapshotVersionNo ?? batchSnapshotVersionNo ?? '—'}。新版本用于后续新单据，本周期已生成单据继续沿用原快照。`
-}
-
-function getSettlementCycleSummaries(factory: FactoryContext): SettlementCycleSummary[] {
-  const ledgers = listPreSettlementLedgers({ factoryId: factory.factoryId })
-  const statements = listSettlementStatementsByParty(factory.settlementPartyId)
-  const batches = listSettlementBatchesByParty(factory.settlementPartyId)
-  const effectiveInfo = getCurrentEffectiveSettlementInfo(factory.factoryCode)
-  const qualityCollections = getQualityCycleCollections(factory.factoryId)
-  const cycleMap = new Map<string, SettlementCycleSummary>()
-
-  const ensureCycle = (
-    cycleId: string,
-    cycleLabel: string,
-    startAt: string,
-    endAt: string,
-    plannedPrepaymentAt?: string,
-  ): SettlementCycleSummary => {
-    const existing = cycleMap.get(cycleId)
-    if (existing) {
-      existing.plannedPrepaymentAt = existing.plannedPrepaymentAt ?? plannedPrepaymentAt
-      return existing
-    }
-    const summary: SettlementCycleSummary = {
-      cycleId,
-      cycleLabel,
-      cycleStartAt: startAt,
-      cycleEndAt: endAt,
-      plannedPrepaymentAt,
-      ledgers: [],
-      taskLedgers: [],
-      qualityLedgers: [],
-      statements: [],
-      batches: [],
-      pendingQualityItems: [],
-      soonQualityItems: [],
-      disputingQualityItems: [],
-      processedQualityItems: [],
-      historyQualityItems: [],
-      taskEarningAmount: 0,
-      qualityDeductionAmount: 0,
-      netPayableAmount: 0,
-      pendingQualityCount: 0,
-      soonOverdueCount: 0,
-      disputingCount: 0,
-      proxyConfirmedCount: 0,
-      hasPendingOrDisputing: false,
-      primaryStatement: null,
-      primaryBatch: null,
-      latestApproval: null,
-      latestWriteback: null,
-      currentEffectiveVersionNo: effectiveInfo?.versionNo,
-      hasSnapshotVersionDiff: false,
-    }
-    cycleMap.set(cycleId, summary)
-    return summary
-  }
-
-  ledgers.forEach((ledger) => {
-    const summary = ensureCycle(
-      ledger.settlementCycleId,
-      ledger.settlementCycleLabel,
-      ledger.settlementCycleStartAt,
-      ledger.settlementCycleEndAt,
-      ledger.plannedPrepaymentAt,
-    )
-    summary.ledgers.push(ledger)
-    if (ledger.ledgerType === 'TASK_EARNING') summary.taskLedgers.push(ledger)
-    if (ledger.ledgerType === 'QUALITY_DEDUCTION') summary.qualityLedgers.push(ledger)
-  })
-
-  statements.forEach((statement) => {
-    const cycle = deriveSettlementCycleFields(factory.factoryId, statement.createdAt)
-    const summary = ensureCycle(
-      statement.settlementCycleId || cycle.settlementCycleId,
-      statement.settlementCycleLabel || cycle.settlementCycleLabel,
-      statement.settlementCycleStartAt || cycle.settlementCycleStartAt,
-      statement.settlementCycleEndAt || cycle.settlementCycleEndAt,
-      statement.plannedPrepaymentAt || cycle.plannedPrepaymentAt,
-    )
-    summary.statements.push(statement)
-  })
-
-  batches.forEach((batch) => {
-    batch.items.forEach((item) => {
-      if (!item.settlementCycleId || !item.settlementCycleLabel) return
-      const summary = ensureCycle(
-        item.settlementCycleId,
-        item.settlementCycleLabel,
-        item.settlementCycleLabel.slice(-23, -13) || '',
-        item.settlementCycleLabel.slice(-10) || '',
-        item.plannedPrepaymentAt ?? batch.plannedPrepaymentAt,
-      )
-      if (!summary.batches.some((current) => current.batchId === batch.batchId)) {
-        summary.batches.push(batch)
-      }
-    })
-  })
-
-  const attachQualityItems = (view: keyof ReturnType<typeof getQualityCycleCollections>, targetKey: keyof SettlementCycleSummary) => {
-    for (const [cycleId, items] of qualityCollections[view].entries()) {
-      const cycle = deriveSettlementCycleFields(factory.factoryId, items[0]?.inspectedAt)
-      const summary = ensureCycle(
-        cycleId,
-        cycle.settlementCycleLabel,
-        cycle.settlementCycleStartAt,
-        cycle.settlementCycleEndAt,
-        cycle.plannedPrepaymentAt,
-      )
-      ;(summary[targetKey] as FutureMobileFactoryQcListItem[]).push(...items)
-    }
-  }
-
-  attachQualityItems('pending', 'pendingQualityItems')
-  attachQualityItems('soon', 'soonQualityItems')
-  attachQualityItems('disputing', 'disputingQualityItems')
-  attachQualityItems('processed', 'processedQualityItems')
-  attachQualityItems('history', 'historyQualityItems')
-
-  return Array.from(cycleMap.values())
-    .map((summary) => {
-      summary.ledgers = sortByDateDesc(summary.ledgers, (item) => item.occurredAt)
-      summary.taskLedgers = summary.ledgers.filter((item) => item.ledgerType === 'TASK_EARNING')
-      summary.qualityLedgers = summary.ledgers.filter((item) => item.ledgerType === 'QUALITY_DEDUCTION')
-      summary.statements = sortByDateDesc(summary.statements, (item) => item.createdAt)
-      summary.batches = sortByDateDesc(summary.batches, (item) => item.prepaidAt ?? item.updatedAt ?? item.createdAt)
-      summary.pendingQualityItems = sortByDateDesc(summary.pendingQualityItems, (item) => item.responseDeadlineAt ?? item.inspectedAt)
-      summary.soonQualityItems = sortByDateDesc(summary.soonQualityItems, (item) => item.responseDeadlineAt ?? item.inspectedAt)
-      summary.disputingQualityItems = sortByDateDesc(summary.disputingQualityItems, (item) => item.resultWrittenBackAt ?? item.inspectedAt)
-      summary.processedQualityItems = sortByDateDesc(summary.processedQualityItems, (item) => item.respondedAt ?? item.autoConfirmedAt ?? item.inspectedAt)
-      summary.historyQualityItems = sortByDateDesc(summary.historyQualityItems, (item) => item.resultWrittenBackAt ?? item.inspectedAt)
-      summary.taskEarningAmount = summary.taskLedgers.reduce((sum, item) => sum + item.settlementAmount, 0)
-      summary.qualityDeductionAmount = summary.qualityLedgers.reduce((sum, item) => sum + item.settlementAmount, 0)
-      summary.netPayableAmount = summary.taskEarningAmount - summary.qualityDeductionAmount
-      summary.pendingQualityCount = summary.pendingQualityItems.length
-      summary.soonOverdueCount = summary.soonQualityItems.length
-      summary.disputingCount = summary.disputingQualityItems.length
-      summary.proxyConfirmedCount = summary.statements.filter((statement) => isStatementProxyConfirmed(statement)).length
-      summary.hasPendingOrDisputing = summary.pendingQualityCount > 0 || summary.disputingCount > 0
-      summary.primaryStatement = summary.statements[0] ?? null
-      summary.primaryBatch = summary.batches[0] ?? null
-      summary.latestApproval = getBatchApproval(summary.primaryBatch)
-      summary.latestWriteback = getBatchWriteback(summary.primaryBatch)
-      summary.statementSnapshotVersionNo = joinVersionText(summary.statements.map((item) => item.settlementProfileVersionNo))
-      summary.batchSnapshotVersionNo = joinVersionText(
-        summary.batches.flatMap((item) => [item.payeeAccountSnapshotVersion, item.settlementProfileVersionSummary]),
-      )
-      summary.snapshotDifferenceNote = buildSnapshotDifferenceNote({
-        effectiveVersionNo: summary.currentEffectiveVersionNo,
-        statementSnapshotVersionNo: summary.statementSnapshotVersionNo,
-        batchSnapshotVersionNo: summary.batchSnapshotVersionNo,
-      })
-      summary.hasSnapshotVersionDiff = Boolean(summary.snapshotDifferenceNote)
-      return summary
-    })
-    .sort((left, right) => {
-      if (left.cycleEndAt !== right.cycleEndAt) return left.cycleEndAt < right.cycleEndAt ? 1 : -1
-      return left.cycleId.localeCompare(right.cycleId, 'zh-CN')
-    })
-}
-
-function getDefaultSettlementCycleId(): string {
-  const context = getCurrentFactoryContext()
-  return getSettlementCycleSummaries(context)[0]?.cycleId ?? ''
-}
-
-function resolveSettlementCycleId(candidate?: string | null): string {
-  const context = getCurrentFactoryContext()
-  const summaries = getSettlementCycleSummaries(context)
-  if (candidate && summaries.some((item) => item.cycleId === candidate)) return candidate
-  return summaries[0]?.cycleId ?? ''
 }
 
 function buildSettlementHomeHref(): string {
@@ -800,12 +300,6 @@ function isStatementFilterView(value: string | null): value is StatementFilterVi
 
 function isQualityRecordFilterView(value: string | null): value is QualityRecordFilterView {
   return value === 'all' || value === 'not-in-statement' || value === 'in-statement' || value === 'rework' || value === 'deducted'
-}
-
-function getSelectedCycleSummary(): SettlementCycleSummary | null {
-  const context = getCurrentFactoryContext()
-  const summaries = getSettlementCycleSummaries(context)
-  return summaries[0] ?? null
 }
 
 function resetStatementAppealForm(): void {
@@ -872,20 +366,10 @@ function getRequestNextStepText(request: SettlementChangeRequest): string {
   return request.rejectReason || '申请未通过，可根据平台意见重新发起。'
 }
 
-function buildPdaQualityDetailHref(qcId: string, cycleId?: string, view?: QualityRecordFilterView): string {
-  const params = new URLSearchParams()
-  params.set('back', 'settlement')
-  if (view) params.set('view', view)
-  if (cycleId) params.set('cycleId', cycleId)
-  return `/fcs/pda/quality/${encodeURIComponent(qcId)}?${params.toString()}`
-}
-
 function renderSettlementProfileEntryCard(): string {
   const context = getCurrentFactoryContext()
   const effective = getCurrentEffectiveSettlementInfo(context.factoryCode)
   const activeRequest = getSettlementActiveRequestByFactory(context.factoryCode)
-  const selectedCycle = getSelectedCycleSummary()
-  const snapshotVersion = selectedCycle?.statementSnapshotVersionNo ?? selectedCycle?.batchSnapshotVersionNo
 
   return `
     <button
@@ -897,11 +381,6 @@ function renderSettlementProfileEntryCard(): string {
         effective
           ? `<span class="text-muted-foreground">${escapeHtml(`当前 ${effective.versionNo}`)}</span>`
           : '<span class="text-muted-foreground">未初始化</span>'
-      }
-      ${
-        snapshotVersion
-          ? `<span class="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">${escapeHtml(`单据 ${snapshotVersion}`)}</span>`
-          : ''
       }
       ${
         activeRequest
@@ -981,28 +460,6 @@ function renderSettlementVersionHistoryList(records: SettlementVersionRecord[]):
   `
 }
 
-function renderSettlementProfileDiffCard(summary: SettlementCycleSummary | null): string {
-  if (!summary) return ''
-  const currentVersion = summary.currentEffectiveVersionNo ?? '—'
-  const statementVersion = summary.statementSnapshotVersionNo ?? '当前周期无对账单'
-  const batchVersion = summary.batchSnapshotVersionNo ?? '当前周期无预付款批次'
-  return `
-    <div class="rounded-md border bg-muted/20 px-3 py-3">
-      <p class="text-xs font-medium text-foreground">当前周期资料快照版本</p>
-      <div class="mt-2 space-y-1">
-        ${renderRow('当前生效版本', currentVersion)}
-        ${renderRow('对账单使用版本', statementVersion)}
-        ${renderRow('预付款批次使用版本', batchVersion)}
-      </div>
-      ${
-        summary.snapshotDifferenceNote
-          ? `<div class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[10px] leading-5 text-amber-700">${escapeHtml(summary.snapshotDifferenceNote)}</div>`
-          : '<p class="mt-2 text-[10px] leading-5 text-muted-foreground">当前生效版本与本周期已生成单据使用版本一致。</p>'
-      }
-    </div>
-  `
-}
-
 function renderSettlementRequestDrawer(): string {
   const mode = state.settlementRequestDrawerMode
   if (!mode) return ''
@@ -1014,7 +471,6 @@ function renderSettlementRequestDrawer(): string {
   const activeRequest = getSettlementActiveRequestByFactory(context.factoryCode)
   const latestRequest = getSettlementLatestRequestByFactory(context.factoryCode)
   const currentRequest = getSettlementRequestForDrawer(context.factoryCode)
-  const selectedCycle = getSelectedCycleSummary()
   const summaryRequest = activeRequest ?? latestRequest
   const canChangeSettlementProfile = hasPdaSettlementPermission('SETTLEMENT_CHANGE_REQUEST')
 
@@ -1032,7 +488,6 @@ function renderSettlementRequestDrawer(): string {
           ${renderRow('结算币种', effective.settlementConfigSnapshot.currency)}
           ${renderRow('收款银行', `${effective.bankName} · 尾号 ${effective.bankAccountNo.slice(-4)}`)}
         </div>
-        ${renderSettlementProfileDiffCard(selectedCycle)}
         <div class="rounded-md border p-3">
           <p class="mb-2 text-xs font-medium">当前生效资料</p>
           <div class="grid gap-2">
@@ -1140,7 +595,6 @@ function renderSettlementRequestDrawer(): string {
     return renderDrawer(
       '版本沿革',
       `
-        ${renderSettlementProfileDiffCard(selectedCycle)}
         ${renderSettlementVersionHistoryList(versionHistory)}
         <button class="inline-flex w-full items-center justify-center rounded-md border px-3 py-2 text-xs hover:bg-muted" data-pda-sett-action="back-to-settlement-profile">
           返回结算资料
@@ -1155,7 +609,7 @@ function renderSettlementRequestDrawer(): string {
       '申请修改结算资料',
       `
         <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-          提交后进入待处理，不会立即改写当前生效资料；已生成对账单和预付款批次继续沿用原快照。
+          提交后进入待处理，不会立即改写当前生效资料；已生成单据继续沿用原快照。
         </div>
         ${
           state.settlementRequestErrorText
@@ -1248,7 +702,6 @@ function renderSettlementRequestDrawer(): string {
         <p class="mt-1 text-[10px] text-muted-foreground">变更字段：${escapeHtml(getChangedSettlementFields(currentRequest))}</p>
         <p class="mt-1 text-[10px] text-muted-foreground">下一步：${escapeHtml(getRequestNextStepText(currentRequest))}</p>
       </div>
-      ${renderSettlementProfileDiffCard(selectedCycle)}
       <div class="rounded-md border p-3">
         <p class="mb-2 text-xs font-medium">变更前后</p>
         <div class="grid gap-2">
@@ -1363,134 +816,8 @@ function renderProxyConfirmationNotice(statement: StatementDraft): string {
       时间：${escapeHtml(statement.proxyConfirmedAt ? formatDateTime(statement.proxyConfirmedAt) : '-')}；
       方式：${escapeHtml(getProxyConfirmationMethodLabel(statement.proxyConfirmMethod))}；
       通知：${escapeHtml(getProxyNotificationStatusLabel(statement.proxyConfirmNotificationStatus))}。
-      ${appealed ? '三方工厂已对代确认结果提出异议，平台处理前该单不会继续进入预付款。' : ''}
+      ${appealed ? '三方工厂已对代确认结果提出异议，平台处理前该单不会继续进入付款处理。' : ''}
     </div>
-  `
-}
-
-function renderStatementCard(statement: StatementDraft, summary: SettlementCycleSummary): string {
-  const amounts = getStatementSplitAmounts(statement)
-  const qualityItems = statement.items.filter((item) => item.sourceItemType === 'QUALITY_DEDUCTION')
-  const batch = statement.prepaymentBatchId ? getPrepaymentBatchById(statement.prepaymentBatchId) : getBatchByStatement(statement.statementId)
-  const approval = getBatchApproval(batch)
-  const writeback = getBatchWriteback(batch)
-  const canRespond =
-    statement.status === 'PENDING_FACTORY_CONFIRM' && statement.factoryFeedbackStatus === 'PENDING_FACTORY_CONFIRM'
-  const canAppeal = canRespond || (isStatementProxyConfirmed(statement) && !statement.prepaymentBatchId)
-  const canConfirmStatement = canRespond && hasPdaSettlementPermission('SETTLEMENT_CONFIRM')
-  const canAppealStatement = canAppeal && hasPdaSettlementPermission('SETTLEMENT_DISPUTE')
-
-  return `
-    <article class="rounded-lg border bg-card px-3 py-3 shadow-none">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="text-xs font-semibold text-foreground">${escapeHtml(statement.statementNo ?? statement.statementId)}</span>
-            ${renderStatusBadge(getStatementStatusLabel(statement.status), getStatementStatusVariant(statement.status))}
-            ${renderStatusBadge(getFactoryFeedbackLabel(statement.factoryFeedbackStatus), getFactoryFeedbackVariant(statement.factoryFeedbackStatus))}
-            ${isStatementProxyConfirmed(statement) ? renderStatusBadge('跟单审核代确认', 'blue') : ''}
-          </div>
-          <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`应付 ${formatAmount(amounts.earningAmount)} · 扣款 ${amounts.deductionAmount > 0 ? formatAmount(amounts.deductionAmount) : '—'} · 本期净额 ${formatAmount(amounts.netAmount)}`)}</div>
-          <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`资料快照版本 ${statement.settlementProfileVersionNo} · 当前生效 ${summary.currentEffectiveVersionNo ?? '—'}`)}</div>
-        </div>
-      </div>
-      <div class="mt-3 rounded-md bg-muted/20 px-3 py-2 text-[10px]">
-        ${renderRow('应付', formatAmount(amounts.earningAmount), { bold: true })}
-        ${renderRow('扣款', amounts.deductionAmount > 0 ? formatAmount(amounts.deductionAmount) : '—', { red: amounts.deductionAmount > 0 })}
-        ${renderRow('本期净额', formatAmount(amounts.netAmount), { bold: true })}
-        ${renderRow('对账单状态', getStatementStatusLabel(statement.status))}
-        ${renderRow('工厂反馈状态', getFactoryFeedbackLabel(statement.factoryFeedbackStatus))}
-        ${renderRow('确认来源', getStatementConfirmationSourceLabel(statement))}
-        ${renderRow('预付款批次', batch?.batchNo ?? batch?.batchId ?? '当前未入预付款批次')}
-        ${renderRow('飞书付款审批编号', approval?.approvalNo ?? '当前未申请')}
-        ${renderRow('飞书付款审批状态', approval ? getFeishuStatusLabel(approval.status) : '当前未申请')}
-        ${renderRow('打款回写', writeback ? `已回写 · ${writeback.bankSerialNo}` : '当前未回写')}
-      </div>
-      <div class="mt-2 space-y-2">
-        ${
-          qualityItems.length > 0
-            ? qualityItems
-                .slice(0, 2)
-                .map(
-                  (item) => `
-                    <div class="rounded-md border bg-muted/20 px-3 py-2">
-                      ${renderRow('来源质检单', item.qcRecordId ?? item.sourceRefLabel ?? item.sourceItemId)}
-                      ${renderRow('扣款原因', item.remark ?? item.sourceRefLabel ?? item.basisId)}
-                    </div>
-                  `,
-                )
-                .join('')
-            : '<div class="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-[10px] text-muted-foreground">当前对账单没有质检扣款明细</div>'
-        }
-      </div>
-      ${renderProxyConfirmationNotice(statement)}
-      ${
-        summary.snapshotDifferenceNote && statement.settlementProfileVersionNo !== summary.currentEffectiveVersionNo
-          ? `<div class="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-5 text-amber-700">${escapeHtml(summary.snapshotDifferenceNote)}</div>`
-          : ''
-      }
-      <div class="mt-3 grid grid-cols-2 gap-2">
-        <button
-          class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted"
-          data-pda-sett-action="open-statement-detail"
-          data-statement-id="${escapeHtml(statement.statementId)}"
-        >
-          查看明细
-        </button>
-        <button
-          class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-          data-pda-sett-action="confirm-statement"
-          data-statement-id="${escapeHtml(statement.statementId)}"
-          ${canConfirmStatement ? '' : 'disabled'}
-        >
-          确认对账单
-        </button>
-        <button
-          class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-          data-pda-sett-action="open-statement-appeal"
-          data-statement-id="${escapeHtml(statement.statementId)}"
-          ${canAppealStatement ? '' : 'disabled'}
-        >
-          发起申诉
-        </button>
-        <button
-          class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted"
-          data-pda-sett-action="open-payment-result"
-          data-statement-id="${escapeHtml(statement.statementId)}"
-        >
-          打款结果
-        </button>
-      </div>
-    </article>
-  `
-}
-
-function renderPrepaymentBatchCard(batch: SettlementBatch): string {
-  const approval = getBatchApproval(batch)
-  const writeback = getBatchWriteback(batch)
-  return `
-    <article class="rounded-lg border bg-card px-3 py-3 shadow-none">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="text-xs font-semibold text-foreground">${escapeHtml(batch.batchNo ?? batch.batchId)}</span>
-            ${renderStatusBadge(getPrepaymentBatchStatusLabel(batch.status), getPrepaymentBatchStatusVariant(batch.status))}
-          </div>
-          <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`关联对账单 ${batch.totalStatementCount} 张 · 批次金额已锁定 ${formatAmount(batch.totalPayableAmount, batch.settlementCurrency)}`)}</div>
-          <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`飞书付款审批编号 ${approval?.approvalNo ?? '当前未申请'} · 状态 ${approval ? getFeishuStatusLabel(approval.status) : '当前未申请'}`)}</div>
-        </div>
-      </div>
-      <div class="mt-3 rounded-md bg-muted/20 px-3 py-2 text-[10px]">
-        ${renderRow('预付款批次号', batch.batchNo ?? batch.batchId)}
-        ${renderRow('批次金额', formatAmount(batch.totalPayableAmount, batch.settlementCurrency), { bold: true })}
-        ${renderRow('金额锁定', '入批后金额锁定，差异通过后续调整处理')}
-        ${renderRow('飞书付款审批编号', approval?.approvalNo ?? '当前未申请')}
-        ${renderRow('飞书付款审批状态', approval ? getFeishuStatusLabel(approval.status) : '当前未申请')}
-        ${renderRow('打款时间', writeback?.paidAt ? formatDateTime(writeback.paidAt) : '当前未回写')}
-        ${renderRow('银行回执', writeback?.bankReceiptName ?? '当前未登记')}
-        ${renderRow('银行流水号', writeback?.bankSerialNo ?? '当前未登记')}
-      </div>
-    </article>
   `
 }
 
@@ -1509,12 +836,10 @@ function renderStatementDrawer(): string {
 
   const amounts = getStatementSplitAmounts(statement)
   const batch = statement.prepaymentBatchId ? getPrepaymentBatchById(statement.prepaymentBatchId) : getBatchByStatement(statement.statementId)
-  const approval = getBatchApproval(batch)
   const writeback = getBatchWriteback(batch)
   const currentContext = getCurrentFactoryContext()
   const currentEffective = getCurrentEffectiveSettlementInfo(currentContext.factoryCode)
   const appeals = getStatementAppealRecords(statement)
-  const progress = getStatementSettlementProgressView(statement)
   const taskItems = statement.items.filter((item) => item.sourceItemType === 'TASK_EARNING')
   const qualityItems = statement.items.filter((item) => item.sourceItemType === 'QUALITY_DEDUCTION')
   const canRespond =
@@ -1529,18 +854,14 @@ function renderStatementDrawer(): string {
 
   if (state.statementDrawerMode === 'payment') {
     return renderDrawer(
-      `预付款结果 · ${statement.statementNo ?? statement.statementId}`,
+      `付款结果 · ${statement.statementNo ?? statement.statementId}`,
       `
         ${renderCard(
-          '预付款结果',
+          '付款结果',
           `
-            ${renderRow('预付款批次号', batch?.batchNo ?? batch?.batchId ?? '当前未入预付款批次')}
-            ${renderRow('预付款批次状态', batch ? getPrepaymentBatchStatusLabel(batch.status) : '当前未入预付款批次')}
-            ${renderRow('飞书付款审批编号', approval?.approvalNo ?? '当前未申请')}
-            ${renderRow('飞书付款审批状态', approval ? getFeishuStatusLabel(approval.status) : '当前未申请')}
-            ${renderRow('打款时间', writeback?.paidAt ? formatDateTime(writeback.paidAt) : '当前未回写')}
-            ${renderRow('银行回执', writeback?.bankReceiptName ?? '当前未登记')}
-            ${renderRow('银行流水号', writeback?.bankSerialNo ?? '当前未登记')}
+            ${renderRow('付款状态', writeback ? '已付款' : '未付款')}
+            ${renderRow('付款金额', writeback ? formatAmount(writeback.amount, writeback.currency) : formatAmount(amounts.netAmount, statement.settlementCurrency ?? 'IDR'))}
+            ${renderRow('付款时间', writeback ? formatDateTime(writeback.paidAt) : '当前未付款')}
           `,
         )}
       `,
@@ -1554,7 +875,7 @@ function renderStatementDrawer(): string {
       `发起申诉 · ${statement.statementNo ?? statement.statementId}`,
       `
         <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-[10px] leading-5 text-blue-700">
-          ${isProxyAppeal ? '该对账单已由跟单审核代确认。如金额、扣款或确认依据有异议，可在这里提交；平台处理前，该单不会继续进入后续预付款链。' : '对账单异议会回写到对账单对象本身。平台处理前，该单不会继续进入后续预付款链。'}
+          ${isProxyAppeal ? '该对账单已由跟单审核代确认。如金额、扣款或确认依据有异议，可在这里提交；平台处理前，该单不会继续进入付款处理。' : '对账单异议会记录在当前对账单上。平台处理前，该单不会继续进入付款处理。'}
         </div>
         <div class="space-y-3">
           <div class="space-y-1.5">
@@ -1620,7 +941,7 @@ function renderStatementDrawer(): string {
         `,
       )}
       ${renderStatementDetailSection(
-        '任务收入流水明细',
+        '任务收入明细',
         taskItems.length > 0
           ? taskItems
               .map(
@@ -1641,7 +962,7 @@ function renderStatementDrawer(): string {
                 `,
               )
               .join('')
-          : '<div class="rounded-md border border-dashed bg-muted/20 px-3 py-5 text-center text-xs text-muted-foreground">当前对账单没有任务收入流水</div>',
+          : '<div class="rounded-md border border-dashed bg-muted/20 px-3 py-5 text-center text-xs text-muted-foreground">当前对账单没有任务收入明细</div>',
       )}
       ${renderStatementDetailSection(
         '质量扣款明细',
@@ -1665,7 +986,7 @@ function renderStatementDrawer(): string {
                 `,
               )
               .join('')
-          : '<div class="rounded-md border border-dashed bg-muted/20 px-3 py-5 text-center text-xs text-muted-foreground">当前对账单没有返工扣款流水</div>',
+          : '<div class="rounded-md border border-dashed bg-muted/20 px-3 py-5 text-center text-xs text-muted-foreground">当前对账单没有返工扣款明细</div>',
       )}
       ${renderStatementDetailSection(
         '工厂反馈',
@@ -1711,21 +1032,6 @@ function renderStatementDrawer(): string {
           ${snapshotDiffNote ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-5 text-amber-700">${escapeHtml(snapshotDiffNote)}</div>` : '<p class="text-[10px] leading-5 text-muted-foreground">当前对账单已冻结生成时的资料快照，后续主数据变更不会影响本单。</p>'}
         `,
       )}
-      ${renderStatementDetailSection(
-        '后续预付款信息',
-        `
-          ${renderRow('当前阶段', progress.summary)}
-          ${renderRow('是否可进入预付款', progress.canEnterSettlement ? '可进入预付款批次' : '暂不可进入预付款批次')}
-          ${renderRow('计划预付款日', statement.plannedPrepaymentAt ?? batch?.plannedPrepaymentAt ?? '当前未计划')}
-          ${renderRow('预付款批次号', batch?.batchNo ?? batch?.batchId ?? '当前未入预付款批次')}
-          ${renderRow('飞书付款审批编号', approval?.approvalNo ?? '当前未申请')}
-          ${renderRow('飞书付款审批状态', approval ? getFeishuStatusLabel(approval.status) : '当前未申请')}
-          ${renderRow('打款时间', writeback?.paidAt ? formatDateTime(writeback.paidAt) : '当前未回写')}
-          ${renderRow('银行回执', writeback?.bankReceiptName ?? '当前未登记')}
-          ${renderRow('银行流水号', writeback?.bankSerialNo ?? '当前未登记')}
-          <p class="text-[10px] leading-5 text-muted-foreground">${escapeHtml(progress.detail)}</p>
-        `,
-      )}
       <div class="grid grid-cols-2 gap-2">
         <button
           class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
@@ -1748,7 +1054,7 @@ function renderStatementDrawer(): string {
           data-pda-sett-action="open-payment-result"
           data-statement-id="${escapeHtml(statement.statementId)}"
         >
-          打款结果
+          付款结果
         </button>
         <button class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs hover:bg-muted" data-pda-sett-action="close-statement-drawer">关闭</button>
       </div>
@@ -1868,7 +1174,7 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'open-statement-payment' || action === 'open-payment-result') {
+  if (action === 'open-payment-result') {
     const statementId = actionNode.dataset.statementId || state.statementDetailId
     if (!statementId) return true
     state.statementDrawerMode = 'payment'
