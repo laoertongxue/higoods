@@ -238,15 +238,132 @@ function getSettlementCycleSummaries(context: FactoryContext): SettlementCycleSu
 }
 
 function isStatementPaid(statement: StatementDraft): boolean {
-  return Boolean(statement.prepaidAt || statement.paymentWritebackId || statement.status === 'PREPAID')
+  const batch = statement.prepaymentBatchId ? getPrepaymentBatchById(statement.prepaymentBatchId) : getBatchByStatement(statement.statementId)
+  return Boolean(
+    statement.prepaidAt ||
+      statement.paymentWritebackId ||
+      statement.status === 'PREPAID' ||
+      isPaidOrPaidPendingBatchStatus(statement.prepaymentBatchStatus) ||
+      batch?.prepaidAt ||
+      batch?.paymentWritebackId ||
+      isPaidOrPaidPendingBatchStatus(batch?.status),
+  )
+}
+
+function isPaidOrPaidPendingBatchStatus(status?: SettlementBatch['status']): boolean {
+  return status === 'PREPAID' || status === 'FEISHU_PAID_PENDING_WRITEBACK'
+}
+
+function isStatementPaidPendingWriteback(statement: StatementDraft, batch: SettlementBatch | null): boolean {
+  return statement.prepaymentBatchStatus === 'FEISHU_PAID_PENDING_WRITEBACK' || batch?.status === 'FEISHU_PAID_PENDING_WRITEBACK'
+}
+
+function getStatementPaymentStatusLabel(
+  statement: StatementDraft,
+  batch: SettlementBatch | null,
+  writeback: PaymentWriteback | null,
+): string {
+  if (
+    writeback ||
+    statement.prepaidAt ||
+    statement.paymentWritebackId ||
+    statement.status === 'PREPAID' ||
+    statement.prepaymentBatchStatus === 'PREPAID' ||
+    batch?.prepaidAt ||
+    batch?.paymentWritebackId ||
+    batch?.status === 'PREPAID'
+  ) {
+    return '已付款'
+  }
+  if (isStatementPaidPendingWriteback(statement, batch)) return '已付款待回写'
+  return '未付款'
+}
+
+function getStatementPaymentAmountText(
+  statement: StatementDraft,
+  batch: SettlementBatch | null,
+  writeback: PaymentWriteback | null,
+  fallbackAmount: number,
+): string {
+  if (writeback) return formatAmount(writeback.amount, writeback.currency)
+  if (batch?.paymentAmount) return formatAmount(batch.paymentAmount, batch.settlementCurrency)
+  return formatAmount(fallbackAmount, statement.settlementCurrency ?? 'IDR')
+}
+
+function getStatementPaymentTimeText(batch: SettlementBatch | null, writeback: PaymentWriteback | null): string {
+  if (writeback) return formatDateTime(writeback.paidAt)
+  if (batch?.paymentAt) return formatDateTime(batch.paymentAt)
+  return '当前未付款'
 }
 
 function getStatementNetAmount(statement: StatementDraft): number {
   return statement.netPayableAmount ?? statement.totalAmount ?? 0
 }
 
+function normalizeFactoryMatchText(value: string | undefined): string {
+  return (value || '').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '')
+}
+
+function splitFactoryAliasTokens(values: string[]): Set<string> {
+  const commonTokens = new Set(['center', 'factory', 'fac', 'garment', 'indonesia', 'sewing', 'satellite', 'central', 'warehouse'])
+  return new Set(
+    values
+      .flatMap((value) => value.toLowerCase().split(/[^a-z0-9\u4e00-\u9fa5]+/g))
+      .filter((token) => token.length >= 5 && !commonTokens.has(token)),
+  )
+}
+
+function getFactoryProductionOrderNos(context: FactoryContext): Set<string> {
+  const values = [
+    ...listPreSettlementLedgers({ factoryId: context.settlementPartyId }).flatMap((ledger) => [
+      ledger.productionOrderNo,
+      ledger.productionOrderId,
+    ]),
+    ...listSettlementStatementsByParty(context.settlementPartyId).flatMap((statement) =>
+      statement.items.flatMap((item) => [item.productionOrderNo, item.productionOrderId]),
+    ),
+  ]
+  return new Set(values.filter(Boolean) as string[])
+}
+
+function getFactoryNameAliases(context: FactoryContext): string[] {
+  const effective = getCurrentEffectiveSettlementInfo(context.factoryCode)
+  const ledgers = listPreSettlementLedgers({ factoryId: context.settlementPartyId })
+  const statements = listSettlementStatementsByParty(context.settlementPartyId)
+  return Array.from(
+    new Set([
+      context.factoryName,
+      context.factoryCode,
+      context.factoryId,
+      effective?.factoryName,
+      ...ledgers.map((ledger) => ledger.factoryName),
+      ...statements.flatMap((statement) => [
+        statement.factoryName,
+        statement.settlementProfileSnapshot.sourceFactoryName,
+        statement.settlementProfileSnapshot.sourceFactoryId,
+      ]),
+    ].filter(Boolean) as string[]),
+  )
+}
+
+function isFactoryQcRow(row: QcFactRow, context: FactoryContext, aliases: Set<string>, aliasTokens: Set<string>, productionOrderNos: Set<string>): boolean {
+  const rowWithFactoryRef = row as QcFactRow & { sourceFactoryId?: string; sourceFactoryCode?: string }
+  if (rowWithFactoryRef.sourceFactoryId && rowWithFactoryRef.sourceFactoryId === context.factoryId) return true
+  if (rowWithFactoryRef.sourceFactoryCode && rowWithFactoryRef.sourceFactoryCode === context.factoryCode) return true
+  if (row.productionOrderNo !== '—' && productionOrderNos.has(row.productionOrderNo)) return true
+
+  const sourceName = normalizeFactoryMatchText(row.sourceFactoryName)
+  if (!sourceName) return false
+  if (aliases.has(sourceName)) return true
+  return [...aliasTokens].some((token) => sourceName.includes(token))
+}
+
 function getFactoryQcRows(context: FactoryContext): QcFactRow[] {
-  return listQcFactRows({ includeLegacy: false }).filter((row) => row.sourceFactoryName === context.factoryName)
+  const aliasValues = getFactoryNameAliases(context)
+  const aliases = new Set(aliasValues.map(normalizeFactoryMatchText).filter(Boolean))
+  const aliasTokens = splitFactoryAliasTokens(aliasValues)
+  const productionOrderNos = getFactoryProductionOrderNos(context)
+  return listQcFactRows({ includeLegacy: false }).filter((row) => isFactoryQcRow(row, context, aliases, aliasTokens, productionOrderNos))
 }
 
 function buildSettlementHomeViewModel(context: FactoryContext): SettlementHomeViewModel {
@@ -959,9 +1076,9 @@ function renderStatementDrawer(): string {
         ${renderCard(
           '付款结果',
           `
-            ${renderRow('付款状态', writeback ? '已付款' : '未付款')}
-            ${renderRow('付款金额', writeback ? formatAmount(writeback.amount, writeback.currency) : formatAmount(amounts.netAmount, statement.settlementCurrency ?? 'IDR'))}
-            ${renderRow('付款时间', writeback ? formatDateTime(writeback.paidAt) : '当前未付款')}
+            ${renderRow('付款状态', getStatementPaymentStatusLabel(statement, batch, writeback))}
+            ${renderRow('付款金额', getStatementPaymentAmountText(statement, batch, writeback, amounts.netAmount))}
+            ${renderRow('付款时间', getStatementPaymentTimeText(batch, writeback))}
           `,
         )}
       `,
@@ -1210,13 +1327,13 @@ function renderSettlementHomePage(): string {
       </section>
       <section class="rounded-lg border bg-card px-4 py-4">
         <h2 class="text-sm font-semibold">收入</h2>
-        <p class="mt-1 text-[11px] text-muted-foreground">未结算为参考金额，不等同于应付款。</p>
+        <p class="mt-1 text-[11px] text-muted-foreground">未入单净额为参考金额，不等同于应付款。</p>
         <div class="mt-3 grid grid-cols-2 gap-2">
           ${renderHomeMetricLink('累计收入', formatAmount(vm.accumulatedIncome, 'IDR'), buildStatementListHref('all'))}
           ${renderHomeMetricLink('累计扣款', formatAmount(vm.accumulatedDeduction, 'IDR'), buildStatementListHref('all'))}
           ${renderHomeMetricLink('已付款', formatAmount(vm.paidAmount, 'IDR'), buildStatementListHref('paid'))}
           ${renderHomeMetricLink('未付款', formatAmount(vm.unpaidAmount, 'IDR'), buildStatementListHref('unpaid'))}
-          ${renderHomeMetricLink('未结算参考金额', formatAmount(vm.unsettledReferenceAmount, 'IDR'), buildStatementListHref('all'))}
+          ${renderHomeMetricLink('未入单净额参考', formatAmount(vm.unsettledReferenceAmount, 'IDR'), buildStatementListHref('all'))}
         </div>
       </section>
       <section class="rounded-lg border bg-card px-4 py-4">
