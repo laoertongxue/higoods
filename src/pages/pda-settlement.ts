@@ -300,70 +300,34 @@ function getStatementNetAmount(statement: StatementDraft): number {
   return statement.netPayableAmount ?? statement.totalAmount ?? 0
 }
 
-function normalizeFactoryMatchText(value: string | undefined): string {
-  return (value || '').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '')
+function normalizeFactoryName(value: string | undefined): string {
+  return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-function splitFactoryAliasTokens(values: string[]): Set<string> {
-  const commonTokens = new Set(['center', 'factory', 'fac', 'garment', 'indonesia', 'sewing', 'satellite', 'central', 'warehouse'])
-  return new Set(
-    values
-      .flatMap((value) => value.toLowerCase().split(/[^a-z0-9\u4e00-\u9fa5]+/g))
-      .filter((token) => token.length >= 5 && !commonTokens.has(token)),
-  )
+function addFactoryNameAlias(aliases: Set<string>, value: string | undefined): void {
+  const normalized = normalizeFactoryName(value)
+  if (normalized) aliases.add(normalized)
 }
 
-function getFactoryProductionOrderNos(context: FactoryContext): Set<string> {
-  const values = [
-    ...listPreSettlementLedgers({ factoryId: context.settlementPartyId }).flatMap((ledger) => [
-      ledger.productionOrderNo,
-      ledger.productionOrderId,
-    ]),
-    ...listSettlementStatementsByParty(context.settlementPartyId).flatMap((statement) =>
-      statement.items.flatMap((item) => [item.productionOrderNo, item.productionOrderId]),
-    ),
-  ]
-  return new Set(values.filter(Boolean) as string[])
-}
+function getFactoryNameAliases(context: FactoryContext): Set<string> {
+  const aliases = new Set<string>()
+  ;[context.factoryName, context.factoryCode].forEach((value) => addFactoryNameAlias(aliases, value))
+  const factory = indonesiaFactories.find((item) => item.id === context.factoryId || item.code === context.factoryCode)
+  ;[factory?.name, factory?.code].forEach((value) => addFactoryNameAlias(aliases, value))
 
-function getFactoryNameAliases(context: FactoryContext): string[] {
-  const effective = getCurrentEffectiveSettlementInfo(context.factoryCode)
   const ledgers = listPreSettlementLedgers({ factoryId: context.settlementPartyId })
   const statements = listSettlementStatementsByParty(context.settlementPartyId)
-  return Array.from(
-    new Set([
-      context.factoryName,
-      context.factoryCode,
-      context.factoryId,
-      effective?.factoryName,
-      ...ledgers.map((ledger) => ledger.factoryName),
-      ...statements.flatMap((statement) => [
-        statement.factoryName,
-        statement.settlementProfileSnapshot.sourceFactoryName,
-        statement.settlementProfileSnapshot.sourceFactoryId,
-      ]),
-    ].filter(Boolean) as string[]),
-  )
-}
-
-function isFactoryQcRow(row: QcFactRow, context: FactoryContext, aliases: Set<string>, aliasTokens: Set<string>, productionOrderNos: Set<string>): boolean {
-  const rowWithFactoryRef = row as QcFactRow & { sourceFactoryId?: string; sourceFactoryCode?: string }
-  if (rowWithFactoryRef.sourceFactoryId && rowWithFactoryRef.sourceFactoryId === context.factoryId) return true
-  if (rowWithFactoryRef.sourceFactoryCode && rowWithFactoryRef.sourceFactoryCode === context.factoryCode) return true
-  if (row.productionOrderNo !== '—' && productionOrderNos.has(row.productionOrderNo)) return true
-
-  const sourceName = normalizeFactoryMatchText(row.sourceFactoryName)
-  if (!sourceName) return false
-  if (aliases.has(sourceName)) return true
-  return [...aliasTokens].some((token) => sourceName.includes(token))
+  ledgers.forEach((ledger) => addFactoryNameAlias(aliases, ledger.factoryName))
+  statements.forEach((statement) => {
+    addFactoryNameAlias(aliases, statement.factoryName)
+    addFactoryNameAlias(aliases, statement.settlementProfileSnapshot.sourceFactoryName)
+  })
+  return aliases
 }
 
 function getFactoryQcRows(context: FactoryContext): QcFactRow[] {
-  const aliasValues = getFactoryNameAliases(context)
-  const aliases = new Set(aliasValues.map(normalizeFactoryMatchText).filter(Boolean))
-  const aliasTokens = splitFactoryAliasTokens(aliasValues)
-  const productionOrderNos = getFactoryProductionOrderNos(context)
-  return listQcFactRows({ includeLegacy: false }).filter((row) => isFactoryQcRow(row, context, aliases, aliasTokens, productionOrderNos))
+  const aliases = getFactoryNameAliases(context)
+  return listQcFactRows({ includeLegacy: false }).filter((row) => aliases.has(normalizeFactoryName(row.sourceFactoryName)))
 }
 
 function buildSettlementHomeViewModel(context: FactoryContext): SettlementHomeViewModel {
