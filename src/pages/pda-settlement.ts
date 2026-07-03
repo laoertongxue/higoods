@@ -41,7 +41,7 @@ import {
   getPdaRuntimeContext,
   renderPdaLoginRedirect,
 } from './pda-runtime'
-import { listQcFactRows, type QcFactRow } from './qc-records/fact-view'
+import { getQcFactDetail, listQcFactRows, type QcFactRow } from './qc-records/fact-view'
 import type {
   FactoryFeedbackStatus,
   PreSettlementLedger,
@@ -459,6 +459,14 @@ function getStatementFilterLabel(view: StatementFilterView): string {
   return '全部对账单'
 }
 
+function getQualityRecordFilterLabel(view: QualityRecordFilterView): string {
+  if (view === 'not-in-statement') return '未进对账'
+  if (view === 'in-statement') return '已进对账'
+  if (view === 'rework') return '有返工'
+  if (view === 'deducted') return '有扣款'
+  return '全部质检记录'
+}
+
 function filterStatementRows(
   rows: Array<{ statement: StatementDraft; summary: SettlementCycleSummary }>,
   view: StatementFilterView,
@@ -468,6 +476,27 @@ function filterStatementRows(
   if (view === 'paid') return rows.filter(({ statement }) => isStatementPaid(statement))
   if (view === 'unpaid') return rows.filter(({ statement }) => !isStatementPaid(statement))
   return rows
+}
+
+function filterQualityRows(rows: QcFactRow[], view: QualityRecordFilterView): QcFactRow[] {
+  if (view === 'not-in-statement') return rows.filter((row) => row.settlementTrace.statusLabel !== '已进入对账')
+  if (view === 'in-statement') return rows.filter((row) => row.settlementTrace.statusLabel === '已进入对账')
+  if (view === 'rework') return rows.filter((row) => row.reworkQty > 0)
+  if (view === 'deducted') return rows.filter((row) => row.reworkChargebackAmountText !== '—')
+  return rows
+}
+
+function matchesQualityRecordKeyword(row: QcFactRow, keyword: string): boolean {
+  const text = keyword.trim().toLowerCase()
+  if (!text) return true
+  return [
+    row.displayNo,
+    row.productionOrderNo,
+    row.skuSummary,
+    row.sourceFactoryName,
+    row.reworkReceivers,
+    row.settlementTrace.statementNo,
+  ].some((value) => String(value ?? '').toLowerCase().includes(text))
 }
 
 function resetStatementAppealForm(): void {
@@ -1235,8 +1264,11 @@ function renderSettlementPlaceholderPage(title: string, description: string, dra
 }
 
 function renderHomeMetricLink(label: string, value: string, href: string): string {
+  const actionAttr = href.includes('tab=quality')
+    ? 'data-pda-sett-action="open-quality-list"'
+    : 'data-pda-sett-action="open-statement-list"'
   return `
-    <button class="rounded-lg border bg-background px-3 py-2 text-left" data-nav="${escapeHtml(href)}">
+    <button class="rounded-lg border bg-background px-3 py-2 text-left" ${actionAttr} data-nav="${escapeHtml(href)}">
       <div class="text-[11px] text-muted-foreground">${escapeHtml(label)}</div>
       <div class="mt-1 text-sm font-bold text-foreground">${escapeHtml(value)}</div>
     </button>
@@ -1255,6 +1287,23 @@ function renderStatementFilterTabs(): string {
     .map(
       ([view, label]) => `
         <button class="shrink-0 rounded-full border px-3 py-1.5 text-xs ${state.statementFilterView === view ? 'border-primary bg-primary text-primary-foreground' : 'bg-background text-muted-foreground'}" data-nav="${escapeHtml(buildStatementListHref(view))}">${escapeHtml(label)}</button>
+      `,
+    )
+    .join('')}</div>`
+}
+
+function renderQualityRecordFilterTabs(): string {
+  const tabs: Array<[QualityRecordFilterView, string]> = [
+    ['all', '全部'],
+    ['not-in-statement', '未进对账'],
+    ['in-statement', '已进对账'],
+    ['rework', '有返工'],
+    ['deducted', '有扣款'],
+  ]
+  return `<div class="flex gap-2 overflow-x-auto pb-1">${tabs
+    .map(
+      ([view, label]) => `
+        <button class="shrink-0 rounded-full border px-3 py-1.5 text-xs ${state.qualityRecordFilterView === view ? 'border-primary bg-primary text-primary-foreground' : 'bg-background text-muted-foreground'}" data-nav="${escapeHtml(buildQualityListHref(view))}">${escapeHtml(label)}</button>
       `,
     )
     .join('')}</div>`
@@ -1300,6 +1349,33 @@ function renderStatementCard(statement: StatementDraft, summary: SettlementCycle
         </button>
       </div>
     </section>
+  `
+}
+
+function renderQualityRecordCard(row: QcFactRow): string {
+  const inStatement = row.settlementTrace.statusLabel === '已进入对账'
+  return `
+    <button class="w-full rounded-lg border bg-card px-4 py-3 text-left" data-pda-sett-action="open-quality-record-detail" data-qc-id="${escapeHtml(row.id)}">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="truncate text-sm font-semibold">${escapeHtml(row.displayNo)}</div>
+          <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(row.productionOrderNo)} · ${escapeHtml(row.skuSummary)}</div>
+        </div>
+        <span class="${toClassName(
+          'shrink-0 rounded-full border px-2 py-0.5 text-[10px]',
+          inStatement ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'bg-background text-muted-foreground',
+        )}">${escapeHtml(row.settlementTrace.statusLabel)}</span>
+      </div>
+      <div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+        ${renderRow('质检数量', `${row.inspectedQty} 件`)}
+        ${renderRow('合格数量', `${row.qualifiedQty} 件`)}
+        ${renderRow('返工数量', `${row.reworkQty} 件`, { orange: row.reworkQty > 0 })}
+        ${renderRow('瑕疵数量', `${row.defectQty} 件`, { orange: row.defectQty > 0 })}
+      </div>
+      <div class="mt-2 text-[11px] leading-5 text-muted-foreground">
+        对账单：${escapeHtml(row.settlementTrace.statementNo ?? '未进入对账')} · 返工接收：${escapeHtml(row.reworkReceivers)}
+      </div>
+    </button>
   `
 }
 
@@ -1382,8 +1458,62 @@ function renderStatementListPage(): string {
   `
 }
 
+function renderQualityRecordDrawer(): string {
+  if (!state.qualityDrawerId) return ''
+  const detail = getQcFactDetail(state.qualityDrawerId)
+  if (!detail) return ''
+  return renderDrawer(
+    `质检记录 · ${detail.displayNo}`,
+    `
+      ${renderStatementDetailSection('质检事实', `
+        ${renderRow('生产单', detail.productionOrderNo)}
+        ${renderRow('SKU', detail.skuSummary)}
+        ${renderRow('质检数量', `${detail.inspectedQty} 件`)}
+        ${renderRow('合格数量', `${detail.qualifiedQty} 件`)}
+        ${renderRow('返工数量', `${detail.reworkQty} 件`, { orange: detail.reworkQty > 0 })}
+        ${renderRow('瑕疵数量', `${detail.defectQty} 件`, { orange: detail.defectQty > 0 })}
+        ${renderRow('返工接收对象', detail.reworkReceivers)}
+      `)}
+      ${renderStatementDetailSection('SKU 明细', detail.skuResults.map((item) => `
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <div class="text-xs font-semibold">${escapeHtml(item.skuCode)}</div>
+          <div class="mt-1 text-[11px] leading-5 text-muted-foreground">
+            质检 ${item.inspectedQty} 件 · 合格 ${item.qualifiedQty} 件 · 返工 ${item.reworkQty} 件 · 瑕疵 ${item.defectQty} 件
+          </div>
+          <div class="mt-1 text-[11px] leading-5 text-muted-foreground">
+            返工接收：${escapeHtml(item.reworkReceiveFactoryName)} · 瑕疵原因：${escapeHtml(item.defectReasonSummary)}
+          </div>
+        </div>
+      `).join(''))}
+      ${renderStatementDetailSection('对账引用', `
+        ${renderRow('是否进入对账', detail.settlementTrace.statusLabel)}
+        ${renderRow('对账单', detail.settlementTrace.statementNo ?? '未进入对账')}
+        ${renderRow('扣款明细', detail.settlementTrace.deductionLineNo ?? '—')}
+        ${detail.reworkChargebackAmountText !== '—' ? renderRow('返工扣款金额', detail.reworkChargebackAmountText, { red: true }) : ''}
+      `)}
+    `,
+    'close-quality-record-drawer',
+  )
+}
+
 function renderQualityRecordListPage(): string {
-  return renderSettlementPlaceholderPage('质检记录', '待入单、已入单、返工和扣款记录将在后续任务接入。')
+  const context = getCurrentFactoryContext()
+  const rows = filterQualityRows(getFactoryQcRows(context), state.qualityRecordFilterView).filter((row) =>
+    matchesQualityRecordKeyword(row, state.qualitySearch),
+  )
+  return `
+    <div class="space-y-3 px-4 py-4">
+      <button class="text-xs text-muted-foreground" data-nav="${escapeHtml(buildSettlementHomeHref())}">返回结算首页</button>
+      <section class="rounded-lg border bg-card px-4 py-4">
+        <h1 class="text-base font-bold">${escapeHtml(getQualityRecordFilterLabel(state.qualityRecordFilterView))}</h1>
+        <p class="mt-1 text-[11px] leading-5 text-muted-foreground">只看质检事实和对账单引用，扣款信息弱展示。</p>
+        <div class="mt-3">${renderQualityRecordFilterTabs()}</div>
+        <input class="mt-3 h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="质检单 / 生产单 / SKU / 对账单" value="${escapeHtml(state.qualitySearch)}" data-pda-sett-field="quality-search" data-skip-page-rerender="true" />
+      </section>
+      ${rows.length > 0 ? rows.map(renderQualityRecordCard).join('') : '<div class="rounded-lg border border-dashed bg-card px-4 py-8 text-center text-sm text-muted-foreground">当前筛选下没有质检记录</div>'}
+      ${renderQualityRecordDrawer()}
+    </div>
+  `
 }
 
 function renderSettlementContent(): string {
@@ -1457,6 +1587,20 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
   if (!actionNode) return false
   const action = actionNode.dataset.pdaSettAction
   if (!action) return false
+
+  if (action === 'open-quality-record-detail') {
+    const qcId = actionNode.dataset.qcId
+    if (!qcId) return true
+    state.qualityDrawerId = qcId
+    appStore.patch({})
+    return true
+  }
+
+  if (action === 'close-quality-record-drawer') {
+    state.qualityDrawerId = null
+    appStore.patch({})
+    return true
+  }
 
   if (action === 'open-statement-detail') {
     const statementId = actionNode.dataset.statementId
