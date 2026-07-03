@@ -1,0 +1,4 @@
+interface:
+  display_name: "HiGood 印尼工厂设计"
+  short_description: "约束 HiGood 印尼工厂现场协同系统原型设计与审查"
+  default_prompt: "请按 HiGood 印尼工厂现场协同系统产品设计规范和原型审查清单，设计或审查当前原型改动。"

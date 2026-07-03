@@ -130,6 +130,23 @@ Mock 数据应优先表现：
 - 状态差异。
 - 典型异常。
 
+### 5.4 印尼工厂现场协同设计治理
+
+任何涉及页面原型、交互、文案、UI 样式、组件使用、Mock 数据、路由入口、现场执行链路的更新，都必须先参照以下两份项目级文档：
+
+- `docs/higood-indonesia-factory-product-design-guidelines.md`
+- `docs/higood-indonesia-factory-prototype-review-checklist.md`
+
+执行要求：
+
+1. 设计前必须按《HiGood 印尼工厂现场协同系统产品设计规范》确认角色、端类型、现场能力假设、协作关系、页面模式、文案、UI 样式、防错和异常兜底。
+2. 完成后必须按《HiGood 印尼工厂现场协同系统原型审查清单》做人工自查。
+3. 只要改动涉及 `src/pages/`、`src/components/`、`src/data/`、`src/router/`、`src/main-handlers/` 中的原型页面、组件、Mock 数据、路由或交互处理，就必须新增或更新一份审查记录，模板见 `docs/prototype-review-record-template.md`，记录放在 `docs/prototype-review-records/`。
+4. 最终回复必须说明本次改动参考了哪几类规范、自查结论，以及是否存在例外。
+5. 提交或交付前必须运行 `npm run check:prototype-design-governance`。如需检查整个工作区，可运行 `npm run check:prototype-design-governance -- --all`。
+
+不得用“只是小改”“只是文案”“只是 Mock 数据”绕过上述要求。印尼工厂现场端的文案、字段、按钮、状态、颜色、数量和异常提示都属于产品设计的一部分。
+
 ---
 
 ## 6. 中文化要求

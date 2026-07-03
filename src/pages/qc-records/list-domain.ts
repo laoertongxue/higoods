@@ -151,7 +151,7 @@ export function renderQcRecordsPage(): string {
     <div class="flex flex-col gap-5 p-6">
       <div>
         <h1 class="text-2xl font-bold tracking-tight">质检记录</h1>
-        <p class="mt-1 text-sm text-muted-foreground">只看具体质检事实：质检了多少、合格多少、返工多少、瑕疵多少、返工交给谁。</p>
+        <p class="mt-1 text-sm text-muted-foreground">覆盖回货质检与后道复检，只看具体质检事实：质检了多少、合格多少、返工多少、瑕疵多少、返工交给谁。</p>
       </div>
 
       ${renderFilters(allRows)}
