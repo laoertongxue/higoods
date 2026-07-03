@@ -19,6 +19,7 @@ import {
   buildProductionOrderSettlementProjections,
   buildStatementDraftLinesFromSettlementSelection,
 } from '../src/data/fcs/store-domain-statement-source-adapter.ts'
+import { listPostFinishingQcOrders } from '../src/data/fcs/post-finishing-domain.ts'
 
 const summary = calculateProductionOrderSettlementSummary({
   cuttingCompletedQty: 100,
@@ -62,6 +63,39 @@ assert.equal(incomplete.isComplete, false)
 assert.equal(incomplete.shortageQty, 30)
 
 const allLedgers = listPreSettlementLedgers()
+const externalReworkChargeback = listPostFinishingQcOrders()
+  .flatMap((record) =>
+    (record.qcSkuResults ?? []).map((sku) => ({
+      qcRecordId: record.actionRecordId,
+      skuResultId: sku.qcSkuResultId,
+      factoryName: record.sourceFactoryName,
+      reworkQty: sku.reworkQty ?? 0,
+      receiverName: sku.reworkReceiveFactoryName,
+      amount: sku.sourceChargeback?.amount ?? sku.reworkDeductionAmountIdr ?? 0,
+    })),
+  )
+  .find((item) => item.reworkQty > 0 && item.receiverName && item.receiverName !== item.factoryName && item.amount > 0)
+assert(externalReworkChargeback, '缺少后道质检返工反扣样例')
+const chargebackLedger = allLedgers.find(
+  (ledger) =>
+    ledger.sourceType === 'QC_REWORK_CHARGEBACK' &&
+    ledger.qcRecordId === externalReworkChargeback!.qcRecordId &&
+    ledger.sourceRefId.includes(externalReworkChargeback!.skuResultId),
+)
+assert(chargebackLedger, '质检记录里的返工反扣必须进入预结算流水')
+assert.equal(chargebackLedger.ledgerType, 'QUALITY_DEDUCTION')
+assert.equal(chargebackLedger.direction, 'DEDUCTION')
+assert.equal(chargebackLedger.settlementCurrency, 'IDR')
+assert.equal(chargebackLedger.settlementAmount, externalReworkChargeback!.amount)
+const chargebackEligible = listStatementEligiblePreSettlementLedgersByRange({
+  factoryId: chargebackLedger.factoryId,
+  occurredFrom: chargebackLedger.occurredAt.slice(0, 10),
+  occurredTo: chargebackLedger.occurredAt.slice(0, 10),
+})
+assert(
+  chargebackEligible.some((ledger) => ledger.ledgerId === chargebackLedger.ledgerId),
+  '质检记录返工反扣必须可进入对账单选择范围',
+)
 const firstOpenLedger = allLedgers.find((item) => item.status === 'OPEN')
 assert(firstOpenLedger, '需要至少一条 OPEN 预结算流水作为时间段检查样例')
 

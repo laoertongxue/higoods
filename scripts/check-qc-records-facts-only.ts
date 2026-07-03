@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { readFileSync } from 'node:fs'
 import { listPostFinishingQcOrders } from '../src/data/fcs/post-finishing-domain.ts'
 import { getQcFactDetail } from '../src/pages/qc-records/fact-view.ts'
 import { renderQcRecordDetailPage, renderQcRecordsPage } from '../src/pages/qc-records.ts'
@@ -36,18 +37,24 @@ const externalReworkReceiver = (externalReworkQc!.qcSkuResults ?? []).find((item
   item.reworkReceiveFactoryName &&
   item.reworkReceiveFactoryName !== externalReworkQc!.sourceFactoryName,
 )?.reworkReceiveFactoryName
-const reworkReceiverCount = new Set(
+const expectedReworkReceivers = Array.from(new Set(
   (externalReworkQc!.qcSkuResults ?? [])
     .filter((item) => (item.reworkQty ?? 0) > 0)
     .map((item) => item.reworkReceiveFactoryName)
     .filter(Boolean),
-).size
+))
 const externalFact = getQcFactDetail(externalReworkQc!.actionRecordId)
+const factViewSource = readFileSync(new URL('../src/pages/qc-records/fact-view.ts', import.meta.url), 'utf8')
 
 assert(externalReworkReceiver, '缺少外部返工接收对象')
-assert(reworkReceiverCount === 1, '同一张后道质检单不应存在多个返工接收对象')
-assert(externalFact?.reworkReceivers === externalReworkReceiver, '事实视图的返工接收对象必须是单据级唯一对象')
-assert(!externalFact!.reworkReceivers.includes('、'), '事实视图的返工接收对象不应拼接多个对象')
+for (const receiver of expectedReworkReceivers) {
+  assert(externalFact?.reworkReceivers.includes(receiver!), `事实视图缺少返工接收对象：${receiver}`)
+}
+assert(
+  !factViewSource.includes('skuResults.find((item) => numberValue(item.reworkQty) > 0 && item.reworkReceiveFactoryName)'),
+  '事实视图不能从 SKU 返工接收对象中取第一条作为订单级字段',
+)
+assert(factViewSource.includes('formatSkuReworkReceiverTexts'), '事实视图需要按 SKU 和数量汇总返工接收对象')
 
 const externalChargebackAmount = (externalReworkQc!.qcSkuResults ?? []).reduce((sum, item) => {
   const isExternalRework =

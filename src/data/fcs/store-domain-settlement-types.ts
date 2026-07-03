@@ -9,7 +9,10 @@ export type AdjustmentStatus = 'DRAFT' | 'EFFECTIVE' | 'VOID'
 export type AdjustmentType = 'DEDUCTION_SUPPLEMENT' | 'COMPENSATION' | 'REVERSAL'
 export type PreSettlementLedgerType = 'TASK_EARNING' | 'QUALITY_DEDUCTION'
 export type PreSettlementLedgerDirection = 'INCOME' | 'DEDUCTION'
-export type PreSettlementLedgerSourceType = 'RETURN_INBOUND_BATCH' | 'FORMAL_QUALITY_DEDUCTION_LEDGER'
+export type PreSettlementLedgerSourceType =
+  | 'RETURN_INBOUND_BATCH'
+  | 'FORMAL_QUALITY_DEDUCTION_LEDGER'
+  | 'QC_REWORK_CHARGEBACK'
 export type PreSettlementLedgerPriceSourceType = 'DISPATCH' | 'BID' | 'OTHER_COMPAT'
 export type PreSettlementLedgerStatus =
   | 'OPEN'

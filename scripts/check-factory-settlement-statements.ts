@@ -25,6 +25,13 @@ for (const token of [
   '结算口径累计交出',
   '后道返工反扣',
   '本期应付净额',
+  'data-stm-build-field="manual-defect-deduction-amount"',
+  'data-stm-build-field="manual-defect-deduction-remark"',
+  'data-stm-build-field="manual-delay-deduction-amount"',
+  'data-stm-build-field="manual-delay-deduction-remark"',
+  '开始时间参考',
+  '最后交出时间',
+  '由业务人员填写',
 ]) {
   assert(source.includes(token) || html.includes(token), `缺少对账单生成口径：${token}`)
 }

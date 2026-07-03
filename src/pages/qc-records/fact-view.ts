@@ -121,6 +121,15 @@ function summarizePostProjects(result: PostFinishingQcSkuResult): string {
   return summary || '—'
 }
 
+function formatSkuReworkReceiverTexts(results: PostFinishingQcSkuResult[]): string {
+  const texts = results
+    .filter((item) => numberValue(item.reworkQty) > 0 && item.reworkReceiveFactoryName)
+    .map((item) =>
+      `${item.skuCode} ${numberValue(item.reworkQty)}${item.qtyUnit || '件'} -> ${item.reworkReceiveFactoryName}`,
+    )
+  return uniqueText(texts)
+}
+
 function hasSourceChargeback(record: PostFinishingActionRecord): boolean {
   return (record.qcSkuResults ?? []).some(
     (item) => item.sourceChargeback || numberValue(item.reworkDeductionAmountIdr) > 0,
@@ -212,10 +221,7 @@ function mapPostRow(record: PostFinishingActionRecord): QcFactRow {
     qualifiedQty: numberValue(record.passedGarmentQty ?? record.acceptedGarmentQty),
     reworkQty,
     defectQty,
-    reworkReceivers:
-      record.reworkReceiveFactoryName ||
-      skuResults.find((item) => numberValue(item.reworkQty) > 0 && item.reworkReceiveFactoryName)?.reworkReceiveFactoryName ||
-      '—',
+    reworkReceivers: formatSkuReworkReceiverTexts(skuResults),
     reworkChargebackAmountText: formatIdrAmount(reworkChargebackAmount),
     resultLabel: record.qcResult || record.status,
     inspectedAt: record.finishedAt || record.startedAt || '—',

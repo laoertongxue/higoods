@@ -51,7 +51,9 @@ function main(): void {
   assert(Boolean(taskTrace?.task || taskLedger?.taskId), '任务收入正式流水无法追到任务')
   assert(Boolean(taskTrace?.returnInboundBatch || taskLedger?.returnInboundBatchId), '任务收入正式流水无法追到回货批次')
   assert(Boolean(qualityTrace?.qcRecord || qualityLedger?.qcRecordId), '质量扣款正式流水无法追到质检记录')
-  assert(Boolean(qualityTrace?.pendingDeductionRecord || qualityLedger?.pendingDeductionRecordId), '质量扣款正式流水无法追到待确认记录')
+  if (qualityLedger?.sourceType !== 'QC_REWORK_CHARGEBACK') {
+    assert(Boolean(qualityTrace?.pendingDeductionRecord || qualityLedger?.pendingDeductionRecordId), '质量扣款正式流水无法追到待确认记录')
+  }
 
   console.log(
     JSON.stringify(

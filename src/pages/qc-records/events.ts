@@ -54,10 +54,6 @@ export function handleQcRecordsEvent(target: HTMLElement): boolean {
       listState.pageSize = Number.isFinite(pageSize) && pageSize > 0 ? pageSize : 10
       return true
     }
-    if (field === 'showLegacy' && listFilterNode instanceof HTMLInputElement) {
-      listState.showLegacy = listFilterNode.checked
-      return true
-    }
     if (field === 'processType') {
       listState.filterProcessType = listFilterNode.value as QcRecordsListState['filterProcessType']
       return true
@@ -254,7 +250,6 @@ export function handleQcRecordsEvent(target: HTMLElement): boolean {
       listState.filterInspector = 'ALL'
       listState.filterFactory = 'ALL'
       listState.filterWarehouse = 'ALL'
-      listState.showLegacy = false
       listState.page = 1
       listState.pageSize = 10
       return true

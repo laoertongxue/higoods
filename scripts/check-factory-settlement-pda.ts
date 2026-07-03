@@ -36,6 +36,19 @@ for (const forbidden of ['data-pda-sett-field="deduction-amount"', 'data-pda-set
   assert(!pda.includes(forbidden), `PDA 不允许核算编辑：${forbidden}`)
 }
 
+for (const token of [
+  'hasPdaSettlementPermission',
+  'SETTLEMENT_VIEW',
+  'SETTLEMENT_CONFIRM',
+  'SETTLEMENT_DISPUTE',
+  'SETTLEMENT_CHANGE_REQUEST',
+  '当前账号没有确认对账单权限',
+  '当前账号没有发起申诉权限',
+  '当前账号没有变更结算资料权限',
+]) {
+  assert(pda.includes(token), `PDA 结算缺少权限拦截：${token}`)
+}
+
 const statementDetailButton = findButtonSnippet('查看明细', 'open-statement-detail')
 assert(statementDetailButton, 'PDA 对账单卡片缺少查看明细按钮')
 assert(statementDetailButton.includes('data-pda-sett-action="open-statement-detail"'), '查看明细按钮未绑定对账单详情动作')

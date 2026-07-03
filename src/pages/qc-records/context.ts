@@ -94,7 +94,6 @@ interface QcRecordsListState {
   filterInspector: InspectorFilter
   filterFactory: string
   filterWarehouse: string
-  showLegacy: boolean
 }
 
 interface QcRecordFormState {
@@ -227,7 +226,6 @@ const listState: QcRecordsListState = {
   filterInspector: 'ALL',
   filterFactory: 'ALL',
   filterWarehouse: 'ALL',
-  showLegacy: false,
 }
 
 let detailState: QcRecordDetailState | null = null
@@ -558,7 +556,7 @@ function generateQcId(): string {
 
 
 function getQcViewRows() {
-  return listPlatformQcListItems({ includeLegacy: listState.showLegacy })
+  return listPlatformQcListItems({ includeLegacy: false })
 }
 
 function getFactoryOptions(): string[] {
@@ -592,11 +590,11 @@ function getInspectorOptions(): string[] {
 }
 
 function getWorkbenchStats(): PlatformQcWorkbenchStats {
-  return getPlatformQcWorkbenchStats({ includeLegacy: listState.showLegacy })
+  return getPlatformQcWorkbenchStats({ includeLegacy: false })
 }
 
 function getWorkbenchTabCounts(): Record<PlatformQcWorkbenchViewKey, number> {
-  return getPlatformQcWorkbenchTabCounts({ includeLegacy: listState.showLegacy })
+  return getPlatformQcWorkbenchTabCounts({ includeLegacy: false })
 }
 
 function getFilteredQcRows() {

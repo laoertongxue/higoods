@@ -83,6 +83,10 @@ interface StatementsState {
   selectedLedgerIds: string[]
   selectedProductionOrderNos: string[]
   buildRemark: string
+  manualDefectDeductionAmount: string
+  manualDefectDeductionRemark: string
+  manualDelayDeductionAmount: string
+  manualDelayDeductionRemark: string
   editingStatementId: string | null
   processingAppealStatementId: string | null
   appealResolutionResult: '' | StatementResolutionResult
@@ -205,6 +209,10 @@ const state: StatementsState = {
   selectedLedgerIds: [],
   selectedProductionOrderNos: [],
   buildRemark: '',
+  manualDefectDeductionAmount: '',
+  manualDefectDeductionRemark: '',
+  manualDelayDeductionAmount: '',
+  manualDelayDeductionRemark: '',
   editingStatementId: null,
   processingAppealStatementId: null,
   appealResolutionResult: '',
@@ -631,6 +639,89 @@ function getBuildCurrencyDisplayText(_effectiveCurrency: SettlementCurrency | nu
   return 'IDR'
 }
 
+function parseManualDeductionAmount(value: string): number {
+  const parsed = Number(value.replace(/,/g, '').trim())
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) / 100 : 0
+}
+
+function getBuildTimingAssist(): { startTime: string; lastHandoverTime: string } {
+  const ledgers = getBuildRangeLedgers()
+  const times = ledgers.map((item) => item.occurredAt).filter(Boolean).sort()
+  const handoverTimes = ledgers
+    .filter((item) => item.ledgerType === 'TASK_EARNING')
+    .map((item) => item.occurredAt)
+    .filter(Boolean)
+    .sort()
+  return {
+    startTime: times[0] ?? '—',
+    lastHandoverTime: handoverTimes[handoverTimes.length - 1] ?? '—',
+  }
+}
+
+function buildManualStatementDeductionLines(
+  scope: StatementBuildScopeViewModel,
+  occurredAt: string,
+): StatementDraftItem[] {
+  const baseId = [
+    state.buildFactoryId || scope.settlementPartyId,
+    state.buildStartDate || scope.settlementCycleStartAt,
+    state.buildEndDate || scope.settlementCycleEndAt,
+    state.buildObjectMode,
+  ].join('-').replace(/[^A-Za-z0-9-]/g, '-')
+  const inputs = [
+    {
+      id: `MANUAL-DEFECT-${baseId}`,
+      label: '对账单手工瑕疵扣款',
+      lineType: 'QUALITY_DEFECT' as const,
+      amount: parseManualDeductionAmount(state.manualDefectDeductionAmount),
+      remark: state.manualDefectDeductionRemark.trim() || '业务人员填写归工厂原因瑕疵扣款',
+    },
+    {
+      id: `MANUAL-DELAY-${baseId}`,
+      label: '延误扣款',
+      lineType: 'DELAY' as const,
+      amount: parseManualDeductionAmount(state.manualDelayDeductionAmount),
+      remark: state.manualDelayDeductionRemark.trim() || '业务人员根据开始时间和最后交出时间填写延误扣款',
+    },
+  ]
+
+  return inputs.flatMap((input) => {
+    if (input.amount <= 0) return []
+    return [{
+      sourceItemId: input.id,
+      sourceItemType: 'QUALITY_DEDUCTION',
+      direction: 'DEDUCTION',
+      sourceLabelZh: input.label,
+      sourceRefLabel: '对账单内手工填写',
+      routeToSource: '/fcs/settlement/statements',
+      settlementPartyType: scope.settlementPartyType,
+      settlementPartyId: scope.settlementPartyId,
+      basisId: input.id,
+      deductionLineType: input.lineType,
+      deductionQty: 0,
+      deductionAmount: -input.amount,
+      currency: 'IDR',
+      remark: input.remark,
+      sourceType: 'QUALITY_DEDUCTION',
+      settlementCycleId: scope.settlementCycleId,
+      settlementCycleLabel: scope.settlementCycleLabel,
+      settlementCycleStartAt: scope.settlementCycleStartAt,
+      settlementCycleEndAt: scope.settlementCycleEndAt,
+      plannedPrepaymentAt: scope.plannedPrepaymentAt,
+      settlementObjectMode: state.buildObjectMode,
+      statementLineGrainType: 'NON_BATCH_ADJUSTMENT',
+      pricingSourceType: 'NONE',
+      earningAmount: 0,
+      qualityDeductionAmount: input.amount,
+      carryOverAdjustmentAmount: 0,
+      otherAdjustmentAmount: 0,
+      netAmount: -input.amount,
+      occurredAt,
+      sourceConfirmedByStatement: true,
+    }]
+  })
+}
+
 function getBuildProductionOrderProjections(): ProductionOrderSettlementProjection[] {
   if (!isBuildRangeValid()) return []
   return buildProductionOrderSettlementProjections({
@@ -690,7 +781,8 @@ function getBuildLines(
         ? getEffectiveSelectedProductionOrderNos(projections)
         : state.selectedProductionOrderNos,
   })
-  return lines.map(toBuildLineViewModel)
+  const manualLines = buildManualStatementDeductionLines(selectedScope, state.buildEndDate ? `${state.buildEndDate} 23:59:59` : nowTimestamp())
+  return [...lines, ...manualLines].map(toBuildLineViewModel)
 }
 
 function getBuildLineSummary(lines: Array<StatementDraftItem | StatementDetailLineViewModel>) {
@@ -719,6 +811,10 @@ function openBuildView(scopes: StatementBuildScopeViewModel[], statement?: State
     state.selectedLedgerIds = []
     state.selectedProductionOrderNos = []
     state.buildRemark = statement.remark ?? ''
+    state.manualDefectDeductionAmount = ''
+    state.manualDefectDeductionRemark = ''
+    state.manualDelayDeductionAmount = ''
+    state.manualDelayDeductionRemark = ''
     return
   }
 
@@ -733,6 +829,10 @@ function openBuildView(scopes: StatementBuildScopeViewModel[], statement?: State
   state.selectedLedgerIds = []
   state.selectedProductionOrderNos = []
   state.buildRemark = ''
+  state.manualDefectDeductionAmount = ''
+  state.manualDefectDeductionRemark = ''
+  state.manualDelayDeductionAmount = ''
+  state.manualDelayDeductionRemark = ''
 }
 
 function resetBuildState(scopes: StatementBuildScopeViewModel[]): void {
@@ -747,6 +847,10 @@ function resetBuildState(scopes: StatementBuildScopeViewModel[]): void {
   state.selectedLedgerIds = []
   state.selectedProductionOrderNos = []
   state.buildRemark = ''
+  state.manualDefectDeductionAmount = ''
+  state.manualDefectDeductionRemark = ''
+  state.manualDelayDeductionAmount = ''
+  state.manualDelayDeductionRemark = ''
 }
 
 function createStatementDraftFromScope(
@@ -767,7 +871,7 @@ function createStatementDraftFromScope(
       ? getEffectiveSelectedProductionOrderNos(projections)
       : state.selectedProductionOrderNos
   const selectedLedgerIds = state.buildObjectMode === 'LEDGER' ? getEffectiveSelectedLedgerIds() : state.selectedLedgerIds
-  const lines = buildStatementDraftLinesFromSettlementSelection({
+  const baseLines = buildStatementDraftLinesFromSettlementSelection({
     factoryId: state.buildFactoryId,
     occurredFrom: state.buildStartDate,
     occurredTo: state.buildEndDate,
@@ -775,6 +879,9 @@ function createStatementDraftFromScope(
     selectedLedgerIds,
     selectedProductionOrderNos,
   })
+  const timestamp = nowTimestamp()
+  const manualLines = buildManualStatementDeductionLines(scope, timestamp)
+  const lines = [...baseLines, ...manualLines]
   if (!lines.length) return { ok: false, message: '当前工厂和时间段暂无可生成的对账明细行' }
 
   const productionOrderSettlementSnapshots =
@@ -783,7 +890,6 @@ function createStatementDraftFromScope(
           .filter((item) => selectedProductionOrderNos.includes(item.productionOrderNo) && item.isComplete)
           .map(toStatementProductionOrderSnapshot)
       : []
-  const timestamp = nowTimestamp()
   const month = timestamp.slice(0, 7).replace('-', '')
   let statementId = `ST-${month}-${String(Math.floor(Math.random() * 9000) + 1000)}`
   while (initialStatementDrafts.some((item) => item.statementId === statementId)) {
@@ -1705,6 +1811,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
   const projections = getBuildProductionOrderProjections()
   const effectiveCurrency = getEffectiveBuildCurrency()
   const displayCurrency = getBuildCurrencyDisplayText(effectiveCurrency)
+  const timingAssist = getBuildTimingAssist()
   const duplicatedStatement =
     selectedScope == null || !isBuildRangeValid()
       ? null
@@ -1777,6 +1884,38 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
                   <span class="text-muted-foreground">备注</span>
                   <textarea class="min-h-[84px] rounded-md border bg-background px-3 py-2 text-sm" data-stm-build-field="remark" data-skip-page-rerender="true" placeholder="说明当前对账单口径或需要关注的事项">${escapeHtml(state.buildRemark)}</textarea>
                 </label>
+
+                <div class="mt-3 rounded-md border bg-background p-3">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h4 class="text-sm font-semibold">扣款补充</h4>
+                      <p class="mt-1 text-xs text-muted-foreground">归工厂原因瑕疵扣款和延误扣款由业务人员填写，当前金额统一按 IDR 入账。</p>
+                    </div>
+                    <span class="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">由业务人员填写</span>
+                  </div>
+                  <div class="mt-3 grid gap-3 md:grid-cols-2">
+                    <label class="grid gap-1 text-sm">
+                      <span class="text-muted-foreground">瑕疵扣款金额（IDR）</span>
+                      <input type="number" min="0" step="1" class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-defect-deduction-amount" value="${escapeHtml(state.manualDefectDeductionAmount)}" />
+                    </label>
+                    <label class="grid gap-1 text-sm">
+                      <span class="text-muted-foreground">瑕疵扣款说明</span>
+                      <input class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-defect-deduction-remark" value="${escapeHtml(state.manualDefectDeductionRemark)}" data-skip-page-rerender="true" placeholder="做工原因、脏污、破洞等" />
+                    </label>
+                    <label class="grid gap-1 text-sm">
+                      <span class="text-muted-foreground">延误扣款金额（IDR）</span>
+                      <input type="number" min="0" step="1" class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-delay-deduction-amount" value="${escapeHtml(state.manualDelayDeductionAmount)}" />
+                    </label>
+                    <label class="grid gap-1 text-sm">
+                      <span class="text-muted-foreground">延误扣款说明</span>
+                      <input class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-delay-deduction-remark" value="${escapeHtml(state.manualDelayDeductionRemark)}" data-skip-page-rerender="true" placeholder="业务判断是否扣延误款" />
+                    </label>
+                  </div>
+                  <div class="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2">
+                    <div class="rounded-md bg-muted/30 px-3 py-2">开始时间参考：<span class="font-medium text-foreground">${escapeHtml(timingAssist.startTime)}</span></div>
+                    <div class="rounded-md bg-muted/30 px-3 py-2">最后交出时间：<span class="font-medium text-foreground">${escapeHtml(timingAssist.lastHandoverTime)}</span></div>
+                  </div>
+                </div>
 
                 ${
                   selectedScope
@@ -1975,6 +2114,22 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
       state.buildRemark = buildFieldNode.value
       return true
     }
+    if (field === 'manual-defect-deduction-amount' && buildFieldNode instanceof HTMLInputElement) {
+      state.manualDefectDeductionAmount = buildFieldNode.value
+      return true
+    }
+    if (field === 'manual-defect-deduction-remark' && buildFieldNode instanceof HTMLInputElement) {
+      state.manualDefectDeductionRemark = buildFieldNode.value
+      return true
+    }
+    if (field === 'manual-delay-deduction-amount' && buildFieldNode instanceof HTMLInputElement) {
+      state.manualDelayDeductionAmount = buildFieldNode.value
+      return true
+    }
+    if (field === 'manual-delay-deduction-remark' && buildFieldNode instanceof HTMLInputElement) {
+      state.manualDelayDeductionRemark = buildFieldNode.value
+      return true
+    }
     return true
   }
 
@@ -2151,14 +2306,14 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
       return true
     }
 
-    const sourceCandidates = getBuildCandidates()
     const result = syncStatementDraftFromBuild({
       statementId,
       remark: state.buildRemark,
-      itemSourceIds: sourceCandidates.map((item) => item.sourceItemId),
-      itemBasisIds: sourceCandidates
-        .filter((item) => item.sourceType === 'QUALITY_DEDUCTION')
-        .map((item) => item.sourceItemId),
+      itemSourceIds: lines.map((item) => item.sourceItemId).filter(Boolean) as string[],
+      itemBasisIds: lines
+        .filter((item) => item.sourceItemType === 'QUALITY_DEDUCTION')
+        .map((item) => item.sourceItemId ?? item.basisId)
+        .filter(Boolean) as string[],
       items: lines,
       by: '平台运营',
     })

@@ -43,7 +43,11 @@ function main(): void {
   assert(
     eligibleLedgers
       .filter((item) => item.sourceType === 'QUALITY_DEDUCTION')
-      .every((item) => Boolean(item.qcRecordId) && Boolean(item.pendingDeductionRecordId)),
+      .every((item) =>
+        item.deductionLineType === 'POST_FACTORY_REWORK_CHARGEBACK'
+          ? Boolean(item.qcRecordId)
+          : Boolean(item.qcRecordId) && Boolean(item.pendingDeductionRecordId),
+      ),
     '返工扣款流水候选缺少正式追溯字段',
   )
 

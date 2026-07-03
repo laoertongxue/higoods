@@ -30,7 +30,7 @@ function uniqueOptions(values: string[]): Array<{ value: string; label: string }
 function getRows(): QcRow[] {
   const keyword = listState.keyword.trim().toLowerCase()
 
-  return listQcFactRows({ includeLegacy: listState.showLegacy }).filter((row) => {
+  return listQcFactRows({ includeLegacy: false }).filter((row) => {
     if (listState.filterFactory !== 'ALL' && row.sourceFactoryName !== listState.filterFactory) return false
     if (listState.filterWarehouse !== 'ALL' && row.receiverName !== listState.filterWarehouse) return false
     if (listState.filterInspector !== 'ALL' && row.inspectorName !== listState.filterInspector) return false
@@ -143,7 +143,7 @@ function buildTableColumns(): TableColumn<QcRow>[] {
 }
 
 export function renderQcRecordsPage(): string {
-  const allRows = listQcFactRows({ includeLegacy: listState.showLegacy })
+  const allRows = listQcFactRows({ includeLegacy: false })
   const rows = getRows()
   const pagination = getPagedRows(rows)
 

@@ -1242,6 +1242,26 @@ function sumQcSkuResults(results: PostFinishingQcSkuResult[], key: 'inspectedQty
   return roundQty(results.reduce((sum, item) => sum + (Number(item[key]) || 0), 0))
 }
 
+function summarizeReworkReceiveFactories(results: PostFinishingQcSkuResult[]): {
+  ids: string | undefined
+  names: string | undefined
+} {
+  const ids = Array.from(new Set(
+    results
+      .filter((item) => item.reworkQty > 0 && item.reworkReceiveFactoryId)
+      .map((item) => item.reworkReceiveFactoryId),
+  ))
+  const names = Array.from(new Set(
+    results
+      .filter((item) => item.reworkQty > 0 && item.reworkReceiveFactoryName)
+      .map((item) => item.reworkReceiveFactoryName),
+  ))
+  return {
+    ids: ids.length > 0 ? ids.join('、') : undefined,
+    names: names.length > 0 ? names.join('、') : undefined,
+  }
+}
+
 function sumDefectReasonQty(result: PostFinishingQcSkuResult): number {
   return roundQty(result.defectReasonItems.reduce((sum, item) => sum + (Number(item.qty) || 0), 0))
 }
@@ -3002,7 +3022,7 @@ export function completePostFinishingQcOrder(input: {
   const passedQty = sumQcSkuResults(nextQcSkuResults, 'qualifiedQty')
   const reworkQty = sumQcSkuResults(nextQcSkuResults, 'reworkQty')
   const defectAcceptedQty = sumQcSkuResults(nextQcSkuResults, 'defectAcceptedQty')
-  const reworkReceiveFactory = nextQcSkuResults.find((item) => item.reworkQty > 0 && item.reworkReceiveFactoryName)
+  const reworkReceiveFactorySummary = summarizeReworkReceiveFactories(nextQcSkuResults)
   const result = input.qcResult || (defectiveQty <= 0 ? '全数合规' : passedQty <= 0 ? '全数不合格' : '部分不合格')
   const hasDefect = result !== '全数合规'
   qc.qcStatus = '质检完成'
@@ -3023,8 +3043,8 @@ export function completePostFinishingQcOrder(input: {
   qc.responsiblePartyType = hasDefect ? input.responsiblePartyType || qc.responsiblePartyType || '工厂' : ''
   qc.responsiblePartyName = hasDefect ? input.responsiblePartyName || qc.responsiblePartyName || qc.sourceFactoryName : ''
   qc.responsiblePartyId = hasDefect ? qc.responsiblePartyId || qc.sourceFactoryId : ''
-  qc.reworkReceiveFactoryId = hasDefect ? reworkReceiveFactory?.reworkReceiveFactoryId || qc.reworkReceiveFactoryId || qc.sourceFactoryId : undefined
-  qc.reworkReceiveFactoryName = hasDefect ? reworkReceiveFactory?.reworkReceiveFactoryName || qc.reworkReceiveFactoryName || qc.sourceFactoryName : undefined
+  qc.reworkReceiveFactoryId = hasDefect ? reworkReceiveFactorySummary.ids || qc.reworkReceiveFactoryId || qc.sourceFactoryId : undefined
+  qc.reworkReceiveFactoryName = hasDefect ? reworkReceiveFactorySummary.names || qc.reworkReceiveFactoryName || qc.sourceFactoryName : undefined
   qc.deductionDecision = ''
   qc.deductionDecisionRemark = hasDefect ? '质检记录只展示事实；扣款由对账单确认。' : ''
   const nextNeeds = postFlags({ ...qc, qcSkuResults: nextQcSkuResults })
@@ -3074,7 +3094,7 @@ export function submitPostFinishingPdaQcResult(input: {
   const reworkQty = sumQcSkuResults(nextQcSkuResults, 'reworkQty')
   const defectAcceptedQty = sumQcSkuResults(nextQcSkuResults, 'defectAcceptedQty')
   const defectiveQty = sumQcSkuResults(nextQcSkuResults, 'unqualifiedQty')
-  const reworkReceiveFactory = nextQcSkuResults.find((item) => item.reworkQty > 0 && item.reworkReceiveFactoryName)
+  const reworkReceiveFactorySummary = summarizeReworkReceiveFactories(nextQcSkuResults)
   qc.qcStatus = '质检中'
   qc.qcStationName = input.qcStationName || qc.qcStationName
   qc.qcStationId = qc.qcStationName.replace('后道质检台 ', 'QC-STATION-')
@@ -3093,8 +3113,8 @@ export function submitPostFinishingPdaQcResult(input: {
   qc.responsiblePartyType = '工厂'
   qc.responsiblePartyId = qc.sourceFactoryId
   qc.responsiblePartyName = qc.sourceFactoryName
-  qc.reworkReceiveFactoryId = reworkReceiveFactory?.reworkReceiveFactoryId || qc.sourceFactoryId
-  qc.reworkReceiveFactoryName = reworkReceiveFactory?.reworkReceiveFactoryName || qc.sourceFactoryName
+  qc.reworkReceiveFactoryId = reworkReceiveFactorySummary.ids || qc.sourceFactoryId
+  qc.reworkReceiveFactoryName = reworkReceiveFactorySummary.names || qc.sourceFactoryName
   qc.deductionDecision = ''
   qc.deductionDecisionRemark = `质检记录只展示事实；扣款由对账单确认。PDA 已提交返工数量 ${reworkQty}，瑕疵数量 ${defectAcceptedQty}，待 Web 补齐瑕疵原因后完成质检。`
   const nextNeeds = postFlags({ ...qc, qcSkuResults: nextQcSkuResults })

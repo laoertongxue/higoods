@@ -6,6 +6,8 @@ const postQcPage = readFileSync(new URL('../src/pages/process-factory/post-finis
 const qcDetail = readFileSync(new URL('../src/pages/qc-records/detail-domain.ts', import.meta.url), 'utf8')
 const qcList = readFileSync(new URL('../src/pages/qc-records/list-domain.ts', import.meta.url), 'utf8')
 const qcActions = readFileSync(new URL('../src/pages/qc-records/actions.ts', import.meta.url), 'utf8')
+const qcContext = readFileSync(new URL('../src/pages/qc-records/context.ts', import.meta.url), 'utf8')
+const qcEvents = readFileSync(new URL('../src/pages/qc-records/events.ts', import.meta.url), 'utf8')
 
 assert(postQcPage.includes('返工扣款'))
 assert(postQcPage.includes('对账单确认后才影响本期应付'))
@@ -48,6 +50,9 @@ assert(!qcList.includes('工厂响应'))
 assert(!qcList.includes('异议状态'))
 assert(!qcList.includes('来源反扣金额'))
 assert(!qcList.includes('对账提示状态'))
+assert(!qcList.includes('showLegacy'), '质检记录列表域不应残留 showLegacy 分支')
+assert(!qcContext.includes('showLegacy'), '质检记录上下文不应残留 showLegacy 状态')
+assert(!qcEvents.includes('showLegacy'), '质检记录事件层不应残留 showLegacy 分支')
 
 assert(!postDomain.includes("deductionDecision = hasDefect ? input.deductionDecision || qc.deductionDecision || '建议扣款'"))
 assert(postDomain.includes('sourceChargeback'))

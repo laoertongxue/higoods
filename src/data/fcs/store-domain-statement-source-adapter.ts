@@ -60,6 +60,7 @@ export interface StatementSourceItemViewModel {
   alreadyBoundStatementId?: string
   sourceReason?: string
   remark?: string
+  deductionLineType?: StatementDeductionLineType
   settlementCycleId: string
   settlementCycleLabel: string
   settlementCycleStartAt: string
@@ -415,6 +416,10 @@ function mapLedgerToStatementSourceItem(
   }
 
   const basisId = resolveQualityLedgerBasisId(ledger)
+  const deductionLineType: StatementDeductionLineType =
+    ledger.sourceType === 'QC_REWORK_CHARGEBACK'
+      ? 'POST_FACTORY_REWORK_CHARGEBACK'
+      : 'QUALITY_DEFECT'
 
   return {
     sourceItemId: ledger.ledgerId,
@@ -440,8 +445,13 @@ function mapLedgerToStatementSourceItem(
     routeToSource: buildQualityLedgerHref(ledger),
     canEnterStatement,
     alreadyBoundStatementId,
-    sourceReason: ledger.sourceReason ?? '正式返工扣款流水',
+    sourceReason:
+      ledger.sourceReason ??
+      (deductionLineType === 'POST_FACTORY_REWORK_CHARGEBACK'
+        ? '质检记录返工反扣进入预结算流水'
+        : '正式返工扣款流水'),
     remark: ledger.remark,
+    deductionLineType,
     settlementCycleId: ledger.settlementCycleId,
     settlementCycleLabel: ledger.settlementCycleLabel,
     settlementCycleStartAt: ledger.settlementCycleStartAt,
@@ -639,6 +649,7 @@ export function toStatementDraftItemFromSource(item: StatementSourceItemViewMode
     deductionAmount: item.netAmount,
     currency: item.currency,
     remark: item.remark,
+    deductionLineType: item.deductionLineType,
     sourceType: item.sourceType,
     productionOrderId: item.productionOrderId,
     productionOrderNo: item.productionOrderNo,

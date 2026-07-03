@@ -10,6 +10,11 @@ import {
   listFormalQualityDeductionLedgers,
   traceQualityDeductionLedgerSource,
 } from './quality-deduction-repository.ts'
+import {
+  listPostFinishingQcOrders,
+  type PostFinishingActionRecord,
+  type PostFinishingQcSkuResult,
+} from './post-finishing-domain.ts'
 import { deriveSettlementCycleFields } from './store-domain-statement-grain.ts'
 import { settlementLinkedMockFactoryOutput } from './settlement-linked-mock-factory.ts'
 import {
@@ -230,6 +235,79 @@ function buildQualityDeductionPreSettlementLedger(ledger: FormalQualityDeduction
   }
 }
 
+function getExternalReworkChargebackAmount(
+  result: PostFinishingQcSkuResult,
+  sourceFactoryName: string | undefined,
+): number {
+  const reworkQty = Number(result.reworkQty) || 0
+  const receiverName = result.reworkReceiveFactoryName?.trim()
+  const sourceName = sourceFactoryName?.trim()
+  if (reworkQty <= 0 || !receiverName || !sourceName || receiverName === sourceName) return 0
+  return roundAmount(Number(result.sourceChargeback?.amount ?? result.reworkDeductionAmountIdr) || 0)
+}
+
+function buildQcReworkChargebackLedgerRuntime(baseLedger: PreSettlementLedger): PreSettlementLedger {
+  const statement = getStatementByTaskLedger(baseLedger)
+  const batch = getBatchByStatement(statement?.statementId)
+  return {
+    ...baseLedger,
+    status: resolveTaskLedgerStatus(baseLedger, statement, batch),
+    statementId: statement?.statementId,
+    prepaymentBatchId: batch?.batchId,
+  }
+}
+
+function buildQcReworkChargebackPreSettlementLedgers(record: PostFinishingActionRecord): PreSettlementLedger[] {
+  const occurredAt = record.finishedAt || record.startedAt || '2026-01-01 00:00:00'
+  const factoryId = normalizeFactoryId(record.sourceFactoryName || 'UNKNOWN_FACTORY')
+  const factoryName = record.sourceFactoryName || factoryId
+  const productionOrderNo =
+    record.warehouseAllocations?.[0]?.productionOrderNo ||
+    record.qualityDeductionSnapshot?.productionOrderNo
+  const cycle = deriveSettlementCycleFields(factoryId, occurredAt)
+  const settlementProfile = getSettlementEffectiveInfoByFactoryAt(factoryId, occurredAt)
+
+  return (record.qcSkuResults ?? []).flatMap((result) => {
+    const amount = getExternalReworkChargebackAmount(result, record.sourceFactoryName)
+    const qty = Number(result.reworkQty) || 0
+    if (amount <= 0 || qty <= 0) return []
+    const sourceRefId = `${record.actionRecordId}:${result.qcSkuResultId}`
+    const ledger: PreSettlementLedger = {
+      ledgerId: `QC-REWORK-${record.actionRecordId}-${result.qcSkuResultId}`,
+      ledgerNo: `QC-RW-${record.actionRecordNo}-${result.skuCode}`,
+      ledgerType: 'QUALITY_DEDUCTION',
+      direction: 'DEDUCTION',
+      sourceType: 'QC_REWORK_CHARGEBACK',
+      sourceRefId,
+      factoryId,
+      factoryName,
+      productionOrderId: productionOrderNo,
+      productionOrderNo,
+      qcRecordId: record.actionRecordId,
+      priceSourceType: 'OTHER_COMPAT',
+      unitPrice: roundAmount(amount / qty),
+      qty,
+      originalCurrency: 'IDR',
+      originalAmount: amount,
+      settlementCurrency: 'IDR',
+      settlementAmount: amount,
+      fxRate: 1,
+      fxAppliedAt: occurredAt,
+      occurredAt,
+      settlementCycleId: cycle.settlementCycleId,
+      settlementCycleLabel: cycle.settlementCycleLabel,
+      settlementCycleStartAt: cycle.settlementCycleStartAt,
+      settlementCycleEndAt: cycle.settlementCycleEndAt,
+      plannedPrepaymentAt: cycle.plannedPrepaymentAt,
+      settlementProfileVersionNo: settlementProfile?.versionNo,
+      status: 'OPEN',
+      sourceReason: '质检记录返工反扣进入预结算流水',
+      remark: `${result.skuCode} 返工 ${qty} 件，接收对象 ${result.reworkReceiveFactoryName}`,
+    }
+    return [buildQcReworkChargebackLedgerRuntime(ledger)]
+  })
+}
+
 function sortLedgers(items: PreSettlementLedger[]): PreSettlementLedger[] {
   return [...items].sort((left, right) => {
     if (left.settlementCycleEndAt !== right.settlementCycleEndAt) {
@@ -256,8 +334,11 @@ export function listPreSettlementLedgers(options: PreSettlementLedgerQueryOption
   const qualityLedgers = listFormalQualityDeductionLedgers({ includeLegacy: false }).map((item) =>
     buildQualityDeductionPreSettlementLedger(item),
   )
+  const qcReworkChargebackLedgers = listPostFinishingQcOrders().flatMap((item) =>
+    buildQcReworkChargebackPreSettlementLedgers(item),
+  )
   const taskLedgers = initialTaskEarningLedgers.map((item) => buildTaskEarningLedgerRuntime(item))
-  const all = sortLedgers([...taskLedgers, ...qualityLedgers])
+  const all = sortLedgers([...taskLedgers, ...qualityLedgers, ...qcReworkChargebackLedgers])
   const normalizedKeyword = keyword?.trim().toLowerCase() ?? ''
 
   return all.filter((ledger) => {
@@ -330,6 +411,20 @@ export function tracePreSettlementLedgerSource(ledgerId: string): PreSettlementL
   const settlementProfile = getSettlementEffectiveInfoByFactoryAt(ledger.factoryId, ledger.occurredAt)
 
   if (ledger.ledgerType === 'QUALITY_DEDUCTION') {
+    if (ledger.sourceType === 'QC_REWORK_CHARGEBACK') {
+      return {
+        ledger,
+        settlementProfile,
+        statement,
+        batch,
+        task: getTaskSnapshot(ledger.taskId),
+        productionOrder: getProductionOrderSnapshot(ledger.productionOrderId),
+        qcRecord: null,
+        pendingDeductionRecord: null,
+        disputeCase: null,
+        formalQualityLedger: null,
+      }
+    }
     const trace = traceQualityDeductionLedgerSource(ledger.sourceRefId)
     return {
       ledger,

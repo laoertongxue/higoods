@@ -49,6 +49,11 @@ import {
 import { deriveSettlementCycleFields } from '../data/fcs/store-domain-statement-grain'
 import { cycleTypeConfig, pricingModeConfig } from '../data/fcs/settlement-types'
 import { getSettlementPageBoundary } from '../data/fcs/settlement-flow-boundaries'
+import {
+  getCurrentPdaUser,
+  listFactoryPdaRoles,
+  type PermissionKey,
+} from '../data/fcs/store-domain-pda'
 import { escapeHtml, formatDateTime, toClassName } from '../utils'
 import {
   ensurePdaSessionForAction,
@@ -195,6 +200,28 @@ const state: PdaSettlementState = {
     description: '',
     evidenceSummary: '',
   },
+}
+
+function hasPdaSettlementPermission(permissionKey: PermissionKey): boolean {
+  const runtime = getPdaRuntimeContext()
+  if (!runtime) return false
+  const currentUser = getCurrentPdaUser()
+  const roleId = currentUser?.roleId || runtime.roleId
+  const role = listFactoryPdaRoles(runtime.factoryId).find(
+    (item) => item.roleId === roleId && item.status === 'ACTIVE',
+  )
+  return Boolean(role?.permissionKeys.includes(permissionKey))
+}
+
+function renderSettlementNoPermission(): string {
+  return `
+    <div class="space-y-3 p-4">
+      <section class="rounded-lg border bg-card px-4 py-5">
+        <h1 class="text-base font-semibold">结算</h1>
+        <p class="mt-2 text-xs leading-5 text-muted-foreground">当前账号没有结算查看权限，请联系工厂管理员调整 PDA 角色权限。</p>
+      </section>
+    </div>
+  `
 }
 
 function nowTimestamp(date: Date = new Date()): string {
@@ -1027,6 +1054,7 @@ function renderSettlementRequestDrawer(): string {
   const currentRequest = getSettlementRequestForDrawer(context.factoryCode)
   const selectedCycle = getSelectedCycleSummary()
   const summaryRequest = activeRequest ?? latestRequest
+  const canChangeSettlementProfile = hasPdaSettlementPermission('SETTLEMENT_CHANGE_REQUEST')
 
   if (mode === 'profile') {
     if (!effective) return ''
@@ -1118,9 +1146,10 @@ function renderSettlementRequestDrawer(): string {
           </button>
         </div>
         <button
-          class="inline-flex w-full items-center justify-center rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground"
+          class="inline-flex w-full items-center justify-center rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
           data-pda-sett-action="${activeRequest ? 'open-settlement-request-detail' : 'open-settlement-change-request'}"
           ${activeRequest ? `data-request-id="${escapeHtml(activeRequest.requestId)}"` : ''}
+          ${activeRequest || canChangeSettlementProfile ? '' : 'disabled'}
         >
           ${activeRequest ? '查看当前申请' : '申请修改结算资料'}
         </button>
@@ -1221,7 +1250,7 @@ function renderSettlementRequestDrawer(): string {
             )}</textarea>
           </label>
         </div>
-        <button class="inline-flex w-full items-center justify-center rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground" data-pda-sett-action="submit-settlement-change-request">
+        <button class="inline-flex w-full items-center justify-center rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50" data-pda-sett-action="submit-settlement-change-request" ${canChangeSettlementProfile ? '' : 'disabled'}>
           提交申请
         </button>
       `,
@@ -1961,6 +1990,8 @@ function renderStatementCard(statement: StatementDraft, summary: SettlementCycle
   const canRespond =
     statement.status === 'PENDING_FACTORY_CONFIRM' && statement.factoryFeedbackStatus === 'PENDING_FACTORY_CONFIRM'
   const canAppeal = canRespond || (isStatementProxyConfirmed(statement) && !statement.prepaymentBatchId)
+  const canConfirmStatement = canRespond && hasPdaSettlementPermission('SETTLEMENT_CONFIRM')
+  const canAppealStatement = canAppeal && hasPdaSettlementPermission('SETTLEMENT_DISPUTE')
 
   return `
     <article class="rounded-lg border bg-card px-3 py-3 shadow-none">
@@ -2023,7 +2054,7 @@ function renderStatementCard(statement: StatementDraft, summary: SettlementCycle
           class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           data-pda-sett-action="confirm-statement"
           data-statement-id="${escapeHtml(statement.statementId)}"
-          ${canRespond ? '' : 'disabled'}
+          ${canConfirmStatement ? '' : 'disabled'}
         >
           确认对账单
         </button>
@@ -2031,7 +2062,7 @@ function renderStatementCard(statement: StatementDraft, summary: SettlementCycle
           class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           data-pda-sett-action="open-statement-appeal"
           data-statement-id="${escapeHtml(statement.statementId)}"
-          ${canAppeal ? '' : 'disabled'}
+          ${canAppealStatement ? '' : 'disabled'}
         >
           发起申诉
         </button>
@@ -2102,6 +2133,8 @@ function renderStatementDrawer(): string {
   const canRespond =
     statement.status === 'PENDING_FACTORY_CONFIRM' && statement.factoryFeedbackStatus === 'PENDING_FACTORY_CONFIRM'
   const canAppeal = canRespond || (isStatementProxyConfirmed(statement) && !statement.prepaymentBatchId)
+  const canConfirmStatement = canRespond && hasPdaSettlementPermission('SETTLEMENT_CONFIRM')
+  const canAppealStatement = canAppeal && hasPdaSettlementPermission('SETTLEMENT_DISPUTE')
   const snapshotDiffNote =
     currentEffective && currentEffective.versionNo !== statement.settlementProfileVersionNo
       ? `当前生效：${currentEffective.versionNo}；对账单使用：${statement.settlementProfileVersionNo}。新版本用于后续新单据，本期已生成单据继续沿用原快照。`
@@ -2158,7 +2191,7 @@ function renderStatementDrawer(): string {
           }
           <div class="grid grid-cols-2 gap-2">
             <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-pda-sett-action="close-statement-drawer">取消</button>
-            <button class="rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground" data-pda-sett-action="submit-statement-appeal" data-statement-id="${escapeHtml(statement.statementId)}">${isProxyAppeal ? '提交代确认异议' : '提交异议'}</button>
+            <button class="rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50" data-pda-sett-action="submit-statement-appeal" data-statement-id="${escapeHtml(statement.statementId)}" ${canAppealStatement ? '' : 'disabled'}>${isProxyAppeal ? '提交代确认异议' : '提交异议'}</button>
           </div>
         </div>
       `,
@@ -2311,7 +2344,7 @@ function renderStatementDrawer(): string {
           class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           data-pda-sett-action="confirm-statement"
           data-statement-id="${escapeHtml(statement.statementId)}"
-          ${canRespond ? '' : 'disabled'}
+          ${canConfirmStatement ? '' : 'disabled'}
         >
           确认对账单
         </button>
@@ -2319,7 +2352,7 @@ function renderStatementDrawer(): string {
           class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           data-pda-sett-action="open-statement-appeal"
           data-statement-id="${escapeHtml(statement.statementId)}"
-          ${canAppeal ? '' : 'disabled'}
+          ${canAppealStatement ? '' : 'disabled'}
         >
           发起申诉
         </button>
@@ -2452,6 +2485,9 @@ function renderSettlementContent(): string {
 export function renderPdaSettlementPage(): string {
   if (!getPdaRuntimeContext()) {
     return renderPdaLoginRedirect()
+  }
+  if (!hasPdaSettlementPermission('SETTLEMENT_VIEW')) {
+    return renderPdaFrame(renderSettlementNoPermission(), 'settlement')
   }
 
   return renderPdaFrame(renderSettlementContent(), 'settlement')
@@ -2641,6 +2677,10 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-statement-appeal') {
+    if (!hasPdaSettlementPermission('SETTLEMENT_DISPUTE')) {
+      state.statementErrorText = '当前账号没有发起申诉权限'
+      return true
+    }
     const statementId = actionNode.dataset.statementId || state.statementDetailId
     if (!statementId) return true
     resetStatementAppealForm()
@@ -2659,6 +2699,10 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'confirm-statement') {
+    if (!hasPdaSettlementPermission('SETTLEMENT_CONFIRM')) {
+      state.statementErrorText = '当前账号没有确认对账单权限'
+      return true
+    }
     const statementId = actionNode.dataset.statementId || state.statementDetailId
     if (!statementId) return true
     const context = getCurrentFactoryContext()
@@ -2676,6 +2720,10 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'submit-statement-appeal') {
+    if (!hasPdaSettlementPermission('SETTLEMENT_DISPUTE')) {
+      state.statementErrorText = '当前账号没有发起申诉权限'
+      return true
+    }
     const statementId = actionNode.dataset.statementId || state.statementDetailId
     if (!statementId) return true
     if (!state.statementAppealForm.reason.trim() || !state.statementAppealForm.description.trim()) {
@@ -2700,6 +2748,10 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-settlement-change-request') {
+    if (!hasPdaSettlementPermission('SETTLEMENT_CHANGE_REQUEST')) {
+      state.settlementRequestErrorText = '当前账号没有变更结算资料权限'
+      return true
+    }
     const context = getCurrentFactoryContext()
     const effective = getCurrentEffectiveSettlementInfo(context.factoryCode)
     if (!effective) {
@@ -2771,6 +2823,10 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'submit-settlement-change-request') {
+    if (!hasPdaSettlementPermission('SETTLEMENT_CHANGE_REQUEST')) {
+      state.settlementRequestErrorText = '当前账号没有变更结算资料权限'
+      return true
+    }
     const context = getCurrentFactoryContext()
     const errors = validateSettlementRequestForm()
     if (Object.keys(errors).length > 0) {
