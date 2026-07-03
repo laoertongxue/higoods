@@ -270,7 +270,7 @@ function getStatementNetAmount(statement: StatementDraft): number {
 }
 
 function getStatementPaymentTime(statement: StatementDraft, batch: SettlementBatch | null): string | undefined {
-  return statement.prepaidAt ?? batch?.paymentAt ?? batch?.prepaidAt ?? batch?.updatedAt
+  return statement.prepaidAt ?? batch?.paymentAt ?? batch?.prepaidAt
 }
 
 function normalizeFactoryName(value: string | undefined): string {
