@@ -1900,9 +1900,15 @@ function renderBuildObjectsTab(
 function renderBuildQcDeductionTab(
   projections: ProductionOrderSettlementProjection[],
   buildLines: StatementDetailLineViewModel[],
-  timingAssist: { startTime: string; lastHandoverTime: string },
 ): string {
-  const reasonSummaries = getBuildQcReasonSummaries(projections)
+  const reasonRows = getBuildQcReasonSummariesByProductionOrder(projections)
+  const includedProjections = getIncludedBuildProjections(projections)
+  const reasonRowsByProductionOrder = new Map<string, BuildQcReasonProductionOrderSummary[]>()
+  for (const row of reasonRows) {
+    const rows = reasonRowsByProductionOrder.get(row.productionOrderNo) ?? []
+    rows.push(row)
+    reasonRowsByProductionOrder.set(row.productionOrderNo, rows)
+  }
   const reworkLines = buildLines.filter(
     (line) =>
       line.sourceItemType === 'QUALITY_DEDUCTION' &&
@@ -1920,42 +1926,52 @@ function renderBuildQcDeductionTab(
         <span class="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">由业务人员填写</span>
       </div>
       ${
-        reasonSummaries.length
-          ? `
-            <div class="mt-3 overflow-x-auto rounded-md border">
-              <table class="w-full min-w-[980px] text-sm">
-                <thead>
-                  <tr class="border-b bg-muted/40 text-left">
-                    <th class="px-4 py-2 font-medium">瑕疵原因</th>
-                    <th class="px-4 py-2 text-right font-medium">瑕疵数量</th>
-                    <th class="px-4 py-2 font-medium">关联生产单</th>
-                    <th class="px-4 py-2 font-medium">扣款金额（IDR）</th>
-                    <th class="px-4 py-2 font-medium">扣款说明</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${reasonSummaries
-                    .map((summary) => {
-                      const input = state.manualDefectReasonDeductions[summary.reasonName] ?? { amount: '', remark: '' }
-                      return `
-                        <tr class="border-b last:border-b-0">
-                          <td class="px-4 py-3 font-medium">${escapeHtml(summary.reasonName)}</td>
-                          <td class="px-4 py-3 text-right tabular-nums">${summary.qty}</td>
-                          <td class="px-4 py-3 text-xs">${summary.productionOrderNos.map((item) => escapeHtml(item)).join('、')}</td>
-                          <td class="px-4 py-3">
-                            <input type="number" min="0" step="1" class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-defect-reason-amount" data-reason="${escapeHtml(summary.reasonName)}" value="${escapeHtml(input.amount)}" />
-                          </td>
-                          <td class="px-4 py-3">
-                            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-defect-reason-remark" data-reason="${escapeHtml(summary.reasonName)}" data-skip-page-rerender="true" value="${escapeHtml(input.remark)}" placeholder="${escapeHtml(summary.reasonName)}扣款说明" />
-                          </td>
-                        </tr>
-                      `
-                    })
-                    .join('')}
-                </tbody>
-              </table>
-            </div>
-          `
+        reasonRows.length
+          ? includedProjections
+              .filter((projection) => (reasonRowsByProductionOrder.get(projection.productionOrderNo) ?? []).length > 0)
+              .map((projection) => {
+                const rows = reasonRowsByProductionOrder.get(projection.productionOrderNo) ?? []
+                return `
+                  <article class="mt-3 rounded-md border bg-background">
+                    <div class="border-b bg-muted/30 px-4 py-3">
+                      <div class="text-sm font-semibold">${escapeHtml(projection.productionOrderNo)}</div>
+                      <div class="mt-1 text-xs text-muted-foreground">裁片完成 ${projection.cuttingCompletedQty} / 结算口径累计交出 ${projection.settlementHandoverQty} / 瑕疵 ${projection.sewingFactoryLiabilityDefectQty}</div>
+                    </div>
+                    <div class="overflow-x-auto">
+                      <table class="w-full min-w-[860px] text-sm">
+                        <thead>
+                          <tr class="border-b bg-muted/20 text-left">
+                            <th class="px-4 py-2 font-medium">瑕疵原因</th>
+                            <th class="px-4 py-2 text-right font-medium">瑕疵数量</th>
+                            <th class="px-4 py-2 font-medium">扣款金额（IDR）</th>
+                            <th class="px-4 py-2 font-medium">扣款说明</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${rows
+                            .map((summary) => {
+                              const input = getManualDefectProductionOrderDeduction(summary.productionOrderNo, summary.reasonName)
+                              return `
+                                <tr class="border-b last:border-b-0">
+                                  <td class="px-4 py-3 font-medium">${escapeHtml(summary.reasonName)}</td>
+                                  <td class="px-4 py-3 text-right tabular-nums">${summary.qty}</td>
+                                  <td class="px-4 py-3">
+                                    <input type="number" min="0" step="1" class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-defect-production-order-amount" data-production-order-no="${escapeHtml(summary.productionOrderNo)}" data-reason="${escapeHtml(summary.reasonName)}" value="${escapeHtml(input.amount)}" />
+                                  </td>
+                                  <td class="px-4 py-3">
+                                    <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-defect-production-order-remark" data-production-order-no="${escapeHtml(summary.productionOrderNo)}" data-reason="${escapeHtml(summary.reasonName)}" data-skip-page-rerender="true" value="${escapeHtml(input.remark)}" placeholder="${escapeHtml(summary.productionOrderNo)} ${escapeHtml(summary.reasonName)}扣款说明" />
+                                  </td>
+                                </tr>
+                              `
+                            })
+                            .join('')}
+                        </tbody>
+                      </table>
+                    </div>
+                  </article>
+                `
+              })
+              .join('')
           : '<p class="mt-3 rounded-md border bg-muted/20 py-6 text-center text-sm text-muted-foreground">当前纳入对象暂无归车缝工厂原因的瑕疵事实。</p>'
       }
     </section>
@@ -1967,9 +1983,10 @@ function renderBuildQcDeductionTab(
         reworkLines.length
           ? `
             <div class="mt-3 overflow-x-auto rounded-md border">
-              <table class="w-full min-w-[760px] text-sm">
+              <table class="w-full min-w-[900px] text-sm">
                 <thead>
                   <tr class="border-b bg-muted/40 text-left">
+                    <th class="px-4 py-2 font-medium">生产单</th>
                     <th class="px-4 py-2 font-medium">流水号</th>
                     <th class="px-4 py-2 font-medium">质检记录</th>
                     <th class="px-4 py-2 text-right font-medium">返工数量</th>
@@ -1981,6 +1998,7 @@ function renderBuildQcDeductionTab(
                     .map(
                       (line) => `
                         <tr class="border-b last:border-b-0">
+                          <td class="px-4 py-3 font-medium">${escapeHtml(line.productionOrderNoDisplay ?? line.productionOrderNo ?? '-')}</td>
                           <td class="px-4 py-3 font-mono text-xs">${escapeHtml(line.ledgerNo ?? line.sourceItemId)}</td>
                           <td class="px-4 py-3 font-mono text-xs">${escapeHtml(line.qcRecordId ?? '-')}</td>
                           <td class="px-4 py-3 text-right tabular-nums">${line.returnInboundQty ?? line.deductionQty ?? 0}</td>
@@ -2000,19 +2018,39 @@ function renderBuildQcDeductionTab(
     <section class="mt-4 rounded-lg border bg-card p-4">
       <h3 class="text-sm font-semibold">延误扣款</h3>
       <p class="mt-1 text-xs text-muted-foreground">系统只提供开始时间和最后交出时间，是否扣延误款由业务人员判断并填写。</p>
-      <div class="mt-3 grid gap-3 md:grid-cols-2">
-        <label class="grid gap-1 text-sm">
-          <span class="text-muted-foreground">延误扣款金额（IDR）</span>
-          <input type="number" min="0" step="1" class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-delay-deduction-amount" value="${escapeHtml(state.manualDelayDeductionAmount)}" />
-        </label>
-        <label class="grid gap-1 text-sm">
-          <span class="text-muted-foreground">延误扣款说明</span>
-          <input class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-delay-deduction-remark" value="${escapeHtml(state.manualDelayDeductionRemark)}" data-skip-page-rerender="true" placeholder="业务判断是否扣延误款" />
-        </label>
-      </div>
-      <div class="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2">
-        <div class="rounded-md bg-muted/30 px-3 py-2">开始时间参考：<span class="font-medium text-foreground">${escapeHtml(timingAssist.startTime)}</span></div>
-        <div class="rounded-md bg-muted/30 px-3 py-2">最后交出时间：<span class="font-medium text-foreground">${escapeHtml(timingAssist.lastHandoverTime)}</span></div>
+      <div class="mt-3 overflow-x-auto rounded-md border">
+        <table class="w-full min-w-[980px] text-sm">
+          <thead>
+            <tr class="border-b bg-muted/40 text-left">
+              <th class="px-4 py-2 font-medium">生产单</th>
+              <th class="px-4 py-2 font-medium">开始时间参考</th>
+              <th class="px-4 py-2 font-medium">最后交出时间</th>
+              <th class="px-4 py-2 font-medium">延误扣款金额（IDR）</th>
+              <th class="px-4 py-2 font-medium">延误扣款说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${includedProjections
+              .map((projection) => {
+                const input = getManualDelayProductionOrderDeduction(projection.productionOrderNo)
+                const timing = getBuildProductionOrderTimingAssist(projection.productionOrderNo)
+                return `
+                  <tr class="border-b last:border-b-0">
+                    <td class="px-4 py-3 font-medium">${escapeHtml(projection.productionOrderNo)}</td>
+                    <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(timing.startTime)}</td>
+                    <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(timing.lastHandoverTime)}</td>
+                    <td class="px-4 py-3">
+                      <input type="number" min="0" step="1" class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-delay-production-order-amount" data-production-order-no="${escapeHtml(projection.productionOrderNo)}" value="${escapeHtml(input.amount)}" />
+                    </td>
+                    <td class="px-4 py-3">
+                      <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-delay-production-order-remark" data-production-order-no="${escapeHtml(projection.productionOrderNo)}" value="${escapeHtml(input.remark)}" data-skip-page-rerender="true" placeholder="${escapeHtml(projection.productionOrderNo)} 延误扣款说明" />
+                    </td>
+                  </tr>
+                `
+              })
+              .join('')}
+          </tbody>
+        </table>
       </div>
     </section>
 
@@ -2852,7 +2890,6 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
   const projections = getBuildProductionOrderProjections()
   const effectiveCurrency = getEffectiveBuildCurrency()
   const displayCurrency = getBuildCurrencyDisplayText(effectiveCurrency)
-  const timingAssist = getBuildTimingAssist()
   const duplicatedStatement =
     selectedScope == null || !isBuildRangeValid()
       ? null
@@ -2883,7 +2920,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
       : state.buildTab === 'OBJECTS'
         ? renderBuildObjectsTab(projections, buildCandidates)
         : state.buildTab === 'QC_DEDUCTIONS'
-          ? renderBuildQcDeductionTab(projections, buildLines, timingAssist)
+          ? renderBuildQcDeductionTab(projections, buildLines)
           : renderBuildSummaryTab({
               editingDraft,
               selectedScope,
@@ -3029,22 +3066,30 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
       state.buildRemark = buildFieldNode.value
       return true
     }
-    if (field === 'manual-defect-reason-amount' && buildFieldNode instanceof HTMLInputElement) {
+    if (field === 'manual-defect-production-order-amount' && buildFieldNode instanceof HTMLInputElement) {
+      const productionOrderNo = buildFieldNode.dataset.productionOrderNo
       const reasonName = buildFieldNode.dataset.reason
-      if (reasonName) setManualDefectReasonDeduction(reasonName, { amount: buildFieldNode.value })
+      if (productionOrderNo && reasonName) {
+        setManualDefectProductionOrderDeduction(productionOrderNo, reasonName, { amount: buildFieldNode.value })
+      }
       return true
     }
-    if (field === 'manual-defect-reason-remark' && buildFieldNode instanceof HTMLInputElement) {
+    if (field === 'manual-defect-production-order-remark' && buildFieldNode instanceof HTMLInputElement) {
+      const productionOrderNo = buildFieldNode.dataset.productionOrderNo
       const reasonName = buildFieldNode.dataset.reason
-      if (reasonName) setManualDefectReasonDeduction(reasonName, { remark: buildFieldNode.value })
+      if (productionOrderNo && reasonName) {
+        setManualDefectProductionOrderDeduction(productionOrderNo, reasonName, { remark: buildFieldNode.value })
+      }
       return true
     }
-    if (field === 'manual-delay-deduction-amount' && buildFieldNode instanceof HTMLInputElement) {
-      state.manualDelayDeductionAmount = buildFieldNode.value
+    if (field === 'manual-delay-production-order-amount' && buildFieldNode instanceof HTMLInputElement) {
+      const productionOrderNo = buildFieldNode.dataset.productionOrderNo
+      if (productionOrderNo) setManualDelayProductionOrderDeduction(productionOrderNo, { amount: buildFieldNode.value })
       return true
     }
-    if (field === 'manual-delay-deduction-remark' && buildFieldNode instanceof HTMLInputElement) {
-      state.manualDelayDeductionRemark = buildFieldNode.value
+    if (field === 'manual-delay-production-order-remark' && buildFieldNode instanceof HTMLInputElement) {
+      const productionOrderNo = buildFieldNode.dataset.productionOrderNo
+      if (productionOrderNo) setManualDelayProductionOrderDeduction(productionOrderNo, { remark: buildFieldNode.value })
       return true
     }
     return true
