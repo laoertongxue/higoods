@@ -2061,6 +2061,21 @@ function renderBuildQcDeductionTab(
   `
 }
 
+function sumManualDefectProductionOrderDeductions(): number {
+  return Object.values(state.manualDefectProductionOrderDeductions).reduce(
+    (sum, reasonMap) =>
+      sum + Object.values(reasonMap).reduce((reasonSum, item) => reasonSum + parseManualDeductionAmount(item.amount), 0),
+    0,
+  )
+}
+
+function sumManualDelayProductionOrderDeductions(): number {
+  return Object.values(state.manualDelayProductionOrderDeductions).reduce(
+    (sum, item) => sum + parseManualDeductionAmount(item.amount),
+    0,
+  )
+}
+
 function renderBuildSummaryTab(input: {
   editingDraft: StatementDraft | null
   selectedScope: StatementBuildScopeViewModel | null
@@ -2070,11 +2085,8 @@ function renderBuildSummaryTab(input: {
   canGenerate: boolean
 }): string {
   const { editingDraft, selectedScope, buildLines, buildSummary, displayCurrency, canGenerate } = input
-  const manualDefectAmount = Object.values(state.manualDefectReasonDeductions).reduce(
-    (sum, item) => sum + parseManualDeductionAmount(item.amount),
-    0,
-  )
-  const manualDelayAmount = parseManualDeductionAmount(state.manualDelayDeductionAmount)
+  const manualDefectAmount = sumManualDefectProductionOrderDeductions()
+  const manualDelayAmount = sumManualDelayProductionOrderDeductions()
 
   return `
     <section class="mt-4 rounded-lg border bg-card p-4">
