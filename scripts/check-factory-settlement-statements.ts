@@ -36,16 +36,22 @@ for (const token of [
   '返工接收对象',
   '质检扣款',
   '金额确认',
-  'data-stm-build-field="manual-defect-reason-amount"',
-  'data-stm-build-field="manual-defect-reason-remark"',
-  'data-stm-build-field="manual-delay-deduction-amount"',
-  'data-stm-build-field="manual-delay-deduction-remark"',
+  'data-stm-build-field="manual-defect-production-order-amount"',
+  'data-stm-build-field="manual-defect-production-order-remark"',
+  'data-stm-build-field="manual-delay-production-order-amount"',
+  'data-stm-build-field="manual-delay-production-order-remark"',
+  'data-production-order-no',
+  'getBuildProductionOrderTimingAssist',
   '开始时间参考',
   '最后交出时间',
   '由业务人员填写',
 ]) {
   assert(source.includes(token) || html.includes(token), `缺少对账单生成口径：${token}`)
 }
+assert(
+  /<th[^>]*>生产单<\/th>[\s\S]*<th[^>]*>流水号<\/th>[\s\S]*<th[^>]*>质检记录<\/th>/.test(source),
+  '返工反扣表必须展示生产单列',
+)
 
 assert(!source.includes('必须先选工厂和结算周期，再自动加载该范围内的回货批次明细行'))
 for (const token of ['该工厂该结算周期', '当前工厂和结算周期', '工厂和结算周期范围', '工厂或结算周期']) {

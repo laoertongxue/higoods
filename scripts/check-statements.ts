@@ -171,8 +171,60 @@ function main(): void {
   assert(statementsPageSource.includes("label: '质检扣款'"), '新建对账单缺少质检扣款 Tab')
   assert(statementsPageSource.includes("label: '金额确认'"), '新建对账单缺少金额确认 Tab')
   assert(
-    statementsPageSource.includes('data-stm-build-field="manual-defect-reason-amount"'),
-    '新建对账单未按瑕疵原因填写扣款金额',
+    statementsPageSource.includes('manualDefectProductionOrderDeductions'),
+    '新建对账单未按生产单保存瑕疵扣款输入',
+  )
+  assert(
+    statementsPageSource.includes('manualDelayProductionOrderDeductions'),
+    '新建对账单未按生产单保存延误扣款输入',
+  )
+  assert(
+    statementsPageSource.includes('setManualDefectProductionOrderDeduction'),
+    '新建对账单缺少生产单 + 瑕疵原因扣款输入处理函数',
+  )
+  assert(
+    statementsPageSource.includes('getBuildQcReasonSummariesByProductionOrder'),
+    '新建对账单缺少按生产单汇总质检瑕疵事实的函数',
+  )
+  assert(
+    statementsPageSource.includes('getBuildProductionOrderTimingAssist'),
+    '新建对账单缺少按生产单提供延误时间辅助的函数',
+  )
+  assert(
+    statementsPageSource.includes('data-stm-build-field="manual-defect-production-order-amount"'),
+    '新建对账单未按生产单 + 瑕疵原因填写扣款金额',
+  )
+  assert(
+    statementsPageSource.includes('data-stm-build-field="manual-defect-production-order-remark"'),
+    '新建对账单未按生产单 + 瑕疵原因填写扣款说明',
+  )
+  assert(
+    statementsPageSource.includes('data-stm-build-field="manual-delay-production-order-amount"'),
+    '新建对账单未按生产单填写延误扣款金额',
+  )
+  assert(
+    statementsPageSource.includes('data-stm-build-field="manual-delay-production-order-remark"'),
+    '新建对账单未按生产单填写延误扣款说明',
+  )
+  assert(
+    !statementsPageSource.includes('manualDefectReasonDeductions'),
+    '新建对账单仍残留按瑕疵原因全局保存扣款输入的旧状态',
+  )
+  assert(
+    !statementsPageSource.includes('manualDelayDeductionAmount'),
+    '新建对账单仍残留整张对账单共用的延误扣款金额',
+  )
+  assert(
+    !statementsPageSource.includes('manualDelayDeductionRemark'),
+    '新建对账单仍残留整张对账单共用的延误扣款说明',
+  )
+  assert(
+    !statementsPageSource.includes('data-stm-build-field="manual-defect-reason-amount"'),
+    '新建对账单仍残留按瑕疵原因全局填写扣款金额的旧输入',
+  )
+  assert(
+    !statementsPageSource.includes('data-stm-build-field="manual-delay-deduction-amount"'),
+    '新建对账单仍残留整张对账单共用的延误扣款输入',
   )
   assert(
     !statementsPageSource.includes('manual-defect-deduction-amount'),
