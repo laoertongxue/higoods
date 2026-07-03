@@ -1373,7 +1373,7 @@ function renderQualityRecordCard(row: QcFactRow): string {
         ${renderRow('瑕疵数量', `${row.defectQty} 件`, { orange: row.defectQty > 0 })}
       </div>
       <div class="mt-2 text-[11px] leading-5 text-muted-foreground">
-        对账单：${escapeHtml(row.settlementTrace.statementNo ?? '未进入对账')} · 返工接收：${escapeHtml(row.reworkReceivers)}
+        对账单引用：${escapeHtml(row.settlementTrace.statementNo ?? '未进入对账')} · 返工接收对象：${escapeHtml(row.reworkReceivers)}
       </div>
     </button>
   `
@@ -1466,25 +1466,35 @@ function renderQualityRecordDrawer(): string {
     `质检记录 · ${detail.displayNo}`,
     `
       ${renderStatementDetailSection('质检事实', `
+        ${renderRow('质检单', detail.displayNo, { bold: true })}
+        ${renderRow('来源类型', detail.sourceTypeLabel)}
         ${renderRow('生产单', detail.productionOrderNo)}
         ${renderRow('SKU', detail.skuSummary)}
+        ${renderRow('来源工厂', detail.sourceFactoryName)}
+        ${renderRow('接收对象', detail.receiverName)}
+        ${renderRow('质检点', detail.qcStationName)}
+        ${renderRow('质检人', detail.inspectorName)}
+        ${renderRow('质检时间', formatDateTime(detail.inspectedAt))}
+        ${renderRow('质检结果', detail.resultLabel)}
         ${renderRow('质检数量', `${detail.inspectedQty} 件`)}
         ${renderRow('合格数量', `${detail.qualifiedQty} 件`)}
         ${renderRow('返工数量', `${detail.reworkQty} 件`, { orange: detail.reworkQty > 0 })}
         ${renderRow('瑕疵数量', `${detail.defectQty} 件`, { orange: detail.defectQty > 0 })}
         ${renderRow('返工接收对象', detail.reworkReceivers)}
       `)}
-      ${renderStatementDetailSection('SKU 明细', detail.skuResults.map((item) => `
+      ${renderStatementDetailSection('SKU 明细', detail.skuResults.length > 0 ? detail.skuResults.map((item) => `
         <div class="rounded-md border bg-muted/20 px-3 py-2">
           <div class="text-xs font-semibold">${escapeHtml(item.skuCode)}</div>
+          ${renderRow('颜色 / 尺码', `${item.colorName} / ${item.sizeName}`)}
           <div class="mt-1 text-[11px] leading-5 text-muted-foreground">
-            质检 ${item.inspectedQty} 件 · 合格 ${item.qualifiedQty} 件 · 返工 ${item.reworkQty} 件 · 瑕疵 ${item.defectQty} 件
+            质检 ${item.inspectedQty} ${item.qtyUnit} · 合格 ${item.qualifiedQty} ${item.qtyUnit} · 返工 ${item.reworkQty} ${item.qtyUnit} · 瑕疵 ${item.defectQty} ${item.qtyUnit}
           </div>
           <div class="mt-1 text-[11px] leading-5 text-muted-foreground">
-            返工接收：${escapeHtml(item.reworkReceiveFactoryName)} · 瑕疵原因：${escapeHtml(item.defectReasonSummary)}
+            返工接收对象：${escapeHtml(item.reworkReceiveFactoryName)} · 瑕疵原因：${escapeHtml(item.defectReasonSummary)}
           </div>
+          ${item.reworkChargebackAmountText !== '—' ? `<div class="mt-1 text-[11px] font-medium text-red-600">返工扣款金额：${escapeHtml(item.reworkChargebackAmountText)}</div>` : ''}
         </div>
-      `).join(''))}
+      `).join('') : '<div class="rounded-md border border-dashed bg-muted/20 px-3 py-6 text-center text-xs text-muted-foreground">暂无 SKU 明细</div>')}
       ${renderStatementDetailSection('对账引用', `
         ${renderRow('是否进入对账', detail.settlementTrace.statusLabel)}
         ${renderRow('对账单', detail.settlementTrace.statementNo ?? '未进入对账')}
@@ -1508,7 +1518,7 @@ function renderQualityRecordListPage(): string {
         <h1 class="text-base font-bold">${escapeHtml(getQualityRecordFilterLabel(state.qualityRecordFilterView))}</h1>
         <p class="mt-1 text-[11px] leading-5 text-muted-foreground">只看质检事实和对账单引用，扣款信息弱展示。</p>
         <div class="mt-3">${renderQualityRecordFilterTabs()}</div>
-        <input class="mt-3 h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="质检单 / 生产单 / SKU / 对账单" value="${escapeHtml(state.qualitySearch)}" data-pda-sett-field="quality-search" data-skip-page-rerender="true" />
+        <input class="mt-3 h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="质检单 / 生产单 / SKU / 来源工厂 / 返工接收对象 / 对账单" value="${escapeHtml(state.qualitySearch)}" data-pda-sett-field="quality-search" />
       </section>
       ${rows.length > 0 ? rows.map(renderQualityRecordCard).join('') : '<div class="rounded-lg border border-dashed bg-card px-4 py-8 text-center text-sm text-muted-foreground">当前筛选下没有质检记录</div>'}
       ${renderQualityRecordDrawer()}
@@ -1587,6 +1597,16 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
   if (!actionNode) return false
   const action = actionNode.dataset.pdaSettAction
   if (!action) return false
+
+  if (action === 'open-statement-list') {
+    appStore.navigate(actionNode.dataset.nav || buildStatementListHref('all'))
+    return true
+  }
+
+  if (action === 'open-quality-list') {
+    appStore.navigate(actionNode.dataset.nav || buildQualityListHref('all'))
+    return true
+  }
 
   if (action === 'open-quality-record-detail') {
     const qcId = actionNode.dataset.qcId
