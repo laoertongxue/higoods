@@ -1300,60 +1300,6 @@ function renderSettlementRequestDrawer(): string {
   )
 }
 
-function renderCycleCard(summary: SettlementCycleSummary): string {
-  const statementStatus = summary.primaryStatement ? getStatementStatusLabel(summary.primaryStatement.status) : '未生成对账单'
-  const batchStatus = summary.primaryBatch ? getPrepaymentBatchStatusLabel(summary.primaryBatch.status) : '未入预付款'
-  const snapshotVersionLabel =
-    summary.statementSnapshotVersionNo || summary.batchSnapshotVersionNo
-      ? `对账单 ${summary.statementSnapshotVersionNo ?? '—'} / 预付款 ${summary.batchSnapshotVersionNo ?? '—'}`
-      : `当前生效 ${summary.currentEffectiveVersionNo ?? '—'}`
-
-  return `
-    <button
-      class="w-full rounded-xl border bg-card px-4 py-4 text-left shadow-none hover:bg-muted/20"
-      data-pda-sett-action="open-cycle-detail"
-      data-cycle-id="${escapeHtml(summary.cycleId)}"
-    >
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <div class="text-sm font-semibold text-foreground">${escapeHtml(summary.cycleLabel)}</div>
-          <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(`${summary.cycleStartAt} ~ ${summary.cycleEndAt}`)}</div>
-          <div class="mt-1 text-[11px] text-muted-foreground">计划预付款：${escapeHtml(summary.plannedPrepaymentAt ?? '-')}</div>
-        </div>
-        ${summary.latestWriteback ? renderStatusBadge('已回写打款结果', 'green') : summary.primaryBatch ? renderStatusBadge(batchStatus, getPrepaymentBatchStatusVariant(summary.primaryBatch.status)) : renderStatusBadge(statementStatus, summary.primaryStatement ? getStatementStatusVariant(summary.primaryStatement.status) : 'gray')}
-      </div>
-      <div class="mt-3 grid grid-cols-2 gap-2 text-[10px]">
-        <div class="rounded-md bg-muted/20 px-3 py-2">
-          <div class="text-muted-foreground">应付</div>
-          <div class="mt-1 text-xs font-semibold text-foreground">${escapeHtml(formatAmount(summary.taskEarningAmount))}</div>
-        </div>
-        <div class="rounded-md bg-muted/20 px-3 py-2">
-          <div class="text-muted-foreground">扣款</div>
-          <div class="mt-1 text-xs font-semibold text-red-600">${escapeHtml(summary.qualityDeductionAmount > 0 ? formatAmount(summary.qualityDeductionAmount) : '—')}</div>
-        </div>
-        <div class="rounded-md bg-muted/20 px-3 py-2">
-          <div class="text-muted-foreground">本期净额</div>
-          <div class="mt-1 text-xs font-semibold text-foreground">${escapeHtml(formatAmount(summary.netPayableAmount))}</div>
-        </div>
-        <div class="rounded-md bg-muted/20 px-3 py-2">
-          <div class="text-muted-foreground">待处理 / 异议中</div>
-          <div class="mt-1 text-xs font-semibold text-foreground">${summary.pendingQualityCount} / ${summary.disputingCount}</div>
-        </div>
-      </div>
-      <div class="mt-3 flex flex-wrap gap-1.5">
-        ${summary.primaryStatement ? renderStatusBadge(statementStatus, getStatementStatusVariant(summary.primaryStatement.status)) : renderStatusBadge('未生成对账单', 'gray')}
-        ${summary.proxyConfirmedCount > 0 ? renderStatusBadge('有对账单已由跟单审核代确认', 'blue') : ''}
-        ${summary.primaryBatch ? renderStatusBadge(batchStatus, getPrepaymentBatchStatusVariant(summary.primaryBatch.status)) : renderStatusBadge('未入预付款', 'gray')}
-        ${summary.latestApproval ? renderStatusBadge(`飞书 ${getFeishuStatusLabel(summary.latestApproval.status)}`, getFeishuStatusVariant(summary.latestApproval.status)) : renderStatusBadge('未申请飞书付款', 'gray')}
-      </div>
-      <div class="mt-3 text-[10px] leading-5 text-muted-foreground">
-        <div>${escapeHtml(`资料版本：${snapshotVersionLabel}`)}</div>
-        <div>${escapeHtml(summary.latestWriteback ? `已登记银行回执与流水 ${summary.latestWriteback.bankSerialNo}` : '当前尚未登记打款回写')}</div>
-      </div>
-    </button>
-  `
-}
-
 function getStatementSplitAmounts(statement: StatementDraft): {
   earningAmount: number
   deductionAmount: number
@@ -1650,7 +1596,7 @@ function renderStatementDrawer(): string {
           ${renderRow('对账单状态', getStatementStatusLabel(statement.status))}
           ${renderRow('工厂反馈状态', getFactoryFeedbackLabel(statement.factoryFeedbackStatus))}
           ${renderRow('确认来源', getStatementConfirmationSourceLabel(statement))}
-          ${renderRow('结算周期', statement.settlementCycleLabel ?? '—')}
+          ${renderRow('所属范围', statement.settlementCycleLabel ?? '—')}
           ${renderRow('创建时间', formatDateTime(statement.createdAt))}
           ${
             isStatementProxyConfirmed(statement)
@@ -1811,69 +1757,34 @@ function renderStatementDrawer(): string {
   )
 }
 
-function renderStatementsTab(summary: SettlementCycleSummary): string {
-  return `
-    <div class="space-y-3 p-4">
-      ${renderCard(
-        '对账与预付款结果',
-        `
-          <div class="rounded-md border bg-muted/20 px-3 py-2 text-[10px] leading-5 text-muted-foreground">
-            这里只展示平台已成立的对账单、预付款批次、飞书付款审批状态和打款回写结果。工厂端只查看与确认，不提供扣款金额、币种等核算编辑。
-          </div>
-        `,
-      )}
-      ${renderCard(
-        '对账单',
-        summary.statements.length > 0
-          ? summary.statements.map((statement) => renderStatementCard(statement, summary)).join('')
-          : '<div class="rounded-md border border-dashed bg-muted/20 px-3 py-5 text-center text-xs text-muted-foreground">当前周期尚未生成对账单</div>',
-      )}
-      ${renderCard(
-        '预付款',
-        summary.batches.length > 0
-          ? summary.batches.map((batch) => renderPrepaymentBatchCard(batch)).join('')
-          : '<div class="rounded-md border border-dashed bg-muted/20 px-3 py-5 text-center text-xs text-muted-foreground">当前周期尚未进入预付款批次</div>',
-      )}
-      ${renderStatementDrawer()}
-    </div>
-  `
-}
-
-function renderCycleListPage(): string {
-  const context = getCurrentFactoryContext()
-  const boundary = getSettlementPageBoundary('pda-settlement')
-  const summaries = getSettlementCycleSummaries(context)
+function renderSettlementPlaceholderPage(title: string, description: string, drawerContent = ''): string {
   return `
     <div class="space-y-3 px-4 py-4">
       <section class="rounded-lg border bg-card px-4 py-4 shadow-none">
         <div class="flex items-start justify-between gap-3">
           <div>
-            <h1 class="text-base font-bold">结算周期</h1>
-            <p class="mt-1 text-[11px] leading-5 text-muted-foreground">${escapeHtml(boundary.pageIntro)}</p>
+            <h1 class="text-base font-bold">${escapeHtml(title)}</h1>
+            <p class="mt-1 text-[11px] leading-5 text-muted-foreground">${escapeHtml(description)}</p>
           </div>
           ${renderSettlementProfileEntryCard()}
         </div>
       </section>
-      ${
-        summaries.length > 0
-          ? summaries.map((summary) => renderCycleCard(summary)).join('')
-          : '<div class="rounded-lg border border-dashed bg-card px-4 py-8 text-center text-sm text-muted-foreground">当前没有可查看的结算周期</div>'
-      }
       ${renderSettlementRequestDrawer()}
+      ${drawerContent}
     </div>
   `
 }
 
 function renderSettlementHomePage(): string {
-  return renderCycleListPage()
+  return renderSettlementPlaceholderPage('结算', '结算资料、待确认事项和快捷入口将在后续任务接入。')
 }
 
 function renderStatementListPage(): string {
-  return renderCycleListPage()
+  return renderSettlementPlaceholderPage('对账单', '平台生成的对账单列表将在后续任务接入。', renderStatementDrawer())
 }
 
 function renderQualityRecordListPage(): string {
-  return renderCycleListPage()
+  return renderSettlementPlaceholderPage('质检记录', '待入单、已入单、返工和扣款记录将在后续任务接入。')
 }
 
 function renderSettlementContent(): string {
