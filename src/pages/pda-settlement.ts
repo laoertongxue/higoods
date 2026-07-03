@@ -252,17 +252,8 @@ function isPaidOrPaidPendingBatchStatus(status?: SettlementBatch['status']): boo
   return status === 'PREPAID' || status === 'FEISHU_PAID_PENDING_WRITEBACK'
 }
 
-function isStatementPaidPendingWriteback(statement: StatementDraft, batch: SettlementBatch | null): boolean {
-  return statement.prepaymentBatchStatus === 'FEISHU_PAID_PENDING_WRITEBACK' || batch?.status === 'FEISHU_PAID_PENDING_WRITEBACK'
-}
-
-function getStatementPaymentStatusLabel(
-  statement: StatementDraft,
-  batch: SettlementBatch | null,
-): string {
-  if (isStatementPaidPendingWriteback(statement, batch)) return '已付款待回写'
-  if (isStatementPaid(statement)) return '已付款'
-  return '未付款'
+function getStatementPaymentStatusLabel(statement: StatementDraft): string {
+  return isStatementPaid(statement) ? '已付款' : '未付款'
 }
 
 function getStatementNetAmount(statement: StatementDraft): number {
@@ -1168,7 +1159,7 @@ function renderStatementDrawer(): string {
           ${renderRow('应付', formatAmount(amounts.earningAmount), { bold: true })}
           ${renderRow('扣款', amounts.deductionAmount > 0 ? formatAmount(amounts.deductionAmount) : '—', { red: amounts.deductionAmount > 0 })}
           ${renderRow('本期净额', formatAmount(amounts.netAmount), { bold: true })}
-          ${renderRow('付款状态', getStatementPaymentStatusLabel(statement, batch), { green: statementPaid, orange: isStatementPaidPendingWriteback(statement, batch) })}
+          ${renderRow('付款状态', getStatementPaymentStatusLabel(statement), { green: statementPaid })}
           ${statementPaid ? renderRow('付款金额', formatAmount(getStatementNetAmount(statement), statement.settlementCurrency ?? 'IDR'), { bold: true }) : ''}
           ${paymentTime ? renderRow('付款时间', formatDateTime(paymentTime)) : ''}
         `,
@@ -1333,7 +1324,7 @@ function renderStatementCard(statement: StatementDraft, summary: SettlementCycle
         ${renderRow('任务收入', formatAmount(amounts.earningAmount, statement.settlementCurrency ?? 'IDR'))}
         ${renderRow('扣款', amounts.deductionAmount > 0 ? formatAmount(amounts.deductionAmount, statement.settlementCurrency ?? 'IDR') : '—', { red: amounts.deductionAmount > 0 })}
         ${renderRow('本期净额', formatAmount(amounts.netAmount, statement.settlementCurrency ?? 'IDR'), { bold: true })}
-        ${renderRow('付款状态', getStatementPaymentStatusLabel(statement, batch), { green: statementPaid, orange: isStatementPaidPendingWriteback(statement, batch) })}
+        ${renderRow('付款状态', getStatementPaymentStatusLabel(statement), { green: statementPaid })}
         ${statementPaid ? renderRow('付款金额', formatAmount(getStatementNetAmount(statement), statement.settlementCurrency ?? 'IDR'), { bold: true }) : ''}
         ${paymentTime ? renderRow('付款时间', formatDateTime(paymentTime)) : ''}
       </div>
