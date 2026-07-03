@@ -62,6 +62,10 @@ function navigateInPrototype(url: string): void {
   appStore.navigate(url)
 }
 
+function parseProductionOrderQrValue(value: string): string {
+  return value.match(/PO-\d{6}-\d{4}/)?.[0] || value.trim()
+}
+
 function isCreateDialogOpen(): boolean {
   return Boolean(currentParams().get('createQc'))
 }
@@ -389,11 +393,18 @@ function registerQcPageActions(): void {
   if (typeof window === 'undefined') return
   const win = window as Window & {
     __postCreateQcOrder?: () => void
+    __postQuickInputQcScan?: (rawValue?: string) => void
     __postQuickInputQcPreview?: () => void
     __postQuickInputQcOrder?: () => void
     __postCompleteQcOrder?: (qcOrderId: string) => void
     __syncQcCompleteForm?: () => void
     __syncQuickQcInput?: () => void
+  }
+  win.__postQuickInputQcScan = (rawValue) => {
+    const scannedOrderNo = parseProductionOrderQrValue(rawValue || listPostFinishingWaitQcSkuItems().find((item) => item.waitQcQty > 0)?.productionOrderNo || '')
+    const input = document.querySelector<HTMLInputElement>('[data-qc-production-order-no]')
+    if (input) input.value = scannedOrderNo
+    win.__postQuickInputQcPreview?.()
   }
   win.__postQuickInputQcPreview = () => {
     const productionOrderNo = (document.querySelector('[data-qc-production-order-no]') as HTMLInputElement | null)?.value || ''
@@ -816,12 +827,13 @@ function renderQuickInputQcDialog(): string {
   const waitItems = resolveQuickInputWaitItems(productionOrderNo)
   return renderModal('创建质检单', `
     <div data-qc-quick-input-dialog class="space-y-4">
-      <div class="grid items-end gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+      <div class="grid items-end gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
         <input type="hidden" name="inputQc" value="1" />
         <label class="space-y-1 text-sm">
-          <span class="text-xs text-muted-foreground">生产单号</span>
-          <input class="h-10 w-full rounded-md border px-3 text-sm" data-qc-production-order-no name="qcProductionOrderNo" value="${escapeHtml(productionOrderNo)}" placeholder="输入生产单号" />
+          <span class="text-xs text-muted-foreground">条码/二维码 / 生产单号</span>
+          <input class="h-10 w-full rounded-md border px-3 text-sm" data-qc-production-order-no name="qcProductionOrderNo" value="${escapeHtml(productionOrderNo)}" placeholder="扫描条码/二维码，或输入生产单号" />
         </label>
+        <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border px-4 text-sm font-medium hover:bg-slate-50" onclick="window.__postQuickInputQcScan()"><i data-lucide="scan-line" class="h-4 w-4"></i>扫码读取条码/二维码</button>
         <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" onclick="window.__postQuickInputQcPreview()">查看</button>
         <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-slate-50" data-nav="${escapeHtml(linkWith({ inputQc: '1', qcProductionOrderNo: undefined }))}">重置</button>
       </div>

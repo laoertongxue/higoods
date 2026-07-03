@@ -157,6 +157,13 @@ assert(!createQcHtml.includes('xl:grid-cols-2'), '创建质检单弹窗应一行
 const quickInputHtml = renderPostFinishingQcOrdersPage()
 delete (globalThis as any).window
 assert(quickInputHtml.includes('data-qc-quick-input-dialog'), '录入质检数据弹窗应可按生产单号打开')
+const quickDialogStart = quickInputHtml.indexOf('data-qc-quick-input-dialog')
+const quickDialogEnd = quickInputHtml.indexOf('data-qc-create-station', quickDialogStart)
+const quickDialogHtml = quickInputHtml.slice(quickDialogStart, quickDialogEnd > quickDialogStart ? quickDialogEnd : undefined)
+assert(!quickDialogHtml.includes('扫描生产单二维码'), '创建质检单弹窗不应把扫码和手输拆成两个区域')
+assert(quickDialogHtml.includes('条码/二维码 / 生产单号'), '创建质检单弹窗应把条码/二维码和生产单号合并到一个输入框')
+assert(quickDialogHtml.includes('扫码读取条码/二维码'), '创建质检单弹窗扫码按钮应使用条码/二维码文案')
+assert(quickInputHtml.includes('window.__postQuickInputQcScan()'), '创建质检单弹窗扫码按钮应触发生产单二维码扫描')
 assert(quickInputHtml.includes('data-qc-quick-preview'), '右上角创建质检单查看结果应有局部预览容器')
 assert(quickInputHtml.includes(`value="${spacedOrderNo}"`), '录入质检数据弹窗应保留生产单号')
 assert(quickInputHtml.includes('data-qc-quick-source-row'), '录入质检数据弹窗应展示待质检 SKU 行')
@@ -176,9 +183,6 @@ delete (globalThis as any).window
 assert(arbitraryInputHtml.includes(`value="${arbitraryProductionOrderNo}"`), '右上角手动输入任意生产单号时应保留输入值')
 assert((arbitraryInputHtml.match(/data-qc-quick-source-row/g) || []).length >= 3, '右上角手动输入任意生产单号后也应直接展示 mock SKU')
 assert(!arbitraryInputHtml.includes('暂无待质检 SKU') && !arbitraryInputHtml.includes('输入生产单号后展示待质检 SKU'), '右上角手动输入任意生产单号后不应展示空态')
-const quickDialogStart = quickInputHtml.indexOf('data-qc-quick-input-dialog')
-const quickDialogEnd = quickInputHtml.indexOf('data-qc-create-station', quickDialogStart)
-const quickDialogHtml = quickInputHtml.slice(quickDialogStart, quickDialogEnd > quickDialogStart ? quickDialogEnd : undefined)
 assert(!quickDialogHtml.includes('min-w-[1280px]'), '录入质检数据弹窗不应复用宽表')
 
 ;(globalThis as any).window = {
