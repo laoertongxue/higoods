@@ -88,9 +88,8 @@ interface StatementsState {
   selectedLedgerIds: string[]
   selectedProductionOrderNos: string[]
   buildRemark: string
-  manualDefectReasonDeductions: Record<string, { amount: string; remark: string }>
-  manualDelayDeductionAmount: string
-  manualDelayDeductionRemark: string
+  manualDefectProductionOrderDeductions: Record<string, Record<string, ManualDeductionInput>>
+  manualDelayProductionOrderDeductions: Record<string, ManualDeductionInput>
   editingStatementId: string | null
   processingAppealStatementId: string | null
   appealResolutionResult: '' | StatementResolutionResult
@@ -113,6 +112,18 @@ interface StatementOverviewCounts {
   prepaid: number
   closed: number
   buildableScopeCount: number
+}
+
+interface ManualDeductionInput {
+  amount: string
+  remark: string
+}
+
+interface BuildQcReasonProductionOrderSummary {
+  productionOrderNo: string
+  productionOrderId?: string
+  reasonName: string
+  qty: number
 }
 
 const STATUS_ZH: Record<StatementStatus, string> = {
@@ -214,9 +225,8 @@ const state: StatementsState = {
   selectedLedgerIds: [],
   selectedProductionOrderNos: [],
   buildRemark: '',
-  manualDefectReasonDeductions: {},
-  manualDelayDeductionAmount: '',
-  manualDelayDeductionRemark: '',
+  manualDefectProductionOrderDeductions: {},
+  manualDelayProductionOrderDeductions: {},
   editingStatementId: null,
   processingAppealStatementId: null,
   appealResolutionResult: '',
@@ -1077,8 +1087,8 @@ function parseManualDeductionAmount(value: string): number {
   return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) / 100 : 0
 }
 
-function getBuildTimingAssist(): { startTime: string; lastHandoverTime: string } {
-  const ledgers = getBuildRangeLedgers()
+function getBuildProductionOrderTimingAssist(productionOrderNo: string): { startTime: string; lastHandoverTime: string } {
+  const ledgers = getBuildRangeLedgers().filter((item) => item.productionOrderNo === productionOrderNo)
   const times = ledgers.map((item) => item.occurredAt).filter(Boolean).sort()
   const handoverTimes = ledgers
     .filter((item) => item.ledgerType === 'TASK_EARNING')
@@ -1092,16 +1102,49 @@ function getBuildTimingAssist(): { startTime: string; lastHandoverTime: string }
 }
 
 function clearBuildManualDeductions(): void {
-  state.manualDefectReasonDeductions = {}
-  state.manualDelayDeductionAmount = ''
-  state.manualDelayDeductionRemark = ''
+  state.manualDefectProductionOrderDeductions = {}
+  state.manualDelayProductionOrderDeductions = {}
 }
 
-function setManualDefectReasonDeduction(reasonName: string, patch: Partial<{ amount: string; remark: string }>): void {
-  const current = state.manualDefectReasonDeductions[reasonName] ?? { amount: '', remark: '' }
-  state.manualDefectReasonDeductions = {
-    ...state.manualDefectReasonDeductions,
-    [reasonName]: { ...current, ...patch },
+function getEmptyManualDeductionInput(): ManualDeductionInput {
+  return { amount: '', remark: '' }
+}
+
+function getManualDefectProductionOrderDeduction(
+  productionOrderNo: string,
+  reasonName: string,
+): ManualDeductionInput {
+  return state.manualDefectProductionOrderDeductions[productionOrderNo]?.[reasonName] ?? getEmptyManualDeductionInput()
+}
+
+function setManualDefectProductionOrderDeduction(
+  productionOrderNo: string,
+  reasonName: string,
+  patch: Partial<ManualDeductionInput>,
+): void {
+  const currentByReason = state.manualDefectProductionOrderDeductions[productionOrderNo] ?? {}
+  const current = currentByReason[reasonName] ?? getEmptyManualDeductionInput()
+  state.manualDefectProductionOrderDeductions = {
+    ...state.manualDefectProductionOrderDeductions,
+    [productionOrderNo]: {
+      ...currentByReason,
+      [reasonName]: { ...current, ...patch },
+    },
+  }
+}
+
+function getManualDelayProductionOrderDeduction(productionOrderNo: string): ManualDeductionInput {
+  return state.manualDelayProductionOrderDeductions[productionOrderNo] ?? getEmptyManualDeductionInput()
+}
+
+function setManualDelayProductionOrderDeduction(
+  productionOrderNo: string,
+  patch: Partial<ManualDeductionInput>,
+): void {
+  const current = getManualDelayProductionOrderDeduction(productionOrderNo)
+  state.manualDelayProductionOrderDeductions = {
+    ...state.manualDelayProductionOrderDeductions,
+    [productionOrderNo]: { ...current, ...patch },
   }
 }
 
@@ -1129,29 +1172,24 @@ function getIncludedBuildProjections(projections: ProductionOrderSettlementProje
   return projections.filter((item) => productionOrderNos.has(item.productionOrderNo))
 }
 
-function getBuildQcReasonSummaries(projections: ProductionOrderSettlementProjection[]): Array<{
-  reasonName: string
-  qty: number
-  productionOrderNos: string[]
-}> {
-  const rows = new Map<string, { reasonName: string; qty: number; productionOrderNos: Set<string> }>()
-  for (const projection of getIncludedBuildProjections(projections)) {
-    for (const [reasonName, qty] of Object.entries(projection.defectReasonQtyByName)) {
-      if (!isSewingFactoryLiabilityReason(reasonName) || qty <= 0) continue
-      const row = rows.get(reasonName) ?? { reasonName, qty: 0, productionOrderNos: new Set<string>() }
-      row.qty += qty
-      row.productionOrderNos.add(projection.productionOrderNo)
-      rows.set(reasonName, row)
-    }
-  }
-
-  return Array.from(rows.values())
-    .map((item) => ({
-      reasonName: item.reasonName,
-      qty: item.qty,
-      productionOrderNos: Array.from(item.productionOrderNos),
-    }))
+function getBuildQcReasonSummariesByProductionOrder(
+  projections: ProductionOrderSettlementProjection[],
+): BuildQcReasonProductionOrderSummary[] {
+  return getIncludedBuildProjections(projections)
+    .flatMap((projection) =>
+      Object.entries(projection.defectReasonQtyByName)
+        .filter(([reasonName, qty]) => isSewingFactoryLiabilityReason(reasonName) && qty > 0)
+        .map(([reasonName, qty]) => ({
+          productionOrderNo: projection.productionOrderNo,
+          productionOrderId: projection.productionOrderId,
+          reasonName,
+          qty,
+        })),
+    )
     .sort((left, right) => {
+      if (left.productionOrderNo !== right.productionOrderNo) {
+        return left.productionOrderNo.localeCompare(right.productionOrderNo, 'zh-CN')
+      }
       const leftIndex = SEWING_FACTORY_LIABILITY_REASONS.indexOf(left.reasonName as (typeof SEWING_FACTORY_LIABILITY_REASONS)[number])
       const rightIndex = SEWING_FACTORY_LIABILITY_REASONS.indexOf(right.reasonName as (typeof SEWING_FACTORY_LIABILITY_REASONS)[number])
       return leftIndex === rightIndex ? left.reasonName.localeCompare(right.reasonName, 'zh-CN') : leftIndex - rightIndex
