@@ -207,6 +207,23 @@ function main(): void {
     '新建对账单未按生产单填写延误扣款说明',
   )
   assert(
+    statementsPageSource.includes('productionOrderNo: summary.productionOrderNo'),
+    '手工瑕疵扣款明细未写入生产单号',
+  )
+  assert(
+    statementsPageSource.includes('productionOrderNo: projection.productionOrderNo'),
+    '手工延误扣款明细未写入生产单号',
+  )
+  assert(
+    statementsPageSource.includes('productionOrderNo: input.productionOrderNo'),
+    '手工扣款明细输出未保留生产单号',
+  )
+  assert(statementsPageSource.includes('renderBuildLineRows'), '金额确认缺少正式流水与扣款明细预览')
+  assert(
+    statementsPageSource.includes('renderProductionOrderIdentityCell(line.productionOrderNoDisplay)'),
+    '金额确认明细未展示生产单号',
+  )
+  assert(
     !statementsPageSource.includes('manualDefectReasonDeductions'),
     '新建对账单仍残留按瑕疵原因全局保存扣款输入的旧状态',
   )

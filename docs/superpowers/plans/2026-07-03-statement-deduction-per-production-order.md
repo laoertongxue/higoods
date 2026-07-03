@@ -8,6 +8,8 @@
 
 **技术栈：** Vite、TypeScript、Tailwind CSS、Vanilla TypeScript 字符串模板、现有 Node 检查脚本、CodeGraph。
 
+**状态：** 已实现并验证。
+
 ---
 
 ## 业务规则锁定
@@ -41,7 +43,7 @@
 - 修改：`scripts/check-statements.ts`
 - 修改：`scripts/check-factory-settlement-statements.ts`
 
-- [ ] **步骤 1：修改 `scripts/check-statements.ts` 的源码断言**
+- [x] **步骤 1：修改 `scripts/check-statements.ts` 的源码断言**
 
 在现有 `statementsPageSource` 断言区域，把旧的 `manual-defect-reason-amount` 正向断言替换为生产单维度断言，并加入旧字段反向断言：
 
@@ -104,7 +106,7 @@
   )
 ```
 
-- [ ] **步骤 2：修改 `scripts/check-factory-settlement-statements.ts` 的 token 列表**
+- [x] **步骤 2：修改 `scripts/check-factory-settlement-statements.ts` 的 token 列表**
 
 把旧 token：
 
@@ -135,7 +137,7 @@ assert(
 )
 ```
 
-- [ ] **步骤 3：运行检查验证失败**
+- [x] **步骤 3：运行检查验证失败**
 
 运行：
 
@@ -146,7 +148,7 @@ npm run check:factory-settlement-statements
 
 预期：两个命令至少一个失败，失败信息指向生产单维度字段或返工反扣生产单列缺失。
 
-- [ ] **步骤 4：提交检查脚本变更**
+- [x] **步骤 4：提交检查脚本变更**
 
 ```bash
 git add scripts/check-statements.ts scripts/check-factory-settlement-statements.ts
@@ -158,7 +160,7 @@ git commit -m "test: lock statement deduction production-order grain"
 **文件：**
 - 修改：`src/pages/statements.ts`
 
-- [ ] **步骤 1：新增手工扣款输入类型**
+- [x] **步骤 1：新增手工扣款输入类型**
 
 在 `StatementOverviewCounts` 附近加入：
 
@@ -176,7 +178,7 @@ interface BuildQcReasonProductionOrderSummary {
 }
 ```
 
-- [ ] **步骤 2：替换 `StatementsState` 字段**
+- [x] **步骤 2：替换 `StatementsState` 字段**
 
 把旧字段：
 
@@ -208,7 +210,7 @@ interface BuildQcReasonProductionOrderSummary {
   manualDelayProductionOrderDeductions: {},
 ```
 
-- [ ] **步骤 3：替换清空和设置 helper**
+- [x] **步骤 3：替换清空和设置 helper**
 
 删除 `setManualDefectReasonDeduction`，把 `clearBuildManualDeductions` 改为：
 
@@ -265,7 +267,7 @@ function setManualDelayProductionOrderDeduction(
 }
 ```
 
-- [ ] **步骤 4：新增按生产单汇总质检事实 helper**
+- [x] **步骤 4：新增按生产单汇总质检事实 helper**
 
 把 `getBuildQcReasonSummaries` 改名并改为按生产单返回：
 
@@ -299,7 +301,7 @@ function getBuildQcReasonSummariesByProductionOrder(
 }
 ```
 
-- [ ] **步骤 5：新增按生产单时间辅助 helper**
+- [x] **步骤 5：新增按生产单时间辅助 helper**
 
 把 `getBuildTimingAssist` 替换为：
 
@@ -319,7 +321,7 @@ function getBuildProductionOrderTimingAssist(productionOrderNo: string): { start
 }
 ```
 
-- [ ] **步骤 6：运行检查验证进入下一个失败点**
+- [x] **步骤 6：运行检查验证进入下一个失败点**
 
 运行：
 
@@ -329,7 +331,7 @@ npm run check:statements
 
 预期：不再报旧状态字段缺失，新失败点指向 UI 字段或返工反扣生产单列。
 
-- [ ] **步骤 7：提交状态和 helper 变更**
+- [x] **步骤 7：提交状态和 helper 变更**
 
 ```bash
 git add src/pages/statements.ts
@@ -341,7 +343,7 @@ git commit -m "feat: split statement manual deduction state by production order"
 **文件：**
 - 修改：`src/pages/statements.ts`
 
-- [ ] **步骤 1：新增手工扣款 ID 清洗 helper**
+- [x] **步骤 1：新增手工扣款 ID 清洗 helper**
 
 在 `parseManualDeductionAmount` 附近加入：
 
@@ -351,7 +353,7 @@ function toManualDeductionIdPart(value: string): string {
 }
 ```
 
-- [ ] **步骤 2：改写 `buildManualStatementDeductionLines` 的输入构造**
+- [x] **步骤 2：改写 `buildManualStatementDeductionLines` 的输入构造**
 
 用以下结构替换 `defectInputs` 和单个 `MANUAL-DELAY` 输入：
 
@@ -387,7 +389,7 @@ function toManualDeductionIdPart(value: string): string {
   const inputs = [...defectInputs, ...delayInputs]
 ```
 
-- [ ] **步骤 3：在 `StatementDraftItem` 输出中写入生产单字段**
+- [x] **步骤 3：在 `StatementDraftItem` 输出中写入生产单字段**
 
 在返回的明细对象中加入：
 
@@ -404,7 +406,7 @@ function toManualDeductionIdPart(value: string): string {
       netAmount: -input.amount,
 ```
 
-- [ ] **步骤 4：运行检查验证手工明细不破坏构建**
+- [x] **步骤 4：运行检查验证手工明细不破坏构建**
 
 运行：
 
@@ -414,7 +416,7 @@ npm run check:statements
 
 预期：脚本可执行到页面源码断言，失败点只剩渲染字段或事件字段。
 
-- [ ] **步骤 5：提交明细生成变更**
+- [x] **步骤 5：提交明细生成变更**
 
 ```bash
 git add src/pages/statements.ts
@@ -426,7 +428,7 @@ git commit -m "feat: generate statement manual deduction lines per production or
 **文件：**
 - 修改：`src/pages/statements.ts`
 
-- [ ] **步骤 1：调整 `renderBuildQcDeductionTab` 签名**
+- [x] **步骤 1：调整 `renderBuildQcDeductionTab` 签名**
 
 把参数：
 
@@ -440,7 +442,7 @@ git commit -m "feat: generate statement manual deduction lines per production or
           ? renderBuildQcDeductionTab(projections, buildLines)
 ```
 
-- [ ] **步骤 2：按生产单渲染瑕疵扣款**
+- [x] **步骤 2：按生产单渲染瑕疵扣款**
 
 在 `renderBuildQcDeductionTab` 内使用：
 
@@ -507,7 +509,7 @@ git commit -m "feat: generate statement manual deduction lines per production or
           : '<p class="mt-3 rounded-md border bg-muted/20 py-6 text-center text-sm text-muted-foreground">当前纳入对象暂无归车缝工厂原因的瑕疵事实。</p>'
 ```
 
-- [ ] **步骤 3：返工反扣表增加生产单列**
+- [x] **步骤 3：返工反扣表增加生产单列**
 
 把返工表表头改为：
 
@@ -527,7 +529,7 @@ git commit -m "feat: generate statement manual deduction lines per production or
 
 并把表格最小宽度从 `min-w-[760px]` 调整为 `min-w-[900px]`。
 
-- [ ] **步骤 4：延误扣款改为生产单列表**
+- [x] **步骤 4：延误扣款改为生产单列表**
 
 用以下结构替换原来的单个延误输入块：
 
@@ -568,7 +570,7 @@ git commit -m "feat: generate statement manual deduction lines per production or
       </div>
 ```
 
-- [ ] **步骤 5：更新输入事件处理**
+- [x] **步骤 5：更新输入事件处理**
 
 把旧的四个分支：
 
@@ -610,7 +612,7 @@ git commit -m "feat: generate statement manual deduction lines per production or
     }
 ```
 
-- [ ] **步骤 6：运行检查验证 UI 断言**
+- [x] **步骤 6：运行检查验证 UI 断言**
 
 运行：
 
@@ -621,7 +623,7 @@ npm run check:factory-settlement-statements
 
 预期：两个检查脚本通过或只剩金额汇总断言相关失败。
 
-- [ ] **步骤 7：提交 UI 和事件变更**
+- [x] **步骤 7：提交 UI 和事件变更**
 
 ```bash
 git add src/pages/statements.ts scripts/check-statements.ts scripts/check-factory-settlement-statements.ts
@@ -633,7 +635,7 @@ git commit -m "feat: render statement deductions by production order"
 **文件：**
 - 修改：`src/pages/statements.ts`
 
-- [ ] **步骤 1：新增手工扣款汇总 helper**
+- [x] **步骤 1：新增手工扣款汇总 helper**
 
 在 `buildManualStatementDeductionLines` 附近加入：
 
@@ -654,7 +656,7 @@ function sumManualDelayProductionOrderDeductions(): number {
 }
 ```
 
-- [ ] **步骤 2：更新 `renderBuildSummaryTab`**
+- [x] **步骤 2：更新 `renderBuildSummaryTab`**
 
 把旧汇总：
 
@@ -673,7 +675,7 @@ function sumManualDelayProductionOrderDeductions(): number {
   const manualDelayAmount = sumManualDelayProductionOrderDeductions()
 ```
 
-- [ ] **步骤 3：全文清理旧符号**
+- [x] **步骤 3：全文清理旧符号**
 
 运行：
 
@@ -683,7 +685,7 @@ rg -n "manualDefectReasonDeductions|setManualDefectReasonDeduction|getBuildQcRea
 
 预期：无输出。
 
-- [ ] **步骤 4：运行项目检查**
+- [x] **步骤 4：运行项目检查**
 
 运行：
 
@@ -695,7 +697,7 @@ npm run build
 
 预期：三个命令全部通过。
 
-- [ ] **步骤 5：本地浏览器验证**
+- [x] **步骤 5：本地浏览器验证**
 
 启动或复用本地 Vite：
 
@@ -719,7 +721,7 @@ http://127.0.0.1:5178/fcs/settlement/statements
 6. 确认 `延误扣款` 按生产单展示开始时间、最后交出时间、金额输入和说明输入。
 7. 在两张生产单的同一瑕疵原因输入不同金额，进入 `金额确认`，确认瑕疵扣款汇总为两笔之和。
 
-- [ ] **步骤 6：同步 CodeGraph 并提交收口**
+- [x] **步骤 6：同步 CodeGraph 并提交收口**
 
 运行：
 
@@ -734,9 +736,9 @@ git commit -m "feat: confirm statement deduction totals by production order"
 
 ## 自检清单
 
-- [ ] 规格中的 `生产单 + 瑕疵原因` 填钱入口由任务 2、任务 3、任务 4 覆盖。
-- [ ] 返工反扣展示生产单由任务 1、任务 4 覆盖。
-- [ ] 延误扣款按生产单填写由任务 2、任务 3、任务 4、任务 5 覆盖。
-- [ ] 金额确认按生产单扣款明细汇总由任务 3、任务 5 覆盖。
-- [ ] 旧全局原因扣款和旧全局延误扣款的删除由任务 1、任务 5 覆盖。
-- [ ] 不改质检记录、后道质检单、真实后端、权限和领域类型。
+- [x] 规格中的 `生产单 + 瑕疵原因` 填钱入口由任务 2、任务 3、任务 4 覆盖。
+- [x] 返工反扣展示生产单由任务 1、任务 4 覆盖。
+- [x] 延误扣款按生产单填写由任务 2、任务 3、任务 4、任务 5 覆盖。
+- [x] 金额确认按生产单扣款明细汇总由任务 3、任务 5 覆盖。
+- [x] 旧全局原因扣款和旧全局延误扣款的删除由任务 1、任务 5 覆盖。
+- [x] 不改质检记录、后道质检单、真实后端、权限和领域类型。
