@@ -158,6 +158,26 @@ function main(): void {
     statementsPageSource.includes('data-skip-page-rerender="true"'),
     '对账单页面输入控件未跳过即时整页重绘',
   )
+  assert(statementsPageSource.includes('getStatementBuildTabs'), '新建对账单未按结算对象动态拆分步骤 Tab')
+  assert(statementsPageSource.includes("label: '预结算流水'"), '按预结算流水时第二步必须是预结算流水')
+  assert(statementsPageSource.includes('state.buildObjectMode === \'LEDGER\''), '按预结算流水时不应进入对象反查步骤')
+  assert(statementsPageSource.includes('MOCK-SETTLE-PO-001'), '新建对账单缺少 3 张生产单的对象反查 mock 数据')
+  assert(statementsPageSource.includes('MOCK-PSL-PO1-05'), '新建对账单每张生产单必须提供 5 条预结算流水 mock 数据')
+  assert(statementsPageSource.includes('MOCK-QC-PO1-03'), '新建对账单每张生产单必须提供 3 张质检单 mock 数据')
+  assert(statementsPageSource.includes('SKU-SETTLE-${input.poKey}-${qcKey}-C'), '新建对账单每张质检单必须提供 3 个 SKU 的质检事实')
+  assert(statementsPageSource.includes('做工原因') && statementsPageSource.includes('破洞'), '新建对账单 mock 瑕疵原因未覆盖车缝工厂责任原因')
+  assert(statementsPageSource.includes('renderProductionOrderLedgerDetails'), '对象反查未展示每张生产单下的预结算流水明细')
+  assert(statementsPageSource.includes('renderProductionOrderQcDetails'), '对象反查未展示每张生产单下的质检单和 SKU 事实')
+  assert(statementsPageSource.includes("label: '质检扣款'"), '新建对账单缺少质检扣款 Tab')
+  assert(statementsPageSource.includes("label: '金额确认'"), '新建对账单缺少金额确认 Tab')
+  assert(
+    statementsPageSource.includes('data-stm-build-field="manual-defect-reason-amount"'),
+    '新建对账单未按瑕疵原因填写扣款金额',
+  )
+  assert(
+    !statementsPageSource.includes('manual-defect-deduction-amount'),
+    '新建对账单仍残留总瑕疵扣款金额输入',
+  )
   assert(statementsPageSource.includes('renderStatementListPagination'), '对账单列表未提供分页控件')
   assert(statementsPageSource.includes('STATEMENT_LIST_PAGE_SIZE_OPTIONS'), '对账单列表未提供每页条数控制')
   assert(statementsPageSource.includes('data-stm-action="set-list-page"'), '对账单列表缺少页码切换动作')

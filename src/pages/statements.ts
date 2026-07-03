@@ -39,8 +39,10 @@ import {
   syncStatementDraftFromBuild,
 } from '../data/fcs/store-domain-settlement-seeds'
 import {
+  SEWING_FACTORY_LIABILITY_REASONS,
   type ProductionOrderSettlementProjection,
   type SettlementCurrency,
+  isSewingFactoryLiabilityReason,
   toStatementProductionOrderSnapshot,
 } from '../data/fcs/factory-settlement-reconciliation'
 import { listStatementEligiblePreSettlementLedgersByRange } from '../data/fcs/pre-settlement-ledger-repository'
@@ -52,6 +54,7 @@ import type {
   StatementProxyNotificationStatus,
   StatementDraft,
   StatementDraftItem,
+  PreSettlementLedger,
   StatementResolutionResult,
   StatementSettlementObjectMode,
   StatementStatus,
@@ -61,6 +64,7 @@ import { escapeHtml } from '../utils'
 applyQualitySeedBootstrap()
 
 type StatementPageView = 'LIST' | 'BUILD'
+type StatementBuildTab = 'SCOPE' | 'OBJECTS' | 'QC_DEDUCTIONS' | 'SUMMARY'
 type StatusFilter = '__ALL__' | StatementStatus | '__FACTORY_SELF_CONFIRMED__' | '__MERCHANDISER_PROXY_CONFIRMED__'
 type FeedbackFilter = '__ALL__' | FactoryFeedbackStatus
 
@@ -74,6 +78,7 @@ interface StatementsState {
   listPage: number
   listPageSize: number
   detailStatementId: string | null
+  buildTab: StatementBuildTab
   buildFactoryId: string
   buildCycleId: string
   buildStartDate: string
@@ -83,8 +88,7 @@ interface StatementsState {
   selectedLedgerIds: string[]
   selectedProductionOrderNos: string[]
   buildRemark: string
-  manualDefectDeductionAmount: string
-  manualDefectDeductionRemark: string
+  manualDefectReasonDeductions: Record<string, { amount: string; remark: string }>
   manualDelayDeductionAmount: string
   manualDelayDeductionRemark: string
   editingStatementId: string | null
@@ -200,6 +204,7 @@ const state: StatementsState = {
   listPage: 1,
   listPageSize: 8,
   detailStatementId: null,
+  buildTab: 'SCOPE',
   buildFactoryId: '',
   buildCycleId: '',
   buildStartDate: '',
@@ -209,8 +214,7 @@ const state: StatementsState = {
   selectedLedgerIds: [],
   selectedProductionOrderNos: [],
   buildRemark: '',
-  manualDefectDeductionAmount: '',
-  manualDefectDeductionRemark: '',
+  manualDefectReasonDeductions: {},
   manualDelayDeductionAmount: '',
   manualDelayDeductionRemark: '',
   editingStatementId: null,
@@ -227,6 +231,12 @@ const state: StatementsState = {
 
 const STATEMENT_PAGE_SAMPLE_LIMIT = 15
 const STATEMENT_LIST_PAGE_SIZE_OPTIONS = [5, 8, 15]
+const STATEMENT_BUILD_BASE_TABS: Array<{ key: StatementBuildTab; label: string; description: string }> = [
+  { key: 'SCOPE', label: '基础范围', description: '选工厂、时间段和结算对象' },
+  { key: 'OBJECTS', label: '对象反查', description: '反查生产单、流水和完成情况' },
+  { key: 'QC_DEDUCTIONS', label: '质检扣款', description: '按质检事实填写扣款' },
+  { key: 'SUMMARY', label: '金额确认', description: '核对总金额和明细' },
+]
 const STATEMENT_PAGE_SAMPLE_IDS = [
   'ST-LINK-2026-0006',
   'ST-LINK-2026-0036',
@@ -246,6 +256,35 @@ const STATEMENT_PAGE_SAMPLE_IDS = [
 ]
 
 let statementPageDemoBootstrapped = false
+
+interface DemoSettlementSkuFact {
+  skuCode: string
+  colorSize: string
+  inspectedQty: number
+  qualifiedQty: number
+  defectReasonQtyByName: Record<string, number>
+  reworkQty: number
+  reworkReceiveObject: 'ORIGINAL_FACTORY' | 'POST_FACTORY'
+  reworkReceiveFactoryName: string
+}
+
+interface DemoSettlementQcFact {
+  qcOrderId: string
+  qcOrderNo: string
+  inspectedAt: string
+  inspector: string
+  sourceFactoryName: string
+  postFactoryName: string
+  skuFacts: DemoSettlementSkuFact[]
+}
+
+interface DemoSettlementProductionOrder {
+  productionOrderId: string
+  productionOrderNo: string
+  cuttingCompletedQty: number
+  ledgers: PreSettlementLedger[]
+  qcOrders: DemoSettlementQcFact[]
+}
 
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
@@ -526,6 +565,392 @@ function getSelectedBuildScope(scopes: StatementBuildScopeViewModel[]): Statemen
   )
 }
 
+function getStatementBuildTabs(): Array<{ key: StatementBuildTab; label: string; description: string }> {
+  return STATEMENT_BUILD_BASE_TABS.map((tab) => {
+    if (tab.key !== 'OBJECTS') return tab
+    if (state.buildObjectMode === 'LEDGER') {
+      return { key: 'OBJECTS', label: '预结算流水', description: '查看选择范围内全部预结算流水' }
+    }
+    return { key: 'OBJECTS', label: '对象反查', description: '反查生产单、流水和完成情况' }
+  })
+}
+
+const DEMO_SETTLEMENT_ORDER_BLUEPRINTS = [
+  {
+    productionOrderId: 'MOCK-SETTLE-PO-001',
+    productionOrderNo: 'MOCK-SETTLE-PO-001',
+    poKey: 'PO1',
+    cuttingCompletedQty: 300,
+    earningQtys: [135, 135],
+    ledgerIds: ['MOCK-PSL-PO1-01', 'MOCK-PSL-PO1-02', 'MOCK-PSL-PO1-03', 'MOCK-PSL-PO1-04', 'MOCK-PSL-PO1-05'],
+    qcOrderIds: ['MOCK-QC-PO1-01', 'MOCK-QC-PO1-02', 'MOCK-QC-PO1-03'],
+  },
+  {
+    productionOrderId: 'MOCK-SETTLE-PO-002',
+    productionOrderNo: 'MOCK-SETTLE-PO-002',
+    poKey: 'PO2',
+    cuttingCompletedQty: 330,
+    earningQtys: [150, 150],
+    ledgerIds: ['MOCK-PSL-PO2-01', 'MOCK-PSL-PO2-02', 'MOCK-PSL-PO2-03', 'MOCK-PSL-PO2-04', 'MOCK-PSL-PO2-05'],
+    qcOrderIds: ['MOCK-QC-PO2-01', 'MOCK-QC-PO2-02', 'MOCK-QC-PO2-03'],
+  },
+  {
+    productionOrderId: 'MOCK-SETTLE-PO-003',
+    productionOrderNo: 'MOCK-SETTLE-PO-003',
+    poKey: 'PO3',
+    cuttingCompletedQty: 360,
+    earningQtys: [165, 165],
+    ledgerIds: ['MOCK-PSL-PO3-01', 'MOCK-PSL-PO3-02', 'MOCK-PSL-PO3-03', 'MOCK-PSL-PO3-04', 'MOCK-PSL-PO3-05'],
+    qcOrderIds: ['MOCK-QC-PO3-01', 'MOCK-QC-PO3-02', 'MOCK-QC-PO3-03'],
+  },
+]
+
+function getDemoBuildScope(): StatementBuildScopeViewModel | null {
+  return getSelectedBuildScope(listStatementBuildScopes())
+}
+
+function getDemoBuildTimestamp(time: string): string {
+  return `${state.buildStartDate || '2026-06-03'} ${time}`
+}
+
+function buildDemoQcSkuFacts(input: {
+  poKey: string
+  qcIndex: number
+  sourceFactoryName: string
+  postFactoryName: string
+}): DemoSettlementSkuFact[] {
+  const qcKey = `QC${input.qcIndex + 1}`
+  return [
+    {
+      skuCode: `SKU-SETTLE-${input.poKey}-${qcKey}-A`,
+      colorSize: 'Cream / S',
+      inspectedQty: 100,
+      qualifiedQty: 91,
+      defectReasonQtyByName: { 做工原因: 4, 脏污: 5 },
+      reworkQty: 8,
+      reworkReceiveObject: 'ORIGINAL_FACTORY',
+      reworkReceiveFactoryName: input.sourceFactoryName,
+    },
+    {
+      skuCode: `SKU-SETTLE-${input.poKey}-${qcKey}-B`,
+      colorSize: 'Cream / M',
+      inspectedQty: 100,
+      qualifiedQty: 90,
+      defectReasonQtyByName: { 抽纱: 6, 做错: 4 },
+      reworkQty: 8,
+      reworkReceiveObject: 'ORIGINAL_FACTORY',
+      reworkReceiveFactoryName: input.sourceFactoryName,
+    },
+    {
+      skuCode: `SKU-SETTLE-${input.poKey}-${qcKey}-C`,
+      colorSize: 'Cream / L',
+      inspectedQty: 100,
+      qualifiedQty: 89,
+      defectReasonQtyByName: { 做毁: 5, 破洞: 6 },
+      reworkQty: 10,
+      reworkReceiveObject: 'POST_FACTORY',
+      reworkReceiveFactoryName: input.postFactoryName,
+    },
+  ]
+}
+
+function getSkuDefectQty(item: DemoSettlementSkuFact): number {
+  return Object.values(item.defectReasonQtyByName).reduce((sum, qty) => sum + qty, 0)
+}
+
+function getQcReworkQty(item: DemoSettlementQcFact, receiveObject?: DemoSettlementSkuFact['reworkReceiveObject']): number {
+  return item.skuFacts
+    .filter((sku) => !receiveObject || sku.reworkReceiveObject === receiveObject)
+    .reduce((sum, sku) => sum + sku.reworkQty, 0)
+}
+
+function getDemoSettlementOrders(): DemoSettlementProductionOrder[] {
+  if (!isBuildRangeValid()) return []
+  const scope = getDemoBuildScope()
+  if (!scope) return []
+
+  const factoryId = state.buildFactoryId
+  const sourceFactoryName = scope.settlementPartyLabel
+  const postFactoryName = 'HiGood 后道工厂'
+
+  return DEMO_SETTLEMENT_ORDER_BLUEPRINTS.map((blueprint, orderIndex) => {
+    const taskUnitPrice = 42000 + orderIndex * 1500
+    const qcOrders: DemoSettlementQcFact[] = blueprint.qcOrderIds.map((qcOrderId, qcIndex) => ({
+      qcOrderId,
+      qcOrderNo: qcOrderId,
+      inspectedAt: getDemoBuildTimestamp(`1${qcIndex}:30:00`),
+      inspector: `后道质检员 ${qcIndex + 1}`,
+      sourceFactoryName,
+      postFactoryName,
+      skuFacts: buildDemoQcSkuFacts({
+        poKey: blueprint.poKey,
+        qcIndex,
+        sourceFactoryName,
+        postFactoryName,
+      }),
+    }))
+
+    const earningLedgers: PreSettlementLedger[] = blueprint.ledgerIds.slice(0, 2).map((ledgerId, ledgerIndex) => {
+      const qty = blueprint.earningQtys[ledgerIndex]
+      const amount = qty * taskUnitPrice
+      return {
+        ledgerId,
+        ledgerNo: ledgerId,
+        ledgerType: 'TASK_EARNING',
+        direction: 'INCOME',
+        sourceType: 'RETURN_INBOUND_BATCH',
+        sourceRefId: `RIB-${blueprint.poKey}-${ledgerIndex + 1}`,
+        factoryId,
+        factoryName: sourceFactoryName,
+        taskId: `TASK-${blueprint.poKey}-${ledgerIndex + 1}`,
+        taskNo: `车缝任务-${blueprint.poKey}-${ledgerIndex + 1}`,
+        productionOrderId: blueprint.productionOrderId,
+        productionOrderNo: blueprint.productionOrderNo,
+        returnInboundBatchId: `RIB-${blueprint.poKey}-${ledgerIndex + 1}`,
+        returnInboundBatchNo: `回货批次-${blueprint.poKey}-${ledgerIndex + 1}`,
+        priceSourceType: 'DISPATCH',
+        unitPrice: taskUnitPrice,
+        qty,
+        originalCurrency: 'IDR',
+        originalAmount: amount,
+        settlementCurrency: 'IDR',
+        settlementAmount: amount,
+        occurredAt: getDemoBuildTimestamp(`09:${ledgerIndex}0:00`),
+        settlementCycleId: scope.settlementCycleId,
+        settlementCycleLabel: scope.settlementCycleLabel,
+        settlementCycleStartAt: scope.settlementCycleStartAt,
+        settlementCycleEndAt: scope.settlementCycleEndAt,
+        plannedPrepaymentAt: scope.plannedPrepaymentAt,
+        settlementProfileVersionNo: 'SETTLE-MOCK-V1',
+        status: 'OPEN',
+        sourceReason: '按生产任务交出数量形成预结算流水',
+        remark: '对象反查演示流水',
+      }
+    })
+
+    const reworkLedgers: PreSettlementLedger[] = qcOrders.map((qcOrder, qcIndex) => {
+      const qty = getQcReworkQty(qcOrder, 'POST_FACTORY')
+      const amount = qty * (25000 + orderIndex * 1000 + qcIndex * 500)
+      const ledgerId = blueprint.ledgerIds[qcIndex + 2]
+      return {
+        ledgerId,
+        ledgerNo: ledgerId,
+        ledgerType: 'QUALITY_DEDUCTION',
+        direction: 'DEDUCTION',
+        sourceType: 'QC_REWORK_CHARGEBACK',
+        sourceRefId: qcOrder.qcOrderId,
+        factoryId,
+        factoryName: sourceFactoryName,
+        taskId: `TASK-${blueprint.poKey}-QC-${qcIndex + 1}`,
+        taskNo: `质检返工-${blueprint.poKey}-${qcIndex + 1}`,
+        productionOrderId: blueprint.productionOrderId,
+        productionOrderNo: blueprint.productionOrderNo,
+        qcRecordId: qcOrder.qcOrderId,
+        priceSourceType: 'OTHER_COMPAT',
+        qty,
+        originalCurrency: 'IDR',
+        originalAmount: amount,
+        settlementCurrency: 'IDR',
+        settlementAmount: amount,
+        occurredAt: qcOrder.inspectedAt,
+        settlementCycleId: scope.settlementCycleId,
+        settlementCycleLabel: scope.settlementCycleLabel,
+        settlementCycleStartAt: scope.settlementCycleStartAt,
+        settlementCycleEndAt: scope.settlementCycleEndAt,
+        plannedPrepaymentAt: scope.plannedPrepaymentAt,
+        settlementProfileVersionNo: 'SETTLE-MOCK-V1',
+        status: 'OPEN',
+        sourceReason: '后道质检单中返工接收对象为后道工厂，形成返工反扣预结算流水',
+        remark: '返工到后道工厂，不重复计入原工厂交出，但需要反扣',
+      }
+    })
+
+    return {
+      productionOrderId: blueprint.productionOrderId,
+      productionOrderNo: blueprint.productionOrderNo,
+      cuttingCompletedQty: blueprint.cuttingCompletedQty,
+      ledgers: [...earningLedgers, ...reworkLedgers],
+      qcOrders,
+    }
+  })
+}
+
+function getDemoPreSettlementLedgers(): PreSettlementLedger[] {
+  return getDemoSettlementOrders().flatMap((item) => item.ledgers)
+}
+
+function getDemoQcFactsByProductionOrderNo(productionOrderNo: string): DemoSettlementQcFact[] {
+  return getDemoSettlementOrders().find((item) => item.productionOrderNo === productionOrderNo)?.qcOrders ?? []
+}
+
+function mapDemoLedgerToStatementSourceItem(ledger: PreSettlementLedger): StatementSourceItemViewModel {
+  const isDeduction = ledger.ledgerType === 'QUALITY_DEDUCTION'
+  const netAmount = isDeduction ? -ledger.settlementAmount : ledger.settlementAmount
+  return {
+    sourceItemId: ledger.ledgerId,
+    ledgerNo: ledger.ledgerNo,
+    sourceType: ledger.ledgerType,
+    sourceLabelZh: isDeduction ? '返工扣款流水' : '任务收入流水',
+    direction: ledger.direction,
+    settlementPartyType: 'FACTORY',
+    settlementPartyId: ledger.factoryId,
+    settlementPartyLabel: ledger.factoryName,
+    productionOrderId: ledger.productionOrderId,
+    productionOrderNo: ledger.productionOrderNo,
+    taskId: ledger.taskId,
+    taskNo: ledger.taskNo,
+    qty: ledger.qty,
+    amount: ledger.settlementAmount,
+    currency: ledger.settlementCurrency,
+    sourceStatus: ledger.status,
+    sourceStatusZh: '待入对账单',
+    occurredAt: ledger.occurredAt,
+    createdAt: ledger.occurredAt,
+    updatedAt: ledger.occurredAt,
+    routeToSource: isDeduction
+      ? `/fcs/quality/qc-records/${encodeURIComponent(ledger.qcRecordId ?? '')}`
+      : '/fcs/settlement/adjustments',
+    canEnterStatement: ledger.status === 'OPEN',
+    sourceReason: ledger.sourceReason,
+    remark: ledger.remark,
+    deductionLineType: isDeduction ? 'POST_FACTORY_REWORK_CHARGEBACK' : undefined,
+    settlementCycleId: ledger.settlementCycleId,
+    settlementCycleLabel: ledger.settlementCycleLabel,
+    settlementCycleStartAt: ledger.settlementCycleStartAt,
+    settlementCycleEndAt: ledger.settlementCycleEndAt,
+    plannedPrepaymentAt: ledger.plannedPrepaymentAt,
+    statementLineGrainType: isDeduction ? 'NON_BATCH_QUALITY' : 'RETURN_INBOUND_BATCH',
+    returnInboundBatchId: ledger.returnInboundBatchId,
+    returnInboundBatchNo: ledger.returnInboundBatchNo,
+    returnInboundQty: ledger.qty,
+    qcRecordId: ledger.qcRecordId,
+    pendingDeductionRecordId: ledger.pendingDeductionRecordId,
+    basisId: ledger.qcRecordId ?? ledger.ledgerId,
+    disputeId: ledger.disputeId,
+    processLabel: '后道质检',
+    pricingSourceType: isDeduction ? 'NONE' : 'DISPATCH',
+    pricingSourceRefId: ledger.sourceRefId,
+    settlementUnitPrice: ledger.unitPrice,
+    earningAmount: isDeduction ? 0 : ledger.settlementAmount,
+    qualityDeductionAmount: isDeduction ? ledger.settlementAmount : 0,
+    carryOverAdjustmentAmount: 0,
+    otherAdjustmentAmount: 0,
+    netAmount,
+  }
+}
+
+function demoStatementSourceItemToDraftItem(item: StatementSourceItemViewModel): StatementDraftItem {
+  return {
+    ledgerNo: item.ledgerNo,
+    sourceItemId: item.sourceItemId,
+    sourceItemType: item.sourceType,
+    direction: item.direction,
+    sourceLabelZh: item.sourceLabelZh,
+    sourceRefLabel: item.sourceItemId,
+    routeToSource: item.routeToSource,
+    settlementPartyType: item.settlementPartyType,
+    settlementPartyId: item.settlementPartyId,
+    basisId: item.basisId ?? item.sourceItemId,
+    deductionQty: item.qty,
+    deductionAmount: item.netAmount,
+    currency: item.currency,
+    remark: item.remark,
+    deductionLineType: item.deductionLineType,
+    sourceType: item.sourceType,
+    productionOrderId: item.productionOrderId,
+    productionOrderNo: item.productionOrderNo,
+    taskId: item.taskId,
+    taskNo: item.taskNo,
+    settlementCycleId: item.settlementCycleId,
+    settlementCycleLabel: item.settlementCycleLabel,
+    settlementCycleStartAt: item.settlementCycleStartAt,
+    settlementCycleEndAt: item.settlementCycleEndAt,
+    plannedPrepaymentAt: item.plannedPrepaymentAt,
+    settlementObjectMode: state.buildObjectMode,
+    sourceConfirmedByStatement: true,
+    statementLineGrainType: item.statementLineGrainType,
+    returnInboundBatchId: item.returnInboundBatchId,
+    returnInboundBatchNo: item.returnInboundBatchNo,
+    returnInboundQty: item.returnInboundQty,
+    qcRecordId: item.qcRecordId,
+    pendingDeductionRecordId: item.pendingDeductionRecordId,
+    disputeId: item.disputeId,
+    processLabel: item.processLabel,
+    pricingSourceType: item.pricingSourceType === 'NONE' ? 'NONE' : item.pricingSourceType,
+    pricingSourceRefId: item.pricingSourceRefId,
+    settlementUnitPrice: item.settlementUnitPrice,
+    earningAmount: item.earningAmount,
+    qualityDeductionAmount: item.qualityDeductionAmount,
+    carryOverAdjustmentAmount: item.carryOverAdjustmentAmount,
+    otherAdjustmentAmount: item.otherAdjustmentAmount,
+    netAmount: item.netAmount,
+    occurredAt: item.occurredAt ?? item.createdAt,
+  }
+}
+
+function buildDemoStatementDraftLines(projections: ProductionOrderSettlementProjection[]): StatementDraftItem[] {
+  const demoLedgers = getDemoPreSettlementLedgers()
+  const selectedLedgers =
+    state.buildObjectMode === 'LEDGER'
+      ? demoLedgers.filter((item) => getEffectiveSelectedLedgerIds().includes(item.ledgerId))
+      : demoLedgers.filter((item) =>
+          getEffectiveSelectedProductionOrderNos(projections).includes(item.productionOrderNo ?? ''),
+        )
+  return selectedLedgers.map((item) => demoStatementSourceItemToDraftItem(mapDemoLedgerToStatementSourceItem(item)))
+}
+
+function buildDemoProductionOrderProjections(): ProductionOrderSettlementProjection[] {
+  return getDemoSettlementOrders().map((order) => {
+    const defectReasonQtyByName = order.qcOrders.reduce<Record<string, number>>((map, qcOrder) => {
+      for (const sku of qcOrder.skuFacts) {
+        for (const [reasonName, qty] of Object.entries(sku.defectReasonQtyByName)) {
+          map[reasonName] = (map[reasonName] ?? 0) + qty
+        }
+      }
+      return map
+    }, {})
+    const normalHandoverQty = order.ledgers
+      .filter((item) => item.ledgerType === 'TASK_EARNING')
+      .reduce((sum, item) => sum + item.qty, 0)
+    const originalFactoryReworkQty = order.qcOrders.reduce((sum, item) => sum + getQcReworkQty(item, 'ORIGINAL_FACTORY'), 0)
+    const postFactoryReworkQty = order.qcOrders.reduce((sum, item) => sum + getQcReworkQty(item, 'POST_FACTORY'), 0)
+    const settlementHandoverQty = normalHandoverQty + postFactoryReworkQty
+    const shortageQty = Math.max(0, order.cuttingCompletedQty - settlementHandoverQty)
+    const defectQty = Object.values(defectReasonQtyByName).reduce((sum, qty) => sum + qty, 0)
+    const sewingFactoryLiabilityDefectQty = Object.entries(defectReasonQtyByName)
+      .filter(([reasonName]) => isSewingFactoryLiabilityReason(reasonName))
+      .reduce((sum, [, qty]) => sum + qty, 0)
+    const isComplete = shortageQty === 0
+
+    return {
+      productionOrderNo: order.productionOrderNo,
+      productionOrderId: order.productionOrderId,
+      cuttingCompletedQty: order.cuttingCompletedQty,
+      normalHandoverQty,
+      originalFactoryReworkQty,
+      postFactoryReworkQty,
+      settlementHandoverQty,
+      shortageQty,
+      isComplete,
+      defectQty,
+      sewingFactoryLiabilityDefectQty,
+      defectReasonQtyByName,
+      includedInStatement: isComplete,
+      excludedReason: isComplete ? undefined : `差 ${shortageQty} 件`,
+      handoverDetailLines: [
+        ...order.ledgers.map((ledger) => ({
+          recordId: ledger.returnInboundBatchNo ?? ledger.ledgerNo,
+          handedOverAt: ledger.occurredAt,
+          handedOverQty: ledger.ledgerType === 'TASK_EARNING' ? ledger.qty : 0,
+          qcOrderId: ledger.qcRecordId,
+          reworkQty: ledger.ledgerType === 'QUALITY_DEDUCTION' ? ledger.qty : undefined,
+          reworkReceiveObject: ledger.ledgerType === 'QUALITY_DEDUCTION' ? 'POST_FACTORY' as const : undefined,
+        })),
+      ],
+    }
+  })
+}
+
 function getEditingDraft(): StatementDraft | null {
   if (!state.editingStatementId) return null
   return getStatementDraftById(state.editingStatementId)
@@ -604,13 +1029,18 @@ function getBuildCandidates(): StatementSourceItemViewModel[] {
   const editingDraft = getEditingDraft()
   if (editingDraft) {
     return editingDraft.itemSourceIds
-      ?.map((itemId) => getStatementSourceItemById(itemId))
+      ?.map((itemId) => {
+        const sourceItem = getStatementSourceItemById(itemId)
+        if (sourceItem) return sourceItem
+        const demoLedger = getDemoPreSettlementLedgers().find((item) => item.ledgerId === itemId)
+        return demoLedger ? mapDemoLedgerToStatementSourceItem(demoLedger) : null
+      })
       .filter(Boolean) as StatementSourceItemViewModel[]
   }
 
   if (!isBuildRangeReady()) return []
   return getBuildRangeLedgers()
-    .map((item) => getStatementSourceItemById(item.ledgerId))
+    .map((item) => getStatementSourceItemById(item.ledgerId) ?? mapDemoLedgerToStatementSourceItem(item))
     .filter(Boolean) as StatementSourceItemViewModel[]
 }
 
@@ -622,13 +1052,16 @@ function isBuildRangeValid(): boolean {
   return isBuildRangeReady() && state.buildStartDate <= state.buildEndDate
 }
 
-function getBuildRangeLedgers() {
+function getBuildRangeLedgers(): PreSettlementLedger[] {
   if (!isBuildRangeValid()) return []
-  return listStatementEligiblePreSettlementLedgersByRange({
+  const realLedgers = listStatementEligiblePreSettlementLedgersByRange({
     factoryId: state.buildFactoryId,
     occurredFrom: state.buildStartDate,
     occurredTo: state.buildEndDate,
   })
+  const realLedgerIds = new Set(realLedgers.map((item) => item.ledgerId))
+  const demoLedgers = getDemoPreSettlementLedgers().filter((item) => !realLedgerIds.has(item.ledgerId))
+  return [...realLedgers, ...demoLedgers]
 }
 
 function getEffectiveBuildCurrency(): SettlementCurrency | null {
@@ -658,6 +1091,73 @@ function getBuildTimingAssist(): { startTime: string; lastHandoverTime: string }
   }
 }
 
+function clearBuildManualDeductions(): void {
+  state.manualDefectReasonDeductions = {}
+  state.manualDelayDeductionAmount = ''
+  state.manualDelayDeductionRemark = ''
+}
+
+function setManualDefectReasonDeduction(reasonName: string, patch: Partial<{ amount: string; remark: string }>): void {
+  const current = state.manualDefectReasonDeductions[reasonName] ?? { amount: '', remark: '' }
+  state.manualDefectReasonDeductions = {
+    ...state.manualDefectReasonDeductions,
+    [reasonName]: { ...current, ...patch },
+  }
+}
+
+function getSelectedProductionOrderNosForQc(projections: ProductionOrderSettlementProjection[]): string[] {
+  if (state.buildObjectMode === 'PRODUCTION_ORDER') {
+    const selected = new Set(getEffectiveSelectedProductionOrderNos(projections))
+    return projections
+      .filter((item) => selected.has(item.productionOrderNo) && item.isComplete)
+      .map((item) => item.productionOrderNo)
+  }
+
+  const selectedLedgerIds = new Set(getEffectiveSelectedLedgerIds())
+  return Array.from(
+    new Set(
+      getBuildRangeLedgers()
+        .filter((item) => selectedLedgerIds.has(item.ledgerId))
+        .map((item) => item.productionOrderNo)
+        .filter(Boolean),
+    ),
+  ) as string[]
+}
+
+function getIncludedBuildProjections(projections: ProductionOrderSettlementProjection[]): ProductionOrderSettlementProjection[] {
+  const productionOrderNos = new Set(getSelectedProductionOrderNosForQc(projections))
+  return projections.filter((item) => productionOrderNos.has(item.productionOrderNo))
+}
+
+function getBuildQcReasonSummaries(projections: ProductionOrderSettlementProjection[]): Array<{
+  reasonName: string
+  qty: number
+  productionOrderNos: string[]
+}> {
+  const rows = new Map<string, { reasonName: string; qty: number; productionOrderNos: Set<string> }>()
+  for (const projection of getIncludedBuildProjections(projections)) {
+    for (const [reasonName, qty] of Object.entries(projection.defectReasonQtyByName)) {
+      if (!isSewingFactoryLiabilityReason(reasonName) || qty <= 0) continue
+      const row = rows.get(reasonName) ?? { reasonName, qty: 0, productionOrderNos: new Set<string>() }
+      row.qty += qty
+      row.productionOrderNos.add(projection.productionOrderNo)
+      rows.set(reasonName, row)
+    }
+  }
+
+  return Array.from(rows.values())
+    .map((item) => ({
+      reasonName: item.reasonName,
+      qty: item.qty,
+      productionOrderNos: Array.from(item.productionOrderNos),
+    }))
+    .sort((left, right) => {
+      const leftIndex = SEWING_FACTORY_LIABILITY_REASONS.indexOf(left.reasonName as (typeof SEWING_FACTORY_LIABILITY_REASONS)[number])
+      const rightIndex = SEWING_FACTORY_LIABILITY_REASONS.indexOf(right.reasonName as (typeof SEWING_FACTORY_LIABILITY_REASONS)[number])
+      return leftIndex === rightIndex ? left.reasonName.localeCompare(right.reasonName, 'zh-CN') : leftIndex - rightIndex
+    })
+}
+
 function buildManualStatementDeductionLines(
   scope: StatementBuildScopeViewModel,
   occurredAt: string,
@@ -668,19 +1168,25 @@ function buildManualStatementDeductionLines(
     state.buildEndDate || scope.settlementCycleEndAt,
     state.buildObjectMode,
   ].join('-').replace(/[^A-Za-z0-9-]/g, '-')
-  const inputs = [
-    {
-      id: `MANUAL-DEFECT-${baseId}`,
-      label: '对账单手工瑕疵扣款',
+  const defectInputs = getBuildQcReasonSummaries(getBuildProductionOrderProjections()).map((summary, index) => {
+    const input = state.manualDefectReasonDeductions[summary.reasonName] ?? { amount: '', remark: '' }
+    return {
+      id: `MANUAL-DEFECT-${String(index + 1).padStart(2, '0')}-${baseId}`,
+      label: `${summary.reasonName}扣款`,
       lineType: 'QUALITY_DEFECT' as const,
-      amount: parseManualDeductionAmount(state.manualDefectDeductionAmount),
-      remark: state.manualDefectDeductionRemark.trim() || '业务人员填写归工厂原因瑕疵扣款',
-    },
+      amount: parseManualDeductionAmount(input.amount),
+      qty: summary.qty,
+      remark: input.remark.trim() || `业务人员填写${summary.reasonName}瑕疵扣款`,
+    }
+  })
+  const inputs = [
+    ...defectInputs,
     {
       id: `MANUAL-DELAY-${baseId}`,
       label: '延误扣款',
       lineType: 'DELAY' as const,
       amount: parseManualDeductionAmount(state.manualDelayDeductionAmount),
+      qty: 0,
       remark: state.manualDelayDeductionRemark.trim() || '业务人员根据开始时间和最后交出时间填写延误扣款',
     },
   ]
@@ -698,7 +1204,7 @@ function buildManualStatementDeductionLines(
       settlementPartyId: scope.settlementPartyId,
       basisId: input.id,
       deductionLineType: input.lineType,
-      deductionQty: 0,
+      deductionQty: input.qty,
       deductionAmount: -input.amount,
       currency: 'IDR',
       remark: input.remark,
@@ -724,11 +1230,16 @@ function buildManualStatementDeductionLines(
 
 function getBuildProductionOrderProjections(): ProductionOrderSettlementProjection[] {
   if (!isBuildRangeValid()) return []
-  return buildProductionOrderSettlementProjections({
+  const realProjections = buildProductionOrderSettlementProjections({
     factoryId: state.buildFactoryId,
     occurredFrom: state.buildStartDate,
     occurredTo: state.buildEndDate,
   })
+  const realProductionOrderNos = new Set(realProjections.map((item) => item.productionOrderNo))
+  const demoProjections = buildDemoProductionOrderProjections().filter(
+    (item) => !realProductionOrderNos.has(item.productionOrderNo),
+  )
+  return [...realProjections, ...demoProjections]
 }
 
 function getEffectiveSelectedProductionOrderNos(projections: ProductionOrderSettlementProjection[]): string[] {
@@ -781,8 +1292,9 @@ function getBuildLines(
         ? getEffectiveSelectedProductionOrderNos(projections)
         : state.selectedProductionOrderNos,
   })
+  const demoLines = buildDemoStatementDraftLines(projections)
   const manualLines = buildManualStatementDeductionLines(selectedScope, state.buildEndDate ? `${state.buildEndDate} 23:59:59` : nowTimestamp())
-  return [...lines, ...manualLines].map(toBuildLineViewModel)
+  return [...lines, ...demoLines, ...manualLines].map(toBuildLineViewModel)
 }
 
 function getBuildLineSummary(lines: Array<StatementDraftItem | StatementDetailLineViewModel>) {
@@ -802,6 +1314,7 @@ function openBuildView(scopes: StatementBuildScopeViewModel[], statement?: State
 
   if (statement) {
     state.editingStatementId = statement.statementId
+    state.buildTab = 'SCOPE'
     state.buildFactoryId = statement.settlementPartyId
     state.buildCycleId = statement.settlementCycleId ?? ''
     state.buildStartDate = statement.settlementRangeStartAt ?? statement.settlementCycleStartAt ?? ''
@@ -811,15 +1324,13 @@ function openBuildView(scopes: StatementBuildScopeViewModel[], statement?: State
     state.selectedLedgerIds = []
     state.selectedProductionOrderNos = []
     state.buildRemark = statement.remark ?? ''
-    state.manualDefectDeductionAmount = ''
-    state.manualDefectDeductionRemark = ''
-    state.manualDelayDeductionAmount = ''
-    state.manualDelayDeductionRemark = ''
+    clearBuildManualDeductions()
     return
   }
 
   const firstScope = scopes[0]
   state.editingStatementId = null
+  state.buildTab = 'SCOPE'
   state.buildFactoryId = firstScope?.settlementPartyId ?? ''
   state.buildCycleId = firstScope?.settlementCycleId ?? ''
   state.buildStartDate = ''
@@ -829,15 +1340,13 @@ function openBuildView(scopes: StatementBuildScopeViewModel[], statement?: State
   state.selectedLedgerIds = []
   state.selectedProductionOrderNos = []
   state.buildRemark = ''
-  state.manualDefectDeductionAmount = ''
-  state.manualDefectDeductionRemark = ''
-  state.manualDelayDeductionAmount = ''
-  state.manualDelayDeductionRemark = ''
+  clearBuildManualDeductions()
 }
 
 function resetBuildState(scopes: StatementBuildScopeViewModel[]): void {
   const firstScope = scopes[0]
   state.editingStatementId = null
+  state.buildTab = 'SCOPE'
   state.buildFactoryId = firstScope?.settlementPartyId ?? ''
   state.buildCycleId = firstScope?.settlementCycleId ?? ''
   state.buildStartDate = ''
@@ -847,10 +1356,7 @@ function resetBuildState(scopes: StatementBuildScopeViewModel[]): void {
   state.selectedLedgerIds = []
   state.selectedProductionOrderNos = []
   state.buildRemark = ''
-  state.manualDefectDeductionAmount = ''
-  state.manualDefectDeductionRemark = ''
-  state.manualDelayDeductionAmount = ''
-  state.manualDelayDeductionRemark = ''
+  clearBuildManualDeductions()
 }
 
 function createStatementDraftFromScope(
@@ -879,9 +1385,10 @@ function createStatementDraftFromScope(
     selectedLedgerIds,
     selectedProductionOrderNos,
   })
+  const demoLines = buildDemoStatementDraftLines(projections)
   const timestamp = nowTimestamp()
   const manualLines = buildManualStatementDeductionLines(scope, timestamp)
-  const lines = [...baseLines, ...manualLines]
+  const lines = [...baseLines, ...demoLines, ...manualLines]
   if (!lines.length) return { ok: false, message: '当前工厂和时间段暂无可生成的对账明细行' }
 
   const productionOrderSettlementSnapshots =
@@ -1174,6 +1681,359 @@ function renderBuildLineRows(lines: StatementDetailLineViewModel[]): string {
   `
 }
 
+function renderBuildTabNav(): string {
+  const tabs = getStatementBuildTabs()
+  return `
+    <div class="mt-4 border-b">
+      <div class="flex flex-wrap gap-2">
+        ${tabs.map((tab, index) => {
+          const active = state.buildTab === tab.key
+          return `
+            <button class="inline-flex min-h-12 items-center gap-2 border-b-2 px-3 py-2 text-left text-sm ${
+              active
+                ? 'border-blue-600 text-blue-700'
+                : 'border-transparent text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
+            }" data-stm-action="set-build-tab" data-build-tab="${tab.key}">
+              <span class="inline-flex h-5 w-5 items-center justify-center rounded-full border text-[11px]">${index + 1}</span>
+              <span>
+                <span class="block font-medium">${escapeHtml(tab.label)}</span>
+                <span class="block text-[11px]">${escapeHtml(tab.description)}</span>
+              </span>
+            </button>
+          `
+        }).join('')}
+      </div>
+    </div>
+  `
+}
+
+function renderBuildScopeTab(input: {
+  editingDraft: StatementDraft | null
+  factoryOptions: Array<{ value: string; label: string }>
+  selectedScope: StatementBuildScopeViewModel | null
+  displayCurrency: string
+  buildLines: StatementDetailLineViewModel[]
+  buildSummary: ReturnType<typeof getBuildLineSummary>
+  effectiveCurrency: SettlementCurrency | null
+  blockingStatement: StatementDraft | null
+}): string {
+  const { editingDraft, factoryOptions, selectedScope, displayCurrency, buildLines, buildSummary, effectiveCurrency, blockingStatement } = input
+  const canContinue = selectedScope != null && isBuildRangeValid() && effectiveCurrency !== null && !blockingStatement
+
+  return `
+    <section class="mt-4 rounded-lg border bg-muted/20 p-4">
+      <h3 class="text-sm font-semibold">步骤 1：选择工厂、时间段和结算对象</h3>
+      <div class="mt-3 grid gap-3 md:grid-cols-2">
+        <label class="grid gap-1 text-sm">
+          <span class="text-muted-foreground">工厂</span>
+          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="factory" ${editingDraft ? 'disabled' : ''}>
+            <option value="">请选择工厂</option>
+            ${factoryOptions
+              .map(
+                (item) => `<option value="${escapeHtml(item.value)}" ${state.buildFactoryId === item.value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`,
+              )
+              .join('')}
+          </select>
+        </label>
+        <label class="grid gap-1 text-sm">
+          <span class="text-muted-foreground">开始日期</span>
+          <input type="date" class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="start-date" value="${escapeHtml(state.buildStartDate)}" ${editingDraft ? 'disabled' : ''} />
+        </label>
+        <label class="grid gap-1 text-sm">
+          <span class="text-muted-foreground">结束日期</span>
+          <input type="date" class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="end-date" value="${escapeHtml(state.buildEndDate)}" ${editingDraft ? 'disabled' : ''} />
+        </label>
+        <label class="grid gap-1 text-sm">
+          <span class="text-muted-foreground">结算对象</span>
+          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="object-mode" ${editingDraft ? 'disabled' : ''}>
+            <option value="PRODUCTION_ORDER" ${state.buildObjectMode === 'PRODUCTION_ORDER' ? 'selected' : ''}>按生产单</option>
+            <option value="LEDGER" ${state.buildObjectMode === 'LEDGER' ? 'selected' : ''}>按预结算流水</option>
+          </select>
+        </label>
+        <label class="grid gap-1 text-sm">
+          <span class="text-muted-foreground">结算币种</span>
+          <select class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="currency" disabled>
+            <option value="IDR" selected>IDR</option>
+          </select>
+        </label>
+      </div>
+      <label class="mt-3 grid gap-1 text-sm">
+        <span class="text-muted-foreground">备注</span>
+        <textarea class="min-h-[84px] rounded-md border bg-background px-3 py-2 text-sm" data-stm-build-field="remark" data-skip-page-rerender="true" placeholder="说明当前对账单口径或需要关注的事项">${escapeHtml(state.buildRemark)}</textarea>
+      </label>
+
+      ${
+        selectedScope
+          ? `
+            <div class="mt-4 rounded-md border bg-background p-3 text-sm">
+              <div class="flex flex-wrap items-center gap-4">
+                <span>工厂：<strong>${escapeHtml(selectedScope.settlementPartyLabel)}</strong></span>
+                <span>对账范围：<strong>${escapeHtml(state.buildStartDate || '-')} ~ ${escapeHtml(state.buildEndDate || '-')}</strong></span>
+                <span>结算对象：<strong>${state.buildObjectMode === 'PRODUCTION_ORDER' ? '按生产单' : '按预结算流水'}</strong></span>
+                <span>结算币种：<strong>${escapeHtml(displayCurrency)}</strong></span>
+                <span>参考周期：<strong>${escapeHtml(selectedScope.settlementCycleLabel)}</strong></span>
+                <span>计划预付款：<strong>${escapeHtml(selectedScope.plannedPrepaymentAt ?? '-')}</strong></span>
+                <span>当前明细行：<strong>${buildLines.length}</strong> 条</span>
+                <span>当前净额：<strong>${formatAmount(buildSummary.netPayableAmount)}</strong></span>
+              </div>
+            </div>
+          `
+          : ''
+      }
+
+      ${
+        isBuildRangeReady() && !isBuildRangeValid()
+          ? '<div class="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">开始日期不能晚于结束日期</div>'
+          : ''
+      }
+      ${
+        effectiveCurrency === null
+          ? '<div class="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">当前时间段存在多个币种，请拆分时间段或按币种分别生成</div>'
+          : ''
+      }
+      ${
+        blockingStatement
+          ? `
+            <div class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+              <div>该工厂该时间段和结算对象已存在未关闭对账单 <strong>${escapeHtml(blockingStatement.statementId)}</strong>，不能重复生成。</div>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <button class="inline-flex h-8 items-center rounded-md border border-amber-300 bg-white px-3 text-xs hover:bg-amber-100" data-stm-action="open-existing-statement" data-statement-id="${escapeHtml(blockingStatement.statementId)}">查看已有单据</button>
+                ${
+                  blockingStatement.status === 'DRAFT'
+                    ? `<button class="inline-flex h-8 items-center rounded-md border border-amber-300 bg-white px-3 text-xs hover:bg-amber-100" data-stm-action="edit-draft" data-statement-id="${escapeHtml(blockingStatement.statementId)}">继续编辑草稿</button>`
+                    : ''
+                }
+              </div>
+            </div>
+          `
+          : ''
+      }
+
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50" data-stm-action="set-build-tab" data-build-tab="OBJECTS" ${canContinue ? '' : 'disabled'}>${state.buildObjectMode === 'LEDGER' ? '下一步：预结算流水' : '下一步：对象反查'}</button>
+        <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-stm-action="back-to-list">取消</button>
+      </div>
+    </section>
+  `
+}
+
+function renderBuildObjectsTab(
+  projections: ProductionOrderSettlementProjection[],
+  buildCandidates: StatementSourceItemViewModel[],
+): string {
+  if (state.buildObjectMode === 'LEDGER') {
+    return `
+      <section class="mt-4 rounded-lg border bg-card p-4">
+        <div class="mb-3">
+          <h3 class="text-sm font-semibold">预结算流水明细</h3>
+          <p class="mt-1 text-xs text-muted-foreground">展示选择工厂和时间段内所有可入单预结算流水；下一步会根据这些流水关联的生产单汇总质检事实。</p>
+        </div>
+        ${renderBuildCandidateRows(buildCandidates)}
+      </section>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-stm-action="set-build-tab" data-build-tab="SCOPE">上一步</button>
+        <button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-stm-action="set-build-tab" data-build-tab="QC_DEDUCTIONS">下一步：质检扣款</button>
+      </div>
+    `
+  }
+
+  return `
+    ${renderProductionOrderProjectionPanel(projections)}
+    <div class="mt-4 flex flex-wrap gap-2">
+      <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-stm-action="set-build-tab" data-build-tab="SCOPE">上一步</button>
+      <button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-stm-action="set-build-tab" data-build-tab="QC_DEDUCTIONS">下一步：质检扣款</button>
+    </div>
+  `
+}
+
+function renderBuildQcDeductionTab(
+  projections: ProductionOrderSettlementProjection[],
+  buildLines: StatementDetailLineViewModel[],
+  timingAssist: { startTime: string; lastHandoverTime: string },
+): string {
+  const reasonSummaries = getBuildQcReasonSummaries(projections)
+  const reworkLines = buildLines.filter(
+    (line) =>
+      line.sourceItemType === 'QUALITY_DEDUCTION' &&
+      !line.sourceItemId.startsWith('MANUAL-') &&
+      (line.deductionLineType === 'POST_FACTORY_REWORK_CHARGEBACK' || (line.sourceLabelZh ?? '').includes('返工')),
+  )
+
+  return `
+    <section class="mt-4 rounded-lg border bg-card p-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-semibold">质检事实与瑕疵扣款</h3>
+          <p class="mt-1 text-xs text-muted-foreground">只汇总归属于车缝工厂的瑕疵原因；不同原因可以填写不同扣款金额，金额统一按 IDR 入账。</p>
+        </div>
+        <span class="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">由业务人员填写</span>
+      </div>
+      ${
+        reasonSummaries.length
+          ? `
+            <div class="mt-3 overflow-x-auto rounded-md border">
+              <table class="w-full min-w-[980px] text-sm">
+                <thead>
+                  <tr class="border-b bg-muted/40 text-left">
+                    <th class="px-4 py-2 font-medium">瑕疵原因</th>
+                    <th class="px-4 py-2 text-right font-medium">瑕疵数量</th>
+                    <th class="px-4 py-2 font-medium">关联生产单</th>
+                    <th class="px-4 py-2 font-medium">扣款金额（IDR）</th>
+                    <th class="px-4 py-2 font-medium">扣款说明</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${reasonSummaries
+                    .map((summary) => {
+                      const input = state.manualDefectReasonDeductions[summary.reasonName] ?? { amount: '', remark: '' }
+                      return `
+                        <tr class="border-b last:border-b-0">
+                          <td class="px-4 py-3 font-medium">${escapeHtml(summary.reasonName)}</td>
+                          <td class="px-4 py-3 text-right tabular-nums">${summary.qty}</td>
+                          <td class="px-4 py-3 text-xs">${summary.productionOrderNos.map((item) => escapeHtml(item)).join('、')}</td>
+                          <td class="px-4 py-3">
+                            <input type="number" min="0" step="1" class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-defect-reason-amount" data-reason="${escapeHtml(summary.reasonName)}" value="${escapeHtml(input.amount)}" />
+                          </td>
+                          <td class="px-4 py-3">
+                            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-defect-reason-remark" data-reason="${escapeHtml(summary.reasonName)}" data-skip-page-rerender="true" value="${escapeHtml(input.remark)}" placeholder="${escapeHtml(summary.reasonName)}扣款说明" />
+                          </td>
+                        </tr>
+                      `
+                    })
+                    .join('')}
+                </tbody>
+              </table>
+            </div>
+          `
+          : '<p class="mt-3 rounded-md border bg-muted/20 py-6 text-center text-sm text-muted-foreground">当前纳入对象暂无归车缝工厂原因的瑕疵事实。</p>'
+      }
+    </section>
+
+    <section class="mt-4 rounded-lg border bg-card p-4">
+      <h3 class="text-sm font-semibold">返工反扣</h3>
+      <p class="mt-1 text-xs text-muted-foreground">返工接收对象不是来源工厂的返工扣款来自质检记录同步后的预结算流水，这里只做弱展示。</p>
+      ${
+        reworkLines.length
+          ? `
+            <div class="mt-3 overflow-x-auto rounded-md border">
+              <table class="w-full min-w-[760px] text-sm">
+                <thead>
+                  <tr class="border-b bg-muted/40 text-left">
+                    <th class="px-4 py-2 font-medium">流水号</th>
+                    <th class="px-4 py-2 font-medium">质检记录</th>
+                    <th class="px-4 py-2 text-right font-medium">返工数量</th>
+                    <th class="px-4 py-2 text-right font-medium">扣款金额</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${reworkLines
+                    .map(
+                      (line) => `
+                        <tr class="border-b last:border-b-0">
+                          <td class="px-4 py-3 font-mono text-xs">${escapeHtml(line.ledgerNo ?? line.sourceItemId)}</td>
+                          <td class="px-4 py-3 font-mono text-xs">${escapeHtml(line.qcRecordId ?? '-')}</td>
+                          <td class="px-4 py-3 text-right tabular-nums">${line.returnInboundQty ?? line.deductionQty ?? 0}</td>
+                          <td class="px-4 py-3 text-right tabular-nums">${formatAmount(line.qualityDeductionAmount ?? 0)}</td>
+                        </tr>
+                      `,
+                    )
+                    .join('')}
+                </tbody>
+              </table>
+            </div>
+          `
+          : '<p class="mt-3 rounded-md border bg-muted/20 py-6 text-center text-sm text-muted-foreground">当前纳入对象暂无返工反扣流水。</p>'
+      }
+    </section>
+
+    <section class="mt-4 rounded-lg border bg-card p-4">
+      <h3 class="text-sm font-semibold">延误扣款</h3>
+      <p class="mt-1 text-xs text-muted-foreground">系统只提供开始时间和最后交出时间，是否扣延误款由业务人员判断并填写。</p>
+      <div class="mt-3 grid gap-3 md:grid-cols-2">
+        <label class="grid gap-1 text-sm">
+          <span class="text-muted-foreground">延误扣款金额（IDR）</span>
+          <input type="number" min="0" step="1" class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-delay-deduction-amount" value="${escapeHtml(state.manualDelayDeductionAmount)}" />
+        </label>
+        <label class="grid gap-1 text-sm">
+          <span class="text-muted-foreground">延误扣款说明</span>
+          <input class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-delay-deduction-remark" value="${escapeHtml(state.manualDelayDeductionRemark)}" data-skip-page-rerender="true" placeholder="业务判断是否扣延误款" />
+        </label>
+      </div>
+      <div class="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2">
+        <div class="rounded-md bg-muted/30 px-3 py-2">开始时间参考：<span class="font-medium text-foreground">${escapeHtml(timingAssist.startTime)}</span></div>
+        <div class="rounded-md bg-muted/30 px-3 py-2">最后交出时间：<span class="font-medium text-foreground">${escapeHtml(timingAssist.lastHandoverTime)}</span></div>
+      </div>
+    </section>
+
+    <div class="mt-4 flex flex-wrap gap-2">
+      <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-stm-action="set-build-tab" data-build-tab="OBJECTS">上一步</button>
+      <button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-stm-action="set-build-tab" data-build-tab="SUMMARY">下一步：金额确认</button>
+    </div>
+  `
+}
+
+function renderBuildSummaryTab(input: {
+  editingDraft: StatementDraft | null
+  selectedScope: StatementBuildScopeViewModel | null
+  buildLines: StatementDetailLineViewModel[]
+  buildSummary: ReturnType<typeof getBuildLineSummary>
+  displayCurrency: string
+  canGenerate: boolean
+}): string {
+  const { editingDraft, selectedScope, buildLines, buildSummary, displayCurrency, canGenerate } = input
+  const manualDefectAmount = Object.values(state.manualDefectReasonDeductions).reduce(
+    (sum, item) => sum + parseManualDeductionAmount(item.amount),
+    0,
+  )
+  const manualDelayAmount = parseManualDeductionAmount(state.manualDelayDeductionAmount)
+
+  return `
+    <section class="mt-4 rounded-lg border bg-card p-4">
+      <h3 class="text-sm font-semibold">总结算金额</h3>
+      <dl class="mt-3 grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-md border bg-muted/20 p-3"><dt class="text-xs text-muted-foreground">任务收入流水数</dt><dd class="mt-1 font-medium tabular-nums">${buildSummary.earningCount}</dd></div>
+        <div class="rounded-md border bg-muted/20 p-3"><dt class="text-xs text-muted-foreground">任务收入流水合计</dt><dd class="mt-1 font-medium tabular-nums">${formatAmount(buildSummary.totalEarningAmount)}</dd></div>
+        <div class="rounded-md border bg-muted/20 p-3"><dt class="text-xs text-muted-foreground">瑕疵扣款</dt><dd class="mt-1 font-medium tabular-nums">${formatAmount(manualDefectAmount)}</dd></div>
+        <div class="rounded-md border bg-muted/20 p-3"><dt class="text-xs text-muted-foreground">延误扣款</dt><dd class="mt-1 font-medium tabular-nums">${formatAmount(manualDelayAmount)}</dd></div>
+        <div class="rounded-md border bg-muted/20 p-3"><dt class="text-xs text-muted-foreground">扣款明细行</dt><dd class="mt-1 font-medium tabular-nums">${buildSummary.deductionCount}</dd></div>
+        <div class="rounded-md border bg-muted/20 p-3"><dt class="text-xs text-muted-foreground">扣款合计</dt><dd class="mt-1 font-medium tabular-nums">${formatAmount(buildSummary.totalQualityDeductionAmount)}</dd></div>
+        <div class="rounded-md border bg-muted/20 p-3"><dt class="text-xs text-muted-foreground">总数量</dt><dd class="mt-1 font-medium tabular-nums">${buildSummary.totalQty}</dd></div>
+        <div class="rounded-md border border-blue-200 bg-blue-50 p-3"><dt class="text-xs text-blue-700">本期应付净额</dt><dd class="mt-1 font-semibold tabular-nums text-blue-700">${formatAmount(buildSummary.netPayableAmount)}</dd></div>
+      </dl>
+      ${
+        selectedScope
+          ? `
+            <div class="mt-3 rounded-md border bg-background p-3 text-xs text-muted-foreground">
+              工厂：<strong class="text-foreground">${escapeHtml(selectedScope.settlementPartyLabel)}</strong>
+              <span class="mx-2">/</span>对账范围：<strong class="text-foreground">${escapeHtml(state.buildStartDate || '-')} ~ ${escapeHtml(state.buildEndDate || '-')}</strong>
+              <span class="mx-2">/</span>结算对象：<strong class="text-foreground">${state.buildObjectMode === 'PRODUCTION_ORDER' ? '按生产单' : '按预结算流水'}</strong>
+              <span class="mx-2">/</span>币种：<strong class="text-foreground">${escapeHtml(displayCurrency)}</strong>
+            </div>
+          `
+          : ''
+      }
+    </section>
+
+    <section class="mt-4 rounded-lg border bg-card p-4">
+      <div class="mb-3">
+        <h3 class="text-sm font-semibold">正式流水与扣款明细预览</h3>
+        <p class="mt-1 text-xs text-muted-foreground">生成草稿前最后核对任务收入、返工反扣、瑕疵原因扣款和延误扣款。</p>
+      </div>
+      ${renderBuildLineRows(buildLines)}
+    </section>
+
+    <div class="mt-4 flex flex-wrap gap-2">
+      <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-stm-action="set-build-tab" data-build-tab="QC_DEDUCTIONS">上一步</button>
+      ${
+        editingDraft
+          ? `<button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-stm-action="save-build" ${selectedScope == null ? 'disabled' : ''}>保存草稿</button>`
+          : `<button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50" data-stm-action="generate" ${canGenerate ? '' : 'disabled'}>确认生成草稿</button>`
+      }
+      <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-stm-action="back-to-list">取消</button>
+    </div>
+  `
+}
+
 function renderProductionOrderProjectionRow(item: ProductionOrderSettlementProjection): string {
   return `
     <div class="rounded-md border bg-background p-3 text-xs">
@@ -1192,20 +2052,150 @@ function renderProductionOrderProjectionRow(item: ProductionOrderSettlementProje
         <div class="flex items-center justify-between gap-2"><dt class="text-muted-foreground">车缝责任瑕疵</dt><dd class="tabular-nums">${item.sewingFactoryLiabilityDefectQty}</dd></div>
         <div class="flex items-center justify-between gap-2"><dt class="text-muted-foreground">差额</dt><dd class="tabular-nums">差 ${item.shortageQty} 件</dd></div>
       </dl>
+      ${renderProductionOrderLedgerDetails(item.productionOrderNo)}
+      ${renderProductionOrderQcDetails(item.productionOrderNo)}
+    </div>
+  `
+}
+
+function renderLedgerTypeLabel(ledger: PreSettlementLedger): string {
+  return ledger.ledgerType === 'TASK_EARNING' ? '任务收入流水' : '返工反扣流水'
+}
+
+function renderProductionOrderLedgerDetails(productionOrderNo: string): string {
+  const ledgers = getBuildRangeLedgers().filter((item) => item.productionOrderNo === productionOrderNo)
+  if (!ledgers.length) {
+    return '<p class="mt-3 rounded-md border border-dashed bg-muted/20 px-3 py-4 text-center text-xs text-muted-foreground">当前生产单暂无预结算流水明细。</p>'
+  }
+
+  return `
+    <div class="mt-3 rounded-md border bg-muted/10">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
+        <h4 class="text-xs font-semibold">预结算流水明细（${ledgers.length} 条）</h4>
+        <span class="text-[11px] text-muted-foreground">每张生产单下展示全部收入流水和返工反扣流水</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[900px] text-xs">
+          <thead>
+            <tr class="border-b bg-muted/30 text-left">
+              <th class="px-3 py-2 font-medium">流水号</th>
+              <th class="px-3 py-2 font-medium">类型</th>
+              <th class="px-3 py-2 font-medium">关联对象</th>
+              <th class="px-3 py-2 text-right font-medium">数量</th>
+              <th class="px-3 py-2 text-right font-medium">金额</th>
+              <th class="px-3 py-2 font-medium">发生时间</th>
+              <th class="px-3 py-2 font-medium">说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ledgers
+              .map(
+                (ledger) => `
+                  <tr class="border-b last:border-b-0">
+                    <td class="px-3 py-2 font-mono">${escapeHtml(ledger.ledgerNo)}</td>
+                    <td class="px-3 py-2">${escapeHtml(renderLedgerTypeLabel(ledger))}</td>
+                    <td class="px-3 py-2">${escapeHtml(ledger.returnInboundBatchNo ?? ledger.qcRecordId ?? ledger.sourceRefId)}</td>
+                    <td class="px-3 py-2 text-right tabular-nums">${ledger.qty}</td>
+                    <td class="px-3 py-2 text-right tabular-nums">${formatAmount(ledger.ledgerType === 'QUALITY_DEDUCTION' ? -ledger.settlementAmount : ledger.settlementAmount)}</td>
+                    <td class="px-3 py-2">${escapeHtml(ledger.occurredAt)}</td>
+                    <td class="px-3 py-2 text-muted-foreground">${escapeHtml(ledger.sourceReason ?? ledger.remark ?? '-')}</td>
+                  </tr>
+                `,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `
+}
+
+function renderSkuDefectSummary(sku: DemoSettlementSkuFact): string {
+  return Object.entries(sku.defectReasonQtyByName)
+    .map(([reasonName, qty]) => `${escapeHtml(reasonName)} ${qty}`)
+    .join('、')
+}
+
+function renderProductionOrderQcDetails(productionOrderNo: string): string {
+  const qcOrders = getDemoQcFactsByProductionOrderNo(productionOrderNo)
+  if (!qcOrders.length) return ''
+
+  return `
+    <div class="mt-3 rounded-md border bg-muted/10">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
+        <h4 class="text-xs font-semibold">关联质检单（${qcOrders.length} 张）</h4>
+        <span class="text-[11px] text-muted-foreground">每张质检单含 3 个 SKU，按 SKU 展示瑕疵和返工接收对象</span>
+      </div>
+      <div class="divide-y">
+        ${qcOrders
+          .map(
+            (qcOrder) => `
+              <div class="p-3">
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <span class="font-medium">${escapeHtml(qcOrder.qcOrderNo)}</span>
+                  <span class="text-muted-foreground">质检时间：${escapeHtml(qcOrder.inspectedAt)}</span>
+                  <span class="text-muted-foreground">质检员：${escapeHtml(qcOrder.inspector)}</span>
+                  <span class="text-muted-foreground">返工接收对象：按 SKU 区分</span>
+                </div>
+                <div class="mt-2 overflow-x-auto rounded-md border bg-background">
+                  <table class="w-full min-w-[980px] text-xs">
+                    <thead>
+                      <tr class="border-b bg-muted/30 text-left">
+                        <th class="px-3 py-2 font-medium">SKU</th>
+                        <th class="px-3 py-2 font-medium">颜色 / 尺码</th>
+                        <th class="px-3 py-2 text-right font-medium">质检数量</th>
+                        <th class="px-3 py-2 text-right font-medium">合格数量</th>
+                        <th class="px-3 py-2 text-right font-medium">瑕疵数量</th>
+                        <th class="px-3 py-2 font-medium">瑕疵原因</th>
+                        <th class="px-3 py-2 text-right font-medium">返工数量</th>
+                        <th class="px-3 py-2 font-medium">返工接收对象</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${qcOrder.skuFacts
+                        .map(
+                          (sku) => `
+                            <tr class="border-b last:border-b-0">
+                              <td class="px-3 py-2 font-mono">${escapeHtml(sku.skuCode)}</td>
+                              <td class="px-3 py-2">${escapeHtml(sku.colorSize)}</td>
+                              <td class="px-3 py-2 text-right tabular-nums">${sku.inspectedQty}</td>
+                              <td class="px-3 py-2 text-right tabular-nums">${sku.qualifiedQty}</td>
+                              <td class="px-3 py-2 text-right tabular-nums">${getSkuDefectQty(sku)}</td>
+                              <td class="px-3 py-2">${renderSkuDefectSummary(sku)}</td>
+                              <td class="px-3 py-2 text-right tabular-nums">${sku.reworkQty}</td>
+                              <td class="px-3 py-2">
+                                ${escapeHtml(sku.reworkReceiveFactoryName)}
+                                <span class="ml-1 text-muted-foreground">(${sku.reworkReceiveObject === 'ORIGINAL_FACTORY' ? '原工厂' : '后道工厂'})</span>
+                              </td>
+                            </tr>
+                          `,
+                        )
+                        .join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            `,
+          )
+          .join('')}
+      </div>
     </div>
   `
 }
 
 function renderProductionOrderProjectionPanel(projections: ProductionOrderSettlementProjection[]): string {
-  if (state.buildObjectMode !== 'PRODUCTION_ORDER') return ''
+  const includedNos = new Set(getSelectedProductionOrderNosForQc(projections))
+  const modeDescription = state.buildObjectMode === 'PRODUCTION_ORDER'
+    ? '全部展示反查结果；未完成生产单不进入本期对账。'
+    : '按当前可入单预结算流水反查生产单，用于汇总关联质检事实和扣款依据。'
   return `
     <section class="mt-4 rounded-lg border bg-card p-4">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <h3 class="text-sm font-semibold">步骤 2：反查生产单</h3>
-          <p class="mt-1 text-xs text-muted-foreground">全部展示反查结果；未完成生产单不进入本期对账。</p>
+          <h3 class="text-sm font-semibold">反查生产单</h3>
+          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(modeDescription)}</p>
         </div>
-        <div class="text-xs text-muted-foreground">已完成 ${projections.filter((item) => item.isComplete).length} 张 / 未完成 ${projections.filter((item) => !item.isComplete).length} 张</div>
+        <div class="text-xs text-muted-foreground">已完成 ${projections.filter((item) => item.isComplete).length} 张 / 未完成 ${projections.filter((item) => !item.isComplete).length} 张 / 本次扣款关联 ${includedNos.size} 张</div>
       </div>
       <div class="mt-3 space-y-2">
         ${
@@ -1827,8 +2817,33 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
       : null
   const canGenerate = selectedScope != null && isBuildRangeValid() && effectiveCurrency !== null && !blockingStatement
 
+  const tabContent =
+    state.buildTab === 'SCOPE'
+      ? renderBuildScopeTab({
+          editingDraft,
+          factoryOptions,
+          selectedScope,
+          displayCurrency,
+          buildLines,
+          buildSummary,
+          effectiveCurrency,
+          blockingStatement,
+        })
+      : state.buildTab === 'OBJECTS'
+        ? renderBuildObjectsTab(projections, buildCandidates)
+        : state.buildTab === 'QC_DEDUCTIONS'
+          ? renderBuildQcDeductionTab(projections, buildLines, timingAssist)
+          : renderBuildSummaryTab({
+              editingDraft,
+              selectedScope,
+              buildLines,
+              buildSummary,
+              displayCurrency,
+              canGenerate,
+            })
+
   return `
-    <section class="rounded-xl border bg-background p-4">
+    <section class="bg-background">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold">${editingDraft ? '继续编辑草稿' : '新建对账单'}</h2>
@@ -1843,169 +2858,8 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
         scopes.length === 0
           ? `<p class="mt-6 py-8 text-center text-sm text-muted-foreground">当前暂无可新建对账单的工厂、时间段和结算对象范围</p>`
           : `
-            <div class="mt-4 grid gap-4 lg:grid-cols-[1.1fr,1fr]">
-              <section class="rounded-lg border bg-muted/20 p-4">
-                <h3 class="text-sm font-semibold">步骤 1：选择工厂、时间段和结算对象</h3>
-                <div class="mt-3 grid gap-3 md:grid-cols-2">
-                  <label class="grid gap-1 text-sm">
-                    <span class="text-muted-foreground">工厂</span>
-                    <select class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="factory" ${editingDraft ? 'disabled' : ''}>
-                      <option value="">请选择工厂</option>
-                      ${factoryOptions
-                        .map(
-                          (item) => `<option value="${escapeHtml(item.value)}" ${state.buildFactoryId === item.value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`,
-                        )
-                        .join('')}
-                    </select>
-                  </label>
-                  <label class="grid gap-1 text-sm">
-                    <span class="text-muted-foreground">开始日期</span>
-                    <input type="date" class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="start-date" value="${escapeHtml(state.buildStartDate)}" ${editingDraft ? 'disabled' : ''} />
-                  </label>
-                  <label class="grid gap-1 text-sm">
-                    <span class="text-muted-foreground">结束日期</span>
-                    <input type="date" class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="end-date" value="${escapeHtml(state.buildEndDate)}" ${editingDraft ? 'disabled' : ''} />
-                  </label>
-                  <label class="grid gap-1 text-sm">
-                    <span class="text-muted-foreground">结算对象</span>
-                    <select class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="object-mode" ${editingDraft ? 'disabled' : ''}>
-                      <option value="PRODUCTION_ORDER" ${state.buildObjectMode === 'PRODUCTION_ORDER' ? 'selected' : ''}>按生产单</option>
-                      <option value="LEDGER" ${state.buildObjectMode === 'LEDGER' ? 'selected' : ''}>按预结算流水</option>
-                    </select>
-                  </label>
-                  <label class="grid gap-1 text-sm">
-                    <span class="text-muted-foreground">结算币种</span>
-                    <select class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="currency" disabled>
-                      <option value="IDR" selected>IDR</option>
-                    </select>
-                  </label>
-                </div>
-                <label class="mt-3 grid gap-1 text-sm">
-                  <span class="text-muted-foreground">备注</span>
-                  <textarea class="min-h-[84px] rounded-md border bg-background px-3 py-2 text-sm" data-stm-build-field="remark" data-skip-page-rerender="true" placeholder="说明当前对账单口径或需要关注的事项">${escapeHtml(state.buildRemark)}</textarea>
-                </label>
-
-                <div class="mt-3 rounded-md border bg-background p-3">
-                  <div class="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <h4 class="text-sm font-semibold">扣款补充</h4>
-                      <p class="mt-1 text-xs text-muted-foreground">归工厂原因瑕疵扣款和延误扣款由业务人员填写，当前金额统一按 IDR 入账。</p>
-                    </div>
-                    <span class="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">由业务人员填写</span>
-                  </div>
-                  <div class="mt-3 grid gap-3 md:grid-cols-2">
-                    <label class="grid gap-1 text-sm">
-                      <span class="text-muted-foreground">瑕疵扣款金额（IDR）</span>
-                      <input type="number" min="0" step="1" class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-defect-deduction-amount" value="${escapeHtml(state.manualDefectDeductionAmount)}" />
-                    </label>
-                    <label class="grid gap-1 text-sm">
-                      <span class="text-muted-foreground">瑕疵扣款说明</span>
-                      <input class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-defect-deduction-remark" value="${escapeHtml(state.manualDefectDeductionRemark)}" data-skip-page-rerender="true" placeholder="做工原因、脏污、破洞等" />
-                    </label>
-                    <label class="grid gap-1 text-sm">
-                      <span class="text-muted-foreground">延误扣款金额（IDR）</span>
-                      <input type="number" min="0" step="1" class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-delay-deduction-amount" value="${escapeHtml(state.manualDelayDeductionAmount)}" />
-                    </label>
-                    <label class="grid gap-1 text-sm">
-                      <span class="text-muted-foreground">延误扣款说明</span>
-                      <input class="h-9 rounded-md border bg-background px-3 text-sm" data-stm-build-field="manual-delay-deduction-remark" value="${escapeHtml(state.manualDelayDeductionRemark)}" data-skip-page-rerender="true" placeholder="业务判断是否扣延误款" />
-                    </label>
-                  </div>
-                  <div class="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2">
-                    <div class="rounded-md bg-muted/30 px-3 py-2">开始时间参考：<span class="font-medium text-foreground">${escapeHtml(timingAssist.startTime)}</span></div>
-                    <div class="rounded-md bg-muted/30 px-3 py-2">最后交出时间：<span class="font-medium text-foreground">${escapeHtml(timingAssist.lastHandoverTime)}</span></div>
-                  </div>
-                </div>
-
-                ${
-                  selectedScope
-                    ? `
-                      <div class="mt-4 rounded-md border bg-background p-3 text-sm">
-                        <div class="flex flex-wrap items-center gap-4">
-                          <span>工厂：<strong>${escapeHtml(selectedScope.settlementPartyLabel)}</strong></span>
-                          <span>对账范围：<strong>${escapeHtml(state.buildStartDate || '-')} ~ ${escapeHtml(state.buildEndDate || '-')}</strong></span>
-                          <span>结算对象：<strong>${state.buildObjectMode === 'PRODUCTION_ORDER' ? '按生产单' : '按预结算流水'}</strong></span>
-                          <span>结算币种：<strong>${escapeHtml(displayCurrency)}</strong></span>
-                          <span>参考周期：<strong>${escapeHtml(selectedScope.settlementCycleLabel)}</strong></span>
-                          <span>计划预付款：<strong>${escapeHtml(selectedScope.plannedPrepaymentAt ?? '-')}</strong></span>
-                          <span>可纳入正式流水：<strong>${buildLines.length}</strong> 条</span>
-                          <span>本期应付净额：<strong>${formatAmount(buildSummary.netPayableAmount)}</strong></span>
-                        </div>
-                      </div>
-                    `
-                    : ''
-                }
-
-                ${
-                  isBuildRangeReady() && !isBuildRangeValid()
-                    ? '<div class="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">开始日期不能晚于结束日期</div>'
-                    : ''
-                }
-                ${
-                  effectiveCurrency === null
-                    ? '<div class="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">当前时间段存在多个币种，请拆分时间段或按币种分别生成</div>'
-                    : ''
-                }
-
-                ${
-                  blockingStatement
-                    ? `
-                      <div class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-                        <div>该工厂该时间段和结算对象已存在未关闭对账单 <strong>${escapeHtml(blockingStatement.statementId)}</strong>，不能重复生成。</div>
-                        <div class="mt-2 flex flex-wrap gap-2">
-                          <button class="inline-flex h-8 items-center rounded-md border border-amber-300 bg-white px-3 text-xs hover:bg-amber-100" data-stm-action="open-existing-statement" data-statement-id="${escapeHtml(blockingStatement.statementId)}">查看已有单据</button>
-                          ${
-                            blockingStatement.status === 'DRAFT'
-                              ? `<button class="inline-flex h-8 items-center rounded-md border border-amber-300 bg-white px-3 text-xs hover:bg-amber-100" data-stm-action="edit-draft" data-statement-id="${escapeHtml(blockingStatement.statementId)}">继续编辑草稿</button>`
-                              : ''
-                          }
-                        </div>
-                      </div>
-                    `
-                    : ''
-                }
-
-                <div class="mt-4 flex flex-wrap gap-2">
-                  ${
-                    editingDraft
-                      ? `<button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-stm-action="save-build" ${selectedScope == null ? 'disabled' : ''}>保存草稿</button>`
-                      : `<button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-stm-action="generate" ${canGenerate ? '' : 'disabled'}>确认生成草稿</button>`
-                  }
-                  <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-stm-action="back-to-list">取消</button>
-                </div>
-              </section>
-
-              <section class="rounded-lg border bg-muted/20 p-4">
-                <h3 class="text-sm font-semibold">步骤 2：查看正式流水总览</h3>
-                <dl class="mt-3 grid gap-3 text-sm md:grid-cols-2">
-                  <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">正式流水明细行</dt><dd class="font-medium tabular-nums">${buildLines.length}</dd></div>
-                  <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">任务收入流水数</dt><dd class="font-medium tabular-nums">${buildSummary.earningCount}</dd></div>
-                  <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">返工扣款流水数</dt><dd class="font-medium tabular-nums">${buildSummary.deductionCount}</dd></div>
-                  <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">任务收入流水合计</dt><dd class="font-medium tabular-nums">${formatAmount(buildSummary.totalEarningAmount)}</dd></div>
-                  <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">返工扣款流水合计</dt><dd class="font-medium tabular-nums">${formatAmount(buildSummary.totalQualityDeductionAmount)}</dd></div>
-                  <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">总数量</dt><dd class="font-medium tabular-nums">${buildSummary.totalQty}</dd></div>
-                  <div class="flex items-center justify-between gap-3"><dt class="text-muted-foreground">本期应付净额</dt><dd class="font-medium tabular-nums">${formatAmount(buildSummary.netPayableAmount)}</dd></div>
-                </dl>
-              </section>
-            </div>
-
-            ${renderProductionOrderProjectionPanel(projections)}
-
-            <section class="mt-4 rounded-lg border bg-card p-4">
-              <div class="mb-3">
-                <h3 class="text-sm font-semibold">正式流水候选</h3>
-                <p class="mt-1 text-xs text-muted-foreground">这里展示当前工厂和时间段下可入单的任务收入流水与返工扣款流水。待确认质量扣款记录和未最终裁决的质量异议不会进入本期对账单。</p>
-              </div>
-              ${renderBuildCandidateRows(buildCandidates)}
-            </section>
-
-            <section class="mt-4 rounded-lg border bg-card p-4">
-              <div class="mb-3">
-                <h3 class="text-sm font-semibold">正式流水明细预览</h3>
-                <p class="mt-1 text-xs text-muted-foreground">任务收入流水和返工扣款流水会分别进入同一张正式流水汇总单，页面只做正向合计、反向合计和本期应付净额的汇总，不再先拼净额行。</p>
-              </div>
-              ${renderBuildLineRows(buildLines)}
-            </section>
+            ${renderBuildTabNav()}
+            ${tabContent}
           `
       }
     </section>
@@ -2021,10 +2875,16 @@ export function renderStatementsPage(): string {
 
   return `
     <div class="flex flex-col gap-6 p-6" data-fast-page-render="true">
-      <section>
-        <h1 class="text-xl font-semibold text-foreground">对账单</h1>
-        <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(pageBoundary.pageIntro)}</p>
-      </section>
+      ${
+        state.activeView === 'LIST'
+          ? `
+            <section>
+              <h1 class="text-xl font-semibold text-foreground">对账单</h1>
+              <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(pageBoundary.pageIntro)}</p>
+            </section>
+          `
+          : ''
+      }
 
       ${state.activeView === 'LIST' ? renderListView(listItems, buildScopes) : renderBuildView(buildScopes)}
       ${renderDetailDialog(detail)}
@@ -2082,24 +2942,28 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
       state.buildCycleId = getBuildCycleOptions(scopes, state.buildFactoryId)[0]?.settlementCycleId ?? ''
       state.selectedLedgerIds = []
       state.selectedProductionOrderNos = []
+      clearBuildManualDeductions()
       return true
     }
     if (field === 'start-date' && buildFieldNode instanceof HTMLInputElement) {
       state.buildStartDate = buildFieldNode.value
       state.selectedLedgerIds = []
       state.selectedProductionOrderNos = []
+      clearBuildManualDeductions()
       return true
     }
     if (field === 'end-date' && buildFieldNode instanceof HTMLInputElement) {
       state.buildEndDate = buildFieldNode.value
       state.selectedLedgerIds = []
       state.selectedProductionOrderNos = []
+      clearBuildManualDeductions()
       return true
     }
     if (field === 'object-mode' && buildFieldNode instanceof HTMLSelectElement) {
       state.buildObjectMode = buildFieldNode.value as StatementSettlementObjectMode
       state.selectedLedgerIds = []
       state.selectedProductionOrderNos = []
+      clearBuildManualDeductions()
       return true
     }
     if (field === 'currency' && buildFieldNode instanceof HTMLSelectElement) {
@@ -2114,12 +2978,14 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
       state.buildRemark = buildFieldNode.value
       return true
     }
-    if (field === 'manual-defect-deduction-amount' && buildFieldNode instanceof HTMLInputElement) {
-      state.manualDefectDeductionAmount = buildFieldNode.value
+    if (field === 'manual-defect-reason-amount' && buildFieldNode instanceof HTMLInputElement) {
+      const reasonName = buildFieldNode.dataset.reason
+      if (reasonName) setManualDefectReasonDeduction(reasonName, { amount: buildFieldNode.value })
       return true
     }
-    if (field === 'manual-defect-deduction-remark' && buildFieldNode instanceof HTMLInputElement) {
-      state.manualDefectDeductionRemark = buildFieldNode.value
+    if (field === 'manual-defect-reason-remark' && buildFieldNode instanceof HTMLInputElement) {
+      const reasonName = buildFieldNode.dataset.reason
+      if (reasonName) setManualDefectReasonDeduction(reasonName, { remark: buildFieldNode.value })
       return true
     }
     if (field === 'manual-delay-deduction-amount' && buildFieldNode instanceof HTMLInputElement) {
@@ -2210,6 +3076,12 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
 
   if (action === 'next-list-page') {
     state.listPage += 1
+    return true
+  }
+
+  if (action === 'set-build-tab') {
+    const nextTab = actionNode.dataset.buildTab as StatementBuildTab | undefined
+    if (nextTab && getStatementBuildTabs().some((item) => item.key === nextTab)) state.buildTab = nextTab
     return true
   }
 
