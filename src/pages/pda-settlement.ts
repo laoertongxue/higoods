@@ -78,11 +78,9 @@ import type {
 
 applyQualitySeedBootstrap()
 
-type SettlementPageMode = 'cycles' | 'cycle-detail'
-type DetailTab = 'overview' | 'quality' | 'ledgers' | 'statements'
-type QualityView = 'pending' | 'soon' | 'disputing' | 'processed' | 'history'
-type LedgerTypeView = 'all' | 'task-earning' | 'quality-deduction'
-type LedgerStatusView = 'all' | 'open' | 'in-statement' | 'in-prepayment-batch' | 'prepaid'
+type SettlementPageMode = 'home' | 'statement-list' | 'quality-list'
+type StatementFilterView = 'all' | 'pending-confirm' | 'disputing' | 'unpaid' | 'paid'
+type QualityRecordFilterView = 'all' | 'not-in-statement' | 'in-statement' | 'rework' | 'deducted'
 
 interface StatementAppealForm {
   reason: string
@@ -93,14 +91,10 @@ interface StatementAppealForm {
 interface PdaSettlementState {
   lastRouteSyncKey: string
   pageMode: SettlementPageMode
-  selectedCycleId: string | null
-  detailTab: DetailTab
-  qualityView: QualityView
+  statementFilterView: StatementFilterView
+  qualityRecordFilterView: QualityRecordFilterView
   qualitySearch: string
-  ledgerTypeView: LedgerTypeView
-  ledgerStatusView: LedgerStatusView
-  ledgerKeyword: string
-  ledgerDrawerId: string | null
+  qualityDrawerId: string | null
   settlementRequestDrawerMode: 'create' | 'detail' | 'profile' | 'history' | 'versions' | null
   settlementRequestDetailId: string | null
   settlementRequestErrors: Partial<Record<'accountHolderName' | 'idNumber' | 'bankName' | 'bankAccountNo', string>>
@@ -155,15 +149,6 @@ interface SettlementCycleSummary {
   snapshotDifferenceNote?: string
 }
 
-interface SettlementLedgerDetailViewModel {
-  ledger: PreSettlementLedger
-  statement: StatementDraft | null
-  batch: SettlementBatch | null
-  approval: FeishuPaymentApproval | null
-  writeback: PaymentWriteback | null
-  trace: ReturnType<typeof tracePreSettlementLedgerSource>
-}
-
 const FX_RATE_TABLE: Record<string, { rate: number; appliedAt: string }> = {
   'CNY->IDR': { rate: 2175, appliedAt: '2026-03-12 10:00:00' },
   'IDR->CNY': { rate: 0.00046, appliedAt: '2026-03-12 10:00:00' },
@@ -171,15 +156,11 @@ const FX_RATE_TABLE: Record<string, { rate: number; appliedAt: string }> = {
 
 const state: PdaSettlementState = {
   lastRouteSyncKey: '',
-  pageMode: 'cycles',
-  selectedCycleId: null,
-  detailTab: 'overview',
-  qualityView: 'pending',
+  pageMode: 'home',
+  statementFilterView: 'all',
+  qualityRecordFilterView: 'all',
   qualitySearch: '',
-  ledgerTypeView: 'all',
-  ledgerStatusView: 'all',
-  ledgerKeyword: '',
-  ledgerDrawerId: null,
+  qualityDrawerId: null,
   settlementRequestDrawerMode: null,
   settlementRequestDetailId: null,
   settlementRequestErrors: {},
@@ -769,81 +750,62 @@ function resolveSettlementCycleId(candidate?: string | null): string {
   return summaries[0]?.cycleId ?? ''
 }
 
-function buildSettlementListHref(): string {
+function buildSettlementHomeHref(): string {
   return '/fcs/pda/settlement'
 }
 
-function buildSettlementDetailHref(
-  detailTab: DetailTab = state.detailTab,
-  cycleId: string = resolveSettlementCycleId(state.selectedCycleId),
-  options?: {
-    qualityView?: QualityView
-    ledgerTypeView?: LedgerTypeView
-    ledgerStatusView?: LedgerStatusView
-  },
-): string {
+function buildStatementListHref(view: StatementFilterView = 'all'): string {
   const params = new URLSearchParams()
-  params.set('tab', detailTab)
-  if (cycleId) params.set('cycleId', resolveSettlementCycleId(cycleId))
-  if (detailTab === 'quality' && options?.qualityView) params.set('view', options.qualityView)
-  if (detailTab === 'ledgers' && options?.ledgerTypeView && options.ledgerTypeView !== 'all') {
-    params.set('ledgerType', options.ledgerTypeView)
-  }
-  if (detailTab === 'ledgers' && options?.ledgerStatusView && options.ledgerStatusView !== 'all') {
-    params.set('ledgerStatus', options.ledgerStatusView)
-  }
-  return `${buildSettlementListHref()}?${params.toString()}`
+  params.set('tab', 'statements')
+  if (view !== 'all') params.set('view', view)
+  return `/fcs/pda/settlement?${params.toString()}`
+}
+
+function buildQualityListHref(view: QualityRecordFilterView = 'all'): string {
+  const params = new URLSearchParams()
+  params.set('tab', 'quality')
+  if (view !== 'all') params.set('view', view)
+  return `/fcs/pda/settlement?${params.toString()}`
 }
 
 function syncSettlementStateFromRoute(): void {
-  const routeKey = appStore.getState().pathname
-  if (state.lastRouteSyncKey === routeKey) return
+  const rawSearch = typeof window === 'undefined' ? '' : window.location.search
+  if (state.lastRouteSyncKey === rawSearch) return
+  state.lastRouteSyncKey = rawSearch
 
-  const params = getCurrentSettlementSearchParams()
-  const rawTab = params.get('tab')
-  const cycleId = params.get('cycleId')
+  const params = new URLSearchParams(rawSearch)
+  const tab = params.get('tab')
+  const view = params.get('view')
 
-  if (rawTab === 'cycles' || (!rawTab && !cycleId)) {
-    state.pageMode = 'cycles'
-    state.selectedCycleId = null
-  } else {
-    state.pageMode = 'cycle-detail'
-    state.selectedCycleId = resolveSettlementCycleId(cycleId)
-    if (rawTab === 'tasks') {
-      state.detailTab = 'ledgers'
-      state.ledgerTypeView = 'task-earning'
-    } else if (rawTab === 'deductions') {
-      state.detailTab = 'ledgers'
-      state.ledgerTypeView = 'quality-deduction'
-    } else if (rawTab === 'quality' || rawTab === 'ledgers' || rawTab === 'statements') {
-      state.detailTab = rawTab
-    } else {
-      state.detailTab = 'overview'
-    }
+  if (tab === 'statements') {
+    state.pageMode = 'statement-list'
+    state.statementFilterView = isStatementFilterView(view) ? view : 'all'
+    return
   }
 
-  const qualityView = params.get('view')
-  if (qualityView && ['pending', 'soon', 'disputing', 'processed', 'history'].includes(qualityView)) {
-    state.qualityView = qualityView as QualityView
+  if (tab === 'quality') {
+    state.pageMode = 'quality-list'
+    state.qualityRecordFilterView = isQualityRecordFilterView(view) ? view : 'all'
+    return
   }
 
-  const ledgerTypeView = params.get('ledgerType')
-  if (ledgerTypeView && ['all', 'task-earning', 'quality-deduction'].includes(ledgerTypeView)) {
-    state.ledgerTypeView = ledgerTypeView as LedgerTypeView
-  }
-  const ledgerStatusView = params.get('ledgerStatus')
-  if (ledgerStatusView && ['all', 'open', 'in-statement', 'in-prepayment-batch', 'prepaid'].includes(ledgerStatusView)) {
-    state.ledgerStatusView = ledgerStatusView as LedgerStatusView
-  }
+  state.pageMode = 'home'
+  state.statementFilterView = 'all'
+  state.qualityRecordFilterView = 'all'
+}
 
-  state.lastRouteSyncKey = routeKey
+function isStatementFilterView(value: string | null): value is StatementFilterView {
+  return value === 'all' || value === 'pending-confirm' || value === 'disputing' || value === 'unpaid' || value === 'paid'
+}
+
+function isQualityRecordFilterView(value: string | null): value is QualityRecordFilterView {
+  return value === 'all' || value === 'not-in-statement' || value === 'in-statement' || value === 'rework' || value === 'deducted'
 }
 
 function getSelectedCycleSummary(): SettlementCycleSummary | null {
   const context = getCurrentFactoryContext()
   const summaries = getSettlementCycleSummaries(context)
-  const cycleId = resolveSettlementCycleId(state.selectedCycleId)
-  return summaries.find((item) => item.cycleId === cycleId) ?? summaries[0] ?? null
+  return summaries[0] ?? null
 }
 
 function resetStatementAppealForm(): void {
@@ -910,10 +872,10 @@ function getRequestNextStepText(request: SettlementChangeRequest): string {
   return request.rejectReason || '申请未通过，可根据平台意见重新发起。'
 }
 
-function buildPdaQualityDetailHref(qcId: string, cycleId?: string, qualityView?: QualityView): string {
+function buildPdaQualityDetailHref(qcId: string, cycleId?: string, view?: QualityRecordFilterView): string {
   const params = new URLSearchParams()
   params.set('back', 'settlement')
-  if (qualityView) params.set('view', qualityView)
+  if (view) params.set('view', view)
   if (cycleId) params.set('cycleId', cycleId)
   return `/fcs/pda/quality/${encodeURIComponent(qcId)}?${params.toString()}`
 }
@@ -1338,69 +1300,6 @@ function renderSettlementRequestDrawer(): string {
   )
 }
 
-function getCycleQualityItems(summary: SettlementCycleSummary, view: QualityView): FutureMobileFactoryQcListItem[] {
-  if (view === 'pending') return summary.pendingQualityItems
-  if (view === 'soon') return summary.soonQualityItems
-  if (view === 'disputing') return summary.disputingQualityItems
-  if (view === 'processed') return summary.processedQualityItems
-  return summary.historyQualityItems
-}
-
-function matchesQualityKeyword(item: FutureMobileFactoryQcListItem, keyword: string): boolean {
-  const normalized = keyword.trim().toLowerCase()
-  if (!normalized) return true
-  return [item.qcNo, item.returnInboundBatchNo, item.productionOrderNo, item.processLabel]
-    .filter(Boolean)
-    .some((value) => value.toLowerCase().includes(normalized))
-}
-
-function matchesLedgerKeyword(ledger: PreSettlementLedger, keyword: string): boolean {
-  const normalized = keyword.trim().toLowerCase()
-  if (!normalized) return true
-  return [
-    ledger.ledgerNo,
-    ledger.taskNo,
-    ledger.returnInboundBatchNo,
-    ledger.qcRecordId,
-    ledger.statementId,
-    ledger.prepaymentBatchId,
-  ]
-    .filter(Boolean)
-    .some((value) => String(value).toLowerCase().includes(normalized))
-}
-
-function getFilteredCycleLedgers(summary: SettlementCycleSummary): PreSettlementLedger[] {
-  return summary.ledgers.filter((ledger) => {
-    if (state.ledgerTypeView === 'task-earning' && ledger.ledgerType !== 'TASK_EARNING') return false
-    if (state.ledgerTypeView === 'quality-deduction' && ledger.ledgerType !== 'QUALITY_DEDUCTION') return false
-    if (state.ledgerStatusView === 'open' && ledger.status !== 'OPEN') return false
-    if (state.ledgerStatusView === 'in-statement' && ledger.status !== 'IN_STATEMENT') return false
-    if (state.ledgerStatusView === 'in-prepayment-batch' && ledger.status !== 'IN_PREPAYMENT_BATCH') return false
-    if (state.ledgerStatusView === 'prepaid' && ledger.status !== 'PREPAID') return false
-    return matchesLedgerKeyword(ledger, state.ledgerKeyword)
-  })
-}
-
-function getLedgerDetailViewModel(ledgerId: string | null): SettlementLedgerDetailViewModel | null {
-  if (!ledgerId) return null
-  const ledger = getPreSettlementLedgerById(ledgerId)
-  if (!ledger) return null
-  const statement = ledger.statementId ? getStatementDraftById(ledger.statementId) : null
-  const batch = ledger.prepaymentBatchId ? getPrepaymentBatchById(ledger.prepaymentBatchId) : null
-  const approval = getBatchApproval(batch)
-  const writeback = getBatchWriteback(batch)
-  const trace = tracePreSettlementLedgerSource(ledgerId)
-
-  return {
-    ledger,
-    statement,
-    batch,
-    approval,
-    writeback,
-    trace,
-  }
-}
-
 function renderCycleCard(summary: SettlementCycleSummary): string {
   const statementStatus = summary.primaryStatement ? getStatementStatusLabel(summary.primaryStatement.status) : '未生成对账单'
   const batchStatus = summary.primaryBatch ? getPrepaymentBatchStatusLabel(summary.primaryBatch.status) : '未入预付款'
@@ -1452,464 +1351,6 @@ function renderCycleCard(summary: SettlementCycleSummary): string {
         <div>${escapeHtml(summary.latestWriteback ? `已登记银行回执与流水 ${summary.latestWriteback.bankSerialNo}` : '当前尚未登记打款回写')}</div>
       </div>
     </button>
-  `
-}
-
-function renderOverviewTab(summary: SettlementCycleSummary): string {
-  const effectiveInfo = getCurrentEffectiveSettlementInfo(getCurrentFactoryContext().factoryCode)
-  const activeRequest = getSettlementActiveRequestByFactory(getCurrentFactoryContext().factoryCode)
-  const statementProgress = summary.primaryStatement ? getStatementSettlementProgressView(summary.primaryStatement) : null
-
-  return `
-    <div class="space-y-3 p-4">
-      ${renderCard(
-        '本期金额',
-        `
-          ${renderRow('应付', formatAmount(summary.taskEarningAmount), { bold: true })}
-          ${renderRow('扣款', summary.qualityDeductionAmount > 0 ? formatAmount(summary.qualityDeductionAmount) : '—', {
-            red: summary.qualityDeductionAmount > 0,
-          })}
-          ${renderRow('本期净额', formatAmount(summary.netPayableAmount), { bold: true })}
-          ${renderRow('计划预付款日', summary.plannedPrepaymentAt ?? '当前未计划')}
-        `,
-      )}
-      ${renderCard(
-        '待处理提示',
-        `
-          ${renderRow('待确认质量扣款记录', `${summary.pendingQualityCount} 条`, { orange: summary.pendingQualityCount > 0 })}
-          ${renderRow('即将超时', `${summary.soonOverdueCount} 条`, { red: summary.soonOverdueCount > 0 })}
-          ${renderRow('异议中', `${summary.disputingCount} 条`, { orange: summary.disputingCount > 0 })}
-          <div class="pt-1">
-            <button
-              class="inline-flex items-center rounded-md border px-3 py-2 text-xs hover:bg-muted"
-              data-pda-sett-action="open-quality-workbench"
-              data-cycle-id="${escapeHtml(summary.cycleId)}"
-              data-view="${summary.pendingQualityCount > 0 ? 'pending' : summary.disputingCount > 0 ? 'disputing' : 'history'}"
-            >
-              去处理质检扣款
-            </button>
-          </div>
-        `,
-      )}
-      ${renderCard(
-        '对账与预付款进度',
-        `
-          ${renderRow('对账单状态', summary.primaryStatement ? getStatementStatusLabel(summary.primaryStatement.status) : '当前未生成对账单')}
-          ${renderRow('工厂反馈状态', summary.primaryStatement ? getFactoryFeedbackLabel(summary.primaryStatement.factoryFeedbackStatus) : '当前无反馈')}
-          ${renderRow('确认来源', summary.primaryStatement ? getStatementConfirmationSourceLabel(summary.primaryStatement) : '当前未确认')}
-          ${renderRow('预付款批次状态', summary.primaryBatch ? getPrepaymentBatchStatusLabel(summary.primaryBatch.status) : '当前未入预付款')}
-          ${renderRow('计划预付款日', summary.plannedPrepaymentAt ?? '当前未计划')}
-          ${renderRow('飞书付款审批状态', summary.latestApproval ? getFeishuStatusLabel(summary.latestApproval.status) : '当前未申请')}
-          ${renderRow('打款回写', summary.latestWriteback ? `已回写 · ${summary.latestWriteback.bankSerialNo}` : '当前未回写')}
-          ${
-            summary.proxyConfirmedCount > 0
-              ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-[10px] leading-5 text-blue-700">本周期有 ${summary.proxyConfirmedCount} 张对账单已由跟单审核代确认；三方工厂可在对账单详情中查看跟单、时间、原因和通知状态。</div>`
-              : ''
-          }
-          ${
-            statementProgress
-              ? `<div class="rounded-md border bg-muted/20 px-3 py-2 text-[10px] leading-5 text-muted-foreground">${escapeHtml(statementProgress.detail)}</div>`
-              : '<div class="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-[10px] leading-5 text-muted-foreground">当前周期尚未生成对账单，暂时无法进入后续预付款链。</div>'
-          }
-          <div class="grid grid-cols-2 gap-2">
-            <button
-              class="rounded-md border px-3 py-2 text-xs hover:bg-muted"
-              data-pda-sett-action="switch-detail-tab"
-              data-tab="statements"
-              data-cycle-id="${escapeHtml(summary.cycleId)}"
-            >
-              查看对账与预付款
-            </button>
-            <button
-              class="rounded-md border px-3 py-2 text-xs hover:bg-muted"
-              data-pda-sett-action="open-settlement-profile"
-            >
-              查看结算资料
-            </button>
-          </div>
-        `,
-      )}
-      ${renderCard(
-        '结算资料轻入口',
-        `
-          ${renderRow('当前生效版本', effectiveInfo?.versionNo ?? '未初始化')}
-          ${renderRow('本周期对账单使用版本', summary.statementSnapshotVersionNo ?? '当前无对账单')}
-          ${renderRow('本周期预付款批次使用版本', summary.batchSnapshotVersionNo ?? '当前无预付款批次')}
-          ${renderRow('当前申请状态', activeRequest ? getSettlementStatusLabel(activeRequest.status) : '当前无申请中变更')}
-          ${
-            summary.snapshotDifferenceNote
-              ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-5 text-amber-700">${escapeHtml(summary.snapshotDifferenceNote)}</div>`
-              : '<div class="rounded-md border bg-muted/20 px-3 py-2 text-[10px] text-muted-foreground">当前生效版本与本周期已生成单据使用版本一致。</div>'
-          }
-        `,
-      )}
-    </div>
-  `
-}
-
-function renderQualityItemCard(item: FutureMobileFactoryQcListItem, cycleId: string): string {
-  const detailHref = buildPdaQualityDetailHref(item.qcId, cycleId, state.qualityView)
-  const primaryActionLabel = item.canConfirm ? '去确认' : item.canDispute ? '去发起异议' : '查看详情'
-  return `
-    <article class="rounded-lg border bg-card px-3 py-3 shadow-none">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <div class="text-xs font-semibold text-foreground">${escapeHtml(item.qcNo)}</div>
-          <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(`${item.productionOrderNo} · ${item.returnInboundBatchNo}`)}</div>
-          <div class="text-[10px] text-muted-foreground">${escapeHtml(`${item.processLabel} · ${formatDateTime(item.inspectedAt)}`)}</div>
-        </div>
-        ${renderStatusBadge(item.qcResultLabel, item.qcResultLabel.includes('不合格') ? 'red' : item.qcResultLabel.includes('部分') ? 'amber' : 'green')}
-      </div>
-      <div class="mt-2 flex flex-wrap gap-1.5">
-        ${renderStatusBadge(item.factoryResponseStatusLabel, getQualityResponseVariant(item.factoryResponseStatusLabel))}
-        ${renderStatusBadge(item.disputeStatusLabel, getQualityDisputeVariant(item.disputeStatusLabel))}
-        ${renderStatusBadge(item.settlementImpactStatusLabel, getQualitySettlementVariant(item.settlementImpactStatusLabel))}
-      </div>
-      <div class="mt-3 grid grid-cols-2 gap-2 text-[10px]">
-        <div class="rounded-md bg-muted/20 px-2.5 py-2">
-          <div class="text-muted-foreground">责任数量</div>
-          <div class="mt-1 font-medium text-foreground">${item.factoryLiabilityQty} 件</div>
-        </div>
-        <div class="rounded-md bg-muted/20 px-2.5 py-2">
-          <div class="text-muted-foreground">冻结金额</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(formatSettlementAwareAmount(item.blockedProcessingFeeAmount, 'CNY', item.inspectedAt))}</div>
-        </div>
-        <div class="rounded-md bg-muted/20 px-2.5 py-2">
-          <div class="text-muted-foreground">生效扣款</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(formatSettlementAwareAmount(item.effectiveQualityDeductionAmount, 'CNY', item.inspectedAt))}</div>
-        </div>
-        <div class="rounded-md bg-muted/20 px-2.5 py-2">
-          <div class="text-muted-foreground">截止时间</div>
-          <div class="mt-1 font-medium text-foreground">${item.responseDeadlineAt ? escapeHtml(formatDateTime(item.responseDeadlineAt)) : '无需响应'}</div>
-        </div>
-        <div class="rounded-md bg-muted/20 px-2.5 py-2">
-          <div class="text-muted-foreground">剩余时间</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(getRemainingDeadlineSummary(item.responseDeadlineAt))}</div>
-        </div>
-      </div>
-      <div class="mt-3 flex flex-wrap gap-2">
-        <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">${primaryActionLabel}</button>
-        <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">查看质检详情</button>
-        ${
-          item.basisId
-            ? `<button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildDeductionEntryHrefByBasisId(item.basisId))}">查看扣款依据</button>`
-            : ''
-        }
-      </div>
-    </article>
-  `
-}
-
-function renderQualityImpactOverview(summary: SettlementCycleSummary): string {
-  const items = listPdaSettlementWritebackItems(new Set([summary.settlementPartyId]))
-  const totalAmountCny = items.reduce((sum, item) => sum + item.deductionAmountCny, 0)
-  const fxReferenceAt = items[0]?.inspectedAt ?? summary.cycleEndAt
-
-  return renderCard(
-    '质量影响概况',
-    `
-      ${renderRow('已形成正式扣款流水', `${items.length} 条`)}
-      ${renderRow('质量扣款合计', formatSettlementAwareAmount(totalAmountCny, 'CNY', fxReferenceAt))}
-      <div class="space-y-2">
-        ${
-          items.length > 0
-            ? items
-                .slice(0, 4)
-                .map(
-                  (item) => `
-                    <div class="rounded-md border bg-muted/20 px-3 py-2 text-[10px]">
-                      <div class="flex items-center justify-between gap-2">
-                        <span class="font-medium text-foreground">${escapeHtml(item.qcId)}</span>
-                        <span class="font-semibold text-red-600">${escapeHtml(formatSettlementAwareAmount(item.deductionAmountCny, 'CNY', item.inspectedAt))}</span>
-                      </div>
-                      <div class="mt-1 text-muted-foreground">${escapeHtml(`${item.processLabel} · ${item.batchId ?? '未绑定批次'} · ${item.settlementStatusText}`)}</div>
-                    </div>
-                  `,
-                )
-                .join('')
-            : '<div class="rounded-md border border-dashed bg-muted/20 px-3 py-4 text-center text-[10px] text-muted-foreground">当前工厂暂无已形成正式扣款流水</div>'
-        }
-      </div>
-    `,
-  )
-}
-
-function renderQualityTab(summary: SettlementCycleSummary): string {
-  const items = getCycleQualityItems(summary, state.qualityView).filter((item) => matchesQualityKeyword(item, state.qualitySearch))
-  const tabItems: Array<{ key: QualityView; label: string; count: number }> = [
-    { key: 'pending', label: '待处理', count: summary.pendingQualityItems.length },
-    { key: 'soon', label: '即将超时', count: summary.soonQualityItems.length },
-    { key: 'disputing', label: '异议中', count: summary.disputingQualityItems.length },
-    { key: 'processed', label: '已处理', count: summary.processedQualityItems.length },
-    { key: 'history', label: '历史', count: summary.historyQualityItems.length },
-  ]
-
-  return `
-    <div class="space-y-3 p-4">
-      ${renderQualityImpactOverview(summary)}
-      ${renderCard(
-        '质检扣款处理区',
-        `
-          <div class="flex gap-2 overflow-x-auto pb-1">
-            ${tabItems
-              .map(
-                (item) => `
-                  <button
-                    class="inline-flex shrink-0 items-center rounded-full border px-3 py-1.5 text-xs font-medium ${
-                      state.qualityView === item.key ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground'
-                    }"
-                    data-pda-sett-action="set-quality-view"
-                    data-view="${item.key}"
-                    data-cycle-id="${escapeHtml(summary.cycleId)}"
-                  >
-                    ${escapeHtml(item.label)} · ${item.count}
-                  </button>
-                `,
-              )
-              .join('')}
-          </div>
-          <div>
-            <label class="text-[11px] text-muted-foreground">关键词</label>
-            <input
-              class="mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm"
-              placeholder="输入质检单号 / 回货批次号 / 生产单号"
-              data-pda-sett-field="quality-search"
-              value="${escapeHtml(state.qualitySearch)}"
-            />
-          </div>
-          <div class="rounded-md border bg-muted/20 px-3 py-2 text-[10px] leading-5 text-muted-foreground">
-            这里只展示待确认质量扣款记录与质量异议单。未最终裁决的记录不会进入正式流水。
-          </div>
-        `,
-      )}
-      ${
-        items.length > 0
-          ? items.map((item) => renderQualityItemCard(item, summary.cycleId)).join('')
-          : '<div class="rounded-lg border border-dashed bg-card px-4 py-8 text-center text-sm text-muted-foreground">当前分组没有质检扣款记录</div>'
-      }
-    </div>
-  `
-}
-
-function renderLedgerCard(ledger: PreSettlementLedger): string {
-  const statement = ledger.statementId ? getStatementDraftById(ledger.statementId) : null
-  const batch = ledger.prepaymentBatchId ? getPrepaymentBatchById(ledger.prepaymentBatchId) : null
-  return `
-    <article class="rounded-lg border bg-card px-3 py-3 shadow-none">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="text-xs font-semibold text-foreground">${escapeHtml(ledger.ledgerNo)}</span>
-            ${renderStatusBadge(getLedgerTypeLabel(ledger.ledgerType), ledger.ledgerType === 'TASK_EARNING' ? 'blue' : 'red')}
-            ${renderStatusBadge(getLedgerStatusLabel(ledger.status), getLedgerStatusVariant(ledger.status))}
-          </div>
-          <div class="mt-1 text-[10px] text-muted-foreground">${escapeHtml(
-            ledger.ledgerType === 'TASK_EARNING'
-              ? `${ledger.taskNo ?? '未绑定任务'} · ${ledger.returnInboundBatchNo ?? '未绑定回货批次'}`
-              : `${ledger.qcRecordId ?? '未绑定质检'} · ${ledger.pendingDeductionRecordId ?? '未绑定待确认记录'}`,
-          )}</div>
-          <div class="text-[10px] text-muted-foreground">${escapeHtml(`对账单 ${statement?.statementNo ?? statement?.statementId ?? '未入单'} · 预付款 ${batch?.batchNo ?? batch?.batchId ?? '未入批'}`)}</div>
-        </div>
-        <div class="shrink-0 text-right">
-          <div class="text-xs font-semibold ${ledger.direction === 'DEDUCTION' ? 'text-red-600' : 'text-foreground'}">${escapeHtml(formatAmount(ledger.settlementAmount, ledger.settlementCurrency))}</div>
-          <button class="mt-2 rounded-md border px-2.5 py-1 text-[10px] hover:bg-muted" data-pda-sett-action="open-ledger-detail" data-ledger-id="${escapeHtml(ledger.ledgerId)}">
-            查看流水
-          </button>
-        </div>
-      </div>
-    </article>
-  `
-}
-
-function renderLedgerDrawer(): string {
-  const detail = getLedgerDetailViewModel(state.ledgerDrawerId)
-  if (!detail) return ''
-  const { ledger, trace, statement, batch, approval, writeback } = detail
-  const settlementImpact =
-    ledger.ledgerType === 'QUALITY_DEDUCTION' && ledger.qcRecordId
-      ? getFutureMobileFactoryQcDetail(ledger.qcRecordId, ledger.factoryId)
-      : null
-
-  const sourceSection =
-    ledger.ledgerType === 'TASK_EARNING'
-      ? `
-          ${renderRow('任务号', ledger.taskNo ?? ledger.taskId ?? '—')}
-          ${renderRow('生产单号', ledger.productionOrderNo ?? ledger.productionOrderId ?? '—')}
-          ${renderRow('回货批次', ledger.returnInboundBatchNo ?? '—')}
-          ${renderRow('价格来源', getLedgerPriceSourceLabel(ledger.priceSourceType))}
-          ${renderRow('单价', ledger.unitPrice ? formatAmount(ledger.unitPrice, ledger.settlementCurrency) : '—')}
-          ${renderRow('数量', `${ledger.qty} 件`)}
-        `
-      : `
-          ${renderRow('质检记录号', trace?.qcRecord?.qcNo ?? ledger.qcRecordId ?? '—')}
-          ${renderRow('待确认质量扣款记录号', ledger.pendingDeductionRecordId ?? '—')}
-          ${renderRow('质量异议单号', ledger.disputeId ?? '—')}
-          ${renderRow('裁决结果', trace?.disputeCase?.adjudicationResult ?? '当前无裁决')}
-          ${renderRow('责任数量', trace?.qcRecord ? `${trace.qcRecord.factoryLiabilityQty} 件` : '—')}
-          ${
-            settlementImpact
-              ? `
-                ${renderRow('冻结金额', formatSettlementAwareAmount(settlementImpact.blockedProcessingFeeAmount, 'CNY', settlementImpact.inspectedAt))}
-                ${renderRow('生效质量扣款', formatSettlementAwareAmount(settlementImpact.effectiveQualityDeductionAmount, 'CNY', settlementImpact.inspectedAt))}
-              `
-              : ''
-          }
-          ${renderRow('生成原因', ledger.sourceReason ?? '正式返工扣款流水')}
-        `
-
-  const currencyDisplay = getConvertedCurrencyDisplay({
-    amount: ledger.originalAmount,
-    originalCurrency: ledger.originalCurrency,
-    settlementCurrency: ledger.settlementCurrency,
-    referenceAt: ledger.fxAppliedAt,
-  })
-
-  return renderDrawer(
-    `正式流水 · ${ledger.ledgerNo}`,
-    `
-      ${renderCard(
-        '基本信息',
-        `
-          ${renderRow('流水号', ledger.ledgerNo, { bold: true })}
-          ${renderRow('来源类型', getLedgerTypeLabel(ledger.ledgerType))}
-          ${renderRow('当前状态', getLedgerStatusLabel(ledger.status))}
-          ${renderRow('发生时间', formatDateTime(ledger.occurredAt))}
-          ${renderRow('结算周期', ledger.settlementCycleLabel)}
-          ${renderRow('计划预付款日', ledger.plannedPrepaymentAt ?? '当前未计划')}
-        `,
-      )}
-      ${renderCard(
-        '金额信息',
-        `
-          ${renderRow('原始币种金额', currencyDisplay.originalAmountLabel)}
-          ${renderRow('结算币种金额', currencyDisplay.settlementAmountLabel, { bold: true })}
-          ${renderRow('汇率', currencyDisplay.rateLabel)}
-          ${renderRow('换算时点', formatDateTime(currencyDisplay.fxAppliedAt))}
-        `,
-      )}
-      ${renderCard('来源链路', sourceSection)}
-      ${renderCard(
-        '对账单信息',
-        `
-          ${renderRow('对账单号', statement?.statementNo ?? statement?.statementId ?? '当前未入对账单')}
-          ${renderRow('对账单状态', statement ? getStatementStatusLabel(statement.status) : '当前未入对账单')}
-          ${renderRow('工厂反馈状态', statement ? getFactoryFeedbackLabel(statement.factoryFeedbackStatus) : '当前无反馈')}
-          ${renderRow('计划预付款日', statement?.plannedPrepaymentAt ?? ledger.plannedPrepaymentAt ?? '当前未计划')}
-        `,
-      )}
-      ${renderCard(
-        '预付款与打款',
-        `
-          ${renderRow('预付款批次号', batch?.batchNo ?? batch?.batchId ?? '当前未入预付款批次')}
-          ${renderRow('预付款批次状态', batch ? getPrepaymentBatchStatusLabel(batch.status) : '当前未入预付款批次')}
-          ${renderRow('计划预付款日', batch?.plannedPrepaymentAt ?? statement?.plannedPrepaymentAt ?? ledger.plannedPrepaymentAt ?? '当前未计划')}
-          ${renderRow('飞书付款审批编号', approval?.approvalNo ?? '当前未申请')}
-          ${renderRow('飞书付款审批状态', approval ? getFeishuStatusLabel(approval.status) : '当前未申请')}
-          ${renderRow('打款结果', writeback ? `已回写 · ${writeback.bankSerialNo}` : '当前未回写')}
-          ${
-            writeback
-              ? `
-                ${renderRow('打款时间', formatDateTime(writeback.paidAt))}
-                ${renderRow('银行回执', writeback.bankReceiptName)}
-                ${renderRow('银行流水号', writeback.bankSerialNo)}
-              `
-              : ''
-          }
-        `,
-      )}
-    `,
-    'close-ledger-drawer',
-  )
-}
-
-function renderLedgersTab(summary: SettlementCycleSummary): string {
-  const ledgers = getFilteredCycleLedgers(summary)
-  const taskAmount = ledgers.filter((item) => item.ledgerType === 'TASK_EARNING').reduce((sum, item) => sum + item.settlementAmount, 0)
-  const qualityAmount = ledgers.filter((item) => item.ledgerType === 'QUALITY_DEDUCTION').reduce((sum, item) => sum + item.settlementAmount, 0)
-  return `
-    <div class="space-y-3 p-4">
-      ${renderCard(
-        '正式流水查看区',
-        `
-          <div class="grid grid-cols-2 gap-2 text-[10px]">
-            <div class="rounded-md bg-muted/20 px-3 py-2">
-              <div class="text-muted-foreground">任务收入正式流水金额</div>
-              <div class="mt-1 text-xs font-semibold text-foreground">${escapeHtml(formatAmount(taskAmount))}</div>
-            </div>
-            <div class="rounded-md bg-muted/20 px-3 py-2">
-              <div class="text-muted-foreground">质量扣款正式流水金额</div>
-              <div class="mt-1 text-xs font-semibold text-red-600">${escapeHtml(qualityAmount > 0 ? formatAmount(qualityAmount) : '—')}</div>
-            </div>
-          </div>
-          <div class="space-y-2">
-            <div class="flex flex-wrap gap-2">
-              ${[
-                ['all', '全部'],
-                ['task-earning', '任务收入'],
-                ['quality-deduction', '质量扣款'],
-              ]
-                .map(
-                  ([value, label]) => `
-                    <button
-                      class="rounded-full border px-3 py-1.5 text-xs ${
-                        state.ledgerTypeView === value ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground'
-                      }"
-                      data-pda-sett-action="set-ledger-type-view"
-                      data-value="${value}"
-                      data-cycle-id="${escapeHtml(summary.cycleId)}"
-                    >
-                      ${label}
-                    </button>
-                  `,
-                )
-                .join('')}
-            </div>
-            <div class="flex flex-wrap gap-2">
-              ${[
-                ['all', '全部'],
-                ['open', '待入对账单'],
-                ['in-statement', '已入对账单'],
-                ['in-prepayment-batch', '已入预付款批次'],
-                ['prepaid', '已预付'],
-              ]
-                .map(
-                  ([value, label]) => `
-                    <button
-                      class="rounded-full border px-3 py-1.5 text-xs ${
-                        state.ledgerStatusView === value ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground'
-                      }"
-                      data-pda-sett-action="set-ledger-status-view"
-                      data-value="${value}"
-                      data-cycle-id="${escapeHtml(summary.cycleId)}"
-                    >
-                      ${label}
-                    </button>
-                  `,
-                )
-                .join('')}
-            </div>
-            <div>
-              <label class="text-[11px] text-muted-foreground">关键词</label>
-              <input
-                class="mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm"
-                placeholder="输入流水号 / 任务号 / 质检记录号 / 对账单号 / 预付款批次号"
-                data-pda-sett-field="ledger-keyword"
-                value="${escapeHtml(state.ledgerKeyword)}"
-              />
-            </div>
-            <div class="rounded-md border bg-muted/20 px-3 py-2 text-[10px] leading-5 text-muted-foreground">
-              这里只展示已正式成立的任务收入流水和返工扣款流水。待确认质量扣款记录和未最终裁决的质量异议不会进入这里。
-            </div>
-          </div>
-        `,
-      )}
-      ${
-        ledgers.length > 0
-          ? ledgers.map((item) => renderLedgerCard(item)).join('')
-          : '<div class="rounded-lg border border-dashed bg-card px-4 py-8 text-center text-sm text-muted-foreground">当前筛选条件下没有正式流水</div>'
-      }
-      ${renderLedgerDrawer()}
-    </div>
   `
 }
 
@@ -2398,56 +1839,6 @@ function renderStatementsTab(summary: SettlementCycleSummary): string {
   `
 }
 
-function renderCycleDetail(summary: SettlementCycleSummary): string {
-  const detailTabs: Array<[DetailTab, string]> = [
-    ['overview', '总览'],
-    ['quality', '质检扣款'],
-    ['ledgers', '正式流水'],
-    ['statements', '对账与预付款'],
-  ]
-
-  let content = renderOverviewTab(summary)
-  if (state.detailTab === 'quality') content = renderQualityTab(summary)
-  if (state.detailTab === 'ledgers') content = renderLedgersTab(summary)
-  if (state.detailTab === 'statements') content = renderStatementsTab(summary)
-
-  return `
-    <div class="flex items-center justify-between border-b bg-background px-4 py-3">
-      <div class="min-w-0">
-        <button class="inline-flex items-center gap-1 text-xs text-muted-foreground" data-pda-sett-action="back-to-cycles">
-          <i data-lucide="chevron-left" class="h-3.5 w-3.5"></i>返回结算周期
-        </button>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(summary.cycleLabel)}</div>
-        <div class="text-[10px] text-muted-foreground">${escapeHtml(`${summary.cycleStartAt} ~ ${summary.cycleEndAt}`)}</div>
-        <div class="text-[10px] text-muted-foreground">计划预付款：${escapeHtml(summary.plannedPrepaymentAt ?? '-')}</div>
-      </div>
-      ${renderSettlementProfileEntryCard()}
-    </div>
-    <div class="border-b bg-background px-4 py-3">
-      <div class="flex gap-2 overflow-x-auto pb-1">
-        ${detailTabs
-          .map(
-            ([key, label]) => `
-              <button
-                class="inline-flex shrink-0 items-center rounded-full border px-3 py-1.5 text-xs font-medium ${
-                  state.detailTab === key ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground'
-                }"
-                data-pda-sett-action="switch-detail-tab"
-                data-tab="${key}"
-                data-cycle-id="${escapeHtml(summary.cycleId)}"
-              >
-                ${escapeHtml(label)}
-              </button>
-            `,
-          )
-          .join('')}
-      </div>
-    </div>
-    ${content}
-    ${renderSettlementRequestDrawer()}
-  `
-}
-
 function renderCycleListPage(): string {
   const context = getCurrentFactoryContext()
   const boundary = getSettlementPageBoundary('pda-settlement')
@@ -2473,13 +1864,23 @@ function renderCycleListPage(): string {
   `
 }
 
+function renderSettlementHomePage(): string {
+  return renderCycleListPage()
+}
+
+function renderStatementListPage(): string {
+  return renderCycleListPage()
+}
+
+function renderQualityRecordListPage(): string {
+  return renderCycleListPage()
+}
+
 function renderSettlementContent(): string {
   syncSettlementStateFromRoute()
-  if (state.pageMode === 'cycle-detail') {
-    const summary = getSelectedCycleSummary()
-    if (summary) return renderCycleDetail(summary)
-  }
-  return renderCycleListPage()
+  if (state.pageMode === 'statement-list') return renderStatementListPage()
+  if (state.pageMode === 'quality-list') return renderQualityRecordListPage()
+  return renderSettlementHomePage()
 }
 
 export function renderPdaSettlementPage(): string {
@@ -2503,10 +1904,6 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
     const field = fieldNode.dataset.pdaSettField
     if (field === 'quality-search') {
       state.qualitySearch = fieldNode.value
-      return true
-    }
-    if (field === 'ledger-keyword') {
-      state.ledgerKeyword = fieldNode.value
       return true
     }
     if (field === 'statement-appeal-reason') {
@@ -2550,113 +1947,6 @@ export function handlePdaSettlementEvent(target: HTMLElement): boolean {
   if (!actionNode) return false
   const action = actionNode.dataset.pdaSettAction
   if (!action) return false
-
-  if (action === 'open-cycle-detail') {
-    const cycleId = actionNode.dataset.cycleId
-    if (!cycleId) return true
-    state.pageMode = 'cycle-detail'
-    state.selectedCycleId = resolveSettlementCycleId(cycleId)
-    state.detailTab = 'overview'
-    state.ledgerDrawerId = null
-    state.statementDrawerMode = null
-    appStore.navigate(buildSettlementDetailHref('overview', state.selectedCycleId))
-    return true
-  }
-
-  if (action === 'back-to-cycles') {
-    state.pageMode = 'cycles'
-    state.selectedCycleId = null
-    state.ledgerDrawerId = null
-    state.statementDrawerMode = null
-    appStore.navigate(buildSettlementListHref())
-    return true
-  }
-
-  if (action === 'switch-detail-tab') {
-    const tab = actionNode.dataset.tab as DetailTab | undefined
-    const cycleId = resolveSettlementCycleId(actionNode.dataset.cycleId || state.selectedCycleId)
-    if (!tab) return true
-    state.pageMode = 'cycle-detail'
-    state.selectedCycleId = cycleId
-    state.detailTab = tab
-    state.ledgerDrawerId = null
-    if (tab === 'quality') {
-      appStore.navigate(buildSettlementDetailHref('quality', cycleId, { qualityView: state.qualityView }))
-    } else if (tab === 'ledgers') {
-      appStore.navigate(buildSettlementDetailHref('ledgers', cycleId, {
-        ledgerTypeView: state.ledgerTypeView,
-        ledgerStatusView: state.ledgerStatusView,
-      }))
-    } else {
-      appStore.navigate(buildSettlementDetailHref(tab, cycleId))
-    }
-    return true
-  }
-
-  if (action === 'open-quality-workbench') {
-    const cycleId = resolveSettlementCycleId(actionNode.dataset.cycleId || state.selectedCycleId)
-    const view = (actionNode.dataset.view as QualityView | undefined) ?? 'pending'
-    state.pageMode = 'cycle-detail'
-    state.selectedCycleId = cycleId
-    state.detailTab = 'quality'
-    state.qualityView = view
-    appStore.navigate(buildSettlementDetailHref('quality', cycleId, { qualityView: view }))
-    return true
-  }
-
-  if (action === 'set-quality-view') {
-    const view = actionNode.dataset.view as QualityView | undefined
-    const cycleId = resolveSettlementCycleId(actionNode.dataset.cycleId || state.selectedCycleId)
-    if (!view) return true
-    state.pageMode = 'cycle-detail'
-    state.selectedCycleId = cycleId
-    state.detailTab = 'quality'
-    state.qualityView = view
-    appStore.navigate(buildSettlementDetailHref('quality', cycleId, { qualityView: view }))
-    return true
-  }
-
-  if (action === 'set-ledger-type-view') {
-    const nextValue = actionNode.dataset.value as LedgerTypeView | undefined
-    const cycleId = resolveSettlementCycleId(actionNode.dataset.cycleId || state.selectedCycleId)
-    if (!nextValue) return true
-    state.pageMode = 'cycle-detail'
-    state.selectedCycleId = cycleId
-    state.detailTab = 'ledgers'
-    state.ledgerTypeView = nextValue
-    appStore.navigate(buildSettlementDetailHref('ledgers', cycleId, {
-      ledgerTypeView: state.ledgerTypeView,
-      ledgerStatusView: state.ledgerStatusView,
-    }))
-    return true
-  }
-
-  if (action === 'set-ledger-status-view') {
-    const nextValue = actionNode.dataset.value as LedgerStatusView | undefined
-    const cycleId = resolveSettlementCycleId(actionNode.dataset.cycleId || state.selectedCycleId)
-    if (!nextValue) return true
-    state.pageMode = 'cycle-detail'
-    state.selectedCycleId = cycleId
-    state.detailTab = 'ledgers'
-    state.ledgerStatusView = nextValue
-    appStore.navigate(buildSettlementDetailHref('ledgers', cycleId, {
-      ledgerTypeView: state.ledgerTypeView,
-      ledgerStatusView: state.ledgerStatusView,
-    }))
-    return true
-  }
-
-  if (action === 'open-ledger-detail') {
-    const ledgerId = actionNode.dataset.ledgerId
-    if (!ledgerId) return true
-    state.ledgerDrawerId = ledgerId
-    return true
-  }
-
-  if (action === 'close-ledger-drawer') {
-    state.ledgerDrawerId = null
-    return true
-  }
 
   if (action === 'open-statement-detail') {
     const statementId = actionNode.dataset.statementId
