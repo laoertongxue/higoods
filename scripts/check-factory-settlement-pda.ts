@@ -1,78 +1,84 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
+import { indonesiaFactories } from '../src/data/fcs/indonesia-factories.ts'
+import { listSettlementStatementsByParty } from '../src/data/fcs/store-domain-settlement-seeds.ts'
+import { listQcFactRows } from '../src/pages/qc-records/fact-view.ts'
+
 const pda = readFileSync(new URL('../src/pages/pda-settlement.ts', import.meta.url), 'utf8')
-const batches = readFileSync(new URL('../src/pages/batches.ts', import.meta.url), 'utf8')
 
-function findButtonSnippet(label: string, action: string): string {
-  let offset = 0
-  while (offset < pda.length) {
-    const labelIndex = pda.indexOf(label, offset)
-    if (labelIndex < 0) break
-    const buttonStart = pda.lastIndexOf('<button', labelIndex)
-    const buttonEnd = pda.indexOf('</button>', labelIndex)
-    if (buttonStart >= 0 && buttonEnd >= labelIndex) {
-      const snippet = pda.slice(buttonStart, buttonEnd + '</button>'.length)
-      if (snippet.includes(action)) return snippet
-    }
-    offset = labelIndex + label.length
-  }
-  return ''
+function assertIncludes(source: string, token: string): void {
+  assert.ok(source.includes(token), `PDA 结算缺少：${token}`)
 }
 
-function sliceBetween(startToken: string, endToken: string, message: string): string {
-  const start = pda.indexOf(startToken)
-  assert(start >= 0, message)
-  const end = pda.indexOf(endToken, start + startToken.length)
-  assert(end > start, message)
-  return pda.slice(start, end)
-}
-
-for (const token of ['应付', '扣款', '本期净额', '来源质检单', '确认对账单', '发起申诉', '打款结果']) {
-  assert(pda.includes(token), `PDA 结算缺少：${token}`)
-}
-
-for (const forbidden of ['data-pda-sett-field="deduction-amount"', 'data-pda-sett-field="currency"', '修改扣款金额']) {
-  assert(!pda.includes(forbidden), `PDA 不允许核算编辑：${forbidden}`)
+function assertNotIncludes(source: string, token: string): void {
+  assert.equal(source.includes(token), false, `PDA 结算不应出现：${token}`)
 }
 
 for (const token of [
+  "type SettlementPageMode = 'home' | 'statement-list' | 'quality-list'",
+  "type StatementFilterView = 'all' | 'pending-confirm' | 'disputing' | 'unpaid' | 'paid'",
+  "type QualityRecordFilterView = 'all' | 'not-in-statement' | 'in-statement' | 'rework' | 'deducted'",
+  'function buildSettlementHomeViewModel(',
+  'function renderSettlementHomePage(',
+  'function renderStatementListPage(',
+  'function renderQualityRecordListPage(',
+  'function renderQualityRecordDrawer(',
+  '累计收入',
+  '累计扣款',
+  '已付款',
+  '未付款',
+  '未结算',
+  '参考金额',
+  '对账单',
+  '质检记录',
+  '结算资料',
+  '结算明细',
+  'data-pda-sett-action="open-statement-list"',
+  'data-pda-sett-action="open-quality-list"',
+  'data-pda-sett-action="open-settlement-profile"',
+  'data-pda-sett-action="open-quality-record-detail"',
+  'listQcFactRows',
   'hasPdaSettlementPermission',
   'SETTLEMENT_VIEW',
   'SETTLEMENT_CONFIRM',
   'SETTLEMENT_DISPUTE',
   'SETTLEMENT_CHANGE_REQUEST',
-  '当前账号没有确认对账单权限',
-  '当前账号没有发起申诉权限',
-  '当前账号没有变更结算资料权限',
 ]) {
-  assert(pda.includes(token), `PDA 结算缺少权限拦截：${token}`)
+  assertIncludes(pda, token)
 }
 
-const statementDetailButton = findButtonSnippet('查看明细', 'open-statement-detail')
-assert(statementDetailButton, 'PDA 对账单卡片缺少查看明细按钮')
-assert(statementDetailButton.includes('data-pda-sett-action="open-statement-detail"'), '查看明细按钮未绑定对账单详情动作')
-assert(statementDetailButton.includes('data-statement-id'), '查看明细按钮缺少对账单 ID')
+for (const token of [
+  'type DetailTab =',
+  'LedgerTypeView',
+  'LedgerStatusView',
+  'renderLedgersTab',
+  'renderLedgerDrawer',
+  '正式流水查看区',
+  '对账与预付款',
+  '预付款批次',
+  '飞书付款审批编号',
+  '申请付款',
+  '打款回写',
+  'data-batch-action=',
+  'open-statement-payment',
+]) {
+  assertNotIncludes(pda, token)
+}
 
-const paymentResultButton = findButtonSnippet('打款结果', 'open-payment-result')
-assert(paymentResultButton, 'PDA 对账单卡片缺少打款结果按钮')
-assert(paymentResultButton.includes('data-pda-sett-action="open-payment-result"'), '打款结果按钮未绑定打款结果动作')
-assert(paymentResultButton.includes('data-statement-id'), '打款结果按钮缺少对账单 ID')
+const factoriesWithStatements = indonesiaFactories.filter((factory) => listSettlementStatementsByParty(factory.id).length > 0)
+assert.ok(factoriesWithStatements.length > 0, '缺少 PDA 对账单样例')
 
-const paymentHandler = sliceBetween(
-  "if (action === 'open-statement-payment'",
-  "if (action === 'open-statement-appeal'",
-  'PDA 缺少打款结果 handler 片段',
-)
-assert(paymentHandler.includes("action === 'open-statement-payment'"), 'handler 缺少 open-statement-payment')
-assert(paymentHandler.includes("action === 'open-payment-result'"), 'handler 缺少 open-payment-result')
+const statements = factoriesWithStatements.flatMap((factory) => listSettlementStatementsByParty(factory.id))
+assert.ok(statements.some((statement) => statement.factoryFeedbackStatus === 'WAIT_FACTORY_CONFIRM'), '缺少待确认对账单样例')
+assert.ok(statements.some((statement) => statement.factoryFeedbackStatus === 'FACTORY_APPEALED'), '缺少异议中对账单样例')
+assert.ok(statements.some((statement) => statement.prepaidAt || statement.paymentWritebackId || statement.status === 'PREPAID'), '缺少已付款对账单样例')
+assert.ok(statements.some((statement) => !(statement.prepaidAt || statement.paymentWritebackId || statement.status === 'PREPAID')), '缺少未付款对账单样例')
 
-const statementDeductionDetail = sliceBetween("'质量扣款明细',", "'工厂反馈',", 'PDA 对账单详情缺少质量扣款明细片段')
-assert(statementDeductionDetail.includes('来源质检单'), 'PDA 对账单详情缺少来源质检单')
-assert(statementDeductionDetail.includes('扣款原因'), 'PDA 对账单详情缺少扣款原因')
-assert(!statementDeductionDetail.includes('查看扣款依据'), 'PDA 对账单详情不应显示查看扣款依据')
-
-assert(batches.includes('只消费已确认可付款对账单') || batches.includes('已确认可付款对账单'))
-assert(batches.includes('锁账') || batches.includes('金额锁定'))
+const qcRows = listQcFactRows({ includeLegacy: false })
+assert.ok(qcRows.some((row) => row.settlementTrace.statusLabel === '已进入对账' && row.settlementTrace.statementNo), '缺少已进对账质检记录样例')
+assert.ok(qcRows.some((row) => row.settlementTrace.statusLabel !== '已进入对账'), '缺少未进对账质检记录样例')
+assert.ok(qcRows.some((row) => row.reworkQty > 0), '缺少有返工质检记录样例')
+assert.ok(qcRows.some((row) => row.reworkChargebackAmountText !== '—'), '缺少有扣款质检记录样例')
 
 console.log('check:factory-settlement-pda passed')
