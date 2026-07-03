@@ -25,9 +25,11 @@ import {
   isStatementProxyConfirmed,
   listPaymentWritebacks,
   listSettlementBatchesByStatement,
+  listSettlementStatementsByParty,
   submitStatementFactoryAppeal,
   submitStatementFactoryConfirmation,
 } from '../data/fcs/store-domain-settlement-seeds'
+import { listPreSettlementLedgers } from '../data/fcs/pre-settlement-ledger-repository'
 import { cycleTypeConfig, pricingModeConfig } from '../data/fcs/settlement-types'
 import {
   getCurrentPdaUser,
@@ -40,9 +42,11 @@ import {
   getPdaRuntimeContext,
   renderPdaLoginRedirect,
 } from './pda-runtime'
+import { listQcFactRows, type QcFactRow } from './qc-records/fact-view'
 import type {
   FactoryFeedbackStatus,
   PaymentWriteback,
+  PreSettlementLedger,
   SettlementBatch,
   StatementAppealRecord,
   StatementDraft,
@@ -166,6 +170,102 @@ function getCurrentFactoryContext(): FactoryContext {
 
 function getCurrentEffectiveSettlementInfo(factoryCode: string): SettlementEffectiveInfo | null {
   return getSettlementEffectiveInfoByFactory(factoryCode)
+}
+
+interface SettlementCycleSummary {
+  settlementCycleId: string
+  settlementCycleLabel: string
+  settlementCycleStartAt?: string
+  settlementCycleEndAt?: string
+  ledgers: PreSettlementLedger[]
+  statements: StatementDraft[]
+  taskEarningAmount: number
+  qualityDeductionAmount: number
+}
+
+interface SettlementHomeViewModel {
+  accumulatedIncome: number
+  accumulatedDeduction: number
+  paidAmount: number
+  unpaidAmount: number
+  unsettledReferenceAmount: number
+  statements: Array<{ statement: StatementDraft; summary: SettlementCycleSummary }>
+  qcRows: QcFactRow[]
+}
+
+function getSettlementCycleSummaries(context: FactoryContext): SettlementCycleSummary[] {
+  const summaries = new Map<string, SettlementCycleSummary>()
+  const ensureSummary = (cycle: {
+    settlementCycleId?: string
+    settlementCycleLabel?: string
+    settlementCycleStartAt?: string
+    settlementCycleEndAt?: string
+  }): SettlementCycleSummary => {
+    const key = cycle.settlementCycleId || cycle.settlementCycleLabel || '未分组'
+    const existed = summaries.get(key)
+    if (existed) return existed
+    const summary: SettlementCycleSummary = {
+      settlementCycleId: cycle.settlementCycleId || key,
+      settlementCycleLabel: cycle.settlementCycleLabel || '未分组',
+      settlementCycleStartAt: cycle.settlementCycleStartAt,
+      settlementCycleEndAt: cycle.settlementCycleEndAt,
+      ledgers: [],
+      statements: [],
+      taskEarningAmount: 0,
+      qualityDeductionAmount: 0,
+    }
+    summaries.set(key, summary)
+    return summary
+  }
+
+  for (const ledger of listPreSettlementLedgers({ factoryId: context.settlementPartyId })) {
+    const summary = ensureSummary(ledger)
+    summary.ledgers.push(ledger)
+    if (ledger.direction === 'DEDUCTION' || ledger.ledgerType === 'QUALITY_DEDUCTION') {
+      summary.qualityDeductionAmount += Math.abs(ledger.settlementAmount)
+    } else {
+      summary.taskEarningAmount += ledger.settlementAmount
+    }
+  }
+
+  for (const statement of listSettlementStatementsByParty(context.settlementPartyId)) {
+    ensureSummary(statement).statements.push(statement)
+  }
+
+  return [...summaries.values()].sort((left, right) =>
+    (right.settlementCycleEndAt || '').localeCompare(left.settlementCycleEndAt || ''),
+  )
+}
+
+function isStatementPaid(statement: StatementDraft): boolean {
+  return Boolean(statement.prepaidAt || statement.paymentWritebackId || statement.status === 'PREPAID')
+}
+
+function getStatementNetAmount(statement: StatementDraft): number {
+  return statement.netPayableAmount ?? statement.totalAmount ?? 0
+}
+
+function getFactoryQcRows(context: FactoryContext): QcFactRow[] {
+  return listQcFactRows({ includeLegacy: false }).filter((row) => row.sourceFactoryName === context.factoryName)
+}
+
+function buildSettlementHomeViewModel(context: FactoryContext): SettlementHomeViewModel {
+  const summaries = getSettlementCycleSummaries(context)
+  const statements = summaries.flatMap((summary) => summary.statements.map((statement) => ({ statement, summary })))
+  const statementIds = new Set(statements.map(({ statement }) => statement.statementId))
+  const allLedgers = summaries.flatMap((summary) => summary.ledgers)
+  const openLedgers = allLedgers.filter((ledger) => !ledger.statementId || !statementIds.has(ledger.statementId))
+  const qcRows = getFactoryQcRows(context)
+
+  return {
+    accumulatedIncome: statements.reduce((sum, item) => sum + (item.statement.totalEarningAmount ?? item.summary.taskEarningAmount), 0),
+    accumulatedDeduction: statements.reduce((sum, item) => sum + (item.statement.totalDeductionAmount ?? item.summary.qualityDeductionAmount), 0),
+    paidAmount: statements.filter((item) => isStatementPaid(item.statement)).reduce((sum, item) => sum + getStatementNetAmount(item.statement), 0),
+    unpaidAmount: statements.filter((item) => !isStatementPaid(item.statement)).reduce((sum, item) => sum + getStatementNetAmount(item.statement), 0),
+    unsettledReferenceAmount: openLedgers.reduce((sum, ledger) => sum + (ledger.direction === 'DEDUCTION' ? -ledger.settlementAmount : ledger.settlementAmount), 0),
+    statements,
+    qcRows,
+  }
 }
 
 function formatAmount(amount: number, currency = 'IDR'): string {
@@ -1081,8 +1181,74 @@ function renderSettlementPlaceholderPage(title: string, description: string, dra
   `
 }
 
+function renderHomeMetricLink(label: string, value: string, href: string): string {
+  return `
+    <button class="rounded-lg border bg-background px-3 py-2 text-left" data-nav="${escapeHtml(href)}">
+      <div class="text-[11px] text-muted-foreground">${escapeHtml(label)}</div>
+      <div class="mt-1 text-sm font-bold text-foreground">${escapeHtml(value)}</div>
+    </button>
+  `
+}
+
 function renderSettlementHomePage(): string {
-  return renderSettlementPlaceholderPage('结算', '结算资料、待确认事项和快捷入口将在后续任务接入。')
+  const context = getCurrentFactoryContext()
+  const vm = buildSettlementHomeViewModel(context)
+  const pendingStatements = vm.statements.filter(({ statement }) => statement.factoryFeedbackStatus === 'PENDING_FACTORY_CONFIRM')
+  const disputingStatements = vm.statements.filter(({ statement }) => statement.factoryFeedbackStatus === 'FACTORY_APPEALED')
+  const paidStatements = vm.statements.filter(({ statement }) => isStatementPaid(statement))
+  const unpaidStatements = vm.statements.filter(({ statement }) => !isStatementPaid(statement))
+  const inStatementQcRows = vm.qcRows.filter((row) => row.settlementTrace.statusLabel === '已进入对账')
+  const notInStatementQcRows = vm.qcRows.filter((row) => row.settlementTrace.statusLabel !== '已进入对账')
+  const reworkQcRows = vm.qcRows.filter((row) => row.reworkQty > 0)
+  const deductedQcRows = vm.qcRows.filter((row) => row.reworkChargebackAmountText !== '—')
+
+  return `
+    <div class="space-y-3 px-4 py-4">
+      <section class="rounded-lg border bg-card px-4 py-4">
+        <h1 class="text-base font-bold">结算</h1>
+        <p class="mt-1 text-[11px] leading-5 text-muted-foreground">只看收入、对账单、质检记录和结算资料。付款只显示对账单是否已付款。</p>
+      </section>
+      <section class="rounded-lg border bg-card px-4 py-4">
+        <h2 class="text-sm font-semibold">收入</h2>
+        <p class="mt-1 text-[11px] text-muted-foreground">未结算为参考金额，不等同于应付款。</p>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          ${renderHomeMetricLink('累计收入', formatAmount(vm.accumulatedIncome, 'IDR'), buildStatementListHref('all'))}
+          ${renderHomeMetricLink('累计扣款', formatAmount(vm.accumulatedDeduction, 'IDR'), buildStatementListHref('all'))}
+          ${renderHomeMetricLink('已付款', formatAmount(vm.paidAmount, 'IDR'), buildStatementListHref('paid'))}
+          ${renderHomeMetricLink('未付款', formatAmount(vm.unpaidAmount, 'IDR'), buildStatementListHref('unpaid'))}
+          ${renderHomeMetricLink('未结算参考金额', formatAmount(vm.unsettledReferenceAmount, 'IDR'), buildStatementListHref('all'))}
+        </div>
+      </section>
+      <section class="rounded-lg border bg-card px-4 py-4">
+        <h2 class="text-sm font-semibold">对账单</h2>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          ${renderHomeMetricLink('全部', String(vm.statements.length), buildStatementListHref('all'))}
+          ${renderHomeMetricLink('待确认对账单', String(pendingStatements.length), buildStatementListHref('pending-confirm'))}
+          ${renderHomeMetricLink('异议中对账单', String(disputingStatements.length), buildStatementListHref('disputing'))}
+          ${renderHomeMetricLink('未付款对账单', String(unpaidStatements.length), buildStatementListHref('unpaid'))}
+          ${renderHomeMetricLink('已付款对账单', String(paidStatements.length), buildStatementListHref('paid'))}
+        </div>
+      </section>
+      <section class="rounded-lg border bg-card px-4 py-4">
+        <h2 class="text-sm font-semibold">质检记录</h2>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          ${renderHomeMetricLink('全部', String(vm.qcRows.length), buildQualityListHref('all'))}
+          ${renderHomeMetricLink('未进对账', String(notInStatementQcRows.length), buildQualityListHref('not-in-statement'))}
+          ${renderHomeMetricLink('已进对账', String(inStatementQcRows.length), buildQualityListHref('in-statement'))}
+          ${renderHomeMetricLink('有返工', String(reworkQcRows.length), buildQualityListHref('rework'))}
+          ${renderHomeMetricLink('有扣款', String(deductedQcRows.length), buildQualityListHref('deducted'))}
+        </div>
+      </section>
+      <section class="rounded-lg border bg-card px-4 py-4">
+        <h2 class="text-sm font-semibold">结算资料</h2>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <button class="rounded-lg border bg-background px-3 py-2 text-left" data-pda-sett-action="open-settlement-profile">当前版本</button>
+          <button class="rounded-lg border bg-background px-3 py-2 text-left" data-pda-sett-action="open-settlement-version-history">历史版本记录</button>
+        </div>
+      </section>
+      ${renderSettlementRequestDrawer()}
+    </div>
+  `
 }
 
 function renderStatementListPage(): string {
