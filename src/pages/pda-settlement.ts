@@ -1327,13 +1327,13 @@ function renderSettlementHomePage(): string {
       </section>
       <section class="rounded-lg border bg-card px-4 py-4">
         <h2 class="text-sm font-semibold">收入</h2>
-        <p class="mt-1 text-[11px] text-muted-foreground">未入单净额为参考金额，不等同于应付款。</p>
+        <p class="mt-1 text-[11px] text-muted-foreground">未结算为未入单净额参考，不等同于应付款。</p>
         <div class="mt-3 grid grid-cols-2 gap-2">
           ${renderHomeMetricLink('累计收入', formatAmount(vm.accumulatedIncome, 'IDR'), buildStatementListHref('all'))}
           ${renderHomeMetricLink('累计扣款', formatAmount(vm.accumulatedDeduction, 'IDR'), buildStatementListHref('all'))}
           ${renderHomeMetricLink('已付款', formatAmount(vm.paidAmount, 'IDR'), buildStatementListHref('paid'))}
           ${renderHomeMetricLink('未付款', formatAmount(vm.unpaidAmount, 'IDR'), buildStatementListHref('unpaid'))}
-          ${renderHomeMetricLink('未入单净额参考', formatAmount(vm.unsettledReferenceAmount, 'IDR'), buildStatementListHref('all'))}
+          ${renderHomeMetricLink('未结算参考金额', formatAmount(vm.unsettledReferenceAmount, 'IDR'), buildStatementListHref('all'))}
         </div>
       </section>
       <section class="rounded-lg border bg-card px-4 py-4">
