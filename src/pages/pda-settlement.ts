@@ -264,6 +264,10 @@ function getStatementPaymentTime(statement: StatementDraft, batch: SettlementBat
   return statement.prepaidAt ?? batch?.paymentAt ?? batch?.prepaidAt
 }
 
+function getStatementObjectModeLabel(mode: StatementDraft['settlementObjectMode']): string {
+  return mode === 'PRODUCTION_ORDER' ? '按生产单' : '按结算明细'
+}
+
 function normalizeFactoryName(value: string | undefined): string {
   return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
@@ -1139,6 +1143,7 @@ function renderStatementDrawer(): string {
           ${renderRow('工厂反馈状态', getFactoryFeedbackLabel(statement.factoryFeedbackStatus))}
           ${renderRow('确认来源', getStatementConfirmationSourceLabel(statement))}
           ${renderRow('所属范围', statement.settlementCycleLabel ?? '—')}
+          ${renderRow('结算对象', getStatementObjectModeLabel(statement.settlementObjectMode))}
           ${renderRow('创建时间', formatDateTime(statement.createdAt))}
           ${
             isStatementProxyConfirmed(statement)
@@ -1321,6 +1326,7 @@ function renderStatementCard(statement: StatementDraft, summary: SettlementCycle
         <span class="shrink-0 rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">${escapeHtml(getFactoryFeedbackLabel(statement.factoryFeedbackStatus))}</span>
       </div>
       <div class="mt-3 space-y-1">
+        ${renderRow('结算对象', getStatementObjectModeLabel(statement.settlementObjectMode))}
         ${renderRow('任务收入', formatAmount(amounts.earningAmount, statement.settlementCurrency ?? 'IDR'))}
         ${renderRow('扣款', amounts.deductionAmount > 0 ? formatAmount(amounts.deductionAmount, statement.settlementCurrency ?? 'IDR') : '—', { red: amounts.deductionAmount > 0 })}
         ${renderRow('本期净额', formatAmount(amounts.netAmount, statement.settlementCurrency ?? 'IDR'), { bold: true })}
