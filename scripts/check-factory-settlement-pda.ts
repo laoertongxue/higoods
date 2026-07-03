@@ -81,4 +81,8 @@ assert.ok(qcRows.some((row) => row.settlementTrace.statusLabel !== '已进入对
 assert.ok(qcRows.some((row) => row.reworkQty > 0), '缺少有返工质检记录样例')
 assert.ok(qcRows.some((row) => row.reworkChargebackAmountText !== '—'), '缺少有扣款质检记录样例')
 
+const defaultFactoryQcRows = qcRows.filter((row) => row.sourceFactoryName === 'PT Sinar Garment Indonesia')
+assert.ok(defaultFactoryQcRows.some((row) => row.reworkQty > 0), '默认 PDA 工厂缺少可见的有返工质检记录样例')
+assert.ok(defaultFactoryQcRows.some((row) => row.reworkChargebackAmountText !== '—'), '默认 PDA 工厂缺少可见的有扣款质检记录样例')
+
 console.log('check:factory-settlement-pda passed')

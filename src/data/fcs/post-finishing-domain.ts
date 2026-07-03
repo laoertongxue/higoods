@@ -1590,10 +1590,10 @@ const SOURCE_CONTEXTS: PostFinishingSourceContext[] = [
     spuName: 'Kaos Polos Premium',
     productionOrderId: 'PO-202603-0001',
     productionOrderNo: 'PO-202603-0001',
-    sourceTaskId: 'TASK-KOL-202603-004-A',
-    sourceTaskNo: 'KOL样衣任务-202603-004-A',
-    sourceFactoryId: 'F-KOL-004',
-    sourceFactoryName: 'KOL样衣工厂',
+    sourceTaskId: 'TASK-SEW-202603-004-A',
+    sourceTaskNo: '车缝任务-202603-004-A',
+    sourceFactoryId: 'ID-F001',
+    sourceFactoryName: 'PT Sinar Garment Indonesia',
     sourceFactoryType: '车缝厂',
     canCreateWithoutTask: false,
     skuLines: [
@@ -2083,7 +2083,7 @@ function withoutWarehouseAllocations(qc: PostFinishingQcOrder): PostFinishingQcO
 }
 
 let qcOrders: PostFinishingQcOrder[] = [
-  buildQcOrder(1, SOURCE_CONTEXTS[0], receiptRecords[0], { status: '质检完成', passedQty: 4980, defectiveQty: 20, needButton: true, needIroning: true, needPackaging: true, buttonAttachMode: '人工装扣', station: 'A' }),
+  withMultiSkuDefectReasonMock(buildQcOrder(1, SOURCE_CONTEXTS[0], receiptRecords[0], { status: '质检完成', passedQty: 4980, defectiveQty: 20, needButton: true, needIroning: true, needPackaging: true, buttonAttachMode: '人工装扣', station: 'A' })),
   buildQcOrder(2, SOURCE_CONTEXTS[0], receiptRecords[0], { status: '质检完成', passedQty: 5000, defectiveQty: 0, needPackaging: true, station: 'B' }),
   withoutWarehouseAllocations(buildQcOrder(3, SOURCE_CONTEXTS[3], receiptRecords[3], { status: '质检完成', passedQty: 360, defectiveQty: 30, needButton: true, needIroning: true, needPackaging: true, buttonAttachMode: '人工装扣', station: 'A' })),
   withoutWarehouseAllocations(buildQcOrder(4, SOURCE_CONTEXTS[3], receiptRecords[3], { status: '质检完成', passedQty: 386, defectiveQty: 4, needPackaging: true, station: 'B' })),
