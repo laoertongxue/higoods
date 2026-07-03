@@ -1087,6 +1087,10 @@ function parseManualDeductionAmount(value: string): number {
   return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) / 100 : 0
 }
 
+function toManualDeductionIdPart(value: string): string {
+  return value.replace(/[^A-Za-z0-9-]/g, '-')
+}
+
 function getBuildProductionOrderTimingAssist(productionOrderNo: string): { startTime: string; lastHandoverTime: string } {
   const ledgers = getBuildRangeLedgers().filter((item) => item.productionOrderNo === productionOrderNo)
   const times = ledgers.map((item) => item.occurredAt).filter(Boolean).sort()
@@ -1206,28 +1210,35 @@ function buildManualStatementDeductionLines(
     state.buildEndDate || scope.settlementCycleEndAt,
     state.buildObjectMode,
   ].join('-').replace(/[^A-Za-z0-9-]/g, '-')
-  const defectInputs = getBuildQcReasonSummaries(getBuildProductionOrderProjections()).map((summary, index) => {
-    const input = state.manualDefectReasonDeductions[summary.reasonName] ?? { amount: '', remark: '' }
+  const defectInputs = getBuildQcReasonSummariesByProductionOrder(getBuildProductionOrderProjections()).map(
+    (summary, index) => {
+      const input = getManualDefectProductionOrderDeduction(summary.productionOrderNo, summary.reasonName)
+      return {
+        id: `MANUAL-DEFECT-${toManualDeductionIdPart(summary.productionOrderNo)}-${String(index + 1).padStart(2, '0')}-${baseId}`,
+        label: `${summary.productionOrderNo} ${summary.reasonName}扣款`,
+        productionOrderNo: summary.productionOrderNo,
+        productionOrderId: summary.productionOrderId,
+        lineType: 'QUALITY_DEFECT' as const,
+        amount: parseManualDeductionAmount(input.amount),
+        qty: summary.qty,
+        remark: input.remark.trim() || `业务人员填写${summary.productionOrderNo} ${summary.reasonName}瑕疵扣款`,
+      }
+    },
+  )
+  const delayInputs = getIncludedBuildProjections(getBuildProductionOrderProjections()).map((projection) => {
+    const input = getManualDelayProductionOrderDeduction(projection.productionOrderNo)
     return {
-      id: `MANUAL-DEFECT-${String(index + 1).padStart(2, '0')}-${baseId}`,
-      label: `${summary.reasonName}扣款`,
-      lineType: 'QUALITY_DEFECT' as const,
+      id: `MANUAL-DELAY-${toManualDeductionIdPart(projection.productionOrderNo)}-${baseId}`,
+      label: `${projection.productionOrderNo} 延误扣款`,
+      productionOrderNo: projection.productionOrderNo,
+      productionOrderId: projection.productionOrderId,
+      lineType: 'DELAY' as const,
       amount: parseManualDeductionAmount(input.amount),
-      qty: summary.qty,
-      remark: input.remark.trim() || `业务人员填写${summary.reasonName}瑕疵扣款`,
+      qty: 0,
+      remark: input.remark.trim() || `业务人员根据${projection.productionOrderNo}开始时间和最后交出时间填写延误扣款`,
     }
   })
-  const inputs = [
-    ...defectInputs,
-    {
-      id: `MANUAL-DELAY-${baseId}`,
-      label: '延误扣款',
-      lineType: 'DELAY' as const,
-      amount: parseManualDeductionAmount(state.manualDelayDeductionAmount),
-      qty: 0,
-      remark: state.manualDelayDeductionRemark.trim() || '业务人员根据开始时间和最后交出时间填写延误扣款',
-    },
-  ]
+  const inputs = [...defectInputs, ...delayInputs]
 
   return inputs.flatMap((input) => {
     if (input.amount <= 0) return []
@@ -1240,6 +1251,8 @@ function buildManualStatementDeductionLines(
       routeToSource: '/fcs/settlement/statements',
       settlementPartyType: scope.settlementPartyType,
       settlementPartyId: scope.settlementPartyId,
+      productionOrderId: input.productionOrderId,
+      productionOrderNo: input.productionOrderNo,
       basisId: input.id,
       deductionLineType: input.lineType,
       deductionQty: input.qty,
