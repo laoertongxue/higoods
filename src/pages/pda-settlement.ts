@@ -269,6 +269,10 @@ function getStatementNetAmount(statement: StatementDraft): number {
   return statement.netPayableAmount ?? statement.totalAmount ?? 0
 }
 
+function getStatementPaymentTime(statement: StatementDraft, batch: SettlementBatch | null): string | undefined {
+  return statement.prepaidAt ?? batch?.paymentAt ?? batch?.prepaidAt ?? batch?.updatedAt
+}
+
 function normalizeFactoryName(value: string | undefined): string {
   return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
@@ -986,7 +990,7 @@ function renderProxyConfirmationNotice(statement: StatementDraft): string {
 }
 
 function getBatchByStatement(statementId: string): SettlementBatch | null {
-  return sortByDateDesc(listSettlementBatchesByStatement(statementId), (item) => item.prepaidAt ?? item.updatedAt ?? item.createdAt)[0] ?? null
+  return sortByDateDesc(listSettlementBatchesByStatement(statementId), (item) => item.paymentAt ?? item.prepaidAt ?? item.updatedAt ?? item.createdAt)[0] ?? null
 }
 
 function getStatementItemTypeLabel(item: StatementDraftItem): string {
@@ -1060,6 +1064,7 @@ function renderStatementDrawer(): string {
   const canConfirmStatement = canRespond && hasPdaSettlementPermission('SETTLEMENT_CONFIRM')
   const canAppealStatement = canAppeal && hasPdaSettlementPermission('SETTLEMENT_DISPUTE')
   const statementPaid = isStatementPaid(statement)
+  const paymentTime = getStatementPaymentTime(statement, batch)
   const snapshotDiffNote =
     currentEffective && currentEffective.versionNo !== statement.settlementProfileVersionNo
       ? `当前生效：${currentEffective.versionNo}；对账单使用：${statement.settlementProfileVersionNo}。新版本用于后续新单据，本期已生成单据继续沿用原快照。`
@@ -1136,7 +1141,7 @@ function renderStatementDrawer(): string {
           ${renderRow('本期净额', formatAmount(amounts.netAmount), { bold: true })}
           ${renderRow('付款状态', getStatementPaymentStatusLabel(statement, batch), { green: statementPaid, orange: isStatementPaidPendingWriteback(statement, batch) })}
           ${statementPaid ? renderRow('付款金额', formatAmount(getStatementNetAmount(statement), statement.settlementCurrency ?? 'IDR'), { bold: true }) : ''}
-          ${statement.prepaidAt ? renderRow('付款时间', formatDateTime(statement.prepaidAt)) : ''}
+          ${paymentTime ? renderRow('付款时间', formatDateTime(paymentTime)) : ''}
         `,
       )}
       ${renderStatementDetailSection(
@@ -1259,6 +1264,7 @@ function renderStatementCard(statement: StatementDraft, summary: SettlementCycle
   const amounts = getStatementSplitAmounts(statement)
   const batch = statement.prepaymentBatchId ? getPrepaymentBatchById(statement.prepaymentBatchId) : getBatchByStatement(statement.statementId)
   const statementPaid = isStatementPaid(statement)
+  const paymentTime = getStatementPaymentTime(statement, batch)
   const canRespond =
     statement.status === 'PENDING_FACTORY_CONFIRM' && statement.factoryFeedbackStatus === 'PENDING_FACTORY_CONFIRM'
   const canAppeal = canRespond || (isStatementProxyConfirmed(statement) && !statement.prepaymentBatchId)
@@ -1280,7 +1286,7 @@ function renderStatementCard(statement: StatementDraft, summary: SettlementCycle
         ${renderRow('本期净额', formatAmount(amounts.netAmount, statement.settlementCurrency ?? 'IDR'), { bold: true })}
         ${renderRow('付款状态', getStatementPaymentStatusLabel(statement, batch), { green: statementPaid, orange: isStatementPaidPendingWriteback(statement, batch) })}
         ${statementPaid ? renderRow('付款金额', formatAmount(getStatementNetAmount(statement), statement.settlementCurrency ?? 'IDR'), { bold: true }) : ''}
-        ${statement.prepaidAt ? renderRow('付款时间', formatDateTime(statement.prepaidAt)) : ''}
+        ${paymentTime ? renderRow('付款时间', formatDateTime(paymentTime)) : ''}
       </div>
       <div class="mt-3 grid grid-cols-3 gap-2">
         <button class="inline-flex h-9 items-center justify-center rounded-md border px-2 text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-pda-sett-action="confirm-statement" data-statement-id="${escapeHtml(statement.statementId)}" ${canConfirmStatement ? '' : 'disabled'}>
