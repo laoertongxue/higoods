@@ -33,6 +33,8 @@ const PAGE_PATH = '/fcs/production/preparation-timing'
 const STATS_PAGE_PATH = '/fcs/production/preparation-timing-statistics'
 const DEFAULT_MONTH = '2026-03'
 const LEDGER_PAGE_SIZE = 5
+const MONTHLY_STATS_PAGE_SIZE = 5
+const DETAIL_STATS_PAGE_SIZE = 8
 const LEDGER_FILTER_KEYS = [
   'merchandiserName',
   'buyerName',
@@ -233,6 +235,41 @@ function getLedgerPage(params: URLSearchParams, records: ProductionPreparationRe
 function paginateLedgerRecords(records: ProductionPreparationRecord[], page: number): ProductionPreparationRecord[] {
   const start = (page - 1) * LEDGER_PAGE_SIZE
   return records.slice(start, start + LEDGER_PAGE_SIZE)
+}
+
+function pageCount(total: number, pageSize: number): number {
+  return Math.max(1, Math.ceil(total / pageSize))
+}
+
+function getPage(params: URLSearchParams, key: string, total: number, pageSize: number): number {
+  const rawPage = Number.parseInt(valueOf(params, key), 10)
+  const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1
+  return Math.min(page, pageCount(total, pageSize))
+}
+
+function paginateRows<T>(rows: T[], page: number, pageSize: number): T[] {
+  const start = (page - 1) * pageSize
+  return rows.slice(start, start + pageSize)
+}
+
+function renderStatsPagination(total: number, page: number, pageSize: number, pageKey: string, params: URLSearchParams, month: string): string {
+  const totalPages = pageCount(total, pageSize)
+  const prevHref = page > 1 ? buildStatsHref({ ...Object.fromEntries(params), month, [pageKey]: page - 1 }) : ''
+  const nextHref = page < totalPages ? buildStatsHref({ ...Object.fromEntries(params), month, [pageKey]: page + 1 }) : ''
+  const renderButton = (label: string, href: string) =>
+    href
+      ? `<button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(href)}">${escapeHtml(label)}</button>`
+      : `<button type="button" class="rounded-md border px-3 py-1.5 text-xs text-muted-foreground opacity-50" disabled>${escapeHtml(label)}</button>`
+
+  return `
+    <div class="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3 text-sm">
+      <span class="text-muted-foreground">共 ${total} 条，第 ${page}/${totalPages} 页</span>
+      <div class="flex items-center gap-2">
+        ${renderButton('上一页', prevHref)}
+        ${renderButton('下一页', nextHref)}
+      </div>
+    </div>
+  `
 }
 
 function renderLedgerPagination(
@@ -1218,6 +1255,9 @@ function renderStatsSummary(details: MonthlyPreparationCompletionDetail[], stats
 }
 
 function renderStatsTable(month: string, rows: StatsTableRow[], params: URLSearchParams): string {
+  const page = getPage(params, 'monthlyPage', rows.length, MONTHLY_STATS_PAGE_SIZE)
+  const pagedRows = paginateRows(rows, page, MONTHLY_STATS_PAGE_SIZE)
+
   return `
     <section class="rounded-xl border bg-card">
       <div class="border-b px-5 py-4">
@@ -1231,11 +1271,12 @@ function renderStatsTable(month: string, rows: StatsTableRow[], params: URLSearc
             </tr>
           </thead>
           <tbody>
-            ${rows.map((row) => {
+            ${pagedRows.map((row) => {
               const detailHref = buildStatsHref({
                 ...Object.fromEntries(params),
                 tab: 'detail',
                 month,
+                detailPage: 1,
               })
               return `
                 <tr class="border-b last:border-b-0">
@@ -1256,11 +1297,15 @@ function renderStatsTable(month: string, rows: StatsTableRow[], params: URLSearc
           </tbody>
         </table>
       </div>
+      ${renderStatsPagination(rows.length, page, MONTHLY_STATS_PAGE_SIZE, 'monthlyPage', params, month)}
     </section>
   `
 }
 
-function renderDetailTable(month: string, details: MonthlyPreparationCompletionDetail[]): string {
+function renderDetailTable(month: string, details: MonthlyPreparationCompletionDetail[], params: URLSearchParams): string {
+  const page = getPage(params, 'detailPage', details.length, DETAIL_STATS_PAGE_SIZE)
+  const pagedDetails = paginateRows(details, page, DETAIL_STATS_PAGE_SIZE)
+
   return `
     <section class="rounded-xl border bg-card">
       <div class="border-b px-5 py-4">
@@ -1275,8 +1320,8 @@ function renderDetailTable(month: string, details: MonthlyPreparationCompletionD
           </thead>
           <tbody>
             ${
-              details.length
-                ? details.map((detail) => `
+              pagedDetails.length
+                ? pagedDetails.map((detail) => `
                   <tr class="border-b last:border-b-0">
                     <td class="px-4 py-3">${escapeHtml(month)}</td>
                     <td class="px-4 py-3 font-mono text-xs">${escapeHtml(detail.recordNo)}</td>
@@ -1301,6 +1346,7 @@ function renderDetailTable(month: string, details: MonthlyPreparationCompletionD
           </tbody>
         </table>
       </div>
+      ${renderStatsPagination(details.length, page, DETAIL_STATS_PAGE_SIZE, 'detailPage', params, month)}
     </section>
   `
 }
@@ -1395,7 +1441,7 @@ function renderDetailStatsTab(params: URLSearchParams, month: string): string {
     <div class="flex flex-wrap gap-2">
       <a class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" href="${escapeHtml(csvDataUri(buildDetailCsvRows(month, details)))}" download="${escapeHtml(detailFileName)}">导出完成明细</a>
     </div>
-    ${renderDetailTable(month, details)}
+    ${renderDetailTable(month, details, params)}
   `
 }
 
