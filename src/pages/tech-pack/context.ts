@@ -4852,7 +4852,7 @@ function buildPatternFormStateFromItem(item: PatternItem): PatternFormState {
     duplicateWarningReasons: [...(item.duplicateWarningReasons || [])],
     patternMaterialType: item.patternMaterialType,
     patternMaterialTypeLabel: item.patternMaterialTypeLabel,
-    internalStyleCode: item.internalStyleCode || '',
+    internalStyleCode: item.internalStyleCode || state.techPack.internalStyleCode || '',
     patternFileMode: item.patternFileMode,
     parseStatus: item.parseStatus,
     parseStatusLabel: item.parseStatusLabel,

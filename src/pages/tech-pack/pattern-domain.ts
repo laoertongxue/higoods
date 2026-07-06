@@ -1564,6 +1564,14 @@ export function renderPatternFormDialog(): string {
                       ${TECH_PACK_PATTERN_CATEGORY_OPTIONS.map((option) => `<option value="${option}" ${state.newPattern.type === option ? 'selected' : ''}>${option}</option>`).join('')}
                     </select>
                   </label>
+                  ${
+                    state.newPattern.patternMaterialType === 'WOOL'
+                      ? `<label class="space-y-1">
+                          <span class="text-sm">内部货号</span>
+                          <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-internal-style-code" value="${escapeHtml(state.newPattern.internalStyleCode || '')}" placeholder="例如：2585" />
+                        </label>`
+                      : ''
+                  }
                 </div>
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <label class="space-y-1">

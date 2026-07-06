@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 const techPacksSource = readFileSync('src/data/fcs/tech-packs.ts', 'utf8')
 const contextSource = readFileSync('src/pages/tech-pack/context.ts', 'utf8')
 const eventsSource = readFileSync('src/pages/tech-pack/events.ts', 'utf8')
+const patternDomainSource = readFileSync('src/pages/tech-pack/pattern-domain.ts', 'utf8')
 
 function assertContains(source: string, expected: string, file: string): void {
   if (!source.includes(expected)) {
@@ -91,7 +92,14 @@ assertContains(patternPoolDemoBlock, "internalStyleCode: '2585'", 'createPattern
 assertContains(materialAssociationBlock, "internalStyleCode: patternPackage.internalStyleCode || ''", 'createMaterialPatternDemoAssociation')
 assertContains(inheritPatternPackageBlock, 'internalStyleCode: sourcePackage.internalStyleCode', 'inheritPatternPackageTechnicalFields')
 assertContains(syncTechPackBlock, 'internalStyleCode: item.internalStyleCode || undefined', 'syncTechPackToStore')
-assertContains(buildPatternFormStateBlock, "internalStyleCode: item.internalStyleCode || ''", 'buildPatternFormStateFromItem')
-assertContains(buildPatternItemFromFormBlock, "internalStyleCode: state.newPattern.internalStyleCode || ''", 'buildPatternItemFromForm')
+
+assertContains(patternDomainSource, '内部货号', '毛织纸样包弹窗必须展示内部货号字段')
+assertContains(patternDomainSource, 'new-pattern-internal-style-code', '内部货号输入框必须有 data-tech-field')
+assertContains(patternDomainSource, '例如：2585', '内部货号输入框必须给出示例占位')
+assertContains(eventsSource, "field === 'new-pattern-internal-style-code'", '技术包事件必须读取内部货号字段')
+assertContains(eventsSource, 'state.newPattern.internalStyleCode = value.trim()', '内部货号保存前必须 trim')
+assertContains(buildPatternItemFromFormBlock, "normalizedPatternMaterialType === 'WOOL'", 'buildPatternItemFromForm')
+assertContains(buildPatternItemFromFormBlock, 'state.newPattern.internalStyleCode.trim()', 'buildPatternItemFromForm')
+assertContains(buildPatternFormStateBlock, "internalStyleCode: item.internalStyleCode || state.techPack.internalStyleCode || ''", 'buildPatternFormStateFromItem')
 
 console.log('毛织内部货号专项检查通过')

@@ -1231,7 +1231,10 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
     duplicateWarningReasons: [...state.newPattern.duplicateWarningReasons],
     patternMaterialType: normalizedPatternMaterialType,
     patternMaterialTypeLabel: getPatternMaterialTypeLabel(normalizedPatternMaterialType),
-    internalStyleCode: state.newPattern.internalStyleCode || '',
+    internalStyleCode:
+      normalizedPatternMaterialType === 'WOOL'
+        ? state.newPattern.internalStyleCode.trim()
+        : '',
     patternFileMode: normalizedPatternFileMode,
     parseStatus: nextParseStatus,
     parseStatusLabel: getPatternParseStatusLabel(nextParseStatus),
@@ -1684,6 +1687,10 @@ function handleTechPackField(
   }
   if (field === 'new-pattern-file') {
     state.newPattern.file = value
+    return true
+  }
+  if (field === 'new-pattern-internal-style-code') {
+    state.newPattern.internalStyleCode = value.trim()
     return true
   }
   if (field === 'new-pattern-remark') {
