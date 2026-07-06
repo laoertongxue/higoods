@@ -66,8 +66,12 @@ function renderRequirement(value: boolean, yesText: string, noText: string): str
 }
 
 function renderWarehouseStocks(row: FabricDemandBoardRow): string {
+  const totalStockQty = row.warehouseStocks.reduce((sum, stock) => sum + stock.qty, 0)
   return `
     <div class="space-y-1">
+      <div class="mb-2 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-900">
+        总库存 ${formatFabricDemandQty(totalStockQty)}
+      </div>
       ${row.warehouseStocks
         .map(
           (stock) => `
@@ -86,22 +90,28 @@ function renderRawMaterial(row: FabricDemandBoardRow): string {
   if (!row.requiresPrint && !row.requiresDye) {
     return `
       <div class="space-y-1 text-xs">
-        <div class="font-medium text-slate-900">直裁按目标面料备料</div>
-        <div class="text-slate-500">需求：${formatFabricDemandQty(row.demandQty)}</div>
-        <div class="text-slate-500">中央仓面料仓：${formatFabricDemandQty(getWarehouseQty(row, '中央仓面料仓'))}</div>
-        <div class="text-slate-500">中转仓：${formatFabricDemandQty(getWarehouseQty(row, '中转仓'))}</div>
+        <div class="font-medium text-slate-900">不涉及印花/染色原料转换</div>
+        <div class="text-slate-500">直裁按目标面料备料，库存见多仓库存列。</div>
       </div>
     `
   }
 
   const destination: FabricDemandBoardWarehouseName = row.requiresPrint ? '印花厂待加工仓' : '染色厂待加工仓'
+  const centralQty = getWarehouseQty(row, '中央仓面料仓')
+  const destinationQty = getWarehouseQty(row, destination)
+  const totalRawMaterialQty = centralQty + destinationQty
+  const rawMaterialCoverageText = totalRawMaterialQty >= row.rawMaterialDemandQty
+    ? `合计 ${formatFabricDemandQty(totalRawMaterialQty)}，已覆盖需求；目的仓仍缺 ${formatFabricDemandQty(Math.max(row.rawMaterialDemandQty - destinationQty, 0))}待调拨`
+    : `合计 ${formatFabricDemandQty(totalRawMaterialQty)}，缺口 ${formatFabricDemandQty(row.rawMaterialDemandQty - totalRawMaterialQty)}`
+
   return `
     <div class="space-y-1 text-xs">
       <div class="font-medium text-slate-900">${escapeHtml(row.rawMaterialName)}</div>
       <div class="text-slate-500">原料 SKU：${escapeHtml(row.rawMaterialSku)}</div>
       <div class="text-slate-500">原料需求：${formatFabricDemandQty(row.rawMaterialDemandQty)}</div>
-      <div class="text-slate-500">中央仓面料仓：${formatFabricDemandQty(getWarehouseQty(row, '中央仓面料仓'))}</div>
-      <div class="text-slate-500">${destination}：${formatFabricDemandQty(getWarehouseQty(row, destination))}</div>
+      <div class="text-slate-500">中央仓面料仓：${formatFabricDemandQty(centralQty)}</div>
+      <div class="text-slate-500">${destination}：${formatFabricDemandQty(destinationQty)}</div>
+      <div class="font-medium text-slate-700">${rawMaterialCoverageText}</div>
     </div>
   `
 }
@@ -139,7 +149,7 @@ function renderAlerts(row: FabricDemandBoardRow): string {
 
 function renderRows(rows: FabricDemandBoardRow[]): string {
   if (rows.length === 0) {
-    return '<tr><td colspan="8" class="px-4 py-10 text-center text-sm text-slate-500">当前筛选下暂无面料需求</td></tr>'
+    return '<tr><td colspan="7" class="px-4 py-10 text-center text-sm text-slate-500">当前筛选下暂无面料需求</td></tr>'
   }
 
   return rows
@@ -203,6 +213,7 @@ export function renderWlsFabricDemandBoardPage(): string {
             <span>关键词</span>
             <input
               data-fabric-demand-filter="keyword"
+              data-skip-page-rerender="true"
               value="${escapeHtml(filters.keyword)}"
               placeholder="面料名称 / 面料 SKU / 面料 SPU"
               class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-700"
