@@ -4447,6 +4447,15 @@ function getChecklist(): ChecklistItem[] {
   ]
 }
 
+function resolveLatestWoolInternalStyleCode(
+  items: Array<{ patternMaterialType?: string; internalStyleCode?: string }>,
+): string {
+  return [...items]
+    .reverse()
+    .find((item) => item.patternMaterialType === 'WOOL' && String(item.internalStyleCode || '').trim())
+    ?.internalStyleCode?.trim() || ''
+}
+
 function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { touch: true, persist: true }): void {
   if (!state.techPack) return
 
@@ -4462,6 +4471,7 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
 
   const next: TechPack = {
     ...state.techPack,
+    internalStyleCode: resolveLatestWoolInternalStyleCode(state.patternItems),
     patternFiles: state.patternItems.map((item) => {
       const pieceRows = normalizePatternPieceRows(item.pieceRows, item.id, item.linkedBomItemId)
       const inferredPieceCount = calculatePatternTotalPieceQty(pieceRows)
@@ -4490,7 +4500,7 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
         patternCategory: item.type,
         patternMaterialType: item.patternMaterialType,
         patternMaterialTypeLabel: item.patternMaterialTypeLabel,
-        internalStyleCode: item.internalStyleCode || undefined,
+        internalStyleCode: item.patternMaterialType === 'WOOL' ? item.internalStyleCode.trim() || undefined : undefined,
         patternFileMode: item.patternFileMode,
         fileName: legacyFileName,
         fileUrl: '#',

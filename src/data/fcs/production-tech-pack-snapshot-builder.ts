@@ -91,6 +91,17 @@ function normalizeText(value: string | undefined | null): string {
   return String(value || '').trim()
 }
 
+function resolveLatestWoolInternalStyleCode(
+  items: Array<{ patternMaterialType?: string; internalStyleCode?: string }>,
+): string {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index]
+    const value = normalizeText(item.internalStyleCode)
+    if (item.patternMaterialType === 'WOOL' && value) return value
+  }
+  return ''
+}
+
 function uniqueStrings(values: Array<string | undefined | null>): string[] {
   return Array.from(new Set(values.map((value) => normalizeText(value)).filter(Boolean)))
 }
@@ -386,6 +397,9 @@ function normalizePatternFiles(
       patternVersion: options.versionLabel || `V${sequence}`,
       patternMaterialType,
       patternMaterialTypeLabel: patternMaterialFileTypeLabels[patternMaterialType],
+      internalStyleCode: patternMaterialType === 'WOOL'
+        ? normalizeText((item as { internalStyleCode?: string }).internalStyleCode) || undefined
+        : undefined,
       patternFileMode,
       dxfFileName: normalizeText((item as { dxfFileName?: string }).dxfFileName) || undefined,
       rulFileName: normalizeText((item as { rulFileName?: string }).rulFileName) || undefined,
@@ -592,6 +606,14 @@ function buildSnapshotFromSource(input: {
   })
   const bomItems = enrichBomItemsWithMaterialAssets(baseBomItems, patternFiles)
   const patternDesigns = clonePatternDesigns(content.patternDesigns)
+  const hasWoolPatternFiles = patternFiles.some((item) => item.patternMaterialType === 'WOOL')
+  const allOriginalPatternFilesMissingInternalStyleCode = content.patternFiles.every(
+    (item) => !('internalStyleCode' in item),
+  )
+  const legacyInternalStyleCode =
+    hasWoolPatternFiles && allOriginalPatternFilesMissingInternalStyleCode
+      ? normalizeText(content.internalStyleCode)
+      : ''
   const imageSnapshot = buildImageSnapshot({
     bomItems,
     patternFiles,
@@ -615,6 +637,7 @@ function buildSnapshotFromSource(input: {
     snapshotAt,
     snapshotBy,
     patternDesc: content.patternDesc || '',
+    internalStyleCode: resolveLatestWoolInternalStyleCode(patternFiles) || legacyInternalStyleCode || undefined,
     bomItems,
     patternFiles,
     processEntries: ensurePostFinishingProcessEntry(content.processEntries, snapshotId),

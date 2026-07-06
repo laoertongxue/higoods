@@ -113,6 +113,7 @@ export interface ProductionOrderTechPackSnapshot {
   snapshotAt: string
   snapshotBy: string
   patternDesc: string
+  internalStyleCode?: string
   bomItems: TechPackBomItemSnapshot[]
   patternFiles: TechPackPatternFileSnapshot[]
   processEntries: TechnicalProcessEntry[]

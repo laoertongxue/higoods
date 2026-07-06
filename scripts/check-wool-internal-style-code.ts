@@ -4,10 +4,18 @@ const techPacksSource = readFileSync('src/data/fcs/tech-packs.ts', 'utf8')
 const contextSource = readFileSync('src/pages/tech-pack/context.ts', 'utf8')
 const eventsSource = readFileSync('src/pages/tech-pack/events.ts', 'utf8')
 const patternDomainSource = readFileSync('src/pages/tech-pack/pattern-domain.ts', 'utf8')
+const snapshotBuilderSource = readFileSync('src/data/fcs/production-tech-pack-snapshot-builder.ts', 'utf8')
+const snapshotTypesSource = readFileSync('src/data/fcs/production-tech-pack-snapshot-types.ts', 'utf8')
 
 function assertContains(source: string, expected: string, file: string): void {
   if (!source.includes(expected)) {
     throw new Error(`${file} 缺少 ${expected}`)
+  }
+}
+
+function assertNotContains(source: string, unexpected: string, file: string): void {
+  if (source.includes(unexpected)) {
+    throw new Error(`${file} 不应包含 ${unexpected}`)
   }
 }
 
@@ -91,7 +99,27 @@ assertContains(buildPatternItemsBlock, "internalStyleCode: item.internalStyleCod
 assertContains(patternPoolDemoBlock, "internalStyleCode: '2585'", 'createPatternPoolDemoPackage')
 assertContains(materialAssociationBlock, "internalStyleCode: patternPackage.internalStyleCode || ''", 'createMaterialPatternDemoAssociation')
 assertContains(inheritPatternPackageBlock, 'internalStyleCode: sourcePackage.internalStyleCode', 'inheritPatternPackageTechnicalFields')
-assertContains(syncTechPackBlock, 'internalStyleCode: item.internalStyleCode || undefined', 'syncTechPackToStore')
+assertContains(
+  syncTechPackBlock,
+  "internalStyleCode: item.patternMaterialType === 'WOOL' ? item.internalStyleCode.trim() || undefined : undefined",
+  'syncTechPackToStore',
+)
+assertContains(contextSource, 'resolveLatestWoolInternalStyleCode', '保存技术包时必须计算最后一次非空毛织内部货号')
+assertNotContains(
+  contextSource,
+  'resolveLatestWoolInternalStyleCode(state.patternItems) || state.techPack.internalStyleCode',
+  '保存技术包时不应 fallback 旧毛织内部货号',
+)
+assertContains(snapshotBuilderSource, 'resolveLatestWoolInternalStyleCode', '快照构建器必须计算内部货号')
+assertContains(snapshotBuilderSource, 'internalStyleCode:', '快照构建器必须输出内部货号')
+assertContains(snapshotTypesSource, 'internalStyleCode?: string', '生产单技术包快照类型必须声明内部货号')
+assertContains(snapshotBuilderSource, 'hasWoolPatternFiles', '快照构建器 legacy fallback 必须限定存在毛织纸样')
+assertContains(snapshotBuilderSource, 'allOriginalPatternFilesMissingInternalStyleCode', '快照构建器 legacy fallback 必须限定旧数据字段缺失')
+assertNotContains(
+  snapshotBuilderSource,
+  'resolveLatestWoolInternalStyleCode(patternFiles) || normalizeText(content.internalStyleCode) || undefined',
+  '快照构建器不应无条件 fallback 顶层内部货号',
+)
 
 assertContains(patternDomainSource, '内部货号', '毛织纸样包弹窗必须展示内部货号字段')
 assertContains(patternDomainSource, 'new-pattern-internal-style-code', '内部货号输入框必须有 data-tech-field')
