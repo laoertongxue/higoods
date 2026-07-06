@@ -313,6 +313,7 @@ type PatternItem = {
   duplicateWarningReasons: string[]
   patternMaterialType: TechPackPatternMaterialType
   patternMaterialTypeLabel: string
+  internalStyleCode: string
   patternFileMode: TechPackPatternFileMode
   parseStatus: TechPackPatternParseStatus
   parseStatusLabel: string
@@ -620,6 +621,7 @@ function createEmptyPatternFormState(): PatternFormState {
     duplicateWarningReasons: [],
     patternMaterialType,
     patternMaterialTypeLabel: getPatternMaterialTypeLabel(patternMaterialType),
+    internalStyleCode: '',
     patternFileMode: inferPatternFileMode(patternMaterialType),
     parseStatus,
     parseStatusLabel: getPatternParseStatusLabel(parseStatus),
@@ -827,6 +829,7 @@ const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
     duplicateWarningReasons: [],
     patternMaterialType: 'WOVEN',
     patternMaterialTypeLabel: getPatternMaterialTypeLabel('WOVEN'),
+    internalStyleCode: '',
     patternFileMode: 'PAIRED_DXF_RUL',
     parseStatus: 'PARSED',
     parseStatusLabel: getPatternParseStatusLabel('PARSED'),
@@ -1346,6 +1349,7 @@ function createPatternPoolDemoPackage(
     duplicateWarningReasons: [],
     patternMaterialType: spec.materialType,
     patternMaterialTypeLabel: getPatternMaterialTypeLabel(spec.materialType),
+    ...(isWool ? { internalStyleCode: '2585' } : { internalStyleCode: '' }),
     patternFileMode: isWool ? 'SINGLE_FILE' : 'PAIRED_DXF_RUL',
     parseStatus: isWool ? 'NOT_REQUIRED' : 'PARSED',
     parseStatusLabel: getPatternParseStatusLabel(isWool ? 'NOT_REQUIRED' : 'PARSED'),
@@ -1425,6 +1429,7 @@ function createMaterialPatternDemoAssociation(
     linkedMaterialName,
     linkedMaterialAlias: `${patternPackage.name}用料`,
     linkedMaterialSku,
+    internalStyleCode: patternPackage.internalStyleCode || '',
     widthCm: isWool ? 0 : 142 + index,
     markerLengthM: isWool ? 1.2 : 2.2 + index * 0.18,
     totalPieceCount: patternTotalPieceQty,
@@ -3756,6 +3761,7 @@ function inheritPatternPackageTechnicalFields(items: PatternItem[]): PatternItem
       ...pieceInstanceSummary,
       patternMaterialType: sourcePackage.patternMaterialType,
       patternMaterialTypeLabel: sourcePackage.patternMaterialTypeLabel,
+      internalStyleCode: sourcePackage.internalStyleCode,
       patternFileMode: sourcePackage.patternFileMode,
       parseStatus: sourcePackage.parseStatus,
       parseStatusLabel: sourcePackage.parseStatusLabel,
@@ -4011,6 +4017,7 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
       patternMaterialType: normalizedMaterialType,
       patternMaterialTypeLabel:
         String(item.patternMaterialTypeLabel || '').trim() || getPatternMaterialTypeLabel(normalizedMaterialType),
+      internalStyleCode: item.internalStyleCode || techPack.internalStyleCode || '',
       patternFileMode,
       parseStatus,
       parseStatusLabel:
@@ -4483,6 +4490,7 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
         patternCategory: item.type,
         patternMaterialType: item.patternMaterialType,
         patternMaterialTypeLabel: item.patternMaterialTypeLabel,
+        internalStyleCode: item.internalStyleCode || undefined,
         patternFileMode: item.patternFileMode,
         fileName: legacyFileName,
         fileUrl: '#',
@@ -4844,6 +4852,7 @@ function buildPatternFormStateFromItem(item: PatternItem): PatternFormState {
     duplicateWarningReasons: [...(item.duplicateWarningReasons || [])],
     patternMaterialType: item.patternMaterialType,
     patternMaterialTypeLabel: item.patternMaterialTypeLabel,
+    internalStyleCode: item.internalStyleCode || '',
     patternFileMode: item.patternFileMode,
     parseStatus: item.parseStatus,
     parseStatusLabel: item.parseStatusLabel,

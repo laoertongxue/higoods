@@ -49,6 +49,7 @@
     "check:tech-pack-special-craft-target-object-and-versioning": "tsx scripts/check-tech-pack-special-craft-target-object-and-versioning.ts",
     "check:production-confirmation": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-production-confirmation.ts",
     "check:task-print-cards-foundation": "tsx scripts/check-task-print-cards-foundation.ts",
+    "check:wool-internal-style-code": "tsx scripts/check-wool-internal-style-code.ts",
     "check:process-factory-warehouse-menu-consolidation": "tsx scripts/check-process-factory-warehouse-menu-consolidation.ts",
     "check:cutting-warehouse-management-switch": "tsx scripts/check-cutting-warehouse-management-switch.ts",
     "check:task-card-entry-and-route-closure": "tsx scripts/check-task-card-entry-and-route-closure.ts",

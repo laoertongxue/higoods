@@ -1231,6 +1231,7 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
     duplicateWarningReasons: [...state.newPattern.duplicateWarningReasons],
     patternMaterialType: normalizedPatternMaterialType,
     patternMaterialTypeLabel: getPatternMaterialTypeLabel(normalizedPatternMaterialType),
+    internalStyleCode: state.newPattern.internalStyleCode || '',
     patternFileMode: normalizedPatternFileMode,
     parseStatus: nextParseStatus,
     parseStatusLabel: getPatternParseStatusLabel(nextParseStatus),
