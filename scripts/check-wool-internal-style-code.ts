@@ -13,6 +13,10 @@ const snapshotBuilderSource = readFileSync('src/data/fcs/production-tech-pack-sn
 const snapshotTypesSource = readFileSync('src/data/fcs/production-tech-pack-snapshot-types.ts', 'utf8')
 const woolDomainSource = readFileSync('src/data/fcs/wool-task-domain.ts', 'utf8')
 const woolPageSource = readFileSync('src/pages/process-factory/wool/work-orders.ts', 'utf8')
+const reviewRecord = readFileSync(
+  'docs/prototype-review-records/2026-07-06-wool-internal-style-code.md',
+  'utf8',
+)
 
 function assertContains(source: string, expected: string, file: string): void {
   if (!source.includes(expected)) {
@@ -170,5 +174,7 @@ assertTrue(
 assertTrue(filteredSummary.total === internalStyleCodeOrders.length, '筛选统计 total 必须等于筛选结果数量')
 assertTrue(filteredSummary.total < fullSummary.total, '筛选统计 total 必须小于全量统计 total')
 assertContains(woolPageHtml, '内部货号：2585', '毛织加工单页面渲染结果必须展示内部货号 2585')
+assertContains(reviewRecord, '内部货号', '原型审查记录必须覆盖内部货号')
+assertContains(reviewRecord, '不做跨 SPU 唯一性校验', '原型审查记录必须说明例外')
 
 console.log('毛织内部货号专项检查通过')

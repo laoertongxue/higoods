@@ -1070,7 +1070,9 @@ function renderPatternPieceColorCountEditor(
   if (row.colorPieceQuantities.length === 0) {
     return '<span class="text-muted-foreground">请先维护物料清单颜色</span>'
   }
-  return `<div class="space-y-2">${row.colorPieceQuantities
+  return `<div class="space-y-2">
+    <div class="text-xs font-medium text-muted-foreground">每种颜色的片数</div>
+    ${row.colorPieceQuantities
     .map(
       (quantity) => `
         <div class="flex items-center gap-2 rounded border px-2 py-1 text-xs" data-testid="pattern-color-piece-qty">
@@ -1903,7 +1905,7 @@ export function renderPieceInstanceSpecialCraftDialog(): string {
                         </select>
                       </label>
                       <label class="space-y-1">
-                        <span class="text-sm">备注</span>
+                        <span class="text-sm">说明</span>
                         <input class="w-full rounded-md border bg-background px-3 py-2 text-sm" data-tech-field="piece-instance-craft-remark" value="${escapeHtml(state.pieceInstanceCraftDraft.remark)}" placeholder="可选" />
                       </label>
                     </div>

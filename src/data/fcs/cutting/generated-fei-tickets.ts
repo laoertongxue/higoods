@@ -2,6 +2,9 @@ import {
   getProductionOrderTechPackSnapshot,
 } from '../production-orders.ts'
 import {
+  getProductionOrderCutPieceParts,
+} from '../production-order-tech-pack-runtime.ts'
+import {
   getDedicatedSpecialCraftFactorySeed,
   type SpecialCraftDedicatedFactorySeed,
 } from '../special-craft-dedicated-factories.ts'
@@ -760,6 +763,17 @@ function buildFallbackSkuScope(record: GeneratedCutOrderSourceRecord): Generated
 
 function buildFallbackPieceRows(record: GeneratedCutOrderSourceRecord): GeneratedCutOrderPieceRow[] {
   if (record.pieceRows.length) return record.pieceRows
+  const techPackCutPieceParts = getProductionOrderCutPieceParts(record.productionOrderId)
+  if (techPackCutPieceParts.length) {
+    return techPackCutPieceParts.map((part) => ({
+      partCode: part.partCode,
+      partName: part.partNameCn || part.partCode,
+      pieceCountPerUnit: Math.max(Number(part.pieceCountPerGarment || 0), 1),
+      patternId: '',
+      patternName: '',
+      applicableSkuCodes: [],
+    }))
+  }
   return [
     {
       partCode: record.materialSku,

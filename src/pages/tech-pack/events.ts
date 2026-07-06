@@ -951,8 +951,15 @@ function validatePatternForm(): string | null {
   const invalidColorQtyRow = state.newPattern.pieceRows.find((row) => hasInvalidColorPieceQty(row))
   if (invalidColorQtyRow) return '颜色片数必须为非负整数'
 
-  const noEnabledColorRow = state.newPattern.pieceRows.find((row) => !hasEnabledColorPiece(row))
+  const noEnabledColorRow = state.newPattern.pieceRows.find(
+    (row) => row.colorAllocations.length === 0 && !hasEnabledColorPiece(row),
+  )
   if (noEnabledColorRow) return '请至少选择一个适用颜色'
+
+  const invalidColorAllocationRow = state.newPattern.pieceRows.find((row) =>
+    row.colorAllocations.some((allocation) => Number(allocation.pieceCount) <= 0),
+  )
+  if (invalidColorAllocationRow) return '每个颜色片数必须大于 0'
 
   const noPositiveColorRow = state.newPattern.pieceRows.find((row) => !hasPositiveEnabledColorPiece(row))
   if (noPositiveColorRow) return '当前总片数为 0，请维护颜色片数'
@@ -1000,6 +1007,7 @@ function validatePatternForm(): string | null {
         || row.missingName,
     )
     if (invalidRow?.missingName) return '布料纸样存在名称缺失，不能保存'
+    if (invalidRow && Number(invalidRow.totalPieceQty) <= 0) return '布料纸样存在数量缺失，不能保存'
     if (invalidRow) return '布料纸样解析结果不完整，不能保存'
     return null
   }
@@ -1007,11 +1015,11 @@ function validatePatternForm(): string | null {
   if (!state.newPattern.singlePatternFileName.trim() && !state.newPattern.file.trim()) {
     return '毛织纸样需先选择纸样文件'
   }
-  if (state.newPattern.pieceRows.length === 0) return '毛织纸样至少保留 1 行毛织部位明细'
+  if (state.newPattern.pieceRows.length === 0) return '毛织纸样至少保留 1 行裁片明细'
   const invalidRow = state.newPattern.pieceRows.find(
     (row) => row.sourceType !== 'MANUAL' || !row.name.trim() || Number(row.totalPieceQty) <= 0,
   )
-  if (invalidRow) return '毛织纸样部位名称和颜色片数必须填写完整'
+  if (invalidRow) return '毛织纸样裁片名称和片数必须填写完整'
   return null
 }
 
@@ -1097,6 +1105,7 @@ function validatePatternPackage(): string | null {
         || row.missingName,
     )
     if (invalidRow?.missingName) return '布料纸样存在名称缺失，不能保存'
+    if (invalidRow && Number(invalidRow.totalPieceQty) <= 0) return '布料纸样存在数量缺失，不能保存'
     if (invalidRow) return '布料纸样解析结果不完整，不能保存'
   }
   return null
@@ -1163,6 +1172,8 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
         : state.newPattern.parseStatus === 'FAILED'
           ? 'FAILED'
           : 'NOT_PARSED'
+  const parsedPatternSource = { sourceType: 'PARSED_PATTERN' as const }
+  const manualPatternSource = { sourceType: 'MANUAL' as const }
 
   return {
     recordKind: isPatternPackage ? 'PACKAGE' as const : 'MATERIAL_ASSOCIATION' as const,
@@ -1263,7 +1274,7 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
       isPatternPackage
         ? {
             ...row,
-            sourceType: row.sourceType || 'MANUAL' as const,
+            ...(normalizedPatternMaterialType === 'WOVEN' ? parsedPatternSource : manualPatternSource),
             missingName: false,
             missingCount: false,
           }
