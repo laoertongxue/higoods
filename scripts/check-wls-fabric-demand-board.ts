@@ -7,10 +7,12 @@ import {
   getFabricDemandBoardRows,
   summarizeFabricDemandBoardRows,
 } from '../src/data/wls/fabric-demand-board.ts'
-import { renderWlsFabricDemandBoardPage } from '../src/pages/wls-fabric-demand-board.ts'
 
 const allowedAlertTypes = ['缺直裁面料', '缺印花原料', '缺染色原料', '直裁待调拨', '印花待调拨', '染色待调拨'] as const
 const englishStatusCodes = ['PENDING', 'IN_PROGRESS', 'DONE', 'WAIT_PROCESS', 'WAIT_INBOUND', 'PROCESSING']
+type FabricDemandBoardRow = ReturnType<typeof getFabricDemandBoardRows>[number]
+type FabricDemandBoardWarehouseName = FabricDemandBoardRow['warehouseStocks'][number]['warehouseName']
+type FabricDemandBoardAlertType = FabricDemandBoardRow['alerts'][number]['type']
 
 function read(path: string): string {
   return readFileSync(resolve(process.cwd(), path), 'utf8')
@@ -30,6 +32,10 @@ function getWarehouseQty(row: ReturnType<typeof getFabricDemandBoardRows>[number
     .reduce((total, stock) => total + stock.qty, 0)
 }
 
+function hasWarehouse(row: FabricDemandBoardRow, warehouseName: FabricDemandBoardWarehouseName): boolean {
+  return row.warehouseStocks.some((stock) => stock.warehouseName === warehouseName)
+}
+
 function assertSameSet(actual: string[], expected: readonly string[], message: string): void {
   assert.deepEqual([...new Set(actual)].sort(), [...expected].sort(), message)
 }
@@ -39,16 +45,34 @@ function assertFilterSummary(rows: ReturnType<typeof getFabricDemandBoardRows>):
   assert.equal(summary.totalSkuCount, rows.length, '筛选后总数统计应等于筛选后目标面料 SKU 行数')
 }
 
-const menuSource = read('src/data/app-shell-config.ts')
-const routesSource = read('src/router/routes.ts')
-const renderersSource = read('src/router/route-renderers.ts')
-const mainSource = read('src/main.ts')
+function assertAlertGap(row: FabricDemandBoardRow, alertType: FabricDemandBoardAlertType, gapQty: number): void {
+  const alert = row.alerts.find((item) => item.type === alertType)
+  assert.ok(alert, `${row.id} 缺少${alertType}异常`)
+  assert.equal(alert.gapQty, gapQty, `${row.id} ${alertType}差额错误`)
+}
 
-assertIncludes(menuSource, '面料需求看板', 'WLS 菜单缺少面料需求看板')
-assertIncludes(menuSource, '/wls/fabric-demand-board', 'WLS 菜单缺少面料需求看板路径')
-assertIncludes(routesSource, '/wls/fabric-demand-board', '路由缺少 /wls/fabric-demand-board')
-assertIncludes(renderersSource, 'renderWlsFabricDemandBoardPage', '缺少 WLS 面料需求看板渲染器')
-assertIncludes(mainSource, 'handleWlsFabricDemandBoardEvent', '主事件流缺少 WLS 面料需求看板事件处理')
+function assertAlertQuantityRule(
+  row: FabricDemandBoardRow,
+  options: {
+    demandField: 'demandQty' | 'rawMaterialDemandQty'
+    destinationWarehouse: FabricDemandBoardWarehouseName
+    shortageAlertType: FabricDemandBoardAlertType
+    transferAlertType: FabricDemandBoardAlertType
+  },
+): void {
+  const demandQty = row[options.demandField]
+  const centralQty = getWarehouseQty(row, '中央仓面料仓')
+  const destinationQty = getWarehouseQty(row, options.destinationWarehouse)
+  const totalQty = centralQty + destinationQty
+
+  if (totalQty < demandQty) {
+    assertAlertGap(row, options.shortageAlertType, demandQty - totalQty)
+  }
+
+  if (destinationQty < demandQty && centralQty > 0 && totalQty >= demandQty) {
+    assertAlertGap(row, options.transferAlertType, demandQty - destinationQty)
+  }
+}
 
 const rows = getFabricDemandBoardRows()
 assert.ok(rows.length >= 4, '面料需求看板 mock 行数至少 4 条')
@@ -87,6 +111,38 @@ assert.ok(
   rows.every((row) => !processRawSkus.includes(row.materialSku)),
   '原料 SKU 只能作为 rawMaterialSku 辅助字段，不应重复作为 materialSku 主行',
 )
+
+for (const row of rows) {
+  if (!row.requiresPrint && !row.requiresDye) {
+    assert.ok(hasWarehouse(row, '中转仓'), `直裁行目的仓必须是中转仓：${row.materialSku}`)
+    assertAlertQuantityRule(row, {
+      demandField: 'demandQty',
+      destinationWarehouse: '中转仓',
+      shortageAlertType: '缺直裁面料',
+      transferAlertType: '直裁待调拨',
+    })
+  }
+
+  if (row.requiresPrint) {
+    assert.ok(hasWarehouse(row, '印花厂待加工仓'), `印花行目的仓必须是印花厂待加工仓：${row.materialSku}`)
+    assertAlertQuantityRule(row, {
+      demandField: 'rawMaterialDemandQty',
+      destinationWarehouse: '印花厂待加工仓',
+      shortageAlertType: '缺印花原料',
+      transferAlertType: '印花待调拨',
+    })
+  }
+
+  if (row.requiresDye) {
+    assert.ok(hasWarehouse(row, '染色厂待加工仓'), `染色行目的仓必须是染色厂待加工仓：${row.materialSku}`)
+    assertAlertQuantityRule(row, {
+      demandField: 'rawMaterialDemandQty',
+      destinationWarehouse: '染色厂待加工仓',
+      shortageAlertType: '缺染色原料',
+      transferAlertType: '染色待调拨',
+    })
+  }
+}
 
 assertSameSet(
   rows.flatMap((row) => row.alerts.map((alert) => alert.type)),
@@ -128,6 +184,66 @@ const transferDirections = [
   ['印花待调拨', '中央仓面料仓', '印花厂待加工仓'],
   ['染色待调拨', '中央仓面料仓', '染色厂待加工仓'],
 ] as const
+
+const keywordRow = rows.find((row) => row.materialSku.trim())
+assert.ok(keywordRow, '缺少可用于关键词筛选的目标面料 SKU')
+const keywordRows = filterFabricDemandBoardRows(rows, {
+  keyword: keywordRow.materialSku,
+  materialType: '全部',
+  printRequirement: '全部',
+  dyeRequirement: '全部',
+  alertType: '全部',
+  warehouseName: '全部',
+})
+assert.ok(keywordRows.length > 0, '关键词筛选应能命中面料 SKU')
+assert.ok(keywordRows.every((row) => row.materialSku === keywordRow.materialSku), '关键词筛选结果不应混入未命中行')
+assertFilterSummary(keywordRows)
+
+const alertRows = filterFabricDemandBoardRows(rows, {
+  keyword: '',
+  materialType: '全部',
+  printRequirement: '全部',
+  dyeRequirement: '全部',
+  alertType: '印花待调拨',
+  warehouseName: '全部',
+})
+assert.ok(alertRows.length > 0, '异常类型筛选应能命中印花待调拨')
+assert.ok(alertRows.every((row) => row.alerts.some((alert) => alert.type === '印花待调拨')), '异常类型筛选结果不应混入其他异常行')
+assertFilterSummary(alertRows)
+
+const zeroWarehouseRows = filterFabricDemandBoardRows(
+  [
+    {
+      ...rows[0],
+      id: 'fabric-demand-zero-destination',
+      warehouseStocks: [
+        { warehouseName: '中央仓面料仓', areaName: 'A区', locationCode: 'A-ZERO', qty: 620, unit: '米' },
+        { warehouseName: '中转仓', areaName: 'B区', locationCode: 'B-ZERO', qty: 0, unit: '米' },
+      ],
+    },
+  ],
+  {
+    keyword: '',
+    materialType: '全部',
+    printRequirement: '全部',
+    dyeRequirement: '全部',
+    alertType: '全部',
+    warehouseName: '中转仓',
+  },
+)
+assert.equal(zeroWarehouseRows.length, 1, '仓库筛选应按是否存在仓库记录命中，不应按库存大于 0 过滤')
+
+const { renderWlsFabricDemandBoardPage } = await import('../src/pages/wls-fabric-demand-board.ts')
+const menuSource = read('src/data/app-shell-config.ts')
+const routesSource = read('src/router/routes.ts')
+const renderersSource = read('src/router/route-renderers.ts')
+const mainSource = read('src/main.ts')
+
+assertIncludes(menuSource, '面料需求看板', 'WLS 菜单缺少面料需求看板')
+assertIncludes(menuSource, '/wls/fabric-demand-board', 'WLS 菜单缺少面料需求看板路径')
+assertIncludes(routesSource, '/wls/fabric-demand-board', '路由缺少 /wls/fabric-demand-board')
+assertIncludes(renderersSource, 'renderWlsFabricDemandBoardPage', '缺少 WLS 面料需求看板渲染器')
+assertIncludes(mainSource, 'handleWlsFabricDemandBoardEvent', '主事件流缺少 WLS 面料需求看板事件处理')
 
 const html = renderWlsFabricDemandBoardPage()
 for (const text of [
@@ -174,32 +290,6 @@ assert.ok(
   processRows.some((row) => html.includes(row.rawMaterialSku) || html.includes(row.rawMaterialName)),
   '页面至少要展示一个原料 SKU 或原料名称',
 )
-
-const keywordRow = rows.find((row) => row.materialSku.trim())
-assert.ok(keywordRow, '缺少可用于关键词筛选的目标面料 SKU')
-const keywordRows = filterFabricDemandBoardRows(rows, {
-  keyword: keywordRow.materialSku,
-  materialType: '全部',
-  printRequirement: '全部',
-  dyeRequirement: '全部',
-  alertType: '全部',
-  warehouseName: '全部',
-})
-assert.ok(keywordRows.length > 0, '关键词筛选应能命中面料 SKU')
-assert.ok(keywordRows.every((row) => row.materialSku === keywordRow.materialSku), '关键词筛选结果不应混入未命中行')
-assertFilterSummary(keywordRows)
-
-const alertRows = filterFabricDemandBoardRows(rows, {
-  keyword: '',
-  materialType: '全部',
-  printRequirement: '全部',
-  dyeRequirement: '全部',
-  alertType: '印花待调拨',
-  warehouseName: '全部',
-})
-assert.ok(alertRows.length > 0, '异常类型筛选应能命中印花待调拨')
-assert.ok(alertRows.every((row) => row.alerts.some((alert) => alert.type === '印花待调拨')), '异常类型筛选结果不应混入其他异常行')
-assertFilterSummary(alertRows)
 
 for (const statusCode of englishStatusCodes) {
   assert.ok(!html.includes(statusCode), `页面不得展示英文状态码 ${statusCode}`)

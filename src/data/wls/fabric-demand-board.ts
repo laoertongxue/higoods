@@ -130,7 +130,7 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
     rawMaterialName: '',
     rawMaterialSku: '',
     rawMaterialDemandQty: 0,
-    warehouseStocks: [stock('中央仓面料仓', 420, 'A-03-02'), stock('中转仓', 80, 'B-01-08')],
+    warehouseStocks: [stock('中央仓面料仓', 560, 'A-03-02'), stock('中转仓', 80, 'B-01-08')],
     printQty: { waitPickupQty: 0, processingQty: 0, waitInboundQty: 0 },
     dyeQty: { waitPickupQty: 0, processingQty: 0, waitInboundQty: 0 },
     purchaseQty: { purchasingQty: 180, transitQty: 0, waitInboundQty: 0 },
@@ -138,7 +138,7 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
       alert(
         '直裁待调拨',
         540,
-        '触发：中转仓仅 80 米，未覆盖直裁需求 620 米；中央仓面料仓有 420 米可调拨。',
+        '触发：中转仓仅 80 米，未覆盖直裁需求 620 米；中央仓面料仓有 560 米可调拨。',
         '解除：中转仓库存达到 620 米。',
         '仓储主管',
       ),
@@ -157,7 +157,7 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
     rawMaterialName: '白坯针织布',
     rawMaterialSku: 'RAW-FAB-2026-031-WHT',
     rawMaterialDemandQty: 540,
-    warehouseStocks: [stock('中央仓面料仓', 360, 'A-08-06'), stock('印花厂待加工仓', 120, 'P-02-04')],
+    warehouseStocks: [stock('中央仓面料仓', 460, 'A-08-06'), stock('印花厂待加工仓', 120, 'P-02-04')],
     printQty: { waitPickupQty: 420, processingQty: 260, waitInboundQty: 60 },
     dyeQty: { waitPickupQty: 0, processingQty: 0, waitInboundQty: 0 },
     purchaseQty: { purchasingQty: 0, transitQty: 0, waitInboundQty: 0 },
@@ -165,7 +165,7 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
       alert(
         '印花待调拨',
         420,
-        '触发：印花厂待加工仓仅 120 米，未覆盖印花需求 540 米；中央仓面料仓有 360 米可调拨。',
+        '触发：印花厂待加工仓仅 120 米，未覆盖印花需求 540 米；中央仓面料仓有 460 米可调拨。',
         '解除：印花厂待加工仓原料库存达到 540 米。',
         '印花仓管',
       ),
@@ -173,7 +173,7 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
   },
   {
     id: 'fabric-demand-003',
-    materialImageUrl: 'https://images.unsplash.com/photo-1534639077088-d702bcf685e1?auto=format&fit=crop&w=120&q=80',
+    materialImageUrl: 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=120&q=80',
     materialName: '雾蓝染色梭织布',
     materialSpu: 'FAB-SPU-3086',
     materialSku: 'FAB-2026-086-DYE',
@@ -184,7 +184,7 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
     rawMaterialName: '本白梭织坯布',
     rawMaterialSku: 'RAW-FAB-2026-086-WHT',
     rawMaterialDemandQty: 720,
-    warehouseStocks: [stock('中央仓面料仓', 500, 'A-11-01'), stock('染色厂待加工仓', 160, 'D-03-02')],
+    warehouseStocks: [stock('中央仓面料仓', 600, 'A-11-01'), stock('染色厂待加工仓', 160, 'D-03-02')],
     printQty: { waitPickupQty: 0, processingQty: 0, waitInboundQty: 0 },
     dyeQty: { waitPickupQty: 560, processingQty: 210, waitInboundQty: 70 },
     purchaseQty: { purchasingQty: 0, transitQty: 0, waitInboundQty: 0 },
@@ -192,7 +192,7 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
       alert(
         '染色待调拨',
         560,
-        '触发：染色厂待加工仓仅 160 米，未覆盖染色需求 720 米；中央仓面料仓有 500 米可调拨。',
+        '触发：染色厂待加工仓仅 160 米，未覆盖染色需求 720 米；中央仓面料仓有 600 米可调拨。',
         '解除：染色厂待加工仓原料库存达到 720 米。',
         '染色仓管',
       ),
@@ -364,7 +364,7 @@ export function filterFabricDemandBoardRows(
     if (filters.dyeRequirement === '需染色' && !row.requiresDye) return false
     if (filters.dyeRequirement === '不需染色' && row.requiresDye) return false
     if (filters.alertType !== '全部' && !row.alerts.some((item) => item.type === filters.alertType)) return false
-    if (filters.warehouseName !== '全部' && getWarehouseQty(row, filters.warehouseName) <= 0) return false
+    if (filters.warehouseName !== '全部' && !row.warehouseStocks.some((item) => item.warehouseName === filters.warehouseName)) return false
     if (!keyword) return true
 
     return [row.materialName, row.materialSku, row.materialSpu, row.rawMaterialName, row.rawMaterialSku]
