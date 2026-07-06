@@ -1217,7 +1217,7 @@ function renderStatsSummary(details: MonthlyPreparationCompletionDetail[], stats
   `
 }
 
-function renderStatsTable(month: string, rows: StatsTableRow[]): string {
+function renderStatsTable(month: string, rows: StatsTableRow[], params: URLSearchParams): string {
   return `
     <section class="rounded-xl border bg-card">
       <div class="border-b px-5 py-4">
@@ -1231,19 +1231,28 @@ function renderStatsTable(month: string, rows: StatsTableRow[]): string {
             </tr>
           </thead>
           <tbody>
-            ${rows.map((row) => `
-              <tr class="border-b last:border-b-0">
-                <td class="px-4 py-3">${escapeHtml(month)}</td>
-                <td class="px-4 py-3 font-medium">${escapeHtml(row.itemType)}</td>
-                <td class="px-4 py-3">${row.completedCount}</td>
-                <td class="px-4 py-3">${row.onTimeCompletedCount}</td>
-                <td class="px-4 py-3">${row.overdueCompletedCount}</td>
-                <td class="px-4 py-3">${row.averageDurationHours}</td>
-                <td class="px-4 py-3">${escapeHtml(row.ownerTeamText)}</td>
-                <td class="px-4 py-3">${escapeHtml(row.latestFinishedAt ? formatDateTime(row.latestFinishedAt) : '-')}</td>
-                <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(row.basisText)}</td>
-              </tr>
-            `).join('')}
+            ${rows.map((row) => {
+              const detailHref = buildStatsHref({
+                ...Object.fromEntries(params),
+                tab: 'detail',
+                month,
+              })
+              return `
+                <tr class="border-b last:border-b-0">
+                  <td class="px-4 py-3">
+                    <button type="button" data-nav="${escapeHtml(detailHref)}" class="font-medium text-blue-600 hover:underline">${escapeHtml(month)}</button>
+                  </td>
+                  <td class="px-4 py-3 font-medium">${escapeHtml(row.itemType)}</td>
+                  <td class="px-4 py-3">${row.completedCount}</td>
+                  <td class="px-4 py-3">${row.onTimeCompletedCount}</td>
+                  <td class="px-4 py-3">${row.overdueCompletedCount}</td>
+                  <td class="px-4 py-3">${row.averageDurationHours}</td>
+                  <td class="px-4 py-3">${escapeHtml(row.ownerTeamText)}</td>
+                  <td class="px-4 py-3">${escapeHtml(row.latestFinishedAt ? formatDateTime(row.latestFinishedAt) : '-')}</td>
+                  <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(row.basisText)}</td>
+                </tr>
+              `
+            }).join('')}
           </tbody>
         </table>
       </div>
@@ -1370,7 +1379,7 @@ function renderMonthlyStatsTab(params: URLSearchParams, month: string): string {
       <a class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" href="${escapeHtml(csvDataUri(buildStatsCsvRows(month, stats)))}" download="${escapeHtml(statsFileName)}">导出月度统计</a>
     </div>
     ${renderStatsSummary(details, stats)}
-    ${renderStatsTable(month, stats)}
+    ${renderStatsTable(month, stats, params)}
   `
 }
 

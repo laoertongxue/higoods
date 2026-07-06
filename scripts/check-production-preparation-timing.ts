@@ -1403,6 +1403,15 @@ appStore.navigate('/fcs/production/preparation-timing-statistics?tab=monthly&mon
 const routedStatsHtml = await renderProductionPreparationTimingStatisticsPage()
 assert.equal(typeof routedStatsHtml, 'string', '无参数渲染必须返回 HTML 字符串')
 assertHtmlIncludes(routedStatsHtml, '导出月度统计', '无参数渲染必须读取当前路由并显示月度统计')
+assertHtmlIncludes(
+  statsHtml,
+  'data-nav="/fcs/production/preparation-timing-statistics?tab=detail&amp;month=2026-03"',
+  '月度统计表的月份必须可点击进入同月明细统计',
+)
+assert.ok(
+  !statsHtml.includes('tab=detail&amp;month=2026-03&amp;itemType='),
+  '点击月份进入明细时不得默认带准备项筛选，以免隐藏同月其他明细',
+)
 for (const text of [
   '生产准备时效统计',
   '月度统计',
@@ -1430,8 +1439,18 @@ assertHtmlIncludes(detailStatsHtml, '生产准备时效完成明细-202603.csv',
 assertHtmlIncludes(detailStatsHtml, '商品类型', '明细统计 HTML 缺少商品类型')
 assertHtmlIncludes(detailStatsHtml, '必做/选填', '明细统计 HTML 缺少必做/选填')
 assertHtmlIncludes(detailStatsHtml, '烫画&amp;直喷', '明细统计 HTML 缺少商品类型数据')
+assertHtmlIncludes(detailStatsHtml, '梭织齐码纸样', '明细统计必须有 3 月梭织齐码完成 mock 数据')
+assertHtmlIncludes(detailStatsHtml, '染色调色（面料）', '明细统计必须有 3 月面料染色完成 mock 数据')
 assert.ok(!detailStatsHtml.includes('导出月度统计'), '明细统计 tab 不应展示月度统计导出')
 assert.ok(!detailStatsHtml.includes('统计表'), '明细统计 tab 不应展示月度统计表')
+const wovenFullSizeDetailHtml = await renderStatsAt(
+  '/fcs/production/preparation-timing-statistics?tab=detail&month=2026-03&itemType=%E6%A2%AD%E7%BB%87%E9%BD%90%E7%A0%81%E7%BA%B8%E6%A0%B7',
+)
+assertHtmlIncludes(wovenFullSizeDetailHtml, '梭织齐码纸样', '按准备项进入明细后必须展示对应完成明细')
+assert.ok(
+  !wovenFullSizeDetailHtml.includes(encodeURIComponent('毛织齐码纸样')),
+  '按梭织齐码进入明细后的导出数据不应混入毛织齐码明细',
+)
 const detailCsvHeader = [
   '统计月份',
   '准备记录编号',
