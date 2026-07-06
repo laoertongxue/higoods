@@ -188,6 +188,7 @@ export interface WoolWorkOrder {
   taskNo: string
   kind: WoolWorkOrderKind
   productionOrderNo: string
+  internalStyleCode?: string
   styleNo: string
   styleName: string
   colorName: string
@@ -997,6 +998,7 @@ function buildGeneratedPartPanels(task: ProcessTask, completedRatio: number): Wo
 function buildGeneratedWoolWorkOrder(task: ProcessTask, index: number): WoolWorkOrder {
   const kind = resolveWoolKind(task)
   const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
+  const snapshot = getProductionOrderTechPackSnapshot(task.productionOrderId)
   const plannedQty = resolvePlannedQty(task, kind)
   const completedQty = resolveCompletedQty(task, plannedQty, kind)
   const needsPackaging = kind === 'WHOLE_GARMENT' && Boolean(task.packagingRequired)
@@ -1019,6 +1021,7 @@ function buildGeneratedWoolWorkOrder(task: ProcessTask, index: number): WoolWork
     woolOrderNo: orderNo,
     kind,
     productionOrderNo: order?.productionOrderNo || task.productionOrderId,
+    internalStyleCode: snapshot?.internalStyleCode,
     styleNo: order?.demandSnapshot.spuCode || task.productionOrderId,
     styleName: order?.demandSnapshot.spuName || task.processNameZh,
     colorName: resolveOrderColorName(task),
@@ -1108,6 +1111,7 @@ function buildManualSeedWoolWorkOrders(): WoolWorkOrder[] {
       woolOrderNo: '毛织单-手动-整件-001',
       kind: 'WHOLE_GARMENT',
       productionOrderNo: wholeProduction?.productionOrderNo || 'PO-WOOL-WHOLE-001',
+      internalStyleCode: '2585',
       styleNo: wholeStyleNo,
       styleName: wholeStyleName,
       colorName: '黑色 / 白色',
@@ -3439,8 +3443,7 @@ export function getWoolWorkOrderStatusLabel(status: WoolWorkOrderStatus): string
   return WOOL_STATUS_LABEL[status]
 }
 
-export function getWoolWorkOrderSummary(): WoolWorkOrderSummary {
-  const orders = listWoolWorkOrders()
+export function getWoolWorkOrderSummary(orders = listWoolWorkOrders()): WoolWorkOrderSummary {
   return {
     total: orders.length,
     wholeGarmentCount: orders.filter((order) => order.kind === 'WHOLE_GARMENT').length,

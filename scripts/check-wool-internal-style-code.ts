@@ -1,4 +1,9 @@
 import { readFileSync } from 'node:fs'
+import {
+  getWoolWorkOrderSummary,
+  listWoolWorkOrders,
+} from '../src/data/fcs/wool-task-domain.ts'
+import { renderCraftWoolWorkOrdersPage } from '../src/pages/process-factory/wool/work-orders.ts'
 
 const techPacksSource = readFileSync('src/data/fcs/tech-packs.ts', 'utf8')
 const contextSource = readFileSync('src/pages/tech-pack/context.ts', 'utf8')
@@ -6,6 +11,8 @@ const eventsSource = readFileSync('src/pages/tech-pack/events.ts', 'utf8')
 const patternDomainSource = readFileSync('src/pages/tech-pack/pattern-domain.ts', 'utf8')
 const snapshotBuilderSource = readFileSync('src/data/fcs/production-tech-pack-snapshot-builder.ts', 'utf8')
 const snapshotTypesSource = readFileSync('src/data/fcs/production-tech-pack-snapshot-types.ts', 'utf8')
+const woolDomainSource = readFileSync('src/data/fcs/wool-task-domain.ts', 'utf8')
+const woolPageSource = readFileSync('src/pages/process-factory/wool/work-orders.ts', 'utf8')
 
 function assertContains(source: string, expected: string, file: string): void {
   if (!source.includes(expected)) {
@@ -16,6 +23,12 @@ function assertContains(source: string, expected: string, file: string): void {
 function assertNotContains(source: string, unexpected: string, file: string): void {
   if (source.includes(unexpected)) {
     throw new Error(`${file} 不应包含 ${unexpected}`)
+  }
+}
+
+function assertTrue(condition: boolean, message: string): void {
+  if (!condition) {
+    throw new Error(message)
   }
 }
 
@@ -129,5 +142,33 @@ assertContains(eventsSource, 'state.newPattern.internalStyleCode = value.trim()'
 assertContains(buildPatternItemFromFormBlock, "normalizedPatternMaterialType === 'WOOL'", 'buildPatternItemFromForm')
 assertContains(buildPatternItemFromFormBlock, 'state.newPattern.internalStyleCode.trim()', 'buildPatternItemFromForm')
 assertContains(buildPatternFormStateBlock, "internalStyleCode: item.internalStyleCode || state.techPack.internalStyleCode || ''", 'buildPatternFormStateFromItem')
+assertContains(woolDomainSource, 'internalStyleCode?: string', '毛织加工单类型必须包含内部货号')
+assertContains(
+  woolDomainSource,
+  'getWoolWorkOrderSummary(orders = listWoolWorkOrders())',
+  '毛织统计必须支持传入筛选结果',
+)
+assertContains(woolPageSource, '款式 / 内部货号', '毛织加工单筛选标签必须包含内部货号')
+assertContains(woolPageSource, 'order.internalStyleCode', '毛织加工单搜索和展示必须使用内部货号')
+assertContains(
+  woolPageSource,
+  'renderCompactSummaryTags(filteredOrders)',
+  '毛织加工单必须按筛选结果渲染紧凑统计',
+)
+
+const woolOrders = listWoolWorkOrders()
+const internalStyleCodeOrders = woolOrders.filter((order) => order.internalStyleCode === '2585')
+const fullSummary = getWoolWorkOrderSummary()
+const filteredSummary = getWoolWorkOrderSummary(internalStyleCodeOrders)
+const woolPageHtml = renderCraftWoolWorkOrdersPage()
+
+assertTrue(internalStyleCodeOrders.length > 0, '内部货号 2585 必须能筛出毛织加工单')
+assertTrue(
+  internalStyleCodeOrders.some((order) => order.woolOrderId.startsWith('WOOL-MOCK-')),
+  '毛织加工单 mock 必须包含 internalStyleCode 2585',
+)
+assertTrue(filteredSummary.total === internalStyleCodeOrders.length, '筛选统计 total 必须等于筛选结果数量')
+assertTrue(filteredSummary.total < fullSummary.total, '筛选统计 total 必须小于全量统计 total')
+assertContains(woolPageHtml, '内部货号：2585', '毛织加工单页面渲染结果必须展示内部货号 2585')
 
 console.log('毛织内部货号专项检查通过')
