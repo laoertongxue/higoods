@@ -319,6 +319,10 @@ export const renderProductionPreparationTimingPage = createAsyncRenderer(
   () => import('../pages/production/preparation-timing'),
   'renderProductionPreparationTimingPage',
 )
+export const renderProductionPreparationTimingStatisticsPage = createAsyncRenderer(
+  () => import('../pages/production/preparation-timing'),
+  'renderProductionPreparationTimingStatisticsPage',
+)
 export const renderProductionDeliveryWarehousePage = createAsyncRenderer(
   () => import('../pages/production'),
   'renderProductionDeliveryWarehousePage',

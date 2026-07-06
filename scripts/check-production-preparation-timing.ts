@@ -66,28 +66,44 @@ assert.ok(productionMenuEnd >= 0, '菜单缺少工艺平台分组')
 const productionMenu = menuSource.slice(productionMenuStart, productionMenuEnd)
 assert.ok(productionMenu.includes('production-preparation-timing'), '生产单管理菜单缺少生产准备时效')
 assert.ok(productionMenu.includes('/fcs/production/preparation-timing'), '生产准备时效 href 不正确')
+assert.ok(productionMenu.includes('production-preparation-timing-statistics'), '生产单管理菜单缺少生产准备时效统计')
+assert.ok(productionMenu.includes('/fcs/production/preparation-timing-statistics'), '生产准备时效统计 href 不正确')
 const planIndex = productionMenu.indexOf('production-plan')
 const timingIndex = productionMenu.indexOf('production-preparation-timing')
+const timingStatsIndex = productionMenu.indexOf('production-preparation-timing-statistics')
 const warehouseIndex = productionMenu.indexOf('production-delivery-warehouse')
 assert.ok(planIndex >= 0, '生产单管理菜单缺少生产单计划')
 assert.ok(timingIndex >= 0, '生产单管理菜单缺少生产准备时效')
+assert.ok(timingStatsIndex >= 0, '生产单管理菜单缺少生产准备时效统计')
 assert.ok(warehouseIndex >= 0, '生产单管理菜单缺少交付仓配置')
 assert.ok(
-  planIndex < timingIndex && timingIndex < warehouseIndex,
-  '生产准备时效必须位于生产单计划之后、交付仓配置之前',
+  planIndex < timingIndex && timingIndex < timingStatsIndex && timingStatsIndex < warehouseIndex,
+  '生产准备时效统计必须位于生产准备时效之后、交付仓配置之前',
 )
 
 assertIncludes('src/router/routes-fcs.ts', '/fcs/production/preparation-timing', 'routes-fcs.ts 缺少生产准备时效路由')
+assertIncludes('src/router/routes-fcs.ts', '/fcs/production/preparation-timing-statistics', 'routes-fcs.ts 缺少生产准备时效统计路由')
 assertIncludes('src/router/routes-fcs.ts', 'renderProductionPreparationTimingPage', 'routes-fcs.ts 缺少生产准备时效 renderer')
+assertIncludes('src/router/routes-fcs.ts', 'renderProductionPreparationTimingStatisticsPage', 'routes-fcs.ts 缺少生产准备时效统计 renderer')
 assertIncludes(
   'src/router/route-renderers-fcs.ts',
   'renderProductionPreparationTimingPage',
   'route-renderers-fcs.ts 缺少生产准备时效 renderer',
 )
 assertIncludes(
+  'src/router/route-renderers-fcs.ts',
+  'renderProductionPreparationTimingStatisticsPage',
+  'route-renderers-fcs.ts 缺少生产准备时效统计 renderer',
+)
+assertIncludes(
   'src/router/route-renderers.ts',
   'renderProductionPreparationTimingPage',
   'route-renderers.ts 缺少生产准备时效 renderer',
+)
+assertIncludes(
+  'src/router/route-renderers.ts',
+  'renderProductionPreparationTimingStatisticsPage',
+  'route-renderers.ts 缺少生产准备时效统计 renderer',
 )
 assertIncludes(
   'src/pages/production/events.ts',
@@ -1025,10 +1041,14 @@ const pageModule = await import('../src/pages/production/preparation-timing.ts')
 const renderProductionPreparationTimingPage = pageModule.renderProductionPreparationTimingPage as
   | ((path?: string) => string | Promise<string>)
   | undefined
+const renderProductionPreparationTimingStatisticsPage = pageModule.renderProductionPreparationTimingStatisticsPage as
+  | ((path?: string) => string | Promise<string>)
+  | undefined
 const handleProductionPreparationTimingEvent = pageModule.handleProductionPreparationTimingEvent as
   | ((target: HTMLElement) => boolean)
   | undefined
 assert.equal(typeof renderProductionPreparationTimingPage, 'function', '页面必须导出 renderProductionPreparationTimingPage')
+assert.equal(typeof renderProductionPreparationTimingStatisticsPage, 'function', '页面必须导出 renderProductionPreparationTimingStatisticsPage')
 assert.equal(typeof handleProductionPreparationTimingEvent, 'function', '页面必须导出 handleProductionPreparationTimingEvent')
 
 const { appStore } = await import('../src/state/store.ts')
@@ -1036,6 +1056,14 @@ async function renderAt(path: string): Promise<string> {
   appStore.navigate(path, { historyMode: 'replace' })
   const html = await renderProductionPreparationTimingPage(path)
   assert.equal(typeof html, 'string', 'renderProductionPreparationTimingPage 必须返回 HTML 字符串')
+  return html
+}
+async function renderStatsAt(path: string): Promise<string> {
+  appStore.navigate(path, { historyMode: 'replace' })
+  const startedAt = performance.now()
+  const html = await renderProductionPreparationTimingStatisticsPage(path)
+  assert.equal(typeof html, 'string', 'renderProductionPreparationTimingStatisticsPage 必须返回 HTML 字符串')
+  assert.ok(performance.now() - startedAt < 200, '生产准备时效统计页面渲染响应必须小于 200ms')
   return html
 }
 
@@ -1104,12 +1132,13 @@ const ledgerHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger
 for (const text of [
   '生产准备时效',
   '准备台账',
-  '月度统计',
   '花型师',
 ] as const) {
   assertHtmlIncludes(ledgerHtml, text, `准备台账 HTML 缺少「${text}」`)
 }
 for (const text of [
+  '月度统计',
+  '明细统计',
   '按生产准备记录跟进基码、版衣、齐码、花型、染色、辅料等准备项完成情况。',
   '统计口径：生产准备记录 + 准备项 = 1',
   '快捷筛选',
@@ -1368,14 +1397,17 @@ assertHtmlIncludes(
   '正式技术包关联对象必须跳转到真实生产单技术包路由',
 )
 
-const statsHtml = await renderAt('/fcs/production/preparation-timing?tab=stats&month=2026-03')
-appStore.navigate('/fcs/production/preparation-timing?tab=stats&month=2026-03', { historyMode: 'replace' })
-const routedStatsHtml = await renderProductionPreparationTimingPage()
+const statsHtml = await renderStatsAt('/fcs/production/preparation-timing-statistics?tab=monthly&month=2026-03')
+const detailStatsHtml = await renderStatsAt('/fcs/production/preparation-timing-statistics?tab=detail&month=2026-03')
+appStore.navigate('/fcs/production/preparation-timing-statistics?tab=monthly&month=2026-03', { historyMode: 'replace' })
+const routedStatsHtml = await renderProductionPreparationTimingStatisticsPage()
 assert.equal(typeof routedStatsHtml, 'string', '无参数渲染必须返回 HTML 字符串')
 assertHtmlIncludes(routedStatsHtml, '导出月度统计', '无参数渲染必须读取当前路由并显示月度统计')
 for (const text of [
+  '生产准备时效统计',
+  '月度统计',
+  '明细统计',
   '导出月度统计',
-  '导出完成明细',
   '完成基码',
   '完成齐码',
   '完成花型',
@@ -1385,14 +1417,21 @@ for (const text of [
   '超时完成数量',
   '平均耗时小时',
   '生产准备时效月度统计-202603.csv',
-  '生产准备时效完成明细-202603.csv',
   'data:text/csv;charset=utf-8',
-  '商品类型',
-  '必做/选填',
-  '烫画&amp;直喷',
 ] as const) {
   assertHtmlIncludes(statsHtml, text, `月度统计 HTML 缺少「${text}」`)
 }
+assert.ok(!statsHtml.includes('导出完成明细'), '月度统计 tab 不应展示完成明细导出')
+assertHtmlIncludes(detailStatsHtml, '生产准备时效统计', '明细统计 HTML 缺少标题')
+assertHtmlIncludes(detailStatsHtml, '明细统计', '明细统计 HTML 缺少 tab')
+assertHtmlIncludes(detailStatsHtml, '导出完成明细', '明细统计 HTML 缺少完成明细导出')
+assertHtmlIncludes(detailStatsHtml, '明细表', '明细统计 HTML 缺少明细表')
+assertHtmlIncludes(detailStatsHtml, '生产准备时效完成明细-202603.csv', '明细统计 HTML 缺少完成明细文件名')
+assertHtmlIncludes(detailStatsHtml, '商品类型', '明细统计 HTML 缺少商品类型')
+assertHtmlIncludes(detailStatsHtml, '必做/选填', '明细统计 HTML 缺少必做/选填')
+assertHtmlIncludes(detailStatsHtml, '烫画&amp;直喷', '明细统计 HTML 缺少商品类型数据')
+assert.ok(!detailStatsHtml.includes('导出月度统计'), '明细统计 tab 不应展示月度统计导出')
+assert.ok(!detailStatsHtml.includes('统计表'), '明细统计 tab 不应展示月度统计表')
 const detailCsvHeader = [
   '统计月份',
   '准备记录编号',
@@ -1411,7 +1450,7 @@ const detailCsvHeader = [
   '是否超时',
   '证据摘要',
 ].join(',')
-assertHtmlIncludes(statsHtml, encodeURIComponent(detailCsvHeader), '完成明细 CSV 缺少商品类型和必做/选填字段')
+assertHtmlIncludes(detailStatsHtml, encodeURIComponent(detailCsvHeader), '完成明细 CSV 缺少商品类型和必做/选填字段')
 const statsCsvHeader = [
   '统计月份',
   '准备项',
@@ -1429,7 +1468,7 @@ const statsCsvHeader = [
 ].join(',')
 assertHtmlIncludes(statsHtml, encodeURIComponent(statsCsvHeader), '月度统计 CSV 缺少完成基码/齐码/花型/染色汇总字段')
 assertHtmlIncludes(
-  statsHtml,
+  detailStatsHtml,
   encodeURIComponent('烫画&直喷'),
   '完成明细 CSV 缺少商品类型数据',
 )

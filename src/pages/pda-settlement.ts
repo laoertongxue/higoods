@@ -300,7 +300,11 @@ function getFactoryQcRows(context: FactoryContext): QcFactRow[] {
 
 function buildSettlementHomeViewModel(context: FactoryContext): SettlementHomeViewModel {
   const summaries = getSettlementCycleSummaries(context)
-  const statements = summaries.flatMap((summary) => summary.statements.map((statement) => ({ statement, summary })))
+  const statements = summaries.flatMap((summary) =>
+    summary.statements
+      .filter(isFactoryVisibleStatement)
+      .map((statement) => ({ statement, summary })),
+  )
   const statementIds = new Set(statements.map(({ statement }) => statement.statementId))
   const allLedgers = summaries.flatMap((summary) => summary.ledgers)
   const openLedgers = allLedgers.filter((ledger) => !ledger.statementId || !statementIds.has(ledger.statementId))
@@ -315,6 +319,10 @@ function buildSettlementHomeViewModel(context: FactoryContext): SettlementHomeVi
     statements,
     qcRows,
   }
+}
+
+function isFactoryVisibleStatement(statement: StatementDraft): boolean {
+  return statement.status !== 'DRAFT' && statement.factoryFeedbackStatus !== 'NOT_SENT'
 }
 
 function formatAmount(amount: number, currency = 'IDR'): string {
@@ -1379,6 +1387,7 @@ function renderQualityRecordCard(row: QcFactRow): string {
 function renderSettlementHomePage(): string {
   const context = getCurrentFactoryContext()
   const vm = buildSettlementHomeViewModel(context)
+  const effective = getCurrentEffectiveSettlementInfo(context.factoryCode)
   const pendingStatements = vm.statements.filter(({ statement }) => statement.factoryFeedbackStatus === 'PENDING_FACTORY_CONFIRM')
   const disputingStatements = vm.statements.filter(({ statement }) => statement.factoryFeedbackStatus === 'FACTORY_APPEALED')
   const paidStatements = vm.statements.filter(({ statement }) => isStatementPaid(statement))
@@ -1390,11 +1399,7 @@ function renderSettlementHomePage(): string {
 
   return `
     <div class="space-y-3 px-4 py-4">
-      <section class="rounded-lg border bg-card px-4 py-4">
-        <h1 class="text-base font-bold">结算</h1>
-        <p class="mt-1 text-[11px] leading-5 text-muted-foreground">只看收入、对账单、质检记录和结算资料。付款只显示对账单是否已付款。</p>
-      </section>
-      <section class="rounded-lg border bg-card px-4 py-4">
+      <section class="bg-card px-4 py-4">
         <h2 class="text-sm font-semibold">收入</h2>
         <p class="mt-1 text-[11px] text-muted-foreground">未结算为未入单净额参考，不等同于应付款。</p>
         <div class="mt-3 grid grid-cols-2 gap-2">
@@ -1405,7 +1410,7 @@ function renderSettlementHomePage(): string {
           ${renderHomeMetricLink('未结算参考金额', formatAmount(vm.unsettledReferenceAmount, 'IDR'), buildStatementListHref('all'))}
         </div>
       </section>
-      <section class="rounded-lg border bg-card px-4 py-4">
+      <section class="bg-card px-4 py-4">
         <h2 class="text-sm font-semibold">对账单</h2>
         <div class="mt-3 grid grid-cols-2 gap-2">
           ${renderHomeMetricLink('全部', String(vm.statements.length), buildStatementListHref('all'))}
@@ -1415,7 +1420,7 @@ function renderSettlementHomePage(): string {
           ${renderHomeMetricLink('已付款对账单', String(paidStatements.length), buildStatementListHref('paid'))}
         </div>
       </section>
-      <section class="rounded-lg border bg-card px-4 py-4">
+      <section class="bg-card px-4 py-4">
         <h2 class="text-sm font-semibold">质检记录</h2>
         <div class="mt-3 grid grid-cols-2 gap-2">
           ${renderHomeMetricLink('全部', String(vm.qcRows.length), buildQualityListHref('all'))}
@@ -1425,10 +1430,13 @@ function renderSettlementHomePage(): string {
           ${renderHomeMetricLink('有扣款', String(deductedQcRows.length), buildQualityListHref('deducted'))}
         </div>
       </section>
-      <section class="rounded-lg border bg-card px-4 py-4">
+      <section class="bg-card px-4 py-4">
         <h2 class="text-sm font-semibold">结算资料</h2>
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <button class="rounded-lg border bg-background px-3 py-2 text-left" data-pda-sett-action="open-settlement-profile">当前版本</button>
+          <button class="rounded-lg border bg-background px-3 py-2 text-left" data-pda-sett-action="open-settlement-profile">
+            <div class="text-[11px] text-muted-foreground">当前版本</div>
+            <div class="mt-1 text-sm font-bold text-foreground">${escapeHtml(effective?.versionNo ?? '未初始化')}</div>
+          </button>
           <button class="rounded-lg border bg-background px-3 py-2 text-left" data-pda-sett-action="open-settlement-version-history">历史版本记录</button>
         </div>
       </section>

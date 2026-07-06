@@ -25,6 +25,7 @@ for (const token of [
   'function renderQualityRecordListPage(',
   'function renderQualityRecordDrawer(',
   'function getStatementObjectModeLabel(',
+  'function isFactoryVisibleStatement(',
   '累计收入',
   '累计扣款',
   '已付款',
@@ -48,6 +49,7 @@ for (const token of [
   'SETTLEMENT_CONFIRM',
   'SETTLEMENT_DISPUTE',
   'SETTLEMENT_CHANGE_REQUEST',
+  '.filter(isFactoryVisibleStatement)',
 ]) {
   assertIncludes(pda, token)
 }

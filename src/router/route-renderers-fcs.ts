@@ -106,6 +106,10 @@ export const renderProductionPreparationTimingPage = createAsyncRenderer(
   () => import('../pages/production/preparation-timing'),
   'renderProductionPreparationTimingPage',
 )
+export const renderProductionPreparationTimingStatisticsPage = createAsyncRenderer(
+  () => import('../pages/production/preparation-timing'),
+  'renderProductionPreparationTimingStatisticsPage',
+)
 export const renderProductionStatusPage = createAsyncRenderer(
   () => import('../pages/production'),
   'renderProductionStatusPage',

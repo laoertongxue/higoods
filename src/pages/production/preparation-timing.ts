@@ -30,6 +30,7 @@ import {
 } from '../../data/fcs/production-preparation-timing.ts'
 
 const PAGE_PATH = '/fcs/production/preparation-timing'
+const STATS_PAGE_PATH = '/fcs/production/preparation-timing-statistics'
 const DEFAULT_MONTH = '2026-03'
 const LEDGER_PAGE_SIZE = 5
 const LEDGER_FILTER_KEYS = [
@@ -64,14 +65,22 @@ function valueOf(params: URLSearchParams, key: string): string {
   return params.get(key)?.trim() ?? ''
 }
 
-function buildHref(values: Record<string, string | number | boolean | null | undefined>): string {
+function buildPathHref(path: string, values: Record<string, string | number | boolean | null | undefined>): string {
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(values)) {
     if (value === undefined || value === null || value === '') continue
     params.set(key, String(value))
   }
   const query = params.toString()
-  return query ? `${PAGE_PATH}?${query}` : PAGE_PATH
+  return query ? `${path}?${query}` : path
+}
+
+function buildHref(values: Record<string, string | number | boolean | null | undefined>): string {
+  return buildPathHref(PAGE_PATH, values)
+}
+
+function buildStatsHref(values: Record<string, string | number | boolean | null | undefined>): string {
+  return buildPathHref(STATS_PAGE_PATH, values)
 }
 
 function renderBadge(label: string, tone: 'slate' | 'blue' | 'green' | 'amber' | 'red' = 'slate'): string {
@@ -262,24 +271,32 @@ function csvDataUri(rows: string[][]): string {
   return `data:text/csv;charset=utf-8,${encodeURIComponent(`\uFEFF${lines.join('\n')}`)}`
 }
 
-function renderHeader(activeTab: 'ledger' | 'stats', month: string): string {
+function renderHeader(): string {
+  return `
+    <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <h1 class="text-2xl font-semibold text-foreground">生产准备时效</h1>
+    </header>
+  `
+}
+
+function renderStatsHeader(activeTab: 'monthly' | 'detail', month: string): string {
   const tabs = [
-    { key: 'ledger', label: '准备台账', href: buildHref({ tab: 'ledger', month }) },
-    { key: 'stats', label: '月度统计', href: buildHref({ tab: 'stats', month }) },
+    { key: 'monthly', label: '月度统计', href: buildStatsHref({ tab: 'monthly', month }) },
+    { key: 'detail', label: '明细统计', href: buildStatsHref({ tab: 'detail', month }) },
   ] as const
 
   return `
     <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <h1 class="text-2xl font-semibold text-foreground">生产准备时效</h1>
-        <nav class="flex rounded-lg border bg-background p-1 text-sm">
-          ${tabs.map((tab) => `
-            <button
-              type="button"
-              data-nav="${escapeHtml(tab.href)}"
-              class="rounded-md px-4 py-2 ${activeTab === tab.key ? 'bg-blue-600 text-white shadow-sm' : 'text-muted-foreground hover:bg-muted'}"
-            >${escapeHtml(tab.label)}</button>
-          `).join('')}
-        </nav>
+      <h1 class="text-2xl font-semibold text-foreground">生产准备时效统计</h1>
+      <nav class="flex rounded-lg border bg-background p-1 text-sm">
+        ${tabs.map((tab) => `
+          <button
+            type="button"
+            data-nav="${escapeHtml(tab.href)}"
+            class="rounded-md px-4 py-2 ${activeTab === tab.key ? 'bg-blue-600 text-white shadow-sm' : 'text-muted-foreground hover:bg-muted'}"
+          >${escapeHtml(tab.label)}</button>
+        `).join('')}
+      </nav>
     </header>
   `
 }
@@ -1105,11 +1122,11 @@ function renderOperationLogs(record: ProductionPreparationRecord): string {
   `
 }
 
-function renderStatsFilter(params: URLSearchParams, month: string): string {
+function renderStatsFilter(params: URLSearchParams, month: string, activeTab: 'monthly' | 'detail'): string {
   const options = getProductionPreparationFilterOptions()
   return `
     <section data-prep-stats-filter-scope class="rounded-xl border bg-card p-5">
-      <input type="hidden" name="tab" value="stats" />
+      <input type="hidden" name="tab" value="${escapeHtml(activeTab)}" />
       <div class="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-6">
         ${renderSelectField('月份', 'month', options.months, month)}
         ${renderSelectField('跟单', 'merchandiserName', ['', ...options.merchandiserNames], valueOf(params, 'merchandiserName'), '全部跟单')}
@@ -1136,8 +1153,8 @@ function renderStatsFilter(params: URLSearchParams, month: string): string {
         )}
       </div>
       <div class="mt-4 flex flex-wrap gap-2">
-        <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-prep-stats-filter-scope]" data-nav-base="${PAGE_PATH}">筛选统计</button>
-        <button type="button" class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${PAGE_PATH}?tab=stats&month=${escapeHtml(DEFAULT_MONTH)}">重置</button>
+        <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-prep-stats-filter-scope]" data-nav-base="${STATS_PAGE_PATH}">筛选统计</button>
+        <button type="button" class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${STATS_PAGE_PATH}?tab=${escapeHtml(activeTab)}&month=${escapeHtml(DEFAULT_MONTH)}">重置</button>
       </div>
     </section>
   `
@@ -1328,25 +1345,47 @@ function buildDetailCsvRows(month: string, rows: MonthlyPreparationCompletionDet
   ]
 }
 
-function renderStatsTab(params: URLSearchParams, month: string): string {
+function getStatsViewData(params: URLSearchParams, month: string): {
+  details: MonthlyPreparationCompletionDetail[]
+  stats: StatsTableRow[]
+  monthKey: string
+} {
   const filter = parseFilter(params)
   const details = getStatsDetails(month, filter)
   const stats = buildStatsRows(month, details)
   const monthKey = month.replace('-', '')
+  return { details, stats, monthKey }
+}
+
+function renderMonthlyStatsTab(params: URLSearchParams, month: string): string {
+  const { details, stats, monthKey } = getStatsViewData(params, month)
   const statsFileName = `生产准备时效月度统计-${monthKey}.csv`
+
+  return `
+    <section class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+      顶部口径说明：统计完成数量时，以准备项实际完成时间所在月份为准；已关闭记录、无需项、未选择选填项不计入完成数量。
+    </section>
+    ${renderStatsFilter(params, month, 'monthly')}
+    <div class="flex flex-wrap gap-2">
+      <a class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" href="${escapeHtml(csvDataUri(buildStatsCsvRows(month, stats)))}" download="${escapeHtml(statsFileName)}">导出月度统计</a>
+    </div>
+    ${renderStatsSummary(details, stats)}
+    ${renderStatsTable(month, stats)}
+  `
+}
+
+function renderDetailStatsTab(params: URLSearchParams, month: string): string {
+  const { details, monthKey } = getStatsViewData(params, month)
   const detailFileName = `生产准备时效完成明细-${monthKey}.csv`
 
   return `
     <section class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
       顶部口径说明：统计完成数量时，以准备项实际完成时间所在月份为准；已关闭记录、无需项、未选择选填项不计入完成数量。
     </section>
-    ${renderStatsFilter(params, month)}
+    ${renderStatsFilter(params, month, 'detail')}
     <div class="flex flex-wrap gap-2">
-      <a class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" href="${escapeHtml(csvDataUri(buildStatsCsvRows(month, stats)))}" download="${escapeHtml(statsFileName)}">导出月度统计</a>
       <a class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" href="${escapeHtml(csvDataUri(buildDetailCsvRows(month, details)))}" download="${escapeHtml(detailFileName)}">导出完成明细</a>
     </div>
-    ${renderStatsSummary(details, stats)}
-    ${renderStatsTable(month, stats)}
     ${renderDetailTable(month, details)}
   `
 }
@@ -1355,13 +1394,27 @@ export function renderProductionPreparationTimingPage(pathname?: string): string
   const currentPathname = pathname || appStore.getState().pathname || PAGE_PATH
   const url = new URL(currentPathname, 'http://higoods.local')
   const params = url.searchParams
-  const activeTab = params.get('tab') === 'stats' ? 'stats' : 'ledger'
   const month = valueOf(params, 'month') || DEFAULT_MONTH
 
   return `
     <div class="flex flex-col gap-5 p-6">
-      ${renderHeader(activeTab, month)}
-      ${activeTab === 'stats' ? renderStatsTab(params, month) : renderLedgerTab(params, month)}
+      ${renderHeader()}
+      ${renderLedgerTab(params, month)}
+    </div>
+  `
+}
+
+export function renderProductionPreparationTimingStatisticsPage(pathname?: string): string {
+  const currentPathname = pathname || appStore.getState().pathname || STATS_PAGE_PATH
+  const url = new URL(currentPathname, 'http://higoods.local')
+  const params = url.searchParams
+  const activeTab = params.get('tab') === 'detail' ? 'detail' : 'monthly'
+  const month = valueOf(params, 'month') || DEFAULT_MONTH
+
+  return `
+    <div class="flex flex-col gap-5 p-6">
+      ${renderStatsHeader(activeTab, month)}
+      ${activeTab === 'detail' ? renderDetailStatsTab(params, month) : renderMonthlyStatsTab(params, month)}
     </div>
   `
 }
