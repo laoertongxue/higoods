@@ -34,4 +34,11 @@ assert.ok(factoryProfileSource.includes('getThirdPartyFactoryRatingSnapshot'), '
 assert.ok(factoryProfileSource.includes('近 90 天仅用于生产时效查看'), '工厂档案缺少 90 天非考核期说明')
 assert.ok(factoryProfileSource.includes('不能派单，不能发起结算'), '工厂档案缺少黑名单双拦截提示')
 
+const sewingDispatchSource = readFileSync(new URL('../src/pages/sewing-dispatch-workbench.ts', import.meta.url), 'utf8')
+assert.ok(sewingDispatchSource.includes('getThirdPartyFactoryRatingSnapshot'), '车缝分配工作台未读取评级快照')
+assert.ok(sewingDispatchSource.includes('dispatchRiskConfirmed'), '车缝分配工作台缺少 B 级确认状态')
+assert.ok(sewingDispatchSource.includes('该工厂为黄牌工厂，建议只分配小单、简单单'), '车缝分配缺少 B 级黄牌提醒')
+assert.ok(sewingDispatchSource.includes('该工厂已拉黑，不能派单。请更换工厂。'), '车缝分配缺少黑名单派单拦截')
+assert.ok(sewingDispatchSource.includes('该工厂还在试用期，只能接试产单。'), '车缝分配缺少考核中拦截')
+
 console.log('check:third-party-factory-rating passed')

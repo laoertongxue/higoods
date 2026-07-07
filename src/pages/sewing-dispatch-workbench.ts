@@ -33,6 +33,9 @@ import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
   renderProductionOrderIdentityCell,
 } from '../data/fcs/production-order-identity.ts'
+import {
+  getThirdPartyFactoryRatingSnapshot,
+} from '../data/fcs/third-party-factory-rating.ts'
 
 type KitFilter = '全部' | SewingDispatchKitStatus
 type GapFilter = '全部' | SewingDispatchGapType
@@ -50,6 +53,7 @@ interface SewingDispatchWorkbenchState {
   dispatchOpen: boolean
   dispatchActionType: '直接派单' | '发起竞价'
   dispatchFactoryId: string
+  dispatchRiskConfirmed: boolean
   dispatchQtyByRowId: Record<string, string>
   dispatchError: string
   feedbackMessage: string
@@ -67,6 +71,7 @@ const state: SewingDispatchWorkbenchState = {
   dispatchOpen: false,
   dispatchActionType: '直接派单',
   dispatchFactoryId: '',
+  dispatchRiskConfirmed: false,
   dispatchQtyByRowId: {},
   dispatchError: '',
   feedbackMessage: '',
@@ -83,6 +88,42 @@ function formatQty(value: number): string {
 
 function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
+}
+
+function getDispatchFactoryBlockMessage(factoryId: string): string {
+  const rating = getThirdPartyFactoryRatingSnapshot(factoryId)
+  if (!rating) return ''
+  if (rating.cooperationStatusLabel === '黑名单') return '该工厂已拉黑，不能派单。请更换工厂。'
+  if (rating.cooperationStatusLabel === '考核中') return '该工厂还在试用期，只能接试产单。'
+  if (rating.currentGrade === 'B' && !state.dispatchRiskConfirmed) return '该工厂为黄牌工厂，建议只分配小单、简单单。请确认已人工判断。'
+  return ''
+}
+
+function renderDispatchFactoryRisk(factoryId: string): string {
+  const rating = getThirdPartyFactoryRatingSnapshot(factoryId)
+  if (!rating) return ''
+  if (rating.cooperationStatusLabel === '黑名单') {
+    return `<div class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml('该工厂已拉黑，不能派单。请更换工厂。')}</div>`
+  }
+  if (rating.cooperationStatusLabel === '考核中') {
+    return `<div class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">${escapeHtml('该工厂还在试用期，只能接试产单。')}</div>`
+  }
+  if (rating.currentGrade === 'B') {
+    return `
+      <label class="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <input type="checkbox" class="mt-0.5" data-sewing-dispatch-field="dispatchRiskConfirmed" ${state.dispatchRiskConfirmed ? 'checked' : ''} />
+        <span>${escapeHtml('该工厂为黄牌工厂，建议只分配小单、简单单。请确认已人工判断。')}</span>
+      </label>
+    `
+  }
+  return `<div class="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">${escapeHtml(`${rating.currentGrade} 级 · ${rating.dispatchPolicyLabel}`)}</div>`
+}
+
+function renderDispatchFactoryOption(factory: { id: string; name: string }): string {
+  const rating = getThirdPartyFactoryRatingSnapshot(factory.id)
+  const disabled = rating?.cooperationStatusLabel === '黑名单' || rating?.cooperationStatusLabel === '考核中'
+  const ratingLabel = rating ? ` · ${rating.currentGrade}级 · ${rating.dispatchPolicyLabel}` : ''
+  return `<option value="${escapeHtml(factory.id)}" ${state.dispatchFactoryId === factory.id ? 'selected' : ''} ${disabled ? 'disabled' : ''}>${escapeHtml(`${factory.name}${ratingLabel}`)}</option>`
 }
 
 function getCutPieceReleaseBadgeClass(decision: CutPieceReleaseSummary['decision']): string {
@@ -1009,10 +1050,11 @@ function renderDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): string {
               <span class="text-sm font-medium">车缝工厂</span>
               <select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-sewing-dispatch-field="dispatchFactoryId" ${state.dispatchActionType === '发起竞价' ? 'disabled' : ''}>
                 <option value="">请选择车缝工厂</option>
-                ${factories.map((factory) => `<option value="${escapeHtml(factory.id)}" ${state.dispatchFactoryId === factory.id ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}
+                ${factories.map((factory) => renderDispatchFactoryOption(factory)).join('')}
               </select>
             </label>
           </div>
+          ${state.dispatchActionType === '直接派单' ? renderDispatchFactoryRisk(state.dispatchFactoryId) : ''}
           ${renderDispatchCutPieceReleaseNotice(selectedRows, tasks)}
           ${
             state.dispatchError || materialPrepError
@@ -1147,11 +1189,18 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
   }
   if (field === 'dispatchActionType') {
     state.dispatchActionType = node.value === '发起竞价' ? '发起竞价' : '直接派单'
+    state.dispatchRiskConfirmed = false
     state.dispatchError = ''
     return
   }
   if (field === 'dispatchFactoryId') {
     state.dispatchFactoryId = node.value
+    state.dispatchRiskConfirmed = false
+    state.dispatchError = ''
+    return
+  }
+  if (field === 'dispatchRiskConfirmed' && node instanceof HTMLInputElement) {
+    state.dispatchRiskConfirmed = node.checked
     state.dispatchError = ''
     return
   }
@@ -1169,6 +1218,7 @@ function openDispatch(taskId: string | undefined, type: string | undefined): voi
   state.dispatchActionType = type === '发起竞价' ? '发起竞价' : '直接派单'
   state.dispatchOpen = selectedRows.length > 0
   state.dispatchQtyByRowId = Object.fromEntries(selectedRows.map((row) => [row.rowId, String(row.completeKitQty)]))
+  state.dispatchRiskConfirmed = false
   state.dispatchError = ''
   state.feedbackMessage = ''
 }
@@ -1234,6 +1284,13 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement): boolean
       state.dispatchError = formatSewingMaterialPrepError(materialPrepChecks)
       return true
     }
+    if (state.dispatchActionType === '直接派单') {
+      const blockMessage = getDispatchFactoryBlockMessage(state.dispatchFactoryId)
+      if (blockMessage) {
+        state.dispatchError = blockMessage
+        return true
+      }
+    }
     const result = createSewingDispatchWorkbenchDraft({
       actionType: state.dispatchActionType,
       factoryId: factory?.id,
@@ -1242,7 +1299,10 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement): boolean
       qtyByRowId: Object.fromEntries(Object.entries(state.dispatchQtyByRowId).map(([rowId, value]) => [rowId, Number(value)])),
       by: '跟单A',
     })
-    state.feedbackMessage = result.message
+    const rating = factory ? getThirdPartyFactoryRatingSnapshot(factory.id) : undefined
+    state.feedbackMessage = result.ok && rating?.currentGrade === 'B'
+      ? `${result.message} 已记录黄牌工厂派单确认。`
+      : result.message
     if (result.ok) {
       if (state.dispatchActionType === '直接派单' && factory) {
         Array.from(new Set(selectedRows.map((row) => row.productionOrderId))).forEach((productionOrderId) => {
