@@ -26,6 +26,7 @@ import {
   type SettlementEffectiveInfoSnapshot,
   type SettlementVersionRecord,
 } from './settlement-change-requests.ts'
+import { isThirdPartyFactorySettlementBlocked } from './third-party-factory-rating.ts'
 import { deriveSettlementCycleFields } from './store-domain-statement-grain.ts'
 import type {
   DeductionBasisSourceType,
@@ -239,6 +240,7 @@ const LINKED_FACTORY_CODES = [
   'ID-FAC-0005',
   'ID-FAC-0021',
   'ID-FAC-0022',
+  'ID-FAC-0024',
 ] as const
 
 const CYCLE_REFERENCE_DATES = [
@@ -1329,6 +1331,7 @@ function createStatementDrafts(
     const [factoryId, settlementCycleId] = key.split('__')
     const factory = factories.find((item) => item.id === factoryId)
     if (!factory) continue
+    if (isThirdPartyFactorySettlementBlocked(factory.id) || isThirdPartyFactorySettlementBlocked(factory.code)) continue
     const lines = linesByFactoryCycle.get(key) ?? []
     if (!lines.length) continue
 

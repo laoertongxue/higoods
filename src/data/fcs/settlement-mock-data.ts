@@ -131,6 +131,18 @@ export const settlementProfiles: FactorySettlementProfile[] = [
     effectiveFrom: '2026-01-01',
     updatedAt: '2026-01-01',
   },
+  {
+    id: 'sp-024',
+    factoryId: 'ID-FAC-0024',
+    factoryName: 'CV Micro Sewing Semarang Timur',
+    cycleType: 'TRI_DECAD',
+    settlementDayRule: '1-10日送货次月10日预付；11-20日送货次月20日预付；21-月底送货次月30日预付',
+    pricingMode: 'BY_PIECE',
+    currency: 'IDR',
+    isActive: true,
+    effectiveFrom: '2026-01-01',
+    updatedAt: '2026-01-01',
+  },
 ]
 
 // 收款账户数据（使用印尼银行）
@@ -205,6 +217,16 @@ export const bankAccounts: FactoryBankAccount[] = [
     isDefault: true,
     status: 'ACTIVE',
   },
+  {
+    id: 'ba-024',
+    factoryId: 'ID-FAC-0024',
+    accountName: 'CV Micro Sewing Semarang Timur',
+    bankName: 'Bank Negara Indonesia (BNI)',
+    accountMasked: '****2400',
+    currency: 'IDR',
+    isDefault: true,
+    status: 'ACTIVE',
+  },
 ]
 
 // 默认扣款规则数据
@@ -259,7 +281,7 @@ export const penaltyRules: DefaultPenaltyRule[] = [
 // 结算情况列表（列表页用）- 从印尼工厂生成
 const settlementSummaryFactories = [
   ...indonesiaFactories.slice(0, 8),
-  ...indonesiaFactories.filter((factory) => ['ID-FAC-0021', 'ID-FAC-0022'].includes(factory.code)),
+  ...indonesiaFactories.filter((factory) => ['ID-FAC-0021', 'ID-FAC-0022', 'ID-FAC-0024'].includes(factory.code)),
 ]
 
 export const settlementSummaries: FactorySettlementSummary[] = settlementSummaryFactories.map((f, i) => ({

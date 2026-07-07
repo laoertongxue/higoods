@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { indonesiaFactories } from '../src/data/fcs/indonesia-factories.ts'
+import { listSewingFactoryOptions } from '../src/data/fcs/sewing-dispatch-workbench.ts'
+import { listStatementBuildScopes } from '../src/data/fcs/store-domain-statement-source-adapter.ts'
 import {
   getThirdPartyFactoryRatingSnapshot,
   isThirdPartyFactorySettlementBlocked,
+  listThirdPartyFactoryPerformanceRecords,
   listThirdPartyFactoryRatingSnapshots,
 } from '../src/data/fcs/third-party-factory-rating.ts'
 
@@ -17,12 +21,31 @@ assert.ok(snapshots.some((item) => item.cooperationStatusLabel === '考核中' &
 const blacklisted = snapshots.find((item) => item.cooperationStatusLabel === '黑名单')
 assert.ok(blacklisted, '缺少黑名单工厂')
 assert.equal(isThirdPartyFactorySettlementBlocked(blacklisted.factoryId), true, '黑名单工厂必须禁止发起结算')
+assert.equal(isThirdPartyFactorySettlementBlocked(blacklisted.factoryCode), true, '黑名单工厂编码口径也必须禁止发起结算')
 assert.equal(getThirdPartyFactoryRatingSnapshot(blacklisted.factoryId)?.dispatchPolicyLabel.includes('禁止派单'), true, '黑名单工厂必须禁止派单')
+assert.equal(getThirdPartyFactoryRatingSnapshot(blacklisted.factoryCode)?.factoryId, blacklisted.factoryId, '评级快照必须兼容工厂编码查询')
 
 const bGrade = snapshots.find((item) => item.currentGrade === 'B')
 assert.ok(bGrade, '缺少 B 级工厂')
 assert.equal(isThirdPartyFactorySettlementBlocked(bGrade.factoryId), false, 'B 级工厂不能禁止结算')
 assert.ok(bGrade.dispatchPolicyLabel.includes('小单'), 'B 级工厂必须提示小单、简单单')
+
+const sewingFactoryOptions = listSewingFactoryOptions()
+for (const snapshot of snapshots) {
+  const master = indonesiaFactories.find((item) => item.id === snapshot.factoryId && item.code === snapshot.factoryCode)
+  assert.ok(master, `${snapshot.factoryId} 必须能命中工厂主档和编码`)
+  assert.ok(sewingFactoryOptions.some((item) => item.id === snapshot.factoryId), `${snapshot.factoryId} 必须能命中车缝派单候选`)
+  assert.ok(
+    listThirdPartyFactoryPerformanceRecords(snapshot.factoryCode).every((item) => item.factoryId === snapshot.factoryId),
+    `${snapshot.factoryId} 的履约记录必须兼容编码查询`,
+  )
+}
+
+const buildScopes = listStatementBuildScopes()
+assert.ok(
+  buildScopes.some((item) => item.settlementPartyId === blacklisted.factoryId),
+  '黑名单工厂必须有可演示的对账单生成范围，才能验证结算拦截',
+)
 
 const source = readFileSync(new URL('../src/data/fcs/third-party-factory-rating.ts', import.meta.url), 'utf8')
 assert.ok(source.includes('近 90 天仅用于生产时效查看'), '缺少 90 天非考核期说明')

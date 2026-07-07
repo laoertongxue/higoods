@@ -374,6 +374,19 @@ const settlementEffectiveInfos: SettlementEffectiveInfo[] = [
     effectiveBy: '平台运营-周航',
     updatedBy: '平台运营-周航',
   },
+  {
+    factoryId: 'ID-FAC-0024',
+    factoryName: 'CV Micro Sewing Semarang Timur',
+    accountHolderName: 'CV Micro Sewing Semarang Timur',
+    idNumber: 'NPWP-24.884.509.4-024.000',
+    bankName: 'Bank Negara Indonesia (BNI)',
+    bankAccountNo: '8800241100772400',
+    bankBranch: 'Semarang Timur Branch',
+    versionNo: 'V1',
+    effectiveAt: '2026-01-01 09:00',
+    effectiveBy: '平台运营-林静',
+    updatedBy: '平台运营-林静',
+  },
 ].map(buildEffectiveInfo)
 
 const settlementVersionHistory: SettlementVersionRecord[] = [

@@ -4,6 +4,7 @@ export type FactoryCooperationStatusLabel = '考核中' | '正常合作' | '黑�
 
 export interface FactoryRatingSnapshot {
   factoryId: string
+  factoryCode: string
   factoryName: string
   factoryTypeLabel: '第三方车缝工厂'
   sewingSeatCount: number
@@ -53,7 +54,8 @@ export interface FactoryTimingSummary {
 
 export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
   {
-    factoryId: 'ID-FAC-0021',
+    factoryId: 'ID-F021',
+    factoryCode: 'ID-FAC-0021',
     factoryName: '雅加达顺达车缝厂',
     factoryTypeLabel: '第三方车缝工厂',
     sewingSeatCount: 48,
@@ -71,7 +73,8 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     settlementBlocked: false,
   },
   {
-    factoryId: 'ID-FAC-0022',
+    factoryId: 'ID-F022',
+    factoryCode: 'ID-FAC-0022',
     factoryName: '泗水安和车缝厂',
     factoryTypeLabel: '第三方车缝工厂',
     sewingSeatCount: 36,
@@ -89,7 +92,8 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     settlementBlocked: false,
   },
   {
-    factoryId: 'ID-FAC-0023',
+    factoryId: 'ID-F023',
+    factoryCode: 'ID-FAC-0023',
     factoryName: '万隆明达小型车缝组',
     factoryTypeLabel: '第三方车缝工厂',
     sewingSeatCount: 18,
@@ -107,7 +111,8 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     settlementBlocked: false,
   },
   {
-    factoryId: 'ID-FAC-0024',
+    factoryId: 'ID-F024',
+    factoryCode: 'ID-FAC-0024',
     factoryName: '勿加泗立成车缝厂',
     factoryTypeLabel: '第三方车缝工厂',
     sewingSeatCount: 28,
@@ -125,7 +130,8 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     settlementBlocked: true,
   },
   {
-    factoryId: 'ID-FAC-0025',
+    factoryId: 'ID-F025',
+    factoryCode: 'ID-FAC-0025',
     factoryName: '登巴萨新协车缝组',
     factoryTypeLabel: '第三方车缝工厂',
     sewingSeatCount: 16,
@@ -146,7 +152,7 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
 
 export const thirdPartyFactoryTimingSummaries: FactoryTimingSummary[] = [
   {
-    factoryId: 'ID-FAC-0021',
+    factoryId: 'ID-F021',
     rangeLabel: '近 90 天',
     dispatchedOrderCount: 18,
     averageDelayDays: 0.1,
@@ -156,7 +162,7 @@ export const thirdPartyFactoryTimingSummaries: FactoryTimingSummary[] = [
     timingNote: '近 90 天仅用于生产时效查看，不代表新工厂考核期。',
   },
   {
-    factoryId: 'ID-FAC-0023',
+    factoryId: 'ID-F023',
     rangeLabel: '近 90 天',
     dispatchedOrderCount: 7,
     averageDelayDays: 1.4,
@@ -166,7 +172,7 @@ export const thirdPartyFactoryTimingSummaries: FactoryTimingSummary[] = [
     timingNote: '近 90 天仅用于生产时效查看，不代表新工厂考核期。',
   },
   {
-    factoryId: 'ID-FAC-0025',
+    factoryId: 'ID-F025',
     rangeLabel: '首单考核',
     dispatchedOrderCount: 1,
     averageDelayDays: 1,
@@ -180,7 +186,7 @@ export const thirdPartyFactoryTimingSummaries: FactoryTimingSummary[] = [
 export const thirdPartyFactoryPerformanceRecords: FactoryRatingPerformanceRecord[] = [
   {
     recordId: 'FRP-202607-001',
-    factoryId: 'ID-FAC-0021',
+    factoryId: 'ID-F021',
     productionOrderNo: 'PO-SEW-202607-011',
     documentTypeLabel: '常规单',
     dispatchedAt: '2026-06-20 09:30:00',
@@ -198,7 +204,7 @@ export const thirdPartyFactoryPerformanceRecords: FactoryRatingPerformanceRecord
   },
   {
     recordId: 'FRP-202607-002',
-    factoryId: 'ID-FAC-0023',
+    factoryId: 'ID-F023',
     productionOrderNo: 'PO-SEW-202607-026',
     documentTypeLabel: '常规单',
     dispatchedAt: '2026-06-22 10:00:00',
@@ -216,7 +222,7 @@ export const thirdPartyFactoryPerformanceRecords: FactoryRatingPerformanceRecord
   },
   {
     recordId: 'FRP-202607-003',
-    factoryId: 'ID-FAC-0024',
+    factoryId: 'ID-F024',
     productionOrderNo: 'PO-SEW-202607-031',
     documentTypeLabel: '常规单',
     dispatchedAt: '2026-06-18 08:50:00',
@@ -234,7 +240,7 @@ export const thirdPartyFactoryPerformanceRecords: FactoryRatingPerformanceRecord
   },
   {
     recordId: 'FRP-202607-004',
-    factoryId: 'ID-FAC-0025',
+    factoryId: 'ID-F025',
     productionOrderNo: 'PO-SY-202607-002',
     documentTypeLabel: '试产单',
     dispatchedAt: '2026-07-01 09:00:00',
@@ -256,18 +262,26 @@ export function listThirdPartyFactoryRatingSnapshots(): FactoryRatingSnapshot[] 
   return thirdPartyFactoryRatingSnapshots.slice()
 }
 
-export function getThirdPartyFactoryRatingSnapshot(factoryId: string): FactoryRatingSnapshot | undefined {
-  return thirdPartyFactoryRatingSnapshots.find((item) => item.factoryId === factoryId)
+function isSameFactoryKey(snapshot: Pick<FactoryRatingSnapshot, 'factoryId' | 'factoryCode'>, factoryIdOrCode: string): boolean {
+  return snapshot.factoryId === factoryIdOrCode || snapshot.factoryCode === factoryIdOrCode
 }
 
-export function listThirdPartyFactoryPerformanceRecords(factoryId?: string): FactoryRatingPerformanceRecord[] {
-  return thirdPartyFactoryPerformanceRecords.filter((item) => !factoryId || item.factoryId === factoryId)
+export function getThirdPartyFactoryRatingSnapshot(factoryIdOrCode: string): FactoryRatingSnapshot | undefined {
+  return thirdPartyFactoryRatingSnapshots.find((item) => isSameFactoryKey(item, factoryIdOrCode))
 }
 
-export function getThirdPartyFactoryTimingSummary(factoryId: string): FactoryTimingSummary | undefined {
-  return thirdPartyFactoryTimingSummaries.find((item) => item.factoryId === factoryId)
+export function listThirdPartyFactoryPerformanceRecords(factoryIdOrCode?: string): FactoryRatingPerformanceRecord[] {
+  const snapshot = factoryIdOrCode ? getThirdPartyFactoryRatingSnapshot(factoryIdOrCode) : undefined
+  const resolvedFactoryId = snapshot?.factoryId ?? factoryIdOrCode
+  return thirdPartyFactoryPerformanceRecords.filter((item) => !resolvedFactoryId || item.factoryId === resolvedFactoryId)
 }
 
-export function isThirdPartyFactorySettlementBlocked(factoryId: string): boolean {
-  return getThirdPartyFactoryRatingSnapshot(factoryId)?.settlementBlocked === true
+export function getThirdPartyFactoryTimingSummary(factoryIdOrCode: string): FactoryTimingSummary | undefined {
+  const snapshot = getThirdPartyFactoryRatingSnapshot(factoryIdOrCode)
+  const resolvedFactoryId = snapshot?.factoryId ?? factoryIdOrCode
+  return thirdPartyFactoryTimingSummaries.find((item) => item.factoryId === resolvedFactoryId)
+}
+
+export function isThirdPartyFactorySettlementBlocked(factoryIdOrCode: string): boolean {
+  return getThirdPartyFactoryRatingSnapshot(factoryIdOrCode)?.settlementBlocked === true
 }
