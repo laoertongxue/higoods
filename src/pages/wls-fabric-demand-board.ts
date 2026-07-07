@@ -208,7 +208,7 @@ export function renderWlsFabricDemandBoardPage(): string {
 
       <section class="rounded-lg border border-slate-200 bg-white p-4">
         <div class="mb-3 text-sm font-semibold text-slate-900">数据搜索区</div>
-        <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div class="grid items-end gap-3 md:grid-cols-3 xl:grid-cols-[1.05fr_1.05fr_1fr_1fr_1.05fr_1.05fr_auto]">
           <label class="space-y-1 text-xs text-slate-500">
             <span>关键词</span>
             <input
@@ -224,10 +224,10 @@ export function renderWlsFabricDemandBoardPage(): string {
           ${renderSelect<FabricDemandBoardFilters['dyeRequirement']>('是否需染色', 'dyeRequirement', filters.dyeRequirement, dyeRequirements)}
           ${renderSelect<FabricDemandBoardFilters['alertType']>('异常类型', 'alertType', filters.alertType, alertTypes)}
           ${renderSelect<FabricDemandBoardFilters['warehouseName']>('仓库/目的仓', 'warehouseName', filters.warehouseName, warehouseNames)}
-        </div>
-        <div class="mt-4 flex items-center justify-end gap-2">
-          <button type="button" class="h-9 rounded-md border border-slate-200 px-4 text-sm text-slate-700 hover:bg-slate-50" data-fabric-demand-action="reset">重置</button>
-          <button type="button" class="h-9 rounded-md bg-slate-900 px-4 text-sm text-white hover:bg-slate-800" data-fabric-demand-action="filter">筛选</button>
+          <div class="flex h-9 items-center justify-end gap-2 md:col-span-3 xl:col-span-1">
+            <button type="button" class="h-9 rounded-md border border-slate-200 px-4 text-sm text-slate-700 hover:bg-slate-50" data-fabric-demand-action="reset">重置</button>
+            <button type="button" class="h-9 rounded-md bg-slate-900 px-4 text-sm text-white hover:bg-slate-800" data-fabric-demand-action="filter">筛选</button>
+          </div>
         </div>
       </section>
 
