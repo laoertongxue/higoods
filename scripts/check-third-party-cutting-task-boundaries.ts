@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 
 import { productionOrders } from '../src/data/fcs/production-orders.ts'
+import { listGeneratedCutOrderSourceRecords } from '../src/data/fcs/cutting/generated-cut-orders.ts'
 import {
   resolveProductionOrderTaskBoundary,
   shouldGenerateCutOrderForProductionOrder,
@@ -39,5 +40,29 @@ const legacyTaskTypeOnlyCutting = productionOrders.find((order) =>
 )
 assert(legacyTaskTypeOnlyCutting, '必须存在仅 taskTypesTop3 标识裁片的旧摘要样本')
 assert.equal(resolveProductionOrderTaskBoundary(legacyTaskTypeOnlyCutting).kind, 'INDEPENDENT_CUTTING')
+
+const cutOrders = listGeneratedCutOrderSourceRecords()
+assert(
+  cutOrders.every((record) => record.productionOrderId !== wholeOrder.productionOrderId),
+  '整单任务生产单不得出现在裁片单列表',
+)
+assert(
+  cutOrders.some((record) =>
+    record.productionOrderId === continuousWithCutting.productionOrderId
+    && record.cutOrderSourceType === 'CONTINUOUS_WITH_CUTTING_TASK'
+    && record.cutReturnMode === 'THIRD_PARTY_REPORT_ONLY'
+    && record.internalCraftOrderPolicy === 'DO_NOT_GENERATE',
+  ),
+  '含裁片连续任务裁片单必须标记为三方上报裁片完成，且不生成我方加工单',
+)
+assert(
+  cutOrders.some((record) =>
+    record.productionOrderId === independentCutting.productionOrderId
+    && record.cutOrderSourceType === 'INDEPENDENT_CUTTING_TASK'
+    && record.cutReturnMode === 'RETURN_TO_OWN_CUTTING_WAREHOUSE'
+    && record.internalCraftOrderPolicy === 'GENERATE_AFTER_RETURN',
+  ),
+  '独立裁片任务裁片单必须标记为回我方裁床待交出仓，且回仓后生成我方加工单',
+)
 
 console.log('check-third-party-cutting-task-boundaries PASS')

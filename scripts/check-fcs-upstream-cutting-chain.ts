@@ -79,6 +79,14 @@ function ensureGeneratedCutOrdersTraceable(): void {
     assert(record.materialSku, `裁片单 ${record.cutOrderNo} 缺少 materialSku`)
     assert(record.sourceTechPackSpuCode, `裁片单 ${record.cutOrderNo} 缺少 sourceTechPackSpuCode`)
     assert(record.techPackVersionLabel, `裁片单 ${record.cutOrderNo} 缺少 tech pack 版本`)
+    assert(record.cutOrderSourceLabel, `裁片单 ${record.cutOrderNo} 缺少来源类型`)
+    assert(record.cutReturnModeLabel, `裁片单 ${record.cutOrderNo} 缺少回流方式`)
+    assert(record.internalCraftOrderPolicyLabel, `裁片单 ${record.cutOrderNo} 缺少我方加工单策略`)
+    assert(
+      record.cutOrderSourceType !== 'CONTINUOUS_WITH_CUTTING_TASK'
+      || record.internalCraftOrderPolicy === 'DO_NOT_GENERATE',
+      `含裁片连续任务裁片单 ${record.cutOrderNo} 不得生成我方加工单`,
+    )
 
     const order = productionOrders.find((item) => item.productionOrderId === record.productionOrderId)
     assert(order, `裁片单 ${record.cutOrderNo} 无法回溯到 production order ${record.productionOrderId}`)

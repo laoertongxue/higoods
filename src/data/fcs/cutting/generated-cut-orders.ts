@@ -3,6 +3,10 @@ import {
   getProductionOrderTechPackSnapshot,
   type ProductionOrder,
 } from '../production-orders.ts'
+import {
+  resolveProductionOrderTaskBoundary,
+  shouldGenerateCutOrderForProductionOrder,
+} from '../task-generation-boundaries.ts'
 import type { TechnicalBomItem, TechnicalColorMaterialMappingLine } from '../../pcs-technical-data-version-types.ts'
 import type { ProductionOrderTechPackSnapshot, TechPackBomItemSnapshot } from '../production-tech-pack-snapshot-types.ts'
 import {
@@ -67,6 +71,12 @@ export interface GeneratedCutOrderSourceRecord {
   skuScopeLines: GeneratedCutOrderSkuScopeLine[]
   pieceRows: GeneratedCutOrderPieceRow[]
   pieceSummary: string
+  cutOrderSourceType: 'INDEPENDENT_CUTTING_TASK' | 'CONTINUOUS_WITH_CUTTING_TASK'
+  cutOrderSourceLabel: string
+  cutReturnMode: 'RETURN_TO_OWN_CUTTING_WAREHOUSE' | 'THIRD_PARTY_REPORT_ONLY'
+  cutReturnModeLabel: string
+  internalCraftOrderPolicy: 'GENERATE_AFTER_RETURN' | 'DO_NOT_GENERATE'
+  internalCraftOrderPolicyLabel: string
 }
 
 function normalizeText(value: string | null | undefined): string {
@@ -348,6 +358,9 @@ function buildSkuScopeLines(order: ProductionOrder): GeneratedCutOrderSkuScopeLi
 }
 
 function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRecord[] {
+  const boundary = resolveProductionOrderTaskBoundary(order)
+  if (!shouldGenerateCutOrderForProductionOrder(order)) return []
+
   const techPack = getProductionOrderTechPackSnapshot(order.productionOrderId)
   if (!techPack) return []
 
@@ -532,6 +545,21 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRe
         resolvedPieceRows.length > 0
           ? resolvedPieceRows.map((item) => `${item.partName}×${item.pieceCountPerUnit}`).join('、')
           : '待补纸样裁片映射',
+      cutOrderSourceType:
+        boundary.kind === 'CONTINUOUS_WITH_CUTTING'
+          ? 'CONTINUOUS_WITH_CUTTING_TASK'
+          : 'INDEPENDENT_CUTTING_TASK',
+      cutOrderSourceLabel: boundary.cutOrderSourceLabel,
+      cutReturnMode:
+        boundary.kind === 'CONTINUOUS_WITH_CUTTING'
+          ? 'THIRD_PARTY_REPORT_ONLY'
+          : 'RETURN_TO_OWN_CUTTING_WAREHOUSE',
+      cutReturnModeLabel: boundary.cutReturnModeLabel,
+      internalCraftOrderPolicy:
+        boundary.kind === 'CONTINUOUS_WITH_CUTTING'
+          ? 'DO_NOT_GENERATE'
+          : 'GENERATE_AFTER_RETURN',
+      internalCraftOrderPolicyLabel: boundary.internalCraftPolicyLabel,
     }
   }).filter((item): item is GeneratedCutOrderSourceRecord => Boolean(item))
 }
