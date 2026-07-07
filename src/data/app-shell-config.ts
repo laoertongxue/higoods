@@ -269,7 +269,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'production-preparation-timing', title: '生产准备时效', icon: 'TimerReset', href: '/fcs/production/preparation-timing' },
             { key: 'production-preparation-timing-statistics', title: '生产准备时效统计', icon: 'BarChart3', href: '/fcs/production/preparation-timing-statistics' },
             { key: 'production-delivery-warehouse', title: '交付仓配置', icon: 'Warehouse', href: '/fcs/production/delivery-warehouse' },
-            { key: 'production-changes', title: '生产单变更', icon: 'GitPullRequest', href: '/fcs/production/changes' },
+            { key: 'production-changes', title: '生产单变更管理', icon: 'GitPullRequest', href: '/fcs/production/changes' },
             { key: 'production-status', title: '状态管理', icon: 'Workflow', href: '/fcs/production/status' },
             { key: 'production-craft-dict', title: '工序工艺字典', icon: 'BookOpen', href: '/fcs/production/craft-dict' },
           ],
