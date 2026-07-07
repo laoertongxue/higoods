@@ -346,18 +346,42 @@ function createEmptyContent(technicalVersionId: string): TechnicalDataVersionCon
   }
 }
 
+function hasOwnRouteField(content: TechnicalDataVersionContent, key: keyof TechnicalDataVersionContent): boolean {
+  return Object.prototype.hasOwnProperty.call(content, key)
+}
+
+function normalizeProcessRouteStatus(content: TechnicalDataVersionContent): TechnicalDataVersionContent['processRouteStatus'] {
+  if (!hasOwnRouteField(content, 'processRouteStatus')) return undefined
+  return content.processRouteStatus === 'CONFIRMED' ? 'CONFIRMED' : 'UNCONFIRMED'
+}
+
+function normalizeRouteStringField(
+  content: TechnicalDataVersionContent,
+  key: keyof Pick<
+    TechnicalDataVersionContent,
+    | 'processRouteConfirmedBy'
+    | 'processRouteConfirmedAt'
+    | 'processRouteUpdatedBy'
+    | 'processRouteUpdatedAt'
+    | 'processRouteChangeReason'
+  >,
+): string | undefined {
+  if (!hasOwnRouteField(content, key)) return undefined
+  return String(content[key] || '')
+}
+
 function normalizeContent(content: TechnicalDataVersionContent): TechnicalDataVersionContent {
   return {
     technicalVersionId: content.technicalVersionId,
     patternFiles: clonePatternFiles(Array.isArray(content.patternFiles) ? content.patternFiles : []),
     patternDesc: content.patternDesc || '',
     processEntries: cloneProcessEntries(Array.isArray(content.processEntries) ? content.processEntries : []),
-    processRouteStatus: content.processRouteStatus === 'CONFIRMED' ? 'CONFIRMED' : 'UNCONFIRMED',
-    processRouteConfirmedBy: content.processRouteConfirmedBy || '',
-    processRouteConfirmedAt: content.processRouteConfirmedAt || '',
-    processRouteUpdatedBy: content.processRouteUpdatedBy || '',
-    processRouteUpdatedAt: content.processRouteUpdatedAt || '',
-    processRouteChangeReason: content.processRouteChangeReason || '',
+    processRouteStatus: normalizeProcessRouteStatus(content),
+    processRouteConfirmedBy: normalizeRouteStringField(content, 'processRouteConfirmedBy'),
+    processRouteConfirmedAt: normalizeRouteStringField(content, 'processRouteConfirmedAt'),
+    processRouteUpdatedBy: normalizeRouteStringField(content, 'processRouteUpdatedBy'),
+    processRouteUpdatedAt: normalizeRouteStringField(content, 'processRouteUpdatedAt'),
+    processRouteChangeReason: normalizeRouteStringField(content, 'processRouteChangeReason'),
     sizeTable: cloneSizeTable(Array.isArray(content.sizeTable) ? content.sizeTable : []),
     bomItems: cloneBomItems(Array.isArray(content.bomItems) ? content.bomItems : []),
     qualityRules: cloneQualityRules(Array.isArray(content.qualityRules) ? content.qualityRules : []),

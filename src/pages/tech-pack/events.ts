@@ -360,10 +360,6 @@ function getTechniqueRouteGroupsFrom(techniques: TechniqueItem[]): TechniqueRout
     }))
 }
 
-function getTechniqueRouteGroups(): TechniqueRouteGroup[] {
-  return getTechniqueRouteGroupsFrom(state.techniques)
-}
-
 function flattenTechniqueRouteGroups(
   groups: TechniqueRouteGroup[],
   operatorName = currentUser.name,
@@ -396,11 +392,50 @@ function findTechniqueRouteGroupIndex(groups: TechniqueRouteGroup[], techId: str
   return groups.findIndex((group) => group.items.some((item) => item.id === techId))
 }
 
-function saveTechniqueRouteGroups(groups: TechniqueRouteGroup[]): void {
-  state.techniques = normalizeTechniqueRoutes(flattenTechniqueRouteGroups(groups))
-  markProcessRouteUnconfirmed()
+function getProcessRouteDraftFromState(): ProcessRouteDraftState {
+  return {
+    techniques: state.techniques,
+    processRouteStatus: state.processRouteStatus,
+    processRouteConfirmedBy: state.processRouteConfirmedBy,
+    processRouteConfirmedAt: state.processRouteConfirmedAt,
+    processRouteUpdatedBy: state.processRouteUpdatedBy,
+    processRouteUpdatedAt: state.processRouteUpdatedAt,
+  }
+}
+
+function getProcessRouteDraftSignature(draft: ProcessRouteDraftState): string {
+  return [
+    draft.processRouteStatus,
+    draft.processRouteConfirmedBy,
+    draft.processRouteConfirmedAt,
+    draft.processRouteUpdatedBy,
+    draft.processRouteUpdatedAt,
+    draft.techniques.map((item) => [
+      item.id,
+      item.routeStepNo,
+      item.routeLaneNo,
+      item.routeParallelGroupId || '',
+      item.routeParallelAcceptanceMode,
+    ].join('|')).join('||'),
+  ].join('::')
+}
+
+function saveProcessRouteDraft(nextDraft: ProcessRouteDraftState): void {
+  state.techniques = nextDraft.techniques
+  state.processRouteStatus = nextDraft.processRouteStatus
+  state.processRouteConfirmedBy = nextDraft.processRouteConfirmedBy
+  state.processRouteConfirmedAt = nextDraft.processRouteConfirmedAt
+  state.processRouteUpdatedBy = nextDraft.processRouteUpdatedBy
+  state.processRouteUpdatedAt = nextDraft.processRouteUpdatedAt
   syncProcessCostRows()
   syncTechPackToStore()
+}
+
+function applyProcessRouteActionToState(action: ProcessRouteDraftAction): void {
+  const currentDraft = getProcessRouteDraftFromState()
+  const nextDraft = applyProcessRouteDraftAction(currentDraft, action)
+  if (getProcessRouteDraftSignature(nextDraft) === getProcessRouteDraftSignature(currentDraft)) return
+  saveProcessRouteDraft(nextDraft)
 }
 
 function buildUnconfirmedRouteDraft(
@@ -510,89 +545,26 @@ export function applyProcessRouteDraftAction(
 }
 
 function moveTechniqueRoute(techId: string, direction: 'up' | 'down'): void {
-  const groups = getTechniqueRouteGroups()
-  const index = findTechniqueRouteGroupIndex(groups, techId)
-  if (index < 0) return
-  const targetIndex = direction === 'up' ? index - 1 : index + 1
-  if (targetIndex < 0 || targetIndex >= groups.length) return
-  const nextGroups = [...groups]
-  ;[nextGroups[index], nextGroups[targetIndex]] = [nextGroups[targetIndex], nextGroups[index]]
-  saveTechniqueRouteGroups(nextGroups)
+  applyProcessRouteActionToState({ type: direction === 'up' ? 'move-up' : 'move-down', techniqueId: techId })
 }
 
 function makeTechniqueParallel(techId: string, direction: 'previous' | 'next'): void {
-  const groups = getTechniqueRouteGroups()
-  const index = findTechniqueRouteGroupIndex(groups, techId)
-  if (index < 0) return
-  if (direction === 'previous') {
-    if (index === 0) return
-    const merged = { items: [...groups[index - 1].items, ...groups[index].items] }
-    const nextGroups = [...groups]
-    nextGroups.splice(index - 1, 2, merged)
-    saveTechniqueRouteGroups(nextGroups)
-    return
-  }
-  if (index >= groups.length - 1) return
-  const merged = { items: [...groups[index].items, ...groups[index + 1].items] }
-  const nextGroups = [...groups]
-  nextGroups.splice(index, 2, merged)
-  saveTechniqueRouteGroups(nextGroups)
+  applyProcessRouteActionToState({
+    type: direction === 'previous' ? 'make-parallel-previous' : 'make-parallel-next',
+    techniqueId: techId,
+  })
 }
 
 function removeTechniqueFromParallel(techId: string): void {
-  const groups = getTechniqueRouteGroups()
-  const index = findTechniqueRouteGroupIndex(groups, techId)
-  if (index < 0) return
-  const group = groups[index]
-  if (group.items.length <= 1) return
-  const removed = group.items.find((item) => item.id === techId)
-  if (!removed) return
-  const remaining = group.items.filter((item) => item.id !== techId)
-  const nextGroups = [...groups]
-  nextGroups.splice(index, 1, { items: remaining }, { items: [removed] })
-  saveTechniqueRouteGroups(nextGroups)
+  applyProcessRouteActionToState({ type: 'remove-from-parallel', techniqueId: techId })
 }
 
 function toggleParallelGroupAcceptance(techId: string): void {
-  const groups = getTechniqueRouteGroups()
-  const index = findTechniqueRouteGroupIndex(groups, techId)
-  if (index < 0) return
-  const group = groups[index]
-  if (group.items.length <= 1) return
-  const nextMode = group.items[0].routeParallelAcceptanceMode === 'WHOLE_GROUP_ALLOWED'
-    ? 'INDEPENDENT_ONLY'
-    : 'WHOLE_GROUP_ALLOWED'
-  const updatedAt = toTimestamp()
-  groups[index] = {
-    items: group.items.map((item) => ({
-      ...item,
-      routeParallelAcceptanceMode: nextMode,
-      routeSourceKind: 'MANUAL',
-      routeUpdatedBy: currentUser.name,
-      routeUpdatedAt: updatedAt,
-    })),
-  }
-  saveTechniqueRouteGroups(groups)
+  applyProcessRouteActionToState({ type: 'toggle-parallel-group-acceptance', techniqueId: techId })
 }
 
 function confirmProcessRoute(): void {
-  const nextDraft = applyProcessRouteDraftAction({
-    techniques: state.techniques,
-    processRouteStatus: state.processRouteStatus,
-    processRouteConfirmedBy: state.processRouteConfirmedBy,
-    processRouteConfirmedAt: state.processRouteConfirmedAt,
-    processRouteUpdatedBy: state.processRouteUpdatedBy,
-    processRouteUpdatedAt: state.processRouteUpdatedAt,
-  }, { type: 'confirm' })
-  if (nextDraft.processRouteStatus !== 'CONFIRMED') return
-  state.techniques = nextDraft.techniques
-  state.processRouteStatus = nextDraft.processRouteStatus
-  state.processRouteConfirmedBy = nextDraft.processRouteConfirmedBy
-  state.processRouteConfirmedAt = nextDraft.processRouteConfirmedAt
-  state.processRouteUpdatedBy = nextDraft.processRouteUpdatedBy
-  state.processRouteUpdatedAt = nextDraft.processRouteUpdatedAt
-  syncProcessCostRows()
-  syncTechPackToStore()
+  applyProcessRouteActionToState({ type: 'confirm' })
 }
 
 function clearParsedPatternRows(): void {
