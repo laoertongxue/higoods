@@ -1,4 +1,5 @@
 import { getFactoryByCode, type IndonesiaFactory } from './indonesia-factories.ts'
+import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import {
   listFormalQualityDeductionLedgers,
   traceQualityDeductionLedgerSource,
@@ -238,9 +239,17 @@ const LINKED_FACTORY_CODES = [
   'ID-FAC-0003',
   'ID-FAC-0004',
   'ID-FAC-0005',
+  'KOL-GOTO',
   'ID-FAC-0021',
   'ID-FAC-0022',
+  'ID-FAC-0023',
   'ID-FAC-0024',
+  'ID-FAC-0025',
+  'ID-FAC-0026',
+  'ID-FAC-0027',
+  'ID-FAC-0028',
+  'ID-FAC-0029',
+  'ID-FAC-0030',
 ] as const
 
 const CYCLE_REFERENCE_DATES = [
@@ -419,10 +428,37 @@ function chooseFactoryFeedbackStatus(
 
 function mapFactoryByCode(code: string): IndonesiaFactory {
   const factory = getFactoryByCode(code)
-  if (!factory) {
-    throw new Error(`未找到工厂 ${code}`)
+  if (factory) return factory
+  const master = getFactoryMasterRecordById(code)
+  if (master) {
+    return {
+      id: master.id,
+      code: master.code,
+      name: master.name,
+      tier: master.factoryTier === 'THIRD_PARTY' ? 'THIRD_PARTY' : master.factoryTier === 'SATELLITE' ? 'SATELLITE' : 'CENTRAL',
+      type: master.factoryType === 'THIRD_SEWING' ? 'THIRD_SEWING' : 'CENTRAL_FACTORY',
+      kpiTemplate: 'SEWING',
+      city: 'Jakarta',
+      province: 'DKI Jakarta',
+      address: master.address,
+      contactName: master.contact,
+      contactPhone: master.mobilePhone ?? master.phone ?? '',
+      status: master.status === 'blacklist' ? 'BLACKLISTED' : master.status === 'paused' ? 'SUSPENDED' : master.status === 'inactive' ? 'INACTIVE' : 'ACTIVE',
+      tags: master.processAbilities.map((ability) => ability.processName).filter(Boolean),
+      currency: 'IDR',
+      timezone: 'Asia/Jakarta',
+      monthlyCapacity: 3000,
+      qualityScore: master.qualityScore,
+      deliveryScore: master.deliveryScore,
+      createdAt: master.createdAt,
+      updatedAt: master.updatedAt,
+      hasSettlement: master.eligibility.allowSettle,
+      hasDefaultAccount: master.eligibility.allowSettle,
+      performanceScore: Math.round((master.qualityScore + master.deliveryScore) / 2),
+      performanceLevel: 'B',
+    }
   }
-  return factory
+  throw new Error(`未找到工厂 ${code}`)
 }
 
 function getFactoryEffectiveInfo(factory: IndonesiaFactory): SettlementEffectiveInfo {

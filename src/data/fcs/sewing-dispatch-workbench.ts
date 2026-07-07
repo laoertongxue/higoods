@@ -16,7 +16,7 @@ import {
   buildDispatchAcceptanceDeadline,
   resolveDispatchAcceptanceSlaForTask,
 } from './dispatch-acceptance-sla.ts'
-import { indonesiaFactories } from './indonesia-factories.ts'
+import { listFactoryMasterRecords } from './factory-master-store.ts'
 import {
   listAvailableCutPieceInventoryForSewingDispatch,
 } from './cutting/sewing-dispatch.ts'
@@ -981,8 +981,11 @@ export function summarizeSewingDispatchWorkbench(tasks: SewingDispatchWorkbenchT
 }
 
 export function listSewingFactoryOptions(): Array<{ id: string; name: string }> {
-  return indonesiaFactories
-    .filter((factory) => factory.tags.includes('车缝') || factory.name.includes('车缝'))
+  return listFactoryMasterRecords()
+    .filter((factory) =>
+      factory.factoryType === 'THIRD_SEWING' ||
+      factory.processAbilities.some((ability) => ability.processCode === 'SEW'),
+    )
     .map((factory) => ({ id: factory.id, name: factory.name }))
 }
 

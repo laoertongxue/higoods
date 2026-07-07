@@ -4,6 +4,7 @@ import { indonesiaFactories } from '../src/data/fcs/indonesia-factories.ts'
 import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 import { listSewingFactoryOptions } from '../src/data/fcs/sewing-dispatch-workbench.ts'
 import { listStatementBuildScopes } from '../src/data/fcs/store-domain-statement-source-adapter.ts'
+import { listStatements } from '../src/data/fcs/store-domain-settlement-seeds.ts'
 import {
   getThirdPartyFactoryRatingSnapshot,
   isThirdPartyFactorySettlementBlocked,
@@ -42,9 +43,7 @@ for (const snapshot of snapshots) {
     thirdPartySewingFactories.find((item) => item.id === snapshot.factoryId && item.code === snapshot.factoryCode) ??
     indonesiaFactories.find((item) => item.id === snapshot.factoryId && item.code === snapshot.factoryCode)
   assert.ok(master, `${snapshot.factoryId} 必须能命中工厂主档和编码`)
-  if (indonesiaFactories.some((item) => item.id === snapshot.factoryId)) {
-    assert.ok(sewingFactoryOptions.some((item) => item.id === snapshot.factoryId), `${snapshot.factoryId} 必须能命中车缝派单候选`)
-  }
+  assert.ok(sewingFactoryOptions.some((item) => item.id === snapshot.factoryId), `${snapshot.factoryId} 必须能命中车缝派单候选`)
   assert.ok(
     listThirdPartyFactoryPerformanceRecords(snapshot.factoryCode).every((item) => item.factoryId === snapshot.factoryId),
     `${snapshot.factoryId} 的履约记录必须兼容编码查询`,
@@ -55,10 +54,16 @@ for (const factory of thirdPartySewingFactories) {
 }
 
 const buildScopes = listStatementBuildScopes()
+const statements = listStatements()
 assert.ok(
   buildScopes.some((item) => item.settlementPartyId === blacklisted.factoryId),
   '黑名单工厂必须有可演示的对账单生成范围，才能验证结算拦截',
 )
+for (const factory of thirdPartySewingFactories) {
+  const hasStatement = statements.some((item) => item.settlementPartyId === factory.id)
+  const hasBuildScope = buildScopes.some((item) => item.settlementPartyId === factory.id)
+  assert.ok(hasStatement || hasBuildScope, `${factory.id} ${factory.name} 必须串联到对账单或待生成候选流水`)
+}
 
 const source = readFileSync(new URL('../src/data/fcs/third-party-factory-rating.ts', import.meta.url), 'utf8')
 assert.ok(source.includes('近 90 天仅用于生产时效查看'), '缺少 90 天非考核期说明')
