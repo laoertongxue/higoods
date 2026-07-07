@@ -1288,8 +1288,7 @@ const productionOrderChangeCostItemNames: Record<ProductionOrderChangeCostType, 
 const productionOrderChangeCostImpactOrders = [
   ...productionOrderChangeOrders.filter((order) => order.changeResult === 'COST_ONLY'),
   ...productionOrderChangeOrders.filter((order) => order.changeResult !== 'COST_ONLY' && order.costDeltaAmount !== 0),
-  ...productionOrderChangeOrders.filter((order) => order.changeResult !== 'COST_ONLY' && order.costDeltaAmount === 0),
-].slice(0, 18)
+]
 
 const productionOrderChangeCostImpacts: ProductionOrderChangeCostImpact[] = productionOrderChangeCostImpactOrders.map(
   (order, index) => {
@@ -1319,8 +1318,12 @@ const productionOrderChangeCostImpacts: ProductionOrderChangeCostImpact[] = prod
 
 const productionOrderChangeTimingImpactOrders = [
   ...productionOrderChangeOrders.filter((order) => order.source === 'DELIVERY_REQUIREMENT_CHANGE'),
-  ...productionOrderChangeOrders.filter((order) => order.source !== 'DELIVERY_REQUIREMENT_CHANGE'),
-].slice(0, 18)
+  ...productionOrderChangeOrders.filter((order) => (
+    order.source !== 'DELIVERY_REQUIREMENT_CHANGE' &&
+    order.changeResult !== 'COST_ONLY' &&
+    order.changeResult !== 'RECORD_ONLY'
+  )),
+]
 
 const productionOrderChangeTimingImpacts: ProductionOrderChangeTimingImpact[] = productionOrderChangeTimingImpactOrders.map(
   (order, index) => {

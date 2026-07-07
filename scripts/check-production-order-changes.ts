@@ -138,6 +138,11 @@ const costOnlyOrdersWithoutCostImpacts = orders
   .map((order) => order.id)
 assert.deepEqual(costOnlyOrdersWithoutCostImpacts, [], '仅成本/结算差异变更单必须有料工费差异明细')
 
+const costRelevantOrdersWithoutCostImpacts = orders
+  .filter((order) => (order.changeResult === 'COST_ONLY' || order.costDeltaAmount !== 0) && (costImpactsByChangeOrderId.get(order.id) ?? 0) === 0)
+  .map((order) => order.id)
+assert.deepEqual(costRelevantOrdersWithoutCostImpacts, [], '存在成本差异的变更单必须有料工费差异明细')
+
 assert.ok(
   (timingImpacts as Array<Record<string, unknown>>).some((row) => (
     hasText(row.originalTime) &&
@@ -147,6 +152,19 @@ assert.ok(
   )),
   '至少一条时效影响行必须包含原时间、新预计时间、延期天数和责任方',
 )
+
+const timingImpactsByChangeOrderId = new Map<string, number>()
+timingImpacts.forEach((row) => {
+  timingImpactsByChangeOrderId.set(row.changeOrderId, (timingImpactsByChangeOrderId.get(row.changeOrderId) ?? 0) + 1)
+})
+const executionOrdersWithoutTimingImpacts = orders
+  .filter((order) => (
+    order.changeResult !== 'COST_ONLY' &&
+    order.changeResult !== 'RECORD_ONLY' &&
+    (timingImpactsByChangeOrderId.get(order.id) ?? 0) === 0
+  ))
+  .map((order) => order.id)
+assert.deepEqual(executionOrdersWithoutTimingImpacts, [], '影响版本或生产补丁执行的变更单必须有时效影响明细')
 
 const appShellConfig = fs.readFileSync(path.resolve(process.cwd(), 'src/data/app-shell-config.ts'), 'utf8')
 assert.ok(appShellConfig.includes('生产单变更管理'), '菜单配置必须包含「生产单变更管理」')
@@ -165,6 +183,13 @@ assert.ok(
   '闭环详情必须能按当前选中的变更单展示',
 )
 assert.ok(!selectedHtml.includes('默认展示第一条变更单详情'), '闭环详情不应固定提示默认展示第一条变更单')
+
+const pageTwoOrder = orders[12]
+assert.ok(pageTwoOrder, '至少需要第 13 条变更单用于分页检查')
+state.productionChangeOrderPage = 2
+const pageTwoHtml = renderProductionChangesPage()
+assert.ok(pageTwoHtml.includes('第 2 页 / 每页 12 条'), '变更单列表必须能进入第 2 页')
+assert.ok(pageTwoHtml.includes(pageTwoOrder.id), '第 2 页必须展示第 13 条变更单')
 
 assert.ok(
   fs.existsSync(path.resolve(process.cwd(), 'docs/prototype-review-records/2026-07-07-production-order-change-management.md')),

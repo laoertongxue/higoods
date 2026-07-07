@@ -1353,18 +1353,21 @@ function renderChangeTable(headers: string[], rows: string[], emptyText: string,
 }
 
 function renderProductionChangeOrderList(orders: ProductionOrderChangeOrderView[], selectedOrderId: string): string {
-  const visibleOrders = orders.slice(0, 12)
+  const pageSize = 12
+  const pageCount = Math.max(1, Math.ceil(orders.length / pageSize))
+  const currentPage = Math.min(Math.max(state.productionChangeOrderPage, 1), pageCount)
+  const visibleOrders = orders.slice((currentPage - 1) * pageSize, currentPage * pageSize)
   return `
     <section class="overflow-hidden rounded-lg border bg-background">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
         <div>
           <h2 class="text-base font-semibold">变更单列表</h2>
-          <p class="mt-1 text-sm text-muted-foreground">第 1 页 / 每页 12 条，共 ${orders.length} 条。</p>
+          <p class="mt-1 text-sm text-muted-foreground">第 ${currentPage} 页 / 每页 ${pageSize} 条，共 ${orders.length} 条。</p>
         </div>
         <div class="flex items-center gap-2 text-xs text-muted-foreground">
-          <button class="rounded-md border px-2.5 py-1.5 opacity-50" disabled>上一页</button>
-          <span>1</span>
-          <button class="rounded-md border px-2.5 py-1.5 opacity-50" disabled>下一页</button>
+          <button class="rounded-md border px-2.5 py-1.5 ${currentPage <= 1 ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}" data-prod-action="change-production-change-order-page" data-page="${currentPage - 1}">上一页</button>
+          <span>${currentPage} / ${pageCount}</span>
+          <button class="rounded-md border px-2.5 py-1.5 ${currentPage >= pageCount ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}" data-prod-action="change-production-change-order-page" data-page="${currentPage + 1}">下一页</button>
         </div>
       </div>
       ${renderChangeTable(
