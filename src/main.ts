@@ -30,6 +30,7 @@ type ProductionOrdersPageModule = typeof import('./pages/production/orders-domai
 type ProductionEventsModule = typeof import('./pages/production/events')
 type ProductionDialogsModule = typeof import('./pages/production/dialogs')
 type TaskBreakdownPageModule = typeof import('./pages/task-breakdown')
+type WlsFabricDemandBoardPageModule = typeof import('./pages/wls-fabric-demand-board')
 
 let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
 let pcsHandlersModulePromise: Promise<PcsHandlersModule> | null = null
@@ -57,6 +58,7 @@ let productionOrdersPageModulePromise: Promise<ProductionOrdersPageModule> | nul
 let productionEventsModulePromise: Promise<ProductionEventsModule> | null = null
 let productionDialogsModulePromise: Promise<ProductionDialogsModule> | null = null
 let taskBreakdownPageModulePromise: Promise<TaskBreakdownPageModule> | null = null
+let wlsFabricDemandBoardPageModulePromise: Promise<WlsFabricDemandBoardPageModule> | null = null
 type StoreRenderMode = 'full' | 'sidebar'
 
 let nextStoreRenderMode: StoreRenderMode = 'full'
@@ -121,6 +123,16 @@ function getTaskBreakdownPageModule(): Promise<TaskBreakdownPageModule> {
     })
   }
   return taskBreakdownPageModulePromise
+}
+
+function getWlsFabricDemandBoardPageModule(): Promise<WlsFabricDemandBoardPageModule> {
+  if (!wlsFabricDemandBoardPageModulePromise) {
+    wlsFabricDemandBoardPageModulePromise = import('./pages/wls-fabric-demand-board').catch((error) => {
+      wlsFabricDemandBoardPageModulePromise = null
+      throw error
+    })
+  }
+  return wlsFabricDemandBoardPageModulePromise
 }
 
 function getFactoryProfilePageModule(): Promise<FactoryProfilePageModule> {
@@ -524,6 +536,16 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
   if (pathname.startsWith('/fcs/craft/cutting/transfer-bags')) {
     const transferBagsPage = await getCraftCuttingTransferBagsPageModule()
     return transferBagsPage.handleCraftCuttingTransferBagsEvent(eventTarget)
+  }
+  if (pathname.startsWith('/wls/fabric-demand-board')) {
+    try {
+      const fabricDemandBoardPage = await getWlsFabricDemandBoardPageModule()
+      return fabricDemandBoardPage.handleWlsFabricDemandBoardEvent(eventTarget)
+    } catch (error) {
+      if (reloadForDynamicModuleLoadError(error, '面料需求看板事件处理器')) return false
+      console.error('面料需求看板事件处理器加载失败，已降级为不处理', error)
+      return false
+    }
   }
   const handlerSystem = getCurrentHandlerSystem(pathname)
   try {

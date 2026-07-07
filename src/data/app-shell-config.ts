@@ -114,7 +114,7 @@ export const systems: System[] = [
   { id: 'pms', name: '采购管理系统', shortName: 'PMS', defaultPage: '/pms/purchase-order' },
   { id: 'fcs', name: '工厂生产协同系统', shortName: 'FCS', defaultPage: '/fcs/workbench/overview' },
   { id: 'pfos', name: '工艺工厂运营系统', shortName: 'PFOS', defaultPage: '/fcs/craft/workbench/overview' },
-  { id: 'wls', name: '仓储物流系统', shortName: 'WLS', defaultPage: '/wls/inventory' },
+  { id: 'wls', name: '仓储物流系统', shortName: 'WLS', defaultPage: '/wls/fabric-demand-board' },
   { id: 'los', name: '直播运营系统', shortName: 'LOS', defaultPage: '/los/live-schedule' },
   { id: 'oms', name: '订单管理系统', shortName: 'OMS', defaultPage: '/oms/order-list' },
   { id: 'bfis', name: '业财一体化系统', shortName: 'BFIS', defaultPage: '/bfis/financial-report' },
@@ -554,6 +554,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     {
       title: '仓储管理',
       items: [
+        { key: 'wls-fabric-demand-board', title: '面料需求看板', icon: 'PanelsTopLeft', href: '/wls/fabric-demand-board' },
         { key: 'inventory', title: '库存管理', icon: 'Archive', href: '/wls/inventory' },
         { key: 'inbound', title: '入库管理', icon: 'ArrowDownToLine', href: '/wls/inbound' },
         { key: 'outbound', title: '出库管理', icon: 'ArrowUpFromLine', href: '/wls/outbound' },
