@@ -46,6 +46,7 @@ import {
   toStatementProductionOrderSnapshot,
 } from '../data/fcs/factory-settlement-reconciliation'
 import { listStatementEligiblePreSettlementLedgersByRange } from '../data/fcs/pre-settlement-ledger-repository'
+import { isThirdPartyFactorySettlementBlocked } from '../data/fcs/third-party-factory-rating'
 import type {
   FactoryFeedbackStatus,
   StatementAppealRecord,
@@ -2083,8 +2084,9 @@ function renderBuildSummaryTab(input: {
   buildSummary: ReturnType<typeof getBuildLineSummary>
   displayCurrency: string
   canGenerate: boolean
+  blacklistSettlementBlocked: boolean
 }): string {
-  const { editingDraft, selectedScope, buildLines, buildSummary, displayCurrency, canGenerate } = input
+  const { editingDraft, selectedScope, buildLines, buildSummary, displayCurrency, canGenerate, blacklistSettlementBlocked } = input
   const manualDefectAmount = sumManualDefectProductionOrderDeductions()
   const manualDelayAmount = sumManualDelayProductionOrderDeductions()
 
@@ -2127,7 +2129,7 @@ function renderBuildSummaryTab(input: {
       <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-stm-action="set-build-tab" data-build-tab="QC_DEDUCTIONS">上一步</button>
       ${
         editingDraft
-          ? `<button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-stm-action="save-build" ${selectedScope == null ? 'disabled' : ''}>保存草稿</button>`
+          ? `<button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50" data-stm-action="save-build" ${selectedScope == null || blacklistSettlementBlocked ? 'disabled' : ''}>保存草稿</button>`
           : `<button class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50" data-stm-action="generate" ${canGenerate ? '' : 'disabled'}>确认生成草稿</button>`
       }
       <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-stm-action="back-to-list">取消</button>
@@ -2902,6 +2904,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
   const projections = getBuildProductionOrderProjections()
   const effectiveCurrency = getEffectiveBuildCurrency()
   const displayCurrency = getBuildCurrencyDisplayText(effectiveCurrency)
+  const blacklistSettlementBlocked = isThirdPartyFactorySettlementBlocked(state.buildFactoryId)
   const duplicatedStatement =
     selectedScope == null || !isBuildRangeValid()
       ? null
@@ -2915,7 +2918,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
     duplicatedStatement && duplicatedStatement.statementId !== state.editingStatementId
       ? duplicatedStatement
       : null
-  const canGenerate = selectedScope != null && isBuildRangeValid() && effectiveCurrency !== null && !blockingStatement
+  const canGenerate = selectedScope != null && isBuildRangeValid() && effectiveCurrency !== null && !blockingStatement && !blacklistSettlementBlocked
 
   const tabContent =
     state.buildTab === 'SCOPE'
@@ -2940,6 +2943,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
               buildSummary,
               displayCurrency,
               canGenerate,
+              blacklistSettlementBlocked,
             })
 
   return `
@@ -2958,6 +2962,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
         scopes.length === 0
           ? `<p class="mt-6 py-8 text-center text-sm text-muted-foreground">当前暂无可新建对账单的工厂、时间段和结算对象范围</p>`
           : `
+            ${blacklistSettlementBlocked ? '<div class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">该工厂已拉黑，不能发起结算。请主管处理历史账款。历史账本仍可查看。</div>' : ''}
             ${renderBuildTabNav()}
             ${tabContent}
           `
@@ -3256,6 +3261,10 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
       showStatementsToast('当前时间段存在多个币种，请拆分时间段或按币种分别生成', 'error')
       return true
     }
+    if (isThirdPartyFactorySettlementBlocked(state.buildFactoryId)) {
+      showStatementsToast('该工厂已拉黑，不能发起结算。请主管处理历史账款。', 'error')
+      return true
+    }
 
     const result = createStatementDraftFromScope(scope, state.buildRemark, '平台运营')
     if (!result.ok) {
@@ -3277,6 +3286,10 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
     const statementId = state.editingStatementId
     if (!scope || !statementId) {
       showStatementsToast('当前草稿缺少工厂或时间段', 'error')
+      return true
+    }
+    if (isThirdPartyFactorySettlementBlocked(state.buildFactoryId)) {
+      showStatementsToast('该工厂已拉黑，不能发起结算。请主管处理历史账款。', 'error')
       return true
     }
 

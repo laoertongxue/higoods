@@ -41,4 +41,9 @@ assert.ok(sewingDispatchSource.includes('该工厂为黄牌工厂，建议只分
 assert.ok(sewingDispatchSource.includes('该工厂已拉黑，不能派单。请更换工厂。'), '车缝分配缺少黑名单派单拦截')
 assert.ok(sewingDispatchSource.includes('该工厂还在试用期，只能接试产单。'), '车缝分配缺少考核中拦截')
 
+const statementsSource = readFileSync(new URL('../src/pages/statements.ts', import.meta.url), 'utf8')
+assert.ok(statementsSource.includes('isThirdPartyFactorySettlementBlocked'), '对账单页面未判断黑名单结算拦截')
+assert.ok(statementsSource.includes('该工厂已拉黑，不能发起结算。请主管处理历史账款。'), '对账单页面缺少黑名单结算提示')
+assert.ok(statementsSource.includes('blacklistSettlementBlocked'), '对账单页面缺少黑名单结算阻断变量')
+
 console.log('check:third-party-factory-rating passed')
