@@ -203,6 +203,9 @@ const storeTasks = getSpecialCraftTasksByProductionOrder(sampleOrder.productionO
 assert(storeTasks.length === firstResult.taskOrders.length, '特殊工艺加工单数据源必须读取自动产出任务')
 const allStoreTasks = listSpecialCraftTaskOrders()
 assert(allStoreTasks.length > 0, '特殊工艺加工单数据源必须存在生产单自动产出任务')
+assert.equal(new Set(allStoreTasks.map((task) => task.taskOrderId)).size, allStoreTasks.length, '特殊工艺加工单 taskOrderId 必须唯一')
+assert.equal(new Set(allStoreTasks.map((task) => task.taskOrderNo)).size, allStoreTasks.length, '特殊工艺加工单 taskOrderNo 必须唯一')
+assert.equal(new Set(allStoreTasks.map((task) => task.generationKey)).size, allStoreTasks.length, '特殊工艺加工单 generationKey 必须唯一')
 assert(allStoreTasks.every((task) => task.generationSource === 'PRODUCTION_ORDER'), '特殊工艺加工单数据源不得混入原型 seed 或手工任务')
 assert(allStoreTasks.every((task) => productionOrders.some((order) => order.productionOrderId === task.productionOrderId)), '特殊工艺任务必须关联已有生产单')
 assert(
