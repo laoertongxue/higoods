@@ -79,7 +79,7 @@ function renderWarehouseStocks(row: FabricDemandBoardRow): string {
         .map(
           (stock) => `
             <div class="flex items-center justify-between gap-3 rounded-md bg-slate-50 px-2 py-1">
-              <span class="text-slate-600">${escapeHtml(stock.warehouseName)} · ${escapeHtml(stock.locationCode)}</span>
+              <span class="text-slate-600">${escapeHtml(stock.warehouseName)}</span>
               <span class="font-medium text-slate-900">${formatFabricDemandQty(stock.qty)}</span>
             </div>
           `,
@@ -104,7 +104,7 @@ function renderRawMaterial(row: FabricDemandBoardRow): string {
   const destinationQty = getWarehouseQty(row, destination)
   const totalRawMaterialQty = centralQty + destinationQty
   const rawMaterialCoverageText = totalRawMaterialQty >= row.rawMaterialDemandQty
-    ? `合计 ${formatFabricDemandQty(totalRawMaterialQty)}，已覆盖需求；目的仓仍缺 ${formatFabricDemandQty(Math.max(row.rawMaterialDemandQty - destinationQty, 0))}待调拨`
+    ? `合计 ${formatFabricDemandQty(totalRawMaterialQty)}，已覆盖需求；目的仓仍缺 ${formatFabricDemandQty(Math.max(row.rawMaterialDemandQty - destinationQty, 0))} 待调拨`
     : `合计 ${formatFabricDemandQty(totalRawMaterialQty)}，缺口 ${formatFabricDemandQty(row.rawMaterialDemandQty - totalRawMaterialQty)}`
 
   return `
@@ -261,10 +261,10 @@ export function renderWlsFabricDemandBoardPage(): string {
           ${renderMetric('总数', `${summary.totalSkuCount} 个`)}
           ${renderMetric('印染数量', `${summary.printOrDyeSkuCount} 个`, 'blue')}
           ${renderMetric('直裁数量', `${summary.directCutSkuCount} 个`)}
-          ${renderMetric('印花中米数', formatFabricDemandQty(summary.printingQty), 'blue')}
-          ${renderMetric('染色中米数', formatFabricDemandQty(summary.dyeingQty), 'blue')}
-          ${renderMetric('裁剪中米数', formatFabricDemandQty(summary.cuttingQty))}
-          ${renderMetric('采购中米数', formatFabricDemandQty(summary.purchasingQty), 'red')}
+          ${renderMetric('印花中 Yard', formatFabricDemandQty(summary.printingQty), 'blue')}
+          ${renderMetric('染色中 Yard', formatFabricDemandQty(summary.dyeingQty), 'blue')}
+          ${renderMetric('裁剪中 Yard', formatFabricDemandQty(summary.cuttingQty))}
+          ${renderMetric('采购中 Yard', formatFabricDemandQty(summary.purchasingQty), 'red')}
           ${renderMetric('库存数量', formatFabricDemandQty(summary.stockQty))}
         </div>
       </section>

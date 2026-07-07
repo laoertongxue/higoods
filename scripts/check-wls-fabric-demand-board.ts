@@ -154,20 +154,20 @@ const summary = summarizeFabricDemandBoardRows(rows)
 assert.equal(summary.totalSkuCount, rows.length, '总数统计应等于目标面料 SKU 行数')
 assert.equal(summary.printOrDyeSkuCount, rows.filter((row) => row.requiresPrint || row.requiresDye).length, '印染数量统计口径错误')
 assert.equal(summary.directCutSkuCount, rows.filter((row) => !row.requiresPrint && !row.requiresDye).length, '直裁数量统计口径错误')
-assert.equal(summary.printingQty, sum(rows.map((row) => row.printQty.processingQty)), '印花中米数统计口径错误')
-assert.equal(summary.dyeingQty, sum(rows.map((row) => row.dyeQty.processingQty)), '染色中米数统计口径错误')
+assert.equal(summary.printingQty, sum(rows.map((row) => row.printQty.processingQty)), '印花中 Yard 统计口径错误')
+assert.equal(summary.dyeingQty, sum(rows.map((row) => row.dyeQty.processingQty)), '染色中 Yard 统计口径错误')
 assert.equal(
   summary.cuttingQty,
   sum(rows.filter((row) => !row.requiresPrint && !row.requiresDye).map((row) => Math.min(row.demandQty, getWarehouseQty(row, '中转仓')))),
-  '裁剪中米数统计口径错误',
+  '裁剪中 Yard 统计口径错误',
 )
-assert.equal(summary.purchasingQty, sum(rows.map((row) => row.purchaseQty.purchasingQty)), '采购中米数统计口径错误')
-assert.equal(summary.stockQty, sum(rows.flatMap((row) => row.warehouseStocks.map((stock) => stock.qty))), '库存米数统计口径错误')
-assert.ok(summary.printingQty > 0, '印花中米数统计应大于 0')
-assert.ok(summary.dyeingQty > 0, '染色中米数统计应大于 0')
-assert.ok(summary.cuttingQty > 0, '裁剪中米数统计应大于 0')
-assert.ok(summary.purchasingQty > 0, '采购中米数统计应大于 0')
-assert.ok(summary.stockQty > 0, '库存米数统计应大于 0')
+assert.equal(summary.purchasingQty, sum(rows.map((row) => row.purchaseQty.purchasingQty)), '采购中 Yard 统计口径错误')
+assert.equal(summary.stockQty, sum(rows.flatMap((row) => row.warehouseStocks.map((stock) => stock.qty))), '库存 Yard 统计口径错误')
+assert.ok(summary.printingQty > 0, '印花中 Yard 统计应大于 0')
+assert.ok(summary.dyeingQty > 0, '染色中 Yard 统计应大于 0')
+assert.ok(summary.cuttingQty > 0, '裁剪中 Yard 统计应大于 0')
+assert.ok(summary.purchasingQty > 0, '采购中 Yard 统计应大于 0')
+assert.ok(summary.stockQty > 0, '库存 Yard 统计应大于 0')
 
 const rules = getFabricDemandBoardAlertRules()
 assert.equal(rules.length, allowedAlertTypes.length, '异常规则数量必须正好是六类')
@@ -217,8 +217,8 @@ const zeroWarehouseRows = filterFabricDemandBoardRows(
       ...rows[0],
       id: 'fabric-demand-zero-destination',
       warehouseStocks: [
-        { warehouseName: '中央仓面料仓', areaName: 'A区', locationCode: 'A-ZERO', qty: 620, unit: '米' },
-        { warehouseName: '中转仓', areaName: 'B区', locationCode: 'B-ZERO', qty: 0, unit: '米' },
+        { warehouseName: '中央仓面料仓', areaName: 'A区', locationCode: 'A-ZERO', qty: 620, unit: 'Yard' },
+        { warehouseName: '中转仓', areaName: 'B区', locationCode: 'B-ZERO', qty: 0, unit: 'Yard' },
       ],
     },
   ],
@@ -265,19 +265,30 @@ for (const text of [
   '印花厂待加工仓',
   '染色厂待加工仓',
   '中转仓',
-  '印花中米数',
-  '染色中米数',
-  '裁剪中米数',
-  '采购中米数',
+  '印花中 Yard',
+  '染色中 Yard',
+  '裁剪中 Yard',
+  '采购中 Yard',
   '待领料',
   '待入库',
   '差额',
+  'Yard',
+  '卷',
   '条/页',
   '上一页',
   '下一页',
 ]) {
   assertIncludes(html, text, `页面缺少文案：${text}`)
 }
+
+for (const row of rows) {
+  for (const stock of row.warehouseStocks) {
+    assert.equal(stock.unit, 'Yard', `${row.materialSku} 库存单位必须是 Yard`)
+    assert.ok(!html.includes(stock.locationCode), `多仓库存不得展示库位：${stock.locationCode}`)
+  }
+}
+
+assert.ok(!html.includes(' 米'), '页面不得继续展示米作为面料单位')
 
 for (const [type, from, to] of transferDirections) {
   const rule = rules.find((item) => item.type === type)

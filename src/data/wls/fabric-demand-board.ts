@@ -19,7 +19,7 @@ export interface FabricDemandBoardWarehouseStock {
   areaName: string
   locationCode: string
   qty: number
-  unit: '米'
+  unit: 'Yard'
 }
 
 export interface FabricDemandBoardProcessQty {
@@ -103,7 +103,7 @@ function stock(
   locationCode: string,
 ): FabricDemandBoardWarehouseStock {
   const areaName = warehouseName === '中央仓面料仓' ? 'A区' : warehouseName === '中转仓' ? 'B区' : '待加工区'
-  return { warehouseName, areaName, locationCode, qty, unit: '米' }
+  return { warehouseName, areaName, locationCode, qty, unit: 'Yard' }
 }
 
 function alert(
@@ -138,8 +138,8 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
       alert(
         '直裁待调拨',
         540,
-        '触发：中转仓仅 80 米，未覆盖直裁需求 620 米；中央仓面料仓有 560 米可调拨。调拨方向：中央仓面料仓 -> 中转仓。',
-        '解除：中转仓库存达到 620 米。',
+        '触发：中转仓仅 80 Yard，未覆盖直裁需求 620 Yard；中央仓面料仓有 560 Yard 可调拨。调拨方向：中央仓面料仓 -> 中转仓。',
+        '解除：中转仓库存达到 620 Yard。',
         '仓储主管',
       ),
     ],
@@ -165,8 +165,8 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
       alert(
         '印花待调拨',
         420,
-        '触发：印花厂待加工仓仅 120 米，未覆盖印花需求 540 米；中央仓面料仓有 460 米可调拨。调拨方向：中央仓面料仓 -> 印花厂待加工仓。',
-        '解除：印花厂待加工仓原料库存达到 540 米。',
+        '触发：印花厂待加工仓仅 120 Yard，未覆盖印花需求 540 Yard；中央仓面料仓有 460 Yard 可调拨。调拨方向：中央仓面料仓 -> 印花厂待加工仓。',
+        '解除：印花厂待加工仓原料库存达到 540 Yard。',
         '印花仓管',
       ),
     ],
@@ -192,8 +192,8 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
       alert(
         '染色待调拨',
         560,
-        '触发：染色厂待加工仓仅 160 米，未覆盖染色需求 720 米；中央仓面料仓有 600 米可调拨。调拨方向：中央仓面料仓 -> 染色厂待加工仓。',
-        '解除：染色厂待加工仓原料库存达到 720 米。',
+        '触发：染色厂待加工仓仅 160 Yard，未覆盖染色需求 720 Yard；中央仓面料仓有 600 Yard 可调拨。调拨方向：中央仓面料仓 -> 染色厂待加工仓。',
+        '解除：染色厂待加工仓原料库存达到 720 Yard。',
         '染色仓管',
       ),
     ],
@@ -219,8 +219,8 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
       alert(
         '缺直裁面料',
         260,
-        '触发：中央仓面料仓 120 米 + 中转仓 80 米，合计小于直裁需求 460 米。',
-        '解除：中央仓面料仓 + 中转仓库存达到 460 米。',
+        '触发：中央仓面料仓 120 Yard + 中转仓 80 Yard，合计小于直裁需求 460 Yard。',
+        '解除：中央仓面料仓 + 中转仓库存达到 460 Yard。',
         '采购跟单',
       ),
     ],
@@ -246,8 +246,8 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
       alert(
         '缺印花原料',
         410,
-        '触发：中央仓面料仓 180 米 + 印花厂待加工仓 90 米，合计小于印花需求 680 米。',
-        '解除：中央仓面料仓 + 印花厂待加工仓原料库存达到 680 米。',
+        '触发：中央仓面料仓 180 Yard + 印花厂待加工仓 90 Yard，合计小于印花需求 680 Yard。',
+        '解除：中央仓面料仓 + 印花厂待加工仓原料库存达到 680 Yard。',
         '采购跟单',
       ),
     ],
@@ -273,8 +273,8 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
       alert(
         '缺染色原料',
         310,
-        '触发：中央仓面料仓 150 米 + 染色厂待加工仓 120 米，合计小于染色需求 580 米。',
-        '解除：中央仓面料仓 + 染色厂待加工仓原料库存达到 580 米。',
+        '触发：中央仓面料仓 150 Yard + 染色厂待加工仓 120 Yard，合计小于染色需求 580 Yard。',
+        '解除：中央仓面料仓 + 染色厂待加工仓原料库存达到 580 Yard。',
         '采购跟单',
       ),
     ],
@@ -296,33 +296,33 @@ export function getFabricDemandBoardAlertRules(): FabricDemandBoardAlertRule[] {
   return [
     {
       type: '缺直裁面料',
-      triggerText: '触发：中央仓面料仓库存 + 中转仓库存 < 直裁需求米数。',
-      resolveText: '解除：中央仓面料仓库存 + 中转仓库存 >= 直裁需求米数。',
+      triggerText: '触发：中央仓面料仓库存 + 中转仓库存 < 直裁需求 Yard。',
+      resolveText: '解除：中央仓面料仓库存 + 中转仓库存 >= 直裁需求 Yard。',
     },
     {
       type: '缺印花原料',
-      triggerText: '触发：中央仓面料仓原料库存 + 印花厂待加工仓原料库存 < 印花需求米数。',
-      resolveText: '解除：中央仓面料仓原料库存 + 印花厂待加工仓原料库存 >= 印花需求米数。',
+      triggerText: '触发：中央仓面料仓原料库存 + 印花厂待加工仓原料库存 < 印花需求 Yard。',
+      resolveText: '解除：中央仓面料仓原料库存 + 印花厂待加工仓原料库存 >= 印花需求 Yard。',
     },
     {
       type: '缺染色原料',
-      triggerText: '触发：中央仓面料仓原料库存 + 染色厂待加工仓原料库存 < 染色需求米数。',
-      resolveText: '解除：中央仓面料仓原料库存 + 染色厂待加工仓原料库存 >= 染色需求米数。',
+      triggerText: '触发：中央仓面料仓原料库存 + 染色厂待加工仓原料库存 < 染色需求 Yard。',
+      resolveText: '解除：中央仓面料仓原料库存 + 染色厂待加工仓原料库存 >= 染色需求 Yard。',
     },
     {
       type: '直裁待调拨',
       triggerText: '触发：中转仓库存不足，中央仓面料仓有库存，且两仓合计可覆盖直裁需求；调拨方向：中央仓面料仓 -> 中转仓。',
-      resolveText: '解除：中转仓库存 >= 直裁需求米数。',
+      resolveText: '解除：中转仓库存 >= 直裁需求 Yard。',
     },
     {
       type: '印花待调拨',
       triggerText: '触发：印花厂待加工仓原料库存不足，中央仓面料仓有原料，且两仓合计可覆盖印花需求；调拨方向：中央仓面料仓 -> 印花厂待加工仓。',
-      resolveText: '解除：印花厂待加工仓原料库存 >= 印花需求米数。',
+      resolveText: '解除：印花厂待加工仓原料库存 >= 印花需求 Yard。',
     },
     {
       type: '染色待调拨',
       triggerText: '触发：染色厂待加工仓原料库存不足，中央仓面料仓有原料，且两仓合计可覆盖染色需求；调拨方向：中央仓面料仓 -> 染色厂待加工仓。',
-      resolveText: '解除：染色厂待加工仓原料库存 >= 染色需求米数。',
+      resolveText: '解除：染色厂待加工仓原料库存 >= 染色需求 Yard。',
     },
   ]
 }
@@ -334,7 +334,9 @@ export function getWarehouseQty(row: FabricDemandBoardRow, warehouseName: Fabric
 }
 
 export function formatFabricDemandQty(qty: number): string {
-  return `${Math.max(qty, 0).toLocaleString('zh-CN')} 米`
+  const yardQty = Math.max(qty, 0)
+  const rollQty = yardQty === 0 ? 0 : Math.ceil(yardQty / 100)
+  return `${yardQty.toLocaleString('zh-CN')} Yard / ${rollQty} 卷`
 }
 
 export function summarizeFabricDemandBoardRows(rows: FabricDemandBoardRow[]): FabricDemandBoardSummary {
