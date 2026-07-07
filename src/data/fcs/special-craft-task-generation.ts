@@ -27,6 +27,10 @@ import type {
   SpecialCraftTaskOrder,
   SpecialCraftTaskWarehouseLink,
 } from './special-craft-task-orders.ts'
+import {
+  resolveProductionOrderTaskBoundary,
+  shouldGenerateInternalCraftOrderForProductionOrder,
+} from './task-generation-boundaries.ts'
 
 interface SpecialCraftTaskDemandLineBuildResult {
   demandLines: SpecialCraftTaskDemandLine[]
@@ -769,11 +773,42 @@ export function generateSpecialCraftTaskOrdersFromProductionOrder(input: {
   specialCraftOperations?: SpecialCraftOperationDefinition[]
 }): SpecialCraftTaskGenerationResult {
   const { productionOrder } = input
-  const techPackSnapshot = input.techPackSnapshot ?? getProductionOrderTechPackSnapshot(productionOrder.productionOrderId)
   const existingGeneratedTasks = input.existingGeneratedTasks ?? []
   const productionOrderVersion = resolveProductionOrderVersion(productionOrder)
-  const generationBatchId = `SCB-${stableHash([productionOrder.productionOrderId, productionOrderVersion, techPackSnapshot?.snapshotId || 'NOSNAPSHOT'].join('|'))}`
   const generatedAt = productionOrder.updatedAt || productionOrder.createdAt
+  const providedTechPackSnapshot = input.techPackSnapshot ?? null
+  const buildGenerationBatchId = (snapshotId: string) =>
+    `SCB-${stableHash([productionOrder.productionOrderId, productionOrderVersion, snapshotId].join('|'))}`
+  const boundary = resolveProductionOrderTaskBoundary(productionOrder)
+
+  if (!shouldGenerateInternalCraftOrderForProductionOrder(productionOrder)) {
+    const warning = `${boundary.label}已跳过，不生成我方辅助/特种工艺加工单`
+    const generationBatch: SpecialCraftTaskGenerationBatch = {
+      generationBatchId: buildGenerationBatchId(providedTechPackSnapshot?.snapshotId || 'SKIPPED_BY_TASK_BOUNDARY'),
+      productionOrderId: productionOrder.productionOrderId,
+      productionOrderNo: resolveProductionOrderNo(productionOrder),
+      productionOrderVersion,
+      techPackSnapshotId: providedTechPackSnapshot?.snapshotId || '',
+      techPackVersion: providedTechPackSnapshot?.sourceTechPackVersionLabel || providedTechPackSnapshot?.versionLabel || '',
+      generatedAt,
+      generatedBy: '系统',
+      generatedTaskOrderIds: [],
+      generatedLineCount: 0,
+      status: '已跳过',
+      errorList: [],
+      warningList: [warning],
+    }
+    return {
+      taskOrders: [],
+      generationBatch,
+      errors: [],
+      warnings: [warning],
+      demandLines: [],
+    }
+  }
+
+  const techPackSnapshot = providedTechPackSnapshot ?? getProductionOrderTechPackSnapshot(productionOrder.productionOrderId)
+  const generationBatchId = buildGenerationBatchId(techPackSnapshot?.snapshotId || 'NOSNAPSHOT')
 
   if (!techPackSnapshot) {
     const generationBatch: SpecialCraftTaskGenerationBatch = {

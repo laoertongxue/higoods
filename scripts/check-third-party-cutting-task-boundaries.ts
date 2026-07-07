@@ -6,6 +6,8 @@ import {
   listCuttingProductionOrdersWithFormalTechPack,
   listGeneratedCutOrderSourceRecords,
 } from '../src/data/fcs/cutting/generated-cut-orders.ts'
+import { getProductionOrderTechPackSnapshot } from '../src/data/fcs/production-order-tech-pack-runtime.ts'
+import { generateSpecialCraftTaskOrdersFromProductionOrder } from '../src/data/fcs/special-craft-task-generation.ts'
 import {
   resolveProductionOrderTaskBoundary,
   shouldGenerateCutOrderForProductionOrder,
@@ -75,6 +77,39 @@ const independentNonCutting = makeSyntheticOrder('PO-CHECK-INDEPENDENT-NON-CUTTI
 })
 assert.equal(resolveProductionOrderTaskBoundary(independentNonCutting).kind, 'INDEPENDENT_NON_CUTTING')
 assert.equal(shouldGenerateCutOrderForProductionOrder(independentNonCutting), false, '独立非裁片任务不得生成裁片单')
+
+function generateCraftOrderResult(order: ProductionOrder) {
+  return generateSpecialCraftTaskOrdersFromProductionOrder({
+    productionOrder: order,
+    techPackSnapshot: getProductionOrderTechPackSnapshot(order.productionOrderId),
+  })
+}
+
+function assertSkippedInternalCraftOrder(order: ProductionOrder, message: string): void {
+  const result = generateCraftOrderResult(order)
+  assert.equal(result.taskOrders.length, 0, `${message}，不得生成任务`)
+  assert.equal(result.demandLines.length, 0, `${message}，不得拆解任务明细`)
+  assert.equal(result.generationBatch.status, '已跳过', `${message}，生成批次状态必须为已跳过`)
+  assert(
+    result.warnings.some((warning) =>
+      warning.includes('已跳过') && warning.includes('不生成我方辅助/特种工艺加工单'),
+    ),
+    `${message}，warning 必须说明已跳过且不生成我方辅助/特种工艺加工单`,
+  )
+}
+
+assertSkippedInternalCraftOrder(wholeOrder, '整单任务')
+assertSkippedInternalCraftOrder(continuousWithCutting, '含裁片连续工序任务')
+assertSkippedInternalCraftOrder(continuousWithoutCutting, '不含裁片连续工序任务')
+
+const independentCuttingWithCraft = productionOrders.find((order) =>
+  shouldGenerateInternalCraftOrderForProductionOrder(order) && generateCraftOrderResult(order).taskOrders.length > 0,
+)
+assert(independentCuttingWithCraft, '必须存在有技术包工艺标记的独立裁片任务样本')
+assert(
+  generateCraftOrderResult(independentCuttingWithCraft).taskOrders.length > 0,
+  '独立裁片任务存在技术包工艺标记时必须生成我方加工单',
+)
 
 const cutOrders = listGeneratedCutOrderSourceRecords()
 const cutOrderProductionOrderIds = new Set(cutOrders.map((record) => record.productionOrderId))

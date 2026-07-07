@@ -39,6 +39,7 @@ import {
   generateSpecialCraftTaskOrdersForAllProductionOrders,
   getSpecialCraftGenerationBatchByProductionOrder,
 } from './special-craft-task-generation.ts'
+import { shouldGenerateInternalCraftOrderForProductionOrder } from './task-generation-boundaries.ts'
 
 export type SpecialCraftTaskStatus =
   | '待领料'
@@ -557,6 +558,7 @@ function listLinkedProductionOrderContexts(): Array<{ order: ProductionOrder; sn
     .map((order) => ({ order, snapshot: getProductionOrderTechPackSnapshot(order.productionOrderId) }))
     .filter((item): item is { order: ProductionOrder; snapshot: ProductionOrderTechPackSnapshot } =>
       Boolean(item.snapshot)
+      && shouldGenerateInternalCraftOrderForProductionOrder(item.order)
       && item.order.demandSnapshot.skuLines.length > 0
       && item.snapshot.patternFiles.length > 0,
     )
@@ -1422,7 +1424,7 @@ function buildLinkedSupplementTaskOrders(
       const context = candidateContexts[candidateCursor % candidateContexts.length]
       candidateCursor += 1
       const key = `${context.order.productionOrderId}::${operation.operationId}`
-      if (existingKeys.has(key) && candidateContexts.length > 1) continue
+      if (existingKeys.has(key) && candidateContexts.length > 1 && existingKeys.size < candidateContexts.length) continue
       existingKeys.add(key)
 
       const variantIndex = existingForOperation.length
