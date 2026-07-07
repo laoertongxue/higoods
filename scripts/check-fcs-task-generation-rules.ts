@@ -109,6 +109,10 @@ async function main(): Promise<void> {
   assertIncludes(continuousDispatchSource, '三方上报裁片完成数量和可做成衣数', '含裁片连续任务必须展示裁片完成上报口径')
   assertIncludes(continuousDispatchSource, '不生成我方加工单', '含裁片连续任务必须说明不生成我方加工单')
   assertIncludes(continuousDispatchSource, 'data-fast-page-render="true"', '连续任务分配搜索必须保留快速渲染标记')
+  assertIncludes(continuousDispatchSource, 'min-w-[980px] table-fixed', '连续任务分配表格必须在默认视口内预留 sticky 操作列空间')
+  assertIncludes(continuousDispatchSource, 'xl:sticky xl:right-0', '连续任务分配操作列必须在桌面宽度保持 sticky')
+  assertIncludes(continuousDispatchSource, 'w-[176px] min-w-[176px]', '连续任务分配操作列必须有固定宽度，避免遮挡分配状态')
+  assertIncludes(continuousDispatchSource, 'w-[120px] min-w-[120px]', '连续任务分配状态列必须有固定宽度，避免被 sticky 操作列遮挡')
   assertNotIncludes(continuousDispatchSource, '按明细拆分', '连续工序任务分配页不得提供按明细拆分')
 
   assertIncludes(eventsSource, 'confirm-task-generation-preview', '生产单事件缺少确认生成任务动作')

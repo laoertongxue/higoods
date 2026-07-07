@@ -197,16 +197,16 @@ function renderTaskTable(tasks: RuntimeProcessTask[]): string {
         <div class="text-xs text-muted-foreground">搜索结果：${tasks.length} 个连续工序任务</div>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[1120px] text-sm">
+        <table class="w-full min-w-[980px] table-fixed text-sm">
           <thead>
             <tr class="border-b bg-muted/40 text-xs text-muted-foreground">
-              <th class="px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 售卖类型</th>
-              <th class="px-3 py-2 text-left font-medium">连续任务</th>
-              <th class="px-3 py-2 text-left font-medium">覆盖工序</th>
-              <th class="px-3 py-2 text-left font-medium">整任务范围</th>
-              <th class="px-3 py-2 text-left font-medium">分配前判断</th>
-              <th class="px-3 py-2 text-left font-medium">分配状态</th>
-              <th class="sticky right-0 z-20 border-l bg-muted/40 px-3 py-2 text-left font-medium shadow-sm">操作</th>
+              <th class="w-[146px] px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 售卖类型</th>
+              <th class="w-[136px] px-3 py-2 text-left font-medium">连续任务</th>
+              <th class="w-[86px] px-3 py-2 text-left font-medium">覆盖工序</th>
+              <th class="w-[148px] px-3 py-2 text-left font-medium">整任务范围</th>
+              <th class="w-[168px] px-3 py-2 text-left font-medium">分配前判断</th>
+              <th class="w-[120px] min-w-[120px] px-3 py-2 text-left font-medium">分配状态</th>
+              <th class="w-[176px] min-w-[176px] border-l bg-muted/40 px-3 py-2 text-left font-medium shadow-sm xl:sticky xl:right-0 xl:z-20">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -218,11 +218,11 @@ function renderTaskTable(tasks: RuntimeProcessTask[]): string {
                     const coveredNames = getCoveredProcessNames(task)
                     return `
                       <tr class="border-b align-top last:border-b-0">
-                        <td class="px-3 py-3">
+                        <td class="break-words px-3 py-3">
                           ${renderProductionOrderIdentityCell(task.productionOrderId)}
                           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order?.demandSnapshot.saleType ?? task.saleTypeSnapshot ?? '—')}</div>
                         </td>
-                        <td class="px-3 py-3">
+                        <td class="break-words px-3 py-3">
                           <div class="font-medium">${escapeHtml(task.processNameZh)}</div>
                           <div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</div>
                           <div class="mt-1 text-xs text-muted-foreground">来源：${escapeHtml(task.generationRuleName || '任务清单人工合并')}</div>
@@ -232,14 +232,14 @@ function renderTaskTable(tasks: RuntimeProcessTask[]): string {
                             ${coveredNames.map((name) => `<span class="rounded-md border bg-muted/40 px-2 py-0.5 text-xs">${escapeHtml(name)}</span>`).join('')}
                           </div>
                         </td>
-                        <td class="px-3 py-3 text-xs text-muted-foreground">
+                        <td class="break-all px-3 py-3 text-xs text-muted-foreground">
                           <div>合并来源：${escapeHtml((task.mergeSourceTaskIds ?? []).join('、') || '任务清单')}</div>
                           <div>计划数量：${Number(task.qty || task.scopeQty || 0).toLocaleString()} 件</div>
                           <div>合并人：${escapeHtml(task.mergeCreatedBy || '生产计划员')}</div>
                         </td>
-                        <td class="px-3 py-3">${renderReadiness(task)}</td>
-                        <td class="px-3 py-3">${renderAssignmentCell(task)}</td>
-                        <td class="sticky right-0 z-10 border-l bg-card px-3 py-3 shadow-sm">${renderActions(task)}</td>
+                        <td class="break-words px-3 py-3">${renderReadiness(task)}</td>
+                        <td class="w-[120px] min-w-[120px] px-3 py-3">${renderAssignmentCell(task)}</td>
+                        <td class="w-[176px] min-w-[176px] border-l bg-card px-3 py-3 shadow-sm xl:sticky xl:right-0 xl:z-10">${renderActions(task)}</td>
                       </tr>
                     `
                   }).join('')
