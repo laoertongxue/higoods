@@ -547,6 +547,64 @@ export const productionOrderChangeExecutionStrategyLabels: Record<ProductionOrde
   AFTER_APPROVAL: '审核通过后执行',
 }
 
+export const productionOrderChangeLockStatusLabels: Record<ProductionOrderChangeLockStatus, string> = {
+  NONE: '无锁定',
+  IMPACT_SCOPE_LOCKED: '影响范围锁定',
+  WHOLE_ORDER_PAUSED: '整单暂停',
+  RELEASED: '已释放',
+}
+
+export const productionOrderChangeOrderStatusLabels: Record<ProductionOrderChangeOrderStatus, string> = {
+  DRAFT: '草稿',
+  SUBMITTED: '已提交',
+  UNDER_REVIEW: '审核中',
+  APPROVED: '已通过',
+  EXECUTING: '执行中',
+  DONE: '已完成',
+  REJECTED: '已驳回',
+  RETURNED: '退回修改',
+}
+
+export const productionOrderChangeDocumentTypeLabels: Record<ProductionOrderChangeDocumentType, string> = {
+  MATERIAL_PREPARATION: '配料单',
+  PICKING: '领料单',
+  CUTTING: '裁剪单',
+  PRINTING: '印花单',
+  DYEING: '染色单',
+  BUNDLE_TICKET: '菲票',
+  SEWING: '车缝单',
+  SETTLEMENT: '结算单',
+}
+
+export const productionOrderChangeDocumentActionStatusLabels: Record<
+  ProductionOrderChangeDocumentActionStatus,
+  string
+> = {
+  NOT_REQUIRED: '无需处理',
+  PENDING_CONFIRM: '待确认',
+  PENDING_EXECUTION: '待执行',
+  EXECUTING: '执行中',
+  DONE: '已完成',
+  BLOCKED: '已阻塞',
+}
+
+export const productionOrderChangeCostTypeLabels: Record<ProductionOrderChangeCostType, string> = {
+  MATERIAL: '料差',
+  LABOR: '工差',
+  FEE: '费用差',
+}
+
+export const productionOrderChangeTimingNodeLabels: Record<ProductionOrderChangeTimingNode, string> = {
+  MATERIAL_PREPARATION: '配料',
+  PICKING: '领料',
+  CUTTING: '裁剪',
+  PRINTING: '印花',
+  DYEING: '染色',
+  SEWING: '车缝',
+  POST_FINISHING: '后道',
+  SHIPPING: '发货',
+}
+
 export const patchEffectivePointLabels: Record<PatchEffectivePoint, string> = {
   FROM_NOW: '从现在开始',
   FROM_NEXT_MATERIAL_PREP: '从下一次配料开始',
@@ -805,12 +863,84 @@ function getScenarioModules(title: string): TechPackChangeModule[] {
   return uniqueList(modules.length > 0 ? modules : ['PROCESS'])
 }
 
+type ProductionOrderChangeScenarioOverride = Pick<
+  ProductionOrderChangeScenario,
+  'expectedResult' | 'mainAffectedDocuments' | 'costImpact' | 'timingNodes' | 'riskLevel'
+>
+
+const productionOrderChangeScenarioOverrides: Partial<Record<string, ProductionOrderChangeScenarioOverride>> = {
+  'SCN-001': {
+    expectedResult: 'VERSION_RELATION',
+    mainAffectedDocuments: ['MATERIAL_PREPARATION', 'PICKING', 'CUTTING'],
+    costImpact: [],
+    timingNodes: ['MATERIAL_PREPARATION', 'PICKING', 'CUTTING'],
+    riskLevel: 'LOW',
+  },
+  'SCN-002': {
+    expectedResult: 'VERSION_RELATION',
+    mainAffectedDocuments: ['MATERIAL_PREPARATION', 'PICKING'],
+    costImpact: [],
+    timingNodes: ['MATERIAL_PREPARATION', 'PICKING'],
+    riskLevel: 'MEDIUM',
+  },
+  'SCN-005': {
+    expectedResult: 'VERSION_AND_PATCH',
+    mainAffectedDocuments: ['CUTTING', 'PRINTING', 'BUNDLE_TICKET'],
+    costImpact: [],
+    timingNodes: ['CUTTING', 'PRINTING'],
+    riskLevel: 'MEDIUM',
+  },
+  'SCN-008': {
+    expectedResult: 'VERSION_AND_PATCH',
+    mainAffectedDocuments: ['DYEING'],
+    costImpact: ['LABOR'],
+    timingNodes: ['DYEING'],
+    riskLevel: 'MEDIUM',
+  },
+  'SCN-025': {
+    expectedResult: 'PRODUCTION_PATCH',
+    mainAffectedDocuments: ['SEWING', 'SETTLEMENT'],
+    costImpact: ['LABOR'],
+    timingNodes: ['SEWING', 'POST_FINISHING'],
+    riskLevel: 'MEDIUM',
+  },
+  'SCN-034': {
+    expectedResult: 'PRODUCTION_PATCH',
+    mainAffectedDocuments: ['PRINTING'],
+    costImpact: ['FEE'],
+    timingNodes: ['PRINTING'],
+    riskLevel: 'MEDIUM',
+  },
+  'SCN-051': {
+    expectedResult: 'COST_ONLY',
+    mainAffectedDocuments: ['SETTLEMENT'],
+    costImpact: ['MATERIAL'],
+    timingNodes: ['MATERIAL_PREPARATION'],
+    riskLevel: 'LOW',
+  },
+  'SCN-059': {
+    expectedResult: 'PRODUCTION_PATCH',
+    mainAffectedDocuments: ['SEWING', 'SETTLEMENT'],
+    costImpact: ['LABOR', 'FEE'],
+    timingNodes: ['SEWING', 'SHIPPING'],
+    riskLevel: 'HIGH',
+  },
+  'SCN-060': {
+    expectedResult: 'RECORD_ONLY',
+    mainAffectedDocuments: ['SETTLEMENT'],
+    costImpact: [],
+    timingNodes: ['SHIPPING'],
+    riskLevel: 'LOW',
+  },
+}
+
 const productionOrderChangeScenarioCatalog: ProductionOrderChangeScenario[] = productionOrderChangeScenarioTitles.map(
   (title, index) => {
+    const id = `SCN-${String(index + 1).padStart(3, '0')}`
     const source = getScenarioSource(index, title)
     const expectedResult = getScenarioExpectedResult(index, title)
-    return {
-      id: `SCN-${String(index + 1).padStart(3, '0')}`,
+    const scenario: ProductionOrderChangeScenario = {
+      id,
       source,
       title,
       expectedResult,
@@ -819,6 +949,8 @@ const productionOrderChangeScenarioCatalog: ProductionOrderChangeScenario[] = pr
       timingNodes: getScenarioTimingNodes(title),
       riskLevel: getScenarioRiskLevel(title),
     }
+    const override = productionOrderChangeScenarioOverrides[id]
+    return override ? { ...scenario, ...override } : scenario
   },
 )
 
@@ -886,6 +1018,65 @@ const productionOrderChangeStatuses: ProductionOrderChangeOrderStatus[] = [
   'RETURNED',
 ]
 
+const productionOrderChangeOrderSemanticOverrides: Partial<
+  Record<string, { changeModules?: TechPackChangeModule[]; costDeltaAmount?: number }>
+> = {
+  'SCN-001': {
+    changeModules: ['BOM', 'PATTERN', 'PROCESS', 'SIZE', 'COLOR_MATERIAL_MAPPING', 'DESIGN'],
+    costDeltaAmount: 0,
+  },
+  'SCN-002': {
+    changeModules: ['BOM'],
+    costDeltaAmount: 0,
+  },
+  'SCN-005': {
+    changeModules: ['PATTERN', 'PROCESS', 'DESIGN'],
+    costDeltaAmount: 0,
+  },
+  'SCN-008': {
+    changeModules: ['PROCESS'],
+    costDeltaAmount: 1200,
+  },
+  'SCN-025': {
+    changeModules: ['PROCESS', 'COST'],
+    costDeltaAmount: 2400,
+  },
+  'SCN-034': {
+    changeModules: ['DESIGN', 'PROCESS'],
+    costDeltaAmount: 1800,
+  },
+  'SCN-051': {
+    changeModules: ['BOM', 'COST'],
+    costDeltaAmount: 1600,
+  },
+  'SCN-059': {
+    changeModules: ['PROCESS', 'COST'],
+    costDeltaAmount: 3600,
+  },
+  'SCN-060': {
+    changeModules: ['PROCESS'],
+    costDeltaAmount: 0,
+  },
+}
+
+function getProductionOrderChangeOrderModules(scenario: ProductionOrderChangeScenario): TechPackChangeModule[] {
+  return [...(productionOrderChangeOrderSemanticOverrides[scenario.id]?.changeModules ?? getScenarioModules(scenario.title))]
+}
+
+function getProductionOrderChangeOrderCostDeltaAmount(
+  plan: { changeResult: ProductionOrderChangeResult },
+  scenario: ProductionOrderChangeScenario,
+  index: number,
+): number {
+  const overrideAmount = productionOrderChangeOrderSemanticOverrides[scenario.id]?.costDeltaAmount
+  if (overrideAmount !== undefined) return overrideAmount
+  if (plan.changeResult === 'RECORD_ONLY' || scenario.costImpact.length === 0) return 0
+  return (
+    (scenario.costImpact.includes('FEE') ? 2800 : 1600) *
+    (scenario.riskLevel === 'HIGH' ? 3 : index % 2 === 0 ? 1 : -1)
+  )
+}
+
 const productionOrderChangeOrders: ProductionOrderChangeOrder[] = productionOrderChangeOrderPlans.map((plan, index) => {
   const scenario = requireProductionOrderChangeScenario(plan.scenarioId)
   const style = productionOrderChangeStyleSeeds[index % productionOrderChangeStyleSeeds.length]
@@ -928,7 +1119,7 @@ const productionOrderChangeOrders: ProductionOrderChangeOrder[] = productionOrde
     buyerName: style.buyerName,
     merchandiserName: style.merchandiserName,
     source: scenario.source,
-    changeModules: getScenarioModules(scenario.title),
+    changeModules: getProductionOrderChangeOrderModules(scenario),
     reason: scenario.title,
     expectedEffectiveMode: effectiveMode,
     effectiveDescription: effectiveModeLabels[effectiveMode],
@@ -939,10 +1130,7 @@ const productionOrderChangeOrders: ProductionOrderChangeOrder[] = productionOrde
     hasVersionRelationChange,
     hasProductionPatch,
     affectedDocumentCount: getScenarioDocuments(scenario.title, plan.changeResult).length + (scenario.riskLevel === 'HIGH' ? 2 : 1),
-    costDeltaAmount:
-      plan.changeResult === 'RECORD_ONLY'
-        ? 0
-        : (scenario.costImpact.includes('FEE') ? 2800 : 1600) * (scenario.riskLevel === 'HIGH' ? 3 : index % 2 === 0 ? 1 : -1),
+    costDeltaAmount: getProductionOrderChangeOrderCostDeltaAmount(plan, scenario, index),
     delayDays: scenario.timingNodes.includes('SHIPPING') ? 3 + (index % 3) : scenario.riskLevel === 'HIGH' ? 2 : index % 2,
     createdBy: index % 2 === 0 ? style.merchandiserName : '生产计划专员',
     createdAt: `2026-03-${String(4 + index).padStart(2, '0')} ${index % 2 === 0 ? '09:20' : '14:10'}`,
