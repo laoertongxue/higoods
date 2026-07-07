@@ -28,4 +28,10 @@ const source = readFileSync(new URL('../src/data/fcs/third-party-factory-rating.
 assert.ok(source.includes('近 90 天仅用于生产时效查看'), '缺少 90 天非考核期说明')
 assert.ok(!source.includes('TRIAL') && !source.includes('BLACKLISTED'), '页面数据不应直接暴露英文状态码')
 
+const factoryProfileSource = readFileSync(new URL('../src/pages/factory-profile.ts', import.meta.url), 'utf8')
+assert.ok(factoryProfileSource.includes('评级与派单风控'), '工厂档案缺少评级与派单风控区块')
+assert.ok(factoryProfileSource.includes('getThirdPartyFactoryRatingSnapshot'), '工厂档案未读取评级快照')
+assert.ok(factoryProfileSource.includes('近 90 天仅用于生产时效查看'), '工厂档案缺少 90 天非考核期说明')
+assert.ok(factoryProfileSource.includes('不能派单，不能发起结算'), '工厂档案缺少黑名单双拦截提示')
+
 console.log('check:third-party-factory-rating passed')
