@@ -61,15 +61,13 @@
 
 - [ ] **步骤 1：编写失败的边界检查脚本**
 
-先补齐一个稳定的含裁片连续任务生产单样本。优先复用 `PO-202603-0007`，把它的 `taskBreakdownSummary` 扩成完整摘要：
+先补齐一个稳定的含裁片连续任务生产单样本。不要复用 `PO-202603-0007`：该生产单已有多个单工序任务事实，摘要必须保持与 runtime task 一致。优先使用未进入任务事实源的待确认生产单，例如 `PO-202603-0008`，把它作为“含裁片连续任务预览”样本，保持 `isBrokenDown: false`，避免在没有 runtime task 时触发任务事实一致性检查。
 
 ```typescript
 taskBreakdownSummary: {
-  isBrokenDown: true,
+  isBrokenDown: false,
   taskTypesTop3: ['裁片+车缝连续任务'],
-  lastBreakdownAt: '2026-03-03 11:00:00',
-  lastBreakdownBy: 'Yudi Prakoso',
-  generationRuleName: '任务清单人工合并',
+  generationRuleName: '含裁片连续任务预览',
   generatedTaskUnitCount: 1,
   singleProcessTaskCount: 0,
   independentWorkOrderTaskCount: 0,
@@ -78,7 +76,7 @@ taskBreakdownSummary: {
   combinedProcessTaskCount: 1,
   wholeOrderTaskCount: 0,
   coveredProcessNames: ['裁片', '车缝', '后道'],
-  previewStatus: 'READY',
+  previewStatus: 'NEED_CONFIRM',
 },
 ```
 
@@ -105,6 +103,7 @@ const continuousWithCutting = productionOrders.find((order) =>
   && order.taskBreakdownSummary.coveredProcessNames.some((name) => name.includes('裁')),
 )
 assert(continuousWithCutting, '必须存在含裁片连续工序任务生产单样本')
+assert.notEqual(continuousWithCutting.productionOrderId, 'PO-202603-0007', 'PO-202603-0007 已有多任务事实，不得作为含裁片连续工序任务样本')
 assert.equal(resolveProductionOrderTaskBoundary(continuousWithCutting).kind, 'CONTINUOUS_WITH_CUTTING')
 assert.equal(shouldGenerateCutOrderForProductionOrder(continuousWithCutting), true, '含裁片连续工序任务必须生成裁片单')
 assert.equal(shouldGenerateInternalCraftOrderForProductionOrder(continuousWithCutting), false, '含裁片连续工序任务不得生成我方加工单')
@@ -118,6 +117,13 @@ assert(independentCutting, '必须存在独立裁片任务生产单样本')
 assert.equal(resolveProductionOrderTaskBoundary(independentCutting).kind, 'INDEPENDENT_CUTTING')
 assert.equal(shouldGenerateCutOrderForProductionOrder(independentCutting), true, '独立裁片任务必须生成裁片单')
 assert.equal(shouldGenerateInternalCraftOrderForProductionOrder(independentCutting), true, '独立裁片任务回我方链路时必须生成我方加工单')
+
+const legacyTaskTypeOnlyCutting = productionOrders.find((order) =>
+  (order.taskBreakdownSummary.coveredProcessNames ?? []).length === 0
+  && order.taskBreakdownSummary.taskTypesTop3.some((name) => name.includes('裁')),
+)
+assert(legacyTaskTypeOnlyCutting, '必须存在仅 taskTypesTop3 标识裁片的旧摘要样本')
+assert.equal(resolveProductionOrderTaskBoundary(legacyTaskTypeOnlyCutting).kind, 'INDEPENDENT_CUTTING')
 
 console.log('check-third-party-cutting-task-boundaries PASS')
 ```
@@ -170,7 +176,11 @@ function hasCuttingName(names: string[]): boolean {
 
 export function resolveProductionOrderTaskBoundary(order: ProductionOrder): ProductionOrderTaskBoundary {
   const summary = order.taskBreakdownSummary
-  const includesCutting = hasCuttingName(summary.coveredProcessNames ?? [])
+  const processNames = [
+    ...(summary.coveredProcessNames ?? []),
+    ...summary.taskTypesTop3,
+  ]
+  const includesCutting = hasCuttingName(processNames)
 
   if (summary.wholeOrderTaskCount > 0) {
     return {

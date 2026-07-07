@@ -25,7 +25,11 @@ function hasCuttingProcess(names: string[] = []): boolean {
 
 export function resolveProductionOrderTaskBoundary(order: ProductionOrder): ProductionOrderTaskBoundary {
   const summary = order.taskBreakdownSummary
-  const hasCutting = hasCuttingProcess(summary.coveredProcessNames)
+  const processNames = [
+    ...(summary.coveredProcessNames ?? []),
+    ...summary.taskTypesTop3,
+  ]
+  const hasCutting = hasCuttingProcess(processNames)
 
   if ((summary.wholeOrderTaskCount ?? 0) > 0) {
     return {
