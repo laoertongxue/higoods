@@ -465,6 +465,7 @@ export function renderCraftCuttingSpecialProcessesPage(): string {
           </div>
         `,
       })}
+      <p class="mt-1 text-sm text-muted-foreground">只展示我方内部加工对象；三方连续任务内部工艺不生成我方加工单。</p>
       ${renderListFilters()}
       ${renderListStats(rows)}
       ${renderOrderTable(rows)}

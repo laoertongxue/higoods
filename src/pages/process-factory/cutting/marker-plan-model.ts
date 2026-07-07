@@ -330,6 +330,8 @@ export interface MarkerPlanContextCandidate {
   techPackStatusLabel: string
   prepStatusLabel: string
   prepClaimSummaryText: string
+  cutOrderSourceLabels: string[]
+  cutReturnModeLabels: string[]
   sourceCutOrderRows: CutOrderRow[]
   sourceMaterialPrepRows: MaterialPrepRow[]
   sourceGeneratedRows: GeneratedCutOrderSourceRecord[]
@@ -701,6 +703,8 @@ function buildCutOrderContextCandidate(input: {
     techPackStatusLabel,
     prepStatusLabel,
     prepClaimSummaryText,
+    cutOrderSourceLabels: uniqueStrings([input.row.cutOrderSourceLabel]),
+    cutReturnModeLabels: uniqueStrings([input.row.cutReturnModeLabel]),
     sourceCutOrderRows: [input.row],
     sourceMaterialPrepRows: input.materialPrepRow ? [input.materialPrepRow] : [],
     sourceGeneratedRows,
@@ -778,6 +782,8 @@ function buildMarkerPlanSourceContextCandidate(input: {
     techPackStatusLabel,
     prepStatusLabel,
     prepClaimSummaryText,
+    cutOrderSourceLabels: uniqueStrings(sourceCutOrderRows.map((row) => row.cutOrderSourceLabel)),
+    cutReturnModeLabels: uniqueStrings(sourceCutOrderRows.map((row) => row.cutReturnModeLabel)),
     sourceCutOrderRows,
     sourceMaterialPrepRows,
     sourceGeneratedRows,
@@ -872,6 +878,8 @@ export function buildCombinedMarkerPlanContextCandidate(
     techPackStatusLabel: techPackStatusLabels.length === 1 ? techPackStatusLabels[0] : '需人工确认',
     prepStatusLabel: prepStatusLabels.length === 1 ? prepStatusLabels[0] : '多状态',
     prepClaimSummaryText: uniqueStrings(selectedContexts.map((context) => context.prepClaimSummaryText)).join(' / '),
+    cutOrderSourceLabels: uniqueStrings(selectedContexts.flatMap((context) => context.cutOrderSourceLabels)),
+    cutReturnModeLabels: uniqueStrings(selectedContexts.flatMap((context) => context.cutReturnModeLabels)),
     sourceCutOrderRows,
     sourceMaterialPrepRows,
     sourceGeneratedRows,

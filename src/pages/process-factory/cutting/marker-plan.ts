@@ -3841,19 +3841,24 @@ function renderMarkerPlanOverviewTab(plan: MarkerPlanViewRow, context: MarkerPla
 function renderMarkerPlanSourceCutOrdersTab(plan: MarkerPlanViewRow, context: MarkerPlanContextCandidate | null): string {
   const selectedRows = getSourceCutOrdersRows(plan)
   const sourceRows = selectedRows.length
-    ? selectedRows.map((row) => ({
-        cutOrderNo: row.cutOrderNo,
-        productionOrderNo: row.productionOrderNo,
-        spuCode: row.spuCode || plan.spuCode || '—',
-        materialSku: row.materialSku || plan.materialSkuSummary || '—',
-        materialColor: row.materialColor || plan.colorSummary || '—',
-        patternFileName: row.patternFileName || row.patternFileId || '—',
-        patternVersion: row.patternVersion || '—',
-        effectiveWidthText: row.effectiveWidthText || '—',
-        availableQty: row.availableQty,
-        unit: row.unit || '米',
-        historyCombinationGroup: row.historyCombinationGroup || '新组合',
-      }))
+    ? selectedRows.map((row) => {
+        const sourceRow = context?.sourceCutOrderRows.find((item) => item.cutOrderId === row.cutOrderId || item.cutOrderNo === row.cutOrderNo)
+        return {
+          cutOrderNo: row.cutOrderNo,
+          productionOrderNo: row.productionOrderNo,
+          spuCode: row.spuCode || plan.spuCode || '—',
+          materialSku: row.materialSku || plan.materialSkuSummary || '—',
+          materialColor: row.materialColor || plan.colorSummary || '—',
+          patternFileName: row.patternFileName || row.patternFileId || '—',
+          patternVersion: row.patternVersion || '—',
+          effectiveWidthText: row.effectiveWidthText || '—',
+          availableQty: row.availableQty,
+          unit: row.unit || '米',
+          historyCombinationGroup: row.historyCombinationGroup || '新组合',
+          cutOrderSourceLabel: sourceRow?.cutOrderSourceLabel || '—',
+          cutReturnModeLabel: sourceRow?.cutReturnModeLabel || '—',
+        }
+      })
     : plan.cutOrderNos.map((cutOrderNo, index) => {
         const sourceRow = context?.sourceCutOrderRows.find((row) => row.cutOrderNo === cutOrderNo) || context?.sourceCutOrderRows[index]
         return {
@@ -3865,6 +3870,8 @@ function renderMarkerPlanSourceCutOrdersTab(plan: MarkerPlanViewRow, context: Ma
           patternFileName: sourceRow?.patternFileName || sourceRow?.patternFileId || '—',
           patternVersion: sourceRow?.patternVersion || context?.techPackStatusLabel || getPlanTechPackText(plan),
           effectiveWidthText: sourceRow?.effectiveWidthText || '—',
+          cutOrderSourceLabel: sourceRow?.cutOrderSourceLabel || '—',
+          cutReturnModeLabel: sourceRow?.cutReturnModeLabel || '—',
           availableQty: null as number | null,
           unit: sourceRow?.materialUnit || '米',
           historyCombinationGroup: plan.markerPlanGroupKey || '新组合',
@@ -3879,17 +3886,20 @@ function renderMarkerPlanSourceCutOrdersTab(plan: MarkerPlanViewRow, context: Ma
           { label: '来源裁片单', value: getPlanSourceNoText(plan) },
           { label: '来源生产单', value: plan.productionOrderNos.join(' / ') || '—' },
           { label: 'SPU / 款式', value: `${plan.spuCode || '-'} / ${plan.styleName || '-'}` },
+          { label: '裁片单来源', value: context?.cutOrderSourceLabels.join(' / ') || '—' },
+          { label: '回流方式', value: context?.cutReturnModeLabels.join(' / ') || '—' },
           { label: '技术包', value: context?.techPackStatusLabel || getPlanTechPackText(plan) },
           { label: '是否跨生产单', value: productionOrderCount > 1 ? `是，${productionOrderCount} 个生产单` : '否' },
         ])}
         <div class="mt-4 overflow-x-auto rounded-lg border bg-background">
-          <table class="min-w-[1040px] w-full text-left text-sm">
+          <table class="min-w-[1160px] w-full text-left text-sm">
             <thead class="bg-muted/40 text-xs text-muted-foreground">
               <tr>
                 <th class="px-3 py-2 font-medium">裁片单</th>
                 <th class="px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / SPU</th>
                 <th class="px-3 py-2 font-medium">面料 / 颜色</th>
                 <th class="px-3 py-2 font-medium">纸样 / 幅宽</th>
+                <th class="px-3 py-2 font-medium">来源 / 回流</th>
                 <th class="px-3 py-2 text-right font-medium">可用余额</th>
                 <th class="px-3 py-2 font-medium">组合组</th>
               </tr>
@@ -3911,11 +3921,15 @@ function renderMarkerPlanSourceCutOrdersTab(plan: MarkerPlanViewRow, context: Ma
                       <div>${escapeHtml(row.patternFileName || '—')}</div>
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.patternVersion || '—')} / ${escapeHtml(row.effectiveWidthText || '—')}</div>
                     </td>
+                    <td class="px-3 py-3">
+                      <div>${escapeHtml(row.cutOrderSourceLabel || '—')}</div>
+                      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.cutReturnModeLabel || '—')}</div>
+                    </td>
                     <td class="px-3 py-3 text-right">${row.availableQty === null ? '—' : `${formatNumber(row.availableQty, 2)} ${escapeHtml(row.unit)}`}</td>
                     <td class="px-3 py-3">${escapeHtml(row.historyCombinationGroup || '新组合')}</td>
                   </tr>
                 `).join('')
-                : '<tr><td colspan="6" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无来源裁片单清单。</td></tr>'}
+                : '<tr><td colspan="7" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无来源裁片单清单。</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -4137,6 +4151,14 @@ function renderStats(viewModel = getViewModel(), plans = viewModel.plans): strin
     `, '', 'data-testid="marker-plan-list-stats"')
 }
 
+function renderThirdPartyMarkerBoundaryNotice(): string {
+  return `
+    <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+      三方连续任务用唛架：仅用于给三方工厂裁片依据，不进入我方铺布/入仓闭环。
+    </div>
+  `
+}
+
 function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): string {
   const tableTitle = exceptionOnly ? '异常待处理方案' : '唛架方案'
   const countText = `共 ${rows.length} 个方案`
@@ -4302,6 +4324,7 @@ function renderListPage(viewModel = getViewModel()): string {
       ${renderFeedbackBar()}
       ${renderListFilters()}
       ${renderStats(viewModel, filteredPlans)}
+      ${renderThirdPartyMarkerBoundaryNotice()}
       ${renderListStateBar()}
       ${mainContent}
     </div>
@@ -4370,7 +4393,9 @@ function renderCreateSourceSummary(
         <div class="grid gap-3 p-3 md:grid-cols-2">
           ${
             sourceRows.length
-              ? sourceRows.map((row) => `
+              ? sourceRows.map((row) => {
+                const sourceRow = context?.sourceCutOrderRows.find((item) => item.cutOrderId === row.cutOrderId || item.cutOrderNo === row.cutOrderNo)
+                return `
                 <article class="rounded-lg border bg-background p-3 text-sm">
                   <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -4400,13 +4425,15 @@ function renderCreateSourceSummary(
                       <div class="mt-1 text-muted-foreground">部位：${escapeHtml(row.piecePartNames.join(' / ') || '—')}</div>
                     </div>
                   </div>
-                  <div class="mt-3 grid gap-2 text-xs sm:grid-cols-3">
+                  <div class="mt-3 grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-5">
                     <div class="rounded-md border bg-muted/10 px-2 py-2">可用余额：<span class="font-semibold">${formatNumber(row.availableQty, 2)} ${escapeHtml(row.unit)}</span></div>
+                    <div class="rounded-md border bg-muted/10 px-2 py-2">裁片单来源：<span class="font-semibold">${escapeHtml(sourceRow?.cutOrderSourceLabel || '—')}</span></div>
+                    <div class="rounded-md border bg-muted/10 px-2 py-2">回流方式：<span class="font-semibold">${escapeHtml(sourceRow?.cutReturnModeLabel || '—')}</span></div>
                     <div class="rounded-md border bg-muted/10 px-2 py-2">历史组合组：<span class="font-semibold">${escapeHtml(row.historyCombinationGroup || '新组合')}</span></div>
                     <div class="rounded-md border bg-muted/10 px-2 py-2">后续铺布单：<span class="font-semibold">待生成铺布单</span></div>
                   </div>
                 </article>
-              `).join('')
+              `}).join('')
               : '<div class="rounded-lg border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">暂无来源裁片单清单，请先选择裁片单。</div>'
           }
         </div>

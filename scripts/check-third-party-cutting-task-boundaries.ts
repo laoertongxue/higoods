@@ -2,22 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import { productionOrders, type ProductionOrder, type TaskBreakdownSummary } from '../src/data/fcs/production-orders.ts'
-import {
-  hasFormalTechPackForCutting,
-  listCuttingProductionOrdersWithFormalTechPack,
-  listGeneratedCutOrderSourceRecords,
-} from '../src/data/fcs/cutting/generated-cut-orders.ts'
-import { getProductionOrderTechPackSnapshot } from '../src/data/fcs/production-order-tech-pack-runtime.ts'
-import { generateSpecialCraftTaskOrdersFromProductionOrder } from '../src/data/fcs/special-craft-task-generation.ts'
-import {
-  resolveProductionOrderTaskBoundary,
-  shouldGenerateCutOrderForProductionOrder,
-  shouldGenerateInternalCraftOrderForProductionOrder,
-} from '../src/data/fcs/task-generation-boundaries.ts'
-import { listRuntimeProcessTasks } from '../src/data/fcs/runtime-process-tasks.ts'
-import { handleContinuousDispatchEvent, renderContinuousDispatchPage } from '../src/pages/continuous-dispatch.ts'
-import { renderTaskBreakdownPage } from '../src/pages/task-breakdown.ts'
+import type { ProductionOrder, TaskBreakdownSummary } from '../src/data/fcs/production-orders.ts'
 
 function makeSyntheticOrder(productionOrderId: string, taskBreakdownSummary: TaskBreakdownSummary): ProductionOrder {
   const baseOrder = productionOrders[0]
@@ -36,6 +21,34 @@ function taskCoversCutting(task: { processNameZh?: string; coveredProcesses?: Ar
     || task.coveredProcesses?.some((process) => process.processName?.includes('裁')),
   )
 }
+
+const store = new Map<string, string>()
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => store.set(key, String(value)),
+    removeItem: (key: string) => store.delete(key),
+    clear: () => store.clear(),
+  },
+})
+
+const { productionOrders } = await import('../src/data/fcs/production-orders.ts')
+const {
+  hasFormalTechPackForCutting,
+  listCuttingProductionOrdersWithFormalTechPack,
+  listGeneratedCutOrderSourceRecords,
+} = await import('../src/data/fcs/cutting/generated-cut-orders.ts')
+const { getProductionOrderTechPackSnapshot } = await import('../src/data/fcs/production-order-tech-pack-runtime.ts')
+const { generateSpecialCraftTaskOrdersFromProductionOrder } = await import('../src/data/fcs/special-craft-task-generation.ts')
+const {
+  resolveProductionOrderTaskBoundary,
+  shouldGenerateCutOrderForProductionOrder,
+  shouldGenerateInternalCraftOrderForProductionOrder,
+} = await import('../src/data/fcs/task-generation-boundaries.ts')
+const { listRuntimeProcessTasks } = await import('../src/data/fcs/runtime-process-tasks.ts')
+const { handleContinuousDispatchEvent, renderContinuousDispatchPage } = await import('../src/pages/continuous-dispatch.ts')
+const { renderTaskBreakdownPage } = await import('../src/pages/task-breakdown.ts')
 
 const wholeOrder = productionOrders.find((order) => (order.taskBreakdownSummary.wholeOrderTaskCount ?? 0) > 0)
 assert(wholeOrder, '必须存在整单任务生产单样本')
@@ -191,6 +204,9 @@ assert.equal(independentCuttingCutOrder.internalCraftOrderPolicyLabel, '回仓�
 
 const taskBreakdownSource = readFileSync(resolve('src/pages/task-breakdown.ts'), 'utf8')
 const continuousDispatchSource = readFileSync(resolve('src/pages/continuous-dispatch.ts'), 'utf8')
+const cutOrdersPageSource = readFileSync(resolve('src/pages/process-factory/cutting/cut-orders.ts'), 'utf8')
+const markerPlanSource = readFileSync(resolve('src/pages/process-factory/cutting/marker-plan.ts'), 'utf8')
+const specialProcessesSource = readFileSync(resolve('src/pages/process-factory/cutting/special-processes.ts'), 'utf8')
 
 ;[
   'listGeneratedCutOrderSourceRecords',
@@ -222,6 +238,33 @@ const continuousDispatchHtml = renderContinuousDispatchPage()
 assert(continuousDispatchHtml.includes('含裁片连续任务'), '连续分配渲染结果必须包含含裁片连续任务')
 assert(continuousDispatchHtml.includes('三方上报裁片完成数量和可做成衣数'), '连续分配渲染结果必须包含三方上报裁片完成数量和可做成衣数')
 assert(continuousDispatchHtml.includes('不生成我方加工单'), '连续分配渲染结果必须包含不生成我方加工单')
+
+;[
+  '裁片单来源',
+  '回流方式',
+  '我方加工单策略',
+].forEach((token) => {
+  assert(cutOrdersPageSource.includes(token), `裁片单页面缺少 ${token}`)
+})
+
+assert(markerPlanSource.includes('三方连续任务用唛架'), '唛架页面必须说明含裁片连续任务只使用我方唛架')
+assert(specialProcessesSource.includes('只展示我方内部加工对象'), '特殊工艺页面必须说明不展示三方连续任务内部工艺')
+
+const { renderCraftCuttingCutOrdersPage } = await import('../src/pages/process-factory/cutting/cut-orders.ts')
+const { renderCraftCuttingMarkerListPage } = await import('../src/pages/process-factory/cutting/marker-plan.ts')
+const { renderCraftCuttingSpecialProcessesPage } = await import('../src/pages/process-factory/cutting/special-processes.ts')
+
+const cutOrdersHtml = renderCraftCuttingCutOrdersPage()
+assert(cutOrdersHtml.includes('裁片单来源'), '裁片单渲染结果必须包含裁片单来源')
+assert(cutOrdersHtml.includes('回流方式'), '裁片单渲染结果必须包含回流方式')
+assert(cutOrdersHtml.includes('我方加工单策略'), '裁片单渲染结果必须包含我方加工单策略')
+
+const markerPlanHtml = renderCraftCuttingMarkerListPage()
+assert(markerPlanHtml.includes('三方连续任务用唛架'), '唛架渲染结果必须包含三方连续任务用唛架说明')
+
+const specialProcessesHtml = renderCraftCuttingSpecialProcessesPage()
+assert(specialProcessesHtml.includes('只展示我方内部加工对象'), '特殊工艺渲染结果必须包含我方内部加工对象说明')
+assert(specialProcessesHtml.includes('三方连续任务内部工艺不生成我方加工单'), '特殊工艺渲染结果必须包含三方连续任务加工单边界')
 
 const runtimeTasks = listRuntimeProcessTasks()
 const runtimeCuttingContinuousTasks = runtimeTasks.filter((task) =>
