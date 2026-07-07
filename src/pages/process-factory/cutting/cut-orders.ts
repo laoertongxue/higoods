@@ -752,6 +752,16 @@ function renderQuantityCell(row: CutOrderRow): string {
   `
 }
 
+function renderTaskBoundaryCell(row: CutOrderRow): string {
+  return `
+    <div class="space-y-1 text-xs text-muted-foreground">
+      <div><span class="text-foreground">裁片单来源：</span>${escapeHtml(row.cutOrderSourceLabel || '待补')}</div>
+      <div><span class="text-foreground">回流方式：</span>${escapeHtml(row.cutReturnModeLabel || '待补')}</div>
+      <div><span class="text-foreground">我方加工单策略：</span>${escapeHtml(row.internalCraftOrderPolicyLabel || '待补')}</div>
+    </div>
+  `
+}
+
 function nowText(date = new Date()): string {
   const year = date.getFullYear()
   const month = `${date.getMonth() + 1}`.padStart(2, '0')
@@ -1026,7 +1036,7 @@ function renderStatusCell(row: CutOrderRow): string {
 function renderEmptyTableState(): string {
   return `
     <tr>
-      <td colspan="9" class="px-4 py-16 text-center text-sm text-muted-foreground">
+      <td colspan="10" class="px-4 py-16 text-center text-sm text-muted-foreground">
         当前条件下暂无裁片单，请调整筛选条件或清除预筛后重试。
       </td>
     </tr>
@@ -1046,10 +1056,11 @@ function renderTable(rows: CutOrderRow[]): string {
       </div>
       ${renderStickyTableScroller(
         `
-          <table class="w-full min-w-[1260px] text-sm">
+          <table class="w-full min-w-[1360px] text-sm">
             <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
               <tr>
                 <th class="px-4 py-3 text-left font-medium">裁片单</th>
+                <th class="px-4 py-3 text-left font-medium">任务边界</th>
                 <th class="px-4 py-3 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 款式</th>
                 <th class="px-4 py-3 text-left font-medium">面料</th>
                 <th class="px-4 py-3 text-left font-medium">纸样</th>
@@ -1085,6 +1096,7 @@ function renderTable(rows: CutOrderRow[]): string {
                               <p class="mt-1 text-xs text-muted-foreground">裁片任务：${escapeHtml(row.cuttingTaskNo || '待补')}</p>
                               <p class="mt-1 text-xs text-muted-foreground">执行去向：${escapeHtml(row.executionRouteLabel || '待分配承接方')}</p>
                             </td>
+                            <td class="px-4 py-3 align-top">${renderTaskBoundaryCell(row)}</td>
                             <td class="px-4 py-3 align-top">${renderProductionStyleCell(row)}</td>
                             <td class="px-4 py-3 align-top">
                               <div class="max-w-[34rem]">

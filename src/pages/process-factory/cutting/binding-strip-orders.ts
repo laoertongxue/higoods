@@ -96,6 +96,10 @@ function uniqueStrings(values: Array<string | undefined | null>): string[] {
   return Array.from(new Set(values.map((value) => normalizeText(value)).filter(Boolean)))
 }
 
+function shouldGenerateBindingProcessOrder(source: GeneratedCutOrderSourceRecord): boolean {
+  return source.internalCraftOrderPolicy !== 'DO_NOT_GENERATE' && source.cutReturnMode !== 'THIRD_PARTY_REPORT_ONLY'
+}
+
 function resolveBindingStripMaterialImageUrl(
   imageUrl: string | undefined,
   materialSku: string,
@@ -334,7 +338,9 @@ function buildRequirementLinesForSource(
 export function listBindingStripRequirementLines(
   sourceRecords: GeneratedCutOrderSourceRecord[] = listGeneratedCutOrderSourceRecords(),
 ): BindingStripRequirementLine[] {
-  return sourceRecords.flatMap((source, sourceIndex) => buildRequirementLinesForSource(source, sourceIndex))
+  return sourceRecords.flatMap((source, sourceIndex) =>
+    shouldGenerateBindingProcessOrder(source) ? buildRequirementLinesForSource(source, sourceIndex) : [],
+  )
 }
 
 function buildBindingOrderNo(source: GeneratedCutOrderSourceRecord, index: number): string {
@@ -887,13 +893,16 @@ function buildFallbackBindingProcessOrders(): BindingProcessOrder[] {
 export function buildBindingProcessOrders(
   sourceRecords: GeneratedCutOrderSourceRecord[] = listGeneratedCutOrderSourceRecords(),
 ): BindingProcessOrder[] {
+  const eligibleSourceEntries = sourceRecords
+    .map((source, sourceIndex) => ({ source, sourceIndex }))
+    .filter(({ source }) => shouldGenerateBindingProcessOrder(source))
   const requirementsByCutOrder = new Map<string, BindingStripRequirementLine[]>()
   listBindingStripRequirementLines(sourceRecords).forEach((line) => {
     requirementsByCutOrder.set(line.cutOrderId, [...(requirementsByCutOrder.get(line.cutOrderId) || []), line])
   })
 
-  const orders = sourceRecords
-    .map((source, sourceIndex) => {
+  const orders = eligibleSourceEntries
+    .map(({ source, sourceIndex }) => {
       const lines = requirementsByCutOrder.get(source.cutOrderId) || []
       if (!lines.length) return null
       const status = resolveStatus(sourceIndex)
@@ -996,7 +1005,7 @@ export function buildBindingProcessOrders(
     })
     .filter((order): order is BindingProcessOrder => Boolean(order))
 
-  return orders.length ? orders : buildFallbackBindingProcessOrders()
+  return orders.length ? orders : sourceRecords.length ? [] : buildFallbackBindingProcessOrders()
 }
 
 export function getBindingProcessOrderById(bindingOrderId?: string): BindingProcessOrder | null {

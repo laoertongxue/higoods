@@ -18,12 +18,13 @@ import {
   type PdaCuttingTaskMockMatrixItem,
   type PdaCuttingTaskOrigin,
 } from './pda-cutting-mock-matrix.ts'
-import type { PdaCuttingExecutionSourceRecord, PdaCuttingTaskSourceRecord } from './pda-cutting-task-source.ts'
+import type { PdaCuttingExecutionSourceRecord, PdaCuttingReportMode, PdaCuttingTaskSourceRecord } from './pda-cutting-task-source.ts'
 
 export interface PdaCuttingResolvedExecutionScenario extends PdaCuttingExecutionSourceRecord {
   taskId: string
   taskNo: string
   bindingState: PdaCuttingExecutionBindingState
+  cuttingReportMode: PdaCuttingReportMode
   cutOrderRecord: GeneratedCutOrderSourceRecord | null
   spreadingPreset: PdaCuttingSpreadingPresetMatrixItem | null
 }
@@ -69,6 +70,7 @@ export interface PdaCuttingResolvedTaskScenario {
   productionOrderId: string
   productionOrderNo: string
   bindingState: PdaCuttingExecutionBindingState
+  cuttingReportMode: PdaCuttingReportMode
   executions: PdaCuttingResolvedExecutionScenario[]
 }
 
@@ -114,6 +116,7 @@ function resolveBoundExecution(matrix: PdaCuttingTaskMockMatrixItem, execution: 
     materialAlias: cutOrderRecord.materialAlias || '',
     materialImageUrl: cutOrderRecord.materialImageUrl || '',
     bindingState: execution.bindingState || 'BOUND',
+    cuttingReportMode: 'INDEPENDENT_CUTTING_EXECUTION',
     cutOrderRecord,
     spreadingPreset: execution.spreadingPreset || null,
   }
@@ -136,6 +139,7 @@ function resolveUnboundExecution(matrix: PdaCuttingTaskMockMatrixItem, execution
     materialAlias: '',
     materialImageUrl: '',
     bindingState: execution.bindingState || 'UNBOUND',
+    cuttingReportMode: 'INDEPENDENT_CUTTING_EXECUTION',
     cutOrderRecord: null,
     spreadingPreset: execution.spreadingPreset || null,
   }
@@ -161,11 +165,72 @@ function resolveTaskScenario(matrix: PdaCuttingTaskMockMatrixItem): PdaCuttingRe
     productionOrderId: firstExecution.productionOrderId,
     productionOrderNo: firstExecution.productionOrderNo,
     bindingState: executions.some((execution) => execution.bindingState === 'UNBOUND') ? 'UNBOUND' : 'BOUND',
+    cuttingReportMode: 'INDEPENDENT_CUTTING_EXECUTION',
     executions,
   }
 }
 
-const resolvedTaskScenarios = PDA_CUTTING_TASK_MOCK_MATRIX.map((item) => resolveTaskScenario(item))
+function buildContinuousCuttingCompletionScenarios(): PdaCuttingResolvedTaskScenario[] {
+  return listGeneratedCutOrderSourceRecords()
+    .filter((record) =>
+      record.cutOrderSourceType === 'CONTINUOUS_WITH_CUTTING_TASK'
+      && record.cutReturnMode === 'THIRD_PARTY_REPORT_ONLY',
+    )
+    .map((record) => {
+      const executionOrderNo = `REPORT-${record.cutOrderNo}`
+      return {
+        taskId: record.cuttingTaskId,
+        taskNo: record.cuttingTaskNo,
+        origin: 'DIRECT',
+        acceptanceStatus: 'ACCEPTED',
+        taskStatus: 'IN_PROGRESS',
+        assignedFactoryId: record.cuttingTaskAssigneeFactoryId || TEST_FACTORY_ID,
+        assignedFactoryName: getFactoryName(record.cuttingTaskAssigneeFactoryId || TEST_FACTORY_ID),
+        qty: record.requiredQty,
+        qtyUnit: '件',
+        standardPrice: 0,
+        currency: 'CNY',
+        unit: '件',
+        acceptDeadline: '2026-03-18 09:00:00',
+        taskDeadline: '2026-03-20 18:00:00',
+        taskSummaryNote: '含裁片连续工序任务，只在 PDA 上报裁片完成数量。',
+        acceptedAt: '2026-03-18 08:30:00',
+        acceptedBy: '连续任务负责人',
+        startedAt: '2026-03-18 09:00:00',
+        dispatchedAt: '2026-03-18 08:00:00',
+        dispatchedBy: '连续任务调度',
+        productionOrderId: record.productionOrderId,
+        productionOrderNo: record.productionOrderNo,
+        bindingState: 'BOUND',
+        cuttingReportMode: 'CONTINUOUS_TASK_CUTTING_COMPLETION',
+        executions: [{
+          taskId: record.cuttingTaskId,
+          taskNo: record.cuttingTaskNo,
+          executionOrderId: executionOrderNo,
+          executionOrderNo,
+          executionObjectType: 'SPREADING_ORDER',
+          productionOrderId: record.productionOrderId,
+          productionOrderNo: record.productionOrderNo,
+          cutOrderId: record.cutOrderId,
+          cutOrderNo: record.cutOrderNo,
+          markerPlanId: record.markerPlanId || '',
+          markerPlanNo: record.markerPlanNo || '',
+          materialSku: record.materialSku,
+          materialAlias: record.materialAlias || '',
+          materialImageUrl: record.materialImageUrl || '',
+          bindingState: 'BOUND',
+          cuttingReportMode: 'CONTINUOUS_TASK_CUTTING_COMPLETION',
+          cutOrderRecord: record,
+          spreadingPreset: null,
+        }],
+      }
+    })
+}
+
+const resolvedTaskScenarios = [
+  ...PDA_CUTTING_TASK_MOCK_MATRIX.map((item) => resolveTaskScenario(item)),
+  ...buildContinuousCuttingCompletionScenarios(),
+]
 
 export function listPdaCuttingTaskScenarios(): PdaCuttingResolvedTaskScenario[] {
   return resolvedTaskScenarios.map((scenario) => ({
@@ -202,6 +267,7 @@ export function listPdaCuttingExecutionSourceRecordsFromScenarios(): PdaCuttingE
       materialAlias: execution.materialAlias || '',
       materialImageUrl: execution.materialImageUrl || '',
       bindingState: execution.bindingState,
+      cuttingReportMode: execution.cuttingReportMode,
     })),
   )
 }
@@ -217,6 +283,7 @@ export function listPdaCuttingTaskSourceRecordsFromScenarios(): PdaCuttingTaskSo
     executionOrderIds: scenario.executions.map((execution) => execution.executionOrderId),
     executionOrderNos: scenario.executions.map((execution) => execution.executionOrderNo),
     bindingState: scenario.bindingState,
+    cuttingReportMode: scenario.cuttingReportMode,
   }))
 }
 

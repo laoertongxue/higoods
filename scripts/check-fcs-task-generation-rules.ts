@@ -103,8 +103,16 @@ async function main(): Promise<void> {
   assertIncludes(continuousDispatchSource, '连续工序任务分配', '连续工序任务分配页标题不正确')
   assertIncludes(continuousDispatchSource, 'COMBINED_PROCESS_TASK', '连续工序任务分配页必须只读取连续工序任务')
   assertIncludes(continuousDispatchSource, '车缝+后道连续任务', '连续工序任务分配页缺少车缝+后道 Tab')
-  assertIncludes(continuousDispatchSource, '其他连续工序任务', '连续工序任务分配页缺少其他连续工序 Tab')
+  assertIncludes(continuousDispatchSource, '含裁片连续任务', '连续工序任务分配页缺少含裁片 Tab')
+  assertIncludes(continuousDispatchSource, '其他连续任务', '连续工序任务分配页缺少其他连续任务 Tab')
   assertIncludes(continuousDispatchSource, '整任务分配', '连续工序任务分配页必须标明整任务分配')
+  assertIncludes(continuousDispatchSource, '三方上报裁片完成数量和可做成衣数', '含裁片连续任务必须展示裁片完成上报口径')
+  assertIncludes(continuousDispatchSource, '不生成我方加工单', '含裁片连续任务必须说明不生成我方加工单')
+  assertIncludes(continuousDispatchSource, 'data-fast-page-render="true"', '连续任务分配搜索必须保留快速渲染标记')
+  assertIncludes(continuousDispatchSource, 'min-w-[980px] table-fixed', '连续任务分配表格必须在默认视口内预留 sticky 操作列空间')
+  assertIncludes(continuousDispatchSource, 'xl:sticky xl:right-0', '连续任务分配操作列必须在桌面宽度保持 sticky')
+  assertIncludes(continuousDispatchSource, 'w-[176px] min-w-[176px]', '连续任务分配操作列必须有固定宽度，避免遮挡分配状态')
+  assertIncludes(continuousDispatchSource, 'w-[120px] min-w-[120px]', '连续任务分配状态列必须有固定宽度，避免被 sticky 操作列遮挡')
   assertNotIncludes(continuousDispatchSource, '按明细拆分', '连续工序任务分配页不得提供按明细拆分')
 
   assertIncludes(eventsSource, 'confirm-task-generation-preview', '生产单事件缺少确认生成任务动作')
@@ -134,6 +142,11 @@ async function main(): Promise<void> {
     'renderTaskBreakdownPagination',
     'data-breakdown-page-scope',
     'data-fast-page-render="true"',
+    'listGeneratedCutOrderSourceRecords',
+    '裁片单状态',
+    '唛架状态',
+    '可做成衣数',
+    '我方加工单策略',
     'renderTaskDetailDialog',
     'open-task-detail',
     'sticky right-0',
@@ -377,6 +390,47 @@ async function main(): Promise<void> {
   const combinedRuntimeTasks = runtimeTasks.filter((task: { taskUnitType?: string }) =>
     task.taskUnitType === 'COMBINED_PROCESS_TASK'
   )
+  const cuttingContinuousRuntimeTasks = combinedRuntimeTasks.filter((task: {
+    processNameZh?: string
+    coveredProcesses?: Array<{ processName?: string }>
+  }) =>
+    task.processNameZh?.includes('裁')
+    || task.coveredProcesses?.some((process) => process.processName?.includes('裁')),
+  )
+  assert(cuttingContinuousRuntimeTasks.length > 0, 'runtime 缺少含裁片连续任务演示')
+  const cuttingContinuousRuntimeTask = cuttingContinuousRuntimeTasks[0]
+  assert(
+    ['TASKGEN-202603-082-001__ORDER', 'TASKGEN-202603-082-002__ORDER'].every((taskId) =>
+      cuttingContinuousRuntimeTask.mergeSourceTaskIds?.includes(taskId)
+    ),
+    '含裁片连续任务必须由 PO-202603-082 的裁片和车缝任务合并生成',
+  )
+  const continuousDispatchPage = await import(pathToFileURL(path.join(ROOT, 'src/pages/continuous-dispatch.ts')).href)
+  continuousDispatchPage.handleContinuousDispatchEvent({
+    closest(selector: string) {
+      if (selector === '[data-continuous-dispatch-action]') {
+        return {
+          dataset: {
+            continuousDispatchAction: 'switch-tab',
+            tab: 'WITH_CUTTING',
+          },
+        }
+      }
+      return null
+    },
+  })
+  const continuousDispatchWithCuttingHtml = continuousDispatchPage.renderContinuousDispatchPage()
+  const cuttingTaskAnchor = cuttingContinuousRuntimeTask.taskNo || cuttingContinuousRuntimeTask.taskId
+  const cuttingTaskIndex = continuousDispatchWithCuttingHtml.indexOf(cuttingTaskAnchor)
+  assert(cuttingTaskIndex >= 0, '含裁片连续任务 Tab 必须渲染真实含裁片任务行')
+  const cuttingTaskRowEndIndex = continuousDispatchWithCuttingHtml.indexOf('</tr>', cuttingTaskIndex)
+  const cuttingTaskRowHtml = continuousDispatchWithCuttingHtml.slice(
+    cuttingTaskIndex,
+    cuttingTaskRowEndIndex >= 0 ? cuttingTaskRowEndIndex : undefined,
+  )
+  assertIncludes(cuttingTaskRowHtml, '我方裁床排唛架', '含裁片连续任务行必须展示我方裁床排唛架')
+  assertIncludes(cuttingTaskRowHtml, '三方上报裁片完成数量和可做成衣数', '含裁片连续任务行必须展示三方上报口径')
+  assertIncludes(cuttingTaskRowHtml, '不生成我方加工单', '含裁片连续任务行必须展示不生成我方加工单')
   const kolSampleRuntimeTasks = runtimeTasks.filter((task: {
     saleTypeSnapshot?: string
     taskUnitType?: string

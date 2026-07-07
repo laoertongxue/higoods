@@ -17,6 +17,7 @@ import {
 import { getTaskStartRuleState } from '../data/fcs/pda-start-link.ts'
 import { getTaskMilestoneState } from '../data/fcs/pda-exec-link.ts'
 import { listGeneratedProductionDemandArtifacts } from '../data/fcs/production-artifact-generation.ts'
+import { listGeneratedCutOrderSourceRecords } from '../data/fcs/cutting/generated-cut-orders.ts'
 import { getTaskTypeDisplayName } from '../data/fcs/page-adapters/task-execution-adapter.ts'
 import {
   formatTaskDetailDimensionsText,
@@ -54,6 +55,16 @@ interface OrderRow {
   splitSourceCount: number
   executionTaskCount: number
   chain: string
+}
+
+interface CutOrderBoundarySummary {
+  cutOrderStatus: string
+  markerPlanStatus: string
+  garmentQtyText: string
+  internalCraftPolicyText: string
+  cutOrderSourceText: string
+  cutReturnModeText: string
+  cutOrderNosText: string
 }
 
 const state: TaskBreakdownState = {
@@ -459,6 +470,94 @@ function getTaskDetailRows(task: RuntimeProcessTask) {
   return task.detailRows ?? []
 }
 
+function getCutOrderBoundarySummary(productionOrderId: string): CutOrderBoundarySummary {
+  const records = listGeneratedCutOrderSourceRecords().filter((record) => record.productionOrderId === productionOrderId)
+  if (records.length === 0) {
+    return {
+      cutOrderStatus: '不生成裁片单',
+      markerPlanStatus: '不涉及唛架',
+      garmentQtyText: '—',
+      internalCraftPolicyText: '不生成我方加工单',
+      cutOrderSourceText: '—',
+      cutReturnModeText: '—',
+      cutOrderNosText: '—',
+    }
+  }
+
+  const skuQtyByKey = new Map<string, number>()
+  records.forEach((record) => {
+    record.skuScopeLines.forEach((line) => {
+      const key = `${line.skuCode || line.color}-${line.color}-${line.size}`
+      const qty = Number(line.plannedQty || 0)
+      skuQtyByKey.set(key, Math.max(skuQtyByKey.get(key) ?? 0, qty))
+    })
+  })
+  const garmentQty = Array.from(skuQtyByKey.values()).reduce((sum, qty) => sum + qty, 0)
+  const markerPlanCount = records.filter((record) => record.markerPlanNo).length
+  const markerPlanStatus =
+    markerPlanCount === 0
+      ? '待排唛架'
+      : markerPlanCount === records.length
+        ? '已排唛架'
+        : `${markerPlanCount}/${records.length} 张已排唛架`
+  const uniqueText = (values: string[], fallback: string): string => {
+    const uniqueValues = Array.from(new Set(values.filter(Boolean)))
+    return uniqueValues.length > 0 ? uniqueValues.join('、') : fallback
+  }
+  const cutOrderNos = records.map((record) => record.cutOrderNo || record.cutOrderId).filter(Boolean)
+  const cutOrderNosText =
+    cutOrderNos.length > 3
+      ? `${cutOrderNos.slice(0, 3).join('、')} 等 ${cutOrderNos.length} 张`
+      : cutOrderNos.join('、') || '—'
+
+  return {
+    cutOrderStatus: `${records.length} 张裁片单`,
+    markerPlanStatus,
+    garmentQtyText: garmentQty > 0 ? `${garmentQty.toLocaleString()} 件` : '—',
+    internalCraftPolicyText: uniqueText(records.map((record) => record.internalCraftOrderPolicyLabel), '—'),
+    cutOrderSourceText: uniqueText(records.map((record) => record.cutOrderSourceLabel), '—'),
+    cutReturnModeText: uniqueText(records.map((record) => record.cutReturnModeLabel), '—'),
+    cutOrderNosText,
+  }
+}
+
+function renderCutOrderBoundaryCompact(productionOrderId: string): string {
+  const summary = getCutOrderBoundarySummary(productionOrderId)
+  return `
+    <div class="space-y-0.5 text-xs">
+      <div><span class="text-muted-foreground">裁片单状态：</span><span class="font-medium">${escapeHtml(summary.cutOrderStatus)}</span></div>
+      <div><span class="text-muted-foreground">可做成衣数：</span><span>${escapeHtml(summary.garmentQtyText)}</span></div>
+      <div class="text-[10px] text-muted-foreground">唛架状态：${escapeHtml(summary.markerPlanStatus)} · 我方加工单策略：${escapeHtml(summary.internalCraftPolicyText)}</div>
+    </div>
+  `
+}
+
+function renderCutOrderBoundaryDetail(productionOrderId: string): string {
+  const summary = getCutOrderBoundarySummary(productionOrderId)
+  const items = [
+    ['裁片单状态', summary.cutOrderStatus],
+    ['唛架状态', summary.markerPlanStatus],
+    ['可做成衣数', summary.garmentQtyText],
+    ['我方加工单策略', summary.internalCraftPolicyText],
+    ['裁片单来源', summary.cutOrderSourceText],
+    ['回流方式', summary.cutReturnModeText],
+    ['裁片单号', summary.cutOrderNosText],
+  ]
+  return `
+    <div class="mt-4 rounded-md border p-4 text-sm">
+      <div class="font-medium">裁片边界信息</div>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        ${items.map(([label, value]) => `
+          <div>
+            <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
+            <div class="mt-1 font-medium">${escapeHtml(value)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `
+}
+
 function renderTaskExecutionRuleSummary(task: RuntimeProcessTask): string {
   const startRule = getTaskStartRuleState(task)
   const milestone = getTaskMilestoneState(task)
@@ -668,6 +767,7 @@ function renderTaskDetailDialog(
           ${renderTaskDetailSummary(task)}
           ${renderTaskSplitSummary(task, orderTasks)}
         </div>
+        ${renderCutOrderBoundaryDetail(task.productionOrderId)}
       </div>
     </div>
   `
@@ -992,7 +1092,7 @@ function renderAllTasksTable(
   return `
     <div class="space-y-3">
       <div class="overflow-x-auto rounded-md border">
-        <table class="w-full min-w-[1680px] text-sm">
+        <table class="w-full min-w-[1800px] text-sm">
           <thead>
             <tr class="border-b bg-muted/40">
               <th class="px-3 py-2 text-left font-medium">任务号</th>
@@ -1009,13 +1109,14 @@ function renderAllTasksTable(
               <th class="px-3 py-2 text-left font-medium">当前步骤</th>
               <th class="px-3 py-2 text-left font-medium">交出对象</th>
               <th class="px-3 py-2 text-left font-medium">规则来源</th>
+              <th class="px-3 py-2 text-left font-medium">裁片边界</th>
               <th class="sticky right-0 z-20 border-l bg-muted/40 px-3 py-2 text-left font-medium shadow-sm">操作</th>
             </tr>
           </thead>
           <tbody>
             ${
               allTaskRows.length === 0
-                ? '<tr><td colspan="15" class="py-12 text-center text-sm text-muted-foreground">暂无任务清单数据</td></tr>'
+                ? '<tr><td colspan="16" class="py-12 text-center text-sm text-muted-foreground">暂无任务清单数据</td></tr>'
                 : allTaskRows
                     .map((task) => {
                       const hasDye = taskDyeSet.has(task.taskId)
@@ -1081,6 +1182,7 @@ function renderAllTasksTable(
                           <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskCurrentStepText(task))}</td>
                           <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskHandoverReceiverText(task))}</td>
                           <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskRuleSourceText(task))}</td>
+                          <td class="px-3 py-2">${renderCutOrderBoundaryCompact(task.productionOrderId)}</td>
                           <td class="sticky right-0 z-10 border-l bg-background px-3 py-2 shadow-sm">
                             <div class="flex min-w-[260px] flex-wrap gap-1">
                               <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-fast-page-render="true" data-breakdown-action="open-task-detail" data-task-id="${escapeHtml(task.taskId)}">查看任务</button>

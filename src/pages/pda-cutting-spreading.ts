@@ -911,6 +911,52 @@ function renderFormInner(
   `
 }
 
+function renderCutCompletionReportBlock(
+  taskId: string,
+  detail: PdaCuttingTaskDetailData,
+  form: SpreadingFormState,
+  pageBackHref: string,
+): string {
+  const rows = detail.cutCompletionPartRows
+  return `
+    <section class="space-y-2" data-pda-cut-completion-report="${escapeHtml(taskId)}">
+      <section class="rounded-xl border bg-card px-3 py-3">
+        <div class="text-lg font-semibold text-foreground">裁片完成上报</div>
+        <div class="mt-1 text-xs text-muted-foreground">生产单 ${escapeHtml(detail.productionOrderNo)} / 裁片单 ${escapeHtml(detail.cutOrderNo)}</div>
+      </section>
+      <section class="rounded-xl border bg-card px-3 py-2">
+        <div class="text-sm font-semibold text-foreground">本次上报数量</div>
+        <div class="mt-2 space-y-2">
+          ${rows.length
+            ? rows.map((row) => `
+              <article class="rounded-xl border bg-muted/10 px-2.5 py-2 text-xs">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <div class="break-words text-sm font-semibold text-foreground">${escapeHtml(row.partName)}</div>
+                    <div class="mt-0.5 text-muted-foreground">${escapeHtml(row.colorName)}</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="font-semibold text-foreground">${escapeHtml(row.cutPieceQty.toLocaleString('zh-CN'))} 片</div>
+                    <div class="text-muted-foreground">可做成衣数 ${escapeHtml(row.garmentAvailableQty.toLocaleString('zh-CN'))} 件</div>
+                  </div>
+                </div>
+              </article>
+            `).join('')
+            : renderPdaCuttingEmptyState('暂无可上报裁片明细', '')}
+        </div>
+      </section>
+      <section class="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+        确认后同步到连续任务进度，后续由连续任务继续执行。
+      </section>
+      <div data-pda-cut-completion-feedback="${escapeHtml(taskId)}">${renderFeedbackBlock(form)}</div>
+      <div class="grid grid-cols-[0.9fr_1.1fr] gap-2">
+        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-sm font-semibold" data-nav="${escapeHtml(pageBackHref)}">返回</button>
+        <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground" data-pda-cut-spreading-action="submit" data-task-id="${escapeHtml(taskId)}">确认上报</button>
+      </div>
+    </section>
+  `
+}
+
 function renderSubmitBar(
   taskId: string,
   form: SpreadingFormState,
@@ -986,6 +1032,14 @@ function syncSpreadingFormDom(taskId: string, executionOrderId?: string | null, 
   const form = getState(taskId, stateExecutionOrderId, stateExecutionOrderNo)
   const pageBackHref = form.backHrefOverride || context.backHref
   root.innerHTML = renderFormInner(taskId, context.detail, form, pageBackHref)
+}
+
+function syncCutCompletionReportDom(taskId: string, form: SpreadingFormState): boolean {
+  if (typeof document === 'undefined') return false
+  const feedbackNode = document.querySelector<HTMLElement>(`[data-pda-cut-completion-feedback="${taskId}"]`)
+  if (!feedbackNode) return false
+  feedbackNode.innerHTML = renderFeedbackBlock(form)
+  return true
 }
 
 function syncSpreadingLiveDom(taskId: string, form: SpreadingFormState): void {
@@ -1309,6 +1363,17 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
   const pageBackHref = form.backHrefOverride || context.backHref
   const actionLabel = getPrimaryActionLabel(detail)
 
+  if (detail.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION') {
+    return renderPdaCuttingPageLayout({
+      taskId,
+      title: '裁片完成上报',
+      subtitle: '',
+      activeTab: 'exec',
+      body: renderCutCompletionReportBlock(taskId, detail, form, pageBackHref),
+      backHref: pageBackHref,
+    })
+  }
+
   if (actionLabel === '去领料' || actionLabel === '开工') {
     const isPickup = actionLabel === '去领料'
     const body = `
@@ -1554,6 +1619,24 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     const form = getState(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
     const context = stateScope.context
     const detail = context.detail
+    if (!detail) {
+      form.feedbackMessage = '当前任务无法识别，不能提交。'
+      form.feedbackTone = 'warning'
+      syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)
+      return true
+    }
+
+    if (detail.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION') {
+      const submittedAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+      const totalCutPieceQty = detail.cutCompletionPartRows.reduce((sum, row) => sum + row.cutPieceQty, 0)
+      const totalGarmentAvailableQty = detail.cutCompletionPartRows.reduce((sum, row) => sum + row.garmentAvailableQty, 0)
+      form.feedbackMessage = `裁片完成上报已同步：${totalCutPieceQty.toLocaleString('zh-CN')} 片，可做成衣数 ${totalGarmentAvailableQty.toLocaleString('zh-CN')} 件，${submittedAt}`
+      form.feedbackTone = 'success'
+      form.syncStatus = '已同步'
+      syncCutCompletionReportDom(taskId, form)
+      return true
+    }
+
     const identity = resolvePdaCuttingRuntimeIdentity(taskId, {
       executionOrderId: context.selectedExecutionOrderId || undefined,
       executionOrderNo: context.selectedExecutionOrderNo || undefined,
@@ -1563,7 +1646,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       markerPlanNo: context.selectedExecutionOrder?.markerPlanNo || undefined,
       materialSku: context.selectedExecutionOrder?.materialSku || undefined,
     })
-    if (!identity || !detail) {
+    if (!identity) {
       form.feedbackMessage = '当前铺布单无法识别，不能提交铺布记录。'
       form.feedbackTone = 'warning'
       syncSpreadingFormDom(taskId, stateScope.executionOrderId, stateScope.executionOrderNo)

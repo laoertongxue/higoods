@@ -12,6 +12,7 @@
     "check:fcs-task-generation-rules": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-task-generation-rules.ts",
     "check:production-object-overview": "tsx scripts/check-production-object-overview.ts",
     "check:production-preparation-timing": "tsx scripts/check-production-preparation-timing.ts",
+    "check:third-party-cutting-task-boundaries": "tsx scripts/check-third-party-cutting-task-boundaries.ts",
     "check:prototype-design-governance": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-prototype-design-governance.ts",
     "check:fcs-truth-sources": "node scripts/check-fcs-truth-sources.mjs --write-report",
     "check:settlement-linked-mock-factory": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-settlement-linked-mock-factory.ts",

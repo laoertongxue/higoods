@@ -90,6 +90,9 @@ export interface CutOrderRow {
   id: string
   cutOrderId: string
   cutOrderNo: string
+  cutOrderSourceLabel: string
+  cutReturnModeLabel: string
+  internalCraftOrderPolicyLabel: string
   productionOrderId: string
   productionOrderNo: string
   cuttingTaskId: string
@@ -514,6 +517,9 @@ function createRow(
     id: source.cutOrderId,
     cutOrderId: source.cutOrderId,
     cutOrderNo: source.cutOrderNo,
+    cutOrderSourceLabel: source.cutOrderSourceLabel,
+    cutReturnModeLabel: source.cutReturnModeLabel,
+    internalCraftOrderPolicyLabel: source.internalCraftOrderPolicyLabel,
     productionOrderId: source.productionOrderId,
     productionOrderNo: source.productionOrderNo,
     cuttingTaskId: source.cuttingTaskId,
@@ -602,6 +608,9 @@ function createRow(
     }),
     keywordIndex: buildKeywordIndex([
       source.cutOrderNo,
+      source.cutOrderSourceLabel,
+      source.cutReturnModeLabel,
+      source.internalCraftOrderPolicyLabel,
       source.productionOrderId,
       source.productionOrderNo,
       effectiveRecord.styleCode,

@@ -8,7 +8,12 @@ import {
   resolveReleasedTechPackForProductionOrder,
   validateDemandTechPackOrderLink,
 } from '../src/data/fcs/production-upstream-chain.ts'
-import { listGeneratedCutOrderSourceRecords } from '../src/data/fcs/cutting/generated-cut-orders.ts'
+import {
+  hasFormalTechPackForCutting,
+  listCuttingProductionOrdersWithFormalTechPack,
+  listGeneratedCutOrderSourceRecords,
+} from '../src/data/fcs/cutting/generated-cut-orders.ts'
+import { shouldGenerateCutOrderForProductionOrder } from '../src/data/fcs/task-generation-boundaries.ts'
 
 const repoRoot = process.cwd()
 
@@ -72,6 +77,21 @@ function ensureProductionOrderSeedsDoNotInlineSnapshots(): void {
 function ensureGeneratedCutOrdersTraceable(): void {
   const generated = listGeneratedCutOrderSourceRecords()
   assert(generated.length > 0, 'generated cut orders 为空')
+  const generatedProductionOrderIds = new Set(generated.map((record) => record.productionOrderId))
+  const canonicalProductionOrderIds = new Set(listCuttingProductionOrdersWithFormalTechPack().map((order) => order.productionOrderId))
+  const eligibleProductionOrders = productionOrders.filter((order) =>
+    hasFormalTechPackForCutting(order) && shouldGenerateCutOrderForProductionOrder(order),
+  )
+  assert(canonicalProductionOrderIds.size === eligibleProductionOrders.length, '裁片单候选列表必须只包含应生成裁片单的真实生产单')
+  eligibleProductionOrders.forEach((order) => {
+    assert(canonicalProductionOrderIds.has(order.productionOrderId), `应生成裁片单的生产单 ${order.productionOrderId} 不得在边界过滤前被截断`)
+    assert(generatedProductionOrderIds.has(order.productionOrderId), `应生成裁片单的生产单 ${order.productionOrderId} 缺少 generated cut order`)
+  })
+  productionOrders
+    .filter((order) => hasFormalTechPackForCutting(order) && !shouldGenerateCutOrderForProductionOrder(order))
+    .forEach((order) => {
+      assert(!generatedProductionOrderIds.has(order.productionOrderId), `不应生成裁片单的生产单 ${order.productionOrderId} 不得生成 cut order`)
+    })
 
   generated.forEach((record) => {
     assert(record.productionOrderId, `裁片单 ${record.cutOrderNo} 缺少 productionOrderId`)
@@ -79,6 +99,23 @@ function ensureGeneratedCutOrdersTraceable(): void {
     assert(record.materialSku, `裁片单 ${record.cutOrderNo} 缺少 materialSku`)
     assert(record.sourceTechPackSpuCode, `裁片单 ${record.cutOrderNo} 缺少 sourceTechPackSpuCode`)
     assert(record.techPackVersionLabel, `裁片单 ${record.cutOrderNo} 缺少 tech pack 版本`)
+    assert(record.cutOrderSourceLabel, `裁片单 ${record.cutOrderNo} 缺少来源类型`)
+    assert(record.cutReturnModeLabel, `裁片单 ${record.cutOrderNo} 缺少回流方式`)
+    assert(record.internalCraftOrderPolicyLabel, `裁片单 ${record.cutOrderNo} 缺少我方加工单策略`)
+    if (record.cutOrderSourceType === 'CONTINUOUS_WITH_CUTTING_TASK') {
+      assert(record.cutOrderSourceLabel === '含裁片连续任务', `裁片单 ${record.cutOrderNo} 含裁片连续任务来源标签错误`)
+      assert(record.cutReturnMode === 'THIRD_PARTY_REPORT_ONLY', `裁片单 ${record.cutOrderNo} 含裁片连续任务回流方式错误`)
+      assert(record.cutReturnModeLabel === '三方上报裁片完成', `裁片单 ${record.cutOrderNo} 含裁片连续任务回流方式标签错误`)
+      assert(record.internalCraftOrderPolicy === 'DO_NOT_GENERATE', `含裁片连续任务裁片单 ${record.cutOrderNo} 不得生成我方加工单`)
+      assert(record.internalCraftOrderPolicyLabel === '不生成我方加工单', `裁片单 ${record.cutOrderNo} 含裁片连续任务我方加工单策略标签错误`)
+    } else {
+      assert(record.cutOrderSourceType === 'INDEPENDENT_CUTTING_TASK', `裁片单 ${record.cutOrderNo} 来源类型错误`)
+      assert(record.cutOrderSourceLabel === '独立裁片任务', `裁片单 ${record.cutOrderNo} 独立裁片任务来源标签错误`)
+      assert(record.cutReturnMode === 'RETURN_TO_OWN_CUTTING_WAREHOUSE', `裁片单 ${record.cutOrderNo} 独立裁片任务回流方式错误`)
+      assert(record.cutReturnModeLabel === '回我方裁床待交出仓', `裁片单 ${record.cutOrderNo} 独立裁片任务回流方式标签错误`)
+      assert(record.internalCraftOrderPolicy === 'GENERATE_AFTER_RETURN', `裁片单 ${record.cutOrderNo} 独立裁片任务我方加工单策略错误`)
+      assert(record.internalCraftOrderPolicyLabel === '回仓后生成我方加工单', `裁片单 ${record.cutOrderNo} 独立裁片任务我方加工单策略标签错误`)
+    }
 
     const order = productionOrders.find((item) => item.productionOrderId === record.productionOrderId)
     assert(order, `裁片单 ${record.cutOrderNo} 无法回溯到 production order ${record.productionOrderId}`)

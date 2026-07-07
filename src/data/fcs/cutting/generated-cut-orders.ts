@@ -3,6 +3,10 @@ import {
   getProductionOrderTechPackSnapshot,
   type ProductionOrder,
 } from '../production-orders.ts'
+import {
+  resolveProductionOrderTaskBoundary,
+  shouldGenerateCutOrderForProductionOrder,
+} from '../task-generation-boundaries.ts'
 import type { TechnicalBomItem, TechnicalColorMaterialMappingLine } from '../../pcs-technical-data-version-types.ts'
 import type { ProductionOrderTechPackSnapshot, TechPackBomItemSnapshot } from '../production-tech-pack-snapshot-types.ts'
 import {
@@ -67,6 +71,12 @@ export interface GeneratedCutOrderSourceRecord {
   skuScopeLines: GeneratedCutOrderSkuScopeLine[]
   pieceRows: GeneratedCutOrderPieceRow[]
   pieceSummary: string
+  cutOrderSourceType: 'INDEPENDENT_CUTTING_TASK' | 'CONTINUOUS_WITH_CUTTING_TASK'
+  cutOrderSourceLabel: string
+  cutReturnMode: 'RETURN_TO_OWN_CUTTING_WAREHOUSE' | 'THIRD_PARTY_REPORT_ONLY'
+  cutReturnModeLabel: string
+  internalCraftOrderPolicy: 'GENERATE_AFTER_RETURN' | 'DO_NOT_GENERATE'
+  internalCraftOrderPolicyLabel: string
 }
 
 function normalizeText(value: string | null | undefined): string {
@@ -332,10 +342,12 @@ export function hasFormalTechPackForCutting(order: ProductionOrder): boolean {
 }
 
 export function listCuttingProductionOrdersWithFormalTechPack(): ProductionOrder[] {
-  const formalOrders = productionOrders.filter((order) => hasFormalTechPackForCutting(order))
+  const formalOrders = productionOrders.filter((order) =>
+    hasFormalTechPackForCutting(order) && shouldGenerateCutOrderForProductionOrder(order),
+  )
   const joggerOrders = formalOrders.filter((order) => order.demandSnapshot.spuCode === 'SPU-2024-010')
   const otherOrders = formalOrders.filter((order) => order.demandSnapshot.spuCode !== 'SPU-2024-010')
-  return [...joggerOrders, ...otherOrders].slice(0, 16)
+  return [...joggerOrders, ...otherOrders]
 }
 
 function buildSkuScopeLines(order: ProductionOrder): GeneratedCutOrderSkuScopeLine[] {
@@ -348,6 +360,9 @@ function buildSkuScopeLines(order: ProductionOrder): GeneratedCutOrderSkuScopeLi
 }
 
 function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRecord[] {
+  const boundary = resolveProductionOrderTaskBoundary(order)
+  if (!shouldGenerateCutOrderForProductionOrder(order)) return []
+
   const techPack = getProductionOrderTechPackSnapshot(order.productionOrderId)
   if (!techPack) return []
 
@@ -532,6 +547,21 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRe
         resolvedPieceRows.length > 0
           ? resolvedPieceRows.map((item) => `${item.partName}×${item.pieceCountPerUnit}`).join('、')
           : '待补纸样裁片映射',
+      cutOrderSourceType:
+        boundary.kind === 'CONTINUOUS_WITH_CUTTING'
+          ? 'CONTINUOUS_WITH_CUTTING_TASK'
+          : 'INDEPENDENT_CUTTING_TASK',
+      cutOrderSourceLabel: boundary.cutOrderSourceLabel,
+      cutReturnMode:
+        boundary.kind === 'CONTINUOUS_WITH_CUTTING'
+          ? 'THIRD_PARTY_REPORT_ONLY'
+          : 'RETURN_TO_OWN_CUTTING_WAREHOUSE',
+      cutReturnModeLabel: boundary.cutReturnModeLabel,
+      internalCraftOrderPolicy:
+        boundary.kind === 'CONTINUOUS_WITH_CUTTING'
+          ? 'DO_NOT_GENERATE'
+          : 'GENERATE_AFTER_RETURN',
+      internalCraftOrderPolicyLabel: boundary.internalCraftPolicyLabel,
     }
   }).filter((item): item is GeneratedCutOrderSourceRecord => Boolean(item))
 }
@@ -599,16 +629,120 @@ function buildScenarioRecord(
   }
 }
 
+function buildScenarioMaterialIdentity(
+  seed: GeneratedCutOrderSourceRecord,
+  options: {
+    materialSkuSuffix: string
+    materialName: string
+    materialAlias: string
+    materialColor?: string
+  },
+): CuttingMaterialIdentity {
+  return {
+    ...seed.materialIdentity,
+    materialSku: `${seed.materialIdentity.materialSku}-${options.materialSkuSuffix}`,
+    materialName: options.materialName,
+    materialColor: options.materialColor || seed.materialIdentity.materialColor,
+    materialAlias: options.materialAlias,
+    materialImageUrl: seed.materialIdentity.materialImageUrl,
+    materialUnit: seed.materialIdentity.materialUnit,
+  }
+}
+
+function cloneScenarioPieceRows(seed: GeneratedCutOrderSourceRecord): GeneratedCutOrderPieceRow[] {
+  return seed.pieceRows.map((row) => ({
+    ...row,
+    applicableSkuCodes: [...row.applicableSkuCodes],
+  }))
+}
+
 function buildPrompt1DimensionScenarioRecords(records: GeneratedCutOrderSourceRecord[]): GeneratedCutOrderSourceRecord[] {
   const scenarioRows: GeneratedCutOrderSourceRecord[] = []
   const blackJoggerSeed = records.find(
     (record) =>
-      record.productionOrderNo === 'PO-202603-0101'
+      record.spuCode === 'SPU-2024-010'
       && record.materialSku === 'tdv_demand_SPU_2024_010-bom-black-stretch-twill'
       && record.patternIdentity.patternFileId === 'tdv_demand_SPU_2024_010-pattern-main'
       && record.patternIdentity.effectiveWidthValue === 150,
   )
   if (!blackJoggerSeed) return scenarioRows
+
+  const receivedStableSeed = records.find((record) => record.productionOrderNo === 'PO-202603-0002') ?? blackJoggerSeed
+  const datedStableSeeds = {
+    cut260301: records.find((record) => record.productionOrderNo === 'PO-202603-0003') ?? blackJoggerSeed,
+    cut260303: receivedStableSeed,
+  }
+  ;[
+    {
+      seed: receivedStableSeed,
+      cutOrderNo: 'CUT-260306-101-01',
+      materialSkuSuffix: 'stable-101-01',
+      materialName: 'Black 弹力斜纹主面料',
+      materialAlias: '稳定 fixture：PDA 多裁片单 101-01',
+    },
+    {
+      seed: receivedStableSeed,
+      cutOrderNo: 'CUT-260306-101-02',
+      materialSkuSuffix: 'stable-101-02',
+      materialName: 'Charcoal 弹力斜纹主面料',
+      materialAlias: '稳定 fixture：PDA 多裁片单 101-02',
+      materialColor: 'Charcoal',
+    },
+    {
+      seed: blackJoggerSeed,
+      cutOrderNo: 'CUT-260307-102-01',
+      materialSkuSuffix: 'stable-102-01',
+      materialName: '菲票链路主面料 A',
+      materialAlias: '稳定 fixture：菲票实际裁剪产出 102-01',
+    },
+    {
+      seed: blackJoggerSeed,
+      cutOrderNo: 'CUT-260307-102-02',
+      materialSkuSuffix: 'stable-102-02',
+      materialName: '菲票链路主面料 B',
+      materialAlias: '稳定 fixture：菲票实际裁剪产出 102-02',
+    },
+    {
+      seed: blackJoggerSeed,
+      cutOrderNo: 'CUT-260307-102-03',
+      materialSkuSuffix: 'stable-102-03',
+      materialName: '跨生产单同纸样主面料',
+      materialAlias: '稳定 fixture：唛架跨单组合 102-03',
+    },
+    {
+      seed: blackJoggerSeed,
+      cutOrderNo: 'CUT-260302-006-01',
+      materialSkuSuffix: 'stable-006-01',
+      materialName: 'PDA 唛架余额验证主面料',
+      materialAlias: '稳定 fixture：PDA 唛架余额 006-01',
+    },
+    {
+      seed: datedStableSeeds.cut260301,
+      cutOrderNo: 'CUT-260301-005-01',
+      materialSkuSuffix: 'stable-005-01',
+      materialName: '菲票交出链路主面料',
+      materialAlias: '稳定 fixture：菲票交出 005-01',
+    },
+    {
+      seed: datedStableSeeds.cut260303,
+      cutOrderNo: 'CUT-260303-007-01',
+      materialSkuSuffix: 'stable-007-01',
+      materialName: 'PDA 异常同步主面料',
+      materialAlias: '稳定 fixture：PDA 异常同步 007-01',
+    },
+  ].forEach((item) => {
+    scenarioRows.push(buildScenarioRecord(item.seed, {
+      cutOrderNo: item.cutOrderNo,
+      materialIdentity: buildScenarioMaterialIdentity(item.seed, {
+        materialSkuSuffix: item.materialSkuSuffix,
+        materialName: item.materialName,
+        materialAlias: item.materialAlias,
+        materialColor: item.materialColor,
+      }),
+      patternIdentity: item.seed.patternIdentity,
+      pieceRows: cloneScenarioPieceRows(item.seed),
+    }))
+  })
 
   const pocketPatternIdentity = clonePatternIdentity(blackJoggerSeed.patternIdentity, {
     patternFileId: 'tdv_demand_SPU_2024_010-pattern-pocket',
@@ -683,7 +817,7 @@ function buildPrompt1DimensionScenarioRecords(records: GeneratedCutOrderSourceRe
 
   const crossOrderSeed = records.find(
     (record) =>
-      record.productionOrderNo === 'PO-202603-0102'
+      record.productionOrderId !== blackJoggerSeed.productionOrderId
       && record.patternIdentity.patternFileId === blackJoggerSeed.patternIdentity.patternFileId,
   )
   if (crossOrderSeed) {
@@ -711,7 +845,14 @@ function buildPrompt1DimensionScenarioRecords(records: GeneratedCutOrderSourceRe
   }
 
   const existingKeys = new Set(records.map((record) => record.generationKey))
-  return scenarioRows.filter((record) => !existingKeys.has(record.generationKey))
+  const existingCutOrderNos = new Set(records.map((record) => record.cutOrderNo))
+  const seenCutOrderNos = new Set<string>()
+  return scenarioRows.filter((record) => {
+    if (existingKeys.has(record.generationKey)) return false
+    if (existingCutOrderNos.has(record.cutOrderNo) || seenCutOrderNos.has(record.cutOrderNo)) return false
+    seenCutOrderNos.add(record.cutOrderNo)
+    return true
+  })
 }
 
 let cachedRecords: GeneratedCutOrderSourceRecord[] | null = null

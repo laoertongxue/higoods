@@ -39,6 +39,7 @@ import {
   generateSpecialCraftTaskOrdersForAllProductionOrders,
   getSpecialCraftGenerationBatchByProductionOrder,
 } from './special-craft-task-generation.ts'
+import { shouldGenerateInternalCraftOrderForProductionOrder } from './task-generation-boundaries.ts'
 
 export type SpecialCraftTaskStatus =
   | '待领料'
@@ -557,6 +558,7 @@ function listLinkedProductionOrderContexts(): Array<{ order: ProductionOrder; sn
     .map((order) => ({ order, snapshot: getProductionOrderTechPackSnapshot(order.productionOrderId) }))
     .filter((item): item is { order: ProductionOrder; snapshot: ProductionOrderTechPackSnapshot } =>
       Boolean(item.snapshot)
+      && shouldGenerateInternalCraftOrderForProductionOrder(item.order)
       && item.order.demandSnapshot.skuLines.length > 0
       && item.snapshot.patternFiles.length > 0,
     )
@@ -627,8 +629,9 @@ function buildLinkedDemoTaskSeed(input: {
   const taskPrefix = operation.managementDomain === 'AUXILIARY_CRAFT_FACTORY' ? 'AUX' : 'SPC'
   const craftShortCode = operation.craftCode.replace('CRAFT_', '').replace(/^0+/, '').slice(-4) || operation.operationId.slice(-4)
   const seedKey = stableDemoHash([operation.operationId, order.productionOrderId, variantIndex].join('|'))
-  const taskOrderId = `${taskPrefix}-TASK-${order.productionOrderId.replace(/[^A-Za-z0-9]/g, '')}-${operation.operationId.slice(-4)}-${seedKey.slice(0, 6)}`
-  const taskOrderNo = `${taskPrefix}-${order.productionOrderNo.replace(/^PO-/, '')}-${craftShortCode}-${String(variantIndex + 1).padStart(2, '0')}`
+  const variantNo = String(variantIndex + 1).padStart(2, '0')
+  const taskOrderId = `${taskPrefix}-TASK-${order.productionOrderId.replace(/[^A-Za-z0-9]/g, '')}-${operation.operationId.slice(-4)}-${variantNo}-${seedKey.slice(0, 8)}`
+  const taskOrderNo = `${taskPrefix}-${order.productionOrderNo.replace(/^PO-/, '')}-${craftShortCode}-${variantNo}`
   const sourceTaskNo = `TASK-${taskOrderNo}`
   const status = LINKED_DEMO_STATUSES[variantIndex % LINKED_DEMO_STATUSES.length]
   const abnormalStatus = LINKED_DEMO_ABNORMALS[variantIndex % LINKED_DEMO_ABNORMALS.length]
@@ -1422,7 +1425,7 @@ function buildLinkedSupplementTaskOrders(
       const context = candidateContexts[candidateCursor % candidateContexts.length]
       candidateCursor += 1
       const key = `${context.order.productionOrderId}::${operation.operationId}`
-      if (existingKeys.has(key) && candidateContexts.length > 1) continue
+      if (existingKeys.has(key) && candidateContexts.length > 1 && existingKeys.size < candidateContexts.length) continue
       existingKeys.add(key)
 
       const variantIndex = existingForOperation.length

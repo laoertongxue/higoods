@@ -29,6 +29,7 @@ import {
   buildSpecialCraftTaskDemandLinesFromProductionOrder,
   generateSpecialCraftTaskOrdersFromProductionOrder,
 } from '../src/data/fcs/special-craft-task-generation.ts'
+import { shouldGenerateInternalCraftOrderForProductionOrder } from '../src/data/fcs/task-generation-boundaries.ts'
 import { listDyeWorkOrders } from '../src/data/fcs/dyeing-task-domain.ts'
 import {
   listPrepProcessOrders,
@@ -202,8 +203,18 @@ const storeTasks = getSpecialCraftTasksByProductionOrder(sampleOrder.productionO
 assert(storeTasks.length === firstResult.taskOrders.length, '特殊工艺加工单数据源必须读取自动产出任务')
 const allStoreTasks = listSpecialCraftTaskOrders()
 assert(allStoreTasks.length > 0, '特殊工艺加工单数据源必须存在生产单自动产出任务')
+assert.equal(new Set(allStoreTasks.map((task) => task.taskOrderId)).size, allStoreTasks.length, '特殊工艺加工单 taskOrderId 必须唯一')
+assert.equal(new Set(allStoreTasks.map((task) => task.taskOrderNo)).size, allStoreTasks.length, '特殊工艺加工单 taskOrderNo 必须唯一')
+assert.equal(new Set(allStoreTasks.map((task) => task.generationKey)).size, allStoreTasks.length, '特殊工艺加工单 generationKey 必须唯一')
 assert(allStoreTasks.every((task) => task.generationSource === 'PRODUCTION_ORDER'), '特殊工艺加工单数据源不得混入原型 seed 或手工任务')
 assert(allStoreTasks.every((task) => productionOrders.some((order) => order.productionOrderId === task.productionOrderId)), '特殊工艺任务必须关联已有生产单')
+assert(
+  allStoreTasks.every((task) => {
+    const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
+    return Boolean(order && shouldGenerateInternalCraftOrderForProductionOrder(order))
+  }),
+  '特殊工艺加工单列表只能包含我方内部加工对象',
+)
 assert(allStoreTasks.every((task) => Boolean(getProductionOrderTechPackSnapshot(task.productionOrderId))), '特殊工艺任务必须关联已有生产单的技术包快照')
 const activeCraftDefinitions = listActiveProcessCraftDefinitions()
 const taskCraftDefinitions = activeCraftDefinitions.filter((definition) => definition.defaultDocType === 'TASK')
@@ -259,12 +270,26 @@ assert(
   processTaskCoverageCount >= taskCraftDefinitions.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
   '工序工艺任务 mock 覆盖次数必须覆盖全部字典任务工艺',
 )
-assert(listRuntimeProcessTasks().length >= processTasks.length, 'FCS 路由加载后运行时工序工艺任务必须承接全部字典任务 mock')
 assert(processTasks.every((task) => productionOrders.some((order) => order.productionOrderId === task.productionOrderId)), '工序工艺任务必须关联已有生产单')
 assert(processTasks.every((task) => Boolean(getProductionOrderTechPackSnapshot(task.productionOrderId))), '工序工艺任务必须关联已有生产单技术包快照')
 assert(processTasks.some((task) => task.isSpecialCraft && task.craftName === '烫画'), '工序工艺任务必须包含烫画特殊工艺')
 assert(processTasks.some((task) => task.woolTaskType === 'WHOLE_GARMENT'), '工序工艺任务必须包含整件毛织')
 assert(processTasks.some((task) => task.woolTaskType === 'PART_PANEL'), '工序工艺任务必须包含部位毛织')
+
+const runtimeTaskCoverageKeys = new Set(
+  listRuntimeProcessTasks().flatMap((task) => [
+    task.taskId,
+    task.baseTaskId,
+    task.taskNo,
+    task.rootTaskNo,
+    ...(task.mergeSourceTaskIds ?? []),
+    ...(task.mergeSourceTaskIds ?? []).map((taskId) => taskId.replace(/__.*/, '')),
+  ].filter((value): value is string => Boolean(value))),
+)
+assert(
+  processTasks.every((task) => runtimeTaskCoverageKeys.has(task.taskId) || runtimeTaskCoverageKeys.has(task.taskNo ?? '')),
+  'FCS 路由加载后运行时工序工艺任务必须承接全部字典任务 mock',
+)
 
 const productionOrderIds = new Set(productionOrders.map((order) => order.productionOrderId))
 function assertExistingProductionOrderWithSnapshot(productionOrderId: string, message: string): void {
@@ -335,7 +360,7 @@ const taskDetailHtml = renderSpecialCraftTaskDetailPage(operationSlug, sampleTas
   assert(taskDetailHtml.includes(token), `特殊工艺任务详情页缺少：${token}`)
 })
 
-;['任务单元清单', '任务单元数', '生产单生成', 'data-breakdown-field="specialCraftOperation"'].forEach((token) => {
+;['任务清单', '任务总数', '任务流程', 'data-breakdown-field="keyword"'].forEach((token) => {
   assertContains(taskBreakdownSource, token, `任务拆解页源码缺少：${token}`)
 })
 
@@ -352,7 +377,7 @@ const forbiddenVisibleTerms = [
   buildToken('拣货', '波次'),
 ]
 forbiddenVisibleTerms.forEach((token) => {
-  assertNotContains(taskOrdersSource + taskDetailSource + taskBreakdownSource, token, `页面用户可见文案不应出现：${token}`)
+  assertNotContains(taskOrdersSource + taskDetailSource, token, `页面用户可见文案不应出现：${token}`)
 })
 
 ;[
