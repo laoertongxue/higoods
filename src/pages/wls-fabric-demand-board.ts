@@ -10,6 +10,7 @@ import {
   type FabricDemandBoardRow,
   type FabricDemandBoardWarehouseName,
 } from '../data/wls/fabric-demand-board.ts'
+import { renderTablePagination } from '../components/ui/pagination.ts'
 import { escapeHtml } from '../utils.ts'
 
 const materialTypes: Array<FabricDemandBoardFilters['materialType']> = ['全部', '直裁面料', '印花面料', '染色面料']
@@ -33,6 +34,8 @@ const warehouseNames: Array<FabricDemandBoardFilters['warehouseName']> = [
 ]
 
 let filters: FabricDemandBoardFilters = { ...defaultFabricDemandBoardFilters }
+let currentPage = 1
+let pageSize = 5
 
 function renderSelect<T extends string>(label: string, key: keyof FabricDemandBoardFilters, value: T, options: T[]): string {
   return `
@@ -189,8 +192,29 @@ function renderRows(rows: FabricDemandBoardRow[]): string {
     .join('')
 }
 
+function getPagedRows(rows: FabricDemandBoardRow[]): {
+  rows: FabricDemandBoardRow[]
+  currentPage: number
+  totalPages: number
+  from: number
+  to: number
+} {
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize))
+  currentPage = Math.min(Math.max(currentPage, 1), totalPages)
+  const start = (currentPage - 1) * pageSize
+  const pageRows = rows.slice(start, start + pageSize)
+  return {
+    rows: pageRows,
+    currentPage,
+    totalPages,
+    from: rows.length === 0 ? 0 : start + 1,
+    to: Math.min(start + pageSize, rows.length),
+  }
+}
+
 export function renderWlsFabricDemandBoardPage(): string {
   const rows = filterFabricDemandBoardRows(getFabricDemandBoardRows(), filters)
+  const pagedRows = getPagedRows(rows)
   const summary = summarizeFabricDemandBoardRows(rows)
   const rules = getFabricDemandBoardAlertRules()
 
@@ -263,8 +287,19 @@ export function renderWlsFabricDemandBoardPage(): string {
                 <th class="px-4 py-3 font-medium">异常预警</th>
               </tr>
             </thead>
-            <tbody>${renderRows(rows)}</tbody>
+            <tbody>${renderRows(pagedRows.rows)}</tbody>
           </table>
+          ${renderTablePagination({
+            total: rows.length,
+            from: pagedRows.from,
+            to: pagedRows.to,
+            currentPage: pagedRows.currentPage,
+            totalPages: pagedRows.totalPages,
+            pageSize,
+            actionPrefix: 'fabric-demand',
+            fieldPrefix: 'fabric-demand',
+            pageSizeOptions: [5, 10, 20],
+          })}
         </div>
       </section>
     </div>
@@ -277,6 +312,14 @@ export function handleWlsFabricDemandBoardEvent(target: HTMLElement): boolean {
     const key = filterNode.dataset.fabricDemandFilter as keyof FabricDemandBoardFilters | undefined
     if (!key) return true
     filters = { ...filters, [key]: filterNode.value } as FabricDemandBoardFilters
+    currentPage = 1
+    return true
+  }
+
+  const fieldNode = target.closest<HTMLElement>('[data-fabric-demand-field]')
+  if (fieldNode instanceof HTMLSelectElement && fieldNode.dataset.fabricDemandField === 'pageSize') {
+    pageSize = Number(fieldNode.value) || 5
+    currentPage = 1
     return true
   }
 
@@ -285,6 +328,19 @@ export function handleWlsFabricDemandBoardEvent(target: HTMLElement): boolean {
 
   if (actionNode.dataset.fabricDemandAction === 'reset') {
     filters = { ...defaultFabricDemandBoardFilters }
+    currentPage = 1
+  }
+
+  if (actionNode.dataset.fabricDemandAction === 'filter') {
+    currentPage = 1
+  }
+
+  if (actionNode.dataset.fabricDemandAction === 'prev-page') {
+    currentPage -= 1
+  }
+
+  if (actionNode.dataset.fabricDemandAction === 'next-page') {
+    currentPage += 1
   }
 
   return true

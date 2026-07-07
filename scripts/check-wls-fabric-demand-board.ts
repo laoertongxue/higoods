@@ -272,6 +272,9 @@ for (const text of [
   '待领料',
   '待入库',
   '差额',
+  '条/页',
+  '上一页',
+  '下一页',
 ]) {
   assertIncludes(html, text, `页面缺少文案：${text}`)
 }
