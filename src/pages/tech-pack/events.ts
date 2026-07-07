@@ -331,8 +331,24 @@ type TechniqueRouteGroup = {
   items: TechniqueItem[]
 }
 
-function getTechniqueRouteGroups(): TechniqueRouteGroup[] {
-  const normalized = normalizeTechniqueRoutes(state.techniques)
+export type ProcessRouteDraftState = {
+  techniques: TechniqueItem[]
+  processRouteStatus: 'UNCONFIRMED' | 'CONFIRMED'
+  processRouteConfirmedBy: string
+  processRouteConfirmedAt: string
+  processRouteUpdatedBy: string
+  processRouteUpdatedAt: string
+}
+
+export type ProcessRouteDraftAction =
+  | { type: 'confirm' }
+  | { type: 'move-up' | 'move-down'; techniqueId: string }
+  | { type: 'make-parallel-previous' | 'make-parallel-next'; techniqueId: string }
+  | { type: 'remove-from-parallel'; techniqueId: string }
+  | { type: 'toggle-parallel-group-acceptance'; techniqueId: string }
+
+function getTechniqueRouteGroupsFrom(techniques: TechniqueItem[]): TechniqueRouteGroup[] {
+  const normalized = normalizeTechniqueRoutes(techniques)
   const groups = new Map<number, TechniqueItem[]>()
   normalized.forEach((item) => {
     groups.set(item.routeStepNo, [...(groups.get(item.routeStepNo) ?? []), item])
@@ -344,8 +360,15 @@ function getTechniqueRouteGroups(): TechniqueRouteGroup[] {
     }))
 }
 
-function flattenTechniqueRouteGroups(groups: TechniqueRouteGroup[]): TechniqueItem[] {
-  const updatedAt = toTimestamp()
+function getTechniqueRouteGroups(): TechniqueRouteGroup[] {
+  return getTechniqueRouteGroupsFrom(state.techniques)
+}
+
+function flattenTechniqueRouteGroups(
+  groups: TechniqueRouteGroup[],
+  operatorName = currentUser.name,
+  updatedAt = toTimestamp(),
+): TechniqueItem[] {
   return groups.flatMap((group, groupIndex) => {
     const isParallel = group.items.length > 1
     const groupId = isParallel ? `route-step-${groupIndex + 1}` : undefined
@@ -363,7 +386,7 @@ function flattenTechniqueRouteGroups(groups: TechniqueRouteGroup[]): TechniqueIt
       routeParallelGroupName: groupName,
       routeParallelAcceptanceMode: groupAcceptanceMode,
       routeSourceKind: 'MANUAL',
-      routeUpdatedBy: currentUser.name,
+      routeUpdatedBy: operatorName,
       routeUpdatedAt: updatedAt,
     }))
   })
@@ -378,6 +401,112 @@ function saveTechniqueRouteGroups(groups: TechniqueRouteGroup[]): void {
   markProcessRouteUnconfirmed()
   syncProcessCostRows()
   syncTechPackToStore()
+}
+
+function buildUnconfirmedRouteDraft(
+  input: ProcessRouteDraftState,
+  groups: TechniqueRouteGroup[],
+  operatorName: string,
+  updatedAt: string,
+): ProcessRouteDraftState {
+  return {
+    ...input,
+    techniques: normalizeTechniqueRoutes(flattenTechniqueRouteGroups(groups, operatorName, updatedAt)),
+    processRouteStatus: 'UNCONFIRMED',
+    processRouteConfirmedBy: '',
+    processRouteConfirmedAt: '',
+    processRouteUpdatedBy: operatorName,
+    processRouteUpdatedAt: updatedAt,
+  }
+}
+
+function normalizeRouteDraft(input: ProcessRouteDraftState): ProcessRouteDraftState {
+  return {
+    ...input,
+    techniques: normalizeTechniqueRoutes(input.techniques),
+  }
+}
+
+export function applyProcessRouteDraftAction(
+  input: ProcessRouteDraftState,
+  action: ProcessRouteDraftAction,
+  operatorName = currentUser.name,
+  operatedAt = toTimestamp(),
+): ProcessRouteDraftState {
+  if (action.type === 'confirm') {
+    if (input.techniques.length === 0) return normalizeRouteDraft(input)
+    return {
+      ...input,
+      techniques: normalizeTechniqueRoutes(input.techniques).map((item) => ({
+        ...item,
+        routeUpdatedBy: item.routeUpdatedBy || operatorName,
+        routeUpdatedAt: item.routeUpdatedAt || operatedAt,
+      })),
+      processRouteStatus: 'CONFIRMED',
+      processRouteConfirmedBy: operatorName,
+      processRouteConfirmedAt: operatedAt,
+      processRouteUpdatedBy: operatorName,
+      processRouteUpdatedAt: operatedAt,
+    }
+  }
+
+  const groups = getTechniqueRouteGroupsFrom(input.techniques)
+  const index = findTechniqueRouteGroupIndex(groups, action.techniqueId)
+  if (index < 0) return normalizeRouteDraft(input)
+
+  if (action.type === 'move-up' || action.type === 'move-down') {
+    const targetIndex = action.type === 'move-up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= groups.length) return normalizeRouteDraft(input)
+    const nextGroups = [...groups]
+    ;[nextGroups[index], nextGroups[targetIndex]] = [nextGroups[targetIndex], nextGroups[index]]
+    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt)
+  }
+
+  if (action.type === 'make-parallel-previous') {
+    if (index === 0) return normalizeRouteDraft(input)
+    const nextGroups = [...groups]
+    nextGroups.splice(index - 1, 2, { items: [...groups[index - 1].items, ...groups[index].items] })
+    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt)
+  }
+
+  if (action.type === 'make-parallel-next') {
+    if (index >= groups.length - 1) return normalizeRouteDraft(input)
+    const nextGroups = [...groups]
+    nextGroups.splice(index, 2, { items: [...groups[index].items, ...groups[index + 1].items] })
+    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt)
+  }
+
+  if (action.type === 'remove-from-parallel') {
+    const group = groups[index]
+    if (group.items.length <= 1) return normalizeRouteDraft(input)
+    const removed = group.items.find((item) => item.id === action.techniqueId)
+    if (!removed) return normalizeRouteDraft(input)
+    const nextGroups = [...groups]
+    nextGroups.splice(
+      index,
+      1,
+      { items: group.items.filter((item) => item.id !== action.techniqueId) },
+      { items: [removed] },
+    )
+    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt)
+  }
+
+  const group = groups[index]
+  if (group.items.length <= 1) return normalizeRouteDraft(input)
+  const nextMode = group.items[0].routeParallelAcceptanceMode === 'WHOLE_GROUP_ALLOWED'
+    ? 'INDEPENDENT_ONLY'
+    : 'WHOLE_GROUP_ALLOWED'
+  const nextGroups = [...groups]
+  nextGroups[index] = {
+    items: group.items.map((item) => ({
+      ...item,
+      routeParallelAcceptanceMode: nextMode,
+      routeSourceKind: 'MANUAL',
+      routeUpdatedBy: operatorName,
+      routeUpdatedAt: operatedAt,
+    })),
+  }
+  return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt)
 }
 
 function moveTechniqueRoute(techId: string, direction: 'up' | 'down'): void {
@@ -447,18 +576,21 @@ function toggleParallelGroupAcceptance(techId: string): void {
 }
 
 function confirmProcessRoute(): void {
-  if (state.techniques.length === 0) return
-  const confirmedAt = toTimestamp()
-  state.techniques = normalizeTechniqueRoutes(state.techniques).map((item) => ({
-    ...item,
-    routeUpdatedBy: item.routeUpdatedBy || currentUser.name,
-    routeUpdatedAt: item.routeUpdatedAt || confirmedAt,
-  }))
-  state.processRouteStatus = 'CONFIRMED'
-  state.processRouteConfirmedBy = currentUser.name
-  state.processRouteConfirmedAt = confirmedAt
-  state.processRouteUpdatedBy = currentUser.name
-  state.processRouteUpdatedAt = confirmedAt
+  const nextDraft = applyProcessRouteDraftAction({
+    techniques: state.techniques,
+    processRouteStatus: state.processRouteStatus,
+    processRouteConfirmedBy: state.processRouteConfirmedBy,
+    processRouteConfirmedAt: state.processRouteConfirmedAt,
+    processRouteUpdatedBy: state.processRouteUpdatedBy,
+    processRouteUpdatedAt: state.processRouteUpdatedAt,
+  }, { type: 'confirm' })
+  if (nextDraft.processRouteStatus !== 'CONFIRMED') return
+  state.techniques = nextDraft.techniques
+  state.processRouteStatus = nextDraft.processRouteStatus
+  state.processRouteConfirmedBy = nextDraft.processRouteConfirmedBy
+  state.processRouteConfirmedAt = nextDraft.processRouteConfirmedAt
+  state.processRouteUpdatedBy = nextDraft.processRouteUpdatedBy
+  state.processRouteUpdatedAt = nextDraft.processRouteUpdatedAt
   syncProcessCostRows()
   syncTechPackToStore()
 }

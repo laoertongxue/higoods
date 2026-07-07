@@ -5019,10 +5019,10 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
     const patch = {
       ...buildTechnicalContentPatchFromLegacyTechPack(next),
       processRouteStatus: state.processRouteStatus,
-      processRouteConfirmedBy: state.processRouteConfirmedBy || undefined,
-      processRouteConfirmedAt: state.processRouteConfirmedAt || undefined,
-      processRouteUpdatedBy: state.processRouteUpdatedBy || undefined,
-      processRouteUpdatedAt: state.processRouteUpdatedAt || undefined,
+      processRouteConfirmedBy: state.processRouteConfirmedBy,
+      processRouteConfirmedAt: state.processRouteConfirmedAt,
+      processRouteUpdatedBy: state.processRouteUpdatedBy,
+      processRouteUpdatedAt: state.processRouteUpdatedAt,
     }
     saveTechnicalDataVersionContent(state.currentTechnicalVersionId, patch, currentUser.name)
   }

@@ -5,8 +5,14 @@ import {
   startTechPackReview,
   submitTechPackFirstStageReview,
 } from '../src/data/pcs-tech-pack-review.ts'
-import { publishTechnicalDataVersion } from '../src/data/pcs-project-technical-data-writeback.ts'
-import { replaceTechnicalDataVersionStore } from '../src/data/pcs-technical-data-version-repository.ts'
+import {
+  publishTechnicalDataVersion,
+  saveTechnicalDataVersionContent,
+} from '../src/data/pcs-project-technical-data-writeback.ts'
+import {
+  getTechnicalDataVersionContent,
+  replaceTechnicalDataVersionStore,
+} from '../src/data/pcs-technical-data-version-repository.ts'
 import type {
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
@@ -16,6 +22,11 @@ import {
   normalizeProcessRouteEntries,
   sortProcessRouteEntries,
 } from '../src/data/tech-pack-process-route.ts'
+import {
+  applyProcessRouteDraftAction,
+  type ProcessRouteDraftState,
+} from '../src/pages/tech-pack/events.ts'
+import type { TechniqueItem } from '../src/pages/tech-pack/context.ts'
 
 type CheckRouteEntry = {
   id: string
@@ -29,6 +40,52 @@ type CheckRouteEntry = {
 
 function ids(entries: Array<{ id: string }>): string[] {
   return entries.map((entry) => entry.id)
+}
+
+function buildCheckTechnique(id: string, routeStepNo: number): TechniqueItem {
+  return {
+    id,
+    entryType: 'PROCESS_BASELINE',
+    stageCode: 'PROD',
+    stage: '生产阶段',
+    processCode: id.toUpperCase(),
+    process: `检查工序 ${id}`,
+    craftCode: '',
+    technique: `检查工序 ${id}`,
+    assignmentGranularity: 'SKU',
+    ruleSource: 'INHERIT_PROCESS',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
+    defaultDocType: 'TASK',
+    taskTypeMode: 'PROCESS',
+    isSpecialCraft: false,
+    triggerSource: '检查脚本',
+    outputValue: 0,
+    outputValueUnit: '产值/件',
+    referenceOutputValueValue: null,
+    referenceOutputValueUnit: '',
+    referenceOutputValueUnitLabel: '',
+    referenceOutputValueNote: '',
+    difficulty: '中等',
+    remark: '',
+    source: '字典引用',
+    routeStepNo,
+    routeLaneNo: 1,
+    routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
+    routeSourceKind: 'DICT_DEFAULT',
+  }
+}
+
+function routeStepNos(draft: ProcessRouteDraftState): number[] {
+  return draft.techniques
+    .slice()
+    .sort((left, right) => left.routeStepNo - right.routeStepNo || left.routeLaneNo - right.routeLaneNo)
+    .map((item) => item.routeStepNo)
+}
+
+function assertContinuousRouteSteps(draft: ProcessRouteDraftState, message: string): void {
+  const steps = Array.from(new Set(routeStepNos(draft)))
+  assert.deepEqual(steps, steps.map((_, index) => index + 1), message)
 }
 
 const singleEntry: CheckRouteEntry = { id: 'single', stageCode: 'PREP', processCode: 'CUTTING' }
@@ -95,6 +152,82 @@ assert.equal(
   true,
   '同一步并行且允许整体承接时，本批内部连续判断应允许',
 )
+
+const pageRouteDraft: ProcessRouteDraftState = {
+  techniques: [
+    buildCheckTechnique('page-tech-a', 1),
+    buildCheckTechnique('page-tech-b', 2),
+    buildCheckTechnique('page-tech-c', 3),
+  ],
+  processRouteStatus: 'UNCONFIRMED',
+  processRouteConfirmedBy: '',
+  processRouteConfirmedAt: '',
+  processRouteUpdatedBy: '',
+  processRouteUpdatedAt: '',
+}
+const confirmedDraft = applyProcessRouteDraftAction(
+  pageRouteDraft,
+  { type: 'confirm' },
+  'Budi Santoso',
+  '2026-07-07 10:20',
+)
+assert.equal(confirmedDraft.processRouteStatus, 'CONFIRMED', '确认路线后状态应为已确认')
+assert.equal(confirmedDraft.processRouteConfirmedBy, 'Budi Santoso', '确认路线后应写入确认人')
+assert.equal(confirmedDraft.processRouteConfirmedAt, '2026-07-07 10:20', '确认路线后应写入确认时间')
+
+const movedDraft = applyProcessRouteDraftAction(
+  confirmedDraft,
+  { type: 'move-down', techniqueId: 'page-tech-a' },
+  'Budi Santoso',
+  '2026-07-07 10:21',
+)
+assert.equal(movedDraft.processRouteStatus, 'UNCONFIRMED', '路线排序后应自动取消确认')
+assert.equal(movedDraft.processRouteConfirmedBy, '', '路线排序后应清空确认人')
+assert.equal(movedDraft.processRouteConfirmedAt, '', '路线排序后应清空确认时间')
+assertContinuousRouteSteps(movedDraft, '路线排序后步骤应保持连续')
+
+const parallelDraft = applyProcessRouteDraftAction(
+  confirmedDraft,
+  { type: 'make-parallel-next', techniqueId: 'page-tech-a' },
+  'Budi Santoso',
+  '2026-07-07 10:22',
+)
+assert.equal(parallelDraft.processRouteStatus, 'UNCONFIRMED', '设为并行后应自动取消确认')
+assert.deepEqual(routeStepNos(parallelDraft), [1, 1, 2], '设为并行后相邻步骤应合并为同一步')
+assertContinuousRouteSteps(parallelDraft, '设为并行后步骤应保持连续')
+
+const confirmedParallelDraft = applyProcessRouteDraftAction(
+  parallelDraft,
+  { type: 'confirm' },
+  'Budi Santoso',
+  '2026-07-07 10:23',
+)
+const toggledDraft = applyProcessRouteDraftAction(
+  confirmedParallelDraft,
+  { type: 'toggle-parallel-group-acceptance', techniqueId: 'page-tech-a' },
+  'Budi Santoso',
+  '2026-07-07 10:24',
+)
+assert.equal(toggledDraft.processRouteStatus, 'UNCONFIRMED', '并行承接方式变更后应自动取消确认')
+assert.equal(toggledDraft.processRouteConfirmedBy, '', '并行承接方式变更后应清空确认人')
+assert.equal(toggledDraft.processRouteConfirmedAt, '', '并行承接方式变更后应清空确认时间')
+assert.equal(
+  toggledDraft.techniques.find((item) => item.id === 'page-tech-a')?.routeParallelAcceptanceMode,
+  'WHOLE_GROUP_ALLOWED',
+  '并行承接方式应能切换为整体承接',
+)
+
+const splitDraft = applyProcessRouteDraftAction(
+  confirmedParallelDraft,
+  { type: 'remove-from-parallel', techniqueId: 'page-tech-b' },
+  'Budi Santoso',
+  '2026-07-07 10:25',
+)
+assert.equal(splitDraft.processRouteStatus, 'UNCONFIRMED', '移出并行后应自动取消确认')
+assert.equal(splitDraft.processRouteConfirmedBy, '', '移出并行后应清空确认人')
+assert.equal(splitDraft.processRouteConfirmedAt, '', '移出并行后应清空确认时间')
+assert.deepEqual(routeStepNos(splitDraft), [1, 2, 3], '移出并行后步骤应拆成连续步骤')
+assertContinuousRouteSteps(splitDraft, '移出并行后步骤应保持连续')
 
 function buildRouteGateRecord(id: string, merchandiserPassed = false): TechnicalDataVersionRecord {
   return {
@@ -189,24 +322,73 @@ function buildRouteGateContent(id: string, routeConfirmed: boolean): TechnicalDa
     processRouteStatus: routeConfirmed ? 'CONFIRMED' : 'UNCONFIRMED',
     processRouteConfirmedBy: routeConfirmed ? 'Budi Santoso' : '',
     processRouteConfirmedAt: routeConfirmed ? '2026-07-07 10:10' : '',
+    processRouteUpdatedBy: routeConfirmed ? 'Budi Santoso' : '测试用户',
+    processRouteUpdatedAt: routeConfirmed ? '2026-07-07 10:10' : '2026-07-07 10:00',
+    processRouteChangeReason: routeConfirmed ? '第 2 批确认检查' : '',
     sizeTable: [{ id: `${id}-size`, part: '胸围', S: 90, M: 94, L: 98, XL: 102, tolerance: 1 }],
     bomItems: [{ id: `${id}-bom`, type: '面料', name: '主面料', spec: '100% 棉', unitConsumption: 1, lossRate: 0.03, supplier: '供应商' }],
     qualityRules: [],
     colorMaterialMappings: [{ id: `${id}-mapping`, spuCode: id, colorCode: 'BK', colorName: '黑色', status: 'CONFIRMED', generatedMode: 'MANUAL', lines: [] }],
     patternDesigns: [],
     attachments: [],
-    legacyCompatibleCostPayload: {},
+    legacyCompatibleCostPayload: routeConfirmed ? {
+      processRouteStatus: 'CONFIRMED',
+      processRouteConfirmedBy: 'Budi Santoso',
+      processRouteConfirmedAt: '2026-07-07 10:10',
+      processRouteUpdatedBy: 'Budi Santoso',
+      processRouteUpdatedAt: '2026-07-07 10:10',
+      processRouteChangeReason: '第 2 批确认检查',
+    } : {},
   }
 }
 
+const roundtripId = 'tdv_route_roundtrip'
 const reviewGateId = 'tdv_route_review_gate'
 const publishGateId = 'tdv_route_publish_gate'
 replaceTechnicalDataVersionStore({
   version: 4,
-  records: [buildRouteGateRecord(reviewGateId), buildRouteGateRecord(publishGateId, true)],
-  contents: [buildRouteGateContent(reviewGateId, false), buildRouteGateContent(publishGateId, false)],
+  records: [
+    buildRouteGateRecord(roundtripId),
+    buildRouteGateRecord(reviewGateId),
+    buildRouteGateRecord(publishGateId, true),
+  ],
+  contents: [
+    buildRouteGateContent(roundtripId, true),
+    buildRouteGateContent(reviewGateId, false),
+    buildRouteGateContent(publishGateId, false),
+  ],
   pendingItems: [],
 })
+
+const roundtripContent = getTechnicalDataVersionContent(roundtripId)
+assert.equal(roundtripContent?.processRouteStatus, 'CONFIRMED', '仓库读取时应保留路线确认状态')
+assert.equal(roundtripContent?.processRouteConfirmedBy, 'Budi Santoso', '仓库读取时应保留路线确认人')
+assert.equal(roundtripContent?.processRouteConfirmedAt, '2026-07-07 10:10', '仓库读取时应保留路线确认时间')
+assert.equal(roundtripContent?.processRouteUpdatedBy, 'Budi Santoso', '仓库读取时应保留路线更新人')
+assert.equal(roundtripContent?.processRouteUpdatedAt, '2026-07-07 10:10', '仓库读取时应保留路线更新时间')
+assert.equal(roundtripContent?.processRouteChangeReason, '第 2 批确认检查', '仓库读取时应保留路线变更原因')
+
+saveTechnicalDataVersionContent(roundtripId, {
+  processRouteStatus: 'UNCONFIRMED',
+  processRouteConfirmedBy: '',
+  processRouteConfirmedAt: '',
+  processRouteUpdatedBy: 'Budi Santoso',
+  processRouteUpdatedAt: '2026-07-07 10:30',
+}, 'Budi Santoso')
+const canceledRouteContent = getTechnicalDataVersionContent(roundtripId)
+assert.equal(canceledRouteContent?.processRouteStatus, 'UNCONFIRMED', '取消确认后状态应回到未确认')
+assert.equal(canceledRouteContent?.processRouteConfirmedBy, '', '取消确认后 top-level 确认人必须清空')
+assert.equal(canceledRouteContent?.processRouteConfirmedAt, '', '取消确认后 top-level 确认时间必须清空')
+assert.equal(
+  canceledRouteContent?.legacyCompatibleCostPayload.processRouteConfirmedBy,
+  '',
+  '取消确认后 legacy payload 确认人必须清空',
+)
+assert.equal(
+  canceledRouteContent?.legacyCompatibleCostPayload.processRouteConfirmedAt,
+  '',
+  '取消确认后 legacy payload 确认时间必须清空',
+)
 
 submitTechPackFirstStageReview(reviewGateId, {
   buyerReviewerId: 'U001',
