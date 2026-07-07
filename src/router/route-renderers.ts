@@ -38,6 +38,10 @@ export const renderPcsResetPlaceholderPage = createAsyncRenderer(
 )
 export const renderPlaceholderPage = createAsyncRenderer(() => import('../pages/placeholder'), 'renderPlaceholderPage')
 export const renderRouteNotFound = createAsyncRenderer(() => import('../pages/placeholder'), 'renderRouteNotFound')
+export const renderWlsFabricDemandBoardPage = createAsyncRenderer(
+  () => import('../pages/wls-fabric-demand-board'),
+  'renderWlsFabricDemandBoardPage',
+)
 export const renderPcsPartTemplateLibraryPage = createAsyncRenderer(
   () => import('../pages/pcs-part-template-library'),
   'renderPcsPartTemplateLibraryPage',

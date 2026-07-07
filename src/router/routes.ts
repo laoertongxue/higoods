@@ -1,6 +1,7 @@
 import { menusBySystem } from '../data/app-shell-config'
 import type { MenuGroup, MenuItem } from '../data/app-shell-types'
 import type { RouteRegistry } from './route-types'
+import { renderWlsFabricDemandBoardPage } from './route-renderers'
 import { normalizePathname, renderRouteRedirect } from './route-utils'
 
 function createAsyncRenderer<TArgs extends unknown[]>(
@@ -47,6 +48,8 @@ const exactBaseRoutes: Record<string, () => Promise<string>> = {
   '/pcs/workspace': () => renderRouteRedirect('/pcs/workspace/overview', '正在跳转到商品中心工作台'),
   '/fcs/workspace': () => renderRouteRedirect('/fcs/workbench/overview', '正在跳转到工厂生产协同工作台'),
   '/fcs': () => renderRouteRedirect('/fcs/workbench/overview', '正在跳转到工厂生产协同工作台'),
+  '/wls': () => renderRouteRedirect('/wls/fabric-demand-board', '正在跳转到面料需求看板'),
+  '/wls/fabric-demand-board': () => renderWlsFabricDemandBoardPage(),
 }
 
 let fcsRoutesPromise: Promise<RouteRegistry> | null = null
