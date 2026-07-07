@@ -459,6 +459,9 @@ function getCuttingTaskDetail(task: ProcessTask): CuttingTaskDetail | null {
 
 function getCuttingTaskListSummary(detail: CuttingTaskDetail | null): string {
   if (!detail) return ''
+  if (detail.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION') {
+    return `${detail.cutOrderNos.length || 1} 张裁片单 · ${detail.cutCompletionPartRows.length} 行上报 · 下一步 上报裁片完成`
+  }
   return `${detail.cutOrderGroups.length} 张裁片单 · ${detail.cutPieceOrderCount} 张铺布单 · 下一步 ${detail.nextRecommendedAction}`
 }
 
@@ -481,7 +484,11 @@ function getNotStartedPrimaryAction(
 ): { label: string; icon: string; action: 'go-start' | 'go-prerequisite' | 'go-handover'; className: string } {
   if (prereq.met) {
     return {
-      label: isSimpleFiveStepTask(task) ? '确认领料 / 开始做' : isCuttingSpecialTask(task) ? '进入裁片任务' : '开工',
+      label: isSimpleFiveStepTask(task)
+        ? '确认领料 / 开始做'
+        : getCuttingTaskDetail(task)?.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION'
+          ? '上报裁片完成'
+          : isCuttingSpecialTask(task) ? '进入裁片任务' : '开工',
       icon: 'play',
       action: 'go-start',
       className: 'bg-primary text-primary-foreground hover:bg-primary/90',
@@ -668,8 +675,8 @@ function renderNotStartedCard(task: ProcessTask): string {
                   <div class="font-medium">${escapeHtml(displayProcessName)}</div>
                   <div class="text-muted-foreground">裁片单</div>
                   <div class="truncate font-medium">${escapeHtml(`${cuttingDetail.cutOrderGroups.length} 张`)}</div>
-                  <div class="text-muted-foreground">铺布单</div>
-                  <div class="truncate font-medium">${escapeHtml(`${cuttingDetail.cutPieceOrderCount} 张`)}</div>
+                  <div class="text-muted-foreground">${escapeHtml(cuttingDetail.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION' ? '上报内容' : '铺布单')}</div>
+                  <div class="truncate font-medium">${escapeHtml(cuttingDetail.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION' ? `${cuttingDetail.cutCompletionPartRows.length} 行` : `${cuttingDetail.cutPieceOrderCount} 张`)}</div>
                   <div class="text-muted-foreground">下一步</div>
                   <div class="truncate font-medium">${escapeHtml(cuttingDetail.nextRecommendedAction)}</div>
                   <div class="text-muted-foreground">面料</div>
@@ -790,8 +797,8 @@ function renderInProgressCard(task: ProcessTask): string {
                   <div class="truncate font-medium">${escapeHtml(cuttingDetail.productionOrderNo)}</div>
                   <div class="text-muted-foreground">裁片单</div>
                   <div class="truncate font-medium">${escapeHtml(`${cuttingDetail.cutOrderGroups.length} 张`)}</div>
-                  <div class="text-muted-foreground">铺布单</div>
-                  <div class="font-medium">${escapeHtml(`${cuttingDetail.cutPieceOrderCount} 张`)}</div>
+                  <div class="text-muted-foreground">${escapeHtml(cuttingDetail.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION' ? '上报内容' : '铺布单')}</div>
+                  <div class="font-medium">${escapeHtml(cuttingDetail.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION' ? `${cuttingDetail.cutCompletionPartRows.length} 行` : `${cuttingDetail.cutPieceOrderCount} 张`)}</div>
                   <div class="text-muted-foreground">下一步</div>
                   <div class="truncate font-medium">${escapeHtml(cuttingDetail.nextRecommendedAction)}</div>
                 `
@@ -874,7 +881,7 @@ function renderInProgressCard(task: ProcessTask): string {
                     data-task-id="${escapeHtml(task.taskId)}"
                   >
                     <i data-lucide="play" class="mr-1 h-3 w-3"></i>
-                    进入裁片
+                    ${escapeHtml(cuttingDetail.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION' ? '上报裁片完成' : '进入裁片')}
                   </button>
                 `
               : isSimpleFiveStepTask(task)

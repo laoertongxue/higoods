@@ -167,6 +167,66 @@ function renderRecentActions(detail: PdaCuttingTaskDetailData): string {
   `
 }
 
+function renderCutCompletionRows(detail: PdaCuttingTaskDetailData): string {
+  if (!detail.cutCompletionPartRows.length) return renderPdaCuttingEmptyState('暂无裁片明细', '')
+  return `
+    <div class="space-y-2">
+      ${detail.cutCompletionPartRows.map((row) => `
+        <article class="rounded-xl border bg-card px-3 py-2 text-xs shadow-sm">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <div class="break-words text-sm font-semibold text-foreground">${escapeHtml(row.partName)}</div>
+              <div class="mt-0.5 text-muted-foreground">${escapeHtml(row.colorName)}</div>
+            </div>
+            ${renderPdaCuttingStatusChip('待上报', 'blue')}
+          </div>
+          <div class="mt-2 grid grid-cols-2 gap-2">
+            ${renderMiniField('裁出片数', `${row.cutPieceQty.toLocaleString('zh-CN')} 片`)}
+            ${renderMiniField('可做成衣数', `${row.garmentAvailableQty.toLocaleString('zh-CN')} 件`)}
+          </div>
+        </article>
+      `).join('')}
+    </div>
+  `
+}
+
+function renderContinuousCompletionDetail(
+  taskId: string,
+  detail: PdaCuttingTaskDetailData,
+  selectedLine: PdaCuttingTaskOrderLine | null,
+  backHref: string,
+): string {
+  const actionLine = selectedLine || detail.cutPieceOrders[0] || null
+  return `
+    <section class="grid grid-cols-2 gap-2">
+      ${renderMetric('裁片单', `${detail.cutOrderNos.length || 1} 张`)}
+      ${renderMetric('上报方式', '连续任务')}
+      ${renderMetric('部位颜色', `${detail.cutCompletionPartRows.length} 行`, detail.cutCompletionPartRows.length ? 'green' : 'amber')}
+      ${renderMetric('下一步', '上报裁片完成')}
+    </section>
+
+    <section class="space-y-2">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-foreground">裁片完成上报</h2>
+        <span class="text-xs text-muted-foreground">不走我方裁床仓</span>
+      </div>
+      <section class="rounded-2xl border bg-card p-3 shadow-sm">
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          ${renderMiniField('裁片单', detail.cutOrderNo || '-')}
+          ${renderMiniField('生产单', detail.productionOrderNo || '-')}
+        </div>
+        <div class="mt-3">
+          ${actionLine ? renderActionButton(taskId, actionLine, backHref) : ''}
+        </div>
+      </section>
+      ${renderCutCompletionRows(detail)}
+      <section class="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+        确认后同步到连续任务进度，后续由连续任务继续执行。
+      </section>
+    </section>
+  `
+}
+
 export function renderPdaCuttingTaskDetailPage(taskId: string, options: PdaCuttingTaskDetailOptions = {}): string {
   const decodedTaskId = decodeURIComponent(taskId)
   const selectedExecutionKey = readSelectedExecutionOrderIdFromLocation() || readSelectedExecutionOrderNoFromLocation() || undefined
@@ -190,6 +250,8 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options: PdaCutti
     readSelectedExecutionOrderNoFromLocation(),
   ) || detail.cutPieceOrders.find((line) => line.executionOrderId === detail.currentSelectedExecutionOrderId) || detail.cutPieceOrders[0] || null
 
+  const isContinuousCompletion = detail.cuttingReportMode === 'CONTINUOUS_TASK_CUTTING_COMPLETION'
+
   return renderPdaFrame(
     `
       <section class="space-y-3 px-3 py-3">
@@ -207,20 +269,24 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options: PdaCutti
           </section>
         </header>
 
-        <section class="grid grid-cols-2 gap-2">
-          ${renderMetric('裁片单', `${detail.cutOrderGroups.length} 张`)}
-          ${renderMetric('铺布单', `${detail.cutPieceOrderCount} 张`)}
-          ${renderMetric('未完成', `${detail.pendingCutPieceOrderCount} 张`, detail.pendingCutPieceOrderCount ? 'amber' : 'green')}
-          ${renderMetric('异常', `${detail.exceptionCutPieceOrderCount} 张`, detail.exceptionCutPieceOrderCount ? 'red' : 'default')}
-        </section>
+        ${isContinuousCompletion
+          ? renderContinuousCompletionDetail(decodedTaskId, detail, selectedLine, backHref)
+          : `
+            <section class="grid grid-cols-2 gap-2">
+              ${renderMetric('裁片单', `${detail.cutOrderGroups.length} 张`)}
+              ${renderMetric('铺布单', `${detail.cutPieceOrderCount} 张`)}
+              ${renderMetric('未完成', `${detail.pendingCutPieceOrderCount} 张`, detail.pendingCutPieceOrderCount ? 'amber' : 'green')}
+              ${renderMetric('异常', `${detail.exceptionCutPieceOrderCount} 张`, detail.exceptionCutPieceOrderCount ? 'red' : 'default')}
+            </section>
 
-        <section class="space-y-2">
-          <div class="flex items-center justify-between">
-            <h2 class="text-sm font-semibold text-foreground">裁片单与铺布单</h2>
-            <span class="text-xs text-muted-foreground">${escapeHtml(detail.cutOrderGroups.length > 1 ? '按裁片单分组，避免选错' : '直接进入铺布操作')}</span>
-          </div>
-          ${detail.cutOrderGroups.map((group) => renderCutOrderGroup(decodedTaskId, group, backHref, selectedLine, detail.cutOrderGroups.length > 1)).join('')}
-        </section>
+            <section class="space-y-2">
+              <div class="flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-foreground">裁片单与铺布单</h2>
+                <span class="text-xs text-muted-foreground">${escapeHtml(detail.cutOrderGroups.length > 1 ? '按裁片单分组，避免选错' : '直接进入铺布操作')}</span>
+              </div>
+              ${detail.cutOrderGroups.map((group) => renderCutOrderGroup(decodedTaskId, group, backHref, selectedLine, detail.cutOrderGroups.length > 1)).join('')}
+            </section>
+          `}
 
         ${renderRecentActions(detail)}
       </section>

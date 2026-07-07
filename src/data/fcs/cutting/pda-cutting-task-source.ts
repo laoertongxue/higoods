@@ -5,6 +5,7 @@ import {
 import type { PdaCuttingExecutionObjectType } from './pda-cutting-mock-matrix.ts'
 
 export type PdaExecutionBindingState = 'BOUND' | 'UNBOUND'
+export type PdaCuttingReportMode = 'INDEPENDENT_CUTTING_EXECUTION' | 'CONTINUOUS_TASK_CUTTING_COMPLETION'
 
 export interface PdaCuttingExecutionSourceRecord {
   taskId: string
@@ -22,6 +23,7 @@ export interface PdaCuttingExecutionSourceRecord {
   materialAlias?: string
   materialImageUrl?: string
   bindingState: PdaExecutionBindingState
+  cuttingReportMode: PdaCuttingReportMode
 }
 
 export interface PdaCuttingTaskSourceRecord {
@@ -34,6 +36,7 @@ export interface PdaCuttingTaskSourceRecord {
   executionOrderIds: string[]
   executionOrderNos: string[]
   bindingState: PdaExecutionBindingState
+  cuttingReportMode: PdaCuttingReportMode
 }
 
 const PDA_CUTTING_EXECUTION_SOURCE_RECORDS: PdaCuttingExecutionSourceRecord[] =
