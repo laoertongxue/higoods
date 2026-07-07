@@ -629,6 +629,33 @@ function buildScenarioRecord(
   }
 }
 
+function buildScenarioMaterialIdentity(
+  seed: GeneratedCutOrderSourceRecord,
+  options: {
+    materialSkuSuffix: string
+    materialName: string
+    materialAlias: string
+    materialColor?: string
+  },
+): CuttingMaterialIdentity {
+  return {
+    ...seed.materialIdentity,
+    materialSku: `${seed.materialIdentity.materialSku}-${options.materialSkuSuffix}`,
+    materialName: options.materialName,
+    materialColor: options.materialColor || seed.materialIdentity.materialColor,
+    materialAlias: options.materialAlias,
+    materialImageUrl: seed.materialIdentity.materialImageUrl,
+    materialUnit: seed.materialIdentity.materialUnit,
+  }
+}
+
+function cloneScenarioPieceRows(seed: GeneratedCutOrderSourceRecord): GeneratedCutOrderPieceRow[] {
+  return seed.pieceRows.map((row) => ({
+    ...row,
+    applicableSkuCodes: [...row.applicableSkuCodes],
+  }))
+}
+
 function buildPrompt1DimensionScenarioRecords(records: GeneratedCutOrderSourceRecord[]): GeneratedCutOrderSourceRecord[] {
   const scenarioRows: GeneratedCutOrderSourceRecord[] = []
   const blackJoggerSeed = records.find(
@@ -639,6 +666,83 @@ function buildPrompt1DimensionScenarioRecords(records: GeneratedCutOrderSourceRe
       && record.patternIdentity.effectiveWidthValue === 150,
   )
   if (!blackJoggerSeed) return scenarioRows
+
+  const receivedStableSeed = records.find((record) => record.productionOrderNo === 'PO-202603-0002') ?? blackJoggerSeed
+  const datedStableSeeds = {
+    cut260301: records.find((record) => record.productionOrderNo === 'PO-202603-0003') ?? blackJoggerSeed,
+    cut260303: receivedStableSeed,
+  }
+  ;[
+    {
+      seed: receivedStableSeed,
+      cutOrderNo: 'CUT-260306-101-01',
+      materialSkuSuffix: 'stable-101-01',
+      materialName: 'Black 弹力斜纹主面料',
+      materialAlias: '稳定 fixture：PDA 多裁片单 101-01',
+    },
+    {
+      seed: receivedStableSeed,
+      cutOrderNo: 'CUT-260306-101-02',
+      materialSkuSuffix: 'stable-101-02',
+      materialName: 'Charcoal 弹力斜纹主面料',
+      materialAlias: '稳定 fixture：PDA 多裁片单 101-02',
+      materialColor: 'Charcoal',
+    },
+    {
+      seed: blackJoggerSeed,
+      cutOrderNo: 'CUT-260307-102-01',
+      materialSkuSuffix: 'stable-102-01',
+      materialName: '菲票链路主面料 A',
+      materialAlias: '稳定 fixture：菲票实际裁剪产出 102-01',
+    },
+    {
+      seed: blackJoggerSeed,
+      cutOrderNo: 'CUT-260307-102-02',
+      materialSkuSuffix: 'stable-102-02',
+      materialName: '菲票链路主面料 B',
+      materialAlias: '稳定 fixture：菲票实际裁剪产出 102-02',
+    },
+    {
+      seed: blackJoggerSeed,
+      cutOrderNo: 'CUT-260307-102-03',
+      materialSkuSuffix: 'stable-102-03',
+      materialName: '跨生产单同纸样主面料',
+      materialAlias: '稳定 fixture：唛架跨单组合 102-03',
+    },
+    {
+      seed: blackJoggerSeed,
+      cutOrderNo: 'CUT-260302-006-01',
+      materialSkuSuffix: 'stable-006-01',
+      materialName: 'PDA 唛架余额验证主面料',
+      materialAlias: '稳定 fixture：PDA 唛架余额 006-01',
+    },
+    {
+      seed: datedStableSeeds.cut260301,
+      cutOrderNo: 'CUT-260301-005-01',
+      materialSkuSuffix: 'stable-005-01',
+      materialName: '菲票交出链路主面料',
+      materialAlias: '稳定 fixture：菲票交出 005-01',
+    },
+    {
+      seed: datedStableSeeds.cut260303,
+      cutOrderNo: 'CUT-260303-007-01',
+      materialSkuSuffix: 'stable-007-01',
+      materialName: 'PDA 异常同步主面料',
+      materialAlias: '稳定 fixture：PDA 异常同步 007-01',
+    },
+  ].forEach((item) => {
+    scenarioRows.push(buildScenarioRecord(item.seed, {
+      cutOrderNo: item.cutOrderNo,
+      materialIdentity: buildScenarioMaterialIdentity(item.seed, {
+        materialSkuSuffix: item.materialSkuSuffix,
+        materialName: item.materialName,
+        materialAlias: item.materialAlias,
+        materialColor: item.materialColor,
+      }),
+      patternIdentity: item.seed.patternIdentity,
+      pieceRows: cloneScenarioPieceRows(item.seed),
+    }))
+  })
 
   const pocketPatternIdentity = clonePatternIdentity(blackJoggerSeed.patternIdentity, {
     patternFileId: 'tdv_demand_SPU_2024_010-pattern-pocket',
@@ -741,7 +845,14 @@ function buildPrompt1DimensionScenarioRecords(records: GeneratedCutOrderSourceRe
   }
 
   const existingKeys = new Set(records.map((record) => record.generationKey))
-  return scenarioRows.filter((record) => !existingKeys.has(record.generationKey))
+  const existingCutOrderNos = new Set(records.map((record) => record.cutOrderNo))
+  const seenCutOrderNos = new Set<string>()
+  return scenarioRows.filter((record) => {
+    if (existingKeys.has(record.generationKey)) return false
+    if (existingCutOrderNos.has(record.cutOrderNo) || seenCutOrderNos.has(record.cutOrderNo)) return false
+    seenCutOrderNos.add(record.cutOrderNo)
+    return true
+  })
 }
 
 let cachedRecords: GeneratedCutOrderSourceRecord[] | null = null

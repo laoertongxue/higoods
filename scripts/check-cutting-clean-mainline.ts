@@ -42,6 +42,8 @@ import {
   buildInboundTempBagsFromTransferBagViewModel,
 } from '../src/pages/process-factory/cutting/transfer-bags-model.ts'
 import { buildTransferBagsProjection } from '../src/pages/process-factory/cutting/transfer-bags-projection.ts'
+import { productionOrders } from '../src/data/fcs/production-orders.ts'
+import { shouldGenerateCutOrderForProductionOrder } from '../src/data/fcs/task-generation-boundaries.ts'
 
 const ROOT = process.cwd()
 
@@ -151,6 +153,19 @@ function assertCutOrderAndMaterialLedger(): void {
 }
 
 function assertFeiTicketChain(): void {
+  const cutOrders = listGeneratedCutOrderSourceRecords()
+  const cutOrderByNo = new Map(cutOrders.map((record) => [record.cutOrderNo, record] as const))
+  ;['CUT-260307-102-01', 'CUT-260307-102-02'].forEach((cutOrderNo) => {
+    const record = cutOrderByNo.get(cutOrderNo)
+    assert.ok(record, `菲票稳定裁片单 fixture 必须真实存在：${cutOrderNo}`)
+    const order = productionOrders.find((item) => item.productionOrderId === record.productionOrderId)
+    assert.ok(order, `菲票稳定裁片单 ${cutOrderNo} 必须能回溯真实生产单`)
+    assert.ok(shouldGenerateCutOrderForProductionOrder(order), `菲票稳定裁片单 ${cutOrderNo} 必须绑定到合法裁片任务边界`)
+    assert.equal(record.cutOrderSourceLabel, '独立裁片任务', `菲票稳定裁片单 ${cutOrderNo} 来源标签错误`)
+    assert.equal(record.cutReturnModeLabel, '回我方裁床待交出仓', `菲票稳定裁片单 ${cutOrderNo} 回流方式标签错误`)
+    assert.equal(record.internalCraftOrderPolicyLabel, '回仓后生成我方加工单', `菲票稳定裁片单 ${cutOrderNo} 我方加工单策略标签错误`)
+  })
+
   const outputs = listCuttingActualOutputs()
   const tickets = listGeneratedFeiTickets()
   assert(outputs.some((output) => output.actualPieceQty > 0 && output.canGenerateFeiTicket), '缺少可生成菲票的实际裁剪产出')

@@ -5,10 +5,35 @@ import {
   listPdaCuttingExecutionSourceRecords,
   listPdaCuttingTaskSourceRecords,
 } from '../src/data/fcs/cutting/pda-cutting-task-source.ts'
+import { listGeneratedCutOrderSourceRecords } from '../src/data/fcs/cutting/generated-cut-orders.ts'
+import { productionOrders } from '../src/data/fcs/production-orders.ts'
+import { shouldGenerateCutOrderForProductionOrder } from '../src/data/fcs/task-generation-boundaries.ts'
 import { getPdaCuttingTaskSnapshot } from '../src/data/fcs/pda-cutting-execution-source.ts'
 import { renderPdaCuttingTaskDetailPage } from '../src/pages/pda-cutting-task-detail.ts'
 
 const targetTaskId = 'TASK-CUT-000201'
+const requiredStableCutOrderNos = [
+  'CUT-260306-101-01',
+  'CUT-260306-101-02',
+  'CUT-260307-102-01',
+  'CUT-260307-102-03',
+  'CUT-260302-006-01',
+  'CUT-260301-005-01',
+  'CUT-260303-007-01',
+]
+
+const generatedCutOrders = listGeneratedCutOrderSourceRecords()
+const generatedCutOrderByNo = new Map(generatedCutOrders.map((record) => [record.cutOrderNo, record] as const))
+requiredStableCutOrderNos.forEach((cutOrderNo) => {
+  const record = generatedCutOrderByNo.get(cutOrderNo)
+  assert.ok(record, `PDA 稳定裁片单 fixture 必须真实存在：${cutOrderNo}`)
+  const order = productionOrders.find((item) => item.productionOrderId === record.productionOrderId)
+  assert.ok(order, `PDA 稳定裁片单 ${cutOrderNo} 必须能回溯真实生产单`)
+  assert.ok(shouldGenerateCutOrderForProductionOrder(order), `PDA 稳定裁片单 ${cutOrderNo} 必须绑定到合法裁片任务边界`)
+  assert.equal(record.cutOrderSourceLabel, '独立裁片任务', `PDA 稳定裁片单 ${cutOrderNo} 来源标签错误`)
+  assert.equal(record.cutReturnModeLabel, '回我方裁床待交出仓', `PDA 稳定裁片单 ${cutOrderNo} 回流方式标签错误`)
+  assert.equal(record.internalCraftOrderPolicyLabel, '回仓后生成我方加工单', `PDA 稳定裁片单 ${cutOrderNo} 我方加工单策略标签错误`)
+})
 
 const taskSource = listPdaCuttingTaskSourceRecords().find((item) => item.taskId === targetTaskId)
 assert.ok(taskSource, `缺少 PDA 裁片任务 mock：${targetTaskId}`)
