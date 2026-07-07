@@ -342,10 +342,12 @@ export function hasFormalTechPackForCutting(order: ProductionOrder): boolean {
 }
 
 export function listCuttingProductionOrdersWithFormalTechPack(): ProductionOrder[] {
-  const formalOrders = productionOrders.filter((order) => hasFormalTechPackForCutting(order))
+  const formalOrders = productionOrders.filter((order) =>
+    hasFormalTechPackForCutting(order) && shouldGenerateCutOrderForProductionOrder(order),
+  )
   const joggerOrders = formalOrders.filter((order) => order.demandSnapshot.spuCode === 'SPU-2024-010')
   const otherOrders = formalOrders.filter((order) => order.demandSnapshot.spuCode !== 'SPU-2024-010')
-  return [...joggerOrders, ...otherOrders].slice(0, 16)
+  return [...joggerOrders, ...otherOrders]
 }
 
 function buildSkuScopeLines(order: ProductionOrder): GeneratedCutOrderSkuScopeLine[] {
@@ -631,7 +633,7 @@ function buildPrompt1DimensionScenarioRecords(records: GeneratedCutOrderSourceRe
   const scenarioRows: GeneratedCutOrderSourceRecord[] = []
   const blackJoggerSeed = records.find(
     (record) =>
-      record.productionOrderNo === 'PO-202603-0101'
+      record.spuCode === 'SPU-2024-010'
       && record.materialSku === 'tdv_demand_SPU_2024_010-bom-black-stretch-twill'
       && record.patternIdentity.patternFileId === 'tdv_demand_SPU_2024_010-pattern-main'
       && record.patternIdentity.effectiveWidthValue === 150,
@@ -711,7 +713,7 @@ function buildPrompt1DimensionScenarioRecords(records: GeneratedCutOrderSourceRe
 
   const crossOrderSeed = records.find(
     (record) =>
-      record.productionOrderNo === 'PO-202603-0102'
+      record.productionOrderId !== blackJoggerSeed.productionOrderId
       && record.patternIdentity.patternFileId === blackJoggerSeed.patternIdentity.patternFileId,
   )
   if (crossOrderSeed) {

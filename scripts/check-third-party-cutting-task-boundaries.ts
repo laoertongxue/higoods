@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 
 import { productionOrders, type ProductionOrder, type TaskBreakdownSummary } from '../src/data/fcs/production-orders.ts'
-import { listGeneratedCutOrderSourceRecords } from '../src/data/fcs/cutting/generated-cut-orders.ts'
+import {
+  hasFormalTechPackForCutting,
+  listCuttingProductionOrdersWithFormalTechPack,
+  listGeneratedCutOrderSourceRecords,
+} from '../src/data/fcs/cutting/generated-cut-orders.ts'
 import {
   resolveProductionOrderTaskBoundary,
   shouldGenerateCutOrderForProductionOrder,
@@ -73,6 +77,31 @@ assert.equal(resolveProductionOrderTaskBoundary(independentNonCutting).kind, 'IN
 assert.equal(shouldGenerateCutOrderForProductionOrder(independentNonCutting), false, '独立非裁片任务不得生成裁片单')
 
 const cutOrders = listGeneratedCutOrderSourceRecords()
+const cutOrderProductionOrderIds = new Set(cutOrders.map((record) => record.productionOrderId))
+const eligibleCutOrderProductionOrders = productionOrders.filter((order) =>
+  hasFormalTechPackForCutting(order) && shouldGenerateCutOrderForProductionOrder(order),
+)
+const canonicalCutOrderProductionOrderIds = new Set(listCuttingProductionOrdersWithFormalTechPack().map((order) => order.productionOrderId))
+assert(eligibleCutOrderProductionOrders.length > 0, '必须存在正式技术包且应生成裁片单的真实生产单样本')
+assert.equal(canonicalCutOrderProductionOrderIds.size, eligibleCutOrderProductionOrders.length, '裁片单候选列表必须只包含应生成裁片单的真实生产单')
+eligibleCutOrderProductionOrders.forEach((order) => {
+  assert(
+    canonicalCutOrderProductionOrderIds.has(order.productionOrderId),
+    `应生成裁片单的真实生产单 ${order.productionOrderId} 不得被候选列表截断`,
+  )
+  assert(
+    cutOrderProductionOrderIds.has(order.productionOrderId),
+    `应生成裁片单的真实生产单 ${order.productionOrderId} 必须出现在裁片单列表`,
+  )
+})
+productionOrders
+  .filter((order) => hasFormalTechPackForCutting(order) && !shouldGenerateCutOrderForProductionOrder(order))
+  .forEach((order) => {
+    assert(
+      !cutOrderProductionOrderIds.has(order.productionOrderId),
+      `不应生成裁片单的真实生产单 ${order.productionOrderId} 不得出现在裁片单列表`,
+    )
+  })
 assert(
   cutOrders.every((record) => record.productionOrderId !== wholeOrder.productionOrderId),
   '整单任务生产单不得出现在裁片单列表',

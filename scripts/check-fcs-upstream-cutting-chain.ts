@@ -8,7 +8,12 @@ import {
   resolveReleasedTechPackForProductionOrder,
   validateDemandTechPackOrderLink,
 } from '../src/data/fcs/production-upstream-chain.ts'
-import { listGeneratedCutOrderSourceRecords } from '../src/data/fcs/cutting/generated-cut-orders.ts'
+import {
+  hasFormalTechPackForCutting,
+  listCuttingProductionOrdersWithFormalTechPack,
+  listGeneratedCutOrderSourceRecords,
+} from '../src/data/fcs/cutting/generated-cut-orders.ts'
+import { shouldGenerateCutOrderForProductionOrder } from '../src/data/fcs/task-generation-boundaries.ts'
 
 const repoRoot = process.cwd()
 
@@ -72,6 +77,21 @@ function ensureProductionOrderSeedsDoNotInlineSnapshots(): void {
 function ensureGeneratedCutOrdersTraceable(): void {
   const generated = listGeneratedCutOrderSourceRecords()
   assert(generated.length > 0, 'generated cut orders 为空')
+  const generatedProductionOrderIds = new Set(generated.map((record) => record.productionOrderId))
+  const canonicalProductionOrderIds = new Set(listCuttingProductionOrdersWithFormalTechPack().map((order) => order.productionOrderId))
+  const eligibleProductionOrders = productionOrders.filter((order) =>
+    hasFormalTechPackForCutting(order) && shouldGenerateCutOrderForProductionOrder(order),
+  )
+  assert(canonicalProductionOrderIds.size === eligibleProductionOrders.length, '裁片单候选列表必须只包含应生成裁片单的真实生产单')
+  eligibleProductionOrders.forEach((order) => {
+    assert(canonicalProductionOrderIds.has(order.productionOrderId), `应生成裁片单的生产单 ${order.productionOrderId} 不得在边界过滤前被截断`)
+    assert(generatedProductionOrderIds.has(order.productionOrderId), `应生成裁片单的生产单 ${order.productionOrderId} 缺少 generated cut order`)
+  })
+  productionOrders
+    .filter((order) => hasFormalTechPackForCutting(order) && !shouldGenerateCutOrderForProductionOrder(order))
+    .forEach((order) => {
+      assert(!generatedProductionOrderIds.has(order.productionOrderId), `不应生成裁片单的生产单 ${order.productionOrderId} 不得生成 cut order`)
+    })
 
   generated.forEach((record) => {
     assert(record.productionOrderId, `裁片单 ${record.cutOrderNo} 缺少 productionOrderId`)
