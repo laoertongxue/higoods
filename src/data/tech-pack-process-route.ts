@@ -58,7 +58,7 @@ function compareRouteBase<T extends RouteEntryBase & { stageCode?: string; proce
   const processCompare = (left.processCode ?? '').localeCompare(right.processCode ?? '', 'zh-CN')
   if (processCompare !== 0) return processCompare
 
-  return left.id.localeCompare(right.id, 'zh-CN')
+  return 0
 }
 
 export function sortProcessRouteEntries<T extends {
@@ -67,7 +67,10 @@ export function sortProcessRouteEntries<T extends {
   routeStepNo?: number
   routeLaneNo?: number
 }>(entries: T[]): T[] {
-  return [...entries].sort(compareRouteBase)
+  return entries
+    .map((entry, index) => ({ entry, index }))
+    .sort((left, right) => compareRouteBase(left.entry, right.entry) || left.index - right.index)
+    .map(({ entry }) => entry)
 }
 
 export function normalizeProcessRouteEntries<T extends NormalizableRouteEntry>(entries: T[]): T[] {
