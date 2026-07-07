@@ -280,10 +280,9 @@ for (const [type, from, to] of transferDirections) {
   const rule = rules.find((item) => item.type === type)
   const ruleText = `${rule?.triggerText ?? ''}${rule?.resolveText ?? ''}`
   const directionText = `${from} -> ${to}`
-  assert.ok(
-    ruleText.includes(directionText) || html.includes(directionText),
-    `${type} 必须明确调拨方向：${directionText}`,
-  )
+  const escapedDirectionText = directionText.replace('->', '-&gt;')
+  assert.ok(ruleText.includes(directionText), `${type} 规则必须明确调拨方向：${directionText}`)
+  assert.ok(html.includes(escapedDirectionText), `${type} 页面必须可见调拨方向：${directionText}`)
 }
 
 assert.ok(
