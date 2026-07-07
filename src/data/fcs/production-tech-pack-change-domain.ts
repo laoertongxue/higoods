@@ -968,10 +968,10 @@ const productionOrderChangeOrderPlans: Array<{
 }> = [
   { scenarioId: 'SCN-001', changeResult: 'VERSION_RELATION', productionOrderId: 'PO-202603-0006' },
   { scenarioId: 'SCN-002', changeResult: 'VERSION_RELATION', productionOrderId: 'PO-202604-0018' },
-  { scenarioId: 'SCN-005', changeResult: 'VERSION_RELATION', productionOrderId: 'PO-202603-0011' },
+  { scenarioId: 'SCN-077', changeResult: 'VERSION_RELATION', productionOrderId: 'PO-202603-0011' },
   { scenarioId: 'SCN-006', changeResult: 'VERSION_RELATION', productionOrderId: 'PO-202603-0012' },
-  { scenarioId: 'SCN-008', changeResult: 'VERSION_RELATION', productionOrderId: 'PO-202603-0013' },
-  { scenarioId: 'SCN-039', changeResult: 'VERSION_RELATION', productionOrderId: 'PO-202603-0014' },
+  { scenarioId: 'SCN-007', changeResult: 'VERSION_RELATION', productionOrderId: 'PO-202603-0013' },
+  { scenarioId: 'SCN-039', changeResult: 'PRODUCTION_PATCH', productionOrderId: 'PO-202603-0014' },
   {
     scenarioId: 'SCN-013',
     changeResult: 'PRODUCTION_PATCH',
@@ -988,14 +988,14 @@ const productionOrderChangeOrderPlans: Array<{
   { scenarioId: 'SCN-004', changeResult: 'VERSION_AND_PATCH', productionOrderId: 'PO-202603-0021' },
   { scenarioId: 'SCN-009', changeResult: 'VERSION_AND_PATCH', productionOrderId: 'PO-202603-0022' },
   { scenarioId: 'SCN-010', changeResult: 'VERSION_AND_PATCH', productionOrderId: 'PO-202603-0023' },
-  { scenarioId: 'SCN-024', changeResult: 'VERSION_AND_PATCH', productionOrderId: 'PO-202603-0024' },
-  { scenarioId: 'SCN-034', changeResult: 'VERSION_AND_PATCH', productionOrderId: 'PO-202603-0025' },
-  { scenarioId: 'SCN-007', changeResult: 'RECORD_ONLY', productionOrderId: 'PO-202603-0027' },
+  { scenarioId: 'SCN-005', changeResult: 'VERSION_AND_PATCH', productionOrderId: 'PO-202603-0024' },
+  { scenarioId: 'SCN-008', changeResult: 'VERSION_AND_PATCH', productionOrderId: 'PO-202603-0025' },
+  { scenarioId: 'SCN-022', changeResult: 'RECORD_ONLY', productionOrderId: 'PO-202603-0027' },
   { scenarioId: 'SCN-011', changeResult: 'RECORD_ONLY', productionOrderId: 'PO-202603-0028' },
   { scenarioId: 'SCN-044', changeResult: 'RECORD_ONLY', productionOrderId: 'PO-202603-0032' },
-  { scenarioId: 'SCN-012', changeResult: 'COST_ONLY', productionOrderId: 'PO-202603-0029' },
+  { scenarioId: 'SCN-021', changeResult: 'COST_ONLY', productionOrderId: 'PO-202603-0029' },
   { scenarioId: 'SCN-054', changeResult: 'COST_ONLY', productionOrderId: 'PO-202603-0030' },
-  { scenarioId: 'SCN-059', changeResult: 'COST_ONLY', productionOrderId: 'PO-202603-0031' },
+  { scenarioId: 'SCN-051', changeResult: 'COST_ONLY', productionOrderId: 'PO-202603-0031' },
 ]
 
 const productionOrderChangeStyleSeeds = [
@@ -1285,9 +1285,14 @@ const productionOrderChangeCostItemNames: Record<ProductionOrderChangeCostType, 
   FEE: ['版费归属差异', '加急物流费', '结算补差费用'],
 }
 
-const productionOrderChangeCostImpacts: ProductionOrderChangeCostImpact[] = productionOrderChangeOrders
-  .slice(0, 18)
-  .map((order, index) => {
+const productionOrderChangeCostImpactOrders = [
+  ...productionOrderChangeOrders.filter((order) => order.changeResult === 'COST_ONLY'),
+  ...productionOrderChangeOrders.filter((order) => order.changeResult !== 'COST_ONLY' && order.costDeltaAmount !== 0),
+  ...productionOrderChangeOrders.filter((order) => order.changeResult !== 'COST_ONLY' && order.costDeltaAmount === 0),
+].slice(0, 18)
+
+const productionOrderChangeCostImpacts: ProductionOrderChangeCostImpact[] = productionOrderChangeCostImpactOrders.map(
+  (order, index) => {
     const costType: ProductionOrderChangeCostType = (['MATERIAL', 'LABOR', 'FEE'] as ProductionOrderChangeCostType[])[index % 3]
     const estimatedAmount = Math.abs(order.costDeltaAmount) + 600 + index * 80
     const actualAmount = estimatedAmount + (index % 2 === 0 ? 120 : -90)
@@ -1309,7 +1314,8 @@ const productionOrderChangeCostImpacts: ProductionOrderChangeCostImpact[] = prod
           ? '进入本次结算补差，需保留变更单和主管确认记录。'
           : '进入本次结算扣减，需同步工厂对账说明。',
     }
-  })
+  },
+)
 
 const productionOrderChangeTimingImpactOrders = [
   ...productionOrderChangeOrders.filter((order) => order.source === 'DELIVERY_REQUIREMENT_CHANGE'),

@@ -743,6 +743,13 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'select-production-change-order') {
+    const changeOrderId = actionNode.dataset.changeOrderId
+    if (!changeOrderId) return true
+    state.productionChangeSelectedOrderId = changeOrderId
+    return true
+  }
+
   if (action === 'open-production-change-history') {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true

@@ -262,6 +262,7 @@ interface ProductionState {
   techPackChangeModuleFilter: 'ALL' | string
   techPackChangeProgressFilter: 'ALL' | string
   techPackChangeOwnerFilter: 'ALL' | string
+  productionChangeSelectedOrderId: string
   techPackChangeDetailTab: TechPackChangeDetailTab
   techPackChangeVersionDialogOrderId: string | null
   techPackChangeVersionForm: TechPackVersionChangeForm
@@ -1942,6 +1943,7 @@ const state: ProductionState = {
   techPackChangeModuleFilter: 'ALL',
   techPackChangeProgressFilter: 'ALL',
   techPackChangeOwnerFilter: 'ALL',
+  productionChangeSelectedOrderId: '',
   techPackChangeDetailTab: 'relation',
   techPackChangeVersionDialogOrderId: null,
   techPackChangeVersionForm: { ...TECH_PACK_VERSION_CHANGE_EMPTY_FORM },

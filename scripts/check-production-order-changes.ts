@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { renderProductionChangesPage } from '../src/pages/production/changes-domain.ts'
+import { state } from '../src/pages/production/context.ts'
 import {
   listProductionOrderChangeScenarioCatalog,
   listProductionOrderChangeOrders,
@@ -41,6 +42,7 @@ const impacts = listProductionOrderChangeImpactRows()
 const documentActions = listProductionOrderChangeDocumentActions()
 const costImpacts = listProductionOrderChangeCostImpacts()
 const timingImpacts = listProductionOrderChangeTimingImpacts()
+const scenariosById = new Map(scenarios.map((scenario) => [scenario.id, scenario]))
 
 assert.equal(scenarios.length, 80, '生产单变更场景目录必须正好 80 条')
 assert.ok(orders.length >= 24, '变更单样例至少 24 条')
@@ -77,6 +79,13 @@ assert.ok(
 assert.ok(
   orders.some((order) => order.changeResult === 'COST_ONLY'),
   '变更单缺少结果类型 COST_ONLY',
+)
+
+const mismatchedOrders = orders.filter((order) => scenariosById.get(order.scenarioId)?.expectedResult !== order.changeResult)
+assert.deepEqual(
+  mismatchedOrders.map((order) => order.id),
+  [],
+  '变更单的系统反推结果必须与场景目录的预期结果一致',
 )
 
 assert.ok(
@@ -120,6 +129,15 @@ assert.ok(
   '至少一条成本影响行必须包含预计金额、实际金额和责任方',
 )
 
+const costImpactsByChangeOrderId = new Map<string, number>()
+costImpacts.forEach((row) => {
+  costImpactsByChangeOrderId.set(row.changeOrderId, (costImpactsByChangeOrderId.get(row.changeOrderId) ?? 0) + 1)
+})
+const costOnlyOrdersWithoutCostImpacts = orders
+  .filter((order) => order.changeResult === 'COST_ONLY' && (costImpactsByChangeOrderId.get(order.id) ?? 0) === 0)
+  .map((order) => order.id)
+assert.deepEqual(costOnlyOrdersWithoutCostImpacts, [], '仅成本/结算差异变更单必须有料工费差异明细')
+
 assert.ok(
   (timingImpacts as Array<Record<string, unknown>>).some((row) => (
     hasText(row.originalTime) &&
@@ -133,6 +151,20 @@ assert.ok(
 const appShellConfig = fs.readFileSync(path.resolve(process.cwd(), 'src/data/app-shell-config.ts'), 'utf8')
 assert.ok(appShellConfig.includes('生产单变更管理'), '菜单配置必须包含「生产单变更管理」')
 assert.ok(!appShellConfig.includes('生产单变更影响台账'), '菜单配置不应包含「生产单变更影响台账」')
+
+const secondOrder = orders[1]
+assert.ok(secondOrder, '至少需要第二条变更单用于详情切换检查')
+state.productionChangeSelectedOrderId = secondOrder.id
+const selectedHtml = renderProductionChangesPage()
+assert.ok(
+  selectedHtml.includes(`data-change-order-id="${secondOrder.id}"`),
+  '变更单列表的查看详情按钮必须携带变更单 ID',
+)
+assert.ok(
+  selectedHtml.includes(`${secondOrder.id} · ${secondOrder.productionOrderId}`),
+  '闭环详情必须能按当前选中的变更单展示',
+)
+assert.ok(!selectedHtml.includes('默认展示第一条变更单详情'), '闭环详情不应固定提示默认展示第一条变更单')
 
 assert.ok(
   fs.existsSync(path.resolve(process.cwd(), 'docs/prototype-review-records/2026-07-07-production-order-change-management.md')),

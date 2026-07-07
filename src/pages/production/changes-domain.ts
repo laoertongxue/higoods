@@ -1352,7 +1352,7 @@ function renderChangeTable(headers: string[], rows: string[], emptyText: string,
   `
 }
 
-function renderProductionChangeOrderList(orders: ProductionOrderChangeOrderView[]): string {
+function renderProductionChangeOrderList(orders: ProductionOrderChangeOrderView[], selectedOrderId: string): string {
   const visibleOrders = orders.slice(0, 12)
   return `
     <section class="overflow-hidden rounded-lg border bg-background">
@@ -1370,7 +1370,7 @@ function renderProductionChangeOrderList(orders: ProductionOrderChangeOrderView[
       ${renderChangeTable(
         ['变更单号', '生产单号', '款式 / SPU', '变更来源', '变更模块', '期望生效口径', '系统反推结果', '执行策略', '锁定状态', '状态', '最后记录', '动作'],
         visibleOrders.map((order) => `
-          <tr class="align-top hover:bg-muted/20">
+          <tr class="align-top hover:bg-muted/20 ${order.id === selectedOrderId ? 'bg-blue-50/70' : ''}">
             <td class="px-3 py-3 font-medium">${escapeHtml(order.id)}</td>
             <td class="px-3 py-3">${escapeHtml(order.productionOrderId)}</td>
             <td class="px-3 py-3">
@@ -1390,7 +1390,7 @@ function renderProductionChangeOrderList(orders: ProductionOrderChangeOrderView[
             <td class="px-3 py-3">${escapeHtml(order.latestLog)}</td>
             <td class="px-3 py-3">
               <div class="flex min-w-[148px] flex-wrap gap-1.5">
-                <button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="open-production-change-detail" data-order-id="${escapeHtml(order.productionOrderId)}">查看详情</button>
+                <button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="select-production-change-order" data-change-order-id="${escapeHtml(order.id)}">查看详情</button>
                 <button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="open-tech-pack-version-change" data-order-id="${escapeHtml(order.productionOrderId)}">变更版本</button>
                 <button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="open-production-patch" data-order-id="${escapeHtml(order.productionOrderId)}">发起补丁</button>
                 <button class="rounded-md px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="open-production-change-history" data-order-id="${escapeHtml(order.productionOrderId)}">日志</button>
@@ -1511,7 +1511,7 @@ function renderSelectedChangeOrderDetail(
       <div class="rounded-lg border bg-muted/20 p-4">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p class="text-sm text-muted-foreground">默认展示第一条变更单详情</p>
+            <p class="text-sm text-muted-foreground">当前展示变更单详情</p>
             <h2 class="mt-1 text-xl font-semibold">${escapeHtml(order.id)} · ${escapeHtml(order.productionOrderId)}</h2>
             <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(order.styleName)} / ${escapeHtml(order.spuCode)}</p>
           </div>
@@ -1579,7 +1579,7 @@ function renderProductionChangeClosedLoop(input: {
   costImpacts: ProductionOrderChangeCostImpactView[]
   timingImpacts: ProductionOrderChangeTimingImpactView[]
 }): string {
-  const selectedOrder = input.orders[0]
+  const selectedOrder = input.orders.find((order) => order.id === state.productionChangeSelectedOrderId) ?? input.orders[0]
   const selectedScenario = selectedOrder
     ? input.scenarios.find((scenario) => scenario.id === selectedOrder.scenarioId)
     : undefined
@@ -1587,7 +1587,7 @@ function renderProductionChangeClosedLoop(input: {
   return `
     ${renderProductionChangeStatCards(input)}
     ${renderScenarioCoveragePanel(input.scenarios)}
-    ${renderProductionChangeOrderList(input.orders)}
+    ${renderProductionChangeOrderList(input.orders, selectedOrder?.id ?? '')}
     ${selectedOrder ? renderSelectedChangeOrderDetail(selectedOrder, selectedScenario, {
       impacts: input.impacts.filter((item) => item.changeOrderId === selectedOrder.id),
       documentActions: input.documentActions.filter((item) => item.changeOrderId === selectedOrder.id),
