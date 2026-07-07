@@ -82,11 +82,20 @@ function ensureGeneratedCutOrdersTraceable(): void {
     assert(record.cutOrderSourceLabel, `裁片单 ${record.cutOrderNo} 缺少来源类型`)
     assert(record.cutReturnModeLabel, `裁片单 ${record.cutOrderNo} 缺少回流方式`)
     assert(record.internalCraftOrderPolicyLabel, `裁片单 ${record.cutOrderNo} 缺少我方加工单策略`)
-    assert(
-      record.cutOrderSourceType !== 'CONTINUOUS_WITH_CUTTING_TASK'
-      || record.internalCraftOrderPolicy === 'DO_NOT_GENERATE',
-      `含裁片连续任务裁片单 ${record.cutOrderNo} 不得生成我方加工单`,
-    )
+    if (record.cutOrderSourceType === 'CONTINUOUS_WITH_CUTTING_TASK') {
+      assert(record.cutOrderSourceLabel === '含裁片连续任务', `裁片单 ${record.cutOrderNo} 含裁片连续任务来源标签错误`)
+      assert(record.cutReturnMode === 'THIRD_PARTY_REPORT_ONLY', `裁片单 ${record.cutOrderNo} 含裁片连续任务回流方式错误`)
+      assert(record.cutReturnModeLabel === '三方上报裁片完成', `裁片单 ${record.cutOrderNo} 含裁片连续任务回流方式标签错误`)
+      assert(record.internalCraftOrderPolicy === 'DO_NOT_GENERATE', `含裁片连续任务裁片单 ${record.cutOrderNo} 不得生成我方加工单`)
+      assert(record.internalCraftOrderPolicyLabel === '不生成我方加工单', `裁片单 ${record.cutOrderNo} 含裁片连续任务我方加工单策略标签错误`)
+    } else {
+      assert(record.cutOrderSourceType === 'INDEPENDENT_CUTTING_TASK', `裁片单 ${record.cutOrderNo} 来源类型错误`)
+      assert(record.cutOrderSourceLabel === '独立裁片任务', `裁片单 ${record.cutOrderNo} 独立裁片任务来源标签错误`)
+      assert(record.cutReturnMode === 'RETURN_TO_OWN_CUTTING_WAREHOUSE', `裁片单 ${record.cutOrderNo} 独立裁片任务回流方式错误`)
+      assert(record.cutReturnModeLabel === '回我方裁床待交出仓', `裁片单 ${record.cutOrderNo} 独立裁片任务回流方式标签错误`)
+      assert(record.internalCraftOrderPolicy === 'GENERATE_AFTER_RETURN', `裁片单 ${record.cutOrderNo} 独立裁片任务我方加工单策略错误`)
+      assert(record.internalCraftOrderPolicyLabel === '回仓后生成我方加工单', `裁片单 ${record.cutOrderNo} 独立裁片任务我方加工单策略标签错误`)
+    }
 
     const order = productionOrders.find((item) => item.productionOrderId === record.productionOrderId)
     assert(order, `裁片单 ${record.cutOrderNo} 无法回溯到 production order ${record.productionOrderId}`)
