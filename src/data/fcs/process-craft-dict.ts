@@ -2088,6 +2088,26 @@ export function listProcessDefinitions(): ProcessDefinition[] {
     })
 }
 
+export function listDefaultProcessRouteOrders(): Array<{
+  processCode: string
+  processName: string
+  stageCode: CraftStageCode
+  stageName: string
+  routeOrder: number
+}> {
+  return listProcessDefinitions().map((process, index) => ({
+    processCode: process.processCode,
+    processName: process.processName,
+    stageCode: process.stageCode,
+    stageName: getProcessStageByCode(process.stageCode)?.stageName ?? process.stageCode,
+    routeOrder: index + 1,
+  }))
+}
+
+export function getDefaultProcessRouteOrder(processCode: string): number {
+  return listDefaultProcessRouteOrders().find((item) => item.processCode === processCode)?.routeOrder ?? Number.MAX_SAFE_INTEGER
+}
+
 export function getProcessDefinitionByCode(processCode: string): ProcessDefinition | undefined {
   return processDefinitionByCode.get(processCode)
 }
