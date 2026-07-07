@@ -1,5 +1,6 @@
 import { penaltyRules, settlementProfiles } from './settlement-mock-data.ts'
 import { getFactoryByCode, getFactoryById } from './indonesia-factories.ts'
+import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import type {
   CycleType,
   PricingMode,
@@ -1080,7 +1081,16 @@ export function getSettlementStatusClass(status: SettlementChangeRequestStatus):
 }
 
 export function getSettlementEffectiveInfoByFactory(factoryId: string): SettlementEffectiveInfo | null {
-  return getEffectiveInfoByFactoryOrNull(factoryId)
+  const direct = getEffectiveInfoByFactoryOrNull(factoryId)
+  if (direct) return direct
+
+  const factory = getFactoryById(factoryId) ?? getFactoryByCode(factoryId)
+  if (factory?.code) return getEffectiveInfoByFactoryOrNull(factory.code)
+
+  const master = getFactoryMasterRecordById(factoryId)
+  if (master?.code && master.code !== factoryId) return getEffectiveInfoByFactoryOrNull(master.code)
+
+  return null
 }
 
 function parseDateTimeForCompare(value?: string): number {

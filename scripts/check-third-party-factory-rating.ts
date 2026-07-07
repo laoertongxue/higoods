@@ -5,6 +5,8 @@ import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.t
 import { listSewingFactoryOptions } from '../src/data/fcs/sewing-dispatch-workbench.ts'
 import { listStatementBuildScopes } from '../src/data/fcs/store-domain-statement-source-adapter.ts'
 import { listStatements } from '../src/data/fcs/store-domain-settlement-seeds.ts'
+import { getSettlementEffectiveInfoByFactory } from '../src/data/fcs/settlement-change-requests.ts'
+import { deriveSettlementCycleFields } from '../src/data/fcs/store-domain-statement-grain.ts'
 import {
   getThirdPartyFactoryRatingSnapshot,
   isThirdPartyFactorySettlementBlocked,
@@ -51,6 +53,8 @@ for (const snapshot of snapshots) {
 }
 for (const factory of thirdPartySewingFactories) {
   assert.ok(getThirdPartyFactoryRatingSnapshot(factory.id), `${factory.id} ${factory.name} 缺少评级快照`)
+  assert.ok(getSettlementEffectiveInfoByFactory(factory.id), `${factory.id} 必须能用工厂主键命中结算主数据`)
+  assert.ok(getSettlementEffectiveInfoByFactory(factory.code), `${factory.id} 必须能用工厂编码命中结算主数据`)
 }
 
 const buildScopes = listStatementBuildScopes()
@@ -63,6 +67,8 @@ for (const factory of thirdPartySewingFactories) {
   const hasStatement = statements.some((item) => item.settlementPartyId === factory.id)
   const hasBuildScope = buildScopes.some((item) => item.settlementPartyId === factory.id)
   assert.ok(hasStatement || hasBuildScope, `${factory.id} ${factory.name} 必须串联到对账单或待生成候选流水`)
+  const cycle = deriveSettlementCycleFields(factory.id, '2026-03-06 10:00:00')
+  assert.ok(cycle.settlementCycleLabel.startsWith('三旬结算'), `${factory.id} 必须按三方车缝旬结口径生成结算周期`)
 }
 
 const source = readFileSync(new URL('../src/data/fcs/third-party-factory-rating.ts', import.meta.url), 'utf8')
