@@ -56,9 +56,31 @@
 
 - 创建：`src/data/fcs/task-generation-boundaries.ts`
 - 创建：`scripts/check-third-party-cutting-task-boundaries.ts`
+- 修改：`src/data/fcs/production-orders.ts`
 - 修改：`package.json`
 
 - [ ] **步骤 1：编写失败的边界检查脚本**
+
+先补齐一个稳定的含裁片连续任务生产单样本。优先复用 `PO-202603-0007`，把它的 `taskBreakdownSummary` 扩成完整摘要：
+
+```typescript
+taskBreakdownSummary: {
+  isBrokenDown: true,
+  taskTypesTop3: ['裁片+车缝连续任务'],
+  lastBreakdownAt: '2026-03-03 11:00:00',
+  lastBreakdownBy: 'Yudi Prakoso',
+  generationRuleName: '任务清单人工合并',
+  generatedTaskUnitCount: 1,
+  singleProcessTaskCount: 0,
+  independentWorkOrderTaskCount: 0,
+  independentRequirementCount: 0,
+  independentWorkOrderCount: 0,
+  combinedProcessTaskCount: 1,
+  wholeOrderTaskCount: 0,
+  coveredProcessNames: ['裁片', '车缝', '后道'],
+  previewStatus: 'READY',
+},
+```
 
 创建 `scripts/check-third-party-cutting-task-boundaries.ts`：
 
@@ -207,7 +229,7 @@ npm run check:third-party-cutting-task-boundaries
 - [ ] **步骤 6：Commit**
 
 ```bash
-git add package.json scripts/check-third-party-cutting-task-boundaries.ts src/data/fcs/task-generation-boundaries.ts
+git add package.json scripts/check-third-party-cutting-task-boundaries.ts src/data/fcs/task-generation-boundaries.ts src/data/fcs/production-orders.ts
 git commit -m "feat: add production task boundary rules"
 ```
 
