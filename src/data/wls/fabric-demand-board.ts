@@ -14,6 +14,12 @@ export type FabricDemandBoardAlertType =
   | '印花待调拨'
   | '染色待调拨'
 
+export type FabricDemandBoardNextAction =
+  | '中央仓面料仓调拨至印花待加工仓'
+  | '中央仓面料仓调拨至染色待加工仓'
+  | '中央仓面料仓调拨至中转仓'
+  | '采购跟单跟进'
+
 export interface FabricDemandBoardWarehouseStock {
   warehouseName: FabricDemandBoardWarehouseName
   areaName: string
@@ -74,6 +80,7 @@ export interface FabricDemandBoardFilters {
   printRequirement: '全部' | '需印花' | '不需印花'
   dyeRequirement: '全部' | '需染色' | '不需染色'
   alertType: '全部' | FabricDemandBoardAlertType
+  nextAction: '全部' | FabricDemandBoardNextAction
   warehouseName: '全部' | FabricDemandBoardWarehouseName
 }
 
@@ -94,8 +101,17 @@ export const defaultFabricDemandBoardFilters: FabricDemandBoardFilters = {
   printRequirement: '全部',
   dyeRequirement: '全部',
   alertType: '全部',
+  nextAction: '全部',
   warehouseName: '全部',
 }
+
+export const fabricDemandBoardNextActions: Array<'全部' | FabricDemandBoardNextAction> = [
+  '全部',
+  '中央仓面料仓调拨至印花待加工仓',
+  '中央仓面料仓调拨至染色待加工仓',
+  '中央仓面料仓调拨至中转仓',
+  '采购跟单跟进',
+]
 
 function stock(
   warehouseName: FabricDemandBoardWarehouseName,
@@ -333,6 +349,15 @@ export function getWarehouseQty(row: FabricDemandBoardRow, warehouseName: Fabric
     .reduce((sum, stockItem) => sum + stockItem.qty, 0)
 }
 
+function matchesNextAction(row: FabricDemandBoardRow, nextAction: FabricDemandBoardFilters['nextAction']): boolean {
+  if (nextAction === '全部') return true
+  const alertTypes = row.alerts.map((item) => item.type)
+  if (nextAction === '中央仓面料仓调拨至印花待加工仓') return alertTypes.includes('印花待调拨')
+  if (nextAction === '中央仓面料仓调拨至染色待加工仓') return alertTypes.includes('染色待调拨')
+  if (nextAction === '中央仓面料仓调拨至中转仓') return alertTypes.includes('直裁待调拨')
+  return alertTypes.some((type) => type === '缺直裁面料' || type === '缺印花原料' || type === '缺染色原料')
+}
+
 export function formatFabricDemandQty(qty: number): string {
   const yardQty = Math.max(qty, 0)
   const rollQty = yardQty === 0 ? 0 : Math.ceil(yardQty / 100)
@@ -366,6 +391,7 @@ export function filterFabricDemandBoardRows(
     if (filters.dyeRequirement === '需染色' && !row.requiresDye) return false
     if (filters.dyeRequirement === '不需染色' && row.requiresDye) return false
     if (filters.alertType !== '全部' && !row.alerts.some((item) => item.type === filters.alertType)) return false
+    if (!matchesNextAction(row, filters.nextAction)) return false
     if (filters.warehouseName !== '全部' && !row.warehouseStocks.some((item) => item.warehouseName === filters.warehouseName)) return false
     if (!keyword) return true
 

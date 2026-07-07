@@ -185,6 +185,13 @@ const transferDirections = [
   ['染色待调拨', '中央仓面料仓', '染色厂待加工仓'],
 ] as const
 
+const nextActionOptions = [
+  '中央仓面料仓调拨至印花待加工仓',
+  '中央仓面料仓调拨至染色待加工仓',
+  '中央仓面料仓调拨至中转仓',
+  '采购跟单跟进',
+] as const
+
 const keywordRow = rows.find((row) => row.materialSku.trim())
 assert.ok(keywordRow, '缺少可用于关键词筛选的目标面料 SKU')
 const keywordRows = filterFabricDemandBoardRows(rows, {
@@ -193,6 +200,7 @@ const keywordRows = filterFabricDemandBoardRows(rows, {
   printRequirement: '全部',
   dyeRequirement: '全部',
   alertType: '全部',
+  nextAction: '全部',
   warehouseName: '全部',
 })
 assert.ok(keywordRows.length > 0, '关键词筛选应能命中面料 SKU')
@@ -205,11 +213,74 @@ const alertRows = filterFabricDemandBoardRows(rows, {
   printRequirement: '全部',
   dyeRequirement: '全部',
   alertType: '印花待调拨',
+  nextAction: '全部',
   warehouseName: '全部',
 })
 assert.ok(alertRows.length > 0, '异常类型筛选应能命中印花待调拨')
 assert.ok(alertRows.every((row) => row.alerts.some((alert) => alert.type === '印花待调拨')), '异常类型筛选结果不应混入其他异常行')
 assertFilterSummary(alertRows)
+
+const printTransferRows = filterFabricDemandBoardRows(rows, {
+  keyword: '',
+  materialType: '全部',
+  printRequirement: '全部',
+  dyeRequirement: '全部',
+  alertType: '全部',
+  nextAction: '中央仓面料仓调拨至印花待加工仓',
+  warehouseName: '全部',
+})
+assert.ok(printTransferRows.length > 0, '后续建议工作筛选应能命中印花调拨')
+assert.ok(
+  printTransferRows.every((row) => row.alerts.some((alert) => alert.type === '印花待调拨')),
+  '印花调拨建议工作不应混入非印花待调拨行',
+)
+
+const dyeTransferRows = filterFabricDemandBoardRows(rows, {
+  keyword: '',
+  materialType: '全部',
+  printRequirement: '全部',
+  dyeRequirement: '全部',
+  alertType: '全部',
+  nextAction: '中央仓面料仓调拨至染色待加工仓',
+  warehouseName: '全部',
+})
+assert.ok(dyeTransferRows.length > 0, '后续建议工作筛选应能命中染色调拨')
+assert.ok(
+  dyeTransferRows.every((row) => row.alerts.some((alert) => alert.type === '染色待调拨')),
+  '染色调拨建议工作不应混入非染色待调拨行',
+)
+
+const directCutTransferRows = filterFabricDemandBoardRows(rows, {
+  keyword: '',
+  materialType: '全部',
+  printRequirement: '全部',
+  dyeRequirement: '全部',
+  alertType: '全部',
+  nextAction: '中央仓面料仓调拨至中转仓',
+  warehouseName: '全部',
+})
+assert.ok(directCutTransferRows.length > 0, '后续建议工作筛选应能命中直裁调拨')
+assert.ok(
+  directCutTransferRows.every((row) => row.alerts.some((alert) => alert.type === '直裁待调拨')),
+  '直裁调拨建议工作不应混入非直裁待调拨行',
+)
+
+const purchaseFollowRows = filterFabricDemandBoardRows(rows, {
+  keyword: '',
+  materialType: '全部',
+  printRequirement: '全部',
+  dyeRequirement: '全部',
+  alertType: '全部',
+  nextAction: '采购跟单跟进',
+  warehouseName: '全部',
+})
+assert.ok(purchaseFollowRows.length > 0, '后续建议工作筛选应能命中采购跟单跟进')
+assert.ok(
+  purchaseFollowRows.every((row) =>
+    row.alerts.some((alert) => ['缺直裁面料', '缺印花原料', '缺染色原料'].includes(alert.type)),
+  ),
+  '采购跟单跟进不应混入待调拨行',
+)
 
 const zeroWarehouseRows = filterFabricDemandBoardRows(
   [
@@ -228,6 +299,7 @@ const zeroWarehouseRows = filterFabricDemandBoardRows(
     printRequirement: '全部',
     dyeRequirement: '全部',
     alertType: '全部',
+    nextAction: '全部',
     warehouseName: '中转仓',
   },
 )
@@ -261,6 +333,8 @@ for (const text of [
   '原料库存',
   '多仓库存',
   '异常预警',
+  '后续建议工作',
+  ...nextActionOptions,
   '中央仓面料仓',
   '印花厂待加工仓',
   '染色厂待加工仓',
