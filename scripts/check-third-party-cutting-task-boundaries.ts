@@ -15,7 +15,8 @@ import {
   shouldGenerateCutOrderForProductionOrder,
   shouldGenerateInternalCraftOrderForProductionOrder,
 } from '../src/data/fcs/task-generation-boundaries.ts'
-import { renderContinuousDispatchPage } from '../src/pages/continuous-dispatch.ts'
+import { listRuntimeProcessTasks } from '../src/data/fcs/runtime-process-tasks.ts'
+import { handleContinuousDispatchEvent, renderContinuousDispatchPage } from '../src/pages/continuous-dispatch.ts'
 import { renderTaskBreakdownPage } from '../src/pages/task-breakdown.ts'
 
 function makeSyntheticOrder(productionOrderId: string, taskBreakdownSummary: TaskBreakdownSummary): ProductionOrder {
@@ -27,6 +28,13 @@ function makeSyntheticOrder(productionOrderId: string, taskBreakdownSummary: Tas
     productionOrderNo: productionOrderId,
     taskBreakdownSummary,
   }
+}
+
+function taskCoversCutting(task: { processNameZh?: string; coveredProcesses?: Array<{ processName?: string }> }): boolean {
+  return Boolean(
+    task.processNameZh?.includes('裁')
+    || task.coveredProcesses?.some((process) => process.processName?.includes('裁')),
+  )
 }
 
 const wholeOrder = productionOrders.find((order) => (order.taskBreakdownSummary.wholeOrderTaskCount ?? 0) > 0)
@@ -214,5 +222,39 @@ const continuousDispatchHtml = renderContinuousDispatchPage()
 assert(continuousDispatchHtml.includes('含裁片连续任务'), '连续分配渲染结果必须包含含裁片连续任务')
 assert(continuousDispatchHtml.includes('三方上报裁片完成数量和可做成衣数'), '连续分配渲染结果必须包含三方上报裁片完成数量和可做成衣数')
 assert(continuousDispatchHtml.includes('不生成我方加工单'), '连续分配渲染结果必须包含不生成我方加工单')
+
+const runtimeTasks = listRuntimeProcessTasks()
+const runtimeCuttingContinuousTasks = runtimeTasks.filter((task) =>
+  task.taskUnitType === 'COMBINED_PROCESS_TASK' && taskCoversCutting(task),
+)
+assert(runtimeCuttingContinuousTasks.length > 0, 'runtime 必须存在至少 1 条含裁片连续任务')
+
+const cuttingContinuousTask = runtimeCuttingContinuousTasks[0]
+handleContinuousDispatchEvent({
+  closest(selector: string) {
+    if (selector === '[data-continuous-dispatch-action]') {
+      return {
+        dataset: {
+          continuousDispatchAction: 'switch-tab',
+          tab: 'WITH_CUTTING',
+        },
+      }
+    }
+    return null
+  },
+} as unknown as HTMLElement)
+const continuousDispatchWithCuttingHtml = renderContinuousDispatchPage()
+const taskAnchor = cuttingContinuousTask.taskNo || cuttingContinuousTask.taskId
+const anchorIndex = continuousDispatchWithCuttingHtml.indexOf(taskAnchor)
+assert(anchorIndex >= 0, '含裁片连续任务 Tab 必须渲染真实含裁片任务行')
+const rowEndIndex = continuousDispatchWithCuttingHtml.indexOf('</tr>', anchorIndex)
+const cuttingContinuousRowHtml = continuousDispatchWithCuttingHtml.slice(anchorIndex, rowEndIndex >= 0 ? rowEndIndex : undefined)
+;[
+  '我方裁床排唛架',
+  '三方上报裁片完成数量和可做成衣数',
+  '不生成我方加工单',
+].forEach((token) => {
+  assert(cuttingContinuousRowHtml.includes(token), `含裁片连续任务行缺少 ${token}`)
+})
 
 console.log('check-third-party-cutting-task-boundaries PASS')

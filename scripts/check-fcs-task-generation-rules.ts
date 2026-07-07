@@ -386,6 +386,47 @@ async function main(): Promise<void> {
   const combinedRuntimeTasks = runtimeTasks.filter((task: { taskUnitType?: string }) =>
     task.taskUnitType === 'COMBINED_PROCESS_TASK'
   )
+  const cuttingContinuousRuntimeTasks = combinedRuntimeTasks.filter((task: {
+    processNameZh?: string
+    coveredProcesses?: Array<{ processName?: string }>
+  }) =>
+    task.processNameZh?.includes('裁')
+    || task.coveredProcesses?.some((process) => process.processName?.includes('裁')),
+  )
+  assert(cuttingContinuousRuntimeTasks.length > 0, 'runtime 缺少含裁片连续任务演示')
+  const cuttingContinuousRuntimeTask = cuttingContinuousRuntimeTasks[0]
+  assert(
+    ['TASKGEN-202603-082-001__ORDER', 'TASKGEN-202603-082-002__ORDER'].every((taskId) =>
+      cuttingContinuousRuntimeTask.mergeSourceTaskIds?.includes(taskId)
+    ),
+    '含裁片连续任务必须由 PO-202603-082 的裁片和车缝任务合并生成',
+  )
+  const continuousDispatchPage = await import(pathToFileURL(path.join(ROOT, 'src/pages/continuous-dispatch.ts')).href)
+  continuousDispatchPage.handleContinuousDispatchEvent({
+    closest(selector: string) {
+      if (selector === '[data-continuous-dispatch-action]') {
+        return {
+          dataset: {
+            continuousDispatchAction: 'switch-tab',
+            tab: 'WITH_CUTTING',
+          },
+        }
+      }
+      return null
+    },
+  })
+  const continuousDispatchWithCuttingHtml = continuousDispatchPage.renderContinuousDispatchPage()
+  const cuttingTaskAnchor = cuttingContinuousRuntimeTask.taskNo || cuttingContinuousRuntimeTask.taskId
+  const cuttingTaskIndex = continuousDispatchWithCuttingHtml.indexOf(cuttingTaskAnchor)
+  assert(cuttingTaskIndex >= 0, '含裁片连续任务 Tab 必须渲染真实含裁片任务行')
+  const cuttingTaskRowEndIndex = continuousDispatchWithCuttingHtml.indexOf('</tr>', cuttingTaskIndex)
+  const cuttingTaskRowHtml = continuousDispatchWithCuttingHtml.slice(
+    cuttingTaskIndex,
+    cuttingTaskRowEndIndex >= 0 ? cuttingTaskRowEndIndex : undefined,
+  )
+  assertIncludes(cuttingTaskRowHtml, '我方裁床排唛架', '含裁片连续任务行必须展示我方裁床排唛架')
+  assertIncludes(cuttingTaskRowHtml, '三方上报裁片完成数量和可做成衣数', '含裁片连续任务行必须展示三方上报口径')
+  assertIncludes(cuttingTaskRowHtml, '不生成我方加工单', '含裁片连续任务行必须展示不生成我方加工单')
   const kolSampleRuntimeTasks = runtimeTasks.filter((task: {
     saleTypeSnapshot?: string
     taskUnitType?: string

@@ -824,10 +824,16 @@ function applyContinuousMergePlan(tasks: RuntimeProcessTask[], plan: { taskIds: 
 }
 
 function applyManualContinuousMergeDemo(tasks: RuntimeProcessTask[]): RuntimeProcessTask[] {
-  return applyContinuousMergePlan(tasks, {
+  const pleatKnittingDemo = applyContinuousMergePlan(tasks, {
     taskIds: ['TASKGEN-202603-0006-001__ORDER', 'TASKGEN-202603-0006-002__ORDER'],
     mergedTaskId: 'TASKGEN-202603-0006-002__ORDER',
     createdAt: '2026-03-20 10:00:00',
+    createdBy: '生产计划员',
+  })
+  return applyContinuousMergePlan(pleatKnittingDemo, {
+    taskIds: ['TASKGEN-202603-082-001__ORDER', 'TASKGEN-202603-082-002__ORDER'],
+    mergedTaskId: 'TASKGEN-202603-082-002__ORDER',
+    createdAt: '2026-03-20 10:20:00',
     createdBy: '生产计划员',
   })
 }
