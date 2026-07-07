@@ -46,9 +46,16 @@ import {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
 } from '../../data/pcs-technical-data-version-repository.ts'
-import { canEditTechnicalModule } from '../../data/pcs-tech-pack-review.ts'
+import {
+  canEditTechnicalModule,
+  getTechnicalProcessRouteGate,
+} from '../../data/pcs-tech-pack-review.ts'
 import { validateTechPackDesignRequirement } from '../../data/pcs-tech-pack-design-requirement.ts'
-import type { TechnicalModuleKey, TechnicalReviewNodeKey } from '../../data/pcs-technical-data-version-types.ts'
+import type {
+  TechnicalDataVersionContent,
+  TechnicalModuleKey,
+  TechnicalReviewNodeKey,
+} from '../../data/pcs-technical-data-version-types.ts'
 import { listPartTemplateRecords, type PartTemplateRecord } from '../../data/pcs-part-template-library.ts'
 import {
   DETAIL_SPLIT_DIMENSION_LABEL,
@@ -81,6 +88,7 @@ import {
   type BomTriggerField,
 } from './bom-process-linkage.ts'
 import { buildPatternSignature } from './pattern-duplicate-check.ts'
+import { normalizeProcessRouteEntries } from '../../data/tech-pack-process-route.ts'
 
 type TechPackTab =
   | 'pattern'
@@ -91,6 +99,25 @@ type TechPackTab =
   | 'design'
   | 'cost'
 type DifficultyLevel = 'LOW' | 'MEDIUM' | 'HIGH'
+type ProcessRouteStatus = NonNullable<TechnicalDataVersionContent['processRouteStatus']>
+type RouteParallelAcceptanceMode = 'INDEPENDENT_ONLY' | 'WHOLE_GROUP_ALLOWED'
+type RouteSourceKind =
+  | 'DICT_DEFAULT'
+  | 'GARMENT_CATEGORY'
+  | 'BOM_REQUIREMENT'
+  | 'PATTERN_PACKAGE'
+  | 'PIECE_CRAFT'
+  | 'MANUAL'
+type RouteFields = {
+  routeStepNo?: number
+  routeLaneNo?: number
+  routeParallelGroupId?: string
+  routeParallelGroupName?: string
+  routeParallelAcceptanceMode?: RouteParallelAcceptanceMode
+  routeSourceKind?: RouteSourceKind
+  routeUpdatedBy?: string
+  routeUpdatedAt?: string
+}
 
 type TechniqueItem = {
   id: string
@@ -139,6 +166,14 @@ type TechniqueItem = {
   manualFieldsTouched?: boolean
   requiresRemovalConfirmation?: boolean
   linkageStatus?: '已生成' | '待确认'
+  routeStepNo: number
+  routeLaneNo: number
+  routeParallelGroupId?: string
+  routeParallelGroupName?: string
+  routeParallelAcceptanceMode: RouteParallelAcceptanceMode
+  routeSourceKind: RouteSourceKind
+  routeUpdatedBy?: string
+  routeUpdatedAt?: string
 }
 
 type BaselineProcessOption = {
@@ -1610,6 +1645,10 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     difficulty: '中等',
     remark: '',
     source: '字典引用',
+    routeStepNo: 1,
+    routeLaneNo: 1,
+    routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
+    routeSourceKind: 'BOM_REQUIREMENT',
   },
   {
     id: 'tech-default-2',
@@ -1637,6 +1676,10 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     difficulty: '简单',
     remark: '',
     source: '字典引用',
+    routeStepNo: 2,
+    routeLaneNo: 1,
+    routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
+    routeSourceKind: 'DICT_DEFAULT',
   },
   {
     id: 'tech-default-3',
@@ -1664,6 +1707,10 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     difficulty: '中等',
     remark: '',
     source: '字典引用',
+    routeStepNo: 3,
+    routeLaneNo: 1,
+    routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
+    routeSourceKind: 'DICT_DEFAULT',
   },
   {
     id: 'tech-default-post-finishing',
@@ -1691,6 +1738,10 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     difficulty: '中等',
     remark: '所有生产单默认包含后道工序，质检完成后由质检人员判断是否生成后道单。',
     source: '字典引用',
+    routeStepNo: 4,
+    routeLaneNo: 1,
+    routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
+    routeSourceKind: 'DICT_DEFAULT',
   },
 ]
 
@@ -1717,6 +1768,11 @@ interface TechPackPageState {
   processCostRows: ProcessCostRow[]
   customCostRows: CustomCostRow[]
   colorMaterialMappings: ColorMaterialMappingRow[]
+  processRouteStatus: ProcessRouteStatus
+  processRouteConfirmedBy: string
+  processRouteConfirmedAt: string
+  processRouteUpdatedBy: string
+  processRouteUpdatedAt: string
 
   releaseDialogOpen: boolean
   versionLogDialogOpen: boolean
@@ -1839,6 +1895,11 @@ const state: TechPackPageState = {
   processCostRows: [],
   customCostRows: [],
   colorMaterialMappings: [],
+  processRouteStatus: 'UNCONFIRMED',
+  processRouteConfirmedBy: '',
+  processRouteConfirmedAt: '',
+  processRouteUpdatedBy: '',
+  processRouteUpdatedAt: '',
 
   releaseDialogOpen: false,
   versionLogDialogOpen: false,
@@ -1934,6 +1995,97 @@ function toTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
 
+function isPositiveRouteNo(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+function getRouteFields(entry: unknown): RouteFields {
+  return (entry && typeof entry === 'object' ? entry : {}) as RouteFields
+}
+
+function getRouteSourceKind(
+  item: Partial<Pick<TechniqueItem, 'sourceType' | 'linkedPatternIds' | 'isSpecialCraft'>>,
+  routeFields: RouteFields = {},
+): RouteSourceKind {
+  if (routeFields.routeSourceKind) return routeFields.routeSourceKind
+  if (item.sourceType === 'MANUAL') return 'MANUAL'
+  if (item.sourceType === 'BOM') return 'BOM_REQUIREMENT'
+  if ((item.linkedPatternIds ?? []).length > 0) return 'PATTERN_PACKAGE'
+  if (item.isSpecialCraft) return 'PIECE_CRAFT'
+  return 'DICT_DEFAULT'
+}
+
+function withRouteDefaults(item: TechniqueItem, fallbackIndex: number): TechniqueItem {
+  const routeFields = getRouteFields(item)
+  return {
+    ...item,
+    routeStepNo: isPositiveRouteNo(routeFields.routeStepNo) ? routeFields.routeStepNo : fallbackIndex + 1,
+    routeLaneNo: isPositiveRouteNo(routeFields.routeLaneNo) ? routeFields.routeLaneNo : 1,
+    routeParallelGroupId: routeFields.routeParallelGroupId || undefined,
+    routeParallelGroupName: routeFields.routeParallelGroupName || undefined,
+    routeParallelAcceptanceMode: routeFields.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY',
+    routeSourceKind: getRouteSourceKind(item, routeFields),
+    routeUpdatedBy: routeFields.routeUpdatedBy,
+    routeUpdatedAt: routeFields.routeUpdatedAt,
+  }
+}
+
+function normalizeTechniqueRoutes(items: TechniqueItem[]): TechniqueItem[] {
+  const normalized = normalizeProcessRouteEntries(items.map(withRouteDefaults))
+  const byStep = new Map<number, TechniqueItem[]>()
+  normalized.forEach((item) => {
+    byStep.set(item.routeStepNo, [...(byStep.get(item.routeStepNo) ?? []), item])
+  })
+  return normalized.map((item) => {
+    const group = byStep.get(item.routeStepNo) ?? []
+    if (group.length <= 1) {
+      return {
+        ...item,
+        routeParallelGroupId: undefined,
+        routeParallelGroupName: undefined,
+        routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
+      }
+    }
+    const groupId = item.routeParallelGroupId || `route-step-${item.routeStepNo}`
+    return {
+      ...item,
+      routeParallelGroupId: groupId,
+      routeParallelGroupName: item.routeParallelGroupName || `第 ${item.routeStepNo} 步并行组`,
+      routeParallelAcceptanceMode: item.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY',
+    }
+  })
+}
+
+function getProcessRouteSignature(items: TechniqueItem[]): string {
+  return normalizeTechniqueRoutes(items)
+    .map((item) => [
+      item.id,
+      item.processCode,
+      item.craftCode,
+      item.routeStepNo,
+      item.routeLaneNo,
+      item.routeParallelGroupId || '',
+      item.routeParallelAcceptanceMode,
+    ].join('|'))
+    .join('||')
+}
+
+function hasConfirmedProcessRoute(): boolean {
+  return state.processRouteStatus === 'CONFIRMED'
+    && state.techniques.length > 0
+    && state.techniques.every((item) => isPositiveRouteNo(item.routeStepNo) && isPositiveRouteNo(item.routeLaneNo))
+}
+
+function markProcessRouteUnconfirmed(touch = true): void {
+  state.processRouteStatus = 'UNCONFIRMED'
+  state.processRouteConfirmedBy = ''
+  state.processRouteConfirmedAt = ''
+  if (touch) {
+    state.processRouteUpdatedBy = currentUser.name
+    state.processRouteUpdatedAt = toTimestamp()
+  }
+}
+
 function decodeSpuCode(rawSpuCode: string): string {
   try {
     return decodeURIComponent(rawSpuCode)
@@ -2013,6 +2165,12 @@ function applyTechPackState(
   state.currentTechnicalVersionCode = options.technicalVersionCode
   state.techPack = nextTechPack
   state.activeTab = options.activeTab ?? state.activeTab
+  const routeGate = getTechnicalProcessRouteGate(options.technicalVersionId)
+  state.processRouteStatus = routeGate.processRouteStatus ?? 'UNCONFIRMED'
+  state.processRouteConfirmedBy = routeGate.processRouteConfirmedBy || ''
+  state.processRouteConfirmedAt = routeGate.processRouteConfirmedAt || ''
+  state.processRouteUpdatedBy = routeGate.processRouteUpdatedBy || ''
+  state.processRouteUpdatedAt = routeGate.processRouteUpdatedAt || ''
   state.compatibilityMode = false
   state.compatibilityMessage = ''
   state.compatibilitySourceKind = null
@@ -2044,6 +2202,11 @@ function clearTechPackState(spuCode: string, compatibilityMode = false): void {
   state.processCostRows = []
   state.customCostRows = []
   state.colorMaterialMappings = []
+  state.processRouteStatus = 'UNCONFIRMED'
+  state.processRouteConfirmedBy = ''
+  state.processRouteConfirmedAt = ''
+  state.processRouteUpdatedBy = ''
+  state.processRouteUpdatedAt = ''
   state.compatibilityMode = false
   state.compatibilityMessage = ''
   state.compatibilitySourceKind = null
@@ -2141,7 +2304,25 @@ function syncBomDrivenPrepTechniques(
   techniques: TechniqueItem[],
   bomItems: BomItemRow[],
 ): TechniqueItem[] {
-  return syncPreparationProcessesFromBom(techniques, bomItems).techniques
+  const syncedTechniques = syncPreparationProcessesFromBom(techniques, bomItems).techniques
+  const hasMissingRoute = syncedTechniques.some((item) => {
+    const routeFields = getRouteFields(item)
+    return !isPositiveRouteNo(routeFields.routeStepNo) || !isPositiveRouteNo(routeFields.routeLaneNo)
+  })
+  if (!hasMissingRoute) return normalizeTechniqueRoutes(syncedTechniques)
+
+  return normalizeTechniqueRoutes(
+    normalizeProcessRouteEntries(
+      syncedTechniques.map((item, index) => ({
+        ...withRouteDefaults(item, index),
+        routeStepNo: undefined,
+        routeLaneNo: undefined,
+        routeParallelGroupId: undefined,
+        routeParallelGroupName: undefined,
+        routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
+      })),
+    ),
+  )
 }
 
 function getCraftOptionByCode(code: string): CraftOption | null {
@@ -4112,6 +4293,7 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
 
 function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: number): TechniqueItem {
   const normalizedEntry = resolveTechPackProcessEntryRule(entry)
+  const routeFields = getRouteFields(entry)
   const referenceMeta = normalizedEntry.craftCode
     ? getTechniqueReferenceMetaByCraftCode(normalizedEntry.craftCode)
     : getTechniqueReferenceMetaByCraftCode('')
@@ -4177,6 +4359,16 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
     manualFieldsTouched: normalizedEntry.manualFieldsTouched,
     requiresRemovalConfirmation: normalizedEntry.requiresRemovalConfirmation,
     linkageStatus: normalizedEntry.linkageStatus,
+    routeStepNo: isPositiveRouteNo(routeFields.routeStepNo)
+      ? routeFields.routeStepNo
+      : fallbackIndex + 1,
+    routeLaneNo: isPositiveRouteNo(routeFields.routeLaneNo) ? routeFields.routeLaneNo : 1,
+    routeParallelGroupId: routeFields.routeParallelGroupId || undefined,
+    routeParallelGroupName: routeFields.routeParallelGroupName || undefined,
+    routeParallelAcceptanceMode: routeFields.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY',
+    routeSourceKind: getRouteSourceKind(normalizedEntry, routeFields),
+    routeUpdatedBy: routeFields.routeUpdatedBy,
+    routeUpdatedAt: routeFields.routeUpdatedAt,
   }
 }
 
@@ -4185,8 +4377,15 @@ function buildTechniquesFromTechPack(
   bomItems: BomItemRow[] = buildBomItemsFromTechPack(techPack),
 ): TechniqueItem[] {
   if ((techPack.processEntries ?? []).length > 0) {
+    const processEntries = techPack.processEntries ?? []
+    const routeEntries = processEntries.some((entry) => {
+      const routeFields = getRouteFields(entry)
+      return !isPositiveRouteNo(routeFields.routeStepNo) || !isPositiveRouteNo(routeFields.routeLaneNo)
+    })
+      ? normalizeProcessRouteEntries(processEntries)
+      : processEntries
     return syncBomDrivenPrepTechniques(
-      (techPack.processEntries ?? []).map((entry, index) =>
+      routeEntries.map((entry, index) =>
         toTechniqueItemFromEntry(entry, index),
       ),
       bomItems,
@@ -4246,6 +4445,10 @@ function buildTechniquesFromTechPack(
           difficulty: mapDifficultyToZh(item.difficulty),
           remark: '',
           source: '字典引用',
+          routeStepNo: index + 1,
+          routeLaneNo: 1,
+          routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
+          routeSourceKind: getRouteSourceKind({ isSpecialCraft: craft.isSpecialCraft }),
         }
       }
 
@@ -4279,6 +4482,10 @@ function buildTechniquesFromTechPack(
           difficulty: mapDifficultyToZh(item.difficulty),
           remark: '',
           source: '字典引用',
+          routeStepNo: index + 1,
+          routeLaneNo: 1,
+          routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
+          routeSourceKind: 'DICT_DEFAULT',
         }
       }
 
@@ -4308,6 +4515,10 @@ function buildTechniquesFromTechPack(
         difficulty: mapDifficultyToZh(item.difficulty),
         remark: '',
         source: '字典引用',
+        routeStepNo: index + 1,
+        routeLaneNo: 1,
+        routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
+        routeSourceKind: 'DICT_DEFAULT',
       }
     }),
     bomItems,
@@ -4430,7 +4641,7 @@ function getChecklist(): ChecklistItem[] {
       : []),
     { key: 'bom', label: '物料清单', required: true, done: state.bomItems.length > 0 },
     { key: 'pattern', label: '纸样管理', required: true, done: state.patternItems.length > 0 },
-    { key: 'process', label: '工序工艺', required: true, done: state.techniques.length > 0 },
+    { key: 'process', label: '工序工艺', required: true, done: hasConfirmedProcessRoute() },
     { key: 'size', label: '放码规则', required: true, done: state.techPack.sizeTable.length > 0 },
     {
       key: 'color-mapping',
@@ -4459,7 +4670,12 @@ function resolveLatestWoolInternalStyleCode(
 function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { touch: true, persist: true }): void {
   if (!state.techPack) return
 
+  const routeSignatureBefore = getProcessRouteSignature(state.techniques)
   state.techniques = syncBomDrivenPrepTechniques(state.techniques, state.bomItems)
+  const routeSignatureAfter = getProcessRouteSignature(state.techniques)
+  if (state.processRouteStatus === 'CONFIRMED' && routeSignatureBefore !== routeSignatureAfter) {
+    markProcessRouteUnconfirmed(options.touch)
+  }
   syncProcessCostRows()
 
   const checklist = getChecklist()
@@ -4686,6 +4902,14 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       manualFieldsTouched: item.manualFieldsTouched,
       requiresRemovalConfirmation: item.requiresRemovalConfirmation,
       linkageStatus: item.linkageStatus,
+      routeStepNo: item.routeStepNo,
+      routeLaneNo: item.routeLaneNo,
+      routeParallelGroupId: item.routeParallelGroupId,
+      routeParallelGroupName: item.routeParallelGroupName,
+      routeParallelAcceptanceMode: item.routeParallelAcceptanceMode,
+      routeSourceKind: item.routeSourceKind,
+      routeUpdatedBy: item.routeUpdatedBy,
+      routeUpdatedAt: item.routeUpdatedAt,
     })),
     bomItems: state.bomItems.map((item) => {
       const frontPatternDesignIds = getBomPatternDesignIds(item, 'FRONT')
@@ -4792,7 +5016,14 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
   clearTechPackDerivedCache()
 
   if (options.persist !== false && state.currentTechnicalVersionId && !state.compatibilityMode) {
-    const patch = buildTechnicalContentPatchFromLegacyTechPack(next)
+    const patch = {
+      ...buildTechnicalContentPatchFromLegacyTechPack(next),
+      processRouteStatus: state.processRouteStatus,
+      processRouteConfirmedBy: state.processRouteConfirmedBy || undefined,
+      processRouteConfirmedAt: state.processRouteConfirmedAt || undefined,
+      processRouteUpdatedBy: state.processRouteUpdatedBy || undefined,
+      processRouteUpdatedAt: state.processRouteUpdatedAt || undefined,
+    }
     saveTechnicalDataVersionContent(state.currentTechnicalVersionId, patch, currentUser.name)
   }
 }
@@ -5203,6 +5434,9 @@ export {
   toTechniqueItemFromEntry,
   buildTechniquesFromTechPack,
   syncBomDrivenPrepTechniques,
+  normalizeTechniqueRoutes,
+  markProcessRouteUnconfirmed,
+  hasConfirmedProcessRoute,
   buildMaterialCostRows,
   buildProcessCostRows,
   buildCustomCostRows,

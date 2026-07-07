@@ -75,6 +75,7 @@ import {
   getSkuOptionsForCurrentSpu,
   normalizePatternPieceRows,
   normalizePatternBindingStrips,
+  normalizeTechniqueRoutes,
   generatePieceInstancesFromColorQuantities,
   summarizePieceInstances,
   findConfiguredPieceInstancesRemoved,
@@ -85,6 +86,7 @@ import {
   hasPositiveEnabledColorPiece,
   isTechPackModuleReadOnly,
   isTechPackReadOnly,
+  markProcessRouteUnconfirmed,
   requestTechPackRender,
   resetBomForm,
   resetColorMappingToSystemSuggestion,
@@ -186,6 +188,12 @@ const TECH_PACK_ACTION_MODULE_MAP: Record<string, TechnicalModuleKey> = {
   'edit-technique': 'PROCESS',
   'save-technique': 'PROCESS',
   'delete-technique': 'PROCESS',
+  'move-technique-route-up': 'PROCESS',
+  'move-technique-route-down': 'PROCESS',
+  'make-techniques-parallel': 'PROCESS',
+  'remove-technique-from-parallel': 'PROCESS',
+  'toggle-parallel-group-acceptance': 'PROCESS',
+  'confirm-process-route': 'PROCESS',
   'keep-bom-prep-process': 'PROCESS',
   'remove-bom-prep-process': 'PROCESS',
   'open-add-size': 'SIZE',
@@ -315,6 +323,142 @@ function getTechniqueById(techId: string): TechniqueItem | null {
 
 function updateTechnique(techId: string, updater: (item: TechniqueItem) => TechniqueItem): void {
   state.techniques = state.techniques.map((item) => (item.id === techId ? updater(item) : item))
+  syncProcessCostRows()
+  syncTechPackToStore()
+}
+
+type TechniqueRouteGroup = {
+  items: TechniqueItem[]
+}
+
+function getTechniqueRouteGroups(): TechniqueRouteGroup[] {
+  const normalized = normalizeTechniqueRoutes(state.techniques)
+  const groups = new Map<number, TechniqueItem[]>()
+  normalized.forEach((item) => {
+    groups.set(item.routeStepNo, [...(groups.get(item.routeStepNo) ?? []), item])
+  })
+  return Array.from(groups.entries())
+    .sort(([left], [right]) => left - right)
+    .map(([, items]) => ({
+      items: items.slice().sort((left, right) => left.routeLaneNo - right.routeLaneNo),
+    }))
+}
+
+function flattenTechniqueRouteGroups(groups: TechniqueRouteGroup[]): TechniqueItem[] {
+  const updatedAt = toTimestamp()
+  return groups.flatMap((group, groupIndex) => {
+    const isParallel = group.items.length > 1
+    const groupId = isParallel ? `route-step-${groupIndex + 1}` : undefined
+    const groupName = isParallel ? `第 ${groupIndex + 1} 步并行组` : undefined
+    const groupAcceptanceMode: TechniqueItem['routeParallelAcceptanceMode'] = isParallel
+      ? group.items.find((item) => item.routeParallelAcceptanceMode === 'WHOLE_GROUP_ALLOWED')
+        ? 'WHOLE_GROUP_ALLOWED'
+        : 'INDEPENDENT_ONLY'
+      : 'INDEPENDENT_ONLY'
+    return group.items.map((item, laneIndex) => ({
+      ...item,
+      routeStepNo: groupIndex + 1,
+      routeLaneNo: laneIndex + 1,
+      routeParallelGroupId: groupId,
+      routeParallelGroupName: groupName,
+      routeParallelAcceptanceMode: groupAcceptanceMode,
+      routeSourceKind: 'MANUAL',
+      routeUpdatedBy: currentUser.name,
+      routeUpdatedAt: updatedAt,
+    }))
+  })
+}
+
+function findTechniqueRouteGroupIndex(groups: TechniqueRouteGroup[], techId: string): number {
+  return groups.findIndex((group) => group.items.some((item) => item.id === techId))
+}
+
+function saveTechniqueRouteGroups(groups: TechniqueRouteGroup[]): void {
+  state.techniques = normalizeTechniqueRoutes(flattenTechniqueRouteGroups(groups))
+  markProcessRouteUnconfirmed()
+  syncProcessCostRows()
+  syncTechPackToStore()
+}
+
+function moveTechniqueRoute(techId: string, direction: 'up' | 'down'): void {
+  const groups = getTechniqueRouteGroups()
+  const index = findTechniqueRouteGroupIndex(groups, techId)
+  if (index < 0) return
+  const targetIndex = direction === 'up' ? index - 1 : index + 1
+  if (targetIndex < 0 || targetIndex >= groups.length) return
+  const nextGroups = [...groups]
+  ;[nextGroups[index], nextGroups[targetIndex]] = [nextGroups[targetIndex], nextGroups[index]]
+  saveTechniqueRouteGroups(nextGroups)
+}
+
+function makeTechniqueParallel(techId: string, direction: 'previous' | 'next'): void {
+  const groups = getTechniqueRouteGroups()
+  const index = findTechniqueRouteGroupIndex(groups, techId)
+  if (index < 0) return
+  if (direction === 'previous') {
+    if (index === 0) return
+    const merged = { items: [...groups[index - 1].items, ...groups[index].items] }
+    const nextGroups = [...groups]
+    nextGroups.splice(index - 1, 2, merged)
+    saveTechniqueRouteGroups(nextGroups)
+    return
+  }
+  if (index >= groups.length - 1) return
+  const merged = { items: [...groups[index].items, ...groups[index + 1].items] }
+  const nextGroups = [...groups]
+  nextGroups.splice(index, 2, merged)
+  saveTechniqueRouteGroups(nextGroups)
+}
+
+function removeTechniqueFromParallel(techId: string): void {
+  const groups = getTechniqueRouteGroups()
+  const index = findTechniqueRouteGroupIndex(groups, techId)
+  if (index < 0) return
+  const group = groups[index]
+  if (group.items.length <= 1) return
+  const removed = group.items.find((item) => item.id === techId)
+  if (!removed) return
+  const remaining = group.items.filter((item) => item.id !== techId)
+  const nextGroups = [...groups]
+  nextGroups.splice(index, 1, { items: remaining }, { items: [removed] })
+  saveTechniqueRouteGroups(nextGroups)
+}
+
+function toggleParallelGroupAcceptance(techId: string): void {
+  const groups = getTechniqueRouteGroups()
+  const index = findTechniqueRouteGroupIndex(groups, techId)
+  if (index < 0) return
+  const group = groups[index]
+  if (group.items.length <= 1) return
+  const nextMode = group.items[0].routeParallelAcceptanceMode === 'WHOLE_GROUP_ALLOWED'
+    ? 'INDEPENDENT_ONLY'
+    : 'WHOLE_GROUP_ALLOWED'
+  const updatedAt = toTimestamp()
+  groups[index] = {
+    items: group.items.map((item) => ({
+      ...item,
+      routeParallelAcceptanceMode: nextMode,
+      routeSourceKind: 'MANUAL',
+      routeUpdatedBy: currentUser.name,
+      routeUpdatedAt: updatedAt,
+    })),
+  }
+  saveTechniqueRouteGroups(groups)
+}
+
+function confirmProcessRoute(): void {
+  if (state.techniques.length === 0) return
+  const confirmedAt = toTimestamp()
+  state.techniques = normalizeTechniqueRoutes(state.techniques).map((item) => ({
+    ...item,
+    routeUpdatedBy: item.routeUpdatedBy || currentUser.name,
+    routeUpdatedAt: item.routeUpdatedAt || confirmedAt,
+  }))
+  state.processRouteStatus = 'CONFIRMED'
+  state.processRouteConfirmedBy = currentUser.name
+  state.processRouteConfirmedAt = confirmedAt
+  state.processRouteUpdatedBy = currentUser.name
+  state.processRouteUpdatedAt = confirmedAt
   syncProcessCostRows()
   syncTechPackToStore()
 }
@@ -3619,6 +3763,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     if (!techId) return true
     state.techniques = state.techniques.filter((item) => item.id !== techId)
     syncProcessCostRows()
+    markProcessRouteUnconfirmed()
     syncTechPackToStore()
     return true
   }
@@ -3769,6 +3914,43 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     resetTechniqueForm()
     return true
   }
+  if (action === 'move-technique-route-up') {
+    const techId = actionNode.dataset.techId
+    if (!techId) return true
+    moveTechniqueRoute(techId, 'up')
+    return true
+  }
+  if (action === 'move-technique-route-down') {
+    const techId = actionNode.dataset.techId
+    if (!techId) return true
+    moveTechniqueRoute(techId, 'down')
+    return true
+  }
+  if (action === 'make-techniques-parallel') {
+    const techId = actionNode.dataset.techId
+    if (!techId) return true
+    makeTechniqueParallel(
+      techId,
+      actionNode.dataset.routeDirection === 'previous' ? 'previous' : 'next',
+    )
+    return true
+  }
+  if (action === 'remove-technique-from-parallel') {
+    const techId = actionNode.dataset.techId
+    if (!techId) return true
+    removeTechniqueFromParallel(techId)
+    return true
+  }
+  if (action === 'toggle-parallel-group-acceptance') {
+    const techId = actionNode.dataset.techId
+    if (!techId) return true
+    toggleParallelGroupAcceptance(techId)
+    return true
+  }
+  if (action === 'confirm-process-route') {
+    confirmProcessRoute()
+    return true
+  }
   if (action === 'save-technique') {
     const selectedMeta = getSelectedDraftMeta()
     if (!selectedMeta) return true
@@ -3817,6 +3999,29 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       }
     }
 
+    const routeUpdatedAt = toTimestamp()
+    const routeFields = editingTarget
+      ? {
+          routeStepNo: editingTarget.routeStepNo,
+          routeLaneNo: editingTarget.routeLaneNo,
+          routeParallelGroupId: editingTarget.routeParallelGroupId,
+          routeParallelGroupName: editingTarget.routeParallelGroupName,
+          routeParallelAcceptanceMode: editingTarget.routeParallelAcceptanceMode,
+          routeSourceKind: editingTarget.routeSourceKind,
+          routeUpdatedBy: editingTarget.routeUpdatedBy,
+          routeUpdatedAt: editingTarget.routeUpdatedAt,
+        }
+      : {
+          routeStepNo: state.techniques.length + 1,
+          routeLaneNo: 1,
+          routeParallelGroupId: undefined,
+          routeParallelGroupName: undefined,
+          routeParallelAcceptanceMode: 'INDEPENDENT_ONLY' as const,
+          routeSourceKind: 'MANUAL' as const,
+          routeUpdatedBy: currentUser.name,
+          routeUpdatedAt,
+        }
+
     const nextItem: TechniqueItem = {
       ...getTechniqueReferenceMetaByCraftCode(effectiveMeta.craftCode),
       id: state.editTechniqueId || `tech-${Date.now()}`,
@@ -3852,6 +4057,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       difficulty: state.newTechnique.difficulty,
       remark: state.newTechnique.remark,
       source: '字典引用',
+      ...routeFields,
     }
 
     if (state.editTechniqueId) {
@@ -3863,6 +4069,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     }
 
     syncProcessCostRows()
+    markProcessRouteUnconfirmed()
     syncTechPackToStore()
     state.addTechniqueDialogOpen = false
     resetTechniqueForm()
@@ -3876,6 +4083,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
 
     state.techniques = state.techniques.filter((item) => item.id !== techId)
     syncProcessCostRows()
+    markProcessRouteUnconfirmed()
     syncTechPackToStore()
     return true
   }
