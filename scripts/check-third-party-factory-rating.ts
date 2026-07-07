@@ -2,9 +2,20 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { indonesiaFactories } from '../src/data/fcs/indonesia-factories.ts'
 import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
-import { listSewingFactoryOptions } from '../src/data/fcs/sewing-dispatch-workbench.ts'
-import { listStatementBuildScopes } from '../src/data/fcs/store-domain-statement-source-adapter.ts'
-import { listStatements } from '../src/data/fcs/store-domain-settlement-seeds.ts'
+import {
+  createSewingDispatchWorkbenchDraft,
+  listSewingDispatchWorkbenchRows,
+  listSewingFactoryOptions,
+} from '../src/data/fcs/sewing-dispatch-workbench.ts'
+import {
+  listStatementBuildCandidates,
+  listStatementBuildScopes,
+  toStatementDraftItemFromSource,
+} from '../src/data/fcs/store-domain-statement-source-adapter.ts'
+import {
+  createStatementFromEligibleLedgers,
+  listStatements,
+} from '../src/data/fcs/store-domain-settlement-seeds.ts'
 import { getSettlementEffectiveInfoByFactory } from '../src/data/fcs/settlement-change-requests.ts'
 import { deriveSettlementCycleFields } from '../src/data/fcs/store-domain-statement-grain.ts'
 import {
@@ -69,6 +80,44 @@ for (const factory of thirdPartySewingFactories) {
   assert.ok(hasStatement || hasBuildScope, `${factory.id} ${factory.name} 必须串联到对账单或待生成候选流水`)
   const cycle = deriveSettlementCycleFields(factory.id, '2026-03-06 10:00:00')
   assert.ok(cycle.settlementCycleLabel.startsWith('三旬结算'), `${factory.id} 必须按三方车缝旬结口径生成结算周期`)
+}
+
+const blockedSnapshots = snapshots.filter((item) => item.settlementBlocked)
+assert.ok(blockedSnapshots.length > 0, '必须至少有一个结算拦截工厂样例')
+const firstDispatchRow = listSewingDispatchWorkbenchRows()[0]
+assert.ok(firstDispatchRow, '车缝分配工作台必须有可演示的 SKU 行')
+for (const blockedSnapshot of blockedSnapshots) {
+  const blockedDispatchResult = createSewingDispatchWorkbenchDraft({
+    actionType: '直接派单',
+    factoryId: blockedSnapshot.factoryId,
+    factoryName: blockedSnapshot.factoryName,
+    rowIds: [firstDispatchRow.rowId],
+    by: '对抗式核查',
+  })
+  assert.equal(blockedDispatchResult.ok, false, `${blockedSnapshot.factoryId} 不能绕过页面直接创建车缝分配草稿`)
+  assert.ok(blockedDispatchResult.message.includes('不能派单'), `${blockedSnapshot.factoryId} 直接派单应返回派单拦截提示`)
+
+  const blockedScope = buildScopes.find((item) => item.settlementPartyId === blockedSnapshot.factoryId)
+  assert.ok(blockedScope, `${blockedSnapshot.factoryId} 必须有待生成对账候选范围`)
+  const blockedCandidates = listStatementBuildCandidates(blockedScope.settlementPartyId, blockedScope.settlementCycleId)
+  assert.ok(blockedCandidates.length > 0, `${blockedSnapshot.factoryId} 必须有待生成对账候选明细`)
+  const blockedStatementResult = createStatementFromEligibleLedgers({
+    statementId: `ST-CHECK-BLOCKED-${blockedSnapshot.factoryId}`,
+    settlementPartyType: blockedScope.settlementPartyType,
+    settlementPartyId: blockedScope.settlementPartyId,
+    settlementPartyLabel: blockedScope.settlementPartyLabel,
+    settlementCycleId: blockedScope.settlementCycleId,
+    settlementCycleLabel: blockedScope.settlementCycleLabel,
+    settlementCycleStartAt: blockedScope.settlementCycleStartAt,
+    settlementCycleEndAt: blockedScope.settlementCycleEndAt,
+    plannedPrepaymentAt: blockedScope.plannedPrepaymentAt,
+    itemSourceIds: blockedCandidates.map((item) => item.sourceItemId),
+    itemBasisIds: blockedCandidates.map((item) => item.basisId).filter(Boolean) as string[],
+    items: blockedCandidates.map(toStatementDraftItemFromSource),
+    by: '对抗式核查',
+  })
+  assert.equal(blockedStatementResult.ok, false, `${blockedSnapshot.factoryId} 不能绕过页面直接创建对账单`)
+  assert.ok(blockedStatementResult.message?.includes('已拉黑'), `${blockedSnapshot.factoryId} 直接建单应返回结算拦截提示`)
 }
 
 const source = readFileSync(new URL('../src/data/fcs/third-party-factory-rating.ts', import.meta.url), 'utf8')

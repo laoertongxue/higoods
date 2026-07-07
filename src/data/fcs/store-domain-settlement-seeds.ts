@@ -10,6 +10,7 @@ import {
 import { deriveSettlementCycleFields, deriveTaskPricingFields } from './store-domain-statement-grain.ts'
 import type { MaterialStatementDraft } from './store-domain-dispatch-process.ts'
 import { settlementLinkedMockFactoryOutput } from './settlement-linked-mock-factory.ts'
+import { isThirdPartyFactorySettlementBlocked } from './third-party-factory-rating.ts'
 import type {
   FeishuPaymentApproval,
   FactoryFeedbackStatus,
@@ -1252,6 +1253,9 @@ export function createStatementFromEligibleLedgers(input: {
   by: string
   at?: string
 }): { ok: boolean; message?: string; existingStatementId?: string; data?: StatementDraft } {
+  if (isThirdPartyFactorySettlementBlocked(input.settlementPartyId)) {
+    return { ok: false, message: '该工厂已拉黑，不能发起结算。请主管处理历史账款。' }
+  }
   const settlementObjectMode = input.settlementObjectMode ?? 'LEDGER'
   const existed =
     input.settlementRangeStartAt && input.settlementRangeEndAt

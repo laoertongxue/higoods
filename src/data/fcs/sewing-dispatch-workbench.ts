@@ -17,6 +17,7 @@ import {
   resolveDispatchAcceptanceSlaForTask,
 } from './dispatch-acceptance-sla.ts'
 import { listFactoryMasterRecords } from './factory-master-store.ts'
+import { getThirdPartyFactoryRatingSnapshot } from './third-party-factory-rating.ts'
 import {
   listAvailableCutPieceInventoryForSewingDispatch,
 } from './cutting/sewing-dispatch.ts'
@@ -1001,6 +1002,11 @@ export function createSewingDispatchWorkbenchDraft(input: {
   if (rows.length === 0) return { ok: false, message: '请先选择要分配的 SKU。' }
   if (input.actionType === '直接派单' && (!input.factoryId || !input.factoryName)) {
     return { ok: false, message: '直接派单需要选择车缝工厂。' }
+  }
+  if (input.actionType === '直接派单' && input.factoryId) {
+    const rating = getThirdPartyFactoryRatingSnapshot(input.factoryId)
+    if (rating?.cooperationStatusLabel === '黑名单') return { ok: false, message: '该工厂已拉黑，不能派单。请更换工厂。' }
+    if (rating?.cooperationStatusLabel === '考核中') return { ok: false, message: '该工厂还在试用期，只能接试产单。' }
   }
   const overRisk = rows.find((row) => row.completeKitQty <= 0)
   if (overRisk) return { ok: false, message: `${overRisk.skuCode} 完整齐套数量为 0，不能生成分配。` }
