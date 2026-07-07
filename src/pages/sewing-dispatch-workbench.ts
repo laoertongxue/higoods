@@ -1300,7 +1300,7 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement): boolean
       by: '跟单A',
     })
     const rating = factory ? getThirdPartyFactoryRatingSnapshot(factory.id) : undefined
-    state.feedbackMessage = result.ok && rating?.currentGrade === 'B'
+    state.feedbackMessage = result.ok && state.dispatchActionType === '直接派单' && rating?.currentGrade === 'B'
       ? `${result.message} 已记录黄牌工厂派单确认。`
       : result.message
     if (result.ok) {
