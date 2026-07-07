@@ -44,32 +44,10 @@ import {
   renderPaginationControls,
   type BadgeTone,
   renderKindBadge,
-  renderMetricCard,
   renderPageHeader,
   renderSection,
   renderStatusBadge,
 } from './shared'
-
-function renderSummaryCards(): string {
-  const summary = getWoolWorkOrderSummary()
-  return `
-    <section class="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
-      ${renderMetricCard('毛织加工单', String(summary.total), '周哥毛织厂')}
-      ${renderMetricCard('未接单', String(summary.waitAcceptCount), 'Web/移动端可接单')}
-      ${renderMetricCard('整件毛织', String(summary.wholeGarmentCount), '交出后道工厂')}
-      ${renderMetricCard('部位毛织', String(summary.partPanelCount), '交出裁床待交出仓')}
-      ${renderMetricCard('待领料', String(summary.waitPickupCount), '染厂/面料仓送料到厂')}
-      ${renderMetricCard('领料中', String(summary.pickupInProgressCount), '待完成领料单')}
-      ${renderMetricCard('待排机', String(summary.waitMachineScheduleCount), '领料完成后排横机')}
-      ${renderMetricCard('横机中', String(summary.flatWoolCount), '横机成片节点')}
-      ${renderMetricCard('待打印菲票', String(summary.waitFeiTicketCount), '部位毛织')}
-    </section>
-    <section class="grid gap-3 md:grid-cols-2">
-      ${renderMetricCard('计划数量', `${formatNumber(summary.plannedQty)} 件/片`, '整件按件，部位按片')}
-      ${renderMetricCard('完成数量', `${formatNumber(summary.completedQty)} 件/片`, '来自 mock 生产节点')}
-    </section>
-  `
-}
 
 function getOrderExecutionTask(order: WoolWorkOrder) {
   return listWoolMobileProcessTasks().find((task) => task.taskId === order.taskNo)
@@ -166,7 +144,7 @@ function listFilteredWoolWorkOrders(filters = getCurrentFilters()): WoolWorkOrde
   return listWoolWorkOrders().filter((order) => {
     if (!matchesKeyword(order.productionOrderNo, filters.productionOrder.trim())) return false
     if (!matchesKeyword(`${order.woolOrderNo} ${order.woolOrderId}`, filters.woolOrder.trim())) return false
-    if (!matchesKeyword(`${order.styleNo} ${order.styleName}`, filters.style.trim())) return false
+    if (!matchesKeyword(`${order.styleNo} ${order.styleName} ${order.internalStyleCode || ''}`, filters.style.trim())) return false
     if (filters.kind && order.kind !== filters.kind) return false
     if (filters.factory && order.factoryId !== filters.factory) return false
     if (filters.status && order.status !== filters.status) return false
@@ -191,8 +169,8 @@ function renderFilterBar(filters: WoolOrderFilters): string {
           <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(filters.woolOrder)}" placeholder="输入毛织单号" data-wool-filter-field="woolOrder" />
         </label>
         <label class="text-sm">
-          <span class="text-xs text-muted-foreground">款式</span>
-          <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(filters.style)}" placeholder="款号 / 款名" data-wool-filter-field="style" />
+          <span class="text-xs text-muted-foreground">款式 / 内部货号</span>
+          <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(filters.style)}" placeholder="款号 / 款名 / 内部货号" data-wool-filter-field="style" />
         </label>
         <label class="text-sm">
           <span class="text-xs text-muted-foreground">任务类型</span>
@@ -250,13 +228,15 @@ function renderWorkflowActionButtons(order: WoolWorkOrder): string {
     .join('')
 }
 
-function renderOrdersTable(filters: WoolOrderFilters): string {
-  const filteredOrders = listFilteredWoolWorkOrders(filters)
+function renderOrdersTable(filteredOrders: WoolWorkOrder[]): string {
   const paging = paginateWoolItems(filteredOrders, 'workOrdersPage', 10)
   const rows = paging.rows
     .map((order) => {
       const pickupDifferenceTone = order.yarnReceipt.differenceWeightKg === 0 ? 'text-emerald-700' : 'text-red-700'
       const yarnUsage = getWoolYarnUsageSummary(order)
+      const styleMeta = order.internalStyleCode
+        ? `内部货号：${order.internalStyleCode} / ${order.productionOrderNo}`
+        : order.productionOrderNo
       return `
         <tr class="border-b align-top last:border-b-0">
           <td class="px-3 py-3">
@@ -266,7 +246,7 @@ function renderOrdersTable(filters: WoolOrderFilters): string {
           <td class="px-3 py-3">${renderKindBadge(order.kind)}</td>
           <td class="px-3 py-3 text-sm">
             <div class="font-medium">${escapeHtml(order.styleName)}</div>
-            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.styleNo)} / ${escapeHtml(order.productionOrderNo)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${order.styleNo} / ${styleMeta}`)}</div>
           </td>
           <td class="px-3 py-3 text-sm">${escapeHtml(order.colorName)} / ${escapeHtml(order.sizeRange)}</td>
           <td class="px-3 py-3 text-sm">${formatQty(order.plannedQty, order.qtyUnit)}</td>
@@ -346,17 +326,46 @@ function renderOrdersTable(filters: WoolOrderFilters): string {
   )
 }
 
+function renderCompactSummaryTags(orders: WoolWorkOrder[]): string {
+  const summary = getWoolWorkOrderSummary(orders)
+  const tags = [
+    ['加工单', `${summary.total}`],
+    ['未接单', `${summary.waitAcceptCount}`],
+    ['待领料', `${summary.waitPickupCount}`],
+    ['领料中', `${summary.pickupInProgressCount}`],
+    ['待排机', `${summary.waitMachineScheduleCount}`],
+    ['横机中', `${summary.flatWoolCount}`],
+    ['待打印菲票', `${summary.waitFeiTicketCount}`],
+    ['计划数量', `${formatNumber(summary.plannedQty)} 件/片`],
+    ['完成数量', `${formatNumber(summary.completedQty)} 件/片`],
+  ]
+
+  return `
+    <section class="rounded-lg border bg-card px-3 py-3">
+      <div class="flex flex-wrap gap-2">
+        ${tags.map(([label, value]) => `
+          <span class="inline-flex items-center rounded border bg-muted/40 px-3 py-1 text-xs text-slate-700">
+            <span class="font-medium">${escapeHtml(label)}：</span>
+            <span class="ml-1 font-semibold">${escapeHtml(value)}</span>
+          </span>
+        `).join('')}
+      </div>
+    </section>
+  `
+}
+
 export function renderCraftWoolWorkOrdersPage(): string {
   const filters = getCurrentFilters()
+  const filteredOrders = listFilteredWoolWorkOrders(filters)
   return `
     <div class="space-y-4 p-4">
       ${renderPageHeader(
         '毛织加工单',
         '周哥毛织厂自有任务管理，区分整件毛织与部位毛织。',
       )}
-      ${renderSummaryCards()}
       ${renderFilterBar(filters)}
-      ${renderOrdersTable(filters)}
+      ${renderCompactSummaryTags(filteredOrders)}
+      ${renderOrdersTable(filteredOrders)}
     </div>
   `
 }

@@ -191,6 +191,7 @@ export interface TechPackPatternFile {
   patternCategory?: TechPackPatternCategory | string
   patternMaterialType?: TechPackPatternMaterialType
   patternMaterialTypeLabel?: string
+  internalStyleCode?: string
   patternFileMode?: TechPackPatternFileMode
   fileName: string
   fileUrl: string
@@ -447,6 +448,7 @@ export interface TechPackAttachment {
 export interface TechPack {
   spuCode: string
   spuName: string
+  internalStyleCode?: string
   status: TechPackStatus
   versionLabel: string
   officialVersionNo?: number

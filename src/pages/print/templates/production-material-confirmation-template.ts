@@ -233,8 +233,11 @@ function buildPatternTable(snapshot: ProductionConfirmationSnapshot): PrintDocum
   const rows = snapshot.patternSnapshot.rows.flatMap((pattern) =>
     pattern.pieceRows.length
       ? pattern.pieceRows.map((piece) => [
-          pattern.patternVersion || '暂无数据',
+          pattern.patternMaterialTypeLabel || '暂无数据',
+          pattern.patternCategory || '暂无数据',
           pattern.patternFileName || '暂无数据',
+          pattern.patternSoftwareName || '暂无数据',
+          pattern.patternVersion || '暂无数据',
           pattern.sizeRange || pattern.selectedSizeCodes.join(' / ') || '暂无数据',
           piece.name,
           formatPrintQty(piece.count, '片 / 件'),
@@ -243,8 +246,11 @@ function buildPatternTable(snapshot: ProductionConfirmationSnapshot): PrintDocum
           '菲票归属裁片单，唛架方案只作为执行上下文',
         ])
       : [[
-          pattern.patternVersion || '暂无数据',
+          pattern.patternMaterialTypeLabel || '暂无数据',
+          pattern.patternCategory || '暂无数据',
           pattern.patternFileName || '暂无数据',
+          pattern.patternSoftwareName || '暂无数据',
+          pattern.patternVersion || '暂无数据',
           pattern.sizeRange || pattern.selectedSizeCodes.join(' / ') || '暂无数据',
           '暂无裁片部位',
           '暂无数据',
@@ -257,7 +263,7 @@ function buildPatternTable(snapshot: ProductionConfirmationSnapshot): PrintDocum
   return {
     tableId: 'pattern-cutting',
     title: '纸样和尺寸 / 唛架 / 裁片信息区',
-    headers: ['纸样分类', '纸样和尺寸', '尺码范围', '裁片部位', '每种颜色的片数', '适用颜色', '特殊工艺', '裁片口径'],
+    headers: ['纸样类型', '纸样分类', '纸样文件', '打版软件', '纸样和尺寸', '尺码范围', '裁片部位', '每种颜色的片数', '适用颜色', '特殊工艺', '裁片口径'],
     rows,
     minRows: 3,
   }
