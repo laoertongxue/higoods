@@ -1582,7 +1582,11 @@ function renderProductionChangeClosedLoop(input: {
   costImpacts: ProductionOrderChangeCostImpactView[]
   timingImpacts: ProductionOrderChangeTimingImpactView[]
 }): string {
-  const selectedOrder = input.orders.find((order) => order.id === state.productionChangeSelectedOrderId) ?? input.orders[0]
+  const pageSize = 12
+  const pageCount = Math.max(1, Math.ceil(input.orders.length / pageSize))
+  const currentPage = Math.min(Math.max(state.productionChangeOrderPage, 1), pageCount)
+  const pageOrders = input.orders.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const selectedOrder = pageOrders.find((order) => order.id === state.productionChangeSelectedOrderId) ?? pageOrders[0] ?? input.orders[0]
   const selectedScenario = selectedOrder
     ? input.scenarios.find((scenario) => scenario.id === selectedOrder.scenarioId)
     : undefined

@@ -16,6 +16,13 @@ function hasText(value: unknown): boolean {
   return typeof value === 'string' && value.length > 0
 }
 
+function assertUniqueIds(rows: Array<{ id: string }>, label: string): void {
+  const duplicatedIds = rows
+    .map((row) => row.id)
+    .filter((id, index, ids) => ids.indexOf(id) !== index)
+  assert.deepEqual([...new Set(duplicatedIds)], [], `${label} ID 必须唯一`)
+}
+
 const html = renderProductionChangesPage()
 
 ;[
@@ -50,6 +57,13 @@ assert.ok(impacts.length >= 36, '生产影响行至少 36 条')
 assert.ok(documentActions.length >= 72, '单据处理行至少 72 条')
 assert.ok(costImpacts.length >= 18, '成本影响行至少 18 条')
 assert.ok(timingImpacts.length >= 18, '时效影响行至少 18 条')
+
+assertUniqueIds(scenarios, '业务场景')
+assertUniqueIds(orders, '变更单')
+assertUniqueIds(impacts, '生产影响明细')
+assertUniqueIds(documentActions, '单据处理明细')
+assertUniqueIds(costImpacts, '料工费差异明细')
+assertUniqueIds(timingImpacts, '时效影响明细')
 
 assert.ok(
   orders.some((order) => order.executionStrategy === 'IMMEDIATE_STOP_LOSS'),
@@ -102,6 +116,13 @@ assert.ok(
   }),
   '至少一条生产影响行必须包含颜色、尺码、批次、工序和大于 0 的影响数量',
 )
+impacts.forEach((row) => {
+  assert.ok(hasText(row.affectedColor), `${row.id} 缺少受影响颜色`)
+  assert.ok(hasText(row.affectedSize), `${row.id} 缺少受影响尺码`)
+  assert.ok(hasText(row.affectedBatch), `${row.id} 缺少受影响批次`)
+  assert.ok(hasText(row.affectedProcess), `${row.id} 缺少受影响工序`)
+  assert.ok(row.affectedQuantity > 0, `${row.id} 影响数量必须大于 0`)
+})
 
 assert.ok(
   (documentActions as Array<Record<string, unknown>>).some((row) => (
@@ -119,6 +140,13 @@ assert.ok(
   )),
   '至少一条单据处理行必须包含变更前后业务内容',
 )
+documentActions.forEach((row) => {
+  assert.ok(hasText(row.documentNo), `${row.id} 缺少单据号`)
+  assert.ok(hasText(row.beforeBusinessContent), `${row.id} 缺少变更前业务内容`)
+  assert.ok(hasText(row.afterBusinessContent), `${row.id} 缺少变更后业务内容`)
+  assert.ok(hasText(row.systemSuggestion), `${row.id} 缺少系统建议`)
+  assert.ok(hasText(row.finalAction), `${row.id} 缺少最终处理方式`)
+})
 
 assert.ok(
   (costImpacts as Array<Record<string, unknown>>).some((row) => (
@@ -128,6 +156,13 @@ assert.ok(
   )),
   '至少一条成本影响行必须包含预计金额、实际金额和责任方',
 )
+costImpacts.forEach((row) => {
+  assert.ok(hasText(row.itemName), `${row.id} 缺少成本项目`)
+  assert.ok(typeof row.estimatedAmount === 'number', `${row.id} 缺少预计金额`)
+  assert.ok(typeof row.actualAmount === 'number', `${row.id} 缺少实际金额`)
+  assert.ok(hasText(row.responsibleParty), `${row.id} 缺少责任方`)
+  assert.ok(hasText(row.settlementHandling), `${row.id} 缺少结算处理`)
+})
 
 const costImpactsByChangeOrderId = new Map<string, number>()
 costImpacts.forEach((row) => {
@@ -152,6 +187,13 @@ assert.ok(
   )),
   '至少一条时效影响行必须包含原时间、新预计时间、延期天数和责任方',
 )
+timingImpacts.forEach((row) => {
+  assert.ok(hasText(row.originalTime), `${row.id} 缺少原计划时间`)
+  assert.ok(hasText(row.newEstimatedTime), `${row.id} 缺少新预计时间`)
+  assert.ok(typeof row.delayDays === 'number', `${row.id} 缺少影响天数`)
+  assert.ok(hasText(row.responsibleParty), `${row.id} 缺少责任归因`)
+  assert.ok(hasText(row.recoveryAction), `${row.id} 缺少追回动作`)
+})
 
 const timingImpactsByChangeOrderId = new Map<string, number>()
 timingImpacts.forEach((row) => {
@@ -190,6 +232,10 @@ state.productionChangeOrderPage = 2
 const pageTwoHtml = renderProductionChangesPage()
 assert.ok(pageTwoHtml.includes('第 2 页 / 每页 12 条'), '变更单列表必须能进入第 2 页')
 assert.ok(pageTwoHtml.includes(pageTwoOrder.id), '第 2 页必须展示第 13 条变更单')
+assert.ok(
+  pageTwoHtml.includes(`${pageTwoOrder.id} · ${pageTwoOrder.productionOrderId}`),
+  '翻页后闭环详情必须跟随当前页第一条变更单',
+)
 
 assert.ok(
   fs.existsSync(path.resolve(process.cwd(), 'docs/prototype-review-records/2026-07-07-production-order-change-management.md')),

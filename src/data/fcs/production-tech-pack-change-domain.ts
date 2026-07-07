@@ -1199,7 +1199,10 @@ const productionOrderChangeImpactRows: ProductionOrderChangeImpactRow[] = [
     .filter((order) => order.changeResult !== 'COST_ONLY')
     .slice(0, Math.max(0, 36 - productionOrderChangeImpactSeedRows.length))
     .map((order, index) => buildProductionOrderChangeImpactRow(order, productionOrderChangeImpactSeedRows.length + index, 2)),
-].slice(0, 36)
+].slice(0, 36).map((row, index) => ({
+  ...row,
+  id: `IMPACT-${String(index + 1).padStart(3, '0')}`,
+}))
 
 const productionOrderChangeRequiredDocumentPlans: Array<{
   changeResult: ProductionOrderChangeResult
