@@ -49,23 +49,35 @@ assert.ok(documentActions.length >= 72, '单据处理行至少 72 条')
 assert.ok(costImpacts.length >= 18, '成本影响行至少 18 条')
 assert.ok(timingImpacts.length >= 18, '时效影响行至少 18 条')
 
-const serializedOrders = JSON.stringify(orders)
-;[
-  'IMMEDIATE_STOP_LOSS',
-  'IMMEDIATE_EXECUTION',
-  'AFTER_APPROVAL',
-].forEach((strategy) => {
-  assert.ok(serializedOrders.includes(strategy), `变更单缺少执行策略 ${strategy}`)
-})
+assert.ok(
+  orders.some((order) => order.executionStrategy === 'IMMEDIATE_STOP_LOSS'),
+  '变更单缺少执行策略 IMMEDIATE_STOP_LOSS',
+)
+assert.ok(
+  orders.some((order) => order.executionStrategy === 'IMMEDIATE_EXECUTION'),
+  '变更单缺少执行策略 IMMEDIATE_EXECUTION',
+)
+assert.ok(
+  orders.some((order) => order.executionStrategy === 'AFTER_APPROVAL'),
+  '变更单缺少执行策略 AFTER_APPROVAL',
+)
 
-;[
-  'VERSION_AND_PATCH',
-  'VERSION_RELATION',
-  'PRODUCTION_PATCH',
-  'COST_ONLY',
-].forEach((resultType) => {
-  assert.ok(serializedOrders.includes(resultType), `变更单缺少结果类型 ${resultType}`)
-})
+assert.ok(
+  orders.some((order) => order.changeResult === 'VERSION_AND_PATCH'),
+  '变更单缺少结果类型 VERSION_AND_PATCH',
+)
+assert.ok(
+  orders.some((order) => order.changeResult === 'VERSION_RELATION'),
+  '变更单缺少结果类型 VERSION_RELATION',
+)
+assert.ok(
+  orders.some((order) => order.changeResult === 'PRODUCTION_PATCH'),
+  '变更单缺少结果类型 PRODUCTION_PATCH',
+)
+assert.ok(
+  orders.some((order) => order.changeResult === 'COST_ONLY'),
+  '变更单缺少结果类型 COST_ONLY',
+)
 
 assert.ok(
   (impacts as Array<Record<string, unknown>>).some((row) => {
