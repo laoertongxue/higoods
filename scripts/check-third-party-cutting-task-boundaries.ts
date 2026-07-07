@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import { productionOrders, type ProductionOrder, type TaskBreakdownSummary } from '../src/data/fcs/production-orders.ts'
 import {
@@ -13,6 +15,8 @@ import {
   shouldGenerateCutOrderForProductionOrder,
   shouldGenerateInternalCraftOrderForProductionOrder,
 } from '../src/data/fcs/task-generation-boundaries.ts'
+import { renderContinuousDispatchPage } from '../src/pages/continuous-dispatch.ts'
+import { renderTaskBreakdownPage } from '../src/pages/task-breakdown.ts'
 
 function makeSyntheticOrder(productionOrderId: string, taskBreakdownSummary: TaskBreakdownSummary): ProductionOrder {
   const baseOrder = productionOrders[0]
@@ -176,5 +180,39 @@ assert(
 assert.equal(independentCuttingCutOrder.cutOrderSourceLabel, '独立裁片任务')
 assert.equal(independentCuttingCutOrder.cutReturnModeLabel, '回我方裁床待交出仓')
 assert.equal(independentCuttingCutOrder.internalCraftOrderPolicyLabel, '回仓后生成我方加工单')
+
+const taskBreakdownSource = readFileSync(resolve('src/pages/task-breakdown.ts'), 'utf8')
+const continuousDispatchSource = readFileSync(resolve('src/pages/continuous-dispatch.ts'), 'utf8')
+
+;[
+  'listGeneratedCutOrderSourceRecords',
+  '裁片单状态',
+  '唛架状态',
+  '可做成衣数',
+  '我方加工单策略',
+  'cutOrderSourceLabel',
+  'internalCraftOrderPolicyLabel',
+].forEach((token) => {
+  assert(taskBreakdownSource.includes(token), `任务清单缺少 ${token}`)
+})
+
+;[
+  '含裁片连续任务',
+  '三方上报裁片完成数量和可做成衣数',
+  '不生成我方加工单',
+].forEach((token) => {
+  assert(continuousDispatchSource.includes(token), `连续工序任务分配页缺少 ${token}`)
+})
+
+const taskBreakdownHtml = renderTaskBreakdownPage()
+assert(taskBreakdownHtml.includes('裁片单状态'), '任务清单渲染结果必须包含裁片单状态')
+assert(taskBreakdownHtml.includes('唛架状态'), '任务清单渲染结果必须包含唛架状态')
+assert(taskBreakdownHtml.includes('可做成衣数'), '任务清单渲染结果必须包含可做成衣数')
+assert(taskBreakdownHtml.includes('我方加工单策略'), '任务清单渲染结果必须包含我方加工单策略')
+
+const continuousDispatchHtml = renderContinuousDispatchPage()
+assert(continuousDispatchHtml.includes('含裁片连续任务'), '连续分配渲染结果必须包含含裁片连续任务')
+assert(continuousDispatchHtml.includes('三方上报裁片完成数量和可做成衣数'), '连续分配渲染结果必须包含三方上报裁片完成数量和可做成衣数')
+assert(continuousDispatchHtml.includes('不生成我方加工单'), '连续分配渲染结果必须包含不生成我方加工单')
 
 console.log('check-third-party-cutting-task-boundaries PASS')

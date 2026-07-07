@@ -103,8 +103,12 @@ async function main(): Promise<void> {
   assertIncludes(continuousDispatchSource, '连续工序任务分配', '连续工序任务分配页标题不正确')
   assertIncludes(continuousDispatchSource, 'COMBINED_PROCESS_TASK', '连续工序任务分配页必须只读取连续工序任务')
   assertIncludes(continuousDispatchSource, '车缝+后道连续任务', '连续工序任务分配页缺少车缝+后道 Tab')
-  assertIncludes(continuousDispatchSource, '其他连续工序任务', '连续工序任务分配页缺少其他连续工序 Tab')
+  assertIncludes(continuousDispatchSource, '含裁片连续任务', '连续工序任务分配页缺少含裁片 Tab')
+  assertIncludes(continuousDispatchSource, '其他连续任务', '连续工序任务分配页缺少其他连续任务 Tab')
   assertIncludes(continuousDispatchSource, '整任务分配', '连续工序任务分配页必须标明整任务分配')
+  assertIncludes(continuousDispatchSource, '三方上报裁片完成数量和可做成衣数', '含裁片连续任务必须展示裁片完成上报口径')
+  assertIncludes(continuousDispatchSource, '不生成我方加工单', '含裁片连续任务必须说明不生成我方加工单')
+  assertIncludes(continuousDispatchSource, 'data-fast-page-render="true"', '连续任务分配搜索必须保留快速渲染标记')
   assertNotIncludes(continuousDispatchSource, '按明细拆分', '连续工序任务分配页不得提供按明细拆分')
 
   assertIncludes(eventsSource, 'confirm-task-generation-preview', '生产单事件缺少确认生成任务动作')
@@ -134,6 +138,11 @@ async function main(): Promise<void> {
     'renderTaskBreakdownPagination',
     'data-breakdown-page-scope',
     'data-fast-page-render="true"',
+    'listGeneratedCutOrderSourceRecords',
+    '裁片单状态',
+    '唛架状态',
+    '可做成衣数',
+    '我方加工单策略',
     'renderTaskDetailDialog',
     'open-task-detail',
     'sticky right-0',
