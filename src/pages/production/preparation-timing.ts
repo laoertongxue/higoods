@@ -591,30 +591,27 @@ function renderMaterialDatalist(): string {
 
 function renderConfirmMaterialRow(material: PreparationMaterialLine): string {
   return `
-    <div class="rounded-lg border bg-background p-3" data-prep-material-row>
-      <div class="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
-        <label class="block text-sm">
-          <span class="text-muted-foreground">选择物料</span>
-          <input name="materialNo" list="prep-material-options" value="${escapeHtml(material.materialNo)}" placeholder="输入编号或名称搜索" class="mt-1 w-full rounded-md border px-3 py-2" required data-prep-material-input />
-        </label>
-        <button type="button" class="mt-6 rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prep-action="remove-material-row">删除</button>
-      </div>
-      <input type="hidden" name="materialName" value="${escapeHtml(material.materialName)}" data-prep-material-name />
-      <input type="hidden" name="materialType" value="${escapeHtml(material.materialType)}" data-prep-material-type />
-      <input type="hidden" name="materialImageUrl" value="${escapeHtml(material.imageUrl)}" data-prep-material-image />
-      <input type="hidden" name="materialRequiredQty" value="${material.requiredQty}" data-prep-material-required />
-      <input type="hidden" name="materialPreparedQty" value="${material.preparedQty}" data-prep-material-prepared />
-      <input type="hidden" name="materialIssuedQty" value="${material.issuedQty}" data-prep-material-issued />
-      <input type="hidden" name="materialUnit" value="${escapeHtml(material.unit)}" data-prep-material-unit />
-      <div class="mt-3 flex items-center gap-3 rounded-md bg-muted/40 p-2" data-prep-material-preview>
+    <tr class="border-t" data-prep-material-row>
+      <td class="px-3 py-2 align-middle">
+        <input name="materialNo" list="prep-material-options" value="${escapeHtml(material.materialNo)}" placeholder="输入编号或名称搜索" class="h-9 w-56 rounded-md border px-3 text-sm" required data-prep-material-input />
+        <input type="hidden" name="materialName" value="${escapeHtml(material.materialName)}" data-prep-material-name />
+        <input type="hidden" name="materialType" value="${escapeHtml(material.materialType)}" data-prep-material-type />
+        <input type="hidden" name="materialImageUrl" value="${escapeHtml(material.imageUrl)}" data-prep-material-image />
+        <input type="hidden" name="materialRequiredQty" value="${material.requiredQty}" data-prep-material-required />
+        <input type="hidden" name="materialPreparedQty" value="${material.preparedQty}" data-prep-material-prepared />
+        <input type="hidden" name="materialIssuedQty" value="${material.issuedQty}" data-prep-material-issued />
+        <input type="hidden" name="materialUnit" value="${escapeHtml(material.unit)}" data-prep-material-unit />
+      </td>
+      <td class="px-3 py-2 align-middle">
         <img src="${escapeHtml(material.imageUrl)}" alt="${escapeHtml(material.materialName)}" class="h-12 w-12 rounded-md border object-cover" data-prep-material-preview-image />
-        <div class="min-w-0 text-sm">
-          <div class="font-medium" data-prep-material-preview-name>${escapeHtml(material.materialName)}</div>
-          <div class="mt-0.5 font-mono text-xs text-muted-foreground" data-prep-material-preview-no>${escapeHtml(material.materialNo)}</div>
-          <div class="mt-0.5 text-xs text-muted-foreground" data-prep-material-preview-type>${escapeHtml(material.materialType)}</div>
-        </div>
-      </div>
-    </div>
+      </td>
+      <td class="px-3 py-2 align-middle font-medium" data-prep-material-preview-name>${escapeHtml(material.materialName)}</td>
+      <td class="px-3 py-2 align-middle font-mono text-xs text-muted-foreground" data-prep-material-preview-no>${escapeHtml(material.materialNo)}</td>
+      <td class="px-3 py-2 align-middle text-sm" data-prep-material-preview-type>${escapeHtml(material.materialType)}</td>
+      <td class="px-3 py-2 align-middle">
+        <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-prep-action="remove-material-row">删除</button>
+      </td>
+    </tr>
   `
 }
 
@@ -622,8 +619,17 @@ function renderConfirmMaterialRows(record: ProductionPreparationRecord): string 
   const lines = materialLines(record)
   return `
     ${renderMaterialDatalist()}
-    <div class="space-y-3" data-prep-material-rows>
-      ${lines.map((material) => renderConfirmMaterialRow(material)).join('')}
+    <div class="overflow-x-auto rounded-lg border">
+      <table class="w-full min-w-[760px] text-sm">
+        <thead class="bg-muted/60 text-left text-xs text-muted-foreground">
+          <tr>
+            ${['选择物料', '图片', '物料名称', '物料编号', '物料类型', '操作'].map((head) => `<th class="px-3 py-2 font-medium">${escapeHtml(head)}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody data-prep-material-rows>
+          ${lines.map((material) => renderConfirmMaterialRow(material)).join('')}
+        </tbody>
+      </table>
     </div>
     <button type="button" class="mt-3 rounded-md border px-3 py-2 text-sm text-blue-600 hover:bg-muted" data-prep-action="add-material-row">新增物料行</button>
   `
@@ -1200,53 +1206,57 @@ function renderConfirmItemsDialog(record: ProductionPreparationRecord, params: U
   return `
     <div class="fixed inset-0 z-50">
       <button class="absolute inset-0 bg-black/45" data-nav="${escapeHtml(closeHref)}" aria-label="关闭"></button>
-      <section class="absolute left-1/2 top-10 w-[720px] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl bg-background p-5 shadow-2xl">
-        <h3 class="text-lg font-semibold">确认生产准备工作项</h3>
-        <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.spuName)}｜${escapeHtml(record.spuCode)}</p>
-        <form class="mt-4 space-y-4" data-prep-confirm-items-form>
-          <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
-          <input type="hidden" name="overrideReason" value="${escapeHtml(record.prepTypeOverrideReason || record.confirmationRemark)}" />
-          <section class="rounded-lg border p-4">
-            <div class="text-sm font-semibold">1. 确认商品类型</div>
-            <div class="mt-3 grid gap-2 md:grid-cols-2">
-              ${PRODUCT_PREP_TYPES.map((type) => `
-                <label class="flex items-center gap-2 rounded-lg border p-3 text-sm">
-                  <input type="radio" name="confirmedProductPrepType" data-prep-type-radio value="${escapeHtml(type)}" ${type === record.confirmedProductPrepType ? 'checked' : ''} />
-                  <span>${escapeHtml(type)}</span>
-                </label>
-              `).join('')}
-            </div>
-          </section>
-          <section class="rounded-lg border p-4">
-            <div class="text-sm font-semibold">2. 确认准备项</div>
-            <div class="mt-3 space-y-3">
-              ${PRODUCT_PREP_TYPES.map((type) => {
-                const active = type === record.confirmedProductPrepType
-                return `
-                  <div data-prep-type-block="${escapeHtml(type)}" ${active ? '' : 'hidden'}>
-                    <div class="grid gap-3 md:grid-cols-2">
-                      ${preparationTypeDefaultItems[type].map((item) => renderPreparationTypeItem(record, type, item, active)).join('')}
+      <section class="absolute left-1/2 top-10 flex max-h-[calc(100vh-80px)] w-[820px] max-w-[calc(100vw-32px)] -translate-x-1/2 flex-col overflow-hidden rounded-xl bg-background shadow-2xl">
+        <div class="border-b p-5">
+          <h3 class="text-lg font-semibold">确认生产准备工作项</h3>
+          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.spuName)}｜${escapeHtml(record.spuCode)}</p>
+        </div>
+        <form class="flex min-h-0 flex-1 flex-col" data-prep-confirm-items-form>
+          <div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+            <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
+            <input type="hidden" name="overrideReason" value="${escapeHtml(record.prepTypeOverrideReason || record.confirmationRemark)}" />
+            <section class="rounded-lg border p-4">
+              <div class="text-sm font-semibold">1. 确认商品类型</div>
+              <div class="mt-3 grid gap-2 md:grid-cols-2">
+                ${PRODUCT_PREP_TYPES.map((type) => `
+                  <label class="flex items-center gap-2 rounded-lg border p-3 text-sm">
+                    <input type="radio" name="confirmedProductPrepType" data-prep-type-radio value="${escapeHtml(type)}" ${type === record.confirmedProductPrepType ? 'checked' : ''} />
+                    <span>${escapeHtml(type)}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </section>
+            <section class="rounded-lg border p-4">
+              <div class="text-sm font-semibold">2. 确认准备项</div>
+              <div class="mt-3 space-y-3">
+                ${PRODUCT_PREP_TYPES.map((type) => {
+                  const active = type === record.confirmedProductPrepType
+                  return `
+                    <div data-prep-type-block="${escapeHtml(type)}" ${active ? '' : 'hidden'}>
+                      <div class="grid gap-3 md:grid-cols-2">
+                        ${preparationTypeDefaultItems[type].map((item) => renderPreparationTypeItem(record, type, item, active)).join('')}
+                      </div>
                     </div>
-                  </div>
-                `
-              }).join('')}
-            </div>
-          </section>
-          <section class="rounded-lg border p-4">
-            <div class="text-sm font-semibold">3. 维护物料和做款要求</div>
-            <div class="mt-3">
-              ${renderConfirmMaterialRows(record)}
-            </div>
-            <label class="mt-3 block text-sm">
-              <span class="text-muted-foreground">做款/打板要求</span>
-              <textarea name="sampleRequirementText" class="mt-1 min-h-20 w-full rounded-md border px-3 py-2" required>${escapeHtml(record.sampleRequirementText)}</textarea>
+                  `
+                }).join('')}
+              </div>
+            </section>
+            <section class="rounded-lg border p-4">
+              <div class="text-sm font-semibold">3. 维护物料和做款要求</div>
+              <div class="mt-3">
+                ${renderConfirmMaterialRows(record)}
+              </div>
+              <label class="mt-3 block text-sm">
+                <span class="text-muted-foreground">做款/打板要求</span>
+                <textarea name="sampleRequirementText" class="mt-1 min-h-20 w-full rounded-md border px-3 py-2" required>${escapeHtml(record.sampleRequirementText)}</textarea>
+              </label>
+            </section>
+            <label class="block text-sm">
+              <span class="text-muted-foreground">通用备注</span>
+              <textarea name="confirmationRemark" class="mt-1 min-h-20 w-full rounded-md border px-3 py-2">${escapeHtml(record.confirmationRemark)}</textarea>
             </label>
-          </section>
-          <label class="block text-sm">
-            <span class="text-muted-foreground">通用备注</span>
-            <textarea name="confirmationRemark" class="mt-1 min-h-20 w-full rounded-md border px-3 py-2">${escapeHtml(record.confirmationRemark)}</textarea>
-          </label>
-          <div class="flex justify-end gap-2">
+          </div>
+          <div class="flex shrink-0 justify-end gap-2 border-t bg-background p-4">
             <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="${escapeHtml(closeHref)}">取消</button>
             <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white">确认工作项</button>
           </div>
