@@ -87,7 +87,9 @@ export function mergePreparationRuntimeRecords(
     const workItemsConfirmedAt = confirmation?.confirmedAt ?? record.workItemsConfirmedAt
     const confirmedProductPrepType = confirmation?.confirmedProductPrepType ?? record.confirmedProductPrepType
     const sourceItems = buildRuntimeTemplateItems(record, confirmation, selection, confirmedProductPrepType)
-    const items = sourceItems.map((item) => mergePreparationRuntimeItem(item, runtime, selection))
+    const items = applyDependentDyeRequirements(
+      sourceItems.map((item) => mergePreparationRuntimeItem(item, runtime, selection)),
+    )
     const prepTypeSource = confirmation?.confirmedProductPrepType
       ? confirmation.confirmedProductPrepType === record.derivedProductPrepType ? '系统推导' : '人工修正'
       : record.prepTypeSource
@@ -142,12 +144,19 @@ export function mergePreparationRuntimeRecords(
 
 function resolveRuntimeSelection(confirmation?: ConfirmedPreparationRecord): RuntimeSelection {
   if (Array.isArray(confirmation?.selectedItemTypes)) {
-    return { overridden: true, itemTypes: new Set(confirmation.selectedItemTypes) }
+    return { overridden: true, itemTypes: new Set(normalizeSelectedPreparationItemTypes(confirmation.selectedItemTypes)) }
   }
   if (Array.isArray(confirmation?.selectedItemIds)) {
     return { overridden: true, itemIds: new Set(confirmation.selectedItemIds) }
   }
   return { overridden: false }
+}
+
+function normalizeSelectedPreparationItemTypes(itemTypes: PreparationItemType[]): PreparationItemType[] {
+  const normalized = new Set(itemTypes)
+  if (normalized.has('染色调色（纱线）')) normalized.add('确认染色要求（纱线）')
+  if (normalized.has('染色调色（面料）')) normalized.add('确认染色要求（面料）')
+  return [...normalized]
 }
 
 function runtimeDocumentSuffix(recordNo: string): string {
@@ -344,6 +353,21 @@ function mergePreparationRuntimeItem(
     uploads: [...(item.uploads ?? []), ...uploads],
     downloads: [...(item.downloads ?? []), ...downloads],
   }
+}
+
+function applyDependentDyeRequirements(items: ProductionPreparationItem[]): ProductionPreparationItem[] {
+  const requirementByItemId = new Map(
+    items
+      .filter((item) => item.dyeRequirement)
+      .map((item) => [item.itemId, item.dyeRequirement!]),
+  )
+  return items.map((item) => {
+    if (item.dyeRequirement || !item.itemType.includes('染色调色')) return item
+    const requirement = item.dependsOnItemIds
+      .map((depId) => requirementByItemId.get(depId))
+      .find(Boolean)
+    return requirement ? { ...item, dyeRequirement: requirement } : item
+  })
 }
 
 export function readFileAsDataUrl(file: File): Promise<string> {

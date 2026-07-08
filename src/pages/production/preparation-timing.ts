@@ -681,6 +681,13 @@ function isSelectedPreparationItem(item: ProductionPreparationItem): boolean {
   return item.selectedByMerchandiser !== false && item.status !== '无需'
 }
 
+function normalizeSelectedPreparationItemTypes(itemTypes: PreparationItemType[]): PreparationItemType[] {
+  const normalized = new Set(itemTypes)
+  if (normalized.has('染色调色（纱线）')) normalized.add('确认染色要求（纱线）')
+  if (normalized.has('染色调色（面料）')) normalized.add('确认染色要求（面料）')
+  return [...normalized]
+}
+
 function renderLedgerActions(
   record: ProductionPreparationRecord,
   confirmed: boolean,
@@ -1279,6 +1286,7 @@ function renderDyeRequirementDialog(
   month: string,
 ): string {
   if (valueOf(params, 'action') !== 'operate-item' || !isDyeRequirementItem(item) || !isSelectedPreparationItem(item)) return ''
+  if (!hasConfirmedWorkItems(record) || item.status === '已完成' || !canOperateItem(item, record)) return ''
   const closeHref = buildLedgerHrefFromParams(params, month)
   const requirement = item.dyeRequirement
   const materialNo = requirement?.materialNo || record.materialRequirement.materialNo
@@ -1326,6 +1334,7 @@ function renderOperateItemDialog(
 ): string {
   if (valueOf(params, 'action') !== 'operate-item') return ''
   if (isDyeRequirementItem(item)) return ''
+  if (!hasConfirmedWorkItems(record) || item.status === '已完成' || !isSelectedPreparationItem(item) || !canOperateItem(item, record)) return ''
   const closeHref = buildLedgerHrefFromParams(params, month)
   const isAccessory = item.itemType === '辅料下单'
   return `
@@ -1807,9 +1816,9 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
     const recordId = String(formData.get('recordId') ?? '').trim()
     if (!recordId) return true
     const confirmedProductPrepType = String(formData.get('confirmedProductPrepType') ?? '').trim() as ProductPrepType
-    const selectedItemTypes = formData.getAll('selectedItemType')
+    const selectedItemTypes = normalizeSelectedPreparationItemTypes(formData.getAll('selectedItemType')
       .map((itemType) => String(itemType).trim() as PreparationItemType)
-      .filter(Boolean)
+      .filter(Boolean))
     const materialNos = formData.getAll('materialNo').map((value) => String(value).trim())
     const materialNames = formData.getAll('materialName').map((value) => String(value).trim())
     const materialTypes = formData.getAll('materialType').map((value) => String(value).trim())
@@ -1875,7 +1884,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
       .find((item) => item.recordId === recordId)
     if (!record || !hasConfirmedWorkItems(record)) return true
     const item = record.items.find((candidate) => candidate.itemId === itemId)
-    if (!item || !isDyeRequirementItem(item) || !isSelectedPreparationItem(item)) return true
+    if (!item || !isDyeRequirementItem(item) || !isSelectedPreparationItem(item) || item.status === '已完成' || !canOperateItem(item, record)) return true
     const maintainedAt = currentIsoMinute()
 
     const dyeRequirement: PreparationDyeRequirement = {
@@ -1887,12 +1896,18 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
       maintainedBy: '当前用户',
       maintainedAt,
     }
+    const dependentDyeItemIds = record.items
+      .filter((candidate) => isDyeItem(candidate) && candidate.dependsOnItemIds.includes(itemId))
+      .map((candidate) => candidate.itemId)
+    const dyeRequirements = {
+      ...runtime.dyeRequirements,
+      [itemId]: dyeRequirement,
+      ...Object.fromEntries(dependentDyeItemIds.map((dependentItemId) => [dependentItemId, dyeRequirement])),
+    }
+
     savePreparationRuntimeState({
       ...runtime,
-      dyeRequirements: {
-        ...runtime.dyeRequirements,
-        [itemId]: dyeRequirement,
-      },
+      dyeRequirements,
       uploads: [
         ...runtime.uploads,
         {
