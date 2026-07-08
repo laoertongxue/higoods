@@ -2,6 +2,7 @@ import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import {
   craftStageDict,
+  getDefaultProcessRouteOrder,
   getProcessCraftDictRowByCode,
   listAccessoryCrafts,
   listAuxiliaryCrafts,
@@ -126,10 +127,13 @@ function renderOutputValueFieldGroups(fieldKeys: ProcessCraftDictRow['outputValu
 }
 
 function renderCraftBasicPanel(row: ProcessCraftDictRow): string {
+  const routeOrder = getDefaultProcessRouteOrder(row.processCode)
+
   return `
     <section class="space-y-3" data-testid="craft-basic-section">
       <p class="text-sm font-semibold">基础信息</p>
       ${renderCompactDetailFields([
+        ['基础路线顺序', routeOrder === Number.MAX_SAFE_INTEGER ? '未配置' : `第 ${routeOrder} 步`],
         ['老系统值', String(row.legacyValue)],
         ['老系统工艺名称', row.legacyCraftName],
         ['作用对象', row.targetObjectName],
@@ -545,13 +549,18 @@ export function renderProductionCraftDictPage(): string {
           }
         </div>
 
+        <div class="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800" data-testid="default-process-route-order-note">
+          基础路线顺序仅作为技术包路线的默认参考，最终以款式级技术包确认的工艺路线为准。
+        </div>
+
         <section class="overflow-hidden rounded-md border bg-background" data-testid="craft-dict-table-section">
           <div class="overflow-x-auto">
-            <table class="w-full min-w-[1080px] border-collapse">
+            <table class="w-full min-w-[1180px] border-collapse">
               <thead>
                 <tr class="bg-muted/30 text-xs">
                   <th class="px-3 py-2 text-left">工序名称</th>
                   <th class="px-3 py-2 text-left">工艺名称</th>
+                  <th class="px-3 py-2 text-left">基础路线顺序</th>
                   <th class="px-3 py-2 text-left">作用对象</th>
                   <th class="px-3 py-2 text-left">阶段</th>
                   <th class="px-3 py-2 text-left">任务口径</th>
@@ -562,7 +571,7 @@ export function renderProductionCraftDictPage(): string {
               <tbody>
                 ${
                   paging.rows.length === 0
-                    ? '<tr><td class="py-10 text-center text-sm text-muted-foreground" colspan="7">暂无数据，请调整筛选条件</td></tr>'
+                    ? '<tr><td class="py-10 text-center text-sm text-muted-foreground" colspan="8">暂无数据，请调整筛选条件</td></tr>'
                     : paging.rows
                         .map(
                           (row) => `
@@ -580,6 +589,9 @@ export function renderProductionCraftDictPage(): string {
                                   ${escapeHtml(row.craftName)}
                                 </button>
                                 <div class="text-[11px] text-muted-foreground">${escapeHtml(row.craftCode)}</div>
+                              </td>
+                              <td class="whitespace-nowrap px-3 py-2 font-medium text-slate-700">
+                                ${getDefaultProcessRouteOrder(row.processCode) === Number.MAX_SAFE_INTEGER ? '未配置' : `第 ${getDefaultProcessRouteOrder(row.processCode)} 步`}
                               </td>
                               <td class="whitespace-nowrap px-3 py-2">${escapeHtml(row.targetObjectName)}</td>
                               <td class="whitespace-nowrap px-3 py-2">${escapeHtml(row.stageName)}</td>

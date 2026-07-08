@@ -311,7 +311,7 @@ handleContinuousDispatchEvent({
       return {
         dataset: {
           continuousDispatchAction: 'switch-tab',
-          tab: 'WITH_CUTTING',
+          tab: 'OTHER',
         },
       }
     }
@@ -321,11 +321,11 @@ handleContinuousDispatchEvent({
 const continuousDispatchWithCuttingHtml = renderContinuousDispatchPage()
 const taskAnchor = cuttingContinuousTask.taskNo || cuttingContinuousTask.taskId
 const anchorIndex = continuousDispatchWithCuttingHtml.indexOf(taskAnchor)
-assert(anchorIndex >= 0, '含裁片连续任务 Tab 必须渲染真实含裁片任务行')
+assert(anchorIndex >= 0, '其他连续工序任务 Tab 必须渲染真实含裁片任务行')
 const rowEndIndex = continuousDispatchWithCuttingHtml.indexOf('</tr>', anchorIndex)
 const cuttingContinuousRowHtml = continuousDispatchWithCuttingHtml.slice(anchorIndex, rowEndIndex >= 0 ? rowEndIndex : undefined)
 ;[
-  '我方裁床排唛架',
+  '我方裁床提供唛架方案',
   '三方上报裁片完成数量和可做成衣数',
   '不生成我方加工单',
 ].forEach((token) => {

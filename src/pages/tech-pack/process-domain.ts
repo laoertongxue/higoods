@@ -15,6 +15,80 @@ import {
   state,
 } from './context.ts'
 import type { TechniqueItem } from './context.ts'
+import { sortProcessRouteEntries } from '../../data/tech-pack-process-route.ts'
+
+const routeSourceKindLabel: Record<TechniqueItem['routeSourceKind'], string> = {
+  DICT_DEFAULT: '字典基础路线',
+  GARMENT_CATEGORY: '品类默认路线',
+  BOM_REQUIREMENT: '物料要求推导',
+  PATTERN_PACKAGE: '纸样资料推导',
+  PIECE_CRAFT: '裁片部位工艺',
+  MANUAL: '人工调整',
+}
+
+const routeParallelAcceptanceModeLabel: Record<TechniqueItem['routeParallelAcceptanceMode'], string> = {
+  INDEPENDENT_ONLY: '分别承接',
+  WHOLE_GROUP_ALLOWED: '并行组整体承接',
+}
+
+type ProcessRouteGroup = {
+  stepNo: number
+  items: TechniqueItem[]
+}
+
+function getProcessRouteGroups(): ProcessRouteGroup[] {
+  const groups = new Map<number, TechniqueItem[]>()
+  sortProcessRouteEntries(state.techniques).forEach((item) => {
+    groups.set(item.routeStepNo, [...(groups.get(item.routeStepNo) ?? []), item])
+  })
+  return Array.from(groups.entries()).map(([stepNo, items]) => ({
+    stepNo,
+    items: items.slice().sort((left, right) => left.routeLaneNo - right.routeLaneNo),
+  }))
+}
+
+function renderRouteActionButtons(item: TechniqueItem, readonly: boolean): string {
+  if (readonly) return ''
+  const isParallel = Boolean(item.routeParallelGroupId)
+  return `
+    <button
+      class="inline-flex h-7 w-7 items-center justify-center rounded border bg-background hover:bg-muted"
+      title="上移"
+      data-tech-action="move-technique-route-up"
+      data-tech-id="${escapeHtml(item.id)}"
+    >
+      <i data-lucide="arrow-up" class="h-3.5 w-3.5"></i>
+    </button>
+    <button
+      class="inline-flex h-7 w-7 items-center justify-center rounded border bg-background hover:bg-muted"
+      title="下移"
+      data-tech-action="move-technique-route-down"
+      data-tech-id="${escapeHtml(item.id)}"
+    >
+      <i data-lucide="arrow-down" class="h-3.5 w-3.5"></i>
+    </button>
+    ${
+      isParallel
+        ? `<button
+            class="inline-flex h-7 items-center rounded border bg-background px-2 text-xs hover:bg-muted"
+            data-tech-action="remove-technique-from-parallel"
+            data-tech-id="${escapeHtml(item.id)}"
+          >移出并行</button>`
+        : `<button
+            class="inline-flex h-7 items-center rounded border bg-background px-2 text-xs hover:bg-muted"
+            data-tech-action="make-techniques-parallel"
+            data-tech-id="${escapeHtml(item.id)}"
+            data-route-direction="previous"
+          >与上一步并行</button>
+          <button
+            class="inline-flex h-7 items-center rounded border bg-background px-2 text-xs hover:bg-muted"
+            data-tech-action="make-techniques-parallel"
+            data-tech-id="${escapeHtml(item.id)}"
+            data-route-direction="next"
+          >与下一步并行</button>`
+    }
+  `
+}
 
 export function renderProcessTechniqueCard(item: TechniqueItem): string {
   const readonly = isTechPackModuleReadOnly('PROCESS')
@@ -114,17 +188,18 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
           ${autoSourceText}
           ${removalConfirm}
         </div>
-        <div class="flex items-center gap-1">
+        <div class="flex flex-wrap items-center justify-end gap-1">
+          ${renderRouteActionButtons(item, readonly)}
           ${
             canEdit && !readonly
-              ? `<button class="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-technique" data-tech-id="${item.id}">
+              ? `<button class="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-technique" data-tech-id="${escapeHtml(item.id)}">
                   <i data-lucide="edit-2" class="h-3.5 w-3.5"></i>
                 </button>`
               : ''
           }
           ${
             canDelete && !readonly
-              ? `<button class="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-technique" data-tech-id="${item.id}">
+              ? `<button class="inline-flex h-7 w-7 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-technique" data-tech-id="${escapeHtml(item.id)}">
                   <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
                 </button>`
               : ''
@@ -204,75 +279,227 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
   `
 }
 
+function renderProcessRouteEditor(readonly: boolean): string {
+  const routeGroups = getProcessRouteGroups()
+  if (routeGroups.length === 0) {
+    return `
+      <section class="rounded-lg border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+        暂无工序工艺，请先新增生产阶段或后道阶段工序。
+      </section>
+    `
+  }
+
+  return `
+    <section class="space-y-3">
+      ${routeGroups
+        .map((group) => {
+          const isParallel = group.items.length > 1
+          const acceptanceMode = group.items[0]?.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY'
+          return `
+            <article class="rounded-lg border bg-card">
+              <header class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="text-sm font-semibold">第 ${group.stepNo} 步</span>
+                  ${
+                    isParallel
+                      ? '<span class="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">并行处理</span>'
+                      : '<span class="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600">串行处理</span>'
+                  }
+                  ${
+                    isParallel
+                      ? `<span class="text-xs text-muted-foreground">${escapeHtml(routeParallelAcceptanceModeLabel[acceptanceMode])}</span>`
+                      : ''
+                  }
+                </div>
+                ${
+                  isParallel && !readonly
+                    ? `<button
+                        type="button"
+                        class="inline-flex items-center rounded border px-2 py-1 text-xs hover:bg-muted"
+                        data-tech-action="toggle-parallel-group-acceptance"
+                        data-tech-id="${escapeHtml(group.items[0].id)}"
+                      >
+                        ${escapeHtml(
+                          acceptanceMode === 'WHOLE_GROUP_ALLOWED'
+                            ? '切换为分别承接'
+                            : '允许并行组整体承接',
+                        )}
+                      </button>`
+                    : ''
+                }
+              </header>
+              <div class="grid gap-3 p-4 ${isParallel ? 'md:grid-cols-2 xl:grid-cols-3' : ''}">
+                ${group.items.map((item) => renderProcessTechniqueCard(item)).join('')}
+              </div>
+            </article>
+          `
+        })
+        .join('')}
+    </section>
+  `
+}
+
+function renderProcessRouteBatchTable(): string {
+  const items = sortProcessRouteEntries(state.techniques)
+  return `
+    <section class="rounded-lg border bg-card">
+      <header class="border-b px-4 py-3">
+        <h4 class="text-sm font-semibold">批量辅助</h4>
+      </header>
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[760px] text-left text-sm">
+          <thead class="bg-muted/40 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-4 py-2 font-medium">工序</th>
+              <th class="px-4 py-2 font-medium">来源</th>
+              <th class="px-4 py-2 font-medium">步骤</th>
+              <th class="px-4 py-2 font-medium">并行组</th>
+              <th class="px-4 py-2 font-medium">承接口径</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            ${
+              items.length === 0
+                ? `<tr><td colspan="5" class="px-4 py-6 text-center text-muted-foreground">暂无工序路线</td></tr>`
+                : items
+                    .map((item) => `
+                      <tr>
+                        <td class="px-4 py-3">
+                          <div class="font-medium text-slate-800">${escapeHtml(item.technique)}</div>
+                          <div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(item.stage)} / ${escapeHtml(item.process)}</div>
+                        </td>
+                        <td class="px-4 py-3">${escapeHtml(routeSourceKindLabel[item.routeSourceKind])}</td>
+                        <td class="px-4 py-3">第 ${item.routeStepNo} 步</td>
+                        <td class="px-4 py-3">${item.routeParallelGroupId ? `并行处理：第 ${item.routeStepNo} 步` : '无'}</td>
+                        <td class="px-4 py-3">${escapeHtml(routeParallelAcceptanceModeLabel[item.routeParallelAcceptanceMode])}</td>
+                      </tr>
+                    `)
+                    .join('')
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `
+}
+
+function renderProcessRouteRelations(): string {
+  const bomById = new Map(state.bomItems.map((item) => [item.id, item]))
+  const patternById = new Map(state.patternItems.map((item) => [item.id, item]))
+  const rows = state.techniques.flatMap((item) => {
+    const itemRows: Array<{ process: string; source: string; detail: string }> = []
+    const bomNames = (item.linkedBomItemIds ?? [])
+      .map((id) => {
+        const bom = bomById.get(id)
+        return bom ? `${bom.materialName}（${bom.materialCode || id}）` : id
+      })
+      .filter((text) => text.trim().length > 0)
+    if (bomNames.length > 0) {
+      itemRows.push({ process: item.technique, source: '物料清单', detail: bomNames.join('、') })
+    }
+
+    const patternNames = (item.linkedPatternIds ?? [])
+      .map((id) => patternById.get(id)?.name || id)
+      .filter((text) => text.trim().length > 0)
+    if (patternNames.length > 0) {
+      itemRows.push({ process: item.technique, source: '纸样资料', detail: patternNames.join('、') })
+    }
+
+    if (item.isSpecialCraft || item.selectedTargetObject || item.targetObjectName) {
+      itemRows.push({
+        process: item.technique,
+        source: '裁片部位工艺',
+        detail: item.selectedTargetObject || item.targetObjectName || '按工序对象承接',
+      })
+    }
+
+    if (item.triggerSource) {
+      itemRows.push({ process: item.technique, source: '触发条件', detail: item.triggerSource })
+    }
+
+    return itemRows
+  })
+
+  return `
+    <section class="rounded-lg border bg-card">
+      <header class="border-b px-4 py-3">
+        <h4 class="text-sm font-semibold">来源关系查看</h4>
+      </header>
+      <div class="divide-y">
+        ${
+          rows.length === 0
+            ? '<div class="px-4 py-6 text-center text-sm text-muted-foreground">暂无物料、纸样或裁片部位推导关系。</div>'
+            : rows
+                .map((row) => `
+                  <div class="grid gap-2 px-4 py-3 text-sm md:grid-cols-[160px_140px_minmax(0,1fr)]">
+                    <div class="font-medium text-slate-800">${escapeHtml(row.process)}</div>
+                    <div class="text-slate-700">${escapeHtml(row.source)}</div>
+                    <div class="text-muted-foreground">${escapeHtml(row.detail)}</div>
+                  </div>
+                `)
+                .join('')
+        }
+      </div>
+    </section>
+  `
+}
+
 export function renderProcessTab(): string {
   const readonly = isTechPackModuleReadOnly('PROCESS')
+  const routeConfirmed = state.processRouteStatus === 'CONFIRMED'
+  const confirmMeta = routeConfirmed
+    ? `确认人：${state.processRouteConfirmedBy || '-'}　确认时间：${state.processRouteConfirmedAt || '-'}`
+    : state.processRouteUpdatedAt
+      ? `最近调整：${state.processRouteUpdatedBy || '-'}　${state.processRouteUpdatedAt}`
+      : '路线待跟单确认'
   return `
     <section class="space-y-4">
       <header class="rounded-lg border bg-card px-4 py-3">
-        <h3 class="text-base font-semibold">工序工艺</h3>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <h3 class="text-base font-semibold">工序工艺</h3>
+              <span class="rounded border px-2 py-0.5 text-xs font-medium ${
+                routeConfirmed
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  : 'border-amber-200 bg-amber-50 text-amber-700'
+              }">${routeConfirmed ? '路线已确认' : '路线待确认'}</span>
+            </div>
+            <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(confirmMeta)}</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            ${stageOptions
+              .filter((stage) => !isPrepStage(stage))
+              .map((stage) =>
+                readonly
+                  ? ''
+                  : `<button
+                      class="inline-flex items-center rounded border px-2 py-1 text-xs hover:bg-muted"
+                      data-tech-action="open-add-technique"
+                      data-stage="${escapeHtml(stage)}"
+                    >
+                      <i data-lucide="plus" class="mr-1 h-3.5 w-3.5"></i>
+                      新增${escapeHtml(stage)}工序
+                    </button>`,
+              )
+              .join('')}
+            ${
+              readonly || state.techniques.length === 0
+                ? ''
+                : `<button
+                    class="inline-flex items-center rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                    data-tech-action="confirm-process-route"
+                  >
+                    <i data-lucide="check-circle-2" class="mr-1 h-3.5 w-3.5"></i>
+                    确认工艺路线
+                  </button>`
+            }
+          </div>
+        </div>
       </header>
-      <div class="space-y-6">
-        ${stageOptions
-          .map((stage) => {
-            const stageItems = state.techniques.filter((item) => item.stage === stage)
-            const allowAddTechnique = !isPrepStage(stage)
-            return `
-              <section class="rounded-lg border bg-card">
-                <header class="flex items-center justify-between px-4 py-3">
-                  <h4 class="text-base font-semibold">${escapeHtml(stage)}</h4>
-                  ${
-                    allowAddTechnique && !readonly
-                      ? `<button
-                          class="inline-flex items-center rounded border px-2 py-1 text-xs hover:bg-muted"
-                          data-tech-action="open-add-technique"
-                          data-stage="${escapeHtml(stage)}"
-                        >
-                          <i data-lucide="plus" class="mr-1 h-3.5 w-3.5"></i>
-                          新增工序工艺
-                        </button>`
-                      : ''
-                  }
-                </header>
-                <div class="px-4 pb-4">
-                  ${
-                    stageItems.length === 0
-                      ? `
-                        <div class="space-y-2 py-6 text-center text-muted-foreground">
-                          <p class="text-sm">暂无工序工艺</p>
-                          ${
-                            allowAddTechnique && !readonly
-                              ? `<button
-                                  class="inline-flex items-center rounded px-2 py-1 text-xs hover:bg-muted"
-                                  data-tech-action="open-add-technique"
-                                  data-stage="${escapeHtml(stage)}"
-                                >
-                                  <i data-lucide="plus" class="mr-1 h-3.5 w-3.5"></i>
-                                  新增工序工艺
-                                </button>`
-                              : ''
-                          }
-                        </div>
-                      `
-                      : `
-                        <div class="divide-y">
-                          ${stageItems
-                            .map(
-                              (item) => `
-                                <div class="py-4 first:pt-0 last:pb-0">
-                                  ${renderProcessTechniqueCard(item)}
-                                </div>
-                              `,
-                            )
-                            .join('')}
-                        </div>
-                      `
-                  }
-                </div>
-              </section>
-            `
-          })
-          .join('')}
-      </div>
+      ${renderProcessRouteEditor(readonly)}
+      ${renderProcessRouteBatchTable()}
+      ${renderProcessRouteRelations()}
     </section>
   `
 }

@@ -489,6 +489,12 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
           ? '纯色 T-shirt 半成品烫画技术包，按成衣半成品生成特殊工艺任务。'
           : '来源生产需求单当前生效技术包。',
     processEntries,
+    processRouteStatus: 'CONFIRMED',
+    processRouteConfirmedBy: '系统初始化',
+    processRouteConfirmedAt: demand.updatedAt,
+    processRouteUpdatedBy: '系统初始化',
+    processRouteUpdatedAt: demand.updatedAt,
+    processRouteChangeReason: '生产需求单当前生效技术包初始化确认。',
     sizeTable: buildSizeTable(seed),
     bomItems: [
       {
@@ -786,6 +792,12 @@ function buildProject018Content(technicalVersionId: string): TechnicalDataVersio
         remark: '重点关注腰节拼接和裤脚展开角度。',
       },
     ],
+    processRouteStatus: 'CONFIRMED',
+    processRouteConfirmedBy: '系统初始化',
+    processRouteConfirmedAt: '2026-04-07 17:20',
+    processRouteUpdatedBy: '系统初始化',
+    processRouteUpdatedAt: '2026-04-07 17:20',
+    processRouteChangeReason: '制版任务首个正式技术包初始化确认。',
     sizeTable: [
       {
         id: `${technicalVersionId}-size-1`,

@@ -17,6 +17,7 @@ import {
 import { buildTechPackReviewDiffSnapshot } from './pcs-tech-pack-review-diff.ts'
 import { sendTechPackReviewFeishuNotification } from './pcs-tech-pack-review-feishu.ts'
 import type {
+  TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
   TechnicalModuleKey,
   TechnicalReviewNode,
@@ -113,6 +114,71 @@ export const TECH_PACK_REVIEW_REWORK_MODULES: TechnicalModuleKey[] = [
 ]
 
 let reviewLogSequence = 0
+
+type ProcessRouteGate = Pick<
+  TechnicalDataVersionContent,
+  | 'processRouteStatus'
+  | 'processRouteConfirmedBy'
+  | 'processRouteConfirmedAt'
+  | 'processRouteUpdatedBy'
+  | 'processRouteUpdatedAt'
+>
+
+function getLegacyRouteGate(content: TechnicalDataVersionContent): ProcessRouteGate {
+  const payload = content.legacyCompatibleCostPayload || {}
+  return {
+    processRouteStatus: payload.processRouteStatus === 'CONFIRMED' ? 'CONFIRMED' : 'UNCONFIRMED',
+    processRouteConfirmedBy: String(payload.processRouteConfirmedBy || ''),
+    processRouteConfirmedAt: String(payload.processRouteConfirmedAt || ''),
+    processRouteUpdatedBy: String(payload.processRouteUpdatedBy || ''),
+    processRouteUpdatedAt: String(payload.processRouteUpdatedAt || ''),
+  }
+}
+
+function hasPositiveRouteNo(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+export function getTechnicalProcessRouteGate(
+  technicalVersionId: string,
+  contentInput?: TechnicalDataVersionContent | null,
+): ProcessRouteGate & { hasProcess: boolean; hasRoute: boolean; confirmed: boolean } {
+  const content = contentInput ?? getTechnicalDataVersionContent(technicalVersionId)
+  if (!content) {
+    return {
+      processRouteStatus: 'UNCONFIRMED',
+      processRouteConfirmedBy: '',
+      processRouteConfirmedAt: '',
+      processRouteUpdatedBy: '',
+      processRouteUpdatedAt: '',
+      hasProcess: false,
+      hasRoute: false,
+      confirmed: false,
+    }
+  }
+  const legacyGate = getLegacyRouteGate(content)
+  const gate = {
+    ...legacyGate,
+    processRouteStatus: content.processRouteStatus ?? legacyGate.processRouteStatus,
+    processRouteConfirmedBy: content.processRouteConfirmedBy ?? legacyGate.processRouteConfirmedBy,
+    processRouteConfirmedAt: content.processRouteConfirmedAt ?? legacyGate.processRouteConfirmedAt,
+    processRouteUpdatedBy: content.processRouteUpdatedBy ?? legacyGate.processRouteUpdatedBy,
+    processRouteUpdatedAt: content.processRouteUpdatedAt ?? legacyGate.processRouteUpdatedAt,
+  }
+  const hasProcess = content.processEntries.length > 0
+  const hasRoute = hasProcess && content.processEntries.every((entry) =>
+    hasPositiveRouteNo(entry.routeStepNo) && hasPositiveRouteNo(entry.routeLaneNo),
+  )
+  const confirmed = hasRoute && gate.processRouteStatus === 'CONFIRMED'
+  return { ...gate, hasProcess, hasRoute, confirmed }
+}
+
+function assertProcessRouteReadyForMerchandiserReview(technicalVersionId: string): void {
+  const gate = getTechnicalProcessRouteGate(technicalVersionId)
+  if (!gate.hasProcess) throw new Error('跟单无法审核通过：请先维护工序工艺。')
+  if (!gate.hasRoute) throw new Error('跟单无法审核通过：请先生成工艺路线。')
+  if (!gate.confirmed) throw new Error('工艺路线未确认，不能通过跟单审核。')
+}
 
 function nowText(): string {
   const now = new Date()
@@ -767,6 +833,7 @@ export function approveTechPackReview(
   }
   if (nodeKey === 'MERCHANDISER') {
     assertDesignRequirementSatisfied(technicalVersionId, '跟单无法审核通过')
+    assertProcessRouteReadyForMerchandiserReview(technicalVersionId)
   }
   const reviewedAt = nowText()
   const node = withReviewDiffSnapshot(

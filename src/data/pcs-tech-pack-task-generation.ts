@@ -46,6 +46,7 @@ import type {
 import type { RevisionTaskRecord } from './pcs-revision-task-types.ts'
 import type { PlateMakingTaskRecord } from './pcs-plate-making-types.ts'
 import type { PatternTaskRecord } from './pcs-pattern-task-types.ts'
+import { normalizeProcessRouteEntries } from './tech-pack-process-route.ts'
 
 export type TechPackGenerationAction = 'CREATED' | 'WRITTEN'
 
@@ -92,7 +93,29 @@ function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEn
   return items.map((item) => ({
     ...item,
     detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
+    supportedTargetObjects: [...(item.supportedTargetObjects ?? [])],
+    supportedTargetObjectLabels: [...(item.supportedTargetObjectLabels ?? [])],
+    linkedBomItemIds: [...(item.linkedBomItemIds ?? [])],
+    linkedPatternIds: [...(item.linkedPatternIds ?? [])],
+    visibleFactoryTypes: [...(item.visibleFactoryTypes ?? [])],
   }))
+}
+
+function inferRouteSourceKind(item: TechnicalProcessEntry): NonNullable<TechnicalProcessEntry['routeSourceKind']> {
+  if (item.routeSourceKind) return item.routeSourceKind
+  if (item.sourceType === 'BOM') return 'BOM_REQUIREMENT'
+  if (item.isSpecialCraft) return 'PIECE_CRAFT'
+  if ((item.linkedPatternIds ?? []).length > 0) return 'PATTERN_PACKAGE'
+  if (item.sourceType === 'MANUAL') return 'MANUAL'
+  return 'DICT_DEFAULT'
+}
+
+function withInitialRouteFields(items: TechnicalProcessEntry[]): TechnicalProcessEntry[] {
+  return normalizeProcessRouteEntries(cloneProcessEntries(items).map((item) => ({
+    ...item,
+    routeSourceKind: inferRouteSourceKind(item),
+    routeParallelAcceptanceMode: item.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY',
+  })))
 }
 
 function cloneSizeRows(items: TechnicalSizeRow[]): TechnicalSizeRow[] {
@@ -131,7 +154,13 @@ function cloneContent(content: TechnicalDataVersionContent, technicalVersionId: 
     technicalVersionId,
     patternFiles: clonePatternFiles(content.patternFiles),
     patternDesc: content.patternDesc,
-    processEntries: cloneProcessEntries(content.processEntries),
+    processEntries: withInitialRouteFields(content.processEntries),
+    processRouteStatus: content.processRouteStatus,
+    processRouteConfirmedBy: content.processRouteConfirmedBy,
+    processRouteConfirmedAt: content.processRouteConfirmedAt,
+    processRouteUpdatedBy: content.processRouteUpdatedBy,
+    processRouteUpdatedAt: content.processRouteUpdatedAt,
+    processRouteChangeReason: content.processRouteChangeReason,
     sizeTable: cloneSizeRows(content.sizeTable),
     bomItems: cloneBomItems(content.bomItems),
     qualityRules: cloneQualityRules(content.qualityRules),
@@ -227,7 +256,7 @@ function createPlatePatternFiles(task: PlateMakingTaskRecord, operatorName: stri
 }
 
 function createPlateProcessEntries(task: PlateMakingTaskRecord): TechnicalProcessEntry[] {
-  return [
+  return withInitialRouteFields([
     {
       id: `${task.plateTaskId}_process_prep`,
       entryType: 'PROCESS_BASELINE',
@@ -242,6 +271,8 @@ function createPlateProcessEntries(task: PlateMakingTaskRecord): TechnicalProces
       defaultDocType: 'TASK',
       taskTypeMode: 'PROCESS',
       isSpecialCraft: false,
+      sourceType: 'MANUAL',
+      routeSourceKind: 'PATTERN_PACKAGE',
       triggerSource: '制版任务',
       outputValuePerUnit: 12,
       outputValueUnit: '产值/件',
@@ -264,13 +295,15 @@ function createPlateProcessEntries(task: PlateMakingTaskRecord): TechnicalProces
       defaultDocType: 'TASK',
       taskTypeMode: 'CRAFT',
       isSpecialCraft: false,
+      sourceType: 'MANUAL',
+      routeSourceKind: 'PATTERN_PACKAGE',
       triggerSource: '制版任务',
       outputValuePerUnit: 18,
       outputValueUnit: '产值/件',
       difficulty: 'MEDIUM',
       remark: `按 ${task.patternType || '标准版型'} 输出执行。`,
     },
-  ]
+  ])
 }
 
 function createPlateSizeRows(task: PlateMakingTaskRecord): TechnicalSizeRow[] {
@@ -333,6 +366,12 @@ function buildPlateGeneratedContent(
     patternFiles: base?.patternFiles.length ? base.patternFiles : createPlatePatternFiles(task, operatorName),
     patternDesc: base?.patternDesc || `${task.patternType || '标准版型'} · ${task.patternVersion || '当前版型'} 已完成结构输出。`,
     processEntries: base?.processEntries.length ? base.processEntries : createPlateProcessEntries(task),
+    processRouteStatus: base?.processRouteStatus ?? 'UNCONFIRMED',
+    processRouteConfirmedBy: base?.processRouteConfirmedBy ?? '',
+    processRouteConfirmedAt: base?.processRouteConfirmedAt ?? '',
+    processRouteUpdatedBy: base?.processRouteUpdatedBy ?? operatorName,
+    processRouteUpdatedAt: base?.processRouteUpdatedAt ?? nowText(),
+    processRouteChangeReason: base?.processRouteChangeReason ?? '',
     sizeTable: base?.sizeTable.length ? base.sizeTable : createPlateSizeRows(task),
     bomItems: base?.bomItems.length
       ? base.bomItems

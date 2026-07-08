@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -25,6 +26,15 @@ function assertNotIncludes(source: string, token: string, message: string): void
 
 function assertMatches(source: string, pattern: RegExp, message: string): void {
   assert(pattern.test(source), message)
+}
+
+function renderPageExportWithTsx(relativePath: string, exportName: string, setup = ''): string {
+  const source = [
+    `import * as page from ${JSON.stringify(`./${relativePath}`)}`,
+    setup,
+    `process.stdout.write(String(page[${JSON.stringify(exportName)}]()))`,
+  ].filter(Boolean).join('\n')
+  return execFileSync('npx', ['tsx', '--eval', source], { cwd: ROOT, encoding: 'utf8' })
 }
 
 function getMenuSection(source: string, sectionKey: string): string {
@@ -102,18 +112,38 @@ async function main(): Promise<void> {
   assert(exists('src/pages/continuous-dispatch.ts'), '缺少连续工序任务分配页面 src/pages/continuous-dispatch.ts')
   assertIncludes(continuousDispatchSource, '连续工序任务分配', '连续工序任务分配页标题不正确')
   assertIncludes(continuousDispatchSource, 'COMBINED_PROCESS_TASK', '连续工序任务分配页必须只读取连续工序任务')
+  assertIncludes(continuousDispatchSource, 'CONTINUOUS_PROCESS', '连续工序任务分配页必须按连续工序承接口径过滤')
+  assertIncludes(continuousDispatchSource, 'mergeSourceTaskIds', '连续工序任务分配页必须只展示任务清单合并任务')
   assertIncludes(continuousDispatchSource, '车缝+后道连续任务', '连续工序任务分配页缺少车缝+后道 Tab')
-  assertIncludes(continuousDispatchSource, '含裁片连续任务', '连续工序任务分配页缺少含裁片 Tab')
-  assertIncludes(continuousDispatchSource, '其他连续任务', '连续工序任务分配页缺少其他连续任务 Tab')
+  assertIncludes(continuousDispatchSource, '其他连续工序任务', '连续工序任务分配页缺少其他连续工序任务 Tab')
+  assertNotIncludes(continuousDispatchSource, "WITH_CUTTING", '连续工序任务分配页不得保留含裁片第三 Tab')
   assertIncludes(continuousDispatchSource, '整任务分配', '连续工序任务分配页必须标明整任务分配')
+  assertIncludes(continuousDispatchSource, '裁片是否可做成衣', '车缝+后道连续任务必须展示裁片可做成衣判断')
+  assertIncludes(continuousDispatchSource, '辅料是否满足生产', '车缝+后道连续任务必须展示辅料齐套判断')
+  ;['覆盖工序', '承接能力', '产能窗口', '接单截止', '任务截止'].forEach((token) => {
+    assertIncludes(continuousDispatchSource, token, `其他连续工序任务缺少 ${token}`)
+  })
   assertIncludes(continuousDispatchSource, '三方上报裁片完成数量和可做成衣数', '含裁片连续任务必须展示裁片完成上报口径')
   assertIncludes(continuousDispatchSource, '不生成我方加工单', '含裁片连续任务必须说明不生成我方加工单')
   assertIncludes(continuousDispatchSource, 'data-fast-page-render="true"', '连续任务分配搜索必须保留快速渲染标记')
+  assertIncludes(continuousDispatchSource, 'renderTablePagination', '连续任务分配列表必须渲染分页栏')
+  assertIncludes(continuousDispatchSource, 'CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS', '连续任务分配列表必须提供每页条数选项')
+  assertIncludes(continuousDispatchSource, 'tasks.slice', '连续任务分配列表必须分页切片，避免一次性渲染全部行')
+  assertIncludes(continuousDispatchSource, "action === 'prev-page' || action === 'next-page'", '连续任务分配列表必须处理上一页/下一页')
+  assertIncludes(continuousDispatchSource, "continuousDispatchField === 'pageSize'", '连续任务分配列表必须处理每页条数变化')
   assertIncludes(continuousDispatchSource, 'min-w-[980px] table-fixed', '连续任务分配表格必须在默认视口内预留 sticky 操作列空间')
   assertIncludes(continuousDispatchSource, 'xl:sticky xl:right-0', '连续任务分配操作列必须在桌面宽度保持 sticky')
   assertIncludes(continuousDispatchSource, 'w-[176px] min-w-[176px]', '连续任务分配操作列必须有固定宽度，避免遮挡分配状态')
   assertIncludes(continuousDispatchSource, 'w-[120px] min-w-[120px]', '连续任务分配状态列必须有固定宽度，避免被 sticky 操作列遮挡')
   assertNotIncludes(continuousDispatchSource, '按明细拆分', '连续工序任务分配页不得提供按明细拆分')
+  const continuousDispatchHtml = renderPageExportWithTsx('src/pages/continuous-dispatch.ts', 'renderContinuousDispatchPage')
+  assertIncludes(continuousDispatchHtml, '上一页', '连续任务分配页面 DOM 缺少上一页分页按钮')
+  assertIncludes(continuousDispatchHtml, '下一页', '连续任务分配页面 DOM 缺少下一页分页按钮')
+  assertIncludes(continuousDispatchHtml, '10 条/页', '连续任务分配页面 DOM 缺少每页条数选择')
+  assertIncludes(continuousDispatchHtml, '裁片是否可做成衣', '连续任务分配页面 DOM 缺少车缝齐套判断')
+  assertIncludes(continuousDispatchHtml, '辅料是否满足生产', '连续任务分配页面 DOM 缺少辅料齐套判断')
+  assertNotIncludes(continuousDispatchHtml, 'WITH_CUTTING', '连续任务分配页面 DOM 不得展示 WITH_CUTTING')
+  assertNotIncludes(continuousDispatchHtml, 'COMBINED_PROCESS_TASK', '连续任务分配页面 DOM 不得展示 COMBINED_PROCESS_TASK')
 
   assertIncludes(eventsSource, 'confirm-task-generation-preview', '生产单事件缺少确认生成任务动作')
   assertNotIncludes(eventsSource, 'const changed = applyOrderTaskBreakdown([orderId])', '单个拆解不得直接 applyOrderTaskBreakdown')
@@ -124,11 +154,28 @@ async function main(): Promise<void> {
   })
   assertIncludes(runtimeTasksSource, 'coveredProcesses', 'RuntimeProcessTask 透传缺少 coveredProcesses')
   assertIncludes(runtimeTasksSource, 'mergeContinuousRuntimeTasks', 'runtime 缺少任务清单连续工序合并写回函数')
+  assertIncludes(runtimeTasksSource, 'evaluateContinuousRuntimeTaskMerge', 'runtime 必须提供连续工序合并只读校验')
   assertIncludes(runtimeTasksSource, 'mergeSourceTaskIds', '连续工序任务必须记录合并来源任务')
   assertIncludes(runtimeTasksSource, 'MERGE_CONTINUOUS_PROCESS', '连续工序任务合并必须记录审计动作')
-  assertIncludes(runtimeTasksSource, "task.taskUnitType !== 'SINGLE_PROCESS_TASK'", '连续工序合并写回必须只允许单工序任务')
+  assertIncludes(runtimeTasksSource, "task.taskUnitType === 'SINGLE_PROCESS_TASK'", '连续工序合并写回必须只允许单工序任务')
+  assertIncludes(runtimeTasksSource, 'routeStepNo', '连续工序合并必须读取冻结路线步骤')
+  assertIncludes(runtimeTasksSource, 'routeLaneNo', '连续工序合并必须读取冻结路线并行线')
+  assertIncludes(runtimeTasksSource, 'routeParallelGroupId', '连续工序合并必须识别冻结路线并行组')
+  assertIncludes(runtimeTasksSource, 'routeParallelAcceptanceMode', '连续工序合并必须识别并行组整体承接口径')
+  ;[
+    '连续工序任务不能按明细拆分',
+    '中间缺少第',
+    '并行组未选择完整',
+    '该并行组未允许整体承接',
+    '同一工厂不具备并行组全部工序能力',
+    '同一工厂不具备连续工序全部工序能力',
+  ].forEach((token) => {
+    assertIncludes(runtimeTasksSource, token, `连续工序合并校验缺少中文原因：${token}`)
+  })
+  assertIncludes(runtimeTasksSource, 'listBusinessFactoryMasterRecords({ includeTestFactories: false })', '连续工序合并必须基于业务工厂档案校验同一工厂能力')
+  assertIncludes(runtimeTasksSource, 'canFactoryReceiveAllRuntimeTasks', '连续工序合并必须确认同一工厂覆盖全部工序任务能力')
 
-  ;['任务类型', '覆盖工序', '规则来源'].forEach((token) => {
+  ;['任务类型', '覆盖工序', '规则来源', '路线步骤', '并行组'].forEach((token) => {
     assertIncludes(taskBreakdownSource, token, `任务清单缺少 ${token}`)
   })
   ;['承接方式', '交出对象'].forEach((token) => {
@@ -153,17 +200,18 @@ async function main(): Promise<void> {
     'getContinuousMergeCandidates',
     'hasContinuousMergeCandidate',
     'selectedContinuousMergeTaskIds',
-    'isSelectedContinuousMergeTaskContiguous',
+    'evaluateContinuousRuntimeTaskMerge',
     "task.taskUnitType === 'SINGLE_PROCESS_TASK'",
     'data-breakdown-field="continuous-merge-task"',
     '合并所选工序',
     'mergeContinuousRuntimeTasks',
     'open-continuous-merge',
     '合并连续工序',
-    'next.dependsOnTaskIds?.includes(prev.taskId) || next.seq === prev.seq + 1',
+    '连续工序任务不能按明细拆分',
   ].forEach((token) => {
     assertIncludes(taskBreakdownSource, token, `任务清单列表化/分页/性能保护缺少 ${token}`)
   })
+  assertNotIncludes(taskBreakdownSource, 'next.dependsOnTaskIds?.includes(prev.taskId) || next.seq === prev.seq + 1', '任务清单连续合并不得继续使用依赖/seq 本地判断')
   assertNotIncludes(taskBreakdownSource, 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6', '任务清单不得保留顶部大统计卡片区')
   assertNotIncludes(taskBreakdownSource, '任务单元清单', '任务清单页不得再出现独立的任务单元清单区块')
   assertNotIncludes(taskBreakdownSource, 'renderSpecialCraftTaskSection', '任务清单页不得再单独渲染特殊工艺任务区块')
@@ -171,6 +219,11 @@ async function main(): Promise<void> {
   assertNotIncludes(taskBreakdownSource, 'specialCraftOperation', '任务清单页不得再保留特殊工艺独立筛选')
   assertNotIncludes(taskBreakdownSource, '特殊工艺任务数', '任务单元清单统计不得继续叫特殊工艺任务数')
   assertNotIncludes(taskBreakdownSource, '暂无特殊工艺任务', '任务单元清单空态不得继续叫特殊工艺任务')
+  const taskBreakdownHtml = renderPageExportWithTsx('src/pages/task-breakdown.ts', 'renderTaskBreakdownPage')
+  assertNotIncludes(taskBreakdownHtml, 'INHERIT_PROCESS', '任务清单页面 DOM 不得展示 INHERIT_PROCESS')
+  assertNotIncludes(taskBreakdownHtml, 'OVERRIDE_CRAFT', '任务清单页面 DOM 不得展示 OVERRIDE_CRAFT')
+  assertIncludes(taskBreakdownHtml, '按技术包工序生成', '任务清单页面 DOM 缺少技术包工序来源中文文案')
+  assertIncludes(taskBreakdownHtml, '按辅助/特种工艺生成', '任务清单页面 DOM 缺少辅助/特种工艺来源中文文案')
 
   ;['任务生成规则', '任务生成方式', '任务单元数', 'renderOrderTaskGenerationSummary'].forEach((token) => {
     assertIncludes(ordersDomainSource, token, `生产单列表缺少 ${token}`)
@@ -246,6 +299,7 @@ async function main(): Promise<void> {
   const ruleDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/production-task-generation-rules.ts')).href)
   const factoryDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/factory-master-store.ts')).href)
   const runtimeDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/runtime-process-tasks.ts')).href)
+  const processTasksDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/process-tasks.ts')).href)
   const mobileExecutionDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/mobile-execution-task-index.ts')).href)
   const pdaTaskDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/pda-task-mock-factory.ts')).href)
   const pdaHandoverDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/pda-handover-events.ts')).href)
@@ -382,6 +436,74 @@ async function main(): Promise<void> {
   assert.equal(kolSampleWholeUnit.assignmentTargetFactoryName, 'kol goto', 'KOL样品小单整单任务必须显示 kol goto')
   assert.equal(kolSampleWholeUnit.allowAutoDispatch, false, 'KOL样品小单整单任务不得进入自动分配')
   const runtimeTasks = runtimeDomain.listRuntimeProcessTasks()
+  assert.equal(
+    typeof runtimeDomain.evaluateContinuousRuntimeTaskMerge,
+    'function',
+    'runtime 必须导出连续工序合并只读校验函数',
+  )
+  const oldSeqCandidateResult = runtimeDomain.evaluateContinuousRuntimeTaskMerge([
+    'TASKGEN-202603-0002-007__ORDER',
+    'TASKGEN-202603-0002-008__ORDER',
+  ])
+  assert.equal(oldSeqCandidateResult.ok, false, '缺少冻结路线字段的旧 seq 连续任务不得合并')
+  assert.match(oldSeqCandidateResult.message, /路线步骤|并行线/, '缺少冻结路线字段时必须给出中文原因')
+  const parallelCompletenessBaseTask = {
+    productionOrderId: 'PO-CHECK-PARALLEL-COMPLETE',
+    defaultDocType: 'TASK',
+    taskUnitType: 'SINGLE_PROCESS_TASK',
+    isSplitSource: false,
+    isSplitResult: false,
+    assignmentStatus: 'UNASSIGNED',
+    status: 'NOT_STARTED',
+    routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED',
+    scopeType: 'ORDER',
+    scopeLabel: '整单',
+    seq: 1,
+  }
+  const parallelCompletenessRuntimeTasks = [
+    {
+      ...parallelCompletenessBaseTask,
+      taskId: 'TASK-CHECK-PARALLEL-A',
+      taskNo: 'TASK-CHECK-PARALLEL-A',
+      processNameZh: '并行工序A',
+      routeStepNo: 1,
+      routeLaneNo: 1,
+      routeParallelGroupId: 'ROUTE-GROUP-CHECK',
+      routeParallelGroupName: '并行组G',
+    },
+    {
+      ...parallelCompletenessBaseTask,
+      taskId: 'TASK-CHECK-PARALLEL-B',
+      taskNo: 'TASK-CHECK-PARALLEL-B',
+      processNameZh: '并行工序B',
+      assignmentStatus: 'ASSIGNED',
+      routeStepNo: 1,
+      routeLaneNo: 2,
+      routeParallelGroupId: 'ROUTE-GROUP-CHECK',
+      routeParallelGroupName: '并行组G',
+    },
+    {
+      ...parallelCompletenessBaseTask,
+      taskId: 'TASK-CHECK-PARALLEL-C',
+      taskNo: 'TASK-CHECK-PARALLEL-C',
+      processNameZh: '后续普通工序',
+      seq: 2,
+      routeStepNo: 2,
+      routeLaneNo: 1,
+    },
+  ]
+  const partialParallelGroupMergeResult = runtimeDomain.evaluateContinuousRuntimeTaskMerge(
+    ['TASK-CHECK-PARALLEL-A', 'TASK-CHECK-PARALLEL-C'],
+    parallelCompletenessRuntimeTasks,
+  )
+  assert.equal(partialParallelGroupMergeResult.ok, false, '并行组存在已分配成员时，不得只选组内单个任务和后续任务合并')
+  assert.match(partialParallelGroupMergeResult.message, /并行组未选择完整/, '漏选同组已分配成员时必须给出并行组未选择完整原因')
+  const selectedAssignedParallelGroupResult = runtimeDomain.evaluateContinuousRuntimeTaskMerge(
+    ['TASK-CHECK-PARALLEL-A', 'TASK-CHECK-PARALLEL-B', 'TASK-CHECK-PARALLEL-C'],
+    parallelCompletenessRuntimeTasks,
+  )
+  assert.equal(selectedAssignedParallelGroupResult.ok, false, '选中已分配并行组成员时必须触发合并硬性限制')
+  assert.match(selectedAssignedParallelGroupResult.message, /未分配、未开工、未拆分的单工序任务/, '已分配成员被选中时必须返回硬性限制原因')
   assert(runtimeTasks.some((task: { taskUnitType?: string }) => task.taskUnitType === 'WHOLE_ORDER_TASK'), 'runtime 缺少整单任务')
   assert(runtimeTasks.some((task: { taskUnitType?: string }) => task.taskUnitType === 'COMBINED_PROCESS_TASK'), 'runtime 缺少任务清单人工合并后的连续工序任务演示')
   const mergedRuntimeTasks = runtimeTasks.filter((task: { taskUnitType?: string }) =>
@@ -405,32 +527,85 @@ async function main(): Promise<void> {
     ),
     '含裁片连续任务必须由 PO-202603-082 的裁片和车缝任务合并生成',
   )
-  const continuousDispatchPage = await import(pathToFileURL(path.join(ROOT, 'src/pages/continuous-dispatch.ts')).href)
-  continuousDispatchPage.handleContinuousDispatchEvent({
-    closest(selector: string) {
-      if (selector === '[data-continuous-dispatch-action]') {
-        return {
-          dataset: {
-            continuousDispatchAction: 'switch-tab',
-            tab: 'WITH_CUTTING',
-          },
+  const continuousDispatchDefaultHtml = renderPageExportWithTsx('src/pages/continuous-dispatch.ts', 'renderContinuousDispatchPage')
+  assertIncludes(continuousDispatchDefaultHtml, '裁片是否可做成衣', '默认车缝+后道 Tab 空态必须展示裁片可做成衣判断')
+  assertIncludes(continuousDispatchDefaultHtml, '辅料是否满足生产', '默认车缝+后道 Tab 空态必须展示辅料齐套判断')
+  assertNotIncludes(continuousDispatchDefaultHtml, 'WITH_CUTTING', '连续工序任务分配默认 DOM 不得展示 WITH_CUTTING')
+  assertNotIncludes(continuousDispatchDefaultHtml, 'COMBINED_PROCESS_TASK', '连续工序任务分配默认 DOM 不得展示 COMBINED_PROCESS_TASK')
+  const continuousDispatchWithCuttingHtml = renderPageExportWithTsx(
+    'src/pages/continuous-dispatch.ts',
+    'renderContinuousDispatchPage',
+    `page.handleContinuousDispatchEvent({
+      closest(selector) {
+        if (selector === '[data-continuous-dispatch-action]') {
+          return {
+            dataset: {
+              continuousDispatchAction: 'switch-tab',
+              tab: 'OTHER',
+            },
+          }
         }
-      }
-      return null
-    },
-  })
-  const continuousDispatchWithCuttingHtml = continuousDispatchPage.renderContinuousDispatchPage()
+        return null
+      },
+    })`,
+  )
   const cuttingTaskAnchor = cuttingContinuousRuntimeTask.taskNo || cuttingContinuousRuntimeTask.taskId
   const cuttingTaskIndex = continuousDispatchWithCuttingHtml.indexOf(cuttingTaskAnchor)
-  assert(cuttingTaskIndex >= 0, '含裁片连续任务 Tab 必须渲染真实含裁片任务行')
+  assert(cuttingTaskIndex >= 0, '其他连续工序任务 Tab 必须渲染真实含裁片任务行')
   const cuttingTaskRowEndIndex = continuousDispatchWithCuttingHtml.indexOf('</tr>', cuttingTaskIndex)
   const cuttingTaskRowHtml = continuousDispatchWithCuttingHtml.slice(
     cuttingTaskIndex,
     cuttingTaskRowEndIndex >= 0 ? cuttingTaskRowEndIndex : undefined,
   )
-  assertIncludes(cuttingTaskRowHtml, '我方裁床排唛架', '含裁片连续任务行必须展示我方裁床排唛架')
+  assertIncludes(cuttingTaskRowHtml, '我方裁床提供唛架方案', '含裁片连续任务行必须展示我方裁床提供唛架方案')
   assertIncludes(cuttingTaskRowHtml, '三方上报裁片完成数量和可做成衣数', '含裁片连续任务行必须展示三方上报口径')
   assertIncludes(cuttingTaskRowHtml, '不生成我方加工单', '含裁片连续任务行必须展示不生成我方加工单')
+  const continuousDispatchAfterActionHtml = renderPageExportWithTsx(
+    'src/pages/continuous-dispatch.ts',
+    'renderContinuousDispatchPage',
+    `page.handleContinuousDispatchEvent({
+      closest(selector) {
+        if (selector === '[data-continuous-dispatch-action]') {
+          return {
+            dataset: {
+              continuousDispatchAction: 'switch-tab',
+              tab: 'OTHER',
+            },
+          }
+        }
+        return null
+      },
+    })
+    page.handleContinuousDispatchEvent({
+      closest(selector) {
+        if (selector === '[data-continuous-dispatch-field]') {
+          return {
+            dataset: {
+              continuousDispatchField: 'pageSize',
+            },
+            value: '20',
+          }
+        }
+        return null
+      },
+    })
+    page.handleContinuousDispatchEvent({
+      closest(selector) {
+        if (selector === '[data-continuous-dispatch-action]') {
+          return {
+            dataset: {
+              continuousDispatchAction: 'set-bidding',
+              taskId: ${JSON.stringify(cuttingContinuousRuntimeTask.taskId)},
+            },
+          }
+        }
+        return null
+      },
+    })`,
+  )
+  assertIncludes(continuousDispatchAfterActionHtml, '已将连续工序任务设为整任务竞价分配', '连续工序任务整任务分配操作必须可达并展示反馈')
+  assertIncludes(continuousDispatchAfterActionHtml, '<option value="20" selected>20 条/页</option>', '连续工序任务每页条数交互必须生效')
+  assertIncludes(continuousDispatchAfterActionHtml, '招标中', '连续工序任务整任务分配后必须更新分配状态')
   const kolSampleRuntimeTasks = runtimeTasks.filter((task: {
     saleTypeSnapshot?: string
     taskUnitType?: string
@@ -465,6 +640,72 @@ async function main(): Promise<void> {
       !task.generationRuleId && task.generationRuleName === '任务清单人工合并'
     ),
     '连续工序组合任务只能来源于任务清单人工合并，不得来源于任务生成规则',
+  )
+  assert(
+    combinedRuntimeTasks.every((task: {
+      assignmentGranularity?: string
+      detailSplitMode?: string
+      detailSplitDimensions?: string[]
+      acceptanceMode?: string
+    }) =>
+      task.acceptanceMode === 'CONTINUOUS_PROCESS'
+      && task.assignmentGranularity === 'ORDER'
+      && !task.detailSplitMode
+      && (task.detailSplitDimensions ?? []).length === 0
+    ),
+    '连续工序组合任务必须保持整任务分配，不得按明细拆分',
+  )
+  assert.equal(
+    typeof processTasksDomain.buildGeneratedTaskEmissionPlans,
+    'function',
+    'ProcessTask 生成必须提供可检查的稳定编号 / 路线展示排序计划',
+  )
+  const buildGeneratedTaskEmissionPlans = processTasksDomain.buildGeneratedTaskEmissionPlans as Function
+  const routeDisplayPlans = buildGeneratedTaskEmissionPlans(
+    'PO-CHECK-ROUTE',
+    [
+      { artifactId: 'dict-first-route-second', generationSortKey: '001-dict-first', sortKey: '002-route-second' },
+      { artifactId: 'dict-second-route-first', generationSortKey: '002-dict-second', sortKey: '001-route-first' },
+    ],
+    [],
+  )
+  assert.deepEqual(
+    routeDisplayPlans.map((plan: { artifact: { artifactId: string } }) => plan.artifact.artifactId),
+    ['dict-second-route-first', 'dict-first-route-second'],
+    '路线顺序与字典顺序不一致时，任务展示顺序必须按冻结路线',
+  )
+  assert.deepEqual(
+    routeDisplayPlans.map((plan: { seq: number }) => plan.seq),
+    [1, 2],
+    '路线顺序与字典顺序不一致时，任务 seq 必须按冻结路线重新分配',
+  )
+  assert.deepEqual(
+    routeDisplayPlans.map((plan: { taskId: string }) => plan.taskId),
+    ['TASKGEN-CHECK-ROUTE-002', 'TASKGEN-CHECK-ROUTE-001'],
+    '路线顺序与字典顺序不一致时，taskId 必须保持旧生成顺序稳定',
+  )
+  const mergedUnitPlans = buildGeneratedTaskEmissionPlans(
+    'PO-CHECK-UNIT',
+    [
+      { artifactId: 'unit-dict-first-route-third', generationSortKey: '001-dict-first', sortKey: '003-route-third' },
+      { artifactId: 'unit-dict-second-route-first', generationSortKey: '002-dict-second', sortKey: '001-route-first' },
+      { artifactId: 'single-dict-third-route-second', generationSortKey: '003-dict-third', sortKey: '002-route-second' },
+    ],
+    [{
+      previewUnitId: 'unit-check-1',
+      taskUnitType: 'WHOLE_ORDER_TASK',
+      sourceArtifactIds: ['unit-dict-first-route-third', 'unit-dict-second-route-first'],
+    }],
+  )
+  assert.deepEqual(
+    mergedUnitPlans.map((plan: { taskId: string }) => plan.taskId),
+    ['TASKGEN-CHECK-UNIT-001', 'TASKGEN-CHECK-UNIT-002'],
+    '合并 unit 必须按旧 generationSortKey 首次遇到顺序分配稳定 taskId，且只分配一次',
+  )
+  assert.deepEqual(
+    mergedUnitPlans.map((plan: { seq: number }) => plan.seq),
+    [1, 2],
+    '合并 unit 进入任务列表时仍必须按路线顺序分配 seq',
   )
   assert(
     mergedRuntimeTasks.every((task: { qty?: number }) => Number(task.qty) > 0),

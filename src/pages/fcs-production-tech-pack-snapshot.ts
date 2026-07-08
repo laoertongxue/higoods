@@ -340,9 +340,9 @@ function renderPatternPieceTable(patternRows: TechnicalPatternFile[]): string {
             <th class="px-2 py-1 text-left">原始名称</th>
             <th class="px-2 py-1 text-left">尺码</th>
             <th class="px-2 py-1 text-left">解析参考片数</th>
-            <th class="px-2 py-1 text-left">适用颜色与颜色片数</th>
+            <th class="px-2 py-1 text-left">适用颜色 / 每种颜色的片数</th>
             <th class="px-2 py-1 text-right">当前部位总片数</th>
-            <th class="px-2 py-1 text-left">部位工艺</th>
+            <th class="px-2 py-1 text-left">部位特殊工艺</th>
             <th class="px-2 py-1 text-left">是否为模板</th>
             <th class="px-2 py-1 text-left">部位模板ID</th>
           </tr>

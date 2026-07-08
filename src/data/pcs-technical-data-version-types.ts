@@ -357,6 +357,14 @@ export interface TechnicalProcessEntry {
   referenceOutputValueUnit?: string
   referenceOutputValueUnitLabel?: string
   referenceOutputValueNote?: string
+  routeStepNo?: number
+  routeLaneNo?: number
+  routeParallelGroupId?: string
+  routeParallelGroupName?: string
+  routeParallelAcceptanceMode?: 'INDEPENDENT_ONLY' | 'WHOLE_GROUP_ALLOWED'
+  routeSourceKind?: 'DICT_DEFAULT' | 'GARMENT_CATEGORY' | 'BOM_REQUIREMENT' | 'PATTERN_PACKAGE' | 'PIECE_CRAFT' | 'MANUAL'
+  routeUpdatedBy?: string
+  routeUpdatedAt?: string
   difficulty?: 'LOW' | 'MEDIUM' | 'HIGH'
   remark?: string
 }
@@ -531,6 +539,12 @@ export interface TechnicalDataVersionContent {
   patternFiles: TechnicalPatternFile[]
   patternDesc: string
   processEntries: TechnicalProcessEntry[]
+  processRouteStatus?: 'UNCONFIRMED' | 'CONFIRMED'
+  processRouteConfirmedBy?: string
+  processRouteConfirmedAt?: string
+  processRouteUpdatedBy?: string
+  processRouteUpdatedAt?: string
+  processRouteChangeReason?: string
   sizeTable: TechnicalSizeRow[]
   bomItems: TechnicalBomItem[]
   qualityRules: TechnicalQualityRule[]

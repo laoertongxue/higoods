@@ -1,7 +1,10 @@
 import {
   appendTechPackVersionLog,
 } from './pcs-tech-pack-version-log-repository.ts'
-import { canPublishTechnicalVersionByReview } from './pcs-tech-pack-review.ts'
+import {
+  canPublishTechnicalVersionByReview,
+  getTechnicalProcessRouteGate,
+} from './pcs-tech-pack-review.ts'
 import {
   formatTechPackDesignRequirementBlockMessage,
   validateTechPackDesignRequirement,
@@ -42,6 +45,28 @@ function nowText(): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
 }
 
+function mergeLegacyPayloadWithRouteGate(
+  current: TechnicalDataVersionContent | null,
+  patch: Partial<TechnicalDataVersionContent>,
+): Record<string, unknown> {
+  const legacyPayload = {
+    ...(current?.legacyCompatibleCostPayload ?? {}),
+    ...(patch.legacyCompatibleCostPayload ?? {}),
+  }
+  const routeGateKeys = [
+    'processRouteStatus',
+    'processRouteConfirmedBy',
+    'processRouteConfirmedAt',
+    'processRouteUpdatedBy',
+    'processRouteUpdatedAt',
+    'processRouteChangeReason',
+  ] as const
+  routeGateKeys.forEach((key) => {
+    if (patch[key] !== undefined) legacyPayload[key] = patch[key]
+  })
+  return legacyPayload
+}
+
 function rebaseTechnicalVersionContent(
   content: TechnicalDataVersionContent,
   baseTechnicalVersionId: string,
@@ -72,8 +97,12 @@ export function saveTechnicalDataVersionContent(
   const record = getTechnicalDataVersionById(technicalVersionId)
   if (!record) throw new Error('未找到技术包版本。')
   if (record.versionStatus !== 'DRAFT') throw new Error('已发布的正式版本技术包不能编辑。')
+  const currentContent = getTechnicalDataVersionContent(technicalVersionId)
 
-  updateTechnicalDataVersionContent(technicalVersionId, contentPatch)
+  updateTechnicalDataVersionContent(technicalVersionId, {
+    ...contentPatch,
+    legacyCompatibleCostPayload: mergeLegacyPayloadWithRouteGate(currentContent, contentPatch),
+  })
   const nextRecord = updateTechnicalDataVersionRecord(technicalVersionId, {
     updatedAt: nowText(),
     updatedBy: operatorName,
@@ -132,6 +161,9 @@ export function publishTechnicalDataVersion(
   if (designMessage) throw new Error(designMessage)
   if (record.missingItemCodes.length > 0) {
     throw new Error(`核心域未补全，暂不能发布：${record.missingItemNames.join('、')}`)
+  }
+  if (!getTechnicalProcessRouteGate(technicalVersionId, content).confirmed) {
+    throw new Error('工艺路线未确认，不能发布正式技术包。')
   }
   if (!canPublishTechnicalVersionByReview(record)) {
     throw new Error('跟单审核通过后才能发布正式版本。')

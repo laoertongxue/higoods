@@ -41,6 +41,8 @@ import {
   type DispatchAcceptanceSlaResolution,
   type DispatchAcceptanceSlaRuleSource,
 } from './dispatch-acceptance-sla.ts'
+import { listBusinessFactoryMasterRecords } from './factory-master-store.ts'
+import type { Factory, FactoryProcessAbility } from './factory-types.ts'
 
 export type RuntimeTaskScopeType = ProcessAssignmentGranularity
 export type RuntimeExecutorKind = 'EXTERNAL_FACTORY' | 'WAREHOUSE_WORKSHOP'
@@ -237,6 +239,12 @@ export interface RuntimeTaskSplitGroupSnapshot {
   eventAt: string
   statusSummary: string
   factorySummary: string
+}
+
+export interface ContinuousRuntimeTaskMergeEvaluation {
+  ok: boolean
+  message: string
+  tasks: RuntimeProcessTask[]
 }
 
 export interface RuntimeBatchDispatchInput {
@@ -767,11 +775,202 @@ function applyRuntimeOverrides(tasks: RuntimeProcessTask[]): RuntimeProcessTask[
   })
 }
 
+function isPositiveRouteNo(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+function compareRuntimeRouteTask(a: RuntimeProcessTask, b: RuntimeProcessTask): number {
+  const stepCompare = (a.routeStepNo ?? Number.MAX_SAFE_INTEGER) - (b.routeStepNo ?? Number.MAX_SAFE_INTEGER)
+  if (stepCompare !== 0) return stepCompare
+  const laneCompare = (a.routeLaneNo ?? Number.MAX_SAFE_INTEGER) - (b.routeLaneNo ?? Number.MAX_SAFE_INTEGER)
+  if (laneCompare !== 0) return laneCompare
+  return compareRuntimeTask(a, b)
+}
+
+function isContinuousMergeSourceTask(task: RuntimeProcessTask): boolean {
+  return task.defaultDocType !== 'DEMAND'
+    && task.taskUnitType === 'SINGLE_PROCESS_TASK'
+    && !task.isSplitSource
+    && !task.isSplitResult
+    && task.assignmentStatus === 'UNASSIGNED'
+    && task.status === 'NOT_STARTED'
+}
+
+function formatRouteStepRange(tasks: RuntimeProcessTask[]): string {
+  const steps = tasks
+    .map((task) => task.routeStepNo)
+    .filter(isPositiveRouteNo)
+    .sort((left, right) => left - right)
+  if (steps.length === 0) return '未配置路线'
+  const first = steps[0]
+  const last = steps[steps.length - 1]
+  return first === last ? `第 ${first} 步` : `第 ${first}-${last} 步`
+}
+
+function canFactoryReceiveProcessAbility(ability: FactoryProcessAbility, processCode: string): boolean {
+  if (ability.status && ability.status !== 'ACTIVE') return false
+  if (ability.canReceiveTask === false) return false
+  return ability.processCode === processCode
+    || ability.parentProcessCode === processCode
+    || ability.craftCodes.includes(processCode)
+}
+
+function getRuntimeTaskFactoryAbilityCodes(task: RuntimeProcessTask): string[] {
+  const codes = new Set<string>()
+  if (task.processCode) codes.add(task.processCode)
+  if (task.craftCode) codes.add(task.craftCode)
+  for (const coveredProcess of task.coveredProcesses ?? []) {
+    if (coveredProcess.processCode) codes.add(coveredProcess.processCode)
+    if (coveredProcess.craftCode) codes.add(coveredProcess.craftCode)
+  }
+  return Array.from(codes)
+}
+
+function getRuntimeTaskProcessLabel(task: RuntimeProcessTask): string {
+  const coveredNames = (task.coveredProcesses ?? [])
+    .map((coveredProcess) => coveredProcess.processName || coveredProcess.craftName)
+    .filter(Boolean)
+  return coveredNames.length > 0
+    ? Array.from(new Set(coveredNames)).join('、')
+    : task.processNameZh || task.processCode
+}
+
+function canFactoryReceiveAllRuntimeTasks(factory: Factory, tasks: RuntimeProcessTask[]): boolean {
+  return tasks.every((task) => {
+    const abilityCodes = getRuntimeTaskFactoryAbilityCodes(task)
+    if (abilityCodes.length === 0) return false
+    return abilityCodes.some((processCode) =>
+      factory.processAbilities.some((ability) => canFactoryReceiveProcessAbility(ability, processCode)),
+    )
+  })
+}
+
+function findFactoryCoveringAllRuntimeTasks(tasks: RuntimeProcessTask[]): Factory | undefined {
+  if (tasks.length === 0) return undefined
+  return listBusinessFactoryMasterRecords({ includeTestFactories: false })
+    .find((factory) => canFactoryReceiveAllRuntimeTasks(factory, tasks))
+}
+
+function evaluateSingleFactoryCoverageForParallelGroup(groupTasks: RuntimeProcessTask[]): string | null {
+  if (findFactoryCoveringAllRuntimeTasks(groupTasks)) return null
+
+  const [firstTask] = groupTasks
+  const processText = Array.from(new Set(groupTasks.map(getRuntimeTaskProcessLabel))).join('、')
+  return `同一工厂不具备并行组全部工序能力：第 ${firstTask?.routeStepNo ?? '—'} 步「${firstTask?.routeParallelGroupName || firstTask?.routeParallelGroupId || '并行组'}」需要同一工厂覆盖 ${processText}。`
+}
+
+function evaluateSingleFactoryCoverageForContinuousMerge(sourceTasks: RuntimeProcessTask[]): string | null {
+  if (findFactoryCoveringAllRuntimeTasks(sourceTasks)) return null
+
+  const processText = Array.from(new Set(sourceTasks.map(getRuntimeTaskProcessLabel))).join('、')
+  return `同一工厂不具备连续工序全部工序能力：冻结路线${formatRouteStepRange(sourceTasks)}需要同一工厂覆盖 ${processText}。`
+}
+
+function evaluateSelectedParallelGroups(
+  selectedTasks: RuntimeProcessTask[],
+  orderTasks: RuntimeProcessTask[],
+): string | null {
+  const selectedIds = new Set(selectedTasks.map((task) => task.taskId))
+  const selectedSteps = new Map<number, RuntimeProcessTask[]>()
+  const checkedParallelGroupIds = new Set<string>()
+  for (const task of selectedTasks) {
+    if (!isPositiveRouteNo(task.routeStepNo)) continue
+    selectedSteps.set(task.routeStepNo, [...(selectedSteps.get(task.routeStepNo) ?? []), task])
+  }
+
+  for (const task of selectedTasks) {
+    if ((task.routeLaneNo ?? 1) > 1 && !task.routeParallelGroupId) {
+      return `并行组未选择完整：第 ${task.routeStepNo} 步第 ${task.routeLaneNo} 并行线缺少并行组信息。`
+    }
+    if (!task.routeParallelGroupId) continue
+    const groupTasks = orderTasks.filter((item) => item.routeParallelGroupId === task.routeParallelGroupId)
+    const missing = groupTasks.filter((item) => !selectedIds.has(item.taskId))
+    if (missing.length > 0) {
+      return `并行组未选择完整：第 ${task.routeStepNo} 步「${task.routeParallelGroupName || task.routeParallelGroupId}」需整体选择。`
+    }
+    if (groupTasks.some((item) => item.routeParallelAcceptanceMode !== 'WHOLE_GROUP_ALLOWED')) {
+      return `该并行组未允许整体承接：第 ${task.routeStepNo} 步仍为分别承接。`
+    }
+    if (!checkedParallelGroupIds.has(task.routeParallelGroupId)) {
+      checkedParallelGroupIds.add(task.routeParallelGroupId)
+      const factoryCoverageMessage = evaluateSingleFactoryCoverageForParallelGroup(groupTasks)
+      if (factoryCoverageMessage) return factoryCoverageMessage
+    }
+  }
+
+  for (const [stepNo, stepTasks] of selectedSteps) {
+    if (stepTasks.length <= 1) continue
+    const groupIds = new Set(stepTasks.map((task) => task.routeParallelGroupId || ''))
+    if (groupIds.size !== 1 || groupIds.has('')) {
+      return `并行组未选择完整：第 ${stepNo} 步不能混选不同并行线。`
+    }
+    if (stepTasks.some((task) => task.routeParallelAcceptanceMode !== 'WHOLE_GROUP_ALLOWED')) {
+      return `该并行组未允许整体承接：第 ${stepNo} 步仍为分别承接。`
+    }
+  }
+
+  return null
+}
+
+function evaluateContinuousRuntimeTaskMergeWithTasks(
+  taskIds: string[],
+  runtimeTasks: RuntimeProcessTask[],
+): ContinuousRuntimeTaskMergeEvaluation {
+  const selectedIds = Array.from(new Set(taskIds.filter(Boolean)))
+  const sourceTasks = selectedIds
+    .map((taskId) => runtimeTasks.find((task) => task.taskId === taskId))
+    .filter((task): task is RuntimeProcessTask => Boolean(task))
+    .sort(compareRuntimeRouteTask)
+
+  if (sourceTasks.length !== selectedIds.length) {
+    return { ok: false, message: '所选任务已变化，请刷新任务清单后重新选择。', tasks: sourceTasks }
+  }
+  if (sourceTasks.length < 2) {
+    return { ok: false, message: '请选择至少两个工序任务。', tasks: sourceTasks }
+  }
+
+  const productionOrderId = sourceTasks[0].productionOrderId
+  if (!sourceTasks.every((task) => task.productionOrderId === productionOrderId)) {
+    return { ok: false, message: '只能合并同一生产单下的连续工序任务。', tasks: sourceTasks }
+  }
+  if (sourceTasks.some((task) => !isContinuousMergeSourceTask(task))) {
+    return { ok: false, message: '只能合并未分配、未开工、未拆分的单工序任务。', tasks: sourceTasks }
+  }
+  if (sourceTasks.some((task) => !isPositiveRouteNo(task.routeStepNo) || !isPositiveRouteNo(task.routeLaneNo))) {
+    return { ok: false, message: '所选任务缺少冻结路线步骤或并行线，不能合并连续工序任务。', tasks: sourceTasks }
+  }
+
+  const orderRuntimeTasks = runtimeTasks
+    .filter((task) => task.productionOrderId === productionOrderId)
+    .sort(compareRuntimeRouteTask)
+  const parallelMessage = evaluateSelectedParallelGroups(sourceTasks, orderRuntimeTasks)
+  if (parallelMessage) return { ok: false, message: parallelMessage, tasks: sourceTasks }
+
+  const steps = Array.from(new Set(sourceTasks.map((task) => task.routeStepNo as number))).sort((left, right) => left - right)
+  for (let index = 1; index < steps.length; index += 1) {
+    const prev = steps[index - 1]
+    const next = steps[index]
+    if (next - prev !== 1) {
+      return { ok: false, message: `中间缺少第 ${prev + 1} 步，不能合并连续工序任务。`, tasks: sourceTasks }
+    }
+  }
+
+  const factoryCoverageMessage = evaluateSingleFactoryCoverageForContinuousMerge(sourceTasks)
+  if (factoryCoverageMessage) return { ok: false, message: factoryCoverageMessage, tasks: sourceTasks }
+
+  return {
+    ok: true,
+    message: `已选择冻结路线${formatRouteStepRange(sourceTasks)}，可合并；连续工序任务不能按明细拆分。`,
+    tasks: sourceTasks,
+  }
+}
+
 function buildContinuousMergedTask(sourceTasks: RuntimeProcessTask[], mergedTaskId: string, createdAt: string, createdBy: string): RuntimeProcessTask | null {
   if (sourceTasks.length < 2) return null
   const [source] = sourceTasks
   const target = sourceTasks[sourceTasks.length - 1]
   const sourceTaskNos = sourceTasks.map((task) => task.taskNo || task.taskId)
+  const routeRangeText = formatRouteStepRange(sourceTasks)
   const processName = `${sourceTasks.map((task) => task.processNameZh).join('+')}组合任务`
   const mergedTask: RuntimeProcessTask = {
     ...target,
@@ -785,6 +984,17 @@ function buildContinuousMergedTask(sourceTasks: RuntimeProcessTask[], mergedTask
     taskCategoryZh: processName,
     taskUnitType: 'COMBINED_PROCESS_TASK',
     acceptanceMode: 'CONTINUOUS_PROCESS',
+    assignmentGranularity: 'ORDER',
+    detailSplitMode: undefined,
+    detailSplitDimensions: [],
+    scopeType: 'ORDER',
+    scopeKey: 'ORDER',
+    scopeLabel: '整任务',
+    routeStepNo: source.routeStepNo,
+    routeLaneNo: source.routeLaneNo,
+    routeParallelGroupId: source.routeParallelGroupId,
+    routeParallelGroupName: source.routeParallelGroupName,
+    routeParallelAcceptanceMode: source.routeParallelAcceptanceMode,
     generationRuleId: undefined,
     generationRuleName: '任务清单人工合并',
     coveredProcesses: sourceTasks.flatMap((task) => task.coveredProcesses ?? []),
@@ -801,7 +1011,7 @@ function buildContinuousMergedTask(sourceTasks: RuntimeProcessTask[], mergedTask
     mergeSourceTaskIds: sourceTasks.map((task) => task.taskId),
     mergeCreatedAt: createdAt,
     mergeCreatedBy: createdBy,
-    mockExecutionSummary: '任务清单人工合并相邻工序后，工厂按组合任务执行。',
+    mockExecutionSummary: `任务清单人工合并冻结路线${routeRangeText}后，工厂按整任务执行。`,
     mockHandoverSummary: target.handoverReceiverName ? `完成后交${target.handoverReceiverName}` : target.mockHandoverSummary,
     auditLogs: [
       ...target.auditLogs,
@@ -1423,30 +1633,18 @@ export function listRuntimeProcessTasks(): RuntimeProcessTask[] {
   return buildRuntimeProcessTasks()
 }
 
-export function mergeContinuousRuntimeTasks(taskIds: string[], by = '生产计划员'): RuntimeProcessTask | null {
+export function evaluateContinuousRuntimeTaskMerge(
+  taskIds: string[],
+  runtimeTasks?: RuntimeProcessTask[],
+): ContinuousRuntimeTaskMergeEvaluation {
   ensureDispatchBoardSeedData()
-  const sourceTasks = taskIds
-    .map((taskId) => buildRuntimeProcessTasks().find((task) => task.taskId === taskId))
-    .filter((task): task is RuntimeProcessTask => Boolean(task))
-    .sort(compareRuntimeTask)
+  return evaluateContinuousRuntimeTaskMergeWithTasks(taskIds, runtimeTasks ?? buildRuntimeProcessTasks())
+}
 
-  if (sourceTasks.length < 2) return null
-  const productionOrderId = sourceTasks[0].productionOrderId
-  if (!sourceTasks.every((task) => task.productionOrderId === productionOrderId)) return null
-  if (sourceTasks.some((task) =>
-    task.defaultDocType === 'DEMAND'
-    || task.taskUnitType !== 'SINGLE_PROCESS_TASK'
-    || task.isSplitSource
-    || task.isSplitResult
-    || task.assignmentStatus !== 'UNASSIGNED'
-    || task.status !== 'NOT_STARTED'
-  )) return null
-
-  for (let index = 1; index < sourceTasks.length; index += 1) {
-    const prev = sourceTasks[index - 1]
-    const next = sourceTasks[index]
-    if (!(next.dependsOnTaskIds.includes(prev.taskId) || next.seq === prev.seq + 1)) return null
-  }
+export function mergeContinuousRuntimeTasks(taskIds: string[], by = '生产计划员'): RuntimeProcessTask | null {
+  const evaluation = evaluateContinuousRuntimeTaskMerge(taskIds)
+  if (!evaluation.ok) return null
+  const sourceTasks = evaluation.tasks
 
   const mergedTaskId = sourceTasks[sourceTasks.length - 1].taskId
   const createdAt = nowTimestamp()
