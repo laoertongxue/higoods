@@ -685,6 +685,7 @@ function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSear
       <div class="flex-1 space-y-5 overflow-y-auto p-5">
         ${renderSourceInfo(record)}
         ${renderProductTypeConfirmation(record)}
+        ${renderConfirmationRequirementSection(record)}
         ${renderPreparationSelection(record)}
         ${renderTimeline(record)}
         <section id="prep-items" class="rounded-xl border bg-card p-4">
@@ -794,7 +795,19 @@ function renderProductTypeConfirmation(record: ProductionPreparationRecord): str
           <div class="mt-1 font-medium">${escapeHtml(formatDateTime(record.prepTypeConfirmedAt))}</div>
         </div>
       </div>
-      ${record.prepTypeOverrideReason ? `<p class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">修正原因：${escapeHtml(record.prepTypeOverrideReason)}</p>` : ''}
+    </section>
+  `
+}
+
+function renderConfirmationRequirementSection(record: ProductionPreparationRecord): string {
+  return `
+    <section class="rounded-xl border bg-card p-4">
+      <h3 class="font-semibold">跟单确认要求</h3>
+      <div class="mt-3 grid gap-3 text-sm md:grid-cols-3">
+        <div><p class="text-xs text-muted-foreground">本次用料</p><p>${escapeHtml(record.materialRequirement.materialNo)} ${escapeHtml(record.materialRequirement.materialName)}</p></div>
+        <div><p class="text-xs text-muted-foreground">做款/打板要求</p><p>${escapeHtml(record.sampleRequirementText || '-')}</p></div>
+        <div><p class="text-xs text-muted-foreground">通用备注</p><p>${escapeHtml(record.confirmationRemark || '-')}</p></div>
+      </div>
     </section>
   `
 }
@@ -1017,9 +1030,26 @@ function renderConfirmItemsDialog(record: ProductionPreparationRecord, params: U
               }).join('')}
             </div>
           </section>
+          <section class="rounded-lg border p-4">
+            <div class="text-sm font-semibold">3. 维护面料和做款要求</div>
+            <div class="mt-3 grid gap-3 md:grid-cols-2">
+              <label class="block text-sm">
+                <span class="text-muted-foreground">面料编号</span>
+                <input name="materialNo" value="${escapeHtml(record.materialRequirement.materialNo)}" class="mt-1 w-full rounded-md border px-3 py-2" required />
+              </label>
+              <label class="block text-sm">
+                <span class="text-muted-foreground">面料名称</span>
+                <input name="materialName" value="${escapeHtml(record.materialRequirement.materialName)}" class="mt-1 w-full rounded-md border px-3 py-2" required />
+              </label>
+            </div>
+            <label class="mt-3 block text-sm">
+              <span class="text-muted-foreground">做款/打板要求</span>
+              <textarea name="sampleRequirementText" class="mt-1 min-h-20 w-full rounded-md border px-3 py-2" required>${escapeHtml(record.sampleRequirementText)}</textarea>
+            </label>
+          </section>
           <label class="block text-sm">
-            <span class="text-muted-foreground">修正原因</span>
-            <textarea name="overrideReason" class="mt-1 min-h-20 w-full rounded-md border px-3 py-2" placeholder="商品类型与系统建议不一致时填写">${escapeHtml(record.prepTypeOverrideReason)}</textarea>
+            <span class="text-muted-foreground">通用备注</span>
+            <textarea name="confirmationRemark" class="mt-1 min-h-20 w-full rounded-md border px-3 py-2">${escapeHtml(record.confirmationRemark)}</textarea>
           </label>
           <div class="flex justify-end gap-2">
             <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="${escapeHtml(closeHref)}">取消</button>
@@ -1513,7 +1543,12 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
     const selectedItemTypes = formData.getAll('selectedItemType')
       .map((itemType) => String(itemType).trim() as PreparationItemType)
       .filter(Boolean)
-    const overrideReason = String(formData.get('overrideReason') ?? '').trim()
+    const materialRequirement = {
+      materialNo: String(formData.get('materialNo') ?? '').trim(),
+      materialName: String(formData.get('materialName') ?? '').trim(),
+    }
+    const sampleRequirementText = String(formData.get('sampleRequirementText') ?? '').trim()
+    const confirmationRemark = String(formData.get('confirmationRemark') ?? '').trim()
     const runtime = loadPreparationRuntimeState()
     savePreparationRuntimeState({
       ...runtime,
@@ -1524,7 +1559,10 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
           confirmedAt: currentIsoMinute(),
           confirmedProductPrepType,
           selectedItemTypes,
-          overrideReason,
+          materialRequirement,
+          sampleRequirementText,
+          confirmationRemark,
+          overrideReason: confirmationRemark,
         },
       },
     })
