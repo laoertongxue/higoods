@@ -209,6 +209,12 @@ function runtimeDependencyTypes(
   if (itemType === '毛织齐码纸样' || itemType === '梭织齐码纸样') {
     return templateTypes.has('版衣制作') ? ['版衣制作'] : []
   }
+  if (itemType === '染色调色（纱线）') {
+    return templateTypes.has('确认染色要求（纱线）') ? ['确认染色要求（纱线）'] : []
+  }
+  if (itemType === '染色调色（面料）') {
+    return templateTypes.has('确认染色要求（面料）') ? ['确认染色要求（面料）'] : []
+  }
   return []
 }
 
@@ -224,7 +230,9 @@ function runtimeItemLayout(
   if (itemType === '毛织齐码纸样') return { sequenceGroup: hasWovenBase ? '双齐码并行' : '毛织主线', parallelGroup: '毛织齐码', ownerTeam: '毛织团队', ownerName: '待分配' }
   if (itemType === '梭织齐码纸样') return { sequenceGroup: hasWoolBase ? '双齐码并行' : '梭织主线', parallelGroup: '梭织齐码', ownerTeam: '版师团队', ownerName: '待分配' }
   if (itemType === '数码印/DTF/DTG花型') return { sequenceGroup: '花型并行', parallelGroup: '花型', ownerTeam: '花型团队', ownerName: '待分配' }
+  if (itemType === '确认染色要求（纱线）') return { sequenceGroup: '染色并行', parallelGroup: '纱线染色', ownerTeam: '跟单角色', ownerName: '待确认' }
   if (itemType === '染色调色（纱线）') return { sequenceGroup: '染色并行', parallelGroup: '纱线染色', ownerTeam: '染色团队', ownerName: '待接单' }
+  if (itemType === '确认染色要求（面料）') return { sequenceGroup: '染色并行', parallelGroup: '面料染色', ownerTeam: '跟单角色', ownerName: '待确认' }
   if (itemType === '染色调色（面料）') return { sequenceGroup: '染色并行', parallelGroup: '面料染色', ownerTeam: '染色团队', ownerName: '待接单' }
   return { sequenceGroup: '辅料并行', parallelGroup: '主辅料', ownerTeam: '采购团队', ownerName: '待接单' }
 }
