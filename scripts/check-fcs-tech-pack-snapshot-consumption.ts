@@ -57,14 +57,37 @@ assert.ok(!productionEventsSource.includes('/fcs/tech-pack/'), '生产页不得�
 
 const snapshotPageSource = read('src/pages/fcs-production-tech-pack-snapshot.ts')
 const confirmationPageSource = read('src/pages/production/confirmation-print.ts')
+const confirmationTemplateSource = read('src/pages/print/templates/production-material-confirmation-template.ts')
 const runtimeSource = read('src/data/fcs/production-order-tech-pack-runtime.ts')
 assert.ok(snapshotPageSource.includes('技术包快照 - '), 'FCS 技术包快照页必须使用新的页面标题')
 ;['保存', '发布', '新增', '删除', '替换', '上传'].forEach((keyword) => {
   assert.ok(!snapshotPageSource.includes(keyword), `FCS 技术包快照页不得出现可编辑动作：${keyword}`)
 })
+const { buildProductionConfirmationPrintDocument } = await import('../src/pages/print/templates/production-material-confirmation-template.ts')
+const confirmationPrintDocument = buildProductionConfirmationPrintDocument({
+  documentType: 'PRODUCTION_CONFIRMATION',
+  sourceType: 'PRODUCTION_ORDER',
+  sourceId: 'PO-202603-0001',
+})
+const confirmationPrintText = [
+  confirmationPrintDocument.documentTitle,
+  confirmationPrintDocument.printSubtitle,
+  ...confirmationPrintDocument.headerFields.flatMap((field) => [field.label, field.value]),
+  ...confirmationPrintDocument.sections.flatMap((section) => [
+    section.title,
+    ...section.fields.flatMap((field) => [field.label, field.value]),
+  ]),
+  ...confirmationPrintDocument.tables.flatMap((table) => [
+    table.title,
+    ...table.headers,
+    ...table.rows.flat(),
+  ]),
+].join('\n')
+assert.ok(confirmationPageSource.includes('renderUnifiedPrintPreviewPage'), '生产确认单 wrapper 必须接入统一打印预览')
 ;['纸样分类', '适用颜色', '每种颜色的片数', '特殊工艺'].forEach((token) => {
   assert.ok(snapshotPageSource.includes(token), `技术包快照页必须展示：${token}`)
-  assert.ok(confirmationPageSource.includes(token), `生产确认单打印页必须展示：${token}`)
+  assert.ok(confirmationTemplateSource.includes(token), `生产确认单统一打印模板必须定义：${token}`)
+  assert.ok(confirmationPrintText.includes(token), `生产确认单打印输出必须展示：${token}`)
 })
 ;['selectedSizeCodes', 'colorAllocations', 'specialCrafts', 'selectedTargetObject', 'supportedTargetObjects', 'bundleLengthCm', 'bundleWidthCm'].forEach((token) => {
   assert.ok(runtimeSource.includes(token), `生产单技术包运行时克隆必须保留：${token}`)
@@ -80,17 +103,24 @@ assert.ok(generatorSource.includes('craft.selectedTargetObject'), '特殊工艺�
 assert.ok(generatorSource.includes('resolveSelectedTargetObject'), '特殊工艺任务生成必须解析 selectedTargetObject')
 assert.ok(generatorSource.includes('isSpecialCraftTargetObjectSupported'), '特殊工艺任务生成必须校验作用对象支持范围')
 
-;[
+const techPackRuntimeConsumerPaths = [
   'src/data/fcs/material-request-drafts.ts',
   'src/data/fcs/task-detail-rows.ts',
   'src/data/fcs/production-artifact-generation.ts',
   'src/data/fcs/cutting/generated-fei-tickets.ts',
   'src/domain/fcs-cutting-piece-truth/index.ts',
   'src/pages/process-factory/cutting/marker-piece-explosion.ts',
+]
+techPackRuntimeConsumerPaths.forEach((relativePath) => {
+  const source = read(relativePath)
+  assert.ok(source.includes('production-order-tech-pack-runtime'), `${relativePath} 必须改为从生产单快照访问器读取技术包`)
+  assert.ok(!source.includes('pcs-technical-data-runtime-source'), `${relativePath} 不得再引用旧的 spuCode 兼容源`)
+})
+;[
+  ...techPackRuntimeConsumerPaths,
   'src/pages/process-factory/cutting/marker-spreading-model.ts',
 ].forEach((relativePath) => {
   const source = read(relativePath)
-  assert.ok(source.includes('production-order-tech-pack-runtime'), `${relativePath} 必须改为从生产单快照访问器读取技术包`)
   assert.ok(!source.includes('pcs-technical-data-runtime-source'), `${relativePath} 不得再引用旧的 spuCode 兼容源`)
 })
 

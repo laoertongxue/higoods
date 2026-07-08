@@ -49,6 +49,7 @@
     "check:fcs-tech-pack-special-craft-source-and-dialog-stability": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-tech-pack-special-craft-source-and-dialog-stability.ts",
     "check:fcs-tech-pack-snapshot-consumption": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-tech-pack-snapshot-consumption.ts",
     "check:tech-pack-process-route": "tsx scripts/check-tech-pack-process-route.ts",
+    "check:continuous-process-route-eligibility": "tsx scripts/check-continuous-process-route-eligibility.ts",
     "check:tech-pack-special-craft-target-object-and-versioning": "tsx scripts/check-tech-pack-special-craft-target-object-and-versioning.ts",
     "check:production-confirmation": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-production-confirmation.ts",
     "check:task-print-cards-foundation": "tsx scripts/check-task-print-cards-foundation.ts",
