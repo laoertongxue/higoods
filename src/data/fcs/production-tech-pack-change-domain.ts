@@ -68,6 +68,73 @@ export type PatchEffectivePoint =
   | 'FROM_NEXT_SPECIAL_PROCESS'
   | 'SETTLEMENT_ONLY'
 
+export type ProductionOrderChangeSource =
+  | 'TECH_PACK_NEW_VERSION'
+  | 'MATERIAL_SHORTAGE'
+  | 'FACTORY_PROCESS_EXCEPTION'
+  | 'PATTERN_SIZE_PRINT_CHANGE'
+  | 'COST_EXCEPTION'
+  | 'DELIVERY_REQUIREMENT_CHANGE'
+  | 'QUALITY_REWORK'
+
+export type ProductionOrderChangeResult =
+  | 'VERSION_RELATION'
+  | 'PRODUCTION_PATCH'
+  | 'VERSION_AND_PATCH'
+  | 'RECORD_ONLY'
+  | 'COST_ONLY'
+
+export type ProductionOrderChangeExecutionStrategy =
+  | 'IMMEDIATE_STOP_LOSS'
+  | 'IMMEDIATE_EXECUTION'
+  | 'AFTER_APPROVAL'
+
+export type ProductionOrderChangeLockStatus =
+  | 'NONE'
+  | 'IMPACT_SCOPE_LOCKED'
+  | 'WHOLE_ORDER_PAUSED'
+  | 'RELEASED'
+
+export type ProductionOrderChangeOrderStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'APPROVED'
+  | 'EXECUTING'
+  | 'DONE'
+  | 'REJECTED'
+  | 'RETURNED'
+
+export type ProductionOrderChangeDocumentType =
+  | 'MATERIAL_PREPARATION'
+  | 'PICKING'
+  | 'CUTTING'
+  | 'PRINTING'
+  | 'DYEING'
+  | 'BUNDLE_TICKET'
+  | 'SEWING'
+  | 'SETTLEMENT'
+
+export type ProductionOrderChangeDocumentActionStatus =
+  | 'NOT_REQUIRED'
+  | 'PENDING_CONFIRM'
+  | 'PENDING_EXECUTION'
+  | 'EXECUTING'
+  | 'DONE'
+  | 'BLOCKED'
+
+export type ProductionOrderChangeCostType = 'MATERIAL' | 'LABOR' | 'FEE'
+
+export type ProductionOrderChangeTimingNode =
+  | 'MATERIAL_PREPARATION'
+  | 'PICKING'
+  | 'CUTTING'
+  | 'PRINTING'
+  | 'DYEING'
+  | 'SEWING'
+  | 'POST_FINISHING'
+  | 'SHIPPING'
+
 export interface TechPackVersionOption {
   versionId: string
   versionNo: string
@@ -288,6 +355,121 @@ export interface ProductionTechPackPublishEvaluationBatch {
   updatedAt: string
 }
 
+export interface ProductionOrderChangeScenario {
+  id: string
+  source: ProductionOrderChangeSource
+  title: string
+  expectedResult: ProductionOrderChangeResult
+  mainAffectedDocuments: ProductionOrderChangeDocumentType[]
+  costImpact: ProductionOrderChangeCostType[]
+  timingNodes: ProductionOrderChangeTimingNode[]
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH'
+}
+
+export interface ProductionOrderChangeOrder {
+  id: string
+  scenarioId: string
+  productionOrderId: string
+  demandOrderId: string
+  spuCode: string
+  styleName: string
+  buyerName: string
+  merchandiserName: string
+  source: ProductionOrderChangeSource
+  changeModules: TechPackChangeModule[]
+  reason: string
+  expectedEffectiveMode: ChangeEffectiveMode
+  effectiveDescription: string
+  changeResult: ProductionOrderChangeResult
+  executionStrategy: ProductionOrderChangeExecutionStrategy
+  lockStatus: ProductionOrderChangeLockStatus
+  status: ProductionOrderChangeOrderStatus
+  hasVersionRelationChange: boolean
+  hasProductionPatch: boolean
+  affectedDocumentCount: number
+  costDeltaAmount: number
+  delayDays: number
+  createdBy: string
+  createdAt: string
+  reviewer: string
+  latestLog: string
+}
+
+export interface ProductionOrderChangeOrderSubmitInput {
+  productionOrderId: string
+  source: ProductionOrderChangeSource
+  changeModules: TechPackChangeModule[]
+  reason: string
+  expectedEffectiveMode: ChangeEffectiveMode
+  effectiveDescription: string
+  changeResult: ProductionOrderChangeResult
+  executionStrategy: ProductionOrderChangeExecutionStrategy
+  operatorName: string
+  linkedVersionChangeRequestId?: string
+  linkedPatchId?: string
+  status?: 'DRAFT'
+}
+
+export interface ProductionOrderChangeOrderUpdateInput extends Omit<ProductionOrderChangeOrderSubmitInput, 'status'> {
+  status: 'DRAFT' | 'SUBMITTED'
+}
+
+export interface ProductionOrderChangeImpactRow {
+  id: string
+  changeOrderId: string
+  affectedColor: string
+  affectedSize: string
+  affectedBatch: string
+  affectedProcess: string
+  affectedQuantity: number
+  doneQuantity: number
+  changeableQuantity: number
+  irreversibleQuantity: number
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH'
+  impactSummary: string
+}
+
+export interface ProductionOrderChangeDocumentAction {
+  id: string
+  changeOrderId: string
+  documentType: ProductionOrderChangeDocumentType
+  documentNo: string
+  currentStatus: string
+  beforeBusinessContent: string
+  afterBusinessContent: string
+  systemSuggestion: string
+  finalAction: string
+  quantityDelta: number
+  amountDelta: number
+  actionStatus: ProductionOrderChangeDocumentActionStatus
+  owner: string
+  reasonWhenChanged: string
+}
+
+export interface ProductionOrderChangeCostImpact {
+  id: string
+  changeOrderId: string
+  costType: ProductionOrderChangeCostType
+  itemName: string
+  estimatedAmount: number
+  actualAmount: number
+  responsibleParty: string
+  settlementHandling: string
+}
+
+export interface ProductionOrderChangeTimingImpact {
+  id: string
+  changeOrderId: string
+  timingNode: ProductionOrderChangeTimingNode
+  originalTime: string
+  newEstimatedTime: string
+  delayDays: number
+  affectsProductionDelivery: boolean
+  affectsFulfillmentDelivery: boolean
+  responsibleParty: string
+  recoveryAction: string
+}
+
 export const techPackChangeModuleLabels: Record<TechPackChangeModule, string> = {
   BOM: '物料清单',
   PATTERN: '纸样管理',
@@ -360,6 +542,88 @@ export const effectiveModeLabels: Record<ChangeEffectiveMode, string> = {
   FROM_SPECIFIED_DATE: '从指定时间开始',
 }
 
+export const productionOrderChangeSourceLabels: Record<ProductionOrderChangeSource, string> = {
+  TECH_PACK_NEW_VERSION: '技术包发布新正式版',
+  MATERIAL_SHORTAGE: '物料短缺 / 替代料',
+  FACTORY_PROCESS_EXCEPTION: '工艺现场异常',
+  PATTERN_SIZE_PRINT_CHANGE: '纸样 / 尺码 / 花型调整',
+  COST_EXCEPTION: '核价 / 成本异常',
+  DELIVERY_REQUIREMENT_CHANGE: '交期 / 发货要求变化',
+  QUALITY_REWORK: '质量问题 / 返工要求',
+}
+
+export const productionOrderChangeResultLabels: Record<ProductionOrderChangeResult, string> = {
+  VERSION_RELATION: '版本关系变更',
+  PRODUCTION_PATCH: '生产单层补丁',
+  VERSION_AND_PATCH: '版本关系变更 + 生产单层补丁',
+  RECORD_ONLY: '仅记录影响',
+  COST_ONLY: '仅成本结算差异',
+}
+
+export const productionOrderChangeExecutionStrategyLabels: Record<ProductionOrderChangeExecutionStrategy, string> = {
+  IMMEDIATE_STOP_LOSS: '立即止损',
+  IMMEDIATE_EXECUTION: '立即执行',
+  AFTER_APPROVAL: '审核通过后执行',
+}
+
+export const productionOrderChangeLockStatusLabels: Record<ProductionOrderChangeLockStatus, string> = {
+  NONE: '无锁定',
+  IMPACT_SCOPE_LOCKED: '影响范围锁定',
+  WHOLE_ORDER_PAUSED: '整单暂停',
+  RELEASED: '已释放',
+}
+
+export const productionOrderChangeOrderStatusLabels: Record<ProductionOrderChangeOrderStatus, string> = {
+  DRAFT: '草稿',
+  SUBMITTED: '已提交',
+  UNDER_REVIEW: '审核中',
+  APPROVED: '已通过',
+  EXECUTING: '执行中',
+  DONE: '已完成',
+  REJECTED: '已驳回',
+  RETURNED: '退回修改',
+}
+
+export const productionOrderChangeDocumentTypeLabels: Record<ProductionOrderChangeDocumentType, string> = {
+  MATERIAL_PREPARATION: '配料单',
+  PICKING: '领料单',
+  CUTTING: '裁剪单',
+  PRINTING: '印花单',
+  DYEING: '染色单',
+  BUNDLE_TICKET: '菲票',
+  SEWING: '车缝单',
+  SETTLEMENT: '结算单',
+}
+
+export const productionOrderChangeDocumentActionStatusLabels: Record<
+  ProductionOrderChangeDocumentActionStatus,
+  string
+> = {
+  NOT_REQUIRED: '无需处理',
+  PENDING_CONFIRM: '待确认',
+  PENDING_EXECUTION: '待执行',
+  EXECUTING: '执行中',
+  DONE: '已完成',
+  BLOCKED: '已阻塞',
+}
+
+export const productionOrderChangeCostTypeLabels: Record<ProductionOrderChangeCostType, string> = {
+  MATERIAL: '料差',
+  LABOR: '工差',
+  FEE: '费用差',
+}
+
+export const productionOrderChangeTimingNodeLabels: Record<ProductionOrderChangeTimingNode, string> = {
+  MATERIAL_PREPARATION: '配料',
+  PICKING: '领料',
+  CUTTING: '裁剪',
+  PRINTING: '印花',
+  DYEING: '染色',
+  SEWING: '车缝',
+  POST_FINISHING: '后道',
+  SHIPPING: '发货',
+}
+
 export const patchEffectivePointLabels: Record<PatchEffectivePoint, string> = {
   FROM_NOW: '从现在开始',
   FROM_NEXT_MATERIAL_PREP: '从下一次配料开始',
@@ -406,6 +670,737 @@ const moduleLandingObjects: Record<TechPackChangeModule, string> = {
   COST: '核价明细、结算口径、工厂对账',
   DESIGN: '花型版本、印花工单、染色要求',
 }
+
+const productionOrderChangeDocumentTypeNames: Record<ProductionOrderChangeDocumentType, string> = {
+  MATERIAL_PREPARATION: '配料单',
+  PICKING: '领料单',
+  CUTTING: '裁剪单',
+  PRINTING: '印花单',
+  DYEING: '染色单',
+  BUNDLE_TICKET: '菲票',
+  SEWING: '车缝交出单',
+  SETTLEMENT: '结算单',
+}
+
+const productionOrderChangeDocumentOwners: Record<ProductionOrderChangeDocumentType, string> = {
+  MATERIAL_PREPARATION: '物料计划主管',
+  PICKING: '中转仓主管',
+  CUTTING: '裁床主管',
+  PRINTING: '印花跟单',
+  DYEING: '染厂跟单',
+  BUNDLE_TICKET: '裁床打印员',
+  SEWING: '车缝组长',
+  SETTLEMENT: '财务结算主管',
+}
+
+const productionOrderChangeScenarioTitles = [
+  '技术包发布新正式版，生产单未开始，整单切换新版本。',
+  '技术包发布新正式版，已生成配料单，未领料，配料单改配后切换。',
+  '技术包发布新正式版，已部分领料，未裁剪，未领部分切换，已领部分按旧或退料。',
+  '技术包发布新正式版，已铺布未裁剪，裁剪单需暂停确认。',
+  '技术包发布新正式版，已裁剪未印花，未加工工序切换，已裁部分保留。',
+  '技术包发布新正式版，印花工单已生成未开工，印花单取消重开。',
+  '技术包发布新正式版，印花加工中，当前印花单不改，下批生效。',
+  '技术包发布新正式版，染色工单已生成未开工，染色单取消重开。',
+  '技术包发布新正式版，染色加工中，追回未染批次，已染批次保留。',
+  '技术包发布新正式版，菲票已打印未交出，作废重打菲票。',
+  '技术包发布新正式版，车缝已交出部分，只记录影响并通知后道。',
+  '技术包发布新正式版，已产生结算草稿，审核通过后追加结算差异。',
+  '主面料短缺，未领料范围替代料，生产单层补丁。',
+  '主面料短缺，已领旧料未裁，退旧领新，生产单层补丁。',
+  '主面料短缺，已裁旧料，剩余色码替代料，生产单层补丁。',
+  '里布短缺，指定尺码替代料，生产单层补丁。',
+  '辅料短缺，纽扣替代，未车缝范围生效。',
+  '辅料短缺，拉链替代，已车缝部分不追回。',
+  '面料色差，指定缸号停用，未裁批次改领新缸号。',
+  '面料缩水异常，纸样不改，用料单增加损耗补丁。',
+  '供应商临时调价，只影响成本核算，不改生产。',
+  '面料克重不符，买手确认接受，记录影响并保留原单据。',
+  '面料克重不符，买手不接受，未加工批次换料。',
+  '面料门幅变化，排版耗用变化，配料单补料。',
+  '工艺路线新增洗水，未进入后道范围追加工序。',
+  '工艺路线取消压烫，未压烫范围取消工序并扣减工费。',
+  '工艺参数改线迹密度，车缝未开工范围按新工艺。',
+  '工艺参数改针距，已车缝部分不返工，未车缝部分改做。',
+  '工艺现场发现缝份不足，指定尺码返工。',
+  '工艺现场发现辅料位置错误，未车缝范围改工艺。',
+  '印花颜色调整，印花未开工，印花单改做。',
+  '印花颜色调整，印花已开工，当前单保留，下批改做。',
+  '印花位置调整，已制版未印，重开印花版费。',
+  '印花花型文件替换，印花需求单和加工单同步更新。',
+  '染色配方调整，染色未开工，染色单改做。',
+  '染色配方调整，部分已染，未染批次改做。',
+  '染色返修要求，已染批次追加返修费用。',
+  '洗水方式变更，后道未开始范围追加工序。',
+  '纸样调整，生产单未裁剪，裁剪单重算。',
+  '纸样调整，已裁部分保留，未裁部分重排版。',
+  '放码规则调整，指定尺码改纸样。',
+  '尺码表调整，只影响未裁尺码。',
+  '尺码唛信息错误，菲票和尺码唛补打。',
+  '颜色名称修正，只影响单据展示，不影响生产。',
+  '款色用料对应错误，指定颜色换用料。',
+  '款色用料对应新增颜色，新增配料和领料单。',
+  '花型确认晚于生产准备节点，印花未开工补丁生效。',
+  '花型确认后买手改图，印花单取消重开。',
+  '花型版权问题，指定颜色停止加工。',
+  '花型文件清晰度不足，暂缓印花并锁定影响范围。',
+  '核价漏计辅料，追加材料成本。',
+  '核价漏计印花费，追加加工成本。',
+  '核价漏计染色费，追加加工成本。',
+  '核价错误导致工价偏低，结算单补差。',
+  '核价错误导致工价偏高，结算单扣减。',
+  '版费归属变化，费用差异改责任归因。',
+  '加急空运要求，追加物流费用。',
+  '客户取消加急，取消加急费并调整交期。',
+  '交期提前，未开工工序加急并计算费用。',
+  '交期延后，生产不改，仅调整时效风险。',
+  '发货仓变化，交付仓配置和物流费用变化。',
+  '分批发货，指定批次优先生产。',
+  '部分取消订单，剩余数量继续生产。',
+  '补单追加数量，追加配料、裁剪和工序单据。',
+  '质量抽检发现面料瑕疵，未裁范围换料。',
+  '质量抽检发现印花偏位，已印批次返工。',
+  '质量抽检发现染色色差，染色返修。',
+  '质量抽检发现车缝错误，指定扎号返工。',
+  '质检扣款确认，只影响结算，不改生产。',
+  '工厂报废裁片，补裁并追加材料损耗。',
+  '仓库发错料，退错料并重新领料。',
+  '仓库少发料，补发并记录时效影响。',
+  '工厂误用旧工艺，追回未完成范围并记录责任。',
+  '工厂已按旧版本完成，买手接受，仅记录影响。',
+  '工厂已按旧版本完成，买手不接受，返工并重新核算。',
+  '平台录入错误，纠正单据展示并保留审计记录。',
+  '技术包版本发布错误，撤销版本关系变更申请。',
+  '补丁审核驳回，释放锁定并按原方案继续。',
+  '变更审核退回修改，业务改选单据处理方式。',
+  '变更执行完成后发现遗漏单据，追加处理记录和成本差异。',
+] as const
+
+function uniqueList<T>(items: T[]): T[] {
+  return items.filter((item, index) => items.indexOf(item) === index)
+}
+
+function getScenarioSource(index: number, title: string): ProductionOrderChangeSource {
+  const sequence = index + 1
+  if (sequence <= 12 || sequence === 77) return 'TECH_PACK_NEW_VERSION'
+  if (sequence >= 51 && sequence <= 58) return title.includes('交期') || title.includes('空运') ? 'DELIVERY_REQUIREMENT_CHANGE' : 'COST_EXCEPTION'
+  if (sequence >= 59 && sequence <= 64) return 'DELIVERY_REQUIREMENT_CHANGE'
+  if (sequence >= 65) return 'QUALITY_REWORK'
+  if (sequence >= 39 && sequence <= 50) return 'PATTERN_SIZE_PRINT_CHANGE'
+  if (sequence >= 25 && sequence <= 38) return 'FACTORY_PROCESS_EXCEPTION'
+  return title.includes('调价') || title.includes('成本') ? 'COST_EXCEPTION' : 'MATERIAL_SHORTAGE'
+}
+
+function getScenarioExpectedResult(index: number, title: string): ProductionOrderChangeResult {
+  if (
+    title.includes('只影响成本') ||
+    title.includes('只影响结算') ||
+    title.includes('核价') ||
+    title.includes('工价') ||
+    title.includes('扣款') ||
+    title.includes('费用差异改责任')
+  ) {
+    return 'COST_ONLY'
+  }
+  if (
+    title.includes('只记录') ||
+    title.includes('记录影响') ||
+    title.includes('保留原单据') ||
+    title.includes('颜色名称修正') ||
+    title.includes('买手接受') ||
+    title.includes('不改生产')
+  ) {
+    return 'RECORD_ONLY'
+  }
+  if (index < 12) {
+    return title.includes('补丁') ||
+      title.includes('部分') ||
+      title.includes('暂停') ||
+      title.includes('追回') ||
+      title.includes('作废') ||
+      title.includes('追加')
+      ? 'VERSION_AND_PATCH'
+      : 'VERSION_RELATION'
+  }
+  return title.includes('技术包版本发布错误') ? 'VERSION_RELATION' : 'PRODUCTION_PATCH'
+}
+
+function getScenarioDocuments(title: string, result: ProductionOrderChangeResult): ProductionOrderChangeDocumentType[] {
+  const documents: ProductionOrderChangeDocumentType[] = []
+  if (/配料|用料|物料|面料|里布|辅料|纽扣|拉链|仓库|领料|补料/.test(title)) {
+    documents.push('MATERIAL_PREPARATION', 'PICKING')
+  }
+  if (/裁|铺布|纸样|排版|唛架|尺码|菲票|扎号/.test(title)) documents.push('CUTTING', 'BUNDLE_TICKET')
+  if (/印花|花型|制版|图/.test(title)) documents.push('PRINTING')
+  if (/染色|缸号|色差/.test(title)) documents.push('DYEING')
+  if (/车缝|针距|线迹|返工|后道|压烫|洗水/.test(title)) documents.push('SEWING')
+  if (/核价|成本|费用|结算|扣款|工价|版费/.test(title)) documents.push('SETTLEMENT')
+  if (result === 'VERSION_RELATION' || result === 'VERSION_AND_PATCH') documents.push('MATERIAL_PREPARATION', 'CUTTING')
+  if (result === 'COST_ONLY') documents.push('SETTLEMENT')
+  return uniqueList(documents.length > 0 ? documents : ['MATERIAL_PREPARATION'])
+}
+
+function getScenarioCostImpact(title: string, source: ProductionOrderChangeSource): ProductionOrderChangeCostType[] {
+  const impacts: ProductionOrderChangeCostType[] = []
+  if (/面料|物料|里布|辅料|纽扣|拉链|用料|补料|裁片/.test(title)) impacts.push('MATERIAL')
+  if (/工艺|车缝|印花|染色|洗水|返工|压烫|针距|线迹/.test(title)) impacts.push('LABOR')
+  if (/费用|成本|核价|结算|扣款|工价|版费|空运|物流|调价/.test(title)) impacts.push('FEE')
+  if (impacts.length > 0) return uniqueList(impacts)
+  if (source === 'MATERIAL_SHORTAGE') return ['MATERIAL']
+  if (source === 'COST_EXCEPTION' || source === 'DELIVERY_REQUIREMENT_CHANGE') return ['FEE']
+  return ['LABOR']
+}
+
+function getScenarioTimingNodes(title: string): ProductionOrderChangeTimingNode[] {
+  const nodes: ProductionOrderChangeTimingNode[] = []
+  if (/配料|用料|物料|面料|辅料|补料/.test(title)) nodes.push('MATERIAL_PREPARATION')
+  if (/领料|仓库|退料|补发/.test(title)) nodes.push('PICKING')
+  if (/裁|铺布|纸样|排版|裁片/.test(title)) nodes.push('CUTTING')
+  if (/印花|花型|制版/.test(title)) nodes.push('PRINTING')
+  if (/染色|缸号|色差/.test(title)) nodes.push('DYEING')
+  if (/车缝|针距|线迹/.test(title)) nodes.push('SEWING')
+  if (/洗水|后道|压烫|返工|质检/.test(title)) nodes.push('POST_FINISHING')
+  if (/交期|发货|空运|物流|订单|补单/.test(title)) nodes.push('SHIPPING')
+  return uniqueList(nodes.length > 0 ? nodes : ['MATERIAL_PREPARATION'])
+}
+
+function getScenarioRiskLevel(title: string): 'LOW' | 'MEDIUM' | 'HIGH' {
+  if (/暂停|锁定|返工|不接受|停止|报废|加工中|版权|遗漏|追回|已交出|旧版本完成/.test(title)) return 'HIGH'
+  if (/未开始|只影响|不改生产|仅记录|保留原单据/.test(title)) return 'LOW'
+  return 'MEDIUM'
+}
+
+function getScenarioModules(title: string): TechPackChangeModule[] {
+  const modules: TechPackChangeModule[] = []
+  if (/配料|领料|物料|面料|里布|辅料|纽扣|拉链|用料|门幅|克重|仓库|补料/.test(title)) modules.push('BOM')
+  if (/纸样|裁|铺布|排版|补裁/.test(title)) modules.push('PATTERN')
+  if (/尺码|放码|尺码唛|菲票|扎号/.test(title)) modules.push('SIZE')
+  if (/颜色|款色|缸号/.test(title)) modules.push('COLOR_MATERIAL_MAPPING')
+  if (/工艺|车缝|印花|染色|洗水|压烫|针距|线迹|后道|返工/.test(title)) modules.push('PROCESS')
+  if (/花型|图|版权|清晰度/.test(title)) modules.push('DESIGN')
+  if (/核价|成本|费用|结算|扣款|工价|版费|调价|物流/.test(title)) modules.push('COST')
+  return uniqueList(modules.length > 0 ? modules : ['PROCESS'])
+}
+
+type ProductionOrderChangeScenarioOverride = Pick<
+  ProductionOrderChangeScenario,
+  'expectedResult' | 'mainAffectedDocuments' | 'costImpact' | 'timingNodes' | 'riskLevel'
+>
+
+const productionOrderChangeScenarioOverrides: Partial<Record<string, ProductionOrderChangeScenarioOverride>> = {
+  'SCN-001': {
+    expectedResult: 'VERSION_RELATION',
+    mainAffectedDocuments: ['MATERIAL_PREPARATION', 'PICKING', 'CUTTING'],
+    costImpact: [],
+    timingNodes: ['MATERIAL_PREPARATION', 'PICKING', 'CUTTING'],
+    riskLevel: 'LOW',
+  },
+  'SCN-002': {
+    expectedResult: 'VERSION_RELATION',
+    mainAffectedDocuments: ['MATERIAL_PREPARATION', 'PICKING'],
+    costImpact: [],
+    timingNodes: ['MATERIAL_PREPARATION', 'PICKING'],
+    riskLevel: 'MEDIUM',
+  },
+  'SCN-005': {
+    expectedResult: 'VERSION_AND_PATCH',
+    mainAffectedDocuments: ['CUTTING', 'PRINTING', 'BUNDLE_TICKET'],
+    costImpact: [],
+    timingNodes: ['CUTTING', 'PRINTING'],
+    riskLevel: 'MEDIUM',
+  },
+  'SCN-008': {
+    expectedResult: 'VERSION_AND_PATCH',
+    mainAffectedDocuments: ['DYEING'],
+    costImpact: ['LABOR'],
+    timingNodes: ['DYEING'],
+    riskLevel: 'MEDIUM',
+  },
+  'SCN-025': {
+    expectedResult: 'PRODUCTION_PATCH',
+    mainAffectedDocuments: ['SEWING', 'SETTLEMENT'],
+    costImpact: ['LABOR'],
+    timingNodes: ['SEWING', 'POST_FINISHING'],
+    riskLevel: 'MEDIUM',
+  },
+  'SCN-034': {
+    expectedResult: 'PRODUCTION_PATCH',
+    mainAffectedDocuments: ['PRINTING'],
+    costImpact: ['FEE'],
+    timingNodes: ['PRINTING'],
+    riskLevel: 'MEDIUM',
+  },
+  'SCN-051': {
+    expectedResult: 'COST_ONLY',
+    mainAffectedDocuments: ['SETTLEMENT'],
+    costImpact: ['MATERIAL'],
+    timingNodes: ['MATERIAL_PREPARATION'],
+    riskLevel: 'LOW',
+  },
+  'SCN-059': {
+    expectedResult: 'PRODUCTION_PATCH',
+    mainAffectedDocuments: ['SEWING', 'SETTLEMENT'],
+    costImpact: ['LABOR', 'FEE'],
+    timingNodes: ['SEWING', 'SHIPPING'],
+    riskLevel: 'HIGH',
+  },
+  'SCN-060': {
+    expectedResult: 'RECORD_ONLY',
+    mainAffectedDocuments: ['SETTLEMENT'],
+    costImpact: [],
+    timingNodes: ['SHIPPING'],
+    riskLevel: 'LOW',
+  },
+}
+
+const productionOrderChangeScenarioCatalog: ProductionOrderChangeScenario[] = productionOrderChangeScenarioTitles.map(
+  (title, index) => {
+    const id = `SCN-${String(index + 1).padStart(3, '0')}`
+    const source = getScenarioSource(index, title)
+    const expectedResult = getScenarioExpectedResult(index, title)
+    const scenario: ProductionOrderChangeScenario = {
+      id,
+      source,
+      title,
+      expectedResult,
+      mainAffectedDocuments: getScenarioDocuments(title, expectedResult),
+      costImpact: getScenarioCostImpact(title, source),
+      timingNodes: getScenarioTimingNodes(title),
+      riskLevel: getScenarioRiskLevel(title),
+    }
+    const override = productionOrderChangeScenarioOverrides[id]
+    return override ? { ...scenario, ...override } : scenario
+  },
+)
+
+function requireProductionOrderChangeScenario(scenarioId: string): ProductionOrderChangeScenario {
+  const scenario = productionOrderChangeScenarioCatalog.find((item) => item.id === scenarioId)
+  if (!scenario) throw new Error(`未找到生产单变更场景：${scenarioId}`)
+  return scenario
+}
+
+const productionOrderChangeOrderPlans: Array<{
+  scenarioId: string
+  changeResult: ProductionOrderChangeResult
+  productionOrderId?: string
+  id?: string
+}> = [
+  { scenarioId: 'SCN-001', changeResult: 'VERSION_RELATION', productionOrderId: 'PO-202603-0006' },
+  { scenarioId: 'SCN-002', changeResult: 'VERSION_RELATION', productionOrderId: 'PO-202604-0018' },
+  { scenarioId: 'SCN-077', changeResult: 'VERSION_RELATION', productionOrderId: 'PO-202603-0011' },
+  { scenarioId: 'SCN-006', changeResult: 'VERSION_RELATION', productionOrderId: 'PO-202603-0012' },
+  { scenarioId: 'SCN-007', changeResult: 'VERSION_RELATION', productionOrderId: 'PO-202603-0013' },
+  { scenarioId: 'SCN-039', changeResult: 'PRODUCTION_PATCH', productionOrderId: 'PO-202603-0014' },
+  {
+    scenarioId: 'SCN-013',
+    changeResult: 'PRODUCTION_PATCH',
+    productionOrderId: 'PO-202603-0004',
+    id: 'CHANGE-PO-202603-0004-001',
+  },
+  {
+    scenarioId: 'SCN-003',
+    changeResult: 'VERSION_AND_PATCH',
+    productionOrderId: 'PO-202603-0004',
+    id: 'CHANGE-PO-202603-0004-002',
+  },
+  {
+    scenarioId: 'SCN-021',
+    changeResult: 'COST_ONLY',
+    productionOrderId: 'PO-202603-0004',
+    id: 'CHANGE-PO-202603-0004-003',
+  },
+  {
+    scenarioId: 'SCN-017',
+    changeResult: 'PRODUCTION_PATCH',
+    productionOrderId: 'PO-202603-0013',
+    id: 'CHANGE-PO-202603-0013-002',
+  },
+  {
+    scenarioId: 'SCN-025',
+    changeResult: 'PRODUCTION_PATCH',
+    productionOrderId: 'PO-202603-0013',
+    id: 'CHANGE-PO-202603-0013-003',
+  },
+  {
+    scenarioId: 'SCN-080',
+    changeResult: 'RECORD_ONLY',
+    productionOrderId: 'PO-202603-0013',
+    id: 'CHANGE-PO-202603-0013-004',
+  },
+  { scenarioId: 'SCN-017', changeResult: 'PRODUCTION_PATCH', productionOrderId: 'PO-202603-0015' },
+  { scenarioId: 'SCN-019', changeResult: 'PRODUCTION_PATCH', productionOrderId: 'PO-202603-0016' },
+  { scenarioId: 'SCN-025', changeResult: 'PRODUCTION_PATCH', productionOrderId: 'PO-202603-0017' },
+  { scenarioId: 'SCN-026', changeResult: 'PRODUCTION_PATCH', productionOrderId: 'PO-202603-0018' },
+  { scenarioId: 'SCN-042', changeResult: 'PRODUCTION_PATCH', productionOrderId: 'PO-202603-0019' },
+  { scenarioId: 'SCN-066', changeResult: 'PRODUCTION_PATCH', productionOrderId: 'PO-202603-0026' },
+  { scenarioId: 'SCN-003', changeResult: 'VERSION_AND_PATCH', productionOrderId: 'PO-202603-0020' },
+  { scenarioId: 'SCN-004', changeResult: 'VERSION_AND_PATCH', productionOrderId: 'PO-202603-0021' },
+  { scenarioId: 'SCN-009', changeResult: 'VERSION_AND_PATCH', productionOrderId: 'PO-202603-0022' },
+  { scenarioId: 'SCN-010', changeResult: 'VERSION_AND_PATCH', productionOrderId: 'PO-202603-0023' },
+  { scenarioId: 'SCN-005', changeResult: 'VERSION_AND_PATCH', productionOrderId: 'PO-202603-0024' },
+  { scenarioId: 'SCN-008', changeResult: 'VERSION_AND_PATCH', productionOrderId: 'PO-202603-0025' },
+  { scenarioId: 'SCN-022', changeResult: 'RECORD_ONLY', productionOrderId: 'PO-202603-0027' },
+  { scenarioId: 'SCN-011', changeResult: 'RECORD_ONLY', productionOrderId: 'PO-202603-0028' },
+  { scenarioId: 'SCN-044', changeResult: 'RECORD_ONLY', productionOrderId: 'PO-202603-0032' },
+  { scenarioId: 'SCN-021', changeResult: 'COST_ONLY', productionOrderId: 'PO-202603-0029' },
+  { scenarioId: 'SCN-054', changeResult: 'COST_ONLY', productionOrderId: 'PO-202603-0030' },
+  { scenarioId: 'SCN-051', changeResult: 'COST_ONLY', productionOrderId: 'PO-202603-0031' },
+]
+
+const productionOrderChangeStyleSeeds = [
+  { spuCode: 'SPU-2024-010', styleName: '弹力斜纹束脚裤', buyerName: '廖敏', merchandiserName: '陈静' },
+  { spuCode: 'SPU-2024-011', styleName: '亚麻宽松衬衫', buyerName: '何佳', merchandiserName: '林晓' },
+  { spuCode: 'SPU-2024-012', styleName: '压褶中长连衣裙', buyerName: '许晴', merchandiserName: '周敏' },
+  { spuCode: 'SPU-2024-013', styleName: '连帽卫衣外套', buyerName: '宋雨', merchandiserName: '陈静' },
+  { spuCode: 'SPU-2024-014', styleName: '牛仔 A 字半裙', buyerName: '廖敏', merchandiserName: '林晓' },
+  { spuCode: 'SPU-2026-018', styleName: '印花阔腿连体裤', buyerName: '李娜', merchandiserName: '陈静' },
+]
+
+const productionOrderChangeStatuses: ProductionOrderChangeOrderStatus[] = [
+  'DRAFT',
+  'SUBMITTED',
+  'UNDER_REVIEW',
+  'APPROVED',
+  'EXECUTING',
+  'DONE',
+  'REJECTED',
+  'RETURNED',
+]
+
+const productionOrderChangeOrderSemanticOverrides: Partial<
+  Record<string, { changeModules?: TechPackChangeModule[]; costDeltaAmount?: number }>
+> = {
+  'SCN-001': {
+    changeModules: ['BOM', 'PATTERN', 'PROCESS', 'SIZE', 'COLOR_MATERIAL_MAPPING', 'DESIGN'],
+    costDeltaAmount: 0,
+  },
+  'SCN-002': {
+    changeModules: ['BOM'],
+    costDeltaAmount: 0,
+  },
+  'SCN-005': {
+    changeModules: ['PATTERN', 'PROCESS', 'DESIGN'],
+    costDeltaAmount: 0,
+  },
+  'SCN-008': {
+    changeModules: ['PROCESS'],
+    costDeltaAmount: 1200,
+  },
+  'SCN-025': {
+    changeModules: ['PROCESS', 'COST'],
+    costDeltaAmount: 2400,
+  },
+  'SCN-034': {
+    changeModules: ['DESIGN', 'PROCESS'],
+    costDeltaAmount: 1800,
+  },
+  'SCN-051': {
+    changeModules: ['BOM', 'COST'],
+    costDeltaAmount: 1600,
+  },
+  'SCN-059': {
+    changeModules: ['PROCESS', 'COST'],
+    costDeltaAmount: 3600,
+  },
+  'SCN-060': {
+    changeModules: ['PROCESS'],
+    costDeltaAmount: 0,
+  },
+}
+
+function getProductionOrderChangeOrderModules(scenario: ProductionOrderChangeScenario): TechPackChangeModule[] {
+  return [...(productionOrderChangeOrderSemanticOverrides[scenario.id]?.changeModules ?? getScenarioModules(scenario.title))]
+}
+
+function getProductionOrderChangeOrderCostDeltaAmount(
+  plan: { changeResult: ProductionOrderChangeResult },
+  scenario: ProductionOrderChangeScenario,
+  index: number,
+): number {
+  const overrideAmount = productionOrderChangeOrderSemanticOverrides[scenario.id]?.costDeltaAmount
+  if (overrideAmount !== undefined) return overrideAmount
+  if (plan.changeResult === 'RECORD_ONLY' || scenario.costImpact.length === 0) return 0
+  return (
+    (scenario.costImpact.includes('FEE') ? 2800 : 1600) *
+    (scenario.riskLevel === 'HIGH' ? 3 : index % 2 === 0 ? 1 : -1)
+  )
+}
+
+let productionOrderChangeOrders: ProductionOrderChangeOrder[] = productionOrderChangeOrderPlans.map((plan, index) => {
+  const scenario = requireProductionOrderChangeScenario(plan.scenarioId)
+  const style = productionOrderChangeStyleSeeds[index % productionOrderChangeStyleSeeds.length]
+  const hasVersionRelationChange =
+    plan.changeResult === 'VERSION_RELATION' || plan.changeResult === 'VERSION_AND_PATCH'
+  const hasProductionPatch = plan.changeResult === 'PRODUCTION_PATCH' || plan.changeResult === 'VERSION_AND_PATCH'
+  const executionStrategy: ProductionOrderChangeExecutionStrategy =
+    scenario.riskLevel === 'HIGH'
+      ? 'IMMEDIATE_STOP_LOSS'
+      : index % 3 === 0
+        ? 'IMMEDIATE_EXECUTION'
+        : 'AFTER_APPROVAL'
+  const status = productionOrderChangeStatuses[index % productionOrderChangeStatuses.length]
+  const lockStatus: ProductionOrderChangeLockStatus =
+    status === 'DONE'
+      ? 'RELEASED'
+      : executionStrategy === 'IMMEDIATE_STOP_LOSS'
+        ? 'WHOLE_ORDER_PAUSED'
+        : scenario.riskLevel === 'MEDIUM'
+          ? 'IMPACT_SCOPE_LOCKED'
+          : 'NONE'
+  const effectiveMode: ChangeEffectiveMode =
+    plan.changeResult === 'COST_ONLY'
+      ? 'FROM_SPECIFIED_DATE'
+      : plan.changeResult === 'VERSION_RELATION'
+        ? 'IMMEDIATE_AFTER_APPROVAL'
+        : scenario.mainAffectedDocuments.includes('PICKING')
+          ? 'FROM_NEXT_PICKUP'
+          : scenario.mainAffectedDocuments.includes('PRINTING') || scenario.mainAffectedDocuments.includes('DYEING')
+            ? 'FROM_NEXT_PROCESS_ORDER'
+            : 'FROM_NEXT_PREP'
+
+  return {
+    id: plan.id ?? `CHANGE-${plan.productionOrderId}-${String(index + 1).padStart(3, '0')}`,
+    scenarioId: scenario.id,
+    productionOrderId: plan.productionOrderId ?? `PO-202603-${String(index + 10).padStart(4, '0')}`,
+    demandOrderId: `DO-202603-${String(index + 4).padStart(4, '0')}`,
+    spuCode: style.spuCode,
+    styleName: style.styleName,
+    buyerName: style.buyerName,
+    merchandiserName: style.merchandiserName,
+    source: scenario.source,
+    changeModules: getProductionOrderChangeOrderModules(scenario),
+    reason: scenario.title,
+    expectedEffectiveMode: effectiveMode,
+    effectiveDescription: effectiveModeLabels[effectiveMode],
+    changeResult: plan.changeResult,
+    executionStrategy,
+    lockStatus,
+    status,
+    hasVersionRelationChange,
+    hasProductionPatch,
+    affectedDocumentCount: getScenarioDocuments(scenario.title, plan.changeResult).length + (scenario.riskLevel === 'HIGH' ? 2 : 1),
+    costDeltaAmount: getProductionOrderChangeOrderCostDeltaAmount(plan, scenario, index),
+    delayDays: scenario.timingNodes.includes('SHIPPING') ? 3 + (index % 3) : scenario.riskLevel === 'HIGH' ? 2 : index % 2,
+    createdBy: index % 2 === 0 ? style.merchandiserName : '生产计划专员',
+    createdAt: `2026-03-${String(4 + index).padStart(2, '0')} ${index % 2 === 0 ? '09:20' : '14:10'}`,
+    reviewer: plan.changeResult === 'COST_ONLY' ? '财务主管' : '生产主管',
+    latestLog: `${productionOrderChangeResultLabels[plan.changeResult]}已生成处理清单，${productionOrderChangeExecutionStrategyLabels[executionStrategy]}。`,
+  }
+})
+
+function buildProductionOrderChangeImpactRow(
+  order: ProductionOrderChangeOrder,
+  rowIndex: number,
+  variant: number,
+): ProductionOrderChangeImpactRow {
+  if (order.id === 'CHANGE-PO-202603-0004-001' && variant === 0) {
+    return {
+      id: `IMPACT-${String(rowIndex + 1).padStart(3, '0')}`,
+      changeOrderId: order.id,
+      affectedColor: '黑色',
+      affectedSize: 'M',
+      affectedBatch: '第 2 批',
+      affectedProcess: '裁剪前未领料范围',
+      affectedQuantity: 180,
+      doneQuantity: 0,
+      changeableQuantity: 180,
+      irreversibleQuantity: 0,
+      riskLevel: 'MEDIUM',
+      impactSummary: '黑色 M 码第 2 批尚未领料，可直接改用替代主面料。',
+    }
+  }
+
+  const colors = ['黑色', '藏青色', '米白色', '军绿色', '浅蓝色']
+  const sizes = ['S', 'M', 'L', 'XL', '均码']
+  const batches = ['第 1 批', '第 2 批', '第 3 批', '补单批次']
+  const processes = ['配料待确认范围', '已领未裁范围', '印花未开工范围', '染色待追回批次', '车缝未交出范围']
+  const affectedQuantity = 96 + ((rowIndex + variant) % 6) * 24
+  const irreversibleQuantity = order.executionStrategy === 'IMMEDIATE_STOP_LOSS' && variant > 0 ? 24 : 0
+
+  return {
+    id: `IMPACT-${String(rowIndex + 1).padStart(3, '0')}`,
+    changeOrderId: order.id,
+    affectedColor: colors[(rowIndex + variant) % colors.length],
+    affectedSize: sizes[(rowIndex + order.id.length + variant) % sizes.length],
+    affectedBatch: batches[(rowIndex + variant) % batches.length],
+    affectedProcess: processes[(rowIndex + variant) % processes.length],
+    affectedQuantity,
+    doneQuantity: variant === 0 ? 0 : Math.round(affectedQuantity * 0.35),
+    changeableQuantity: affectedQuantity - irreversibleQuantity,
+    irreversibleQuantity,
+    riskLevel: order.executionStrategy === 'IMMEDIATE_STOP_LOSS' ? 'HIGH' : rowIndex % 2 === 0 ? 'MEDIUM' : 'LOW',
+    impactSummary: `${order.styleName}${processes[(rowIndex + variant) % processes.length]}需要按${productionOrderChangeResultLabels[order.changeResult]}处理。`,
+  }
+}
+
+const productionOrderChangeImpactSeedRows = productionOrderChangeOrders
+  .filter((order) => order.changeResult !== 'COST_ONLY')
+  .flatMap((order, index) => [
+    buildProductionOrderChangeImpactRow(order, index * 2, 0),
+    ...(order.executionStrategy === 'IMMEDIATE_STOP_LOSS'
+      ? [buildProductionOrderChangeImpactRow(order, index * 2 + 1, 1)]
+      : []),
+  ])
+
+let productionOrderChangeImpactRows: ProductionOrderChangeImpactRow[] = [
+  ...productionOrderChangeImpactSeedRows,
+  ...productionOrderChangeOrders
+    .filter((order) => order.changeResult !== 'COST_ONLY')
+    .slice(0, Math.max(0, 36 - productionOrderChangeImpactSeedRows.length))
+    .map((order, index) => buildProductionOrderChangeImpactRow(order, productionOrderChangeImpactSeedRows.length + index, 2)),
+].slice(0, 36).map((row, index) => ({
+  ...row,
+  id: `IMPACT-${String(index + 1).padStart(3, '0')}`,
+}))
+
+const productionOrderChangeRequiredDocumentPlans: Array<{
+  changeResult: ProductionOrderChangeResult
+  documentType: ProductionOrderChangeDocumentType
+}> = [
+  ...(['MATERIAL_PREPARATION', 'PICKING', 'CUTTING', 'PRINTING', 'DYEING', 'BUNDLE_TICKET', 'SETTLEMENT'] as ProductionOrderChangeDocumentType[])
+    .flatMap((documentType) => [0, 1].map(() => ({ changeResult: 'VERSION_RELATION' as const, documentType }))),
+  ...(['MATERIAL_PREPARATION', 'PICKING', 'CUTTING', 'PRINTING', 'DYEING', 'BUNDLE_TICKET', 'SEWING', 'SETTLEMENT'] as ProductionOrderChangeDocumentType[])
+    .flatMap((documentType) => [0, 1].map(() => ({ changeResult: 'PRODUCTION_PATCH' as const, documentType }))),
+  ...(['MATERIAL_PREPARATION', 'PICKING', 'CUTTING', 'PRINTING', 'DYEING', 'BUNDLE_TICKET', 'SEWING', 'SETTLEMENT'] as ProductionOrderChangeDocumentType[])
+    .flatMap((documentType) => [0, 1].map(() => ({ changeResult: 'VERSION_AND_PATCH' as const, documentType }))),
+  ...(['BUNDLE_TICKET', 'SEWING', 'SETTLEMENT'] as ProductionOrderChangeDocumentType[]).map((documentType) => ({
+    changeResult: 'RECORD_ONLY' as const,
+    documentType,
+  })),
+  ...[0, 1, 2].map(() => ({ changeResult: 'COST_ONLY' as const, documentType: 'SETTLEMENT' as const })),
+]
+
+function pickProductionOrderChangeOrder(
+  changeResult: ProductionOrderChangeResult,
+  index: number,
+): ProductionOrderChangeOrder {
+  const orders = productionOrderChangeOrders.filter((order) => order.changeResult === changeResult)
+  return orders[index % orders.length]
+}
+
+function buildProductionOrderChangeDocumentAction(
+  order: ProductionOrderChangeOrder,
+  documentType: ProductionOrderChangeDocumentType,
+  index: number,
+): ProductionOrderChangeDocumentAction {
+  const documentName = productionOrderChangeDocumentTypeNames[documentType]
+  const status: ProductionOrderChangeDocumentActionStatus =
+    order.lockStatus === 'WHOLE_ORDER_PAUSED'
+      ? 'BLOCKED'
+      : order.status === 'DONE'
+        ? 'DONE'
+        : index % 3 === 0
+          ? 'PENDING_CONFIRM'
+          : index % 3 === 1
+            ? 'PENDING_EXECUTION'
+            : 'EXECUTING'
+  const quantityDelta = documentType === 'SETTLEMENT' ? 0 : ((index % 5) - 2) * 12
+  const amountDelta = documentType === 'SETTLEMENT' ? order.costDeltaAmount : Math.round(order.costDeltaAmount / Math.max(order.affectedDocumentCount, 1))
+
+  return {
+    id: `DOC-ACT-${String(index + 1).padStart(3, '0')}`,
+    changeOrderId: order.id,
+    documentType,
+    documentNo: `${documentName}-${order.productionOrderId.replace('PO-', '')}-${String(index + 1).padStart(3, '0')}`,
+    currentStatus: status === 'BLOCKED' ? '已锁定待主管确认' : status === 'DONE' ? '已处理' : '待处理',
+    beforeBusinessContent: `${documentName}原按${order.styleName}冻结技术包和旧处理口径执行。`,
+    afterBusinessContent: `${documentName}调整为${productionOrderChangeResultLabels[order.changeResult]}后的处理口径。`,
+    systemSuggestion: `${documentName}建议由${productionOrderChangeDocumentOwners[documentType]}确认${order.effectiveDescription}。`,
+    finalAction: status === 'BLOCKED' ? '暂停当前单据并等待主管放行' : `按${productionOrderChangeResultLabels[order.changeResult]}处理${documentName}`,
+    quantityDelta,
+    amountDelta,
+    actionStatus: status,
+    owner: productionOrderChangeDocumentOwners[documentType],
+    reasonWhenChanged: order.reason,
+  }
+}
+
+const productionOrderChangeDocumentActionPlans = [
+  ...productionOrderChangeRequiredDocumentPlans.map((plan, index) => ({
+    order: pickProductionOrderChangeOrder(plan.changeResult, index),
+    documentType: plan.documentType,
+  })),
+  ...productionOrderChangeOrders.slice(0, 20).map((order) => ({
+    order,
+    documentType: requireProductionOrderChangeScenario(order.scenarioId).mainAffectedDocuments[0],
+  })),
+]
+
+let productionOrderChangeDocumentActions: ProductionOrderChangeDocumentAction[] =
+  productionOrderChangeDocumentActionPlans.map((plan, index) =>
+    buildProductionOrderChangeDocumentAction(plan.order, plan.documentType, index),
+  )
+
+const productionOrderChangeCostItemNames: Record<ProductionOrderChangeCostType, string[]> = {
+  MATERIAL: ['主面料替代差价', '辅料补领成本', '补裁材料损耗'],
+  LABOR: ['印花返修工费', '车缝返工工费', '染色追加加工费'],
+  FEE: ['版费归属差异', '加急物流费', '结算补差费用'],
+}
+
+const productionOrderChangeCostImpactOrders = [
+  ...productionOrderChangeOrders.filter((order) => order.changeResult === 'COST_ONLY'),
+  ...productionOrderChangeOrders.filter((order) => order.changeResult !== 'COST_ONLY' && order.costDeltaAmount !== 0),
+]
+
+let productionOrderChangeCostImpacts: ProductionOrderChangeCostImpact[] = productionOrderChangeCostImpactOrders.map(
+  (order, index) => {
+    const costType: ProductionOrderChangeCostType = (['MATERIAL', 'LABOR', 'FEE'] as ProductionOrderChangeCostType[])[index % 3]
+    const estimatedAmount = Math.abs(order.costDeltaAmount) + 600 + index * 80
+    const actualAmount = estimatedAmount + (index % 2 === 0 ? 120 : -90)
+    return {
+      id: `COST-IMPACT-${String(index + 1).padStart(3, '0')}`,
+      changeOrderId: order.id,
+      costType,
+      itemName: productionOrderChangeCostItemNames[costType][index % productionOrderChangeCostItemNames[costType].length],
+      estimatedAmount,
+      actualAmount,
+      responsibleParty:
+        costType === 'MATERIAL'
+          ? '物料计划 / 供应商'
+          : costType === 'LABOR'
+            ? '工厂工艺负责人'
+            : '财务结算 / 买手',
+      settlementHandling:
+        actualAmount >= estimatedAmount
+          ? '进入本次结算补差，需保留变更单和主管确认记录。'
+          : '进入本次结算扣减，需同步工厂对账说明。',
+    }
+  },
+)
+
+const productionOrderChangeTimingImpactOrders = [
+  ...productionOrderChangeOrders.filter((order) => order.source === 'DELIVERY_REQUIREMENT_CHANGE'),
+  ...productionOrderChangeOrders.filter((order) => (
+    order.source !== 'DELIVERY_REQUIREMENT_CHANGE' &&
+    order.changeResult !== 'COST_ONLY' &&
+    order.changeResult !== 'RECORD_ONLY'
+  )),
+]
+
+let productionOrderChangeTimingImpacts: ProductionOrderChangeTimingImpact[] = productionOrderChangeTimingImpactOrders.map(
+  (order, index) => {
+    const scenario = requireProductionOrderChangeScenario(order.scenarioId)
+    const timingNode = scenario.timingNodes[index % scenario.timingNodes.length]
+    const delayDays = Math.max(order.delayDays, index % 4)
+    return {
+      id: `TIME-IMPACT-${String(index + 1).padStart(3, '0')}`,
+      changeOrderId: order.id,
+      timingNode,
+      originalTime: `2026-03-${String(10 + index).padStart(2, '0')} 10:00`,
+      newEstimatedTime: `2026-03-${String(10 + index + delayDays).padStart(2, '0')} 18:00`,
+      delayDays,
+      affectsProductionDelivery: timingNode !== 'SHIPPING' && delayDays > 0,
+      affectsFulfillmentDelivery: timingNode === 'SHIPPING' || delayDays >= 3,
+      responsibleParty: timingNode === 'SHIPPING' ? '履约计划' : timingNode === 'PICKING' ? '中转仓主管' : '生产计划',
+      recoveryAction:
+        order.executionStrategy === 'IMMEDIATE_STOP_LOSS'
+          ? '先锁定影响范围，追回未完成批次，主管确认后释放。'
+          : timingNode === 'SHIPPING'
+            ? '调整发货批次并同步买手交期风险。'
+            : '优先处理未开工范围，已完成部分保留追溯记录。',
+    }
+  },
+)
 
 const publishedTechPackVersionOptionsBySpu: Record<string, TechPackVersionOption[]> = {
   'SPU-2024-010': [
@@ -1355,6 +2350,281 @@ function buildPublishEvaluationLogRows(productionOrderId: string): ProductionCha
   })
 }
 
+export function listProductionOrderChangeScenarioCatalog(): ProductionOrderChangeScenario[] {
+  return clone(productionOrderChangeScenarioCatalog)
+}
+
+export function listProductionOrderChangeOrders(): ProductionOrderChangeOrder[] {
+  return clone(productionOrderChangeOrders)
+}
+
+export function getProductionOrderChangeOrder(changeOrderId: string): ProductionOrderChangeOrder | null {
+  const order = productionOrderChangeOrders.find((item) => item.id === changeOrderId)
+  return order ? clone(order) : null
+}
+
+export function listProductionOrderChangeOrdersByProductionOrder(
+  productionOrderId: string,
+): ProductionOrderChangeOrder[] {
+  return clone(productionOrderChangeOrders.filter((item) => item.productionOrderId === productionOrderId))
+}
+
+export function listProductionOrderChangeImpactRows(changeOrderId?: string): ProductionOrderChangeImpactRow[] {
+  const rows = changeOrderId
+    ? productionOrderChangeImpactRows.filter((row) => row.changeOrderId === changeOrderId)
+    : productionOrderChangeImpactRows
+  return clone(rows)
+}
+
+export function listProductionOrderChangeDocumentActions(
+  changeOrderId?: string,
+): ProductionOrderChangeDocumentAction[] {
+  const rows = changeOrderId
+    ? productionOrderChangeDocumentActions.filter((row) => row.changeOrderId === changeOrderId)
+    : productionOrderChangeDocumentActions
+  return clone(rows)
+}
+
+export function listProductionOrderChangeCostImpacts(changeOrderId?: string): ProductionOrderChangeCostImpact[] {
+  const rows = changeOrderId
+    ? productionOrderChangeCostImpacts.filter((row) => row.changeOrderId === changeOrderId)
+    : productionOrderChangeCostImpacts
+  return clone(rows)
+}
+
+export function listProductionOrderChangeTimingImpacts(changeOrderId?: string): ProductionOrderChangeTimingImpact[] {
+  const rows = changeOrderId
+    ? productionOrderChangeTimingImpacts.filter((row) => row.changeOrderId === changeOrderId)
+    : productionOrderChangeTimingImpacts
+  return clone(rows)
+}
+
+function buildSubmittedChangeOrderDocumentActions(
+  order: ProductionOrderChangeOrder,
+): ProductionOrderChangeDocumentAction[] {
+  const scenario = productionOrderChangeScenarioCatalog.find((item) => item.id === order.scenarioId)
+  const documents = scenario?.mainAffectedDocuments.length
+    ? scenario.mainAffectedDocuments
+    : getScenarioDocuments(order.reason, order.changeResult)
+
+  return documents.map((documentType, index) =>
+    buildProductionOrderChangeDocumentAction(
+      order,
+      documentType,
+      productionOrderChangeDocumentActions.length + index,
+    ),
+  )
+}
+
+function appendSubmittedChangeOrderChildren(order: ProductionOrderChangeOrder): void {
+  if (order.changeResult !== 'COST_ONLY' && order.changeResult !== 'RECORD_ONLY') {
+    productionOrderChangeImpactRows = [
+      ...productionOrderChangeImpactRows,
+      buildProductionOrderChangeImpactRow(order, productionOrderChangeImpactRows.length, 0),
+    ]
+  }
+
+  productionOrderChangeDocumentActions = [
+    ...productionOrderChangeDocumentActions,
+    ...buildSubmittedChangeOrderDocumentActions(order),
+  ]
+
+  if (order.changeResult === 'COST_ONLY' || order.costDeltaAmount !== 0) {
+    const index = productionOrderChangeCostImpacts.length
+    const costType: ProductionOrderChangeCostType = order.changeModules.includes('COST') ? 'FEE' : 'MATERIAL'
+    const estimatedAmount = Math.abs(order.costDeltaAmount) + 600
+    productionOrderChangeCostImpacts = [
+      ...productionOrderChangeCostImpacts,
+      {
+        id: `COST-IMPACT-${String(index + 1).padStart(3, '0')}`,
+        changeOrderId: order.id,
+        costType,
+        itemName: productionOrderChangeCostItemNames[costType][index % productionOrderChangeCostItemNames[costType].length],
+        estimatedAmount,
+        actualAmount: estimatedAmount,
+        responsibleParty: costType === 'MATERIAL' ? '物料计划 / 供应商' : '财务结算 / 买手',
+        settlementHandling: '进入本次结算补差，需保留变更单和主管确认记录。',
+      },
+    ]
+  }
+
+  if (order.changeResult !== 'COST_ONLY' && order.changeResult !== 'RECORD_ONLY') {
+    const scenario = requireProductionOrderChangeScenario(order.scenarioId)
+    const timingNode = scenario.timingNodes[0] ?? 'MATERIAL_PREPARATION'
+    productionOrderChangeTimingImpacts = [
+      ...productionOrderChangeTimingImpacts,
+      {
+        id: `TIME-IMPACT-${String(productionOrderChangeTimingImpacts.length + 1).padStart(3, '0')}`,
+        changeOrderId: order.id,
+        timingNode,
+        originalTime: order.createdAt,
+        newEstimatedTime: order.createdAt,
+        delayDays: order.delayDays,
+        affectsProductionDelivery: order.delayDays > 0,
+        affectsFulfillmentDelivery: timingNode === 'SHIPPING' || order.delayDays >= 2,
+        responsibleParty: timingNode === 'SHIPPING' ? '履约计划' : '生产计划',
+        recoveryAction:
+          order.executionStrategy === 'IMMEDIATE_STOP_LOSS'
+            ? '先锁定影响范围，追回未完成批次，主管确认后释放。'
+            : '优先处理未开工范围，已完成部分保留追溯记录。',
+      },
+    ]
+  }
+}
+
+function removeChangeOrderChildren(changeOrderId: string): void {
+  productionOrderChangeImpactRows = productionOrderChangeImpactRows.filter((row) => row.changeOrderId !== changeOrderId)
+  productionOrderChangeDocumentActions = productionOrderChangeDocumentActions.filter((row) => row.changeOrderId !== changeOrderId)
+  productionOrderChangeCostImpacts = productionOrderChangeCostImpacts.filter((row) => row.changeOrderId !== changeOrderId)
+  productionOrderChangeTimingImpacts = productionOrderChangeTimingImpacts.filter((row) => row.changeOrderId !== changeOrderId)
+}
+
+function replaceSubmittedChangeOrderChildren(order: ProductionOrderChangeOrder): void {
+  removeChangeOrderChildren(order.id)
+  appendSubmittedChangeOrderChildren(order)
+}
+
+function nextProductionOrderChangeOrderId(productionOrderId: string): string {
+  const prefix = `CHANGE-${productionOrderId}-`
+  const maxSequence = productionOrderChangeOrders
+    .filter((order) => order.productionOrderId === productionOrderId && order.id.startsWith(prefix))
+    .reduce((max, order) => {
+      const suffix = order.id.slice(prefix.length)
+      return /^\d{3}$/.test(suffix) ? Math.max(max, Number(suffix)) : max
+    }, 0)
+  return `${prefix}${String(maxSequence + 1).padStart(3, '0')}`
+}
+
+export function submitProductionOrderChangeOrder(
+  input: ProductionOrderChangeOrderSubmitInput,
+): ProductionOrderChangeOrder {
+  const relation = ensureMutableRelationWithEvaluation(input.productionOrderId)
+  if (!relation) throw new Error('未找到生产单技术包版本关系。')
+  if (!input.reason.trim()) throw new Error('变更原因不能为空。')
+  if (input.changeModules.length === 0) throw new Error('至少需要一个变更模块。')
+  const requestedStatus = input.status as ProductionOrderChangeOrderStatus | undefined
+  if (requestedStatus && requestedStatus !== 'DRAFT') {
+    throw new Error('新建变更单只允许保存为草稿状态。')
+  }
+
+  const hasVersionRelationChange =
+    input.changeResult === 'VERSION_RELATION' || input.changeResult === 'VERSION_AND_PATCH'
+  if (hasVersionRelationChange && !input.linkedVersionChangeRequestId) {
+    const hasRunningVersionChange = productionOrderChangeOrders.some(
+      (order) =>
+        order.productionOrderId === input.productionOrderId &&
+        (order.changeResult === 'VERSION_RELATION' || order.changeResult === 'VERSION_AND_PATCH') &&
+        order.status !== 'DONE' &&
+        order.status !== 'REJECTED' &&
+        order.status !== 'RETURNED',
+    )
+    if (hasRunningVersionChange) throw new Error('同一生产单已有进行中的版本关系变更。')
+  }
+
+  const scenario =
+    productionOrderChangeScenarioCatalog.find(
+      (item) => item.source === input.source && item.expectedResult === input.changeResult,
+    ) ??
+    productionOrderChangeScenarioCatalog.find((item) => item.expectedResult === input.changeResult) ??
+    productionOrderChangeScenarioCatalog[0]
+  const documents = scenario.mainAffectedDocuments.length
+    ? scenario.mainAffectedDocuments
+    : getScenarioDocuments(input.reason, input.changeResult)
+  const hasProductionPatch =
+    input.changeResult === 'PRODUCTION_PATCH' || input.changeResult === 'VERSION_AND_PATCH'
+  const createdAt = nowText()
+  const status = requestedStatus ?? (input.executionStrategy === 'IMMEDIATE_EXECUTION' ? 'EXECUTING' : 'SUBMITTED')
+  const order: ProductionOrderChangeOrder = {
+    id: nextProductionOrderChangeOrderId(input.productionOrderId),
+    scenarioId: scenario.id,
+    productionOrderId: relation.productionOrderId,
+    demandOrderId: relation.productionOrderNo.replace('PO-', 'DO-'),
+    spuCode: relation.spuCode,
+    styleName: relation.styleName,
+    buyerName: relation.buyerName,
+    merchandiserName: relation.merchandiserName,
+    source: input.source,
+    changeModules: [...input.changeModules],
+    reason: input.reason.trim(),
+    expectedEffectiveMode: input.expectedEffectiveMode,
+    effectiveDescription: input.effectiveDescription,
+    changeResult: input.changeResult,
+    executionStrategy: input.executionStrategy,
+    lockStatus: input.executionStrategy === 'IMMEDIATE_STOP_LOSS' ? 'WHOLE_ORDER_PAUSED' : 'IMPACT_SCOPE_LOCKED',
+    status,
+    hasVersionRelationChange,
+    hasProductionPatch,
+    affectedDocumentCount: documents.length,
+    costDeltaAmount: input.changeResult === 'COST_ONLY' ? 1200 : input.changeModules.includes('COST') ? 800 : 0,
+    delayDays: input.executionStrategy === 'IMMEDIATE_STOP_LOSS' ? 2 : input.executionStrategy === 'AFTER_APPROVAL' ? 1 : 0,
+    createdBy: input.operatorName,
+    createdAt,
+    reviewer: input.changeResult === 'COST_ONLY' ? '财务主管' : '生产主管',
+    latestLog: status === 'DRAFT'
+      ? `${productionOrderChangeResultLabels[input.changeResult]}已保存草稿，待补充后提交审核。`
+      : `${productionOrderChangeResultLabels[input.changeResult]}已提交，${productionOrderChangeExecutionStrategyLabels[input.executionStrategy]}。`,
+  }
+
+  productionOrderChangeOrders = [order, ...productionOrderChangeOrders]
+  appendSubmittedChangeOrderChildren(order)
+  return clone(order)
+}
+
+export function updateProductionOrderChangeOrder(
+  changeOrderId: string,
+  input: ProductionOrderChangeOrderUpdateInput,
+): ProductionOrderChangeOrder {
+  const order = productionOrderChangeOrders.find((item) => item.id === changeOrderId)
+  if (!order) throw new Error('未找到生产单变更单。')
+  if (order.status !== 'DRAFT' && order.status !== 'RETURNED') {
+    throw new Error('当前变更单状态不允许编辑。')
+  }
+  if (input.productionOrderId !== order.productionOrderId) {
+    throw new Error('编辑变更单不支持切换生产单。')
+  }
+  if (!input.reason.trim()) throw new Error('变更原因不能为空。')
+  if (input.changeModules.length === 0) throw new Error('至少需要一个变更模块。')
+
+  const scenario =
+    productionOrderChangeScenarioCatalog.find(
+      (item) => item.source === input.source && item.expectedResult === input.changeResult,
+    ) ??
+    productionOrderChangeScenarioCatalog.find((item) => item.expectedResult === input.changeResult) ??
+    productionOrderChangeScenarioCatalog[0]
+  const documents = scenario.mainAffectedDocuments.length
+    ? scenario.mainAffectedDocuments
+    : getScenarioDocuments(input.reason, input.changeResult)
+  const hasVersionRelationChange =
+    input.changeResult === 'VERSION_RELATION' || input.changeResult === 'VERSION_AND_PATCH'
+  const hasProductionPatch =
+    input.changeResult === 'PRODUCTION_PATCH' || input.changeResult === 'VERSION_AND_PATCH'
+
+  order.scenarioId = scenario.id
+  order.source = input.source
+  order.changeModules = [...input.changeModules]
+  order.reason = input.reason.trim()
+  order.expectedEffectiveMode = input.expectedEffectiveMode
+  order.effectiveDescription = input.effectiveDescription
+  order.changeResult = input.changeResult
+  order.executionStrategy = input.executionStrategy
+  order.lockStatus = input.executionStrategy === 'IMMEDIATE_STOP_LOSS' ? 'WHOLE_ORDER_PAUSED' : 'IMPACT_SCOPE_LOCKED'
+  order.status = input.status
+  order.hasVersionRelationChange = hasVersionRelationChange
+  order.hasProductionPatch = hasProductionPatch
+  order.affectedDocumentCount = documents.length
+  order.costDeltaAmount = input.changeResult === 'COST_ONLY' ? 1200 : input.changeModules.includes('COST') ? 800 : 0
+  order.delayDays =
+    input.executionStrategy === 'IMMEDIATE_STOP_LOSS' ? 2 : input.executionStrategy === 'AFTER_APPROVAL' ? 1 : 0
+  order.reviewer = input.changeResult === 'COST_ONLY' ? '财务主管' : '生产主管'
+  order.latestLog =
+    input.status === 'DRAFT'
+      ? `${productionOrderChangeResultLabels[input.changeResult]}已保存草稿，待补充后提交审核。`
+      : `${productionOrderChangeResultLabels[input.changeResult]}已提交审核，等待主管确认。`
+
+  replaceSubmittedChangeOrderChildren(order)
+  return clone(order)
+}
+
 export function listProductionTechPackPublishEvaluationBatches(): ProductionTechPackPublishEvaluationBatch[] {
   return loadPublishEvaluationBatches()
 }
@@ -1726,6 +2996,19 @@ export function submitProductionOrderTechPackChange(input: {
     },
     ...operationLogs,
   ]
+  const modules = uniqueList(buildTechPackDiffItemsForRelation(relation).map((item) => item.module))
+  submitProductionOrderChangeOrder({
+    productionOrderId: relation.productionOrderId,
+    source: 'TECH_PACK_NEW_VERSION',
+    changeModules: modules.length > 0 ? modules : ['BOM'],
+    reason: input.reason,
+    expectedEffectiveMode: input.effectiveMode,
+    effectiveDescription: effectiveModeLabels[input.effectiveMode],
+    changeResult: 'VERSION_RELATION',
+    executionStrategy: 'AFTER_APPROVAL',
+    operatorName: input.operatorName,
+    linkedVersionChangeRequestId: request.changeRequestId,
+  })
   return clone(request)
 }
 
@@ -1818,6 +3101,23 @@ export function submitProductionOrderPatch(input: {
     },
     ...operationLogs,
   ]
+  submitProductionOrderChangeOrder({
+    productionOrderId: relation.productionOrderId,
+    source: 'MATERIAL_SHORTAGE',
+    changeModules: [patch.affectedModule],
+    reason: input.reason,
+    expectedEffectiveMode:
+      patch.effectivePoint === 'FROM_NEXT_PICKUP'
+        ? 'FROM_NEXT_PICKUP'
+        : patch.effectivePoint === 'SETTLEMENT_ONLY'
+          ? 'FROM_SPECIFIED_DATE'
+          : 'FROM_NEXT_PREP',
+    effectiveDescription: patchEffectivePointLabels[patch.effectivePoint],
+    changeResult: 'PRODUCTION_PATCH',
+    executionStrategy: 'AFTER_APPROVAL',
+    operatorName: input.operatorName,
+    linkedPatchId: patch.patchId,
+  })
   return clone(patch)
 }
 

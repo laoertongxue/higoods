@@ -147,6 +147,20 @@ type TechPackChangeDetailTab =
   | 'notice'
   | 'logs'
 
+type ProductionChangeListTab = 'change-orders' | 'candidate-orders'
+type ProductionChangeDetailTab = 'content' | 'impact' | 'documents' | 'cost' | 'timing' | 'approval' | 'records'
+type ProductionChangeFormStep = 'order' | 'content' | 'impact' | 'documents' | 'cost-timing' | 'submit'
+
+interface ProductionChangeForm {
+  productionOrderId: string
+  source: string
+  modules: string[]
+  reason: string
+  effectiveMode: string
+  executionStrategy: string
+  changeResult: string
+}
+
 interface TechPackVersionChangeForm {
   targetVersionId: string
   reason: string
@@ -262,6 +276,13 @@ interface ProductionState {
   techPackChangeModuleFilter: 'ALL' | string
   techPackChangeProgressFilter: 'ALL' | string
   techPackChangeOwnerFilter: 'ALL' | string
+  productionChangeOrderPage: number
+  productionChangeSelectedOrderId: string
+  productionChangeListTab: ProductionChangeListTab
+  productionChangeDetailTab: ProductionChangeDetailTab
+  productionChangeFormStep: ProductionChangeFormStep
+  productionChangeForm: ProductionChangeForm
+  productionChangeFormError: string
   techPackChangeDetailTab: TechPackChangeDetailTab
   techPackChangeVersionDialogOrderId: string | null
   techPackChangeVersionForm: TechPackVersionChangeForm
@@ -350,6 +371,16 @@ const PRODUCTION_PATCH_EMPTY_FORM: ProductionPatchForm = {
   effectivePoint: 'FROM_NOW',
   reason: '',
   contentText: '',
+}
+
+const PRODUCTION_CHANGE_EMPTY_FORM: ProductionChangeForm = {
+  productionOrderId: '',
+  source: 'TECH_PACK_NEW_VERSION',
+  modules: ['BOM'],
+  reason: '',
+  effectiveMode: 'FROM_NEXT_PREP',
+  executionStrategy: 'AFTER_APPROVAL',
+  changeResult: 'PRODUCTION_PATCH',
 }
 
 const demandStatusConfig: Record<ProductionDemand['demandStatus'], { label: string; className: string }> = {
@@ -1942,6 +1973,13 @@ const state: ProductionState = {
   techPackChangeModuleFilter: 'ALL',
   techPackChangeProgressFilter: 'ALL',
   techPackChangeOwnerFilter: 'ALL',
+  productionChangeOrderPage: 1,
+  productionChangeSelectedOrderId: '',
+  productionChangeListTab: 'change-orders',
+  productionChangeDetailTab: 'content',
+  productionChangeFormStep: 'order',
+  productionChangeForm: { ...PRODUCTION_CHANGE_EMPTY_FORM },
+  productionChangeFormError: '',
   techPackChangeDetailTab: 'relation',
   techPackChangeVersionDialogOrderId: null,
   techPackChangeVersionForm: { ...TECH_PACK_VERSION_CHANGE_EMPTY_FORM },
@@ -1997,6 +2035,10 @@ export type {
   MaterialRequestDraft,
   MaterialMode,
   TechPackChangeDetailTab,
+  ProductionChangeForm,
+  ProductionChangeFormStep,
+  ProductionChangeDetailTab,
+  ProductionChangeListTab,
   TechPackVersionChangeForm,
   ProductionPatchForm,
 }
@@ -2055,6 +2097,7 @@ export {
   DELIVERY_EMPTY_FORM,
   TECH_PACK_VERSION_CHANGE_EMPTY_FORM,
   PRODUCTION_PATCH_EMPTY_FORM,
+  PRODUCTION_CHANGE_EMPTY_FORM,
   demandStatusConfig,
   demandTechPackStatusConfig,
   demandPriorityConfig,

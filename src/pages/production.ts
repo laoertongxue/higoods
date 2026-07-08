@@ -3,8 +3,11 @@ export {
   renderProductionOrdersPage,
   renderProductionPlanPage,
   renderProductionDeliveryWarehousePage,
+  renderProductionChangeEditPage,
+  renderProductionChangeNewPage,
+  renderProductionChangeOrderDetailPage,
+  renderProductionChangeRelationDetailPage,
   renderProductionChangesPage,
-  renderProductionChangeDetailPage,
   renderProductionStatusPage,
 } from './production/list'
 
