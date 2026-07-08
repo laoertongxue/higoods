@@ -14,6 +14,7 @@ import {
 import {
   effectiveModeLabels,
   getChangeRestrictionSnapshot,
+  getProductionOrderChangeCurrentFacts,
   getProductionOrderChangeOrder,
   getProductionOrderTechPackChangeDetail,
   getProductionOrderTechPackRelation,
@@ -2254,11 +2255,53 @@ function renderProductionChangeFactList(title: string, rows: Array<[string, stri
   )
 }
 
+function renderProductionChangeFactTable(title: string, headers: string[], rows: string[][], emptyText = '暂无当前事实'): string {
+  return `
+    <article class="rounded-lg border bg-background p-4">
+      <h3 class="text-sm font-semibold">${escapeHtml(title)}</h3>
+      <div class="mt-3 overflow-x-auto">
+        <table class="min-w-full text-left text-sm">
+          <thead class="bg-muted/40 text-xs text-muted-foreground">
+            <tr>
+              ${headers.map((header) => `<th class="whitespace-nowrap px-3 py-2 font-medium">${escapeHtml(header)}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            ${rows.length
+              ? rows.map((row) => `
+                <tr>
+                  ${row.map((cell) => `<td class="whitespace-nowrap px-3 py-2 align-top">${escapeHtml(cell)}</td>`).join('')}
+                </tr>
+              `).join('')
+              : `<tr><td class="px-3 py-4 text-muted-foreground" colspan="${headers.length}">${escapeHtml(emptyText)}</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </article>
+  `
+}
+
 function renderProductionChangeCurrentFacts(relation: ProductionOrderTechPackRelation): string {
+  const facts = getProductionOrderChangeCurrentFacts(relation.productionOrderId)
   const changeOrders = listProductionOrderChangeOrdersByProductionOrder(relation.productionOrderId)
-  const documentActions = changeOrders
-    .flatMap((order) => listProductionOrderChangeDocumentActions(order.id))
-    .slice(0, 4)
+  const documentGroups = ['裁剪/铺布/裁片', '印花/染色/特殊工艺', '车缝/后道/交出', '结算/成本'] as const
+  const historyRows = facts
+    ? facts.historyFacts.map((item) => [
+      item.changeOrderNo,
+      item.result,
+      item.status,
+      item.affectedScope,
+      item.lockStatus,
+      item.note,
+    ])
+    : changeOrders.slice(0, 4).map((order) => [
+      order.id,
+      productionOrderChangeResultLabels[order.changeResult],
+      productionOrderChangeOrderStatusLabels[order.status],
+      '按原变更单记录查看',
+      '按变更单状态锁定',
+      order.createdAt,
+    ])
 
   return `
     <section class="mt-4 space-y-3">
@@ -2279,41 +2322,55 @@ function renderProductionChangeCurrentFacts(relation: ProductionOrderTechPackRel
           ['版本关系状态', techPackRelationStatusLabels[relation.relationStatus]],
           ['补丁记录', `生效 ${relation.activePatchCount} / 待审 ${relation.pendingPatchCount} / 历史 ${relation.historyPatchCount}`],
         ])}
-        ${renderProductionChangeFactCard(
-          '生产进度',
-          relation.progressSummary.length
-            ? relation.progressSummary.slice(0, 4).map((item) => `<p>${escapeHtml(item)}</p>`).join('')
-            : '<p class="text-muted-foreground">暂无生产进度</p>',
-        )}
-        ${renderProductionChangeFactCard(
-          '已生成单据',
-          documentActions.length
-            ? documentActions.map((action) => `
-              <div class="rounded-md bg-muted/40 px-3 py-2">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="font-medium">${escapeHtml(productionOrderChangeDocumentTypeLabels[action.documentType])}</span>
-                  <span class="font-mono text-xs text-muted-foreground">${escapeHtml(action.documentNo)}</span>
-                </div>
-                <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(action.currentStatus)} / ${escapeHtml(action.finalAction)}</p>
-              </div>
-            `).join('')
-            : '<p class="text-muted-foreground">暂无已生成单据</p>',
-        )}
-        ${renderProductionChangeFactCard(
-          '历史变更',
-          changeOrders.length
-            ? changeOrders.slice(0, 4).map((order) => `
-              <div class="rounded-md bg-muted/40 px-3 py-2">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="font-medium">${escapeHtml(order.id)}</span>
-                  <span class="text-xs text-muted-foreground">${escapeHtml(productionOrderChangeOrderStatusLabels[order.status])}</span>
-                </div>
-                <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(productionOrderChangeResultLabels[order.changeResult])} / ${escapeHtml(order.createdAt)}</p>
-              </div>
-            `).join('')
-            : '<p class="text-muted-foreground">暂无历史变更</p>',
-        )}
       </div>
+      ${renderProductionChangeFactTable(
+        '生产单需求数量 / 色码需求数量',
+        ['色码范围', '原需求数量', '当前需求数量', '本次拟变更需求数量', '已生成单据数量', '已执行数量', '未执行数量', '数量差异说明'],
+        facts?.demandQuantityFacts.map((item) => [
+          item.scope,
+          `${item.originalDemandQty}`,
+          `${item.currentDemandQty}`,
+          `${item.proposedDemandQty}`,
+          `${item.generatedDocumentQty}`,
+          `${item.executedQty}`,
+          `${item.pendingQty}`,
+          item.note,
+        ]) || [],
+      )}
+      ${renderProductionChangeFactTable(
+        '物料配料 / 领料事实',
+        ['物料', '应配', '已配', '已领', '剩余可改', '单据来源', '事实说明'],
+        facts?.materialFacts.map((item) => [
+          item.material,
+          item.requiredQty,
+          item.preparedQty,
+          item.pickedQty,
+          item.changeableQty,
+          item.sourceDocument,
+          item.note,
+        ]) || [],
+      )}
+      ${documentGroups.map((group) => renderProductionChangeFactTable(
+        group,
+        ['单据号', '生成时间', '当前状态', '计划数量', '已执行', '未执行', '事实说明'],
+        facts?.documentFacts
+          .filter((item) => item.group === group)
+          .map((item) => [
+            item.documentNo,
+            item.generatedAt,
+            item.status,
+            item.plannedQty,
+            item.doneQty,
+            item.pendingQty,
+            item.note,
+          ]) || [],
+      )).join('')}
+      ${renderProductionChangeFactTable(
+        '历史变更 / 补丁 / 审核锁定事实',
+        ['变更单号', '变更结果', '状态', '影响范围', '锁定状态', '事实说明'],
+        historyRows,
+        '暂无历史变更事实',
+      )}
     </section>
   `
 }
@@ -2346,7 +2403,9 @@ function renderProductionChangeOrderStep(
         : `
           <section class="mt-4 space-y-2">
             <h2 class="text-base font-semibold">生产单当前事实</h2>
-            <p class="text-sm text-muted-foreground">选择生产单后查看基本信息、技术包关系、生产进度、已生成单据、历史变更。</p>
+            <p class="text-sm text-muted-foreground">
+              选择生产单后查看生产单需求数量、原需求数量、当前需求数量、本次拟变更需求数量、物料应配、已配、已领、剩余可改和单据生成时间等当前事实。
+            </p>
           </section>
         `}
     </div>
