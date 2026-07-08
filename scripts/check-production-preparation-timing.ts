@@ -228,8 +228,10 @@ assert.deepEqual(
 )
 
 type EvidenceItem = {
+  itemId: string
   itemType: string
   status: string
+  dependsOnItemIds: string[]
   selectedByMerchandiser?: boolean
   actualFinishAt?: string
   uploads?: Array<{ fileName?: string; uploadedAt?: string; uploadedBy?: string; fileDataUrl?: string }>
@@ -239,10 +241,25 @@ function selectedEvidenceItems(record: { items: EvidenceItem[] }): EvidenceItem[
   return record.items.filter((item) => item.selectedByMerchandiser !== false && item.status !== '无需')
 }
 
-function hasUploadEvidence(item: EvidenceItem): boolean {
+function hasUploadEvidence(item?: EvidenceItem): boolean {
   return Boolean(
-    item.actualFinishAt &&
+    item?.actualFinishAt &&
       item.uploads?.some((upload) => upload.fileName && upload.uploadedAt && upload.uploadedBy),
+  )
+}
+
+function itemByType(record: { items: EvidenceItem[] }, itemType: string): EvidenceItem | undefined {
+  return selectedEvidenceItems(record).find((item) => item.itemType === itemType)
+}
+
+function assertDependsOn(record: { recordNo: string; items: EvidenceItem[] }, itemType: string, dependencyType: string): void {
+  const item = itemByType(record, itemType)
+  if (!item) return
+  const dependency = itemByType(record, dependencyType)
+  assert.ok(dependency, `${record.recordNo} ${itemType} 必须存在前置项 ${dependencyType}`)
+  assert.ok(
+    item.dependsOnItemIds.includes(dependency.itemId),
+    `${record.recordNo} ${itemType} 必须依赖 ${dependencyType}`,
   )
 }
 
@@ -698,6 +715,27 @@ for (const record of productionPreparationRecords as Array<{
   for (const item of selectedItems.filter((current) => current.itemType.includes('染色调色'))) {
     assert.ok(item.dyeRequirement, `${record.recordNo} ${item.itemType} 已选择时必须维护染色要求`)
   }
+  assertDependsOn(record, '染色调色（纱线）', '确认染色要求（纱线）')
+  assertDependsOn(record, '染色调色（面料）', '确认染色要求（面料）')
+  for (const item of selectedItems.filter((current) => current.itemType === '染色调色（纱线）' || current.itemType === '染色调色（面料）')) {
+    if (item.status !== '已完成') continue
+    const requirementType = item.itemType === '染色调色（纱线）' ? '确认染色要求（纱线）' : '确认染色要求（面料）'
+    assert.ok(
+      hasUploadEvidence(itemByType(record, requirementType)),
+      `${record.recordNo} ${item.itemType} 已完成时，${requirementType} 必须已完成`,
+    )
+  }
+  const sampleItem = itemByType(record, '版衣制作')
+  if (sampleItem) {
+    for (const baseItem of selectedItems.filter((item) => item.itemType === '梭织基码纸样' || item.itemType === '毛织基码纸样')) {
+      assert.ok(
+        sampleItem.dependsOnItemIds.includes(baseItem.itemId),
+        `${record.recordNo} 版衣制作必须依赖 ${baseItem.itemType}`,
+      )
+    }
+  }
+  assertDependsOn(record, '梭织齐码纸样', '版衣制作')
+  assertDependsOn(record, '毛织齐码纸样', '版衣制作')
   if (record.outputReady) {
     assert.ok(
       selectedItems.every((item) => item.status === '已完成'),
@@ -1339,18 +1377,19 @@ assert.ok(!pendingOutputDrawerHtml.includes('预计产出'), '未全部完成记
 assert.ok(!pendingOutputDrawerHtml.includes('正式产出'), '未全部完成记录不应展示正式产出')
 assert.ok(!pendingOutputHtml.includes('待跟单确认后开放操作'), '未确认工作项的操作列不得展示额外说明')
 assert.ok(!pendingOutputHtml.includes('维护染色要求'), '未确认工作项前不得展示维护染色要求入口')
-const selectedDyeRequirementHtml = await renderAt(
-  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-002&itemId=prep-202603-002-item-08&action=maintain-dye-requirement',
+const dependencyActionHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03')
+assert.ok(!dependencyActionHtml.includes('maintain-dye-requirement'), '染色要求不应再作为 maintain-dye-requirement 附加动作出现')
+assert.ok(!dependencyActionHtml.includes('维护染色要求'), '操作栏不应再显示维护染色要求附加按钮')
+assert.ok(
+  dependencyActionHtml.includes('确认面料染色要求') || dependencyActionHtml.includes('确认纱线染色要求'),
+  '操作栏必须展示确认染色要求准备项动作',
 )
-assertHtmlIncludes(selectedDyeRequirementHtml, 'data-prep-dye-requirement-form', '已选择染色项必须能直达维护染色要求弹窗')
-assertHtmlIncludes(selectedDyeRequirementHtml, '潘通色号', '维护染色要求弹窗必须展示潘通色号')
-assert.ok(!selectedDyeRequirementHtml.includes('<aside'), '维护染色要求入口不应同时打开详情侧边栏')
 const unselectedDyeRequirementHtml = await renderAt(
-  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-005&itemId=prep-202603-005-item-06&action=maintain-dye-requirement',
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-005&itemId=prep-202603-005-item-06&action=operate-item',
 )
 assert.ok(
   !unselectedDyeRequirementHtml.includes('data-prep-dye-requirement-form'),
-  '交互可达性反例：未选择染色项不得通过 URL 直达维护染色要求弹窗',
+  '交互可达性反例：未选择染色要求项不得通过 URL 直达染色要求弹窗',
 )
 const unconfirmedOperateHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001&itemId=prep-202603-001-item-03&action=operate-item',
