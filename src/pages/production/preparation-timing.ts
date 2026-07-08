@@ -559,6 +559,76 @@ function renderMaterialRequirementTable(record: ProductionPreparationRecord): st
   `
 }
 
+function materialCatalog(): PreparationMaterialLine[] {
+  const unique = new Map<string, PreparationMaterialLine>()
+  for (const record of productionPreparationRecords) {
+    for (const material of materialLines(record)) {
+      if (!unique.has(material.materialNo)) unique.set(material.materialNo, material)
+    }
+  }
+  return Array.from(unique.values())
+}
+
+function renderMaterialDatalist(): string {
+  return `
+    <datalist id="prep-material-options">
+      ${materialCatalog().map((material) => `
+        <option
+          value="${escapeHtml(material.materialNo)}"
+          label="${escapeHtml(`${material.materialName} / ${material.materialType}`)}"
+          data-material-name="${escapeHtml(material.materialName)}"
+          data-material-type="${escapeHtml(material.materialType)}"
+          data-image-url="${escapeHtml(material.imageUrl)}"
+          data-required-qty="${material.requiredQty}"
+          data-prepared-qty="${material.preparedQty}"
+          data-issued-qty="${material.issuedQty}"
+          data-unit="${escapeHtml(material.unit)}"
+        ></option>
+      `).join('')}
+    </datalist>
+  `
+}
+
+function renderConfirmMaterialRow(material: PreparationMaterialLine): string {
+  return `
+    <div class="rounded-lg border bg-background p-3" data-prep-material-row>
+      <div class="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
+        <label class="block text-sm">
+          <span class="text-muted-foreground">选择物料</span>
+          <input name="materialNo" list="prep-material-options" value="${escapeHtml(material.materialNo)}" placeholder="输入编号或名称搜索" class="mt-1 w-full rounded-md border px-3 py-2" required data-prep-material-input />
+        </label>
+        <button type="button" class="mt-6 rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prep-action="remove-material-row">删除</button>
+      </div>
+      <input type="hidden" name="materialName" value="${escapeHtml(material.materialName)}" data-prep-material-name />
+      <input type="hidden" name="materialType" value="${escapeHtml(material.materialType)}" data-prep-material-type />
+      <input type="hidden" name="materialImageUrl" value="${escapeHtml(material.imageUrl)}" data-prep-material-image />
+      <input type="hidden" name="materialRequiredQty" value="${material.requiredQty}" data-prep-material-required />
+      <input type="hidden" name="materialPreparedQty" value="${material.preparedQty}" data-prep-material-prepared />
+      <input type="hidden" name="materialIssuedQty" value="${material.issuedQty}" data-prep-material-issued />
+      <input type="hidden" name="materialUnit" value="${escapeHtml(material.unit)}" data-prep-material-unit />
+      <div class="mt-3 flex items-center gap-3 rounded-md bg-muted/40 p-2" data-prep-material-preview>
+        <img src="${escapeHtml(material.imageUrl)}" alt="${escapeHtml(material.materialName)}" class="h-12 w-12 rounded-md border object-cover" data-prep-material-preview-image />
+        <div class="min-w-0 text-sm">
+          <div class="font-medium" data-prep-material-preview-name>${escapeHtml(material.materialName)}</div>
+          <div class="mt-0.5 font-mono text-xs text-muted-foreground" data-prep-material-preview-no>${escapeHtml(material.materialNo)}</div>
+          <div class="mt-0.5 text-xs text-muted-foreground" data-prep-material-preview-type>${escapeHtml(material.materialType)}</div>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function renderConfirmMaterialRows(record: ProductionPreparationRecord): string {
+  const lines = materialLines(record)
+  return `
+    ${renderMaterialDatalist()}
+    <div class="space-y-3" data-prep-material-rows>
+      ${lines.map((material) => renderConfirmMaterialRow(material)).join('')}
+    </div>
+    <button type="button" class="mt-3 rounded-md border px-3 py-2 text-sm text-blue-600 hover:bg-muted" data-prep-action="add-material-row">新增物料行</button>
+  `
+}
+
 function renderLedgerOutputList(record: ProductionPreparationRecord): string {
   const productionOrderLink = record.productionOrderNo
     ? `<button type="button" class="block text-left text-xs text-blue-600 hover:underline" data-nav="${escapeHtml(`/fcs/production/orders?keyword=${encodeURIComponent(record.productionOrderNo)}`)}">生产单：${escapeHtml(record.productionOrderNo)}</button>`
@@ -1163,16 +1233,9 @@ function renderConfirmItemsDialog(record: ProductionPreparationRecord, params: U
             </div>
           </section>
           <section class="rounded-lg border p-4">
-            <div class="text-sm font-semibold">3. 维护面料和做款要求</div>
-            <div class="mt-3 grid gap-3 md:grid-cols-2">
-              <label class="block text-sm">
-                <span class="text-muted-foreground">面料编号</span>
-                <input name="materialNo" value="${escapeHtml(record.materialRequirement.materialNo)}" class="mt-1 w-full rounded-md border px-3 py-2" required />
-              </label>
-              <label class="block text-sm">
-                <span class="text-muted-foreground">面料名称</span>
-                <input name="materialName" value="${escapeHtml(record.materialRequirement.materialName)}" class="mt-1 w-full rounded-md border px-3 py-2" required />
-              </label>
+            <div class="text-sm font-semibold">3. 维护物料和做款要求</div>
+            <div class="mt-3">
+              ${renderConfirmMaterialRows(record)}
             </div>
             <label class="mt-3 block text-sm">
               <span class="text-muted-foreground">做款/打板要求</span>
@@ -1730,9 +1793,37 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
     const selectedItemTypes = formData.getAll('selectedItemType')
       .map((itemType) => String(itemType).trim() as PreparationItemType)
       .filter(Boolean)
+    const materialNos = formData.getAll('materialNo').map((value) => String(value).trim())
+    const materialNames = formData.getAll('materialName').map((value) => String(value).trim())
+    const materialTypes = formData.getAll('materialType').map((value) => String(value).trim())
+    const materialImageUrls = formData.getAll('materialImageUrl').map((value) => String(value).trim())
+    const materialRequiredQtys = formData.getAll('materialRequiredQty').map((value) => Number(value) || 0)
+    const materialPreparedQtys = formData.getAll('materialPreparedQty').map((value) => Number(value) || 0)
+    const materialIssuedQtys = formData.getAll('materialIssuedQty').map((value) => Number(value) || 0)
+    const materialUnits = formData.getAll('materialUnit').map((value) => String(value).trim() || '米')
+    const materialItems = materialNos
+      .map((materialNo, index) => ({
+        materialNo,
+        materialName: materialNames[index] ?? '',
+        materialType: materialTypes[index] ?? '',
+        imageUrl: materialImageUrls[index] ?? '',
+        requiredQty: materialRequiredQtys[index] ?? 0,
+        preparedQty: materialPreparedQtys[index] ?? 0,
+        issuedQty: materialIssuedQtys[index] ?? 0,
+        unit: materialUnits[index] ?? '米',
+      }))
+      .filter((material) => material.materialNo && material.materialName)
+    const firstMaterial = materialItems[0]
     const materialRequirement = {
-      materialNo: String(formData.get('materialNo') ?? '').trim(),
-      materialName: String(formData.get('materialName') ?? '').trim(),
+      materialNo: firstMaterial?.materialNo ?? '',
+      materialName: firstMaterial?.materialName ?? '',
+      materialType: firstMaterial?.materialType,
+      imageUrl: firstMaterial?.imageUrl,
+      requiredQty: firstMaterial?.requiredQty,
+      preparedQty: firstMaterial?.preparedQty,
+      issuedQty: firstMaterial?.issuedQty,
+      unit: firstMaterial?.unit,
+      items: materialItems,
     }
     const sampleRequirementText = String(formData.get('sampleRequirementText') ?? '').trim()
     const confirmationRemark = String(formData.get('confirmationRemark') ?? '').trim()
@@ -1854,7 +1945,62 @@ function syncPreparationTypeBlocks(typeRadio: HTMLInputElement): void {
   })
 }
 
+function syncMaterialRow(input: HTMLInputElement): void {
+  const row = input.closest<HTMLElement>('[data-prep-material-row]')
+  const form = input.closest<HTMLFormElement>('[data-prep-confirm-items-form]')
+  const datalist = form?.querySelector<HTMLDataListElement>('#prep-material-options')
+  if (!row || !datalist) return
+  const option = Array.from(datalist.options).find((item) => item.value === input.value)
+  const materialName = option?.dataset.materialName ?? ''
+  const materialType = option?.dataset.materialType ?? ''
+  const imageUrl = option?.dataset.imageUrl ?? ''
+  row.querySelector<HTMLInputElement>('[data-prep-material-name]')!.value = materialName
+  row.querySelector<HTMLInputElement>('[data-prep-material-type]')!.value = materialType
+  row.querySelector<HTMLInputElement>('[data-prep-material-image]')!.value = imageUrl
+  row.querySelector<HTMLInputElement>('[data-prep-material-required]')!.value = option?.dataset.requiredQty ?? '0'
+  row.querySelector<HTMLInputElement>('[data-prep-material-prepared]')!.value = option?.dataset.preparedQty ?? '0'
+  row.querySelector<HTMLInputElement>('[data-prep-material-issued]')!.value = option?.dataset.issuedQty ?? '0'
+  row.querySelector<HTMLInputElement>('[data-prep-material-unit]')!.value = option?.dataset.unit ?? '米'
+  const image = row.querySelector<HTMLImageElement>('[data-prep-material-preview-image]')
+  const name = row.querySelector<HTMLElement>('[data-prep-material-preview-name]')
+  const no = row.querySelector<HTMLElement>('[data-prep-material-preview-no]')
+  const type = row.querySelector<HTMLElement>('[data-prep-material-preview-type]')
+  if (image) {
+    image.src = imageUrl
+    image.alt = materialName
+  }
+  if (name) name.textContent = materialName || '请选择物料'
+  if (no) no.textContent = input.value || '-'
+  if (type) type.textContent = materialType || '-'
+}
+
+function addMaterialRow(button: HTMLElement): void {
+  const form = button.closest<HTMLFormElement>('[data-prep-confirm-items-form]')
+  const rows = form?.querySelector<HTMLElement>('[data-prep-material-rows]')
+  const source = rows?.querySelector<HTMLElement>('[data-prep-material-row]')
+  if (!rows || !source) return
+  const row = source.cloneNode(true) as HTMLElement
+  row.querySelectorAll<HTMLInputElement>('input').forEach((input) => {
+    input.value = input.name === 'materialUnit' ? '米' : input.name.includes('Qty') ? '0' : ''
+  })
+  row.querySelectorAll<HTMLElement>('[data-prep-material-preview-name], [data-prep-material-preview-no], [data-prep-material-preview-type]').forEach((node) => {
+    node.textContent = node.matches('[data-prep-material-preview-name]') ? '请选择物料' : '-'
+  })
+  const image = row.querySelector<HTMLImageElement>('[data-prep-material-preview-image]')
+  if (image) {
+    image.removeAttribute('src')
+    image.alt = '请选择物料'
+  }
+  rows.appendChild(row)
+}
+
 export function handleProductionPreparationTimingEvent(target: HTMLElement): boolean {
+  const materialInput = target.closest<HTMLInputElement>('[data-prep-material-input]')
+  if (materialInput) {
+    syncMaterialRow(materialInput)
+    return false
+  }
+
   const typeRadio = target.closest<HTMLInputElement>('[data-prep-type-radio]')
   if (typeRadio) {
     syncPreparationTypeBlocks(typeRadio)
@@ -1868,6 +2014,15 @@ export function handleProductionPreparationTimingEvent(target: HTMLElement): boo
   }
 
   const actionNode = target.closest<HTMLElement>('[data-prep-action]')
+  if (actionNode?.dataset.prepAction === 'add-material-row') {
+    addMaterialRow(actionNode)
+    return false
+  }
+  if (actionNode?.dataset.prepAction === 'remove-material-row') {
+    const rows = actionNode.closest<HTMLFormElement>('[data-prep-confirm-items-form]')?.querySelectorAll('[data-prep-material-row]')
+    if ((rows?.length ?? 0) > 1) actionNode.closest('[data-prep-material-row]')?.remove()
+    return false
+  }
   if (!actionNode || actionNode.dataset.prepAction !== 'download-upload') return false
 
   const uploadId = actionNode.dataset.uploadId
