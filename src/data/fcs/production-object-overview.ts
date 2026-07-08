@@ -124,7 +124,6 @@ export interface ProductionObjectSummary {
   unit: string
   currentStage: string
   mainFactoryName: string
-  deliveryWarehouse: string
   merchandiser: string
   plannedDeliveryDate: string
   updatedAt: string
@@ -2320,7 +2319,6 @@ function buildDemandOnlyOverview(objectId: string): ProductionObjectOverview | n
     unit: '件',
     currentStage: demandStatusConfig[demand.demandStatus].label,
     mainFactoryName: '待确认',
-    deliveryWarehouse: '待确认',
     merchandiser: demand.merchandiserName,
     plannedDeliveryDate: demand.requiredDeliveryDate || '待确认',
     updatedAt: demand.updatedAt,
@@ -2421,7 +2419,6 @@ export function getProductionObjectOverview(objectType: ProductionObjectType, ob
     unit: '件',
     currentStage: productionOrderStatusConfig[order.status].label,
     mainFactoryName: formatProductionOrderMainFactoryName(order),
-    deliveryWarehouse: '',
     merchandiser: order.demandSnapshot.merchandiserName,
     plannedDeliveryDate: order.demandSnapshot.requiredDeliveryDate || '待确认',
     updatedAt: order.updatedAt,

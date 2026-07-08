@@ -40,7 +40,7 @@ async function main(): Promise<void> {
   )
 
   assert(routes.exactRoutes['/fcs/progress/production-orders'], '缺少生产单进度跟踪列表路由')
-  assert(routes.exactRoutes['/fcs/progress/production-orders/detail'], '缺少生产单全生命周期详情路由')
+  assert(routes.exactRoutes['/fcs/progress/production-orders/detail'], '缺少生产单进度跟踪详情路由')
 
   const listHtml = await renderAt('/fcs/progress/production-orders')
   ;[
@@ -49,13 +49,13 @@ async function main(): Promise<void> {
     '临期生产单',
     '延误生产单',
     '今日新增',
-    '待闭环异常',
+    '待处理异常',
     '本周交付数量',
     '生产单号',
     '生产需求单',
     '款式/SPU',
     '风险等级',
-    '交付仓',
+    '计划交付',
     '涉及工厂',
     '实际进度',
     '配料进度',
@@ -81,9 +81,9 @@ async function main(): Promise<void> {
 
   const overviewHtml = await renderAt('/fcs/progress/production-orders/detail?po=SO-PRD-202606-0018&tab=overview')
   ;[
-    '生产单全生命周期跟踪',
+    '生产单进度追踪',
     '交付倒计时',
-    '多泳道生命周期矩阵',
+    '多泳道进度矩阵',
     '当前卡点详情',
     '关键对象实时账',
     '主线',
@@ -103,7 +103,7 @@ async function main(): Promise<void> {
   const timelineHtml = await renderAt('/fcs/progress/production-orders/detail?po=SO-PRD-202606-0018&tab=timeline')
   ;[
     '时间追踪',
-    '生产全生命周期时间轴（计划 vs 实际）',
+    '生产时间轴（计划 vs 实际）',
     '时间节点详情',
     '关键里程碑与节点里程账本',
     '计划开始',
@@ -172,7 +172,7 @@ async function main(): Promise<void> {
   assert(typeof handleProductionOrderProgressEvent === 'function', '缺少生产单进度跟踪局部事件处理器')
   assert(!overviewHtml.includes('data-nav="/fcs/progress/production-orders/detail?po=SO-PRD-202606-0018&tab=timeline"'), '详情页 Tab 不应使用路由跳转做轻交互')
   ;[
-    '导出全生命周期跟踪',
+    '导出进度跟踪',
     '更多操作',
     '已刷新当前生产单进度跟踪数据',
   ].forEach((text) => assert(!overviewHtml.includes(text), `详情页不应再展示红框操作入口「${text}」`))
