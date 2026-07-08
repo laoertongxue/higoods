@@ -11,6 +11,11 @@ import {
   removedLegacyCraftNames,
   removedLegacyProcessCodes,
 } from './utils/special-craft-banlist.ts'
+import {
+  handleProductionCraftDictEvent,
+  isProductionCraftDictDialogOpen,
+  renderProductionCraftDictPage,
+} from '../src/pages/production-craft-dict.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -54,7 +59,7 @@ try {
 
   includesAll(
     taskBreakdownSource,
-    ['内含：', '开扣眼、装扣子、熨烫、包装', 'isExternalTaskProcess'],
+    ['内含：', '开扣眼、装扣子、熨烫、包装', "processBusinessCode === 'POST_FINISHING'"],
     '任务分解页未按后道父任务口径收口',
   )
   excludesAll(
@@ -66,6 +71,22 @@ try {
   const activeRows = listProcessCraftDictRows()
   const historicalRows = listProcessCraftDictRows(true).filter((row) => !row.isActive)
   const removedCraftNameSet = new Set(removedLegacyCraftNames)
+  const pageHtml = renderProductionCraftDictPage()
+
+  includesAll(
+    craftDictPageSource,
+    [
+      'showRouteOrder',
+      'renderProcessRouteOrderDialog',
+      'data-craft-dict-action="open-route-order"',
+      'data-craft-dict-action="close-route-order"',
+      'data-testid="craft-route-order-dialog"',
+      'data-testid="craft-route-order-card"',
+    ],
+    '工序工艺字典缺少完整顺序可视化入口或弹窗结构',
+  )
+  assert(pageHtml.includes('查看完整工序顺序'), '页面缺少查看完整工序顺序入口')
+  assert(!pageHtml.includes('data-testid="craft-route-order-dialog"'), '默认页面不应直接展开完整顺序弹窗')
 
   assert(activeRows.every((row) => row.isActive), '默认工序工艺字典列表应只包含可用项')
   removedLegacyProcessCodes.forEach((processCode) => {
@@ -107,6 +128,51 @@ try {
 
   assert(!historicalRows.some((row) => removedCraftNameSet.has(row.craftName)), '历史停用区不应保留已删除旧项')
   assertNoRemovedLegacyTerm(craftDictPageSource, assert, '工序工艺字典页面源码不应保留已删除旧项')
+
+  const openHandled = handleProductionCraftDictEvent({
+    closest(selector: string) {
+      if (selector === '[data-craft-dict-field]') return null
+      if (selector === '[data-craft-dict-action]') {
+        return {
+          dataset: {
+            craftDictAction: 'open-route-order',
+          },
+        }
+      }
+      return null
+    },
+  } as unknown as HTMLElement)
+  assert(openHandled === true, '查看完整顺序入口点击事件必须可达')
+  assert(isProductionCraftDictDialogOpen(), '打开完整顺序弹窗后应标记存在弹窗')
+
+  const routeDialogHtml = renderProductionCraftDictPage()
+  assert(routeDialogHtml.includes('完整工序工艺顺序'), '完整顺序弹窗缺少标题')
+  assert(routeDialogHtml.includes('基础路线顺序仅作为技术包路线默认参考'), '完整顺序弹窗缺少口径说明')
+  assert(routeDialogHtml.includes('未配置顺序'), '完整顺序弹窗必须有未配置顺序区域')
+  const routeDialogStart = routeDialogHtml.indexOf('data-testid="craft-route-order-dialog"')
+  assert(routeDialogStart >= 0, '完整顺序弹窗 DOM 不存在')
+  const routeDialogEnd = routeDialogHtml.indexOf('</section>', routeDialogStart)
+  const routeDialogOnlyHtml = routeDialogHtml.slice(routeDialogStart, routeDialogEnd >= 0 ? routeDialogEnd : undefined)
+  assert(!routeDialogOnlyHtml.includes('CRAFT_'), '完整顺序弹窗不应展示工艺编码')
+
+  const routeCardCount = routeDialogOnlyHtml.match(/data-testid="craft-route-order-card"/g)?.length ?? 0
+  assert(routeCardCount === activeRows.length, `完整顺序弹窗应展示全部 ${activeRows.length} 条可用工序工艺`)
+
+  const closeHandled = handleProductionCraftDictEvent({
+    closest(selector: string) {
+      if (selector === '[data-craft-dict-field]') return null
+      if (selector === '[data-craft-dict-action]') {
+        return {
+          dataset: {
+            craftDictAction: 'close-route-order',
+          },
+        }
+      }
+      return null
+    },
+  } as unknown as HTMLElement)
+  assert(closeHandled === true, '关闭完整顺序弹窗事件必须可达')
+  assert(!isProductionCraftDictDialogOpen(), '关闭完整顺序弹窗后不应标记存在弹窗')
 
   const orderIds = ['PO-202603-0002', 'PO-202603-0015']
   const artifacts = orderIds.flatMap((orderId) => generateProductionArtifactsForOrder(orderId))

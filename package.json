@@ -93,7 +93,7 @@
     "check:print-service-post-route-card": "tsx scripts/check-print-service-post-route-card.ts",
     "check:factory-handover-warehouse-linkage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-handover-warehouse-linkage.ts",
     "check:fcs-inactive-process-craft-usage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-inactive-process-craft-usage.ts",
-    "check:production-craft-dict-page": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-production-craft-dict-page.ts",
+    "check:production-craft-dict-page": "tsx scripts/check-production-craft-dict-page.ts",
     "check:factory-capacity-profile": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-capacity-profile.ts",
     "check:capacity-equipment-linkage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-capacity-equipment-linkage.ts",
     "check:printing-workflow": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-printing-workflow.ts",
