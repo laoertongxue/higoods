@@ -395,6 +395,20 @@ export interface ProductionOrderChangeOrder {
   latestLog: string
 }
 
+export interface ProductionOrderChangeOrderSubmitInput {
+  productionOrderId: string
+  source: ProductionOrderChangeSource
+  changeModules: TechPackChangeModule[]
+  reason: string
+  expectedEffectiveMode: ChangeEffectiveMode
+  effectiveDescription: string
+  changeResult: ProductionOrderChangeResult
+  executionStrategy: ProductionOrderChangeExecutionStrategy
+  operatorName: string
+  linkedVersionChangeRequestId?: string
+  linkedPatchId?: string
+}
+
 export interface ProductionOrderChangeImpactRow {
   id: string
   changeOrderId: string
@@ -978,6 +992,36 @@ const productionOrderChangeOrderPlans: Array<{
     productionOrderId: 'PO-202603-0004',
     id: 'CHANGE-PO-202603-0004-001',
   },
+  {
+    scenarioId: 'SCN-003',
+    changeResult: 'VERSION_AND_PATCH',
+    productionOrderId: 'PO-202603-0004',
+    id: 'CHANGE-PO-202603-0004-002',
+  },
+  {
+    scenarioId: 'SCN-021',
+    changeResult: 'COST_ONLY',
+    productionOrderId: 'PO-202603-0004',
+    id: 'CHANGE-PO-202603-0004-003',
+  },
+  {
+    scenarioId: 'SCN-017',
+    changeResult: 'PRODUCTION_PATCH',
+    productionOrderId: 'PO-202603-0013',
+    id: 'CHANGE-PO-202603-0013-002',
+  },
+  {
+    scenarioId: 'SCN-025',
+    changeResult: 'PRODUCTION_PATCH',
+    productionOrderId: 'PO-202603-0013',
+    id: 'CHANGE-PO-202603-0013-003',
+  },
+  {
+    scenarioId: 'SCN-080',
+    changeResult: 'RECORD_ONLY',
+    productionOrderId: 'PO-202603-0013',
+    id: 'CHANGE-PO-202603-0013-004',
+  },
   { scenarioId: 'SCN-017', changeResult: 'PRODUCTION_PATCH', productionOrderId: 'PO-202603-0015' },
   { scenarioId: 'SCN-019', changeResult: 'PRODUCTION_PATCH', productionOrderId: 'PO-202603-0016' },
   { scenarioId: 'SCN-025', changeResult: 'PRODUCTION_PATCH', productionOrderId: 'PO-202603-0017' },
@@ -1077,7 +1121,7 @@ function getProductionOrderChangeOrderCostDeltaAmount(
   )
 }
 
-const productionOrderChangeOrders: ProductionOrderChangeOrder[] = productionOrderChangeOrderPlans.map((plan, index) => {
+let productionOrderChangeOrders: ProductionOrderChangeOrder[] = productionOrderChangeOrderPlans.map((plan, index) => {
   const scenario = requireProductionOrderChangeScenario(plan.scenarioId)
   const style = productionOrderChangeStyleSeeds[index % productionOrderChangeStyleSeeds.length]
   const hasVersionRelationChange =
@@ -1193,7 +1237,7 @@ const productionOrderChangeImpactSeedRows = productionOrderChangeOrders
       : []),
   ])
 
-const productionOrderChangeImpactRows: ProductionOrderChangeImpactRow[] = [
+let productionOrderChangeImpactRows: ProductionOrderChangeImpactRow[] = [
   ...productionOrderChangeImpactSeedRows,
   ...productionOrderChangeOrders
     .filter((order) => order.changeResult !== 'COST_ONLY')
@@ -1277,7 +1321,7 @@ const productionOrderChangeDocumentActionPlans = [
   })),
 ]
 
-const productionOrderChangeDocumentActions: ProductionOrderChangeDocumentAction[] =
+let productionOrderChangeDocumentActions: ProductionOrderChangeDocumentAction[] =
   productionOrderChangeDocumentActionPlans.map((plan, index) =>
     buildProductionOrderChangeDocumentAction(plan.order, plan.documentType, index),
   )
@@ -1293,7 +1337,7 @@ const productionOrderChangeCostImpactOrders = [
   ...productionOrderChangeOrders.filter((order) => order.changeResult !== 'COST_ONLY' && order.costDeltaAmount !== 0),
 ]
 
-const productionOrderChangeCostImpacts: ProductionOrderChangeCostImpact[] = productionOrderChangeCostImpactOrders.map(
+let productionOrderChangeCostImpacts: ProductionOrderChangeCostImpact[] = productionOrderChangeCostImpactOrders.map(
   (order, index) => {
     const costType: ProductionOrderChangeCostType = (['MATERIAL', 'LABOR', 'FEE'] as ProductionOrderChangeCostType[])[index % 3]
     const estimatedAmount = Math.abs(order.costDeltaAmount) + 600 + index * 80
@@ -1328,7 +1372,7 @@ const productionOrderChangeTimingImpactOrders = [
   )),
 ]
 
-const productionOrderChangeTimingImpacts: ProductionOrderChangeTimingImpact[] = productionOrderChangeTimingImpactOrders.map(
+let productionOrderChangeTimingImpacts: ProductionOrderChangeTimingImpact[] = productionOrderChangeTimingImpactOrders.map(
   (order, index) => {
     const scenario = requireProductionOrderChangeScenario(order.scenarioId)
     const timingNode = scenario.timingNodes[index % scenario.timingNodes.length]
@@ -2309,6 +2353,17 @@ export function listProductionOrderChangeOrders(): ProductionOrderChangeOrder[] 
   return clone(productionOrderChangeOrders)
 }
 
+export function getProductionOrderChangeOrder(changeOrderId: string): ProductionOrderChangeOrder | null {
+  const order = productionOrderChangeOrders.find((item) => item.id === changeOrderId)
+  return order ? clone(order) : null
+}
+
+export function listProductionOrderChangeOrdersByProductionOrder(
+  productionOrderId: string,
+): ProductionOrderChangeOrder[] {
+  return clone(productionOrderChangeOrders.filter((item) => item.productionOrderId === productionOrderId))
+}
+
 export function listProductionOrderChangeImpactRows(changeOrderId?: string): ProductionOrderChangeImpactRow[] {
   const rows = changeOrderId
     ? productionOrderChangeImpactRows.filter((row) => row.changeOrderId === changeOrderId)
@@ -2337,6 +2392,148 @@ export function listProductionOrderChangeTimingImpacts(changeOrderId?: string): 
     ? productionOrderChangeTimingImpacts.filter((row) => row.changeOrderId === changeOrderId)
     : productionOrderChangeTimingImpacts
   return clone(rows)
+}
+
+function buildSubmittedChangeOrderDocumentActions(
+  order: ProductionOrderChangeOrder,
+): ProductionOrderChangeDocumentAction[] {
+  const scenario = productionOrderChangeScenarioCatalog.find((item) => item.id === order.scenarioId)
+  const documents = scenario?.mainAffectedDocuments.length
+    ? scenario.mainAffectedDocuments
+    : getScenarioDocuments(order.reason, order.changeResult)
+
+  return documents.map((documentType, index) =>
+    buildProductionOrderChangeDocumentAction(
+      order,
+      documentType,
+      productionOrderChangeDocumentActions.length + index,
+    ),
+  )
+}
+
+function appendSubmittedChangeOrderChildren(order: ProductionOrderChangeOrder): void {
+  if (order.changeResult !== 'COST_ONLY' && order.changeResult !== 'RECORD_ONLY') {
+    productionOrderChangeImpactRows = [
+      ...productionOrderChangeImpactRows,
+      buildProductionOrderChangeImpactRow(order, productionOrderChangeImpactRows.length, 0),
+    ]
+  }
+
+  productionOrderChangeDocumentActions = [
+    ...productionOrderChangeDocumentActions,
+    ...buildSubmittedChangeOrderDocumentActions(order),
+  ]
+
+  if (order.changeResult === 'COST_ONLY' || order.costDeltaAmount !== 0) {
+    const index = productionOrderChangeCostImpacts.length
+    const costType: ProductionOrderChangeCostType = order.changeModules.includes('COST') ? 'FEE' : 'MATERIAL'
+    const estimatedAmount = Math.abs(order.costDeltaAmount) + 600
+    productionOrderChangeCostImpacts = [
+      ...productionOrderChangeCostImpacts,
+      {
+        id: `COST-IMPACT-${String(index + 1).padStart(3, '0')}`,
+        changeOrderId: order.id,
+        costType,
+        itemName: productionOrderChangeCostItemNames[costType][index % productionOrderChangeCostItemNames[costType].length],
+        estimatedAmount,
+        actualAmount: estimatedAmount,
+        responsibleParty: costType === 'MATERIAL' ? '物料计划 / 供应商' : '财务结算 / 买手',
+        settlementHandling: '进入本次结算补差，需保留变更单和主管确认记录。',
+      },
+    ]
+  }
+
+  if (order.changeResult !== 'COST_ONLY' && order.changeResult !== 'RECORD_ONLY') {
+    const scenario = requireProductionOrderChangeScenario(order.scenarioId)
+    const timingNode = scenario.timingNodes[0] ?? 'MATERIAL_PREPARATION'
+    productionOrderChangeTimingImpacts = [
+      ...productionOrderChangeTimingImpacts,
+      {
+        id: `TIME-IMPACT-${String(productionOrderChangeTimingImpacts.length + 1).padStart(3, '0')}`,
+        changeOrderId: order.id,
+        timingNode,
+        originalTime: order.createdAt,
+        newEstimatedTime: order.createdAt,
+        delayDays: order.delayDays,
+        affectsProductionDelivery: order.delayDays > 0,
+        affectsFulfillmentDelivery: timingNode === 'SHIPPING' || order.delayDays >= 2,
+        responsibleParty: timingNode === 'SHIPPING' ? '履约计划' : '生产计划',
+        recoveryAction:
+          order.executionStrategy === 'IMMEDIATE_STOP_LOSS'
+            ? '先锁定影响范围，追回未完成批次，主管确认后释放。'
+            : '优先处理未开工范围，已完成部分保留追溯记录。',
+      },
+    ]
+  }
+}
+
+export function submitProductionOrderChangeOrder(
+  input: ProductionOrderChangeOrderSubmitInput,
+): ProductionOrderChangeOrder {
+  const relation = ensureMutableRelationWithEvaluation(input.productionOrderId)
+  if (!relation) throw new Error('未找到生产单技术包版本关系。')
+  if (!input.reason.trim()) throw new Error('变更原因不能为空。')
+  if (input.changeModules.length === 0) throw new Error('至少需要一个变更模块。')
+
+  const hasVersionRelationChange =
+    input.changeResult === 'VERSION_RELATION' || input.changeResult === 'VERSION_AND_PATCH'
+  if (hasVersionRelationChange && !input.linkedVersionChangeRequestId) {
+    const hasRunningVersionChange = productionOrderChangeOrders.some(
+      (order) =>
+        order.productionOrderId === input.productionOrderId &&
+        (order.changeResult === 'VERSION_RELATION' || order.changeResult === 'VERSION_AND_PATCH') &&
+        order.status !== 'DONE' &&
+        order.status !== 'REJECTED' &&
+        order.status !== 'RETURNED',
+    )
+    if (hasRunningVersionChange) throw new Error('同一生产单已有进行中的版本关系变更。')
+  }
+
+  const scenario =
+    productionOrderChangeScenarioCatalog.find(
+      (item) => item.source === input.source && item.expectedResult === input.changeResult,
+    ) ??
+    productionOrderChangeScenarioCatalog.find((item) => item.expectedResult === input.changeResult) ??
+    productionOrderChangeScenarioCatalog[0]
+  const documents = scenario.mainAffectedDocuments.length
+    ? scenario.mainAffectedDocuments
+    : getScenarioDocuments(input.reason, input.changeResult)
+  const sequence = productionOrderChangeOrders.filter((item) => item.productionOrderId === input.productionOrderId).length + 1
+  const hasProductionPatch =
+    input.changeResult === 'PRODUCTION_PATCH' || input.changeResult === 'VERSION_AND_PATCH'
+  const createdAt = nowText()
+  const order: ProductionOrderChangeOrder = {
+    id: `CHANGE-${input.productionOrderId}-${String(sequence).padStart(3, '0')}`,
+    scenarioId: scenario.id,
+    productionOrderId: relation.productionOrderId,
+    demandOrderId: relation.productionOrderNo.replace('PO-', 'DO-'),
+    spuCode: relation.spuCode,
+    styleName: relation.styleName,
+    buyerName: relation.buyerName,
+    merchandiserName: relation.merchandiserName,
+    source: input.source,
+    changeModules: [...input.changeModules],
+    reason: input.reason.trim(),
+    expectedEffectiveMode: input.expectedEffectiveMode,
+    effectiveDescription: input.effectiveDescription,
+    changeResult: input.changeResult,
+    executionStrategy: input.executionStrategy,
+    lockStatus: input.executionStrategy === 'IMMEDIATE_STOP_LOSS' ? 'WHOLE_ORDER_PAUSED' : 'IMPACT_SCOPE_LOCKED',
+    status: input.executionStrategy === 'IMMEDIATE_EXECUTION' ? 'EXECUTING' : 'SUBMITTED',
+    hasVersionRelationChange,
+    hasProductionPatch,
+    affectedDocumentCount: documents.length,
+    costDeltaAmount: input.changeResult === 'COST_ONLY' ? 1200 : input.changeModules.includes('COST') ? 800 : 0,
+    delayDays: input.executionStrategy === 'IMMEDIATE_STOP_LOSS' ? 2 : input.executionStrategy === 'AFTER_APPROVAL' ? 1 : 0,
+    createdBy: input.operatorName,
+    createdAt,
+    reviewer: input.changeResult === 'COST_ONLY' ? '财务主管' : '生产主管',
+    latestLog: `${productionOrderChangeResultLabels[input.changeResult]}已提交，${productionOrderChangeExecutionStrategyLabels[input.executionStrategy]}。`,
+  }
+
+  productionOrderChangeOrders = [order, ...productionOrderChangeOrders]
+  appendSubmittedChangeOrderChildren(order)
+  return clone(order)
 }
 
 export function listProductionTechPackPublishEvaluationBatches(): ProductionTechPackPublishEvaluationBatch[] {
@@ -2710,6 +2907,19 @@ export function submitProductionOrderTechPackChange(input: {
     },
     ...operationLogs,
   ]
+  const modules = uniqueList(buildTechPackDiffItemsForRelation(relation).map((item) => item.module))
+  submitProductionOrderChangeOrder({
+    productionOrderId: relation.productionOrderId,
+    source: 'TECH_PACK_NEW_VERSION',
+    changeModules: modules.length > 0 ? modules : ['BOM'],
+    reason: input.reason,
+    expectedEffectiveMode: input.effectiveMode,
+    effectiveDescription: effectiveModeLabels[input.effectiveMode],
+    changeResult: 'VERSION_RELATION',
+    executionStrategy: 'AFTER_APPROVAL',
+    operatorName: input.operatorName,
+    linkedVersionChangeRequestId: request.changeRequestId,
+  })
   return clone(request)
 }
 
@@ -2802,6 +3012,23 @@ export function submitProductionOrderPatch(input: {
     },
     ...operationLogs,
   ]
+  submitProductionOrderChangeOrder({
+    productionOrderId: relation.productionOrderId,
+    source: 'MATERIAL_SHORTAGE',
+    changeModules: [patch.affectedModule],
+    reason: input.reason,
+    expectedEffectiveMode:
+      patch.effectivePoint === 'FROM_NEXT_PICKUP'
+        ? 'FROM_NEXT_PICKUP'
+        : patch.effectivePoint === 'SETTLEMENT_ONLY'
+          ? 'FROM_SPECIFIED_DATE'
+          : 'FROM_NEXT_PREP',
+    effectiveDescription: patchEffectivePointLabels[patch.effectivePoint],
+    changeResult: 'PRODUCTION_PATCH',
+    executionStrategy: 'AFTER_APPROVAL',
+    operatorName: input.operatorName,
+    linkedPatchId: patch.patchId,
+  })
   return clone(patch)
 }
 
