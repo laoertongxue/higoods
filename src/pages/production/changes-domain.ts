@@ -2328,12 +2328,12 @@ function renderProductionChangeCurrentFacts(relation: ProductionOrderTechPackRel
         ['色码范围', '原需求数量', '当前需求数量', '本次拟变更需求数量', '已生成单据数量', '已执行数量', '未执行数量', '数量差异说明'],
         facts?.demandQuantityFacts.map((item) => [
           item.scope,
-          `${item.originalDemandQty}`,
-          `${item.currentDemandQty}`,
-          `${item.proposedDemandQty}`,
-          `${item.generatedDocumentQty}`,
-          `${item.executedQty}`,
-          `${item.pendingQty}`,
+          `${item.originalDemandQty} 件`,
+          `${item.currentDemandQty} 件`,
+          `${item.proposedDemandQty} 件`,
+          `${item.generatedDocumentQty} 件`,
+          `${item.executedQty} 件`,
+          `${item.pendingQty} 件`,
           item.note,
         ]) || [],
       )}

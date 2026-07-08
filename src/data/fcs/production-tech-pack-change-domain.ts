@@ -1965,10 +1965,10 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
     ],
   },
   {
-    productionOrderId: 'PO-202603-0018',
+    productionOrderId: 'PO-202604-0018',
     demandQuantityFacts: [
       {
-        id: 'DQF-PO-202603-0018-PRINT',
+        id: 'DQF-PO-202604-0018-PRINT',
         scope: '印花款 / S-M / 全色',
         originalDemandQty: 1500,
         currentDemandQty: 1500,
@@ -1979,7 +1979,7 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
         note: '总量不变，拟调整色码结构，未开工印花和染色单可改。',
       },
       {
-        id: 'DQF-PO-202603-0018-DYE',
+        id: 'DQF-PO-202604-0018-DYE',
         scope: '焦糖色 / L-XL / 第 1 批',
         originalDemandQty: 720,
         currentDemandQty: 720,
@@ -1992,7 +1992,7 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
     ],
     materialFacts: [
       {
-        id: 'MAT-PO-202603-0018-FAB-P02',
+        id: 'MAT-PO-202604-0018-FAB-P02',
         material: 'FAB-P02 印花坯布 / 米白 / 150cm',
         requiredQty: '1,760 米',
         preparedQty: '1,050 米',
@@ -2002,7 +2002,7 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
         note: '已配未领部分可按新色码结构重分配。',
       },
       {
-        id: 'MAT-PO-202603-0018-DYE-CARAMEL',
+        id: 'MAT-PO-202604-0018-DYE-CARAMEL',
         material: 'DYE-CARAMEL 染料包 / 焦糖色',
         requiredQty: '96 千克',
         preparedQty: '54 千克',
@@ -2014,7 +2014,7 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
     ],
     documentFacts: [
       {
-        id: 'DOC-PO-202603-0018-PR-001',
+        id: 'DOC-PO-202604-0018-PR-001',
         group: '印花/染色/特殊工艺',
         documentNo: 'PR-202603-018-01',
         generatedAt: '2026-03-20 10:45',
@@ -2025,7 +2025,7 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
         note: '印花单已生成未开工，可取消重开或改做。',
       },
       {
-        id: 'DOC-PO-202603-0018-DY-001',
+        id: 'DOC-PO-202604-0018-DY-001',
         group: '印花/染色/特殊工艺',
         documentNo: 'DY-202603-018-01',
         generatedAt: '2026-03-20 13:20',
@@ -2038,8 +2038,8 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
     ],
     historyFacts: [
       {
-        id: 'HIS-PO-202603-0018-001',
-        changeOrderNo: 'CHANGE-PO-202603-0018-001',
+        id: 'HIS-PO-202604-0018-001',
+        changeOrderNo: 'CHANGE-PO-202604-0018-001',
         result: '版本关系变更',
         status: '审核中',
         affectedScope: '印花花型和焦糖色色码结构',
@@ -2049,10 +2049,10 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
     ],
   },
   {
-    productionOrderId: 'PO-202603-0013',
+    productionOrderId: 'PO-202603-0007',
     demandQuantityFacts: [
       {
-        id: 'DQF-PO-202603-0013-SEW',
+        id: 'DQF-PO-202603-0007-SEW',
         scope: '整单 / 全色全码 / 第 1 批',
         originalDemandQty: 1800,
         currentDemandQty: 1800,
@@ -2063,7 +2063,7 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
         note: '已车缝交出和部分结算，减量不能直接删除，只能追溯或补差。',
       },
       {
-        id: 'DQF-PO-202603-0013-XL',
+        id: 'DQF-PO-202603-0007-XL',
         scope: '黑色 / XL / 已交出范围',
         originalDemandQty: 360,
         currentDemandQty: 360,
@@ -2076,7 +2076,7 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
     ],
     materialFacts: [
       {
-        id: 'MAT-PO-202603-0013-FAB-C09',
+        id: 'MAT-PO-202603-0007-FAB-C09',
         material: 'FAB-C09 棉弹布 / 黑色 / 240g',
         requiredQty: '2,120 米',
         preparedQty: '2,120 米',
@@ -2086,7 +2086,7 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
         note: '大部分已领并投入，剩余可改量很低。',
       },
       {
-        id: 'MAT-PO-202603-0013-ZIP',
+        id: 'MAT-PO-202603-0007-ZIP',
         material: 'ACC-Z08 尼龙拉链 / 黑色 / 18cm',
         requiredQty: '1,820 条',
         preparedQty: '1,820 条',
@@ -2098,7 +2098,7 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
     ],
     documentFacts: [
       {
-        id: 'DOC-PO-202603-0013-SEW-001',
+        id: 'DOC-PO-202603-0007-SEW-001',
         group: '车缝/后道/交出',
         documentNo: 'SEW-202603-013-01',
         generatedAt: '2026-03-16 08:40',
@@ -2109,7 +2109,7 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
         note: '已交出部分不可删除，未交出部分可冻结处理。',
       },
       {
-        id: 'DOC-PO-202603-0013-SET-001',
+        id: 'DOC-PO-202603-0007-SET-001',
         group: '结算/成本',
         documentNo: 'SET-202603-013-01',
         generatedAt: '2026-03-22 17:30',
@@ -2122,8 +2122,8 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
     ],
     historyFacts: [
       {
-        id: 'HIS-PO-202603-0013-001',
-        changeOrderNo: 'CHANGE-PO-202603-0013-001',
+        id: 'HIS-PO-202603-0007-001',
+        changeOrderNo: 'CHANGE-PO-202603-0007-001',
         result: '仅成本',
         status: '已完成',
         affectedScope: '已交出和已结算范围',

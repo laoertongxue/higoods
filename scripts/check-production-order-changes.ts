@@ -91,6 +91,10 @@ const getProductionOrderChangeOrder = requireFunction<(id: string) => Record<str
   domainExports,
   'getProductionOrderChangeOrder',
 )
+const getProductionOrderChangeCurrentFacts = requireFunction<(id: string) => Record<string, any> | null>(
+  domainExports,
+  'getProductionOrderChangeCurrentFacts',
+)
 const submitProductionOrderChangeOrder = requireFunction<(input: Record<string, any>) => Record<string, any>>(
   domainExports,
   'submitProductionOrderChangeOrder',
@@ -107,6 +111,12 @@ state.productionChangeOrderPage = 1
 const firstRelation = listProductionOrderTechPackRelations()[0]
 assert.ok(firstRelation, '至少需要一张生产单版本关系样本')
 const relation = firstRelation
+const selectableRelationIds = new Set(listProductionOrderTechPackRelations().map((item) => item.productionOrderId))
+const selectableFactIds = [...selectableRelationIds].filter((id) => getProductionOrderChangeCurrentFacts(id))
+assert.ok(selectableFactIds.includes('PO-202603-0004'), '当前事实必须覆盖可选生产单 PO-202603-0004')
+assert.ok(selectableFactIds.includes('PO-202604-0018'), '当前事实必须覆盖可选生产单 PO-202604-0018')
+assert.ok(selectableFactIds.includes('PO-202603-0007'), '当前事实必须覆盖可选生产单 PO-202603-0007')
+assert.ok(selectableFactIds.length >= 3, '新增页可选生产单至少 3 张需要有当前事实样本')
 
 const listHtml = renderProductionChangesPage()
 
