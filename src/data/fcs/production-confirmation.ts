@@ -422,7 +422,10 @@ function buildTaskAssignmentSnapshot(order: ProductionOrder): ProductionConfirma
   })
 
   const specialCraftRows = getSpecialCraftTasksByProductionOrder(order.productionOrderId).map((task) => {
-    const { planQty } = task
+    const taskDemandQty = task.demandLines?.reduce((sum, line) => {
+      const lineDemandQty = Number(line.planPieceQty)
+      return sum + (Number.isFinite(lineDemandQty) ? lineDemandQty : 0)
+    }, 0) ?? 0
     return {
       taskId: task.taskOrderId,
       taskNo: task.taskOrderNo,
@@ -439,7 +442,7 @@ function buildTaskAssignmentSnapshot(order: ProductionOrder): ProductionConfirma
       assignedFactoryName: task.assignedFactoryName || task.factoryName || '待分配',
       assignmentMode: task.assignmentStatus === 'ASSIGNED' ? (task.assignmentMode || '已分配') : '待分配',
       assignedAt: task.assignmentStatus === 'ASSIGNED' ? task.updatedAt || task.createdAt : undefined,
-      taskQty: planQty,
+      taskQty: taskDemandQty,
       qtyUnit: task.unit,
       taskDeadline: task.dueAt,
       receiverName: undefined,

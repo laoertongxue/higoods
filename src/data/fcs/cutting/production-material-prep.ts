@@ -50,7 +50,7 @@ export interface MaterialPrepOrder {
   spu: string
   spuImageUrl: string
   customerName: string
-  planQty: number
+  demandQty: number
   deliveryDate: string
   creatorName: string
   createdAt: string
@@ -320,7 +320,7 @@ export interface MaterialPrepSeedOrder {
   spu: string
   spuImageUrl?: string
   customerName: string
-  planQty: number
+  demandQty: number
   deliveryDate: string
   creatorName: string
   createdAt: string
@@ -830,9 +830,8 @@ function buildUpstreamDocumentInfo(line: Pick<MaterialPrepSeedLine, 'prepOrderId
 }
 
 function resolveSeedOrderDemandQty(order: MaterialPrepSeedOrder): number {
-  const { planQty } = order
-  const demandQty = Number(planQty)
-  return Number.isFinite(demandQty) && demandQty > 0 ? demandQty : 0
+  const resolvedDemandQty = Number(order.demandQty)
+  return Number.isFinite(resolvedDemandQty) && resolvedDemandQty > 0 ? resolvedDemandQty : 0
 }
 
 function buildGeneratedMaterialLine(
@@ -957,12 +956,12 @@ export function createPrepOrderFromProductionOrder(input: {
   styleName: string
   spu: string
   customerName: string
-  planQty: number
+  demandQty: number
   deliveryDate: string
   creatorName?: string
   lines?: MaterialPrepSeedLine[]
 }): MaterialPrepSeedOrder {
-  const { planQty } = input
+  const { demandQty } = input
   return {
     prepOrderId: `prep-order-${input.productionOrderId}`,
     prepOrderNo: `PREP-${input.productionOrderNo.replace('PO-', 'PL-')}`,
@@ -972,7 +971,7 @@ export function createPrepOrderFromProductionOrder(input: {
     styleName: input.styleName,
     spu: input.spu,
     customerName: input.customerName,
-    planQty,
+    demandQty,
     deliveryDate: input.deliveryDate,
     creatorName: input.creatorName || '配料小组',
     createdAt: nowText(),
@@ -992,7 +991,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
     styleName: '弹力斜纹裤',
     spu: 'tdv_demand_SPU_2024_010',
     customerName: 'HiGood 自营',
-    planQty: 10500,
+    demandQty: 10500,
     deliveryDate: '2026-03-25',
     creatorName: '中转仓 周敏',
     createdAt: '2026-03-16 08:20',
@@ -1025,7 +1024,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
     styleName: '绿色休闲马甲',
     spu: 'tdv_demand_SPU_2024_014',
     customerName: 'HiGood 自营',
-    planQty: 1000,
+    demandQty: 1000,
     deliveryDate: '2026-04-28',
     creatorName: '中转仓 周敏',
     createdAt: '2026-03-16 13:50',
@@ -1063,7 +1062,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
     styleName: '弹力斜纹裤',
     spu: 'tdv_demand_SPU_2024_010',
     customerName: 'HiGood 自营',
-    planQty: 3300,
+    demandQty: 3300,
     deliveryDate: '2026-03-22',
     creatorName: '中转仓 周敏',
     createdAt: '2026-03-16 08:32',
@@ -1113,7 +1112,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
     styleName: '弹力斜纹裤',
     spu: 'tdv_demand_SPU_2024_010',
     customerName: 'HiGood 自营',
-    planQty: 3000,
+    demandQty: 3000,
     deliveryDate: '2026-03-21',
     creatorName: '中转仓 周敏',
     createdAt: '2026-03-16 09:00',
@@ -1163,7 +1162,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
     styleName: '纯色 T-shirt',
     spu: 'tdv_demand_SPU_2024_004',
     customerName: 'HiGood 自营',
-    planQty: 15000,
+    demandQty: 15000,
     deliveryDate: '2026-03-20',
     creatorName: '中转仓 周敏',
     createdAt: '2026-03-15 14:40',
@@ -1196,7 +1195,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
     styleName: '灰色连帽衫',
     spu: 'tdv_demand_SPU_2024_005',
     customerName: 'HiGood 自营',
-    planQty: 7500,
+    demandQty: 7500,
     deliveryDate: '2026-03-24',
     creatorName: '中转仓 周敏',
     createdAt: '2026-03-16 10:10',
@@ -1229,7 +1228,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
     styleName: '米色毛织衫',
     spu: 'tdv_demand_SPU_2024_012',
     customerName: 'HiGood 自营',
-    planQty: 1600,
+    demandQty: 1600,
     deliveryDate: '2026-03-26',
     creatorName: '中转仓 周敏',
     createdAt: '2026-03-16 11:10',
@@ -1262,7 +1261,7 @@ const baseMaterialPrepSeedOrders: MaterialPrepSeedOrder[] = [
     styleName: 'Navy 连衣裙',
     spu: 'tdv_demand_SPU_2024_013',
     customerName: 'HiGood 自营',
-    planQty: 2400,
+    demandQty: 2400,
     deliveryDate: '2026-03-23',
     creatorName: '中转仓 林洁',
     createdAt: '2026-03-16 13:10',
@@ -1295,7 +1294,7 @@ function buildCategoryDemoSeedOrder(input: {
   styleName: string
   spu: string
   color: string
-  planQty: number
+  demandQty: number
   requiredQty: number
   availableStockQty: number
   upstreamProgressStatus: UpstreamProgressStatus
@@ -1309,7 +1308,7 @@ function buildCategoryDemoSeedOrder(input: {
   const categoryCode = input.category === '染色配料' ? 'dye' : 'print'
   const categoryName = input.category === '染色配料' ? '染色' : '印花'
   const sourceType: UpstreamSourceType = input.category === '染色配料' ? '染色' : '印花'
-  const { planQty } = input
+  const { demandQty } = input
   return {
     prepOrderId,
     prepOrderNo: `WLS-PL-2603-${String(input.seq).padStart(4, '0')}`,
@@ -1319,7 +1318,7 @@ function buildCategoryDemoSeedOrder(input: {
     styleName: input.styleName,
     spu: input.spu,
     customerName: 'HiGood 自营',
-    planQty,
+    demandQty,
     deliveryDate: input.deliveryDate,
     creatorName: '中转仓 周敏',
     createdAt: input.createdAt,
@@ -1360,7 +1359,7 @@ const categoryDemoSeedOrders: MaterialPrepSeedOrder[] = [
     styleName: '酒红色阔腿裤',
     spu: 'tdv_demand_SPU_2024_021',
     color: 'Wine',
-    planQty: 2800,
+    demandQty: 2800,
     requiredQty: 1176,
     availableStockQty: 0,
     upstreamProgressStatus: '染色中',
@@ -1376,7 +1375,7 @@ const categoryDemoSeedOrders: MaterialPrepSeedOrder[] = [
     styleName: '松石绿衬衫',
     spu: 'tdv_demand_SPU_2024_022',
     color: 'Turquoise',
-    planQty: 3600,
+    demandQty: 3600,
     requiredQty: 1512,
     availableStockQty: 520,
     upstreamProgressStatus: '已到仓可配',
@@ -1392,7 +1391,7 @@ const categoryDemoSeedOrders: MaterialPrepSeedOrder[] = [
     styleName: '墨绿色半裙',
     spu: 'tdv_demand_SPU_2024_023',
     color: 'Forest',
-    planQty: 1800,
+    demandQty: 1800,
     requiredQty: 756,
     availableStockQty: 756,
     upstreamProgressStatus: '已到仓可配',
@@ -1408,7 +1407,7 @@ const categoryDemoSeedOrders: MaterialPrepSeedOrder[] = [
     styleName: '深灰工装短裤',
     spu: 'tdv_demand_SPU_2024_024',
     color: 'Dark Grey',
-    planQty: 4200,
+    demandQty: 4200,
     requiredQty: 1764,
     availableStockQty: 0,
     upstreamProgressStatus: '待到仓',
@@ -1424,7 +1423,7 @@ const categoryDemoSeedOrders: MaterialPrepSeedOrder[] = [
     styleName: '碎花吊带裙',
     spu: 'tdv_demand_SPU_2024_031',
     color: 'Floral Pink',
-    planQty: 2600,
+    demandQty: 2600,
     requiredQty: 1092,
     availableStockQty: 0,
     upstreamProgressStatus: '印花中',
@@ -1440,7 +1439,7 @@ const categoryDemoSeedOrders: MaterialPrepSeedOrder[] = [
     styleName: 'Logo 印花卫衣',
     spu: 'tdv_demand_SPU_2024_032',
     color: 'Logo White',
-    planQty: 5000,
+    demandQty: 5000,
     requiredQty: 2100,
     availableStockQty: 840,
     upstreamProgressStatus: '已到仓可配',
@@ -1456,7 +1455,7 @@ const categoryDemoSeedOrders: MaterialPrepSeedOrder[] = [
     styleName: '条纹印花衬衫',
     spu: 'tdv_demand_SPU_2024_033',
     color: 'Stripe Blue',
-    planQty: 3200,
+    demandQty: 3200,
     requiredQty: 1344,
     availableStockQty: 1344,
     upstreamProgressStatus: '已到仓可配',
@@ -2817,7 +2816,7 @@ function buildOrderProjection(
   const assignedTaskCount = taskLinks.filter((task) => task.allocationStatus === '已分配').length
   const overallPrepStatus = deriveOrderPrepStatus(lines, prepRecords, Boolean(closed))
   const pickupStatus = derivePickupStatus(lines, prepRecords, pickupRecords, Boolean(closed))
-  const { planQty } = seedOrder
+  const { demandQty } = seedOrder
   const totalRequiredQty = roundQty(lines.reduce((sum, line) => sum + line.requiredQty, 0))
   const totalConfirmedPrepQty = roundQty(lines.reduce((sum, line) => sum + line.confirmedPrepQty, 0))
   const totalPickedQty = roundQty(lines.reduce((sum, line) => sum + line.pickedQty, 0))
@@ -2845,7 +2844,7 @@ function buildOrderProjection(
       spu: seedOrder.spu,
       spuImageUrl: seedOrder.spuImageUrl || resolveSpuImage(seedOrder),
       customerName: seedOrder.customerName,
-      planQty,
+      demandQty,
       deliveryDate: seedOrder.deliveryDate,
       creatorName: seedOrder.creatorName,
       createdAt: seedOrder.createdAt,
