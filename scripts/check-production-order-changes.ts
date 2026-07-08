@@ -157,6 +157,16 @@ const newHtml = renderProductionChangeNewPage()
 })
 assert.ok(newHtml.includes('系统反推，不要求业务人员先选版本关系或补丁'), '新增页必须说明系统反推口径')
 assert.ok(newHtml.includes('生产单当前事实'), '新增页第 1 步必须展示生产单当前事实')
+assert.ok(newHtml.includes('生产单需求数量'), '新增页第 1 步必须展示生产单需求数量')
+assert.ok(newHtml.includes('原需求数量'), '新增页第 1 步必须展示原需求数量')
+assert.ok(newHtml.includes('当前需求数量'), '新增页第 1 步必须展示当前需求数量')
+assert.ok(newHtml.includes('本次拟变更需求数量'), '新增页第 1 步必须展示拟变更需求数量')
+assert.ok(newHtml.includes('应配'), '新增页第 1 步物料事实必须展示应配数量')
+assert.ok(newHtml.includes('已配'), '新增页第 1 步物料事实必须展示已配数量')
+assert.ok(newHtml.includes('已领'), '新增页第 1 步物料事实必须展示已领数量')
+assert.ok(newHtml.includes('剩余可改'), '新增页第 1 步物料事实必须展示剩余可改数量')
+assert.ok(newHtml.includes('生成时间'), '新增页第 1 步已生成单据必须展示生成时间')
+assert.ok(!newHtml.includes('风险标识'), '新增页第 1 步不应展示未定义的风险标识')
 assert.ok(
   !newHtml.includes('data-prod-field="productionChangeFormResult"'),
   '新增页第 1 步不应展示系统反推结果输入字段',

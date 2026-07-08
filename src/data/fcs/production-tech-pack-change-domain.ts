@@ -319,6 +319,59 @@ export interface ProductionChangeModuleLanding {
   lastLog: string
 }
 
+export interface ProductionOrderDemandQuantityFact {
+  id: string
+  scope: string
+  originalDemandQty: number
+  currentDemandQty: number
+  proposedDemandQty: number
+  generatedDocumentQty: number
+  executedQty: number
+  pendingQty: number
+  note: string
+}
+
+export interface ProductionOrderMaterialFact {
+  id: string
+  material: string
+  requiredQty: string
+  preparedQty: string
+  pickedQty: string
+  changeableQty: string
+  sourceDocument: string
+  note: string
+}
+
+export interface ProductionOrderDocumentFact {
+  id: string
+  group: '裁剪/铺布/裁片' | '印花/染色/特殊工艺' | '车缝/后道/交出' | '结算/成本'
+  documentNo: string
+  generatedAt: string
+  status: string
+  plannedQty: string
+  doneQty: string
+  pendingQty: string
+  note: string
+}
+
+export interface ProductionOrderHistoryFact {
+  id: string
+  changeOrderNo: string
+  result: string
+  status: string
+  affectedScope: string
+  lockStatus: string
+  note: string
+}
+
+export interface ProductionOrderChangeCurrentFacts {
+  productionOrderId: string
+  demandQuantityFacts: ProductionOrderDemandQuantityFact[]
+  materialFacts: ProductionOrderMaterialFact[]
+  documentFacts: ProductionOrderDocumentFact[]
+  historyFacts: ProductionOrderHistoryFact[]
+}
+
 export type ProductionTechPackPublishEvaluationStatus =
   | '待评估'
   | '已生成待办'
@@ -1826,6 +1879,261 @@ let progressSnapshots: ProductionProgressSnapshot[] = relations.map((relation) =
   ],
 }))
 
+export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[] = [
+  {
+    productionOrderId: 'PO-202603-0004',
+    demandQuantityFacts: [
+      {
+        id: 'DQF-PO-202603-0004-BLK-M',
+        scope: '黑色 / M / 第 2 批',
+        originalDemandQty: 1200,
+        currentDemandQty: 1200,
+        proposedDemandQty: 1020,
+        generatedDocumentQty: 840,
+        executedQty: 540,
+        pendingQty: 300,
+        note: '已生成配料、领料和铺布单，未铺布范围可直接减量。',
+      },
+      {
+        id: 'DQF-PO-202603-0004-NVY-L',
+        scope: '藏青色 / L / 第 2 批',
+        originalDemandQty: 900,
+        currentDemandQty: 900,
+        proposedDemandQty: 780,
+        generatedDocumentQty: 600,
+        executedQty: 360,
+        pendingQty: 240,
+        note: '已领未裁部分需先确认退料，未领部分可减少。',
+      },
+    ],
+    materialFacts: [
+      {
+        id: 'MAT-PO-202603-0004-FAB-A01',
+        material: 'FAB-A01 弹力斜纹布 / 黑色 / 280g',
+        requiredQty: '1,380 米',
+        preparedQty: '980 米',
+        pickedQty: '620 米',
+        changeableQty: '360 米',
+        sourceDocument: '配料单 MR-202603-010 / 领料单 MI-202603-006',
+        note: '已领部分未全部裁剪，可按退料确认后减少。',
+      },
+      {
+        id: 'MAT-PO-202603-0004-ELASTIC',
+        material: 'ACC-E04 腰头松紧带 / 黑色 / 4.0cm',
+        requiredQty: '984 米',
+        preparedQty: '640 米',
+        pickedQty: '420 米',
+        changeableQty: '220 米',
+        sourceDocument: '配料单 MR-202603-011',
+        note: '未领用数量可随生产单需求数量减少。',
+      },
+    ],
+    documentFacts: [
+      {
+        id: 'DOC-PO-202603-0004-SP-001',
+        group: '裁剪/铺布/裁片',
+        documentNo: 'SP-202603-004-01',
+        generatedAt: '2026-03-18 09:30',
+        status: '已铺布待裁',
+        plannedQty: '540 件',
+        doneQty: '240 件',
+        pendingQty: '300 件',
+        note: '已铺布 2 床，未裁部分可停用或重排。',
+      },
+      {
+        id: 'DOC-PO-202603-0004-CUT-001',
+        group: '裁剪/铺布/裁片',
+        documentNo: 'CUT-202603-004-01',
+        generatedAt: '2026-03-18 14:10',
+        status: '部分裁剪',
+        plannedQty: '540 件',
+        doneQty: '240 件',
+        pendingQty: '300 件',
+        note: '已裁数量不能删除，需保留追溯。',
+      },
+    ],
+    historyFacts: [
+      {
+        id: 'HIS-PO-202603-0004-001',
+        changeOrderNo: 'CHANGE-PO-202603-0004-001',
+        result: '生产单层补丁',
+        status: '已通过',
+        affectedScope: '黑色 M/L 未领料范围',
+        lockStatus: '影响范围锁定',
+        note: '上一笔替代主面料补丁已生效，当前减量需避开已领范围。',
+      },
+    ],
+  },
+  {
+    productionOrderId: 'PO-202603-0018',
+    demandQuantityFacts: [
+      {
+        id: 'DQF-PO-202603-0018-PRINT',
+        scope: '印花款 / S-M / 全色',
+        originalDemandQty: 1500,
+        currentDemandQty: 1500,
+        proposedDemandQty: 1500,
+        generatedDocumentQty: 900,
+        executedQty: 260,
+        pendingQty: 640,
+        note: '总量不变，拟调整色码结构，未开工印花和染色单可改。',
+      },
+      {
+        id: 'DQF-PO-202603-0018-DYE',
+        scope: '焦糖色 / L-XL / 第 1 批',
+        originalDemandQty: 720,
+        currentDemandQty: 720,
+        proposedDemandQty: 840,
+        generatedDocumentQty: 420,
+        executedQty: 120,
+        pendingQty: 300,
+        note: '焦糖色需增加 120 件，染色未完成范围可追加。',
+      },
+    ],
+    materialFacts: [
+      {
+        id: 'MAT-PO-202603-0018-FAB-P02',
+        material: 'FAB-P02 印花坯布 / 米白 / 150cm',
+        requiredQty: '1,760 米',
+        preparedQty: '1,050 米',
+        pickedQty: '420 米',
+        changeableQty: '630 米',
+        sourceDocument: '配料单 MR-202603-118',
+        note: '已配未领部分可按新色码结构重分配。',
+      },
+      {
+        id: 'MAT-PO-202603-0018-DYE-CARAMEL',
+        material: 'DYE-CARAMEL 染料包 / 焦糖色',
+        requiredQty: '96 千克',
+        preparedQty: '54 千克',
+        pickedQty: '18 千克',
+        changeableQty: '36 千克',
+        sourceDocument: '染色备料单 DY-MR-202603-018',
+        note: '未投染料可用于追加焦糖色批次。',
+      },
+    ],
+    documentFacts: [
+      {
+        id: 'DOC-PO-202603-0018-PR-001',
+        group: '印花/染色/特殊工艺',
+        documentNo: 'PR-202603-018-01',
+        generatedAt: '2026-03-20 10:45',
+        status: '待开工',
+        plannedQty: '520 件',
+        doneQty: '0 件',
+        pendingQty: '520 件',
+        note: '印花单已生成未开工，可取消重开或改做。',
+      },
+      {
+        id: 'DOC-PO-202603-0018-DY-001',
+        group: '印花/染色/特殊工艺',
+        documentNo: 'DY-202603-018-01',
+        generatedAt: '2026-03-20 13:20',
+        status: '加工中',
+        plannedQty: '380 件',
+        doneQty: '260 件',
+        pendingQty: '120 件',
+        note: '已加工部分保留，未加工部分可按新色码补差。',
+      },
+    ],
+    historyFacts: [
+      {
+        id: 'HIS-PO-202603-0018-001',
+        changeOrderNo: 'CHANGE-PO-202603-0018-001',
+        result: '版本关系变更',
+        status: '审核中',
+        affectedScope: '印花花型和焦糖色色码结构',
+        lockStatus: '影响范围锁定',
+        note: '审核中变更会影响本次色码结构调整。',
+      },
+    ],
+  },
+  {
+    productionOrderId: 'PO-202603-0013',
+    demandQuantityFacts: [
+      {
+        id: 'DQF-PO-202603-0013-SEW',
+        scope: '整单 / 全色全码 / 第 1 批',
+        originalDemandQty: 1800,
+        currentDemandQty: 1800,
+        proposedDemandQty: 1620,
+        generatedDocumentQty: 1800,
+        executedQty: 1510,
+        pendingQty: 290,
+        note: '已车缝交出和部分结算，减量不能直接删除，只能追溯或补差。',
+      },
+      {
+        id: 'DQF-PO-202603-0013-XL',
+        scope: '黑色 / XL / 已交出范围',
+        originalDemandQty: 360,
+        currentDemandQty: 360,
+        proposedDemandQty: 300,
+        generatedDocumentQty: 360,
+        executedQty: 360,
+        pendingQty: 0,
+        note: '已交出数量不可追回，差异进入结算补差或客户确认。',
+      },
+    ],
+    materialFacts: [
+      {
+        id: 'MAT-PO-202603-0013-FAB-C09',
+        material: 'FAB-C09 棉弹布 / 黑色 / 240g',
+        requiredQty: '2,120 米',
+        preparedQty: '2,120 米',
+        pickedQty: '2,080 米',
+        changeableQty: '40 米',
+        sourceDocument: '配料单 MR-202603-083 / 领料单 MI-202603-052',
+        note: '大部分已领并投入，剩余可改量很低。',
+      },
+      {
+        id: 'MAT-PO-202603-0013-ZIP',
+        material: 'ACC-Z08 尼龙拉链 / 黑色 / 18cm',
+        requiredQty: '1,820 条',
+        preparedQty: '1,820 条',
+        pickedQty: '1,510 条',
+        changeableQty: '310 条',
+        sourceDocument: '配料单 MR-202603-084',
+        note: '未领辅料可冻结，已装配部分进入成本追溯。',
+      },
+    ],
+    documentFacts: [
+      {
+        id: 'DOC-PO-202603-0013-SEW-001',
+        group: '车缝/后道/交出',
+        documentNo: 'SEW-202603-013-01',
+        generatedAt: '2026-03-16 08:40',
+        status: '部分交出',
+        plannedQty: '1,800 件',
+        doneQty: '1,510 件',
+        pendingQty: '290 件',
+        note: '已交出部分不可删除，未交出部分可冻结处理。',
+      },
+      {
+        id: 'DOC-PO-202603-0013-SET-001',
+        group: '结算/成本',
+        documentNo: 'SET-202603-013-01',
+        generatedAt: '2026-03-22 17:30',
+        status: '部分结算',
+        plannedQty: '1,510 件',
+        doneQty: '900 件',
+        pendingQty: '610 件',
+        note: '已结算部分需走补差或扣减，不直接改原单。',
+      },
+    ],
+    historyFacts: [
+      {
+        id: 'HIS-PO-202603-0013-001',
+        changeOrderNo: 'CHANGE-PO-202603-0013-001',
+        result: '仅成本',
+        status: '已完成',
+        affectedScope: '已交出和已结算范围',
+        lockStatus: '已释放',
+        note: '上次成本补差已完成，本次减量需重新计算剩余结算。',
+      },
+    ],
+  },
+]
+
 let restrictionSnapshots: ChangeRestrictionSnapshot[] = relations.map((relation) => ({
   restrictionSnapshotId: `REST-${relation.productionOrderId}`,
   productionOrderId: relation.productionOrderId,
@@ -2941,6 +3249,11 @@ export function getTechPackVersionDiffSnapshot(
 export function getProductionProgressSnapshot(productionOrderId: string): ProductionProgressSnapshot | null {
   const snapshot = progressSnapshots.find((item) => item.productionOrderId === productionOrderId)
   return snapshot ? clone(snapshot) : null
+}
+
+export function getProductionOrderChangeCurrentFacts(productionOrderId: string): ProductionOrderChangeCurrentFacts | null {
+  const found = productionOrderChangeCurrentFacts.find((item) => item.productionOrderId === productionOrderId)
+  return found ? clone(found) : null
 }
 
 export function getChangeRestrictionSnapshot(productionOrderId: string): ChangeRestrictionSnapshot | null {
