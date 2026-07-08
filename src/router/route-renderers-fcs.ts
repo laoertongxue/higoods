@@ -101,19 +101,11 @@ export const renderProductionTaskGenerationRuleEditPage = createAsyncRenderer(
   () => import('../pages/production/task-generation-rules'),
   'renderProductionTaskGenerationRuleEditPage',
 )
-export const renderProductionDeliveryWarehousePage = createAsyncRenderer(
-  () => import('../pages/production'),
-  'renderProductionDeliveryWarehousePage',
-)
 export const renderProductionOrderDetailPage = createAsyncRenderer(
   () => import('../pages/production'),
   'renderProductionOrderDetailPage',
 )
 export const renderProductionOrdersPage = createAsyncRenderer(() => import('../pages/production/orders-domain'), 'renderProductionOrdersPage')
-export const renderProductionPlanPage = createAsyncRenderer(
-  () => import('../pages/production'),
-  'renderProductionPlanPage',
-)
 export const renderProductionPreparationTimingPage = createAsyncRenderer(
   () => import('../pages/production/preparation-timing'),
   'renderProductionPreparationTimingPage',
@@ -121,10 +113,6 @@ export const renderProductionPreparationTimingPage = createAsyncRenderer(
 export const renderProductionPreparationTimingStatisticsPage = createAsyncRenderer(
   () => import('../pages/production/preparation-timing'),
   'renderProductionPreparationTimingStatisticsPage',
-)
-export const renderProductionStatusPage = createAsyncRenderer(
-  () => import('../pages/production'),
-  'renderProductionStatusPage',
 )
 export const renderProcessDyeOrdersPage = createAsyncRenderer(
   () => import('../pages/process-dye-orders'),

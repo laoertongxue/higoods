@@ -318,7 +318,6 @@ export const renderProductionTaskGenerationRuleEditPage = createAsyncRenderer(
   'renderProductionTaskGenerationRuleEditPage',
 )
 export const renderProductionOrdersPage = createAsyncRenderer(() => import('../pages/production/orders-domain'), 'renderProductionOrdersPage')
-export const renderProductionPlanPage = createAsyncRenderer(() => import('../pages/production'), 'renderProductionPlanPage')
 export const renderProductionPreparationTimingPage = createAsyncRenderer(
   () => import('../pages/production/preparation-timing'),
   'renderProductionPreparationTimingPage',
@@ -327,12 +326,7 @@ export const renderProductionPreparationTimingStatisticsPage = createAsyncRender
   () => import('../pages/production/preparation-timing'),
   'renderProductionPreparationTimingStatisticsPage',
 )
-export const renderProductionDeliveryWarehousePage = createAsyncRenderer(
-  () => import('../pages/production'),
-  'renderProductionDeliveryWarehousePage',
-)
 export const renderProductionChangesPage = createAsyncRenderer(() => import('../pages/production'), 'renderProductionChangesPage')
-export const renderProductionStatusPage = createAsyncRenderer(() => import('../pages/production'), 'renderProductionStatusPage')
 export const renderProductionOrderDetailPage = createAsyncRenderer(
   () => import('../pages/production'),
   'renderProductionOrderDetailPage',
