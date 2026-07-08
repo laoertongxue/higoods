@@ -580,7 +580,7 @@ export const productionOrderChangeResultLabels: Record<ProductionOrderChangeResu
 }
 
 export const productionOrderChangeExecutionStrategyLabels: Record<ProductionOrderChangeExecutionStrategy, string> = {
-  IMMEDIATE_STOP_LOSS: '立即止损',
+  IMMEDIATE_STOP_LOSS: '立即止损后提交审核',
   IMMEDIATE_EXECUTION: '立即执行',
   AFTER_APPROVAL: '审核通过后执行',
 }

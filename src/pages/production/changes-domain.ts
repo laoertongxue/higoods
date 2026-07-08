@@ -1265,7 +1265,7 @@ function renderProductionChangeStatCards(input: {
   const statItems = [
     ['变更单数', input.orders.length, '按生产单和变更单管理'],
     [
-      '立即止损',
+      '立即止损后提交审核',
       input.orders.filter((item) => item.executionStrategy === 'IMMEDIATE_STOP_LOSS').length,
       '先锁范围再处理',
     ],
@@ -1357,7 +1357,7 @@ function renderProductionChangeOrderList(orders: ProductionOrderChangeOrderView[
         </div>
       </div>
       ${renderChangeTable(
-        ['变更单号', '生产单号', '款式 / SPU', '变更来源', '变更模块', '期望生效口径', '系统反推结果', '执行策略', '锁定状态', '状态', '最后记录', '动作'],
+        ['变更单号', '生产单号', '款式 / SPU', '变更来源', '变更模块', '期望生效口径', '系统反推结果', '执行方式', '锁定状态', '状态', '最后记录', '动作'],
         visibleOrders.map((order) => `
           <tr class="align-top hover:bg-muted/20">
             <td class="px-3 py-3 font-medium">${escapeHtml(order.id)}</td>
@@ -2125,7 +2125,7 @@ function renderProductionChangeOrderDetailContent(order: ProductionOrderChangeOr
 
   if (tab === 'approval') {
     const strategies = [
-      ['IMMEDIATE_STOP_LOSS', '立即止损', '先锁定影响范围或暂停整单，避免现场继续按错误口径执行。'],
+      ['IMMEDIATE_STOP_LOSS', '立即止损后提交审核', '先锁定影响范围或暂停整单，避免现场继续按错误口径执行。'],
       ['IMMEDIATE_EXECUTION', '立即执行', '影响范围明确且风险可控，先执行再沉淀处理记录。'],
       ['AFTER_APPROVAL', '审核通过后执行', '涉及成本、交期或跨部门责任，主管审核通过后再执行。'],
     ] as const
@@ -2139,7 +2139,7 @@ function renderProductionChangeOrderDetailContent(order: ProductionOrderChangeOr
               <article class="rounded-md border px-4 py-3 ${active ? 'border-primary bg-primary/10' : 'bg-card'}">
                 <div class="flex items-center justify-between gap-2">
                   <h3 class="text-sm font-semibold">${escapeHtml(title)}</h3>
-                  ${active ? renderBadge('当前策略', 'bg-primary text-primary-foreground') : ''}
+                  ${active ? renderBadge('当前方式', 'bg-primary text-primary-foreground') : ''}
                 </div>
                 <p class="mt-2 text-sm text-muted-foreground">${escapeHtml(description)}</p>
               </article>
@@ -2643,7 +2643,7 @@ export function renderProductionChangeOrderDetailPage(changeOrderId: string): st
 
       <section class="grid overflow-hidden rounded-lg border bg-background sm:grid-cols-2 xl:grid-cols-4">
         ${renderChangeDetailSummaryCard('系统反推结果', productionOrderChangeResultLabels[order.changeResult], order.reason)}
-        ${renderChangeDetailSummaryCard('执行策略', productionOrderChangeExecutionStrategyLabels[order.executionStrategy], order.effectiveDescription)}
+        ${renderChangeDetailSummaryCard('执行方式', productionOrderChangeExecutionStrategyLabels[order.executionStrategy], order.effectiveDescription)}
         ${renderChangeDetailSummaryCard('锁定状态', productionOrderChangeLockStatusLabels[order.lockStatus], `${order.affectedDocumentCount} 张单据受影响`)}
         ${renderChangeDetailSummaryCard('状态', productionOrderChangeOrderStatusLabels[order.status], order.latestLog)}
       </section>

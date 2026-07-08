@@ -119,7 +119,7 @@ const listHtml = renderProductionChangesPage()
   '变更单号',
   '生产单号',
   '系统反推结果',
-  '执行策略',
+  '执行方式',
   '锁定状态',
 ].forEach((text) => {
   assert.ok(listHtml.includes(text), `列表页缺少「${text}」`)
@@ -212,9 +212,18 @@ const detailHtml = renderProductionChangeOrderDetailPage(firstOrder.id)
   assert.ok(detailHtml.includes(text), `详情页缺少 Tab「${text}」`)
 })
 assert.ok(detailHtml.includes(firstOrder.id), '详情页必须展示变更单号')
+assert.ok(detailHtml.includes('执行方式'), '详情页概览必须展示「执行方式」')
 assert.ok(!detailHtml.includes('变更单列表'), '详情页不应混入列表')
 assert.ok(!detailHtml.includes('submit-tech-pack-version-change'), '变更单详情页不应渲染旧版本变更弹窗提交入口')
 assert.ok(!detailHtml.includes('submit-production-patch'), '变更单详情页不应渲染旧生产补丁弹窗提交入口')
+
+state.productionChangeDetailTab = 'approval'
+const approvalDetailHtml = renderProductionChangeOrderDetailPage(firstOrder.id)
+;['立即止损后提交审核', '当前方式'].forEach((text) => {
+  assert.ok(approvalDetailHtml.includes(text), `详情页审核执行缺少「${text}」`)
+})
+assert.ok(!approvalDetailHtml.includes('当前策略'), '详情页审核执行不应展示「当前策略」')
+state.productionChangeDetailTab = 'content'
 
 state.techPackChangeVersionDialogOrderId = firstRelation.productionOrderId
 state.productionPatchDialogOrderId = firstRelation.productionOrderId
