@@ -22,10 +22,10 @@ function requireFunction<T extends (...args: never[]) => unknown>(exports: Recor
   return value as T
 }
 
-function makeProductionActionTarget(action: string): HTMLElement {
+function makeProductionActionTarget(action: string, dataset: Record<string, string> = {}): HTMLElement {
   return {
     closest(selector: string) {
-      if (selector === '[data-prod-action]') return { dataset: { prodAction: action } }
+      if (selector === '[data-prod-action]') return { dataset: { prodAction: action, ...dataset } }
       return null
     },
   } as unknown as HTMLElement
@@ -362,6 +362,44 @@ assert.equal(listProductionOrderChangeImpactRows(draft.id).length, 0, '编辑为
 assert.equal(listProductionOrderChangeTimingImpacts(draft.id).length, 0, '编辑为仅成本差异后不应残留时效明细')
 assert.ok(listProductionOrderChangeCostImpacts(draft.id).length > 0, '编辑为仅成本差异后必须生成成本明细')
 assert.ok(listProductionOrderChangeDocumentActions(draft.id).length > 0, '编辑为仅成本差异后仍应保留单据处理建议')
+
+const startChangeFromOrderTarget = makeProductionActionTarget('start-production-change-from-order', {
+  orderId: relation.productionOrderId,
+})
+const startChangeFromOrderNode = startChangeFromOrderTarget.closest('[data-prod-action]') as HTMLElement | null
+assert.equal(startChangeFromOrderNode?.dataset.prodAction, 'start-production-change-from-order', '测试目标必须携带生产变更动作')
+assert.equal(startChangeFromOrderNode?.dataset.orderId, relation.productionOrderId, '测试目标必须携带生产单 ID')
+assert.equal(handleProductionEvent(startChangeFromOrderTarget), true, '从生产单发起新增事件必须被处理')
+assert.equal(
+  state.productionChangeForm.productionOrderId,
+  relation.productionOrderId,
+  '从生产单发起新增必须真实预填生产单 ID',
+)
+renderProductionChangeNewPage()
+assert.equal(state.productionChangeSelectedOrderId, '', '从生产单发起新增后不应残留编辑态 ID')
+assert.equal(
+  state.productionChangeForm.productionOrderId,
+  relation.productionOrderId,
+  '从生产单发起新增后新增页重渲染不应清空预填生产单',
+)
+assert.equal(state.productionChangeFormStep, 'content', '从生产单发起新增后新增页重渲染不应重置预填步骤')
+
+const inProgressNewReason = '新增页重渲染：正在填写的新增表单不应被清空。'
+state.productionChangeSelectedOrderId = ''
+state.productionChangeForm = {
+  productionOrderId: relation.productionOrderId,
+  source: 'MATERIAL_SHORTAGE',
+  modules: ['BOM'],
+  reason: inProgressNewReason,
+  effectiveMode: 'FROM_NEXT_PICKUP',
+  executionStrategy: 'AFTER_APPROVAL',
+  changeResult: 'PRODUCTION_PATCH',
+}
+state.productionChangeFormStep = 'impact'
+renderProductionChangeNewPage()
+assert.equal(state.productionChangeForm.productionOrderId, relation.productionOrderId, '新增页重渲染不应清空正在填写的生产单')
+assert.equal(state.productionChangeForm.reason, inProgressNewReason, '新增页重渲染不应清空正在填写的原因')
+assert.equal(state.productionChangeFormStep, 'impact', '新增页重渲染不应重置正在填写的步骤')
 
 renderProductionChangeEditPage(draft.id)
 assert.equal(state.productionChangeSelectedOrderId, draft.id, '编辑页会设置当前编辑变更单 ID')
