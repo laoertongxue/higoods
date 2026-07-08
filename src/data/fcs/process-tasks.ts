@@ -717,6 +717,10 @@ function resolveTaskUnitReceiver(unit: GeneratedTaskUnitPreview | undefined, art
   return resolveGeneratedTaskReceiver(artifact)
 }
 
+function getTaskGenerationSortKey(artifact: GeneratedTaskArtifact): string {
+  return artifact.generationSortKey ?? artifact.sortKey
+}
+
 function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
   const artifacts = generateTaskArtifactsForAllOrders()
   if (!artifacts.length) return []
@@ -732,7 +736,7 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
   }
 
   for (const [orderId, orderArtifacts] of artifactsByOrder.entries()) {
-    orderArtifacts.sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+    orderArtifacts.sort((a, b) => getTaskGenerationSortKey(a).localeCompare(getTaskGenerationSortKey(b)))
     const preview = buildTaskGenerationPreview(orderId)
     const emittedMergedUnitIds = new Set<string>()
     const generatedIds: string[] = []

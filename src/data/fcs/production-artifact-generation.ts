@@ -72,6 +72,7 @@ export interface GeneratedProductionArtifactBase {
   routeParallelGroupName?: string
   routeParallelAcceptanceMode?: 'INDEPENDENT_ONLY' | 'WHOLE_GROUP_ALLOWED'
   docTypeLabel: string
+  generationSortKey?: string
   sortKey: string
 }
 
@@ -246,6 +247,7 @@ function buildDictionaryCoverageBase(
   const stageDefinition = getProcessStageByCode(definition.stageCode)
   const linkedBomItem = source.snapshot.bomItems[0]
   const sourceEntryId = toCoverageSourceEntryId(definition, mockIndex, source.snapshot.snapshotId)
+  const sortKey = `${toCoverageSortKey(definition, mockIndex)}-${source.order.productionOrderId}`
 
   return {
     artifactId: `DICT-${definition.defaultDocType}-${definition.craftCode}-${source.order.productionOrderId}-${mockIndex + 1}`,
@@ -288,7 +290,8 @@ function buildDictionaryCoverageBase(
     linkedBomItemIds: linkedBomItem ? [linkedBomItem.id] : undefined,
     linkedPatternIds: undefined,
     docTypeLabel: definition.defaultDocType === 'DEMAND' ? `${definition.craftName}需求单` : DOC_TYPE_LABEL.TASK,
-    sortKey: `${toCoverageSortKey(definition, mockIndex)}-${source.order.productionOrderId}`,
+    generationSortKey: sortKey,
+    sortKey,
   }
 }
 
@@ -469,6 +472,12 @@ function resolveEntryContext(orderId: string, entry: TechPackProcessEntry, entry
   }
 }
 
+function buildGenerationSortKey(context: ResolvedEntryContext): string {
+  return `${String(context.stageSort).padStart(3, '0')}-${String(context.processSort).padStart(3, '0')}-${String(
+    context.entryIndex,
+  ).padStart(3, '0')}-${context.sourceEntryId}`
+}
+
 function buildSortKey(context: ResolvedEntryContext): string {
   if (isPositiveRouteNo(context.routeStepNo) && isPositiveRouteNo(context.routeLaneNo)) {
     return `${String(context.routeStepNo).padStart(6, '0')}-${String(context.routeLaneNo).padStart(6, '0')}-${String(
@@ -476,9 +485,7 @@ function buildSortKey(context: ResolvedEntryContext): string {
     ).padStart(3, '0')}-${context.sourceEntryId}`
   }
 
-  return `${String(context.stageSort).padStart(3, '0')}-${String(context.processSort).padStart(3, '0')}-${String(
-    context.entryIndex,
-  ).padStart(3, '0')}-${context.sourceEntryId}`
+  return buildGenerationSortKey(context)
 }
 
 function toDemandArtifact(context: ResolvedEntryContext): GeneratedDemandArtifact {
@@ -513,6 +520,7 @@ function toDemandArtifact(context: ResolvedEntryContext): GeneratedDemandArtifac
     docTypeLabel: demandTypeLabel,
     demandTypeCode: `DEMAND_${context.processCode}`,
     demandTypeLabel,
+    generationSortKey: buildGenerationSortKey(context),
     sortKey: buildSortKey(context),
   }
 }
@@ -557,6 +565,7 @@ function toTaskArtifact(context: ResolvedEntryContext): GeneratedTaskArtifact {
     routeParallelGroupName: context.routeParallelGroupName,
     routeParallelAcceptanceMode: context.routeParallelAcceptanceMode,
     docTypeLabel: DOC_TYPE_LABEL.TASK,
+    generationSortKey: buildGenerationSortKey(context),
     taskTypeCode,
     taskTypeLabel,
     taskScope: 'EXTERNAL_TASK',
