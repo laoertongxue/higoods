@@ -349,7 +349,10 @@ const runtimeReadyRecord = mergePreparationRuntimeRecords(productionPreparationR
     }
   | undefined
 assert.ok(runtimeReadyRecord, 'runtime 合并后缺少 PREP-202603-002')
-assert.equal(runtimeReadyRecord.outputPublishedAt, '2026-07-02T10:17', 'runtime ready 产出时间必须取最晚完成证据')
+const runtimeLatestUploadAt = runtimeReadyUploads
+  .map((upload) => upload.uploadedAt)
+  .sort((left, right) => right.localeCompare(left))[0]
+assert.equal(runtimeReadyRecord.outputPublishedAt, runtimeLatestUploadAt, 'runtime ready 产出时间必须取最晚完成证据')
 assert.ok((runtimeReadyRecord.outputs?.length ?? 0) > 0, 'runtime 证据齐全后必须生成产出对象')
 for (const outputType of ['正式版本技术包', '生产需求单', '生产单', '染色需求单', '染色加工单', '辅料采购单'] as const) {
   assert.ok(
@@ -358,12 +361,15 @@ for (const outputType of ['正式版本技术包', '生产需求单', '生产单
   )
 }
 assert.ok(
-  runtimeReadyRecord.outputs?.every((output) => output.outputGeneratedAt === '2026-07-02T10:17'),
+  runtimeReadyRecord.outputs?.every((output) => output.outputGeneratedAt === runtimeLatestUploadAt),
   'runtime 证据齐全后每个产出对象必须使用最晚完成证据时间',
 )
 const runtimeMissingUploadRecord = mergePreparationRuntimeRecords(productionPreparationRecords, {
   ...EMPTY_PREPARATION_RUNTIME_STATE,
-  uploads: runtimeReadyUploads.slice(0, -1),
+  uploads: runtimeReadyUploads.filter((upload) => {
+    const item = runtimeOutputItems.find((current) => current.itemId === upload.itemId)
+    return item?.status === '已完成'
+  }),
   downloads: [],
 }).find((record: { recordNo?: string }) => record.recordNo === 'PREP-202603-002') as
   | { outputs?: unknown[] }
@@ -939,7 +945,7 @@ assert.ok(mixedRecord, '缺少毛织&梭织记录')
 
 assertRecordHasItems(wovenRecord, ['梭织基码纸样', '版衣制作', '梭织齐码纸样', '辅料下单', '数码印/DTF/DTG花型'])
 assert.deepEqual(itemNames(printRecord), ['数码印/DTF/DTG花型'], '烫画&直喷应有且仅有花型必做项')
-assertRecordHasItems(knitRecord, ['毛织基码纸样', '版衣制作', '毛织齐码纸样', '辅料下单', '染色调色（面料）'])
+assertRecordHasItems(knitRecord, ['毛织基码纸样', '版衣制作', '毛织齐码纸样', '辅料下单', '染色调色（面料）', '确认染色要求（面料）'])
 assertRecordHasItems(mixedRecord, [
   '毛织基码纸样',
   '梭织基码纸样',
@@ -949,6 +955,8 @@ assertRecordHasItems(mixedRecord, [
   '辅料下单',
   '染色调色（纱线）',
   '染色调色（面料）',
+  '确认染色要求（纱线）',
+  '确认染色要求（面料）',
 ])
 
 assert.ok(
