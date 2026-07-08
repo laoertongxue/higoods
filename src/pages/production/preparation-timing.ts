@@ -217,12 +217,12 @@ function canOperateItem(item: ProductionPreparationItem, record: ProductionPrepa
   })
 }
 
-function completionProgress(record: ProductionPreparationRecord): { completed: number; total: number; rate: number } {
-  if (!hasConfirmedWorkItems(record)) return { completed: 0, total: 0, rate: 0 }
-  const items = requiredItems(record)
-  const completed = items.filter(hasCompletionEvidence).length
-  const rate = items.length ? Math.round((completed / items.length) * 100) : 0
-  return { completed, total: items.length, rate }
+function actualPreparationFinishAt(record: ProductionPreparationRecord): string {
+  return requiredItems(record)
+    .filter(hasCompletionEvidence)
+    .map((item) => item.actualFinishAt)
+    .filter(Boolean)
+    .sort((left, right) => right.localeCompare(left))[0] ?? ''
 }
 
 function isPreparationOutputReady(record: ProductionPreparationRecord): boolean {
@@ -379,13 +379,13 @@ function renderLedgerFilter(params: URLSearchParams, month: string): string {
       <input type="hidden" name="tab" value="ledger" />
       <input type="hidden" name="month" value="${escapeHtml(month)}" />
       <div class="flex flex-nowrap items-end gap-2 overflow-x-auto pb-1">
-        <label class="flex min-w-[150px] flex-col gap-1 text-sm">
-          <span class="text-muted-foreground">开始日期</span>
-          <input type="date" name="startDate" value="${escapeHtml(startDate)}" class="h-9 rounded-md border bg-background px-2" />
-        </label>
-        <label class="flex min-w-[150px] flex-col gap-1 text-sm">
-          <span class="text-muted-foreground">结束日期</span>
-          <input type="date" name="endDate" value="${escapeHtml(endDate)}" class="h-9 rounded-md border bg-background px-2" />
+        <label class="flex min-w-[300px] flex-col gap-1 text-sm">
+          <span class="text-muted-foreground">日期</span>
+          <span class="flex items-center gap-1">
+            <input type="date" name="startDate" value="${escapeHtml(startDate)}" class="h-9 min-w-0 flex-1 rounded-md border bg-background px-2" />
+            <span class="text-xs text-muted-foreground">至</span>
+            <input type="date" name="endDate" value="${escapeHtml(endDate)}" class="h-9 min-w-0 flex-1 rounded-md border bg-background px-2" />
+          </span>
         </label>
         ${renderSelectField('买手', 'buyerName', ['', ...options.buyerNames], valueOf(params, 'buyerName'), '全部买手')}
         ${renderSelectField('记录状态', 'recordStatus', options.recordStatuses, valueOf(params, 'recordStatus') || '全部')}
@@ -470,19 +470,10 @@ function renderKpis(records: ProductionPreparationRecord[], month: string, filte
       unit: '项',
       hint: '按实际完成时间统计',
     },
-    {
-      label: '待分配花型任务',
-      value: items.filter((item) =>
-        item.itemType === '数码印/DTF/DTG花型' &&
-        (item.status === '待分配' || item.ownerName.includes('待分配') || (!item.patternDesignerName && item.status !== '已完成')),
-      ).length,
-      unit: '项',
-      hint: '花型必做项缺少明确花型师',
-    },
   ]
 
   return `
-    <section class="grid grid-cols-1 gap-2 md:grid-cols-3 2xl:grid-cols-6">
+    <section class="grid grid-cols-1 gap-2 md:grid-cols-3 2xl:grid-cols-5">
       ${cards.map((card) => `
         <div class="rounded-lg border bg-card px-3 py-2">
           <div class="flex min-w-0 items-center justify-between gap-2 text-sm">
@@ -499,6 +490,22 @@ function renderProductTypeCell(record: ProductionPreparationRecord, confirmed: b
   const label = confirmed ? record.confirmedProductPrepType : '待跟单确认'
   return `
     <span class="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">${escapeHtml(label)}</span>
+  `
+}
+
+function renderCompletionSituation(record: ProductionPreparationRecord): string {
+  const items = requiredItems(record)
+  if (!items.length) return '<div class="text-xs text-muted-foreground">待跟单确认准备项</div>'
+  return `
+    <div class="flex max-w-[280px] flex-wrap gap-1">
+      ${items.map((item) => {
+        const completed = hasCompletionEvidence(item)
+        const classes = completed
+          ? 'border-green-200 bg-green-50 text-green-700'
+          : 'border-slate-200 bg-slate-50 text-slate-500'
+        return `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${classes}">${escapeHtml(item.itemType)}</span>`
+      }).join('')}
+    </div>
   `
 }
 
@@ -662,14 +669,14 @@ function renderLedgerTable(records: ProductionPreparationRecord[], month: string
         <table class="w-full min-w-[1080px] text-sm">
           <thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
             <tr>
-              ${['商品', '选品/买手/跟单', '达到做大货要求', '进入准备时间', '整体状态', '完成进度', '产出', '预计完成时间', '操作'].map((head) => `<th class="px-4 py-3 font-medium">${escapeHtml(head)}</th>`).join('')}
+              ${['商品', '选品/买手/跟单', '准备时间', '整体状态', '完成情况', '产出', '操作'].map((head) => `<th class="px-4 py-3 font-medium">${escapeHtml(head)}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
             ${
               pageRecords.length
                 ? pageRecords.map((record) => renderLedgerRow(record, month, params)).join('')
-                : `<tr><td colspan="9" class="h-28 px-4 text-center text-muted-foreground">当前筛选条件下暂无生产准备记录</td></tr>`
+                : `<tr><td colspan="7" class="h-28 px-4 text-center text-muted-foreground">当前筛选条件下暂无生产准备记录</td></tr>`
             }
           </tbody>
         </table>
@@ -680,8 +687,8 @@ function renderLedgerTable(records: ProductionPreparationRecord[], month: string
 }
 
 function renderLedgerRow(record: ProductionPreparationRecord, month: string, params: URLSearchParams): string {
-  const progress = completionProgress(record)
   const confirmed = hasConfirmedWorkItems(record)
+  const actualFinishAt = actualPreparationFinishAt(record)
 
   return `
     <tr class="border-b align-top last:border-b-0 hover:bg-muted/30">
@@ -693,6 +700,10 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string, par
             <div class="mt-1">${renderProductTypeCell(record, confirmed)}</div>
             <div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(record.spuCode)}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.sourceReason)}</div>
+            <div class="mt-2 space-y-0.5 text-xs text-muted-foreground">
+              <div>达到做大货要求：${escapeHtml(formatDateTime(record.largeGoodsReachedAt))}</div>
+              <div>阈值 ${record.largeGoodsThresholdQty} 件 / 达到 ${record.largeGoodsReachedQty} 件 / ${record.largeGoodsReachedDays} 天</div>
+            </div>
           </div>
         </div>
       </td>
@@ -701,29 +712,18 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string, par
         <div class="mt-1 text-xs text-muted-foreground">买手：${escapeHtml(record.buyerName)}</div>
         <div class="mt-1 text-xs text-muted-foreground">跟单：${escapeHtml(record.merchandiserName)}</div>
       </td>
-      <td class="px-4 py-4">
-        <div>做大货阈值：${record.largeGoodsThresholdQty}</div>
-        <div class="mt-1 text-xs text-muted-foreground">达到数量：${record.largeGoodsReachedQty} 件</div>
-        <div class="mt-1 text-xs text-muted-foreground">用时天数：${record.largeGoodsReachedDays} 天</div>
-      </td>
-      <td class="px-4 py-4 whitespace-nowrap">
-        ${escapeHtml(formatDateTime(record.enteredAt))}
-        <div class="mt-1 text-xs text-muted-foreground">达到做大货要求：${escapeHtml(formatDateTime(record.largeGoodsReachedAt))}</div>
+      <td class="px-4 py-4 whitespace-nowrap text-xs">
+        <div>进入：${escapeHtml(formatDateTime(record.enteredAt))}</div>
+        <div class="mt-1 text-muted-foreground">预计：${escapeHtml(formatDateTime(record.expectedFinishAt))}</div>
+        <div class="mt-1 text-muted-foreground">实际：${escapeHtml(actualFinishAt ? formatDateTime(actualFinishAt) : '-')}</div>
       </td>
       <td class="px-4 py-4">${renderBadge(record.status, statusTone(record.status))}</td>
       <td class="px-4 py-4">
-        <div class="flex items-center gap-2">
-          <div class="h-2 w-24 overflow-hidden rounded-full bg-muted">
-            <div class="h-full rounded-full bg-blue-600" style="width:${progress.rate}%"></div>
-          </div>
-          <span class="text-xs">${progress.completed}/${progress.total}</span>
-        </div>
-        <div class="mt-1 text-xs text-muted-foreground">${progress.rate}%</div>
+        ${renderCompletionSituation(record)}
       </td>
       <td class="px-4 py-4">
         ${renderLedgerOutputList(record)}
       </td>
-      <td class="px-4 py-4 whitespace-nowrap">${escapeHtml(formatDateTime(record.expectedFinishAt))}</td>
       <td class="sticky right-0 bg-card px-4 py-4">
         ${renderLedgerActions(record, confirmed, month, params)}
       </td>
