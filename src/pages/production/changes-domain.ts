@@ -2332,6 +2332,7 @@ function renderProductionChangeFormBody(): string {
 }
 
 export function renderProductionChangeNewPage(): string {
+  state.productionChangeSelectedOrderId = ''
   return `
     <div class="space-y-4">
       <header class="flex flex-wrap items-start justify-between gap-3">

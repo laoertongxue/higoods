@@ -3,12 +3,32 @@ import fs from 'node:fs'
 import path from 'node:path'
 import * as changePages from '../src/pages/production/changes-domain.ts'
 import { state } from '../src/pages/production/context.ts'
+import { handleProductionEvent } from '../src/pages/production/events.ts'
 import * as changeDomain from '../src/data/fcs/production-tech-pack-change-domain.ts'
+
+if (typeof (globalThis as any).HTMLInputElement === 'undefined') {
+  ;(globalThis as any).HTMLInputElement = function HTMLInputElement() {}
+}
+if (typeof (globalThis as any).HTMLSelectElement === 'undefined') {
+  ;(globalThis as any).HTMLSelectElement = function HTMLSelectElement() {}
+}
+if (typeof (globalThis as any).HTMLTextAreaElement === 'undefined') {
+  ;(globalThis as any).HTMLTextAreaElement = function HTMLTextAreaElement() {}
+}
 
 function requireFunction<T extends (...args: never[]) => unknown>(exports: Record<string, unknown>, name: string): T {
   const value = exports[name]
   assert.equal(typeof value, 'function', `缺少 ${name} 导出`)
   return value as T
+}
+
+function makeProductionActionTarget(action: string): HTMLElement {
+  return {
+    closest(selector: string) {
+      if (selector === '[data-prod-action]') return { dataset: { prodAction: action } }
+      return null
+    },
+  } as unknown as HTMLElement
 }
 
 function getStatValue(html: string, label: string): string {
@@ -319,6 +339,39 @@ assert.equal(updatedDraft.status, 'DRAFT', '编辑保存草稿必须保持草稿
 assert.equal(updatedDraft.reason, '编辑草稿：现场工序调整，待主管补充确认。', '编辑保存草稿必须更新主字段')
 assert.equal(listProductionOrderChangeOrders().length, editBeforeCount, '编辑保存草稿不应新增变更单')
 
+renderProductionChangeEditPage(draft.id)
+assert.equal(state.productionChangeSelectedOrderId, draft.id, '编辑页会设置当前编辑变更单 ID')
+const staleDraftBeforeNewSubmit = getProductionOrderChangeOrder(draft.id)
+assert.ok(staleDraftBeforeNewSubmit, '编辑残留测试需要可查询的草稿变更单')
+const newReasonAfterEditResidue = '新增提交：编辑页残留后仍应创建新变更单。'
+state.productionChangeForm = {
+  productionOrderId: relation.productionOrderId,
+  source: 'MATERIAL_SHORTAGE',
+  modules: ['BOM'],
+  reason: newReasonAfterEditResidue,
+  effectiveMode: 'FROM_NEXT_PICKUP',
+  executionStrategy: 'AFTER_APPROVAL',
+  changeResult: 'PRODUCTION_PATCH',
+}
+state.productionChangeFormStep = 'submit'
+renderProductionChangeNewPage()
+assert.equal(state.productionChangeSelectedOrderId, '', '新增页渲染必须清空编辑页残留的变更单 ID')
+assert.equal(state.productionChangeForm.reason, newReasonAfterEditResidue, '新增页清理编辑态时不应清空正在填写的新表单')
+const newSubmitBeforeCount = listProductionOrderChangeOrders().length
+assert.equal(handleProductionEvent(makeProductionActionTarget('submit-production-change-order')), true, '新增页提交事件必须被处理')
+assert.equal(listProductionOrderChangeOrders().length, newSubmitBeforeCount + 1, '编辑页残留后进入新增页提交必须新增变更单')
+assert.equal(
+  getProductionOrderChangeOrder(draft.id)?.reason,
+  staleDraftBeforeNewSubmit.reason,
+  '新增页提交不应覆盖原编辑变更单主字段',
+)
+const createdAfterEditResidue = listProductionOrderChangeOrders().find(
+  (order) => order.reason === newReasonAfterEditResidue,
+)
+assert.ok(createdAfterEditResidue, '编辑页残留后新增提交必须可查询到新变更单')
+assert.notEqual(createdAfterEditResidue.id, draft.id, '编辑页残留后新增提交不能复用旧变更单 ID')
+
+const editSubmitBeforeCount = listProductionOrderChangeOrders().length
 const updatedSubmit = updateProductionOrderChangeOrder(draft.id, {
   productionOrderId: relation.productionOrderId,
   source: 'FACTORY_PROCESS_EXCEPTION',
@@ -333,7 +386,7 @@ const updatedSubmit = updateProductionOrderChangeOrder(draft.id, {
 })
 assert.equal(updatedSubmit.id, draft.id, '编辑提交审核必须更新当前变更单')
 assert.equal(updatedSubmit.status, 'SUBMITTED', '编辑页提交审核应进入已提交状态')
-assert.equal(listProductionOrderChangeOrders().length, editBeforeCount, '编辑提交审核不应新增变更单')
+assert.equal(listProductionOrderChangeOrders().length, editSubmitBeforeCount, '编辑提交审核不应新增变更单')
 
 assert.throws(
   () =>

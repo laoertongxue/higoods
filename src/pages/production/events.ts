@@ -860,6 +860,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
   if (action === 'start-production-change-from-order') {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true
+    state.productionChangeSelectedOrderId = ''
     state.productionChangeForm = { ...PRODUCTION_CHANGE_EMPTY_FORM, productionOrderId: orderId }
     state.productionChangeFormStep = 'content'
     state.productionChangeFormError = ''
