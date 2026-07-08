@@ -55,11 +55,13 @@ const LEDGER_FILTER_KEYS = [
 const PREPARATION_ACTION_LABELS: Record<PreparationItemType, string> = {
   梭织基码纸样: '上传梭织基码纸样',
   毛织基码纸样: '上传毛织基码纸样',
-  版衣制作: '上传版衣照片',
+  版衣制作: '上传版衣结果',
   梭织齐码纸样: '上传梭织齐码纸样',
   毛织齐码纸样: '上传毛织齐码纸样',
   '数码印/DTF/DTG花型': '上传花型文件',
+  '确认染色要求（纱线）': '确认纱线染色要求',
   '染色调色（纱线）': '上传纱线调色结果',
+  '确认染色要求（面料）': '确认面料染色要求',
   '染色调色（面料）': '上传面料调色结果',
   辅料下单: '登记辅料下单',
 }
@@ -671,6 +673,10 @@ function isDyeItem(item: ProductionPreparationItem): boolean {
   return item.itemType.includes('染色调色')
 }
 
+function isDyeRequirementItem(item: ProductionPreparationItem): boolean {
+  return item.itemType === '确认染色要求（纱线）' || item.itemType === '确认染色要求（面料）'
+}
+
 function isSelectedPreparationItem(item: ProductionPreparationItem): boolean {
   return item.selectedByMerchandiser !== false && item.status !== '无需'
 }
@@ -683,30 +689,19 @@ function renderLedgerActions(
 ): string {
   const detailHref = buildLedgerActionHref(params, month, { recordId: record.recordId })
   const confirmHref = buildLedgerActionHref(params, month, { recordId: record.recordId, action: 'confirm-items' })
-  const showDyeRequirementAction = !(valueOf(params, 'recordId') && !valueOf(params, 'action'))
   const itemButtons = confirmed
     ? requiredItems(record).map((item) => {
-        const operable = canOperateItem(item, record)
+        const operable = item.status !== '已完成' && canOperateItem(item, record)
         const operateHref = buildLedgerActionHref(params, month, {
           recordId: record.recordId,
           itemId: item.itemId,
           action: 'operate-item',
         })
-        const dyeRequirementHref = buildLedgerActionHref(params, month, {
-          recordId: record.recordId,
-          itemId: item.itemId,
-          action: 'maintain-dye-requirement',
-        })
         return `
           ${
             operable
               ? `<button type="button" class="text-left text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(operateHref)}">${escapeHtml(preparationActionLabel(item))}</button>`
-              : `<span class="text-sm text-muted-foreground line-through opacity-60">${escapeHtml(preparationActionLabel(item))}</span>`
-          }
-          ${
-            showDyeRequirementAction && isDyeItem(item)
-              ? `<button type="button" class="text-left text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(dyeRequirementHref)}">维护染色要求</button>`
-              : ''
+              : `<span class="text-sm text-muted-foreground opacity-60">${escapeHtml(preparationActionLabel(item))}</span>`
           }
         `
       }).join('')
@@ -866,7 +861,7 @@ function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSear
             <span class="text-xs text-muted-foreground">已选择 ${requiredItems(record).length} 项</span>
           </div>
           <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-            ${record.items.map((item) => renderItemCard(item, item.itemId === activeItemId)).join('')}
+            ${record.items.map((item) => renderItemCard(record, item, item.itemId === activeItemId)).join('')}
           </div>
         </section>
         ${renderPreparationOutputs(record)}
@@ -1040,7 +1035,15 @@ function renderTimeline(record: ProductionPreparationRecord): string {
   `
 }
 
-function renderItemCard(item: ProductionPreparationItem, active: boolean): string {
+function dependencyText(record: ProductionPreparationRecord, item: ProductionPreparationItem): string {
+  if (!item.dependsOnItemIds.length) return '无前置准备项'
+  return item.dependsOnItemIds
+    .map((depId) => record.items.find((candidate) => candidate.itemId === depId)?.itemType)
+    .filter(Boolean)
+    .join('、') || '无前置准备项'
+}
+
+function renderItemCard(record: ProductionPreparationRecord, item: ProductionPreparationItem, active: boolean): string {
   const ownerRoleRule = preparationOwnerRoleRules.find((rule) => rule.ownerTeam === item.ownerTeam)
   return `
     <article class="rounded-xl border p-4 ${active ? 'border-blue-300 bg-blue-50/40' : 'bg-background'}">
@@ -1057,6 +1060,9 @@ function renderItemCard(item: ProductionPreparationItem, active: boolean): strin
         <div><dt class="text-muted-foreground">实际完成</dt><dd>${escapeHtml(item.actualFinishAt ? formatDateTime(item.actualFinishAt) : '-')}</dd></div>
         <div><dt class="text-muted-foreground">凭证类型</dt><dd>${escapeHtml(item.evidenceType || '-')}</dd></div>
       </dl>
+      <div class="mt-3 rounded-lg border bg-muted/20 px-3 py-2 text-xs">
+        <span class="text-muted-foreground">前置准备项：</span>${escapeHtml(dependencyText(record, item))}
+      </div>
       ${
         item.status === '已完成' && !hasCompletionEvidence(item)
           ? '<p class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">异常：已完成但缺少上传文件、上传人或上传时间，请补传完成凭证。</p>'
@@ -1072,7 +1078,7 @@ function renderItemCard(item: ProductionPreparationItem, active: boolean): strin
           : ''
       }
       ${item.itemType === '数码印/DTF/DTG花型' ? renderPatternFields(item) : ''}
-      ${isDyeItem(item) ? renderDyeRequirementFields(item) : ''}
+      ${isDyeItem(item) || isDyeRequirementItem(item) ? renderDyeRequirementFields(item) : ''}
       <div class="mt-3">${renderItemUploadHistory(item)}</div>
     </article>
   `
@@ -1272,7 +1278,7 @@ function renderDyeRequirementDialog(
   params: URLSearchParams,
   month: string,
 ): string {
-  if (valueOf(params, 'action') !== 'maintain-dye-requirement' || !isDyeItem(item) || !isSelectedPreparationItem(item)) return ''
+  if (valueOf(params, 'action') !== 'operate-item' || !isDyeRequirementItem(item) || !isSelectedPreparationItem(item)) return ''
   const closeHref = buildLedgerHrefFromParams(params, month)
   const requirement = item.dyeRequirement
   const materialNo = requirement?.materialNo || record.materialRequirement.materialNo
@@ -1281,7 +1287,7 @@ function renderDyeRequirementDialog(
     <div class="fixed inset-0 z-50">
       <button class="absolute inset-0 bg-black/45" data-nav="${escapeHtml(closeHref)}" aria-label="关闭"></button>
       <section class="absolute left-1/2 top-10 w-[720px] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl bg-background p-5 shadow-2xl">
-        <h3 class="text-lg font-semibold">维护染色要求</h3>
+        <h3 class="text-lg font-semibold">确认染色要求</h3>
         <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.spuName)}｜${escapeHtml(item.itemType)}</p>
         <form class="mt-4 space-y-4" data-prep-dye-requirement-form>
           <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
@@ -1304,7 +1310,7 @@ function renderDyeRequirementDialog(
           </label>
           <div class="flex justify-end gap-2">
             <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="${escapeHtml(closeHref)}">取消</button>
-            <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white">保存染色要求</button>
+            <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white">确认染色要求</button>
           </div>
         </form>
       </section>
@@ -1319,6 +1325,7 @@ function renderOperateItemDialog(
   month: string,
 ): string {
   if (valueOf(params, 'action') !== 'operate-item') return ''
+  if (isDyeRequirementItem(item)) return ''
   const closeHref = buildLedgerHrefFromParams(params, month)
   const isAccessory = item.itemType === '辅料下单'
   return `
@@ -1868,7 +1875,8 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
       .find((item) => item.recordId === recordId)
     if (!record || !hasConfirmedWorkItems(record)) return true
     const item = record.items.find((candidate) => candidate.itemId === itemId)
-    if (!item || !isDyeItem(item) || !isSelectedPreparationItem(item)) return true
+    if (!item || !isDyeRequirementItem(item) || !isSelectedPreparationItem(item)) return true
+    const maintainedAt = currentIsoMinute()
 
     const dyeRequirement: PreparationDyeRequirement = {
       materialNo: String(formData.get('materialNo') ?? record.materialRequirement.materialNo).trim(),
@@ -1877,7 +1885,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
       pantoneCode: String(formData.get('pantoneCode') ?? '').trim(),
       remark: String(formData.get('requirementText') ?? '').trim(),
       maintainedBy: '当前用户',
-      maintainedAt: currentIsoMinute(),
+      maintainedAt,
     }
     savePreparationRuntimeState({
       ...runtime,
@@ -1885,6 +1893,22 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
         ...runtime.dyeRequirements,
         [itemId]: dyeRequirement,
       },
+      uploads: [
+        ...runtime.uploads,
+        {
+          uploadId: `dye-requirement-${Date.now()}`,
+          recordId,
+          itemId,
+          itemType: item.itemType,
+          fileName: '染色要求确认记录',
+          fileType: 'text/plain',
+          fileSize: 1,
+          fileDataUrl: 'data:text/plain;base64,',
+          uploadedBy: '当前用户',
+          uploadedAt: maintainedAt,
+          note: `${dyeRequirement.colorName} / ${dyeRequirement.pantoneCode}`,
+        },
+      ],
     })
     closePreparationDialog()
     return true
