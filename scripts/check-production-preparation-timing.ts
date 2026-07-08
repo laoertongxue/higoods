@@ -63,7 +63,7 @@ const productionPreparationDataModule = await import('../src/data/fcs/production
   buildMonthlyPreparationStats: typeof import('../src/data/fcs/production-preparation-timing.ts').buildMonthlyPreparationStats
   filterProductionPreparationRecords: typeof import('../src/data/fcs/production-preparation-timing.ts').filterProductionPreparationRecords
   flattenProductionPreparationItems: typeof import('../src/data/fcs/production-preparation-timing.ts').flattenProductionPreparationItems
-  preparationOwnerRoleRules: Array<{ ownerTeam: string }>
+  preparationOwnerRoleRules: Array<{ ownerTeam: string; roleLabels: string[]; actionScope: string }>
   preparationOwnerTeams: string[]
   preparationTypeDefaultItems: typeof import('../src/data/fcs/production-preparation-timing.ts').preparationTypeDefaultItems
   productionPreparationRecords: typeof import('../src/data/fcs/production-preparation-timing.ts').productionPreparationRecords
