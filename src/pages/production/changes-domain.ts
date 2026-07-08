@@ -44,6 +44,7 @@ import {
   productionOrderChangeResultLabels,
   productionOrderChangeSourceLabels,
   productionOrderChangeTimingNodeLabels,
+  previewProductionOrderChangeOrder,
   productionPatchStatusLabels,
   productionPatchTypeLabels,
   productionPatchTypeModuleMap,
@@ -54,6 +55,8 @@ import {
   type ChangeEffectiveMode,
   type PatchEffectivePoint,
   type ProductionChangeModuleLanding,
+  type ProductionOrderChangeExecutionStrategy,
+  type ProductionOrderChangeSource,
   type ProductionOrderPatch,
   type ProductionOrderTechPackRelation,
   type ProductionTechPackPublishEvaluationBatch,
@@ -73,10 +76,8 @@ type ProductionOrderChangeTimingImpactView = ReturnType<typeof listProductionOrd
 const productionChangeFormSteps = [
   { key: 'order', label: '选择生产单' },
   { key: 'content', label: '填写变更内容' },
-  { key: 'impact', label: '系统计算影响' },
-  { key: 'documents', label: '确认单据处理' },
-  { key: 'cost-timing', label: '料工费与时效' },
-  { key: 'submit', label: '提交审核' },
+  { key: 'handling', label: '确认影响和单据处理' },
+  { key: 'preview', label: '预览并提交' },
 ] as const
 
 function renderSelectOption(value: string, label: string, current: string): string {
@@ -2177,7 +2178,7 @@ function renderProductionChangeOrderDetailContent(order: ProductionOrderChangeOr
 function renderProductionChangeFormSteps(): string {
   return `
     <section class="rounded-lg border bg-card p-4">
-      <div class="grid gap-3 text-sm md:grid-cols-6">
+      <div class="grid gap-3 text-sm md:grid-cols-4">
         ${productionChangeFormSteps.map((step, index) => {
           const active = state.productionChangeFormStep === step.key
           return `
@@ -2212,132 +2213,331 @@ function renderProductionChangeFormSelect(
   `
 }
 
+function getProductionChangeFormPreview(): ReturnType<typeof previewProductionOrderChangeOrder> | null {
+  const form = state.productionChangeForm
+  if (!form.productionOrderId) return null
+  try {
+    const relation = getProductionOrderTechPackRelation(form.productionOrderId)
+    return previewProductionOrderChangeOrder({
+      productionOrderId: form.productionOrderId,
+      source: form.source as ProductionOrderChangeSource,
+      changeModules: [...form.modules] as TechPackChangeModule[],
+      reason: form.reason,
+      changeContent: form.changeContent,
+      expectedEffectiveMode: form.effectiveMode as ChangeEffectiveMode,
+      executionMode: form.executionMode as ProductionOrderChangeExecutionStrategy,
+      operatorName: relation?.merchandiserName ?? '生产跟单',
+    })
+  } catch {
+    return null
+  }
+}
+
+function renderProductionChangeFactCard(title: string, body: string): string {
+  return `
+    <article class="rounded-lg border bg-background p-4">
+      <h3 class="text-sm font-semibold">${escapeHtml(title)}</h3>
+      <div class="mt-3 space-y-2 text-sm">${body}</div>
+    </article>
+  `
+}
+
+function renderProductionChangeFactList(title: string, rows: Array<[string, string]>): string {
+  return renderProductionChangeFactCard(
+    title,
+    rows.map(([label, value]) => `
+      <div class="flex items-start justify-between gap-3 border-b pb-2 last:border-b-0 last:pb-0">
+        <span class="text-muted-foreground">${escapeHtml(label)}</span>
+        <span class="max-w-[62%] text-right font-medium">${escapeHtml(value)}</span>
+      </div>
+    `).join(''),
+  )
+}
+
+function renderProductionChangeCurrentFacts(relation: ProductionOrderTechPackRelation): string {
+  const changeOrders = listProductionOrderChangeOrdersByProductionOrder(relation.productionOrderId)
+  const documentActions = changeOrders
+    .flatMap((order) => listProductionOrderChangeDocumentActions(order.id))
+    .slice(0, 4)
+
+  return `
+    <section class="mt-4 space-y-3">
+      <div>
+        <h2 class="text-base font-semibold">生产单当前事实</h2>
+        <p class="mt-1 text-sm text-muted-foreground">只展示判断变更影响所需的关键事实。</p>
+      </div>
+      <div class="grid gap-3 lg:grid-cols-2">
+        ${renderProductionChangeFactList('基本信息', [
+          ['生产单', relation.productionOrderNo],
+          ['SPU / 款式', `${relation.spuCode} / ${relation.styleName}`],
+          ['买手 / 跟单', `${relation.buyerName} / ${relation.merchandiserName}`],
+          ['交期', relation.deliveryDate],
+        ])}
+        ${renderProductionChangeFactList('技术包关系', [
+          ['当前冻结技术包', `${relation.currentTechPackVersionNo} / 冻结 ${relation.frozenAt}`],
+          ['最新正式版', `${relation.latestPublishedTechPackVersionNo} / 发布 ${relation.latestPublishedAt}`],
+          ['版本关系状态', techPackRelationStatusLabels[relation.relationStatus]],
+          ['补丁记录', `生效 ${relation.activePatchCount} / 待审 ${relation.pendingPatchCount} / 历史 ${relation.historyPatchCount}`],
+        ])}
+        ${renderProductionChangeFactCard(
+          '生产进度',
+          relation.progressSummary.length
+            ? relation.progressSummary.slice(0, 4).map((item) => `<p>${escapeHtml(item)}</p>`).join('')
+            : '<p class="text-muted-foreground">暂无生产进度</p>',
+        )}
+        ${renderProductionChangeFactCard(
+          '已生成单据',
+          documentActions.length
+            ? documentActions.map((action) => `
+              <div class="rounded-md bg-muted/40 px-3 py-2">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="font-medium">${escapeHtml(productionOrderChangeDocumentTypeLabels[action.documentType])}</span>
+                  <span class="font-mono text-xs text-muted-foreground">${escapeHtml(action.documentNo)}</span>
+                </div>
+                <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(action.currentStatus)} / ${escapeHtml(action.finalAction)}</p>
+              </div>
+            `).join('')
+            : '<p class="text-muted-foreground">暂无已生成单据</p>',
+        )}
+        ${renderProductionChangeFactCard(
+          '历史变更',
+          changeOrders.length
+            ? changeOrders.slice(0, 4).map((order) => `
+              <div class="rounded-md bg-muted/40 px-3 py-2">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="font-medium">${escapeHtml(order.id)}</span>
+                  <span class="text-xs text-muted-foreground">${escapeHtml(productionOrderChangeOrderStatusLabels[order.status])}</span>
+                </div>
+                <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(productionOrderChangeResultLabels[order.changeResult])} / ${escapeHtml(order.createdAt)}</p>
+              </div>
+            `).join('')
+            : '<p class="text-muted-foreground">暂无历史变更</p>',
+        )}
+      </div>
+    </section>
+  `
+}
+
+function renderProductionChangeOrderStep(
+  form: typeof state.productionChangeForm,
+  relations: ProductionOrderTechPackRelation[],
+  relation?: ProductionOrderTechPackRelation,
+): string {
+  return `
+    <div class="space-y-4">
+      <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_320px]">
+        <label class="space-y-1 text-sm">
+          <span class="font-medium">选择生产单</span>
+          <select data-prod-field="productionChangeFormProductionOrderId" class="w-full rounded-md border px-3 py-2">
+            <option value="">请选择生产单</option>
+            ${relations.map((item) => renderSelectOption(
+              item.productionOrderId,
+              `${item.productionOrderNo} / ${item.spuCode} / ${item.styleName} / 冻结 ${item.currentTechPackVersionNo}`,
+              form.productionOrderId,
+            )).join('')}
+          </select>
+        </label>
+        <div class="rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">
+          系统反推，不要求业务人员先选版本关系或补丁。先选生产单，再描述变更内容；系统会根据当前事实生成影响预览。
+        </div>
+      </div>
+      ${relation
+        ? renderProductionChangeCurrentFacts(relation)
+        : `
+          <section class="mt-4 space-y-2">
+            <h2 class="text-base font-semibold">生产单当前事实</h2>
+            <p class="text-sm text-muted-foreground">选择生产单后查看基本信息、技术包关系、生产进度、已生成单据、历史变更。</p>
+          </section>
+        `}
+    </div>
+  `
+}
+
+function renderProductionChangeContentStep(form: typeof state.productionChangeForm): string {
+  return `
+    <div class="space-y-4">
+      <div class="grid gap-4 md:grid-cols-2">
+        ${renderProductionChangeFormSelect(
+          '变更来源',
+          'productionChangeFormSource',
+          form.source,
+          Object.entries(productionOrderChangeSourceLabels),
+        )}
+        ${renderProductionChangeFormSelect(
+          '期望生效口径',
+          'productionChangeFormEffectiveMode',
+          form.effectiveMode,
+          Object.entries(effectiveModeLabels),
+        )}
+      </div>
+      <div class="space-y-2">
+        <p class="text-sm font-medium">变更模块</p>
+        <div class="flex flex-wrap gap-2">
+          ${Object.entries(techPackChangeModuleLabels).map(([module, label]) => {
+            const active = form.modules.includes(module as TechPackChangeModule)
+            return `
+              <button
+                type="button"
+                class="rounded-md border px-3 py-2 text-sm ${active ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-muted'}"
+                data-prod-action="toggle-production-change-module"
+                data-module="${escapeHtml(module)}"
+              >
+                ${escapeHtml(label)}
+              </button>
+            `
+          }).join('')}
+        </div>
+      </div>
+      <label class="block space-y-1 text-sm">
+        <span class="font-medium">具体变更内容</span>
+        <textarea data-prod-field="productionChangeFormChangeContent" class="min-h-28 w-full rounded-md border px-3 py-2" placeholder="写清楚改什么，例如用料、工艺、尺码、成本或交付要求。">${escapeHtml(form.changeContent)}</textarea>
+      </label>
+      <label class="block space-y-1 text-sm">
+        <span class="font-medium">变更原因</span>
+        <textarea data-prod-field="productionChangeFormReason" class="min-h-24 w-full rounded-md border px-3 py-2" placeholder="说明现场发生了什么、为什么需要改。">${escapeHtml(form.reason)}</textarea>
+      </label>
+    </div>
+  `
+}
+
+function renderProductionChangeHandlingStep(preview: ReturnType<typeof previewProductionOrderChangeOrder> | null): string {
+  if (!state.productionChangeForm.productionOrderId) {
+    return '<div class="rounded-md bg-muted/40 p-4 text-sm text-muted-foreground">请先选择生产单。</div>'
+  }
+  if (!preview) {
+    return '<div class="rounded-md bg-muted/40 p-4 text-sm text-muted-foreground">暂时无法生成影响预览，请检查生产单和变更内容。</div>'
+  }
+
+  const changeableQuantity = preview.impactRows.reduce((sum, row) => sum + row.changeableQuantity, 0)
+  const irreversibleQuantity = preview.impactRows.reduce((sum, row) => sum + row.irreversibleQuantity, 0)
+  const suggestionText = preview.documentActions
+    .slice(0, 3)
+    .map((action) => `${productionOrderChangeDocumentTypeLabels[action.documentType]}：${action.systemSuggestion}`)
+    .join('；') || preview.order.latestLog
+
+  return `
+    <div class="space-y-5">
+      <section class="space-y-3">
+        <h2 class="text-base font-semibold">生产影响</h2>
+        ${renderProductionImpactTable(preview.impactRows)}
+      </section>
+      <section class="space-y-3">
+        <h2 class="text-base font-semibold">单据处理建议</h2>
+        ${renderDocumentActionTable(preview.documentActions)}
+      </section>
+      <div class="grid gap-3 md:grid-cols-3">
+        ${renderProductionChangeFactList('可改做', [
+          ['数量', `${changeableQuantity} 件`],
+          ['说明', changeableQuantity > 0 ? '未完成范围可按新口径处理。' : '当前没有可直接改做数量。'],
+        ])}
+        ${renderProductionChangeFactList('不可追回', [
+          ['数量', `${irreversibleQuantity} 件`],
+          ['说明', irreversibleQuantity > 0 ? '已完成范围保留追溯和责任记录。' : '暂无不可追回数量。'],
+        ])}
+        ${renderProductionChangeFactCard('系统建议', `<p>${escapeHtml(suggestionText)}</p>`)}
+      </div>
+    </div>
+  `
+}
+
+function renderProductionChangePreviewStep(preview: ReturnType<typeof previewProductionOrderChangeOrder> | null): string {
+  if (!state.productionChangeForm.productionOrderId) {
+    return '<div class="rounded-md bg-muted/40 p-4 text-sm text-muted-foreground">请先选择生产单。</div>'
+  }
+  if (!preview) {
+    return '<div class="rounded-md bg-muted/40 p-4 text-sm text-muted-foreground">暂时无法生成结果预览，请检查生产单和变更内容。</div>'
+  }
+
+  const executionModes: Array<[ProductionOrderChangeExecutionStrategy, string, string]> = [
+    ['IMMEDIATE_EXECUTION', '立即变更/打补丁', '影响范围明确，立即按新口径处理未完成部分或生成生产单补丁。'],
+    ['AFTER_APPROVAL', '审核通过后执行', '涉及跨部门责任、成本或交期，主管审核通过后再执行。'],
+  ]
+  const costImpactBody = preview.costImpacts.length
+    ? renderCostImpactTable(preview.costImpacts)
+    : '<div class="rounded-md bg-muted/40 p-4 text-sm text-muted-foreground">本次变更暂无预计成本差异，按原料工费和结算口径继续执行。</div>'
+
+  return `
+    <div class="space-y-5">
+      <section class="space-y-3">
+        <h2 class="text-base font-semibold">处理后结果预览</h2>
+        ${renderInfoTiles([
+          ['系统反推结果', productionOrderChangeResultLabels[preview.order.changeResult]],
+          ['预计料工费', formatChangeAmount(preview.order.costDeltaAmount)],
+          ['预计时效', `${preview.order.delayDays} 天`],
+          ['锁定范围', productionOrderChangeLockStatusLabels[preview.order.lockStatus]],
+          ['期望生效口径', effectiveModeLabels[preview.order.expectedEffectiveMode]],
+        ])}
+      </section>
+      <section class="space-y-3">
+        <h2 class="text-base font-semibold">单据处理结果</h2>
+        ${renderDocumentActionTable(preview.documentActions)}
+      </section>
+      <section class="space-y-3">
+        <h2 class="text-base font-semibold">时效影响</h2>
+        ${renderTimingImpactTable(preview.timingImpacts)}
+      </section>
+      <section class="space-y-3">
+        <h2 class="text-base font-semibold">成本影响</h2>
+        ${costImpactBody}
+      </section>
+      <section class="space-y-3">
+        <h2 class="text-base font-semibold">执行方式</h2>
+        <div class="grid gap-3 md:grid-cols-2">
+          ${executionModes.map(([mode, label, description]) => {
+            const active = state.productionChangeForm.executionMode === mode
+            return `
+              <button
+                type="button"
+                class="rounded-lg border p-4 text-left ${active ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-muted'}"
+                data-prod-action="set-production-change-execution-mode"
+                data-mode="${escapeHtml(mode)}"
+              >
+                <span class="block text-sm font-semibold">${escapeHtml(label)}</span>
+                <span class="mt-2 block text-xs text-muted-foreground">${escapeHtml(description)}</span>
+              </button>
+            `
+          }).join('')}
+        </div>
+        <p class="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">原立即执行口径在本页归入“立即变更/打补丁”。如现场需要止损，立即止损后提交审核仅作为风险提示：先锁定影响范围并保留责任记录，提交审核后再释放或改做。</p>
+      </section>
+    </div>
+  `
+}
+
 function renderProductionChangeFormBody(): string {
   const form = state.productionChangeForm
   const relations = listProductionOrderTechPackRelations()
   const relation = relations.find((item) => item.productionOrderId === form.productionOrderId)
-  const resultLabel = productionOrderChangeResultLabels[form.changeResult as keyof typeof productionOrderChangeResultLabels] ?? '未选择'
-  const strategyLabel =
-    productionOrderChangeExecutionStrategyLabels[
-      form.executionStrategy as keyof typeof productionOrderChangeExecutionStrategyLabels
-    ] ?? '未选择'
-  const effectiveLabel = effectiveModeLabels[form.effectiveMode as keyof typeof effectiveModeLabels] ?? '未选择'
+  const preview = getProductionChangeFormPreview()
 
   const body =
     state.productionChangeFormStep === 'order'
-      ? `
-        <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_320px]">
-          <label class="space-y-1 text-sm">
-            <span class="font-medium">选择生产单</span>
-            <select data-prod-field="productionChangeFormProductionOrderId" class="w-full rounded-md border px-3 py-2">
-              <option value="">请选择生产单</option>
-              ${relations.map((item) => renderSelectOption(
-                item.productionOrderId,
-                `${item.productionOrderNo} / ${item.spuCode} / ${item.styleName} / 冻结 ${item.currentTechPackVersionNo}`,
-                form.productionOrderId,
-              )).join('')}
-            </select>
-          </label>
-          <div class="rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">
-            系统反推，不要求业务人员先选版本关系或补丁。先选生产单，后续只描述变了什么。
-          </div>
-        </div>
-      `
+      ? renderProductionChangeOrderStep(form, relations, relation)
       : state.productionChangeFormStep === 'content'
-        ? `
-          <div class="grid gap-4 md:grid-cols-2">
-            ${renderProductionChangeFormSelect(
-              '变更来源',
-              'productionChangeFormSource',
-              form.source,
-              Object.entries(productionOrderChangeSourceLabels),
-            )}
-            ${renderProductionChangeFormSelect(
-              '系统反推结果',
-              'productionChangeFormResult',
-              form.changeResult,
-              Object.entries(productionOrderChangeResultLabels),
-            )}
-            ${renderProductionChangeFormSelect(
-              '生效口径',
-              'productionChangeFormEffectiveMode',
-              form.effectiveMode,
-              Object.entries(effectiveModeLabels),
-            )}
-            ${renderProductionChangeFormSelect(
-              '执行策略',
-              'productionChangeFormExecutionStrategy',
-              form.executionStrategy,
-              Object.entries(productionOrderChangeExecutionStrategyLabels),
-            )}
-            <label class="space-y-1 text-sm md:col-span-2">
-              <span class="font-medium">变更原因</span>
-              <textarea data-prod-field="productionChangeFormReason" class="min-h-28 w-full rounded-md border px-3 py-2" placeholder="说明现场发生了什么、影响哪些对象、为什么要改。">${escapeHtml(form.reason)}</textarea>
-            </label>
-          </div>
-        `
-        : state.productionChangeFormStep === 'impact'
-          ? `
-            <div class="space-y-2">
-              <h2 class="text-lg font-semibold">系统计算影响</h2>
-              <p class="text-sm text-muted-foreground">提交后系统会按生产单、变更来源和系统反推结果生成生产影响、受影响单据、成本差异和时效影响。</p>
-            </div>
-          `
-          : state.productionChangeFormStep === 'documents'
-            ? `
-              <div class="space-y-2">
-                <h2 class="text-lg font-semibold">确认单据处理</h2>
-                <p class="text-sm text-muted-foreground">业务可改选系统建议；改选后必须记录原因和责任人。</p>
-              </div>
-            `
-            : state.productionChangeFormStep === 'cost-timing'
-              ? `
-                <div class="grid gap-4 md:grid-cols-2">
-                  <div class="rounded-lg border p-4">
-                    <h2 class="font-semibold">料工费差异</h2>
-                    <p class="mt-2 text-sm text-muted-foreground">系统根据物料、工艺、核价和责任方生成差异记录，供结算审核追溯。</p>
-                  </div>
-                  <div class="rounded-lg border p-4">
-                    <h2 class="font-semibold">时效影响</h2>
-                    <p class="mt-2 text-sm text-muted-foreground">系统识别影响节点、预计延误和追回动作，供计划履约判断是否需要兜底。</p>
-                  </div>
-                </div>
-              `
-              : `
-                <div class="space-y-4">
-                  <div class="grid gap-3 text-sm md:grid-cols-2">
-                    <div class="rounded-md border p-3">
-                      <span class="text-muted-foreground">生产单</span>
-                      <p class="mt-1 font-medium">${escapeHtml((relation?.productionOrderNo ?? form.productionOrderId) || '未选择')}</p>
-                    </div>
-                    <div class="rounded-md border p-3">
-                      <span class="text-muted-foreground">系统反推结果</span>
-                      <p class="mt-1 font-medium">${escapeHtml(resultLabel)}</p>
-                    </div>
-                    <div class="rounded-md border p-3">
-                      <span class="text-muted-foreground">执行策略</span>
-                      <p class="mt-1 font-medium">${escapeHtml(strategyLabel)}</p>
-                    </div>
-                    <div class="rounded-md border p-3">
-                      <span class="text-muted-foreground">生效口径</span>
-                      <p class="mt-1 font-medium">${escapeHtml(effectiveLabel)}</p>
-                    </div>
-                  </div>
-                  ${state.productionChangeFormError
-                    ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(state.productionChangeFormError)}</div>`
-                    : ''}
-                </div>
-              `
+        ? renderProductionChangeContentStep(form)
+        : state.productionChangeFormStep === 'handling'
+          ? renderProductionChangeHandlingStep(preview)
+          : renderProductionChangePreviewStep(preview)
 
-  return `<section class="rounded-lg border bg-card p-5">${body}</section>`
+  return `
+    <section class="rounded-lg border bg-card p-5">
+      ${body}
+      ${state.productionChangeFormError
+        ? `<div class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(state.productionChangeFormError)}</div>`
+        : ''}
+    </section>
+  `
 }
 
 export function renderProductionChangeNewPage(): string {
   if (state.productionChangeSelectedOrderId) {
+    const selectedOrderId = state.productionChangeSelectedOrderId
     state.productionChangeSelectedOrderId = ''
-    state.productionChangeForm = { ...PRODUCTION_CHANGE_EMPTY_FORM }
-    state.productionChangeFormStep = 'order'
-    state.productionChangeFormError = ''
+    if (selectedOrderId !== state.productionChangeForm.productionOrderId) {
+      state.productionChangeForm = { ...PRODUCTION_CHANGE_EMPTY_FORM }
+      state.productionChangeFormStep = 'order'
+      state.productionChangeFormError = ''
+    }
   }
   return `
     <div class="space-y-4">
@@ -2351,7 +2551,9 @@ export function renderProductionChangeNewPage(): string {
         </div>
         <div class="flex flex-wrap gap-2">
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="save-production-change-draft">保存草稿</button>
-          <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="submit-production-change-order">提交审核</button>
+          ${state.productionChangeFormStep === 'preview'
+            ? '<button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="submit-production-change-order">提交审核</button>'
+            : '<button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="go-production-change-next-step">下一步</button>'}
         </div>
       </header>
       ${renderProductionChangeFormSteps()}
@@ -2377,10 +2579,10 @@ export function renderProductionChangeEditPage(changeOrderId: string): string {
       productionOrderId: order.productionOrderId,
       source: order.source,
       modules: [...order.changeModules],
+      changeContent: order.reason,
       reason: order.reason,
       effectiveMode: order.expectedEffectiveMode,
-      executionStrategy: order.executionStrategy,
-      changeResult: order.changeResult,
+      executionMode: order.executionStrategy,
     }
     state.productionChangeFormError = ''
   }
