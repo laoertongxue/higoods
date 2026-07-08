@@ -125,16 +125,16 @@ type TechPackChangeDetailTab =
 
 type ProductionChangeListTab = 'change-orders' | 'candidate-orders'
 type ProductionChangeDetailTab = 'content' | 'impact' | 'documents' | 'cost' | 'timing' | 'approval' | 'records'
-type ProductionChangeFormStep = 'order' | 'content' | 'impact' | 'documents' | 'cost-timing' | 'submit'
+type ProductionChangeFormStep = 'order' | 'content' | 'handling' | 'preview'
 
 interface ProductionChangeForm {
   productionOrderId: string
   source: string
   modules: string[]
+  changeContent: string
   reason: string
   effectiveMode: string
-  executionStrategy: string
-  changeResult: string
+  executionMode: string
 }
 
 interface TechPackVersionChangeForm {
@@ -319,10 +319,10 @@ const PRODUCTION_CHANGE_EMPTY_FORM: ProductionChangeForm = {
   productionOrderId: '',
   source: 'TECH_PACK_NEW_VERSION',
   modules: ['BOM'],
+  changeContent: '',
   reason: '',
   effectiveMode: 'FROM_NEXT_PREP',
-  executionStrategy: 'AFTER_APPROVAL',
-  changeResult: 'PRODUCTION_PATCH',
+  executionMode: 'AFTER_APPROVAL',
 }
 
 const demandStatusConfig: Record<ProductionDemand['demandStatus'], { label: string; className: string }> = {

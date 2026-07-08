@@ -211,6 +211,8 @@ function submitProductionChangeForm(draft: boolean): string | null {
   const form = state.productionChangeForm
   const reason = draft && !form.reason.trim() ? '草稿：待补充变更原因' : form.reason
   const effectiveMode = form.effectiveMode as ChangeEffectiveMode
+  const changeResult: ProductionOrderChangeResult = 'PRODUCTION_PATCH'
+  const executionStrategy = form.executionMode as ProductionOrderChangeExecutionStrategy
 
   try {
     const input = {
@@ -220,8 +222,8 @@ function submitProductionChangeForm(draft: boolean): string | null {
       reason,
       expectedEffectiveMode: effectiveMode,
       effectiveDescription: effectiveModeLabels[effectiveMode] ?? '按表单选择口径生效',
-      changeResult: form.changeResult as ProductionOrderChangeResult,
-      executionStrategy: form.executionStrategy as ProductionOrderChangeExecutionStrategy,
+      changeResult,
+      executionStrategy,
       operatorName: currentUser.name,
       status: draft ? 'DRAFT' as const : undefined,
     }
@@ -238,7 +240,7 @@ function submitProductionChangeForm(draft: boolean): string | null {
     return order.id
   } catch (error) {
     state.productionChangeFormError = error instanceof Error ? error.message : '提交生产单变更失败'
-    state.productionChangeFormStep = 'submit'
+    state.productionChangeFormStep = 'preview'
     return null
   }
 }
@@ -566,13 +568,13 @@ function updateProductionField(
     return
   }
 
-  const productionChangeFormFieldMap: Partial<Record<string, keyof typeof state.productionChangeForm>> = {
+  const productionChangeFormFieldMap: Partial<Record<string, keyof Omit<typeof state.productionChangeForm, 'modules'>>> = {
     productionChangeFormProductionOrderId: 'productionOrderId',
     productionChangeFormSource: 'source',
-    productionChangeFormResult: 'changeResult',
     productionChangeFormEffectiveMode: 'effectiveMode',
-    productionChangeFormExecutionStrategy: 'executionStrategy',
+    productionChangeFormChangeContent: 'changeContent',
     productionChangeFormReason: 'reason',
+    productionChangeFormExecutionMode: 'executionMode',
   }
   const productionChangeFormField = productionChangeFormFieldMap[field]
   if (productionChangeFormField) {
@@ -769,7 +771,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     if (!orderId) return true
     state.productionChangeSelectedOrderId = ''
     state.productionChangeForm = { ...PRODUCTION_CHANGE_EMPTY_FORM, productionOrderId: orderId }
-    state.productionChangeFormStep = 'content'
+    state.productionChangeFormStep = 'order'
     state.productionChangeFormError = ''
     openAppRoute('/fcs/production/changes/new', 'production-change-new', '新增生产单变更')
     return true
@@ -780,13 +782,22 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     if (
       step === 'order' ||
       step === 'content' ||
-      step === 'impact' ||
-      step === 'documents' ||
-      step === 'cost-timing' ||
-      step === 'submit'
+      step === 'handling' ||
+      step === 'preview'
     ) {
       state.productionChangeFormStep = step
     }
+    return true
+  }
+
+  if (action === 'toggle-production-change-module') {
+    const module = actionNode.dataset.module as TechPackChangeModule | undefined
+    if (!module) return true
+    const modules = state.productionChangeForm.modules
+    state.productionChangeForm.modules = modules.includes(module)
+      ? modules.filter((item) => item !== module)
+      : [...modules, module]
+    state.productionChangeFormError = ''
     return true
   }
 
