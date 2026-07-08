@@ -13,9 +13,11 @@ function requireFunction<T extends (...args: never[]) => unknown>(exports: Recor
 
 function getStatValue(html: string, label: string): string {
   const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const match = html.match(new RegExp(`<p class="text-xs text-muted-foreground">${escapedLabel}</p>\\s*<p class="mt-1 text-2xl font-semibold">([^<]+)</p>`))
-  assert.ok(match, `缺少统计卡「${label}」`)
-  return match[1]
+  const articleMatch = html.match(new RegExp(`<article\\b[^>]*data-stat-label="${escapedLabel}"[^>]*>[\\s\\S]*?</article>`))
+  assert.ok(articleMatch, `缺少统计卡「${label}」`)
+  const valueMatch = articleMatch[0].match(/\bdata-stat-value="([^"]*)"/)
+  assert.ok(valueMatch, `统计卡「${label}」缺少数值`)
+  return valueMatch[1]
 }
 
 const pageExports = changePages as Record<string, unknown>

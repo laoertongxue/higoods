@@ -1219,9 +1219,9 @@ function renderRelationWorkItem(relation: ProductionOrderTechPackRelation): stri
 
 function renderChangeStatCard(label: string, value: string | number, hint: string): string {
   return `
-    <article class="min-w-0 border-b px-4 py-3 last:border-b-0 sm:border-r sm:even:border-r-0 xl:border-b-0 xl:even:border-r xl:last:border-r-0">
+    <article class="min-w-0 border-b px-4 py-3 last:border-b-0 sm:border-r sm:even:border-r-0 xl:border-b-0 xl:even:border-r xl:last:border-r-0" data-stat-label="${escapeHtml(label)}">
       <p class="text-xs text-muted-foreground">${escapeHtml(label)}</p>
-      <p class="mt-1 text-2xl font-semibold">${escapeHtml(String(value))}</p>
+      <p class="mt-1 text-2xl font-semibold" data-stat-value="${escapeHtml(String(value))}">${escapeHtml(String(value))}</p>
       <p class="mt-1 truncate text-xs text-muted-foreground">${escapeHtml(hint)}</p>
     </article>
   `
