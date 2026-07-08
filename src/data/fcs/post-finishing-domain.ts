@@ -1409,9 +1409,8 @@ export function buildPostFinishingTaskNo(productionOrderNo: string): string {
   return `后道任务-${productionOrderNo.replace(/^PO-/, '')}`
 }
 
-function sumProductionOrderQty(order: Pick<ProductionOrder, 'planQty' | 'demandSnapshot'>): number {
-  const demandQty = order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
-  return order.planQty || demandQty
+function sumProductionOrderQty(order: Pick<ProductionOrder, 'demandSnapshot'>): number {
+  return order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
 }
 
 function buildFallbackSkuLinesFromProductionOrder(order: ProductionOrder): PostFinishingSkuLine[] {

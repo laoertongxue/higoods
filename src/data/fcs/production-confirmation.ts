@@ -245,6 +245,10 @@ function roundNumber(value: number): number {
   return Math.round(value * 100) / 100
 }
 
+function sumProductionOrderDemandQty(order: ProductionOrder): number {
+  return order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
+}
+
 function resolveUsageUnit(materialType: string): string {
   if (materialType === '面料') return '米'
   return '件'
@@ -417,36 +421,39 @@ function buildTaskAssignmentSnapshot(order: ProductionOrder): ProductionConfirma
     }
   })
 
-  const specialCraftRows = getSpecialCraftTasksByProductionOrder(order.productionOrderId).map((task) => ({
-    taskId: task.taskOrderId,
-    taskNo: task.taskOrderNo,
-    stageName: '特殊工艺',
-    processName: '特殊工艺',
-    craftName: task.operationName,
-    targetObject: task.targetObject,
-    partName: task.partName,
-    colorName: task.fabricColor,
-    sizeCode: task.sizeCode,
-    assignmentStatus: task.assignmentStatusLabel || '待分配',
-    taskDisplayName: `${task.operationName}任务单`,
-    assignedFactoryId: task.assignedFactoryId || task.factoryId || undefined,
-    assignedFactoryName: task.assignedFactoryName || task.factoryName || '待分配',
-    assignmentMode: task.assignmentStatus === 'ASSIGNED' ? (task.assignmentMode || '已分配') : '待分配',
-    assignedAt: task.assignmentStatus === 'ASSIGNED' ? task.updatedAt || task.createdAt : undefined,
-    taskQty: task.planQty,
-    qtyUnit: task.unit,
-    taskDeadline: task.dueAt,
-    receiverName: undefined,
-    remark: [
-      task.targetObject,
-      task.partName,
-      task.fabricColor,
-      task.sizeCode,
-      task.generationSourceLabel || '生产单生成',
-    ]
-      .filter(Boolean)
-      .join(' / '),
-  }))
+  const specialCraftRows = getSpecialCraftTasksByProductionOrder(order.productionOrderId).map((task) => {
+    const { planQty } = task
+    return {
+      taskId: task.taskOrderId,
+      taskNo: task.taskOrderNo,
+      stageName: '特殊工艺',
+      processName: '特殊工艺',
+      craftName: task.operationName,
+      targetObject: task.targetObject,
+      partName: task.partName,
+      colorName: task.fabricColor,
+      sizeCode: task.sizeCode,
+      assignmentStatus: task.assignmentStatusLabel || '待分配',
+      taskDisplayName: `${task.operationName}任务单`,
+      assignedFactoryId: task.assignedFactoryId || task.factoryId || undefined,
+      assignedFactoryName: task.assignedFactoryName || task.factoryName || '待分配',
+      assignmentMode: task.assignmentStatus === 'ASSIGNED' ? (task.assignmentMode || '已分配') : '待分配',
+      assignedAt: task.assignmentStatus === 'ASSIGNED' ? task.updatedAt || task.createdAt : undefined,
+      taskQty: planQty,
+      qtyUnit: task.unit,
+      taskDeadline: task.dueAt,
+      receiverName: undefined,
+      remark: [
+        task.targetObject,
+        task.partName,
+        task.fabricColor,
+        task.sizeCode,
+        task.generationSourceLabel || '生产单生成',
+      ]
+        .filter(Boolean)
+        .join(' / '),
+    }
+  })
 
   return [...runtimeRows, ...specialCraftRows]
 }
@@ -455,8 +462,7 @@ function buildBomSnapshot(order: ProductionOrder): ProductionConfirmationBomSnap
   const techPackSnapshot = getProductionOrderTechPackSnapshot(order.productionOrderId)
   if (!techPackSnapshot) return []
 
-  const plannedQty = order.planQty
-    || order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
+  const plannedQty = sumProductionOrderDemandQty(order)
 
   return techPackSnapshot.bomItems.map((item) => {
     const lossRate = normalizeLossRate(item.lossRate)
@@ -711,8 +717,8 @@ function buildProductionConfirmationSnapshotInternal(
       plannedQty: sizeQtySnapshot.rows.reduce((sum, row) => sum + row.totalQty, 0),
       qtyUnit: '件',
       requiredDeliveryDate: order.demandSnapshot.requiredDeliveryDate,
-      plannedStartDate: order.planStartDate,
-      plannedFinishDate: order.planEndDate,
+      plannedStartDate: order.createdAt,
+      plannedFinishDate: order.demandSnapshot.requiredDeliveryDate ?? order.updatedAt,
       priorityLevel: order.demandSnapshot.priority,
       productionRemark: order.demandSnapshot.constraintsNote,
     },

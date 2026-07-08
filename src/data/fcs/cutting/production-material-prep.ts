@@ -829,6 +829,12 @@ function buildUpstreamDocumentInfo(line: Pick<MaterialPrepSeedLine, 'prepOrderId
   }
 }
 
+function resolveSeedOrderDemandQty(order: MaterialPrepSeedOrder): number {
+  const { planQty } = order
+  const demandQty = Number(planQty)
+  return Number.isFinite(demandQty) && demandQty > 0 ? demandQty : 0
+}
+
 function buildGeneratedMaterialLine(
   order: MaterialPrepSeedOrder,
   type: MaterialPrepMaterialType,
@@ -837,7 +843,8 @@ function buildGeneratedMaterialLine(
   const templates = standardMaterialTemplates[type]
   const template = templates[Math.min(typeIndex - 1, templates.length - 1)]
   const orderKey = order.productionOrderNo.toLowerCase()
-  const requiredQty = Number(Math.max(order.planQty * template.qtyRatio, type === '纱线' ? 12 : 1).toFixed(2))
+  const demandQty = resolveSeedOrderDemandQty(order)
+  const requiredQty = Number(Math.max(demandQty * template.qtyRatio, type === '纱线' ? 12 : 1).toFixed(2))
   const isReadyLike = order.prepOrderId === 'prep-order-po-202603-0001' || order.prepOrderId === 'prep-order-po-202603-0007'
   const isAllStockDemo = new Set([
     'prep-order-po-202603-0008',
@@ -908,7 +915,7 @@ function buildGeneratedMaterialLine(
         ? `${template.name} 当前有 ${availableStockQty.toLocaleString('zh-CN')} ${template.unit} 可配。`
         : template.progressDetail,
     ...upstreamDocumentInfo,
-    releaseQty: type === '辅料' || type === '纱线' ? Math.round(order.planQty * 0.8) : 0,
+    releaseQty: type === '辅料' || type === '纱线' ? Math.round(demandQty * 0.8) : 0,
     qtyRatio: template.qtyRatio,
   }
 }
@@ -955,6 +962,7 @@ export function createPrepOrderFromProductionOrder(input: {
   creatorName?: string
   lines?: MaterialPrepSeedLine[]
 }): MaterialPrepSeedOrder {
+  const { planQty } = input
   return {
     prepOrderId: `prep-order-${input.productionOrderId}`,
     prepOrderNo: `PREP-${input.productionOrderNo.replace('PO-', 'PL-')}`,
@@ -964,7 +972,7 @@ export function createPrepOrderFromProductionOrder(input: {
     styleName: input.styleName,
     spu: input.spu,
     customerName: input.customerName,
-    planQty: input.planQty,
+    planQty,
     deliveryDate: input.deliveryDate,
     creatorName: input.creatorName || '配料小组',
     createdAt: nowText(),
@@ -1301,6 +1309,7 @@ function buildCategoryDemoSeedOrder(input: {
   const categoryCode = input.category === '染色配料' ? 'dye' : 'print'
   const categoryName = input.category === '染色配料' ? '染色' : '印花'
   const sourceType: UpstreamSourceType = input.category === '染色配料' ? '染色' : '印花'
+  const { planQty } = input
   return {
     prepOrderId,
     prepOrderNo: `WLS-PL-2603-${String(input.seq).padStart(4, '0')}`,
@@ -1310,7 +1319,7 @@ function buildCategoryDemoSeedOrder(input: {
     styleName: input.styleName,
     spu: input.spu,
     customerName: 'HiGood 自营',
-    planQty: input.planQty,
+    planQty,
     deliveryDate: input.deliveryDate,
     creatorName: '中转仓 周敏',
     createdAt: input.createdAt,
@@ -2808,6 +2817,7 @@ function buildOrderProjection(
   const assignedTaskCount = taskLinks.filter((task) => task.allocationStatus === '已分配').length
   const overallPrepStatus = deriveOrderPrepStatus(lines, prepRecords, Boolean(closed))
   const pickupStatus = derivePickupStatus(lines, prepRecords, pickupRecords, Boolean(closed))
+  const { planQty } = seedOrder
   const totalRequiredQty = roundQty(lines.reduce((sum, line) => sum + line.requiredQty, 0))
   const totalConfirmedPrepQty = roundQty(lines.reduce((sum, line) => sum + line.confirmedPrepQty, 0))
   const totalPickedQty = roundQty(lines.reduce((sum, line) => sum + line.pickedQty, 0))
@@ -2835,7 +2845,7 @@ function buildOrderProjection(
       spu: seedOrder.spu,
       spuImageUrl: seedOrder.spuImageUrl || resolveSpuImage(seedOrder),
       customerName: seedOrder.customerName,
-      planQty: seedOrder.planQty,
+      planQty,
       deliveryDate: seedOrder.deliveryDate,
       creatorName: seedOrder.creatorName,
       createdAt: seedOrder.createdAt,
