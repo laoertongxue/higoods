@@ -190,6 +190,22 @@ function renderActions(task: RuntimeProcessTask): string {
 }
 
 function renderTaskTable(tasks: RuntimeProcessTask[]): string {
+  const emptyRow = state.tab === 'SEWING_POST'
+    ? `
+      <tr>
+        <td colspan="7" class="px-3 py-8 text-sm">
+          <div class="mx-auto max-w-2xl rounded-md border border-dashed bg-muted/20 p-4 text-left">
+            <div class="font-medium text-slate-800">当前暂无已由任务清单合并形成的车缝+后道连续任务。</div>
+            <div class="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+              <div><span class="text-muted-foreground">裁片是否可做成衣：</span><span class="font-medium text-emerald-700">有车缝+后道连续任务后按车缝工作台齐套口径校验</span></div>
+              <div><span class="text-muted-foreground">辅料是否满足生产：</span><span class="font-medium text-emerald-700">整任务分配前必须满足</span></div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    `
+    : '<tr><td colspan="7" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选下暂无连续工序任务。</td></tr>'
+
   return `
     <section class="rounded-lg border bg-card">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
@@ -215,7 +231,7 @@ function renderTaskTable(tasks: RuntimeProcessTask[]): string {
           <tbody>
             ${
               tasks.length === 0
-                ? '<tr><td colspan="7" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选下暂无连续工序任务。</td></tr>'
+                ? emptyRow
                 : tasks.map((task) => {
                     const order = getTaskOrder(task)
                     const coveredNames = getCoveredProcessNames(task)

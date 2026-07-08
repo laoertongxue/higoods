@@ -84,6 +84,10 @@ const STAGE_ORDER = ['PREP', 'CUTTING', 'SEWING', 'SPECIAL', 'POST']
 const DEFAULT_POST_CHILD_TEXT = '开扣眼、装扣子、熨烫、包装'
 const TASK_BREAKDOWN_ORDER_PAGE_SIZE = 8
 const TASK_BREAKDOWN_ALL_TASK_PAGE_SIZE = 8
+const RULE_SOURCE_TEXT: Record<string, string> = {
+  INHERIT_PROCESS: '按技术包工序生成',
+  OVERRIDE_CRAFT: '按辅助/特种工艺生成',
+}
 
 function taskDisplayName(task: RuntimeProcessTask): string {
   return getTaskTypeDisplayName(task)
@@ -109,7 +113,9 @@ function getCoveredProcessText(task: RuntimeProcessTask): string {
 }
 
 function getTaskRuleSourceText(task: RuntimeProcessTask): string {
-  return task.generationRuleName || task.ruleSource || '默认任务生成规则'
+  if (task.generationRuleName) return task.generationRuleName
+  if (task.ruleSource) return RULE_SOURCE_TEXT[task.ruleSource] || task.ruleSource
+  return '默认任务生成规则'
 }
 
 function getTaskAcceptanceModeText(task: RuntimeProcessTask): string {

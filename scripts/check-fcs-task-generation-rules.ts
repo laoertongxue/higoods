@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -25,6 +26,15 @@ function assertNotIncludes(source: string, token: string, message: string): void
 
 function assertMatches(source: string, pattern: RegExp, message: string): void {
   assert(pattern.test(source), message)
+}
+
+function renderPageExportWithTsx(relativePath: string, exportName: string, setup = ''): string {
+  const source = [
+    `import * as page from ${JSON.stringify(`./${relativePath}`)}`,
+    setup,
+    `process.stdout.write(String(page[${JSON.stringify(exportName)}]()))`,
+  ].filter(Boolean).join('\n')
+  return execFileSync('npx', ['tsx', '--eval', source], { cwd: ROOT, encoding: 'utf8' })
 }
 
 function getMenuSection(source: string, sectionKey: string): string {
@@ -187,6 +197,11 @@ async function main(): Promise<void> {
   assertNotIncludes(taskBreakdownSource, 'specialCraftOperation', '任务清单页不得再保留特殊工艺独立筛选')
   assertNotIncludes(taskBreakdownSource, '特殊工艺任务数', '任务单元清单统计不得继续叫特殊工艺任务数')
   assertNotIncludes(taskBreakdownSource, '暂无特殊工艺任务', '任务单元清单空态不得继续叫特殊工艺任务')
+  const taskBreakdownHtml = renderPageExportWithTsx('src/pages/task-breakdown.ts', 'renderTaskBreakdownPage')
+  assertNotIncludes(taskBreakdownHtml, 'INHERIT_PROCESS', '任务清单页面 DOM 不得展示 INHERIT_PROCESS')
+  assertNotIncludes(taskBreakdownHtml, 'OVERRIDE_CRAFT', '任务清单页面 DOM 不得展示 OVERRIDE_CRAFT')
+  assertIncludes(taskBreakdownHtml, '按技术包工序生成', '任务清单页面 DOM 缺少技术包工序来源中文文案')
+  assertIncludes(taskBreakdownHtml, '按辅助/特种工艺生成', '任务清单页面 DOM 缺少辅助/特种工艺来源中文文案')
 
   ;['任务生成规则', '任务生成方式', '任务单元数', 'renderOrderTaskGenerationSummary'].forEach((token) => {
     assertIncludes(ordersDomainSource, token, `生产单列表缺少 ${token}`)
@@ -490,21 +505,28 @@ async function main(): Promise<void> {
     ),
     '含裁片连续任务必须由 PO-202603-082 的裁片和车缝任务合并生成',
   )
-  const continuousDispatchPage = await import(pathToFileURL(path.join(ROOT, 'src/pages/continuous-dispatch.ts')).href)
-  continuousDispatchPage.handleContinuousDispatchEvent({
-    closest(selector: string) {
-      if (selector === '[data-continuous-dispatch-action]') {
-        return {
-          dataset: {
-            continuousDispatchAction: 'switch-tab',
-            tab: 'OTHER',
-          },
+  const continuousDispatchDefaultHtml = renderPageExportWithTsx('src/pages/continuous-dispatch.ts', 'renderContinuousDispatchPage')
+  assertIncludes(continuousDispatchDefaultHtml, '裁片是否可做成衣', '默认车缝+后道 Tab 空态必须展示裁片可做成衣判断')
+  assertIncludes(continuousDispatchDefaultHtml, '辅料是否满足生产', '默认车缝+后道 Tab 空态必须展示辅料齐套判断')
+  assertNotIncludes(continuousDispatchDefaultHtml, 'WITH_CUTTING', '连续工序任务分配默认 DOM 不得展示 WITH_CUTTING')
+  assertNotIncludes(continuousDispatchDefaultHtml, 'COMBINED_PROCESS_TASK', '连续工序任务分配默认 DOM 不得展示 COMBINED_PROCESS_TASK')
+  const continuousDispatchWithCuttingHtml = renderPageExportWithTsx(
+    'src/pages/continuous-dispatch.ts',
+    'renderContinuousDispatchPage',
+    `page.handleContinuousDispatchEvent({
+      closest(selector) {
+        if (selector === '[data-continuous-dispatch-action]') {
+          return {
+            dataset: {
+              continuousDispatchAction: 'switch-tab',
+              tab: 'OTHER',
+            },
+          }
         }
-      }
-      return null
-    },
-  })
-  const continuousDispatchWithCuttingHtml = continuousDispatchPage.renderContinuousDispatchPage()
+        return null
+      },
+    })`,
+  )
   const cuttingTaskAnchor = cuttingContinuousRuntimeTask.taskNo || cuttingContinuousRuntimeTask.taskId
   const cuttingTaskIndex = continuousDispatchWithCuttingHtml.indexOf(cuttingTaskAnchor)
   assert(cuttingTaskIndex >= 0, '其他连续工序任务 Tab 必须渲染真实含裁片任务行')
