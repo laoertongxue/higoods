@@ -14,20 +14,16 @@ import {
   type DemandOwnerPartyType,
   type AssignmentModeFilter,
   type BiddingRiskFilter,
-  type LifecycleStatus,
   type OrderViewMode,
   type OrderDetailTab,
   type MaterialMode,
   type AuditLog,
   productionOrderStatusConfig,
-  lifecycleAllowedNext,
   getFilteredDemands,
   getPaginatedDemands,
   listOrdersFromDemandGeneratableDemands,
   getFilteredOrders,
   getPaginatedOrders,
-  getPlanFactoryOptions,
-  deriveLifecycleStatus,
   getOrderById,
   getOrderTaskBreakdownDisabledReason,
   openTaskGenerationPreview,
@@ -36,8 +32,6 @@ import {
   openAppRoute,
   indonesiaFactories,
   PAGE_SIZE,
-  PLAN_EMPTY_FORM,
-  DELIVERY_EMPTY_FORM,
   TECH_PACK_VERSION_CHANGE_EMPTY_FORM,
   PRODUCTION_PATCH_EMPTY_FORM,
   PRODUCTION_CHANGE_EMPTY_FORM,
@@ -498,73 +492,6 @@ function updateProductionField(
     return
   }
 
-  if (field === 'planKeyword') {
-    state.planKeyword = value
-    return
-  }
-
-  if (field === 'planStatusFilter') {
-    state.planStatusFilter = value as ProductionState['planStatusFilter']
-    return
-  }
-
-  if (field === 'planFactoryFilter') {
-    state.planFactoryFilter = value
-    return
-  }
-
-  if (field === 'planFormStartDate') {
-    state.planForm.planStartDate = value
-    return
-  }
-
-  if (field === 'planFormEndDate') {
-    state.planForm.planEndDate = value
-    return
-  }
-
-  if (field === 'planFormQty') {
-    state.planForm.planQty = value
-    return
-  }
-
-  if (field === 'planFormFactoryId') {
-    state.planForm.planFactoryId = value
-    const option = getPlanFactoryOptions().find((item) => item.id === value)
-    state.planForm.planFactoryName = option?.name ?? ''
-    return
-  }
-
-  if (field === 'planFormRemark') {
-    state.planForm.planRemark = value
-    return
-  }
-
-  if (field === 'deliveryKeyword') {
-    state.deliveryKeyword = value
-    return
-  }
-
-  if (field === 'deliveryStatusFilter') {
-    state.deliveryStatusFilter = value as ProductionState['deliveryStatusFilter']
-    return
-  }
-
-  if (field === 'deliveryFormWarehouseId') {
-    state.deliveryForm.deliveryWarehouseId = value
-    return
-  }
-
-  if (field === 'deliveryFormWarehouseName') {
-    state.deliveryForm.deliveryWarehouseName = value
-    return
-  }
-
-  if (field === 'deliveryFormWarehouseRemark') {
-    state.deliveryForm.deliveryWarehouseRemark = value
-    return
-  }
-
   if (field === 'techPackChangeKeyword') {
     state.techPackChangeKeyword = value
     state.productionChangeOrderPage = 1
@@ -712,26 +639,6 @@ function updateProductionField(
   if (productionPatchScopeField) {
     state.productionPatchForm[productionPatchScopeField] = value
     state.productionPatchError = ''
-    return
-  }
-
-  if (field === 'statusKeyword') {
-    state.statusKeyword = value
-    return
-  }
-
-  if (field === 'statusFilter') {
-    state.statusFilter = value as 'ALL' | LifecycleStatus
-    return
-  }
-
-  if (field === 'statusNext') {
-    state.statusNext = value as '' | LifecycleStatus
-    return
-  }
-
-  if (field === 'statusRemark') {
-    state.statusRemark = value
     return
   }
 
@@ -1695,241 +1602,6 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'open-plan-edit') {
-    const orderId = actionNode.dataset.orderId
-    const order = state.orders.find((item) => item.productionOrderId === orderId)
-    if (!order) return true
-
-    state.planEditOrderId = order.productionOrderId
-    state.planForm = {
-      planStartDate: order.planStartDate ?? '',
-      planEndDate: order.planEndDate ?? '',
-      planQty: order.planQty != null ? String(order.planQty) : '',
-      planFactoryId: order.planFactoryId ?? '',
-      planFactoryName: order.planFactoryName ?? '',
-      planRemark: order.planRemark ?? '',
-    }
-
-    return true
-  }
-
-  if (action === 'close-plan-edit') {
-    state.planEditOrderId = null
-    state.planForm = { ...PLAN_EMPTY_FORM }
-    return true
-  }
-
-  if (action === 'save-plan-edit') {
-    const orderId = state.planEditOrderId
-    if (!orderId) return true
-
-    if (!state.planForm.planStartDate) {
-      showPlanMessage('保存失败：计划开始日期不能为空', 'error')
-      return true
-    }
-
-    if (!state.planForm.planEndDate) {
-      showPlanMessage('保存失败：计划结束日期不能为空', 'error')
-      return true
-    }
-
-    const qty = Number(state.planForm.planQty)
-    if (!Number.isFinite(qty) || qty <= 0) {
-      showPlanMessage('保存失败：计划数量必须大于 0', 'error')
-      return true
-    }
-
-    if (!state.planForm.planFactoryId) {
-      showPlanMessage('保存失败：计划工厂不能为空', 'error')
-      return true
-    }
-
-    if (state.planForm.planEndDate < state.planForm.planStartDate) {
-      showPlanMessage('保存失败：计划结束日期不能早于开始日期', 'error')
-      return true
-    }
-
-    const now = toTimestamp()
-
-    state.orders = state.orders.map((order) => {
-      if (order.productionOrderId !== orderId) return order
-      const selectedFactory = getPlanFactoryOptions().find((item) => item.id === state.planForm.planFactoryId)
-      return {
-        ...order,
-        planStartDate: state.planForm.planStartDate,
-        planEndDate: state.planForm.planEndDate,
-        planQty: qty,
-        planFactoryId: state.planForm.planFactoryId,
-        planFactoryName: state.planForm.planFactoryName || selectedFactory?.name || state.planForm.planFactoryId,
-        planRemark: state.planForm.planRemark || undefined,
-        planStatus: 'PLANNED',
-        planUpdatedAt: now,
-        planUpdatedBy: currentUser.name,
-        updatedAt: now,
-      }
-    })
-
-    state.planEditOrderId = null
-    state.planForm = { ...PLAN_EMPTY_FORM }
-    showPlanMessage('生产单计划已保存')
-    return true
-  }
-
-  if (action === 'release-plan') {
-    const orderId = actionNode.dataset.orderId
-    if (!orderId) return true
-
-    const order = state.orders.find((item) => item.productionOrderId === orderId)
-    if (!order) {
-      showPlanMessage(`下发失败：生产单 ${orderId} 不存在`, 'error')
-      return true
-    }
-
-    if (!order.planStartDate || !order.planEndDate || !order.planQty || !order.planFactoryId) {
-      showPlanMessage('下发失败：请先完成生产单计划后再下发', 'error')
-      return true
-    }
-
-    const now = toTimestamp()
-    state.orders = state.orders.map((order) => {
-      if (order.productionOrderId !== orderId) return order
-
-      return {
-        ...order,
-        planStatus: 'RELEASED',
-        planUpdatedAt: now,
-        planUpdatedBy: currentUser.name,
-        updatedAt: now,
-      }
-    })
-
-    showPlanMessage('生产单计划已下发')
-    return true
-  }
-
-  if (action === 'open-delivery-edit') {
-    const orderId = actionNode.dataset.orderId
-    const order = state.orders.find((item) => item.productionOrderId === orderId)
-    if (!order) return true
-
-    state.deliveryEditOrderId = order.productionOrderId
-    state.deliveryForm = {
-      productionOrderId: order.productionOrderId,
-      deliveryWarehouseId: order.deliveryWarehouseId ?? '',
-      deliveryWarehouseName: order.deliveryWarehouseName ?? '',
-      deliveryWarehouseRemark: order.deliveryWarehouseRemark ?? '',
-    }
-
-    return true
-  }
-
-  if (action === 'close-delivery-edit') {
-    state.deliveryEditOrderId = null
-    state.deliveryForm = { ...DELIVERY_EMPTY_FORM }
-    return true
-  }
-
-  if (action === 'save-delivery-edit') {
-    const orderId = state.deliveryEditOrderId
-    if (!orderId) return true
-
-    const warehouseId = state.deliveryForm.deliveryWarehouseId.trim()
-    if (!warehouseId) {
-      showPlanMessage('交付仓ID不能为空', 'error')
-      return true
-    }
-
-    const targetOrder = state.orders.find((item) => item.productionOrderId === orderId)
-    if (!targetOrder) {
-      showPlanMessage(`保存失败：生产单 ${orderId} 不存在`, 'error')
-      return true
-    }
-
-    const now = toTimestamp()
-    const warehouseName = state.deliveryForm.deliveryWarehouseName.trim() || warehouseId
-    const warehouseRemark = state.deliveryForm.deliveryWarehouseRemark.trim() || undefined
-
-    state.orders = state.orders.map((order) => {
-      if (order.productionOrderId !== orderId) return order
-      return {
-        ...order,
-        deliveryWarehouseId: warehouseId,
-        deliveryWarehouseName: warehouseName,
-        deliveryWarehouseRemark: warehouseRemark,
-        deliveryWarehouseStatus: 'SET',
-        deliveryWarehouseUpdatedAt: now,
-        deliveryWarehouseUpdatedBy: currentUser.name,
-        updatedAt: now,
-      }
-    })
-
-    state.deliveryEditOrderId = null
-    state.deliveryForm = { ...DELIVERY_EMPTY_FORM }
-    showPlanMessage('交付仓配置已保存')
-    return true
-  }
-
-  if (action === 'open-status-change') {
-    const orderId = actionNode.dataset.orderId
-    if (!orderId) return true
-
-    state.statusDialogOpen = true
-    state.statusSelectedOrderId = orderId
-    state.statusNext = ''
-    state.statusRemark = ''
-    return true
-  }
-
-  if (action === 'close-status-change') {
-    state.statusDialogOpen = false
-    state.statusSelectedOrderId = null
-    state.statusNext = ''
-    state.statusRemark = ''
-    return true
-  }
-
-  if (action === 'save-status-change') {
-    if (!state.statusSelectedOrderId || !state.statusNext) {
-      showPlanMessage('请选择目标状态', 'error')
-      return true
-    }
-
-    const order = state.orders.find((item) => item.productionOrderId === state.statusSelectedOrderId)
-    if (!order) {
-      showPlanMessage(`变更失败：生产单 ${state.statusSelectedOrderId} 不存在`, 'error')
-      return true
-    }
-
-    const currentLifecycle = deriveLifecycleStatus(order)
-    if (!lifecycleAllowedNext[currentLifecycle].includes(state.statusNext)) {
-      showPlanMessage('当前状态不允许切换到目标状态', 'error')
-      return true
-    }
-
-    const now = toTimestamp()
-    const nextStatus = state.statusNext as LifecycleStatus
-
-    state.orders = state.orders.map((item) => {
-      if (item.productionOrderId !== state.statusSelectedOrderId) return item
-
-      return {
-        ...item,
-        lifecycleStatus: nextStatus,
-        lifecycleStatusRemark: state.statusRemark.trim() || undefined,
-        lifecycleUpdatedAt: now,
-        lifecycleUpdatedBy: currentUser.name,
-        updatedAt: now,
-      }
-    })
-
-    state.statusDialogOpen = false
-    state.statusSelectedOrderId = null
-    state.statusNext = ''
-    state.statusRemark = ''
-    showPlanMessage('生产单状态已更新')
-    return true
-  }
-
   if (action === 'detail-switch-tab') {
     const tab = actionNode.dataset.tab as OrderDetailTab | undefined
     if (!tab) return true
@@ -2024,12 +1696,9 @@ export function isProductionDialogOpen(): boolean {
     state.ordersBreakdownReadinessOrderId !== null ||
     state.materialDraftOrderId !== null ||
     state.materialDraftAddDraftId !== null ||
-    state.planEditOrderId !== null ||
-    state.deliveryEditOrderId !== null ||
     state.techPackChangeVersionDialogOrderId !== null ||
     state.productionPatchDialogOrderId !== null ||
     state.techPackChangePublishGuideOpen ||
-    state.statusDialogOpen ||
     state.detailLogsOpen ||
     state.detailSimulateOpen ||
     state.detailConfirmSimulateOpen

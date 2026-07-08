@@ -104,14 +104,6 @@ type OrderDetailTab = 'overview' | 'demand-snapshot' | 'tech-pack' | 'assignment
 type AssignmentModeFilter = 'ALL' | 'DIRECT_ONLY' | 'BIDDING_ONLY' | 'MIXED'
 type BiddingRiskFilter = 'ALL' | 'OVERDUE' | 'NEAR_DEADLINE' | 'NONE'
 type OrderMaterialStageFilter = 'ALL' | 'PREVIEW' | 'ACTUAL_PENDING' | 'ACTUAL_CONFIRMED'
-type LifecycleStatus =
-  | 'DRAFT'
-  | 'PLANNED'
-  | 'RELEASED'
-  | 'IN_PRODUCTION'
-  | 'QC_PENDING'
-  | 'COMPLETED'
-  | 'CLOSED'
 
 type DemandOwnerPartyType = 'FACTORY' | 'LEGAL_ENTITY'
 
@@ -119,22 +111,6 @@ interface TaskGenerationPreviewState {
   mode: 'single' | 'batch'
   orderIds: string[]
   previews: ProductionTaskGenerationPreview[]
-}
-
-interface PlanForm {
-  planStartDate: string
-  planEndDate: string
-  planQty: string
-  planFactoryId: string
-  planFactoryName: string
-  planRemark: string
-}
-
-interface DeliveryForm {
-  productionOrderId: string
-  deliveryWarehouseId: string
-  deliveryWarehouseName: string
-  deliveryWarehouseRemark: string
 }
 
 type TechPackChangeDetailTab =
@@ -257,17 +233,6 @@ interface ProductionState {
   materialDraftAddSelections: Set<string>
   ordersViewMode: OrderViewMode
 
-  planKeyword: string
-  planStatusFilter: 'ALL' | 'UNPLANNED' | 'PLANNED' | 'RELEASED'
-  planFactoryFilter: 'ALL' | string
-  planEditOrderId: string | null
-  planForm: PlanForm
-
-  deliveryKeyword: string
-  deliveryStatusFilter: 'ALL' | 'UNSET' | 'SET'
-  deliveryEditOrderId: string | null
-  deliveryForm: DeliveryForm
-
   techPackChangeKeyword: string
   techPackChangeCurrentVersionFilter: 'ALL' | string
   techPackChangeNewVersionFilter: 'ALL' | 'YES' | 'NO'
@@ -295,13 +260,6 @@ interface ProductionState {
   techPackChangePublishIgnoreReason: string
   techPackChangeModuleLandingId: string
 
-  statusKeyword: string
-  statusFilter: 'ALL' | LifecycleStatus
-  statusDialogOpen: boolean
-  statusSelectedOrderId: string | null
-  statusNext: '' | LifecycleStatus
-  statusRemark: string
-
   detailCurrentOrderId: string | null
   detailTab: OrderDetailTab
   detailLogsOpen: boolean
@@ -314,22 +272,6 @@ const currentUser = {
   id: 'U001',
   name: 'Budi Santoso',
   role: 'ADMIN' as const,
-}
-
-const PLAN_EMPTY_FORM: PlanForm = {
-  planStartDate: '',
-  planEndDate: '',
-  planQty: '',
-  planFactoryId: '',
-  planFactoryName: '',
-  planRemark: '',
-}
-
-const DELIVERY_EMPTY_FORM: DeliveryForm = {
-  productionOrderId: '',
-  deliveryWarehouseId: '',
-  deliveryWarehouseName: '',
-  deliveryWarehouseRemark: '',
 }
 
 const TECH_PACK_VERSION_CHANGE_EMPTY_FORM: TechPackVersionChangeForm = {
@@ -401,26 +343,6 @@ const demandPriorityConfig: Record<ProductionDemand['priority'], { label: string
   NORMAL: { label: '普通', className: 'bg-blue-100 text-blue-700' },
 }
 
-const lifecycleStatusLabel: Record<LifecycleStatus, string> = {
-  DRAFT: '草稿',
-  PLANNED: '已计划',
-  RELEASED: '已下发',
-  IN_PRODUCTION: '生产中',
-  QC_PENDING: '待质检',
-  COMPLETED: '已完成',
-  CLOSED: '已关闭',
-}
-
-const lifecycleStatusClass: Record<LifecycleStatus, string> = {
-  DRAFT: 'bg-slate-100 text-slate-700',
-  PLANNED: 'bg-blue-100 text-blue-700',
-  RELEASED: 'bg-indigo-100 text-indigo-700',
-  IN_PRODUCTION: 'bg-cyan-100 text-cyan-700',
-  QC_PENDING: 'bg-yellow-100 text-yellow-700',
-  COMPLETED: 'bg-green-100 text-green-700',
-  CLOSED: 'bg-gray-100 text-gray-600',
-}
-
 const taskStatusLabel: Record<RuntimeProcessTask['status'], string> = {
   NOT_STARTED: '未开始',
   IN_PROGRESS: '进行中',
@@ -435,16 +357,6 @@ const taskStatusClass: Record<RuntimeProcessTask['status'], string> = {
   DONE: 'bg-green-100 text-green-700',
   BLOCKED: 'bg-red-100 text-red-700',
   CANCELLED: 'bg-gray-100 text-gray-600',
-}
-
-const lifecycleAllowedNext: Record<LifecycleStatus, LifecycleStatus[]> = {
-  DRAFT: ['PLANNED'],
-  PLANNED: ['RELEASED'],
-  RELEASED: ['IN_PRODUCTION', 'PLANNED'],
-  IN_PRODUCTION: ['QC_PENDING', 'RELEASED'],
-  QC_PENDING: ['COMPLETED', 'IN_PRODUCTION'],
-  COMPLETED: ['CLOSED', 'QC_PENDING'],
-  CLOSED: [],
 }
 
 const keyProcessKeywords = ['裁剪', '染印', '车缝', '后整', '后道']
@@ -1141,17 +1053,6 @@ function confirmTaskGenerationPreview(): number {
   return changed
 }
 
-function deriveLifecycleStatus(order: ProductionOrder): LifecycleStatus {
-  if (order.lifecycleStatus) return order.lifecycleStatus
-
-  if (order.status === 'DRAFT' || order.status === 'WAIT_TECH_PACK_RELEASE') return 'DRAFT'
-  if (order.status === 'READY_FOR_BREAKDOWN' || order.status === 'WAIT_ASSIGNMENT') return 'PLANNED'
-  if (order.status === 'ASSIGNING') return 'RELEASED'
-  if (order.status === 'EXECUTING') return 'IN_PRODUCTION'
-  if (order.status === 'COMPLETED') return 'COMPLETED'
-  return 'CLOSED'
-}
-
 function buildSettlementSummary(statementCount: number, batchCount: number): string {
   if (statementCount === 0 && batchCount === 0) return '无结算影响'
   if (statementCount > 0 && batchCount === 0) return `对账单 ${statementCount} 条`
@@ -1836,22 +1737,6 @@ function getPaginatedOrders(filteredOrders: ProductionOrder[]): ProductionOrder[
   return filteredOrders.slice(start, start + PAGE_SIZE)
 }
 
-function getPlanFactoryOptions(): Array<{ id: string; name: string }> {
-  const map = new Map<string, string>()
-
-  for (const factory of indonesiaFactories) {
-    map.set(factory.id, factory.name)
-  }
-
-  for (const order of state.orders) {
-    if (order.planFactoryId) {
-      map.set(order.planFactoryId, order.planFactoryName ?? order.planFactoryId)
-    }
-  }
-
-  return [...map.entries()].map(([id, name]) => ({ id, name }))
-}
-
 function getPlanWeekRange(): { weekStart: string; weekEnd: string } {
   const date = new Date()
   const day = date.getDay() === 0 ? 6 : date.getDay() - 1
@@ -1884,15 +1769,12 @@ function closeAllProductionDialogs(): void {
   state.materialDraftOrderId = null
   state.materialDraftAddDraftId = null
   state.materialDraftAddSelections = new Set<string>()
-  state.planEditOrderId = null
-  state.deliveryEditOrderId = null
   state.techPackChangeVersionDialogOrderId = null
   state.productionPatchDialogOrderId = null
   state.techPackChangePublishGuideOpen = false
   state.techPackChangePublishGuideBatchId = ''
   state.techPackChangePublishIgnoreReason = ''
   state.techPackChangeModuleLandingId = ''
-  state.statusDialogOpen = false
   state.detailLogsOpen = false
   state.detailSimulateOpen = false
   state.detailConfirmSimulateOpen = false
@@ -1954,17 +1836,6 @@ const state: ProductionState = {
   materialDraftAddSelections: new Set<string>(),
   ordersViewMode: 'table',
 
-  planKeyword: '',
-  planStatusFilter: 'ALL',
-  planFactoryFilter: 'ALL',
-  planEditOrderId: null,
-  planForm: { ...PLAN_EMPTY_FORM },
-
-  deliveryKeyword: '',
-  deliveryStatusFilter: 'ALL',
-  deliveryEditOrderId: null,
-  deliveryForm: { ...DELIVERY_EMPTY_FORM },
-
   techPackChangeKeyword: '',
   techPackChangeCurrentVersionFilter: 'ALL',
   techPackChangeNewVersionFilter: 'ALL',
@@ -1992,13 +1863,6 @@ const state: ProductionState = {
   techPackChangePublishIgnoreReason: '',
   techPackChangeModuleLandingId: '',
 
-  statusKeyword: '',
-  statusFilter: 'ALL',
-  statusDialogOpen: false,
-  statusSelectedOrderId: null,
-  statusNext: '',
-  statusRemark: '',
-
   detailCurrentOrderId: null,
   detailTab: 'overview',
   detailLogsOpen: false,
@@ -2013,10 +1877,7 @@ export type {
   AssignmentModeFilter,
   BiddingRiskFilter,
   OrderMaterialStageFilter,
-  LifecycleStatus,
   DemandOwnerPartyType,
-  PlanForm,
-  DeliveryForm,
   ChangeCreateForm,
   ChangeStatusForm,
   ProductionState,
@@ -2093,19 +1954,14 @@ export {
   toggleMaterialDraftLine,
   PAGE_SIZE,
   currentUser,
-  PLAN_EMPTY_FORM,
-  DELIVERY_EMPTY_FORM,
   TECH_PACK_VERSION_CHANGE_EMPTY_FORM,
   PRODUCTION_PATCH_EMPTY_FORM,
   PRODUCTION_CHANGE_EMPTY_FORM,
   demandStatusConfig,
   demandTechPackStatusConfig,
   demandPriorityConfig,
-  lifecycleStatusLabel,
-  lifecycleStatusClass,
   taskStatusLabel,
   taskStatusClass,
-  lifecycleAllowedNext,
   keyProcessKeywords,
   cloneDemand,
   cloneOrder,
@@ -2141,7 +1997,6 @@ export {
   closeTaskGenerationPreview,
   confirmTaskGenerationPreview,
   applyOrderTaskBreakdown,
-  deriveLifecycleStatus,
   buildSettlementSummary,
   getTechPackSnapshotForDemand,
   listDemandOperationsByStatus,
@@ -2172,7 +2027,6 @@ export {
   getPaginatedOrders,
   getMaterialPrepBreakdownReadinessForOrder,
   clearMaterialPrepBreakdownReadinessCache,
-  getPlanFactoryOptions,
   getPlanWeekRange,
   closeAllProductionDialogs,
   state,
