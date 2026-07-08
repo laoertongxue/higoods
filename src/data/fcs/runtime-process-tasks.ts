@@ -873,10 +873,10 @@ function evaluateContinuousRuntimeTaskMergeWithTasks(
     return { ok: false, message: '所选任务缺少冻结路线步骤或并行线，不能合并连续工序任务。', tasks: sourceTasks }
   }
 
-  const orderMergeableTasks = runtimeTasks
-    .filter((task) => task.productionOrderId === productionOrderId && isContinuousMergeSourceTask(task))
+  const orderRuntimeTasks = runtimeTasks
+    .filter((task) => task.productionOrderId === productionOrderId)
     .sort(compareRuntimeRouteTask)
-  const parallelMessage = evaluateSelectedParallelGroups(sourceTasks, orderMergeableTasks)
+  const parallelMessage = evaluateSelectedParallelGroups(sourceTasks, orderRuntimeTasks)
   if (parallelMessage) return { ok: false, message: parallelMessage, tasks: sourceTasks }
 
   const steps = Array.from(new Set(sourceTasks.map((task) => task.routeStepNo as number))).sort((left, right) => left - right)

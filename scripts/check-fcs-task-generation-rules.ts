@@ -410,6 +410,63 @@ async function main(): Promise<void> {
   ])
   assert.equal(oldSeqCandidateResult.ok, false, '缺少冻结路线字段的旧 seq 连续任务不得合并')
   assert.match(oldSeqCandidateResult.message, /路线步骤|并行线/, '缺少冻结路线字段时必须给出中文原因')
+  const parallelCompletenessBaseTask = {
+    productionOrderId: 'PO-CHECK-PARALLEL-COMPLETE',
+    defaultDocType: 'TASK',
+    taskUnitType: 'SINGLE_PROCESS_TASK',
+    isSplitSource: false,
+    isSplitResult: false,
+    assignmentStatus: 'UNASSIGNED',
+    status: 'NOT_STARTED',
+    routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED',
+    scopeType: 'ORDER',
+    scopeLabel: '整单',
+    seq: 1,
+  }
+  const parallelCompletenessRuntimeTasks = [
+    {
+      ...parallelCompletenessBaseTask,
+      taskId: 'TASK-CHECK-PARALLEL-A',
+      taskNo: 'TASK-CHECK-PARALLEL-A',
+      processNameZh: '并行工序A',
+      routeStepNo: 1,
+      routeLaneNo: 1,
+      routeParallelGroupId: 'ROUTE-GROUP-CHECK',
+      routeParallelGroupName: '并行组G',
+    },
+    {
+      ...parallelCompletenessBaseTask,
+      taskId: 'TASK-CHECK-PARALLEL-B',
+      taskNo: 'TASK-CHECK-PARALLEL-B',
+      processNameZh: '并行工序B',
+      assignmentStatus: 'ASSIGNED',
+      routeStepNo: 1,
+      routeLaneNo: 2,
+      routeParallelGroupId: 'ROUTE-GROUP-CHECK',
+      routeParallelGroupName: '并行组G',
+    },
+    {
+      ...parallelCompletenessBaseTask,
+      taskId: 'TASK-CHECK-PARALLEL-C',
+      taskNo: 'TASK-CHECK-PARALLEL-C',
+      processNameZh: '后续普通工序',
+      seq: 2,
+      routeStepNo: 2,
+      routeLaneNo: 1,
+    },
+  ]
+  const partialParallelGroupMergeResult = runtimeDomain.evaluateContinuousRuntimeTaskMerge(
+    ['TASK-CHECK-PARALLEL-A', 'TASK-CHECK-PARALLEL-C'],
+    parallelCompletenessRuntimeTasks,
+  )
+  assert.equal(partialParallelGroupMergeResult.ok, false, '并行组存在已分配成员时，不得只选组内单个任务和后续任务合并')
+  assert.match(partialParallelGroupMergeResult.message, /并行组未选择完整/, '漏选同组已分配成员时必须给出并行组未选择完整原因')
+  const selectedAssignedParallelGroupResult = runtimeDomain.evaluateContinuousRuntimeTaskMerge(
+    ['TASK-CHECK-PARALLEL-A', 'TASK-CHECK-PARALLEL-B', 'TASK-CHECK-PARALLEL-C'],
+    parallelCompletenessRuntimeTasks,
+  )
+  assert.equal(selectedAssignedParallelGroupResult.ok, false, '选中已分配并行组成员时必须触发合并硬性限制')
+  assert.match(selectedAssignedParallelGroupResult.message, /未分配、未开工、未拆分的单工序任务/, '已分配成员被选中时必须返回硬性限制原因')
   assert(runtimeTasks.some((task: { taskUnitType?: string }) => task.taskUnitType === 'WHOLE_ORDER_TASK'), 'runtime 缺少整单任务')
   assert(runtimeTasks.some((task: { taskUnitType?: string }) => task.taskUnitType === 'COMBINED_PROCESS_TASK'), 'runtime 缺少任务清单人工合并后的连续工序任务演示')
   const mergedRuntimeTasks = runtimeTasks.filter((task: { taskUnitType?: string }) =>
