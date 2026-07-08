@@ -434,22 +434,46 @@ assert.equal(
 )
 assert.equal(state.productionChangeFormStep, 'content', '从生产单发起新增后新增页重渲染不应重置预填步骤')
 
+assert.equal(handleProductionEvent(makeProductionActionTarget('go-production-change-next-step')), true, '下一步事件必须被处理')
+assert.equal(state.productionChangeFormStep, 'handling', '下一步应从内容填写推进到影响确认')
+assert.equal(handleProductionEvent(makeProductionActionTarget('go-production-change-next-step')), true, '下一步事件必须继续被处理')
+assert.equal(state.productionChangeFormStep, 'preview', '下一步应从影响确认推进到预览提交')
+assert.equal(handleProductionEvent(makeProductionActionTarget('go-production-change-next-step')), true, '预览步重复下一步事件必须被处理')
+assert.equal(state.productionChangeFormStep, 'preview', '预览步重复下一步不应越界')
+;(state as any).productionChangeFormStep = 'legacy'
+assert.equal(handleProductionEvent(makeProductionActionTarget('go-production-change-next-step')), true, '非法旧步骤下一步事件必须被处理')
+assert.equal(state.productionChangeFormStep, 'order', '非法旧步骤下一步应回到选择生产单')
+
+state.productionChangeForm.executionMode = 'AFTER_APPROVAL'
+assert.equal(
+  handleProductionEvent(makeProductionActionTarget('set-production-change-execution-mode', { mode: 'IMMEDIATE_EXECUTION' })),
+  true,
+  '选择执行方式事件必须被处理',
+)
+assert.equal(state.productionChangeForm.executionMode, 'IMMEDIATE_EXECUTION', '选择执行方式必须写入新增表单')
+assert.equal(
+  handleProductionEvent(makeProductionActionTarget('set-production-change-execution-mode', { mode: 'LEGACY_MODE' })),
+  true,
+  '非法执行方式事件也应被吞掉，避免页面崩溃',
+)
+assert.equal(state.productionChangeForm.executionMode, 'IMMEDIATE_EXECUTION', '非法执行方式不应覆盖当前选择')
+
 const inProgressNewReason = '新增页重渲染：正在填写的新增表单不应被清空。'
 state.productionChangeSelectedOrderId = ''
 state.productionChangeForm = {
   productionOrderId: relation.productionOrderId,
   source: 'MATERIAL_SHORTAGE',
   modules: ['BOM'],
+  changeContent: '主面料短缺，后续领料改用替代料。',
   reason: inProgressNewReason,
   effectiveMode: 'FROM_NEXT_PICKUP',
-  executionStrategy: 'AFTER_APPROVAL',
-  changeResult: 'PRODUCTION_PATCH',
+  executionMode: 'AFTER_APPROVAL',
 }
-state.productionChangeFormStep = 'impact'
+state.productionChangeFormStep = 'handling'
 renderProductionChangeNewPage()
 assert.equal(state.productionChangeForm.productionOrderId, relation.productionOrderId, '新增页重渲染不应清空正在填写的生产单')
 assert.equal(state.productionChangeForm.reason, inProgressNewReason, '新增页重渲染不应清空正在填写的原因')
-assert.equal(state.productionChangeFormStep, 'impact', '新增页重渲染不应重置正在填写的步骤')
+assert.equal(state.productionChangeFormStep, 'handling', '新增页重渲染不应重置正在填写的步骤')
 
 renderProductionChangeEditPage(draft.id)
 assert.equal(state.productionChangeSelectedOrderId, draft.id, '编辑页会设置当前编辑变更单 ID')
@@ -476,12 +500,12 @@ state.productionChangeForm = {
   productionOrderId: relation.productionOrderId,
   source: 'MATERIAL_SHORTAGE',
   modules: ['BOM'],
+  changeContent: '主面料短缺，后续领料改用替代料。',
   reason: newReasonAfterEditResidue,
   effectiveMode: 'FROM_NEXT_PICKUP',
-  executionStrategy: 'AFTER_APPROVAL',
-  changeResult: 'PRODUCTION_PATCH',
+  executionMode: 'AFTER_APPROVAL',
 }
-state.productionChangeFormStep = 'submit'
+state.productionChangeFormStep = 'preview'
 const newSubmitBeforeCount = listProductionOrderChangeOrders().length
 assert.equal(handleProductionEvent(makeProductionActionTarget('submit-production-change-order')), true, '新增页提交事件必须被处理')
 assert.equal(listProductionOrderChangeOrders().length, newSubmitBeforeCount + 1, '编辑页残留后进入新增页提交必须新增变更单')
@@ -495,6 +519,25 @@ const createdAfterEditResidue = listProductionOrderChangeOrders().find(
 )
 assert.ok(createdAfterEditResidue, '编辑页残留后新增提交必须可查询到新变更单')
 assert.notEqual(createdAfterEditResidue.id, draft.id, '编辑页残留后新增提交不能复用旧变更单 ID')
+
+state.productionChangeForm = {
+  productionOrderId: relation.productionOrderId,
+  source: 'COST_EXCEPTION',
+  modules: ['COST'],
+  changeContent: '核价漏计印花费，只影响本次结算差异。',
+  reason: '新增提交：仅成本差异必须由系统反推结果。',
+  effectiveMode: 'FROM_SPECIFIED_DATE',
+  executionMode: 'AFTER_APPROVAL',
+}
+state.productionChangeFormStep = 'preview'
+const inferredSubmitBeforeCount = listProductionOrderChangeOrders().length
+assert.equal(handleProductionEvent(makeProductionActionTarget('submit-production-change-order')), true, '新增页仅成本提交事件必须被处理')
+assert.equal(listProductionOrderChangeOrders().length, inferredSubmitBeforeCount + 1, '仅成本提交必须新增变更单')
+const inferredCostOnlyOrder = listProductionOrderChangeOrders().find(
+  (order) => order.reason === '新增提交：仅成本差异必须由系统反推结果。',
+)
+assert.ok(inferredCostOnlyOrder, '仅成本提交后必须可查询到新变更单')
+assert.equal(inferredCostOnlyOrder.changeResult, 'COST_ONLY', '提交时必须由领域函数反推仅成本结果')
 
 const editSubmitBeforeCount = listProductionOrderChangeOrders().length
 const updatedSubmit = updateProductionOrderChangeOrder(draft.id, {

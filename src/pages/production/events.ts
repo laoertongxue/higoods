@@ -56,6 +56,7 @@ import {
 import {
   getProductionOrderTechPackRelation,
   effectiveModeLabels,
+  inferProductionOrderChangeResult,
   listSelectableTechPackVersionsByOrder,
   listProductionOrderChangeOrdersByProductionOrder,
   getLatestPendingProductionTechPackPublishEvaluationBatch,
@@ -71,7 +72,6 @@ import {
   type ChangeEffectiveMode,
   type PatchEffectivePoint,
   type ProductionOrderChangeExecutionStrategy,
-  type ProductionOrderChangeResult,
   type ProductionOrderChangeSource,
   type ProductionPatchType,
   type TechPackChangeModule,
@@ -211,7 +211,11 @@ function submitProductionChangeForm(draft: boolean): string | null {
   const form = state.productionChangeForm
   const reason = draft && !form.reason.trim() ? '草稿：待补充变更原因' : form.reason
   const effectiveMode = form.effectiveMode as ChangeEffectiveMode
-  const changeResult: ProductionOrderChangeResult = 'PRODUCTION_PATCH'
+  const changeResult = inferProductionOrderChangeResult({
+    source: form.source as ProductionOrderChangeSource,
+    changeModules: form.modules as TechPackChangeModule[],
+    expectedEffectiveMode: effectiveMode,
+  })
   const executionStrategy = form.executionMode as ProductionOrderChangeExecutionStrategy
 
   try {
@@ -771,7 +775,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     if (!orderId) return true
     state.productionChangeSelectedOrderId = ''
     state.productionChangeForm = { ...PRODUCTION_CHANGE_EMPTY_FORM, productionOrderId: orderId }
-    state.productionChangeFormStep = 'order'
+    state.productionChangeFormStep = 'content'
     state.productionChangeFormError = ''
     openAppRoute('/fcs/production/changes/new', 'production-change-new', '新增生产单变更')
     return true
@@ -786,6 +790,26 @@ export function handleProductionEvent(target: HTMLElement): boolean {
       step === 'preview'
     ) {
       state.productionChangeFormStep = step
+    }
+    return true
+  }
+
+  if (action === 'go-production-change-next-step') {
+    const order = ['order', 'content', 'handling', 'preview'] as const
+    const index = order.indexOf(state.productionChangeFormStep)
+    state.productionChangeFormStep = order[index < 0 ? 0 : Math.min(index + 1, order.length - 1)]
+    return true
+  }
+
+  if (action === 'set-production-change-execution-mode') {
+    const mode = actionNode.dataset.mode as ProductionOrderChangeExecutionStrategy | undefined
+    if (
+      mode === 'IMMEDIATE_EXECUTION' ||
+      mode === 'IMMEDIATE_STOP_LOSS' ||
+      mode === 'AFTER_APPROVAL'
+    ) {
+      state.productionChangeForm.executionMode = mode
+      state.productionChangeFormError = ''
     }
     return true
   }
