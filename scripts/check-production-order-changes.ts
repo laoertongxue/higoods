@@ -367,7 +367,23 @@ renderProductionChangeEditPage(draft.id)
 assert.equal(state.productionChangeSelectedOrderId, draft.id, '编辑页会设置当前编辑变更单 ID')
 const staleDraftBeforeNewSubmit = getProductionOrderChangeOrder(draft.id)
 assert.ok(staleDraftBeforeNewSubmit, '编辑残留测试需要可查询的草稿变更单')
+const newHtmlAfterEditResidue = renderProductionChangeNewPage()
+assert.equal(state.productionChangeSelectedOrderId, '', '新增页渲染必须清空编辑页残留的变更单 ID')
+assert.equal(state.productionChangeForm.productionOrderId, '', '新增页从编辑态切入时必须清空编辑单生产单')
+assert.equal(state.productionChangeForm.reason, '', '新增页从编辑态切入时必须清空编辑单原因')
+assert.equal(state.productionChangeFormStep, 'order', '新增页从编辑态切入时必须回到选择生产单步骤')
+assert.equal(state.productionChangeFormError, '', '新增页从编辑态切入时必须清空错误态')
+assert.ok(
+  !newHtmlAfterEditResidue.includes(`value="${staleDraftBeforeNewSubmit.productionOrderId}" selected`),
+  '新增页从编辑态切入时 HTML 不应选中编辑单生产单号',
+)
+assert.ok(!newHtmlAfterEditResidue.includes(staleDraftBeforeNewSubmit.reason), '新增页 HTML 不应残留编辑单原因')
+
+renderProductionChangeEditPage(draft.id)
+assert.equal(state.productionChangeSelectedOrderId, draft.id, '编辑页会再次设置当前编辑变更单 ID')
 const newReasonAfterEditResidue = '新增提交：编辑页残留后仍应创建新变更单。'
+renderProductionChangeNewPage()
+assert.equal(state.productionChangeSelectedOrderId, '', '新增页渲染必须清空编辑页残留的变更单 ID')
 state.productionChangeForm = {
   productionOrderId: relation.productionOrderId,
   source: 'MATERIAL_SHORTAGE',
@@ -378,9 +394,6 @@ state.productionChangeForm = {
   changeResult: 'PRODUCTION_PATCH',
 }
 state.productionChangeFormStep = 'submit'
-renderProductionChangeNewPage()
-assert.equal(state.productionChangeSelectedOrderId, '', '新增页渲染必须清空编辑页残留的变更单 ID')
-assert.equal(state.productionChangeForm.reason, newReasonAfterEditResidue, '新增页清理编辑态时不应清空正在填写的新表单')
 const newSubmitBeforeCount = listProductionOrderChangeOrders().length
 assert.equal(handleProductionEvent(makeProductionActionTarget('submit-production-change-order')), true, '新增页提交事件必须被处理')
 assert.equal(listProductionOrderChangeOrders().length, newSubmitBeforeCount + 1, '编辑页残留后进入新增页提交必须新增变更单')

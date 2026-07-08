@@ -1,6 +1,7 @@
 import {
   escapeHtml,
   state,
+  PRODUCTION_CHANGE_EMPTY_FORM,
   renderBadge,
   renderEmptyRow,
   safeText,
@@ -2332,7 +2333,12 @@ function renderProductionChangeFormBody(): string {
 }
 
 export function renderProductionChangeNewPage(): string {
-  state.productionChangeSelectedOrderId = ''
+  if (state.productionChangeSelectedOrderId) {
+    state.productionChangeSelectedOrderId = ''
+    state.productionChangeForm = { ...PRODUCTION_CHANGE_EMPTY_FORM }
+    state.productionChangeFormStep = 'order'
+    state.productionChangeFormError = ''
+  }
   return `
     <div class="space-y-4">
       <header class="flex flex-wrap items-start justify-between gap-3">
