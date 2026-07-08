@@ -72,6 +72,7 @@ import {
   submitProductionOrderChangeOrder,
   submitProductionOrderPatch,
   submitProductionOrderTechPackChange,
+  updateProductionOrderChangeOrder,
   voidProductionOrderPatch,
   type ChangeEffectiveMode,
   type PatchEffectivePoint,
@@ -218,7 +219,7 @@ function submitProductionChangeForm(draft: boolean): string | null {
   const effectiveMode = form.effectiveMode as ChangeEffectiveMode
 
   try {
-    const order = submitProductionOrderChangeOrder({
+    const input = {
       productionOrderId: form.productionOrderId,
       source: form.source as ProductionOrderChangeSource,
       changeModules: form.modules as TechPackChangeModule[],
@@ -228,9 +229,17 @@ function submitProductionChangeForm(draft: boolean): string | null {
       changeResult: form.changeResult as ProductionOrderChangeResult,
       executionStrategy: form.executionStrategy as ProductionOrderChangeExecutionStrategy,
       operatorName: currentUser.name,
-    })
+      status: draft ? 'DRAFT' as const : undefined,
+    }
+    const order = state.productionChangeSelectedOrderId
+      ? updateProductionOrderChangeOrder(state.productionChangeSelectedOrderId, {
+        ...input,
+        status: draft ? 'DRAFT' : 'SUBMITTED',
+      })
+      : submitProductionOrderChangeOrder(input)
 
     state.productionChangeFormError = ''
+    state.productionChangeSelectedOrderId = ''
     openAppRoute(`/fcs/production/changes/${order.id}`, `production-change-${order.id}`, `生产单变更 ${order.id}`)
     return order.id
   } catch (error) {
@@ -1115,7 +1124,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     const orderId = actionNode.dataset.orderId
     state.techPackChangeDetailTab = 'notice'
     if (orderId) {
-      openAppRoute(`/fcs/production/changes/${orderId}`, `po-change-${orderId}`, `生产单变更 ${orderId}`)
+      openAppRoute(`/fcs/production/changes/orders/${orderId}`, `po-change-${orderId}`, `生产单版本关系 ${orderId}`)
     }
     return true
   }

@@ -63,6 +63,10 @@ const listProductionOrderTechPackRelations = requireFunction<() => Array<Record<
   domainExports,
   'listProductionOrderTechPackRelations',
 )
+const listProductionPatchesByOrder = requireFunction<(id: string) => Array<Record<string, any>>>(
+  domainExports,
+  'listProductionPatchesByOrder',
+)
 const getProductionOrderChangeOrder = requireFunction<(id: string) => Record<string, any> | undefined>(
   domainExports,
   'getProductionOrderChangeOrder',
@@ -70,6 +74,10 @@ const getProductionOrderChangeOrder = requireFunction<(id: string) => Record<str
 const submitProductionOrderChangeOrder = requireFunction<(input: Record<string, any>) => Record<string, any>>(
   domainExports,
   'submitProductionOrderChangeOrder',
+)
+const updateProductionOrderChangeOrder = requireFunction<(id: string, input: Record<string, any>) => Record<string, any>>(
+  domainExports,
+  'updateProductionOrderChangeOrder',
 )
 
 state.productionChangeListTab = 'change-orders'
@@ -165,6 +173,22 @@ assert.ok(
   !relationDetailHtml.includes('data-prod-action="open-production-patch"'),
   '生产单关系诊断页不应展示旧发起补丁 action',
 )
+
+const relationWithPatch = listProductionOrderTechPackRelations().find(
+  (item) => listProductionPatchesByOrder(item.productionOrderId).length > 0,
+)
+assert.ok(relationWithPatch, '至少需要一个带生产补丁的生产单关系样本')
+state.techPackChangeDetailTab = 'patch'
+const patchTabHtml = renderProductionChangeRelationDetailPage(relationWithPatch.productionOrderId)
+assert.ok(
+  patchTabHtml.includes('data-prod-action="open-production-patch-notice"'),
+  '生产补丁 Tab 必须保留查看通知入口',
+)
+assert.ok(
+  patchTabHtml.includes(`data-order-id="${relationWithPatch.productionOrderId}"`),
+  '生产补丁查看通知入口必须携带生产单 ID',
+)
+state.techPackChangeDetailTab = 'relation'
 
 const editHtml = renderProductionChangeEditPage(firstOrder.id)
 assert.ok(editHtml.includes('编辑变更单'), '编辑页必须展示编辑标题')
@@ -277,6 +301,40 @@ const draft = submitProductionOrderChangeOrder({
 
 assert.equal(draft.status, 'DRAFT', '保存补丁草稿创建的变更单必须保持草稿状态')
 
+const editBeforeCount = listProductionOrderChangeOrders().length
+const updatedDraft = updateProductionOrderChangeOrder(draft.id, {
+  productionOrderId: relation.productionOrderId,
+  source: 'FACTORY_PROCESS_EXCEPTION',
+  changeModules: ['PROCESS'],
+  reason: '编辑草稿：现场工序调整，待主管补充确认。',
+  expectedEffectiveMode: 'FROM_NEXT_PROCESS_ORDER',
+  effectiveDescription: '从下一张工艺单开始',
+  changeResult: 'PRODUCTION_PATCH',
+  executionStrategy: 'AFTER_APPROVAL',
+  operatorName: '自动检查',
+  status: 'DRAFT',
+})
+assert.equal(updatedDraft.id, draft.id, '编辑保存草稿必须更新当前变更单')
+assert.equal(updatedDraft.status, 'DRAFT', '编辑保存草稿必须保持草稿状态')
+assert.equal(updatedDraft.reason, '编辑草稿：现场工序调整，待主管补充确认。', '编辑保存草稿必须更新主字段')
+assert.equal(listProductionOrderChangeOrders().length, editBeforeCount, '编辑保存草稿不应新增变更单')
+
+const updatedSubmit = updateProductionOrderChangeOrder(draft.id, {
+  productionOrderId: relation.productionOrderId,
+  source: 'FACTORY_PROCESS_EXCEPTION',
+  changeModules: ['PROCESS'],
+  reason: '编辑提交：现场工序调整，主管审核后执行。',
+  expectedEffectiveMode: 'FROM_NEXT_PROCESS_ORDER',
+  effectiveDescription: '从下一张工艺单开始',
+  changeResult: 'PRODUCTION_PATCH',
+  executionStrategy: 'IMMEDIATE_EXECUTION',
+  operatorName: '自动检查',
+  status: 'SUBMITTED',
+})
+assert.equal(updatedSubmit.id, draft.id, '编辑提交审核必须更新当前变更单')
+assert.equal(updatedSubmit.status, 'SUBMITTED', '编辑页提交审核应进入已提交状态')
+assert.equal(listProductionOrderChangeOrders().length, editBeforeCount, '编辑提交审核不应新增变更单')
+
 assert.throws(
   () =>
     submitProductionOrderChangeOrder({
@@ -293,6 +351,40 @@ assert.throws(
     }),
   /新建变更单只允许保存为草稿状态。/,
   '新建变更单不允许直接创建为完成态',
+)
+
+const doneOrder = listProductionOrderChangeOrders().find((order) => order.status === 'DONE')
+assert.ok(doneOrder, '至少需要一张已完成变更单样本')
+assert.throws(
+  () =>
+    updateProductionOrderChangeOrder(doneOrder.id, {
+      productionOrderId: doneOrder.productionOrderId,
+      source: doneOrder.source,
+      changeModules: doneOrder.changeModules,
+      reason: '自动检查：已完成单不允许编辑。',
+      expectedEffectiveMode: doneOrder.expectedEffectiveMode,
+      effectiveDescription: doneOrder.effectiveDescription,
+      changeResult: doneOrder.changeResult,
+      executionStrategy: doneOrder.executionStrategy,
+      operatorName: '自动检查',
+      status: 'DRAFT',
+    }),
+  /当前变更单状态不允许编辑。/,
+  '已完成变更单不允许编辑',
+)
+
+const productionEventsSource = fs.readFileSync(path.resolve(process.cwd(), 'src/pages/production/events.ts'), 'utf8')
+const patchNoticeBlock = productionEventsSource.match(
+  /if \(action === 'open-production-patch-notice'\) \{[\s\S]*?\n  \}/,
+)?.[0] ?? ''
+assert.ok(patchNoticeBlock.includes("state.techPackChangeDetailTab = 'notice'"), '查看通知事件必须切到 notice Tab')
+assert.ok(
+  patchNoticeBlock.includes('`/fcs/production/changes/orders/${orderId}`'),
+  '查看通知事件必须打开生产单关系诊断页',
+)
+assert.ok(
+  !patchNoticeBlock.includes('`/fcs/production/changes/${orderId}`'),
+  '查看通知事件不应跳到变更单详情路由',
 )
 
 const appShellConfig = fs.readFileSync(path.resolve(process.cwd(), 'src/data/app-shell-config.ts'), 'utf8')

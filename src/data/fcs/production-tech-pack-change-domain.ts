@@ -410,6 +410,10 @@ export interface ProductionOrderChangeOrderSubmitInput {
   status?: 'DRAFT'
 }
 
+export interface ProductionOrderChangeOrderUpdateInput extends Omit<ProductionOrderChangeOrderSubmitInput, 'status'> {
+  status: 'DRAFT' | 'SUBMITTED'
+}
+
 export interface ProductionOrderChangeImpactRow {
   id: string
   changeOrderId: string
@@ -2551,6 +2555,60 @@ export function submitProductionOrderChangeOrder(
 
   productionOrderChangeOrders = [order, ...productionOrderChangeOrders]
   appendSubmittedChangeOrderChildren(order)
+  return clone(order)
+}
+
+export function updateProductionOrderChangeOrder(
+  changeOrderId: string,
+  input: ProductionOrderChangeOrderUpdateInput,
+): ProductionOrderChangeOrder {
+  const order = productionOrderChangeOrders.find((item) => item.id === changeOrderId)
+  if (!order) throw new Error('未找到生产单变更单。')
+  if (order.status !== 'DRAFT' && order.status !== 'RETURNED') {
+    throw new Error('当前变更单状态不允许编辑。')
+  }
+  if (input.productionOrderId !== order.productionOrderId) {
+    throw new Error('编辑变更单不支持切换生产单。')
+  }
+  if (!input.reason.trim()) throw new Error('变更原因不能为空。')
+  if (input.changeModules.length === 0) throw new Error('至少需要一个变更模块。')
+
+  const scenario =
+    productionOrderChangeScenarioCatalog.find(
+      (item) => item.source === input.source && item.expectedResult === input.changeResult,
+    ) ??
+    productionOrderChangeScenarioCatalog.find((item) => item.expectedResult === input.changeResult) ??
+    productionOrderChangeScenarioCatalog[0]
+  const documents = scenario.mainAffectedDocuments.length
+    ? scenario.mainAffectedDocuments
+    : getScenarioDocuments(input.reason, input.changeResult)
+  const hasVersionRelationChange =
+    input.changeResult === 'VERSION_RELATION' || input.changeResult === 'VERSION_AND_PATCH'
+  const hasProductionPatch =
+    input.changeResult === 'PRODUCTION_PATCH' || input.changeResult === 'VERSION_AND_PATCH'
+
+  order.scenarioId = scenario.id
+  order.source = input.source
+  order.changeModules = [...input.changeModules]
+  order.reason = input.reason.trim()
+  order.expectedEffectiveMode = input.expectedEffectiveMode
+  order.effectiveDescription = input.effectiveDescription
+  order.changeResult = input.changeResult
+  order.executionStrategy = input.executionStrategy
+  order.lockStatus = input.executionStrategy === 'IMMEDIATE_STOP_LOSS' ? 'WHOLE_ORDER_PAUSED' : 'IMPACT_SCOPE_LOCKED'
+  order.status = input.status
+  order.hasVersionRelationChange = hasVersionRelationChange
+  order.hasProductionPatch = hasProductionPatch
+  order.affectedDocumentCount = documents.length
+  order.costDeltaAmount = input.changeResult === 'COST_ONLY' ? 1200 : input.changeModules.includes('COST') ? 800 : 0
+  order.delayDays =
+    input.executionStrategy === 'IMMEDIATE_STOP_LOSS' ? 2 : input.executionStrategy === 'AFTER_APPROVAL' ? 1 : 0
+  order.reviewer = input.changeResult === 'COST_ONLY' ? '财务主管' : '生产主管'
+  order.latestLog =
+    input.status === 'DRAFT'
+      ? `${productionOrderChangeResultLabels[input.changeResult]}已保存草稿，待补充后提交审核。`
+      : `${productionOrderChangeResultLabels[input.changeResult]}已提交审核，等待主管确认。`
+
   return clone(order)
 }
 
