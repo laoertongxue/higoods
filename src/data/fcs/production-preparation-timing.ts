@@ -62,6 +62,25 @@ export interface PreparationDownloadRecord {
   downloadedAt: string
 }
 
+export interface PreparationMaterialRequirement {
+  materialNo: string
+  materialName: string
+}
+
+export interface PreparationDyeRequirement extends PreparationMaterialRequirement {
+  colorName: string
+  pantoneCode: string
+  remark: string
+  maintainedBy: string
+  maintainedAt: string
+}
+
+export interface PreparationOwnerRoleRule {
+  ownerTeam: string
+  roleLabels: string[]
+  actionScope: string
+}
+
 export interface ProductionPreparationItem {
   itemId: string
   recordId: string
@@ -94,6 +113,7 @@ export interface ProductionPreparationItem {
   completionImageIds?: string[]
   patternFileIds?: string[]
   buyerReviewStatus?: '未提交' | '待确认' | '已通过' | '需调整'
+  dyeRequirement?: PreparationDyeRequirement
   uploads?: PreparationUploadRecord[]
   downloads?: PreparationDownloadRecord[]
 }
@@ -132,6 +152,9 @@ export interface ProductionPreparationRecord {
   workItemsConfirmedBy: string
   workItemsConfirmedAt: string
   prepTypeOverrideReason: string
+  materialRequirement: PreparationMaterialRequirement
+  sampleRequirementText: string
+  confirmationRemark: string
   productionDemandNo: string
   productionOrderNo: string
   productionOrderHref: string
@@ -293,6 +316,16 @@ export const preparationItemStatuses: PreparationItemStatus[] = [
 
 export const preparationOwnerTeams = ['版师团队', '车板团队', '花型团队', '染色团队', '采购团队', '毛织团队']
 
+export const preparationOwnerRoleRules: PreparationOwnerRoleRule[] = [
+  { ownerTeam: '版师团队', roleLabels: ['版师', '版师主管'], actionScope: '操作梭织基码纸样、梭织齐码纸样' },
+  { ownerTeam: '毛织团队', roleLabels: ['毛织版师', '毛织主管'], actionScope: '操作毛织基码纸样、毛织齐码纸样' },
+  { ownerTeam: '车板团队', roleLabels: ['车版', '车版主管'], actionScope: '操作版衣制作' },
+  { ownerTeam: '花型团队', roleLabels: ['花型师', '花型主管'], actionScope: '操作数码印/DTF/DTG花型' },
+  { ownerTeam: '染色团队', roleLabels: ['染厂公共账号'], actionScope: '上传染色调色结果' },
+  { ownerTeam: '采购团队', roleLabels: ['采购', '辅料采购'], actionScope: '操作辅料下单' },
+  { ownerTeam: '跟单角色', roleLabels: ['跟单'], actionScope: '确认工作项、维护染色要求' },
+]
+
 export const patternDesignerOptions = [
   { id: 'designer-bingbing', name: '冰冰', teamName: '中国花型组' },
   { id: 'designer-linxiaomei', name: '林小美', teamName: '中国花型组' },
@@ -359,18 +392,19 @@ function orderHref(orderNo: string): string {
 }
 
 export function buildPreparationOutputs(input: PreparationOutputBuildInput): ProductionPreparationOutput[] {
+  const selectedItems = input.items.filter((item) => item.selectedByMerchandiser !== false && item.status !== '无需')
   if (
     !(input.workItemsConfirmedBy && input.workItemsConfirmedAt) ||
     !input.outputReady ||
     !input.productionDemandNo ||
     !input.productionOrderNo ||
-    !input.outputPublishedAt
+    !input.outputPublishedAt ||
+    selectedItems.some((item) => item.status !== '已完成')
   ) {
     return []
   }
 
   const status: PreparationOutputStatus = '已生成'
-  const selectedItems = input.items.filter((item) => item.selectedByMerchandiser !== false && item.status !== '无需')
   const outputs: ProductionPreparationOutput[] = [
     { outputType: '正式版本技术包', outputNo: `TP-${input.productionOrderNo}`, outputHref: `/fcs/production/orders/${encodeURIComponent(input.productionOrderNo)}/tech-pack`, outputStatus: status, outputGeneratedAt: input.outputPublishedAt },
     { outputType: '生产需求单', outputNo: input.productionDemandNo, outputHref: `/fcs/production/demand-inbox?keyword=${encodeURIComponent(input.productionDemandNo)}`, outputStatus: status, outputGeneratedAt: input.outputPublishedAt },
@@ -549,6 +583,9 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     workItemsConfirmedBy: '',
     workItemsConfirmedAt: '',
     prepTypeOverrideReason: '',
+    materialRequirement: { materialNo: '', materialName: '' },
+    sampleRequirementText: '待跟单确认本次用料和做款/打板要求。',
+    confirmationRemark: '',
     productionDemandNo: '',
     productionOrderNo: '',
     techPackVersionLabel: '',
@@ -590,6 +627,9 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Raka',
     prepTypeConfirmedAt: '2026-03-02T16:20:00',
     prepTypeOverrideReason: '',
+    materialRequirement: { materialNo: 'FAB-202603-002', materialName: '12GG 棉羊毛混纺纱 / 60S 棉府绸拼接料' },
+    sampleRequirementText: '毛织前片按 S 码起版，梭织拼接口按技术包 V1.8 对齐。',
+    confirmationRemark: '选择纱线染色和面料染色，毛织基码先行。',
     productionDemandNo: 'PD-202603-002',
     productionOrderNo: 'PO-202603-002',
     techPackVersionLabel: 'TP-v1.8',
@@ -608,8 +648,8 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
       req('梭织齐码纸样', '待开始', '版师团队', '梁敏', '2026-03-07T09:00:00', '2026-03-08T18:00:00', '', '双齐码并行', ['prep-202603-002-item-03'], '梭织齐码', { evidenceSummary: '等待版衣确认' }),
       req('辅料下单', '已完成', '采购团队', '何珊', '2026-03-03T09:00:00', '2026-03-05T18:00:00', '2026-03-05T16:10:00', '辅料并行', [], '主辅料', { evidenceSummary: '罗纹和洗标已锁单' }),
       opt('数码印/DTF/DTG花型', false, '待判断', '花型团队', '待确认', '', '', '', '花型并行', '花型', { evidenceSummary: '跟单未选择花型准备' }),
-      opt('染色调色（纱线）', true, '已完成', '染色团队', 'Wulan', '2026-03-03T09:00:00', '2026-03-06T18:00:00', '2026-03-06T15:30:00', '染色并行', '纱线染色', { evidenceSummary: '咖色纱线色卡已确认' }),
-      opt('染色调色（面料）', true, '进行中', '染色团队', 'Rini', '2026-03-03T09:00:00', '2026-03-06T18:00:00', '', '染色并行', '面料染色', { evidenceSummary: '梭织拼接面料二次调色', overdueHours: 9 }),
+      opt('染色调色（纱线）', true, '已完成', '染色团队', 'Wulan', '2026-03-03T09:00:00', '2026-03-06T18:00:00', '2026-03-06T15:30:00', '染色并行', '纱线染色', { evidenceSummary: '咖色纱线色卡已确认', dyeRequirement: { materialNo: 'YRN-202603-002', materialName: '12GG 棉羊毛混纺纱', colorName: '暖咖', pantoneCode: 'PANTONE 18-1028 TPX', remark: '先出前片主纱色卡，确认后再放大货纱。', maintainedBy: 'Raka', maintainedAt: '2026-03-03T10:10:00' } }),
+      opt('染色调色（面料）', true, '进行中', '染色团队', 'Rini', '2026-03-03T09:00:00', '2026-03-06T18:00:00', '', '染色并行', '面料染色', { evidenceSummary: '梭织拼接面料二次调色', overdueHours: 9, dyeRequirement: { materialNo: 'FAB-202603-002B', materialName: '60S 棉府绸拼接料', colorName: '米杏', pantoneCode: 'PANTONE 13-1006 TPX', remark: '需与暖咖纱线拼接后色差自然。', maintainedBy: 'Raka', maintainedAt: '2026-03-03T10:25:00' } }),
     ],
   }),
   record({
@@ -634,6 +674,9 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Maya',
     prepTypeConfirmedAt: '2026-03-03T10:50:00',
     prepTypeOverrideReason: '',
+    materialRequirement: { materialNo: 'FAB-202603-003', materialName: '32S 精梳棉单面布' },
+    sampleRequirementText: '按 M 码确认 DTF 直喷位置，胸前图案居中，袖口不加印。',
+    confirmationRemark: '只有花型准备项，无染色和辅料下单。',
     productionDemandNo: 'PD-202603-003',
     productionOrderNo: 'PO-202603-003',
     techPackVersionLabel: 'TP-v2.1',
@@ -670,6 +713,9 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Nadia',
     prepTypeConfirmedAt: '2026-03-04T10:20:00',
     prepTypeOverrideReason: '',
+    materialRequirement: { materialNo: 'FAB-202603-004', materialName: '12GG 羊毛混纺纱' },
+    sampleRequirementText: '按 S 码打基码，帽绳孔位和下摆罗纹按原样保留。',
+    confirmationRemark: '毛织款选择面料染色，先确认雾蓝色卡。',
     productionDemandNo: 'PD-202603-004',
     productionOrderNo: 'PO-202603-004',
     techPackVersionLabel: 'TP-v1.4',
@@ -685,7 +731,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
       req('版衣制作', '已完成', '车板团队', 'Dewi', '2026-03-06T09:00:00', '2026-03-07T18:00:00', '2026-03-07T16:50:00', '毛织主线', ['prep-202603-004-item-01'], '版衣', { evidenceSummary: '毛织版衣已完成' }),
       req('毛织齐码纸样', '进行中', '毛织团队', 'Yuni', '2026-03-08T09:00:00', '2026-03-09T18:00:00', '', '毛织主线', ['prep-202603-004-item-02'], '毛织齐码', { evidenceSummary: 'M-XL 毛织齐码整理中' }),
       req('辅料下单', '已完成', '采购团队', '周怡', '2026-03-06T09:00:00', '2026-03-08T18:00:00', '2026-03-08T13:10:00', '辅料并行', [], '主辅料', { evidenceSummary: '拉链和绳头采购单已同步' }),
-      opt('染色调色（面料）', true, '已完成', '染色团队', 'Wulan', '2026-03-07T09:00:00', '2026-03-10T18:00:00', '2026-03-10T16:40:00', '染色并行', '面料染色', { evidenceSummary: '雾蓝色面料色卡已确认' }),
+      opt('染色调色（面料）', true, '已完成', '染色团队', 'Wulan', '2026-03-07T09:00:00', '2026-03-10T18:00:00', '2026-03-10T16:40:00', '染色并行', '面料染色', { evidenceSummary: '雾蓝色面料色卡已确认', dyeRequirement: { materialNo: 'FAB-202603-004', materialName: '12GG 羊毛混纺纱', colorName: '雾蓝', pantoneCode: 'PANTONE 14-4318 TPX', remark: '先出 1 张色卡给跟单确认。', maintainedBy: 'Nadia', maintainedAt: '2026-03-04T10:20:00' } }),
     ],
   }),
   record({
@@ -710,6 +756,9 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Nadia',
     prepTypeConfirmedAt: '2026-03-05T14:45:00',
     prepTypeOverrideReason: '',
+    materialRequirement: { materialNo: 'FAB-202603-005', materialName: '轻量防泼尼龙布' },
+    sampleRequirementText: '按 M 码打版，袋口和下摆抽绳结构按技术包 V0.9 执行。',
+    confirmationRemark: '纯梭织款，花型和面料染色均不选择。',
     productionDemandNo: 'PD-202603-005',
     productionOrderNo: 'PO-202603-005',
     techPackVersionLabel: 'TP-v0.9',
@@ -751,6 +800,9 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Raka',
     prepTypeConfirmedAt: '2026-03-06T10:15:00',
     prepTypeOverrideReason: '',
+    materialRequirement: { materialNo: 'YRN-202603-006', materialName: '14GG 精梳棉纱' },
+    sampleRequirementText: '按 S 码做基码，领口和袖口罗纹弹力需先确认。',
+    confirmationRemark: '使用现货藏青纱线，无需染色调色。',
     productionDemandNo: 'PD-202603-006',
     productionOrderNo: 'PO-202603-006',
     techPackVersionLabel: 'TP-v4.0',
@@ -791,6 +843,9 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Raka',
     prepTypeConfirmedAt: '2026-04-01T09:45:00',
     prepTypeOverrideReason: '',
+    materialRequirement: { materialNo: 'FAB-202604-001', materialName: '亚麻棉混纺布' },
+    sampleRequirementText: '按 M 码打基码，领口止口和袖肥按亚麻缩水预留。',
+    confirmationRemark: '纯梭织亚麻款，不选择花型和染色。',
     productionDemandNo: 'PD-202604-001',
     productionOrderNo: 'PO-202604-001',
     techPackVersionLabel: 'TP-v2.0',
@@ -832,6 +887,9 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Sinta',
     prepTypeConfirmedAt: '2026-04-02T11:55:00',
     prepTypeOverrideReason: '',
+    materialRequirement: { materialNo: 'FAB-202604-002', materialName: '缎面拼色面料' },
+    sampleRequirementText: '按 S 码打版，缎面拼接位置需和毛织片宽对齐。',
+    confirmationRemark: '面料染色已选，色卡超时后由跟单继续催办。',
     productionDemandNo: 'PD-202604-002',
     productionOrderNo: 'PO-202604-002',
     techPackVersionLabel: 'TP-v1.1',
@@ -847,7 +905,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
       req('版衣制作', '已完成', '车板团队', 'Dewi', '2026-04-04T09:00:00', '2026-04-05T18:00:00', '2026-04-05T17:50:00', '毛织主线', ['prep-202604-002-item-01'], '版衣', { evidenceSummary: '缎面拼色版衣已上传' }),
       req('毛织齐码纸样', '已超时', '毛织团队', 'Yuni', '2026-04-06T09:00:00', '2026-04-07T18:00:00', '', '毛织主线', ['prep-202604-002-item-02'], '毛织齐码', { evidenceSummary: '齐码纸样进行中', overdueHours: 10 }),
       req('辅料下单', '已完成', '采购团队', '周怡', '2026-04-03T09:00:00', '2026-04-05T18:00:00', '2026-04-05T14:30:00', '辅料并行', [], '主辅料', { evidenceSummary: '珍珠扣和吊牌已下单' }),
-      opt('染色调色（面料）', true, '已超时', '染色团队', 'Rini', '2026-04-03T09:00:00', '2026-04-06T18:00:00', '', '染色并行', '面料染色', { evidenceSummary: '待上传潘通色卡照片', overdueHours: 14 }),
+      opt('染色调色（面料）', true, '已超时', '染色团队', 'Rini', '2026-04-03T09:00:00', '2026-04-06T18:00:00', '', '染色并行', '面料染色', { evidenceSummary: '待上传潘通色卡照片', overdueHours: 14, dyeRequirement: { materialNo: 'FAB-202604-002', materialName: '缎面拼色面料', colorName: '珍珠白', pantoneCode: 'PANTONE 11-0602 TPX', remark: '色卡需拍照回传，避免缎面偏黄。', maintainedBy: 'Sinta', maintainedAt: '2026-04-02T12:10:00' } }),
     ],
   }),
   record({
@@ -872,6 +930,9 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Raka',
     prepTypeConfirmedAt: '2026-04-03T10:12:00',
     prepTypeOverrideReason: '',
+    materialRequirement: { materialNo: 'FAB-202604-003', materialName: '水洗棉斜纹布' },
+    sampleRequirementText: '按 M 码确认短裤版型，直喷图案按裤脚外侧定位。',
+    confirmationRemark: '烫画&直喷类型，仅保留花型准备项。',
     productionDemandNo: 'PD-202604-003',
     productionOrderNo: 'PO-202604-003',
     techPackVersionLabel: 'TP-v1.5',
@@ -908,6 +969,9 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Maya',
     prepTypeConfirmedAt: '2026-04-04T15:40:00',
     prepTypeOverrideReason: '正式技术包补充后片梭织拼接，需同时准备毛织和梭织纸样',
+    materialRequirement: { materialNo: 'FAB-202604-004', materialName: '毛织罗纹纱 / 梭织后片棉布' },
+    sampleRequirementText: '毛织罗纹按 S 码起版，后片梭织拼接需保留图案位置。',
+    confirmationRemark: '人工修正为毛织&梭织，选择花型和面料染色，不选纱线染色。',
     productionDemandNo: 'PD-202604-004',
     productionOrderNo: 'PO-202604-004',
     techPackVersionLabel: 'TP-v0.6',
@@ -927,7 +991,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
       req('辅料下单', '已完成', '采购团队', '何珊', '2026-04-05T09:00:00', '2026-04-07T18:00:00', '2026-04-07T15:30:00', '辅料并行', [], '主辅料', { evidenceSummary: '领标和罗纹辅料已下单' }),
       opt('数码印/DTF/DTG花型', true, '待确认', '花型团队', '林小美', '2026-04-05T09:00:00', '2026-04-08T18:00:00', '', '花型并行', '花型', { evidenceSummary: '花型完成图待买手确认', overdueHours: 6, patternTaskNo: 'PAT-202604-004', patternDesignerId: 'designer-linxiaomei', patternDesignerName: '林小美', patternTeamName: '中国花型组', assignedAt: '2026-04-05T09:20:00', completionImageIds: ['img-pattern-004'], patternFileIds: ['file-pattern-004'], buyerReviewStatus: '待确认' }),
       opt('染色调色（纱线）', false, '待判断', '染色团队', '待确认', '', '', '', '染色并行', '纱线染色', { evidenceSummary: '跟单未选择纱线染色' }),
-      opt('染色调色（面料）', true, '进行中', '染色团队', 'Rini', '2026-04-05T09:00:00', '2026-04-08T18:00:00', '', '染色并行', '面料染色', { evidenceSummary: '面料染色二次复核', overdueHours: 4 }),
+      opt('染色调色（面料）', true, '进行中', '染色团队', 'Rini', '2026-04-05T09:00:00', '2026-04-08T18:00:00', '', '染色并行', '面料染色', { evidenceSummary: '面料染色二次复核', overdueHours: 4, dyeRequirement: { materialNo: 'FAB-202604-004B', materialName: '梭织后片棉布', colorName: '雾灰', pantoneCode: 'PANTONE 15-4305 TPX', remark: '需和前片罗纹灰度接近，避免后片明显偏冷。', maintainedBy: 'Maya', maintainedAt: '2026-04-04T16:05:00' } }),
     ],
   }),
   record({
@@ -952,6 +1016,9 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Maya',
     prepTypeConfirmedAt: '2026-04-05T11:10:00',
     prepTypeOverrideReason: '',
+    materialRequirement: { materialNo: 'FAB-202604-005', materialName: '26S 棉涤单面布' },
+    sampleRequirementText: '按 M 码确认基础 T 恤版型，DTG 图案需预留洗后缩率。',
+    confirmationRemark: '花型待分配，未选择染色调色。',
     productionDemandNo: 'PD-202604-005',
     productionOrderNo: 'PO-202604-005',
     techPackVersionLabel: 'TP-v0.8',
@@ -988,6 +1055,9 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Sinta',
     prepTypeConfirmedAt: '2026-04-06T10:15:00',
     prepTypeOverrideReason: '',
+    materialRequirement: { materialNo: 'FAB-202604-006', materialName: '羊毛混纺纱 / 浅灰梭织拼接布' },
+    sampleRequirementText: '毛织和梭织按同一 S 码样衣确认，开衫门襟需对齐拼接布色差。',
+    confirmationRemark: '同时选择纱线染色和面料染色，两个色卡需分开回传。',
     productionDemandNo: 'PD-202604-006',
     productionOrderNo: 'PO-202604-006',
     techPackVersionLabel: 'TP-v2.4',
@@ -1006,8 +1076,8 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
       req('梭织齐码纸样', '已完成', '版师团队', '梁敏', '2026-04-11T09:00:00', '2026-04-12T18:00:00', '2026-04-12T15:10:00', '双齐码并行', ['prep-202604-006-item-03'], '梭织齐码', { evidenceSummary: '梭织齐码纸样已上传' }),
       req('辅料下单', '已完成', '采购团队', '周怡', '2026-04-07T09:00:00', '2026-04-09T18:00:00', '2026-04-09T14:50:00', '辅料并行', [], '主辅料', { evidenceSummary: '扣具和罗纹辅料已下单' }),
       opt('数码印/DTF/DTG花型', false, '待判断', '花型团队', '待确认', '', '', '', '花型并行', '花型', { evidenceSummary: '跟单未选择花型准备' }),
-      opt('染色调色（纱线）', true, '已完成', '染色团队', 'Wulan', '2026-04-07T09:00:00', '2026-04-10T18:00:00', '2026-04-10T15:30:00', '染色并行', '纱线染色', { evidenceSummary: '纱线灰蓝色卡已确认' }),
-      opt('染色调色（面料）', true, '已完成', '染色团队', 'Rini', '2026-04-07T09:00:00', '2026-04-10T18:00:00', '2026-04-10T16:10:00', '染色并行', '面料染色', { evidenceSummary: '梭织面料浅灰色卡已确认' }),
+      opt('染色调色（纱线）', true, '已完成', '染色团队', 'Wulan', '2026-04-07T09:00:00', '2026-04-10T18:00:00', '2026-04-10T15:30:00', '染色并行', '纱线染色', { evidenceSummary: '纱线灰蓝色卡已确认', dyeRequirement: { materialNo: 'YRN-202604-006', materialName: '羊毛混纺纱', colorName: '灰蓝', pantoneCode: 'PANTONE 16-3915 TPX', remark: '先确认纱线色卡，再安排毛织齐码。', maintainedBy: 'Sinta', maintainedAt: '2026-04-06T10:35:00' } }),
+      opt('染色调色（面料）', true, '已完成', '染色团队', 'Rini', '2026-04-07T09:00:00', '2026-04-10T18:00:00', '2026-04-10T16:10:00', '染色并行', '面料染色', { evidenceSummary: '梭织面料浅灰色卡已确认', dyeRequirement: { materialNo: 'FAB-202604-006B', materialName: '浅灰梭织拼接布', colorName: '浅灰', pantoneCode: 'PANTONE 14-4102 TPX', remark: '需和灰蓝纱线拼接后不过亮。', maintainedBy: 'Sinta', maintainedAt: '2026-04-06T10:45:00' } }),
     ],
   }),
 ]

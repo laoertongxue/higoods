@@ -2,7 +2,9 @@ import {
   buildPreparationOutputs,
   preparationTypeDefaultItems,
   type PreparationDownloadRecord,
+  type PreparationDyeRequirement,
   type PreparationItemType,
+  type PreparationMaterialRequirement,
   type PreparationTypeDefaultItem,
   type PreparationUploadRecord,
   type ProductPrepType,
@@ -19,6 +21,9 @@ interface ConfirmedPreparationRecord {
   selectedItemTypes?: PreparationItemType[]
   overrideReason?: string
   selectedItemIds?: string[]
+  materialRequirement?: PreparationMaterialRequirement
+  sampleRequirementText?: string
+  confirmationRemark?: string
 }
 
 type RuntimeSelection =
@@ -29,12 +34,14 @@ export interface PreparationRuntimeState {
   confirmedRecords: Record<string, ConfirmedPreparationRecord>
   uploads: PreparationUploadRecord[]
   downloads: PreparationDownloadRecord[]
+  dyeRequirements: Record<string, PreparationDyeRequirement>
 }
 
 export const EMPTY_PREPARATION_RUNTIME_STATE: PreparationRuntimeState = {
   confirmedRecords: {},
   uploads: [],
   downloads: [],
+  dyeRequirements: {},
 }
 
 export function isBasePatternItem(itemType: PreparationItemType): boolean {
@@ -58,6 +65,7 @@ export function loadPreparationRuntimeState(): PreparationRuntimeState {
       confirmedRecords: parsed.confirmedRecords ?? {},
       uploads: Array.isArray(parsed.uploads) ? parsed.uploads : [],
       downloads: Array.isArray(parsed.downloads) ? parsed.downloads : [],
+      dyeRequirements: parsed.dyeRequirements ?? {},
     }
   } catch {
     return EMPTY_PREPARATION_RUNTIME_STATE
@@ -108,6 +116,9 @@ export function mergePreparationRuntimeRecords(
       prepTypeConfirmedBy: confirmation?.confirmedBy ?? record.prepTypeConfirmedBy,
       prepTypeConfirmedAt: confirmation?.confirmedAt ?? record.prepTypeConfirmedAt,
       prepTypeOverrideReason,
+      materialRequirement: confirmation?.materialRequirement ?? record.materialRequirement,
+      sampleRequirementText: confirmation?.sampleRequirementText ?? record.sampleRequirementText,
+      confirmationRemark: confirmation?.confirmationRemark ?? record.confirmationRemark,
       workItemsConfirmedBy,
       workItemsConfirmedAt,
       productionDemandNo,
@@ -307,15 +318,17 @@ function mergePreparationRuntimeItem(
 ): ProductionPreparationItem {
   const uploads = runtime.uploads.filter((upload) => upload.itemId === item.itemId)
   const downloads = runtime.downloads.filter((download) => download.itemId === item.itemId)
+  const dyeRequirement = runtime.dyeRequirements[item.itemId] ?? item.dyeRequirement
   const selectedByMerchandiser = selection.overridden
     ? selection.itemTypes
       ? selection.itemTypes.has(item.itemType)
       : item.requiredKind === '必做' || Boolean(selection.itemIds?.has(item.itemId))
     : item.selectedByMerchandiser
-  if (!uploads.length && !downloads.length && !selection.overridden) return item
+  if (!uploads.length && !downloads.length && !selection.overridden && dyeRequirement === item.dyeRequirement) return item
   const lastUpload = uploads.slice().sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))[0]
   return {
     ...item,
+    dyeRequirement,
     selectedByMerchandiser,
     status: !selectedByMerchandiser ? '无需' : lastUpload ? '已完成' : item.status,
     actualFinishAt: lastUpload?.uploadedAt ?? item.actualFinishAt,

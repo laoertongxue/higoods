@@ -15,11 +15,13 @@ import {
   flattenProductionPreparationItems,
   getProductionPreparationFilterOptions,
   getProductionPreparationRecord,
+  preparationOwnerRoleRules,
   preparationItemTypes,
   preparationTypeDefaultItems,
   productionPreparationRecords,
   type MonthlyPreparationCompletionDetail,
   type MonthlyPreparationStatRow,
+  type PreparationDyeRequirement,
   type PreparationItemType,
   type PreparationRecordStatus,
   type PreparationUploadRecord,
@@ -508,6 +510,14 @@ function preparationActionLabel(item: ProductionPreparationItem): string {
   return PREPARATION_ACTION_LABELS[item.itemType]
 }
 
+function isDyeItem(item: ProductionPreparationItem): boolean {
+  return item.itemType.includes('染色调色')
+}
+
+function isSelectedPreparationItem(item: ProductionPreparationItem): boolean {
+  return item.selectedByMerchandiser !== false && item.status !== '无需'
+}
+
 function renderLedgerActions(
   record: ProductionPreparationRecord,
   confirmed: boolean,
@@ -516,18 +526,32 @@ function renderLedgerActions(
 ): string {
   const detailHref = buildLedgerActionHref(params, month, { recordId: record.recordId })
   const confirmHref = buildLedgerActionHref(params, month, { recordId: record.recordId, action: 'confirm-items' })
+  const showDyeRequirementAction = !(valueOf(params, 'recordId') && !valueOf(params, 'action'))
   const itemButtons = confirmed
     ? requiredItems(record).map((item) => {
         const operable = canOperateItem(item, record)
-        if (!operable) {
-          return `<span class="text-sm text-muted-foreground line-through opacity-60">${escapeHtml(preparationActionLabel(item))}</span>`
-        }
-        const href = buildLedgerActionHref(params, month, {
+        const operateHref = buildLedgerActionHref(params, month, {
           recordId: record.recordId,
           itemId: item.itemId,
           action: 'operate-item',
         })
-        return `<button type="button" class="text-left text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(href)}">${escapeHtml(preparationActionLabel(item))}</button>`
+        const dyeRequirementHref = buildLedgerActionHref(params, month, {
+          recordId: record.recordId,
+          itemId: item.itemId,
+          action: 'maintain-dye-requirement',
+        })
+        return `
+          ${
+            operable
+              ? `<button type="button" class="text-left text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(operateHref)}">${escapeHtml(preparationActionLabel(item))}</button>`
+              : `<span class="text-sm text-muted-foreground line-through opacity-60">${escapeHtml(preparationActionLabel(item))}</span>`
+          }
+          ${
+            showDyeRequirementAction && isDyeItem(item)
+              ? `<button type="button" class="text-left text-sm text-blue-600 hover:underline" data-nav="${escapeHtml(dyeRequirementHref)}">维护染色要求</button>`
+              : ''
+          }
+        `
       }).join('')
     : ''
 
@@ -664,6 +688,7 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
     ${renderLedgerTable(records, month, params)}
     ${detailRecord && !action ? renderDetailDrawer(detailRecord, params, month) : ''}
     ${detailRecord ? renderConfirmItemsDialog(detailRecord, params, month) : ''}
+    ${detailRecord && activeItem ? renderDyeRequirementDialog(detailRecord, activeItem, params, month) : ''}
     ${detailRecord && activeItem ? renderOperateItemDialog(detailRecord, activeItem, params, month) : ''}
   `
 }
@@ -685,6 +710,7 @@ function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSear
       <div class="flex-1 space-y-5 overflow-y-auto p-5">
         ${renderSourceInfo(record)}
         ${renderProductTypeConfirmation(record)}
+        ${renderConfirmationRequirementSection(record)}
         ${renderPreparationSelection(record)}
         ${renderTimeline(record)}
         <section id="prep-items" class="rounded-xl border bg-card p-4">
@@ -794,7 +820,19 @@ function renderProductTypeConfirmation(record: ProductionPreparationRecord): str
           <div class="mt-1 font-medium">${escapeHtml(formatDateTime(record.prepTypeConfirmedAt))}</div>
         </div>
       </div>
-      ${record.prepTypeOverrideReason ? `<p class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">修正原因：${escapeHtml(record.prepTypeOverrideReason)}</p>` : ''}
+    </section>
+  `
+}
+
+function renderConfirmationRequirementSection(record: ProductionPreparationRecord): string {
+  return `
+    <section class="rounded-xl border bg-card p-4">
+      <h3 class="font-semibold">跟单确认要求</h3>
+      <div class="mt-3 grid gap-3 text-sm md:grid-cols-3">
+        <div><p class="text-xs text-muted-foreground">本次用料</p><p>${escapeHtml(record.materialRequirement.materialNo)} ${escapeHtml(record.materialRequirement.materialName)}</p></div>
+        <div><p class="text-xs text-muted-foreground">做款/打板要求</p><p>${escapeHtml(record.sampleRequirementText || '-')}</p></div>
+        <div><p class="text-xs text-muted-foreground">通用备注</p><p>${escapeHtml(record.confirmationRemark || '-')}</p></div>
+      </div>
     </section>
   `
 }
@@ -853,6 +891,7 @@ function renderTimeline(record: ProductionPreparationRecord): string {
 }
 
 function renderItemCard(item: ProductionPreparationItem, active: boolean): string {
+  const ownerRoleRule = preparationOwnerRoleRules.find((rule) => rule.ownerTeam === item.ownerTeam)
   return `
     <article class="rounded-xl border p-4 ${active ? 'border-blue-300 bg-blue-50/40' : 'bg-background'}">
       <div class="flex items-start justify-between gap-3">
@@ -874,7 +913,16 @@ function renderItemCard(item: ProductionPreparationItem, active: boolean): strin
           : ''
       }
       <p class="mt-3 text-xs text-muted-foreground">${escapeHtml(item.evidenceSummary || item.remark || '暂无说明')}</p>
+      ${
+        ownerRoleRule
+          ? `<div class="mt-3 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
+              <div><span class="font-medium text-foreground">责任角色：</span>${escapeHtml(ownerRoleRule.roleLabels.join('、'))}</div>
+              <div class="mt-1"><span class="font-medium text-foreground">操作范围：</span>${escapeHtml(ownerRoleRule.actionScope)}</div>
+            </div>`
+          : ''
+      }
       ${item.itemType === '数码印/DTF/DTG花型' ? renderPatternFields(item) : ''}
+      ${isDyeItem(item) ? renderDyeRequirementFields(item) : ''}
       <div class="mt-3">${renderItemUploadHistory(item)}</div>
     </article>
   `
@@ -891,6 +939,28 @@ function renderPatternFields(item: ProductionPreparationItem): string {
         <div><span class="text-muted-foreground">完成图：</span>${item.completionImageIds?.length ?? 0} 张</div>
         <div><span class="text-muted-foreground">花型文件：</span>${item.patternFileIds?.length ?? 0} 个</div>
       </div>
+    </div>
+  `
+}
+
+function renderDyeRequirementFields(item: ProductionPreparationItem): string {
+  const requirement = item.dyeRequirement
+  return `
+    <div class="mt-3 rounded-lg border bg-muted/30 p-3 text-xs">
+      <div class="text-sm font-medium">染色要求</div>
+      ${
+        requirement
+          ? `
+            <div class="mt-2 grid grid-cols-2 gap-2">
+              <div><span class="text-muted-foreground">潘通色号：</span>${escapeHtml(requirement.pantoneCode || '-')}</div>
+              <div><span class="text-muted-foreground">色样/色卡说明：</span>${escapeHtml(requirement.colorName || '-')}</div>
+              <div class="col-span-2"><span class="text-muted-foreground">染色要求：</span>${escapeHtml(requirement.remark || '-')}</div>
+              <div><span class="text-muted-foreground">维护人：</span>${escapeHtml(requirement.maintainedBy || '-')}</div>
+              <div><span class="text-muted-foreground">维护时间：</span>${escapeHtml(requirement.maintainedAt ? formatDateTime(requirement.maintainedAt) : '-')}</div>
+            </div>
+          `
+          : '<div class="mt-2 text-muted-foreground">跟单未维护</div>'
+      }
     </div>
   `
 }
@@ -991,6 +1061,7 @@ function renderConfirmItemsDialog(record: ProductionPreparationRecord, params: U
         <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.spuName)}｜${escapeHtml(record.spuCode)}</p>
         <form class="mt-4 space-y-4" data-prep-confirm-items-form>
           <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
+          <input type="hidden" name="overrideReason" value="${escapeHtml(record.prepTypeOverrideReason || record.confirmationRemark)}" />
           <section class="rounded-lg border p-4">
             <div class="text-sm font-semibold">1. 确认商品类型</div>
             <div class="mt-3 grid gap-2 md:grid-cols-2">
@@ -1017,13 +1088,76 @@ function renderConfirmItemsDialog(record: ProductionPreparationRecord, params: U
               }).join('')}
             </div>
           </section>
+          <section class="rounded-lg border p-4">
+            <div class="text-sm font-semibold">3. 维护面料和做款要求</div>
+            <div class="mt-3 grid gap-3 md:grid-cols-2">
+              <label class="block text-sm">
+                <span class="text-muted-foreground">面料编号</span>
+                <input name="materialNo" value="${escapeHtml(record.materialRequirement.materialNo)}" class="mt-1 w-full rounded-md border px-3 py-2" required />
+              </label>
+              <label class="block text-sm">
+                <span class="text-muted-foreground">面料名称</span>
+                <input name="materialName" value="${escapeHtml(record.materialRequirement.materialName)}" class="mt-1 w-full rounded-md border px-3 py-2" required />
+              </label>
+            </div>
+            <label class="mt-3 block text-sm">
+              <span class="text-muted-foreground">做款/打板要求</span>
+              <textarea name="sampleRequirementText" class="mt-1 min-h-20 w-full rounded-md border px-3 py-2" required>${escapeHtml(record.sampleRequirementText)}</textarea>
+            </label>
+          </section>
           <label class="block text-sm">
-            <span class="text-muted-foreground">修正原因</span>
-            <textarea name="overrideReason" class="mt-1 min-h-20 w-full rounded-md border px-3 py-2" placeholder="商品类型与系统建议不一致时填写">${escapeHtml(record.prepTypeOverrideReason)}</textarea>
+            <span class="text-muted-foreground">通用备注</span>
+            <textarea name="confirmationRemark" class="mt-1 min-h-20 w-full rounded-md border px-3 py-2">${escapeHtml(record.confirmationRemark)}</textarea>
           </label>
           <div class="flex justify-end gap-2">
             <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="${escapeHtml(closeHref)}">取消</button>
             <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white">确认工作项</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  `
+}
+
+function renderDyeRequirementDialog(
+  record: ProductionPreparationRecord,
+  item: ProductionPreparationItem,
+  params: URLSearchParams,
+  month: string,
+): string {
+  if (valueOf(params, 'action') !== 'maintain-dye-requirement' || !isDyeItem(item) || !isSelectedPreparationItem(item)) return ''
+  const closeHref = buildLedgerHrefFromParams(params, month)
+  const requirement = item.dyeRequirement
+  const materialNo = requirement?.materialNo || record.materialRequirement.materialNo
+  const materialName = requirement?.materialName || record.materialRequirement.materialName
+  return `
+    <div class="fixed inset-0 z-50">
+      <button class="absolute inset-0 bg-black/45" data-nav="${escapeHtml(closeHref)}" aria-label="关闭"></button>
+      <section class="absolute left-1/2 top-10 w-[720px] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl bg-background p-5 shadow-2xl">
+        <h3 class="text-lg font-semibold">维护染色要求</h3>
+        <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.spuName)}｜${escapeHtml(item.itemType)}</p>
+        <form class="mt-4 space-y-4" data-prep-dye-requirement-form>
+          <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
+          <input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />
+          <input type="hidden" name="materialNo" value="${escapeHtml(materialNo)}" />
+          <input type="hidden" name="materialName" value="${escapeHtml(materialName)}" />
+          <div class="grid gap-3 md:grid-cols-2">
+            <label class="block text-sm">
+              <span class="text-muted-foreground">潘通色号</span>
+              <input name="pantoneCode" value="${escapeHtml(requirement?.pantoneCode ?? '')}" class="mt-1 w-full rounded-md border px-3 py-2" required />
+            </label>
+            <label class="block text-sm">
+              <span class="text-muted-foreground">色样/色卡说明</span>
+              <input name="colorSampleName" value="${escapeHtml(requirement?.colorName ?? '')}" class="mt-1 w-full rounded-md border px-3 py-2" required />
+            </label>
+          </div>
+          <label class="block text-sm">
+            <span class="text-muted-foreground">染色要求说明</span>
+            <textarea name="requirementText" class="mt-1 min-h-24 w-full rounded-md border px-3 py-2" required>${escapeHtml(requirement?.remark ?? '')}</textarea>
+          </label>
+          <div class="flex justify-end gap-2">
+            <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="${escapeHtml(closeHref)}">取消</button>
+            <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white">保存染色要求</button>
           </div>
         </form>
       </section>
@@ -1513,7 +1647,12 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
     const selectedItemTypes = formData.getAll('selectedItemType')
       .map((itemType) => String(itemType).trim() as PreparationItemType)
       .filter(Boolean)
-    const overrideReason = String(formData.get('overrideReason') ?? '').trim()
+    const materialRequirement = {
+      materialNo: String(formData.get('materialNo') ?? '').trim(),
+      materialName: String(formData.get('materialName') ?? '').trim(),
+    }
+    const sampleRequirementText = String(formData.get('sampleRequirementText') ?? '').trim()
+    const confirmationRemark = String(formData.get('confirmationRemark') ?? '').trim()
     const runtime = loadPreparationRuntimeState()
     savePreparationRuntimeState({
       ...runtime,
@@ -1524,8 +1663,43 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
           confirmedAt: currentIsoMinute(),
           confirmedProductPrepType,
           selectedItemTypes,
-          overrideReason,
+          materialRequirement,
+          sampleRequirementText,
+          confirmationRemark,
+          overrideReason: confirmationRemark,
         },
+      },
+    })
+    closePreparationDialog()
+    return true
+  }
+
+  if (form.matches('[data-prep-dye-requirement-form]')) {
+    const recordId = String(formData.get('recordId') ?? '').trim()
+    const itemId = String(formData.get('itemId') ?? '').trim()
+    if (!recordId || !itemId) return true
+
+    const runtime = loadPreparationRuntimeState()
+    const record = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
+      .find((item) => item.recordId === recordId)
+    if (!record || !hasConfirmedWorkItems(record)) return true
+    const item = record.items.find((candidate) => candidate.itemId === itemId)
+    if (!item || !isDyeItem(item) || !isSelectedPreparationItem(item)) return true
+
+    const dyeRequirement: PreparationDyeRequirement = {
+      materialNo: String(formData.get('materialNo') ?? record.materialRequirement.materialNo).trim(),
+      materialName: String(formData.get('materialName') ?? record.materialRequirement.materialName).trim(),
+      colorName: String(formData.get('colorSampleName') ?? '').trim(),
+      pantoneCode: String(formData.get('pantoneCode') ?? '').trim(),
+      remark: String(formData.get('requirementText') ?? '').trim(),
+      maintainedBy: '当前用户',
+      maintainedAt: currentIsoMinute(),
+    }
+    savePreparationRuntimeState({
+      ...runtime,
+      dyeRequirements: {
+        ...runtime.dyeRequirements,
+        [itemId]: dyeRequirement,
       },
     })
     closePreparationDialog()
