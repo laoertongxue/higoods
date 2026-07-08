@@ -2467,6 +2467,17 @@ function appendSubmittedChangeOrderChildren(order: ProductionOrderChangeOrder): 
   }
 }
 
+function nextProductionOrderChangeOrderId(productionOrderId: string): string {
+  const prefix = `CHANGE-${productionOrderId}-`
+  const maxSequence = productionOrderChangeOrders
+    .filter((order) => order.productionOrderId === productionOrderId && order.id.startsWith(prefix))
+    .reduce((max, order) => {
+      const suffix = order.id.slice(prefix.length)
+      return /^\d{3}$/.test(suffix) ? Math.max(max, Number(suffix)) : max
+    }, 0)
+  return `${prefix}${String(maxSequence + 1).padStart(3, '0')}`
+}
+
 export function submitProductionOrderChangeOrder(
   input: ProductionOrderChangeOrderSubmitInput,
 ): ProductionOrderChangeOrder {
@@ -2498,12 +2509,11 @@ export function submitProductionOrderChangeOrder(
   const documents = scenario.mainAffectedDocuments.length
     ? scenario.mainAffectedDocuments
     : getScenarioDocuments(input.reason, input.changeResult)
-  const sequence = productionOrderChangeOrders.filter((item) => item.productionOrderId === input.productionOrderId).length + 1
   const hasProductionPatch =
     input.changeResult === 'PRODUCTION_PATCH' || input.changeResult === 'VERSION_AND_PATCH'
   const createdAt = nowText()
   const order: ProductionOrderChangeOrder = {
-    id: `CHANGE-${input.productionOrderId}-${String(sequence).padStart(3, '0')}`,
+    id: nextProductionOrderChangeOrderId(input.productionOrderId),
     scenarioId: scenario.id,
     productionOrderId: relation.productionOrderId,
     demandOrderId: relation.productionOrderNo.replace('PO-', 'DO-'),
