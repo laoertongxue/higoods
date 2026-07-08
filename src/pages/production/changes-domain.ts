@@ -1519,8 +1519,6 @@ export function renderProductionChangesPage(): string {
           ${renderProductionChangeCandidateOrders(relations)}
         `}
 
-      ${renderVersionChangeDialog()}
-      ${renderProductionPatchDialog()}
       ${renderPublishGuideDialog()}
       ${renderModuleLandingDialog()}
     </div>

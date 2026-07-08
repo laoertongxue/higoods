@@ -76,6 +76,9 @@ state.productionChangeListTab = 'change-orders'
 state.techPackChangeKeyword = ''
 state.productionChangeOrderPage = 1
 
+const firstRelation = listProductionOrderTechPackRelations()[0]
+assert.ok(firstRelation, '至少需要一张生产单版本关系样本')
+
 const listHtml = renderProductionChangesPage()
 
 ;[
@@ -97,8 +100,24 @@ assert.ok(!listHtml.includes('当前展示变更单详情'), '列表页不应内
 assert.ok(!listHtml.includes('系统读取的现场事实'), '列表页不应内嵌详情事实区')
 assert.ok(!listHtml.includes('data-prod-action="open-tech-pack-version-change"'), '变更单列表不应直接展示变更版本按钮')
 assert.ok(!listHtml.includes('data-prod-action="open-production-patch"'), '变更单列表不应直接展示发起补丁按钮')
+assert.ok(!listHtml.includes('submit-tech-pack-version-change'), '变更单列表不应渲染旧版本变更弹窗提交入口')
+assert.ok(!listHtml.includes('submit-production-patch'), '变更单列表不应渲染旧生产补丁弹窗提交入口')
 assert.ok(!listHtml.includes('场景覆盖面板'), '业务场景覆盖说明应留在文档中，不应展示在页面')
 assert.ok(!listHtml.includes('80 个场景'), '80 个业务场景目录不应作为页面演示信息展示')
+
+state.techPackChangeVersionDialogOrderId = firstRelation.productionOrderId
+state.productionPatchDialogOrderId = firstRelation.productionOrderId
+const listWithLegacyDialogStateHtml = renderProductionChangesPage()
+assert.ok(
+  !listWithLegacyDialogStateHtml.includes('submit-tech-pack-version-change'),
+  '变更单列表即使残留旧弹窗状态，也不应渲染旧版本变更提交入口',
+)
+assert.ok(
+  !listWithLegacyDialogStateHtml.includes('submit-production-patch'),
+  '变更单列表即使残留旧弹窗状态，也不应渲染旧生产补丁提交入口',
+)
+state.techPackChangeVersionDialogOrderId = null
+state.productionPatchDialogOrderId = null
 
 const newHtml = renderProductionChangeNewPage()
 ;['选择生产单', '填写变更内容', '系统计算影响', '确认单据处理', '料工费与时效', '提交审核'].forEach((text) => {
@@ -115,9 +134,23 @@ const detailHtml = renderProductionChangeOrderDetailPage(firstOrder.id)
 })
 assert.ok(detailHtml.includes(firstOrder.id), '详情页必须展示变更单号')
 assert.ok(!detailHtml.includes('变更单列表'), '详情页不应混入列表')
+assert.ok(!detailHtml.includes('submit-tech-pack-version-change'), '变更单详情页不应渲染旧版本变更弹窗提交入口')
+assert.ok(!detailHtml.includes('submit-production-patch'), '变更单详情页不应渲染旧生产补丁弹窗提交入口')
 
-const firstRelation = listProductionOrderTechPackRelations()[0]
-assert.ok(firstRelation, '至少需要一张生产单版本关系样本')
+state.techPackChangeVersionDialogOrderId = firstRelation.productionOrderId
+state.productionPatchDialogOrderId = firstRelation.productionOrderId
+const detailWithLegacyDialogStateHtml = renderProductionChangeOrderDetailPage(firstOrder.id)
+assert.ok(
+  !detailWithLegacyDialogStateHtml.includes('submit-tech-pack-version-change'),
+  '变更单详情页即使残留旧弹窗状态，也不应渲染旧版本变更提交入口',
+)
+assert.ok(
+  !detailWithLegacyDialogStateHtml.includes('submit-production-patch'),
+  '变更单详情页即使残留旧弹窗状态，也不应渲染旧生产补丁提交入口',
+)
+state.techPackChangeVersionDialogOrderId = null
+state.productionPatchDialogOrderId = null
+
 state.techPackChangeDetailTab = 'relation'
 const relationDetailHtml = renderProductionChangeRelationDetailPage(firstRelation.productionOrderId)
 assert.ok(relationDetailHtml.includes('生产单版本关系诊断'), '生产单关系诊断页必须展示诊断标题')
