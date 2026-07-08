@@ -1591,8 +1591,7 @@ function renderRelationTab(relation: ProductionOrderTechPackRelation): string {
         </div>
       </div>
       <div class="flex flex-wrap gap-2 border-t px-4 py-4">
-        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-tech-pack-version-change" data-order-id="${escapeHtml(relation.productionOrderId)}">变更版本</button>
-        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-production-patch" data-order-id="${escapeHtml(relation.productionOrderId)}">发起补丁</button>
+        <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change-from-order" data-order-id="${escapeHtml(relation.productionOrderId)}">发起变更</button>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-order-tech-pack-snapshot" data-order-id="${escapeHtml(relation.productionOrderId)}">查看技术包快照</button>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-current-tech-pack" data-spu-code="${escapeHtml(relation.spuCode)}">查看当前最新技术包</button>
       </div>

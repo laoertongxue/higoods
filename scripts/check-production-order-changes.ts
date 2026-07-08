@@ -29,6 +29,10 @@ const renderProductionChangeOrderDetailPage = requireFunction<(id: string) => st
   pageExports,
   'renderProductionChangeOrderDetailPage',
 )
+const renderProductionChangeRelationDetailPage = requireFunction<(id: string) => string>(
+  pageExports,
+  'renderProductionChangeRelationDetailPage',
+)
 const renderProductionChangeEditPage = requireFunction<(id: string) => string>(pageExports, 'renderProductionChangeEditPage')
 
 const listProductionOrderChangeOrders = requireFunction<() => Array<Record<string, any>>>(
@@ -112,6 +116,23 @@ const detailHtml = renderProductionChangeOrderDetailPage(firstOrder.id)
 assert.ok(detailHtml.includes(firstOrder.id), '详情页必须展示变更单号')
 assert.ok(!detailHtml.includes('变更单列表'), '详情页不应混入列表')
 
+const firstRelation = listProductionOrderTechPackRelations()[0]
+assert.ok(firstRelation, '至少需要一张生产单版本关系样本')
+state.techPackChangeDetailTab = 'relation'
+const relationDetailHtml = renderProductionChangeRelationDetailPage(firstRelation.productionOrderId)
+assert.ok(relationDetailHtml.includes('生产单版本关系诊断'), '生产单关系诊断页必须展示诊断标题')
+assert.ok(relationDetailHtml.includes('>发起变更<'), '生产单关系诊断页必须展示统一发起变更动作')
+assert.ok(!relationDetailHtml.includes('>变更版本<'), '生产单关系诊断页不应展示旧变更版本主按钮')
+assert.ok(!relationDetailHtml.includes('>发起补丁<'), '生产单关系诊断页不应展示旧发起补丁主按钮')
+assert.ok(
+  !relationDetailHtml.includes('data-prod-action="open-tech-pack-version-change"'),
+  '生产单关系诊断页不应展示旧变更版本 action',
+)
+assert.ok(
+  !relationDetailHtml.includes('data-prod-action="open-production-patch"'),
+  '生产单关系诊断页不应展示旧发起补丁 action',
+)
+
 const editHtml = renderProductionChangeEditPage(firstOrder.id)
 assert.ok(editHtml.includes('编辑变更单'), '编辑页必须展示编辑标题')
 assert.ok(editHtml.includes(firstOrder.id), '编辑页必须展示当前变更单号')
@@ -190,8 +211,7 @@ assert.equal(
 state.techPackChangeKeyword = ''
 
 const beforeCount = listProductionOrderChangeOrders().length
-const relation = listProductionOrderTechPackRelations()[0]
-assert.ok(relation, '至少需要一张生产单版本关系样本')
+const relation = firstRelation
 
 const created = submitProductionOrderChangeOrder({
   productionOrderId: relation.productionOrderId,
