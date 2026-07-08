@@ -70,11 +70,42 @@ function runtimeTask(
 }
 
 const serialTasks = [
-  runtimeTask('SERIAL-1', 1),
-  runtimeTask('SERIAL-2', 2),
+  runtimeTask('SERIAL-1', 1, 1, {
+    processCode: 'SEW',
+    processNameZh: '车缝',
+  }),
+  runtimeTask('SERIAL-2', 2, 1, {
+    processCode: 'POST_FINISHING',
+    processNameZh: '后道',
+  }),
 ]
 const serialResult = evaluateContinuousRuntimeTaskMerge(['SERIAL-1', 'SERIAL-2'], serialTasks)
 assert.equal(serialResult.ok, true, '相邻串行任务应可合并')
+
+const serialWithoutSingleFactoryTasks = [
+  runtimeTask('SERIAL-NO-SINGLE-FACTORY-A', 1, 1, {
+    processCode: 'CUT_PANEL',
+    processNameZh: '裁片',
+  }),
+  runtimeTask('SERIAL-NO-SINGLE-FACTORY-B', 2, 1, {
+    processCode: 'DYE',
+    processNameZh: '染色',
+  }),
+  runtimeTask('SERIAL-NO-SINGLE-FACTORY-C', 3, 1, {
+    processCode: 'SEW',
+    processNameZh: '车缝',
+  }),
+]
+const serialWithoutSingleFactoryResult = evaluateContinuousRuntimeTaskMerge(
+  ['SERIAL-NO-SINGLE-FACTORY-A', 'SERIAL-NO-SINGLE-FACTORY-B', 'SERIAL-NO-SINGLE-FACTORY-C'],
+  serialWithoutSingleFactoryTasks,
+)
+assert.equal(serialWithoutSingleFactoryResult.ok, false, '串行连续工序合并必须存在同一工厂覆盖全部工序能力')
+assert.match(
+  serialWithoutSingleFactoryResult.message,
+  /同一工厂.*连续工序.*全部工序能力/,
+  '串行连续工序缺少同一工厂覆盖能力时必须返回中文原因',
+)
 
 const nonAdjacentTasks = [
   runtimeTask('NON-ADJACENT-1', 1),
@@ -198,12 +229,24 @@ assert.match(selectedLockedMemberResult.message, /未分配、未开工、未拆
 
 const mergedTask = listRuntimeProcessTasks().find((task) => task.taskUnitType === 'COMBINED_PROCESS_TASK')
 assert(mergedTask, '运行时 mock 必须存在任务清单人工合并后的连续工序任务')
-assert.equal(mergedTask.assignmentGranularity, 'ORDER', '合并后的连续工序任务必须按整任务分配')
-assert.equal(mergedTask.detailSplitMode, undefined, '合并后的连续工序任务不得保留明细拆分模式')
-assert.deepEqual(mergedTask.detailSplitDimensions ?? [], [], '合并后的连续工序任务不得保留明细拆分维度')
+const mergedTasks = listRuntimeProcessTasks().filter((task) =>
+  task.taskUnitType === 'COMBINED_PROCESS_TASK'
+  && task.acceptanceMode === 'CONTINUOUS_PROCESS'
+)
+assert(mergedTasks.length >= 2, '运行时 mock 必须覆盖至少两个连续工序任务场景')
+for (const task of mergedTasks) {
+  assert.equal(task.assignmentGranularity, 'ORDER', `${task.taskId} 合并后的连续工序任务必须按整任务分配`)
+  assert.equal(task.detailSplitMode, undefined, `${task.taskId} 合并后的连续工序任务不得保留明细拆分模式`)
+  assert.deepEqual(task.detailSplitDimensions ?? [], [], `${task.taskId} 合并后的连续工序任务不得保留明细拆分维度`)
+  assert((task.mergeSourceTaskIds ?? []).length >= 2, `${task.taskId} 必须记录合并来源任务`)
+  assert(
+    task.auditLogs.some((log) => log.action === 'MERGE_CONTINUOUS_PROCESS'),
+    `${task.taskId} 必须记录连续工序合并日志`,
+  )
 
-const allocatableGroups = listRuntimeTaskAllocatableGroups(mergedTask.taskId)
-assert.equal(allocatableGroups.length, 1, '连续工序任务只能产生一个可分配整任务组')
-assert.equal(allocatableGroups[0]?.granularity, 'ORDER', '连续工序任务可分配组必须是整任务粒度')
+  const allocatableGroups = listRuntimeTaskAllocatableGroups(task.taskId)
+  assert.equal(allocatableGroups.length, 1, `${task.taskId} 连续工序任务只能产生一个可分配整任务组`)
+  assert.equal(allocatableGroups[0]?.granularity, 'ORDER', `${task.taskId} 连续工序任务可分配组必须是整任务粒度`)
+}
 
 console.log('连续工序路线合并资格检查通过')

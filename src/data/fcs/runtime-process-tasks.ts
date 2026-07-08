@@ -815,26 +815,55 @@ function canFactoryReceiveProcessAbility(ability: FactoryProcessAbility, process
     || ability.craftCodes.includes(processCode)
 }
 
-function canFactoryReceiveAllProcesses(factory: Factory, processCodes: string[]): boolean {
-  return processCodes.every((processCode) =>
-    factory.processAbilities.some((ability) => canFactoryReceiveProcessAbility(ability, processCode)),
-  )
+function getRuntimeTaskFactoryAbilityCodes(task: RuntimeProcessTask): string[] {
+  const codes = new Set<string>()
+  if (task.processCode) codes.add(task.processCode)
+  if (task.craftCode) codes.add(task.craftCode)
+  for (const coveredProcess of task.coveredProcesses ?? []) {
+    if (coveredProcess.processCode) codes.add(coveredProcess.processCode)
+    if (coveredProcess.craftCode) codes.add(coveredProcess.craftCode)
+  }
+  return Array.from(codes)
 }
 
-function findFactoryCoveringAllProcesses(processCodes: string[]): Factory | undefined {
-  if (processCodes.length === 0) return undefined
+function getRuntimeTaskProcessLabel(task: RuntimeProcessTask): string {
+  const coveredNames = (task.coveredProcesses ?? [])
+    .map((coveredProcess) => coveredProcess.processName || coveredProcess.craftName)
+    .filter(Boolean)
+  return coveredNames.length > 0
+    ? Array.from(new Set(coveredNames)).join('、')
+    : task.processNameZh || task.processCode
+}
+
+function canFactoryReceiveAllRuntimeTasks(factory: Factory, tasks: RuntimeProcessTask[]): boolean {
+  return tasks.every((task) => {
+    const abilityCodes = getRuntimeTaskFactoryAbilityCodes(task)
+    if (abilityCodes.length === 0) return false
+    return abilityCodes.some((processCode) =>
+      factory.processAbilities.some((ability) => canFactoryReceiveProcessAbility(ability, processCode)),
+    )
+  })
+}
+
+function findFactoryCoveringAllRuntimeTasks(tasks: RuntimeProcessTask[]): Factory | undefined {
+  if (tasks.length === 0) return undefined
   return listBusinessFactoryMasterRecords({ includeTestFactories: false })
-    .find((factory) => canFactoryReceiveAllProcesses(factory, processCodes))
+    .find((factory) => canFactoryReceiveAllRuntimeTasks(factory, tasks))
 }
 
 function evaluateSingleFactoryCoverageForParallelGroup(groupTasks: RuntimeProcessTask[]): string | null {
-  const processCodes = Array.from(new Set(groupTasks.map((task) => task.processCode).filter(Boolean)))
-  if (processCodes.length <= 1) return null
-  if (findFactoryCoveringAllProcesses(processCodes)) return null
+  if (findFactoryCoveringAllRuntimeTasks(groupTasks)) return null
 
   const [firstTask] = groupTasks
-  const processText = Array.from(new Set(groupTasks.map((task) => task.processNameZh || task.processCode))).join('、')
+  const processText = Array.from(new Set(groupTasks.map(getRuntimeTaskProcessLabel))).join('、')
   return `同一工厂不具备并行组全部工序能力：第 ${firstTask?.routeStepNo ?? '—'} 步「${firstTask?.routeParallelGroupName || firstTask?.routeParallelGroupId || '并行组'}」需要同一工厂覆盖 ${processText}。`
+}
+
+function evaluateSingleFactoryCoverageForContinuousMerge(sourceTasks: RuntimeProcessTask[]): string | null {
+  if (findFactoryCoveringAllRuntimeTasks(sourceTasks)) return null
+
+  const processText = Array.from(new Set(sourceTasks.map(getRuntimeTaskProcessLabel))).join('、')
+  return `同一工厂不具备连续工序全部工序能力：冻结路线${formatRouteStepRange(sourceTasks)}需要同一工厂覆盖 ${processText}。`
 }
 
 function evaluateSelectedParallelGroups(
@@ -925,6 +954,9 @@ function evaluateContinuousRuntimeTaskMergeWithTasks(
       return { ok: false, message: `中间缺少第 ${prev + 1} 步，不能合并连续工序任务。`, tasks: sourceTasks }
     }
   }
+
+  const factoryCoverageMessage = evaluateSingleFactoryCoverageForContinuousMerge(sourceTasks)
+  if (factoryCoverageMessage) return { ok: false, message: factoryCoverageMessage, tasks: sourceTasks }
 
   return {
     ok: true,

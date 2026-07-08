@@ -162,11 +162,18 @@ async function main(): Promise<void> {
   assertIncludes(runtimeTasksSource, 'routeLaneNo', '连续工序合并必须读取冻结路线并行线')
   assertIncludes(runtimeTasksSource, 'routeParallelGroupId', '连续工序合并必须识别冻结路线并行组')
   assertIncludes(runtimeTasksSource, 'routeParallelAcceptanceMode', '连续工序合并必须识别并行组整体承接口径')
-  ;['连续工序任务不能按明细拆分', '中间缺少第', '并行组未选择完整', '该并行组未允许整体承接', '同一工厂不具备并行组全部工序能力'].forEach((token) => {
+  ;[
+    '连续工序任务不能按明细拆分',
+    '中间缺少第',
+    '并行组未选择完整',
+    '该并行组未允许整体承接',
+    '同一工厂不具备并行组全部工序能力',
+    '同一工厂不具备连续工序全部工序能力',
+  ].forEach((token) => {
     assertIncludes(runtimeTasksSource, token, `连续工序合并校验缺少中文原因：${token}`)
   })
-  assertIncludes(runtimeTasksSource, 'listBusinessFactoryMasterRecords({ includeTestFactories: false })', '并行组整体承接必须基于业务工厂档案校验同一工厂能力')
-  assertIncludes(runtimeTasksSource, 'canFactoryReceiveAllProcesses', '并行组整体承接必须确认同一工厂覆盖全部工序能力')
+  assertIncludes(runtimeTasksSource, 'listBusinessFactoryMasterRecords({ includeTestFactories: false })', '连续工序合并必须基于业务工厂档案校验同一工厂能力')
+  assertIncludes(runtimeTasksSource, 'canFactoryReceiveAllRuntimeTasks', '连续工序合并必须确认同一工厂覆盖全部工序任务能力')
 
   ;['任务类型', '覆盖工序', '规则来源', '路线步骤', '并行组'].forEach((token) => {
     assertIncludes(taskBreakdownSource, token, `任务清单缺少 ${token}`)
@@ -553,6 +560,52 @@ async function main(): Promise<void> {
   assertIncludes(cuttingTaskRowHtml, '我方裁床提供唛架方案', '含裁片连续任务行必须展示我方裁床提供唛架方案')
   assertIncludes(cuttingTaskRowHtml, '三方上报裁片完成数量和可做成衣数', '含裁片连续任务行必须展示三方上报口径')
   assertIncludes(cuttingTaskRowHtml, '不生成我方加工单', '含裁片连续任务行必须展示不生成我方加工单')
+  const continuousDispatchAfterActionHtml = renderPageExportWithTsx(
+    'src/pages/continuous-dispatch.ts',
+    'renderContinuousDispatchPage',
+    `page.handleContinuousDispatchEvent({
+      closest(selector) {
+        if (selector === '[data-continuous-dispatch-action]') {
+          return {
+            dataset: {
+              continuousDispatchAction: 'switch-tab',
+              tab: 'OTHER',
+            },
+          }
+        }
+        return null
+      },
+    })
+    page.handleContinuousDispatchEvent({
+      closest(selector) {
+        if (selector === '[data-continuous-dispatch-field]') {
+          return {
+            dataset: {
+              continuousDispatchField: 'pageSize',
+            },
+            value: '20',
+          }
+        }
+        return null
+      },
+    })
+    page.handleContinuousDispatchEvent({
+      closest(selector) {
+        if (selector === '[data-continuous-dispatch-action]') {
+          return {
+            dataset: {
+              continuousDispatchAction: 'set-bidding',
+              taskId: ${JSON.stringify(cuttingContinuousRuntimeTask.taskId)},
+            },
+          }
+        }
+        return null
+      },
+    })`,
+  )
+  assertIncludes(continuousDispatchAfterActionHtml, '已将连续工序任务设为整任务竞价分配', '连续工序任务整任务分配操作必须可达并展示反馈')
+  assertIncludes(continuousDispatchAfterActionHtml, '<option value="20" selected>20 条/页</option>', '连续工序任务每页条数交互必须生效')
+  assertIncludes(continuousDispatchAfterActionHtml, '招标中', '连续工序任务整任务分配后必须更新分配状态')
   const kolSampleRuntimeTasks = runtimeTasks.filter((task: {
     saleTypeSnapshot?: string
     taskUnitType?: string
