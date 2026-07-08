@@ -76,6 +76,52 @@ for (const team of preparationOwnerTeams) {
   assert.ok(preparationOwnerRoleRules.some((rule) => rule.ownerTeam === team), `责任团队 ${team} 缺少角色映射`)
 }
 
+function materialLines(record: {
+  materialRequirement?: {
+    materialNo?: string
+    materialName?: string
+    materialType?: string
+    imageUrl?: string
+    requiredQty?: number
+    preparedQty?: number
+    issuedQty?: number
+    unit?: string
+    items?: Array<{
+      materialNo?: string
+      materialName?: string
+      materialType?: string
+      imageUrl?: string
+      requiredQty?: number
+      preparedQty?: number
+      issuedQty?: number
+      unit?: string
+    }>
+  }
+}) {
+  const requirement = record.materialRequirement
+  if (!requirement) return []
+  return requirement.items?.length ? requirement.items : [requirement]
+}
+
+for (const record of productionPreparationDataModule.productionPreparationRecords) {
+  const lines = materialLines(record)
+  assert.ok(lines.length > 0, `${record.recordNo} 必须有本次用料明细`)
+  for (const material of lines) {
+    assert.ok(material.materialName, `${record.recordNo} 本次用料必须有物料名称`)
+    assert.ok(material.materialNo, `${record.recordNo} 本次用料必须有物料编码`)
+    assert.ok(material.materialType, `${record.recordNo} 本次用料必须有物料类型`)
+    assert.ok(material.imageUrl?.startsWith('https://images.unsplash.com/'), `${record.recordNo} 本次用料必须有真实图片 URL`)
+    assert.equal(typeof material.requiredQty, 'number', `${record.recordNo} 本次用料必须有应备数量`)
+    assert.equal(typeof material.preparedQty, 'number', `${record.recordNo} 本次用料必须有已配数量`)
+    assert.equal(typeof material.issuedQty, 'number', `${record.recordNo} 本次用料必须有已领数量`)
+    assert.ok(material.unit, `${record.recordNo} 本次用料必须有单位`)
+  }
+}
+assert.ok(
+  productionPreparationDataModule.productionPreparationRecords.some((record) => record.recordNo === 'PREP-202603-001' && !record.workItemsConfirmedAt),
+  'Mock 数据必须覆盖跟单尚未确认类型的生产准备记录',
+)
+
 const menuSource = source('src/data/app-shell-config.ts')
 const productionMenuStart = menuSource.indexOf("key: 'fcs-platform-production'")
 assert.ok(productionMenuStart >= 0, '菜单缺少生产单管理分组')
@@ -1179,10 +1225,16 @@ const ledgerHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger
 for (const text of [
   '生产准备时效',
   '准备台账',
-  '花型师',
+  '开始日期',
+  '结束日期',
+  '责任团队',
+  '责任人',
 ] as const) {
   assertHtmlIncludes(ledgerHtml, text, `准备台账 HTML 缺少「${text}」`)
 }
+assert.ok(!ledgerHtml.includes('>月份<'), '准备台账筛选不应继续展示月份筛选')
+assert.ok(!ledgerHtml.includes('>跟单<'), '准备台账筛选不应继续展示跟单筛选')
+assert.ok(!ledgerHtml.includes('>花型师<'), '准备台账筛选不应继续展示花型师筛选')
 for (const text of [
   '月度统计',
   '明细统计',
@@ -1199,8 +1251,7 @@ const adjustedLedgerHtml = await renderAt('/fcs/production/preparation-timing?ta
 for (const text of [
   '做大货阈值：300',
   '达到做大货要求',
-  '商品类型',
-  '跟单确认',
+  '非烫画&amp;非毛织（纯梭织）',
   '确认工作项',
   '共 6 条，第 1/2 页',
   '上一页',
@@ -1209,6 +1260,10 @@ for (const text of [
   assertHtmlIncludes(adjustedLedgerHtml, text, `调整后准备台账 HTML 缺少「${text}」`)
 }
 assert.ok(!adjustedLedgerHtml.includes('PREP-202603-006'), '准备台账第一页 tbody 不应渲染第 6 条记录')
+assert.ok(!adjustedLedgerHtml.includes('跟单确认：'), '商品类型列不应继续展示「跟单确认：」前缀')
+assert.ok(!adjustedLedgerHtml.includes('商品\t商品类型\t'), '准备台账不应继续把商品类型作为独立列')
+assert.ok(!adjustedLedgerHtml.includes('<th class="px-4 py-3 font-medium">当前卡点</th>'), '准备台账列表不应继续展示当前卡点列')
+assertHtmlIncludes(adjustedLedgerHtml, '待跟单确认', '准备台账必须展示跟单尚未确认类型的 mock 数据')
 assertHtmlIncludes(adjustedLedgerHtml, '维护染色要求', '已确认且选择染色项的记录必须展示维护染色要求入口')
 const adjustedLedgerPage2Html = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03&page=2')
 assertHtmlIncludes(adjustedLedgerPage2Html, '共 6 条，第 2/2 页', '准备台账第二页必须显示分页状态')
@@ -1258,6 +1313,10 @@ for (const outputType of expectedOutputTypes) {
 const pendingOutputHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001')
 const pendingOutputDrawerHtml = detailDrawerHtml(pendingOutputHtml, 'PREP-202603-001')
 assertHtmlIncludes(pendingOutputDrawerHtml, '待跟单确认', '未确认工作项记录必须展示产出空态')
+for (const text of ['本次用料', '物料名称', '物料编码', '物料类型', '应备', '已配', '已领', 'FAB-202603-001', '60S 棉府绸印花底布'] as const) {
+  assertHtmlIncludes(pendingOutputDrawerHtml, text, `详情抽屉本次用料缺少「${text}」`)
+}
+assertHtmlIncludes(pendingOutputDrawerHtml, 'https://images.unsplash.com/', '详情抽屉本次用料必须展示真实图片')
 for (const text of ['责任角色', '版师主管', '操作梭织基码纸样'] as const) {
   assertHtmlIncludes(pendingOutputDrawerHtml, text, `准备项卡片 HTML 缺少责任规则「${text}」`)
 }

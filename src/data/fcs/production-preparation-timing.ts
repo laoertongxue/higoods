@@ -65,6 +65,24 @@ export interface PreparationDownloadRecord {
 export interface PreparationMaterialRequirement {
   materialNo: string
   materialName: string
+  materialType?: string
+  imageUrl?: string
+  requiredQty?: number
+  preparedQty?: number
+  issuedQty?: number
+  unit?: string
+  items?: PreparationMaterialLine[]
+}
+
+export interface PreparationMaterialLine {
+  materialNo: string
+  materialName: string
+  materialType: string
+  imageUrl: string
+  requiredQty: number
+  preparedQty: number
+  issuedQty: number
+  unit: string
 }
 
 export interface PreparationDyeRequirement extends PreparationMaterialRequirement {
@@ -224,11 +242,14 @@ export interface PreparationOutputBuildInput {
 
 export interface ProductionPreparationFilter {
   month?: string
+  startDate?: string
+  endDate?: string
   merchandiserName?: string
   buyerName?: string
   recordStatus?: PreparationRecordStatus | '全部'
   itemType?: PreparationItemType | '全部'
   ownerTeam?: string
+  ownerName?: string
   patternDesigner?: string
   overdueOnly?: boolean
   keyword?: string
@@ -242,6 +263,7 @@ export interface ProductionPreparationFilterOptions {
   recordStatuses: Array<PreparationRecordStatus | '全部'>
   itemTypes: Array<PreparationItemType | '全部'>
   ownerTeams: string[]
+  ownerNames: string[]
   patternDesigners: typeof patternDesignerOptions
 }
 
@@ -495,6 +517,30 @@ function opt(
   }
 }
 
+function materialRequirement(
+  materialNo: string,
+  materialName: string,
+  materialType: string,
+  imageUrl: string,
+  requiredQty: number,
+  preparedQty: number,
+  issuedQty: number,
+  unit = '米',
+  items?: PreparationMaterialLine[],
+): PreparationMaterialRequirement {
+  return {
+    materialNo,
+    materialName,
+    materialType,
+    imageUrl,
+    requiredQty,
+    preparedQty,
+    issuedQty,
+    unit,
+    items,
+  }
+}
+
 function createItems(recordId: string, productionOrderNo: string, seeds: PreparationItemSeed[]): ProductionPreparationItem[] {
   return seeds.map((seed, index) => {
     const itemId = `${recordId}-item-${String(index + 1).padStart(2, '0')}`
@@ -583,7 +629,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     workItemsConfirmedBy: '',
     workItemsConfirmedAt: '',
     prepTypeOverrideReason: '',
-    materialRequirement: { materialNo: '', materialName: '' },
+    materialRequirement: materialRequirement('FAB-202603-001', '60S 棉府绸印花底布', '主面料', 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=240&q=80', 820, 0, 0),
     sampleRequirementText: '待跟单确认本次用料和做款/打板要求。',
     confirmationRemark: '',
     productionDemandNo: '',
@@ -627,7 +673,10 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Raka',
     prepTypeConfirmedAt: '2026-03-02T16:20:00',
     prepTypeOverrideReason: '',
-    materialRequirement: { materialNo: 'FAB-202603-002', materialName: '12GG 棉羊毛混纺纱 / 60S 棉府绸拼接料' },
+    materialRequirement: materialRequirement('YRN-202603-002', '12GG 棉羊毛混纺纱', '主纱线', 'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?auto=format&fit=crop&w=240&q=80', 420, 360, 260, 'kg', [
+      { materialNo: 'YRN-202603-002', materialName: '12GG 棉羊毛混纺纱', materialType: '主纱线', imageUrl: 'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?auto=format&fit=crop&w=240&q=80', requiredQty: 420, preparedQty: 360, issuedQty: 260, unit: 'kg' },
+      { materialNo: 'FAB-202603-002B', materialName: '60S 棉府绸拼接料', materialType: '拼接面料', imageUrl: 'https://images.unsplash.com/photo-1562157873-818bc0726f68?auto=format&fit=crop&w=240&q=80', requiredQty: 260, preparedQty: 180, issuedQty: 90, unit: '米' },
+    ]),
     sampleRequirementText: '毛织前片按 S 码起版，梭织拼接口按技术包 V1.8 对齐。',
     confirmationRemark: '选择纱线染色和面料染色，毛织基码先行。',
     productionDemandNo: 'PD-202603-002',
@@ -674,7 +723,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Maya',
     prepTypeConfirmedAt: '2026-03-03T10:50:00',
     prepTypeOverrideReason: '',
-    materialRequirement: { materialNo: 'FAB-202603-003', materialName: '32S 精梳棉单面布' },
+    materialRequirement: materialRequirement('FAB-202603-003', '32S 精梳棉单面布', '针织主布', 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=240&q=80', 760, 760, 760),
     sampleRequirementText: '按 M 码确认 DTF 直喷位置，胸前图案居中，袖口不加印。',
     confirmationRemark: '只有花型准备项，无染色和辅料下单。',
     productionDemandNo: 'PD-202603-003',
@@ -713,7 +762,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Nadia',
     prepTypeConfirmedAt: '2026-03-04T10:20:00',
     prepTypeOverrideReason: '',
-    materialRequirement: { materialNo: 'FAB-202603-004', materialName: '12GG 羊毛混纺纱' },
+    materialRequirement: materialRequirement('YRN-202603-004', '12GG 羊毛混纺纱', '主纱线', 'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?auto=format&fit=crop&w=240&q=80', 380, 380, 220, 'kg'),
     sampleRequirementText: '按 S 码打基码，帽绳孔位和下摆罗纹按原样保留。',
     confirmationRemark: '毛织款选择面料染色，先确认雾蓝色卡。',
     productionDemandNo: 'PD-202603-004',
@@ -756,7 +805,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Nadia',
     prepTypeConfirmedAt: '2026-03-05T14:45:00',
     prepTypeOverrideReason: '',
-    materialRequirement: { materialNo: 'FAB-202603-005', materialName: '轻量防泼尼龙布' },
+    materialRequirement: materialRequirement('FAB-202603-005', '轻量防泼尼龙布', '梭织主布', 'https://images.unsplash.com/photo-1534639077088-d702bcf685e2?auto=format&fit=crop&w=240&q=80', 690, 690, 690),
     sampleRequirementText: '按 M 码打版，袋口和下摆抽绳结构按技术包 V0.9 执行。',
     confirmationRemark: '纯梭织款，花型和面料染色均不选择。',
     productionDemandNo: 'PD-202603-005',
@@ -800,7 +849,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Raka',
     prepTypeConfirmedAt: '2026-03-06T10:15:00',
     prepTypeOverrideReason: '',
-    materialRequirement: { materialNo: 'YRN-202603-006', materialName: '14GG 精梳棉纱' },
+    materialRequirement: materialRequirement('YRN-202603-006', '14GG 精梳棉纱', '主纱线', 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?auto=format&fit=crop&w=240&q=80', 410, 410, 410, 'kg'),
     sampleRequirementText: '按 S 码做基码，领口和袖口罗纹弹力需先确认。',
     confirmationRemark: '使用现货藏青纱线，无需染色调色。',
     productionDemandNo: 'PD-202603-006',
@@ -843,7 +892,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Raka',
     prepTypeConfirmedAt: '2026-04-01T09:45:00',
     prepTypeOverrideReason: '',
-    materialRequirement: { materialNo: 'FAB-202604-001', materialName: '亚麻棉混纺布' },
+    materialRequirement: materialRequirement('FAB-202604-001', '亚麻棉混纺布', '梭织主布', 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=240&q=80', 880, 880, 880),
     sampleRequirementText: '按 M 码打基码，领口止口和袖肥按亚麻缩水预留。',
     confirmationRemark: '纯梭织亚麻款，不选择花型和染色。',
     productionDemandNo: 'PD-202604-001',
@@ -887,7 +936,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Sinta',
     prepTypeConfirmedAt: '2026-04-02T11:55:00',
     prepTypeOverrideReason: '',
-    materialRequirement: { materialNo: 'FAB-202604-002', materialName: '缎面拼色面料' },
+    materialRequirement: materialRequirement('FAB-202604-002', '缎面拼色面料', '拼接面料', 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=240&q=80', 330, 240, 120),
     sampleRequirementText: '按 S 码打版，缎面拼接位置需和毛织片宽对齐。',
     confirmationRemark: '面料染色已选，色卡超时后由跟单继续催办。',
     productionDemandNo: 'PD-202604-002',
@@ -930,7 +979,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Raka',
     prepTypeConfirmedAt: '2026-04-03T10:12:00',
     prepTypeOverrideReason: '',
-    materialRequirement: { materialNo: 'FAB-202604-003', materialName: '水洗棉斜纹布' },
+    materialRequirement: materialRequirement('FAB-202604-003', '水洗棉斜纹布', '梭织主布', 'https://images.unsplash.com/photo-1542272604-787c3835535d?auto=format&fit=crop&w=240&q=80', 520, 360, 180),
     sampleRequirementText: '按 M 码确认短裤版型，直喷图案按裤脚外侧定位。',
     confirmationRemark: '烫画&直喷类型，仅保留花型准备项。',
     productionDemandNo: 'PD-202604-003',
@@ -969,7 +1018,10 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Maya',
     prepTypeConfirmedAt: '2026-04-04T15:40:00',
     prepTypeOverrideReason: '正式技术包补充后片梭织拼接，需同时准备毛织和梭织纸样',
-    materialRequirement: { materialNo: 'FAB-202604-004', materialName: '毛织罗纹纱 / 梭织后片棉布' },
+    materialRequirement: materialRequirement('YRN-202604-004', '毛织罗纹纱', '主纱线', 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?auto=format&fit=crop&w=240&q=80', 360, 320, 180, 'kg', [
+      { materialNo: 'YRN-202604-004', materialName: '毛织罗纹纱', materialType: '主纱线', imageUrl: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?auto=format&fit=crop&w=240&q=80', requiredQty: 360, preparedQty: 320, issuedQty: 180, unit: 'kg' },
+      { materialNo: 'FAB-202604-004B', materialName: '梭织后片棉布', materialType: '拼接面料', imageUrl: 'https://images.unsplash.com/photo-1562157873-818bc0726f68?auto=format&fit=crop&w=240&q=80', requiredQty: 220, preparedQty: 160, issuedQty: 80, unit: '米' },
+    ]),
     sampleRequirementText: '毛织罗纹按 S 码起版，后片梭织拼接需保留图案位置。',
     confirmationRemark: '人工修正为毛织&梭织，选择花型和面料染色，不选纱线染色。',
     productionDemandNo: 'PD-202604-004',
@@ -1016,7 +1068,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Maya',
     prepTypeConfirmedAt: '2026-04-05T11:10:00',
     prepTypeOverrideReason: '',
-    materialRequirement: { materialNo: 'FAB-202604-005', materialName: '26S 棉涤单面布' },
+    materialRequirement: materialRequirement('FAB-202604-005', '26S 棉涤单面布', '针织主布', 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=240&q=80', 610, 300, 0),
     sampleRequirementText: '按 M 码确认基础 T 恤版型，DTG 图案需预留洗后缩率。',
     confirmationRemark: '花型待分配，未选择染色调色。',
     productionDemandNo: 'PD-202604-005',
@@ -1055,7 +1107,10 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     prepTypeConfirmedBy: 'Sinta',
     prepTypeConfirmedAt: '2026-04-06T10:15:00',
     prepTypeOverrideReason: '',
-    materialRequirement: { materialNo: 'FAB-202604-006', materialName: '羊毛混纺纱 / 浅灰梭织拼接布' },
+    materialRequirement: materialRequirement('YRN-202604-006', '羊毛混纺纱', '主纱线', 'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?auto=format&fit=crop&w=240&q=80', 450, 450, 450, 'kg', [
+      { materialNo: 'YRN-202604-006', materialName: '羊毛混纺纱', materialType: '主纱线', imageUrl: 'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?auto=format&fit=crop&w=240&q=80', requiredQty: 450, preparedQty: 450, issuedQty: 450, unit: 'kg' },
+      { materialNo: 'FAB-202604-006B', materialName: '浅灰梭织拼接布', materialType: '拼接面料', imageUrl: 'https://images.unsplash.com/photo-1562157873-818bc0726f68?auto=format&fit=crop&w=240&q=80', requiredQty: 280, preparedQty: 280, issuedQty: 280, unit: '米' },
+    ]),
     sampleRequirementText: '毛织和梭织按同一 S 码样衣确认，开衫门襟需对齐拼接布色差。',
     confirmationRemark: '同时选择纱线染色和面料染色，两个色卡需分开回传。',
     productionDemandNo: 'PD-202604-006',
@@ -1090,6 +1145,14 @@ function normalize(value: unknown): string {
   return String(value ?? '').trim().toLowerCase()
 }
 
+function dateInRange(dateTime: string, startDate?: string, endDate?: string): boolean {
+  if (!dateTime) return false
+  const date = dateTime.slice(0, 10)
+  if (startDate && date < startDate) return false
+  if (endDate && date > endDate) return false
+  return true
+}
+
 function resolvePatternDesignerName(value?: string): string {
   if (!value) return ''
   const option = patternDesignerOptions.find((designer) => designer.id === value || designer.name === value)
@@ -1109,6 +1172,14 @@ function matchesKeyword(record: ProductionPreparationRecord, keyword: string): b
     record.buyerName,
     record.merchandiserName,
     record.confirmedProductPrepType,
+    record.materialRequirement.materialNo,
+    record.materialRequirement.materialName,
+    record.materialRequirement.materialType,
+    ...((record.materialRequirement.items ?? []).flatMap((material) => [
+      material.materialNo,
+      material.materialName,
+      material.materialType,
+    ])),
     ...record.craftTags,
     ...record.categoryTags,
     ...record.items.flatMap((item) => [
@@ -1147,6 +1218,7 @@ function matchesCompletionItemFilter(item: FlattenedPreparationItem, filter: Pro
   if (!isSelectedPreparationItem(item) || item.recordStatus === '已关闭') return false
   if (filter.itemType && filter.itemType !== '全部' && item.itemType !== filter.itemType) return false
   if (filter.ownerTeam && item.ownerTeam !== filter.ownerTeam) return false
+  if (filter.ownerName && item.ownerName !== filter.ownerName) return false
   if (patternDesigner && (item.itemType !== '数码印/DTF/DTG花型' || item.patternDesignerName !== patternDesigner)) return false
   if (filter.overdueOnly && !(item.status === '已超时' || item.overdueHours > 0)) return false
   if (filter.quickFilter === '待上传完成图' && !hasPatternUploadGap(item)) return false
@@ -1174,7 +1246,11 @@ export function filterProductionPreparationRecords(
     const selectedItems = record.items.filter(isSelectedPreparationItem)
     const filterableItems = record.status === '已关闭' ? [] : selectedItems
 
-    if (filter.month) {
+    if (filter.startDate || filter.endDate) {
+      const enteredInRange = dateInRange(record.enteredAt, filter.startDate, filter.endDate)
+      const finishedInRange = filterableItems.some((item) => dateInRange(item.actualFinishAt, filter.startDate, filter.endDate))
+      if (!enteredInRange && !finishedInRange) return false
+    } else if (filter.month) {
       const enteredInMonth = record.enteredAt.startsWith(filter.month)
       const finishedInMonth = filterableItems.some((item) => item.actualFinishAt.startsWith(filter.month ?? ''))
       if (!enteredInMonth && !finishedInMonth) return false
@@ -1193,6 +1269,12 @@ export function filterProductionPreparationRecords(
     if (
       filter.ownerTeam &&
       !filterableItems.some((item) => item.ownerTeam === filter.ownerTeam)
+    ) {
+      return false
+    }
+    if (
+      filter.ownerName &&
+      !filterableItems.some((item) => item.ownerName === filter.ownerName)
     ) {
       return false
     }
@@ -1360,6 +1442,7 @@ export function getProductionPreparationFilterOptions(): ProductionPreparationFi
     recordStatuses: ['全部', ...preparationRecordStatuses],
     itemTypes: ['全部', ...preparationItemTypes],
     ownerTeams: preparationOwnerTeams,
+    ownerNames: uniqueSorted(items.map((item) => item.ownerName).filter((name) => name && name !== '待确认' && name !== '待分配')),
     patternDesigners: patternDesignerOptions,
   }
 }

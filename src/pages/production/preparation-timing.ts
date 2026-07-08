@@ -23,6 +23,7 @@ import {
   type MonthlyPreparationStatRow,
   type PreparationDyeRequirement,
   type PreparationItemType,
+  type PreparationMaterialLine,
   type PreparationRecordStatus,
   type PreparationUploadRecord,
   type ProductPrepType,
@@ -38,11 +39,14 @@ const LEDGER_PAGE_SIZE = 5
 const MONTHLY_STATS_PAGE_SIZE = 5
 const DETAIL_STATS_PAGE_SIZE = 8
 const LEDGER_FILTER_KEYS = [
+  'startDate',
+  'endDate',
   'merchandiserName',
   'buyerName',
   'recordStatus',
   'itemType',
   'ownerTeam',
+  'ownerName',
   'patternDesigner',
   'overdueOnly',
   'keyword',
@@ -118,23 +122,39 @@ function renderOptions(options: Array<string | { value: string; label: string }>
 
 function parseFilter(params: URLSearchParams): ProductionPreparationFilter {
   const filter: ProductionPreparationFilter = {}
+  const startDate = valueOf(params, 'startDate')
+  const endDate = valueOf(params, 'endDate')
   const merchandiserName = valueOf(params, 'merchandiserName')
   const buyerName = valueOf(params, 'buyerName')
   const recordStatus = valueOf(params, 'recordStatus')
   const itemType = valueOf(params, 'itemType')
   const ownerTeam = valueOf(params, 'ownerTeam')
+  const ownerName = valueOf(params, 'ownerName')
   const patternDesigner = valueOf(params, 'patternDesigner')
   const keyword = valueOf(params, 'keyword')
 
+  if (startDate) filter.startDate = startDate
+  if (endDate) filter.endDate = endDate
   if (merchandiserName) filter.merchandiserName = merchandiserName
   if (buyerName) filter.buyerName = buyerName
   if (recordStatus && recordStatus !== '全部') filter.recordStatus = recordStatus as PreparationRecordStatus
   if (itemType && itemType !== '全部') filter.itemType = itemType as PreparationItemType
   if (ownerTeam) filter.ownerTeam = ownerTeam
+  if (ownerName) filter.ownerName = ownerName
   if (patternDesigner) filter.patternDesigner = patternDesigner
   if (params.get('overdueOnly') === 'true') filter.overdueOnly = true
   if (keyword) filter.keyword = keyword
   return filter
+}
+
+function startDateOfMonth(month: string): string {
+  return `${month || DEFAULT_MONTH}-01`
+}
+
+function endDateOfMonth(month: string): string {
+  const [year, monthValue] = (month || DEFAULT_MONTH).split('-').map((part) => Number(part))
+  if (!year || !monthValue) return `${DEFAULT_MONTH}-31`
+  return new Date(year, monthValue, 0).toISOString().slice(0, 10)
 }
 
 function getLedgerQueryValues(params: URLSearchParams, month: string): Record<string, string> {
@@ -165,6 +185,7 @@ function filterLedgerRecords(
   month: string,
   records: ProductionPreparationRecord[],
 ): ProductionPreparationRecord[] {
+  if (filter.startDate || filter.endDate) return filterProductionPreparationRecords(filter, records)
   return filterProductionPreparationRecords(filter, records).filter((record) => record.enteredAt.startsWith(month))
 }
 
@@ -342,26 +363,35 @@ function renderStatsHeader(activeTab: 'monthly' | 'detail', month: string): stri
 
 function renderLedgerFilter(params: URLSearchParams, month: string): string {
   const options = getProductionPreparationFilterOptions()
+  const startDate = valueOf(params, 'startDate') || startDateOfMonth(month)
+  const endDate = valueOf(params, 'endDate') || endDateOfMonth(month)
+  const ownerTeam = valueOf(params, 'ownerTeam')
+  const ownerNames = ownerTeam
+    ? flattenProductionPreparationItems()
+      .filter((item) => item.ownerTeam === ownerTeam)
+      .map((item) => item.ownerName)
+      .filter((name) => name && name !== '待确认' && name !== '待分配')
+    : []
+  const ownerNameOptions = Array.from(new Set(ownerNames)).sort()
 
   return `
-    <section data-prep-filter-scope class="rounded-xl border bg-card p-5">
+    <section data-prep-filter-scope class="rounded-xl border bg-card p-3">
       <input type="hidden" name="tab" value="ledger" />
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
-        ${renderSelectField('月份', 'month', options.months, month)}
-        ${renderSelectField('跟单', 'merchandiserName', ['', ...options.merchandiserNames], valueOf(params, 'merchandiserName'), '全部跟单')}
+      <input type="hidden" name="month" value="${escapeHtml(month)}" />
+      <div class="flex flex-nowrap items-end gap-2 overflow-x-auto pb-1">
+        <label class="flex min-w-[150px] flex-col gap-1 text-sm">
+          <span class="text-muted-foreground">开始日期</span>
+          <input type="date" name="startDate" value="${escapeHtml(startDate)}" class="h-9 rounded-md border bg-background px-2" />
+        </label>
+        <label class="flex min-w-[150px] flex-col gap-1 text-sm">
+          <span class="text-muted-foreground">结束日期</span>
+          <input type="date" name="endDate" value="${escapeHtml(endDate)}" class="h-9 rounded-md border bg-background px-2" />
+        </label>
         ${renderSelectField('买手', 'buyerName', ['', ...options.buyerNames], valueOf(params, 'buyerName'), '全部买手')}
         ${renderSelectField('记录状态', 'recordStatus', options.recordStatuses, valueOf(params, 'recordStatus') || '全部')}
         ${renderSelectField('准备项类型', 'itemType', options.itemTypes, valueOf(params, 'itemType') || '全部')}
         ${renderSelectField('责任团队', 'ownerTeam', ['', ...options.ownerTeams], valueOf(params, 'ownerTeam'), '全部团队')}
-        ${renderSelectField(
-          '花型师',
-          'patternDesigner',
-          [
-            { value: '', label: '全部花型师' },
-            ...options.patternDesigners.map((designer) => ({ value: designer.name, label: `${designer.name}｜${designer.teamName}` })),
-          ],
-          valueOf(params, 'patternDesigner'),
-        )}
+        ${renderSelectField('责任人', 'ownerName', ['', ...ownerNameOptions], valueOf(params, 'ownerName'), ownerTeam ? '全部责任人' : '先选团队')}
         ${renderSelectField(
           '是否超时',
           'overdueOnly',
@@ -371,14 +401,12 @@ function renderLedgerFilter(params: URLSearchParams, month: string): string {
           ],
           valueOf(params, 'overdueOnly'),
         )}
-        <label class="flex flex-col gap-1 text-sm xl:col-span-2">
+        <label class="flex min-w-[240px] flex-col gap-1 text-sm">
           <span class="text-muted-foreground">关键词</span>
-          <input name="keyword" value="${escapeHtml(valueOf(params, 'keyword'))}" placeholder="商品 / 生产单 / 准备项 / 责任人" class="h-10 rounded-md border bg-background px-3" />
+          <input name="keyword" value="${escapeHtml(valueOf(params, 'keyword'))}" placeholder="商品 / 生产单 / 准备项 / 责任人" class="h-9 rounded-md border bg-background px-3" />
         </label>
-      </div>
-      <div class="mt-4 flex flex-wrap items-center gap-2">
-        <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-prep-filter-scope]" data-nav-base="${PAGE_PATH}">筛选</button>
-        <button type="button" class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${PAGE_PATH}?tab=ledger&month=${escapeHtml(DEFAULT_MONTH)}">重置</button>
+        <button type="button" class="inline-flex h-9 shrink-0 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-prep-filter-scope]" data-nav-base="${PAGE_PATH}">筛选</button>
+        <button type="button" class="inline-flex h-9 shrink-0 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${PAGE_PATH}?tab=ledger&month=${escapeHtml(DEFAULT_MONTH)}&startDate=${escapeHtml(startDateOfMonth(DEFAULT_MONTH))}&endDate=${escapeHtml(endDateOfMonth(DEFAULT_MONTH))}">重置</button>
       </div>
     </section>
   `
@@ -397,7 +425,7 @@ function renderSelectField(
   return `
     <label class="flex flex-col gap-1 text-sm">
       <span class="text-muted-foreground">${escapeHtml(label)}</span>
-      <select name="${escapeHtml(name)}" class="h-10 rounded-md border bg-background px-3">
+      <select name="${escapeHtml(name)}" class="h-9 min-w-[132px] rounded-md border bg-background px-2">
         ${renderOptions(normalizedOptions, selected)}
       </select>
     </label>
@@ -454,15 +482,13 @@ function renderKpis(records: ProductionPreparationRecord[], month: string, filte
   ]
 
   return `
-    <section class="grid grid-cols-1 gap-4 md:grid-cols-3 2xl:grid-cols-6">
+    <section class="grid grid-cols-1 gap-2 md:grid-cols-3 2xl:grid-cols-6">
       ${cards.map((card) => `
-        <div class="rounded-xl border bg-card p-4">
-          <div class="text-sm text-muted-foreground">${escapeHtml(card.label)}</div>
-          <div class="mt-2 flex items-end gap-1">
-            <span class="text-2xl font-semibold">${card.value.toLocaleString()}</span>
-            <span class="pb-1 text-xs text-muted-foreground">${escapeHtml(card.unit)}</span>
+        <div class="rounded-lg border bg-card px-3 py-2">
+          <div class="flex min-w-0 items-center justify-between gap-2 text-sm">
+            <span class="truncate text-muted-foreground">${escapeHtml(card.label)}</span>
+            <span class="shrink-0 font-semibold">${card.value.toLocaleString()}<span class="ml-0.5 text-xs font-normal text-muted-foreground">${escapeHtml(card.unit)}</span></span>
           </div>
-          <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(card.hint)}</div>
         </div>
       `).join('')}
     </section>
@@ -472,8 +498,56 @@ function renderKpis(records: ProductionPreparationRecord[], month: string, filte
 function renderProductTypeCell(record: ProductionPreparationRecord, confirmed: boolean): string {
   const label = confirmed ? record.confirmedProductPrepType : '待跟单确认'
   return `
-    <div class="min-w-[170px]">
-      <div class="text-sm font-medium">跟单确认：${escapeHtml(label)}</div>
+    <span class="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">${escapeHtml(label)}</span>
+  `
+}
+
+function materialLines(record: ProductionPreparationRecord): PreparationMaterialLine[] {
+  if (record.materialRequirement.items?.length) return record.materialRequirement.items
+  const {
+    materialNo,
+    materialName,
+    materialType = '主面料',
+    imageUrl = '',
+    requiredQty = 0,
+    preparedQty = 0,
+    issuedQty = 0,
+    unit = '米',
+  } = record.materialRequirement
+  if (!materialNo && !materialName) return []
+  return [{ materialNo, materialName, materialType, imageUrl, requiredQty, preparedQty, issuedQty, unit }]
+}
+
+function renderMaterialRequirementTable(record: ProductionPreparationRecord): string {
+  const lines = materialLines(record)
+  if (!lines.length) {
+    return '<div class="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">待跟单维护本次用料。</div>'
+  }
+
+  return `
+    <div class="overflow-hidden rounded-lg border">
+      <table class="w-full text-sm">
+        <thead class="bg-muted/60 text-xs text-muted-foreground">
+          <tr>
+            ${['图片', '物料名称', '物料编码', '物料类型', '应备', '已配', '已领'].map((head) => `<th class="px-3 py-2 text-left font-medium">${escapeHtml(head)}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${lines.map((material) => `
+            <tr class="border-t">
+              <td class="px-3 py-2">
+                ${material.imageUrl ? `<img src="${escapeHtml(material.imageUrl)}" alt="${escapeHtml(material.materialName)}" class="h-12 w-12 rounded-md border object-cover" />` : '<div class="h-12 w-12 rounded-md border bg-muted" />'}
+              </td>
+              <td class="px-3 py-2 font-medium">${escapeHtml(material.materialName)}</td>
+              <td class="px-3 py-2 font-mono text-xs">${escapeHtml(material.materialNo)}</td>
+              <td class="px-3 py-2">${escapeHtml(material.materialType)}</td>
+              <td class="px-3 py-2">${material.requiredQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
+              <td class="px-3 py-2">${material.preparedQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
+              <td class="px-3 py-2">${material.issuedQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
     </div>
   `
 }
@@ -580,22 +654,22 @@ function renderLedgerTable(records: ProductionPreparationRecord[], month: string
       <div class="flex items-center justify-between border-b px-5 py-4">
         <div>
           <h2 class="text-base font-semibold">准备台账</h2>
-          <p class="text-xs text-muted-foreground">台账月份按进入准备时间筛选，避免混入其他月份完成项。</p>
+          <p class="text-xs text-muted-foreground">按日期段筛选进入准备或完成的记录，避免混入其他时间范围的准备项。</p>
         </div>
         <span class="text-xs text-muted-foreground">共 ${records.length} 条，第 ${page}/${ledgerPageCount(records)} 页</span>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[1280px] text-sm">
+        <table class="w-full min-w-[1080px] text-sm">
           <thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
             <tr>
-              ${['商品', '商品类型', '选品/买手/跟单', '达到做大货要求', '进入准备时间', '整体状态', '完成进度', '当前卡点', '产出', '预计完成时间', '操作'].map((head) => `<th class="px-4 py-3 font-medium">${escapeHtml(head)}</th>`).join('')}
+              ${['商品', '选品/买手/跟单', '达到做大货要求', '进入准备时间', '整体状态', '完成进度', '产出', '预计完成时间', '操作'].map((head) => `<th class="px-4 py-3 font-medium">${escapeHtml(head)}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
             ${
               pageRecords.length
                 ? pageRecords.map((record) => renderLedgerRow(record, month, params)).join('')
-                : `<tr><td colspan="11" class="h-28 px-4 text-center text-muted-foreground">当前筛选条件下暂无生产准备记录</td></tr>`
+                : `<tr><td colspan="9" class="h-28 px-4 text-center text-muted-foreground">当前筛选条件下暂无生产准备记录</td></tr>`
             }
           </tbody>
         </table>
@@ -616,13 +690,11 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string, par
           <img src="${escapeHtml(record.imageUrl)}" alt="${escapeHtml(record.spuName)}" class="h-14 w-14 rounded-md border object-cover" />
           <div>
             <div class="font-medium text-foreground">${escapeHtml(record.spuName)}</div>
+            <div class="mt-1">${renderProductTypeCell(record, confirmed)}</div>
             <div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(record.spuCode)}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.sourceReason)}</div>
           </div>
         </div>
-      </td>
-      <td class="px-4 py-4">
-        ${renderProductTypeCell(record, confirmed)}
       </td>
       <td class="px-4 py-4">
         <div>选品：${escapeHtml(record.selectionName)}</div>
@@ -648,7 +720,6 @@ function renderLedgerRow(record: ProductionPreparationRecord, month: string, par
         </div>
         <div class="mt-1 text-xs text-muted-foreground">${progress.rate}%</div>
       </td>
-      <td class="px-4 py-4 max-w-[220px] text-xs text-muted-foreground">${escapeHtml(record.currentBlockerText || '暂无卡点')}</td>
       <td class="px-4 py-4">
         ${renderLedgerOutputList(record)}
       </td>
@@ -828,8 +899,11 @@ function renderConfirmationRequirementSection(record: ProductionPreparationRecor
   return `
     <section class="rounded-xl border bg-card p-4">
       <h3 class="font-semibold">跟单确认要求</h3>
-      <div class="mt-3 grid gap-3 text-sm md:grid-cols-3">
-        <div><p class="text-xs text-muted-foreground">本次用料</p><p>${escapeHtml(record.materialRequirement.materialNo)} ${escapeHtml(record.materialRequirement.materialName)}</p></div>
+      <div class="mt-3">
+        <p class="mb-2 text-xs text-muted-foreground">本次用料</p>
+        ${renderMaterialRequirementTable(record)}
+      </div>
+      <div class="mt-3 grid gap-3 text-sm md:grid-cols-2">
         <div><p class="text-xs text-muted-foreground">做款/打板要求</p><p>${escapeHtml(record.sampleRequirementText || '-')}</p></div>
         <div><p class="text-xs text-muted-foreground">通用备注</p><p>${escapeHtml(record.confirmationRemark || '-')}</p></div>
       </div>
@@ -1295,15 +1369,33 @@ function renderOperationLogs(record: ProductionPreparationRecord): string {
 
 function renderStatsFilter(params: URLSearchParams, month: string, activeTab: 'monthly' | 'detail'): string {
   const options = getProductionPreparationFilterOptions()
+  const startDate = valueOf(params, 'startDate') || startDateOfMonth(month)
+  const endDate = valueOf(params, 'endDate') || endDateOfMonth(month)
+  const ownerTeam = valueOf(params, 'ownerTeam')
+  const ownerNames = ownerTeam
+    ? flattenProductionPreparationItems()
+      .filter((item) => item.ownerTeam === ownerTeam)
+      .map((item) => item.ownerName)
+      .filter((name) => name && name !== '待确认' && name !== '待分配')
+    : []
+  const ownerNameOptions = Array.from(new Set(ownerNames)).sort()
   return `
-    <section data-prep-stats-filter-scope class="rounded-xl border bg-card p-5">
+    <section data-prep-stats-filter-scope class="rounded-xl border bg-card p-3">
       <input type="hidden" name="tab" value="${escapeHtml(activeTab)}" />
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-6">
-        ${renderSelectField('月份', 'month', options.months, month)}
-        ${renderSelectField('跟单', 'merchandiserName', ['', ...options.merchandiserNames], valueOf(params, 'merchandiserName'), '全部跟单')}
+      <input type="hidden" name="month" value="${escapeHtml(month)}" />
+      <div class="flex flex-nowrap items-end gap-2 overflow-x-auto pb-1">
+        <label class="flex min-w-[150px] flex-col gap-1 text-sm">
+          <span class="text-muted-foreground">开始日期</span>
+          <input type="date" name="startDate" value="${escapeHtml(startDate)}" class="h-9 rounded-md border bg-background px-2" />
+        </label>
+        <label class="flex min-w-[150px] flex-col gap-1 text-sm">
+          <span class="text-muted-foreground">结束日期</span>
+          <input type="date" name="endDate" value="${escapeHtml(endDate)}" class="h-9 rounded-md border bg-background px-2" />
+        </label>
         ${renderSelectField('买手', 'buyerName', ['', ...options.buyerNames], valueOf(params, 'buyerName'), '全部买手')}
         ${renderSelectField('准备项类型', 'itemType', options.itemTypes, valueOf(params, 'itemType') || '全部')}
         ${renderSelectField('责任团队', 'ownerTeam', ['', ...options.ownerTeams], valueOf(params, 'ownerTeam'), '全部团队')}
+        ${renderSelectField('责任人', 'ownerName', ['', ...ownerNameOptions], valueOf(params, 'ownerName'), ownerTeam ? '全部责任人' : '先选团队')}
         ${renderSelectField(
           '是否超时',
           'overdueOnly',
@@ -1313,19 +1405,8 @@ function renderStatsFilter(params: URLSearchParams, month: string, activeTab: 'm
           ],
           valueOf(params, 'overdueOnly'),
         )}
-        ${renderSelectField(
-          '花型师',
-          'patternDesigner',
-          [
-            { value: '', label: '全部花型师' },
-            ...options.patternDesigners.map((designer) => ({ value: designer.name, label: `${designer.name}｜${designer.teamName}` })),
-          ],
-          valueOf(params, 'patternDesigner'),
-        )}
-      </div>
-      <div class="mt-4 flex flex-wrap gap-2">
-        <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-prep-stats-filter-scope]" data-nav-base="${STATS_PAGE_PATH}">筛选统计</button>
-        <button type="button" class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${STATS_PAGE_PATH}?tab=${escapeHtml(activeTab)}&month=${escapeHtml(DEFAULT_MONTH)}">重置</button>
+        <button type="button" class="inline-flex h-9 shrink-0 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-prep-stats-filter-scope]" data-nav-base="${STATS_PAGE_PATH}">筛选统计</button>
+        <button type="button" class="inline-flex h-9 shrink-0 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${STATS_PAGE_PATH}?tab=${escapeHtml(activeTab)}&month=${escapeHtml(DEFAULT_MONTH)}&startDate=${escapeHtml(startDateOfMonth(DEFAULT_MONTH))}&endDate=${escapeHtml(endDateOfMonth(DEFAULT_MONTH))}">重置</button>
       </div>
     </section>
   `
@@ -1377,11 +1458,13 @@ function renderStatsSummary(details: MonthlyPreparationCompletionDetail[], stats
   ]
 
   return `
-    <section class="grid grid-cols-1 gap-4 md:grid-cols-4 2xl:grid-cols-8">
+    <section class="grid grid-cols-1 gap-2 md:grid-cols-4 2xl:grid-cols-8">
       ${cards.map(([label, value, unit]) => `
-        <div class="rounded-xl border bg-card p-4">
-          <div class="text-sm text-muted-foreground">${escapeHtml(label)}</div>
-          <div class="mt-2 text-2xl font-semibold">${escapeHtml(value)} <span class="text-xs font-normal text-muted-foreground">${escapeHtml(unit)}</span></div>
+        <div class="rounded-lg border bg-card px-3 py-2">
+          <div class="flex min-w-0 items-center justify-between gap-2 text-sm">
+            <span class="truncate text-muted-foreground">${escapeHtml(label)}</span>
+            <span class="shrink-0 font-semibold">${escapeHtml(value)}<span class="ml-0.5 text-xs font-normal text-muted-foreground">${escapeHtml(unit)}</span></span>
+          </div>
         </div>
       `).join('')}
     </section>
