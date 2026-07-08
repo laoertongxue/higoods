@@ -400,6 +400,28 @@ assert.equal(legacyOnlyGate.processRouteConfirmedBy, 'Budi Santoso', 'legacy-onl
 assert.equal(legacyOnlyGate.processRouteConfirmedAt, '2026-07-07 10:40', 'legacy-only 路线确认时间应回退读取 legacy payload')
 assert.equal(legacyOnlyGate.confirmed, true, 'legacy-only 已确认路线应允许门禁通过')
 
+saveTechnicalDataVersionContent(legacyOnlyGateId, { patternDesc: '无关保存' }, 'Budi Santoso')
+const legacyOnlyGateAfterUnrelatedSave = getTechnicalProcessRouteGate(legacyOnlyGateId)
+assert.equal(
+  legacyOnlyGateAfterUnrelatedSave.processRouteStatus,
+  'CONFIRMED',
+  'legacy-only 已确认路线在无关保存后仍应回退读取 legacy payload',
+)
+assert.equal(legacyOnlyGateAfterUnrelatedSave.confirmed, true, 'legacy-only 已确认路线在无关保存后仍应允许门禁通过')
+
+saveTechnicalDataVersionContent(legacyOnlyGateId, {
+  processRouteStatus: 'UNCONFIRMED',
+  processRouteConfirmedBy: '',
+  processRouteConfirmedAt: '',
+  processRouteUpdatedBy: 'Budi Santoso',
+  processRouteUpdatedAt: '2026-07-07 10:45',
+}, 'Budi Santoso')
+const legacyOnlyGateAfterCancel = getTechnicalProcessRouteGate(legacyOnlyGateId)
+assert.equal(legacyOnlyGateAfterCancel.processRouteStatus, 'UNCONFIRMED', 'legacy-only 路线显式取消确认后应变为未确认')
+assert.equal(legacyOnlyGateAfterCancel.processRouteConfirmedBy, '', 'legacy-only 路线显式取消确认后应清空确认人')
+assert.equal(legacyOnlyGateAfterCancel.processRouteConfirmedAt, '', 'legacy-only 路线显式取消确认后应清空确认时间')
+assert.equal(legacyOnlyGateAfterCancel.confirmed, false, 'legacy-only 路线显式取消确认后门禁应不通过')
+
 const roundtripContent = getTechnicalDataVersionContent(roundtripId)
 assert.equal(roundtripContent?.processRouteStatus, 'CONFIRMED', '仓库读取时应保留路线确认状态')
 assert.equal(roundtripContent?.processRouteConfirmedBy, 'Budi Santoso', '仓库读取时应保留路线确认人')

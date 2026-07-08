@@ -351,7 +351,7 @@ function hasOwnRouteField(content: TechnicalDataVersionContent, key: keyof Techn
 }
 
 function normalizeProcessRouteStatus(content: TechnicalDataVersionContent): TechnicalDataVersionContent['processRouteStatus'] {
-  if (!hasOwnRouteField(content, 'processRouteStatus')) return undefined
+  if (!hasOwnRouteField(content, 'processRouteStatus') || content.processRouteStatus === undefined) return undefined
   return content.processRouteStatus === 'CONFIRMED' ? 'CONFIRMED' : 'UNCONFIRMED'
 }
 
@@ -366,8 +366,25 @@ function normalizeRouteStringField(
     | 'processRouteChangeReason'
   >,
 ): string | undefined {
-  if (!hasOwnRouteField(content, key)) return undefined
+  if (!hasOwnRouteField(content, key) || content[key] === undefined) return undefined
   return String(content[key] || '')
+}
+
+function normalizeRouteFields(content: TechnicalDataVersionContent): Partial<TechnicalDataVersionContent> {
+  const routeFields: Partial<TechnicalDataVersionContent> = {}
+  const processRouteStatus = normalizeProcessRouteStatus(content)
+  const processRouteConfirmedBy = normalizeRouteStringField(content, 'processRouteConfirmedBy')
+  const processRouteConfirmedAt = normalizeRouteStringField(content, 'processRouteConfirmedAt')
+  const processRouteUpdatedBy = normalizeRouteStringField(content, 'processRouteUpdatedBy')
+  const processRouteUpdatedAt = normalizeRouteStringField(content, 'processRouteUpdatedAt')
+  const processRouteChangeReason = normalizeRouteStringField(content, 'processRouteChangeReason')
+  if (processRouteStatus !== undefined) routeFields.processRouteStatus = processRouteStatus
+  if (processRouteConfirmedBy !== undefined) routeFields.processRouteConfirmedBy = processRouteConfirmedBy
+  if (processRouteConfirmedAt !== undefined) routeFields.processRouteConfirmedAt = processRouteConfirmedAt
+  if (processRouteUpdatedBy !== undefined) routeFields.processRouteUpdatedBy = processRouteUpdatedBy
+  if (processRouteUpdatedAt !== undefined) routeFields.processRouteUpdatedAt = processRouteUpdatedAt
+  if (processRouteChangeReason !== undefined) routeFields.processRouteChangeReason = processRouteChangeReason
+  return routeFields
 }
 
 function normalizeContent(content: TechnicalDataVersionContent): TechnicalDataVersionContent {
@@ -376,12 +393,7 @@ function normalizeContent(content: TechnicalDataVersionContent): TechnicalDataVe
     patternFiles: clonePatternFiles(Array.isArray(content.patternFiles) ? content.patternFiles : []),
     patternDesc: content.patternDesc || '',
     processEntries: cloneProcessEntries(Array.isArray(content.processEntries) ? content.processEntries : []),
-    processRouteStatus: normalizeProcessRouteStatus(content),
-    processRouteConfirmedBy: normalizeRouteStringField(content, 'processRouteConfirmedBy'),
-    processRouteConfirmedAt: normalizeRouteStringField(content, 'processRouteConfirmedAt'),
-    processRouteUpdatedBy: normalizeRouteStringField(content, 'processRouteUpdatedBy'),
-    processRouteUpdatedAt: normalizeRouteStringField(content, 'processRouteUpdatedAt'),
-    processRouteChangeReason: normalizeRouteStringField(content, 'processRouteChangeReason'),
+    ...normalizeRouteFields(content),
     sizeTable: cloneSizeTable(Array.isArray(content.sizeTable) ? content.sizeTable : []),
     bomItems: cloneBomItems(Array.isArray(content.bomItems) ? content.bomItems : []),
     qualityRules: cloneQualityRules(Array.isArray(content.qualityRules) ? content.qualityRules : []),
