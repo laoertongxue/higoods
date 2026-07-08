@@ -1085,11 +1085,6 @@ function createProductionOrdersForDemands(
         taskTypesTop3: [],
       },
       riskFlags: [],
-      planStatus: 'UNPLANNED',
-      deliveryWarehouseStatus: 'UNSET',
-      lifecycleStatus: 'PLANNED',
-      lifecycleUpdatedAt: now,
-      lifecycleUpdatedBy: currentUser.name,
       auditLogs: [
         {
           id: nextLocalEntityId('LOG'),
@@ -1169,11 +1164,6 @@ function createMergedProductionOrderForDemands(
       taskTypesTop3: [],
     },
     riskFlags: [],
-    planStatus: 'UNPLANNED',
-    deliveryWarehouseStatus: 'UNSET',
-    lifecycleStatus: 'PLANNED',
-    lifecycleUpdatedAt: now,
-    lifecycleUpdatedBy: currentUser.name,
     auditLogs: [
       {
         id: nextLocalEntityId('LOG'),

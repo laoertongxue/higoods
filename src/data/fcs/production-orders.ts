@@ -208,26 +208,7 @@ export interface ProductionOrder {
   ownerPartyType: OwnerPartyType
   ownerPartyId: string
   ownerReason?: string
-  deliveryWarehouseId?: string
-  deliveryWarehouseName?: string
-  deliveryWarehouseStatus?: 'UNSET' | 'SET'
-  deliveryWarehouseRemark?: string
-  deliveryWarehouseUpdatedAt?: string
-  deliveryWarehouseUpdatedBy?: string
-  planStartDate?: string
-  planEndDate?: string
-  planStatus?: 'UNPLANNED' | 'PLANNED' | 'RELEASED'
-  planQty?: number
-  planFactoryId?: string
-  planFactoryName?: string
-  planRemark?: string
-  planUpdatedAt?: string
-  planUpdatedBy?: string
   selectedTechPackVersionId?: string
-  lifecycleStatus?: 'DRAFT' | 'PLANNED' | 'RELEASED' | 'IN_PRODUCTION' | 'QC_PENDING' | 'COMPLETED' | 'CLOSED'
-  lifecycleStatusRemark?: string
-  lifecycleUpdatedAt?: string
-  lifecycleUpdatedBy?: string
   techPackSnapshot: ProductionOrderTechPackSnapshot | null
   demandSnapshot: DemandSnapshot
   sourceDemandSnapshots: DemandSnapshot[]
@@ -257,25 +238,6 @@ export interface ProductionOrderSeed {
   ownerPartyId: string
   ownerReason?: string
   lockedLegacy?: boolean
-  deliveryWarehouseId?: string
-  deliveryWarehouseName?: string
-  deliveryWarehouseStatus?: 'UNSET' | 'SET'
-  deliveryWarehouseRemark?: string
-  deliveryWarehouseUpdatedAt?: string
-  deliveryWarehouseUpdatedBy?: string
-  planStartDate?: string
-  planEndDate?: string
-  planStatus?: 'UNPLANNED' | 'PLANNED' | 'RELEASED'
-  planQty?: number
-  planFactoryId?: string
-  planFactoryName?: string
-  planRemark?: string
-  planUpdatedAt?: string
-  planUpdatedBy?: string
-  lifecycleStatus?: 'DRAFT' | 'PLANNED' | 'RELEASED' | 'IN_PRODUCTION' | 'QC_PENDING' | 'COMPLETED' | 'CLOSED'
-  lifecycleStatusRemark?: string
-  lifecycleUpdatedAt?: string
-  lifecycleUpdatedBy?: string
   assignmentSummary: AssignmentSummary
   assignmentProgress: AssignmentProgress
   biddingSummary: BiddingSummary
@@ -424,7 +386,7 @@ export function getProductionExecutionSummaryBlocks(details: ProductionLedgerDet
 function buildDefaultProductionLedgerDetails(seed: ProductionOrderSeed, demand: ProductionDemand, factoryName: string): ProductionLedgerDetails {
   const plannedQty = String(demand.skuLines.reduce((sum, sku) => sum + sku.qty, 0) || demand.requiredQtyTotal || 600)
   const orderNo = seed.productionOrderId.replace('PO-', '')
-  const planDoneAt = seed.planEndDate || demand.requiredDeliveryDate || '2026-07-04'
+  const planDoneAt = demand.requiredDeliveryDate || '2026-07-04'
   return {
     materialIssues: [
       {
@@ -852,8 +814,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
     mainFactoryId: 'ID-F003',
     ownerPartyType: 'FACTORY',
     ownerPartyId: 'ID-F003',
-    planStartDate: '2026-03-05',
-    planEndDate: '2026-03-21',
     assignmentSummary: { directCount: 2, biddingCount: 1, totalTasks: 3, unassignedCount: 0 },
     assignmentProgress: { status: 'IN_PROGRESS', directAssignedCount: 2, biddingLaunchedCount: 1, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 1, nearestDeadline: '2026-03-06 18:00:00', overdueTenderCount: 0 },
@@ -904,10 +864,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
     mainFactoryId: 'ID-F006',
     ownerPartyType: 'FACTORY',
     ownerPartyId: 'ID-F006',
-    planStartDate: '2026-03-03',
-    planEndDate: '2026-03-18',
-    planStatus: 'RELEASED',
-    lifecycleStatus: 'IN_PRODUCTION',
     assignmentSummary: { directCount: 2, biddingCount: 0, totalTasks: 2, unassignedCount: 0 },
     assignmentProgress: { status: 'DONE', directAssignedCount: 2, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
@@ -928,10 +884,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
     mainFactoryId: 'ID-F006',
     ownerPartyType: 'FACTORY',
     ownerPartyId: 'ID-F006',
-    planStartDate: '2026-03-08',
-    planEndDate: '2026-03-20',
-    planStatus: 'PLANNED',
-    lifecycleStatus: 'PLANNED',
     assignmentSummary: { directCount: 0, biddingCount: 0, totalTasks: 1, unassignedCount: 1 },
     assignmentProgress: { status: 'PENDING', directAssignedCount: 0, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
@@ -962,10 +914,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
     mainFactoryId: 'ID-F006',
     ownerPartyType: 'FACTORY',
     ownerPartyId: 'ID-F006',
-    planStartDate: '2026-03-09',
-    planEndDate: '2026-03-22',
-    planStatus: 'PLANNED',
-    lifecycleStatus: 'PLANNED',
     assignmentSummary: { directCount: 0, biddingCount: 0, totalTasks: 1, unassignedCount: 1 },
     assignmentProgress: { status: 'PENDING', directAssignedCount: 0, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
@@ -1174,8 +1122,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
     mainFactoryId: 'ID-F010',
     ownerPartyType: 'FACTORY',
     ownerPartyId: 'ID-F010',
-    planStartDate: '2026-03-12',
-    planEndDate: '2026-04-02',
     assignmentSummary: { directCount: 4, biddingCount: 0, totalTasks: 4, unassignedCount: 1 },
     assignmentProgress: { status: 'IN_PROGRESS', directAssignedCount: 3, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
@@ -1196,8 +1142,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
     mainFactoryId: 'ID-F014',
     ownerPartyType: 'FACTORY',
     ownerPartyId: 'ID-F014',
-    planStartDate: '2026-03-16',
-    planEndDate: '2026-04-08',
     assignmentSummary: { directCount: 1, biddingCount: 5, totalTasks: 6, unassignedCount: 3 },
     assignmentProgress: { status: 'IN_PROGRESS', directAssignedCount: 1, biddingLaunchedCount: 2, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 2, overdueTenderCount: 0 },
@@ -1232,10 +1176,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
     mainFactoryId: KOL_GOTO_FACTORY_ID,
     ownerPartyType: 'FACTORY',
     ownerPartyId: KOL_GOTO_FACTORY_ID,
-    planStartDate: '2026-03-08',
-    planEndDate: '2026-03-24',
-    planStatus: 'RELEASED',
-    lifecycleStatus: 'IN_PRODUCTION',
     assignmentSummary: { directCount: 1, biddingCount: 0, totalTasks: 1, unassignedCount: 0 },
     assignmentProgress: { status: 'DONE', directAssignedCount: 1, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
@@ -1269,10 +1209,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
     mainFactoryId: 'ID-F004',
     ownerPartyType: 'FACTORY',
     ownerPartyId: 'ID-F004',
-    planStartDate: '2026-03-09',
-    planEndDate: '2026-03-28',
-    planStatus: 'RELEASED',
-    lifecycleStatus: 'IN_PRODUCTION',
     assignmentSummary: { directCount: 2, biddingCount: 0, totalTasks: 2, unassignedCount: 0 },
     assignmentProgress: { status: 'DONE', directAssignedCount: 2, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
@@ -1290,10 +1226,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
     mainFactoryId: 'ID-F006',
     ownerPartyType: 'FACTORY',
     ownerPartyId: 'ID-F006',
-    planStartDate: '2026-03-10',
-    planEndDate: '2026-03-31',
-    planStatus: 'RELEASED',
-    lifecycleStatus: 'IN_PRODUCTION',
     assignmentSummary: { directCount: 2, biddingCount: 0, totalTasks: 2, unassignedCount: 0 },
     assignmentProgress: { status: 'DONE', directAssignedCount: 2, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
@@ -1346,10 +1278,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
     ownerPartyType: 'FACTORY',
     ownerPartyId: 'ID-F004',
     lockedLegacy: true,
-    planStartDate: '2026-03-13',
-    planEndDate: '2026-03-29',
-    planStatus: 'RELEASED',
-    lifecycleStatus: 'COMPLETED',
     assignmentSummary: { directCount: 2, biddingCount: 0, totalTasks: 2, unassignedCount: 0 },
     assignmentProgress: { status: 'DONE', directAssignedCount: 2, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
     biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
