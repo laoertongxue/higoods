@@ -40,6 +40,7 @@ import {
   DELIVERY_EMPTY_FORM,
   TECH_PACK_VERSION_CHANGE_EMPTY_FORM,
   PRODUCTION_PATCH_EMPTY_FORM,
+  PRODUCTION_CHANGE_EMPTY_FORM,
   addMaterialToDraft,
   restoreMaterialDraftSuggestion,
   confirmMaterialRequestDraft,
@@ -507,6 +508,8 @@ function updateProductionField(
 
   if (field === 'techPackChangeKeyword') {
     state.techPackChangeKeyword = value
+    state.productionChangeOrderPage = 1
+    state.productionChangeSelectedOrderId = ''
     return
   }
 
@@ -753,6 +756,36 @@ export function handleProductionEvent(target: HTMLElement): boolean {
   if (action === 'change-production-change-order-page') {
     const page = Number(actionNode.dataset.page || '1')
     state.productionChangeOrderPage = Number.isFinite(page) && page > 0 ? page : 1
+    return true
+  }
+
+  if (action === 'apply-production-change-search') {
+    state.productionChangeOrderPage = 1
+    state.productionChangeSelectedOrderId = ''
+    return true
+  }
+
+  if (action === 'switch-production-change-list-tab') {
+    const tab = actionNode.dataset.tab as ProductionState['productionChangeListTab'] | undefined
+    if (!tab) return true
+    state.productionChangeListTab = tab
+    state.productionChangeOrderPage = 1
+    state.productionChangeSelectedOrderId = ''
+    return true
+  }
+
+  if (action === 'start-production-change-from-order') {
+    const orderId = actionNode.dataset.orderId
+    if (!orderId) return true
+    state.productionChangeForm = { ...PRODUCTION_CHANGE_EMPTY_FORM, productionOrderId: orderId }
+    state.productionChangeFormStep = 'content'
+    state.productionChangeFormError = ''
+    openAppRoute('/fcs/production/changes/new', 'production-change-new', '新增生产单变更')
+    return true
+  }
+
+  if (action === 'withdraw-production-change-order') {
+    showPlanMessage('变更单已撤回')
     return true
   }
 
