@@ -1,24 +1,63 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
-import {
-  renderProductionChangeEditPage,
-  renderProductionChangeNewPage,
-  renderProductionChangeOrderDetailPage,
-  renderProductionChangesPage,
-} from '../src/pages/production/changes-domain.ts'
+import * as changePages from '../src/pages/production/changes-domain.ts'
 import { state } from '../src/pages/production/context.ts'
-import {
-  getProductionOrderChangeOrder,
-  listProductionOrderChangeCostImpacts,
-  listProductionOrderChangeDocumentActions,
-  listProductionOrderChangeImpactRows,
-  listProductionOrderChangeOrders,
-  listProductionOrderChangeScenarioCatalog,
-  listProductionOrderChangeTimingImpacts,
-  listProductionOrderTechPackRelations,
-  submitProductionOrderChangeOrder,
-} from '../src/data/fcs/production-tech-pack-change-domain.ts'
+import * as changeDomain from '../src/data/fcs/production-tech-pack-change-domain.ts'
+
+function requireFunction<T extends (...args: never[]) => unknown>(exports: Record<string, unknown>, name: string): T {
+  const value = exports[name]
+  assert.equal(typeof value, 'function', `缺少 ${name} 导出`)
+  return value as T
+}
+
+const pageExports = changePages as Record<string, unknown>
+const domainExports = changeDomain as Record<string, unknown>
+
+const renderProductionChangesPage = requireFunction<() => string>(pageExports, 'renderProductionChangesPage')
+const renderProductionChangeNewPage = requireFunction<() => string>(pageExports, 'renderProductionChangeNewPage')
+const renderProductionChangeOrderDetailPage = requireFunction<(id: string) => string>(
+  pageExports,
+  'renderProductionChangeOrderDetailPage',
+)
+const renderProductionChangeEditPage = requireFunction<(id: string) => string>(pageExports, 'renderProductionChangeEditPage')
+
+const listProductionOrderChangeOrders = requireFunction<() => Array<Record<string, any>>>(
+  domainExports,
+  'listProductionOrderChangeOrders',
+)
+const listProductionOrderChangeScenarioCatalog = requireFunction<() => Array<Record<string, any>>>(
+  domainExports,
+  'listProductionOrderChangeScenarioCatalog',
+)
+const listProductionOrderChangeImpactRows = requireFunction<() => Array<Record<string, any>>>(
+  domainExports,
+  'listProductionOrderChangeImpactRows',
+)
+const listProductionOrderChangeDocumentActions = requireFunction<(id?: string) => Array<Record<string, any>>>(
+  domainExports,
+  'listProductionOrderChangeDocumentActions',
+)
+const listProductionOrderChangeCostImpacts = requireFunction<() => Array<Record<string, any>>>(
+  domainExports,
+  'listProductionOrderChangeCostImpacts',
+)
+const listProductionOrderChangeTimingImpacts = requireFunction<() => Array<Record<string, any>>>(
+  domainExports,
+  'listProductionOrderChangeTimingImpacts',
+)
+const listProductionOrderTechPackRelations = requireFunction<() => Array<Record<string, any>>>(
+  domainExports,
+  'listProductionOrderTechPackRelations',
+)
+const getProductionOrderChangeOrder = requireFunction<(id: string) => Record<string, any> | undefined>(
+  domainExports,
+  'getProductionOrderChangeOrder',
+)
+const submitProductionOrderChangeOrder = requireFunction<(input: Record<string, any>) => Record<string, any>>(
+  domainExports,
+  'submitProductionOrderChangeOrder',
+)
 
 state.productionChangeListTab = 'change-orders'
 state.techPackChangeKeyword = ''
