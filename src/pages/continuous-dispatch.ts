@@ -8,6 +8,7 @@ import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
   renderProductionOrderIdentityCell,
 } from '../data/fcs/production-order-identity.ts'
+import { renderTablePagination } from '../components/ui/pagination.ts'
 import { escapeHtml, toClassName } from '../utils.ts'
 
 type ContinuousDispatchTab = 'SEWING_POST' | 'OTHER'
@@ -16,13 +17,19 @@ interface ContinuousDispatchState {
   tab: ContinuousDispatchTab
   keyword: string
   feedback: string
+  currentPage: number
+  pageSize: number
 }
 
 const state: ContinuousDispatchState = {
   tab: 'SEWING_POST',
   keyword: '',
   feedback: '',
+  currentPage: 1,
+  pageSize: 10,
 }
+
+const CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 
 const assignmentStatusLabel: Record<RuntimeProcessTask['assignmentStatus'], string> = {
   UNASSIGNED: '待分配',
@@ -189,7 +196,28 @@ function renderActions(task: RuntimeProcessTask): string {
   `
 }
 
+function getPagedTasks(tasks: RuntimeProcessTask[]) {
+  const total = tasks.length
+  const pageSize = CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS.includes(state.pageSize as typeof CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS[number])
+    ? state.pageSize
+    : 10
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const currentPage = Math.min(Math.max(1, state.currentPage), totalPages)
+  const start = (currentPage - 1) * pageSize
+  const rows = tasks.slice(start, start + pageSize)
+  return {
+    rows,
+    total,
+    pageSize,
+    currentPage,
+    totalPages,
+    from: total === 0 ? 0 : start + 1,
+    to: Math.min(total, start + rows.length),
+  }
+}
+
 function renderTaskTable(tasks: RuntimeProcessTask[]): string {
+  const paging = getPagedTasks(tasks)
   const emptyRow = state.tab === 'SEWING_POST'
     ? `
       <tr>
@@ -213,7 +241,7 @@ function renderTaskTable(tasks: RuntimeProcessTask[]): string {
           <h2 class="text-base font-semibold">连续工序任务列表</h2>
           <p class="mt-1 text-xs text-muted-foreground">只展示任务清单人工合并形成的连续工序任务，分配时按整任务处理。</p>
         </div>
-        <div class="text-xs text-muted-foreground">搜索结果：${tasks.length} 个连续工序任务</div>
+        <div class="text-xs text-muted-foreground">搜索结果：${paging.total} 个连续工序任务</div>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full min-w-[980px] table-fixed text-sm">
@@ -230,9 +258,9 @@ function renderTaskTable(tasks: RuntimeProcessTask[]): string {
           </thead>
           <tbody>
             ${
-              tasks.length === 0
+              paging.total === 0
                 ? emptyRow
-                : tasks.map((task) => {
+                : paging.rows.map((task) => {
                     const order = getTaskOrder(task)
                     const coveredNames = getCoveredProcessNames(task)
                     return `
@@ -266,6 +294,17 @@ function renderTaskTable(tasks: RuntimeProcessTask[]): string {
           </tbody>
         </table>
       </div>
+      ${renderTablePagination({
+        total: paging.total,
+        from: paging.from,
+        to: paging.to,
+        currentPage: paging.currentPage,
+        totalPages: paging.totalPages,
+        pageSize: paging.pageSize,
+        actionPrefix: 'continuous-dispatch',
+        fieldPrefix: 'continuous-dispatch',
+        pageSizeOptions: CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS,
+      })}
     </section>
   `
 }
@@ -333,6 +372,15 @@ export function handleContinuousDispatchEvent(target: HTMLElement): boolean {
   if (fieldNode && 'value' in fieldNode) {
     if (fieldNode.dataset.continuousDispatchField === 'keyword') {
       state.keyword = String(fieldNode.value)
+      state.currentPage = 1
+      return true
+    }
+    if (fieldNode.dataset.continuousDispatchField === 'pageSize') {
+      const nextPageSize = Number(fieldNode.value)
+      state.pageSize = CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS.includes(nextPageSize as typeof CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS[number])
+        ? nextPageSize
+        : 10
+      state.currentPage = 1
       return true
     }
   }
@@ -346,9 +394,19 @@ export function handleContinuousDispatchEvent(target: HTMLElement): boolean {
     if (tab === 'SEWING_POST' || tab === 'OTHER') {
       state.tab = tab
       state.feedback = ''
+      state.currentPage = 1
       return true
     }
     return false
+  }
+
+  if (action === 'prev-page' || action === 'next-page') {
+    const total = getFilteredTasks().length
+    const totalPages = Math.max(1, Math.ceil(total / state.pageSize))
+    state.currentPage = action === 'prev-page'
+      ? Math.max(1, state.currentPage - 1)
+      : Math.min(totalPages, state.currentPage + 1)
+    return true
   }
 
   if (action === 'set-bidding' || action === 'set-hold') {
