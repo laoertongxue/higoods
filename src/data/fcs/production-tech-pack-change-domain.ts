@@ -2472,6 +2472,18 @@ function appendSubmittedChangeOrderChildren(order: ProductionOrderChangeOrder): 
   }
 }
 
+function removeChangeOrderChildren(changeOrderId: string): void {
+  productionOrderChangeImpactRows = productionOrderChangeImpactRows.filter((row) => row.changeOrderId !== changeOrderId)
+  productionOrderChangeDocumentActions = productionOrderChangeDocumentActions.filter((row) => row.changeOrderId !== changeOrderId)
+  productionOrderChangeCostImpacts = productionOrderChangeCostImpacts.filter((row) => row.changeOrderId !== changeOrderId)
+  productionOrderChangeTimingImpacts = productionOrderChangeTimingImpacts.filter((row) => row.changeOrderId !== changeOrderId)
+}
+
+function replaceSubmittedChangeOrderChildren(order: ProductionOrderChangeOrder): void {
+  removeChangeOrderChildren(order.id)
+  appendSubmittedChangeOrderChildren(order)
+}
+
 function nextProductionOrderChangeOrderId(productionOrderId: string): string {
   const prefix = `CHANGE-${productionOrderId}-`
   const maxSequence = productionOrderChangeOrders
@@ -2609,6 +2621,7 @@ export function updateProductionOrderChangeOrder(
       ? `${productionOrderChangeResultLabels[input.changeResult]}已保存草稿，待补充后提交审核。`
       : `${productionOrderChangeResultLabels[input.changeResult]}已提交审核，等待主管确认。`
 
+  replaceSubmittedChangeOrderChildren(order)
   return clone(order)
 }
 

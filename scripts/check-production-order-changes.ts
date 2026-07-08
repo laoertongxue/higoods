@@ -63,7 +63,7 @@ const listProductionOrderChangeScenarioCatalog = requireFunction<() => Array<Rec
   domainExports,
   'listProductionOrderChangeScenarioCatalog',
 )
-const listProductionOrderChangeImpactRows = requireFunction<() => Array<Record<string, any>>>(
+const listProductionOrderChangeImpactRows = requireFunction<(id?: string) => Array<Record<string, any>>>(
   domainExports,
   'listProductionOrderChangeImpactRows',
 )
@@ -71,11 +71,11 @@ const listProductionOrderChangeDocumentActions = requireFunction<(id?: string) =
   domainExports,
   'listProductionOrderChangeDocumentActions',
 )
-const listProductionOrderChangeCostImpacts = requireFunction<() => Array<Record<string, any>>>(
+const listProductionOrderChangeCostImpacts = requireFunction<(id?: string) => Array<Record<string, any>>>(
   domainExports,
   'listProductionOrderChangeCostImpacts',
 )
-const listProductionOrderChangeTimingImpacts = requireFunction<() => Array<Record<string, any>>>(
+const listProductionOrderChangeTimingImpacts = requireFunction<(id?: string) => Array<Record<string, any>>>(
   domainExports,
   'listProductionOrderChangeTimingImpacts',
 )
@@ -338,6 +338,30 @@ assert.equal(updatedDraft.id, draft.id, '编辑保存草稿必须更新当前变
 assert.equal(updatedDraft.status, 'DRAFT', '编辑保存草稿必须保持草稿状态')
 assert.equal(updatedDraft.reason, '编辑草稿：现场工序调整，待主管补充确认。', '编辑保存草稿必须更新主字段')
 assert.equal(listProductionOrderChangeOrders().length, editBeforeCount, '编辑保存草稿不应新增变更单')
+
+assert.ok(listProductionOrderChangeImpactRows(draft.id).length > 0, '生产补丁草稿应先存在生产影响明细')
+assert.ok(listProductionOrderChangeTimingImpacts(draft.id).length > 0, '生产补丁草稿应先存在时效明细')
+assert.equal(listProductionOrderChangeCostImpacts(draft.id).length, 0, '生产补丁草稿无成本模块时不应先生成成本明细')
+const costOnlyUpdateBeforeCount = listProductionOrderChangeOrders().length
+const costOnlyDraft = updateProductionOrderChangeOrder(draft.id, {
+  productionOrderId: relation.productionOrderId,
+  source: 'COST_EXCEPTION',
+  changeModules: ['COST'],
+  reason: '编辑草稿：核价漏计印花费，只影响本次结算差异。',
+  expectedEffectiveMode: 'FROM_SPECIFIED_DATE',
+  effectiveDescription: '仅影响本次结算',
+  changeResult: 'COST_ONLY',
+  executionStrategy: 'AFTER_APPROVAL',
+  operatorName: '自动检查',
+  status: 'DRAFT',
+})
+assert.equal(costOnlyDraft.id, draft.id, '编辑为仅成本差异必须更新当前变更单')
+assert.equal(costOnlyDraft.changeResult, 'COST_ONLY', '编辑为仅成本差异必须更新主单结果')
+assert.equal(listProductionOrderChangeOrders().length, costOnlyUpdateBeforeCount, '编辑为仅成本差异不应新增变更单')
+assert.equal(listProductionOrderChangeImpactRows(draft.id).length, 0, '编辑为仅成本差异后不应残留生产影响明细')
+assert.equal(listProductionOrderChangeTimingImpacts(draft.id).length, 0, '编辑为仅成本差异后不应残留时效明细')
+assert.ok(listProductionOrderChangeCostImpacts(draft.id).length > 0, '编辑为仅成本差异后必须生成成本明细')
+assert.ok(listProductionOrderChangeDocumentActions(draft.id).length > 0, '编辑为仅成本差异后仍应保留单据处理建议')
 
 renderProductionChangeEditPage(draft.id)
 assert.equal(state.productionChangeSelectedOrderId, draft.id, '编辑页会设置当前编辑变更单 ID')
