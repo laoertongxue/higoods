@@ -11,7 +11,9 @@ export type PreparationItemType =
   | '梭织齐码纸样'
   | '毛织齐码纸样'
   | '数码印/DTF/DTG花型'
+  | '确认染色要求（纱线）'
   | '染色调色（纱线）'
+  | '确认染色要求（面料）'
   | '染色调色（面料）'
   | '辅料下单'
 
@@ -280,7 +282,9 @@ export const preparationItemTypes: PreparationItemType[] = [
   '梭织齐码纸样',
   '毛织齐码纸样',
   '数码印/DTF/DTG花型',
+  '确认染色要求（纱线）',
   '染色调色（纱线）',
+  '确认染色要求（面料）',
   '染色调色（面料）',
   '辅料下单',
 ]
@@ -292,6 +296,7 @@ export const preparationTypeDefaultItems = {
     { itemType: '梭织齐码纸样', defaultSelected: true, canUnselect: false },
     { itemType: '辅料下单', defaultSelected: true, canUnselect: true },
     { itemType: '数码印/DTF/DTG花型', defaultSelected: false, canUnselect: true },
+    { itemType: '确认染色要求（面料）', defaultSelected: false, canUnselect: true },
     { itemType: '染色调色（面料）', defaultSelected: false, canUnselect: true },
   ],
   '烫画&直喷': [
@@ -302,6 +307,7 @@ export const preparationTypeDefaultItems = {
     { itemType: '版衣制作', defaultSelected: true, canUnselect: false },
     { itemType: '毛织齐码纸样', defaultSelected: true, canUnselect: false },
     { itemType: '辅料下单', defaultSelected: true, canUnselect: true },
+    { itemType: '确认染色要求（面料）', defaultSelected: false, canUnselect: true },
     { itemType: '染色调色（面料）', defaultSelected: false, canUnselect: true },
   ],
   '毛织&梭织': [
@@ -312,7 +318,9 @@ export const preparationTypeDefaultItems = {
     { itemType: '梭织齐码纸样', defaultSelected: true, canUnselect: false },
     { itemType: '辅料下单', defaultSelected: true, canUnselect: true },
     { itemType: '数码印/DTF/DTG花型', defaultSelected: false, canUnselect: true },
+    { itemType: '确认染色要求（纱线）', defaultSelected: false, canUnselect: true },
     { itemType: '染色调色（纱线）', defaultSelected: false, canUnselect: true },
+    { itemType: '确认染色要求（面料）', defaultSelected: false, canUnselect: true },
     { itemType: '染色调色（面料）', defaultSelected: false, canUnselect: true },
   ],
 } satisfies Record<ProductPrepType, PreparationTypeDefaultItem[]>
@@ -336,7 +344,7 @@ export const preparationItemStatuses: PreparationItemStatus[] = [
   '已超时',
 ]
 
-export const preparationOwnerTeams = ['版师团队', '车板团队', '花型团队', '染色团队', '采购团队', '毛织团队']
+export const preparationOwnerTeams = ['版师团队', '车板团队', '花型团队', '染色团队', '采购团队', '毛织团队', '跟单角色']
 
 export const preparationOwnerRoleRules: PreparationOwnerRoleRule[] = [
   { ownerTeam: '版师团队', roleLabels: ['版师', '版师主管'], actionScope: '操作梭织基码纸样、梭织齐码纸样' },
@@ -345,7 +353,7 @@ export const preparationOwnerRoleRules: PreparationOwnerRoleRule[] = [
   { ownerTeam: '花型团队', roleLabels: ['花型师', '花型主管'], actionScope: '操作数码印/DTF/DTG花型' },
   { ownerTeam: '染色团队', roleLabels: ['染厂公共账号'], actionScope: '上传染色调色结果' },
   { ownerTeam: '采购团队', roleLabels: ['采购', '辅料采购'], actionScope: '操作辅料下单' },
-  { ownerTeam: '跟单角色', roleLabels: ['跟单'], actionScope: '确认工作项、维护染色要求' },
+  { ownerTeam: '跟单角色', roleLabels: ['跟单'], actionScope: '确认工作项、确认染色要求' },
 ]
 
 export const patternDesignerOptions = [
