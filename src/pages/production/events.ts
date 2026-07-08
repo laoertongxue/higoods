@@ -1085,6 +1085,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
       changeResult: 'PRODUCTION_PATCH',
       executionStrategy: 'AFTER_APPROVAL',
       operatorName: currentUser.name,
+      status: 'DRAFT',
     })
     state.productionPatchDialogOrderId = null
     showPlanMessage(`补丁草稿已保存为变更单：${draft.id}`)

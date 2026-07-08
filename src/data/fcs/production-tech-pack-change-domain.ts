@@ -407,6 +407,7 @@ export interface ProductionOrderChangeOrderSubmitInput {
   operatorName: string
   linkedVersionChangeRequestId?: string
   linkedPatchId?: string
+  status?: ProductionOrderChangeOrderStatus
 }
 
 export interface ProductionOrderChangeImpactRow {
@@ -2512,6 +2513,7 @@ export function submitProductionOrderChangeOrder(
   const hasProductionPatch =
     input.changeResult === 'PRODUCTION_PATCH' || input.changeResult === 'VERSION_AND_PATCH'
   const createdAt = nowText()
+  const status = input.status ?? (input.executionStrategy === 'IMMEDIATE_EXECUTION' ? 'EXECUTING' : 'SUBMITTED')
   const order: ProductionOrderChangeOrder = {
     id: nextProductionOrderChangeOrderId(input.productionOrderId),
     scenarioId: scenario.id,
@@ -2529,7 +2531,7 @@ export function submitProductionOrderChangeOrder(
     changeResult: input.changeResult,
     executionStrategy: input.executionStrategy,
     lockStatus: input.executionStrategy === 'IMMEDIATE_STOP_LOSS' ? 'WHOLE_ORDER_PAUSED' : 'IMPACT_SCOPE_LOCKED',
-    status: input.executionStrategy === 'IMMEDIATE_EXECUTION' ? 'EXECUTING' : 'SUBMITTED',
+    status,
     hasVersionRelationChange,
     hasProductionPatch,
     affectedDocumentCount: documents.length,
@@ -2538,7 +2540,9 @@ export function submitProductionOrderChangeOrder(
     createdBy: input.operatorName,
     createdAt,
     reviewer: input.changeResult === 'COST_ONLY' ? '财务主管' : '生产主管',
-    latestLog: `${productionOrderChangeResultLabels[input.changeResult]}已提交，${productionOrderChangeExecutionStrategyLabels[input.executionStrategy]}。`,
+    latestLog: status === 'DRAFT'
+      ? `${productionOrderChangeResultLabels[input.changeResult]}已保存草稿，待补充后提交审核。`
+      : `${productionOrderChangeResultLabels[input.changeResult]}已提交，${productionOrderChangeExecutionStrategyLabels[input.executionStrategy]}。`,
   }
 
   productionOrderChangeOrders = [order, ...productionOrderChangeOrders]
