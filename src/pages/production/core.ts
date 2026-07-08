@@ -7,24 +7,12 @@ export {
 } from './orders-domain'
 
 export {
-  renderProductionPlanPage,
-} from './plan-domain'
-
-export {
-  renderProductionDeliveryWarehousePage,
-} from './delivery-domain'
-
-export {
   renderProductionChangeEditPage,
   renderProductionChangeNewPage,
   renderProductionChangeOrderDetailPage,
   renderProductionChangeRelationDetailPage,
   renderProductionChangesPage,
 } from './changes-domain'
-
-export {
-  renderProductionStatusPage,
-} from './status-domain'
 
 export {
   renderProductionOrderDetailPage,
