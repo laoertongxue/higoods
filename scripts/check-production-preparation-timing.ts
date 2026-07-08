@@ -1468,6 +1468,14 @@ assert.ok(
   !completedDyeRequirementOperateHtml.includes('data-prep-dye-requirement-form'),
   '交互可达性反例：已完成的确认染色要求不得通过 URL 直达重复确认弹窗',
 )
+const completedNormalItemOperateHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-003&itemId=prep-202603-003-item-01&action=operate-item',
+)
+assertHtmlIncludes(
+  completedNormalItemOperateHtml,
+  'data-prep-operate-item-form',
+  '除确认染色要求外，已完成准备项仍必须支持再次打开上传弹窗补充文件',
+)
 const operateWithoutDrawerHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&patternDesigner=Diah&recordId=prep-202604-003&itemId=prep-202604-003-item-01&action=operate-item',
 )

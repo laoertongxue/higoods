@@ -698,7 +698,7 @@ function renderLedgerActions(
   const confirmHref = buildLedgerActionHref(params, month, { recordId: record.recordId, action: 'confirm-items' })
   const itemButtons = confirmed
     ? requiredItems(record).map((item) => {
-        const operable = item.status !== '已完成' && canOperateItem(item, record)
+        const operable = canOperateItem(item, record) && (!isDyeRequirementItem(item) || item.status !== '已完成')
         const operateHref = buildLedgerActionHref(params, month, {
           recordId: record.recordId,
           itemId: item.itemId,
@@ -1334,7 +1334,7 @@ function renderOperateItemDialog(
 ): string {
   if (valueOf(params, 'action') !== 'operate-item') return ''
   if (isDyeRequirementItem(item)) return ''
-  if (!hasConfirmedWorkItems(record) || item.status === '已完成' || !isSelectedPreparationItem(item) || !canOperateItem(item, record)) return ''
+  if (!hasConfirmedWorkItems(record) || !isSelectedPreparationItem(item) || !canOperateItem(item, record)) return ''
   const closeHref = buildLedgerHrefFromParams(params, month)
   const isAccessory = item.itemType === '辅料下单'
   return `
