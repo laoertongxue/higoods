@@ -791,7 +791,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true
     state.techPackChangeDetailTab = 'relation'
-    openAppRoute(`/fcs/production/changes/${orderId}`, `po-change-${orderId}`, `生产单变更 ${orderId}`)
+    openAppRoute(`/fcs/production/changes/orders/${orderId}`, `po-change-relation-${orderId}`, `生产单版本关系诊断 ${orderId}`)
     return true
   }
 
@@ -813,6 +813,22 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     state.productionChangeListTab = tab
     state.productionChangeOrderPage = 1
     state.productionChangeSelectedOrderId = ''
+    return true
+  }
+
+  if (action === 'switch-production-change-detail-tab') {
+    const tab = actionNode.dataset.tab as ProductionState['productionChangeDetailTab'] | undefined
+    if (
+      tab === 'content' ||
+      tab === 'impact' ||
+      tab === 'documents' ||
+      tab === 'cost' ||
+      tab === 'timing' ||
+      tab === 'approval' ||
+      tab === 'records'
+    ) {
+      state.productionChangeDetailTab = tab
+    }
     return true
   }
 
@@ -867,7 +883,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true
     state.techPackChangeDetailTab = 'logs'
-    openAppRoute(`/fcs/production/changes/${orderId}`, `po-change-${orderId}`, `生产单变更 ${orderId}`)
+    openAppRoute(`/fcs/production/changes/orders/${orderId}`, `po-change-relation-${orderId}`, `生产单版本关系诊断 ${orderId}`)
     return true
   }
 
@@ -894,7 +910,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     const orderId = actionNode.dataset.orderId
     state.techPackChangeDetailTab = 'logs'
     if (orderId) {
-      openAppRoute(`/fcs/production/changes/${orderId}`, `po-change-${orderId}`, `生产单变更 ${orderId}`)
+      openAppRoute(`/fcs/production/changes/orders/${orderId}`, `po-change-relation-${orderId}`, `生产单版本关系诊断 ${orderId}`)
     }
     showPlanMessage('已切换到该模块相关操作日志')
     return true
