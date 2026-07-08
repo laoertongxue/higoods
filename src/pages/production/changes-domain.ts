@@ -100,11 +100,19 @@ function getCurrentPublishGuideBatch(): ProductionTechPackPublishEvaluationBatch
   return getLatestPendingProductionTechPackPublishEvaluationBatch()
 }
 
+function includesKeyword(values: Array<string | number | null | undefined>, keyword: string): boolean {
+  return values
+    .filter((value) => value !== null && value !== undefined)
+    .join(' ')
+    .toLowerCase()
+    .includes(keyword)
+}
+
 function getFilteredRelations(): ProductionOrderTechPackRelation[] {
   const keyword = state.techPackChangeKeyword.trim().toLowerCase()
   return listProductionOrderTechPackRelations().filter((relation) => {
     if (keyword) {
-      const text = [
+      if (!includesKeyword([
         relation.productionOrderNo,
         relation.spuCode,
         relation.styleName,
@@ -112,10 +120,9 @@ function getFilteredRelations(): ProductionOrderTechPackRelation[] {
         relation.latestPublishedTechPackVersionNo,
         relation.buyerName,
         relation.merchandiserName,
-      ]
-        .join(' ')
-        .toLowerCase()
-      if (!text.includes(keyword)) return false
+        techPackRelationStatusLabels[relation.relationStatus],
+        ...relation.progressSummary,
+      ], keyword)) return false
     }
 
     if (
@@ -159,6 +166,26 @@ function getFilteredRelations(): ProductionOrderTechPackRelation[] {
     }
     return true
   })
+}
+
+function matchesChangeOrderKeyword(order: ProductionOrderChangeOrderView, keyword: string): boolean {
+  if (!keyword) return true
+  return includesKeyword([
+    order.id,
+    order.productionOrderId,
+    order.demandOrderId,
+    order.spuCode,
+    order.styleName,
+    order.buyerName,
+    order.merchandiserName,
+    order.reason,
+    order.effectiveDescription,
+    productionOrderChangeSourceLabels[order.source],
+    productionOrderChangeResultLabels[order.changeResult],
+    productionOrderChangeExecutionStrategyLabels[order.executionStrategy],
+    productionOrderChangeOrderStatusLabels[order.status],
+    ...order.changeModules.map((module) => techPackChangeModuleLabels[module]),
+  ], keyword)
 }
 
 function buildVersionChangeEffectPreviewRows(
@@ -1224,16 +1251,6 @@ function renderRelationWorkItem(relation: ProductionOrderTechPackRelation): stri
   `
 }
 
-const changeSourceCoverageLabels = [
-  ['TECH_PACK_NEW_VERSION', '技术包新版本'],
-  ['MATERIAL_SHORTAGE', '物料短缺 / 替代料'],
-  ['FACTORY_PROCESS_EXCEPTION', '工艺现场异常'],
-  ['PATTERN_SIZE_PRINT_CHANGE', '纸样 / 尺码 / 花型调整'],
-  ['COST_EXCEPTION', '核价 / 成本异常'],
-  ['DELIVERY_REQUIREMENT_CHANGE', '交期 / 发货要求变化'],
-  ['QUALITY_REWORK', '质量问题 / 返工要求'],
-] as const
-
 const changeRiskLabels = {
   LOW: '低',
   MEDIUM: '中',
@@ -1256,8 +1273,23 @@ function renderChangeStatCard(label: string, value: string | number, hint: strin
   `
 }
 
+function renderProductionChangeSearchBar(): string {
+  return `
+    <section class="rounded-lg border bg-background p-3">
+      <div class="flex gap-2">
+        <input
+          data-prod-field="techPackChangeKeyword"
+          value="${escapeHtml(state.techPackChangeKeyword)}"
+          class="min-w-0 flex-1 rounded-md border px-3 py-2 text-sm"
+          placeholder="搜索生产单号 / 变更单号 / 需求单号 / SPU / 款式 / 负责人"
+        />
+        <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="apply-production-change-search" data-fast-page-render="true">搜索</button>
+      </div>
+    </section>
+  `
+}
+
 function renderProductionChangeStatCards(input: {
-  scenarios: ProductionOrderChangeScenarioView[]
   orders: ProductionOrderChangeOrderView[]
   documentActions: ProductionOrderChangeDocumentActionView[]
   costImpacts: ProductionOrderChangeCostImpactView[]
@@ -1275,7 +1307,6 @@ function renderProductionChangeStatCards(input: {
       .map((item) => item.changeOrderId),
   )
   const statItems = [
-    ['场景库', `${input.scenarios.length} 个`, `${input.scenarios.length} 个场景覆盖变更来源`],
     ['变更单数', input.orders.length, '按生产单和变更单管理'],
     [
       '立即止损',
@@ -1289,52 +1320,8 @@ function renderProductionChangeStatCards(input: {
   ] as const
 
   return `
-    <section class="grid overflow-hidden rounded-lg border bg-background sm:grid-cols-2 xl:grid-cols-7">
+    <section class="grid overflow-hidden rounded-lg border bg-background sm:grid-cols-2 xl:grid-cols-6">
       ${statItems.map(([label, value, hint]) => renderChangeStatCard(label, value, hint)).join('')}
-    </section>
-  `
-}
-
-function renderScenarioCoveragePanel(scenarios: ProductionOrderChangeScenarioView[]): string {
-  const featuredScenarios = [0, 12, 24, 38, 50, 64].flatMap((index) => {
-    const scenario = scenarios[index]
-    return scenario ? [scenario] : []
-  })
-
-  return `
-    <section class="grid gap-4 rounded-lg border bg-background p-4 xl:grid-cols-[0.95fr_1.35fr]">
-      <div>
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h2 class="text-base font-semibold">场景覆盖面板</h2>
-            <p class="mt-1 text-sm text-muted-foreground">按来源分类展示数量，只列 6 个典型场景。</p>
-          </div>
-          ${renderBadge('80 个场景', 'bg-blue-50 text-blue-700 border-blue-200')}
-        </div>
-        <div class="mt-4 grid gap-2 sm:grid-cols-2">
-          ${changeSourceCoverageLabels.map(([source, label]) => {
-            const count = scenarios.filter((scenario) => scenario.source === source).length
-            return `
-              <div class="rounded-md border bg-muted/20 px-3 py-2">
-                <p class="text-xs text-muted-foreground">${escapeHtml(label)}</p>
-                <p class="mt-1 text-lg font-semibold">${count} 个</p>
-              </div>
-            `
-          }).join('')}
-        </div>
-      </div>
-      <div class="grid gap-2">
-        ${featuredScenarios.map((scenario) => `
-          <article class="rounded-md border px-3 py-2">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="font-medium">${escapeHtml(scenario.title)}</span>
-              ${renderBadge(productionOrderChangeSourceLabels[scenario.source], 'bg-slate-50 text-slate-700 border-slate-200')}
-              ${renderBadge(`风险${changeRiskLabels[scenario.riskLevel]}`, 'bg-amber-50 text-amber-700 border-amber-200')}
-            </div>
-            <p class="mt-1 text-xs text-muted-foreground">系统反推：${escapeHtml(productionOrderChangeResultLabels[scenario.expectedResult])}</p>
-          </article>
-        `).join('')}
-      </div>
     </section>
   `
 }
@@ -1593,7 +1580,6 @@ function renderProductionChangeClosedLoop(input: {
 
   return `
     ${renderProductionChangeStatCards(input)}
-    ${renderScenarioCoveragePanel(input.scenarios)}
     ${renderProductionChangeOrderList(input.orders, selectedOrder?.id ?? '')}
     ${selectedOrder ? renderSelectedChangeOrderDetail(selectedOrder, selectedScenario, {
       impacts: input.impacts.filter((item) => item.changeOrderId === selectedOrder.id),
@@ -1608,20 +1594,22 @@ export function renderProductionChangesPage(): string {
   syncPublishGuideFromRoute()
   const relations = getFilteredRelations()
   const allRelations = listProductionOrderTechPackRelations()
+  const keyword = state.techPackChangeKeyword.trim().toLowerCase()
   const changeScenarios = listProductionOrderChangeScenarioCatalog()
-  const changeOrders = listProductionOrderChangeOrders()
-  const changeImpacts = listProductionOrderChangeImpactRows()
-  const changeDocumentActions = listProductionOrderChangeDocumentActions()
-  const changeCostImpacts = listProductionOrderChangeCostImpacts()
-  const changeTimingImpacts = listProductionOrderChangeTimingImpacts()
+  const changeOrders = listProductionOrderChangeOrders().filter((order) => matchesChangeOrderKeyword(order, keyword))
+  const changeOrderIds = new Set(changeOrders.map((order) => order.id))
+  const changeImpacts = listProductionOrderChangeImpactRows().filter((item) => changeOrderIds.has(item.changeOrderId))
+  const changeDocumentActions = listProductionOrderChangeDocumentActions().filter((item) => changeOrderIds.has(item.changeOrderId))
+  const changeCostImpacts = listProductionOrderChangeCostImpacts().filter((item) => changeOrderIds.has(item.changeOrderId))
+  const changeTimingImpacts = listProductionOrderChangeTimingImpacts().filter((item) => changeOrderIds.has(item.changeOrderId))
   const currentVersions = Array.from(new Set(allRelations.map((item) => item.currentTechPackVersionNo)))
   const owners = Array.from(new Set(allRelations.map((item) => item.merchandiserName)))
   const stats = {
-    total: allRelations.length,
-    pending: allRelations.filter((item) => item.relationStatus === 'NEW_VERSION_UNEVALUATED').length,
-    reviewing: allRelations.filter((item) => item.relationStatus === 'CHANGE_IN_REVIEW').length,
-    patched: allRelations.filter((item) => item.activePatchCount > 0 || item.pendingPatchCount > 0).length,
-    locked: allRelations.filter((item) => item.relationStatus === 'LOCKED').length,
+    total: relations.length,
+    pending: relations.filter((item) => item.relationStatus === 'NEW_VERSION_UNEVALUATED').length,
+    reviewing: relations.filter((item) => item.relationStatus === 'CHANGE_IN_REVIEW').length,
+    patched: relations.filter((item) => item.activePatchCount > 0 || item.pendingPatchCount > 0).length,
+    locked: relations.filter((item) => item.relationStatus === 'LOCKED').length,
   }
 
   return `
@@ -1637,6 +1625,8 @@ export function renderProductionChangesPage(): string {
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="export-tech-pack-change">导出</button>
         </div>
       </header>
+
+      ${renderProductionChangeSearchBar()}
 
       ${renderProductionChangeClosedLoop({
         scenarios: changeScenarios,
@@ -1662,8 +1652,7 @@ export function renderProductionChangesPage(): string {
         `).join('')}
       </section>
 
-      <section class="grid gap-3 rounded-lg border bg-background p-3 md:grid-cols-3 xl:grid-cols-5">
-        <input data-prod-field="techPackChangeKeyword" value="${escapeHtml(state.techPackChangeKeyword)}" class="rounded-md border px-3 py-2 text-sm" placeholder="生产单号 / SPU / 款式" />
+      <section class="grid gap-3 rounded-lg border bg-background p-3 md:grid-cols-3 xl:grid-cols-7">
         <select data-prod-field="techPackChangeCurrentVersionFilter" class="rounded-md border px-3 py-2 text-sm">
           ${renderSelectOption('ALL', '全部冻结版本', state.techPackChangeCurrentVersionFilter)}
           ${currentVersions.map((version) => renderSelectOption(version, version, state.techPackChangeCurrentVersionFilter)).join('')}
@@ -2148,4 +2137,53 @@ export function renderProductionChangeDetailPage(productionOrderId: string): str
       ${renderModuleLandingDialog()}
     </div>
   `
+}
+
+export function renderProductionChangeNewPage(): string {
+  return `
+    <div class="space-y-4">
+      <header>
+        <h1 class="text-xl font-semibold">新增生产单变更</h1>
+        <p class="mt-1 text-sm text-muted-foreground">系统反推，不要求业务人员先选版本关系或补丁。</p>
+      </header>
+      <section class="rounded-lg border bg-card p-4">
+        <div class="grid gap-3 text-sm md:grid-cols-3">
+          ${['选择生产单', '填写变更内容', '系统计算影响', '确认单据处理', '料工费与时效', '提交审核']
+            .map((step) => `<div class="rounded-md border px-3 py-2">${escapeHtml(step)}</div>`)
+            .join('')}
+        </div>
+      </section>
+    </div>
+  `
+}
+
+export function renderProductionChangeEditPage(changeOrderId: string): string {
+  return `
+    <div class="space-y-4">
+      <h1 class="text-xl font-semibold">编辑变更单</h1>
+      <p class="text-sm text-muted-foreground">变更单号：${escapeHtml(changeOrderId)}</p>
+    </div>
+  `
+}
+
+export function renderProductionChangeOrderDetailPage(changeOrderId: string): string {
+  return `
+    <div class="space-y-4">
+      <header>
+        <h1 class="text-xl font-semibold">生产单变更单详情</h1>
+        <p class="mt-1 text-sm text-muted-foreground">变更单号：${escapeHtml(changeOrderId)}</p>
+      </header>
+      <section class="rounded-lg border bg-card p-4">
+        <div class="flex flex-wrap gap-2 text-sm">
+          ${['变更内容', '生产影响', '单据处理', '料工费', '时效影响', '审核执行', '处理记录']
+            .map((tab) => `<span class="rounded-md border px-3 py-2">${escapeHtml(tab)}</span>`)
+            .join('')}
+        </div>
+      </section>
+    </div>
+  `
+}
+
+export function renderProductionChangeRelationDetailPage(productionOrderId: string): string {
+  return renderProductionChangeDetailPage(productionOrderId)
 }

@@ -23,7 +23,10 @@ import {
   renderCapacityOverviewPage,
   renderCapacityPoliciesPage,
   renderCapacityRiskPage,
-  renderProductionChangeDetailPage,
+  renderProductionChangeEditPage,
+  renderProductionChangeNewPage,
+  renderProductionChangeOrderDetailPage,
+  renderProductionChangeRelationDetailPage,
   renderProductionChangesPage,
   renderProductionCraftDictPage,
   renderProductionDemandInboxPage,
@@ -220,6 +223,7 @@ export const routes: RouteRegistry = {
     '/fcs/production/preparation-timing-statistics': () => renderProductionPreparationTimingStatisticsPage(),
     '/fcs/production/delivery-warehouse': () => renderProductionDeliveryWarehousePage(),
     '/fcs/production/changes': () => renderProductionChangesPage(),
+    '/fcs/production/changes/new': () => renderProductionChangeNewPage(),
     '/fcs/production/status': () => renderProductionStatusPage(),
     '/fcs/production/craft-dict': () => renderProductionCraftDictPage(),
     '/fcs/process/task-breakdown': () => renderTaskBreakdownPage(),
@@ -464,8 +468,16 @@ export const routes: RouteRegistry = {
         ),
     },
     {
+      pattern: /^\/fcs\/production\/changes\/orders\/([^/]+)$/,
+      render: (match) => renderProductionChangeRelationDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/fcs\/production\/changes\/([^/]+)\/edit$/,
+      render: (match) => renderProductionChangeEditPage(match[1]),
+    },
+    {
       pattern: /^\/fcs\/production\/changes\/([^/]+)$/,
-      render: (match) => renderProductionChangeDetailPage(match[1]),
+      render: (match) => renderProductionChangeOrderDetailPage(match[1]),
     },
     {
       pattern: /^\/fcs\/production\/orders\/([^/]+)$/,

@@ -15,8 +15,11 @@ export {
 } from './delivery-domain'
 
 export {
+  renderProductionChangeEditPage,
+  renderProductionChangeNewPage,
+  renderProductionChangeOrderDetailPage,
+  renderProductionChangeRelationDetailPage,
   renderProductionChangesPage,
-  renderProductionChangeDetailPage,
 } from './changes-domain'
 
 export {
