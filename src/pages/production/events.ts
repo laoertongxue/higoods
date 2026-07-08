@@ -61,17 +61,23 @@ import {
 } from './demand-domain'
 import {
   getProductionOrderTechPackRelation,
+  effectiveModeLabels,
   listSelectableTechPackVersionsByOrder,
   getLatestPendingProductionTechPackPublishEvaluationBatch,
   ignoreProductionTechPackPublishEvaluationBatch,
   markProductionTechPackPublishEvaluationEntered,
   markProductionTechPackPublishEvaluationTodo,
+  submitProductionOrderChangeOrder,
   submitProductionOrderPatch,
   submitProductionOrderTechPackChange,
   voidProductionOrderPatch,
   type ChangeEffectiveMode,
   type PatchEffectivePoint,
+  type ProductionOrderChangeExecutionStrategy,
+  type ProductionOrderChangeResult,
+  type ProductionOrderChangeSource,
   type ProductionPatchType,
+  type TechPackChangeModule,
 } from '../../data/fcs/production-tech-pack-change-domain'
 import {
   handleProductionPreparationTimingEvent,
@@ -202,6 +208,34 @@ function validateProductionPatchForm(): string {
   if (!buildProductionPatchScopeText().trim()) return '请至少明确一个补丁影响范围。'
   if (!buildProductionPatchContentText().trim()) return '补丁内容不能为空。'
   return ''
+}
+
+function submitProductionChangeForm(draft: boolean): string | null {
+  const form = state.productionChangeForm
+  const reason = draft && !form.reason.trim() ? '草稿：待补充变更原因' : form.reason
+  const effectiveMode = form.effectiveMode as ChangeEffectiveMode
+
+  try {
+    const order = submitProductionOrderChangeOrder({
+      productionOrderId: form.productionOrderId,
+      source: form.source as ProductionOrderChangeSource,
+      changeModules: form.modules as TechPackChangeModule[],
+      reason,
+      expectedEffectiveMode: effectiveMode,
+      effectiveDescription: effectiveModeLabels[effectiveMode] ?? '按表单选择口径生效',
+      changeResult: form.changeResult as ProductionOrderChangeResult,
+      executionStrategy: form.executionStrategy as ProductionOrderChangeExecutionStrategy,
+      operatorName: currentUser.name,
+    })
+
+    state.productionChangeFormError = ''
+    openAppRoute(`/fcs/production/changes/${order.id}`, `production-change-${order.id}`, `生产单变更 ${order.id}`)
+    return order.id
+  } catch (error) {
+    state.productionChangeFormError = error instanceof Error ? error.message : '提交生产单变更失败'
+    state.productionChangeFormStep = 'submit'
+    return null
+  }
 }
 
 function openCurrentTechPackEntry(spuCode: string): void {
@@ -580,6 +614,21 @@ function updateProductionField(
     return
   }
 
+  const productionChangeFormFieldMap: Partial<Record<string, keyof typeof state.productionChangeForm>> = {
+    productionChangeFormProductionOrderId: 'productionOrderId',
+    productionChangeFormSource: 'source',
+    productionChangeFormResult: 'changeResult',
+    productionChangeFormEffectiveMode: 'effectiveMode',
+    productionChangeFormExecutionStrategy: 'executionStrategy',
+    productionChangeFormReason: 'reason',
+  }
+  const productionChangeFormField = productionChangeFormFieldMap[field]
+  if (productionChangeFormField) {
+    state.productionChangeForm[productionChangeFormField] = value
+    state.productionChangeFormError = ''
+    return
+  }
+
   if (field === 'productionPatchType') {
     state.productionPatchForm = {
       ...PRODUCTION_PATCH_EMPTY_FORM,
@@ -774,6 +823,38 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     state.productionChangeFormStep = 'content'
     state.productionChangeFormError = ''
     openAppRoute('/fcs/production/changes/new', 'production-change-new', '新增生产单变更')
+    return true
+  }
+
+  if (action === 'set-production-change-form-step') {
+    const step = actionNode.dataset.step as ProductionState['productionChangeFormStep'] | undefined
+    if (
+      step === 'order' ||
+      step === 'content' ||
+      step === 'impact' ||
+      step === 'documents' ||
+      step === 'cost-timing' ||
+      step === 'submit'
+    ) {
+      state.productionChangeFormStep = step
+    }
+    return true
+  }
+
+  if (action === 'save-production-change-draft') {
+    const orderId = submitProductionChangeForm(true)
+    if (orderId) showPlanMessage(`变更草稿已保存：${orderId}`)
+    return true
+  }
+
+  if (action === 'submit-production-change-order') {
+    const orderId = submitProductionChangeForm(false)
+    if (orderId) {
+      state.productionChangeForm = { ...PRODUCTION_CHANGE_EMPTY_FORM }
+      state.productionChangeFormStep = 'order'
+      state.productionChangeSelectedOrderId = ''
+      showPlanMessage(`生产单变更已提交审核：${orderId}`)
+    }
     return true
   }
 
