@@ -315,7 +315,7 @@ interface GeneratedDyeContext {
 
 function getProductionOrderQty(order: ProductionOrder): number {
   const skuQty = order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
-  return Math.max(1, Math.round(skuQty || order.planQty || 1))
+  return Math.max(1, Math.round(skuQty || 1))
 }
 
 function getGeneratedDyeCraft(index: number): { craftDefinition: ProcessCraftDefinition; mockIndex: number } | null {

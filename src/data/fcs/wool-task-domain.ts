@@ -567,7 +567,7 @@ function normalizeTaskToken(value: string): string {
 
 function resolveProductionOrderQty(order: ProductionOrder): number {
   const skuQty = order.demandSnapshot.skuLines.reduce((sum, line) => sum + Math.max(Number(line.qty) || 0, 0), 0)
-  return roundQty(skuQty || order.planQty || 0)
+  return roundQty(skuQty)
 }
 
 function getPatternPackageRows(patternFiles: TechPackPatternFileSnapshot[]): TechPackPatternFileSnapshot[] {

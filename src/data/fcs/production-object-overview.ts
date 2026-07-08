@@ -1157,7 +1157,7 @@ function resolveDemand(objectId: string): ProductionDemand | null {
 }
 
 function getOrderQuantity(order: ProductionOrder): number {
-  return order.planQty || order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0) || 0
+  return order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0) || 0
 }
 
 function getSkuSummary(order: ProductionOrder): string {
@@ -1400,7 +1400,7 @@ function buildMaterialBusinessAllocations(rows: ReturnType<typeof listMaterialRe
     preparedQty: Number(line.preparedQty || 0),
     pickedQty: getPickedQty(line),
     shortageQty: line.shortageQty,
-    deliveryDate: formatDateOrDash(order.demandSnapshot.requiredDeliveryDate || order.planEndDate),
+    deliveryDate: formatDateOrDash(order.demandSnapshot.requiredDeliveryDate),
     priority: order.demandSnapshot.priority || '普通',
     status: getMaterialSearchStatus(line),
     isSourceContext,
@@ -1415,7 +1415,7 @@ function buildMaterialExecutionLines(rows: ReturnType<typeof listMaterialResourc
     return {
       businessNo: order.productionOrderNo,
       processName: line.materialType === 'FABRIC' ? '裁片' : '生产用料',
-      factoryName: order.mainFactorySnapshot.name || order.planFactoryName || '待确认',
+      factoryName: order.mainFactorySnapshot.name || '待确认',
       requiredQty: line.requiredQty,
       preparedQty,
       pendingPrepareQty: Math.max(0, line.requiredQty - preparedQty),
@@ -1441,7 +1441,7 @@ function buildMaterialResourceIssues(rows: ReturnType<typeof listMaterialResourc
       unit: line.unit,
       ownerRole: line.ownerRole,
       occurredAt: order.updatedAt,
-      requiredDoneAt: formatDateOrDash(order.demandSnapshot.requiredDeliveryDate || order.planEndDate),
+      requiredDoneAt: formatDateOrDash(order.demandSnapshot.requiredDeliveryDate),
       statusText: getMaterialSearchStatus(line),
       suggestionText: line.nextActionText,
     }))
@@ -1454,7 +1454,7 @@ function buildMaterialSupplyDemandSummary(rows: ReturnType<typeof listMaterialRe
   const totalPickedQty = sumNumbers(rows.map(({ line }) => getPickedQty(line)))
   const shortageQty = sumNumbers(rows.map(({ line }) => line.shortageQty))
   const dates = rows
-    .map(({ order }) => order.demandSnapshot.requiredDeliveryDate || order.planEndDate || '')
+    .map(({ order }) => order.demandSnapshot.requiredDeliveryDate || '')
     .filter(Boolean)
     .sort()
   return {
@@ -1588,7 +1588,7 @@ function buildProgressNodes(order: ProductionOrder, facts: ProgressFact[]): Prod
         nodeName: '面辅料准备',
         status: '待确认',
         ownerRole: '跟单',
-        plannedAt: order.planStartDate || '-',
+        plannedAt: order.updatedAt || '-',
         actualAt: '-',
         relatedDocNo: '-',
         quantityText: `${getOrderQuantity(order).toLocaleString('zh-CN')} 件`,
@@ -1893,7 +1893,7 @@ function buildContinueDecision(order: ProductionOrder, materials: ProductionMate
     const ownerName = topIssue.ownerRole === '采购'
       ? '采购'
       : topIssue.ownerRole === '仓库'
-        ? order.deliveryWarehouseName || '仓库'
+        ? '仓库'
         : topIssue.ownerRole
     return {
       status: topIssue.continueText === '需要确认' ? 'NEEDS_CONFIRM' : 'CANNOT_CONTINUE',
@@ -2188,12 +2188,12 @@ function buildProductionTimeline(order: ProductionOrder, continueDecision: Conti
   const hasIssue = issues.length > 0
   return [
     { nodeName: '需求接收', plannedAt: order.createdAt || order.updatedAt, actualAt: order.createdAt || order.updatedAt, ownerRole: '跟单', statusText: '已完成', evidenceObjectNo: order.demandId },
-    { nodeName: '生产单生成', plannedAt: order.planStartDate || order.updatedAt, actualAt: order.createdAt || order.updatedAt, ownerRole: '跟单', statusText: '已完成', evidenceObjectNo: order.productionOrderNo },
+    { nodeName: '生产单生成', plannedAt: order.updatedAt, actualAt: order.createdAt || order.updatedAt, ownerRole: '跟单', statusText: '已完成', evidenceObjectNo: order.productionOrderNo },
     { nodeName: '采购下单', plannedAt: '2026-06-28', actualAt: '2026-06-28', ownerRole: '采购', statusText: '已完成', evidenceObjectNo: 'PO-33133' },
     { nodeName: '预计到仓', plannedAt: '2026-07-02', actualAt: '待确认', ownerRole: '采购', statusText: continueDecision.displayText, evidenceObjectNo: continueDecision.sourceObjectNo, isCurrent: continueDecision.ownerRole === '采购', isIssue: hasIssue },
     { nodeName: '仓库配料', plannedAt: '2026-07-02', actualAt: '待确认', ownerRole: '仓库', statusText: '待处理', evidenceObjectNo: 'MPO-202603-0001', isCurrent: continueDecision.ownerRole === '仓库' },
     { nodeName: '工厂签收', plannedAt: '2026-07-03', actualAt: '待确认', ownerRole: '工厂', statusText: '待处理', evidenceObjectNo: 'PICK-202603-0001' },
-    { nodeName: '裁片/印花/染色', plannedAt: order.planEndDate || '待确认', actualAt: '待确认', ownerRole: '工厂', statusText: '待处理', evidenceObjectNo: 'PRINT-WO-202603-0001' },
+    { nodeName: '裁片/印花/染色', plannedAt: order.demandSnapshot.requiredDeliveryDate || '待确认', actualAt: '待确认', ownerRole: '工厂', statusText: '待处理', evidenceObjectNo: 'PRINT-WO-202603-0001' },
   ]
 }
 
@@ -2421,9 +2421,9 @@ export function getProductionObjectOverview(objectType: ProductionObjectType, ob
     unit: '件',
     currentStage: productionOrderStatusConfig[order.status].label,
     mainFactoryName: formatProductionOrderMainFactoryName(order),
-    deliveryWarehouse: order.deliveryWarehouseName || '待确认',
+    deliveryWarehouse: '',
     merchandiser: order.demandSnapshot.merchandiserName,
-    plannedDeliveryDate: order.demandSnapshot.requiredDeliveryDate || order.planEndDate || '待确认',
+    plannedDeliveryDate: order.demandSnapshot.requiredDeliveryDate || '待确认',
     updatedAt: order.updatedAt,
   }
 

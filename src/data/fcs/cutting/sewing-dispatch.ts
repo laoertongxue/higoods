@@ -794,7 +794,7 @@ function getProductionOrder(productionOrderId: string): ProductionOrder {
 
 function getTotalProductionQty(order: ProductionOrder): number {
   const skuTotal = sum(order.demandSnapshot.skuLines.map((line) => line.qty || 0))
-  return order.planQty || skuTotal || 0
+  return skuTotal || 0
 }
 
 function isColorApplicable(applicableColorList: string[], colorName: string): boolean {

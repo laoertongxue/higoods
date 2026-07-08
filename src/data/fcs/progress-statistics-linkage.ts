@@ -711,7 +711,7 @@ function getTechPackSpecialCraftSourceSummary(order: ProductionOrder): {
 }
 
 function getDueDate(order: ProductionOrder): string {
-  return order.planEndDate || order.demandSnapshot.requiredDeliveryDate || ''
+  return order.demandSnapshot.requiredDeliveryDate || ''
 }
 
 function daysBetween(fromDate: string, toDate: string): number {

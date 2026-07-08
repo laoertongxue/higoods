@@ -701,7 +701,7 @@ function mergeDemandLinesIntoTaskOrder(input: {
     unit: demandLines[0]?.unit || '片',
     status: existingTask?.status || '待领料',
     abnormalStatus: existingTask?.abnormalStatus || '无异常',
-    dueAt: order.planEndDate || order.demandSnapshot.requiredDeliveryDate || order.updatedAt,
+    dueAt: order.demandSnapshot.requiredDeliveryDate || order.updatedAt,
     createdAt: order.updatedAt || order.createdAt,
     updatedAt: order.updatedAt || order.createdAt,
     generationBatchId,

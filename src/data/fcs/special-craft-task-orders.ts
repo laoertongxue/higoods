@@ -722,7 +722,7 @@ function buildLinkedDemoTaskSeed(input: {
     status,
     abnormalStatus,
     createdAt: order.updatedAt || order.createdAt,
-    dueAt: order.planEndDate || order.demandSnapshot.requiredDeliveryDate || order.updatedAt,
+    dueAt: order.demandSnapshot.requiredDeliveryDate || order.updatedAt,
     receiverName: getReceiverName(operation),
     receiverKind: getReceiverKind(operation),
     sourceAction: targetObject === '成衣半成品' ? '交出接收' : '领料确认',

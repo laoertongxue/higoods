@@ -439,7 +439,7 @@ function buildFacts(processCode: PrepProcessCode): {
       factoryName: meta.factoryNames[index % meta.factoryNames.length],
       plannedFeedQty: orderQty,
       unit: meta.unit,
-      plannedFinishAt: order?.planEndDate ?? order?.updatedAt ?? '2026-03-20 18:00:00',
+      plannedFinishAt: order?.demandSnapshot.requiredDeliveryDate ?? order?.updatedAt ?? '2026-03-20 18:00:00',
       sourceSummary: `由需求单 ${demandNo} 转入${meta.processLabel}执行`,
       note: `${meta.processLabel}执行示例数据，底层来源为统一需求生成结果。`,
       createdAt,
