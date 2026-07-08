@@ -106,6 +106,7 @@ state.productionChangeOrderPage = 1
 
 const firstRelation = listProductionOrderTechPackRelations()[0]
 assert.ok(firstRelation, '至少需要一张生产单版本关系样本')
+const relation = firstRelation
 
 const listHtml = renderProductionChangesPage()
 
@@ -148,10 +149,60 @@ state.techPackChangeVersionDialogOrderId = null
 state.productionPatchDialogOrderId = null
 
 const newHtml = renderProductionChangeNewPage()
-;['选择生产单', '填写变更内容', '系统计算影响', '确认单据处理', '料工费与时效', '提交审核'].forEach((text) => {
+;['选择生产单', '填写变更内容', '确认影响和单据处理', '预览并提交'].forEach((text) => {
   assert.ok(newHtml.includes(text), `新增页缺少步骤「${text}」`)
 })
+;['系统计算影响', '料工费与时效', '提交审核'].forEach((text) => {
+  assert.ok(!newHtml.includes(text), `新增页不应再展示旧步骤「${text}」`)
+})
 assert.ok(newHtml.includes('系统反推，不要求业务人员先选版本关系或补丁'), '新增页必须说明系统反推口径')
+assert.ok(newHtml.includes('生产单当前事实'), '新增页第 1 步必须展示生产单当前事实')
+assert.ok(
+  !newHtml.includes('data-prod-field="productionChangeFormResult"'),
+  '新增页第 1 步不应展示系统反推结果输入字段',
+)
+assert.ok(
+  !newHtml.includes('data-prod-field="productionChangeFormExecutionStrategy"'),
+  '新增页第 1 步不应展示执行策略输入字段',
+)
+
+state.productionChangeFormStep = 'content'
+const contentStepHtml = renderProductionChangeNewPage()
+;['变更来源', '变更模块', '具体变更内容', '期望生效口径', '变更原因'].forEach((text) => {
+  assert.ok(contentStepHtml.includes(text), `新增页第 2 步缺少「${text}」`)
+})
+;['系统反推结果', '执行策略', '是否生产补丁', '是否版本关系变更'].forEach((text) => {
+  assert.ok(!contentStepHtml.includes(text), `新增页第 2 步不应展示「${text}」`)
+})
+
+state.productionChangeForm = {
+  productionOrderId: relation.productionOrderId,
+  source: 'MATERIAL_SHORTAGE',
+  modules: ['BOM'],
+  changeContent: '主面料 FAB-A01 改 FAB-B02',
+  reason: '主面料短缺，未领部分需要替代料。',
+  effectiveMode: 'FROM_NEXT_PICKUP',
+  executionMode: 'AFTER_APPROVAL',
+}
+state.productionChangeFormStep = 'handling'
+const handlingStepHtml = renderProductionChangeNewPage()
+;['生产影响', '单据处理建议', '可改做', '不可追回', '系统建议'].forEach((text) => {
+  assert.ok(handlingStepHtml.includes(text), `新增页第 3 步缺少「${text}」`)
+})
+
+state.productionChangeFormStep = 'preview'
+const previewStepHtml = renderProductionChangeNewPage()
+;[
+  '处理后结果预览',
+  '系统反推结果',
+  '预计料工费',
+  '预计时效',
+  '立即执行',
+  '立即止损后提交审核',
+  '审核通过后执行',
+].forEach((text) => {
+  assert.ok(previewStepHtml.includes(text), `新增页第 4 步缺少「${text}」`)
+})
 
 const firstOrder = listProductionOrderChangeOrders()[0]
 assert.ok(firstOrder, '至少需要一张变更单')
@@ -288,7 +339,6 @@ assert.equal(
 state.techPackChangeKeyword = ''
 
 const beforeCount = listProductionOrderChangeOrders().length
-const relation = firstRelation
 
 const created = submitProductionOrderChangeOrder({
   productionOrderId: relation.productionOrderId,
