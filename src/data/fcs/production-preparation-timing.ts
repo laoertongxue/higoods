@@ -392,18 +392,19 @@ function orderHref(orderNo: string): string {
 }
 
 export function buildPreparationOutputs(input: PreparationOutputBuildInput): ProductionPreparationOutput[] {
+  const selectedItems = input.items.filter((item) => item.selectedByMerchandiser !== false && item.status !== '无需')
   if (
     !(input.workItemsConfirmedBy && input.workItemsConfirmedAt) ||
     !input.outputReady ||
     !input.productionDemandNo ||
     !input.productionOrderNo ||
-    !input.outputPublishedAt
+    !input.outputPublishedAt ||
+    selectedItems.some((item) => item.status !== '已完成')
   ) {
     return []
   }
 
   const status: PreparationOutputStatus = '已生成'
-  const selectedItems = input.items.filter((item) => item.selectedByMerchandiser !== false && item.status !== '无需')
   const outputs: ProductionPreparationOutput[] = [
     { outputType: '正式版本技术包', outputNo: `TP-${input.productionOrderNo}`, outputHref: `/fcs/production/orders/${encodeURIComponent(input.productionOrderNo)}/tech-pack`, outputStatus: status, outputGeneratedAt: input.outputPublishedAt },
     { outputType: '生产需求单', outputNo: input.productionDemandNo, outputHref: `/fcs/production/demand-inbox?keyword=${encodeURIComponent(input.productionDemandNo)}`, outputStatus: status, outputGeneratedAt: input.outputPublishedAt },

@@ -59,6 +59,7 @@ for (const file of [
 }
 
 const productionPreparationDataModule = await import('../src/data/fcs/production-preparation-timing.ts') as {
+  buildPreparationOutputs: typeof import('../src/data/fcs/production-preparation-timing.ts').buildPreparationOutputs
   buildMonthlyPreparationCompletionDetails: typeof import('../src/data/fcs/production-preparation-timing.ts').buildMonthlyPreparationCompletionDetails
   buildMonthlyPreparationStats: typeof import('../src/data/fcs/production-preparation-timing.ts').buildMonthlyPreparationStats
   filterProductionPreparationRecords: typeof import('../src/data/fcs/production-preparation-timing.ts').filterProductionPreparationRecords
@@ -153,6 +154,7 @@ assertIncludes(
 )
 
 const {
+  buildPreparationOutputs,
   buildMonthlyPreparationCompletionDetails,
   buildMonthlyPreparationStats,
   filterProductionPreparationRecords,
@@ -160,6 +162,24 @@ const {
   preparationTypeDefaultItems,
   productionPreparationRecords,
 } = productionPreparationDataModule
+
+assert.deepEqual(
+  buildPreparationOutputs({
+    recordNo: 'PREP-反例-001',
+    productionDemandNo: 'PD-反例-001',
+    productionOrderNo: 'PO-反例-001',
+    outputReady: true,
+    outputPublishedAt: '2026-03-12T10:00:00',
+    workItemsConfirmedBy: '测试跟单',
+    workItemsConfirmedAt: '2026-03-10T10:00:00',
+    items: [
+      { itemType: '梭织基码纸样', selectedByMerchandiser: true, status: '已完成' },
+      { itemType: '版衣制作', selectedByMerchandiser: true, status: '进行中' },
+    ],
+  }),
+  [],
+  '业务闭环反例：已选准备项未全部完成时不得生成正式产出',
+)
 
 type EvidenceItem = {
   itemType: string
@@ -620,12 +640,22 @@ for (const record of productionPreparationRecords as Array<{
   productionOrderNo?: string
   outputReady?: boolean
   outputs?: unknown[]
-  items: EvidenceItem[]
+  items: Array<EvidenceItem & { dyeRequirement?: unknown }>
 }>) {
+  const selectedItems = selectedEvidenceItems(record)
   for (const item of selectedEvidenceItems(record).filter((current) => current.status === '已完成')) {
     assert.ok(
       hasUploadEvidence(item),
       `${record.recordNo} ${item.itemType} 已完成时必须有上传记录、上传人、上传时间和实际完成时间`,
+    )
+  }
+  for (const item of selectedItems.filter((current) => current.itemType.includes('染色调色'))) {
+    assert.ok(item.dyeRequirement, `${record.recordNo} ${item.itemType} 已选择时必须维护染色要求`)
+  }
+  if (record.outputReady) {
+    assert.ok(
+      selectedItems.every((item) => item.status === '已完成'),
+      `${record.recordNo} outputReady=true 时所有已选准备项必须已完成`,
     )
   }
   assert.ok(
@@ -1235,6 +1265,19 @@ assert.ok(!pendingOutputDrawerHtml.includes('预计产出'), '未全部完成记
 assert.ok(!pendingOutputDrawerHtml.includes('正式产出'), '未全部完成记录不应展示正式产出')
 assert.ok(!pendingOutputHtml.includes('待跟单确认后开放操作'), '未确认工作项的操作列不得展示额外说明')
 assert.ok(!pendingOutputHtml.includes('维护染色要求'), '未确认工作项前不得展示维护染色要求入口')
+const selectedDyeRequirementHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-002&itemId=prep-202603-002-item-08&action=maintain-dye-requirement',
+)
+assertHtmlIncludes(selectedDyeRequirementHtml, 'data-prep-dye-requirement-form', '已选择染色项必须能直达维护染色要求弹窗')
+assertHtmlIncludes(selectedDyeRequirementHtml, '潘通色号', '维护染色要求弹窗必须展示潘通色号')
+assert.ok(!selectedDyeRequirementHtml.includes('<aside'), '维护染色要求入口不应同时打开详情侧边栏')
+const unselectedDyeRequirementHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-005&itemId=prep-202603-005-item-06&action=maintain-dye-requirement',
+)
+assert.ok(
+  !unselectedDyeRequirementHtml.includes('data-prep-dye-requirement-form'),
+  '交互可达性反例：未选择染色项不得通过 URL 直达维护染色要求弹窗',
+)
 const unconfirmedOperateHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001&itemId=prep-202603-001-item-03&action=operate-item',
 )

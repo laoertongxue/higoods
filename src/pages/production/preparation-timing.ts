@@ -514,6 +514,10 @@ function isDyeItem(item: ProductionPreparationItem): boolean {
   return item.itemType.includes('染色调色')
 }
 
+function isSelectedPreparationItem(item: ProductionPreparationItem): boolean {
+  return item.selectedByMerchandiser !== false && item.status !== '无需'
+}
+
 function renderLedgerActions(
   record: ProductionPreparationRecord,
   confirmed: boolean,
@@ -1121,7 +1125,7 @@ function renderDyeRequirementDialog(
   params: URLSearchParams,
   month: string,
 ): string {
-  if (valueOf(params, 'action') !== 'maintain-dye-requirement' || !isDyeItem(item)) return ''
+  if (valueOf(params, 'action') !== 'maintain-dye-requirement' || !isDyeItem(item) || !isSelectedPreparationItem(item)) return ''
   const closeHref = buildLedgerHrefFromParams(params, month)
   const requirement = item.dyeRequirement
   const materialNo = requirement?.materialNo || record.materialRequirement.materialNo
@@ -1680,7 +1684,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
       .find((item) => item.recordId === recordId)
     if (!record || !hasConfirmedWorkItems(record)) return true
     const item = record.items.find((candidate) => candidate.itemId === itemId)
-    if (!item || !isDyeItem(item)) return true
+    if (!item || !isDyeItem(item) || !isSelectedPreparationItem(item)) return true
 
     const dyeRequirement: PreparationDyeRequirement = {
       materialNo: String(formData.get('materialNo') ?? record.materialRequirement.materialNo).trim(),
