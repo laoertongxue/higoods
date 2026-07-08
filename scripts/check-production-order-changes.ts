@@ -277,6 +277,24 @@ const draft = submitProductionOrderChangeOrder({
 
 assert.equal(draft.status, 'DRAFT', '保存补丁草稿创建的变更单必须保持草稿状态')
 
+assert.throws(
+  () =>
+    submitProductionOrderChangeOrder({
+      productionOrderId: relation.productionOrderId,
+      source: 'MATERIAL_SHORTAGE',
+      changeModules: ['BOM'],
+      reason: '自动检查：不允许新建为终态。',
+      expectedEffectiveMode: 'FROM_NEXT_PREP',
+      effectiveDescription: '从下一次配料开始',
+      changeResult: 'PRODUCTION_PATCH',
+      executionStrategy: 'AFTER_APPROVAL',
+      operatorName: '自动检查',
+      status: 'DONE',
+    }),
+  /新建变更单只允许保存为草稿状态。/,
+  '新建变更单不允许直接创建为完成态',
+)
+
 const appShellConfig = fs.readFileSync(path.resolve(process.cwd(), 'src/data/app-shell-config.ts'), 'utf8')
 assert.ok(appShellConfig.includes('生产单变更管理'), '菜单配置必须包含「生产单变更管理」')
 assert.ok(!appShellConfig.includes('生产单变更影响台账'), '菜单配置不应包含「生产单变更影响台账」')

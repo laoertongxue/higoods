@@ -407,7 +407,7 @@ export interface ProductionOrderChangeOrderSubmitInput {
   operatorName: string
   linkedVersionChangeRequestId?: string
   linkedPatchId?: string
-  status?: ProductionOrderChangeOrderStatus
+  status?: 'DRAFT'
 }
 
 export interface ProductionOrderChangeImpactRow {
@@ -2486,6 +2486,10 @@ export function submitProductionOrderChangeOrder(
   if (!relation) throw new Error('未找到生产单技术包版本关系。')
   if (!input.reason.trim()) throw new Error('变更原因不能为空。')
   if (input.changeModules.length === 0) throw new Error('至少需要一个变更模块。')
+  const requestedStatus = input.status as ProductionOrderChangeOrderStatus | undefined
+  if (requestedStatus && requestedStatus !== 'DRAFT') {
+    throw new Error('新建变更单只允许保存为草稿状态。')
+  }
 
   const hasVersionRelationChange =
     input.changeResult === 'VERSION_RELATION' || input.changeResult === 'VERSION_AND_PATCH'
@@ -2513,7 +2517,7 @@ export function submitProductionOrderChangeOrder(
   const hasProductionPatch =
     input.changeResult === 'PRODUCTION_PATCH' || input.changeResult === 'VERSION_AND_PATCH'
   const createdAt = nowText()
-  const status = input.status ?? (input.executionStrategy === 'IMMEDIATE_EXECUTION' ? 'EXECUTING' : 'SUBMITTED')
+  const status = requestedStatus ?? (input.executionStrategy === 'IMMEDIATE_EXECUTION' ? 'EXECUTING' : 'SUBMITTED')
   const order: ProductionOrderChangeOrder = {
     id: nextProductionOrderChangeOrderId(input.productionOrderId),
     scenarioId: scenario.id,
