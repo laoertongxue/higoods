@@ -42,6 +42,7 @@ function excludesAll(source: string, terms: string[], message: string): void {
 
 try {
   const craftDictPageSource = readSource('src/pages/production-craft-dict.ts')
+  const mainSource = readSource('src/main.ts')
   const taskBreakdownSource = readSource('src/pages/task-breakdown.ts')
 
   includesAll(
@@ -131,6 +132,14 @@ try {
 
   assert(!historicalRows.some((row) => removedCraftNameSet.has(row.craftName)), '历史停用区不应保留已删除旧项')
   assertNoRemovedLegacyTerm(craftDictPageSource, assert, '工序工艺字典页面源码不应保留已删除旧项')
+
+  const craftDictDispatchIndex = mainSource.indexOf("pathname.startsWith('/fcs/production/craft-dict')")
+  const productionRouteDispatchIndex = mainSource.indexOf('if (isProductionRoutePath(pathname))')
+  assert(craftDictDispatchIndex >= 0, '主点击分发必须为工序工艺字典路由保留专用入口')
+  assert(
+    productionRouteDispatchIndex < 0 || craftDictDispatchIndex < productionRouteDispatchIndex,
+    '工序工艺字典点击事件必须先于泛化生产单路由分发，否则查看完整顺序不会响应',
+  )
 
   const openHandled = handleProductionCraftDictEvent({
     closest(selector: string) {

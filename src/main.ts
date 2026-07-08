@@ -507,6 +507,10 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
     const productionOrderProgressTrackingPage = await getProductionOrderProgressTrackingPageModule()
     return productionOrderProgressTrackingPage.handleProductionOrderProgressEvent(eventTarget)
   }
+  if (pathname.startsWith('/fcs/production/craft-dict')) {
+    const fcsHandlers = await getFcsHandlersModule()
+    return fcsHandlers.dispatchFcsPageEvent(eventTarget)
+  }
   if (isProductionRoutePath(pathname)) {
     const productionEvents = await getProductionEventsModule()
     return productionEvents.handleProductionEvent(eventTarget)
