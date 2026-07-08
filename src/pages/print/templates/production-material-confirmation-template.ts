@@ -322,14 +322,12 @@ function buildProductionSections(context: ProductionPrintContext): PrintDocument
     },
     {
       sectionId: 'delivery',
-      title: '包装与交付要求区',
+      title: '包装要求区',
       fields: mapFields([
         { label: '包装方式', value: '按订单包装标准执行' },
         { label: '吊牌 / 水洗标 / 贴标要求', value: '按技术包和商品档案要求执行' },
-        { label: '外箱要求', value: '按交付仓收货规范' },
-        { label: '交付仓', value: order.deliveryWarehouseName || '待确认' },
-        { label: '交付方式', value: order.deliveryWarehouseStatus === 'SET' ? '交付仓已设置' : '待跟单确认' },
-        { label: '备注', value: order.deliveryWarehouseRemark || snapshot.productionOrderSnapshot.productionRemark || '暂无数据' },
+        { label: '外箱要求', value: '按订单包装标准执行' },
+        { label: '备注', value: snapshot.productionOrderSnapshot.productionRemark || '暂无数据' },
       ]),
     },
   ]

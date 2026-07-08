@@ -527,7 +527,6 @@ function renderSummaryTab(overview: ProductionObjectOverview): string {
             ${renderInfoItem('交期', summary.plannedDeliveryDate)}
             ${renderInfoItem('当前阶段', summary.currentStage)}
             ${renderInfoItem('主工厂', summary.mainFactoryName)}
-            ${renderInfoItem('交付仓', summary.deliveryWarehouse)}
             ${renderInfoItem('跟单员', summary.merchandiser)}
           </div>
         </div>

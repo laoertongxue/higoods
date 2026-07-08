@@ -37,7 +37,6 @@ interface ProductionOrderTrackingRecord {
   nodeIndexText: string
   riskLevel: RiskLevel
   riskTags: string[]
-  deliveryWarehouse: string
   factories: string[]
   plannedDelivery: string
   dueText: string
@@ -145,7 +144,6 @@ const orders: ProductionOrderTrackingRecord[] = [
     nodeIndexText: '3/7',
     riskLevel: '高风险',
     riskTags: ['印花未闭仓', '裁床多批次交出', '车缝组拒收'],
-    deliveryWarehouse: 'WH-BDG-01',
     factories: ['东莞厚昇制衣厂', '苏州印花厂', '深圳染仓'],
     plannedDelivery: '2026-06-25',
     dueText: '剩余 0 天',
@@ -183,7 +181,6 @@ const orders: ProductionOrderTrackingRecord[] = [
     nodeIndexText: '2/6',
     riskLevel: '中风险',
     riskTags: ['多节点并发待处理'],
-    deliveryWarehouse: 'WH-SZX-02',
     factories: ['佛山海尚制衣厂', '深圳中转仓'],
     plannedDelivery: '2026-06-28',
     dueText: '剩余 3 天',
@@ -220,7 +217,6 @@ const orders: ProductionOrderTrackingRecord[] = [
     nodeIndexText: '6/6',
     riskLevel: '无',
     riskTags: [],
-    deliveryWarehouse: 'WH-BDG-01',
     factories: ['东莞虎门制衣厂'],
     plannedDelivery: '2026-06-26',
     dueText: '剩余 1 天',
@@ -254,7 +250,6 @@ const orders: ProductionOrderTrackingRecord[] = [
     nodeIndexText: '6/6',
     riskLevel: '无',
     riskTags: [],
-    deliveryWarehouse: 'WH-SZX-01',
     factories: ['惠州博罗制衣厂'],
     plannedDelivery: '2026-06-22',
     dueText: '已交付',
@@ -273,7 +268,7 @@ const orders: ProductionOrderTrackingRecord[] = [
 ]
 
 const overviewNodes: StageNode[] = [
-  { id: 'PR-202606-01', label: '生产需求', date: '06-05', qty: '8,600件', status: '已完成', lane: '主线', col: 1, detail: '生产需求已确认，交付仓与尺码结构已冻结。' },
+  { id: 'PR-202606-01', label: '生产需求', date: '06-05', qty: '8,600件', status: '已完成', lane: '主线', col: 1, detail: '生产需求已确认，尺码结构已确认。' },
   { id: 'TB-240618-V2', label: '技术包 V2', date: '06-06', status: '已完成', lane: '主线', col: 2, detail: '技术包完成，补货版型与工艺要求已下发。' },
   { id: 'SO-PRD-0018', label: '生产单创建', date: '06-06', qty: '8,600件', status: '已完成', lane: '主线', col: 3, span: 2, detail: '生产单已生成，进入多泳道任务拆分。' },
   { id: 'PF-240618-01', label: '印花需求', date: '06-07', qty: '8,600件', status: '进行中', lane: '印花链路', col: 4, detail: '印花需求已拆分，存在回仓延迟。' },
@@ -464,7 +459,7 @@ function renderListHeader(): string {
           ${renderIcon('GitBranch', 'h-5 w-5')}
           生产单进度跟踪
         </h1>
-        <p class="text-sm text-muted-foreground">按生产单全生命周期追踪时间、数量、工单分支、交接质检与结算风险</p>
+        <p class="text-sm text-muted-foreground">按生产单追踪时间、数量、工单分支、交接质检与结算风险</p>
       </div>
     </header>
     <section class="grid grid-cols-6 gap-4">
@@ -660,10 +655,6 @@ function renderOrderRow(order: ProductionOrderTrackingRecord, expandedNo: string
       </td>
       <td class="px-3 py-3"><div class="flex flex-col gap-1">${renderRiskTags(order)}</div></td>
       <td class="px-3 py-3">
-        <p class="font-medium text-slate-800">${escapeHtml(order.deliveryWarehouse)}</p>
-        <p class="text-xs text-slate-500">广州成衣仓</p>
-      </td>
-      <td class="px-3 py-3">
         <p class="font-medium text-slate-800">${escapeHtml(order.factories[0])}</p>
         <p class="text-xs text-blue-600">+${Math.max(0, order.factories.length - 1)}</p>
       </td>
@@ -702,7 +693,7 @@ function renderOrderTable(): string {
         <label class="flex items-center gap-2 text-slate-600"><input type="checkbox" class="h-4 w-4 rounded border-slate-300" />已选择 0 项</label>
       </div>
       <div class="overflow-x-auto">
-        <table class="min-w-[1600px] w-full text-left text-sm">
+        <table class="min-w-[1500px] w-full text-left text-sm">
           <thead class="border-b bg-muted/40 text-xs text-muted-foreground">
             <tr>
               <th class="w-10 px-3 py-2 font-medium"></th>
@@ -713,7 +704,6 @@ function renderOrderTable(): string {
               <th class="px-3 py-2 font-medium">当前状态</th>
               <th class="px-3 py-2 font-medium">当前节点</th>
               <th class="px-3 py-2 font-medium">风险等级</th>
-              <th class="px-3 py-2 font-medium">交付仓</th>
               <th class="px-3 py-2 font-medium">涉及工厂</th>
               <th class="px-3 py-2 font-medium">计划交付</th>
               <th class="px-3 py-2 font-medium">实际进度</th>
@@ -816,7 +806,6 @@ function renderOrderHero(order: ProductionOrderTrackingRecord, tab: TrackingTab)
             label: order.spu,
             className: 'font-mono text-blue-600 hover:underline',
           })}　|　3色6码</p></div>
-          <div class="min-w-0"><p class="text-slate-500">交付仓</p><p class="mt-1 truncate font-semibold text-slate-950">万锦成衣仓 ${escapeHtml(order.deliveryWarehouse)}</p></div>
           <div class="min-w-0"><p class="text-slate-500">计划交付</p><p class="mt-1 truncate font-semibold text-slate-950">${escapeHtml(order.plannedDelivery)}</p></div>
           <div class="min-w-0"><p class="text-slate-500">责任品牌</p><p class="mt-1 truncate font-semibold text-slate-950">${escapeHtml(order.brand)} / 小飞袖</p></div>
           <div class="min-w-0"><p class="text-slate-500">涉及工厂</p><p class="mt-1 truncate font-semibold text-slate-950">${escapeHtml(order.factories.slice(0, 3).join('、'))}</p></div>
@@ -848,7 +837,7 @@ function renderDetailHeader(order: ProductionOrderTrackingRecord, tab: TrackingT
             ${renderIcon('ArrowLeft', 'h-4 w-4')}
           </button>
           <h1 class="text-xl font-semibold">
-            生产单全生命周期跟踪 /
+            生产单进度追踪 /
             ${renderProductionObjectCodeButton({
               objectType: 'PRODUCTION_ORDER',
               objectId: order.no,
@@ -897,7 +886,7 @@ function renderOverviewMatrix(order: ProductionOrderTrackingRecord, selectedNode
   return `
     <section class="grid grid-cols-[minmax(0,1fr)_300px] gap-4">
       <div class="min-w-0 rounded-lg border bg-card p-4">
-        <h2 class="text-base font-semibold">多泳道生命周期矩阵</h2>
+        <h2 class="text-base font-semibold">多泳道进度矩阵</h2>
         <div class="mt-4 overflow-x-auto">
           <div class="grid min-w-[2040px] gap-2" style="grid-template-columns:112px repeat(13, 140px);">
             <div></div>
@@ -1054,7 +1043,7 @@ function renderTimelineTab(order: ProductionOrderTrackingRecord, selectedNode?: 
       <section class="grid grid-cols-[minmax(0,1fr)_330px] gap-4">
         <div class="min-w-0 rounded-lg border bg-card p-4">
           <div class="flex items-center justify-between">
-            <h2 class="text-base font-semibold">生产全生命周期时间轴（计划 vs 实际）</h2>
+            <h2 class="text-base font-semibold">生产时间轴（计划 vs 实际）</h2>
             <div class="flex items-center gap-4 text-xs text-slate-500">
               <span class="inline-flex items-center gap-1"><span class="h-2 w-4 rounded bg-emerald-500"></span>准时</span>
               <span class="inline-flex items-center gap-1"><span class="h-2 w-4 rounded bg-orange-500"></span>风险</span>
@@ -1208,7 +1197,7 @@ function renderQuantityTab(order: ProductionOrderTrackingRecord, selectedNode?: 
         </aside>
       </section>
       <section class="rounded-lg border bg-card p-4">
-        <h2 class="text-base font-semibold">数量台账明细（按生命周期顺序）</h2>
+        <h2 class="text-base font-semibold">数量台账明细（按节点顺序）</h2>
         ${renderLedgerTable(['序号', '环节', '单据编号', '数量口径说明', '计划数量', '实际数量', '差异数量', '差异率', '良品率/损耗率', '差异原因分类', '关键备注', '记录时间', '操作'], [
           ['1', '配料记录', 'MR-240618-01', '按配料入仓数量', '8,600', '8,600', '0', '0.00%', '99.80%', '正常损耗', '染整克重偏差、缩水率', '06-11 09:18', '查看'],
           ['2', '领料记录', 'ISS-240618-01', '按车间实际领用数量', '8,600', '8,500', '-100', '-1.16%', '98.84%', '小片损耗', '领用报损', '06-11 10:05', '查看'],
