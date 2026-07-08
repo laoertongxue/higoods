@@ -55,9 +55,19 @@ function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatter
 function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEntry[] {
   return items.map((item) => ({
     ...item,
+    routeStepNo: item.routeStepNo,
+    routeLaneNo: item.routeLaneNo,
+    routeParallelGroupId: item.routeParallelGroupId,
+    routeParallelGroupName: item.routeParallelGroupName,
+    routeParallelAcceptanceMode: item.routeParallelAcceptanceMode,
+    routeSourceKind: item.routeSourceKind,
+    routeUpdatedBy: item.routeUpdatedBy,
+    routeUpdatedAt: item.routeUpdatedAt,
     detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
     supportedTargetObjects: [...(item.supportedTargetObjects ?? [])],
     supportedTargetObjectLabels: [...(item.supportedTargetObjectLabels ?? [])],
+    linkedBomItemIds: [...(item.linkedBomItemIds ?? [])],
+    linkedPatternIds: [...(item.linkedPatternIds ?? [])],
     visibleFactoryTypes: [...(item.visibleFactoryTypes ?? [])],
   }))
 }

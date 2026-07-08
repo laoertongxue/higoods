@@ -11,6 +11,7 @@ import {
   saveTechnicalDataVersionContent,
 } from '../src/data/pcs-project-technical-data-writeback.ts'
 import {
+  buildTechnicalDataDerivedState,
   getTechnicalDataVersionContent,
   replaceTechnicalDataVersionStore,
 } from '../src/data/pcs-technical-data-version-repository.ts'
@@ -328,8 +329,15 @@ function buildRouteGateContent(id: string, routeConfirmed: boolean): TechnicalDa
       isSpecialCraft: false,
       routeStepNo: 1,
       routeLaneNo: 1,
+      routeParallelGroupId: 'ROUTE-GROUP-1',
+      routeParallelGroupName: '路线克隆验证并行组',
       routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
       routeSourceKind: 'DICT_DEFAULT',
+      supportedTargetObjects: ['CUT_PIECE'],
+      supportedTargetObjectLabels: ['已裁部位'],
+      linkedBomItemIds: [`${id}-bom`],
+      linkedPatternIds: [`${id}-pattern`],
+      visibleFactoryTypes: ['SEWING'],
     }],
     processRouteStatus: routeConfirmed ? 'CONFIRMED' : 'UNCONFIRMED',
     processRouteConfirmedBy: routeConfirmed ? 'Budi Santoso' : '',
@@ -429,6 +437,21 @@ assert.equal(roundtripContent?.processRouteConfirmedAt, '2026-07-07 10:10', '仓
 assert.equal(roundtripContent?.processRouteUpdatedBy, 'Budi Santoso', '仓库读取时应保留路线更新人')
 assert.equal(roundtripContent?.processRouteUpdatedAt, '2026-07-07 10:10', '仓库读取时应保留路线更新时间')
 assert.equal(roundtripContent?.processRouteChangeReason, '第 2 批确认检查', '仓库读取时应保留路线变更原因')
+assert.equal(roundtripContent?.processEntries[0]?.routeStepNo, 1, '仓库读取时工序条目应保留路线步骤')
+assert.equal(roundtripContent?.processEntries[0]?.routeLaneNo, 1, '仓库读取时工序条目应保留路线并行线')
+assert.equal(roundtripContent?.processEntries[0]?.routeParallelGroupId, 'ROUTE-GROUP-1', '仓库读取时工序条目应保留并行组')
+assert.equal(roundtripContent?.processEntries[0]?.routeParallelGroupName, '路线克隆验证并行组', '仓库读取时工序条目应保留并行组名称')
+assert.equal(roundtripContent?.processEntries[0]?.routeSourceKind, 'DICT_DEFAULT', '仓库读取时工序条目应保留路线来源')
+roundtripContent?.processEntries[0]?.linkedBomItemIds?.push('mutated-bom')
+assert.deepEqual(
+  getTechnicalDataVersionContent(roundtripId)?.processEntries[0]?.linkedBomItemIds,
+  [`${roundtripId}-bom`],
+  '仓库克隆工序条目时必须深拷贝来源关联数组',
+)
+
+const unconfirmedDerived = buildTechnicalDataDerivedState('DRAFT', buildRouteGateContent('tdv_route_unconfirmed_core', false))
+assert(unconfirmedDerived.missingItemCodes.includes('PROCESS'), '缺少路线确认时 PROCESS 应纳入核心缺失项')
+assert.equal(unconfirmedDerived.completenessScore, 80, '缺少路线确认时核心资料完整度不能拿到工序 20 分')
 
 saveTechnicalDataVersionContent(roundtripId, {
   processRouteStatus: 'UNCONFIRMED',
@@ -470,8 +493,8 @@ assert.throws(
 )
 assert.throws(
   () => publishTechnicalDataVersion(publishGateId, 'Budi Santoso'),
-  /工艺路线未确认，不能发布正式技术包。/,
-  '发布正式版前必须再次确认工艺路线',
+  /核心域未补全，暂不能发布：工序工艺/,
+  '发布正式版前必须把未确认路线计入工序工艺核心缺失',
 )
 
 console.log('tech-pack process route checks passed')

@@ -4,6 +4,7 @@ import {
   getTechnicalDataVersionContentById,
   listTechnicalDataVersionsByStyleId,
 } from '../pcs-technical-data-version-repository.ts'
+import { normalizeProcessRouteEntries } from '../tech-pack-process-route.ts'
 import type { StyleArchiveShellRecord } from '../pcs-style-archive-types.ts'
 import type { ProductionDemand } from './production-demands.ts'
 import {
@@ -192,12 +193,30 @@ function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatter
 function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEntry[] {
   return items.map((item) => ({
     ...item,
+    routeStepNo: item.routeStepNo,
+    routeLaneNo: item.routeLaneNo,
+    routeParallelGroupId: item.routeParallelGroupId,
+    routeParallelGroupName: item.routeParallelGroupName,
+    routeParallelAcceptanceMode: item.routeParallelAcceptanceMode,
+    routeSourceKind: item.routeSourceKind,
+    routeUpdatedBy: item.routeUpdatedBy,
+    routeUpdatedAt: item.routeUpdatedAt,
     detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
     supportedTargetObjects: [...(item.supportedTargetObjects ?? [])],
     supportedTargetObjectLabels: [...(item.supportedTargetObjectLabels ?? [])],
     linkedBomItemIds: [...(item.linkedBomItemIds ?? [])],
     linkedPatternIds: [...(item.linkedPatternIds ?? [])],
+    visibleFactoryTypes: [...(item.visibleFactoryTypes ?? [])],
   }))
+}
+
+function inferRouteSourceKind(item: TechnicalProcessEntry): NonNullable<TechnicalProcessEntry['routeSourceKind']> {
+  if (item.routeSourceKind) return item.routeSourceKind
+  if (item.sourceType === 'BOM') return 'BOM_REQUIREMENT'
+  if (item.isSpecialCraft) return 'PIECE_CRAFT'
+  if ((item.linkedPatternIds ?? []).length > 0) return 'PATTERN_PACKAGE'
+  if (item.sourceType === 'MANUAL') return 'MANUAL'
+  return 'DICT_DEFAULT'
 }
 
 function buildDefaultPostFinishingProcessEntry(snapshotId: string): TechnicalProcessEntry {
@@ -216,6 +235,8 @@ function buildDefaultPostFinishingProcessEntry(snapshotId: string): TechnicalPro
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
     sourceType: 'DICT',
+    routeSourceKind: 'DICT_DEFAULT',
+    routeParallelAcceptanceMode: 'INDEPENDENT_ONLY',
     triggerSource: '技术包默认后道工序',
     outputValuePerUnit: 0,
     outputValueUnit: '产值/件',
@@ -228,6 +249,14 @@ function ensurePostFinishingProcessEntry(items: TechnicalProcessEntry[], snapsho
   const entries = cloneProcessEntries(items)
   if (entries.some((item) => item.processCode === 'POST_FINISHING')) return entries
   return [...entries, buildDefaultPostFinishingProcessEntry(snapshotId)]
+}
+
+function freezeProcessEntries(items: TechnicalProcessEntry[], snapshotId: string): TechnicalProcessEntry[] {
+  return normalizeProcessRouteEntries(ensurePostFinishingProcessEntry(items, snapshotId).map((item) => ({
+    ...item,
+    routeSourceKind: inferRouteSourceKind(item),
+    routeParallelAcceptanceMode: item.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY',
+  })))
 }
 
 function cloneSizeTable(items: TechnicalSizeRow[]): TechnicalSizeRow[] {
@@ -640,7 +669,7 @@ function buildSnapshotFromSource(input: {
     internalStyleCode: resolveLatestWoolInternalStyleCode(patternFiles) || legacyInternalStyleCode || undefined,
     bomItems,
     patternFiles,
-    processEntries: ensurePostFinishingProcessEntry(content.processEntries, snapshotId),
+    processEntries: freezeProcessEntries(content.processEntries, snapshotId),
     sizeTable: cloneSizeTable(content.sizeTable),
     sizeMeasurements: buildSizeMeasurements(content.sizeTable),
     colorMaterialMappings: cloneColorMappings(content.colorMaterialMappings),
@@ -818,7 +847,10 @@ export function listPublishedTechPackVersionOptionsForDemand(
 
   const publishedRecords = listTechnicalDataVersionsByStyleId(style.styleId)
     .filter((record) => record.versionStatus === 'PUBLISHED')
-    .filter((record) => Boolean(getTechnicalDataVersionContentById(record.technicalVersionId)))
+    .filter((record) => {
+      const content = getTechnicalDataVersionContentById(record.technicalVersionId)
+      return Boolean(content) && content?.processRouteStatus === 'CONFIRMED'
+    })
   const defaultVersionId = publishedRecords[0]?.technicalVersionId || ''
 
   return publishedRecords.map((record) => ({
@@ -854,6 +886,7 @@ export function resolvePublishedTechPackSourceForDemand(
 
   const content = getTechnicalDataVersionContentById(record.technicalVersionId)
   if (!content) return null
+  if (content.processRouteStatus !== 'CONFIRMED') return null
 
   return {
     style,
@@ -940,6 +973,24 @@ export function getDemandCurrentTechPackInfo(
     }
   }
 
+  if (content.processRouteStatus !== 'CONFIRMED') {
+    return {
+      styleId: style.styleId,
+      styleCode: style.styleCode,
+      styleName: style.styleName,
+      currentTechPackVersionId: record.technicalVersionId,
+      currentTechPackVersionCode: record.technicalVersionCode,
+      currentTechPackVersionLabel: record.versionLabel,
+      publishedAt: record.publishedAt,
+      completenessScore: record.completenessScore,
+      linkedRevisionTaskIds: [...record.linkedRevisionTaskIds],
+      linkedPatternTaskIds: [...record.linkedPatternTaskIds],
+      linkedArtworkTaskIds: [...record.linkedArtworkTaskIds],
+      canConvertToProductionOrder: false,
+      blockReason: '当前生效技术包工艺路线未确认',
+    }
+  }
+
   return {
     styleId: style.styleId,
     styleCode: style.styleCode,
@@ -977,6 +1028,10 @@ export function buildProductionOrderTechPackSnapshot(input: {
 
   if (source.record.versionStatus !== 'PUBLISHED') {
     throw new Error('所选技术包版本未发布')
+  }
+
+  if (source.content.processRouteStatus !== 'CONFIRMED') {
+    throw new Error('所选技术包版本工艺路线未确认')
   }
 
   return alignSnapshotWithDemandSkuLines(buildSnapshotFromSource({

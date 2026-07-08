@@ -66,6 +66,11 @@ export interface GeneratedProductionArtifactBase {
   materialIssueMode?: 'WAREHOUSE_DELIVERY'
   linkedBomItemIds?: string[]
   linkedPatternIds?: string[]
+  routeStepNo?: number
+  routeLaneNo?: number
+  routeParallelGroupId?: string
+  routeParallelGroupName?: string
+  routeParallelAcceptanceMode?: 'INDEPENDENT_ONLY' | 'WHOLE_GROUP_ALLOWED'
   docTypeLabel: string
   sortKey: string
 }
@@ -137,6 +142,11 @@ interface ResolvedEntryContext {
   outputValueUnit: string
   outputValueDifficulty: 'LOW' | 'MEDIUM' | 'HIGH'
   outputValueSource: 'TECH_PACK_PROCESS_ENTRY'
+  routeStepNo?: number
+  routeLaneNo?: number
+  routeParallelGroupId?: string
+  routeParallelGroupName?: string
+  routeParallelAcceptanceMode?: 'INDEPENDENT_ONLY' | 'WHOLE_GROUP_ALLOWED'
   entryIndex: number
 }
 
@@ -160,6 +170,10 @@ function toArtifactKeySegment(entryId: string): string {
 function toMockToken(value: string, size: number): string {
   const digits = value.replace(/\D/g, '')
   return (digits || value.replace(/[^A-Za-z0-9]/g, '') || '0').slice(-size).padStart(size, '0')
+}
+
+function isPositiveRouteNo(value: number | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
 }
 
 export function buildDictionaryCraftMockDocumentNo(
@@ -446,11 +460,22 @@ function resolveEntryContext(orderId: string, entry: TechPackProcessEntry, entry
     outputValueUnit,
     outputValueDifficulty,
     outputValueSource: 'TECH_PACK_PROCESS_ENTRY',
+    routeStepNo: entry.routeStepNo,
+    routeLaneNo: entry.routeLaneNo,
+    routeParallelGroupId: entry.routeParallelGroupId,
+    routeParallelGroupName: entry.routeParallelGroupName,
+    routeParallelAcceptanceMode: entry.routeParallelAcceptanceMode,
     entryIndex,
   }
 }
 
 function buildSortKey(context: ResolvedEntryContext): string {
+  if (isPositiveRouteNo(context.routeStepNo) && isPositiveRouteNo(context.routeLaneNo)) {
+    return `${String(context.routeStepNo).padStart(6, '0')}-${String(context.routeLaneNo).padStart(6, '0')}-${String(
+      context.entryIndex,
+    ).padStart(3, '0')}-${context.sourceEntryId}`
+  }
+
   return `${String(context.stageSort).padStart(3, '0')}-${String(context.processSort).padStart(3, '0')}-${String(
     context.entryIndex,
   ).padStart(3, '0')}-${context.sourceEntryId}`
@@ -480,6 +505,11 @@ function toDemandArtifact(context: ResolvedEntryContext): GeneratedDemandArtifac
     defaultDocType: context.defaultDocType,
     taskTypeMode: context.taskTypeMode,
     isSpecialCraft: context.isSpecialCraft,
+    routeStepNo: context.routeStepNo,
+    routeLaneNo: context.routeLaneNo,
+    routeParallelGroupId: context.routeParallelGroupId,
+    routeParallelGroupName: context.routeParallelGroupName,
+    routeParallelAcceptanceMode: context.routeParallelAcceptanceMode,
     docTypeLabel: demandTypeLabel,
     demandTypeCode: `DEMAND_${context.processCode}`,
     demandTypeLabel,
@@ -521,6 +551,11 @@ function toTaskArtifact(context: ResolvedEntryContext): GeneratedTaskArtifact {
     materialIssueMode: context.sourceEntry.materialIssueMode,
     linkedBomItemIds: context.sourceEntry.linkedBomItemIds ? [...context.sourceEntry.linkedBomItemIds] : undefined,
     linkedPatternIds: context.sourceEntry.linkedPatternIds ? [...context.sourceEntry.linkedPatternIds] : undefined,
+    routeStepNo: context.routeStepNo,
+    routeLaneNo: context.routeLaneNo,
+    routeParallelGroupId: context.routeParallelGroupId,
+    routeParallelGroupName: context.routeParallelGroupName,
+    routeParallelAcceptanceMode: context.routeParallelAcceptanceMode,
     docTypeLabel: DOC_TYPE_LABEL.TASK,
     taskTypeCode,
     taskTypeLabel,

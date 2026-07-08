@@ -188,6 +188,11 @@ export interface ProcessTask {
   receiverName?: string
   // 上一步依赖（当前生产暂停）
   dependsOnTaskIds?: string[]
+  routeStepNo?: number
+  routeLaneNo?: number
+  routeParallelGroupId?: string
+  routeParallelGroupName?: string
+  routeParallelAcceptanceMode?: 'INDEPENDENT_ONLY' | 'WHOLE_GROUP_ALLOWED'
   blockNoteZh?: string            // 开始条件中文原因（ALLOCATION_GATE 时写入）
   // 领料需求挂接（生产单管理确认后写入）
   hasMaterialRequest?: boolean
@@ -274,6 +279,62 @@ function canOrderEnterGeneratedTaskFacts(orderId: string): boolean {
   if (!order) return false
   if (!order.taskBreakdownSummary.isBrokenDown) return false
   return !TASK_FACT_BLOCKED_ORDER_STATUSES.has(order.status)
+}
+
+function isPositiveRouteNo(value: number | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+export function buildRouteTaskDependencyIds<T extends {
+  taskId: string
+  seq?: number
+  routeStepNo?: number
+  routeLaneNo?: number
+}>(tasks: T[]): Map<string, string[]> {
+  const result = new Map<string, string[]>()
+  const ordered = tasks
+    .map((task, index) => ({ task, index }))
+    .sort((left, right) => {
+      const leftHasRoute = isPositiveRouteNo(left.task.routeStepNo) && isPositiveRouteNo(left.task.routeLaneNo)
+      const rightHasRoute = isPositiveRouteNo(right.task.routeStepNo) && isPositiveRouteNo(right.task.routeLaneNo)
+      if (leftHasRoute && rightHasRoute) {
+        const stepCompare = (left.task.routeStepNo as number) - (right.task.routeStepNo as number)
+        if (stepCompare !== 0) return stepCompare
+        const laneCompare = (left.task.routeLaneNo as number) - (right.task.routeLaneNo as number)
+        if (laneCompare !== 0) return laneCompare
+      }
+      const seqCompare = (left.task.seq ?? left.index) - (right.task.seq ?? right.index)
+      if (seqCompare !== 0) return seqCompare
+      return left.task.taskId.localeCompare(right.task.taskId)
+    })
+
+  let index = 0
+  let previousStepTasks: T[] = []
+  while (index < ordered.length) {
+    const current = ordered[index]
+    const hasRoute = isPositiveRouteNo(current.task.routeStepNo) && isPositiveRouteNo(current.task.routeLaneNo)
+    const stepNo = hasRoute ? current.task.routeStepNo : undefined
+    const currentStepTasks: T[] = []
+    while (index < ordered.length) {
+      const item = ordered[index]
+      const itemHasRoute = isPositiveRouteNo(item.task.routeStepNo) && isPositiveRouteNo(item.task.routeLaneNo)
+      if (currentStepTasks.length > 0) {
+        if (!hasRoute || !itemHasRoute || item.task.routeStepNo !== stepNo) break
+      }
+      if (!hasRoute && currentStepTasks.length > 0) break
+      currentStepTasks.push(item.task)
+      index += 1
+      if (!hasRoute) break
+    }
+
+    const dependencies = previousStepTasks.map((task) => task.taskId)
+    currentStepTasks.forEach((task) => {
+      result.set(task.taskId, [...dependencies])
+    })
+    previousStepTasks = currentStepTasks
+  }
+
+  return result
 }
 const PROCESS_TASK_MOCK_PRODUCTION_ORDER_IDS = ['PO-202603-0001', 'PO-202603-0005', 'PO-202603-084']
 const DEFAULT_OUTPUT_VALUE_UNIT_BY_QTY_UNIT: Record<QtyUnit, string> = {
@@ -675,6 +736,7 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
     const preview = buildTaskGenerationPreview(orderId)
     const emittedMergedUnitIds = new Set<string>()
     const generatedIds: string[] = []
+    const currentOrderTasks: ProcessTask[] = []
 
     orderArtifacts.forEach((artifact) => {
       const unit = preview.generatedUnits.find((item) => item.sourceArtifactIds.includes(artifact.artifactId))
@@ -712,7 +774,6 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
       const woolOrderNo = isWool ? `毛织单-${orderId.replace('PO-', '')}-${String(seq).padStart(2, '0')}` : undefined
       const yarnRow = isWool ? detailRows.find((row) => row.sourceRefs.bomItemId) : undefined
       generatedIds.push(taskId)
-      const prevTaskId = generatedIds[generatedIds.length - 2]
       const assignmentMode: AssignmentMode = unit && !unit.allowAutoDispatch
         ? 'DIRECT'
         : artifact.isSpecialCraft
@@ -722,7 +783,7 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
       const processName = resolveTaskUnitProcessName(unit, artifact)
       const processCode = resolveTaskUnitProcessCode(unit, artifact)
 
-      tasks.push({
+      const task: ProcessTask = {
         taskId,
         taskNo: taskId,
         productionOrderId: orderId,
@@ -801,7 +862,12 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         taskQrStatus: 'ACTIVE',
         handoverAutoCreatePolicy: 'CREATE_ON_START',
         handoverStatus: 'NOT_CREATED',
-        dependsOnTaskIds: prevTaskId ? [prevTaskId] : [],
+        dependsOnTaskIds: [],
+        routeStepNo: artifact.routeStepNo,
+        routeLaneNo: artifact.routeLaneNo,
+        routeParallelGroupId: artifact.routeParallelGroupId,
+        routeParallelGroupName: artifact.routeParallelGroupName,
+        routeParallelAcceptanceMode: artifact.routeParallelAcceptanceMode,
         taskKind: 'NORMAL',
         taskCategoryZh: unit?.taskName || artifact.taskTypeLabel,
         taskUnitType,
@@ -874,7 +940,13 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
             by: '系统',
           },
         ],
-      })
+      }
+      tasks.push(task)
+      currentOrderTasks.push(task)
+    })
+    const dependencyMap = buildRouteTaskDependencyIds(currentOrderTasks)
+    currentOrderTasks.forEach((task) => {
+      task.dependsOnTaskIds = dependencyMap.get(task.taskId) ?? []
     })
   }
 
@@ -967,6 +1039,11 @@ function buildTaskFromRuntimePreviewUnit(
     handoverAutoCreatePolicy: 'CREATE_ON_START',
     handoverStatus: 'NOT_CREATED',
     dependsOnTaskIds: [],
+    routeStepNo: primaryArtifact?.routeStepNo,
+    routeLaneNo: primaryArtifact?.routeLaneNo,
+    routeParallelGroupId: primaryArtifact?.routeParallelGroupId,
+    routeParallelGroupName: primaryArtifact?.routeParallelGroupName,
+    routeParallelAcceptanceMode: primaryArtifact?.routeParallelAcceptanceMode,
     taskKind: 'NORMAL',
     taskCategoryZh: unit.taskName,
     taskUnitType: unit.taskUnitType,

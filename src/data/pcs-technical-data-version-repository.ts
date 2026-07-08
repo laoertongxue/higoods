@@ -4,6 +4,7 @@ import {
   hasTechPackPrintRequirement,
   validateTechPackDesignRequirement,
 } from './pcs-tech-pack-design-requirement.ts'
+import { normalizeProcessRouteEntries } from './tech-pack-process-route.ts'
 import type {
   TechPackSourceTaskType,
   TechPackVersionChangeScope,
@@ -87,7 +88,29 @@ function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEn
   return items.map((item) => ({
     ...item,
     detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
+    supportedTargetObjects: [...(item.supportedTargetObjects ?? [])],
+    supportedTargetObjectLabels: [...(item.supportedTargetObjectLabels ?? [])],
+    linkedBomItemIds: [...(item.linkedBomItemIds ?? [])],
+    linkedPatternIds: [...(item.linkedPatternIds ?? [])],
+    visibleFactoryTypes: [...(item.visibleFactoryTypes ?? [])],
   }))
+}
+
+function inferRouteSourceKind(item: TechnicalProcessEntry): NonNullable<TechnicalProcessEntry['routeSourceKind']> {
+  if (item.routeSourceKind) return item.routeSourceKind
+  if (item.sourceType === 'BOM') return 'BOM_REQUIREMENT'
+  if (item.isSpecialCraft) return 'PIECE_CRAFT'
+  if ((item.linkedPatternIds ?? []).length > 0) return 'PATTERN_PACKAGE'
+  if (item.sourceType === 'MANUAL') return 'MANUAL'
+  return 'DICT_DEFAULT'
+}
+
+function normalizeProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEntry[] {
+  return normalizeProcessRouteEntries(cloneProcessEntries(items).map((item) => ({
+    ...item,
+    routeSourceKind: inferRouteSourceKind(item),
+    routeParallelAcceptanceMode: item.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY',
+  })))
 }
 
 function cloneSizeTable(items: TechnicalSizeRow[]): TechnicalSizeRow[] {
@@ -179,7 +202,7 @@ function cloneSnapshot(snapshot: TechnicalDataVersionStoreSnapshot): TechnicalDa
 }
 
 function seedSnapshot(): TechnicalDataVersionStoreSnapshot {
-  return createTechnicalDataVersionBootstrapSnapshot(TECHNICAL_VERSION_STORE_VERSION)
+  return hydrateSnapshot(createTechnicalDataVersionBootstrapSnapshot(TECHNICAL_VERSION_STORE_VERSION))
 }
 
 function nowText(): string {
@@ -351,7 +374,12 @@ function hasOwnRouteField(content: TechnicalDataVersionContent, key: keyof Techn
 }
 
 function normalizeProcessRouteStatus(content: TechnicalDataVersionContent): TechnicalDataVersionContent['processRouteStatus'] {
-  if (!hasOwnRouteField(content, 'processRouteStatus') || content.processRouteStatus === undefined) return undefined
+  const legacyStatus = content.legacyCompatibleCostPayload?.processRouteStatus
+  if (!hasOwnRouteField(content, 'processRouteStatus') || content.processRouteStatus === undefined) {
+    if (legacyStatus === 'CONFIRMED') return 'CONFIRMED'
+    if (legacyStatus === 'UNCONFIRMED') return 'UNCONFIRMED'
+    return (content.processEntries?.length ?? 0) > 0 ? 'UNCONFIRMED' : undefined
+  }
   return content.processRouteStatus === 'CONFIRMED' ? 'CONFIRMED' : 'UNCONFIRMED'
 }
 
@@ -366,7 +394,11 @@ function normalizeRouteStringField(
     | 'processRouteChangeReason'
   >,
 ): string | undefined {
-  if (!hasOwnRouteField(content, key) || content[key] === undefined) return undefined
+  if (!hasOwnRouteField(content, key) || content[key] === undefined) {
+    const legacyValue = content.legacyCompatibleCostPayload?.[key]
+    if (legacyValue === undefined) return undefined
+    return String(legacyValue || '')
+  }
   return String(content[key] || '')
 }
 
@@ -392,7 +424,7 @@ function normalizeContent(content: TechnicalDataVersionContent): TechnicalDataVe
     technicalVersionId: content.technicalVersionId,
     patternFiles: clonePatternFiles(Array.isArray(content.patternFiles) ? content.patternFiles : []),
     patternDesc: content.patternDesc || '',
-    processEntries: cloneProcessEntries(Array.isArray(content.processEntries) ? content.processEntries : []),
+    processEntries: normalizeProcessEntries(Array.isArray(content.processEntries) ? content.processEntries : []),
     ...normalizeRouteFields(content),
     sizeTable: cloneSizeTable(Array.isArray(content.sizeTable) ? content.sizeTable : []),
     bomItems: cloneBomItems(Array.isArray(content.bomItems) ? content.bomItems : []),
@@ -578,6 +610,8 @@ export function buildTechnicalDataDerivedState(
       ? Math.max(designAssetCount, 1)
       : 0
     : designAssetCount
+  const processRouteConfirmed = content.processRouteStatus === 'CONFIRMED'
+  const processDomainCount = processEntryCount > 0 && processRouteConfirmed ? processEntryCount : 0
 
   let completenessScore = 0
   const missingItemCodes: string[] = []
@@ -586,7 +620,7 @@ export function buildTechnicalDataDerivedState(
   else missingItemCodes.push('BOM')
   if (patternFileCount > 0) completenessScore += 20
   else missingItemCodes.push('PATTERN')
-  if (processEntryCount > 0) completenessScore += 20
+  if (processDomainCount > 0) completenessScore += 20
   else missingItemCodes.push('PROCESS')
   if (gradingRuleCount > 0) completenessScore += 15
   else missingItemCodes.push('GRADING')
@@ -598,7 +632,7 @@ export function buildTechnicalDataDerivedState(
   return {
     bomStatus: getDomainStatus(bomItemCount, versionStatus),
     patternStatus: getDomainStatus(patternFileCount, versionStatus),
-    processStatus: getDomainStatus(processEntryCount, versionStatus),
+    processStatus: getDomainStatus(processDomainCount, versionStatus),
     gradingStatus: getDomainStatus(gradingRuleCount, versionStatus),
     qualityStatus: getDomainStatus(qualityRuleCount, versionStatus),
     colorMaterialStatus: getDomainStatus(colorMaterialMappingCount, versionStatus),
@@ -728,7 +762,28 @@ function normalizePendingItem(item: TechnicalDataVersionPendingItem): TechnicalD
 
 function hydrateSnapshot(snapshot: TechnicalDataVersionStoreSnapshot): TechnicalDataVersionStoreSnapshot {
   const contentMap = new Map<string, TechnicalDataVersionContent>()
-  const contents = Array.isArray(snapshot.contents) ? snapshot.contents.map(normalizeContent) : []
+  const publishedVersionIds = new Set(
+    (Array.isArray(snapshot.records) ? snapshot.records : [])
+      .filter((record) => normalizeVersionStatus(record.versionStatus) === 'PUBLISHED')
+      .map((record) => record.technicalVersionId),
+  )
+  const contents = Array.isArray(snapshot.contents)
+    ? snapshot.contents.map((content) => {
+        const normalized = normalizeContent(content)
+        if (
+          publishedVersionIds.has(normalized.technicalVersionId)
+          && normalized.processEntries.length > 0
+          && !hasOwnRouteField(content, 'processRouteStatus')
+          && content.legacyCompatibleCostPayload?.processRouteStatus === undefined
+        ) {
+          return {
+            ...normalized,
+            processRouteStatus: 'CONFIRMED' as const,
+          }
+        }
+        return normalized
+      })
+    : []
   contents.forEach((content) => {
     contentMap.set(content.technicalVersionId, content)
   })
