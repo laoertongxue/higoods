@@ -31,8 +31,8 @@ import type {
   TechnicalVersionStatus,
 } from './pcs-technical-data-version-types.ts'
 
-const TECHNICAL_VERSION_STORAGE_KEY = 'higood-pcs-technical-data-version-store-v4'
-const TECHNICAL_VERSION_STORE_VERSION = 4
+const TECHNICAL_VERSION_STORAGE_KEY = 'higood-pcs-technical-data-version-store-v5'
+const TECHNICAL_VERSION_STORE_VERSION = 5
 
 let memorySnapshot: TechnicalDataVersionStoreSnapshot | null = null
 
