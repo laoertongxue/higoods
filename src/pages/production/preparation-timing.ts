@@ -15,6 +15,7 @@ import {
   flattenProductionPreparationItems,
   getProductionPreparationFilterOptions,
   getProductionPreparationRecord,
+  preparationOwnerRoleRules,
   preparationItemTypes,
   preparationTypeDefaultItems,
   productionPreparationRecords,
@@ -886,6 +887,7 @@ function renderTimeline(record: ProductionPreparationRecord): string {
 }
 
 function renderItemCard(item: ProductionPreparationItem, active: boolean): string {
+  const ownerRoleRule = preparationOwnerRoleRules.find((rule) => rule.ownerTeam === item.ownerTeam)
   return `
     <article class="rounded-xl border p-4 ${active ? 'border-blue-300 bg-blue-50/40' : 'bg-background'}">
       <div class="flex items-start justify-between gap-3">
@@ -907,6 +909,14 @@ function renderItemCard(item: ProductionPreparationItem, active: boolean): strin
           : ''
       }
       <p class="mt-3 text-xs text-muted-foreground">${escapeHtml(item.evidenceSummary || item.remark || '暂无说明')}</p>
+      ${
+        ownerRoleRule
+          ? `<div class="mt-3 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
+              <div><span class="font-medium text-foreground">责任角色：</span>${escapeHtml(ownerRoleRule.roleLabels.join('、'))}</div>
+              <div class="mt-1"><span class="font-medium text-foreground">操作范围：</span>${escapeHtml(ownerRoleRule.actionScope)}</div>
+            </div>`
+          : ''
+      }
       ${item.itemType === '数码印/DTF/DTG花型' ? renderPatternFields(item) : ''}
       ${isDyeItem(item) ? renderDyeRequirementFields(item) : ''}
       <div class="mt-3">${renderItemUploadHistory(item)}</div>

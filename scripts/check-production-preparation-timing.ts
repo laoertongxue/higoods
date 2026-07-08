@@ -1228,6 +1228,9 @@ for (const outputType of expectedOutputTypes) {
 const pendingOutputHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001')
 const pendingOutputDrawerHtml = detailDrawerHtml(pendingOutputHtml, 'PREP-202603-001')
 assertHtmlIncludes(pendingOutputDrawerHtml, '待跟单确认', '未确认工作项记录必须展示产出空态')
+for (const text of ['责任角色', '版师主管', '操作梭织基码纸样'] as const) {
+  assertHtmlIncludes(pendingOutputDrawerHtml, text, `准备项卡片 HTML 缺少责任规则「${text}」`)
+}
 assert.ok(!pendingOutputDrawerHtml.includes('预计产出'), '未全部完成记录不应展示预计产出')
 assert.ok(!pendingOutputDrawerHtml.includes('正式产出'), '未全部完成记录不应展示正式产出')
 assert.ok(!pendingOutputHtml.includes('待跟单确认后开放操作'), '未确认工作项的操作列不得展示额外说明')
