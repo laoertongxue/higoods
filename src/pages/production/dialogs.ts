@@ -11,12 +11,9 @@ export function isProductionDialogOpen(): boolean {
     state.ordersBreakdownReadinessOrderId !== null ||
     state.materialDraftOrderId !== null ||
     state.materialDraftAddDraftId !== null ||
-    state.planEditOrderId !== null ||
-    state.deliveryEditOrderId !== null ||
     state.techPackChangeVersionDialogOrderId !== null ||
     state.productionPatchDialogOrderId !== null ||
     state.techPackChangePublishGuideOpen ||
-    state.statusDialogOpen ||
     state.detailLogsOpen ||
     state.detailSimulateOpen ||
     state.detailConfirmSimulateOpen
