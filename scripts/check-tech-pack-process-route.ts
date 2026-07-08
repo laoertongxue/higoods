@@ -148,12 +148,22 @@ assert.equal(
 
 assert.equal(
   areRouteEntriesContinuous([
-    { id: 'parallel-a', routeStepNo: 2, routeParallelGroupId: 'G1', routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED' },
-    { id: 'parallel-b', routeStepNo: 2, routeParallelGroupId: 'G1', routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED' },
+    { id: 'parallel-a', processCode: 'SEW', routeStepNo: 2, routeParallelGroupId: 'G1', routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED' },
+    { id: 'parallel-b', processCode: 'POST_FINISHING', routeStepNo: 2, routeParallelGroupId: 'G1', routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED' },
   ]).allowed,
   true,
   '同一步并行且允许整体承接时，本批内部连续判断应允许',
 )
+
+const noSingleFactoryCoverageResult = areRouteEntriesContinuous(
+  [
+    { id: 'parallel-a', processCode: 'CUT_PANEL', routeStepNo: 2, routeParallelGroupId: 'G1', routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED' },
+    { id: 'parallel-b', processCode: 'DYE', routeStepNo: 2, routeParallelGroupId: 'G1', routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED' },
+  ],
+  { canSingleFactoryCoverProcesses: () => false },
+)
+assert.equal(noSingleFactoryCoverageResult.allowed, false, '同一步并行整体承接必须支持同一工厂能力校验')
+assert.match(noSingleFactoryCoverageResult.reason, /同一工厂.*全部工序能力/, '能力不足时必须返回中文原因')
 
 const pageRouteDraft: ProcessRouteDraftState = {
   techniques: [

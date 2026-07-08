@@ -22,6 +22,9 @@ const STAGE_SORT: Record<string, number> = {
 }
 
 export type RouteContinuityResult = { allowed: boolean; reason: string }
+export interface RouteContinuityOptions {
+  canSingleFactoryCoverProcesses?: (processCodes: string[]) => boolean
+}
 
 function isPositiveStepNo(value: number | undefined): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
@@ -120,10 +123,11 @@ export function normalizeProcessRouteEntries<T extends NormalizableRouteEntry>(e
 
 export function areRouteEntriesContinuous(entries: Array<{
   id: string
+  processCode?: string
   routeStepNo?: number
   routeParallelGroupId?: string
   routeParallelAcceptanceMode?: RouteParallelAcceptanceMode
-}>): RouteContinuityResult {
+}>, options: RouteContinuityOptions = {}): RouteContinuityResult {
   if (entries.length <= 1) {
     return { allowed: true, reason: '少于两个工序，无需连续合并判断' }
   }
@@ -152,6 +156,12 @@ export function areRouteEntriesContinuous(entries: Array<{
     if (!hasParallelMark) continue
     if (group.some((entry) => entry.routeParallelAcceptanceMode !== 'WHOLE_GROUP_ALLOWED')) {
       return { allowed: false, reason: '并行工序默认分别承接，不能和前后工序合并为连续工序任务' }
+    }
+    if (options.canSingleFactoryCoverProcesses) {
+      const processCodes = Array.from(new Set(group.map((entry) => entry.processCode).filter(Boolean))) as string[]
+      if (processCodes.length > 1 && !options.canSingleFactoryCoverProcesses(processCodes)) {
+        return { allowed: false, reason: '同一工厂不具备并行组全部工序能力，不能整体承接该并行组' }
+      }
     }
   }
 

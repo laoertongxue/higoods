@@ -41,6 +41,8 @@ import {
   type DispatchAcceptanceSlaResolution,
   type DispatchAcceptanceSlaRuleSource,
 } from './dispatch-acceptance-sla.ts'
+import { listBusinessFactoryMasterRecords } from './factory-master-store.ts'
+import type { Factory, FactoryProcessAbility } from './factory-types.ts'
 
 export type RuntimeTaskScopeType = ProcessAssignmentGranularity
 export type RuntimeExecutorKind = 'EXTERNAL_FACTORY' | 'WAREHOUSE_WORKSHOP'
@@ -805,12 +807,43 @@ function formatRouteStepRange(tasks: RuntimeProcessTask[]): string {
   return first === last ? `第 ${first} 步` : `第 ${first}-${last} 步`
 }
 
+function canFactoryReceiveProcessAbility(ability: FactoryProcessAbility, processCode: string): boolean {
+  if (ability.status && ability.status !== 'ACTIVE') return false
+  if (ability.canReceiveTask === false) return false
+  return ability.processCode === processCode
+    || ability.parentProcessCode === processCode
+    || ability.craftCodes.includes(processCode)
+}
+
+function canFactoryReceiveAllProcesses(factory: Factory, processCodes: string[]): boolean {
+  return processCodes.every((processCode) =>
+    factory.processAbilities.some((ability) => canFactoryReceiveProcessAbility(ability, processCode)),
+  )
+}
+
+function findFactoryCoveringAllProcesses(processCodes: string[]): Factory | undefined {
+  if (processCodes.length === 0) return undefined
+  return listBusinessFactoryMasterRecords({ includeTestFactories: false })
+    .find((factory) => canFactoryReceiveAllProcesses(factory, processCodes))
+}
+
+function evaluateSingleFactoryCoverageForParallelGroup(groupTasks: RuntimeProcessTask[]): string | null {
+  const processCodes = Array.from(new Set(groupTasks.map((task) => task.processCode).filter(Boolean)))
+  if (processCodes.length <= 1) return null
+  if (findFactoryCoveringAllProcesses(processCodes)) return null
+
+  const [firstTask] = groupTasks
+  const processText = Array.from(new Set(groupTasks.map((task) => task.processNameZh || task.processCode))).join('、')
+  return `同一工厂不具备并行组全部工序能力：第 ${firstTask?.routeStepNo ?? '—'} 步「${firstTask?.routeParallelGroupName || firstTask?.routeParallelGroupId || '并行组'}」需要同一工厂覆盖 ${processText}。`
+}
+
 function evaluateSelectedParallelGroups(
   selectedTasks: RuntimeProcessTask[],
   orderTasks: RuntimeProcessTask[],
 ): string | null {
   const selectedIds = new Set(selectedTasks.map((task) => task.taskId))
   const selectedSteps = new Map<number, RuntimeProcessTask[]>()
+  const checkedParallelGroupIds = new Set<string>()
   for (const task of selectedTasks) {
     if (!isPositiveRouteNo(task.routeStepNo)) continue
     selectedSteps.set(task.routeStepNo, [...(selectedSteps.get(task.routeStepNo) ?? []), task])
@@ -828,6 +861,11 @@ function evaluateSelectedParallelGroups(
     }
     if (groupTasks.some((item) => item.routeParallelAcceptanceMode !== 'WHOLE_GROUP_ALLOWED')) {
       return `该并行组未允许整体承接：第 ${task.routeStepNo} 步仍为分别承接。`
+    }
+    if (!checkedParallelGroupIds.has(task.routeParallelGroupId)) {
+      checkedParallelGroupIds.add(task.routeParallelGroupId)
+      const factoryCoverageMessage = evaluateSingleFactoryCoverageForParallelGroup(groupTasks)
+      if (factoryCoverageMessage) return factoryCoverageMessage
     }
   }
 

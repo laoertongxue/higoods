@@ -110,16 +110,22 @@ assert.match(separateParallelResult.message, /未允许整体承接/, '默认分
 
 const wholeGroupTasks = [
   runtimeTask('PARALLEL-WHOLE-A', 1, 1, {
+    processCode: 'SEW',
+    processNameZh: '车缝',
     routeParallelGroupId: 'PARALLEL-WHOLE',
     routeParallelGroupName: '整体承接组',
     routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED',
   }),
   runtimeTask('PARALLEL-WHOLE-B', 1, 2, {
+    processCode: 'POST_FINISHING',
+    processNameZh: '后道',
     routeParallelGroupId: 'PARALLEL-WHOLE',
     routeParallelGroupName: '整体承接组',
     routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED',
   }),
   runtimeTask('PARALLEL-WHOLE-C', 2, 1, {
+    processCode: 'PLEATING',
+    processNameZh: '压褶',
     routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED',
   }),
 ]
@@ -128,6 +134,38 @@ const wholeGroupResult = evaluateContinuousRuntimeTaskMerge(
   wholeGroupTasks,
 )
 assert.equal(wholeGroupResult.ok, true, '并行组允许整体承接且完整选择时应可合并')
+
+const wholeGroupWithoutSingleFactoryTasks = [
+  runtimeTask('PARALLEL-NO-SINGLE-FACTORY-A', 1, 1, {
+    processCode: 'CUT_PANEL',
+    processNameZh: '裁片',
+    routeParallelGroupId: 'PARALLEL-NO-SINGLE-FACTORY',
+    routeParallelGroupName: '无单一工厂覆盖组',
+    routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED',
+  }),
+  runtimeTask('PARALLEL-NO-SINGLE-FACTORY-B', 1, 2, {
+    processCode: 'DYE',
+    processNameZh: '染色',
+    routeParallelGroupId: 'PARALLEL-NO-SINGLE-FACTORY',
+    routeParallelGroupName: '无单一工厂覆盖组',
+    routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED',
+  }),
+  runtimeTask('PARALLEL-NO-SINGLE-FACTORY-C', 2, 1, {
+    processCode: 'SEW',
+    processNameZh: '车缝',
+    routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED',
+  }),
+]
+const wholeGroupWithoutSingleFactoryResult = evaluateContinuousRuntimeTaskMerge(
+  [
+    'PARALLEL-NO-SINGLE-FACTORY-A',
+    'PARALLEL-NO-SINGLE-FACTORY-B',
+    'PARALLEL-NO-SINGLE-FACTORY-C',
+  ],
+  wholeGroupWithoutSingleFactoryTasks,
+)
+assert.equal(wholeGroupWithoutSingleFactoryResult.ok, false, '并行组整体承接必须存在同一工厂覆盖全部工序能力')
+assert.match(wholeGroupWithoutSingleFactoryResult.message, /同一工厂.*全部工序能力/, '缺少同一工厂覆盖能力时必须返回中文原因')
 
 const lockedParallelTasks = [
   runtimeTask('PARALLEL-LOCKED-A', 1, 1, {

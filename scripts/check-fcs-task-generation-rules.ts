@@ -162,9 +162,11 @@ async function main(): Promise<void> {
   assertIncludes(runtimeTasksSource, 'routeLaneNo', '连续工序合并必须读取冻结路线并行线')
   assertIncludes(runtimeTasksSource, 'routeParallelGroupId', '连续工序合并必须识别冻结路线并行组')
   assertIncludes(runtimeTasksSource, 'routeParallelAcceptanceMode', '连续工序合并必须识别并行组整体承接口径')
-  ;['连续工序任务不能按明细拆分', '中间缺少第', '并行组未选择完整', '该并行组未允许整体承接'].forEach((token) => {
+  ;['连续工序任务不能按明细拆分', '中间缺少第', '并行组未选择完整', '该并行组未允许整体承接', '同一工厂不具备并行组全部工序能力'].forEach((token) => {
     assertIncludes(runtimeTasksSource, token, `连续工序合并校验缺少中文原因：${token}`)
   })
+  assertIncludes(runtimeTasksSource, 'listBusinessFactoryMasterRecords({ includeTestFactories: false })', '并行组整体承接必须基于业务工厂档案校验同一工厂能力')
+  assertIncludes(runtimeTasksSource, 'canFactoryReceiveAllProcesses', '并行组整体承接必须确认同一工厂覆盖全部工序能力')
 
   ;['任务类型', '覆盖工序', '规则来源', '路线步骤', '并行组'].forEach((token) => {
     assertIncludes(taskBreakdownSource, token, `任务清单缺少 ${token}`)
