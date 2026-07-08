@@ -746,13 +746,6 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'select-production-change-order') {
-    const changeOrderId = actionNode.dataset.changeOrderId
-    if (!changeOrderId) return true
-    state.productionChangeSelectedOrderId = changeOrderId
-    return true
-  }
-
   if (action === 'change-production-change-order-page') {
     const page = Number(actionNode.dataset.page || '1')
     state.productionChangeOrderPage = Number.isFinite(page) && page > 0 ? page : 1

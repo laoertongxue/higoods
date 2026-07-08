@@ -11,6 +11,13 @@ function requireFunction<T extends (...args: never[]) => unknown>(exports: Recor
   return value as T
 }
 
+function getStatValue(html: string, label: string): string {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const match = html.match(new RegExp(`<p class="text-xs text-muted-foreground">${escapedLabel}</p>\\s*<p class="mt-1 text-2xl font-semibold">([^<]+)</p>`))
+  assert.ok(match, `缺少统计卡「${label}」`)
+  return match[1]
+}
+
 const pageExports = changePages as Record<string, unknown>
 const domainExports = changeDomain as Record<string, unknown>
 
@@ -148,6 +155,37 @@ orders
   .forEach((order) => {
     assert.ok(timingIds.has(order.id), `${order.id} 缺少时效影响`)
   })
+
+state.techPackChangeKeyword = firstOrder.id
+state.productionChangeOrderPage = 1
+const singleOrderListHtml = renderProductionChangesPage()
+const singleOrderSettlementIds = new Set([
+  ...documentActions
+    .filter((item) => item.changeOrderId === firstOrder.id && item.documentType === 'SETTLEMENT')
+    .map((item) => item.changeOrderId),
+  ...costImpacts.filter((item) => item.changeOrderId === firstOrder.id).map((item) => item.changeOrderId),
+])
+const singleOrderTimingIds = new Set(
+  timingImpacts
+    .filter(
+      (item) =>
+        item.changeOrderId === firstOrder.id &&
+        (item.delayDays > 0 || item.affectsProductionDelivery || item.affectsFulfillmentDelivery),
+    )
+    .map((item) => item.changeOrderId),
+)
+assert.equal(getStatValue(singleOrderListHtml, '变更单数'), '1', '搜索单张变更单时统计应只计算命中变更单')
+assert.equal(
+  getStatValue(singleOrderListHtml, '影响结算'),
+  String(singleOrderSettlementIds.size),
+  '搜索单张变更单时影响结算统计应跟随过滤结果',
+)
+assert.equal(
+  getStatValue(singleOrderListHtml, '影响交期'),
+  String(singleOrderTimingIds.size),
+  '搜索单张变更单时影响交期统计应跟随过滤结果',
+)
+state.techPackChangeKeyword = ''
 
 const beforeCount = listProductionOrderChangeOrders().length
 const relation = listProductionOrderTechPackRelations()[0]

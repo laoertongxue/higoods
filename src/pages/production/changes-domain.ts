@@ -21,10 +21,8 @@ import {
   getTechPackVersionDiffSnapshot,
   listProductionOrderChangeCostImpacts,
   listProductionOrderChangeDocumentActions,
-  listProductionOrderChangeImpactRows,
   listProductionOrderChangeOrders,
   listProductionOrderChangeOrdersByProductionOrder,
-  listProductionOrderChangeScenarioCatalog,
   listProductionOrderChangeTimingImpacts,
   listProductionChangeNoticesByOrder,
   listProductionChangeModuleLandingsByOrder,
@@ -34,15 +32,11 @@ import {
   listSelectableTechPackVersionsByOrder,
   listTechPackChangeRequestsByOrder,
   patchEffectivePointLabels,
-  productionOrderChangeCostTypeLabels,
-  productionOrderChangeDocumentActionStatusLabels,
-  productionOrderChangeDocumentTypeLabels,
   productionOrderChangeExecutionStrategyLabels,
   productionOrderChangeLockStatusLabels,
   productionOrderChangeOrderStatusLabels,
   productionOrderChangeResultLabels,
   productionOrderChangeSourceLabels,
-  productionOrderChangeTimingNodeLabels,
   productionPatchStatusLabels,
   productionPatchTypeLabels,
   productionPatchTypeModuleMap,
@@ -64,8 +58,6 @@ import {
 const progressFilterOptions = ['未开始', '已配料', '已领料', '印花中', '染色中', '裁片中', '车缝中', '工艺中']
 
 type ProductionOrderChangeOrderView = ReturnType<typeof listProductionOrderChangeOrders>[number]
-type ProductionOrderChangeScenarioView = ReturnType<typeof listProductionOrderChangeScenarioCatalog>[number]
-type ProductionOrderChangeImpactRowView = ReturnType<typeof listProductionOrderChangeImpactRows>[number]
 type ProductionOrderChangeDocumentActionView = ReturnType<typeof listProductionOrderChangeDocumentActions>[number]
 type ProductionOrderChangeCostImpactView = ReturnType<typeof listProductionOrderChangeCostImpacts>[number]
 type ProductionOrderChangeTimingImpactView = ReturnType<typeof listProductionOrderChangeTimingImpacts>[number]
@@ -1225,18 +1217,6 @@ function renderRelationWorkItem(relation: ProductionOrderTechPackRelation): stri
   `
 }
 
-const changeRiskLabels = {
-  LOW: '低',
-  MEDIUM: '中',
-  HIGH: '高',
-} as const
-
-function formatChangeAmount(value: number): string {
-  const rounded = Math.round(value)
-  const sign = rounded > 0 ? '+' : rounded < 0 ? '-' : ''
-  return `${sign}Rp ${Math.abs(rounded).toLocaleString('id-ID')}`
-}
-
 function renderChangeStatCard(label: string, value: string | number, hint: string): string {
   return `
     <article class="min-w-0 border-b px-4 py-3 last:border-b-0 sm:border-r sm:even:border-r-0 xl:border-b-0 xl:even:border-r xl:last:border-r-0">
@@ -1340,7 +1320,7 @@ function renderProductionChangeOrderRowActions(order: ProductionOrderChangeOrder
   return `<div class="flex min-w-[128px] flex-wrap gap-1.5">${actions.join('')}</div>`
 }
 
-function renderProductionChangeOrderList(orders: ProductionOrderChangeOrderView[], selectedOrderId: string): string {
+function renderProductionChangeOrderList(orders: ProductionOrderChangeOrderView[]): string {
   const pageSize = 12
   const pageCount = Math.max(1, Math.ceil(orders.length / pageSize))
   const currentPage = Math.min(Math.max(state.productionChangeOrderPage, 1), pageCount)
@@ -1361,7 +1341,7 @@ function renderProductionChangeOrderList(orders: ProductionOrderChangeOrderView[
       ${renderChangeTable(
         ['变更单号', '生产单号', '款式 / SPU', '变更来源', '变更模块', '期望生效口径', '系统反推结果', '执行策略', '锁定状态', '状态', '最后记录', '动作'],
         visibleOrders.map((order) => `
-          <tr class="align-top hover:bg-muted/20 ${order.id === selectedOrderId ? 'bg-blue-50/70' : ''}">
+          <tr class="align-top hover:bg-muted/20">
             <td class="px-3 py-3 font-medium">${escapeHtml(order.id)}</td>
             <td class="px-3 py-3">${escapeHtml(order.productionOrderId)}</td>
             <td class="px-3 py-3">
@@ -1472,181 +1452,16 @@ function renderProductionChangeCandidateOrders(relations: ProductionOrderTechPac
   `
 }
 
-function renderChangeDetailSection(title: string, body: string): string {
-  return `
-    <section class="rounded-lg border bg-background p-4">
-      <h3 class="text-base font-semibold">${escapeHtml(title)}</h3>
-      <div class="mt-3">${body}</div>
-    </section>
-  `
-}
-
-function renderProductionImpactTable(rows: ProductionOrderChangeImpactRowView[]): string {
-  return renderChangeTable(
-    ['颜色', '尺码', '批次', '受影响工序', '影响数量', '已完成', '可改做', '不可追回', '风险', '说明'],
-    rows.map((row) => `
-      <tr class="align-top">
-        <td class="px-3 py-3">${escapeHtml(row.affectedColor)}</td>
-        <td class="px-3 py-3">${escapeHtml(row.affectedSize)}</td>
-        <td class="px-3 py-3">${escapeHtml(row.affectedBatch)}</td>
-        <td class="px-3 py-3">${escapeHtml(row.affectedProcess)}</td>
-        <td class="px-3 py-3">${row.affectedQuantity} 件</td>
-        <td class="px-3 py-3">${row.doneQuantity} 件</td>
-        <td class="px-3 py-3">${row.changeableQuantity} 件</td>
-        <td class="px-3 py-3">${row.irreversibleQuantity} 件</td>
-        <td class="px-3 py-3">${renderBadge(changeRiskLabels[row.riskLevel], 'bg-amber-50 text-amber-700 border-amber-200')}</td>
-        <td class="px-3 py-3">${escapeHtml(row.impactSummary)}</td>
-      </tr>
-    `),
-    '暂无生产影响',
-    'min-w-[1200px]',
-  )
-}
-
-function renderDocumentActionTable(rows: ProductionOrderChangeDocumentActionView[]): string {
-  return renderChangeTable(
-    ['单据类型', '单据号', '当前状态', '变更前', '变更后', '系统建议', '最终处理方式', '处理状态', '责任人', '改选原因'],
-    rows.map((row) => `
-      <tr class="align-top">
-        <td class="px-3 py-3">${escapeHtml(productionOrderChangeDocumentTypeLabels[row.documentType])}</td>
-        <td class="px-3 py-3">${escapeHtml(row.documentNo)}</td>
-        <td class="px-3 py-3">${escapeHtml(row.currentStatus)}</td>
-        <td class="px-3 py-3">${escapeHtml(row.beforeBusinessContent)}</td>
-        <td class="px-3 py-3">${escapeHtml(row.afterBusinessContent)}</td>
-        <td class="px-3 py-3">${escapeHtml(row.systemSuggestion)}</td>
-        <td class="px-3 py-3">${escapeHtml(row.finalAction)}</td>
-        <td class="px-3 py-3">${escapeHtml(productionOrderChangeDocumentActionStatusLabels[row.actionStatus])}</td>
-        <td class="px-3 py-3">${escapeHtml(row.owner)}</td>
-        <td class="px-3 py-3">${escapeHtml(row.reasonWhenChanged)}</td>
-      </tr>
-    `),
-    '暂无单据处理',
-    'min-w-[1700px]',
-  )
-}
-
-function renderCostImpactTable(rows: ProductionOrderChangeCostImpactView[]): string {
-  return renderChangeTable(
-    ['类型', '项目', '预计差异', '实际差异', '责任归因', '结算处理'],
-    rows.map((row) => `
-      <tr class="align-top">
-        <td class="px-3 py-3">${escapeHtml(productionOrderChangeCostTypeLabels[row.costType])}</td>
-        <td class="px-3 py-3">${escapeHtml(row.itemName)}</td>
-        <td class="px-3 py-3">${escapeHtml(formatChangeAmount(row.estimatedAmount))}</td>
-        <td class="px-3 py-3">${escapeHtml(formatChangeAmount(row.actualAmount))}</td>
-        <td class="px-3 py-3">${escapeHtml(row.responsibleParty)}</td>
-        <td class="px-3 py-3">${escapeHtml(row.settlementHandling)}</td>
-      </tr>
-    `),
-    '暂无料工费差异',
-    'min-w-[980px]',
-  )
-}
-
-function renderTimingImpactTable(rows: ProductionOrderChangeTimingImpactView[]): string {
-  return renderChangeTable(
-    ['节点', '原计划', '新预计', '影响天数', '影响生产交期', '影响履约发货', '责任归因', '追回动作'],
-    rows.map((row) => `
-      <tr class="align-top">
-        <td class="px-3 py-3">${escapeHtml(productionOrderChangeTimingNodeLabels[row.timingNode])}</td>
-        <td class="px-3 py-3">${escapeHtml(row.originalTime)}</td>
-        <td class="px-3 py-3">${escapeHtml(row.newEstimatedTime)}</td>
-        <td class="px-3 py-3">${row.delayDays} 天</td>
-        <td class="px-3 py-3">${row.affectsProductionDelivery ? '是' : '否'}</td>
-        <td class="px-3 py-3">${row.affectsFulfillmentDelivery ? '是' : '否'}</td>
-        <td class="px-3 py-3">${escapeHtml(row.responsibleParty)}</td>
-        <td class="px-3 py-3">${escapeHtml(row.recoveryAction)}</td>
-      </tr>
-    `),
-    '暂无时效影响',
-    'min-w-[1180px]',
-  )
-}
-
-function renderSelectedChangeOrderDetail(
-  order: ProductionOrderChangeOrderView,
-  scenario: ProductionOrderChangeScenarioView | undefined,
-  input: {
-    impacts: ProductionOrderChangeImpactRowView[]
-    documentActions: ProductionOrderChangeDocumentActionView[]
-    costImpacts: ProductionOrderChangeCostImpactView[]
-    timingImpacts: ProductionOrderChangeTimingImpactView[]
-  },
-): string {
-  return `
-    <section class="space-y-4">
-      <div class="rounded-lg border bg-muted/20 p-4">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p class="text-sm text-muted-foreground">当前展示变更单详情</p>
-            <h2 class="mt-1 text-xl font-semibold">${escapeHtml(order.id)} · ${escapeHtml(order.productionOrderId)}</h2>
-            <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(order.styleName)} / ${escapeHtml(order.spuCode)}</p>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            ${renderBadge(productionOrderChangeResultLabels[order.changeResult], 'bg-blue-50 text-blue-700 border-blue-200')}
-            ${renderBadge(productionOrderChangeExecutionStrategyLabels[order.executionStrategy], 'bg-amber-50 text-amber-700 border-amber-200')}
-            ${renderBadge(productionOrderChangeOrderStatusLabels[order.status], 'bg-slate-50 text-slate-700 border-slate-200')}
-          </div>
-        </div>
-      </div>
-
-      ${renderChangeDetailSection('变更内容', `
-        <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
-          <div><p class="text-muted-foreground">变更来源</p><p class="mt-1 font-medium">${escapeHtml(productionOrderChangeSourceLabels[order.source])}</p></div>
-          <div><p class="text-muted-foreground">变更模块</p><p class="mt-1 font-medium">${escapeHtml(order.changeModules.map((module) => techPackChangeModuleLabels[module]).join('、'))}</p></div>
-          <div><p class="text-muted-foreground">期望生效口径</p><p class="mt-1 font-medium">${escapeHtml(effectiveModeLabels[order.expectedEffectiveMode])}</p></div>
-          <div><p class="text-muted-foreground">业务场景</p><p class="mt-1 font-medium">${escapeHtml(scenario?.title ?? order.reason)}</p></div>
-        </div>
-        <p class="mt-3 rounded-md bg-muted/30 px-3 py-2 text-sm">${escapeHtml(order.reason)}；${escapeHtml(order.effectiveDescription)}</p>
-      `)}
-
-      ${renderChangeDetailSection('系统读取的现场事实', `
-        <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
-          <div><p class="text-muted-foreground">需求单</p><p class="mt-1 font-medium">${escapeHtml(order.demandOrderId)}</p></div>
-          <div><p class="text-muted-foreground">受影响单据</p><p class="mt-1 font-medium">${order.affectedDocumentCount} 张</p></div>
-          <div><p class="text-muted-foreground">预计差异</p><p class="mt-1 font-medium">${escapeHtml(formatChangeAmount(order.costDeltaAmount))}</p></div>
-          <div><p class="text-muted-foreground">预计影响</p><p class="mt-1 font-medium">${order.delayDays} 天</p></div>
-        </div>
-        <div class="mt-3 grid gap-2 text-sm md:grid-cols-2">
-          <p class="rounded-md border px-3 py-2">冻结快照不改</p>
-          <p class="rounded-md border px-3 py-2">正式技术包版本不因单张生产单异常被污染</p>
-          <p class="rounded-md border px-3 py-2">生产补丁挂在生产单层</p>
-          <p class="rounded-md border px-3 py-2">影响范围锁定：审核中只锁定受影响范围的冲突操作</p>
-        </div>
-      `)}
-
-      ${renderChangeDetailSection('生产影响', renderProductionImpactTable(input.impacts))}
-      ${renderChangeDetailSection('单据处理', renderDocumentActionTable(input.documentActions))}
-      ${renderChangeDetailSection('料工费差异', renderCostImpactTable(input.costImpacts))}
-      ${renderChangeDetailSection('时效影响', renderTimingImpactTable(input.timingImpacts))}
-      ${renderChangeDetailSection('执行与审核', `
-        <div class="grid gap-2 text-sm">
-          <p class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">立即止损：先锁定受影响范围和通知责任人，不完成最终变更。</p>
-          <p class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900">立即执行：低风险、可逆、权限内、不影响结算或发货的单据处理可先执行并备案。</p>
-          <p class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-blue-900">审核通过后执行：影响版本关系、补丁、结算、发货、返工、已消耗物料的处理必须审核通过后执行。</p>
-        </div>
-      `)}
-      ${renderChangeDetailSection('处理记录', `
-        <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
-          <div><p class="text-muted-foreground">创建人</p><p class="mt-1 font-medium">${escapeHtml(order.createdBy)}</p></div>
-          <div><p class="text-muted-foreground">创建时间</p><p class="mt-1 font-medium">${escapeHtml(order.createdAt)}</p></div>
-          <div><p class="text-muted-foreground">审核人</p><p class="mt-1 font-medium">${escapeHtml(order.reviewer)}</p></div>
-          <div><p class="text-muted-foreground">最后记录</p><p class="mt-1 font-medium">${escapeHtml(order.latestLog)}</p></div>
-        </div>
-      `)}
-    </section>
-  `
-}
-
 export function renderProductionChangesPage(): string {
   syncPublishGuideFromRoute()
   const relations = getFilteredRelations()
   const allRelations = listProductionOrderTechPackRelations()
   const keyword = state.techPackChangeKeyword.trim().toLowerCase()
   const changeOrders = listProductionOrderChangeOrders().filter((order) => matchesChangeOrderKeyword(order, keyword))
-  const changeDocumentActions = listProductionOrderChangeDocumentActions()
-  const changeCostImpacts = listProductionOrderChangeCostImpacts()
-  const changeTimingImpacts = listProductionOrderChangeTimingImpacts()
+  const changeOrderIds = new Set(changeOrders.map((order) => order.id))
+  const changeDocumentActions = listProductionOrderChangeDocumentActions().filter((item) => changeOrderIds.has(item.changeOrderId))
+  const changeCostImpacts = listProductionOrderChangeCostImpacts().filter((item) => changeOrderIds.has(item.changeOrderId))
+  const changeTimingImpacts = listProductionOrderChangeTimingImpacts().filter((item) => changeOrderIds.has(item.changeOrderId))
   const currentVersions = Array.from(new Set(allRelations.map((item) => item.currentTechPackVersionNo)))
   const owners = Array.from(new Set(allRelations.map((item) => item.merchandiserName)))
   const activeTab = state.productionChangeListTab === 'candidate-orders' ? 'candidate-orders' : 'change-orders'
@@ -1682,7 +1497,7 @@ export function renderProductionChangesPage(): string {
       ${renderProductionChangeListTabs()}
 
       ${activeTab === 'change-orders'
-        ? renderProductionChangeOrderList(changeOrders, state.productionChangeSelectedOrderId)
+        ? renderProductionChangeOrderList(changeOrders)
         : `
           ${renderProductionRelationFilters(currentVersions, owners)}
           ${renderProductionChangeCandidateOrders(relations)}
