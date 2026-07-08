@@ -31,6 +31,7 @@ type CraftDictState = {
   filterGranularity: 'ALL' | ProcessAssignmentGranularity
   filterStatus: 'ACTIVE' | 'HISTORICAL' | 'ALL'
   viewCraftCode: string
+  showRouteOrder: boolean
   detailTab: 'IDEAL' | 'CURRENT' | 'BASIC'
   page: number
   pageSize: number
@@ -42,6 +43,7 @@ const state: CraftDictState = {
   filterGranularity: 'ALL',
   filterStatus: 'ACTIVE',
   viewCraftCode: '',
+  showRouteOrder: false,
   detailTab: 'CURRENT',
   page: 1,
   pageSize: 10,
@@ -385,6 +387,87 @@ function renderDictionaryRebuildSummary(): string {
   `
 }
 
+function getRouteOrderGroups(): Array<{ order: number; rows: ProcessCraftDictRow[] }> {
+  const groups = new Map<number, ProcessCraftDictRow[]>()
+  for (const row of listProcessCraftDictRows()) {
+    const order = getDefaultProcessRouteOrder(row.processCode)
+    groups.set(order, [...(groups.get(order) ?? []), row])
+  }
+
+  return Array.from(groups.entries())
+    .sort(([left], [right]) => left - right)
+    .map(([order, rows]) => ({
+      order,
+      rows: rows
+        .slice()
+        .sort((left, right) =>
+          left.stageName.localeCompare(right.stageName, 'zh-CN')
+          || left.processName.localeCompare(right.processName, 'zh-CN')
+          || left.craftName.localeCompare(right.craftName, 'zh-CN'),
+        ),
+    }))
+}
+
+function renderRouteOrderCard(row: ProcessCraftDictRow): string {
+  return `
+    <div class="rounded-md border bg-background p-3 shadow-sm" data-testid="craft-route-order-card">
+      <div class="text-sm font-semibold text-slate-900">${escapeHtml(row.craftName)}</div>
+      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.processName)}</div>
+      <div class="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+        <span class="rounded border border-slate-200 bg-slate-50 px-2 py-0.5">${escapeHtml(row.targetObjectName)}</span>
+        <span class="rounded border border-slate-200 bg-slate-50 px-2 py-0.5">${escapeHtml(row.stageName)}</span>
+        <span class="rounded border border-slate-200 bg-slate-50 px-2 py-0.5">出任务：${escapeHtml(row.generatesExternalTaskLabel)}</span>
+      </div>
+    </div>
+  `
+}
+
+function renderProcessRouteOrderDialog(): string {
+  const groups = getRouteOrderGroups()
+  const configuredGroups = groups.filter((group) => group.order !== Number.MAX_SAFE_INTEGER)
+  const unconfiguredRows = groups.find((group) => group.order === Number.MAX_SAFE_INTEGER)?.rows ?? []
+
+  return `
+    <div class="fixed inset-0 z-[120] bg-black/35" data-craft-dict-action="close-route-order"></div>
+    <section class="fixed left-1/2 top-1/2 z-[121] flex max-h-[86vh] w-[min(1120px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-background shadow-xl" data-testid="craft-route-order-dialog">
+      <header class="flex items-start justify-between gap-4 border-b px-5 py-4">
+        <div>
+          <h2 class="text-lg font-semibold">完整工序工艺顺序</h2>
+          <p class="mt-1 text-xs leading-5 text-muted-foreground">基础路线顺序仅作为技术包路线默认参考，最终以款式级技术包确认路线为准。</p>
+        </div>
+        <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-craft-dict-action="close-route-order">关闭</button>
+      </header>
+
+      <div class="min-h-0 flex-1 overflow-auto p-5">
+        <div class="flex min-w-max gap-3">
+          ${configuredGroups
+            .map(
+              (group) => `
+                <section class="w-48 shrink-0 rounded-md border bg-muted/20 p-3">
+                  <div class="mb-3 text-sm font-semibold text-slate-800">第 ${group.order} 步</div>
+                  <div class="space-y-2">
+                    ${group.rows.map(renderRouteOrderCard).join('')}
+                  </div>
+                </section>
+              `,
+            )
+            .join('')}
+          <section class="w-56 shrink-0 rounded-md border border-dashed bg-slate-50 p-3">
+            <div class="mb-3 text-sm font-semibold text-slate-800">未配置顺序</div>
+            <div class="space-y-2">
+              ${
+                unconfiguredRows.length > 0
+                  ? unconfiguredRows.map(renderRouteOrderCard).join('')
+                  : '<div class="rounded-md border bg-background px-3 py-4 text-xs text-muted-foreground">当前没有未配置顺序的工序工艺</div>'
+              }
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+  `
+}
+
 function renderCraftDetailSheet(row: ProcessCraftDictRow): string {
   return `
     <div class="fixed inset-0 z-[120] bg-black/35" data-craft-dict-action="close-sheet"></div>
@@ -502,8 +585,11 @@ export function renderProductionCraftDictPage(): string {
 
   return `
     <div class="space-y-4">
-      <header class="flex items-center" data-testid="craft-dict-page-header">
+      <header class="flex flex-wrap items-center justify-between gap-3" data-testid="craft-dict-page-header">
         <h1 class="text-xl font-semibold">工序工艺字典</h1>
+        <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-craft-dict-action="open-route-order">
+          查看完整工序顺序
+        </button>
       </header>
 
       <div class="space-y-4">
@@ -623,6 +709,7 @@ export function renderProductionCraftDictPage(): string {
       </div>
 
       ${selected ? renderCraftDetailSheet(selected) : ''}
+      ${state.showRouteOrder ? renderProcessRouteOrderDialog() : ''}
     </div>
   `
 }
@@ -698,6 +785,16 @@ export function handleProductionCraftDictEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'open-route-order') {
+    state.showRouteOrder = true
+    return true
+  }
+
+  if (action === 'close-route-order') {
+    state.showRouteOrder = false
+    return true
+  }
+
   if (action === 'prev-page') {
     state.page = Math.max(1, state.page - 1)
     return true
@@ -713,11 +810,12 @@ export function handleProductionCraftDictEvent(target: HTMLElement): boolean {
 }
 
 export function isProductionCraftDictDialogOpen(): boolean {
-  return Boolean(state.viewCraftCode)
+  return Boolean(state.viewCraftCode || state.showRouteOrder)
 }
 
 export function closeProductionCraftDictDialog(): void {
   state.viewCraftCode = ''
   state.detailTab = 'CURRENT'
+  state.showRouteOrder = false
   appStore.navigate('/fcs/production/craft-dict')
 }
