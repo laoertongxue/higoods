@@ -717,8 +717,99 @@ function resolveTaskUnitReceiver(unit: GeneratedTaskUnitPreview | undefined, art
   return resolveGeneratedTaskReceiver(artifact)
 }
 
-function getTaskGenerationSortKey(artifact: GeneratedTaskArtifact): string {
+type TaskEmissionArtifactLike = Pick<GeneratedTaskArtifact, 'artifactId' | 'generationSortKey' | 'sortKey'>
+type TaskEmissionUnitLike = Pick<GeneratedTaskUnitPreview, 'previewUnitId' | 'sourceArtifactIds' | 'taskUnitType'>
+
+function getTaskGenerationSortKey(artifact: TaskEmissionArtifactLike): string {
   return artifact.generationSortKey ?? artifact.sortKey
+}
+
+export interface GeneratedTaskEmissionPlan<
+  TArtifact extends TaskEmissionArtifactLike = GeneratedTaskArtifact,
+  TUnit extends TaskEmissionUnitLike = GeneratedTaskUnitPreview,
+> {
+  artifact: TArtifact
+  unit?: TUnit
+  unitSourceArtifacts: TArtifact[]
+  taskId: string
+  stableSeq: number
+  seq: number
+  emissionKey: string
+}
+
+function compareTaskArtifactsForGeneration(left: TaskEmissionArtifactLike, right: TaskEmissionArtifactLike): number {
+  const sortCompare = getTaskGenerationSortKey(left).localeCompare(getTaskGenerationSortKey(right))
+  if (sortCompare !== 0) return sortCompare
+  return left.artifactId.localeCompare(right.artifactId)
+}
+
+function compareTaskArtifactsForRoute(left: TaskEmissionArtifactLike, right: TaskEmissionArtifactLike): number {
+  const sortCompare = left.sortKey.localeCompare(right.sortKey)
+  if (sortCompare !== 0) return sortCompare
+  return compareTaskArtifactsForGeneration(left, right)
+}
+
+function isMergedTaskEmissionUnit(unit: TaskEmissionUnitLike | undefined): boolean {
+  return unit?.taskUnitType === 'COMBINED_PROCESS_TASK' || unit?.taskUnitType === 'WHOLE_ORDER_TASK'
+}
+
+function getTaskEmissionKey(artifact: TaskEmissionArtifactLike, unit: TaskEmissionUnitLike | undefined): string {
+  return isMergedTaskEmissionUnit(unit) ? `unit:${unit?.previewUnitId}` : `artifact:${artifact.artifactId}`
+}
+
+function buildGeneratedTaskId(orderId: string, stableSeq: number): string {
+  return `TASKGEN-${orderId.replace('PO-', '')}-${String(stableSeq).padStart(3, '0')}`
+}
+
+export function buildGeneratedTaskEmissionPlans<
+  TArtifact extends TaskEmissionArtifactLike,
+  TUnit extends TaskEmissionUnitLike,
+>(
+  orderId: string,
+  orderArtifacts: TArtifact[],
+  generatedUnits: TUnit[],
+): GeneratedTaskEmissionPlan<TArtifact, TUnit>[] {
+  const findUnit = (artifact: TArtifact): TUnit | undefined =>
+    generatedUnits.find((unit) => unit.sourceArtifactIds.includes(artifact.artifactId))
+  const stableTaskIds = new Map<string, { taskId: string; stableSeq: number }>()
+
+  for (const artifact of [...orderArtifacts].sort(compareTaskArtifactsForGeneration)) {
+    const unit = findUnit(artifact)
+    const emissionKey = getTaskEmissionKey(artifact, unit)
+    if (stableTaskIds.has(emissionKey)) continue
+    const stableSeq = stableTaskIds.size + 1
+    stableTaskIds.set(emissionKey, {
+      taskId: buildGeneratedTaskId(orderId, stableSeq),
+      stableSeq,
+    })
+  }
+
+  const emittedKeys = new Set<string>()
+  const plans: GeneratedTaskEmissionPlan<TArtifact, TUnit>[] = []
+  for (const artifact of [...orderArtifacts].sort(compareTaskArtifactsForRoute)) {
+    const unit = findUnit(artifact)
+    const emissionKey = getTaskEmissionKey(artifact, unit)
+    if (emittedKeys.has(emissionKey)) continue
+    const stableTask = stableTaskIds.get(emissionKey)
+    if (!stableTask) continue
+    emittedKeys.add(emissionKey)
+    const unitSourceArtifacts = unit
+      ? orderArtifacts
+          .filter((item) => unit.sourceArtifactIds.includes(item.artifactId))
+          .sort(compareTaskArtifactsForRoute)
+      : [artifact]
+    plans.push({
+      artifact,
+      unit,
+      unitSourceArtifacts,
+      taskId: stableTask.taskId,
+      stableSeq: stableTask.stableSeq,
+      seq: plans.length + 1,
+      emissionKey,
+    })
+  }
+
+  return plans
 }
 
 function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
@@ -736,27 +827,14 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
   }
 
   for (const [orderId, orderArtifacts] of artifactsByOrder.entries()) {
-    orderArtifacts.sort((a, b) => getTaskGenerationSortKey(a).localeCompare(getTaskGenerationSortKey(b)))
     const preview = buildTaskGenerationPreview(orderId)
-    const emittedMergedUnitIds = new Set<string>()
-    const generatedIds: string[] = []
+    const emissionPlans = buildGeneratedTaskEmissionPlans(orderId, orderArtifacts, preview.generatedUnits)
     const currentOrderTasks: ProcessTask[] = []
 
-    orderArtifacts.forEach((artifact) => {
-      const unit = preview.generatedUnits.find((item) => item.sourceArtifactIds.includes(artifact.artifactId))
-      if (isMergedTaskUnit(unit)) {
-        if (!unit || emittedMergedUnitIds.has(unit.previewUnitId)) return
-        emittedMergedUnitIds.add(unit.previewUnitId)
-      }
-
+    emissionPlans.forEach(({ artifact, unit, unitSourceArtifacts, taskId, seq }) => {
       const taskUnitType: ProductionTaskUnitType = unit?.taskUnitType ?? 'SINGLE_PROCESS_TASK'
-      const unitSourceArtifacts = unit
-        ? orderArtifacts.filter((item) => unit.sourceArtifactIds.includes(item.artifactId))
-        : [artifact]
       const coveredProcesses = unit ? cloneCoveredProcesses(unit.coveredProcesses) : buildCoveredProcessesFromArtifact(artifact)
       const directFactoryAssigned = Boolean(unit && !unit.allowAutoDispatch && unit.assignmentTargetFactoryId)
-      const seq = generatedIds.length + 1
-      const taskId = `TASKGEN-${orderId.replace('PO-', '')}-${String(seq).padStart(3, '0')}`
       const detailRows = buildTaskUnitDetailRows(taskId, unitSourceArtifacts)
       const isMerged = isMergedTaskUnit(unit)
       const outputValuePerUnit = isMerged ? undefined : artifact.outputValuePerUnit
@@ -777,7 +855,6 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
       const woolDownstreamTarget = woolTaskType === 'PART_PANEL' ? '裁床待交出仓' : woolTaskType === 'WHOLE_GARMENT' ? '后道工厂' : undefined
       const woolOrderNo = isWool ? `毛织单-${orderId.replace('PO-', '')}-${String(seq).padStart(2, '0')}` : undefined
       const yarnRow = isWool ? detailRows.find((row) => row.sourceRefs.bomItemId) : undefined
-      generatedIds.push(taskId)
       const assignmentMode: AssignmentMode = unit && !unit.allowAutoDispatch
         ? 'DIRECT'
         : artifact.isSpecialCraft

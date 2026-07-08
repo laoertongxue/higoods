@@ -762,27 +762,8 @@ function normalizePendingItem(item: TechnicalDataVersionPendingItem): TechnicalD
 
 function hydrateSnapshot(snapshot: TechnicalDataVersionStoreSnapshot): TechnicalDataVersionStoreSnapshot {
   const contentMap = new Map<string, TechnicalDataVersionContent>()
-  const publishedVersionIds = new Set(
-    (Array.isArray(snapshot.records) ? snapshot.records : [])
-      .filter((record) => normalizeVersionStatus(record.versionStatus) === 'PUBLISHED')
-      .map((record) => record.technicalVersionId),
-  )
   const contents = Array.isArray(snapshot.contents)
-    ? snapshot.contents.map((content) => {
-        const normalized = normalizeContent(content)
-        if (
-          publishedVersionIds.has(normalized.technicalVersionId)
-          && normalized.processEntries.length > 0
-          && !hasOwnRouteField(content, 'processRouteStatus')
-          && content.legacyCompatibleCostPayload?.processRouteStatus === undefined
-        ) {
-          return {
-            ...normalized,
-            processRouteStatus: 'CONFIRMED' as const,
-          }
-        }
-        return normalized
-      })
+    ? snapshot.contents.map((content) => normalizeContent(content))
     : []
   contents.forEach((content) => {
     contentMap.set(content.technicalVersionId, content)

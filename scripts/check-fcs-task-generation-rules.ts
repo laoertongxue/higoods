@@ -246,6 +246,7 @@ async function main(): Promise<void> {
   const ruleDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/production-task-generation-rules.ts')).href)
   const factoryDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/factory-master-store.ts')).href)
   const runtimeDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/runtime-process-tasks.ts')).href)
+  const processTasksDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/process-tasks.ts')).href)
   const mobileExecutionDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/mobile-execution-task-index.ts')).href)
   const pdaTaskDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/pda-task-mock-factory.ts')).href)
   const pdaHandoverDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/pda-handover-events.ts')).href)
@@ -465,6 +466,58 @@ async function main(): Promise<void> {
       !task.generationRuleId && task.generationRuleName === '任务清单人工合并'
     ),
     '连续工序组合任务只能来源于任务清单人工合并，不得来源于任务生成规则',
+  )
+  assert.equal(
+    typeof processTasksDomain.buildGeneratedTaskEmissionPlans,
+    'function',
+    'ProcessTask 生成必须提供可检查的稳定编号 / 路线展示排序计划',
+  )
+  const buildGeneratedTaskEmissionPlans = processTasksDomain.buildGeneratedTaskEmissionPlans as Function
+  const routeDisplayPlans = buildGeneratedTaskEmissionPlans(
+    'PO-CHECK-ROUTE',
+    [
+      { artifactId: 'dict-first-route-second', generationSortKey: '001-dict-first', sortKey: '002-route-second' },
+      { artifactId: 'dict-second-route-first', generationSortKey: '002-dict-second', sortKey: '001-route-first' },
+    ],
+    [],
+  )
+  assert.deepEqual(
+    routeDisplayPlans.map((plan: { artifact: { artifactId: string } }) => plan.artifact.artifactId),
+    ['dict-second-route-first', 'dict-first-route-second'],
+    '路线顺序与字典顺序不一致时，任务展示顺序必须按冻结路线',
+  )
+  assert.deepEqual(
+    routeDisplayPlans.map((plan: { seq: number }) => plan.seq),
+    [1, 2],
+    '路线顺序与字典顺序不一致时，任务 seq 必须按冻结路线重新分配',
+  )
+  assert.deepEqual(
+    routeDisplayPlans.map((plan: { taskId: string }) => plan.taskId),
+    ['TASKGEN-CHECK-ROUTE-002', 'TASKGEN-CHECK-ROUTE-001'],
+    '路线顺序与字典顺序不一致时，taskId 必须保持旧生成顺序稳定',
+  )
+  const mergedUnitPlans = buildGeneratedTaskEmissionPlans(
+    'PO-CHECK-UNIT',
+    [
+      { artifactId: 'unit-dict-first-route-third', generationSortKey: '001-dict-first', sortKey: '003-route-third' },
+      { artifactId: 'unit-dict-second-route-first', generationSortKey: '002-dict-second', sortKey: '001-route-first' },
+      { artifactId: 'single-dict-third-route-second', generationSortKey: '003-dict-third', sortKey: '002-route-second' },
+    ],
+    [{
+      previewUnitId: 'unit-check-1',
+      taskUnitType: 'WHOLE_ORDER_TASK',
+      sourceArtifactIds: ['unit-dict-first-route-third', 'unit-dict-second-route-first'],
+    }],
+  )
+  assert.deepEqual(
+    mergedUnitPlans.map((plan: { taskId: string }) => plan.taskId),
+    ['TASKGEN-CHECK-UNIT-001', 'TASKGEN-CHECK-UNIT-002'],
+    '合并 unit 必须按旧 generationSortKey 首次遇到顺序分配稳定 taskId，且只分配一次',
+  )
+  assert.deepEqual(
+    mergedUnitPlans.map((plan: { seq: number }) => plan.seq),
+    [1, 2],
+    '合并 unit 进入任务列表时仍必须按路线顺序分配 seq',
   )
   assert(
     mergedRuntimeTasks.every((task: { qty?: number }) => Number(task.qty) > 0),
