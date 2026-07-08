@@ -4,6 +4,7 @@ import {
   renderProductionOrderIdentityCell,
 } from '../data/fcs/production-order-identity.ts'
 import {
+  evaluateContinuousRuntimeTaskMerge,
   isRuntimeTaskExecutionTask,
   listRuntimeProcessTasks,
   listRuntimeTaskSplitGroupsByOrder,
@@ -121,6 +122,22 @@ function getTaskHandoverReceiverText(task: RuntimeProcessTask): string {
   return task.handoverReceiverName || task.receiverName || '仓库'
 }
 
+function getTaskRouteText(task: RuntimeProcessTask): string {
+  if (!task.routeStepNo || !task.routeLaneNo) return '路线步骤：未冻结'
+  return `路线步骤：第 ${task.routeStepNo} 步 / 第 ${task.routeLaneNo} 并行线`
+}
+
+function getParallelAcceptanceText(task: RuntimeProcessTask): string {
+  return task.routeParallelAcceptanceMode === 'WHOLE_GROUP_ALLOWED' ? '整体承接' : '分别承接'
+}
+
+function getTaskParallelText(task: RuntimeProcessTask): string {
+  const groupName = task.routeParallelGroupName || task.routeParallelGroupId
+  return groupName
+    ? `并行组：${groupName} / ${getParallelAcceptanceText(task)}`
+    : `并行组：无 / ${getParallelAcceptanceText(task)}`
+}
+
 function isMergeableSingleTask(task: RuntimeProcessTask): boolean {
   return isRuntimeTaskExecutionTask(task)
     && task.defaultDocType !== 'DEMAND'
@@ -131,14 +148,16 @@ function isMergeableSingleTask(task: RuntimeProcessTask): boolean {
     && task.status === 'NOT_STARTED'
 }
 
-function getContinuousMergeCandidates(tasks: RuntimeProcessTask[]): Array<{ prev: RuntimeProcessTask; next: RuntimeProcessTask }> {
+function getContinuousMergeCandidates(tasks: RuntimeProcessTask[]): Array<{ taskIds: string[] }> {
   const sorted = topoSort(tasks).filter(isMergeableSingleTask)
-  const candidates: Array<{ prev: RuntimeProcessTask; next: RuntimeProcessTask }> = []
-  for (let index = 1; index < sorted.length; index += 1) {
-    const prev = sorted[index - 1]
-    const next = sorted[index]
-    const isContinuous = next.dependsOnTaskIds?.includes(prev.taskId) || next.seq === prev.seq + 1
-    if (isContinuous) candidates.push({ prev, next })
+  const candidates: Array<{ taskIds: string[] }> = []
+  for (let left = 0; left < sorted.length; left += 1) {
+    for (let right = left + 1; right < sorted.length; right += 1) {
+      const evaluation = evaluateContinuousRuntimeTaskMerge([sorted[left].taskId, sorted[right].taskId], tasks)
+      if (evaluation.ok) {
+        candidates.push({ taskIds: evaluation.tasks.map((task) => task.taskId) })
+      }
+    }
   }
   return candidates
 }
@@ -146,23 +165,9 @@ function getContinuousMergeCandidates(tasks: RuntimeProcessTask[]): Array<{ prev
 function getInitialContinuousMergeSelection(tasks: RuntimeProcessTask[], preferredTaskId?: string): string[] {
   const candidates = getContinuousMergeCandidates(tasks)
   const matched = preferredTaskId
-    ? candidates.find(({ prev, next }) => prev.taskId === preferredTaskId || next.taskId === preferredTaskId)
+    ? candidates.find((candidate) => candidate.taskIds.includes(preferredTaskId))
     : candidates[0]
-  return matched ? [matched.prev.taskId, matched.next.taskId] : []
-}
-
-function isSelectedContinuousMergeTaskContiguous(tasks: RuntimeProcessTask[], selectedTaskIds: string[]): boolean {
-  const selected = topoSort(tasks)
-    .filter((task) => selectedTaskIds.includes(task.taskId))
-  if (selected.length < 2) return false
-  for (let index = 1; index < selected.length; index += 1) {
-    const prev = selected[index - 1]
-    const next = selected[index]
-    if (!(next.dependsOnTaskIds?.includes(prev.taskId) || next.seq === prev.seq + 1)) {
-      return false
-    }
-  }
-  return true
+  return matched?.taskIds ?? []
 }
 
 const splitTaskStatusLabel: Record<RuntimeProcessTask['status'], string> = {
@@ -372,7 +377,7 @@ function chainSummaryText(
 
   return sorted
     .map((task) => {
-      let label = taskDisplayName(task)
+      let label = `${taskDisplayName(task)}（${getTaskRouteText(task).replace('路线步骤：', '')}）`
 
       if (taskDyeSet.has(task.taskId)) {
         label += '（相关流程）'
@@ -782,7 +787,8 @@ function renderContinuousMergeDialog(
   const mergeableTasks = topoSort(mergeTasks).filter(isMergeableSingleTask)
   const mergeableTaskIds = new Set(mergeableTasks.map((task) => task.taskId))
   const selectedContinuousMergeTaskIds = state.selectedContinuousMergeTaskIds.filter((taskId) => mergeableTaskIds.has(taskId))
-  const canMerge = isSelectedContinuousMergeTaskContiguous(mergeableTasks, selectedContinuousMergeTaskIds)
+  const mergeEvaluation = evaluateContinuousRuntimeTaskMerge(selectedContinuousMergeTaskIds, mergeTasks)
+  const canMerge = mergeEvaluation.ok
   const subtitle = mergeOrder
     ? `${mergeOrder.productionOrderId}${mergeOrder.mainFactorySnapshot?.name ? `・${mergeOrder.mainFactorySnapshot.name}` : ''}`
     : mergeOrderId
@@ -798,21 +804,22 @@ function renderContinuousMergeDialog(
           合并连续工序
           <span class="ml-2 text-sm font-normal text-muted-foreground">${escapeHtml(subtitle)}</span>
         </h3>
-        <p class="mt-1 text-xs text-muted-foreground">勾选同一生产单下需要合并的连续工序。</p>
+        <p class="mt-1 text-xs text-muted-foreground">勾选同一生产单下冻结路线连续的工序。连续工序任务不能按明细拆分，合并后只能整任务分配给一个承接工厂。</p>
         <div class="mt-4 rounded-md border">
           <table class="w-full text-sm">
             <thead>
               <tr class="border-b bg-muted/40">
                 <th class="w-12 px-3 py-2 text-left font-medium">选择</th>
                 <th class="px-3 py-2 text-left font-medium">工序任务</th>
-                <th class="px-3 py-2 text-left font-medium">任务号</th>
+                <th class="px-3 py-2 text-left font-medium">路线依据</th>
+                <th class="px-3 py-2 text-left font-medium">并行组</th>
                 <th class="px-3 py-2 text-left font-medium">前置任务</th>
               </tr>
             </thead>
             <tbody>
               ${
                 mergeableTasks.length === 0
-                  ? '<tr><td colspan="4" class="py-8 text-center text-sm text-muted-foreground">暂无可合并的工序任务</td></tr>'
+                  ? '<tr><td colspan="5" class="py-8 text-center text-sm text-muted-foreground">暂无可合并的工序任务</td></tr>'
                   : mergeableTasks.map((task) => `
                     <tr class="border-b last:border-0">
                       <td class="px-3 py-2">
@@ -825,8 +832,12 @@ function renderContinuousMergeDialog(
                           ${selectedContinuousMergeTaskIds.includes(task.taskId) ? 'checked' : ''}
                         />
                       </td>
-                      <td class="px-3 py-2 font-medium">${escapeHtml(taskDisplayName(task))}</td>
-                      <td class="px-3 py-2 font-mono text-xs text-muted-foreground">${escapeHtml(taskDisplayNo(task))}</td>
+                      <td class="px-3 py-2">
+                        <div class="font-medium">${escapeHtml(taskDisplayName(task))}</div>
+                        <div class="font-mono text-xs text-muted-foreground">${escapeHtml(taskDisplayNo(task))}</div>
+                      </td>
+                      <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskRouteText(task))}</td>
+                      <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getTaskParallelText(task))}</td>
                       <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(prevNames(task, mergeTasks))}</td>
                     </tr>
                   `).join('')
@@ -836,7 +847,7 @@ function renderContinuousMergeDialog(
         </div>
         <div class="mt-4 flex items-center justify-between gap-3">
           <p class="text-xs ${canMerge ? 'text-muted-foreground' : 'text-amber-700'}">
-            ${escapeHtml(state.continuousMergeError || (canMerge ? '已选择连续工序，可合并。' : '请选择至少两个前后连续的未分配工序。'))}
+            ${escapeHtml(state.continuousMergeError || mergeEvaluation.message)}
           </p>
           <button
             class="${toClassName(
@@ -1125,7 +1136,7 @@ function renderAllTasksTable(
                       const orderTasks = allTasks.filter((item) => item.productionOrderId === task.productionOrderId)
                       const continuousCandidates = getContinuousMergeCandidates(orderTasks)
                       const hasContinuousMergeCandidate = continuousCandidates.some(
-                        ({ prev, next }) => prev.taskId === task.taskId || next.taskId === task.taskId,
+                        (candidate) => candidate.taskIds.includes(task.taskId),
                       )
                       const displayName = taskDisplayName(task)
                       const outputValue = resolveTaskOutputValueSnapshot(task)
@@ -1163,6 +1174,8 @@ function renderAllTasksTable(
                           <td class="px-3 py-2 text-sm font-medium">
                             <div class="space-y-0.5">
                               <p>${escapeHtml(displayName)}</p>
+                              <p class="text-[11px] font-normal text-muted-foreground">${escapeHtml(getTaskRouteText(task))}</p>
+                              <p class="text-[11px] font-normal text-muted-foreground">${escapeHtml(getTaskParallelText(task))}</p>
                             </div>
                           </td>
                           <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getCoveredProcessText(task))}</td>
@@ -1434,9 +1447,14 @@ export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'confirm-continuous-merge') {
+    const evaluation = evaluateContinuousRuntimeTaskMerge(state.selectedContinuousMergeTaskIds)
+    if (!evaluation.ok) {
+      state.continuousMergeError = evaluation.message
+      return true
+    }
     const merged = mergeContinuousRuntimeTasks(state.selectedContinuousMergeTaskIds, '生产计划员')
     if (!merged) {
-      state.continuousMergeError = '合并失败：请选择同一生产单下前后连续、未分配、未开工的独立工序。'
+      state.continuousMergeError = evaluation.message
       return true
     }
     state.continuousMergeOrderId = null

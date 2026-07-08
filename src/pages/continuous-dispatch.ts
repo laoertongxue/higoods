@@ -10,7 +10,7 @@ import {
 } from '../data/fcs/production-order-identity.ts'
 import { escapeHtml, toClassName } from '../utils.ts'
 
-type ContinuousDispatchTab = 'SEWING_POST' | 'WITH_CUTTING' | 'OTHER'
+type ContinuousDispatchTab = 'SEWING_POST' | 'OTHER'
 
 interface ContinuousDispatchState {
   tab: ContinuousDispatchTab
@@ -42,7 +42,11 @@ const executionStatusLabel: Record<RuntimeProcessTask['status'], string> = {
 
 function getContinuousTasks(): RuntimeProcessTask[] {
   return listRuntimeProcessTasks()
-    .filter((task) => task.taskUnitType === 'COMBINED_PROCESS_TASK')
+    .filter((task) =>
+      task.taskUnitType === 'COMBINED_PROCESS_TASK'
+      && task.acceptanceMode === 'CONTINUOUS_PROCESS'
+      && ((task.mergeSourceTaskIds ?? []).length > 0 || task.generationRuleName === '任务清单人工合并')
+    )
     .sort((left, right) => left.productionOrderId.localeCompare(right.productionOrderId) || left.seq - right.seq)
 }
 
@@ -73,8 +77,7 @@ function getFilteredTasks(): RuntimeProcessTask[] {
   return getContinuousTasks()
     .filter((task) => {
       if (state.tab === 'SEWING_POST') return isSewingPostContinuousTask(task)
-      if (state.tab === 'WITH_CUTTING') return isCuttingContinuousTask(task)
-      return !isSewingPostContinuousTask(task) && !isCuttingContinuousTask(task)
+      return !isSewingPostContinuousTask(task)
     })
     .filter((task) => {
       if (!keyword) return true
@@ -120,16 +123,6 @@ function renderTabButton(tab: ContinuousDispatchTab, label: string, count: numbe
 }
 
 function renderReadiness(task: RuntimeProcessTask): string {
-  if (isCuttingContinuousTask(task)) {
-    return `
-      <div class="space-y-1 text-xs">
-        <div><span class="text-muted-foreground">唛架依据：</span><span class="font-medium text-blue-700">由我方裁床排唛架</span></div>
-        <div><span class="text-muted-foreground">裁片完成：</span><span class="font-medium text-emerald-700">三方上报裁片完成数量和可做成衣数</span></div>
-        <div class="text-muted-foreground">不生成我方加工单，辅助/特种工艺作为验收关注点。</div>
-      </div>
-    `
-  }
-
   if (isSewingPostContinuousTask(task)) {
     return `
       <div class="space-y-1 text-xs">
@@ -140,10 +133,20 @@ function renderReadiness(task: RuntimeProcessTask): string {
     `
   }
 
+  const coveredProcessText = getCoveredProcessNames(task).join('、') || '—'
+  const capacityWindowText = [task.startDueAt, task.taskDeadline].filter(Boolean).join(' 至 ') || '待计划确认'
   return `
     <div class="space-y-1 text-xs">
-      <div><span class="text-muted-foreground">连续承接校验：</span><span class="font-medium text-slate-700">按覆盖工序连续承接能力确认</span></div>
-      <div class="text-muted-foreground">任务已由任务清单合并，分配时保持整任务范围。</div>
+      <div><span class="text-muted-foreground">覆盖工序：</span><span class="font-medium text-slate-700">${escapeHtml(coveredProcessText)}</span></div>
+      <div><span class="text-muted-foreground">承接能力：</span><span class="font-medium text-slate-700">按覆盖工序连续承接能力确认</span></div>
+      <div><span class="text-muted-foreground">产能窗口：</span><span class="font-medium text-slate-700">${escapeHtml(capacityWindowText)}</span></div>
+      <div><span class="text-muted-foreground">接单截止：</span><span class="font-medium text-slate-700">${escapeHtml(task.acceptDeadline || task.biddingDeadline || '待确认')}</span></div>
+      <div><span class="text-muted-foreground">任务截止：</span><span class="font-medium text-slate-700">${escapeHtml(task.taskDeadline || '待确认')}</span></div>
+      ${
+        isCuttingContinuousTask(task)
+          ? '<div class="text-muted-foreground">含裁片连续任务：我方裁床提供唛架方案，三方上报裁片完成数量和可做成衣数，不生成我方加工单。</div>'
+          : '<div class="text-muted-foreground">任务已由任务清单合并，分配时保持整任务范围。</div>'
+      }
     </div>
   `
 }
@@ -254,11 +257,12 @@ function renderTaskTable(tasks: RuntimeProcessTask[]): string {
 export function renderContinuousDispatchPage(): string {
   const allContinuousTasks = getContinuousTasks()
   const sewingPostCount = allContinuousTasks.filter(isSewingPostContinuousTask).length
-  const withCuttingCount = allContinuousTasks.filter(isCuttingContinuousTask).length
-  const otherCount = allContinuousTasks.filter((task) => !isSewingPostContinuousTask(task) && !isCuttingContinuousTask(task)).length
-  const unassignedCount = allContinuousTasks.filter((task) => task.assignmentStatus === 'UNASSIGNED').length
-  const biddingCount = allContinuousTasks.filter((task) => task.assignmentStatus === 'BIDDING' || task.assignmentStatus === 'ASSIGNING').length
+  const otherCount = allContinuousTasks.filter((task) => !isSewingPostContinuousTask(task)).length
   const filteredTasks = getFilteredTasks()
+  const filteredUnassignedCount = filteredTasks.filter((task) => task.assignmentStatus === 'UNASSIGNED').length
+  const filteredPendingCount = filteredTasks.filter((task) => task.assignmentStatus === 'BIDDING' || task.assignmentStatus === 'ASSIGNING').length
+  const filteredAssignedCount = filteredTasks.filter((task) => task.assignmentStatus === 'ASSIGNED' || task.assignmentStatus === 'AWARDED').length
+  const filteredCuttingCount = filteredTasks.filter(isCuttingContinuousTask).length
 
   return `
     <div class="space-y-4">
@@ -282,20 +286,18 @@ export function renderContinuousDispatchPage(): string {
             />
           </div>
           <div class="flex flex-wrap gap-2">
-            ${renderTabButton('SEWING_POST', '仅车缝+后道', sewingPostCount)}
-            ${renderTabButton('WITH_CUTTING', '含裁片连续任务', withCuttingCount)}
-            ${renderTabButton('OTHER', '其他连续任务', otherCount)}
+            ${renderTabButton('SEWING_POST', '车缝+后道连续任务', sewingPostCount)}
+            ${renderTabButton('OTHER', '其他连续工序任务', otherCount)}
           </div>
         </div>
         <div class="mt-3 text-xs text-muted-foreground">
-          含裁片连续任务：由我方裁床排唛架；三方上报裁片完成数量和可做成衣数；不生成我方加工单。仅车缝+后道连续任务继续使用车缝齐套判断。
+          含裁片连续任务归入其他连续工序任务：我方裁床提供唛架方案；三方上报裁片完成数量和可做成衣数；不生成我方加工单。车缝+后道连续任务继续使用车缝齐套判断。
         </div>
-        <div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-          ${renderMetric('连续工序任务', allContinuousTasks.length, 'COMBINED_PROCESS_TASK')}
-          ${renderMetric('车缝+后道连续任务', sewingPostCount, '使用车缝齐套判断', 'text-blue-700')}
-          ${renderMetric('含裁片连续任务', withCuttingCount, '我方裁床排唛架，三方上报裁片完成', 'text-emerald-700')}
-          ${renderMetric('其他连续任务', otherCount, '按覆盖工序承接能力确认')}
-          ${renderMetric('待整任务分配', unassignedCount + biddingCount, '待分配/招标中', 'text-amber-700')}
+        <div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          ${renderMetric('当前筛选任务', filteredTasks.length, state.tab === 'SEWING_POST' ? '车缝+后道连续任务' : '其他连续工序任务')}
+          ${renderMetric('待整任务分配', filteredUnassignedCount + filteredPendingCount, '待分配/分配中/招标中', 'text-amber-700')}
+          ${renderMetric('已指定承接工厂', filteredAssignedCount, '已分配/已中标', 'text-emerald-700')}
+          ${renderMetric('含裁片提示', filteredCuttingCount, '我方提供唛架方案，三方上报裁片完成')}
         </div>
       </section>
 
@@ -325,7 +327,7 @@ export function handleContinuousDispatchEvent(target: HTMLElement): boolean {
 
   if (action === 'switch-tab') {
     const tab = actionNode.dataset.tab as ContinuousDispatchTab | undefined
-    if (tab === 'SEWING_POST' || tab === 'WITH_CUTTING' || tab === 'OTHER') {
+    if (tab === 'SEWING_POST' || tab === 'OTHER') {
       state.tab = tab
       state.feedback = ''
       return true
