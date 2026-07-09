@@ -1713,6 +1713,8 @@ const operateItemHtml = await renderAt(
 assertHtmlIncludes(operateItemHtml, 'data-prep-operate-item-form', '工作项操作弹窗必须输出表单标记')
 assertHtmlIncludes(operateItemHtml, '<input type="hidden" name="itemId" value="prep-202604-003-item-01" />', '工作项操作表单必须带 itemId')
 assertHtmlIncludes(operateItemHtml, '上传文件', '非辅料工作项操作弹窗必须要求上传文件')
+assertHtmlIncludes(operateItemHtml, '样衣制作人', '非辅料工作项上传文件下方必须填写样衣制作人')
+assertHtmlIncludes(operateItemHtml, 'name="sampleMaker"', '样衣制作人必须用文本输入框提交')
 assert.match(
   operateItemHtml,
   /<input type="file" name="files"[^>]*required/,
@@ -1916,6 +1918,7 @@ assert.ok(pageSource.includes('data-prep-type-block'), '页面必须用 data-pre
 assert.ok(pageSource.includes('confirmedProductPrepType'), '提交确认工作项时必须保存 confirmedProductPrepType')
 assert.ok(pageSource.includes('selectedItemTypes'), '提交确认工作项时必须保存 selectedItemTypes')
 assert.ok(pageSource.includes('overrideReason'), '提交确认工作项时必须保存 overrideReason')
+assert.ok(pageSource.includes('样衣制作人：'), '工作项上传时必须把样衣制作人写入上传说明')
 assert.ok(pageSource.includes('.disabled = !active'), '类型切换时必须禁用非当前类型 block 的 checkbox，避免提交隐藏项')
 assert.ok(!pageSource.includes("fileName: '辅料下单时间'"), '辅料下单时间不得伪造成可下载上传文件')
 assert.ok(pageSource.includes('data-prep-accessory-order-form'), '辅料下单必须使用独立采购单号登记表单')

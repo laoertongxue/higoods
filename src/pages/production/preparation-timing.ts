@@ -1251,6 +1251,7 @@ function renderItemUploadHistory(item: ProductionPreparationItem): string {
               <div class="rounded-md bg-background p-2 text-xs">
                 <div class="font-medium">${escapeHtml(upload.fileName)}</div>
                 <div class="mt-1 text-muted-foreground">${escapeHtml(upload.uploadedBy)}｜${escapeHtml(formatDateTime(upload.uploadedAt))}｜${Math.ceil(upload.fileSize / 1024)}KB</div>
+                ${upload.note ? `<div class="mt-1 text-muted-foreground">${escapeHtml(upload.note)}</div>` : ''}
                 <button type="button" class="mt-2 text-blue-600 hover:underline" data-prep-action="download-upload" data-upload-id="${escapeHtml(upload.uploadId)}" data-item-id="${escapeHtml(item.itemId)}">下载</button>
               </div>
             `).join('')
@@ -1458,6 +1459,10 @@ function renderOperateItemDialog(
           <label class="block text-sm">
             <span class="text-muted-foreground">上传文件</span>
             <input type="file" name="files" class="mt-1 w-full rounded-md border px-3 py-2" multiple required />
+          </label>
+          <label class="block text-sm">
+            <span class="text-muted-foreground">样衣制作人</span>
+            <input name="sampleMaker" class="mt-1 h-10 w-full rounded-md border px-3" placeholder="填写样衣制作人" />
           </label>
           <label class="block text-sm">
             <span class="text-muted-foreground">说明</span>
@@ -2163,6 +2168,8 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
   const fileInput = form.querySelector<HTMLInputElement>('input[type="file"][name="files"]')
   const files = Array.from(fileInput?.files ?? [])
   const note = String(formData.get('note') ?? '').trim()
+  const sampleMaker = String(formData.get('sampleMaker') ?? '').trim()
+  const uploadNote = [sampleMaker ? `样衣制作人：${sampleMaker}` : '', note].filter(Boolean).join('；')
 
   if (!files.length) {
     return true
@@ -2175,7 +2182,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
       itemType: item.itemType,
       files,
       uploadedBy: '当前用户',
-      note,
+      note: uploadNote,
     })
     appendPreparationUploads(uploadRecords)
     closePreparationDialog()
