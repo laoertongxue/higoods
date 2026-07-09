@@ -889,7 +889,7 @@ function renderProductionDemand(projection: MaterialPrepOrderProjection): string
         <div><div class="text-xs text-muted-foreground">配料单</div><div class="font-medium">${renderPrepOrderCode(order.prepOrderNo, order.productionOrderNo)}</div></div>
         <div><div class="text-xs text-muted-foreground">款式</div><div class="font-medium">${escapeHtml(order.styleNo)} / ${escapeHtml(order.styleName)}</div></div>
         <div><div class="text-xs text-muted-foreground">SPU</div><div class="font-medium">${escapeHtml(order.spu)}</div></div>
-        <div><div class="text-xs text-muted-foreground">计划数量</div><div class="font-medium">${order.planQty.toLocaleString('zh-CN')} 件</div></div>
+        <div><div class="text-xs text-muted-foreground">计划数量</div><div class="font-medium">${order.demandQty.toLocaleString('zh-CN')} 件</div></div>
         <div><div class="text-xs text-muted-foreground">客户</div><div class="font-medium">${escapeHtml(order.customerName)}</div></div>
         <div><div class="text-xs text-muted-foreground">交期</div><div class="font-medium">${escapeHtml(order.deliveryDate)}</div></div>
         <div><div class="text-xs text-muted-foreground">领料状态</div><div class="font-medium">${escapeHtml(pickupStatusLabelMap[order.pickupStatus])}</div></div>
