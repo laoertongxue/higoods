@@ -920,6 +920,7 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
     ${detailRecord && !action ? renderDetailDrawer(detailRecord, params, month) : ''}
     ${detailRecord ? renderConfirmItemsDialog(detailRecord, params, month) : ''}
     ${detailRecord && activeItem ? renderDyeRequirementDialog(detailRecord, activeItem, params, month) : ''}
+    ${detailRecord && activeItem ? renderAccessoryOrderDialog(detailRecord, activeItem, params, month) : ''}
     ${detailRecord && activeItem ? renderOperateItemDialog(detailRecord, activeItem, params, month) : ''}
     ${renderExternalMaterialsDialog(params, month)}
   `
@@ -1169,8 +1170,27 @@ function renderItemCard(record: ProductionPreparationRecord, item: ProductionPre
       }
       ${item.itemType === '数码印/DTF/DTG花型' ? renderPatternFields(item) : ''}
       ${isDyeItem(item) || isDyeRequirementItem(item) ? renderDyeRequirementFields(item) : ''}
-      <div class="mt-3">${renderItemUploadHistory(item)}</div>
+      ${item.itemType === '辅料下单' ? renderAccessoryPurchaseOrderFields(item) : `<div class="mt-3">${renderItemUploadHistory(item)}</div>`}
     </article>
+  `
+}
+
+function renderAccessoryPurchaseOrderFields(item: ProductionPreparationItem): string {
+  const orderNos = item.accessoryPurchaseOrderNos ?? []
+  return `
+    <div class="mt-3 rounded-lg border bg-muted/30 p-3 text-xs">
+      <div class="text-sm font-medium">面辅料采购单号</div>
+      ${
+        orderNos.length
+          ? `
+            <div class="mt-2 space-y-1">
+              ${orderNos.map((orderNo) => `<div>${escapeHtml(orderNo)}</div>`).join('')}
+            </div>
+            <div class="mt-2 text-muted-foreground">最后更新时间：${escapeHtml(formatDateTime(item.accessoryPurchaseUpdatedAt ?? item.actualFinishAt))}</div>
+          `
+          : '<div class="mt-2 text-muted-foreground">暂未登记</div>'
+      }
+    </div>
   `
 }
 
@@ -1417,9 +1437,9 @@ function renderOperateItemDialog(
 ): string {
   if (valueOf(params, 'action') !== 'operate-item') return ''
   if (isDyeRequirementItem(item)) return ''
+  if (item.itemType === '辅料下单') return ''
   if (!hasConfirmedWorkItems(record) || !isSelectedPreparationItem(item) || !canOperateItem(item, record)) return ''
   const closeHref = buildLedgerHrefFromParams(params, month)
-  const isAccessory = item.itemType === '辅料下单'
   return `
     <div class="fixed inset-0 z-50">
       <button class="absolute inset-0 bg-black/45" data-nav="${escapeHtml(closeHref)}" aria-label="关闭"></button>
@@ -1429,29 +1449,10 @@ function renderOperateItemDialog(
         <form class="mt-4 space-y-4" data-prep-operate-item-form>
           <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
           <input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />
-          ${
-            isAccessory
-              ? `
-                <label class="block text-sm">
-                  <span class="text-muted-foreground">面辅料采购单号</span>
-                  <input type="text" name="purchaseOrderNo" class="mt-1 w-full rounded-md border px-3 py-2" required placeholder="输入面辅料采购单号，系统自动读取下单时间" />
-                </label>
-                <label class="block text-sm">
-                  <span class="text-muted-foreground">辅料下单时间</span>
-                  <input type="datetime-local" name="orderedAt" class="mt-1 w-full rounded-md border px-3 py-2" required />
-                </label>
-                <label class="block text-sm">
-                  <span class="text-muted-foreground">下单凭证</span>
-                  <input type="file" name="files" class="mt-1 w-full rounded-md border px-3 py-2" multiple required />
-                </label>
-              `
-              : `
-                <label class="block text-sm">
-                  <span class="text-muted-foreground">上传文件</span>
-                  <input type="file" name="files" class="mt-1 w-full rounded-md border px-3 py-2" multiple required />
-                </label>
-              `
-          }
+          <label class="block text-sm">
+            <span class="text-muted-foreground">上传文件</span>
+            <input type="file" name="files" class="mt-1 w-full rounded-md border px-3 py-2" multiple required />
+          </label>
           <label class="block text-sm">
             <span class="text-muted-foreground">说明</span>
             <textarea name="note" class="mt-1 min-h-20 w-full rounded-md border px-3 py-2"></textarea>
@@ -1460,6 +1461,51 @@ function renderOperateItemDialog(
           <div class="flex justify-end gap-2">
             <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="${escapeHtml(closeHref)}">取消</button>
             <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white">提交</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  `
+}
+
+function renderAccessoryOrderDialog(
+  record: ProductionPreparationRecord,
+  item: ProductionPreparationItem,
+  params: URLSearchParams,
+  month: string,
+): string {
+  if (valueOf(params, 'action') !== 'operate-item') return ''
+  if (item.itemType !== '辅料下单') return ''
+  if (!hasConfirmedWorkItems(record) || !isSelectedPreparationItem(item) || !canOperateItem(item, record)) return ''
+  const closeHref = buildLedgerHrefFromParams(params, month)
+  const orderNos = item.accessoryPurchaseOrderNos?.length ? item.accessoryPurchaseOrderNos : ['']
+  return `
+    <div class="fixed inset-0 z-50">
+      <button class="absolute inset-0 bg-black/45" data-nav="${escapeHtml(closeHref)}" aria-label="关闭"></button>
+      <section class="absolute left-1/2 top-10 w-[680px] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl bg-background p-5 shadow-2xl">
+        <h3 class="text-lg font-semibold">登记辅料下单</h3>
+        <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.spuName)}</p>
+        <form class="mt-4 space-y-4" data-prep-accessory-order-form>
+          <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
+          <input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />
+          <div>
+            <div class="mb-2 flex items-center justify-between">
+              <span class="text-sm font-medium">面辅料采购单号</span>
+              <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-prep-action="add-accessory-order-row">新增单号</button>
+            </div>
+            <div class="space-y-2" data-prep-accessory-order-rows>
+              ${orderNos.map((orderNo) => `
+                <input name="accessoryPurchaseOrderNo" value="${escapeHtml(orderNo)}" class="w-full rounded-md border px-3 py-2 text-sm" required placeholder="填写面辅料采购单号" />
+              `).join('')}
+            </div>
+            <p class="mt-2 text-xs text-muted-foreground">可填写多个面辅料采购单号；每次提交都会覆盖当前列表，并以最后一次更新时间作为完成时间。</p>
+          </div>
+          <div class="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            当前最后更新时间：${escapeHtml(formatDateTime(item.accessoryPurchaseUpdatedAt ?? item.actualFinishAt))}
+          </div>
+          <div class="flex justify-end gap-2">
+            <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="${escapeHtml(closeHref)}">取消</button>
+            <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white">保存</button>
           </div>
         </form>
       </section>
@@ -2053,6 +2099,36 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
     return true
   }
 
+  if (form.matches('[data-prep-accessory-order-form]')) {
+    const recordId = String(formData.get('recordId') ?? '').trim()
+    const itemId = String(formData.get('itemId') ?? '').trim()
+    const orderNos = formData.getAll('accessoryPurchaseOrderNo')
+      .map((value) => String(value).trim())
+      .filter(Boolean)
+    if (!recordId || !itemId || !orderNos.length) return true
+
+    const runtime = loadPreparationRuntimeState()
+    const record = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
+      .find((item) => item.recordId === recordId)
+    if (!record || !hasConfirmedWorkItems(record)) return true
+    const item = record.items.find((candidate) => candidate.itemId === itemId)
+    if (!item || item.itemType !== '辅料下单' || !isSelectedPreparationItem(item) || !canOperateItem(item, record)) return true
+
+    savePreparationRuntimeState({
+      ...runtime,
+      accessoryPurchaseOrders: {
+        ...runtime.accessoryPurchaseOrders,
+        [itemId]: {
+          orderNos,
+          updatedAt: currentIsoMinute(),
+          updatedBy: '当前跟单',
+        },
+      },
+    })
+    closePreparationDialog()
+    return true
+  }
+
   if (!form.matches('[data-prep-operate-item-form]')) return false
 
   const recordId = String(formData.get('recordId') ?? '').trim()
@@ -2068,14 +2144,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
 
   const fileInput = form.querySelector<HTMLInputElement>('input[type="file"][name="files"]')
   const files = Array.from(fileInput?.files ?? [])
-  const purchaseOrderNo = String(formData.get('purchaseOrderNo') ?? '').trim()
-  const orderedAt = String(formData.get('orderedAt') ?? '').trim()
   const note = String(formData.get('note') ?? '').trim()
-  const isAccessory = item.itemType === '辅料下单'
-
-  const uploadNote = isAccessory && purchaseOrderNo
-    ? [note, `面辅料采购单号：${purchaseOrderNo}`, `辅料下单时间：${orderedAt || currentIsoMinute()}`].filter(Boolean).join('；')
-    : note
 
   if (!files.length) {
     return true
@@ -2088,7 +2157,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
       itemType: item.itemType,
       files,
       uploadedBy: '当前用户',
-      note: uploadNote,
+      note,
     })
     appendPreparationUploads(uploadRecords)
     closePreparationDialog()
@@ -2167,6 +2236,17 @@ function addMaterialRow(button: HTMLElement): void {
   rows.appendChild(row)
 }
 
+function addAccessoryOrderRow(button: HTMLElement): void {
+  const rows = button.closest<HTMLFormElement>('[data-prep-accessory-order-form]')?.querySelector<HTMLElement>('[data-prep-accessory-order-rows]')
+  if (!rows) return
+  const input = document.createElement('input')
+  input.name = 'accessoryPurchaseOrderNo'
+  input.required = true
+  input.placeholder = '填写面辅料采购单号'
+  input.className = 'w-full rounded-md border px-3 py-2 text-sm'
+  rows.appendChild(input)
+}
+
 export function handleProductionPreparationTimingEvent(target: HTMLElement): boolean {
   const materialInput = target.closest<HTMLInputElement>('[data-prep-material-input]')
   if (materialInput) {
@@ -2189,6 +2269,10 @@ export function handleProductionPreparationTimingEvent(target: HTMLElement): boo
   const actionNode = target.closest<HTMLElement>('[data-prep-action]')
   if (actionNode?.dataset.prepAction === 'add-material-row') {
     addMaterialRow(actionNode)
+    return false
+  }
+  if (actionNode?.dataset.prepAction === 'add-accessory-order-row') {
+    addAccessoryOrderRow(actionNode)
     return false
   }
   if (actionNode?.dataset.prepAction === 'remove-material-row') {

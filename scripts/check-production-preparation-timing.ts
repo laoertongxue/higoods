@@ -1731,6 +1731,8 @@ try {
     },
     uploads: [],
     downloads: [],
+    externalMaterials: [],
+    accessoryPurchaseOrders: {},
   }))
   accessoryOperateHtml = await renderAt(
     '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001&itemId=prep-202603-001-item-04&action=operate-item',
@@ -1739,13 +1741,17 @@ try {
   ;(globalThis as { window?: unknown }).window = originalWindowForAccessoryOperate
   storage.clear()
 }
-assertHtmlIncludes(accessoryOperateHtml, 'name="orderedAt"', '辅料下单操作弹窗必须填写下单时间')
-assertHtmlIncludes(accessoryOperateHtml, '下单凭证', '辅料下单操作弹窗必须展示下单凭证文案')
-assert.match(
-  accessoryOperateHtml,
-  /<input type="file" name="files"[^>]*required/,
-  '辅料下单文件 input 必须 required，不能空文件完成',
+assertHtmlIncludes(accessoryOperateHtml, 'data-prep-accessory-order-form', '辅料下单必须打开面辅料采购单号登记弹窗')
+assertHtmlIncludes(accessoryOperateHtml, 'name="accessoryPurchaseOrderNo"', '辅料下单必须支持填写面辅料采购单号')
+assertHtmlIncludes(accessoryOperateHtml, 'data-prep-action="add-accessory-order-row"', '辅料下单必须支持新增多个采购单号输入行')
+assert.ok(!accessoryOperateHtml.includes('input type="file" name="files"'), '辅料下单不应出现上传文件控件')
+assert.ok(!accessoryOperateHtml.includes('下单凭证'), '辅料下单不应展示上传凭证文案')
+const accessoryOrderDetailHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-002',
 )
+assertHtmlIncludes(accessoryOrderDetailHtml, 'FPO-202603-002-A', '辅料下单详情必须展示第一个面辅料采购单号')
+assertHtmlIncludes(accessoryOrderDetailHtml, 'FPO-202603-002-B', '辅料下单详情必须展示多个面辅料采购单号')
+assertHtmlIncludes(accessoryOrderDetailHtml, '最后更新时间', '辅料下单详情必须展示最后更新时间')
 const detailWithFiltersHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&recordId=prep-202604-001',
 )
@@ -1896,7 +1902,8 @@ assert.ok(pageSource.includes('selectedItemTypes'), '提交确认工作项时必
 assert.ok(pageSource.includes('overrideReason'), '提交确认工作项时必须保存 overrideReason')
 assert.ok(pageSource.includes('.disabled = !active'), '类型切换时必须禁用非当前类型 block 的 checkbox，避免提交隐藏项')
 assert.ok(!pageSource.includes("fileName: '辅料下单时间'"), '辅料下单时间不得伪造成可下载上传文件')
-assert.ok(pageSource.includes('辅料下单时间：'), '辅料下单时间应写入真实上传凭证备注')
+assert.ok(pageSource.includes('data-prep-accessory-order-form'), '辅料下单必须使用独立采购单号登记表单')
+assert.ok(pageSource.includes('accessoryPurchaseOrders'), '辅料下单必须写入 runtime 的面辅料采购单号记录')
 
 for (const statusCode of ['PENDING', 'DONE', 'IN_PROGRESS', 'CANCELLED', 'ON_HOLD'] as const) {
   assert.ok(!ledgerHtml.includes(statusCode), `准备台账 HTML 不得包含英文状态码 ${statusCode}`)
