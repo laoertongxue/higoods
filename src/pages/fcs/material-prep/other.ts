@@ -472,7 +472,7 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], activeTab: Materi
                     <div>
                       <div class="font-medium">${escapeHtml(row.order.styleNo)} / ${escapeHtml(row.order.styleName)}</div>
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.order.spu)}</div>
-                      <div class="mt-1 text-xs text-muted-foreground">计划 ${row.order.planQty.toLocaleString('zh-CN')} 件</div>
+                      <div class="mt-1 text-xs text-muted-foreground">计划 ${row.order.demandQty.toLocaleString('zh-CN')} 件</div>
                     </div>
                   </div>
                 </td>
@@ -558,7 +558,7 @@ function renderProductionDemand(projection: MaterialPrepOrderProjection): string
         <div><div class="text-xs text-muted-foreground">生产单</div><div class="font-medium">${escapeHtml(order.productionOrderNo)}</div></div>
         <div><div class="text-xs text-muted-foreground">款式</div><div class="font-medium">${escapeHtml(order.styleNo)} / ${escapeHtml(order.styleName)}</div></div>
         <div><div class="text-xs text-muted-foreground">SPU</div><div class="font-medium">${escapeHtml(order.spu)}</div></div>
-        <div><div class="text-xs text-muted-foreground">计划数量</div><div class="font-medium">${order.planQty.toLocaleString('zh-CN')} 件</div></div>
+        <div><div class="text-xs text-muted-foreground">计划数量</div><div class="font-medium">${order.demandQty.toLocaleString('zh-CN')} 件</div></div>
         <div><div class="text-xs text-muted-foreground">客户</div><div class="font-medium">${escapeHtml(order.customerName)}</div></div>
         <div><div class="text-xs text-muted-foreground">交期</div><div class="font-medium">${escapeHtml(order.deliveryDate)}</div></div>
         <div><div class="text-xs text-muted-foreground">创建人</div><div class="font-medium">${escapeHtml(order.creatorName)}</div></div>

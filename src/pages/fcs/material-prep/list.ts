@@ -168,7 +168,7 @@ function renderTable(rows: MaterialPrepOrderProjection[]): string {
                 <td class="px-3 py-3 min-w-[200px]">${renderPrepProgress(row)}</td>
                 <td class="px-3 py-3">${renderStatusBadge(row.order.overallPrepStatus)}</td>
                 <td class="px-3 py-3">
-                  <button type="button" data-fcs-material-prep-action="view-detail" data-prep-order-id="${escapeHtml(row.order.prepOrderId)}" data-prep-order-category="${escapeHtml(category)}" class="rounded-md border border-blue-200 px-3 py-1.5 text-xs text-blue-700 hover:bg-blue-50">查看</button>
+                  <button type="button" data-nav="${escapeHtml(buildDetailHref(row.order.prepOrderId, category))}" class="rounded-md border border-blue-200 px-3 py-1.5 text-xs text-blue-700 hover:bg-blue-50">查看</button>
                 </td>
               </tr>
               `
@@ -261,16 +261,6 @@ export function handleFcsMaterialPrepListEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-fcs-material-prep-action]')
   const action = actionNode?.dataset.fcsMaterialPrepAction
   if (!actionNode || !action) return false
-
-  if (action === 'view-detail') {
-    const prepOrderId = actionNode.dataset.prepOrderId || ''
-    const category = actionNode.dataset.prepOrderCategory || ''
-    if (!prepOrderId) return false
-    const href = buildDetailHref(prepOrderId, category)
-    window.history.pushState({}, '', href)
-    window.dispatchEvent(new PopStateEvent('popstate'))
-    return true
-  }
 
   if (action === 'search-apply') {
     const keyword = (document.querySelector('[data-search-field="keyword"]') as HTMLInputElement)?.value || ''
