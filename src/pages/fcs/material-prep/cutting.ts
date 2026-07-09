@@ -19,6 +19,7 @@ import {
   type MaterialPrepOrderStatus,
   type MaterialPrepRecord,
   type MaterialPrepRecordStatus,
+  type MaterialPickupReturnRecord,
   type PickupRecord,
   type PrepRejectRecord,
 } from '../../../data/fcs/cutting/production-material-prep.ts'
@@ -909,7 +910,12 @@ function renderPrepRecords(
   `
 }
 
-function renderPickupRecords(records: PickupRecord[], rejectRecords: PrepRejectRecord[], relatedProductionOrderNo: string): string {
+function renderPickupRecords(
+  records: PickupRecord[],
+  rejectRecords: PrepRejectRecord[],
+  returnRecords: MaterialPickupReturnRecord[],
+  relatedProductionOrderNo: string,
+): string {
   return `
     <section class="rounded-lg border bg-card p-4">
       <h3 class="text-base font-semibold">与配料记录关联的领料记录</h3>
@@ -917,21 +923,32 @@ function renderPickupRecords(records: PickupRecord[], rejectRecords: PrepRejectR
         <div class="rounded-md border">
           <div class="border-b px-3 py-2 text-sm font-medium">领料记录</div>
           <div class="divide-y">
-            ${records.length ? records.map((record) => `
-              <div class="px-3 py-3 text-sm">
-                <div class="font-medium">${renderMaterialPickupRecordCodeButton(record, relatedProductionOrderNo, {
-                  label: record.pickupRecordId,
-                  className: 'font-mono text-blue-600 hover:underline',
-                })}</div>
-                <div class="mt-1 text-xs text-muted-foreground">配料记录：${renderMaterialPrepRecordCodeButton(record, relatedProductionOrderNo, {
-                  label: record.prepRecordId,
-                  className: 'font-mono text-blue-600 hover:underline',
-                })}</div>
-                <div class="mt-1 text-xs text-muted-foreground">领料：${formatQty(record.pickedQty)} / ${record.rollCount} 卷 / ${escapeHtml(record.receiverName)} / ${escapeHtml(record.pickedAt)}</div>
-                <div class="mt-1 text-xs text-muted-foreground">入库：${escapeHtml(record.warehouseArea)} / ${escapeHtml(record.locationCode)}</div>
-                ${record.differenceReason ? `<div class="mt-1 text-xs text-amber-700">差异：${escapeHtml(record.differenceReason)}</div>` : ''}
-              </div>
-            `).join('') : '<div class="px-3 py-4 text-sm text-muted-foreground">暂无领料记录。</div>'}
+            ${records.length ? records.map((record) => {
+              const relatedReturns = returnRecords.filter((item) => item.pickupRecordId === record.pickupRecordId)
+              const returnedQty = Number(record.returnQty || relatedReturns.reduce((sum, item) => sum + Number(item.returnQty || 0), 0))
+              const remainingQty = Number(record.waitProcessAvailableQty ?? Math.max(Number(record.pickedQty || 0) - returnedQty, 0))
+              return `
+                <div class="px-3 py-3 text-sm">
+                  <div class="font-medium">${renderMaterialPickupRecordCodeButton(record, relatedProductionOrderNo, {
+                    label: record.pickupRecordId,
+                    className: 'font-mono text-blue-600 hover:underline',
+                  })}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">配料记录：${renderMaterialPrepRecordCodeButton(record, relatedProductionOrderNo, {
+                    label: record.prepRecordId,
+                    className: 'font-mono text-blue-600 hover:underline',
+                  })}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">领料：${formatQty(record.pickedQty)} / ${record.rollCount} 卷 / ${escapeHtml(record.receiverName)} / ${escapeHtml(record.pickedAt)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">已退：${formatQty(returnedQty)} / 待加工仓剩余：${formatQty(remainingQty)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">入库：${escapeHtml(record.warehouseArea)} / ${escapeHtml(record.locationCode)}</div>
+                  ${relatedReturns.length ? `
+                    <div class="mt-2 rounded-md border border-amber-100 bg-amber-50 px-2 py-1 text-xs text-amber-800">
+                      ${relatedReturns.map((item) => `${escapeHtml(item.reason)} / ${formatQty(item.returnQty, item.unit)} / ${escapeHtml(item.returnStatus)}`).join('；')}
+                    </div>
+                  ` : ''}
+                  ${record.differenceReason ? `<div class="mt-1 text-xs text-amber-700">差异：${escapeHtml(record.differenceReason)}</div>` : ''}
+                </div>
+              `
+            }).join('') : '<div class="px-3 py-4 text-sm text-muted-foreground">暂无领料记录。</div>'}
           </div>
         </div>
         <div class="rounded-md border">
@@ -1236,6 +1253,7 @@ function renderDetail(projection: MaterialPrepOrderProjection, activeTab: Materi
         ? renderPickupRecords(
             projection.pickupRecords.filter((record) => lineIds.has(record.prepLineId)),
             projection.rejectRecords.filter((record) => lineIds.has(record.prepLineId)),
+            projection.pickupReturnRecords.filter((record) => lineIds.has(record.prepLineId)),
             projection.order.productionOrderNo,
           )
         : renderProductionDemand(projection)
