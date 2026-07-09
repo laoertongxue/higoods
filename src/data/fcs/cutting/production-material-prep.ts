@@ -2936,6 +2936,7 @@ function buildOrderProjection(
     taskProjections,
     prepRecords,
     pickupRecords,
+    pickupReturnRecords,
     rejectRecords,
     stagingRecords,
     totalRequiredQty,

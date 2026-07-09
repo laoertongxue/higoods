@@ -100,6 +100,7 @@ assert(listPickupReturnRecords(storage).length === 1, '必须保存退回记录'
 
 const returnedContext = getMaterialPrepRecordContext(candidate.prepRecordId, line.prepLineId, storage)
 assert(returnedContext?.record.recordStatus === 'CONFIRMED', '退回不能改写配料记录状态')
+assert(Array.isArray(returnedContext.projection.pickupReturnRecords), '投影必须包含退回记录数组')
 const returnedPickup = returnedContext.projection.pickupRecords.find((record) => record.pickupRecordId === pickupRecord.pickupRecordId)
 assert(returnedPickup?.returnStatus === '部分退回', '部分退回后领料记录必须派生为部分退回')
 assert(returnedPickup.returnQty === 10, '已退数量必须等于退回数量')
