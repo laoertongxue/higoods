@@ -371,6 +371,7 @@ export interface MaterialPrepOrderProjection {
   taskProjections: MaterialPrepTaskProjection[]
   prepRecords: MaterialPrepRecord[]
   pickupRecords: PickupRecord[]
+  pickupReturnRecords: MaterialPickupReturnRecord[]
   rejectRecords: PrepRejectRecord[]
   stagingRecords: MaterialPrepStagingRecord[]
   totalRequiredQty: number
