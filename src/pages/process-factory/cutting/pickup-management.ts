@@ -144,6 +144,13 @@ function buildDetailStateHref(
   return `/fcs/craft/cutting/pickup-management-detail?${params.toString()}`
 }
 
+function buildCuttingPrepPickupHref(prepOrderId: string): string {
+  const params = new URLSearchParams()
+  params.set('prepOrderId', prepOrderId)
+  params.set('detailTab', 'pickup')
+  return `/fcs/material-prep/cutting?${params.toString()}`
+}
+
 function buildPickupReturnHref(projection: MaterialPrepOrderProjection, pickupRecordId: string, prepRecordId: string, prepLineId: string): string {
   const params = new URLSearchParams(buildDetailStateHref(projection, {
     detailTab: 'warehouse',
@@ -1043,6 +1050,7 @@ function renderPickupReturns(projection: MaterialPrepOrderProjection): string {
       <div class="mt-3 space-y-3">
         ${projection.pickupReturnRecords.length ? projection.pickupReturnRecords.map((record) => {
           const line = projection.lines.find((item) => item.prepLineId === record.prepLineId)
+          const prepPickupHref = buildCuttingPrepPickupHref(projection.order.prepOrderId)
           return `
             <article class="rounded-md border p-3 text-sm">
               <div class="flex flex-wrap items-start justify-between gap-3">
@@ -1050,9 +1058,17 @@ function renderPickupReturns(projection: MaterialPrepOrderProjection): string {
                   <div class="font-medium">${line ? renderMaterialSkuCode(line.materialSku, projection.order.productionOrderNo) : escapeHtml(record.prepLineId)}</div>
                   <div class="mt-1 text-xs text-muted-foreground">退回：${formatQty(record.returnQty, record.unit)} / ${record.rollCount} 卷 / 原因：${escapeHtml(record.reason)}</div>
                   <div class="mt-1 text-xs text-muted-foreground">发起：${escapeHtml(record.returnedBy)} / ${escapeHtml(record.returnedAt)}</div>
+                  <div class="mt-2 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+                    <div>配料单：<span class="font-medium text-foreground">${renderPrepOrderCode(projection.order.prepOrderNo, projection.order.productionOrderNo)}</span></div>
+                    <div>配料记录：<span class="font-medium text-foreground">${renderPrepRecordCode(record.prepRecordId, projection.order.productionOrderNo)}</span></div>
+                    <div>领料记录：<span class="font-medium text-foreground">${renderPickupRecordCode(record.pickupRecordId, projection.order.productionOrderNo)}</span></div>
+                  </div>
                   ${record.remark ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.remark)}</div>` : ''}
                 </div>
-                <div>${renderBadge(record.returnStatus, 'warning')}</div>
+                <div class="flex flex-col items-end gap-2">
+                  <div>${renderBadge(record.returnStatus, 'warning')}</div>
+                  <button type="button" data-nav="${escapeHtml(prepPickupHref)}" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted">查看裁片配料</button>
+                </div>
               </div>
             </article>
           `

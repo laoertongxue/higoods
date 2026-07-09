@@ -7,6 +7,7 @@ import {
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
 import { renderFcsCuttingPrepPage } from '../src/pages/fcs/material-prep/cutting.ts'
+import { renderCraftCuttingPickupManagementDetailPage } from '../src/pages/process-factory/cutting/pickup-management.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -86,6 +87,16 @@ function renderCuttingPrepPage(search: string): string {
   return renderFcsCuttingPrepPage()
 }
 
+function renderPickupManagementDetailPage(search: string): string {
+  ;(globalThis as typeof globalThis & { window: unknown }).window = {
+    location: { pathname: '/fcs/craft/cutting/pickup-management-detail', search },
+    history: { pushState() {}, replaceState() {} },
+    addEventListener() {},
+    removeEventListener() {},
+  }
+  return renderCraftCuttingPickupManagementDetailPage()
+}
+
 try {
   const listHtml = renderCuttingPrepPage('?hasReturn=1')
   assert(listHtml.includes('已退回'), '裁片配料列表必须展示已退回物料行统计')
@@ -110,6 +121,18 @@ try {
   assert(detailHtml.includes('领料 / 退回记录'), '裁片配料详情 pickup Tab 必须展示领料 / 退回记录')
   assert(detailHtml.includes('已退'), '裁片配料详情领料记录必须展示已退数量')
   assert(detailHtml.includes('已退回待中转仓处理'), '裁片配料详情退回明细必须展示退回状态')
+
+  const pickupDetailHtml = renderPickupManagementDetailPage(`?prepOrderId=${encodeURIComponent(returnedOrder.order.prepOrderId)}&detailTab=returns`)
+  assert(pickupDetailHtml.includes('查看裁片配料'), '领料详情退回记录必须提供查看裁片配料入口')
+  assert(pickupDetailHtml.includes(returnedOrder.order.prepOrderNo), '领料详情退回记录必须展示配料单号')
+  assert(
+    pickupDetailHtml.includes(returnedOrder.pickupReturnRecords[0].prepRecordId),
+    '领料详情退回记录必须展示配料记录 ID',
+  )
+  assert(
+    pickupDetailHtml.includes(returnedOrder.pickupReturnRecords[0].pickupRecordId),
+    '领料详情退回记录必须展示领料记录 ID',
+  )
 } finally {
   if (originalWindow === undefined) {
     delete (globalThis as typeof globalThis & { window?: unknown }).window
