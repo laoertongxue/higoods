@@ -336,11 +336,11 @@ function csvDataUri(rows: string[][]): string {
 }
 
 function renderHeader(params: URLSearchParams, month: string): string {
-  const externalMaterialsHref = buildLedgerHrefFromParams(params, month, { action: 'external-materials' })
+  const externalMaterialsHref = buildLedgerActionHref(params, month, { action: 'external-materials' })
   return `
     <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       <h1 class="text-2xl font-semibold text-foreground">生产准备时效</h1>
-      <button type="button" class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" data-nav="${escapeHtml(externalMaterialsHref)}">非系统内物料</button>
+      <button type="button" class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" data-nav="${escapeHtml(externalMaterialsHref)}">维护非系统内物料</button>
     </header>
   `
 }
@@ -616,7 +616,7 @@ function renderExternalMaterialDatalist(): string {
   return `
     <datalist id="prep-external-material-options">
       ${allExternalMaterials().map((material) => `
-        <option value="${material.serialNo}" label="${escapeHtml(material.materialName)}"></option>
+        <option value="${escapeHtml(material.materialName)}" label="序号 ${material.serialNo}" data-external-serial-no="${material.serialNo}"></option>
       `).join('')}
     </datalist>
   `
@@ -664,6 +664,7 @@ function renderExternalMaterialsDialog(params: URLSearchParams, month: string): 
 
 function renderConfirmMaterialRow(material: PreparationMaterialLine): string {
   const materialSource = material.materialSource === '非系统内物料' ? '非系统内物料' : '系统内物料'
+  const isExternalMaterial = materialSource === '非系统内物料'
   return `
     <tr class="border-t" data-prep-material-row>
       <td class="px-3 py-2 align-middle">
@@ -673,8 +674,13 @@ function renderConfirmMaterialRow(material: PreparationMaterialLine): string {
         </select>
       </td>
       <td class="px-3 py-2 align-middle">
-        <input name="materialNo" list="prep-material-options" value="${escapeHtml(material.materialNo)}" placeholder="输入编号或名称搜索" class="h-9 w-56 rounded-md border px-3 text-sm" data-prep-material-input />
-        <input name="externalSerialNo" list="prep-external-material-options" value="${material.externalSerialNo ?? ''}" placeholder="非系统序号" class="mt-2 h-9 w-28 rounded-md border px-3 text-sm" data-prep-external-material-input />
+        <div data-prep-system-material-picker ${isExternalMaterial ? 'hidden' : ''}>
+          <input name="materialNo" list="prep-material-options" value="${escapeHtml(material.materialNo)}" placeholder="输入编号或名称搜索" class="h-9 w-56 rounded-md border px-3 text-sm" data-prep-material-input />
+        </div>
+        <div data-prep-external-material-picker ${isExternalMaterial ? '' : 'hidden'}>
+          <input name="externalMaterialName" list="prep-external-material-options" value="${escapeHtml(isExternalMaterial ? material.materialName : '')}" placeholder="输入非系统内物料名称搜索" class="h-9 w-56 rounded-md border px-3 text-sm" data-prep-external-material-input />
+          <input type="hidden" name="externalSerialNo" value="${material.externalSerialNo ?? ''}" data-prep-external-serial-no />
+        </div>
         <input type="hidden" name="materialName" value="${escapeHtml(material.materialName)}" data-prep-material-name />
         <input type="hidden" name="materialType" value="${escapeHtml(material.materialType)}" data-prep-material-type />
         <input type="hidden" name="materialImageUrl" value="${escapeHtml(material.imageUrl)}" data-prep-material-image />
@@ -1970,6 +1976,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
       .filter(Boolean))
     const materialSources = formData.getAll('materialSource').map((value) => String(value).trim())
     const externalSerialNos = formData.getAll('externalSerialNo').map((value) => Number(String(value).trim()) || 0)
+    const externalMaterialNames = formData.getAll('externalMaterialName').map((value) => String(value).trim())
     const materialNos = formData.getAll('materialNo').map((value) => String(value).trim())
     const materialNames = formData.getAll('materialName').map((value) => String(value).trim())
     const materialTypes = formData.getAll('materialType').map((value) => String(value).trim())
@@ -1981,7 +1988,8 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
     const materialItems = materialNos
       .map((materialNo, index) => {
         if (materialSources[index] === '非系统内物料') {
-          const externalMaterial = allExternalMaterials().find((item) => item.serialNo === externalSerialNos[index])
+          const externalMaterial = allExternalMaterials().find((item) =>
+            item.serialNo === externalSerialNos[index] || item.materialName === externalMaterialNames[index])
           if (!externalMaterial) return null
           return {
             materialSource: '非系统内物料' as const,
@@ -2216,6 +2224,37 @@ function syncMaterialRow(input: HTMLInputElement): void {
   if (type) type.textContent = materialType || '-'
 }
 
+function syncExternalMaterialRow(input: HTMLInputElement): void {
+  const row = input.closest<HTMLElement>('[data-prep-material-row]')
+  const form = input.closest<HTMLFormElement>('[data-prep-confirm-items-form]')
+  const datalist = form?.querySelector<HTMLDataListElement>('#prep-external-material-options')
+  if (!row || !datalist) return
+  const option = Array.from(datalist.options).find((item) => item.value === input.value)
+  const materialName = input.value
+  row.querySelector<HTMLInputElement>('[data-prep-external-serial-no]')!.value = option?.dataset.externalSerialNo ?? ''
+  row.querySelector<HTMLInputElement>('[data-prep-material-name]')!.value = materialName
+  row.querySelector<HTMLInputElement>('[data-prep-material-type]')!.value = ''
+  row.querySelector<HTMLInputElement>('[data-prep-material-image]')!.value = ''
+  row.querySelector<HTMLInputElement>('[data-prep-material-required]')!.value = '0'
+  row.querySelector<HTMLInputElement>('[data-prep-material-prepared]')!.value = '0'
+  row.querySelector<HTMLInputElement>('[data-prep-material-issued]')!.value = '0'
+  row.querySelector<HTMLInputElement>('[data-prep-material-unit]')!.value = ''
+  const name = row.querySelector<HTMLElement>('[data-prep-material-preview-name]')
+  const no = row.querySelector<HTMLElement>('[data-prep-material-preview-no]')
+  const type = row.querySelector<HTMLElement>('[data-prep-material-preview-type]')
+  if (name) name.textContent = materialName || '请选择物料'
+  if (no) no.textContent = option?.dataset.externalSerialNo ? `序号 ${option.dataset.externalSerialNo}` : '-'
+  if (type) type.textContent = '-'
+}
+
+function syncMaterialSource(select: HTMLSelectElement): void {
+  const row = select.closest<HTMLElement>('[data-prep-material-row]')
+  if (!row) return
+  const isExternal = select.value === '非系统内物料'
+  row.querySelector<HTMLElement>('[data-prep-system-material-picker]')!.hidden = isExternal
+  row.querySelector<HTMLElement>('[data-prep-external-material-picker]')!.hidden = !isExternal
+}
+
 function addMaterialRow(button: HTMLElement): void {
   const form = button.closest<HTMLFormElement>('[data-prep-confirm-items-form]')
   const rows = form?.querySelector<HTMLElement>('[data-prep-material-rows]')
@@ -2224,6 +2263,10 @@ function addMaterialRow(button: HTMLElement): void {
   const row = source.cloneNode(true) as HTMLElement
   row.querySelectorAll<HTMLInputElement>('input').forEach((input) => {
     input.value = input.name === 'materialUnit' ? '米' : input.name.includes('Qty') ? '0' : ''
+  })
+  row.querySelectorAll<HTMLSelectElement>('select[name="materialSource"]').forEach((select) => {
+    select.value = '系统内物料'
+    syncMaterialSource(select)
   })
   row.querySelectorAll<HTMLElement>('[data-prep-material-preview-name], [data-prep-material-preview-no], [data-prep-material-preview-type]').forEach((node) => {
     node.textContent = node.matches('[data-prep-material-preview-name]') ? '请选择物料' : '-'
@@ -2248,9 +2291,21 @@ function addAccessoryOrderRow(button: HTMLElement): void {
 }
 
 export function handleProductionPreparationTimingEvent(target: HTMLElement): boolean {
+  const materialSourceSelect = target.closest<HTMLSelectElement>('[data-prep-material-source]')
+  if (materialSourceSelect) {
+    syncMaterialSource(materialSourceSelect)
+    return false
+  }
+
   const materialInput = target.closest<HTMLInputElement>('[data-prep-material-input]')
   if (materialInput) {
     syncMaterialRow(materialInput)
+    return false
+  }
+
+  const externalMaterialInput = target.closest<HTMLInputElement>('[data-prep-external-material-input]')
+  if (externalMaterialInput) {
+    syncExternalMaterialRow(externalMaterialInput)
     return false
   }
 
