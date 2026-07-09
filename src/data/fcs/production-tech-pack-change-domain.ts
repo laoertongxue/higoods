@@ -503,7 +503,7 @@ export interface ProductionOrderChangeOrder {
 
 export interface ProductionOrderChangeOrderSubmitInput {
   productionOrderId: string
-  changeType?: ProductionOrderChangeType
+  changeType: ProductionOrderChangeType
   source: ProductionOrderChangeSource
   changeModules: TechPackChangeModule[]
   reason: string
@@ -525,7 +525,7 @@ export interface ProductionOrderChangeOrderUpdateInput extends Omit<ProductionOr
 
 export interface ProductionOrderChangePreviewInput {
   productionOrderId: string
-  changeType?: ProductionOrderChangeType
+  changeType: ProductionOrderChangeType
   source: ProductionOrderChangeSource
   changeModules: TechPackChangeModule[]
   reason: string
@@ -1353,7 +1353,7 @@ function buildDefaultProductionOrderChangeDocumentTraces(
 function buildProductionOrderChangeDomainFields(input: {
   id: string
   productionOrderId: string
-  changeType?: ProductionOrderChangeType
+  changeType: ProductionOrderChangeType
   stage?: ProductionOrderChangeProgressStage
   status: ProductionOrderChangeOrderStatus
   reason: string
@@ -1370,7 +1370,7 @@ function buildProductionOrderChangeDomainFields(input: {
   | 'quantityLines'
   | 'materialReplacement'
 > {
-  const changeType = input.changeType ?? 'MATERIAL_REPLACEMENT'
+  const changeType = input.changeType
   const stage = input.stage ?? getProductionOrderChangeStage(input.status)
   const quantityLines =
     changeType === 'QUANTITY_CHANGE'
@@ -1408,6 +1408,48 @@ function buildProductionOrderChangeDomainFields(input: {
     ),
     quantityLines,
     materialReplacement,
+  }
+}
+
+function validateProductionOrderChangeScenarioPayload(input: {
+  changeType: ProductionOrderChangeType
+  quantityLines?: ProductionOrderChangeOrder['quantityLines']
+  materialReplacement?: ProductionOrderChangeOrder['materialReplacement']
+}): void {
+  if (input.changeType !== 'QUANTITY_CHANGE' && input.changeType !== 'MATERIAL_REPLACEMENT') {
+    throw new Error('请选择生产单变更类型。')
+  }
+
+  if (input.changeType === 'QUANTITY_CHANGE') {
+    if (!input.quantityLines?.length) {
+      throw new Error('修改生产单需求数量必须填写颜色尺码数量明细。')
+    }
+    const invalidLine = input.quantityLines.find(
+      (line) =>
+        !line.color.trim() ||
+        !line.size.trim() ||
+        !line.unit.trim() ||
+        !Number.isFinite(line.currentQty) ||
+        !Number.isFinite(line.newQty),
+    )
+    if (invalidLine) {
+      throw new Error('修改生产单需求数量必须填写颜色、尺码、当前数量、新数量和单位。')
+    }
+    return
+  }
+
+  const item = input.materialReplacement
+  if (
+    !item ||
+    !item.originalMaterial.trim() ||
+    !item.replacementMaterial.trim() ||
+    !item.effectiveFromText.trim() ||
+    item.colors.length === 0 ||
+    item.sizes.length === 0 ||
+    item.colors.some((color) => !color.trim()) ||
+    item.sizes.some((size) => !size.trim())
+  ) {
+    throw new Error('替换物料必须填写原物料、替代物料、适用颜色、适用尺码和开始使用节点。')
   }
 }
 
@@ -3074,6 +3116,7 @@ export function previewProductionOrderChangeOrder(
 ): ProductionOrderChangePreview {
   const relation = getRelationWithEvaluation(input.productionOrderId)
   if (!relation) throw new Error('未找到生产单技术包版本关系。')
+  validateProductionOrderChangeScenarioPayload(input)
 
   const changeResult = inferProductionOrderChangeResult(input)
   const scenario =
@@ -3191,6 +3234,7 @@ export function submitProductionOrderChangeOrder(
   if (!relation) throw new Error('未找到生产单技术包版本关系。')
   if (!input.reason.trim()) throw new Error('变更原因不能为空。')
   if (input.changeModules.length === 0) throw new Error('至少需要一个变更模块。')
+  validateProductionOrderChangeScenarioPayload(input)
   const requestedStatus = input.status as ProductionOrderChangeOrderStatus | undefined
   if (requestedStatus && requestedStatus !== 'DRAFT') {
     throw new Error('新建变更单只允许保存为草稿状态。')
@@ -3283,6 +3327,7 @@ export function updateProductionOrderChangeOrder(
   }
   if (!input.reason.trim()) throw new Error('变更原因不能为空。')
   if (input.changeModules.length === 0) throw new Error('至少需要一个变更模块。')
+  validateProductionOrderChangeScenarioPayload(input)
 
   const scenario =
     productionOrderChangeScenarioCatalog.find(
@@ -3715,6 +3760,7 @@ export function submitProductionOrderTechPackChange(input: {
   const modules = uniqueList(buildTechPackDiffItemsForRelation(relation).map((item) => item.module))
   submitProductionOrderChangeOrder({
     productionOrderId: relation.productionOrderId,
+    changeType: 'MATERIAL_REPLACEMENT',
     source: 'TECH_PACK_NEW_VERSION',
     changeModules: modules.length > 0 ? modules : ['BOM'],
     reason: input.reason,
@@ -3724,6 +3770,13 @@ export function submitProductionOrderTechPackChange(input: {
     executionStrategy: 'AFTER_APPROVAL',
     operatorName: input.operatorName,
     linkedVersionChangeRequestId: request.changeRequestId,
+    materialReplacement: {
+      originalMaterial: `当前生产单用料：${relation.currentTechPackVersionNo}`,
+      replacementMaterial: `新正式技术包用料：${targetVersion.versionNo}`,
+      colors: ['全部颜色'],
+      sizes: ['全部尺码'],
+      effectiveFromText: effectiveModeLabels[input.effectiveMode],
+    },
   })
   return clone(request)
 }
@@ -3817,8 +3870,34 @@ export function submitProductionOrderPatch(input: {
     },
     ...operationLogs,
   ]
+  const fallbackQuantity = Math.max(1, relation.colorCount * relation.sizeCount)
+  const changeScenarioPayload =
+    patch.affectedModule === 'BOM'
+      ? {
+          changeType: 'MATERIAL_REPLACEMENT' as const,
+          materialReplacement: {
+            originalMaterial: input.scopeText,
+            replacementMaterial: input.contentText,
+            colors: ['全部颜色'],
+            sizes: ['全部尺码'],
+            effectiveFromText: patchEffectivePointLabels[patch.effectivePoint],
+          },
+        }
+      : {
+          changeType: 'QUANTITY_CHANGE' as const,
+          quantityLines: [
+            {
+              color: '全部颜色',
+              size: '全部尺码',
+              currentQty: fallbackQuantity,
+              newQty: fallbackQuantity,
+              unit: '件',
+            },
+          ],
+        }
   submitProductionOrderChangeOrder({
     productionOrderId: relation.productionOrderId,
+    ...changeScenarioPayload,
     source: 'MATERIAL_SHORTAGE',
     changeModules: [patch.affectedModule],
     reason: input.reason,
