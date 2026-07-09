@@ -525,6 +525,7 @@ export interface ProductionOrderChangeOrderUpdateInput extends Omit<ProductionOr
 
 export interface ProductionOrderChangePreviewInput {
   productionOrderId: string
+  changeType?: ProductionOrderChangeType
   source: ProductionOrderChangeSource
   changeModules: TechPackChangeModule[]
   reason: string
@@ -532,6 +533,8 @@ export interface ProductionOrderChangePreviewInput {
   expectedEffectiveMode: ChangeEffectiveMode
   executionMode: ProductionOrderChangeExecutionStrategy
   operatorName: string
+  quantityLines?: ProductionOrderChangeOrder['quantityLines']
+  materialReplacement?: ProductionOrderChangeOrder['materialReplacement']
 }
 
 export interface ProductionOrderChangePreview {
@@ -2369,7 +2372,7 @@ let restrictionSnapshots: ChangeRestrictionSnapshot[] = relations.map((relation)
         restrictionId: `REST-${relation.productionOrderId}-${index + 1}`,
         restrictionType: summary,
         affectedModule: summary.includes('菲票') || summary.includes('裁片') ? 'PATTERN' : summary.includes('结算') ? 'COST' : 'BOM',
-        affectedObject: summary.includes('菲票') ? '菲票打印记录' : summary.includes('结算') ? '结算明细' : '生产执行对象',
+        affectedObject: summary.includes('菲票') ? '菲票打印记录' : summary.includes('结算') ? '结算明细' : '生产处理项',
         reason: '已经发生的业务事实不能被新技术包版本覆盖。',
         blockVersionChange: relation.relationStatus === 'LOCKED' || summary.includes('菲票') || summary.includes('结算'),
         allowPatch: !summary.includes('菲票') || relation.relationStatus !== 'LOCKED',
@@ -3102,9 +3105,11 @@ export function previewProductionOrderChangeOrder(
     ...buildProductionOrderChangeDomainFields({
       id: `PREVIEW-${relation.productionOrderId}`,
       productionOrderId: relation.productionOrderId,
-      changeType: 'MATERIAL_REPLACEMENT',
+      changeType: input.changeType,
       status: 'DRAFT',
       reason,
+      quantityLines: input.quantityLines,
+      materialReplacement: input.materialReplacement,
     }),
     source: input.source,
     changeModules: [...input.changeModules],
@@ -3123,7 +3128,7 @@ export function previewProductionOrderChangeOrder(
     createdBy: input.operatorName,
     createdAt,
     reviewer: changeResult === 'COST_ONLY' ? '财务主管' : '生产主管',
-    latestLog: `${productionOrderChangeResultLabels[changeResult]}为只读预览，系统已按变更来源和生效口径反推影响。`,
+    latestLog: `${productionOrderChangeResultLabels[changeResult]}为只读预览，系统已按变更来源和生效口径给出建议。`,
   }
   const impactRows =
     changeResult === 'COST_ONLY' || changeResult === 'RECORD_ONLY'

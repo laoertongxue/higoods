@@ -1303,11 +1303,13 @@ function getProductionChangeTypeLabel(changeType: string): string {
 function renderProductionChangeScenarioCards(): string {
   const cards = [
     {
+      changeType: 'QUANTITY_CHANGE',
       title: '修改生产单需求数量',
       desc: '按颜色、尺码填写原数量和新数量，系统计算本次变化。',
       badge: '待主管确认',
     },
     {
+      changeType: 'MATERIAL_REPLACEMENT',
       title: '替换物料',
       desc: '填写原物料、替代物料、适用颜色尺码，并说明从哪里开始用新物料。',
       badge: '已通知相关负责人',
@@ -1326,7 +1328,7 @@ function renderProductionChangeScenarioCards(): string {
           </div>
           <div class="mt-4 flex items-center justify-between gap-3 text-sm">
             <span class="text-muted-foreground">同一套流程：变更内容 → 需要处理的事 → 处理记录 → 单据记录</span>
-            <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-nav="/fcs/production/changes/new">填写变更内容</button>
+            <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change-type" data-change-type="${card.changeType}">填写变更内容</button>
           </div>
         </article>
       `).join('')}
@@ -1489,7 +1491,7 @@ function renderProductionChangeCandidateOrders(relations: ProductionOrderTechPac
               </td>
       <td class="px-3 py-3">
         <div class="flex min-w-[136px] flex-wrap gap-1.5">
-          <button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="/fcs/production/changes/new">填写变更内容</button>
+          <button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="start-production-change-from-order" data-order-id="${escapeHtml(relation.productionOrderId)}">填写变更内容</button>
           <button class="rounded-md px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="/fcs/production/changes/orders/${escapeHtml(relation.productionOrderId)}">查看关系</button>
         </div>
       </td>
@@ -2306,6 +2308,15 @@ function getProductionChangeFormPreview(): ReturnType<typeof previewProductionOr
       expectedEffectiveMode: form.effectiveMode as ChangeEffectiveMode,
       executionMode: form.executionMode as ProductionOrderChangeExecutionStrategy,
       operatorName: relation?.merchandiserName ?? '生产跟单',
+      changeType: form.changeType,
+      quantityLines: form.changeType === 'QUANTITY_CHANGE' ? form.quantityLines.map((line) => ({ ...line })) : undefined,
+      materialReplacement: form.changeType === 'MATERIAL_REPLACEMENT'
+        ? {
+          ...form.materialReplacement,
+          colors: [...form.materialReplacement.colors],
+          sizes: [...form.materialReplacement.sizes],
+        }
+        : undefined,
     })
   } catch {
     return null
@@ -2503,7 +2514,12 @@ function renderProductionChangeQuantityForm(form: typeof state.productionChangeF
               <td class="px-3 py-3">${escapeHtml(line.color)}</td>
               <td class="px-3 py-3">${escapeHtml(line.size)}</td>
               <td class="px-3 py-3">${escapeHtml(`${line.currentQty} ${line.unit}`)}</td>
-              <td class="px-3 py-3">${escapeHtml(`${line.newQty} ${line.unit}`)}</td>
+              <td class="px-3 py-3">
+                <div class="flex items-center gap-2">
+                  <input data-prod-field="productionChangeQuantityNewQty" data-index="${index}" type="number" value="${line.newQty}" class="w-24 rounded-md border px-2 py-1.5 text-sm" />
+                  <span class="text-xs text-muted-foreground">${escapeHtml(line.unit)}</span>
+                </div>
+              </td>
               <td class="px-3 py-3">${escapeHtml(`${diff >= 0 ? '多出' : '减少'} ${Math.abs(diff)} ${line.unit}`)}</td>
             </tr>
           `
@@ -2519,13 +2535,31 @@ function renderProductionChangeMaterialForm(form: typeof state.productionChangeF
   const item = form.materialReplacement
   return `
     <section class="grid gap-3 md:grid-cols-2">
-      ${renderProductionChangeFactList('替换物料', [
-        ['原物料', item.originalMaterial],
-        ['替代物料', item.replacementMaterial],
-        ['适用颜色', item.colors.join('、')],
-        ['适用尺码', item.sizes.join('、')],
-        ['从哪里开始用新物料', item.effectiveFromText],
-      ])}
+      <div class="grid gap-3 rounded-lg border bg-background p-4 text-sm">
+        <h2 class="text-base font-semibold">替换物料</h2>
+        <label class="space-y-1">
+          <span class="font-medium">原物料</span>
+          <input data-prod-field="originalMaterial" value="${escapeHtml(item.originalMaterial)}" class="w-full rounded-md border px-3 py-2" />
+        </label>
+        <label class="space-y-1">
+          <span class="font-medium">替代物料</span>
+          <input data-prod-field="replacementMaterial" value="${escapeHtml(item.replacementMaterial)}" class="w-full rounded-md border px-3 py-2" />
+        </label>
+        <div class="grid gap-3 md:grid-cols-2">
+          <label class="space-y-1">
+            <span class="font-medium">适用颜色</span>
+            <input data-prod-field="colors" value="${escapeHtml(item.colors.join('、'))}" class="w-full rounded-md border px-3 py-2" />
+          </label>
+          <label class="space-y-1">
+            <span class="font-medium">适用尺码</span>
+            <input data-prod-field="sizes" value="${escapeHtml(item.sizes.join('、'))}" class="w-full rounded-md border px-3 py-2" />
+          </label>
+        </div>
+        <label class="space-y-1">
+          <span class="font-medium">从哪里开始用新物料</span>
+          <input data-prod-field="effectiveFromText" value="${escapeHtml(item.effectiveFromText)}" class="w-full rounded-md border px-3 py-2" />
+        </label>
+      </div>
       <div class="rounded-lg border bg-background p-4 text-sm">
         <h2 class="text-base font-semibold">填写变更内容</h2>
         <p class="mt-3 text-muted-foreground">确认旧料还用到哪里，新物料从哪张未处理单据开始使用；已完成的单据只保留记录。</p>
@@ -2552,11 +2586,11 @@ function renderProductionChangeContentStep(form: typeof state.productionChangeFo
         )}
       </div>
       <section class="grid gap-3 md:grid-cols-2">
-        <button type="button" class="rounded-lg border p-4 text-left ${form.changeType === 'QUANTITY_CHANGE' ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-muted'}">
+        <button type="button" class="rounded-lg border p-4 text-left ${form.changeType === 'QUANTITY_CHANGE' ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-muted'}" data-prod-action="set-production-change-type" data-change-type="QUANTITY_CHANGE">
           <span class="block text-sm font-semibold">修改生产单需求数量</span>
           <span class="mt-1 block text-xs text-muted-foreground">按颜色尺码填写当前数量、新数量和差异。</span>
         </button>
-        <button type="button" class="rounded-lg border p-4 text-left ${form.changeType === 'MATERIAL_REPLACEMENT' ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-muted'}">
+        <button type="button" class="rounded-lg border p-4 text-left ${form.changeType === 'MATERIAL_REPLACEMENT' ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-muted'}" data-prod-action="set-production-change-type" data-change-type="MATERIAL_REPLACEMENT">
           <span class="block text-sm font-semibold">替换物料</span>
           <span class="mt-1 block text-xs text-muted-foreground">确认原物料、替代物料、适用颜色尺码和生效位置。</span>
         </button>
@@ -2613,7 +2647,7 @@ function renderProductionChangeHandlingStep(preview: ReturnType<typeof previewPr
         ${renderProductionChangeFactCard('系统建议', `<p>${escapeHtml(suggestionText)}</p>`)}
       </div>
       <section class="grid gap-3 md:grid-cols-3">
-        ${renderProductionChangeFactCard('主管确认需要处理的事', '<p>确认本次变更内容和需要处理的事项。</p>')}
+        ${renderProductionChangeFactCard('主管确认需要处理的事', '<p>确认本次变更内容和需要处理的事项。</p><button class="mt-3 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="confirm-production-change-actions">通知相关负责人处理</button>')}
         ${renderProductionChangeFactCard('相关负责人处理', '<p>由跟单、仓管或工艺负责人按事项处理。</p>')}
         ${renderProductionChangeFactCard('相关单据留痕', '<p>记录来自哪张变更单以及处理后的单据结果。</p>')}
       </section>
