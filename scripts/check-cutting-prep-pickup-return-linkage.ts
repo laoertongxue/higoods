@@ -6,6 +6,7 @@ import {
   listMaterialPrepOrderProjections,
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
+import { renderFcsCuttingPrepPage } from '../src/pages/fcs/material-prep/cutting.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -71,6 +72,36 @@ for (const row of returnedRows) {
     projection.latestOperatorName === latestReturnRecord.returnedBy,
     `最近操作人必须取到退回人：${row.order.prepOrderNo}`,
   )
+}
+
+const originalWindow = (globalThis as typeof globalThis & { window?: unknown }).window
+
+function renderCuttingPrepPage(search: string): string {
+  ;(globalThis as typeof globalThis & { window: unknown }).window = {
+    location: { pathname: '/fcs/material-prep/cutting', search },
+    history: { pushState() {}, replaceState() {} },
+    addEventListener() {},
+    removeEventListener() {},
+  }
+  return renderFcsCuttingPrepPage()
+}
+
+try {
+  const listHtml = renderCuttingPrepPage('?hasReturn=1')
+  assert(listHtml.includes('已退回'), '裁片配料列表必须展示已退回物料行统计')
+  assert(listHtml.includes('只看有退回'), '裁片配料列表必须展示只看有退回筛选')
+
+  const returnedOrder = returnedRows[0]
+  const detailHtml = renderCuttingPrepPage(`?prepOrderId=${encodeURIComponent(returnedOrder.order.prepOrderId)}&detailTab=pickup`)
+  assert(detailHtml.includes('领料 / 退回记录'), '裁片配料详情 pickup Tab 必须展示领料 / 退回记录')
+  assert(detailHtml.includes('已退'), '裁片配料详情领料记录必须展示已退数量')
+  assert(detailHtml.includes('已退回待中转仓处理'), '裁片配料详情退回明细必须展示退回状态')
+} finally {
+  if (originalWindow === undefined) {
+    delete (globalThis as typeof globalThis & { window?: unknown }).window
+  } else {
+    ;(globalThis as typeof globalThis & { window: unknown }).window = originalWindow
+  }
 }
 
 console.log('裁片配料与领料退回联动数据检查通过')
