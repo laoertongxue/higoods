@@ -321,7 +321,7 @@ function renderVersionChangeDialog(): string {
             <h4 class="text-sm font-semibold">步骤 1：选择目标版本</h4>
             <div class="mt-3 grid gap-3 md:grid-cols-2">
               <div class="border-l pl-3 text-sm">
-                <p class="text-xs text-muted-foreground">当前冻结版本</p>
+                <p class="text-xs text-muted-foreground">生产单当前技术包</p>
                 <p class="font-medium">${escapeHtml(relation.currentTechPackVersionNo)}</p>
               </div>
               <label class="space-y-1 text-sm">
@@ -348,7 +348,7 @@ function renderVersionChangeDialog(): string {
                     <th class="px-3 py-2 text-left">模块</th>
                     <th class="px-3 py-2 text-left">变更类型</th>
                     <th class="px-3 py-2 text-left">变更对象</th>
-                    <th class="px-3 py-2 text-left">当前冻结版本</th>
+                    <th class="px-3 py-2 text-left">生产单当前技术包</th>
                     <th class="px-3 py-2 text-left">目标版本</th>
                     <th class="px-3 py-2 text-left">关联进度</th>
                   </tr>
@@ -869,8 +869,8 @@ function renderPublishGuideDialog(): string {
               <thead class="border-b bg-muted/30 text-xs text-muted-foreground">
                 <tr>
                   <th class="px-3 py-2 text-left">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
-                  <th class="px-3 py-2 text-left">当前冻结版本</th>
-                  <th class="px-3 py-2 text-left">最新正式版</th>
+                  <th class="px-3 py-2 text-left">生产单当前技术包</th>
+                  <th class="px-3 py-2 text-left">当前正式技术包</th>
                   <th class="px-3 py-2 text-left">生产进度</th>
                   <th class="px-3 py-2 text-left">补丁</th>
                   <th class="px-3 py-2 text-left">评估状态</th>
@@ -1054,7 +1054,7 @@ function renderModuleLandingDialog(): string {
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 class="text-sm font-semibold">本模块版本差异</h3>
-                <p class="mt-1 text-xs text-muted-foreground">来自当前冻结版本与目标正式版本的差异快照。</p>
+                <p class="mt-1 text-xs text-muted-foreground">来自生产单当前技术包与目标正式版本的差异快照。</p>
               </div>
               <span class="text-xs text-muted-foreground">${escapeHtml(diffSnapshot?.fromTechPackVersionNo || relation.currentTechPackVersionNo)} → ${escapeHtml(diffSnapshot?.toTechPackVersionNo || relation.latestPublishedTechPackVersionNo)}</span>
             </div>
@@ -1064,7 +1064,7 @@ function renderModuleLandingDialog(): string {
                   <tr>
                     <th class="px-3 py-2 text-left">变更类型</th>
                     <th class="px-3 py-2 text-left">变更对象</th>
-                    <th class="px-3 py-2 text-left">当前冻结版本</th>
+                    <th class="px-3 py-2 text-left">生产单当前技术包</th>
                     <th class="px-3 py-2 text-left">目标版本</th>
                     <th class="px-3 py-2 text-left">影响范围</th>
                     <th class="px-3 py-2 text-left">已发生业务</th>
@@ -1181,9 +1181,9 @@ function renderRelationWorkItem(relation: ProductionOrderTechPackRelation): stri
 
       <div class="min-w-0 space-y-3">
         <div class="grid grid-cols-[88px_1fr] gap-x-3 gap-y-1 text-sm">
-          <span class="text-muted-foreground">冻结版本</span>
+          <span class="text-muted-foreground">生产单当前技术包</span>
           <span class="font-medium">${escapeHtml(relation.currentTechPackVersionNo)} · ${escapeHtml(relation.frozenAt)}</span>
-          <span class="text-muted-foreground">最新正式版</span>
+          <span class="text-muted-foreground">当前正式技术包</span>
           <span>${escapeHtml(relation.latestPublishedTechPackVersionNo)} · 共 ${relation.publishedVersionCount} 个正式版</span>
           <span class="text-muted-foreground">版本关系</span>
           <span>${relation.hasNewerPublishedVersion ? renderBadge('存在新版本', 'bg-amber-100 text-amber-700') : renderBadge('当前一致', 'bg-emerald-100 text-emerald-700')}</span>
@@ -1271,7 +1271,7 @@ function renderProductionChangeStatCards(input: {
       '先锁范围再处理',
     ],
     ['审核中', input.orders.filter((item) => item.status === 'UNDER_REVIEW').length, '等待主管确认'],
-    ['存在生产补丁', input.orders.filter((item) => item.hasProductionPatch).length, '挂在生产单层'],
+    ['已生成处理建议', input.orders.filter((item) => item.actionItems.length > 0).length, '按变更内容生成'],
     ['影响结算', settlementOrderIds.size, '进入料工费差异'],
     ['影响交期', timingOrderIds.size, '需要追回动作'],
   ] as const
@@ -1298,6 +1298,13 @@ function renderChangeTable(headers: string[], rows: string[], emptyText: string,
 
 function getProductionChangeTypeLabel(changeType: string): string {
   return changeType === 'MATERIAL_REPLACEMENT' ? '替换物料' : '修改生产单需求数量'
+}
+
+function getProductionChangeListLog(order: ProductionOrderChangeOrderView): string {
+  if (!order.latestLog.includes('补丁') && !order.latestLog.includes('版本关系')) return order.latestLog
+  return order.changeType === 'MATERIAL_REPLACEMENT'
+    ? '已生成替换物料处理清单，等待主管确认。'
+    : '已生成修改数量处理清单，等待主管确认。'
 }
 
 function renderProductionChangeScenarioCards(): string {
@@ -1411,7 +1418,7 @@ function renderProductionChangeOrderList(orders: ProductionOrderChangeOrderView[
             <td class="px-3 py-3">${escapeHtml(order.workSummary || order.reason)}</td>
             <td class="px-3 py-3">${escapeHtml(order.actionItems[0]?.actionText || '主管确认需要处理的事')}</td>
             <td class="px-3 py-3">${escapeHtml(order.actionItems.some((item) => item.statusText === '已完成') ? '处理中' : '待主管确认')}</td>
-            <td class="px-3 py-3">${escapeHtml(order.latestLog)}</td>
+            <td class="px-3 py-3">${escapeHtml(getProductionChangeListLog(order))}</td>
             <td class="px-3 py-3">
               ${renderProductionChangeOrderRowActions(order)}
             </td>
@@ -1424,57 +1431,25 @@ function renderProductionChangeOrderList(orders: ProductionOrderChangeOrderView[
   `
 }
 
-function renderProductionRelationFilters(currentVersions: string[], owners: string[]): string {
-  return `
-    <section class="grid gap-3 rounded-lg border bg-background p-3 md:grid-cols-3 xl:grid-cols-4">
-      <select data-prod-field="techPackChangeCurrentVersionFilter" class="rounded-md border px-3 py-2 text-sm">
-        ${renderSelectOption('ALL', '全部冻结版本', state.techPackChangeCurrentVersionFilter)}
-        ${currentVersions.map((version) => renderSelectOption(version, version, state.techPackChangeCurrentVersionFilter)).join('')}
-      </select>
-      <select data-prod-field="techPackChangeNewVersionFilter" class="rounded-md border px-3 py-2 text-sm">
-        ${renderSelectOption('ALL', '是否存在新正式版', state.techPackChangeNewVersionFilter)}
-        ${renderSelectOption('YES', '有新正式版', state.techPackChangeNewVersionFilter)}
-        ${renderSelectOption('NO', '无新正式版', state.techPackChangeNewVersionFilter)}
-      </select>
-      <select data-prod-field="techPackChangePatchFilter" class="rounded-md border px-3 py-2 text-sm">
-        ${renderSelectOption('ALL', '是否存在补丁', state.techPackChangePatchFilter)}
-        ${renderSelectOption('ACTIVE', '有生效补丁', state.techPackChangePatchFilter)}
-        ${renderSelectOption('PENDING', '有待审核补丁', state.techPackChangePatchFilter)}
-        ${renderSelectOption('NONE', '无补丁', state.techPackChangePatchFilter)}
-      </select>
-      <select data-prod-field="techPackChangeStatusFilter" class="rounded-md border px-3 py-2 text-sm">
-        ${renderSelectOption('ALL', '版本关系状态', state.techPackChangeStatusFilter)}
-        ${(Object.keys(techPackRelationStatusLabels) as TechPackRelationStatus[]).map((status) => renderSelectOption(status, techPackRelationStatusLabels[status], state.techPackChangeStatusFilter)).join('')}
-      </select>
-      <select data-prod-field="techPackChangeModuleFilter" class="rounded-md border px-3 py-2 text-sm">
-        ${renderSelectOption('ALL', '影响模块', state.techPackChangeModuleFilter)}
-        ${(Object.keys(techPackChangeModuleLabels) as TechPackChangeModule[]).map((module) => renderSelectOption(module, techPackChangeModuleLabels[module], state.techPackChangeModuleFilter)).join('')}
-      </select>
-      <select data-prod-field="techPackChangeProgressFilter" class="rounded-md border px-3 py-2 text-sm">
-        ${renderSelectOption('ALL', '生产进度', state.techPackChangeProgressFilter)}
-        ${progressFilterOptions.map((item) => renderSelectOption(item, item, state.techPackChangeProgressFilter)).join('')}
-      </select>
-      <select data-prod-field="techPackChangeOwnerFilter" class="rounded-md border px-3 py-2 text-sm">
-        ${renderSelectOption('ALL', '跟单负责人', state.techPackChangeOwnerFilter)}
-        ${owners.map((owner) => renderSelectOption(owner, owner, state.techPackChangeOwnerFilter)).join('')}
-      </select>
-    </section>
-  `
-}
-
 function renderProductionChangeCandidateOrders(relations: ProductionOrderTechPackRelation[]): string {
   return `
     <section class="overflow-hidden rounded-lg border bg-background">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
         <div>
-          <h2 class="text-base font-semibold">待处理生产单来源池</h2>
-          <p class="mt-1 text-sm text-muted-foreground">按当前筛选展示可发起变更的生产单，共 ${relations.length} 张。</p>
+          <h2 class="text-base font-semibold">待处理生产单</h2>
+          <p class="mt-1 text-sm text-muted-foreground">从生产单当前事实进入修改数量或替换物料，共 ${relations.length} 张。</p>
         </div>
       </div>
       ${renderChangeTable(
-        ['生产单号', '款式 / SPU', '冻结版本', '最新正式版', '版本关系状态', '补丁', '操作'],
+        ['生产单号', '款式 / SPU', '当前事实', '已有变更单', '可处理场景', '动作'],
         relations.map((relation) => {
           const changeOrderCount = listProductionOrderChangeOrdersByProductionOrder(relation.productionOrderId).length
+          const currentFacts = [
+            `${relation.colorCount} 色 / ${relation.sizeCount} 码`,
+            relation.progressSummary.slice(0, 2).join('；') || '未开始',
+            `交期 ${relation.deliveryDate}`,
+          ].join('；')
+          const changeOrderSummary = changeOrderCount > 0 ? `${changeOrderCount} 张已记录` : '暂无已记录变更'
           return `
             <tr class="align-top hover:bg-muted/20">
               <td class="px-3 py-3 font-medium">${escapeHtml(relation.productionOrderNo)}</td>
@@ -1482,24 +1457,26 @@ function renderProductionChangeCandidateOrders(relations: ProductionOrderTechPac
                 <p class="font-medium">${escapeHtml(relation.styleName)}</p>
                 <p class="text-xs text-muted-foreground">${escapeHtml(relation.spuCode)}</p>
               </td>
-              <td class="px-3 py-3">${escapeHtml(relation.currentTechPackVersionNo)}</td>
-              <td class="px-3 py-3">${escapeHtml(relation.latestPublishedTechPackVersionNo)}</td>
-              <td class="px-3 py-3">${renderBadge(techPackRelationStatusLabels[relation.relationStatus], techPackRelationStatusClasses[relation.relationStatus])}</td>
+              <td class="px-3 py-3">${escapeHtml(currentFacts)}</td>
+              <td class="px-3 py-3">${escapeHtml(changeOrderSummary)}</td>
               <td class="px-3 py-3">
-                <p>生效 ${relation.activePatchCount} / 待审 ${relation.pendingPatchCount}</p>
-                <p class="mt-1 text-xs text-muted-foreground">关联变更单 ${changeOrderCount} 张</p>
+                <div class="flex flex-wrap gap-1.5">
+                  ${renderBadge('修改生产单需求数量', 'bg-amber-100 text-amber-700')}
+                  ${renderBadge('替换物料', 'bg-blue-100 text-blue-700')}
+                </div>
               </td>
-      <td class="px-3 py-3">
-        <div class="flex min-w-[136px] flex-wrap gap-1.5">
-          <button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="start-production-change-from-order" data-order-id="${escapeHtml(relation.productionOrderId)}">填写变更内容</button>
-          <button class="rounded-md px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="/fcs/production/changes/orders/${escapeHtml(relation.productionOrderId)}">查看关系</button>
-        </div>
-      </td>
+              <td class="px-3 py-3">
+                <div class="flex min-w-[168px] flex-wrap gap-1.5">
+                  <button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="start-production-change-type" data-change-type="QUANTITY_CHANGE" data-order-id="${escapeHtml(relation.productionOrderId)}">修改数量</button>
+                  <button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="start-production-change-type" data-change-type="MATERIAL_REPLACEMENT" data-order-id="${escapeHtml(relation.productionOrderId)}">替换物料</button>
+                  <button class="rounded-md bg-primary px-2.5 py-1.5 text-xs text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change-from-order" data-order-id="${escapeHtml(relation.productionOrderId)}">填写变更内容</button>
+                </div>
+              </td>
             </tr>
           `
         }),
         '暂无待处理生产单',
-        'min-w-[1180px]',
+        'min-w-[1240px]',
       )}
     </section>
   `
@@ -1515,8 +1492,6 @@ export function renderProductionChangesPage(): string {
   const changeDocumentActions = listProductionOrderChangeDocumentActions().filter((item) => changeOrderIds.has(item.changeOrderId))
   const changeCostImpacts = listProductionOrderChangeCostImpacts().filter((item) => changeOrderIds.has(item.changeOrderId))
   const changeTimingImpacts = listProductionOrderChangeTimingImpacts().filter((item) => changeOrderIds.has(item.changeOrderId))
-  const currentVersions = Array.from(new Set(allRelations.map((item) => item.currentTechPackVersionNo)))
-  const owners = Array.from(new Set(allRelations.map((item) => item.merchandiserName)))
   const activeTab = state.productionChangeListTab === 'candidate-orders' ? 'candidate-orders' : 'change-orders'
 
   return `
@@ -1528,8 +1503,6 @@ export function renderProductionChangesPage(): string {
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <button class="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-nav="/fcs/production/changes/new">新增变更</button>
-          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="open-tech-pack-publish-guide">查看发布待评估</button>
-          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="export-tech-pack-change">导出</button>
         </div>
       </header>
 
@@ -1553,13 +1526,7 @@ export function renderProductionChangesPage(): string {
 
       ${activeTab === 'change-orders'
         ? renderProductionChangeOrderList(changeOrders)
-        : `
-          ${renderProductionRelationFilters(currentVersions, owners)}
-          ${renderProductionChangeCandidateOrders(relations)}
-        `}
-
-      ${renderPublishGuideDialog()}
-      ${renderModuleLandingDialog()}
+        : renderProductionChangeCandidateOrders(relations)}
     </div>
   `
 }
@@ -1595,8 +1562,8 @@ function renderRelationTab(relation: ProductionOrderTechPackRelation): string {
           ['款式买手', relation.buyerName],
           ['生产跟单', relation.merchandiserName],
           ['当前冻结技术包', `${relation.currentTechPackVersionNo} / 冻结 ${relation.frozenAt}`],
-          ['当前最新正式版', `${relation.latestPublishedTechPackVersionNo} / 发布 ${relation.latestPublishedAt}`],
-          ['版本关系状态', techPackRelationStatusLabels[relation.relationStatus]],
+          ['当前正式技术包', `${relation.latestPublishedTechPackVersionNo} / 发布 ${relation.latestPublishedAt}`],
+          ['关系判断状态', techPackRelationStatusLabels[relation.relationStatus]],
           ['快照编号', relation.frozenSnapshotId],
           ['关联变更历史', requests.length ? requests.map((item) => item.changeRequestNo).join('、') : '暂无'],
         ].map(([label, value]) => `
@@ -1652,7 +1619,7 @@ function renderDiffTab(productionOrderId: string): string {
             <tr>
               <th class="px-3 py-2 text-left">变更类型</th>
               <th class="px-3 py-2 text-left">变更对象</th>
-              <th class="px-3 py-2 text-left">当前冻结版本</th>
+              <th class="px-3 py-2 text-left">生产单当前技术包</th>
               <th class="px-3 py-2 text-left">目标版本</th>
               <th class="px-3 py-2 text-left">影响范围</th>
               <th class="px-3 py-2 text-left">是否涉及已发生业务</th>
@@ -2407,8 +2374,8 @@ function renderProductionChangeCurrentFacts(relation: ProductionOrderTechPackRel
         ])}
         ${renderProductionChangeFactList('技术包关系', [
           ['当前冻结技术包', `${relation.currentTechPackVersionNo} / 冻结 ${relation.frozenAt}`],
-          ['最新正式版', `${relation.latestPublishedTechPackVersionNo} / 发布 ${relation.latestPublishedAt}`],
-          ['版本关系状态', techPackRelationStatusLabels[relation.relationStatus]],
+          ['当前正式技术包', `${relation.latestPublishedTechPackVersionNo} / 发布 ${relation.latestPublishedAt}`],
+          ['关系判断状态', techPackRelationStatusLabels[relation.relationStatus]],
           ['补丁记录', `生效 ${relation.activePatchCount} / 待审 ${relation.pendingPatchCount} / 历史 ${relation.historyPatchCount}`],
         ])}
       </div>

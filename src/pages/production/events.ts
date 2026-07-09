@@ -866,8 +866,10 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     const changeType = actionNode.dataset.changeType as typeof state.productionChangeForm.changeType | undefined
     if (changeType !== 'QUANTITY_CHANGE' && changeType !== 'MATERIAL_REPLACEMENT') return true
     setProductionChangeType(changeType)
+    const orderId = actionNode.dataset.orderId
+    if (orderId) state.productionChangeForm.productionOrderId = orderId
     state.productionChangeSelectedOrderId = ''
-    state.productionChangeFormStep = 'order'
+    state.productionChangeFormStep = orderId ? 'content' : 'order'
     openAppRoute('/fcs/production/changes/new', 'production-change-new', '新增生产单变更')
     return true
   }

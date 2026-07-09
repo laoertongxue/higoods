@@ -23,6 +23,21 @@ function assertIncludesAny(html: string, texts: string[], message: string): void
   assert.ok(texts.some((text) => html.includes(text)), message)
 }
 
+function assertHomeDoesNotIncludeLegacyEntries(html: string, label: string): void {
+  ;[
+    '查看发布待评估',
+    '冻结版本',
+    '最新正式版',
+    '版本关系状态',
+    '补丁',
+    '查看关系',
+    '是否存在新正式版',
+    '是否存在补丁',
+  ].forEach((text) => {
+    assert.ok(!html.includes(text), `${label}不应出现旧技术包/版本关系/补丁入口：${text}`)
+  })
+}
+
 const pageExports = changePages as Record<string, unknown>
 const domainExports = changeDomain as Record<string, unknown>
 
@@ -73,12 +88,21 @@ const listHtml = renderProductionChangesPage()
 
 assert.ok(listHtml.includes('修改生产单需求数量'), '首页必须有修改生产单需求数量入口')
 assert.ok(listHtml.includes('替换物料'), '首页必须有替换物料入口')
+assertHomeDoesNotIncludeLegacyEntries(listHtml, '默认首页')
 assert.ok(!listHtml.includes('已分发委托'), '首页不应出现抽象文案：已分发委托')
 assert.ok(!listHtml.includes('执行对象'), '首页不应出现抽象文案：执行对象')
 assert.ok(!listHtml.includes('来源记录'), '首页不应出现抽象文案：来源记录')
 assert.ok(!listHtml.includes('状态流转'), '首页不应出现抽象文案：状态流转')
 assert.ok(!listHtml.includes('写回'), '首页不应出现抽象文案：写回')
 assert.ok(!listHtml.includes('投影'), '首页不应出现抽象文案：投影')
+
+state.productionChangeListTab = 'candidate-orders'
+const candidateListHtml = renderProductionChangesPage()
+assert.ok(candidateListHtml.includes('待处理生产单'), '待处理生产单页签必须保留业务入口')
+assert.ok(candidateListHtml.includes('修改生产单需求数量'), '待处理生产单页签必须提供修改生产单需求数量入口')
+assert.ok(candidateListHtml.includes('替换物料'), '待处理生产单页签必须提供替换物料入口')
+assertHomeDoesNotIncludeLegacyEntries(candidateListHtml, '待处理生产单页签')
+state.productionChangeListTab = 'change-orders'
 
 const newHtml = renderProductionChangeNewPage()
 ;['待主管确认', '需要处理的事', '相关负责人', '处理记录', '相关单据记录'].forEach((text) => {
