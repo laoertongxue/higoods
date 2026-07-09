@@ -1270,12 +1270,20 @@ export function handleCraftCuttingPickupManagementEvent(target: HTMLElement): bo
 
   if (action === 'submit-material-return') {
     const returnQty = Number(document.querySelector<HTMLInputElement>('[data-pickup-return-field="returnQty"]')?.value || 0)
-    const reason = document.querySelector<HTMLSelectElement>('[data-pickup-return-field="reason"]')?.value as MaterialPickupReturnReason
+    const reason = document.querySelector<HTMLSelectElement>('[data-pickup-return-field="reason"]')?.value.trim() as MaterialPickupReturnReason
     const remark = document.querySelector<HTMLTextAreaElement>('[data-pickup-return-field="remark"]')?.value || ''
     const imageNames = (document.querySelector<HTMLInputElement>('[data-pickup-return-field="imageNames"]')?.value || '')
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean)
+    if (returnQty <= 0) {
+      window.alert('退回数量必须大于 0。')
+      return false
+    }
+    if (!reason) {
+      window.alert('请选择退回原因。')
+      return false
+    }
     appendPickupReturnRecord({
       pickupRecordId: actionNode.dataset.pickupRecordId || '',
       prepRecordId: actionNode.dataset.prepRecordId || '',
