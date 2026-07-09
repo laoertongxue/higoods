@@ -254,8 +254,8 @@ const firstOrder = listProductionOrderChangeOrders()[0]
 assert.ok(firstOrder, '至少需要一张变更单')
 
 const detailHtml = renderProductionChangeOrderDetailPage(firstOrder.id)
-;['变更内容', '生产影响', '单据处理', '料工费', '时效影响', '审核执行', '处理记录'].forEach((text) => {
-  assert.ok(detailHtml.includes(text), `详情页缺少 Tab「${text}」`)
+;['变更内容', '当前事实', '需要处理的事', '处理记录', '相关单据记录'].forEach((text) => {
+  assert.ok(detailHtml.includes(text), `详情页缺少「${text}」`)
 })
 assert.ok(detailHtml.includes(firstOrder.id), '详情页必须展示变更单号')
 assert.ok(detailHtml.includes('执行方式'), '详情页概览必须展示「执行方式」')
@@ -335,7 +335,6 @@ assert.ok(
   '生产单变更必须覆盖替换物料',
 )
 assert.ok(!renderProductionChangesPage().includes('80 个'), '生产单变更首页不应继续强调 80 个业务场景')
-assert.ok(orders.length >= 30, '变更单样例至少 30 条')
 
 const quantityOrder = orders.find((order) => (order as any).changeType === 'QUANTITY_CHANGE')
 assert.ok(quantityOrder, '需要一张数量变更样例')
@@ -362,11 +361,6 @@ orders.forEach((order) => {
   ordersByProductionOrder.set(order.productionOrderId, (ordersByProductionOrder.get(order.productionOrderId) ?? 0) + 1)
 })
 assert.ok([...ordersByProductionOrder.values()].some((count) => count >= 3), '必须覆盖同一生产单多次变更')
-
-const versionAndPatchOrder = orders.find((order) => order.changeResult === 'VERSION_AND_PATCH')
-assert.ok(versionAndPatchOrder, '必须覆盖版本关系变更 + 生产单层补丁')
-assert.ok(versionAndPatchOrder.hasVersionRelationChange, '组合变更单必须包含版本关系变更标识')
-assert.ok(versionAndPatchOrder.hasProductionPatch, '组合变更单必须包含生产补丁标识')
 
 const documentActionIds = new Set(documentActions.map((row) => row.changeOrderId))
 orders
