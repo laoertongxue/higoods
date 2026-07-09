@@ -159,6 +159,8 @@ export interface MaterialPrepLine {
   requiredQty: number
   confirmedPrepQty: number
   pickedQty: number
+  returnedQty: number
+  waitProcessAvailableQty: number
   remainingNeedQty: number
   availableStockQty: number
   stockWarehouseName: MaterialStockWarehouseName
@@ -240,6 +242,39 @@ export interface PickupRecord {
   differenceReason: string
   pickupStatus: '已领料' | '差异领料' | '已入待加工仓'
   remark: string
+  returnQty?: number
+  waitProcessAvailableQty?: number
+  returnStatus?: MaterialPickupDerivedReturnStatus
+}
+
+export type MaterialPickupReturnReason =
+  | '色差 / 缸差'
+  | '布面瑕疵'
+  | '规格 / 克重不符'
+  | '卷号 / 批次不符'
+  | '数量不符'
+  | '辅料型号不符'
+  | '其他'
+
+export type MaterialPickupReturnStatus = '已退回待中转仓处理'
+export type MaterialPickupDerivedReturnStatus = '未退回' | '部分退回' | '全部退回'
+
+export interface MaterialPickupReturnRecord {
+  returnRecordId: string
+  pickupRecordId: string
+  prepRecordId: string
+  prepOrderId: string
+  prepLineId: string
+  productionOrderId: string
+  returnQty: number
+  rollCount: number
+  unit: string
+  reason: MaterialPickupReturnReason
+  remark: string
+  imageNames: string[]
+  returnedBy: string
+  returnedAt: string
+  returnStatus: MaterialPickupReturnStatus
 }
 
 export interface PrepRejectRecord {
@@ -271,6 +306,7 @@ export interface MaterialPrepStagingRecord {
 export interface ProductionMaterialPrepWorkflowStore {
   prepRecords: MaterialPrepRecord[]
   pickupRecords: PickupRecord[]
+  pickupReturnRecords: MaterialPickupReturnRecord[]
   rejectRecords: PrepRejectRecord[]
   stagingRecords: MaterialPrepStagingRecord[]
   closedOrders: Array<{
@@ -335,14 +371,17 @@ export interface MaterialPrepOrderProjection {
   taskProjections: MaterialPrepTaskProjection[]
   prepRecords: MaterialPrepRecord[]
   pickupRecords: PickupRecord[]
+  pickupReturnRecords: MaterialPickupReturnRecord[]
   rejectRecords: PrepRejectRecord[]
   stagingRecords: MaterialPrepStagingRecord[]
   totalRequiredQty: number
   totalConfirmedPrepQty: number
   totalPickedQty: number
+  totalReturnedQty: number
   totalAvailableToPickupQty: number
   totalShortageQty: number
   lineCount: number
+  returnedLineCount: number
   readyLineCount: number
   shortageLineCount: number
   canContinuePrepLineCount: number
@@ -2287,6 +2326,77 @@ const seedPickupRecords: PickupRecord[] = [
   ...buildAutoPickupRecordsForCompletedOrders(explicitSeedPickupRecords, seedPrepRecords),
 ]
 
+const seedPickupReturnRecords: MaterialPickupReturnRecord[] = [
+  {
+    returnRecordId: 'pickup-return-seed-po-0101-black-001',
+    pickupRecordId: 'pickup-rec-po-0101-black-001',
+    prepRecordId: 'prep-rec-po-0101-black-001',
+    prepOrderId: 'prep-order-po-202603-0101',
+    prepLineId: 'prep-line-po-0101-black',
+    productionOrderId: 'PO-202603-0101',
+    returnQty: 40,
+    rollCount: 1,
+    unit: 'yard',
+    reason: '布面瑕疵',
+    remark: '开工前验布发现破洞，先退回中转仓。',
+    imageNames: [],
+    returnedBy: '裁床 李明',
+    returnedAt: '2026-03-16 14:20',
+    returnStatus: '已退回待中转仓处理',
+  },
+  {
+    returnRecordId: 'pickup-return-seed-po-0101-black-002',
+    pickupRecordId: 'pickup-rec-po-0101-black-001',
+    prepRecordId: 'prep-rec-po-0101-black-001',
+    prepOrderId: 'prep-order-po-202603-0101',
+    prepLineId: 'prep-line-po-0101-black',
+    productionOrderId: 'PO-202603-0101',
+    returnQty: 25,
+    rollCount: 1,
+    unit: 'yard',
+    reason: '卷号 / 批次不符',
+    remark: '同一领料记录二次验布发现卷号不一致。',
+    imageNames: [],
+    returnedBy: '裁床 李明',
+    returnedAt: '2026-03-16 15:05',
+    returnStatus: '已退回待中转仓处理',
+  },
+  {
+    returnRecordId: 'pickup-return-seed-po-0102-khaki-001',
+    pickupRecordId: 'pickup-rec-po-0102-khaki-001',
+    prepRecordId: 'prep-rec-po-0102-khaki-001',
+    prepOrderId: 'prep-order-po-202603-0102',
+    prepLineId: 'prep-line-po-0102-khaki',
+    productionOrderId: 'PO-202603-0102',
+    returnQty: 1386,
+    rollCount: 5,
+    unit: 'yard',
+    reason: '色差 / 缸差',
+    remark: '整卷色差明显，本次领料全部退回。',
+    imageNames: [],
+    returnedBy: '裁床 李明',
+    returnedAt: '2026-03-16 12:05',
+    returnStatus: '已退回待中转仓处理',
+  },
+  {
+    returnRecordId: 'pickup-return-seed-po-0001-main-001',
+    pickupRecordId: 'pickup-rec-po-0001-main-001',
+    prepRecordId: 'prep-rec-po-0001-main-001',
+    prepOrderId: 'prep-order-po-202603-0001',
+    prepLineId: 'prep-line-po-0001-main',
+    productionOrderId: 'PO-202603-0001',
+    returnQty: 180,
+    rollCount: 1,
+    unit: 'yard',
+    reason: '规格 / 克重不符',
+    remark: '首卷克重复核不符，退回后待加工仓仍有可用余量。',
+    imageNames: [],
+    returnedBy: '裁床 王强',
+    returnedAt: '2026-03-15 17:05',
+    returnStatus: '已退回待中转仓处理',
+  },
+]
+
 const seedRejectRecords: PrepRejectRecord[] = [
   {
     rejectId: 'reject-prep-rec-po-0004-main-draft-002',
@@ -2349,6 +2459,7 @@ export function createProductionMaterialPrepSeedStore(): ProductionMaterialPrepW
   return {
     prepRecords: cloneRecord(seedPrepRecords),
     pickupRecords: cloneRecord(seedPickupRecords),
+    pickupReturnRecords: cloneRecord(seedPickupReturnRecords),
     rejectRecords: cloneRecord(seedRejectRecords),
     stagingRecords: [],
     closedOrders: cloneRecord(seedClosedOrders),
@@ -2370,6 +2481,9 @@ export function deserializeProductionMaterialPrepStore(raw: string | null): Prod
       pickupRecords: Array.isArray(parsed.pickupRecords)
         ? mergeMissingSeedRecords(parsed.pickupRecords, seedPickupRecords, (record) => record.pickupRecordId)
         : cloneRecord(seedPickupRecords),
+      pickupReturnRecords: Array.isArray(parsed.pickupReturnRecords)
+        ? mergeMissingSeedRecords(parsed.pickupReturnRecords, seedPickupReturnRecords, (record) => record.returnRecordId)
+        : cloneRecord(seedPickupReturnRecords),
       rejectRecords: Array.isArray(parsed.rejectRecords)
         ? mergeMissingSeedRecords(parsed.rejectRecords, seedRejectRecords, (record) => record.rejectId)
         : cloneRecord(seedRejectRecords),
@@ -2398,6 +2512,12 @@ export function persistProductionMaterialPrepStore(
   storage?.setItem?.(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, serializeProductionMaterialPrepStore(store))
   invalidateMaterialPrepProjectionCache()
   return store
+}
+
+export function listPickupReturnRecords(
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): MaterialPickupReturnRecord[] {
+  return cloneRecord(hydrateProductionMaterialPrepStore(storage).pickupReturnRecords || [])
 }
 
 function listRuntimePickupRecords(storage: BrowserStorageLike | null): PickupRecord[] {
@@ -2591,6 +2711,30 @@ function getRecordItemPickupQty(pickupRecords: PickupRecord[], prepRecordId: str
   )
 }
 
+export function getPickupReturnQty(returnRecords: MaterialPickupReturnRecord[], pickupRecordId: string): number {
+  return roundQty(
+    returnRecords
+      .filter((record) => record.pickupRecordId === pickupRecordId)
+      .reduce((sum, record) => sum + Number(record.returnQty || 0), 0),
+  )
+}
+
+function applyPickupReturnProjection(
+  pickupRecords: PickupRecord[],
+  returnRecords: MaterialPickupReturnRecord[],
+): PickupRecord[] {
+  return pickupRecords.map((record) => {
+    const returnQty = getPickupReturnQty(returnRecords, record.pickupRecordId)
+    const waitProcessAvailableQty = roundQty(Math.max(Number(record.pickedQty || 0) - returnQty, 0))
+    return {
+      ...record,
+      returnQty,
+      waitProcessAvailableQty,
+      returnStatus: returnQty <= 0 ? '未退回' : waitProcessAvailableQty > 0 ? '部分退回' : '全部退回',
+    }
+  })
+}
+
 function getConfirmedLineQty(records: MaterialPrepRecord[], prepLineId: string): number {
   return roundQty(
     records
@@ -2631,6 +2775,11 @@ function buildLine(
   const records = getLineRecords(store, seedLine.prepLineId)
   const confirmedPrepQty = getConfirmedLineQty(records, seedLine.prepLineId)
   const pickedQty = getLinePickupQty(pickupRecords, seedLine.prepLineId)
+  const linePickupRecords = pickupRecords.filter((record) => record.prepLineId === seedLine.prepLineId)
+  const returnedQty = roundQty(linePickupRecords.reduce((sum, record) => sum + Number(record.returnQty || 0), 0))
+  const waitProcessAvailableQty = roundQty(
+    linePickupRecords.reduce((sum, record) => sum + Number(record.waitProcessAvailableQty ?? record.pickedQty ?? 0), 0),
+  )
   const remainingNeedQty = roundQty(Math.max(seedLine.requiredQty - confirmedPrepQty, 0))
   const canPrepQty = closed ? 0 : roundQty(Math.min(seedLine.availableStockQty, remainingNeedQty))
   const shortageQty = roundQty(Math.max(remainingNeedQty - seedLine.availableStockQty, 0))
@@ -2655,6 +2804,8 @@ function buildLine(
     requiredQty: seedLine.requiredQty,
     confirmedPrepQty,
     pickedQty,
+    returnedQty,
+    waitProcessAvailableQty,
     remainingNeedQty,
     availableStockQty: seedLine.availableStockQty,
     stockWarehouseName: seedLine.stockWarehouseName || getMaterialStockWarehouseName(seedLine.materialType || inferMaterialType(seedLine)),
@@ -2798,13 +2949,15 @@ function buildOrderProjection(
   store: ProductionMaterialPrepWorkflowStore,
   runtimeTasksByOrder: Map<string, RuntimeProcessTask[]>,
   pickupRecordsByOrder: Map<string, PickupRecord[]>,
+  pickupReturnRecordsByOrder: Map<string, MaterialPickupReturnRecord[]>,
   prepRecordsByOrder: Map<string, MaterialPrepRecord[]>,
   rejectRecordsByOrder: Map<string, PrepRejectRecord[]>,
   stagingRecordsByOrder: Map<string, MaterialPrepStagingRecord[]>,
   prepCompletionEventCount: number,
 ): MaterialPrepOrderProjection {
   const closed = getClosedOrder(store, seedOrder.prepOrderId)
-  const pickupRecords = pickupRecordsByOrder.get(seedOrder.prepOrderId) ?? []
+  const pickupReturnRecords = pickupReturnRecordsByOrder.get(seedOrder.prepOrderId) ?? []
+  const pickupRecords = applyPickupReturnProjection(pickupRecordsByOrder.get(seedOrder.prepOrderId) ?? [], pickupReturnRecords)
   const runtimeTasks = runtimeTasksByOrder.get(seedOrder.productionOrderId) ?? []
   const lines = seedOrder.lines.map((line) => buildLine(line, seedOrder.productionOrderId, runtimeTasks, store, pickupRecords, Boolean(closed)))
   const prepRecords = prepRecordsByOrder.get(seedOrder.prepOrderId) ?? []
@@ -2820,14 +2973,17 @@ function buildOrderProjection(
   const totalRequiredQty = roundQty(lines.reduce((sum, line) => sum + line.requiredQty, 0))
   const totalConfirmedPrepQty = roundQty(lines.reduce((sum, line) => sum + line.confirmedPrepQty, 0))
   const totalPickedQty = roundQty(lines.reduce((sum, line) => sum + line.pickedQty, 0))
+  const totalReturnedQty = roundQty(pickupRecords.reduce((sum, record) => sum + Number(record.returnQty || 0), 0))
   const totalAvailableToPickupQty = roundQty(Math.max(totalConfirmedPrepQty - totalPickedQty, 0))
   const totalShortageQty = roundQty(lines.reduce((sum, line) => sum + line.shortageQty, 0))
   const latestOperatedAt = latestText([
     ...prepRecords.map((record) => record.rejectedAt || record.confirmedAt || record.preparedAt),
     ...pickupRecords.map((record) => record.pickedAt),
+    ...pickupReturnRecords.map((record) => record.returnedAt),
     closed?.closedAt || '',
   ])
   const latestOperatorName =
+    pickupReturnRecords.find((record) => record.returnedAt === latestOperatedAt)?.returnedBy ||
     pickupRecords.find((record) => record.pickedAt === latestOperatedAt)?.receiverName ||
     prepRecords.find((record) => [record.rejectedAt, record.confirmedAt, record.preparedAt].includes(latestOperatedAt))?.operatorName ||
     closed?.closedBy ||
@@ -2864,14 +3020,17 @@ function buildOrderProjection(
     taskProjections,
     prepRecords,
     pickupRecords,
+    pickupReturnRecords,
     rejectRecords,
     stagingRecords,
     totalRequiredQty,
     totalConfirmedPrepQty,
     totalPickedQty,
+    totalReturnedQty,
     totalAvailableToPickupQty,
     totalShortageQty,
     lineCount: lines.length,
+    returnedLineCount: lines.filter((line) => line.returnedQty > 0).length,
     readyLineCount: lines.filter((line) => line.confirmedPrepQty >= line.requiredQty).length,
     shortageLineCount: lines.filter((line) => line.remainingNeedQty > 0).length,
     canContinuePrepLineCount: lines.filter((line) => line.canPrepQty > 0).length,
@@ -2897,6 +3056,7 @@ export function listMaterialPrepOrderProjections(
   const store = hydrateProductionMaterialPrepStore(storage)
   const runtimePickupRecords = listRuntimePickupRecords(storage)
   const pickupRecordsByOrder = groupByKey([...store.pickupRecords, ...runtimePickupRecords], (record) => record.prepOrderId)
+  const pickupReturnRecordsByOrder = groupByKey(store.pickupReturnRecords, (record) => record.prepOrderId)
   const prepRecordsByOrder = groupByKey(store.prepRecords, (record) => record.prepOrderId)
   const rejectRecordsByOrder = groupByKey(store.rejectRecords, (record) => record.prepOrderId)
   const stagingRecordsByOrder = groupByKey(store.stagingRecords, (record) => record.prepOrderId)
@@ -2916,6 +3076,7 @@ export function listMaterialPrepOrderProjections(
       store,
       runtimeTasksByOrder,
       pickupRecordsByOrder,
+      pickupReturnRecordsByOrder,
       prepRecordsByOrder,
       rejectRecordsByOrder,
       stagingRecordsByOrder,
@@ -3557,6 +3718,67 @@ export function appendPickupRecordFromPrepRecord(
   store.pickupRecords = [...pickupRecords, ...store.pickupRecords]
   persistProductionMaterialPrepStore(store, storage)
   return cloneRecord(pickupRecords[0])
+}
+
+export function appendPickupReturnRecord(
+  input: {
+    pickupRecordId: string
+    prepRecordId: string
+    prepLineId: string
+    returnQty: number
+    rollCount: number
+    reason: MaterialPickupReturnReason
+    remark: string
+    imageNames: string[]
+    returnedBy: string
+  },
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): MaterialPickupReturnRecord {
+  if (!String(input.reason || '').trim()) {
+    throw new Error('退回原因必填')
+  }
+  const returnQty = roundQty(Number(input.returnQty || 0))
+  if (returnQty <= 0) {
+    throw new Error('退回数量必须大于 0')
+  }
+  const context = getMaterialPrepRecordContext(input.prepRecordId, input.prepLineId, storage)
+  if (!context) {
+    throw new Error(`配料记录不存在：${input.prepRecordId}`)
+  }
+  const pickupRecord = context.projection.pickupRecords.find((record) => record.pickupRecordId === input.pickupRecordId)
+  if (!pickupRecord) {
+    throw new Error(`领料记录不存在：${input.pickupRecordId}`)
+  }
+  if (pickupRecord.prepRecordId !== input.prepRecordId || pickupRecord.prepLineId !== input.prepLineId) {
+    throw new Error('退回物料行与领料记录不一致')
+  }
+  const waitProcessAvailableQty = roundQty(Number(pickupRecord.waitProcessAvailableQty ?? pickupRecord.pickedQty ?? 0))
+  if (returnQty > waitProcessAvailableQty) {
+    throw new Error('退回数量不能超过待加工仓可用数量')
+  }
+
+  const store = hydrateProductionMaterialPrepStore(storage)
+  const occurredAt = nowText()
+  const returnRecord: MaterialPickupReturnRecord = {
+    returnRecordId: `pickup-return:${input.pickupRecordId}:${occurredAt.replace(/[^0-9]/g, '')}:${store.pickupReturnRecords.length + 1}`,
+    pickupRecordId: input.pickupRecordId,
+    prepRecordId: input.prepRecordId,
+    prepOrderId: pickupRecord.prepOrderId,
+    prepLineId: input.prepLineId,
+    productionOrderId: pickupRecord.productionOrderId,
+    returnQty,
+    rollCount: Math.max(Math.round(input.rollCount || 1), 1),
+    unit: context.line.unit,
+    reason: input.reason,
+    remark: input.remark,
+    imageNames: [...input.imageNames],
+    returnedBy: input.returnedBy,
+    returnedAt: occurredAt,
+    returnStatus: '已退回待中转仓处理',
+  }
+  store.pickupReturnRecords = [returnRecord, ...store.pickupReturnRecords]
+  persistProductionMaterialPrepStore(store, storage)
+  return cloneRecord(returnRecord)
 }
 
 export function buildPrepLedgerRows(): MaterialLedgerProjection[] {

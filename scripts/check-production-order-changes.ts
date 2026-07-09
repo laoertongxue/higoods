@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict'
-import fs from 'node:fs'
-import path from 'node:path'
 import * as changePages from '../src/pages/production/changes-domain.ts'
 import { state } from '../src/pages/production/context.ts'
-import { handleProductionEvent } from '../src/pages/production/events.ts'
 import * as changeDomain from '../src/data/fcs/production-tech-pack-change-domain.ts'
 
 if (typeof (globalThis as any).HTMLInputElement === 'undefined') {
@@ -22,22 +19,23 @@ function requireFunction<T extends (...args: never[]) => unknown>(exports: Recor
   return value as T
 }
 
-function makeProductionActionTarget(action: string, dataset: Record<string, string> = {}): HTMLElement {
-  return {
-    closest(selector: string) {
-      if (selector === '[data-prod-action]') return { dataset: { prodAction: action, ...dataset } }
-      return null
-    },
-  } as unknown as HTMLElement
+function assertIncludesAny(html: string, texts: string[], message: string): void {
+  assert.ok(texts.some((text) => html.includes(text)), message)
 }
 
-function getStatValue(html: string, label: string): string {
-  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const articleMatch = html.match(new RegExp(`<article\\b[^>]*data-stat-label="${escapedLabel}"[^>]*>[\\s\\S]*?</article>`))
-  assert.ok(articleMatch, `缺少统计卡「${label}」`)
-  const valueMatch = articleMatch[0].match(/\bdata-stat-value="([^"]*)"/)
-  assert.ok(valueMatch, `统计卡「${label}」缺少数值`)
-  return valueMatch[1]
+function assertHomeDoesNotIncludeLegacyEntries(html: string, label: string): void {
+  ;[
+    '查看发布待评估',
+    '冻结版本',
+    '最新正式版',
+    '版本关系状态',
+    '补丁',
+    '查看关系',
+    '是否存在新正式版',
+    '是否存在补丁',
+  ].forEach((text) => {
+    assert.ok(!html.includes(text), `${label}不应出现旧技术包/版本关系/补丁入口：${text}`)
+  })
 }
 
 const pageExports = changePages as Record<string, unknown>
@@ -49,74 +47,30 @@ const renderProductionChangeOrderDetailPage = requireFunction<(id: string) => st
   pageExports,
   'renderProductionChangeOrderDetailPage',
 )
-const renderProductionChangeRelationDetailPage = requireFunction<(id: string) => string>(
-  pageExports,
-  'renderProductionChangeRelationDetailPage',
-)
-const renderProductionChangeEditPage = requireFunction<(id: string) => string>(pageExports, 'renderProductionChangeEditPage')
 
 const listProductionOrderChangeOrders = requireFunction<() => Array<Record<string, any>>>(
   domainExports,
   'listProductionOrderChangeOrders',
 )
-const listProductionOrderChangeScenarioCatalog = requireFunction<() => Array<Record<string, any>>>(
-  domainExports,
-  'listProductionOrderChangeScenarioCatalog',
-)
-const listProductionOrderChangeImpactRows = requireFunction<(id?: string) => Array<Record<string, any>>>(
-  domainExports,
-  'listProductionOrderChangeImpactRows',
-)
-const listProductionOrderChangeDocumentActions = requireFunction<(id?: string) => Array<Record<string, any>>>(
-  domainExports,
-  'listProductionOrderChangeDocumentActions',
-)
-const listProductionOrderChangeCostImpacts = requireFunction<(id?: string) => Array<Record<string, any>>>(
-  domainExports,
-  'listProductionOrderChangeCostImpacts',
-)
-const listProductionOrderChangeTimingImpacts = requireFunction<(id?: string) => Array<Record<string, any>>>(
-  domainExports,
-  'listProductionOrderChangeTimingImpacts',
-)
 const listProductionOrderTechPackRelations = requireFunction<() => Array<Record<string, any>>>(
   domainExports,
   'listProductionOrderTechPackRelations',
-)
-const listProductionPatchesByOrder = requireFunction<(id: string) => Array<Record<string, any>>>(
-  domainExports,
-  'listProductionPatchesByOrder',
 )
 const getProductionOrderChangeOrder = requireFunction<(id: string) => Record<string, any> | undefined>(
   domainExports,
   'getProductionOrderChangeOrder',
 )
-const getProductionOrderChangeCurrentFacts = requireFunction<(id: string) => Record<string, any> | null>(
-  domainExports,
-  'getProductionOrderChangeCurrentFacts',
-)
 const submitProductionOrderChangeOrder = requireFunction<(input: Record<string, any>) => Record<string, any>>(
   domainExports,
   'submitProductionOrderChangeOrder',
-)
-const updateProductionOrderChangeOrder = requireFunction<(id: string, input: Record<string, any>) => Record<string, any>>(
-  domainExports,
-  'updateProductionOrderChangeOrder',
 )
 
 state.productionChangeListTab = 'change-orders'
 state.techPackChangeKeyword = ''
 state.productionChangeOrderPage = 1
 
-const firstRelation = listProductionOrderTechPackRelations()[0]
-assert.ok(firstRelation, '至少需要一张生产单版本关系样本')
-const relation = firstRelation
-const selectableRelationIds = new Set(listProductionOrderTechPackRelations().map((item) => item.productionOrderId))
-const selectableFactIds = [...selectableRelationIds].filter((id) => getProductionOrderChangeCurrentFacts(id))
-assert.ok(selectableFactIds.includes('PO-202603-0004'), '当前事实必须覆盖可选生产单 PO-202603-0004')
-assert.ok(selectableFactIds.includes('PO-202604-0018'), '当前事实必须覆盖可选生产单 PO-202604-0018')
-assert.ok(selectableFactIds.includes('PO-202603-0007'), '当前事实必须覆盖可选生产单 PO-202603-0007')
-assert.ok(selectableFactIds.length >= 3, '新增页可选生产单至少 3 张需要有当前事实样本')
+const relation = listProductionOrderTechPackRelations()[0]
+assert.ok(relation, '至少需要一张可发起变更的生产单样本')
 
 const listHtml = renderProductionChangesPage()
 
@@ -128,522 +82,239 @@ const listHtml = renderProductionChangesPage()
   '搜索生产单号 / 变更单号 / 需求单号 / SPU / 款式 / 负责人',
   '变更单号',
   '生产单号',
-  '系统反推结果',
-  '执行方式',
-  '锁定状态',
 ].forEach((text) => {
   assert.ok(listHtml.includes(text), `列表页缺少「${text}」`)
 })
 
-assert.ok(!listHtml.includes('当前展示变更单详情'), '列表页不应内嵌变更单详情')
-assert.ok(!listHtml.includes('系统读取的现场事实'), '列表页不应内嵌详情事实区')
-assert.ok(!listHtml.includes('data-prod-action="open-tech-pack-version-change"'), '变更单列表不应直接展示变更版本按钮')
-assert.ok(!listHtml.includes('data-prod-action="open-production-patch"'), '变更单列表不应直接展示发起补丁按钮')
-assert.ok(!listHtml.includes('submit-tech-pack-version-change'), '变更单列表不应渲染旧版本变更弹窗提交入口')
-assert.ok(!listHtml.includes('submit-production-patch'), '变更单列表不应渲染旧生产补丁弹窗提交入口')
-assert.ok(!listHtml.includes('场景覆盖面板'), '业务场景覆盖说明应留在文档中，不应展示在页面')
-assert.ok(!listHtml.includes('80 个场景'), '80 个业务场景目录不应作为页面演示信息展示')
+assert.ok(listHtml.includes('修改生产单需求数量'), '首页必须有修改生产单需求数量入口')
+assert.ok(listHtml.includes('替换物料'), '首页必须有替换物料入口')
+assertHomeDoesNotIncludeLegacyEntries(listHtml, '默认首页')
+assert.ok(!listHtml.includes('已分发委托'), '首页不应出现抽象文案：已分发委托')
+assert.ok(!listHtml.includes('执行对象'), '首页不应出现抽象文案：执行对象')
+assert.ok(!listHtml.includes('来源记录'), '首页不应出现抽象文案：来源记录')
+assert.ok(!listHtml.includes('状态流转'), '首页不应出现抽象文案：状态流转')
+assert.ok(!listHtml.includes('写回'), '首页不应出现抽象文案：写回')
+assert.ok(!listHtml.includes('投影'), '首页不应出现抽象文案：投影')
 
-state.techPackChangeVersionDialogOrderId = firstRelation.productionOrderId
-state.productionPatchDialogOrderId = firstRelation.productionOrderId
-const listWithLegacyDialogStateHtml = renderProductionChangesPage()
+state.productionChangeListTab = 'candidate-orders'
+const candidateListHtml = renderProductionChangesPage()
+assert.ok(candidateListHtml.includes('待处理生产单'), '待处理生产单页签必须保留业务入口')
+assert.ok(candidateListHtml.includes('修改生产单需求数量'), '待处理生产单页签必须提供修改生产单需求数量入口')
+assert.ok(candidateListHtml.includes('替换物料'), '待处理生产单页签必须提供替换物料入口')
 assert.ok(
-  !listWithLegacyDialogStateHtml.includes('submit-tech-pack-version-change'),
-  '变更单列表即使残留旧弹窗状态，也不应渲染旧版本变更提交入口',
+  candidateListHtml.includes(`data-change-type="QUANTITY_CHANGE" data-order-id="${relation.productionOrderId}"`),
+  '待处理生产单的修改数量入口必须带入生产单号',
 )
 assert.ok(
-  !listWithLegacyDialogStateHtml.includes('submit-production-patch'),
-  '变更单列表即使残留旧弹窗状态，也不应渲染旧生产补丁提交入口',
+  candidateListHtml.includes(`data-change-type="MATERIAL_REPLACEMENT" data-order-id="${relation.productionOrderId}"`),
+  '待处理生产单的替换物料入口必须带入生产单号',
 )
-state.techPackChangeVersionDialogOrderId = null
-state.productionPatchDialogOrderId = null
+assertHomeDoesNotIncludeLegacyEntries(candidateListHtml, '待处理生产单页签')
+state.productionChangeListTab = 'change-orders'
 
 const newHtml = renderProductionChangeNewPage()
-;['选择生产单', '填写变更内容', '确认影响和单据处理', '预览并提交'].forEach((text) => {
-  assert.ok(newHtml.includes(text), `新增页缺少步骤「${text}」`)
+;['待主管确认', '需要处理的事', '相关负责人', '处理记录', '相关单据记录'].forEach((text) => {
+  assert.ok(newHtml.includes(text), `新增页缺少两类场景共用文案「${text}」`)
 })
-;['系统计算影响', '料工费与时效', '提交审核'].forEach((text) => {
-  assert.ok(!newHtml.includes(text), `新增页不应再展示旧步骤「${text}」`)
-})
-assert.ok(newHtml.includes('系统反推，不要求业务人员先选版本关系或补丁'), '新增页必须说明系统反推口径')
-assert.ok(newHtml.includes('生产单当前事实'), '新增页第 1 步必须展示生产单当前事实')
-assert.ok(newHtml.includes('生产单需求数量'), '新增页第 1 步必须展示生产单需求数量')
-assert.ok(newHtml.includes('原需求数量'), '新增页第 1 步必须展示原需求数量')
-assert.ok(newHtml.includes('当前需求数量'), '新增页第 1 步必须展示当前需求数量')
-assert.ok(newHtml.includes('本次拟变更需求数量'), '新增页第 1 步必须展示拟变更需求数量')
-assert.ok(newHtml.includes('应配'), '新增页第 1 步物料事实必须展示应配数量')
-assert.ok(newHtml.includes('已配'), '新增页第 1 步物料事实必须展示已配数量')
-assert.ok(newHtml.includes('已领'), '新增页第 1 步物料事实必须展示已领数量')
-assert.ok(newHtml.includes('剩余可改'), '新增页第 1 步物料事实必须展示剩余可改数量')
-assert.ok(newHtml.includes('生成时间'), '新增页第 1 步已生成单据必须展示生成时间')
-assert.ok(!newHtml.includes('风险标识'), '新增页第 1 步不应展示未定义的风险标识')
-assert.ok(
-  !newHtml.includes('data-prod-field="productionChangeFormResult"'),
-  '新增页第 1 步不应展示系统反推结果输入字段',
-)
-assert.ok(
-  !newHtml.includes('data-prod-field="productionChangeFormExecutionStrategy"'),
-  '新增页第 1 步不应展示执行策略输入字段',
-)
+assertIncludesAny(newHtml, ['变更内容', '提交变更内容', '填写变更内容'], '新增页必须表达业务提交变更内容')
+assertIncludesAny(newHtml, ['系统建议', '系统给出建议', '系统给建议', '建议处理'], '新增页必须表达系统给建议')
+assert.ok(newHtml.includes('主管确认需要处理的事'), '新增页必须表达主管确认需要处理的事')
+assert.ok(newHtml.includes('相关负责人处理'), '新增页必须表达相关负责人处理')
+assert.ok(newHtml.includes('相关单据留痕'), '新增页必须表达相关单据留痕')
+assert.ok(!newHtml.includes('系统反推，不要求业务人员先选版本关系或补丁'), '新增页不应展示旧系统反推说明')
+assert.ok(!newHtml.includes('系统反推结果'), '新增页不应展示旧系统反推结果')
+assert.ok(!newHtml.includes('执行策略'), '新增页不应展示旧执行策略')
+assert.ok(!newHtml.includes('是否生产补丁'), '新增页不应要求选择是否生产补丁')
+assert.ok(!newHtml.includes('是否版本关系变更'), '新增页不应要求选择是否版本关系变更')
 
+;(state.productionChangeForm as any).changeType = 'QUANTITY_CHANGE'
 state.productionChangeFormStep = 'content'
-const contentStepHtml = renderProductionChangeNewPage()
-;['变更来源', '变更模块', '具体变更内容', '期望生效口径', '变更原因'].forEach((text) => {
-  assert.ok(contentStepHtml.includes(text), `新增页第 2 步缺少「${text}」`)
-})
-;['系统反推结果', '执行策略', '是否生产补丁', '是否版本关系变更'].forEach((text) => {
-  assert.ok(!contentStepHtml.includes(text), `新增页第 2 步不应展示「${text}」`)
-})
-
-state.productionChangeForm = {
-  productionOrderId: relation.productionOrderId,
-  source: 'MATERIAL_SHORTAGE',
-  modules: ['BOM'],
-  changeContent: '主面料 FAB-A01 改 FAB-B02',
-  reason: '主面料短缺，未领部分需要替代料。',
-  effectiveMode: 'FROM_NEXT_PICKUP',
-  executionMode: 'AFTER_APPROVAL',
-}
-state.productionChangeFormStep = 'handling'
-const handlingStepHtml = renderProductionChangeNewPage()
-;['生产影响', '单据处理建议', '可改做', '不可追回', '系统建议'].forEach((text) => {
-  assert.ok(handlingStepHtml.includes(text), `新增页第 3 步缺少「${text}」`)
+const quantityFormHtml = renderProductionChangeNewPage()
+assert.ok(quantityFormHtml.includes('颜色'), '数量变更表单必须按颜色填写')
+assert.ok(quantityFormHtml.includes('尺码'), '数量变更表单必须按尺码填写')
+assert.ok(quantityFormHtml.includes('当前数量'), '数量变更表单必须显示当前数量')
+assert.ok(quantityFormHtml.includes('新数量'), '数量变更表单必须填写新数量')
+assertIncludesAny(quantityFormHtml, ['差异', '多出', '减少', '本次变化'], '数量变更表单必须展示差异')
+;['只填总数', '总数量', '汇总数量', '变更后总数'].forEach((text) => {
+  assert.ok(!quantityFormHtml.includes(text), `数量变更不允许使用总数填写口径：${text}`)
 })
 
-state.productionChangeFormStep = 'preview'
-const previewStepHtml = renderProductionChangeNewPage()
-;[
-  '处理后结果预览',
-  '系统反推结果',
-  '预计料工费',
-  '预计时效',
-  '立即执行',
-  '立即止损后提交审核',
-  '审核通过后执行',
-].forEach((text) => {
-  assert.ok(previewStepHtml.includes(text), `新增页第 4 步缺少「${text}」`)
-})
-
-const firstOrder = listProductionOrderChangeOrders()[0]
-assert.ok(firstOrder, '至少需要一张变更单')
-
-const detailHtml = renderProductionChangeOrderDetailPage(firstOrder.id)
-;['变更内容', '生产影响', '单据处理', '料工费', '时效影响', '审核执行', '处理记录'].forEach((text) => {
-  assert.ok(detailHtml.includes(text), `详情页缺少 Tab「${text}」`)
-})
-assert.ok(detailHtml.includes(firstOrder.id), '详情页必须展示变更单号')
-assert.ok(detailHtml.includes('执行方式'), '详情页概览必须展示「执行方式」')
-assert.ok(!detailHtml.includes('变更单列表'), '详情页不应混入列表')
-assert.ok(!detailHtml.includes('submit-tech-pack-version-change'), '变更单详情页不应渲染旧版本变更弹窗提交入口')
-assert.ok(!detailHtml.includes('submit-production-patch'), '变更单详情页不应渲染旧生产补丁弹窗提交入口')
-
-state.productionChangeDetailTab = 'approval'
-const approvalDetailHtml = renderProductionChangeOrderDetailPage(firstOrder.id)
-;['立即止损后提交审核', '当前方式'].forEach((text) => {
-  assert.ok(approvalDetailHtml.includes(text), `详情页审核执行缺少「${text}」`)
-})
-assert.ok(!approvalDetailHtml.includes('当前策略'), '详情页审核执行不应展示「当前策略」')
-state.productionChangeDetailTab = 'content'
-
-state.techPackChangeVersionDialogOrderId = firstRelation.productionOrderId
-state.productionPatchDialogOrderId = firstRelation.productionOrderId
-const detailWithLegacyDialogStateHtml = renderProductionChangeOrderDetailPage(firstOrder.id)
-assert.ok(
-  !detailWithLegacyDialogStateHtml.includes('submit-tech-pack-version-change'),
-  '变更单详情页即使残留旧弹窗状态，也不应渲染旧版本变更提交入口',
-)
-assert.ok(
-  !detailWithLegacyDialogStateHtml.includes('submit-production-patch'),
-  '变更单详情页即使残留旧弹窗状态，也不应渲染旧生产补丁提交入口',
-)
-state.techPackChangeVersionDialogOrderId = null
-state.productionPatchDialogOrderId = null
-
-state.techPackChangeDetailTab = 'relation'
-const relationDetailHtml = renderProductionChangeRelationDetailPage(firstRelation.productionOrderId)
-assert.ok(relationDetailHtml.includes('生产单版本关系诊断'), '生产单关系诊断页必须展示诊断标题')
-assert.ok(relationDetailHtml.includes('>发起变更<'), '生产单关系诊断页必须展示统一发起变更动作')
-assert.ok(!relationDetailHtml.includes('>变更版本<'), '生产单关系诊断页不应展示旧变更版本主按钮')
-assert.ok(!relationDetailHtml.includes('>发起补丁<'), '生产单关系诊断页不应展示旧发起补丁主按钮')
-assert.ok(
-  !relationDetailHtml.includes('data-prod-action="open-tech-pack-version-change"'),
-  '生产单关系诊断页不应展示旧变更版本 action',
-)
-assert.ok(
-  !relationDetailHtml.includes('data-prod-action="open-production-patch"'),
-  '生产单关系诊断页不应展示旧发起补丁 action',
-)
-
-const relationWithPatch = listProductionOrderTechPackRelations().find(
-  (item) => listProductionPatchesByOrder(item.productionOrderId).length > 0,
-)
-assert.ok(relationWithPatch, '至少需要一个带生产补丁的生产单关系样本')
-state.techPackChangeDetailTab = 'patch'
-const patchTabHtml = renderProductionChangeRelationDetailPage(relationWithPatch.productionOrderId)
-assert.ok(
-  patchTabHtml.includes('data-prod-action="open-production-patch-notice"'),
-  '生产补丁 Tab 必须保留查看通知入口',
-)
-assert.ok(
-  patchTabHtml.includes(`data-order-id="${relationWithPatch.productionOrderId}"`),
-  '生产补丁查看通知入口必须携带生产单 ID',
-)
-state.techPackChangeDetailTab = 'relation'
-
-const editHtml = renderProductionChangeEditPage(firstOrder.id)
-assert.ok(editHtml.includes('编辑变更单'), '编辑页必须展示编辑标题')
-assert.ok(editHtml.includes(firstOrder.id), '编辑页必须展示当前变更单号')
+;(state.productionChangeForm as any).changeType = 'MATERIAL_REPLACEMENT'
+state.productionChangeFormStep = 'content'
+const materialFormHtml = renderProductionChangeNewPage()
+assert.ok(materialFormHtml.includes('原物料'), '替换物料表单必须显示原物料')
+assert.ok(materialFormHtml.includes('替代物料'), '替换物料表单必须显示替代物料')
+assert.ok(materialFormHtml.includes('适用颜色'), '替换物料表单必须按颜色确认范围')
+assert.ok(materialFormHtml.includes('适用尺码'), '替换物料表单必须按尺码确认范围')
+assert.ok(materialFormHtml.includes('从哪里开始用新物料'), '替换物料表单必须确认开始使用节点')
+assert.ok(!materialFormHtml.includes('适用批次'), '替换物料不应出现适用批次字段')
 
 const orders = listProductionOrderChangeOrders()
-const scenarios = listProductionOrderChangeScenarioCatalog()
-const impacts = listProductionOrderChangeImpactRows()
-const documentActions = listProductionOrderChangeDocumentActions()
-const costImpacts = listProductionOrderChangeCostImpacts()
-const timingImpacts = listProductionOrderChangeTimingImpacts()
+assert.ok(
+  orders.some((order) => order.changeType === 'QUANTITY_CHANGE'),
+  '生产单变更必须覆盖修改生产单需求数量',
+)
+assert.ok(
+  orders.some((order) => order.changeType === 'MATERIAL_REPLACEMENT'),
+  '生产单变更必须覆盖替换物料',
+)
 
-assert.equal(scenarios.length, 80, '生产单变更场景目录必须正好 80 条')
-assert.ok(orders.length >= 30, '变更单样例至少 30 条')
-
-const ordersByProductionOrder = new Map<string, number>()
-orders.forEach((order) => {
-  ordersByProductionOrder.set(order.productionOrderId, (ordersByProductionOrder.get(order.productionOrderId) ?? 0) + 1)
+const quantityOrder = orders.find((order) => order.changeType === 'QUANTITY_CHANGE')
+assert.ok(quantityOrder, '需要一张数量变更样例')
+const quantityDetailHtml = renderProductionChangeOrderDetailPage(quantityOrder.id)
+;['变更内容', '当前事实', '需要处理的事', '处理记录', '相关单据记录'].forEach((text) => {
+  assert.ok(quantityDetailHtml.includes(text), `数量变更详情缺少「${text}」`)
 })
-assert.ok([...ordersByProductionOrder.values()].some((count) => count >= 3), '必须覆盖同一生产单多次变更')
-
-const versionAndPatchOrder = orders.find((order) => order.changeResult === 'VERSION_AND_PATCH')
-assert.ok(versionAndPatchOrder, '必须覆盖版本关系变更 + 生产单层补丁')
-assert.ok(versionAndPatchOrder.hasVersionRelationChange, '组合变更单必须包含版本关系变更标识')
-assert.ok(versionAndPatchOrder.hasProductionPatch, '组合变更单必须包含生产补丁标识')
-
-const documentActionIds = new Set(documentActions.map((row) => row.changeOrderId))
-orders
-  .filter((order) => order.changeResult !== 'RECORD_ONLY')
-  .forEach((order) => {
-    assert.ok(documentActionIds.has(order.id), `${order.id} 缺少单据处理明细`)
-  })
-
-const costIds = new Set(costImpacts.map((row) => row.changeOrderId))
-orders
-  .filter((order) => order.changeResult === 'COST_ONLY' || order.costDeltaAmount !== 0)
-  .forEach((order) => {
-    assert.ok(costIds.has(order.id), `${order.id} 缺少料工费差异`)
-  })
-
-const timingIds = new Set(timingImpacts.map((row) => row.changeOrderId))
-orders
-  .filter((order) => order.changeResult !== 'COST_ONLY' && order.changeResult !== 'RECORD_ONLY')
-  .forEach((order) => {
-    assert.ok(timingIds.has(order.id), `${order.id} 缺少时效影响`)
-  })
-
-state.techPackChangeKeyword = firstOrder.id
-state.productionChangeOrderPage = 1
-const singleOrderListHtml = renderProductionChangesPage()
-const singleOrderSettlementIds = new Set([
-  ...documentActions
-    .filter((item) => item.changeOrderId === firstOrder.id && item.documentType === 'SETTLEMENT')
-    .map((item) => item.changeOrderId),
-  ...costImpacts.filter((item) => item.changeOrderId === firstOrder.id).map((item) => item.changeOrderId),
-])
-const singleOrderTimingIds = new Set(
-  timingImpacts
-    .filter(
-      (item) =>
-        item.changeOrderId === firstOrder.id &&
-        (item.delayDays > 0 || item.affectsProductionDelivery || item.affectsFulfillmentDelivery),
-    )
-    .map((item) => item.changeOrderId),
+assertIncludesAny(quantityDetailHtml, ['变更单记录', '变更单留痕'], '数量变更详情必须展示变更单记录或留痕')
+assert.ok(
+  quantityDetailHtml.includes('来自哪张变更单') || quantityDetailHtml.includes('本单已按变更单'),
+  '被改单据必须能反查变更单',
 )
-assert.equal(getStatValue(singleOrderListHtml, '变更单数'), '1', '搜索单张变更单时统计应只计算命中变更单')
-assert.equal(
-  getStatValue(singleOrderListHtml, '影响结算'),
-  String(singleOrderSettlementIds.size),
-  '搜索单张变更单时影响结算统计应跟随过滤结果',
+assert.ok(quantityDetailHtml.includes('原数量'), '数量变更留痕必须展示原数量')
+assert.ok(quantityDetailHtml.includes('新数量'), '数量变更留痕必须展示新数量')
+assert.ok(quantityDetailHtml.includes('差异'), '数量变更留痕必须展示数量差异')
+;['需要谁处理', '要做什么', '当前做到哪了', '调整原因'].forEach((text) => {
+  assert.ok(quantityDetailHtml.includes(text), `数量变更详情处理事项缺少「${text}」`)
+})
+;['相关单据', '原来', '现在', '谁确认', '确认时间', '原因'].forEach((text) => {
+  assert.ok(quantityDetailHtml.includes(text), `数量变更相关单据记录缺少「${text}」`)
+})
+
+const materialOrder = orders.find((order) => order.changeType === 'MATERIAL_REPLACEMENT')
+assert.ok(materialOrder, '需要一张物料替换样例')
+const materialDetailHtml = renderProductionChangeOrderDetailPage(materialOrder.id)
+;['变更内容', '当前事实', '需要处理的事', '处理记录', '相关单据记录'].forEach((text) => {
+  assert.ok(materialDetailHtml.includes(text), `物料替换详情缺少「${text}」`)
+})
+assertIncludesAny(materialDetailHtml, ['变更单记录', '变更单留痕'], '物料替换详情必须展示变更单记录或留痕')
+assert.ok(
+  materialDetailHtml.includes('来自哪张变更单') || materialDetailHtml.includes('本单已按变更单'),
+  '被改单据必须能反查变更单',
 )
-assert.equal(
-  getStatValue(singleOrderListHtml, '影响交期'),
-  String(singleOrderTimingIds.size),
-  '搜索单张变更单时影响交期统计应跟随过滤结果',
-)
-state.techPackChangeKeyword = ''
+assert.ok(materialDetailHtml.includes('原物料'), '物料替换详情必须展示原物料')
+assert.ok(materialDetailHtml.includes('替代物料'), '物料替换详情必须展示替代物料')
+assert.ok(materialDetailHtml.includes('旧料') || materialDetailHtml.includes('新物料'), '物料替换详情必须展示旧料/新物料处理事项')
+;['适用颜色', '适用尺码', '从哪里开始用新物料'].forEach((text) => {
+  assert.ok(materialDetailHtml.includes(text), `物料替换详情缺少「${text}」`)
+})
+;['需要谁处理', '要做什么', '当前做到哪了', '调整原因'].forEach((text) => {
+  assert.ok(materialDetailHtml.includes(text), `物料替换详情处理事项缺少「${text}」`)
+})
+;['相关单据', '原来', '现在', '谁确认', '确认时间', '原因'].forEach((text) => {
+  assert.ok(materialDetailHtml.includes(text), `物料替换相关单据记录缺少「${text}」`)
+})
+assert.ok(!materialDetailHtml.includes('适用批次'), '物料替换详情不应出现适用批次')
+
+;[
+  ['首页', listHtml],
+  ['新增页', newHtml],
+  ['数量变更表单', quantityFormHtml],
+  ['替换物料表单', materialFormHtml],
+  ['数量变更详情', quantityDetailHtml],
+  ['物料替换详情', materialDetailHtml],
+].forEach(([label, html]) => {
+  ;['已分发委托', '执行对象', '来源记录', '状态流转', '写回', '投影'].forEach((text) => {
+    assert.ok(!html.includes(text), `${label}不应出现抽象文案：${text}`)
+  })
+})
 
 const beforeCount = listProductionOrderChangeOrders().length
-
-const created = submitProductionOrderChangeOrder({
-  productionOrderId: relation.productionOrderId,
-  source: 'MATERIAL_SHORTAGE',
-  changeModules: ['BOM'],
-  reason: '自动检查：主面料短缺，指定后续领料改用替代料。',
-  expectedEffectiveMode: 'FROM_NEXT_PICKUP',
-  effectiveDescription: '从下一次领料开始',
-  changeResult: 'PRODUCTION_PATCH',
-  executionStrategy: 'AFTER_APPROVAL',
-  operatorName: '自动检查',
-})
-
-assert.equal(listProductionOrderChangeOrders().length, beforeCount + 1, '新增变更必须进入变更单列表')
-assert.equal(getProductionOrderChangeOrder(created.id)?.id, created.id, '新增变更必须可按变更单号查询')
-assert.ok(listProductionOrderChangeDocumentActions(created.id).length > 0, '新增变更必须生成单据处理建议')
-
-const draft = submitProductionOrderChangeOrder({
-  productionOrderId: relation.productionOrderId,
-  source: 'MATERIAL_SHORTAGE',
-  changeModules: ['BOM'],
-  reason: '补丁草稿：待补充业务原因',
-  expectedEffectiveMode: 'FROM_NEXT_PREP',
-  effectiveDescription: '从下一次配料开始',
-  changeResult: 'PRODUCTION_PATCH',
-  executionStrategy: 'AFTER_APPROVAL',
-  operatorName: '自动检查',
-  status: 'DRAFT',
-})
-
-assert.equal(draft.status, 'DRAFT', '保存补丁草稿创建的变更单必须保持草稿状态')
-
-const editBeforeCount = listProductionOrderChangeOrders().length
-const updatedDraft = updateProductionOrderChangeOrder(draft.id, {
-  productionOrderId: relation.productionOrderId,
-  source: 'FACTORY_PROCESS_EXCEPTION',
-  changeModules: ['PROCESS'],
-  reason: '编辑草稿：现场工序调整，待主管补充确认。',
-  expectedEffectiveMode: 'FROM_NEXT_PROCESS_ORDER',
-  effectiveDescription: '从下一张工艺单开始',
-  changeResult: 'PRODUCTION_PATCH',
-  executionStrategy: 'AFTER_APPROVAL',
-  operatorName: '自动检查',
-  status: 'DRAFT',
-})
-assert.equal(updatedDraft.id, draft.id, '编辑保存草稿必须更新当前变更单')
-assert.equal(updatedDraft.status, 'DRAFT', '编辑保存草稿必须保持草稿状态')
-assert.equal(updatedDraft.reason, '编辑草稿：现场工序调整，待主管补充确认。', '编辑保存草稿必须更新主字段')
-assert.equal(listProductionOrderChangeOrders().length, editBeforeCount, '编辑保存草稿不应新增变更单')
-
-assert.ok(listProductionOrderChangeImpactRows(draft.id).length > 0, '生产补丁草稿应先存在生产影响明细')
-assert.ok(listProductionOrderChangeTimingImpacts(draft.id).length > 0, '生产补丁草稿应先存在时效明细')
-assert.equal(listProductionOrderChangeCostImpacts(draft.id).length, 0, '生产补丁草稿无成本模块时不应先生成成本明细')
-const costOnlyUpdateBeforeCount = listProductionOrderChangeOrders().length
-const costOnlyDraft = updateProductionOrderChangeOrder(draft.id, {
-  productionOrderId: relation.productionOrderId,
-  source: 'COST_EXCEPTION',
-  changeModules: ['COST'],
-  reason: '编辑草稿：核价漏计印花费，只影响本次结算差异。',
-  expectedEffectiveMode: 'FROM_SPECIFIED_DATE',
-  effectiveDescription: '仅影响本次结算',
-  changeResult: 'COST_ONLY',
-  executionStrategy: 'AFTER_APPROVAL',
-  operatorName: '自动检查',
-  status: 'DRAFT',
-})
-assert.equal(costOnlyDraft.id, draft.id, '编辑为仅成本差异必须更新当前变更单')
-assert.equal(costOnlyDraft.changeResult, 'COST_ONLY', '编辑为仅成本差异必须更新主单结果')
-assert.equal(listProductionOrderChangeOrders().length, costOnlyUpdateBeforeCount, '编辑为仅成本差异不应新增变更单')
-assert.equal(listProductionOrderChangeImpactRows(draft.id).length, 0, '编辑为仅成本差异后不应残留生产影响明细')
-assert.equal(listProductionOrderChangeTimingImpacts(draft.id).length, 0, '编辑为仅成本差异后不应残留时效明细')
-assert.ok(listProductionOrderChangeCostImpacts(draft.id).length > 0, '编辑为仅成本差异后必须生成成本明细')
-assert.ok(listProductionOrderChangeDocumentActions(draft.id).length > 0, '编辑为仅成本差异后仍应保留单据处理建议')
-
-const startChangeFromOrderTarget = makeProductionActionTarget('start-production-change-from-order', {
-  orderId: relation.productionOrderId,
-})
-const startChangeFromOrderNode = startChangeFromOrderTarget.closest('[data-prod-action]') as HTMLElement | null
-assert.equal(startChangeFromOrderNode?.dataset.prodAction, 'start-production-change-from-order', '测试目标必须携带生产变更动作')
-assert.equal(startChangeFromOrderNode?.dataset.orderId, relation.productionOrderId, '测试目标必须携带生产单 ID')
-assert.equal(handleProductionEvent(startChangeFromOrderTarget), true, '从生产单发起新增事件必须被处理')
-assert.equal(
-  state.productionChangeForm.productionOrderId,
-  relation.productionOrderId,
-  '从生产单发起新增必须真实预填生产单 ID',
-)
-renderProductionChangeNewPage()
-assert.equal(state.productionChangeSelectedOrderId, '', '从生产单发起新增后不应残留编辑态 ID')
-assert.equal(
-  state.productionChangeForm.productionOrderId,
-  relation.productionOrderId,
-  '从生产单发起新增后新增页重渲染不应清空预填生产单',
-)
-assert.equal(state.productionChangeFormStep, 'content', '从生产单发起新增后新增页重渲染不应重置预填步骤')
-
-assert.equal(handleProductionEvent(makeProductionActionTarget('go-production-change-next-step')), true, '下一步事件必须被处理')
-assert.equal(state.productionChangeFormStep, 'handling', '下一步应从内容填写推进到影响确认')
-assert.equal(handleProductionEvent(makeProductionActionTarget('go-production-change-next-step')), true, '下一步事件必须继续被处理')
-assert.equal(state.productionChangeFormStep, 'preview', '下一步应从影响确认推进到预览提交')
-assert.equal(handleProductionEvent(makeProductionActionTarget('go-production-change-next-step')), true, '预览步重复下一步事件必须被处理')
-assert.equal(state.productionChangeFormStep, 'preview', '预览步重复下一步不应越界')
-;(state as any).productionChangeFormStep = 'legacy'
-assert.equal(handleProductionEvent(makeProductionActionTarget('go-production-change-next-step')), true, '非法旧步骤下一步事件必须被处理')
-assert.equal(state.productionChangeFormStep, 'order', '非法旧步骤下一步应回到选择生产单')
-
-state.productionChangeForm.executionMode = 'AFTER_APPROVAL'
-assert.equal(
-  handleProductionEvent(makeProductionActionTarget('set-production-change-execution-mode', { mode: 'IMMEDIATE_EXECUTION' })),
-  true,
-  '选择执行方式事件必须被处理',
-)
-assert.equal(state.productionChangeForm.executionMode, 'IMMEDIATE_EXECUTION', '选择执行方式必须写入新增表单')
-assert.equal(
-  handleProductionEvent(makeProductionActionTarget('set-production-change-execution-mode', { mode: 'LEGACY_MODE' })),
-  true,
-  '非法执行方式事件也应被吞掉，避免页面崩溃',
-)
-assert.equal(state.productionChangeForm.executionMode, 'IMMEDIATE_EXECUTION', '非法执行方式不应覆盖当前选择')
-
-const inProgressNewReason = '新增页重渲染：正在填写的新增表单不应被清空。'
-state.productionChangeSelectedOrderId = ''
-state.productionChangeForm = {
-  productionOrderId: relation.productionOrderId,
-  source: 'MATERIAL_SHORTAGE',
-  modules: ['BOM'],
-  changeContent: '主面料短缺，后续领料改用替代料。',
-  reason: inProgressNewReason,
-  effectiveMode: 'FROM_NEXT_PICKUP',
-  executionMode: 'AFTER_APPROVAL',
-}
-state.productionChangeFormStep = 'handling'
-renderProductionChangeNewPage()
-assert.equal(state.productionChangeForm.productionOrderId, relation.productionOrderId, '新增页重渲染不应清空正在填写的生产单')
-assert.equal(state.productionChangeForm.reason, inProgressNewReason, '新增页重渲染不应清空正在填写的原因')
-assert.equal(state.productionChangeFormStep, 'handling', '新增页重渲染不应重置正在填写的步骤')
-
-renderProductionChangeEditPage(draft.id)
-assert.equal(state.productionChangeSelectedOrderId, draft.id, '编辑页会设置当前编辑变更单 ID')
-const staleDraftBeforeNewSubmit = getProductionOrderChangeOrder(draft.id)
-assert.ok(staleDraftBeforeNewSubmit, '编辑残留测试需要可查询的草稿变更单')
-const newHtmlAfterEditResidue = renderProductionChangeNewPage()
-assert.equal(state.productionChangeSelectedOrderId, '', '新增页渲染必须清空编辑页残留的变更单 ID')
-assert.equal(state.productionChangeForm.productionOrderId, '', '新增页从编辑态切入时必须清空编辑单生产单')
-assert.equal(state.productionChangeForm.reason, '', '新增页从编辑态切入时必须清空编辑单原因')
-assert.equal(state.productionChangeFormStep, 'order', '新增页从编辑态切入时必须回到选择生产单步骤')
-assert.equal(state.productionChangeFormError, '', '新增页从编辑态切入时必须清空错误态')
-assert.ok(
-  !newHtmlAfterEditResidue.includes(`value="${staleDraftBeforeNewSubmit.productionOrderId}" selected`),
-  '新增页从编辑态切入时 HTML 不应选中编辑单生产单号',
-)
-assert.ok(!newHtmlAfterEditResidue.includes(staleDraftBeforeNewSubmit.reason), '新增页 HTML 不应残留编辑单原因')
-
-renderProductionChangeEditPage(draft.id)
-assert.equal(state.productionChangeSelectedOrderId, draft.id, '编辑页会再次设置当前编辑变更单 ID')
-const newReasonAfterEditResidue = '新增提交：编辑页残留后仍应创建新变更单。'
-renderProductionChangeNewPage()
-assert.equal(state.productionChangeSelectedOrderId, '', '新增页渲染必须清空编辑页残留的变更单 ID')
-state.productionChangeForm = {
-  productionOrderId: relation.productionOrderId,
-  source: 'MATERIAL_SHORTAGE',
-  modules: ['BOM'],
-  changeContent: '主面料短缺，后续领料改用替代料。',
-  reason: newReasonAfterEditResidue,
-  effectiveMode: 'FROM_NEXT_PICKUP',
-  executionMode: 'AFTER_APPROVAL',
-}
-state.productionChangeFormStep = 'preview'
-const newSubmitBeforeCount = listProductionOrderChangeOrders().length
-assert.equal(handleProductionEvent(makeProductionActionTarget('submit-production-change-order')), true, '新增页提交事件必须被处理')
-assert.equal(listProductionOrderChangeOrders().length, newSubmitBeforeCount + 1, '编辑页残留后进入新增页提交必须新增变更单')
-assert.equal(
-  getProductionOrderChangeOrder(draft.id)?.reason,
-  staleDraftBeforeNewSubmit.reason,
-  '新增页提交不应覆盖原编辑变更单主字段',
-)
-const createdAfterEditResidue = listProductionOrderChangeOrders().find(
-  (order) => order.reason === newReasonAfterEditResidue,
-)
-assert.ok(createdAfterEditResidue, '编辑页残留后新增提交必须可查询到新变更单')
-assert.notEqual(createdAfterEditResidue.id, draft.id, '编辑页残留后新增提交不能复用旧变更单 ID')
-
-state.productionChangeForm = {
-  productionOrderId: relation.productionOrderId,
-  source: 'COST_EXCEPTION',
-  modules: ['COST'],
-  changeContent: '核价漏计印花费，只影响本次结算差异。',
-  reason: '新增提交：仅成本差异必须由系统反推结果。',
-  effectiveMode: 'FROM_SPECIFIED_DATE',
-  executionMode: 'AFTER_APPROVAL',
-}
-state.productionChangeFormStep = 'preview'
-const inferredSubmitBeforeCount = listProductionOrderChangeOrders().length
-assert.equal(handleProductionEvent(makeProductionActionTarget('submit-production-change-order')), true, '新增页仅成本提交事件必须被处理')
-assert.equal(listProductionOrderChangeOrders().length, inferredSubmitBeforeCount + 1, '仅成本提交必须新增变更单')
-const inferredCostOnlyOrder = listProductionOrderChangeOrders().find(
-  (order) => order.reason === '新增提交：仅成本差异必须由系统反推结果。',
-)
-assert.ok(inferredCostOnlyOrder, '仅成本提交后必须可查询到新变更单')
-assert.equal(inferredCostOnlyOrder.changeResult, 'COST_ONLY', '提交时必须由领域函数反推仅成本结果')
-
-const editSubmitBeforeCount = listProductionOrderChangeOrders().length
-const updatedSubmit = updateProductionOrderChangeOrder(draft.id, {
-  productionOrderId: relation.productionOrderId,
-  source: 'FACTORY_PROCESS_EXCEPTION',
-  changeModules: ['PROCESS'],
-  reason: '编辑提交：现场工序调整，主管审核后执行。',
-  expectedEffectiveMode: 'FROM_NEXT_PROCESS_ORDER',
-  effectiveDescription: '从下一张工艺单开始',
-  changeResult: 'PRODUCTION_PATCH',
-  executionStrategy: 'IMMEDIATE_EXECUTION',
-  operatorName: '自动检查',
-  status: 'SUBMITTED',
-})
-assert.equal(updatedSubmit.id, draft.id, '编辑提交审核必须更新当前变更单')
-assert.equal(updatedSubmit.status, 'SUBMITTED', '编辑页提交审核应进入已提交状态')
-assert.equal(listProductionOrderChangeOrders().length, editSubmitBeforeCount, '编辑提交审核不应新增变更单')
-
 assert.throws(
   () =>
     submitProductionOrderChangeOrder({
       productionOrderId: relation.productionOrderId,
-      source: 'MATERIAL_SHORTAGE',
+      source: 'DELIVERY_REQUIREMENT_CHANGE',
       changeModules: ['BOM'],
-      reason: '自动检查：不允许新建为终态。',
+      reason: '自动检查：缺少变更类型必须失败。',
       expectedEffectiveMode: 'FROM_NEXT_PREP',
       effectiveDescription: '从下一次配料开始',
       changeResult: 'PRODUCTION_PATCH',
       executionStrategy: 'AFTER_APPROVAL',
       operatorName: '自动检查',
-      status: 'DONE',
     }),
-  /新建变更单只允许保存为草稿状态。/,
-  '新建变更单不允许直接创建为完成态',
+  /请选择生产单变更类型/,
+  '创建生产单变更单必须显式选择改数量或换物料',
 )
-
-const doneOrder = listProductionOrderChangeOrders().find((order) => order.status === 'DONE')
-assert.ok(doneOrder, '至少需要一张已完成变更单样本')
 assert.throws(
   () =>
-    updateProductionOrderChangeOrder(doneOrder.id, {
-      productionOrderId: doneOrder.productionOrderId,
-      source: doneOrder.source,
-      changeModules: doneOrder.changeModules,
-      reason: '自动检查：已完成单不允许编辑。',
-      expectedEffectiveMode: doneOrder.expectedEffectiveMode,
-      effectiveDescription: doneOrder.effectiveDescription,
-      changeResult: doneOrder.changeResult,
-      executionStrategy: doneOrder.executionStrategy,
+    submitProductionOrderChangeOrder({
+      productionOrderId: relation.productionOrderId,
+      changeType: 'QUANTITY_CHANGE',
+      source: 'DELIVERY_REQUIREMENT_CHANGE',
+      changeModules: ['BOM'],
+      reason: '自动检查：数量变更缺少色码明细必须失败。',
+      expectedEffectiveMode: 'FROM_NEXT_PREP',
+      effectiveDescription: '从下一次配料开始',
+      changeResult: 'PRODUCTION_PATCH',
+      executionStrategy: 'AFTER_APPROVAL',
       operatorName: '自动检查',
-      status: 'DRAFT',
     }),
-  /当前变更单状态不允许编辑。/,
-  '已完成变更单不允许编辑',
+  /修改生产单需求数量必须填写颜色尺码数量明细/,
+  '修改生产单需求数量必须携带颜色尺码明细',
+)
+assert.throws(
+  () =>
+    submitProductionOrderChangeOrder({
+      productionOrderId: relation.productionOrderId,
+      changeType: 'MATERIAL_REPLACEMENT',
+      source: 'MATERIAL_SHORTAGE',
+      changeModules: ['BOM'],
+      reason: '自动检查：替换物料缺少明细必须失败。',
+      expectedEffectiveMode: 'FROM_NEXT_PICKUP',
+      effectiveDescription: '从下一次领料开始',
+      changeResult: 'PRODUCTION_PATCH',
+      executionStrategy: 'AFTER_APPROVAL',
+      operatorName: '自动检查',
+    }),
+  /替换物料必须填写原物料、替代物料、适用颜色、适用尺码和开始使用节点/,
+  '替换物料必须携带原物料和替代物料明细',
 )
 
-const productionEventsSource = fs.readFileSync(path.resolve(process.cwd(), 'src/pages/production/events.ts'), 'utf8')
-const patchNoticeBlock = productionEventsSource.match(
-  /if \(action === 'open-production-patch-notice'\) \{[\s\S]*?\n  \}/,
-)?.[0] ?? ''
-assert.ok(patchNoticeBlock.includes("state.techPackChangeDetailTab = 'notice'"), '查看通知事件必须切到 notice Tab')
-assert.ok(
-  patchNoticeBlock.includes('`/fcs/production/changes/orders/${orderId}`'),
-  '查看通知事件必须打开生产单关系诊断页',
-)
-assert.ok(
-  !patchNoticeBlock.includes('`/fcs/production/changes/${orderId}`'),
-  '查看通知事件不应跳到变更单详情路由',
-)
+const createdQuantity = submitProductionOrderChangeOrder({
+  productionOrderId: relation.productionOrderId,
+  changeType: 'QUANTITY_CHANGE',
+  source: 'DELIVERY_REQUIREMENT_CHANGE',
+  changeModules: ['BOM', 'PROCESS'],
+  reason: '自动检查：按颜色尺码修改生产单需求数量。',
+  expectedEffectiveMode: 'FROM_NEXT_PREP',
+  effectiveDescription: '从下一次配料开始',
+  changeResult: 'PRODUCTION_PATCH',
+  executionStrategy: 'AFTER_APPROVAL',
+  operatorName: '自动检查',
+  quantityLines: [
+    { color: '黑色', size: 'M', currentQty: 120, newQty: 90, unit: '件' },
+    { color: '藏青色', size: 'L', currentQty: 100, newQty: 80, unit: '件' },
+  ],
+})
+assert.equal(createdQuantity.changeType, 'QUANTITY_CHANGE', '数量变更提交必须保留业务类型')
+assert.equal(createdQuantity.quantityLines?.[0]?.newQty, 90, '数量变更提交必须保留颜色尺码新数量')
+assert.equal(createdQuantity.materialReplacement, undefined, '数量变更提交不应挂物料替换明细')
 
-const appShellConfig = fs.readFileSync(path.resolve(process.cwd(), 'src/data/app-shell-config.ts'), 'utf8')
-assert.ok(appShellConfig.includes('生产单变更管理'), '菜单配置必须包含「生产单变更管理」')
-assert.ok(!appShellConfig.includes('生产单变更影响台账'), '菜单配置不应包含「生产单变更影响台账」')
+const createdMaterial = submitProductionOrderChangeOrder({
+  productionOrderId: relation.productionOrderId,
+  changeType: 'MATERIAL_REPLACEMENT',
+  source: 'MATERIAL_SHORTAGE',
+  changeModules: ['BOM'],
+  reason: '自动检查：替换物料后可查询变更单。',
+  expectedEffectiveMode: 'FROM_NEXT_PICKUP',
+  effectiveDescription: '从下一次领料开始',
+  changeResult: 'PRODUCTION_PATCH',
+  executionStrategy: 'AFTER_APPROVAL',
+  operatorName: '自动检查',
+  materialReplacement: {
+    originalMaterial: '自动检查原物料 A',
+    replacementMaterial: '自动检查替代物料 B',
+    colors: ['黑色'],
+    sizes: ['M', 'L'],
+    effectiveFromText: '从下一次领料开始用新物料',
+  },
+})
+assert.equal(createdMaterial.changeType, 'MATERIAL_REPLACEMENT', '物料替换提交必须保留业务类型')
+assert.equal(createdMaterial.materialReplacement?.replacementMaterial, '自动检查替代物料 B', '物料替换提交必须保留替代物料')
+assert.equal(createdMaterial.quantityLines, undefined, '物料替换提交不应挂数量变更明细')
 
-assert.ok(
-  fs.existsSync(path.resolve(process.cwd(), 'docs/prototype-review-records/2026-07-08-production-order-change-management-ia-refactor.md')),
-  '缺少生产单变更管理 IA 重构原型审查记录',
-)
+assert.equal(listProductionOrderChangeOrders().length, beforeCount + 2, '新增变更必须进入变更单列表')
+assert.equal(getProductionOrderChangeOrder(createdQuantity.id)?.id, createdQuantity.id, '新增数量变更必须可按变更单号查询')
+assert.equal(getProductionOrderChangeOrder(createdMaterial.id)?.id, createdMaterial.id, '新增物料替换必须可按变更单号查询')
 
 console.log('production order changes check passed')

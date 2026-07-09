@@ -210,6 +210,29 @@ function validateProductionPatchForm(): string {
 function submitProductionChangeForm(draft: boolean): string | null {
   const form = state.productionChangeForm
   const reason = draft && !form.reason.trim() ? '草稿：待补充变更原因' : form.reason
+  if (!draft && !form.reason.trim()) {
+    state.productionChangeFormError = '请填写变更原因。'
+    state.productionChangeFormStep = 'content'
+    return null
+  }
+  if (!draft && form.changeType === 'QUANTITY_CHANGE' && !form.quantityLines.some((line) => line.newQty !== line.currentQty)) {
+    state.productionChangeFormError = '请至少修改一行新数量。'
+    state.productionChangeFormStep = 'content'
+    return null
+  }
+  if (!draft && form.changeType === 'MATERIAL_REPLACEMENT') {
+    const item = form.materialReplacement
+    if (
+      !item.originalMaterial.trim() ||
+      !item.replacementMaterial.trim() ||
+      item.colors.length === 0 ||
+      item.sizes.length === 0
+    ) {
+      state.productionChangeFormError = '请填写原物料、替代物料、适用颜色和适用尺码。'
+      state.productionChangeFormStep = 'content'
+      return null
+    }
+  }
   const effectiveMode = form.effectiveMode as ChangeEffectiveMode
   const changeResult = inferProductionOrderChangeResult({
     source: form.source as ProductionOrderChangeSource,
@@ -230,6 +253,15 @@ function submitProductionChangeForm(draft: boolean): string | null {
       executionStrategy,
       operatorName: currentUser.name,
       status: draft ? 'DRAFT' as const : undefined,
+      changeType: form.changeType,
+      quantityLines: form.changeType === 'QUANTITY_CHANGE' ? form.quantityLines.map((line) => ({ ...line })) : undefined,
+      materialReplacement: form.changeType === 'MATERIAL_REPLACEMENT'
+        ? {
+          ...form.materialReplacement,
+          colors: [...form.materialReplacement.colors],
+          sizes: [...form.materialReplacement.sizes],
+        }
+        : undefined,
     }
     const order = state.productionChangeSelectedOrderId
       ? updateProductionOrderChangeOrder(state.productionChangeSelectedOrderId, {
@@ -247,6 +279,22 @@ function submitProductionChangeForm(draft: boolean): string | null {
     state.productionChangeFormStep = 'preview'
     return null
   }
+}
+
+function splitProductionChangeList(value: string): string[] {
+  return value.split(/[、,]/).map((item) => item.trim()).filter(Boolean)
+}
+
+function setProductionChangeType(changeType: typeof state.productionChangeForm.changeType): void {
+  const productionOrderId = state.productionChangeForm.productionOrderId
+  state.productionChangeForm = {
+    ...PRODUCTION_CHANGE_EMPTY_FORM,
+    changeType,
+    productionOrderId,
+    source: changeType === 'QUANTITY_CHANGE' ? 'DELIVERY_REQUIREMENT_CHANGE' : 'MATERIAL_SHORTAGE',
+    modules: changeType === 'QUANTITY_CHANGE' ? ['BOM', 'PROCESS'] : ['BOM'],
+  }
+  state.productionChangeFormError = ''
 }
 
 function openLatestProductionChangeOrderOrRelation(orderId: string): void {
@@ -587,6 +635,39 @@ function updateProductionField(
     return
   }
 
+  if (field === 'productionChangeQuantityNewQty') {
+    const index = Number(node.dataset.index)
+    const qty = Number(value)
+    if (Number.isInteger(index) && state.productionChangeForm.quantityLines[index]) {
+      state.productionChangeForm.quantityLines[index].newQty = Number.isFinite(qty) ? qty : 0
+      state.productionChangeFormError = ''
+    }
+    return
+  }
+
+  const materialFieldMap: Partial<Record<string, keyof typeof state.productionChangeForm.materialReplacement>> = {
+    originalMaterial: 'originalMaterial',
+    replacementMaterial: 'replacementMaterial',
+    colors: 'colors',
+    sizes: 'sizes',
+    effectiveFromText: 'effectiveFromText',
+    productionChangeMaterialOriginalMaterial: 'originalMaterial',
+    productionChangeMaterialReplacementMaterial: 'replacementMaterial',
+    productionChangeMaterialColors: 'colors',
+    productionChangeMaterialSizes: 'sizes',
+    productionChangeMaterialEffectiveFromText: 'effectiveFromText',
+  }
+  const materialField = materialFieldMap[field]
+  if (materialField) {
+    if (materialField === 'colors' || materialField === 'sizes') {
+      state.productionChangeForm.materialReplacement[materialField] = splitProductionChangeList(value)
+    } else {
+      state.productionChangeForm.materialReplacement[materialField] = value
+    }
+    state.productionChangeFormError = ''
+    return
+  }
+
   if (field === 'productionPatchType') {
     state.productionPatchForm = {
       ...PRODUCTION_PATCH_EMPTY_FORM,
@@ -781,6 +862,24 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'start-production-change-type') {
+    const changeType = actionNode.dataset.changeType as typeof state.productionChangeForm.changeType | undefined
+    if (changeType !== 'QUANTITY_CHANGE' && changeType !== 'MATERIAL_REPLACEMENT') return true
+    setProductionChangeType(changeType)
+    const orderId = actionNode.dataset.orderId
+    if (orderId) state.productionChangeForm.productionOrderId = orderId
+    state.productionChangeSelectedOrderId = ''
+    state.productionChangeFormStep = orderId ? 'content' : 'order'
+    openAppRoute('/fcs/production/changes/new', 'production-change-new', '新增生产单变更')
+    return true
+  }
+
+  if (action === 'set-production-change-type') {
+    const changeType = actionNode.dataset.changeType as typeof state.productionChangeForm.changeType | undefined
+    if (changeType === 'QUANTITY_CHANGE' || changeType === 'MATERIAL_REPLACEMENT') setProductionChangeType(changeType)
+    return true
+  }
+
   if (action === 'set-production-change-form-step') {
     const step = actionNode.dataset.step as ProductionState['productionChangeFormStep'] | undefined
     if (
@@ -844,6 +943,11 @@ export function handleProductionEvent(target: HTMLElement): boolean {
 
   if (action === 'withdraw-production-change-order') {
     showPlanMessage('变更单已撤回')
+    return true
+  }
+
+  if (action === 'confirm-production-change-actions') {
+    showPlanMessage('已通知相关负责人处理')
     return true
   }
 
@@ -1027,11 +1131,38 @@ export function handleProductionEvent(target: HTMLElement): boolean {
   if (action === 'save-production-patch-draft') {
     const orderId = state.productionPatchDialogOrderId
     if (!orderId) return true
+    const form = state.productionPatchForm
+    const changeModule = productionPatchTypeModuleMap[form.patchType as ProductionPatchType]
+    const draftScenarioPayload =
+      changeModule === 'BOM'
+        ? {
+            changeType: 'MATERIAL_REPLACEMENT' as const,
+            materialReplacement: {
+              originalMaterial: form.material || form.colorMaterialMapping || '原物料待确认',
+              replacementMaterial: form.targetMaterial || form.targetColorMaterialMapping || form.contentText || '替代物料待确认',
+              colors: [form.color || form.targetColor || '全部颜色'],
+              sizes: [form.size || '全部尺码'],
+              effectiveFromText: '从下一次配料开始用新物料',
+            },
+          }
+        : {
+            changeType: 'QUANTITY_CHANGE' as const,
+            quantityLines: [
+              {
+                color: form.color || '全部颜色',
+                size: form.size || '全部尺码',
+                currentQty: 1,
+                newQty: 1,
+                unit: '件',
+              },
+            ],
+          }
     const draft = submitProductionOrderChangeOrder({
       productionOrderId: orderId,
+      ...draftScenarioPayload,
       source: 'MATERIAL_SHORTAGE',
-      changeModules: [productionPatchTypeModuleMap[state.productionPatchForm.patchType as ProductionPatchType]],
-      reason: state.productionPatchForm.reason || '补丁草稿：待补充业务原因',
+      changeModules: [changeModule],
+      reason: form.reason || '补丁草稿：待补充业务原因',
       expectedEffectiveMode: 'FROM_NEXT_PREP',
       effectiveDescription: '从下一次配料开始',
       changeResult: 'PRODUCTION_PATCH',

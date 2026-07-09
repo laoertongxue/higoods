@@ -11,6 +11,7 @@ import {
 import {
   buildMonthlyPreparationCompletionDetails,
   buildProductionPreparationKpis,
+  externalPreparationMaterials,
   filterProductionPreparationRecords,
   flattenProductionPreparationItems,
   getProductionPreparationFilterOptions,
@@ -21,6 +22,7 @@ import {
   productionPreparationRecords,
   type MonthlyPreparationCompletionDetail,
   type MonthlyPreparationStatRow,
+  type ExternalPreparationMaterial,
   type PreparationDyeRequirement,
   type PreparationItemType,
   type PreparationMaterialLine,
@@ -333,10 +335,12 @@ function csvDataUri(rows: string[][]): string {
   return `data:text/csv;charset=utf-8,${encodeURIComponent(`\uFEFF${lines.join('\n')}`)}`
 }
 
-function renderHeader(): string {
+function renderHeader(params: URLSearchParams, month: string): string {
+  const externalMaterialsHref = buildLedgerHrefFromParams(params, month, { action: 'external-materials' })
   return `
     <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       <h1 class="text-2xl font-semibold text-foreground">生产准备时效</h1>
+      <button type="button" class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" data-nav="${escapeHtml(externalMaterialsHref)}">非系统内物料</button>
     </header>
   `
 }
@@ -544,15 +548,27 @@ function renderMaterialRequirementTable(record: ProductionPreparationRecord): st
         <tbody>
           ${lines.map((material) => `
             <tr class="border-t">
-              <td class="px-3 py-2">
-                ${material.imageUrl ? `<img src="${escapeHtml(material.imageUrl)}" alt="${escapeHtml(material.materialName)}" class="h-12 w-12 rounded-md border object-cover" />` : '<div class="h-12 w-12 rounded-md border bg-muted" />'}
-              </td>
-              <td class="px-3 py-2 font-medium">${escapeHtml(material.materialName)}</td>
-              <td class="px-3 py-2 font-mono text-xs">${escapeHtml(material.materialNo)}</td>
-              <td class="px-3 py-2">${escapeHtml(material.materialType)}</td>
-              <td class="px-3 py-2">${material.requiredQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
-              <td class="px-3 py-2">${material.preparedQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
-              <td class="px-3 py-2">${material.issuedQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
+              ${material.materialSource === '非系统内物料'
+                ? `
+                  <td class="px-3 py-2 text-xs text-muted-foreground">非系统内物料</td>
+                  <td class="px-3 py-2 font-medium">${escapeHtml(material.materialName)}</td>
+                  <td class="px-3 py-2">序号 ${material.externalSerialNo ?? '-'}</td>
+                  <td class="px-3 py-2 text-muted-foreground">-</td>
+                  <td class="px-3 py-2 text-muted-foreground">-</td>
+                  <td class="px-3 py-2 text-muted-foreground">-</td>
+                  <td class="px-3 py-2 text-muted-foreground">-</td>
+                `
+                : `
+                  <td class="px-3 py-2">
+                    ${material.imageUrl ? `<img src="${escapeHtml(material.imageUrl)}" alt="${escapeHtml(material.materialName)}" class="h-12 w-12 rounded-md border object-cover" />` : '<div class="h-12 w-12 rounded-md border bg-muted" />'}
+                  </td>
+                  <td class="px-3 py-2 font-medium">${escapeHtml(material.materialName)}</td>
+                  <td class="px-3 py-2 font-mono text-xs">${escapeHtml(material.materialNo)}</td>
+                  <td class="px-3 py-2">${escapeHtml(material.materialType)}</td>
+                  <td class="px-3 py-2">${material.requiredQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
+                  <td class="px-3 py-2">${material.preparedQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
+                  <td class="px-3 py-2">${material.issuedQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
+                `}
             </tr>
           `).join('')}
         </tbody>
@@ -591,11 +607,74 @@ function renderMaterialDatalist(): string {
   `
 }
 
+function allExternalMaterials(): ExternalPreparationMaterial[] {
+  const runtime = loadPreparationRuntimeState()
+  return [...externalPreparationMaterials, ...runtime.externalMaterials]
+}
+
+function renderExternalMaterialDatalist(): string {
+  return `
+    <datalist id="prep-external-material-options">
+      ${allExternalMaterials().map((material) => `
+        <option value="${material.serialNo}" label="${escapeHtml(material.materialName)}"></option>
+      `).join('')}
+    </datalist>
+  `
+}
+
+function renderExternalMaterialsDialog(params: URLSearchParams, month: string): string {
+  if (valueOf(params, 'action') !== 'external-materials') return ''
+  const closeHref = buildLedgerHrefFromParams(params, month)
+  return `
+    <div class="fixed inset-0 z-50">
+      <button class="absolute inset-0 bg-black/45" data-nav="${escapeHtml(closeHref)}" aria-label="关闭"></button>
+      <section class="absolute left-1/2 top-10 flex max-h-[calc(100vh-80px)] w-[720px] max-w-[calc(100vw-32px)] -translate-x-1/2 flex-col overflow-hidden rounded-xl bg-background shadow-2xl">
+        <div class="border-b p-5">
+          <h3 class="text-lg font-semibold">非系统内物料</h3>
+        </div>
+        <form class="border-b p-5" data-prep-external-material-form>
+          <label class="block text-sm">
+            <span class="text-muted-foreground">物料名称</span>
+            <input name="materialName" class="mt-1 h-10 w-full rounded-md border px-3" required />
+          </label>
+          <button type="submit" class="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm text-white">新增</button>
+        </form>
+        <div class="min-h-0 flex-1 overflow-auto p-5">
+          <table class="w-full text-sm">
+            <thead class="bg-muted/60 text-xs text-muted-foreground">
+              <tr>
+                <th class="px-3 py-2 text-left font-medium">序号</th>
+                <th class="px-3 py-2 text-left font-medium">物料名称</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${allExternalMaterials().map((material) => `
+                <tr class="border-t">
+                  <td class="px-3 py-2">${material.serialNo}</td>
+                  <td class="px-3 py-2">${escapeHtml(material.materialName)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function renderConfirmMaterialRow(material: PreparationMaterialLine): string {
+  const materialSource = material.materialSource === '非系统内物料' ? '非系统内物料' : '系统内物料'
   return `
     <tr class="border-t" data-prep-material-row>
       <td class="px-3 py-2 align-middle">
-        <input name="materialNo" list="prep-material-options" value="${escapeHtml(material.materialNo)}" placeholder="输入编号或名称搜索" class="h-9 w-56 rounded-md border px-3 text-sm" required data-prep-material-input />
+        <select name="materialSource" class="h-9 rounded-md border px-2 text-sm" data-prep-material-source>
+          <option value="系统内物料" ${materialSource === '系统内物料' ? 'selected' : ''}>系统内物料</option>
+          <option value="非系统内物料" ${materialSource === '非系统内物料' ? 'selected' : ''}>非系统内物料</option>
+        </select>
+      </td>
+      <td class="px-3 py-2 align-middle">
+        <input name="materialNo" list="prep-material-options" value="${escapeHtml(material.materialNo)}" placeholder="输入编号或名称搜索" class="h-9 w-56 rounded-md border px-3 text-sm" data-prep-material-input />
+        <input name="externalSerialNo" list="prep-external-material-options" value="${material.externalSerialNo ?? ''}" placeholder="非系统序号" class="mt-2 h-9 w-28 rounded-md border px-3 text-sm" data-prep-external-material-input />
         <input type="hidden" name="materialName" value="${escapeHtml(material.materialName)}" data-prep-material-name />
         <input type="hidden" name="materialType" value="${escapeHtml(material.materialType)}" data-prep-material-type />
         <input type="hidden" name="materialImageUrl" value="${escapeHtml(material.imageUrl)}" data-prep-material-image />
@@ -605,7 +684,9 @@ function renderConfirmMaterialRow(material: PreparationMaterialLine): string {
         <input type="hidden" name="materialUnit" value="${escapeHtml(material.unit)}" data-prep-material-unit />
       </td>
       <td class="px-3 py-2 align-middle">
-        <img src="${escapeHtml(material.imageUrl)}" alt="${escapeHtml(material.materialName)}" class="h-12 w-12 rounded-md border object-cover" data-prep-material-preview-image />
+        ${materialSource === '非系统内物料'
+          ? '<div class="flex h-12 w-12 items-center justify-center rounded-md border bg-muted text-xs text-muted-foreground">外部</div>'
+          : `<img src="${escapeHtml(material.imageUrl)}" alt="${escapeHtml(material.materialName)}" class="h-12 w-12 rounded-md border object-cover" data-prep-material-preview-image />`}
       </td>
       <td class="px-3 py-2 align-middle font-medium" data-prep-material-preview-name>${escapeHtml(material.materialName)}</td>
       <td class="px-3 py-2 align-middle font-mono text-xs text-muted-foreground" data-prep-material-preview-no>${escapeHtml(material.materialNo)}</td>
@@ -621,11 +702,12 @@ function renderConfirmMaterialRows(record: ProductionPreparationRecord): string 
   const lines = materialLines(record)
   return `
     ${renderMaterialDatalist()}
+    ${renderExternalMaterialDatalist()}
     <div class="overflow-x-auto rounded-lg border">
       <table class="w-full min-w-[760px] text-sm">
         <thead class="bg-muted/60 text-left text-xs text-muted-foreground">
           <tr>
-            ${['选择物料', '图片', '物料名称', '物料编号', '物料类型', '操作'].map((head) => `<th class="px-3 py-2 font-medium">${escapeHtml(head)}</th>`).join('')}
+            ${['来源', '选择物料', '图片', '物料名称', '物料编号', '物料类型', '操作'].map((head) => `<th class="px-3 py-2 font-medium">${escapeHtml(head)}</th>`).join('')}
           </tr>
         </thead>
         <tbody data-prep-material-rows>
@@ -838,7 +920,9 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
     ${detailRecord && !action ? renderDetailDrawer(detailRecord, params, month) : ''}
     ${detailRecord ? renderConfirmItemsDialog(detailRecord, params, month) : ''}
     ${detailRecord && activeItem ? renderDyeRequirementDialog(detailRecord, activeItem, params, month) : ''}
+    ${detailRecord && activeItem ? renderAccessoryOrderDialog(detailRecord, activeItem, params, month) : ''}
     ${detailRecord && activeItem ? renderOperateItemDialog(detailRecord, activeItem, params, month) : ''}
+    ${renderExternalMaterialsDialog(params, month)}
   `
 }
 
@@ -1086,8 +1170,27 @@ function renderItemCard(record: ProductionPreparationRecord, item: ProductionPre
       }
       ${item.itemType === '数码印/DTF/DTG花型' ? renderPatternFields(item) : ''}
       ${isDyeItem(item) || isDyeRequirementItem(item) ? renderDyeRequirementFields(item) : ''}
-      <div class="mt-3">${renderItemUploadHistory(item)}</div>
+      ${item.itemType === '辅料下单' ? renderAccessoryPurchaseOrderFields(item) : `<div class="mt-3">${renderItemUploadHistory(item)}</div>`}
     </article>
+  `
+}
+
+function renderAccessoryPurchaseOrderFields(item: ProductionPreparationItem): string {
+  const orderNos = item.accessoryPurchaseOrderNos ?? []
+  return `
+    <div class="mt-3 rounded-lg border bg-muted/30 p-3 text-xs">
+      <div class="text-sm font-medium">面辅料采购单号</div>
+      ${
+        orderNos.length
+          ? `
+            <div class="mt-2 space-y-1">
+              ${orderNos.map((orderNo) => `<div>${escapeHtml(orderNo)}</div>`).join('')}
+            </div>
+            <div class="mt-2 text-muted-foreground">最后更新时间：${escapeHtml(formatDateTime(item.accessoryPurchaseUpdatedAt ?? item.actualFinishAt))}</div>
+          `
+          : '<div class="mt-2 text-muted-foreground">暂未登记</div>'
+      }
+    </div>
   `
 }
 
@@ -1334,9 +1437,9 @@ function renderOperateItemDialog(
 ): string {
   if (valueOf(params, 'action') !== 'operate-item') return ''
   if (isDyeRequirementItem(item)) return ''
+  if (item.itemType === '辅料下单') return ''
   if (!hasConfirmedWorkItems(record) || !isSelectedPreparationItem(item) || !canOperateItem(item, record)) return ''
   const closeHref = buildLedgerHrefFromParams(params, month)
-  const isAccessory = item.itemType === '辅料下单'
   return `
     <div class="fixed inset-0 z-50">
       <button class="absolute inset-0 bg-black/45" data-nav="${escapeHtml(closeHref)}" aria-label="关闭"></button>
@@ -1346,29 +1449,10 @@ function renderOperateItemDialog(
         <form class="mt-4 space-y-4" data-prep-operate-item-form>
           <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
           <input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />
-          ${
-            isAccessory
-              ? `
-                <label class="block text-sm">
-                  <span class="text-muted-foreground">面辅料采购单号</span>
-                  <input type="text" name="purchaseOrderNo" class="mt-1 w-full rounded-md border px-3 py-2" required placeholder="输入面辅料采购单号，系统自动读取下单时间" />
-                </label>
-                <label class="block text-sm">
-                  <span class="text-muted-foreground">辅料下单时间</span>
-                  <input type="datetime-local" name="orderedAt" class="mt-1 w-full rounded-md border px-3 py-2" required />
-                </label>
-                <label class="block text-sm">
-                  <span class="text-muted-foreground">下单凭证</span>
-                  <input type="file" name="files" class="mt-1 w-full rounded-md border px-3 py-2" multiple required />
-                </label>
-              `
-              : `
-                <label class="block text-sm">
-                  <span class="text-muted-foreground">上传文件</span>
-                  <input type="file" name="files" class="mt-1 w-full rounded-md border px-3 py-2" multiple required />
-                </label>
-              `
-          }
+          <label class="block text-sm">
+            <span class="text-muted-foreground">上传文件</span>
+            <input type="file" name="files" class="mt-1 w-full rounded-md border px-3 py-2" multiple required />
+          </label>
           <label class="block text-sm">
             <span class="text-muted-foreground">说明</span>
             <textarea name="note" class="mt-1 min-h-20 w-full rounded-md border px-3 py-2"></textarea>
@@ -1377,6 +1461,51 @@ function renderOperateItemDialog(
           <div class="flex justify-end gap-2">
             <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="${escapeHtml(closeHref)}">取消</button>
             <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white">提交</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  `
+}
+
+function renderAccessoryOrderDialog(
+  record: ProductionPreparationRecord,
+  item: ProductionPreparationItem,
+  params: URLSearchParams,
+  month: string,
+): string {
+  if (valueOf(params, 'action') !== 'operate-item') return ''
+  if (item.itemType !== '辅料下单') return ''
+  if (!hasConfirmedWorkItems(record) || !isSelectedPreparationItem(item) || !canOperateItem(item, record)) return ''
+  const closeHref = buildLedgerHrefFromParams(params, month)
+  const orderNos = item.accessoryPurchaseOrderNos?.length ? item.accessoryPurchaseOrderNos : ['']
+  return `
+    <div class="fixed inset-0 z-50">
+      <button class="absolute inset-0 bg-black/45" data-nav="${escapeHtml(closeHref)}" aria-label="关闭"></button>
+      <section class="absolute left-1/2 top-10 w-[680px] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl bg-background p-5 shadow-2xl">
+        <h3 class="text-lg font-semibold">登记辅料下单</h3>
+        <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.spuName)}</p>
+        <form class="mt-4 space-y-4" data-prep-accessory-order-form>
+          <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
+          <input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />
+          <div>
+            <div class="mb-2 flex items-center justify-between">
+              <span class="text-sm font-medium">面辅料采购单号</span>
+              <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-prep-action="add-accessory-order-row">新增单号</button>
+            </div>
+            <div class="space-y-2" data-prep-accessory-order-rows>
+              ${orderNos.map((orderNo) => `
+                <input name="accessoryPurchaseOrderNo" value="${escapeHtml(orderNo)}" class="w-full rounded-md border px-3 py-2 text-sm" required placeholder="填写面辅料采购单号" />
+              `).join('')}
+            </div>
+            <p class="mt-2 text-xs text-muted-foreground">可填写多个面辅料采购单号；每次提交都会覆盖当前列表，并以最后一次更新时间作为完成时间。</p>
+          </div>
+          <div class="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            当前最后更新时间：${escapeHtml(formatDateTime(item.accessoryPurchaseUpdatedAt ?? item.actualFinishAt))}
+          </div>
+          <div class="flex justify-end gap-2">
+            <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="${escapeHtml(closeHref)}">取消</button>
+            <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm text-white">保存</button>
           </div>
         </form>
       </section>
@@ -1759,7 +1888,7 @@ export function renderProductionPreparationTimingPage(pathname?: string): string
 
   return `
     <div class="flex flex-col gap-5 p-6">
-      ${renderHeader()}
+      ${renderHeader(params, month)}
       ${renderLedgerTab(params, month)}
     </div>
   `
@@ -1812,6 +1941,26 @@ function closePreparationDialog(): void {
 export async function handleProductionPreparationTimingSubmit(form: HTMLFormElement): Promise<boolean> {
   const formData = new FormData(form)
 
+  if (form.matches('[data-prep-external-material-form]')) {
+    const materialName = String(formData.get('materialName') ?? '').trim()
+    if (!materialName) return true
+    const runtime = loadPreparationRuntimeState()
+    const maxSerialNo = Math.max(
+      0,
+      ...externalPreparationMaterials.map((item) => item.serialNo),
+      ...runtime.externalMaterials.map((item) => item.serialNo),
+    )
+    savePreparationRuntimeState({
+      ...runtime,
+      externalMaterials: [
+        ...runtime.externalMaterials,
+        { serialNo: maxSerialNo + 1, materialName },
+      ],
+    })
+    closePreparationDialog()
+    return true
+  }
+
   if (form.matches('[data-prep-confirm-items-form]')) {
     const recordId = String(formData.get('recordId') ?? '').trim()
     if (!recordId) return true
@@ -1819,6 +1968,8 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
     const selectedItemTypes = normalizeSelectedPreparationItemTypes(formData.getAll('selectedItemType')
       .map((itemType) => String(itemType).trim() as PreparationItemType)
       .filter(Boolean))
+    const materialSources = formData.getAll('materialSource').map((value) => String(value).trim())
+    const externalSerialNos = formData.getAll('externalSerialNo').map((value) => Number(String(value).trim()) || 0)
     const materialNos = formData.getAll('materialNo').map((value) => String(value).trim())
     const materialNames = formData.getAll('materialName').map((value) => String(value).trim())
     const materialTypes = formData.getAll('materialType').map((value) => String(value).trim())
@@ -1828,17 +1979,36 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
     const materialIssuedQtys = formData.getAll('materialIssuedQty').map((value) => Number(value) || 0)
     const materialUnits = formData.getAll('materialUnit').map((value) => String(value).trim() || '米')
     const materialItems = materialNos
-      .map((materialNo, index) => ({
-        materialNo,
-        materialName: materialNames[index] ?? '',
-        materialType: materialTypes[index] ?? '',
-        imageUrl: materialImageUrls[index] ?? '',
-        requiredQty: materialRequiredQtys[index] ?? 0,
-        preparedQty: materialPreparedQtys[index] ?? 0,
-        issuedQty: materialIssuedQtys[index] ?? 0,
-        unit: materialUnits[index] ?? '米',
-      }))
-      .filter((material) => material.materialNo && material.materialName)
+      .map((materialNo, index) => {
+        if (materialSources[index] === '非系统内物料') {
+          const externalMaterial = allExternalMaterials().find((item) => item.serialNo === externalSerialNos[index])
+          if (!externalMaterial) return null
+          return {
+            materialSource: '非系统内物料' as const,
+            externalSerialNo: externalMaterial.serialNo,
+            materialNo: '',
+            materialName: externalMaterial.materialName,
+            materialType: '',
+            imageUrl: '',
+            requiredQty: 0,
+            preparedQty: 0,
+            issuedQty: 0,
+            unit: '',
+          }
+        }
+        return {
+          materialSource: '系统内物料' as const,
+          materialNo,
+          materialName: materialNames[index] ?? '',
+          materialType: materialTypes[index] ?? '',
+          imageUrl: materialImageUrls[index] ?? '',
+          requiredQty: materialRequiredQtys[index] ?? 0,
+          preparedQty: materialPreparedQtys[index] ?? 0,
+          issuedQty: materialIssuedQtys[index] ?? 0,
+          unit: materialUnits[index] ?? '米',
+        }
+      })
+      .filter((material): material is PreparationMaterialLine => Boolean(material && material.materialName && (material.materialSource === '非系统内物料' || material.materialNo)))
     const firstMaterial = materialItems[0]
     const materialRequirement = {
       materialNo: firstMaterial?.materialNo ?? '',
@@ -1929,6 +2099,36 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
     return true
   }
 
+  if (form.matches('[data-prep-accessory-order-form]')) {
+    const recordId = String(formData.get('recordId') ?? '').trim()
+    const itemId = String(formData.get('itemId') ?? '').trim()
+    const orderNos = formData.getAll('accessoryPurchaseOrderNo')
+      .map((value) => String(value).trim())
+      .filter(Boolean)
+    if (!recordId || !itemId || !orderNos.length) return true
+
+    const runtime = loadPreparationRuntimeState()
+    const record = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
+      .find((item) => item.recordId === recordId)
+    if (!record || !hasConfirmedWorkItems(record)) return true
+    const item = record.items.find((candidate) => candidate.itemId === itemId)
+    if (!item || item.itemType !== '辅料下单' || !isSelectedPreparationItem(item) || !canOperateItem(item, record)) return true
+
+    savePreparationRuntimeState({
+      ...runtime,
+      accessoryPurchaseOrders: {
+        ...runtime.accessoryPurchaseOrders,
+        [itemId]: {
+          orderNos,
+          updatedAt: currentIsoMinute(),
+          updatedBy: '当前跟单',
+        },
+      },
+    })
+    closePreparationDialog()
+    return true
+  }
+
   if (!form.matches('[data-prep-operate-item-form]')) return false
 
   const recordId = String(formData.get('recordId') ?? '').trim()
@@ -1944,14 +2144,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
 
   const fileInput = form.querySelector<HTMLInputElement>('input[type="file"][name="files"]')
   const files = Array.from(fileInput?.files ?? [])
-  const purchaseOrderNo = String(formData.get('purchaseOrderNo') ?? '').trim()
-  const orderedAt = String(formData.get('orderedAt') ?? '').trim()
   const note = String(formData.get('note') ?? '').trim()
-  const isAccessory = item.itemType === '辅料下单'
-
-  const uploadNote = isAccessory && purchaseOrderNo
-    ? [note, `面辅料采购单号：${purchaseOrderNo}`, `辅料下单时间：${orderedAt || currentIsoMinute()}`].filter(Boolean).join('；')
-    : note
 
   if (!files.length) {
     return true
@@ -1964,7 +2157,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
       itemType: item.itemType,
       files,
       uploadedBy: '当前用户',
-      note: uploadNote,
+      note,
     })
     appendPreparationUploads(uploadRecords)
     closePreparationDialog()
@@ -2043,6 +2236,17 @@ function addMaterialRow(button: HTMLElement): void {
   rows.appendChild(row)
 }
 
+function addAccessoryOrderRow(button: HTMLElement): void {
+  const rows = button.closest<HTMLFormElement>('[data-prep-accessory-order-form]')?.querySelector<HTMLElement>('[data-prep-accessory-order-rows]')
+  if (!rows) return
+  const input = document.createElement('input')
+  input.name = 'accessoryPurchaseOrderNo'
+  input.required = true
+  input.placeholder = '填写面辅料采购单号'
+  input.className = 'w-full rounded-md border px-3 py-2 text-sm'
+  rows.appendChild(input)
+}
+
 export function handleProductionPreparationTimingEvent(target: HTMLElement): boolean {
   const materialInput = target.closest<HTMLInputElement>('[data-prep-material-input]')
   if (materialInput) {
@@ -2065,6 +2269,10 @@ export function handleProductionPreparationTimingEvent(target: HTMLElement): boo
   const actionNode = target.closest<HTMLElement>('[data-prep-action]')
   if (actionNode?.dataset.prepAction === 'add-material-row') {
     addMaterialRow(actionNode)
+    return false
+  }
+  if (actionNode?.dataset.prepAction === 'add-accessory-order-row') {
+    addAccessoryOrderRow(actionNode)
     return false
   }
   if (actionNode?.dataset.prepAction === 'remove-material-row') {

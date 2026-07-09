@@ -19,6 +19,7 @@ import {
   type MaterialPrepOrderStatus,
   type MaterialPrepRecord,
   type MaterialPrepRecordStatus,
+  type MaterialPickupReturnRecord,
   type PickupRecord,
   type PrepRejectRecord,
 } from '../../../data/fcs/cutting/production-material-prep.ts'
@@ -82,6 +83,19 @@ function getCategoryPrepRecords(projection: MaterialPrepOrderProjection): Materi
   )
 }
 
+function getCategoryPickupReturnRecords(projection: MaterialPrepOrderProjection): MaterialPickupReturnRecord[] {
+  const lineIds = getCategoryLineIds(projection)
+  return projection.pickupReturnRecords.filter((record) => lineIds.has(record.prepLineId))
+}
+
+function getCategoryReturnStats(projection: MaterialPrepOrderProjection): { lineCount: number; qty: number } {
+  const records = getCategoryPickupReturnRecords(projection)
+  return {
+    lineCount: new Set(records.map((record) => record.prepLineId)).size,
+    qty: records.reduce((sum, record) => sum + Number(record.returnQty || 0), 0),
+  }
+}
+
 function getCategoryTaskProjections(projection: MaterialPrepOrderProjection): MaterialPrepOrderProjection['taskProjections'] {
   const lineIds = getCategoryLineIds(projection)
   return projection.taskProjections.map((task) => {
@@ -133,10 +147,19 @@ function buildHref(params: Record<string, string | undefined>): string {
   return `${pageBasePath}${query ? `?${query}` : ''}`
 }
 
+function keepListContext(params: URLSearchParams): void {
+  const current = getSearchParams()
+  ;['keyword', 'hasReturn'].forEach((key) => {
+    const value = current.get(key)
+    if (value) params.set(key, value)
+  })
+}
+
 function buildDetailHref(prepOrderId: string, activeTab?: string): string {
   const params = new URLSearchParams()
   params.set('prepOrderId', prepOrderId)
   if (activeTab) params.set('fromTab', activeTab)
+  keepListContext(params)
   return `${pageBasePath}?${params.toString()}`
 }
 
@@ -146,6 +169,7 @@ function buildAddPrepRecordHref(prepOrderId: string, activeTab?: string): string
   params.set('detailTab', 'records')
   params.set('prepModal', '1')
   if (activeTab) params.set('fromTab', activeTab)
+  keepListContext(params)
   return `${pageBasePath}?${params.toString()}`
 }
 
@@ -155,18 +179,20 @@ function buildClosePrepOrderHref(prepOrderId: string, activeTab?: string): strin
   params.set('detailTab', 'inventory')
   params.set('closeModal', '1')
   if (activeTab) params.set('fromTab', activeTab)
+  keepListContext(params)
   return `${pageBasePath}?${params.toString()}`
 }
 
-function renderSearchBar(keyword: string): string {
+function renderSearchBar(keyword: string, hasReturnOnly: boolean): string {
   return `
     <section class="rounded-lg border bg-card p-4">
-      <div class="grid gap-3 md:grid-cols-[minmax(240px,1fr)_auto] md:items-end">
+      <div class="grid gap-3 md:grid-cols-[minmax(240px,1fr)_auto_auto] md:items-end">
         <label class="space-y-1">
           <span class="text-sm font-medium">关键词搜索</span>
           <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-fcs-material-prep-action="search-input" data-search-field="keyword" data-skip-page-rerender="true" placeholder="生产单号 / 款式 / SPU / 物料名称" value="${escapeHtml(keyword)}" />
         </label>
         <button class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-fcs-material-prep-action="search-apply">查询</button>
+        <button type="button" data-nav="${escapeHtml(buildHref({ hasReturn: hasReturnOnly ? undefined : '1', prepOrderId: undefined }))}" class="h-10 rounded-md border px-4 text-sm ${hasReturnOnly ? 'border-amber-300 bg-amber-50 text-amber-800' : 'hover:bg-muted'}">只看有退回</button>
       </div>
     </section>
   `
@@ -189,11 +215,16 @@ function buildDetailStateHref(
   if (options.closeModal) params.set('closeModal', '1')
   const fromTab = getSearchParams().get('fromTab')
   if (fromTab) params.set('fromTab', fromTab)
+  keepListContext(params)
   return `${pageBasePath}?${params.toString()}`
 }
 
 function formatQty(value: number, unit = 'yard'): string {
   return `${Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${unit}`
+}
+
+function formatRollQty(value: number, rollCount: number, unit = 'yard'): string {
+  return `${Number(rollCount || 0).toLocaleString('zh-CN')} 卷 / ${formatQty(value, unit)}`
 }
 
 function renderImageThumb(imageUrl: string, label: string, className = 'h-12 w-12'): string {
@@ -219,39 +250,6 @@ function renderSpuThumb(order: MaterialPrepOrderProjection['order'], className =
 
 function renderStatus(status: string, label: string): string {
   return renderBadge(label, statusVariantMap[status] || 'neutral')
-}
-
-function renderKpi(label: string, value: number | string, desc: string): string {
-  return `
-    <div class="rounded-lg border bg-card px-4 py-3">
-      <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
-      <div class="mt-1 text-2xl font-semibold">${escapeHtml(value)}</div>
-      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(desc)}</div>
-    </div>
-  `
-}
-
-function renderImplementationStatus(projection: MaterialPrepOrderProjection): string {
-  const pendingText = projection.order.pendingAssignmentCount > 0
-    ? `${projection.order.pendingAssignmentCount} 个任务待分配后回写工厂`
-    : '任务工厂均已回写'
-  const stagingText = projection.stagingRecords.length
-    ? `${projection.stagingRecords.length} 条暂存记录 / ${projection.order.stagingAreaCount} 个暂存区`
-    : '暂无暂存台账'
-  const pickText = [
-    `待拣货 ${projection.prepRecords.filter((record) => record.recordStatus === 'DRAFT').length}`,
-    `已拣货 ${projection.prepRecords.filter((record) => record.recordStatus === 'PICKED').length}`,
-    `已入暂存 ${projection.prepRecords.filter((record) => record.recordStatus === 'STAGED').length}`,
-  ].join(' / ')
-  return `
-    <section class="grid gap-3 md:grid-cols-5">
-      ${renderKpi('BOM 来源', projection.order.bomSourceLabel, `展开时间 ${escapeHtml(projection.order.bomExpandedAt || '暂无')}`)}
-      ${renderKpi('暂存区台账', stagingText, '入暂存区时生成，确认或打回时同步状态')}
-      ${renderKpi('仓库拣货进度', pickText, `已确认 ${projection.prepRecords.filter((record) => record.recordStatus === 'CONFIRMED').length} 条`)}
-      ${renderKpi('完成通知', `${projection.order.prepCompletionEventCount} 条`, 'CONFIRMED 后生成配料完成通知事件')}
-      ${renderKpi('分配回写', pendingText, `已回写 ${projection.order.assignedTaskCount} 个任务`)}
-    </section>
-  `
 }
 
 function getLinePrepRecordCount(row: MaterialPrepOrderProjection, line: MaterialPrepLine): number {
@@ -467,12 +465,14 @@ function renderDetailTabs(projection: MaterialPrepOrderProjection, activeTab: Ma
   const taskProjections = getCategoryTaskProjections(projection)
   const prepRecords = getCategoryPrepRecords(projection)
   const lineIds = getCategoryLineIds(projection)
+  const pickupCount = projection.pickupRecords.filter((record) => lineIds.has(record.prepLineId)).length
+  const returnCount = projection.pickupReturnRecords.filter((record) => lineIds.has(record.prepLineId)).length
   const tabs: Array<{ key: MaterialPrepDetailTab; label: string; count?: string }> = [
     { key: 'demand', label: '生产需求信息' },
     { key: 'inventory', label: '当前各仓库存信息与上游进度', count: `${materialLines.length} 行` },
     { key: 'tasks', label: '按任务查看配料情况', count: `${taskProjections.length} 个任务` },
     { key: 'records', label: '配料记录', count: `${prepRecords.length} 条` },
-    { key: 'pickup', label: '与配料记录关联的领料记录', count: `${projection.pickupRecords.filter((record) => lineIds.has(record.prepLineId)).length + projection.rejectRecords.filter((record) => lineIds.has(record.prepLineId)).length} 条` },
+    { key: 'pickup', label: '领料 / 退回记录', count: `${pickupCount + returnCount} 条` },
   ]
   return `
     <section class="rounded-lg border bg-card px-4 py-3">
@@ -521,7 +521,9 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], activeTab: Materi
             </tr>
           </thead>
           <tbody>
-            ${rows.length ? rows.map((row) => `
+            ${rows.length ? rows.map((row) => {
+              const returnStats = getCategoryReturnStats(row)
+              return `
               <tr class="border-t">
                 <td class="px-3 py-3 align-top">
                   <div class="cursor-pointer hover:underline" data-nav="${escapeHtml(buildDetailHref(row.order.prepOrderId, activeTab))}">${renderProductionOrderIdentityCell(row.order.productionOrderNo)}</div>
@@ -534,7 +536,7 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], activeTab: Materi
                     <div>
                       <div class="font-medium">${escapeHtml(row.order.styleNo)} / ${escapeHtml(row.order.styleName)}</div>
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.order.spu)}</div>
-                      <div class="mt-1 text-xs text-muted-foreground">计划 ${row.order.planQty.toLocaleString('zh-CN')} 件</div>
+                      <div class="mt-1 text-xs text-muted-foreground">计划 ${row.order.demandQty.toLocaleString('zh-CN')} 件</div>
                     </div>
                   </div>
                 </td>
@@ -544,11 +546,13 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], activeTab: Materi
                 </td>
                 <td class="px-3 py-3 align-top">
                   ${renderStatus(row.order.pickupStatus, pickupStatusLabelMap[row.order.pickupStatus])}
-                  <div class="mt-2 text-xs text-muted-foreground">已领 ${formatQty(row.totalPickedQty)}，可领 ${formatQty(row.totalAvailableToPickupQty)}</div>
+                  <div class="mt-2 text-xs text-muted-foreground">已领 ${formatQty(row.totalPickedQty)}，已退 ${formatQty(returnStats.qty)}，可领 ${formatQty(row.totalAvailableToPickupQty)}</div>
+                  ${returnStats.lineCount > 0 ? '<div class="mt-1 text-xs text-amber-700">含退回待中转仓处理</div>' : ''}
                 </td>
                 <td class="px-3 py-3 align-top text-xs">
                   <div>物料行：${row.lineCount}</div>
                   <div>已配齐：${row.readyLineCount}</div>
+                  <div>已退回：${returnStats.lineCount}</div>
                   <div>未配齐：${row.shortageLineCount}</div>
                   <div>库存充足：${row.stockSufficientLineCount}</div>
                   <div>库存不足：${row.stockInsufficientLineCount}</div>
@@ -579,7 +583,7 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], activeTab: Materi
                   ${renderOrderMaterialRows(row)}
                 </td>
               </tr>
-            `).join('') : `
+            `}).join('') : `
               <tr>
                 <td colspan="9" class="px-3 py-8 text-center text-sm text-muted-foreground">当前状态下暂无${escapeHtml(categoryLabel)}配料单。</td>
               </tr>
@@ -606,21 +610,39 @@ function renderProductionDemand(projection: MaterialPrepOrderProjection): string
         <div><div class="text-xs text-muted-foreground">生产单</div><div class="font-medium">${escapeHtml(order.productionOrderNo)}</div></div>
         <div><div class="text-xs text-muted-foreground">款式</div><div class="font-medium">${escapeHtml(order.styleNo)} / ${escapeHtml(order.styleName)}</div></div>
         <div><div class="text-xs text-muted-foreground">SPU</div><div class="font-medium">${escapeHtml(order.spu)}</div></div>
-        <div><div class="text-xs text-muted-foreground">计划数量</div><div class="font-medium">${order.planQty.toLocaleString('zh-CN')} 件</div></div>
+        <div><div class="text-xs text-muted-foreground">计划数量</div><div class="font-medium">${order.demandQty.toLocaleString('zh-CN')} 件</div></div>
         <div><div class="text-xs text-muted-foreground">客户</div><div class="font-medium">${escapeHtml(order.customerName)}</div></div>
         <div><div class="text-xs text-muted-foreground">交期</div><div class="font-medium">${escapeHtml(order.deliveryDate)}</div></div>
         <div><div class="text-xs text-muted-foreground">创建人</div><div class="font-medium">${escapeHtml(order.creatorName)}</div></div>
         <div><div class="text-xs text-muted-foreground">创建时间</div><div class="font-medium">${escapeHtml(order.createdAt)}</div></div>
+      </div>
+      <div class="mt-3 grid gap-3 text-sm lg:grid-cols-4">
+        <div><div class="text-xs text-muted-foreground">配料状态</div><div class="font-medium">${escapeHtml(materialPrepStatusLabelMap[order.overallPrepStatus])}</div></div>
+        <div><div class="text-xs text-muted-foreground">领料状态</div><div class="font-medium">${escapeHtml(pickupStatusLabelMap[order.pickupStatus])}</div></div>
+        <div><div class="text-xs text-muted-foreground">BOM 来源</div><div class="font-medium">${escapeHtml(order.bomSourceLabel)}</div></div>
+        <div><div class="text-xs text-muted-foreground">BOM 展开时间</div><div class="font-medium">${escapeHtml(order.bomExpandedAt || '暂无')}</div></div>
       </div>
       ${order.isClosed ? `<div class="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">配料已关闭：${escapeHtml(order.closeReason)} / ${escapeHtml(order.closedAt)}</div>` : ''}
     </section>
   `
 }
 
-function renderInventoryProgress(lines: MaterialPrepLine[]): string {
+function renderInventoryProgress(projection: MaterialPrepOrderProjection, lines: MaterialPrepLine[]): string {
   return `
     <section class="rounded-lg border bg-card p-4">
       <h3 class="text-base font-semibold">当前各仓库存信息与上游进度</h3>
+      <div class="mt-3 grid gap-3 text-sm lg:grid-cols-2">
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <div class="text-xs text-muted-foreground">物料行</div>
+          <div class="mt-1 font-medium">${projection.readyLineCount}/${projection.lineCount}</div>
+          <div class="mt-1 text-xs text-muted-foreground">未配齐 ${projection.shortageLineCount} 行，库存充足 ${projection.stockSufficientLineCount} 行，库存不足 ${projection.stockInsufficientLineCount} 行，无库存 ${projection.noStockLineCount} 行</div>
+        </div>
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <div class="text-xs text-muted-foreground">缺料缺口</div>
+          <div class="mt-1 font-medium">${formatQty(projection.totalShortageQty)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">最早可配 ${escapeHtml(projection.earliestExpectedAvailableAt || '暂无')}</div>
+        </div>
+      </div>
       <div class="mt-3 overflow-x-auto">
         <table class="w-full min-w-[1280px] text-left text-sm">
           <thead class="bg-muted/60 text-xs text-muted-foreground">
@@ -733,10 +755,18 @@ function renderTaskPrepRecordRefs(
 
 function renderTaskPrepOverview(projection: MaterialPrepOrderProjection): string {
   const taskProjections = getCategoryTaskProjections(projection)
+  const assignmentText = projection.order.pendingAssignmentCount > 0
+    ? `${projection.order.pendingAssignmentCount} 个任务待分配后回写工厂`
+    : '任务工厂均已回写'
   return `
     <section class="rounded-lg border bg-card p-4">
       <h3 class="text-base font-semibold">任务维度配料情况</h3>
       <p class="mt-1 text-sm text-muted-foreground">配料确认后再进入任务分配；这里仅展示已进入${escapeHtml(categoryLabel)}的物料与下游任务回写情况。</p>
+      <div class="mt-3 rounded-md border bg-muted/20 px-3 py-2 text-sm">
+        <div class="text-xs text-muted-foreground">分配回写</div>
+        <div class="mt-1 font-medium">${escapeHtml(assignmentText)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">已回写 ${projection.order.assignedTaskCount} 个任务</div>
+      </div>
       <div class="mt-3 space-y-4">
         ${taskProjections.length ? taskProjections.map((task) => `
           <article class="rounded-md border bg-background">
@@ -814,12 +844,16 @@ function renderPrepRecordSourceCell(
 }
 
 function renderPrepRecords(
+  projection: MaterialPrepOrderProjection,
   records: MaterialPrepRecord[],
   lines: MaterialPrepLine[],
   addHref: string,
   buildContinueHref: (record: MaterialPrepRecord) => string,
 ): string {
   const lineById = new Map(lines.map((line) => [line.prepLineId, line]))
+  const stagingText = projection.stagingRecords.length
+    ? `${projection.stagingRecords.length} 条暂存记录 / ${projection.order.stagingAreaCount} 个暂存区`
+    : '暂无暂存台账'
   return `
     <section class="rounded-lg border bg-card p-4">
       <div class="flex items-center justify-between gap-3">
@@ -828,6 +862,18 @@ function renderPrepRecords(
       </div>
       <div class="mt-2 rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
         配料记录按 DRAFT → PICKED → STAGED → CONFIRMED 流转；打回后可从 STAGED 重新确认；已确认的配料可被裁床领料；每条记录整体确认，记录内物料明细不单独确认。
+      </div>
+      <div class="mt-3 grid gap-3 text-sm lg:grid-cols-2">
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <div class="text-xs text-muted-foreground">暂存区台账</div>
+          <div class="mt-1 font-medium">${escapeHtml(stagingText)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">入暂存区时生成，确认或打回时同步状态</div>
+        </div>
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <div class="text-xs text-muted-foreground">完成通知</div>
+          <div class="mt-1 font-medium">${projection.order.prepCompletionEventCount} 条</div>
+          <div class="mt-1 text-xs text-muted-foreground">CONFIRMED 后生成配料完成通知事件</div>
+        </div>
       </div>
       <div class="mt-3 space-y-3">
         ${records.length ? records.map((record, recordIndex) => {
@@ -846,7 +892,7 @@ function renderPrepRecords(
                   </div>
                   <div class="mt-1 text-xs text-muted-foreground">批次号：${escapeHtml(record.batchNo)} / ${escapeHtml(record.preparedAt)} / ${escapeHtml(record.operatorName)}</div>
                   <div class="mt-1 text-xs text-muted-foreground">
-                    合计：${formatQty(record.preparedQty)} / ${record.rollCount} 卷 / ${escapeHtml(record.warehouseArea)} / ${escapeHtml(record.locationCode)}
+                    合计：${formatRollQty(record.preparedQty, record.rollCount)} / ${escapeHtml(record.warehouseArea)} / ${escapeHtml(record.locationCode)}
                   </div>
                   ${record.stagingArea ? `<div class="mt-0.5 text-xs text-muted-foreground">暂存区：${escapeHtml(record.stagingArea)}</div>` : ''}
                   ${record.rejectReason ? `<div class="mt-1 text-xs text-rose-600">打回原因：${escapeHtml(record.rejectReason)}</div>` : ''}
@@ -885,7 +931,7 @@ function renderPrepRecords(
                                 <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line ? `${line.materialName} / ${line.color} / ${line.cutOrderNo}` : '')}</div>
                               </td>
                               <td class="px-3 py-3">${line ? renderLineTaskLinks(line) : '-'}</td>
-                              <td class="px-3 py-3">${formatQty(item.preparedQty, line?.unit || 'yard')} / ${item.rollCount} 卷</td>
+                              <td class="px-3 py-3">${formatRollQty(item.preparedQty, item.rollCount, line?.unit || 'yard')}</td>
                               <td class="px-3 py-3">${renderPrepRecordSourceCell(item, line)}</td>
                               <td class="px-3 py-3 text-xs text-muted-foreground">${line ? formatQty(item.stockAvailableQty || line.availableStockQty, line.unit) : '-'}</td>
                               <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(item.remark || '随整条配料记录确认')}</td>
@@ -909,29 +955,73 @@ function renderPrepRecords(
   `
 }
 
-function renderPickupRecords(records: PickupRecord[], rejectRecords: PrepRejectRecord[], relatedProductionOrderNo: string): string {
+function renderPickupRecords(
+  projection: MaterialPrepOrderProjection,
+  records: PickupRecord[],
+  rejectRecords: PrepRejectRecord[],
+  returnRecords: MaterialPickupReturnRecord[],
+  relatedProductionOrderNo: string,
+): string {
+  const pickText = [
+    `待拣货 ${projection.prepRecords.filter((record) => record.recordStatus === 'DRAFT').length}`,
+    `已拣货 ${projection.prepRecords.filter((record) => record.recordStatus === 'PICKED').length}`,
+    `已入暂存 ${projection.prepRecords.filter((record) => record.recordStatus === 'STAGED').length}`,
+  ].join(' / ')
   return `
     <section class="rounded-lg border bg-card p-4">
-      <h3 class="text-base font-semibold">与配料记录关联的领料记录</h3>
+      <h3 class="text-base font-semibold">领料 / 退回记录</h3>
+      <div class="mt-3 grid gap-3 text-sm lg:grid-cols-2">
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <div class="text-xs text-muted-foreground">领料状态</div>
+          <div class="mt-1 font-medium">${escapeHtml(pickupStatusLabelMap[projection.order.pickupStatus])}</div>
+          <div class="mt-1 text-xs text-muted-foreground">已领 ${formatQty(projection.totalPickedQty)} / 可领 ${formatQty(projection.totalAvailableToPickupQty)}</div>
+        </div>
+        <div class="rounded-md border bg-muted/20 px-3 py-2">
+          <div class="text-xs text-muted-foreground">仓库拣货进度</div>
+          <div class="mt-1 font-medium">${escapeHtml(pickText)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">已确认 ${projection.prepRecords.filter((record) => record.recordStatus === 'CONFIRMED').length} 条</div>
+        </div>
+      </div>
       <div class="mt-3 grid gap-3 lg:grid-cols-2">
         <div class="rounded-md border">
           <div class="border-b px-3 py-2 text-sm font-medium">领料记录</div>
           <div class="divide-y">
-            ${records.length ? records.map((record) => `
-              <div class="px-3 py-3 text-sm">
-                <div class="font-medium">${renderMaterialPickupRecordCodeButton(record, relatedProductionOrderNo, {
-                  label: record.pickupRecordId,
-                  className: 'font-mono text-blue-600 hover:underline',
-                })}</div>
-                <div class="mt-1 text-xs text-muted-foreground">配料记录：${renderMaterialPrepRecordCodeButton(record, relatedProductionOrderNo, {
-                  label: record.prepRecordId,
-                  className: 'font-mono text-blue-600 hover:underline',
-                })}</div>
-                <div class="mt-1 text-xs text-muted-foreground">领料：${formatQty(record.pickedQty)} / ${record.rollCount} 卷 / ${escapeHtml(record.receiverName)} / ${escapeHtml(record.pickedAt)}</div>
-                <div class="mt-1 text-xs text-muted-foreground">入库：${escapeHtml(record.warehouseArea)} / ${escapeHtml(record.locationCode)}</div>
-                ${record.differenceReason ? `<div class="mt-1 text-xs text-amber-700">差异：${escapeHtml(record.differenceReason)}</div>` : ''}
-              </div>
-            `).join('') : '<div class="px-3 py-4 text-sm text-muted-foreground">暂无领料记录。</div>'}
+            ${records.length ? records.map((record) => {
+              const relatedReturns = returnRecords.filter((item) => item.pickupRecordId === record.pickupRecordId)
+              const returnedQty = relatedReturns.reduce((sum, item) => sum + Number(item.returnQty || 0), 0)
+              const returnedRollCount = relatedReturns.reduce((sum, item) => sum + Number(item.rollCount || 0), 0)
+              const remainingQty = Number(record.waitProcessAvailableQty ?? Math.max(Number(record.pickedQty || 0) - returnedQty, 0))
+              const remainingRollCount = Math.max(Number(record.rollCount || 0) - returnedRollCount, 0)
+              return `
+                <div class="px-3 py-3 text-sm">
+                  <div class="font-medium">${renderMaterialPickupRecordCodeButton(record, relatedProductionOrderNo, {
+                    label: record.pickupRecordId,
+                    className: 'font-mono text-blue-600 hover:underline',
+                  })}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">配料记录：${renderMaterialPrepRecordCodeButton(record, relatedProductionOrderNo, {
+                    label: record.prepRecordId,
+                    className: 'font-mono text-blue-600 hover:underline',
+                  })}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">已领：${formatRollQty(record.pickedQty, record.rollCount)} / ${escapeHtml(record.receiverName)} / ${escapeHtml(record.pickedAt)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">${returnedQty > 0 ? `已退：${formatRollQty(returnedQty, returnedRollCount)} / ` : ''}待加工仓剩余：${formatRollQty(remainingQty, remainingRollCount)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">入库：${escapeHtml(record.warehouseArea)} / ${escapeHtml(record.locationCode)}</div>
+                  ${relatedReturns.length ? `
+                    <div class="mt-2 space-y-2">
+                      ${relatedReturns.map((item) => `
+                        <div class="rounded-md border border-amber-100 bg-amber-50 px-2 py-2 text-xs text-amber-900">
+                          <div class="font-medium">退回数量：${escapeHtml(formatRollQty(item.returnQty, item.rollCount, item.unit))}</div>
+                          <div class="mt-1">原因：${escapeHtml(item.reason)} / 状态：${escapeHtml(item.returnStatus)}</div>
+                          <div class="mt-1 text-amber-800">退回人：${escapeHtml(item.returnedBy)} / 退回时间：${escapeHtml(item.returnedAt)}</div>
+                          ${item.remark ? `<div class="mt-1 text-amber-800">备注：${escapeHtml(item.remark)}</div>` : ''}
+                          ${item.imageNames.length ? `<div class="mt-1 text-amber-800">图片凭证：${item.imageNames.map(escapeHtml).join('、')}</div>` : ''}
+                        </div>
+                      `).join('')}
+                    </div>
+                  ` : ''}
+                  ${record.differenceReason ? `<div class="mt-1 text-xs text-amber-700">差异：${escapeHtml(record.differenceReason)}</div>` : ''}
+                </div>
+              `
+            }).join('') : '<div class="px-3 py-4 text-sm text-muted-foreground">暂无领料记录。</div>'}
           </div>
         </div>
         <div class="rounded-md border">
@@ -1222,11 +1312,12 @@ function renderDetail(projection: MaterialPrepOrderProjection, activeTab: Materi
   const prepRecords = getCategoryPrepRecords(projection)
   const lineIds = getCategoryLineIds(projection)
   const content = activeTab === 'inventory'
-    ? renderInventoryProgress(materialLines)
+    ? renderInventoryProgress(projection, materialLines)
     : activeTab === 'tasks'
       ? renderTaskPrepOverview(projection)
     : activeTab === 'records'
       ? renderPrepRecords(
+          projection,
           prepRecords,
           materialLines,
           buildDetailStateHref(projection, { detailTab: 'records', prepModal: true }),
@@ -1234,8 +1325,10 @@ function renderDetail(projection: MaterialPrepOrderProjection, activeTab: Materi
         )
     : activeTab === 'pickup'
         ? renderPickupRecords(
+            projection,
             projection.pickupRecords.filter((record) => lineIds.has(record.prepLineId)),
             projection.rejectRecords.filter((record) => lineIds.has(record.prepLineId)),
+            projection.pickupReturnRecords.filter((record) => lineIds.has(record.prepLineId)),
             projection.order.productionOrderNo,
           )
         : renderProductionDemand(projection)
@@ -1297,14 +1390,6 @@ export function renderFcsCuttingPrepPage(): string {
           </div>
         </header>
 
-        <section class="grid gap-3 md:grid-cols-4">
-          ${renderKpi('配料状态', materialPrepStatusLabelMap[projection.order.overallPrepStatus], `已确认 ${formatQty(projection.totalConfirmedPrepQty)} / 需求 ${formatQty(projection.totalRequiredQty)}`)}
-          ${renderKpi('领料状态', pickupStatusLabelMap[projection.order.pickupStatus], `已领 ${formatQty(projection.totalPickedQty)} / 可领 ${formatQty(projection.totalAvailableToPickupQty)}`)}
-          ${renderKpi('物料行', `${projection.readyLineCount}/${projection.lineCount}`, `未配齐 ${projection.shortageLineCount} 行，库存充足 ${projection.stockSufficientLineCount} 行，库存不足 ${projection.stockInsufficientLineCount} 行，无库存 ${projection.noStockLineCount} 行`)}
-          ${renderKpi('缺料缺口', formatQty(projection.totalShortageQty), `最早可配 ${escapeHtml(projection.earliestExpectedAvailableAt || '暂无')}`)}
-        </section>
-
-        ${renderImplementationStatus(projection)}
         ${renderDetail(projection, activeDetailTab)}
         ${showPrepModal ? renderAddPrepRecordModal(projection, activeDetailTab) : ''}
         ${continuePrepRecordId ? renderContinuePrepRecordModal(projection, activeDetailTab, continuePrepRecordId) : ''}
@@ -1315,9 +1400,10 @@ export function renderFcsCuttingPrepPage(): string {
 
   const activeTab = normalizeMaterialPrepStatus(params.get('tab'))
   const keyword = params.get('keyword') || ''
+  const hasReturnOnly = params.get('hasReturn') === '1'
   const allRows = filterOrders()
-  const keywordFiltered = filterByKeyword(allRows, keyword)
-  const rows = keywordFiltered.filter((row) => row.order.overallPrepStatus === activeTab)
+  const filteredRows = filterByKeyword(allRows, keyword).filter((row) => !hasReturnOnly || getCategoryReturnStats(row).lineCount > 0)
+  const rows = filteredRows.filter((row) => row.order.overallPrepStatus === activeTab)
 
   return `
     <div class="space-y-5 p-6">
@@ -1329,8 +1415,8 @@ export function renderFcsCuttingPrepPage(): string {
         </div>
       </header>
 
-      ${renderSearchBar(keyword)}
-      ${renderTabs(keywordFiltered, activeTab)}
+      ${renderSearchBar(keyword, hasReturnOnly)}
+      ${renderTabs(filteredRows, activeTab)}
       ${renderOrderTable(rows, activeTab)}
     </div>
   `
