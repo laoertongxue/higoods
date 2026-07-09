@@ -144,6 +144,16 @@ function buildDetailStateHref(
   return `/fcs/craft/cutting/pickup-management-detail?${params.toString()}`
 }
 
+function buildPickupReturnHref(projection: MaterialPrepOrderProjection, pickupRecordId: string, prepRecordId: string, prepLineId: string): string {
+  const params = new URLSearchParams(buildDetailStateHref(projection, {
+    detailTab: 'warehouse',
+    prepRecordId,
+    prepLineId,
+  }).split('?')[1] || '')
+  params.set('returnPickupRecordId', pickupRecordId)
+  return `/fcs/craft/cutting/pickup-management-detail?${params.toString()}`
+}
+
 function buildPrepModalHref(prepOrderId: string, activeTab?: string, prepRecordId?: string, prepLineId?: string): string {
   const params = new URLSearchParams()
   if (activeTab) params.set('tab', activeTab)
@@ -941,11 +951,7 @@ function renderWarehousePickupRecords(projection: MaterialPrepOrderProjection): 
                   </td>
                   <td class="px-3 py-3">
                     ${remainingQty > 0 ? `
-                      <button type="button" data-nav="${escapeHtml(buildDetailStateHref(projection, {
-                        detailTab: 'warehouse',
-                        prepRecordId: record.prepRecordId,
-                        prepLineId: record.prepLineId,
-                      }) + `&returnPickupRecordId=${encodeURIComponent(record.pickupRecordId)}`)}" class="rounded-md border border-amber-200 px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50">退回物料</button>
+                      <button type="button" data-nav="${escapeHtml(buildPickupReturnHref(projection, record.pickupRecordId, record.prepRecordId, record.prepLineId))}" class="rounded-md border border-amber-200 px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50">退回物料</button>
                     ` : '<span class="text-xs text-muted-foreground">已全部退回</span>'}
                   </td>
                 </tr>
@@ -1284,17 +1290,22 @@ export function handleCraftCuttingPickupManagementEvent(target: HTMLElement): bo
       window.alert('请选择退回原因。')
       return false
     }
-    appendPickupReturnRecord({
-      pickupRecordId: actionNode.dataset.pickupRecordId || '',
-      prepRecordId: actionNode.dataset.prepRecordId || '',
-      prepLineId: actionNode.dataset.prepLineId || '',
-      returnQty,
-      rollCount: 1,
-      reason,
-      remark,
-      imageNames,
-      returnedBy: '裁床 李明',
-    })
+    try {
+      appendPickupReturnRecord({
+        pickupRecordId: actionNode.dataset.pickupRecordId || '',
+        prepRecordId: actionNode.dataset.prepRecordId || '',
+        prepLineId: actionNode.dataset.prepLineId || '',
+        returnQty,
+        rollCount: 1,
+        reason,
+        remark,
+        imageNames,
+        returnedBy: '裁床 李明',
+      })
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '退回失败')
+      return false
+    }
     const params = getSearchParams()
     params.delete('returnPickupRecordId')
     params.set('detailTab', 'returns')
