@@ -90,6 +90,13 @@ try {
   const listHtml = renderCuttingPrepPage('?hasReturn=1')
   assert(listHtml.includes('已退回'), '裁片配料列表必须展示已退回物料行统计')
   assert(listHtml.includes('只看有退回'), '裁片配料列表必须展示只看有退回筛选')
+  const mainTabButtons = Array.from(listHtml.matchAll(/<button[^>]*data-nav="[^"]*(?:\\?|&amp;)tab=[^"]*"[^>]*>([\s\S]*?)<\/button>/g))
+    .map((match) => match[1].replace(/<[^>]*>/g, '').trim())
+  assert(mainTabButtons.length > 0, '裁片配料列表必须渲染主状态 Tab')
+  assert(
+    mainTabButtons.every((text) => !/^已退回(?:\s|$)/.test(text)),
+    `裁片配料主状态 Tab 不能新增已退回：${mainTabButtons.join(' / ')}`,
+  )
 
   const returnedOrder = returnedRows[0]
   const detailHtml = renderCuttingPrepPage(`?prepOrderId=${encodeURIComponent(returnedOrder.order.prepOrderId)}&detailTab=pickup`)
