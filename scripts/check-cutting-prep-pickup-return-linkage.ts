@@ -97,9 +97,16 @@ try {
     mainTabButtons.every((text) => !/^已退回(?:\s|$)/.test(text)),
     `裁片配料主状态 Tab 不能新增已退回：${mainTabButtons.join(' / ')}`,
   )
+  const contextHtml = renderCuttingPrepPage('?hasReturn=1&keyword=PO-202603')
+  const firstDetailHref = contextHtml.match(/data-nav="([^"]*prepOrderId=[^"]*)"/)?.[1] || ''
+  assert(firstDetailHref.includes('hasReturn=1'), '从退回筛选列表进入详情必须保留 hasReturn=1')
+  assert(firstDetailHref.includes('keyword=PO-202603'), '从关键词筛选列表进入详情必须保留 keyword')
 
   const returnedOrder = returnedRows[0]
-  const detailHtml = renderCuttingPrepPage(`?prepOrderId=${encodeURIComponent(returnedOrder.order.prepOrderId)}&detailTab=pickup`)
+  const detailHtml = renderCuttingPrepPage(`?prepOrderId=${encodeURIComponent(returnedOrder.order.prepOrderId)}&detailTab=pickup&hasReturn=1&keyword=PO-202603`)
+  const backHref = detailHtml.match(/data-nav="([^"]*)">返回配料列表/)?.[1] || ''
+  assert(backHref.includes('hasReturn=1'), '从详情返回列表必须保留 hasReturn=1')
+  assert(backHref.includes('keyword=PO-202603'), '从详情返回列表必须保留 keyword')
   assert(detailHtml.includes('领料 / 退回记录'), '裁片配料详情 pickup Tab 必须展示领料 / 退回记录')
   assert(detailHtml.includes('已退'), '裁片配料详情领料记录必须展示已退数量')
   assert(detailHtml.includes('已退回待中转仓处理'), '裁片配料详情退回明细必须展示退回状态')

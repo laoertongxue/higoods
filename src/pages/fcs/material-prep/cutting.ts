@@ -134,10 +134,19 @@ function buildHref(params: Record<string, string | undefined>): string {
   return `${pageBasePath}${query ? `?${query}` : ''}`
 }
 
+function keepListContext(params: URLSearchParams): void {
+  const current = getSearchParams()
+  ;['keyword', 'hasReturn'].forEach((key) => {
+    const value = current.get(key)
+    if (value) params.set(key, value)
+  })
+}
+
 function buildDetailHref(prepOrderId: string, activeTab?: string): string {
   const params = new URLSearchParams()
   params.set('prepOrderId', prepOrderId)
   if (activeTab) params.set('fromTab', activeTab)
+  keepListContext(params)
   return `${pageBasePath}?${params.toString()}`
 }
 
@@ -147,6 +156,7 @@ function buildAddPrepRecordHref(prepOrderId: string, activeTab?: string): string
   params.set('detailTab', 'records')
   params.set('prepModal', '1')
   if (activeTab) params.set('fromTab', activeTab)
+  keepListContext(params)
   return `${pageBasePath}?${params.toString()}`
 }
 
@@ -156,6 +166,7 @@ function buildClosePrepOrderHref(prepOrderId: string, activeTab?: string): strin
   params.set('detailTab', 'inventory')
   params.set('closeModal', '1')
   if (activeTab) params.set('fromTab', activeTab)
+  keepListContext(params)
   return `${pageBasePath}?${params.toString()}`
 }
 
@@ -191,6 +202,7 @@ function buildDetailStateHref(
   if (options.closeModal) params.set('closeModal', '1')
   const fromTab = getSearchParams().get('fromTab')
   if (fromTab) params.set('fromTab', fromTab)
+  keepListContext(params)
   return `${pageBasePath}?${params.toString()}`
 }
 
@@ -949,7 +961,7 @@ function renderPickupRecords(
                     <div class="mt-2 space-y-2">
                       ${relatedReturns.map((item) => `
                         <div class="rounded-md border border-amber-100 bg-amber-50 px-2 py-2 text-xs text-amber-900">
-                          <div class="font-medium">退回数量：${formatQty(item.returnQty, item.unit)} / ${item.rollCount} 卷</div>
+                          <div class="font-medium">退回数量：${escapeHtml(formatQty(item.returnQty, item.unit))} / ${item.rollCount} 卷</div>
                           <div class="mt-1">原因：${escapeHtml(item.reason)} / 状态：${escapeHtml(item.returnStatus)}</div>
                           <div class="mt-1 text-amber-800">退回人：${escapeHtml(item.returnedBy)} / 退回时间：${escapeHtml(item.returnedAt)}</div>
                           ${item.remark ? `<div class="mt-1 text-amber-800">备注：${escapeHtml(item.remark)}</div>` : ''}
