@@ -1480,10 +1480,16 @@ assert.ok(!pendingOutputHtml.includes('维护染色要求'), '未确认工作项
 const dependencyActionHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03')
 assert.ok(!dependencyActionHtml.includes('maintain-dye-requirement'), '染色要求不应再作为 maintain-dye-requirement 附加动作出现')
 assert.ok(!dependencyActionHtml.includes('维护染色要求'), '操作栏不应再显示旧的维护染色要求附加按钮')
+assertHtmlIncludes(dependencyActionHtml, '非系统内物料', '生产准备时效页面右上角必须有非系统内物料入口')
 assert.ok(
   dependencyActionHtml.includes('确认面料染色要求') || dependencyActionHtml.includes('确认纱线染色要求'),
   '操作栏必须展示确认染色要求准备项动作',
 )
+const externalMaterialHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03&action=external-materials')
+assertHtmlIncludes(externalMaterialHtml, '非系统内物料', '非系统内物料弹窗必须展示标题')
+assertHtmlIncludes(externalMaterialHtml, 'data-prep-external-material-form', '非系统内物料弹窗必须支持新增')
+assertHtmlIncludes(externalMaterialHtml, '印花雪纺Printing seruti S388-1', '非系统内物料弹窗必须展示初始化物料')
+assertHtmlIncludes(externalMaterialHtml, '<th class="px-3 py-2 text-left font-medium">序号</th>', '非系统内物料列表必须展示序号列')
 const unselectedDyeRequirementHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-005&itemId=prep-202603-005-item-06&action=operate-item',
 )

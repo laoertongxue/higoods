@@ -11,6 +11,7 @@ import {
 import {
   buildMonthlyPreparationCompletionDetails,
   buildProductionPreparationKpis,
+  externalPreparationMaterials,
   filterProductionPreparationRecords,
   flattenProductionPreparationItems,
   getProductionPreparationFilterOptions,
@@ -21,6 +22,7 @@ import {
   productionPreparationRecords,
   type MonthlyPreparationCompletionDetail,
   type MonthlyPreparationStatRow,
+  type ExternalPreparationMaterial,
   type PreparationDyeRequirement,
   type PreparationItemType,
   type PreparationMaterialLine,
@@ -333,10 +335,12 @@ function csvDataUri(rows: string[][]): string {
   return `data:text/csv;charset=utf-8,${encodeURIComponent(`\uFEFF${lines.join('\n')}`)}`
 }
 
-function renderHeader(): string {
+function renderHeader(params: URLSearchParams, month: string): string {
+  const externalMaterialsHref = buildLedgerHrefFromParams(params, month, { action: 'external-materials' })
   return `
     <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       <h1 class="text-2xl font-semibold text-foreground">生产准备时效</h1>
+      <button type="button" class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" data-nav="${escapeHtml(externalMaterialsHref)}">非系统内物料</button>
     </header>
   `
 }
@@ -591,6 +595,51 @@ function renderMaterialDatalist(): string {
   `
 }
 
+function allExternalMaterials(): ExternalPreparationMaterial[] {
+  const runtime = loadPreparationRuntimeState()
+  return [...externalPreparationMaterials, ...runtime.externalMaterials]
+}
+
+function renderExternalMaterialsDialog(params: URLSearchParams, month: string): string {
+  if (valueOf(params, 'action') !== 'external-materials') return ''
+  const closeHref = buildLedgerHrefFromParams(params, month)
+  return `
+    <div class="fixed inset-0 z-50">
+      <button class="absolute inset-0 bg-black/45" data-nav="${escapeHtml(closeHref)}" aria-label="关闭"></button>
+      <section class="absolute left-1/2 top-10 flex max-h-[calc(100vh-80px)] w-[720px] max-w-[calc(100vw-32px)] -translate-x-1/2 flex-col overflow-hidden rounded-xl bg-background shadow-2xl">
+        <div class="border-b p-5">
+          <h3 class="text-lg font-semibold">非系统内物料</h3>
+        </div>
+        <form class="border-b p-5" data-prep-external-material-form>
+          <label class="block text-sm">
+            <span class="text-muted-foreground">物料名称</span>
+            <input name="materialName" class="mt-1 h-10 w-full rounded-md border px-3" required />
+          </label>
+          <button type="submit" class="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm text-white">新增</button>
+        </form>
+        <div class="min-h-0 flex-1 overflow-auto p-5">
+          <table class="w-full text-sm">
+            <thead class="bg-muted/60 text-xs text-muted-foreground">
+              <tr>
+                <th class="px-3 py-2 text-left font-medium">序号</th>
+                <th class="px-3 py-2 text-left font-medium">物料名称</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${allExternalMaterials().map((material) => `
+                <tr class="border-t">
+                  <td class="px-3 py-2">${material.serialNo}</td>
+                  <td class="px-3 py-2">${escapeHtml(material.materialName)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function renderConfirmMaterialRow(material: PreparationMaterialLine): string {
   return `
     <tr class="border-t" data-prep-material-row>
@@ -839,6 +888,7 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
     ${detailRecord ? renderConfirmItemsDialog(detailRecord, params, month) : ''}
     ${detailRecord && activeItem ? renderDyeRequirementDialog(detailRecord, activeItem, params, month) : ''}
     ${detailRecord && activeItem ? renderOperateItemDialog(detailRecord, activeItem, params, month) : ''}
+    ${renderExternalMaterialsDialog(params, month)}
   `
 }
 
@@ -1759,7 +1809,7 @@ export function renderProductionPreparationTimingPage(pathname?: string): string
 
   return `
     <div class="flex flex-col gap-5 p-6">
-      ${renderHeader()}
+      ${renderHeader(params, month)}
       ${renderLedgerTab(params, month)}
     </div>
   `
@@ -1811,6 +1861,26 @@ function closePreparationDialog(): void {
 
 export async function handleProductionPreparationTimingSubmit(form: HTMLFormElement): Promise<boolean> {
   const formData = new FormData(form)
+
+  if (form.matches('[data-prep-external-material-form]')) {
+    const materialName = String(formData.get('materialName') ?? '').trim()
+    if (!materialName) return true
+    const runtime = loadPreparationRuntimeState()
+    const maxSerialNo = Math.max(
+      0,
+      ...externalPreparationMaterials.map((item) => item.serialNo),
+      ...runtime.externalMaterials.map((item) => item.serialNo),
+    )
+    savePreparationRuntimeState({
+      ...runtime,
+      externalMaterials: [
+        ...runtime.externalMaterials,
+        { serialNo: maxSerialNo + 1, materialName },
+      ],
+    })
+    closePreparationDialog()
+    return true
+  }
 
   if (form.matches('[data-prep-confirm-items-form]')) {
     const recordId = String(formData.get('recordId') ?? '').trim()
