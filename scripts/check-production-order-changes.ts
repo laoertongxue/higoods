@@ -172,6 +172,13 @@ assert.ok(
 )
 assert.ok(quantityDetailHtml.includes('原数量'), '数量变更留痕必须展示原数量')
 assert.ok(quantityDetailHtml.includes('新数量'), '数量变更留痕必须展示新数量')
+assert.ok(quantityDetailHtml.includes('差异'), '数量变更留痕必须展示数量差异')
+;['需要谁处理', '要做什么', '当前做到哪了', '调整原因'].forEach((text) => {
+  assert.ok(quantityDetailHtml.includes(text), `数量变更详情处理事项缺少「${text}」`)
+})
+;['相关单据', '原来', '现在', '谁确认', '确认时间', '原因'].forEach((text) => {
+  assert.ok(quantityDetailHtml.includes(text), `数量变更相关单据记录缺少「${text}」`)
+})
 
 const materialOrder = orders.find((order) => order.changeType === 'MATERIAL_REPLACEMENT')
 assert.ok(materialOrder, '需要一张物料替换样例')
@@ -187,6 +194,15 @@ assert.ok(
 assert.ok(materialDetailHtml.includes('原物料'), '物料替换详情必须展示原物料')
 assert.ok(materialDetailHtml.includes('替代物料'), '物料替换详情必须展示替代物料')
 assert.ok(materialDetailHtml.includes('旧料') || materialDetailHtml.includes('新物料'), '物料替换详情必须展示旧料/新物料处理事项')
+;['适用颜色', '适用尺码', '从哪里开始用新物料'].forEach((text) => {
+  assert.ok(materialDetailHtml.includes(text), `物料替换详情缺少「${text}」`)
+})
+;['需要谁处理', '要做什么', '当前做到哪了', '调整原因'].forEach((text) => {
+  assert.ok(materialDetailHtml.includes(text), `物料替换详情处理事项缺少「${text}」`)
+})
+;['相关单据', '原来', '现在', '谁确认', '确认时间', '原因'].forEach((text) => {
+  assert.ok(materialDetailHtml.includes(text), `物料替换相关单据记录缺少「${text}」`)
+})
 assert.ok(!materialDetailHtml.includes('适用批次'), '物料替换详情不应出现适用批次')
 
 ;[

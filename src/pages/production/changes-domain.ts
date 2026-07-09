@@ -2115,51 +2115,90 @@ function renderChangeDetailSummaryCard(label: string, value: string, hint: strin
   `
 }
 
-function renderProductionChangeOrderDetailContent(order: ProductionOrderChangeOrderView): string {
-  const tab = state.productionChangeDetailTab
+function getProductionChangeQuantityDiffText(line: NonNullable<ProductionOrderChangeOrderView['quantityLines']>[number]): string {
+  const diff = line.newQty - line.currentQty
+  if (diff === 0) return `不变 0 ${line.unit}`
+  return `${diff > 0 ? '多出' : '减少'} ${Math.abs(diff)} ${line.unit}`
+}
+
+function renderProductionChangeQuantityDetail(order: ProductionOrderChangeOrderView): string {
   const quantityRows = order.quantityLines?.map((line) => {
-    const diff = line.newQty - line.currentQty
     return `
       <tr>
         <td class="px-3 py-3">${escapeHtml(line.color)}</td>
         <td class="px-3 py-3">${escapeHtml(line.size)}</td>
         <td class="px-3 py-3">${escapeHtml(`${line.currentQty} ${line.unit}`)}</td>
         <td class="px-3 py-3">${escapeHtml(`${line.newQty} ${line.unit}`)}</td>
-        <td class="px-3 py-3">${escapeHtml(`${diff >= 0 ? '多出' : '减少'} ${Math.abs(diff)} ${line.unit}`)}</td>
+        <td class="px-3 py-3">${escapeHtml(getProductionChangeQuantityDiffText(line))}</td>
       </tr>
     `
   }) ?? []
+  return renderChangeTable(
+    ['颜色', '尺码', '原数量', '新数量', '差异'],
+    quantityRows,
+    '暂无数量变更',
+    'min-w-[760px]',
+  )
+}
+
+function renderProductionChangeMaterialDetail(order: ProductionOrderChangeOrderView): string {
   const material = order.materialReplacement
-  const changeContent = order.changeType === 'MATERIAL_REPLACEMENT' && material
-    ? renderInfoTiles([
-      ['原物料', material.originalMaterial],
-      ['替代物料', material.replacementMaterial],
-      ['适用颜色', material.colors.join('、')],
-      ['适用尺码', material.sizes.join('、')],
-      ['从哪里开始用新物料', material.effectiveFromText],
-    ])
-    : renderChangeTable(
-      ['颜色', '尺码', '当前数量', '新数量', '本次变化'],
-      quantityRows,
-      '暂无数量变更',
-      'min-w-[720px]',
-    )
-  const actionRows = order.actionItems.map((item) => `
+  if (!material) {
+    return '<div class="rounded-md bg-muted/40 p-4 text-sm text-muted-foreground">暂无物料替换内容。</div>'
+  }
+  return renderInfoTiles([
+    ['原物料', material.originalMaterial],
+    ['替代物料', material.replacementMaterial],
+    ['适用颜色', material.colors.join('、')],
+    ['适用尺码', material.sizes.join('、')],
+    ['从哪里开始用新物料', material.effectiveFromText],
+  ])
+}
+
+function renderProductionChangeContentDetail(order: ProductionOrderChangeOrderView): string {
+  return order.changeType === 'MATERIAL_REPLACEMENT'
+    ? renderProductionChangeMaterialDetail(order)
+    : renderProductionChangeQuantityDetail(order)
+}
+
+function renderProductionChangeActionItems(order: ProductionOrderChangeOrderView): string {
+  return renderChangeTable(
+    ['需要谁处理', '要做什么', '当前做到哪了', '进度', '调整原因'],
+    order.actionItems.map((item) => `
     <tr>
+      <td class="px-3 py-3">${escapeHtml(`${item.ownerRole} / ${item.ownerName}`)}</td>
       <td class="px-3 py-3">${escapeHtml(item.actionText)}</td>
-      <td class="px-3 py-3">${escapeHtml(item.ownerRole)}</td>
-      <td class="px-3 py-3">${escapeHtml(item.ownerName)}</td>
+      <td class="px-3 py-3">${escapeHtml(order.stageText)}</td>
       <td class="px-3 py-3">${escapeHtml(item.statusText)}</td>
+      <td class="px-3 py-3">${escapeHtml(item.adjustReason || '未调整')}</td>
     </tr>
-  `)
-  const traceRows = order.documentTraces.map((item) => `
+  `),
+    '暂无需要处理的事',
+    'min-w-[1120px]',
+  )
+}
+
+function renderProductionChangeDocumentTraces(order: ProductionOrderChangeOrderView): string {
+  return renderChangeTable(
+    ['相关单据', '来自哪张变更单', '原来', '现在', '谁确认', '确认时间', '原因'],
+    order.documentTraces.map((trace) => `
     <tr>
-      <td class="px-3 py-3">${escapeHtml(item.documentNo)}</td>
-      <td class="px-3 py-3">${escapeHtml(productionOrderChangeDocumentTypeLabels[item.documentType])}</td>
-      <td class="px-3 py-3">${escapeHtml(item.traceText)}</td>
-      <td class="px-3 py-3">${escapeHtml(item.confirmedBy)}</td>
+      <td class="px-3 py-3">${escapeHtml(`${productionOrderChangeDocumentTypeLabels[trace.documentType]} ${trace.documentNo}`)}</td>
+      <td class="px-3 py-3">${escapeHtml(trace.traceText)}</td>
+      <td class="px-3 py-3">${escapeHtml(trace.beforeText)}</td>
+      <td class="px-3 py-3">${escapeHtml(trace.afterText)}</td>
+      <td class="px-3 py-3">${escapeHtml(trace.confirmedBy)}</td>
+      <td class="px-3 py-3">${escapeHtml(trace.confirmedAt)}</td>
+      <td class="px-3 py-3">${escapeHtml(trace.reason)}</td>
     </tr>
-  `)
+  `),
+    '暂无相关单据记录',
+    'min-w-[1360px]',
+  )
+}
+
+function renderProductionChangeOrderDetailContent(order: ProductionOrderChangeOrderView): string {
+  const tab = state.productionChangeDetailTab
 
   if (tab === 'impact') {
     return renderChangeDetailSection(
@@ -2187,24 +2226,14 @@ function renderProductionChangeOrderDetailContent(order: ProductionOrderChangeOr
   if (tab === 'cost' || tab === 'approval') {
     return renderChangeDetailSection(
       tab === 'approval' ? '主管确认' : '需要处理的事',
-      renderChangeTable(
-        ['需要处理的事', '负责人角色', '相关负责人', '状态'],
-        actionRows,
-        '暂无处理事项',
-        'min-w-[860px]',
-      ),
+      renderProductionChangeActionItems(order),
     )
   }
 
   if (tab === 'timing') {
     return renderChangeDetailSection(
       '相关单据记录',
-      renderChangeTable(
-        ['单据号', '单据类型', '变更单留痕', '确认人'],
-        traceRows,
-        '暂无相关单据记录',
-        'min-w-[920px]',
-      ),
+      renderProductionChangeDocumentTraces(order),
     )
   }
 
@@ -2219,7 +2248,7 @@ function renderProductionChangeOrderDetailContent(order: ProductionOrderChangeOr
 
   return renderChangeDetailSection(
     '变更内容',
-    changeContent,
+    renderProductionChangeContentDetail(order),
   )
 }
 
@@ -2811,49 +2840,6 @@ export function renderProductionChangeOrderDetailPage(changeOrderId: string): st
     `<button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="start-production-change-from-order" data-order-id="${escapeHtml(order.productionOrderId)}">追加变更</button>`,
     `<button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/production/changes/orders/${escapeHtml(order.productionOrderId)}">查看生产单关系</button>`,
   ].filter(Boolean).join('')
-  const quantityRows = order.quantityLines?.map((line) => {
-    const diff = line.newQty - line.currentQty
-    return `
-      <tr>
-        <td class="px-3 py-3">${escapeHtml(line.color)}</td>
-        <td class="px-3 py-3">${escapeHtml(line.size)}</td>
-        <td class="px-3 py-3">${escapeHtml(`${line.currentQty} ${line.unit}`)}</td>
-        <td class="px-3 py-3">${escapeHtml(`${line.newQty} ${line.unit}`)}</td>
-        <td class="px-3 py-3">${escapeHtml(`${diff >= 0 ? '多出' : '减少'} ${Math.abs(diff)} ${line.unit}`)}</td>
-      </tr>
-    `
-  }) ?? []
-  const material = order.materialReplacement
-  const changeContent = order.changeType === 'MATERIAL_REPLACEMENT' && material
-    ? renderInfoTiles([
-      ['原物料', material.originalMaterial],
-      ['替代物料', material.replacementMaterial],
-      ['适用颜色', material.colors.join('、')],
-      ['适用尺码', material.sizes.join('、')],
-      ['从哪里开始用新物料', material.effectiveFromText],
-    ])
-    : renderChangeTable(
-      ['颜色', '尺码', '当前数量', '新数量', '本次变化'],
-      quantityRows,
-      '暂无数量变更',
-      'min-w-[720px]',
-    )
-  const actionRows = order.actionItems.map((item) => `
-    <tr>
-      <td class="px-3 py-3">${escapeHtml(item.actionText)}</td>
-      <td class="px-3 py-3">${escapeHtml(item.ownerRole)}</td>
-      <td class="px-3 py-3">${escapeHtml(item.ownerName)}</td>
-      <td class="px-3 py-3">${escapeHtml(item.statusText)}</td>
-    </tr>
-  `)
-  const traceRows = order.documentTraces.map((item) => `
-    <tr>
-      <td class="px-3 py-3">${escapeHtml(item.documentNo)}</td>
-      <td class="px-3 py-3">${escapeHtml(productionOrderChangeDocumentTypeLabels[item.documentType])}</td>
-      <td class="px-3 py-3">${escapeHtml(item.traceText)}</td>
-      <td class="px-3 py-3">${escapeHtml(item.confirmedBy)}</td>
-    </tr>
-  `)
 
   return `
     <div class="space-y-4">
@@ -2869,31 +2855,21 @@ export function renderProductionChangeOrderDetailPage(changeOrderId: string): st
         <div class="flex flex-wrap gap-2">${actions}</div>
       </header>
 
-      ${renderChangeDetailSection('变更内容', changeContent)}
+      ${renderChangeDetailSection('变更内容', renderProductionChangeContentDetail(order))}
       ${renderChangeDetailSection('当前事实', renderInfoTiles([
         ['变更类型', getProductionChangeTypeLabel(order.changeType)],
         ['生产单', order.productionOrderId],
         ['款式 / SPU', `${order.styleName} / ${order.spuCode}`],
         ['来自哪张变更单', order.id],
       ]))}
-      ${renderChangeDetailSection('需要处理的事', renderChangeTable(
-        ['需要处理的事', '负责人角色', '相关负责人', '状态'],
-        actionRows,
-        '暂无处理事项',
-        'min-w-[860px]',
-      ))}
+      ${renderChangeDetailSection('需要处理的事', renderProductionChangeActionItems(order))}
       ${renderChangeDetailSection('处理记录', renderInfoTiles([
         ['变更单记录', order.latestLog],
         ['待主管确认', productionOrderChangeOrderStatusLabels[order.status]],
         ['相关负责人', order.merchandiserName],
         ['本单已按变更单', order.id],
       ]))}
-      ${renderChangeDetailSection('相关单据记录', renderChangeTable(
-        ['单据号', '单据类型', '变更单留痕', '确认人'],
-        traceRows,
-        '暂无相关单据记录',
-        'min-w-[920px]',
-      ))}
+      ${renderChangeDetailSection('相关单据记录', renderProductionChangeDocumentTraces(order))}
     </div>
   `
 }
