@@ -548,15 +548,27 @@ function renderMaterialRequirementTable(record: ProductionPreparationRecord): st
         <tbody>
           ${lines.map((material) => `
             <tr class="border-t">
-              <td class="px-3 py-2">
-                ${material.imageUrl ? `<img src="${escapeHtml(material.imageUrl)}" alt="${escapeHtml(material.materialName)}" class="h-12 w-12 rounded-md border object-cover" />` : '<div class="h-12 w-12 rounded-md border bg-muted" />'}
-              </td>
-              <td class="px-3 py-2 font-medium">${escapeHtml(material.materialName)}</td>
-              <td class="px-3 py-2 font-mono text-xs">${escapeHtml(material.materialNo)}</td>
-              <td class="px-3 py-2">${escapeHtml(material.materialType)}</td>
-              <td class="px-3 py-2">${material.requiredQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
-              <td class="px-3 py-2">${material.preparedQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
-              <td class="px-3 py-2">${material.issuedQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
+              ${material.materialSource === '非系统内物料'
+                ? `
+                  <td class="px-3 py-2 text-xs text-muted-foreground">非系统内物料</td>
+                  <td class="px-3 py-2 font-medium">${escapeHtml(material.materialName)}</td>
+                  <td class="px-3 py-2">序号 ${material.externalSerialNo ?? '-'}</td>
+                  <td class="px-3 py-2 text-muted-foreground">-</td>
+                  <td class="px-3 py-2 text-muted-foreground">-</td>
+                  <td class="px-3 py-2 text-muted-foreground">-</td>
+                  <td class="px-3 py-2 text-muted-foreground">-</td>
+                `
+                : `
+                  <td class="px-3 py-2">
+                    ${material.imageUrl ? `<img src="${escapeHtml(material.imageUrl)}" alt="${escapeHtml(material.materialName)}" class="h-12 w-12 rounded-md border object-cover" />` : '<div class="h-12 w-12 rounded-md border bg-muted" />'}
+                  </td>
+                  <td class="px-3 py-2 font-medium">${escapeHtml(material.materialName)}</td>
+                  <td class="px-3 py-2 font-mono text-xs">${escapeHtml(material.materialNo)}</td>
+                  <td class="px-3 py-2">${escapeHtml(material.materialType)}</td>
+                  <td class="px-3 py-2">${material.requiredQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
+                  <td class="px-3 py-2">${material.preparedQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
+                  <td class="px-3 py-2">${material.issuedQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
+                `}
             </tr>
           `).join('')}
         </tbody>
@@ -600,6 +612,16 @@ function allExternalMaterials(): ExternalPreparationMaterial[] {
   return [...externalPreparationMaterials, ...runtime.externalMaterials]
 }
 
+function renderExternalMaterialDatalist(): string {
+  return `
+    <datalist id="prep-external-material-options">
+      ${allExternalMaterials().map((material) => `
+        <option value="${material.serialNo}" label="${escapeHtml(material.materialName)}"></option>
+      `).join('')}
+    </datalist>
+  `
+}
+
 function renderExternalMaterialsDialog(params: URLSearchParams, month: string): string {
   if (valueOf(params, 'action') !== 'external-materials') return ''
   const closeHref = buildLedgerHrefFromParams(params, month)
@@ -641,10 +663,18 @@ function renderExternalMaterialsDialog(params: URLSearchParams, month: string): 
 }
 
 function renderConfirmMaterialRow(material: PreparationMaterialLine): string {
+  const materialSource = material.materialSource === '非系统内物料' ? '非系统内物料' : '系统内物料'
   return `
     <tr class="border-t" data-prep-material-row>
       <td class="px-3 py-2 align-middle">
-        <input name="materialNo" list="prep-material-options" value="${escapeHtml(material.materialNo)}" placeholder="输入编号或名称搜索" class="h-9 w-56 rounded-md border px-3 text-sm" required data-prep-material-input />
+        <select name="materialSource" class="h-9 rounded-md border px-2 text-sm" data-prep-material-source>
+          <option value="系统内物料" ${materialSource === '系统内物料' ? 'selected' : ''}>系统内物料</option>
+          <option value="非系统内物料" ${materialSource === '非系统内物料' ? 'selected' : ''}>非系统内物料</option>
+        </select>
+      </td>
+      <td class="px-3 py-2 align-middle">
+        <input name="materialNo" list="prep-material-options" value="${escapeHtml(material.materialNo)}" placeholder="输入编号或名称搜索" class="h-9 w-56 rounded-md border px-3 text-sm" data-prep-material-input />
+        <input name="externalSerialNo" list="prep-external-material-options" value="${material.externalSerialNo ?? ''}" placeholder="非系统序号" class="mt-2 h-9 w-28 rounded-md border px-3 text-sm" data-prep-external-material-input />
         <input type="hidden" name="materialName" value="${escapeHtml(material.materialName)}" data-prep-material-name />
         <input type="hidden" name="materialType" value="${escapeHtml(material.materialType)}" data-prep-material-type />
         <input type="hidden" name="materialImageUrl" value="${escapeHtml(material.imageUrl)}" data-prep-material-image />
@@ -654,7 +684,9 @@ function renderConfirmMaterialRow(material: PreparationMaterialLine): string {
         <input type="hidden" name="materialUnit" value="${escapeHtml(material.unit)}" data-prep-material-unit />
       </td>
       <td class="px-3 py-2 align-middle">
-        <img src="${escapeHtml(material.imageUrl)}" alt="${escapeHtml(material.materialName)}" class="h-12 w-12 rounded-md border object-cover" data-prep-material-preview-image />
+        ${materialSource === '非系统内物料'
+          ? '<div class="flex h-12 w-12 items-center justify-center rounded-md border bg-muted text-xs text-muted-foreground">外部</div>'
+          : `<img src="${escapeHtml(material.imageUrl)}" alt="${escapeHtml(material.materialName)}" class="h-12 w-12 rounded-md border object-cover" data-prep-material-preview-image />`}
       </td>
       <td class="px-3 py-2 align-middle font-medium" data-prep-material-preview-name>${escapeHtml(material.materialName)}</td>
       <td class="px-3 py-2 align-middle font-mono text-xs text-muted-foreground" data-prep-material-preview-no>${escapeHtml(material.materialNo)}</td>
@@ -670,11 +702,12 @@ function renderConfirmMaterialRows(record: ProductionPreparationRecord): string 
   const lines = materialLines(record)
   return `
     ${renderMaterialDatalist()}
+    ${renderExternalMaterialDatalist()}
     <div class="overflow-x-auto rounded-lg border">
       <table class="w-full min-w-[760px] text-sm">
         <thead class="bg-muted/60 text-left text-xs text-muted-foreground">
           <tr>
-            ${['选择物料', '图片', '物料名称', '物料编号', '物料类型', '操作'].map((head) => `<th class="px-3 py-2 font-medium">${escapeHtml(head)}</th>`).join('')}
+            ${['来源', '选择物料', '图片', '物料名称', '物料编号', '物料类型', '操作'].map((head) => `<th class="px-3 py-2 font-medium">${escapeHtml(head)}</th>`).join('')}
           </tr>
         </thead>
         <tbody data-prep-material-rows>
@@ -1889,6 +1922,8 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
     const selectedItemTypes = normalizeSelectedPreparationItemTypes(formData.getAll('selectedItemType')
       .map((itemType) => String(itemType).trim() as PreparationItemType)
       .filter(Boolean))
+    const materialSources = formData.getAll('materialSource').map((value) => String(value).trim())
+    const externalSerialNos = formData.getAll('externalSerialNo').map((value) => Number(String(value).trim()) || 0)
     const materialNos = formData.getAll('materialNo').map((value) => String(value).trim())
     const materialNames = formData.getAll('materialName').map((value) => String(value).trim())
     const materialTypes = formData.getAll('materialType').map((value) => String(value).trim())
@@ -1898,17 +1933,36 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
     const materialIssuedQtys = formData.getAll('materialIssuedQty').map((value) => Number(value) || 0)
     const materialUnits = formData.getAll('materialUnit').map((value) => String(value).trim() || '米')
     const materialItems = materialNos
-      .map((materialNo, index) => ({
-        materialNo,
-        materialName: materialNames[index] ?? '',
-        materialType: materialTypes[index] ?? '',
-        imageUrl: materialImageUrls[index] ?? '',
-        requiredQty: materialRequiredQtys[index] ?? 0,
-        preparedQty: materialPreparedQtys[index] ?? 0,
-        issuedQty: materialIssuedQtys[index] ?? 0,
-        unit: materialUnits[index] ?? '米',
-      }))
-      .filter((material) => material.materialNo && material.materialName)
+      .map((materialNo, index) => {
+        if (materialSources[index] === '非系统内物料') {
+          const externalMaterial = allExternalMaterials().find((item) => item.serialNo === externalSerialNos[index])
+          if (!externalMaterial) return null
+          return {
+            materialSource: '非系统内物料' as const,
+            externalSerialNo: externalMaterial.serialNo,
+            materialNo: '',
+            materialName: externalMaterial.materialName,
+            materialType: '',
+            imageUrl: '',
+            requiredQty: 0,
+            preparedQty: 0,
+            issuedQty: 0,
+            unit: '',
+          }
+        }
+        return {
+          materialSource: '系统内物料' as const,
+          materialNo,
+          materialName: materialNames[index] ?? '',
+          materialType: materialTypes[index] ?? '',
+          imageUrl: materialImageUrls[index] ?? '',
+          requiredQty: materialRequiredQtys[index] ?? 0,
+          preparedQty: materialPreparedQtys[index] ?? 0,
+          issuedQty: materialIssuedQtys[index] ?? 0,
+          unit: materialUnits[index] ?? '米',
+        }
+      })
+      .filter((material): material is PreparationMaterialLine => Boolean(material && material.materialName && (material.materialSource === '非系统内物料' || material.materialNo)))
     const firstMaterial = materialItems[0]
     const materialRequirement = {
       materialNo: firstMaterial?.materialNo ?? '',
