@@ -105,6 +105,15 @@ export type ProductionOrderChangeOrderStatus =
   | 'REJECTED'
   | 'RETURNED'
 
+export type ProductionOrderChangeType = 'QUANTITY_CHANGE' | 'MATERIAL_REPLACEMENT'
+
+export type ProductionOrderChangeProgressStage =
+  | 'NO_DOCUMENT'
+  | 'DOCUMENT_NOT_STARTED'
+  | 'STARTED_NOT_HANDOVER'
+  | 'HANDOVER_NOT_SETTLED'
+  | 'SETTLED'
+
 export type ProductionOrderChangeDocumentType =
   | 'MATERIAL_PREPARATION'
   | 'PICKING'
@@ -419,6 +428,28 @@ export interface ProductionOrderChangeScenario {
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH'
 }
 
+export interface ProductionOrderChangeActionItem {
+  id: string
+  ownerRole: string
+  ownerName: string
+  actionText: string
+  stage: ProductionOrderChangeProgressStage
+  statusText: string
+  adjustReason: string
+}
+
+export interface ProductionOrderChangeDocumentTrace {
+  id: string
+  documentType: ProductionOrderChangeDocumentType
+  documentNo: string
+  traceText: string
+  beforeText: string
+  afterText: string
+  confirmedBy: string
+  confirmedAt: string
+  reason: string
+}
+
 export interface ProductionOrderChangeOrder {
   id: string
   scenarioId: string
@@ -428,6 +459,20 @@ export interface ProductionOrderChangeOrder {
   styleName: string
   buyerName: string
   merchandiserName: string
+  changeType: ProductionOrderChangeType
+  stage: ProductionOrderChangeProgressStage
+  stageText: string
+  workSummary: string
+  actionItems: ProductionOrderChangeActionItem[]
+  documentTraces: ProductionOrderChangeDocumentTrace[]
+  quantityLines?: Array<{ color: string; size: string; currentQty: number; newQty: number; unit: string }>
+  materialReplacement?: {
+    originalMaterial: string
+    replacementMaterial: string
+    colors: string[]
+    sizes: string[]
+    effectiveFromText: string
+  }
   source: ProductionOrderChangeSource
   changeModules: TechPackChangeModule[]
   reason: string
@@ -450,6 +495,7 @@ export interface ProductionOrderChangeOrder {
 
 export interface ProductionOrderChangeOrderSubmitInput {
   productionOrderId: string
+  changeType?: ProductionOrderChangeType
   source: ProductionOrderChangeSource
   changeModules: TechPackChangeModule[]
   reason: string
@@ -460,6 +506,8 @@ export interface ProductionOrderChangeOrderSubmitInput {
   operatorName: string
   linkedVersionChangeRequestId?: string
   linkedPatchId?: string
+  quantityLines?: ProductionOrderChangeOrder['quantityLines']
+  materialReplacement?: ProductionOrderChangeOrder['materialReplacement']
   status?: 'DRAFT'
 }
 
@@ -1198,6 +1246,150 @@ function getProductionOrderChangeOrderCostDeltaAmount(
   )
 }
 
+const productionOrderChangeStageText: Record<ProductionOrderChangeProgressStage, string> = {
+  NO_DOCUMENT: '未生成相关单据',
+  DOCUMENT_NOT_STARTED: '单据已生成未开工',
+  STARTED_NOT_HANDOVER: '已开工未交出',
+  HANDOVER_NOT_SETTLED: '已交出未结算',
+  SETTLED: '已结算',
+}
+
+function getProductionOrderChangeStage(status: ProductionOrderChangeOrderStatus): ProductionOrderChangeProgressStage {
+  if (status === 'DONE') return 'SETTLED'
+  if (status === 'EXECUTING' || status === 'APPROVED') return 'STARTED_NOT_HANDOVER'
+  if (status === 'UNDER_REVIEW' || status === 'SUBMITTED') return 'DOCUMENT_NOT_STARTED'
+  return 'NO_DOCUMENT'
+}
+
+function buildDefaultProductionOrderChangeActionItems(
+  orderId: string,
+  stage: ProductionOrderChangeProgressStage,
+  changeType: ProductionOrderChangeType,
+  reason: string,
+): ProductionOrderChangeActionItem[] {
+  return [
+    {
+      id: `${orderId}-ACTION-MATERIAL`,
+      ownerRole: '配料负责人',
+      ownerName: '物料计划主管',
+      actionText:
+        changeType === 'QUANTITY_CHANGE'
+          ? '按变更单记录核对配料数量，确认原数量和新数量差异。'
+          : '核对旧料库存和新物料到料，确认未领料范围改用替代物料。',
+      stage,
+      statusText: stage === 'SETTLED' ? '已完成' : '待处理',
+      adjustReason: reason,
+    },
+    {
+      id: `${orderId}-ACTION-CUTTING`,
+      ownerRole: '裁剪负责人',
+      ownerName: '裁床主管',
+      actionText:
+        changeType === 'QUANTITY_CHANGE'
+          ? '按变更单留痕调整裁剪单色码数量，已裁部分保留记录。'
+          : '确认裁剪单未开工范围使用新物料，已裁旧料单独留痕。',
+      stage,
+      statusText: stage === 'SETTLED' ? '已完成' : '待确认',
+      adjustReason: reason,
+    },
+  ]
+}
+
+function buildDefaultProductionOrderChangeDocumentTraces(
+  orderId: string,
+  productionOrderId: string,
+  stage: ProductionOrderChangeProgressStage,
+  changeType: ProductionOrderChangeType,
+  reason: string,
+): ProductionOrderChangeDocumentTrace[] {
+  const documentSuffix = productionOrderId.replace('PO-', '')
+  return [
+    {
+      id: `${orderId}-TRACE-MATERIAL`,
+      documentType: 'MATERIAL_PREPARATION',
+      documentNo: `配料单-${documentSuffix}-001`,
+      traceText: `变更单留痕：本单已按变更单 ${orderId} 调整配料口径。`,
+      beforeText: changeType === 'QUANTITY_CHANGE' ? '原数量按生产单原始需求配料。' : '原物料按冻结技术包配料。',
+      afterText: changeType === 'QUANTITY_CHANGE' ? '新数量按色码明细重新计算配料。' : '替代物料从未领料范围开始使用。',
+      confirmedBy: '物料计划主管',
+      confirmedAt: stage === 'NO_DOCUMENT' ? '' : '2026-03-12 10:20',
+      reason,
+    },
+    {
+      id: `${orderId}-TRACE-CUTTING`,
+      documentType: 'CUTTING',
+      documentNo: `裁剪单-${documentSuffix}-001`,
+      traceText: `变更单记录：来自哪张变更单 ${orderId} 可在裁剪单明细反查。`,
+      beforeText: changeType === 'QUANTITY_CHANGE' ? '原数量沿用旧裁剪计划。' : '原物料用于旧裁剪计划。',
+      afterText: changeType === 'QUANTITY_CHANGE' ? '新数量同步到待裁色码。' : '替代物料用于后续待裁范围。',
+      confirmedBy: '裁床主管',
+      confirmedAt: stage === 'NO_DOCUMENT' ? '' : '2026-03-12 11:10',
+      reason,
+    },
+  ]
+}
+
+function buildProductionOrderChangeDomainFields(input: {
+  id: string
+  productionOrderId: string
+  changeType?: ProductionOrderChangeType
+  stage?: ProductionOrderChangeProgressStage
+  status: ProductionOrderChangeOrderStatus
+  reason: string
+  quantityLines?: ProductionOrderChangeOrder['quantityLines']
+  materialReplacement?: ProductionOrderChangeOrder['materialReplacement']
+}): Pick<
+  ProductionOrderChangeOrder,
+  | 'changeType'
+  | 'stage'
+  | 'stageText'
+  | 'workSummary'
+  | 'actionItems'
+  | 'documentTraces'
+  | 'quantityLines'
+  | 'materialReplacement'
+> {
+  const changeType = input.changeType ?? 'MATERIAL_REPLACEMENT'
+  const stage = input.stage ?? getProductionOrderChangeStage(input.status)
+  const quantityLines =
+    changeType === 'QUANTITY_CHANGE'
+      ? input.quantityLines ?? [
+          { color: '黑色', size: 'M', currentQty: 120, newQty: 90, unit: '件' },
+          { color: '藏青色', size: 'L', currentQty: 100, newQty: 80, unit: '件' },
+        ]
+      : undefined
+  const materialReplacement =
+    changeType === 'MATERIAL_REPLACEMENT'
+      ? input.materialReplacement ?? {
+          originalMaterial: '主面料弹力斜纹布 280g',
+          replacementMaterial: '替代物料高密弹力斜纹布 300g',
+          colors: ['黑色', '藏青色'],
+          sizes: ['M', 'L', 'XL'],
+          effectiveFromText: '从哪里开始用新物料：从下一次领料和未开裁裁剪单开始',
+        }
+      : undefined
+
+  return {
+    changeType,
+    stage,
+    stageText: productionOrderChangeStageText[stage],
+    workSummary:
+      changeType === 'QUANTITY_CHANGE'
+        ? '按颜色尺码调整生产单需求数量，配料单和裁剪单保留变更单记录。'
+        : '替换生产单物料，旧料和新物料处理都需要在相关单据保留变更单留痕。',
+    actionItems: buildDefaultProductionOrderChangeActionItems(input.id, stage, changeType, input.reason),
+    documentTraces: buildDefaultProductionOrderChangeDocumentTraces(
+      input.id,
+      input.productionOrderId,
+      stage,
+      changeType,
+      input.reason,
+    ),
+    quantityLines,
+    materialReplacement,
+  }
+}
+
 let productionOrderChangeOrders: ProductionOrderChangeOrder[] = productionOrderChangeOrderPlans.map((plan, index) => {
   const scenario = requireProductionOrderChangeScenario(plan.scenarioId)
   const style = productionOrderChangeStyleSeeds[index % productionOrderChangeStyleSeeds.length]
@@ -1211,6 +1403,9 @@ let productionOrderChangeOrders: ProductionOrderChangeOrder[] = productionOrderC
         ? 'IMMEDIATE_EXECUTION'
         : 'AFTER_APPROVAL'
   const status = productionOrderChangeStatuses[index % productionOrderChangeStatuses.length]
+  const id = plan.id ?? `CHANGE-${plan.productionOrderId}-${String(index + 1).padStart(3, '0')}`
+  const productionOrderId = plan.productionOrderId ?? `PO-202603-${String(index + 10).padStart(4, '0')}`
+  const changeType: ProductionOrderChangeType = id === 'CHANGE-PO-202603-0004-001' ? 'QUANTITY_CHANGE' : 'MATERIAL_REPLACEMENT'
   const lockStatus: ProductionOrderChangeLockStatus =
     status === 'DONE'
       ? 'RELEASED'
@@ -1231,14 +1426,21 @@ let productionOrderChangeOrders: ProductionOrderChangeOrder[] = productionOrderC
             : 'FROM_NEXT_PREP'
 
   return {
-    id: plan.id ?? `CHANGE-${plan.productionOrderId}-${String(index + 1).padStart(3, '0')}`,
+    id,
     scenarioId: scenario.id,
-    productionOrderId: plan.productionOrderId ?? `PO-202603-${String(index + 10).padStart(4, '0')}`,
+    productionOrderId,
     demandOrderId: `DO-202603-${String(index + 4).padStart(4, '0')}`,
     spuCode: style.spuCode,
     styleName: style.styleName,
     buyerName: style.buyerName,
     merchandiserName: style.merchandiserName,
+    ...buildProductionOrderChangeDomainFields({
+      id,
+      productionOrderId,
+      changeType,
+      status,
+      reason: scenario.title,
+    }),
     source: scenario.source,
     changeModules: getProductionOrderChangeOrderModules(scenario),
     reason: scenario.title,
@@ -1258,6 +1460,11 @@ let productionOrderChangeOrders: ProductionOrderChangeOrder[] = productionOrderC
     reviewer: plan.changeResult === 'COST_ONLY' ? '财务主管' : '生产主管',
     latestLog: `${productionOrderChangeResultLabels[plan.changeResult]}已生成处理清单，${productionOrderChangeExecutionStrategyLabels[executionStrategy]}。`,
   }
+}).sort((left, right) => {
+  const priority = ['CHANGE-PO-202603-0004-001', 'CHANGE-PO-202603-0004-002']
+  const leftIndex = priority.indexOf(left.id)
+  const rightIndex = priority.indexOf(right.id)
+  return (leftIndex === -1 ? priority.length : leftIndex) - (rightIndex === -1 ? priority.length : rightIndex)
 })
 
 function buildProductionOrderChangeImpactRow(
@@ -2874,6 +3081,13 @@ export function previewProductionOrderChangeOrder(
     styleName: relation.styleName,
     buyerName: relation.buyerName,
     merchandiserName: relation.merchandiserName,
+    ...buildProductionOrderChangeDomainFields({
+      id: `PREVIEW-${relation.productionOrderId}`,
+      productionOrderId: relation.productionOrderId,
+      changeType: 'MATERIAL_REPLACEMENT',
+      status: 'DRAFT',
+      reason,
+    }),
     source: input.source,
     changeModules: [...input.changeModules],
     reason,
@@ -2986,8 +3200,9 @@ export function submitProductionOrderChangeOrder(
     input.changeResult === 'PRODUCTION_PATCH' || input.changeResult === 'VERSION_AND_PATCH'
   const createdAt = nowText()
   const status = requestedStatus ?? (input.executionStrategy === 'IMMEDIATE_EXECUTION' ? 'EXECUTING' : 'SUBMITTED')
+  const id = nextProductionOrderChangeOrderId(input.productionOrderId)
   const order: ProductionOrderChangeOrder = {
-    id: nextProductionOrderChangeOrderId(input.productionOrderId),
+    id,
     scenarioId: scenario.id,
     productionOrderId: relation.productionOrderId,
     demandOrderId: relation.productionOrderNo.replace('PO-', 'DO-'),
@@ -2995,6 +3210,15 @@ export function submitProductionOrderChangeOrder(
     styleName: relation.styleName,
     buyerName: relation.buyerName,
     merchandiserName: relation.merchandiserName,
+    ...buildProductionOrderChangeDomainFields({
+      id,
+      productionOrderId: relation.productionOrderId,
+      changeType: input.changeType,
+      status,
+      reason: input.reason.trim(),
+      quantityLines: input.quantityLines,
+      materialReplacement: input.materialReplacement,
+    }),
     source: input.source,
     changeModules: [...input.changeModules],
     reason: input.reason.trim(),
@@ -3052,6 +3276,18 @@ export function updateProductionOrderChangeOrder(
     input.changeResult === 'PRODUCTION_PATCH' || input.changeResult === 'VERSION_AND_PATCH'
 
   order.scenarioId = scenario.id
+  Object.assign(
+    order,
+    buildProductionOrderChangeDomainFields({
+      id: order.id,
+      productionOrderId: order.productionOrderId,
+      changeType: input.changeType,
+      status: input.status,
+      reason: input.reason.trim(),
+      quantityLines: input.quantityLines,
+      materialReplacement: input.materialReplacement,
+    }),
+  )
   order.source = input.source
   order.changeModules = [...input.changeModules]
   order.reason = input.reason.trim()
