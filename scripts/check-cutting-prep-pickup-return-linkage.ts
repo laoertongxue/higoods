@@ -54,9 +54,14 @@ for (const row of returnedRows) {
   assert(projection, `配料单投影必须可按 ID 读取：${row.order.prepOrderId}`)
   assert(projection.returnedLineCount > 0, `配料单必须统计已退回物料行：${row.order.prepOrderNo}`)
   assert(projection.totalReturnedQty > 0, `配料单必须统计已退数量：${row.order.prepOrderNo}`)
+  const latestReturnRecord = projection.pickupReturnRecords.find((record) => record.returnedAt === projection.latestOperatedAt)
   assert(
-    projection.pickupReturnRecords.some((record) => record.returnedAt === projection.latestOperatedAt),
+    latestReturnRecord,
     `最近操作必须能取到退回时间：${row.order.prepOrderNo}`,
+  )
+  assert(
+    projection.latestOperatorName === latestReturnRecord.returnedBy,
+    `最近操作人必须取到退回人：${row.order.prepOrderNo}`,
   )
 }
 
