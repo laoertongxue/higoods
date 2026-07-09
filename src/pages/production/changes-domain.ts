@@ -1998,11 +1998,11 @@ export function renderProductionChangeDetailPage(productionOrderId: string): str
 function renderProductionChangeOrderDetailTabs(): string {
   const tabs = [
     { key: 'content', label: '变更内容' },
-    { key: 'impact', label: '生产影响' },
-    { key: 'documents', label: '单据处理' },
-    { key: 'cost', label: '料工费' },
-    { key: 'timing', label: '时效影响' },
-    { key: 'approval', label: '审核执行' },
+    { key: 'impact', label: '当前事实' },
+    { key: 'documents', label: '系统建议' },
+    { key: 'cost', label: '需要处理的事' },
+    { key: 'timing', label: '相关单据记录' },
+    { key: 'approval', label: '主管确认' },
     { key: 'records', label: '处理记录' },
   ] as const
   return `
@@ -2147,66 +2147,110 @@ function renderChangeDetailSummaryCard(label: string, value: string, hint: strin
 }
 
 function renderProductionChangeOrderDetailContent(order: ProductionOrderChangeOrderView): string {
-  const impactRows = listProductionOrderChangeImpactRows(order.id)
-  const documentActions = listProductionOrderChangeDocumentActions(order.id)
-  const costImpacts = listProductionOrderChangeCostImpacts(order.id)
-  const timingImpacts = listProductionOrderChangeTimingImpacts(order.id)
   const tab = state.productionChangeDetailTab
-
-  if (tab === 'impact') return renderChangeDetailSection('生产影响', renderProductionImpactTable(impactRows))
-  if (tab === 'documents') return renderChangeDetailSection('单据处理', renderDocumentActionTable(documentActions))
-  if (tab === 'cost') return renderChangeDetailSection('料工费', renderCostImpactTable(costImpacts))
-  if (tab === 'timing') return renderChangeDetailSection('时效影响', renderTimingImpactTable(timingImpacts))
-
-  if (tab === 'approval') {
-    const strategies = [
-      ['IMMEDIATE_STOP_LOSS', '立即止损后提交审核', '先锁定影响范围或暂停整单，避免现场继续按错误口径执行。'],
-      ['IMMEDIATE_EXECUTION', '立即执行', '影响范围明确且风险可控，先执行再沉淀处理记录。'],
-      ['AFTER_APPROVAL', '审核通过后执行', '涉及成本、交期或跨部门责任，主管审核通过后再执行。'],
-    ] as const
-    return renderChangeDetailSection(
-      '审核执行',
-      `
-        <div class="grid gap-3 md:grid-cols-3">
-          ${strategies.map(([key, title, description]) => {
-            const active = order.executionStrategy === key
-            return `
-              <article class="rounded-md border px-4 py-3 ${active ? 'border-primary bg-primary/10' : 'bg-card'}">
-                <div class="flex items-center justify-between gap-2">
-                  <h3 class="text-sm font-semibold">${escapeHtml(title)}</h3>
-                  ${active ? renderBadge('当前方式', 'bg-primary text-primary-foreground') : ''}
-                </div>
-                <p class="mt-2 text-sm text-muted-foreground">${escapeHtml(description)}</p>
-              </article>
-            `
-          }).join('')}
-        </div>
-      `,
+  const quantityRows = order.quantityLines?.map((line) => {
+    const diff = line.newQty - line.currentQty
+    return `
+      <tr>
+        <td class="px-3 py-3">${escapeHtml(line.color)}</td>
+        <td class="px-3 py-3">${escapeHtml(line.size)}</td>
+        <td class="px-3 py-3">${escapeHtml(`${line.currentQty} ${line.unit}`)}</td>
+        <td class="px-3 py-3">${escapeHtml(`${line.newQty} ${line.unit}`)}</td>
+        <td class="px-3 py-3">${escapeHtml(`${diff >= 0 ? '多出' : '减少'} ${Math.abs(diff)} ${line.unit}`)}</td>
+      </tr>
+    `
+  }) ?? []
+  const material = order.materialReplacement
+  const changeContent = order.changeType === 'MATERIAL_REPLACEMENT' && material
+    ? renderInfoTiles([
+      ['原物料', material.originalMaterial],
+      ['替代物料', material.replacementMaterial],
+      ['适用颜色', material.colors.join('、')],
+      ['适用尺码', material.sizes.join('、')],
+      ['从哪里开始用新物料', material.effectiveFromText],
+    ])
+    : renderChangeTable(
+      ['颜色', '尺码', '当前数量', '新数量', '本次变化'],
+      quantityRows,
+      '暂无数量变更',
+      'min-w-[720px]',
     )
-  }
+  const actionRows = order.actionItems.map((item) => `
+    <tr>
+      <td class="px-3 py-3">${escapeHtml(item.actionText)}</td>
+      <td class="px-3 py-3">${escapeHtml(item.ownerRole)}</td>
+      <td class="px-3 py-3">${escapeHtml(item.ownerName)}</td>
+      <td class="px-3 py-3">${escapeHtml(item.statusText)}</td>
+    </tr>
+  `)
+  const traceRows = order.documentTraces.map((item) => `
+    <tr>
+      <td class="px-3 py-3">${escapeHtml(item.documentNo)}</td>
+      <td class="px-3 py-3">${escapeHtml(productionOrderChangeDocumentTypeLabels[item.documentType])}</td>
+      <td class="px-3 py-3">${escapeHtml(item.traceText)}</td>
+      <td class="px-3 py-3">${escapeHtml(item.confirmedBy)}</td>
+    </tr>
+  `)
 
-  if (tab === 'records') {
+  if (tab === 'impact') {
     return renderChangeDetailSection(
-      '处理记录',
+      '当前事实',
       renderInfoTiles([
-        ['创建人', order.createdBy],
-        ['创建时间', order.createdAt],
-        ['审核人', order.reviewer],
-        ['最后记录', order.latestLog],
+        ['变更类型', getProductionChangeTypeLabel(order.changeType)],
+        ['生产单', order.productionOrderId],
+        ['款式 / SPU', `${order.styleName} / ${order.spuCode}`],
+        ['来自哪张变更单', order.id],
       ]),
     )
   }
 
+  if (tab === 'documents') {
+    return renderChangeDetailSection(
+      '系统建议',
+      renderInfoTiles([
+        ['建议结果', productionOrderChangeResultLabels[order.changeResult]],
+        ['建议生效方式', `${effectiveModeLabels[order.expectedEffectiveMode]} / ${order.effectiveDescription}`],
+        ['建议主管先看', order.actionItems[0]?.actionText || '确认需要处理的事'],
+      ]),
+    )
+  }
+
+  if (tab === 'cost' || tab === 'approval') {
+    return renderChangeDetailSection(
+      tab === 'approval' ? '主管确认' : '需要处理的事',
+      renderChangeTable(
+        ['需要处理的事', '负责人角色', '相关负责人', '状态'],
+        actionRows,
+        '暂无处理事项',
+        'min-w-[860px]',
+      ),
+    )
+  }
+
+  if (tab === 'timing') {
+    return renderChangeDetailSection(
+      '相关单据记录',
+      renderChangeTable(
+        ['单据号', '单据类型', '变更单留痕', '确认人'],
+        traceRows,
+        '暂无相关单据记录',
+        'min-w-[920px]',
+      ),
+    )
+  }
+
+  if (tab === 'records') {
+    return renderChangeDetailSection('处理记录', renderInfoTiles([
+      ['创建人', order.createdBy],
+      ['创建时间', order.createdAt],
+      ['主管', order.reviewer],
+      ['最后记录', order.latestLog],
+    ]))
+  }
+
   return renderChangeDetailSection(
     '变更内容',
-    renderInfoTiles([
-      ['变更来源', productionOrderChangeSourceLabels[order.source]],
-      ['系统反推结果', productionOrderChangeResultLabels[order.changeResult]],
-      ['期望生效口径', `${effectiveModeLabels[order.expectedEffectiveMode]} / ${order.effectiveDescription}`],
-      ['业务场景 / 原因', order.reason],
-      ['模块', order.changeModules.map((module) => techPackChangeModuleLabels[module]).join('、')],
-      ['生产单号', order.productionOrderId],
-    ]),
+    changeContent,
   )
 }
 
@@ -2785,10 +2829,10 @@ export function renderProductionChangeOrderDetailPage(changeOrderId: string): st
       ['替代物料', material.replacementMaterial],
       ['适用颜色', material.colors.join('、')],
       ['适用尺码', material.sizes.join('、')],
-      ['旧料或新物料', material.effectiveFromText],
+      ['从哪里开始用新物料', material.effectiveFromText],
     ])
     : renderChangeTable(
-      ['颜色', '尺码', '原数量', '新数量', '本次变化'],
+      ['颜色', '尺码', '当前数量', '新数量', '本次变化'],
       quantityRows,
       '暂无数量变更',
       'min-w-[720px]',
