@@ -942,7 +942,7 @@ function renderPickupRecords(
                   <div class="mt-1 text-xs text-muted-foreground">入库：${escapeHtml(record.warehouseArea)} / ${escapeHtml(record.locationCode)}</div>
                   ${relatedReturns.length ? `
                     <div class="mt-2 rounded-md border border-amber-100 bg-amber-50 px-2 py-1 text-xs text-amber-800">
-                      ${relatedReturns.map((item) => `${escapeHtml(item.reason)} / ${formatQty(item.returnQty, item.unit)} / ${escapeHtml(item.returnStatus)}`).join('；')}
+                      ${relatedReturns.map((item) => `${escapeHtml(item.reason)} / ${Number(item.returnQty || 0).toLocaleString('zh-CN')} ${escapeHtml(item.unit || 'yard')} / ${escapeHtml(item.returnStatus)}`).join('；')}
                     </div>
                   ` : ''}
                   ${record.differenceReason ? `<div class="mt-1 text-xs text-amber-700">差异：${escapeHtml(record.differenceReason)}</div>` : ''}
