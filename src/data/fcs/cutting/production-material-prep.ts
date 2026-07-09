@@ -3663,6 +3663,9 @@ export function appendPickupReturnRecord(
   if (!pickupRecord) {
     throw new Error(`领料记录不存在：${input.pickupRecordId}`)
   }
+  if (pickupRecord.prepRecordId !== input.prepRecordId || pickupRecord.prepLineId !== input.prepLineId) {
+    throw new Error('退回物料行与领料记录不一致')
+  }
   const waitProcessAvailableQty = roundQty(Number(pickupRecord.waitProcessAvailableQty ?? pickupRecord.pickedQty ?? 0))
   if (returnQty > waitProcessAvailableQty) {
     throw new Error('退回数量不能超过待加工仓可用数量')

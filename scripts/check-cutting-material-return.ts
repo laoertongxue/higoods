@@ -14,6 +14,15 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
+function assertThrows(action: () => unknown, message: string): void {
+  try {
+    action()
+  } catch {
+    return
+  }
+  throw new Error(message)
+}
+
 class MemoryStorage {
   private readonly values = new Map<string, string>()
 
@@ -29,6 +38,12 @@ class MemoryStorage {
     this.values.delete(key)
   }
 }
+
+const legacyStorage = new MemoryStorage()
+const legacyStore = createProductionMaterialPrepSeedStore() as { pickupReturnRecords?: unknown }
+delete legacyStore.pickupReturnRecords
+legacyStorage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, JSON.stringify(legacyStore))
+assert(listPickupReturnRecords(legacyStorage).length === 0, '旧 localStorage 缺少退回记录字段时必须返回空数组')
 
 const storage = new MemoryStorage()
 storage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, JSON.stringify(createProductionMaterialPrepSeedStore()))
@@ -56,6 +71,18 @@ assert(pickedContext.availableToPickupQty === 0, '已全部领料后不可重复
 const pickupRecord = pickedContext.projection.pickupRecords.find((record) => record.prepLineId === line.prepLineId)
 assert(pickupRecord, '必须生成领料记录')
 
+assertThrows(() => appendPickupReturnRecord({
+  pickupRecordId: pickupRecord.pickupRecordId,
+  prepRecordId: candidate.prepRecordId,
+  prepLineId: `${line.prepLineId}:wrong`,
+  returnQty: 1,
+  rollCount: 1,
+  reason: '布面瑕疵',
+  remark: '错误行归属',
+  imageNames: [],
+  returnedBy: '裁床 李明',
+}, storage), '传错 prepLineId 时必须拒绝退回')
+
 const returnRecord = appendPickupReturnRecord({
   pickupRecordId: pickupRecord.pickupRecordId,
   prepRecordId: candidate.prepRecordId,
@@ -78,6 +105,18 @@ assert(returnedPickup?.returnStatus === '部分退回', '部分退回后领料�
 assert(returnedPickup.returnQty === 10, '已退数量必须等于退回数量')
 assert(returnedPickup.waitProcessAvailableQty === Number(returnedPickup.pickedQty || 0) - 10, '待加工仓剩余数量必须扣减退回数量')
 assert(!listPickupCandidates(storage).some((item) => item.prepRecordId === candidate.prepRecordId), '配料/领料模块内不自动生成仓储处理后的补领候选')
+
+assertThrows(() => appendPickupReturnRecord({
+  pickupRecordId: pickupRecord.pickupRecordId,
+  prepRecordId: candidate.prepRecordId,
+  prepLineId: line.prepLineId,
+  returnQty: returnedPickup.waitProcessAvailableQty + 1,
+  rollCount: 1,
+  reason: '数量不符',
+  remark: '超额退回',
+  imageNames: [],
+  returnedBy: '裁床 李明',
+}, storage), '超额退回应抛错')
 
 appendPickupReturnRecord({
   pickupRecordId: pickupRecord.pickupRecordId,
