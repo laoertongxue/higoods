@@ -22,7 +22,6 @@ import {
 } from '../../../data/fcs/production-order-identity.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { getCanonicalCuttingMeta, renderCuttingPageHeader } from './meta.ts'
-import { renderCompactKpiGroup } from './layout.helpers.ts'
 
 type PickupDetailTab = 'demand' | 'records' | 'materials' | 'warehouse' | 'returns' | 'reject'
 
@@ -200,14 +199,8 @@ function renderStatus(status: string, label: string): string {
   return renderBadge(label, statusVariantMap[status] || 'neutral')
 }
 
-function renderKpi(label: string, value: number | string, desc: string): string {
-  return `
-    <div class="inline-flex min-h-10 max-w-full items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm shadow-sm">
-      <span class="shrink-0 text-muted-foreground">${escapeHtml(label)}：</span>
-      <span class="font-semibold tabular-nums">${escapeHtml(value)}</span>
-      <span class="min-w-0 truncate text-[11px] text-muted-foreground">${escapeHtml(desc)}</span>
-    </div>
-  `
+function formatRollQty(value: number, rollCount: number, unit = 'yard'): string {
+  return `${Number(rollCount || 0).toLocaleString('zh-CN')} 卷 / ${formatQty(value, unit)}`
 }
 
 function getPickupListFilters(params = getSearchParams()): PickupListFilters {
@@ -393,7 +386,7 @@ function renderCandidateMaterialPreview(candidate: PrepRecordPickupCandidate): s
               <span class="truncate text-xs font-medium">${renderMaterialSkuCode(item.materialSku, candidate.productionOrderNo)}</span>
             </div>
             <div class="mt-1 truncate text-xs text-muted-foreground">${escapeHtml(item.materialName)} / ${escapeHtml(item.color)}</div>
-            <div class="mt-1 text-xs text-muted-foreground">本次可领 ${formatQty(item.availableToPickupQty, item.unit)} / 已领 ${formatQty(item.pickedQty, item.unit)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">本次可领 ${formatRollQty(item.availableToPickupQty, item.rollCount, item.unit)} / 已领 ${formatRollQty(item.pickedQty, item.pickedQty > 0 ? item.rollCount : 0, item.unit)}</div>
           </div>
         </div>
       `).join('')}
@@ -447,9 +440,9 @@ function renderWaitPickupCandidateTable(candidates: PrepRecordPickupCandidate[],
                 </td>
                 <td class="px-3 py-3 align-top">${renderCandidateMaterialPreview(candidate)}</td>
                 <td class="px-3 py-3 align-top text-xs">
-                  <div>本次可领：<span class="font-medium text-foreground">${formatQty(candidate.totalAvailableToPickupQty)}</span></div>
+                  <div>本次可领：<span class="font-medium text-foreground">${formatRollQty(candidate.totalAvailableToPickupQty, candidate.totalRollCount)}</span></div>
                   <div class="mt-1">已领：${formatQty(candidate.totalPickedQty)}</div>
-                  <div class="mt-1">已确认配料：${formatQty(candidate.totalPreparedQty)}</div>
+                  <div class="mt-1">已确认配料：${formatRollQty(candidate.totalPreparedQty, candidate.totalRollCount)}</div>
                 </td>
                 <td class="px-3 py-3 align-top text-xs">
                   <div class="font-medium">${escapeHtml(candidate.warehouseNames.join('、'))}</div>
@@ -554,7 +547,7 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], candidates: PrepR
                     <div>缺料：${formatQty(row.totalShortageQty)}</div>
                   </td>
                   <td class="px-3 py-3 align-top text-xs">
-                    ${row.pickupRecords.length ? row.pickupRecords.slice(0, 2).map((record) => `<div>${escapeHtml(record.warehouseArea)} / ${escapeHtml(record.locationCode)} / ${formatQty(record.pickedQty)}</div>`).join('') : '暂无入库'}
+                    ${row.pickupRecords.length ? row.pickupRecords.slice(0, 2).map((record) => `<div>${escapeHtml(record.warehouseArea)} / ${escapeHtml(record.locationCode)} / ${formatRollQty(record.pickedQty, record.rollCount)}</div>`).join('') : '暂无入库'}
                   </td>
                   <td class="px-3 py-3 align-top text-xs">
                     <div>${escapeHtml(row.latestOperatorName)}</div>
@@ -604,8 +597,8 @@ function renderCandidateList(candidates: PrepRecordPickupCandidate[]): string {
             <div class="mt-3 grid grid-cols-4 gap-2 text-xs">
               <div><div class="text-muted-foreground">物料明细</div><div class="font-medium">${candidate.materialCount} 项</div></div>
               <div><div class="text-muted-foreground">合计卷数</div><div class="font-medium">${candidate.totalRollCount} 卷</div></div>
-              <div><div class="text-muted-foreground">已领明细数量</div><div class="font-medium">${candidate.totalPickedQty.toLocaleString('zh-CN', { maximumFractionDigits: 2 })}</div></div>
-              <div><div class="text-muted-foreground">本次可领明细数量</div><div class="font-medium">${candidate.totalAvailableToPickupQty.toLocaleString('zh-CN', { maximumFractionDigits: 2 })}</div></div>
+              <div><div class="text-muted-foreground">已领明细数量</div><div class="font-medium">${formatQty(candidate.totalPickedQty)}</div></div>
+              <div><div class="text-muted-foreground">本次可领明细数量</div><div class="font-medium">${formatRollQty(candidate.totalAvailableToPickupQty, candidate.totalRollCount)}</div></div>
             </div>
             <div class="mt-3 overflow-x-auto">
               <table class="w-full min-w-[980px] text-left text-xs">
@@ -629,9 +622,9 @@ function renderCandidateList(candidates: PrepRecordPickupCandidate[]): string {
                         <div class="font-medium">${renderMaterialSkuCode(item.materialSku, candidate.productionOrderNo)}</div>
                         <div class="mt-1 text-muted-foreground">${escapeHtml(item.materialName)} / ${escapeHtml(item.color)} / ${escapeHtml(item.cutOrderNo)}</div>
                       </td>
-                      <td class="px-3 py-2">${formatQty(item.preparedQty, item.unit)} / ${item.rollCount} 卷</td>
-                      <td class="px-3 py-2">${formatQty(item.pickedQty, item.unit)}</td>
-                      <td class="px-3 py-2">${formatQty(item.availableToPickupQty, item.unit)}</td>
+                      <td class="px-3 py-2">${formatRollQty(item.preparedQty, item.rollCount, item.unit)}</td>
+                      <td class="px-3 py-2">${formatRollQty(item.pickedQty, item.pickedQty > 0 ? item.rollCount : 0, item.unit)}</td>
+                      <td class="px-3 py-2">${formatRollQty(item.availableToPickupQty, item.rollCount, item.unit)}</td>
                       <td class="px-3 py-2">
                         <div class="font-medium">${escapeHtml(item.stockWarehouseName)}</div>
                         <div class="mt-1 text-muted-foreground">${escapeHtml(item.warehouseArea)} / ${escapeHtml(item.locationCode)}</div>
@@ -694,7 +687,7 @@ function renderRejectPanel(prepRecordId: string, prepLineId = ''): string {
                   <div class="font-medium">${renderMaterialSkuCode(item.materialSku, context.projection.order.productionOrderNo)}</div>
                   <div class="mt-1 text-muted-foreground">${escapeHtml(item.materialName)} / ${escapeHtml(item.color)} / ${escapeHtml(item.cutOrderNo)}</div>
                 </td>
-                <td class="px-3 py-2">${formatQty(item.availableToPickupQty, item.unit)}</td>
+                <td class="px-3 py-2">${formatRollQty(item.availableToPickupQty, item.rollCount, item.unit)}</td>
                 <td class="px-3 py-2">
                   <div class="font-medium">${escapeHtml(item.stockWarehouseName)}</div>
                   <div class="mt-1 text-muted-foreground">${escapeHtml(item.warehouseArea)} / ${escapeHtml(item.locationCode)}</div>
@@ -830,9 +823,9 @@ function renderPrepRecordModal(
                       <div class="font-medium">${renderMaterialSkuCode(item.materialSku, context.projection.order.productionOrderNo)}</div>
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.materialName)} / ${escapeHtml(item.color)} / ${escapeHtml(item.cutOrderNo)}</div>
                     </td>
-                    <td class="px-3 py-3">${formatQty(item.preparedQty, item.unit)} / ${item.rollCount} 卷</td>
-                    <td class="px-3 py-3">${formatQty(item.pickedQty, item.unit)}</td>
-                    <td class="px-3 py-3">${formatQty(item.availableToPickupQty, item.unit)}</td>
+                    <td class="px-3 py-3">${formatRollQty(item.preparedQty, item.rollCount, item.unit)}</td>
+                    <td class="px-3 py-3">${formatRollQty(item.pickedQty, item.pickedQty > 0 ? item.rollCount : 0, item.unit)}</td>
+                    <td class="px-3 py-3">${formatRollQty(item.availableToPickupQty, item.rollCount, item.unit)}</td>
                     <td class="px-3 py-3">
                       <div class="font-medium">${escapeHtml(item.stockWarehouseName)}</div>
                       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.warehouseArea)} / ${escapeHtml(item.locationCode)}</div>
@@ -928,8 +921,11 @@ function renderWarehousePickupRecords(projection: MaterialPrepOrderProjection): 
           <tbody>
             ${projection.pickupRecords.length ? projection.pickupRecords.map((record) => {
               const line = projection.lines.find((item) => item.prepLineId === record.prepLineId)
-              const returnedQty = Number(record.returnQty || 0)
+              const relatedReturns = projection.pickupReturnRecords.filter((item) => item.pickupRecordId === record.pickupRecordId)
+              const returnedQty = relatedReturns.reduce((sum, item) => sum + Number(item.returnQty || 0), 0)
+              const returnedRollCount = relatedReturns.reduce((sum, item) => sum + Number(item.rollCount || 0), 0)
               const remainingQty = Number(record.waitProcessAvailableQty ?? record.pickedQty ?? 0)
+              const remainingRollCount = Math.max(Number(record.rollCount || 0) - returnedRollCount, 0)
               return `
                 <tr class="border-t">
                   <td class="px-3 py-3">
@@ -941,7 +937,7 @@ function renderWarehousePickupRecords(projection: MaterialPrepOrderProjection): 
                     <div class="font-medium">${line?.materialSku ? renderMaterialSkuCode(line.materialSku, projection.order.productionOrderNo) : escapeHtml(record.prepLineId)}</div>
                     <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line ? `${line.materialName} / ${line.color}` : '未匹配物料行')}</div>
                   </td>
-                  <td class="px-3 py-3">${formatQty(record.pickedQty, line?.unit || 'yard')} / ${record.rollCount} 卷</td>
+                  <td class="px-3 py-3">${formatRollQty(record.pickedQty, record.rollCount, line?.unit || 'yard')}</td>
                   <td class="px-3 py-3">
                     <div class="font-medium">${escapeHtml(record.warehouseArea)}</div>
                     <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.locationCode)}</div>
@@ -953,8 +949,8 @@ function renderWarehousePickupRecords(projection: MaterialPrepOrderProjection): 
                   <td class="px-3 py-3">
                     ${renderBadge(record.pickupStatus, record.pickupStatus === '差异领料' ? 'warning' : 'success')}
                     ${record.differenceQty ? `<div class="mt-1 text-xs text-rose-700">差异 ${formatQty(record.differenceQty, line?.unit || 'yard')}：${escapeHtml(record.differenceReason)}</div>` : ''}
-                    <div class="mt-1 text-xs text-muted-foreground">已退：${formatQty(returnedQty, line?.unit || 'yard')}</div>
-                    <div class="mt-1 text-xs text-muted-foreground">待加工仓剩余：${formatQty(remainingQty, line?.unit || 'yard')}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">已退：${formatRollQty(returnedQty, returnedRollCount, line?.unit || 'yard')}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">待加工仓剩余：${formatRollQty(remainingQty, remainingRollCount, line?.unit || 'yard')}</div>
                   </td>
                   <td class="px-3 py-3">
                     ${remainingQty > 0 ? `
@@ -1056,7 +1052,7 @@ function renderPickupReturns(projection: MaterialPrepOrderProjection): string {
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div class="font-medium">${line ? renderMaterialSkuCode(line.materialSku, projection.order.productionOrderNo) : escapeHtml(record.prepLineId)}</div>
-                  <div class="mt-1 text-xs text-muted-foreground">退回：${formatQty(record.returnQty, record.unit)} / ${record.rollCount} 卷 / 原因：${escapeHtml(record.reason)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">退回：${formatRollQty(record.returnQty, record.rollCount, record.unit)} / 原因：${escapeHtml(record.reason)}</div>
                   <div class="mt-1 text-xs text-muted-foreground">发起：${escapeHtml(record.returnedBy)} / ${escapeHtml(record.returnedAt)}</div>
                   <div class="mt-2 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
                     <div>配料单：<span class="font-medium text-foreground">${renderPrepOrderCode(projection.order.prepOrderNo, projection.order.productionOrderNo)}</span></div>
@@ -1179,21 +1175,10 @@ export function renderCraftCuttingPickupManagementPage(): string {
   const activePrepRecordId = params.get('prepRecordId') || candidates.find((candidate) => candidate.prepOrderId === activeOrderId)?.prepRecordId || ''
   const activePrepLineId = params.get('prepLineId') || candidates.find((candidate) => candidate.prepRecordId === activePrepRecordId)?.defaultPrepLineId || ''
   const showPrepModal = params.get('prepModal') === '1'
-  const counts = pickupWorkbenchTabs.reduce<Record<string, number>>((accumulator, tab) => {
-    accumulator[tab.key] = getPickupTabCount(filteredAllRows, candidates, tab.key)
-    return accumulator
-  }, {})
-
   return `
     <div class="space-y-5 p-6">
       ${renderCuttingPageHeader(getCanonicalCuttingMeta('pickup-management'))}
       ${renderPickupFilters(filters)}
-      ${renderCompactKpiGroup(`
-        ${renderKpi('待领料', counts.WAIT_PICKUP || 0, '配料已确认待领取')}
-        ${renderKpi('打回待仓库处理', counts.REJECTED_WAIT_WLS || 0, '已打回中转仓')}
-        ${renderKpi('已领料完结', counts.PICKUP_DONE || 0, '已配齐且已领完')}
-        ${renderKpi('按实完结', counts.ACTUAL_CLOSED || 0, '配料端关闭后按实结束')}
-      `)}
       ${renderTabs(filteredAllRows, candidates, activeTab)}
       ${renderOrderTable(rows, candidates, activeTab)}
       ${showPrepModal ? renderPrepRecordModal(activeProjection, activePrepRecordId, activePrepLineId, activeTab) : ''}

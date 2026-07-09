@@ -7,7 +7,10 @@ import {
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
 import { renderFcsCuttingPrepPage } from '../src/pages/fcs/material-prep/cutting.ts'
-import { renderCraftCuttingPickupManagementDetailPage } from '../src/pages/process-factory/cutting/pickup-management.ts'
+import {
+  renderCraftCuttingPickupManagementDetailPage,
+  renderCraftCuttingPickupManagementPage,
+} from '../src/pages/process-factory/cutting/pickup-management.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -97,6 +100,16 @@ function renderPickupManagementDetailPage(search: string): string {
   return renderCraftCuttingPickupManagementDetailPage()
 }
 
+function renderPickupManagementPage(search: string): string {
+  ;(globalThis as typeof globalThis & { window: unknown }).window = {
+    location: { pathname: '/fcs/craft/cutting/pickup-management', search },
+    history: { pushState() {}, replaceState() {} },
+    addEventListener() {},
+    removeEventListener() {},
+  }
+  return renderCraftCuttingPickupManagementPage()
+}
+
 function parseDataNavHref(rawHref: string): URL {
   return new URL(rawHref.replaceAll('&amp;', '&'), 'http://higood.local')
 }
@@ -126,6 +139,12 @@ try {
   assert(detailHtml.includes('已退'), '裁片配料详情领料记录必须展示已退数量')
   assert(detailHtml.includes('已退回待中转仓处理'), '裁片配料详情退回明细必须展示退回状态')
 
+  const khakiReturnRow = rows.find((row) => row.pickupReturnRecords.some((record) => record.prepLineId === 'prep-line-po-0102-khaki'))
+  assert(khakiReturnRow, '必须存在裁片 Khaki 主面料退回场景')
+  const khakiDetailHtml = renderCuttingPrepPage(`?prepOrderId=${encodeURIComponent(khakiReturnRow.order.prepOrderId)}&detailTab=pickup`)
+  assert(khakiDetailHtml.includes('已退：5 卷 / 1,386 yard'), '裁片配料详情必须展示 Khaki 退回卷数和 yard')
+  assert(!khakiDetailHtml.includes('已退：0 yard'), '裁片配料详情不应展示无退回物料行的已退 0 yard')
+
   const pickupDetailHtml = renderPickupManagementDetailPage(`?prepOrderId=${encodeURIComponent(returnedOrder.order.prepOrderId)}&detailTab=returns`)
   assert(
     pickupDetailHtml.includes('这里只展示裁床退回到中转仓的配料/领料侧记录；中转仓收回、质检判定和后续处理不在本次范围。'),
@@ -151,6 +170,11 @@ try {
     `查看裁片配料必须携带当前配料单 ID：${cuttingPrepUrl.searchParams.get('prepOrderId')}`,
   )
   assert(cuttingPrepUrl.searchParams.get('detailTab') === 'pickup', `查看裁片配料必须打开领料页签：${cuttingPrepUrl.searchParams.get('detailTab')}`)
+
+  const returnedPickupDetailHtml = renderPickupManagementDetailPage(`?prepOrderId=${encodeURIComponent(returnedOrder.order.prepOrderId)}&detailTab=warehouse`)
+  assert(/已退：\d+ 卷 \/ [\d,.]+ yard/.test(returnedPickupDetailHtml), '待加工仓入库记录的已退数量必须同时展示卷和 yard')
+  const pickupListHtml = renderPickupManagementPage('')
+  assert(!pickupListHtml.includes('配料已确认待领取'), '领料管理列表不应再展示顶部状态摘要条')
 } finally {
   if (originalWindow === undefined) {
     delete (globalThis as typeof globalThis & { window?: unknown }).window
