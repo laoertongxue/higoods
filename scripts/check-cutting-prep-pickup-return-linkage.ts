@@ -123,6 +123,10 @@ try {
   assert(detailHtml.includes('已退回待中转仓处理'), '裁片配料详情退回明细必须展示退回状态')
 
   const pickupDetailHtml = renderPickupManagementDetailPage(`?prepOrderId=${encodeURIComponent(returnedOrder.order.prepOrderId)}&detailTab=returns`)
+  assert(
+    pickupDetailHtml.includes('这里只展示裁床退回到中转仓的配料/领料侧记录；中转仓收回、质检判定和后续处理不在本次范围。'),
+    '领料详情退回处理范围边界文案必须保持精确',
+  )
   assert(pickupDetailHtml.includes('查看裁片配料'), '领料详情退回记录必须提供查看裁片配料入口')
   assert(pickupDetailHtml.includes(returnedOrder.order.prepOrderNo), '领料详情退回记录必须展示配料单号')
   assert(

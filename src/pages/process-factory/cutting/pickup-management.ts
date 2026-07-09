@@ -1046,7 +1046,7 @@ function renderPickupReturns(projection: MaterialPrepOrderProjection): string {
   return `
     <section class="rounded-lg border bg-card p-4">
       <h3 class="text-base font-semibold">退回处理</h3>
-      <p class="mt-1 text-sm text-muted-foreground">这里仅展示裁床退回到中转仓的配料/领料侧记录；中转仓收回、质检判定和后续处理不在本次范围。</p>
+      <p class="mt-1 text-sm text-muted-foreground">这里只展示裁床退回到中转仓的配料/领料侧记录；中转仓收回、质检判定和后续处理不在本次范围。</p>
       <div class="mt-3 space-y-3">
         ${projection.pickupReturnRecords.length ? projection.pickupReturnRecords.map((record) => {
           const line = projection.lines.find((item) => item.prepLineId === record.prepLineId)

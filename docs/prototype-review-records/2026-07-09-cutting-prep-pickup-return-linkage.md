@@ -5,7 +5,7 @@
 | 项目 | 内容 |
 | --- | --- |
 | 审查日期 | 2026-07-09 |
-| 相关需求 / 任务 | 裁片配料与领料退回可视化联动 - 任务 1 / 任务 3 |
+| 相关需求 / 任务 | 裁片配料与领料退回可视化联动 - 任务 1 / 任务 3 / 任务 3 文案精确性修复 |
 | 涉及系统 | FCS / PFOS |
 | 涉及页面路径 | `/fcs/material-prep/cutting`、`/fcs/craft/cutting/pickup-management`、`/fcs/craft/cutting/pickup-management-detail` |
 | 端类型 | 管理端 / 主管端 |
