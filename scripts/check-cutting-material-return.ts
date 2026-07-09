@@ -43,10 +43,11 @@ const legacyStorage = new MemoryStorage()
 const legacyStore = createProductionMaterialPrepSeedStore() as { pickupReturnRecords?: unknown }
 delete legacyStore.pickupReturnRecords
 legacyStorage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, JSON.stringify(legacyStore))
-assert(listPickupReturnRecords(legacyStorage).length === 0, '旧 localStorage 缺少退回记录字段时必须返回空数组')
+assert(listPickupReturnRecords(legacyStorage).length > 0, '旧 localStorage 缺少退回记录字段时必须补齐 seed 退回记录')
 
 const storage = new MemoryStorage()
 storage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, JSON.stringify(createProductionMaterialPrepSeedStore()))
+const initialReturnCount = listPickupReturnRecords(storage).length
 
 const candidate = listPickupCandidates(storage).find((item) => item.prepRecordId === 'prep-rec-po-0007-main-001')
 assert(candidate, '必须存在可领料配料记录')
@@ -96,7 +97,7 @@ const returnRecord = appendPickupReturnRecord({
 }, storage)
 
 assert(returnRecord.returnStatus === '已退回待中转仓处理', '退回后只进入待中转仓处理状态')
-assert(listPickupReturnRecords(storage).length === 1, '必须保存退回记录')
+assert(listPickupReturnRecords(storage).length === initialReturnCount + 1, '必须保存退回记录')
 
 const returnedContext = getMaterialPrepRecordContext(candidate.prepRecordId, line.prepLineId, storage)
 assert(returnedContext?.record.recordStatus === 'CONFIRMED', '退回不能改写配料记录状态')

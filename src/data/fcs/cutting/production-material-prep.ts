@@ -159,6 +159,8 @@ export interface MaterialPrepLine {
   requiredQty: number
   confirmedPrepQty: number
   pickedQty: number
+  returnedQty: number
+  waitProcessAvailableQty: number
   remainingNeedQty: number
   availableStockQty: number
   stockWarehouseName: MaterialStockWarehouseName
@@ -378,6 +380,7 @@ export interface MaterialPrepOrderProjection {
   totalAvailableToPickupQty: number
   totalShortageQty: number
   lineCount: number
+  returnedLineCount: number
   readyLineCount: number
   shortageLineCount: number
   canContinuePrepLineCount: number
@@ -2322,6 +2325,77 @@ const seedPickupRecords: PickupRecord[] = [
   ...buildAutoPickupRecordsForCompletedOrders(explicitSeedPickupRecords, seedPrepRecords),
 ]
 
+const seedPickupReturnRecords: MaterialPickupReturnRecord[] = [
+  {
+    returnRecordId: 'pickup-return-seed-po-0101-black-001',
+    pickupRecordId: 'pickup-rec-po-0101-black-001',
+    prepRecordId: 'prep-rec-po-0101-black-001',
+    prepOrderId: 'prep-order-po-202603-0101',
+    prepLineId: 'prep-line-po-0101-black',
+    productionOrderId: 'PO-202603-0101',
+    returnQty: 40,
+    rollCount: 1,
+    unit: 'yard',
+    reason: '布面瑕疵',
+    remark: '开工前验布发现破洞，先退回中转仓。',
+    imageNames: [],
+    returnedBy: '裁床 李明',
+    returnedAt: '2026-03-16 14:20',
+    returnStatus: '已退回待中转仓处理',
+  },
+  {
+    returnRecordId: 'pickup-return-seed-po-0101-black-002',
+    pickupRecordId: 'pickup-rec-po-0101-black-001',
+    prepRecordId: 'prep-rec-po-0101-black-001',
+    prepOrderId: 'prep-order-po-202603-0101',
+    prepLineId: 'prep-line-po-0101-black',
+    productionOrderId: 'PO-202603-0101',
+    returnQty: 25,
+    rollCount: 1,
+    unit: 'yard',
+    reason: '卷号 / 批次不符',
+    remark: '同一领料记录二次验布发现卷号不一致。',
+    imageNames: [],
+    returnedBy: '裁床 李明',
+    returnedAt: '2026-03-16 15:05',
+    returnStatus: '已退回待中转仓处理',
+  },
+  {
+    returnRecordId: 'pickup-return-seed-po-0102-navy-001',
+    pickupRecordId: 'pickup-rec-po-0102-navy-001',
+    prepRecordId: 'prep-rec-po-0102-navy-001',
+    prepOrderId: 'prep-order-po-202603-0102',
+    prepLineId: 'prep-line-po-0102-navy',
+    productionOrderId: 'PO-202603-0102',
+    returnQty: 260,
+    rollCount: 1,
+    unit: 'yard',
+    reason: '色差 / 缸差',
+    remark: '整卷色差明显，本次领料全部退回。',
+    imageNames: [],
+    returnedBy: '裁床 李明',
+    returnedAt: '2026-03-16 12:05',
+    returnStatus: '已退回待中转仓处理',
+  },
+  {
+    returnRecordId: 'pickup-return-seed-po-0001-main-001',
+    pickupRecordId: 'pickup-rec-po-0001-main-001',
+    prepRecordId: 'prep-rec-po-0001-main-001',
+    prepOrderId: 'prep-order-po-202603-0001',
+    prepLineId: 'prep-line-po-0001-main',
+    productionOrderId: 'PO-202603-0001',
+    returnQty: 180,
+    rollCount: 1,
+    unit: 'yard',
+    reason: '规格 / 克重不符',
+    remark: '首卷克重复核不符，退回后待加工仓仍有可用余量。',
+    imageNames: [],
+    returnedBy: '裁床 王强',
+    returnedAt: '2026-03-15 17:05',
+    returnStatus: '已退回待中转仓处理',
+  },
+]
+
 const seedRejectRecords: PrepRejectRecord[] = [
   {
     rejectId: 'reject-prep-rec-po-0004-main-draft-002',
@@ -2384,7 +2458,7 @@ export function createProductionMaterialPrepSeedStore(): ProductionMaterialPrepW
   return {
     prepRecords: cloneRecord(seedPrepRecords),
     pickupRecords: cloneRecord(seedPickupRecords),
-    pickupReturnRecords: [],
+    pickupReturnRecords: cloneRecord(seedPickupReturnRecords),
     rejectRecords: cloneRecord(seedRejectRecords),
     stagingRecords: [],
     closedOrders: cloneRecord(seedClosedOrders),
@@ -2407,8 +2481,8 @@ export function deserializeProductionMaterialPrepStore(raw: string | null): Prod
         ? mergeMissingSeedRecords(parsed.pickupRecords, seedPickupRecords, (record) => record.pickupRecordId)
         : cloneRecord(seedPickupRecords),
       pickupReturnRecords: Array.isArray(parsed.pickupReturnRecords)
-        ? cloneRecord(parsed.pickupReturnRecords)
-        : [],
+        ? mergeMissingSeedRecords(parsed.pickupReturnRecords, seedPickupReturnRecords, (record) => record.returnRecordId)
+        : cloneRecord(seedPickupReturnRecords),
       rejectRecords: Array.isArray(parsed.rejectRecords)
         ? mergeMissingSeedRecords(parsed.rejectRecords, seedRejectRecords, (record) => record.rejectId)
         : cloneRecord(seedRejectRecords),
@@ -2700,6 +2774,11 @@ function buildLine(
   const records = getLineRecords(store, seedLine.prepLineId)
   const confirmedPrepQty = getConfirmedLineQty(records, seedLine.prepLineId)
   const pickedQty = getLinePickupQty(pickupRecords, seedLine.prepLineId)
+  const linePickupRecords = pickupRecords.filter((record) => record.prepLineId === seedLine.prepLineId)
+  const returnedQty = roundQty(linePickupRecords.reduce((sum, record) => sum + Number(record.returnQty || 0), 0))
+  const waitProcessAvailableQty = roundQty(
+    linePickupRecords.reduce((sum, record) => sum + Number(record.waitProcessAvailableQty ?? record.pickedQty ?? 0), 0),
+  )
   const remainingNeedQty = roundQty(Math.max(seedLine.requiredQty - confirmedPrepQty, 0))
   const canPrepQty = closed ? 0 : roundQty(Math.min(seedLine.availableStockQty, remainingNeedQty))
   const shortageQty = roundQty(Math.max(remainingNeedQty - seedLine.availableStockQty, 0))
@@ -2724,6 +2803,8 @@ function buildLine(
     requiredQty: seedLine.requiredQty,
     confirmedPrepQty,
     pickedQty,
+    returnedQty,
+    waitProcessAvailableQty,
     remainingNeedQty,
     availableStockQty: seedLine.availableStockQty,
     stockWarehouseName: seedLine.stockWarehouseName || getMaterialStockWarehouseName(seedLine.materialType || inferMaterialType(seedLine)),
@@ -2897,9 +2978,11 @@ function buildOrderProjection(
   const latestOperatedAt = latestText([
     ...prepRecords.map((record) => record.rejectedAt || record.confirmedAt || record.preparedAt),
     ...pickupRecords.map((record) => record.pickedAt),
+    ...pickupReturnRecords.map((record) => record.returnedAt),
     closed?.closedAt || '',
   ])
   const latestOperatorName =
+    pickupReturnRecords.find((record) => record.returnedAt === latestOperatedAt)?.returnedBy ||
     pickupRecords.find((record) => record.pickedAt === latestOperatedAt)?.receiverName ||
     prepRecords.find((record) => [record.rejectedAt, record.confirmedAt, record.preparedAt].includes(latestOperatedAt))?.operatorName ||
     closed?.closedBy ||
@@ -2946,6 +3029,7 @@ function buildOrderProjection(
     totalAvailableToPickupQty,
     totalShortageQty,
     lineCount: lines.length,
+    returnedLineCount: lines.filter((line) => line.returnedQty > 0).length,
     readyLineCount: lines.filter((line) => line.confirmedPrepQty >= line.requiredQty).length,
     shortageLineCount: lines.filter((line) => line.remainingNeedQty > 0).length,
     canContinuePrepLineCount: lines.filter((line) => line.canPrepQty > 0).length,
