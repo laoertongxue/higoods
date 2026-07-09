@@ -105,6 +105,20 @@ async function main(): Promise<void> {
 
   await page.goto(`${baseUrl}/fcs/material-prep/cutting`, { waitUntil: 'domcontentloaded' })
   await waitForMaterialPrepPage(page, '/fcs/material-prep/cutting', '裁片配料')
+  const returnFilterDuration = await measure('裁片配料只看有退回', async () => {
+    await page.getByRole('button', { name: '只看有退回', exact: true }).first().click()
+    await page.waitForFunction(
+      () =>
+        location.pathname === '/fcs/material-prep/cutting' &&
+        new URLSearchParams(location.search).get('hasReturn') === '1' &&
+        document.body.innerText.includes('已退回'),
+      undefined,
+      { timeout: 10_000 },
+    )
+  })
+  results.push(['裁片配料只看有退回', returnFilterDuration, actionThresholdMs])
+  assert(returnFilterDuration <= actionThresholdMs, `裁片配料只看有退回耗时 ${returnFilterDuration.toFixed(1)}ms，超过 ${actionThresholdMs}ms`)
+
   const openModalDuration = await measure('裁片配料打开新增配料记录', async () => {
     await page.locator('[data-nav*="prepModal=1"]').first().click()
     await page.waitForSelector('[data-fcs-prep-line-card]', { timeout: 10_000 })

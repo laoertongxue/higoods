@@ -97,6 +97,10 @@ function renderPickupManagementDetailPage(search: string): string {
   return renderCraftCuttingPickupManagementDetailPage()
 }
 
+function parseDataNavHref(rawHref: string): URL {
+  return new URL(rawHref.replaceAll('&amp;', '&'), 'http://higood.local')
+}
+
 try {
   const listHtml = renderCuttingPrepPage('?hasReturn=1')
   assert(listHtml.includes('已退回'), '裁片配料列表必须展示已退回物料行统计')
@@ -137,6 +141,16 @@ try {
     pickupDetailHtml.includes(returnedOrder.pickupReturnRecords[0].pickupRecordId),
     '领料详情退回记录必须展示领料记录 ID',
   )
+  const cuttingPrepHref = Array.from(pickupDetailHtml.matchAll(/<button\b[^>]*data-nav="([^"]*)"[^>]*>([\s\S]*?)<\/button>/g))
+    .find((match) => match[2].replace(/<[^>]*>/g, '').includes('查看裁片配料'))?.[1] || ''
+  assert(cuttingPrepHref, '领料详情查看裁片配料按钮必须包含 data-nav')
+  const cuttingPrepUrl = parseDataNavHref(cuttingPrepHref)
+  assert(cuttingPrepUrl.pathname === '/fcs/material-prep/cutting', `查看裁片配料必须跳转裁片配料页面：${cuttingPrepUrl.pathname}`)
+  assert(
+    cuttingPrepUrl.searchParams.get('prepOrderId') === returnedOrder.order.prepOrderId,
+    `查看裁片配料必须携带当前配料单 ID：${cuttingPrepUrl.searchParams.get('prepOrderId')}`,
+  )
+  assert(cuttingPrepUrl.searchParams.get('detailTab') === 'pickup', `查看裁片配料必须打开领料页签：${cuttingPrepUrl.searchParams.get('detailTab')}`)
 } finally {
   if (originalWindow === undefined) {
     delete (globalThis as typeof globalThis & { window?: unknown }).window
