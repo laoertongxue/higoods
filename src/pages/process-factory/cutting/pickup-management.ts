@@ -2,6 +2,7 @@ import { renderBadge } from '../../../components/ui/badge.ts'
 import type { BadgeVariant } from '../../../components/ui/types.ts'
 import {
   getMaterialPrepRecordContext,
+  appendPickupReturnRecord,
   listMaterialPrepOrderProjections,
   listPickupCandidates,
   pickupStatusLabelMap,
@@ -9,6 +10,7 @@ import {
   rejectMaterialPrepRecord,
   type MaterialPrepLine,
   type MaterialPrepOrderProjection,
+  type MaterialPickupReturnReason,
   type PickupOrderStatus,
   type PrepRecordPickupCandidate,
   type PrepRecordPickupCandidateItem,
@@ -22,7 +24,7 @@ import { escapeHtml } from '../../../utils.ts'
 import { getCanonicalCuttingMeta, renderCuttingPageHeader } from './meta.ts'
 import { renderCompactKpiGroup } from './layout.helpers.ts'
 
-type PickupDetailTab = 'demand' | 'records' | 'materials' | 'warehouse' | 'reject'
+type PickupDetailTab = 'demand' | 'records' | 'materials' | 'warehouse' | 'returns' | 'reject'
 
 interface PickupListFilters {
   keyword: string
@@ -42,6 +44,16 @@ const statusVariantMap: Record<string, BadgeVariant> = {
   READY: 'success',
   CLOSED: 'neutral',
 }
+
+const returnReasons: MaterialPickupReturnReason[] = [
+  '色差 / 缸差',
+  '布面瑕疵',
+  '规格 / 克重不符',
+  '卷号 / 批次不符',
+  '数量不符',
+  '辅料型号不符',
+  '其他',
+]
 
 function renderProductionOrderCode(productionOrderNo: string): string {
   return renderProductionObjectCodeButton({
@@ -299,7 +311,7 @@ function renderTabs(rows: MaterialPrepOrderProjection[], candidates: PrepRecordP
 
 function getActiveDetailTab(params: URLSearchParams): PickupDetailTab {
   const value = params.get('detailTab')
-  if (value === 'records' || value === 'materials' || value === 'warehouse' || value === 'reject') return value
+  if (value === 'records' || value === 'materials' || value === 'warehouse' || value === 'returns' || value === 'reject') return value
   return 'demand'
 }
 
@@ -315,6 +327,7 @@ function renderDetailTabs(
     { key: 'records', label: '待领料配料记录', count: `${candidates.length} 条` },
     { key: 'materials', label: '物料领料明细', count: `${projection.lineCount} 行` },
     { key: 'warehouse', label: '待加工仓入库记录', count: `${projection.pickupRecords.length} 条` },
+    { key: 'returns', label: '退回处理', count: `${projection.pickupReturnRecords.length} 条` },
     { key: 'reject', label: '打回处理记录', count: `${projection.rejectRecords.length} 条` },
   ]
   return `
@@ -892,11 +905,14 @@ function renderWarehousePickupRecords(projection: MaterialPrepOrderProjection): 
               <th class="px-3 py-2">入库库区 / 库位</th>
               <th class="px-3 py-2">接收人 / 时间</th>
               <th class="px-3 py-2">状态</th>
+              <th class="px-3 py-2">操作</th>
             </tr>
           </thead>
           <tbody>
             ${projection.pickupRecords.length ? projection.pickupRecords.map((record) => {
               const line = projection.lines.find((item) => item.prepLineId === record.prepLineId)
+              const returnedQty = Number(record.returnQty || 0)
+              const remainingQty = Number(record.waitProcessAvailableQty ?? record.pickedQty ?? 0)
               return `
                 <tr class="border-t">
                   <td class="px-3 py-3">
@@ -920,16 +936,121 @@ function renderWarehousePickupRecords(projection: MaterialPrepOrderProjection): 
                   <td class="px-3 py-3">
                     ${renderBadge(record.pickupStatus, record.pickupStatus === '差异领料' ? 'warning' : 'success')}
                     ${record.differenceQty ? `<div class="mt-1 text-xs text-rose-700">差异 ${formatQty(record.differenceQty, line?.unit || 'yard')}：${escapeHtml(record.differenceReason)}</div>` : ''}
+                    <div class="mt-1 text-xs text-muted-foreground">已退：${formatQty(returnedQty, line?.unit || 'yard')}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">待加工仓剩余：${formatQty(remainingQty, line?.unit || 'yard')}</div>
+                  </td>
+                  <td class="px-3 py-3">
+                    ${remainingQty > 0 ? `
+                      <button type="button" data-nav="${escapeHtml(buildDetailStateHref(projection, {
+                        detailTab: 'warehouse',
+                        prepRecordId: record.prepRecordId,
+                        prepLineId: record.prepLineId,
+                      }) + `&returnPickupRecordId=${encodeURIComponent(record.pickupRecordId)}`)}" class="rounded-md border border-amber-200 px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50">退回物料</button>
+                    ` : '<span class="text-xs text-muted-foreground">已全部退回</span>'}
                   </td>
                 </tr>
               `
             }).join('') : `
               <tr>
-                <td colspan="7" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无待加工仓入库记录。</td>
+                <td colspan="8" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无待加工仓入库记录。</td>
               </tr>
             `}
           </tbody>
         </table>
+      </div>
+    </section>
+  `
+}
+
+function renderPickupReturnModal(projection: MaterialPrepOrderProjection | null): string {
+  if (!projection) return ''
+  const params = getSearchParams()
+  const pickupRecordId = params.get('returnPickupRecordId') || ''
+  if (!pickupRecordId) return ''
+  const record = projection.pickupRecords.find((item) => item.pickupRecordId === pickupRecordId)
+  if (!record) return ''
+  const line = projection.lines.find((item) => item.prepLineId === record.prepLineId)
+  const remainingQty = Number(record.waitProcessAvailableQty ?? record.pickedQty ?? 0)
+  const closeParams = getSearchParams()
+  closeParams.delete('returnPickupRecordId')
+  const closeHref = `${window.location.pathname}?${closeParams.toString()}`
+
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+      <section class="w-full max-w-xl rounded-lg bg-background shadow-xl">
+        <div class="flex items-start justify-between gap-3 border-b px-5 py-4">
+          <div>
+            <h2 class="text-lg font-semibold">退回物料</h2>
+            <p class="mt-1 text-sm text-muted-foreground">只登记裁床退回到中转仓的领料侧事实。</p>
+          </div>
+          <button type="button" data-nav="${escapeHtml(closeHref)}" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted">关闭</button>
+        </div>
+        <div class="space-y-4 p-5">
+          <div class="rounded-md border bg-muted/20 p-3 text-sm">
+            <div class="font-medium">${line ? renderMaterialSkuCode(line.materialSku, projection.order.productionOrderNo) : escapeHtml(record.prepLineId)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">领料记录：${renderPickupRecordCode(record.pickupRecordId, projection.order.productionOrderNo)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">可退数量：${formatQty(remainingQty, line?.unit || 'yard')}</div>
+          </div>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="block">
+              <span class="text-xs font-medium text-muted-foreground">退回数量（必填）</span>
+              <input data-pickup-return-field="returnQty" type="number" min="0.01" max="${escapeHtml(remainingQty)}" step="0.01" value="${escapeHtml(remainingQty)}" class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" />
+            </label>
+            <label class="block">
+              <span class="text-xs font-medium text-muted-foreground">退回原因（必填）</span>
+              <select data-pickup-return-field="reason" required class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm">
+                <option value="">请选择</option>
+                ${returnReasons.map((reason) => `<option value="${escapeHtml(reason)}">${escapeHtml(reason)}</option>`).join('')}
+              </select>
+            </label>
+          </div>
+          <label class="block">
+            <span class="text-xs font-medium text-muted-foreground">备注</span>
+            <textarea data-pickup-return-field="remark" class="mt-1 min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="填写现场说明"></textarea>
+          </label>
+          <label class="block">
+            <span class="text-xs font-medium text-muted-foreground">图片凭证（选填，逗号分隔文件名）</span>
+            <input data-pickup-return-field="imageNames" class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" placeholder="例如：色差照片1.jpg, 卷号标签.jpg" />
+          </label>
+          <div class="flex justify-end gap-2 border-t pt-4">
+            <button type="button" data-nav="${escapeHtml(closeHref)}" class="rounded-md border px-4 py-2 text-sm">取消</button>
+            <button
+              type="button"
+              data-pickup-action="submit-material-return"
+              data-pickup-record-id="${escapeHtml(record.pickupRecordId)}"
+              data-prep-record-id="${escapeHtml(record.prepRecordId)}"
+              data-prep-line-id="${escapeHtml(record.prepLineId)}"
+              class="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+            >提交退回</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  `
+}
+
+function renderPickupReturns(projection: MaterialPrepOrderProjection): string {
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <h3 class="text-base font-semibold">退回处理</h3>
+      <p class="mt-1 text-sm text-muted-foreground">这里仅展示裁床退回到中转仓的配料/领料侧记录；中转仓收回、质检判定和后续处理不在本次范围。</p>
+      <div class="mt-3 space-y-3">
+        ${projection.pickupReturnRecords.length ? projection.pickupReturnRecords.map((record) => {
+          const line = projection.lines.find((item) => item.prepLineId === record.prepLineId)
+          return `
+            <article class="rounded-md border p-3 text-sm">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div class="font-medium">${line ? renderMaterialSkuCode(line.materialSku, projection.order.productionOrderNo) : escapeHtml(record.prepLineId)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">退回：${formatQty(record.returnQty, record.unit)} / ${record.rollCount} 卷 / 原因：${escapeHtml(record.reason)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">发起：${escapeHtml(record.returnedBy)} / ${escapeHtml(record.returnedAt)}</div>
+                  ${record.remark ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.remark)}</div>` : ''}
+                </div>
+                <div>${renderBadge(record.returnStatus, 'warning')}</div>
+              </div>
+            </article>
+          `
+        }).join('') : '<div class="rounded-md border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">暂无退回记录。</div>'}
       </div>
     </section>
   `
@@ -1010,6 +1131,8 @@ function renderPickupDetail(
       ? renderOrderDetail(projection)
       : activeTab === 'warehouse'
         ? renderWarehousePickupRecords(projection)
+        : activeTab === 'returns'
+          ? renderPickupReturns(projection)
         : activeTab === 'reject'
           ? renderRejectPanel(activePrepRecordId, activePrepLineId)
           : renderProductionDemand(projection)
@@ -1092,6 +1215,7 @@ export function renderCraftCuttingPickupManagementDetailPage(): string {
         </div>
       </header>
       ${renderPickupDetail(activeProjection, candidates, activeDetailTab, activePrepRecordId, activePrepLineId)}
+      ${renderPickupReturnModal(activeProjection)}
     </div>
   `
 }
@@ -1141,6 +1265,33 @@ export function handleCraftCuttingPickupManagementEvent(target: HTMLElement): bo
       return false
     }
     rejectMaterialPrepRecord(prepRecordId, reason, detail, '裁床 李明')
+    return true
+  }
+
+  if (action === 'submit-material-return') {
+    const returnQty = Number(document.querySelector<HTMLInputElement>('[data-pickup-return-field="returnQty"]')?.value || 0)
+    const reason = document.querySelector<HTMLSelectElement>('[data-pickup-return-field="reason"]')?.value as MaterialPickupReturnReason
+    const remark = document.querySelector<HTMLTextAreaElement>('[data-pickup-return-field="remark"]')?.value || ''
+    const imageNames = (document.querySelector<HTMLInputElement>('[data-pickup-return-field="imageNames"]')?.value || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+    appendPickupReturnRecord({
+      pickupRecordId: actionNode.dataset.pickupRecordId || '',
+      prepRecordId: actionNode.dataset.prepRecordId || '',
+      prepLineId: actionNode.dataset.prepLineId || '',
+      returnQty,
+      rollCount: 1,
+      reason,
+      remark,
+      imageNames,
+      returnedBy: '裁床 李明',
+    })
+    const params = getSearchParams()
+    params.delete('returnPickupRecordId')
+    params.set('detailTab', 'returns')
+    window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`)
+    window.dispatchEvent(new PopStateEvent('popstate'))
     return true
   }
 
