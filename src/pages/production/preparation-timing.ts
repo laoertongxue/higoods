@@ -1192,7 +1192,7 @@ function renderAccessoryPurchaseOrderFields(item: ProductionPreparationItem): st
             <div class="mt-2 space-y-1">
               ${orderNos.map((orderNo) => `<div>${escapeHtml(orderNo)}</div>`).join('')}
             </div>
-            <div class="mt-2 text-muted-foreground">最后更新时间：${escapeHtml(formatDateTime(item.accessoryPurchaseUpdatedAt ?? item.actualFinishAt))}</div>
+            <div class="mt-2 text-muted-foreground">完成时间：${escapeHtml(formatDateTime(item.accessoryPurchaseUpdatedAt ?? item.actualFinishAt))}</div>
           `
           : '<div class="mt-2 text-muted-foreground">暂未登记</div>'
       }
@@ -1485,6 +1485,7 @@ function renderAccessoryOrderDialog(
   if (!hasConfirmedWorkItems(record) || !isSelectedPreparationItem(item) || !canOperateItem(item, record)) return ''
   const closeHref = buildLedgerHrefFromParams(params, month)
   const orderNos = item.accessoryPurchaseOrderNos?.length ? item.accessoryPurchaseOrderNos : ['']
+  const completionAt = item.accessoryPurchaseUpdatedAt ?? item.actualFinishAt
   return `
     <div class="fixed inset-0 z-50">
       <button class="absolute inset-0 bg-black/45" data-nav="${escapeHtml(closeHref)}" aria-label="关闭"></button>
@@ -1501,13 +1502,16 @@ function renderAccessoryOrderDialog(
             </div>
             <div class="space-y-2" data-prep-accessory-order-rows>
               ${orderNos.map((orderNo) => `
-                <input name="accessoryPurchaseOrderNo" value="${escapeHtml(orderNo)}" class="w-full rounded-md border px-3 py-2 text-sm" required placeholder="填写面辅料采购单号" />
+                <div class="grid gap-2 md:grid-cols-[1fr_210px]" data-prep-accessory-order-row>
+                  <input name="accessoryPurchaseOrderNo" value="${escapeHtml(orderNo)}" class="w-full rounded-md border px-3 py-2 text-sm" required placeholder="填写面辅料采购单号" />
+                  <input type="datetime-local" name="accessoryPurchaseOrderedAt" value="${escapeHtml(completionAt ?? currentIsoMinute())}" class="w-full rounded-md border px-3 py-2 text-sm" required />
+                </div>
               `).join('')}
             </div>
-            <p class="mt-2 text-xs text-muted-foreground">可填写多个面辅料采购单号；每次提交都会覆盖当前列表，并以最后一次更新时间作为完成时间。</p>
+            <p class="mt-2 text-xs text-muted-foreground">可填写多个面辅料采购单号；每次提交都会覆盖当前列表，并以最晚下单时间作为完成时间。</p>
           </div>
           <div class="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-            当前最后更新时间：${escapeHtml(formatDateTime(item.accessoryPurchaseUpdatedAt ?? item.actualFinishAt))}
+            当前完成时间：${escapeHtml(formatDateTime(completionAt))}
           </div>
           <div class="flex justify-end gap-2">
             <button type="button" class="rounded-md border px-4 py-2 text-sm" data-nav="${escapeHtml(closeHref)}">取消</button>
@@ -2112,8 +2116,13 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
     const itemId = String(formData.get('itemId') ?? '').trim()
     const orderNos = formData.getAll('accessoryPurchaseOrderNo')
       .map((value) => String(value).trim())
-      .filter(Boolean)
-    if (!recordId || !itemId || !orderNos.length) return true
+    const orderedAts = formData.getAll('accessoryPurchaseOrderedAt')
+      .map((value) => String(value).trim())
+    const orderRows = orderNos
+      .map((orderNo, index) => ({ orderNo, orderedAt: orderedAts[index] || currentIsoMinute() }))
+      .filter((row) => row.orderNo)
+    const completedAt = orderRows.map((row) => row.orderedAt).sort().at(-1) ?? currentIsoMinute()
+    if (!recordId || !itemId || !orderRows.length) return true
 
     const runtime = loadPreparationRuntimeState()
     const record = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
@@ -2127,8 +2136,9 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
       accessoryPurchaseOrders: {
         ...runtime.accessoryPurchaseOrders,
         [itemId]: {
-          orderNos,
-          updatedAt: currentIsoMinute(),
+          orderNos: orderRows.map((row) => row.orderNo),
+          orderedAts: orderRows.map((row) => row.orderedAt),
+          updatedAt: completedAt,
           updatedBy: '当前跟单',
         },
       },
@@ -2282,12 +2292,14 @@ function addMaterialRow(button: HTMLElement): void {
 function addAccessoryOrderRow(button: HTMLElement): void {
   const rows = button.closest<HTMLFormElement>('[data-prep-accessory-order-form]')?.querySelector<HTMLElement>('[data-prep-accessory-order-rows]')
   if (!rows) return
-  const input = document.createElement('input')
-  input.name = 'accessoryPurchaseOrderNo'
-  input.required = true
-  input.placeholder = '填写面辅料采购单号'
-  input.className = 'w-full rounded-md border px-3 py-2 text-sm'
-  rows.appendChild(input)
+  const row = document.createElement('div')
+  row.className = 'grid gap-2 md:grid-cols-[1fr_210px]'
+  row.dataset.prepAccessoryOrderRow = ''
+  row.innerHTML = `
+    <input name="accessoryPurchaseOrderNo" class="w-full rounded-md border px-3 py-2 text-sm" required placeholder="填写面辅料采购单号" />
+    <input type="datetime-local" name="accessoryPurchaseOrderedAt" value="${currentIsoMinute()}" class="w-full rounded-md border px-3 py-2 text-sm" required />
+  `
+  rows.appendChild(row)
 }
 
 export function handleProductionPreparationTimingEvent(target: HTMLElement): boolean {

@@ -42,6 +42,7 @@ export interface PreparationRuntimeState {
 
 export interface AccessoryPurchaseOrderRuntimeRecord {
   orderNos: string[]
+  orderedAts?: string[]
   updatedAt: string
   updatedBy: string
 }
@@ -366,17 +367,18 @@ function mergePreparationRuntimeItem(
   if (!uploads.length && !downloads.length && !accessoryOrder && !selection.overridden && dyeRequirement === item.dyeRequirement) return item
   const lastUpload = uploads.slice().sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))[0]
   const accessoryCompleted = Boolean(accessoryOrder?.orderNos.length)
+  const accessoryCompletedAt = accessoryOrder?.orderedAts?.filter(Boolean).sort().at(-1) ?? accessoryOrder?.updatedAt
   return {
     ...item,
     dyeRequirement,
     selectedByMerchandiser,
     status: !selectedByMerchandiser ? '无需' : lastUpload || accessoryCompleted ? '已完成' : item.status,
-    actualFinishAt: accessoryOrder?.updatedAt ?? lastUpload?.uploadedAt ?? item.actualFinishAt,
+    actualFinishAt: accessoryCompletedAt ?? lastUpload?.uploadedAt ?? item.actualFinishAt,
     evidenceSummary: accessoryOrder
       ? `已登记 ${accessoryOrder.orderNos.length} 个面辅料采购单号`
       : lastUpload ? `最后上传：${lastUpload.fileName}` : item.evidenceSummary,
     accessoryPurchaseOrderNos: accessoryOrder?.orderNos ?? item.accessoryPurchaseOrderNos,
-    accessoryPurchaseUpdatedAt: accessoryOrder?.updatedAt ?? item.accessoryPurchaseUpdatedAt,
+    accessoryPurchaseUpdatedAt: accessoryCompletedAt ?? item.accessoryPurchaseUpdatedAt,
     uploads: [...(item.uploads ?? []), ...uploads],
     downloads: [...(item.downloads ?? []), ...downloads],
   }

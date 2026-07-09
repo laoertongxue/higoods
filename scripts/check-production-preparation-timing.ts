@@ -460,8 +460,9 @@ const unconfirmedRuntimeReadyRecord = mergePreparationRuntimeRecords(productionP
   ),
   accessoryPurchaseOrders: {
     [unconfirmedRuntimeAccessoryItem.itemId]: {
-      orderNos: ['FPO-RUNTIME-001'],
-      updatedAt: '2026-07-02T12:40',
+      orderNos: ['FPO-RUNTIME-001', 'FPO-RUNTIME-002'],
+      orderedAts: ['2026-07-02T12:40', '2026-07-03T09:20'],
+      updatedAt: '2026-07-09T18:00',
       updatedBy: '测试用户',
     },
   },
@@ -470,10 +471,16 @@ const unconfirmedRuntimeReadyRecord = mergePreparationRuntimeRecords(productionP
       outputReady?: boolean
       productionDemandNo?: string
       productionOrderNo?: string
+      items?: Array<{ itemId?: string; actualFinishAt?: string }>
       outputs?: Array<{ outputType?: string; outputNo?: string }>
     }
   | undefined
 assert.equal(unconfirmedRuntimeReadyRecord?.outputReady, true, '未确认记录 runtime 补齐上传证据后必须 ready')
+assert.equal(
+  unconfirmedRuntimeReadyRecord?.items?.find((item) => item.itemId === unconfirmedRuntimeAccessoryItem.itemId)?.actualFinishAt,
+  '2026-07-03T09:20',
+  '辅料下单完成时间必须取多个采购单号中的最晚下单时间，不得取保存更新时间',
+)
 assert.equal(unconfirmedRuntimeReadyRecord?.productionDemandNo, 'PD-202603-001', 'runtime ready 后必须生成稳定生产需求单号')
 assert.equal(unconfirmedRuntimeReadyRecord?.productionOrderNo, 'PO-202603-001', 'runtime ready 后必须生成稳定生产单号')
 for (const outputType of ['正式版本技术包', '生产需求单', '生产单', '辅料采购单'] as const) {
@@ -1750,6 +1757,8 @@ try {
 }
 assertHtmlIncludes(accessoryOperateHtml, 'data-prep-accessory-order-form', '辅料下单必须打开面辅料采购单号登记弹窗')
 assertHtmlIncludes(accessoryOperateHtml, 'name="accessoryPurchaseOrderNo"', '辅料下单必须支持填写面辅料采购单号')
+assertHtmlIncludes(accessoryOperateHtml, 'name="accessoryPurchaseOrderedAt"', '辅料下单必须填写每个采购单号的下单时间')
+assertHtmlIncludes(accessoryOperateHtml, '当前完成时间', '辅料下单弹窗必须展示完成时间')
 assertHtmlIncludes(accessoryOperateHtml, 'data-prep-action="add-accessory-order-row"', '辅料下单必须支持新增多个采购单号输入行')
 assert.ok(!accessoryOperateHtml.includes('input type="file" name="files"'), '辅料下单不应出现上传文件控件')
 assert.ok(!accessoryOperateHtml.includes('下单凭证'), '辅料下单不应展示上传凭证文案')
@@ -1758,7 +1767,7 @@ const accessoryOrderDetailHtml = await renderAt(
 )
 assertHtmlIncludes(accessoryOrderDetailHtml, 'FPO-202603-002-A', '辅料下单详情必须展示第一个面辅料采购单号')
 assertHtmlIncludes(accessoryOrderDetailHtml, 'FPO-202603-002-B', '辅料下单详情必须展示多个面辅料采购单号')
-assertHtmlIncludes(accessoryOrderDetailHtml, '最后更新时间', '辅料下单详情必须展示最后更新时间')
+assertHtmlIncludes(accessoryOrderDetailHtml, '完成时间', '辅料下单详情必须展示完成时间')
 const detailWithFiltersHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&recordId=prep-202604-001',
 )
