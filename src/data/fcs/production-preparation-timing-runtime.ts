@@ -1,6 +1,7 @@
 import {
   buildPreparationOutputs,
   preparationTypeDefaultItems,
+  type ExternalPreparationMaterial,
   type PreparationDownloadRecord,
   type PreparationDyeRequirement,
   type PreparationItemType,
@@ -35,6 +36,14 @@ export interface PreparationRuntimeState {
   uploads: PreparationUploadRecord[]
   downloads: PreparationDownloadRecord[]
   dyeRequirements: Record<string, PreparationDyeRequirement>
+  externalMaterials: ExternalPreparationMaterial[]
+  accessoryPurchaseOrders: Record<string, AccessoryPurchaseOrderRuntimeRecord>
+}
+
+export interface AccessoryPurchaseOrderRuntimeRecord {
+  orderNos: string[]
+  updatedAt: string
+  updatedBy: string
 }
 
 export const EMPTY_PREPARATION_RUNTIME_STATE: PreparationRuntimeState = {
@@ -42,6 +51,8 @@ export const EMPTY_PREPARATION_RUNTIME_STATE: PreparationRuntimeState = {
   uploads: [],
   downloads: [],
   dyeRequirements: {},
+  externalMaterials: [],
+  accessoryPurchaseOrders: {},
 }
 
 export function isBasePatternItem(itemType: PreparationItemType): boolean {
@@ -66,6 +77,8 @@ export function loadPreparationRuntimeState(): PreparationRuntimeState {
       uploads: Array.isArray(parsed.uploads) ? parsed.uploads : [],
       downloads: Array.isArray(parsed.downloads) ? parsed.downloads : [],
       dyeRequirements: parsed.dyeRequirements ?? {},
+      externalMaterials: Array.isArray(parsed.externalMaterials) ? parsed.externalMaterials : [],
+      accessoryPurchaseOrders: parsed.accessoryPurchaseOrders ?? {},
     }
   } catch {
     return EMPTY_PREPARATION_RUNTIME_STATE
@@ -98,10 +111,11 @@ export function mergePreparationRuntimeRecords(
       : record.prepTypeOverrideReason
     const selectionOverridden = selection.overridden
     const hasRuntimeUpload = runtime.uploads.some((upload) => upload.recordId === record.recordId)
+    const hasRuntimeAccessoryOrder = items.some((item) => item.itemType === '辅料下单' && runtime.accessoryPurchaseOrders[item.itemId])
     const runtimeOutputReady = isRuntimeOutputReady(items, workItemsConfirmedBy, workItemsConfirmedAt)
     const outputReady = selectionOverridden
       ? runtimeOutputReady
-      : record.outputReady || (hasRuntimeUpload && runtimeOutputReady)
+      : record.outputReady || ((hasRuntimeUpload || hasRuntimeAccessoryOrder) && runtimeOutputReady)
     const productionDemandNo = selectionOverridden && outputReady
       ? record.productionDemandNo || runtimeProductionDemandNo(record.recordNo)
       : record.productionDemandNo
@@ -300,6 +314,13 @@ function hasUploadEvidence(upload: PreparationUploadRecord): boolean {
 }
 
 function hasCompletionEvidence(item: ProductionPreparationItem): boolean {
+  if (item.itemType === '辅料下单') {
+    return Boolean(
+      item.status === '已完成' &&
+        item.actualFinishAt &&
+        item.accessoryPurchaseOrderNos?.some(Boolean),
+    )
+  }
   return Boolean(
     item.status === '已完成' &&
       item.actualFinishAt &&
@@ -336,20 +357,26 @@ function mergePreparationRuntimeItem(
   const uploads = runtime.uploads.filter((upload) => upload.itemId === item.itemId)
   const downloads = runtime.downloads.filter((download) => download.itemId === item.itemId)
   const dyeRequirement = runtime.dyeRequirements[item.itemId] ?? item.dyeRequirement
+  const accessoryOrder = item.itemType === '辅料下单' ? runtime.accessoryPurchaseOrders[item.itemId] : undefined
   const selectedByMerchandiser = selection.overridden
     ? selection.itemTypes
       ? selection.itemTypes.has(item.itemType)
       : item.requiredKind === '必做' || Boolean(selection.itemIds?.has(item.itemId))
     : item.selectedByMerchandiser
-  if (!uploads.length && !downloads.length && !selection.overridden && dyeRequirement === item.dyeRequirement) return item
+  if (!uploads.length && !downloads.length && !accessoryOrder && !selection.overridden && dyeRequirement === item.dyeRequirement) return item
   const lastUpload = uploads.slice().sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))[0]
+  const accessoryCompleted = Boolean(accessoryOrder?.orderNos.length)
   return {
     ...item,
     dyeRequirement,
     selectedByMerchandiser,
-    status: !selectedByMerchandiser ? '无需' : lastUpload ? '已完成' : item.status,
-    actualFinishAt: lastUpload?.uploadedAt ?? item.actualFinishAt,
-    evidenceSummary: lastUpload ? `最后上传：${lastUpload.fileName}` : item.evidenceSummary,
+    status: !selectedByMerchandiser ? '无需' : lastUpload || accessoryCompleted ? '已完成' : item.status,
+    actualFinishAt: accessoryOrder?.updatedAt ?? lastUpload?.uploadedAt ?? item.actualFinishAt,
+    evidenceSummary: accessoryOrder
+      ? `已登记 ${accessoryOrder.orderNos.length} 个面辅料采购单号`
+      : lastUpload ? `最后上传：${lastUpload.fileName}` : item.evidenceSummary,
+    accessoryPurchaseOrderNos: accessoryOrder?.orderNos ?? item.accessoryPurchaseOrderNos,
+    accessoryPurchaseUpdatedAt: accessoryOrder?.updatedAt ?? item.accessoryPurchaseUpdatedAt,
     uploads: [...(item.uploads ?? []), ...uploads],
     downloads: [...(item.downloads ?? []), ...downloads],
   }

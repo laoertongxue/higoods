@@ -64,12 +64,20 @@ const productionPreparationDataModule = await import('../src/data/fcs/production
   buildMonthlyPreparationStats: typeof import('../src/data/fcs/production-preparation-timing.ts').buildMonthlyPreparationStats
   filterProductionPreparationRecords: typeof import('../src/data/fcs/production-preparation-timing.ts').filterProductionPreparationRecords
   flattenProductionPreparationItems: typeof import('../src/data/fcs/production-preparation-timing.ts').flattenProductionPreparationItems
+  externalPreparationMaterials: typeof import('../src/data/fcs/production-preparation-timing.ts').externalPreparationMaterials
   preparationOwnerRoleRules: Array<{ ownerTeam: string; roleLabels: string[]; actionScope: string }>
   preparationOwnerTeams: string[]
   preparationTypeDefaultItems: typeof import('../src/data/fcs/production-preparation-timing.ts').preparationTypeDefaultItems
   productionPreparationRecords: typeof import('../src/data/fcs/production-preparation-timing.ts').productionPreparationRecords
 }
-const { preparationOwnerRoleRules, preparationOwnerTeams } = productionPreparationDataModule
+const { externalPreparationMaterials, preparationOwnerRoleRules, preparationOwnerTeams } = productionPreparationDataModule
+assert.ok(externalPreparationMaterials.length >= 100, '非系统内物料初始化数据必须完整覆盖业务清单')
+assert.equal(externalPreparationMaterials[0]?.serialNo, 1, '非系统内物料序号必须从 1 开始')
+assert.equal(
+  externalPreparationMaterials[0]?.materialName,
+  '印花雪纺Printing seruti S388-1',
+  '非系统内物料必须保留原始名称，不拆分中英文和规格',
+)
 assert.ok(Array.isArray(preparationOwnerRoleRules), '生产准备数据必须导出 preparationOwnerRoleRules')
 assert.ok(preparationOwnerRoleRules.length >= 6, '责任团队角色映射必须覆盖主要准备团队')
 for (const team of preparationOwnerTeams) {
@@ -87,6 +95,8 @@ function materialLines(record: {
     issuedQty?: number
     unit?: string
     items?: Array<{
+      materialSource?: string
+      externalSerialNo?: number
       materialNo?: string
       materialName?: string
       materialType?: string
@@ -108,6 +118,10 @@ for (const record of productionPreparationDataModule.productionPreparationRecord
   assert.ok(lines.length > 0, `${record.recordNo} 必须有本次用料明细`)
   for (const material of lines) {
     assert.ok(material.materialName, `${record.recordNo} 本次用料必须有物料名称`)
+    if (material.materialSource === '非系统内物料') {
+      assert.ok(material.externalSerialNo, `${record.recordNo} 非系统内物料必须有序号`)
+      continue
+    }
     assert.ok(material.materialNo, `${record.recordNo} 本次用料必须有物料编码`)
     assert.ok(material.materialType, `${record.recordNo} 本次用料必须有物料类型`)
     assert.ok(material.imageUrl?.startsWith('https://images.unsplash.com/'), `${record.recordNo} 本次用料必须有真实图片 URL`)
@@ -117,6 +131,15 @@ for (const record of productionPreparationDataModule.productionPreparationRecord
     assert.ok(material.unit, `${record.recordNo} 本次用料必须有单位`)
   }
 }
+const externalMaterialRecord = productionPreparationDataModule.productionPreparationRecords.find((record) =>
+  record.materialRequirement.items?.some((material) => material.materialSource === '非系统内物料'),
+)
+assert.ok(externalMaterialRecord, 'mock 数据必须包含已选择非系统内物料的准备记录')
+const accessoryItemWithOrders = productionPreparationDataModule.productionPreparationRecords
+  .flatMap((record) => record.items)
+  .find((item) => item.itemType === '辅料下单' && item.accessoryPurchaseOrderNos?.length)
+assert.ok(accessoryItemWithOrders, '辅料下单 mock 必须包含面辅料采购单号')
+assert.ok(!accessoryItemWithOrders?.uploads?.length, '辅料下单不应依赖上传凭证')
 assert.ok(
   productionPreparationDataModule.productionPreparationRecords.filter((record) => !record.workItemsConfirmedAt).length >= 2,
   'Mock 数据必须至少覆盖 2 条跟单尚未确认类型的生产准备记录',
@@ -234,6 +257,8 @@ type EvidenceItem = {
   dependsOnItemIds: string[]
   selectedByMerchandiser?: boolean
   actualFinishAt?: string
+  accessoryPurchaseOrderNos?: string[]
+  accessoryPurchaseUpdatedAt?: string
   uploads?: Array<{ fileName?: string; uploadedAt?: string; uploadedBy?: string; fileDataUrl?: string }>
 }
 
@@ -246,6 +271,13 @@ function hasUploadEvidence(item?: EvidenceItem): boolean {
     item?.actualFinishAt &&
       item.uploads?.some((upload) => upload.fileName && upload.uploadedAt && upload.uploadedBy),
   )
+}
+
+function hasCompletionEvidence(item?: EvidenceItem): boolean {
+  if (item?.itemType === '辅料下单') {
+    return Boolean(item.actualFinishAt && item.accessoryPurchaseOrderNos?.some(Boolean))
+  }
+  return hasUploadEvidence(item)
 }
 
 function itemByType(record: { items: EvidenceItem[] }, itemType: string): EvidenceItem | undefined {
@@ -396,6 +428,8 @@ const unconfirmedRuntimeSelectedItems = unconfirmedOutputLoopFixture.items.filte
   unconfirmedRuntimeSelectedItemTypes.includes(item.itemType as typeof unconfirmedRuntimeSelectedItemTypes[number]),
 )
 assert.equal(unconfirmedRuntimeSelectedItems.length, unconfirmedRuntimeSelectedItemTypes.length, 'PREP-202603-001 缺少纯梭织确认准备项')
+const unconfirmedRuntimeAccessoryItem = unconfirmedRuntimeSelectedItems.find((item) => item.itemType === '辅料下单')
+assert.ok(unconfirmedRuntimeAccessoryItem, 'PREP-202603-001 runtime fixture 缺少辅料下单项')
 const unconfirmedConfirmedState = {
   ...EMPTY_PREPARATION_RUNTIME_STATE,
   confirmedRecords: {
@@ -424,6 +458,13 @@ const unconfirmedRuntimeReadyRecord = mergePreparationRuntimeRecords(productionP
   uploads: unconfirmedRuntimeSelectedItems.map((item, index) =>
     runtimeUploadFor(unconfirmedOutputLoopFixture, item, index + 40),
   ),
+  accessoryPurchaseOrders: {
+    [unconfirmedRuntimeAccessoryItem.itemId]: {
+      orderNos: ['FPO-RUNTIME-001'],
+      updatedAt: '2026-07-02T12:40',
+      updatedBy: '测试用户',
+    },
+  },
 }).find((record: { recordNo?: string }) => record.recordNo === unconfirmedOutputLoopFixture.recordNo) as
   | {
       outputReady?: boolean
@@ -764,8 +805,8 @@ for (const record of productionPreparationRecords as Array<{
   const selectedItems = selectedEvidenceItems(record)
   for (const item of selectedEvidenceItems(record).filter((current) => current.status === '已完成')) {
     assert.ok(
-      hasUploadEvidence(item),
-      `${record.recordNo} ${item.itemType} 已完成时必须有上传记录、上传人、上传时间和实际完成时间`,
+      hasCompletionEvidence(item),
+      `${record.recordNo} ${item.itemType} 已完成时必须有上传记录或面辅料采购单号，并有实际完成时间`,
     )
   }
   for (const item of selectedItems.filter((current) => current.itemType.includes('染色调色'))) {

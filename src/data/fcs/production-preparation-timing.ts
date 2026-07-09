@@ -29,6 +29,7 @@ export type PreparationOutputType =
 export type PreparationOutputStatus = '预计生成' | '已生成'
 
 export type PreparationRecordStatus = '未开始' | '进行中' | '部分超时' | '已完成' | '已关闭'
+export type PreparationMaterialSource = '系统内物料' | '非系统内物料'
 
 export type PreparationItemStatus =
   | '无需'
@@ -77,6 +78,8 @@ export interface PreparationMaterialRequirement {
 }
 
 export interface PreparationMaterialLine {
+  materialSource?: PreparationMaterialSource
+  externalSerialNo?: number
   materialNo: string
   materialName: string
   materialType: string
@@ -85,6 +88,11 @@ export interface PreparationMaterialLine {
   preparedQty: number
   issuedQty: number
   unit: string
+}
+
+export interface ExternalPreparationMaterial {
+  serialNo: number
+  materialName: string
 }
 
 export interface PreparationDyeRequirement extends PreparationMaterialRequirement {
@@ -134,6 +142,8 @@ export interface ProductionPreparationItem {
   patternFileIds?: string[]
   buyerReviewStatus?: '未提交' | '待确认' | '已通过' | '需调整'
   dyeRequirement?: PreparationDyeRequirement
+  accessoryPurchaseOrderNos?: string[]
+  accessoryPurchaseUpdatedAt?: string
   uploads?: PreparationUploadRecord[]
   downloads?: PreparationDownloadRecord[]
 }
@@ -356,6 +366,149 @@ export const preparationOwnerRoleRules: PreparationOwnerRoleRule[] = [
   { ownerTeam: '跟单角色', roleLabels: ['跟单'], actionScope: '确认工作项、确认染色要求' },
 ]
 
+const externalPreparationMaterialNames = [
+  '印花雪纺Printing seruti S388-1',
+  '白色雪纺white seruti S388-1',
+  '黑色雪纺black seruti S388-1',
+  '黑色里布 black furing S256',
+  '白色里布white furingS256',
+  '印花弹力网纱Printed elastic mesh Td-s026',
+  '针织里布spandek jerrsy',
+  '缎面Satin fabric',
+  '欧根纱Organza',
+  '白色无弹 网纱 white Tile',
+  'Lace 黑蕾丝',
+  'Fine pink 粉色里布',
+  'Crinkle Army',
+  'Fine green 绿色里布',
+  'green seruti 绿色雪纺',
+  'Fine yellow 黄色里布',
+  'jersey pink',
+  'Polo Linen 冰棉麻',
+  'pink seruti 粉色雪纺',
+  'BLACK scuba spandex 黑色印尼替代捻丝',
+  'apricot furing 杏色里布',
+  'apricot seruti 杏色雪纺',
+  '仿真丝缎面 satin velvet',
+  '网纹垂感西装面料 jetbalac黑色',
+  '印尼本土较好真丝缎 Armani satin',
+  '仿棉麻line',
+  '里布 ashahi',
+  '常见穆斯林便宜薄面料（皱）印花 crinkle',
+  'Belina Air Flow DUSTY粉色',
+  '常见穆斯林便宜薄面料（皱）黑色 crinkle',
+  '常见穆斯林便宜薄面料（皱）白色 crinkle',
+  'silver seruti 雪纺',
+  '白色厚里布 ashahi',
+  '印尼本土仿真丝缎面 satin velvet',
+  '印花厚里布 Printing ashahi',
+  '印花四面弹110g PrintingS98-2',
+  '白色四面弹white110g S98-2',
+  '印花平纹120g printing S573',
+  '白色平纹120g white S573',
+  '印花高密纱printing G1',
+  '白色高密纱White G1',
+  '印花中国厚 雪纺printing seruti S1',
+  '黑色消光破卡Black S788',
+  '平纹（冰感）S362-1',
+  '斜纹-黑色 Black S427',
+  '衬衫面料-S460',
+  '厚里布 S555-白色',
+  '厚里布 S555-黑色',
+  '斜纹-白色-S427',
+  '高密纱 China high density yarn G1',
+  '50D四面弹（里布）S256',
+  '消光破卡S788-white',
+  '捻丝-黑色 TD-s027 黑色',
+  'Tile 黑色网纱 无弹',
+  '黑色四面弹110gChina 110g thin fabric',
+  '金光棉-G127-白色white',
+  '印尼贵价柔软欧根纱Soft Organza-black黑色',
+  'Tile 印花网纱 无弹',
+  'Tile 粉色网纱 无弹',
+  '细冰丝坑条Td-s 025-白色',
+  '宽冰丝坑条 white Td-s024',
+  '皱感纱-G115-white',
+  '仿棉-S618',
+  '双层布- S60厚',
+  '平纹120g-S573-black黑色',
+  '斜纹-卡其色S427-khaki',
+  '斜纹-printing-S427',
+  '消光破卡-printing-S788',
+  '缎面-printing-S496',
+  '细冰丝坑条Td-s 025-black黑色',
+  '捻丝-印花 TD-s027printing',
+  '细冰丝坑条Td-s 025-printing印花',
+  '无弹牛仔285g E016兰',
+  '缎面S103-1-印花printing',
+  '斜纹-apricot杏色-S427',
+  '捻丝-白色 Td-s027 white',
+  '印花四面弹110g PrintingS98-1',
+  '全锦风衣面料TD-S033-印花printing',
+  '180g牛奶丝双磨white',
+  '180g牛奶丝双磨black',
+  '印花180g牛奶丝双磨',
+  '四面弹S534white',
+  '印花四面弹S534',
+  '白色四面弹white90g S98-1',
+  '灯芯绒面料 蓝色',
+  '绣花布H8297',
+  '印尼牛仔面料 IDSZML24020 -sameasphoto',
+  '印尼薄面料wool peach 印花',
+  '印尼薄面料wool peach white',
+  '印尼常见穆斯林薄皱面料 crinkle white',
+  '印尼常见穆斯林薄皱面料 crinkle 印花',
+  '印尼消光破卡S788',
+  '240g斜纹 S528-1（非白色）',
+  '四面弹120g白色-S98印花',
+  '竹节格',
+  '280g索罗娜棉',
+  '40支双纱爽滑棉210g',
+  '冰丝（蛇仔纹）',
+  '全锦风衣面料TD-S033',
+  '240g斜纹 S528-1',
+  '缎面103-1',
+  '32支CVC拉架180g C2001',
+  '莫代尔随心裁',
+  '加厚莫代尔',
+  '280g双面拉架擦毛',
+  'polymicro（印尼睡衣/床单）',
+  'R069罗马布250g',
+  'AG云朵棉面料s615',
+  '0830面料',
+  'T288',
+  '印尼网布',
+  '厚消光平纹破卡S205-1',
+  '150CM锦棉皱CNIDML077',
+  '哥弟布-裤子面料CNIDML105',
+  '灯芯绒黑色',
+  '60支人棉空气层',
+  '丝光棉S799（幅宽：160）',
+  'CVC双面卫衣-JX-808',
+  '防晒面料2016',
+  '外套面料C2032#',
+  '黑色缎面华尔缎',
+  'CNIDML328-迈巴赫-S874',
+  'CNIDML111-泡泡格W886',
+  '2*2螺纹-2*2LW',
+  '锦棉皱面料 C1009',
+  '云朵棉120g新 S617',
+  '牛奶丝-R063',
+  '1701仿麻竹节/150幅宽',
+  '蕾丝面料',
+  'CNIDML359-天丝棉-C2037',
+  '棉感绉-C2032#CNIDML360',
+  'CNIDML355-经编8坑-C2813',
+  '绣花布 H8309/幅宽150',
+  '印尼网纱IDSZFL24201',
+] as const
+
+export const externalPreparationMaterials: ExternalPreparationMaterial[] =
+  externalPreparationMaterialNames.map((materialName, index) => ({
+    serialNo: index + 1,
+    materialName,
+  }))
+
 export const patternDesignerOptions = [
   { id: 'designer-bingbing', name: '冰冰', teamName: '中国花型组' },
   { id: 'designer-linxiaomei', name: '林小美', teamName: '中国花型组' },
@@ -552,7 +705,11 @@ function materialRequirement(
 function createItems(recordId: string, productionOrderNo: string, seeds: PreparationItemSeed[]): ProductionPreparationItem[] {
   return seeds.map((seed, index) => {
     const itemId = `${recordId}-item-${String(index + 1).padStart(2, '0')}`
-    const shouldBackfillUpload = seed.selectedByMerchandiser !== false && seed.status === '已完成' && Boolean(seed.actualFinishAt)
+    const shouldBackfillUpload =
+      seed.itemType !== '辅料下单' &&
+      seed.selectedByMerchandiser !== false &&
+      seed.status === '已完成' &&
+      Boolean(seed.actualFinishAt)
     const uploads = 'uploads' in seed
       ? seed.uploads ?? []
       : shouldBackfillUpload
@@ -570,6 +727,14 @@ function createItems(recordId: string, productionOrderNo: string, seeds: Prepara
             note: seed.evidenceSummary || '历史完成资料',
           }]
         : []
+    const accessoryPurchaseOrderNos =
+      seed.itemType === '辅料下单' && seed.status === '已完成' && Boolean(seed.actualFinishAt)
+        ? seed.accessoryPurchaseOrderNos ?? [`FPO-${recordId.slice(-3)}-01`]
+        : seed.accessoryPurchaseOrderNos
+    const accessoryPurchaseUpdatedAt =
+      seed.itemType === '辅料下单' && seed.status === '已完成' && Boolean(seed.actualFinishAt)
+        ? seed.accessoryPurchaseUpdatedAt ?? seed.actualFinishAt
+        : seed.accessoryPurchaseUpdatedAt
 
     return {
       itemId,
@@ -582,6 +747,8 @@ function createItems(recordId: string, productionOrderNo: string, seeds: Prepara
       overdueHours: 0,
       remark: '',
       ...seed,
+      accessoryPurchaseOrderNos,
+      accessoryPurchaseUpdatedAt,
       uploads,
       downloads: seed.downloads ?? [],
     }
@@ -684,6 +851,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     materialRequirement: materialRequirement('YRN-202603-002', '12GG 棉羊毛混纺纱', '主纱线', 'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?auto=format&fit=crop&w=240&q=80', 420, 360, 260, 'kg', [
       { materialNo: 'YRN-202603-002', materialName: '12GG 棉羊毛混纺纱', materialType: '主纱线', imageUrl: 'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?auto=format&fit=crop&w=240&q=80', requiredQty: 420, preparedQty: 360, issuedQty: 260, unit: 'kg' },
       { materialNo: 'FAB-202603-002B', materialName: '60S 棉府绸拼接料', materialType: '拼接面料', imageUrl: 'https://images.unsplash.com/photo-1562157873-818bc0726f68?auto=format&fit=crop&w=240&q=80', requiredQty: 260, preparedQty: 180, issuedQty: 90, unit: '米' },
+      { materialSource: '非系统内物料', externalSerialNo: 1, materialNo: '', materialName: '印花雪纺Printing seruti S388-1', materialType: '', imageUrl: '', requiredQty: 0, preparedQty: 0, issuedQty: 0, unit: '' },
     ]),
     sampleRequirementText: '毛织前片按 S 码起版，梭织拼接口按技术包 V1.8 对齐。',
     confirmationRemark: '选择纱线染色和面料染色，毛织基码先行。',
@@ -703,7 +871,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
       req('版衣制作', '待开始', '车板团队', 'Dewi', '2026-03-05T09:00:00', '2026-03-06T18:00:00', '', '混合主线', ['prep-202603-002-item-01', 'prep-202603-002-item-02'], '版衣', { evidenceSummary: '等待毛织基码纸样', overdueHours: 5 }),
       req('毛织齐码纸样', '待开始', '毛织团队', 'Siti', '2026-03-07T09:00:00', '2026-03-08T18:00:00', '', '双齐码并行', ['prep-202603-002-item-03'], '毛织齐码', { evidenceSummary: '等待版衣确认', overdueHours: 6 }),
       req('梭织齐码纸样', '待开始', '版师团队', '梁敏', '2026-03-07T09:00:00', '2026-03-08T18:00:00', '', '双齐码并行', ['prep-202603-002-item-03'], '梭织齐码', { evidenceSummary: '等待版衣确认' }),
-      req('辅料下单', '已完成', '采购团队', '何珊', '2026-03-03T09:00:00', '2026-03-05T18:00:00', '2026-03-05T16:10:00', '辅料并行', [], '主辅料', { evidenceSummary: '罗纹和洗标已锁单' }),
+      req('辅料下单', '已完成', '采购团队', '何珊', '2026-03-03T09:00:00', '2026-03-05T18:00:00', '2026-03-05T16:10:00', '辅料并行', [], '主辅料', { evidenceSummary: '罗纹和洗标已锁单', accessoryPurchaseOrderNos: ['FPO-202603-002-A', 'FPO-202603-002-B'], accessoryPurchaseUpdatedAt: '2026-03-05T16:10:00' }),
       opt('数码印/DTF/DTG花型', false, '待判断', '花型团队', '待确认', '', '', '', '花型并行', '花型', { evidenceSummary: '跟单未选择花型准备' }),
       opt('染色调色（纱线）', true, '已完成', '染色团队', 'Wulan', '2026-03-03T09:00:00', '2026-03-06T18:00:00', '2026-03-06T15:30:00', '染色并行', '纱线染色', { dependsOnItemIds: ['prep-202603-002-item-10'], evidenceSummary: '咖色纱线色卡已确认', dyeRequirement: { materialNo: 'YRN-202603-002', materialName: '12GG 棉羊毛混纺纱', colorName: '暖咖', pantoneCode: 'PANTONE 18-1028 TPX', remark: '先出前片主纱色卡，确认后再放大货纱。', maintainedBy: 'Raka', maintainedAt: '2026-03-03T10:10:00' } }),
       opt('染色调色（面料）', true, '进行中', '染色团队', 'Rini', '2026-03-03T09:00:00', '2026-03-06T18:00:00', '', '染色并行', '面料染色', { dependsOnItemIds: ['prep-202603-002-item-11'], evidenceSummary: '梭织拼接面料二次调色', overdueHours: 9, dyeRequirement: { materialNo: 'FAB-202603-002B', materialName: '60S 棉府绸拼接料', colorName: '米杏', pantoneCode: 'PANTONE 13-1006 TPX', remark: '需与暖咖纱线拼接后色差自然。', maintainedBy: 'Raka', maintainedAt: '2026-03-03T10:25:00' } }),
