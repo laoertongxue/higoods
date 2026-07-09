@@ -428,13 +428,21 @@ export interface ProductionOrderChangeScenario {
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH'
 }
 
+export type ProductionOrderChangeActionStatusText =
+  | '待主管确认'
+  | '已通知相关负责人'
+  | '处理中'
+  | '已处理完成'
+  | '需要补充确认'
+  | '转结算确认'
+
 export interface ProductionOrderChangeActionItem {
   id: string
   ownerRole: string
   ownerName: string
   actionText: string
   stage: ProductionOrderChangeProgressStage
-  statusText: string
+  statusText: ProductionOrderChangeActionStatusText
   adjustReason: string
 }
 
@@ -1277,7 +1285,12 @@ function buildDefaultProductionOrderChangeActionItems(
           ? '按变更单记录核对配料数量，确认原数量和新数量差异。'
           : '核对旧料库存和新物料到料，确认未领料范围改用替代物料。',
       stage,
-      statusText: stage === 'SETTLED' ? '已完成' : '待处理',
+      statusText:
+        stage === 'SETTLED'
+          ? '已处理完成'
+          : stage === 'STARTED_NOT_HANDOVER' || stage === 'HANDOVER_NOT_SETTLED'
+            ? '处理中'
+            : '待主管确认',
       adjustReason: reason,
     },
     {
@@ -1289,7 +1302,12 @@ function buildDefaultProductionOrderChangeActionItems(
           ? '按变更单留痕调整裁剪单色码数量，已裁部分保留记录。'
           : '确认裁剪单未开工范围使用新物料，已裁旧料单独留痕。',
       stage,
-      statusText: stage === 'SETTLED' ? '已完成' : '待确认',
+      statusText:
+        stage === 'SETTLED'
+          ? '已处理完成'
+          : stage === 'STARTED_NOT_HANDOVER' || stage === 'HANDOVER_NOT_SETTLED'
+            ? '处理中'
+            : '已通知相关负责人',
       adjustReason: reason,
     },
   ]
