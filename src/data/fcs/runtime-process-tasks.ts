@@ -2635,6 +2635,13 @@ export function prepareRuntimeDirectDispatchMeta(
 ): PreparedRuntimeDirectDispatchMeta {
   const originalTask = target.task ?? getRuntimeTaskById(input.taskId)
   if (!originalTask) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
+  if (
+    originalTask.taskUnitType === 'COMBINED_PROCESS_TASK'
+    && originalTask.acceptanceMode === 'CONTINUOUS_PROCESS'
+    && (originalTask.assignmentStatus === 'BIDDING' || Boolean(originalTask.tenderId?.trim()))
+  ) {
+    throw new Error(`连续工序任务 ${input.taskId} 已有有效竞价，不可改为直接派单`)
+  }
 
   const operatedAt = input.operatedAt ?? input.dispatchedAt ?? formatOperationLocalWallClock()
   const businessAssignedAt = input.businessAssignedAt ?? operatedAt

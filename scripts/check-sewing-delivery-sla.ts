@@ -1524,6 +1524,47 @@ try {
   const awardedTenderSnapshotState = captureSewingDeliverySlaSnapshotStore()
   const awardedTenderTaskState = awardedTenderRuntimeState.taskOverrides.find(([taskId]) => taskId === continuousTask.taskId)
   const awardedTenderOrderState = awardedTenderRuntimeState.productionOrders.find((order) => order.productionOrderId === continuousTask.productionOrderId)
+  const blockedContinuousDirectInput = {
+    taskId: continuousTask.taskId,
+    factoryId: continuousFactory.id,
+    factoryName: continuousFactory.name,
+    acceptDeadline: '',
+    taskDeadline: '2026-07-20 10:00:00',
+    remark: '竞价中连续任务不得绕过页面改直接派单',
+    by: '生产计划员',
+    dispatchPrice: continuousTask.standardPrice ?? 0,
+    dispatchPriceCurrency: continuousTask.standardPriceCurrency ?? 'IDR',
+    dispatchPriceUnit: continuousTask.standardPriceUnit ?? continuousTask.qtyUnit,
+    priceDiffReason: '',
+    businessAssignedAt: '2026-07-09 10:00:00',
+    operatedAt: '2026-07-10 10:00:00',
+  }
+  assert.throws(
+    () => prepareRuntimeDirectDispatchMeta(blockedContinuousDirectInput),
+    /已有有效竞价/,
+    '直接派单 prepare 阶段必须拒绝已有 tender 的连续任务',
+  )
+  assert.throws(
+    () => applyRuntimeDirectDispatchMeta(blockedContinuousDirectInput),
+    /已有有效竞价/,
+    '统一直接派单入口必须拒绝将竞价中连续任务改为 DIRECT',
+  )
+  const runtimeAfterBlockedDirect = captureRuntimeDirectDispatchState()
+  assert.deepEqual(
+    runtimeAfterBlockedDirect.taskOverrides.find(([taskId]) => taskId === continuousTask.taskId),
+    awardedTenderTaskState,
+    '统一直接派单入口阻断后任务及 tender 字段必须保持不变',
+  )
+  assert.deepEqual(
+    runtimeAfterBlockedDirect.productionOrders.find((order) => order.productionOrderId === continuousTask.productionOrderId),
+    awardedTenderOrderState,
+    '统一直接派单入口阻断后生产单必须保持不变',
+  )
+  assert.deepEqual(
+    captureSewingDeliverySlaSnapshotStore(),
+    awardedTenderSnapshotState,
+    '统一直接派单入口阻断后 SLA 仓必须保持不变',
+  )
   assert.throws(
     () => upsertRuntimeTaskTender(
       continuousTask.taskId,
