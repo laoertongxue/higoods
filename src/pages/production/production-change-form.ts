@@ -8,16 +8,21 @@ import {
 import {
   adaptLegacyQuantityLinesForEdit,
   areMaterialSelectionsEquivalent,
+  buildProductionChangePreview,
   buildMaterialReplacementAllocations,
   createFollowingOrderPlans,
   createQuantityLinesForOrder,
   LEGACY_ORIGINAL_MATERIAL_PREFIX,
   LEGACY_REPLACEMENT_MATERIAL_PREFIX,
+  listAffectedDocumentNosForOrder,
   listReplacementMaterialOptions,
   normalizeMaterialReplacementAllocations,
+  productionChangeResultLabels,
   readLegacyMaterialText,
   resolveLegacyMaterialValue,
   type LegacyQuantityChangeLine,
+  type ProductionChangePlanItem,
+  type ProductionChangePreview,
 } from '../../data/fcs/production-order-change-workflow.ts'
 import { escapeHtml } from '../../utils.ts'
 import { createProductionChangeForm, state } from './context.ts'
@@ -228,23 +233,23 @@ function renderQuantityLine(line: ProductionChangeForm['quantityLines'][number],
     <tr data-production-change-quantity-row data-line-id="${escapeHtml(line.id)}">
       <td class="px-3 py-3">
         ${editableIdentity
-          ? `<input data-prod-field="productionChangeQuantitySkuCode" data-line-id="${escapeHtml(line.id)}" value="${escapeHtml(line.skuCode)}" class="w-32 rounded-md border px-2 py-1.5" placeholder="商品编码" ${readOnly ? 'disabled' : ''} />`
+          ? `<input data-prod-field="productionChangeQuantitySkuCode" data-skip-page-rerender="true" data-line-id="${escapeHtml(line.id)}" value="${escapeHtml(line.skuCode)}" class="w-32 rounded-md border px-2 py-1.5" placeholder="商品编码" ${readOnly ? 'disabled' : ''} />`
           : escapeHtml(line.skuCode)}
       </td>
       <td class="px-3 py-3">
         ${editableIdentity
-          ? `<input data-prod-field="productionChangeQuantityColor" data-line-id="${escapeHtml(line.id)}" value="${escapeHtml(line.color)}" class="w-24 rounded-md border px-2 py-1.5" placeholder="颜色" ${readOnly ? 'disabled' : ''} />`
+          ? `<input data-prod-field="productionChangeQuantityColor" data-skip-page-rerender="true" data-line-id="${escapeHtml(line.id)}" value="${escapeHtml(line.color)}" class="w-24 rounded-md border px-2 py-1.5" placeholder="颜色" ${readOnly ? 'disabled' : ''} />`
           : escapeHtml(line.color)}
       </td>
       <td class="px-3 py-3">
         ${editableIdentity
-          ? `<input data-prod-field="productionChangeQuantitySize" data-line-id="${escapeHtml(line.id)}" value="${escapeHtml(line.size)}" class="w-20 rounded-md border px-2 py-1.5" placeholder="尺码" ${readOnly ? 'disabled' : ''} />`
+          ? `<input data-prod-field="productionChangeQuantitySize" data-skip-page-rerender="true" data-line-id="${escapeHtml(line.id)}" value="${escapeHtml(line.size)}" class="w-20 rounded-md border px-2 py-1.5" placeholder="尺码" ${readOnly ? 'disabled' : ''} />`
           : escapeHtml(line.size)}
       </td>
       <td class="whitespace-nowrap px-3 py-3">${line.originalQty} 件</td>
       <td class="whitespace-nowrap px-3 py-3">${line.currentQty} 件</td>
       <td class="px-3 py-3">
-        <input data-prod-field="productionChangeQuantityTargetQty" data-line-id="${escapeHtml(line.id)}" type="number" min="0" step="1" value="${line.targetQty}" class="w-24 rounded-md border px-2 py-1.5" ${readOnly ? 'disabled' : ''} />
+        <input data-prod-field="productionChangeQuantityTargetQty" data-skip-page-rerender="true" data-line-id="${escapeHtml(line.id)}" type="number" min="0" step="1" value="${line.targetQty}" class="w-24 rounded-md border px-2 py-1.5" ${readOnly ? 'disabled' : ''} />
       </td>
       <td class="whitespace-nowrap px-3 py-3" data-production-change-quantity-delta data-line-id="${escapeHtml(line.id)}">${escapeHtml(differenceText)}</td>
       <td class="whitespace-nowrap px-3 py-3" data-production-change-quantity-status data-line-id="${escapeHtml(line.id)}">${line.targetQty === 0 ? '已取消' : line.isNew ? '新增' : '保留'}</td>
@@ -310,11 +315,11 @@ export function renderQuantityChangeForm(
       <div class="grid gap-3 border-t pt-4 text-sm sm:grid-cols-3" data-production-change-quantity-summary>
         <p><span class="text-muted-foreground">原需求合计：</span><strong>${originalTotal} 件</strong></p>
         <p><span class="text-muted-foreground">当前需求合计：</span><strong>${currentTotal} 件</strong></p>
-        <p><span class="text-muted-foreground">调整后自动汇总：</span><strong>${targetTotal} 件</strong></p>
+        <p><span class="text-muted-foreground">调整后自动汇总：</span><strong data-production-change-quantity-target-total>${targetTotal} 件</strong></p>
       </div>
       <label class="block space-y-1 text-sm">
         <span class="font-medium">变更原因</span>
-        <textarea data-prod-field="productionChangeReason" class="min-h-24 w-full rounded-md border px-3 py-2" placeholder="说明本次调整原因" ${readOnly ? 'disabled' : ''}>${escapeHtml(form.reason)}</textarea>
+        <textarea data-prod-field="productionChangeReason" data-skip-page-rerender="true" class="min-h-24 w-full rounded-md border px-3 py-2" placeholder="说明本次调整原因" ${readOnly ? 'disabled' : ''}>${escapeHtml(form.reason)}</textarea>
       </label>
     </section>
   `
@@ -513,7 +518,7 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm): strin
         </div>
         <label class="space-y-1 text-sm">
           <span class="font-medium">跟单确认用于生产的数量</span>
-          <input data-prod-field="productionChangeConfirmedProductionQty" type="number" min="0" max="${totalDemandQty}" step="1" value="${normalizedAllocations.confirmedProductionQty}" class="w-full rounded-md border px-3 py-2" />
+          <input data-prod-field="productionChangeConfirmedProductionQty" data-skip-page-rerender="true" type="number" min="0" max="${totalDemandQty}" step="1" value="${normalizedAllocations.confirmedProductionQty}" class="w-full rounded-md border px-3 py-2" />
           <span class="block text-xs text-muted-foreground">最多 ${totalDemandQty} 件，仅填写成衣生产件数。</span>
         </label>
       </div>
@@ -525,6 +530,7 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm): strin
           </button>
           <p class="text-sm font-medium" data-production-change-allocation-summary>分配合计 ${allocationTotal} 件 / 确认 ${normalizedAllocations.confirmedProductionQty} 件</p>
         </div>
+        <p class="mt-2 text-sm text-red-700" data-production-change-allocation-error></p>
         ${normalizedAllocations.wasNormalized
           ? '<p class="mt-2 text-sm text-amber-700">分配已按确认生产件数自动归一</p>'
           : ''}
@@ -542,7 +548,7 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm): strin
                     <td class="px-3 py-3">${escapeHtml(line.size)}</td>
                     <td class="px-3 py-3">${line.demandQty} 件</td>
                     <td class="px-3 py-3">${line.suggestedReplacementQty} 件</td>
-                    <td class="px-3 py-3"><input data-prod-field="productionChangeAllocationQty" data-allocation-id="${escapeHtml(line.id)}" type="number" min="0" max="${line.demandQty}" step="1" value="${line.confirmedReplacementQty}" class="w-24 rounded-md border px-2 py-1.5" /></td>
+                    <td class="px-3 py-3"><input data-prod-field="productionChangeAllocationQty" data-skip-page-rerender="true" data-allocation-id="${escapeHtml(line.id)}" type="number" min="0" max="${line.demandQty}" step="1" value="${line.confirmedReplacementQty}" class="w-24 rounded-md border px-2 py-1.5" /></td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -565,7 +571,7 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm): strin
       </section>
       <label class="block space-y-1 text-sm">
         <span class="font-medium">变更原因</span>
-        <textarea data-prod-field="productionChangeReason" class="min-h-24 w-full rounded-md border px-3 py-2" placeholder="说明本次替换原因">${escapeHtml(form.reason)}</textarea>
+        <textarea data-prod-field="productionChangeReason" data-skip-page-rerender="true" class="min-h-24 w-full rounded-md border px-3 py-2" placeholder="说明本次替换原因">${escapeHtml(form.reason)}</textarea>
       </label>
     </section>
   `
@@ -598,6 +604,136 @@ function renderProductionChangeContentStep(
   `
 }
 
+export function buildProductionChangePreviewForForm(form: ProductionChangeForm): ProductionChangePreview {
+  return buildProductionChangePreview({
+    productionOrderId: form.productionOrderId,
+    changeType: form.changeType,
+    reason: form.reason,
+    quantityLines: form.quantityLines,
+    materialReplacement: form.changeType === 'MATERIAL_REPLACEMENT' ? form.materialReplacement : null,
+    decisionValues: form.decisionValues,
+    affectedDocumentNos: listAffectedDocumentNosForOrder(form.productionOrderId),
+  })
+}
+
+function renderHandlingSummary(preview: ProductionChangePreview): string {
+  const summaries = [
+    ['最终变更类型', productionChangeResultLabels[preview.result]],
+    ['数量与物料', preview.summary.materialDeltaText],
+    [
+      '上下游单据',
+      `影响 ${preview.summary.affectedOrderCount} 张生产单、${preview.summary.affectedDocumentCount} 张当前事实单据。`,
+    ],
+    [
+      '成本与交期',
+      `${preview.summary.costDeltaText}${preview.summary.deliveryImpactText}`,
+    ],
+  ]
+  return `
+    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4" aria-label="处理方案摘要">
+      ${summaries.map(([title, value]) => `
+        <div class="min-h-[104px] border-l-4 border-l-primary bg-muted/30 px-4 py-3">
+          <p class="text-xs font-medium text-muted-foreground">${escapeHtml(title)}</p>
+          <p class="mt-2 text-sm font-semibold leading-6">${escapeHtml(value)}</p>
+        </div>
+      `).join('')}
+    </section>
+  `
+}
+
+function renderHandlingPlanItem(item: ProductionChangePlanItem): string {
+  return `
+    <article class="border-t py-3 first:border-t-0">
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h4 class="text-sm font-semibold">${escapeHtml(item.title)}</h4>
+          <p class="mt-1 text-sm leading-6 text-muted-foreground">${escapeHtml(item.description)}</p>
+        </div>
+        ${item.affectedDocumentNo
+          ? `<span class="rounded-md border bg-background px-2 py-1 text-xs font-medium">${escapeHtml(item.affectedDocumentNo)}</span>`
+          : ''}
+      </div>
+    </article>
+  `
+}
+
+function renderAutomaticHandlingItems(items: ProductionChangePlanItem[]): string {
+  const groupOrder: ProductionChangePlanItem['group'][] = ['需求与物料', '上下游单据', '实物去向', '成本与交期']
+  return `
+    <section class="space-y-3" aria-label="系统自动处理">
+      <div>
+        <h3 class="text-base font-semibold">系统自动处理</h3>
+        <p class="mt-1 text-sm text-muted-foreground">系统按当前事实直接处理，跟单只读查看，不需要逐项操作。</p>
+      </div>
+      ${groupOrder.map((group) => {
+        const groupItems = items.filter((item) => item.group === group)
+        if (groupItems.length === 0) return ''
+        return `
+          <details class="border-y" open data-production-change-auto-group="${escapeHtml(group)}">
+            <summary class="cursor-pointer py-3 text-sm font-semibold">${escapeHtml(group)}（${groupItems.length} 项）</summary>
+            <div class="border-t">${groupItems.map(renderHandlingPlanItem).join('')}</div>
+          </details>
+        `
+      }).join('')}
+    </section>
+  `
+}
+
+function renderDecisionItem(item: ProductionChangePlanItem): string {
+  return `
+    <article class="border-t py-4 first:border-t-0" data-production-change-decision="${escapeHtml(item.id)}">
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h4 class="text-sm font-semibold">${escapeHtml(item.title)}</h4>
+          <p class="mt-1 text-sm leading-6 text-muted-foreground">${escapeHtml(item.description)}</p>
+        </div>
+        ${item.affectedDocumentNo
+          ? `<span class="rounded-md border bg-background px-2 py-1 text-xs font-medium">${escapeHtml(item.affectedDocumentNo)}</span>`
+          : ''}
+      </div>
+      <label class="mt-3 block max-w-2xl space-y-1 text-sm">
+        <span class="font-medium">跟单判断</span>
+        <select data-prod-field="productionChangeDecisionValue" data-decision-id="${escapeHtml(item.id)}" class="w-full rounded-md border px-3 py-2">
+          <option value="">请选择</option>
+          ${renderOptions(item.options, item.selectedValue)}
+        </select>
+      </label>
+      ${item.reasonRequired ? `
+        <label class="mt-3 block max-w-2xl space-y-1 text-sm">
+          <span class="font-medium">判断原因</span>
+          <textarea data-prod-field="productionChangeDecisionReason" data-decision-id="${escapeHtml(item.id)}" data-skip-page-rerender="true" class="min-h-20 w-full rounded-md border px-3 py-2" placeholder="说明偏离系统建议的现场事实">${escapeHtml(item.reason)}</textarea>
+        </label>
+      ` : ''}
+    </article>
+  `
+}
+
+function renderProductionChangeHandlingStep(form: ProductionChangeForm): string {
+  const preview = buildProductionChangePreviewForForm(form)
+  return `
+    <div class="space-y-6" data-production-change-handling>
+      ${renderHandlingSummary(preview)}
+      <section class="border-y py-4">
+        <p class="text-xs font-medium text-muted-foreground">最终结果</p>
+        <h2 class="mt-1 text-base font-semibold">${escapeHtml(productionChangeResultLabels[preview.result])}</h2>
+        <p class="mt-2 text-sm leading-6 text-muted-foreground">${escapeHtml(preview.resultReason)}</p>
+      </section>
+      ${renderAutomaticHandlingItems(preview.autoItems)}
+      <section aria-label="待跟单判断">
+        <div>
+          <h3 class="text-base font-semibold">待跟单判断</h3>
+          <p class="mt-1 text-sm text-muted-foreground">这里只保留系统无法替跟单判断的业务去向或替换方式。</p>
+        </div>
+        <div class="mt-3 border-y">
+          ${preview.decisionItems.length > 0
+            ? preview.decisionItems.map(renderDecisionItem).join('')
+            : '<p class="py-5 text-sm text-muted-foreground">当前没有需要跟单判断的事项，可继续下一步。</p>'}
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function renderPendingStep(title: string, description: string): string {
   return `
     <section class="flex min-h-[240px] items-center justify-center rounded-md border border-dashed bg-muted/20 px-6 text-center">
@@ -619,15 +755,17 @@ export function renderProductionChangeFormBody(
     : step === 'content'
       ? renderProductionChangeContentStep(form, options)
       : step === 'handling'
-        ? renderPendingStep('确认处理方案', '第三步将在后续任务中接入系统处理汇总和必要判断。')
+        ? renderProductionChangeHandlingStep(form)
         : renderPendingStep('同步执行', '第四步将在后续任务中接入一次确认、同步提交和失败回滚。')
 
   return `
     <section class="min-h-[360px] rounded-lg border bg-card p-5" data-production-change-form-body="${escapeHtml(step)}">
       ${body}
-      ${state.productionChangeFormError
-        ? `<div class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(state.productionChangeFormError)}</div>`
-        : ''}
+      <div
+        data-production-change-form-error
+        class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+        ${state.productionChangeFormError ? '' : 'hidden'}
+      >${escapeHtml(state.productionChangeFormError)}</div>
     </section>
   `
 }

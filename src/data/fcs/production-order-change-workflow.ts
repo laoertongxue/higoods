@@ -635,6 +635,19 @@ function buildDocumentPlanItems(
   )
 }
 
+function buildQuantityDocumentPlanItems(affectedDocumentNos: string[]): ProductionChangePlanItem[] {
+  return affectedDocumentNos.map((affectedDocumentNo, index) => {
+    const isCuttingOrder = affectedDocumentNo.toUpperCase().startsWith('CUT-')
+    return createAutoItem({
+      id: `quantity-current-document-${index + 1}`,
+      group: '上下游单据',
+      title: isCuttingOrder ? '裁剪单未执行数量自动调整' : '关联单据未执行数量自动调整',
+      description: '已执行数量保持不变，只调整剩余计划并写入变更留痕。',
+      affectedDocumentNo,
+    })
+  })
+}
+
 function createAutoItem(input: Omit<ProductionChangePlanItem, 'kind' | 'options' | 'selectedValue' | 'reason' | 'reasonRequired'>): ProductionChangePlanItem {
   return {
     ...input,
@@ -688,13 +701,15 @@ function buildQuantityPlan(draft: ProductionChangeDraft): ProductionChangePlanBu
       affectedDocumentNo: '',
     }),
   ]
+  autoItems.push(...buildQuantityDocumentPlanItems(sanitizeObjectIds(draft.affectedDocumentNos)))
   autoItems.push(
-    ...buildDocumentPlanItems(
-      'quantity-current-document',
-      '重算关联单据',
-      '系统按当前执行事实调整未执行数量；已领、已裁、已加工和已完工事实保持不变。',
-      sanitizeObjectIds(draft.affectedDocumentNos),
-    ),
+    createAutoItem({
+      id: 'quantity-cost-delivery',
+      group: '成本与交期',
+      title: '成本与交期自动重算',
+      description: '系统按需求净变化和已发生事实重算未发生的物料、加工成本与关联交期。',
+      affectedDocumentNo: '',
+    }),
   )
 
   if (requiresNewFormalVersion) {
@@ -774,14 +789,14 @@ function buildMaterialPlan(draft: ProductionChangeDraft, replacement: MaterialRe
           createDecisionItem(draft, {
             id: `following-order-mode-${order.productionOrderId}`,
             group: '上下游单据',
-            title: `确认已开工生产单 ${order.productionOrderId} 的替换方式`,
+            title: `${order.productionOrderId} 的替换方式`,
             description: isRemaining
               ? `${order.progressText}，该生产单按剩余部分打补丁并同步切换正式版本。`
               : `${order.progressText}，该生产单按全部数量整体切换新正式版本。`,
             affectedDocumentNo: '',
             options: [
-              { value: 'REMAINING', label: '只替换剩余数量' },
-              { value: 'FULL', label: '全部数量改用新物料' },
+              { value: 'REMAINING', label: '剩余数量替换' },
+              { value: 'FULL', label: '全部数量替换' },
             ],
             defaultValue: order.confirmedMode ?? order.suggestedMode,
             suggestedValue: order.suggestedMode,
@@ -820,18 +835,28 @@ function buildMaterialPlan(draft: ProductionChangeDraft, replacement: MaterialRe
       createDecisionItem(draft, {
         id: 'old-material-disposition',
         group: '实物去向',
-        title: '确认旧面料实物去向',
+        title: '旧面料成品退出当前需求后的去向',
         description: `已有 ${oldMaterialFactQty} 件对应的旧面料事实数量，全部替换后需确认不再计入当前需求的实物去向。`,
         affectedDocumentNo: '',
         options: [
           { value: 'RETURN_TO_STOCK', label: '转库存' },
-          { value: 'TRANSFER_USE', label: '转其他生产单使用' },
-          { value: 'DISPOSE', label: '报损或其他处置' },
+          { value: 'TRANSFER_USE', label: '转其他生产单' },
+          { value: 'DISPOSE', label: '处置' },
         ],
-        reasonRequired: true,
+        reasonRequired: false,
       }),
     )
   }
+
+  autoItems.push(
+    createAutoItem({
+      id: 'material-cost-delivery',
+      group: '成本与交期',
+      title: '成本与交期自动重算',
+      description: '系统按新旧物料价差、已发生事实和最终替换范围重算成本与关联交期。',
+      affectedDocumentNo: '',
+    }),
+  )
 
   const resultReason =
     replacement.scope === 'CURRENT_ONLY'

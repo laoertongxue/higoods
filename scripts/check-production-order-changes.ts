@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { createProductionChangeForm, state } from '../src/pages/production/context.ts'
 import * as changeDomain from '../src/data/fcs/production-tech-pack-change-domain.ts'
 import { listMaterialArchives } from '../src/data/pcs-material-archive-repository.ts'
@@ -731,6 +732,33 @@ assert.deepEqual(
   '受影响单据号集合必须与真实当前事实单据集合完全一致',
 )
 
+const quantityPreviewDocumentNos = listAffectedDocumentNosForOrder(quantityFactoryOrderId)
+const quantityPreviewLines = createQuantityLinesForOrder(quantityFactoryOrderId)
+quantityPreviewLines[0].targetQty -= 20
+const quantityPreview = buildProductionChangePreview({
+  productionOrderId: quantityFactoryOrderId,
+  changeType: 'QUANTITY_CHANGE',
+  reason: '黑色 M 减少 20 件。',
+  quantityLines: quantityPreviewLines,
+  materialReplacement: null,
+  decisionValues: {},
+  affectedDocumentNos: quantityPreviewDocumentNos,
+})
+const cuttingAutoItem = quantityPreview.autoItems.find(
+  (item) => item.title === '裁剪单未执行数量自动调整',
+)
+assert.ok(cuttingAutoItem, '数量变更必须生成裁剪单未执行数量自动调整 AUTO 项')
+assert.equal(
+  cuttingAutoItem.description,
+  '已执行数量保持不变，只调整剩余计划并写入变更留痕。',
+  '裁剪数量 AUTO 项必须使用确认后的系统处理文案',
+)
+assert.ok(
+  quantityPreviewDocumentNos.includes(cuttingAutoItem.affectedDocumentNo),
+  '裁剪数量 AUTO 项必须使用当前事实中的实际单据号',
+)
+assert.equal(quantityPreview.decisionItems.length, 0, '数量变更的可判断事项必须全部由系统自动处理')
+
 const totalDemandQty = factoryQuantityLines.reduce((sum, line) => sum + line.currentQty, 0)
 const allocationScenarios = [
   { input: 10.5, expected: 11, label: '小数件四舍五入' },
@@ -822,8 +850,10 @@ assert.deepEqual(secondChangeForm.execution.steps, [], '修改第一份执行步
 console.log('production change form state and stable mock checks passed')
 
 const changePages = await import('../src/pages/production/changes-domain.ts')
+const productionEvents = await import('../src/pages/production/events.ts')
 const pageExports = changePages as Record<string, unknown>
 const domainExports = changeDomain as Record<string, unknown>
+const eventExports = productionEvents as Record<string, unknown>
 
 const renderProductionChangesPage = requireFunction<() => string>(pageExports, 'renderProductionChangesPage')
 const renderProductionChangeNewPage = requireFunction<() => string>(pageExports, 'renderProductionChangeNewPage')
@@ -865,6 +895,120 @@ const getProductionOrderChangeOrder = requireFunction<(id: string) => Record<str
 const submitProductionOrderChangeOrder = requireFunction<(input: Record<string, any>) => Record<string, any>>(
   domainExports,
   'submitProductionOrderChangeOrder',
+)
+const createInitializedProductionChangeForm = requireFunction<(
+  productionOrderId: string,
+  changeType: typeof state.productionChangeForm.changeType,
+) => typeof state.productionChangeForm>(eventExports, 'createInitializedProductionChangeForm')
+const validateProductionChangeFormStep = requireFunction<(
+  step: typeof state.productionChangeFormStep,
+  form: typeof state.productionChangeForm,
+) => string>(eventExports, 'validateProductionChangeFormStep')
+const createProductionChangeFormFromRecord = requireFunction<(
+  order: Record<string, any>,
+) => typeof state.productionChangeForm>(eventExports, 'createProductionChangeFormFromRecord')
+
+const initializedQuantityForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
+assert.equal(initializedQuantityForm.productionOrderId, quantityFactoryOrderId, '初始化必须保留所选生产单')
+assert.deepEqual(
+  initializedQuantityForm.quantityLines,
+  createQuantityLinesForOrder(quantityFactoryOrderId),
+  '选择生产单后必须按当前事实初始化数量明细',
+)
+assert.deepEqual(initializedQuantityForm.decisionValues, {}, '初始化必须清空第三步判断')
+assert.equal(initializedQuantityForm.execution.status, 'IDLE', '初始化必须清空第四步执行状态')
+
+const initializedMaterialForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'MATERIAL_REPLACEMENT')
+const initialMaterialSuggestion = initializedMaterialForm.materialReplacement.allocations.reduce(
+  (sum, line) => sum + line.suggestedReplacementQty,
+  0,
+)
+assert.equal(
+  initializedMaterialForm.materialReplacement.originalMaterialId,
+  listCurrentMaterialOptionsForOrder(quantityFactoryOrderId)[0]?.value,
+  '物料表单必须默认当前生产单第一条有效面料事实',
+)
+assert.equal(
+  initializedMaterialForm.materialReplacement.suggestedProductionQty,
+  initialMaterialSuggestion,
+  '剩余数量替换建议必须等于各行建议替换数量合计',
+)
+assert.equal(
+  initializedMaterialForm.materialReplacement.confirmedProductionQty,
+  initialMaterialSuggestion,
+  '物料表单初始确认数量必须等于系统建议',
+)
+assert.equal(
+  initializedMaterialForm.materialReplacement.allocations.reduce(
+    (sum, line) => sum + line.confirmedReplacementQty,
+    0,
+  ),
+  initialMaterialSuggestion,
+  '物料表单初始分配必须与确认数量守恒',
+)
+assert.deepEqual(
+  initializedMaterialForm.materialReplacement.followingOrders,
+  createFollowingOrderPlans(quantityFactoryOrderId),
+  '物料表单必须按当前事实初始化后续生产单',
+)
+
+assert.ok(
+  validateProductionChangeFormStep('content', initializedQuantityForm).includes('数量内容未发生变化'),
+  '数量内容未发生变化时必须阻断进入第三步',
+)
+const validQuantityTransitionForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
+validQuantityTransitionForm.quantityLines[0].targetQty -= 10
+validQuantityTransitionForm.reason = '跟单确认需求减少 10 件。'
+assert.equal(
+  validateProductionChangeFormStep('content', validQuantityTransitionForm),
+  '',
+  '数量、原因和明细合法时必须允许进入第三步',
+)
+const incompleteNewLineForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
+incompleteNewLineForm.reason = '新增需求明细。'
+incompleteNewLineForm.quantityLines.push({
+  id: 'TEST-NEW-LINE',
+  skuCode: '',
+  color: '',
+  size: '',
+  originalQty: 0,
+  currentQty: 0,
+  targetQty: 10,
+  unit: '件',
+  isNew: true,
+  coveredByCurrentVersion: false,
+})
+assert.ok(
+  validateProductionChangeFormStep('content', incompleteNewLineForm).includes('商品编码、颜色和尺码'),
+  '新增数量大于 0 时商品编码、颜色和尺码不完整必须阻断',
+)
+
+const replacementOption = listReplacementMaterialOptions()[0]
+assert.ok(replacementOption, '事件校验需要至少一个新面料候选')
+const sameMaterialForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'MATERIAL_REPLACEMENT')
+sameMaterialForm.materialReplacement.replacementMaterialId = sameMaterialForm.materialReplacement.originalMaterialId
+sameMaterialForm.reason = '测试同物料阻断。'
+assert.ok(
+  validateProductionChangeFormStep('content', sameMaterialForm).includes('新面料不能与原面料相同'),
+  '新面料与原面料相同时必须阻断进入第三步',
+)
+const unbalancedMaterialForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'MATERIAL_REPLACEMENT')
+unbalancedMaterialForm.materialReplacement.replacementMaterialId = replacementOption.value
+unbalancedMaterialForm.reason = '测试分配守恒。'
+unbalancedMaterialForm.materialReplacement.allocations[0].confirmedReplacementQty -= 1
+assert.ok(
+  validateProductionChangeFormStep('content', unbalancedMaterialForm).includes('分配合计必须等于确认生产件数'),
+  '分配不守恒时必须阻断进入第三步',
+)
+const incompleteDecisionForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'MATERIAL_REPLACEMENT')
+incompleteDecisionForm.materialReplacement.replacementMaterialId = replacementOption.value
+incompleteDecisionForm.materialReplacement.replacementMode = 'FULL'
+incompleteDecisionForm.reason = '全部数量替换并确认旧料去向。'
+assert.ok(
+  /^请先完成 \d+ 项待跟单判断。$/.test(
+    validateProductionChangeFormStep('handling', incompleteDecisionForm),
+  ),
+  '待跟单判断未完成时必须阻断进入第四步',
 )
 
 state.productionChangeListTab = 'change-orders'
@@ -1212,7 +1356,7 @@ assert.equal(
   '数量编辑页不得因旧记录增加需求行',
 )
 assert.ok(
-  quantityEditHtml.includes('调整后自动汇总：</span><strong>3470 件'),
+  /<strong[^>]*data-production-change-quantity-target-total[^>]*>\s*3470\s*件\s*<\/strong>/.test(quantityEditHtml),
   '数量编辑页目标合计必须只应用已匹配旧行差额，不能变成 3670',
 )
 assert.ok(!quantityEditHtml.includes('data-line-id="CHANGE-PO-202603-0004-001-LEGACY'), '未匹配旧行不得渲染为新增需求行')
@@ -1222,6 +1366,16 @@ assert.ok(!quantityEditHtml.includes('data-prod-action="save-production-change-d
 assert.ok(!quantityEditHtml.includes('data-prod-action="submit-production-change-order"'), '安全降级编辑页不得显示保存变更内容动作')
 assert.ok(!quantityEditHtml.includes('data-prod-action="set-production-change-type"'), '安全降级编辑页不得允许切换变更类型')
 assert.ok(quantityEditHtml.includes('按原记录新建变更'), '安全降级编辑页必须提供按原记录新建入口')
+const clonedQuantityForm = createProductionChangeFormFromRecord(quantityEditOrder)
+assert.equal(clonedQuantityForm.productionOrderId, quantityEditOrder.productionOrderId, '按原记录新建必须保留生产单')
+assert.equal(clonedQuantityForm.changeType, quantityEditOrder.changeType, '按原记录新建必须保留变更类型')
+assert.equal(clonedQuantityForm.reason, quantityEditOrder.reason, '按原记录新建必须保留变更原因')
+assert.ok(
+  clonedQuantityForm.quantityLines.some((line) => line.targetQty !== line.currentQty),
+  '按原记录新建必须保留可安全映射的数量变化',
+)
+assert.deepEqual(clonedQuantityForm.decisionValues, {}, '按原记录新建必须清空旧判断结果')
+assert.equal(clonedQuantityForm.execution.status, 'IDLE', '按原记录新建必须清空旧执行状态')
 
 const materialEditOrder = listProductionOrderChangeOrders().find(
   (order) => order.materialReplacement && createQuantityLinesForOrder(order.productionOrderId).length > 0,
@@ -1244,12 +1398,95 @@ const editHtml = `${quantityEditHtml}${materialEditHtml}`
 })
 assertIncludesAny(editHtml, ['保存变更内容', '保存草稿'], '生产单变更编辑页必须使用单角色保存动作')
 
-state.productionChangeFormStep = 'handling'
-const handlingHtml = renderProductionChangeNewPage()
-;['系统自动处理', '待跟单判断'].forEach((text) => {
-  assert.ok(handlingHtml.includes(text), `确认处理方案步骤缺少「${text}」`)
+const quantityHandlingForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
+quantityHandlingForm.quantityLines[0].targetQty -= 20
+quantityHandlingForm.reason = '黑色 M 减少 20 件。'
+const quantityHandlingHtml = renderProductionChangeFormBody('handling', quantityHandlingForm)
+;['最终变更类型', '数量与物料', '上下游单据', '成本与交期'].forEach((text) => {
+  assert.ok(quantityHandlingHtml.includes(text), `确认处理方案步骤缺少摘要「${text}」`)
 })
-assert.ok(!handlingHtml.includes('逐项确认'), '确认处理方案步骤不得要求逐项确认')
+;['系统自动处理', '待跟单判断', '当前没有需要跟单判断的事项'].forEach((text) => {
+  assert.ok(quantityHandlingHtml.includes(text), `确认处理方案步骤缺少「${text}」`)
+})
+assert.ok(quantityHandlingHtml.includes('data-production-change-handling'), '第三步主体必须提供稳定锚点')
+assert.ok(quantityHandlingHtml.includes('裁剪单未执行数量自动调整'), '第三步必须展示数量场景 AUTO 项')
+assert.ok(quantityHandlingHtml.includes('生产单打补丁'), '第三步必须展示最终结果中文名')
+assert.ok(quantityHandlingHtml.includes('变更明细均被当前正式版本覆盖'), '第三步必须展示最终结果原因')
+
+const suggestedDecisionForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'MATERIAL_REPLACEMENT')
+suggestedDecisionForm.materialReplacement.replacementMaterialId = replacementOption.value
+suggestedDecisionForm.materialReplacement.scope = 'CURRENT_AND_FOLLOWING'
+suggestedDecisionForm.reason = '后续生产单同步替换。'
+const startedPlan = suggestedDecisionForm.materialReplacement.followingOrders.find((order) => order.started)
+assert.ok(startedPlan, '第三步判断渲染需要已开工后续生产单')
+const followingDecisionId = `following-order-mode-${startedPlan.productionOrderId}`
+const suggestedDecisionHtml = renderProductionChangeFormBody('handling', suggestedDecisionForm)
+assert.ok(
+  suggestedDecisionHtml.includes(`data-prod-field="productionChangeDecisionValue" data-decision-id="${followingDecisionId}"`),
+  '待跟单判断必须使用约定 select 和 decisionId',
+)
+assert.ok(suggestedDecisionHtml.includes('<option value="">请选择</option>'), '判断 select 必须提供空值“请选择”')
+assert.ok(
+  !suggestedDecisionHtml.includes(`data-prod-field="productionChangeDecisionReason" data-decision-id="${followingDecisionId}"`),
+  '接受系统建议时不得显示偏离原因输入',
+)
+suggestedDecisionForm.decisionValues[followingDecisionId] = { value: 'FULL', reason: '' }
+const deviatedDecisionHtml = renderProductionChangeFormBody('handling', suggestedDecisionForm)
+assert.ok(
+  deviatedDecisionHtml.includes(`data-prod-field="productionChangeDecisionReason" data-decision-id="${followingDecisionId}"`),
+  '偏离系统建议时必须显示原因输入',
+)
+const handlingHtml = `${quantityHandlingHtml}${suggestedDecisionHtml}${deviatedDecisionHtml}`
+;['逐项确认', '相关负责人', '主管确认', '人工上报进度'].forEach((text) => {
+  assert.ok(!handlingHtml.includes(text), `确认处理方案步骤不得出现「${text}」`)
+})
+
+;[
+  quantityFormHtml,
+  materialFormHtml,
+].forEach((html) => {
+  assert.ok(
+    /data-prod-field="productionChangeReason"[^>]*data-skip-page-rerender="true"/.test(html),
+    '变更原因输入必须跳过整页重绘',
+  )
+})
+assert.ok(
+  /data-prod-field="productionChangeQuantityTargetQty"[^>]*data-skip-page-rerender="true"/.test(quantityFormHtml),
+  '数量输入必须跳过整页重绘',
+)
+assert.ok(
+  /data-prod-field="productionChangeConfirmedProductionQty"[^>]*data-skip-page-rerender="true"/.test(materialFormHtml),
+  '确认生产件数输入必须跳过整页重绘',
+)
+
+const productionEventsSource = readFileSync(
+  new URL('../src/pages/production/events.ts', import.meta.url),
+  'utf8',
+)
+;[
+  'PRODUCTION_CHANGE_EMPTY_FORM',
+  'productionChangeFormSource',
+  'productionChangeFormEffectiveMode',
+  'productionChangeFormChangeContent',
+  'productionChangeFormExecutionMode',
+  'productionChangeMaterialColors',
+  'productionChangeMaterialSizes',
+  'productionChangeMaterialEffectiveFromText',
+  "state.productionChangeFormStep = 'preview'",
+  "step === 'preview'",
+  '生产单变更已提交审核',
+  '已通知相关负责人处理',
+].forEach((text) => {
+  assert.ok(!productionEventsSource.includes(text), `events.ts 不得保留旧生产单变更口径「${text}」`)
+})
+;[
+  'patchProductionChangeQuantityDom',
+  'patchProductionChangeAllocationDom',
+  'productionChangeDecisionValue',
+  'productionChangeDecisionReason',
+].forEach((text) => {
+  assert.ok(productionEventsSource.includes(text), `events.ts 缺少第三步或局部更新实现「${text}」`)
+})
 
 state.productionChangeFormStep = 'execution'
 const executionHtml = renderProductionChangeNewPage()
