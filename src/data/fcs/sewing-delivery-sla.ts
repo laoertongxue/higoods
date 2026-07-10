@@ -57,10 +57,19 @@ export type SewingDeliveryMilestoneResult =
   | 'OVERDUE_PENDING'
   | 'OVERDUE_REACHED'
 
+export interface SewingDeliveryReceiverDelayAttribution {
+  readonly recordId: string
+  readonly submittedAt: string
+  readonly receivedAt: string
+  readonly affectedQty: number
+  readonly delayHours: number
+}
+
 export interface SewingDeliveryMilestoneProjection extends SewingDeliveryMilestoneSnapshot {
   readonly result: SewingDeliveryMilestoneResult
   readonly firstReachedAt?: string
   readonly receiverDelayRecordIds: readonly string[]
+  readonly receiverDelayRecords: readonly SewingDeliveryReceiverDelayAttribution[]
 }
 
 export interface SewingDeliverySlaProjection {
@@ -407,7 +416,7 @@ export function projectSewingDeliverySla(
   const projectionSnapshot = cloneAndFreezeSnapshot(snapshot)
   const reachedMilestones = projectionSnapshot.milestones.map(() => ({
     firstReachedAt: undefined as string | undefined,
-    receiverDelayCandidateRecordIds: [] as string[],
+    receiverDelayCandidateRecords: [] as SewingDeliveryReceiverDelayAttribution[],
   }))
   const orderedReceipts = [...receipts].sort((left, right) => left.receivedAt.localeCompare(right.receivedAt))
 
@@ -432,7 +441,7 @@ export function projectSewingDeliverySla(
     projectionSnapshot.milestones.forEach((milestone, index) => {
       const reached = reachedMilestones[index]
       if (reached.firstReachedAt) return
-      reached.receiverDelayCandidateRecordIds.push(
+      reached.receiverDelayCandidateRecords.push(
         ...receiptBatch
           .filter((receipt) => {
             const effectiveReceivedQty = receipt.voided
@@ -443,8 +452,14 @@ export function projectSewingDeliverySla(
               && receipt.submittedAt <= milestone.deadlineAt
               && receipt.receivedAt > milestone.deadlineAt
           })
-          .map((receipt) => receipt.recordId)
-          .sort(),
+          .map((receipt) => ({
+            recordId: receipt.recordId,
+            submittedAt: receipt.submittedAt,
+            receivedAt: receipt.receivedAt,
+            affectedQty: Math.max(receipt.receivedQty - (receipt.reversedQty ?? 0), 0),
+            delayHours: (parseDateTime(receipt.receivedAt, '实收时间').getTime() - parseDateTime(milestone.deadlineAt, '节点截止时间').getTime()) / 3_600_000,
+          }))
+          .sort((left, right) => left.recordId.localeCompare(right.recordId)),
       )
       if (previousReceivedQty >= milestone.targetQty || confirmedReceivedQty < milestone.targetQty) return
       reached.firstReachedAt = receivedAt
@@ -468,15 +483,17 @@ export function projectSewingDeliverySla(
       result = nowAt < milestone.deadlineAt ? 'UPCOMING' : 'OVERDUE_PENDING'
     }
 
+    const receiverDelayRecords = reached.firstReachedAt
+      ? [...new Map(reached.receiverDelayCandidateRecords.map((record) => [record.recordId, record])).values()]
+          .sort((left, right) => left.recordId.localeCompare(right.recordId))
+          .map((record) => Object.freeze({ ...record }))
+      : []
     return Object.freeze({
       ...milestone,
       result,
       ...(reached.firstReachedAt ? { firstReachedAt: reached.firstReachedAt } : {}),
-      receiverDelayRecordIds: Object.freeze(
-        reached.firstReachedAt
-          ? [...new Set(reached.receiverDelayCandidateRecordIds)].sort()
-          : [],
-      ),
+      receiverDelayRecordIds: Object.freeze(receiverDelayRecords.map((record) => record.recordId)),
+      receiverDelayRecords: Object.freeze(receiverDelayRecords),
     })
   }))
 

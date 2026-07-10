@@ -52,9 +52,18 @@ import {
 import {
   formatOperationLocalWallClock,
   getSewingDeliveryResponsibilityReview,
+  listSewingDeliveryResponsibilityReviews,
   recordSewingDeliveryResponsibilityReview,
   type SewingDeliveryResponsibilityConclusion,
 } from '../../data/fcs/sewing-delivery-sla.ts'
+
+function getSewingDeliveryResponsibilityConclusionLabel(
+  conclusion: SewingDeliveryResponsibilityConclusion,
+): string {
+  if (conclusion === 'FACTORY') return '工厂责任'
+  if (conclusion === 'RECEIVER') return '接收方责任'
+  return '双方共同责任'
+}
 
 interface SewingDeliveryResponsibilityReviewDraft {
   taskId: string
@@ -138,14 +147,18 @@ export function submitSewingDeliveryResponsibilityReview(): { ok: boolean; messa
 export function renderSewingDeliveryResponsibilityReviewDialog(): string {
   const draft = sewingDeliveryResponsibilityReviewDraft
   if (!draft) return ''
+  const current = getSewingDeliveryResponsibilityReview(draft.taskId, draft.milestoneRatio)
+  const history = listSewingDeliveryResponsibilityReviews(draft.taskId, draft.milestoneRatio)
   return `
     <div class="fixed inset-0 z-[150] flex items-center justify-center bg-black/45 p-4">
       <section class="w-full max-w-lg space-y-4 rounded-lg border bg-background p-4 shadow-xl" role="dialog" aria-modal="true" aria-label="主管复核责任">
         <div><h3 class="font-semibold">主管复核责任</h3><p class="mt-1 text-xs text-muted-foreground">${draft.milestoneRatio * 100}% 节点 · 仅记录责任结论，不改变交出和实收事实。</p></div>
+        <div class="rounded-md border bg-muted/30 px-3 py-2 text-sm"><span class="text-muted-foreground">当前结论：</span>${current ? escapeHtml(getSewingDeliveryResponsibilityConclusionLabel(current.conclusion)) : '尚未复核'}</div>
         <label class="block space-y-1 text-sm"><span>责任结论</span><select class="h-9 w-full rounded-md border bg-background px-3" data-progress-field="sewingSlaReview.conclusion" data-skip-page-rerender="true"><option value="RECEIVER" ${draft.conclusion === 'RECEIVER' ? 'selected' : ''}>接收方责任</option><option value="FACTORY" ${draft.conclusion === 'FACTORY' ? 'selected' : ''}>工厂责任</option><option value="SHARED" ${draft.conclusion === 'SHARED' ? 'selected' : ''}>双方共同责任</option></select></label>
         <label class="block space-y-1 text-sm"><span>复核说明</span><textarea class="min-h-[80px] w-full rounded-md border bg-background px-3 py-2" data-progress-field="sewingSlaReview.remark" data-skip-page-rerender="true">${escapeHtml(draft.remark)}</textarea></label>
         <div class="grid gap-3 sm:grid-cols-2"><label class="space-y-1 text-sm"><span>复核人</span><input class="h-9 w-full rounded-md border bg-background px-3" value="${escapeAttr(draft.reviewedBy)}" data-progress-field="sewingSlaReview.reviewedBy" data-skip-page-rerender="true" /></label><label class="space-y-1 text-sm"><span>复核时间</span><input type="datetime-local" class="h-9 w-full rounded-md border bg-background px-3" value="${escapeAttr(draft.reviewedAt.replace(' ', 'T').slice(0, 16))}" data-progress-field="sewingSlaReview.reviewedAt" data-skip-page-rerender="true" /></label></div>
         ${draft.error ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(draft.error)}</div>` : ''}
+        <section class="space-y-2"><h4 class="text-sm font-medium">复核历史</h4>${history.length > 0 ? `<div class="max-h-44 overflow-auto rounded-md border"><table class="w-full min-w-[620px] text-xs"><thead><tr class="border-b bg-muted/40 text-left"><th class="px-2 py-1.5">结论</th><th class="px-2 py-1.5">说明</th><th class="px-2 py-1.5">复核人</th><th class="px-2 py-1.5">时间</th></tr></thead><tbody>${[...history].reverse().map((review) => `<tr class="border-b last:border-b-0"><td class="px-2 py-1.5">${escapeHtml(getSewingDeliveryResponsibilityConclusionLabel(review.conclusion))}</td><td class="max-w-[240px] px-2 py-1.5">${escapeHtml(review.remark)}</td><td class="px-2 py-1.5">${escapeHtml(review.reviewedBy)}</td><td class="px-2 py-1.5">${escapeHtml(review.reviewedAt)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="rounded-md border border-dashed px-3 py-3 text-xs text-muted-foreground">暂无复核历史</div>'}</section>
         <div class="flex justify-end gap-2"><button class="h-9 rounded-md border px-4 text-sm" data-progress-action="cancel-sewing-sla-review" data-skip-page-rerender="true">取消</button><button class="h-9 rounded-md bg-primary px-4 text-sm text-primary-foreground" data-progress-action="submit-sewing-sla-review" data-skip-page-rerender="true">保存复核</button></div>
       </section>
     </div>
@@ -327,7 +340,7 @@ export function renderSewingDeliverySlaDetail(view: SewingDeliverySlaView | unde
               <td class="px-3 py-2">${escapeHtml(milestone.deadlineAt)}</td>
               <td class="px-3 py-2">${escapeHtml(milestone.firstReachedAt || '未达标')}</td>
               <td class="px-3 py-2">${escapeHtml(getSewingDeliveryResultLabel(milestone.result))}</td>
-              <td class="px-3 py-2">${milestone.receiverDelayRecordIds.length > 0 ? `<div class="space-y-1"><div class="text-amber-700">受影响记录 ${milestone.receiverDelayRecordIds.length} 条</div><button class="text-primary hover:underline" data-progress-action="review-sewing-sla-responsibility" data-task-id="${escapeAttr(view.runtimeTaskId)}" data-ratio="${milestone.ratio}" data-skip-page-rerender="true">主管复核责任</button></div>` : '—'}</td>
+              <td class="px-3 py-2">${milestone.receiverDelayRecords.length > 0 ? `<div class="min-w-[300px] space-y-2"><div class="text-amber-700">受影响记录 ${milestone.receiverDelayRecords.length} 条</div><div class="space-y-1">${milestone.receiverDelayRecords.map((record) => `<div class="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-800"><div class="font-mono font-medium">${escapeHtml(record.recordId)}</div><div>交出 ${escapeHtml(record.submittedAt)} · 确认 ${escapeHtml(record.receivedAt)}</div><div>受影响 ${record.affectedQty} ${escapeHtml(unit)} · 延迟 ${record.delayHours} 小时</div></div>`).join('')}</div><button class="text-primary hover:underline" data-progress-action="review-sewing-sla-responsibility" data-task-id="${escapeAttr(view.runtimeTaskId)}" data-ratio="${milestone.ratio}" data-skip-page-rerender="true">主管复核责任</button></div>` : '—'}</td>
             </tr>
           `).join('')}</tbody>
         </table>
