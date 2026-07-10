@@ -650,7 +650,30 @@ try {
   assert.equal(awarded.acceptedAt, undefined)
   assert.equal(getSewingDeliverySlaSnapshot(sewingTenderTaskId), null, '平台定标不得提前启动含车缝 SLA')
 
+  const beforeWrongFactoryAccept = structuredClone(getRuntimeTaskById(sewingTenderTaskId))
+  const beforeWrongFactorySnapshotState = captureSewingDeliverySlaSnapshotStore()
+  assert.throws(
+    () => runtimeTenderModule.acceptRuntimeTaskAssignment(sewingTenderTaskId, {
+      factoryId: 'ID-F004',
+      acceptedAt: '2026-07-01 11:25:00',
+      acceptedBy: '泗水裁片厂',
+    }),
+    /不是中标工厂|无权确认接单/,
+    '非中标工厂不得确认接单',
+  )
+  assert.deepEqual(
+    getRuntimeTaskById(sewingTenderTaskId),
+    beforeWrongFactoryAccept,
+    '非中标工厂接单失败后任务状态与审计必须完全不变',
+  )
+  assert.deepEqual(
+    captureSewingDeliverySlaSnapshotStore(),
+    beforeWrongFactorySnapshotState,
+    '非中标工厂接单失败后快照仓必须完全不变',
+  )
+
   const accepted = runtimeTenderModule.acceptRuntimeTaskAssignment(sewingTenderTaskId, {
+    factoryId: 'ID-F003',
     acceptedAt: '2026-07-01 11:30:00',
     acceptedBy: '万隆车缝厂',
   })
@@ -669,6 +692,7 @@ try {
   const acceptedHistoryLength = listSewingDeliverySlaSnapshotHistory(sewingTenderTaskId).length
   assert.throws(
     () => runtimeTenderModule.acceptRuntimeTaskAssignment(sewingTenderTaskId, {
+      factoryId: 'ID-F003',
       acceptedAt: '2026-07-01 11:35:00',
       acceptedBy: '万隆车缝厂',
     }),
@@ -685,6 +709,7 @@ try {
   const unawardedBeforeAccept = structuredClone(getRuntimeTaskById(unawardedTaskId))
   assert.throws(
     () => runtimeTenderModule.acceptRuntimeTaskAssignment(unawardedTaskId, {
+      factoryId: 'ID-F003',
       acceptedAt: '2026-07-01 11:30:00',
       acceptedBy: '万隆车缝厂',
     }),
@@ -720,6 +745,7 @@ try {
   const rejectedBeforeAccept = structuredClone(getRuntimeTaskById(rejectedTaskId))
   assert.throws(
     () => runtimeTenderModule.acceptRuntimeTaskAssignment(rejectedTaskId, {
+      factoryId: 'ID-F003',
       acceptedAt: '2026-07-01 11:30:00',
       acceptedBy: '万隆车缝厂',
     }),
@@ -1258,6 +1284,8 @@ for (const [sourceName, source] of [
 ] as const) {
   assert.match(source, /acceptRuntimeTaskAssignment/, `${sourceName}必须调用统一运行时接单函数`)
   assert.match(source, /formatOperationLocalWallClock/, `${sourceName}必须使用操作端本地当前墙钟`)
+  assert.match(source, /getCurrentFactoryId\(\)/, `${sourceName}必须从当前登录身份读取工厂 ID`)
+  assert.match(source, /acceptRuntimeTaskAssignment\(taskId, \{ factoryId,/, `${sourceName}必须把当前工厂 ID 传给统一接单函数`)
   assert.match(source, /确认接单/, `${sourceName}应向待确认的中标任务展示“确认接单”`)
   assert.doesNotMatch(source, /无需二次确认/, `${sourceName}不得再宣称中标任务无需二次确认`)
 }

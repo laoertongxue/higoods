@@ -183,7 +183,7 @@ function renderSectionCard(title: string, icon: string, body: string): string {
   `
 }
 
-function mutateAcceptTask(taskId: string, by: string): void {
+function mutateAcceptTask(taskId: string, factoryId: string, by: string): void {
   const now = formatOperationLocalWallClock()
   const task = getTaskFactById(taskId)
   if (!task) throw new Error('任务不存在或已被移除')
@@ -197,7 +197,7 @@ function mutateAcceptTask(taskId: string, by: string): void {
     return
   }
   if (!getRuntimeTaskById(taskId)) throw new Error('任务尚未进入统一运行时任务仓，请联系主管处理')
-  acceptRuntimeTaskAssignment(taskId, { acceptedAt: now, acceptedBy: by })
+  acceptRuntimeTaskAssignment(taskId, { factoryId, acceptedAt: now, acceptedBy: by })
 }
 
 function mutateRejectTask(taskId: string, reason: string, by: string): void {
@@ -1086,9 +1086,10 @@ export function handlePdaTaskReceiveDetailEvent(target: HTMLElement): boolean {
     const taskId = actionNode.dataset.taskId
     if (!taskId) return true
 
-    const factoryName = getFactoryName(getCurrentFactoryId())
+    const factoryId = getCurrentFactoryId()
+    const factoryName = getFactoryName(factoryId)
     try {
-      mutateAcceptTask(taskId, factoryName)
+      mutateAcceptTask(taskId, factoryId, factoryName)
       showTaskReceiveDetailToast('接单成功')
       state.rejectDialogOpen = false
       state.rejectReason = ''

@@ -286,7 +286,7 @@ function getTaskPricing(task: ProcessTask): {
   return { directPrice, currency, unit }
 }
 
-function mutateAcceptTask(taskId: string, by: string): void {
+function mutateAcceptTask(taskId: string, factoryId: string, by: string): void {
   const now = formatOperationLocalWallClock()
   const task = getTaskFactById(taskId)
   if (!task) throw new Error('任务不存在或已被移除')
@@ -300,7 +300,7 @@ function mutateAcceptTask(taskId: string, by: string): void {
     return
   }
   if (!getRuntimeTaskById(taskId)) throw new Error('任务尚未进入统一运行时任务仓，请联系主管处理')
-  acceptRuntimeTaskAssignment(taskId, { acceptedAt: now, acceptedBy: by })
+  acceptRuntimeTaskAssignment(taskId, { factoryId, acceptedAt: now, acceptedBy: by })
 }
 
 function mutateRejectTask(taskId: string, reason: string, by: string): void {
@@ -708,7 +708,6 @@ function renderPendingAcceptCuttingTask(task: PdaTaskFlowMock, factoryName: stri
             class="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
             data-pda-tr-action="accept-task"
             data-task-id="${escapeHtml(task.taskId)}"
-            data-factory-name="${escapeHtml(factoryName)}"
           >接单</button>
         </div>
       </div>
@@ -765,7 +764,6 @@ function renderPendingAcceptTask(task: ProcessTask, factoryName: string): string
             class="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
             data-pda-tr-action="accept-task"
             data-task-id="${escapeHtml(task.taskId)}"
-            data-factory-name="${escapeHtml(factoryName)}"
           >接单</button>
         </div>
       </div>
@@ -976,7 +974,6 @@ function renderAwardedItem(item: AwardedTender): string {
                   class="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
                   data-pda-tr-action="accept-task"
                   data-task-id="${escapeHtml(item.taskId)}"
-                  data-factory-name="${escapeHtml(task?.assignedFactoryName || '')}"
                 >确认接单</button>`
               : `<button
                   class="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
@@ -1356,10 +1353,11 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
 
   if (action === 'accept-task') {
     const taskId = actionNode.dataset.taskId
-    const factoryName = actionNode.dataset.factoryName || getFactoryName(getCurrentFactoryId())
+    const factoryId = getCurrentFactoryId()
+    const factoryName = getFactoryName(factoryId)
     if (taskId) {
       try {
-        mutateAcceptTask(taskId, factoryName)
+        mutateAcceptTask(taskId, factoryId, factoryName)
         showTaskReceiveToast('接单成功')
       } catch (error) {
         showTaskReceiveToast(error instanceof Error ? error.message : '接单失败，请联系主管处理')

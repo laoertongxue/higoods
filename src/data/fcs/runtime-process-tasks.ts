@@ -358,6 +358,7 @@ export interface PreparedRuntimeTaskTenderAward {
 }
 
 export interface RuntimeTaskAssignmentAcceptanceInput {
+  factoryId: string
   acceptedAt: string
   acceptedBy: string
 }
@@ -2371,13 +2372,17 @@ export function acceptRuntimeTaskAssignment(
 ): RuntimeProcessTask {
   const task = getRuntimeTaskById(taskId)
   if (!task) throw new Error(`任务 ${taskId} 不存在或已被移除`)
+  if (!input.factoryId.trim()) throw new Error(`任务 ${taskId} 缺少当前操作工厂`)
+  if (!task.assignedFactoryId || !task.assignedFactoryName) {
+    throw new Error(`任务 ${taskId} 尚未确定承接工厂，不可接单`)
+  }
+  if (input.factoryId !== task.assignedFactoryId) {
+    throw new Error(`当前工厂不是任务 ${taskId} 的中标工厂，无权确认接单`)
+  }
   if (task.acceptanceStatus === 'ACCEPTED') throw new Error(`任务 ${taskId} 已接单，不可重复接单`)
   if (task.acceptanceStatus === 'REJECTED') throw new Error(`任务 ${taskId} 已拒单，拒单后不可接单`)
   if (task.assignmentStatus !== 'ASSIGNED' && task.assignmentStatus !== 'AWARDED') {
     throw new Error(`任务 ${taskId} 未分配或未定标，不可接单`)
-  }
-  if (!task.assignedFactoryId || !task.assignedFactoryName) {
-    throw new Error(`任务 ${taskId} 尚未确定承接工厂，不可接单`)
   }
   if (!input.acceptedAt.trim() || !input.acceptedBy.trim()) {
     throw new Error(`任务 ${taskId} 缺少接单时间或接单人`)
