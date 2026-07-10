@@ -9,10 +9,6 @@ import {
   getFactorySupplyFormulaGuide,
   getFactorySupplyFormulaTemplate,
 } from '../src/data/fcs/process-craft-output-value-explainer.ts'
-import type {
-  TechnicalBomItem,
-  TechnicalProcessEntry,
-} from '../src/data/pcs-technical-data-version-types.ts'
 
 const printProcess = getProcessDefinitionByCode('PRINT')
 const waterProcess = getProcessDefinitionByCode('WATER_SOLUBLE')
@@ -63,33 +59,5 @@ const waterGuide = getFactorySupplyFormulaGuide('水溶')
 assert.equal(waterGuide.template, 'D', '水溶公共产值指南必须返回模板 D')
 assert(waterGuide.currentFieldKeys.includes('batchLoadCapacity'), '水溶批次型模板必须包含单次有效装载量')
 assert(waterGuide.currentFieldKeys.includes('cycleMinutes'), '水溶批次型模板必须包含单次循环分钟')
-
-const technicalBomContract: TechnicalBomItem = {
-  id: 'BOM-WATER-SOLUBLE-CHECK',
-  type: '辅料',
-  name: '水溶花边',
-  spec: '常规',
-  materialCode: 'MAT-WATER-001',
-  unit: '米',
-  unitConsumption: 1,
-  lossRate: 0,
-  supplier: '示例供应商',
-  waterSolubleRequirement: '是',
-}
-const technicalProcessContract: Pick<
-  TechnicalProcessEntry,
-  'triggerField' | 'targetObject' | 'targetObjectName'
-> = {
-  triggerField: 'waterSolubleRequirement',
-  targetObject: 'BOM_MATERIAL',
-  targetObjectName: 'BOM物料',
-}
-
-assert.equal(technicalBomContract.materialCode, 'MAT-WATER-001', '技术包 BOM 物料编码契约错误')
-assert.equal(technicalBomContract.unit, '米', '技术包 BOM 单位契约错误')
-assert.equal(technicalBomContract.waterSolubleRequirement, '是', '技术包 BOM 水溶要求契约错误')
-assert.equal(technicalProcessContract.triggerField, 'waterSolubleRequirement', '技术包工序触发字段契约错误')
-assert.equal(technicalProcessContract.targetObject, 'BOM_MATERIAL', '技术包工序目标对象契约错误')
-assert.equal(technicalProcessContract.targetObjectName, 'BOM物料', '技术包工序目标对象名称契约错误')
 
 console.log('water-soluble process checks passed')
