@@ -308,14 +308,14 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
   const materialPrepChecks = getTenderMaterialPrepChecks(task)
   const materialPrepReady = isTenderMaterialPrepReady(materialPrepChecks)
   const materialPrepError = materialPrepReady ? '' : formatTenderMaterialPrepError(materialPrepChecks)
-  const valid =
+  const otherValid =
     selectedPoolIds.length > 0 &&
-    businessAssignedAtValid &&
     materialPrepReady &&
     minValid &&
     maxValid &&
     state.createTenderForm.biddingDeadline !== '' &&
     state.createTenderForm.taskDeadline !== ''
+  const valid = otherValid && businessAssignedAtValid
   const hasBlockedSelectedPool = selectedPoolIds.some((factoryId) => {
     const constraint = candidateFactoryConstraints.get(factoryId)
     return constraint?.hardBlocked
@@ -614,14 +614,14 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
 
             <div class="space-y-1.5">
               <label class="text-sm font-medium">业务分配时间 <span class="text-red-500">*</span></label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="datetime-local" data-dispatch-field="tender.businessAssignedAt" value="${escapeHtml(state.createTenderForm.businessAssignedAt)}" />
+              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="datetime-local" data-dispatch-field="tender.businessAssignedAt" data-skip-page-rerender="true" value="${escapeHtml(state.createTenderForm.businessAssignedAt)}" />
               <p class="text-[10px] text-muted-foreground">记录分配事实，不作为含车缝履约起点。</p>
-              ${businessAssignedAtValid ? '' : '<p class="text-xs text-red-600">业务分配时间不能晚于当前操作时间</p>'}
+              <p class="text-xs text-red-600 ${businessAssignedAtValid ? 'hidden' : ''}" data-tender-business-time-error>${businessAssignedAtValid ? '' : '业务分配时间不能晚于当前操作时间'}</p>
             </div>
 
             <div class="space-y-1.5">
               <label class="text-sm font-medium">实际操作时间</label>
-              <div class="flex h-9 items-center rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground">提交竞价时记录当前时间（当前 ${escapeHtml(operatedAt)}）</div>
+              <div class="flex h-9 items-center rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground">提交竞价时记录当前时间（当前 <span data-tender-assignment-operated-at>${escapeHtml(operatedAt)}</span>）</div>
             </div>
 
             <div class="space-y-1.5">
@@ -648,12 +648,40 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
             <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-dispatch-action="close-create-tender">取消</button>
 	            <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
 	              valid && !hasBlockedSelectedPool ? '' : 'pointer-events-none opacity-50'
-	            }" data-dispatch-action="confirm-create-tender">确认创建招标单</button>
+	            }" data-dispatch-action="confirm-create-tender" data-tender-other-disabled="${otherValid && !hasBlockedSelectedPool ? 'false' : 'true'}" aria-disabled="${valid && !hasBlockedSelectedPool ? 'false' : 'true'}">确认创建招标单</button>
 	          </div>
 	        </footer>
       </section>
     </div>
   `
+}
+
+function refreshTenderBusinessAssignedAtFeedback(fieldNode: HTMLElement): void {
+  const sheet = fieldNode.closest<HTMLElement>('[data-tender-sheet="true"]')
+  if (!sheet) return
+
+  const operatedAt = formatOperationLocalWallClock()
+  const businessAssignedAt = fromDateTimeLocal(state.createTenderForm.businessAssignedAt)
+  const timeError = !businessAssignedAt || compareSewingDeliveryDateTimes(businessAssignedAt, operatedAt) > 0
+    ? '业务分配时间不能晚于当前操作时间'
+    : ''
+  state.createTenderError = timeError || null
+
+  const errorNode = sheet.querySelector<HTMLElement>('[data-tender-business-time-error]')
+  if (errorNode) {
+    errorNode.textContent = timeError
+    errorNode.classList.toggle('hidden', timeError === '')
+  }
+  const operatedAtNode = sheet.querySelector<HTMLElement>('[data-tender-assignment-operated-at]')
+  if (operatedAtNode) operatedAtNode.textContent = operatedAt
+
+  const confirmButton = sheet.querySelector<HTMLButtonElement>('[data-dispatch-action="confirm-create-tender"]')
+  if (confirmButton) {
+    const disabled = timeError !== '' || confirmButton.dataset.tenderOtherDisabled === 'true'
+    confirmButton.setAttribute('aria-disabled', disabled ? 'true' : 'false')
+    confirmButton.classList.toggle('pointer-events-none', disabled)
+    confirmButton.classList.toggle('opacity-50', disabled)
+  }
 }
 
 function renderViewTenderSheet(task: DispatchTask | null): string {
@@ -1052,5 +1080,6 @@ export {
   renderCreateTenderSheet,
   renderViewTenderSheet,
   renderPriceSnapshotSheet,
+  refreshTenderBusinessAssignedAtFeedback,
   confirmCreateTender,
 }

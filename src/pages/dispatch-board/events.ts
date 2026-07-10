@@ -32,6 +32,7 @@ import {
   openViewTender,
   closeViewTender,
   closePriceSnapshot,
+  refreshTenderBusinessAssignedAtFeedback,
 } from './tender-domain.ts'
 
 function getTenderSelectableFactoryIds(): Set<string> {
@@ -244,6 +245,9 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
     updateField(field, fieldNode)
     if (field === 'dispatch.businessAssignedAt') {
       refreshDirectDispatchBusinessAssignedAtFeedback(fieldNode)
+    }
+    if (field === 'tender.businessAssignedAt') {
+      refreshTenderBusinessAssignedAtFeedback(fieldNode)
     }
     return true
   }

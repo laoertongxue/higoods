@@ -203,6 +203,15 @@ interface LocalTender {
   currentMaxPrice?: number
   currentMinPrice?: number
   participatingFactoryIds?: string[]
+  factoryQuotes?: Array<{
+    factoryId: string
+    factoryName: string
+    hasQuoted: boolean
+    quotePrice?: number
+    quoteTime?: string
+    deliveryDays?: number
+    remark?: string
+  }>
   mainFactoryId?: string
   mainFactoryName?: string
   awardedFactoryId?: string

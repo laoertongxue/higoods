@@ -178,8 +178,41 @@ const submittedQuotes = new Map<string, SubmittedQuoteSnapshot>(
 
 let lastFocusedTaskToken = ''
 
+interface LegacyAcceptanceOverride {
+  acceptedAt: string
+  acceptedBy: string
+  factoryId: string
+}
+
+const legacyAcceptanceOverrides = new Map<string, LegacyAcceptanceOverride>()
+
+export function projectPdaTaskLegacyAcceptance(task: ProcessTask): ProcessTask {
+  const override = legacyAcceptanceOverrides.get(task.taskId)
+  if (!override) return task
+  return {
+    ...task,
+    acceptanceStatus: 'ACCEPTED',
+    assignmentStatus: 'AWARDED',
+    assignedFactoryId: override.factoryId,
+    acceptedAt: override.acceptedAt,
+    acceptedBy: override.acceptedBy,
+    updatedAt: override.acceptedAt,
+    auditLogs: [
+      ...task.auditLogs,
+      {
+        id: `AL-LEGACY-ACCEPT-${task.taskId}`,
+        action: 'ACCEPT_TASK',
+        detail: '旧版非履约考核 Mock 任务确认接单',
+        at: override.acceptedAt,
+        by: override.acceptedBy,
+      },
+    ],
+  }
+}
+
 function getTaskFactById(taskId: string): ProcessTask | null {
-  return getPdaMobileExecutionTaskById(taskId) ?? getPdaTaskFlowTaskById(taskId) ?? null
+  const task = getPdaMobileExecutionTaskById(taskId) ?? getPdaTaskFlowTaskById(taskId) ?? null
+  return task ? projectPdaTaskLegacyAcceptance(task) : null
 }
 
 function isPostFinishingDirectOnlyFactory(factoryId: string): boolean {
@@ -286,21 +319,34 @@ function getTaskPricing(task: ProcessTask): {
   return { directPrice, currency, unit }
 }
 
-function mutateAcceptTask(taskId: string, factoryId: string, by: string): void {
-  const now = formatOperationLocalWallClock()
+export function acceptPdaTaskWithRuntimeFallback(
+  taskId: string,
+  factoryId: string,
+  by: string,
+  acceptedAt = formatOperationLocalWallClock(),
+): ProcessTask {
   const task = getTaskFactById(taskId)
   if (!task) throw new Error('任务不存在或已被移除')
   const woolOrderId = (task as ProcessTask & { woolOrderId?: string }).woolOrderId
   if (task.processBusinessCode === 'WOOL' && woolOrderId) {
-    acceptWoolWorkOrder(woolOrderId, by, now)
-    return
+    acceptWoolWorkOrder(woolOrderId, by, acceptedAt)
+    return getTaskFactById(taskId) ?? task
   }
   if (task.processBusinessCode === 'POST_FINISHING' || task.processCode === 'POST_FINISHING' || task.processNameZh === '后道') {
-    acceptPostFinishingTask(taskId, by, now)
-    return
+    acceptPostFinishingTask(taskId, by, acceptedAt)
+    return getTaskFactById(taskId) ?? task
   }
-  if (!getRuntimeTaskById(taskId)) throw new Error('任务尚未进入统一运行时任务仓，请联系主管处理')
-  acceptRuntimeTaskAssignment(taskId, { factoryId, acceptedAt: now, acceptedBy: by })
+  if (getRuntimeTaskById(taskId)) {
+    return acceptRuntimeTaskAssignment(taskId, { factoryId, acceptedAt, acceptedBy: by })
+  }
+  if (classifySewingDeliverySla(task) !== null) {
+    throw new Error('任务尚未进入统一运行时任务仓，请联系主管处理')
+  }
+  if (task.assignedFactoryId && task.assignedFactoryId !== factoryId) {
+    throw new Error('当前登录工厂与任务归属不一致，不能接单')
+  }
+  legacyAcceptanceOverrides.set(taskId, { acceptedAt, acceptedBy: by, factoryId })
+  return projectPdaTaskLegacyAcceptance(task)
 }
 
 function mutateRejectTask(taskId: string, reason: string, by: string): void {
@@ -440,14 +486,16 @@ function getActiveBiddingTenders(): BiddingTender[] {
     .sort((left, right) => left.biddingDeadline.localeCompare(right.biddingDeadline))
 }
 
-function getAwardedTenders(selectedFactoryId: string): AwardedTender[] {
-  const taskFacts = listPdaMobileExecutionTasks()
+export function listPdaAwardedTendersForFactory(selectedFactoryId: string): AwardedTender[] {
+  const taskFacts = listPdaMobileExecutionTasks().map(projectPdaTaskLegacyAcceptance)
   const awardedTaskIds = new Set(
     listPdaAwardedTenderNoticesByFactoryId(selectedFactoryId).map((item) => item.taskId),
   )
 
   return filterReceiveAwardedTaskFacts(taskFacts, selectedFactoryId)
-    .filter((task) => awardedTaskIds.has(task.taskId))
+    .filter((task) => getRuntimeTaskById(task.taskId) || (
+      awardedTaskIds.has(task.taskId) && classifySewingDeliverySla(task) === null
+    ))
     .map((task) => ({
       tenderId: resolveTaskChainTenderId(task) || `TENDER-${task.taskId}`,
       taskId: task.taskId,
@@ -480,7 +528,10 @@ function getAwardedTenders(selectedFactoryId: string): AwardedTender[] {
 }
 
 function getPendingAcceptTasks(selectedFactoryId: string): ProcessTask[] {
-  const tasks = filterReceivePendingAcceptTasks(listPdaMobileExecutionTasks(), selectedFactoryId)
+  const tasks = filterReceivePendingAcceptTasks(
+    listPdaMobileExecutionTasks().map(projectPdaTaskLegacyAcceptance),
+    selectedFactoryId,
+  )
   if (!isPostFinishingDirectOnlyFactory(selectedFactoryId)) return tasks
   return tasks.filter((task) => getMobileTaskProcessType(task) === 'POST_FINISHING')
 }
@@ -1114,7 +1165,7 @@ export function renderPdaTaskReceivePage(): string {
   const activeBiddingTenders = getActiveBiddingTenders()
   syncQuoteDialogWithQuery(activeBiddingTenders)
   const allQuotedTenders = getQuotedTenders(selectedFactoryId)
-  const awardedTenders = getAwardedTenders(selectedFactoryId)
+  const awardedTenders = listPdaAwardedTendersForFactory(selectedFactoryId)
   const filteredPendingTasks = getFilteredPendingTasks(pendingAcceptTasks)
   const tabCounts = getTabCounts(
     pendingAcceptTasks,
@@ -1357,7 +1408,7 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
     const factoryName = getFactoryName(factoryId)
     if (taskId) {
       try {
-        mutateAcceptTask(taskId, factoryId, factoryName)
+        acceptPdaTaskWithRuntimeFallback(taskId, factoryId, factoryName)
         showTaskReceiveToast('接单成功')
       } catch (error) {
         showTaskReceiveToast(error instanceof Error ? error.message : '接单失败，请联系主管处理')

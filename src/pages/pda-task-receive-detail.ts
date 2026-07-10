@@ -24,7 +24,6 @@ import {
 } from '../data/fcs/process-mobile-task-binding.ts'
 import { canFactoryAccessSpecialCraftPdaTask } from '../data/fcs/special-craft-pda-scope.ts'
 import {
-  acceptPostFinishingTask,
   rejectPostFinishingTask,
 } from '../data/fcs/post-finishing-domain.ts'
 import { DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY } from '../data/fcs/dispatch-acceptance-sla.ts'
@@ -37,20 +36,18 @@ import {
   buildPdaCuttingTaskEntryAction,
   getPdaCuttingTaskStateBadgeClass,
 } from './pda-cutting-task-rollup'
-import { acceptWoolWorkOrder } from '../data/fcs/wool-task-domain.ts'
-import {
-  acceptRuntimeTaskAssignment,
-  getRuntimeTaskById,
-} from '../data/fcs/runtime-process-tasks.ts'
 import {
   classifySewingDeliverySla,
-  formatOperationLocalWallClock,
 } from '../data/fcs/sewing-delivery-sla.ts'
 import {
   ensurePdaSessionForAction,
   getPdaRuntimeContext,
   renderPdaLoginRedirect,
 } from './pda-runtime'
+import {
+  acceptPdaTaskWithRuntimeFallback,
+  projectPdaTaskLegacyAcceptance,
+} from './pda-task-receive.ts'
 
 interface TaskReceiveDetailState {
   rejectDialogOpen: boolean
@@ -67,11 +64,12 @@ const state: TaskReceiveDetailState = {
 }
 
 function listTaskFacts(): ProcessTask[] {
-  return listPdaMobileExecutionTasks()
+  return listPdaMobileExecutionTasks().map(projectPdaTaskLegacyAcceptance)
 }
 
 function getTaskFactById(taskId: string): ProcessTask | null {
-  return getPdaMobileExecutionTaskById(taskId) ?? getPdaTaskFlowTaskById(taskId) ?? null
+  const task = getPdaMobileExecutionTaskById(taskId) ?? getPdaTaskFlowTaskById(taskId) ?? null
+  return task ? projectPdaTaskLegacyAcceptance(task) : null
 }
 
 function getTaskDisplayNo(task: ProcessTask): string {
@@ -181,23 +179,6 @@ function renderSectionCard(title: string, icon: string, body: string): string {
       <div class="space-y-3 p-4 text-sm">${body}</div>
     </article>
   `
-}
-
-function mutateAcceptTask(taskId: string, factoryId: string, by: string): void {
-  const now = formatOperationLocalWallClock()
-  const task = getTaskFactById(taskId)
-  if (!task) throw new Error('任务不存在或已被移除')
-  const woolOrderId = (task as ProcessTask & { woolOrderId?: string }).woolOrderId
-  if (task.processBusinessCode === 'WOOL' && woolOrderId) {
-    acceptWoolWorkOrder(woolOrderId, by, now)
-    return
-  }
-  if (task.processBusinessCode === 'POST_FINISHING' || task.processCode === 'POST_FINISHING' || task.processNameZh === '后道') {
-    acceptPostFinishingTask(taskId, by, now)
-    return
-  }
-  if (!getRuntimeTaskById(taskId)) throw new Error('任务尚未进入统一运行时任务仓，请联系主管处理')
-  acceptRuntimeTaskAssignment(taskId, { factoryId, acceptedAt: now, acceptedBy: by })
 }
 
 function mutateRejectTask(taskId: string, reason: string, by: string): void {
@@ -1089,7 +1070,7 @@ export function handlePdaTaskReceiveDetailEvent(target: HTMLElement): boolean {
     const factoryId = getCurrentFactoryId()
     const factoryName = getFactoryName(factoryId)
     try {
-      mutateAcceptTask(taskId, factoryId, factoryName)
+      acceptPdaTaskWithRuntimeFallback(taskId, factoryId, factoryName)
       showTaskReceiveDetailToast('接单成功')
       state.rejectDialogOpen = false
       state.rejectReason = ''
