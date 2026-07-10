@@ -2,6 +2,14 @@ import assert from 'node:assert/strict'
 import * as changePages from '../src/pages/production/changes-domain.ts'
 import { state } from '../src/pages/production/context.ts'
 import * as changeDomain from '../src/data/fcs/production-tech-pack-change-domain.ts'
+import {
+  buildProductionChangePreview,
+  inferProductionChangeResult,
+  productionChangeResultLabels,
+  quantityChangeRequiresNewFormalVersion,
+  validateProductionChangeDecisions,
+  type ProductionChangeDraft,
+} from '../src/data/fcs/production-order-change-workflow.ts'
 
 if (typeof (globalThis as any).HTMLInputElement === 'undefined') {
   ;(globalThis as any).HTMLInputElement = function HTMLInputElement() {}
@@ -37,6 +45,157 @@ function assertHomeDoesNotIncludeLegacyEntries(html: string, label: string): voi
     assert.ok(!html.includes(text), `${label}不应出现旧技术包/版本关系/补丁入口：${text}`)
   })
 }
+
+const quantityLines: ProductionChangeDraft['quantityLines'] = [
+  {
+    id: 'QTY-LINE-001',
+    skuCode: 'SKU-BLK-M',
+    color: '黑色',
+    size: 'M',
+    originalQty: 120,
+    currentQty: 120,
+    targetQty: 90,
+    unit: '件',
+    isNew: false,
+    coveredByCurrentVersion: true,
+  },
+]
+
+assert.deepEqual(
+  productionChangeResultLabels,
+  {
+    PRODUCTION_PATCH: '生产单打补丁',
+    VERSION_RELATION: '正式版本绑定调整',
+    VERSION_AND_PATCH: '生产单打补丁 + 正式版本绑定调整',
+  },
+  '生产单变更最终结果只能使用新工作流定义的三个结果',
+)
+
+;[
+  [
+    '数量变更且无需新正式版本',
+    inferProductionChangeResult({ changeType: 'QUANTITY_CHANGE', requiresNewFormalVersion: false }),
+    'PRODUCTION_PATCH',
+  ],
+  [
+    '数量变更且需要新正式版本',
+    inferProductionChangeResult({ changeType: 'QUANTITY_CHANGE', requiresNewFormalVersion: true }),
+    'VERSION_AND_PATCH',
+  ],
+  [
+    '物料剩余数量替换 + 当前生产单',
+    inferProductionChangeResult({
+      changeType: 'MATERIAL_REPLACEMENT',
+      replacementMode: 'REMAINING',
+      scope: 'CURRENT_ONLY',
+    }),
+    'PRODUCTION_PATCH',
+  ],
+  [
+    '物料剩余数量替换 + 当前及后续生产单',
+    inferProductionChangeResult({
+      changeType: 'MATERIAL_REPLACEMENT',
+      replacementMode: 'REMAINING',
+      scope: 'CURRENT_AND_FOLLOWING',
+    }),
+    'VERSION_AND_PATCH',
+  ],
+  [
+    '物料全部数量替换 + 当前及后续生产单',
+    inferProductionChangeResult({
+      changeType: 'MATERIAL_REPLACEMENT',
+      replacementMode: 'FULL',
+      scope: 'CURRENT_AND_FOLLOWING',
+    }),
+    'VERSION_RELATION',
+  ],
+].forEach(([scenario, actual, expected]) => {
+  assert.equal(actual, expected, `${scenario}的最终结果不正确`)
+})
+
+assert.equal(
+  quantityChangeRequiresNewFormalVersion([
+    ...quantityLines,
+    {
+      ...quantityLines[0],
+      id: 'QTY-LINE-NEW',
+      size: 'XXL',
+      isNew: true,
+      coveredByCurrentVersion: false,
+    },
+  ]),
+  true,
+  '新增且未被当前正式版本覆盖的数量明细必须触发新正式版本',
+)
+
+const materialDraft: ProductionChangeDraft = {
+  productionOrderId: 'PO-202603-004',
+  changeType: 'MATERIAL_REPLACEMENT',
+  reason: '原面料供应不足，替换未生产数量。',
+  quantityLines: [],
+  materialReplacement: {
+    originalMaterialId: 'MAT-FAB-018',
+    replacementMaterialId: 'MAT-FAB-026',
+    replacementMode: 'REMAINING',
+    scope: 'CURRENT_AND_FOLLOWING',
+    suggestedProductionQty: 180,
+    confirmedProductionQty: 180,
+    allocations: [
+      {
+        id: 'ALLOC-001',
+        skuCode: 'SKU-BLK-M',
+        color: '黑色',
+        size: 'M',
+        demandQty: 120,
+        oldMaterialFactQty: 30,
+        suggestedReplacementQty: 90,
+        confirmedReplacementQty: 90,
+      },
+    ],
+    followingOrders: [
+      {
+        productionOrderId: 'PO-202603-005',
+        progressText: '已领料，尚未裁剪',
+        started: true,
+        suggestedMode: 'REMAINING',
+        confirmedMode: 'REMAINING',
+      },
+    ],
+  },
+  decisionValues: {},
+}
+
+const incompletePreview = buildProductionChangePreview(materialDraft)
+assert.ok(incompletePreview.autoItems.length > 0, '预览必须生成系统自动处理项')
+assert.ok(incompletePreview.decisionItems.length > 0, '业务无法自动判断时必须生成待跟单判断项')
+assert.ok(incompletePreview.autoItems.every((item) => item.kind === 'AUTO'), 'autoItems 只能包含系统自动处理项')
+assert.ok(
+  incompletePreview.decisionItems.every((item) => item.kind === 'MERCHANDISER_DECISION'),
+  'decisionItems 只能包含待跟单判断项',
+)
+assert.deepEqual(
+  validateProductionChangeDecisions(incompletePreview).sort(),
+  incompletePreview.decisionItems.map((item) => item.id).sort(),
+  '未选择或未填写必要原因的判断项必须被校验发现',
+)
+assert.ok(incompletePreview.lockObjectIds.includes(materialDraft.productionOrderId), '锁定对象必须包含当前生产单')
+assert.ok(incompletePreview.lockObjectIds.every((id) => id.trim().length > 0), '锁定对象不得包含空值')
+
+const completedDecisionValues = Object.fromEntries(
+  incompletePreview.decisionItems.map((item) => [
+    item.id,
+    { value: item.options[item.options.length - 1]?.value ?? '', reason: '跟单已核对现场事实。' },
+  ]),
+)
+const completedPreview = buildProductionChangePreview({
+  ...materialDraft,
+  decisionValues: completedDecisionValues,
+})
+completedPreview.decisionItems.forEach((item) => {
+  assert.equal(item.selectedValue, completedDecisionValues[item.id]?.value, 'decisionValues 必须覆盖判断项默认选择')
+  assert.equal(item.reason, completedDecisionValues[item.id]?.reason, 'decisionValues 必须覆盖判断项原因')
+})
+assert.deepEqual(validateProductionChangeDecisions(completedPreview), [], '必要判断完成后校验必须通过')
 
 const pageExports = changePages as Record<string, unknown>
 const domainExports = changeDomain as Record<string, unknown>
@@ -194,7 +353,7 @@ newFlowStepHtml.forEach(([step, html]) => {
 })
 
 assert.deepEqual(
-  Object.keys(changeDomain.productionOrderChangeResultLabels).sort(),
+  Object.keys(productionChangeResultLabels).sort(),
   ['PRODUCTION_PATCH', 'VERSION_AND_PATCH', 'VERSION_RELATION'].sort(),
   '生产单变更最终结果只能有三种',
 )
