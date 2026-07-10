@@ -2653,6 +2653,7 @@ export function prepareRuntimeDirectDispatchMeta(
         slaKind: sewingDeliverySlaKind,
       })
     : null
+  const containsSewing = isRuntimeSewingTask(originalTask)
   const acceptanceSla =
     input.acceptanceSla
     ?? resolveDispatchAcceptanceSlaForTask(
@@ -2662,15 +2663,17 @@ export function prepareRuntimeDirectDispatchMeta(
       operatedAt,
     )
   const acceptDeadline = input.acceptDeadline || buildDispatchAcceptanceDeadline(operatedAt, acceptanceSla)
-  const autoAccept = Boolean(deliverySlaSnapshot || input.autoAccept || acceptanceSla.autoAccept)
-  const acceptedAt = autoAccept ? (deliverySlaSnapshot ? businessAssignedAt : operatedAt) : undefined
-  const acceptedBy = deliverySlaSnapshot
+  const autoAccept = Boolean(containsSewing || input.autoAccept || acceptanceSla.autoAccept)
+  const acceptedAt = autoAccept ? (containsSewing ? businessAssignedAt : operatedAt) : undefined
+  const acceptedBy = containsSewing
     ? SEWING_DELIVERY_SLA_AUTO_ACCEPT_BY
     : autoAccept
       ? DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY
       : undefined
   const auditDetail = deliverySlaSnapshot
     ? '含车缝任务直接派单后，系统按业务分配时间自动接单并生成交付时效快照。'
+    : containsSewing
+      ? '含车缝任务直接派单后，系统按业务分配时间自动接单。'
     : autoAccept
       ? `${describeDispatchAcceptanceSlaResolution(acceptanceSla)}，派单后系统自动接单。`
       : `${describeDispatchAcceptanceSlaResolution(acceptanceSla)}，已发起直接派单，待工厂确认。`

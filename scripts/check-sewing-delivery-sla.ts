@@ -20,6 +20,7 @@ import {
   batchDispatchRuntimeTasks,
   captureRuntimeDirectDispatchState,
   getRuntimeTaskById,
+  listRuntimeProcessTasks,
   listRuntimeTaskAllocatableGroups,
   listRuntimeTaskSplitGroupsByOrder,
   prepareRuntimeDirectDispatchMeta,
@@ -32,6 +33,13 @@ import {
 } from '../src/pages/dispatch-board/dispatch-domain.ts'
 import { state } from '../src/pages/dispatch-board/context.ts'
 import { handleDispatchBoardEvent } from '../src/pages/dispatch-board/events.ts'
+import {
+  handleContinuousDispatchEvent,
+  isContinuousDispatchDialogOpen,
+  renderContinuousDispatchPage,
+} from '../src/pages/continuous-dispatch.ts'
+import { listBusinessFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
+import { productionOrders } from '../src/data/fcs/production-orders.ts'
 
 const coveredProcess = (processCode: string, processName: string) => ({
   processCode,
@@ -1415,7 +1423,137 @@ assert.match(
   restoreSewingDeliverySlaSnapshotStore(legacySnapshotState)
 }
 
+const continuousActionTarget = (
+  action: string,
+  taskId?: string,
+  extra: Record<string, string> = {},
+) => ({
+  closest(selector: string) {
+    if (selector === '[data-continuous-dispatch-action]') {
+      return { dataset: { continuousDispatchAction: action, taskId, ...extra } }
+    }
+    return null
+  },
+}) as unknown as HTMLElement
+const continuousFieldTarget = (field: string, value: string) => ({
+  closest(selector: string) {
+    if (selector === '[data-continuous-dispatch-field]') {
+      return { dataset: { continuousDispatchField: field }, value }
+    }
+    return null
+  },
+}) as unknown as HTMLElement
+
+const continuousTask = getRuntimeTaskById('TASKGEN-202603-082-002__ORDER')
+assert.ok(continuousTask, '连续工序分配真实 handler 测试任务必须存在')
+assert.equal(continuousTask.taskUnitType, 'COMBINED_PROCESS_TASK')
+const continuousFactory = listBusinessFactoryMasterRecords({ includeTestFactories: false }).find((factory) =>
+  factory.processAbilities.some((ability) => ability.processCode === 'SEW'),
+)
+assert.ok(continuousFactory, '连续工序分配真实 handler 测试必须有可用车缝工厂')
+
+const continuousDirectRuntimeState = captureRuntimeDirectDispatchState()
+const continuousDirectSnapshotState = captureSewingDeliverySlaSnapshotStore()
+try {
+  handleContinuousDispatchEvent(continuousActionTarget('open-direct', continuousTask.taskId))
+  assert.equal(isContinuousDispatchDialogOpen(), true, '直接派单必须真实打开轻量弹窗')
+  let html = renderContinuousDispatchPage()
+  assert.match(html, /业务分配时间/, '直接派单弹窗必须展示业务分配时间')
+  assert.match(html, /分配数量/, '直接派单弹窗必须展示整任务数量')
+  assert.match(html, /30% 节点[\s\S]*70% 节点[\s\S]*100% 节点/, '直接派单弹窗必须展示三个节点预览')
+  assert.match(html, /当前主工厂/, '含车缝连续任务必须展示当前主工厂')
+  handleContinuousDispatchEvent(continuousActionTarget('switch-dialog-mode', undefined, { mode: 'BIDDING' }))
+  assert.match(renderContinuousDispatchPage(), /工厂确认接单后启动时效/, '分配方式切换必须在同一弹窗内局部更新')
+  handleContinuousDispatchEvent(continuousActionTarget('switch-dialog-mode', undefined, { mode: 'DIRECT' }))
+  assert.match(renderContinuousDispatchPage(), /当前主工厂/, '分配方式应可从竞价切回直接派单')
+
+  handleContinuousDispatchEvent(continuousFieldTarget('factoryId', continuousFactory.id))
+  handleContinuousDispatchEvent(continuousFieldTarget('businessAssignedAt', '2026-07-09T09:00'))
+  handleContinuousDispatchEvent(continuousFieldTarget('mainFactoryChoice', 'SELECTED'))
+  html = renderContinuousDispatchPage()
+  assert.match(html, /2026-07-09T09:00/, '字段 change handler 必须保留用户回填值')
+  handleContinuousDispatchEvent(continuousActionTarget('confirm-dialog', continuousTask.taskId))
+
+  const assignedContinuousTask = getRuntimeTaskById(continuousTask.taskId)
+  assert.equal(assignedContinuousTask?.assignmentMode, 'DIRECT', '直接派单必须写入统一运行时任务仓')
+  assert.equal(assignedContinuousTask?.assignedFactoryId, continuousFactory.id)
+  assert.equal(assignedContinuousTask?.scopeQty, continuousTask.scopeQty, '连续工序任务必须以 scopeQty 一次分配')
+  assert.equal(assignedContinuousTask?.acceptanceStatus, 'ACCEPTED', '含车缝连续任务直接派单必须自动接单')
+  assert.equal(assignedContinuousTask?.acceptedAt, '2026-07-09 09:00:00', '含车缝连续任务应以业务分配时间作为自动接单时间')
+  assert.equal(
+    listRuntimeProcessTasks().filter((task) => task.baseTaskId === continuousTask.baseTaskId && task.isSplitResult).length,
+    0,
+    '连续工序任务直接派单不得产生明细拆分结果',
+  )
+  const assignedOrder = productionOrders.find((order) => order.productionOrderId === continuousTask.productionOrderId)
+  assert.equal(assignedOrder?.mainFactoryId, continuousFactory.id, '选择承接工厂为主工厂后必须保持唯一主工厂')
+} finally {
+  restoreRuntimeDirectDispatchState(continuousDirectRuntimeState)
+  restoreSewingDeliverySlaSnapshotStore(continuousDirectSnapshotState)
+}
+
+const continuousBiddingRuntimeState = captureRuntimeDirectDispatchState()
+const continuousBiddingSnapshotState = captureSewingDeliverySlaSnapshotStore()
+try {
+  const orderBefore = productionOrders.find((order) => order.productionOrderId === continuousTask.productionOrderId)
+  const mainFactoryBefore = orderBefore?.mainFactoryId
+  handleContinuousDispatchEvent(continuousActionTarget('open-bidding', continuousTask.taskId))
+  assert.match(renderContinuousDispatchPage(), /工厂确认接单后启动时效/, '竞价弹窗必须说明 SLA 启动点')
+  handleContinuousDispatchEvent(continuousFieldTarget('businessAssignedAt', '2026-07-09T10:00'))
+  handleContinuousDispatchEvent(continuousFieldTarget('biddingDeadline', '2026-07-11T10:00'))
+  handleContinuousDispatchEvent(continuousActionTarget('confirm-dialog', continuousTask.taskId))
+  const biddingContinuousTask = getRuntimeTaskById(continuousTask.taskId)
+  assert.equal(biddingContinuousTask?.assignmentMode, 'BIDDING', '发起竞价必须写入统一运行时任务仓')
+  assert.equal(biddingContinuousTask?.assignmentStatus, 'BIDDING')
+  assert.equal(biddingContinuousTask?.assignedFactoryId, undefined, '发起竞价时不得写入承接工厂')
+  assert.equal(getSewingDeliverySlaSnapshot(continuousTask.taskId), null, '发起竞价时不得生成 SLA 快照')
+  assert.equal(
+    productionOrders.find((order) => order.productionOrderId === continuousTask.productionOrderId)?.mainFactoryId,
+    mainFactoryBefore,
+    '发起竞价时不得改写主工厂',
+  )
+} finally {
+  restoreRuntimeDirectDispatchState(continuousBiddingRuntimeState)
+  restoreSewingDeliverySlaSnapshotStore(continuousBiddingSnapshotState)
+}
+
+const continuousFutureRuntimeState = captureRuntimeDirectDispatchState()
+const continuousFutureSnapshotState = captureSewingDeliverySlaSnapshotStore()
+try {
+  const before = getRuntimeTaskById(continuousTask.taskId)
+  handleContinuousDispatchEvent(continuousActionTarget('open-direct', continuousTask.taskId))
+  handleContinuousDispatchEvent(continuousFieldTarget('businessAssignedAt', '2026-07-09T11:00'))
+  handleContinuousDispatchEvent(continuousActionTarget('confirm-dialog', continuousTask.taskId))
+  assert.match(renderContinuousDispatchPage(), /请选择承接工厂/, '未选工厂必须在弹窗内阻断')
+  assert.equal(getRuntimeTaskById(continuousTask.taskId)?.assignmentStatus, before?.assignmentStatus, '未选工厂不得部分更新任务')
+
+  handleContinuousDispatchEvent(continuousActionTarget('open-bidding', continuousTask.taskId))
+  handleContinuousDispatchEvent(continuousFieldTarget('businessAssignedAt', '2026-07-09T11:00'))
+  handleContinuousDispatchEvent(continuousActionTarget('confirm-dialog', continuousTask.taskId))
+  assert.match(renderContinuousDispatchPage(), /请填写竞价截止时间/, '未填竞价截止时间必须在弹窗内阻断')
+  assert.equal(getRuntimeTaskById(continuousTask.taskId)?.assignmentStatus, before?.assignmentStatus, '未填竞价截止时间不得部分更新任务')
+
+  handleContinuousDispatchEvent(continuousActionTarget('open-direct', continuousTask.taskId))
+  handleContinuousDispatchEvent(continuousFieldTarget('factoryId', continuousFactory.id))
+  handleContinuousDispatchEvent(continuousFieldTarget('businessAssignedAt', '2099-01-01T00:00'))
+  handleContinuousDispatchEvent(continuousActionTarget('confirm-dialog', continuousTask.taskId))
+  assert.match(renderContinuousDispatchPage(), /业务分配时间不能晚于当前操作时间/, '未来业务时间必须在弹窗内阻断')
+  const after = getRuntimeTaskById(continuousTask.taskId)
+  assert.equal(after?.assignmentStatus, before?.assignmentStatus, '未来业务时间失败不得部分更新任务')
+  assert.equal(after?.assignedFactoryId, before?.assignedFactoryId, '未来业务时间失败不得部分写入工厂')
+} finally {
+  restoreRuntimeDirectDispatchState(continuousFutureRuntimeState)
+  restoreSewingDeliverySlaSnapshotStore(continuousFutureSnapshotState)
+}
+
 const dispatchDomainSource = readFileSync(new URL('../src/pages/dispatch-board/dispatch-domain.ts', import.meta.url), 'utf8')
+const continuousDispatchSource = readFileSync(new URL('../src/pages/continuous-dispatch.ts', import.meta.url), 'utf8')
+assert.match(continuousDispatchSource, /data-skip-page-rerender="true"[^>]*data-continuous-dispatch-action="open-direct"/, '打开直接派单弹窗不得触发整页重绘')
+assert.match(continuousDispatchSource, /data-skip-page-rerender="true"[^>]*data-continuous-dispatch-action="open-bidding"/, '打开竞价弹窗不得触发整页重绘')
+assert.match(continuousDispatchSource, /data-skip-page-rerender="true"[^>]*data-continuous-dispatch-action="switch-dialog-mode"/, '分配方式切换不得触发整页重绘')
+assert.match(continuousDispatchSource, /data-skip-page-rerender="true"[^>]*data-continuous-dispatch-field="businessAssignedAt"/, '业务分配时间 change 不得触发整页重绘')
+assert.match(continuousDispatchSource, /host\.innerHTML = renderDispatchDialog\(\)/, '弹窗交互必须只更新弹窗 host')
+assert.doesNotMatch(continuousDispatchSource, /root\.innerHTML/, '连续工序分配弹窗不得直接整页重绘')
 assert.match(dispatchDomainSource, /data-dispatch-field="dispatch\.businessAssignedAt"/, '页面源码应接入业务分配时间字段')
 assert.match(dispatchDomainSource, /data-skip-page-rerender="true"/, '业务分配时间输入时不得触发整页重绘')
 const dispatchEventSource = readFileSync(new URL('../src/pages/dispatch-board/events.ts', import.meta.url), 'utf8')
