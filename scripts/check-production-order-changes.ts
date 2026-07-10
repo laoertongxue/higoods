@@ -742,6 +742,14 @@ const domainExports = changeDomain as Record<string, unknown>
 
 const renderProductionChangesPage = requireFunction<() => string>(pageExports, 'renderProductionChangesPage')
 const renderProductionChangeNewPage = requireFunction<() => string>(pageExports, 'renderProductionChangeNewPage')
+const renderProductionChangeFormSteps = requireFunction<(step: typeof state.productionChangeFormStep) => string>(
+  pageExports,
+  'renderProductionChangeFormSteps',
+)
+const renderProductionChangeFormBody = requireFunction<(
+  step: typeof state.productionChangeFormStep,
+  form: typeof state.productionChangeForm,
+) => string>(pageExports, 'renderProductionChangeFormBody')
 const renderProductionChangeOrderDetailPage = requireFunction<(id: string) => string>(
   pageExports,
   'renderProductionChangeOrderDetailPage',
@@ -818,7 +826,6 @@ const removedCopy = [
   '主管确认需要处理的事',
   '相关负责人',
   '通知相关负责人处理',
-  '系统建议',
   '相关单据留痕',
   '预览并提交',
   '适用颜色',
@@ -829,12 +836,36 @@ const removedCopy = [
 ;['选择生产单', '填写变更内容', '确认处理方案', '同步执行'].forEach((text) => {
   assert.ok(newHtml.includes(text), `新增页缺少统一四步文案「${text}」`)
 })
+const stepsHtml = renderProductionChangeFormSteps('order')
+const stepTitles = ['选择生产单', '填写变更内容', '确认处理方案', '同步执行']
+let previousStepTitleIndex = -1
+stepTitles.forEach((title) => {
+  const titleIndex = stepsHtml.indexOf(title)
+  assert.ok(titleIndex > previousStepTitleIndex, `统一四步必须按顺序展示「${title}」`)
+  previousStepTitleIndex = titleIndex
+})
 assert.ok(newHtml.includes('跟单'), '新增页角色必须包含跟单')
 assert.ok(!newHtml.includes('系统反推，不要求业务人员先选版本关系或补丁'), '新增页不应展示旧系统反推说明')
 assert.ok(!newHtml.includes('系统反推结果'), '新增页不应展示旧系统反推结果')
 assert.ok(!newHtml.includes('执行策略'), '新增页不应展示旧执行策略')
 assert.ok(!newHtml.includes('是否生产补丁'), '新增页不应要求选择是否生产补丁')
 assert.ok(!newHtml.includes('是否版本关系变更'), '新增页不应要求选择是否版本关系变更')
+
+state.productionChangeFormStep = 'order'
+state.productionChangeForm.productionOrderId = ''
+const emptyOrderStepHtml = renderProductionChangeFormBody('order', state.productionChangeForm)
+assert.ok(
+  emptyOrderStepHtml.includes('data-prod-field="productionChangeProductionOrderId"'),
+  '第一步必须提供生产单选择器',
+)
+assert.ok(emptyOrderStepHtml.includes('选择生产单后'), '未选择生产单时必须显示清晰空态')
+
+state.productionChangeForm.productionOrderId = documentFactOrder.productionOrderId
+const selectedOrderStepHtml = renderProductionChangeFormBody('order', state.productionChangeForm)
+;['当前事实只读', '当前需求明细', '物料事实', '关联单据', '历史留痕', '计划数量', '已完成', '待处理'].forEach((text) => {
+  assert.ok(selectedOrderStepHtml.includes(text), `选择有效生产单后第一步缺少「${text}」`)
+})
+assert.ok(!selectedOrderStepHtml.includes('type="number"'), '第一步不得提供任何进度或事实数量输入')
 
 state.productionChangeForm.productionOrderId = relation.productionOrderId
 ;(state.productionChangeForm as any).changeType = 'QUANTITY_CHANGE'
@@ -844,6 +875,19 @@ const quantityFormHtml = renderProductionChangeNewPage()
   assert.ok(quantityFormHtml.includes(text), `数量变更表单缺少「${text}」`)
 })
 assert.ok(quantityFormHtml.includes('新增明细'), '数量变更表单必须支持新增明细')
+assert.ok(quantityFormHtml.includes('按每条需求明细修改'), '数量变更必须明确按每条需求明细修改')
+assert.ok(
+  quantityFormHtml.includes('data-prod-action="add-production-change-quantity-line"'),
+  '新增明细按钮缺少事件契约',
+)
+assert.ok(
+  /data-prod-field="productionChangeQuantityTargetQty"[^>]*data-line-id="[^"]+"[^>]*type="number"[^>]*min="0"[^>]*step="1"/.test(quantityFormHtml),
+  '变更后数量输入必须带明细 ID，并限制为非负整数',
+)
+;['productionChangeQuantitySkuCode', 'productionChangeQuantityColor', 'productionChangeQuantitySize'].forEach((field) => {
+  assert.ok(quantityFormHtml.includes(`data-prod-field="${field}"`), `新增明细缺少字段契约 ${field}`)
+})
+assert.ok(quantityFormHtml.includes('data-prod-field="productionChangeReason"'), '数量变更缺少变更原因字段契约')
 assertIncludesAny(quantityFormHtml, ['已取消', '改为 0'], '数量变更表单必须表达取消明细或数量改为 0')
 assert.ok(!quantityFormHtml.includes('变更后总数'), '数量变更表单不得出现变更后总数')
 
@@ -861,9 +905,39 @@ const materialFormHtml = renderProductionChangeNewPage()
 ].forEach((text) => {
   assert.ok(materialFormHtml.includes(text), `替换物料表单缺少「${text}」`)
 })
+;[
+  ['set-production-change-replacement-mode', 'REMAINING'],
+  ['set-production-change-replacement-mode', 'FULL'],
+  ['set-production-change-scope', 'CURRENT_ONLY'],
+  ['set-production-change-scope', 'CURRENT_AND_FOLLOWING'],
+].forEach(([action, value]) => {
+  assert.ok(
+    materialFormHtml.includes(`data-prod-action="${action}"`) && materialFormHtml.includes(`="${value}"`),
+    `替换物料表单缺少 ${value} 分段按钮契约`,
+  )
+})
+assert.ok(
+  /data-prod-field="productionChangeConfirmedProductionQty"[^>]*type="number"[^>]*min="0"[^>]*max="\d+"[^>]*step="1"/.test(materialFormHtml),
+  '确认替换生产数量必须限制在总需求内且只允许整数件',
+)
+assert.ok(
+  materialFormHtml.includes('data-prod-action="toggle-production-change-allocation"'),
+  '替换物料表单缺少调整颜色尺码分配入口',
+)
+assert.ok(materialFormHtml.includes('不是修改需求明细'), '替换物料表单必须说明数量输入的业务对象')
+assert.ok(materialFormHtml.includes('不是填写面料米数'), '替换物料表单必须排除面料米数口径')
+state.productionChangeForm.advancedAllocationOpen = true
+const expandedMaterialFormHtml = renderProductionChangeNewPage()
+assert.ok(
+  /data-prod-field="productionChangeAllocationQty"[^>]*data-allocation-id="[^"]+"[^>]*type="number"[^>]*min="0"[^>]*max="\d+"[^>]*step="1"/.test(expandedMaterialFormHtml),
+  '展开颜色尺码分配后，每行输入必须带分配 ID 并限制为需求内整数件',
+)
+state.productionChangeForm.advancedAllocationOpen = false
 ;['适用批次', '适用颜色', '适用尺码'].forEach((text) => {
   assert.ok(!materialFormHtml.includes(text), `替换物料表单不得出现「${text}」`)
 })
+assert.ok(!quantityFormHtml.includes('productionChangeReplacementMaterialId'), '数量表单不得混入新面料字段')
+assert.ok(!materialFormHtml.includes('productionChangeQuantityTargetQty'), '物料表单不得混入需求明细数量字段')
 
 state.productionChangeFormStep = 'handling'
 const handlingHtml = renderProductionChangeNewPage()

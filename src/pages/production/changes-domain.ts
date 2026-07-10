@@ -1,7 +1,7 @@
 import {
+  createProductionChangeForm,
   escapeHtml,
   state,
-  PRODUCTION_CHANGE_EMPTY_FORM,
   renderBadge,
   renderEmptyRow,
   safeText,
@@ -65,6 +65,12 @@ import {
   type TechPackChangeModule,
   type TechPackRelationStatus,
 } from '../../data/fcs/production-tech-pack-change-domain'
+import {
+  renderProductionChangeFormBody,
+  renderProductionChangeFormSteps,
+} from './production-change-form.ts'
+
+export { renderProductionChangeFormBody, renderProductionChangeFormSteps }
 
 const progressFilterOptions = ['未开始', '已配料', '已领料', '印花中', '染色中', '裁片中', '车缝中', '工艺中']
 
@@ -2252,6 +2258,7 @@ function renderProductionChangeOrderDetailContent(order: ProductionOrderChangeOr
   )
 }
 
+/* 旧新增页表单渲染已停用，任务 5 完成事件迁移后删除。
 function renderProductionChangeFormSteps(): string {
   return `
     <section class="rounded-lg border bg-card p-4">
@@ -2711,13 +2718,15 @@ function renderProductionChangeFormBody(): string {
     </section>
   `
 }
+*/
 
 export function renderProductionChangeNewPage(): string {
   if (state.productionChangeSelectedOrderId) {
     const selectedOrderId = state.productionChangeSelectedOrderId
     state.productionChangeSelectedOrderId = ''
     if (selectedOrderId !== state.productionChangeForm.productionOrderId) {
-      state.productionChangeForm = { ...PRODUCTION_CHANGE_EMPTY_FORM }
+      state.productionChangeForm = createProductionChangeForm()
+      state.productionChangeForm.productionOrderId = selectedOrderId
       state.productionChangeFormStep = 'order'
       state.productionChangeFormError = ''
     }
@@ -2730,35 +2739,15 @@ export function renderProductionChangeNewPage(): string {
             <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="/fcs/production/changes">返回列表</button>
             <h1 class="text-xl font-semibold">新增生产单变更</h1>
           </div>
-          <p class="mt-1 text-sm text-muted-foreground">填写变更内容后，系统给出建议，主管确认需要处理的事，再由相关负责人处理并保留相关单据留痕。</p>
+          <p class="mt-1 text-sm text-muted-foreground">跟单选择生产单并填写核心变更内容，系统读取事实、计算处理方案并同步执行。</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="save-production-change-draft">保存草稿</button>
-          ${state.productionChangeFormStep === 'preview'
-            ? '<button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="submit-production-change-order">提交审核</button>'
-            : '<button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="go-production-change-next-step">下一步</button>'}
+          <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="go-production-change-next-step">下一步</button>
         </div>
       </header>
-      <section class="grid gap-3 rounded-lg border bg-background p-4 text-sm md:grid-cols-4">
-        <div>
-          <p class="font-semibold">待主管确认</p>
-          <p class="mt-1 text-muted-foreground">确认变更内容和需要处理的事。</p>
-        </div>
-        <div>
-          <p class="font-semibold">需要处理的事</p>
-          <p class="mt-1 text-muted-foreground">系统给出建议后由主管确认。</p>
-        </div>
-        <div>
-          <p class="font-semibold">相关负责人</p>
-          <p class="mt-1 text-muted-foreground">相关负责人处理。</p>
-        </div>
-        <div>
-          <p class="font-semibold">处理记录</p>
-          <p class="mt-1 text-muted-foreground">相关单据记录同步留痕。</p>
-        </div>
-      </section>
-      ${renderProductionChangeFormSteps()}
-      ${renderProductionChangeFormBody()}
+      ${renderProductionChangeFormSteps(state.productionChangeFormStep)}
+      ${renderProductionChangeFormBody(state.productionChangeFormStep, state.productionChangeForm)}
     </div>
   `
 }
@@ -2776,28 +2765,10 @@ export function renderProductionChangeEditPage(changeOrderId: string): string {
 
   if (state.productionChangeSelectedOrderId !== changeOrderId) {
     state.productionChangeSelectedOrderId = changeOrderId
-    state.productionChangeForm = {
-      changeType: order.changeType,
-      productionOrderId: order.productionOrderId,
-      source: order.source,
-      modules: [...order.changeModules],
-      changeContent: order.reason,
-      reason: order.reason,
-      effectiveMode: order.expectedEffectiveMode,
-      executionMode: order.executionStrategy,
-      quantityLines: order.quantityLines?.map((line) => ({ ...line })) ?? [...PRODUCTION_CHANGE_EMPTY_FORM.quantityLines],
-      materialReplacement: order.materialReplacement
-        ? {
-          ...order.materialReplacement,
-          colors: [...order.materialReplacement.colors],
-          sizes: [...order.materialReplacement.sizes],
-        }
-        : {
-          ...PRODUCTION_CHANGE_EMPTY_FORM.materialReplacement,
-          colors: [...PRODUCTION_CHANGE_EMPTY_FORM.materialReplacement.colors],
-          sizes: [...PRODUCTION_CHANGE_EMPTY_FORM.materialReplacement.sizes],
-        },
-    }
+    state.productionChangeForm = createProductionChangeForm()
+    state.productionChangeForm.changeType = order.changeType
+    state.productionChangeForm.productionOrderId = order.productionOrderId
+    state.productionChangeForm.reason = order.reason
     state.productionChangeFormError = ''
   }
 
@@ -2816,8 +2787,8 @@ export function renderProductionChangeEditPage(changeOrderId: string): string {
           <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="submit-production-change-order">提交审核</button>
         </div>
       </header>
-      ${renderProductionChangeFormSteps()}
-      ${renderProductionChangeFormBody()}
+      ${renderProductionChangeFormSteps(state.productionChangeFormStep)}
+      ${renderProductionChangeFormBody(state.productionChangeFormStep, state.productionChangeForm)}
     </div>
   `
 }
