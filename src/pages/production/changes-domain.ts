@@ -2784,7 +2784,7 @@ export function renderProductionChangeEditPage(changeOrderId: string): string {
         </div>
         <div class="flex flex-wrap gap-2">
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="save-production-change-draft">保存草稿</button>
-          <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="submit-production-change-order">提交审核</button>
+          <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="submit-production-change-order">保存变更内容</button>
         </div>
       </header>
       ${renderProductionChangeFormSteps(state.productionChangeFormStep)}

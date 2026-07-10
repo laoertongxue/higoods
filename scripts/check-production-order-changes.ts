@@ -742,6 +742,10 @@ const domainExports = changeDomain as Record<string, unknown>
 
 const renderProductionChangesPage = requireFunction<() => string>(pageExports, 'renderProductionChangesPage')
 const renderProductionChangeNewPage = requireFunction<() => string>(pageExports, 'renderProductionChangeNewPage')
+const renderProductionChangeEditPage = requireFunction<(changeOrderId: string) => string>(
+  pageExports,
+  'renderProductionChangeEditPage',
+)
 const renderProductionChangeFormSteps = requireFunction<(step: typeof state.productionChangeFormStep) => string>(
   pageExports,
   'renderProductionChangeFormSteps',
@@ -859,6 +863,24 @@ assert.ok(
   '第一步必须提供生产单选择器',
 )
 assert.ok(emptyOrderStepHtml.includes('选择生产单后'), '未选择生产单时必须显示清晰空态')
+const productionOrderSelectHtml = emptyOrderStepHtml.match(
+  /<select data-prod-field="productionChangeProductionOrderId"[^>]*>([\s\S]*?)<\/select>/,
+)?.[1] ?? ''
+const selectableProductionOrderIds = Array.from(
+  productionOrderSelectHtml.matchAll(/<option value="([^"]+)"/g),
+  (match) => match[1],
+).filter(Boolean)
+assert.ok(selectableProductionOrderIds.length > 0, '第一步至少需要一个具有当前事实的生产单候选')
+selectableProductionOrderIds.forEach((productionOrderId) => {
+  assert.ok(
+    changeDomain.getProductionOrderChangeCurrentFacts(productionOrderId),
+    `生产单选择器候选 ${productionOrderId} 必须存在当前事实`,
+  )
+})
+
+state.productionChangeForm.productionOrderId = 'PO-WITHOUT-CURRENT-FACTS'
+const missingFactsOrderStepHtml = renderProductionChangeFormBody('order', state.productionChangeForm)
+assert.ok(missingFactsOrderStepHtml.includes('找不到当前事实'), '生产单找不到事实时必须显示区别于未选择的空态')
 
 state.productionChangeForm.productionOrderId = documentFactOrder.productionOrderId
 const selectedOrderStepHtml = renderProductionChangeFormBody('order', state.productionChangeForm)
@@ -893,6 +915,11 @@ assert.ok(!quantityFormHtml.includes('变更后总数'), '数量变更表单不�
 
 ;(state.productionChangeForm as any).changeType = 'MATERIAL_REPLACEMENT'
 state.productionChangeFormStep = 'content'
+const originalMaterialOption = replacementMaterialOptions[0]
+const alternativeMaterialOption = replacementMaterialOptions[1]
+assert.ok(originalMaterialOption && alternativeMaterialOption, '物料替换边界检查至少需要两个面料候选')
+state.productionChangeForm.materialReplacement.originalMaterialId = originalMaterialOption.value
+state.productionChangeForm.materialReplacement.replacementMaterialId = alternativeMaterialOption.value
 const materialFormHtml = renderProductionChangeNewPage()
 ;[
   '原面料',
@@ -926,6 +953,21 @@ assert.ok(
 )
 assert.ok(materialFormHtml.includes('不是修改需求明细'), '替换物料表单必须说明数量输入的业务对象')
 assert.ok(materialFormHtml.includes('不是填写面料米数'), '替换物料表单必须排除面料米数口径')
+const replacementMaterialSelectHtml = materialFormHtml.match(
+  /<select data-prod-field="productionChangeReplacementMaterialId"[^>]*>([\s\S]*?)<\/select>/,
+)?.[1] ?? ''
+const replacementMaterialIds = Array.from(
+  replacementMaterialSelectHtml.matchAll(/<option value="([^"]+)"/g),
+  (match) => match[1],
+).filter(Boolean)
+assert.ok(
+  !replacementMaterialIds.includes(originalMaterialOption.value),
+  '新面料候选不得包含当前原面料',
+)
+state.productionChangeForm.materialReplacement.replacementMaterialId = originalMaterialOption.value
+const sameMaterialFormHtml = renderProductionChangeNewPage()
+assert.ok(sameMaterialFormHtml.includes('新面料不能与原面料相同'), '原面料与新面料同值时必须显示明确中文错误')
+state.productionChangeForm.materialReplacement.replacementMaterialId = alternativeMaterialOption.value
 state.productionChangeForm.advancedAllocationOpen = true
 const expandedMaterialFormHtml = renderProductionChangeNewPage()
 assert.ok(
@@ -938,6 +980,14 @@ state.productionChangeForm.advancedAllocationOpen = false
 })
 assert.ok(!quantityFormHtml.includes('productionChangeReplacementMaterialId'), '数量表单不得混入新面料字段')
 assert.ok(!materialFormHtml.includes('productionChangeQuantityTargetQty'), '物料表单不得混入需求明细数量字段')
+
+const editableChangeOrder = listProductionOrderChangeOrders()[0]
+assert.ok(editableChangeOrder, '编辑页检查至少需要一张生产单变更单')
+const editHtml = renderProductionChangeEditPage(editableChangeOrder.id)
+;['提交审核', '主管确认', '相关负责人'].forEach((text) => {
+  assert.ok(!editHtml.includes(text), `生产单变更编辑页不得出现旧口径「${text}」`)
+})
+assertIncludesAny(editHtml, ['保存变更内容', '保存草稿'], '生产单变更编辑页必须使用单角色保存动作')
 
 state.productionChangeFormStep = 'handling'
 const handlingHtml = renderProductionChangeNewPage()

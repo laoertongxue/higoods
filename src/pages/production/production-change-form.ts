@@ -137,7 +137,9 @@ export function renderProductionChangeFormSteps(step: ProductionChangeFormStep):
 }
 
 export function renderProductionChangeOrderStep(form: ProductionChangeForm): string {
-  const relations = listProductionOrderTechPackRelations()
+  const relations = listProductionOrderTechPackRelations().filter((relation) =>
+    getProductionOrderChangeCurrentFacts(relation.productionOrderId) !== null,
+  )
   const facts = form.productionOrderId
     ? getProductionOrderChangeCurrentFacts(form.productionOrderId)
     : null
@@ -157,7 +159,16 @@ export function renderProductionChangeOrderStep(form: ProductionChangeForm): str
       </label>
       ${facts
         ? renderCurrentFactsSummary(facts)
-        : `
+        : form.productionOrderId
+          ? `
+          <section class="flex min-h-[180px] items-center justify-center rounded-md border border-dashed border-amber-300 bg-amber-50 px-6 text-center">
+            <div>
+              <h2 class="text-base font-semibold text-amber-900">找不到当前事实</h2>
+              <p class="mt-2 text-sm text-amber-800">该生产单不在当前可变更范围内，请重新选择列表中的生产单。</p>
+            </div>
+          </section>
+        `
+          : `
           <section class="flex min-h-[180px] items-center justify-center rounded-md border border-dashed bg-muted/20 px-6 text-center">
             <div>
               <h2 class="text-base font-semibold">尚未选择生产单</h2>
@@ -274,6 +285,13 @@ function renderSegmentButton(
 export function renderMaterialReplacementForm(form: ProductionChangeForm): string {
   const replacement = form.materialReplacement
   const materialOptions = listReplacementMaterialOptions()
+  const replacementMaterialOptions = materialOptions.filter((option) =>
+    option.value !== replacement.originalMaterialId,
+  )
+  const hasSameMaterialError = Boolean(
+    replacement.originalMaterialId &&
+    replacement.originalMaterialId === replacement.replacementMaterialId,
+  )
   const fallbackAllocations = buildMaterialReplacementAllocations(form.productionOrderId, replacement.confirmedProductionQty)
   const allocations = replacement.allocations.length > 0 ? replacement.allocations : fallbackAllocations
   const totalDemandQty = allocations.reduce((sum, line) => sum + line.demandQty, 0)
@@ -303,10 +321,13 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm): strin
           <span class="font-medium">新面料</span>
           <select data-prod-field="productionChangeReplacementMaterialId" class="w-full rounded-md border px-3 py-2">
             <option value="">请选择新面料</option>
-            ${renderOptions(materialOptions, replacement.replacementMaterialId)}
+            ${renderOptions(replacementMaterialOptions, replacement.replacementMaterialId)}
           </select>
         </label>
       </div>
+      ${hasSameMaterialError
+        ? '<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">新面料不能与原面料相同</div>'
+        : ''}
       <div class="grid gap-4 md:grid-cols-2">
         <fieldset class="space-y-2">
           <legend class="text-sm font-medium">替换方式</legend>
