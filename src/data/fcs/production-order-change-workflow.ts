@@ -287,6 +287,72 @@ export function buildMaterialReplacementAllocations(
   return allocations
 }
 
+export interface NormalizedMaterialReplacementAllocations {
+  allocations: MaterialReplacementAllocation[]
+  confirmedProductionQty: number
+  totalDemandQty: number
+  wasNormalized: boolean
+}
+
+export function normalizeMaterialReplacementAllocations(
+  productionOrderId: string,
+  existingAllocations: MaterialReplacementAllocation[],
+  confirmedProductionQty: number,
+): NormalizedMaterialReplacementAllocations {
+  const canonicalAllocations = buildMaterialReplacementAllocations(productionOrderId, confirmedProductionQty)
+  const totalDemandQty = canonicalAllocations.reduce((sum, line) => sum + line.demandQty, 0)
+  const normalizedConfirmedQty = canonicalAllocations.reduce(
+    (sum, line) => sum + line.confirmedReplacementQty,
+    0,
+  )
+  if (existingAllocations.length === 0) {
+    return {
+      allocations: canonicalAllocations,
+      confirmedProductionQty: normalizedConfirmedQty,
+      totalDemandQty,
+      wasNormalized: false,
+    }
+  }
+
+  const existingById = new Map(existingAllocations.map((line) => [line.id, line]))
+  const existingByCombination = new Map(
+    existingAllocations.map((line) => [`${line.skuCode}\u0000${line.color}\u0000${line.size}`, line]),
+  )
+  const matchedExistingIds = new Set<string>()
+  let valueWasNormalized = Number(confirmedProductionQty) !== normalizedConfirmedQty
+
+  const normalizedExisting = canonicalAllocations.map((canonicalLine) => {
+    const combinationKey = `${canonicalLine.skuCode}\u0000${canonicalLine.color}\u0000${canonicalLine.size}`
+    const existingLine = existingById.get(canonicalLine.id) ?? existingByCombination.get(combinationKey)
+    if (!existingLine) return { ...canonicalLine, confirmedReplacementQty: 0 }
+    matchedExistingIds.add(existingLine.id)
+
+    const rawQty = Number(existingLine.confirmedReplacementQty)
+    const integerQty = Number.isFinite(rawQty) ? Math.round(rawQty) : 0
+    const limitedQty = Math.min(Math.max(integerQty, 0), canonicalLine.demandQty)
+    if (rawQty !== limitedQty) valueWasNormalized = true
+    return { ...canonicalLine, confirmedReplacementQty: limitedQty }
+  })
+  const existingTotal = normalizedExisting.reduce((sum, line) => sum + line.confirmedReplacementQty, 0)
+  const hasUnknownAllocation = existingAllocations.some((line) => !matchedExistingIds.has(line.id))
+
+  if (!hasUnknownAllocation && existingTotal === normalizedConfirmedQty) {
+    return {
+      allocations: normalizedExisting,
+      confirmedProductionQty: normalizedConfirmedQty,
+      totalDemandQty,
+      wasNormalized: valueWasNormalized,
+    }
+  }
+
+  return {
+    allocations: canonicalAllocations,
+    confirmedProductionQty: normalizedConfirmedQty,
+    totalDemandQty,
+    wasNormalized: true,
+  }
+}
+
 export interface ProductionChangeDraft {
   productionOrderId: string
   changeType: ProductionChangeType

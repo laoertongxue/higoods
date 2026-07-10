@@ -10,6 +10,7 @@ import {
   inferProductionChangeResult,
   listAffectedDocumentNosForOrder,
   listReplacementMaterialOptions,
+  normalizeMaterialReplacementAllocations,
   productionChangeResultLabels,
   quantityChangeRequiresNewFormalVersion,
   resolveFollowingOrderStateFromProgressFallback,
@@ -699,6 +700,36 @@ allocationScenarios.forEach(({ input, expected, label }) => {
   })
 })
 
+const canonicalAllocations = buildMaterialReplacementAllocations(quantityFactoryOrderId, 120)
+const unbalancedAllocations = canonicalAllocations.map((line, index) => ({
+  ...line,
+  confirmedReplacementQty: index === 0 ? line.demandQty + 20.7 : 0.4,
+}))
+const normalizedUnbalanced = normalizeMaterialReplacementAllocations(
+  quantityFactoryOrderId,
+  unbalancedAllocations,
+  120.4,
+)
+assert.equal(normalizedUnbalanced.confirmedProductionQty, 120, '确认生产件数必须整数化')
+assert.equal(
+  normalizedUnbalanced.allocations.reduce((sum, line) => sum + line.confirmedReplacementQty, 0),
+  normalizedUnbalanced.confirmedProductionQty,
+  '不守恒分配归一后合计必须等于确认生产件数',
+)
+assert.ok(normalizedUnbalanced.wasNormalized, '超限、小数或合计不等的分配必须标记为已归一')
+normalizedUnbalanced.allocations.forEach((line) => {
+  assert.ok(Number.isInteger(line.confirmedReplacementQty), '归一后的单行分配必须为整数')
+  assert.ok(line.confirmedReplacementQty >= 0, '归一后的单行分配不得为负数')
+  assert.ok(line.confirmedReplacementQty <= line.demandQty, '归一后的单行分配不得超过需求数量')
+})
+const preservedAllocations = normalizeMaterialReplacementAllocations(
+  quantityFactoryOrderId,
+  canonicalAllocations,
+  120,
+)
+assert.deepEqual(preservedAllocations.allocations, canonicalAllocations, '合法且守恒的已有分配必须原样保留')
+assert.equal(preservedAllocations.wasNormalized, false, '合法且守恒的已有分配不应标记为已归一')
+
 const firstChangeForm = createProductionChangeForm()
 const secondChangeForm = createProductionChangeForm()
 assert.notEqual(firstChangeForm.quantityLines, secondChangeForm.quantityLines, '数量明细数组不得复用引用')
@@ -754,6 +785,12 @@ const renderProductionChangeFormBody = requireFunction<(
   step: typeof state.productionChangeFormStep,
   form: typeof state.productionChangeForm,
 ) => string>(pageExports, 'renderProductionChangeFormBody')
+const renderProductionChangeCurrentFactsSummary = requireFunction<(
+  facts: NonNullable<ReturnType<typeof changeDomain.getProductionOrderChangeCurrentFacts>>,
+) => string>(pageExports, 'renderProductionChangeCurrentFactsSummary')
+const listCurrentMaterialOptionsForOrder = requireFunction<(
+  productionOrderId: string,
+) => Array<{ value: string; label: string }>>(pageExports, 'listCurrentMaterialOptionsForOrder')
 const renderProductionChangeOrderDetailPage = requireFunction<(id: string) => string>(
   pageExports,
   'renderProductionChangeOrderDetailPage',
@@ -911,6 +948,9 @@ const legacyHistoryForm = createProductionChangeForm()
 legacyHistoryForm.productionOrderId = 'PO-202604-0018'
 const normalizedLegacyHistoryHtml = renderProductionChangeFormBody('order', legacyHistoryForm)
 assert.ok(normalizedLegacyHistoryHtml.includes('处理中'), '旧流程“审核中”状态必须在展示层归一为“处理中”')
+legacyHistoryFactsBeforeRender.historyFacts.forEach((history) => {
+  assert.ok(!normalizedLegacyHistoryHtml.includes(history.note), '历史自由备注不得在新表单中机械改写后展示')
+})
 ;['审核', '主管', '负责人'].forEach((text) => {
   assert.ok(!normalizedLegacyHistoryHtml.includes(text), `历史事实展示不得出现旧口径「${text}」`)
 })
@@ -930,6 +970,22 @@ const selectedOrderStepHtml = renderProductionChangeFormBody('order', state.prod
   assert.ok(selectedOrderStepHtml.includes(text), `选择有效生产单后第一步缺少「${text}」`)
 })
 assert.ok(!selectedOrderStepHtml.includes('type="number"'), '第一步不得提供任何进度或事实数量输入')
+assert.ok(currentFacts, '事实溢出检查需要有效当前事实')
+const overflowFacts = {
+  ...currentFacts,
+  documentFacts: Array.from({ length: 10 }, (_, index) => ({
+    ...currentFacts.documentFacts[0],
+    id: `OVERFLOW-FACT-${index + 1}`,
+    documentNo: `OVERFLOW-DOC-${index + 1}`,
+  })),
+}
+const overflowFactsHtml = renderProductionChangeCurrentFactsSummary(overflowFacts)
+assert.ok(overflowFactsHtml.includes('OVERFLOW-DOC-1'), '事实表必须展示首条事实')
+assert.ok(overflowFactsHtml.includes('OVERFLOW-DOC-10'), '事实表不得因首屏限制丢失末条事实')
+assert.ok(
+  overflowFactsHtml.includes('data-production-change-fact-overflow'),
+  '超过 8 条的事实必须使用带稳定锚点的展开区承载其余项',
+)
 
 state.productionChangeForm.productionOrderId = relation.productionOrderId
 ;(state.productionChangeForm as any).changeType = 'QUANTITY_CHANGE'
@@ -954,12 +1010,34 @@ assert.ok(
 assert.ok(quantityFormHtml.includes('data-prod-field="productionChangeReason"'), '数量变更缺少变更原因字段契约')
 assertIncludesAny(quantityFormHtml, ['已取消', '改为 0'], '数量变更表单必须表达取消明细或数量改为 0')
 assert.ok(!quantityFormHtml.includes('变更后总数'), '数量变更表单不得出现变更后总数')
+const cancelledQuantityForm = createProductionChangeForm()
+cancelledQuantityForm.productionOrderId = relation.productionOrderId
+cancelledQuantityForm.changeType = 'QUANTITY_CHANGE'
+cancelledQuantityForm.quantityLines = createQuantityLinesForOrder(relation.productionOrderId)
+assert.ok(cancelledQuantityForm.quantityLines[0], '取消行检查至少需要一条需求明细')
+cancelledQuantityForm.quantityLines[0].targetQty = 0
+const cancelledLineId = cancelledQuantityForm.quantityLines[0].id
+const cancelledQuantityHtml = renderProductionChangeFormBody('content', cancelledQuantityForm)
+assert.ok(
+  cancelledQuantityHtml.includes(`data-production-change-quantity-row data-line-id="${cancelledLineId}"`),
+  '数量行必须提供稳定行锚点和明细 ID',
+)
+assert.ok(
+  cancelledQuantityHtml.includes(`data-production-change-quantity-delta data-line-id="${cancelledLineId}"`),
+  '数量变化必须提供稳定锚点和明细 ID',
+)
+assert.ok(
+  new RegExp(`data-production-change-quantity-status data-line-id="${cancelledLineId}"[^>]*>已取消<`).test(cancelledQuantityHtml),
+  'targetQty=0 时必须在对应状态锚点内显示“已取消”',
+)
+assert.ok(cancelledQuantityHtml.includes('data-production-change-quantity-summary'), '数量汇总必须提供稳定锚点')
 
 ;(state.productionChangeForm as any).changeType = 'MATERIAL_REPLACEMENT'
 state.productionChangeFormStep = 'content'
-const originalMaterialOption = replacementMaterialOptions[0]
-const alternativeMaterialOption = replacementMaterialOptions[1]
-assert.ok(originalMaterialOption && alternativeMaterialOption, '物料替换边界检查至少需要两个面料候选')
+const currentMaterialOptions = listCurrentMaterialOptionsForOrder(relation.productionOrderId)
+const originalMaterialOption = currentMaterialOptions[0]
+const alternativeMaterialOption = replacementMaterialOptions[0]
+assert.ok(originalMaterialOption && alternativeMaterialOption, '物料替换边界检查需要当前面料和系统新面料候选')
 state.productionChangeForm.materialReplacement.originalMaterialId = originalMaterialOption.value
 state.productionChangeForm.materialReplacement.replacementMaterialId = alternativeMaterialOption.value
 const materialFormHtml = renderProductionChangeNewPage()
@@ -980,9 +1058,10 @@ const materialFormHtml = renderProductionChangeNewPage()
   ['set-production-change-scope', 'CURRENT_ONLY'],
   ['set-production-change-scope', 'CURRENT_AND_FOLLOWING'],
 ].forEach(([action, value]) => {
+  const valueAttribute = action === 'set-production-change-replacement-mode' ? 'data-mode' : 'data-scope'
   assert.ok(
-    materialFormHtml.includes(`data-prod-action="${action}"`) && materialFormHtml.includes(`="${value}"`),
-    `替换物料表单缺少 ${value} 分段按钮契约`,
+    new RegExp(`<button[^>]*data-prod-action="${action}"[^>]*${valueAttribute}="${value}"[^>]*>`).test(materialFormHtml),
+    `替换物料表单缺少 ${value} 完整分段按钮契约`,
   )
 })
 assert.ok(
@@ -995,6 +1074,18 @@ assert.ok(
 )
 assert.ok(materialFormHtml.includes('不是修改需求明细'), '替换物料表单必须说明数量输入的业务对象')
 assert.ok(materialFormHtml.includes('不是填写面料米数'), '替换物料表单必须排除面料米数口径')
+const originalMaterialSelectHtml = materialFormHtml.match(
+  /<select data-prod-field="productionChangeOriginalMaterialId"[^>]*>([\s\S]*?)<\/select>/,
+)?.[1] ?? ''
+const originalMaterialIds = Array.from(
+  originalMaterialSelectHtml.matchAll(/<option value="([^"]+)"/g),
+  (match) => match[1],
+).filter(Boolean)
+assert.deepEqual(
+  originalMaterialIds.sort(),
+  currentMaterialOptions.map((option) => option.value).sort(),
+  '原面料候选必须严格来自当前生产单面料事实',
+)
 const replacementMaterialSelectHtml = materialFormHtml.match(
   /<select data-prod-field="productionChangeReplacementMaterialId"[^>]*>([\s\S]*?)<\/select>/,
 )?.[1] ?? ''
@@ -1003,12 +1094,14 @@ const replacementMaterialIds = Array.from(
   (match) => match[1],
 ).filter(Boolean)
 assert.ok(
-  !replacementMaterialIds.includes(originalMaterialOption.value),
-  '新面料候选不得包含当前原面料',
+  replacementMaterialIds.every((value) => replacementMaterialOptionValues.includes(value)),
+  '新面料候选必须严格来自系统面料主档',
 )
-state.productionChangeForm.materialReplacement.replacementMaterialId = originalMaterialOption.value
+state.productionChangeForm.materialReplacement.originalMaterialId = alternativeMaterialOption.value
+state.productionChangeForm.materialReplacement.replacementMaterialId = alternativeMaterialOption.value
 const sameMaterialFormHtml = renderProductionChangeNewPage()
 assert.ok(sameMaterialFormHtml.includes('新面料不能与原面料相同'), '原面料与新面料同值时必须显示明确中文错误')
+state.productionChangeForm.materialReplacement.originalMaterialId = originalMaterialOption.value
 state.productionChangeForm.materialReplacement.replacementMaterialId = alternativeMaterialOption.value
 state.productionChangeForm.advancedAllocationOpen = true
 const expandedMaterialFormHtml = renderProductionChangeNewPage()
@@ -1016,6 +1109,19 @@ assert.ok(
   /data-prod-field="productionChangeAllocationQty"[^>]*data-allocation-id="[^"]+"[^>]*type="number"[^>]*min="0"[^>]*max="\d+"[^>]*step="1"/.test(expandedMaterialFormHtml),
   '展开颜色尺码分配后，每行输入必须带分配 ID 并限制为需求内整数件',
 )
+const inconsistentAllocationForm = createProductionChangeForm()
+inconsistentAllocationForm.productionOrderId = relation.productionOrderId
+inconsistentAllocationForm.changeType = 'MATERIAL_REPLACEMENT'
+inconsistentAllocationForm.advancedAllocationOpen = true
+inconsistentAllocationForm.materialReplacement.confirmedProductionQty = 120.4
+inconsistentAllocationForm.materialReplacement.allocations = unbalancedAllocations
+const normalizedAllocationHtml = renderProductionChangeFormBody('content', inconsistentAllocationForm)
+assert.ok(
+  normalizedAllocationHtml.includes('data-production-change-allocation-summary'),
+  '物料分配摘要必须提供稳定锚点',
+)
+assert.ok(normalizedAllocationHtml.includes('分配合计 120 件 / 确认 120 件'), '渲染后的分配摘要必须整数守恒')
+assert.ok(normalizedAllocationHtml.includes('分配已按确认生产件数自动归一'), '不守恒状态必须显示明确归一提示')
 state.productionChangeForm.advancedAllocationOpen = false
 ;['适用批次', '适用颜色', '适用尺码'].forEach((text) => {
   assert.ok(!materialFormHtml.includes(text), `替换物料表单不得出现「${text}」`)
@@ -1023,9 +1129,34 @@ state.productionChangeForm.advancedAllocationOpen = false
 assert.ok(!quantityFormHtml.includes('productionChangeReplacementMaterialId'), '数量表单不得混入新面料字段')
 assert.ok(!materialFormHtml.includes('productionChangeQuantityTargetQty'), '物料表单不得混入需求明细数量字段')
 
-const editableChangeOrder = listProductionOrderChangeOrders()[0]
-assert.ok(editableChangeOrder, '编辑页检查至少需要一张生产单变更单')
-const editHtml = renderProductionChangeEditPage(editableChangeOrder.id)
+const quantityEditOrder = listProductionOrderChangeOrders().find((order) => order.quantityLines?.length)
+assert.ok(quantityEditOrder, '编辑页检查至少需要一张旧数量变更单')
+state.productionChangeFormStep = 'content'
+const quantityEditHtml = renderProductionChangeEditPage(quantityEditOrder.id)
+const editedQuantityLine = quantityEditOrder.quantityLines![0]
+assert.ok(quantityEditHtml.includes(editedQuantityLine.color), '数量编辑页必须回填原记录颜色')
+assert.ok(quantityEditHtml.includes(editedQuantityLine.size), '数量编辑页必须回填原记录尺码')
+assert.ok(
+  new RegExp(`data-prod-field="productionChangeQuantityTargetQty"[^>]*value="${editedQuantityLine.newQty}"`).test(quantityEditHtml),
+  '数量编辑页必须把旧记录 newQty 回填到变更后数量',
+)
+
+const materialEditOrder = listProductionOrderChangeOrders().find(
+  (order) => order.materialReplacement && createQuantityLinesForOrder(order.productionOrderId).length > 0,
+)
+assert.ok(materialEditOrder?.materialReplacement, '编辑页检查至少需要一张可映射的旧物料变更单')
+const materialEditHtml = renderProductionChangeEditPage(materialEditOrder.id)
+assert.ok(
+  materialEditHtml.includes(materialEditOrder.materialReplacement.originalMaterial),
+  '物料编辑页必须保留原记录的原面料内容',
+)
+assert.ok(
+  materialEditHtml.includes(materialEditOrder.materialReplacement.replacementMaterial),
+  '物料编辑页必须保留原记录的新面料内容',
+)
+assert.ok(materialEditHtml.includes('data-production-change-allocation-summary'), '物料编辑页必须初始化守恒分配摘要')
+
+const editHtml = `${quantityEditHtml}${materialEditHtml}`
 ;['提交审核', '主管确认', '相关负责人'].forEach((text) => {
   assert.ok(!editHtml.includes(text), `生产单变更编辑页不得出现旧口径「${text}」`)
 })
