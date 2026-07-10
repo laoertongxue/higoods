@@ -17,8 +17,8 @@ export type DetailSplitDimension = 'PATTERN' | 'MATERIAL_SKU' | 'GARMENT_COLOR' 
 export type RuleSource = 'INHERIT_PROCESS' | 'OVERRIDE_CRAFT'
 export type SpecialCraftSupportedTargetObject = 'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT'
 export type SpecialCraftTargetObjectLabel = '已裁部位' | '完整面料' | '成衣半成品'
-export type ProcessTargetObject = 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY' | 'GARMENT_SEMI'
-export type ProcessTargetObjectName = '裁片部位' | '面料' | '辅料' | '成衣半成品'
+export type ProcessTargetObject = 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY' | 'GARMENT_SEMI' | 'BOM_MATERIAL'
+export type ProcessTargetObjectName = '裁片部位' | '面料' | '辅料' | '成衣半成品' | 'BOM物料'
 export type SpecialCraftCategory = 'AUXILIARY' | 'SPECIAL'
 export type SpecialCraftCategoryName = '辅助工艺' | '特种工艺'
 export type SpecialCraftVisibleFactoryType =
@@ -325,6 +325,7 @@ export const PROCESS_TARGET_OBJECT_NAME: Record<ProcessTargetObject, ProcessTarg
   FABRIC: '面料',
   ACCESSORY: '辅料',
   GARMENT_SEMI: '成衣半成品',
+  BOM_MATERIAL: 'BOM物料',
 }
 
 export const SPECIAL_CRAFT_CATEGORY_NAME: Record<SpecialCraftCategory, SpecialCraftCategoryName> = {
@@ -952,6 +953,7 @@ const STAFF_ONLY_FIELD_KEYS: OutputValueFactoryFieldKey[] = [
 
 const PROCESS_CURRENT_TEMPLATE_BY_CODE: Record<string, FactorySupplyFormulaTemplate> = {
   PRINT: 'C',
+  WATER_SOLUBLE: 'D',
   DYE: 'D',
   CUT_PANEL: 'B',
   EMBROIDERY: 'B',
@@ -972,6 +974,13 @@ function resolveProcessCurrentTemplate(processCode: string): FactorySupplyFormul
   return PROCESS_CURRENT_TEMPLATE_BY_CODE[processCode] ?? 'A'
 }
 
+function resolveProcessCraftCurrentGuide(craftName: string, processCode: string) {
+  if (processCode === 'WATER_SOLUBLE') {
+    return getFactorySupplyFormulaGuideByTemplate(resolveProcessCurrentTemplate(processCode), craftName)
+  }
+  return getFactorySupplyFormulaGuide(craftName)
+}
+
 const PROCESS_OUTPUT_VALUE_RULES: Record<string, ProcessOutputValueRule> = {
   PRINT: {
     outputValueEnabled: true,
@@ -980,6 +989,14 @@ const PROCESS_OUTPUT_VALUE_RULES: Record<string, ProcessOutputValueRule> = {
     outputValueConstraintSource: 'BOTH',
     outputValueIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
     outputValueIdealReason: '印花能力受机台速度、单班有效分钟、操作人数、换版换色准备时间共同影响，平台完整理解该工艺时还需要保留设备/人员效率单位作为口径说明。',
+  },
+  WATER_SOLUBLE: {
+    outputValueEnabled: true,
+    outputValueCalcMode: 'BATCH',
+    outputValueDefaultInputUnit: 'KG',
+    outputValueConstraintSource: 'BOTH',
+    outputValueIdealFieldKeys: [...BATCH_PROCESS_FIELD_KEYS],
+    outputValueIdealReason: '水溶属于染厂批次型准备工序，完整口径要保留装载量、循环时间、人员与设备配置。',
   },
   DYE: {
     outputValueEnabled: true,
@@ -1188,6 +1205,7 @@ const REFERENCE_OUTPUT_VALUE_BY_CRAFT_NAME: Record<
 > = {
   丝网印: { value: 1.2, unit: 'VALUE_PER_METER' },
   数码印: { value: 1.5, unit: 'VALUE_PER_METER' },
+  水溶: { value: 70, unit: 'VALUE_PER_BATCH' },
   匹染: { value: 80, unit: 'VALUE_PER_BATCH' },
   色织: { value: 95, unit: 'VALUE_PER_BATCH' },
   普通裁: { value: 0.5, unit: 'VALUE_PER_PIECE' },
@@ -1238,6 +1256,7 @@ function getReferenceOutputValueNote(unit: OutputValueUnit): string {
 
 const PROCESS_SYSTEM_CODE_MAP: Record<string, string> = {
   PRINT: 'PROC_PRINT',
+  WATER_SOLUBLE: 'PROC_WATER_SOLUBLE',
   DYE: 'PROC_DYE',
   CUT_PANEL: 'PROC_CUT',
   EMBROIDERY: 'PROC_EMBROIDER',
@@ -1283,10 +1302,12 @@ const CRAFT_SYSTEM_CODE_BY_LEGACY_VALUE: Record<number, string> = {
   2000006: 'PROC_PACK',
   2000007: 'PROC_WOOL',
   2000008: 'PROC_WOOL',
+  2000009: 'PROC_WATER_SOLUBLE',
 }
 
 const CARRY_SUGGESTION_BY_PROCESS_CODE: Record<string, string> = {
   PRINT: '印花厂优先',
+  WATER_SOLUBLE: '染色厂优先',
   DYE: '染色厂优先',
   CUT_PANEL: '裁片厂优先',
   EMBROIDERY: '绣花厂优先',
@@ -1314,6 +1335,11 @@ const PROCESS_DEFAULT_RULES: Record<string, ProcessDefaultRule> = {
     assignmentGranularity: 'COLOR',
     detailSplitMode: 'COMPOSITE',
     detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
+  },
+  WATER_SOLUBLE: {
+    assignmentGranularity: 'ORDER',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['MATERIAL_SKU'],
   },
   DYE: {
     assignmentGranularity: 'COLOR',
@@ -1404,7 +1430,7 @@ export const processStageDefinitions: ProcessStageDefinition[] = [
     stageCode: 'PREP',
     stageName: '准备阶段',
     sort: 10,
-    description: '印花、染色、缩水、洗水等产前处理阶段',
+    description: '印花、水溶、染色、缩水、洗水等产前处理阶段',
   },
   {
     stageCode: 'PROD',
@@ -1464,6 +1490,23 @@ const processDefinitionSeeds: Array<
     defaultDocument: '需求单',
     description: '由BOM上的印花要求触发',
     triggerSource: 'BOM上存在印花要求',
+  },
+  {
+    processCode: 'WATER_SOLUBLE',
+    processName: '水溶',
+    stageCode: 'PREP',
+    sort: 15,
+    processRole: 'EXTERNAL_TASK',
+    generatesExternalTask: true,
+    requiresTaskQr: true,
+    requiresHandoverOrder: true,
+    capacityEnabled: true,
+    capacityRollupMode: 'SELF',
+    factoryMobileExecutionMode: 'FULL_TASK',
+    isActive: true,
+    defaultDocument: '任务单',
+    description: '由 BOM 物料上的水溶要求触发',
+    triggerSource: 'BOM 物料存在水溶要求',
   },
   {
     processCode: 'DYE',
@@ -1862,6 +1905,15 @@ const supplementalProcessCraftMappings: LegacyCraftMappingDefinition[] = [
     detailSplitDimensions: ['PATTERN', 'GARMENT_SKU'],
     remark: '部位毛织按毛织部位打印菲票，完成后交裁床待交出仓。',
   },
+  {
+    legacyValue: 2000009,
+    legacyCraftName: '水溶',
+    craftName: '水溶',
+    processCode: 'WATER_SOLUBLE',
+    isSpecialCraft: false,
+    isActive: true,
+    defaultDocument: '任务单',
+  },
 ]
 
 const modernSpecialCraftProcessMappings: LegacyCraftMappingDefinition[] = modernSpecialCraftDefinitions
@@ -1949,6 +2001,9 @@ function resolveProcessCraftTargetObject(
     }
   }
 
+  if (item.processCode === 'WATER_SOLUBLE') {
+    return { targetObject: 'BOM_MATERIAL', targetObjectName: 'BOM物料' }
+  }
   if (item.processCode === 'PRINT' || item.processCode === 'DYE' || item.processCode === 'SHRINKING' || item.processCode === 'WASHING') {
     return { targetObject: 'FABRIC', targetObjectName: '面料' }
   }
@@ -1975,8 +2030,10 @@ export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [
     const referenceOutputValue = REFERENCE_OUTPUT_VALUE_BY_CRAFT_NAME[item.craftName]
     const outputValueOverride = CRAFT_OUTPUT_VALUE_RULE_OVERRIDES_BY_LEGACY_VALUE[item.legacyValue]
     const processCurrentTemplate = resolveProcessCurrentTemplate(item.processCode)
-    const craftCurrentTemplate = getFactorySupplyFormulaTemplate(item.craftName)
-    const craftCurrentGuide = getFactorySupplyFormulaGuide(item.craftName)
+    const craftCurrentTemplate = item.processCode === 'WATER_SOLUBLE'
+      ? processCurrentTemplate
+      : getFactorySupplyFormulaTemplate(item.craftName)
+    const craftCurrentGuide = resolveProcessCraftCurrentGuide(item.craftName, item.processCode)
     const targetObjectInfo = resolveProcessCraftTargetObject(item)
     const managementDomainInfo = resolveProcessCraftManagementDomain(item)
     if (!referenceOutputValue) {
@@ -2426,7 +2483,7 @@ export function getResolvedProcessCraftOutputValueRuleByCode(
   if (!craft) return undefined
   const process = processDefinitionByCode.get(craft.processCode)
   if (!process) return undefined
-  const currentGuide = getFactorySupplyFormulaGuide(craft.craftName)
+  const currentGuide = resolveProcessCraftCurrentGuide(craft.craftName, craft.processCode)
 
   return {
     outputValueEnabled: craft.outputValueEnabled ?? process.outputValueEnabled,
