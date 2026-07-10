@@ -1823,6 +1823,33 @@ assert.match(
   /function shouldSkipChangeRerender[\s\S]*?data-skip-page-rerender="true"/,
   '全局 change 路径必须尊重局部更新控件的跳过整页重绘标记',
 )
+const sewingDeliverySlaViewSource = readFileSync(new URL('../src/data/fcs/sewing-delivery-sla-view.ts', import.meta.url), 'utf8')
+const progressDomainSource = readFileSync(new URL('../src/data/fcs/store-domain-progress.ts', import.meta.url), 'utf8')
+assert.match(
+  sewingDeliverySlaViewSource,
+  /listHandoverOrdersByTaskId\(runtimeTaskId\)/,
+  '单任务履约视图必须严格复用交出域 taskId 查询入口',
+)
+assert.match(
+  sewingDeliverySlaViewSource,
+  /const recordsByTaskId = new Map[\s\S]*?listPdaHandoverHeads\(\)\.forEach/,
+  '批量履约视图必须一次读取交出单并按 taskId 预索引',
+)
+assert.doesNotMatch(
+  sewingDeliverySlaViewSource,
+  /listRuntimeExecutionTasks\(\)[\s\S]{0,500}getSewingDeliverySlaView\(task\.taskId/,
+  '批量履约视图不得逐任务调用单查入口形成 N+1',
+)
+assert.match(
+  progressDomainSource,
+  /const sewingDeliverySlaByTaskId = new Map\([\s\S]*?listSewingDeliverySlaViews\(\)/,
+  '统一进度事实必须一次生成履约视图 Map 后按任务挂接',
+)
+assert.doesNotMatch(
+  progressDomainSource,
+  /getSewingDeliverySlaView\(task\.taskId\)/,
+  '统一进度事实不得对全部运行时任务逐条重建履约视图',
+)
 
 const viewSnapshotStoreState = captureSewingDeliverySlaSnapshotStore()
 const viewHandoverState = capturePdaHandoverState()
@@ -1830,6 +1857,10 @@ try {
   const viewTask = listRuntimeProcessTasks().find((task) => classifySewingDeliverySla(task) !== null)
   assert(viewTask, '履约视图测试需要至少一个适用含车缝时效的运行时任务')
   const viewTaskId = viewTask.taskId
+  const conflictTask = listRuntimeProcessTasks().find(
+    (task) => task.taskId !== viewTaskId && classifySewingDeliverySla(task) !== null,
+  )
+  assert(conflictTask, '字段冲突测试需要另一个适用含车缝时效的运行时任务')
   const viewHeadId = `HOH-SLA-VIEW-${viewTaskId}`
   const viewSnapshot = createSewingDeliverySlaSnapshot({
     assignmentId: 'ASSIGN-SLA-VIEW',
@@ -1842,6 +1873,16 @@ try {
     slaKind: classifySewingDeliverySla(viewTask)!,
   })
   saveSewingDeliverySlaSnapshot(viewSnapshot)
+  saveSewingDeliverySlaSnapshot(createSewingDeliverySlaSnapshot({
+    assignmentId: 'ASSIGN-SLA-VIEW-CONFLICT',
+    runtimeTaskId: conflictTask.taskId,
+    productionOrderId: conflictTask.productionOrderId,
+    factoryId: 'F-SLA-VIEW-CONFLICT',
+    factoryName: '字段冲突测试车缝厂',
+    assignedQty: 100,
+    acceptedAt: '2026-07-01 10:00:00',
+    slaKind: classifySewingDeliverySla(conflictTask)!,
+  }))
 
   const viewHead: PdaHandoverHead = {
     handoverId: viewHeadId,
@@ -1850,7 +1891,7 @@ try {
     headType: 'HANDOUT',
     qrCodeValue: 'QR-SLA-VIEW',
     taskId: viewTaskId,
-    runtimeTaskId: viewTaskId,
+    runtimeTaskId: conflictTask.taskId,
     taskNo: viewTask.taskNo || viewTaskId,
     productionOrderNo: viewTask.productionOrderId,
     processName: viewTask.processNameZh,
@@ -1913,6 +1954,24 @@ try {
   })
 
   upsertPdaHandoutRecordMock(record('SLA-VIEW-PENDING', 10, '2026-07-02 09:00:00'))
+  const handoverBeforeInvalidWriteback = capturePdaHandoverState()
+  for (const invalidReceiverQty of [Number.NaN, Number.POSITIVE_INFINITY, -1]) {
+    assert.throws(
+      () => writeBackHandoverRecord({
+        handoverRecordId: 'SLA-VIEW-PENDING',
+        receiverWrittenQty: invalidReceiverQty,
+        receiverWrittenAt: '2026-07-02 10:00:00',
+        receiverWrittenBy: '非法数量测试员',
+      }),
+      /实收数量必须为非负有限数/,
+      `非法实收数量 ${String(invalidReceiverQty)} 必须在 mutation 前拒绝`,
+    )
+    assert.deepEqual(
+      capturePdaHandoverState(),
+      handoverBeforeInvalidWriteback,
+      '非法实收数量被拒绝后交出域状态必须保持不变',
+    )
+  }
   upsertPdaHandoutRecordMock(record('SLA-VIEW-LATE-Z', 20, '2026-07-05 09:00:00'))
   writeBackHandoverRecord({
     handoverRecordId: 'SLA-VIEW-LATE-Z',
@@ -1942,11 +2001,26 @@ try {
   }))
   assert.equal(voidedRecord.handoverRecordStatus, 'VOIDED', '交出域 hydrate 不得把作废记录重新激活')
   assert.equal(voidedRecord.status, 'WRITTEN_BACK', '作废修正不得破坏既有 legacy status 映射兼容')
+  upsertPdaHandoutRecordMock(record('SLA-VIEW-DIRTY-SUBMITTED', Number.NaN, '2026-07-04 11:00:00', {
+    receiverWrittenQty: 99,
+    receiverWrittenAt: '2026-07-04 12:00:00',
+    status: 'WRITTEN_BACK',
+  }))
+  upsertPdaHandoutRecordMock(record('SLA-VIEW-DIRTY-NEGATIVE', 9, '2026-07-04 13:00:00', {
+    receiverWrittenQty: -1,
+    receiverWrittenAt: '2026-07-04 14:00:00',
+    status: 'WRITTEN_BACK',
+  }))
+  upsertPdaHandoutRecordMock(record('SLA-VIEW-DIRTY-INFINITE', 9, '2026-07-04 15:00:00', {
+    receiverWrittenQty: Number.POSITIVE_INFINITY,
+    receiverWrittenAt: '2026-07-04 16:00:00',
+    status: 'WRITTEN_BACK',
+  }))
 
   const initialView = getSewingDeliverySlaView(viewTaskId, '2026-07-06 10:00:00')
   assert(initialView, '有有效快照的任务应生成履约视图')
   assert.equal(initialView.runtimeTaskId, viewTaskId)
-  assert.equal(initialView.submittedQty, 50, '已交出应汇总有效记录，作废记录不计入')
+  assert.equal(initialView.submittedQty, 68, '已交出应汇总有效提交数量，作废与非法提交数量不计入')
   assert.equal(initialView.confirmedReceivedQty, 40, '待确认与作废记录不得计入确认实收')
   assert.equal(initialView.projection.milestones[0]?.firstReachedAt, '2026-07-05 12:00:00', '首次达标时间必须按接收方确认时间稳定排序累计')
   assert.deepEqual(
@@ -1954,6 +2028,10 @@ try {
     ['SLA-VIEW-LATE-A', 'SLA-VIEW-LATE-Z'],
     '同一确认时间的接收延迟责任记录应确定性排序，并复用纯投影规则',
   )
+  const conflictView = getSewingDeliverySlaView(conflictTask.taskId, '2026-07-06 10:00:00')
+  assert(conflictView, '字段冲突任务有有效快照时应生成空履约视图')
+  assert.equal(conflictView.submittedQty, 0, '交出单只能按严格 taskId 归属，runtimeTaskId 冲突不得双计')
+  assert.equal(conflictView.confirmedReceivedQty, 0, '脏记录与冲突字段不得推进其他任务履约')
 
   upsertPdaHandoutRecordMock(record('SLA-VIEW-REVERSED', 50, '2026-07-06 09:00:00'))
   writeBackHandoverRecord({
@@ -1994,6 +2072,11 @@ try {
 
   const listViews = listSewingDeliverySlaViews('2026-07-08 10:00:00')
   assert(listViews.some((item) => item.runtimeTaskId === viewTaskId), '履约视图列表应包含当前有效快照任务')
+  assert.equal(
+    listViews.find((item) => item.runtimeTaskId === conflictTask.taskId)?.confirmedReceivedQty,
+    0,
+    '批量视图必须按严格 taskId 预索引，字段冲突不得双计或被脏记录毒化',
+  )
   assert.equal(Object.isFrozen(listViews), true, '履约视图列表也必须防御冻结')
 
   const progressFact = getProgressFactByTaskId(viewTaskId)

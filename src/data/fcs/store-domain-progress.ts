@@ -44,7 +44,7 @@ import {
   getPdaPickupRecordsByHead,
 } from './pda-handover-events.ts'
 import {
-  getSewingDeliverySlaView,
+  listSewingDeliverySlaViews,
   type SewingDeliverySlaView,
 } from './sewing-delivery-sla-view.ts'
 
@@ -1119,11 +1119,14 @@ function evaluateRuntimeStartReadiness(task: RuntimeProcessTask): ProgressFact['
 export function listProgressFacts(): ProgressFact[] {
   const pickupHeads = getPdaPickupHeads()
   const handoutHeads = getPdaHandoutHeads()
+  const sewingDeliverySlaByTaskId = new Map(
+    listSewingDeliverySlaViews().map((view) => [view.runtimeTaskId, view] as const),
+  )
 
   return listRuntimeExecutionTasks().map((task) => {
     const executionDocs = listWarehouseExecutionDocsByRuntimeTaskId(task.taskId)
     const requests = getRequestsByRuntimeTask(task)
-    const sewingDeliverySla = getSewingDeliverySlaView(task.taskId)
+    const sewingDeliverySla = sewingDeliverySlaByTaskId.get(task.taskId)
     return {
       artifactId: task.sourceEntryId ? `TASKART-${task.productionOrderId}-${task.sourceEntryId}` : undefined,
       artifactType: 'TASK',

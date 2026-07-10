@@ -4422,6 +4422,9 @@ export function writeBackHandoverRecord(input: {
   receiverRemark?: string
   diffReason?: string
 }): PdaHandoverRecord {
+  if (!Number.isFinite(input.receiverWrittenQty) || input.receiverWrittenQty < 0) {
+    throw new Error('实收数量必须为非负有限数')
+  }
   const current = findRecord(input.handoverRecordId)
   if (!current) {
     throw new Error(`未找到交出记录：${input.handoverRecordId}`)
