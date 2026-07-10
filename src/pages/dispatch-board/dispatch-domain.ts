@@ -68,8 +68,19 @@ import {
 } from '../../data/fcs/cutting/production-material-prep.ts'
 import {
   formatProductionOrderMainFactoryName,
+  listProductionOrderSewingFactories,
   productionOrders,
 } from '../../data/fcs/production-orders.ts'
+
+const KEEP_CURRENT_MAIN_FACTORY = '__KEEP_CURRENT_MAIN_FACTORY__'
+
+function getValidProductionOrderMainFactory(task: Pick<DispatchTask, 'productionOrderId'>) {
+  const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
+  if (!order) return null
+  const isValidMainFactory = listProductionOrderSewingFactories(order.productionOrderId)
+    .some((factory) => factory.id === order.mainFactoryId)
+  return isValidMainFactory ? order : null
+}
 
 function setTaskAssignMode(taskId: string, mode: 'BIDDING' | 'HOLD', by: string): void {
   setRuntimeTaskAssignMode(taskId, mode, by)
@@ -475,6 +486,9 @@ function openDispatchDialog(taskIds: string[]): void {
         nextForm.mainFactoryGroupKey = getDirectDispatchGroups(task)[0]?.groupKey ?? ''
       }
     }
+    if (isRuntimeSewingTask(task) && getValidProductionOrderMainFactory(task)) {
+      nextForm.mainFactoryGroupKey = KEEP_CURRENT_MAIN_FACTORY
+    }
   }
 
   state.dispatchDialogTaskIds = filtered.map((task) => task.taskId)
@@ -639,8 +653,15 @@ function confirmDirectDispatch(): void {
 
     const mainFactoryGroupKey = state.dispatchForm.mainFactoryGroupKey
     if (isRuntimeSewingTask(singleTask)) {
-      const mainAssignment = assignments.find((assignment) => assignment.groupKey === mainFactoryGroupKey)
-      if (!mainFactoryGroupKey || !mainAssignment) {
+      const keepCurrentMainFactory = mainFactoryGroupKey === KEEP_CURRENT_MAIN_FACTORY
+      const mainAssignment = keepCurrentMainFactory
+        ? null
+        : assignments.find((assignment) => assignment.groupKey === mainFactoryGroupKey)
+      if (keepCurrentMainFactory && !getValidProductionOrderMainFactory(singleTask)) {
+        state.dispatchDialogError = '当前生产单没有有效主工厂，请从本次车缝分配中明确选择一家主工厂'
+        return
+      }
+      if (!keepCurrentMainFactory && (!mainFactoryGroupKey || !mainAssignment)) {
         state.dispatchDialogError = '车缝任务按明细派单时必须指定一个分配单元作为生产单主工厂'
         return
       }
@@ -721,7 +742,7 @@ function confirmDirectDispatch(): void {
       throw new Error(result.message ?? '按明细派单失败，请检查后重试')
     }
 
-    const mainFactoryResultAssignment = isRuntimeSewingTask(singleTask)
+    const mainFactoryResultAssignment = isRuntimeSewingTask(singleTask) && mainFactoryGroupKey !== KEEP_CURRENT_MAIN_FACTORY
       ? result.resultAssignments.find((assignment) => assignment.allocationUnitId === mainFactoryGroupKey)
       : null
 
@@ -852,10 +873,10 @@ function renderDetailDispatchMode(
 ): string {
   const assignmentGranularity = task.assignmentGranularity ?? 'ORDER'
   const isSewingTask = isRuntimeSewingTask(task)
-  const productionOrder = productionOrders.find((order) => order.productionOrderId === task.productionOrderId)
-  const currentMainFactoryName = productionOrder
-    ? formatProductionOrderMainFactoryName(productionOrder)
-    : '待车缝任务分配确定'
+  const validMainFactoryOrder = getValidProductionOrderMainFactory(task)
+  const currentMainFactoryName = validMainFactoryOrder
+    ? formatProductionOrderMainFactoryName(validMainFactoryOrder)
+    : '尚无有效车缝主工厂'
   const assignmentGranularityLabel: Record<string, string> = {
     ORDER: '按生产单',
     COLOR: '按颜色',
@@ -876,6 +897,14 @@ function renderDetailDispatchMode(
       ${
         isSewingTask
           ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">当前主工厂：${escapeHtml(currentMainFactoryName)}。本次分给多家车缝工厂时，可在下方明确调整唯一主工厂。</div>`
+          : ''
+      }
+      ${
+        isSewingTask && validMainFactoryOrder
+          ? `<label class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs">
+              <input type="radio" name="dispatch-main-factory-group" value="${KEEP_CURRENT_MAIN_FACTORY}" data-dispatch-field="dispatch.mainFactoryGroupKey" ${state.dispatchForm.mainFactoryGroupKey === KEEP_CURRENT_MAIN_FACTORY ? 'checked' : ''} />
+              <span>保留当前主工厂：${escapeHtml(currentMainFactoryName)}</span>
+            </label>`
           : ''
       }
 
@@ -1050,10 +1079,12 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
   const detailMainFactorySelected =
     !detailMode ||
     !isRuntimeSewingTask(refTask) ||
-    Boolean(
-      state.dispatchForm.mainFactoryGroupKey &&
-        state.dispatchForm.factoryByGroupKey[state.dispatchForm.mainFactoryGroupKey]?.factoryId,
-    )
+    (state.dispatchForm.mainFactoryGroupKey === KEEP_CURRENT_MAIN_FACTORY
+      ? Boolean(getValidProductionOrderMainFactory(refTask))
+      : Boolean(
+          state.dispatchForm.mainFactoryGroupKey &&
+            state.dispatchForm.factoryByGroupKey[state.dispatchForm.mainFactoryGroupKey]?.factoryId,
+        ))
 
   const canSubmit =
     selectionValidation.valid &&
