@@ -3,6 +3,7 @@ import {
   getProductionOrderChangeCurrentFacts,
   listProductionOrderTechPackRelations,
 } from './production-tech-pack-change-domain.ts'
+import { productionOrders, type ProductionOrderStatus } from './production-orders.ts'
 import { resolveLinkedDemandForProductionOrder } from './production-upstream-chain.ts'
 
 export type ProductionChangeType = 'QUANTITY_CHANGE' | 'MATERIAL_REPLACEMENT'
@@ -60,23 +61,26 @@ export interface MaterialReplacementDraft {
 
 type FollowingOrderPlan = MaterialReplacementDraft['followingOrders'][number]
 
+interface FollowingOrderScenarioSeed {
+  productionOrderId: string
+  progressText: string
+  orderStatus: ProductionOrderStatus
+  affectedDocumentNos?: string[]
+}
+
 // 当前共享技术包关系 Mock 暂无同 SPU 多生产单；这组模块内种子仅覆盖生产单变更的已开工/未开工后续单场景。
-const PRODUCTION_CHANGE_FOLLOWING_ORDER_SCENARIO_SEEDS: Record<string, FollowingOrderPlan[]> = {
+const PRODUCTION_CHANGE_FOLLOWING_ORDER_SCENARIO_SEEDS: Record<string, FollowingOrderScenarioSeed[]> = {
   'PO-202603-0004': [
     {
       productionOrderId: 'PO-202603-0101',
       progressText: '已领料 900 yard；已裁剪 120 件',
-      started: true,
-      suggestedMode: 'REMAINING',
-      confirmedMode: 'REMAINING',
+      orderStatus: 'EXECUTING',
       affectedDocumentNos: ['WLS-PL-260306-101', 'CUT-260306-101-01'],
     },
     {
       productionOrderId: 'PO-202603-0102',
       progressText: '尚未开始',
-      started: false,
-      suggestedMode: 'FULL',
-      confirmedMode: 'FULL',
+      orderStatus: 'READY_FOR_BREAKDOWN',
       affectedDocumentNos: [],
     },
   ],
@@ -132,8 +136,44 @@ export function listAffectedDocumentNosForOrder(productionOrderId: string): stri
   return Array.from(new Set(documentNos))
 }
 
-function isCompletedOrSettled(progressTexts: string[]): boolean {
-  return progressTexts.some((text) => text.includes('已完成') || text.includes('已结算'))
+const CLOSED_PRODUCTION_ORDER_STATUSES = new Set<ProductionOrderStatus>(['COMPLETED', 'CANCELLED'])
+const STARTED_PRODUCTION_ORDER_STATUSES = new Set<ProductionOrderStatus>(['EXECUTING', 'ON_HOLD'])
+
+function resolveFollowingOrderStateFromOrderStatus(orderStatus: ProductionOrderStatus): {
+  changeable: boolean
+  started: boolean
+} {
+  return {
+    changeable: !CLOSED_PRODUCTION_ORDER_STATUSES.has(orderStatus),
+    started: STARTED_PRODUCTION_ORDER_STATUSES.has(orderStatus),
+  }
+}
+
+export function resolveFollowingOrderStateFromProgressFallback(progressTexts: string[]): {
+  changeable: boolean
+  started: boolean
+} {
+  const hasExplicitWholeOrderClosure = progressTexts.some(
+    (text) => {
+      const normalizedText = text.trim()
+      return (
+        normalizedText === '已完成' ||
+        normalizedText === '已结算' ||
+        /(整单|生产单).*(已完成|已结算)/.test(normalizedText) ||
+        normalizedText.includes('已完成并结算') ||
+        normalizedText.includes('已全部结算')
+      )
+    },
+  )
+  if (hasExplicitWholeOrderClosure) return { changeable: false, started: true }
+
+  const hasStartedFact = progressTexts.some(
+    (text) =>
+      ['已配', '已领', '已裁', '加工中', '已加工', '已交出', '已生成', '已铺布'].some((marker) =>
+        text.includes(marker),
+      ) || /(配料|领料|裁片|印花|染色|加工|车缝|后道).*已完成/.test(text),
+  )
+  return { changeable: true, started: hasStartedFact }
 }
 
 export function createFollowingOrderPlans(
@@ -145,23 +185,24 @@ export function createFollowingOrderPlans(
 
   const uniquePlans = new Map<string, FollowingOrderPlan>()
   const blockedOrderIds = new Set<string>()
+  const productionOrderById = new Map(productionOrders.map((order) => [order.productionOrderId, order]))
   relations.forEach((relation) => {
     const orderId = relation.productionOrderId.trim()
     if (!orderId || orderId === productionOrderId || relation.spuId !== currentRelation.spuId) return
 
     const progressTexts = [...relation.progressSummary, ...relation.restrictionSummary]
-    if (isCompletedOrSettled(progressTexts)) {
+    const productionOrder = productionOrderById.get(orderId)
+    const orderState = productionOrder
+      ? resolveFollowingOrderStateFromOrderStatus(productionOrder.status)
+      : resolveFollowingOrderStateFromProgressFallback(progressTexts)
+    if (!orderState.changeable) {
       blockedOrderIds.add(orderId)
       return
     }
 
-    const started = relation.progressSummary.some(
-      (text) => text.includes('已领') || text.includes('已裁') || text.includes('已加工'),
-    )
+    const started = orderState.started
     const suggestedMode: MaterialReplacementMode = started ? 'REMAINING' : 'FULL'
-    const progressText = relation.progressSummary.some((text) => !text.includes('未开始'))
-      ? relation.progressSummary.join('；')
-      : '尚未开始'
+    const progressText = relation.progressSummary.join('；') || '尚未开始'
     if (!uniquePlans.has(orderId)) {
       uniquePlans.set(orderId, {
         productionOrderId: orderId,
@@ -169,6 +210,7 @@ export function createFollowingOrderPlans(
         started,
         suggestedMode,
         confirmedMode: suggestedMode,
+        changeable: true,
         affectedDocumentNos: listAffectedDocumentNosForOrder(orderId),
       })
     }
@@ -176,15 +218,16 @@ export function createFollowingOrderPlans(
 
   ;(PRODUCTION_CHANGE_FOLLOWING_ORDER_SCENARIO_SEEDS[productionOrderId] ?? []).forEach((seed) => {
     const orderId = seed.productionOrderId.trim()
-    if (
-      !orderId ||
-      blockedOrderIds.has(orderId) ||
-      uniquePlans.has(orderId) ||
-      isCompletedOrSettled([seed.progressText])
-    ) return
+    const orderState = resolveFollowingOrderStateFromOrderStatus(seed.orderStatus)
+    if (!orderId || blockedOrderIds.has(orderId) || uniquePlans.has(orderId) || !orderState.changeable) return
+    const suggestedMode: MaterialReplacementMode = orderState.started ? 'REMAINING' : 'FULL'
     uniquePlans.set(orderId, {
-      ...seed,
       productionOrderId: orderId,
+      progressText: seed.progressText,
+      started: orderState.started,
+      suggestedMode,
+      confirmedMode: suggestedMode,
+      changeable: orderState.changeable,
       affectedDocumentNos: sanitizeObjectIds(seed.affectedDocumentNos),
     })
   })
@@ -199,7 +242,8 @@ export function buildMaterialReplacementAllocations(
   if (quantityLines.length === 0) return []
 
   const allocations = quantityLines.map((line, index) => {
-    const demandQty = Math.max(0, line.currentQty)
+    const normalizedDemandQty = Number.isFinite(line.currentQty) ? Math.round(line.currentQty) : 0
+    const demandQty = Math.max(0, normalizedDemandQty)
     const oldMaterialFactQty = Math.floor(demandQty * 0.55)
     return {
       id: `${productionOrderId}-ALLOC-${index + 1}`,
@@ -213,7 +257,7 @@ export function buildMaterialReplacementAllocations(
     }
   })
   const totalDemandQty = allocations.reduce((sum, line) => sum + line.demandQty, 0)
-  const normalizedConfirmedQty = Number.isFinite(confirmedProductionQty) ? confirmedProductionQty : 0
+  const normalizedConfirmedQty = Number.isFinite(confirmedProductionQty) ? Math.round(confirmedProductionQty) : 0
   const limitedConfirmedQty = Math.min(Math.max(normalizedConfirmedQty, 0), totalDemandQty)
   const totalSuggestedQty = allocations.reduce((sum, line) => sum + line.suggestedReplacementQty, 0)
 
