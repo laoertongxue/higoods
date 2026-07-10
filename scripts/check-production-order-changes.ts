@@ -175,6 +175,7 @@ const materialDraft: ProductionChangeDraft = {
   changeType: 'MATERIAL_REPLACEMENT',
   reason: '原面料供应不足，替换未生产数量。',
   quantityLines: [],
+  affectedDocumentNos: ['MR-202603-010', 'MI-202603-006', 'SP-202603-004-01', 'CUT-202603-004-01'],
   materialReplacement: {
     originalMaterialId: 'MAT-FAB-018',
     replacementMaterialId: 'MAT-FAB-026',
@@ -275,13 +276,15 @@ const followingOrdersDraft: ProductionChangeDraft = {
         started: false,
         suggestedMode: 'REMAINING',
         confirmedMode: 'REMAINING',
+        affectedDocumentNos: ['MR-FOLLOW-006'],
       },
       {
         productionOrderId: 'PO-202603-007',
         progressText: '已领料，尚未裁剪',
         started: true,
         suggestedMode: 'REMAINING',
-        confirmedMode: 'FULL',
+        confirmedMode: 'REMAINING',
+        affectedDocumentNos: ['MI-FOLLOW-007', 'CUT-FOLLOW-007'],
       },
       {
         productionOrderId: 'PO-202603-008',
@@ -290,6 +293,7 @@ const followingOrdersDraft: ProductionChangeDraft = {
         suggestedMode: 'FULL',
         confirmedMode: 'FULL',
         changeable: false,
+        affectedDocumentNos: ['SETTLED-FOLLOW-008'],
       },
     ],
   },
@@ -314,6 +318,15 @@ assert.ok(
   !validateProductionChangeDecisions(followingOrdersPreview).includes(suggestedFollowingDecision.id),
   '接受系统建议且未填写原因时判断校验必须通过',
 )
+;['MI-FOLLOW-007', 'CUT-FOLLOW-007'].forEach((documentNo) => {
+  assert.ok(
+    [...followingOrdersPreview.autoItems, ...followingOrdersPreview.decisionItems].some(
+      (item) => item.affectedDocumentNo === documentNo,
+    ),
+    `已开工后续单关联单据 ${documentNo} 必须进入处理计划`,
+  )
+  assert.ok(followingOrdersPreview.lockObjectIds.includes(documentNo), `已开工后续单关联单据 ${documentNo} 必须锁定`)
+})
 const frozenFollowingOrderId = 'PO-202603-008'
 const frozenFollowingOrderReference = '202603-008'
 assert.ok(!followingOrdersPreview.affectedOrderIds.includes(frozenFollowingOrderId), '不可变更后续单不得进入影响生产单')
@@ -362,6 +375,163 @@ assert.ok(
   !validateProductionChangeDecisions(explainedDeviationPreview).includes(suggestedFollowingDecision.id),
   '偏离系统建议并填写原因后必须校验通过',
 )
+
+const confirmedModePreview = buildProductionChangePreview({
+  ...followingOrdersDraft,
+  materialReplacement: {
+    ...followingOrdersDraft.materialReplacement!,
+    followingOrders: [
+      {
+        productionOrderId: 'PO-202603-009',
+        progressText: '已领料，尚未裁剪',
+        started: true,
+        suggestedMode: 'REMAINING',
+        confirmedMode: 'FULL',
+        affectedDocumentNos: ['MI-FOLLOW-009'],
+      },
+    ],
+  },
+  decisionValues: {},
+})
+const confirmedModeDecision = confirmedModePreview.decisionItems.find(
+  (item) => item.id === 'following-order-mode-PO-202603-009',
+)
+assert.equal(confirmedModeDecision?.selectedValue, 'FULL', '后续单必须优先使用已确认模式，再回退系统建议')
+assert.equal(confirmedModeDecision?.reasonRequired, true, '已确认模式偏离系统建议时必须要求原因')
+
+const fullCurrentWithRemainingFollowingDraft: ProductionChangeDraft = {
+  ...materialDraft,
+  materialReplacement: {
+    ...materialDraft.materialReplacement!,
+    replacementMode: 'FULL',
+    scope: 'CURRENT_AND_FOLLOWING',
+    followingOrders: [
+      {
+        productionOrderId: 'PO-202603-010',
+        progressText: '已领料，尚未裁剪',
+        started: true,
+        suggestedMode: 'FULL',
+        confirmedMode: 'FULL',
+        affectedDocumentNos: ['MI-FOLLOW-010', 'CUT-FOLLOW-010'],
+      },
+    ],
+  },
+  decisionValues: {
+    'following-order-mode-PO-202603-010': { value: 'REMAINING', reason: '现场已形成不可逆生产事实。' },
+  },
+}
+const fullCurrentWithRemainingFollowingPreview = buildProductionChangePreview(fullCurrentWithRemainingFollowingDraft)
+assert.equal(
+  fullCurrentWithRemainingFollowingPreview.result,
+  'VERSION_AND_PATCH',
+  '当前单全部替换但已开工后续单改选剩余替换时必须同时调整版本并打补丁',
+)
+assert.ok(
+  fullCurrentWithRemainingFollowingPreview.decisionItems.some(
+    (item) => item.id === 'following-order-mode-PO-202603-010' && item.description.includes('剩余部分打补丁'),
+  ),
+  '已开工后续单选择剩余替换时计划必须体现剩余部分打补丁',
+)
+assert.ok(
+  fullCurrentWithRemainingFollowingPreview.resultReason.includes('包含剩余数量替换') &&
+    !fullCurrentWithRemainingFollowingPreview.summary.materialDeltaText.includes('最终均为全部替换'),
+  '综合结果原因与摘要必须反映后续单剩余替换',
+)
+
+const allFullPreview = buildProductionChangePreview({
+  ...fullCurrentWithRemainingFollowingDraft,
+  decisionValues: {
+    'following-order-mode-PO-202603-010': { value: 'FULL', reason: '' },
+  },
+})
+assert.equal(allFullPreview.result, 'VERSION_RELATION', '当前单和所有可变更后续单均全部替换时只调整正式版本绑定')
+assert.ok(
+  allFullPreview.decisionItems.some(
+    (item) => item.id === 'following-order-mode-PO-202603-010' && item.description.includes('整体切换'),
+  ),
+  '已开工后续单选择全部替换时计划必须体现整体切换',
+)
+assert.ok(
+  allFullPreview.resultReason.includes('最终均为全部替换'),
+  '全部替换方案的结果原因必须与综合最终模式一致',
+)
+
+const noDocumentFactsPreview = buildProductionChangePreview({
+  ...materialDraft,
+  affectedDocumentNos: undefined,
+  materialReplacement: {
+    ...materialDraft.materialReplacement!,
+    replacementMode: 'REMAINING',
+    scope: 'CURRENT_ONLY',
+    followingOrders: [],
+  },
+  decisionValues: {},
+})
+assert.deepEqual(noDocumentFactsPreview.lockObjectIds, [materialDraft.productionOrderId], '未传关联单据事实时不得制造单据锁')
+assert.ok(
+  [...noDocumentFactsPreview.autoItems, ...noDocumentFactsPreview.decisionItems].every(
+    (item) => item.affectedDocumentNo === '',
+  ),
+  '未传关联单据事实时计划项不得拼接伪造单据号',
+)
+
+const dirtyFollowingPreview = buildProductionChangePreview({
+  ...followingOrdersDraft,
+  affectedDocumentNos: [' MR-CURRENT-001 ', '', 'MR-CURRENT-001'],
+  materialReplacement: {
+    ...followingOrdersDraft.materialReplacement!,
+    followingOrders: [
+      {
+        productionOrderId: '   ',
+        progressText: '无生产单号',
+        started: false,
+        suggestedMode: 'FULL',
+        confirmedMode: 'FULL',
+        affectedDocumentNos: ['SHOULD-NOT-LOCK'],
+      },
+      {
+        productionOrderId: 'PO-DUPLICATE-001',
+        progressText: '尚未备料',
+        started: false,
+        suggestedMode: 'FULL',
+        confirmedMode: 'FULL',
+        affectedDocumentNos: ['MR-DUPLICATE-001', '', 'MR-DUPLICATE-001'],
+      },
+      {
+        productionOrderId: ' PO-DUPLICATE-001 ',
+        progressText: '重复生产单',
+        started: true,
+        suggestedMode: 'REMAINING',
+        confirmedMode: 'REMAINING',
+        affectedDocumentNos: ['SHOULD-NOT-LOCK-DUPLICATE'],
+      },
+    ],
+  },
+  decisionValues: {},
+})
+assert.deepEqual(
+  dirtyFollowingPreview.affectedOrderIds,
+  [followingOrdersDraft.productionOrderId, 'PO-DUPLICATE-001'],
+  '后续生产单必须过滤空 ID、清理空格并按 ID 去重',
+)
+assert.ok(!dirtyFollowingPreview.lockObjectIds.includes(''), '清洗后的锁定对象不得包含空值')
+assert.equal(
+  new Set(dirtyFollowingPreview.lockObjectIds).size,
+  dirtyFollowingPreview.lockObjectIds.length,
+  '清洗后的锁定对象不得重复',
+)
+assert.ok(!dirtyFollowingPreview.lockObjectIds.includes('SHOULD-NOT-LOCK'), '空生产单不得带入关联单据锁')
+assert.ok(
+  !dirtyFollowingPreview.lockObjectIds.includes('SHOULD-NOT-LOCK-DUPLICATE'),
+  '重复生产单不得生成第二组计划或关联单据锁',
+)
+assert.equal(
+  dirtyFollowingPreview.autoItems.filter((item) => item.id === 'following-order-auto-PO-DUPLICATE-001').length,
+  1,
+  '重复后续生产单只能生成一个主计划项',
+)
+const dirtyPlanItemIds = [...dirtyFollowingPreview.autoItems, ...dirtyFollowingPreview.decisionItems].map((item) => item.id)
+assert.equal(new Set(dirtyPlanItemIds).size, dirtyPlanItemIds.length, '清洗后的计划项 ID 不得重复')
 
 const incompletePreview = buildProductionChangePreview(materialDraft)
 assert.ok(incompletePreview.autoItems.length > 0, '预览必须生成系统自动处理项')
