@@ -615,10 +615,8 @@ const followingOrderIds = followingOrderPlans.map((plan) => plan.productionOrder
 assert.ok(followingOrderIds.every((id) => id.trim().length > 0), '后续生产单不得包含空 ID')
 assert.equal(new Set(followingOrderIds).size, followingOrderIds.length, '后续生产单 ID 必须去重')
 assert.ok(
-  followingOrderPlans.every(
-    (plan) => !plan.progressText.includes('已完成') && !plan.progressText.includes('已结算'),
-  ),
-  '已完成或已结算生产单不得参与变更',
+  followingOrderPlans.every((plan) => plan.changeable === true),
+  '后续生产单计划必须已通过结构化关闭状态过滤',
 )
 const startedFollowingOrderPlan = followingOrderPlans.find((plan) => plan.started)
 assert.ok(startedFollowingOrderPlan, 'PO-202603-0004 后续单场景必须包含已开工生产单')
