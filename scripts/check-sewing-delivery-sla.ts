@@ -462,4 +462,54 @@ assert.deepEqual(
   '同批次达标应收集全部截止前有效交出，且不受 recordId 排序影响',
 )
 
+const multiBatchSnapshot = createSewingDeliverySlaSnapshot({
+  assignmentId: 'ASSIGN-MULTI-BATCH',
+  runtimeTaskId: 'TASK-MULTI-BATCH',
+  productionOrderId: 'PO-MULTI-BATCH',
+  factoryId: 'F-MULTI-BATCH',
+  factoryName: '万隆多批次车缝厂',
+  assignedQty: 100,
+  acceptedAt: '2026-07-01 15:30:00',
+  slaKind: 'INDEPENDENT_SEWING',
+})
+const multiBatchReceipts = [
+  {
+    recordId: 'Z-FIRST-BATCH',
+    submittedQty: 20,
+    submittedAt: '2026-07-05 14:00:00',
+    receivedQty: 20,
+    receivedAt: '2026-07-05 16:00:00',
+  },
+  {
+    recordId: 'A-SECOND-BATCH',
+    submittedQty: 10,
+    submittedAt: '2026-07-05 14:10:00',
+    receivedQty: 10,
+    receivedAt: '2026-07-05 16:10:00',
+  },
+]
+const multiBatchReachedProjection = projectSewingDeliverySla(
+  multiBatchSnapshot,
+  [...multiBatchReceipts].reverse(),
+  '2026-07-05 16:10:00',
+)
+assert.equal(multiBatchReachedProjection.milestones[0]?.result, 'OVERDUE_REACHED')
+assert.deepEqual(
+  multiBatchReachedProjection.milestones[0]?.receiverDelayRecordIds,
+  ['A-SECOND-BATCH', 'Z-FIRST-BATCH'],
+  '首次达标前多个确认批次中的接收延迟候选都应纳入归因',
+)
+
+const multiBatchPendingProjection = projectSewingDeliverySla(
+  multiBatchSnapshot,
+  [multiBatchReceipts[0]],
+  '2026-07-05 16:05:00',
+)
+assert.equal(multiBatchPendingProjection.milestones[0]?.result, 'OVERDUE_PENDING')
+assert.deepEqual(
+  multiBatchPendingProjection.milestones[0]?.receiverDelayRecordIds,
+  [],
+  '节点最终未达标时不得暴露尚未形成达标归因的候选记录',
+)
+
 console.log('含车缝任务交付与回货时效规则检查通过')

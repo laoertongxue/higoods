@@ -233,7 +233,7 @@ export function projectSewingDeliverySla(
   const projectionSnapshot = cloneAndFreezeSnapshot(snapshot)
   const reachedMilestones = projectionSnapshot.milestones.map(() => ({
     firstReachedAt: undefined as string | undefined,
-    receiverDelayRecordIds: [] as string[],
+    receiverDelayCandidateRecordIds: [] as string[],
   }))
   const orderedReceipts = [...receipts].sort((left, right) => left.receivedAt.localeCompare(right.receivedAt))
 
@@ -257,11 +257,8 @@ export function projectSewingDeliverySla(
 
     projectionSnapshot.milestones.forEach((milestone, index) => {
       const reached = reachedMilestones[index]
-      if (reached.firstReachedAt || previousReceivedQty >= milestone.targetQty) return
-      if (confirmedReceivedQty < milestone.targetQty) return
-
-      reached.firstReachedAt = receivedAt
-      reached.receiverDelayRecordIds.push(
+      if (reached.firstReachedAt) return
+      reached.receiverDelayCandidateRecordIds.push(
         ...receiptBatch
           .filter((receipt) => {
             const effectiveReceivedQty = receipt.voided
@@ -275,6 +272,8 @@ export function projectSewingDeliverySla(
           .map((receipt) => receipt.recordId)
           .sort(),
       )
+      if (previousReceivedQty >= milestone.targetQty || confirmedReceivedQty < milestone.targetQty) return
+      reached.firstReachedAt = receivedAt
     })
 
     if (
@@ -299,7 +298,11 @@ export function projectSewingDeliverySla(
       ...milestone,
       result,
       ...(reached.firstReachedAt ? { firstReachedAt: reached.firstReachedAt } : {}),
-      receiverDelayRecordIds: Object.freeze([...reached.receiverDelayRecordIds]),
+      receiverDelayRecordIds: Object.freeze(
+        reached.firstReachedAt
+          ? [...new Set(reached.receiverDelayCandidateRecordIds)].sort()
+          : [],
+      ),
     })
   }))
 
