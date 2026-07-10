@@ -181,7 +181,6 @@ let lastFocusedTaskToken = ''
 interface LegacyAcceptanceOverride {
   acceptedAt: string
   acceptedBy: string
-  factoryId: string
 }
 
 const legacyAcceptanceOverrides = new Map<string, LegacyAcceptanceOverride>()
@@ -192,8 +191,6 @@ export function projectPdaTaskLegacyAcceptance(task: ProcessTask): ProcessTask {
   return {
     ...task,
     acceptanceStatus: 'ACCEPTED',
-    assignmentStatus: 'AWARDED',
-    assignedFactoryId: override.factoryId,
     acceptedAt: override.acceptedAt,
     acceptedBy: override.acceptedBy,
     updatedAt: override.acceptedAt,
@@ -345,7 +342,7 @@ export function acceptPdaTaskWithRuntimeFallback(
   if (task.assignedFactoryId && task.assignedFactoryId !== factoryId) {
     throw new Error('当前登录工厂与任务归属不一致，不能接单')
   }
-  legacyAcceptanceOverrides.set(taskId, { acceptedAt, acceptedBy: by, factoryId })
+  legacyAcceptanceOverrides.set(taskId, { acceptedAt, acceptedBy: by })
   return projectPdaTaskLegacyAcceptance(task)
 }
 

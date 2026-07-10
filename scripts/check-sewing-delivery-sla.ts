@@ -802,13 +802,15 @@ const batchAwardProbe = `
   const snapshotState = captureSewingDeliverySlaSnapshotStore()
   try {
     const taskId = 'TASKGEN-202603-083-002__ORDER'
-    upsertRuntimeTaskTender(taskId, {
+    const createdRuntimeTender = upsertRuntimeTaskTender(taskId, {
       tenderId: 'TENDER-BATCH-AWARD',
       biddingDeadline: '2026-07-01 10:30:00',
       taskDeadline: '2026-07-20 18:00:00',
       businessAssignedAt: '2026-07-01 09:00:00',
       assignmentOperatedAt: '2026-07-01 10:00:00',
     }, '跟单A')
+    assert.equal(createdRuntimeTender.assignmentMode, 'BIDDING', '真实运行时创建必须进入竞价分配方式')
+    assert.equal(createdRuntimeTender.assignmentStatus, 'BIDDING', '真实运行时创建必须保持竞价分配中')
     const before = structuredClone(getRuntimeTaskById(taskId))
     const result = awardRuntimeTenderTasks({
       taskIds: [taskId, taskId],
@@ -851,6 +853,7 @@ const runtimeReachabilityProbe = `
   import {
     handleDispatchTendersEvent,
     listDispatchTenderRows,
+    renderDispatchTendersPage,
   } from './src/pages/dispatch-tenders.ts'
   import { state as dispatchBoardState } from './src/pages/dispatch-board/context.ts'
   import {
@@ -868,6 +871,7 @@ const runtimeReachabilityProbe = `
     getSewingDeliverySlaSnapshot,
     restoreSewingDeliverySlaSnapshotStore,
   } from './src/data/fcs/sewing-delivery-sla.ts'
+  import { getPdaMobileExecutionTaskById } from './src/data/fcs/process-mobile-task-binding.ts'
   class FakeInputElement {}
   class FakeSelectElement {}
   class FakeTextAreaElement {}
@@ -884,19 +888,22 @@ const runtimeReachabilityProbe = `
   const runtimeState = captureRuntimeDirectDispatchState()
   const snapshotState = captureSewingDeliverySlaSnapshotStore()
   const taskId = 'TASKGEN-202603-083-002__ORDER'
+  const fixedNow = '2026-07-01 11:00:00'
   const previousTender = dispatchBoardState.tenderState[taskId]
   try {
-    upsertRuntimeTaskTender(taskId, {
+    const createdRuntimeTender = upsertRuntimeTaskTender(taskId, {
       tenderId: 'TENDER-RUNTIME-REACHABLE',
       biddingDeadline: '2026-07-01 10:30:00',
       taskDeadline: '2026-07-20 18:00:00',
       businessAssignedAt: '2026-07-01 09:00:00',
       assignmentOperatedAt: '2026-07-01 10:00:00',
     }, '跟单A')
+    assert.equal(createdRuntimeTender.assignmentMode, 'BIDDING', '真实运行时创建必须进入竞价分配方式')
+    assert.equal(createdRuntimeTender.assignmentStatus, 'BIDDING', '真实运行时创建必须保持竞价分配中')
     dispatchBoardState.tenderState[taskId] = {
       taskId,
       tenderId: 'TENDER-RUNTIME-REACHABLE',
-      tenderStatus: 'AWAIT_AWARD',
+      tenderStatus: 'BIDDING',
       factoryPool: ['ID-F003', 'ID-F024'],
       factoryPoolNames: ['同名工厂', '同名工厂'],
       factoryQuotes: [
@@ -916,22 +923,32 @@ const runtimeReachabilityProbe = `
       participatingFactoryIds: ['ID-F003', 'ID-F024'],
     }
 
-    const runtimeRow = listDispatchTenderRows().find((row) => row.tenderId === 'TENDER-RUNTIME-REACHABLE')
+    assert.equal(dispatchBoardState.tenderState[taskId].tenderStatus, 'BIDDING', '真实创建结果必须从招标中开始')
+    const runtimeRow = listDispatchTenderRows(fixedNow).find((row) => row.tenderId === 'TENDER-RUNTIME-REACHABLE')
     assert.ok(runtimeRow, '工作台创建的运行时招标必须出现在招标管理页')
-    assert.equal(runtimeRow.status, 'AWAIT_AWARD')
+    assert.equal(runtimeRow.status, 'AWAIT_AWARD', '竞价已截止且已有有效报价时应从真实 BIDDING 派生为待定标')
     assert.deepEqual(runtimeRow.factoryQuotes.map((quote) => quote.factoryId), ['ID-F003', 'ID-F024'])
-    handleDispatchTendersEvent(actionTarget({ tenderAction: 'open-view', tenderId: runtimeRow.tenderId }))
-    handleDispatchTendersEvent(actionTarget({ tenderAction: 'select-award-factory', factoryId: 'ID-F024' }))
-    handleDispatchTendersEvent(actionTarget({ tenderAction: 'confirm-award' }))
+    handleDispatchTendersEvent(actionTarget({ tenderAction: 'open-view', tenderId: runtimeRow.tenderId }), fixedNow)
+    handleDispatchTendersEvent(actionTarget({ tenderAction: 'select-award-factory', factoryId: 'ID-F024' }), fixedNow)
+    handleDispatchTendersEvent(actionTarget({ tenderAction: 'confirm-award' }), fixedNow)
     assert.equal(getRuntimeTaskById(taskId)?.assignedFactoryId, 'ID-F024', '同名工厂定标必须以稳定工厂 ID 为准')
+    handleDispatchTendersEvent(actionTarget({ tenderAction: 'open-view', tenderId: runtimeRow.tenderId }), fixedNow)
+    const awardedHtml = renderDispatchTendersPage(fixedNow)
+    assert.match(awardedHtml, /data-quote-factory-id="ID-F024" data-awarded="true"/, '同名工厂中仅实际 factoryId 应高亮中标')
+    assert.match(awardedHtml, /data-quote-factory-id="ID-F003" data-awarded="false"/, '同名未中标工厂不得被名称误高亮')
 
     const awarded = listPdaAwardedTendersForFactory('ID-F024')
     assert.ok(awarded.some((item) => item.taskId === taskId && item.execStatus === '待接单'), '运行时中标待接单任务必须直接投影到当前工厂 PDA')
     acceptPdaTaskWithRuntimeFallback(taskId, 'ID-F024', '同名工厂', '2026-07-01 11:10:00')
     assert.equal(getSewingDeliverySlaSnapshot(taskId)?.acceptedAt, '2026-07-01 11:10:00', '运行时含车缝任务必须走统一接单并以确认接单时间起算')
 
+    const legacyBefore = structuredClone(getPdaMobileExecutionTaskById('TASK-IRON-000521'))
+    assert.ok(legacyBefore, '旧 Mock 回退测试任务必须存在')
     const legacyAccepted = acceptPdaTaskWithRuntimeFallback('TASK-IRON-000521', 'ID-F001', '旧工厂', '2026-07-01 11:20:00')
     assert.equal(legacyAccepted.acceptanceStatus, 'ACCEPTED', '非 SLA 旧 Mock 任务应保留显式接单回退')
+    assert.equal(legacyAccepted.assignmentMode, legacyBefore.assignmentMode, '旧 Mock 接单不得改变 DIRECT 等分配方式')
+    assert.equal(legacyAccepted.assignmentStatus, legacyBefore.assignmentStatus, '旧 Mock ASSIGNED 接单不得伪造为 AWARDED')
+    assert.equal(legacyAccepted.status, legacyBefore.status, '旧 Mock 接单不得改变执行状态')
     process.stdout.write('PASS')
   } finally {
     if (previousTender) dispatchBoardState.tenderState[taskId] = previousTender

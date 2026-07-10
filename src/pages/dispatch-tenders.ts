@@ -16,6 +16,7 @@ import {
 } from '../data/fcs/runtime-process-tasks.ts'
 import {
   captureSewingDeliverySlaSnapshotStore,
+  compareSewingDeliveryDateTimes,
   formatOperationLocalWallClock,
   restoreSewingDeliverySlaSnapshotStore,
 } from '../data/fcs/sewing-delivery-sla.ts'
@@ -221,6 +222,7 @@ const MOCK_TENDERS: TenderRow[] = [
     biddingDeadline: '2026-03-08 18:00:00',
     taskDeadline: '2026-04-01 18:00:00',
     status: 'AWARDED',
+    awardedFactoryId: 'ID-F003',
     awardedFactory: '万隆车缝厂',
     awardedPrice: 13200,
     awardReason: '报价最低且交期最短，综合评估最优',
@@ -387,7 +389,7 @@ function formatDeviation(
   }
 }
 
-function projectRuntimeTenderRows(): TenderRow[] {
+function projectRuntimeTenderRows(now: string): TenderRow[] {
   return listRuntimeProcessTasks().flatMap((task) => {
     const localTender = dispatchBoardState.tenderState[task.taskId]
     if (!localTender || task.assignmentMode !== 'BIDDING') return []
@@ -405,9 +407,15 @@ function projectRuntimeTenderRows(): TenderRow[] {
               : undefined,
           }
         })
+    const hasValidQuote = factoryQuotes.some(
+      (quote) => quote.hasQuoted && quote.quotePrice != null && Number.isFinite(quote.quotePrice),
+    )
+    const biddingFinished = compareSewingDeliveryDateTimes(localTender.biddingDeadline, now) <= 0
     const status: TenderStatus = task.assignmentStatus === 'AWARDED'
       ? 'AWARDED'
-      : localTender.tenderStatus
+      : localTender.tenderStatus === 'BIDDING' && biddingFinished && hasValidQuote
+        ? 'AWAIT_AWARD'
+        : localTender.tenderStatus
 
     return [{
       tenderId: localTender.tenderId,
@@ -437,16 +445,16 @@ function projectRuntimeTenderRows(): TenderRow[] {
   })
 }
 
-export function listDispatchTenderRows(): TenderRow[] {
+export function listDispatchTenderRows(now = formatOperationLocalWallClock()): TenderRow[] {
   const rowsByTenderId = new Map(
     [...MOCK_TENDERS, ...state.localTenders].map((row) => [row.tenderId, row] as const),
   )
-  projectRuntimeTenderRows().forEach((row) => rowsByTenderId.set(row.tenderId, row))
+  projectRuntimeTenderRows(now).forEach((row) => rowsByTenderId.set(row.tenderId, row))
   return Array.from(rowsByTenderId.values())
 }
 
-function getAllTenders(): TenderRow[] {
-  return listDispatchTenderRows()
+function getAllTenders(now = formatOperationLocalWallClock()): TenderRow[] {
+  return listDispatchTenderRows(now)
 }
 
 function getEffectiveAward(tender: TenderRow): LocalAward | undefined {
@@ -479,13 +487,13 @@ function toEffectiveTender(tender: TenderRow): TenderRow {
   }
 }
 
-function getViewTender(): TenderRow | null {
+function getViewTender(now = formatOperationLocalWallClock()): TenderRow | null {
   if (!state.viewTenderId) return null
-  return getAllTenders().find((tender) => tender.tenderId === state.viewTenderId) ?? null
+  return getAllTenders(now).find((tender) => tender.tenderId === state.viewTenderId) ?? null
 }
 
-function getStats(): { bidding: number; awaitAward: number; awarded: number; total: number } {
-  const allTenders = getAllTenders().map((tender) => toEffectiveTender(tender))
+function getStats(now = formatOperationLocalWallClock()): { bidding: number; awaitAward: number; awarded: number; total: number } {
+  const allTenders = getAllTenders(now).map((tender) => toEffectiveTender(tender))
 
   return {
     bidding: allTenders.filter((tender) => tender.status === 'BIDDING').length,
@@ -495,8 +503,8 @@ function getStats(): { bidding: number; awaitAward: number; awarded: number; tot
   }
 }
 
-function getFilteredTenders(): TenderRow[] {
-  const allTenders = getAllTenders().map((tender) => toEffectiveTender(tender))
+function getFilteredTenders(now = formatOperationLocalWallClock()): TenderRow[] {
+  const allTenders = getAllTenders(now).map((tender) => toEffectiveTender(tender))
   const keyword = state.keyword.trim().toLowerCase()
 
   return allTenders.filter((tender) => {
@@ -547,8 +555,8 @@ function closeCreateDrawer(): void {
   state.form = emptyCreateForm()
 }
 
-function openViewDrawer(tenderId: string): void {
-  const tender = getAllTenders().find((row) => row.tenderId === tenderId)
+function openViewDrawer(tenderId: string, now = formatOperationLocalWallClock()): void {
+  const tender = getAllTenders(now).find((row) => row.tenderId === tenderId)
   if (!tender) return
 
   const award = getEffectiveAward(tender)
@@ -633,8 +641,8 @@ export function awardRuntimeTenderTasks(input: RuntimeTenderBatchAwardInput): {
   }
 }
 
-function confirmAwardInView(): void {
-  const tender = getViewTender()
+function confirmAwardInView(now = formatOperationLocalWallClock()): void {
+  const tender = getViewTender(now)
   if (!tender) return
 
   const effective = toEffectiveTender(tender)
@@ -657,7 +665,7 @@ function confirmAwardInView(): void {
     taskIds,
     factoryId: selectedQuote.factoryId,
     factoryName: selectedQuote.factoryName,
-    awardedAt: formatOperationLocalWallClock(),
+    awardedAt: now,
     awardedPrice: selectedQuote.quotePrice,
     by: '平台定标员',
     allowLegacyLocalOnly: tender.processNameZh !== '车缝',
@@ -846,10 +854,10 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
 
                   const belowMin = quote.quotePrice != null && quote.quotePrice < tender.minPrice
                   const aboveMax = quote.quotePrice != null && quote.quotePrice > tender.maxPrice
-                  const isAwarded = effectiveAward?.awardedFactory === quote.factoryName
+                  const isAwarded = effectiveAward?.awardedFactoryId === quote.factoryId
 
                   return `
-                    <div class="px-3 py-2.5 ${isAwarded ? 'bg-green-50' : ''}">
+                    <div class="px-3 py-2.5 ${isAwarded ? 'bg-green-50' : ''}" data-quote-factory-id="${escapeHtml(quote.factoryId)}" data-awarded="${isAwarded ? 'true' : 'false'}">
                       <div class="flex items-center justify-between gap-2">
                         <div class="flex flex-wrap items-center gap-2">
                           <span class="text-sm font-medium">${escapeHtml(quote.factoryName)}</span>
@@ -1254,10 +1262,10 @@ function renderRow(tender: TenderRow): string {
   `
 }
 
-export function renderDispatchTendersPage(): string {
-  const stats = getStats()
-  const filtered = getFilteredTenders()
-  const viewTender = getViewTender()
+export function renderDispatchTendersPage(now = formatOperationLocalWallClock()): string {
+  const stats = getStats(now)
+  const filtered = getFilteredTenders(now)
+  const viewTender = getViewTender(now)
 
   return `
     <div class="space-y-6">
@@ -1456,7 +1464,10 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement |
   }
 }
 
-export function handleDispatchTendersEvent(target: HTMLElement): boolean {
+export function handleDispatchTendersEvent(
+  target: HTMLElement,
+  now = formatOperationLocalWallClock(),
+): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-tender-field]')
   if (
     fieldNode instanceof HTMLInputElement ||
@@ -1495,7 +1506,7 @@ export function handleDispatchTendersEvent(target: HTMLElement): boolean {
     const tenderId = actionNode.dataset.tenderId
     if (!tenderId) return true
 
-    openViewDrawer(tenderId)
+    openViewDrawer(tenderId, now)
     return true
   }
 
@@ -1543,7 +1554,7 @@ export function handleDispatchTendersEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'confirm-award') {
-    confirmAwardInView()
+    confirmAwardInView(now)
     return true
   }
 
