@@ -20,25 +20,25 @@ export interface SewingDeliverySlaTaskLike {
 }
 
 export interface SewingDeliveryMilestoneSnapshot {
-  ratio: 0.3 | 0.7 | 1
-  hoursAfterAcceptance: number
-  targetQty: number
-  deadlineAt: string
+  readonly ratio: 0.3 | 0.7 | 1
+  readonly hoursAfterAcceptance: number
+  readonly targetQty: number
+  readonly deadlineAt: string
 }
 
 export interface SewingDeliverySlaSnapshot {
-  snapshotId: string
-  assignmentId: string
-  runtimeTaskId: string
-  productionOrderId: string
-  factoryId: string
-  factoryName: string
-  assignedQty: number
-  acceptedAt: string
-  slaKind: SewingDeliverySlaKind
-  milestones: SewingDeliveryMilestoneSnapshot[]
-  active: boolean
-  replacedByAssignmentId?: string
+  readonly snapshotId: string
+  readonly assignmentId: string
+  readonly runtimeTaskId: string
+  readonly productionOrderId: string
+  readonly factoryId: string
+  readonly factoryName: string
+  readonly assignedQty: number
+  readonly acceptedAt: string
+  readonly slaKind: SewingDeliverySlaKind
+  readonly milestones: readonly SewingDeliveryMilestoneSnapshot[]
+  readonly active: boolean
+  readonly replacedByAssignmentId?: string
 }
 
 export interface SewingDeliveryReceiptFact {
@@ -58,19 +58,19 @@ export type SewingDeliveryMilestoneResult =
   | 'OVERDUE_REACHED'
 
 export interface SewingDeliveryMilestoneProjection extends SewingDeliveryMilestoneSnapshot {
-  result: SewingDeliveryMilestoneResult
-  firstReachedAt?: string
-  receiverDelayRecordIds: string[]
+  readonly result: SewingDeliveryMilestoneResult
+  readonly firstReachedAt?: string
+  readonly receiverDelayRecordIds: readonly string[]
 }
 
 export interface SewingDeliverySlaProjection {
-  snapshot: SewingDeliverySlaSnapshot
-  confirmedReceivedQty: number
-  progressRatio: number
-  remainingQty: number
-  completed: boolean
-  completedAt?: string
-  milestones: SewingDeliveryMilestoneProjection[]
+  readonly snapshot: SewingDeliverySlaSnapshot
+  readonly confirmedReceivedQty: number
+  readonly progressRatio: number
+  readonly remainingQty: number
+  readonly completed: boolean
+  readonly completedAt?: string
+  readonly milestones: readonly SewingDeliveryMilestoneProjection[]
 }
 
 const RULE_HOURS: Record<SewingDeliverySlaKind, [number, number, number]> = {
@@ -80,6 +80,18 @@ const RULE_HOURS: Record<SewingDeliverySlaKind, [number, number, number]> = {
 }
 
 const MILESTONE_RATIOS = [0.3, 0.7, 1] as const
+
+function assertPositiveFiniteInteger(value: number, fieldName: string): void {
+  if (!Number.isFinite(value) || !Number.isInteger(value) || value <= 0) {
+    throw new Error(`${fieldName}必须为正有限整数`)
+  }
+}
+
+function assertNonNegativeFiniteNumber(value: number, fieldName: string): void {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`${fieldName}必须为非负有限数`)
+  }
+}
 
 function isSewingProcess(process: { processCode: string; processName: string }): boolean {
   return process.processCode === 'SEW' || process.processName === '车缝'
@@ -124,22 +136,53 @@ export function classifySewingDeliverySla(task: SewingDeliverySlaTaskLike): Sewi
   return null
 }
 
-function parseDateTime(value: string): Date {
-  const [datePart, timePart] = value.split(' ')
-  const [year, month, day] = datePart.split('-').map(Number)
-  const [hours, minutes, seconds] = timePart.split(':').map(Number)
-  return new Date(year, month - 1, day, hours, minutes, seconds)
+function parseDateTime(value: string, fieldName: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(value)
+  if (!match) {
+    throw new Error(`${fieldName}必须为 YYYY-MM-DD HH:mm:ss 格式`)
+  }
+
+  const [, yearText, monthText, dayText, hoursText, minutesText, secondsText] = match
+  const [year, month, day, hours, minutes, seconds] = [
+    yearText,
+    monthText,
+    dayText,
+    hoursText,
+    minutesText,
+    secondsText,
+  ].map(Number)
+  const date = new Date(0)
+  date.setUTCFullYear(year, month - 1, day)
+  date.setUTCHours(hours, minutes, seconds, 0)
+  if (
+    date.getUTCFullYear() !== year
+    || date.getUTCMonth() !== month - 1
+    || date.getUTCDate() !== day
+    || date.getUTCHours() !== hours
+    || date.getUTCMinutes() !== minutes
+    || date.getUTCSeconds() !== seconds
+  ) {
+    throw new Error(`${fieldName}不是有效的年月日时分秒`)
+  }
+  return date
 }
 
 function formatDateTime(date: Date): string {
   const pad = (value: number) => String(value).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  return `${String(date.getUTCFullYear()).padStart(4, '0')}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`
 }
 
-function addHours(value: string, hours: number): string {
-  const date = parseDateTime(value)
+function addHours(value: string, hours: number, fieldName: string): string {
+  const date = parseDateTime(value, fieldName)
   date.setTime(date.getTime() + hours * 60 * 60 * 1000)
   return formatDateTime(date)
+}
+
+function cloneAndFreezeSnapshot(snapshot: SewingDeliverySlaSnapshot): SewingDeliverySlaSnapshot {
+  const milestones = Object.freeze(
+    snapshot.milestones.map((milestone) => Object.freeze({ ...milestone })),
+  )
+  return Object.freeze({ ...snapshot, milestones })
 }
 
 export function createSewingDeliverySlaSnapshot(input: {
@@ -152,18 +195,19 @@ export function createSewingDeliverySlaSnapshot(input: {
   acceptedAt: string
   slaKind: SewingDeliverySlaKind
 }): SewingDeliverySlaSnapshot {
+  assertPositiveFiniteInteger(input.assignedQty, '分配数量')
   const ruleHours = RULE_HOURS[input.slaKind]
-  return {
+  return cloneAndFreezeSnapshot({
     snapshotId: `SEWING-DELIVERY-SLA-${input.assignmentId}`,
     ...input,
     milestones: MILESTONE_RATIOS.map((ratio, index) => ({
       ratio,
       hoursAfterAcceptance: ruleHours[index],
       targetQty: Math.ceil(input.assignedQty * ratio),
-      deadlineAt: addHours(input.acceptedAt, ruleHours[index]),
+      deadlineAt: addHours(input.acceptedAt, ruleHours[index], '接单时间'),
     })),
     active: true,
-  }
+  })
 }
 
 export function projectSewingDeliverySla(
@@ -171,45 +215,78 @@ export function projectSewingDeliverySla(
   receipts: SewingDeliveryReceiptFact[],
   nowAt: string,
 ): SewingDeliverySlaProjection {
-  const reachedMilestones = snapshot.milestones.map(() => ({
+  assertPositiveFiniteInteger(snapshot.assignedQty, '分配数量')
+  parseDateTime(snapshot.acceptedAt, '接单时间')
+  snapshot.milestones.forEach((milestone) => parseDateTime(milestone.deadlineAt, '节点截止时间'))
+  parseDateTime(nowAt, '当前时间')
+  receipts.forEach((receipt) => {
+    assertNonNegativeFiniteNumber(receipt.submittedQty, '交出数量')
+    assertNonNegativeFiniteNumber(receipt.receivedQty, '实收数量')
+    const reversedQty = receipt.reversedQty ?? 0
+    assertNonNegativeFiniteNumber(reversedQty, '冲销数量')
+    if (reversedQty > receipt.receivedQty) {
+      throw new Error('冲销数量不能超过实收数量')
+    }
+    parseDateTime(receipt.submittedAt, '交出时间')
+    parseDateTime(receipt.receivedAt, '实收时间')
+  })
+  const projectionSnapshot = cloneAndFreezeSnapshot(snapshot)
+  const reachedMilestones = projectionSnapshot.milestones.map(() => ({
     firstReachedAt: undefined as string | undefined,
     receiverDelayRecordIds: [] as string[],
   }))
-  const orderedReceipts = [...receipts].sort((left, right) =>
-    left.receivedAt.localeCompare(right.receivedAt) || left.recordId.localeCompare(right.recordId)
-  )
+  const orderedReceipts = [...receipts].sort((left, right) => left.receivedAt.localeCompare(right.receivedAt))
 
   let confirmedReceivedQty = 0
   let completedAt: string | undefined
 
-  for (const receipt of orderedReceipts) {
-    if (receipt.voided) continue
+  for (let receiptIndex = 0; receiptIndex < orderedReceipts.length;) {
+    const receivedAt = orderedReceipts[receiptIndex].receivedAt
+    const receiptBatch: SewingDeliveryReceiptFact[] = []
+    while (orderedReceipts[receiptIndex]?.receivedAt === receivedAt) {
+      receiptBatch.push(orderedReceipts[receiptIndex])
+      receiptIndex += 1
+    }
 
-    const effectiveReceivedQty = Math.max(receipt.receivedQty - (receipt.reversedQty ?? 0), 0)
     const previousReceivedQty = confirmedReceivedQty
-    confirmedReceivedQty += effectiveReceivedQty
+    const batchReceivedQty = receiptBatch.reduce((sum, receipt) => {
+      if (receipt.voided) return sum
+      return sum + Math.max(receipt.receivedQty - (receipt.reversedQty ?? 0), 0)
+    }, 0)
+    confirmedReceivedQty += batchReceivedQty
 
-    snapshot.milestones.forEach((milestone, index) => {
+    projectionSnapshot.milestones.forEach((milestone, index) => {
       const reached = reachedMilestones[index]
       if (reached.firstReachedAt || previousReceivedQty >= milestone.targetQty) return
       if (confirmedReceivedQty < milestone.targetQty) return
 
-      reached.firstReachedAt = receipt.receivedAt
-      if (receipt.submittedAt <= milestone.deadlineAt && receipt.receivedAt > milestone.deadlineAt) {
-        reached.receiverDelayRecordIds.push(receipt.recordId)
-      }
+      reached.firstReachedAt = receivedAt
+      reached.receiverDelayRecordIds.push(
+        ...receiptBatch
+          .filter((receipt) => {
+            const effectiveReceivedQty = receipt.voided
+              ? 0
+              : Math.max(receipt.receivedQty - (receipt.reversedQty ?? 0), 0)
+            return effectiveReceivedQty > 0
+              && receipt.submittedQty > 0
+              && receipt.submittedAt <= milestone.deadlineAt
+              && receipt.receivedAt > milestone.deadlineAt
+          })
+          .map((receipt) => receipt.recordId)
+          .sort(),
+      )
     })
 
     if (
       completedAt === undefined
-      && previousReceivedQty < snapshot.assignedQty
-      && confirmedReceivedQty >= snapshot.assignedQty
+      && previousReceivedQty < projectionSnapshot.assignedQty
+      && confirmedReceivedQty >= projectionSnapshot.assignedQty
     ) {
-      completedAt = receipt.receivedAt
+      completedAt = receivedAt
     }
   }
 
-  const milestones = snapshot.milestones.map((milestone, index): SewingDeliveryMilestoneProjection => {
+  const milestones = Object.freeze(projectionSnapshot.milestones.map((milestone, index): SewingDeliveryMilestoneProjection => {
     const reached = reachedMilestones[index]
     let result: SewingDeliveryMilestoneResult
     if (reached.firstReachedAt) {
@@ -218,21 +295,21 @@ export function projectSewingDeliverySla(
       result = nowAt < milestone.deadlineAt ? 'UPCOMING' : 'OVERDUE_PENDING'
     }
 
-    return {
+    return Object.freeze({
       ...milestone,
       result,
       ...(reached.firstReachedAt ? { firstReachedAt: reached.firstReachedAt } : {}),
-      receiverDelayRecordIds: reached.receiverDelayRecordIds,
-    }
-  })
+      receiverDelayRecordIds: Object.freeze([...reached.receiverDelayRecordIds]),
+    })
+  }))
 
-  return {
-    snapshot,
+  return Object.freeze({
+    snapshot: projectionSnapshot,
     confirmedReceivedQty,
-    progressRatio: confirmedReceivedQty / snapshot.assignedQty,
-    remainingQty: Math.max(snapshot.assignedQty - confirmedReceivedQty, 0),
-    completed: confirmedReceivedQty >= snapshot.assignedQty,
+    progressRatio: confirmedReceivedQty / projectionSnapshot.assignedQty,
+    remainingQty: Math.max(projectionSnapshot.assignedQty - confirmedReceivedQty, 0),
+    completed: confirmedReceivedQty >= projectionSnapshot.assignedQty,
     ...(completedAt ? { completedAt } : {}),
     milestones,
-  }
+  })
 }
