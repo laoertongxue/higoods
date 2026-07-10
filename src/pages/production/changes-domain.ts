@@ -61,6 +61,7 @@ import {
   type TechPackChangeModule,
   type TechPackRelationStatus,
 } from '../../data/fcs/production-tech-pack-change-domain'
+import { adaptLegacyQuantityLinesForEdit } from '../../data/fcs/production-order-change-workflow.ts'
 import {
   createProductionChangeEditForm,
   listCurrentMaterialOptionsForOrder,
@@ -2298,6 +2299,11 @@ export function renderProductionChangeEditPage(changeOrderId: string): string {
     `
   }
 
+  const quantityEditAdaptation = order.changeType === 'QUANTITY_CHANGE'
+    ? adaptLegacyQuantityLinesForEdit(order.productionOrderId, order.quantityLines ?? [])
+    : null
+  const requiresSafeReadOnly = Boolean(quantityEditAdaptation?.unmatchedLegacyLines.length)
+
   if (state.productionChangeSelectedOrderId !== changeOrderId) {
     state.productionChangeSelectedOrderId = changeOrderId
     state.productionChangeForm = createProductionChangeEditForm(order)
@@ -2315,12 +2321,22 @@ export function renderProductionChangeEditPage(changeOrderId: string): string {
           <p class="mt-1 text-sm text-muted-foreground">当前变更单号：${escapeHtml(changeOrderId)}</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="save-production-change-draft">保存草稿</button>
-          <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="submit-production-change-order">保存变更内容</button>
+          ${requiresSafeReadOnly
+            ? `
+              <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/production/changes">返回列表</button>
+              <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change-from-order" data-order-id="${escapeHtml(order.productionOrderId)}">按原记录新建变更</button>
+            `
+            : `
+              <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="save-production-change-draft">保存草稿</button>
+              <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="submit-production-change-order">保存变更内容</button>
+            `}
         </div>
       </header>
       ${renderProductionChangeFormSteps(state.productionChangeFormStep)}
-      ${renderProductionChangeFormBody(state.productionChangeFormStep, state.productionChangeForm)}
+      ${renderProductionChangeFormBody(state.productionChangeFormStep, state.productionChangeForm, {
+        readOnly: requiresSafeReadOnly,
+        unmatchedLegacyQuantityLines: quantityEditAdaptation?.unmatchedLegacyLines,
+      })}
     </div>
   `
 }

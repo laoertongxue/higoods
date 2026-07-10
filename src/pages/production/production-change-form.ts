@@ -6,11 +6,18 @@ import {
   type ProductionOrderChangeOrder,
 } from '../../data/fcs/production-tech-pack-change-domain.ts'
 import {
+  adaptLegacyQuantityLinesForEdit,
+  areMaterialSelectionsEquivalent,
   buildMaterialReplacementAllocations,
   createFollowingOrderPlans,
   createQuantityLinesForOrder,
+  LEGACY_ORIGINAL_MATERIAL_PREFIX,
+  LEGACY_REPLACEMENT_MATERIAL_PREFIX,
   listReplacementMaterialOptions,
   normalizeMaterialReplacementAllocations,
+  readLegacyMaterialText,
+  resolveLegacyMaterialValue,
+  type LegacyQuantityChangeLine,
 } from '../../data/fcs/production-order-change-workflow.ts'
 import { escapeHtml } from '../../utils.ts'
 import { createProductionChangeForm, state } from './context.ts'
@@ -64,6 +71,9 @@ function renderFactTable(title: string, headers: string[], rows: string[][], emp
           <summary class="cursor-pointer text-sm text-primary">查看其余 ${overflowRows.length} 条</summary>
           <div class="mt-2 overflow-x-auto rounded-md border">
             <table class="min-w-full text-left text-sm">
+              <thead class="bg-muted/40 text-xs text-muted-foreground">
+                <tr>${headers.map((header) => `<th class="whitespace-nowrap px-3 py-2 font-medium">${escapeHtml(header)}</th>`).join('')}</tr>
+              </thead>
               <tbody class="divide-y">${renderRows(overflowRows)}</tbody>
             </table>
           </div>
@@ -205,7 +215,7 @@ export function renderProductionChangeOrderStep(form: ProductionChangeForm): str
   `
 }
 
-function renderQuantityLine(line: ProductionChangeForm['quantityLines'][number]): string {
+function renderQuantityLine(line: ProductionChangeForm['quantityLines'][number], readOnly = false): string {
   const difference = line.targetQty - line.currentQty
   const differenceText = difference === 0
     ? '不变'
@@ -218,34 +228,39 @@ function renderQuantityLine(line: ProductionChangeForm['quantityLines'][number])
     <tr data-production-change-quantity-row data-line-id="${escapeHtml(line.id)}">
       <td class="px-3 py-3">
         ${editableIdentity
-          ? `<input data-prod-field="productionChangeQuantitySkuCode" data-line-id="${escapeHtml(line.id)}" value="${escapeHtml(line.skuCode)}" class="w-32 rounded-md border px-2 py-1.5" placeholder="商品编码" />`
+          ? `<input data-prod-field="productionChangeQuantitySkuCode" data-line-id="${escapeHtml(line.id)}" value="${escapeHtml(line.skuCode)}" class="w-32 rounded-md border px-2 py-1.5" placeholder="商品编码" ${readOnly ? 'disabled' : ''} />`
           : escapeHtml(line.skuCode)}
       </td>
       <td class="px-3 py-3">
         ${editableIdentity
-          ? `<input data-prod-field="productionChangeQuantityColor" data-line-id="${escapeHtml(line.id)}" value="${escapeHtml(line.color)}" class="w-24 rounded-md border px-2 py-1.5" placeholder="颜色" />`
+          ? `<input data-prod-field="productionChangeQuantityColor" data-line-id="${escapeHtml(line.id)}" value="${escapeHtml(line.color)}" class="w-24 rounded-md border px-2 py-1.5" placeholder="颜色" ${readOnly ? 'disabled' : ''} />`
           : escapeHtml(line.color)}
       </td>
       <td class="px-3 py-3">
         ${editableIdentity
-          ? `<input data-prod-field="productionChangeQuantitySize" data-line-id="${escapeHtml(line.id)}" value="${escapeHtml(line.size)}" class="w-20 rounded-md border px-2 py-1.5" placeholder="尺码" />`
+          ? `<input data-prod-field="productionChangeQuantitySize" data-line-id="${escapeHtml(line.id)}" value="${escapeHtml(line.size)}" class="w-20 rounded-md border px-2 py-1.5" placeholder="尺码" ${readOnly ? 'disabled' : ''} />`
           : escapeHtml(line.size)}
       </td>
       <td class="whitespace-nowrap px-3 py-3">${line.originalQty} 件</td>
       <td class="whitespace-nowrap px-3 py-3">${line.currentQty} 件</td>
       <td class="px-3 py-3">
-        <input data-prod-field="productionChangeQuantityTargetQty" data-line-id="${escapeHtml(line.id)}" type="number" min="0" step="1" value="${line.targetQty}" class="w-24 rounded-md border px-2 py-1.5" />
+        <input data-prod-field="productionChangeQuantityTargetQty" data-line-id="${escapeHtml(line.id)}" type="number" min="0" step="1" value="${line.targetQty}" class="w-24 rounded-md border px-2 py-1.5" ${readOnly ? 'disabled' : ''} />
       </td>
       <td class="whitespace-nowrap px-3 py-3" data-production-change-quantity-delta data-line-id="${escapeHtml(line.id)}">${escapeHtml(differenceText)}</td>
       <td class="whitespace-nowrap px-3 py-3" data-production-change-quantity-status data-line-id="${escapeHtml(line.id)}">${line.targetQty === 0 ? '已取消' : line.isNew ? '新增' : '保留'}</td>
       <td class="px-3 py-3">
-        ${line.isNew ? `<button type="button" class="text-sm text-destructive" data-prod-action="remove-production-change-quantity-line" data-line-id="${escapeHtml(line.id)}">删除</button>` : '<span class="text-xs text-muted-foreground">历史行保留</span>'}
+        ${line.isNew && !readOnly ? `<button type="button" class="text-sm text-destructive" data-prod-action="remove-production-change-quantity-line" data-line-id="${escapeHtml(line.id)}">删除</button>` : '<span class="text-xs text-muted-foreground">历史行保留</span>'}
       </td>
     </tr>
   `
 }
 
-export function renderQuantityChangeForm(form: ProductionChangeForm): string {
+export function renderQuantityChangeForm(
+  form: ProductionChangeForm,
+  options: { readOnly?: boolean; unmatchedLegacyLines?: LegacyQuantityChangeLine[] } = {},
+): string {
+  const readOnly = options.readOnly === true
+  const unmatchedLegacyLines = options.unmatchedLegacyLines ?? []
   const quantityLines = form.quantityLines.length > 0
     ? form.quantityLines
     : createQuantityLinesForOrder(form.productionOrderId)
@@ -260,10 +275,21 @@ export function renderQuantityChangeForm(form: ProductionChangeForm): string {
           <h2 class="text-base font-semibold">修改生产单需求数量</h2>
           <p class="mt-1 text-sm text-muted-foreground">按每条需求明细修改，不直接修改生产单总数量。数量改为 0 后显示“已取消”，历史行仍保留。</p>
         </div>
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="add-production-change-quantity-line">
+        ${readOnly ? '' : `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="add-production-change-quantity-line">
           <i data-lucide="plus" class="mr-1 inline h-4 w-4"></i>新增明细
-        </button>
+        </button>`}
       </div>
+      ${unmatchedLegacyLines.length > 0 ? `
+        <section class="rounded-md border border-amber-300 bg-amber-50 p-4" data-production-change-edit-safety-warning>
+          <h3 class="text-sm font-semibold text-amber-900">无法安全对应当前需求明细，不能直接保存，请按原记录新建变更</h3>
+          <div class="mt-3 overflow-x-auto rounded-md border border-amber-200 bg-background">
+            <table class="min-w-full text-left text-sm">
+              <thead class="bg-amber-100/60"><tr>${['原记录颜色', '原记录尺码', '原数量', '变更后数量', '原记录变化'].map((title) => `<th class="px-3 py-2 font-medium">${title}</th>`).join('')}</tr></thead>
+              <tbody>${unmatchedLegacyLines.map((line) => `<tr><td class="px-3 py-2">${escapeHtml(line.color)}</td><td class="px-3 py-2">${escapeHtml(line.size)}</td><td class="px-3 py-2">${line.currentQty} 件</td><td class="px-3 py-2">${line.newQty} 件</td><td class="px-3 py-2">${line.newQty - line.currentQty} 件</td></tr>`).join('')}</tbody>
+            </table>
+          </div>
+        </section>
+      ` : ''}
       <div class="overflow-x-auto rounded-md border">
         <table class="min-w-[1120px] text-left text-sm">
           <thead class="bg-muted/40 text-xs text-muted-foreground">
@@ -271,7 +297,7 @@ export function renderQuantityChangeForm(form: ProductionChangeForm): string {
           </thead>
           <tbody class="divide-y">
             ${quantityLines.length > 0
-              ? quantityLines.map(renderQuantityLine).join('')
+              ? quantityLines.map((line) => renderQuantityLine(line, readOnly)).join('')
               : '<tr><td colspan="9" class="px-3 py-6 text-center text-muted-foreground">暂无需求明细，可新增一条明细。</td></tr>'}
           </tbody>
         </table>
@@ -288,7 +314,7 @@ export function renderQuantityChangeForm(form: ProductionChangeForm): string {
       </div>
       <label class="block space-y-1 text-sm">
         <span class="font-medium">变更原因</span>
-        <textarea data-prod-field="productionChangeReason" class="min-h-24 w-full rounded-md border px-3 py-2" placeholder="说明本次调整原因">${escapeHtml(form.reason)}</textarea>
+        <textarea data-prod-field="productionChangeReason" class="min-h-24 w-full rounded-md border px-3 py-2" placeholder="说明本次调整原因" ${readOnly ? 'disabled' : ''}>${escapeHtml(form.reason)}</textarea>
       </label>
     </section>
   `
@@ -307,9 +333,6 @@ function renderSegmentButton(
   `
 }
 
-const LEGACY_ORIGINAL_MATERIAL_PREFIX = 'legacy-original:'
-const LEGACY_REPLACEMENT_MATERIAL_PREFIX = 'legacy-replacement:'
-
 function isCurrentFabricMaterial(material: string): boolean {
   const normalized = material.trim().toUpperCase()
   if (/\bACC[-_]/.test(normalized) || /(辅料|拉链|纽扣|包装|染料)/.test(material)) return false
@@ -327,55 +350,15 @@ export function listCurrentMaterialOptionsForOrder(
     }))
 }
 
-function createLegacyMaterialValue(prefix: string, text: string): string {
-  return `${prefix}${encodeURIComponent(text)}`
-}
-
-function readLegacyMaterialText(value: string, prefix: string): string {
-  if (!value.startsWith(prefix)) return ''
-  try {
-    return decodeURIComponent(value.slice(prefix.length))
-  } catch {
-    return value.slice(prefix.length)
-  }
-}
-
 function withSelectedLegacyMaterialOption(
   options: Array<{ value: string; label: string }>,
   selectedValue: string,
-  prefix: string,
 ): Array<{ value: string; label: string }> {
   if (!selectedValue || options.some((option) => option.value === selectedValue)) return options
-  const legacyText = readLegacyMaterialText(selectedValue, prefix)
+  const legacyText = readLegacyMaterialText(selectedValue)
   return legacyText
     ? [{ value: selectedValue, label: `${legacyText}（原记录）` }, ...options]
     : options
-}
-
-function normalizeMaterialName(text: string): string {
-  return text.replace(/^(主面料|原面料|替代物料|新面料)[:：]?/, '').replace(/\s+/g, '').toLowerCase()
-}
-
-function resolveLegacyMaterialValue(
-  text: string,
-  options: Array<{ value: string; label: string }>,
-  legacyPrefix: string,
-): string {
-  const normalizedText = normalizeMaterialName(text)
-  const matched = options.find((option) => {
-    const normalizedLabel = normalizeMaterialName(option.label.split(' / ')[0])
-    return normalizedLabel.includes(normalizedText) || normalizedText.includes(normalizedLabel)
-  })
-  return matched?.value ?? createLegacyMaterialValue(legacyPrefix, text)
-}
-
-function getComparableMaterialCode(
-  value: string,
-  options: Array<{ value: string; label: string }>,
-): string {
-  const option = options.find((item) => item.value === value)
-  if (!option) return ''
-  return option.label.match(/\b(?:MAT-)?FAB[-_][A-Z0-9-]+\b/i)?.[0]?.toUpperCase() ?? ''
 }
 
 export function createProductionChangeEditForm(order: ProductionOrderChangeOrder): ProductionChangeForm {
@@ -385,36 +368,10 @@ export function createProductionChangeEditForm(order: ProductionOrderChangeOrder
   form.reason = order.reason
 
   if (order.changeType === 'QUANTITY_CHANGE') {
-    const currentLines = createQuantityLinesForOrder(order.productionOrderId)
-    const legacyLines = order.quantityLines ?? []
-    const legacyByCombination = new Map(
-      legacyLines.map((line) => [`${line.color}\u0000${line.size}`, line]),
-    )
-    const matchedCombinations = new Set<string>()
-    form.quantityLines = currentLines.map((line) => {
-      const combinationKey = `${line.color}\u0000${line.size}`
-      const legacyLine = legacyByCombination.get(combinationKey)
-      if (!legacyLine) return line
-      matchedCombinations.add(combinationKey)
-      return { ...line, targetQty: Math.max(0, Math.round(legacyLine.newQty)) }
-    })
-    legacyLines.forEach((legacyLine, index) => {
-      const combinationKey = `${legacyLine.color}\u0000${legacyLine.size}`
-      if (matchedCombinations.has(combinationKey)) return
-      const currentQty = Math.max(0, Math.round(legacyLine.currentQty))
-      form.quantityLines.push({
-        id: `${order.id}-LEGACY-QTY-${index + 1}`,
-        skuCode: '',
-        color: legacyLine.color,
-        size: legacyLine.size,
-        originalQty: currentQty,
-        currentQty,
-        targetQty: Math.max(0, Math.round(legacyLine.newQty)),
-        unit: '件',
-        isNew: true,
-        coveredByCurrentVersion: false,
-      })
-    })
+    form.quantityLines = adaptLegacyQuantityLinesForEdit(
+      order.productionOrderId,
+      order.quantityLines ?? [],
+    ).quantityLines
     return form
   }
 
@@ -457,28 +414,38 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm): strin
   const currentMaterialOptions = withSelectedLegacyMaterialOption(
     listCurrentMaterialOptionsForOrder(form.productionOrderId),
     replacement.originalMaterialId,
-    LEGACY_ORIGINAL_MATERIAL_PREFIX,
   )
   const baseReplacementMaterialOptions = listReplacementMaterialOptions()
-  const originalComparableCode = getComparableMaterialCode(replacement.originalMaterialId, currentMaterialOptions)
+  const originalIdentity = replacement.originalMaterialId
+    ? areMaterialSelectionsEquivalent(
+      replacement.originalMaterialId,
+      currentMaterialOptions,
+      replacement.originalMaterialId,
+      currentMaterialOptions,
+    )
+    : false
   const selectableReplacementMaterialOptions = baseReplacementMaterialOptions.filter((option) =>
-    !originalComparableCode || getComparableMaterialCode(option.value, baseReplacementMaterialOptions) !== originalComparableCode,
+    !areMaterialSelectionsEquivalent(
+      replacement.originalMaterialId,
+      currentMaterialOptions,
+      option.value,
+      baseReplacementMaterialOptions,
+    ),
   )
   const systemReplacementMaterialOptions = withSelectedLegacyMaterialOption(
     selectableReplacementMaterialOptions,
     replacement.replacementMaterialId,
-    LEGACY_REPLACEMENT_MATERIAL_PREFIX,
-  )
-  const replacementComparableCode = getComparableMaterialCode(
-    replacement.replacementMaterialId,
-    baseReplacementMaterialOptions,
   )
   const hasSameMaterialError = Boolean(
-    replacement.originalMaterialId &&
-    replacement.replacementMaterialId &&
+    originalIdentity &&
     (
       replacement.originalMaterialId === replacement.replacementMaterialId ||
-      (originalComparableCode && originalComparableCode === replacementComparableCode)
+      areMaterialSelectionsEquivalent(
+        replacement.originalMaterialId,
+        currentMaterialOptions,
+        replacement.replacementMaterialId,
+        baseReplacementMaterialOptions,
+      )
     ),
   )
   const normalizedAllocations = normalizeMaterialReplacementAllocations(
@@ -604,16 +571,29 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm): strin
   `
 }
 
-function renderProductionChangeContentStep(form: ProductionChangeForm): string {
+export interface ProductionChangeFormRenderOptions {
+  readOnly?: boolean
+  unmatchedLegacyQuantityLines?: LegacyQuantityChangeLine[]
+}
+
+function renderProductionChangeContentStep(
+  form: ProductionChangeForm,
+  options: ProductionChangeFormRenderOptions,
+): string {
   return `
     <div class="space-y-5">
-      <div class="flex max-w-2xl">
-        ${renderSegmentButton('修改生产单需求数量', 'set-production-change-type', 'change-type', 'QUANTITY_CHANGE', form.changeType === 'QUANTITY_CHANGE')}
-        ${renderSegmentButton('替换物料', 'set-production-change-type', 'change-type', 'MATERIAL_REPLACEMENT', form.changeType === 'MATERIAL_REPLACEMENT')}
-      </div>
+      ${options.readOnly
+        ? `<div class="max-w-2xl rounded-md border bg-muted/30 px-3 py-2 text-sm font-medium">${form.changeType === 'QUANTITY_CHANGE' ? '修改生产单需求数量（只读）' : '替换物料（只读）'}</div>`
+        : `<div class="flex max-w-2xl">
+            ${renderSegmentButton('修改生产单需求数量', 'set-production-change-type', 'change-type', 'QUANTITY_CHANGE', form.changeType === 'QUANTITY_CHANGE')}
+            ${renderSegmentButton('替换物料', 'set-production-change-type', 'change-type', 'MATERIAL_REPLACEMENT', form.changeType === 'MATERIAL_REPLACEMENT')}
+          </div>`}
       ${form.changeType === 'MATERIAL_REPLACEMENT'
         ? renderMaterialReplacementForm(form)
-        : renderQuantityChangeForm(form)}
+        : renderQuantityChangeForm(form, {
+          readOnly: options.readOnly,
+          unmatchedLegacyLines: options.unmatchedLegacyQuantityLines,
+        })}
     </div>
   `
 }
@@ -632,11 +612,12 @@ function renderPendingStep(title: string, description: string): string {
 export function renderProductionChangeFormBody(
   step: ProductionChangeFormStep,
   form: ProductionChangeForm,
+  options: ProductionChangeFormRenderOptions = {},
 ): string {
   const body = step === 'order'
     ? renderProductionChangeOrderStep(form)
     : step === 'content'
-      ? renderProductionChangeContentStep(form)
+      ? renderProductionChangeContentStep(form, options)
       : step === 'handling'
         ? renderPendingStep('确认处理方案', '第三步将在后续任务中接入系统处理汇总和必要判断。')
         : renderPendingStep('同步执行', '第四步将在后续任务中接入一次确认、同步提交和失败回滚。')

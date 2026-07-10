@@ -3,6 +3,8 @@ import { createProductionChangeForm, state } from '../src/pages/production/conte
 import * as changeDomain from '../src/data/fcs/production-tech-pack-change-domain.ts'
 import { listMaterialArchives } from '../src/data/pcs-material-archive-repository.ts'
 import {
+  adaptLegacyQuantityLinesForEdit,
+  areMaterialSelectionsEquivalent,
   buildProductionChangePreview,
   buildMaterialReplacementAllocations,
   createFollowingOrderPlans,
@@ -10,6 +12,9 @@ import {
   inferProductionChangeResult,
   listAffectedDocumentNosForOrder,
   listReplacementMaterialOptions,
+  LEGACY_ORIGINAL_MATERIAL_PREFIX,
+  LEGACY_REPLACEMENT_MATERIAL_PREFIX,
+  createLegacyMaterialValue,
   normalizeMaterialReplacementAllocations,
   productionChangeResultLabels,
   quantityChangeRequiresNewFormalVersion,
@@ -592,6 +597,55 @@ factoryQuantityLines.forEach((line) => {
   assert.equal(line.originalQty, line.currentQty, '数量明细原数量与当前数量必须一致')
   assert.equal(line.currentQty, line.targetQty, '数量明细当前数量与目标数量初始值必须一致')
 })
+const legacyQuantityOrder = changeDomain.listProductionOrderChangeOrders().find(
+  (order) => order.id === 'CHANGE-PO-202603-0004-001',
+)
+assert.ok(legacyQuantityOrder?.quantityLines, '旧数量编辑适配检查需要 CHANGE-PO-202603-0004-001')
+const legacyQuantityAdaptation = adaptLegacyQuantityLinesForEdit(
+  quantityFactoryOrderId,
+  legacyQuantityOrder.quantityLines,
+)
+assert.equal(
+  legacyQuantityAdaptation.quantityLines.length,
+  factoryQuantityLines.length,
+  '旧数量记录适配不得增加当前需求行数',
+)
+assert.ok(
+  legacyQuantityAdaptation.quantityLines.every((line) => line.isNew === false),
+  '旧数量记录匹配结果不得伪装成新增需求',
+)
+const adaptedBlackM = legacyQuantityAdaptation.quantityLines.find(
+  (line) => line.color === 'Black' && line.size === 'M',
+)
+assert.equal(adaptedBlackM?.targetQty, 970, '黑色 M 必须按旧记录差额 -30 映射到当前 Black M 1000→970')
+assert.equal(
+  legacyQuantityAdaptation.quantityLines.reduce((sum, line) => sum + line.targetQty, 0),
+  factoryQuantityLines.reduce((sum, line) => sum + line.currentQty, 0) - 30,
+  '目标总量必须等于当前需求总量加所有已匹配旧行差额',
+)
+assert.deepEqual(
+  legacyQuantityAdaptation.unmatchedLegacyLines.map((line) => `${line.color}/${line.size}`),
+  ['藏青色/L'],
+  '无法对应当前需求的藏青色 L 必须进入未匹配旧行',
+)
+const safeLegacyQuantityAdaptation = adaptLegacyQuantityLinesForEdit(
+  quantityFactoryOrderId,
+  [legacyQuantityOrder.quantityLines[0]],
+)
+assert.equal(safeLegacyQuantityAdaptation.unmatchedLegacyLines.length, 0, '全部可匹配的旧记录必须保持可编辑')
+
+const legacyOriginalIdentity = createLegacyMaterialValue(
+  LEGACY_ORIGINAL_MATERIAL_PREFIX,
+  '原面料：特殊混纺　面料 280G',
+)
+const legacyReplacementIdentity = createLegacyMaterialValue(
+  LEGACY_REPLACEMENT_MATERIAL_PREFIX,
+  '新面料:  特殊混纺 面料 280g',
+)
+assert.ok(
+  areMaterialSelectionsEquivalent(legacyOriginalIdentity, [], legacyReplacementIdentity, []),
+  '不同兼容前缀包装的相同非 FAB 文本必须识别为同一物料',
+)
 
 const replacementMaterialOptions = listReplacementMaterialOptions()
 const validFabricMaterialIds = Array.from(
@@ -986,6 +1040,11 @@ assert.ok(
   overflowFactsHtml.includes('data-production-change-fact-overflow'),
   '超过 8 条的事实必须使用带稳定锚点的展开区承载其余项',
 )
+assert.equal(
+  (overflowFactsHtml.match(/>单据类型</g) ?? []).length,
+  2,
+  '展开的剩余事实表必须重复展示与首表一致的表头',
+)
 
 state.productionChangeForm.productionOrderId = relation.productionOrderId
 ;(state.productionChangeForm as any).changeType = 'QUANTITY_CHANGE'
@@ -1101,6 +1160,16 @@ state.productionChangeForm.materialReplacement.originalMaterialId = alternativeM
 state.productionChangeForm.materialReplacement.replacementMaterialId = alternativeMaterialOption.value
 const sameMaterialFormHtml = renderProductionChangeNewPage()
 assert.ok(sameMaterialFormHtml.includes('新面料不能与原面料相同'), '原面料与新面料同值时必须显示明确中文错误')
+const legacySameMaterialForm = createProductionChangeForm()
+legacySameMaterialForm.productionOrderId = relation.productionOrderId
+legacySameMaterialForm.changeType = 'MATERIAL_REPLACEMENT'
+legacySameMaterialForm.materialReplacement.originalMaterialId = legacyOriginalIdentity
+legacySameMaterialForm.materialReplacement.replacementMaterialId = legacyReplacementIdentity
+const legacySameMaterialHtml = renderProductionChangeFormBody('content', legacySameMaterialForm)
+assert.ok(
+  legacySameMaterialHtml.includes('新面料不能与原面料相同'),
+  '同一非 FAB 文本使用不同兼容前缀时也必须显示同值错误',
+)
 state.productionChangeForm.materialReplacement.originalMaterialId = originalMaterialOption.value
 state.productionChangeForm.materialReplacement.replacementMaterialId = alternativeMaterialOption.value
 state.productionChangeForm.advancedAllocationOpen = true
@@ -1133,13 +1202,26 @@ const quantityEditOrder = listProductionOrderChangeOrders().find((order) => orde
 assert.ok(quantityEditOrder, '编辑页检查至少需要一张旧数量变更单')
 state.productionChangeFormStep = 'content'
 const quantityEditHtml = renderProductionChangeEditPage(quantityEditOrder.id)
-const editedQuantityLine = quantityEditOrder.quantityLines![0]
-assert.ok(quantityEditHtml.includes(editedQuantityLine.color), '数量编辑页必须回填原记录颜色')
-assert.ok(quantityEditHtml.includes(editedQuantityLine.size), '数量编辑页必须回填原记录尺码')
 assert.ok(
-  new RegExp(`data-prod-field="productionChangeQuantityTargetQty"[^>]*value="${editedQuantityLine.newQty}"`).test(quantityEditHtml),
-  '数量编辑页必须把旧记录 newQty 回填到变更后数量',
+  /data-prod-field="productionChangeQuantityTargetQty"[^>]*value="970"/.test(quantityEditHtml),
+  '数量编辑页必须按差额把黑色 M 回填为 970',
 )
+assert.equal(
+  (quantityEditHtml.match(/data-production-change-quantity-row/g) ?? []).length,
+  factoryQuantityLines.length,
+  '数量编辑页不得因旧记录增加需求行',
+)
+assert.ok(
+  quantityEditHtml.includes('调整后自动汇总：</span><strong>3470 件'),
+  '数量编辑页目标合计必须只应用已匹配旧行差额，不能变成 3670',
+)
+assert.ok(!quantityEditHtml.includes('data-line-id="CHANGE-PO-202603-0004-001-LEGACY'), '未匹配旧行不得渲染为新增需求行')
+assert.ok(quantityEditHtml.includes('无法安全对应当前需求明细，不能直接保存，请按原记录新建变更'), '存在未匹配旧行时必须显示只读警告')
+assert.ok(quantityEditHtml.includes('藏青色') && quantityEditHtml.includes('L'), '只读警告必须展示未匹配的原记录明细')
+assert.ok(!quantityEditHtml.includes('data-prod-action="save-production-change-draft"'), '安全降级编辑页不得显示保存草稿动作')
+assert.ok(!quantityEditHtml.includes('data-prod-action="submit-production-change-order"'), '安全降级编辑页不得显示保存变更内容动作')
+assert.ok(!quantityEditHtml.includes('data-prod-action="set-production-change-type"'), '安全降级编辑页不得允许切换变更类型')
+assert.ok(quantityEditHtml.includes('按原记录新建变更'), '安全降级编辑页必须提供按原记录新建入口')
 
 const materialEditOrder = listProductionOrderChangeOrders().find(
   (order) => order.materialReplacement && createQuantityLinesForOrder(order.productionOrderId).length > 0,

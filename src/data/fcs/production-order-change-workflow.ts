@@ -29,6 +29,19 @@ export interface QuantityChangeLine {
   coveredByCurrentVersion: boolean
 }
 
+export interface LegacyQuantityChangeLine {
+  color: string
+  size: string
+  currentQty: number
+  newQty: number
+  unit: string
+}
+
+export interface LegacyQuantityEditAdaptation {
+  quantityLines: QuantityChangeLine[]
+  unmatchedLegacyLines: LegacyQuantityChangeLine[]
+}
+
 export interface MaterialReplacementAllocation {
   id: string
   skuCode: string
@@ -115,6 +128,131 @@ export function createQuantityLinesForOrder(productionOrderId: string): Quantity
     isNew: false,
     coveredByCurrentVersion: true,
   }))
+}
+
+const COLOR_ALIASES: Record<string, string> = {
+  BLACK: 'BLACK',
+  黑: 'BLACK',
+  黑色: 'BLACK',
+  NAVY: 'NAVY',
+  NAVYBLUE: 'NAVY',
+  藏青: 'NAVY',
+  藏青色: 'NAVY',
+  WHITE: 'WHITE',
+  白: 'WHITE',
+  白色: 'WHITE',
+}
+
+function normalizeQuantityColor(color: string): string {
+  const normalized = color.normalize('NFKC').trim().toUpperCase().replace(/[\s_-]+/g, '')
+  return COLOR_ALIASES[normalized] ?? normalized
+}
+
+function normalizeQuantitySize(size: string): string {
+  return size.normalize('NFKC').trim().toUpperCase()
+}
+
+export function adaptLegacyQuantityLinesForEdit(
+  productionOrderId: string,
+  legacyLines: LegacyQuantityChangeLine[],
+): LegacyQuantityEditAdaptation {
+  const quantityLines = createQuantityLinesForOrder(productionOrderId).map((line) => ({ ...line }))
+  const currentLineByCombination = new Map(
+    quantityLines.map((line) => [
+      `${normalizeQuantityColor(line.color)}\u0000${normalizeQuantitySize(line.size)}`,
+      line,
+    ]),
+  )
+  const unmatchedLegacyLines: LegacyQuantityChangeLine[] = []
+
+  legacyLines.forEach((legacyLine) => {
+    const combinationKey = `${normalizeQuantityColor(legacyLine.color)}\u0000${normalizeQuantitySize(legacyLine.size)}`
+    const currentLine = currentLineByCombination.get(combinationKey)
+    if (!currentLine) {
+      unmatchedLegacyLines.push({ ...legacyLine })
+      return
+    }
+
+    const currentQty = Number.isFinite(legacyLine.currentQty) ? Math.round(legacyLine.currentQty) : 0
+    const newQty = Number.isFinite(legacyLine.newQty) ? Math.round(legacyLine.newQty) : currentQty
+    currentLine.targetQty = Math.max(currentLine.targetQty + (newQty - currentQty), 0)
+  })
+
+  return { quantityLines, unmatchedLegacyLines }
+}
+
+export const LEGACY_ORIGINAL_MATERIAL_PREFIX = 'legacy-original:'
+export const LEGACY_REPLACEMENT_MATERIAL_PREFIX = 'legacy-replacement:'
+
+export function createLegacyMaterialValue(prefix: string, text: string): string {
+  return `${prefix}${encodeURIComponent(text)}`
+}
+
+export function readLegacyMaterialText(value: string): string {
+  const prefix = [LEGACY_ORIGINAL_MATERIAL_PREFIX, LEGACY_REPLACEMENT_MATERIAL_PREFIX]
+    .find((candidate) => value.startsWith(candidate))
+  if (!prefix) return ''
+  try {
+    return decodeURIComponent(value.slice(prefix.length))
+  } catch {
+    return value.slice(prefix.length)
+  }
+}
+
+function normalizeMaterialIdentityText(text: string): string {
+  return text
+    .normalize('NFKC')
+    .trim()
+    .replace(/^(主面料|原面料|替代物料|新面料)\s*[:：]?\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+}
+
+function extractMaterialCode(text: string): string {
+  return text.match(/\b(?:MAT-)?(?:FAB|ACC|DYE)[-_][A-Z0-9-]+\b/i)?.[0]?.toUpperCase() ?? ''
+}
+
+export function getMaterialIdentity(
+  value: string,
+  options: Array<{ value: string; label: string }>,
+): string {
+  const legacyText = readLegacyMaterialText(value)
+  const option = options.find((item) => item.value === value)
+  const sourceText = legacyText || option?.label || value
+  const code = extractMaterialCode(`${value} ${sourceText}`)
+  if (code) return `code:${code}`
+  const identityText = normalizeMaterialIdentityText(sourceText)
+  return identityText ? `text:${identityText}` : ''
+}
+
+export function areMaterialSelectionsEquivalent(
+  originalValue: string,
+  originalOptions: Array<{ value: string; label: string }>,
+  replacementValue: string,
+  replacementOptions: Array<{ value: string; label: string }>,
+): boolean {
+  if (!originalValue || !replacementValue) return false
+  const originalIdentity = getMaterialIdentity(originalValue, originalOptions)
+  const replacementIdentity = getMaterialIdentity(replacementValue, replacementOptions)
+  return Boolean(originalIdentity && originalIdentity === replacementIdentity)
+}
+
+export function resolveLegacyMaterialValue(
+  text: string,
+  options: Array<{ value: string; label: string }>,
+  legacyPrefix: string,
+): string {
+  const legacyValue = createLegacyMaterialValue(legacyPrefix, text)
+  const legacyIdentity = getMaterialIdentity(legacyValue, [])
+  const matched = options.find((option) => getMaterialIdentity(option.value, options) === legacyIdentity)
+  if (matched) return matched.value
+
+  const normalizedText = normalizeMaterialIdentityText(text)
+  const nameMatched = options.find((option) => {
+    const normalizedLabel = normalizeMaterialIdentityText(option.label.split(' / ')[0])
+    return normalizedLabel.includes(normalizedText) || normalizedText.includes(normalizedLabel)
+  })
+  return nameMatched?.value ?? legacyValue
 }
 
 export function listReplacementMaterialOptions(): Array<{ value: string; label: string }> {
