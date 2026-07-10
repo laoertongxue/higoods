@@ -43,6 +43,12 @@ import {
 } from './dispatch-acceptance-sla.ts'
 import { listBusinessFactoryMasterRecords } from './factory-master-store.ts'
 import type { Factory, FactoryProcessAbility } from './factory-types.ts'
+import {
+  classifySewingDeliverySla,
+  compareSewingDeliveryDateTimes,
+  createSewingDeliverySlaSnapshot,
+  saveSewingDeliverySlaSnapshot,
+} from './sewing-delivery-sla.ts'
 
 export type RuntimeTaskScopeType = ProcessAssignmentGranularity
 export type RuntimeExecutorKind = 'EXTERNAL_FACTORY' | 'WAREHOUSE_WORKSHOP'
@@ -114,6 +120,9 @@ interface RuntimeTaskOverride {
   dispatchRemark?: string
   dispatchedAt?: string
   dispatchedBy?: string
+  businessAssignedAt?: string
+  assignmentOperatedAt?: string
+  deliverySlaSnapshotId?: string
   standardPrice?: number
   standardPriceCurrency?: string
   standardPriceUnit?: string
@@ -260,6 +269,8 @@ export interface RuntimeBatchDispatchInput {
   dispatchPriceUnit: string
   priceDiffReason: string
   autoAccept?: boolean
+  businessAssignedAt?: string
+  operatedAt?: string
 }
 
 export interface RuntimeDetailDispatchInput {
@@ -276,6 +287,7 @@ export interface RuntimeDetailTenderInput {
 const runtimeTaskOverrides = new Map<string, RuntimeTaskOverride>()
 const runtimeTaskSplitPlans = new Map<string, RuntimeTaskSplitPlan>()
 const runtimeContinuousMergePlans = new Map<string, { taskIds: string[]; mergedTaskId: string; createdAt: string; createdBy: string }>()
+const SEWING_DELIVERY_SLA_AUTO_ACCEPT_BY = '系统自动接单（含车缝直接派单）'
 let runtimeAuditSeq = 0
 let dispatchBoardSeedReady = false
 
@@ -2285,7 +2297,8 @@ export function batchDispatchRuntimeTasks(input: RuntimeBatchDispatchInput): {
     return { ok: false, message: factoryValidation.reason }
   }
 
-  const now = nowTimestamp()
+  const operatedAt = input.operatedAt ?? nowTimestamp()
+  const businessAssignedAt = input.businessAssignedAt ?? operatedAt
 
   for (const taskId of input.taskIds) {
     const task = getRuntimeTaskById(taskId)
@@ -2302,7 +2315,8 @@ export function batchDispatchRuntimeTasks(input: RuntimeBatchDispatchInput): {
       dispatchPriceCurrency: input.dispatchPriceCurrency,
       dispatchPriceUnit: input.dispatchPriceUnit,
       priceDiffReason: input.priceDiffReason,
-      dispatchedAt: now,
+      operatedAt,
+      businessAssignedAt,
       autoAccept: input.autoAccept,
       ...outputValue,
     })
@@ -2329,6 +2343,8 @@ export function applyRuntimeDirectDispatchMeta(input: {
   dispatchPriceUnit: string
   priceDiffReason: string
   dispatchedAt?: string
+  businessAssignedAt?: string
+  operatedAt?: string
   autoAccept?: boolean
   acceptanceSla?: DispatchAcceptanceSlaResolution
   outputValuePerUnit?: number
@@ -2337,24 +2353,49 @@ export function applyRuntimeDirectDispatchMeta(input: {
   outputValueDifficulty?: OutputValueDifficulty
   writeBackMainFactory?: boolean
 }): RuntimeProcessTask | null {
-  const dispatchedAt = input.dispatchedAt ?? nowTimestamp()
+  const originalTask = getRuntimeTaskById(input.taskId)
+  if (!originalTask) return null
+
+  const operatedAt = input.operatedAt ?? input.dispatchedAt ?? nowTimestamp()
+  const businessAssignedAt = input.businessAssignedAt ?? operatedAt
+  if (compareSewingDeliveryDateTimes(businessAssignedAt, operatedAt) > 0) {
+    throw new Error('业务分配时间不能晚于当前操作时间')
+  }
+
+  const sewingDeliverySlaKind = classifySewingDeliverySla(originalTask)
+  const deliverySlaSnapshot = sewingDeliverySlaKind
+    ? createSewingDeliverySlaSnapshot({
+        assignmentId: originalTask.taskId,
+        runtimeTaskId: originalTask.taskId,
+        productionOrderId: originalTask.productionOrderId,
+        factoryId: input.factoryId,
+        factoryName: input.factoryName,
+        assignedQty: originalTask.scopeQty,
+        acceptedAt: businessAssignedAt,
+        slaKind: sewingDeliverySlaKind,
+      })
+    : null
   const acceptanceSla =
     input.acceptanceSla
     ?? resolveDispatchAcceptanceSlaForTask(
-      getRuntimeTaskById(input.taskId) ?? {
-        processCode: '',
-        processNameZh: '',
-      },
+      originalTask,
       input.factoryId,
       input.factoryName,
-      dispatchedAt,
+      operatedAt,
     )
-  const acceptDeadline = input.acceptDeadline || buildDispatchAcceptanceDeadline(dispatchedAt, acceptanceSla)
-  const autoAccept = Boolean(input.autoAccept || acceptanceSla.autoAccept)
-  const acceptedBy = autoAccept ? DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY : undefined
-  const auditDetail = autoAccept
-    ? `${describeDispatchAcceptanceSlaResolution(acceptanceSla)}，派单后系统自动接单。`
-    : `${describeDispatchAcceptanceSlaResolution(acceptanceSla)}，已发起直接派单，待工厂确认。`
+  const acceptDeadline = input.acceptDeadline || buildDispatchAcceptanceDeadline(operatedAt, acceptanceSla)
+  const autoAccept = Boolean(deliverySlaSnapshot || input.autoAccept || acceptanceSla.autoAccept)
+  const acceptedAt = autoAccept ? (deliverySlaSnapshot ? businessAssignedAt : operatedAt) : undefined
+  const acceptedBy = deliverySlaSnapshot
+    ? SEWING_DELIVERY_SLA_AUTO_ACCEPT_BY
+    : autoAccept
+      ? DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY
+      : undefined
+  const auditDetail = deliverySlaSnapshot
+    ? '含车缝任务直接派单后，系统按业务分配时间自动接单并生成交付时效快照。'
+    : autoAccept
+      ? `${describeDispatchAcceptanceSlaResolution(acceptanceSla)}，派单后系统自动接单。`
+      : `${describeDispatchAcceptanceSlaResolution(acceptanceSla)}，已发起直接派单，待工厂确认。`
   const updated = updateRuntimeTaskWithAudit(
     input.taskId,
     {
@@ -2363,16 +2404,19 @@ export function applyRuntimeDirectDispatchMeta(input: {
       assignedFactoryId: input.factoryId,
       assignedFactoryName: input.factoryName,
       acceptDeadline,
-      taskDeadline: input.taskDeadline,
+      taskDeadline: deliverySlaSnapshot?.milestones.at(-1)?.deadlineAt ?? input.taskDeadline,
       dispatchRemark: input.remark.trim() || undefined,
-      dispatchedAt,
+      dispatchedAt: operatedAt,
       dispatchedBy: input.by,
+      businessAssignedAt,
+      assignmentOperatedAt: operatedAt,
+      deliverySlaSnapshotId: deliverySlaSnapshot?.snapshotId,
       dispatchPrice: input.dispatchPrice,
       dispatchPriceCurrency: input.dispatchPriceCurrency,
       dispatchPriceUnit: input.dispatchPriceUnit,
       priceDiffReason: input.priceDiffReason.trim() || undefined,
       acceptanceStatus: autoAccept ? 'ACCEPTED' : 'PENDING',
-      acceptedAt: autoAccept ? dispatchedAt : undefined,
+      acceptedAt,
       acceptedBy,
       dispatchAcceptanceSlaConfigId: acceptanceSla.configId,
       dispatchAcceptanceSlaOverrideId: acceptanceSla.overrideId,
@@ -2395,8 +2439,12 @@ export function applyRuntimeDirectDispatchMeta(input: {
       factoryId: input.factoryId,
       factoryName: input.factoryName,
       by: input.by,
-      at: dispatchedAt,
+      at: operatedAt,
     })
+  }
+
+  if (updated && deliverySlaSnapshot) {
+    saveSewingDeliverySlaSnapshot(deliverySlaSnapshot)
   }
 
   return updated

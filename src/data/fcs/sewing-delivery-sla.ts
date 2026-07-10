@@ -80,6 +80,7 @@ const RULE_HOURS: Record<SewingDeliverySlaKind, [number, number, number]> = {
 }
 
 const MILESTONE_RATIOS = [0.3, 0.7, 1] as const
+const snapshotsByRuntimeTaskId = new Map<string, SewingDeliverySlaSnapshot>()
 
 function assertPositiveFiniteInteger(value: number, fieldName: string): void {
   if (!Number.isFinite(value) || !Number.isInteger(value) || value <= 0) {
@@ -172,6 +173,10 @@ function formatDateTime(date: Date): string {
   return `${String(date.getUTCFullYear()).padStart(4, '0')}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`
 }
 
+export function compareSewingDeliveryDateTimes(left: string, right: string): number {
+  return parseDateTime(left, '业务分配时间').getTime() - parseDateTime(right, '当前操作时间').getTime()
+}
+
 function addHours(value: string, hours: number, fieldName: string): string {
   const date = parseDateTime(value, fieldName)
   date.setTime(date.getTime() + hours * 60 * 60 * 1000)
@@ -183,6 +188,16 @@ function cloneAndFreezeSnapshot(snapshot: SewingDeliverySlaSnapshot): SewingDeli
     snapshot.milestones.map((milestone) => Object.freeze({ ...milestone })),
   )
   return Object.freeze({ ...snapshot, milestones })
+}
+
+export function saveSewingDeliverySlaSnapshot(snapshot: SewingDeliverySlaSnapshot): void {
+  const storedSnapshot = cloneAndFreezeSnapshot(snapshot)
+  snapshotsByRuntimeTaskId.set(storedSnapshot.runtimeTaskId, storedSnapshot)
+}
+
+export function getSewingDeliverySlaSnapshot(runtimeTaskId: string): SewingDeliverySlaSnapshot | null {
+  const snapshot = snapshotsByRuntimeTaskId.get(runtimeTaskId)
+  return snapshot ? cloneAndFreezeSnapshot(snapshot) : null
 }
 
 export function createSewingDeliverySlaSnapshot(input: {

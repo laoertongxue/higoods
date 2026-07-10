@@ -168,6 +168,12 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement |
     return
   }
 
+  if (field === 'dispatch.businessAssignedAt') {
+    state.dispatchForm.businessAssignedAt = node.value
+    state.dispatchDialogError = null
+    return
+  }
+
   if (field === 'dispatch.taskDeadline') {
     state.dispatchForm.taskDeadline = node.value
     return

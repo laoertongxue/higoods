@@ -1,10 +1,24 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import {
   classifySewingDeliverySla,
   createSewingDeliverySlaSnapshot,
+  getSewingDeliverySlaSnapshot,
   projectSewingDeliverySla,
+  saveSewingDeliverySlaSnapshot,
 } from '../src/data/fcs/sewing-delivery-sla.ts'
+import {
+  applyRuntimeDirectDispatchMeta,
+  getRuntimeTaskById,
+  listRuntimeProcessTasks,
+} from '../src/data/fcs/runtime-process-tasks.ts'
+import {
+  confirmDirectDispatch,
+  openDispatchDialog,
+  renderDirectDispatchDialog,
+} from '../src/pages/dispatch-board/dispatch-domain.ts'
+import { state } from '../src/pages/dispatch-board/context.ts'
 
 const coveredProcess = (processCode: string, processName: string) => ({
   processCode,
@@ -511,5 +525,194 @@ assert.deepEqual(
   [],
   '节点最终未达标时不得暴露尚未形成达标归因的候选记录',
 )
+
+const storeSnapshot = createSewingDeliverySlaSnapshot({
+  assignmentId: 'ASSIGN-STORE',
+  runtimeTaskId: 'TASK-STORE',
+  productionOrderId: 'PO-STORE',
+  factoryId: 'F-STORE',
+  factoryName: '万隆快照测试厂',
+  assignedQty: 100,
+  acceptedAt: '2026-07-01 08:00:00',
+  slaKind: 'INDEPENDENT_SEWING',
+})
+const mutableStoreInput = {
+  ...storeSnapshot,
+  milestones: storeSnapshot.milestones.map((milestone) => ({ ...milestone })),
+}
+saveSewingDeliverySlaSnapshot(mutableStoreInput)
+mutableStoreInput.milestones[0].deadlineAt = '2099-01-01 00:00:00'
+const firstStoredSnapshot = getSewingDeliverySlaSnapshot('TASK-STORE')
+const secondStoredSnapshot = getSewingDeliverySlaSnapshot('TASK-STORE')
+assert.ok(firstStoredSnapshot, '保存后应可按运行时任务读取履约快照')
+assert.ok(secondStoredSnapshot, '重复读取应持续返回履约快照')
+assert.notEqual(firstStoredSnapshot, mutableStoreInput, '保存时不得保留调用方快照引用')
+assert.notEqual(firstStoredSnapshot, secondStoredSnapshot, '每次读取必须返回新的防御副本')
+assert.equal(firstStoredSnapshot.milestones[0].deadlineAt, '2026-07-05 08:00:00', '保存后调用方修改不得污染仓内快照')
+assert.equal(Object.isFrozen(firstStoredSnapshot), true, '读取的履约快照顶层必须冻结')
+assert.equal(Object.isFrozen(firstStoredSnapshot.milestones), true, '读取的履约节点数组必须冻结')
+assert.equal(firstStoredSnapshot.milestones.every(Object.isFrozen), true, '读取的每个履约节点必须冻结')
+
+const runtimeTasks = listRuntimeProcessTasks()
+const independentSewingTasks = runtimeTasks.filter(
+  (task) => classifySewingDeliverySla(task) === 'INDEPENDENT_SEWING',
+)
+assert.ok(independentSewingTasks.length >= 3, '运行时数据至少需要三个独立车缝任务覆盖直接派单场景')
+
+const directDispatchBase = {
+  factoryId: 'ID-F003',
+  factoryName: '万隆车缝厂',
+  acceptDeadline: '',
+  taskDeadline: '2026-07-20 18:00:00',
+  remark: '含车缝直接派单时效测试',
+  by: '跟单A',
+  dispatchPrice: 12000,
+  dispatchPriceCurrency: 'IDR',
+  dispatchPriceUnit: '件',
+  priceDiffReason: '',
+  writeBackMainFactory: false,
+} as const
+
+const backfilledTask = independentSewingTasks[0]
+const backfilledResult = applyRuntimeDirectDispatchMeta({
+  ...directDispatchBase,
+  taskId: backfilledTask.taskId,
+  businessAssignedAt: '2026-07-01 08:00:00',
+  operatedAt: '2026-07-01 10:00:00',
+  autoAccept: false,
+})
+assert.ok(backfilledResult, '独立车缝直接派单应成功')
+assert.equal(backfilledResult.acceptanceStatus, 'ACCEPTED', '含车缝直接派单必须自动接单，不受原接单时效开关影响')
+assert.equal(backfilledResult.acceptedAt, '2026-07-01 08:00:00', '含车缝接单时间应使用业务分配时间')
+assert.equal(backfilledResult.acceptedBy, '系统自动接单（含车缝直接派单）', '含车缝自动接单应记录清晰中文操作方')
+assert.equal(backfilledResult.businessAssignedAt, '2026-07-01 08:00:00')
+assert.equal(backfilledResult.assignmentOperatedAt, '2026-07-01 10:00:00')
+assert.equal(backfilledResult.taskDeadline, '2026-07-10 08:00:00', '任务截止时间应取 100% 交付节点')
+const backfilledSnapshot = getSewingDeliverySlaSnapshot(backfilledTask.taskId)
+assert.ok(backfilledSnapshot, '含车缝直接派单后应保存履约快照')
+assert.equal(backfilledResult.deliverySlaSnapshotId, backfilledSnapshot.snapshotId)
+assert.equal(backfilledSnapshot.assignmentId, backfilledTask.taskId, '首期快照可稳定使用任务编号作为分配编号')
+assert.equal(backfilledSnapshot.assignedQty, backfilledTask.scopeQty, '快照数量应使用实际运行时任务范围数量')
+assert.equal(backfilledSnapshot.factoryId, directDispatchBase.factoryId)
+assert.equal(backfilledSnapshot.factoryName, directDispatchBase.factoryName)
+assert.deepEqual(
+  backfilledSnapshot.milestones.map((milestone) => milestone.deadlineAt),
+  ['2026-07-05 08:00:00', '2026-07-09 08:00:00', '2026-07-10 08:00:00'],
+  '回填业务分配时间后应从该时间计算 30%、70%、100% 节点',
+)
+
+const defaultedTask = independentSewingTasks[1]
+const defaultedResult = applyRuntimeDirectDispatchMeta({
+  ...directDispatchBase,
+  taskId: defaultedTask.taskId,
+  operatedAt: '2026-07-02 10:00:00',
+})
+assert.ok(defaultedResult, '省略业务分配时间的独立车缝派单应成功')
+assert.equal(defaultedResult.businessAssignedAt, '2026-07-02 10:00:00', '业务分配时间省略时应等于实际操作时间')
+assert.equal(defaultedResult.assignmentOperatedAt, '2026-07-02 10:00:00')
+assert.equal(defaultedResult.acceptedAt, '2026-07-02 10:00:00')
+assert.equal(defaultedResult.taskDeadline, '2026-07-11 10:00:00')
+const defaultedSnapshot = getSewingDeliverySlaSnapshot(defaultedTask.taskId)
+assert.ok(defaultedSnapshot)
+assert.equal(defaultedSnapshot.assignedQty, defaultedTask.scopeQty, '第二个运行时任务必须按自己的范围数量生成快照')
+assert.notEqual(
+  defaultedSnapshot.assignedQty,
+  backfilledSnapshot.assignedQty,
+  '两个不同范围数量的运行时任务不得复用同一个快照数量',
+)
+
+const futureTask = independentSewingTasks[2]
+const futureTaskBefore = getRuntimeTaskById(futureTask.taskId)
+assert.throws(
+  () => applyRuntimeDirectDispatchMeta({
+    ...directDispatchBase,
+    taskId: futureTask.taskId,
+    businessAssignedAt: '2026-07-03 11:00:00',
+    operatedAt: '2026-07-03 10:00:00',
+  }),
+  /业务分配时间不能晚于当前操作时间/,
+  '未来业务分配时间必须在领域层阻断',
+)
+assert.equal(getSewingDeliverySlaSnapshot(futureTask.taskId), null, '非法时间不得留下部分快照')
+assert.equal(getRuntimeTaskById(futureTask.taskId)?.assignmentStatus, futureTaskBefore?.assignmentStatus, '非法时间不得部分更新任务')
+
+openDispatchDialog([futureTask.taskId])
+state.dispatchForm.mode = 'TASK'
+state.dispatchForm.factoryId = directDispatchBase.factoryId
+state.dispatchForm.factoryName = directDispatchBase.factoryName
+state.dispatchForm.dispatchPrice = String(futureTask.standardPrice ?? 10000)
+state.dispatchForm.businessAssignedAt = '2099-01-01T00:00'
+confirmDirectDispatch()
+assert.equal(state.dispatchDialogError, '业务分配时间不能晚于当前操作时间', '页面应把未来业务分配时间转换为中文错误')
+assert.equal(getSewingDeliverySlaSnapshot(futureTask.taskId), null, '页面阻断未来时间后也不得留下快照')
+
+const nonSewingTasks = runtimeTasks.filter(
+  (task) => classifySewingDeliverySla(task) === null && !task.assignedFactoryId,
+)
+assert.ok(nonSewingTasks.length >= 3, '运行时数据至少需要三个非含车缝任务覆盖原接单逻辑与页面')
+const manualAcceptanceSla = {
+  ruleSource: 'GLOBAL_DEFAULT' as const,
+  processCode: nonSewingTasks[0].processCode,
+  processName: nonSewingTasks[0].processNameZh,
+  craftCode: '',
+  craftName: '',
+  acceptTimeoutHours: 12,
+  enabled: true,
+  autoAccept: false,
+}
+const pendingNonSewing = applyRuntimeDirectDispatchMeta({
+  ...directDispatchBase,
+  taskId: nonSewingTasks[0].taskId,
+  businessAssignedAt: '2026-07-04 08:00:00',
+  operatedAt: '2026-07-04 08:00:00',
+  acceptanceSla: manualAcceptanceSla,
+  autoAccept: false,
+})
+assert.equal(pendingNonSewing?.acceptanceStatus, 'PENDING', '非含车缝任务应保留原待接单逻辑')
+assert.equal(pendingNonSewing?.acceptedAt, undefined)
+assert.equal(getSewingDeliverySlaSnapshot(nonSewingTasks[0].taskId), null)
+
+const autoAcceptedNonSewing = applyRuntimeDirectDispatchMeta({
+  ...directDispatchBase,
+  taskId: nonSewingTasks[1].taskId,
+  businessAssignedAt: '2026-07-04 09:00:00',
+  operatedAt: '2026-07-04 09:00:00',
+  acceptanceSla: { ...manualAcceptanceSla, autoAccept: true },
+})
+assert.equal(autoAcceptedNonSewing?.acceptanceStatus, 'ACCEPTED', '非含车缝任务应保留原 SLA 自动接单逻辑')
+assert.equal(autoAcceptedNonSewing?.acceptedAt, '2026-07-04 09:00:00')
+
+openDispatchDialog([futureTask.taskId])
+const sewingDialogHtml = renderDirectDispatchDialog(
+  [getRuntimeTaskById(futureTask.taskId)!],
+  [{ id: directDispatchBase.factoryId, name: directDispatchBase.factoryName }],
+)
+assert.match(sewingDialogHtml, /业务分配时间/, '含车缝直接派单弹窗应展示业务分配时间')
+assert.match(sewingDialogHtml, /实际操作时间/, '含车缝直接派单弹窗应提示实际操作时间')
+assert.match(sewingDialogHtml, /30% 节点/, '含车缝直接派单弹窗应预览 30% 节点')
+assert.match(sewingDialogHtml, /70% 节点/, '含车缝直接派单弹窗应预览 70% 节点')
+assert.match(sewingDialogHtml, /100% 节点/, '含车缝直接派单弹窗应预览 100% 节点')
+assert.doesNotMatch(
+  sewingDialogHtml,
+  /data-dispatch-field="dispatch\.taskDeadline"/,
+  '含车缝任务截止时间应只读自动计算',
+)
+
+openDispatchDialog([nonSewingTasks[2].taskId])
+const nonSewingDialogHtml = renderDirectDispatchDialog(
+  [getRuntimeTaskById(nonSewingTasks[2].taskId)!],
+  [{ id: directDispatchBase.factoryId, name: directDispatchBase.factoryName }],
+)
+assert.match(
+  nonSewingDialogHtml,
+  /data-dispatch-field="dispatch\.taskDeadline"/,
+  '非含车缝直接派单应保留人工任务截止时间输入',
+)
+
+const dispatchDomainSource = readFileSync(new URL('../src/pages/dispatch-board/dispatch-domain.ts', import.meta.url), 'utf8')
+assert.match(dispatchDomainSource, /data-dispatch-field="dispatch\.businessAssignedAt"/, '页面源码应接入业务分配时间字段')
+assert.match(dispatchDomainSource, /data-skip-page-rerender="true"/, '业务分配时间输入时不得触发整页重绘')
+const dispatchEventSource = readFileSync(new URL('../src/pages/dispatch-board/events.ts', import.meta.url), 'utf8')
+assert.match(dispatchEventSource, /dispatch\.businessAssignedAt/, '事件层应接收业务分配时间变更')
 
 console.log('含车缝任务交付与回货时效规则检查通过')

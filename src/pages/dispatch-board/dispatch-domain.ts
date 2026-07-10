@@ -23,6 +23,7 @@ import {
   describeDispatchCapacityConstraintDecision,
   formatOutputValueNumber,
   fromDateTimeLocal,
+  toDateTimeLocal,
   nowTimestamp,
   escapeHtml,
   formatScopeLabel,
@@ -50,6 +51,11 @@ import {
   type DispatchAcceptanceSlaResolution,
 } from '../../data/fcs/dispatch-acceptance-sla.ts'
 import {
+  classifySewingDeliverySla,
+  compareSewingDeliveryDateTimes,
+  createSewingDeliverySlaSnapshot,
+} from '../../data/fcs/sewing-delivery-sla.ts'
+import {
   getMaterialPrepDispatchReadinessForTask,
   type MaterialPrepDispatchReadiness,
 } from '../../data/fcs/cutting/production-material-prep.ts'
@@ -74,6 +80,8 @@ function batchDispatch(
   dispatchPriceCurrency: string,
   dispatchPriceUnit: string,
   priceDiffReason: string,
+  businessAssignedAt?: string,
+  operatedAt?: string,
 ): { ok: boolean; message?: string } {
   return batchDispatchRuntimeTasks({
     taskIds,
@@ -87,6 +95,8 @@ function batchDispatch(
     dispatchPriceCurrency,
     dispatchPriceUnit,
     priceDiffReason,
+    businessAssignedAt,
+    operatedAt,
   })
 }
 
@@ -300,6 +310,51 @@ function renderAcceptanceSlaPreview(
   `
 }
 
+function renderSewingDeliverySlaPreview(task: DispatchTask): string {
+  const slaKind = classifySewingDeliverySla(task)
+  if (!slaKind) return ''
+
+  const businessAssignedAt = fromDateTimeLocal(state.dispatchForm.businessAssignedAt)
+  if (!businessAssignedAt) {
+    return '<div class="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">选择业务分配时间后，将自动计算 30%、70%、100% 交付节点。</div>'
+  }
+
+  try {
+    const snapshot = createSewingDeliverySlaSnapshot({
+      assignmentId: `PREVIEW-${task.taskId}`,
+      runtimeTaskId: task.taskId,
+      productionOrderId: task.productionOrderId,
+      factoryId: state.dispatchForm.factoryId || 'PREVIEW-FACTORY',
+      factoryName: state.dispatchForm.factoryName || '待选择承接工厂',
+      assignedQty: task.scopeQty,
+      acceptedAt: businessAssignedAt,
+      slaKind,
+    })
+    const ratioLabels = ['30% 节点', '70% 节点', '100% 节点']
+    const finalDeadline = snapshot.milestones.at(-1)?.deadlineAt ?? '--'
+    return `
+      <div class="rounded-md border border-blue-200 bg-blue-50/60 p-3" data-sewing-delivery-sla-preview="true">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-sm font-medium text-blue-900">含车缝交付节点预览</p>
+          <span class="text-xs text-blue-700">任务截止时间自动取 100% 节点：${escapeHtml(finalDeadline)}</span>
+        </div>
+        <div class="mt-2 grid gap-2 sm:grid-cols-3">
+          ${snapshot.milestones.map((milestone, index) => `
+            <div class="rounded border border-blue-100 bg-background/80 px-3 py-2 text-xs">
+              <p class="font-medium text-blue-900">${ratioLabels[index]}</p>
+              <p class="mt-1 text-muted-foreground">目标 ${milestone.targetQty} 件</p>
+              <p class="mt-1 tabular-nums text-blue-800">${escapeHtml(milestone.deadlineAt)}</p>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '交付节点暂时无法计算'
+    return `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${escapeHtml(message)}</div>`
+  }
+}
+
 function renderOutputValueJudgementSummary(
   snapshot: DispatchOutputValueJudgementSnapshot | null,
   placeholder: string,
@@ -346,6 +401,7 @@ function openDispatchDialog(taskIds: string[]): void {
   if (filtered.length === 0) return
 
   const nextForm = emptyDispatchForm()
+  nextForm.businessAssignedAt = toDateTimeLocal(nowTimestamp())
   if (filtered.length === 1) {
     const task = filtered[0]
     const detailSupported = supportsDetailAssignment(task)
@@ -489,8 +545,25 @@ function confirmDirectDispatch(): void {
     return
   }
 
-  const taskDeadline = fromDateTimeLocal(state.dispatchForm.taskDeadline)
-  const dispatchedAt = nowTimestamp()
+  const operatedAt = nowTimestamp()
+  const businessAssignedAt = fromDateTimeLocal(state.dispatchForm.businessAssignedAt)
+  if (!businessAssignedAt) {
+    state.dispatchDialogError = '请选择业务分配时间'
+    return
+  }
+  try {
+    if (compareSewingDeliveryDateTimes(businessAssignedAt, operatedAt) > 0) {
+      state.dispatchDialogError = '业务分配时间不能晚于当前操作时间'
+      return
+    }
+  } catch (error) {
+    state.dispatchDialogError = error instanceof Error ? error.message : '业务分配时间格式不正确'
+    return
+  }
+
+  const includesSewingDeliverySla = tasks.some((task) => classifySewingDeliverySla(task) !== null)
+  const taskDeadline = includesSewingDeliverySla ? '' : fromDateTimeLocal(state.dispatchForm.taskDeadline)
+  const dispatchedAt = operatedAt
   const singleTask = tasks.length === 1 ? tasks[0] : null
   const groups = getDirectDispatchGroups(singleTask)
   const detailMode = Boolean(singleTask && supportsDetailAssignment(singleTask) && state.dispatchForm.mode === 'DETAIL')
@@ -581,7 +654,8 @@ function confirmDirectDispatch(): void {
         taskDeadline,
         remark: state.dispatchForm.remark,
         by: '跟单A',
-        dispatchedAt,
+        operatedAt,
+        businessAssignedAt,
         autoAccept: acceptanceSla.autoAccept,
         acceptanceSla,
         dispatchPrice: validation.dispatchPrice,
@@ -646,6 +720,8 @@ function confirmDirectDispatch(): void {
     validation.stdCurrency,
     validation.stdUnit,
     state.dispatchForm.priceDiffReason,
+    businessAssignedAt,
+    operatedAt,
   )
 
   if (!result.ok) {
@@ -794,6 +870,7 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
   const isBatch = tasks.length > 1
   const refTask = tasks[0]
   const includesSewingTask = tasks.some((task) => isRuntimeSewingTask(task))
+  const sewingDeliverySlaTask = tasks.find((task) => classifySewingDeliverySla(task) !== null) ?? null
   const selectionValidation = validateRuntimeBatchDispatchSelection(tasks.map((task) => task.taskId))
   const validation = getDispatchDialogValidation(tasks)
   const materialPrepChecks = getDispatchMaterialPrepChecks(tasks)
@@ -962,9 +1039,23 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
               ${renderAcceptanceSlaPreview(tasks, detailMode, groups)}
             </div>
             <div class="space-y-1.5">
-              <label class="text-sm font-medium">任务截止时间 <span class="text-red-500">*</span></label>
-              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="datetime-local" data-dispatch-field="dispatch.taskDeadline" value="${escapeHtml(state.dispatchForm.taskDeadline)}" />
+              <label class="text-sm font-medium">业务分配时间 <span class="text-red-500">*</span></label>
+              <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="datetime-local" data-dispatch-field="dispatch.businessAssignedAt" data-skip-page-rerender="true" value="${escapeHtml(state.dispatchForm.businessAssignedAt)}" />
             </div>
+            ${
+              sewingDeliverySlaTask
+                ? `<div class="space-y-1.5">
+                    <label class="text-sm font-medium">实际操作时间</label>
+                    <div class="flex h-9 items-center rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground">提交派单时自动记录当前时间</div>
+                  </div>
+                  <div class="md:col-span-2">
+                    ${renderSewingDeliverySlaPreview(sewingDeliverySlaTask)}
+                  </div>`
+                : `<div class="space-y-1.5">
+                    <label class="text-sm font-medium">任务截止时间 <span class="text-red-500">*</span></label>
+                    <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="datetime-local" data-dispatch-field="dispatch.taskDeadline" value="${escapeHtml(state.dispatchForm.taskDeadline)}" />
+                  </div>`
+            }
           </div>
 
           <div class="rounded-md border bg-muted/20 p-3 space-y-3">

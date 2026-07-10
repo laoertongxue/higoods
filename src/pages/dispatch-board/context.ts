@@ -48,6 +48,7 @@ import {
   type RuntimeProcessTask,
 } from '../../data/fcs/runtime-process-tasks.ts'
 import { resolveDispatchAcceptanceSlaForTask } from '../../data/fcs/dispatch-acceptance-sla.ts'
+import { classifySewingDeliverySla } from '../../data/fcs/sewing-delivery-sla.ts'
 import {
   initialQualityInspections,
   initialAllocationByTaskId,
@@ -546,6 +547,7 @@ interface DirectDispatchForm {
   factoryId: string
   factoryName: string
   acceptDeadline: string
+  businessAssignedAt: string
   taskDeadline: string
   remark: string
   dispatchPrice: string
@@ -621,6 +623,7 @@ function emptyDispatchForm(): DirectDispatchForm {
     factoryId: '',
     factoryName: '',
     acceptDeadline: '',
+    businessAssignedAt: '',
     taskDeadline: '',
     remark: '',
     dispatchPrice: '',
@@ -1453,9 +1456,9 @@ function getTaskById(taskId: string | null): DispatchTask | null {
 
 function getDispatchDialogTasks(): DispatchTask[] {
   if (!state.dispatchDialogTaskIds || state.dispatchDialogTaskIds.length === 0) return []
-
-  const selected = new Set(state.dispatchDialogTaskIds)
-  return getEffectiveTasks().filter((task) => selected.has(task.taskId))
+  return state.dispatchDialogTaskIds
+    .map((taskId) => getTaskById(taskId))
+    .filter((task): task is DispatchTask => Boolean(task && isRuntimeTaskExecutionTask(task)))
 }
 
 function getTaskAllocatableGroups(task: DispatchTask | null): RuntimeTaskAllocatableGroup[] {
@@ -1507,6 +1510,7 @@ function getDispatchDialogValidation(tasks: DispatchTask[]): {
   const changed = dispatchPrice != null ? Math.abs(dispatchPrice - std.price) >= 0.001 : false
   const needDiffReason = changed
   const singleTask = tasks.length === 1 ? tasks[0] : null
+  const includesSewingDeliverySla = tasks.some((task) => classifySewingDeliverySla(task) !== null)
   const detailMode = Boolean(singleTask && supportsDetailAssignment(singleTask) && state.dispatchForm.mode === 'DETAIL')
   let acceptanceSlaReady = false
   let acceptanceSlaMissingReason: string | null = null
@@ -1536,7 +1540,8 @@ function getDispatchDialogValidation(tasks: DispatchTask[]): {
 
   const valid =
     acceptanceSlaReady &&
-    state.dispatchForm.taskDeadline.trim() !== '' &&
+    state.dispatchForm.businessAssignedAt.trim() !== '' &&
+    (includesSewingDeliverySla || state.dispatchForm.taskDeadline.trim() !== '') &&
     dispatchPrice != null &&
     (!needDiffReason || state.dispatchForm.priceDiffReason.trim() !== '')
 

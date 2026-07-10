@@ -124,6 +124,9 @@ export interface ProcessTask {
   dispatchRemark?: string       // 派单备注
   dispatchedAt?: string         // 派单时间
   dispatchedBy?: string         // 派单人
+  businessAssignedAt?: string   // 业务实际分配时间
+  assignmentOperatedAt?: string // 派单操作时间
+  deliverySlaSnapshotId?: string // 含车缝交付时效快照
   // 价格已完成
   standardPrice?: number        // 工序标准价快照
   standardPriceCurrency?: string // 工序标准价币种（默认 IDR）
