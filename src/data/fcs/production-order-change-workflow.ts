@@ -58,10 +58,29 @@ export interface MaterialReplacementDraft {
   }>
 }
 
-const STABLE_REPLACEMENT_MATERIAL_OPTIONS = [
-  { value: 'MAT-FAB-018', label: 'FAB-A01 / 弹力斜纹布' },
-  { value: 'MAT-FAB-026', label: 'FAB-B01 / 高克重棉涤布' },
-]
+type FollowingOrderPlan = MaterialReplacementDraft['followingOrders'][number]
+
+// 当前共享技术包关系 Mock 暂无同 SPU 多生产单；这组模块内种子仅覆盖生产单变更的已开工/未开工后续单场景。
+const PRODUCTION_CHANGE_FOLLOWING_ORDER_SCENARIO_SEEDS: Record<string, FollowingOrderPlan[]> = {
+  'PO-202603-0004': [
+    {
+      productionOrderId: 'PO-202603-0101',
+      progressText: '已领料 900 yard；已裁剪 120 件',
+      started: true,
+      suggestedMode: 'REMAINING',
+      confirmedMode: 'REMAINING',
+      affectedDocumentNos: ['WLS-PL-260306-101', 'CUT-260306-101-01'],
+    },
+    {
+      productionOrderId: 'PO-202603-0102',
+      progressText: '尚未开始',
+      started: false,
+      suggestedMode: 'FULL',
+      confirmedMode: 'FULL',
+      affectedDocumentNos: [],
+    },
+  ],
+}
 
 export function createEmptyMaterialReplacementDraft(): MaterialReplacementDraft {
   return {
@@ -95,13 +114,10 @@ export function createQuantityLinesForOrder(productionOrderId: string): Quantity
 }
 
 export function listReplacementMaterialOptions(): Array<{ value: string; label: string }> {
-  const options = [
-    ...listMaterialArchives('fabric').map((material) => ({
-      value: material.materialId.trim(),
-      label: `${material.materialCode} / ${material.materialName}`,
-    })),
-    ...STABLE_REPLACEMENT_MATERIAL_OPTIONS,
-  ]
+  const options = listMaterialArchives('fabric').map((material) => ({
+    value: material.materialId.trim(),
+    label: `${material.materialCode} / ${material.materialName}`,
+  }))
   const uniqueOptions = new Map<string, { value: string; label: string }>()
   options.forEach((option) => {
     if (option.value && !uniqueOptions.has(option.value)) uniqueOptions.set(option.value, option)
@@ -127,13 +143,17 @@ export function createFollowingOrderPlans(
   const currentRelation = relations.find((relation) => relation.productionOrderId === productionOrderId)
   if (!currentRelation) return []
 
-  const uniquePlans = new Map<string, MaterialReplacementDraft['followingOrders'][number]>()
+  const uniquePlans = new Map<string, FollowingOrderPlan>()
+  const blockedOrderIds = new Set<string>()
   relations.forEach((relation) => {
     const orderId = relation.productionOrderId.trim()
     if (!orderId || orderId === productionOrderId || relation.spuId !== currentRelation.spuId) return
 
     const progressTexts = [...relation.progressSummary, ...relation.restrictionSummary]
-    if (isCompletedOrSettled(progressTexts)) return
+    if (isCompletedOrSettled(progressTexts)) {
+      blockedOrderIds.add(orderId)
+      return
+    }
 
     const started = relation.progressSummary.some(
       (text) => text.includes('已领') || text.includes('已裁') || text.includes('已加工'),
@@ -152,6 +172,21 @@ export function createFollowingOrderPlans(
         affectedDocumentNos: listAffectedDocumentNosForOrder(orderId),
       })
     }
+  })
+
+  ;(PRODUCTION_CHANGE_FOLLOWING_ORDER_SCENARIO_SEEDS[productionOrderId] ?? []).forEach((seed) => {
+    const orderId = seed.productionOrderId.trim()
+    if (
+      !orderId ||
+      blockedOrderIds.has(orderId) ||
+      uniquePlans.has(orderId) ||
+      isCompletedOrSettled([seed.progressText])
+    ) return
+    uniquePlans.set(orderId, {
+      ...seed,
+      productionOrderId: orderId,
+      affectedDocumentNos: sanitizeObjectIds(seed.affectedDocumentNos),
+    })
   })
   return Array.from(uniquePlans.values())
 }

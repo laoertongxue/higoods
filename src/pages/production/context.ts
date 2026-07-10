@@ -1983,7 +1983,6 @@ export {
   currentUser,
   TECH_PACK_VERSION_CHANGE_EMPTY_FORM,
   PRODUCTION_PATCH_EMPTY_FORM,
-  PRODUCTION_CHANGE_EMPTY_FORM,
   demandStatusConfig,
   demandTechPackStatusConfig,
   demandPriorityConfig,

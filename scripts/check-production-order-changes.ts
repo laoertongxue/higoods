@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { createProductionChangeForm, state } from '../src/pages/production/context.ts'
 import * as changeDomain from '../src/data/fcs/production-tech-pack-change-domain.ts'
+import { listMaterialArchives } from '../src/data/pcs-material-archive-repository.ts'
 import {
   buildProductionChangePreview,
   buildMaterialReplacementAllocations,
@@ -591,14 +592,24 @@ factoryQuantityLines.forEach((line) => {
 })
 
 const replacementMaterialOptions = listReplacementMaterialOptions()
-assert.ok(replacementMaterialOptions.length >= 4, '替换物料候选至少需要四条面料主档')
+const validFabricMaterialIds = Array.from(
+  new Set(listMaterialArchives('fabric').map((material) => material.materialId.trim()).filter(Boolean)),
+).sort()
+const replacementMaterialOptionValues = replacementMaterialOptions.map((option) => option.value)
+assert.deepEqual(
+  [...replacementMaterialOptionValues].sort(),
+  validFabricMaterialIds,
+  '替换物料候选必须严格等于系统 fabric 主档有效 ID 集合',
+)
+assert.ok(replacementMaterialOptionValues.every((value) => value.trim().length > 0), '替换物料候选 value 不得为空')
 assert.equal(
-  new Set(replacementMaterialOptions.map((option) => option.value)).size,
+  new Set(replacementMaterialOptionValues).size,
   replacementMaterialOptions.length,
   '替换物料候选 value 必须唯一',
 )
 
 const followingOrderPlans = createFollowingOrderPlans(quantityFactoryOrderId)
+assert.ok(followingOrderPlans.length >= 2, 'PO-202603-0004 必须覆盖至少两张后续生产单场景')
 const followingOrderIds = followingOrderPlans.map((plan) => plan.productionOrderId)
 assert.ok(followingOrderIds.every((id) => id.trim().length > 0), '后续生产单不得包含空 ID')
 assert.equal(new Set(followingOrderIds).size, followingOrderIds.length, '后续生产单 ID 必须去重')
@@ -608,14 +619,19 @@ assert.ok(
   ),
   '已完成或已结算生产单不得参与变更',
 )
-followingOrderPlans.filter((plan) => plan.started).forEach((plan) => {
-  assert.equal(plan.suggestedMode, 'REMAINING', '已开工后续生产单必须建议只替换剩余数量')
-  assert.equal(plan.confirmedMode, plan.suggestedMode, '后续生产单初始确认方式必须等于系统建议')
-})
-followingOrderPlans.filter((plan) => !plan.started).forEach((plan) => {
-  assert.equal(plan.suggestedMode, 'FULL', '未开工后续生产单必须建议全部替换')
-  assert.equal(plan.confirmedMode, plan.suggestedMode, '后续生产单初始确认方式必须等于系统建议')
-})
+const startedFollowingOrderPlan = followingOrderPlans.find((plan) => plan.started)
+assert.ok(startedFollowingOrderPlan, 'PO-202603-0004 后续单场景必须包含已开工生产单')
+assert.equal(startedFollowingOrderPlan.suggestedMode, 'REMAINING', '已开工后续生产单必须建议只替换剩余数量')
+assert.equal(startedFollowingOrderPlan.confirmedMode, 'REMAINING', '已开工后续生产单初始必须确认剩余数量替换')
+assert.ok(
+  (startedFollowingOrderPlan.affectedDocumentNos ?? []).length > 0,
+  '已开工后续生产单必须带明确受影响单据号',
+)
+const unstartedFollowingOrderPlan = followingOrderPlans.find((plan) => !plan.started)
+assert.ok(unstartedFollowingOrderPlan, 'PO-202603-0004 后续单场景必须包含未开工生产单')
+assert.equal(unstartedFollowingOrderPlan.progressText, '尚未开始', '未开工后续生产单进度必须明确为尚未开始')
+assert.equal(unstartedFollowingOrderPlan.suggestedMode, 'FULL', '未开工后续生产单必须建议全部替换')
+assert.equal(unstartedFollowingOrderPlan.confirmedMode, 'FULL', '未开工后续生产单初始必须确认全部替换')
 
 const currentFacts = changeDomain.getProductionOrderChangeCurrentFacts(quantityFactoryOrderId)
 const currentFactDocumentNos = (currentFacts?.documentFacts ?? [])
