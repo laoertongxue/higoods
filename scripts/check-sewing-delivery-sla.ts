@@ -25,6 +25,7 @@ import {
   listRuntimeTaskSplitGroupsByOrder,
   prepareRuntimeDirectDispatchMeta,
   restoreRuntimeDirectDispatchState,
+  upsertRuntimeTaskTender,
 } from '../src/data/fcs/runtime-process-tasks.ts'
 import {
   confirmDirectDispatch,
@@ -1511,6 +1512,73 @@ try {
     productionOrders.find((order) => order.productionOrderId === continuousTask.productionOrderId)?.mainFactoryId,
     mainFactoryBefore,
     '发起竞价时不得改写主工厂',
+  )
+  handleContinuousDispatchEvent(continuousActionTarget('switch-tab', undefined, { tab: 'OTHER' }))
+  const biddingListHtml = renderContinuousDispatchPage()
+  const biddingRowStart = biddingListHtml.indexOf(continuousTask.taskNo || continuousTask.taskId)
+  const biddingRowEnd = biddingListHtml.indexOf('</tr>', biddingRowStart)
+  const biddingRowHtml = biddingListHtml.slice(biddingRowStart, biddingRowEnd)
+  assert.doesNotMatch(biddingRowHtml, />直接派单<|>发起竞价</, '已有效竞价的连续任务行不得继续展示直接派单或发起竞价')
+
+  const awardedTenderRuntimeState = captureRuntimeDirectDispatchState()
+  const awardedTenderSnapshotState = captureSewingDeliverySlaSnapshotStore()
+  const awardedTenderTaskState = awardedTenderRuntimeState.taskOverrides.find(([taskId]) => taskId === continuousTask.taskId)
+  const awardedTenderOrderState = awardedTenderRuntimeState.productionOrders.find((order) => order.productionOrderId === continuousTask.productionOrderId)
+  assert.throws(
+    () => upsertRuntimeTaskTender(
+      continuousTask.taskId,
+      {
+        tenderId: 'TENDER-REPEAT-SHOULD-BLOCK',
+        biddingDeadline: '2026-07-12 10:00:00',
+        taskDeadline: '2026-07-20 10:00:00',
+        businessAssignedAt: '2026-07-09 10:00:00',
+        assignmentOperatedAt: '2026-07-10 10:00:00',
+      },
+      '生产计划员',
+    ),
+    /已有有效分配结果/,
+    '运行时入口必须拒绝覆盖连续任务已有 tender',
+  )
+  handleContinuousDispatchEvent(continuousActionTarget('open-bidding', continuousTask.taskId))
+  handleContinuousDispatchEvent(continuousFieldTarget('businessAssignedAt', '2026-07-09T11:00'))
+  handleContinuousDispatchEvent(continuousFieldTarget('biddingDeadline', '2026-07-12T11:00'))
+  handleContinuousDispatchEvent(continuousActionTarget('confirm-dialog', continuousTask.taskId))
+  const repeatedTenderRuntimeState = captureRuntimeDirectDispatchState()
+  assert.deepEqual(
+    repeatedTenderRuntimeState.taskOverrides.find(([taskId]) => taskId === continuousTask.taskId),
+    awardedTenderTaskState,
+    '已有效竞价的连续任务不得重复竞价覆盖 tender 或生产单状态',
+  )
+  assert.deepEqual(
+    repeatedTenderRuntimeState.productionOrders.find((order) => order.productionOrderId === continuousTask.productionOrderId),
+    awardedTenderOrderState,
+    '重复竞价阻断后生产单必须保持不变',
+  )
+  assert.deepEqual(
+    captureSewingDeliverySlaSnapshotStore(),
+    awardedTenderSnapshotState,
+    '重复竞价阻断后 SLA 仓必须保持不变',
+  )
+
+  handleContinuousDispatchEvent(continuousActionTarget('open-direct', continuousTask.taskId))
+  handleContinuousDispatchEvent(continuousFieldTarget('factoryId', continuousFactory.id))
+  handleContinuousDispatchEvent(continuousFieldTarget('businessAssignedAt', '2026-07-09T11:00'))
+  handleContinuousDispatchEvent(continuousActionTarget('confirm-dialog', continuousTask.taskId))
+  const redirectedTenderRuntimeState = captureRuntimeDirectDispatchState()
+  assert.deepEqual(
+    redirectedTenderRuntimeState.taskOverrides.find(([taskId]) => taskId === continuousTask.taskId),
+    awardedTenderTaskState,
+    '已有效竞价的连续任务不得改为直接派单并遗留 tender 字段',
+  )
+  assert.deepEqual(
+    redirectedTenderRuntimeState.productionOrders.find((order) => order.productionOrderId === continuousTask.productionOrderId),
+    awardedTenderOrderState,
+    '竞价中改直接派单被阻断后生产单必须保持不变',
+  )
+  assert.deepEqual(
+    captureSewingDeliverySlaSnapshotStore(),
+    awardedTenderSnapshotState,
+    '竞价中改直接派单被阻断后 SLA 仓必须保持不变',
   )
 } finally {
   restoreRuntimeDirectDispatchState(continuousBiddingRuntimeState)

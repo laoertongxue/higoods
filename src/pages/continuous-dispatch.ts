@@ -90,7 +90,7 @@ function containsSewing(task: RuntimeProcessTask): boolean {
 function isAssignableContinuousTask(task: RuntimeProcessTask): boolean {
   return task.taskUnitType === 'COMBINED_PROCESS_TASK'
     && task.acceptanceMode === 'CONTINUOUS_PROCESS'
-    && (task.assignmentStatus === 'UNASSIGNED' || task.assignmentStatus === 'BIDDING')
+    && task.assignmentStatus === 'UNASSIGNED'
 }
 
 function openDispatchDialog(mode: ContinuousDispatchDialogMode, taskId: string): void {
@@ -366,7 +366,10 @@ function renderAssignmentCell(task: RuntimeProcessTask): string {
 }
 
 function renderActions(task: RuntimeProcessTask): string {
-  const canAssign = task.assignmentStatus === 'UNASSIGNED' || task.assignmentStatus === 'BIDDING'
+  const canAssign = task.assignmentStatus === 'UNASSIGNED'
+  if (!canAssign) {
+    return `<div class="text-xs text-muted-foreground">${task.assignmentStatus === 'BIDDING' ? '竞价已发起，等待定标' : '已有分配结果'}</div>`
+  }
   return `
     <div class="flex flex-wrap gap-2">
       <button

@@ -2281,6 +2281,13 @@ export function upsertRuntimeTaskTender(
 ): RuntimeProcessTask | null {
   const task = getRuntimeTaskById(taskId)
   if (!task) return null
+  if (
+    task.taskUnitType === 'COMBINED_PROCESS_TASK'
+    && task.acceptanceMode === 'CONTINUOUS_PROCESS'
+    && (task.assignmentStatus !== 'UNASSIGNED' || Boolean(task.tenderId))
+  ) {
+    throw new Error(`连续工序任务 ${taskId} 已有有效分配结果，不可重复发起竞价`)
+  }
   const assignmentOperatedAt = payload.assignmentOperatedAt ?? formatOperationLocalWallClock()
   const businessAssignedAt = payload.businessAssignedAt ?? assignmentOperatedAt
   if (compareSewingDeliveryDateTimes(businessAssignedAt, assignmentOperatedAt) > 0) {
