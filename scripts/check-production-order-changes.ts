@@ -92,6 +92,15 @@ assert.deepEqual(
     'PRODUCTION_PATCH',
   ],
   [
+    '物料全部数量替换 + 当前生产单',
+    inferProductionChangeResult({
+      changeType: 'MATERIAL_REPLACEMENT',
+      replacementMode: 'FULL',
+      scope: 'CURRENT_ONLY',
+    }),
+    'PRODUCTION_PATCH',
+  ],
+  [
     '物料剩余数量替换 + 当前及后续生产单',
     inferProductionChangeResult({
       changeType: 'MATERIAL_REPLACEMENT',
@@ -126,6 +135,27 @@ assert.equal(
   ]),
   true,
   '新增且未被当前正式版本覆盖的数量明细必须触发新正式版本',
+)
+assert.equal(
+  quantityChangeRequiresNewFormalVersion([
+    {
+      ...quantityLines[0],
+      coveredByCurrentVersion: false,
+    },
+  ]),
+  false,
+  '非新增明细即使未被当前正式版本覆盖也不得触发新正式版本',
+)
+assert.equal(
+  quantityChangeRequiresNewFormalVersion([
+    {
+      ...quantityLines[0],
+      isNew: true,
+      coveredByCurrentVersion: true,
+    },
+  ]),
+  false,
+  '新增明细已被当前正式版本覆盖时不得触发新正式版本',
 )
 
 const materialDraft: ProductionChangeDraft = {
@@ -180,6 +210,18 @@ assert.deepEqual(
 )
 assert.ok(incompletePreview.lockObjectIds.includes(materialDraft.productionOrderId), '锁定对象必须包含当前生产单')
 assert.ok(incompletePreview.lockObjectIds.every((id) => id.trim().length > 0), '锁定对象不得包含空值')
+const affectedDocumentNos = [...incompletePreview.autoItems, ...incompletePreview.decisionItems]
+  .map((item) => item.affectedDocumentNo)
+  .filter((documentNo) => documentNo.trim().length > 0)
+assert.ok(
+  affectedDocumentNos.every((documentNo) => incompletePreview.lockObjectIds.includes(documentNo)),
+  '所有计划项关联单据都必须进入锁定对象',
+)
+assert.equal(
+  new Set(incompletePreview.lockObjectIds).size,
+  incompletePreview.lockObjectIds.length,
+  '锁定对象必须去重',
+)
 
 const completedDecisionValues = Object.fromEntries(
   incompletePreview.decisionItems.map((item) => [
