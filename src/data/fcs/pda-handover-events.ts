@@ -696,7 +696,9 @@ function hydrateHandoverRecordDomain(
   const submittedQty = resolveSubmittedQty(record)
   const receiverWrittenQty = resolveReceiverWrittenQty(record)
   const receiverWrittenAt = resolveReceiverWrittenAt(record)
-  const handoverRecordStatus = mapRecordLifecycleStatus(record)
+  const handoverRecordStatus = record.handoverRecordStatus === 'VOIDED'
+    ? 'VOIDED'
+    : mapRecordLifecycleStatus(record)
   const diffQty = deriveDiffQty(record)
 
   return {

@@ -43,6 +43,10 @@ import {
   getPdaPickupHeads,
   getPdaPickupRecordsByHead,
 } from './pda-handover-events.ts'
+import {
+  getSewingDeliverySlaView,
+  type SewingDeliverySlaView,
+} from './sewing-delivery-sla-view.ts'
 
 // =============================================
 // ExceptionCase 相关
@@ -830,6 +834,7 @@ export interface ProgressFact {
   executionDocs: WarehouseExecutionDoc[]
   pickupHeadIds: string[]
   handoutHeadIds: string[]
+  sewingDeliverySla?: SewingDeliverySlaView
   startReadiness: {
     canStart: boolean
     reasonCode:
@@ -1118,6 +1123,7 @@ export function listProgressFacts(): ProgressFact[] {
   return listRuntimeExecutionTasks().map((task) => {
     const executionDocs = listWarehouseExecutionDocsByRuntimeTaskId(task.taskId)
     const requests = getRequestsByRuntimeTask(task)
+    const sewingDeliverySla = getSewingDeliverySlaView(task.taskId)
     return {
       artifactId: task.sourceEntryId ? `TASKART-${task.productionOrderId}-${task.sourceEntryId}` : undefined,
       artifactType: 'TASK',
@@ -1151,6 +1157,7 @@ export function listProgressFacts(): ProgressFact[] {
       executionDocs,
       pickupHeadIds: pickupHeads.filter((head) => head.runtimeTaskId === task.taskId).map((head) => head.handoverId),
       handoutHeadIds: handoutHeads.filter((head) => head.runtimeTaskId === task.taskId).map((head) => head.handoverId),
+      ...(sewingDeliverySla ? { sewingDeliverySla } : {}),
       startReadiness: evaluateRuntimeStartReadiness(task),
     }
   })

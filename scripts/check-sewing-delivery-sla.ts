@@ -44,6 +44,18 @@ import {
 } from '../src/pages/continuous-dispatch.ts'
 import { listBusinessFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 import { productionOrders } from '../src/data/fcs/production-orders.ts'
+import {
+  getSewingDeliverySlaView,
+  listSewingDeliverySlaViews,
+} from '../src/data/fcs/sewing-delivery-sla-view.ts'
+import {
+  upsertPdaHandoverHeadMock,
+  upsertPdaHandoutRecordMock,
+  writeBackHandoverRecord,
+  type PdaHandoverHead,
+  type PdaHandoverRecord,
+} from '../src/data/fcs/pda-handover-events.ts'
+import { getProgressFactByTaskId } from '../src/data/fcs/store-domain-progress.ts'
 
 const coveredProcess = (processCode: string, processName: string) => ({
   processCode,
@@ -1808,6 +1820,204 @@ assert.match(
   mainSource,
   /function shouldSkipChangeRerender[\s\S]*?data-skip-page-rerender="true"/,
   '全局 change 路径必须尊重局部更新控件的跳过整页重绘标记',
+)
+
+const viewSnapshotStoreState = captureSewingDeliverySlaSnapshotStore()
+try {
+  const viewTask = listRuntimeProcessTasks().find((task) => classifySewingDeliverySla(task) !== null)
+  assert(viewTask, '履约视图测试需要至少一个适用含车缝时效的运行时任务')
+  const viewTaskId = viewTask.taskId
+  const viewHeadId = `HOH-SLA-VIEW-${viewTaskId}`
+  const viewSnapshot = createSewingDeliverySlaSnapshot({
+    assignmentId: 'ASSIGN-SLA-VIEW',
+    runtimeTaskId: viewTaskId,
+    productionOrderId: viewTask.productionOrderId,
+    factoryId: 'F-SLA-VIEW',
+    factoryName: '履约视图测试车缝厂',
+    assignedQty: 100,
+    acceptedAt: '2026-07-01 10:00:00',
+    slaKind: classifySewingDeliverySla(viewTask)!,
+  })
+  saveSewingDeliverySlaSnapshot(viewSnapshot)
+
+  const viewHead: PdaHandoverHead = {
+    handoverId: viewHeadId,
+    handoverOrderId: viewHeadId,
+    handoverOrderNo: 'HDO-SLA-VIEW',
+    headType: 'HANDOUT',
+    qrCodeValue: 'QR-SLA-VIEW',
+    taskId: viewTaskId,
+    runtimeTaskId: viewTaskId,
+    taskNo: viewTask.taskNo || viewTaskId,
+    productionOrderNo: viewTask.productionOrderId,
+    processName: viewTask.processNameZh,
+    sourceFactoryName: '履约视图测试车缝厂',
+    sourceFactoryId: 'F-SLA-VIEW',
+    targetName: '成衣仓',
+    targetKind: 'WAREHOUSE',
+    receiverKind: 'WAREHOUSE',
+    receiverId: 'WH-SLA-VIEW',
+    receiverName: '履约视图测试成衣仓',
+    qtyUnit: '件',
+    factoryId: 'F-SLA-VIEW',
+    taskStatus: 'IN_PROGRESS',
+    summaryStatus: 'SUBMITTED',
+    recordCount: 0,
+    pendingWritebackCount: 0,
+    submittedQtyTotal: 0,
+    writtenBackQtyTotal: 0,
+    objectionCount: 0,
+    plannedQty: 100,
+    completionStatus: 'OPEN',
+    qtyExpectedTotal: 100,
+    qtyActualTotal: 0,
+    qtyDiffTotal: -100,
+  }
+  upsertPdaHandoverHeadMock(viewHead)
+
+  const record = (
+    recordId: string,
+    submittedQty: number,
+    factorySubmittedAt: string,
+    extras: Partial<PdaHandoverRecord> = {},
+  ): PdaHandoverRecord => ({
+    recordId,
+    handoverRecordId: recordId,
+    handoverId: viewHeadId,
+    handoverOrderId: viewHeadId,
+    taskId: viewTaskId,
+    sourceTaskId: viewTaskId,
+    sequenceNo: 1,
+    submittedQty,
+    plannedQty: submittedQty,
+    qtyUnit: '件',
+    factorySubmittedAt,
+    factorySubmittedBy: '工厂操作员',
+    factoryProofFiles: [],
+    status: 'PENDING_WRITEBACK',
+    handoverRecordStatus: 'SUBMITTED_WAIT_WRITEBACK',
+    ...extras,
+  })
+
+  upsertPdaHandoutRecordMock(record('SLA-VIEW-PENDING', 10, '2026-07-02 09:00:00'))
+  upsertPdaHandoutRecordMock(record('SLA-VIEW-LATE-Z', 20, '2026-07-05 09:00:00'))
+  writeBackHandoverRecord({
+    handoverRecordId: 'SLA-VIEW-LATE-Z',
+    receiverWrittenQty: 20,
+    receiverWrittenAt: '2026-07-05 12:00:00',
+    receiverWrittenBy: '仓库收货员',
+  })
+  upsertPdaHandoutRecordMock(record('SLA-VIEW-EARLY', 15, '2026-07-03 09:00:00'))
+  writeBackHandoverRecord({
+    handoverRecordId: 'SLA-VIEW-EARLY',
+    receiverWrittenQty: 15,
+    receiverWrittenAt: '2026-07-03 10:00:00',
+    receiverWrittenBy: '仓库收货员',
+  })
+  upsertPdaHandoutRecordMock(record('SLA-VIEW-LATE-A', 5, '2026-07-05 09:30:00'))
+  writeBackHandoverRecord({
+    handoverRecordId: 'SLA-VIEW-LATE-A',
+    receiverWrittenQty: 5,
+    receiverWrittenAt: '2026-07-05 12:00:00',
+    receiverWrittenBy: '仓库收货员',
+  })
+  const voidedRecord = upsertPdaHandoutRecordMock(record('SLA-VIEW-VOID', 30, '2026-07-04 09:00:00', {
+    receiverWrittenQty: 30,
+    receiverWrittenAt: '2026-07-04 10:00:00',
+    handoverRecordStatus: 'VOIDED',
+    status: 'WRITTEN_BACK',
+  }))
+  assert.equal(voidedRecord.handoverRecordStatus, 'VOIDED', '交出域 hydrate 不得把作废记录重新激活')
+  assert.equal(voidedRecord.status, 'WRITTEN_BACK', '作废修正不得破坏既有 legacy status 映射兼容')
+
+  const initialView = getSewingDeliverySlaView(viewTaskId, '2026-07-06 10:00:00')
+  assert(initialView, '有有效快照的任务应生成履约视图')
+  assert.equal(initialView.runtimeTaskId, viewTaskId)
+  assert.equal(initialView.submittedQty, 50, '已交出应汇总有效记录，作废记录不计入')
+  assert.equal(initialView.confirmedReceivedQty, 40, '待确认与作废记录不得计入确认实收')
+  assert.equal(initialView.projection.milestones[0]?.firstReachedAt, '2026-07-05 12:00:00', '首次达标时间必须按接收方确认时间稳定排序累计')
+  assert.deepEqual(
+    initialView.projection.milestones[0]?.receiverDelayRecordIds,
+    ['SLA-VIEW-LATE-A', 'SLA-VIEW-LATE-Z'],
+    '同一确认时间的接收延迟责任记录应确定性排序，并复用纯投影规则',
+  )
+
+  upsertPdaHandoutRecordMock(record('SLA-VIEW-REVERSED', 50, '2026-07-06 09:00:00'))
+  writeBackHandoverRecord({
+    handoverRecordId: 'SLA-VIEW-REVERSED',
+    receiverWrittenQty: 50,
+    receiverWrittenAt: '2026-07-07 10:00:00',
+    receiverWrittenBy: '仓库收货员',
+  })
+  assert.equal(getSewingDeliverySlaView(viewTaskId, '2026-07-07 10:00:00')?.confirmedReceivedQty, 90)
+  writeBackHandoverRecord({
+    handoverRecordId: 'SLA-VIEW-REVERSED',
+    receiverWrittenQty: 10,
+    receiverWrittenAt: '2026-07-07 11:00:00',
+    receiverWrittenBy: '仓库主管',
+    receiverRemark: '复核冲销 40 件，实收修正为 10 件',
+  })
+  assert.equal(
+    getSewingDeliverySlaView(viewTaskId, '2026-07-07 11:00:00')?.confirmedReceivedQty,
+    50,
+    '冲销应沿用交出域当前有效回写数量，不得在履约视图另造冲销状态',
+  )
+
+  upsertPdaHandoutRecordMock(record('SLA-VIEW-OVER', 80, '2026-07-07 12:00:00'))
+  writeBackHandoverRecord({
+    handoverRecordId: 'SLA-VIEW-OVER',
+    receiverWrittenQty: 80,
+    receiverWrittenAt: '2026-07-08 10:00:00',
+    receiverWrittenBy: '仓库收货员',
+  })
+  const overView = getSewingDeliverySlaView(viewTaskId, '2026-07-08 10:00:00')
+  assert(overView)
+  assert.equal(overView.confirmedReceivedQty, 130, '超量实收应正常计入')
+  assert.equal(overView.projection.progressRatio, 1.3, '履约比例不得封顶为 100%')
+  assert.equal(overView.projection.completedAt, '2026-07-08 10:00:00')
+  assert.equal(Object.isFrozen(overView), true, '履约视图必须是防御冻结的只读结果')
+  assert.equal(Object.isFrozen(overView.projection), true, '履约视图不得暴露可变投影状态')
+  assert.notEqual(getSewingDeliverySlaView(viewTaskId, '2026-07-08 10:00:00'), overView, '每次查询应返回独立只读视图，不缓存复制履约状态')
+
+  const listViews = listSewingDeliverySlaViews('2026-07-08 10:00:00')
+  assert(listViews.some((item) => item.runtimeTaskId === viewTaskId), '履约视图列表应包含当前有效快照任务')
+  assert.equal(Object.isFrozen(listViews), true, '履约视图列表也必须防御冻结')
+
+  const progressFact = getProgressFactByTaskId(viewTaskId)
+  assert(progressFact?.sewingDeliverySla, '统一进度事实应按需挂接含车缝履约视图')
+  assert.equal(progressFact.sewingDeliverySla.confirmedReceivedQty, 130, '统一进度事实必须实时读取接收方确认实收')
+
+  const noSnapshotTask = listRuntimeProcessTasks().find((task) => task.taskId !== viewTaskId && !getSewingDeliverySlaSnapshot(task.taskId))
+  assert(noSnapshotTask, '无快照回归测试需要另一个运行时任务')
+  assert.equal(getSewingDeliverySlaView(noSnapshotTask.taskId, '2026-07-08 10:00:00'), null, '无有效快照不得生成履约视图')
+  assert.equal(getProgressFactByTaskId(noSnapshotTask.taskId)?.sewingDeliverySla, undefined, '无快照或不适用任务不得挂接履约事实')
+
+  const nonSlaTask = listRuntimeProcessTasks().find((task) => classifySewingDeliverySla(task) === null)
+  assert(nonSlaTask, '不适用任务回归测试需要一个非含车缝时效任务')
+  saveSewingDeliverySlaSnapshot(createSewingDeliverySlaSnapshot({
+    assignmentId: 'ASSIGN-SLA-VIEW-NON-SLA',
+    runtimeTaskId: nonSlaTask.taskId,
+    productionOrderId: nonSlaTask.productionOrderId,
+    factoryId: 'F-SLA-VIEW',
+    factoryName: '错误快照测试厂',
+    assignedQty: 100,
+    acceptedAt: '2026-07-01 10:00:00',
+    slaKind: 'INDEPENDENT_SEWING',
+  }))
+  assert.equal(getSewingDeliverySlaView(nonSlaTask.taskId, '2026-07-08 10:00:00'), null, '不适用任务即使误挂快照也不得生成履约视图')
+  assert.equal(getProgressFactByTaskId(nonSlaTask.taskId)?.sewingDeliverySla, undefined, '统一进度事实必须同时校验任务适用性')
+  assert.equal(
+    listSewingDeliverySlaViews('2026-07-08 10:00:00').some((item) => item.runtimeTaskId === nonSlaTask.taskId),
+    false,
+    '履约视图列表不得包含不适用任务的错误快照',
+  )
+} finally {
+  restoreSewingDeliverySlaSnapshotStore(viewSnapshotStoreState)
+}
+assert.deepEqual(
+  captureSewingDeliverySlaSnapshotStore(),
+  viewSnapshotStoreState,
+  '履约视图测试结束后必须恢复快照仓，避免污染后续检查',
 )
 
 console.log('含车缝任务交付与回货时效规则检查通过')
