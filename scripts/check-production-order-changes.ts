@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict'
-import * as changePages from '../src/pages/production/changes-domain.ts'
-import { state } from '../src/pages/production/context.ts'
+import { createProductionChangeForm, state } from '../src/pages/production/context.ts'
 import * as changeDomain from '../src/data/fcs/production-tech-pack-change-domain.ts'
 import {
   buildProductionChangePreview,
+  buildMaterialReplacementAllocations,
+  createFollowingOrderPlans,
+  createQuantityLinesForOrder,
   inferProductionChangeResult,
+  listAffectedDocumentNosForOrder,
+  listReplacementMaterialOptions,
   productionChangeResultLabels,
   quantityChangeRequiresNewFormalVersion,
   validateProductionChangeDecisions,
@@ -577,6 +581,85 @@ completedPreview.decisionItems.forEach((item) => {
 })
 assert.deepEqual(validateProductionChangeDecisions(completedPreview), [], '必要判断完成后校验必须通过')
 
+const quantityFactoryOrderId = 'PO-202603-0004'
+const factoryQuantityLines = createQuantityLinesForOrder(quantityFactoryOrderId)
+assert.ok(factoryQuantityLines.length >= 2, '现有关系生产单必须生成至少两条数量明细')
+factoryQuantityLines.forEach((line) => {
+  assert.equal(line.unit, '件', '数量明细单位必须为件')
+  assert.equal(line.originalQty, line.currentQty, '数量明细原数量与当前数量必须一致')
+  assert.equal(line.currentQty, line.targetQty, '数量明细当前数量与目标数量初始值必须一致')
+})
+
+const replacementMaterialOptions = listReplacementMaterialOptions()
+assert.ok(replacementMaterialOptions.length >= 4, '替换物料候选至少需要四条面料主档')
+assert.equal(
+  new Set(replacementMaterialOptions.map((option) => option.value)).size,
+  replacementMaterialOptions.length,
+  '替换物料候选 value 必须唯一',
+)
+
+const followingOrderPlans = createFollowingOrderPlans(quantityFactoryOrderId)
+const followingOrderIds = followingOrderPlans.map((plan) => plan.productionOrderId)
+assert.ok(followingOrderIds.every((id) => id.trim().length > 0), '后续生产单不得包含空 ID')
+assert.equal(new Set(followingOrderIds).size, followingOrderIds.length, '后续生产单 ID 必须去重')
+assert.ok(
+  followingOrderPlans.every(
+    (plan) => !plan.progressText.includes('已完成') && !plan.progressText.includes('已结算'),
+  ),
+  '已完成或已结算生产单不得参与变更',
+)
+followingOrderPlans.filter((plan) => plan.started).forEach((plan) => {
+  assert.equal(plan.suggestedMode, 'REMAINING', '已开工后续生产单必须建议只替换剩余数量')
+  assert.equal(plan.confirmedMode, plan.suggestedMode, '后续生产单初始确认方式必须等于系统建议')
+})
+followingOrderPlans.filter((plan) => !plan.started).forEach((plan) => {
+  assert.equal(plan.suggestedMode, 'FULL', '未开工后续生产单必须建议全部替换')
+  assert.equal(plan.confirmedMode, plan.suggestedMode, '后续生产单初始确认方式必须等于系统建议')
+})
+
+const currentFacts = changeDomain.getProductionOrderChangeCurrentFacts(quantityFactoryOrderId)
+const currentFactDocumentNos = (currentFacts?.documentFacts ?? [])
+  .map((fact) => fact.documentNo.trim())
+  .filter(Boolean)
+const affectedDocumentNosForOrder = listAffectedDocumentNosForOrder(quantityFactoryOrderId)
+assert.ok(affectedDocumentNosForOrder.every((documentNo) => documentNo.trim().length > 0), '受影响单据号不得为空')
+assert.equal(
+  new Set(affectedDocumentNosForOrder).size,
+  affectedDocumentNosForOrder.length,
+  '受影响单据号必须去重',
+)
+assert.ok(
+  affectedDocumentNosForOrder.every((documentNo) => currentFactDocumentNos.includes(documentNo)),
+  '受影响单据号必须来自生产单当前事实',
+)
+
+const totalDemandQty = factoryQuantityLines.reduce((sum, line) => sum + line.currentQty, 0)
+const requestedConfirmedQty = totalDemandQty + 100
+const replacementAllocations = buildMaterialReplacementAllocations(quantityFactoryOrderId, requestedConfirmedQty)
+assert.equal(
+  replacementAllocations.reduce((sum, line) => sum + line.confirmedReplacementQty, 0),
+  totalDemandQty,
+  '替换物料确认分配总数必须等于限制后的确认数量',
+)
+replacementAllocations.forEach((line) => {
+  assert.ok(line.confirmedReplacementQty >= 0, '每行确认替换数量不得为负数')
+  assert.ok(line.confirmedReplacementQty <= line.demandQty, '每行确认替换数量不得超过需求数量')
+})
+
+const firstChangeForm = createProductionChangeForm()
+const secondChangeForm = createProductionChangeForm()
+assert.notEqual(firstChangeForm.quantityLines, secondChangeForm.quantityLines, '数量明细数组不得复用引用')
+assert.notEqual(
+  firstChangeForm.materialReplacement.allocations,
+  secondChangeForm.materialReplacement.allocations,
+  '物料分配数组不得复用引用',
+)
+assert.notEqual(firstChangeForm.decisionValues, secondChangeForm.decisionValues, '判断值对象不得复用引用')
+assert.notEqual(firstChangeForm.execution.steps, secondChangeForm.execution.steps, '执行步骤数组不得复用引用')
+
+console.log('production change form state and stable mock checks passed')
+
+const changePages = await import('../src/pages/production/changes-domain.ts')
 const pageExports = changePages as Record<string, unknown>
 const domainExports = changeDomain as Record<string, unknown>
 

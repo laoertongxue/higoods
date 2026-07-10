@@ -1,3 +1,10 @@
+import { listMaterialArchives } from '../pcs-material-archive-repository.ts'
+import {
+  getProductionOrderChangeCurrentFacts,
+  listProductionOrderTechPackRelations,
+} from './production-tech-pack-change-domain.ts'
+import { resolveLinkedDemandForProductionOrder } from './production-upstream-chain.ts'
+
 export type ProductionChangeType = 'QUANTITY_CHANGE' | 'MATERIAL_REPLACEMENT'
 
 export type ProductionChangeResult = 'PRODUCTION_PATCH' | 'VERSION_RELATION' | 'VERSION_AND_PATCH'
@@ -49,6 +56,156 @@ export interface MaterialReplacementDraft {
     changeable?: boolean
     affectedDocumentNos?: string[]
   }>
+}
+
+const STABLE_REPLACEMENT_MATERIAL_OPTIONS = [
+  { value: 'MAT-FAB-018', label: 'FAB-A01 / 弹力斜纹布' },
+  { value: 'MAT-FAB-026', label: 'FAB-B01 / 高克重棉涤布' },
+]
+
+export function createEmptyMaterialReplacementDraft(): MaterialReplacementDraft {
+  return {
+    originalMaterialId: '',
+    replacementMaterialId: '',
+    replacementMode: 'REMAINING',
+    scope: 'CURRENT_ONLY',
+    suggestedProductionQty: 0,
+    confirmedProductionQty: 0,
+    allocations: [],
+    followingOrders: [],
+  }
+}
+
+export function createQuantityLinesForOrder(productionOrderId: string): QuantityChangeLine[] {
+  const demand = resolveLinkedDemandForProductionOrder(productionOrderId)
+  if (!demand) return []
+
+  return demand.skuLines.map((line, index) => ({
+    id: `${productionOrderId}-QTY-${index + 1}`,
+    skuCode: line.skuCode,
+    color: line.color,
+    size: line.size,
+    originalQty: line.qty,
+    currentQty: line.qty,
+    targetQty: line.qty,
+    unit: '件',
+    isNew: false,
+    coveredByCurrentVersion: true,
+  }))
+}
+
+export function listReplacementMaterialOptions(): Array<{ value: string; label: string }> {
+  const options = [
+    ...listMaterialArchives('fabric').map((material) => ({
+      value: material.materialId.trim(),
+      label: `${material.materialCode} / ${material.materialName}`,
+    })),
+    ...STABLE_REPLACEMENT_MATERIAL_OPTIONS,
+  ]
+  const uniqueOptions = new Map<string, { value: string; label: string }>()
+  options.forEach((option) => {
+    if (option.value && !uniqueOptions.has(option.value)) uniqueOptions.set(option.value, option)
+  })
+  return Array.from(uniqueOptions.values())
+}
+
+export function listAffectedDocumentNosForOrder(productionOrderId: string): string[] {
+  const documentNos = getProductionOrderChangeCurrentFacts(productionOrderId)?.documentFacts
+    .map((fact) => fact.documentNo.trim())
+    .filter(Boolean) ?? []
+  return Array.from(new Set(documentNos))
+}
+
+function isCompletedOrSettled(progressTexts: string[]): boolean {
+  return progressTexts.some((text) => text.includes('已完成') || text.includes('已结算'))
+}
+
+export function createFollowingOrderPlans(
+  productionOrderId: string,
+): MaterialReplacementDraft['followingOrders'] {
+  const relations = listProductionOrderTechPackRelations()
+  const currentRelation = relations.find((relation) => relation.productionOrderId === productionOrderId)
+  if (!currentRelation) return []
+
+  const uniquePlans = new Map<string, MaterialReplacementDraft['followingOrders'][number]>()
+  relations.forEach((relation) => {
+    const orderId = relation.productionOrderId.trim()
+    if (!orderId || orderId === productionOrderId || relation.spuId !== currentRelation.spuId) return
+
+    const progressTexts = [...relation.progressSummary, ...relation.restrictionSummary]
+    if (isCompletedOrSettled(progressTexts)) return
+
+    const started = relation.progressSummary.some(
+      (text) => text.includes('已领') || text.includes('已裁') || text.includes('已加工'),
+    )
+    const suggestedMode: MaterialReplacementMode = started ? 'REMAINING' : 'FULL'
+    const progressText = relation.progressSummary.some((text) => !text.includes('未开始'))
+      ? relation.progressSummary.join('；')
+      : '尚未开始'
+    if (!uniquePlans.has(orderId)) {
+      uniquePlans.set(orderId, {
+        productionOrderId: orderId,
+        progressText,
+        started,
+        suggestedMode,
+        confirmedMode: suggestedMode,
+        affectedDocumentNos: listAffectedDocumentNosForOrder(orderId),
+      })
+    }
+  })
+  return Array.from(uniquePlans.values())
+}
+
+export function buildMaterialReplacementAllocations(
+  productionOrderId: string,
+  confirmedProductionQty: number,
+): MaterialReplacementAllocation[] {
+  const quantityLines = createQuantityLinesForOrder(productionOrderId)
+  if (quantityLines.length === 0) return []
+
+  const allocations = quantityLines.map((line, index) => {
+    const demandQty = Math.max(0, line.currentQty)
+    const oldMaterialFactQty = Math.floor(demandQty * 0.55)
+    return {
+      id: `${productionOrderId}-ALLOC-${index + 1}`,
+      skuCode: line.skuCode,
+      color: line.color,
+      size: line.size,
+      demandQty,
+      oldMaterialFactQty,
+      suggestedReplacementQty: Math.max(demandQty - oldMaterialFactQty, 0),
+      confirmedReplacementQty: 0,
+    }
+  })
+  const totalDemandQty = allocations.reduce((sum, line) => sum + line.demandQty, 0)
+  const normalizedConfirmedQty = Number.isFinite(confirmedProductionQty) ? confirmedProductionQty : 0
+  const limitedConfirmedQty = Math.min(Math.max(normalizedConfirmedQty, 0), totalDemandQty)
+  const totalSuggestedQty = allocations.reduce((sum, line) => sum + line.suggestedReplacementQty, 0)
+
+  let allocatedQty = 0
+  allocations.forEach((line, index) => {
+    if (index === allocations.length - 1) return
+    const proportionalQty = totalSuggestedQty > 0
+      ? Math.floor((limitedConfirmedQty * line.suggestedReplacementQty) / totalSuggestedQty)
+      : 0
+    line.confirmedReplacementQty = Math.min(proportionalQty, line.demandQty)
+    allocatedQty += line.confirmedReplacementQty
+  })
+
+  const lastLine = allocations[allocations.length - 1]
+  lastLine.confirmedReplacementQty = Math.min(limitedConfirmedQty - allocatedQty, lastLine.demandQty)
+  allocatedQty += lastLine.confirmedReplacementQty
+
+  let remainder = limitedConfirmedQty - allocatedQty
+  allocations.forEach((line) => {
+    if (remainder <= 0) return
+    const availableQty = line.demandQty - line.confirmedReplacementQty
+    const addedQty = Math.min(availableQty, remainder)
+    line.confirmedReplacementQty += addedQty
+    remainder -= addedQty
+  })
+
+  return allocations
 }
 
 export interface ProductionChangeDraft {

@@ -94,6 +94,13 @@ import {
   buildBatchTaskGenerationPreview,
   type ProductionTaskGenerationPreview,
 } from '../../data/fcs/production-task-generation-rules.ts'
+import {
+  createEmptyMaterialReplacementDraft,
+  type MaterialReplacementDraft,
+  type ProductionChangeExecutionStep,
+  type ProductionChangeType,
+  type QuantityChangeLine,
+} from '../../data/fcs/production-order-change-workflow.ts'
 
 applyQualitySeedBootstrap()
 
@@ -125,25 +132,44 @@ type TechPackChangeDetailTab =
 
 type ProductionChangeListTab = 'change-orders' | 'candidate-orders'
 type ProductionChangeDetailTab = 'content' | 'impact' | 'documents' | 'cost' | 'timing' | 'approval' | 'records'
-type ProductionChangeFormStep = 'order' | 'content' | 'handling' | 'preview'
-type ProductionChangeFormType = 'QUANTITY_CHANGE' | 'MATERIAL_REPLACEMENT'
+type ProductionChangeFormStep = 'order' | 'content' | 'handling' | 'execution'
+type ProductionChangeFormType = ProductionChangeType
 
 interface ProductionChangeForm {
   changeType: ProductionChangeFormType
   productionOrderId: string
-  source: string
-  modules: string[]
-  changeContent: string
   reason: string
-  effectiveMode: string
-  executionMode: string
-  quantityLines: Array<{ color: string; size: string; currentQty: number; newQty: number; unit: string }>
-  materialReplacement: {
-    originalMaterial: string
-    replacementMaterial: string
-    colors: string[]
-    sizes: string[]
-    effectiveFromText: string
+  quantityLines: QuantityChangeLine[]
+  materialReplacement: MaterialReplacementDraft
+  decisionValues: Record<string, { value: string; reason: string }>
+  advancedAllocationOpen: boolean
+  execution: {
+    status: 'IDLE' | 'RUNNING' | 'DONE' | 'ROLLED_BACK'
+    message: string
+    progress: number
+    steps: ProductionChangeExecutionStep[]
+  }
+}
+
+function createIdleExecutionState(): ProductionChangeForm['execution'] {
+  return {
+    status: 'IDLE',
+    message: '',
+    progress: 0,
+    steps: [],
+  }
+}
+
+export function createProductionChangeForm(): ProductionChangeForm {
+  return {
+    changeType: 'QUANTITY_CHANGE',
+    productionOrderId: '',
+    reason: '',
+    quantityLines: [],
+    materialReplacement: createEmptyMaterialReplacementDraft(),
+    decisionValues: {},
+    advancedAllocationOpen: false,
+    execution: createIdleExecutionState(),
   }
 }
 
@@ -323,28 +349,6 @@ const PRODUCTION_PATCH_EMPTY_FORM: ProductionPatchForm = {
   effectivePoint: 'FROM_NOW',
   reason: '',
   contentText: '',
-}
-
-const PRODUCTION_CHANGE_EMPTY_FORM: ProductionChangeForm = {
-  changeType: 'QUANTITY_CHANGE',
-  productionOrderId: '',
-  source: 'TECH_PACK_NEW_VERSION',
-  modules: ['BOM'],
-  changeContent: '',
-  reason: '',
-  effectiveMode: 'FROM_NEXT_PREP',
-  executionMode: 'AFTER_APPROVAL',
-  quantityLines: [
-    { color: '黑色', size: 'M', currentQty: 120, newQty: 150, unit: '件' },
-    { color: '黑色', size: 'L', currentQty: 100, newQty: 80, unit: '件' },
-  ],
-  materialReplacement: {
-    originalMaterial: '主布 A-220 克重棉涤',
-    replacementMaterial: '主布 B-230 克重棉涤',
-    colors: ['黑色', '藏青'],
-    sizes: ['M', 'L', 'XL'],
-    effectiveFromText: '从下一张未配料的配料单开始用新物料',
-  },
 }
 
 const demandStatusConfig: Record<ProductionDemand['demandStatus'], { label: string; className: string }> = {
@@ -1871,7 +1875,7 @@ const state: ProductionState = {
   productionChangeListTab: 'change-orders',
   productionChangeDetailTab: 'content',
   productionChangeFormStep: 'order',
-  productionChangeForm: { ...PRODUCTION_CHANGE_EMPTY_FORM },
+  productionChangeForm: createProductionChangeForm(),
   productionChangeFormError: '',
   techPackChangeDetailTab: 'relation',
   techPackChangeVersionDialogOrderId: null,
@@ -1919,6 +1923,7 @@ export type {
   MaterialMode,
   TechPackChangeDetailTab,
   ProductionChangeForm,
+  ProductionChangeFormType,
   ProductionChangeFormStep,
   ProductionChangeDetailTab,
   ProductionChangeListTab,
