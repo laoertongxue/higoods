@@ -39,6 +39,14 @@ import {
 } from './pda-cutting-task-rollup'
 import { acceptWoolWorkOrder } from '../data/fcs/wool-task-domain.ts'
 import {
+  acceptRuntimeTaskAssignment,
+  getRuntimeTaskById,
+} from '../data/fcs/runtime-process-tasks.ts'
+import {
+  classifySewingDeliverySla,
+  formatOperationLocalWallClock,
+} from '../data/fcs/sewing-delivery-sla.ts'
+import {
   ensurePdaSessionForAction,
   getPdaRuntimeContext,
   renderPdaLoginRedirect,
@@ -176,31 +184,20 @@ function renderSectionCard(title: string, icon: string, body: string): string {
 }
 
 function mutateAcceptTask(taskId: string, by: string): void {
-  const now = nowTimestamp()
+  const now = formatOperationLocalWallClock()
   const task = getTaskFactById(taskId)
-  if (!task) return
+  if (!task) throw new Error('任务不存在或已被移除')
   const woolOrderId = (task as ProcessTask & { woolOrderId?: string }).woolOrderId
   if (task.processBusinessCode === 'WOOL' && woolOrderId) {
     acceptWoolWorkOrder(woolOrderId, by, now)
+    return
   }
   if (task.processBusinessCode === 'POST_FINISHING' || task.processCode === 'POST_FINISHING' || task.processNameZh === '后道') {
     acceptPostFinishingTask(taskId, by, now)
+    return
   }
-
-  task.acceptanceStatus = 'ACCEPTED'
-  task.acceptedAt = now
-  task.acceptedBy = by
-  task.updatedAt = now
-  task.auditLogs = [
-    ...task.auditLogs,
-    {
-      id: `AL-ACC-${Date.now()}`,
-      action: 'ACCEPT_TASK',
-      detail: '工厂确认接单',
-      at: now,
-      by,
-    },
-  ]
+  if (!getRuntimeTaskById(taskId)) throw new Error('任务尚未进入统一运行时任务仓，请联系主管处理')
+  acceptRuntimeTaskAssignment(taskId, { acceptedAt: now, acceptedBy: by })
 }
 
 function mutateRejectTask(taskId: string, reason: string, by: string): void {
@@ -599,6 +596,7 @@ function renderReceiveSpecificSection(task: ProcessTask, tab: ReceiveDetailTabKe
   }
 
   if (tab === 'awarded') {
+    const requiresAcceptance = classifySewingDeliverySla(task) !== null && task.acceptanceStatus === 'PENDING'
     return renderSectionCard(
       '中标信息',
       'award',
@@ -618,7 +616,11 @@ function renderReceiveSpecificSection(task: ProcessTask, tab: ReceiveDetailTabKe
             ? `<div class="rounded bg-muted/50 px-3 py-2 text-xs text-muted-foreground">中标说明：${escapeHtml(task.priceDiffReason)}</div>`
             : ''
         }
-        <button class="inline-flex h-9 w-full items-center justify-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeHtml(execHref)}">去执行</button>
+        ${
+          requiresAcceptance
+            ? `<button class="inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90" data-pda-trd-action="accept" data-task-id="${escapeHtml(task.taskId)}">确认接单</button>`
+            : `<button class="inline-flex h-9 w-full items-center justify-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeHtml(execHref)}">去执行</button>`
+        }
       `,
     )
   }
@@ -1085,11 +1087,15 @@ export function handlePdaTaskReceiveDetailEvent(target: HTMLElement): boolean {
     if (!taskId) return true
 
     const factoryName = getFactoryName(getCurrentFactoryId())
-    mutateAcceptTask(taskId, factoryName)
-    showTaskReceiveDetailToast('接单成功')
-    state.rejectDialogOpen = false
-    state.rejectReason = ''
-    appStore.navigate(resolveReceiveBackHref())
+    try {
+      mutateAcceptTask(taskId, factoryName)
+      showTaskReceiveDetailToast('接单成功')
+      state.rejectDialogOpen = false
+      state.rejectReason = ''
+      appStore.navigate(resolveReceiveBackHref())
+    } catch (error) {
+      showTaskReceiveDetailToast(error instanceof Error ? error.message : '接单失败，请联系主管处理')
+    }
     return true
   }
 

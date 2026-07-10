@@ -566,9 +566,8 @@ interface CreateTenderForm {
   maxPrice: string
   biddingDeadline: string
   taskDeadline: string
+  businessAssignedAt: string
   remark: string
-  mainFactoryId: string
-  mainFactoryName: string
   selectedPool: Set<string>
 }
 
@@ -644,9 +643,8 @@ function emptyCreateTenderForm(): CreateTenderForm {
     maxPrice: '',
     biddingDeadline: '',
     taskDeadline: '',
+    businessAssignedAt: '',
     remark: '',
-    mainFactoryId: '',
-    mainFactoryName: '',
     selectedPool: new Set<string>(),
   }
 }

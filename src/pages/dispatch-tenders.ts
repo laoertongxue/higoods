@@ -4,6 +4,20 @@ import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
   renderProductionOrderIdentityCell,
 } from '../data/fcs/production-order-identity'
+import {
+  awardRuntimeTaskTender,
+  captureRuntimeDirectDispatchState,
+  getRuntimeTaskById,
+  prepareRuntimeTaskTenderAward,
+  restoreRuntimeDirectDispatchState,
+  type RuntimeProcessTask,
+  type RuntimeTaskTenderAwardInput,
+} from '../data/fcs/runtime-process-tasks.ts'
+import {
+  captureSewingDeliverySlaSnapshotStore,
+  formatOperationLocalWallClock,
+  restoreSewingDeliverySlaSnapshotStore,
+} from '../data/fcs/sewing-delivery-sla.ts'
 
 type TenderStatus = 'BIDDING' | 'AWAIT_AWARD' | 'AWARDED'
 
@@ -31,6 +45,7 @@ interface FactoryQuoteEntry {
 interface TenderRow {
   tenderId: string
   taskId: string
+  taskIds?: string[]
   productionOrderId: string
   processNameZh: string
   qty: number
@@ -239,6 +254,11 @@ interface LocalAward {
   awardedFactory: string
   awardedPrice: number
   awardReason: string
+}
+
+interface RuntimeTenderBatchAwardInput extends Omit<RuntimeTaskTenderAwardInput, 'taskId'> {
+  taskIds: string[]
+  allowLegacyLocalOnly?: boolean
 }
 
 interface TendersPageState {
@@ -511,6 +531,33 @@ function showTenderToast(message: string): void {
   }, 2400)
 }
 
+export function awardRuntimeTenderTasks(input: RuntimeTenderBatchAwardInput): {
+  ok: boolean
+  message?: string
+  tasks?: RuntimeProcessTask[]
+} {
+  if (input.allowLegacyLocalOnly && input.taskIds.every((taskId) => !getRuntimeTaskById(taskId))) {
+    return { ok: true, tasks: [] }
+  }
+  let preparations: ReturnType<typeof prepareRuntimeTaskTenderAward>[]
+  try {
+    preparations = input.taskIds.map((taskId) => prepareRuntimeTaskTenderAward({ ...input, taskId }))
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : '竞价定标前置校验失败' }
+  }
+
+  const runtimeState = captureRuntimeDirectDispatchState()
+  const snapshotState = captureSewingDeliverySlaSnapshotStore()
+  try {
+    const tasks = preparations.map(({ input: awardInput }) => awardRuntimeTaskTender(awardInput))
+    return { ok: true, tasks }
+  } catch (error) {
+    restoreRuntimeDirectDispatchState(runtimeState)
+    restoreSewingDeliverySlaSnapshotStore(snapshotState)
+    return { ok: false, message: error instanceof Error ? error.message : '竞价定标提交失败' }
+  }
+}
+
 function confirmAwardInView(): void {
   const tender = getViewTender()
   if (!tender) return
@@ -529,6 +576,26 @@ function confirmAwardInView(): void {
   const priceOutOfRange =
     selectedQuote.quotePrice < tender.minPrice || selectedQuote.quotePrice > tender.maxPrice
   if (priceOutOfRange && state.viewAwardReason.trim() === '') return
+
+  const selectedFactory = CANDIDATE_FACTORIES.find((factory) => factory.name === selectedQuote.factoryName)
+  if (!selectedFactory) {
+    showTenderToast(`未找到 ${selectedQuote.factoryName} 的工厂档案，无法定标`)
+    return
+  }
+  const taskIds = tender.taskIds?.length ? tender.taskIds : [tender.taskId]
+  const awardResult = awardRuntimeTenderTasks({
+    taskIds,
+    factoryId: selectedFactory.id,
+    factoryName: selectedQuote.factoryName,
+    awardedAt: formatOperationLocalWallClock(),
+    awardedPrice: selectedQuote.quotePrice,
+    by: '平台定标员',
+    allowLegacyLocalOnly: tender.processNameZh !== '车缝',
+  })
+  if (!awardResult.ok) {
+    showTenderToast(awardResult.message || '定标失败，请刷新后重试')
+    return
+  }
 
   state.localAwards = {
     ...state.localAwards,

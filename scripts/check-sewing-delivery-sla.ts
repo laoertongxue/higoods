@@ -550,6 +550,10 @@ assert.equal(typeof captureRuntimeDirectDispatchState, 'function', '应提供直
 assert.equal(typeof restoreRuntimeDirectDispatchState, 'function', '应提供直接派单运行时状态恢复')
 assert.equal(typeof prepareRuntimeDirectDispatchMeta, 'function', '应提供无副作用的直接派单准备函数')
 
+const runtimeTenderModule = await import('../src/data/fcs/runtime-process-tasks.ts')
+assert.equal(typeof runtimeTenderModule.awardRuntimeTaskTender, 'function', '应提供统一运行时竞价定标函数')
+assert.equal(typeof runtimeTenderModule.acceptRuntimeTaskAssignment, 'function', '应提供统一运行时任务接单函数')
+
 const timezoneWallClockProbe = `
   import {
     compareSewingDeliveryDateTimes,
@@ -580,6 +584,241 @@ assert.deepEqual(runWallClockProbe('Asia/Jakarta'), {
   storedValue: '2026-07-10 07:00:00',
   comparison: 0,
 }, '雅加达操作端默认时间应使用本地墙钟，且往返后不被误判为未来')
+
+const tenderRuntimeState = captureRuntimeDirectDispatchState()
+const tenderSnapshotState = captureSewingDeliverySlaSnapshotStore()
+try {
+  const sewingTenderTaskId = 'TASKGEN-202603-083-002__ORDER'
+  const unawardedTaskId = 'TASKGEN-202603-084-003__ORDER'
+  const rejectedTaskId = 'TASKGEN-202603-086-002__ORDER'
+  const nonSewingTenderTaskId = 'TASKGEN-202603-0002-006__ORDER'
+  for (const taskId of [sewingTenderTaskId, unawardedTaskId, rejectedTaskId, nonSewingTenderTaskId]) {
+    clearSewingDeliverySlaSnapshotStore(taskId)
+  }
+
+  const tenderCreated = runtimeTenderModule.upsertRuntimeTaskTender(
+    sewingTenderTaskId,
+    {
+      tenderId: 'TENDER-SLA-ACCEPT-001',
+      biddingDeadline: '2026-07-01 10:30:00',
+      taskDeadline: '2026-07-20 18:00:00',
+      businessAssignedAt: '2026-07-01 09:00:00',
+      assignmentOperatedAt: '2026-07-01 10:00:00',
+    },
+    '跟单A',
+  )
+  assert.ok(tenderCreated, '含车缝任务应可创建竞价')
+  assert.equal(tenderCreated.businessAssignedAt, '2026-07-01 09:00:00', '竞价应保存业务分配时间')
+  assert.equal(tenderCreated.assignmentOperatedAt, '2026-07-01 10:00:00', '竞价应保存实际操作时间')
+  assert.equal(tenderCreated.assignedFactoryId, undefined, '创建竞价时不得预选主工厂或承接工厂')
+  assert.equal(tenderCreated.deliverySlaSnapshotId, undefined, '创建竞价时不得挂接履约快照')
+  assert.equal(getSewingDeliverySlaSnapshot(sewingTenderTaskId), null, '创建竞价时不得生成履约快照')
+
+  const beforeFutureTender = structuredClone(getRuntimeTaskById(unawardedTaskId))
+  assert.throws(
+    () => runtimeTenderModule.upsertRuntimeTaskTender(
+      unawardedTaskId,
+      {
+        tenderId: 'TENDER-SLA-FUTURE',
+        biddingDeadline: '2026-07-02 18:00:00',
+        taskDeadline: '2026-07-20 18:00:00',
+        businessAssignedAt: '2026-07-01 11:00:00',
+        assignmentOperatedAt: '2026-07-01 10:00:00',
+      },
+      '跟单A',
+    ),
+    /业务分配时间不能晚于当前操作时间/,
+    '竞价创建必须阻断未来业务分配时间',
+  )
+  assert.deepEqual(getRuntimeTaskById(unawardedTaskId), beforeFutureTender, '未来时间失败不得修改任务状态')
+  assert.equal(getSewingDeliverySlaSnapshot(unawardedTaskId), null, '未来时间失败不得生成履约快照')
+
+  const awarded = runtimeTenderModule.awardRuntimeTaskTender({
+    taskId: sewingTenderTaskId,
+    factoryId: 'ID-F003',
+    factoryName: '万隆车缝厂',
+    awardedAt: '2026-07-01 11:00:00',
+    awardedPrice: 13200,
+    by: '平台定标员',
+  })
+  assert.equal(awarded.assignmentStatus, 'AWARDED', '定标后任务应进入已中标')
+  assert.equal(awarded.assignedFactoryId, 'ID-F003')
+  assert.equal(awarded.assignedFactoryName, '万隆车缝厂')
+  assert.equal(awarded.awardedAt, '2026-07-01 11:00:00')
+  assert.equal(awarded.dispatchPrice, 13200)
+  assert.equal(awarded.acceptanceStatus, 'PENDING', '含车缝中标后必须等待工厂确认接单')
+  assert.equal(awarded.acceptedAt, undefined)
+  assert.equal(getSewingDeliverySlaSnapshot(sewingTenderTaskId), null, '平台定标不得提前启动含车缝 SLA')
+
+  const accepted = runtimeTenderModule.acceptRuntimeTaskAssignment(sewingTenderTaskId, {
+    acceptedAt: '2026-07-01 11:30:00',
+    acceptedBy: '万隆车缝厂',
+  })
+  assert.equal(accepted.acceptanceStatus, 'ACCEPTED')
+  assert.equal(accepted.acceptedAt, '2026-07-01 11:30:00')
+  assert.equal(accepted.acceptedBy, '万隆车缝厂')
+  const acceptedSnapshot = getSewingDeliverySlaSnapshot(sewingTenderTaskId)
+  assert.ok(acceptedSnapshot, '实际确认接单后应生成含车缝 SLA 快照')
+  assert.equal(acceptedSnapshot.acceptedAt, '2026-07-01 11:30:00', '快照必须使用工厂实际接单时间')
+  assert.notEqual(acceptedSnapshot.acceptedAt, accepted.businessAssignedAt, '竞价业务分配时间不是履约起点')
+  assert.equal(acceptedSnapshot.assignedQty, accepted.scopeQty)
+  assert.equal(acceptedSnapshot.factoryId, 'ID-F003')
+  assert.equal(accepted.taskDeadline, '2026-07-10 11:30:00', '含车缝任务截止应取 100% 履约节点')
+
+  const acceptedBeforeDuplicate = structuredClone(accepted)
+  const acceptedHistoryLength = listSewingDeliverySlaSnapshotHistory(sewingTenderTaskId).length
+  assert.throws(
+    () => runtimeTenderModule.acceptRuntimeTaskAssignment(sewingTenderTaskId, {
+      acceptedAt: '2026-07-01 11:35:00',
+      acceptedBy: '万隆车缝厂',
+    }),
+    /已接单|不可重复接单/,
+    '重复接单必须失败',
+  )
+  assert.deepEqual(getRuntimeTaskById(sewingTenderTaskId), acceptedBeforeDuplicate, '重复接单不得新增审计或修改任务')
+  assert.equal(
+    listSewingDeliverySlaSnapshotHistory(sewingTenderTaskId).length,
+    acceptedHistoryLength,
+    '重复接单不得生成第二条履约快照',
+  )
+
+  const unawardedBeforeAccept = structuredClone(getRuntimeTaskById(unawardedTaskId))
+  assert.throws(
+    () => runtimeTenderModule.acceptRuntimeTaskAssignment(unawardedTaskId, {
+      acceptedAt: '2026-07-01 11:30:00',
+      acceptedBy: '万隆车缝厂',
+    }),
+    /未定标|未分配|承接工厂/,
+    '未定标任务不得接单',
+  )
+  assert.deepEqual(getRuntimeTaskById(unawardedTaskId), unawardedBeforeAccept, '未定标接单失败不得修改状态')
+
+  runtimeTenderModule.upsertRuntimeTaskTender(
+    rejectedTaskId,
+    {
+      tenderId: 'TENDER-SLA-REJECTED',
+      biddingDeadline: '2026-07-01 10:30:00',
+      taskDeadline: '2026-07-20 18:00:00',
+      businessAssignedAt: '2026-07-01 09:00:00',
+      assignmentOperatedAt: '2026-07-01 10:00:00',
+    },
+    '跟单A',
+  )
+  runtimeTenderModule.awardRuntimeTaskTender({
+    taskId: rejectedTaskId,
+    factoryId: 'ID-F003',
+    factoryName: '万隆车缝厂',
+    awardedAt: '2026-07-01 11:00:00',
+    awardedPrice: 13200,
+    by: '平台定标员',
+  })
+  const rejectedInjectedState = captureRuntimeDirectDispatchState()
+  const rejectedOverride = rejectedInjectedState.taskOverrides.find(([taskId]) => taskId === rejectedTaskId)
+  assert.ok(rejectedOverride, '拒单防错测试应存在运行时覆盖')
+  rejectedOverride[1].acceptanceStatus = 'REJECTED'
+  restoreRuntimeDirectDispatchState(rejectedInjectedState)
+  const rejectedBeforeAccept = structuredClone(getRuntimeTaskById(rejectedTaskId))
+  assert.throws(
+    () => runtimeTenderModule.acceptRuntimeTaskAssignment(rejectedTaskId, {
+      acceptedAt: '2026-07-01 11:30:00',
+      acceptedBy: '万隆车缝厂',
+    }),
+    /已拒单|拒单后不可接单/,
+    '拒单后不得错误接单',
+  )
+  assert.deepEqual(getRuntimeTaskById(rejectedTaskId), rejectedBeforeAccept, '拒单后接单失败不得修改任务')
+  assert.equal(getSewingDeliverySlaSnapshot(rejectedTaskId), null)
+
+  runtimeTenderModule.upsertRuntimeTaskTender(
+    nonSewingTenderTaskId,
+    {
+      tenderId: 'TENDER-NON-SEWING',
+      biddingDeadline: '2026-07-01 10:30:00',
+      taskDeadline: '2026-07-20 18:00:00',
+      businessAssignedAt: '2026-07-01 09:00:00',
+      assignmentOperatedAt: '2026-07-01 10:00:00',
+    },
+    '跟单A',
+  )
+  const nonSewingAwarded = runtimeTenderModule.awardRuntimeTaskTender({
+    taskId: nonSewingTenderTaskId,
+    factoryId: 'ID-F010',
+    factoryName: '雅加达绣花专工厂',
+    awardedAt: '2026-07-01 11:00:00',
+    awardedPrice: 5800,
+    by: '平台定标员',
+  })
+  assert.equal(nonSewingAwarded.assignmentStatus, 'AWARDED', '非含车缝竞价仍应保持定标即归属')
+  assert.equal(nonSewingAwarded.assignedFactoryId, 'ID-F010')
+  assert.equal(nonSewingAwarded.acceptanceStatus, 'ACCEPTED', '非含车缝竞价应保留定标后直接归属并可执行的旧语义')
+  assert.equal(nonSewingAwarded.acceptedAt, '2026-07-01 11:00:00')
+  assert.equal(getSewingDeliverySlaSnapshot(nonSewingTenderTaskId), null)
+} finally {
+  restoreRuntimeDirectDispatchState(tenderRuntimeState)
+  restoreSewingDeliverySlaSnapshotStore(tenderSnapshotState)
+}
+
+const batchAwardProbe = `
+  import assert from 'node:assert/strict'
+  import { awardRuntimeTenderTasks } from './src/pages/dispatch-tenders.ts'
+  import {
+    captureRuntimeDirectDispatchState,
+    getRuntimeTaskById,
+    restoreRuntimeDirectDispatchState,
+    upsertRuntimeTaskTender,
+  } from './src/data/fcs/runtime-process-tasks.ts'
+  import {
+    captureSewingDeliverySlaSnapshotStore,
+    getSewingDeliverySlaSnapshot,
+    restoreSewingDeliverySlaSnapshotStore,
+  } from './src/data/fcs/sewing-delivery-sla.ts'
+  const runtimeState = captureRuntimeDirectDispatchState()
+  const snapshotState = captureSewingDeliverySlaSnapshotStore()
+  try {
+    const taskId = 'TASKGEN-202603-083-002__ORDER'
+    upsertRuntimeTaskTender(taskId, {
+      tenderId: 'TENDER-BATCH-AWARD',
+      biddingDeadline: '2026-07-01 10:30:00',
+      taskDeadline: '2026-07-20 18:00:00',
+      businessAssignedAt: '2026-07-01 09:00:00',
+      assignmentOperatedAt: '2026-07-01 10:00:00',
+    }, '跟单A')
+    const before = structuredClone(getRuntimeTaskById(taskId))
+    const result = awardRuntimeTenderTasks({
+      taskIds: [taskId, 'TASK-MISSING-BATCH-AWARD'],
+      factoryId: 'ID-F003',
+      factoryName: '万隆车缝厂',
+      awardedAt: '2026-07-01 11:00:00',
+      awardedPrice: 13200,
+      by: '平台定标员',
+    })
+    assert.equal(result.ok, false)
+    assert.deepEqual(getRuntimeTaskById(taskId), before)
+    assert.equal(getSewingDeliverySlaSnapshot(taskId), null)
+    const legacyNonSewingResult = awardRuntimeTenderTasks({
+      taskIds: ['TASK-LEGACY-NON-SEWING'],
+      factoryId: 'ID-F010',
+      factoryName: '雅加达绣花专工厂',
+      awardedAt: '2026-07-01 11:00:00',
+      awardedPrice: 5800,
+      by: '平台定标员',
+      allowLegacyLocalOnly: true,
+    })
+    assert.equal(legacyNonSewingResult.ok, true)
+    process.stdout.write('PASS')
+  } finally {
+    restoreRuntimeDirectDispatchState(runtimeState)
+    restoreSewingDeliverySlaSnapshotStore(snapshotState)
+  }
+`
+assert.equal(
+  execFileSync(new URL('../node_modules/.bin/tsx', import.meta.url).pathname, ['--eval', batchAwardProbe], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  }),
+  'PASS',
+  '多任务定标第二条失败时不得留下第一条已定标状态',
+)
 
 const historyStoreState = captureSewingDeliverySlaSnapshotStore()
 try {
@@ -1003,6 +1242,25 @@ assert.match(dispatchDomainSource, /data-dispatch-field="dispatch\.businessAssig
 assert.match(dispatchDomainSource, /data-skip-page-rerender="true"/, '业务分配时间输入时不得触发整页重绘')
 const dispatchEventSource = readFileSync(new URL('../src/pages/dispatch-board/events.ts', import.meta.url), 'utf8')
 assert.match(dispatchEventSource, /dispatch\.businessAssignedAt/, '事件层应接收业务分配时间变更')
+const tenderDomainSource = readFileSync(new URL('../src/pages/dispatch-board/tender-domain.ts', import.meta.url), 'utf8')
+assert.match(tenderDomainSource, /tender\.businessAssignedAt/, '创建竞价页应接入业务分配时间')
+assert.match(tenderDomainSource, /实际操作时间/, '创建竞价页应提示实际操作时间')
+assert.doesNotMatch(tenderDomainSource, /data-dispatch-field="tender\.mainFactoryId"/, '创建含车缝竞价不得预选主工厂')
+assert.doesNotMatch(tenderDomainSource, /创建招标单时必须从工厂池中指定生产单主工厂/, '创建竞价不得保留预选主工厂校验')
+const dispatchTendersSource = readFileSync(new URL('../src/pages/dispatch-tenders.ts', import.meta.url), 'utf8')
+assert.match(dispatchTendersSource, /awardRuntimeTaskTender/, '竞价列表定标必须写入统一运行时任务仓')
+assert.match(dispatchTendersSource, /captureRuntimeDirectDispatchState/, '多任务定标必须捕获运行时状态以支持回滚')
+const pdaTaskReceiveSource = readFileSync(new URL('../src/pages/pda-task-receive.ts', import.meta.url), 'utf8')
+const pdaTaskReceiveDetailSource = readFileSync(new URL('../src/pages/pda-task-receive-detail.ts', import.meta.url), 'utf8')
+for (const [sourceName, source] of [
+  ['PDA 接单列表', pdaTaskReceiveSource],
+  ['PDA 接单详情', pdaTaskReceiveDetailSource],
+] as const) {
+  assert.match(source, /acceptRuntimeTaskAssignment/, `${sourceName}必须调用统一运行时接单函数`)
+  assert.match(source, /formatOperationLocalWallClock/, `${sourceName}必须使用操作端本地当前墙钟`)
+  assert.match(source, /确认接单/, `${sourceName}应向待确认的中标任务展示“确认接单”`)
+  assert.doesNotMatch(source, /无需二次确认/, `${sourceName}不得再宣称中标任务无需二次确认`)
+}
 const mainSource = readFileSync(new URL('../src/main.ts', import.meta.url), 'utf8')
 assert.match(
   mainSource,

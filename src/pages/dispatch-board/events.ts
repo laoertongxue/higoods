@@ -219,11 +219,9 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement |
     return
   }
 
-  if (field === 'tender.mainFactoryId') {
+  if (field === 'tender.businessAssignedAt') {
     state.createTenderError = null
-    state.createTenderForm.mainFactoryId = node.value
-    const selectedFactory = candidateFactories.find((factory) => factory.id === node.value)
-    state.createTenderForm.mainFactoryName = selectedFactory?.name ?? ''
+    state.createTenderForm.businessAssignedAt = node.value
     return
   }
 
@@ -447,11 +445,6 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
       state.createTenderForm.selectedPool.add(factoryId)
     }
 
-    if (!state.createTenderForm.selectedPool.has(state.createTenderForm.mainFactoryId)) {
-      state.createTenderForm.mainFactoryId = ''
-      state.createTenderForm.mainFactoryName = ''
-    }
-
     state.createTenderForm.selectedPool = new Set(state.createTenderForm.selectedPool)
     return true
   }
@@ -465,8 +458,6 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
   if (action === 'clear-all-pool') {
     state.createTenderError = null
     state.createTenderForm.selectedPool = new Set<string>()
-    state.createTenderForm.mainFactoryId = ''
-    state.createTenderForm.mainFactoryName = ''
     return true
   }
 

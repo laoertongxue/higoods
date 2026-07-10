@@ -342,6 +342,26 @@ export interface RuntimeDetailTenderInput {
   by: string
 }
 
+export interface RuntimeTaskTenderAwardInput {
+  taskId: string
+  factoryId: string
+  factoryName: string
+  awardedAt: string
+  awardedPrice: number
+  by: string
+}
+
+export interface PreparedRuntimeTaskTenderAward {
+  input: RuntimeTaskTenderAwardInput
+  originalTask: RuntimeProcessTask
+  requiresFactoryAcceptance: boolean
+}
+
+export interface RuntimeTaskAssignmentAcceptanceInput {
+  acceptedAt: string
+  acceptedBy: string
+}
+
 const runtimeTaskOverrides = new Map<string, RuntimeTaskOverride>()
 const runtimeTaskSplitPlans = new Map<string, RuntimeTaskSplitPlan>()
 const runtimeContinuousMergePlans = new Map<string, { taskIds: string[]; mergedTaskId: string; createdAt: string; createdBy: string }>()
@@ -2236,6 +2256,8 @@ export function upsertRuntimeTaskTender(
     tenderId: string
     biddingDeadline: string
     taskDeadline: string
+    businessAssignedAt?: string
+    assignmentOperatedAt?: string
     mainFactoryId?: string
     mainFactoryName?: string
     outputValuePerUnit?: number
@@ -2247,6 +2269,11 @@ export function upsertRuntimeTaskTender(
 ): RuntimeProcessTask | null {
   const task = getRuntimeTaskById(taskId)
   if (!task) return null
+  const assignmentOperatedAt = payload.assignmentOperatedAt ?? formatOperationLocalWallClock()
+  const businessAssignedAt = payload.businessAssignedAt ?? assignmentOperatedAt
+  if (compareSewingDeliveryDateTimes(businessAssignedAt, assignmentOperatedAt) > 0) {
+    throw new Error('业务分配时间不能晚于当前操作时间')
+  }
 
   const updated = updateRuntimeTaskWithAudit(
     taskId,
@@ -2256,6 +2283,8 @@ export function upsertRuntimeTaskTender(
       tenderId: payload.tenderId,
       biddingDeadline: payload.biddingDeadline,
       taskDeadline: payload.taskDeadline,
+      businessAssignedAt,
+      assignmentOperatedAt,
       outputValuePerUnit: payload.outputValuePerUnit ?? task.outputValuePerUnit,
       outputValueUnit: payload.outputValueUnit ?? task.outputValueUnit,
       outputValueTotal: payload.outputValueTotal ?? task.outputValueTotal,
@@ -2267,16 +2296,134 @@ export function upsertRuntimeTaskTender(
   )
 
   recomputeRuntimeTransitionsForOrder(task.productionOrderId)
-  if (updated && payload.mainFactoryId && isRuntimeSewingTask(updated)) {
-    confirmProductionOrderMainFactoryFromSewingTask({
-      productionOrderId: updated.productionOrderId,
-      factoryId: payload.mainFactoryId,
-      factoryName: payload.mainFactoryName,
-      by,
-      at: nowTimestamp(),
-    })
-  }
   return updated
+}
+
+export function prepareRuntimeTaskTenderAward(
+  input: RuntimeTaskTenderAwardInput,
+): PreparedRuntimeTaskTenderAward {
+  const task = getRuntimeTaskById(input.taskId)
+  if (!task) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
+  if (task.assignmentMode !== 'BIDDING' || !task.tenderId) {
+    throw new Error(`任务 ${input.taskId} 尚未发起竞价，不可定标`)
+  }
+  if (task.assignmentStatus === 'AWARDED') {
+    throw new Error(`任务 ${input.taskId} 已定标，不可重复定标`)
+  }
+  if (task.assignmentStatus !== 'BIDDING' && task.assignmentStatus !== 'AWAIT_AWARD') {
+    throw new Error(`任务 ${input.taskId} 当前状态不可定标`)
+  }
+  if (!input.factoryId.trim() || !input.factoryName.trim()) {
+    throw new Error(`任务 ${input.taskId} 缺少中标工厂`)
+  }
+  if (!input.awardedAt.trim()) {
+    throw new Error(`任务 ${input.taskId} 缺少定标时间`)
+  }
+  if (!Number.isFinite(input.awardedPrice) || input.awardedPrice <= 0) {
+    throw new Error(`任务 ${input.taskId} 中标价格必须为正数`)
+  }
+  return {
+    input: { ...input },
+    originalTask: task,
+    requiresFactoryAcceptance: classifySewingDeliverySla(task) !== null,
+  }
+}
+
+export function awardRuntimeTaskTender(input: RuntimeTaskTenderAwardInput): RuntimeProcessTask {
+  const preparation = prepareRuntimeTaskTenderAward(input)
+  const { originalTask, requiresFactoryAcceptance } = preparation
+  const updated = updateRuntimeTaskWithAudit(
+    input.taskId,
+    {
+      assignmentMode: 'BIDDING',
+      assignmentStatus: 'AWARDED',
+      assignedFactoryId: input.factoryId,
+      assignedFactoryName: input.factoryName,
+      awardedAt: input.awardedAt,
+      dispatchPrice: input.awardedPrice,
+      dispatchPriceCurrency: originalTask.standardPriceCurrency ?? 'IDR',
+      dispatchPriceUnit: originalTask.standardPriceUnit ?? originalTask.qtyUnit,
+      ...(requiresFactoryAcceptance
+        ? {
+            acceptanceStatus: 'PENDING' as const,
+            acceptedAt: undefined,
+            acceptedBy: undefined,
+            deliverySlaSnapshotId: undefined,
+          }
+        : {
+            acceptanceStatus: 'ACCEPTED' as const,
+            acceptedAt: input.awardedAt,
+            acceptedBy: input.by,
+          }),
+    },
+    'TENDER_AWARD',
+    `平台定标给 ${input.factoryName}，中标价 ${input.awardedPrice.toLocaleString()} ${originalTask.standardPriceCurrency ?? 'IDR'}/${originalTask.standardPriceUnit ?? originalTask.qtyUnit}`,
+    input.by,
+  )
+  if (!updated) throw new Error(`任务 ${input.taskId} 定标提交失败`)
+  recomputeRuntimeTransitionsForOrder(updated.productionOrderId)
+  return getRuntimeTaskById(updated.taskId) ?? updated
+}
+
+export function acceptRuntimeTaskAssignment(
+  taskId: string,
+  input: RuntimeTaskAssignmentAcceptanceInput,
+): RuntimeProcessTask {
+  const task = getRuntimeTaskById(taskId)
+  if (!task) throw new Error(`任务 ${taskId} 不存在或已被移除`)
+  if (task.acceptanceStatus === 'ACCEPTED') throw new Error(`任务 ${taskId} 已接单，不可重复接单`)
+  if (task.acceptanceStatus === 'REJECTED') throw new Error(`任务 ${taskId} 已拒单，拒单后不可接单`)
+  if (task.assignmentStatus !== 'ASSIGNED' && task.assignmentStatus !== 'AWARDED') {
+    throw new Error(`任务 ${taskId} 未分配或未定标，不可接单`)
+  }
+  if (!task.assignedFactoryId || !task.assignedFactoryName) {
+    throw new Error(`任务 ${taskId} 尚未确定承接工厂，不可接单`)
+  }
+  if (!input.acceptedAt.trim() || !input.acceptedBy.trim()) {
+    throw new Error(`任务 ${taskId} 缺少接单时间或接单人`)
+  }
+
+  const slaKind = classifySewingDeliverySla(task)
+  const snapshotSequence = listSewingDeliverySlaSnapshotHistory(taskId).length + 1
+  const deliverySlaSnapshot = slaKind
+    ? createSewingDeliverySlaSnapshot({
+        assignmentId: `${taskId}-${input.acceptedAt.replace(/\D/g, '')}-${String(snapshotSequence).padStart(3, '0')}`,
+        runtimeTaskId: taskId,
+        productionOrderId: task.productionOrderId,
+        factoryId: task.assignedFactoryId,
+        factoryName: task.assignedFactoryName,
+        assignedQty: task.scopeQty,
+        acceptedAt: input.acceptedAt,
+        slaKind,
+      })
+    : null
+  const runtimeState = captureRuntimeDirectDispatchState()
+  const snapshotState = captureSewingDeliverySlaSnapshotStore()
+  try {
+    const updated = updateRuntimeTaskWithAudit(
+      taskId,
+      {
+        acceptanceStatus: 'ACCEPTED',
+        acceptedAt: input.acceptedAt,
+        acceptedBy: input.acceptedBy,
+        deliverySlaSnapshotId: deliverySlaSnapshot?.snapshotId,
+        taskDeadline: deliverySlaSnapshot?.milestones.at(-1)?.deadlineAt ?? task.taskDeadline,
+      },
+      'ACCEPT_TASK',
+      deliverySlaSnapshot
+        ? '中标工厂确认接单，按实际接单时间生成含车缝交付时效快照。'
+        : '工厂确认接单。',
+      input.acceptedBy,
+    )
+    if (!updated) throw new Error(`任务 ${taskId} 接单提交失败`)
+    if (deliverySlaSnapshot) saveSewingDeliverySlaSnapshot(deliverySlaSnapshot)
+    recomputeRuntimeTransitionsForOrder(updated.productionOrderId)
+    return getRuntimeTaskById(updated.taskId) ?? updated
+  } catch (error) {
+    restoreRuntimeDirectDispatchState(runtimeState)
+    restoreSewingDeliverySlaSnapshotStore(snapshotState)
+    throw error
+  }
 }
 
 export function validateRuntimeBatchDispatchSelection(taskIds: string[]): RuntimeBatchDispatchSelectionValidation {

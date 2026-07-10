@@ -53,6 +53,14 @@ import {
 } from '../data/fcs/pda-receive-scope.ts'
 import { acceptWoolWorkOrder } from '../data/fcs/wool-task-domain.ts'
 import {
+  acceptRuntimeTaskAssignment,
+  getRuntimeTaskById,
+} from '../data/fcs/runtime-process-tasks.ts'
+import {
+  classifySewingDeliverySla,
+  formatOperationLocalWallClock,
+} from '../data/fcs/sewing-delivery-sla.ts'
+import {
   ensurePdaSessionForAction,
   getPdaRuntimeContext,
   renderPdaLoginRedirect,
@@ -279,31 +287,20 @@ function getTaskPricing(task: ProcessTask): {
 }
 
 function mutateAcceptTask(taskId: string, by: string): void {
-  const now = nowTimestamp()
+  const now = formatOperationLocalWallClock()
   const task = getTaskFactById(taskId)
-  if (!task) return
+  if (!task) throw new Error('任务不存在或已被移除')
   const woolOrderId = (task as ProcessTask & { woolOrderId?: string }).woolOrderId
   if (task.processBusinessCode === 'WOOL' && woolOrderId) {
     acceptWoolWorkOrder(woolOrderId, by, now)
+    return
   }
   if (task.processBusinessCode === 'POST_FINISHING' || task.processCode === 'POST_FINISHING' || task.processNameZh === '后道') {
     acceptPostFinishingTask(taskId, by, now)
+    return
   }
-
-  task.acceptanceStatus = 'ACCEPTED'
-  task.acceptedAt = now
-  task.acceptedBy = by
-  task.updatedAt = now
-  task.auditLogs = [
-    ...task.auditLogs,
-    {
-      id: `AL-ACC-${Date.now()}`,
-      action: 'ACCEPT_TASK',
-      detail: '工厂确认接单',
-      at: now,
-      by,
-    },
-  ]
+  if (!getRuntimeTaskById(taskId)) throw new Error('任务尚未进入统一运行时任务仓，请联系主管处理')
+  acceptRuntimeTaskAssignment(taskId, { acceptedAt: now, acceptedBy: by })
 }
 
 function mutateRejectTask(taskId: string, reason: string, by: string): void {
@@ -929,6 +926,9 @@ function renderAwardedItem(item: AwardedTender): string {
   }
 
   const processName = task ? getTaskProcessDisplayName(task) : item.processName
+  const requiresAcceptance = Boolean(
+    task && classifySewingDeliverySla(task) !== null && task.acceptanceStatus === 'PENDING',
+  )
   return `
     <article class="overflow-hidden rounded-lg border border-green-200 bg-card">
       <div class="space-y-2 p-3">
@@ -970,14 +970,23 @@ function renderAwardedItem(item: AwardedTender): string {
             data-task-id="${escapeHtml(item.taskId)}"
           >查看任务详情</button>
 
-          <button
-            class="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-            data-pda-tr-action="open-exec"
-            data-task-id="${escapeHtml(item.taskId)}"
-          >
-            去执行
-            <i data-lucide="chevron-right" class="ml-0.5 h-3.5 w-3.5"></i>
-          </button>
+          ${
+            requiresAcceptance
+              ? `<button
+                  class="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                  data-pda-tr-action="accept-task"
+                  data-task-id="${escapeHtml(item.taskId)}"
+                  data-factory-name="${escapeHtml(task?.assignedFactoryName || '')}"
+                >确认接单</button>`
+              : `<button
+                  class="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                  data-pda-tr-action="open-exec"
+                  data-task-id="${escapeHtml(item.taskId)}"
+                >
+                  去执行
+                  <i data-lucide="chevron-right" class="ml-0.5 h-3.5 w-3.5"></i>
+                </button>`
+          }
         </div>
       </div>
     </article>
@@ -1202,7 +1211,7 @@ export function renderPdaTaskReceivePage(): string {
             ? `
               <div class="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-muted-foreground">
                 <i data-lucide="info" class="h-3.5 w-3.5 shrink-0 text-green-600"></i>
-                平台定标即视为任务归属确定，无需二次确认，直接进入生产执行。
+                含车缝任务中标后请先确认接单；确认时间将作为交付时效起点。
               </div>
               ${
                 awardedTenders.length === 0
@@ -1349,8 +1358,12 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
     const taskId = actionNode.dataset.taskId
     const factoryName = actionNode.dataset.factoryName || getFactoryName(getCurrentFactoryId())
     if (taskId) {
-      mutateAcceptTask(taskId, factoryName)
-      showTaskReceiveToast('接单成功')
+      try {
+        mutateAcceptTask(taskId, factoryName)
+        showTaskReceiveToast('接单成功')
+      } catch (error) {
+        showTaskReceiveToast(error instanceof Error ? error.message : '接单失败，请联系主管处理')
+      }
     }
     return true
   }
