@@ -17,7 +17,12 @@ import {
   restoreRuntimeDirectDispatchState,
   upsertRuntimeTaskTender,
 } from '../src/data/fcs/runtime-process-tasks.ts'
-import { listSewingDispatchWorkbenchTasks } from '../src/data/fcs/sewing-dispatch-workbench.ts'
+import {
+  createSewingDispatchWorkbenchDraft,
+  listSewingDispatchWorkbenchDrafts,
+  listSewingDispatchWorkbenchTasks,
+  runSewingDispatchWorkbenchTransaction,
+} from '../src/data/fcs/sewing-dispatch-workbench.ts'
 import {
   captureSewingDeliverySlaSnapshotStore,
   getSewingDeliverySlaSnapshot,
@@ -35,6 +40,16 @@ assert(sewingBusinessTask, '必须动态找到 processBusinessCode=SEW 的独立
 assert.equal(sewingBusinessTask.processBusinessCode, 'SEW', '回归样本必须是车缝业务码任务')
 assert.equal(isRuntimeSewingTask(sewingBusinessTask), true, '车缝业务码任务必须属于含车缝宽口径')
 assert.equal(isRuntimeIndependentSewingTask(sewingBusinessTask), true, '独立车缝任务必须进入独立车缝工作台口径')
+assert.equal(
+  isRuntimeIndependentSewingTask({
+    ...sewingBusinessTask,
+    taskUnitType: 'COMBINED_PROCESS_TASK',
+    acceptanceMode: 'SINGLE_PROCESS',
+    processBusinessCode: 'SEW',
+  }),
+  false,
+  'taskUnitType 已标记为连续工序时，即使其他字段像独立车缝也必须排除',
+)
 
 const combinedSewingTask = runtimeTasks.find((task) =>
   task.processBusinessCode === 'COMBINED_PROCESS_TASK' &&
@@ -156,6 +171,45 @@ const directDispatchBase = {
   businessAssignedAt: '2026-07-10 08:00:00',
   operatedAt: '2026-07-10 09:00:00',
 } as const
+
+assert.equal(typeof runSewingDispatchWorkbenchTransaction, 'function', '车缝工作台必须提供工作流级原子事务')
+
+const workbenchTransactionRuntimeBefore = captureRuntimeDirectDispatchState()
+const workbenchTransactionSnapshotBefore = captureSewingDeliverySlaSnapshotStore()
+const workbenchTransactionDraftsBefore = listSewingDispatchWorkbenchDrafts()
+const secondIndependentTask = runtimeTasks.find((task) =>
+  task.taskId !== sewingBusinessTask.taskId && task.processBusinessCode === 'SEW',
+)
+assert(secondIndependentTask, '跨任务事务回归必须找到第二个独立车缝任务')
+const draftRows = workbenchTasks.find((task) => task.skuRows.every((row) => row.completeKitQty > 0))?.skuRows ?? []
+assert(draftRows.length > 0, '跨任务事务回归必须找到可生成草稿的工作台行')
+assert.throws(
+  () => runSewingDispatchWorkbenchTransaction(() => {
+    assert(applyRuntimeDirectDispatchMeta({
+      ...directDispatchBase,
+      taskId: sewingBusinessTask.taskId,
+      factoryId: 'ID-F011',
+      factoryName: 'CV Satellite Cluster Malang A',
+    }))
+    const draftResult = createSewingDispatchWorkbenchDraft({
+      actionType: '发起竞价',
+      rowIds: draftRows.map((row) => row.rowId),
+      by: '跟单A',
+    })
+    assert.equal(draftResult.ok, true, '回归准备必须先写入一条工作台草稿')
+    applyRuntimeDirectDispatchMeta({
+      ...directDispatchBase,
+      taskId: secondIndependentTask.taskId,
+      factoryId: 'NOT-A-FACTORY',
+      factoryName: '不存在的第二家工厂',
+    })
+  }),
+  /车缝承接工厂登记失败/,
+  '第二个任务失败时工作流事务必须抛错并触发整体回滚',
+)
+assert.deepEqual(captureRuntimeDirectDispatchState(), workbenchTransactionRuntimeBefore, '跨任务失败必须恢复全部运行时、拆分结果、生产单和主工厂状态')
+assert.deepEqual(captureSewingDeliverySlaSnapshotStore(), workbenchTransactionSnapshotBefore, '跨任务失败必须恢复全部履约快照')
+assert.deepEqual(listSewingDispatchWorkbenchDrafts(), workbenchTransactionDraftsBefore, '跨任务失败必须恢复工作台草稿状态')
 
 const stateBeforeDirectDispatchRelationTest = captureRuntimeDirectDispatchState()
 const snapshotBeforeDirectDispatchRelationTest = captureSewingDeliverySlaSnapshotStore()

@@ -3,12 +3,14 @@ import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack
 import type { TechPackCutPiecePartSnapshot } from './production-tech-pack-snapshot-types.ts'
 import {
   applyRuntimeDirectDispatchMeta,
+  captureRuntimeDirectDispatchState,
   dispatchRuntimeTaskByDetailGroups,
   getRuntimeTaskById,
   isRuntimeIndependentSewingTask,
   isRuntimeTaskExecutionTask,
   listRuntimeProcessTasks,
   listRuntimeTaskAllocatableGroups,
+  restoreRuntimeDirectDispatchState,
   type RuntimeProcessTask,
   type RuntimeTaskAllocatableGroup,
 } from './runtime-process-tasks.ts'
@@ -16,6 +18,10 @@ import {
   buildDispatchAcceptanceDeadline,
   resolveDispatchAcceptanceSlaForTask,
 } from './dispatch-acceptance-sla.ts'
+import {
+  captureSewingDeliverySlaSnapshotStore,
+  restoreSewingDeliverySlaSnapshotStore,
+} from './sewing-delivery-sla.ts'
 import { listFactoryMasterRecords } from './factory-master-store.ts'
 import { getThirdPartyFactoryRatingSnapshot } from './third-party-factory-rating.ts'
 import {
@@ -191,6 +197,20 @@ const assignmentStatusLabels: Record<string, string> = {
 const auxiliaryCraftKeywords = ['绣花', '打条', '压褶', '打揽', '烫画', '直喷', '贝壳绣', '曲牙绣', '一字贝']
 
 const sewingDispatchDrafts: SewingDispatchDraft[] = []
+
+export function runSewingDispatchWorkbenchTransaction<T>(operation: () => T): T {
+  const runtimeState = captureRuntimeDirectDispatchState()
+  const snapshotState = captureSewingDeliverySlaSnapshotStore()
+  const draftState = structuredClone(sewingDispatchDrafts)
+  try {
+    return operation()
+  } catch (error) {
+    restoreRuntimeDirectDispatchState(runtimeState)
+    restoreSewingDeliverySlaSnapshotStore(snapshotState)
+    sewingDispatchDrafts.splice(0, sewingDispatchDrafts.length, ...draftState)
+    throw error
+  }
+}
 
 const styleImageFallbackBySpu: Record<string, string> = {
   'SPU-2024-010': '/pants-sample.jpg',
@@ -1024,73 +1044,80 @@ export function createSewingDispatchWorkbenchDraft(input: {
       rowsByTask.set(row.taskId, list)
     })
 
-    for (const [taskId, taskRows] of rowsByTask.entries()) {
-      const sourceTask = getRuntimeTaskById(taskId)
-      if (!sourceTask) return { ok: false, message: '车缝任务不存在或已被移除。' }
-      const dispatchedAt = nowTimestamp()
-      const acceptanceSla = resolveDispatchAcceptanceSlaForTask(sourceTask, input.factoryId, input.factoryName, dispatchedAt)
-      if (acceptanceSla.ruleSource === 'UNCONFIGURED') {
-        return { ok: false, message: acceptanceSla.missingReason ?? '当前车缝工序工艺未配置接单时效。' }
-      }
+    try {
+      runSewingDispatchWorkbenchTransaction(() => {
+        for (const [taskId, taskRows] of rowsByTask.entries()) {
+          const sourceTask = getRuntimeTaskById(taskId)
+          if (!sourceTask) throw new Error('车缝任务不存在或已被移除。')
+          const dispatchedAt = nowTimestamp()
+          const acceptanceSla = resolveDispatchAcceptanceSlaForTask(sourceTask, input.factoryId, input.factoryName, dispatchedAt)
+          if (acceptanceSla.ruleSource === 'UNCONFIGURED') {
+            throw new Error(acceptanceSla.missingReason ?? '当前车缝工序工艺未配置接单时效。')
+          }
 
-      const allGroups = listRuntimeTaskAllocatableGroups(taskId)
-      if (allGroups.length === taskRows.length && taskRows.every((row) => row.allocatableGroupKey)) {
-        const result = dispatchRuntimeTaskByDetailGroups({
-          taskId,
-          by: input.by,
-          assignments: taskRows
-            .filter((row) => row.allocatableGroupKey)
-            .map((row) => ({
-              groupKey: row.allocatableGroupKey || '',
-              factoryId: input.factoryId || '',
-              factoryName: input.factoryName || '',
-            })),
-        })
-        if (!result.ok || !result.resultAssignments) {
-          return { ok: false, message: result.message ?? '车缝明细派单失败。' }
-        }
+          const allGroups = listRuntimeTaskAllocatableGroups(taskId)
+          if (allGroups.length === taskRows.length && taskRows.every((row) => row.allocatableGroupKey)) {
+            const result = dispatchRuntimeTaskByDetailGroups({
+              taskId,
+              by: input.by,
+              assignments: taskRows
+                .filter((row) => row.allocatableGroupKey)
+                .map((row) => ({
+                  groupKey: row.allocatableGroupKey || '',
+                  factoryId: input.factoryId || '',
+                  factoryName: input.factoryName || '',
+                })),
+            })
+            if (!result.ok || !result.resultAssignments) {
+              throw new Error(result.message ?? '车缝明细派单失败。')
+            }
 
-        const assignmentsByTaskId = new Map<string, (typeof result.resultAssignments)[number]>()
-        for (const assignment of result.resultAssignments) {
-          const current = assignmentsByTaskId.get(assignment.taskId)
-          assignmentsByTaskId.set(assignment.taskId, current
-            ? {
-                ...current,
-                outputValueTotal: (current.outputValueTotal ?? 0) + (assignment.outputValueTotal ?? 0),
-              }
-            : { ...assignment })
-        }
+            const assignmentsByTaskId = new Map<string, (typeof result.resultAssignments)[number]>()
+            for (const assignment of result.resultAssignments) {
+              const current = assignmentsByTaskId.get(assignment.taskId)
+              assignmentsByTaskId.set(assignment.taskId, current
+                ? {
+                    ...current,
+                    outputValueTotal: (current.outputValueTotal ?? 0) + (assignment.outputValueTotal ?? 0),
+                  }
+                : { ...assignment })
+            }
 
-        for (const assignment of assignmentsByTaskId.values()) {
-          const assignmentTask = getRuntimeTaskById(assignment.taskId) ?? sourceTask
-          const assignmentSla = resolveDispatchAcceptanceSlaForTask(
-            assignmentTask,
-            assignment.factoryId,
-            assignment.factoryName,
-            dispatchedAt,
-          )
-          applyRuntimeDirectDispatchMeta({
-            taskId: assignment.taskId,
-            factoryId: assignment.factoryId,
-            factoryName: assignment.factoryName,
-            acceptDeadline: buildDispatchAcceptanceDeadline(dispatchedAt, assignmentSla),
-            taskDeadline: sourceTask.taskDeadline || addDays(dispatchedAt, 7),
-            remark: '车缝分配工作台直接派单',
-            by: input.by,
-            dispatchedAt,
-            autoAccept: assignmentSla.autoAccept,
-            acceptanceSla: assignmentSla,
-            dispatchPrice: sourceTask.dispatchPrice ?? sourceTask.standardPrice ?? 0,
-            dispatchPriceCurrency: sourceTask.dispatchPriceCurrency ?? sourceTask.standardPriceCurrency ?? 'IDR',
-            dispatchPriceUnit: sourceTask.dispatchPriceUnit ?? sourceTask.standardPriceUnit ?? '件',
-            priceDiffReason: '',
-            outputValuePerUnit: assignment.outputValuePerUnit,
-            outputValueUnit: assignment.outputValueUnit,
-            outputValueTotal: assignment.outputValueTotal,
-            outputValueDifficulty: assignment.outputValueDifficulty,
-          })
+            for (const assignment of assignmentsByTaskId.values()) {
+              const assignmentTask = getRuntimeTaskById(assignment.taskId) ?? sourceTask
+              const assignmentSla = resolveDispatchAcceptanceSlaForTask(
+                assignmentTask,
+                assignment.factoryId,
+                assignment.factoryName,
+                dispatchedAt,
+              )
+              const updated = applyRuntimeDirectDispatchMeta({
+                taskId: assignment.taskId,
+                factoryId: assignment.factoryId,
+                factoryName: assignment.factoryName,
+                acceptDeadline: buildDispatchAcceptanceDeadline(dispatchedAt, assignmentSla),
+                taskDeadline: sourceTask.taskDeadline || addDays(dispatchedAt, 7),
+                remark: '车缝分配工作台直接派单',
+                by: input.by,
+                dispatchedAt,
+                autoAccept: assignmentSla.autoAccept,
+                acceptanceSla: assignmentSla,
+                dispatchPrice: sourceTask.dispatchPrice ?? sourceTask.standardPrice ?? 0,
+                dispatchPriceCurrency: sourceTask.dispatchPriceCurrency ?? sourceTask.standardPriceCurrency ?? 'IDR',
+                dispatchPriceUnit: sourceTask.dispatchPriceUnit ?? sourceTask.standardPriceUnit ?? '件',
+                priceDiffReason: '',
+                outputValuePerUnit: assignment.outputValuePerUnit,
+                outputValueUnit: assignment.outputValueUnit,
+                outputValueTotal: assignment.outputValueTotal,
+                outputValueDifficulty: assignment.outputValueDifficulty,
+              })
+              if (!updated) throw new Error(`任务 ${assignment.taskId} 车缝明细派单提交失败。`)
+            }
+          }
         }
-      }
+      })
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : '车缝工作台直接派单失败。' }
     }
   }
 

@@ -441,7 +441,7 @@ function resolveExecutorKindByFactoryId(factoryId?: string): RuntimeExecutorKind
 
 type RuntimeSewingTaskLike =
   Pick<RuntimeProcessTask, 'processCode' | 'processNameZh'>
-  & Partial<Pick<RuntimeProcessTask, 'processBusinessCode' | 'coveredProcesses' | 'acceptanceMode'>>
+  & Partial<Pick<RuntimeProcessTask, 'processBusinessCode' | 'coveredProcesses' | 'acceptanceMode' | 'taskUnitType'>>
 
 export function isRuntimeSewingTask(task: RuntimeSewingTaskLike): boolean {
   if (task.processCode === 'SEW' || task.processBusinessCode === 'SEW' || task.processNameZh === '车缝') return true
@@ -450,7 +450,11 @@ export function isRuntimeSewingTask(task: RuntimeSewingTaskLike): boolean {
 
 export function isRuntimeIndependentSewingTask(task: RuntimeSewingTaskLike): boolean {
   if (!isRuntimeSewingTask(task)) return false
-  if (task.processBusinessCode === 'COMBINED_PROCESS_TASK' || task.acceptanceMode === 'CONTINUOUS_PROCESS') return false
+  if (
+    task.taskUnitType === 'COMBINED_PROCESS_TASK'
+    || task.processBusinessCode === 'COMBINED_PROCESS_TASK'
+    || task.acceptanceMode === 'CONTINUOUS_PROCESS'
+  ) return false
   return task.processBusinessCode === 'SEW' || task.processCode === 'SEW' || task.processNameZh === '车缝'
 }
 
