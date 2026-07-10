@@ -5,7 +5,7 @@ import {
   applyRuntimeDirectDispatchMeta,
   dispatchRuntimeTaskByDetailGroups,
   getRuntimeTaskById,
-  isRuntimeSewingTask,
+  isRuntimeIndependentSewingTask,
   isRuntimeTaskExecutionTask,
   listRuntimeProcessTasks,
   listRuntimeTaskAllocatableGroups,
@@ -934,7 +934,7 @@ function buildWorkbenchTask(taskRows: SewingDispatchWorkbenchRow[]): SewingDispa
 
 export function listSewingDispatchWorkbenchRows(): SewingDispatchWorkbenchRow[] {
   return listRuntimeProcessTasks()
-    .filter((task) => isRuntimeTaskExecutionTask(task) && isRuntimeSewingTask(task))
+    .filter((task) => isRuntimeTaskExecutionTask(task) && isRuntimeIndependentSewingTask(task))
     .flatMap((task) => {
       const order = getOrder(task)
       if (!order) return []

@@ -1,7 +1,8 @@
 import { indonesiaFactories } from './indonesia-factories.ts'
 import {
-  confirmProductionOrderMainFactoryFromSewingTask,
   productionOrders,
+  registerProductionOrderSewingFactory,
+  selectProductionOrderMainFactory,
 } from './production-orders.ts'
 import {
   getProcessAssignmentGranularity,
@@ -440,11 +441,17 @@ function resolveExecutorKindByFactoryId(factoryId?: string): RuntimeExecutorKind
 
 type RuntimeSewingTaskLike =
   Pick<RuntimeProcessTask, 'processCode' | 'processNameZh'>
-  & Partial<Pick<RuntimeProcessTask, 'processBusinessCode' | 'coveredProcesses'>>
+  & Partial<Pick<RuntimeProcessTask, 'processBusinessCode' | 'coveredProcesses' | 'acceptanceMode'>>
 
 export function isRuntimeSewingTask(task: RuntimeSewingTaskLike): boolean {
   if (task.processCode === 'SEW' || task.processBusinessCode === 'SEW' || task.processNameZh === '车缝') return true
   return Boolean(task.coveredProcesses?.some((process) => process.processCode === 'SEW' || process.processName === '车缝'))
+}
+
+export function isRuntimeIndependentSewingTask(task: RuntimeSewingTaskLike): boolean {
+  if (!isRuntimeSewingTask(task)) return false
+  if (task.processBusinessCode === 'COMBINED_PROCESS_TASK' || task.acceptanceMode === 'CONTINUOUS_PROCESS') return false
+  return task.processBusinessCode === 'SEW' || task.processCode === 'SEW' || task.processNameZh === '车缝'
 }
 
 function getOrderSkuLines(productionOrderId: string): RuntimeTaskSkuLine[] {
@@ -2333,37 +2340,55 @@ export function prepareRuntimeTaskTenderAward(
 export function awardRuntimeTaskTender(input: RuntimeTaskTenderAwardInput): RuntimeProcessTask {
   const preparation = prepareRuntimeTaskTenderAward(input)
   const { originalTask, requiresFactoryAcceptance } = preparation
-  const updated = updateRuntimeTaskWithAudit(
-    input.taskId,
-    {
-      assignmentMode: 'BIDDING',
-      assignmentStatus: 'AWARDED',
-      assignedFactoryId: input.factoryId,
-      assignedFactoryName: input.factoryName,
-      awardedAt: input.awardedAt,
-      dispatchPrice: input.awardedPrice,
-      dispatchPriceCurrency: originalTask.standardPriceCurrency ?? 'IDR',
-      dispatchPriceUnit: originalTask.standardPriceUnit ?? originalTask.qtyUnit,
-      ...(requiresFactoryAcceptance
-        ? {
-            acceptanceStatus: 'PENDING' as const,
-            acceptedAt: undefined,
-            acceptedBy: undefined,
-            deliverySlaSnapshotId: undefined,
-          }
-        : {
-            acceptanceStatus: 'ACCEPTED' as const,
-            acceptedAt: input.awardedAt,
-            acceptedBy: input.by,
-          }),
-    },
-    'TENDER_AWARD',
-    `平台定标给 ${input.factoryName}，中标价 ${input.awardedPrice.toLocaleString()} ${originalTask.standardPriceCurrency ?? 'IDR'}/${originalTask.standardPriceUnit ?? originalTask.qtyUnit}`,
-    input.by,
-  )
-  if (!updated) throw new Error(`任务 ${input.taskId} 定标提交失败`)
-  recomputeRuntimeTransitionsForOrder(updated.productionOrderId)
-  return getRuntimeTaskById(updated.taskId) ?? updated
+  const runtimeState = captureRuntimeDirectDispatchState()
+  try {
+    const updated = updateRuntimeTaskWithAudit(
+      input.taskId,
+      {
+        assignmentMode: 'BIDDING',
+        assignmentStatus: 'AWARDED',
+        assignedFactoryId: input.factoryId,
+        assignedFactoryName: input.factoryName,
+        awardedAt: input.awardedAt,
+        dispatchPrice: input.awardedPrice,
+        dispatchPriceCurrency: originalTask.standardPriceCurrency ?? 'IDR',
+        dispatchPriceUnit: originalTask.standardPriceUnit ?? originalTask.qtyUnit,
+        ...(requiresFactoryAcceptance
+          ? {
+              acceptanceStatus: 'PENDING' as const,
+              acceptedAt: undefined,
+              acceptedBy: undefined,
+              deliverySlaSnapshotId: undefined,
+            }
+          : {
+              acceptanceStatus: 'ACCEPTED' as const,
+              acceptedAt: input.awardedAt,
+              acceptedBy: input.by,
+            }),
+      },
+      'TENDER_AWARD',
+      `平台定标给 ${input.factoryName}，中标价 ${input.awardedPrice.toLocaleString()} ${originalTask.standardPriceCurrency ?? 'IDR'}/${originalTask.standardPriceUnit ?? originalTask.qtyUnit}`,
+      input.by,
+    )
+    if (!updated) throw new Error(`任务 ${input.taskId} 定标提交失败`)
+    if (!requiresFactoryAcceptance && isRuntimeSewingTask(updated)) {
+      const registeredOrder = registerProductionOrderSewingFactory({
+        productionOrderId: updated.productionOrderId,
+        factoryId: input.factoryId,
+        factoryName: input.factoryName,
+        by: input.by,
+        at: input.awardedAt,
+      })
+      if (!registeredOrder) {
+        throw new Error(`车缝承接工厂登记失败：${input.factoryName}`)
+      }
+    }
+    recomputeRuntimeTransitionsForOrder(updated.productionOrderId)
+    return getRuntimeTaskById(updated.taskId) ?? updated
+  } catch (error) {
+    restoreRuntimeDirectDispatchState(runtimeState)
+    throw error
+  }
 }
 
 export function acceptRuntimeTaskAssignment(
@@ -2421,6 +2446,18 @@ export function acceptRuntimeTaskAssignment(
       input.acceptedBy,
     )
     if (!updated) throw new Error(`任务 ${taskId} 接单提交失败`)
+    if (isRuntimeSewingTask(updated)) {
+      const registeredOrder = registerProductionOrderSewingFactory({
+        productionOrderId: updated.productionOrderId,
+        factoryId: task.assignedFactoryId,
+        factoryName: task.assignedFactoryName,
+        by: input.acceptedBy,
+        at: input.acceptedAt,
+      })
+      if (!registeredOrder) {
+        throw new Error(`车缝承接工厂登记失败：${task.assignedFactoryName}`)
+      }
+    }
     if (deliverySlaSnapshot) saveSewingDeliverySlaSnapshot(deliverySlaSnapshot)
     recomputeRuntimeTransitionsForOrder(updated.productionOrderId)
     return getRuntimeTaskById(updated.taskId) ?? updated
@@ -2700,14 +2737,29 @@ function commitPreparedRuntimeDirectDispatchMeta(
     input.by,
   )
 
-  if (updated && input.writeBackMainFactory !== false && isRuntimeSewingTask(updated)) {
-    confirmProductionOrderMainFactoryFromSewingTask({
+  if (updated && isRuntimeSewingTask(updated)) {
+    const registeredOrder = registerProductionOrderSewingFactory({
       productionOrderId: updated.productionOrderId,
       factoryId: input.factoryId,
       factoryName: input.factoryName,
       by: input.by,
       at: operatedAt,
     })
+    if (!registeredOrder) {
+      throw new Error(`车缝承接工厂登记失败：${input.factoryName || input.factoryId}`)
+    }
+    if (input.writeBackMainFactory === true) {
+      const selectedOrder = selectProductionOrderMainFactory({
+        productionOrderId: updated.productionOrderId,
+        factoryId: input.factoryId,
+        by: input.by,
+        at: operatedAt,
+        reason: '按明细派单时明确指定该车缝承接工厂为生产单主工厂。',
+      })
+      if (!selectedOrder) {
+        throw new Error(`生产单主工厂选择失败：${input.factoryName || input.factoryId}`)
+      }
+    }
   }
 
   if (updated && deliverySlaSnapshot) {
@@ -2718,7 +2770,15 @@ function commitPreparedRuntimeDirectDispatchMeta(
 }
 
 export function applyRuntimeDirectDispatchMeta(input: RuntimeDirectDispatchMetaInput): RuntimeProcessTask | null {
-  return commitPreparedRuntimeDirectDispatchMeta(prepareRuntimeDirectDispatchMeta(input))
+  const runtimeState = captureRuntimeDirectDispatchState()
+  const snapshotState = captureSewingDeliverySlaSnapshotStore()
+  try {
+    return commitPreparedRuntimeDirectDispatchMeta(prepareRuntimeDirectDispatchMeta(input))
+  } catch (error) {
+    restoreRuntimeDirectDispatchState(runtimeState)
+    restoreSewingDeliverySlaSnapshotStore(snapshotState)
+    throw error
+  }
 }
 
 function parseRuntimeDateLike(value: string): number {

@@ -66,6 +66,10 @@ import {
   getMaterialPrepDispatchReadinessForTask,
   type MaterialPrepDispatchReadiness,
 } from '../../data/fcs/cutting/production-material-prep.ts'
+import {
+  formatProductionOrderMainFactoryName,
+  productionOrders,
+} from '../../data/fcs/production-orders.ts'
 
 function setTaskAssignMode(taskId: string, mode: 'BIDDING' | 'HOLD', by: string): void {
   setRuntimeTaskAssignMode(taskId, mode, by)
@@ -848,6 +852,10 @@ function renderDetailDispatchMode(
 ): string {
   const assignmentGranularity = task.assignmentGranularity ?? 'ORDER'
   const isSewingTask = isRuntimeSewingTask(task)
+  const productionOrder = productionOrders.find((order) => order.productionOrderId === task.productionOrderId)
+  const currentMainFactoryName = productionOrder
+    ? formatProductionOrderMainFactoryName(productionOrder)
+    : '待车缝任务分配确定'
   const assignmentGranularityLabel: Record<string, string> = {
     ORDER: '按生产单',
     COLOR: '按颜色',
@@ -865,6 +873,11 @@ function renderDetailDispatchMode(
         <div>最小可分配粒度：${escapeHtml(assignmentGranularityLabel[assignmentGranularity] ?? assignmentGranularity)}</div>
         <div>明细拆分方式：${escapeHtml(detailSplitDimensionsText)}</div>
       </div>
+      ${
+        isSewingTask
+          ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">当前主工厂：${escapeHtml(currentMainFactoryName)}。本次分给多家车缝工厂时，可在下方明确调整唯一主工厂。</div>`
+          : ''
+      }
 
       <div class="overflow-x-auto rounded-md border">
         <table class="w-full text-sm" style="min-width: ${isSewingTask ? 1120 : 980}px">

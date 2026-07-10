@@ -398,7 +398,7 @@ function cloneOrder(order: ProductionOrder): ProductionOrder {
       ...order.mainFactorySnapshot,
       tags: [...order.mainFactorySnapshot.tags],
     },
-    mainFactorySnapshots: order.mainFactorySnapshots?.map((factory) => ({
+    sewingFactorySnapshots: order.sewingFactorySnapshots?.map((factory) => ({
       ...factory,
       tags: [...factory.tags],
     })),
