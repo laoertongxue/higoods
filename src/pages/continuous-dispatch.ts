@@ -37,7 +37,7 @@ interface ContinuousDispatchDialogDraft {
   error: string
 }
 
-interface ContinuousDispatchState {
+export interface ContinuousDispatchState {
   tab: ContinuousDispatchTab
   keyword: string
   feedback: string
@@ -53,6 +53,19 @@ const state: ContinuousDispatchState = {
   currentPage: 1,
   pageSize: 10,
   dialog: null,
+}
+
+export function captureContinuousDispatchPageState(): ContinuousDispatchState {
+  return structuredClone(state)
+}
+
+export function restoreContinuousDispatchPageState(snapshot: ContinuousDispatchState): void {
+  Object.assign(state, structuredClone(snapshot))
+}
+
+export function closeContinuousDispatchDialog(): void {
+  state.dialog = null
+  refreshDialogHost()
 }
 
 const CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS = [10, 20, 50] as const
@@ -577,7 +590,7 @@ export function renderContinuousDispatchPage(): string {
   `
 }
 
-export function handleContinuousDispatchEvent(target: HTMLElement): boolean {
+export function handleContinuousDispatchEvent(target: HTMLElement, event?: Pick<Event, 'type'>): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-continuous-dispatch-field]')
   if (fieldNode && 'value' in fieldNode) {
     if (fieldNode.dataset.continuousDispatchField === 'keyword') {
@@ -596,6 +609,9 @@ export function handleContinuousDispatchEvent(target: HTMLElement): boolean {
     if (state.dialog) {
       const field = fieldNode.dataset.continuousDispatchField
       const value = String(fieldNode.value)
+      if (event?.type && event.type !== 'change') {
+        return true
+      }
       if (field === 'factoryId') state.dialog.factoryId = value
       if (field === 'businessAssignedAt') state.dialog.businessAssignedAt = value
       if (field === 'biddingDeadline') state.dialog.biddingDeadline = value

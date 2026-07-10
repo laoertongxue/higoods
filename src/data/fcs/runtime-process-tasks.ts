@@ -2638,9 +2638,14 @@ export function prepareRuntimeDirectDispatchMeta(
   if (
     originalTask.taskUnitType === 'COMBINED_PROCESS_TASK'
     && originalTask.acceptanceMode === 'CONTINUOUS_PROCESS'
-    && (originalTask.assignmentStatus === 'BIDDING' || Boolean(originalTask.tenderId?.trim()))
+    && (
+      originalTask.assignmentStatus !== 'UNASSIGNED'
+      || Boolean(originalTask.assignedFactoryId?.trim())
+      || originalTask.acceptanceStatus === 'ACCEPTED'
+      || Boolean(originalTask.tenderId?.trim())
+    )
   ) {
-    throw new Error(`连续工序任务 ${input.taskId} 已有有效竞价，不可改为直接派单`)
+    throw new Error(`连续工序任务 ${input.taskId} 已有有效分配结果，不可通过普通入口覆盖`)
   }
 
   const operatedAt = input.operatedAt ?? input.dispatchedAt ?? formatOperationLocalWallClock()

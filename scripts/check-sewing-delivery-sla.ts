@@ -35,9 +35,12 @@ import {
 import { state } from '../src/pages/dispatch-board/context.ts'
 import { handleDispatchBoardEvent } from '../src/pages/dispatch-board/events.ts'
 import {
+  captureContinuousDispatchPageState,
+  closeContinuousDispatchDialog,
   handleContinuousDispatchEvent,
   isContinuousDispatchDialogOpen,
   renderContinuousDispatchPage,
+  restoreContinuousDispatchPageState,
 } from '../src/pages/continuous-dispatch.ts'
 import { listBusinessFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 import { productionOrders } from '../src/data/fcs/production-orders.ts'
@@ -1453,8 +1456,59 @@ const continuousFactory = listBusinessFactoryMasterRecords({ includeTestFactorie
 )
 assert.ok(continuousFactory, '连续工序分配真实 handler 测试必须有可用车缝工厂')
 
+const continuousInputPageState = captureContinuousDispatchPageState()
+const originalDocument = globalThis.document
+let continuousDialogHostWrites = 0
+const continuousDialogHost = {
+  set innerHTML(_value: string) {
+    continuousDialogHostWrites += 1
+  },
+}
+Object.defineProperty(globalThis, 'document', {
+  configurable: true,
+  value: {
+    querySelector(selector: string) {
+      return selector === '[data-continuous-dispatch-dialog-host]' ? continuousDialogHost : null
+    },
+  },
+})
+try {
+  handleContinuousDispatchEvent(continuousActionTarget('open-direct', continuousTask.taskId), { type: 'click' } as Event)
+  const writesAfterOpen = continuousDialogHostWrites
+  const stateAfterOpen = captureContinuousDispatchPageState()
+  handleContinuousDispatchEvent(
+    continuousFieldTarget('businessAssignedAt', '2026-07-09T08:30'),
+    { type: 'input' } as Event,
+  )
+  assert.equal(continuousDialogHostWrites, writesAfterOpen, 'datetime-local input 阶段不得替换弹窗 host 或导致焦点丢失')
+  assert.equal(
+    captureContinuousDispatchPageState().dialog?.businessAssignedAt,
+    stateAfterOpen.dialog?.businessAssignedAt,
+    'datetime-local input 阶段不得提前更新预览状态',
+  )
+  handleContinuousDispatchEvent(
+    continuousFieldTarget('businessAssignedAt', '2026-07-09T08:30'),
+    { type: 'change' } as Event,
+  )
+  assert.equal(continuousDialogHostWrites, writesAfterOpen + 1, 'datetime-local change 应局部更新弹窗预览')
+  assert.equal(
+    captureContinuousDispatchPageState().dialog?.businessAssignedAt,
+    '2026-07-09T08:30',
+    'datetime-local change 应写入业务分配时间状态',
+  )
+  closeContinuousDispatchDialog()
+  assert.equal(isContinuousDispatchDialogOpen(), false, '页内应提供显式关闭弹窗的测试隔离入口')
+} finally {
+  restoreContinuousDispatchPageState(continuousInputPageState)
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: originalDocument,
+  })
+}
+
 const continuousDirectRuntimeState = captureRuntimeDirectDispatchState()
 const continuousDirectSnapshotState = captureSewingDeliverySlaSnapshotStore()
+const continuousDirectPageState = captureContinuousDispatchPageState()
 try {
   handleContinuousDispatchEvent(continuousActionTarget('open-direct', continuousTask.taskId))
   assert.equal(isContinuousDispatchDialogOpen(), true, '直接派单必须真实打开轻量弹窗')
@@ -1488,13 +1542,61 @@ try {
   )
   const assignedOrder = productionOrders.find((order) => order.productionOrderId === continuousTask.productionOrderId)
   assert.equal(assignedOrder?.mainFactoryId, continuousFactory.id, '选择承接工厂为主工厂后必须保持唯一主工厂')
+
+  const assignedContinuousRuntimeState = captureRuntimeDirectDispatchState()
+  const assignedContinuousSnapshotState = captureSewingDeliverySlaSnapshotStore()
+  const assignedContinuousTaskState = assignedContinuousRuntimeState.taskOverrides.find(([taskId]) => taskId === continuousTask.taskId)
+  const assignedContinuousOrderState = assignedContinuousRuntimeState.productionOrders.find((order) => order.productionOrderId === continuousTask.productionOrderId)
+  const repeatedContinuousDirectInput = {
+    taskId: continuousTask.taskId,
+    factoryId: continuousFactory.id,
+    factoryName: continuousFactory.name,
+    acceptDeadline: '',
+    taskDeadline: '2026-07-20 12:00:00',
+    businessAssignedAt: '2026-07-09 12:00:00',
+    operatedAt: '2026-07-10 12:00:00',
+    remark: '普通入口不得将已直接派单的连续任务再次直派',
+    by: '生产计划员',
+    dispatchPrice: continuousTask.standardPrice ?? 0,
+    dispatchPriceCurrency: continuousTask.standardPriceCurrency ?? 'IDR',
+    dispatchPriceUnit: continuousTask.standardPriceUnit ?? continuousTask.qtyUnit,
+    priceDiffReason: '',
+  }
+  assert.throws(
+    () => prepareRuntimeDirectDispatchMeta(repeatedContinuousDirectInput),
+    /已有有效分配结果/,
+    '直接派单 prepare 必须拒绝连续任务 DIRECT 到 DIRECT 覆盖',
+  )
+  assert.throws(
+    () => applyRuntimeDirectDispatchMeta(repeatedContinuousDirectInput),
+    /已有有效分配结果/,
+    '统一直接派单入口必须拒绝连续任务重复直派',
+  )
+  const runtimeAfterRepeatedDirect = captureRuntimeDirectDispatchState()
+  assert.deepEqual(
+    runtimeAfterRepeatedDirect.taskOverrides.find(([taskId]) => taskId === continuousTask.taskId),
+    assignedContinuousTaskState,
+    '连续任务重复直派阻断后工厂、acceptedAt 及任务状态必须不变',
+  )
+  assert.deepEqual(
+    runtimeAfterRepeatedDirect.productionOrders.find((order) => order.productionOrderId === continuousTask.productionOrderId),
+    assignedContinuousOrderState,
+    '连续任务重复直派阻断后生产单必须不变',
+  )
+  assert.deepEqual(
+    captureSewingDeliverySlaSnapshotStore(),
+    assignedContinuousSnapshotState,
+    '连续任务重复直派阻断后 SLA 快照必须不变',
+  )
 } finally {
   restoreRuntimeDirectDispatchState(continuousDirectRuntimeState)
   restoreSewingDeliverySlaSnapshotStore(continuousDirectSnapshotState)
+  restoreContinuousDispatchPageState(continuousDirectPageState)
 }
 
 const continuousBiddingRuntimeState = captureRuntimeDirectDispatchState()
 const continuousBiddingSnapshotState = captureSewingDeliverySlaSnapshotStore()
+const continuousBiddingPageState = captureContinuousDispatchPageState()
 try {
   const orderBefore = productionOrders.find((order) => order.productionOrderId === continuousTask.productionOrderId)
   const mainFactoryBefore = orderBefore?.mainFactoryId
@@ -1541,12 +1643,12 @@ try {
   }
   assert.throws(
     () => prepareRuntimeDirectDispatchMeta(blockedContinuousDirectInput),
-    /已有有效竞价/,
+    /已有有效分配结果/,
     '直接派单 prepare 阶段必须拒绝已有 tender 的连续任务',
   )
   assert.throws(
     () => applyRuntimeDirectDispatchMeta(blockedContinuousDirectInput),
-    /已有有效竞价/,
+    /已有有效分配结果/,
     '统一直接派单入口必须拒绝将竞价中连续任务改为 DIRECT',
   )
   const runtimeAfterBlockedDirect = captureRuntimeDirectDispatchState()
@@ -1624,10 +1726,12 @@ try {
 } finally {
   restoreRuntimeDirectDispatchState(continuousBiddingRuntimeState)
   restoreSewingDeliverySlaSnapshotStore(continuousBiddingSnapshotState)
+  restoreContinuousDispatchPageState(continuousBiddingPageState)
 }
 
 const continuousFutureRuntimeState = captureRuntimeDirectDispatchState()
 const continuousFutureSnapshotState = captureSewingDeliverySlaSnapshotStore()
+const continuousFuturePageState = captureContinuousDispatchPageState()
 try {
   const before = getRuntimeTaskById(continuousTask.taskId)
   handleContinuousDispatchEvent(continuousActionTarget('open-direct', continuousTask.taskId))
@@ -1653,6 +1757,7 @@ try {
 } finally {
   restoreRuntimeDirectDispatchState(continuousFutureRuntimeState)
   restoreSewingDeliverySlaSnapshotStore(continuousFutureSnapshotState)
+  restoreContinuousDispatchPageState(continuousFuturePageState)
 }
 
 const dispatchDomainSource = readFileSync(new URL('../src/pages/dispatch-board/dispatch-domain.ts', import.meta.url), 'utf8')

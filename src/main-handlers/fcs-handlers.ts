@@ -227,13 +227,13 @@ import {
 } from '../pages/process-factory/shared/warehouse-standard'
 import { closeProductionObjectOverlays } from '../components/production-object-overview'
 
-export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean> {
+export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
   if (pathname.startsWith('/fcs/dispatch/acceptance-sla')) {
     return handleDispatchAcceptanceSlaEvent(target)
   }
   if (pathname.startsWith('/fcs/dispatch/continuous')) {
-    return handleContinuousDispatchEvent(target)
+    return handleContinuousDispatchEvent(target, event)
   }
   if (pathname.startsWith('/fcs/material-prep/list')) {
     return handleFcsMaterialPrepListEvent(target)
@@ -344,7 +344,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     await handleHistoryEvent(target) ||
     await handleDispatchAcceptanceSlaEvent(target) ||
     await handleSewingDispatchWorkbenchEvent(target) ||
-    await handleContinuousDispatchEvent(target) ||
+    await handleContinuousDispatchEvent(target, event) ||
     await handleDispatchBoardEvent(target) ||
     await handleDispatchTendersEvent(target) ||
     await handleProgressBoardEvent(target) ||

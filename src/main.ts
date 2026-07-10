@@ -476,7 +476,7 @@ window.addEventListener('error', (event) => {
   }
 })
 
-async function dispatchPageEvent(target: Element): Promise<boolean> {
+async function dispatchPageEvent(target: Element, event?: Event): Promise<boolean> {
   const eventTarget = target as HTMLElement
   const pathname = appStore.getState().pathname
   if (pathname.startsWith('/fcs/factories/profile')) {
@@ -509,7 +509,7 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
   }
   if (pathname.startsWith('/fcs/production/craft-dict')) {
     const fcsHandlers = await getFcsHandlersModule()
-    return fcsHandlers.dispatchFcsPageEvent(eventTarget)
+    return fcsHandlers.dispatchFcsPageEvent(eventTarget, event)
   }
   if (isProductionRoutePath(pathname)) {
     const productionEvents = await getProductionEventsModule()
@@ -559,7 +559,7 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
     }
     if (handlerSystem === 'fcs') {
       const fcsHandlers = await getFcsHandlersModule()
-      return fcsHandlers.dispatchFcsPageEvent(eventTarget)
+      return fcsHandlers.dispatchFcsPageEvent(eventTarget, event)
     }
     if (handlerSystem === 'pda') {
       const pdaHandlers = await getPdaHandlersModule()
@@ -572,7 +572,7 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
       getPdaHandlersModule(),
     ])
 
-    if (await fcsHandlers.dispatchFcsPageEvent(eventTarget)) {
+    if (await fcsHandlers.dispatchFcsPageEvent(eventTarget, event)) {
       return true
     }
 
@@ -1628,7 +1628,7 @@ root.addEventListener('click', async (event) => {
     return
   }
 
-  if (await dispatchPageEvent(target)) {
+  if (await dispatchPageEvent(target, event)) {
     event.preventDefault()
     if (target.closest<HTMLElement>('[data-skip-page-rerender="true"]')) {
       return
@@ -1691,7 +1691,7 @@ root.addEventListener('input', async (event) => {
     return
   }
 
-  if (await dispatchPageEvent(target)) {
+  if (await dispatchPageEvent(target, event)) {
     if (shouldSkipInputRerender(target)) return
     const nextPathname = appStore.getState().pathname
     if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
@@ -1730,7 +1730,7 @@ root.addEventListener('compositionend', async (event) => {
     return
   }
 
-  if (await dispatchPageEvent(target)) {
+  if (await dispatchPageEvent(target, event)) {
     if (shouldSkipInputRerender(target)) return
     const nextPathname = appStore.getState().pathname
     if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
@@ -1763,7 +1763,7 @@ root.addEventListener('change', async (event) => {
   const focusSnapshot = captureFocusSnapshot()
   const previousPathname = appStore.getState().pathname
 
-  if (await dispatchPageEvent(target)) {
+  if (await dispatchPageEvent(target, event)) {
     if (shouldSkipChangeRerender(target)) return
     const nextPathname = appStore.getState().pathname
     if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
