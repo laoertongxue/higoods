@@ -1,6 +1,7 @@
 import {
   state,
   validateRuntimeBatchDispatchSelection,
+  captureRuntimeDirectDispatchState,
   createDispatchCapacityEvaluationContext,
   createDispatchOutputValueEvaluationContext,
   getTaskAllocatableGroups,
@@ -16,6 +17,7 @@ import {
   getVisibleRows,
   getDispatchDialogTasks,
   getDispatchDialogValidation,
+  prepareRuntimeDirectDispatchMeta,
   getFactoryOptions,
   getStandardPrice,
   getAutoDispatchConfigKeyFromTask,
@@ -23,7 +25,6 @@ import {
   describeDispatchCapacityConstraintDecision,
   formatOutputValueNumber,
   fromDateTimeLocal,
-  toDateTimeLocal,
   nowTimestamp,
   escapeHtml,
   formatScopeLabel,
@@ -36,6 +37,7 @@ import {
   resolveTaskFactoryCapacityConstraint,
   resolveTaskFactoryOutputValueJudgement,
   syncDispatchCapacityUsageLedger,
+  restoreRuntimeDirectDispatchState,
   type RuntimeTaskAllocatableGroup,
   type RuntimeTaskAllocatableGroupAssignment,
   type DispatchCapacityConstraintSnapshot,
@@ -51,9 +53,14 @@ import {
   type DispatchAcceptanceSlaResolution,
 } from '../../data/fcs/dispatch-acceptance-sla.ts'
 import {
+  captureSewingDeliverySlaSnapshotStore,
   classifySewingDeliverySla,
   compareSewingDeliveryDateTimes,
   createSewingDeliverySlaSnapshot,
+  dateTimeLocalToOperationWallClock,
+  formatOperationLocalWallClock,
+  operationWallClockToDateTimeLocal,
+  restoreSewingDeliverySlaSnapshotStore,
 } from '../../data/fcs/sewing-delivery-sla.ts'
 import {
   getMaterialPrepDispatchReadinessForTask,
@@ -259,7 +266,7 @@ function renderAcceptanceSlaItem(label: string, task: DispatchTask, factoryId?: 
       </div>
     `
   }
-  const dispatchedAt = nowTimestamp()
+  const dispatchedAt = formatOperationLocalWallClock()
   const resolution = resolveDispatchAcceptanceSlaForTask(task, factoryId, factoryName, dispatchedAt)
   const deadlineText = resolution.ruleSource === 'UNCONFIGURED'
     ? '未生成'
@@ -314,7 +321,9 @@ function renderSewingDeliverySlaPreview(task: DispatchTask): string {
   const slaKind = classifySewingDeliverySla(task)
   if (!slaKind) return ''
 
-  const businessAssignedAt = fromDateTimeLocal(state.dispatchForm.businessAssignedAt)
+  const businessAssignedAt = state.dispatchForm.businessAssignedAt
+    ? dateTimeLocalToOperationWallClock(state.dispatchForm.businessAssignedAt)
+    : ''
   if (!businessAssignedAt) {
     return '<div class="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">选择业务分配时间后，将自动计算 30%、70%、100% 交付节点。</div>'
   }
@@ -352,6 +361,48 @@ function renderSewingDeliverySlaPreview(task: DispatchTask): string {
   } catch (error) {
     const message = error instanceof Error ? error.message : '交付节点暂时无法计算'
     return `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${escapeHtml(message)}</div>`
+  }
+}
+
+function getBusinessAssignedAtLocalError(): string | null {
+  try {
+    const businessAssignedAt = dateTimeLocalToOperationWallClock(state.dispatchForm.businessAssignedAt)
+    return compareSewingDeliveryDateTimes(businessAssignedAt, formatOperationLocalWallClock()) > 0
+      ? '业务分配时间不能晚于当前操作时间'
+      : null
+  } catch (error) {
+    return error instanceof Error ? error.message : '业务分配时间格式不正确'
+  }
+}
+
+function refreshDirectDispatchBusinessAssignedAtFeedback(fieldNode: HTMLElement): void {
+  const panel = fieldNode.closest<HTMLElement>('[data-dialog-panel]')
+  if (!panel) return
+
+  const tasks = getDispatchDialogTasks()
+  const sewingTask = tasks.find((task) => classifySewingDeliverySla(task) !== null) ?? null
+  const previewSlot = panel.querySelector<HTMLElement>('[data-sewing-delivery-sla-preview-slot]')
+  if (previewSlot && sewingTask) previewSlot.innerHTML = renderSewingDeliverySlaPreview(sewingTask)
+
+  const operatedAt = formatOperationLocalWallClock()
+  const operatedAtNode = panel.querySelector<HTMLElement>('[data-assignment-operated-at]')
+  if (operatedAtNode) operatedAtNode.textContent = `提交派单时记录当前时间（当前 ${operatedAt}）`
+
+  const businessTimeError = getBusinessAssignedAtLocalError()
+  state.dispatchDialogError = businessTimeError
+  const errorNode = panel.querySelector<HTMLElement>('[data-dispatch-dialog-error]')
+  if (errorNode) {
+    errorNode.textContent = businessTimeError ?? ''
+    errorNode.hidden = !businessTimeError
+    errorNode.classList.toggle('hidden', !businessTimeError)
+  }
+
+  const confirmButton = panel.querySelector<HTMLElement>('[data-dispatch-action="confirm-direct-dispatch"]')
+  if (confirmButton) {
+    const disabled = Boolean(businessTimeError) || confirmButton.dataset.dispatchOtherDisabled === 'true'
+    confirmButton.classList.toggle('pointer-events-none', disabled)
+    confirmButton.classList.toggle('opacity-50', disabled)
+    confirmButton.setAttribute('aria-disabled', String(disabled))
   }
 }
 
@@ -401,7 +452,7 @@ function openDispatchDialog(taskIds: string[]): void {
   if (filtered.length === 0) return
 
   const nextForm = emptyDispatchForm()
-  nextForm.businessAssignedAt = toDateTimeLocal(nowTimestamp())
+  nextForm.businessAssignedAt = operationWallClockToDateTimeLocal(formatOperationLocalWallClock())
   if (filtered.length === 1) {
     const task = filtered[0]
     const detailSupported = supportsDetailAssignment(task)
@@ -545,8 +596,14 @@ function confirmDirectDispatch(): void {
     return
   }
 
-  const operatedAt = nowTimestamp()
-  const businessAssignedAt = fromDateTimeLocal(state.dispatchForm.businessAssignedAt)
+  const operatedAt = formatOperationLocalWallClock()
+  let businessAssignedAt = ''
+  try {
+    businessAssignedAt = dateTimeLocalToOperationWallClock(state.dispatchForm.businessAssignedAt)
+  } catch (error) {
+    state.dispatchDialogError = error instanceof Error ? error.message : '业务分配时间格式不正确'
+    return
+  }
   if (!businessAssignedAt) {
     state.dispatchDialogError = '请选择业务分配时间'
     return
@@ -609,14 +666,55 @@ function confirmDirectDispatch(): void {
       }
     }
 
+    try {
+      for (const group of groups) {
+        const selected = state.dispatchForm.factoryByGroupKey[group.groupKey]
+        if (!selected?.factoryId) throw new Error(`请为 ${group.groupLabel} 选择目标工厂`)
+        const acceptanceSla = resolveDispatchAcceptanceSlaForTask(
+          singleTask,
+          selected.factoryId,
+          selected.factoryName,
+          operatedAt,
+        )
+        prepareRuntimeDirectDispatchMeta({
+          taskId: singleTask.taskId,
+          factoryId: selected.factoryId,
+          factoryName: selected.factoryName,
+          acceptDeadline: buildDispatchAcceptanceDeadline(operatedAt, acceptanceSla),
+          taskDeadline,
+          remark: state.dispatchForm.remark,
+          by: '跟单A',
+          operatedAt,
+          businessAssignedAt,
+          autoAccept: acceptanceSla.autoAccept,
+          acceptanceSla,
+          dispatchPrice: validation.dispatchPrice,
+          dispatchPriceCurrency: validation.stdCurrency,
+          dispatchPriceUnit: validation.stdUnit,
+          priceDiffReason: state.dispatchForm.priceDiffReason,
+        }, {
+          task: singleTask,
+          assignedQty: group.qty,
+          assignmentId: `PREPARE-${singleTask.taskId}-${group.groupKey}`,
+          runtimeTaskId: `PREPARE-${singleTask.taskId}-${group.groupKey}`,
+        })
+      }
+    } catch (error) {
+      state.dispatchDialogError = error instanceof Error ? error.message : '按明细派单前置校验失败'
+      return
+    }
+
+    const runtimeState = captureRuntimeDirectDispatchState()
+    const snapshotState = captureSewingDeliverySlaSnapshotStore()
+    try {
+
     const result = dispatchRuntimeTaskByDetailGroups({
       taskId: singleTask.taskId,
       assignments,
       by: '跟单A',
     })
     if (!result.ok || !result.resultAssignments) {
-      state.dispatchDialogError = result.message ?? '按明细派单失败，请检查后重试'
-      return
+      throw new Error(result.message ?? '按明细派单失败，请检查后重试')
     }
 
     const mainFactoryResultAssignment = isRuntimeSewingTask(singleTask)
@@ -646,7 +744,7 @@ function confirmDirectDispatch(): void {
         assignment.factoryName,
         dispatchedAt,
       )
-      applyRuntimeDirectDispatchMeta({
+      const updated = applyRuntimeDirectDispatchMeta({
         taskId: assignment.taskId,
         factoryId: assignment.factoryId,
         factoryName: assignment.factoryName,
@@ -670,6 +768,7 @@ function confirmDirectDispatch(): void {
           ? assignment.taskId === mainFactoryResultAssignment?.taskId
           : undefined,
       })
+      if (!updated) throw new Error(`任务 ${assignment.taskId} 直接派单提交失败`)
     }
 
     for (const assignment of result.resultAssignments) {
@@ -688,6 +787,12 @@ function confirmDirectDispatch(): void {
     closeDispatchDialog()
     state.selectedIds = new Set<string>()
     return
+    } catch (error) {
+      restoreRuntimeDirectDispatchState(runtimeState)
+      restoreSewingDeliverySlaSnapshotStore(snapshotState)
+      state.dispatchDialogError = error instanceof Error ? error.message : '按明细派单提交失败'
+      return
+    }
   }
 
   if (state.dispatchForm.factoryId.trim() === '' || state.dispatchForm.factoryName.trim() === '') {
@@ -985,11 +1090,7 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
                 : ''
           }
 
-          ${
-            selectionError
-              ? `<div class="whitespace-pre-line rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">${escapeHtml(selectionError)}</div>`
-              : ''
-          }
+          <div data-dispatch-dialog-error class="whitespace-pre-line rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 ${selectionError ? '' : 'hidden'}" ${selectionError ? '' : 'hidden'}>${escapeHtml(selectionError ?? '')}</div>
 
           ${renderMaterialPrepDispatchPanel(materialPrepChecks)}
 
@@ -1046,9 +1147,9 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
               sewingDeliverySlaTask
                 ? `<div class="space-y-1.5">
                     <label class="text-sm font-medium">实际操作时间</label>
-                    <div class="flex h-9 items-center rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground">提交派单时自动记录当前时间</div>
+                    <div class="flex h-9 items-center rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground" data-assignment-operated-at>提交派单时记录当前时间（当前 ${escapeHtml(formatOperationLocalWallClock())}）</div>
                   </div>
-                  <div class="md:col-span-2">
+                  <div class="md:col-span-2" data-sewing-delivery-sla-preview-slot>
                     ${renderSewingDeliverySlaPreview(sewingDeliverySlaTask)}
                   </div>`
                 : `<div class="space-y-1.5">
@@ -1113,7 +1214,7 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
 
         <div class="mt-6 flex justify-end gap-2">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-dispatch-action="close-direct-dispatch">取消</button>
-          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${canSubmit ? '' : 'pointer-events-none opacity-50'}" data-dispatch-action="confirm-direct-dispatch">确认派单</button>
+          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${canSubmit ? '' : 'pointer-events-none opacity-50'}" data-dispatch-action="confirm-direct-dispatch" data-dispatch-other-disabled="${String(!canSubmit)}" aria-disabled="${String(!canSubmit)}">确认派单</button>
         </div>
       </section>
     </div>
@@ -1129,4 +1230,5 @@ export {
   applyAutoAssign,
   confirmDirectDispatch,
   renderDirectDispatchDialog,
+  refreshDirectDispatchBusinessAssignedAtFeedback,
 }

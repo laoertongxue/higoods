@@ -80,7 +80,13 @@ const RULE_HOURS: Record<SewingDeliverySlaKind, [number, number, number]> = {
 }
 
 const MILESTONE_RATIOS = [0.3, 0.7, 1] as const
-const snapshotsByRuntimeTaskId = new Map<string, SewingDeliverySlaSnapshot>()
+const snapshotsById = new Map<string, SewingDeliverySlaSnapshot>()
+const currentSnapshotIdByRuntimeTaskId = new Map<string, string>()
+
+export interface SewingDeliverySlaSnapshotStoreState {
+  snapshots: Array<[string, SewingDeliverySlaSnapshot]>
+  currentSnapshotIds: Array<[string, string]>
+}
 
 function assertPositiveFiniteInteger(value: number, fieldName: string): void {
   if (!Number.isFinite(value) || !Number.isInteger(value) || value <= 0) {
@@ -173,6 +179,26 @@ function formatDateTime(date: Date): string {
   return `${String(date.getUTCFullYear()).padStart(4, '0')}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`
 }
 
+export function formatOperationLocalWallClock(date: Date = new Date()): string {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${String(date.getFullYear()).padStart(4, '0')}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
+export function operationWallClockToDateTimeLocal(value: string): string {
+  parseDateTime(value, '操作端本地时间')
+  return value.replace(' ', 'T').slice(0, 16)
+}
+
+export function dateTimeLocalToOperationWallClock(value: string): string {
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::(\d{2}))?$/.exec(value)
+  if (!match) {
+    throw new Error('业务分配时间必须为 YYYY-MM-DDTHH:mm 格式')
+  }
+  const normalized = `${match[1]} ${match[2]}:${match[3] ?? '00'}`
+  parseDateTime(normalized, '业务分配时间')
+  return normalized
+}
+
 export function compareSewingDeliveryDateTimes(left: string, right: string): number {
   return parseDateTime(left, '业务分配时间').getTime() - parseDateTime(right, '当前操作时间').getTime()
 }
@@ -191,13 +217,67 @@ function cloneAndFreezeSnapshot(snapshot: SewingDeliverySlaSnapshot): SewingDeli
 }
 
 export function saveSewingDeliverySlaSnapshot(snapshot: SewingDeliverySlaSnapshot): void {
-  const storedSnapshot = cloneAndFreezeSnapshot(snapshot)
-  snapshotsByRuntimeTaskId.set(storedSnapshot.runtimeTaskId, storedSnapshot)
+  const currentSnapshotId = currentSnapshotIdByRuntimeTaskId.get(snapshot.runtimeTaskId)
+  const currentSnapshot = currentSnapshotId ? snapshotsById.get(currentSnapshotId) : undefined
+  if (currentSnapshot && currentSnapshot.snapshotId !== snapshot.snapshotId) {
+    snapshotsById.set(currentSnapshot.snapshotId, cloneAndFreezeSnapshot({
+      ...currentSnapshot,
+      active: false,
+      replacedByAssignmentId: snapshot.assignmentId,
+    }))
+  }
+
+  const storedSnapshot = cloneAndFreezeSnapshot({
+    ...snapshot,
+    active: true,
+    replacedByAssignmentId: undefined,
+  })
+  snapshotsById.set(storedSnapshot.snapshotId, storedSnapshot)
+  currentSnapshotIdByRuntimeTaskId.set(storedSnapshot.runtimeTaskId, storedSnapshot.snapshotId)
 }
 
 export function getSewingDeliverySlaSnapshot(runtimeTaskId: string): SewingDeliverySlaSnapshot | null {
-  const snapshot = snapshotsByRuntimeTaskId.get(runtimeTaskId)
+  const snapshotId = currentSnapshotIdByRuntimeTaskId.get(runtimeTaskId)
+  const snapshot = snapshotId ? snapshotsById.get(snapshotId) : undefined
   return snapshot ? cloneAndFreezeSnapshot(snapshot) : null
+}
+
+export function listSewingDeliverySlaSnapshotHistory(runtimeTaskId: string): SewingDeliverySlaSnapshot[] {
+  return Array.from(snapshotsById.values())
+    .filter((snapshot) => snapshot.runtimeTaskId === runtimeTaskId)
+    .map(cloneAndFreezeSnapshot)
+}
+
+export function captureSewingDeliverySlaSnapshotStore(): SewingDeliverySlaSnapshotStoreState {
+  return {
+    snapshots: Array.from(snapshotsById.entries()).map(([snapshotId, snapshot]) => [
+      snapshotId,
+      cloneAndFreezeSnapshot(snapshot),
+    ]),
+    currentSnapshotIds: Array.from(currentSnapshotIdByRuntimeTaskId.entries()),
+  }
+}
+
+export function restoreSewingDeliverySlaSnapshotStore(state: SewingDeliverySlaSnapshotStoreState): void {
+  snapshotsById.clear()
+  currentSnapshotIdByRuntimeTaskId.clear()
+  state.snapshots.forEach(([snapshotId, snapshot]) => snapshotsById.set(snapshotId, cloneAndFreezeSnapshot(snapshot)))
+  state.currentSnapshotIds.forEach(([runtimeTaskId, snapshotId]) => {
+    currentSnapshotIdByRuntimeTaskId.set(runtimeTaskId, snapshotId)
+  })
+}
+
+export function clearSewingDeliverySlaSnapshotStore(runtimeTaskId?: string): void {
+  if (!runtimeTaskId) {
+    snapshotsById.clear()
+    currentSnapshotIdByRuntimeTaskId.clear()
+    return
+  }
+
+  for (const [snapshotId, snapshot] of snapshotsById.entries()) {
+    if (snapshot.runtimeTaskId === runtimeTaskId) snapshotsById.delete(snapshotId)
+  }
+  currentSnapshotIdByRuntimeTaskId.delete(runtimeTaskId)
 }
 
 export function createSewingDeliverySlaSnapshot(input: {

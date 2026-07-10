@@ -18,6 +18,7 @@ import {
   openDispatchDialog,
   closeDispatchDialog,
   confirmDirectDispatch,
+  refreshDirectDispatchBusinessAssignedAtFeedback,
   setTaskAssignMode,
   batchSetTaskAssignMode,
 } from './dispatch-domain.ts'
@@ -243,6 +244,9 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
     if (!field) return true
 
     updateField(field, fieldNode)
+    if (field === 'dispatch.businessAssignedAt') {
+      refreshDirectDispatchBusinessAssignedAtFeedback(fieldNode)
+    }
     return true
   }
 

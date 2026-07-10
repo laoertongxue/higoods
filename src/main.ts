@@ -1377,6 +1377,8 @@ function shouldSkipInputRerender(target: Element): boolean {
 }
 
 function shouldSkipChangeRerender(target: Element): boolean {
+  if (target.closest<HTMLElement>('[data-skip-page-rerender="true"]')) return true
+
   const techFieldNode = target.closest<HTMLElement>('[data-tech-field]')
   if (techFieldNode) {
     const field = techFieldNode.dataset.techField || ''

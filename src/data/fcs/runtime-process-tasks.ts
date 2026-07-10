@@ -44,10 +44,15 @@ import {
 import { listBusinessFactoryMasterRecords } from './factory-master-store.ts'
 import type { Factory, FactoryProcessAbility } from './factory-types.ts'
 import {
+  captureSewingDeliverySlaSnapshotStore,
   classifySewingDeliverySla,
   compareSewingDeliveryDateTimes,
   createSewingDeliverySlaSnapshot,
+  formatOperationLocalWallClock,
+  listSewingDeliverySlaSnapshotHistory,
+  restoreSewingDeliverySlaSnapshotStore,
   saveSewingDeliverySlaSnapshot,
+  type SewingDeliverySlaSnapshot,
 } from './sewing-delivery-sla.ts'
 
 export type RuntimeTaskScopeType = ProcessAssignmentGranularity
@@ -273,6 +278,59 @@ export interface RuntimeBatchDispatchInput {
   operatedAt?: string
 }
 
+export interface RuntimeDirectDispatchMetaInput {
+  taskId: string
+  factoryId: string
+  factoryName: string
+  acceptDeadline: string
+  taskDeadline: string
+  remark: string
+  by: string
+  dispatchPrice: number
+  dispatchPriceCurrency: string
+  dispatchPriceUnit: string
+  priceDiffReason: string
+  dispatchedAt?: string
+  businessAssignedAt?: string
+  operatedAt?: string
+  autoAccept?: boolean
+  acceptanceSla?: DispatchAcceptanceSlaResolution
+  outputValuePerUnit?: number
+  outputValueUnit?: string
+  outputValueTotal?: number
+  outputValueDifficulty?: OutputValueDifficulty
+  writeBackMainFactory?: boolean
+}
+
+export interface RuntimeDirectDispatchPreparationTarget {
+  task?: RuntimeProcessTask
+  assignedQty?: number
+  assignmentId?: string
+  runtimeTaskId?: string
+}
+
+export interface PreparedRuntimeDirectDispatchMeta {
+  input: RuntimeDirectDispatchMetaInput
+  originalTask: RuntimeProcessTask
+  operatedAt: string
+  businessAssignedAt: string
+  acceptanceSla: DispatchAcceptanceSlaResolution
+  acceptDeadline: string
+  autoAccept: boolean
+  acceptedAt?: string
+  acceptedBy?: string
+  auditDetail: string
+  deliverySlaSnapshot: SewingDeliverySlaSnapshot | null
+}
+
+export interface RuntimeDirectDispatchState {
+  taskOverrides: Array<[string, RuntimeTaskOverride]>
+  splitPlans: Array<[string, RuntimeTaskSplitPlan]>
+  auditSeq: number
+  dispatchBoardSeedReady: boolean
+  productionOrders: Array<(typeof productionOrders)[number]>
+}
+
 export interface RuntimeDetailDispatchInput {
   taskId: string
   assignments: TaskAllocatableGroupAssignment[]
@@ -290,6 +348,26 @@ const runtimeContinuousMergePlans = new Map<string, { taskIds: string[]; mergedT
 const SEWING_DELIVERY_SLA_AUTO_ACCEPT_BY = '系统自动接单（含车缝直接派单）'
 let runtimeAuditSeq = 0
 let dispatchBoardSeedReady = false
+
+export function captureRuntimeDirectDispatchState(): RuntimeDirectDispatchState {
+  return {
+    taskOverrides: Array.from(runtimeTaskOverrides.entries()).map(([taskId, override]) => [taskId, structuredClone(override)]),
+    splitPlans: Array.from(runtimeTaskSplitPlans.entries()).map(([taskId, plan]) => [taskId, structuredClone(plan)]),
+    auditSeq: runtimeAuditSeq,
+    dispatchBoardSeedReady,
+    productionOrders: structuredClone(productionOrders),
+  }
+}
+
+export function restoreRuntimeDirectDispatchState(state: RuntimeDirectDispatchState): void {
+  runtimeTaskOverrides.clear()
+  runtimeTaskSplitPlans.clear()
+  state.taskOverrides.forEach(([taskId, override]) => runtimeTaskOverrides.set(taskId, structuredClone(override)))
+  state.splitPlans.forEach(([taskId, plan]) => runtimeTaskSplitPlans.set(taskId, structuredClone(plan)))
+  runtimeAuditSeq = state.auditSeq
+  dispatchBoardSeedReady = state.dispatchBoardSeedReady
+  productionOrders.splice(0, productionOrders.length, ...structuredClone(state.productionOrders))
+}
 
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
@@ -2210,6 +2288,10 @@ export function validateRuntimeBatchDispatchSelection(taskIds: string[]): Runtim
     return { valid: false, reason: '请选择至少一条任务后再派单' }
   }
 
+  if (selected.length !== taskIds.length) {
+    return { valid: false, reason: '部分任务不存在或已被移除，请刷新后重新选择' }
+  }
+
   if (selected.some((task) => !isRuntimeTaskExecutionTask(task))) {
     return { valid: false, reason: '拆分来源任务不可直接派单，请选择可执行任务' }
   }
@@ -2297,80 +2379,83 @@ export function batchDispatchRuntimeTasks(input: RuntimeBatchDispatchInput): {
     return { ok: false, message: factoryValidation.reason }
   }
 
-  const operatedAt = input.operatedAt ?? nowTimestamp()
+  const operatedAt = input.operatedAt ?? formatOperationLocalWallClock()
   const businessAssignedAt = input.businessAssignedAt ?? operatedAt
-
-  for (const taskId of input.taskIds) {
-    const task = getRuntimeTaskById(taskId)
-    const outputValue = task ? resolveRuntimeTaskOutputValue(task) : {}
-    applyRuntimeDirectDispatchMeta({
-      taskId,
-      factoryId: input.factoryId,
-      factoryName: input.factoryName,
-      acceptDeadline: input.acceptDeadline,
-      taskDeadline: input.taskDeadline,
-      remark: input.remark,
-      by: input.by,
-      dispatchPrice: input.dispatchPrice,
-      dispatchPriceCurrency: input.dispatchPriceCurrency,
-      dispatchPriceUnit: input.dispatchPriceUnit,
-      priceDiffReason: input.priceDiffReason,
-      operatedAt,
-      businessAssignedAt,
-      autoAccept: input.autoAccept,
-      ...outputValue,
+  let preparations: PreparedRuntimeDirectDispatchMeta[]
+  try {
+    preparations = input.taskIds.map((taskId) => {
+      const task = getRuntimeTaskById(taskId)
+      const outputValue = task ? resolveRuntimeTaskOutputValue(task) : {}
+      return prepareRuntimeDirectDispatchMeta({
+        taskId,
+        factoryId: input.factoryId,
+        factoryName: input.factoryName,
+        acceptDeadline: input.acceptDeadline,
+        taskDeadline: input.taskDeadline,
+        remark: input.remark,
+        by: input.by,
+        dispatchPrice: input.dispatchPrice,
+        dispatchPriceCurrency: input.dispatchPriceCurrency,
+        dispatchPriceUnit: input.dispatchPriceUnit,
+        priceDiffReason: input.priceDiffReason,
+        operatedAt,
+        businessAssignedAt,
+        autoAccept: input.autoAccept,
+        ...outputValue,
+      })
     })
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : '直接派单前置校验失败' }
   }
 
-  const orderIds = getOrderIdsFromTaskIds(input.taskIds)
-  for (const orderId of orderIds) {
-    recomputeRuntimeTransitionsForOrder(orderId)
-  }
+  const runtimeState = captureRuntimeDirectDispatchState()
+  const snapshotState = captureSewingDeliverySlaSnapshotStore()
+  try {
+    for (const preparation of preparations) {
+      if (!commitPreparedRuntimeDirectDispatchMeta(preparation)) {
+        throw new Error(`任务 ${preparation.input.taskId} 直接派单提交失败`)
+      }
+    }
 
-  return { ok: true }
+    const orderIds = getOrderIdsFromTaskIds(input.taskIds)
+    for (const orderId of orderIds) {
+      recomputeRuntimeTransitionsForOrder(orderId)
+    }
+    return { ok: true }
+  } catch (error) {
+    restoreRuntimeDirectDispatchState(runtimeState)
+    restoreSewingDeliverySlaSnapshotStore(snapshotState)
+    return { ok: false, message: error instanceof Error ? error.message : '直接派单提交失败' }
+  }
 }
 
-export function applyRuntimeDirectDispatchMeta(input: {
-  taskId: string
-  factoryId: string
-  factoryName: string
-  acceptDeadline: string
-  taskDeadline: string
-  remark: string
-  by: string
-  dispatchPrice: number
-  dispatchPriceCurrency: string
-  dispatchPriceUnit: string
-  priceDiffReason: string
-  dispatchedAt?: string
-  businessAssignedAt?: string
-  operatedAt?: string
-  autoAccept?: boolean
-  acceptanceSla?: DispatchAcceptanceSlaResolution
-  outputValuePerUnit?: number
-  outputValueUnit?: string
-  outputValueTotal?: number
-  outputValueDifficulty?: OutputValueDifficulty
-  writeBackMainFactory?: boolean
-}): RuntimeProcessTask | null {
-  const originalTask = getRuntimeTaskById(input.taskId)
-  if (!originalTask) return null
+export function prepareRuntimeDirectDispatchMeta(
+  input: RuntimeDirectDispatchMetaInput,
+  target: RuntimeDirectDispatchPreparationTarget = {},
+): PreparedRuntimeDirectDispatchMeta {
+  const originalTask = target.task ?? getRuntimeTaskById(input.taskId)
+  if (!originalTask) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
 
-  const operatedAt = input.operatedAt ?? input.dispatchedAt ?? nowTimestamp()
+  const operatedAt = input.operatedAt ?? input.dispatchedAt ?? formatOperationLocalWallClock()
   const businessAssignedAt = input.businessAssignedAt ?? operatedAt
   if (compareSewingDeliveryDateTimes(businessAssignedAt, operatedAt) > 0) {
     throw new Error('业务分配时间不能晚于当前操作时间')
   }
 
   const sewingDeliverySlaKind = classifySewingDeliverySla(originalTask)
+  const assignedQty = target.assignedQty ?? originalTask.scopeQty
+  const runtimeTaskId = target.runtimeTaskId ?? originalTask.taskId
+  const snapshotSequence = listSewingDeliverySlaSnapshotHistory(runtimeTaskId).length + 1
+  const assignmentId = target.assignmentId
+    ?? `${runtimeTaskId}-${operatedAt.replace(/\D/g, '')}-${String(snapshotSequence).padStart(3, '0')}`
   const deliverySlaSnapshot = sewingDeliverySlaKind
     ? createSewingDeliverySlaSnapshot({
-        assignmentId: originalTask.taskId,
-        runtimeTaskId: originalTask.taskId,
+        assignmentId,
+        runtimeTaskId,
         productionOrderId: originalTask.productionOrderId,
         factoryId: input.factoryId,
         factoryName: input.factoryName,
-        assignedQty: originalTask.scopeQty,
+        assignedQty,
         acceptedAt: businessAssignedAt,
         slaKind: sewingDeliverySlaKind,
       })
@@ -2396,6 +2481,36 @@ export function applyRuntimeDirectDispatchMeta(input: {
     : autoAccept
       ? `${describeDispatchAcceptanceSlaResolution(acceptanceSla)}，派单后系统自动接单。`
       : `${describeDispatchAcceptanceSlaResolution(acceptanceSla)}，已发起直接派单，待工厂确认。`
+  return {
+    input,
+    originalTask,
+    operatedAt,
+    businessAssignedAt,
+    acceptanceSla,
+    acceptDeadline,
+    autoAccept,
+    acceptedAt,
+    acceptedBy,
+    auditDetail,
+    deliverySlaSnapshot,
+  }
+}
+
+function commitPreparedRuntimeDirectDispatchMeta(
+  preparation: PreparedRuntimeDirectDispatchMeta,
+): RuntimeProcessTask | null {
+  const {
+    input,
+    operatedAt,
+    businessAssignedAt,
+    acceptanceSla,
+    acceptDeadline,
+    autoAccept,
+    acceptedAt,
+    acceptedBy,
+    auditDetail,
+    deliverySlaSnapshot,
+  } = preparation
   const updated = updateRuntimeTaskWithAudit(
     input.taskId,
     {
@@ -2448,6 +2563,10 @@ export function applyRuntimeDirectDispatchMeta(input: {
   }
 
   return updated
+}
+
+export function applyRuntimeDirectDispatchMeta(input: RuntimeDirectDispatchMetaInput): RuntimeProcessTask | null {
+  return commitPreparedRuntimeDirectDispatchMeta(prepareRuntimeDirectDispatchMeta(input))
 }
 
 function parseRuntimeDateLike(value: string): number {
