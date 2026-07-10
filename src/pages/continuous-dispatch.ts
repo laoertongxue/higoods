@@ -609,9 +609,8 @@ export function handleContinuousDispatchEvent(target: HTMLElement, event?: Pick<
     if (state.dialog) {
       const field = fieldNode.dataset.continuousDispatchField
       const value = String(fieldNode.value)
-      if (event?.type && event.type !== 'change') {
-        return true
-      }
+      if (event?.type === 'input') return true
+      if (event?.type && event.type !== 'change') return false
       if (field === 'factoryId') state.dialog.factoryId = value
       if (field === 'businessAssignedAt') state.dialog.businessAssignedAt = value
       if (field === 'biddingDeadline') state.dialog.biddingDeadline = value

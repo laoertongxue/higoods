@@ -1476,6 +1476,17 @@ try {
   handleContinuousDispatchEvent(continuousActionTarget('open-direct', continuousTask.taskId), { type: 'click' } as Event)
   const writesAfterOpen = continuousDialogHostWrites
   const stateAfterOpen = captureContinuousDispatchPageState()
+  const nativeClickHandled = handleContinuousDispatchEvent(
+    continuousFieldTarget('mainFactoryChoice', 'SELECTED'),
+    { type: 'click' } as Event,
+  )
+  assert.equal(nativeClickHandled, false, '弹窗单选框 click 必须交还浏览器原生激活，不得触发 preventDefault')
+  assert.equal(continuousDialogHostWrites, writesAfterOpen, '弹窗字段 click 不得替换弹窗 host')
+  assert.equal(
+    captureContinuousDispatchPageState().dialog?.mainFactoryChoice,
+    stateAfterOpen.dialog?.mainFactoryChoice,
+    '弹窗字段 click 阶段不得提前写入状态',
+  )
   handleContinuousDispatchEvent(
     continuousFieldTarget('businessAssignedAt', '2026-07-09T08:30'),
     { type: 'input' } as Event,
