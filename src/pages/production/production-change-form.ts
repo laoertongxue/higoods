@@ -58,6 +58,24 @@ function renderFactTable(title: string, headers: string[], rows: string[][], emp
   `
 }
 
+function normalizeLegacyProductionChangeHistoryDisplayText(text: string): string {
+  const displayReplacements: Array<[string, string]> = [
+    ['审核通过', '处理完成'],
+    ['审核驳回', '处理退回'],
+    ['审核中', '处理中'],
+    ['提交审核', '提交处理'],
+    ['审核', '处理'],
+    ['相关负责人', '跟单'],
+    ['负责人', '跟单'],
+    ['主管', '跟单'],
+  ]
+
+  return displayReplacements.reduce(
+    (normalizedText, [legacyText, currentText]) => normalizedText.split(legacyText).join(currentText),
+    text,
+  )
+}
+
 function renderCurrentFactsSummary(facts: ProductionOrderChangeCurrentFacts): string {
   return `
     <section class="space-y-4" data-production-change-current-facts>
@@ -116,10 +134,10 @@ function renderCurrentFactsSummary(facts: ProductionOrderChangeCurrentFacts): st
         facts.historyFacts.map((item) => [
           item.changeOrderNo,
           item.result,
-          item.status,
+          normalizeLegacyProductionChangeHistoryDisplayText(item.status),
           item.affectedScope,
           item.lockStatus,
-          item.note,
+          normalizeLegacyProductionChangeHistoryDisplayText(item.note),
         ]),
         '暂无历史变更记录',
       )}
@@ -138,7 +156,8 @@ export function renderProductionChangeFormSteps(step: ProductionChangeFormStep):
 
 export function renderProductionChangeOrderStep(form: ProductionChangeForm): string {
   const relations = listProductionOrderTechPackRelations().filter((relation) =>
-    getProductionOrderChangeCurrentFacts(relation.productionOrderId) !== null,
+    getProductionOrderChangeCurrentFacts(relation.productionOrderId) !== null &&
+    createQuantityLinesForOrder(relation.productionOrderId).length > 0,
   )
   const facts = form.productionOrderId
     ? getProductionOrderChangeCurrentFacts(form.productionOrderId)

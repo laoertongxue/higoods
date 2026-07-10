@@ -872,11 +872,53 @@ const selectableProductionOrderIds = Array.from(
 ).filter(Boolean)
 assert.ok(selectableProductionOrderIds.length > 0, '第一步至少需要一个具有当前事实的生产单候选')
 selectableProductionOrderIds.forEach((productionOrderId) => {
+  const factsBeforeRender = changeDomain.getProductionOrderChangeCurrentFacts(productionOrderId)
+  assert.ok(factsBeforeRender, `生产单选择器候选 ${productionOrderId} 必须存在当前事实`)
   assert.ok(
-    changeDomain.getProductionOrderChangeCurrentFacts(productionOrderId),
-    `生产单选择器候选 ${productionOrderId} 必须存在当前事实`,
+    createQuantityLinesForOrder(productionOrderId).length > 0,
+    `生产单选择器候选 ${productionOrderId} 必须存在可操作的颜色尺码需求明细`,
   )
+
+  const candidateForm = createProductionChangeForm()
+  candidateForm.productionOrderId = productionOrderId
+  const candidateOrderHtml = renderProductionChangeFormBody('order', candidateForm)
+  ;['审核', '主管', '负责人'].forEach((text) => {
+    assert.ok(!candidateOrderHtml.includes(text), `生产单 ${productionOrderId} 当前事实展示不得出现旧口径「${text}」`)
+  })
+  factsBeforeRender.historyFacts.forEach((history) => {
+    ;[history.changeOrderNo, history.affectedScope, history.lockStatus].forEach((text) => {
+      assert.ok(candidateOrderHtml.includes(text), `生产单 ${productionOrderId} 历史留痕缺少「${text}」`)
+    })
+  })
+  assert.deepEqual(
+    changeDomain.getProductionOrderChangeCurrentFacts(productionOrderId),
+    factsBeforeRender,
+    `生产单 ${productionOrderId} 当前事实源数据不得被展示归一改写`,
+  )
+
+  candidateForm.changeType = 'MATERIAL_REPLACEMENT'
+  const candidateMaterialHtml = renderProductionChangeFormBody('content', candidateForm)
+  const candidateTotalDemandQty = Number(
+    candidateMaterialHtml.match(/data-prod-field="productionChangeConfirmedProductionQty"[^>]*max="(\d+)"/)?.[1] ?? 0,
+  )
+  assert.ok(candidateTotalDemandQty > 0, `生产单 ${productionOrderId} 的物料表单总需求上限必须大于 0`)
 })
+assert.ok(!selectableProductionOrderIds.includes('PO-202604-0018'), '无颜色尺码需求明细的生产单不得进入本版候选')
+
+const legacyHistoryFactsBeforeRender = changeDomain.getProductionOrderChangeCurrentFacts('PO-202604-0018')
+assert.ok(legacyHistoryFactsBeforeRender, '历史展示归一检查需要旧流程事实样本')
+const legacyHistoryForm = createProductionChangeForm()
+legacyHistoryForm.productionOrderId = 'PO-202604-0018'
+const normalizedLegacyHistoryHtml = renderProductionChangeFormBody('order', legacyHistoryForm)
+assert.ok(normalizedLegacyHistoryHtml.includes('处理中'), '旧流程“审核中”状态必须在展示层归一为“处理中”')
+;['审核', '主管', '负责人'].forEach((text) => {
+  assert.ok(!normalizedLegacyHistoryHtml.includes(text), `历史事实展示不得出现旧口径「${text}」`)
+})
+assert.deepEqual(
+  changeDomain.getProductionOrderChangeCurrentFacts('PO-202604-0018'),
+  legacyHistoryFactsBeforeRender,
+  '历史展示文案归一不得改写底层历史事实',
+)
 
 state.productionChangeForm.productionOrderId = 'PO-WITHOUT-CURRENT-FACTS'
 const missingFactsOrderStepHtml = renderProductionChangeFormBody('order', state.productionChangeForm)
