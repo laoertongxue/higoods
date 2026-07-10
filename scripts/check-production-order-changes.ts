@@ -157,6 +157,18 @@ assert.equal(
   false,
   '新增明细已被当前正式版本覆盖时不得触发新正式版本',
 )
+assert.equal(
+  quantityChangeRequiresNewFormalVersion([
+    {
+      ...quantityLines[0],
+      isNew: true,
+      coveredByCurrentVersion: false,
+      targetQty: 0,
+    },
+  ]),
+  false,
+  '新增但目标数量为 0 的取消行不得触发新正式版本',
+)
 
 const materialDraft: ProductionChangeDraft = {
   productionOrderId: 'PO-202603-004',
@@ -166,7 +178,7 @@ const materialDraft: ProductionChangeDraft = {
   materialReplacement: {
     originalMaterialId: 'MAT-FAB-018',
     replacementMaterialId: 'MAT-FAB-026',
-    replacementMode: 'REMAINING',
+    replacementMode: 'FULL',
     scope: 'CURRENT_AND_FOLLOWING',
     suggestedProductionQty: 180,
     confirmedProductionQty: 180,
@@ -192,8 +204,164 @@ const materialDraft: ProductionChangeDraft = {
       },
     ],
   },
+  decisionValues: {
+    'following-order-mode-PO-202603-005': { value: 'FULL', reason: '' },
+  },
+}
+
+const remainingCurrentPreview = buildProductionChangePreview({
+  ...materialDraft,
+  materialReplacement: {
+    ...materialDraft.materialReplacement!,
+    replacementMode: 'REMAINING',
+    scope: 'CURRENT_ONLY',
+    followingOrders: [],
+  },
+  decisionValues: {},
+})
+assert.ok(
+  remainingCurrentPreview.autoItems.some((item) => item.id === 'old-material-fact-kept'),
+  '剩余数量替换时旧料已形成事实必须由系统继续计入当前生产单',
+)
+assert.ok(
+  remainingCurrentPreview.decisionItems.every((item) => item.id !== 'old-material-disposition'),
+  '剩余数量替换不得产生旧料实物去向判断',
+)
+
+const fullCurrentPreview = buildProductionChangePreview({
+  ...materialDraft,
+  materialReplacement: {
+    ...materialDraft.materialReplacement!,
+    replacementMode: 'FULL',
+    scope: 'CURRENT_ONLY',
+    followingOrders: [],
+  },
+  decisionValues: {},
+})
+const fullDispositionDecision = fullCurrentPreview.decisionItems.find((item) => item.id === 'old-material-disposition')
+assert.ok(fullDispositionDecision, '全部数量替换且存在旧料事实时必须产生实物去向判断')
+assert.ok(
+  fullDispositionDecision.options.every(
+    (option) => option.value !== 'CONTINUE_USE' && !option.label.includes('继续计入当前需求'),
+  ),
+  '全部数量替换的旧料去向不得允许继续计入当前需求',
+)
+assert.deepEqual(
+  fullDispositionDecision.options.map((option) => option.value).sort(),
+  ['DISPOSE', 'RETURN_TO_STOCK', 'TRANSFER_USE'].sort(),
+  '全部数量替换的旧料只能转库存、转其他生产单或处置',
+)
+assert.ok(!fullCurrentPreview.lockObjectIds.includes('MAT-FAB-018'), '锁定对象不得包含原物料主数据 ID')
+const realAffectedDocumentNos = ['MR-202603-010', 'MI-202603-006', 'SP-202603-004-01', 'CUT-202603-004-01']
+assert.ok(
+  realAffectedDocumentNos.every(
+    (documentNo) =>
+      fullCurrentPreview.autoItems.some((item) => item.affectedDocumentNo === documentNo) &&
+      fullCurrentPreview.lockObjectIds.includes(documentNo),
+  ),
+  '备料、领料、铺布和裁剪真实关联单据必须进入自动计划与锁定对象',
+)
+
+const followingOrdersDraft: ProductionChangeDraft = {
+  ...materialDraft,
+  materialReplacement: {
+    ...materialDraft.materialReplacement!,
+    replacementMode: 'REMAINING',
+    scope: 'CURRENT_AND_FOLLOWING',
+    followingOrders: [
+      {
+        productionOrderId: 'PO-202603-006',
+        progressText: '尚未备料',
+        started: false,
+        suggestedMode: 'REMAINING',
+        confirmedMode: 'REMAINING',
+      },
+      {
+        productionOrderId: 'PO-202603-007',
+        progressText: '已领料，尚未裁剪',
+        started: true,
+        suggestedMode: 'REMAINING',
+        confirmedMode: 'FULL',
+      },
+      {
+        productionOrderId: 'PO-202603-008',
+        progressText: '已完成并结算',
+        started: true,
+        suggestedMode: 'FULL',
+        confirmedMode: 'FULL',
+        changeable: false,
+      },
+    ],
+  },
   decisionValues: {},
 }
+const followingOrdersPreview = buildProductionChangePreview(followingOrdersDraft)
+const unstartedFollowingAutoItem = followingOrdersPreview.autoItems.find(
+  (item) => item.id === 'following-order-auto-PO-202603-006',
+)
+assert.ok(unstartedFollowingAutoItem, '未开工后续生产单必须由系统自动处理')
+assert.ok(
+  unstartedFollowingAutoItem.description.includes('全部切换新正式版本'),
+  '未开工后续生产单必须全部切换新正式版本，不受当前单替换模式影响',
+)
+const suggestedFollowingDecision = followingOrdersPreview.decisionItems.find(
+  (item) => item.id === 'following-order-mode-PO-202603-007',
+)
+assert.ok(suggestedFollowingDecision, '已开工后续生产单必须产生剩余/全部替换判断')
+assert.equal(suggestedFollowingDecision.selectedValue, 'REMAINING', '已开工后续生产单必须默认采用 suggestedMode')
+assert.equal(suggestedFollowingDecision.reasonRequired, false, '接受系统建议时不得要求填写原因')
+assert.ok(
+  !validateProductionChangeDecisions(followingOrdersPreview).includes(suggestedFollowingDecision.id),
+  '接受系统建议且未填写原因时判断校验必须通过',
+)
+const frozenFollowingOrderId = 'PO-202603-008'
+const frozenFollowingOrderReference = '202603-008'
+assert.ok(!followingOrdersPreview.affectedOrderIds.includes(frozenFollowingOrderId), '不可变更后续单不得进入影响生产单')
+assert.ok(
+  ![...followingOrdersPreview.autoItems, ...followingOrdersPreview.decisionItems].some(
+    (item) => item.id.includes(frozenFollowingOrderReference) || item.affectedDocumentNo.includes(frozenFollowingOrderReference),
+  ),
+  '不可变更后续单不得生成计划项',
+)
+assert.ok(
+  !followingOrdersPreview.lockObjectIds.some((id) => id.includes(frozenFollowingOrderReference)),
+  '不可变更后续单不得进入锁定对象',
+)
+
+const illegalFollowingPreview = buildProductionChangePreview({
+  ...followingOrdersDraft,
+  decisionValues: {
+    [suggestedFollowingDecision.id]: { value: 'INVALID_MODE', reason: '非法选项不应通过。' },
+  },
+})
+assert.ok(
+  validateProductionChangeDecisions(illegalFollowingPreview).includes(suggestedFollowingDecision.id),
+  '判断值不属于可选项时必须校验失败',
+)
+const deviatedFollowingPreview = buildProductionChangePreview({
+  ...followingOrdersDraft,
+  decisionValues: {
+    [suggestedFollowingDecision.id]: { value: 'FULL', reason: '' },
+  },
+})
+const deviatedFollowingDecision = deviatedFollowingPreview.decisionItems.find(
+  (item) => item.id === suggestedFollowingDecision.id,
+)
+assert.ok(deviatedFollowingDecision?.reasonRequired, '偏离系统建议时必须要求填写原因')
+assert.ok(
+  validateProductionChangeDecisions(deviatedFollowingPreview).includes(suggestedFollowingDecision.id),
+  '偏离系统建议但未填写原因时必须校验失败',
+)
+const explainedDeviationPreview = buildProductionChangePreview({
+  ...followingOrdersDraft,
+  decisionValues: {
+    [suggestedFollowingDecision.id]: { value: 'FULL', reason: '现场确认已领旧料全部退回。' },
+  },
+})
+assert.ok(
+  !validateProductionChangeDecisions(explainedDeviationPreview).includes(suggestedFollowingDecision.id),
+  '偏离系统建议并填写原因后必须校验通过',
+)
 
 const incompletePreview = buildProductionChangePreview(materialDraft)
 assert.ok(incompletePreview.autoItems.length > 0, '预览必须生成系统自动处理项')

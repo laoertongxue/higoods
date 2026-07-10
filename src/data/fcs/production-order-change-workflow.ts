@@ -46,6 +46,7 @@ export interface MaterialReplacementDraft {
     started: boolean
     suggestedMode: MaterialReplacementMode
     confirmedMode: MaterialReplacementMode
+    changeable?: boolean
   }>
 }
 
@@ -138,7 +139,35 @@ export function inferProductionChangeResult(input: InferProductionChangeResultIn
 }
 
 export function quantityChangeRequiresNewFormalVersion(lines: QuantityChangeLine[]): boolean {
-  return lines.some((line) => line.isNew && !line.coveredByCurrentVersion)
+  return lines.some((line) => line.isNew && !line.coveredByCurrentVersion && line.targetQty > 0)
+}
+
+type RelatedDocumentKind = 'DEMAND' | 'PREP' | 'PICK' | 'SPREAD' | 'CUT' | 'STOCK' | 'TPV'
+
+const prototypeRelatedDocumentNos: Record<string, Partial<Record<RelatedDocumentKind, string>>> = {
+  'PO-202603-004': {
+    DEMAND: 'MR-202603-010',
+    PREP: 'MR-202603-010',
+    PICK: 'MI-202603-006',
+    SPREAD: 'SP-202603-004-01',
+    CUT: 'CUT-202603-004-01',
+  },
+}
+
+function relatedDocumentNo(kind: RelatedDocumentKind, productionOrderId: string): string {
+  const existingDocumentNo = prototypeRelatedDocumentNos[productionOrderId]?.[kind]
+  if (existingDocumentNo) return existingDocumentNo
+
+  const prefixByKind: Record<RelatedDocumentKind, string> = {
+    DEMAND: 'MR',
+    PREP: 'MR',
+    PICK: 'MI',
+    SPREAD: 'SP',
+    CUT: 'CUT',
+    STOCK: 'STOCK',
+    TPV: 'TPV',
+  }
+  return `${prefixByKind[kind]}-${productionOrderId.replace(/^PO-/, '')}-01`
 }
 
 function createAutoItem(input: Omit<ProductionChangePlanItem, 'kind' | 'options' | 'selectedValue' | 'reason' | 'reasonRequired'>): ProductionChangePlanItem {
@@ -154,15 +183,20 @@ function createAutoItem(input: Omit<ProductionChangePlanItem, 'kind' | 'options'
 
 function createDecisionItem(
   draft: ProductionChangeDraft,
-  input: Omit<ProductionChangePlanItem, 'kind' | 'selectedValue' | 'reason'> & { defaultValue?: string },
+  input: Omit<ProductionChangePlanItem, 'kind' | 'selectedValue' | 'reason'> & {
+    defaultValue?: string
+    suggestedValue?: string
+  },
 ): ProductionChangePlanItem {
   const decision = draft.decisionValues[input.id]
-  const { defaultValue = '', ...item } = input
+  const { defaultValue = '', suggestedValue, reasonRequired, ...item } = input
+  const selectedValue = decision?.value ?? defaultValue
   return {
     ...item,
     kind: 'MERCHANDISER_DECISION',
-    selectedValue: decision?.value ?? defaultValue,
+    selectedValue,
     reason: decision?.reason ?? '',
+    reasonRequired: reasonRequired || (suggestedValue !== undefined && selectedValue !== suggestedValue),
   }
 }
 
@@ -181,14 +215,14 @@ function buildQuantityPlan(draft: ProductionChangeDraft): {
       group: '需求与物料',
       title: '更新生产需求明细',
       description: `按 ${changedLineCount} 条颜色尺码明细更新生产单需求，并保留原数量与变更后数量。`,
-      affectedDocumentNo: draft.productionOrderId,
+      affectedDocumentNo: relatedDocumentNo('DEMAND', draft.productionOrderId),
     }),
     createAutoItem({
       id: 'quantity-document-recalculation',
       group: '上下游单据',
       title: '重算未执行单据数量',
       description: '系统按当前执行事实调整未执行数量；已领、已裁、已加工和已完工事实保持不变。',
-      affectedDocumentNo: draft.productionOrderId,
+      affectedDocumentNo: relatedDocumentNo('PREP', draft.productionOrderId),
     }),
   ]
 
@@ -199,7 +233,7 @@ function buildQuantityPlan(draft: ProductionChangeDraft): {
         group: '上下游单据',
         title: '调整正式版本绑定',
         description: '新增颜色尺码未被当前正式版本覆盖，系统生成正式版本绑定调整并同步生产单补丁。',
-        affectedDocumentNo: draft.productionOrderId,
+        affectedDocumentNo: relatedDocumentNo('TPV', draft.productionOrderId),
       }),
     )
   }
@@ -226,35 +260,50 @@ function buildMaterialPlan(draft: ProductionChangeDraft, replacement: MaterialRe
     scope: replacement.scope,
   })
   const modeText = replacement.replacementMode === 'REMAINING' ? '剩余数量' : '全部数量'
-  const scopeText = replacement.scope === 'CURRENT_ONLY' ? '当前生产单' : '当前及后续生产单'
   const autoItems: ProductionChangePlanItem[] = [
     createAutoItem({
       id: 'material-demand-update',
       group: '需求与物料',
       title: '更新替代物料需求',
       description: `将 ${replacement.originalMaterialId} 的${modeText}替换为 ${replacement.replacementMaterialId}，确认替换生产数量 ${replacement.confirmedProductionQty} 件。`,
-      affectedDocumentNo: draft.productionOrderId,
+      affectedDocumentNo: relatedDocumentNo('PREP', draft.productionOrderId),
     }),
     createAutoItem({
-      id: 'material-current-order-sync',
+      id: 'material-pickup-sync',
       group: '上下游单据',
-      title: '同步当前生产单未执行单据',
-      description: '系统按领料、裁剪、加工和完工事实调整未执行部分，已发生事实不覆盖。',
-      affectedDocumentNo: draft.productionOrderId,
+      title: '同步领料单未执行数量',
+      description: '系统按领料事实调整未执行数量，已领事实保持不变。',
+      affectedDocumentNo: relatedDocumentNo('PICK', draft.productionOrderId),
+    }),
+    createAutoItem({
+      id: 'material-cutting-sync',
+      group: '上下游单据',
+      title: '同步裁剪单未执行数量',
+      description: '系统调整尚未裁剪部分的物料，已裁剪事实保持不变。',
+      affectedDocumentNo: relatedDocumentNo('CUT', draft.productionOrderId),
+    }),
+    createAutoItem({
+      id: 'material-spreading-sync',
+      group: '上下游单据',
+      title: '同步铺布单未执行数量',
+      description: '系统调整尚未铺布部分的物料，已铺布事实保持不变。',
+      affectedDocumentNo: relatedDocumentNo('SPREAD', draft.productionOrderId),
     }),
   ]
   const decisionItems: ProductionChangePlanItem[] = []
 
   if (replacement.scope === 'CURRENT_AND_FOLLOWING') {
     replacement.followingOrders.forEach((order) => {
+      if (order.changeable === false) return
+
       if (!order.started) {
         autoItems.push(
           createAutoItem({
             id: `following-order-auto-${order.productionOrderId}`,
             group: '上下游单据',
             title: `同步后续生产单 ${order.productionOrderId}`,
-            description: `该生产单尚未开工，系统按${modeText}替换并重算备料与交期。`,
-            affectedDocumentNo: order.productionOrderId,
+            description: '该生产单尚未开工，系统将全部切换新正式版本并重算备料与交期。',
+            affectedDocumentNo: relatedDocumentNo('PREP', order.productionOrderId),
           }),
         )
         return
@@ -271,26 +320,38 @@ function buildMaterialPlan(draft: ProductionChangeDraft, replacement: MaterialRe
             { value: 'REMAINING', label: '只替换剩余数量' },
             { value: 'FULL', label: '全部数量改用新物料' },
           ],
-          defaultValue: order.confirmedMode || order.suggestedMode,
-          reasonRequired: true,
+          defaultValue: order.suggestedMode,
+          suggestedValue: order.suggestedMode,
+          reasonRequired: false,
         }),
       )
     })
   }
 
   const oldMaterialFactQty = replacement.allocations.reduce((total, allocation) => total + allocation.oldMaterialFactQty, 0)
-  if (oldMaterialFactQty > 0) {
+  if (oldMaterialFactQty > 0 && replacement.replacementMode === 'REMAINING') {
+    autoItems.push(
+      createAutoItem({
+        id: 'old-material-fact-kept',
+        group: '实物去向',
+        title: '保留旧面料已形成事实',
+        description: `已有 ${oldMaterialFactQty} 件对应的旧面料事实数量，系统继续计入当前生产单，只替换剩余数量。`,
+        affectedDocumentNo: relatedDocumentNo('PICK', draft.productionOrderId),
+      }),
+    )
+  }
+  if (oldMaterialFactQty > 0 && replacement.replacementMode === 'FULL') {
     decisionItems.push(
       createDecisionItem(draft, {
         id: 'old-material-disposition',
         group: '实物去向',
         title: '确认旧面料实物去向',
-        description: `已有 ${oldMaterialFactQty} 件对应的旧面料事实数量，系统无法自动判断现场实物应继续使用、退库还是转用。`,
-        affectedDocumentNo: replacement.originalMaterialId,
+        description: `已有 ${oldMaterialFactQty} 件对应的旧面料事实数量，全部替换后需确认不再计入当前需求的实物去向。`,
+        affectedDocumentNo: relatedDocumentNo('STOCK', draft.productionOrderId),
         options: [
-          { value: 'CONTINUE_USE', label: '已发生部分继续使用' },
-          { value: 'RETURN_TO_STOCK', label: '退回库存' },
+          { value: 'RETURN_TO_STOCK', label: '转库存' },
           { value: 'TRANSFER_USE', label: '转其他生产单使用' },
+          { value: 'DISPOSE', label: '报损或其他处置' },
         ],
         reasonRequired: true,
       }),
@@ -321,7 +382,9 @@ export function buildProductionChangePreview(draft: ProductionChangeDraft): Prod
     new Set([
       draft.productionOrderId,
       ...(draft.changeType === 'MATERIAL_REPLACEMENT' && replacement?.scope === 'CURRENT_AND_FOLLOWING'
-        ? replacement.followingOrders.map((order) => order.productionOrderId)
+        ? replacement.followingOrders
+            .filter((order) => order.changeable !== false)
+            .map((order) => order.productionOrderId)
         : []),
     ].filter((id) => id.trim().length > 0)),
   )
@@ -360,6 +423,11 @@ export function buildProductionChangePreview(draft: ProductionChangeDraft): Prod
 
 export function validateProductionChangeDecisions(preview: ProductionChangePreview): string[] {
   return preview.decisionItems
-    .filter((item) => !item.selectedValue || (item.reasonRequired && item.reason.trim().length === 0))
+    .filter(
+      (item) =>
+        !item.selectedValue ||
+        !item.options.some((option) => option.value === item.selectedValue) ||
+        (item.reasonRequired && item.reason.trim().length === 0),
+    )
     .map((item) => item.id)
 }
