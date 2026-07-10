@@ -49,6 +49,8 @@ import {
   listSewingDeliverySlaViews,
 } from '../src/data/fcs/sewing-delivery-sla-view.ts'
 import {
+  capturePdaHandoverState,
+  restorePdaHandoverState,
   upsertPdaHandoverHeadMock,
   upsertPdaHandoutRecordMock,
   writeBackHandoverRecord,
@@ -1823,6 +1825,7 @@ assert.match(
 )
 
 const viewSnapshotStoreState = captureSewingDeliverySlaSnapshotStore()
+const viewHandoverState = capturePdaHandoverState()
 try {
   const viewTask = listRuntimeProcessTasks().find((task) => classifySewingDeliverySla(task) !== null)
   assert(viewTask, '履约视图测试需要至少一个适用含车缝时效的运行时任务')
@@ -1874,6 +1877,16 @@ try {
     qtyDiffTotal: -100,
   }
   upsertPdaHandoverHeadMock(viewHead)
+  const capturedFixtureState = capturePdaHandoverState()
+  const fixtureStateBeforeProbe = capturePdaHandoverState()
+  const capturedViewHead = capturedFixtureState.handoverHeadAdditions.find(([headId]) => headId === viewHeadId)?.[1]
+  assert(capturedViewHead, '防御复制测试应捕获刚新增的交出单')
+  capturedViewHead.taskNo = 'MUTATED-CAPTURE-ONLY'
+  assert.deepEqual(
+    capturePdaHandoverState(),
+    fixtureStateBeforeProbe,
+    '修改 capture 返回值不得反向污染交出域 singleton',
+  )
 
   const record = (
     recordId: string,
@@ -2012,8 +2025,17 @@ try {
     '履约视图列表不得包含不适用任务的错误快照',
   )
 } finally {
-  restoreSewingDeliverySlaSnapshotStore(viewSnapshotStoreState)
+  try {
+    restorePdaHandoverState(viewHandoverState)
+  } finally {
+    restoreSewingDeliverySlaSnapshotStore(viewSnapshotStoreState)
+  }
 }
+assert.deepEqual(
+  capturePdaHandoverState(),
+  viewHandoverState,
+  '履约视图测试结束后必须完整恢复交出域 singleton，避免 fixture 污染后续检查',
+)
 assert.deepEqual(
   captureSewingDeliverySlaSnapshotStore(),
   viewSnapshotStoreState,

@@ -542,6 +542,20 @@ export interface PdaHandoverSummary {
   objectionCount: number
 }
 
+export interface PdaHandoverStateSnapshot {
+  handoverHeadAdditions: Array<[string, PdaHandoverHead]>
+  pickupRecordAdditions: Array<[string, PdaPickupRecord[]]>
+  handoutRecordAdditions: Array<[string, PdaHandoverRecord[]]>
+  pickupRecordOverrides: Array<[string, Partial<PdaPickupRecord>]>
+  handoutRecordOverrides: Array<[string, Partial<PdaHandoverRecord>]>
+  headCompletionOverrides: Array<[
+    string,
+    { completionStatus: PdaHeadCompletionStatus; completedByWarehouseAt?: string },
+  ]>
+  cachedBuiltHeads: PdaHandoverHead[] | null
+  cachedPostFinishingBuiltHeads: PdaHandoverHead[] | null
+}
+
 const handoverHeadAdditions = new Map<string, PdaHandoverHead>()
 const pickupRecordAdditions = new Map<string, PdaPickupRecord[]>()
 const handoutRecordAdditions = new Map<string, PdaHandoverRecord[]>()
@@ -2485,6 +2499,38 @@ function cloneRecord(record: PdaHandoverRecord): PdaHandoverRecord {
     receiverProofFiles: cloneProofFiles(record.receiverProofFiles ?? []),
     objectionProofFiles: cloneProofFiles(record.objectionProofFiles ?? []),
   }
+}
+
+export function capturePdaHandoverState(): PdaHandoverStateSnapshot {
+  return structuredClone({
+    handoverHeadAdditions: Array.from(handoverHeadAdditions.entries()),
+    pickupRecordAdditions: Array.from(pickupRecordAdditions.entries()),
+    handoutRecordAdditions: Array.from(handoutRecordAdditions.entries()),
+    pickupRecordOverrides: Array.from(pickupRecordOverrides.entries()),
+    handoutRecordOverrides: Array.from(handoutRecordOverrides.entries()),
+    headCompletionOverrides: Array.from(headCompletionOverrides.entries()),
+    cachedBuiltHeads,
+    cachedPostFinishingBuiltHeads,
+  })
+}
+
+export function restorePdaHandoverState(state: PdaHandoverStateSnapshot): void {
+  handoverHeadAdditions.clear()
+  pickupRecordAdditions.clear()
+  handoutRecordAdditions.clear()
+  pickupRecordOverrides.clear()
+  handoutRecordOverrides.clear()
+  headCompletionOverrides.clear()
+
+  const restored = structuredClone(state)
+  restored.handoverHeadAdditions.forEach(([id, head]) => handoverHeadAdditions.set(id, head))
+  restored.pickupRecordAdditions.forEach(([id, records]) => pickupRecordAdditions.set(id, records))
+  restored.handoutRecordAdditions.forEach(([id, records]) => handoutRecordAdditions.set(id, records))
+  restored.pickupRecordOverrides.forEach(([id, record]) => pickupRecordOverrides.set(id, record))
+  restored.handoutRecordOverrides.forEach(([id, record]) => handoutRecordOverrides.set(id, record))
+  restored.headCompletionOverrides.forEach(([id, override]) => headCompletionOverrides.set(id, override))
+  cachedBuiltHeads = restored.cachedBuiltHeads
+  cachedPostFinishingBuiltHeads = restored.cachedPostFinishingBuiltHeads
 }
 
 function sumBy<T>(rows: T[], picker: (row: T) => number): number {
