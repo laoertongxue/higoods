@@ -101,6 +101,7 @@
     "check:dispatch-board-assignment": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-dispatch-board-assignment.ts",
     "check:sewing-dispatch-workbench": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-sewing-dispatch-workbench.ts",
     "check:dispatch-acceptance-sla": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-dispatch-acceptance-sla.ts",
+    "check:sewing-delivery-sla": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-sewing-delivery-sla.ts",
     "check:capacity-calendar-ia": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-capacity-calendar-ia.ts",
     "check:capacity-factory-calendar-page": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-capacity-factory-calendar-page.ts",
     "check:capacity-risk-and-bottleneck": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-capacity-risk-and-bottleneck.ts",
