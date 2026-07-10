@@ -23,6 +23,19 @@ import {
 } from './actions.ts'
 import { buildTaskRouteCardPrintLink } from '../../data/fcs/fcs-route-links.ts'
 import { isRuntimeSewingTask } from '../../data/fcs/runtime-process-tasks.ts'
+import {
+  closeSewingDeliveryResponsibilityReview,
+  openSewingDeliveryResponsibilityReview,
+  renderSewingDeliveryResponsibilityReviewDialog,
+  submitSewingDeliveryResponsibilityReview,
+  updateSewingDeliveryResponsibilityReviewField,
+} from './task-domain.ts'
+
+function refreshSewingDeliveryResponsibilityReviewDialog(): void {
+  if (typeof document === 'undefined') return
+  const host = document.querySelector<HTMLElement>('[data-sewing-sla-review-dialog-host]')
+  if (host) host.innerHTML = renderSewingDeliveryResponsibilityReviewDialog()
+}
 
 function updateField(field: string, node: HTMLElement): void {
   if (field === 'keyword' && node instanceof HTMLInputElement) {
@@ -150,6 +163,32 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'refresh') {
     resetTaskBoardSummaryCache()
     showProgressBoardToast('数据已刷新')
+    return true
+  }
+
+  if (action === 'review-sewing-sla-responsibility') {
+    const taskId = actionNode.dataset.taskId
+    const ratio = Number(actionNode.dataset.ratio)
+    try {
+      if (!taskId) throw new Error('缺少待复核任务')
+      openSewingDeliveryResponsibilityReview(taskId, ratio)
+      refreshSewingDeliveryResponsibilityReviewDialog()
+    } catch (error) {
+      showProgressBoardToast(error instanceof Error ? error.message : '责任复核打开失败', 'error')
+    }
+    return true
+  }
+
+  if (action === 'cancel-sewing-sla-review') {
+    closeSewingDeliveryResponsibilityReview()
+    refreshSewingDeliveryResponsibilityReviewDialog()
+    return true
+  }
+
+  if (action === 'submit-sewing-sla-review') {
+    const result = submitSewingDeliveryResponsibilityReview()
+    refreshSewingDeliveryResponsibilityReviewDialog()
+    showProgressBoardToast(result.message, result.ok ? 'success' : 'error')
     return true
   }
 
@@ -285,6 +324,10 @@ export function handleProgressBoardEvent(target: HTMLElement): boolean {
   if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLSelectElement || fieldNode instanceof HTMLTextAreaElement) {
     const field = fieldNode.dataset.progressField
     if (!field) return true
+    if (field.startsWith('sewingSlaReview.')) {
+      updateSewingDeliveryResponsibilityReviewField(field.slice('sewingSlaReview.'.length), fieldNode.value)
+      return true
+    }
     updateField(field, fieldNode)
     return true
   }

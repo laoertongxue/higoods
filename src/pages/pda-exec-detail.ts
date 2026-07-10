@@ -154,6 +154,11 @@ import {
 } from '../data/fcs/process-mobile-task-binding.ts'
 import { canFactoryAccessSpecialCraftPdaTask } from '../data/fcs/special-craft-pda-scope.ts'
 import { getPdaSession } from '../data/fcs/store-domain-pda.ts'
+import {
+  getSewingDeliverySlaView,
+  type SewingDeliverySlaView,
+} from '../data/fcs/sewing-delivery-sla-view.ts'
+import { formatOperationLocalWallClock } from '../data/fcs/sewing-delivery-sla.ts'
 import { renderPdaCuttingTaskDetailPage } from './pda-cutting-task-detail'
 import { renderPdaFrame } from './pda-shell'
 
@@ -460,6 +465,43 @@ function renderHandoverOrderCard(handoverOrder: PdaHandoverHead): string {
           <span class="text-xs text-muted-foreground">待收货</span>
           <span class="text-xs">${handoverOrder.pendingWritebackCount} 条</span>
         </div>
+      </div>
+    </article>
+  `
+}
+
+function parseSewingDeliveryWallClock(value: string): number {
+  return Date.parse(`${value.replace(' ', 'T')}Z`)
+}
+
+function formatSewingDeliveryRemaining(deadlineAt: string, nowAt: string): string {
+  const remainingHours = (parseSewingDeliveryWallClock(deadlineAt) - parseSewingDeliveryWallClock(nowAt)) / 3_600_000
+  if (remainingHours <= 0) return `已超时 ${Math.ceil(Math.abs(remainingHours))} 小时`
+  return `${Math.ceil(remainingHours)} 小时`
+}
+
+export function renderPdaSewingDeliveryProgress(
+  view: SewingDeliverySlaView | undefined | null,
+  unit: string,
+  nowAt: string = formatOperationLocalWallClock(),
+): string {
+  if (!view) return ''
+  const assignedQty = view.projection.snapshot.assignedQty
+  const overQty = Math.max(view.confirmedReceivedQty - assignedQty, 0)
+  const nextMilestone = view.projection.milestones.find((milestone) => !milestone.firstReachedAt)
+  return `
+    <article class="rounded-lg border bg-card" data-pda-sewing-delivery-progress="true">
+      <header class="border-b px-4 py-3"><h2 class="text-sm font-semibold">交付进度</h2></header>
+      <div class="space-y-3 p-4 text-sm">
+        <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+          <span class="text-muted-foreground">分配量</span><span class="font-medium">${assignedQty} ${escapeHtml(unit)}</span>
+          <span class="text-muted-foreground">已交</span><span class="font-medium">${view.submittedQty} ${escapeHtml(unit)}</span>
+          <span class="text-muted-foreground">已实收</span><span class="font-medium">${view.confirmedReceivedQty} ${escapeHtml(unit)}</span>
+          <span class="text-muted-foreground">还差</span><span class="font-medium">${view.projection.remainingQty} ${escapeHtml(unit)}</span>
+          <span class="text-muted-foreground">下一节点</span><span class="font-medium">${nextMilestone ? `${nextMilestone.ratio * 100}% · ${nextMilestone.targetQty} ${escapeHtml(unit)}` : '全部节点已完成'}</span>
+          <span class="text-muted-foreground">剩余时间</span><span class="font-medium">${nextMilestone ? escapeHtml(formatSewingDeliveryRemaining(nextMilestone.deadlineAt, nowAt)) : '0 小时'}</span>
+        </div>
+        ${overQty > 0 ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">已超收 ${overQty} ${escapeHtml(unit)}</div>` : ''}
       </div>
     </article>
   `
@@ -3536,6 +3578,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
       </article>
 
       ${handoverOrder ? renderHandoverOrderCard(handoverOrder) : ''}
+      ${renderPdaSewingDeliveryProgress(getSewingDeliverySlaView(task.taskId), getQtyUnitLabel(task.qtyUnit))}
       ${simpleFiveStepPanel}
       ${mobileTaskAccess.canOpenMobileExecution && printWorkOrder ? renderPrintingTaskCard(task as TaskWithHandoverFields, printWorkOrder, handoverOrder) : ''}
       ${mobileTaskAccess.canOpenMobileExecution && dyeWorkOrder ? renderDyeingTaskCard(task as TaskWithHandoverFields, dyeWorkOrder, handoverOrder) : ''}

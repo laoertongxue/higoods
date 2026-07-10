@@ -73,6 +73,18 @@ export interface SewingDeliverySlaProjection {
   readonly milestones: readonly SewingDeliveryMilestoneProjection[]
 }
 
+export type SewingDeliveryResponsibilityConclusion = 'FACTORY' | 'RECEIVER' | 'SHARED'
+
+export interface SewingDeliveryResponsibilityReview {
+  readonly reviewId: string
+  readonly runtimeTaskId: string
+  readonly milestoneRatio: 0.3 | 0.7 | 1
+  readonly conclusion: SewingDeliveryResponsibilityConclusion
+  readonly remark: string
+  readonly reviewedBy: string
+  readonly reviewedAt: string
+}
+
 const RULE_HOURS: Record<SewingDeliverySlaKind, [number, number, number]> = {
   INDEPENDENT_SEWING: [96, 192, 216],
   SEWING_TO_PACKAGING: [120, 216, 240],
@@ -82,10 +94,12 @@ const RULE_HOURS: Record<SewingDeliverySlaKind, [number, number, number]> = {
 const MILESTONE_RATIOS = [0.3, 0.7, 1] as const
 const snapshotsById = new Map<string, SewingDeliverySlaSnapshot>()
 const currentSnapshotIdByRuntimeTaskId = new Map<string, string>()
+const responsibilityReviews: SewingDeliveryResponsibilityReview[] = []
 
 export interface SewingDeliverySlaSnapshotStoreState {
   snapshots: Array<[string, SewingDeliverySlaSnapshot]>
   currentSnapshotIds: Array<[string, string]>
+  responsibilityReviews: SewingDeliveryResponsibilityReview[]
 }
 
 function assertPositiveFiniteInteger(value: number, fieldName: string): void {
@@ -216,6 +230,12 @@ function cloneAndFreezeSnapshot(snapshot: SewingDeliverySlaSnapshot): SewingDeli
   return Object.freeze({ ...snapshot, milestones })
 }
 
+function cloneAndFreezeResponsibilityReview(
+  review: SewingDeliveryResponsibilityReview,
+): SewingDeliveryResponsibilityReview {
+  return Object.freeze({ ...review })
+}
+
 export function saveSewingDeliverySlaSnapshot(snapshot: SewingDeliverySlaSnapshot): void {
   const currentSnapshotId = currentSnapshotIdByRuntimeTaskId.get(snapshot.runtimeTaskId)
   const currentSnapshot = currentSnapshotId ? snapshotsById.get(currentSnapshotId) : undefined
@@ -255,15 +275,20 @@ export function captureSewingDeliverySlaSnapshotStore(): SewingDeliverySlaSnapsh
       cloneAndFreezeSnapshot(snapshot),
     ]),
     currentSnapshotIds: Array.from(currentSnapshotIdByRuntimeTaskId.entries()),
+    responsibilityReviews: responsibilityReviews.map(cloneAndFreezeResponsibilityReview),
   }
 }
 
 export function restoreSewingDeliverySlaSnapshotStore(state: SewingDeliverySlaSnapshotStoreState): void {
   snapshotsById.clear()
   currentSnapshotIdByRuntimeTaskId.clear()
+  responsibilityReviews.splice(0, responsibilityReviews.length)
   state.snapshots.forEach(([snapshotId, snapshot]) => snapshotsById.set(snapshotId, cloneAndFreezeSnapshot(snapshot)))
   state.currentSnapshotIds.forEach(([runtimeTaskId, snapshotId]) => {
     currentSnapshotIdByRuntimeTaskId.set(runtimeTaskId, snapshotId)
+  })
+  state.responsibilityReviews.forEach((review) => {
+    responsibilityReviews.push(cloneAndFreezeResponsibilityReview(review))
   })
 }
 
@@ -271,6 +296,7 @@ export function clearSewingDeliverySlaSnapshotStore(runtimeTaskId?: string): voi
   if (!runtimeTaskId) {
     snapshotsById.clear()
     currentSnapshotIdByRuntimeTaskId.clear()
+    responsibilityReviews.splice(0, responsibilityReviews.length)
     return
   }
 
@@ -278,6 +304,59 @@ export function clearSewingDeliverySlaSnapshotStore(runtimeTaskId?: string): voi
     if (snapshot.runtimeTaskId === runtimeTaskId) snapshotsById.delete(snapshotId)
   }
   currentSnapshotIdByRuntimeTaskId.delete(runtimeTaskId)
+  for (let index = responsibilityReviews.length - 1; index >= 0; index -= 1) {
+    if (responsibilityReviews[index].runtimeTaskId === runtimeTaskId) responsibilityReviews.splice(index, 1)
+  }
+}
+
+export function recordSewingDeliveryResponsibilityReview(input: {
+  runtimeTaskId: string
+  milestoneRatio: 0.3 | 0.7 | 1
+  conclusion: SewingDeliveryResponsibilityConclusion
+  remark: string
+  reviewedBy: string
+  reviewedAt: string
+}): SewingDeliveryResponsibilityReview {
+  const runtimeTaskId = input.runtimeTaskId.trim()
+  const snapshot = runtimeTaskId ? getSewingDeliverySlaSnapshot(runtimeTaskId) : null
+  if (!snapshot?.active) throw new Error('责任复核任务必须存在有效履约快照')
+  if (!MILESTONE_RATIOS.includes(input.milestoneRatio)) throw new Error('复核节点比例必须为 30%、70% 或 100%')
+  if (!['FACTORY', 'RECEIVER', 'SHARED'].includes(input.conclusion)) throw new Error('责任结论必须为工厂、接收方或双方共同责任')
+  const remark = input.remark.trim()
+  const reviewedBy = input.reviewedBy.trim()
+  if (!remark) throw new Error('责任复核说明不能为空')
+  if (!reviewedBy) throw new Error('责任复核人不能为空')
+  parseDateTime(input.reviewedAt, '责任复核时间')
+
+  const review = cloneAndFreezeResponsibilityReview({
+    reviewId: `SEWING-SLA-REVIEW-${runtimeTaskId}-${String(input.milestoneRatio).replace('.', '')}-${responsibilityReviews.length + 1}`,
+    runtimeTaskId,
+    milestoneRatio: input.milestoneRatio,
+    conclusion: input.conclusion,
+    remark,
+    reviewedBy,
+    reviewedAt: input.reviewedAt,
+  })
+  responsibilityReviews.push(review)
+  return cloneAndFreezeResponsibilityReview(review)
+}
+
+export function listSewingDeliveryResponsibilityReviews(
+  runtimeTaskId: string,
+  milestoneRatio?: number,
+): readonly SewingDeliveryResponsibilityReview[] {
+  const reviews = responsibilityReviews
+    .filter((review) => review.runtimeTaskId === runtimeTaskId && (milestoneRatio === undefined || review.milestoneRatio === milestoneRatio))
+    .map(cloneAndFreezeResponsibilityReview)
+  return Object.freeze(reviews)
+}
+
+export function getSewingDeliveryResponsibilityReview(
+  runtimeTaskId: string,
+  milestoneRatio: number,
+): SewingDeliveryResponsibilityReview | null {
+  const reviews = listSewingDeliveryResponsibilityReviews(runtimeTaskId, milestoneRatio)
+  return reviews.length > 0 ? cloneAndFreezeResponsibilityReview(reviews[reviews.length - 1]) : null
 }
 
 export function createSewingDeliverySlaSnapshot(input: {

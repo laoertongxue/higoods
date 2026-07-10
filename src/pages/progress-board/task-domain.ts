@@ -44,6 +44,113 @@ import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
   renderProductionOrderIdentityCell,
 } from '../../data/fcs/production-order-identity.ts'
+import {
+  getSewingDeliverySlaView,
+  listSewingDeliverySlaViews,
+  type SewingDeliverySlaView,
+} from '../../data/fcs/sewing-delivery-sla-view.ts'
+import {
+  formatOperationLocalWallClock,
+  getSewingDeliveryResponsibilityReview,
+  recordSewingDeliveryResponsibilityReview,
+  type SewingDeliveryResponsibilityConclusion,
+} from '../../data/fcs/sewing-delivery-sla.ts'
+
+interface SewingDeliveryResponsibilityReviewDraft {
+  taskId: string
+  milestoneRatio: 0.3 | 0.7 | 1
+  conclusion: SewingDeliveryResponsibilityConclusion
+  remark: string
+  reviewedBy: string
+  reviewedAt: string
+  error: string
+}
+
+let sewingDeliveryResponsibilityReviewDraft: SewingDeliveryResponsibilityReviewDraft | null = null
+
+export function captureSewingDeliveryResponsibilityReviewDraft(): SewingDeliveryResponsibilityReviewDraft | null {
+  return sewingDeliveryResponsibilityReviewDraft ? { ...sewingDeliveryResponsibilityReviewDraft } : null
+}
+
+export function restoreSewingDeliveryResponsibilityReviewDraft(
+  draft: SewingDeliveryResponsibilityReviewDraft | null,
+): void {
+  sewingDeliveryResponsibilityReviewDraft = draft ? { ...draft } : null
+}
+
+export function openSewingDeliveryResponsibilityReview(taskId: string, milestoneRatio: number): void {
+  const view = getSewingDeliverySlaView(taskId)
+  const milestone = view?.projection.milestones.find((item) => item.ratio === milestoneRatio)
+  if (!milestone || milestone.receiverDelayRecordIds.length === 0) throw new Error('当前节点没有接收确认延迟记录，无需复核责任')
+  const ratio = milestone.ratio
+  const current = getSewingDeliveryResponsibilityReview(taskId, ratio)
+  sewingDeliveryResponsibilityReviewDraft = {
+    taskId,
+    milestoneRatio: ratio,
+    conclusion: current?.conclusion || 'RECEIVER',
+    remark: current?.remark || '',
+    reviewedBy: current?.reviewedBy || '跟单主管',
+    reviewedAt: formatOperationLocalWallClock(),
+    error: '',
+  }
+}
+
+export function updateSewingDeliveryResponsibilityReviewField(field: string, value: string): void {
+  const draft = sewingDeliveryResponsibilityReviewDraft
+  if (!draft) return
+  if (field === 'conclusion' && ['FACTORY', 'RECEIVER', 'SHARED'].includes(value)) {
+    draft.conclusion = value as SewingDeliveryResponsibilityConclusion
+  } else if (field === 'remark') {
+    draft.remark = value
+  } else if (field === 'reviewedBy') {
+    draft.reviewedBy = value
+  } else if (field === 'reviewedAt') {
+    draft.reviewedAt = value ? `${value.replace('T', ' ')}${value.length === 16 ? ':00' : ''}` : ''
+  }
+  draft.error = ''
+}
+
+export function closeSewingDeliveryResponsibilityReview(): void {
+  sewingDeliveryResponsibilityReviewDraft = null
+}
+
+export function submitSewingDeliveryResponsibilityReview(): { ok: boolean; message: string } {
+  const draft = sewingDeliveryResponsibilityReviewDraft
+  if (!draft) return { ok: false, message: '请先打开责任复核' }
+  try {
+    recordSewingDeliveryResponsibilityReview({
+      runtimeTaskId: draft.taskId,
+      milestoneRatio: draft.milestoneRatio,
+      conclusion: draft.conclusion,
+      remark: draft.remark,
+      reviewedBy: draft.reviewedBy,
+      reviewedAt: draft.reviewedAt,
+    })
+    sewingDeliveryResponsibilityReviewDraft = null
+    return { ok: true, message: '责任复核已保存' }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '责任复核保存失败'
+    draft.error = message
+    return { ok: false, message }
+  }
+}
+
+export function renderSewingDeliveryResponsibilityReviewDialog(): string {
+  const draft = sewingDeliveryResponsibilityReviewDraft
+  if (!draft) return ''
+  return `
+    <div class="fixed inset-0 z-[150] flex items-center justify-center bg-black/45 p-4">
+      <section class="w-full max-w-lg space-y-4 rounded-lg border bg-background p-4 shadow-xl" role="dialog" aria-modal="true" aria-label="主管复核责任">
+        <div><h3 class="font-semibold">主管复核责任</h3><p class="mt-1 text-xs text-muted-foreground">${draft.milestoneRatio * 100}% 节点 · 仅记录责任结论，不改变交出和实收事实。</p></div>
+        <label class="block space-y-1 text-sm"><span>责任结论</span><select class="h-9 w-full rounded-md border bg-background px-3" data-progress-field="sewingSlaReview.conclusion" data-skip-page-rerender="true"><option value="RECEIVER" ${draft.conclusion === 'RECEIVER' ? 'selected' : ''}>接收方责任</option><option value="FACTORY" ${draft.conclusion === 'FACTORY' ? 'selected' : ''}>工厂责任</option><option value="SHARED" ${draft.conclusion === 'SHARED' ? 'selected' : ''}>双方共同责任</option></select></label>
+        <label class="block space-y-1 text-sm"><span>复核说明</span><textarea class="min-h-[80px] w-full rounded-md border bg-background px-3 py-2" data-progress-field="sewingSlaReview.remark" data-skip-page-rerender="true">${escapeHtml(draft.remark)}</textarea></label>
+        <div class="grid gap-3 sm:grid-cols-2"><label class="space-y-1 text-sm"><span>复核人</span><input class="h-9 w-full rounded-md border bg-background px-3" value="${escapeAttr(draft.reviewedBy)}" data-progress-field="sewingSlaReview.reviewedBy" data-skip-page-rerender="true" /></label><label class="space-y-1 text-sm"><span>复核时间</span><input type="datetime-local" class="h-9 w-full rounded-md border bg-background px-3" value="${escapeAttr(draft.reviewedAt.replace(' ', 'T').slice(0, 16))}" data-progress-field="sewingSlaReview.reviewedAt" data-skip-page-rerender="true" /></label></div>
+        ${draft.error ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(draft.error)}</div>` : ''}
+        <div class="flex justify-end gap-2"><button class="h-9 rounded-md border px-4 text-sm" data-progress-action="cancel-sewing-sla-review" data-skip-page-rerender="true">取消</button><button class="h-9 rounded-md bg-primary px-4 text-sm text-primary-foreground" data-progress-action="submit-sewing-sla-review" data-skip-page-rerender="true">保存复核</button></div>
+      </section>
+    </div>
+  `
+}
 
 function formatOutputValue(value: number | undefined): string {
   if (!Number.isFinite(value) || Number(value) <= 0) return '--'
@@ -171,6 +278,62 @@ function renderPlatformStatusCell(task: ProcessTask): string {
       <div>${renderBadge(summary.statusLabel, PLATFORM_PROCESS_STATUS_CLASS[summary.statusLabel])}</div>
       <div class="text-xs text-muted-foreground">内部：${escapeHtml(summary.internalStatusLabel)}</div>
     </div>
+  `
+}
+
+function formatSewingDeliveryPercent(ratio: number): string {
+  return `${Math.round(ratio * 1000) / 10}%`
+}
+
+function getSewingDeliveryResultLabel(result: SewingDeliverySlaView['projection']['milestones'][number]['result']): string {
+  if (result === 'ON_TIME') return '按时达标'
+  if (result === 'OVERDUE_REACHED') return '逾期达标'
+  if (result === 'OVERDUE_PENDING') return '已逾期未达标'
+  return '进行中'
+}
+
+export function renderSewingDeliverySlaListCell(view: SewingDeliverySlaView | undefined | null, unit: string): string {
+  if (!view) return '<span class="text-xs text-muted-foreground">—</span>'
+  const nextMilestone = view.projection.milestones.find((milestone) => !milestone.firstReachedAt)
+  return `
+    <div class="min-w-[126px] space-y-1 text-xs">
+      <div class="font-medium">${view.confirmedReceivedQty} / ${view.projection.snapshot.assignedQty} ${escapeHtml(unit)}</div>
+      <div class="text-primary">${formatSewingDeliveryPercent(view.projection.progressRatio)}</div>
+      <div class="text-muted-foreground">${nextMilestone ? `下一节点 ${nextMilestone.ratio * 100}%` : '已完成全部节点'}</div>
+    </div>
+  `
+}
+
+export function renderSewingDeliverySlaDetail(view: SewingDeliverySlaView | undefined | null, unit: string): string {
+  if (!view) return ''
+  return `
+    <section class="space-y-3 rounded-md border bg-muted/20 p-3" data-sewing-delivery-sla-detail="true">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h3 class="text-sm font-medium">交付时效</h3>
+        <span class="text-sm font-semibold text-primary">${formatSewingDeliveryPercent(view.projection.progressRatio)}</span>
+      </div>
+      <div class="grid gap-3 text-xs sm:grid-cols-3">
+        <div><span class="text-muted-foreground">分配量：</span>${view.projection.snapshot.assignedQty} ${escapeHtml(unit)}</div>
+        <div><span class="text-muted-foreground">累计交出：</span>${view.submittedQty} ${escapeHtml(unit)}</div>
+        <div><span class="text-muted-foreground">累计已确认实收：</span>${view.confirmedReceivedQty} ${escapeHtml(unit)}</div>
+      </div>
+      <div class="overflow-x-auto rounded-md border bg-background">
+        <table class="w-full min-w-[760px] text-xs">
+          <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2">节点</th><th class="px-3 py-2">目标</th><th class="px-3 py-2">截止时间</th><th class="px-3 py-2">首次达标</th><th class="px-3 py-2">结果</th><th class="px-3 py-2">接收延迟</th></tr></thead>
+          <tbody>${view.projection.milestones.map((milestone) => `
+            <tr class="border-b last:border-b-0">
+              <td class="px-3 py-2 font-medium">${milestone.ratio * 100}% 节点</td>
+              <td class="px-3 py-2">${milestone.targetQty} ${escapeHtml(unit)}</td>
+              <td class="px-3 py-2">${escapeHtml(milestone.deadlineAt)}</td>
+              <td class="px-3 py-2">${escapeHtml(milestone.firstReachedAt || '未达标')}</td>
+              <td class="px-3 py-2">${escapeHtml(getSewingDeliveryResultLabel(milestone.result))}</td>
+              <td class="px-3 py-2">${milestone.receiverDelayRecordIds.length > 0 ? `<div class="space-y-1"><div class="text-amber-700">受影响记录 ${milestone.receiverDelayRecordIds.length} 条</div><button class="text-primary hover:underline" data-progress-action="review-sewing-sla-responsibility" data-task-id="${escapeAttr(view.runtimeTaskId)}" data-ratio="${milestone.ratio}" data-skip-page-rerender="true">主管复核责任</button></div>` : '—'}</td>
+            </tr>
+          `).join('')}</tbody>
+        </table>
+      </div>
+    </section>
+    <div data-sewing-sla-review-dialog-host="true">${renderSewingDeliveryResponsibilityReviewDialog()}</div>
   `
 }
 
@@ -420,11 +583,14 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
   const visibleLimit = Math.max(TASK_LIST_PAGE_SIZE, state.visibleTaskLimit)
   const visibleTasks = filteredTasks.slice(0, visibleLimit)
   const hasMore = visibleTasks.length < filteredTasks.length
+  const sewingDeliverySlaByTaskId = new Map(
+    listSewingDeliverySlaViews().map((view) => [view.runtimeTaskId, view]),
+  )
 
   return `
     <section class="rounded-lg border bg-card" data-progress-task-list="true">
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[1120px] text-sm">
+        <table class="w-full min-w-[1240px] text-sm">
           <thead>
             <tr class="border-b bg-muted/40 text-left">
               <th class="px-3 py-2 font-medium">任务 / ${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
@@ -434,6 +600,7 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
               <th class="px-3 py-2 font-medium">下一步动作</th>
               <th class="px-3 py-2 font-medium">责任方</th>
               <th class="px-3 py-2 font-medium">关键结果</th>
+              <th class="px-3 py-2 font-medium">交付时效</th>
               <th class="px-3 py-2 text-right font-medium">操作</th>
             </tr>
           </thead>
@@ -442,7 +609,7 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
               filteredTasks.length === 0
                 ? `
                   <tr>
-                    <td colspan="8" class="px-3 py-10 text-center text-muted-foreground">暂无数据</td>
+                    <td colspan="9" class="px-3 py-10 text-center text-muted-foreground">暂无数据</td>
                   </tr>
                 `
                 : visibleTasks
@@ -515,6 +682,7 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
                               ${platformSummary.quantityText ? `<div class="truncate text-muted-foreground">${escapeHtml(platformSummary.quantityText)}</div>` : ''}
                             </div>
                           </td>
+                          <td class="px-3 py-2">${renderSewingDeliverySlaListCell(sewingDeliverySlaByTaskId.get(task.taskId), qtyUnit)}</td>
                           <td class="px-3 py-2 text-right" data-progress-stop="true">${renderTaskActionMenu(task)}</td>
                         </tr>
                       `
@@ -905,6 +1073,7 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
           ${
             activeTab === 'progress'
               ? `
+                ${renderSewingDeliverySlaDetail(getSewingDeliverySlaView(task.taskId), formatQtyUnit(task.qtyUnit))}
                 <div class="text-sm">
                   <p class="text-xs text-muted-foreground">平台状态</p>
                   <div class="mt-1">${renderBadge(platformStatus.platformStatusLabel, PLATFORM_PROCESS_STATUS_CLASS[platformStatus.platformStatusLabel])}</div>
