@@ -974,13 +974,6 @@ function resolveProcessCurrentTemplate(processCode: string): FactorySupplyFormul
   return PROCESS_CURRENT_TEMPLATE_BY_CODE[processCode] ?? 'A'
 }
 
-function resolveProcessCraftCurrentGuide(craftName: string, processCode: string) {
-  if (processCode === 'WATER_SOLUBLE') {
-    return getFactorySupplyFormulaGuideByTemplate(resolveProcessCurrentTemplate(processCode), craftName)
-  }
-  return getFactorySupplyFormulaGuide(craftName)
-}
-
 const PROCESS_OUTPUT_VALUE_RULES: Record<string, ProcessOutputValueRule> = {
   PRINT: {
     outputValueEnabled: true,
@@ -2030,10 +2023,8 @@ export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [
     const referenceOutputValue = REFERENCE_OUTPUT_VALUE_BY_CRAFT_NAME[item.craftName]
     const outputValueOverride = CRAFT_OUTPUT_VALUE_RULE_OVERRIDES_BY_LEGACY_VALUE[item.legacyValue]
     const processCurrentTemplate = resolveProcessCurrentTemplate(item.processCode)
-    const craftCurrentTemplate = item.processCode === 'WATER_SOLUBLE'
-      ? processCurrentTemplate
-      : getFactorySupplyFormulaTemplate(item.craftName)
-    const craftCurrentGuide = resolveProcessCraftCurrentGuide(item.craftName, item.processCode)
+    const craftCurrentTemplate = getFactorySupplyFormulaTemplate(item.craftName)
+    const craftCurrentGuide = getFactorySupplyFormulaGuide(item.craftName)
     const targetObjectInfo = resolveProcessCraftTargetObject(item)
     const managementDomainInfo = resolveProcessCraftManagementDomain(item)
     if (!referenceOutputValue) {
@@ -2483,7 +2474,7 @@ export function getResolvedProcessCraftOutputValueRuleByCode(
   if (!craft) return undefined
   const process = processDefinitionByCode.get(craft.processCode)
   if (!process) return undefined
-  const currentGuide = resolveProcessCraftCurrentGuide(craft.craftName, craft.processCode)
+  const currentGuide = getFactorySupplyFormulaGuide(craft.craftName)
 
   return {
     outputValueEnabled: craft.outputValueEnabled ?? process.outputValueEnabled,
