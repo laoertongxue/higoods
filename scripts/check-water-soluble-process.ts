@@ -754,6 +754,27 @@ const punctuationArtifacts = generateArtifactFixture({
 assert.equal(punctuationArtifacts.length, 2, '不同标点 BOM ID 必须保留两张需求')
 assert.notEqual(punctuationArtifacts[0]?.artifactId, punctuationArtifacts[1]?.artifactId, 'BOM/A 与 BOM:A 的 artifactId 必须不同')
 
+const invalidNoneBom = {
+  ...artifactBomRows[3],
+  applicableSkuCodes: ['SKU-NOT-FOUND'],
+  unitConsumption: Number.NaN,
+  lossRate: -1,
+}
+let ignoredNoneArtifacts = bomArtifacts
+assert.doesNotThrow(() => {
+  ignoredNoneArtifacts = generateArtifactFixture({
+    ...artifactSnapshot,
+    bomItems: [artifactBomRows[0], artifactBomRows[1], invalidNoneBom],
+    processEntries: [
+      { ...waterArtifactEntry, id: 'ENTRY-WATER-WITH-NONE', linkedBomItemIds: ['ONLY-WATER', 'NONE'] },
+      { ...dyeArtifactEntry, id: 'ENTRY-DYE-WITH-NONE', linkedBomItemIds: ['ONLY-DYE', 'NONE'] },
+    ],
+  })
+}, '残留关联的 NONE BOM 即使数量字段无效也不得阻断正式拆解')
+assert.equal(ignoredNoneArtifacts.filter((item) => item.bomItemId === 'NONE').length, 0, 'NONE BOM 必须保持 0 产物')
+assert.equal(ignoredNoneArtifacts.filter((item) => item.bomItemId === 'ONLY-WATER').length, 1, 'NONE BOM 不得影响其他合法水溶任务')
+assert.equal(ignoredNoneArtifacts.filter((item) => item.bomItemId === 'ONLY-DYE').length, 1, 'NONE BOM 不得影响其他合法染色需求')
+
 function assertInvalidQuantity(
   bomOverrides: Partial<ProductionOrderTechPackSnapshot['bomItems'][number]>,
   expectedReason: RegExp,

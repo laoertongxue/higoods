@@ -671,6 +671,9 @@ function generateBomDrivenPrepArtifactsForEntry(
     const requiresWaterSoluble = bomItem.waterSolubleRequirement === '是'
     const dyeRequirement = bomItem.dyeRequirement?.trim()
     const requiresDye = Boolean(dyeRequirement && dyeRequirement !== '无')
+    if (entry.processCode === 'WATER_SOLUBLE' && (!requiresWaterSoluble || requiresDye)) return []
+    if (entry.processCode === 'DYE' && !requiresDye) return []
+
     const materialFields = {
       bomItemId: bomItem.id,
       materialCode: bomItem.materialCode || bomItem.id,
@@ -692,7 +695,6 @@ function generateBomDrivenPrepArtifactsForEntry(
     const bomSortSuffix = toArtifactKeySegment(bomItem.id)
 
     if (entry.processCode === 'WATER_SOLUBLE') {
-      if (!requiresWaterSoluble || requiresDye) return []
       return [{
         ...toTaskArtifact(context),
         ...materialFields,
@@ -707,7 +709,6 @@ function generateBomDrivenPrepArtifactsForEntry(
       }]
     }
 
-    if (!requiresDye) return []
     return [{
       ...toDemandArtifact(context),
       ...materialFields,
