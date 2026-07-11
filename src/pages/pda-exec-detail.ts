@@ -154,6 +154,12 @@ import {
 } from '../data/fcs/process-mobile-task-binding.ts'
 import { canFactoryAccessSpecialCraftPdaTask } from '../data/fcs/special-craft-pda-scope.ts'
 import { getPdaSession } from '../data/fcs/store-domain-pda.ts'
+import {
+  getWaterSolubleCurrentAction,
+  getWaterSolubleWorkOrderByTaskId,
+  WATER_SOLUBLE_STATUS_LABEL,
+  type WaterSolubleWorkOrder,
+} from '../data/fcs/water-soluble-task-domain.ts'
 import { renderPdaCuttingTaskDetailPage } from './pda-cutting-task-detail'
 import { renderPdaFrame } from './pda-shell'
 
@@ -291,6 +297,50 @@ function getTaskDisplayNo(task: ProcessTask): string {
 
 function getRootTaskDisplayNo(task: ProcessTask): string {
   return task.rootTaskNo || task.taskNo || task.taskId
+}
+
+function renderPdaWaterSolubleReadOnlyDetail(order: WaterSolubleWorkOrder): string {
+  const currentAction = getWaterSolubleCurrentAction(order.waterOrderId)
+  const content = `
+    <div class="space-y-4 bg-background p-4 pb-6" data-testid="pda-water-soluble-readonly-detail">
+      <div class="flex items-center gap-2">
+        <button class="inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-pda-execd-action="back">
+          <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
+          返回执行列表
+        </button>
+        <h1 class="text-base font-semibold">水溶任务详情</h1>
+      </div>
+
+      <article class="rounded-lg border bg-card">
+        <header class="flex items-center justify-between gap-2 border-b px-4 py-3">
+          <span class="font-mono text-sm font-semibold">${escapeHtml(order.waterOrderNo)}</span>
+          <span class="rounded bg-muted px-2 py-0.5 text-xs">${escapeHtml(WATER_SOLUBLE_STATUS_LABEL[order.status])}</span>
+        </header>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-2 p-4 text-sm">
+          <span class="text-xs text-muted-foreground">生产单号</span>
+          <span class="text-xs font-medium">${escapeHtml(order.productionOrderNo)}</span>
+          <span class="text-xs text-muted-foreground">物料</span>
+          <span class="text-xs font-medium">${escapeHtml(`${order.materialName} / ${order.materialCode}`)}</span>
+          <span class="text-xs text-muted-foreground">计划数量</span>
+          <span class="text-xs font-medium">${escapeHtml(`${order.plannedQty} ${order.qtyUnit}`)}</span>
+          <span class="text-xs text-muted-foreground">完成数量</span>
+          <span class="text-xs font-medium">${escapeHtml(`${order.completedQty} ${order.qtyUnit}`)}</span>
+          <span class="text-xs text-muted-foreground">当前步骤</span>
+          <span class="text-xs font-medium">${escapeHtml(WATER_SOLUBLE_STATUS_LABEL[order.status])}</span>
+          <span class="text-xs text-muted-foreground">下一步提示</span>
+          <span class="text-xs font-medium">${escapeHtml(currentAction?.actionName || '查看任务')}</span>
+        </div>
+      </article>
+
+      ${order.exceptionReason
+        ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${escapeHtml(order.exceptionReason)}</div>`
+        : ''}
+      <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+        当前页面只展示水溶加工事实。现场动作将在后续任务接入，暂不提供通用开工或完工按钮。
+      </div>
+    </div>
+  `
+  return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
 }
 
 function renderPdaObjectCode({
@@ -3037,6 +3087,11 @@ export function renderPdaExecDetailPage(taskId: string): string {
 
   const task = getTaskFactById(taskId)
 
+  const waterSolubleOrder = task ? getWaterSolubleWorkOrderByTaskId(task.taskId) : null
+  if (task && waterSolubleOrder) {
+    return renderPdaWaterSolubleReadOnlyDetail(waterSolubleOrder)
+  }
+
   if (task && isCuttingSpecialTask(task)) {
     return renderPdaCuttingTaskDetailPage(taskId, { backHref: resolveExecDetailBackHref(task) })
   }
@@ -5278,6 +5333,10 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
 
     const task = getTaskFactById(taskId)
     if (!task) return true
+    if (getWaterSolubleWorkOrderByTaskId(task.taskId)) {
+      showPdaExecDetailToast('水溶任务当前仅支持查看，请勿使用通用完工动作')
+      return true
+    }
     const access = getMobileTaskAccessResult(task, getPdaSession()?.factoryId || task.assignedFactoryId || TEST_FACTORY_ID)
     if (!access.canExecuteInMobile) {
       showPdaExecDetailToast(`当前任务不可执行：${access.reasonLabel}`)

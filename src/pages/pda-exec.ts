@@ -18,6 +18,7 @@ import {
   getWaterSolubleCurrentAction,
   getWaterSolubleWorkOrderByTaskId,
   WATER_SOLUBLE_STATUS_LABEL,
+  type WaterSolubleWorkOrder,
 } from '../data/fcs/water-soluble-task-domain.ts'
 import {
   getMobileExecutionTaskById,
@@ -594,11 +595,13 @@ function renderPdaExecCardList(filteredTasks: ProcessTask[], emptyStateText: str
     .join('')
 }
 
-function renderWaterSolubleCard(task: ProcessTask): string {
-  const order = getWaterSolubleWorkOrderByTaskId(task.taskId)
+export function renderWaterSolubleCard(
+  task: ProcessTask,
+  order: WaterSolubleWorkOrder | null = getWaterSolubleWorkOrderByTaskId(task.taskId),
+): string {
   if (!order) return ''
   const currentAction = getWaterSolubleCurrentAction(order.waterOrderId)
-  const primaryAction = order.status === 'PRODUCTION_PAUSED'
+  const nextAction = order.status === 'PRODUCTION_PAUSED'
     ? '查看主管处理'
     : currentAction?.actionName || '查看任务'
   const isPaused = order.status === 'PRODUCTION_PAUSED'
@@ -621,6 +624,8 @@ function renderWaterSolubleCard(task: ProcessTask): string {
           <div class="font-medium">${escapeHtml(`${order.plannedQty.toLocaleString('zh-CN')} ${order.qtyUnit}`)}</div>
           <div class="text-muted-foreground">当前步骤</div>
           <div class="font-medium">${escapeHtml(WATER_SOLUBLE_STATUS_LABEL[order.status])}</div>
+          <div class="text-muted-foreground">下一步</div>
+          <div class="font-medium">${escapeHtml(nextAction)}</div>
           <div class="text-muted-foreground">生产单号</div>
           <div class="truncate font-medium">${escapeHtml(order.productionOrderNo)}</div>
         </div>
@@ -634,7 +639,7 @@ function renderWaterSolubleCard(task: ProcessTask): string {
           data-pda-exec-action="open-detail"
           data-task-id="${escapeHtml(task.taskId)}"
         >
-          ${escapeHtml(primaryAction)}
+          查看任务
         </button>
       </div>
     </article>
