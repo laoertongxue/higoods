@@ -247,6 +247,17 @@ function cloneAndFreezeResponsibilityReview(
 }
 
 export function saveSewingDeliverySlaSnapshot(snapshot: SewingDeliverySlaSnapshot): void {
+  const existingById = snapshotsById.get(snapshot.snapshotId)
+  if (
+    existingById
+    && (
+      existingById.runtimeTaskId !== snapshot.runtimeTaskId
+      || existingById.assignmentId !== snapshot.assignmentId
+      || JSON.stringify(existingById) !== JSON.stringify(snapshot)
+    )
+  ) {
+    throw new Error(`含车缝履约快照ID冲突：${snapshot.snapshotId} 已存在`)
+  }
   const currentSnapshotId = currentSnapshotIdByRuntimeTaskId.get(snapshot.runtimeTaskId)
   const currentSnapshot = currentSnapshotId ? snapshotsById.get(currentSnapshotId) : undefined
   if (currentSnapshot && currentSnapshot.snapshotId !== snapshot.snapshotId) {
@@ -424,7 +435,7 @@ export function createSewingDeliverySlaSnapshot(input: {
   assertPositiveFiniteInteger(input.assignedQty, '分配数量')
   const ruleHours = RULE_HOURS[input.slaKind]
   return cloneAndFreezeSnapshot({
-    snapshotId: `SEWING-DELIVERY-SLA-${input.assignmentId}`,
+    snapshotId: `SEWING-DELIVERY-SLA-${input.runtimeTaskId}-${input.assignmentId}`,
     ...input,
     milestones: MILESTONE_RATIOS.map((ratio, index) => ({
       ratio,
@@ -461,7 +472,25 @@ export function projectSewingDeliverySla(
     firstReachedAt: undefined as string | undefined,
     receiverDelayCandidateRecords: [] as SewingDeliveryReceiverDelayAttribution[],
   }))
-  const orderedReceipts = [...receipts].sort((left, right) => left.receivedAt.localeCompare(right.receivedAt))
+  const visibleReceiptByRecordId = new Map<string, SewingDeliveryReceiptFact>()
+  receipts
+    .filter((receipt) => receipt.receivedAt <= nowAt)
+    .forEach((receipt) => {
+      const current = visibleReceiptByRecordId.get(receipt.recordId)
+      const receiptSignature = JSON.stringify(receipt)
+      const currentSignature = current ? JSON.stringify(current) : ''
+      if (
+        !current
+        || receipt.receivedAt > current.receivedAt
+        || (receipt.receivedAt === current.receivedAt && receiptSignature > currentSignature)
+      ) {
+        visibleReceiptByRecordId.set(receipt.recordId, receipt)
+      }
+    })
+  const orderedReceipts = [...visibleReceiptByRecordId.values()].sort((left, right) => {
+    const timeOrder = left.receivedAt.localeCompare(right.receivedAt)
+    return timeOrder !== 0 ? timeOrder : left.recordId.localeCompare(right.recordId)
+  })
 
   let confirmedReceivedQty = 0
   let completedAt: string | undefined
@@ -498,7 +527,7 @@ export function projectSewingDeliverySla(
           .sort((left, right) => left.recordId.localeCompare(right.recordId))
       receiverDelayCandidates.forEach((receipt) => {
         const effectiveReceivedQty = Math.max(receipt.receivedQty - (receipt.reversedQty ?? 0), 0)
-        const affectedQty = Math.min(effectiveReceivedQty, remainingMilestoneGap)
+        const affectedQty = Math.min(effectiveReceivedQty, receipt.submittedQty, remainingMilestoneGap)
         if (affectedQty <= 0) return
         reached.receiverDelayCandidateRecords.push({
           recordId: receipt.recordId,

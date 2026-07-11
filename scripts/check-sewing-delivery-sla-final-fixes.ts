@@ -79,6 +79,20 @@ try {
   assert.ok(direct.runtimeTaskIds?.length, '成功 draft 必须关联真实运行时任务')
   const directTaskId = direct.runtimeTaskIds![0]
   assert.equal(getSewingDeliverySlaSnapshot(directTaskId)?.assignedQty, 1, '直接派单快照分母必须等于输入数量')
+  const directTaskBeforeIllegalReuse = structuredClone(getRuntimeTaskById(directTaskId))
+  const directSnapshotBeforeIllegalReuse = getSewingDeliverySlaSnapshot(directTaskId)
+  assert.throws(
+    () => applyRuntimeDirectDispatchMeta({ ...directInputForGuard(directTaskId), factoryId: 'ID-F007', factoryName: '玛琅精工车缝' }),
+    /普通入口覆盖|改派/,
+    '含车缝任务已有直派结果后不得复用同 taskId 再次直派',
+  )
+  assert.throws(
+    () => upsertRuntimeTaskTender(directTaskId, { tenderId: 'TENDER-ILLEGAL-REUSE', biddingDeadline: '2026-07-11 18:00:00', taskDeadline: '2026-07-20 18:00:00', businessAssignedAt: '2026-07-10 09:00:00', assignmentOperatedAt: '2026-07-10 10:00:00' }, '跟单A'),
+    /普通入口发起新竞价|改派/,
+    '含车缝任务已有直派结果后不得复用同 taskId 发起竞价',
+  )
+  assert.deepEqual(getRuntimeTaskById(directTaskId), directTaskBeforeIllegalReuse, '非法复用普通入口必须原子拒绝且不改变任务')
+  assert.deepEqual(getSewingDeliverySlaSnapshot(directTaskId), directSnapshotBeforeIllegalReuse, '非法复用普通入口不得替换履约快照或污染旧实收归属')
   const secondGroup = listRuntimeTaskSplitGroupsByOrder(source.productionOrderId).find((group) => group.sourceTaskId === taskId)
   assert.equal(secondGroup?.resultTasks.reduce((sum, task) => sum + task.scopeQty, 0), source.scopeQty, '连续第二次部分分配后总范围仍须守恒')
 
@@ -169,3 +183,7 @@ assert.match(pdaReceiveDetailSource, /rejected[\s\S]*已拒绝接单，不能进
 assert.doesNotMatch(pdaReceiveDetailSource, /function mutateRejectTask/, 'PDA 详情不得保留绕过 runtime 的本地拒单 mutation')
 
 console.log('sewing delivery SLA final fixes checks passed')
+
+function directInputForGuard(taskId: string) {
+  return { taskId, factoryId: 'ID-F003', factoryName: '万隆车缝厂', acceptDeadline: '', taskDeadline: '', remark: '非法复用探针', by: '跟单A', dispatchPrice: 12000, dispatchPriceCurrency: 'IDR', dispatchPriceUnit: '件', priceDiffReason: '', businessAssignedAt: '2026-07-10 09:00:00', operatedAt: '2026-07-10 10:00:00' }
+}

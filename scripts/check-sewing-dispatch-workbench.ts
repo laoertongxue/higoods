@@ -39,7 +39,7 @@ const runtimeTasks = listRuntimeProcessTasks().filter((task) => isRuntimeTaskExe
 assert.equal(typeof isRuntimeIndependentSewingTask, 'function', '运行时任务必须提供独立车缝任务判定')
 
 const sewingBusinessTask = runtimeTasks.find((task) =>
-  task.processBusinessCode === 'SEW' && ['UNASSIGNED', 'BIDDING'].includes(task.assignmentStatus),
+  task.processBusinessCode === 'SEW' && task.assignmentStatus === 'UNASSIGNED' && !getSewingDeliverySlaSnapshot(task.taskId),
 )
 assert(sewingBusinessTask, '必须动态找到 processBusinessCode=SEW 的独立车缝样本')
 assert.equal(sewingBusinessTask.processBusinessCode, 'SEW', '回归样本必须是车缝业务码任务')
@@ -204,12 +204,17 @@ assert.equal(typeof runSewingDispatchWorkbenchTransaction, 'function', '车缝�
 const workbenchTransactionRuntimeBefore = captureRuntimeDirectDispatchState()
 const workbenchTransactionSnapshotBefore = captureSewingDeliverySlaSnapshotStore()
 const workbenchTransactionDraftsBefore = listSewingDispatchWorkbenchDrafts()
-const secondIndependentTask = runtimeTasks.find((task) =>
-  task.taskId !== sewingBusinessTask.taskId && task.processBusinessCode === 'SEW',
-)
-assert(secondIndependentTask, '跨任务事务回归必须找到第二个独立车缝任务')
-const draftRows = workbenchTasks.find((task) => task.skuRows.every((row) => row.completeKitQty > 0))?.skuRows ?? []
+const draftTask = workbenchTasks.find((task) => task.taskId !== sewingBusinessTask.taskId && task.skuRows.every((row) => row.completeKitQty > 0))
+const draftRows = draftTask?.skuRows ?? []
 assert(draftRows.length > 0, '跨任务事务回归必须找到可生成草稿的工作台行')
+const secondIndependentTask = runtimeTasks.find((task) =>
+  task.taskId !== sewingBusinessTask.taskId
+  && task.taskId !== draftTask?.taskId
+  && task.processBusinessCode === 'SEW'
+  && task.assignmentStatus === 'UNASSIGNED'
+  && !getSewingDeliverySlaSnapshot(task.taskId),
+)
+assert(secondIndependentTask, '跨任务事务回归必须找到不与草稿重叠的第二个独立车缝任务')
 assert.throws(
   () => runSewingDispatchWorkbenchTransaction(() => {
     assert(applyRuntimeDirectDispatchMeta({
@@ -241,12 +246,30 @@ assert.deepEqual(listSewingDispatchWorkbenchDrafts(), workbenchTransactionDrafts
 const stateBeforeDirectDispatchRelationTest = captureRuntimeDirectDispatchState()
 const snapshotBeforeDirectDispatchRelationTest = captureSewingDeliverySlaSnapshotStore()
 try {
-  const order = productionOrderDomain.productionOrders.find((item) => item.productionOrderId === sewingBusinessTask.productionOrderId)
+  let order = productionOrderDomain.productionOrders.find((item) => item.productionOrderId === sewingBusinessTask.productionOrderId)
   assert(order)
   order.mainFactoryId = productionOrderDomain.PENDING_MAIN_FACTORY_ID
   order.mainFactorySnapshot = productionOrderDomain.createPendingMainFactorySnapshot()
   order.mainFactoryStatus = 'PENDING_SEWING_ASSIGNMENT'
   order.sewingFactorySnapshots = []
+
+  const secondAssignmentTaskId = `${sewingBusinessTask.taskId}__SECOND_FACTORY`
+  const fixtureState = captureRuntimeDirectDispatchState()
+  fixtureState.reassignedTasks.push([secondAssignmentTaskId, {
+    ...structuredClone(sewingBusinessTask),
+    taskId: secondAssignmentTaskId,
+    taskNo: secondAssignmentTaskId,
+    assignmentMode: 'HOLD',
+    assignmentStatus: 'UNASSIGNED',
+    acceptanceStatus: undefined,
+    assignedFactoryId: undefined,
+    assignedFactoryName: undefined,
+    tenderId: undefined,
+    executionEnabled: true,
+  }])
+  restoreRuntimeDirectDispatchState(fixtureState)
+  order = productionOrderDomain.productionOrders.find((item) => item.productionOrderId === sewingBusinessTask.productionOrderId)
+  assert(order)
 
   assert(applyRuntimeDirectDispatchMeta({ ...directDispatchBase, writeBackMainFactory: false }))
   assert.deepEqual(listProductionOrderSewingFactories(order.productionOrderId).map((factory) => factory.id), ['ID-F011'])
@@ -254,6 +277,7 @@ try {
 
   assert(applyRuntimeDirectDispatchMeta({
     ...directDispatchBase,
+    taskId: secondAssignmentTaskId,
     factoryId: 'ID-F012',
     factoryName: 'CV Satellite Cluster Denpasar',
     operatedAt: '2026-07-10 09:10:00',
@@ -266,12 +290,12 @@ try {
   )
   assert.equal(order.mainFactoryId, 'ID-F011', '已有有效主工厂时必须支持保留当前主工厂')
 
-  assert(applyRuntimeDirectDispatchMeta({
-    ...directDispatchBase,
+  assert(selectProductionOrderMainFactory({
+    productionOrderId: order.productionOrderId,
     factoryId: 'ID-F012',
-    factoryName: 'CV Satellite Cluster Denpasar',
-    operatedAt: '2026-07-10 09:20:00',
-    writeBackMainFactory: true,
+    by: '跟单A',
+    at: '2026-07-10 09:20:00',
+    reason: '两家实际分配任务共同承接，明确指定第二家为主工厂。',
   }))
   assert.deepEqual(
     listProductionOrderSewingFactories(order.productionOrderId).map((factory) => factory.id),

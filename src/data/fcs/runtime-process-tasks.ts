@@ -2469,6 +2469,21 @@ export function upsertRuntimeTaskTender(
 ): RuntimeProcessTask | null {
   const task = getRuntimeTaskById(taskId)
   if (!task) return null
+  const sewingDeliverySlaKind = classifySewingDeliverySla(task)
+  const activeSlaSnapshot = sewingDeliverySlaKind ? getSewingDeliverySlaSnapshot(taskId) : null
+  const isCleanUnassigned = task.assignmentStatus === 'UNASSIGNED'
+    && !task.assignedFactoryId?.trim()
+    && task.acceptanceStatus !== 'ACCEPTED'
+    && !task.tenderId?.trim()
+    && !activeSlaSnapshot?.active
+  const isReleasedRejectedTenderUpdate = task.assignmentStatus === 'BIDDING'
+    && task.acceptanceStatus === 'REJECTED'
+    && !task.assignedFactoryId?.trim()
+    && task.tenderId === payload.tenderId
+    && !activeSlaSnapshot?.active
+  if (sewingDeliverySlaKind && !isCleanUnassigned && !isReleasedRejectedTenderUpdate) {
+    throw new Error(`含车缝任务 ${taskId} 已有有效分配结果，不可通过普通入口发起新竞价，请走改派`)
+  }
   if (
     task.taskUnitType === 'COMBINED_PROCESS_TASK'
     && task.acceptanceMode === 'CONTINUOUS_PROCESS'
@@ -2886,6 +2901,20 @@ export function prepareRuntimeDirectDispatchMeta(
 ): PreparedRuntimeDirectDispatchMeta {
   const originalTask = target.task ?? getRuntimeTaskById(input.taskId)
   if (!originalTask) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
+  const sewingDeliverySlaKind = classifySewingDeliverySla(originalTask)
+  const activeSlaSnapshot = sewingDeliverySlaKind ? getSewingDeliverySlaSnapshot(originalTask.taskId) : null
+  if (
+    sewingDeliverySlaKind
+    && (
+      originalTask.assignmentStatus !== 'UNASSIGNED'
+      || Boolean(originalTask.assignedFactoryId?.trim())
+      || originalTask.acceptanceStatus === 'ACCEPTED'
+      || Boolean(originalTask.tenderId?.trim())
+      || Boolean(activeSlaSnapshot?.active)
+    )
+  ) {
+    throw new Error(`含车缝任务 ${input.taskId} 已有有效分配结果，不可通过普通入口覆盖，请走改派`)
+  }
   if (
     originalTask.taskUnitType === 'COMBINED_PROCESS_TASK'
     && originalTask.acceptanceMode === 'CONTINUOUS_PROCESS'
@@ -2905,7 +2934,6 @@ export function prepareRuntimeDirectDispatchMeta(
     throw new Error('业务分配时间不能晚于当前操作时间')
   }
 
-  const sewingDeliverySlaKind = classifySewingDeliverySla(originalTask)
   const assignedQty = target.assignedQty ?? originalTask.scopeQty
   const runtimeTaskId = target.runtimeTaskId ?? originalTask.taskId
   const snapshotSequence = listSewingDeliverySlaSnapshotHistory(runtimeTaskId).length + 1

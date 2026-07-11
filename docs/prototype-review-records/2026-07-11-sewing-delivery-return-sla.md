@@ -110,6 +110,9 @@
 - `check:sewing-delivery-sla`：30% / 70% / 100% 节点、101 件向上取整、超量实收超过 100%、接收确认延迟、主管复核文案、改派快照隔离；未来业务时间抛错且运行时任务和 SLA 快照保持不变；竞价定标后为 `PENDING` 且无 `acceptedAt`，工厂确认后为 `ACCEPTED` 并生成 `acceptedAt` / 快照。
 - `check:sewing-dispatch-workbench`：独立车缝直派 / 竞价入口、失败事务回滚、单厂自动主工厂、多厂显式选择且生产单始终只有一个主工厂。
 - `check:sewing-delivery-sla-final-fixes`：数量分区总量守恒、连续二次部分分配、真实 direct / tender、快照分母、未来时间阻断、统一拒单身份与重复校验。
+- 对抗式补审进一步封堵同一含车缝 `runtimeTaskId` 被普通直派或竞价入口覆盖：已有工厂、已接单或生效快照时必须走改派；不同实际分配结果使用不同 `runtimeTaskId`，旧任务迟到实收只更新旧历史，不回减新任务分配量。
+- 履约事实按查询时点截断：未来交出与未来实收不提前展示；跨交出单重复 `recordId` 只采用观察时点内最新有效版本；接收延迟归责数量同时受该记录截止前交出量和节点缺口约束。
+- 履约快照编号同时绑定运行时任务和分配结果，并在保存时阻断跨任务 ID 冲突；单条与批量履约视图共用历史资格判断，已停用但保留历史快照的旧任务仍可查询。
 - `check:continuous-process-route-eligibility`、`check:fcs-task-generation-rules`：含车缝连续任务的入口和任务生成边界；当前浏览器种子数据中含车缝连续任务为 0，因此三个动作属于处理器证据，不属于本轮真实页面点击证据。
 - PDA 交接、执行、接单范围和接单时效由 `check:pda-handover-pages`、`check:pda-exec-task-detail`、`check:pda-task-receive-scope`、`check:pda-receive-mock-deadline-status` 覆盖。
 - 局部交互的 DOM 宿主替换、`scrollY` 保持和浏览器 realm 内 `performance.now()` 计时，本轮未取得可靠证据；不能据此宣称真实浏览器交互小于 200ms。200ms 仍作为产品验收标准，需在稳定端到端点击通道补测。

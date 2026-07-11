@@ -32,11 +32,23 @@ export function toConfirmedSewingDeliveryReceiptFact(
 }
 
 export function listSewingDeliveryReceiptFacts(runtimeTaskId: string): SewingDeliveryReceiptFact[] {
-  return listRegisteredHandoutHeads()
+  const latestFactByRecordId = new Map<string, SewingDeliveryReceiptFact>()
+  listRegisteredHandoutHeads()
     .filter((head) => head.taskId === runtimeTaskId)
     .flatMap((head) => listRegisteredHandoutRecords(head.handoverId))
     .map((record) => toConfirmedSewingDeliveryReceiptFact(record, runtimeTaskId))
     .filter((fact): fact is SewingDeliveryReceiptFact => fact !== null)
+    .forEach((fact) => {
+      const current = latestFactByRecordId.get(fact.recordId)
+      if (
+        !current
+        || fact.receivedAt > current.receivedAt
+        || (fact.receivedAt === current.receivedAt && JSON.stringify(fact) > JSON.stringify(current))
+      ) {
+        latestFactByRecordId.set(fact.recordId, fact)
+      }
+    })
+  return Array.from(latestFactByRecordId.values())
 }
 
 export function sumSewingDeliveryConfirmedReceiptQty(runtimeTaskId: string): number {
