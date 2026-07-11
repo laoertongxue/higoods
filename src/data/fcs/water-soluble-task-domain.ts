@@ -297,6 +297,12 @@ export function mapWaterSolubleQtyUnit(qtyUnit: string): QtyUnit {
   return 'BUNDLE'
 }
 
+export function getWaterSolubleHandoverQtyUnit(qtyUnit: string): string {
+  const unit = qtyUnit.trim()
+  if (!unit) throw new Error('水溶交接缺少 BOM 物料单位。')
+  return unit
+}
+
 export function listWaterSolubleWorkOrders(): WaterSolubleWorkOrder[] {
   return [...ensureStore().values()]
     .sort((left, right) => left.generationKey.localeCompare(right.generationKey))
@@ -409,7 +415,7 @@ export function executeWaterSolublePdaAction(input: WaterSolublePdaActionInput):
   if (input.action === 'START') return attachWaterSolublePdaActor(startWaterSoluble(input.orderId), input.actor)
   if (input.action === 'COMPLETE') return attachWaterSolublePdaActor(completeWaterSoluble(input.orderId, input.completedQty, input.reason), input.actor)
   if (input.action === 'RESOLVE_PAUSE') return attachWaterSolublePdaActor(resolveWaterSolublePause(input.orderId, input.decision), input.actor)
-  return attachWaterSolublePdaActor(submitWaterSolubleHandover(input.orderId, input.handoverQty), input.actor)
+  return failure('请通过通用交接单完成交出，当前页面不能直接确认交出。')
 }
 
 export function canAssignWaterSolubleFactory(factoryId: string): WaterSolubleFactoryCapabilityResult {

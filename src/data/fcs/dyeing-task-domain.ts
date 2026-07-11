@@ -531,6 +531,7 @@ function syncWaterSolubleTaskState(order: MutableDyeWorkOrder): void {
   if (!order.requiresWaterSoluble) return
   const task = getDyeingTaskById(order.taskId)
   if (!task) return
+  ;(task as PdaGenericTaskMock & { waterSolubleHandoverEligible?: boolean }).waterSolubleHandoverEligible = false
 
   if (order.status === 'WATER_SOLUBLE_IN_PROGRESS') {
     task.status = 'IN_PROGRESS'
@@ -893,7 +894,7 @@ function syncDerivedWorkflow(): void {
       order.handoverOrderId = head.handoverOrderId || head.handoverId
       order.handoverOrderNo = head.handoverOrderNo
       syncTaskHandoverFields(order.taskId, order.handoverOrderId)
-    } else if (!order.handoverOrderId) {
+    } else if (!order.handoverOrderId && (!order.requiresWaterSoluble || order.status === 'WAIT_HANDOVER')) {
       const ensured = ensureStartedTaskHandover(order.taskId)
       if (ensured) {
         const nextHead = getHandoverOrderById(ensured)
@@ -2983,7 +2984,7 @@ export function startDyeing(
     blockReason: undefined,
     blockRemark: undefined,
   })
-  if (!order.handoverOrderId) {
+  if (!order.handoverOrderId && !order.requiresWaterSoluble) {
     order.handoverOrderId = ensureStartedTaskHandover(order.taskId)
   }
   updateOrderTimestamp(order, now)
@@ -3109,6 +3110,8 @@ export function completeDyeNode(
   }))
   order.status = getNodeStatusAfterComplete(nodeCode)
   if (nodeCode === 'PACK' && !order.handoverOrderId) {
+    const task = getDyeingTaskById(order.taskId) as (PdaGenericTaskMock & { waterSolubleHandoverEligible?: boolean }) | undefined
+    if (task && order.requiresWaterSoluble) task.waterSolubleHandoverEligible = true
     order.handoverOrderId = ensureStartedTaskHandover(order.taskId)
   }
   updateOrderTimestamp(order, now)

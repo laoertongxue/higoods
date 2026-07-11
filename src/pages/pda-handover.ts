@@ -140,6 +140,12 @@ function getExecutorLabel(head: PdaHandoverHead): string {
   return '外部工厂'
 }
 
+function getHandoverSourceTypeLabel(head: PdaHandoverHead): string {
+  if (head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER') return '水溶加工单'
+  if (head.sourceBusinessType === 'DYE_WORK_ORDER') return '染色加工单'
+  return '工序任务'
+}
+
 function scheduleSpecialCraftHandoverSeed(): void {
   if (specialCraftSeedScheduled || typeof window === 'undefined') return
   specialCraftSeedScheduled = true
@@ -386,6 +392,8 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
           <div><span class="text-muted-foreground">交接范围：</span>${escapeHtml(head.scopeLabel || '整单')}</div>
           <div><span class="text-muted-foreground">交接方式：</span>${escapeHtml(getExecutorLabel(head))}</div>
           <div class="col-span-2"><span class="text-muted-foreground">来源单据：</span>${escapeHtml(head.sourceDocNo || '—')}</div>
+          <div><span class="text-muted-foreground">来源类型：</span>${escapeHtml(getHandoverSourceTypeLabel(head))}</div>
+          ${head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' ? `<div><span class="text-muted-foreground">物料：</span>${escapeHtml(`${head.materialName || '—'} / ${head.materialCode || '—'}`)}</div>` : ''}
         </div>
 
         <div class="flex items-center gap-2 py-0.5 text-xs">

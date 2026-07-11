@@ -15,6 +15,7 @@ import {
   type WaterSolubleWorkOrder,
 } from '../../../data/fcs/water-soluble-task-domain.ts'
 import { getPdaSession } from '../../../data/fcs/store-domain-pda.ts'
+import { ensureHandoverOrderForStartedTask } from '../../../data/fcs/pda-handover-events.ts'
 import { getPdaRuntimeContext } from '../../pda-runtime.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
@@ -291,6 +292,15 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     const roleAction = action === 'open-supervisor' ? 'SUPERVISE' : action === 'open-handover' ? 'HANDOVER' : undefined
     const access = getAuthorizedOrder(orderId, expected, roleAction)
     if (!access.order) { rejectAction(access.message); return true }
+    if (action === 'open-handover') {
+      try {
+        const ensured = ensureHandoverOrderForStartedTask(access.order.taskId)
+        appStore.navigate(`/fcs/pda/handover/${encodeURIComponent(ensured.handoverOrderId)}?action=new-record`)
+      } catch (error) {
+        rejectAction(error instanceof Error ? error.message : '交出单创建失败，请重试。')
+      }
+      return true
+    }
     const type = action.replace('open-', '') as 'detail' | 'supervisor' | 'handover'
     setOverlay({ type, orderId })
     refreshOverlay()
@@ -376,7 +386,14 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     if (!hasCurrentOverlay('handover', orderId)) { rejectAction('当前交出确认已失效，请重新打开加工单。'); return true }
     if (!state.overlayToken || node.dataset.overlayToken !== state.overlayToken) { rejectAction('当前交出确认令牌已失效，请重新打开加工单。'); return true }
     if (!actor) { rejectAction('当前登录已失效，请重新登录。'); return true }
-    run(executeWaterSolublePdaAction({ action: 'HANDOVER', orderId, taskId: currentOrder?.taskId || '', expectedStatus: 'WAIT_HANDOVER', expectedNode: 'HANDOVER', handoverQty: currentOrder?.handoverQty ?? currentOrder?.completedQty ?? 0, actor }))
+    try {
+      const ensured = ensureHandoverOrderForStartedTask(currentOrder?.taskId || '')
+      clearOverlay()
+      refreshOverlay()
+      appStore.navigate(`/fcs/pda/handover/${encodeURIComponent(ensured.handoverOrderId)}?action=new-record`)
+    } catch (error) {
+      rejectAction(error instanceof Error ? error.message : '交出单创建失败，请重试。')
+    }
   }
   else if (action === 'prev-page') { state.page = Math.max(1, state.page - 1); refreshList() }
   else if (action === 'next-page') { state.page += 1; refreshList() }

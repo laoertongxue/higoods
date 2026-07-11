@@ -4381,7 +4381,12 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       return true
     }
     if (action === 'water-go-handover') {
-      appStore.navigate(`/fcs/pda/handover?tab=handout&focusTaskId=${encodeURIComponent(order.taskId)}`)
+      try {
+        const ensured = ensureHandoverOrderForStartedTask(order.taskId)
+        appStore.navigate(`/fcs/pda/handover/${encodeURIComponent(ensured.handoverOrderId)}?action=new-record`)
+      } catch (error) {
+        showPdaExecDetailToast(error instanceof Error ? error.message : '交出单创建失败，请重试。')
+      }
       return true
     }
 

@@ -15,7 +15,7 @@ test.afterEach(async ({ page }) => {
   expect(browserErrors.get(page) || []).toEqual([])
 })
 
-async function bootstrapWaterSession(page: Page, roleId: 'ROLE_OPERATOR' | 'ROLE_ADMIN', status = 'WATER_SOLUBLE_IN_PROGRESS') {
+async function bootstrapWaterSession(page: Page, roleId: 'ROLE_OPERATOR' | 'ROLE_HANDOVER' | 'ROLE_ADMIN', status = 'WATER_SOLUBLE_IN_PROGRESS') {
   await page.goto('/')
   return page.evaluate(async ({ requestedRole, requestedStatus }) => {
     const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
@@ -31,6 +31,7 @@ async function bootstrapWaterSession(page: Page, roleId: 'ROLE_OPERATOR' | 'ROLE
       plannedQty: order.plannedQty,
       logCount: order.actionLogs.length,
       materialName: order.materialName,
+      materialCode: order.materialCode,
       qtyUnit: order.qtyUnit,
       factoryId: order.factoryId,
     }
@@ -179,7 +180,73 @@ test('管理员处理独立水溶短量并进入现有交出入口', async ({ pa
   await page.getByRole('button', { name: '按实际数量继续', exact: true }).click()
   await expect(detail.getByRole('button', { name: '去交出', exact: true })).toBeVisible()
   await detail.getByRole('button', { name: '去交出', exact: true }).click()
-  await expect(page).toHaveURL(new RegExp(`/fcs/pda/handover\\?tab=handout&focusTaskId=${seed.taskId}`))
+  await expect(page).toHaveURL(/\/fcs\/pda\/handover\/HO-[^?]+\?action=new-record$/)
+  await expect(page.getByTestId('handout-head-object-profile')).toContainText('交出物类型：物料')
+  await expect(page.getByTestId('handout-head-object-profile')).toContainText(seed.qtyUnit)
+})
+
+test('任务9：独立水溶通过唯一通用交接单完成交出与相等收货', async ({ page }) => {
+  const seed = await bootstrapWaterSession(page, 'ROLE_ADMIN', 'PRODUCTION_PAUSED')
+  try {
+    await page.goto(`/fcs/pda/exec/${seed.taskId}`)
+    await removeTodoModal(page)
+    const detail = page.getByTestId('pda-water-soluble-detail')
+    await detail.getByRole('button', { name: '处理数量不足', exact: true }).click()
+    await page.getByRole('button', { name: '按实际数量继续', exact: true }).click()
+    const approvedQty = await page.evaluate(async (orderId) => {
+      const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
+      return water.getWaterSolubleWorkOrderById(orderId)?.handoverQty
+    }, seed.orderId)
+    expect(approvedQty).toBeGreaterThan(0)
+
+    await page.evaluate(async ({ factoryId, taskId }) => {
+      const pda = await import(/* @vite-ignore */ '/src/data/fcs/store-domain-pda.ts')
+      const store = await import(/* @vite-ignore */ '/src/state/store.ts')
+      const user = pda.listFactoryPdaUsers(factoryId).find((item) => item.status === 'ACTIVE' && item.roleId === 'ROLE_HANDOVER')
+        || await pda.createFactoryPdaUser({ factoryId, name: '任务9交接员', loginId: `${factoryId}_task9_handover`, password: '123456', roleId: 'ROLE_HANDOVER', createdBy: 'Playwright任务9' })
+      localStorage.setItem('fcs_pda_session', JSON.stringify(pda.createPdaSessionFromUser(user)))
+      store.appStore.navigate('/fcs/pda/exec')
+      store.appStore.navigate(`/fcs/pda/exec/${taskId}`)
+    }, { factoryId: seed.factoryId, taskId: seed.taskId })
+    await page.getByTestId('pda-water-soluble-detail').getByRole('button', { name: '去交出', exact: true }).click()
+    await expect(page).toHaveURL(/\/fcs\/pda\/handover\/HO-[^?]+\?action=new-record$/)
+    await expect(page.getByTestId('handout-head-object-profile')).toContainText('交出物类型：物料')
+    await expect(page.getByTestId('handout-head-object-profile')).toContainText(seed.materialName)
+    await expect(page.getByTestId('handout-head-object-profile')).toContainText(seed.materialCode)
+    await expect(page.getByTestId('handout-head-object-profile')).toContainText(seed.qtyUnit)
+
+    await page.locator('[data-pda-handoverd-field="newRecordScanCode"]').fill(seed.materialCode)
+    await page.locator('[data-pda-handoverd-field="newRecordQty"]').fill(String(approvedQty))
+    await page.getByRole('button', { name: '确认交出', exact: true }).click()
+    await expect.poll(() => page.evaluate(async (orderId) => {
+      const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
+      return water.getWaterSolubleWorkOrderById(orderId)?.status
+    }, seed.orderId)).toBe('HANDOVER_WAIT_RECEIVE')
+
+    await page.evaluate(async (factoryId) => {
+      const pda = await import(/* @vite-ignore */ '/src/data/fcs/store-domain-pda.ts')
+      const store = await import(/* @vite-ignore */ '/src/state/store.ts')
+      const admin = pda.listFactoryPdaUsers(factoryId).find((item) => item.status === 'ACTIVE' && item.roleId === 'ROLE_ADMIN')
+      if (!admin) throw new Error('缺少接收确认管理员')
+      localStorage.setItem('fcs_pda_session', JSON.stringify(pda.createPdaSessionFromUser(admin)))
+      const current = store.appStore.getState().pathname.split('?')[0]
+      store.appStore.navigate('/fcs/pda/handover?tab=handout')
+      store.appStore.navigate(`${current}?demoRole=RECEIVER`)
+    }, seed.factoryId)
+    await page.getByRole('button', { name: '确认收货', exact: true }).click()
+    await page.locator('[data-pda-handoverd-field="writebackQty"]').fill(String(approvedQty))
+    await page.getByRole('button', { name: '确认收货', exact: true }).last().click()
+    await expect.poll(() => page.evaluate(async (orderId) => {
+      const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
+      return water.getWaterSolubleWorkOrderById(orderId)?.status
+    }, seed.orderId)).toBe('DONE')
+  } finally {
+    await page.evaluate(async () => {
+      const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
+      water.resetWaterSolubleDomainForChecks()
+      localStorage.removeItem('fcs_pda_session')
+    }).catch(() => undefined)
+  }
 })
 
 test('PFOS 联合水溶必须使用当前会话且普通动作只允许操作员', async ({ page }) => {

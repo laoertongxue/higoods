@@ -115,7 +115,7 @@ interface PdaHandoverDetailState {
   objectionRemark: string
   objectionProofFiles: ProofFile[]
   newRecordOpen: boolean
-  newRecordObjectType: 'FABRIC' | 'CUT_PIECE' | 'SEMI_FINISHED_GARMENT' | 'FINISHED_GARMENT'
+  newRecordObjectType: 'MATERIAL' | 'FABRIC' | 'CUT_PIECE' | 'SEMI_FINISHED_GARMENT' | 'FINISHED_GARMENT'
   newRecordScanCode: string
   newRecordQty: string
   newRecordUnit: string
@@ -1854,7 +1854,8 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
               objectId: sourceDoc.docNo,
               relatedProductionOrderNo: head.productionOrderNo,
             })) : renderFieldRow('来源执行单', '—')}
-            ${renderFieldRow('来源类型', sourceDoc?.docType === 'RETURN' ? '工序回货单' : sourceDoc?.docType ? '其他单据' : '—')}
+            ${renderFieldRow('来源类型', head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' ? '水溶加工单' : head.sourceBusinessType === 'DYE_WORK_ORDER' ? '染色加工单' : sourceDoc?.docType === 'RETURN' ? '工序回货单' : sourceDoc?.docType ? '其他单据' : '—')}
+            ${head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' ? renderFieldRow('物料', `${head.materialName || '—'} / ${head.materialCode || '—'}`) : ''}
             ${renderFieldRow('交接范围', head.scopeLabel || '整单')}
             ${renderFieldHtmlRow('关联任务号', renderPdaHandoverObjectCode({
               objectType: 'PROCESS_DOC',
@@ -2065,7 +2066,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     if (
       field === 'newRecordObjectType' &&
       fieldNode instanceof HTMLSelectElement &&
-      ['FABRIC', 'CUT_PIECE', 'SEMI_FINISHED_GARMENT', 'FINISHED_GARMENT'].includes(fieldNode.value)
+      ['MATERIAL', 'FABRIC', 'CUT_PIECE', 'SEMI_FINISHED_GARMENT', 'FINISHED_GARMENT'].includes(fieldNode.value)
     ) {
       detailState.newRecordObjectType = fieldNode.value as PdaHandoverDetailState['newRecordObjectType']
       return true
@@ -2268,7 +2269,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       detailState.newRecordQty = ''
       detailState.newRecordUnit = qtyUnit
       detailState.newRecordRemark = ''
-      if (!isPostFinishingHandoutHead(head)) {
+      if (!isPostFinishingHandoutHead(head) && head.sourceBusinessType !== 'WATER_SOLUBLE_WORK_ORDER') {
         try {
           const outboundLinkInput = {
             handoverOrderId: head.handoverOrderId || head.handoverId,
