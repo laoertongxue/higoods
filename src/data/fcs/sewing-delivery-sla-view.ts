@@ -16,6 +16,7 @@ import {
   listPdaHandoverHeads,
   type PdaHandoverRecord,
 } from './pda-handover-events.ts'
+import { toConfirmedSewingDeliveryReceiptFact } from './sewing-delivery-receipt-facts.ts'
 
 export interface SewingDeliverySlaView {
   readonly runtimeTaskId: string
@@ -32,16 +33,10 @@ function validNonNegativeQty(value: number | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
 }
 
-function toReceiptFact(record: PdaHandoverRecord): SewingDeliveryReceiptFact | null {
-  const submittedQty = validNonNegativeQty(record.submittedQty ?? record.plannedQty)
-  const receivedQty = validNonNegativeQty(record.receiverWrittenQty)
-  if (submittedQty === null || receivedQty === null || !record.receiverWrittenAt) return null
-  return { recordId: record.handoverRecordId || record.recordId, submittedQty, submittedAt: record.factorySubmittedAt, receivedQty, receivedAt: record.receiverWrittenAt, voided: isVoided(record) }
-}
-
 function listTaskHandoutRecords(runtimeTaskId: string): PdaHandoverRecord[] {
   return listHandoverOrdersByTaskId(runtimeTaskId)
     .flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId))
+    .filter((record) => record.taskId === runtimeTaskId)
 }
 
 function buildView(
@@ -50,11 +45,14 @@ function buildView(
   records: PdaHandoverRecord[],
   nowAt: string,
 ): SewingDeliverySlaView {
-  const submittedQty = records.reduce((sum, record) => {
+  const taskRecords = records.filter((record) => record.taskId === runtimeTaskId)
+  const submittedQty = taskRecords.reduce((sum, record) => {
     if (isVoided(record)) return sum
     return sum + (validNonNegativeQty(record.submittedQty ?? record.plannedQty) ?? 0)
   }, 0)
-  const receipts = records.map(toReceiptFact).filter((receipt): receipt is SewingDeliveryReceiptFact => receipt !== null)
+  const receipts = taskRecords
+    .map((record) => toConfirmedSewingDeliveryReceiptFact(record, runtimeTaskId))
+    .filter((receipt): receipt is SewingDeliveryReceiptFact => receipt !== null)
   const projection = projectSewingDeliverySla(snapshot, receipts, nowAt)
 
   return Object.freeze({
@@ -110,7 +108,7 @@ export function listSewingDeliverySlaViews(
   listPdaHandoverHeads().forEach((head) => {
     if (head.headType !== 'HANDOUT' || !targetTaskIds.has(head.taskId)) return
     const records = recordsByTaskId.get(head.taskId) ?? []
-    records.push(...getPdaHandoverRecordsByHead(head.handoverId))
+    records.push(...getPdaHandoverRecordsByHead(head.handoverId).filter((record) => record.taskId === head.taskId))
     recordsByTaskId.set(head.taskId, records)
   })
   const views = Array.from(snapshotsByTaskId.entries()).map(([runtimeTaskId, snapshot]) =>

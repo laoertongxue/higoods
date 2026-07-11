@@ -6,25 +6,36 @@ function validNonNegativeQty(value: number | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
 }
 
+const CONFIRMED_RECEIPT_STATUSES = new Set([
+  'WRITTEN_BACK_MATCHED',
+  'WRITTEN_BACK_DIFF',
+  'DIFF_ACCEPTED',
+])
+
+export function toConfirmedSewingDeliveryReceiptFact(
+  record: PdaHandoverRecord,
+  runtimeTaskId: string,
+): SewingDeliveryReceiptFact | null {
+  if (record.taskId !== runtimeTaskId) return null
+  if (!CONFIRMED_RECEIPT_STATUSES.has(record.handoverRecordStatus)) return null
+  const submittedQty = validNonNegativeQty(record.submittedQty ?? record.plannedQty)
+  const receivedQty = validNonNegativeQty(record.receiverWrittenQty)
+  if (submittedQty === null || receivedQty === null || !record.factorySubmittedAt || !record.receiverWrittenAt) return null
+  return {
+    recordId: record.handoverRecordId || record.recordId,
+    submittedQty,
+    submittedAt: record.factorySubmittedAt,
+    receivedQty,
+    receivedAt: record.receiverWrittenAt,
+    voided: false,
+  }
+}
+
 export function listSewingDeliveryReceiptFacts(runtimeTaskId: string): SewingDeliveryReceiptFact[] {
   return listRegisteredHandoutHeads()
     .filter((head) => head.taskId === runtimeTaskId)
     .flatMap((head) => listRegisteredHandoutRecords(head.handoverId))
-    .filter((record) => record.taskId === runtimeTaskId)
-    .filter((record) => record.handoverRecordStatus !== 'VOIDED' && record.handoverRecordStatus !== 'SUBMITTED_WAIT_WRITEBACK')
-    .map((record: PdaHandoverRecord): SewingDeliveryReceiptFact | null => {
-      const submittedQty = validNonNegativeQty(record.submittedQty ?? record.plannedQty)
-      const receivedQty = validNonNegativeQty(record.receiverWrittenQty)
-      if (submittedQty === null || receivedQty === null || !record.receiverWrittenAt) return null
-      return {
-        recordId: record.handoverRecordId || record.recordId,
-        submittedQty,
-        submittedAt: record.factorySubmittedAt,
-        receivedQty,
-        receivedAt: record.receiverWrittenAt,
-        voided: record.handoverRecordStatus === 'VOIDED',
-      }
-    })
+    .map((record) => toConfirmedSewingDeliveryReceiptFact(record, runtimeTaskId))
     .filter((fact): fact is SewingDeliveryReceiptFact => fact !== null)
 }
 
