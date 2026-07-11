@@ -1,6 +1,10 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
 const newChangePath = '/fcs/production/changes/new'
+// Stable IDs come from the production-change current-facts seed and PCS material archive seed.
+const productionOrderId = 'PO-202603-0004'
+const originalMaterialId = 'MAT-PO-202603-0004-FAB-A01'
+const replacementMaterialId = 'material_fabric_001'
 const forbiddenCopy = [
   '已分发委托',
   '主管确认',
@@ -22,24 +26,37 @@ function productionChangeListRows(page: Page): Locator {
   }).locator('tbody tr')
 }
 
-async function selectFirstBusinessOption(select: Locator): Promise<string> {
-  const value = await select.locator('option').evaluateAll((options) =>
-    options.map((option) => (option as HTMLOptionElement).value).find(Boolean) ?? '',
+async function readProductionChangeRecordIds(page: Page): Promise<Set<string>> {
+  await expect(page.getByRole('heading', { name: '变更单列表', exact: true })).toBeVisible()
+  const ids = await productionChangeListRows(page).locator('td:first-child').evaluateAll((cells) =>
+    cells.map((cell) => cell.textContent?.trim() ?? '').filter(Boolean),
   )
-  expect(value).not.toBe('')
-  await select.selectOption(value)
-  return value
+  return new Set(ids)
 }
 
-async function openContent(page: Page, changeType: 'quantity' | 'material'): Promise<void> {
-  await page.goto(newChangePath)
-  await page.getByLabel('选择生产单').selectOption({ index: 1 })
+function getOnlyNewRecordId(before: Set<string>, after: Set<string>): string {
+  const addedIds = [...after].filter((id) => !before.has(id))
+  expect(addedIds).toHaveLength(1)
+  return addedIds[0]
+}
+
+async function selectProductionOrderAndOpenContent(
+  page: Page,
+  changeType: 'quantity' | 'material',
+): Promise<void> {
+  await page.getByLabel('选择生产单').selectOption(productionOrderId)
+  await expect(page.getByLabel('选择生产单')).toHaveValue(productionOrderId)
   await page.getByRole('button', { name: '下一步' }).click()
   await expect(productionChangeBody(page)).toHaveAttribute('data-production-change-form-body', 'content')
   await page.getByRole('button', {
     name: changeType === 'quantity' ? '修改生产单需求数量' : '替换物料',
     exact: true,
   }).click()
+}
+
+async function openContent(page: Page, changeType: 'quantity' | 'material'): Promise<void> {
+  await page.goto(newChangePath)
+  await selectProductionOrderAndOpenContent(page, changeType)
 }
 
 async function fillQuantityChange(page: Page, reason: string, addLine: boolean): Promise<void> {
@@ -70,8 +87,10 @@ async function fillQuantityChange(page: Page, reason: string, addLine: boolean):
 }
 
 async function selectMaterialFacts(page: Page): Promise<void> {
-  await selectFirstBusinessOption(page.getByLabel('原面料'))
-  await selectFirstBusinessOption(page.getByLabel('新面料'))
+  await page.getByLabel('原面料').selectOption(originalMaterialId)
+  await page.getByLabel('新面料').selectOption(replacementMaterialId)
+  await expect(page.getByLabel('原面料')).toHaveValue(originalMaterialId)
+  await expect(page.getByLabel('新面料')).toHaveValue(replacementMaterialId)
 }
 
 async function readSuggestedProductionQty(page: Page): Promise<number> {
@@ -144,6 +163,35 @@ async function expectNoDocumentOverflow(page: Page): Promise<void> {
   expect(metrics.bodyScrollWidth).toBeLessThanOrEqual(metrics.bodyClientWidth)
 }
 
+async function expectControlInViewport(control: Locator): Promise<void> {
+  await control.scrollIntoViewIfNeeded()
+  await expect(control).toBeVisible()
+  await expect(control).toBeInViewport()
+}
+
+async function expectNoUnexpectedClipping(container: Locator): Promise<void> {
+  await container.scrollIntoViewIfNeeded()
+  await expect(container).toBeVisible()
+  await expect(container).toBeInViewport()
+  const metrics = await container.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return {
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      overflowX: style.overflowX,
+      overflowY: style.overflowY,
+    }
+  })
+  expect(
+    metrics.scrollWidth > metrics.clientWidth + 1 && ['hidden', 'clip'].includes(metrics.overflowX),
+  ).toBe(false)
+  expect(
+    metrics.scrollHeight > metrics.clientHeight + 1 && ['hidden', 'clip'].includes(metrics.overflowY),
+  ).toBe(false)
+}
+
 async function expectNoForbiddenCopy(page: Page): Promise<void> {
   for (const copy of forbiddenCopy) {
     await expect(page.getByText(copy, { exact: false })).toHaveCount(0)
@@ -151,6 +199,12 @@ async function expectNoForbiddenCopy(page: Page): Promise<void> {
 }
 
 async function expectNoOverlap(left: Locator, right: Locator): Promise<void> {
+  await left.scrollIntoViewIfNeeded()
+  await right.scrollIntoViewIfNeeded()
+  await expect(left).toBeVisible()
+  await expect(right).toBeVisible()
+  await expect(left).toBeInViewport()
+  await expect(right).toBeInViewport()
   const [leftBox, rightBox] = await Promise.all([left.boundingBox(), right.boundingBox()])
   expect(leftBox).not.toBeNull()
   expect(rightBox).not.toBeNull()
@@ -165,7 +219,10 @@ async function expectNoOverlap(left: Locator, right: Locator): Promise<void> {
 
 test('数量变更完成四步闭环并进入同一记录的五模块详情', async ({ page }) => {
   const reason = 'E2E 数量调整：取消一条、逐条调整并新增 XXL 明细。'
-  await openContent(page, 'quantity')
+  await page.goto('/fcs/production/changes')
+  const recordIdsBefore = await readProductionChangeRecordIds(page)
+  await page.getByRole('button', { name: '新增变更' }).click()
+  await selectProductionOrderAndOpenContent(page, 'quantity')
   await fillQuantityChange(page, reason, true)
   await expectNoForbiddenCopy(page)
 
@@ -190,9 +247,8 @@ test('数量变更完成四步闭环并进入同一记录的五模块详情', as
 
   await page.getByRole('button', { name: '返回列表' }).click()
   await expectNoForbiddenCopy(page)
-  const recordCell = page.getByText(/^BG-\d{8}-\d{3}$/).filter({ hasNotText: 'BG-20260710' })
-  await expect(recordCell).toHaveCount(1)
-  const recordId = (await recordCell.textContent())!.trim()
+  const recordIdsAfter = await readProductionChangeRecordIds(page)
+  const recordId = getOnlyNewRecordId(recordIdsBefore, recordIdsAfter)
   const recordRow = page.getByRole('row').filter({ has: page.getByText(recordId, { exact: true }) })
   await expect(recordRow).toContainText('修改生产单需求数量')
   await expect(recordRow).toContainText('已完成')
@@ -247,7 +303,16 @@ const materialCases = [
 
 for (const materialCase of materialCases) {
   test(`物料组合生效：${materialCase.label}`, async ({ page }) => {
-    await openContent(page, 'material')
+    const verifiesSavedRecord = materialCase.mode === 'FULL' && materialCase.scope === 'CURRENT_AND_FOLLOWING'
+    let recordIdsBefore = new Set<string>()
+    if (verifiesSavedRecord) {
+      await page.goto('/fcs/production/changes')
+      recordIdsBefore = await readProductionChangeRecordIds(page)
+      await page.getByRole('button', { name: '新增变更' }).click()
+      await selectProductionOrderAndOpenContent(page, 'material')
+    } else {
+      await openContent(page, 'material')
+    }
     await selectMaterialFacts(page)
     await chooseMaterialPlan(page, materialCase.mode, materialCase.scope)
     await page.getByLabel('变更原因').fill(`E2E ${materialCase.label}`)
@@ -278,14 +343,13 @@ for (const materialCase of materialCases) {
     await expect(page.getByLabel('执行前核对')).toContainText(materialCase.expectedResult)
     await expectNoForbiddenCopy(page)
 
-    if (materialCase.mode === 'FULL' && materialCase.scope === 'CURRENT_AND_FOLLOWING') {
+    if (verifiesSavedRecord) {
       await page.getByRole('button', { name: '确认执行' }).click()
       await expect(page.getByText('全部处理成功并已统一生效。')).toBeVisible()
       await page.getByRole('button', { name: '返回列表' }).click()
-      const createdRow = page.getByRole('row').filter({
-        has: page.getByText(/^BG-\d{8}-\d{3}$/).filter({ hasNotText: 'BG-20260710' }),
-      })
-      await expect(createdRow).toHaveCount(1)
+      const recordIdsAfter = await readProductionChangeRecordIds(page)
+      const recordId = getOnlyNewRecordId(recordIdsBefore, recordIdsAfter)
+      const createdRow = page.getByRole('row').filter({ has: page.getByText(recordId, { exact: true }) })
       await expect(createdRow).toContainText('替换物料')
       await expect(createdRow).toContainText('正式版本绑定调整')
     }
@@ -294,12 +358,9 @@ for (const materialCase of materialCases) {
 
 test('可见失败入口全部回滚，重试复用同一变更单', async ({ page }) => {
   await page.goto('/fcs/production/changes')
-  await expect(page.getByRole('heading', { name: '变更单列表', exact: true })).toBeVisible()
-  const initialRows = await productionChangeListRows(page).count()
-  expect(initialRows).toBeGreaterThan(0)
+  const recordIdsBefore = await readProductionChangeRecordIds(page)
   await page.getByRole('button', { name: '新增变更' }).click()
-  await page.getByLabel('选择生产单').selectOption({ index: 1 })
-  await page.getByRole('button', { name: '下一步' }).click()
+  await selectProductionOrderAndOpenContent(page, 'quantity')
   await fillQuantityChange(page, 'E2E 原子回滚后重试。', false)
   await moveToExecution(page)
 
@@ -313,18 +374,21 @@ test('可见失败入口全部回滚，重试复用同一变更单', async ({ pa
   await expect(page.getByText('全部回滚', { exact: true })).toBeVisible()
 
   await page.getByRole('button', { name: '返回列表' }).click()
-  await expect(productionChangeListRows(page)).toHaveCount(initialRows + 1)
-  const createdCell = page.getByText(/^BG-\d{8}-\d{3}$/).filter({ hasNotText: 'BG-20260710' })
-  await expect(createdCell).toHaveCount(1)
-  const recordId = (await createdCell.textContent())!.trim()
+  const recordIdsAfterFailure = await readProductionChangeRecordIds(page)
+  const recordId = getOnlyNewRecordId(recordIdsBefore, recordIdsAfterFailure)
+  const rolledBackRow = page.getByRole('row').filter({ has: page.getByText(recordId, { exact: true }) })
+  await expect(rolledBackRow).toContainText('已回滚')
   await page.goBack()
   await expect(page.getByRole('button', { name: '重新执行' })).toBeVisible()
   await page.getByRole('button', { name: '重新执行' }).click()
   await expect(page.getByText('全部处理成功并已统一生效。')).toBeVisible()
 
   await page.getByRole('button', { name: '返回列表' }).click()
-  await expect(productionChangeListRows(page)).toHaveCount(initialRows + 1)
+  const recordIdsAfterRetry = await readProductionChangeRecordIds(page)
+  expect([...recordIdsAfterRetry].sort()).toEqual([...recordIdsAfterFailure].sort())
   await expect(page.getByText(recordId, { exact: true })).toHaveCount(1)
+  const completedRow = page.getByRole('row').filter({ has: page.getByText(recordId, { exact: true }) })
+  await expect(completedRow).toContainText('已完成')
 })
 
 test('两张表单及第三第四步在双视口无页面溢出、关键控件不重叠且无旧文案', async ({ page }) => {
@@ -332,38 +396,60 @@ test('两张表单及第三第四步在双视口无页面溢出、关键控件�
     await page.setViewportSize(viewport)
     await openContent(page, 'quantity')
     await expectNoDocumentOverflow(page)
+    await expectNoUnexpectedClipping(productionChangeBody(page))
     await expectNoForbiddenCopy(page)
     await expectNoOverlap(
       page.getByRole('button', { name: '修改生产单需求数量', exact: true }),
       page.getByRole('button', { name: '替换物料', exact: true }),
     )
+    await expectControlInViewport(page.getByRole('button', { name: '新增明细' }))
+    await expectControlInViewport(productionChangeBody(page).locator('[data-prod-field="productionChangeQuantityTargetQty"]').first())
+    await expectControlInViewport(page.getByLabel('变更原因'))
 
     await openContent(page, 'material')
     await selectMaterialFacts(page)
     await chooseMaterialPlan(page, 'FULL', 'CURRENT_AND_FOLLOWING')
     await expectNoDocumentOverflow(page)
+    await expectNoUnexpectedClipping(productionChangeBody(page))
     await expectNoForbiddenCopy(page)
     await expectNoOverlap(page.getByLabel('原面料'), page.getByLabel('新面料'))
     await expectNoOverlap(
       page.getByRole('button', { name: '剩余数量替换', exact: true }),
       page.getByRole('button', { name: '全部数量替换', exact: true }),
     )
+    await expectNoOverlap(
+      page.getByRole('button', { name: '只处理当前生产单', exact: true }),
+      page.getByRole('button', { name: '后续生产单也替换', exact: true }),
+    )
+    await expectControlInViewport(page.getByLabel('跟单确认用于生产的数量'))
+    await expectControlInViewport(page.getByLabel('变更原因'))
     await page.getByLabel('变更原因').fill(`E2E ${viewport.width} 视口布局验收。`)
 
     await page.getByRole('button', { name: '下一步' }).click()
     await expect(productionChangeBody(page)).toHaveAttribute('data-production-change-form-body', 'handling')
     await expectNoDocumentOverflow(page)
+    await expectNoUnexpectedClipping(productionChangeBody(page))
     await expectNoForbiddenCopy(page)
     const firstDecision = page.locator('select[data-prod-field="productionChangeDecisionValue"]').first()
-    await expect(firstDecision).toBeVisible()
-    await expectNoOverlap(firstDecision, page.getByRole('button', { name: '下一步' }))
+    await expectControlInViewport(firstDecision)
+    const handlingSummary = page.getByLabel('处理方案摘要')
+    await expectNoOverlap(
+      handlingSummary.locator(':scope > div').filter({ hasText: '最终变更类型' }),
+      handlingSummary.locator(':scope > div').filter({ hasText: '数量与物料' }),
+    )
 
     await completeVisibleDecisions(page, 'FULL')
     await page.getByRole('button', { name: '下一步' }).click()
     await expect(productionChangeBody(page)).toHaveAttribute('data-production-change-form-body', 'execution')
     await expectNoDocumentOverflow(page)
+    await expectNoUnexpectedClipping(productionChangeBody(page))
     await expectNoForbiddenCopy(page)
-    await expect(page.getByRole('button', { name: '确认执行' })).toBeVisible()
+    const executionSummary = page.getByLabel('执行前核对')
+    await expectNoOverlap(
+      executionSummary.locator(':scope > div').filter({ hasText: '最终变更类型' }),
+      executionSummary.locator(':scope > div').filter({ hasText: '变更原因' }),
+    )
+    await expectControlInViewport(page.getByRole('button', { name: '确认执行' }))
   }
 })
 
