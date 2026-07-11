@@ -780,6 +780,8 @@ export function renderProductionChangeExecutionStep(form: ProductionChangeForm):
       <section class="rounded-md border bg-muted/20 px-4 py-3 text-sm">
         <p class="font-medium">当前尚未执行，变更尚未正式生效。</p>
         <p class="mt-1 text-muted-foreground">确认执行后，系统会在同一次操作内锁定处理范围并返回最终结果。</p>
+        <p class="mt-2 text-muted-foreground">执行期间，其他操作统一提示：</p>
+        <p class="mt-1 font-medium">${escapeHtml(getProductionChangeLockMessage())}</p>
       </section>
     `
     : isRunning
