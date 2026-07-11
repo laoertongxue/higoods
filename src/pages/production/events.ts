@@ -73,13 +73,17 @@ import {
 import {
   areMaterialSelectionsEquivalent,
   buildMaterialReplacementAllocations,
+  buildProductionChangeRecord,
   createFollowingOrderPlans,
+  createNextProductionChangeRecordId,
   createQuantityLinesForOrder,
   createProductionChangeRolledBackResult,
   executeProductionChange,
   getProductionChangeDecisionSuggestedValue,
+  listAffectedDocumentNosForOrder,
   listReplacementMaterialOptions,
   normalizeMaterialReplacementAllocations,
+  saveProductionChangeRecord,
   validateProductionChangeDecisions,
 } from '../../data/fcs/production-order-change-workflow.ts'
 import {
@@ -547,6 +551,29 @@ export function executeProductionChangeForForm(
   } catch {
     form.execution = createProductionChangeRolledBackResult(preview)
   }
+  const now = new Date()
+  const createdAt = [
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+    `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+  ].join(' ')
+  const record = buildProductionChangeRecord(
+    createNextProductionChangeRecordId(),
+    {
+      productionOrderId: form.productionOrderId,
+      changeType: form.changeType,
+      reason: form.reason,
+      quantityLines: structuredClone(form.quantityLines),
+      materialReplacement: form.changeType === 'MATERIAL_REPLACEMENT'
+        ? structuredClone(form.materialReplacement)
+        : null,
+      decisionValues: structuredClone(form.decisionValues),
+      affectedDocumentNos: listAffectedDocumentNosForOrder(form.productionOrderId),
+    },
+    form.execution.status === 'DONE' ? 'DONE' : 'ROLLED_BACK',
+    createdAt,
+  )
+  record.execution = structuredClone(form.execution)
+  saveProductionChangeRecord(record)
   return { executed: true, step: 'execution', error: '' }
 }
 

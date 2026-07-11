@@ -569,6 +569,24 @@ export interface ProductionChangePreview {
 
 export type ProductionChangeStatus = 'DRAFT' | 'READY' | 'EXECUTING' | 'DONE' | 'ROLLED_BACK'
 
+export const productionChangeStatusLabels: Record<ProductionChangeStatus, string> = {
+  DRAFT: '草稿',
+  READY: '待确认执行',
+  EXECUTING: '同步执行中',
+  DONE: '已完成',
+  ROLLED_BACK: '已回滚',
+}
+
+export interface ProductionChangeDocumentTrace {
+  changeOrderId: string
+  documentNo: string
+  documentTypeLabel: string
+  beforeText: string
+  afterText: string
+  handlingText: string
+  executedAt: string
+}
+
 export interface ProductionChangeRecord extends ProductionChangeDraft {
   id: string
   result: ProductionChangeResult
@@ -583,6 +601,7 @@ export interface ProductionChangeRecord extends ProductionChangeDraft {
   }
   createdBy: string
   createdAt: string
+  documentTraces: ProductionChangeDocumentTrace[]
 }
 
 const activeProductionChangeLocks = new Set<string>()
@@ -1056,4 +1075,211 @@ export function validateProductionChangeDecisions(preview: ProductionChangePrevi
         (item.reasonRequired && item.reason.trim().length === 0),
     )
     .map((item) => item.id)
+}
+
+function createRecordExecution(
+  status: ProductionChangeStatus,
+): ProductionChangeRecord['execution'] {
+  if (status === 'DONE') {
+    return {
+      status: 'DONE',
+      message: '全部处理成功并已统一生效。',
+      progress: 100,
+      steps: [
+        { id: 'LOCK', label: '锁定处理范围', status: 'DONE' },
+        { id: 'FACTS', label: '最后核对当前事实', status: 'DONE' },
+        { id: 'CHANGE', label: '执行全部处理动作', status: 'DONE' },
+        { id: 'TRACE', label: '写入双向留痕', status: 'DONE' },
+        { id: 'COMMIT', label: '统一提交', status: 'DONE' },
+      ],
+    }
+  }
+  if (status === 'ROLLED_BACK') {
+    return {
+      status: 'ROLLED_BACK',
+      message: '执行失败，本次没有修改任何单据。',
+      progress: 100,
+      steps: [
+        { id: 'LOCK', label: '锁定处理范围', status: 'ROLLED_BACK' },
+        { id: 'FACTS', label: '最后核对当前事实', status: 'ROLLED_BACK' },
+        { id: 'CHANGE', label: '执行全部处理动作', status: 'ROLLED_BACK' },
+        { id: 'TRACE', label: '写入双向留痕', status: 'ROLLED_BACK' },
+        { id: 'COMMIT', label: '全部回滚', status: 'ROLLED_BACK' },
+      ],
+    }
+  }
+  return {
+    status: status === 'EXECUTING' ? 'RUNNING' : 'IDLE',
+    message: status === 'EXECUTING' ? getProductionChangeLockMessage() : '',
+    progress: 0,
+    steps: [],
+  }
+}
+
+function summarizeQuantityChange(
+  draft: ProductionChangeDraft,
+): { beforeText: string; afterText: string } {
+  const changedLines = draft.quantityLines.filter(
+    (line) => line.isNew || line.currentQty !== line.targetQty,
+  )
+  if (changedLines.length === 0) {
+    return { beforeText: '需求明细数量未变化', afterText: '需求明细数量未变化' }
+  }
+  return {
+    beforeText: changedLines
+      .map((line) => `${line.color}/${line.size} ${line.currentQty} ${line.unit}`)
+      .join('；'),
+    afterText: changedLines
+      .map((line) => `${line.color}/${line.size} ${line.targetQty} ${line.unit}`)
+      .join('；'),
+  }
+}
+
+function getTraceHandlingText(draft: ProductionChangeDraft, status: ProductionChangeStatus): string {
+  if (status === 'ROLLED_BACK') return '同步执行失败，全部回滚，单据保持变更前内容'
+  const decisions = Object.values(draft.decisionValues)
+    .filter((decision) => decision.value.trim())
+    .map((decision) => decision.reason.trim() ? `${decision.value}（${decision.reason.trim()}）` : decision.value)
+  return decisions.length > 0
+    ? `跟单决定：${decisions.join('；')}`
+    : '系统按当前事实自动处理未执行部分'
+}
+
+function buildProductionChangeDocumentTraces(
+  id: string,
+  draft: ProductionChangeDraft,
+  status: ProductionChangeStatus,
+  executedAt: string,
+): ProductionChangeDocumentTrace[] {
+  const currentFacts = getProductionOrderChangeCurrentFacts(draft.productionOrderId)
+  const documentNos = sanitizeObjectIds(
+    draft.affectedDocumentNos?.length
+      ? draft.affectedDocumentNos
+      : currentFacts?.documentFacts.slice(0, 3).map((fact) => fact.documentNo),
+  )
+  const factByDocumentNo = new Map(
+    (currentFacts?.documentFacts ?? []).map((fact) => [fact.documentNo, fact]),
+  )
+  const quantitySummary = summarizeQuantityChange(draft)
+  const material = draft.materialReplacement
+  const beforeText = draft.changeType === 'QUANTITY_CHANGE'
+    ? quantitySummary.beforeText
+    : `原物料：${material?.originalMaterialId || '未记录'}`
+  const afterText = status === 'ROLLED_BACK'
+    ? beforeText
+    : draft.changeType === 'QUANTITY_CHANGE'
+      ? quantitySummary.afterText
+      : `新物料：${material?.replacementMaterialId || '未记录'}，替换 ${material?.confirmedProductionQty ?? 0} 件`
+
+  return documentNos.map((documentNo) => ({
+    changeOrderId: id,
+    documentNo,
+    documentTypeLabel: factByDocumentNo.get(documentNo)?.group ?? '关联单据',
+    beforeText,
+    afterText,
+    handlingText: getTraceHandlingText(draft, status),
+    executedAt: status === 'DONE' || status === 'ROLLED_BACK' ? executedAt : '尚未执行',
+  }))
+}
+
+export function buildProductionChangeRecord(
+  id: string,
+  draft: ProductionChangeDraft,
+  status: ProductionChangeStatus,
+  createdAt: string,
+): ProductionChangeRecord {
+  const copiedDraft = structuredClone(draft)
+  const preview = buildProductionChangePreview(copiedDraft)
+  return {
+    ...copiedDraft,
+    id,
+    result: preview.result,
+    resultReason: preview.resultReason,
+    status,
+    preview,
+    execution: createRecordExecution(status),
+    createdBy: '陈静',
+    createdAt,
+    documentTraces: buildProductionChangeDocumentTraces(id, copiedDraft, status, createdAt),
+  }
+}
+
+function buildProductionChangeSeedRecords(): ProductionChangeRecord[] {
+  const productionOrderId = listProductionOrderTechPackRelations()
+    .map((relation) => relation.productionOrderId)
+    .find((orderId) => createQuantityLinesForOrder(orderId).length > 0) ?? 'PO-202603-0004'
+  const affectedDocumentNos = listAffectedDocumentNosForOrder(productionOrderId).slice(0, 3)
+  const quantityLines = createQuantityLinesForOrder(productionOrderId)
+  if (quantityLines[0]) quantityLines[0].targetQty += 20
+  const quantityDraft: ProductionChangeDraft = {
+    productionOrderId,
+    changeType: 'QUANTITY_CHANGE',
+    reason: '追加黑色小码需求数量。',
+    quantityLines,
+    materialReplacement: null,
+    decisionValues: {},
+    affectedDocumentNos,
+  }
+  const materialOptions = listReplacementMaterialOptions()
+  const materialDraft: ProductionChangeDraft = {
+    productionOrderId,
+    changeType: 'MATERIAL_REPLACEMENT',
+    reason: '原面料不足，剩余数量改用新面料。',
+    quantityLines: createQuantityLinesForOrder(productionOrderId),
+    materialReplacement: {
+      ...createEmptyMaterialReplacementDraft(),
+      originalMaterialId: materialOptions[0]?.value ?? '',
+      replacementMaterialId: materialOptions[1]?.value ?? materialOptions[0]?.value ?? '',
+      replacementMode: 'REMAINING',
+      scope: 'CURRENT_AND_FOLLOWING',
+      suggestedProductionQty: 220,
+      confirmedProductionQty: 220,
+      allocations: buildMaterialReplacementAllocations(productionOrderId, 220),
+      followingOrders: createFollowingOrderPlans(productionOrderId),
+    },
+    decisionValues: {},
+    affectedDocumentNos,
+  }
+  const rolledBackDraft: ProductionChangeDraft = {
+    ...structuredClone(quantityDraft),
+    reason: '缩减藏青色大码数量，执行时当前事实发生变化。',
+  }
+  if (rolledBackDraft.quantityLines[1]) {
+    rolledBackDraft.quantityLines[1].targetQty = Math.max(
+      rolledBackDraft.quantityLines[1].currentQty - 10,
+      0,
+    )
+  }
+  return [
+    buildProductionChangeRecord('BG-20260710-001', quantityDraft, 'DONE', '2026-07-10 09:20'),
+    buildProductionChangeRecord('BG-20260710-002', materialDraft, 'READY', '2026-07-10 10:15'),
+    buildProductionChangeRecord('BG-20260710-003', rolledBackDraft, 'ROLLED_BACK', '2026-07-10 11:05'),
+  ]
+}
+
+let productionChangeRecords = buildProductionChangeSeedRecords()
+
+export function listProductionChangeRecords(): ProductionChangeRecord[] {
+  return structuredClone(productionChangeRecords)
+}
+
+export function getProductionChangeRecord(id: string): ProductionChangeRecord | null {
+  const record = productionChangeRecords.find((item) => item.id === id.trim())
+  return record ? structuredClone(record) : null
+}
+
+export function saveProductionChangeRecord(record: ProductionChangeRecord): void {
+  const copiedRecord = structuredClone(record)
+  productionChangeRecords = [
+    copiedRecord,
+    ...productionChangeRecords.filter((item) => item.id !== copiedRecord.id),
+  ]
+}
+
+export function createNextProductionChangeRecordId(): string {
+  const nextSequence = productionChangeRecords.reduce((maxSequence, record) => {
+    const matched = record.id.match(/^BG-\d{8}-(\d+)$/)
+    return matched ? Math.max(maxSequence, Number(matched[1])) : maxSequence
+  }, 0) + 1
+  return `BG-20260711-${String(nextSequence).padStart(3, '0')}`
 }
