@@ -27,6 +27,7 @@ import {
   TEST_FACTORY_NAME,
 } from './factory-mock-data.ts'
 import type { TaskDetailRow } from './task-detail-rows.ts'
+import { installRuntimeSewingReassignmentCommit } from './runtime-sewing-reassignment-internal.ts'
 import {
   listTaskAllocatableGroups,
   resolveTaskSplitDecision,
@@ -2838,7 +2839,7 @@ export function applyRuntimeDirectDispatchMeta(input: RuntimeDirectDispatchMetaI
   }
 }
 
-export function commitRuntimeSewingTaskReassignment(
+function commitRuntimeSewingTaskReassignment(
   input: RuntimeSewingTaskReassignmentInput,
 ): RuntimeSewingTaskReassignmentResult {
   const runtimeState = captureRuntimeDirectDispatchState()
@@ -2950,6 +2951,8 @@ export function commitRuntimeSewingTaskReassignment(
     return { ok: false, message: error instanceof Error ? error.message : '改派失败' }
   }
 }
+
+installRuntimeSewingReassignmentCommit(commitRuntimeSewingTaskReassignment)
 
 function parseRuntimeDateLike(value: string): number {
   if (!value) return Number.NaN

@@ -1,9 +1,9 @@
 import {
-  commitRuntimeSewingTaskReassignment,
   captureRuntimeDirectDispatchState,
   restoreRuntimeDirectDispatchState,
   type RuntimeSewingTaskReassignmentResult,
 } from './runtime-process-tasks.ts'
+import { invokeRuntimeSewingReassignmentCommit } from './runtime-sewing-reassignment-internal.ts'
 import { sumSewingDeliveryConfirmedReceiptQty } from './sewing-delivery-receipt-facts.ts'
 import { captureSewingDeliverySlaSnapshotStore, restoreSewingDeliverySlaSnapshotStore } from './sewing-delivery-sla.ts'
 
@@ -24,7 +24,7 @@ export function reassignRuntimeSewingTask(
   const runtimeState = captureRuntimeDirectDispatchState()
   const slaState = captureSewingDeliverySlaSnapshotStore()
   try {
-    const result = commitRuntimeSewingTaskReassignment({
+    const result = invokeRuntimeSewingReassignmentCommit({
       ...input,
       confirmedReceivedQty: sumSewingDeliveryConfirmedReceiptQty(input.sourceTaskId),
     })

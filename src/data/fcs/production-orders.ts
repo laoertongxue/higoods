@@ -715,6 +715,8 @@ export function withdrawProductionOrderSewingFactory(input: {
   const nextSnapshots = getProductionOrderSewingFactorySnapshots(order)
     .filter((factory) => activeIds.has(factory.id))
   const candidates = nextSnapshots
+  const previousMainFactoryId = order.mainFactoryId
+  const previousMainFactoryName = formatProductionOrderMainFactoryName(order)
   const retainedMain = candidates.find((factory) => factory.id === order.mainFactoryId)
   if (!retainedMain && candidates.length > 1 && !input.mainFactoryId) return null
   const explicitlySelected = input.mainFactoryId
@@ -731,17 +733,25 @@ export function withdrawProductionOrderSewingFactory(input: {
     order.mainFactoryStatus = 'CONFIRMED'
     order.ownerPartyType = 'FACTORY'
     order.ownerPartyId = selected.id
+    order.mainFactorySource = 'SEWING_TASK_ASSIGNMENT'
+    order.mainFactoryConfirmedAt = input.at
+    order.mainFactoryConfirmedBy = input.by
+    order.ownerReason = input.reason.trim()
   } else {
     order.mainFactoryId = ''
     order.mainFactorySnapshot = createPendingMainFactorySnapshot()
     order.mainFactoryStatus = 'PENDING_SEWING_ASSIGNMENT'
     order.ownerPartyId = ''
+    order.mainFactorySource = 'SEWING_TASK_ASSIGNMENT'
+    order.mainFactoryConfirmedAt = undefined
+    order.mainFactoryConfirmedBy = undefined
+    order.ownerReason = `车缝任务改派后暂无有效承接工厂。原因：${input.reason.trim()}`
   }
   order.updatedAt = input.at
   order.auditLogs.push(createAuditLog(
     `LOG-SEWING-REASSIGN-${order.productionOrderId}-${order.auditLogs.length + 1}`,
     'SEWING_FACTORY_WITHDRAWN',
-    `改派撤回原车缝工厂 ${input.factoryId}。原因：${input.reason.trim()}`,
+    `车缝任务改派后主工厂调整：${previousMainFactoryName}（${previousMainFactoryId || '无'}） → ${selected ? `${selected.name}（${selected.id}）` : '待确认'}。撤回工厂：${input.factoryId}。原因：${input.reason.trim()}`,
     input.at,
     input.by,
   ))

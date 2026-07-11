@@ -46,7 +46,7 @@ type KitFilter = '全部' | SewingDispatchKitStatus
 type GapFilter = '全部' | SewingDispatchGapType
 type MarkerFilter = '全部' | '跨生产单' | '单生产单'
 
-interface SewingDispatchWorkbenchState {
+export interface SewingDispatchWorkbenchState {
   keyword: string
   kitFilter: KitFilter
   gapFilter: GapFilter
@@ -96,6 +96,14 @@ const state: SewingDispatchWorkbenchState = {
   reassignError: '',
   reassignQueryHandled: false,
   reassignMainFactoryId: '',
+}
+
+export function captureSewingDispatchWorkbenchPageState(): SewingDispatchWorkbenchState {
+  return structuredClone(state)
+}
+
+export function restoreSewingDispatchWorkbenchPageState(snapshot: SewingDispatchWorkbenchState): void {
+  Object.assign(state, structuredClone(snapshot))
 }
 
 function renderReassignmentDialog(): string {
@@ -1275,7 +1283,10 @@ function openDispatch(taskId: string | undefined, type: string | undefined): voi
 
 export function handleSewingDispatchWorkbenchEvent(target: HTMLElement): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-sewing-dispatch-field]')
-  if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLSelectElement) {
+  if (
+    (typeof HTMLInputElement !== 'undefined' && fieldNode instanceof HTMLInputElement)
+    || (typeof HTMLSelectElement !== 'undefined' && fieldNode instanceof HTMLSelectElement)
+  ) {
     const field = fieldNode.dataset.sewingDispatchField
     if (!field) return true
     updateField(field, fieldNode)
