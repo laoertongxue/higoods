@@ -65,6 +65,7 @@ import {
   getDyeExecutionRoute,
   getDyeWorkOrderById,
   getDyeWorkOrderByTaskId,
+  listCreatedDyeWorkOrders,
   listDyeWorkOrders,
   resolveDyeWaterSolublePause,
   startDyeWaterSolubleNode,
@@ -1284,6 +1285,32 @@ try {
       sourceArtifactId: `${waterDemand.sourceArtifactId}-${suffix}`,
       ...overrides,
     })
+    const assertInvalidDemandLeavesNoMutation = (suffix: string, invalidDemand: ReturnType<typeof cloneDyeDemand>) => {
+      const orderCount = listDyeWorkOrders().length
+      const registryCount = listCreatedDyeWorkOrders().length
+      const pdaCount = listPdaMobileExecutionTasks().length
+      const result = createDyeWorkOrderFromDemands({
+        demands: [cloneDyeDemand(`${suffix}-VALID`, { requiredQty: 10 }), invalidDemand],
+        factoryId: 'DYE-WATER-CAP-BOTH',
+        plannedFinishAt: '2026-07-20 18:00:00',
+      })
+      assert.equal(result.ok, false, `${suffix} 非法需求必须创建失败`)
+      assert.equal(listDyeWorkOrders().length, orderCount, `${suffix} 失败不得新增领域加工单`)
+      assert.equal(listCreatedDyeWorkOrders().length, registryCount, `${suffix} 失败不得新增注册表条目`)
+      assert.equal(listPdaMobileExecutionTasks().length, pdaCount, `${suffix} 失败不得新增 PDA 任务`)
+    }
+    assertInvalidDemandLeavesNoMutation('负数数量', cloneDyeDemand('NEGATIVE', { requiredQty: -1 }))
+    assertInvalidDemandLeavesNoMutation('零数量', cloneDyeDemand('ZERO', { requiredQty: 0 }))
+    assertInvalidDemandLeavesNoMutation('NaN 数量', cloneDyeDemand('NAN', { requiredQty: Number.NaN }))
+    assertInvalidDemandLeavesNoMutation('Infinity 数量', cloneDyeDemand('INFINITY', { requiredQty: Number.POSITIVE_INFINITY }))
+    assertInvalidDemandLeavesNoMutation('空白单位', cloneDyeDemand('BLANK-UNIT', { requiredQty: 1, unit: '   ' }))
+    const trimmedUnitCreated = createDyeWorkOrderFromDemands({
+      demands: [cloneDyeDemand('TRIM-A', { requiredQty: 4, unit: ' 米 ' }), cloneDyeDemand('TRIM-B', { requiredQty: 6, unit: '米' })],
+      factoryId: 'DYE-WATER-CAP-BOTH',
+      plannedFinishAt: '2026-07-20 18:00:00',
+    })
+    assert.equal(trimmedUnitCreated.order?.plannedQty, 10, '前后空格单位规范后必须允许同单位合单')
+    assert.equal(trimmedUnitCreated.order?.qtyUnit, '米', '加工单必须写入 trim 后规范单位')
     const mobileCountBeforeInvalidCreate = listPdaMobileExecutionTasks().length
     assert.equal(createDyeWorkOrderFromDemands({ demands: [waterDemand, waterDemand], factoryId: 'DYE-WATER-CAP-BOTH', plannedFinishAt: '2026-07-20 18:00:00' }).ok, false, '重复选择同一需求不得翻倍创建')
     assert.equal(listPdaMobileExecutionTasks().length, mobileCountBeforeInvalidCreate, '重复需求校验失败不得残留 PDA 任务')

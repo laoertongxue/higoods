@@ -2482,12 +2482,19 @@ export function createDyeWorkOrderFromDemands(input: {
   plannedQty?: number
   sampleWaitType?: SampleWaitType
 }): { ok: boolean; message: string; order?: DyeWorkOrder } {
+  if (input.demands.some((item) => !Number.isFinite(item.requiredQty) || item.requiredQty <= 0)) {
+    return { ok: false, message: '每条染色需求数量都必须是大于 0 的有效数字。' }
+  }
+  const normalizedUnits = input.demands.map((item) => item.unit.trim())
+  if (normalizedUnits.some((unit) => !unit)) {
+    return { ok: false, message: '每条染色需求都必须填写数量单位。' }
+  }
   const demandIds = input.demands.map((item) => item.demandId)
   const artifactIds = input.demands.flatMap((item) => item.sourceArtifactId ? [item.sourceArtifactId] : [])
   if (new Set(demandIds).size !== demandIds.length || new Set(artifactIds).size !== artifactIds.length) {
     return { ok: false, message: '所选染色需求存在重复，请重新选择。' }
   }
-  const units = new Set(input.demands.map((item) => item.unit.trim()))
+  const units = new Set(normalizedUnits)
   if (units.size > 1) return { ok: false, message: '不同数量单位的染色需求不能合并创建加工单。' }
   const consumedDemandIds = new Set(listDyeWorkOrders().flatMap((order) => order.sourceDemandIds))
   const consumedArtifactIds = new Set(listDyeWorkOrders().flatMap((order) => order.sourceArtifactIds || []))
@@ -2498,6 +2505,7 @@ export function createDyeWorkOrderFromDemands(input: {
   if (!capability.ok) return capability
   const factory = getFactoryMasterRecordById(input.factoryId)!
   const requiresWaterSoluble = input.demands[0]?.requiresWaterSoluble === true
+  const normalizedUnit = normalizedUnits[0]
   const sampleWaitType = input.sampleWaitType ?? 'NONE'
   const requiresSample = sampleWaitType !== 'NONE'
   const plannedQty = input.demands.reduce((sum, item) => sum + item.requiredQty, 0)
@@ -2528,7 +2536,7 @@ export function createDyeWorkOrderFromDemands(input: {
     acceptanceStatus: 'ACCEPTED',
     qty: plannedQty,
     qtyUnit: 'METER',
-    qtyDisplayUnit: input.demands[0]?.unit || '米',
+    qtyDisplayUnit: normalizedUnit,
     createdAt: now,
     updatedAt: now,
     startedAt: undefined,
@@ -2553,11 +2561,11 @@ export function createDyeWorkOrderFromDemands(input: {
     rawMaterialSku: input.demands.map((item) => item.materialName).join('、'),
     targetColor: '按需求目标色执行',
     plannedQty,
-    qtyUnit: input.demands[0]?.unit || '米',
+    qtyUnit: normalizedUnit,
     requiresWaterSoluble,
     waterSolublePlannedQty: requiresWaterSoluble ? plannedQty : undefined,
     waterSolubleCompletedQty: requiresWaterSoluble ? 0 : undefined,
-    waterSolubleQtyUnit: requiresWaterSoluble ? (input.demands[0]?.unit || '米') : undefined,
+    waterSolubleQtyUnit: requiresWaterSoluble ? normalizedUnit : undefined,
     dyeFactoryId: factory.id,
     dyeFactoryName: factory.name,
     targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
