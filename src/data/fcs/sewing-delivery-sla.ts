@@ -44,7 +44,7 @@ export interface SewingDeliverySlaSnapshot {
 export interface SewingDeliveryReceiptFact {
   recordId: string
   submittedQty: number
-  submittedAt?: string
+  submittedAt: string
   receivedQty: number
   receivedAt: string
   voided?: boolean
@@ -457,6 +457,7 @@ export function projectSewingDeliverySla(
   snapshot.milestones.forEach((milestone) => parseDateTime(milestone.deadlineAt, '节点截止时间'))
   parseDateTime(nowAt, '当前时间')
   receipts.forEach((receipt) => {
+    if (!receipt.submittedAt) return
     assertNonNegativeFiniteNumber(receipt.submittedQty, '交出数量')
     assertNonNegativeFiniteNumber(receipt.receivedQty, '实收数量')
     const reversedQty = receipt.reversedQty ?? 0
@@ -464,7 +465,7 @@ export function projectSewingDeliverySla(
     if (reversedQty > receipt.receivedQty) {
       throw new Error('冲销数量不能超过实收数量')
     }
-    if (receipt.submittedAt) parseDateTime(receipt.submittedAt, '交出时间')
+    parseDateTime(receipt.submittedAt, '交出时间')
     parseDateTime(receipt.receivedAt, '实收时间')
   })
   const projectionSnapshot = cloneAndFreezeSnapshot(snapshot)
@@ -474,8 +475,10 @@ export function projectSewingDeliverySla(
   }))
   const visibleReceiptByRecordId = new Map<string, SewingDeliveryReceiptFact>()
   receipts
-    .filter((receipt) => receipt.receivedAt <= nowAt
-      && (!receipt.submittedAt || (receipt.submittedAt <= nowAt && receipt.submittedAt <= receipt.receivedAt)))
+    .filter((receipt) => Boolean(receipt.submittedAt)
+      && receipt.receivedAt <= nowAt
+      && receipt.submittedAt <= nowAt
+      && receipt.submittedAt <= receipt.receivedAt)
     .forEach((receipt) => {
       const current = visibleReceiptByRecordId.get(receipt.recordId)
       const receiptSignature = JSON.stringify(receipt)
@@ -522,8 +525,7 @@ export function projectSewingDeliverySla(
               : Math.max(receipt.receivedQty - (receipt.reversedQty ?? 0), 0)
             return effectiveReceivedQty > 0
               && receipt.submittedQty > 0
-              && Boolean(receipt.submittedAt)
-              && receipt.submittedAt! <= milestone.deadlineAt
+              && receipt.submittedAt <= milestone.deadlineAt
               && receipt.receivedAt > milestone.deadlineAt
           })
           .sort((left, right) => left.recordId.localeCompare(right.recordId))
@@ -533,7 +535,7 @@ export function projectSewingDeliverySla(
         if (affectedQty <= 0) return
         reached.receiverDelayCandidateRecords.push({
           recordId: receipt.recordId,
-          submittedAt: receipt.submittedAt!,
+          submittedAt: receipt.submittedAt,
           receivedAt: receipt.receivedAt,
           affectedQty,
           delayHours: (parseDateTime(receipt.receivedAt, '实收时间').getTime() - parseDateTime(milestone.deadlineAt, '节点截止时间').getTime()) / 3_600_000,

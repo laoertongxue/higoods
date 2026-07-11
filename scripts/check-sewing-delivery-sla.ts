@@ -16,6 +16,7 @@ import {
   projectSewingDeliverySla,
   restoreSewingDeliverySlaSnapshotStore,
   saveSewingDeliverySlaSnapshot,
+  type SewingDeliveryReceiptFact,
 } from '../src/data/fcs/sewing-delivery-sla.ts'
 import {
   applyRuntimeDirectDispatchMeta,
@@ -3013,6 +3014,9 @@ const invalidSubmissionClockProjection = projectSewingDeliverySla(adversarialPro
   { recordId: 'FUTURE-SUBMITTED-PAST-RECEIVED', submittedQty: 10, submittedAt: '2026-07-03 10:00:00', receivedQty: 10, receivedAt: '2026-07-02 10:00:00' },
 ], '2026-07-02 12:00:00')
 assert.equal(invalidSubmissionClockProjection.confirmedReceivedQty, 0, '未来交出或交出晚于实收的脏事实不得推进实收、节点和接收延迟')
+assert.equal(projectSewingDeliverySla(adversarialProjectionSnapshot, [
+  { recordId: 'MISSING-SUBMITTED-AT', submittedQty: 10, receivedQty: 10, receivedAt: '2026-07-02 10:00:00' } as SewingDeliveryReceiptFact,
+], '2026-07-02 12:00:00').confirmedReceivedQty, 0, '缺少交出时间的事实必须视为无效且不得推进实收')
 const rawVersion = (recordId: string, taskId: string, status: PdaHandoverRecord['handoverRecordStatus'], factorySubmittedAt: string, receiverWrittenAt?: string): PdaHandoverRecord => ({
   recordId,
   handoverRecordId: recordId,
@@ -3038,6 +3042,28 @@ const rawVersionMatrix = selectLatestSewingDeliveryRawRecords([
   rawVersion('RAW-MOVED', 'TASK-OLD', 'WRITTEN_BACK_MATCHED', '2026-07-01 08:00:00', '2026-07-01 09:00:00'),
   rawVersion('RAW-MOVED', 'TASK-NEW', 'WRITTEN_BACK_MATCHED', '2026-07-01 10:00:00', '2026-07-01 11:00:00'),
 ])
+const reversedRawVersionMatrix = selectLatestSewingDeliveryRawRecords([
+  ...[
+    rawVersion('RAW-VOID', 'TASK-OLD', 'WRITTEN_BACK_MATCHED', '2026-07-01 10:00:00', '2026-07-01 10:00:00'),
+    rawVersion('RAW-VOID', 'TASK-OLD', 'VOIDED', '2026-07-01 10:00:00'),
+    rawVersion('RAW-WAIT', 'TASK-OLD', 'SUBMITTED_WAIT_WRITEBACK', '2026-07-01 10:00:00'),
+    rawVersion('RAW-WAIT', 'TASK-OLD', 'WRITTEN_BACK_MATCHED', '2026-07-01 10:00:00', '2026-07-01 10:00:00'),
+  ].reverse(),
+])
+const forwardRawVersionMatrix = selectLatestSewingDeliveryRawRecords([
+  rawVersion('RAW-VOID', 'TASK-OLD', 'WRITTEN_BACK_MATCHED', '2026-07-01 10:00:00', '2026-07-01 10:00:00'),
+  rawVersion('RAW-VOID', 'TASK-OLD', 'VOIDED', '2026-07-01 10:00:00'),
+  rawVersion('RAW-WAIT', 'TASK-OLD', 'SUBMITTED_WAIT_WRITEBACK', '2026-07-01 10:00:00'),
+  rawVersion('RAW-WAIT', 'TASK-OLD', 'WRITTEN_BACK_MATCHED', '2026-07-01 10:00:00', '2026-07-01 10:00:00'),
+])
+assert.deepEqual(reversedRawVersionMatrix, forwardRawVersionMatrix, '相同版本时间的确认、作废和待确认选择必须与输入顺序无关')
+const sameStatusLowQty = { ...rawVersion('RAW-SAME-STATUS', 'TASK-OLD', 'WRITTEN_BACK_MATCHED', '2026-07-01 10:00:00', '2026-07-01 10:00:00'), submittedQty: 5, receiverWrittenQty: 5 }
+const sameStatusHighQty = { ...sameStatusLowQty, submittedQty: 8, receiverWrittenQty: 8 }
+assert.deepEqual(
+  selectLatestSewingDeliveryRawRecords([sameStatusLowQty, sameStatusHighQty]),
+  selectLatestSewingDeliveryRawRecords([sameStatusHighQty, sameStatusLowQty]),
+  '同状态、同时间但数量不同的版本必须由规范签名稳定选择',
+)
 assert.equal(toConfirmedSewingDeliveryReceiptFact(rawVersionMatrix.find((record) => record.recordId === 'RAW-VOID')!, 'TASK-OLD'), null, '新作废版本必须撤销旧确认事实')
 assert.equal(toConfirmedSewingDeliveryReceiptFact(rawVersionMatrix.find((record) => record.recordId === 'RAW-WAIT')!, 'TASK-OLD'), null, '新待确认版本必须撤销旧确认事实')
 assert(toConfirmedSewingDeliveryReceiptFact(rawVersionMatrix.find((record) => record.recordId === 'RAW-CONFIRMED')!, 'TASK-OLD'), '新确认版本必须升级旧待确认事实')
