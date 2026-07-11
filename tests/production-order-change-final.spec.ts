@@ -289,6 +289,22 @@ test('数量变更完成四步闭环并进入同一记录的五模块详情', as
   for (const moduleName of ['变更内容', '当前事实', '处理方案', '执行结果', '相关单据留痕']) {
     await expect(page.getByRole('heading', { name: moduleName, exact: true })).toBeVisible()
   }
+
+  await page.getByRole('button', { name: '返回列表' }).click()
+  await page.getByRole('button', { name: '新增变更' }).click()
+  await expect(page.locator('[data-production-change-form-body]')).toHaveAttribute('data-production-change-form-body', 'order')
+  await expect(page.getByLabel('选择生产单')).toHaveValue('')
+  await expect(page.getByLabel('变更原因')).toHaveCount(0)
+  await expect(page.locator('[data-production-change-form-error]')).toBeHidden()
+
+  await page.getByRole('button', { name: '返回列表' }).click()
+  const quantityScenario = page.locator('article').filter({
+    has: page.getByRole('heading', { name: '修改生产单需求数量', exact: true }),
+  })
+  await quantityScenario.getByRole('button', { name: '填写变更内容', exact: true }).click()
+  await expect(page.locator('[data-production-change-form-body]')).toHaveAttribute('data-production-change-form-body', 'order')
+  await expect(page.getByLabel('选择生产单')).toHaveValue('')
+  await expect(page.getByLabel('变更原因')).toHaveCount(0)
 })
 
 const materialCases = [
@@ -381,6 +397,17 @@ for (const materialCase of materialCases) {
       const createdRow = page.getByRole('row').filter({ has: page.getByText(recordId, { exact: true }) })
       await expect(createdRow).toContainText('替换物料')
       await expect(createdRow).toContainText('正式版本绑定调整')
+      await createdRow.getByRole('button', { name: '查看详情' }).click()
+      await expect(page.getByRole('heading', { name: recordId })).toBeVisible()
+      const traceSection = page.locator('section').filter({
+        has: page.getByRole('heading', { name: '相关单据留痕', exact: true }),
+      })
+      for (const documentNo of ['PO-202603-0101', 'WLS-PL-260306-101', 'CUT-260306-101-01']) {
+        await expect(traceSection.getByText(documentNo, { exact: true })).toBeVisible()
+      }
+      for (const traceColumn of ['来源变更单号', '变更前', '变更后', '处理方式 / 跟单决定', '执行时间']) {
+        await expect(page.getByText(traceColumn, { exact: true })).toBeVisible()
+      }
     }
   })
 }
@@ -504,4 +531,12 @@ test('高频数量和原因输入保持值、焦点与原 DOM 身份', async ({ 
     focused: document.activeElement === element,
     identity: (element as HTMLTextAreaElement & { e2eIdentity?: string }).e2eIdentity,
   }))).toEqual({ focused: true, identity: 'reason-node' })
+})
+
+test('生产单变更列表搜索框只承诺实际支持的字段', async ({ page }) => {
+  await page.goto('/fcs/production/changes')
+  await expect(page.locator('[data-prod-field="techPackChangeKeyword"]')).toHaveAttribute(
+    'placeholder',
+    '搜索变更单号 / 生产单号 / 变更场景 / 处理状态 / 变更原因',
+  )
 })

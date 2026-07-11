@@ -362,6 +362,17 @@ function setProductionChangeType(changeType: ProductionChangeForm['changeType'])
   state.productionChangeFormError = ''
 }
 
+function startProductionChange(
+  productionOrderId = '',
+  changeType: ProductionChangeForm['changeType'] = 'QUANTITY_CHANGE',
+): void {
+  state.productionChangeSelectedOrderId = ''
+  state.productionChangeForm = createInitializedProductionChangeForm(productionOrderId, changeType)
+  state.productionChangeFormStep = productionOrderId ? 'content' : 'order'
+  state.productionChangeFormError = ''
+  openAppRoute('/fcs/production/changes/new', 'production-change-new', '新增生产单变更')
+}
+
 function resetProductionChangeDerivedState(): void {
   resetProductionChangeFormDerivedState(state.productionChangeForm)
 }
@@ -1239,16 +1250,14 @@ export function handleProductionEvent(target: HTMLElement): boolean {
   if (action === 'start-production-change-from-order') {
     const orderId = actionNode.dataset.orderId
     if (!orderId) return true
-    const sourceOrder = state.productionChangeSelectedOrderId
-      ? getProductionOrderChangeOrder(state.productionChangeSelectedOrderId)
-      : undefined
-    state.productionChangeSelectedOrderId = ''
-    state.productionChangeForm = sourceOrder?.productionOrderId === orderId
-      ? createProductionChangeFormFromRecord(sourceOrder)
-      : createInitializedProductionChangeForm(orderId, state.productionChangeForm.changeType)
-    state.productionChangeFormStep = 'content'
-    state.productionChangeFormError = ''
-    openAppRoute('/fcs/production/changes/new', 'production-change-new', '新增生产单变更')
+    startProductionChange(orderId, state.productionChangeForm.changeType)
+    return true
+  }
+
+  if (action === 'start-production-change') {
+    const changeType = actionNode.dataset.changeType as ProductionChangeForm['changeType'] | undefined
+    const normalizedChangeType = changeType === 'MATERIAL_REPLACEMENT' ? changeType : 'QUANTITY_CHANGE'
+    startProductionChange(actionNode.dataset.orderId ?? '', normalizedChangeType)
     return true
   }
 

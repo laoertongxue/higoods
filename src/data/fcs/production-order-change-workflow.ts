@@ -908,7 +908,7 @@ function buildMaterialPlan(draft: ProductionChangeDraft, replacement: MaterialRe
             group: '上下游单据',
             title: `同步后续生产单 ${order.productionOrderId}`,
             description: '该生产单尚未开工，系统将全部切换新正式版本并重算备料与交期。',
-            affectedDocumentNo: '',
+            affectedDocumentNo: order.productionOrderId,
           }),
         )
       } else {
@@ -921,7 +921,7 @@ function buildMaterialPlan(draft: ProductionChangeDraft, replacement: MaterialRe
             description: isRemaining
               ? `${order.progressText}，该生产单按剩余部分打补丁并同步切换正式版本。`
               : `${order.progressText}，该生产单按全部数量整体切换新正式版本。`,
-            affectedDocumentNo: '',
+            affectedDocumentNo: order.productionOrderId,
             options: [
               { value: 'REMAINING', label: '剩余数量替换' },
               { value: 'FULL', label: '全部数量替换' },
@@ -1198,6 +1198,12 @@ export function buildProductionChangeRecord(
   const currentFactsSnapshot = structuredClone(
     getProductionOrderChangeCurrentFacts(copiedDraft.productionOrderId),
   )
+  const affectedDocumentNos = sanitizeObjectIds([
+    ...(currentFactsSnapshot?.documentFacts ?? []).map((fact) => fact.documentNo),
+    ...preview.autoItems.map((item) => item.affectedDocumentNo),
+    ...preview.decisionItems.map((item) => item.affectedDocumentNo),
+  ])
+  copiedDraft.affectedDocumentNos = affectedDocumentNos
   return {
     ...copiedDraft,
     id,

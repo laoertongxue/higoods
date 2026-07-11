@@ -1355,7 +1355,7 @@ function renderProductionChangeScenarioCards(): string {
           </div>
           <div class="mt-4 flex items-center justify-between gap-3 text-sm">
             <span class="text-muted-foreground">同一套流程：选择生产单 → 填写变更内容 → 确认处理方案 → 同步执行</span>
-            <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change-type" data-change-type="${card.changeType}">填写变更内容</button>
+            <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change" data-change-type="${card.changeType}">填写变更内容</button>
           </div>
         </article>
       `).join('')}
@@ -1479,7 +1479,7 @@ function renderProductionChangeCandidateOrders(relations: ProductionOrderTechPac
                 <div class="flex min-w-[168px] flex-wrap gap-1.5">
                   <button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="start-production-change-type" data-change-type="QUANTITY_CHANGE" data-order-id="${escapeHtml(relation.productionOrderId)}">修改数量</button>
                   <button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="start-production-change-type" data-change-type="MATERIAL_REPLACEMENT" data-order-id="${escapeHtml(relation.productionOrderId)}">替换物料</button>
-                  <button class="rounded-md bg-primary px-2.5 py-1.5 text-xs text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change-from-order" data-order-id="${escapeHtml(relation.productionOrderId)}">填写变更内容</button>
+                  <button class="rounded-md bg-primary px-2.5 py-1.5 text-xs text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change" data-order-id="${escapeHtml(relation.productionOrderId)}">填写变更内容</button>
                 </div>
               </td>
             </tr>
@@ -1507,7 +1507,7 @@ export function renderProductionChangesPage(): string {
           <p class="mt-1 text-sm text-muted-foreground">先选择修改生产单需求数量或替换物料，再进入同一套确认、处理和单据记录流程。</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <button class="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-nav="/fcs/production/changes/new">新增变更</button>
+          <button class="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change">新增变更</button>
         </div>
       </header>
 
@@ -1515,7 +1515,7 @@ export function renderProductionChangesPage(): string {
 
       <section class="rounded-lg border bg-background p-3">
         <div class="flex flex-wrap items-center gap-3">
-          <input data-prod-field="techPackChangeKeyword" value="${escapeHtml(state.techPackChangeKeyword)}" class="min-w-[280px] flex-1 rounded-md border px-3 py-2 text-sm" placeholder="搜索生产单号 / 变更单号 / 需求单号 / SPU / 款式 / 跟单" />
+          <input data-prod-field="techPackChangeKeyword" value="${escapeHtml(state.techPackChangeKeyword)}" class="min-w-[280px] flex-1 rounded-md border px-3 py-2 text-sm" placeholder="搜索变更单号 / 生产单号 / 变更场景 / 处理状态 / 变更原因" />
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="apply-production-change-search">搜索</button>
         </div>
       </section>
@@ -1595,7 +1595,7 @@ function renderRelationTab(relation: ProductionOrderTechPackRelation): string {
         </div>
       </div>
       <div class="flex flex-wrap gap-2 border-t px-4 py-4">
-        <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change-from-order" data-order-id="${escapeHtml(relation.productionOrderId)}">发起变更</button>
+        <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change" data-order-id="${escapeHtml(relation.productionOrderId)}">发起变更</button>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-order-tech-pack-snapshot" data-order-id="${escapeHtml(relation.productionOrderId)}">查看技术包快照</button>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-current-tech-pack" data-spu-code="${escapeHtml(relation.spuCode)}">查看当前最新技术包</button>
       </div>
@@ -1952,7 +1952,7 @@ export function renderProductionChangeDetailPage(productionOrderId: string): str
           <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(relation.spuCode)} / ${escapeHtml(relation.styleName)} / 当前冻结 ${escapeHtml(relation.currentTechPackVersionNo)}</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change-from-order" data-order-id="${escapeHtml(productionOrderId)}">发起变更</button>
+          <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change" data-order-id="${escapeHtml(productionOrderId)}">发起变更</button>
         </div>
       </header>
       ${renderDetailTabButtons()}
@@ -2315,7 +2315,7 @@ export function renderProductionChangeEditPage(changeOrderId: string): string {
           <p class="mt-1 text-sm text-amber-700">旧记录只读，如需调整请按原记录新建变更</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change-from-order" data-order-id="${escapeHtml(order.productionOrderId)}">按原记录新建变更</button>
+          <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change" data-order-id="${escapeHtml(order.productionOrderId)}" data-change-type="${escapeHtml(order.changeType)}">按原记录新建变更</button>
         </div>
       </header>
       ${renderProductionChangeFormSteps(state.productionChangeFormStep)}
@@ -2457,7 +2457,7 @@ export function renderProductionChangeOrderDetailPage(changeOrderId: string): st
   }
 
   const actions = [
-    `<button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="start-production-change-from-order" data-order-id="${escapeHtml(record.productionOrderId)}">追加变更</button>`,
+    `<button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="start-production-change" data-order-id="${escapeHtml(record.productionOrderId)}" data-change-type="${escapeHtml(record.changeType)}">追加变更</button>`,
     `<button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/production/changes/orders/${escapeHtml(record.productionOrderId)}">查看生产单关系</button>`,
   ].filter(Boolean).join('')
 
