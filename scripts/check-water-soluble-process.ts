@@ -53,6 +53,25 @@ import {
   syncWaterSolubleOrderStoreWithArtifacts,
   writeBackWaterSolubleReceipt,
 } from '../src/data/fcs/water-soluble-task-domain.ts'
+import { listPrepProcessOrders, listPrepRequirementDemands } from '../src/data/fcs/page-adapters/process-prep-pages-adapter.ts'
+import { getProcessWorkOrderById } from '../src/data/fcs/process-work-order-domain.ts'
+import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
+import {
+  completeDyeWaterSolubleNode,
+  createDyeWorkOrderFromDemands,
+  getDyeExecutionNodeRecord,
+  getDyeExecutionRoute,
+  getDyeWorkOrderById,
+  getDyeWorkOrderByTaskId,
+  listDyeWorkOrders,
+  resolveDyeWaterSolublePause,
+  startDyeWaterSolubleNode,
+  startDyeing,
+  submitDyeHandover,
+  validateDyeDemandSelection,
+  validateDyeFactoryCapabilities,
+  validateDyeStartPrerequisite,
+} from '../src/data/fcs/dyeing-task-domain.ts'
 import { listFactoryOnboardingApplications } from '../src/data/fcs/factory-onboarding-store.ts'
 import {
   getFactoryCapacityProfileByFactoryId,
@@ -1146,5 +1165,139 @@ completeWaterSoluble(differenceOrder.waterOrderId, differenceOrder.plannedQty)
 submitWaterSolubleHandover(differenceOrder.waterOrderId, differenceOrder.plannedQty)
 assert.equal(writeBackWaterSolubleReceipt(differenceOrder.waterOrderId, differenceOrder.plannedQty - 1).order?.status, 'RECEIPT_DIFFERENCE', '收货数量不同必须进入差异')
 assert.equal(resolveWaterSolubleReceiptDifference(differenceOrder.waterOrderId).order?.status, 'DONE', '确认收货差异后必须完成')
+
+const dyeProjectionOrder: ProductionOrder = {
+  ...artifactOrder,
+  productionOrderId: 'PO-DYE-WATER-PROJECTION',
+  productionOrderNo: 'PO-DYE-WATER-PROJECTION',
+  techPackSnapshot: {
+    ...artifactSnapshot,
+    snapshotId: 'SNAP-DYE-WATER-PROJECTION',
+    productionOrderId: 'PO-DYE-WATER-PROJECTION',
+    productionOrderNo: 'PO-DYE-WATER-PROJECTION',
+  },
+}
+productionOrders.push(dyeProjectionOrder)
+let createdCombinedDyeOrderId = ''
+try {
+  const dyeDemands = listPrepRequirementDemands('DYE')
+    .filter((item) => item.sourceProductionOrderId === dyeProjectionOrder.productionOrderId)
+  const normalDemand = dyeDemands.find((item) => item.bomItemId === 'ONLY-DYE')
+  const waterDemand = dyeDemands.find((item) => item.bomItemId === 'BOTH')
+  assert(normalDemand && waterDemand, '真实染色需求投影必须按 BOM 物料生成普通染色和需先水溶两类需求')
+  assert.equal(normalDemand.requiresWaterSoluble, false, '普通染色需求不得误带水溶前置')
+  assert.deepEqual(normalDemand.processRoute, ['DYE'], '普通染色需求路线必须仅包含染色')
+  assert.equal(waterDemand.requiresWaterSoluble, true, '同 BOM 水溶加染色需求必须携带需先水溶标识')
+  assert.deepEqual(waterDemand.processRoute, ['WATER_SOLUBLE', 'DYE'], '含水溶染色需求必须固定先水溶后染色')
+
+  assert.equal(validateDyeDemandSelection([]).ok, false, '空选择不得创建染色加工单')
+  const mixedSelection = validateDyeDemandSelection([normalDemand, waterDemand])
+  assert.equal(mixedSelection.ok, false, '普通染色和需先水溶不得混合合单')
+  assert.match(mixedSelection.message, /水溶要求不一致/, '混选必须返回中文水溶要求提示')
+  assert.equal(validateDyeDemandSelection([waterDemand]).ok, true, '同质需先水溶需求允许创建加工单')
+
+  const baseFactory = getFactoryMasterRecordById('F090') || getFactoryMasterRecordById('ID-F090')
+  assert(baseFactory, '染厂能力检查必须存在工厂基线')
+  const capabilityFactories = [
+    { id: 'DYE-WATER-CAP-BOTH', abilities: ['WATER_SOLUBLE', 'DYE'], status: 'active', allowDispatch: true },
+    { id: 'DYE-WATER-CAP-DYE', abilities: ['DYE'], status: 'active', allowDispatch: true },
+    { id: 'DYE-WATER-CAP-PAUSED', abilities: ['WATER_SOLUBLE', 'DYE'], status: 'active', allowDispatch: true, pausedAbility: 'WATER_SOLUBLE' },
+    { id: 'DYE-WATER-CAP-NODISPATCH', abilities: ['WATER_SOLUBLE', 'DYE'], status: 'active', allowDispatch: false },
+    { id: 'DYE-WATER-FACTORY-PAUSED', abilities: ['WATER_SOLUBLE', 'DYE'], status: 'paused', allowDispatch: true },
+  ] as const
+  capabilityFactories.forEach((fixture) => upsertFactoryMasterRecord({
+    ...baseFactory,
+    id: fixture.id,
+    code: fixture.id,
+    name: fixture.id,
+    status: fixture.status,
+    eligibility: { ...baseFactory.eligibility, allowDispatch: fixture.allowDispatch },
+    processAbilities: fixture.abilities.map((processCode) => ({
+      processCode,
+      craftCodes: [],
+      abilityScope: 'PROCESS',
+      canReceiveTask: true,
+      status: fixture.pausedAbility === processCode ? 'PAUSED' : 'ACTIVE',
+    })),
+  }))
+  try {
+    assert.equal(validateDyeFactoryCapabilities([waterDemand], 'DYE-WATER-CAP-BOTH').ok, true, '含水溶染色必须允许双能力正式工厂')
+    assert.equal(validateDyeFactoryCapabilities([waterDemand], 'DYE-WATER-CAP-DYE').ok, false, '缺少水溶能力不得派含水溶染色单')
+    assert.equal(validateDyeFactoryCapabilities([waterDemand], 'DYE-WATER-CAP-PAUSED').ok, false, '停用的水溶能力不得作为正式能力')
+    assert.equal(validateDyeFactoryCapabilities([waterDemand], 'DYE-WATER-CAP-NODISPATCH').ok, false, '不可派单工厂不得承接含水溶染色单')
+    assert.equal(validateDyeFactoryCapabilities([waterDemand], 'DYE-WATER-FACTORY-PAUSED').ok, false, '暂停合作工厂不得承接含水溶染色单')
+    assert.equal(validateDyeFactoryCapabilities([normalDemand], 'DYE-WATER-CAP-DYE').ok, true, '普通染色只要求正式有效染色能力')
+
+    const created = createDyeWorkOrderFromDemands({
+      demands: [waterDemand],
+      factoryId: 'DYE-WATER-CAP-BOTH',
+      plannedFinishAt: '2026-07-20 18:00:00',
+      createdBy: '水溶专项检查',
+    })
+    assert.equal(created.ok, true, '真实创建入口必须可创建含水溶染色加工单')
+    assert(created.order, '真实创建入口必须返回领域加工单')
+    createdCombinedDyeOrderId = created.order.dyeOrderId
+    assert.equal(getDyeWorkOrderById(createdCombinedDyeOrderId)?.requiresWaterSoluble, true, 'FCS/PFOS/PDA 查询必须读取同一含水溶领域加工单')
+    assert(listDyeWorkOrders().some((item) => item.dyeOrderId === createdCombinedDyeOrderId), 'PFOS 染色列表必须读取新建领域加工单')
+    assert(listPrepProcessOrders('DYE').some((item) => item.workOrderId === createdCombinedDyeOrderId), 'FCS 染色加工单投影必须读取新建领域加工单')
+    assert.equal(getProcessWorkOrderById(createdCombinedDyeOrderId)?.workOrderId, createdCombinedDyeOrderId, 'PFOS 详情必须映射同一领域加工单 ID')
+    assert.equal(getDyeWorkOrderByTaskId(created.order.taskId)?.dyeOrderId, createdCombinedDyeOrderId, 'PDA 任务反查必须回到同一领域加工单')
+    assert(listPdaGenericProcessTasks().some((item) => item.taskId === created.order!.taskId), '真实创建入口必须同时注册可被 PDA 统一入口读取的任务')
+    assert.equal(created.order.waterSolublePlannedQty, waterDemand.requiredQty, '水溶计划数量必须继承需求数量')
+    assert.deepEqual(getDyeExecutionRoute(createdCombinedDyeOrderId), ['SAMPLE', 'MATERIAL_READY', 'VAT_PLAN', 'WATER_SOLUBLE', 'DYE', 'DEHYDRATE', 'DRY', 'SET', 'ROLL', 'PACK'], '含水溶染色单必须在既有染前准备后插入水溶节点')
+    assert.equal(validateDyeStartPrerequisite(createdCombinedDyeOrderId, waterDemand.requiredQty).ok, false, '未完成水溶不得开始染色')
+    assert.throws(() => startDyeing(createdCombinedDyeOrderId, { dyeVatNo: 'VAT-CHECK', inputQty: waterDemand.requiredQty }), /先完成水溶/, '真实染色开始动作不得绕过水溶门槛')
+    assert.equal(startDyeWaterSolubleNode(createdCombinedDyeOrderId, '操作员').ok, false, '染前准备节点未完成时不得越序开始水溶')
+
+    const orderForExecution = getDyeWorkOrderById(createdCombinedDyeOrderId)!
+    // 专项入口只允许在既有准备节点完成后开始；测试通过公共领域动作补齐必要节点。
+    const domain = await import('../src/data/fcs/dyeing-task-domain.ts')
+    domain.completeDyeMaterialReady(createdCombinedDyeOrderId, { outputQty: orderForExecution.plannedQty, operatorName: '操作员' })
+    domain.planDyeVat(createdCombinedDyeOrderId, { dyeVatNo: 'VAT-CHECK', operatorName: '主管' })
+    assert.equal(startDyeWaterSolubleNode(createdCombinedDyeOrderId, '操作员').ok, true, '完成既有准备后必须进入水溶')
+    assert.equal(startDyeWaterSolubleNode(createdCombinedDyeOrderId, '操作员').ok, false, '重复开始水溶必须拦截')
+    assert.equal(completeDyeWaterSolubleNode(createdCombinedDyeOrderId, Number.NaN, '异常值').ok, false, '非有限完成数量必须拦截')
+    assert.equal(completeDyeWaterSolubleNode(createdCombinedDyeOrderId, orderForExecution.plannedQty + 1, '').ok, false, '超计划完成数量无原因必须拦截')
+    const paused = completeDyeWaterSolubleNode(createdCombinedDyeOrderId, orderForExecution.plannedQty - 2, '现场数量不足')
+    assert.equal(paused.order?.status, 'PRODUCTION_PAUSED', '水溶完成不足必须进入生产暂停')
+    assert.equal(resolveDyeWaterSolublePause(createdCombinedDyeOrderId, 'CONTINUE_PROCESSING', '主管').order?.status, 'WAIT_WATER_SOLUBLE', '主管继续补做必须回到待水溶')
+    startDyeWaterSolubleNode(createdCombinedDyeOrderId, '操作员')
+    completeDyeWaterSolubleNode(createdCombinedDyeOrderId, orderForExecution.plannedQty, '累计补足')
+    assert.equal(validateDyeStartPrerequisite(createdCombinedDyeOrderId, orderForExecution.plannedQty).ok, true, '染色投入等于水溶完成量必须允许')
+    assert.equal(validateDyeStartPrerequisite(createdCombinedDyeOrderId, orderForExecution.plannedQty - 1).ok, true, '染色投入小于水溶完成量必须允许')
+    assert.equal(validateDyeStartPrerequisite(createdCombinedDyeOrderId, orderForExecution.plannedQty + 1).ok, false, '染色投入大于水溶完成量必须拦截')
+    assert.equal(getDyeExecutionNodeRecord(createdCombinedDyeOrderId, 'WATER_SOLUBLE')?.finishedAt != null, true, '完成水溶必须写入共享执行节点')
+    assert.throws(() => submitDyeHandover(createdCombinedDyeOrderId), /包装完成/, '水溶完成后不得生成中间交出')
+    assert.equal(startDyeing(createdCombinedDyeOrderId, { dyeVatNo: 'VAT-CHECK', inputQty: orderForExecution.plannedQty }).nodeCode, 'DYE', '水溶完成后必须直接进入同厂染色')
+    assert(!listWaterSolubleWorkOrders().some((item) => item.waterOrderId === createdCombinedDyeOrderId), '含水溶染色单不得混入独立水溶加工单列表')
+
+    const preparePausedDyeOrder = () => {
+      const next = createDyeWorkOrderFromDemands({ demands: [waterDemand], factoryId: 'DYE-WATER-CAP-BOTH', plannedFinishAt: '2026-07-21 18:00:00' })
+      assert(next.order, '暂停处理场景必须创建领域染色加工单')
+      domain.completeDyeMaterialReady(next.order.dyeOrderId, { outputQty: next.order.plannedQty })
+      domain.planDyeVat(next.order.dyeOrderId, { dyeVatNo: 'VAT-CHECK' })
+      startDyeWaterSolubleNode(next.order.dyeOrderId, '操作员')
+      completeDyeWaterSolubleNode(next.order.dyeOrderId, next.order.plannedQty - 3, '数量不足')
+      return next.order
+    }
+    const actualOrder = preparePausedDyeOrder()
+    assert.equal(resolveDyeWaterSolublePause(actualOrder.dyeOrderId, 'CONTINUE_WITH_ACTUAL_QTY', '主管').order?.status, 'WAIT_VAT_PLAN', '主管按实际数量继续必须进入待染色')
+    assert.equal(validateDyeStartPrerequisite(actualOrder.dyeOrderId, actualOrder.plannedQty - 3).ok, true, '按实际数量继续后必须以水溶实际完成量为投入上限')
+    const reworkDyeOrder = preparePausedDyeOrder()
+    const reworkDyeResult = resolveDyeWaterSolublePause(reworkDyeOrder.dyeOrderId, 'RETURN_FOR_REWORK', '主管')
+    assert.equal(reworkDyeResult.order?.status, 'WAIT_WATER_SOLUBLE', '主管退回返工必须回到待水溶')
+    assert.equal(reworkDyeResult.order?.waterSolubleCompletedQty, 0, '退回返工必须清空本次水溶完成量')
+  } finally {
+    capabilityFactories.forEach((fixture) => removeFactoryMasterRecord(fixture.id))
+  }
+} finally {
+  const index = productionOrders.indexOf(dyeProjectionOrder)
+  if (index >= 0) productionOrders.splice(index, 1)
+}
+
+const normalRegressionDemand = listPrepRequirementDemands('DYE').find((item) => !item.requiresWaterSoluble)
+assert(normalRegressionDemand, '普通染色回归必须存在普通需求')
+assert.equal(validateDyeStartPrerequisite(getDyeWorkOrderById('DWO-001')?.dyeOrderId || 'DWO-001', 1).ok, true, '普通染色不得受水溶前置影响')
+assert(!getDyeExecutionRoute('DWO-001').includes('WATER_SOLUBLE'), '普通染色路线不得插入水溶节点')
 
 console.log('water-soluble process checks passed')

@@ -31,6 +31,11 @@ import { getDyeingExecutionStatistics } from '../../../data/fcs/process-statisti
 import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import { appStore } from '../../../state/store.ts'
 import { formatDyeQty, formatDyeTime, renderBadge, renderPageHeader, renderSection } from './shared'
+import {
+  getDyeWorkOrderById,
+  getDyeCurrentStepLabel,
+  listDyeExecutionNodeRecords,
+} from '../../../data/fcs/dyeing-task-domain.ts'
 
 type DyeDetailTab =
   | 'base'
@@ -313,6 +318,34 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
   applyWebActionFromUrl(dyeOrderId)
   const order = getProcessWorkOrderById(dyeOrderId) || getProcessWorkOrderByNo(dyeOrderId)
   if (!order || order.processType !== 'DYE' || !order.dyePayload) {
+    const domainOrder = getDyeWorkOrderById(dyeOrderId)
+    if (domainOrder) {
+      const waterNode = listDyeExecutionNodeRecords(domainOrder.dyeOrderId).find((node) => node.nodeCode === 'WATER_SOLUBLE')
+      const planned = domainOrder.waterSolublePlannedQty ?? domainOrder.plannedQty
+      const completed = domainOrder.waterSolubleCompletedQty ?? Number(waterNode?.outputQty || 0)
+      const unit = domainOrder.waterSolubleQtyUnit || domainOrder.qtyUnit
+      const diff = completed - planned
+      return `
+        <div class="space-y-4 p-4">
+          ${renderPageHeader('染色加工单详情', domainOrder.requiresWaterSoluble ? '同一染厂连续完成水溶与染色' : '普通染色加工单')}
+          ${renderSection('基本信息', `<div class="grid gap-3 text-sm md:grid-cols-2">
+            ${renderField('加工单号', domainOrder.dyeOrderNo)}
+            ${renderField('工厂', formatFactoryDisplayName(domainOrder.dyeFactoryName, domainOrder.dyeFactoryId))}
+            ${renderField('当前步骤', getDyeCurrentStepLabel(domainOrder))}
+            ${renderField('工艺路线', domainOrder.requiresWaterSoluble ? '水溶 → 染色 → 既有后处理' : '染色 → 既有后处理')}
+            ${renderField('计划染色数量', `${domainOrder.plannedQty} ${domainOrder.qtyUnit}`)}
+            ${renderField('交接口径', domainOrder.requiresWaterSoluble ? '水溶完成后不交出，染色及后处理完成后统一交出' : '后处理完成后统一交出')}
+          </div>`)}
+          ${domainOrder.requiresWaterSoluble ? renderSection('水溶前置', `<div class="grid gap-3 text-sm md:grid-cols-2">
+            ${renderField('水溶计划数量', `${planned} ${unit}`)}
+            ${renderField('水溶完成数量', `${completed} ${unit}`)}
+            ${renderField('水溶差异', `${diff > 0 ? '多' : diff < 0 ? '少' : '一致'}${diff === 0 ? '' : ` ${Math.abs(diff)} ${unit}`}`)}
+            ${renderField('连续加工', '同一家染厂完成，水溶完成数量为染色投入上限')}
+          </div>${domainOrder.status === 'WAIT_WATER_SOLUBLE' ? `<button class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700" data-dyeing-action="start-water-soluble" data-dye-order-id="${escapeHtml(domainOrder.dyeOrderId)}">开始水溶</button>` : domainOrder.status === 'WATER_SOLUBLE_IN_PROGRESS' ? `<button class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700" data-dyeing-action="complete-water-soluble" data-dye-order-id="${escapeHtml(domainOrder.dyeOrderId)}">完成水溶</button>` : domainOrder.status === 'PRODUCTION_PAUSED' ? `<div class="mt-3 flex flex-wrap gap-2"><button class="rounded-md border px-3 py-2 text-sm" data-dyeing-action="resolve-water-soluble-pause" data-dye-order-id="${escapeHtml(domainOrder.dyeOrderId)}" data-decision="CONTINUE_PROCESSING">继续补做</button><button class="rounded-md border px-3 py-2 text-sm" data-dyeing-action="resolve-water-soluble-pause" data-dye-order-id="${escapeHtml(domainOrder.dyeOrderId)}" data-decision="CONTINUE_WITH_ACTUAL_QTY">按实际数量继续</button><button class="rounded-md border px-3 py-2 text-sm" data-dyeing-action="resolve-water-soluble-pause" data-dye-order-id="${escapeHtml(domainOrder.dyeOrderId)}" data-decision="RETURN_FOR_REWORK">退回返工</button></div>` : ''}`) : ''}
+          <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/craft/dyeing/work-orders">返回染色加工单</button>
+        </div>
+      `
+    }
     return `
       <div class="space-y-4 p-4">
         ${renderPageHeader('染色加工单详情', '未找到对应的染色加工单')}
@@ -322,10 +355,12 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
   }
 
   const dye = order.dyePayload
+  const domainOrder = getDyeWorkOrderById(dye.dyeOrderId)
   const sampleNode = order.executionNodes.find((node) => node.nodeName === '打样')
   const materialNode = order.executionNodes.find((node) => node.nodeName === '备料')
   const vatNode = order.executionNodes.find((node) => node.nodeName.includes('排'))
   const dyeNode = order.executionNodes.find((node) => node.nodeName === '染色')
+  const waterNode = order.executionNodes.find((node) => node.nodeName === '水溶')
   const afterNodes = order.executionNodes.filter((node) => ['脱水', '烘干', '定型', '打卷', '包装'].includes(node.nodeName))
   const processHandoverRecords = getHandoverRecordsByWorkOrderId(order.workOrderId)
   const processReviewRecords = getReviewRecordsByWorkOrderId(order.workOrderId)
@@ -427,6 +462,8 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
           ${renderField('开工准备状态', startPrerequisite?.statusLabel || '按加工单状态判断')}
           ${renderField('开工前置口径', startPrerequisite?.conditionLabel || '染色加工单已接单')}
           ${renderField('实际染色前要求', '必须确认坯布和染化料到位')}
+          ${domainOrder?.requiresWaterSoluble ? renderField('工艺路线', '水溶 → 染色 → 既有后处理（同厂连续加工）') : ''}
+          ${domainOrder?.requiresWaterSoluble ? renderField('中间交出', '无；完成染色及后处理后统一交出') : ''}
           ${renderField('移动端交出记录引用', order.handoverOrderNo || order.handoverOrderId || '未生成')}
         </div>
       `,
@@ -455,6 +492,10 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
           ${renderField('染色完成时间', formatDyeTime(dyeNode?.finishedAt))}
           ${renderField('脱水/烘干/定型/打卷/包装', afterNodeText)}
           ${renderField('染色完成面料米数', formatDyeQty('outputQty' in (dyeNode || {}) ? dyeNode?.outputQty : undefined, order.plannedUnit))}
+          ${domainOrder?.requiresWaterSoluble ? renderField('水溶计划数量', formatDyeQty(domainOrder.waterSolublePlannedQty, domainOrder.waterSolubleQtyUnit || order.plannedUnit)) : ''}
+          ${domainOrder?.requiresWaterSoluble ? renderField('水溶完成数量', formatDyeQty(domainOrder.waterSolubleCompletedQty, domainOrder.waterSolubleQtyUnit || order.plannedUnit)) : ''}
+          ${domainOrder?.requiresWaterSoluble ? renderField('水溶差异', `${(domainOrder.waterSolubleCompletedQty || 0) - (domainOrder.waterSolublePlannedQty || domainOrder.plannedQty)} ${domainOrder.waterSolubleQtyUnit || order.plannedUnit}`) : ''}
+          ${domainOrder?.requiresWaterSoluble ? renderField('水溶执行记录', waterNode ? `${formatDyeTime(waterNode.startedAt)} 至 ${formatDyeTime(waterNode.finishedAt)}` : '待执行') : ''}
         </div>
       `,
     ),

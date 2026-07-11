@@ -1,6 +1,7 @@
 import { escapeHtml } from '../../../utils'
 import {
   getDyeOrderHandoverSummary,
+  getDyeCurrentStepLabel,
   getDyeWorkOrderSummary,
   listDyeWorkOrders,
 } from '../../../data/fcs/dyeing-task-domain.ts'
@@ -60,12 +61,14 @@ function renderOrdersTable(): string {
               className: 'font-mono text-blue-600 hover:underline',
             })}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.taskNo)}</div>
+            ${order.requiresWaterSoluble ? '<span class="mt-1 inline-flex rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700">需先水溶</span>' : ''}
           </td>
           <td class="px-3 py-3 text-sm">${escapeHtml(order.taskNo)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(orderTypeText)}</td>
           <td class="px-3 py-3 text-sm">
             <div>${escapeHtml(order.rawMaterialSku)}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.composition || '暂无数据')}</div>
+            ${order.requiresWaterSoluble ? `<div class="mt-1 text-xs text-blue-700">水溶 → 染色 · 水溶 ${formatDyeQty(order.waterSolubleCompletedQty || 0, order.waterSolubleQtyUnit || order.qtyUnit)} / ${formatDyeQty(order.waterSolublePlannedQty || order.plannedQty, order.waterSolubleQtyUnit || order.qtyUnit)}</div>` : ''}
           </td>
           <td class="px-3 py-3 text-sm">
             <div>${escapeHtml(order.targetColor)}</div>
@@ -75,8 +78,8 @@ function renderOrdersTable(): string {
           <td class="px-3 py-3 text-sm">${escapeHtml(formatFactoryDisplayName(order.dyeFactoryName, order.dyeFactoryId))}</td>
           <td class="px-3 py-3">${renderWorkOrderStatusBadge(order.status)}</td>
           <td class="px-3 py-3 text-sm">
-            <div class="font-medium">${escapeHtml(startPrerequisite?.statusLabel || '按加工单状态判断')}</div>
-            <div class="mt-1 text-xs text-muted-foreground">实际染色前必须确认坯布和染化料到位</div>
+            <div class="font-medium">${escapeHtml(order.requiresWaterSoluble ? getDyeCurrentStepLabel(order) : startPrerequisite?.statusLabel || '按加工单状态判断')}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${order.requiresWaterSoluble ? '同一染厂先完成水溶，再开始染色；水溶后无中间交出' : '实际染色前必须确认坯布和染化料到位'}</div>
           </td>
           <td class="px-3 py-3 text-sm">${escapeHtml(vat.dyeVatNo)}</td>
           <td class="px-3 py-3 text-sm">${handoverText}</td>

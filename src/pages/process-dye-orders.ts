@@ -1,8 +1,14 @@
 import { consumeProcessCreateDemandIntent } from './process-order-create-bridge'
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
-import { listPrepProcessOrders } from '../data/fcs/page-adapters/process-prep-pages-adapter'
+import { listPrepProcessOrders, listPrepRequirementDemands } from '../data/fcs/page-adapters/process-prep-pages-adapter'
 import { TEST_FACTORY_DISPLAY_NAME, TEST_FACTORY_NAME } from '../data/fcs/factory-mock-data.ts'
+import { listFactoryMasterRecords } from '../data/fcs/factory-master-store.ts'
+import {
+  createDyeWorkOrderFromDemands,
+  validateDyeDemandSelection,
+  validateDyeFactoryCapabilities,
+} from '../data/fcs/dyeing-task-domain.ts'
 import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
   renderProductionOrderIdentityCell,
@@ -114,6 +120,11 @@ interface DyeProcessOrder {
   createMode: CreateModeZh
   dyeFactoryName: string
   plannedFeedQty: number
+  requiresWaterSoluble?: boolean
+  waterSolublePlannedQty?: number
+  waterSolubleCompletedQty?: number
+  waterSolubleQtyUnit?: string
+  currentStepLabel?: string
   completedObjectQty?: number
   waitHandoverObjectQty?: number
   handedOverObjectQty?: number
@@ -143,6 +154,9 @@ interface DemandOption {
   materialName: string
   requiredQty: number
   unit: Unit
+  bomItemId: string
+  requiresWaterSoluble: boolean
+  processRoute: Array<'WATER_SOLUBLE' | 'DYE'>
 }
 
 interface CreateForm {
@@ -180,7 +194,10 @@ interface DyeOrdersState {
 }
 
 const PAGE_SIZE_OPTIONS: PageSize[] = [10, 20, 50]
-const DYE_FACTORY_OPTIONS = [TEST_FACTORY_NAME]
+const DYE_FACTORY_OPTIONS = listFactoryMasterRecords()
+  .filter((factory) => factory.status === 'active' && factory.eligibility.allowDispatch)
+  .filter((factory) => factory.processAbilities.some((ability) => ability.processCode === 'DYE' && (ability.status ?? 'ACTIVE') === 'ACTIVE'))
+  .map((factory) => ({ id: factory.id, name: factory.name }))
 
 const RULES = [
   '必须手工创建：染色加工单由业务人员手工创建',
@@ -189,7 +206,8 @@ const RULES = [
   '需求完成判定：以收货批次关联满足为准（加工单不等于需求完成）',
 ]
 
-const ORDERS: DyeProcessOrder[] = listPrepProcessOrders('DYE').map((item) => ({
+function loadOrders(): DyeProcessOrder[] {
+  return listPrepProcessOrders('DYE').map((item) => ({
   workOrderId: item.workOrderId || item.orderNo,
   orderNo: item.orderNo,
   statusLabel: item.statusLabel,
@@ -233,6 +251,11 @@ const ORDERS: DyeProcessOrder[] = listPrepProcessOrders('DYE').map((item) => ({
   createMode: item.createMode,
   dyeFactoryName: item.factoryName,
   plannedFeedQty: item.plannedFeedQty,
+  requiresWaterSoluble: item.requiresWaterSoluble,
+  waterSolublePlannedQty: item.waterSolublePlannedQty,
+  waterSolubleCompletedQty: item.waterSolubleCompletedQty,
+  waterSolubleQtyUnit: item.waterSolubleQtyUnit,
+  currentStepLabel: item.currentStepLabel,
   completedObjectQty: item.completedObjectQty,
   waitHandoverObjectQty: item.waitHandoverObjectQty,
   handedOverObjectQty: item.handedOverObjectQty,
@@ -287,7 +310,10 @@ const ORDERS: DyeProcessOrder[] = listPrepProcessOrders('DYE').map((item) => ({
     fulfilledQty: dest.fulfilledQty,
     linkedAt: dest.linkedAt,
   })),
-}))
+  }))
+}
+
+let ORDERS: DyeProcessOrder[] = loadOrders()
 
 const ORDER_STATUS_CLASS: Record<OrderStatusZh, string> = PLATFORM_PROCESS_STATUS_CLASS
 
@@ -453,16 +479,17 @@ function scheduleScrollToSection(section: Exclude<DrawerFocus, null>): void {
 }
 
 function getDemandOptions(): DemandOption[] {
-  const base = ORDERS.flatMap((order) =>
-    order.linkedDemands.map((demand) => ({
-      demandId: demand.demandId,
-      sourceProductionOrderId: demand.sourceProductionOrderId,
-      materialCode: demand.materialCode,
-      materialName: demand.materialName,
-      requiredQty: demand.requiredQty,
-      unit: demand.unit,
-    })),
-  )
+  const base = listPrepRequirementDemands('DYE').map((demand) => ({
+    demandId: demand.demandId,
+    sourceProductionOrderId: demand.sourceProductionOrderId,
+    materialCode: demand.materialCode,
+    materialName: demand.materialName,
+    requiredQty: demand.requiredQty,
+    unit: demand.unit as Unit,
+    bomItemId: demand.bomItemId,
+    requiresWaterSoluble: demand.requiresWaterSoluble,
+    processRoute: [...demand.processRoute],
+  }))
   const merged = [...base, ...state.dynamicDemandOptions]
   const byId = new Map<string, DemandOption>()
   for (const item of merged) {
@@ -518,6 +545,7 @@ function openCreateDrawer(prefill?: Partial<CreateForm>): void {
 function consumeCreateIntentIfExists(): void {
   const intent = consumeProcessCreateDemandIntent('dye')
   if (!intent) return
+  const projected = listPrepRequirementDemands('DYE').find((item) => item.demandId === intent.demandId)
   upsertDynamicDemandOption({
     demandId: intent.demandId,
     sourceProductionOrderId: intent.sourceProductionOrderId,
@@ -525,6 +553,9 @@ function consumeCreateIntentIfExists(): void {
     materialName: intent.materialName,
     requiredQty: intent.requiredQty,
     unit: '米',
+    bomItemId: projected?.bomItemId || intent.materialCode,
+    requiresWaterSoluble: projected?.requiresWaterSoluble === true,
+    processRoute: projected?.processRoute ? [...projected.processRoute] : ['DYE'],
   })
   openCreateDrawer({
     createMode: '按需求创建',
@@ -660,12 +691,14 @@ function renderOrderRow(order: DyeProcessOrder): string {
             <h3 class="font-mono text-sm font-semibold">${escapeHtml(order.orderNo)}</h3>
             ${renderBadge(order.status, ORDER_STATUS_CLASS[order.status])}
             ${renderBadge(order.createMode, 'border-indigo-200 bg-indigo-50 text-indigo-700')}
+            ${order.requiresWaterSoluble ? renderBadge('需先水溶', 'border-blue-200 bg-blue-50 text-blue-700') : ''}
           </div>
           <p class="mt-2 text-sm font-medium">${escapeHtml(order.dyeFactoryName === TEST_FACTORY_NAME ? TEST_FACTORY_DISPLAY_NAME : order.dyeFactoryName)}</p>
           <div class="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2 xl:grid-cols-3">
             <div><span>关联需求单数：</span><span class="font-medium text-foreground">${order.linkedDemands.length}张</span></div>
             <div><span>${escapeHtml(order.plannedQtyLabel || '计划染色面料米数')}：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</span></div>
             <div><span>计划完成时间：</span><span class="text-foreground">${escapeHtml(order.plannedFinishAt)}</span></div>
+            ${order.requiresWaterSoluble ? `<div><span>当前步骤：</span><span class="font-medium text-foreground">${escapeHtml(order.currentStepLabel || '待水溶')}</span></div><div><span>水溶数量：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(order.waterSolubleCompletedQty || 0, (order.waterSolubleQtyUnit || order.unit) as Unit))} / ${escapeHtml(formatQty(order.waterSolublePlannedQty || order.plannedFeedQty, (order.waterSolubleQtyUnit || order.unit) as Unit))}</span></div>` : ''}
             <div><span>分配方式：</span><span class="font-medium text-foreground">${escapeHtml(order.assignmentMode || '派单')}</span></div>
             <div><span>派单价格：</span><span class="font-medium text-foreground">${escapeHtml(order.dispatchPriceDisplay || '1500 IDR/Yard')}</span></div>
             <div class="md:col-span-2 xl:col-span-3"><span>备货物料：</span><span class="text-foreground">${escapeHtml(stockMaterialText)}</span></div>
@@ -786,6 +819,7 @@ function renderDetailDrawer(): string {
               <div><span class="text-muted-foreground">染色工厂：</span>${escapeHtml(order.dyeFactoryName === TEST_FACTORY_NAME ? TEST_FACTORY_DISPLAY_NAME : order.dyeFactoryName)}</div>
               <div><span class="text-muted-foreground">计划完成时间：</span>${escapeHtml(order.plannedFinishAt)}</div>
               <div><span class="text-muted-foreground">更新时间：</span>${escapeHtml(order.updatedAt)}</div>
+              ${order.requiresWaterSoluble ? `<div><span class="text-muted-foreground">工艺路线：</span>水溶 → 染色（同厂连续加工）</div><div><span class="text-muted-foreground">当前步骤：</span>${escapeHtml(order.currentStepLabel || '待水溶')}</div>` : ''}
             </div>
           </section>
 
@@ -801,6 +835,7 @@ function renderDetailDrawer(): string {
               <div class="md:col-span-2"><span class="text-muted-foreground">备注：</span>${escapeHtml(order.note)}</div>
               <div><span class="text-muted-foreground">移动端任务号：</span>${escapeHtml(order.mobileBindingTaskNo || order.taskNo || order.taskId || '未绑定')}</div>
               <div><span class="text-muted-foreground">绑定状态：</span>${escapeHtml(order.mobileBindingStatusLabel || '待校验')}</div>
+              ${order.requiresWaterSoluble ? `<div><span class="text-muted-foreground">水溶计划 / 完成：</span>${escapeHtml(formatQty(order.waterSolublePlannedQty || order.plannedFeedQty, (order.waterSolubleQtyUnit || order.unit) as Unit))} / ${escapeHtml(formatQty(order.waterSolubleCompletedQty || 0, (order.waterSolubleQtyUnit || order.unit) as Unit))}</div><div><span class="text-muted-foreground">中间交出：</span>无，完成染色及后处理后统一交出</div>` : ''}
               <div class="md:col-span-2"><span class="text-muted-foreground">绑定校验结果：</span>${escapeHtml(order.mobileBindingReasonLabel || '未校验')}</div>
               <div><span class="text-muted-foreground">创建时间：</span>${escapeHtml(order.createdAt)}</div>
               <div><span class="text-muted-foreground">更新时间：</span>${escapeHtml(order.updatedAt)}</div>
@@ -897,12 +932,15 @@ function renderCreateDemandPick(): string {
       ${options
         .map((item) => {
           const selected = state.createForm.selectedDemandIds.includes(item.demandId)
+          const selectedItems = options.filter((option) => state.createForm.selectedDemandIds.includes(option.demandId))
+          const compatible = selected || selectedItems.length === 0 || selectedItems[0]?.requiresWaterSoluble === item.requiresWaterSoluble
           return `
-            <button class="flex w-full items-start justify-between rounded-md border px-3 py-2 text-left text-xs ${selected ? 'border-blue-300 bg-blue-50' : 'hover:bg-muted'}" data-dye-order-action="toggle-create-demand" data-demand-id="${escapeHtml(item.demandId)}">
+            <button class="flex w-full items-start justify-between rounded-md border px-3 py-2 text-left text-xs ${selected ? 'border-blue-300 bg-blue-50' : compatible ? 'hover:bg-muted' : 'cursor-not-allowed bg-muted/40 opacity-60'}" data-dye-order-action="toggle-create-demand" data-demand-id="${escapeHtml(item.demandId)}" ${compatible ? '' : 'disabled'}>
               <span>
                 <span class="font-mono">${escapeHtml(item.demandId)}</span>
                 <span class="ml-2 text-muted-foreground">${escapeHtml(item.sourceProductionOrderId)}</span>
                 <span class="mt-1 block text-muted-foreground">${escapeHtml(item.materialCode)} · ${escapeHtml(item.materialName)} · ${escapeHtml(formatQty(item.requiredQty, item.unit))}</span>
+                ${item.requiresWaterSoluble ? '<span class="mt-1 inline-flex rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-blue-700">需先水溶 · 水溶 → 染色</span>' : ''}
               </span>
               <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full border px-1 ${selected ? 'border-blue-500 text-blue-600' : 'border-slate-300 text-slate-500'}">${selected ? '✓' : ''}</span>
             </button>
@@ -971,7 +1009,7 @@ function renderCreateDrawer(): string {
                 <label class="mb-1 block text-xs text-muted-foreground">染色工厂</label>
                 <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-dye-order-create-field="factoryName">
                   <option value="" ${state.createForm.factoryName ? '' : 'selected'}>请选择染色加工厂</option>
-                  ${DYE_FACTORY_OPTIONS.map((factory) => `<option value="${escapeHtml(factory)}" ${state.createForm.factoryName === factory ? 'selected' : ''}>${escapeHtml(factory)}</option>`).join('')}
+                  ${DYE_FACTORY_OPTIONS.map((factory) => `<option value="${escapeHtml(factory.id)}" ${state.createForm.factoryName === factory.id ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}
                 </select>
               </div>
               ${
@@ -1051,6 +1089,7 @@ function renderCreateDrawer(): string {
 }
 
 export function renderProcessDyeOrdersPage(): string {
+  ORDERS = loadOrders()
   consumeCreateIntentIfExists()
 
   const statusOptions: StatusFilter[] = ['全部', ...listPlatformStatusOptions()]
@@ -1134,59 +1173,48 @@ function submitCreate(): void {
   }
 
   const demandPool = getDemandOptions()
-  const linkedDemands = demandPool
-    .filter((item) => form.selectedDemandIds.includes(item.demandId))
-    .map<LinkedDemand>((item) => ({
-      demandId: item.demandId,
-      sourceProductionOrderId: item.sourceProductionOrderId,
-      materialCode: item.materialCode,
-      materialName: item.materialName,
-      requiredQty: item.requiredQty,
-      satisfiedQty: 0,
-      unit: item.unit,
-      status: '待满足',
-    }))
-
-  const now = formatNow()
-  const orderNo = generateOrderNo()
-  ORDERS.unshift({
-    orderNo,
-    status: '待接收来料',
-    createMode: form.createMode,
-    dyeFactoryName: form.factoryName.trim(),
-    plannedFeedQty,
-    unit: '米',
+  const selectedDemands = form.createMode === '按需求创建'
+    ? demandPool.filter((item) => form.selectedDemandIds.includes(item.demandId))
+    : [{
+        demandId: `STOCK-${selectedMaterial!.materialCode}`,
+        sourceProductionOrderId: '按备货创建',
+        bomItemId: selectedMaterial!.materialCode,
+        materialCode: selectedMaterial!.materialCode,
+        materialName: selectedMaterial!.materialName,
+        requiredQty: plannedFeedQty,
+        unit: selectedMaterial!.unit,
+        requiresWaterSoluble: false,
+        processRoute: ['DYE'] as Array<'DYE'>,
+      }]
+  const selection = validateDyeDemandSelection(selectedDemands)
+  if (!selection.ok) {
+    state.notice = selection.message
+    return
+  }
+  const capability = validateDyeFactoryCapabilities(selectedDemands, form.factoryName.trim())
+  if (!capability.ok) {
+    state.notice = capability.message
+    return
+  }
+  const created = createDyeWorkOrderFromDemands({
+    demands: selectedDemands,
+    factoryId: form.factoryName.trim(),
     plannedFinishAt: fromDateTimeValue(form.plannedFinishAt),
-    sourceSummary: form.sourceSummary.trim(),
-    note: form.note.trim(),
-    createdAt: now,
-    updatedAt: now,
-    linkedDemands,
-    stockMaterial:
-      form.createMode === '按备货创建' && selectedMaterial
-        ? {
-            materialCode: selectedMaterial.materialCode,
-            materialName: selectedMaterial.materialName,
-            unit: selectedMaterial.unit,
-          }
-        : undefined,
-    materialReceipt: {
-      receiveStatus: '待接收',
-      receivedQty: 0,
-      receivedAt: '-',
-      receiptVoucher: '待接收后回填',
-      qualityConclusion: '待来料接收',
-    },
-    batches: [],
-    destinations: [],
+    plannedQty: plannedFeedQty,
+    createdBy: 'FCS 业务人员',
   })
+  if (!created.ok || !created.order) {
+    state.notice = created.message || '染色加工单创建失败。'
+    return
+  }
+  ORDERS = loadOrders()
 
   state.createDrawerOpen = false
   state.materialPickerOpen = false
   state.createForm = createDefaultForm()
   closeDetail()
   state.page = 1
-  state.notice = `已创建演示加工单 ${orderNo}。`
+  state.notice = `已创建染色加工单 ${created.order.dyeOrderNo}。`
 }
 
 export function handleProcessDyeOrdersEvent(target: HTMLElement): boolean {
@@ -1332,9 +1360,18 @@ export function handleProcessDyeOrdersEvent(target: HTMLElement): boolean {
     const demandId = actionNode.dataset.demandId
     if (!demandId) return true
     const existed = state.createForm.selectedDemandIds.includes(demandId)
-    state.createForm.selectedDemandIds = existed
+    const nextIds = existed
       ? state.createForm.selectedDemandIds.filter((item) => item !== demandId)
       : [...state.createForm.selectedDemandIds, demandId]
+    const nextDemands = getDemandOptions().filter((item) => nextIds.includes(item.demandId))
+    if (nextDemands.length > 0) {
+      const validation = validateDyeDemandSelection(nextDemands)
+      if (!validation.ok) {
+        state.notice = validation.message
+        return true
+      }
+    }
+    state.createForm.selectedDemandIds = nextIds
     return true
   }
 

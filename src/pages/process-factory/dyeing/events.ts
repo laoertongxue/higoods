@@ -1,8 +1,11 @@
 import { appStore } from '../../../state/store'
 import {
+  completeDyeWaterSolubleNode,
   confirmDyeReceipt,
   getDyeReviewRecordByOrderId,
   markDyeReceiptDifference,
+  resolveDyeWaterSolublePause,
+  startDyeWaterSolubleNode,
 } from '../../../data/fcs/dyeing-task-domain.ts'
 import { executeProcessWebAction } from '../../../data/fcs/process-web-status-actions.ts'
 import {
@@ -96,6 +99,38 @@ export function handleCraftDyeingEvent(target: HTMLElement): boolean {
     } catch (error) {
       showDyeingToast(error instanceof Error ? error.message : '状态操作失败')
     }
+    return true
+  }
+
+  if (action === 'start-water-soluble') {
+    const dyeOrderId = actionNode.dataset.dyeOrderId
+    if (!dyeOrderId) return true
+    const result = startDyeWaterSolubleNode(dyeOrderId, '染厂操作员')
+    showDyeingToast(result.ok ? '已开始水溶' : result.message)
+    if (result.ok) refreshCurrentDyeingPage()
+    return true
+  }
+
+  if (action === 'complete-water-soluble') {
+    const dyeOrderId = actionNode.dataset.dyeOrderId
+    if (!dyeOrderId) return true
+    const qtyText = window.prompt('请输入水溶实际完成数量')
+    if (qtyText === null) return true
+    const outputQty = Number(qtyText)
+    const reason = window.prompt('如数量与计划不同，请填写原因') || ''
+    const result = completeDyeWaterSolubleNode(dyeOrderId, outputQty, reason)
+    showDyeingToast(result.ok ? (result.order?.status === 'PRODUCTION_PAUSED' ? '数量不足，已交主管处理' : '水溶完成，可继续染色') : result.message)
+    if (result.ok) refreshCurrentDyeingPage()
+    return true
+  }
+
+  if (action === 'resolve-water-soluble-pause') {
+    const dyeOrderId = actionNode.dataset.dyeOrderId
+    const decision = actionNode.dataset.decision as 'CONTINUE_PROCESSING' | 'CONTINUE_WITH_ACTUAL_QTY' | 'RETURN_FOR_REWORK' | undefined
+    if (!dyeOrderId || !decision) return true
+    const result = resolveDyeWaterSolublePause(dyeOrderId, decision, '染厂主管')
+    showDyeingToast(result.ok ? '主管处理已记录' : result.message)
+    if (result.ok) refreshCurrentDyeingPage()
     return true
   }
 
