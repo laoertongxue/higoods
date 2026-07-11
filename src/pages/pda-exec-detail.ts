@@ -1943,6 +1943,15 @@ function showPdaExecDetailToast(message: string): void {
   }, 2200)
 }
 
+function rejectOfflinePdaMutation(retryFocusSelector?: string): boolean {
+  if (typeof navigator === 'undefined' || navigator.onLine !== false) return false
+  showPdaExecDetailToast('网络不可用，当前填写内容已保留，请恢复网络后重试。')
+  if (retryFocusSelector && typeof document !== 'undefined') {
+    document.querySelector<HTMLElement>(retryFocusSelector)?.focus()
+  }
+  return true
+}
+
 function nowDisplayTimestamp(date: Date = new Date()): string {
   const yyyy = date.getFullYear()
   const mm = String(date.getMonth() + 1).padStart(2, '0')
@@ -4381,6 +4390,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       return true
     }
     if (action === 'water-go-handover') {
+      if (rejectOfflinePdaMutation()) return true
       try {
         const ensured = ensureHandoverOrderForStartedTask(order.taskId)
         appStore.navigate(`/fcs/pda/handover/${encodeURIComponent(ensured.handoverOrderId)}?action=new-record`)
@@ -4410,6 +4420,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         refreshWaterSolubleOverlay()
         return true
       }
+      if (rejectOfflinePdaMutation('[data-pda-execd-field="waterReason"]')) return true
       const actionKey = `${orderId}:COMPLETE:${order.status}`
       if (pendingWaterActions.has(actionKey)) return true
       pendingWaterActions.add(actionKey)
@@ -4438,6 +4449,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         showPdaExecDetailToast('请选择有效的主管处理方式。')
         return true
       }
+      if (rejectOfflinePdaMutation()) return true
       const actionKey = `${orderId}:RESOLVE_PAUSE:${order.status}`
       if (pendingWaterActions.has(actionKey)) return true
       pendingWaterActions.add(actionKey)
@@ -4459,6 +4471,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       return true
     }
 
+    if (rejectOfflinePdaMutation()) return true
     const actionKey = `${orderId}:${action}:${order.status}`
     if (pendingWaterActions.has(actionKey)) return true
     pendingWaterActions.add(actionKey)
@@ -4561,6 +4574,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         refreshCombinedDyeOverlay()
         return true
       }
+      if (rejectOfflinePdaMutation('[data-pda-execd-field="dyeWaterReason"]')) return true
       const key = `${dyeOrderId}:COMPLETE:${order.status}`
       if (pendingDyeWaterActions.has(key)) return true
       pendingDyeWaterActions.add(key)
@@ -4587,6 +4601,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         showPdaExecDetailToast('请选择有效的主管处理方式。')
         return true
       }
+      if (rejectOfflinePdaMutation()) return true
       const key = `${dyeOrderId}:RESOLVE_PAUSE:${order.status}`
       if (pendingDyeWaterActions.has(key)) return true
       pendingDyeWaterActions.add(key)
@@ -4607,6 +4622,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       return true
     }
     if (action === 'dye-water-start-dye') {
+      if (rejectOfflinePdaMutation()) return true
       const key = `${dyeOrderId}:START_DYE:${order.status}`
       if (pendingDyeWaterActions.has(key)) return true
       pendingDyeWaterActions.add(key)
@@ -4646,6 +4662,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       }
       return true
     }
+    if (rejectOfflinePdaMutation()) return true
     const key = `${dyeOrderId}:START:${order.status}`
     if (pendingDyeWaterActions.has(key)) return true
     pendingDyeWaterActions.add(key)
@@ -5028,6 +5045,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       showPdaExecDetailToast('请先开工')
       return true
     }
+    if (dyeOrder.requiresWaterSoluble && action === 'dye-complete-dye' && rejectOfflinePdaMutation()) return true
 
     try {
       if (action === 'dye-start-sample-wait') {

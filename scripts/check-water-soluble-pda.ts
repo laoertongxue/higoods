@@ -434,6 +434,60 @@ async function main(): Promise<void> {
     )
     assert.equal(listHandoverOrdersByTaskId(executableOrder.taskId).length, 0)
 
+    memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+    appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(executableOrder.taskId)}`)
+    const offlineStartHtml = renderPdaExecDetailPage(executableOrder.taskId)
+    const offlineStartToken = offlineStartHtml.match(/data-pda-execd-action="water-start"[\s\S]{0,700}?data-action-token="([^"]+)"/)
+    assert(offlineStartToken, '待水溶详情必须生成可校验的开始水溶动作令牌')
+    const offlineStartNode = {
+      dataset: {
+        pdaExecdAction: 'water-start',
+        orderId: executableOrder.waterOrderId,
+        taskId: executableOrder.taskId,
+        expectedStatus: 'WAIT_WATER_SOLUBLE',
+        actionToken: offlineStartToken[1],
+      },
+      disabled: false,
+      isConnected: true,
+      textContent: '开始水溶',
+    }
+    const offlineStartTarget = {
+      closest: (selector: string) => selector === '[data-pda-execd-action]' ? offlineStartNode : null,
+    } as unknown as HTMLElement
+    const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
+    const beforeOfflineHandler = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)!
+    const offlineHeadCount = listHandoverOrdersByTaskId(executableOrder.taskId).length
+    try {
+      Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } })
+      assert.equal(handlePdaExecDetailEvent(offlineStartTarget), true, 'PDA 详情 handler 必须消费离线开始动作')
+      assert.deepEqual(
+        getWaterSolubleWorkOrderById(executableOrder.waterOrderId),
+        beforeOfflineHandler,
+        '真实 handler 离线失败不得修改状态、数量、原因、时间或日志',
+      )
+      assert.equal(listHandoverOrdersByTaskId(executableOrder.taskId).length, offlineHeadCount, '真实 handler 离线失败不得生成交接单头或记录')
+
+      Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } })
+      assert.equal(handlePdaExecDetailEvent(offlineStartTarget), true, '恢复在线后必须可用同一动作和令牌直接重试')
+      const afterOnlineHandlerRetry = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)!
+      assert.equal(afterOnlineHandlerRetry.status, 'WATER_SOLUBLE_IN_PROGRESS')
+      assert.equal(afterOnlineHandlerRetry.completedQty, beforeOfflineHandler.completedQty)
+      assert.equal(afterOnlineHandlerRetry.actionLogs.length, beforeOfflineHandler.actionLogs.length + 1, '在线重试只能新增一条开始水溶日志')
+      assert.equal(afterOnlineHandlerRetry.actionLogs.at(-1)?.action, '开始水溶')
+      assert.equal(listHandoverOrdersByTaskId(executableOrder.taskId).length, offlineHeadCount)
+
+      assert.equal(handlePdaExecDetailEvent(offlineStartTarget), true, '旧令牌重复请求必须由 handler 消费并拒绝')
+      assert.deepEqual(getWaterSolubleWorkOrderById(executableOrder.waterOrderId), afterOnlineHandlerRetry, '旧令牌重复请求不得二次写日志或加工单记录')
+      assert.equal(listHandoverOrdersByTaskId(executableOrder.taskId).length, offlineHeadCount, '旧令牌重复请求不得生成交接记录')
+    } finally {
+      if (navigatorDescriptor) Object.defineProperty(globalThis, 'navigator', navigatorDescriptor)
+      else Reflect.deleteProperty(globalThis, 'navigator')
+    }
+
+    resetWaterSolubleDomainForChecks({ seedDemo: false })
+    assert.equal(assignWaterSolubleFactory(executableOrder.waterOrderId, operator.factoryId).ok, true)
+    assert.equal(markWaterSolubleMaterialReady(executableOrder.waterOrderId).ok, true)
+
     memoryStorage.delete('fcs_pda_session')
     const beforeNoSession = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)
     const noSessionStart = executeWaterSolublePdaAction({
@@ -504,21 +558,21 @@ async function main(): Promise<void> {
       expectedNode: 'START',
       actor: operator,
     } as const
-    const beforeRetryableFailure = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)!
+    const beforeSessionLoss = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)!
     const handoverHeadCountBeforeRetry = listHandoverOrdersByTaskId(executableOrder.taskId).length
     memoryStorage.delete('fcs_pda_session')
-    const retryableFailure = executeWaterSolublePdaAction(retryStartInput)
-    assert.equal(retryableFailure.ok, false, '弱网导致 session 暂时不可用时，本次开始水溶必须可安全失败')
-    assert.match(retryableFailure.message, /登录|身份/, '可重试失败必须给出中文身份修复提示')
+    const sessionLossFailure = executeWaterSolublePdaAction(retryStartInput)
+    assert.equal(sessionLossFailure.ok, false, '会话暂失时，本次开始水溶必须可安全失败')
+    assert.match(sessionLossFailure.message, /登录|身份/, '会话暂失失败必须给出中文身份修复提示')
     assert.deepEqual(
       getWaterSolubleWorkOrderById(executableOrder.waterOrderId),
-      beforeRetryableFailure,
-      '可重试失败不得修改加工单状态、数量、原因、时间或日志',
+      beforeSessionLoss,
+      '会话暂失失败不得修改加工单状态、数量、原因、时间或日志',
     )
     assert.equal(
       listHandoverOrdersByTaskId(executableOrder.taskId).length,
       handoverHeadCountBeforeRetry,
-      '可重试失败不得生成交接单头或记录',
+      '会话暂失失败不得生成交接单头或记录',
     )
 
     memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
@@ -526,12 +580,12 @@ async function main(): Promise<void> {
     assert.equal(retriedStart.ok, true, '恢复同一 session 后，同 order/action/输入重试必须成功')
     const afterRetrySuccess = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)!
     assert.equal(afterRetrySuccess.status, 'WATER_SOLUBLE_IN_PROGRESS')
-    assert.equal(afterRetrySuccess.completedQty, beforeRetryableFailure.completedQty, '开始水溶不得改写完成数量')
-    assert.equal(afterRetrySuccess.exceptionReason, beforeRetryableFailure.exceptionReason, '开始水溶不得改写异常原因')
+    assert.equal(afterRetrySuccess.completedQty, beforeSessionLoss.completedQty, '开始水溶不得改写完成数量')
+    assert.equal(afterRetrySuccess.exceptionReason, beforeSessionLoss.exceptionReason, '开始水溶不得改写异常原因')
     assert.equal(
       afterRetrySuccess.actionLogs.length,
-      beforeRetryableFailure.actionLogs.length + 1,
-      '失败后重试成功必须只新增一条开始水溶日志',
+      beforeSessionLoss.actionLogs.length + 1,
+      '会话恢复后重试成功必须只新增一条开始水溶日志',
     )
     assert.equal(afterRetrySuccess.actionLogs.at(-1)?.action, '开始水溶')
     assert.equal(

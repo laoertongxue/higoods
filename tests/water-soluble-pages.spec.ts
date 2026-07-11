@@ -88,7 +88,41 @@ test('FCS input、select、分页和抽屉保持 main 节点及输入焦点', as
   await expect(page.getByTestId('water-soluble-orders-page')).toBeVisible()
   await rememberMain(page)
   const keyword = page.getByPlaceholder('加工单号 / 生产单号 / 物料')
-  await keyword.fill('PO-202603-081')
+  const fcsTiming = await keyword.evaluate(async (input: HTMLInputElement) => {
+    const main = document.querySelector('main')
+    const previousList = document.querySelector('[data-water-soluble-list-region]')
+    input.focus()
+    const startedAt = performance.now()
+    const listReady = new Promise<void>((resolve) => {
+      const observer = new MutationObserver(() => {
+        const currentList = document.querySelector('[data-water-soluble-list-region]')
+        if (!currentList || currentList === previousList || !currentList.isConnected) return
+        observer.disconnect()
+        clearTimeout(timeout)
+        resolve()
+      })
+      const timeout = window.setTimeout(() => {
+        observer.disconnect()
+        resolve()
+      }, 1000)
+      observer.observe(document.body, { childList: true, subtree: true })
+    })
+    input.value = 'PO-202603-081'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await listReady
+    const elapsed = performance.now() - startedAt
+    const currentList = document.querySelector('[data-water-soluble-list-region]')
+    return {
+      elapsed,
+      sameMain: main === document.querySelector('main') && main?.isConnected === true,
+      listUpdated: Boolean(currentList && currentList !== previousList && currentList.isConnected),
+      focused: document.activeElement === input,
+      value: input.value,
+    }
+  })
+  console.log(`[performance] FCS 水溶关键词筛选 ${fcsTiming.elapsed.toFixed(3)}ms`)
+  expect(fcsTiming.elapsed).toBeLessThan(200)
+  expect(fcsTiming).toMatchObject({ sameMain: true, listUpdated: true, focused: true, value: 'PO-202603-081' })
   await expect(keyword).toBeFocused()
   await expect(keyword).toHaveValue('PO-202603-081')
   await expectSameMain(page)
@@ -161,6 +195,42 @@ test('PFOS 合法当前工厂动作成功且 pageSize 只接受白名单', async
   await loginForSeededOrder(page, 'WATER_SOLUBLE_IN_PROGRESS')
   await page.goto('/fcs/craft/dyeing/water-soluble-orders')
   await expect(page.getByRole('button', { name: '上报完成数量' })).toBeVisible()
+  const status = page.locator('[data-factory-water-soluble-field="status"]')
+  const pfosTiming = await status.evaluate(async (select: HTMLSelectElement) => {
+    const main = document.querySelector('main')
+    const previousList = document.querySelector('[data-factory-water-soluble-list-region]')
+    select.focus()
+    const startedAt = performance.now()
+    const listReady = new Promise<void>((resolve) => {
+      const observer = new MutationObserver(() => {
+        const currentList = document.querySelector('[data-factory-water-soluble-list-region]')
+        if (!currentList || currentList === previousList || !currentList.isConnected) return
+        observer.disconnect()
+        clearTimeout(timeout)
+        resolve()
+      })
+      const timeout = window.setTimeout(() => {
+        observer.disconnect()
+        resolve()
+      }, 1000)
+      observer.observe(document.body, { childList: true, subtree: true })
+    })
+    select.value = 'WATER_SOLUBLE_IN_PROGRESS'
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    await listReady
+    const elapsed = performance.now() - startedAt
+    const currentList = document.querySelector('[data-factory-water-soluble-list-region]')
+    return {
+      elapsed,
+      sameMain: main === document.querySelector('main') && main?.isConnected === true,
+      listUpdated: Boolean(currentList && currentList !== previousList && currentList.isConnected),
+      focused: document.activeElement === select,
+      value: select.value,
+    }
+  })
+  console.log(`[performance] PFOS 水溶状态筛选 ${pfosTiming.elapsed.toFixed(3)}ms`)
+  expect(pfosTiming.elapsed).toBeLessThan(200)
+  expect(pfosTiming).toMatchObject({ sameMain: true, listUpdated: true, focused: true, value: 'WATER_SOLUBLE_IN_PROGRESS' })
   const pageSize = page.locator('[data-testid="factory-water-soluble-pagination"] select')
   await pageSize.evaluate((select) => {
     const option = document.createElement('option')
