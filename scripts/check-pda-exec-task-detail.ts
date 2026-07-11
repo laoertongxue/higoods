@@ -18,6 +18,7 @@ import {
   getMobileExecutionTaskById,
   listMobileExecutionTasks,
 } from '../src/data/fcs/mobile-execution-task-index.ts'
+import { generateTaskArtifactsForAllOrders } from '../src/data/fcs/production-artifact-generation.ts'
 import {
   assignWaterSolubleFactory,
   listWaterSolubleWorkOrders,
@@ -88,32 +89,73 @@ function checkSourceCopy(): void {
 
 function checkWaterSolubleRuntimeEntry(): void {
   resetWaterSolubleDomainForChecks()
-  const order = listWaterSolubleWorkOrders().find((item) => item.productionOrderId === 'PO-202603-083')
-    ?? listWaterSolubleWorkOrders()[0]
-  assert(order, '缺少可用于 PDA 真实入口检查的独立水溶加工单')
-  const assigned = assignWaterSolubleFactory(order.waterOrderId, 'F090')
-  assert(assigned.ok, `水溶加工单测试分厂失败：${assigned.message}`)
-
-  const rawTask = listPdaMobileExecutionTasks().find((task) => task.taskId === order.taskId)
-  assert(rawTask, 'PDA 统一任务聚合入口缺少独立水溶领域任务')
-  assert(rawTask.qty === order.plannedQty, 'PDA 水溶任务数量未使用 BOM 物料计划量')
-  assert(rawTask.qtyDisplayUnit === order.qtyUnit, 'PDA 水溶任务未保留原 BOM 精确单位')
-  assert(getPdaMobileExecutionTaskById(order.taskId)?.taskId === order.taskId, 'PDA 统一入口无法按 taskId 查询水溶任务')
-  assert(getMobileExecutionTaskById(order.taskId)?.taskId === order.taskId, '移动任务索引无法按 taskId 查询水溶任务')
-  assert(
-    listMobileExecutionTasks({ currentFactoryId: 'F090', includeCompleted: true }).some((task) => task.taskId === order.taskId),
-    '已分厂水溶任务未进入当前工厂移动执行列表',
+  const orders = listWaterSolubleWorkOrders()
+  const orderByArtifactId = new Map(orders.map((order) => [order.sourceArtifactId, order]))
+  const waterArtifacts = generateTaskArtifactsForAllOrders().filter((artifact) =>
+    artifact.artifactType === 'TASK'
+    && artifact.defaultDocType === 'TASK'
+    && artifact.processCode === 'WATER_SOLUBLE'
+    && Boolean(artifact.bomItemId)
+    && Number(artifact.plannedQty) > 0
+    && Boolean(artifact.plannedUnit),
   )
+  assert(waterArtifacts.length > 0, '缺少可用于 PDA 真实入口检查的独立水溶 TASK 产物')
 
-  const artifactTasks = listPdaMobileExecutionTasks().filter((task) => {
-    if ((task as typeof task & { sourceArtifactId?: string }).sourceArtifactId === order.sourceArtifactId) return true
-    return task.coveredProcesses?.some((process) => process.sourceArtifactIds.includes(order.sourceArtifactId))
+  orders.forEach((order) => {
+    const assigned = assignWaterSolubleFactory(order.waterOrderId, 'F090')
+    assert(assigned.ok, `水溶加工单测试分厂失败：${assigned.message}`)
   })
-  assert(artifactTasks.length === 1, '同一独立水溶产物在 PDA 入口存在重复领域任务与通用 TASKGEN')
-  assert(artifactTasks[0]?.taskId === order.taskId, '独立水溶产物未由正确领域任务替换通用 TASKGEN')
 
-  const displayMeta = getProcessTaskQtyDisplayMeta(rawTask)
-  assert(displayMeta.valueText.includes(`${order.plannedQty} ${order.qtyUnit}`), 'PDA 运行时数量展示未优先使用 BOM 物料数量与原单位')
+  const pdaTasks = listPdaMobileExecutionTasks()
+  waterArtifacts.forEach((artifact) => {
+    const order = orderByArtifactId.get(artifact.artifactId)
+    assert(order, `独立水溶产物缺少对应领域加工单：${artifact.artifactId}`)
+    const consumingTasks = pdaTasks.filter((task) => {
+      if ((task as typeof task & { sourceArtifactId?: string }).sourceArtifactId === artifact.artifactId) return true
+      if (task.coveredProcesses?.some((process) => process.sourceArtifactIds.includes(artifact.artifactId))) return true
+      return task.detailRows?.some((row) =>
+        row.sourceRefs.processCode === 'WATER_SOLUBLE'
+        && row.sourceRefs.sourceEntryId === artifact.sourceEntryId,
+      )
+    })
+    assert(
+      consumingTasks.length === 1,
+      `独立水溶产物必须只被一个 PDA 任务消费：${artifact.artifactId}，实际 ${consumingTasks.map((task) => task.taskId).join('、')}`,
+    )
+    const rawTask = consumingTasks[0]
+    assert(rawTask?.taskId === order.taskId, `独立水溶产物必须由对应 TASK-WATER 消费：${artifact.artifactId}`)
+    assert(rawTask.qty === artifact.plannedQty, `PDA 水溶任务数量未使用 BOM 计划量：${artifact.artifactId}`)
+    assert(rawTask.qtyDisplayUnit === artifact.plannedUnit, `PDA 水溶任务未保留 BOM 原单位：${artifact.artifactId}`)
+    assert(getPdaMobileExecutionTaskById(order.taskId)?.taskId === order.taskId, `PDA 统一入口无法按 taskId 查询水溶任务：${order.taskId}`)
+    assert(getMobileExecutionTaskById(order.taskId)?.taskId === order.taskId, `移动任务索引无法按 taskId 查询水溶任务：${order.taskId}`)
+    assert(
+      listMobileExecutionTasks({ currentFactoryId: 'F090', includeCompleted: true }).some((task) => task.taskId === order.taskId),
+      `已分厂水溶任务未进入当前工厂移动执行列表：${order.taskId}`,
+    )
+    const displayMeta = getProcessTaskQtyDisplayMeta(rawTask)
+    assert(
+      displayMeta.valueText.includes(`${artifact.plannedQty} ${artifact.plannedUnit}`),
+      `PDA 运行时数量展示未优先使用 BOM 物料数量与原单位：${artifact.artifactId}`,
+    )
+  })
+
+  pdaTasks
+    .filter((task) => task.taskUnitType === 'WHOLE_ORDER_TASK' || task.taskUnitType === 'COMBINED_PROCESS_TASK')
+    .forEach((task) => {
+      assert(
+        !task.coveredProcesses?.some((process) =>
+          process.sourceArtifactIds.some((artifactId) => orderByArtifactId.has(artifactId)),
+        ),
+        `整单/组合任务不得覆盖独立水溶产物：${task.taskId}`,
+      )
+      assert(
+        !task.detailRows?.some((row) =>
+          row.sourceRefs.processCode === 'WATER_SOLUBLE'
+          && waterArtifacts.some((artifact) => artifact.sourceEntryId === row.sourceRefs.sourceEntryId),
+        ),
+        `整单/组合任务明细不得保留独立水溶来源：${task.taskId}`,
+      )
+    })
 }
 
 function checkAutoCreateIdempotency(): void {

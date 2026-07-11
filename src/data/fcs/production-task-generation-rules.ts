@@ -327,7 +327,12 @@ function buildUnitFromArtifacts(input: {
   }
 }
 
-function buildDefaultUnits(order: ProductionOrder, taskArtifacts: GeneratedTaskArtifact[], rule: ProductionTaskGenerationRule): GeneratedTaskUnitPreview[] {
+function buildDefaultUnits(
+  order: ProductionOrder,
+  taskArtifacts: GeneratedTaskArtifact[],
+  rule: ProductionTaskGenerationRule,
+  startIndex = 0,
+): GeneratedTaskUnitPreview[] {
   return taskArtifacts.map((artifact, index) =>
     buildUnitFromArtifacts({
       order,
@@ -338,9 +343,15 @@ function buildDefaultUnits(order: ProductionOrder, taskArtifacts: GeneratedTaskA
         allowAutoDispatch: true,
       },
       taskArtifacts: [artifact],
-      index: index + 1,
+      index: startIndex + index + 1,
     }),
   )
+}
+
+function isStandaloneWaterSolubleTaskArtifact(artifact: GeneratedTaskArtifact): boolean {
+  return artifact.artifactType === 'TASK'
+    && artifact.defaultDocType === 'TASK'
+    && artifact.processCode === 'WATER_SOLUBLE'
 }
 
 function resolveMergeProcessCodes(rule: ProductionTaskGenerationRule, order: ProductionOrder): Set<string> | null {
@@ -397,15 +408,21 @@ export function buildTaskGenerationPreview(orderId: string): ProductionTaskGener
   }
   const independentSet = new Set(matchedRule.independentProcessCodes)
   const mergeProcessSet = resolveMergeProcessCodes(matchedRule, order)
+  const standaloneTaskArtifacts = taskArtifacts.filter(isStandaloneWaterSolubleTaskArtifact)
   const mergeCandidates = taskArtifacts.filter((artifact) =>
-    !independentSet.has(artifact.processCode) && (!mergeProcessSet || mergeProcessSet.has(artifact.processCode)),
+    !isStandaloneWaterSolubleTaskArtifact(artifact)
+    && !independentSet.has(artifact.processCode)
+    && (!mergeProcessSet || mergeProcessSet.has(artifact.processCode)),
   )
   const generatedUnits =
     matchedRule.remainingProcessStrategy === 'GENERATE_BY_PROCESS'
       ? buildDefaultUnits(order, taskArtifacts, matchedRule)
-      : mergeCandidates.length > 0
-        ? [buildUnitFromArtifacts({ order, rule: matchedRule, taskArtifacts: mergeCandidates, index: 1 })]
-        : []
+      : [
+          ...(mergeCandidates.length > 0
+            ? [buildUnitFromArtifacts({ order, rule: matchedRule, taskArtifacts: mergeCandidates, index: 1 })]
+            : []),
+          ...buildDefaultUnits(order, standaloneTaskArtifacts, matchedRule, mergeCandidates.length > 0 ? 1 : 0),
+        ]
   const status: TaskGenerationPreviewStatus =
     generatedUnits.length > 0 || independentDemandObjects.length > 0
       ? 'READY'

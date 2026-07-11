@@ -436,6 +436,26 @@ async function main(): Promise<void> {
   assert.equal(kolSampleWholeUnit.assignmentTargetFactoryName, 'kol goto', 'KOL样品小单整单任务必须显示 kol goto')
   assert.equal(kolSampleWholeUnit.allowAutoDispatch, false, 'KOL样品小单整单任务不得进入自动分配')
   const runtimeTasks = runtimeDomain.listRuntimeProcessTasks()
+  const runtimeKolWholeTask = runtimeTasks.find((task: { productionOrderId?: string; taskUnitType?: string }) =>
+    task.productionOrderId === 'PO-202603-081' && task.taskUnitType === 'WHOLE_ORDER_TASK'
+  )
+  assert(runtimeKolWholeTask, 'runtime 缺少 PO081 KOL 整单任务')
+  assert.equal(runtimeKolWholeTask.qty, 5200, '剥离独立水溶产物后 KOL 整单计划数量不得回退')
+  assert(
+    (runtimeKolWholeTask.coveredProcesses ?? []).some((process: { processCode: string }) => process.processCode === 'SEW')
+      && !(runtimeKolWholeTask.coveredProcesses ?? []).some((process: { processCode: string }) => process.processCode === 'WATER_SOLUBLE'),
+    'KOL 整单任务必须保留普通工序并排除独立水溶产物',
+  )
+  const runtimeContinuousTask = runtimeTasks.find((task: { productionOrderId?: string; taskUnitType?: string }) =>
+    task.productionOrderId === 'PO-202603-082' && task.taskUnitType === 'COMBINED_PROCESS_TASK'
+  )
+  assert(runtimeContinuousTask, 'runtime 缺少 PO082 普通连续工序任务')
+  assert.equal(runtimeContinuousTask.qty, 3600, '剥离独立水溶产物后连续工序计划数量不得回退')
+  assert.deepEqual(
+    (runtimeContinuousTask.coveredProcesses ?? []).map((process: { processCode: string }) => process.processCode),
+    ['CUT_PANEL', 'SEW'],
+    '连续工序任务必须保留原普通工序且不得继续消费独立水溶产物',
+  )
   assert.equal(
     typeof runtimeDomain.evaluateContinuousRuntimeTaskMerge,
     'function',
@@ -522,7 +542,7 @@ async function main(): Promise<void> {
   assert(cuttingContinuousRuntimeTasks.length > 0, 'runtime 缺少含裁片连续任务演示')
   const cuttingContinuousRuntimeTask = cuttingContinuousRuntimeTasks[0]
   assert(
-    ['TASKGEN-202603-082-001__ORDER', 'TASKGEN-202603-082-002__ORDER'].every((taskId) =>
+    ['TASKGEN-202603-082-002__ORDER', 'TASKGEN-202603-082-003__ORDER'].every((taskId) =>
       cuttingContinuousRuntimeTask.mergeSourceTaskIds?.includes(taskId)
     ),
     '含裁片连续任务必须由 PO-202603-082 的裁片和车缝任务合并生成',
@@ -706,6 +726,53 @@ async function main(): Promise<void> {
     mergedUnitPlans.map((plan: { seq: number }) => plan.seq),
     [1, 2],
     '合并 unit 进入任务列表时仍必须按路线顺序分配 seq',
+  )
+  const isolatedWaterPlans = buildGeneratedTaskEmissionPlans(
+    'PO-CHECK-WATER-BOUNDARY',
+    [
+      {
+        artifactId: 'water-task-artifact',
+        artifactType: 'TASK',
+        defaultDocType: 'TASK',
+        processCode: 'WATER_SOLUBLE',
+        generationSortKey: '001-water',
+        sortKey: '001-water',
+      },
+      {
+        artifactId: 'sewing-task-artifact',
+        artifactType: 'TASK',
+        defaultDocType: 'TASK',
+        processCode: 'SEW',
+        generationSortKey: '002-sewing',
+        sortKey: '002-sewing',
+      },
+    ],
+    [{
+      previewUnitId: 'whole-order-with-water',
+      taskUnitType: 'WHOLE_ORDER_TASK',
+      sourceArtifactIds: ['water-task-artifact', 'sewing-task-artifact'],
+      coveredProcesses: [
+        { processCode: 'WATER_SOLUBLE', processName: '水溶', sourceArtifactIds: ['water-task-artifact'] },
+        { processCode: 'SEW', processName: '车缝', sourceArtifactIds: ['sewing-task-artifact'] },
+      ],
+    }],
+  )
+  const isolatedWaterPlan = isolatedWaterPlans.find((plan: { artifact: { artifactId: string } }) =>
+    plan.artifact.artifactId === 'water-task-artifact'
+  )
+  const isolatedWholePlan = isolatedWaterPlans.find((plan: { unit?: { taskUnitType?: string } }) =>
+    plan.unit?.taskUnitType === 'WHOLE_ORDER_TASK'
+  )
+  assert(isolatedWaterPlan && !isolatedWaterPlan.unit, '独立 WATER_SOLUBLE/TASK 产物必须走单工序发射')
+  assert.deepEqual(
+    isolatedWholePlan?.unitSourceArtifacts.map((artifact: { artifactId: string }) => artifact.artifactId),
+    ['sewing-task-artifact'],
+    '整单发射输入必须剥离独立水溶产物并保留其他工序',
+  )
+  assert.deepEqual(
+    isolatedWholePlan?.unit?.coveredProcesses?.flatMap((process: { sourceArtifactIds: string[] }) => process.sourceArtifactIds),
+    ['sewing-task-artifact'],
+    '整单覆盖工序来源必须同步剥离独立水溶产物',
   )
   assert(
     mergedRuntimeTasks.every((task: { qty?: number }) => Number(task.qty) > 0),
