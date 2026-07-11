@@ -284,6 +284,119 @@ assert.deepEqual(
   '裁片到包装节点小时数应为 144、216、288 小时',
 )
 
+// Task9 业务验收矩阵：用具名场景把产品口径和底层边界集中呈现，避免验收只依赖零散回归断言。
+const businessAcceptanceMatrix = [
+  {
+    name: '独立车缝｜30%、70%、100% 三节点均按时',
+    slaKind: 'INDEPENDENT_SEWING' as const,
+    assignedQty: 100,
+    receipts: [
+      { recordId: 'MATRIX-INDEPENDENT-30', submittedQty: 30, submittedAt: '2026-07-05 08:30:00', receivedQty: 30, receivedAt: '2026-07-05 09:00:00' },
+      { recordId: 'MATRIX-INDEPENDENT-70', submittedQty: 40, submittedAt: '2026-07-09 08:30:00', receivedQty: 40, receivedAt: '2026-07-09 09:00:00' },
+      { recordId: 'MATRIX-INDEPENDENT-100', submittedQty: 30, submittedAt: '2026-07-10 08:30:00', receivedQty: 30, receivedAt: '2026-07-10 09:00:00' },
+    ],
+    now: '2026-07-10 09:00:00',
+    expectedResults: ['ON_TIME', 'ON_TIME', 'ON_TIME'],
+    expectedConfirmedQty: 100,
+    expectedCompleted: true,
+  },
+  {
+    name: '车缝到包装｜30%逾期、70%追上、最终按时',
+    slaKind: 'SEWING_TO_PACKAGING' as const,
+    assignedQty: 100,
+    receipts: [
+      { recordId: 'MATRIX-SEW-PACK-30', submittedQty: 30, submittedAt: '2026-07-06 10:30:00', receivedQty: 30, receivedAt: '2026-07-06 11:00:00' },
+      { recordId: 'MATRIX-SEW-PACK-70', submittedQty: 40, submittedAt: '2026-07-09 08:30:00', receivedQty: 40, receivedAt: '2026-07-09 09:00:00' },
+      { recordId: 'MATRIX-SEW-PACK-100', submittedQty: 30, submittedAt: '2026-07-10 08:30:00', receivedQty: 30, receivedAt: '2026-07-10 09:00:00' },
+    ],
+    now: '2026-07-10 09:00:00',
+    expectedResults: ['OVERDUE_REACHED', 'ON_TIME', 'ON_TIME'],
+    expectedConfirmedQty: 100,
+    expectedCompleted: true,
+  },
+  {
+    name: '裁片到包装｜30%按时、70%逾期、最终逾期完成',
+    slaKind: 'CUTTING_TO_PACKAGING' as const,
+    assignedQty: 100,
+    receipts: [
+      { recordId: 'MATRIX-CUT-PACK-30', submittedQty: 30, submittedAt: '2026-07-07 08:30:00', receivedQty: 30, receivedAt: '2026-07-07 09:00:00' },
+      { recordId: 'MATRIX-CUT-PACK-70', submittedQty: 40, submittedAt: '2026-07-10 10:30:00', receivedQty: 40, receivedAt: '2026-07-10 11:00:00' },
+      { recordId: 'MATRIX-CUT-PACK-100', submittedQty: 30, submittedAt: '2026-07-13 10:30:00', receivedQty: 30, receivedAt: '2026-07-13 11:00:00' },
+    ],
+    now: '2026-07-13 11:00:00',
+    expectedResults: ['ON_TIME', 'OVERDUE_REACHED', 'OVERDUE_REACHED'],
+    expectedConfirmedQty: 100,
+    expectedCompleted: true,
+  },
+  {
+    name: '独立车缝｜最终截止后仍未完成',
+    slaKind: 'INDEPENDENT_SEWING' as const,
+    assignedQty: 100,
+    receipts: [
+      { recordId: 'MATRIX-INCOMPLETE-30', submittedQty: 30, submittedAt: '2026-07-05 08:30:00', receivedQty: 30, receivedAt: '2026-07-05 09:00:00' },
+      { recordId: 'MATRIX-INCOMPLETE-70', submittedQty: 40, submittedAt: '2026-07-09 08:30:00', receivedQty: 40, receivedAt: '2026-07-09 09:00:00' },
+      { recordId: 'MATRIX-INCOMPLETE-99', submittedQty: 29, submittedAt: '2026-07-10 08:30:00', receivedQty: 29, receivedAt: '2026-07-10 09:00:00' },
+    ],
+    now: '2026-07-10 11:00:00',
+    expectedResults: ['ON_TIME', 'ON_TIME', 'OVERDUE_PENDING'],
+    expectedConfirmedQty: 99,
+    expectedCompleted: false,
+  },
+  {
+    name: '独立车缝｜截止前交出、截止后确认形成接收延迟',
+    slaKind: 'INDEPENDENT_SEWING' as const,
+    assignedQty: 100,
+    receipts: [
+      { recordId: 'MATRIX-RECEIVER-DELAY', submittedQty: 30, submittedAt: '2026-07-05 09:00:00', receivedQty: 30, receivedAt: '2026-07-05 11:00:00' },
+    ],
+    now: '2026-07-05 11:00:00',
+    expectedResults: ['OVERDUE_REACHED', 'UPCOMING', 'UPCOMING'],
+    expectedConfirmedQty: 30,
+    expectedCompleted: false,
+    expectedReceiverDelayRecordIds: ['MATRIX-RECEIVER-DELAY'],
+  },
+  {
+    name: '独立车缝｜超量实收正常完成且比例超过100%',
+    slaKind: 'INDEPENDENT_SEWING' as const,
+    assignedQty: 100,
+    receipts: [
+      { recordId: 'MATRIX-OVER-RECEIVED', submittedQty: 120, submittedAt: '2026-07-02 08:30:00', receivedQty: 120, receivedAt: '2026-07-02 09:00:00' },
+    ],
+    now: '2026-07-02 09:00:00',
+    expectedResults: ['ON_TIME', 'ON_TIME', 'ON_TIME'],
+    expectedConfirmedQty: 120,
+    expectedCompleted: true,
+    expectedProgressRatio: 1.2,
+  },
+]
+
+for (const scenario of businessAcceptanceMatrix) {
+  const scenarioSnapshot = createSewingDeliverySlaSnapshot({
+    assignmentId: `MATRIX-${scenario.slaKind}-${scenario.assignedQty}-${scenario.name}`,
+    runtimeTaskId: `TASK-${scenario.name}`,
+    productionOrderId: 'PO-MATRIX',
+    factoryId: 'F-MATRIX',
+    factoryName: '验收矩阵工厂',
+    assignedQty: scenario.assignedQty,
+    acceptedAt: '2026-07-01 10:00:00',
+    slaKind: scenario.slaKind,
+  })
+  const scenarioProjection = projectSewingDeliverySla(scenarioSnapshot, scenario.receipts, scenario.now)
+  assert.deepEqual(
+    scenarioProjection.milestones.map((milestone) => milestone.result),
+    scenario.expectedResults,
+    `${scenario.name}：节点结论不符`,
+  )
+  assert.equal(scenarioProjection.confirmedReceivedQty, scenario.expectedConfirmedQty, `${scenario.name}：累计实收不符`)
+  assert.equal(scenarioProjection.completed, scenario.expectedCompleted, `${scenario.name}：完成结论不符`)
+  if (scenario.expectedReceiverDelayRecordIds) {
+    assert.deepEqual(scenarioProjection.milestones[0]?.receiverDelayRecordIds, scenario.expectedReceiverDelayRecordIds, `${scenario.name}：接收延迟归因不符`)
+  }
+  if (scenario.expectedProgressRatio !== undefined) {
+    assert.equal(scenarioProjection.progressRatio, scenario.expectedProgressRatio, `${scenario.name}：超收比例不得封顶`)
+  }
+}
+
 const projection = projectSewingDeliverySla(
   snapshot,
   [
