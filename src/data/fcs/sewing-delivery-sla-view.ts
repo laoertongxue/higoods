@@ -1,7 +1,9 @@
 import {
   classifySewingDeliverySla,
   formatOperationLocalWallClock,
-  getSewingDeliverySlaSnapshot,
+  getLatestSewingDeliverySlaSnapshot,
+  listAllSewingDeliverySlaSnapshots,
+  listSewingDeliverySlaSnapshotHistory,
   projectSewingDeliverySla,
   type SewingDeliverySlaProjection,
   type SewingDeliverySlaSnapshot,
@@ -68,9 +70,9 @@ export function getSewingDeliverySlaView(
   nowAt: string = formatOperationLocalWallClock(),
 ): SewingDeliverySlaView | null {
   const task = getRuntimeTaskById(runtimeTaskId)
-  const snapshot = getSewingDeliverySlaSnapshot(runtimeTaskId)
+  const snapshot = getLatestSewingDeliverySlaSnapshot(runtimeTaskId)
   const slaKind = task ? classifySewingDeliverySla(task) : null
-  if (!snapshot?.active || slaKind === null || snapshot.slaKind !== slaKind) return null
+  if (!snapshot || slaKind === null || snapshot.slaKind !== slaKind) return null
   return buildView(runtimeTaskId, snapshot, listTaskHandoutRecords(runtimeTaskId), nowAt)
 }
 
@@ -85,9 +87,24 @@ export function listSewingDeliverySlaViews(
     if (requestedTaskIds && !requestedTaskIds.has(task.taskId)) return
     const slaKind = classifySewingDeliverySla(task)
     if (slaKind === null) return
-    const snapshot = getSewingDeliverySlaSnapshot(task.taskId)
-    if (snapshot?.active && snapshot.slaKind === slaKind) snapshotsByTaskId.set(task.taskId, snapshot)
+    const snapshot = getLatestSewingDeliverySlaSnapshot(task.taskId)
+    if (snapshot && snapshot.slaKind === slaKind) snapshotsByTaskId.set(task.taskId, snapshot)
   })
+  listAllSewingDeliverySlaSnapshots().forEach((snapshot) => {
+    if (requestedTaskIds && !requestedTaskIds.has(snapshot.runtimeTaskId)) return
+    const task = getRuntimeTaskById(snapshot.runtimeTaskId)
+    const slaKind = task ? classifySewingDeliverySla(task) : null
+    if (slaKind !== snapshot.slaKind) return
+    snapshotsByTaskId.set(snapshot.runtimeTaskId, getLatestSewingDeliverySlaSnapshot(snapshot.runtimeTaskId) ?? snapshot)
+  })
+  if (requestedTaskIds) {
+    requestedTaskIds.forEach((taskId) => {
+      if (snapshotsByTaskId.has(taskId)) return
+      const history = listSewingDeliverySlaSnapshotHistory(taskId)
+      const snapshot = history.at(-1)
+      if (snapshot) snapshotsByTaskId.set(taskId, snapshot)
+    })
+  }
   const targetTaskIds = new Set(snapshotsByTaskId.keys())
   const recordsByTaskId = new Map<string, PdaHandoverRecord[]>()
   listPdaHandoverHeads().forEach((head) => {

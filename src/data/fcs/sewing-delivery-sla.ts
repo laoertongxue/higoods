@@ -288,10 +288,26 @@ export function getSewingDeliverySlaSnapshot(runtimeTaskId: string): SewingDeliv
   return snapshot ? cloneAndFreezeSnapshot(snapshot) : null
 }
 
+export function getSewingDeliverySlaSnapshotById(snapshotId: string): SewingDeliverySlaSnapshot | null {
+  const snapshot = snapshotsById.get(snapshotId)
+  return snapshot ? cloneAndFreezeSnapshot(snapshot) : null
+}
+
+export function getLatestSewingDeliverySlaSnapshot(runtimeTaskId: string): SewingDeliverySlaSnapshot | null {
+  const current = getSewingDeliverySlaSnapshot(runtimeTaskId)
+  if (current) return current
+  const history = listSewingDeliverySlaSnapshotHistory(runtimeTaskId)
+  return history.length > 0 ? history[history.length - 1] : null
+}
+
 export function listSewingDeliverySlaSnapshotHistory(runtimeTaskId: string): SewingDeliverySlaSnapshot[] {
   return Array.from(snapshotsById.values())
     .filter((snapshot) => snapshot.runtimeTaskId === runtimeTaskId)
     .map(cloneAndFreezeSnapshot)
+}
+
+export function listAllSewingDeliverySlaSnapshots(): readonly SewingDeliverySlaSnapshot[] {
+  return Object.freeze(Array.from(snapshotsById.values()).map(cloneAndFreezeSnapshot))
 }
 
 export function captureSewingDeliverySlaSnapshotStore(): SewingDeliverySlaSnapshotStoreState {
@@ -345,11 +361,12 @@ export function recordSewingDeliveryResponsibilityReview(input: {
   projection: SewingDeliverySlaProjection | undefined
 }): SewingDeliveryResponsibilityReview {
   const runtimeTaskId = input.runtimeTaskId.trim()
-  const snapshot = runtimeTaskId ? getSewingDeliverySlaSnapshot(runtimeTaskId) : null
-  if (!snapshot?.active) throw new Error('责任复核任务必须存在有效履约快照')
+  const projectedSnapshotId = input.projection?.snapshot.snapshotId
+  const snapshot = projectedSnapshotId ? getSewingDeliverySlaSnapshotById(projectedSnapshotId) : null
+  if (!snapshot || snapshot.runtimeTaskId !== runtimeTaskId) throw new Error('责任复核任务必须存在对应履约快照')
   if (!MILESTONE_RATIOS.includes(input.milestoneRatio)) throw new Error('复核节点比例必须为 30%、70% 或 100%')
   if (!['FACTORY', 'RECEIVER', 'SHARED'].includes(input.conclusion)) throw new Error('责任结论必须为工厂、接收方或双方共同责任')
-  if (input.projection?.snapshot.snapshotId !== snapshot.snapshotId) throw new Error('责任复核必须基于当前有效履约快照')
+  if (input.projection?.snapshot.snapshotId !== snapshot.snapshotId) throw new Error('责任复核必须基于所选履约快照')
   const milestone = input.projection.milestones.find((item) => item.ratio === input.milestoneRatio)
   if (!milestone || milestone.receiverDelayRecords.length === 0) throw new Error('当前节点没有接收确认延迟，不能记录责任结论')
   const remark = input.remark.trim()
@@ -386,10 +403,11 @@ export function getSewingDeliveryResponsibilityReview(
   runtimeTaskId: string,
   milestoneRatio: number,
 ): SewingDeliveryResponsibilityReview | null {
-  const currentSnapshotId = currentSnapshotIdByRuntimeTaskId.get(runtimeTaskId)
-  if (!currentSnapshotId) return null
+  const snapshotId = currentSnapshotIdByRuntimeTaskId.get(runtimeTaskId)
+    ?? listSewingDeliverySlaSnapshotHistory(runtimeTaskId).at(-1)?.snapshotId
+  if (!snapshotId) return null
   const reviews = listSewingDeliveryResponsibilityReviews(runtimeTaskId, milestoneRatio)
-    .filter((review) => review.snapshotId === currentSnapshotId)
+    .filter((review) => review.snapshotId === snapshotId)
   return reviews.length > 0 ? cloneAndFreezeResponsibilityReview(reviews[reviews.length - 1]) : null
 }
 

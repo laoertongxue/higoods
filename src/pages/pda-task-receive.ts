@@ -55,6 +55,7 @@ import { acceptWoolWorkOrder } from '../data/fcs/wool-task-domain.ts'
 import {
   acceptRuntimeTaskAssignment,
   getRuntimeTaskById,
+  rejectRuntimeTaskAssignment,
 } from '../data/fcs/runtime-process-tasks.ts'
 import {
   classifySewingDeliverySla,
@@ -346,29 +347,33 @@ export function acceptPdaTaskWithRuntimeFallback(
   return projectPdaTaskLegacyAcceptance(task)
 }
 
-function mutateRejectTask(taskId: string, reason: string, by: string): void {
-  const now = nowTimestamp()
+export function rejectPdaTaskWithRuntimeFallback(taskId: string, factoryId: string, reason: string, rejectedAt: string, rejectedBy: string): ProcessTask {
+  const runtimeTask = getRuntimeTaskById(taskId)
+  if (runtimeTask) return rejectRuntimeTaskAssignment(taskId, { factoryId, reason, rejectedAt, rejectedBy })
   const task = getTaskFactById(taskId)
-  if (!task) return
+  if (!task) throw new Error('任务不存在或已被移除')
+  if (classifySewingDeliverySla(task) !== null) throw new Error('任务尚未进入统一运行时任务仓，请联系主管处理')
+  if (task.assignedFactoryId && task.assignedFactoryId !== factoryId) throw new Error('当前登录工厂与任务归属不一致，无权拒单')
+  if (task.acceptanceStatus === 'REJECTED') throw new Error('任务已拒单，不可重复拒单')
   if (task.processBusinessCode === 'POST_FINISHING' || task.processCode === 'POST_FINISHING' || task.processNameZh === '后道') {
-    rejectPostFinishingTask(taskId, reason, by, now)
+    rejectPostFinishingTask(taskId, reason, rejectedBy, rejectedAt)
   }
-
   task.acceptanceStatus = 'REJECTED'
   task.assignmentStatus = 'UNASSIGNED'
   task.assignedFactoryId = undefined
   task.assignedFactoryName = undefined
-  task.updatedAt = now
+  task.updatedAt = rejectedAt
   task.auditLogs = [
     ...task.auditLogs,
     {
       id: `AL-REJ-${Date.now()}`,
       action: 'REJECT_TASK',
       detail: `工厂拒绝接单，原因：${reason}`,
-      at: now,
-      by,
+      at: rejectedAt,
+      by: rejectedBy,
     },
   ]
+  return task
 }
 
 function showTaskReceiveToast(message: string): void {
@@ -1392,10 +1397,15 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
 
   if (action === 'confirm-reject') {
     if (!state.rejectReason.trim() || !state.rejectingTaskId) return true
-    const factoryName = getFactoryName(getCurrentFactoryId())
-    mutateRejectTask(state.rejectingTaskId, state.rejectReason.trim(), factoryName)
-    closeRejectDialog()
-    showTaskReceiveToast('已拒绝接单')
+    const factoryId = getCurrentFactoryId()
+    const factoryName = getFactoryName(factoryId)
+    try {
+      rejectPdaTaskWithRuntimeFallback(state.rejectingTaskId, factoryId, state.rejectReason.trim(), formatOperationLocalWallClock(), factoryName)
+      closeRejectDialog()
+      showTaskReceiveToast('已拒绝接单')
+    } catch (error) {
+      showTaskReceiveToast(error instanceof Error ? error.message : '拒单失败，请联系主管处理')
+    }
     return true
   }
 

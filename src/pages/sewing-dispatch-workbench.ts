@@ -15,7 +15,7 @@ import {
   getCutPieceReleaseSummaryForProductionOrder,
   type CutPieceReleaseSummary,
 } from '../data/fcs/cut-piece-release.ts'
-import { formatOperationLocalWallClock, operationWallClockToDateTimeLocal, dateTimeLocalToOperationWallClock } from '../data/fcs/sewing-delivery-sla.ts'
+import { classifySewingDeliverySla, createSewingDeliverySlaSnapshot, formatOperationLocalWallClock, operationWallClockToDateTimeLocal, dateTimeLocalToOperationWallClock } from '../data/fcs/sewing-delivery-sla.ts'
 import { sumSewingDeliveryConfirmedReceiptQty } from '../data/fcs/sewing-delivery-receipt-facts.ts'
 import { reassignRuntimeSewingTask } from '../data/fcs/runtime-sewing-reassignment.ts'
 import { getRuntimeTaskById, listRuntimeProcessTasks } from '../data/fcs/runtime-process-tasks.ts'
@@ -26,7 +26,6 @@ import {
   resolveDispatchAcceptanceSlaForTask,
 } from '../data/fcs/dispatch-acceptance-sla.ts'
 import {
-  confirmProductionOrderMainFactoryFromSewingTask,
   listProductionOrderSewingFactories,
   productionOrders,
 } from '../data/fcs/production-orders.ts'
@@ -60,6 +59,8 @@ export interface SewingDispatchWorkbenchState {
   dispatchFactoryId: string
   dispatchRiskConfirmed: boolean
   dispatchQtyByRowId: Record<string, string>
+  dispatchBusinessAssignedAt: string
+  dispatchOperatedAt: string
   dispatchError: string
   feedbackMessage: string
   reassignTaskId: string | null
@@ -86,6 +87,8 @@ const state: SewingDispatchWorkbenchState = {
   dispatchFactoryId: '',
   dispatchRiskConfirmed: false,
   dispatchQtyByRowId: {},
+  dispatchBusinessAssignedAt: '',
+  dispatchOperatedAt: '',
   dispatchError: '',
   feedbackMessage: '',
   reassignTaskId: null,
@@ -354,6 +357,25 @@ function renderDispatchAcceptanceSlaPreview(rows: SewingDispatchWorkbenchRow[], 
       <div class="space-y-2">${items || '<div class="text-sm text-muted-foreground">暂无可计算的车缝任务。</div>'}</div>
     </div>
   `
+}
+
+function renderDeliveryNodePreview(rows: SewingDispatchWorkbenchRow[]): string {
+  if (!state.dispatchBusinessAssignedAt) return ''
+  try {
+    const acceptedAt = dateTimeLocalToOperationWallClock(state.dispatchBusinessAssignedAt)
+    const previews = Array.from(new Set(rows.map((row) => row.taskId))).map((taskId) => {
+      const task = getRuntimeTaskById(taskId)
+      const slaKind = task ? classifySewingDeliverySla(task) : null
+      if (!task || !slaKind) return ''
+      const assignedQty = rows.filter((row) => row.taskId === taskId).reduce((sum, row) => sum + Number(state.dispatchQtyByRowId[row.rowId] || 0), 0)
+      if (!Number.isInteger(assignedQty) || assignedQty <= 0) return ''
+      const snapshot = createSewingDeliverySlaSnapshot({ assignmentId: 'PREVIEW', runtimeTaskId: taskId, productionOrderId: task.productionOrderId, factoryId: state.dispatchFactoryId || '待定标', factoryName: '预览', assignedQty, acceptedAt, slaKind })
+      return `<div class="rounded-md border bg-slate-50 px-3 py-2 text-xs"><div class="font-medium">${escapeHtml(task.taskNo || task.taskId)} · ${assignedQty} 件</div><div class="mt-1 text-muted-foreground">${snapshot.milestones.map((node) => `${Math.round(node.ratio * 100)}% 节点：${node.deadlineAt}`).join(' ｜ ')}</div></div>`
+    }).filter(Boolean).join('')
+    return previews ? `<div class="mt-3 space-y-2"><div class="text-sm font-medium">含车缝交付节点预览</div>${previews}</div>` : ''
+  } catch {
+    return '<div class="mt-3 text-xs text-amber-700">请填写有效的业务分配时间。</div>'
+  }
 }
 
 function getGroupTone(group: SewingDispatchReadinessGroup): string {
@@ -1099,6 +1121,10 @@ function renderDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): string {
               </select>
             </label>
           </div>
+          <div class="mt-3 grid gap-3 md:grid-cols-2">
+            <label class="space-y-1"><span class="text-sm font-medium">业务分配时间</span><input type="datetime-local" class="h-10 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.dispatchBusinessAssignedAt)}" data-sewing-dispatch-field="dispatchBusinessAssignedAt" data-skip-page-rerender="true" /><span class="block text-xs text-muted-foreground">可回填，但不能晚于实际操作时间。</span></label>
+            <label class="space-y-1"><span class="text-sm font-medium">实际操作时间</span><input type="datetime-local" class="h-10 w-full rounded-md border bg-muted px-3 text-sm" value="${escapeHtml(operationWallClockToDateTimeLocal(state.dispatchOperatedAt))}" readonly /></label>
+          </div>
           ${state.dispatchActionType === '直接派单' ? renderDispatchFactoryRisk(state.dispatchFactoryId) : ''}
           ${renderDispatchCutPieceReleaseNotice(selectedRows, tasks)}
           ${
@@ -1127,6 +1153,7 @@ function renderDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): string {
           </div>
           ${state.dispatchActionType === '直接派单' && selectedFactory ? `<div class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">直接派单到：${escapeHtml(selectedFactory.name)}。若选中范围覆盖整任务所有 SKU，会同步调用现有明细派单逻辑并写入接单时效。</div>` : ''}
           ${state.dispatchActionType === '直接派单' ? renderDispatchAcceptanceSlaPreview(selectedRows, state.dispatchFactoryId, selectedFactory?.name) : ''}
+          ${renderDeliveryNodePreview(selectedRows)}
         </div>
         <footer class="flex justify-end gap-2 border-t px-5 py-4">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-sewing-dispatch-action="close-dispatch">取消</button>
@@ -1274,6 +1301,10 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
     state.dispatchQtyByRowId[rowId] = node.value
     state.dispatchError = ''
   }
+  if (field === 'dispatchBusinessAssignedAt') {
+    state.dispatchBusinessAssignedAt = node.value
+    state.dispatchError = ''
+  }
 }
 
 function openDispatch(taskId: string | undefined, type: string | undefined): void {
@@ -1282,6 +1313,8 @@ function openDispatch(taskId: string | undefined, type: string | undefined): voi
   state.dispatchActionType = type === '发起竞价' ? '发起竞价' : '直接派单'
   state.dispatchOpen = selectedRows.length > 0
   state.dispatchQtyByRowId = Object.fromEntries(selectedRows.map((row) => [row.rowId, String(row.completeKitQty)]))
+  state.dispatchOperatedAt = formatOperationLocalWallClock()
+  state.dispatchBusinessAssignedAt = operationWallClockToDateTimeLocal(state.dispatchOperatedAt)
   state.dispatchRiskConfirmed = false
   state.dispatchError = ''
   state.feedbackMessage = ''
@@ -1383,23 +1416,16 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement): boolean
       factoryName: factory?.name,
       rowIds: selectedRows.map((row) => row.rowId),
       qtyByRowId: Object.fromEntries(Object.entries(state.dispatchQtyByRowId).map(([rowId, value]) => [rowId, Number(value)])),
+      businessAssignedAt: dateTimeLocalToOperationWallClock(state.dispatchBusinessAssignedAt),
+      operatedAt: state.dispatchOperatedAt,
       by: '跟单A',
     })
     const rating = factory ? getThirdPartyFactoryRatingSnapshot(factory.id) : undefined
     state.feedbackMessage = result.ok && state.dispatchActionType === '直接派单' && rating?.currentGrade === 'B'
       ? `${result.message} 已记录黄牌工厂派单确认。`
       : result.message
+    state.dispatchError = result.ok ? '' : result.message
     if (result.ok) {
-      if (state.dispatchActionType === '直接派单' && factory) {
-        Array.from(new Set(selectedRows.map((row) => row.productionOrderId))).forEach((productionOrderId) => {
-          confirmProductionOrderMainFactoryFromSewingTask({
-            productionOrderId,
-            factoryId: factory.id,
-            factoryName: factory.name,
-            by: '跟单A',
-          })
-        })
-      }
       state.dispatchOpen = false
       state.selectedTaskIds = new Set<string>()
     }

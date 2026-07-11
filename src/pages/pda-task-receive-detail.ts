@@ -23,9 +23,6 @@ import {
   listPdaMobileExecutionTasks,
 } from '../data/fcs/process-mobile-task-binding.ts'
 import { canFactoryAccessSpecialCraftPdaTask } from '../data/fcs/special-craft-pda-scope.ts'
-import {
-  rejectPostFinishingTask,
-} from '../data/fcs/post-finishing-domain.ts'
 import { DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY } from '../data/fcs/dispatch-acceptance-sla.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
@@ -47,6 +44,7 @@ import {
 import {
   acceptPdaTaskWithRuntimeFallback,
   projectPdaTaskLegacyAcceptance,
+  rejectPdaTaskWithRuntimeFallback,
 } from './pda-task-receive.ts'
 
 interface TaskReceiveDetailState {
@@ -179,31 +177,6 @@ function renderSectionCard(title: string, icon: string, body: string): string {
       <div class="space-y-3 p-4 text-sm">${body}</div>
     </article>
   `
-}
-
-function mutateRejectTask(taskId: string, reason: string, by: string): void {
-  const now = nowTimestamp()
-  const task = getTaskFactById(taskId)
-  if (!task) return
-  if (task.processBusinessCode === 'POST_FINISHING' || task.processCode === 'POST_FINISHING' || task.processNameZh === '后道') {
-    rejectPostFinishingTask(taskId, reason, by, now)
-  }
-
-  task.acceptanceStatus = 'REJECTED'
-  task.assignmentStatus = 'UNASSIGNED'
-  task.assignedFactoryId = undefined
-  task.assignedFactoryName = undefined
-  task.updatedAt = now
-  task.auditLogs = [
-    ...task.auditLogs,
-    {
-      id: `AL-REJ-${Date.now()}`,
-      action: 'REJECT_TASK',
-      detail: `工厂拒绝接单，原因：${reason}`,
-      at: now,
-      by,
-    },
-  ]
 }
 
 function showTaskReceiveDetailToast(message: string): void {
@@ -1085,12 +1058,17 @@ export function handlePdaTaskReceiveDetailEvent(target: HTMLElement): boolean {
     const taskId = actionNode.dataset.taskId
     if (!taskId || !state.rejectReason.trim()) return true
 
-    const factoryName = getFactoryName(getCurrentFactoryId())
-    mutateRejectTask(taskId, state.rejectReason.trim(), factoryName)
-    showTaskReceiveDetailToast('已拒绝接单')
-    state.rejectDialogOpen = false
-    state.rejectReason = ''
-    appStore.navigate(resolveReceiveBackHref())
+    const factoryId = getCurrentFactoryId()
+    const factoryName = getFactoryName(factoryId)
+    try {
+      rejectPdaTaskWithRuntimeFallback(taskId, factoryId, state.rejectReason.trim(), nowTimestamp(), factoryName)
+      showTaskReceiveDetailToast('已拒绝接单')
+      state.rejectDialogOpen = false
+      state.rejectReason = ''
+      appStore.navigate(resolveReceiveBackHref())
+    } catch (error) {
+      showTaskReceiveDetailToast(error instanceof Error ? error.message : '拒单失败，请联系主管处理')
+    }
     return true
   }
 

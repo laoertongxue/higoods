@@ -30,7 +30,7 @@ import {
 } from '../src/data/fcs/runtime-process-tasks.ts'
 import { reassignRuntimeSewingTask } from '../src/data/fcs/runtime-sewing-reassignment.ts'
 import { sumSewingDeliveryConfirmedReceiptQty } from '../src/data/fcs/sewing-delivery-receipt-facts.ts'
-import { listSewingFactoryOptions } from '../src/data/fcs/sewing-dispatch-workbench.ts'
+import { listSewingDispatchWorkbenchDrafts, listSewingDispatchWorkbenchRows, listSewingFactoryOptions } from '../src/data/fcs/sewing-dispatch-workbench.ts'
 import { installRuntimeTaskReadResolver, readRuntimeTaskById } from '../src/data/fcs/runtime-task-read-bridge.ts'
 import { parseFcsQrValue } from '../src/data/fcs/task-qr.ts'
 import {
@@ -2665,9 +2665,20 @@ try {
   const remainingFactoryIds = listProductionOrderSewingFactories(source.productionOrderId).map((factory) => factory.id)
   excludedCandidates.forEach((candidate) => assert.equal(remainingFactoryIds.includes(candidate.factoryId), false, `${candidate.id} 不得保留为active承接候选`))
   const replacementAssignedQty = replacement?.assignedQty
+  const oldViewBeforeLateReceipt = getSewingDeliverySlaView(source.taskId, '2026-07-08 10:00:00')
+  assert.equal(oldViewBeforeLateReceipt?.confirmedReceivedQty, 123, '改派后旧 taskId 仍应通过 inactive 历史快照生成履约视图')
+  const newViewBeforeLateReceipt = getSewingDeliverySlaView(result.taskId!, '2026-07-08 10:00:00')
   upsertPdaHandoutRecordMock({ recordId: 'REC-REASSIGN-LATE-10', handoverRecordId: 'REC-REASSIGN-LATE-10', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 2, submittedQty: 10, plannedQty: 10, qtyUnit: '件', factorySubmittedAt: '2026-07-08 11:00:00', factorySubmittedBy: '原工厂操作员', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK_MATCHED', receiverWrittenQty: 10, receiverWrittenAt: '2026-07-08 12:00:00', receiverWrittenBy: '仓库收货员' })
+  upsertPdaHandoutRecordMock({ recordId: 'REC-REASSIGN-RECEIVER-DELAY', handoverRecordId: 'REC-REASSIGN-RECEIVER-DELAY', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 3, submittedQty: 10, plannedQty: 10, qtyUnit: '件', factorySubmittedAt: '2026-07-04 07:00:00', factorySubmittedBy: '原工厂操作员', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK_MATCHED', receiverWrittenQty: 10, receiverWrittenAt: '2026-07-05 12:00:00', receiverWrittenBy: '仓库收货员' })
   assert.equal(getSewingDeliverySlaSnapshot(result.taskId)?.assignedQty, replacementAssignedQty, '原任务改派后新增实收不得污染新快照分配量')
   assert.equal(sumSewingDeliveryConfirmedReceiptQty(result.taskId), 0, '原任务后续实收不得计入新 taskId')
+  const oldViewAfterLateReceipt = getSewingDeliverySlaView(source.taskId, '2026-07-09 10:00:00')
+  assert.equal(oldViewAfterLateReceipt?.confirmedReceivedQty, 143, '旧任务后续实收必须继续推进旧历史快照投影')
+  assert.equal(getSewingDeliverySlaView(result.taskId!, '2026-07-09 10:00:00')?.confirmedReceivedQty, newViewBeforeLateReceipt?.confirmedReceivedQty, '旧任务后续实收不得污染新任务履约投影')
+  const delayedMilestone = oldViewAfterLateReceipt?.projection.milestones.find((milestone) => milestone.receiverDelayRecords.length > 0)
+  assert(delayedMilestone, '旧历史快照应保留接收确认延迟归因')
+  const historicalReview = sewingDeliverySlaDomain.recordSewingDeliveryResponsibilityReview({ runtimeTaskId: source.taskId, milestoneRatio: delayedMilestone.ratio, conclusion: 'RECEIVER', remark: '旧任务交出及时，接收方延迟确认', reviewedBy: '跟单主管', reviewedAt: '2026-07-09 11:00:00', projection: oldViewAfterLateReceipt?.projection })
+  assert.equal(historicalReview.snapshotId, oldViewAfterLateReceipt?.projection.snapshot.snapshotId, '责任复核应允许绑定属于该任务的 inactive 历史快照')
   assert.equal(reassignRuntimeSewingTask({ sourceTaskId: source.taskId, targetFactoryId: 'ID-F007', targetFactoryName: '玛琅精工车缝', businessAssignedAt: '2026-07-08 09:00:00', operatedAt: '2026-07-08 10:00:00', reason: '重复', by: '跟单A' }).ok, false, '旧任务不得重复改派')
 } finally {
   try { restorePdaHandoverState(reassignmentHandoverState) } finally {
@@ -2702,6 +2713,41 @@ assert.match(runtimeReadBridgeSource, /运行时任务只读解析器已安装�
 assert.doesNotMatch(`${continuousReassignmentSource}\n${sewingWorkbenchReassignmentSource}`, /installRuntimeTaskReadResolver|readRuntimeTaskById/, '业务页面不得接触只读桥')
 assert.equal((readRuntimeTaskById<{ taskId: string }>('TASKGEN-202603-0015-001__ORDER'))?.taskId, 'TASKGEN-202603-0015-001__ORDER', 'runtime初始化后只读桥应返回真实任务')
 assert.throws(() => installRuntimeTaskReadResolver(() => null), /不可重复覆盖/, '只读桥不得被不同resolver重装')
+
+const workbenchDispatchRuntimeState = captureRuntimeDirectDispatchState()
+const workbenchDispatchSlaState = captureSewingDeliverySlaSnapshotStore()
+const workbenchDispatchPageState = captureSewingDispatchWorkbenchPageState()
+try {
+  const directRow = listSewingDispatchWorkbenchRows().find((row) => row.completeKitQty >= 2)
+  const directFactory = listSewingFactoryOptions().find((factory) => factory.id === 'ID-F003') ?? listSewingFactoryOptions()[0]
+  assert(directRow && directFactory, '独立车缝真实分配 handler 需要可分配行和工厂')
+  restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([directRow.taskId]), dispatchOpen: true, dispatchActionType: '直接派单', dispatchFactoryId: directFactory.id, dispatchRiskConfirmed: true, dispatchQtyByRowId: { [directRow.rowId]: '1' }, dispatchBusinessAssignedAt: '2026-07-10T08:00', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
+  const workbenchActionTarget = (action: string) => ({ closest: (selector: string) => selector.includes('[data-sewing-dispatch-action]') ? { dataset: { sewingDispatchAction: action } } : null }) as unknown as HTMLElement
+  assert.equal(handleSewingDispatchWorkbenchEvent(workbenchActionTarget('confirm-dispatch')), true)
+  const directDraft = listSewingDispatchWorkbenchDrafts()[0]
+  assert.equal(directDraft?.statusLabel, '直接派单已生效并自动接单')
+  assert.equal(getSewingDeliverySlaSnapshot(directDraft.runtimeTaskIds[0])?.assignedQty, 1, '真实 handler 部分数量直接派单快照分母应等于输入')
+
+  const bidRow = listSewingDispatchWorkbenchRows().find((row) => row.completeKitQty > 0)
+  assert(bidRow, '直接部分分配后应有剩余行可再次竞价')
+  restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([bidRow.taskId]), dispatchOpen: true, dispatchActionType: '发起竞价', dispatchFactoryId: '', dispatchRiskConfirmed: false, dispatchQtyByRowId: { [bidRow.rowId]: '1' }, dispatchBusinessAssignedAt: '2026-07-10T09:00', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
+  assert.equal(handleSewingDispatchWorkbenchEvent(workbenchActionTarget('confirm-dispatch')), true)
+  const bidDraft = listSewingDispatchWorkbenchDrafts()[0]
+  assert.equal(getRuntimeTaskById(bidDraft.runtimeTaskIds[0])?.assignmentStatus, 'BIDDING', '真实 handler 竞价必须写入 runtime tender')
+  assert.equal(getSewingDeliverySlaSnapshot(bidDraft.runtimeTaskIds[0]), null)
+
+  const futureRow = listSewingDispatchWorkbenchRows().find((row) => row.completeKitQty > 0)
+  assert(futureRow)
+  const stateBeforeFutureHandler = captureRuntimeDirectDispatchState()
+  restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([futureRow.taskId]), dispatchOpen: true, dispatchActionType: '直接派单', dispatchFactoryId: directFactory.id, dispatchRiskConfirmed: true, dispatchQtyByRowId: { [futureRow.rowId]: '1' }, dispatchBusinessAssignedAt: '2026-07-10T11:00', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
+  assert.equal(handleSewingDispatchWorkbenchEvent(workbenchActionTarget('confirm-dispatch')), true)
+  assert.match(captureSewingDispatchWorkbenchPageState().dispatchError, /业务分配时间不能晚于当前操作时间/)
+  assert.deepEqual(captureRuntimeDirectDispatchState(), stateBeforeFutureHandler, '未来业务分配时间被 handler 阻断后不得改变 runtime/production 状态')
+} finally {
+  restoreSewingDispatchWorkbenchPageState(workbenchDispatchPageState)
+  restoreRuntimeDirectDispatchState(workbenchDispatchRuntimeState)
+  restoreSewingDeliverySlaSnapshotStore(workbenchDispatchSlaState)
+}
 
 const mainFactoryRuntimeState = captureRuntimeDirectDispatchState()
 try {

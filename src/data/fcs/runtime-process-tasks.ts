@@ -183,6 +183,8 @@ interface RuntimeSplitResultPlan {
   allocatableGroupKeys: string[]
   scopeQty: number
   scopeLabel: string
+  scopeSkuLines?: RuntimeTaskSkuLine[]
+  scopeDetailRows?: TaskDetailRow[]
   assignmentMode: ProcessTask['assignmentMode']
   assignmentStatus: TaskAssignmentStatus
   assignedFactoryId?: string
@@ -713,8 +715,12 @@ function applyRuntimeSplitPlans(tasks: RuntimeProcessTask[]): RuntimeProcessTask
     })
 
     for (const resultTask of plan.results) {
-      const scopedDetailRows = pickDetailRowsByKeys(sourceDetailRows, resultTask.detailRowKeys)
-      const scopeSkuLines = deriveScopeSkuLinesByDetailRows(task.scopeSkuLines, scopedDetailRows)
+      const scopedDetailRows = resultTask.scopeDetailRows
+        ? cloneTaskDetailRows(resultTask.scopeDetailRows)
+        : pickDetailRowsByKeys(sourceDetailRows, resultTask.detailRowKeys)
+      const scopeSkuLines = resultTask.scopeSkuLines
+        ? structuredClone(resultTask.scopeSkuLines)
+        : deriveScopeSkuLinesByDetailRows(task.scopeSkuLines, scopedDetailRows)
       const scopeQty = resultTask.scopeQty > 0
         ? resultTask.scopeQty
         : scopedDetailRows.reduce((sum, row) => sum + row.qty, 0)
@@ -2167,6 +2173,154 @@ export function dispatchRuntimeTaskByDetailGroups(input: RuntimeDetailDispatchIn
   }
 }
 
+export interface RuntimeSewingScopeAllocationInput {
+  taskId: string
+  lines: Array<{ skuCode: string; qty: number }>
+  by: string
+  operatedAt?: string
+}
+
+/**
+ * 把一个独立车缝执行范围原子分区为“本次分配范围 + 剩余范围”。
+ * 分区继续使用既有 split plan，因此下游依赖会等待全部分区任务完成。
+ */
+export function allocateRuntimeSewingTaskScope(input: RuntimeSewingScopeAllocationInput): RuntimeProcessTask {
+  const task = getRuntimeTaskById(input.taskId)
+  if (!task) throw new Error(`任务 ${input.taskId} 不存在或已被移除`)
+  if (!isRuntimeTaskExecutionTask(task) || !isRuntimeIndependentSewingTask(task)) {
+    throw new Error(`任务 ${input.taskId} 不是可分配的独立车缝执行任务`)
+  }
+  if (task.assignmentStatus !== 'UNASSIGNED') throw new Error(`任务 ${input.taskId} 已进入分配流程，不可重复分区`)
+  if (!input.by.trim()) throw new Error('分区操作人不能为空')
+
+  const availableBySku = new Map(task.scopeSkuLines.map((line) => [line.skuCode, line]))
+  const requestedBySku = new Map<string, number>()
+  for (const line of input.lines) {
+    const skuCode = line.skuCode.trim()
+    if (!skuCode || requestedBySku.has(skuCode)) throw new Error('本次分配 SKU 不能为空或重复')
+    if (!Number.isInteger(line.qty) || line.qty <= 0) throw new Error(`${skuCode || 'SKU'} 分配数量必须为正整数`)
+    const available = availableBySku.get(skuCode)
+    if (!available || line.qty > available.qty) throw new Error(`${skuCode} 分配数量超过待分配数量`)
+    requestedBySku.set(skuCode, line.qty)
+  }
+  if (requestedBySku.size === 0) throw new Error('请至少选择一个 SKU 分配数量')
+
+  const selectedLines = task.scopeSkuLines
+    .filter((line) => requestedBySku.has(line.skuCode))
+    .map((line) => ({ ...line, qty: requestedBySku.get(line.skuCode)! }))
+  const selectedQty = selectedLines.reduce((sum, line) => sum + line.qty, 0)
+  if (selectedQty === task.scopeQty && selectedLines.length === task.scopeSkuLines.length) return task
+
+  const runtimeState = captureRuntimeDirectDispatchState()
+  try {
+    let ownerPlan = Array.from(runtimeTaskSplitPlans.values()).find((plan) =>
+      plan.results.some((result) => result.taskId === task.taskId),
+    )
+    const rootTaskId = ownerPlan?.sourceTaskId ?? task.taskId
+    const rootTask = getRuntimeTaskById(rootTaskId) ?? task
+    const rootNo = getTaskRootNo(rootTask)
+    const sourceNo = getTaskNo(rootTask)
+    const existingResults = ownerPlan?.results ?? []
+    const replacementIndex = ownerPlan
+      ? existingResults.findIndex((result) => result.taskId === task.taskId)
+      : -1
+    const retainedResults = ownerPlan
+      ? existingResults.filter((result) => result.taskId !== task.taskId)
+      : []
+    const usedIds = new Set(existingResults.map((result) => result.taskId))
+    let suffix = existingResults.length + 1
+    const nextId = (kind: 'A' | 'R') => {
+      let candidate = ''
+      do {
+        candidate = `${rootNo}-${kind}${String(suffix).padStart(2, '0')}`
+        suffix += 1
+      } while (usedIds.has(candidate) || getRuntimeTaskById(candidate))
+      usedIds.add(candidate)
+      return candidate
+    }
+    const detailRows = task.scopeDetailRows.length > 0 ? task.scopeDetailRows : task.detailRows
+    const scopedDetailRowsForSku = (skuCode: string, qty: number, partitionTaskId: string) => detailRows
+      .filter((row) => row.dimensions.GARMENT_SKU === skuCode || task.scopeSkuLines.length === 1)
+      .map((row, index) => ({ ...structuredClone(row), rowKey: `${row.rowKey}__${partitionTaskId}__${index + 1}`, qty }))
+    const selectedTaskId = nextId('A')
+    const selectedDetailRows = selectedLines.flatMap((line) => scopedDetailRowsForSku(line.skuCode, line.qty, selectedTaskId))
+    const selectedPlan: RuntimeSplitResultPlan = {
+      taskId: selectedTaskId,
+      taskNo: selectedTaskId,
+      splitSeq: suffix,
+      detailRowKeys: selectedDetailRows.map((row) => row.rowKey),
+      allocatableGroupKeys: selectedLines.map((line) => line.skuCode),
+      scopeQty: selectedQty,
+      scopeLabel: selectedLines.map((line) => `${line.skuCode} ${line.qty}件`).join('、'),
+      scopeSkuLines: selectedLines,
+      scopeDetailRows: selectedDetailRows,
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'UNASSIGNED',
+    }
+    const residualPlans: RuntimeSplitResultPlan[] = task.scopeSkuLines.flatMap((line) => {
+      const remainingQty = line.qty - (requestedBySku.get(line.skuCode) ?? 0)
+      if (remainingQty <= 0) return []
+      const residualTaskId = nextId('R')
+      const residualDetailRows = scopedDetailRowsForSku(line.skuCode, remainingQty, residualTaskId)
+      return [{
+        taskId: residualTaskId,
+        taskNo: residualTaskId,
+        splitSeq: suffix,
+        detailRowKeys: residualDetailRows.map((row) => row.rowKey),
+        allocatableGroupKeys: [line.skuCode],
+        scopeQty: remainingQty,
+        scopeLabel: `${line.skuCode} 剩余 ${remainingQty}件`,
+        scopeSkuLines: [{ ...line, qty: remainingQty }],
+        scopeDetailRows: residualDetailRows,
+        assignmentMode: 'DIRECT' as const,
+        assignmentStatus: 'UNASSIGNED' as const,
+      }]
+    })
+    const partitions = [selectedPlan, ...residualPlans]
+    const rebuiltResults = ownerPlan
+      ? [
+          ...retainedResults.slice(0, Math.max(0, replacementIndex)),
+          ...partitions,
+          ...retainedResults.slice(Math.max(0, replacementIndex)),
+        ]
+      : partitions
+    const originalTotal = existingResults.length > 0
+      ? existingResults.reduce((sum, result) => sum + result.scopeQty, 0)
+      : task.scopeQty
+    const rebuiltTotal = rebuiltResults.reduce((sum, result) => sum + result.scopeQty, 0)
+    if (originalTotal !== rebuiltTotal) throw new Error('车缝数量分区前后总范围不守恒')
+
+    const eventAt = input.operatedAt ?? nowTimestamp()
+    ownerPlan = {
+      sourceTaskId: rootTaskId,
+      sourceTaskNo: sourceNo,
+      rootTaskNo: rootNo,
+      splitGroupId: ownerPlan?.splitGroupId ?? `SG-${rootNo}-QTY-${String(Date.now()).slice(-6)}`,
+      createdAt: eventAt,
+      createdBy: input.by,
+      results: rebuiltResults.map((result, index) => ({ ...result, splitSeq: index + 1 })),
+    }
+    runtimeTaskSplitPlans.set(rootTaskId, ownerPlan)
+    patchRuntimeTask(rootTaskId, {
+      taskNo: sourceNo,
+      rootTaskNo: rootNo,
+      splitGroupId: ownerPlan.splitGroupId,
+      isSplitSource: true,
+      executionEnabled: false,
+      assignmentStatus: 'ASSIGNED',
+      updatedAt: eventAt,
+      auditLogs: appendRuntimeAudit(rootTask, 'QUANTITY_SPLIT', `按 SKU 数量分区，本次 ${selectedQty} 件，剩余 ${task.scopeQty - selectedQty} 件`, input.by),
+    })
+    const allocated = getRuntimeTaskById(selectedTaskId)
+    if (!allocated || allocated.scopeQty !== selectedQty) throw new Error('车缝数量分区结果生成失败')
+    recomputeRuntimeTransitionsForOrder(task.productionOrderId)
+    return getRuntimeTaskById(selectedTaskId) ?? allocated
+  } catch (error) {
+    restoreRuntimeDirectDispatchState(runtimeState)
+    throw error
+  }
+}
+
 export function createRuntimeTaskTenderByDetailGroups(input: RuntimeDetailTenderInput): {
   ok: boolean
   message?: string
@@ -2509,6 +2663,54 @@ export function acceptRuntimeTaskAssignment(
   } catch (error) {
     restoreRuntimeDirectDispatchState(runtimeState)
     restoreSewingDeliverySlaSnapshotStore(snapshotState)
+    throw error
+  }
+}
+
+export interface RuntimeTaskAssignmentRejectionInput {
+  factoryId: string
+  reason: string
+  rejectedAt: string
+  rejectedBy: string
+}
+
+export function rejectRuntimeTaskAssignment(
+  taskId: string,
+  input: RuntimeTaskAssignmentRejectionInput,
+): RuntimeProcessTask {
+  const task = getRuntimeTaskById(taskId)
+  if (!task) throw new Error(`任务 ${taskId} 不存在或已被移除`)
+  if (task.acceptanceStatus === 'REJECTED') throw new Error(`任务 ${taskId} 已拒单，不可重复拒单`)
+  if (task.acceptanceStatus !== 'PENDING' || (task.assignmentStatus !== 'ASSIGNED' && task.assignmentStatus !== 'AWARDED')) {
+    throw new Error(`任务 ${taskId} 不是待接单状态，不可拒单`)
+  }
+  if (!task.assignedFactoryId || input.factoryId !== task.assignedFactoryId) {
+    throw new Error(`当前工厂不是任务 ${taskId} 的承接工厂，无权拒单`)
+  }
+  const reason = input.reason.trim()
+  const rejectedBy = input.rejectedBy.trim()
+  if (!reason || !rejectedBy || !input.rejectedAt.trim()) throw new Error('拒单原因、拒单人和拒单时间不能为空')
+
+  const runtimeState = captureRuntimeDirectDispatchState()
+  try {
+    const auditLogs: TaskAuditLog[] = [...task.auditLogs, {
+      id: makeRuntimeAuditId(taskId),
+      action: 'REJECT_TASK',
+      detail: `工厂拒绝接单，原因：${reason}`,
+      at: input.rejectedAt,
+      by: rejectedBy,
+    }]
+    const updated = patchRuntimeTask(taskId, {
+      acceptanceStatus: 'REJECTED',
+      acceptedAt: undefined,
+      acceptedBy: undefined,
+      updatedAt: input.rejectedAt,
+      auditLogs,
+    })
+    if (!updated) throw new Error(`任务 ${taskId} 拒单提交失败`)
+    return getRuntimeTaskById(taskId) ?? updated
+  } catch (error) {
+    restoreRuntimeDirectDispatchState(runtimeState)
     throw error
   }
 }
