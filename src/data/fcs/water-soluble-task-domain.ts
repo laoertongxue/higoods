@@ -3,6 +3,10 @@ import { listGeneratedProductionTaskArtifacts, type GeneratedTaskArtifact } from
 import { productionOrders } from './production-orders.ts'
 import type { ProcessTask, QtyUnit } from './process-tasks.ts'
 import { buildTaskQrValue } from './task-qr.ts'
+import {
+  validateWaterSolublePdaActor,
+  type WaterSolublePdaActor,
+} from './water-soluble-pda-actor.ts'
 
 export type WaterSolubleWorkOrderStatus =
   | 'WAIT_FACTORY_ASSIGNMENT'
@@ -354,21 +358,51 @@ export function listWaterSolubleMobileTasks(): WaterSolubleMobileTask[] {
   }))
 }
 
-export function getWaterSolubleCurrentAction(orderId: string): WaterSolubleCurrentAction | null {
-  const order = findMutableOrder(orderId)
+export function getWaterSolubleCurrentAction(orderOrId: string | WaterSolubleWorkOrder): WaterSolubleCurrentAction | null {
+  const order = typeof orderOrId === 'string' ? findMutableOrder(orderOrId) : findMutableOrder(orderOrId.waterOrderId)
   if (!order) return null
   const actions: Record<WaterSolubleWorkOrderStatus, WaterSolubleCurrentAction> = {
     WAIT_FACTORY_ASSIGNMENT: { actionCode: 'ASSIGN_FACTORY', actionName: '分配染厂', message: '请分配具备水溶能力的染厂。' },
     WAIT_MATERIAL: { actionCode: 'WAIT_MATERIAL', actionName: '确认原料到位', message: '原料到位后确认。' },
     WAIT_WATER_SOLUBLE: { actionCode: 'START', actionName: '开始水溶', message: '原料已到位，可以开始水溶。' },
-    WATER_SOLUBLE_IN_PROGRESS: { actionCode: 'COMPLETE', actionName: '上报完成数量', message: '请输入本次实际完成数量。' },
-    PRODUCTION_PAUSED: { actionCode: 'SUPERVISOR', actionName: '主管处理', message: '数量不足，请主管选择处理方式。' },
-    WAIT_HANDOVER: { actionCode: 'HANDOVER', actionName: '确认交出', message: '请确认本次交出数量。' },
+    WATER_SOLUBLE_IN_PROGRESS: { actionCode: 'COMPLETE', actionName: '完成水溶', message: '请输入本次实际完成数量。' },
+    PRODUCTION_PAUSED: { actionCode: 'SUPERVISOR', actionName: '处理数量不足', message: '数量不足，请主管选择处理方式。' },
+    WAIT_HANDOVER: { actionCode: 'HANDOVER', actionName: '去交出', message: '请前往交接页面完成交出。' },
     HANDOVER_WAIT_RECEIVE: { actionCode: 'WAIT_RECEIPT', actionName: '等待收货', message: '已交出，等待对方确认收货。' },
     RECEIPT_DIFFERENCE: { actionCode: 'RESOLVE_DIFFERENCE', actionName: '确认收货差异', message: '收货数量不一致，请主管确认。' },
     DONE: { actionCode: 'DONE', actionName: '已完成', message: '本单已完成。' },
   }
   return { ...actions[order.status] }
+}
+
+export type WaterSolublePdaActionInput =
+  | { action: 'MATERIAL_READY'; orderId: string; expectedStatus: 'WAIT_MATERIAL'; actor: WaterSolublePdaActor }
+  | { action: 'START'; orderId: string; expectedStatus: 'WAIT_WATER_SOLUBLE'; actor: WaterSolublePdaActor }
+  | { action: 'COMPLETE'; orderId: string; expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS'; completedQty: number; reason: string; actor: WaterSolublePdaActor }
+  | { action: 'RESOLVE_PAUSE'; orderId: string; expectedStatus: 'PRODUCTION_PAUSED'; decision: WaterSolubleSupervisorDecision; actor: WaterSolublePdaActor }
+
+function attachWaterSolublePdaActor(result: WaterSolubleActionResult, actor: WaterSolublePdaActor): WaterSolubleActionResult {
+  if (!result.ok) return result
+  const order = result.order ? findMutableOrder(result.order.waterOrderId) : undefined
+  const lastLog = order?.actionLogs.at(-1)
+  if (!order || !lastLog) return result
+  lastLog.detail = `${lastLog.detail}；操作人：${actor.userName}`
+  return { ...result, order: cloneOrder(order) }
+}
+
+export function executeWaterSolublePdaAction(input: WaterSolublePdaActionInput): WaterSolubleActionResult {
+  const order = findMutableOrder(input.orderId)
+  if (!order) return failure(`未找到水溶加工单“${input.orderId}”。`)
+  const roleAction = input.action === 'RESOLVE_PAUSE' ? 'SUPERVISE' : 'OPERATE'
+  const actorError = validateWaterSolublePdaActor(input.actor, order.factoryId, roleAction)
+  if (actorError) return failure(actorError)
+  if (order.status !== input.expectedStatus) {
+    return failure(`当前状态为“${WATER_SOLUBLE_STATUS_LABEL[order.status]}”，此操作已经处理或已失效。`)
+  }
+  if (input.action === 'MATERIAL_READY') return attachWaterSolublePdaActor(markWaterSolubleMaterialReady(input.orderId), input.actor)
+  if (input.action === 'START') return attachWaterSolublePdaActor(startWaterSoluble(input.orderId), input.actor)
+  if (input.action === 'COMPLETE') return attachWaterSolublePdaActor(completeWaterSoluble(input.orderId, input.completedQty, input.reason), input.actor)
+  return attachWaterSolublePdaActor(resolveWaterSolublePause(input.orderId, input.decision), input.actor)
 }
 
 export function canAssignWaterSolubleFactory(factoryId: string): WaterSolubleFactoryCapabilityResult {

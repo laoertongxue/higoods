@@ -6,18 +6,16 @@ import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderToast, renderToastContainer } from '../../../components/ui/toast.ts'
 import {
   WATER_SOLUBLE_STATUS_LABEL,
-  completeWaterSoluble,
+  executeWaterSolublePdaAction,
   getWaterSolubleCurrentAction,
   getWaterSolubleWorkOrderById,
   listWaterSolubleWorkOrders,
-  markWaterSolubleMaterialReady,
-  resolveWaterSolublePause,
-  startWaterSoluble,
   submitWaterSolubleHandover,
   type WaterSolubleActionResult,
   type WaterSolubleSupervisorDecision,
   type WaterSolubleWorkOrder,
 } from '../../../data/fcs/water-soluble-task-domain.ts'
+import { getPdaSession } from '../../../data/fcs/store-domain-pda.ts'
 import { getPdaRuntimeContext } from '../../pda-runtime.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
@@ -328,7 +326,9 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
       refreshOverlay()
       return true
     }
-    const result = completeWaterSoluble(orderId, completedQty, reason)
+    const actor = getPdaSession()
+    if (!actor) { rejectAction('当前登录已失效，请重新登录。'); return true }
+    const result = executeWaterSolublePdaAction({ action: 'COMPLETE', orderId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', completedQty, reason, actor })
     if (result.ok) clearCompletionDraft()
     run(result)
     return true
@@ -345,13 +345,18 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     const access = getAuthorizedOrder(orderId, accessRule.statuses, accessRule.roleAction)
     if (!access.order) { rejectAction(access.message); return true }
   }
-  if (action === 'material-ready') run(markWaterSolubleMaterialReady(orderId))
-  else if (action === 'start') run(startWaterSoluble(orderId))
+  const actor = getPdaSession()
+  if ((action === 'material-ready' || action === 'start' || action === 'confirm-supervisor-decision') && !actor) {
+    rejectAction('当前登录已失效，请重新登录。')
+    return true
+  }
+  if (action === 'material-ready') run(executeWaterSolublePdaAction({ action: 'MATERIAL_READY', orderId, expectedStatus: 'WAIT_MATERIAL', actor: actor! }))
+  else if (action === 'start') run(executeWaterSolublePdaAction({ action: 'START', orderId, expectedStatus: 'WAIT_WATER_SOLUBLE', actor: actor! }))
   else if (action === 'confirm-supervisor-decision') {
     const decision = node.dataset.decision as WaterSolubleSupervisorDecision | undefined
     if (!decision || !Object.hasOwn(SUPERVISOR_DECISION_LABEL, decision)) { rejectAction('请选择有效的主管处理方式。'); return true }
     if (!hasCurrentOverlay('supervisor-confirm', orderId) || state.overlay?.decision !== decision) { rejectAction('当前主管确认已失效，请重新选择处理方式。'); return true }
-    run(resolveWaterSolublePause(orderId, decision))
+    run(executeWaterSolublePdaAction({ action: 'RESOLVE_PAUSE', orderId, expectedStatus: 'PRODUCTION_PAUSED', decision, actor: actor! }))
   }
   else if (action === 'confirm-handover') {
     if (!hasCurrentOverlay('handover', orderId)) { rejectAction('当前交出确认已失效，请重新打开加工单。'); return true }

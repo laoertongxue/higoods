@@ -2,7 +2,24 @@
 
 import assert from 'node:assert/strict'
 
-import { listDyeWorkOrders } from '../src/data/fcs/dyeing-task-domain.ts'
+import {
+  completeDyeMaterialReady,
+  completeDyeMaterialWait,
+  completeDyeSampleTest,
+  completeDyeSampleWait,
+  executeDyeWaterSolublePdaAction,
+  getDyeExecutionNodeRecord,
+  getDyeWorkOrderById,
+  listDyeVatOptions,
+  listDyeWorkOrders,
+  planDyeVat,
+  startDyeMaterialReady,
+  startDyeMaterialWait,
+  startDyeSampleTest,
+  startDyeSampleWait,
+  startDyeing,
+  validateDyeStartPrerequisite,
+} from '../src/data/fcs/dyeing-task-domain.ts'
 import {
   getMobileExecutionTaskById,
   getMobileExecutionTaskByNo,
@@ -26,9 +43,12 @@ import {
   listFactoryPdaUsers,
 } from '../src/data/fcs/store-domain-pda.ts'
 import {
+  assignWaterSolubleFactory,
+  executeWaterSolublePdaAction,
   getWaterSolubleCurrentAction,
   getWaterSolubleWorkOrderById,
   listWaterSolubleWorkOrders,
+  markWaterSolubleMaterialReady,
   resetWaterSolubleDomainForChecks,
 } from '../src/data/fcs/water-soluble-task-domain.ts'
 import type { ProcessTask } from '../src/data/fcs/process-tasks.ts'
@@ -323,7 +343,10 @@ async function main(): Promise<void> {
     assert(detailHtml.includes(targetOrder.materialName) && detailHtml.includes(targetOrder.materialCode), '水溶详情必须显示物料')
     assert(detailHtml.includes(`${targetOrder.plannedQty}`) && detailHtml.includes(targetOrder.qtyUnit), '水溶详情必须显示计划数量原单位')
     assert(detailHtml.includes(`${targetOrder.completedQty}`), '水溶详情必须显示完成数量')
-    assert(detailHtml.includes('当前步骤') && detailHtml.includes('下一步提示'), '水溶详情必须显示当前步骤和下一步提示')
+    assert(detailHtml.includes('当前步骤') && detailHtml.includes('现在要做'), '水溶详情必须显示当前步骤和当前动作')
+    assert(detailHtml.includes('data-testid="pda-water-soluble-detail"'), '水溶详情必须进入真实执行版详情')
+    assert(detailHtml.includes('data-pda-execd-action="water-complete"'), '水溶中详情必须只显示完成水溶主动作')
+    assert.equal((detailHtml.match(/data-water-primary-action="true"/g) || []).length, 1, '水溶详情首屏必须只有一个主动作')
     assert(!detailHtml.includes('data-pda-execd-action="finish-task"'), '水溶详情不得渲染通用完工动作')
 
     const beforeInjectedFinish = getWaterSolubleWorkOrderById(targetOrder.waterOrderId)
@@ -357,6 +380,144 @@ async function main(): Promise<void> {
     assert(!maliciousCard.includes('<script') && !maliciousCard.includes('<img') && !maliciousCard.includes('<svg'), '水溶卡片可控恶意业务字段必须真实转义')
     assert(maliciousCard.includes('&lt;script&gt;') && maliciousCard.includes('&lt;img'), '水溶卡片必须保留转义后的可读文本')
     assert(escapedOrder.qtyUnit.length > 0, '原 BOM 单位不得丢失')
+
+    const operatorUser = listFactoryPdaUsers(targetOrder.factoryId || '').find((item) => item.status === 'ACTIVE' && item.roleId === 'ROLE_OPERATOR')
+    const supervisorUser = listFactoryPdaUsers(targetOrder.factoryId || '').find((item) =>
+      item.status === 'ACTIVE' && ['ROLE_PRODUCTION', 'ROLE_ADMIN'].includes(item.roleId),
+    )
+    assert(operatorUser && supervisorUser, '必须动态取得本厂操作员和生产主管账号')
+    const operator = createPdaSessionFromUser(operatorUser)
+    const supervisor = createPdaSessionFromUser(supervisorUser)
+
+    resetWaterSolubleDomainForChecks({ seedDemo: false })
+    const executableOrder = listWaterSolubleWorkOrders()[0]
+    assert(executableOrder, '必须存在可准备为待水溶的独立水溶加工单')
+    assert.equal(assignWaterSolubleFactory(executableOrder.waterOrderId, operator.factoryId).ok, true)
+    assert.equal(markWaterSolubleMaterialReady(executableOrder.waterOrderId).ok, true)
+    assert.equal(getWaterSolubleCurrentAction(executableOrder)?.actionCode, 'START')
+
+    const foreignActor = { ...operator, factoryId: 'FOREIGN-FACTORY', factoryName: '其他工厂' }
+    const foreignStart = executeWaterSolublePdaAction({
+      action: 'START',
+      orderId: executableOrder.waterOrderId,
+      expectedStatus: 'WAIT_WATER_SOLUBLE',
+      actor: foreignActor,
+    })
+    assert.equal(foreignStart.ok, false)
+    assert.match(foreignStart.message, /登录信息已变化|不属于当前工厂/)
+
+    const firstStart = executeWaterSolublePdaAction({
+      action: 'START',
+      orderId: executableOrder.waterOrderId,
+      expectedStatus: 'WAIT_WATER_SOLUBLE',
+      actor: operator,
+    })
+    const duplicateStart = executeWaterSolublePdaAction({
+      action: 'START',
+      orderId: executableOrder.waterOrderId,
+      expectedStatus: 'WAIT_WATER_SOLUBLE',
+      actor: operator,
+    })
+    assert.equal(firstStart.ok, true)
+    assert.equal(duplicateStart.ok, false)
+    assert.match(duplicateStart.message, /已经开始|当前状态/)
+
+    const missingReason = executeWaterSolublePdaAction({
+      action: 'COMPLETE',
+      orderId: executableOrder.waterOrderId,
+      expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS',
+      completedQty: executableOrder.plannedQty - 1,
+      reason: '',
+      actor: operator,
+    })
+    assert.equal(missingReason.ok, false)
+    assert.match(missingReason.message, /填写原因/)
+    const shortage = executeWaterSolublePdaAction({
+      action: 'COMPLETE',
+      orderId: executableOrder.waterOrderId,
+      expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS',
+      completedQty: executableOrder.plannedQty - 1,
+      reason: '现场实测原料不足',
+      actor: operator,
+    })
+    assert.equal(shortage.ok, true)
+    assert.equal(shortage.order?.status, 'PRODUCTION_PAUSED')
+    const operatorResolve = executeWaterSolublePdaAction({
+      action: 'RESOLVE_PAUSE',
+      orderId: executableOrder.waterOrderId,
+      expectedStatus: 'PRODUCTION_PAUSED',
+      decision: 'CONTINUE_WITH_ACTUAL_QTY',
+      actor: operator,
+    })
+    assert.equal(operatorResolve.ok, false)
+    assert.match(operatorResolve.message, /主管/)
+    assert.equal(executeWaterSolublePdaAction({
+      action: 'RESOLVE_PAUSE',
+      orderId: executableOrder.waterOrderId,
+      expectedStatus: 'PRODUCTION_PAUSED',
+      decision: 'CONTINUE_WITH_ACTUAL_QTY',
+      actor: supervisor,
+    }).ok, true)
+
+    const combined = getDyeWorkOrderById(combinedDyeOrder.dyeOrderId)
+    assert(combined, '含水溶染色加工单必须仍可读取')
+    assert.equal(validateDyeStartPrerequisite(combined.dyeOrderId, 80).ok, false)
+    if (combined.isFirstOrder && combined.sampleWaitType !== 'NONE') {
+      startDyeSampleWait(combined.dyeOrderId, { waitType: combined.sampleWaitType, operatorName: operator.userName })
+      completeDyeSampleWait(combined.dyeOrderId, operator.userName)
+      startDyeSampleTest(combined.dyeOrderId, operator.userName)
+      completeDyeSampleTest(combined.dyeOrderId, { colorNo: 'WS-TEST', operatorName: operator.userName })
+    }
+    startDyeMaterialWait(combined.dyeOrderId, operator.userName)
+    completeDyeMaterialWait(combined.dyeOrderId, operator.userName)
+    startDyeMaterialReady(combined.dyeOrderId, operator.userName)
+    completeDyeMaterialReady(combined.dyeOrderId, { outputQty: combined.plannedQty, operatorName: operator.userName })
+    const dyeVat = listDyeVatOptions(combined.dyeFactoryId)[0]
+    assert(dyeVat, '含水溶染色单工厂必须存在可用染缸')
+    planDyeVat(combined.dyeOrderId, { dyeVatNo: dyeVat.dyeVatNo, operatorName: operator.userName })
+
+    const combinedWaitWaterHtml = renderPdaExecDetailPage(combined.taskId)
+    assert(combinedWaitWaterHtml.includes('data-testid="pda-combined-dye-current-action"'), '含水溶染色详情必须显示统一当前动作区')
+    assert(combinedWaitWaterHtml.includes('data-pda-execd-action="dye-water-start"'), '待水溶时必须只显示开始水溶')
+    assert.equal((combinedWaitWaterHtml.match(/data-combined-primary-action="true"/g) || []).length, 1, '含水溶染色首屏必须只有一个主动作')
+
+    assert.equal(executeDyeWaterSolublePdaAction({
+      action: 'START',
+      dyeOrderId: combined.dyeOrderId,
+      taskId: combined.taskId,
+      expectedStatus: 'WAIT_WATER_SOLUBLE',
+      expectedNode: 'WATER_SOLUBLE',
+      actor: operator,
+    }).ok, true)
+    const combinedWaterRunningHtml = renderPdaExecDetailPage(combined.taskId)
+    assert(combinedWaterRunningHtml.includes('data-pda-execd-action="dye-water-complete"'), '水溶中必须显示完成水溶')
+    assert.equal(executeDyeWaterSolublePdaAction({
+      action: 'COMPLETE',
+      dyeOrderId: combined.dyeOrderId,
+      taskId: combined.taskId,
+      expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS',
+      expectedNode: 'WATER_SOLUBLE',
+      outputQty: 80,
+      reason: '物料实际可水溶数量不足',
+      actor: operator,
+    }).ok, true)
+    assert.equal(executeDyeWaterSolublePdaAction({
+      action: 'RESOLVE_PAUSE',
+      dyeOrderId: combined.dyeOrderId,
+      taskId: combined.taskId,
+      expectedStatus: 'PRODUCTION_PAUSED',
+      expectedNode: 'WATER_SOLUBLE',
+      decision: 'CONTINUE_WITH_ACTUAL_QTY',
+      actor: supervisor,
+    }).ok, true)
+    const combinedWaitDyeHtml = renderPdaExecDetailPage(combined.taskId)
+    assert(combinedWaitDyeHtml.includes('data-pda-execd-action="dye-water-start-dye"'), '主管按实际继续后必须显示开始染色')
+    assert(!combinedWaitDyeHtml.includes('水溶后交接'), '水溶完成后不得出现中间交接入口')
+    assert.equal(validateDyeStartPrerequisite(combined.dyeOrderId, 100).ok, false)
+    assert.match(validateDyeStartPrerequisite(combined.dyeOrderId, 100).message, /不能超过水溶完成数量/)
+    assert.equal(validateDyeStartPrerequisite(combined.dyeOrderId, 80).ok, true)
+    startDyeing(combined.dyeOrderId, { dyeVatNo: dyeVat.dyeVatNo, inputQty: 80, operatorName: operator.userName })
+    assert.equal(getDyeExecutionNodeRecord(combined.dyeOrderId, 'DYE')?.inputQty, 80)
   } finally {
     memoryStorage.clear()
     resetWaterSolubleDomainForChecks()

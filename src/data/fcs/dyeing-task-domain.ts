@@ -26,6 +26,10 @@ import {
   getDictionaryCraftMockSource,
   listGeneratedProductionDemandArtifacts,
 } from './production-artifact-generation.ts'
+import {
+  validateWaterSolublePdaActor,
+  type WaterSolublePdaActor,
+} from './water-soluble-pda-actor.ts'
 
 export type DyeWorkOrderStatus =
   | 'WAIT_SAMPLE'
@@ -2705,6 +2709,45 @@ export function resolveDyeWaterSolublePause(
   updateOrderTimestamp(mutable)
   syncWaterSolubleTaskState(mutable)
   return { ok: true, message: '', order: cloneWorkOrder(mutable) }
+}
+
+export type DyeWaterSolublePdaActionInput =
+  | { action: 'START'; dyeOrderId: string; taskId: string; expectedStatus: 'WAIT_WATER_SOLUBLE'; expectedNode: 'WATER_SOLUBLE'; actor: WaterSolublePdaActor }
+  | { action: 'COMPLETE'; dyeOrderId: string; taskId: string; expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS'; expectedNode: 'WATER_SOLUBLE'; outputQty: number; reason: string; actor: WaterSolublePdaActor }
+  | { action: 'RESOLVE_PAUSE'; dyeOrderId: string; taskId: string; expectedStatus: 'PRODUCTION_PAUSED'; expectedNode: 'WATER_SOLUBLE'; decision: DyeWaterSolublePauseDecision; actor: WaterSolublePdaActor }
+
+export function executeDyeWaterSolublePdaAction(
+  input: DyeWaterSolublePdaActionInput,
+): { ok: boolean; message: string; order?: DyeWorkOrder; node?: DyeExecutionNodeRecord } {
+  const order = getDyeWorkOrderById(input.dyeOrderId)
+  if (!order) return { ok: false, message: '未找到染色加工单。' }
+  if (!order.requiresWaterSoluble) return { ok: false, message: '普通染色加工单不需要水溶。' }
+  if (order.taskId !== input.taskId) return { ok: false, message: '当前任务与染色加工单不一致，不能操作。' }
+  if (input.expectedNode !== 'WATER_SOLUBLE' || !getDyeExecutionRoute(order.dyeOrderId).includes('WATER_SOLUBLE')) {
+    return { ok: false, message: '当前步骤不是水溶，不能操作。' }
+  }
+  const roleAction = input.action === 'RESOLVE_PAUSE' ? 'SUPERVISE' : 'OPERATE'
+  const actorError = validateWaterSolublePdaActor(input.actor, order.dyeFactoryId, roleAction)
+  if (actorError) return { ok: false, message: actorError }
+  if (order.status !== input.expectedStatus) {
+    return { ok: false, message: `当前状态为“${getDyeWorkOrderStatusLabel(order.status)}”，此操作已经处理或已失效。` }
+  }
+  if (input.action === 'START') {
+    const result = startDyeWaterSolubleNode(input.dyeOrderId, input.actor.userName)
+    const node = getMutableNodeRecord(input.dyeOrderId, 'WATER_SOLUBLE')
+    if (result.ok && node) node.operatorUserId = input.actor.userId
+    return result.ok ? { ...result, node: getDyeExecutionNodeRecord(input.dyeOrderId, 'WATER_SOLUBLE') } : result
+  }
+  if (input.action === 'COMPLETE') {
+    const result = completeDyeWaterSolubleNode(input.dyeOrderId, input.outputQty, input.reason)
+    const node = getMutableNodeRecord(input.dyeOrderId, 'WATER_SOLUBLE')
+    if (result.ok && node) {
+      node.operatorUserId = input.actor.userId
+      node.operatorName = input.actor.userName
+    }
+    return result.ok ? { ...result, node: getDyeExecutionNodeRecord(input.dyeOrderId, 'WATER_SOLUBLE') } : result
+  }
+  return resolveDyeWaterSolublePause(input.dyeOrderId, input.decision, input.actor.userName)
 }
 
 export function validateDyeStartPayload(input: { dyeVatNo?: string }): { ok: boolean; message?: string } {

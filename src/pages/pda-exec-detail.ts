@@ -82,6 +82,7 @@ import {
   type WoolWorkOrder,
 } from '../data/fcs/wool-task-domain.ts'
 import {
+  executeDyeWaterSolublePdaAction,
   getDyeExecutionNodeRecord,
   getDyeOrderHandoverSummary,
   getDyeReviewRecordByOrderId,
@@ -89,7 +90,11 @@ import {
   getDyeWorkOrderByTaskId,
   getDyeWorkOrderStatusLabel,
   getSampleWaitTypeLabel,
+  listDyeExecutionNodeRecords,
   listDyeVatOptions,
+  startDyeing,
+  validateDyeStartPrerequisite,
+  type DyeWaterSolublePauseDecision,
   type DyeWorkOrder,
 } from '../data/fcs/dyeing-task-domain.ts'
 import {
@@ -155,11 +160,18 @@ import {
 import { canFactoryAccessSpecialCraftPdaTask } from '../data/fcs/special-craft-pda-scope.ts'
 import { getPdaSession } from '../data/fcs/store-domain-pda.ts'
 import {
+  executeWaterSolublePdaAction,
   getWaterSolubleCurrentAction,
+  getWaterSolubleWorkOrderById,
   getWaterSolubleWorkOrderByTaskId,
   WATER_SOLUBLE_STATUS_LABEL,
+  type WaterSolubleSupervisorDecision,
   type WaterSolubleWorkOrder,
 } from '../data/fcs/water-soluble-task-domain.ts'
+import {
+  validateWaterSolublePdaActor,
+  type WaterSolublePdaRoleAction,
+} from '../data/fcs/water-soluble-pda-actor.ts'
 import { renderPdaCuttingTaskDetailPage } from './pda-cutting-task-detail'
 import { renderPdaFrame } from './pda-shell'
 
@@ -178,6 +190,21 @@ interface PdaExecDetailState {
   fromPauseAction: boolean
   specialCraftScrapQty: string
   specialCraftDamageQty: string
+  waterCompletionDraft: { orderId: string; completedQty: string; reason: string }
+  waterOverlay: null | {
+    type: 'completion' | 'completion-overage' | 'supervisor'
+    orderId: string
+    expectedStatus: WaterSolubleWorkOrder['status']
+    token: string
+  }
+  dyeWaterDraft: { dyeOrderId: string; outputQty: string; reason: string }
+  dyeWaterOverlay: null | {
+    type: 'completion' | 'completion-overage' | 'supervisor'
+    dyeOrderId: string
+    taskId: string
+    expectedStatus: DyeWorkOrder['status']
+    token: string
+  }
 }
 
 type TaskWithHandoverFields = ProcessTask & {
@@ -206,7 +233,18 @@ const detailState: PdaExecDetailState = {
   fromPauseAction: false,
   specialCraftScrapQty: '0',
   specialCraftDamageQty: '0',
+  waterCompletionDraft: { orderId: '', completedQty: '', reason: '' },
+  waterOverlay: null,
+  dyeWaterDraft: { dyeOrderId: '', outputQty: '', reason: '' },
+  dyeWaterOverlay: null,
 }
+
+let waterOverlaySequence = 0
+const waterPrimaryActionTokens = new Map<string, string>()
+const pendingWaterActions = new Set<string>()
+let dyeWaterOverlaySequence = 0
+const dyeWaterPrimaryActionTokens = new Map<string, string>()
+const pendingDyeWaterActions = new Set<string>()
 
 function mapPostFinishingStatusToTaskStatus(status: string): ProcessTask['status'] {
   if (status.includes('差异')) return 'BLOCKED'
@@ -299,10 +337,57 @@ function getRootTaskDisplayNo(task: ProcessTask): string {
   return task.rootTaskNo || task.taskNo || task.taskId
 }
 
-function renderPdaWaterSolubleReadOnlyDetail(order: WaterSolubleWorkOrder): string {
+function canCurrentSessionUseWaterAction(order: WaterSolubleWorkOrder, action: WaterSolublePdaRoleAction): boolean {
+  const session = getPdaSession()
+  return Boolean(session && !validateWaterSolublePdaActor(session, order.factoryId, action))
+}
+
+function createWaterOverlayToken(orderId: string): string {
+  waterOverlaySequence += 1
+  return `${orderId}:${waterOverlaySequence}`
+}
+
+function getWaterPrimaryAction(order: WaterSolubleWorkOrder): { action: string; label: string } | null {
+  const currentAction = getWaterSolubleCurrentAction(order)
+  if (!currentAction) return null
+  if (currentAction.actionCode === 'WAIT_MATERIAL' && canCurrentSessionUseWaterAction(order, 'OPERATE')) return { action: 'water-material-ready', label: currentAction.actionName }
+  if (currentAction.actionCode === 'START' && canCurrentSessionUseWaterAction(order, 'OPERATE')) return { action: 'water-start', label: currentAction.actionName }
+  if (currentAction.actionCode === 'COMPLETE' && canCurrentSessionUseWaterAction(order, 'OPERATE')) return { action: 'water-complete', label: currentAction.actionName }
+  if (currentAction.actionCode === 'SUPERVISOR' && canCurrentSessionUseWaterAction(order, 'SUPERVISE')) return { action: 'water-open-supervisor', label: currentAction.actionName }
+  if (currentAction.actionCode === 'HANDOVER' && canCurrentSessionUseWaterAction(order, 'HANDOVER')) return { action: 'water-go-handover', label: currentAction.actionName }
+  return null
+}
+
+function renderWaterSolublePrimaryAction(order: WaterSolubleWorkOrder): string {
+  const primaryAction = getWaterPrimaryAction(order)
+  if (!primaryAction) {
+    const message = order.status === 'PRODUCTION_PAUSED'
+      ? '等待生产主管处理数量不足。'
+      : order.status === 'WAIT_HANDOVER'
+        ? '等待交接人员去交出。'
+        : getWaterSolubleCurrentAction(order)?.message || '当前没有需要操作的动作。'
+    return `<div class="rounded-md border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">${escapeHtml(message)}</div>`
+  }
+  const token = `${order.waterOrderId}:${order.status}:${order.updatedAt}`
+  waterPrimaryActionTokens.set(order.waterOrderId, token)
+  return `
+    <button
+      type="button"
+      class="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-4 py-3 text-base font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
+      data-pda-execd-action="${primaryAction.action}"
+      data-water-primary-action="true"
+      data-order-id="${escapeHtml(order.waterOrderId)}"
+      data-task-id="${escapeHtml(order.taskId)}"
+      data-expected-status="${escapeHtml(order.status)}"
+      data-action-token="${escapeHtml(token)}"
+    >${escapeHtml(primaryAction.label)}</button>
+  `
+}
+
+function renderWaterSolubleDetailContent(order: WaterSolubleWorkOrder): string {
   const currentAction = getWaterSolubleCurrentAction(order.waterOrderId)
-  const content = `
-    <div class="space-y-4 bg-background p-4 pb-6" data-testid="pda-water-soluble-readonly-detail">
+  return `
+    <div class="space-y-4 bg-background p-4 pb-6" data-testid="pda-water-soluble-detail-content">
       <div class="flex items-center gap-2">
         <button class="inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-pda-execd-action="back">
           <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
@@ -327,7 +412,7 @@ function renderPdaWaterSolubleReadOnlyDetail(order: WaterSolubleWorkOrder): stri
           <span class="text-xs font-medium">${escapeHtml(`${order.completedQty} ${order.qtyUnit}`)}</span>
           <span class="text-xs text-muted-foreground">当前步骤</span>
           <span class="text-xs font-medium">${escapeHtml(WATER_SOLUBLE_STATUS_LABEL[order.status])}</span>
-          <span class="text-xs text-muted-foreground">下一步提示</span>
+          <span class="text-xs text-muted-foreground">现在要做</span>
           <span class="text-xs font-medium">${escapeHtml(currentAction?.actionName || '查看任务')}</span>
         </div>
       </article>
@@ -335,12 +420,63 @@ function renderPdaWaterSolubleReadOnlyDetail(order: WaterSolubleWorkOrder): stri
       ${order.exceptionReason
         ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${escapeHtml(order.exceptionReason)}</div>`
         : ''}
-      <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-        当前页面只展示水溶加工事实。现场动作将在后续任务接入，暂不提供通用开工或完工按钮。
-      </div>
+      <section class="rounded-lg border border-blue-200 bg-blue-50 p-4" data-testid="pda-water-current-action" data-skip-page-rerender="true">
+        <p class="mb-3 text-xs font-medium text-blue-800">现在要做：${escapeHtml(currentAction?.actionName || '查看任务')}</p>
+        ${renderWaterSolublePrimaryAction(order)}
+      </section>
+      <details class="rounded-lg border bg-card">
+        <summary class="cursor-pointer px-4 py-3 text-sm font-medium">完整执行记录（${order.actionLogs.length} 条）</summary>
+        <div class="space-y-2 border-t p-4">${order.actionLogs.map((log) => `<div class="text-xs"><div class="font-medium">${escapeHtml(log.action)}</div><div class="text-muted-foreground">${escapeHtml(log.detail)} · ${escapeHtml(log.at)}</div></div>`).join('')}</div>
+      </details>
+    </div>
+  `
+}
+
+function renderPdaWaterSolubleDetail(order: WaterSolubleWorkOrder): string {
+  const content = `
+    <div data-testid="pda-water-soluble-detail">
+      ${renderWaterSolubleDetailContent(order)}
+      <div data-testid="pda-water-soluble-overlay" data-skip-page-rerender="true">${renderWaterSolubleOverlay()}</div>
     </div>
   `
   return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
+}
+
+function renderWaterSolubleOverlay(): string {
+  const overlay = detailState.waterOverlay
+  if (!overlay) return ''
+  const actualOrder = getWaterSolubleWorkOrderById(overlay.orderId)
+  if (!actualOrder) return ''
+  const sharedAttrs = `data-order-id="${escapeHtml(actualOrder.waterOrderId)}" data-expected-status="${escapeHtml(overlay.expectedStatus)}" data-overlay-token="${escapeHtml(overlay.token)}"`
+  if (overlay.type === 'supervisor') {
+    return `<div class="fixed inset-0 z-50 flex items-center justify-center"><div class="absolute inset-0 bg-black/45" data-pda-execd-action="water-close-overlay"></div><div class="relative w-[420px] max-w-[90vw] rounded-lg bg-background p-5 shadow-lg"><h2 class="text-lg font-semibold">处理数量不足</h2><p class="mt-1 text-sm text-muted-foreground">实际完成 ${actualOrder.completedQty} ${escapeHtml(actualOrder.qtyUnit)}</p><div class="mt-4 space-y-2">${([
+      ['CONTINUE_PROCESSING', '继续补做'],
+      ['CONTINUE_WITH_ACTUAL_QTY', '按实际数量继续'],
+      ['RETURN_FOR_REWORK', '退回重做'],
+    ] as Array<[WaterSolubleSupervisorDecision, string]>).map(([decision, label]) => `<button type="button" class="h-10 w-full rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="water-resolve-pause" data-decision="${decision}" ${sharedAttrs}>${label}</button>`).join('')}</div><button type="button" class="mt-3 h-9 w-full text-sm text-muted-foreground" data-pda-execd-action="water-close-overlay">取消</button></div></div>`
+  }
+  const draft = detailState.waterCompletionDraft
+  const isOverage = overlay.type === 'completion-overage'
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center"><div class="absolute inset-0 bg-black/45" data-pda-execd-action="water-close-overlay"></div><div class="relative w-[420px] max-w-[90vw] rounded-lg bg-background p-5 shadow-lg"><h2 class="text-lg font-semibold">${isOverage ? '确认超出计划数量' : '完成水溶'}</h2><p class="mt-1 text-sm text-muted-foreground">计划 ${actualOrder.plannedQty} ${escapeHtml(actualOrder.qtyUnit)}</p>${isOverage ? `<p class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">实际数量超过计划，请再次确认。</p>` : `<div class="mt-4 space-y-3"><label class="block text-sm">实际完成数量<input class="mt-1 h-10 w-full rounded-md border px-3" inputmode="decimal" data-pda-execd-field="waterCompletedQty" value="${escapeHtml(draft.completedQty)}"></label><label class="block text-sm">数量不一致原因<textarea class="mt-1 min-h-20 w-full rounded-md border p-3" data-pda-execd-field="waterReason">${escapeHtml(draft.reason)}</textarea></label></div>`}<div class="mt-5 flex gap-2"><button type="button" class="h-10 flex-1 rounded-md border" data-pda-execd-action="${isOverage ? 'water-back-completion' : 'water-close-overlay'}">取消</button><button type="button" class="h-10 flex-1 rounded-md bg-primary text-primary-foreground disabled:opacity-60" data-pda-execd-action="water-confirm-completion" ${sharedAttrs}>${isOverage ? '确认超量完成' : '确认完成'}</button></div></div></div>`
+}
+
+function refreshWaterSolubleDetail(orderId: string): void {
+  if (typeof document === 'undefined') return
+  const order = getWaterSolubleWorkOrderById(orderId)
+  const node = document.querySelector<HTMLElement>('[data-testid="pda-water-soluble-detail-content"]')
+  if (order && node) node.outerHTML = renderWaterSolubleDetailContent(order)
+}
+
+function refreshWaterSolubleOverlay(): void {
+  if (typeof document === 'undefined') return
+  const node = document.querySelector<HTMLElement>('[data-testid="pda-water-soluble-overlay"]')
+  if (node) node.innerHTML = renderWaterSolubleOverlay()
+}
+
+function clearWaterSolubleOverlay(): void {
+  detailState.waterOverlay = null
+  detailState.waterCompletionDraft = { orderId: '', completedQty: '', reason: '' }
+  refreshWaterSolubleOverlay()
 }
 
 function renderPdaObjectCode({
@@ -865,11 +1001,77 @@ function getExecDetailAccessNotice(access: ReturnType<typeof getMobileTaskAccess
   }
 }
 
+function shouldRenderCombinedDyeCurrentAction(order: DyeWorkOrder): boolean {
+  const waterNode = getDyeExecutionNodeRecord(order.dyeOrderId, 'WATER_SOLUBLE')
+  return order.requiresWaterSoluble && (
+    order.status === 'WAIT_WATER_SOLUBLE'
+    || order.status === 'WATER_SOLUBLE_IN_PROGRESS'
+    || order.status === 'PRODUCTION_PAUSED'
+    || (order.status === 'WAIT_VAT_PLAN' && Boolean(waterNode?.finishedAt))
+  )
+}
+
+function getCombinedDyePrimaryAction(order: DyeWorkOrder): { action: string; label: string; role: WaterSolublePdaRoleAction; node: 'WATER_SOLUBLE' | 'DYE' } | null {
+  if (order.status === 'WAIT_WATER_SOLUBLE') return { action: 'dye-water-start', label: '开始水溶', role: 'OPERATE', node: 'WATER_SOLUBLE' }
+  if (order.status === 'WATER_SOLUBLE_IN_PROGRESS') return { action: 'dye-water-complete', label: '完成水溶', role: 'OPERATE', node: 'WATER_SOLUBLE' }
+  if (order.status === 'PRODUCTION_PAUSED') return { action: 'dye-water-open-supervisor', label: '处理数量不足', role: 'SUPERVISE', node: 'WATER_SOLUBLE' }
+  if (order.status === 'WAIT_VAT_PLAN' && getDyeExecutionNodeRecord(order.dyeOrderId, 'WATER_SOLUBLE')?.finishedAt) return { action: 'dye-water-start-dye', label: '开始染色', role: 'OPERATE', node: 'DYE' }
+  return null
+}
+
+function renderCombinedDyeWaterOverlay(): string {
+  const overlay = detailState.dyeWaterOverlay
+  if (!overlay) return ''
+  const order = getDyeWorkOrderById(overlay.dyeOrderId)
+  if (!order) return ''
+  const attrs = `data-skip-page-rerender="true" data-dye-order-id="${escapeHtml(order.dyeOrderId)}" data-task-id="${escapeHtml(order.taskId)}" data-expected-status="${escapeHtml(overlay.expectedStatus)}" data-expected-node="WATER_SOLUBLE" data-overlay-token="${escapeHtml(overlay.token)}"`
+  if (overlay.type === 'supervisor') {
+    const decisions: Array<[DyeWaterSolublePauseDecision, string]> = [['CONTINUE_PROCESSING', '继续补做'], ['CONTINUE_WITH_ACTUAL_QTY', '按实际数量继续'], ['RETURN_FOR_REWORK', '退回重做']]
+    return `<div class="fixed inset-0 z-50 flex items-center justify-center"><div class="absolute inset-0 bg-black/45" data-pda-execd-action="dye-water-close-overlay"></div><div class="relative w-[420px] max-w-[90vw] rounded-lg bg-background p-5 shadow-lg"><h2 class="text-lg font-semibold">处理水溶数量不足</h2><p class="mt-1 text-sm text-muted-foreground">实际完成 ${order.waterSolubleCompletedQty ?? 0} ${escapeHtml(order.waterSolubleQtyUnit || order.qtyUnit)}</p><div class="mt-4 space-y-2">${decisions.map(([decision, label]) => `<button type="button" class="h-10 w-full rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="dye-water-resolve-pause" data-decision="${decision}" ${attrs}>${label}</button>`).join('')}</div><button type="button" class="mt-3 h-9 w-full text-sm text-muted-foreground" data-pda-execd-action="dye-water-close-overlay">取消</button></div></div>`
+  }
+  const draft = detailState.dyeWaterDraft
+  const overage = overlay.type === 'completion-overage'
+  let form = `<div class="mt-4 space-y-3"><label class="block text-sm">实际完成数量<input class="mt-1 h-10 w-full rounded-md border px-3" inputmode="decimal" data-pda-execd-field="dyeWaterOutputQty" value="${escapeHtml(draft.outputQty)}"></label><label class="block text-sm">数量不一致原因<textarea class="mt-1 min-h-20 w-full rounded-md border p-3" data-pda-execd-field="dyeWaterReason">${escapeHtml(draft.reason)}</textarea></label></div>`
+  form = form.replace('<div ', '<div data-skip-page-rerender="true" ')
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center"><div class="absolute inset-0 bg-black/45" data-pda-execd-action="dye-water-close-overlay"></div><div class="relative w-[420px] max-w-[90vw] rounded-lg bg-background p-5 shadow-lg"><h2 class="text-lg font-semibold">${overage ? '确认超出计划数量' : '完成水溶'}</h2><p class="mt-1 text-sm text-muted-foreground">计划 ${order.waterSolublePlannedQty ?? order.plannedQty} ${escapeHtml(order.waterSolubleQtyUnit || order.qtyUnit)}</p>${overage ? '<p class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">实际数量超过计划，请再次确认。</p>' : form}<div class="mt-5 flex gap-2"><button type="button" class="h-10 flex-1 rounded-md border" data-pda-execd-action="${overage ? 'dye-water-back-completion' : 'dye-water-close-overlay'}">取消</button><button type="button" class="h-10 flex-1 rounded-md bg-primary text-primary-foreground" data-pda-execd-action="dye-water-confirm-completion" ${attrs}>${overage ? '确认超量完成' : '确认完成'}</button></div></div></div>`
+}
+
+function renderCombinedDyeCurrentActionCard(task: TaskWithHandoverFields, order: DyeWorkOrder): string {
+  const session = getPdaSession()
+  const action = getCombinedDyePrimaryAction(order)
+  const actorAllowed = Boolean(action && session && !validateWaterSolublePdaActor(session, order.dyeFactoryId, action.role))
+  const token = `${order.dyeOrderId}:${order.status}:${order.updatedAt}`
+  dyeWaterPrimaryActionTokens.set(order.dyeOrderId, token)
+  const waterNode = getDyeExecutionNodeRecord(order.dyeOrderId, 'WATER_SOLUBLE')
+  const records = listDyeExecutionNodeRecords(order.dyeOrderId)
+  const stepLabel = order.status === 'WAIT_VAT_PLAN' && waterNode?.finishedAt ? '待染色' : getDyeWorkOrderStatusLabel(order.status)
+  let primary = action && actorAllowed
+    ? `<button type="button" class="min-h-11 w-full rounded-lg bg-primary px-4 py-3 text-base font-semibold text-primary-foreground disabled:opacity-60" data-pda-execd-action="${action.action}" data-combined-primary-action="true" data-dye-order-id="${escapeHtml(order.dyeOrderId)}" data-task-id="${escapeHtml(task.taskId)}" data-expected-status="${escapeHtml(order.status)}" data-expected-node="${action.node}" data-action-token="${escapeHtml(token)}">${escapeHtml(action.label)}</button>`
+    : `<div class="text-sm text-blue-800">${order.status === 'PRODUCTION_PAUSED' ? '等待生产主管处理数量不足。' : '当前账号不能执行此动作。'}</div>`
+  primary = primary.replace('<button ', '<button data-skip-page-rerender="true" ')
+  return `<article class="rounded-lg border bg-card" data-testid="pda-combined-dye-current-action"><header class="border-b px-4 py-3"><div class="flex items-center justify-between gap-2"><h2 class="text-sm font-semibold">染色加工（含水溶）</h2>${renderPrintingStatusBadge(stepLabel, order.status === 'PRODUCTION_PAUSED' ? 'danger' : 'info')}</div></header><div class="space-y-4 p-4"><div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs"><span class="text-muted-foreground">当前物料</span><span class="font-medium">${escapeHtml(order.rawMaterialSku)}</span><span class="text-muted-foreground">计划数量</span><span>${order.waterSolublePlannedQty ?? order.plannedQty} ${escapeHtml(order.waterSolubleQtyUnit || order.qtyUnit)}</span><span class="text-muted-foreground">水溶完成</span><span>${order.waterSolubleCompletedQty ?? 0} ${escapeHtml(order.waterSolubleQtyUnit || order.qtyUnit)}</span><span class="text-muted-foreground">当前步骤</span><span class="font-medium">${escapeHtml(stepLabel)}</span></div><section class="rounded-lg border border-blue-200 bg-blue-50 p-4"><p class="mb-3 text-xs font-medium text-blue-800">现在要做：${escapeHtml(action?.label || '等待主管处理')}</p>${primary}</section><details class="rounded-lg border bg-background"><summary class="cursor-pointer px-4 py-3 text-sm font-medium">完整执行记录（${records.length} 条）</summary><div class="space-y-2 border-t p-4">${records.map((record) => `<div class="text-xs"><span class="font-medium">${escapeHtml(record.nodeName)}</span><span class="ml-2 text-muted-foreground">${escapeHtml(record.finishedAt ? '已完成' : record.startedAt ? '进行中' : '待开始')}</span></div>`).join('') || '<div class="text-xs text-muted-foreground">暂无执行记录</div>'}</div></details></div><div data-testid="pda-combined-dye-overlay">${renderCombinedDyeWaterOverlay()}</div></article>`
+}
+
+function refreshCombinedDyeCurrentAction(dyeOrderId: string): void {
+  if (typeof document === 'undefined') return
+  const order = getDyeWorkOrderById(dyeOrderId)
+  const task = order ? getTaskFactById(order.taskId) : null
+  const node = document.querySelector<HTMLElement>('[data-testid="pda-combined-dye-current-action"]')
+  if (order && task && node && shouldRenderCombinedDyeCurrentAction(order)) node.outerHTML = renderCombinedDyeCurrentActionCard(task as TaskWithHandoverFields, order)
+}
+
+function refreshCombinedDyeOverlay(): void {
+  if (typeof document === 'undefined') return
+  const node = document.querySelector<HTMLElement>('[data-testid="pda-combined-dye-overlay"]')
+  if (node) node.innerHTML = renderCombinedDyeWaterOverlay()
+}
+
 function renderDyeingTaskCard(
   task: TaskWithHandoverFields,
   dyeOrder: DyeWorkOrder,
   handoverOrder: PdaHandoverHead | null,
 ): string {
+  if (shouldRenderCombinedDyeCurrentAction(dyeOrder)) return renderCombinedDyeCurrentActionCard(task, dyeOrder)
   const sampleNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'SAMPLE')
   const materialReadyNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'MATERIAL_READY')
   const vatPlanNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'VAT_PLAN')
@@ -3089,7 +3291,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
 
   const waterSolubleOrder = task ? getWaterSolubleWorkOrderByTaskId(task.taskId) : null
   if (task && waterSolubleOrder) {
-    return renderPdaWaterSolubleReadOnlyDetail(waterSolubleOrder)
+    return renderPdaWaterSolubleDetail(waterSolubleOrder)
   }
 
   if (task && isCuttingSpecialTask(task)) {
@@ -4001,6 +4203,26 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     const field = fieldNode.dataset.pdaExecdField
     if (!field) return true
 
+    if (field === 'waterCompletedQty') {
+      detailState.waterCompletionDraft.completedQty = fieldNode.value
+      return true
+    }
+
+    if (field === 'waterReason') {
+      detailState.waterCompletionDraft.reason = fieldNode.value
+      return true
+    }
+
+    if (field === 'dyeWaterOutputQty') {
+      detailState.dyeWaterDraft.outputQty = fieldNode.value
+      return true
+    }
+
+    if (field === 'dyeWaterReason') {
+      detailState.dyeWaterDraft.reason = fieldNode.value
+      return true
+    }
+
     if (field === 'startTime' && fieldNode instanceof HTMLInputElement) {
       detailState.startTime = fieldNode.value
       return true
@@ -4050,6 +4272,354 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
 
   if (action === 'back') {
     appStore.navigate(resolveExecDetailBackHref())
+    return true
+  }
+
+  if (action.startsWith('water-')) {
+    if (action === 'water-close-overlay') {
+      clearWaterSolubleOverlay()
+      return true
+    }
+    if (action === 'water-back-completion') {
+      const overlay = detailState.waterOverlay
+      if (!overlay || overlay.type !== 'completion-overage') {
+        showPdaExecDetailToast('当前确认已失效，请重新打开。')
+        return true
+      }
+      detailState.waterOverlay = { ...overlay, type: 'completion' }
+      refreshWaterSolubleOverlay()
+      return true
+    }
+
+    const orderId = actionNode.dataset.orderId || ''
+    const order = getWaterSolubleWorkOrderById(orderId)
+    const session = getPdaSession()
+    if (!order || !session) {
+      showPdaExecDetailToast('当前任务或登录信息已失效，请重新进入。')
+      return true
+    }
+    const expectedStatus = actionNode.dataset.expectedStatus || ''
+    if (order.status !== expectedStatus) {
+      showPdaExecDetailToast(`当前步骤已更新为“${WATER_SOLUBLE_STATUS_LABEL[order.status]}”，请按最新页面操作。`)
+      refreshWaterSolubleDetail(orderId)
+      return true
+    }
+
+    const isOverlayAction = action === 'water-confirm-completion' || action === 'water-resolve-pause'
+    if (isOverlayAction) {
+      const overlay = detailState.waterOverlay
+      if (!overlay || overlay.orderId !== orderId || overlay.expectedStatus !== order.status || overlay.token !== actionNode.dataset.overlayToken) {
+        showPdaExecDetailToast('当前确认已失效，请重新打开。')
+        return true
+      }
+    } else if (waterPrimaryActionTokens.get(orderId) !== actionNode.dataset.actionToken) {
+      showPdaExecDetailToast('当前操作已失效，请按最新页面操作。')
+      return true
+    }
+
+    const taskId = actionNode.dataset.taskId
+    if (taskId && taskId !== order.taskId) {
+      showPdaExecDetailToast('当前任务与水溶加工单不一致，不能操作。')
+      return true
+    }
+    const roleAction: WaterSolublePdaRoleAction = action === 'water-open-supervisor' || action === 'water-resolve-pause'
+      ? 'SUPERVISE'
+      : action === 'water-go-handover'
+        ? 'HANDOVER'
+        : 'OPERATE'
+    const actorError = validateWaterSolublePdaActor(session, order.factoryId, roleAction)
+    if (actorError) {
+      showPdaExecDetailToast(actorError)
+      return true
+    }
+
+    if (action === 'water-complete') {
+      detailState.waterCompletionDraft = { orderId, completedQty: String(order.plannedQty), reason: '' }
+      detailState.waterOverlay = { type: 'completion', orderId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', token: createWaterOverlayToken(orderId) }
+      refreshWaterSolubleOverlay()
+      return true
+    }
+    if (action === 'water-open-supervisor') {
+      detailState.waterOverlay = { type: 'supervisor', orderId, expectedStatus: 'PRODUCTION_PAUSED', token: createWaterOverlayToken(orderId) }
+      refreshWaterSolubleOverlay()
+      return true
+    }
+    if (action === 'water-go-handover') {
+      appStore.navigate(`/fcs/pda/handover?tab=handout&focusTaskId=${encodeURIComponent(order.taskId)}`)
+      return true
+    }
+
+    if (action === 'water-confirm-completion') {
+      if (detailState.waterCompletionDraft.orderId !== orderId) {
+        showPdaExecDetailToast('当前填写内容已失效，请重新打开。')
+        return true
+      }
+      const completedQty = Number(detailState.waterCompletionDraft.completedQty.trim())
+      if (!Number.isFinite(completedQty) || completedQty <= 0) {
+        showPdaExecDetailToast('请输入大于 0 的有效完成数量。')
+        return true
+      }
+      const reason = detailState.waterCompletionDraft.reason.trim()
+      if (completedQty !== order.plannedQty && !reason) {
+        showPdaExecDetailToast(completedQty < order.plannedQty ? '完成数量少于计划，请填写原因。' : '完成数量超过计划，请填写原因。')
+        return true
+      }
+      if (completedQty > order.plannedQty && detailState.waterOverlay?.type === 'completion') {
+        detailState.waterOverlay = { ...detailState.waterOverlay, type: 'completion-overage' }
+        refreshWaterSolubleOverlay()
+        return true
+      }
+      const actionKey = `${orderId}:COMPLETE:${order.status}`
+      if (pendingWaterActions.has(actionKey)) return true
+      pendingWaterActions.add(actionKey)
+      const button = actionNode as HTMLButtonElement
+      const oldText = button.textContent || '确认完成'
+      button.disabled = true
+      button.textContent = '处理中…'
+      const result = executeWaterSolublePdaAction({ action: 'COMPLETE', orderId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', completedQty, reason, actor: session })
+      pendingWaterActions.delete(actionKey)
+      showPdaExecDetailToast(result.message)
+      if (result.ok) {
+        detailState.waterOverlay = null
+        detailState.waterCompletionDraft = { orderId: '', completedQty: '', reason: '' }
+        refreshWaterSolubleOverlay()
+        refreshWaterSolubleDetail(orderId)
+      } else if (button.isConnected) {
+        button.disabled = false
+        button.textContent = oldText
+      }
+      return true
+    }
+
+    if (action === 'water-resolve-pause') {
+      const decision = actionNode.dataset.decision as WaterSolubleSupervisorDecision | undefined
+      if (!decision || !['CONTINUE_PROCESSING', 'CONTINUE_WITH_ACTUAL_QTY', 'RETURN_FOR_REWORK'].includes(decision)) {
+        showPdaExecDetailToast('请选择有效的主管处理方式。')
+        return true
+      }
+      const actionKey = `${orderId}:RESOLVE_PAUSE:${order.status}`
+      if (pendingWaterActions.has(actionKey)) return true
+      pendingWaterActions.add(actionKey)
+      const button = actionNode as HTMLButtonElement
+      const oldText = button.textContent || '确认处理'
+      button.disabled = true
+      button.textContent = '处理中…'
+      const result = executeWaterSolublePdaAction({ action: 'RESOLVE_PAUSE', orderId, expectedStatus: 'PRODUCTION_PAUSED', decision, actor: session })
+      pendingWaterActions.delete(actionKey)
+      showPdaExecDetailToast(result.message)
+      if (result.ok) {
+        detailState.waterOverlay = null
+        refreshWaterSolubleOverlay()
+        refreshWaterSolubleDetail(orderId)
+      } else if (button.isConnected) {
+        button.disabled = false
+        button.textContent = oldText
+      }
+      return true
+    }
+
+    const actionKey = `${orderId}:${action}:${order.status}`
+    if (pendingWaterActions.has(actionKey)) return true
+    pendingWaterActions.add(actionKey)
+    const button = actionNode as HTMLButtonElement
+    const oldText = button.textContent || ''
+    button.disabled = true
+    button.textContent = '处理中…'
+    const result = action === 'water-material-ready'
+      ? executeWaterSolublePdaAction({ action: 'MATERIAL_READY', orderId, expectedStatus: 'WAIT_MATERIAL', actor: session })
+      : executeWaterSolublePdaAction({ action: 'START', orderId, expectedStatus: 'WAIT_WATER_SOLUBLE', actor: session })
+    pendingWaterActions.delete(actionKey)
+    showPdaExecDetailToast(result.message)
+    if (result.ok) refreshWaterSolubleDetail(orderId)
+    else if (button.isConnected) {
+      button.disabled = false
+      button.textContent = oldText
+    }
+    return true
+  }
+
+  if (action.startsWith('dye-water-')) {
+    if (action === 'dye-water-close-overlay') {
+      detailState.dyeWaterOverlay = null
+      detailState.dyeWaterDraft = { dyeOrderId: '', outputQty: '', reason: '' }
+      refreshCombinedDyeOverlay()
+      return true
+    }
+    if (action === 'dye-water-back-completion') {
+      if (!detailState.dyeWaterOverlay || detailState.dyeWaterOverlay.type !== 'completion-overage') {
+        showPdaExecDetailToast('当前确认已失效，请重新打开。')
+        return true
+      }
+      detailState.dyeWaterOverlay = { ...detailState.dyeWaterOverlay, type: 'completion' }
+      refreshCombinedDyeOverlay()
+      return true
+    }
+    const dyeOrderId = actionNode.dataset.dyeOrderId || ''
+    const order = getDyeWorkOrderById(dyeOrderId)
+    const session = getPdaSession()
+    if (!order || !session || !order.requiresWaterSoluble) {
+      showPdaExecDetailToast('当前任务或登录信息已失效，请重新进入。')
+      return true
+    }
+    const expectedNode = action === 'dye-water-start-dye' ? 'DYE' : 'WATER_SOLUBLE'
+    if (actionNode.dataset.taskId !== order.taskId || actionNode.dataset.expectedNode !== expectedNode) {
+      showPdaExecDetailToast('当前任务或步骤不一致，不能操作。')
+      return true
+    }
+    if (actionNode.dataset.expectedStatus !== order.status) {
+      showPdaExecDetailToast(`当前步骤已更新为“${getDyeWorkOrderStatusLabel(order.status)}”，请按最新页面操作。`)
+      refreshCombinedDyeCurrentAction(dyeOrderId)
+      return true
+    }
+    const overlayAction = action === 'dye-water-confirm-completion' || action === 'dye-water-resolve-pause'
+    if (overlayAction) {
+      const overlay = detailState.dyeWaterOverlay
+      if (!overlay || overlay.dyeOrderId !== dyeOrderId || overlay.taskId !== order.taskId || overlay.expectedStatus !== order.status || overlay.token !== actionNode.dataset.overlayToken) {
+        showPdaExecDetailToast('当前确认已失效，请重新打开。')
+        return true
+      }
+    } else if (dyeWaterPrimaryActionTokens.get(dyeOrderId) !== actionNode.dataset.actionToken) {
+      showPdaExecDetailToast('当前操作已失效，请按最新页面操作。')
+      return true
+    }
+    const roleAction: WaterSolublePdaRoleAction = action === 'dye-water-open-supervisor' || action === 'dye-water-resolve-pause' ? 'SUPERVISE' : 'OPERATE'
+    const actorError = validateWaterSolublePdaActor(session, order.dyeFactoryId, roleAction)
+    if (actorError) {
+      showPdaExecDetailToast(actorError)
+      return true
+    }
+    if (action === 'dye-water-complete') {
+      detailState.dyeWaterDraft = { dyeOrderId, outputQty: String(order.waterSolublePlannedQty ?? order.plannedQty), reason: '' }
+      detailState.dyeWaterOverlay = { type: 'completion', dyeOrderId, taskId: order.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', token: `${dyeOrderId}:${++dyeWaterOverlaySequence}` }
+      refreshCombinedDyeOverlay()
+      return true
+    }
+    if (action === 'dye-water-open-supervisor') {
+      detailState.dyeWaterOverlay = { type: 'supervisor', dyeOrderId, taskId: order.taskId, expectedStatus: 'PRODUCTION_PAUSED', token: `${dyeOrderId}:${++dyeWaterOverlaySequence}` }
+      refreshCombinedDyeOverlay()
+      return true
+    }
+    if (action === 'dye-water-confirm-completion') {
+      if (detailState.dyeWaterDraft.dyeOrderId !== dyeOrderId) {
+        showPdaExecDetailToast('当前填写内容已失效，请重新打开。')
+        return true
+      }
+      const outputQty = Number(detailState.dyeWaterDraft.outputQty.trim())
+      const plannedQty = order.waterSolublePlannedQty ?? order.plannedQty
+      const reason = detailState.dyeWaterDraft.reason.trim()
+      if (!Number.isFinite(outputQty) || outputQty <= 0) {
+        showPdaExecDetailToast('请输入大于 0 的有效完成数量。')
+        return true
+      }
+      if (outputQty !== plannedQty && !reason) {
+        showPdaExecDetailToast(outputQty < plannedQty ? '完成数量少于计划，请填写原因。' : '完成数量超过计划，请填写原因。')
+        return true
+      }
+      if (outputQty > plannedQty && detailState.dyeWaterOverlay?.type === 'completion') {
+        detailState.dyeWaterOverlay = { ...detailState.dyeWaterOverlay, type: 'completion-overage' }
+        refreshCombinedDyeOverlay()
+        return true
+      }
+      const key = `${dyeOrderId}:COMPLETE:${order.status}`
+      if (pendingDyeWaterActions.has(key)) return true
+      pendingDyeWaterActions.add(key)
+      const button = actionNode as HTMLButtonElement
+      const oldText = button.textContent || '确认完成'
+      button.disabled = true
+      button.textContent = '处理中…'
+      const result = executeDyeWaterSolublePdaAction({ action: 'COMPLETE', dyeOrderId, taskId: order.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'WATER_SOLUBLE', outputQty, reason, actor: session })
+      pendingDyeWaterActions.delete(key)
+      showPdaExecDetailToast(result.ok ? '水溶完成已记录' : result.message)
+      if (result.ok) {
+        detailState.dyeWaterOverlay = null
+        detailState.dyeWaterDraft = { dyeOrderId: '', outputQty: '', reason: '' }
+        refreshCombinedDyeCurrentAction(dyeOrderId)
+      } else if (button.isConnected) {
+        button.disabled = false
+        button.textContent = oldText
+      }
+      return true
+    }
+    if (action === 'dye-water-resolve-pause') {
+      const decision = actionNode.dataset.decision as DyeWaterSolublePauseDecision | undefined
+      if (!decision || !['CONTINUE_PROCESSING', 'CONTINUE_WITH_ACTUAL_QTY', 'RETURN_FOR_REWORK'].includes(decision)) {
+        showPdaExecDetailToast('请选择有效的主管处理方式。')
+        return true
+      }
+      const key = `${dyeOrderId}:RESOLVE_PAUSE:${order.status}`
+      if (pendingDyeWaterActions.has(key)) return true
+      pendingDyeWaterActions.add(key)
+      const button = actionNode as HTMLButtonElement
+      const oldText = button.textContent || '确认处理'
+      button.disabled = true
+      button.textContent = '处理中…'
+      const result = executeDyeWaterSolublePdaAction({ action: 'RESOLVE_PAUSE', dyeOrderId, taskId: order.taskId, expectedStatus: 'PRODUCTION_PAUSED', expectedNode: 'WATER_SOLUBLE', decision, actor: session })
+      pendingDyeWaterActions.delete(key)
+      showPdaExecDetailToast(result.ok ? '主管处理已记录' : result.message)
+      if (result.ok) {
+        detailState.dyeWaterOverlay = null
+        refreshCombinedDyeCurrentAction(dyeOrderId)
+      } else if (button.isConnected) {
+        button.disabled = false
+        button.textContent = oldText
+      }
+      return true
+    }
+    if (action === 'dye-water-start-dye') {
+      const key = `${dyeOrderId}:START_DYE:${order.status}`
+      if (pendingDyeWaterActions.has(key)) return true
+      pendingDyeWaterActions.add(key)
+      const button = actionNode as HTMLButtonElement
+      const oldText = button.textContent || '开始染色'
+      button.disabled = true
+      button.textContent = '处理中…'
+      const inputText = window.prompt('请输入染色投入数量', String(order.waterSolubleCompletedQty ?? order.plannedQty))
+      if (inputText === null) {
+        pendingDyeWaterActions.delete(key)
+        button.disabled = false
+        button.textContent = oldText
+        return true
+      }
+      const inputQty = Number(inputText.trim())
+      const prerequisite = validateDyeStartPrerequisite(dyeOrderId, inputQty)
+      if (!prerequisite.ok) {
+        pendingDyeWaterActions.delete(key)
+        button.disabled = false
+        button.textContent = oldText
+        showPdaExecDetailToast(prerequisite.message)
+        return true
+      }
+      const dyeVatNo = getDyeExecutionNodeRecord(dyeOrderId, 'VAT_PLAN')?.dyeVatNo || listDyeVatOptions(order.dyeFactoryId)[0]?.dyeVatNo || ''
+      try {
+        startDyeing(dyeOrderId, { dyeVatNo, inputQty, operatorName: session.userName })
+        pendingDyeWaterActions.delete(key)
+        showPdaExecDetailToast('染色开始已记录')
+        refreshCombinedDyeCurrentAction(dyeOrderId)
+      } catch (error) {
+        pendingDyeWaterActions.delete(key)
+        if (button.isConnected) {
+          button.disabled = false
+          button.textContent = oldText
+        }
+        showPdaExecDetailToast(error instanceof Error ? error.message : '无法开始染色')
+      }
+      return true
+    }
+    const key = `${dyeOrderId}:START:${order.status}`
+    if (pendingDyeWaterActions.has(key)) return true
+    pendingDyeWaterActions.add(key)
+    const button = actionNode as HTMLButtonElement
+    const oldText = button.textContent || '开始水溶'
+    button.disabled = true
+    button.textContent = '处理中…'
+    const result = executeDyeWaterSolublePdaAction({ action: 'START', dyeOrderId, taskId: order.taskId, expectedStatus: 'WAIT_WATER_SOLUBLE', expectedNode: 'WATER_SOLUBLE', actor: session })
+    pendingDyeWaterActions.delete(key)
+    showPdaExecDetailToast(result.ok ? '水溶已开始' : result.message)
+    if (result.ok) refreshCombinedDyeCurrentAction(dyeOrderId)
+    else if (button.isConnected) {
+      button.disabled = false
+      button.textContent = oldText
+    }
     return true
   }
 
@@ -5334,7 +5904,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     const task = getTaskFactById(taskId)
     if (!task) return true
     if (getWaterSolubleWorkOrderByTaskId(task.taskId)) {
-      showPdaExecDetailToast('水溶任务当前仅支持查看，请勿使用通用完工动作')
+      showPdaExecDetailToast('请使用页面上的当前水溶动作，不要使用通用完工')
       return true
     }
     const access = getMobileTaskAccessResult(task, getPdaSession()?.factoryId || task.assignedFactoryId || TEST_FACTORY_ID)
