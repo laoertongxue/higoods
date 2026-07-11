@@ -1551,6 +1551,11 @@ assert.ok(
   productionEventsSource.includes('createProductionChangeFormFromRecord(sourceOrder)'),
   '按原记录新建 handler 必须保留旧记录可安全映射的内容',
 )
+assert.ok(!productionChangesDomainSource.includes('>继续处理</button>'), '旧记录入口不得误导为可原地继续处理')
+assert.ok(
+  (productionChangesDomainSource.match(/>查看旧记录<\/button>/g) ?? []).length >= 2,
+  '列表和详情的旧记录入口必须统一显示“查看旧记录”',
+)
 ;[
   'patchProductionChangeQuantityDom',
   'patchProductionChangeAllocationDom',

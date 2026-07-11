@@ -1380,7 +1380,7 @@ function renderProductionChangeOrderRowActions(order: ProductionOrderChangeOrder
     `<button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="/fcs/production/changes/${escapeHtml(order.id)}">查看</button>`,
   ]
   if (order.status === 'DRAFT' || order.status === 'RETURNED') {
-    actions.push(`<button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="/fcs/production/changes/${escapeHtml(order.id)}/edit">继续处理</button>`)
+    actions.push(`<button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="/fcs/production/changes/${escapeHtml(order.id)}/edit">查看旧记录</button>`)
   }
   if (order.status === 'SUBMITTED' || order.status === 'UNDER_REVIEW') {
     actions.push(`<button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="withdraw-production-change-order" data-change-order-id="${escapeHtml(order.id)}">撤回</button>`)
@@ -2340,7 +2340,7 @@ export function renderProductionChangeOrderDetailPage(changeOrderId: string): st
 
   const actions = [
     order.status === 'DRAFT' || order.status === 'RETURNED'
-      ? `<button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/production/changes/${escapeHtml(order.id)}/edit">继续处理</button>`
+      ? `<button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/production/changes/${escapeHtml(order.id)}/edit">查看旧记录</button>`
       : '',
     `<button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="start-production-change-from-order" data-order-id="${escapeHtml(order.productionOrderId)}">追加变更</button>`,
     `<button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/production/changes/orders/${escapeHtml(order.productionOrderId)}">查看生产单关系</button>`,
