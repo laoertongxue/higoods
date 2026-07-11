@@ -32,6 +32,7 @@ import { reassignRuntimeSewingTask } from '../src/data/fcs/runtime-sewing-reassi
 import { sumSewingDeliveryConfirmedReceiptQty } from '../src/data/fcs/sewing-delivery-receipt-facts.ts'
 import { listSewingFactoryOptions } from '../src/data/fcs/sewing-dispatch-workbench.ts'
 import { installRuntimeTaskReadResolver, readRuntimeTaskById } from '../src/data/fcs/runtime-task-read-bridge.ts'
+import { parseFcsQrValue } from '../src/data/fcs/task-qr.ts'
 import {
   confirmDirectDispatch,
   openDispatchDialog,
@@ -2428,6 +2429,7 @@ assert.deepEqual(
 
 const seedParitySlaState = captureSewingDeliverySlaSnapshotStore()
 const seedParityRuntimeState = captureRuntimeDirectDispatchState()
+const seedParityHandoverState = capturePdaHandoverState()
 try {
   const additionHeadIds = new Set(capturePdaHandoverState().handoverHeadAdditions.map(([headId]) => headId))
   const seedHead = listPdaHandoverHeads().find((head) => {
@@ -2446,11 +2448,19 @@ try {
       seedTask = getRuntimeTaskById(seedHead.taskId)
     }
     assert(seedTask)
+    upsertPdaHandoutRecordMock({ recordId: 'SEED-PLUS-ADDITION', handoverRecordId: 'SEED-PLUS-ADDITION', handoverId: seedHead.handoverId, handoverOrderId: seedHead.handoverId, taskId: seedTask.taskId, sourceTaskId: seedTask.taskId, sequenceNo: 999, submittedQty: 7, plannedQty: 7, qtyUnit: '件', factorySubmittedAt: '2026-07-02 08:00:00', factorySubmittedBy: '工厂', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK_MATCHED', receiverWrittenQty: 7, receiverWrittenAt: '2026-07-02 09:00:00', receiverWrittenBy: '仓库' })
     clearSewingDeliverySlaSnapshotStore(seedTask.taskId)
     saveSewingDeliverySlaSnapshot(createSewingDeliverySlaSnapshot({ assignmentId: `SEED-PARITY-${seedTask.taskId}`, runtimeTaskId: seedTask.taskId, productionOrderId: seedTask.productionOrderId, factoryId: seedTask.assignedFactoryId ?? 'SEED-F', factoryName: seedTask.assignedFactoryName ?? 'Seed工厂', assignedQty: seedTask.scopeQty, acceptedAt: '2026-07-01 08:00:00', slaKind: classifySewingDeliverySla(seedTask)! }))
     assert.equal(sumSewingDeliveryConfirmedReceiptQty(seedTask.taskId), getSewingDeliverySlaView(seedTask.taskId, '2026-07-10 10:00:00')?.confirmedReceivedQty, '现有seed完整交出事实必须在改派adapter与Task6视图中一致')
+    const directExpectedQty = listPdaHandoverHeads()
+      .filter((head) => head.headType === 'HANDOUT' && head.taskId === seedTask.taskId)
+      .flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId))
+      .filter((record) => record.taskId === seedTask.taskId && record.handoverRecordStatus !== 'VOIDED' && record.handoverRecordStatus !== 'SUBMITTED_WAIT_WRITEBACK')
+      .reduce((sum, record) => sum + (typeof record.receiverWrittenQty === 'number' && Number.isFinite(record.receiverWrittenQty) && record.receiverWrittenQty >= 0 && record.receiverWrittenAt ? record.receiverWrittenQty : 0), 0)
+    assert.equal(sumSewingDeliveryConfirmedReceiptQty(seedTask.taskId), directExpectedQty, 'registry必须合并完整reader seed与新增addition，且与pda完整读取链合法实收一致')
   }
 } finally {
+  restorePdaHandoverState(seedParityHandoverState)
   restoreRuntimeDirectDispatchState(seedParityRuntimeState)
   restoreSewingDeliverySlaSnapshotStore(seedParitySlaState)
 }
@@ -2490,8 +2500,11 @@ try {
   })
   upsertPdaHandoutRecordMock({ recordId: 'REC-REASSIGN-30', handoverRecordId: 'REC-REASSIGN-30', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 1, submittedQty: 30, plannedQty: 30, qtyUnit: '件', factorySubmittedAt: '2026-07-07 08:00:00', factorySubmittedBy: '工厂操作员', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK_MATCHED', receiverWrittenQty: 30, receiverWrittenAt: '2026-07-07 09:00:00', receiverWrittenBy: '仓库收货员' })
   upsertPdaHandoutRecordMock({ recordId: 'REC-WRONG-TASK', handoverRecordId: 'REC-WRONG-TASK', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: 'WRONG-TASK', sourceTaskId: source.taskId, sequenceNo: 8, submittedQty: 99, plannedQty: 99, qtyUnit: '件', factorySubmittedAt: '2026-07-07 08:00:00', factorySubmittedBy: '工厂', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK_MATCHED', receiverWrittenQty: 99, receiverWrittenAt: '2026-07-07 09:00:00', receiverWrittenBy: '仓库' })
-  upsertPdaHandoutRecordMock({ recordId: 'REC-WAIT-DIFF', handoverRecordId: 'REC-WAIT-DIFF', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 9, submittedQty: 88, plannedQty: 88, qtyUnit: '件', factorySubmittedAt: '2026-07-07 08:00:00', factorySubmittedBy: '工厂', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK_DIFF', receiverWrittenQty: 88, receiverWrittenAt: '2026-07-07 09:00:00', receiverWrittenBy: '仓库' })
-  assert.equal(sumSewingDeliveryConfirmedReceiptQty(source.taskId), 30, '错挂taskId及差异待确认记录不得计入确认实收')
+  upsertPdaHandoutRecordMock({ recordId: 'REC-WRITTEN-DIFF', handoverRecordId: 'REC-WRITTEN-DIFF', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 9, submittedQty: 88, plannedQty: 88, qtyUnit: '件', factorySubmittedAt: '2026-07-07 08:00:00', factorySubmittedBy: '工厂', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK_DIFF', receiverWrittenQty: 88, receiverWrittenAt: '2026-07-07 09:00:00', receiverWrittenBy: '仓库' })
+  upsertPdaHandoutRecordMock({ recordId: 'REC-DIFF-ACCEPTED', handoverRecordId: 'REC-DIFF-ACCEPTED', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 10, submittedQty: 5, plannedQty: 5, qtyUnit: '件', factorySubmittedAt: '2026-07-07 08:00:00', factorySubmittedBy: '工厂', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'DIFF_ACCEPTED', receiverWrittenQty: 5, receiverWrittenAt: '2026-07-07 09:00:00', receiverWrittenBy: '仓库' })
+  upsertPdaHandoutRecordMock({ recordId: 'REC-WAIT', handoverRecordId: 'REC-WAIT', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 11, submittedQty: 77, plannedQty: 77, qtyUnit: '件', factorySubmittedAt: '2026-07-07 08:00:00', factorySubmittedBy: '工厂', factoryProofFiles: [], status: 'PENDING_WRITEBACK', handoverRecordStatus: 'SUBMITTED_WAIT_WRITEBACK', receiverWrittenQty: 77, receiverWrittenAt: '2026-07-07 09:00:00', receiverWrittenBy: '残留字段' })
+  upsertPdaHandoutRecordMock({ recordId: 'REC-VOIDED', handoverRecordId: 'REC-VOIDED', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 12, submittedQty: 66, plannedQty: 66, qtyUnit: '件', factorySubmittedAt: '2026-07-07 08:00:00', factorySubmittedBy: '工厂', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'VOIDED', receiverWrittenQty: 66, receiverWrittenAt: '2026-07-07 09:00:00', receiverWrittenBy: '仓库' })
+  assert.equal(sumSewingDeliveryConfirmedReceiptQty(source.taskId), 123, 'MATCHED、WRITTEN_BACK_DIFF、DIFF_ACCEPTED应计入；错挂、WAIT残留字段、VOIDED不得计入')
   const beforeFuture = captureRuntimeDirectDispatchState()
   assert.equal(reassignRuntimeSewingTask({ sourceTaskId: source.taskId, targetFactoryId: source.assignedFactoryId, targetFactoryName: source.assignedFactoryName!, businessAssignedAt: '2026-07-08 09:00:00', operatedAt: '2026-07-08 10:00:00', reason: '同厂测试', by: '跟单A' }).ok, false, '同工厂改派必须阻断')
   assert.deepEqual(captureRuntimeDirectDispatchState(), beforeFuture, '同工厂改派失败不得产生状态')
@@ -2513,7 +2526,7 @@ try {
     mainFactoryId: 'ID-F007',
   })
   assert.equal(result.ok, true, result.message)
-  assert.equal(result.assignedQty, sourceSnapshot.assignedQty - 30, '改派数量只扣减接收方已确认实收')
+  assert.equal(result.assignedQty, sourceSnapshot.assignedQty - 123, '改派数量只扣减接收方已确认实收')
   assert(result.taskId && result.assignmentId)
   assert.equal(getSewingDeliverySlaSnapshot(source.taskId), null, '旧任务不再保有 active 快照')
   const oldHistory = listSewingDeliverySlaSnapshotHistory(source.taskId)
@@ -2532,6 +2545,9 @@ try {
   assert.equal(resetTask.blockedAt, undefined)
   assert.equal(resetTask.milestoneReportedQty, undefined)
   assert.equal(resetTask.handoverStatus, 'NOT_CREATED')
+  assert.notEqual(resetTask.taskQrValue, source.taskQrValue, '新任务不得继承旧task二维码')
+  assert.equal(parseFcsQrValue(resetTask.taskQrValue ?? '').id, result.taskId, '新任务二维码必须解析到newTaskId')
+  assert.equal(resetTask.taskQrStatus, 'ACTIVE')
   assert.deepEqual(getRuntimeTaskById(downstreamFixture.taskId)?.dependsOnTaskIds, [result.taskId, 'OTHER-UPSTREAM'], '下游依赖应将旧taskId替换为新taskId并去重保序')
   const remainingFactoryIds = listProductionOrderSewingFactories(source.productionOrderId).map((factory) => factory.id)
   excludedCandidates.forEach((candidate) => assert.equal(remainingFactoryIds.includes(candidate.factoryId), false, `${candidate.id} 不得保留为active承接候选`))

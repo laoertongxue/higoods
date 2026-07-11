@@ -11,7 +11,7 @@ export function listSewingDeliveryReceiptFacts(runtimeTaskId: string): SewingDel
     .filter((head) => head.taskId === runtimeTaskId)
     .flatMap((head) => listRegisteredHandoutRecords(head.handoverId))
     .filter((record) => record.taskId === runtimeTaskId)
-    .filter((record) => record.handoverRecordStatus === 'WRITTEN_BACK_MATCHED' || record.handoverRecordStatus === 'DIFF_ACCEPTED')
+    .filter((record) => record.handoverRecordStatus !== 'VOIDED' && record.handoverRecordStatus !== 'SUBMITTED_WAIT_WRITEBACK')
     .map((record: PdaHandoverRecord): SewingDeliveryReceiptFact | null => {
       const submittedQty = validNonNegativeQty(record.submittedQty ?? record.plannedQty)
       const receivedQty = validNonNegativeQty(record.receiverWrittenQty)

@@ -2932,6 +2932,8 @@ export function reassignRuntimeSewingTask(
       blockedAt: undefined,
       handoverOrderId: undefined,
       handoverStatus: 'NOT_CREATED',
+      taskQrValue: buildTaskQrValue(newTaskId),
+      taskQrStatus: 'ACTIVE',
     }
     runtimeReassignedTasks.set(newTaskId, newTask)
     const oldUpdated = updateRuntimeTaskWithAudit(

@@ -23,10 +23,13 @@ export function listRegisteredHandoutHeads(): PdaHandoverHead[] {
 }
 
 export function listRegisteredHandoutRecords(handoverId: string): PdaHandoverRecord[] {
-  const additions = handoutRecordAdditions.get(handoverId)
-  if (!additions && listCompleteRecords) return listCompleteRecords(handoverId)
-  return (additions ?? []).map((record) => ({
-    ...record,
-    ...(handoutRecordOverrides.get(record.recordId) ?? {}),
-  }))
+  const complete = listCompleteRecords?.(handoverId) ?? []
+  const merged = new Map(complete.map((record) => [record.handoverRecordId || record.recordId, record]))
+  for (const record of handoutRecordAdditions.get(handoverId) ?? []) {
+    merged.set(record.handoverRecordId || record.recordId, {
+      ...record,
+      ...(handoutRecordOverrides.get(record.recordId) ?? {}),
+    })
+  }
+  return Array.from(merged.values())
 }
