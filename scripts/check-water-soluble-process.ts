@@ -56,6 +56,7 @@ import {
 import { listPrepProcessOrders, listPrepRequirementDemands } from '../src/data/fcs/page-adapters/process-prep-pages-adapter.ts'
 import { getProcessWorkOrderById } from '../src/data/fcs/process-work-order-domain.ts'
 import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
+import { getMobileExecutionTaskById } from '../src/data/fcs/mobile-execution-task-index.ts'
 import {
   completeDyeWaterSolubleNode,
   createDyeWorkOrderFromDemands,
@@ -1166,6 +1167,22 @@ submitWaterSolubleHandover(differenceOrder.waterOrderId, differenceOrder.planned
 assert.equal(writeBackWaterSolubleReceipt(differenceOrder.waterOrderId, differenceOrder.plannedQty - 1).order?.status, 'RECEIPT_DIFFERENCE', '收货数量不同必须进入差异')
 assert.equal(resolveWaterSolubleReceiptDifference(differenceOrder.waterOrderId).order?.status, 'DONE', '确认收货差异后必须完成')
 
+const defaultCombinedDyeDemand = listPrepRequirementDemands('DYE')
+  .find((item) => item.requiresWaterSoluble && item.processRoute.join('>') === 'WATER_SOLUBLE>DYE')
+assert(defaultCombinedDyeDemand, '默认正式技术包快照必须持续提供一条同 BOM 水溶加染色需求')
+const defaultCombinedDyeOrder = listDyeWorkOrders()
+  .find((item) => item.requiresWaterSoluble && item.productionOrderIds?.includes(defaultCombinedDyeDemand.sourceProductionOrderId))
+assert(defaultCombinedDyeOrder, 'PFOS 默认染色列表必须持续展示同一条含水溶染色加工单')
+const defaultCombinedFcsOrder = listPrepProcessOrders('DYE')
+  .find((item) => item.workOrderId === defaultCombinedDyeOrder.dyeOrderId)
+assert(defaultCombinedFcsOrder, 'FCS 默认染色加工单列表必须读取同一条含水溶染色加工单')
+assert.equal(defaultCombinedFcsOrder.taskId, defaultCombinedDyeOrder.taskId, 'FCS 与 PFOS 必须绑定同一 PDA 任务')
+assert(getMobileExecutionTaskById(defaultCombinedDyeOrder.taskId), '默认含水溶染色加工单必须可从 PDA 移动执行统一索引读取')
+assert(
+  !listWaterSolubleWorkOrders().some((item) => item.sourceProductionOrderId === defaultCombinedDyeDemand.sourceProductionOrderId),
+  '同 BOM 水溶加染色不得进入独立水溶加工单列表',
+)
+
 const dyeProjectionOrder: ProductionOrder = {
   ...artifactOrder,
   productionOrderId: 'PO-DYE-WATER-PROJECTION',
@@ -1252,15 +1269,44 @@ try {
     const orderForExecution = getDyeWorkOrderById(createdCombinedDyeOrderId)!
     // 专项入口只允许在既有准备节点完成后开始；测试通过公共领域动作补齐必要节点。
     const domain = await import('../src/data/fcs/dyeing-task-domain.ts')
+
+    const sampleRequired = createDyeWorkOrderFromDemands({
+      demands: [waterDemand],
+      factoryId: 'DYE-WATER-CAP-BOTH',
+      plannedFinishAt: '2026-07-20 18:00:00',
+      sampleWaitType: 'WAIT_COLOR_CARD',
+    })
+    assert(sampleRequired.order, '需打样场景必须可创建含水溶染色加工单')
+    domain.completeDyeMaterialReady(sampleRequired.order.dyeOrderId, { outputQty: sampleRequired.order.plannedQty, operatorName: '操作员' })
+    domain.planDyeVat(sampleRequired.order.dyeOrderId, { dyeVatNo: 'VAT-SAMPLE', operatorName: '主管' })
+    const blockedBySample = startDyeWaterSolubleNode(sampleRequired.order.dyeOrderId, '操作员')
+    assert.equal(blockedBySample.ok, false, '要求打样但打样未完成时不得开始水溶')
+    assert.match(blockedBySample.message, /打样/, '打样前置未完成必须返回中文提示')
+    domain.startDyeSampleTest(sampleRequired.order.dyeOrderId, '操作员')
+    domain.completeDyeSampleTest(sampleRequired.order.dyeOrderId, { colorNo: 'SAMPLE-OK', operatorName: '操作员' })
+    assert.equal(startDyeWaterSolubleNode(sampleRequired.order.dyeOrderId, '操作员').ok, true, '打样完成后必须允许开始水溶')
+
     domain.completeDyeMaterialReady(createdCombinedDyeOrderId, { outputQty: orderForExecution.plannedQty, operatorName: '操作员' })
     domain.planDyeVat(createdCombinedDyeOrderId, { dyeVatNo: 'VAT-CHECK', operatorName: '主管' })
     assert.equal(startDyeWaterSolubleNode(createdCombinedDyeOrderId, '操作员').ok, true, '完成既有准备后必须进入水溶')
+    assert.equal(getMobileExecutionTaskById(created.order.taskId)?.status, 'IN_PROGRESS', '开始水溶后 PDA 统一任务索引必须同步为进行中')
     assert.equal(startDyeWaterSolubleNode(createdCombinedDyeOrderId, '操作员').ok, false, '重复开始水溶必须拦截')
     assert.equal(completeDyeWaterSolubleNode(createdCombinedDyeOrderId, Number.NaN, '异常值').ok, false, '非有限完成数量必须拦截')
+    assert.equal(completeDyeWaterSolubleNode(createdCombinedDyeOrderId, 0, '异常值').ok, false, '水溶完成数量必须大于 0')
     assert.equal(completeDyeWaterSolubleNode(createdCombinedDyeOrderId, orderForExecution.plannedQty + 1, '').ok, false, '超计划完成数量无原因必须拦截')
+    const beforeBlankShortage = getDyeWorkOrderById(createdCombinedDyeOrderId)!
+    const beforeBlankShortageNode = getDyeExecutionNodeRecord(createdCombinedDyeOrderId, 'WATER_SOLUBLE')!
+    const blankShortage = completeDyeWaterSolubleNode(createdCombinedDyeOrderId, orderForExecution.plannedQty - 2, '   ')
+    assert.equal(blankShortage.ok, false, '水溶完成不足且未填原因必须拦截')
+    assert.match(blankShortage.message, /原因/, '水溶完成不足必须返回中文原因提示')
+    assert.equal(getDyeWorkOrderById(createdCombinedDyeOrderId)?.status, beforeBlankShortage.status, '不足原因缺失时不得改变加工单状态')
+    assert.equal(getDyeWorkOrderById(createdCombinedDyeOrderId)?.waterSolubleCompletedQty, beforeBlankShortage.waterSolubleCompletedQty, '不足原因缺失时不得写入完成数量')
+    assert.equal(getDyeExecutionNodeRecord(createdCombinedDyeOrderId, 'WATER_SOLUBLE')?.finishedAt, beforeBlankShortageNode.finishedAt, '不足原因缺失时不得完成水溶节点')
     const paused = completeDyeWaterSolubleNode(createdCombinedDyeOrderId, orderForExecution.plannedQty - 2, '现场数量不足')
     assert.equal(paused.order?.status, 'PRODUCTION_PAUSED', '水溶完成不足必须进入生产暂停')
+    assert.equal(getMobileExecutionTaskById(created.order.taskId)?.status, 'BLOCKED', '水溶短量暂停后 PDA 统一任务索引必须同步为阻塞')
     assert.equal(resolveDyeWaterSolublePause(createdCombinedDyeOrderId, 'CONTINUE_PROCESSING', '主管').order?.status, 'WAIT_WATER_SOLUBLE', '主管继续补做必须回到待水溶')
+    assert.equal(getMobileExecutionTaskById(created.order.taskId)?.status, 'NOT_STARTED', '主管继续补做后 PDA 统一任务索引必须回到待执行')
     startDyeWaterSolubleNode(createdCombinedDyeOrderId, '操作员')
     completeDyeWaterSolubleNode(createdCombinedDyeOrderId, orderForExecution.plannedQty, '累计补足')
     assert.equal(validateDyeStartPrerequisite(createdCombinedDyeOrderId, orderForExecution.plannedQty).ok, true, '染色投入等于水溶完成量必须允许')
@@ -1269,6 +1315,7 @@ try {
     assert.equal(getDyeExecutionNodeRecord(createdCombinedDyeOrderId, 'WATER_SOLUBLE')?.finishedAt != null, true, '完成水溶必须写入共享执行节点')
     assert.throws(() => submitDyeHandover(createdCombinedDyeOrderId), /包装完成/, '水溶完成后不得生成中间交出')
     assert.equal(startDyeing(createdCombinedDyeOrderId, { dyeVatNo: 'VAT-CHECK', inputQty: orderForExecution.plannedQty }).nodeCode, 'DYE', '水溶完成后必须直接进入同厂染色')
+    assert.equal(getMobileExecutionTaskById(created.order.taskId)?.status, 'IN_PROGRESS', '进入染色后 PDA 状态必须保持进行中，不得被水溶状态回退')
     assert(!listWaterSolubleWorkOrders().some((item) => item.waterOrderId === createdCombinedDyeOrderId), '含水溶染色单不得混入独立水溶加工单列表')
 
     const preparePausedDyeOrder = () => {
@@ -1282,11 +1329,13 @@ try {
     }
     const actualOrder = preparePausedDyeOrder()
     assert.equal(resolveDyeWaterSolublePause(actualOrder.dyeOrderId, 'CONTINUE_WITH_ACTUAL_QTY', '主管').order?.status, 'WAIT_VAT_PLAN', '主管按实际数量继续必须进入待染色')
+    assert.equal(getMobileExecutionTaskById(actualOrder.taskId)?.status, 'NOT_STARTED', '按实际数量继续后 PDA 统一任务索引必须进入下一步待执行')
     assert.equal(validateDyeStartPrerequisite(actualOrder.dyeOrderId, actualOrder.plannedQty - 3).ok, true, '按实际数量继续后必须以水溶实际完成量为投入上限')
     const reworkDyeOrder = preparePausedDyeOrder()
     const reworkDyeResult = resolveDyeWaterSolublePause(reworkDyeOrder.dyeOrderId, 'RETURN_FOR_REWORK', '主管')
     assert.equal(reworkDyeResult.order?.status, 'WAIT_WATER_SOLUBLE', '主管退回返工必须回到待水溶')
     assert.equal(reworkDyeResult.order?.waterSolubleCompletedQty, 0, '退回返工必须清空本次水溶完成量')
+    assert.equal(getMobileExecutionTaskById(reworkDyeOrder.taskId)?.status, 'NOT_STARTED', '退回返工后 PDA 统一任务索引必须回到待执行')
   } finally {
     capabilityFactories.forEach((fixture) => removeFactoryMasterRecord(fixture.id))
   }

@@ -23,6 +23,7 @@ import {
   buildDictionaryCraftMockDocumentNo,
   DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
   getDictionaryCraftMockSource,
+  listGeneratedProductionDemandArtifacts,
 } from './production-artifact-generation.ts'
 
 export type DyeWorkOrderStatus =
@@ -515,6 +516,36 @@ function syncLinkedTaskState(
   if (typeof input.acceptanceStatus !== 'undefined') task.acceptanceStatus = input.acceptanceStatus
   if (typeof input.blockReason !== 'undefined') task.blockReason = input.blockReason
   if (typeof input.blockRemark !== 'undefined') task.blockRemark = input.blockRemark
+  task.updatedAt = nowTimestamp()
+}
+
+function syncWaterSolubleTaskState(order: MutableDyeWorkOrder): void {
+  if (!order.requiresWaterSoluble) return
+  const task = getDyeingTaskById(order.taskId)
+  if (!task) return
+
+  if (order.status === 'WATER_SOLUBLE_IN_PROGRESS') {
+    task.status = 'IN_PROGRESS'
+    task.acceptanceStatus = 'ACCEPTED'
+    task.startedAt = task.startedAt || nowTimestamp()
+    task.finishedAt = undefined
+    task.blockReason = undefined
+    task.blockRemark = undefined
+  } else if (order.status === 'PRODUCTION_PAUSED') {
+    task.status = 'BLOCKED'
+    task.acceptanceStatus = 'ACCEPTED'
+    task.blockReason = 'MATERIAL'
+    task.blockRemark = '水溶完成数量不足，待主管处理。'
+  } else if (order.status === 'WAIT_WATER_SOLUBLE' || order.status === 'WAIT_VAT_PLAN') {
+    task.status = 'NOT_STARTED'
+    task.acceptanceStatus = 'ACCEPTED'
+    task.startedAt = undefined
+    task.finishedAt = undefined
+    task.blockReason = undefined
+    task.blockRemark = undefined
+  } else {
+    return
+  }
   task.updatedAt = nowTimestamp()
 }
 
@@ -2118,10 +2149,76 @@ function seedWorkOrders(): void {
   })
 }
 
+function seedPersistentWaterSolubleDyeWorkOrder(): void {
+  const artifact = listGeneratedProductionDemandArtifacts()
+    .find((item) => item.processCode === 'DYE' && item.requiresWaterSoluble && item.orderId === 'PO-202603-081')
+  if (!artifact || workOrderStore.has('DYE-WATER-PO-202603-081')) return
+
+  const taskTemplate = getDyeingTasks()[0]
+  if (!taskTemplate) return
+  const taskId = 'TASK-DYE-WATER-PO-202603-081'
+  const createdAt = '2026-03-26 09:00:00'
+  registerPdaGenericProcessTask({
+    ...taskTemplate,
+    taskId,
+    taskNo: taskId,
+    productionOrderId: artifact.orderId,
+    productionOrderNo: artifact.orderId,
+    assignedFactoryId: TEST_FACTORY_ID,
+    assignedFactoryName: TEST_FACTORY_NAME,
+    status: 'NOT_STARTED',
+    assignmentMode: 'DIRECT',
+    assignmentStatus: 'ASSIGNED',
+    acceptanceStatus: 'ACCEPTED',
+    qty: artifact.plannedQty,
+    qtyUnit: 'METER',
+    qtyDisplayUnit: artifact.plannedUnit || '米',
+    createdAt,
+    updatedAt: createdAt,
+    startedAt: undefined,
+    finishedAt: undefined,
+    blockReason: undefined,
+    blockRemark: undefined,
+    mockReceiveSummary: '染色加工单已派单，需先完成水溶。',
+    mockExecutionSummary: '同一染厂先水溶后染色，中间不交出。',
+    mockHandoverSummary: '完成染色及后处理后统一交出。',
+  })
+  addSeedWorkOrder({
+    dyeOrderId: 'DYE-WATER-PO-202603-081',
+    dyeOrderNo: 'RSJG-WATER-202603081',
+    sourceType: 'PRODUCTION_ORDER',
+    sourceDemandIds: [artifact.artifactId],
+    productionOrderIds: [artifact.orderId],
+    isFirstOrder: false,
+    sampleWaitType: 'NONE',
+    sampleStatus: 'NOT_REQUIRED',
+    rawMaterialSku: `${artifact.materialCode || ''} ${artifact.materialName || '水溶染色物料'}`.trim(),
+    targetColor: '按生产需求目标色执行',
+    plannedQty: artifact.plannedQty,
+    qtyUnit: artifact.plannedUnit || '米',
+    requiresWaterSoluble: true,
+    waterSolublePlannedQty: artifact.plannedQty,
+    waterSolubleCompletedQty: 0,
+    waterSolubleQtyUnit: artifact.plannedUnit || '米',
+    dyeFactoryId: TEST_FACTORY_ID,
+    dyeFactoryName: TEST_FACTORY_NAME,
+    targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
+    targetTransferWarehouseName: '中转区域',
+    status: 'WAIT_MATERIAL',
+    taskId,
+    taskNo: taskId,
+    createdAt,
+    updatedAt: createdAt,
+    remark: '正式技术包 BOM 触发：同一染厂连续完成水溶与染色。',
+  })
+  createdDyeOrderIds.add('DYE-WATER-PO-202603-081')
+}
+
 function seedDomain(): void {
   if (seeded) return
   seeded = true
   seedWorkOrders()
+  seedPersistentWaterSolubleDyeWorkOrder()
 }
 
 function getMutableWorkOrder(dyeOrderId: string): MutableDyeWorkOrder {
@@ -2378,11 +2475,14 @@ export function createDyeWorkOrderFromDemands(input: {
   plannedFinishAt: string
   createdBy?: string
   plannedQty?: number
+  sampleWaitType?: SampleWaitType
 }): { ok: boolean; message: string; order?: DyeWorkOrder } {
   const capability = validateDyeFactoryCapabilities(input.demands, input.factoryId)
   if (!capability.ok) return capability
   const factory = getFactoryMasterRecordById(input.factoryId)!
   const requiresWaterSoluble = input.demands[0]?.requiresWaterSoluble === true
+  const sampleWaitType = input.sampleWaitType ?? 'NONE'
+  const requiresSample = sampleWaitType !== 'NONE'
   const plannedQty = Number.isFinite(input.plannedQty)
     ? Number(input.plannedQty)
     : input.demands.reduce((sum, item) => sum + item.requiredQty, 0)
@@ -2427,9 +2527,10 @@ export function createDyeWorkOrderFromDemands(input: {
     sourceType: 'PRODUCTION_ORDER',
     sourceDemandIds: input.demands.map((item) => item.demandId),
     productionOrderIds: [...new Set(input.demands.map((item) => item.sourceProductionOrderId))],
-    isFirstOrder: false,
-    sampleWaitType: 'NONE',
-    sampleStatus: 'NOT_REQUIRED',
+    isFirstOrder: requiresSample,
+    sampleWaitType,
+    sampleStatus: requiresSample ? 'WAITING' : 'NOT_REQUIRED',
+    sampleWaitStartedAt: requiresSample ? now : undefined,
     rawMaterialSku: input.demands.map((item) => item.materialName).join('、'),
     targetColor: '按需求目标色执行',
     plannedQty,
@@ -2442,7 +2543,7 @@ export function createDyeWorkOrderFromDemands(input: {
     dyeFactoryName: factory.name,
     targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
     targetTransferWarehouseName: '中转区域',
-    status: 'WAIT_MATERIAL',
+    status: requiresSample ? 'WAIT_SAMPLE' : 'WAIT_MATERIAL',
     taskId,
     taskNo: taskId,
     createdAt: now,
@@ -2481,6 +2582,12 @@ export function startDyeWaterSolubleNode(
   const order = getDyeWorkOrderById(dyeOrderId)
   if (!order) return { ok: false, message: '未找到染色加工单。' }
   if (!order.requiresWaterSoluble) return { ok: false, message: '普通染色加工单不需要水溶。' }
+  if (order.isFirstOrder && order.sampleWaitType !== 'NONE') {
+    const sampleNode = getDyeExecutionNodeRecord(dyeOrderId, 'SAMPLE')
+    if (order.sampleStatus !== 'DONE' || !sampleNode?.finishedAt) {
+      return { ok: false, message: '请先完成打样并确认色样，再开始水溶。' }
+    }
+  }
   const materialNode = getDyeExecutionNodeRecord(dyeOrderId, 'MATERIAL_READY')
   const vatNode = getDyeExecutionNodeRecord(dyeOrderId, 'VAT_PLAN')
   if (!materialNode?.finishedAt || !vatNode?.finishedAt) {
@@ -2507,6 +2614,7 @@ export function startDyeWaterSolubleNode(
   }))
   mutable.status = 'WATER_SOLUBLE_IN_PROGRESS'
   updateOrderTimestamp(mutable, now)
+  syncWaterSolubleTaskState(mutable)
   return { ok: true, message: '', order: cloneWorkOrder(mutable), node: getDyeExecutionNodeRecord(dyeOrderId, 'WATER_SOLUBLE') }
 }
 
@@ -2519,8 +2627,9 @@ export function completeDyeWaterSolubleNode(
   if (!order) return { ok: false, message: '未找到染色加工单。' }
   const current = getDyeExecutionNodeRecord(dyeOrderId, 'WATER_SOLUBLE')
   if (!current?.startedAt || current.finishedAt) return { ok: false, message: '请先开始水溶，且不要重复完成。' }
-  if (!Number.isFinite(outputQty) || outputQty < 0) return { ok: false, message: '水溶完成数量必须是大于等于 0 的有效数字。' }
+  if (!Number.isFinite(outputQty) || outputQty <= 0) return { ok: false, message: '水溶完成数量必须是大于 0 的有效数字。' }
   const plannedQty = order.waterSolublePlannedQty ?? order.plannedQty
+  if (outputQty < plannedQty && !reason.trim()) return { ok: false, message: '水溶完成数量不足，请填写原因。' }
   if (outputQty > plannedQty && !reason.trim()) return { ok: false, message: '水溶完成数量超过计划数量，请填写原因。' }
   const mutable = getMutableWorkOrder(dyeOrderId)
   const now = nowTimestamp()
@@ -2534,6 +2643,7 @@ export function completeDyeWaterSolubleNode(
     remark: outputQty < plannedQty ? `数量不足：${reason.trim()}` : (reason.trim() || '水溶完成，同厂继续染色'),
   }))
   updateOrderTimestamp(mutable, now)
+  syncWaterSolubleTaskState(mutable)
   return { ok: true, message: '', order: cloneWorkOrder(mutable), node: getDyeExecutionNodeRecord(dyeOrderId, 'WATER_SOLUBLE') }
 }
 
@@ -2561,6 +2671,7 @@ export function resolveDyeWaterSolublePause(
     }
   }
   updateOrderTimestamp(mutable)
+  syncWaterSolubleTaskState(mutable)
   return { ok: true, message: '', order: cloneWorkOrder(mutable) }
 }
 
