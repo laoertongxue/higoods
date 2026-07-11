@@ -269,31 +269,17 @@ test('PFOS 主管选择按实际数量继续交出', async ({ page }) => {
   await confirmSupervisorDecision(page, '按实际数量继续交出')
   await expect(page.getByTestId('factory-water-soluble-card').filter({ hasText: '待交出' })).toBeVisible()
   await expect(page.getByRole('button', { name: '现在交出' })).toBeVisible()
+  const expected = await page.evaluate(async (id) => {
+    const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
+    const order = water.getWaterSolubleWorkOrderById(id || '')
+    return order ? { materialName: order.materialName, qtyUnit: order.qtyUnit } : null
+  }, orderId)
+  expect(expected).toBeTruthy()
   await page.getByRole('button', { name: '现在交出' }).click()
-  await page.evaluate((id) => {
-    const button = document.createElement('button')
-    button.dataset.factoryWaterSolubleAction = 'confirm-handover'
-    button.dataset.orderId = id || ''
-    button.dataset.skipPageRerender = 'true'
-    document.querySelector('[data-testid="factory-water-soluble-orders-page"]')?.appendChild(button)
-    button.click()
-    button.remove()
-  }, orderId)
-  await expect(page.getByText(/当前交出确认令牌已失效/)).toBeVisible()
-  await expect(page.getByTestId('factory-water-soluble-card').filter({ hasText: '待交出' })).toBeVisible()
-  await page.getByRole('button', { name: /确认交出/ }).click()
-  await expect(page.getByTestId('factory-water-soluble-card').filter({ hasText: '交出待收货' })).toBeVisible()
-  await page.evaluate((id) => {
-    const button = document.createElement('button')
-    button.dataset.factoryWaterSolubleAction = 'confirm-supervisor-decision'
-    button.dataset.orderId = id || ''
-    button.dataset.decision = 'CONTINUE_WITH_ACTUAL_QTY'
-    button.dataset.skipPageRerender = 'true'
-    document.querySelector('[data-testid="factory-water-soluble-orders-page"]')?.appendChild(button)
-    button.click()
-    button.remove()
-  }, orderId)
-  await expect(page.getByText(/当前状态为“交出待收货”，不能执行此操作/)).toBeVisible()
+  await expect(page).toHaveURL(/\/fcs\/pda\/handover\/[^?]+\?action=new-record/)
+  await expect(page.getByText('水溶加工单', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText(expected!.materialName, { exact: true }).first()).toBeVisible()
+  await expect(page.getByText(new RegExp(`计划交出物料数量（${expected!.qtyUnit}）`)).first()).toBeVisible()
 })
 
 test('PFOS 主管选择退回重做', async ({ page }) => {

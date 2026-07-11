@@ -55,6 +55,7 @@ import {
 } from '../src/data/fcs/water-soluble-task-domain.ts'
 import { listPrepProcessOrders, listPrepRequirementDemands } from '../src/data/fcs/page-adapters/process-prep-pages-adapter.ts'
 import { getProcessWorkOrderById } from '../src/data/fcs/process-work-order-domain.ts'
+import { buildPreparationOutputs } from '../src/data/fcs/production-preparation-timing.ts'
 import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
 import { getMobileExecutionTaskById } from '../src/data/fcs/mobile-execution-task-index.ts'
 import { listPdaMobileExecutionTasks } from '../src/data/fcs/process-mobile-task-binding.ts'
@@ -163,6 +164,23 @@ const bomRows = [
     dyeRequirement: '匹染',
   },
 ]
+
+const allBomMaterialTypes = ['面料', '辅料', '包装材料', '其他'] as const
+const allTypeBomRows = allBomMaterialTypes.map((type, index) => ({
+  id: `BOM-TYPE-${index + 1}`,
+  type,
+  materialCode: `MAT-TYPE-${index + 1}`,
+  waterSolubleRequirement: '是',
+  dyeRequirement: '无',
+}))
+const allTypeWaterTechnique = syncPreparationProcessesFromBom([], allTypeBomRows)
+  .techniques.find((item) => item.processCode === 'WATER_SOLUBLE')
+assert(allTypeWaterTechnique, '所有 BOM 物料类型选择水溶后都必须生成水溶工序')
+assert.deepEqual(
+  allTypeWaterTechnique.linkedBomItemIds,
+  allTypeBomRows.map((item) => item.id),
+  '面料、辅料、包装材料和其他物料必须全部可选择水溶，不得按物料类型过滤',
+)
 
 const syncResult = syncPreparationProcessesFromBom([], bomRows)
 const waterTechnique = syncResult.techniques.find((item) => item.processCode === 'WATER_SOLUBLE')
@@ -533,6 +551,25 @@ assert.deepEqual(runtimeCopyTwoProcess?.linkedBomItemIds, ['BOM-WATER', 'BOM-BOT
 const { generateProductionArtifactsForOrder } = productionArtifactGeneration
 const sourceOrder = productionOrders[0]
 assert(sourceOrder, 'BOM 物料级产物检查必须存在真实生产单基线')
+
+const draftOnlyOrder: ProductionOrder = {
+  ...sourceOrder,
+  productionOrderId: 'PO-WATER-DRAFT-ONLY',
+  productionOrderNo: 'PO-WATER-DRAFT-ONLY',
+  selectedTechPackVersionId: '',
+  techPackSnapshot: undefined,
+}
+productionOrders.push(draftOnlyOrder)
+try {
+  assert.deepEqual(
+    generateProductionArtifactsForOrder(draftOnlyOrder.productionOrderId),
+    [],
+    '仅维护草稿 BOM、未冻结正式技术包快照时，真实生产拆解入口不得生成水溶或染色产物',
+  )
+} finally {
+  const draftOrderIndex = productionOrders.indexOf(draftOnlyOrder)
+  if (draftOrderIndex >= 0) productionOrders.splice(draftOrderIndex, 1)
+}
 
 const artifactOrder: ProductionOrder = {
   ...sourceOrder,
@@ -1143,6 +1180,12 @@ try {
   assert.equal(preservedSyncedOrder?.status, 'WAIT_MATERIAL', '相同 generationKey 同步不得重置既有执行状态')
   assert.equal(preservedSyncedOrder?.factoryId, 'F090', '相同 generationKey 同步不得清理已分配工厂')
   assert((preservedSyncedOrder?.actionLogs.length ?? 0) > 1, '相同 generationKey 同步不得清理动作日志')
+  syncProductionOrder.selectedTechPackVersionId = 'VERSION-WATER-SYNC-NEW-DRAFT'
+  syncWaterSolubleOrderStoreWithArtifacts()
+  const preservedAfterNewVersion = getWaterSolubleWorkOrderById(syncedOrder.waterOrderId)
+  assert.equal(preservedAfterNewVersion?.status, 'WAIT_MATERIAL', '发布或选择新技术包版本不得改变已按旧正式快照生成的加工单状态')
+  assert.equal(preservedAfterNewVersion?.techPackVersionId, syncSnapshot.sourceTechPackVersionId, '既有加工单必须继续引用旧正式快照版本')
+  assert.equal(preservedAfterNewVersion?.factoryId, 'F090', '新技术包版本不得清理既有加工单派厂事实')
 } finally {
   const syncOrderIndex = productionOrders.indexOf(syncProductionOrder)
   if (syncOrderIndex >= 0) productionOrders.splice(syncOrderIndex, 1)
@@ -1278,6 +1321,24 @@ try {
     assert.equal(validateDyeFactoryCapabilities([waterDemand], 'DYE-WATER-CAP-NODISPATCH').ok, false, '不可派单工厂不得承接含水溶染色单')
     assert.equal(validateDyeFactoryCapabilities([waterDemand], 'DYE-WATER-FACTORY-PAUSED').ok, false, '暂停合作工厂不得承接含水溶染色单')
     assert.equal(validateDyeFactoryCapabilities([normalDemand], 'DYE-WATER-CAP-DYE').ok, true, '普通染色只要求正式有效染色能力')
+
+    const stockDemand = {
+      ...normalDemand,
+      demandId: 'STOCK-MAT-WATER-BOUNDARY',
+      sourceArtifactId: 'STOCK-MAT-WATER-BOUNDARY',
+      sourceProductionOrderId: '按备货创建',
+      requiresWaterSoluble: false,
+      processRoute: ['DYE'] as Array<'DYE'>,
+    }
+    const stockCreated = createDyeWorkOrderFromDemands({
+      demands: [stockDemand],
+      factoryId: 'DYE-WATER-CAP-DYE',
+      plannedFinishAt: '2026-07-20 18:00:00',
+      createdBy: '按备货创建边界检查',
+    })
+    assert.equal(stockCreated.ok, true, '按备货创建必须可按普通染色路径创建')
+    assert.equal(stockCreated.order?.requiresWaterSoluble, false, '按备货创建的真实领域加工单不得附加水溶')
+    assert.deepEqual(getDyeExecutionRoute(stockCreated.order!.dyeOrderId).includes('WATER_SOLUBLE'), false, '按备货创建不得生成水溶执行节点')
 
     const cloneDyeDemand = (suffix: string, overrides: Partial<typeof waterDemand> = {}) => ({
       ...waterDemand,
@@ -1460,5 +1521,30 @@ const normalRegressionDemand = listPrepRequirementDemands('DYE').find((item) => 
 assert(normalRegressionDemand, '普通染色回归必须存在普通需求')
 assert.equal(validateDyeStartPrerequisite(getDyeWorkOrderById('DWO-001')?.dyeOrderId || 'DWO-001', 1).ok, true, '普通染色不得受水溶前置影响')
 assert(!getDyeExecutionRoute('DWO-001').includes('WATER_SOLUBLE'), '普通染色路线不得插入水溶节点')
+
+const timingBoundaryFiles = [
+  'src/data/fcs/production-preparation-timing.ts',
+  'src/data/fcs/production-preparation-timing-runtime.ts',
+  'src/pages/production/preparation-timing.ts',
+  'scripts/check-production-preparation-timing.ts',
+]
+for (const file of timingBoundaryFiles) {
+  assert.equal(readFileSync(file, 'utf8').includes('WATER_SOLUBLE'), false, `生产准备时效边界文件不得接入 WATER_SOLUBLE：${file}`)
+}
+const timingInput = {
+  recordNo: 'PREP-WATER-BOUNDARY',
+  productionDemandNo: 'PD-WATER-BOUNDARY',
+  productionOrderNo: 'PO-WATER-BOUNDARY',
+  outputReady: true,
+  outputPublishedAt: '2026-07-12 12:00',
+  workItemsConfirmedBy: '跟单员',
+  workItemsConfirmedAt: '2026-07-12 11:00',
+  items: [{ itemType: '辅料下单' as const, selectedByMerchandiser: true, status: '已完成' as const }],
+}
+const timingOutputsBeforeWaterDomain = buildPreparationOutputs(timingInput)
+resetWaterSolubleDomainForChecks({ seedDemo: true })
+const timingOutputsAfterWaterDomain = buildPreparationOutputs(timingInput)
+assert.deepEqual(timingOutputsAfterWaterDomain, timingOutputsBeforeWaterDomain, '水溶加工单领域状态不得改变生产准备时效输出口径')
+assert.equal(timingOutputsAfterWaterDomain.some((item) => item.outputType.includes('水溶')), false, '生产准备时效领域行为不得生成水溶输出')
 
 console.log('water-soluble process checks passed')
