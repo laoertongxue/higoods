@@ -636,9 +636,13 @@ export function generateBomDrivenPrepArtifactsForEntry(
       plannedUnit: bomItem.unit || '米',
       linkedBomItemIds: [bomItem.id],
     }
+    const techPackVersionKey = snapshot.sourceTechPackVersionId
+      || snapshot.sourceTechPackVersionCode
+      || snapshot.snapshotId
     const artifactKey = [
       order.productionOrderId,
-      snapshot.snapshotId || snapshot.sourceTechPackVersionId,
+      snapshot.snapshotId,
+      techPackVersionKey,
       entry.id,
       bomItem.id,
     ].map(toArtifactKeySegment).join('-')

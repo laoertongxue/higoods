@@ -574,7 +574,8 @@ const dyeArtifactEntry = {
 }
 const artifactSnapshot: ProductionOrderTechPackSnapshot = {
   ...formalSnapshot,
-  snapshotId: 'SNAP-WATER-ARTIFACT-V1',
+  snapshotId: 'SNAP-WATER-ARTIFACT',
+  sourceTechPackVersionId: 'VERSION-A',
   productionOrderId: artifactOrder.productionOrderId,
   productionOrderNo: artifactOrder.productionOrderNo,
   bomItems: artifactBomRows,
@@ -634,11 +635,15 @@ assert.deepEqual(
   bomArtifacts.map((item) => item.artifactId),
   '同一正式快照重复生成必须保持 artifactId 顺序与数量稳定，且不得状态累加',
 )
-const nextSnapshotArtifacts = generateArtifactFixture({ ...artifactSnapshot, snapshotId: 'SNAP-WATER-ARTIFACT-V2' })
+const nextSnapshotArtifacts = generateArtifactFixture({
+  ...artifactSnapshot,
+  snapshotId: artifactSnapshot.snapshotId,
+  sourceTechPackVersionId: 'VERSION-B',
+})
 assert.notDeepEqual(
   nextSnapshotArtifacts.map((item) => item.artifactId),
   bomArtifacts.map((item) => item.artifactId),
-  '正式快照变化后 BOM 物料级 artifactId 必须变化',
+  '同一生产单 snapshotId 固定时，正式技术包版本变化后 BOM 物料级 artifactId 必须变化',
 )
 
 console.log('water-soluble process checks passed')
