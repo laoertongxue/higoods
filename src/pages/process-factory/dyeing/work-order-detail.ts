@@ -19,6 +19,8 @@ import {
 } from '../../../data/fcs/process-web-status-actions.ts'
 import { getPlatformStatusForProcessWorkOrder } from '../../../data/fcs/process-platform-status-adapter.ts'
 import { getStartPrerequisiteByTaskId } from '../../../data/fcs/pda-start-link.ts'
+import { getPdaSession } from '../../../data/fcs/store-domain-pda.ts'
+import { validateWaterSolublePdaActor, type WaterSolublePdaRoleAction } from '../../../data/fcs/water-soluble-pda-actor.ts'
 import { getProcessWorkOrderById, getProcessWorkOrderByNo } from '../../../data/fcs/process-work-order-domain.ts'
 import {
   getDifferenceRecordsByWorkOrderId,
@@ -35,6 +37,7 @@ import {
   getDyeWorkOrderById,
   getDyeCurrentStepLabel,
   listDyeExecutionNodeRecords,
+  type DyeWorkOrder,
 } from '../../../data/fcs/dyeing-task-domain.ts'
 
 type DyeDetailTab =
@@ -59,6 +62,28 @@ const dyeDetailTabs: Array<{ key: DyeDetailTab; label: string }> = [
 ]
 
 const consumedWebActionKeys = new Set<string>()
+
+function renderContinuousWaterSolubleActions(order: DyeWorkOrder): string {
+  const role: WaterSolublePdaRoleAction | null = order.status === 'PRODUCTION_PAUSED'
+    ? 'SUPERVISE'
+    : order.status === 'WAIT_WATER_SOLUBLE' || order.status === 'WATER_SOLUBLE_IN_PROGRESS'
+      ? 'OPERATE'
+      : null
+  const session = getPdaSession()
+  if (!role) return ''
+  if (!session || validateWaterSolublePdaActor(session, order.dyeFactoryId, role)) {
+    return '<p class="mt-3 text-sm text-muted-foreground">当前账号不能执行此动作，请切换对应岗位账号。</p>'
+  }
+  const attrs = `data-dye-order-id="${escapeHtml(order.dyeOrderId)}" data-task-id="${escapeHtml(order.taskId)}" data-expected-status="${escapeHtml(order.status)}" data-expected-node="WATER_SOLUBLE"`
+  if (order.status === 'WAIT_WATER_SOLUBLE') {
+    return `<button class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700" data-dyeing-action="start-water-soluble" ${attrs}>开始水溶</button>`
+  }
+  if (order.status === 'WATER_SOLUBLE_IN_PROGRESS') {
+    return `<button class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700" data-dyeing-action="complete-water-soluble" ${attrs}>完成水溶</button>`
+  }
+  const decisions: Array<[string, string]> = [['CONTINUE_PROCESSING', '继续补做'], ['CONTINUE_WITH_ACTUAL_QTY', '按实际数量继续'], ['RETURN_FOR_REWORK', '退回返工']]
+  return `<div class="mt-3 flex flex-wrap gap-2">${decisions.map(([decision, label]) => `<button class="rounded-md border px-3 py-2 text-sm" data-dyeing-action="resolve-water-soluble-pause" data-decision="${decision}" ${attrs}>${label}</button>`).join('')}</div>`
+}
 
 function getCurrentDyeDetailTab(): DyeDetailTab {
   const [, queryString = ''] = (appStore.getState().pathname || '').split('?')
@@ -341,7 +366,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
             ${renderField('水溶完成数量', `${completed} ${unit}`)}
             ${renderField('水溶差异', `${diff > 0 ? '多' : diff < 0 ? '少' : '一致'}${diff === 0 ? '' : ` ${Math.abs(diff)} ${unit}`}`)}
             ${renderField('连续加工', '同一家染厂完成，水溶完成数量为染色投入上限')}
-          </div>${domainOrder.status === 'WAIT_WATER_SOLUBLE' ? `<button class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700" data-dyeing-action="start-water-soluble" data-dye-order-id="${escapeHtml(domainOrder.dyeOrderId)}">开始水溶</button>` : domainOrder.status === 'WATER_SOLUBLE_IN_PROGRESS' ? `<button class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700" data-dyeing-action="complete-water-soluble" data-dye-order-id="${escapeHtml(domainOrder.dyeOrderId)}">完成水溶</button>` : domainOrder.status === 'PRODUCTION_PAUSED' ? `<div class="mt-3 flex flex-wrap gap-2"><button class="rounded-md border px-3 py-2 text-sm" data-dyeing-action="resolve-water-soluble-pause" data-dye-order-id="${escapeHtml(domainOrder.dyeOrderId)}" data-decision="CONTINUE_PROCESSING">继续补做</button><button class="rounded-md border px-3 py-2 text-sm" data-dyeing-action="resolve-water-soluble-pause" data-dye-order-id="${escapeHtml(domainOrder.dyeOrderId)}" data-decision="CONTINUE_WITH_ACTUAL_QTY">按实际数量继续</button><button class="rounded-md border px-3 py-2 text-sm" data-dyeing-action="resolve-water-soluble-pause" data-dye-order-id="${escapeHtml(domainOrder.dyeOrderId)}" data-decision="RETURN_FOR_REWORK">退回返工</button></div>` : ''}`) : ''}
+          </div>${renderContinuousWaterSolubleActions(domainOrder)}`) : ''}
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/craft/dyeing/work-orders">返回染色加工单</button>
         </div>
       `

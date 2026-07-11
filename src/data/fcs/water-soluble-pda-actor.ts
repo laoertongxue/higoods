@@ -1,10 +1,10 @@
-import { getFactoryPdaUserById, type FactoryPdaSession } from './store-domain-pda.ts'
+import { getCurrentPdaUser, getPdaSession, type FactoryPdaSession } from './store-domain-pda.ts'
 
-export type WaterSolublePdaActor = Pick<FactoryPdaSession, 'userId' | 'userName' | 'roleId' | 'factoryId'>
+export type WaterSolublePdaActor = Pick<FactoryPdaSession, 'userId' | 'loginId' | 'userName' | 'roleId' | 'factoryId'>
 export type WaterSolublePdaRoleAction = 'OPERATE' | 'SUPERVISE' | 'HANDOVER'
 
 const ALLOWED_ROLES: Record<WaterSolublePdaRoleAction, readonly string[]> = {
-  OPERATE: ['ROLE_OPERATOR', 'ROLE_PRODUCTION', 'ROLE_ADMIN'],
+  OPERATE: ['ROLE_OPERATOR'],
   SUPERVISE: ['ROLE_PRODUCTION', 'ROLE_ADMIN'],
   HANDOVER: ['ROLE_HANDOVER', 'ROLE_ADMIN'],
 }
@@ -20,15 +20,23 @@ export function validateWaterSolublePdaActor(
   orderFactoryId: string | undefined,
   action: WaterSolublePdaRoleAction,
 ): string | null {
-  if (!actor.userId?.trim() || !actor.userName?.trim() || !actor.roleId?.trim() || !actor.factoryId?.trim()) {
+  if (!actor.userId?.trim() || !actor.loginId?.trim() || !actor.userName?.trim() || !actor.roleId?.trim() || !actor.factoryId?.trim()) {
     return '当前登录信息不完整，请重新登录。'
   }
-  const currentUser = getFactoryPdaUserById(actor.userId)
-  if (!currentUser || currentUser.status !== 'ACTIVE') return '当前账号已失效，请重新登录。'
+  const session = getPdaSession()
+  const currentUser = getCurrentPdaUser()
+  if (!session || !currentUser || currentUser.status !== 'ACTIVE') return '当前账号已失效，请重新登录。'
   if (
-    currentUser.factoryId !== actor.factoryId
-    || currentUser.roleId !== actor.roleId
-    || currentUser.name !== actor.userName
+    session.userId !== actor.userId
+    || session.loginId !== actor.loginId
+    || session.userName !== actor.userName
+    || session.roleId !== actor.roleId
+    || session.factoryId !== actor.factoryId
+    || currentUser.userId !== session.userId
+    || currentUser.loginId !== session.loginId
+    || currentUser.factoryId !== session.factoryId
+    || currentUser.roleId !== session.roleId
+    || currentUser.name !== session.userName
   ) return '当前登录信息已变化，请重新登录。'
   if (!orderFactoryId || orderFactoryId !== actor.factoryId) return '当前加工单不属于当前工厂，不能操作。'
   if (!ALLOWED_ROLES[action].includes(actor.roleId)) return ROLE_ERROR[action]
