@@ -30,7 +30,7 @@ import {
   upsertRuntimeTaskTender,
 } from '../src/data/fcs/runtime-process-tasks.ts'
 import { reassignRuntimeSewingTask } from '../src/data/fcs/runtime-sewing-reassignment.ts'
-import { sumSewingDeliveryConfirmedReceiptQty } from '../src/data/fcs/sewing-delivery-receipt-facts.ts'
+import { selectLatestSewingDeliveryRawRecords, sumSewingDeliveryConfirmedReceiptQty, toConfirmedSewingDeliveryReceiptFact } from '../src/data/fcs/sewing-delivery-receipt-facts.ts'
 import { listRegisteredHandoutHeads, listRegisteredHandoutRecords } from '../src/data/fcs/pda-handover-handout-registry.ts'
 import { createSewingDispatchWorkbenchDraft, listSewingDispatchWorkbenchDrafts, listSewingDispatchWorkbenchRows, listSewingFactoryOptions } from '../src/data/fcs/sewing-dispatch-workbench.ts'
 import { installRuntimeTaskReadResolver, readRuntimeTaskById } from '../src/data/fcs/runtime-task-read-bridge.ts'
@@ -2151,13 +2151,13 @@ const sewingDeliverySlaViewSource = readFileSync(new URL('../src/data/fcs/sewing
 const progressDomainSource = readFileSync(new URL('../src/data/fcs/store-domain-progress.ts', import.meta.url), 'utf8')
 assert.match(
   sewingDeliverySlaViewSource,
-  /listRegisteredHandoutHeads\(\)[\s\S]*?listRegisteredHandoutRecords/,
-  '单任务履约视图必须复用registry完整heads与records reader',
+  /listLatestSewingDeliveryRawRecords\(\)\.filter/,
+  '单任务履约视图必须复用registry原始记录全局版本选择结果',
 )
 assert.match(
   sewingDeliverySlaViewSource,
-  /const recordsByTaskId = new Map[\s\S]*?listRegisteredHandoutHeads\(\)\.forEach/,
-  '批量履约视图必须一次读取registry完整交出单并按 taskId 预索引',
+  /const recordsByTaskId = new Map[\s\S]*?listLatestSewingDeliveryRawRecords\(\)\.forEach/,
+  '批量履约视图必须一次读取全局最新原始记录并按 taskId 预索引',
 )
 assert.doesNotMatch(
   sewingDeliverySlaViewSource,
@@ -3009,6 +3009,40 @@ const cappedAttributionProjection = projectSewingDeliverySla(adversarialProjecti
   { recordId: 'ATTRIBUTION-CAP', submittedQty: 1, submittedAt: '2026-07-04 23:00:00', receivedQty: 10, receivedAt: '2026-07-05 01:00:00' },
 ], '2026-07-05 02:00:00')
 assert.equal(cappedAttributionProjection.milestones[0].receiverDelayRecords[0]?.affectedQty, 1, '接收延迟归责不得超过截止前该记录可归责的交出量')
+const invalidSubmissionClockProjection = projectSewingDeliverySla(adversarialProjectionSnapshot, [
+  { recordId: 'FUTURE-SUBMITTED-PAST-RECEIVED', submittedQty: 10, submittedAt: '2026-07-03 10:00:00', receivedQty: 10, receivedAt: '2026-07-02 10:00:00' },
+], '2026-07-02 12:00:00')
+assert.equal(invalidSubmissionClockProjection.confirmedReceivedQty, 0, '未来交出或交出晚于实收的脏事实不得推进实收、节点和接收延迟')
+const rawVersion = (recordId: string, taskId: string, status: PdaHandoverRecord['handoverRecordStatus'], factorySubmittedAt: string, receiverWrittenAt?: string): PdaHandoverRecord => ({
+  recordId,
+  handoverRecordId: recordId,
+  handoverId: `HEAD-${taskId}-${factorySubmittedAt}`,
+  taskId,
+  sequenceNo: 1,
+  submittedQty: 10,
+  plannedQty: 10,
+  factorySubmittedAt,
+  factoryProofFiles: [],
+  status: receiverWrittenAt ? 'WRITTEN_BACK' : 'PENDING_WRITEBACK',
+  handoverRecordStatus: status,
+  receiverWrittenQty: receiverWrittenAt ? 10 : undefined,
+  receiverWrittenAt,
+})
+const rawVersionMatrix = selectLatestSewingDeliveryRawRecords([
+  rawVersion('RAW-VOID', 'TASK-OLD', 'WRITTEN_BACK_MATCHED', '2026-07-01 08:00:00', '2026-07-01 09:00:00'),
+  rawVersion('RAW-VOID', 'TASK-OLD', 'VOIDED', '2026-07-01 10:00:00'),
+  rawVersion('RAW-WAIT', 'TASK-OLD', 'WRITTEN_BACK_MATCHED', '2026-07-01 08:00:00', '2026-07-01 09:00:00'),
+  rawVersion('RAW-WAIT', 'TASK-OLD', 'SUBMITTED_WAIT_WRITEBACK', '2026-07-01 10:00:00'),
+  rawVersion('RAW-CONFIRMED', 'TASK-OLD', 'SUBMITTED_WAIT_WRITEBACK', '2026-07-01 08:00:00'),
+  rawVersion('RAW-CONFIRMED', 'TASK-OLD', 'WRITTEN_BACK_MATCHED', '2026-07-01 09:00:00', '2026-07-01 10:00:00'),
+  rawVersion('RAW-MOVED', 'TASK-OLD', 'WRITTEN_BACK_MATCHED', '2026-07-01 08:00:00', '2026-07-01 09:00:00'),
+  rawVersion('RAW-MOVED', 'TASK-NEW', 'WRITTEN_BACK_MATCHED', '2026-07-01 10:00:00', '2026-07-01 11:00:00'),
+])
+assert.equal(toConfirmedSewingDeliveryReceiptFact(rawVersionMatrix.find((record) => record.recordId === 'RAW-VOID')!, 'TASK-OLD'), null, '新作废版本必须撤销旧确认事实')
+assert.equal(toConfirmedSewingDeliveryReceiptFact(rawVersionMatrix.find((record) => record.recordId === 'RAW-WAIT')!, 'TASK-OLD'), null, '新待确认版本必须撤销旧确认事实')
+assert(toConfirmedSewingDeliveryReceiptFact(rawVersionMatrix.find((record) => record.recordId === 'RAW-CONFIRMED')!, 'TASK-OLD'), '新确认版本必须升级旧待确认事实')
+assert.equal(rawVersionMatrix.find((record) => record.recordId === 'RAW-MOVED')?.taskId, 'TASK-NEW', '跨交出单或任务移动后只保留新任务归属')
+assert.equal(toConfirmedSewingDeliveryReceiptFact(rawVersionMatrix.find((record) => record.recordId === 'RAW-MOVED')!, 'TASK-OLD'), null, '跨任务移动不得让旧任务继续计入')
 
 const collisionState = captureSewingDeliverySlaSnapshotStore()
 try {

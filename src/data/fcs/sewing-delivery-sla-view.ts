@@ -10,8 +10,7 @@ import {
 } from './sewing-delivery-sla.ts'
 import { getRuntimeTaskById, listRuntimeProcessTasks, type RuntimeProcessTask } from './runtime-process-tasks.ts'
 import type { PdaHandoverRecord } from './pda-handover-events.ts'
-import { listRegisteredHandoutHeads, listRegisteredHandoutRecords } from './pda-handover-handout-registry.ts'
-import { toConfirmedSewingDeliveryReceiptFact } from './sewing-delivery-receipt-facts.ts'
+import { listLatestSewingDeliveryRawRecords, toConfirmedSewingDeliveryReceiptFact } from './sewing-delivery-receipt-facts.ts'
 
 export interface SewingDeliverySlaView {
   readonly runtimeTaskId: string
@@ -29,10 +28,7 @@ function validNonNegativeQty(value: number | undefined): number | null {
 }
 
 function listTaskHandoutRecords(runtimeTaskId: string): PdaHandoverRecord[] {
-  return listRegisteredHandoutHeads()
-    .filter((head) => head.taskId === runtimeTaskId)
-    .flatMap((head) => listRegisteredHandoutRecords(head.handoverId))
-    .filter((record) => record.taskId === runtimeTaskId)
+  return listLatestSewingDeliveryRawRecords().filter((record) => record.taskId === runtimeTaskId)
 }
 
 function buildView(
@@ -41,17 +37,7 @@ function buildView(
   records: PdaHandoverRecord[],
   nowAt: string,
 ): SewingDeliverySlaView {
-  const taskRecordById = new Map<string, PdaHandoverRecord>()
-  records.filter((record) => record.taskId === runtimeTaskId).forEach((record) => {
-    const recordId = record.handoverRecordId || record.recordId
-    const current = taskRecordById.get(recordId)
-    const recordTime = record.receiverWrittenAt || record.factorySubmittedAt
-    const currentTime = current ? (current.receiverWrittenAt || current.factorySubmittedAt) : ''
-    if (!current || recordTime > currentTime || (recordTime === currentTime && JSON.stringify(record) > JSON.stringify(current))) {
-      taskRecordById.set(recordId, record)
-    }
-  })
-  const taskRecords = Array.from(taskRecordById.values())
+  const taskRecords = records.filter((record) => record.taskId === runtimeTaskId)
   const submittedQty = taskRecords.reduce((sum, record) => {
     if (isVoided(record) || record.factorySubmittedAt > nowAt) return sum
     return sum + (validNonNegativeQty(record.submittedQty ?? record.plannedQty) ?? 0)
@@ -109,11 +95,11 @@ export function listSewingDeliverySlaViews(
   })
   const targetTaskIds = new Set(snapshotsByTaskId.keys())
   const recordsByTaskId = new Map<string, PdaHandoverRecord[]>()
-  listRegisteredHandoutHeads().forEach((head) => {
-    if (!targetTaskIds.has(head.taskId)) return
-    const records = recordsByTaskId.get(head.taskId) ?? []
-    records.push(...listRegisteredHandoutRecords(head.handoverId).filter((record) => record.taskId === head.taskId))
-    recordsByTaskId.set(head.taskId, records)
+  listLatestSewingDeliveryRawRecords().forEach((record) => {
+    if (!targetTaskIds.has(record.taskId)) return
+    const records = recordsByTaskId.get(record.taskId) ?? []
+    records.push(record)
+    recordsByTaskId.set(record.taskId, records)
   })
   const views = Array.from(snapshotsByTaskId.entries()).map(([runtimeTaskId, snapshot]) =>
     buildView(runtimeTaskId, snapshot, recordsByTaskId.get(runtimeTaskId) ?? [], nowAt),

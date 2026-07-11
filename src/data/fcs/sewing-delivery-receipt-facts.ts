@@ -12,6 +12,33 @@ const CONFIRMED_RECEIPT_STATUSES = new Set([
   'DIFF_ACCEPTED',
 ])
 
+function rawRecordVersionAt(record: PdaHandoverRecord): string {
+  return [record.receiverWrittenAt, record.factorySubmittedAt]
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1) ?? ''
+}
+
+export function selectLatestSewingDeliveryRawRecords(records: readonly PdaHandoverRecord[]): PdaHandoverRecord[] {
+  const latestByRecordId = new Map<string, PdaHandoverRecord>()
+  records.forEach((record) => {
+    const recordId = record.handoverRecordId || record.recordId
+    const current = latestByRecordId.get(recordId)
+    if (!current || rawRecordVersionAt(record) >= rawRecordVersionAt(current)) {
+      latestByRecordId.set(recordId, record)
+    }
+  })
+  return Array.from(latestByRecordId.values())
+}
+
+export function listLatestSewingDeliveryRawRecords(): PdaHandoverRecord[] {
+  const records: PdaHandoverRecord[] = []
+  listRegisteredHandoutHeads().forEach((head) => {
+    records.push(...listRegisteredHandoutRecords(head.handoverId))
+  })
+  return selectLatestSewingDeliveryRawRecords(records)
+}
+
 export function toConfirmedSewingDeliveryReceiptFact(
   record: PdaHandoverRecord,
   runtimeTaskId: string,
@@ -32,23 +59,10 @@ export function toConfirmedSewingDeliveryReceiptFact(
 }
 
 export function listSewingDeliveryReceiptFacts(runtimeTaskId: string): SewingDeliveryReceiptFact[] {
-  const latestFactByRecordId = new Map<string, SewingDeliveryReceiptFact>()
-  listRegisteredHandoutHeads()
-    .filter((head) => head.taskId === runtimeTaskId)
-    .flatMap((head) => listRegisteredHandoutRecords(head.handoverId))
+  return listLatestSewingDeliveryRawRecords()
+    .filter((record) => record.taskId === runtimeTaskId)
     .map((record) => toConfirmedSewingDeliveryReceiptFact(record, runtimeTaskId))
     .filter((fact): fact is SewingDeliveryReceiptFact => fact !== null)
-    .forEach((fact) => {
-      const current = latestFactByRecordId.get(fact.recordId)
-      if (
-        !current
-        || fact.receivedAt > current.receivedAt
-        || (fact.receivedAt === current.receivedAt && JSON.stringify(fact) > JSON.stringify(current))
-      ) {
-        latestFactByRecordId.set(fact.recordId, fact)
-      }
-    })
-  return Array.from(latestFactByRecordId.values())
 }
 
 export function sumSewingDeliveryConfirmedReceiptQty(runtimeTaskId: string): number {
