@@ -78,7 +78,7 @@
 
 浏览器自动化桥接能识别启用的动作元素，但未能触发项目的全局事件委托。该限制不属于产品问题标签，也不据此判定生产组件存在缺陷。当前保留登录、页面可达、内容可见与控制台证据；直派 / 改派、未来时间阻断、连续任务动作、接单预览、主管复核、局部 DOM、滚动位置和浏览器内 200ms 指标，需用稳定浏览器通道补验。
 
-整条功能分支的实质治理核查：以产品方案后的功能实现基线 `25cfd50c` 创建临时 detached worktree，将 `git diff --binary 25cfd50c..HEAD` 应用到该工作区并暂存，共检测 35 个变更文件；运行 `npm run check:prototype-design-governance` 输出 `prototype design governance passed (staged): review record found`，证明完整功能差异中的原型改动与本审查记录能被治理脚本共同识别。临时工作区已删除，未影响真实索引。日常工作区在提交后保持 clean，因此默认 staged / `--all` 显示 `no prototype changes` 属于命令边界正常结果；`--self-test` 同时通过。
+整条功能分支的实质治理核查：以产品方案后的功能实现基线 `25cfd50c` 创建临时 detached worktree，将 `git diff --binary 25cfd50c..HEAD` 应用到该工作区并暂存，共检测 37 个变更文件；运行 `npm run check:prototype-design-governance` 输出 `prototype design governance passed (staged): review record found`，证明完整功能差异中的原型改动与本审查记录能被治理脚本共同识别。临时工作区已删除，未影响真实索引。日常工作区在提交后保持 clean，因此默认 staged / `--all` 显示 `no prototype changes` 属于命令边界正常结果；`--self-test` 同时通过。
 
 ## 6. Mock 与边界验收
 
