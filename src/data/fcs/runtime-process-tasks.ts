@@ -2701,6 +2701,11 @@ export function rejectRuntimeTaskAssignment(
       by: rejectedBy,
     }]
     const updated = patchRuntimeTask(taskId, {
+      assignmentStatus: 'BIDDING',
+      assignedFactoryId: undefined,
+      assignedFactoryName: undefined,
+      awardedAt: undefined,
+      dispatchPrice: undefined,
       acceptanceStatus: 'REJECTED',
       acceptedAt: undefined,
       acceptedBy: undefined,

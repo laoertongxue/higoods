@@ -105,6 +105,12 @@ const state: SewingDispatchWorkbenchState = {
   reassignMainFactoryId: '',
 }
 
+let sewingDispatchNowProvider = (): string => formatOperationLocalWallClock()
+
+export function setSewingDispatchWorkbenchNowProviderForTest(provider?: () => string): void {
+  sewingDispatchNowProvider = provider ?? (() => formatOperationLocalWallClock())
+}
+
 export function captureSewingDispatchWorkbenchPageState(): SewingDispatchWorkbenchState {
   return structuredClone(state)
 }
@@ -1221,7 +1227,7 @@ export function renderSewingDispatchWorkbenchPage(): string {
     const query = new URLSearchParams(window.location.search)
     const taskId = query.get('action') === 'reassign' ? query.get('taskId') : null
     if (taskId && getRuntimeTaskById(taskId)) {
-      const operatedAt = formatOperationLocalWallClock()
+      const operatedAt = sewingDispatchNowProvider()
       state.reassignTaskId = taskId
       state.reassignOperatedAt = operatedAt
       state.reassignBusinessAssignedAt = operationWallClockToDateTimeLocal(operatedAt)
@@ -1363,7 +1369,7 @@ function openDispatch(taskId: string | undefined, type: string | undefined): voi
     const order = productionOrders.find((item) => item.productionOrderId === productionOrderId)
     return [productionOrderId, order?.mainFactoryStatus === 'CONFIRMED' ? order.mainFactoryId ?? '' : '']
   }))
-  state.dispatchOperatedAt = formatOperationLocalWallClock()
+  state.dispatchOperatedAt = sewingDispatchNowProvider()
   state.dispatchBusinessAssignedAt = operationWallClockToDateTimeLocal(state.dispatchOperatedAt)
   state.dispatchRiskConfirmed = false
   state.dispatchError = ''
@@ -1435,7 +1441,8 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement, event?: 
     const factory = listSewingFactoryOptions().find((item) => item.id === state.reassignFactoryId)
     if (!task || !factory) { state.reassignError = '请选择目标工厂'; return true }
     try {
-      const result = reassignRuntimeSewingTask({ sourceTaskId: task.taskId, targetFactoryId: factory.id, targetFactoryName: factory.name, businessAssignedAt: dateTimeLocalToOperationWallClock(state.reassignBusinessAssignedAt), operatedAt: state.reassignOperatedAt, reason: state.reassignReason, by: '跟单A', mainFactoryId: state.reassignMainFactoryId || undefined })
+      const operatedAt = sewingDispatchNowProvider()
+      const result = reassignRuntimeSewingTask({ sourceTaskId: task.taskId, targetFactoryId: factory.id, targetFactoryName: factory.name, businessAssignedAt: dateTimeLocalToOperationWallClock(state.reassignBusinessAssignedAt), operatedAt, reason: state.reassignReason, by: '跟单A', mainFactoryId: state.reassignMainFactoryId || undefined })
       if (!result.ok) throw new Error(result.message)
       state.feedbackMessage = `已改派给 ${factory.name}，剩余分配数量 ${formatQty(result.assignedQty || 0)} 件。`
       state.reassignTaskId = null
@@ -1446,6 +1453,7 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement, event?: 
     return true
   }
   if (action === 'confirm-dispatch') {
+    const operatedAt = sewingDispatchNowProvider()
     const factories = listSewingFactoryOptions()
     const factory = factories.find((item) => item.id === state.dispatchFactoryId)
     const selectedRows = getSelectedDispatchRows()
@@ -1478,7 +1486,7 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement, event?: 
         rowIds: selectedRows.map((row) => row.rowId),
         qtyByRowId: Object.fromEntries(selectedRows.map((row) => [row.rowId, Number(state.dispatchQtyByRowId[row.rowId])])),
         businessAssignedAt,
-        operatedAt: state.dispatchOperatedAt,
+        operatedAt,
         mainFactoryIdByProductionOrderId: state.dispatchMainFactoryIdByProductionOrderId,
         by: '跟单A',
       })
