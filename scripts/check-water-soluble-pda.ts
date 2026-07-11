@@ -496,25 +496,63 @@ async function main(): Promise<void> {
     assert.equal(wrongNodeStart.ok, false)
     assert.match(wrongNodeStart.message, /当前动作.*不一致/)
 
-    const firstStart = executeWaterSolublePdaAction({
+    const retryStartInput = {
       action: 'START',
       orderId: executableOrder.waterOrderId,
       taskId: executableOrder.taskId,
       expectedStatus: 'WAIT_WATER_SOLUBLE',
       expectedNode: 'START',
       actor: operator,
-    })
-    const duplicateStart = executeWaterSolublePdaAction({
-      action: 'START',
-      orderId: executableOrder.waterOrderId,
-      taskId: executableOrder.taskId,
-      expectedStatus: 'WAIT_WATER_SOLUBLE',
-      expectedNode: 'START',
-      actor: operator,
-    })
-    assert.equal(firstStart.ok, true)
-    assert.equal(duplicateStart.ok, false)
-    assert.match(duplicateStart.message, /已经开始|当前状态/)
+    } as const
+    const beforeRetryableFailure = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)!
+    const handoverHeadCountBeforeRetry = listHandoverOrdersByTaskId(executableOrder.taskId).length
+    memoryStorage.delete('fcs_pda_session')
+    const retryableFailure = executeWaterSolublePdaAction(retryStartInput)
+    assert.equal(retryableFailure.ok, false, '弱网导致 session 暂时不可用时，本次开始水溶必须可安全失败')
+    assert.match(retryableFailure.message, /登录|身份/, '可重试失败必须给出中文身份修复提示')
+    assert.deepEqual(
+      getWaterSolubleWorkOrderById(executableOrder.waterOrderId),
+      beforeRetryableFailure,
+      '可重试失败不得修改加工单状态、数量、原因、时间或日志',
+    )
+    assert.equal(
+      listHandoverOrdersByTaskId(executableOrder.taskId).length,
+      handoverHeadCountBeforeRetry,
+      '可重试失败不得生成交接单头或记录',
+    )
+
+    memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+    const retriedStart = executeWaterSolublePdaAction(retryStartInput)
+    assert.equal(retriedStart.ok, true, '恢复同一 session 后，同 order/action/输入重试必须成功')
+    const afterRetrySuccess = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)!
+    assert.equal(afterRetrySuccess.status, 'WATER_SOLUBLE_IN_PROGRESS')
+    assert.equal(afterRetrySuccess.completedQty, beforeRetryableFailure.completedQty, '开始水溶不得改写完成数量')
+    assert.equal(afterRetrySuccess.exceptionReason, beforeRetryableFailure.exceptionReason, '开始水溶不得改写异常原因')
+    assert.equal(
+      afterRetrySuccess.actionLogs.length,
+      beforeRetryableFailure.actionLogs.length + 1,
+      '失败后重试成功必须只新增一条开始水溶日志',
+    )
+    assert.equal(afterRetrySuccess.actionLogs.at(-1)?.action, '开始水溶')
+    assert.equal(
+      listHandoverOrdersByTaskId(executableOrder.taskId).length,
+      handoverHeadCountBeforeRetry,
+      '开始水溶成功仍不得提前生成交接单头或记录',
+    )
+
+    const duplicateStart = executeWaterSolublePdaAction(retryStartInput)
+    assert.equal(duplicateStart.ok, false, '同一请求再次到达必须由幂等状态门槛拒绝')
+    assert.match(duplicateStart.message, /已经处理|已失效|当前状态/, '重复请求必须返回中文状态门槛提示')
+    assert.deepEqual(
+      getWaterSolubleWorkOrderById(executableOrder.waterOrderId),
+      afterRetrySuccess,
+      '重复请求不得追加第二条日志或改写加工单记录',
+    )
+    assert.equal(
+      listHandoverOrdersByTaskId(executableOrder.taskId).length,
+      handoverHeadCountBeforeRetry,
+      '重复请求不得生成交接单头或记录',
+    )
 
     const missingReason = executeWaterSolublePdaAction({
       action: 'COMPLETE',
