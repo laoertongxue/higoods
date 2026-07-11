@@ -430,6 +430,7 @@ export interface PdaHandoverRecord {
   factoryProofFiles: HandoverProofFile[]
   status: HandoverRecordStatus
   handoverRecordStatus?: HandoverRecordLifecycleStatus
+  lifecycleUpdatedAt?: string
   handoverRecordQrValue?: string
   warehouseReturnNo?: string
   warehouseWrittenQty?: number
@@ -4455,6 +4456,7 @@ export function writeBackHandoverRecord(input: {
       diffReason: input.diffReason?.trim() || undefined,
       warehouseWrittenQty: input.receiverWrittenQty,
       warehouseWrittenAt: input.receiverWrittenAt,
+      lifecycleUpdatedAt: input.receiverWrittenAt,
     },
     head,
   )

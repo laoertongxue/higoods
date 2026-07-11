@@ -20,6 +20,7 @@ import {
 } from '../src/data/fcs/sewing-delivery-sla.ts'
 import {
   applyRuntimeDirectDispatchMeta,
+  awardRuntimeTaskTender,
   batchDispatchRuntimeTasks,
   captureRuntimeDirectDispatchState,
   getRuntimeTaskById,
@@ -27,6 +28,7 @@ import {
   listRuntimeTaskAllocatableGroups,
   listRuntimeTaskSplitGroupsByOrder,
   prepareRuntimeDirectDispatchMeta,
+  rejectRuntimeTaskAssignment,
   restoreRuntimeDirectDispatchState,
   upsertRuntimeTaskTender,
 } from '../src/data/fcs/runtime-process-tasks.ts'
@@ -190,7 +192,7 @@ for (const invalidAssignedQty of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINI
   )
 }
 
-assert.equal(snapshot.snapshotId, 'SEWING-DELIVERY-SLA-TASK-1-ASSIGN-1', '快照编号应同时绑定运行时任务和分配结果')
+assert.equal(snapshot.snapshotId, 'SEWING-DELIVERY-SLA-6:TASK-1-8:ASSIGN-1', '快照编号应以无歧义长度前缀同时绑定运行时任务和分配结果')
 assert.equal(snapshot.active, true, '新建履约快照应处于生效状态')
 assert.equal(Object.isFrozen(snapshot), true, '履约快照顶层必须冻结')
 assert.equal(Object.isFrozen(snapshot.milestones), true, '履约快照节点数组必须冻结')
@@ -1186,6 +1188,9 @@ try {
   assert.equal(getSewingDeliverySlaSnapshot('TASK-HISTORY')?.snapshotId, secondHistorySnapshot.snapshotId, '当前读取应返回新快照')
   assert.equal(firstReadBeforeReplacement?.active, true, '替换不得修改已返回给调用方的旧快照')
   assert.equal(Object.isFrozen(history[0]), true, '历史读取仍应返回冻结防御副本')
+  assert.equal(getSewingDeliverySlaView('TASK-HISTORY', '2026-06-30 23:59:59'), null, '首个接单快照之前不得提前出现履约视图')
+  assert.equal(getSewingDeliverySlaView('TASK-HISTORY', '2026-07-01 12:00:00')?.projection.snapshot.factoryId, 'F-HISTORY-1', '改派前历史查询必须读取当时第一份快照')
+  assert.equal(getSewingDeliverySlaView('TASK-HISTORY', '2026-07-02 12:00:00')?.projection.snapshot.factoryId, 'F-HISTORY-2', '改派接单后才切换到第二份快照')
 } finally {
   restoreSewingDeliverySlaSnapshotStore(historyStoreState)
 }
@@ -1809,6 +1814,23 @@ try {
   const biddingRowHtml = biddingListHtml.slice(biddingRowStart, biddingRowEnd)
   assert.doesNotMatch(biddingRowHtml, />直接派单<|>发起竞价</, '已有效竞价的连续任务行不得继续展示直接派单或发起竞价')
 
+  const rejectedFixtureTaskId = `${continuousTask.taskId}__REJECTED_SLA`
+  const rejectedFixtureState = captureRuntimeDirectDispatchState()
+  rejectedFixtureState.reassignedTasks.push([rejectedFixtureTaskId, { ...structuredClone(continuousTask), taskId: rejectedFixtureTaskId, taskNo: rejectedFixtureTaskId, assignmentStatus: 'UNASSIGNED', assignmentMode: 'HOLD', acceptanceStatus: undefined, assignedFactoryId: undefined, assignedFactoryName: undefined, tenderId: undefined, coveredProcesses: [coveredProcess('SEW', '车缝'), coveredProcess('PACK', '包装')], executionEnabled: true }])
+  restoreRuntimeDirectDispatchState(rejectedFixtureState)
+  const continuousTenderId = `TENDER-${rejectedFixtureTaskId}`
+  assert(upsertRuntimeTaskTender(rejectedFixtureTaskId, { tenderId: continuousTenderId, biddingDeadline: '2026-07-12 10:00:00', taskDeadline: '2026-07-21 10:00:00', businessAssignedAt: '2026-07-09 10:00:00', assignmentOperatedAt: '2026-07-11 10:00:00' }, '生产计划员'))
+  const awardedContinuous = awardRuntimeTaskTender({ taskId: rejectedFixtureTaskId, factoryId: continuousFactory.id, factoryName: continuousFactory.name, awardedAt: '2026-07-11 11:00:00', awardedPrice: continuousTask.standardPrice ?? 1, by: '生产计划员' })
+  assert.equal(awardedContinuous.acceptanceStatus, 'PENDING')
+  const rejectedContinuous = rejectRuntimeTaskAssignment(rejectedFixtureTaskId, { factoryId: continuousFactory.id, reason: '产能临时不足', rejectedAt: '2026-07-11 12:00:00', rejectedBy: continuousFactory.name })
+  assert.equal(rejectedContinuous.assignmentStatus, 'BIDDING')
+  const reopenedContinuous = upsertRuntimeTaskTender(rejectedFixtureTaskId, { tenderId: continuousTenderId, biddingDeadline: '2026-07-13 10:00:00', taskDeadline: '2026-07-22 10:00:00', businessAssignedAt: '2026-07-09 10:00:00', assignmentOperatedAt: '2026-07-11 13:00:00' }, '生产计划员')
+  assert.equal(reopenedContinuous?.assignmentStatus, 'BIDDING', '连续含车缝任务拒单释放后必须允许同 tender 调整并重开')
+  assert.equal(reopenedContinuous?.biddingDeadline, '2026-07-13 10:00:00')
+  const beforeDifferentTender = structuredClone(getRuntimeTaskById(rejectedFixtureTaskId))
+  assert.throws(() => upsertRuntimeTaskTender(rejectedFixtureTaskId, { tenderId: `${continuousTenderId}-OTHER`, biddingDeadline: '2026-07-14 10:00:00', taskDeadline: '2026-07-23 10:00:00', businessAssignedAt: '2026-07-09 10:00:00', assignmentOperatedAt: '2026-07-11 14:00:00' }, '生产计划员'), /已有有效分配结果|新竞价/)
+  assert.deepEqual(getRuntimeTaskById(rejectedFixtureTaskId), beforeDifferentTender, '连续任务拒单后不同 tender 覆盖必须原子失败且不改变状态')
+
   const awardedTenderRuntimeState = captureRuntimeDirectDispatchState()
   const awardedTenderSnapshotState = captureSewingDeliverySlaSnapshotStore()
   const awardedTenderTaskState = awardedTenderRuntimeState.taskOverrides.find(([taskId]) => taskId === continuousTask.taskId)
@@ -2152,12 +2174,12 @@ const sewingDeliverySlaViewSource = readFileSync(new URL('../src/data/fcs/sewing
 const progressDomainSource = readFileSync(new URL('../src/data/fcs/store-domain-progress.ts', import.meta.url), 'utf8')
 assert.match(
   sewingDeliverySlaViewSource,
-  /listLatestSewingDeliveryRawRecords\(\)\.filter/,
+  /listLatestSewingDeliveryRawRecords\(nowAt\)\.filter/,
   '单任务履约视图必须复用registry原始记录全局版本选择结果',
 )
 assert.match(
   sewingDeliverySlaViewSource,
-  /const recordsByTaskId = new Map[\s\S]*?listLatestSewingDeliveryRawRecords\(\)\.forEach/,
+  /const recordsByTaskId = new Map[\s\S]*?listLatestSewingDeliveryRawRecords\(nowAt\)\.forEach/,
   '批量履约视图必须一次读取全局最新原始记录并按 taskId 预索引',
 )
 assert.doesNotMatch(
@@ -3069,10 +3091,19 @@ assert.equal(toConfirmedSewingDeliveryReceiptFact(rawVersionMatrix.find((record)
 assert(toConfirmedSewingDeliveryReceiptFact(rawVersionMatrix.find((record) => record.recordId === 'RAW-CONFIRMED')!, 'TASK-OLD'), '新确认版本必须升级旧待确认事实')
 assert.equal(rawVersionMatrix.find((record) => record.recordId === 'RAW-MOVED')?.taskId, 'TASK-NEW', '跨交出单或任务移动后只保留新任务归属')
 assert.equal(toConfirmedSewingDeliveryReceiptFact(rawVersionMatrix.find((record) => record.recordId === 'RAW-MOVED')!, 'TASK-OLD'), null, '跨任务移动不得让旧任务继续计入')
+const historicalConfirmed = { ...rawVersion('RAW-AS-OF', 'TASK-OLD', 'WRITTEN_BACK_MATCHED', '2026-07-01 08:00:00', '2026-07-01 09:00:00'), lifecycleUpdatedAt: '2026-07-01 09:00:00' }
+const futureVoided = { ...rawVersion('RAW-AS-OF', 'TASK-NEW', 'VOIDED', '2026-07-03 10:00:00'), lifecycleUpdatedAt: '2026-07-03 10:00:00' }
+assert.equal(selectLatestSewingDeliveryRawRecords([historicalConfirmed, futureVoided], '2026-07-02 10:00:00')[0]?.taskId, 'TASK-OLD', '未来作废或迁移版本不得提前覆盖历史确认归属')
+assert.equal(selectLatestSewingDeliveryRawRecords([historicalConfirmed, futureVoided], '2026-07-04 10:00:00')[0]?.taskId, 'TASK-NEW', '到达生命周期更新时间后才采用未来作废或迁移版本')
 
 const collisionState = captureSewingDeliverySlaSnapshotStore()
 try {
   const collisionBase = createSewingDeliverySlaSnapshot({ assignmentId: 'COLLISION', runtimeTaskId: 'TASK-COLLISION-A', productionOrderId: 'PO-COLLISION', factoryId: 'F-A', factoryName: '工厂A', assignedQty: 10, acceptedAt: '2026-07-01 00:00:00', slaKind: 'INDEPENDENT_SEWING' })
+  assert.notEqual(
+    createSewingDeliverySlaSnapshot({ assignmentId: 'C', runtimeTaskId: 'A-B', productionOrderId: 'PO', factoryId: 'F', factoryName: '厂', assignedQty: 1, acceptedAt: '2026-07-01 00:00:00', slaKind: 'INDEPENDENT_SEWING' }).snapshotId,
+    createSewingDeliverySlaSnapshot({ assignmentId: 'B-C', runtimeTaskId: 'A', productionOrderId: 'PO', factoryId: 'F', factoryName: '厂', assignedQty: 1, acceptedAt: '2026-07-01 00:00:00', slaKind: 'INDEPENDENT_SEWING' }).snapshotId,
+    '合法任务与分配编号组合不得因连接符歧义产生相同快照ID',
+  )
   saveSewingDeliverySlaSnapshot(collisionBase)
   assert.match(collisionBase.snapshotId, /TASK-COLLISION-A.*COLLISION/, '快照ID必须同时包含运行时任务和分配归属')
   assert.throws(() => saveSewingDeliverySlaSnapshot({ ...collisionBase, runtimeTaskId: 'TASK-COLLISION-B' }), /快照ID冲突/, '相同快照ID不得跨任务覆盖或串改当前映射')

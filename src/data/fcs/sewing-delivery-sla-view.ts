@@ -1,8 +1,8 @@
 import {
   classifySewingDeliverySla,
   formatOperationLocalWallClock,
-  getLatestSewingDeliverySlaSnapshot,
   listAllSewingDeliverySlaSnapshots,
+  listSewingDeliverySlaSnapshotHistory,
   projectSewingDeliverySla,
   type SewingDeliverySlaProjection,
   type SewingDeliverySlaSnapshot,
@@ -25,10 +25,6 @@ function isVoided(record: PdaHandoverRecord): boolean {
 
 function validNonNegativeQty(value: number | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
-}
-
-function listTaskHandoutRecords(runtimeTaskId: string): PdaHandoverRecord[] {
-  return listLatestSewingDeliveryRawRecords().filter((record) => record.taskId === runtimeTaskId)
 }
 
 function buildView(
@@ -57,8 +53,11 @@ function buildView(
 
 function resolveEligibleSnapshot(
   runtimeTaskId: string,
+  nowAt: string,
   task: RuntimeProcessTask | null = getRuntimeTaskById(runtimeTaskId),
-  snapshot: SewingDeliverySlaSnapshot | null = getLatestSewingDeliverySlaSnapshot(runtimeTaskId),
+  snapshot: SewingDeliverySlaSnapshot | null = listSewingDeliverySlaSnapshotHistory(runtimeTaskId)
+    .filter((candidate) => candidate.acceptedAt <= nowAt)
+    .at(-1) ?? null,
 ): SewingDeliverySlaSnapshot | null {
   if (!snapshot) return null
   if (!task) return snapshot
@@ -69,9 +68,9 @@ export function getSewingDeliverySlaView(
   runtimeTaskId: string,
   nowAt: string = formatOperationLocalWallClock(),
 ): SewingDeliverySlaView | null {
-  const snapshot = resolveEligibleSnapshot(runtimeTaskId)
+  const snapshot = resolveEligibleSnapshot(runtimeTaskId, nowAt)
   if (!snapshot) return null
-  return buildView(runtimeTaskId, snapshot, listTaskHandoutRecords(runtimeTaskId), nowAt)
+  return buildView(runtimeTaskId, snapshot, listLatestSewingDeliveryRawRecords(nowAt).filter((record) => record.taskId === runtimeTaskId), nowAt)
 }
 
 
@@ -82,12 +81,15 @@ export function listSewingDeliverySlaViews(
   const requestedTaskIds = runtimeTaskIds ? new Set(runtimeTaskIds) : null
   const snapshotsByTaskId = new Map<string, SewingDeliverySlaSnapshot>()
   const latestSnapshotByTaskId = new Map<string, SewingDeliverySlaSnapshot>()
-  listAllSewingDeliverySlaSnapshots().forEach((snapshot) => latestSnapshotByTaskId.set(snapshot.runtimeTaskId, snapshot))
+  listAllSewingDeliverySlaSnapshots()
+    .filter((snapshot) => snapshot.acceptedAt <= nowAt)
+    .forEach((snapshot) => latestSnapshotByTaskId.set(snapshot.runtimeTaskId, snapshot))
   const candidateTaskIds = requestedTaskIds ?? new Set(latestSnapshotByTaskId.keys())
   const runtimeTaskById = new Map(listRuntimeProcessTasks().map((task) => [task.taskId, task] as const))
   candidateTaskIds.forEach((taskId) => {
     const snapshot = resolveEligibleSnapshot(
       taskId,
+      nowAt,
       runtimeTaskById.get(taskId) ?? null,
       latestSnapshotByTaskId.get(taskId) ?? null,
     )
@@ -95,7 +97,7 @@ export function listSewingDeliverySlaViews(
   })
   const targetTaskIds = new Set(snapshotsByTaskId.keys())
   const recordsByTaskId = new Map<string, PdaHandoverRecord[]>()
-  listLatestSewingDeliveryRawRecords().forEach((record) => {
+  listLatestSewingDeliveryRawRecords(nowAt).forEach((record) => {
     if (!targetTaskIds.has(record.taskId)) return
     const records = recordsByTaskId.get(record.taskId) ?? []
     records.push(record)

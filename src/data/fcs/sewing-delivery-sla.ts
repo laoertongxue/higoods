@@ -435,7 +435,7 @@ export function createSewingDeliverySlaSnapshot(input: {
   assertPositiveFiniteInteger(input.assignedQty, '分配数量')
   const ruleHours = RULE_HOURS[input.slaKind]
   return cloneAndFreezeSnapshot({
-    snapshotId: `SEWING-DELIVERY-SLA-${input.runtimeTaskId}-${input.assignmentId}`,
+    snapshotId: `SEWING-DELIVERY-SLA-${input.runtimeTaskId.length}:${input.runtimeTaskId}-${input.assignmentId.length}:${input.assignmentId}`,
     ...input,
     milestones: MILESTONE_RATIOS.map((ratio, index) => ({
       ratio,

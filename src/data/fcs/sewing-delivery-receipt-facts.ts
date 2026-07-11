@@ -1,6 +1,6 @@
 import type { PdaHandoverRecord } from './pda-handover-events.ts'
 import { listRegisteredHandoutHeads, listRegisteredHandoutRecords } from './pda-handover-handout-registry.ts'
-import type { SewingDeliveryReceiptFact } from './sewing-delivery-sla.ts'
+import { formatOperationLocalWallClock, type SewingDeliveryReceiptFact } from './sewing-delivery-sla.ts'
 
 function validNonNegativeQty(value: number | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
@@ -13,6 +13,7 @@ const CONFIRMED_RECEIPT_STATUSES = new Set([
 ])
 
 function rawRecordVersionAt(record: PdaHandoverRecord): string {
+  if (record.lifecycleUpdatedAt) return record.lifecycleUpdatedAt
   return [record.receiverWrittenAt, record.factorySubmittedAt]
     .filter((value): value is string => Boolean(value))
     .sort()
@@ -27,6 +28,8 @@ function lifecycleRank(record: PdaHandoverRecord): number {
 }
 
 function rawRecordStableSignature(record: PdaHandoverRecord): string {
+  // Legacy records may lack lifecycleUpdatedAt. This fixed-field signature is
+  // only a deterministic final fallback, never a substitute for business time.
   return JSON.stringify({
     recordId: record.handoverRecordId || record.recordId,
     taskId: record.taskId,
@@ -37,6 +40,7 @@ function rawRecordStableSignature(record: PdaHandoverRecord): string {
     submittedQty: record.submittedQty ?? record.plannedQty ?? null,
     receiverWrittenAt: record.receiverWrittenAt ?? '',
     receiverWrittenQty: record.receiverWrittenQty ?? null,
+    lifecycleUpdatedAt: record.lifecycleUpdatedAt ?? '',
   })
 }
 
@@ -48,9 +52,12 @@ function compareRawRecordVersion(left: PdaHandoverRecord, right: PdaHandoverReco
   return rawRecordStableSignature(left).localeCompare(rawRecordStableSignature(right))
 }
 
-export function selectLatestSewingDeliveryRawRecords(records: readonly PdaHandoverRecord[]): PdaHandoverRecord[] {
+export function selectLatestSewingDeliveryRawRecords(
+  records: readonly PdaHandoverRecord[],
+  nowAt: string = formatOperationLocalWallClock(),
+): PdaHandoverRecord[] {
   const latestByRecordId = new Map<string, PdaHandoverRecord>()
-  records.forEach((record) => {
+  records.filter((record) => rawRecordVersionAt(record) <= nowAt).forEach((record) => {
     const recordId = record.handoverRecordId || record.recordId
     const current = latestByRecordId.get(recordId)
     if (!current || compareRawRecordVersion(record, current) > 0) {
@@ -62,12 +69,14 @@ export function selectLatestSewingDeliveryRawRecords(records: readonly PdaHandov
   )
 }
 
-export function listLatestSewingDeliveryRawRecords(): PdaHandoverRecord[] {
+export function listLatestSewingDeliveryRawRecords(
+  nowAt: string = formatOperationLocalWallClock(),
+): PdaHandoverRecord[] {
   const records: PdaHandoverRecord[] = []
   listRegisteredHandoutHeads().forEach((head) => {
     records.push(...listRegisteredHandoutRecords(head.handoverId))
   })
-  return selectLatestSewingDeliveryRawRecords(records)
+  return selectLatestSewingDeliveryRawRecords(records, nowAt)
 }
 
 export function toConfirmedSewingDeliveryReceiptFact(
@@ -89,15 +98,21 @@ export function toConfirmedSewingDeliveryReceiptFact(
   }
 }
 
-export function listSewingDeliveryReceiptFacts(runtimeTaskId: string): SewingDeliveryReceiptFact[] {
-  return listLatestSewingDeliveryRawRecords()
+export function listSewingDeliveryReceiptFacts(
+  runtimeTaskId: string,
+  nowAt: string = formatOperationLocalWallClock(),
+): SewingDeliveryReceiptFact[] {
+  return listLatestSewingDeliveryRawRecords(nowAt)
     .filter((record) => record.taskId === runtimeTaskId)
     .map((record) => toConfirmedSewingDeliveryReceiptFact(record, runtimeTaskId))
     .filter((fact): fact is SewingDeliveryReceiptFact => fact !== null)
 }
 
-export function sumSewingDeliveryConfirmedReceiptQty(runtimeTaskId: string): number {
-  return listSewingDeliveryReceiptFacts(runtimeTaskId).reduce(
+export function sumSewingDeliveryConfirmedReceiptQty(
+  runtimeTaskId: string,
+  nowAt: string = formatOperationLocalWallClock(),
+): number {
+  return listSewingDeliveryReceiptFacts(runtimeTaskId, nowAt).reduce(
     (sum, fact) => sum + (fact.voided ? 0 : fact.receivedQty),
     0,
   )

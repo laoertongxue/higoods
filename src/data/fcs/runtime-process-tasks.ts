@@ -2487,6 +2487,7 @@ export function upsertRuntimeTaskTender(
   if (
     task.taskUnitType === 'COMBINED_PROCESS_TASK'
     && task.acceptanceMode === 'CONTINUOUS_PROCESS'
+    && !isReleasedRejectedTenderUpdate
     && (task.assignmentStatus !== 'UNASSIGNED' || Boolean(task.tenderId))
   ) {
     throw new Error(`连续工序任务 ${taskId} 已有有效分配结果，不可重复发起竞价`)
