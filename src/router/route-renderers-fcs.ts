@@ -118,6 +118,10 @@ export const renderProcessDyeOrdersPage = createAsyncRenderer(
   () => import('../pages/process-dye-orders'),
   'renderProcessDyeOrdersPage',
 )
+export const renderProcessWaterSolubleOrdersPage = createAsyncRenderer(
+  () => import('../pages/process-water-soluble-orders'),
+  'renderProcessWaterSolubleOrdersPage',
+)
 export const renderProcessDyeRequirementsPage = createAsyncRenderer(
   () => import('../pages/process-dye-requirements'),
   'renderProcessDyeRequirementsPage',
@@ -477,6 +481,10 @@ export const renderCraftDyeingReportsPage = createAsyncRenderer(
 export const renderCraftDyeingWorkOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/work-orders'),
   'renderCraftDyeingWorkOrdersPage',
+)
+export const renderCraftDyeingWaterSolubleOrdersPage = createAsyncRenderer(
+  () => import('../pages/process-factory/dyeing/water-soluble-orders'),
+  'renderCraftDyeingWaterSolubleOrdersPage',
 )
 export const renderCraftDyeingWorkOrderDetailPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/work-order-detail'),
