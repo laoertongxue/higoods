@@ -2273,7 +2273,6 @@ export function renderProductionChangeNewPage(): string {
           <p class="mt-1 text-sm text-muted-foreground">跟单选择生产单并填写核心变更内容，系统读取事实、计算处理方案并同步执行。</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="save-production-change-draft">保存草稿</button>
           <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="go-production-change-next-step">下一步</button>
         </div>
       </header>
@@ -2297,7 +2296,6 @@ export function renderProductionChangeEditPage(changeOrderId: string): string {
   const quantityEditAdaptation = order.changeType === 'QUANTITY_CHANGE'
     ? adaptLegacyQuantityLinesForEdit(order.productionOrderId, order.quantityLines ?? [])
     : null
-  const requiresSafeReadOnly = Boolean(quantityEditAdaptation?.unmatchedLegacyLines.length)
 
   if (state.productionChangeSelectedOrderId !== changeOrderId) {
     state.productionChangeSelectedOrderId = changeOrderId
@@ -2311,25 +2309,18 @@ export function renderProductionChangeEditPage(changeOrderId: string): string {
         <div>
           <div class="flex items-center gap-2">
             <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="/fcs/production/changes/${escapeHtml(changeOrderId)}">返回详情</button>
-            <h1 class="text-xl font-semibold">编辑变更单</h1>
+            <h1 class="text-xl font-semibold">查看旧变更记录</h1>
           </div>
           <p class="mt-1 text-sm text-muted-foreground">当前变更单号：${escapeHtml(changeOrderId)}</p>
+          <p class="mt-1 text-sm text-amber-700">旧记录只读，如需调整请按原记录新建变更</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          ${requiresSafeReadOnly
-            ? `
-              <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/production/changes">返回列表</button>
-              <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change-from-order" data-order-id="${escapeHtml(order.productionOrderId)}">按原记录新建变更</button>
-            `
-            : `
-              <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="save-production-change-draft">保存草稿</button>
-              <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="submit-production-change-order">保存变更内容</button>
-            `}
+          <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change-from-order" data-order-id="${escapeHtml(order.productionOrderId)}">按原记录新建变更</button>
         </div>
       </header>
       ${renderProductionChangeFormSteps(state.productionChangeFormStep)}
       ${renderProductionChangeFormBody(state.productionChangeFormStep, state.productionChangeForm, {
-        readOnly: requiresSafeReadOnly,
+        readOnly: true,
         unmatchedLegacyQuantityLines: quantityEditAdaptation?.unmatchedLegacyLines,
       })}
     </div>

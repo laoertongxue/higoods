@@ -1383,11 +1383,12 @@ assert.ok(
 )
 assert.ok(!quantityEditHtml.includes('data-line-id="CHANGE-PO-202603-0004-001-LEGACY'), '未匹配旧行不得渲染为新增需求行')
 assert.ok(quantityEditHtml.includes('无法安全对应当前需求明细，不能直接保存，请按原记录新建变更'), '存在未匹配旧行时必须显示只读警告')
+assert.ok(quantityEditHtml.includes('旧记录只读，如需调整请按原记录新建变更'), '旧数量变更记录必须明确提示只读')
 assert.ok(quantityEditHtml.includes('藏青色') && quantityEditHtml.includes('L'), '只读警告必须展示未匹配的原记录明细')
-assert.ok(!quantityEditHtml.includes('data-prod-action="save-production-change-draft"'), '安全降级编辑页不得显示保存草稿动作')
-assert.ok(!quantityEditHtml.includes('data-prod-action="submit-production-change-order"'), '安全降级编辑页不得显示保存变更内容动作')
-assert.ok(!quantityEditHtml.includes('data-prod-action="set-production-change-type"'), '安全降级编辑页不得允许切换变更类型')
-assert.ok(quantityEditHtml.includes('按原记录新建变更'), '安全降级编辑页必须提供按原记录新建入口')
+assert.ok(!quantityEditHtml.includes('data-prod-action="save-production-change-draft"'), '旧数量变更记录不得显示保存草稿动作')
+assert.ok(!quantityEditHtml.includes('data-prod-action="submit-production-change-order"'), '旧数量变更记录不得显示保存变更内容动作')
+assert.ok(!quantityEditHtml.includes('data-prod-action="set-production-change-type"'), '旧数量变更记录不得允许切换变更类型')
+assert.ok(quantityEditHtml.includes('按原记录新建变更'), '旧数量变更记录必须提供按原记录新建入口')
 const clonedQuantityForm = createProductionChangeFormFromRecord(quantityEditOrder)
 assert.equal(clonedQuantityForm.productionOrderId, quantityEditOrder.productionOrderId, '按原记录新建必须保留生产单')
 assert.equal(clonedQuantityForm.changeType, quantityEditOrder.changeType, '按原记录新建必须保留变更类型')
@@ -1413,12 +1414,17 @@ assert.ok(
   '物料编辑页必须保留原记录的新面料内容',
 )
 assert.ok(materialEditHtml.includes('data-production-change-allocation-summary'), '物料编辑页必须初始化守恒分配摘要')
+assert.ok(materialEditHtml.includes('旧记录只读，如需调整请按原记录新建变更'), '旧物料变更记录必须明确提示只读')
+assert.ok(!materialEditHtml.includes('data-prod-action="save-production-change-draft"'), '旧物料变更记录不得显示保存草稿动作')
+assert.ok(!materialEditHtml.includes('data-prod-action="submit-production-change-order"'), '旧物料变更记录不得显示保存变更内容动作')
+assert.ok(!materialEditHtml.includes('data-prod-action="set-production-change-type"'), '旧物料变更记录不得允许切换变更类型')
+assert.ok(materialEditHtml.includes('data-prod-action="start-production-change-from-order"'), '旧物料变更记录必须提供按原记录新建 action')
 
 const editHtml = `${quantityEditHtml}${materialEditHtml}`
 ;['提交审核', '主管确认', '相关负责人'].forEach((text) => {
   assert.ok(!editHtml.includes(text), `生产单变更编辑页不得出现旧口径「${text}」`)
 })
-assertIncludesAny(editHtml, ['保存变更内容', '保存草稿'], '生产单变更编辑页必须使用单角色保存动作')
+assert.ok(editHtml.includes('返回详情'), '旧记录只读页必须提供返回入口')
 
 const quantityHandlingForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
 quantityHandlingForm.quantityLines[0].targetQty -= 20
@@ -1532,6 +1538,19 @@ assert.ok(
   !productionChangesDomainSource.includes('data-prod-action="save-production-patch-draft"'),
   '生产补丁不得保留借旧生产单变更单保存草稿的入口',
 )
+assert.ok(
+  !newHtml.includes('data-prod-action="save-production-change-draft"'),
+  '新增页 header 不得保留无 handler 的保存草稿 action',
+)
+assert.ok(newHtml.includes('data-prod-action="go-production-change-next-step"'), '新增页 header 必须保留下一步 action')
+assert.ok(
+  productionEventsSource.includes("if (action === 'start-production-change-from-order')"),
+  'events.ts 必须处理按原记录新建 action',
+)
+assert.ok(
+  productionEventsSource.includes('createProductionChangeFormFromRecord(sourceOrder)'),
+  '按原记录新建 handler 必须保留旧记录可安全映射的内容',
+)
 ;[
   'patchProductionChangeQuantityDom',
   'patchProductionChangeAllocationDom',
@@ -1541,6 +1560,7 @@ assert.ok(
   assert.ok(productionEventsSource.includes(text), `events.ts 缺少第三步或局部更新实现「${text}」`)
 })
 
+state.productionChangeSelectedOrderId = ''
 state.productionChangeFormStep = 'execution'
 const executionHtml = renderProductionChangeNewPage()
 assert.ok(executionHtml.includes('data-production-change-execution'), '同步执行步骤必须渲染独立第四步主体')
