@@ -266,6 +266,22 @@ export function saveSewingDeliverySlaSnapshot(snapshot: SewingDeliverySlaSnapsho
   currentSnapshotIdByRuntimeTaskId.set(storedSnapshot.runtimeTaskId, storedSnapshot.snapshotId)
 }
 
+export function replaceSewingDeliverySlaSnapshot(
+  sourceRuntimeTaskId: string,
+  replacement: SewingDeliverySlaSnapshot,
+): void {
+  const sourceSnapshotId = currentSnapshotIdByRuntimeTaskId.get(sourceRuntimeTaskId)
+  const sourceSnapshot = sourceSnapshotId ? snapshotsById.get(sourceSnapshotId) : undefined
+  if (!sourceSnapshot?.active) throw new Error('原任务没有生效中的含车缝履约快照')
+  snapshotsById.set(sourceSnapshot.snapshotId, cloneAndFreezeSnapshot({
+    ...sourceSnapshot,
+    active: false,
+    replacedByAssignmentId: replacement.assignmentId,
+  }))
+  currentSnapshotIdByRuntimeTaskId.delete(sourceRuntimeTaskId)
+  saveSewingDeliverySlaSnapshot(replacement)
+}
+
 export function getSewingDeliverySlaSnapshot(runtimeTaskId: string): SewingDeliverySlaSnapshot | null {
   const snapshotId = currentSnapshotIdByRuntimeTaskId.get(runtimeTaskId)
   const snapshot = snapshotId ? snapshotsById.get(snapshotId) : undefined

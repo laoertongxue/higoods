@@ -3,6 +3,7 @@ import {
   productionOrders,
   registerProductionOrderSewingFactory,
   selectProductionOrderMainFactory,
+  withdrawProductionOrderSewingFactory,
 } from './production-orders.ts'
 import {
   getProcessAssignmentGranularity,
@@ -50,8 +51,10 @@ import {
   compareSewingDeliveryDateTimes,
   createSewingDeliverySlaSnapshot,
   formatOperationLocalWallClock,
+  getSewingDeliverySlaSnapshot,
   listSewingDeliverySlaSnapshotHistory,
   restoreSewingDeliverySlaSnapshotStore,
+  replaceSewingDeliverySlaSnapshot,
   saveSewingDeliverySlaSnapshot,
   type SewingDeliverySlaSnapshot,
 } from './sewing-delivery-sla.ts'
@@ -77,6 +80,7 @@ export interface RuntimeProcessTask extends Omit<ProcessTask, 'taskId' | 'depend
   scopeKey: string
   scopeLabel: string
   scopeQty: number
+  assignedQty?: number
   scopeSkuLines: RuntimeTaskSkuLine[]
   scopeDetailRows: TaskDetailRow[]
   skuCode?: string
@@ -330,6 +334,7 @@ export interface RuntimeDirectDispatchState {
   auditSeq: number
   dispatchBoardSeedReady: boolean
   productionOrders: Array<(typeof productionOrders)[number]>
+  reassignedTasks: Array<[string, RuntimeProcessTask]>
 }
 
 export interface RuntimeDetailDispatchInput {
@@ -364,9 +369,30 @@ export interface RuntimeTaskAssignmentAcceptanceInput {
   acceptedBy: string
 }
 
+export interface RuntimeSewingTaskReassignmentInput {
+  sourceTaskId: string
+  targetFactoryId: string
+  targetFactoryName: string
+  businessAssignedAt: string
+  operatedAt: string
+  reason: string
+  by: string
+  mainFactoryId?: string
+  confirmedReceivedQty: number
+}
+
+export interface RuntimeSewingTaskReassignmentResult {
+  ok: boolean
+  message: string
+  assignmentId?: string
+  taskId?: string
+  assignedQty?: number
+}
+
 const runtimeTaskOverrides = new Map<string, RuntimeTaskOverride>()
 const runtimeTaskSplitPlans = new Map<string, RuntimeTaskSplitPlan>()
 const runtimeContinuousMergePlans = new Map<string, { taskIds: string[]; mergedTaskId: string; createdAt: string; createdBy: string }>()
+const runtimeReassignedTasks = new Map<string, RuntimeProcessTask>()
 const SEWING_DELIVERY_SLA_AUTO_ACCEPT_BY = '系统自动接单（含车缝直接派单）'
 let runtimeAuditSeq = 0
 let dispatchBoardSeedReady = false
@@ -378,6 +404,7 @@ export function captureRuntimeDirectDispatchState(): RuntimeDirectDispatchState 
     auditSeq: runtimeAuditSeq,
     dispatchBoardSeedReady,
     productionOrders: structuredClone(productionOrders),
+    reassignedTasks: Array.from(runtimeReassignedTasks.entries()).map(([id, task]) => [id, structuredClone(task)]),
   }
 }
 
@@ -389,6 +416,8 @@ export function restoreRuntimeDirectDispatchState(state: RuntimeDirectDispatchSt
   runtimeAuditSeq = state.auditSeq
   dispatchBoardSeedReady = state.dispatchBoardSeedReady
   productionOrders.splice(0, productionOrders.length, ...structuredClone(state.productionOrders))
+  runtimeReassignedTasks.clear()
+  state.reassignedTasks.forEach(([id, task]) => runtimeReassignedTasks.set(id, structuredClone(task)))
 }
 
 function nowTimestamp(date: Date = new Date()): string {
@@ -1288,7 +1317,9 @@ function buildRuntimeProcessTasksBase(): RuntimeProcessTask[] {
 }
 
 function buildRuntimeProcessTasks(): RuntimeProcessTask[] {
-  const baseWithOverrides = applyRuntimeOverrides(buildRuntimeProcessTasksBase())
+  const baseWithOverrides = applyRuntimeOverrides(buildRuntimeProcessTasksBase().concat(
+    Array.from(runtimeReassignedTasks.values()).map((task) => structuredClone(task)),
+  ))
   const withSplit = applyRuntimeSplitPlans(baseWithOverrides)
   const withOverrides = applyRuntimeContinuousMergePlans(applyManualContinuousMergeDemo(applyRuntimeOverrides(withSplit)))
   const grouped = new Map<string, RuntimeProcessTask[]>()
@@ -2804,6 +2835,119 @@ export function applyRuntimeDirectDispatchMeta(input: RuntimeDirectDispatchMetaI
     restoreRuntimeDirectDispatchState(runtimeState)
     restoreSewingDeliverySlaSnapshotStore(snapshotState)
     throw error
+  }
+}
+
+export function commitRuntimeSewingTaskReassignment(
+  input: RuntimeSewingTaskReassignmentInput,
+): RuntimeSewingTaskReassignmentResult {
+  const runtimeState = captureRuntimeDirectDispatchState()
+  const slaState = captureSewingDeliverySlaSnapshotStore()
+  const reject = (message: string): RuntimeSewingTaskReassignmentResult => {
+    restoreRuntimeDirectDispatchState(runtimeState)
+    restoreSewingDeliverySlaSnapshotStore(slaState)
+    return { ok: false, message }
+  }
+  const source = getRuntimeTaskById(input.sourceTaskId)
+  const snapshot = getSewingDeliverySlaSnapshot(input.sourceTaskId)
+  if (!source || classifySewingDeliverySla(source) === null || !snapshot?.active) {
+    return reject('原任务没有生效中的含车缝分配，不可改派')
+  }
+  if (!input.targetFactoryId.trim() || !input.targetFactoryName.trim()) {
+    return reject('请选择目标工厂')
+  }
+  if (input.targetFactoryId === source.assignedFactoryId) {
+    return reject('目标工厂不能与原工厂相同')
+  }
+  if (!input.reason.trim() || !input.by.trim()) return reject('请填写改派原因和操作人')
+  if (compareSewingDeliveryDateTimes(input.businessAssignedAt, input.operatedAt) > 0) {
+    return reject('业务分配时间不能晚于当前操作时间')
+  }
+  const confirmedReceivedQty = input.confirmedReceivedQty
+  if (!Number.isFinite(confirmedReceivedQty) || confirmedReceivedQty < 0) return reject('接收方确认实收数量无效')
+  const remainingQty = Math.max(snapshot.assignedQty - confirmedReceivedQty, 0)
+  if (remainingQty <= 0) return reject('原任务已全部实收，无剩余数量可改派')
+
+  const sequence = listSewingDeliverySlaSnapshotHistory(input.sourceTaskId).length + 1
+  const assignmentId = `${input.sourceTaskId}-REASSIGN-${input.operatedAt.replace(/\D/g, '')}-${String(sequence).padStart(3, '0')}`
+  const newTaskId = `${input.sourceTaskId}__R${String(sequence).padStart(2, '0')}`
+  if (runtimeReassignedTasks.has(newTaskId)) return reject('该任务已完成本次改派，请勿重复提交')
+  const replacement = createSewingDeliverySlaSnapshot({
+    assignmentId,
+    runtimeTaskId: newTaskId,
+    productionOrderId: source.productionOrderId,
+    factoryId: input.targetFactoryId,
+    factoryName: input.targetFactoryName,
+    assignedQty: remainingQty,
+    acceptedAt: input.businessAssignedAt,
+    slaKind: classifySewingDeliverySla(source)!,
+  })
+  try {
+    const auditDetail = `车缝任务改派：${source.assignedFactoryName ?? '原工厂'} → ${input.targetFactoryName}；原因：${input.reason.trim()}`
+    const newTask: RuntimeProcessTask = {
+      ...structuredClone(source),
+      taskId: newTaskId,
+      taskNo: `${source.taskNo ?? source.taskId}-改派${sequence}`,
+      scopeQty: remainingQty,
+      assignedQty: remainingQty,
+      qty: remainingQty,
+      baseQty: remainingQty,
+      assignedFactoryId: input.targetFactoryId,
+      assignedFactoryName: input.targetFactoryName,
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'ASSIGNED',
+      acceptanceStatus: 'ACCEPTED',
+      acceptedAt: input.businessAssignedAt,
+      acceptedBy: SEWING_DELIVERY_SLA_AUTO_ACCEPT_BY,
+      businessAssignedAt: input.businessAssignedAt,
+      assignmentOperatedAt: input.operatedAt,
+      dispatchedAt: input.operatedAt,
+      dispatchedBy: input.by,
+      deliverySlaSnapshotId: replacement.snapshotId,
+      taskDeadline: replacement.milestones.at(-1)?.deadlineAt,
+      auditLogs: appendRuntimeAudit(source, 'REASSIGN_IN', auditDetail, input.by),
+      executionEnabled: true,
+    }
+    runtimeReassignedTasks.set(newTaskId, newTask)
+    const oldUpdated = updateRuntimeTaskWithAudit(
+      source.taskId,
+      { executionEnabled: false },
+      'REASSIGN_OUT',
+      auditDetail,
+      input.by,
+    )
+    if (!oldUpdated) throw new Error('原任务改派状态保存失败')
+    if (!registerProductionOrderSewingFactory({
+      productionOrderId: source.productionOrderId,
+      factoryId: input.targetFactoryId,
+      factoryName: input.targetFactoryName,
+      by: input.by,
+      at: input.operatedAt,
+    })) throw new Error('新车缝承接工厂登记失败')
+
+    const activeFactoryIds = Array.from(new Set(
+      listRuntimeProcessTasks()
+        .filter((task) => task.productionOrderId === source.productionOrderId)
+        .filter((task) => task.taskId !== source.taskId && task.executionEnabled !== false)
+        .filter((task) => classifySewingDeliverySla(task) !== null && Boolean(task.assignedFactoryId))
+        .map((task) => task.assignedFactoryId!),
+    ))
+    if (!withdrawProductionOrderSewingFactory({
+      productionOrderId: source.productionOrderId,
+      factoryId: source.assignedFactoryId ?? snapshot.factoryId,
+      remainingActiveFactoryIds: activeFactoryIds,
+      mainFactoryId: input.mainFactoryId,
+      reason: input.reason,
+      by: input.by,
+      at: input.operatedAt,
+    })) throw new Error('主工厂候选需要明确选择后才能完成改派')
+    replaceSewingDeliverySlaSnapshot(source.taskId, replacement)
+    recomputeRuntimeTransitionsForOrder(source.productionOrderId)
+    return { ok: true, message: '改派成功', assignmentId, taskId: newTaskId, assignedQty: remainingQty }
+  } catch (error) {
+    restoreRuntimeDirectDispatchState(runtimeState)
+    restoreSewingDeliverySlaSnapshotStore(slaState)
+    return { ok: false, message: error instanceof Error ? error.message : '改派失败' }
   }
 }
 

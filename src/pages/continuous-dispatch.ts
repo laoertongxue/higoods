@@ -6,7 +6,8 @@ import {
   upsertRuntimeTaskTender,
   type RuntimeProcessTask,
 } from '../data/fcs/runtime-process-tasks.ts'
-import { productionOrders } from '../data/fcs/production-orders.ts'
+import { reassignRuntimeSewingTask } from '../data/fcs/runtime-sewing-reassignment.ts'
+import { productionOrders, listProductionOrderSewingFactories } from '../data/fcs/production-orders.ts'
 import { listBusinessFactoryMasterRecords } from '../data/fcs/factory-master-store.ts'
 import {
   classifySewingDeliverySla,
@@ -15,6 +16,7 @@ import {
   formatOperationLocalWallClock,
   operationWallClockToDateTimeLocal,
 } from '../data/fcs/sewing-delivery-sla.ts'
+import { sumSewingDeliveryConfirmedReceiptQty } from '../data/fcs/sewing-delivery-receipt-facts.ts'
 import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
   renderProductionOrderIdentityCell,
@@ -23,7 +25,7 @@ import { renderTablePagination } from '../components/ui/pagination.ts'
 import { escapeHtml, toClassName } from '../utils.ts'
 
 type ContinuousDispatchTab = 'SEWING_POST' | 'OTHER'
-type ContinuousDispatchDialogMode = 'DIRECT' | 'BIDDING'
+type ContinuousDispatchDialogMode = 'DIRECT' | 'BIDDING' | 'REASSIGN'
 type ContinuousDispatchMainFactoryChoice = 'CURRENT' | 'SELECTED'
 
 interface ContinuousDispatchDialogDraft {
@@ -35,6 +37,8 @@ interface ContinuousDispatchDialogDraft {
   biddingDeadline: string
   mainFactoryChoice: ContinuousDispatchMainFactoryChoice
   error: string
+  reason: string
+  mainFactoryId: string
 }
 
 export interface ContinuousDispatchState {
@@ -123,7 +127,19 @@ function openDispatchDialog(mode: ContinuousDispatchDialogMode, taskId: string):
     biddingDeadline: '',
     mainFactoryChoice: hasValidCurrentMainFactory ? 'CURRENT' : 'SELECTED',
     error: '',
+    reason: '',
+    mainFactoryId: '',
   }
+}
+
+export function openContinuousReassignmentDialog(taskId: string): boolean {
+  const task = getRuntimeTaskById(taskId)
+  if (!task || task.taskUnitType !== 'COMBINED_PROCESS_TASK' || classifySewingDeliverySla(task) === null) return false
+  const operatedAt = formatOperationLocalWallClock()
+  const currentMainFactoryId = getTaskOrder(task)?.mainFactoryId ?? ''
+  const currentStillActive = listRuntimeProcessTasks().some((candidate) => candidate.taskId !== task.taskId && candidate.productionOrderId === task.productionOrderId && candidate.executionEnabled !== false && candidate.assignedFactoryId === currentMainFactoryId && classifySewingDeliverySla(candidate) !== null)
+  state.dialog = { mode: 'REASSIGN', taskId, factoryId: '', businessAssignedAt: operationWallClockToDateTimeLocal(operatedAt), operatedAt, biddingDeadline: '', mainFactoryChoice: 'SELECTED', error: '', reason: '', mainFactoryId: currentStillActive ? currentMainFactoryId : '' }
+  return true
 }
 
 function refreshDialogHost(): void {
@@ -184,23 +200,26 @@ function renderDispatchDialog(): string {
   const factories = getAssignableFactories()
   const selectedFactory = factories.find((factory) => factory.id === dialog.factoryId)
   const direct = dialog.mode === 'DIRECT'
+  const reassign = dialog.mode === 'REASSIGN'
+  const confirmedQty = reassign ? sumSewingDeliveryConfirmedReceiptQty(task.taskId) : 0
+  const mainFactoryOptions = reassign ? [...listProductionOrderSewingFactories(task.productionOrderId).filter((factory) => factory.id !== task.assignedFactoryId), ...(selectedFactory ? [{ id: selectedFactory.id, name: selectedFactory.name, code: selectedFactory.code, tags: [] }] : [])].filter((factory, index, list) => list.findIndex((item) => item.id === factory.id) === index) : []
   return `
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <button type="button" class="absolute inset-0 bg-slate-900/40" data-skip-page-rerender="true" data-continuous-dispatch-action="close-dialog" aria-label="关闭分配弹窗"></button>
       <section class="relative z-10 max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-lg border bg-background shadow-xl">
         <header class="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div>
-            <h2 class="text-lg font-semibold">${direct ? '直接派单' : '发起竞价'}</h2>
+            <h2 class="text-lg font-semibold">${reassign ? '改派含车缝任务' : direct ? '直接派单' : '发起竞价'}</h2>
             <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}｜仅按整任务范围分配</p>
           </div>
           <button type="button" class="h-9 rounded-md border px-3 text-sm" data-skip-page-rerender="true" data-continuous-dispatch-action="close-dialog">关闭</button>
         </header>
         <div class="space-y-4 px-5 py-4">
           ${dialog.error ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(dialog.error)}</div>` : ''}
-          <div class="inline-flex rounded-md border bg-muted/20 p-1 text-sm">
+          ${reassign ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm">原工厂：${escapeHtml(task.assignedFactoryName || '未记录')}｜已确认实收 ${confirmedQty.toLocaleString()} 件｜剩余 ${Math.max(task.scopeQty - confirmedQty, 0).toLocaleString()} 件</div>` : `<div class="inline-flex rounded-md border bg-muted/20 p-1 text-sm">
             <button type="button" class="rounded px-3 py-1.5 ${direct ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}" data-skip-page-rerender="true" data-continuous-dispatch-action="switch-dialog-mode" data-mode="DIRECT">直接派单</button>
             <button type="button" class="rounded px-3 py-1.5 ${direct ? 'text-muted-foreground' : 'bg-background font-medium shadow-sm'}" data-skip-page-rerender="true" data-continuous-dispatch-action="switch-dialog-mode" data-mode="BIDDING">发起竞价</button>
-          </div>
+          </div>`}
           <div class="grid gap-3 sm:grid-cols-2">
             <label class="space-y-1 text-sm">
               <span class="text-muted-foreground">业务分配时间</span>
@@ -213,7 +232,7 @@ function renderDispatchDialog(): string {
               <div class="text-xs text-muted-foreground">连续工序任务不拆成明细</div>
             </div>
           </div>
-          ${direct ? `
+          ${direct || reassign ? `
             <label class="block space-y-1 text-sm">
               <span class="text-muted-foreground">承接工厂</span>
               <select class="h-9 w-full rounded-md border px-3" data-skip-page-rerender="true" data-continuous-dispatch-field="factoryId">
@@ -221,6 +240,8 @@ function renderDispatchDialog(): string {
                 ${factories.map((factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === dialog.factoryId ? 'selected' : ''}>${escapeHtml(factory.name)}（${escapeHtml(factory.code)}）</option>`).join('')}
               </select>
             </label>
+            ${reassign ? `<label class="block space-y-1 text-sm"><span class="text-muted-foreground">改派原因</span><input class="h-9 w-full rounded-md border px-3" value="${escapeHtml(dialog.reason)}" data-skip-page-rerender="true" data-continuous-dispatch-field="reason" /></label>` : ''}
+            ${reassign ? `<label class="block space-y-1 text-sm"><span class="text-muted-foreground">改派后主工厂</span><select class="h-9 w-full rounded-md border px-3" data-skip-page-rerender="true" data-continuous-dispatch-field="mainFactoryId"><option value="">候选超过一家时请选择</option>${mainFactoryOptions.map((factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === dialog.mainFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label>` : ''}
             ${containsSewing(task) ? `
               <div class="rounded-md border p-3 text-sm">
                 <div><span class="text-muted-foreground">当前主工厂：</span><span class="font-medium">${escapeHtml(order?.mainFactorySnapshot?.name || '待确认')}</span></div>
@@ -244,7 +265,7 @@ function renderDispatchDialog(): string {
         </div>
         <footer class="flex justify-end gap-2 border-t px-5 py-4">
           <button type="button" class="h-9 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-continuous-dispatch-action="close-dialog">取消</button>
-          <button type="button" class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-continuous-dispatch-action="confirm-dialog" data-task-id="${escapeHtml(task.taskId)}">${direct ? '确认直接派单' : '确认发起竞价'}</button>
+          <button type="button" class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-continuous-dispatch-action="confirm-dialog" data-task-id="${escapeHtml(task.taskId)}">${reassign ? '确认改派' : direct ? '确认直接派单' : '确认发起竞价'}</button>
         </footer>
       </section>
     </div>
@@ -532,6 +553,10 @@ function renderTaskTable(tasks: RuntimeProcessTask[]): string {
 }
 
 export function renderContinuousDispatchPage(): string {
+  if (!state.dialog && typeof window !== 'undefined') {
+    const query = new URLSearchParams(window.location.search)
+    if (query.get('action') === 'reassign' && query.get('taskId')) openContinuousReassignmentDialog(query.get('taskId')!)
+  }
   const allContinuousTasks = getContinuousTasks()
   const sewingPostCount = allContinuousTasks.filter(isSewingPostContinuousTask).length
   const otherCount = allContinuousTasks.filter((task) => !isSewingPostContinuousTask(task)).length
@@ -614,6 +639,8 @@ export function handleContinuousDispatchEvent(target: HTMLElement, event?: Pick<
       if (field === 'factoryId') state.dialog.factoryId = value
       if (field === 'businessAssignedAt') state.dialog.businessAssignedAt = value
       if (field === 'biddingDeadline') state.dialog.biddingDeadline = value
+      if (field === 'reason') state.dialog.reason = value
+      if (field === 'mainFactoryId') state.dialog.mainFactoryId = value
       if (field === 'mainFactoryChoice' && (value === 'CURRENT' || value === 'SELECTED')) {
         state.dialog.mainFactoryChoice = value
       }
@@ -676,10 +703,16 @@ export function handleContinuousDispatchEvent(target: HTMLElement, event?: Pick<
     const task = getDialogTask()
     if (!dialog || !task) return true
     try {
-      if (!isAssignableContinuousTask(task)) throw new Error('该连续工序任务已有分配结果，请刷新后查看')
+      if (dialog.mode !== 'REASSIGN' && !isAssignableContinuousTask(task)) throw new Error('该连续工序任务已有分配结果，请刷新后查看')
       const operatedAt = formatOperationLocalWallClock()
       const businessAssignedAt = dateTimeLocalToOperationWallClock(dialog.businessAssignedAt)
-      if (dialog.mode === 'DIRECT') {
+      if (dialog.mode === 'REASSIGN') {
+        const factory = getAssignableFactories().find((item) => item.id === dialog.factoryId)
+        if (!factory) throw new Error('请选择目标工厂')
+        const result = reassignRuntimeSewingTask({ sourceTaskId: task.taskId, targetFactoryId: factory.id, targetFactoryName: factory.name, businessAssignedAt, operatedAt, reason: dialog.reason, by: '生产计划员', mainFactoryId: dialog.mainFactoryId || undefined })
+        if (!result.ok) throw new Error(result.message)
+        state.feedback = `已改派给 ${factory.name}，剩余分配数量 ${result.assignedQty?.toLocaleString()} 件。`
+      } else if (dialog.mode === 'DIRECT') {
         const factory = getAssignableFactories().find((item) => item.id === dialog.factoryId)
         if (!factory) throw new Error('请选择承接工厂')
         const updated = applyRuntimeDirectDispatchMeta({

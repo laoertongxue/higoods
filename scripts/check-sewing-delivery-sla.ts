@@ -28,6 +28,7 @@ import {
   restoreRuntimeDirectDispatchState,
   upsertRuntimeTaskTender,
 } from '../src/data/fcs/runtime-process-tasks.ts'
+import { reassignRuntimeSewingTask } from '../src/data/fcs/runtime-sewing-reassignment.ts'
 import {
   confirmDirectDispatch,
   openDispatchDialog,
@@ -44,7 +45,7 @@ import {
   restoreContinuousDispatchPageState,
 } from '../src/pages/continuous-dispatch.ts'
 import { listBusinessFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
-import { productionOrders } from '../src/data/fcs/production-orders.ts'
+import { productionOrders, registerProductionOrderSewingFactory, selectProductionOrderMainFactory, withdrawProductionOrderSewingFactory } from '../src/data/fcs/production-orders.ts'
 import {
   getSewingDeliverySlaView,
   listSewingDeliverySlaViews,
@@ -2413,5 +2414,85 @@ assert.deepEqual(
   viewSnapshotStoreState,
   '履约视图测试结束后必须恢复快照仓，避免污染后续检查',
 )
+
+const reassignmentRuntimeState = captureRuntimeDirectDispatchState()
+const reassignmentSlaState = captureSewingDeliverySlaSnapshotStore()
+const reassignmentHandoverState = capturePdaHandoverState()
+try {
+  const sourceBase = getRuntimeTaskById('TASKGEN-202603-0015-001__ORDER')
+  assert(sourceBase, '改派测试需要固定独立车缝任务')
+  clearSewingDeliverySlaSnapshotStore(sourceBase.taskId)
+  assert(applyRuntimeDirectDispatchMeta({ taskId: sourceBase.taskId, factoryId: 'ID-F003', factoryName: '万隆车缝厂', acceptDeadline: '', taskDeadline: '2026-07-20 18:00:00', remark: '改派测试前派单', by: '跟单A', dispatchPrice: 12000, dispatchPriceCurrency: 'IDR', dispatchPriceUnit: '件', priceDiffReason: '', businessAssignedAt: '2026-07-01 08:00:00', operatedAt: '2026-07-01 10:00:00', writeBackMainFactory: false }))
+  const source = getRuntimeTaskById(sourceBase.taskId)
+  assert(source?.assignedFactoryId, '改派测试需要已派单的独立车缝任务')
+  const sourceSnapshot = getSewingDeliverySlaSnapshot(source.taskId)
+  assert(sourceSnapshot)
+  const reassignmentHeadId = `HOH-REASSIGN-${source.taskId}`
+  upsertPdaHandoverHeadMock({
+    handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, handoverOrderNo: 'HDO-REASSIGN', headType: 'HANDOUT', qrCodeValue: 'QR-REASSIGN', taskId: source.taskId, taskNo: source.taskNo || source.taskId, productionOrderNo: source.productionOrderId, processName: source.processNameZh, sourceFactoryName: source.assignedFactoryName!, sourceFactoryId: source.assignedFactoryId, targetName: '成衣仓', targetKind: 'WAREHOUSE', receiverKind: 'WAREHOUSE', receiverId: 'WH-REASSIGN', receiverName: '成衣仓', qtyUnit: '件', factoryId: source.assignedFactoryId, taskStatus: 'IN_PROGRESS', summaryStatus: 'WRITTEN_BACK', recordCount: 1, pendingWritebackCount: 0, submittedQtyTotal: 30, writtenBackQtyTotal: 30, objectionCount: 0, plannedQty: source.scopeQty, completionStatus: 'OPEN', qtyExpectedTotal: source.scopeQty, qtyActualTotal: 30, qtyDiffTotal: 30 - source.scopeQty,
+  })
+  upsertPdaHandoutRecordMock({ recordId: 'REC-REASSIGN-30', handoverRecordId: 'REC-REASSIGN-30', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 1, submittedQty: 30, plannedQty: 30, qtyUnit: '件', factorySubmittedAt: '2026-07-07 08:00:00', factorySubmittedBy: '工厂操作员', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK', receiverWrittenQty: 30, receiverWrittenAt: '2026-07-07 09:00:00', receiverWrittenBy: '仓库收货员' })
+  const beforeFuture = captureRuntimeDirectDispatchState()
+  assert.equal(reassignRuntimeSewingTask({ sourceTaskId: source.taskId, targetFactoryId: 'ID-F007', targetFactoryName: '玛琅精工车缝', businessAssignedAt: '2026-07-09 11:00:00', operatedAt: '2026-07-09 10:00:00', reason: '原工厂产能异常', by: '跟单A' }).ok, false)
+  assert.deepEqual(captureRuntimeDirectDispatchState(), beforeFuture, '未来业务分配时间被拒绝后不得改变运行时状态')
+
+  const result = reassignRuntimeSewingTask({
+    sourceTaskId: source.taskId,
+    targetFactoryId: 'ID-F007',
+    targetFactoryName: '玛琅精工车缝',
+    businessAssignedAt: '2026-07-08 09:00:00',
+    operatedAt: '2026-07-08 10:00:00',
+    reason: '原工厂产能异常',
+    by: '跟单A',
+    mainFactoryId: 'ID-F007',
+  })
+  assert.equal(result.ok, true, result.message)
+  assert.equal(result.assignedQty, sourceSnapshot.assignedQty - 30, '改派数量只扣减接收方已确认实收')
+  assert(result.taskId && result.assignmentId)
+  assert.equal(getSewingDeliverySlaSnapshot(source.taskId), null, '旧任务不再保有 active 快照')
+  const oldHistory = listSewingDeliverySlaSnapshotHistory(source.taskId)
+  assert.equal(oldHistory.at(-1)?.active, false)
+  assert.equal(oldHistory.at(-1)?.replacedByAssignmentId, result.assignmentId)
+  const replacement = getSewingDeliverySlaSnapshot(result.taskId)
+  assert.equal(replacement?.acceptedAt, '2026-07-08 09:00:00', '直接改派按业务分配时间自动接单并重启时钟')
+  assert.equal(replacement?.assignedQty, result.assignedQty)
+  assert.equal(getRuntimeTaskById(source.taskId)?.executionEnabled, false, '旧任务保留历史但退出有效执行')
+  assert.equal(getRuntimeTaskById(result.taskId)?.assignedFactoryId, 'ID-F007')
+  assert.equal(reassignRuntimeSewingTask({ sourceTaskId: source.taskId, targetFactoryId: 'ID-F007', targetFactoryName: '玛琅精工车缝', businessAssignedAt: '2026-07-08 09:00:00', operatedAt: '2026-07-08 10:00:00', reason: '重复', by: '跟单A' }).ok, false, '旧任务不得重复改派')
+} finally {
+  try { restorePdaHandoverState(reassignmentHandoverState) } finally {
+    restoreRuntimeDirectDispatchState(reassignmentRuntimeState)
+    restoreSewingDeliverySlaSnapshotStore(reassignmentSlaState)
+  }
+}
+
+const progressExceptionEventsSource = readFileSync('src/pages/progress-exceptions/events.ts', 'utf8')
+assert.match(progressExceptionEventsSource, /task\?\.taskUnitType === 'COMBINED_PROCESS_TASK'/, '异常页应按任务单元类型分流连续/独立改派入口')
+assert.match(progressExceptionEventsSource, /\/fcs\/dispatch\/continuous\?taskId=/, '连续任务异常应跳转连续工序分配页')
+assert.match(progressExceptionEventsSource, /action=reassign/, '异常页改派链接应携带明确动作')
+const continuousReassignmentSource = readFileSync('src/pages/continuous-dispatch.ts', 'utf8')
+assert.match(continuousReassignmentSource, /openContinuousReassignmentDialog/, '连续工序页应读取查询并自动打开改派弹窗')
+assert.match(continuousReassignmentSource, /reassignRuntimeSewingTask\(/, '连续工序页确认改派必须调用真实运行时领域函数')
+assert.match(continuousReassignmentSource, /mainFactoryId: dialog\.mainFactoryId \|\| undefined/, '连续工序改派 handler 必须提交页面选择的主工厂')
+const sewingWorkbenchReassignmentSource = readFileSync('src/pages/sewing-dispatch-workbench.ts', 'utf8')
+assert.match(sewingWorkbenchReassignmentSource, /query\.get\('action'\) === 'reassign'/, '独立车缝工作台应读取查询并自动打开改派弹窗')
+assert.match(sewingWorkbenchReassignmentSource, /reassignRuntimeSewingTask\(/, '独立车缝工作台确认改派必须调用统一编排函数')
+assert.match(sewingWorkbenchReassignmentSource, /mainFactoryId: state\.reassignMainFactoryId \|\| undefined/, '独立车缝改派 handler 必须提交页面选择的主工厂')
+
+const mainFactoryRuntimeState = captureRuntimeDirectDispatchState()
+try {
+  const orderId = getRuntimeTaskById('TASKGEN-202603-0015-001__ORDER')!.productionOrderId
+  for (const [factoryId, factoryName] of [['ID-F003', '万隆车缝厂'], ['ID-F007', '玛琅精工车缝'], ['ID-F024', '三宝垄微型车缝厂']] as const) {
+    assert(registerProductionOrderSewingFactory({ productionOrderId: orderId, factoryId, factoryName, by: '测试员', at: '2026-07-08 10:00:00' }))
+  }
+  assert(selectProductionOrderMainFactory({ productionOrderId: orderId, factoryId: 'ID-F003', reason: '改派前主工厂', by: '测试员', at: '2026-07-08 10:00:00' }))
+  const beforeMultiMissing = structuredClone(productionOrders.find((order) => order.productionOrderId === orderId))
+  assert.equal(withdrawProductionOrderSewingFactory({ productionOrderId: orderId, factoryId: 'ID-F003', remainingActiveFactoryIds: ['ID-F007', 'ID-F024'], reason: '产能异常', by: '测试员', at: '2026-07-08 11:00:00' }), null, '原主工厂失效且仍有多候选时必须显式选择')
+  assert.deepEqual(productionOrders.find((order) => order.productionOrderId === orderId), beforeMultiMissing, '多候选未选择时不得产生半状态')
+  assert.equal(withdrawProductionOrderSewingFactory({ productionOrderId: orderId, factoryId: 'ID-F003', remainingActiveFactoryIds: ['ID-F007'], reason: '产能异常', by: '测试员', at: '2026-07-08 11:00:00' })?.mainFactoryId, 'ID-F007', '仅剩一家候选时应自动切换主工厂')
+  assert.equal(withdrawProductionOrderSewingFactory({ productionOrderId: orderId, factoryId: 'ID-F007', remainingActiveFactoryIds: [], reason: '再次改派', by: '测试员', at: '2026-07-08 12:00:00' })?.mainFactoryStatus, 'PENDING_SEWING_ASSIGNMENT', '没有候选时主工厂应回到待确认')
+} finally {
+  restoreRuntimeDirectDispatchState(mainFactoryRuntimeState)
+}
 
 console.log('含车缝任务交付与回货时效规则检查通过')

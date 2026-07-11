@@ -15,7 +15,10 @@ import {
   getCutPieceReleaseSummaryForProductionOrder,
   type CutPieceReleaseSummary,
 } from '../data/fcs/cut-piece-release.ts'
-import { getRuntimeTaskById } from '../data/fcs/runtime-process-tasks.ts'
+import { formatOperationLocalWallClock, operationWallClockToDateTimeLocal, dateTimeLocalToOperationWallClock } from '../data/fcs/sewing-delivery-sla.ts'
+import { sumSewingDeliveryConfirmedReceiptQty } from '../data/fcs/sewing-delivery-receipt-facts.ts'
+import { reassignRuntimeSewingTask } from '../data/fcs/runtime-sewing-reassignment.ts'
+import { getRuntimeTaskById, listRuntimeProcessTasks } from '../data/fcs/runtime-process-tasks.ts'
 import {
   describeDispatchAcceptanceSlaResolution,
   formatDispatchAcceptanceTimeout,
@@ -24,6 +27,8 @@ import {
 } from '../data/fcs/dispatch-acceptance-sla.ts'
 import {
   confirmProductionOrderMainFactoryFromSewingTask,
+  listProductionOrderSewingFactories,
+  productionOrders,
 } from '../data/fcs/production-orders.ts'
 import {
   getMaterialPrepDispatchReadinessForTask,
@@ -57,6 +62,14 @@ interface SewingDispatchWorkbenchState {
   dispatchQtyByRowId: Record<string, string>
   dispatchError: string
   feedbackMessage: string
+  reassignTaskId: string | null
+  reassignFactoryId: string
+  reassignBusinessAssignedAt: string
+  reassignOperatedAt: string
+  reassignReason: string
+  reassignError: string
+  reassignQueryHandled: boolean
+  reassignMainFactoryId: string
 }
 
 const state: SewingDispatchWorkbenchState = {
@@ -75,6 +88,24 @@ const state: SewingDispatchWorkbenchState = {
   dispatchQtyByRowId: {},
   dispatchError: '',
   feedbackMessage: '',
+  reassignTaskId: null,
+  reassignFactoryId: '',
+  reassignBusinessAssignedAt: '',
+  reassignOperatedAt: '',
+  reassignReason: '',
+  reassignError: '',
+  reassignQueryHandled: false,
+  reassignMainFactoryId: '',
+}
+
+function renderReassignmentDialog(): string {
+  const task = state.reassignTaskId ? getRuntimeTaskById(state.reassignTaskId) : null
+  if (!task) return ''
+  const factories = listSewingFactoryOptions().filter((factory) => factory.id !== task.assignedFactoryId)
+  const confirmed = sumSewingDeliveryConfirmedReceiptQty(task.taskId)
+  const selectedFactory = factories.find((factory) => factory.id === state.reassignFactoryId)
+  const mainFactoryOptions = [...listProductionOrderSewingFactories(task.productionOrderId).filter((factory) => factory.id !== task.assignedFactoryId), ...(selectedFactory ? [{ id: selectedFactory.id, name: selectedFactory.name }] : [])].filter((factory, index, list) => list.findIndex((item) => item.id === factory.id) === index)
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true"><button class="absolute inset-0 bg-slate-900/40" data-sewing-dispatch-action="close-reassign" aria-label="关闭改派弹窗"></button><section class="relative z-10 w-full max-w-xl rounded-lg border bg-background shadow-xl"><header class="border-b px-5 py-4"><h2 class="text-lg font-semibold">改派独立车缝任务</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</p></header><div class="space-y-3 px-5 py-4">${state.reassignError ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(state.reassignError)}</div>` : ''}<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm">原工厂：${escapeHtml(task.assignedFactoryName || '未记录')}｜已确认实收 ${formatQty(confirmed)} 件｜剩余 ${formatQty(Math.max(task.scopeQty - confirmed, 0))} 件</div><label class="block text-sm">目标工厂<select class="mt-1 h-9 w-full rounded-md border px-3" data-sewing-dispatch-field="reassignFactoryId"><option value="">请选择目标工厂</option>${factories.map((factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === state.reassignFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label><label class="block text-sm">业务分配时间<input type="datetime-local" class="mt-1 h-9 w-full rounded-md border px-3" value="${escapeHtml(state.reassignBusinessAssignedAt)}" data-sewing-dispatch-field="reassignBusinessAssignedAt" /></label><label class="block text-sm">改派原因<input class="mt-1 h-9 w-full rounded-md border px-3" value="${escapeHtml(state.reassignReason)}" data-sewing-dispatch-field="reassignReason" /></label><label class="block text-sm">改派后主工厂<select class="mt-1 h-9 w-full rounded-md border px-3" data-sewing-dispatch-field="reassignMainFactoryId"><option value="">候选超过一家时请选择</option>${mainFactoryOptions.map((factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === state.reassignMainFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label></div><footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="h-9 rounded-md border px-4 text-sm" data-sewing-dispatch-action="close-reassign">取消</button><button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white" data-sewing-dispatch-action="confirm-reassign">确认改派</button></footer></section></div>`
 }
 
 const kitBadgeClass: Record<SewingDispatchKitStatus, string> = {
@@ -1114,6 +1145,20 @@ function renderDrafts(): string {
 }
 
 export function renderSewingDispatchWorkbenchPage(): string {
+  if (!state.reassignQueryHandled && typeof window !== 'undefined') {
+    state.reassignQueryHandled = true
+    const query = new URLSearchParams(window.location.search)
+    const taskId = query.get('action') === 'reassign' ? query.get('taskId') : null
+    if (taskId && getRuntimeTaskById(taskId)) {
+      const operatedAt = formatOperationLocalWallClock()
+      state.reassignTaskId = taskId
+      state.reassignOperatedAt = operatedAt
+      state.reassignBusinessAssignedAt = operationWallClockToDateTimeLocal(operatedAt)
+      const order = productionOrders.find((item) => item.productionOrderId === getRuntimeTaskById(taskId)?.productionOrderId)
+      const currentStillActive = getRuntimeTaskById(taskId) && listRuntimeProcessTasks().some((candidate) => candidate.taskId !== taskId && candidate.productionOrderId === order?.productionOrderId && candidate.executionEnabled !== false && candidate.assignedFactoryId === order?.mainFactoryId)
+      state.reassignMainFactoryId = currentStillActive ? order?.mainFactoryId ?? '' : ''
+    }
+  }
   const tasks = getFilteredTasks()
   const summary = summarizeSewingDispatchWorkbench(tasks)
   const detailTask = tasks.find((task) => task.taskId === state.detailTaskId)
@@ -1142,6 +1187,7 @@ export function renderSewingDispatchWorkbenchPage(): string {
       ${renderDrafts()}
       ${renderDetailDrawer(detailTask)}
       ${renderDispatchDialog(tasks)}
+      ${renderReassignmentDialog()}
     </div>
   `
 }
@@ -1173,6 +1219,10 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
     state.page = 1
     return
   }
+  if (field === 'reassignFactoryId') state.reassignFactoryId = node.value
+  if (field === 'reassignBusinessAssignedAt') state.reassignBusinessAssignedAt = node.value
+  if (field === 'reassignReason') state.reassignReason = node.value
+  if (field === 'reassignMainFactoryId') state.reassignMainFactoryId = node.value
   if (field === 'selectTask' && node instanceof HTMLInputElement) {
     const taskId = node.dataset.taskId
     if (!taskId) return
@@ -1275,6 +1325,22 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement): boolean
     state.dispatchOpen = false
     return true
   }
+  if (action === 'close-reassign') {
+    state.reassignTaskId = null
+    return true
+  }
+  if (action === 'confirm-reassign') {
+    const task = state.reassignTaskId ? getRuntimeTaskById(state.reassignTaskId) : null
+    const factory = listSewingFactoryOptions().find((item) => item.id === state.reassignFactoryId)
+    if (!task || !factory) { state.reassignError = '请选择目标工厂'; return true }
+    try {
+      const result = reassignRuntimeSewingTask({ sourceTaskId: task.taskId, targetFactoryId: factory.id, targetFactoryName: factory.name, businessAssignedAt: dateTimeLocalToOperationWallClock(state.reassignBusinessAssignedAt), operatedAt: state.reassignOperatedAt, reason: state.reassignReason, by: '跟单A', mainFactoryId: state.reassignMainFactoryId || undefined })
+      if (!result.ok) throw new Error(result.message)
+      state.feedbackMessage = `已改派给 ${factory.name}，剩余分配数量 ${formatQty(result.assignedQty || 0)} 件。`
+      state.reassignTaskId = null
+    } catch (error) { state.reassignError = error instanceof Error ? error.message : '改派失败' }
+    return true
+  }
   if (action === 'confirm-dispatch') {
     const factories = listSewingFactoryOptions()
     const factory = factories.find((item) => item.id === state.dispatchFactoryId)
@@ -1324,5 +1390,5 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement): boolean
 }
 
 export function isSewingDispatchWorkbenchDialogOpen(): boolean {
-  return state.detailTaskId !== null || state.dispatchOpen
+  return state.detailTaskId !== null || state.dispatchOpen || state.reassignTaskId !== null
 }

@@ -3,7 +3,6 @@ import {
   formatOperationLocalWallClock,
   getSewingDeliverySlaSnapshot,
   projectSewingDeliverySla,
-  type SewingDeliveryReceiptFact,
   type SewingDeliverySlaProjection,
   type SewingDeliverySlaSnapshot,
 } from './sewing-delivery-sla.ts'
@@ -14,6 +13,7 @@ import {
   listPdaHandoverHeads,
   type PdaHandoverRecord,
 } from './pda-handover-events.ts'
+import { listSewingDeliveryReceiptFacts } from './sewing-delivery-receipt-facts.ts'
 
 export interface SewingDeliverySlaView {
   readonly runtimeTaskId: string
@@ -35,20 +35,6 @@ function listTaskHandoutRecords(runtimeTaskId: string): PdaHandoverRecord[] {
     .flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId))
 }
 
-function toReceiptFact(record: PdaHandoverRecord): SewingDeliveryReceiptFact | null {
-  const submittedQty = validNonNegativeQty(record.submittedQty ?? record.plannedQty)
-  const receivedQty = validNonNegativeQty(record.receiverWrittenQty)
-  if (submittedQty === null || receivedQty === null || !record.receiverWrittenAt) return null
-  return {
-    recordId: record.handoverRecordId || record.recordId,
-    submittedQty,
-    submittedAt: record.factorySubmittedAt,
-    receivedQty,
-    receivedAt: record.receiverWrittenAt,
-    voided: isVoided(record),
-  }
-}
-
 function buildView(
   runtimeTaskId: string,
   snapshot: SewingDeliverySlaSnapshot,
@@ -59,9 +45,7 @@ function buildView(
     if (isVoided(record)) return sum
     return sum + (validNonNegativeQty(record.submittedQty ?? record.plannedQty) ?? 0)
   }, 0)
-  const receipts = records
-    .map(toReceiptFact)
-    .filter((receipt): receipt is SewingDeliveryReceiptFact => receipt !== null)
+  const receipts = listSewingDeliveryReceiptFacts(runtimeTaskId)
   const projection = projectSewingDeliverySla(snapshot, receipts, nowAt)
 
   return Object.freeze({
@@ -82,6 +66,7 @@ export function getSewingDeliverySlaView(
   if (!snapshot?.active || slaKind === null || snapshot.slaKind !== slaKind) return null
   return buildView(runtimeTaskId, snapshot, listTaskHandoutRecords(runtimeTaskId), nowAt)
 }
+
 
 export function listSewingDeliverySlaViews(
   nowAt: string = formatOperationLocalWallClock(),

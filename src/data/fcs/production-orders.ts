@@ -700,6 +700,54 @@ export function selectProductionOrderMainFactory(input: {
   return order
 }
 
+export function withdrawProductionOrderSewingFactory(input: {
+  productionOrderId: string
+  factoryId: string
+  remainingActiveFactoryIds: string[]
+  mainFactoryId?: string
+  reason: string
+  by: string
+  at: string
+}): ProductionOrder | null {
+  const order = productionOrders.find((item) => item.productionOrderId === input.productionOrderId)
+  if (!order || !input.reason.trim() || !input.by.trim()) return null
+  const activeIds = new Set(input.remainingActiveFactoryIds)
+  const nextSnapshots = getProductionOrderSewingFactorySnapshots(order)
+    .filter((factory) => activeIds.has(factory.id))
+  const candidates = nextSnapshots
+  const retainedMain = candidates.find((factory) => factory.id === order.mainFactoryId)
+  if (!retainedMain && candidates.length > 1 && !input.mainFactoryId) return null
+  const explicitlySelected = input.mainFactoryId
+    ? candidates.find((factory) => factory.id === input.mainFactoryId)
+    : undefined
+  if (input.mainFactoryId && !explicitlySelected) return null
+  const selected = explicitlySelected
+    ?? retainedMain
+    ?? (candidates.length === 1 ? candidates[0] : undefined)
+  order.sewingFactorySnapshots = nextSnapshots
+  if (selected) {
+    order.mainFactoryId = selected.id
+    order.mainFactorySnapshot = { ...selected, tags: [...selected.tags] }
+    order.mainFactoryStatus = 'CONFIRMED'
+    order.ownerPartyType = 'FACTORY'
+    order.ownerPartyId = selected.id
+  } else {
+    order.mainFactoryId = ''
+    order.mainFactorySnapshot = createPendingMainFactorySnapshot()
+    order.mainFactoryStatus = 'PENDING_SEWING_ASSIGNMENT'
+    order.ownerPartyId = ''
+  }
+  order.updatedAt = input.at
+  order.auditLogs.push(createAuditLog(
+    `LOG-SEWING-REASSIGN-${order.productionOrderId}-${order.auditLogs.length + 1}`,
+    'SEWING_FACTORY_WITHDRAWN',
+    `改派撤回原车缝工厂 ${input.factoryId}。原因：${input.reason.trim()}`,
+    input.at,
+    input.by,
+  ))
+  return order
+}
+
 export function confirmProductionOrderMainFactoryFromSewingTask(input: {
   productionOrderId: string
   factoryId: string
