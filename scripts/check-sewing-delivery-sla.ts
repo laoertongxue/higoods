@@ -2777,15 +2777,34 @@ try {
   const futureRow = listSewingDispatchWorkbenchRows().find((row) => row.completeKitQty > 0)
   assert(futureRow)
   const stateBeforeFutureHandler = captureRuntimeDirectDispatchState()
+  const slaBeforeFutureHandler = captureSewingDeliverySlaSnapshotStore()
+  const draftsBeforeFutureHandler = listSewingDispatchWorkbenchDrafts()
+  const businessAuditLogs = (runtimeState: ReturnType<typeof captureRuntimeDirectDispatchState>) => [
+    ...runtimeState.taskOverrides.flatMap(([taskId, override]) => (override.auditLogs ?? []).map((log) => [taskId, log.id, log.action, log.detail, log.at, log.by])),
+    ...runtimeState.reassignedTasks.flatMap(([taskId, task]) => task.auditLogs.map((log) => [taskId, log.id, log.action, log.detail, log.at, log.by])),
+  ]
+  const assertBusinessStateUnchanged = (before: ReturnType<typeof captureRuntimeDirectDispatchState>, message: string) => {
+    const after = captureRuntimeDirectDispatchState()
+    // 只读 base task 构建会消耗既有 auditSeq；业务原子性按可持久化状态与实际审计日志判断。
+    assert.deepEqual(after.taskOverrides, before.taskOverrides, `${message}：taskOverrides`)
+    assert.deepEqual(after.splitPlans, before.splitPlans, `${message}：splitPlans`)
+    assert.deepEqual(after.productionOrders, before.productionOrders, `${message}：productionOrders`)
+    assert.deepEqual(after.reassignedTasks, before.reassignedTasks, `${message}：reassignedTasks`)
+    assert.deepEqual(businessAuditLogs(after), businessAuditLogs(before), `${message}：不得新增业务审计日志`)
+  }
   restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([futureRow.taskId]), dispatchSelectedRowIds: new Set([futureRow.rowId]), dispatchOpen: true, dispatchActionType: '直接派单', dispatchFactoryId: directFactory.id, dispatchRiskConfirmed: true, dispatchQtyByRowId: { [futureRow.rowId]: '1' }, dispatchBusinessAssignedAt: '2026-07-10T11:00', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
   assert.equal(handleSewingDispatchWorkbenchEvent(workbenchActionTarget('confirm-dispatch')), true)
   assert.match(captureSewingDispatchWorkbenchPageState().dispatchError, /业务分配时间不能晚于当前操作时间/)
-  assert.deepEqual(captureRuntimeDirectDispatchState(), stateBeforeFutureHandler, '未来业务分配时间被 handler 阻断后不得改变 runtime/production 状态')
+  assertBusinessStateUnchanged(stateBeforeFutureHandler, '未来业务分配时间被 handler 阻断后不得改变业务状态')
+  assert.deepEqual(captureSewingDeliverySlaSnapshotStore(), slaBeforeFutureHandler, '未来业务分配时间不得改变SLA快照/复核状态')
+  assert.deepEqual(listSewingDispatchWorkbenchDrafts(), draftsBeforeFutureHandler, '未来业务分配时间不得新增或修改draft')
   const draftCountBeforeInvalidTime = listSewingDispatchWorkbenchDrafts().length
   restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([futureRow.taskId]), dispatchSelectedRowIds: new Set([futureRow.rowId]), dispatchOpen: true, dispatchActionType: '直接派单', dispatchFactoryId: directFactory.id, dispatchRiskConfirmed: true, dispatchQtyByRowId: { [futureRow.rowId]: '1' }, dispatchBusinessAssignedAt: '', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
   assert.equal(handleSewingDispatchWorkbenchEvent(workbenchActionTarget('confirm-dispatch')), true)
   assert.match(captureSewingDispatchWorkbenchPageState().dispatchError, /业务分配时间/)
-  assert.deepEqual(captureRuntimeDirectDispatchState(), stateBeforeFutureHandler, '空业务时间不得改变 runtime/production 状态')
+  assertBusinessStateUnchanged(stateBeforeFutureHandler, '空业务时间不得改变业务状态')
+  assert.deepEqual(captureSewingDeliverySlaSnapshotStore(), slaBeforeFutureHandler, '空业务时间不得改变SLA快照/复核状态')
+  assert.deepEqual(listSewingDispatchWorkbenchDrafts(), draftsBeforeFutureHandler, '空业务时间不得新增或修改draft')
   assert.equal(listSewingDispatchWorkbenchDrafts().length, draftCountBeforeInvalidTime, '空业务时间不得新增 draft')
 } finally {
   Object.defineProperty(globalThis, 'HTMLInputElement', { configurable: true, writable: true, value: workbenchOriginalHtmlInputElement })
