@@ -12,8 +12,13 @@ type NormalizableRouteEntry = RouteEntryBase & {
   stageCode: string
   processCode: string
   routeParallelGroupId?: string
+  routeParallelGroupName?: string
   routeParallelAcceptanceMode?: RouteParallelAcceptanceMode
+  linkedBomItemIds?: string[]
 }
+
+type IndexedRouteEntry<T> = { entry: T; index: number }
+type RouteEntryGroup<T> = { items: Array<IndexedRouteEntry<T>>; forceIndependent?: boolean }
 
 const STAGE_SORT: Record<string, number> = {
   PREP: 1,
@@ -81,43 +86,76 @@ export function normalizeProcessRouteEntries<T extends NormalizableRouteEntry>(e
     .map((entry, index) => ({ entry, index }))
     .sort((left, right) => compareRouteBase(left.entry, right.entry) || left.index - right.index)
 
-  const stepKeyByIndex = new Map<number, number | string>()
-  let normalizedStepNo = 0
+  const initialGroups: Array<Array<IndexedRouteEntry<T>>> = []
   let previousStepKey: number | string | null = null
-
   for (const item of sorted) {
     const stepKey = isPositiveStepNo(item.entry.routeStepNo) ? item.entry.routeStepNo : `missing-${item.index}`
     if (stepKey !== previousStepKey) {
-      normalizedStepNo += 1
+      initialGroups.push([])
       previousStepKey = stepKey
     }
-    stepKeyByIndex.set(item.index, normalizedStepNo)
+    initialGroups[initialGroups.length - 1].push(item)
   }
 
-  const groups = new Map<number, Array<{ entry: T; index: number }>>()
-  for (const item of sorted) {
-    const stepNo = stepKeyByIndex.get(item.index) as number
-    groups.set(stepNo, [...(groups.get(stepNo) ?? []), item])
+  const sharesBomItem = (left: T, right: T): boolean => {
+    const rightIds = new Set((right.linkedBomItemIds ?? []).filter(Boolean))
+    return rightIds.size > 0 && (left.linkedBomItemIds ?? []).some((id) => Boolean(id) && rightIds.has(id))
   }
 
-  return sorted.map((item) => {
-    const stepNo = stepKeyByIndex.get(item.index) as number
-    const stepEntries = groups.get(stepNo) ?? []
-    const laneNo = stepEntries.findIndex((stepItem) => stepItem.index === item.index) + 1
+  const groups: Array<RouteEntryGroup<T>> = initialGroups.map((items) => ({ items: [...items] }))
+  let changed = true
+  while (changed) {
+    changed = false
+    const dyeGroupIndex = groups.findIndex((group) => group.items.some((item) => item.entry.processCode === 'DYE'))
+    if (dyeGroupIndex < 0) break
+    const dyeEntries = groups[dyeGroupIndex].items.filter((item) => item.entry.processCode === 'DYE')
+    const waterGroupIndex = groups.findIndex((group) => group.items.some(
+      (item) => item.entry.processCode === 'WATER_SOLUBLE' && dyeEntries.some((dye) => sharesBomItem(item.entry, dye.entry)),
+    ))
+    if (waterGroupIndex < 0 || waterGroupIndex < dyeGroupIndex) break
+
+    if (waterGroupIndex > dyeGroupIndex) {
+      const [waterGroup] = groups.splice(waterGroupIndex, 1)
+      groups.splice(dyeGroupIndex, 0, waterGroup)
+      changed = true
+      continue
+    }
+
+    const sharedWaterEntries = groups[dyeGroupIndex].items.filter(
+      (item) => item.entry.processCode === 'WATER_SOLUBLE' && dyeEntries.some((dye) => sharesBomItem(item.entry, dye.entry)),
+    )
+    if (sharedWaterEntries.length === 0) break
+    const sharedWaterIndexes = new Set(sharedWaterEntries.map((item) => item.index))
+    const remainingGroup = groups[dyeGroupIndex].items.filter((item) => !sharedWaterIndexes.has(item.index))
+    groups.splice(
+      dyeGroupIndex,
+      1,
+      { items: sharedWaterEntries, forceIndependent: true },
+      { items: remainingGroup },
+    )
+    changed = true
+  }
+
+  return groups.flatMap((group, groupIndex) => {
+    const stepEntries = group.items
+    const stepNo = groupIndex + 1
     const isParallel = stepEntries.length > 1
-    const fallbackGroupId = isParallel
-      ? stepEntries.find((stepItem) => stepItem.entry.routeParallelGroupId)?.entry.routeParallelGroupId ?? `route-step-${stepNo}`
-      : undefined
+    const existingGroupId = stepEntries.find((stepItem) => stepItem.entry.routeParallelGroupId)?.entry.routeParallelGroupId
+    const groupId = group.forceIndependent ? undefined : existingGroupId ?? (isParallel ? `route-step-${stepNo}` : undefined)
+    const existingGroupName = stepEntries.find((stepItem) => stepItem.entry.routeParallelGroupName)?.entry.routeParallelGroupName
 
-    return {
+    return stepEntries.map((item, laneIndex) => ({
       ...item.entry,
       routeStepNo: stepNo,
-      routeLaneNo: laneNo,
-      routeParallelGroupId: item.entry.routeParallelGroupId ?? fallbackGroupId,
-      routeParallelAcceptanceMode: item.entry.routeParallelGroupId || fallbackGroupId
-        ? item.entry.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY'
-        : item.entry.routeParallelAcceptanceMode,
-    } as T
+      routeLaneNo: laneIndex + 1,
+      routeParallelGroupId: groupId,
+      routeParallelGroupName: group.forceIndependent ? undefined : existingGroupName,
+      routeParallelAcceptanceMode: group.forceIndependent
+        ? 'INDEPENDENT_ONLY'
+        : groupId
+          ? item.entry.routeParallelAcceptanceMode ?? 'INDEPENDENT_ONLY'
+          : item.entry.routeParallelAcceptanceMode,
+    } as T))
   })
 }
 

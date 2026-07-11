@@ -447,7 +447,9 @@ function buildUnconfirmedRouteDraft(
   const techniques = normalizeTechniqueRoutes(flattenTechniqueRouteGroups(groups, operatorName, updatedAt))
   const waterSoluble = techniques.find((item) => item.processCode === 'WATER_SOLUBLE')
   const dye = techniques.find((item) => item.processCode === 'DYE')
-  if (waterSoluble && dye && waterSoluble.routeStepNo >= dye.routeStepNo) {
+  const dyeBomItemIds = new Set(dye?.linkedBomItemIds ?? [])
+  const sharesBomItem = (waterSoluble?.linkedBomItemIds ?? []).some((id) => dyeBomItemIds.has(id))
+  if (waterSoluble && dye && sharesBomItem && waterSoluble.routeStepNo >= dye.routeStepNo) {
     return normalizeRouteDraft(input)
   }
   return {

@@ -2,6 +2,7 @@ import type {
   TechnicalBomItem,
   TechnicalProcessEntry,
 } from '../src/data/pcs-technical-data-version-types.ts'
+import type { TechPackProcessEntry } from '../src/data/fcs/tech-packs.ts'
 
 const technicalBomContract: TechnicalBomItem = {
   id: 'BOM-WATER-SOLUBLE-TYPE-CHECK',
@@ -25,5 +26,15 @@ const technicalProcessContract: Pick<
   targetObjectName: 'BOM物料',
 }
 
+const legacyProcessContract: Pick<
+  TechPackProcessEntry,
+  'triggerField' | 'targetObject' | 'targetObjectName'
+> = {
+  triggerField: 'waterSolubleRequirement',
+  targetObject: 'BOM_MATERIAL',
+  targetObjectName: 'BOM物料',
+}
+
 void technicalBomContract
 void technicalProcessContract
+void legacyProcessContract
