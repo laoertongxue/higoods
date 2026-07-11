@@ -26,12 +26,20 @@ import {
 } from './dyeing-task-domain.ts'
 import type { PdaHandoverRecord } from './pda-handover-events.ts'
 import {
+  getWaterSolubleWorkOrderById,
+  listWaterSolubleWorkOrders,
+  WATER_SOLUBLE_STATUS_LABEL,
+  type WaterSolubleActionLog,
+  type WaterSolubleWorkOrder,
+  type WaterSolubleWorkOrderStatus,
+} from './water-soluble-task-domain.ts'
+import {
   getProcessObjectType,
   getQuantityLabel,
 } from './process-quantity-labels.ts'
 
-export type ProcessWorkOrderType = 'PRINT' | 'DYE'
-export type ProcessWorkOrderStatus = PrintWorkOrderStatus | DyeWorkOrderStatus
+export type ProcessWorkOrderType = 'PRINT' | 'DYE' | 'WATER_SOLUBLE'
+export type ProcessWorkOrderStatus = PrintWorkOrderStatus | DyeWorkOrderStatus | WaterSolubleWorkOrderStatus
 
 export interface ProcessWorkOrder {
   workOrderId: string
@@ -93,11 +101,74 @@ export interface ProcessWorkOrder {
     formulaRecords: DyeFormulaRecord[]
     remark?: string
   }
+  waterSolublePayload?: {
+    waterOrderId: string
+    waterOrderNo: string
+    productionOrderNo: string
+    sourceArtifactId: string
+    techPackVersionId: string
+    bomItemId: string
+    materialSpec: string
+    completedQty: number
+    qtyUnit: string
+    exceptionReason?: string
+    actionLogs: WaterSolubleActionLog[]
+  }
   executionNodes: Array<PrintExecutionNodeRecord | DyeExecutionNodeRecord>
   reviewRecords: Array<PrintReviewRecord | DyeReviewRecord>
   handoverRecords: PdaHandoverRecord[]
   createdAt: string
   updatedAt: string
+}
+
+function mapWaterSolubleWorkOrder(order: WaterSolubleWorkOrder): ProcessWorkOrder {
+  return {
+    workOrderId: order.waterOrderId,
+    workOrderNo: order.waterOrderNo,
+    processType: 'WATER_SOLUBLE',
+    sourceDemandIds: [...order.sourceDemandIds],
+    sourceArtifactIds: [order.sourceArtifactId],
+    productionOrderIds: [order.productionOrderId],
+    factoryId: order.factoryId || '',
+    factoryName: order.factoryName || '待分配染厂',
+    objectType: 'BOM 物料',
+    qtyLabel: '计划数量',
+    plannedQty: order.plannedQty,
+    plannedUnit: order.qtyUnit,
+    assignmentMode: '派单',
+    assignmentModeEditable: false,
+    dispatchPrice: 0,
+    dispatchPriceCurrency: 'IDR',
+    dispatchPriceUnit: 'Yard',
+    dispatchPriceDisplay: '待维护',
+    materialSku: order.materialCode,
+    materialName: order.materialName,
+    materialBatchNos: [],
+    status: order.status,
+    statusLabel: WATER_SOLUBLE_STATUS_LABEL[order.status],
+    taskId: order.taskId,
+    taskNo: order.taskNo,
+    taskQrValue: order.taskQrValue,
+    handoverOrderId: order.handoverOrderId,
+    waterSolublePayload: {
+      waterOrderId: order.waterOrderId,
+      waterOrderNo: order.waterOrderNo,
+      productionOrderNo: order.productionOrderNo,
+      sourceArtifactId: order.sourceArtifactId,
+      techPackVersionId: order.techPackVersionId,
+      bomItemId: order.bomItemId,
+      materialSpec: order.materialSpec,
+      completedQty: order.completedQty,
+      qtyUnit: order.qtyUnit,
+      exceptionReason: order.exceptionReason,
+      actionLogs: order.actionLogs.map((log) => ({ ...log })),
+    },
+    executionNodes: [],
+    reviewRecords: [],
+    handoverRecords: [],
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+  }
 }
 
 function cloneHandoverRecords(records: PdaHandoverRecord[]): PdaHandoverRecord[] {
@@ -232,9 +303,13 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
 }
 
 export function listProcessWorkOrders(processType?: ProcessWorkOrderType): ProcessWorkOrder[] {
-  const printOrders = processType === 'DYE' ? [] : listPrintWorkOrders().map(mapPrintWorkOrder)
-  const dyeOrders = processType === 'PRINT' ? [] : listDyeWorkOrders().map(mapDyeWorkOrder)
-  return [...printOrders, ...dyeOrders].sort((left, right) => left.workOrderNo.localeCompare(right.workOrderNo))
+  const printOrders = processType && processType !== 'PRINT' ? [] : listPrintWorkOrders().map(mapPrintWorkOrder)
+  const dyeOrders = processType && processType !== 'DYE' ? [] : listDyeWorkOrders().map(mapDyeWorkOrder)
+  const waterSolubleOrders = processType && processType !== 'WATER_SOLUBLE'
+    ? []
+    : listWaterSolubleWorkOrders().map(mapWaterSolubleWorkOrder)
+  return [...printOrders, ...dyeOrders, ...waterSolubleOrders]
+    .sort((left, right) => left.workOrderNo.localeCompare(right.workOrderNo))
 }
 
 export function getProcessWorkOrderById(workOrderId: string): ProcessWorkOrder | undefined {
@@ -242,6 +317,8 @@ export function getProcessWorkOrderById(workOrderId: string): ProcessWorkOrder |
   if (printOrder) return mapPrintWorkOrder(printOrder)
   const dyeOrder = getDyeWorkOrderById(workOrderId)
   if (dyeOrder) return mapDyeWorkOrder(dyeOrder)
+  const waterSolubleOrder = getWaterSolubleWorkOrderById(workOrderId)
+  if (waterSolubleOrder) return mapWaterSolubleWorkOrder(waterSolubleOrder)
   return undefined
 }
 

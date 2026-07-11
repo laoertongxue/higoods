@@ -66,6 +66,7 @@ export type BindingReasonCode =
 export type MobileTaskProcessType =
   | 'PRINT'
   | 'DYE'
+  | 'WATER_SOLUBLE'
   | 'CUTTING'
   | 'WOOL'
   | 'SPECIAL_CRAFT'
@@ -410,9 +411,16 @@ export function getPdaMobileExecutionTaskById(taskId: string): ProcessTask | nul
 export function getMobileTaskProcessType(task: ProcessTask | null | undefined): MobileTaskProcessType {
   if (!task) return 'UNKNOWN'
   if (task.taskUnitType === 'WHOLE_ORDER_TASK' || task.taskUnitType === 'COMBINED_PROCESS_TASK') return 'UNKNOWN'
+  const explicitBusinessCode = String(task.processBusinessCode || '').trim().toUpperCase()
+  const explicitProcessCode = String(task.processCode || '').trim().toUpperCase()
+  if (explicitBusinessCode === 'WATER_SOLUBLE' || explicitProcessCode === 'PROC_WATER_SOLUBLE' || explicitProcessCode === 'WATER_SOLUBLE') {
+    return 'WATER_SOLUBLE'
+  }
+  if (explicitBusinessCode === 'DYE' || explicitProcessCode === 'PROC_DYE' || explicitProcessCode === 'DYE') return 'DYE'
   const explicitFields = [
     task.processCode,
     task.processNameZh,
+    task.processBusinessCode,
     (task as GenericMobileTask).processBusinessName,
   ]
     .filter(Boolean)
@@ -425,6 +433,7 @@ export function getMobileTaskProcessType(task: ProcessTask | null | undefined): 
     .filter(Boolean)
     .join(' ')
   if (/PROC_PRINT|PRINT\b|印花|转印/.test(explicitFields)) return 'PRINT'
+  if (/PROC_WATER_SOLUBLE|WATER_SOLUBLE|水溶/.test(explicitFields)) return 'WATER_SOLUBLE'
   if (/PROC_DYE|DYE\b|染色/.test(explicitFields)) return 'DYE'
   if (/PROC_CUT|CUTTING|裁片|定位裁/.test(explicitFields)) return 'CUTTING'
   if (/PROC_WOOL|WOOL|毛织|毛织/.test(explicitFields)) return 'WOOL'

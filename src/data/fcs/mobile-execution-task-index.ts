@@ -27,6 +27,7 @@ import {
   listSpecialCraftTaskWorkOrders,
 } from './special-craft-task-orders.ts'
 import { canFactoryAccessSpecialCraftPdaTask } from './special-craft-pda-scope.ts'
+import { getWaterSolubleWorkOrderByTaskId } from './water-soluble-task-domain.ts'
 
 export type MobileExecutionTaskStatusTab = 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'
 
@@ -38,6 +39,7 @@ export interface MobileExecutionTaskSourceInfo {
   workOrderNo: string
   printOrderNo: string
   dyeOrderNo: string
+  waterSolubleOrderNo: string
   woolOrderNo: string
   cuttingOrderNo: string
   specialCraftOrderNo: string
@@ -57,6 +59,7 @@ export interface MobileExecutionTaskSourceInfo {
   processType: MobileTaskProcessType
   patternNo: string
   materialSku: string
+  materialName: string
   rawMaterialSku: string
   targetColor: string
   colorNo: string
@@ -94,6 +97,7 @@ type TaskWithSearchFields = ProcessTask & {
   markerPlanIds?: string[]
   markerPlanNos?: string[]
   materialSku?: string
+  materialName?: string
   rawMaterialSku?: string
   targetColor?: string
   colorNo?: string
@@ -190,6 +194,25 @@ function getDyeSourceInfo(task: ProcessTask): Partial<MobileExecutionTaskSourceI
     rawMaterialSku: normalizeString(order.rawMaterialSku),
     targetColor: normalizeString(order.targetColor),
     colorNo: normalizeString(order.colorNo),
+  }
+}
+
+function getWaterSolubleSourceInfo(task: ProcessTask): Partial<MobileExecutionTaskSourceInfo> {
+  const order = getWaterSolubleWorkOrderByTaskId(task.taskId)
+  if (!order) return {}
+  return {
+    sourceType: 'WATER_SOLUBLE_WORK_ORDER',
+    sourceId: normalizeString(order.waterOrderId),
+    sourceWorkOrderId: normalizeString(order.waterOrderId),
+    sourceWorkOrderNo: normalizeString(order.waterOrderNo),
+    workOrderNo: normalizeString(order.waterOrderNo),
+    waterSolubleOrderNo: normalizeString(order.waterOrderNo),
+    sourceIds: uniqueStrings([order.waterOrderId, order.sourceArtifactId]),
+    sourceNos: uniqueStrings([order.waterOrderNo, order.taskNo]),
+    productionOrderNo: normalizeString(order.productionOrderNo),
+    materialSku: normalizeString(order.materialCode),
+    materialName: normalizeString(order.materialName),
+    operationName: '水溶',
   }
 }
 
@@ -352,6 +375,7 @@ function buildSourceInfo(task: ProcessTask): MobileExecutionTaskSourceInfo {
     workOrderNo: '',
     printOrderNo: '',
     dyeOrderNo: '',
+    waterSolubleOrderNo: '',
     woolOrderNo: '',
     cuttingOrderNo: '',
     specialCraftOrderNo: '',
@@ -371,6 +395,7 @@ function buildSourceInfo(task: ProcessTask): MobileExecutionTaskSourceInfo {
     processType,
     patternNo: '',
     materialSku: normalizeString(taskLike.materialSku),
+    materialName: normalizeString(taskLike.materialName),
     rawMaterialSku: normalizeString(taskLike.rawMaterialSku),
     targetColor: normalizeString(taskLike.targetColor),
     colorNo: normalizeString(taskLike.colorNo),
@@ -382,7 +407,9 @@ function buildSourceInfo(task: ProcessTask): MobileExecutionTaskSourceInfo {
   }
 
   const processInfo =
-    processType === 'PRINT'
+    processType === 'WATER_SOLUBLE'
+      ? getWaterSolubleSourceInfo(task)
+      : processType === 'PRINT'
       ? getPrintSourceInfo(task)
       : processType === 'DYE'
         ? getDyeSourceInfo(task)
@@ -421,6 +448,7 @@ function matchSourceType(task: ProcessTask, sourceType: string | undefined, sour
     ...info.workOrderIds,
     info.printOrderNo,
     info.dyeOrderNo,
+    info.waterSolubleOrderNo,
     info.woolOrderNo,
     info.cuttingOrderNo,
     info.specialCraftOrderNo,
@@ -437,6 +465,9 @@ function matchSourceType(task: ProcessTask, sourceType: string | undefined, sour
   }
   if (['DYE_WORK_ORDER', 'DYE_ORDER', 'DYEING_WORK_ORDER'].includes(normalizedSourceType)) {
     return info.processType === 'DYE'
+  }
+  if (['WATER_SOLUBLE_WORK_ORDER', 'WATER_SOLUBLE_ORDER'].includes(normalizedSourceType)) {
+    return info.processType === 'WATER_SOLUBLE'
   }
   if (['WOOL_WORK_ORDER', 'WOOL_ORDER', 'WOOL_ORDER'].includes(normalizedSourceType)) {
     return info.processType === 'WOOL'
@@ -508,6 +539,7 @@ export function getMobileExecutionTaskSourceInfo(task: ProcessTask | null | unde
       workOrderNo: '',
       printOrderNo: '',
       dyeOrderNo: '',
+      waterSolubleOrderNo: '',
       woolOrderNo: '',
       cuttingOrderNo: '',
       specialCraftOrderNo: '',
@@ -527,6 +559,7 @@ export function getMobileExecutionTaskSourceInfo(task: ProcessTask | null | unde
       processType: 'UNKNOWN',
       patternNo: '',
       materialSku: '',
+      materialName: '',
       rawMaterialSku: '',
       targetColor: '',
       colorNo: '',
@@ -556,6 +589,7 @@ export function matchMobileTaskKeyword(task: ProcessTask | null | undefined, key
     info.workOrderNo,
     info.printOrderNo,
     info.dyeOrderNo,
+    info.waterSolubleOrderNo,
     info.woolOrderNo,
     info.cuttingOrderNo,
     info.specialCraftOrderNo,
@@ -575,6 +609,7 @@ export function matchMobileTaskKeyword(task: ProcessTask | null | undefined, key
     info.factoryDisplayName,
     info.patternNo,
     info.materialSku,
+    info.materialName,
     info.rawMaterialSku,
     info.targetColor,
     info.colorNo,
@@ -587,6 +622,7 @@ export function matchMobileTaskKeyword(task: ProcessTask | null | undefined, key
     taskLike.craftName,
     taskLike.processBusinessName,
     taskLike.materialSku,
+    taskLike.materialName,
     taskLike.rawMaterialSku,
     taskLike.targetColor,
     taskLike.colorNo,
@@ -670,6 +706,7 @@ export function buildMobileExecutionListLocatePathForTask(
     || info.workOrderNo
     || info.printOrderNo
     || info.dyeOrderNo
+    || info.waterSolubleOrderNo
     || info.woolOrderNo
     || info.cuttingOrderNo
     || info.specialCraftOrderNo

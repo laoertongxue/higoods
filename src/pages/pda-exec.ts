@@ -15,6 +15,11 @@ import {
 import { listPdaGenericTasksByProcess } from '../data/fcs/pda-task-mock-factory.ts'
 import { getWoolWorkOrderByTaskId } from '../data/fcs/wool-task-domain.ts'
 import {
+  getWaterSolubleCurrentAction,
+  getWaterSolubleWorkOrderByTaskId,
+  WATER_SOLUBLE_STATUS_LABEL,
+} from '../data/fcs/water-soluble-task-domain.ts'
+import {
   getMobileExecutionTaskById,
   getMobileTaskTabKey,
   listMobileExecutionTasks,
@@ -580,12 +585,60 @@ function renderPdaExecCardList(filteredTasks: ProcessTask[], emptyStateText: str
 
   return filteredTasks
     .map((task) => {
+      if (getMobileTaskProcessType(task) === 'WATER_SOLUBLE') return renderWaterSolubleCard(task)
       if (state.activeTab === 'NOT_STARTED') return renderNotStartedCard(task)
       if (state.activeTab === 'IN_PROGRESS') return renderInProgressCard(task)
       if (state.activeTab === 'BLOCKED') return renderBlockedCard(task)
       return renderDoneCard(task)
     })
     .join('')
+}
+
+function renderWaterSolubleCard(task: ProcessTask): string {
+  const order = getWaterSolubleWorkOrderByTaskId(task.taskId)
+  if (!order) return ''
+  const currentAction = getWaterSolubleCurrentAction(order.waterOrderId)
+  const primaryAction = order.status === 'PRODUCTION_PAUSED'
+    ? '查看主管处理'
+    : currentAction?.actionName || '查看任务'
+  const isPaused = order.status === 'PRODUCTION_PAUSED'
+
+  return `
+    <article class="cursor-pointer rounded-lg border ${isPaused ? 'border-red-200' : ''} transition-colors hover:border-primary" data-testid="pda-exec-task-card" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
+      <div class="space-y-2.5 p-3">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <div class="text-sm font-semibold">水溶加工单</div>
+            <div class="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">${escapeHtml(order.waterOrderNo)}</div>
+          </div>
+          ${renderTaskStatusBadge(task)}
+        </div>
+
+        <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+          <div class="text-muted-foreground">物料</div>
+          <div class="truncate font-medium">${escapeHtml(`${order.materialName} / ${order.materialCode}`)}</div>
+          <div class="text-muted-foreground">计划数量</div>
+          <div class="font-medium">${escapeHtml(`${order.plannedQty.toLocaleString('zh-CN')} ${order.qtyUnit}`)}</div>
+          <div class="text-muted-foreground">当前步骤</div>
+          <div class="font-medium">${escapeHtml(WATER_SOLUBLE_STATUS_LABEL[order.status])}</div>
+          <div class="text-muted-foreground">生产单号</div>
+          <div class="truncate font-medium">${escapeHtml(order.productionOrderNo)}</div>
+        </div>
+
+        ${isPaused
+          ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"><div class="font-medium">生产暂停</div><p class="mt-1">${escapeHtml(order.exceptionReason || '等待主管处理')}</p></div>`
+          : ''}
+
+        <button
+          class="inline-flex min-h-8 w-full items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          data-pda-exec-action="open-detail"
+          data-task-id="${escapeHtml(task.taskId)}"
+        >
+          ${escapeHtml(primaryAction)}
+        </button>
+      </div>
+    </article>
+  `
 }
 
 function updatePdaExecCardListInPlace(): void {
@@ -1109,7 +1162,7 @@ export function renderPdaExecPage(): string {
           <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"></i>
           <input
             class="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm"
-            placeholder="搜索任务号 / 加工单号 / 生产单号"
+            placeholder="搜索任务号 / 加工单号 / 生产单号 / 物料"
             data-pda-exec-field="searchKeyword"
             value="${escapeHtml(state.searchKeyword)}"
           />
