@@ -297,6 +297,14 @@ function renderPlatformStatusCell(task: ProcessTask): string {
   `
 }
 
+export function renderTaskFollowUpAction(
+  task: Pick<ProcessTask, 'historicalAssignment'>,
+  followUpActionLabel: string,
+): string {
+  if (task.historicalAssignment || !followUpActionLabel) return ''
+  return `<div class="text-muted-foreground">跟单：${escapeHtml(followUpActionLabel)}</div>`
+}
+
 function formatSewingDeliveryPercent(ratio: number): string {
   return `${Math.round(ratio * 1000) / 10}%`
 }
@@ -680,7 +688,7 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
                           <td class="px-3 py-2">
                             <div class="max-w-[180px] space-y-1 text-xs">
                               <div class="font-medium">${escapeHtml(task.historicalAssignment ? '查看历史履约' : platformSummary.actionHint)}</div>
-                              ${platformSummary.followUpActionLabel ? `<div class="text-muted-foreground">跟单：${escapeHtml(platformSummary.followUpActionLabel)}</div>` : ''}
+                              ${renderTaskFollowUpAction(task, platformSummary.followUpActionLabel)}
                             </div>
                           </td>
                           <td class="px-3 py-2">

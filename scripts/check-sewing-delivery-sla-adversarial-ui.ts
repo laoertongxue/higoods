@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 
 function shiftWallClockHours(value: string, hours: number): string {
@@ -6,6 +7,29 @@ function shiftWallClockHours(value: string, hours: number): string {
   date.setUTCHours(date.getUTCHours() + hours)
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
+
+const isolatedHmrResult = execFileSync(process.execPath, [
+  '--experimental-strip-types',
+  '--input-type=module',
+  '--eval',
+  `
+    const bridge = await import('./src/data/fcs/runtime-task-read-bridge.ts?isolated=' + Date.now())
+    if (bridge.readRuntimeTaskById('X') !== null) throw new Error('bridge initial state must be null')
+    bridge.installRuntimeTaskReadResolver(() => ({ source: 'A' }))
+    if (bridge.readRuntimeTaskById('X').source !== 'A') throw new Error('bridge reader A failed')
+    bridge.installRuntimeTaskReadResolver(() => ({ source: 'B' }))
+    if (bridge.readRuntimeTaskById('X').source !== 'B') throw new Error('bridge reader B failed')
+    const registry = await import('./src/data/fcs/pda-handover-handout-registry.ts?isolated=' + Date.now())
+    registry.installCompleteHandoutReaders(() => [{ handoverId: 'HEAD-A', headType: 'HANDOUT' }], () => [{ recordId: 'REC-A' }])
+    if (registry.listRegisteredHandoutHeads()[0]?.handoverId !== 'HEAD-A') throw new Error('registry head reader A failed')
+    if (registry.listRegisteredHandoutRecords('HEAD')[0]?.recordId !== 'REC-A') throw new Error('registry record reader A failed')
+    registry.installCompleteHandoutReaders(() => [{ handoverId: 'HEAD-B', headType: 'HANDOUT' }], () => [{ recordId: 'REC-B' }])
+    if (registry.listRegisteredHandoutHeads()[0]?.handoverId !== 'HEAD-B') throw new Error('registry head reader B failed')
+    if (registry.listRegisteredHandoutRecords('HEAD')[0]?.recordId !== 'REC-B') throw new Error('registry record reader B failed')
+    process.stdout.write('latest-readers-ok')
+  `,
+], { cwd: process.cwd(), encoding: 'utf8' })
+assert.equal(isolatedHmrResult, 'latest-readers-ok', '隔离子进程必须证明 bridge/registry 委托最新 reader')
 
 // HMR: the stable bridge/registry must accept fresh function identities from the same reloaded module.
 const bridge = await import('../src/data/fcs/runtime-task-read-bridge.ts')
@@ -180,6 +204,11 @@ try {
     receiverWrittenAt: receivedAt,
     receiverWrittenBy: '历史实收仓',
   })
+  assert.equal(
+    handover.findPdaHandoverRecord(recordId)?.lifecycleUpdatedAt,
+    receivedAt,
+    '真实实收回写必须把 lifecycleUpdatedAt 推进到 receiverWrittenAt',
+  )
   const refreshedHistorical = progress.listHistoricalSewingAssignmentProgressFacts()
     .find((fact: { runtimeTaskId: string }) => fact.runtimeTaskId === source.taskId)!
   assert.equal(
@@ -201,6 +230,11 @@ try {
   assert.deepEqual(context.getTaskKpiStats(), kpiBeforeSearch, '历史行不得改变进行中/逾期等 KPI')
 
   const taskDomain = await import('../src/pages/progress-board/task-domain.ts')
+  assert.equal(
+    taskDomain.renderTaskFollowUpAction({ historicalAssignment: true }, '跟进工厂开工'),
+    '',
+    '明确带当前跟进文案的历史 fact 也必须渲染为纯只读',
+  )
   const listHtml = taskDomain.renderTaskDimension(context.getFilteredTasks())
   assert.match(listHtml, /已改派（历史）/)
   assert.doesNotMatch(listHtml, /跟进工厂开工/, '历史行不得展示为当前执行状态')
@@ -223,6 +257,5 @@ try {
 // lifecycleUpdatedAt is the lifecycle version clock for every existing receiver writeback mutation.
 const handoverSource = readFileSync(new URL('../src/data/fcs/pda-handover-events.ts', import.meta.url), 'utf8')
 assert.match(handoverSource, /生命周期版本时间[^\n]*\n\s*lifecycleUpdatedAt\?: string/, '字段契约必须有最小注释')
-assert.match(handoverSource, /writeBackHandoverRecord[\s\S]*lifecycleUpdatedAt: input\.receiverWrittenAt/, '实收回写必须推进生命周期版本时间')
 
 console.log('sewing delivery SLA adversarial UI checks passed')
