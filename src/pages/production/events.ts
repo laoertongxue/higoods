@@ -79,6 +79,7 @@ import {
   createQuantityLinesForOrder,
   createProductionChangeRolledBackResult,
   executeProductionChange,
+  getProductionChangeRecord,
   getProductionChangeDecisionSuggestedValue,
   listAffectedDocumentNosForOrder,
   listReplacementMaterialOptions,
@@ -539,6 +540,15 @@ export function executeProductionChangeForForm(
     }
   }
 
+  const now = new Date()
+  const currentTimeText = [
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+    `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+  ].join(' ')
+  const existingRecord = form.recordId ? getProductionChangeRecord(form.recordId) : null
+  const createdAt = existingRecord?.createdAt ?? currentTimeText
+  if (!form.recordId) form.recordId = createNextProductionChangeRecordId(createdAt)
+
   form.execution = {
     status: 'RUNNING',
     message: '',
@@ -551,13 +561,8 @@ export function executeProductionChangeForForm(
   } catch {
     form.execution = createProductionChangeRolledBackResult(preview)
   }
-  const now = new Date()
-  const createdAt = [
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
-    `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
-  ].join(' ')
   const record = buildProductionChangeRecord(
-    createNextProductionChangeRecordId(),
+    form.recordId,
     {
       productionOrderId: form.productionOrderId,
       changeType: form.changeType,

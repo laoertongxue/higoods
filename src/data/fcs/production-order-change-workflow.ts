@@ -2,6 +2,7 @@ import { listMaterialArchives } from '../pcs-material-archive-repository.ts'
 import {
   getProductionOrderChangeCurrentFacts,
   listProductionOrderTechPackRelations,
+  type ProductionOrderChangeCurrentFacts,
 } from './production-tech-pack-change-domain.ts'
 import { productionOrders, type ProductionOrderStatus } from './production-orders.ts'
 import { resolveLinkedDemandForProductionOrder } from './production-upstream-chain.ts'
@@ -601,6 +602,7 @@ export interface ProductionChangeRecord extends ProductionChangeDraft {
   }
   createdBy: string
   createdAt: string
+  currentFactsSnapshot: ProductionOrderChangeCurrentFacts | null
   documentTraces: ProductionChangeDocumentTrace[]
 }
 
@@ -1150,15 +1152,16 @@ function buildProductionChangeDocumentTraces(
   draft: ProductionChangeDraft,
   status: ProductionChangeStatus,
   executedAt: string,
+  currentFactsSnapshot: ProductionOrderChangeCurrentFacts | null,
 ): ProductionChangeDocumentTrace[] {
-  const currentFacts = getProductionOrderChangeCurrentFacts(draft.productionOrderId)
+  if (status === 'DRAFT' || status === 'READY' || status === 'EXECUTING') return []
   const documentNos = sanitizeObjectIds(
     draft.affectedDocumentNos?.length
       ? draft.affectedDocumentNos
-      : currentFacts?.documentFacts.slice(0, 3).map((fact) => fact.documentNo),
+      : currentFactsSnapshot?.documentFacts.slice(0, 3).map((fact) => fact.documentNo),
   )
   const factByDocumentNo = new Map(
-    (currentFacts?.documentFacts ?? []).map((fact) => [fact.documentNo, fact]),
+    (currentFactsSnapshot?.documentFacts ?? []).map((fact) => [fact.documentNo, fact]),
   )
   const quantitySummary = summarizeQuantityChange(draft)
   const material = draft.materialReplacement
@@ -1166,7 +1169,7 @@ function buildProductionChangeDocumentTraces(
     ? quantitySummary.beforeText
     : `原物料：${material?.originalMaterialId || '未记录'}`
   const afterText = status === 'ROLLED_BACK'
-    ? beforeText
+    ? `未生效，保持变更前：${beforeText}`
     : draft.changeType === 'QUANTITY_CHANGE'
       ? quantitySummary.afterText
       : `新物料：${material?.replacementMaterialId || '未记录'}，替换 ${material?.confirmedProductionQty ?? 0} 件`
@@ -1190,6 +1193,9 @@ export function buildProductionChangeRecord(
 ): ProductionChangeRecord {
   const copiedDraft = structuredClone(draft)
   const preview = buildProductionChangePreview(copiedDraft)
+  const currentFactsSnapshot = structuredClone(
+    getProductionOrderChangeCurrentFacts(copiedDraft.productionOrderId),
+  )
   return {
     ...copiedDraft,
     id,
@@ -1200,7 +1206,14 @@ export function buildProductionChangeRecord(
     execution: createRecordExecution(status),
     createdBy: '陈静',
     createdAt,
-    documentTraces: buildProductionChangeDocumentTraces(id, copiedDraft, status, createdAt),
+    currentFactsSnapshot,
+    documentTraces: buildProductionChangeDocumentTraces(
+      id,
+      copiedDraft,
+      status,
+      createdAt,
+      currentFactsSnapshot,
+    ),
   }
 }
 
@@ -1276,10 +1289,33 @@ export function saveProductionChangeRecord(record: ProductionChangeRecord): void
   ]
 }
 
-export function createNextProductionChangeRecordId(): string {
+export function resetProductionChangeRecordsForTesting(): void {
+  productionChangeRecords = buildProductionChangeSeedRecords()
+}
+
+export function replaceProductionChangeRecordsForTesting(records: ProductionChangeRecord[]): void {
+  productionChangeRecords = structuredClone(records)
+}
+
+function getProductionChangeRecordDatePrefix(occurredAt: string | Date): string {
+  if (typeof occurredAt === 'string') {
+    const matched = occurredAt.trim().match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (matched) return `${matched[1]}${matched[2]}${matched[3]}`
+  }
+  const date = occurredAt instanceof Date ? occurredAt : new Date(occurredAt)
+  if (Number.isNaN(date.getTime())) throw new Error('生产单变更记录时间无效')
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('')
+}
+
+export function createNextProductionChangeRecordId(occurredAt: string | Date = new Date()): string {
+  const datePrefix = getProductionChangeRecordDatePrefix(occurredAt)
   const nextSequence = productionChangeRecords.reduce((maxSequence, record) => {
-    const matched = record.id.match(/^BG-\d{8}-(\d+)$/)
+    const matched = record.id.match(new RegExp(`^BG-${datePrefix}-(\\d+)$`))
     return matched ? Math.max(maxSequence, Number(matched[1])) : maxSequence
   }, 0) + 1
-  return `BG-20260711-${String(nextSequence).padStart(3, '0')}`
+  return `BG-${datePrefix}-${String(nextSequence).padStart(3, '0')}`
 }

@@ -136,6 +136,7 @@ type ProductionChangeFormStep = 'order' | 'content' | 'handling' | 'execution'
 type ProductionChangeFormType = ProductionChangeType
 
 interface ProductionChangeForm {
+  recordId: string
   changeType: ProductionChangeFormType
   productionOrderId: string
   reason: string
@@ -162,6 +163,7 @@ function createIdleExecutionState(): ProductionChangeForm['execution'] {
 
 export function createProductionChangeForm(): ProductionChangeForm {
   return {
+    recordId: '',
     changeType: 'QUANTITY_CHANGE',
     productionOrderId: '',
     reason: '',

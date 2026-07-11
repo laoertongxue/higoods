@@ -14,7 +14,6 @@ import {
 import {
   effectiveModeLabels,
   getChangeRestrictionSnapshot,
-  getProductionOrderChangeCurrentFacts,
   getProductionOrderChangeOrder,
   getProductionOrderTechPackChangeDetail,
   getProductionOrderTechPackRelation,
@@ -2340,9 +2339,9 @@ function renderFinalProductionChangeContent(record: ProductionChangeRecordView):
           <td class="px-3 py-3">${escapeHtml(line.skuCode)}</td>
           <td class="px-3 py-3">${escapeHtml(line.color)}</td>
           <td class="px-3 py-3">${escapeHtml(line.size)}</td>
-          <td class="px-3 py-3">${line.currentQty} ${line.unit}</td>
-          <td class="px-3 py-3">${line.targetQty} ${line.unit}</td>
-          <td class="px-3 py-3">${line.targetQty - line.currentQty >= 0 ? '+' : ''}${line.targetQty - line.currentQty} ${line.unit}</td>
+          <td class="px-3 py-3">${escapeHtml(`${line.currentQty} ${line.unit}`)}</td>
+          <td class="px-3 py-3">${escapeHtml(`${line.targetQty} ${line.unit}`)}</td>
+          <td class="px-3 py-3">${escapeHtml(`${line.targetQty - line.currentQty >= 0 ? '+' : ''}${line.targetQty - line.currentQty} ${line.unit}`)}</td>
         </tr>
       `),
       '没有数量变化',
@@ -2362,7 +2361,7 @@ function renderFinalProductionChangeContent(record: ProductionChangeRecordView):
 }
 
 function renderFinalProductionChangeFacts(record: ProductionChangeRecordView): string {
-  const facts = getProductionOrderChangeCurrentFacts(record.productionOrderId)
+  const facts = record.currentFactsSnapshot
   if (!facts) return '<p class="text-sm text-muted-foreground">未找到当前事实。</p>'
   return renderInfoTiles([
     ['生产单', facts.productionOrderId],
