@@ -111,18 +111,29 @@ function toIdSegment(value: string): string {
   return value.replace(/[^A-Za-z0-9_-]/g, '_')
 }
 
-function resolveArtifactQty(artifact: GeneratedTaskArtifact): number {
-  const plannedQty = artifact.plannedQty ?? artifact.orderQty
-  return Number.isFinite(plannedQty) && plannedQty > 0 ? plannedQty : 0
+type MaterialWaterSolubleTaskArtifact = GeneratedTaskArtifact & Required<Pick<GeneratedTaskArtifact,
+  'bomItemId' | 'materialCode' | 'materialName' | 'plannedQty' | 'plannedUnit' | 'linkedBomItemIds'
+>>
+
+function isMaterialWaterSolubleTaskArtifact(artifact: GeneratedTaskArtifact): artifact is MaterialWaterSolubleTaskArtifact {
+  return artifact.processCode === 'WATER_SOLUBLE'
+    && artifact.artifactType === 'TASK'
+    && Boolean(artifact.bomItemId?.trim())
+    && Boolean(artifact.materialCode?.trim())
+    && Boolean(artifact.materialName?.trim())
+    && Number.isFinite(artifact.plannedQty)
+    && (artifact.plannedQty ?? 0) > 0
+    && Boolean(artifact.plannedUnit?.trim())
+    && artifact.linkedBomItemIds?.length === 1
+    && artifact.linkedBomItemIds[0] === artifact.bomItemId
 }
 
-function buildOrderFromArtifact(artifact: GeneratedTaskArtifact): WaterSolubleWorkOrder {
+function buildOrderFromArtifact(artifact: MaterialWaterSolubleTaskArtifact): WaterSolubleWorkOrder {
   const productionOrder = productionOrders.find((item) => item.productionOrderId === artifact.orderId)
-  const bomItemId = artifact.bomItemId ?? artifact.linkedBomItemIds?.[0] ?? `${artifact.artifactId}-BOM`
+  const bomItemId = artifact.bomItemId
   const generationKey = `${artifact.artifactId}::${bomItemId}`
   const idSegment = toIdSegment(generationKey)
   const taskId = `TASK-WATER-${idSegment}`
-  const plannedQty = resolveArtifactQty(artifact)
 
   return {
     waterOrderId: `WATER-${idSegment}`,
@@ -135,12 +146,12 @@ function buildOrderFromArtifact(artifact: GeneratedTaskArtifact): WaterSolubleWo
     productionOrderNo: productionOrder?.productionOrderNo ?? artifact.orderId,
     techPackVersionId: productionOrder?.selectedTechPackVersionId ?? artifact.techPackId,
     bomItemId,
-    materialCode: artifact.materialCode ?? bomItemId,
-    materialName: artifact.materialName ?? `水溶物料 ${bomItemId}`,
-    materialSpec: artifact.materialName ? `${artifact.materialName} / ${artifact.plannedUnit ?? '件'}` : '按技术包 BOM 要求加工',
-    plannedQty,
+    materialCode: artifact.materialCode,
+    materialName: artifact.materialName,
+    materialSpec: `${artifact.materialName} / ${artifact.plannedUnit}`,
+    plannedQty: artifact.plannedQty,
     completedQty: 0,
-    qtyUnit: artifact.plannedUnit ?? '件',
+    qtyUnit: artifact.plannedUnit,
     status: 'WAIT_FACTORY_ASSIGNMENT',
     taskId,
     taskNo: `水溶任务-${idSegment}`,
@@ -154,7 +165,7 @@ function buildOrderFromArtifact(artifact: GeneratedTaskArtifact): WaterSolubleWo
 function buildStore(): Map<string, WaterSolubleWorkOrder> {
   const next = new Map<string, WaterSolubleWorkOrder>()
   listGeneratedProductionTaskArtifacts()
-    .filter((artifact) => artifact.artifactType === 'TASK' && artifact.processCode === 'WATER_SOLUBLE')
+    .filter(isMaterialWaterSolubleTaskArtifact)
     .forEach((artifact) => {
       const order = buildOrderFromArtifact(artifact)
       if (!next.has(order.generationKey)) next.set(order.generationKey, order)
@@ -193,11 +204,11 @@ function validatePositiveQty(value: number, fieldName: string): string | null {
   return null
 }
 
-function mapQtyUnit(qtyUnit: string): QtyUnit {
+export function mapWaterSolubleQtyUnit(qtyUnit: string): QtyUnit {
   const normalized = qtyUnit.trim().toLowerCase()
-  if (normalized === '米' || normalized === 'm' || normalized === 'meter') return 'METER'
-  if (normalized === '扎' || normalized === '捆' || normalized === 'bundle') return 'BUNDLE'
-  return 'PIECE'
+  if (['米', 'm', 'meter', '码', 'yard'].includes(normalized)) return 'METER'
+  if (['件', '片'].includes(normalized)) return 'PIECE'
+  return 'BUNDLE'
 }
 
 export function listWaterSolubleWorkOrders(): WaterSolubleWorkOrder[] {
@@ -226,7 +237,7 @@ export function listWaterSolubleMobileTasks(): WaterSolubleMobileTask[] {
     processNameZh: '水溶',
     stage: 'PREP',
     qty: order.plannedQty,
-    qtyUnit: mapQtyUnit(order.qtyUnit),
+    qtyUnit: mapWaterSolubleQtyUnit(order.qtyUnit),
     assignmentMode: 'DIRECT',
     assignmentStatus: order.factoryId ? 'ASSIGNED' : 'UNASSIGNED',
     ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['DYEING_FACTORY'] },

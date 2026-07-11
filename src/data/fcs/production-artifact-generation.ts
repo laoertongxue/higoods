@@ -262,7 +262,25 @@ function buildDictionaryCoverageBase(
   if (!source) return null
   const processDefinition = getProcessDefinitionByCode(definition.processCode)
   const stageDefinition = getProcessStageByCode(definition.stageCode)
-  const linkedBomItem = source.snapshot.bomItems[0]
+  const linkedBomItem = source.snapshot.bomItems.length > 0
+    ? source.snapshot.bomItems[mockIndex % source.snapshot.bomItems.length]
+    : undefined
+  if (definition.processCode === 'WATER_SOLUBLE') {
+    if (
+      !linkedBomItem?.id
+      || !linkedBomItem.name?.trim()
+    ) return null
+  }
+  const waterSolubleMaterialFields = definition.processCode === 'WATER_SOLUBLE' && linkedBomItem
+    ? {
+        bomItemId: linkedBomItem.id,
+        materialCode: linkedBomItem.materialCode || linkedBomItem.id,
+        materialName: linkedBomItem.name,
+        plannedQty: calculateBomProcessPlannedQty(source.order, linkedBomItem),
+        plannedUnit: linkedBomItem.unit || '米',
+        linkedBomItemIds: [linkedBomItem.id],
+      }
+    : {}
   const sourceEntryId = toCoverageSourceEntryId(definition, mockIndex, source.snapshot.snapshotId)
   const sortKey = `${toCoverageSortKey(definition, mockIndex)}-${source.order.productionOrderId}`
 
@@ -305,6 +323,7 @@ function buildDictionaryCoverageBase(
     packagingRequired: definition.processCode === 'WOOL' && definition.craftName === '整件毛织' ? false : undefined,
     materialIssueMode: definition.processCode === 'WOOL' ? 'WAREHOUSE_DELIVERY' : undefined,
     linkedBomItemIds: linkedBomItem ? [linkedBomItem.id] : undefined,
+    ...waterSolubleMaterialFields,
     linkedPatternIds: undefined,
     docTypeLabel: definition.defaultDocType === 'DEMAND' ? `${definition.craftName}需求单` : DOC_TYPE_LABEL.TASK,
     generationSortKey: sortKey,
