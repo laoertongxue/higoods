@@ -372,6 +372,7 @@ export interface RuntimeTaskAssignmentAcceptanceInput {
   factoryId: string
   acceptedAt: string
   acceptedBy: string
+  operatedAt?: string
 }
 
 export interface RuntimeSewingTaskReassignmentInput {
@@ -2627,6 +2628,17 @@ export function acceptRuntimeTaskAssignment(
   if (!input.acceptedAt.trim() || !input.acceptedBy.trim()) {
     throw new Error(`任务 ${taskId} 缺少接单时间或接单人`)
   }
+  const operatedAt = input.operatedAt ?? formatOperationLocalWallClock()
+  let acceptedBeforeAward = false
+  let acceptedAfterOperation = false
+  try {
+    acceptedBeforeAward = Boolean(task.awardedAt) && compareSewingDeliveryDateTimes(input.acceptedAt, task.awardedAt!) < 0
+    acceptedAfterOperation = compareSewingDeliveryDateTimes(input.acceptedAt, operatedAt) > 0
+  } catch {
+    throw new Error(`任务 ${taskId} 接单时间或操作时间格式无效`)
+  }
+  if (acceptedBeforeAward) throw new Error(`任务 ${taskId} 接单时间不能早于定标时间`)
+  if (acceptedAfterOperation) throw new Error(`任务 ${taskId} 接单时间不能晚于当前操作时间`)
 
   const slaKind = classifySewingDeliverySla(task)
   const snapshotSequence = listSewingDeliverySlaSnapshotHistory(taskId).length + 1

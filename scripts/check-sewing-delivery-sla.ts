@@ -838,6 +838,22 @@ try {
   assert.equal(awarded.acceptedAt, undefined)
   assert.equal(getSewingDeliverySlaSnapshot(sewingTenderTaskId), null, '平台定标不得提前启动含车缝 SLA')
 
+  const beforeInvalidAcceptTime = structuredClone(getRuntimeTaskById(sewingTenderTaskId))
+  const beforeInvalidAcceptSnapshotState = captureSewingDeliverySlaSnapshotStore()
+  for (const invalidAccept of [
+    { acceptedAt: 'not-a-time', operatedAt: '2026-07-01 11:20:00', expected: /接单时间/ },
+    { acceptedAt: '2026-07-01 10:59:59', operatedAt: '2026-07-01 11:20:00', expected: /不能早于定标时间/ },
+    { acceptedAt: '2099-01-01 00:00:00', operatedAt: '2026-07-01 11:20:00', expected: /不能晚于当前操作时间/ },
+  ]) {
+    assert.throws(
+      () => runtimeTenderModule.acceptRuntimeTaskAssignment(sewingTenderTaskId, { factoryId: 'ID-F003', acceptedAt: invalidAccept.acceptedAt, acceptedBy: '万隆车缝厂', operatedAt: invalidAccept.operatedAt }),
+      invalidAccept.expected,
+      `非法竞价接单时间必须在 mutation 前拒绝：${invalidAccept.acceptedAt}`,
+    )
+    assert.deepEqual(getRuntimeTaskById(sewingTenderTaskId), beforeInvalidAcceptTime, '非法接单时间不得修改任务、审计或接单状态')
+    assert.deepEqual(captureSewingDeliverySlaSnapshotStore(), beforeInvalidAcceptSnapshotState, '非法接单时间不得生成 SLA 快照')
+  }
+
   const beforeWrongFactoryAccept = structuredClone(getRuntimeTaskById(sewingTenderTaskId))
   const beforeWrongFactorySnapshotState = captureSewingDeliverySlaSnapshotStore()
   assert.throws(
@@ -864,6 +880,7 @@ try {
     factoryId: 'ID-F003',
     acceptedAt: '2026-07-01 11:30:00',
     acceptedBy: '万隆车缝厂',
+    operatedAt: '2026-07-01 11:30:00',
   })
   assert.equal(accepted.acceptanceStatus, 'ACCEPTED')
   assert.equal(accepted.acceptedAt, '2026-07-01 11:30:00')
