@@ -2734,7 +2734,6 @@ try {
   const directRows = listSewingDispatchWorkbenchRows().filter((row) => row.taskId === fixtureTaskId && row.completeKitQty >= 2)
   assert(directRows.length >= 2, '隔离 fixture 必须生成同任务多 SKU 可分配行')
   const directRow = directRows[0]
-  const unselectedRow = directRows[1]
   const directFactory = listSewingFactoryOptions().find((factory) => factory.id === 'ID-F003') ?? listSewingFactoryOptions()[0]
   assert(directRow && directFactory, '独立车缝真实分配 handler 需要可分配行和工厂')
   const workbenchActionTarget = (action: string, taskId?: string) => ({ closest: (selector: string) => selector.includes('[data-sewing-dispatch-action]') ? { dataset: { sewingDispatchAction: action, taskId, dispatchType: '直接派单' } } : null }) as unknown as HTMLElement
@@ -2747,9 +2746,11 @@ try {
     closest(selector: string) { return selector.includes('[data-sewing-dispatch-field]') ? this : null }
   }
   Object.defineProperty(globalThis, 'HTMLInputElement', { configurable: true, writable: true, value: WorkbenchInput })
-  const cancelSkuInput = new WorkbenchInput('dispatchRowSelected', '', false, unselectedRow.rowId) as unknown as HTMLElement
-  assert.equal(handleSewingDispatchWorkbenchEvent(cancelSkuInput, { type: 'click' } as Event), false, 'SKU checkbox click 必须保留浏览器原生切换')
-  assert.equal(handleSewingDispatchWorkbenchEvent(cancelSkuInput, { type: 'change' } as Event), true)
+  for (const row of directRows.slice(1)) {
+    const cancelSkuInput = new WorkbenchInput('dispatchRowSelected', '', false, row.rowId) as unknown as HTMLElement
+    assert.equal(handleSewingDispatchWorkbenchEvent(cancelSkuInput, { type: 'click' } as Event), false, 'SKU checkbox click 必须保留浏览器原生切换')
+    assert.equal(handleSewingDispatchWorkbenchEvent(cancelSkuInput, { type: 'change' } as Event), true)
+  }
   const qtyInput = new WorkbenchInput('dispatchQty', '1', true, directRow.rowId) as unknown as HTMLElement
   assert.equal(handleSewingDispatchWorkbenchEvent(qtyInput, { type: 'input' } as Event), true)
   const timeInput = new WorkbenchInput('dispatchBusinessAssignedAt', '2026-07-10T08:00', true) as unknown as HTMLElement
@@ -2761,7 +2762,9 @@ try {
   assert.equal(directDraft?.statusLabel, '直接派单已生效并自动接单')
   assert.equal(getSewingDeliverySlaSnapshot(directDraft.runtimeTaskIds[0])?.assignedQty, 1, '真实 handler 部分数量直接派单快照分母应等于输入')
   assert.deepEqual(getRuntimeTaskById(directDraft.runtimeTaskIds[0])?.scopeSkuLines.map((line) => line.skuCode), [directRow.skuCode], '取消选择的 SKU 不得进入本次分配 child')
-  assert(listSewingDispatchWorkbenchRows().some((row) => row.skuCode === unselectedRow.skuCode), '未选 SKU 必须保留为 residual 回到工作台')
+  directRows.slice(1).forEach((row) => assert(listSewingDispatchWorkbenchRows().some((remaining) => remaining.skuCode === row.skuCode), `${row.skuCode} 未选 SKU 必须保留为 residual 回到工作台`))
+  const partialGroup = listRuntimeTaskSplitGroupsByOrder(fixtureSource.productionOrderId).find((group) => group.sourceTaskId === fixtureTaskId)
+  assert.equal(partialGroup?.resultTasks.reduce((sum, task) => sum + task.scopeQty, 0), fixtureSource.scopeQty, '真实handler部分SKU分配前后总scope必须守恒')
 
   const bidRow = listSewingDispatchWorkbenchRows().find((row) => row.completeKitQty > 0)
   assert(bidRow, '直接部分分配后应有剩余行可再次竞价')
