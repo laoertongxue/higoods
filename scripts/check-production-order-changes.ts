@@ -157,6 +157,47 @@ assert.ok(
 )
 assert.deepEqual(executionPreview, executionPreviewBefore, '失败执行不得修改输入 preview')
 
+let nestedExecution: ReturnType<typeof executeProductionChange> | undefined
+const outerExecution = executeProductionChange(executionPreview, {
+  onStep: () => {
+    if (nestedExecution) return
+    nestedExecution = executeProductionChange(executionPreview)
+    assert.equal(nestedExecution.status, 'ROLLED_BACK', '相同范围的嵌套执行必须拒绝重入')
+    assert.equal(nestedExecution.message, getProductionChangeLockMessage(), '锁冲突必须返回统一锁提示')
+    assert.ok(nestedExecution.steps.every((step) => step.status === 'ROLLED_BACK'), '锁冲突步骤必须全部说明已回滚')
+    assert.ok(
+      ['PO-LOCK-001', 'DOC-LOCK-001'].every(isProductionChangeObjectLocked),
+      '内层冲突返回后不得释放外层持有的锁',
+    )
+  },
+})
+assert.equal(outerExecution.status, 'DONE', '拒绝内层重入不得影响外层同步执行')
+assert.ok(
+  ['PO-LOCK-001', 'DOC-LOCK-001'].every((id) => !isProductionChangeObjectLocked(id)),
+  '外层执行结束后才释放锁',
+)
+
+const thrownHookExecution = executeProductionChange(executionPreview, {
+  onProgress: () => {
+    throw new Error('测试 hook 异常')
+  },
+})
+assert.equal(thrownHookExecution.status, 'ROLLED_BACK', 'hook 异常不得向调用方传播')
+assert.equal(thrownHookExecution.message, '执行失败，本次没有修改任何单据。', 'hook 异常必须返回标准失败提示')
+assert.equal(thrownHookExecution.progress, 100, 'hook 异常必须完成标准回滚状态')
+assert.ok(
+  thrownHookExecution.steps
+    .filter((step) => step.id === 'CHANGE' || step.id === 'TRACE')
+    .every((step) => step.status === 'ROLLED_BACK'),
+  'hook 异常时 CHANGE/TRACE 必须回滚',
+)
+assert.equal(thrownHookExecution.steps.at(-1)?.label, '全部回滚', 'hook 异常最后一步必须全部回滚')
+assert.ok(
+  ['PO-LOCK-001', 'DOC-LOCK-001'].every((id) => !isProductionChangeObjectLocked(id)),
+  'hook 异常返回后必须释放锁',
+)
+assert.equal(executeProductionChange(executionPreview).status, 'DONE', 'hook 异常回滚后必须允许再次执行')
+
 ;[
   [
     '数量变更且无需新正式版本',
@@ -1018,7 +1059,10 @@ const transitionProductionChangeStep = requireFunction<(
 ) => { step: typeof state.productionChangeFormStep; error: string }>(eventExports, 'transitionProductionChangeStep')
 const executeProductionChangeForForm = requireFunction<(
   form: typeof state.productionChangeForm,
-  options?: { shouldFail?: boolean },
+  options?: {
+    shouldFail?: boolean
+    execute?: (preview: ProductionChangePreview) => ReturnType<typeof executeProductionChange>
+  },
 ) => {
   executed: boolean
   step: typeof state.productionChangeFormStep
@@ -1091,6 +1135,25 @@ assert.equal(eventFailureResult.executed, true, '失败演示必须在同一 hel
 assert.equal(eventFailureForm.execution.status, 'ROLLED_BACK', '失败演示必须写回 ROLLED_BACK')
 assert.equal(executeProductionChangeForForm(eventFailureForm).executed, true, 'ROLLED_BACK 必须允许同步重试')
 assert.equal(eventFailureForm.execution.status, 'DONE', '回滚后同步重试成功必须写回 DONE')
+
+const eventThrownForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
+const eventThrownLine = eventThrownForm.quantityLines[0]
+assert.ok(eventThrownLine, '事件异常检查需要数量明细')
+eventThrownLine.targetQty -= 1
+eventThrownForm.reason = '事件异常回滚检查'
+const eventThrownResult = executeProductionChangeForForm(eventThrownForm, {
+  execute: () => {
+    throw new Error('测试执行函数意外抛出')
+  },
+})
+assert.equal(eventThrownResult.executed, true, '事件层捕获执行异常后仍应完成本次写回')
+assert.equal(eventThrownForm.execution.status, 'ROLLED_BACK', '事件层必须把意外异常兜底为 ROLLED_BACK')
+assert.equal(eventThrownForm.execution.progress, 100, '事件异常兜底必须写回 100%')
+assert.equal(eventThrownForm.execution.message, '执行失败，本次没有修改任何单据。')
+assert.ok(eventThrownForm.execution.steps.every((step) => step.status === 'ROLLED_BACK'), '事件异常步骤必须全部回滚')
+assert.equal(eventThrownForm.execution.steps.at(-1)?.label, '全部回滚', '事件异常最后一步必须全部回滚')
+assert.equal(executeProductionChangeForForm(eventThrownForm).executed, true, '事件异常回滚后必须允许重试')
+assert.equal(eventThrownForm.execution.status, 'DONE', '事件异常回滚后重试必须可成功')
 
 const eventIncompleteResult = executeProductionChangeForForm(incompleteHandlingForm)
 assert.equal(eventIncompleteResult.executed, false, '判断不完整时不得执行')
@@ -1823,7 +1886,8 @@ const executeProductionChangeSource = productionChangeWorkflowSource.slice(
   "action === 'execute-production-change'",
   "action === 'simulate-production-change-failure'",
   "form.execution.status === 'RUNNING' || form.execution.status === 'DONE'",
-  'form.execution = executeProductionChange(preview, options)',
+  'form.execution = execute(preview, { shouldFail: options.shouldFail })',
+  'form.execution = createProductionChangeRolledBackResult(preview)',
 ].forEach((text) => {
   assert.ok(productionEventsSource.includes(text), `events.ts 缺少第四步同步写回或防重复证据「${text}」`)
 })
@@ -1847,6 +1911,24 @@ state.productionChangeSelectedOrderId = ''
 state.productionChangeFormStep = 'execution'
 const executionHtml = renderProductionChangeNewPage()
 assert.ok(executionHtml.includes('data-production-change-execution'), '同步执行步骤必须渲染独立第四步主体')
+assert.ok(
+  !executionHtml.includes('data-prod-action="go-production-change-next-step"'),
+  '第四步 header 不得显示无效下一步动作',
+)
+const idleExecutionState = state.productionChangeForm.execution
+state.productionChangeForm.execution = successfulExecution
+const doneExecutionPageHtml = renderProductionChangeNewPage()
+assert.ok(
+  !doneExecutionPageHtml.includes('data-prod-action="go-production-change-next-step"'),
+  'DONE 第四步 header 不得显示无效下一步动作',
+)
+state.productionChangeForm.execution = failedExecution
+const rolledBackExecutionPageHtml = renderProductionChangeNewPage()
+assert.ok(
+  !rolledBackExecutionPageHtml.includes('data-prod-action="go-production-change-next-step"'),
+  'ROLLED_BACK 第四步 header 不得显示无效下一步动作',
+)
+state.productionChangeForm.execution = idleExecutionState
 ;[
   '同步执行',
   '全部成功才生效',

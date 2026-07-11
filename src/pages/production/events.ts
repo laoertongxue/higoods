@@ -75,6 +75,7 @@ import {
   buildMaterialReplacementAllocations,
   createFollowingOrderPlans,
   createQuantityLinesForOrder,
+  createProductionChangeRolledBackResult,
   executeProductionChange,
   getProductionChangeDecisionSuggestedValue,
   listReplacementMaterialOptions,
@@ -515,7 +516,10 @@ function moveProductionChangeFormToStep(targetStep: ProductionChangeFormStep): v
 
 export function executeProductionChangeForForm(
   form: ProductionChangeForm,
-  options: { shouldFail?: boolean } = {},
+  options: {
+    shouldFail?: boolean
+    execute?: typeof executeProductionChange
+  } = {},
 ): { executed: boolean; step: ProductionChangeFormStep; error: string } {
   if (form.execution.status === 'RUNNING' || form.execution.status === 'DONE') {
     return { executed: false, step: 'execution', error: '' }
@@ -537,7 +541,12 @@ export function executeProductionChangeForForm(
     progress: 0,
     steps: [],
   }
-  form.execution = executeProductionChange(preview, options)
+  try {
+    const execute = options.execute ?? executeProductionChange
+    form.execution = execute(preview, { shouldFail: options.shouldFail })
+  } catch {
+    form.execution = createProductionChangeRolledBackResult(preview)
+  }
   return { executed: true, step: 'execution', error: '' }
 }
 

@@ -2299,9 +2299,11 @@ export function renderProductionChangeNewPage(): string {
           </div>
           <p class="mt-1 text-sm text-muted-foreground">跟单选择生产单并填写核心变更内容，系统读取事实、计算处理方案并同步执行。</p>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="go-production-change-next-step">下一步</button>
-        </div>
+        ${state.productionChangeFormStep === 'execution' ? '' : `
+          <div class="flex flex-wrap gap-2">
+            <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="go-production-change-next-step">下一步</button>
+          </div>
+        `}
       </header>
       ${renderProductionChangeFormSteps(state.productionChangeFormStep)}
       ${renderProductionChangeFormBody(state.productionChangeFormStep, state.productionChangeForm)}

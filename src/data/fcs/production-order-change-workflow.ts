@@ -595,33 +595,57 @@ export function isProductionChangeObjectLocked(objectId: string): boolean {
   return activeProductionChangeLocks.has(objectId.trim())
 }
 
+export function createProductionChangeRolledBackResult(
+  preview: ProductionChangePreview,
+  lockObjectIds: string[] = sanitizeObjectIds(preview.lockObjectIds),
+  message = '执行失败，本次没有修改任何单据。',
+): ProductionChangeExecutionResult {
+  return {
+    status: 'ROLLED_BACK',
+    message,
+    progress: 100,
+    steps: [
+      { id: 'LOCK', label: '锁定处理范围', status: 'ROLLED_BACK' },
+      { id: 'FACTS', label: '最后核对当前事实', status: 'ROLLED_BACK' },
+      { id: 'CHANGE', label: '执行全部处理动作', status: 'ROLLED_BACK' },
+      { id: 'TRACE', label: '写入双向留痕', status: 'ROLLED_BACK' },
+      { id: 'COMMIT', label: '全部回滚', status: 'ROLLED_BACK' },
+    ],
+    lockObjectIds,
+    result: preview.result,
+    resultLabel: productionChangeResultLabels[preview.result],
+  }
+}
+
 export function executeProductionChange(
   preview: ProductionChangePreview,
   options: ProductionChangeExecutionOptions = {},
 ): ProductionChangeExecutionResult {
   const lockObjectIds = sanitizeObjectIds(preview.lockObjectIds)
+  if (lockObjectIds.some((objectId) => activeProductionChangeLocks.has(objectId))) {
+    return createProductionChangeRolledBackResult(preview, lockObjectIds, getProductionChangeLockMessage())
+  }
   lockObjectIds.forEach((objectId) => activeProductionChangeLocks.add(objectId))
 
-  const failed = options.shouldFail === true
-  const stepSeeds = [
-    { id: 'LOCK', label: '锁定处理范围' },
-    { id: 'FACTS', label: '最后核对当前事实' },
-    { id: 'CHANGE', label: '执行全部处理动作' },
-    { id: 'TRACE', label: '写入双向留痕' },
-    { id: 'COMMIT', label: failed ? '全部回滚' : '统一提交' },
-  ]
-  const steps: ProductionChangeExecutionStep[] = []
-  const result: ProductionChangeExecutionResult = {
-    status: failed ? 'ROLLED_BACK' : 'DONE',
-    message: failed ? '执行失败，本次没有修改任何单据。' : '全部处理成功并已统一生效。',
-    progress: 0,
-    steps,
-    lockObjectIds,
-    result: preview.result,
-    resultLabel: productionChangeResultLabels[preview.result],
-  }
-
   try {
+    const failed = options.shouldFail === true
+    const stepSeeds = [
+      { id: 'LOCK', label: '锁定处理范围' },
+      { id: 'FACTS', label: '最后核对当前事实' },
+      { id: 'CHANGE', label: '执行全部处理动作' },
+      { id: 'TRACE', label: '写入双向留痕' },
+      { id: 'COMMIT', label: failed ? '全部回滚' : '统一提交' },
+    ]
+    const steps: ProductionChangeExecutionStep[] = []
+    const result: ProductionChangeExecutionResult = {
+      status: failed ? 'ROLLED_BACK' : 'DONE',
+      message: failed ? '执行失败，本次没有修改任何单据。' : '全部处理成功并已统一生效。',
+      progress: 0,
+      steps,
+      lockObjectIds,
+      result: preview.result,
+      resultLabel: productionChangeResultLabels[preview.result],
+    }
     stepSeeds.forEach((seed, index) => {
       const shouldRollBack = failed && (seed.id === 'CHANGE' || seed.id === 'TRACE' || seed.id === 'COMMIT')
       const step: ProductionChangeExecutionStep = {
@@ -634,6 +658,8 @@ export function executeProductionChange(
       options.onProgress?.(result.progress, result)
     })
     return result
+  } catch {
+    return createProductionChangeRolledBackResult(preview, lockObjectIds)
   } finally {
     lockObjectIds.forEach((objectId) => activeProductionChangeLocks.delete(objectId))
   }
