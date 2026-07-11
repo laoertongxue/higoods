@@ -10,7 +10,10 @@ import {
   buildMaterialReplacementAllocations,
   createFollowingOrderPlans,
   createQuantityLinesForOrder,
+  executeProductionChange,
+  getProductionChangeLockMessage,
   inferProductionChangeResult,
+  isProductionChangeObjectLocked,
   listAffectedDocumentNosForOrder,
   listReplacementMaterialOptions,
   LEGACY_ORIGINAL_MATERIAL_PREFIX,
@@ -22,6 +25,7 @@ import {
   resolveFollowingOrderStateFromProgressFallback,
   validateProductionChangeDecisions,
   type ProductionChangeDraft,
+  type ProductionChangePreview,
 } from '../src/data/fcs/production-order-change-workflow.ts'
 
 if (typeof (globalThis as any).HTMLInputElement === 'undefined') {
@@ -83,6 +87,75 @@ assert.deepEqual(
   },
   '生产单变更最终结果只能使用新工作流定义的三个结果',
 )
+
+assert.equal(getProductionChangeLockMessage(), '生产单正在变更，请稍后再试', '锁定提示必须使用统一文案')
+
+const executionPreview: ProductionChangePreview = {
+  result: 'PRODUCTION_PATCH',
+  resultReason: '测试同步执行',
+  affectedOrderIds: ['PO-LOCK-001'],
+  autoItems: [],
+  decisionItems: [],
+  summary: {
+    affectedOrderCount: 1,
+    affectedDocumentCount: 1,
+    materialDeltaText: '测试数量变化',
+    costDeltaText: '测试成本变化',
+    deliveryImpactText: '测试交期变化',
+  },
+  lockObjectIds: [' PO-LOCK-001 ', '', 'DOC-LOCK-001', 'PO-LOCK-001'],
+}
+const executionPreviewBefore = structuredClone(executionPreview)
+let successHookCount = 0
+const successfulExecution = executeProductionChange(executionPreview, {
+  onStep: () => {
+    successHookCount += 1
+    assert.ok(
+      ['PO-LOCK-001', 'DOC-LOCK-001'].every(isProductionChangeObjectLocked),
+      '成功执行 hook 内全部处理对象必须保持锁定',
+    )
+  },
+})
+assert.equal(successfulExecution instanceof Promise, false, '同步执行函数不得返回 Promise')
+assert.ok(successHookCount > 0, '成功执行必须同步触发步骤 hook')
+assert.equal(successfulExecution.status, 'DONE', '成功执行必须返回 DONE')
+assert.equal(successfulExecution.message, '全部处理成功并已统一生效。', '成功提示必须精确')
+assert.equal(successfulExecution.progress, 100, '成功执行必须返回 100%')
+assert.deepEqual(successfulExecution.lockObjectIds, ['PO-LOCK-001', 'DOC-LOCK-001'], '锁 ID 必须过滤空值并去重')
+assert.ok(successfulExecution.steps.every((step) => step.status === 'DONE'), '成功步骤必须全部 DONE')
+assert.ok(
+  ['PO-LOCK-001', 'DOC-LOCK-001'].every((id) => !isProductionChangeObjectLocked(id)),
+  '成功返回后必须释放全部锁',
+)
+assert.deepEqual(executionPreview, executionPreviewBefore, '成功执行不得修改输入 preview')
+
+let failureHookCount = 0
+const failedExecution = executeProductionChange(executionPreview, {
+  shouldFail: true,
+  onProgress: () => {
+    failureHookCount += 1
+    assert.ok(
+      ['PO-LOCK-001', 'DOC-LOCK-001'].every(isProductionChangeObjectLocked),
+      '失败执行 hook 内全部处理对象必须保持锁定',
+    )
+  },
+})
+assert.ok(failureHookCount > 0, '失败执行必须同步触发进度 hook')
+assert.equal(failedExecution.status, 'ROLLED_BACK', '失败执行必须返回 ROLLED_BACK')
+assert.equal(failedExecution.message, '执行失败，本次没有修改任何单据。', '失败提示必须说明没有修改单据')
+assert.equal(failedExecution.progress, 100, '失败回滚也必须返回 100%')
+assert.ok(
+  failedExecution.steps
+    .filter((step) => step.id === 'CHANGE' || step.id === 'TRACE')
+    .every((step) => step.status === 'ROLLED_BACK'),
+  '失败时 CHANGE/TRACE 不得产生 DONE 留痕',
+)
+assert.equal(failedExecution.steps.at(-1)?.label, '全部回滚', '失败最后一步必须显示全部回滚')
+assert.ok(
+  ['PO-LOCK-001', 'DOC-LOCK-001'].every((id) => !isProductionChangeObjectLocked(id)),
+  '失败返回后必须释放全部锁',
+)
+assert.deepEqual(executionPreview, executionPreviewBefore, '失败执行不得修改输入 preview')
 
 ;[
   [
@@ -943,6 +1016,14 @@ const transitionProductionChangeStep = requireFunction<(
   targetStep: typeof state.productionChangeFormStep,
   form: typeof state.productionChangeForm,
 ) => { step: typeof state.productionChangeFormStep; error: string }>(eventExports, 'transitionProductionChangeStep')
+const executeProductionChangeForForm = requireFunction<(
+  form: typeof state.productionChangeForm,
+  options?: { shouldFail?: boolean },
+) => {
+  executed: boolean
+  step: typeof state.productionChangeFormStep
+  error: string
+}>(eventExports, 'executeProductionChangeForForm')
 
 const initializedQuantityForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
 assert.equal(initializedQuantityForm.productionOrderId, quantityFactoryOrderId, '初始化必须保留所选生产单')
@@ -987,6 +1068,34 @@ incompleteHandlingForm.reason = '全部数量替换。'
 const blockedHandlingTransition = transitionProductionChangeStep('handling', 'execution', incompleteHandlingForm)
 assert.equal(blockedHandlingTransition.step, 'handling', '判断未完成时 handling 必须阻断进入 execution')
 assert.match(blockedHandlingTransition.error, /^请先完成 \d+ 项待跟单判断。$/)
+
+const eventSuccessForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
+const eventSuccessLine = eventSuccessForm.quantityLines[0]
+assert.ok(eventSuccessLine, '事件执行检查需要数量明细')
+eventSuccessLine.targetQty -= 1
+eventSuccessForm.reason = '同步执行成功检查'
+const eventSuccessResult = executeProductionChangeForForm(eventSuccessForm)
+assert.equal(eventSuccessResult.executed, true, '正式执行必须在同一 helper 内完成并写回')
+assert.equal(eventSuccessResult.step, 'execution', '正式执行成功后必须停留在第四步')
+assert.equal(eventSuccessForm.execution.status, 'DONE', '正式执行必须写回 DONE')
+assert.equal(eventSuccessForm.execution.message, '全部处理成功并已统一生效。', '正式执行必须写回成功提示')
+assert.equal(executeProductionChangeForForm(eventSuccessForm).executed, false, 'DONE 必须阻止重复执行')
+
+const eventFailureForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
+const eventFailureLine = eventFailureForm.quantityLines[0]
+assert.ok(eventFailureLine, '事件失败检查需要数量明细')
+eventFailureLine.targetQty -= 1
+eventFailureForm.reason = '同步执行失败检查'
+const eventFailureResult = executeProductionChangeForForm(eventFailureForm, { shouldFail: true })
+assert.equal(eventFailureResult.executed, true, '失败演示必须在同一 helper 内完成并写回')
+assert.equal(eventFailureForm.execution.status, 'ROLLED_BACK', '失败演示必须写回 ROLLED_BACK')
+assert.equal(executeProductionChangeForForm(eventFailureForm).executed, true, 'ROLLED_BACK 必须允许同步重试')
+assert.equal(eventFailureForm.execution.status, 'DONE', '回滚后同步重试成功必须写回 DONE')
+
+const eventIncompleteResult = executeProductionChangeForForm(incompleteHandlingForm)
+assert.equal(eventIncompleteResult.executed, false, '判断不完整时不得执行')
+assert.equal(eventIncompleteResult.step, 'handling', '判断不完整时必须退回 handling')
+assert.match(eventIncompleteResult.error, /^请先完成 \d+ 项待跟单判断。$/)
 
 const initializedMaterialForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'MATERIAL_REPLACEMENT')
 const initialMaterialSuggestion = initializedMaterialForm.materialReplacement.allocations.reduce(
@@ -1637,6 +1746,10 @@ const productionEventsSource = readFileSync(
   new URL('../src/pages/production/events.ts', import.meta.url),
   'utf8',
 )
+const productionChangeWorkflowSource = readFileSync(
+  new URL('../src/data/fcs/production-order-change-workflow.ts', import.meta.url),
+  'utf8',
+)
 const productionContextSource = readFileSync(
   new URL('../src/pages/production/context.ts', import.meta.url),
   'utf8',
@@ -1699,6 +1812,22 @@ assert.ok(
   assert.ok(productionEventsSource.includes(text), `events.ts 缺少第三步或局部更新实现「${text}」`)
 })
 
+const executeProductionChangeSource = productionChangeWorkflowSource.slice(
+  productionChangeWorkflowSource.indexOf('export function executeProductionChange('),
+  productionChangeWorkflowSource.indexOf('export type InferProductionChangeResultInput'),
+)
+;['setTimeout', 'Promise', 'async ', 'queue'].forEach((text) => {
+  assert.ok(!executeProductionChangeSource.includes(text), `同步执行函数不得包含异步机制「${text}」`)
+})
+;[
+  "action === 'execute-production-change'",
+  "action === 'simulate-production-change-failure'",
+  "form.execution.status === 'RUNNING' || form.execution.status === 'DONE'",
+  'form.execution = executeProductionChange(preview, options)',
+].forEach((text) => {
+  assert.ok(productionEventsSource.includes(text), `events.ts 缺少第四步同步写回或防重复证据「${text}」`)
+})
+
 const task5RenderedSurfaces = [
   ['列表和场景卡', listHtml],
   ['数量旧记录页', quantityEditHtml],
@@ -1718,8 +1847,71 @@ state.productionChangeSelectedOrderId = ''
 state.productionChangeFormStep = 'execution'
 const executionHtml = renderProductionChangeNewPage()
 assert.ok(executionHtml.includes('data-production-change-execution'), '同步执行步骤必须渲染独立第四步主体')
-;['全部成功才生效', '生产单正在变更，请稍后再试'].forEach((text) => {
+;[
+  '同步执行',
+  '全部成功才生效',
+  '当前进度尚未正式生效，请等待最终处理结果。',
+  '生产单正在变更，请稍后再试',
+  '执行期间，处理范围内的生产单和关联单据只能查看。',
+  '锁定处理范围',
+  '最后核对当前事实',
+  '执行全部处理动作',
+  '写入双向留痕',
+  '统一提交',
+  '待执行',
+].forEach((text) => {
   assert.ok(executionHtml.includes(text), `同步执行步骤缺少「${text}」`)
+})
+assert.ok(executionHtml.includes('data-prod-action="execute-production-change"'), '执行前必须显示确认执行主按钮')
+assert.ok(executionHtml.includes('>确认执行</button>'), '执行前主按钮文案必须为确认执行')
+assert.ok(
+  executionHtml.includes('data-prod-action="simulate-production-change-failure"'),
+  '执行前必须在演示区域提供失败演示按钮',
+)
+
+const runningForm = createProductionChangeForm()
+runningForm.execution.status = 'RUNNING'
+const runningExecutionHtml = renderProductionChangeFormBody('execution', runningForm)
+assert.match(
+  runningExecutionHtml,
+  /data-prod-action="execute-production-change"[\s\S]*?disabled/,
+  'RUNNING 时必须禁用重复执行',
+)
+assert.ok(!runningExecutionHtml.includes('data-prod-action="simulate-production-change-failure"'), 'RUNNING 时不得触发失败演示')
+
+const renderExecutionState = (
+  result: keyof typeof productionChangeResultLabels,
+  execution: ReturnType<typeof executeProductionChange>,
+): string => {
+  const form = createProductionChangeForm()
+  Object.assign(form.execution, { ...execution, result, resultLabel: productionChangeResultLabels[result] })
+  return renderProductionChangeFormBody('execution', form)
+}
+
+const doneExecutionHtml = renderExecutionState('PRODUCTION_PATCH', successfulExecution)
+assert.ok(doneExecutionHtml.includes('全部处理成功并已统一生效。'), '成功后必须展示成功 message')
+assert.ok(doneExecutionHtml.includes('100%'), '成功后必须展示 100%')
+assert.ok(!doneExecutionHtml.includes('data-prod-action="execute-production-change"'), '成功后不得显示执行主按钮')
+
+const rolledBackExecutionHtml = renderExecutionState('VERSION_RELATION', failedExecution)
+assert.ok(rolledBackExecutionHtml.includes('执行失败，本次没有修改任何单据。'), '回滚后必须展示失败 message')
+assert.ok(rolledBackExecutionHtml.includes('>重新执行</button>'), '回滚后必须允许同步重新执行')
+assert.ok(
+  rolledBackExecutionHtml.includes('data-prod-action="execute-production-change"'),
+  '回滚后的重新执行必须复用正式执行 action',
+)
+
+const versionAndPatchHtml = renderExecutionState('VERSION_AND_PATCH', {
+  ...successfulExecution,
+  result: 'VERSION_AND_PATCH',
+  resultLabel: productionChangeResultLabels.VERSION_AND_PATCH,
+})
+;[
+  [doneExecutionHtml, productionChangeResultLabels.PRODUCTION_PATCH],
+  [rolledBackExecutionHtml, productionChangeResultLabels.VERSION_RELATION],
+  [versionAndPatchHtml, productionChangeResultLabels.VERSION_AND_PATCH],
+].forEach(([html, resultLabel]) => {
+  assert.ok(html.includes(resultLabel), `执行结果页必须展示最终结果「${resultLabel}」`)
 })
 
 const newFlowStepHtml: Array<[string, string]> = [

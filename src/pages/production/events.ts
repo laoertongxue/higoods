@@ -75,6 +75,7 @@ import {
   buildMaterialReplacementAllocations,
   createFollowingOrderPlans,
   createQuantityLinesForOrder,
+  executeProductionChange,
   getProductionChangeDecisionSuggestedValue,
   listReplacementMaterialOptions,
   normalizeMaterialReplacementAllocations,
@@ -510,6 +511,34 @@ function moveProductionChangeFormToStep(targetStep: ProductionChangeFormStep): v
   )
   state.productionChangeFormStep = result.step
   state.productionChangeFormError = result.error
+}
+
+export function executeProductionChangeForForm(
+  form: ProductionChangeForm,
+  options: { shouldFail?: boolean } = {},
+): { executed: boolean; step: ProductionChangeFormStep; error: string } {
+  if (form.execution.status === 'RUNNING' || form.execution.status === 'DONE') {
+    return { executed: false, step: 'execution', error: '' }
+  }
+
+  const preview = buildProductionChangePreviewForForm(form)
+  const missingDecisionIds = validateProductionChangeDecisions(preview)
+  if (missingDecisionIds.length > 0) {
+    return {
+      executed: false,
+      step: 'handling',
+      error: `请先完成 ${missingDecisionIds.length} 项待跟单判断。`,
+    }
+  }
+
+  form.execution = {
+    status: 'RUNNING',
+    message: '',
+    progress: 0,
+    steps: [],
+  }
+  form.execution = executeProductionChange(preview, options)
+  return { executed: true, step: 'execution', error: '' }
 }
 
 interface ProductionChangeFieldMeta {
@@ -1256,6 +1285,15 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     const steps: ProductionChangeFormStep[] = ['order', 'content', 'handling', 'execution']
     const currentIndex = Math.max(0, steps.indexOf(state.productionChangeFormStep))
     moveProductionChangeFormToStep(steps[Math.min(currentIndex + 1, steps.length - 1)])
+    return true
+  }
+
+  if (action === 'execute-production-change' || action === 'simulate-production-change-failure') {
+    const result = executeProductionChangeForForm(state.productionChangeForm, {
+      shouldFail: action === 'simulate-production-change-failure',
+    })
+    state.productionChangeFormStep = result.step
+    state.productionChangeFormError = result.error
     return true
   }
 

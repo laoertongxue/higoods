@@ -12,6 +12,7 @@ import {
   buildMaterialReplacementAllocations,
   createFollowingOrderPlans,
   createQuantityLinesForOrder,
+  getProductionChangeLockMessage,
   LEGACY_ORIGINAL_MATERIAL_PREFIX,
   LEGACY_REPLACEMENT_MATERIAL_PREFIX,
   listAffectedDocumentNosForOrder,
@@ -22,6 +23,8 @@ import {
   resolveLegacyMaterialValue,
   type LegacyQuantityChangeLine,
   type ProductionChangePlanItem,
+  type ProductionChangeExecutionStep,
+  type ProductionChangeResult,
   type ProductionChangePreview,
 } from '../../data/fcs/production-order-change-workflow.ts'
 import { escapeHtml } from '../../utils.ts'
@@ -738,14 +741,119 @@ function renderProductionChangeHandlingStep(form: ProductionChangeForm): string 
   `
 }
 
-function renderPendingStep(title: string, description: string): string {
+const productionChangeExecutionStepSeeds: Array<Pick<ProductionChangeExecutionStep, 'id' | 'label'>> = [
+  { id: 'LOCK', label: '锁定处理范围' },
+  { id: 'FACTS', label: '最后核对当前事实' },
+  { id: 'CHANGE', label: '执行全部处理动作' },
+  { id: 'TRACE', label: '写入双向留痕' },
+  { id: 'COMMIT', label: '统一提交' },
+]
+
+const productionChangeExecutionStatusLabels: Record<ProductionChangeExecutionStep['status'], string> = {
+  WAITING: '待执行',
+  RUNNING: '执行中',
+  DONE: '已完成',
+  ROLLED_BACK: '已回滚',
+}
+
+export function renderProductionChangeExecutionStep(form: ProductionChangeForm): string {
+  const preview = buildProductionChangePreviewForForm(form)
+  const execution = form.execution as typeof form.execution & {
+    lockObjectIds?: string[]
+    result?: ProductionChangeResult
+    resultLabel?: string
+  }
+  const isIdle = execution.status === 'IDLE'
+  const isRunning = execution.status === 'RUNNING'
+  const isDone = execution.status === 'DONE'
+  const isRolledBack = execution.status === 'ROLLED_BACK'
+  const steps = execution.steps.length > 0
+    ? execution.steps
+    : productionChangeExecutionStepSeeds.map((step, index) => ({
+      ...step,
+      status: isRunning && index === 0 ? 'RUNNING' as const : 'WAITING' as const,
+    }))
+  const lockObjectIds = execution.lockObjectIds ?? preview.lockObjectIds
+  const resultLabel = execution.resultLabel ?? productionChangeResultLabels[execution.result ?? preview.result]
+
   return `
-    <section class="flex min-h-[240px] items-center justify-center rounded-md border border-dashed bg-muted/20 px-6 text-center">
-      <div class="max-w-xl">
-        <h2 class="text-base font-semibold">${escapeHtml(title)}</h2>
-        <p class="mt-2 text-sm text-muted-foreground">${escapeHtml(description)}</p>
+    <div class="space-y-6" data-production-change-execution>
+      <header class="border-b pb-4">
+        <p class="text-xs font-medium text-muted-foreground">第四步</p>
+        <h2 class="mt-1 text-lg font-semibold">同步执行</h2>
+        <p class="mt-2 text-sm font-medium">全部成功才生效</p>
+        <p class="mt-1 text-sm text-muted-foreground">当前进度尚未正式生效，请等待最终处理结果。</p>
+      </header>
+
+      <section class="grid gap-3 md:grid-cols-3" aria-label="执行前核对">
+        <div class="border-l-4 border-l-primary bg-muted/30 px-4 py-3">
+          <p class="text-xs text-muted-foreground">最终变更类型</p>
+          <p class="mt-1 text-sm font-semibold">${escapeHtml(resultLabel)}</p>
+        </div>
+        <div class="border-l-4 border-l-primary bg-muted/30 px-4 py-3">
+          <p class="text-xs text-muted-foreground">变更原因</p>
+          <p class="mt-1 text-sm font-semibold">${escapeHtml(form.reason || '未填写')}</p>
+        </div>
+        <div class="border-l-4 border-l-primary bg-muted/30 px-4 py-3">
+          <p class="text-xs text-muted-foreground">锁定对象数量</p>
+          <p class="mt-1 text-sm font-semibold">${lockObjectIds.length} 个</p>
+        </div>
+      </section>
+
+      <section class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p class="font-medium">${escapeHtml(getProductionChangeLockMessage())}</p>
+        <p class="mt-1">执行期间，处理范围内的生产单和关联单据只能查看。</p>
+      </section>
+
+      ${isIdle || isRunning ? '' : `
+        <section class="border-y py-4" aria-label="最终执行结果">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-xs font-medium text-muted-foreground">最终结果</p>
+              <p class="mt-1 text-base font-semibold">${escapeHtml(resultLabel)}</p>
+            </div>
+            <p class="text-sm font-semibold">${execution.progress}%</p>
+          </div>
+          <p class="mt-3 text-sm ${isRolledBack ? 'text-red-700' : 'text-emerald-700'}">${escapeHtml(execution.message)}</p>
+        </section>
+      `}
+
+      <section aria-label="本次同步操作结果明细">
+        <h3 class="text-base font-semibold">本次同步操作结果明细</h3>
+        <div class="mt-3 divide-y border-y">
+          ${steps.map((step, index) => `
+            <div class="flex min-h-12 items-center justify-between gap-3 py-3">
+              <div class="flex items-center gap-3">
+                <span class="flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold">${index + 1}</span>
+                <span class="text-sm font-medium">${escapeHtml(step.label)}</span>
+              </div>
+              <span class="text-xs font-medium ${step.status === 'ROLLED_BACK' ? 'text-red-700' : 'text-muted-foreground'}">${productionChangeExecutionStatusLabels[step.status]}</span>
+            </div>
+          `).join('')}
+        </div>
+      </section>
+
+      <div class="flex flex-wrap items-center gap-3">
+        ${isDone ? '' : `
+          <button
+            type="button"
+            class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            data-prod-action="execute-production-change"
+            ${isRunning ? 'disabled' : ''}
+          >${isRunning ? '执行中' : isRolledBack ? '重新执行' : '确认执行'}</button>
+        `}
+        ${isRunning ? '<span class="text-sm text-muted-foreground">本次同步操作正在完成，请勿重复执行。</span>' : ''}
       </div>
-    </section>
+
+      ${isDone || isRunning ? '' : `
+        <details class="border-t pt-3" data-production-change-failure-demo>
+          <summary class="cursor-pointer text-sm text-muted-foreground">失败回滚演示</summary>
+          <div class="mt-3">
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="simulate-production-change-failure">演示全部回滚</button>
+          </div>
+        </details>
+      `}
+    </div>
   `
 }
 
@@ -760,7 +868,7 @@ export function renderProductionChangeFormBody(
       ? renderProductionChangeContentStep(form, options)
       : step === 'handling'
         ? renderProductionChangeHandlingStep(form)
-        : renderPendingStep('同步执行', '第四步将在后续任务中接入一次确认、同步提交和失败回滚。')
+        : renderProductionChangeExecutionStep(form)
 
   return `
     <section class="min-h-[360px] rounded-lg border bg-card p-5" data-production-change-form-body="${escapeHtml(step)}">

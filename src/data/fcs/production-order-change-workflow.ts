@@ -535,6 +535,22 @@ export interface ProductionChangeExecutionStep {
   status: 'WAITING' | 'RUNNING' | 'DONE' | 'ROLLED_BACK'
 }
 
+export interface ProductionChangeExecutionResult {
+  status: 'DONE' | 'ROLLED_BACK'
+  message: string
+  progress: number
+  steps: ProductionChangeExecutionStep[]
+  lockObjectIds: string[]
+  result: ProductionChangeResult
+  resultLabel: string
+}
+
+export interface ProductionChangeExecutionOptions {
+  shouldFail?: boolean
+  onProgress?: (progress: number, result: ProductionChangeExecutionResult) => void
+  onStep?: (step: ProductionChangeExecutionStep, result: ProductionChangeExecutionResult) => void
+}
+
 export interface ProductionChangePreview {
   result: ProductionChangeResult
   resultReason: string
@@ -567,6 +583,60 @@ export interface ProductionChangeRecord extends ProductionChangeDraft {
   }
   createdBy: string
   createdAt: string
+}
+
+const activeProductionChangeLocks = new Set<string>()
+
+export function getProductionChangeLockMessage(): string {
+  return '生产单正在变更，请稍后再试'
+}
+
+export function isProductionChangeObjectLocked(objectId: string): boolean {
+  return activeProductionChangeLocks.has(objectId.trim())
+}
+
+export function executeProductionChange(
+  preview: ProductionChangePreview,
+  options: ProductionChangeExecutionOptions = {},
+): ProductionChangeExecutionResult {
+  const lockObjectIds = sanitizeObjectIds(preview.lockObjectIds)
+  lockObjectIds.forEach((objectId) => activeProductionChangeLocks.add(objectId))
+
+  const failed = options.shouldFail === true
+  const stepSeeds = [
+    { id: 'LOCK', label: '锁定处理范围' },
+    { id: 'FACTS', label: '最后核对当前事实' },
+    { id: 'CHANGE', label: '执行全部处理动作' },
+    { id: 'TRACE', label: '写入双向留痕' },
+    { id: 'COMMIT', label: failed ? '全部回滚' : '统一提交' },
+  ]
+  const steps: ProductionChangeExecutionStep[] = []
+  const result: ProductionChangeExecutionResult = {
+    status: failed ? 'ROLLED_BACK' : 'DONE',
+    message: failed ? '执行失败，本次没有修改任何单据。' : '全部处理成功并已统一生效。',
+    progress: 0,
+    steps,
+    lockObjectIds,
+    result: preview.result,
+    resultLabel: productionChangeResultLabels[preview.result],
+  }
+
+  try {
+    stepSeeds.forEach((seed, index) => {
+      const shouldRollBack = failed && (seed.id === 'CHANGE' || seed.id === 'TRACE' || seed.id === 'COMMIT')
+      const step: ProductionChangeExecutionStep = {
+        ...seed,
+        status: shouldRollBack ? 'ROLLED_BACK' : 'DONE',
+      }
+      steps.push(step)
+      result.progress = Math.round(((index + 1) / stepSeeds.length) * 100)
+      options.onStep?.(step, result)
+      options.onProgress?.(result.progress, result)
+    })
+    return result
+  } finally {
+    lockObjectIds.forEach((objectId) => activeProductionChangeLocks.delete(objectId))
+  }
 }
 
 export type InferProductionChangeResultInput =
