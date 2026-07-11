@@ -2332,21 +2332,24 @@ function renderFinalProductionChangeContent(record: ProductionChangeRecordView):
     const changedLines = record.quantityLines.filter(
       (line) => line.isNew || line.currentQty !== line.targetQty,
     )
-    return renderChangeTable(
-      ['商品编码', '颜色', '尺码', '变更前', '变更后', '变化'],
-      changedLines.map((line) => `
-        <tr>
-          <td class="px-3 py-3">${escapeHtml(line.skuCode)}</td>
-          <td class="px-3 py-3">${escapeHtml(line.color)}</td>
-          <td class="px-3 py-3">${escapeHtml(line.size)}</td>
-          <td class="px-3 py-3">${escapeHtml(`${line.currentQty} ${line.unit}`)}</td>
-          <td class="px-3 py-3">${escapeHtml(`${line.targetQty} ${line.unit}`)}</td>
-          <td class="px-3 py-3">${escapeHtml(`${line.targetQty - line.currentQty >= 0 ? '+' : ''}${line.targetQty - line.currentQty} ${line.unit}`)}</td>
-        </tr>
-      `),
-      '没有数量变化',
-      'min-w-[860px]',
-    )
+    return `
+      ${renderChangeTable(
+        ['商品编码', '颜色', '尺码', '变更前', '变更后', '变化'],
+        changedLines.map((line) => `
+          <tr>
+            <td class="px-3 py-3">${escapeHtml(line.skuCode)}</td>
+            <td class="px-3 py-3">${escapeHtml(line.color)}</td>
+            <td class="px-3 py-3">${escapeHtml(line.size)}</td>
+            <td class="px-3 py-3">${escapeHtml(`${line.currentQty} ${line.unit}`)}</td>
+            <td class="px-3 py-3">${escapeHtml(`${line.targetQty} ${line.unit}`)}</td>
+            <td class="px-3 py-3">${escapeHtml(`${line.targetQty - line.currentQty >= 0 ? '+' : ''}${line.targetQty - line.currentQty} ${line.unit}`)}</td>
+          </tr>
+        `),
+        '没有数量变化',
+        'min-w-[860px]',
+      )}
+      ${renderInfoTiles([['变更原因', record.reason]])}
+    `
   }
 
   const replacement = record.materialReplacement

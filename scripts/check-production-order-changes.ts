@@ -1997,11 +1997,7 @@ state.productionChangeForm.execution = idleExecutionState
 ].forEach((text) => {
   assert.ok(executionHtml.includes(text), `同步执行步骤缺少「${text}」`)
 })
-assert.ok(
-  executionHtml.includes('执行期间，其他操作统一提示：') &&
-  executionHtml.includes('生产单正在变更，请稍后再试'),
-  'IDLE 必须预告执行期间其他操作收到的精确锁提示',
-)
+assert.ok(!executionHtml.includes('生产单正在变更，请稍后再试'), 'IDLE 不得显示正在变更锁提示')
 assert.ok(!executionHtml.includes('只能查看'), 'IDLE 不得声称处理范围当前只读锁定')
 assert.ok(executionHtml.includes('data-prod-action="execute-production-change"'), '执行前必须显示确认执行主按钮')
 assert.ok(executionHtml.includes('>确认执行</button>'), '执行前主按钮文案必须为确认执行')
