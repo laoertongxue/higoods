@@ -331,10 +331,11 @@ function renderSegmentButton(
   dataName: string,
   dataValue: string,
   active: boolean,
+  disabled = false,
 ): string {
   return `
     <button type="button" class="min-h-10 flex-1 border px-3 py-2 text-sm first:rounded-l-md last:rounded-r-md ${active ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted'}"
-      data-prod-action="${action}" data-${dataName}="${dataValue}">${label}</button>
+      data-prod-action="${action}" data-${dataName}="${dataValue}" ${disabled ? 'disabled' : ''}>${label}</button>
   `
 }
 
@@ -414,7 +415,7 @@ export function createProductionChangeEditForm(order: ProductionOrderChangeOrder
   return form
 }
 
-export function renderMaterialReplacementForm(form: ProductionChangeForm): string {
+export function renderMaterialReplacementForm(form: ProductionChangeForm, readOnly = false): string {
   const replacement = form.materialReplacement
   const currentMaterialOptions = withSelectedLegacyMaterialOption(
     listCurrentMaterialOptionsForOrder(form.productionOrderId),
@@ -453,13 +454,8 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm): strin
       )
     ),
   )
-  const normalizedAllocations = normalizeMaterialReplacementAllocations(
-    form.productionOrderId,
-    replacement.allocations,
-    replacement.confirmedProductionQty,
-  )
-  const allocations = normalizedAllocations.allocations
-  const totalDemandQty = normalizedAllocations.totalDemandQty
+  const allocations = replacement.allocations
+  const totalDemandQty = allocations.reduce((sum, line) => sum + line.demandQty, 0)
   const allocationTotal = allocations.reduce((sum, line) => sum + line.confirmedReplacementQty, 0)
   const calculatedSuggestion = allocations.reduce((sum, line) => sum + line.suggestedReplacementQty, 0)
   const suggestedProductionQty = replacement.suggestedProductionQty > 0
@@ -468,6 +464,17 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm): strin
   const followingOrders = replacement.followingOrders.length > 0
     ? replacement.followingOrders
     : createFollowingOrderPlans(form.productionOrderId)
+  const invalidAllocation = allocations.find(
+    (line) =>
+      !Number.isInteger(line.confirmedReplacementQty) ||
+      line.confirmedReplacementQty < 0 ||
+      line.confirmedReplacementQty > line.demandQty,
+  )
+  const allocationError = invalidAllocation
+    ? `${invalidAllocation.color} ${invalidAllocation.size} 的分配数量必须为非负整数，且不能超过 ${invalidAllocation.demandQty} 件。`
+    : allocationTotal !== replacement.confirmedProductionQty
+      ? `分配合计需等于确认生产件数，还差 ${replacement.confirmedProductionQty - allocationTotal} 件。`
+      : ''
 
   return `
     <section class="space-y-5" data-production-change-form-type="MATERIAL_REPLACEMENT">
@@ -478,14 +485,14 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm): strin
       <div class="grid gap-4 md:grid-cols-2">
         <label class="space-y-1 text-sm">
           <span class="font-medium">原面料</span>
-          <select data-prod-field="productionChangeOriginalMaterialId" data-material-source="current-facts" class="w-full rounded-md border px-3 py-2">
+          <select data-prod-field="productionChangeOriginalMaterialId" data-material-source="current-facts" class="w-full rounded-md border px-3 py-2" ${readOnly ? 'disabled' : ''}>
             <option value="">请选择原面料</option>
             ${renderOptions(currentMaterialOptions, replacement.originalMaterialId)}
           </select>
         </label>
         <label class="space-y-1 text-sm">
           <span class="font-medium">新面料</span>
-          <select data-prod-field="productionChangeReplacementMaterialId" data-material-source="system-archive" class="w-full rounded-md border px-3 py-2">
+          <select data-prod-field="productionChangeReplacementMaterialId" data-material-source="system-archive" class="w-full rounded-md border px-3 py-2" ${readOnly ? 'disabled' : ''}>
             <option value="">请选择新面料</option>
             ${renderOptions(systemReplacementMaterialOptions, replacement.replacementMaterialId)}
           </select>
@@ -498,15 +505,15 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm): strin
         <fieldset class="space-y-2">
           <legend class="text-sm font-medium">替换方式</legend>
           <div class="flex">
-            ${renderSegmentButton('剩余数量替换', 'set-production-change-replacement-mode', 'mode', 'REMAINING', replacement.replacementMode === 'REMAINING')}
-            ${renderSegmentButton('全部数量替换', 'set-production-change-replacement-mode', 'mode', 'FULL', replacement.replacementMode === 'FULL')}
+            ${renderSegmentButton('剩余数量替换', 'set-production-change-replacement-mode', 'mode', 'REMAINING', replacement.replacementMode === 'REMAINING', readOnly)}
+            ${renderSegmentButton('全部数量替换', 'set-production-change-replacement-mode', 'mode', 'FULL', replacement.replacementMode === 'FULL', readOnly)}
           </div>
         </fieldset>
         <fieldset class="space-y-2">
           <legend class="text-sm font-medium">处理范围</legend>
           <div class="flex">
-            ${renderSegmentButton('只处理当前生产单', 'set-production-change-scope', 'scope', 'CURRENT_ONLY', replacement.scope === 'CURRENT_ONLY')}
-            ${renderSegmentButton('后续生产单也替换', 'set-production-change-scope', 'scope', 'CURRENT_AND_FOLLOWING', replacement.scope === 'CURRENT_AND_FOLLOWING')}
+            ${renderSegmentButton('只处理当前生产单', 'set-production-change-scope', 'scope', 'CURRENT_ONLY', replacement.scope === 'CURRENT_ONLY', readOnly)}
+            ${renderSegmentButton('后续生产单也替换', 'set-production-change-scope', 'scope', 'CURRENT_AND_FOLLOWING', replacement.scope === 'CURRENT_AND_FOLLOWING', readOnly)}
           </div>
         </fieldset>
       </div>
@@ -518,22 +525,19 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm): strin
         </div>
         <label class="space-y-1 text-sm">
           <span class="font-medium">跟单确认用于生产的数量</span>
-          <input data-prod-field="productionChangeConfirmedProductionQty" data-skip-page-rerender="true" type="number" min="0" max="${totalDemandQty}" step="1" value="${normalizedAllocations.confirmedProductionQty}" class="w-full rounded-md border px-3 py-2" />
+          <input data-prod-field="productionChangeConfirmedProductionQty" data-skip-page-rerender="true" type="number" min="0" max="${totalDemandQty}" step="1" value="${replacement.confirmedProductionQty}" class="w-full rounded-md border px-3 py-2" ${readOnly ? 'disabled' : ''} />
           <span class="block text-xs text-muted-foreground">最多 ${totalDemandQty} 件，仅填写成衣生产件数。</span>
         </label>
       </div>
       <div>
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="toggle-production-change-allocation">
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="toggle-production-change-allocation" ${readOnly ? 'disabled' : ''}>
             调整颜色尺码分配
             <i data-lucide="chevron-down" class="ml-1 inline h-4 w-4"></i>
           </button>
-          <p class="text-sm font-medium" data-production-change-allocation-summary>分配合计 ${allocationTotal} 件 / 确认 ${normalizedAllocations.confirmedProductionQty} 件</p>
+          <p class="text-sm font-medium" data-production-change-allocation-summary>分配合计 ${allocationTotal} 件 / 确认 ${replacement.confirmedProductionQty} 件</p>
         </div>
-        <p class="mt-2 text-sm text-red-700" data-production-change-allocation-error></p>
-        ${normalizedAllocations.wasNormalized
-          ? '<p class="mt-2 text-sm text-amber-700">分配已按确认生产件数自动归一</p>'
-          : ''}
+        <p class="mt-2 text-sm text-red-700" data-production-change-allocation-error>${escapeHtml(allocationError)}</p>
         ${form.advancedAllocationOpen ? `
           <div class="mt-3 overflow-x-auto rounded-md border">
             <table class="min-w-[760px] text-left text-sm">
@@ -548,7 +552,7 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm): strin
                     <td class="px-3 py-3">${escapeHtml(line.size)}</td>
                     <td class="px-3 py-3">${line.demandQty} 件</td>
                     <td class="px-3 py-3">${line.suggestedReplacementQty} 件</td>
-                    <td class="px-3 py-3"><input data-prod-field="productionChangeAllocationQty" data-skip-page-rerender="true" data-allocation-id="${escapeHtml(line.id)}" type="number" min="0" max="${line.demandQty}" step="1" value="${line.confirmedReplacementQty}" class="w-24 rounded-md border px-2 py-1.5" /></td>
+                    <td class="px-3 py-3"><input data-prod-field="productionChangeAllocationQty" data-skip-page-rerender="true" data-allocation-id="${escapeHtml(line.id)}" type="number" min="0" max="${line.demandQty}" step="1" value="${line.confirmedReplacementQty}" class="w-24 rounded-md border px-2 py-1.5" ${readOnly ? 'disabled' : ''} /></td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -571,7 +575,7 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm): strin
       </section>
       <label class="block space-y-1 text-sm">
         <span class="font-medium">变更原因</span>
-        <textarea data-prod-field="productionChangeReason" data-skip-page-rerender="true" class="min-h-24 w-full rounded-md border px-3 py-2" placeholder="说明本次替换原因">${escapeHtml(form.reason)}</textarea>
+        <textarea data-prod-field="productionChangeReason" data-skip-page-rerender="true" class="min-h-24 w-full rounded-md border px-3 py-2" placeholder="说明本次替换原因" ${readOnly ? 'disabled' : ''}>${escapeHtml(form.reason)}</textarea>
       </label>
     </section>
   `
@@ -595,7 +599,7 @@ function renderProductionChangeContentStep(
             ${renderSegmentButton('替换物料', 'set-production-change-type', 'change-type', 'MATERIAL_REPLACEMENT', form.changeType === 'MATERIAL_REPLACEMENT')}
           </div>`}
       ${form.changeType === 'MATERIAL_REPLACEMENT'
-        ? renderMaterialReplacementForm(form)
+        ? renderMaterialReplacementForm(form, options.readOnly === true)
         : renderQuantityChangeForm(form, {
           readOnly: options.readOnly,
           unmatchedLegacyLines: options.unmatchedLegacyQuantityLines,

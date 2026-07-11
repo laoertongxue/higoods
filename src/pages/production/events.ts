@@ -75,6 +75,7 @@ import {
   buildMaterialReplacementAllocations,
   createFollowingOrderPlans,
   createQuantityLinesForOrder,
+  getProductionChangeDecisionSuggestedValue,
   listReplacementMaterialOptions,
   normalizeMaterialReplacementAllocations,
   validateProductionChangeDecisions,
@@ -355,8 +356,12 @@ function setProductionChangeType(changeType: ProductionChangeForm['changeType'])
 }
 
 function resetProductionChangeDerivedState(): void {
-  state.productionChangeForm.decisionValues = {}
-  state.productionChangeForm.execution = createProductionChangeForm().execution
+  resetProductionChangeFormDerivedState(state.productionChangeForm)
+}
+
+function resetProductionChangeFormDerivedState(form: ProductionChangeForm): void {
+  form.decisionValues = {}
+  form.execution = createProductionChangeForm().execution
 }
 
 function rebuildProductionChangeMaterialPlan(): void {
@@ -474,28 +479,147 @@ export function patchProductionChangeAllocationDom(
   patchProductionChangeFormErrorDom(node)
 }
 
-function moveProductionChangeFormToStep(targetStep: ProductionChangeFormStep): void {
+export function transitionProductionChangeStep(
+  currentStep: ProductionChangeFormStep,
+  targetStep: ProductionChangeFormStep,
+  form: ProductionChangeForm,
+): { step: ProductionChangeFormStep; error: string } {
   const steps: ProductionChangeFormStep[] = ['order', 'content', 'handling', 'execution']
-  const currentIndex = Math.max(0, steps.indexOf(state.productionChangeFormStep))
+  const currentIndex = Math.max(0, steps.indexOf(currentStep))
   const targetIndex = steps.indexOf(targetStep)
-  if (targetIndex < 0) return
+  if (targetIndex < 0) return { step: currentStep, error: '' }
   if (targetIndex <= currentIndex) {
-    state.productionChangeFormStep = targetStep
-    state.productionChangeFormError = ''
-    return
+    return { step: targetStep, error: '' }
   }
 
   for (let index = currentIndex; index < targetIndex; index += 1) {
-    const currentStep = steps[index]
-    const error = validateProductionChangeFormStep(currentStep, state.productionChangeForm)
+    const step = steps[index]
+    const error = validateProductionChangeFormStep(step, form)
     if (error) {
-      state.productionChangeFormStep = currentStep
-      state.productionChangeFormError = error
-      return
+      return { step, error }
     }
-    state.productionChangeFormStep = steps[index + 1]
   }
-  state.productionChangeFormError = ''
+  return { step: targetStep, error: '' }
+}
+
+function moveProductionChangeFormToStep(targetStep: ProductionChangeFormStep): void {
+  const result = transitionProductionChangeStep(
+    state.productionChangeFormStep,
+    targetStep,
+    state.productionChangeForm,
+  )
+  state.productionChangeFormStep = result.step
+  state.productionChangeFormError = result.error
+}
+
+interface ProductionChangeFieldMeta {
+  lineId?: string
+  allocationId?: string
+  decisionId?: string
+}
+
+interface ProductionChangeFieldResult {
+  handled: boolean
+  normalizedValue?: string
+  syncAllocationInputs?: boolean
+}
+
+export function applyProductionChangeFieldValue(
+  form: ProductionChangeForm,
+  field: string,
+  value: string,
+  meta: ProductionChangeFieldMeta = {},
+): ProductionChangeFieldResult {
+  if (field === 'productionChangeReason') {
+    form.reason = value
+    resetProductionChangeFormDerivedState(form)
+    return { handled: true }
+  }
+
+  if (
+    field === 'productionChangeQuantityTargetQty' ||
+    field === 'productionChangeQuantitySkuCode' ||
+    field === 'productionChangeQuantityColor' ||
+    field === 'productionChangeQuantitySize'
+  ) {
+    const line = form.quantityLines.find((item) => item.id === meta.lineId)
+    if (!line) return { handled: true }
+    if (field === 'productionChangeQuantityTargetQty') {
+      const qty = Number(value)
+      line.targetQty = Number.isFinite(qty) ? qty : 0
+    } else if (line.isNew) {
+      const fieldMap = {
+        productionChangeQuantitySkuCode: 'skuCode',
+        productionChangeQuantityColor: 'color',
+        productionChangeQuantitySize: 'size',
+      } as const
+      line[fieldMap[field]] = value
+    }
+    resetProductionChangeFormDerivedState(form)
+    return { handled: true }
+  }
+
+  if (field === 'productionChangeOriginalMaterialId') {
+    form.materialReplacement.originalMaterialId = value
+    resetProductionChangeFormDerivedState(form)
+    return { handled: true }
+  }
+
+  if (field === 'productionChangeReplacementMaterialId') {
+    form.materialReplacement.replacementMaterialId = value
+    resetProductionChangeFormDerivedState(form)
+    return { handled: true }
+  }
+
+  if (field === 'productionChangeConfirmedProductionQty') {
+    const qty = Number(value)
+    const replacement = form.materialReplacement
+    const normalized = normalizeMaterialReplacementAllocations(
+      form.productionOrderId,
+      replacement.allocations,
+      Number.isFinite(qty) ? qty : 0,
+    )
+    replacement.confirmedProductionQty = normalized.confirmedProductionQty
+    replacement.allocations = normalized.allocations
+    resetProductionChangeFormDerivedState(form)
+    return {
+      handled: true,
+      normalizedValue: String(normalized.confirmedProductionQty),
+      syncAllocationInputs: true,
+    }
+  }
+
+  if (field === 'productionChangeAllocationQty') {
+    const allocation = form.materialReplacement.allocations.find((line) => line.id === meta.allocationId)
+    if (!allocation) return { handled: true }
+    const qty = Number(value)
+    allocation.confirmedReplacementQty = Number.isFinite(qty) ? qty : 0
+    resetProductionChangeFormDerivedState(form)
+    return { handled: true }
+  }
+
+  if (field === 'productionChangeDecisionValue') {
+    if (!meta.decisionId) return { handled: true }
+    const currentDecision = form.decisionValues[meta.decisionId]
+    const suggestedValue = getProductionChangeDecisionSuggestedValue(form, meta.decisionId)
+    form.decisionValues[meta.decisionId] = {
+      value,
+      reason: value === suggestedValue ? '' : currentDecision?.reason ?? '',
+    }
+    return { handled: true }
+  }
+
+  if (field === 'productionChangeDecisionReason') {
+    if (!meta.decisionId) return { handled: true }
+    const currentDecision = form.decisionValues[meta.decisionId]
+    form.decisionValues[meta.decisionId] = {
+      value: currentDecision?.value ?? '',
+      reason: value,
+    }
+    return { handled: true }
+  }
+
+  return { handled: false }
 }
 
 function openLatestProductionChangeOrderOrRelation(orderId: string): void {
@@ -830,107 +954,28 @@ function updateProductionField(
     return
   }
 
-  if (field === 'productionChangeReason') {
-    state.productionChangeForm.reason = value
-    resetProductionChangeDerivedState()
+  const productionChangeFieldResult = applyProductionChangeFieldValue(
+    state.productionChangeForm,
+    field,
+    value,
+    {
+      lineId: node.dataset.lineId,
+      allocationId: node.dataset.allocationId,
+      decisionId: node.dataset.decisionId,
+    },
+  )
+  if (productionChangeFieldResult.handled) {
     state.productionChangeFormError = ''
-    patchProductionChangeFormErrorDom(node)
-    return
-  }
-
-  if (
-    field === 'productionChangeQuantityTargetQty' ||
-    field === 'productionChangeQuantitySkuCode' ||
-    field === 'productionChangeQuantityColor' ||
-    field === 'productionChangeQuantitySize'
-  ) {
-    const lineId = node.dataset.lineId
-    const line = state.productionChangeForm.quantityLines.find((item) => item.id === lineId)
-    if (!line || !lineId) return
-    if (field === 'productionChangeQuantityTargetQty') {
-      const qty = Number(value)
-      line.targetQty = Number.isFinite(qty) ? qty : 0
-    } else if (line.isNew) {
-      const fieldMap = {
-        productionChangeQuantitySkuCode: 'skuCode',
-        productionChangeQuantityColor: 'color',
-        productionChangeQuantitySize: 'size',
-      } as const
-      line[fieldMap[field]] = value
+    if (field.startsWith('productionChangeQuantity') && node.dataset.lineId) {
+      patchProductionChangeQuantityDom(node, node.dataset.lineId)
+    } else if (field === 'productionChangeConfirmedProductionQty') {
+      node.value = productionChangeFieldResult.normalizedValue ?? node.value
+      patchProductionChangeAllocationDom(node, productionChangeFieldResult.syncAllocationInputs)
+    } else if (field === 'productionChangeAllocationQty') {
+      patchProductionChangeAllocationDom(node)
+    } else if (field === 'productionChangeReason' || field === 'productionChangeDecisionReason') {
+      patchProductionChangeFormErrorDom(node)
     }
-    resetProductionChangeDerivedState()
-    state.productionChangeFormError = ''
-    patchProductionChangeQuantityDom(node, lineId)
-    return
-  }
-
-  if (field === 'productionChangeOriginalMaterialId') {
-    state.productionChangeForm.materialReplacement.originalMaterialId = value
-    resetProductionChangeDerivedState()
-    state.productionChangeFormError = ''
-    return
-  }
-
-  if (field === 'productionChangeReplacementMaterialId') {
-    state.productionChangeForm.materialReplacement.replacementMaterialId = value
-    resetProductionChangeDerivedState()
-    state.productionChangeFormError = ''
-    return
-  }
-
-  if (field === 'productionChangeConfirmedProductionQty') {
-    const qty = Number(value)
-    const replacement = state.productionChangeForm.materialReplacement
-    const normalized = normalizeMaterialReplacementAllocations(
-      state.productionChangeForm.productionOrderId,
-      replacement.allocations,
-      Number.isFinite(qty) ? qty : 0,
-    )
-    replacement.confirmedProductionQty = normalized.confirmedProductionQty
-    replacement.allocations = normalized.allocations
-    resetProductionChangeDerivedState()
-    state.productionChangeFormError = ''
-    node.value = String(normalized.confirmedProductionQty)
-    patchProductionChangeAllocationDom(node, true)
-    return
-  }
-
-  if (field === 'productionChangeAllocationQty') {
-    const allocationId = node.dataset.allocationId
-    const allocation = state.productionChangeForm.materialReplacement.allocations.find(
-      (line) => line.id === allocationId,
-    )
-    if (!allocation) return
-    const qty = Number(value)
-    allocation.confirmedReplacementQty = Number.isFinite(qty) ? qty : 0
-    resetProductionChangeDerivedState()
-    state.productionChangeFormError = ''
-    patchProductionChangeAllocationDom(node)
-    return
-  }
-
-  if (field === 'productionChangeDecisionValue') {
-    const decisionId = node.dataset.decisionId
-    if (!decisionId) return
-    const currentDecision = state.productionChangeForm.decisionValues[decisionId]
-    state.productionChangeForm.decisionValues[decisionId] = {
-      value,
-      reason: currentDecision?.reason ?? '',
-    }
-    state.productionChangeFormError = ''
-    return
-  }
-
-  if (field === 'productionChangeDecisionReason') {
-    const decisionId = node.dataset.decisionId
-    if (!decisionId) return
-    const currentDecision = state.productionChangeForm.decisionValues[decisionId]
-    state.productionChangeForm.decisionValues[decisionId] = {
-      value: currentDecision?.value ?? '',
-      reason: value,
-    }
-    state.productionChangeFormError = ''
-    patchProductionChangeFormErrorDom(node)
     return
   }
 
@@ -1211,11 +1256,6 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     const steps: ProductionChangeFormStep[] = ['order', 'content', 'handling', 'execution']
     const currentIndex = Math.max(0, steps.indexOf(state.productionChangeFormStep))
     moveProductionChangeFormToStep(steps[Math.min(currentIndex + 1, steps.length - 1)])
-    return true
-  }
-
-  if (action === 'withdraw-production-change-order') {
-    showPlanMessage('变更单已撤回')
     return true
   }
 

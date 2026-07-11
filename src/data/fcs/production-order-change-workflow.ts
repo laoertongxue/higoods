@@ -501,6 +501,15 @@ export interface ProductionChangeDraft {
   affectedDocumentNos?: string[]
 }
 
+export function getProductionChangeDecisionSuggestedValue(
+  draft: ProductionChangeDraft,
+  decisionId: string,
+): string | undefined {
+  return draft.materialReplacement?.followingOrders.find(
+    (order) => `following-order-mode-${order.productionOrderId}` === decisionId,
+  )?.suggestedMode
+}
+
 export const productionChangeResultLabels: Record<ProductionChangeResult, string> = {
   PRODUCTION_PATCH: '生产单打补丁',
   VERSION_RELATION: '正式版本绑定调整',

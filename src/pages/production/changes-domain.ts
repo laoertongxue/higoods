@@ -40,7 +40,6 @@ import {
   productionOrderChangeDocumentActionStatusLabels,
   productionOrderChangeDocumentTypeLabels,
   productionOrderChangeLockStatusLabels,
-  productionOrderChangeOrderStatusLabels,
   productionOrderChangeResultLabels,
   productionOrderChangeSourceLabels,
   productionOrderChangeTimingNodeLabels,
@@ -1269,11 +1268,11 @@ function renderProductionChangeStatCards(input: {
   const statItems = [
     ['变更单数', input.orders.length, '按生产单和变更单管理'],
     [
-      '立即止损后提交审核',
+      '立即停止后续执行并处理变更',
       input.orders.filter((item) => item.executionStrategy === 'IMMEDIATE_STOP_LOSS').length,
       '先锁范围再处理',
     ],
-    ['审核中', input.orders.filter((item) => item.status === 'UNDER_REVIEW').length, '等待主管确认'],
+    ['处理中', input.orders.filter((item) => item.status === 'UNDER_REVIEW').length, '待跟单判断'],
     ['已生成处理建议', input.orders.filter((item) => item.actionItems.length > 0).length, '按变更内容生成'],
     ['影响结算', settlementOrderIds.size, '进入料工费差异'],
     ['影响交期', timingOrderIds.size, '需要追回动作'],
@@ -1303,11 +1302,42 @@ function getProductionChangeTypeLabel(changeType: string): string {
   return changeType === 'MATERIAL_REPLACEMENT' ? '替换物料' : '修改生产单需求数量'
 }
 
+function getProductionChangeOrderStatusLabel(status: ProductionOrderChangeOrderView['status']): string {
+  const labels: Record<ProductionOrderChangeOrderView['status'], string> = {
+    DRAFT: '草稿',
+    SUBMITTED: '已提交',
+    UNDER_REVIEW: '处理中',
+    APPROVED: '处理完成',
+    EXECUTING: '执行中',
+    DONE: '已完成',
+    REJECTED: '处理退回',
+    RETURNED: '退回修改',
+  }
+  return labels[status]
+}
+
+function normalizeProductionChangeStructuredText(text: string): string {
+  return text
+    .replaceAll('立即止损后提交审核', '立即停止后续执行并处理变更')
+    .replaceAll('审核通过后立即生效', '确认处理后立即生效')
+    .replaceAll('审核通过后执行', '确认处理后执行')
+    .replaceAll('审核中', '处理中')
+    .replaceAll('等待主管确认', '待跟单判断')
+    .replaceAll('待主管确认', '待跟单判断')
+    .replaceAll('已通知相关负责人', '待确认处理')
+}
+
+function getProductionChangeLegacyActorLabel(actor: string): string {
+  return actor.includes('主管') || actor.includes('负责人') ? '原记录确认人' : actor
+}
+
 function getProductionChangeListLog(order: ProductionOrderChangeOrderView): string {
-  if (!order.latestLog.includes('补丁') && !order.latestLog.includes('版本关系')) return order.latestLog
+  if (!order.latestLog.includes('补丁') && !order.latestLog.includes('版本关系')) {
+    return normalizeProductionChangeStructuredText(order.latestLog)
+  }
   return order.changeType === 'MATERIAL_REPLACEMENT'
-    ? '已生成替换物料处理清单，等待主管确认。'
-    : '已生成修改数量处理清单，等待主管确认。'
+    ? '已生成替换物料处理清单，待跟单判断。'
+    : '已生成修改数量处理清单，待跟单判断。'
 }
 
 function renderProductionChangeScenarioCards(): string {
@@ -1316,13 +1346,13 @@ function renderProductionChangeScenarioCards(): string {
       changeType: 'QUANTITY_CHANGE',
       title: '修改生产单需求数量',
       desc: '按颜色、尺码填写原数量和新数量，系统计算本次变化。',
-      badge: '待主管确认',
+      badge: '待跟单判断',
     },
     {
       changeType: 'MATERIAL_REPLACEMENT',
       title: '替换物料',
       desc: '填写原物料、替代物料、适用颜色尺码，并说明从哪里开始用新物料。',
-      badge: '已通知相关负责人',
+      badge: '待确认处理',
     },
   ]
   return `
@@ -1334,7 +1364,7 @@ function renderProductionChangeScenarioCards(): string {
               <h2 class="text-base font-semibold">${escapeHtml(card.title)}</h2>
               <p class="mt-2 text-sm text-muted-foreground">${escapeHtml(card.desc)}</p>
             </div>
-            ${renderBadge(card.badge, card.badge === '待主管确认' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700')}
+            ${renderBadge(card.badge, card.badge === '待跟单判断' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700')}
           </div>
           <div class="mt-4 flex items-center justify-between gap-3 text-sm">
             <span class="text-muted-foreground">同一套流程：变更内容 → 需要处理的事 → 处理记录 → 单据记录</span>
@@ -1382,9 +1412,6 @@ function renderProductionChangeOrderRowActions(order: ProductionOrderChangeOrder
   if (order.status === 'DRAFT' || order.status === 'RETURNED') {
     actions.push(`<button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="/fcs/production/changes/${escapeHtml(order.id)}/edit">查看旧记录</button>`)
   }
-  if (order.status === 'SUBMITTED' || order.status === 'UNDER_REVIEW') {
-    actions.push(`<button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="withdraw-production-change-order" data-change-order-id="${escapeHtml(order.id)}">撤回</button>`)
-  }
   actions.push(`<button class="rounded-md px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="open-production-change-history" data-order-id="${escapeHtml(order.productionOrderId)}">日志</button>`)
   return `<div class="flex min-w-[128px] flex-wrap gap-1.5">${actions.join('')}</div>`
 }
@@ -1419,8 +1446,8 @@ function renderProductionChangeOrderList(orders: ProductionOrderChangeOrderView[
               </td>
             <td class="px-3 py-3">${escapeHtml(getProductionChangeTypeLabel(order.changeType))}</td>
             <td class="px-3 py-3">${escapeHtml(order.workSummary || order.reason)}</td>
-            <td class="px-3 py-3">${escapeHtml(order.actionItems[0]?.actionText || '主管确认需要处理的事')}</td>
-            <td class="px-3 py-3">${escapeHtml(order.actionItems.some((item) => item.statusText === '已完成') ? '处理中' : '待主管确认')}</td>
+            <td class="px-3 py-3">${escapeHtml(order.actionItems[0]?.actionText || '待确认处理事项')}</td>
+            <td class="px-3 py-3">${escapeHtml(order.actionItems.some((item) => item.statusText === '已完成') ? '处理中' : '待跟单判断')}</td>
             <td class="px-3 py-3">${escapeHtml(getProductionChangeListLog(order))}</td>
             <td class="px-3 py-3">
               ${renderProductionChangeOrderRowActions(order)}
@@ -1513,7 +1540,7 @@ export function renderProductionChangesPage(): string {
 
       <section class="rounded-lg border bg-background p-3">
         <div class="flex flex-wrap items-center gap-3">
-          <input data-prod-field="techPackChangeKeyword" value="${escapeHtml(state.techPackChangeKeyword)}" class="min-w-[280px] flex-1 rounded-md border px-3 py-2 text-sm" placeholder="搜索生产单号 / 变更单号 / 需求单号 / SPU / 款式 / 负责人" />
+          <input data-prod-field="techPackChangeKeyword" value="${escapeHtml(state.techPackChangeKeyword)}" class="min-w-[280px] flex-1 rounded-md border px-3 py-2 text-sm" placeholder="搜索生产单号 / 变更单号 / 需求单号 / SPU / 款式 / 跟单" />
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="apply-production-change-search">搜索</button>
         </div>
       </section>
@@ -2165,13 +2192,13 @@ function renderProductionChangeContentDetail(order: ProductionOrderChangeOrderVi
 
 function renderProductionChangeActionItems(order: ProductionOrderChangeOrderView): string {
   return renderChangeTable(
-    ['需要谁处理', '要做什么', '当前做到哪了', '进度', '调整原因'],
+    ['处理范围', '要做什么', '当前做到哪了', '进度', '调整原因'],
     order.actionItems.map((item) => `
     <tr>
-      <td class="px-3 py-3">${escapeHtml(`${item.ownerRole} / ${item.ownerName}`)}</td>
+      <td class="px-3 py-3">${escapeHtml(`${getProductionChangeTypeLabel(order.changeType)} / ${normalizeProductionChangeStructuredText(order.effectiveDescription)}`)}</td>
       <td class="px-3 py-3">${escapeHtml(item.actionText)}</td>
       <td class="px-3 py-3">${escapeHtml(order.stageText)}</td>
-      <td class="px-3 py-3">${escapeHtml(item.statusText)}</td>
+      <td class="px-3 py-3">${escapeHtml(normalizeProductionChangeStructuredText(item.statusText))}</td>
       <td class="px-3 py-3">${escapeHtml(item.adjustReason || '未调整')}</td>
     </tr>
   `),
@@ -2189,7 +2216,7 @@ function renderProductionChangeDocumentTraces(order: ProductionOrderChangeOrderV
       <td class="px-3 py-3">${escapeHtml(trace.traceText)}</td>
       <td class="px-3 py-3">${escapeHtml(trace.beforeText)}</td>
       <td class="px-3 py-3">${escapeHtml(trace.afterText)}</td>
-      <td class="px-3 py-3">${escapeHtml(trace.confirmedBy)}</td>
+      <td class="px-3 py-3">${escapeHtml(getProductionChangeLegacyActorLabel(trace.confirmedBy))}</td>
       <td class="px-3 py-3">${escapeHtml(trace.confirmedAt)}</td>
       <td class="px-3 py-3">${escapeHtml(trace.reason)}</td>
     </tr>
@@ -2220,7 +2247,7 @@ function renderProductionChangeOrderDetailContent(order: ProductionOrderChangeOr
       renderInfoTiles([
         ['建议结果', productionOrderChangeResultLabels[order.changeResult]],
         ['建议生效方式', `${effectiveModeLabels[order.expectedEffectiveMode]} / ${order.effectiveDescription}`],
-        ['建议主管先看', order.actionItems[0]?.actionText || '确认需要处理的事'],
+        ['建议跟单先核对', order.actionItems[0]?.actionText || '确认需要处理的事'],
       ]),
     )
   }
@@ -2240,8 +2267,8 @@ function renderProductionChangeOrderDetailContent(order: ProductionOrderChangeOr
     return renderChangeDetailSection('处理记录', renderInfoTiles([
       ['创建人', order.createdBy],
       ['创建时间', order.createdAt],
-      ['主管', order.reviewer],
-      ['最后记录', order.latestLog],
+      ['最后确认人', getProductionChangeLegacyActorLabel(order.reviewer)],
+      ['最后记录', normalizeProductionChangeStructuredText(order.latestLog)],
     ]))
   }
 
@@ -2302,6 +2329,7 @@ export function renderProductionChangeEditPage(changeOrderId: string): string {
     state.productionChangeForm = createProductionChangeEditForm(order)
     state.productionChangeFormError = ''
   }
+  state.productionChangeFormStep = 'content'
 
   return `
     <div class="space-y-4">
@@ -2353,7 +2381,7 @@ export function renderProductionChangeOrderDetailPage(changeOrderId: string): st
           <div class="flex items-center gap-2">
             <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="/fcs/production/changes">返回列表</button>
             <h1 class="text-xl font-semibold">${escapeHtml(order.id)}</h1>
-            ${renderBadge(productionOrderChangeOrderStatusLabels[order.status], 'bg-blue-100 text-blue-700')}
+            ${renderBadge(getProductionChangeOrderStatusLabel(order.status), 'bg-blue-100 text-blue-700')}
           </div>
           <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(order.productionOrderId)} / ${escapeHtml(order.styleName)} / ${escapeHtml(order.spuCode)}</p>
         </div>
@@ -2369,9 +2397,9 @@ export function renderProductionChangeOrderDetailPage(changeOrderId: string): st
       ]))}
       ${renderChangeDetailSection('需要处理的事', renderProductionChangeActionItems(order))}
       ${renderChangeDetailSection('处理记录', renderInfoTiles([
-        ['变更单记录', order.latestLog],
-        ['待主管确认', productionOrderChangeOrderStatusLabels[order.status]],
-        ['相关负责人', order.merchandiserName],
+        ['变更单记录', normalizeProductionChangeStructuredText(order.latestLog)],
+        ['处理状态', getProductionChangeOrderStatusLabel(order.status)],
+        ['处理范围', normalizeProductionChangeStructuredText(order.effectiveDescription)],
         ['本单已按变更单', order.id],
       ]))}
       ${renderChangeDetailSection('相关单据记录', renderProductionChangeDocumentTraces(order))}
