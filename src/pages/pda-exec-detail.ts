@@ -1007,6 +1007,7 @@ function shouldRenderCombinedDyeCurrentAction(order: DyeWorkOrder): boolean {
     order.status === 'WAIT_WATER_SOLUBLE'
     || order.status === 'WATER_SOLUBLE_IN_PROGRESS'
     || order.status === 'PRODUCTION_PAUSED'
+    || order.status === 'DYEING'
     || (order.status === 'WAIT_VAT_PLAN' && Boolean(waterNode?.finishedAt))
   )
 }
@@ -1016,6 +1017,7 @@ function getCombinedDyePrimaryAction(order: DyeWorkOrder): { action: string; lab
   if (order.status === 'WATER_SOLUBLE_IN_PROGRESS') return { action: 'dye-water-complete', label: '完成水溶', role: 'OPERATE', node: 'WATER_SOLUBLE' }
   if (order.status === 'PRODUCTION_PAUSED') return { action: 'dye-water-open-supervisor', label: '处理数量不足', role: 'SUPERVISE', node: 'WATER_SOLUBLE' }
   if (order.status === 'WAIT_VAT_PLAN' && getDyeExecutionNodeRecord(order.dyeOrderId, 'WATER_SOLUBLE')?.finishedAt) return { action: 'dye-water-start-dye', label: '开始染色', role: 'OPERATE', node: 'DYE' }
+  if (order.status === 'DYEING') return { action: 'dye-complete-dye', label: '完成染色', role: 'OPERATE', node: 'DYE' }
   return null
 }
 
@@ -1048,7 +1050,7 @@ function renderCombinedDyeCurrentActionCard(task: TaskWithHandoverFields, order:
   let primary = action && actorAllowed
     ? `<button type="button" class="min-h-11 w-full rounded-lg bg-primary px-4 py-3 text-base font-semibold text-primary-foreground disabled:opacity-60" data-pda-execd-action="${action.action}" data-combined-primary-action="true" data-dye-order-id="${escapeHtml(order.dyeOrderId)}" data-task-id="${escapeHtml(task.taskId)}" data-expected-status="${escapeHtml(order.status)}" data-expected-node="${action.node}" data-action-token="${escapeHtml(token)}">${escapeHtml(action.label)}</button>`
     : `<div class="text-sm text-blue-800">${order.status === 'PRODUCTION_PAUSED' ? '等待生产主管处理数量不足。' : '当前账号不能执行此动作。'}</div>`
-  primary = primary.replace('<button ', '<button data-skip-page-rerender="true" ')
+  if (action?.action !== 'dye-complete-dye') primary = primary.replace('<button ', '<button data-skip-page-rerender="true" ')
   return `<article class="rounded-lg border bg-card" data-testid="pda-combined-dye-current-action"><header class="border-b px-4 py-3"><div class="flex items-center justify-between gap-2"><h2 class="text-sm font-semibold">染色加工（含水溶）</h2>${renderPrintingStatusBadge(stepLabel, order.status === 'PRODUCTION_PAUSED' ? 'danger' : 'info')}</div></header><div class="space-y-4 p-4"><div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs"><span class="text-muted-foreground">当前物料</span><span class="font-medium">${escapeHtml(order.rawMaterialSku)}</span><span class="text-muted-foreground">计划数量</span><span>${order.waterSolublePlannedQty ?? order.plannedQty} ${escapeHtml(order.waterSolubleQtyUnit || order.qtyUnit)}</span><span class="text-muted-foreground">水溶完成</span><span>${order.waterSolubleCompletedQty ?? 0} ${escapeHtml(order.waterSolubleQtyUnit || order.qtyUnit)}</span><span class="text-muted-foreground">当前步骤</span><span class="font-medium">${escapeHtml(stepLabel)}</span></div><section class="rounded-lg border border-blue-200 bg-blue-50 p-4"><p class="mb-3 text-xs font-medium text-blue-800">现在要做：${escapeHtml(action?.label || '等待主管处理')}</p>${primary}</section><details class="rounded-lg border bg-background"><summary class="cursor-pointer px-4 py-3 text-sm font-medium">完整执行记录（${records.length} 条）</summary><div class="space-y-2 border-t p-4">${records.map((record) => `<div class="text-xs"><span class="font-medium">${escapeHtml(record.nodeName)}</span><span class="ml-2 text-muted-foreground">${escapeHtml(record.finishedAt ? '已完成' : record.startedAt ? '进行中' : '待开始')}</span></div>`).join('') || '<div class="text-xs text-muted-foreground">暂无执行记录</div>'}</div></details></div><div data-testid="pda-combined-dye-overlay">${renderCombinedDyeWaterOverlay()}</div></article>`
 }
 
@@ -1057,7 +1059,12 @@ function refreshCombinedDyeCurrentAction(dyeOrderId: string): void {
   const order = getDyeWorkOrderById(dyeOrderId)
   const task = order ? getTaskFactById(order.taskId) : null
   const node = document.querySelector<HTMLElement>('[data-testid="pda-combined-dye-current-action"]')
-  if (order && task && node && shouldRenderCombinedDyeCurrentAction(order)) node.outerHTML = renderCombinedDyeCurrentActionCard(task as TaskWithHandoverFields, order)
+  if (!node) return
+  if (order && task && shouldRenderCombinedDyeCurrentAction(order)) {
+    node.outerHTML = renderCombinedDyeCurrentActionCard(task as TaskWithHandoverFields, order)
+    return
+  }
+  node.remove()
 }
 
 function refreshCombinedDyeOverlay(): void {
@@ -4376,7 +4383,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       const oldText = button.textContent || '确认完成'
       button.disabled = true
       button.textContent = '处理中…'
-      const result = executeWaterSolublePdaAction({ action: 'COMPLETE', orderId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', completedQty, reason, actor: session })
+      const result = executeWaterSolublePdaAction({ action: 'COMPLETE', orderId, taskId: order.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty, reason, actor: session })
       pendingWaterActions.delete(actionKey)
       showPdaExecDetailToast(result.message)
       if (result.ok) {
@@ -4404,7 +4411,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       const oldText = button.textContent || '确认处理'
       button.disabled = true
       button.textContent = '处理中…'
-      const result = executeWaterSolublePdaAction({ action: 'RESOLVE_PAUSE', orderId, expectedStatus: 'PRODUCTION_PAUSED', decision, actor: session })
+      const result = executeWaterSolublePdaAction({ action: 'RESOLVE_PAUSE', orderId, taskId: order.taskId, expectedStatus: 'PRODUCTION_PAUSED', expectedNode: 'SUPERVISOR', decision, actor: session })
       pendingWaterActions.delete(actionKey)
       showPdaExecDetailToast(result.message)
       if (result.ok) {
@@ -4426,8 +4433,8 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     button.disabled = true
     button.textContent = '处理中…'
     const result = action === 'water-material-ready'
-      ? executeWaterSolublePdaAction({ action: 'MATERIAL_READY', orderId, expectedStatus: 'WAIT_MATERIAL', actor: session })
-      : executeWaterSolublePdaAction({ action: 'START', orderId, expectedStatus: 'WAIT_WATER_SOLUBLE', actor: session })
+      ? executeWaterSolublePdaAction({ action: 'MATERIAL_READY', orderId, taskId: order.taskId, expectedStatus: 'WAIT_MATERIAL', expectedNode: 'WAIT_MATERIAL', actor: session })
+      : executeWaterSolublePdaAction({ action: 'START', orderId, taskId: order.taskId, expectedStatus: 'WAIT_WATER_SOLUBLE', expectedNode: 'START', actor: session })
     pendingWaterActions.delete(actionKey)
     showPdaExecDetailToast(result.message)
     if (result.ok) refreshWaterSolubleDetail(orderId)

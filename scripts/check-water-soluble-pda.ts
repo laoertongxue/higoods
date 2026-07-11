@@ -39,6 +39,7 @@ import {
   listProcessWorkOrders,
 } from '../src/data/fcs/process-work-order-domain.ts'
 import {
+  createFactoryPdaUser,
   createPdaSessionFromUser,
   listFactoryPdaUsers,
 } from '../src/data/fcs/store-domain-pda.ts'
@@ -388,6 +389,16 @@ async function main(): Promise<void> {
     assert(operatorUser && supervisorUser, '必须动态取得本厂操作员和生产主管账号')
     const operator = createPdaSessionFromUser(operatorUser)
     const supervisor = createPdaSessionFromUser(supervisorUser)
+    const handoverUser = listFactoryPdaUsers(targetOrder.factoryId || '').find((item) => item.status === 'ACTIVE' && item.roleId === 'ROLE_HANDOVER')
+      || await createFactoryPdaUser({
+        factoryId: targetOrder.factoryId || '',
+        name: '水溶专项交接员',
+        loginId: `${targetOrder.factoryId || 'factory'}_water_handover_check`,
+        password: '123456',
+        roleId: 'ROLE_HANDOVER',
+        createdBy: '水溶专项检查',
+      })
+    const handoverActor = createPdaSessionFromUser(handoverUser)
 
     resetWaterSolubleDomainForChecks({ seedDemo: false })
     const executableOrder = listWaterSolubleWorkOrders()[0]
@@ -400,22 +411,49 @@ async function main(): Promise<void> {
     const foreignStart = executeWaterSolublePdaAction({
       action: 'START',
       orderId: executableOrder.waterOrderId,
+      taskId: executableOrder.taskId,
       expectedStatus: 'WAIT_WATER_SOLUBLE',
+      expectedNode: 'START',
       actor: foreignActor,
     })
     assert.equal(foreignStart.ok, false)
     assert.match(foreignStart.message, /登录信息已变化|不属于当前工厂/)
 
+    const wrongTaskStart = executeWaterSolublePdaAction({
+      action: 'START',
+      orderId: executableOrder.waterOrderId,
+      taskId: 'TASK-WATER-WRONG',
+      expectedStatus: 'WAIT_WATER_SOLUBLE',
+      expectedNode: 'START',
+      actor: operator,
+    })
+    assert.equal(wrongTaskStart.ok, false)
+    assert.match(wrongTaskStart.message, /任务.*不一致/)
+    const wrongNodeStart = executeWaterSolublePdaAction({
+      action: 'START',
+      orderId: executableOrder.waterOrderId,
+      taskId: executableOrder.taskId,
+      expectedStatus: 'WAIT_WATER_SOLUBLE',
+      expectedNode: 'COMPLETE',
+      actor: operator,
+    })
+    assert.equal(wrongNodeStart.ok, false)
+    assert.match(wrongNodeStart.message, /当前动作.*不一致/)
+
     const firstStart = executeWaterSolublePdaAction({
       action: 'START',
       orderId: executableOrder.waterOrderId,
+      taskId: executableOrder.taskId,
       expectedStatus: 'WAIT_WATER_SOLUBLE',
+      expectedNode: 'START',
       actor: operator,
     })
     const duplicateStart = executeWaterSolublePdaAction({
       action: 'START',
       orderId: executableOrder.waterOrderId,
+      taskId: executableOrder.taskId,
       expectedStatus: 'WAIT_WATER_SOLUBLE',
+      expectedNode: 'START',
       actor: operator,
     })
     assert.equal(firstStart.ok, true)
@@ -425,7 +463,9 @@ async function main(): Promise<void> {
     const missingReason = executeWaterSolublePdaAction({
       action: 'COMPLETE',
       orderId: executableOrder.waterOrderId,
+      taskId: executableOrder.taskId,
       expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS',
+      expectedNode: 'COMPLETE',
       completedQty: executableOrder.plannedQty - 1,
       reason: '',
       actor: operator,
@@ -435,7 +475,9 @@ async function main(): Promise<void> {
     const shortage = executeWaterSolublePdaAction({
       action: 'COMPLETE',
       orderId: executableOrder.waterOrderId,
+      taskId: executableOrder.taskId,
       expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS',
+      expectedNode: 'COMPLETE',
       completedQty: executableOrder.plannedQty - 1,
       reason: '现场实测原料不足',
       actor: operator,
@@ -445,7 +487,9 @@ async function main(): Promise<void> {
     const operatorResolve = executeWaterSolublePdaAction({
       action: 'RESOLVE_PAUSE',
       orderId: executableOrder.waterOrderId,
+      taskId: executableOrder.taskId,
       expectedStatus: 'PRODUCTION_PAUSED',
+      expectedNode: 'SUPERVISOR',
       decision: 'CONTINUE_WITH_ACTUAL_QTY',
       actor: operator,
     })
@@ -454,10 +498,40 @@ async function main(): Promise<void> {
     assert.equal(executeWaterSolublePdaAction({
       action: 'RESOLVE_PAUSE',
       orderId: executableOrder.waterOrderId,
+      taskId: executableOrder.taskId,
       expectedStatus: 'PRODUCTION_PAUSED',
+      expectedNode: 'SUPERVISOR',
       decision: 'CONTINUE_WITH_ACTUAL_QTY',
       actor: supervisor,
     }).ok, true)
+    assert.equal(executeWaterSolublePdaAction({
+      action: 'HANDOVER',
+      orderId: executableOrder.waterOrderId,
+      taskId: executableOrder.taskId,
+      expectedStatus: 'WAIT_HANDOVER',
+      expectedNode: 'HANDOVER',
+      handoverQty: executableOrder.plannedQty - 1,
+      actor: operator,
+    }).ok, false)
+    const handoverResult = executeWaterSolublePdaAction({
+      action: 'HANDOVER',
+      orderId: executableOrder.waterOrderId,
+      taskId: executableOrder.taskId,
+      expectedStatus: 'WAIT_HANDOVER',
+      expectedNode: 'HANDOVER',
+      handoverQty: executableOrder.plannedQty - 1,
+      actor: supervisor,
+    })
+    assert.equal(handoverResult.ok, true)
+    assert.equal(handoverResult.order?.status, 'HANDOVER_WAIT_RECEIVE')
+
+    const handoverRoleOrder = listWaterSolubleWorkOrders().find((item) => item.waterOrderId !== executableOrder.waterOrderId)
+    assert(handoverRoleOrder, '必须存在第二张独立水溶单验证交接角色')
+    assert.equal(assignWaterSolubleFactory(handoverRoleOrder.waterOrderId, operator.factoryId).ok, true)
+    assert.equal(markWaterSolubleMaterialReady(handoverRoleOrder.waterOrderId).ok, true)
+    assert.equal(executeWaterSolublePdaAction({ action: 'START', orderId: handoverRoleOrder.waterOrderId, taskId: handoverRoleOrder.taskId, expectedStatus: 'WAIT_WATER_SOLUBLE', expectedNode: 'START', actor: operator }).ok, true)
+    assert.equal(executeWaterSolublePdaAction({ action: 'COMPLETE', orderId: handoverRoleOrder.waterOrderId, taskId: handoverRoleOrder.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty: handoverRoleOrder.plannedQty, reason: '', actor: operator }).ok, true)
+    assert.equal(executeWaterSolublePdaAction({ action: 'HANDOVER', orderId: handoverRoleOrder.waterOrderId, taskId: handoverRoleOrder.taskId, expectedStatus: 'WAIT_HANDOVER', expectedNode: 'HANDOVER', handoverQty: handoverRoleOrder.plannedQty, actor: handoverActor }).ok, true)
 
     const combined = getDyeWorkOrderById(combinedDyeOrder.dyeOrderId)
     assert(combined, '含水溶染色加工单必须仍可读取')
@@ -518,6 +592,12 @@ async function main(): Promise<void> {
     assert.equal(validateDyeStartPrerequisite(combined.dyeOrderId, 80).ok, true)
     startDyeing(combined.dyeOrderId, { dyeVatNo: dyeVat.dyeVatNo, inputQty: 80, operatorName: operator.userName })
     assert.equal(getDyeExecutionNodeRecord(combined.dyeOrderId, 'DYE')?.inputQty, 80)
+    const dyeNodeAfterStart = getDyeExecutionNodeRecord(combined.dyeOrderId, 'DYE')
+    assert.throws(
+      () => startDyeing(combined.dyeOrderId, { dyeVatNo: dyeVat.dyeVatNo, inputQty: 80, operatorName: operator.userName }),
+      /已经开始|重复/,
+    )
+    assert.deepEqual(getDyeExecutionNodeRecord(combined.dyeOrderId, 'DYE'), dyeNodeAfterStart, '重复开始染色不得修改节点事实')
   } finally {
     memoryStorage.clear()
     resetWaterSolubleDomainForChecks()

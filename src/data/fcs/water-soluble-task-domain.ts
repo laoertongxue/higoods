@@ -376,10 +376,11 @@ export function getWaterSolubleCurrentAction(orderOrId: string | WaterSolubleWor
 }
 
 export type WaterSolublePdaActionInput =
-  | { action: 'MATERIAL_READY'; orderId: string; expectedStatus: 'WAIT_MATERIAL'; actor: WaterSolublePdaActor }
-  | { action: 'START'; orderId: string; expectedStatus: 'WAIT_WATER_SOLUBLE'; actor: WaterSolublePdaActor }
-  | { action: 'COMPLETE'; orderId: string; expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS'; completedQty: number; reason: string; actor: WaterSolublePdaActor }
-  | { action: 'RESOLVE_PAUSE'; orderId: string; expectedStatus: 'PRODUCTION_PAUSED'; decision: WaterSolubleSupervisorDecision; actor: WaterSolublePdaActor }
+  | { action: 'MATERIAL_READY'; orderId: string; taskId: string; expectedStatus: 'WAIT_MATERIAL'; expectedNode: 'WAIT_MATERIAL'; actor: WaterSolublePdaActor }
+  | { action: 'START'; orderId: string; taskId: string; expectedStatus: 'WAIT_WATER_SOLUBLE'; expectedNode: 'START'; actor: WaterSolublePdaActor }
+  | { action: 'COMPLETE'; orderId: string; taskId: string; expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS'; expectedNode: 'COMPLETE'; completedQty: number; reason: string; actor: WaterSolublePdaActor }
+  | { action: 'RESOLVE_PAUSE'; orderId: string; taskId: string; expectedStatus: 'PRODUCTION_PAUSED'; expectedNode: 'SUPERVISOR'; decision: WaterSolubleSupervisorDecision; actor: WaterSolublePdaActor }
+  | { action: 'HANDOVER'; orderId: string; taskId: string; expectedStatus: 'WAIT_HANDOVER'; expectedNode: 'HANDOVER'; handoverQty: number; actor: WaterSolublePdaActor }
 
 function attachWaterSolublePdaActor(result: WaterSolubleActionResult, actor: WaterSolublePdaActor): WaterSolubleActionResult {
   if (!result.ok) return result
@@ -393,16 +394,22 @@ function attachWaterSolublePdaActor(result: WaterSolubleActionResult, actor: Wat
 export function executeWaterSolublePdaAction(input: WaterSolublePdaActionInput): WaterSolubleActionResult {
   const order = findMutableOrder(input.orderId)
   if (!order) return failure(`未找到水溶加工单“${input.orderId}”。`)
-  const roleAction = input.action === 'RESOLVE_PAUSE' ? 'SUPERVISE' : 'OPERATE'
-  const actorError = validateWaterSolublePdaActor(input.actor, order.factoryId, roleAction)
-  if (actorError) return failure(actorError)
+  if (order.taskId !== input.taskId) return failure('当前任务与水溶加工单不一致，不能操作。')
   if (order.status !== input.expectedStatus) {
     return failure(`当前状态为“${WATER_SOLUBLE_STATUS_LABEL[order.status]}”，此操作已经处理或已失效。`)
   }
+  const currentAction = getWaterSolubleCurrentAction(order)
+  if (!currentAction || currentAction.actionCode !== input.expectedNode) {
+    return failure(`当前动作与“${input.expectedNode}”不一致，不能操作。`)
+  }
+  const roleAction = input.action === 'RESOLVE_PAUSE' ? 'SUPERVISE' : input.action === 'HANDOVER' ? 'HANDOVER' : 'OPERATE'
+  const actorError = validateWaterSolublePdaActor(input.actor, order.factoryId, roleAction)
+  if (actorError) return failure(actorError)
   if (input.action === 'MATERIAL_READY') return attachWaterSolublePdaActor(markWaterSolubleMaterialReady(input.orderId), input.actor)
   if (input.action === 'START') return attachWaterSolublePdaActor(startWaterSoluble(input.orderId), input.actor)
   if (input.action === 'COMPLETE') return attachWaterSolublePdaActor(completeWaterSoluble(input.orderId, input.completedQty, input.reason), input.actor)
-  return attachWaterSolublePdaActor(resolveWaterSolublePause(input.orderId, input.decision), input.actor)
+  if (input.action === 'RESOLVE_PAUSE') return attachWaterSolublePdaActor(resolveWaterSolublePause(input.orderId, input.decision), input.actor)
+  return attachWaterSolublePdaActor(submitWaterSolubleHandover(input.orderId, input.handoverQty), input.actor)
 }
 
 export function canAssignWaterSolubleFactory(factoryId: string): WaterSolubleFactoryCapabilityResult {

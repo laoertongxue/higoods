@@ -10,7 +10,6 @@ import {
   getWaterSolubleCurrentAction,
   getWaterSolubleWorkOrderById,
   listWaterSolubleWorkOrders,
-  submitWaterSolubleHandover,
   type WaterSolubleActionResult,
   type WaterSolubleSupervisorDecision,
   type WaterSolubleWorkOrder,
@@ -42,7 +41,19 @@ const state = {
   page: 1,
   pageSize: 10,
   overlay: null as Overlay,
+  overlayToken: '',
   completionDraft: { orderId: '', completedQty: '', reason: '' },
+}
+let overlaySequence = 0
+
+function setOverlay(overlay: NonNullable<Overlay>): void {
+  state.overlay = overlay
+  state.overlayToken = `${overlay.orderId}:${++overlaySequence}`
+}
+
+function clearOverlay(): void {
+  state.overlay = null
+  state.overlayToken = ''
 }
 
 function withSkipPageRerender(html: string): string {
@@ -180,7 +191,7 @@ function renderCompletionDialog(order: WaterSolubleWorkOrder): string {
       closeAction: { prefix: 'factory-water-soluble', action: 'close-overlay' },
       width: 'md',
     },
-    `<div class="space-y-4"><label class="block text-sm font-medium">实际完成数量（${escapeHtml(order.qtyUnit)}）<input type="text" inputmode="decimal" class="mt-1 h-10 w-full rounded-md border px-3" value="${escapeHtml(draft.completedQty)}" data-factory-water-soluble-field="completedQty"></label><label class="block text-sm font-medium">数量差异原因<textarea class="mt-1 min-h-20 w-full rounded-md border p-3" placeholder="数量与计划不一致时必填" data-factory-water-soluble-field="completionReason">${escapeHtml(draft.reason)}</textarea></label><p class="text-xs text-muted-foreground">等量可直接上报；短量会转主管处理；超量需要再次确认。</p><button type="button" class="h-10 w-full rounded-md bg-blue-600 font-medium text-white" data-factory-water-soluble-action="confirm-completion" data-order-id="${escapeHtml(order.waterOrderId)}">确认上报</button></div>`,
+    `<div class="space-y-4"><label class="block text-sm font-medium">实际完成数量（${escapeHtml(order.qtyUnit)}）<input type="text" inputmode="decimal" class="mt-1 h-10 w-full rounded-md border px-3" value="${escapeHtml(draft.completedQty)}" data-factory-water-soluble-field="completedQty"></label><label class="block text-sm font-medium">数量差异原因<textarea class="mt-1 min-h-20 w-full rounded-md border p-3" placeholder="数量与计划不一致时必填" data-factory-water-soluble-field="completionReason">${escapeHtml(draft.reason)}</textarea></label><p class="text-xs text-muted-foreground">等量可直接上报；短量会转主管处理；超量需要再次确认。</p><button type="button" class="h-10 w-full rounded-md bg-blue-600 font-medium text-white" data-factory-water-soluble-action="confirm-completion" data-order-id="${escapeHtml(order.waterOrderId)}" data-overlay-token="${escapeHtml(state.overlayToken)}">确认上报</button></div>`,
   ))
 }
 
@@ -194,7 +205,7 @@ function renderCompletionOverageDialog(order: WaterSolubleWorkOrder): string {
     confirmLabel: '确认超量并上报',
     danger: true,
     content: `<p class="text-sm">实际数量超过计划。确认后将按实际数量进入待交出，并保留原因“${escapeHtml(state.completionDraft.reason)}”。</p>`,
-  }).replace('data-factory-water-soluble-action="confirm-completion-overage"', `data-factory-water-soluble-action="confirm-completion-overage" data-order-id="${escapeHtml(order.waterOrderId)}"`))
+  }).replace('data-factory-water-soluble-action="confirm-completion-overage"', `data-factory-water-soluble-action="confirm-completion-overage" data-order-id="${escapeHtml(order.waterOrderId)}" data-overlay-token="${escapeHtml(state.overlayToken)}"`))
 }
 
 function overlay(): string {
@@ -222,9 +233,9 @@ function overlay(): string {
   if (state.overlay.type === 'completion-overage') return renderCompletionOverageDialog(order)
   if (state.overlay.type === 'supervisor-confirm') {
     const label = SUPERVISOR_DECISION_LABEL[state.overlay.decision]
-    return withSkipPageRerender(renderSimpleConfirmDialog({ prefix: 'factory-water-soluble', closeAction: 'close-overlay', confirmAction: 'confirm-supervisor-decision', title: `确认${label}`, description: order.waterOrderNo, confirmLabel: label, danger: state.overlay.decision === 'RETURN_FOR_REWORK', content: `<p class="text-sm">确认后将按“${label}”更新加工单，并记录主管处理结果。</p>` }).replace('data-factory-water-soluble-action="confirm-supervisor-decision"', `data-factory-water-soluble-action="confirm-supervisor-decision" data-order-id="${escapeHtml(order.waterOrderId)}" data-decision="${state.overlay.decision}"`))
+    return withSkipPageRerender(renderSimpleConfirmDialog({ prefix: 'factory-water-soluble', closeAction: 'close-overlay', confirmAction: 'confirm-supervisor-decision', title: `确认${label}`, description: order.waterOrderNo, confirmLabel: label, danger: state.overlay.decision === 'RETURN_FOR_REWORK', content: `<p class="text-sm">确认后将按“${label}”更新加工单，并记录主管处理结果。</p>` }).replace('data-factory-water-soluble-action="confirm-supervisor-decision"', `data-factory-water-soluble-action="confirm-supervisor-decision" data-order-id="${escapeHtml(order.waterOrderId)}" data-decision="${state.overlay.decision}" data-overlay-token="${escapeHtml(state.overlayToken)}"`))
   }
-  return withSkipPageRerender(renderSimpleConfirmDialog({ prefix: 'factory-water-soluble', closeAction: 'close-overlay', confirmAction: 'confirm-handover', title: '确认交出', description: order.waterOrderNo, confirmLabel: `确认交出 ${order.handoverQty ?? order.completedQty} ${order.qtyUnit}`, content: '<p class="text-sm">交出后等待对方收货，本页面不伪造收货完成。</p>' }))
+  return withSkipPageRerender(renderSimpleConfirmDialog({ prefix: 'factory-water-soluble', closeAction: 'close-overlay', confirmAction: 'confirm-handover', title: '确认交出', description: order.waterOrderNo, confirmLabel: `确认交出 ${order.handoverQty ?? order.completedQty} ${order.qtyUnit}`, content: '<p class="text-sm">交出后等待对方收货，本页面不伪造收货完成。</p>' }).replace('data-factory-water-soluble-action="confirm-handover"', `data-factory-water-soluble-action="confirm-handover" data-order-id="${escapeHtml(order.waterOrderId)}" data-overlay-token="${escapeHtml(state.overlayToken)}"`))
 }
 
 export function renderCraftDyeingWaterSolubleOrdersPage(): string {
@@ -243,7 +254,7 @@ export function renderCraftDyeingWaterSolubleOrdersPage(): string {
 function refreshList() { const node = document.querySelector<HTMLElement>('[data-factory-water-soluble-list-region]'); if (node) node.outerHTML = renderListRegion() }
 function refreshOverlay() { const node = document.querySelector<HTMLElement>('[data-factory-water-soluble-overlay]'); if (node) node.innerHTML = overlay() }
 function toast(result: WaterSolubleActionResult) { const root = document.querySelector<HTMLElement>('[data-toast-container]'); if (root) root.insertAdjacentHTML('afterbegin', renderToast({ title: result.ok ? '操作成功' : '无法操作', description: result.message, variant: result.ok ? 'success' : 'danger' })) }
-function run(result: WaterSolubleActionResult) { toast(result); if (result.ok) { state.overlay = null; refreshOverlay(); refreshList() } }
+function run(result: WaterSolubleActionResult) { toast(result); if (result.ok) { clearOverlay(); refreshOverlay(); refreshList() } }
 function rejectAction(message: string): void { toast({ ok: false, message }) }
 
 function clearCompletionDraft(): void {
@@ -281,7 +292,7 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     const access = getAuthorizedOrder(orderId, expected, roleAction)
     if (!access.order) { rejectAction(access.message); return true }
     const type = action.replace('open-', '') as 'detail' | 'supervisor' | 'handover'
-    state.overlay = { type, orderId }
+    setOverlay({ type, orderId })
     refreshOverlay()
     return true
   }
@@ -290,15 +301,15 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     if (!access.order) { rejectAction(access.message); return true }
     const decision = node.dataset.decision as WaterSolubleSupervisorDecision | undefined
     if (!decision || !Object.hasOwn(SUPERVISOR_DECISION_LABEL, decision)) { rejectAction('请选择有效的主管处理方式。'); return true }
-    state.overlay = { type: 'supervisor-confirm', orderId, decision }
+    setOverlay({ type: 'supervisor-confirm', orderId, decision })
     refreshOverlay()
     return true
   }
-  if (action === 'close-overlay') { state.overlay = null; clearCompletionDraft(); refreshOverlay(); return true }
+  if (action === 'close-overlay') { clearOverlay(); clearCompletionDraft(); refreshOverlay(); return true }
   if (action === 'cancel-completion-overage') {
     const access = getAuthorizedOrder(orderId, ['WATER_SOLUBLE_IN_PROGRESS'], 'OPERATE')
-    if (!access.order) { state.overlay = null; clearCompletionDraft(); refreshOverlay(); rejectAction(access.message); return true }
-    state.overlay = { type: 'completion', orderId }
+    if (!access.order) { clearOverlay(); clearCompletionDraft(); refreshOverlay(); rejectAction(access.message); return true }
+    setOverlay({ type: 'completion', orderId })
     refreshOverlay()
     return true
   }
@@ -306,13 +317,14 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     const access = getAuthorizedOrder(orderId, ['WATER_SOLUBLE_IN_PROGRESS'], 'OPERATE')
     if (!access.order) { rejectAction(access.message); return true }
     state.completionDraft = { orderId, completedQty: String(access.order.plannedQty), reason: '' }
-    state.overlay = { type: 'completion', orderId }
+    setOverlay({ type: 'completion', orderId })
     refreshOverlay()
     return true
   }
   if (action === 'confirm-completion' || action === 'confirm-completion-overage') {
     const requiredOverlay = action === 'confirm-completion' ? 'completion' : 'completion-overage'
     if (!hasCurrentOverlay(requiredOverlay, orderId)) { rejectAction('当前确认已失效，请重新打开加工单。'); return true }
+    if (!state.overlayToken || node.dataset.overlayToken !== state.overlayToken) { rejectAction('当前确认令牌已失效，请重新打开加工单。'); return true }
     const access = getAuthorizedOrder(orderId, ['WATER_SOLUBLE_IN_PROGRESS'], 'OPERATE')
     if (!access.order) { rejectAction(access.message); return true }
     if (state.completionDraft.orderId !== orderId) { rejectAction('当前填写内容已失效，请重新打开加工单。'); return true }
@@ -322,13 +334,13 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     const reason = state.completionDraft.reason.trim()
     if (completedQty !== access.order.plannedQty && !reason) { rejectAction('数量与计划不一致，请填写原因。'); return true }
     if (completedQty > access.order.plannedQty && action === 'confirm-completion') {
-      state.overlay = { type: 'completion-overage', orderId }
+      setOverlay({ type: 'completion-overage', orderId })
       refreshOverlay()
       return true
     }
     const actor = getPdaSession()
     if (!actor) { rejectAction('当前登录已失效，请重新登录。'); return true }
-    const result = executeWaterSolublePdaAction({ action: 'COMPLETE', orderId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', completedQty, reason, actor })
+    const result = executeWaterSolublePdaAction({ action: 'COMPLETE', orderId, taskId: access.order.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty, reason, actor })
     if (result.ok) clearCompletionDraft()
     run(result)
     return true
@@ -350,18 +362,21 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     rejectAction('当前登录已失效，请重新登录。')
     return true
   }
-  if (action === 'material-ready') run(executeWaterSolublePdaAction({ action: 'MATERIAL_READY', orderId, expectedStatus: 'WAIT_MATERIAL', actor: actor! }))
-  else if (action === 'start') run(executeWaterSolublePdaAction({ action: 'START', orderId, expectedStatus: 'WAIT_WATER_SOLUBLE', actor: actor! }))
+  const currentOrder = getWaterSolubleWorkOrderById(orderId)
+  if (action === 'material-ready') run(executeWaterSolublePdaAction({ action: 'MATERIAL_READY', orderId, taskId: currentOrder?.taskId || '', expectedStatus: 'WAIT_MATERIAL', expectedNode: 'WAIT_MATERIAL', actor: actor! }))
+  else if (action === 'start') run(executeWaterSolublePdaAction({ action: 'START', orderId, taskId: currentOrder?.taskId || '', expectedStatus: 'WAIT_WATER_SOLUBLE', expectedNode: 'START', actor: actor! }))
   else if (action === 'confirm-supervisor-decision') {
     const decision = node.dataset.decision as WaterSolubleSupervisorDecision | undefined
     if (!decision || !Object.hasOwn(SUPERVISOR_DECISION_LABEL, decision)) { rejectAction('请选择有效的主管处理方式。'); return true }
     if (!hasCurrentOverlay('supervisor-confirm', orderId) || state.overlay?.decision !== decision) { rejectAction('当前主管确认已失效，请重新选择处理方式。'); return true }
-    run(executeWaterSolublePdaAction({ action: 'RESOLVE_PAUSE', orderId, expectedStatus: 'PRODUCTION_PAUSED', decision, actor: actor! }))
+    if (!state.overlayToken || node.dataset.overlayToken !== state.overlayToken) { rejectAction('当前主管确认令牌已失效，请重新选择处理方式。'); return true }
+    run(executeWaterSolublePdaAction({ action: 'RESOLVE_PAUSE', orderId, taskId: currentOrder?.taskId || '', expectedStatus: 'PRODUCTION_PAUSED', expectedNode: 'SUPERVISOR', decision, actor: actor! }))
   }
   else if (action === 'confirm-handover') {
     if (!hasCurrentOverlay('handover', orderId)) { rejectAction('当前交出确认已失效，请重新打开加工单。'); return true }
-    const order = getWaterSolubleWorkOrderById(orderId)
-    run(submitWaterSolubleHandover(orderId, order?.handoverQty ?? order?.completedQty ?? 0))
+    if (!state.overlayToken || node.dataset.overlayToken !== state.overlayToken) { rejectAction('当前交出确认令牌已失效，请重新打开加工单。'); return true }
+    if (!actor) { rejectAction('当前登录已失效，请重新登录。'); return true }
+    run(executeWaterSolublePdaAction({ action: 'HANDOVER', orderId, taskId: currentOrder?.taskId || '', expectedStatus: 'WAIT_HANDOVER', expectedNode: 'HANDOVER', handoverQty: currentOrder?.handoverQty ?? currentOrder?.completedQty ?? 0, actor }))
   }
   else if (action === 'prev-page') { state.page = Math.max(1, state.page - 1); refreshList() }
   else if (action === 'next-page') { state.page += 1; refreshList() }
@@ -370,4 +385,4 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
 }
 
 export function isCraftDyeingWaterSolubleOverlayOpen(): boolean { return state.overlay !== null }
-export function closeCraftDyeingWaterSolubleOverlay(): void { state.overlay = null; clearCompletionDraft(); refreshOverlay() }
+export function closeCraftDyeingWaterSolubleOverlay(): void { clearOverlay(); clearCompletionDraft(); refreshOverlay() }

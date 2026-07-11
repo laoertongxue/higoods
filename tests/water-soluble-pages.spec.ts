@@ -270,6 +270,17 @@ test('PFOS 主管选择按实际数量继续交出', async ({ page }) => {
   await expect(page.getByTestId('factory-water-soluble-card').filter({ hasText: '待交出' })).toBeVisible()
   await expect(page.getByRole('button', { name: '现在交出' })).toBeVisible()
   await page.getByRole('button', { name: '现在交出' }).click()
+  await page.evaluate((id) => {
+    const button = document.createElement('button')
+    button.dataset.factoryWaterSolubleAction = 'confirm-handover'
+    button.dataset.orderId = id || ''
+    button.dataset.skipPageRerender = 'true'
+    document.querySelector('[data-testid="factory-water-soluble-orders-page"]')?.appendChild(button)
+    button.click()
+    button.remove()
+  }, orderId)
+  await expect(page.getByText(/当前交出确认令牌已失效/)).toBeVisible()
+  await expect(page.getByTestId('factory-water-soluble-card').filter({ hasText: '待交出' })).toBeVisible()
   await page.getByRole('button', { name: /确认交出/ }).click()
   await expect(page.getByTestId('factory-water-soluble-card').filter({ hasText: '交出待收货' })).toBeVisible()
   await page.evaluate((id) => {

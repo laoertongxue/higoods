@@ -2954,6 +2954,8 @@ export function startDyeing(
   const inputQty = Number.isFinite(input.inputQty) ? Number(input.inputQty) : order.plannedQty
   const prerequisite = validateDyeStartPrerequisite(dyeOrderId, inputQty)
   if (!prerequisite.ok) throw new Error(prerequisite.message)
+  const existingDyeNode = getMutableNodeRecord(dyeOrderId, 'DYE')
+  if (existingDyeNode?.startedAt) throw new Error('染色已经开始，请勿重复操作。')
   const vat = listDyeVatOptions(order.dyeFactoryId).find((item) => item.dyeVatNo === input.dyeVatNo)
   const now = nowTimestamp()
   upsertNodeRecord(dyeOrderId, 'DYE', (current) => ({
