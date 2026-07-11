@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { filterReceiveAwardedTaskFacts } from '../src/data/fcs/pda-receive-scope.ts'
 import {
   acceptRuntimeTaskAssignment,
+  applyRuntimeDirectDispatchMeta,
   allocateRuntimeSewingTaskScope,
   awardRuntimeTaskTender,
   captureRuntimeDirectDispatchState,
@@ -110,6 +111,22 @@ try {
   })
   assert.equal(future.ok, false)
   assert.match(future.message, /业务分配时间不能晚于当前操作时间/)
+
+  const directRejectTaskId = 'TASKGEN-202603-0002-006__ORDER'
+  const directRejectBase = getRuntimeTaskById(directRejectTaskId)!
+  const directPending = applyRuntimeDirectDispatchMeta({ taskId: directRejectTaskId, factoryId: 'ID-F001', factoryName: '测试综合工厂A', acceptDeadline: '2026-07-10 18:00:00', taskDeadline: '2026-07-20 18:00:00', remark: '非SLA直接派单拒单测试', by: '跟单A', dispatchPrice: 10000, dispatchPriceCurrency: 'IDR', dispatchPriceUnit: '件', priceDiffReason: '', businessAssignedAt: '2026-07-10 10:00:00', operatedAt: '2026-07-10 10:00:00', acceptanceSla: { ruleSource: 'GLOBAL_DEFAULT', processCode: directRejectBase.processCode, processName: directRejectBase.processNameZh, craftCode: '', craftName: '', acceptTimeoutHours: 8, enabled: true, autoAccept: false } })
+  assert.equal(directPending?.acceptanceStatus, 'PENDING')
+  const directRejected = rejectRuntimeTaskAssignment(directRejectTaskId, { factoryId: 'ID-F001', reason: '无法承接', rejectedAt: '2026-07-10 10:30:00', rejectedBy: '测试综合工厂A' })
+  assert.equal(directRejected.assignmentMode, 'DIRECT')
+  assert.equal(directRejected.assignmentStatus, 'UNASSIGNED', 'DIRECT无tender拒单后必须回到未分配')
+  assert.equal(directRejected.acceptanceStatus, 'REJECTED')
+  assert.equal(directRejected.assignedFactoryId, undefined)
+  assert.equal(directRejected.dispatchPrice, undefined)
+  assert.match(directRejected.auditLogs.at(-1)?.detail ?? '', /无法承接/, 'DIRECT拒单必须保留业务审计')
+  const directRedispatched = applyRuntimeDirectDispatchMeta({ taskId: directRejectTaskId, factoryId: 'ID-F002', factoryName: '测试综合工厂B', acceptDeadline: '2026-07-11 18:00:00', taskDeadline: '2026-07-21 18:00:00', remark: '拒单后再次直接派单', by: '跟单A', dispatchPrice: 10500, dispatchPriceCurrency: 'IDR', dispatchPriceUnit: '件', priceDiffReason: '', businessAssignedAt: '2026-07-10 11:00:00', operatedAt: '2026-07-10 11:00:00', acceptanceSla: { ruleSource: 'GLOBAL_DEFAULT', processCode: directRejectBase.processCode, processName: directRejectBase.processNameZh, craftCode: '', craftName: '', acceptTimeoutHours: 8, enabled: true, autoAccept: false } })
+  assert.equal(directRedispatched?.assignmentStatus, 'ASSIGNED')
+  assert.equal(directRedispatched?.assignedFactoryId, 'ID-F002')
+  assert.equal(directRedispatched?.acceptanceStatus, 'PENDING', 'DIRECT拒单后必须可正常再次派单')
 
   const rejectBid = createSewingDispatchWorkbenchDraft({ actionType: '发起竞价', rowIds: [futureRow.rowId], qtyByRowId: { [futureRow.rowId]: 1 }, businessAssignedAt: '2026-07-10 10:00:00', operatedAt: '2026-07-10 10:00:00', by: '跟单A' })
   assert.equal(rejectBid.ok, true, rejectBid.message)

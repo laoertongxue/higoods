@@ -2693,6 +2693,7 @@ export function rejectRuntimeTaskAssignment(
 
   const runtimeState = captureRuntimeDirectDispatchState()
   try {
+    const returnsToTender = task.assignmentMode === 'BIDDING' && Boolean(task.tenderId)
     const auditLogs: TaskAuditLog[] = [...task.auditLogs, {
       id: makeRuntimeAuditId(taskId),
       action: 'REJECT_TASK',
@@ -2701,11 +2702,20 @@ export function rejectRuntimeTaskAssignment(
       by: rejectedBy,
     }]
     const updated = patchRuntimeTask(taskId, {
-      assignmentStatus: 'BIDDING',
+      assignmentStatus: returnsToTender ? 'BIDDING' : 'UNASSIGNED',
       assignedFactoryId: undefined,
       assignedFactoryName: undefined,
       awardedAt: undefined,
       dispatchPrice: undefined,
+      dispatchPriceCurrency: undefined,
+      dispatchPriceUnit: undefined,
+      priceDiffReason: undefined,
+      acceptDeadline: undefined,
+      dispatchedAt: undefined,
+      dispatchedBy: undefined,
+      businessAssignedAt: undefined,
+      assignmentOperatedAt: undefined,
+      deliverySlaSnapshotId: undefined,
       acceptanceStatus: 'REJECTED',
       acceptedAt: undefined,
       acceptedBy: undefined,
