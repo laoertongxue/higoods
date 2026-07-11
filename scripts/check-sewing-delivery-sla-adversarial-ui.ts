@@ -15,45 +15,60 @@ const isolatedHmrResult = execFileSync(process.execPath, [
   `
     const bridge = await import('./src/data/fcs/runtime-task-read-bridge.ts?isolated=' + Date.now())
     if (bridge.readRuntimeTaskById('X') !== null) throw new Error('bridge initial state must be null')
-    bridge.installRuntimeTaskReadResolver(() => ({ source: 'A' }))
+    const ownerA = 'file:///app/runtime-process-tasks.ts?hmr=A'
+    const disposeA = bridge.installRuntimeTaskReadResolver(() => ({ source: 'A' }), ownerA)
     if (bridge.readRuntimeTaskById('X').source !== 'A') throw new Error('bridge reader A failed')
-    bridge.installRuntimeTaskReadResolver(() => ({ source: 'B' }))
+    const disposeB = bridge.installRuntimeTaskReadResolver(() => ({ source: 'B' }), 'file:///app/runtime-process-tasks.ts?hmr=B')
     if (bridge.readRuntimeTaskById('X').source !== 'B') throw new Error('bridge reader B failed')
+    disposeA()
+    if (bridge.readRuntimeTaskById('X').source !== 'B') throw new Error('stale bridge disposer cleared latest reader')
+    let foreignBridgeRejected = false
+    try { bridge.installRuntimeTaskReadResolver(() => ({ source: 'FOREIGN' }), 'file:///app/foreign-module.ts') } catch { foreignBridgeRejected = true }
+    if (!foreignBridgeRejected) throw new Error('foreign bridge owner must be rejected')
+    disposeB()
+    if (bridge.readRuntimeTaskById('X') !== null) throw new Error('latest bridge disposer failed')
     const registry = await import('./src/data/fcs/pda-handover-handout-registry.ts?isolated=' + Date.now())
-    registry.installCompleteHandoutReaders(() => [{ handoverId: 'HEAD-A', headType: 'HANDOUT' }], () => [{ recordId: 'REC-A' }])
+    const disposeRegistryA = registry.installCompleteHandoutReaders(() => [{ handoverId: 'HEAD-A', headType: 'HANDOUT' }], () => [{ recordId: 'REC-A' }], 'file:///app/pda-handover-events.ts?hmr=A')
     if (registry.listRegisteredHandoutHeads()[0]?.handoverId !== 'HEAD-A') throw new Error('registry head reader A failed')
     if (registry.listRegisteredHandoutRecords('HEAD')[0]?.recordId !== 'REC-A') throw new Error('registry record reader A failed')
-    registry.installCompleteHandoutReaders(() => [{ handoverId: 'HEAD-B', headType: 'HANDOUT' }], () => [{ recordId: 'REC-B' }])
+    const disposeRegistryB = registry.installCompleteHandoutReaders(() => [{ handoverId: 'HEAD-B', headType: 'HANDOUT' }], () => [{ recordId: 'REC-B' }], 'file:///app/pda-handover-events.ts?hmr=B')
     if (registry.listRegisteredHandoutHeads()[0]?.handoverId !== 'HEAD-B') throw new Error('registry head reader B failed')
     if (registry.listRegisteredHandoutRecords('HEAD')[0]?.recordId !== 'REC-B') throw new Error('registry record reader B failed')
+    disposeRegistryA()
+    if (registry.listRegisteredHandoutHeads()[0]?.handoverId !== 'HEAD-B') throw new Error('stale registry disposer cleared latest readers')
+    let foreignRegistryRejected = false
+    try { registry.installCompleteHandoutReaders(() => [], () => [], 'file:///app/foreign-module.ts') } catch { foreignRegistryRejected = true }
+    if (!foreignRegistryRejected) throw new Error('foreign registry owner must be rejected')
+    disposeRegistryB()
+    if (registry.listRegisteredHandoutHeads().length !== 0 || registry.listRegisteredHandoutRecords('HEAD').length !== 0) throw new Error('latest registry disposer failed')
     process.stdout.write('latest-readers-ok')
   `,
 ], { cwd: process.cwd(), encoding: 'utf8' })
 assert.equal(isolatedHmrResult, 'latest-readers-ok', '隔离子进程必须证明 bridge/registry 委托最新 reader')
+const isolatedQueryReloadResult = execFileSync(process.execPath, [
+  '--experimental-strip-types',
+  '--input-type=module',
+  '--eval',
+  `
+    await import('./src/data/fcs/runtime-process-tasks.ts?hmr=A')
+    await import('./src/data/fcs/runtime-process-tasks.ts?hmr=B')
+    await import('./src/data/fcs/pda-handover-events.ts?hmr=A')
+    await import('./src/data/fcs/pda-handover-events.ts?hmr=B')
+    process.stdout.write('query-reload-ok')
+  `,
+], { cwd: process.cwd(), encoding: 'utf8' })
+assert.equal(isolatedQueryReloadResult, 'query-reload-ok', '隔离子进程 query 动态重载不得因新函数引用抛错')
 
 // HMR: the stable bridge/registry must accept fresh function identities from the same reloaded module.
 const bridge = await import('../src/data/fcs/runtime-task-read-bridge.ts')
 assert.equal(bridge.readRuntimeTaskById('NOT-INSTALLED'), null, '未安装 resolver 时必须安全返回 null')
 const runtime = await import('../src/data/fcs/runtime-process-tasks.ts')
-const runtimeOne = await import(`../src/data/fcs/runtime-process-tasks.ts?hmr=${Date.now()}-1`)
-const runtimeTwo = await import(`../src/data/fcs/runtime-process-tasks.ts?hmr=${Date.now()}-2`)
-const latestRuntimeTask = runtimeTwo.listRuntimeProcessTasks()[0]
+const latestRuntimeTask = runtime.listRuntimeProcessTasks()[0]
 assert.equal(
   bridge.readRuntimeTaskById<{ taskId: string }>(latestRuntimeTask.taskId)?.taskId,
   latestRuntimeTask.taskId,
-  '二次热重载后只读桥必须读取最新 runtime 模块',
+  '安装后只读桥必须读取当前 runtime 模块',
 )
-assert.ok(runtimeOne.listRuntimeProcessTasks().length > 0, '首次热重载仍应可用')
-
-const registry = await import('../src/data/fcs/pda-handover-handout-registry.ts')
-const pdaOne = await import(`../src/data/fcs/pda-handover-events.ts?hmr=${Date.now()}-1`)
-const pdaTwo = await import(`../src/data/fcs/pda-handover-events.ts?hmr=${Date.now()}-2`)
-assert.deepEqual(
-  registry.listRegisteredHandoutHeads().map((head) => head.handoverId),
-  pdaTwo.listPdaHandoverHeads().filter((head) => head.headType === 'HANDOUT').map((head) => head.handoverId),
-  '二次热重载后 registry 必须委托最新 PDA reader',
-)
-assert.ok(pdaOne.listPdaHandoverHeads().length > 0, '首次 PDA 热重载仍应可用')
 
 // PDA focus: special ids must never be interpolated into a raw CSS selector.
 const pdaReceiveSource = readFileSync(new URL('../src/pages/pda-task-receive.ts', import.meta.url), 'utf8')
@@ -234,6 +249,18 @@ try {
     taskDomain.renderTaskFollowUpAction({ historicalAssignment: true }, '跟进工厂开工'),
     '',
     '明确带当前跟进文案的历史 fact 也必须渲染为纯只读',
+  )
+  const pagedFixtures = Array.from({ length: 45 }, (_, index) => ({ ...found!, taskId: `HIST-PAGE-${index + 1}` }))
+  context.state.page = 2
+  context.state.pageSize = 20
+  const pageTwoHtml = taskDomain.renderTaskDimension(pagedFixtures)
+  assert.equal((pageTwoHtml.match(/<tr class="cursor-pointer[^>]+data-nav="\/fcs\/progress\/board\/tasks\/HIST-PAGE-/g) ?? []).length, 20, '任务列表第二页必须只渲染20条')
+  assert.match(pageTwoHtml, /第 2 \/ 3 页[\s\S]*每页 20 条/, '分页必须展示页码、总页数和每页条数')
+  assert.doesNotMatch(pageTwoHtml, /继续加载|show-more-tasks/, '任务列表不得保留继续加载伪分页')
+  assert.doesNotMatch(
+    taskDomain.renderProgressTaskDetailTabs({ ...found!, status: 'BLOCKED', historicalAssignment: true }, 'basic'),
+    /生产暂停信息/,
+    '历史详情不得渲染暂停死 Tab',
   )
   const listHtml = taskDomain.renderTaskDimension(context.getFilteredTasks())
   assert.match(listHtml, /已改派（历史）/)

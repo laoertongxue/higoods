@@ -3953,10 +3953,12 @@ export function listHandoverOrdersByTaskId(taskId: string): PdaHandoverHead[] {
   return listPdaHandoverHeads().filter((head) => head.headType === 'HANDOUT' && head.taskId === taskId)
 }
 
-installCompleteHandoutReaders(
+const disposeCompleteHandoutReaders = installCompleteHandoutReaders(
   () => listPdaHandoverHeads(),
   (handoverId) => getPdaHandoverRecordsByHead(handoverId),
+  import.meta.url,
 )
+import.meta.hot?.dispose(disposeCompleteHandoutReaders)
 
 export function getHandoverOrderById(handoverOrderId: string): PdaHandoverHead | undefined {
   return listPdaHandoverHeads().find(

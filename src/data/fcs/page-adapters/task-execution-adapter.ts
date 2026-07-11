@@ -427,6 +427,7 @@ export function listExecutionTaskFacts(): ProcessTask[] {
 
 export function listHistoricalSewingAssignmentTaskFacts(): ProcessTask[] {
   const snapshots = listAllSewingDeliverySlaSnapshots()
+  const snapshotByAssignmentId = new Map(snapshots.map((snapshot) => [snapshot.assignmentId, snapshot]))
   const runtimeTaskIdByAssignmentId = new Map(snapshots.map((snapshot) => [snapshot.assignmentId, snapshot.runtimeTaskId]))
   const inactiveByTaskId = new Map(
     snapshots
@@ -441,7 +442,7 @@ export function listHistoricalSewingAssignmentTaskFacts(): ProcessTask[] {
       syncTaskFromRuntime(fact, runtimeTask, true)
       fact.historicalAssignment = true
       fact.replacedByRuntimeTaskId = runtimeTaskIdByAssignmentId.get(snapshot.replacedByAssignmentId!)
-      fact.reassignedAt = snapshots.find((candidate) => candidate.assignmentId === snapshot.replacedByAssignmentId)?.acceptedAt
+      fact.reassignedAt = snapshotByAssignmentId.get(snapshot.replacedByAssignmentId!)?.acceptedAt
       return fact
     })
 }

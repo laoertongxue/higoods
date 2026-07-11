@@ -429,12 +429,12 @@ function clearTaskFilters(): void {
   state.stageFilter = 'ALL'
   state.riskFilter = 'ALL'
   state.factoryFilter = 'ALL'
-  state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+  state.page = 1
 }
 
 function handleTaskKpiClick(type: string): void {
   clearTaskFilters()
-  state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+  state.page = 1
 
   switch (type) {
     case 'notStarted':

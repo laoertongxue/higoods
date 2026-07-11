@@ -45,7 +45,6 @@ import {
   getPdaPickupRecordsByHead,
 } from './pda-handover-events.ts'
 import {
-  getSewingDeliverySlaView,
   listSewingDeliverySlaViews,
   type SewingDeliverySlaView,
 } from './sewing-delivery-sla-view.ts'
@@ -871,9 +870,17 @@ export function listHistoricalSewingAssignmentProgressFacts(): HistoricalSewingA
       .filter((task) => task.executionEnabled === false)
       .map((task) => task.taskId),
   )
-  return snapshots.flatMap((snapshot) => {
-    if (snapshot.active || !snapshot.replacedByAssignmentId || !inactiveTaskIds.has(snapshot.runtimeTaskId)) return []
-    const sewingDeliverySla = getSewingDeliverySlaView(snapshot.runtimeTaskId)
+  const historicalSnapshotByTaskId = new Map(
+    snapshots
+      .filter((snapshot) => !snapshot.active && Boolean(snapshot.replacedByAssignmentId) && inactiveTaskIds.has(snapshot.runtimeTaskId))
+      .map((snapshot) => [snapshot.runtimeTaskId, snapshot] as const),
+  )
+  const historicalViewByTaskId = new Map(
+    listSewingDeliverySlaViews(undefined, Array.from(historicalSnapshotByTaskId.keys()))
+      .map((view) => [view.runtimeTaskId, view] as const),
+  )
+  return Array.from(historicalSnapshotByTaskId.values()).flatMap((snapshot) => {
+    const sewingDeliverySla = historicalViewByTaskId.get(snapshot.runtimeTaskId)
     if (!sewingDeliverySla) return []
     const replacement = snapshotByAssignmentId.get(snapshot.replacedByAssignmentId)
     return [{

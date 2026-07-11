@@ -3243,7 +3243,11 @@ export function reassignRuntimeSewingTask(
   }
 }
 
-installRuntimeTaskReadResolver((taskId) => getRuntimeTaskById(taskId))
+const disposeRuntimeTaskReadResolver = installRuntimeTaskReadResolver(
+  (taskId) => getRuntimeTaskById(taskId),
+  import.meta.url,
+)
+import.meta.hot?.dispose(disposeRuntimeTaskReadResolver)
 
 function parseRuntimeDateLike(value: string): number {
   if (!value) return Number.NaN

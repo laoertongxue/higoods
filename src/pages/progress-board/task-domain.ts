@@ -607,9 +607,12 @@ function renderTaskActionMenu(task: ProcessTask): string {
 }
 
 function renderTaskListView(filteredTasks: ProcessTask[]): string {
-  const visibleLimit = Math.max(TASK_LIST_PAGE_SIZE, state.visibleTaskLimit)
-  const visibleTasks = filteredTasks.slice(0, visibleLimit)
-  const hasMore = visibleTasks.length < filteredTasks.length
+  const pageSize = Math.max(1, state.pageSize || TASK_LIST_PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / pageSize))
+  const currentPage = Math.min(Math.max(1, state.page), totalPages)
+  state.page = currentPage
+  const pageStart = (currentPage - 1) * pageSize
+  const visibleTasks = filteredTasks.slice(pageStart, pageStart + pageSize)
   const sewingDeliverySlaByTaskId = new Map(
     listSewingDeliverySlaViews(undefined, visibleTasks.map((task) => task.taskId))
       .map((view) => [view.runtimeTaskId, view]),
@@ -724,13 +727,17 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
       ${
         filteredTasks.length > 0
           ? `
-            <footer class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm">
-              <span class="text-muted-foreground">已显示 ${visibleTasks.length} / 共 ${filteredTasks.length} 条</span>
-              ${
-                hasMore
-                  ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="show-more-tasks" data-fast-page-render="true">继续加载 ${Math.min(TASK_LIST_PAGE_SIZE, filteredTasks.length - visibleTasks.length)} 条</button>`
-                  : '<span class="text-xs text-muted-foreground">已显示全部任务</span>'
-              }
+            <footer class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm" data-progress-task-pagination="true">
+              <span class="text-muted-foreground">共 ${filteredTasks.length} 条 · 第 ${currentPage} / ${totalPages} 页 · 每页 ${pageSize} 条</span>
+              <div class="flex items-center gap-2">
+                <label class="flex items-center gap-2 text-xs text-muted-foreground">调整每页
+                  <select class="h-8 rounded-md border bg-background px-2" data-progress-field="pageSize" data-fast-page-render="true">
+                    ${[10, 20, 50].map((size) => `<option value="${size}" ${pageSize === size ? 'selected' : ''}>${size}</option>`).join('')}
+                  </select>
+                </label>
+                <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-progress-action="task-page-prev" data-fast-page-render="true" ${currentPage <= 1 ? 'disabled' : ''}>上一页</button>
+                <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-progress-action="task-page-next" data-fast-page-render="true" ${currentPage >= totalPages ? 'disabled' : ''}>下一页</button>
+              </div>
             </footer>
           `
           : ''
@@ -860,6 +867,18 @@ function resolveDetailTab(task: ProcessTask): TaskTabKey {
       : state.taskDetailTab
 }
 
+export function renderProgressTaskDetailTabs(task: ProcessTask, activeTab: TaskTabKey): string {
+  return `
+    <nav class="flex flex-wrap gap-1 rounded-lg border bg-card p-1 text-sm" data-progress-task-tabs="true">
+      <button class="rounded px-2 py-1 ${activeTab === 'basic' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="basic" data-fast-page-render="true">基本信息</button>
+      ${task.historicalAssignment ? '' : `<button class="rounded px-2 py-1 ${activeTab === 'assignment' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="assignment" data-fast-page-render="true">分配信息</button><button class="rounded px-2 py-1 ${activeTab === 'progress' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="progress" data-fast-page-render="true">进度操作</button><button class="rounded px-2 py-1 ${activeTab === 'pickup' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="pickup" data-fast-page-render="true">领料情况</button>`}
+      <button class="rounded px-2 py-1 ${activeTab === 'handover' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="handover" data-fast-page-render="true">交出情况</button>
+      ${!task.historicalAssignment && task.status === 'BLOCKED' ? `<button class="rounded px-2 py-1 ${activeTab === 'block' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="block" data-fast-page-render="true">生产暂停信息</button>` : ''}
+      <button class="rounded px-2 py-1 ${activeTab === 'logs' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="logs" data-fast-page-render="true">审计日志</button>
+    </nav>
+  `
+}
+
 function renderProgressTaskDetailPage(taskIdParam = ''): string {
   const taskId = decodeURIComponent(taskIdParam)
   const task = getTaskById(taskId)
@@ -921,17 +940,7 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
           ${renderSewingDeliverySlaDetail(historicalSlaView, formatQtyUnit(task.qtyUnit))}
         </section>
       ` : ''}
-      <nav class="flex flex-wrap gap-1 rounded-lg border bg-card p-1 text-sm" data-progress-task-tabs="true">
-        <button class="rounded px-2 py-1 ${activeTab === 'basic' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="basic" data-fast-page-render="true">基本信息</button>
-        ${task.historicalAssignment ? '' : `<button class="rounded px-2 py-1 ${activeTab === 'assignment' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="assignment" data-fast-page-render="true">分配信息</button><button class="rounded px-2 py-1 ${activeTab === 'progress' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="progress" data-fast-page-render="true">进度操作</button><button class="rounded px-2 py-1 ${activeTab === 'pickup' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="pickup" data-fast-page-render="true">领料情况</button>`}
-        <button class="rounded px-2 py-1 ${activeTab === 'handover' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="handover" data-fast-page-render="true">交出情况</button>
-        ${
-          task.status === 'BLOCKED'
-            ? `<button class="rounded px-2 py-1 ${activeTab === 'block' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="block" data-fast-page-render="true">生产暂停信息</button>`
-            : ''
-        }
-        <button class="rounded px-2 py-1 ${activeTab === 'logs' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="logs" data-fast-page-render="true">审计日志</button>
-      </nav>
+      ${renderProgressTaskDetailTabs(task, activeTab)}
       <section class="rounded-lg border bg-card p-5" data-progress-task-detail="true">
         <div class="space-y-5">
           ${

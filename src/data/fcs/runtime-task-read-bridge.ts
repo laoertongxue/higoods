@@ -1,9 +1,32 @@
-let resolveRuntimeTask: ((taskId: string) => unknown | null) | null = null
+type RuntimeTaskReadResolver = (taskId: string) => unknown | null
 
-export function installRuntimeTaskReadResolver(resolver: (taskId: string) => unknown | null): void {
-  // Vite HMR 会重新执行 runtime 模块并产生新的函数引用；桥本身保持稳定，
-  // 因此安装动作必须替换为本轮最新的只读 resolver。
+let resolveRuntimeTask: RuntimeTaskReadResolver | null = null
+let resolverOwner = ''
+let resolverInstallToken: symbol | null = null
+
+function normalizeModuleOwner(ownerUrl: string): string {
+  if (!ownerUrl.trim()) throw new Error('运行时任务只读解析器缺少模块归属')
+  try {
+    const url = new URL(ownerUrl)
+    return `${url.origin}${url.pathname}`
+  } catch {
+    return ownerUrl.split(/[?#]/, 1)[0]
+  }
+}
+
+export function installRuntimeTaskReadResolver(resolver: RuntimeTaskReadResolver, ownerUrl: string): () => void {
+  const owner = normalizeModuleOwner(ownerUrl)
+  if (resolverOwner && resolverOwner !== owner) throw new Error('运行时任务只读解析器仅允许原安装模块热替换')
+  const token = Symbol(owner)
   resolveRuntimeTask = resolver
+  resolverOwner = owner
+  resolverInstallToken = token
+  return () => {
+    if (resolverInstallToken !== token) return
+    resolveRuntimeTask = null
+    resolverOwner = ''
+    resolverInstallToken = null
+  }
 }
 
 export function readRuntimeTaskById<T>(taskId: string): T | null {

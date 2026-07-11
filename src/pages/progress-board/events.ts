@@ -40,37 +40,43 @@ function refreshSewingDeliveryResponsibilityReviewDialog(): void {
 function updateField(field: string, node: HTMLElement): void {
   if (field === 'keyword' && node instanceof HTMLInputElement) {
     state.keyword = node.value
-    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+    state.page = 1
     return
   }
 
   if (field === 'statusFilter' && node instanceof HTMLSelectElement) {
     state.statusFilter = node.value
-    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+    state.page = 1
     return
   }
 
   if (field === 'assignmentStatusFilter' && node instanceof HTMLSelectElement) {
     state.assignmentStatusFilter = node.value
-    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+    state.page = 1
     return
   }
 
   if (field === 'assignmentModeFilter' && node instanceof HTMLSelectElement) {
     state.assignmentModeFilter = node.value
-    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+    state.page = 1
     return
   }
 
   if (field === 'stageFilter' && node instanceof HTMLSelectElement) {
     state.stageFilter = node.value
-    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+    state.page = 1
     return
   }
 
   if (field === 'riskFilter' && node instanceof HTMLSelectElement) {
     state.riskFilter = node.value
-    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+    state.page = 1
+    return
+  }
+
+  if (field === 'pageSize' && node instanceof HTMLSelectElement) {
+    state.pageSize = Number(node.value) || TASK_LIST_PAGE_SIZE
+    state.page = 1
     return
   }
 
@@ -207,8 +213,13 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'show-more-tasks') {
-    state.visibleTaskLimit += TASK_LIST_PAGE_SIZE
+  if (action === 'task-page-prev') {
+    state.page = Math.max(1, state.page - 1)
+    return true
+  }
+
+  if (action === 'task-page-next') {
+    state.page += 1
     return true
   }
 

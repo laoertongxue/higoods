@@ -155,7 +155,8 @@ interface ProgressBoardState {
   stageFilter: string
   riskFilter: string
   factoryFilter: string
-  visibleTaskLimit: number
+  page: number
+  pageSize: number
 
   taskDetailTab: TaskTabKey
 
@@ -166,7 +167,7 @@ interface ProgressBoardState {
   taskActionMenuId: string | null
 }
 
-const TASK_LIST_PAGE_SIZE = 8
+const TASK_LIST_PAGE_SIZE = 20
 
 const state: ProgressBoardState = {
   initializedByQuery: false,
@@ -180,7 +181,8 @@ const state: ProgressBoardState = {
   stageFilter: 'ALL',
   riskFilter: 'ALL',
   factoryFilter: 'ALL',
-  visibleTaskLimit: TASK_LIST_PAGE_SIZE,
+  page: 1,
+  pageSize: TASK_LIST_PAGE_SIZE,
 
   taskDetailTab: 'basic',
 
@@ -950,12 +952,12 @@ function syncPresetFromQuery(): void {
 
   if (presetTaskId) {
     state.keyword = presetTaskId
-    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+    state.page = 1
   }
 
   if (presetPoId && !presetTaskId) {
     state.keyword = presetPoId
-    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+    state.page = 1
   }
 }
 
