@@ -551,6 +551,7 @@ function renderReceiveSpecificSection(task: ProcessTask, tab: ReceiveDetailTabKe
 
   if (tab === 'awarded') {
     const requiresAcceptance = classifySewingDeliverySla(task) !== null && task.acceptanceStatus === 'PENDING'
+    const rejected = task.acceptanceStatus === 'REJECTED'
     return renderSectionCard(
       '中标信息',
       'award',
@@ -571,7 +572,9 @@ function renderReceiveSpecificSection(task: ProcessTask, tab: ReceiveDetailTabKe
             : ''
         }
         ${
-          requiresAcceptance
+          rejected
+            ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">已拒绝接单，不能进入执行。</div>`
+            : requiresAcceptance
             ? `<button class="inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90" data-pda-trd-action="accept" data-task-id="${escapeHtml(task.taskId)}">确认接单</button>`
             : `<button class="inline-flex h-9 w-full items-center justify-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeHtml(execHref)}">去执行</button>`
         }

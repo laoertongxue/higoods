@@ -100,6 +100,7 @@ export function filterReceiveAwardedTaskFacts(
     (task) =>
       task.assignmentMode === 'BIDDING' &&
       task.assignmentStatus === 'AWARDED' &&
+      task.acceptanceStatus !== 'REJECTED' &&
       task.assignedFactoryId === selectedFactoryId &&
       isReceiveEligibleTask(task, selectedFactoryId),
   )

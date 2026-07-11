@@ -60,6 +60,7 @@ export interface SewingDispatchWorkbenchState {
   dispatchRiskConfirmed: boolean
   dispatchQtyByRowId: Record<string, string>
   dispatchSelectedRowIds: Set<string>
+  dispatchMainFactoryIdByProductionOrderId: Record<string, string>
   dispatchBusinessAssignedAt: string
   dispatchOperatedAt: string
   dispatchError: string
@@ -89,6 +90,7 @@ const state: SewingDispatchWorkbenchState = {
   dispatchRiskConfirmed: false,
   dispatchQtyByRowId: {},
   dispatchSelectedRowIds: new Set<string>(),
+  dispatchMainFactoryIdByProductionOrderId: {},
   dispatchBusinessAssignedAt: '',
   dispatchOperatedAt: '',
   dispatchError: '',
@@ -382,6 +384,18 @@ function renderDeliveryNodePreview(rows: SewingDispatchWorkbenchRow[]): string {
   } catch {
     return '<div class="mt-3 text-xs text-amber-700">请填写有效的业务分配时间。</div>'
   }
+}
+
+function renderDispatchMainFactoryChoices(rows: SewingDispatchWorkbenchRow[], selectedFactory?: { id: string; name: string }): string {
+  const orderIds = Array.from(new Set(rows.map((row) => row.productionOrderId)))
+  if (orderIds.length === 0) return ''
+  return `<div class="mt-3 space-y-2 rounded-md border p-3"><div class="text-sm font-medium">按生产单确认主工厂</div>${orderIds.map((productionOrderId) => {
+    const order = productionOrders.find((item) => item.productionOrderId === productionOrderId)
+    const options = [...listProductionOrderSewingFactories(productionOrderId), ...(selectedFactory ? [selectedFactory] : [])]
+      .filter((factory, index, list) => list.findIndex((item) => item.id === factory.id) === index)
+    const value = state.dispatchMainFactoryIdByProductionOrderId[productionOrderId] ?? ''
+    return `<label class="grid gap-1 text-sm md:grid-cols-[220px_1fr] md:items-center"><span>${escapeHtml(order?.productionOrderNo ?? productionOrderId)}${order?.mainFactoryId ? ` · 当前：${escapeHtml(order.mainFactoryName || order.mainFactoryId)}` : ' · 当前无有效主工厂'}</span><select class="h-9 rounded-md border bg-background px-3" data-sewing-dispatch-field="dispatchMainFactory" data-production-order-id="${escapeHtml(productionOrderId)}"><option value="">${order?.mainFactoryId ? '默认保留当前主工厂' : '多候选时必须选择'}</option>${options.map((factory) => `<option value="${escapeHtml(factory.id)}" ${value === factory.id ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label>`
+  }).join('')}</div>`
 }
 
 function getGroupTone(group: SewingDispatchReadinessGroup): string {
@@ -1133,6 +1147,7 @@ function renderDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): string {
             <label class="space-y-1"><span class="text-sm font-medium">实际操作时间</span><input type="datetime-local" class="h-10 w-full rounded-md border bg-muted px-3 text-sm" value="${escapeHtml(operationWallClockToDateTimeLocal(state.dispatchOperatedAt))}" readonly /></label>
           </div>
           ${state.dispatchActionType === '直接派单' ? renderDispatchFactoryRisk(state.dispatchFactoryId) : ''}
+          ${state.dispatchActionType === '直接派单' ? renderDispatchMainFactoryChoices(selectedRows, selectedFactory) : ''}
           ${renderDispatchCutPieceReleaseNotice(selectedRows, tasks)}
           ${
             state.dispatchError || materialPrepError
@@ -1305,6 +1320,12 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
     state.dispatchError = ''
     return
   }
+  if (field === 'dispatchMainFactory') {
+    const productionOrderId = node.dataset.productionOrderId
+    if (productionOrderId) state.dispatchMainFactoryIdByProductionOrderId[productionOrderId] = node.value
+    state.dispatchError = ''
+    return
+  }
   if (field === 'dispatchRiskConfirmed' && node instanceof HTMLInputElement) {
     state.dispatchRiskConfirmed = node.checked
     state.dispatchError = ''
@@ -1338,6 +1359,10 @@ function openDispatch(taskId: string | undefined, type: string | undefined): voi
   state.dispatchOpen = selectedRows.length > 0
   state.dispatchQtyByRowId = Object.fromEntries(selectedRows.map((row) => [row.rowId, String(row.completeKitQty)]))
   state.dispatchSelectedRowIds = new Set(selectedRows.map((row) => row.rowId))
+  state.dispatchMainFactoryIdByProductionOrderId = Object.fromEntries(Array.from(new Set(selectedRows.map((row) => row.productionOrderId))).map((productionOrderId) => {
+    const order = productionOrders.find((item) => item.productionOrderId === productionOrderId)
+    return [productionOrderId, order?.mainFactoryStatus === 'CONFIRMED' ? order.mainFactoryId ?? '' : '']
+  }))
   state.dispatchOperatedAt = formatOperationLocalWallClock()
   state.dispatchBusinessAssignedAt = operationWallClockToDateTimeLocal(state.dispatchOperatedAt)
   state.dispatchRiskConfirmed = false
@@ -1454,6 +1479,7 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement, event?: 
         qtyByRowId: Object.fromEntries(selectedRows.map((row) => [row.rowId, Number(state.dispatchQtyByRowId[row.rowId])])),
         businessAssignedAt,
         operatedAt: state.dispatchOperatedAt,
+        mainFactoryIdByProductionOrderId: state.dispatchMainFactoryIdByProductionOrderId,
         by: '跟单A',
       })
     } catch (error) {

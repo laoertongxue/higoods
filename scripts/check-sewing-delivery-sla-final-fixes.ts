@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { filterReceiveAwardedTaskFacts } from '../src/data/fcs/pda-receive-scope.ts'
 import {
   acceptRuntimeTaskAssignment,
   allocateRuntimeSewingTaskScope,
@@ -116,6 +117,7 @@ try {
   const rejected = rejectRuntimeTaskAssignment(rejectTaskId, { factoryId: rejectTask.assignedFactoryId, reason: '产能不足', rejectedAt: '2026-07-10 13:00:00', rejectedBy: rejectTask.assignedFactoryName || '工厂' })
   assert.equal(rejected.acceptanceStatus, 'REJECTED')
   assert.equal(getRuntimeTaskById(rejectTaskId)?.acceptanceStatus, 'REJECTED', '重进页面仍应读取运行时拒单状态')
+  assert.equal(filterReceiveAwardedTaskFacts([getRuntimeTaskById(rejectTaskId)!], rejectTask.assignedFactoryId).length, 0, '拒单后任务必须退出PDA已中标集合')
   assert.throws(() => rejectRuntimeTaskAssignment(rejectTaskId, { factoryId: rejectTask.assignedFactoryId!, reason: '重复', rejectedAt: '2026-07-10 13:01:00', rejectedBy: '工厂' }), /已拒单/)
   assert.throws(() => rejectRuntimeTaskAssignment(rejectTaskId, { factoryId: 'OTHER', reason: '无权', rejectedAt: '2026-07-10 13:02:00', rejectedBy: '其他工厂' }), /已拒单|无权/)
 } finally {
@@ -128,6 +130,7 @@ const pdaReceiveDetailSource = readFileSync(new URL('../src/pages/pda-task-recei
 assert.match(pdaReceiveSource, /rejectPdaTaskWithRuntimeFallback\(state\.rejectingTaskId, factoryId/, 'PDA 接单列表拒单 handler 必须调用统一入口')
 assert.match(pdaReceiveDetailSource, /rejectPdaTaskWithRuntimeFallback\(taskId, factoryId/, 'PDA 接单详情拒单 handler 必须调用统一入口')
 assert.match(pdaReceiveDetailSource, /acceptanceStatus === 'REJECTED'[\s\S]*已拒单/, 'PDA 详情重进后必须展示中文已拒单状态')
+assert.match(pdaReceiveDetailSource, /rejected[\s\S]*已拒绝接单，不能进入执行/, 'PDA详情深链对已拒单任务必须阻断去执行')
 assert.doesNotMatch(pdaReceiveDetailSource, /function mutateRejectTask/, 'PDA 详情不得保留绕过 runtime 的本地拒单 mutation')
 
 console.log('sewing delivery SLA final fixes checks passed')

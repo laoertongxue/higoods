@@ -78,19 +78,21 @@ export function listSewingDeliverySlaViews(
 ): readonly SewingDeliverySlaView[] {
   const requestedTaskIds = runtimeTaskIds ? new Set(runtimeTaskIds) : null
   const snapshotsByTaskId = new Map<string, SewingDeliverySlaSnapshot>()
+  const latestSnapshotByTaskId = new Map<string, SewingDeliverySlaSnapshot>()
+  listAllSewingDeliverySlaSnapshots().forEach((snapshot) => latestSnapshotByTaskId.set(snapshot.runtimeTaskId, snapshot))
   listRuntimeExecutionTasks().forEach((task) => {
     if (requestedTaskIds && !requestedTaskIds.has(task.taskId)) return
     const slaKind = classifySewingDeliverySla(task)
     if (slaKind === null) return
-    const snapshot = getLatestSewingDeliverySlaSnapshot(task.taskId)
+    const snapshot = latestSnapshotByTaskId.get(task.taskId)
     if (snapshot && snapshot.slaKind === slaKind) snapshotsByTaskId.set(task.taskId, snapshot)
   })
-  listAllSewingDeliverySlaSnapshots().forEach((snapshot) => {
+  latestSnapshotByTaskId.forEach((snapshot) => {
     if (requestedTaskIds && !requestedTaskIds.has(snapshot.runtimeTaskId)) return
     const task = getRuntimeTaskById(snapshot.runtimeTaskId)
     const slaKind = task ? classifySewingDeliverySla(task) : null
     if (slaKind !== snapshot.slaKind) return
-    snapshotsByTaskId.set(snapshot.runtimeTaskId, getLatestSewingDeliverySlaSnapshot(snapshot.runtimeTaskId) ?? snapshot)
+    snapshotsByTaskId.set(snapshot.runtimeTaskId, snapshot)
   })
   if (requestedTaskIds) {
     requestedTaskIds.forEach((taskId) => {

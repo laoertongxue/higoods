@@ -1,4 +1,4 @@
-import { productionOrders, type ProductionOrder } from './production-orders.ts'
+import { listProductionOrderSewingFactories, productionOrders, selectProductionOrderMainFactory, type ProductionOrder } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
 import type { TechPackCutPiecePartSnapshot } from './production-tech-pack-snapshot-types.ts'
 import {
@@ -1023,6 +1023,7 @@ export function createSewingDispatchWorkbenchDraft(input: {
   qtyByRowId?: Record<string, number>
   businessAssignedAt?: string
   operatedAt?: string
+  mainFactoryIdByProductionOrderId?: Record<string, string>
   by: string
 }): { ok: boolean; message: string; draft?: SewingDispatchDraft; runtimeTaskIds?: string[] } {
   const rows = input.rowIds.map((rowId) => getSewingDispatchWorkbenchRow(rowId)).filter((row): row is SewingDispatchWorkbenchRow => Boolean(row))
@@ -1052,6 +1053,27 @@ export function createSewingDispatchWorkbenchDraft(input: {
 
   try {
     return runSewingDispatchWorkbenchTransaction(() => {
+      const mainFactoryIdByOrder = new Map<string, string>()
+      if (input.actionType === '直接派单') {
+        for (const productionOrderId of new Set(rows.map((row) => row.productionOrderId))) {
+          const order = productionOrders.find((item) => item.productionOrderId === productionOrderId)
+          if (!order) throw new Error(`生产单 ${productionOrderId} 不存在`)
+          const activeFactories = listProductionOrderSewingFactories(productionOrderId)
+          const candidates = [...activeFactories, { id: input.factoryId!, name: input.factoryName! }]
+            .filter((factory, index, list) => list.findIndex((item) => item.id === factory.id) === index)
+          const currentMainValid = order.mainFactoryStatus === 'CONFIRMED'
+            && Boolean(order.mainFactoryId)
+            && candidates.some((factory) => factory.id === order.mainFactoryId)
+          const explicitMainFactoryId = input.mainFactoryIdByProductionOrderId?.[productionOrderId]?.trim()
+          if (explicitMainFactoryId && !candidates.some((factory) => factory.id === explicitMainFactoryId)) {
+            throw new Error(`${order.productionOrderNo} 选择的主工厂不在本次有效车缝候选中`)
+          }
+          if (explicitMainFactoryId) mainFactoryIdByOrder.set(productionOrderId, explicitMainFactoryId)
+          else if (currentMainValid && order.mainFactoryId) mainFactoryIdByOrder.set(productionOrderId, order.mainFactoryId)
+          else if (candidates.length === 1) mainFactoryIdByOrder.set(productionOrderId, candidates[0].id)
+          else throw new Error(`${order.productionOrderNo} 当前没有有效主工厂且有多个车缝候选，请按生产单明确选择主工厂`)
+        }
+      }
       const runtimeTaskIds: string[] = []
       const tenderIds: string[] = []
       for (const [taskId, taskRows] of rowsByTask.entries()) {
@@ -1082,7 +1104,7 @@ export function createSewingDispatchWorkbenchDraft(input: {
             dispatchPriceCurrency: allocated.dispatchPriceCurrency ?? allocated.standardPriceCurrency ?? 'IDR',
             dispatchPriceUnit: allocated.dispatchPriceUnit ?? allocated.standardPriceUnit ?? '件',
             priceDiffReason: '',
-            writeBackMainFactory: true,
+            writeBackMainFactory: false,
           })
           if (!updated) throw new Error(`任务 ${allocated.taskId} 直接派单提交失败。`)
         } else {
@@ -1097,6 +1119,12 @@ export function createSewingDispatchWorkbenchDraft(input: {
           if (!updated) throw new Error(`任务 ${allocated.taskId} 发起竞价失败。`)
           tenderIds.push(tenderId)
         }
+      }
+      for (const [productionOrderId, mainFactoryId] of mainFactoryIdByOrder.entries()) {
+        const order = productionOrders.find((item) => item.productionOrderId === productionOrderId)
+        if (order?.mainFactoryStatus === 'CONFIRMED' && order.mainFactoryId === mainFactoryId) continue
+        const selected = selectProductionOrderMainFactory({ productionOrderId, factoryId: mainFactoryId, by: input.by, at: operatedAt, reason: '车缝分配工作台按生产单明确主工厂。' })
+        if (!selected) throw new Error(`${order?.productionOrderNo ?? productionOrderId} 主工厂选择失败`)
       }
       const draft: SewingDispatchDraft = {
         draftId: `SEW-DRAFT-${String(sewingDispatchDrafts.length + 1).padStart(4, '0')}`,

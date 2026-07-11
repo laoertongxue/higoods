@@ -31,7 +31,7 @@ import {
 import { reassignRuntimeSewingTask } from '../src/data/fcs/runtime-sewing-reassignment.ts'
 import { sumSewingDeliveryConfirmedReceiptQty } from '../src/data/fcs/sewing-delivery-receipt-facts.ts'
 import { listRegisteredHandoutHeads, listRegisteredHandoutRecords } from '../src/data/fcs/pda-handover-handout-registry.ts'
-import { listSewingDispatchWorkbenchDrafts, listSewingDispatchWorkbenchRows, listSewingFactoryOptions } from '../src/data/fcs/sewing-dispatch-workbench.ts'
+import { createSewingDispatchWorkbenchDraft, listSewingDispatchWorkbenchDrafts, listSewingDispatchWorkbenchRows, listSewingFactoryOptions } from '../src/data/fcs/sewing-dispatch-workbench.ts'
 import { installRuntimeTaskReadResolver, readRuntimeTaskById } from '../src/data/fcs/runtime-task-read-bridge.ts'
 import { parseFcsQrValue } from '../src/data/fcs/task-qr.ts'
 import {
@@ -2730,6 +2730,10 @@ try {
   const fixtureState = captureRuntimeDirectDispatchState()
   const fixtureTaskId = 'TEST-WORKBENCH-PARTIAL-SEWING'
   fixtureState.reassignedTasks.push([fixtureTaskId, { ...structuredClone(fixtureSource), taskId: fixtureTaskId, taskNo: fixtureTaskId, baseTaskId: fixtureTaskId, assignmentMode: 'DIRECT', assignmentStatus: 'UNASSIGNED', assignedFactoryId: undefined, assignedFactoryName: undefined, acceptanceStatus: 'PENDING', acceptedAt: undefined, acceptedBy: undefined, deliverySlaSnapshotId: undefined, executionEnabled: true }])
+  const fixtureOrder = fixtureState.productionOrders.find((order) => order.productionOrderId === fixtureSource.productionOrderId)!
+  fixtureOrder.mainFactoryId = ''
+  fixtureOrder.mainFactoryStatus = 'PENDING_SEWING_ASSIGNMENT'
+  fixtureOrder.sewingFactorySnapshots = []
   restoreRuntimeDirectDispatchState(fixtureState)
   const directRows = listSewingDispatchWorkbenchRows().filter((row) => row.taskId === fixtureTaskId && row.completeKitQty >= 2)
   assert(directRows.length >= 2, '隔离 fixture 必须生成同任务多 SKU 可分配行')
@@ -2765,6 +2769,41 @@ try {
   directRows.slice(1).forEach((row) => assert(listSewingDispatchWorkbenchRows().some((remaining) => remaining.skuCode === row.skuCode), `${row.skuCode} 未选 SKU 必须保留为 residual 回到工作台`))
   const partialGroup = listRuntimeTaskSplitGroupsByOrder(fixtureSource.productionOrderId).find((group) => group.sourceTaskId === fixtureTaskId)
   assert.equal(partialGroup?.resultTasks.reduce((sum, task) => sum + task.scopeQty, 0), fixtureSource.scopeQty, '真实handler部分SKU分配前后总scope必须守恒')
+  assert.equal(productionOrders.find((order) => order.productionOrderId === fixtureSource.productionOrderId)?.mainFactoryId, directFactory.id, '无有效主工厂且首个唯一候选时应自动成为主工厂')
+
+  const secondFactory = listSewingFactoryOptions().find((factory) => factory.id !== directFactory.id)!
+  const secondFactoryRow = listSewingDispatchWorkbenchRows().find((row) => row.productionOrderId === fixtureSource.productionOrderId && row.taskId !== directDraft.runtimeTaskIds[0] && row.completeKitQty > 0)!
+  const secondDirect = createSewingDispatchWorkbenchDraft({ actionType: '直接派单', factoryId: secondFactory.id, factoryName: secondFactory.name, rowIds: [secondFactoryRow.rowId], qtyByRowId: { [secondFactoryRow.rowId]: 1 }, businessAssignedAt: '2026-07-10 08:30:00', operatedAt: '2026-07-10 10:00:00', by: '跟单A' })
+  assert.equal(secondDirect.ok, true, secondDirect.message)
+  assert.equal(productionOrders.find((order) => order.productionOrderId === fixtureSource.productionOrderId)?.mainFactoryId, directFactory.id, '同生产单第二次部分派给工厂B时必须默认保留既有主工厂A')
+  const explicitSwitchRow = listSewingDispatchWorkbenchRows().find((row) => row.productionOrderId === fixtureSource.productionOrderId && row.completeKitQty > 0)!
+  const explicitSwitch = createSewingDispatchWorkbenchDraft({ actionType: '直接派单', factoryId: secondFactory.id, factoryName: secondFactory.name, rowIds: [explicitSwitchRow.rowId], qtyByRowId: { [explicitSwitchRow.rowId]: 1 }, businessAssignedAt: '2026-07-10 09:00:00', operatedAt: '2026-07-10 10:00:00', mainFactoryIdByProductionOrderId: { [fixtureSource.productionOrderId]: secondFactory.id }, by: '跟单A' })
+  assert.equal(explicitSwitch.ok, true, explicitSwitch.message)
+  assert.equal(productionOrders.find((order) => order.productionOrderId === fixtureSource.productionOrderId)?.mainFactoryId, secondFactory.id, '显式选择B后才允许变更主工厂')
+
+  const multiOrderState = captureRuntimeDirectDispatchState()
+  const secondOrderId = 'TEST-PO-WORKBENCH-MULTI'
+  const secondOrder = { ...structuredClone(productionOrders.find((order) => order.productionOrderId === fixtureSource.productionOrderId)!), productionOrderId: secondOrderId, productionOrderNo: 'PO-TEST-MULTI-002', mainFactoryId: '', mainFactoryStatus: 'PENDING_SEWING_ASSIGNMENT' as const, sewingFactorySnapshots: [] }
+  multiOrderState.productionOrders.push(secondOrder)
+  const secondOrderTaskId = 'TEST-WORKBENCH-MULTI-PO-2'
+  multiOrderState.reassignedTasks.push([secondOrderTaskId, { ...structuredClone(fixtureSource), taskId: secondOrderTaskId, taskNo: secondOrderTaskId, baseTaskId: secondOrderTaskId, productionOrderId: secondOrderId, assignmentMode: 'DIRECT', assignmentStatus: 'UNASSIGNED', assignedFactoryId: undefined, assignedFactoryName: undefined, acceptanceStatus: 'PENDING', executionEnabled: true }])
+  restoreRuntimeDirectDispatchState(multiOrderState)
+  const multiFirstRow = listSewingDispatchWorkbenchRows().find((row) => row.productionOrderId === fixtureSource.productionOrderId && row.completeKitQty > 0)!
+  const multiSecondRow = listSewingDispatchWorkbenchRows().find((row) => row.productionOrderId === secondOrderId && row.completeKitQty > 0)!
+  assert(multiFirstRow && multiSecondRow, '跨生产单主工厂测试需要两个可分配行')
+  const multiDirect = createSewingDispatchWorkbenchDraft({ actionType: '直接派单', factoryId: secondFactory.id, factoryName: secondFactory.name, rowIds: [multiFirstRow.rowId, multiSecondRow.rowId], qtyByRowId: { [multiFirstRow.rowId]: 1, [multiSecondRow.rowId]: 1 }, businessAssignedAt: '2026-07-10 09:10:00', operatedAt: '2026-07-10 10:00:00', mainFactoryIdByProductionOrderId: { [fixtureSource.productionOrderId]: directFactory.id, [secondOrderId]: secondFactory.id }, by: '跟单A' })
+  assert.equal(multiDirect.ok, true, multiDirect.message)
+  assert.equal(productionOrders.find((order) => order.productionOrderId === fixtureSource.productionOrderId)?.mainFactoryId, directFactory.id, '批量跨PO必须按PO保留/选择各自主工厂A')
+  assert.equal(productionOrders.find((order) => order.productionOrderId === secondOrderId)?.mainFactoryId, secondFactory.id, '批量跨PO必须按PO选择各自主工厂B')
+
+  const invalidMultiRow = listSewingDispatchWorkbenchRows().find((row) => row.productionOrderId === secondOrderId && row.completeKitQty > 0)!
+  const beforeInvalidMulti = captureRuntimeDirectDispatchState()
+  const beforeInvalidMultiDrafts = listSewingDispatchWorkbenchDrafts()
+  const invalidMulti = createSewingDispatchWorkbenchDraft({ actionType: '直接派单', factoryId: secondFactory.id, factoryName: secondFactory.name, rowIds: [invalidMultiRow.rowId], qtyByRowId: { [invalidMultiRow.rowId]: 1 }, businessAssignedAt: '2026-07-10 09:20:00', operatedAt: '2026-07-10 10:00:00', mainFactoryIdByProductionOrderId: { [secondOrderId]: 'NO-SUCH-MAIN' }, by: '跟单A' })
+  assert.equal(invalidMulti.ok, false)
+  const afterInvalidMulti = captureRuntimeDirectDispatchState()
+  assert.deepEqual({ ...afterInvalidMulti, auditSeq: beforeInvalidMulti.auditSeq }, beforeInvalidMulti, '跨PO主工厂校验失败必须回滚runtime/production/audit业务状态')
+  assert.deepEqual(listSewingDispatchWorkbenchDrafts(), beforeInvalidMultiDrafts, '跨PO主工厂校验失败不得新增draft')
 
   const bidRow = listSewingDispatchWorkbenchRows().find((row) => row.completeKitQty > 0)
   assert(bidRow, '直接部分分配后应有剩余行可再次竞价')
