@@ -477,11 +477,7 @@ assert.equal(runtimeCopyTwoBom?.waterSolubleRequirement, '是', '修改一次运
 assert.deepEqual(runtimeCopyTwoBom?.applicableSkuCodes, ['SKU-WATER-S'], '运行时 BOM 数组字段必须隔离')
 assert.deepEqual(runtimeCopyTwoProcess?.linkedBomItemIds, ['BOM-WATER', 'BOM-BOTH'], '运行时工序 BOM 绑定数组必须隔离')
 
-assert(
-  'generateBomDrivenPrepArtifactsForEntry' in productionArtifactGeneration,
-  '生产产物生成器必须导出生产实际调用的 BOM 物料级准备产物 helper',
-)
-const generateBomDrivenPrepArtifactsForEntry = productionArtifactGeneration.generateBomDrivenPrepArtifactsForEntry
+const { generateProductionArtifactsForOrder } = productionArtifactGeneration
 const sourceOrder = productionOrders[0]
 assert(sourceOrder, 'BOM 物料级产物检查必须存在真实生产单基线')
 
@@ -582,15 +578,23 @@ const artifactSnapshot: ProductionOrderTechPackSnapshot = {
   processEntries: [waterArtifactEntry, dyeArtifactEntry],
 }
 
-function generateArtifactFixture(snapshot = artifactSnapshot) {
-  return snapshot.processEntries.flatMap((entry, entryIndex) =>
-    generateBomDrivenPrepArtifactsForEntry({
-      order: artifactOrder,
-      snapshot,
-      entry,
-      entryIndex,
-    }),
-  )
+function generateArtifactFixture(
+  snapshot = artifactSnapshot,
+  demandSnapshot = artifactOrder.demandSnapshot,
+) {
+  const temporaryOrder: ProductionOrder = {
+    ...artifactOrder,
+    selectedTechPackVersionId: snapshot.sourceTechPackVersionId,
+    techPackSnapshot: snapshot,
+    demandSnapshot,
+  }
+  productionOrders.push(temporaryOrder)
+  try {
+    return generateProductionArtifactsForOrder(temporaryOrder.productionOrderId)
+  } finally {
+    const temporaryOrderIndex = productionOrders.indexOf(temporaryOrder)
+    if (temporaryOrderIndex >= 0) productionOrders.splice(temporaryOrderIndex, 1)
+  }
 }
 
 const bomArtifacts = generateArtifactFixture()
@@ -645,5 +649,153 @@ assert.notDeepEqual(
   bomArtifacts.map((item) => item.artifactId),
   '同一生产单 snapshotId 固定时，正式技术包版本变化后 BOM 物料级 artifactId 必须变化',
 )
+
+function generateWithProcessEntries(processEntries: ProductionOrderTechPackSnapshot['processEntries']) {
+  return generateArtifactFixture({ ...artifactSnapshot, processEntries })
+}
+
+const craftDyeArtifacts = generateWithProcessEntries([{
+  ...dyeArtifactEntry,
+  id: 'ENTRY-DYE-CRAFT',
+  entryType: 'CRAFT',
+  linkedBomItemIds: ['ONLY-DYE'],
+}])
+assert.equal(craftDyeArtifacts.filter((item) => item.processCode === 'DYE').length, 0, 'CRAFT DYE 不得生成 BOM 染色需求')
+
+const nonPrepDyeArtifacts = generateWithProcessEntries([{
+  ...dyeArtifactEntry,
+  id: 'ENTRY-DYE-NON-PREP',
+  stageCode: 'PROD',
+  stageName: '生产阶段',
+  linkedBomItemIds: ['ONLY-DYE'],
+}])
+assert.equal(nonPrepDyeArtifacts.filter((item) => item.processCode === 'DYE').length, 0, '非 PREP DYE 不得生成 BOM 染色需求')
+
+const taskDyeArtifacts = generateWithProcessEntries([{
+  ...dyeArtifactEntry,
+  id: 'ENTRY-DYE-TASK',
+  defaultDocType: 'TASK',
+  linkedBomItemIds: ['ONLY-DYE'],
+}])
+assert.equal(taskDyeArtifacts.filter((item) => item.processCode === 'DYE').length, 0, 'defaultDocType TASK 的 DYE 不得生成 BOM 染色需求')
+
+const validDyeArtifacts = generateWithProcessEntries([{
+  ...dyeArtifactEntry,
+  id: 'ENTRY-DYE-VALID',
+  linkedBomItemIds: ['ONLY-DYE'],
+}])
+assert.equal(validDyeArtifacts.filter((item) => item.processCode === 'DYE').length, 1, '合法 PREP/DEMAND DYE 必须生成 BOM 染色需求')
+
+const duplicateArtifacts = generateWithProcessEntries([
+  { ...waterArtifactEntry, id: 'ENTRY-WATER-FIRST', linkedBomItemIds: ['ONLY-WATER'] },
+  { ...waterArtifactEntry, id: 'ENTRY-WATER-SECOND', linkedBomItemIds: ['ONLY-WATER'] },
+  { ...dyeArtifactEntry, id: 'ENTRY-DYE-FIRST', linkedBomItemIds: ['ONLY-DYE'] },
+  { ...dyeArtifactEntry, id: 'ENTRY-DYE-SECOND', linkedBomItemIds: ['ONLY-DYE'] },
+])
+const dedupedWaterArtifacts = duplicateArtifacts.filter((item) => item.processCode === 'WATER_SOLUBLE')
+const dedupedDyeArtifacts = duplicateArtifacts.filter((item) => item.processCode === 'DYE')
+assert.equal(dedupedWaterArtifacts.length, 1, '同一 BOM 的多条合法 WATER entry 最终只能生成一张任务')
+assert.equal(dedupedWaterArtifacts[0]?.sourceEntryId, 'ENTRY-WATER-FIRST', '重复 WATER 必须稳定保留第一条路线 entry')
+assert.equal(dedupedDyeArtifacts.length, 1, '同一 BOM 的多条合法 DYE entry 最终只能生成一张需求')
+assert.equal(dedupedDyeArtifacts[0]?.sourceEntryId, 'ENTRY-DYE-FIRST', '重复 DYE 必须稳定保留第一条路线 entry')
+
+const printEntry = {
+  ...dyeArtifactEntry,
+  id: 'ENTRY-PRINT-LEGACY',
+  processCode: 'PRINT',
+  processName: '印花',
+  linkedBomItemIds: undefined,
+}
+const legacyDyeEntry = {
+  ...dyeArtifactEntry,
+  id: 'ENTRY-DYE-LEGACY',
+  linkedBomItemIds: undefined,
+}
+const postEntry = {
+  ...waterArtifactEntry,
+  id: 'ENTRY-POST-LEGACY',
+  stageCode: 'POST',
+  stageName: '后道阶段',
+  processCode: 'POST_FINISHING',
+  processName: '后道',
+  defaultDocType: 'TASK',
+  linkedBomItemIds: undefined,
+}
+const legacyArtifacts = generateWithProcessEntries([printEntry, legacyDyeEntry, postEntry])
+const legacyPrintArtifact = legacyArtifacts.find((item) => item.artifactType === 'DEMAND' && item.processCode === 'PRINT')
+const legacyDyeArtifact = legacyArtifacts.find((item) => item.artifactType === 'DEMAND' && item.processCode === 'DYE' && !item.bomItemId)
+assert(legacyPrintArtifact, 'PRINT legacy 入口必须继续生成原需求产物')
+assert(legacyDyeArtifact, '无 BOM DYE legacy 入口必须继续生成原需求产物')
+assert.equal(legacyPrintArtifact.artifactId, 'DEMART-PO-WATER-ARTIFACT-ENTRY-PRINT-LEGACY', 'PRINT legacy artifactId 不得变化')
+assert.equal(legacyDyeArtifact.artifactId, 'DEMART-PO-WATER-ARTIFACT-ENTRY-DYE-LEGACY', '无 BOM DYE legacy artifactId 不得变化')
+assert(legacyArtifacts.some((item) => item.artifactType === 'TASK' && item.processCode === 'POST_FINISHING'), '其他工序入口必须继续生成原任务产物')
+
+const collisionBomB = { ...artifactBomRows[1], id: 'B', materialCode: 'MAT-B' }
+const collisionBomAB = { ...artifactBomRows[1], id: 'A-B', materialCode: 'MAT-A-B' }
+const collisionSnapshot = {
+  ...artifactSnapshot,
+  bomItems: [collisionBomB, collisionBomAB],
+  processEntries: [
+    { ...dyeArtifactEntry, id: 'DYE-A', linkedBomItemIds: ['B'] },
+    { ...dyeArtifactEntry, id: 'DYE', linkedBomItemIds: ['A-B'] },
+  ],
+}
+const collisionArtifacts = generateArtifactFixture(collisionSnapshot)
+assert.equal(collisionArtifacts.length, 2, '碰撞反例必须保留两张不同 BOM 需求')
+assert.notEqual(collisionArtifacts[0]?.artifactId, collisionArtifacts[1]?.artifactId, 'entry DYE-A/B 与 DYE/A-B 的 artifactId 必须无歧义')
+
+const slashBom = { ...artifactBomRows[1], id: 'BOM/A', materialCode: 'MAT-SLASH' }
+const colonBom = { ...artifactBomRows[1], id: 'BOM:A', materialCode: 'MAT-COLON' }
+const punctuationArtifacts = generateArtifactFixture({
+  ...artifactSnapshot,
+  bomItems: [slashBom, colonBom],
+  processEntries: [{ ...dyeArtifactEntry, id: 'ENTRY-DYE-PUNCTUATION', linkedBomItemIds: ['BOM/A', 'BOM:A'] }],
+})
+assert.equal(punctuationArtifacts.length, 2, '不同标点 BOM ID 必须保留两张需求')
+assert.notEqual(punctuationArtifacts[0]?.artifactId, punctuationArtifacts[1]?.artifactId, 'BOM/A 与 BOM:A 的 artifactId 必须不同')
+
+function assertInvalidQuantity(
+  bomOverrides: Partial<ProductionOrderTechPackSnapshot['bomItems'][number]>,
+  expectedReason: RegExp,
+  skuLines = artifactOrder.demandSnapshot.skuLines,
+) {
+  const invalidBom = { ...artifactBomRows[1], id: 'INVALID-QTY', name: '异常数量物料', ...bomOverrides }
+  const invalidSnapshot = {
+    ...artifactSnapshot,
+    bomItems: [invalidBom],
+    processEntries: [{ ...dyeArtifactEntry, id: 'ENTRY-DYE-INVALID-QTY', linkedBomItemIds: [invalidBom.id] }],
+  }
+  assert.throws(
+    () => generateArtifactFixture(invalidSnapshot, { ...artifactOrder.demandSnapshot, skuLines }),
+    expectedReason,
+  )
+}
+
+assertInvalidQuantity({ applicableSkuCodes: ['SKU-NOT-FOUND'] }, /BOM INVALID-QTY.*适用 SKU.*生产数量/)
+assertInvalidQuantity({}, /BOM INVALID-QTY.*SKU SKU-WATER-S.*有限数/, [
+  { ...artifactOrder.demandSnapshot.skuLines[0], qty: Number.NaN },
+  artifactOrder.demandSnapshot.skuLines[1],
+])
+assertInvalidQuantity({}, /BOM INVALID-QTY.*SKU SKU-WATER-S.*大于等于 0/, [
+  { ...artifactOrder.demandSnapshot.skuLines[0], qty: -1 },
+  artifactOrder.demandSnapshot.skuLines[1],
+])
+assertInvalidQuantity({ unitConsumption: 0 }, /BOM INVALID-QTY.*单位用量.*大于 0/)
+assertInvalidQuantity({ unitConsumption: -1 }, /BOM INVALID-QTY.*单位用量.*大于 0/)
+assertInvalidQuantity({ unitConsumption: Number.NaN }, /BOM INVALID-QTY.*单位用量.*有限数/)
+assertInvalidQuantity({ lossRate: -1 }, /BOM INVALID-QTY.*损耗率.*大于等于 0/)
+assertInvalidQuantity({ lossRate: Number.NaN }, /BOM INVALID-QTY.*损耗率.*有限数/)
+assertInvalidQuantity({ unitConsumption: Number.MAX_VALUE / 2, lossRate: 0 }, /BOM INVALID-QTY.*计划数量.*有限数/, [
+  { ...artifactOrder.demandSnapshot.skuLines[0], qty: 1 },
+])
+assertInvalidQuantity({ unitConsumption: 0.0004, lossRate: 0 }, /BOM INVALID-QTY.*计划数量.*大于 0/, [
+  { ...artifactOrder.demandSnapshot.skuLines[0], qty: 1 },
+])
+const zeroLossArtifacts = generateArtifactFixture({
+  ...artifactSnapshot,
+  bomItems: [{ ...artifactBomRows[1], id: 'ZERO-LOSS', lossRate: 0 }],
+  processEntries: [{ ...dyeArtifactEntry, id: 'ENTRY-DYE-ZERO-LOSS', linkedBomItemIds: ['ZERO-LOSS'] }],
+})
+assert.equal(zeroLossArtifacts[0]?.plannedQty, 400, '0% 损耗必须允许并正确生成计划数量')
 
 console.log('water-soluble process checks passed')

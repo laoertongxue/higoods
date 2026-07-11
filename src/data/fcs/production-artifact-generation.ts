@@ -180,6 +180,11 @@ function toArtifactKeySegment(entryId: string): string {
   return entryId.replace(/[^A-Za-z0-9_-]/g, '_')
 }
 
+function toUnambiguousArtifactIdentitySegment(value: string): string {
+  const encoded = encodeURIComponent(value)
+  return `${encoded.length}_${encoded}`
+}
+
 function toMockToken(value: string, size: number): string {
   const digits = value.replace(/\D/g, '')
   return (digits || value.replace(/[^A-Za-z0-9]/g, '') || '0').slice(-size).padStart(size, '0')
@@ -593,23 +598,61 @@ export function calculateBomProcessPlannedQty(
   order: ProductionOrder,
   bomItem: TechPackBomItemSnapshot,
 ): number {
+  const bomLabel = `BOM ${bomItem.id}（${bomItem.materialCode || bomItem.name || bomItem.id}）`
+  for (const line of order.demandSnapshot.skuLines) {
+    if (!Number.isFinite(line.qty)) {
+      throw new Error(`${bomLabel}计划数量计算失败：SKU ${line.skuCode} 数量必须是有限数`)
+    }
+    if (line.qty < 0) {
+      throw new Error(`${bomLabel}计划数量计算失败：SKU ${line.skuCode} 数量必须大于等于 0`)
+    }
+  }
+
   const applicableSkuCodes = bomItem.applicableSkuCodes ?? []
   const garmentQty = order.demandSnapshot.skuLines.reduce((sum, line) => {
     if (applicableSkuCodes.length > 0 && !applicableSkuCodes.includes(line.skuCode)) return sum
     return sum + line.qty
   }, 0)
+  if (garmentQty <= 0) {
+    const reason = applicableSkuCodes.length > 0
+      ? '适用 SKU 未匹配到大于 0 的生产数量'
+      : '生产数量合计必须大于 0'
+    throw new Error(`${bomLabel}计划数量计算失败：${reason}`)
+  }
+  if (!Number.isFinite(bomItem.unitConsumption)) {
+    throw new Error(`${bomLabel}计划数量计算失败：BOM 单位用量必须是有限数`)
+  }
+  if (bomItem.unitConsumption <= 0) {
+    throw new Error(`${bomLabel}计划数量计算失败：BOM 单位用量必须大于 0`)
+  }
+  if (!Number.isFinite(bomItem.lossRate)) {
+    throw new Error(`${bomLabel}计划数量计算失败：BOM 损耗率必须是有限数`)
+  }
+  if (bomItem.lossRate < 0) {
+    throw new Error(`${bomLabel}计划数量计算失败：BOM 损耗率必须大于等于 0`)
+  }
   const plannedQty = garmentQty * bomItem.unitConsumption * (1 + bomItem.lossRate / 100)
-  return Math.round(plannedQty * 1000) / 1000
+  if (!Number.isFinite(plannedQty)) {
+    throw new Error(`${bomLabel}计划数量计算失败：计划数量必须是有限数`)
+  }
+  const roundedPlannedQty = Math.round(plannedQty * 1000) / 1000
+  if (!Number.isFinite(roundedPlannedQty)) {
+    throw new Error(`${bomLabel}计划数量计算失败：计划数量必须是有限数`)
+  }
+  if (roundedPlannedQty <= 0) {
+    throw new Error(`${bomLabel}计划数量计算失败：计划数量必须大于 0`)
+  }
+  return roundedPlannedQty
 }
 
-export interface GenerateBomDrivenPrepArtifactsForEntryInput {
+interface GenerateBomDrivenPrepArtifactsForEntryInput {
   order: ProductionOrder
   snapshot: ProductionOrderTechPackSnapshot
   entry: TechnicalProcessEntry
   entryIndex: number
 }
 
-export function generateBomDrivenPrepArtifactsForEntry(
+function generateBomDrivenPrepArtifactsForEntry(
   input: GenerateBomDrivenPrepArtifactsForEntryInput,
 ): GeneratedProductionArtifact[] {
   const { order, snapshot, entry, entryIndex } = input
@@ -645,7 +688,7 @@ export function generateBomDrivenPrepArtifactsForEntry(
       techPackVersionKey,
       entry.id,
       bomItem.id,
-    ].map(toArtifactKeySegment).join('-')
+    ].map(toUnambiguousArtifactIdentitySegment).join('-')
     const bomSortSuffix = toArtifactKeySegment(bomItem.id)
 
     if (entry.processCode === 'WATER_SOLUBLE') {
@@ -683,6 +726,19 @@ function shouldGenerateDemand(entry: TechPackProcessEntry, context: ResolvedEntr
     context.stageCode === 'PREP' &&
     context.defaultDocType === 'DEMAND' &&
     (context.processCode === 'PRINT' || context.processCode === 'DYE')
+  )
+}
+
+function shouldGenerateWaterSolubleTask(
+  entry: TechPackProcessEntry,
+  context: ResolvedEntryContext,
+): boolean {
+  return (
+    entry.entryType === 'PROCESS_BASELINE'
+    && context.stageCode === 'PREP'
+    && context.defaultDocType === 'TASK'
+    && context.processCode === 'WATER_SOLUBLE'
+    && context.isActive
   )
 }
 
@@ -813,19 +869,28 @@ function createPostFinishingRollupArtifact(
   }
 }
 
-function resolveTechPackIdByOrder(orderId: string): string | null {
-  return getProductionOrderTechPackSnapshot(orderId)?.sourceTechPackVersionId ?? null
-}
-
 function resolveTechPackEntriesByOrder(orderId: string): TechPackProcessEntry[] {
   return getProductionOrderProcessEntries(orderId)
+}
+
+function dedupeBomDrivenArtifacts(
+  artifacts: GeneratedProductionArtifact[],
+): GeneratedProductionArtifact[] {
+  const seenKeys = new Set<string>()
+  return artifacts.filter((artifact) => {
+    if (!artifact.bomItemId) return true
+    const key = [artifact.artifactType, artifact.processCode, artifact.bomItemId].join('\u0000')
+    if (seenKeys.has(key)) return false
+    seenKeys.add(key)
+    return true
+  })
 }
 
 export function generateProductionArtifactsForOrder(orderId: string): GeneratedProductionArtifact[] {
   const order = productionOrders.find((item) => item.productionOrderId === orderId)
   const snapshot = getProductionOrderTechPackSnapshot(orderId)
-  const techPackId = snapshot?.sourceTechPackVersionId ?? resolveTechPackIdByOrder(orderId)
-  if (!order || !snapshot || !techPackId) return []
+  if (!order || !snapshot || !snapshot.sourceTechPackVersionId) return []
+  const techPackId = snapshot.sourceTechPackVersionId
 
   const entries = resolveTechPackEntriesByOrder(orderId)
   if (!entries.length) return []
@@ -837,8 +902,17 @@ export function generateProductionArtifactsForOrder(orderId: string): GeneratedP
     const context = resolveEntryContext(orderId, entry, index)
     context.techPackId = techPackId
 
-    if (entry.processCode === 'WATER_SOLUBLE' || (entry.processCode === 'DYE' && entry.linkedBomItemIds?.length)) {
-      artifacts.push(...generateBomDrivenPrepArtifactsForEntry({ order, snapshot, entry, entryIndex: index }))
+    if (entry.processCode === 'WATER_SOLUBLE') {
+      if (shouldGenerateWaterSolubleTask(entry, context)) {
+        artifacts.push(...generateBomDrivenPrepArtifactsForEntry({ order, snapshot, entry, entryIndex: index }))
+      }
+      return
+    }
+
+    if (entry.processCode === 'DYE' && entry.linkedBomItemIds?.length) {
+      if (shouldGenerateDemand(entry, context) && context.isActive) {
+        artifacts.push(...generateBomDrivenPrepArtifactsForEntry({ order, snapshot, entry, entryIndex: index }))
+      }
       return
     }
 
@@ -868,7 +942,7 @@ export function generateProductionArtifactsForOrder(orderId: string): GeneratedP
 
   artifacts.push(...directNonPostArtifacts)
 
-  return artifacts.sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+  return dedupeBomDrivenArtifacts(artifacts).sort((a, b) => a.sortKey.localeCompare(b.sortKey))
 }
 
 export function generateProductionArtifactBundleForOrder(orderId: string): GeneratedProductionArtifactBundle {
