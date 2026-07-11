@@ -309,6 +309,25 @@ assert.deepEqual(
   [{ recordId: 'R1', submittedAt: '2026-07-05 14:00:00', receivedAt: '2026-07-05 16:00:00', affectedQty: 31, delayHours: 0.5 }],
   '接收延迟归因必须携带管理端复核所需的交出、确认、数量和延迟时长明细',
 )
+const sameBatchGapProjection = projectSewingDeliverySla(
+  createSewingDeliverySlaSnapshot({ assignmentId: 'ASSIGN-GAP', runtimeTaskId: 'TASK-GAP', productionOrderId: 'PO-GAP', factoryId: 'F-GAP', factoryName: '缺口分摊测试厂', assignedQty: 100, acceptedAt: '2026-07-01 10:00:00', slaKind: 'INDEPENDENT_SEWING' }),
+  [
+    { recordId: 'GAP-BASE', submittedQty: 20, submittedAt: '2026-07-02 09:00:00', receivedQty: 20, receivedAt: '2026-07-02 10:00:00' },
+    { recordId: 'GAP-A', submittedQty: 6, submittedAt: '2026-07-05 09:00:00', receivedQty: 6, receivedAt: '2026-07-05 11:00:00' },
+    { recordId: 'GAP-B', submittedQty: 100, submittedAt: '2026-07-05 09:30:00', receivedQty: 100, receivedAt: '2026-07-05 11:00:00' },
+  ],
+  '2026-07-05 11:00:00',
+)
+assert.deepEqual(
+  sameBatchGapProjection.milestones[0]?.receiverDelayRecords.map((record) => [record.recordId, record.affectedQty]),
+  [['GAP-A', 6], ['GAP-B', 4]],
+  '同一迟确认批次的受影响数量必须按节点剩余缺口确定性分摊',
+)
+assert.equal(
+  sameBatchGapProjection.milestones[0]?.receiverDelayRecords.reduce((sum, record) => sum + record.affectedQty, 0),
+  10,
+  '同一批次受影响数量合计不得超过迟确认前节点缺口',
+)
 assert.equal(projection.milestones[1]?.result, 'ON_TIME', '截止前确认达标的节点应为按时达标')
 assert.notEqual(projection.snapshot, snapshot, '投影不得直接暴露调用方传入的快照引用')
 assert.equal(Object.isFrozen(projection), true, '投影结果顶层必须冻结')
@@ -1834,6 +1853,7 @@ const pdaHandoverDetailSource = readFileSync(new URL('../src/pages/pda-handover-
 const progressEventsSource = readFileSync(new URL('../src/pages/progress-board/events.ts', import.meta.url), 'utf8')
 assert.match(progressTaskPageSource, /<th[^>]*>交付时效<\/th>/, 'FCS 任务列表必须增加交付时效列')
 assert.match(progressTaskPageSource, /renderSewingDeliverySlaListCell\(sewingDeliverySlaByTaskId\.get\(task\.taskId\)/, 'FCS 列表必须读取统一履约事实')
+assert.match(progressTaskPageSource, /listSewingDeliverySlaViews\([^)]*visibleTasks\.map/, 'FCS 列表只能为当前可见任务批量构建履约视图')
 assert.match(progressTaskPageSource, /renderSewingDeliverySlaDetail\(getSewingDeliverySlaView\(task\.taskId\)/, 'FCS 详情必须读取同一履约事实')
 assert.match(progressTaskPageSource, /主管复核责任/, 'FCS 延迟节点必须提供主管复核入口')
 assert.match(progressTaskPageSource, /renderSewingDeliveryResponsibilityReviewDialog/, 'FCS 详情必须渲染责任复核局部弹窗 host')
@@ -1849,7 +1869,8 @@ assert.match(pdaHandoverDetailSource, /data-skip-page-rerender="true"[^>]*data-p
 assert.match(pdaHandoverDetailSource, /refreshReceiverWritebackSlaPreview\(record\.recordId\)/, '实收数量输入必须局部刷新履约预览')
 assert.match(pdaHandoverDetailSource, /refreshHandoutRecordAndSlaSummary\(updated\)/, '确认收货后必须只刷新当前记录和履约摘要')
 assert.match(pdaHandoverDetailSource, /writebackPreviewConfirmedAt/, '接收确认草稿必须固定预览确认时间')
-assert.match(pdaHandoverDetailSource, /receiverWrittenAt:\s*detailState\.writebackPreviewConfirmedAt/, '真实确认必须原样使用预览确认时间')
+assert.match(pdaHandoverDetailSource, /const confirmedAt = receiverWritebackNowProvider\(\)/, '点击确认时必须重新获取实际本地墙钟')
+assert.match(pdaHandoverDetailSource, /receiverWrittenAt:\s*confirmedAt/, '真实确认必须使用点击时的同一实际确认时间')
 
 assert.doesNotThrow(() => {
   execFileSync('./node_modules/.bin/tsx', ['-e', `
@@ -1886,11 +1907,13 @@ assert.doesNotThrow(() => {
     let reviewDialogWrites = 0
     let recordRefreshes = 0
     let summaryRefreshes = 0
+    let headSummaryRefreshes = 0
     const previewHost = { set innerHTML(value) { previewWrites += 1; previewHtml = value } }
     const reviewDialogHost = { set innerHTML(value) { reviewDialogWrites += 1 } }
     const recordHost = { set outerHTML(value) { recordRefreshes += 1 } }
     const summaryHost = { set outerHTML(value) { summaryRefreshes += 1 } }
-    globalThis.document = { querySelector(selector) { if (selector.includes('data-sewing-sla-writeback-preview')) return previewHost; if (selector.includes('data-sewing-sla-review-dialog-host')) return reviewDialogHost; if (selector.includes('data-handout-record-id')) return recordHost; if (selector.includes('data-sewing-sla-handover-summary')) return summaryHost; return null } } as any
+    const headSummaryHost = { set outerHTML(value) { headSummaryRefreshes += 1 } }
+    globalThis.document = { querySelector(selector) { if (selector.includes('data-sewing-sla-writeback-preview')) return previewHost; if (selector.includes('data-sewing-sla-review-dialog-host')) return reviewDialogHost; if (selector.includes('data-handout-record-id')) return recordHost; if (selector.includes('data-sewing-sla-handover-summary')) return summaryHost; if (selector.includes('data-handout-head-live-summary')) return headSummaryHost; return null } } as any
     ;(async () => {
     const runtime = await import('./src/data/fcs/runtime-process-tasks.ts')
     const sla = await import('./src/data/fcs/sewing-delivery-sla.ts')
@@ -1911,27 +1934,45 @@ assert.doesNotThrow(() => {
       handover.upsertPdaHandoutRecordMock({ recordId: 'REC-PREVIEW', handoverRecordId: 'REC-PREVIEW', handoverId: 'HEAD-PREVIEW', handoverOrderId: 'HEAD-PREVIEW', taskId: task.taskId, sourceTaskId: task.taskId, sequenceNo: 1, submittedQty: 30, plannedQty: 30, qtyUnit: '件', factorySubmittedAt: '2026-07-05 09:00:00', factorySubmittedBy: '工厂操作员', factoryProofFiles: [], status: 'PENDING_WRITEBACK', handoverRecordStatus: 'SUBMITTED_WAIT_WRITEBACK' })
       const openTarget = { closest(selector) { if (selector === '[data-pda-handoverd-field]') return null; if (selector === '[data-pda-handoverd-action]') return { dataset: { pdaHandoverdAction: 'open-receiver-writeback', recordId: 'REC-PREVIEW' } }; return null } }
       page.handlePdaHandoverDetailEvent(openTarget as any)
-      currentNow = '2026-07-05 10:30:00'
       const scrollBefore = 120
       page.handlePdaHandoverDetailEvent(new InputNode() as any)
       assert.equal(previewWrites, 1, '实收数量输入只应更新预览 host')
-      assert.match(previewHtml, /本次确认时间：2026-07-05 10:30:00/, '局部预览必须同步显示固定确认时间')
+      assert.match(previewHtml, /本次确认时间：2026-07-05 09:30:00/, '局部预览必须同步显示输入当时的确认时间')
       assert.equal(scrollBefore, 120, '局部输入不得改变滚动位置')
       const draft = page.captureReceiverWritebackDraftState()
-      assert.equal(draft.writebackPreviewConfirmedAt, '2026-07-05 10:30:00', '有效数量输入必须固定本次预览确认时间')
+      assert.equal(draft.writebackPreviewConfirmedAt, '2026-07-05 09:30:00', '有效数量输入必须固定输入当时的预览确认时间')
       const preview = page.buildReceiverWritebackSlaPreview('REC-PREVIEW', 30, draft.writebackPreviewConfirmedAt)
       assert(preview)
-      assert.equal(preview.projection.milestones[0]?.firstReachedAt, '2026-07-05 10:30:00', '跨截止预览必须按固定确认时间首次达标')
+      assert.equal(preview.projection.milestones[0]?.firstReachedAt, '2026-07-05 09:30:00', '输入预览必须按输入当时确认时间首次达标')
       currentNow = '2026-07-05 11:30:00'
+      const finalPreview = page.buildReceiverWritebackSlaPreview('REC-PREVIEW', 30, currentNow)
+      assert(finalPreview)
       const submitTarget = { closest(selector) { if (selector === '[data-pda-handoverd-field]') return null; if (selector === '[data-pda-handoverd-action]') return { dataset: { pdaHandoverdAction: 'submit-receiver-writeback', recordId: 'REC-PREVIEW' } }; return null } }
       page.handlePdaHandoverDetailEvent(submitTarget as any)
       const writtenRecord = handover.findPdaHandoverRecord('REC-PREVIEW')
-      assert.equal(writtenRecord?.receiverWrittenAt, '2026-07-05 10:30:00', '真实提交 handler 必须沿用预览确认时间，不能取提交时新时间')
-      const confirmed = viewDomain.getSewingDeliverySlaView(task.taskId, draft.writebackPreviewConfirmedAt)
-      assert.deepEqual(confirmed?.projection, preview.projection, '真实提交后的完整投影必须与预览一致')
-      assert.equal(confirmed?.projection.milestones[0]?.firstReachedAt, preview.projection.milestones[0]?.firstReachedAt, '真实提交后的首次达标时间必须与预览一致')
+      assert.equal(writtenRecord?.receiverWrittenAt, '2026-07-05 11:30:00', '真实提交 handler 必须使用点击时实际确认时间')
+      const confirmed = viewDomain.getSewingDeliverySlaView(task.taskId, currentNow)
+      assert.notEqual(preview.projection.milestones[0]?.firstReachedAt, finalPreview.projection.milestones[0]?.firstReachedAt, '输入预估与点击确认跨时间后应允许变化')
+      assert.deepEqual(confirmed?.projection, finalPreview.projection, '真实提交后的完整投影必须与点击时最终临时投影一致')
+      assert.equal(confirmed?.projection.milestones[0]?.firstReachedAt, '2026-07-05 11:30:00', '真实提交后的首次达标时间必须取点击确认时间')
       assert.equal(recordRefreshes, 1, '真实提交 handler 必须局部刷新当前记录')
       assert.equal(summaryRefreshes, 1, '真实提交 handler 必须局部刷新履约摘要')
+      assert.equal(headSummaryRefreshes, 1, '真实提交 handler 必须局部刷新交出单累计实收、待收和差异汇总')
+      handover.upsertPdaHandoutRecordMock({ recordId: 'REC-SYNC-WARNING', handoverRecordId: 'REC-SYNC-WARNING', handoverId: 'HEAD-PREVIEW', handoverOrderId: 'HEAD-PREVIEW', taskId: task.taskId, sourceTaskId: task.taskId, sequenceNo: 2, submittedQty: 10, plannedQty: 10, qtyUnit: '件', factorySubmittedAt: '2026-07-05 10:00:00', factorySubmittedBy: '工厂操作员', factoryProofFiles: [], status: 'PENDING_WRITEBACK', handoverRecordStatus: 'SUBMITTED_WAIT_WRITEBACK' })
+      currentNow = '2026-07-05 12:00:00'
+      page.handlePdaHandoverDetailEvent({ closest(selector) { if (selector === '[data-pda-handoverd-field]') return null; if (selector === '[data-pda-handoverd-action]') return { dataset: { pdaHandoverdAction: 'open-receiver-writeback', recordId: 'REC-SYNC-WARNING' } }; return null } } as any)
+      const warningInput = new InputNode(); warningInput.value = '10'
+      page.handlePdaHandoverDetailEvent(warningInput as any)
+      const restoreLinkageProbe = page.setReceiverWritebackLinkageProbe(() => { throw new Error('模拟仓库同步失败') })
+      try {
+        page.handlePdaHandoverDetailEvent({ closest(selector) { if (selector === '[data-pda-handoverd-field]') return null; if (selector === '[data-pda-handoverd-action]') return { dataset: { pdaHandoverdAction: 'submit-receiver-writeback', recordId: 'REC-SYNC-WARNING' } }; return null } } as any)
+      } finally {
+        restoreLinkageProbe()
+      }
+      assert.equal(handover.findPdaHandoverRecord('REC-SYNC-WARNING')?.receiverWrittenAt, '2026-07-05 12:00:00', '仓库联动失败不得回滚已成功的实收事实')
+      const warningDraft = page.captureReceiverWritebackDraftState()
+      assert.equal(warningDraft.writebackRecordId, '', '联动失败后不得回开确认表单')
+      assert.match(warningDraft.writebackSyncWarning, /确认成功.*仓库同步待处理/, '联动失败必须保留成功事实并给主管兜底警示')
       handover.upsertPdaHandoutRecordMock({ recordId: 'REC-REVIEW-LATE', handoverRecordId: 'REC-REVIEW-LATE', handoverId: 'HEAD-PREVIEW', handoverOrderId: 'HEAD-PREVIEW', taskId: task.taskId, sourceTaskId: task.taskId, sequenceNo: 2, submittedQty: 30, plannedQty: 30, qtyUnit: '件', factorySubmittedAt: '2026-07-04 09:00:00', factorySubmittedBy: '工厂操作员', factoryProofFiles: [], status: 'PENDING_WRITEBACK', handoverRecordStatus: 'SUBMITTED_WAIT_WRITEBACK' })
       handover.writeBackHandoverRecord({ handoverRecordId: 'REC-REVIEW-LATE', receiverWrittenQty: 30, receiverWrittenAt: '2026-07-06 10:00:00', receiverWrittenBy: '接收员' })
       const projectionBeforeReview = viewDomain.getSewingDeliverySlaView(task.taskId, '2026-07-06 10:00:00')?.projection
@@ -1948,7 +1989,7 @@ assert.doesNotThrow(() => {
       progressEvents.handleProgressBoardEvent(actionTarget('submit-sewing-sla-review') as any)
       assert.equal(sla.getSewingDeliveryResponsibilityReview(task.taskId, 0.3)?.conclusion, 'SHARED', '真实 handler 必须保存责任结论')
       assert.deepEqual(viewDomain.getSewingDeliverySlaView(task.taskId, '2026-07-06 10:00:00')?.projection, projectionBeforeReview, '真实复核 handler 不得改变投影和首次达标时间')
-      sla.recordSewingDeliveryResponsibilityReview({ runtimeTaskId: task.taskId, milestoneRatio: 0.3, conclusion: 'RECEIVER', remark: '第二次复核：接收方责任', reviewedBy: '生产主管', reviewedAt: '2026-07-06 12:00:00' })
+      sla.recordSewingDeliveryResponsibilityReview({ runtimeTaskId: task.taskId, milestoneRatio: 0.3, conclusion: 'RECEIVER', remark: '第二次复核：接收方责任', reviewedBy: '生产主管', reviewedAt: '2026-07-06 12:00:00', projection: viewDomain.getSewingDeliverySlaView(task.taskId, '2026-07-06 12:00:00').projection })
       progressTaskPage.openSewingDeliveryResponsibilityReview(task.taskId, 0.3)
       const reviewDialogHtml = progressTaskPage.renderSewingDeliveryResponsibilityReviewDialog()
       for (const text of ['当前结论', '接收方责任', '复核历史', '工厂交出及时，接收确认也有现场延迟', '第二次复核：接收方责任', '跟单主管', '生产主管', '2026-07-06 11:00:00', '2026-07-06 12:00:00']) assert.match(reviewDialogHtml, new RegExp(text))
@@ -2222,6 +2263,8 @@ try {
     '批量视图必须按严格 taskId 预索引，字段冲突不得双计或被脏记录毒化',
   )
   assert.equal(Object.isFrozen(listViews), true, '履约视图列表也必须防御冻结')
+  const visibleOnlyViews = listSewingDeliverySlaViews('2026-07-08 10:00:00', [viewTaskId])
+  assert.deepEqual(visibleOnlyViews.map((item) => item.runtimeTaskId), [viewTaskId], '批量履约视图必须支持只投影当前可见任务')
 
   const progressFact = getProgressFactByTaskId(viewTaskId)
   assert(progressFact?.sewingDeliverySla, '统一进度事实应按需挂接含车缝履约视图')
@@ -2235,9 +2278,10 @@ try {
       remark: string
       reviewedBy: string
       reviewedAt: string
-    }) => { reviewId: string; conclusion: string }
-    getSewingDeliveryResponsibilityReview: (runtimeTaskId: string, milestoneRatio: number) => { conclusion: string } | null
-    listSewingDeliveryResponsibilityReviews: (runtimeTaskId: string, milestoneRatio?: number) => readonly unknown[]
+      projection: typeof projectionBeforeReview
+    }) => { reviewId: string; conclusion: string; snapshotId: string }
+    getSewingDeliveryResponsibilityReview: (runtimeTaskId: string, milestoneRatio: number) => { conclusion: string; snapshotId: string } | null
+    listSewingDeliveryResponsibilityReviews: (runtimeTaskId: string, milestoneRatio?: number) => readonly Array<{ snapshotId: string }>
   }
   assert.equal(typeof responsibilityApi.recordSewingDeliveryResponsibilityReview, 'function', '领域层应提供接收延迟责任复核保存入口')
   const projectionBeforeReview = getSewingDeliverySlaView(viewTaskId, '2026-07-08 10:00:00')?.projection
@@ -2248,8 +2292,10 @@ try {
     remark: '交出及时，接收方次日才确认',
     reviewedBy: '跟单主管',
     reviewedAt: '2026-07-08 10:30:00',
+    projection: projectionBeforeReview,
   })
   assert.equal(firstReview.conclusion, 'RECEIVER')
+  assert.equal(firstReview.snapshotId, projectionBeforeReview?.snapshot.snapshotId, '责任复核必须绑定当前履约快照')
   responsibilityApi.recordSewingDeliveryResponsibilityReview({
     runtimeTaskId: viewTaskId,
     milestoneRatio: 0.3,
@@ -2257,6 +2303,7 @@ try {
     remark: '复核后确认双方均有延迟',
     reviewedBy: '生产主管',
     reviewedAt: '2026-07-08 11:00:00',
+    projection: projectionBeforeReview,
   })
   assert.equal(responsibilityApi.getSewingDeliveryResponsibilityReview(viewTaskId, 0.3)?.conclusion, 'SHARED', '单查应返回最近一次责任结论')
   assert.equal(responsibilityApi.listSewingDeliveryResponsibilityReviews(viewTaskId, 0.3).length, 2, '重复复核必须保留历史')
@@ -2273,6 +2320,7 @@ try {
       remark: '非法节点',
       reviewedBy: '测试员',
       reviewedAt: '2026-07-08 11:30:00',
+      projection: projectionBeforeReview,
     }),
     /复核节点比例/,
   )
@@ -2290,12 +2338,31 @@ try {
         remark: '非法输入不得保存',
         reviewedBy: '测试员',
         reviewedAt: invalid.reviewedAt,
+        projection: projectionBeforeReview,
       }),
       invalid.expected,
     )
   }
   assert.equal(responsibilityApi.listSewingDeliveryResponsibilityReviews(viewTaskId).length, reviewHistoryCount, '非法责任复核不得留下部分历史')
   assert.equal(Object.isFrozen(responsibilityApi.listSewingDeliveryResponsibilityReviews(viewTaskId)), true, '责任复核历史列表必须防御冻结')
+  const projectionWithoutReceiverDelay = projectSewingDeliverySla(viewSnapshot, [], '2026-07-08 12:00:00')
+  assert.throws(
+    () => responsibilityApi.recordSewingDeliveryResponsibilityReview({ runtimeTaskId: viewTaskId, milestoneRatio: 0.3, conclusion: 'FACTORY', remark: '无接收延迟', reviewedBy: '测试员', reviewedAt: '2026-07-08 12:00:00', projection: projectionWithoutReceiverDelay }),
+    /没有接收确认延迟/,
+    '当前节点没有接收确认延迟时不得记录责任结论',
+  )
+  const replacementSnapshot = createSewingDeliverySlaSnapshot({ assignmentId: 'ASSIGN-SLA-VIEW-REPLACED', runtimeTaskId: viewTaskId, productionOrderId: viewTask.productionOrderId, factoryId: 'F-SLA-VIEW-2', factoryName: '改派后测试厂', assignedQty: 100, acceptedAt: '2026-07-01 10:00:00', slaKind: classifySewingDeliverySla(viewTask)! })
+  saveSewingDeliverySlaSnapshot(replacementSnapshot)
+  assert.equal(responsibilityApi.getSewingDeliveryResponsibilityReview(viewTaskId, 0.3), null, '切换当前快照后不得串用旧快照当前结论')
+  const crossSnapshotHistory = responsibilityApi.listSewingDeliveryResponsibilityReviews(viewTaskId, 0.3)
+  assert.equal(crossSnapshotHistory.length, 2, '跨快照历史必须保留')
+  assert(crossSnapshotHistory.every((review) => review.snapshotId === viewSnapshot.snapshotId), '旧复核历史必须标识原快照')
+  const replacementProjection = getSewingDeliverySlaView(viewTaskId, '2026-07-08 12:00:00')?.projection
+  assert(replacementProjection)
+  const replacementReview = responsibilityApi.recordSewingDeliveryResponsibilityReview({ runtimeTaskId: viewTaskId, milestoneRatio: 0.3, conclusion: 'RECEIVER', remark: '新快照重新复核', reviewedBy: '跟单主管', reviewedAt: '2026-07-08 12:30:00', projection: replacementProjection })
+  assert.equal(replacementReview.snapshotId, replacementSnapshot.snapshotId)
+  assert.equal(responsibilityApi.getSewingDeliveryResponsibilityReview(viewTaskId, 0.3)?.snapshotId, replacementSnapshot.snapshotId, '当前查询只能返回当前 active 快照结论')
+  assert.equal(responsibilityApi.listSewingDeliveryResponsibilityReviews(viewTaskId, 0.3).length, 3, '历史查询必须跨快照保留并新增当前复核')
 
   const noSnapshotTask = listRuntimeProcessTasks().find((task) => task.taskId !== viewTaskId && !getSewingDeliverySlaSnapshot(task.taskId))
   assert(noSnapshotTask, '无快照回归测试需要另一个运行时任务')

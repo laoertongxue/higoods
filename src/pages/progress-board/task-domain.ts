@@ -127,6 +127,7 @@ export function submitSewingDeliveryResponsibilityReview(): { ok: boolean; messa
   const draft = sewingDeliveryResponsibilityReviewDraft
   if (!draft) return { ok: false, message: '请先打开责任复核' }
   try {
+    const projection = getSewingDeliverySlaView(draft.taskId)?.projection
     recordSewingDeliveryResponsibilityReview({
       runtimeTaskId: draft.taskId,
       milestoneRatio: draft.milestoneRatio,
@@ -134,6 +135,7 @@ export function submitSewingDeliveryResponsibilityReview(): { ok: boolean; messa
       remark: draft.remark,
       reviewedBy: draft.reviewedBy,
       reviewedAt: draft.reviewedAt,
+      projection,
     })
     sewingDeliveryResponsibilityReviewDraft = null
     return { ok: true, message: '责任复核已保存' }
@@ -149,6 +151,7 @@ export function renderSewingDeliveryResponsibilityReviewDialog(): string {
   if (!draft) return ''
   const current = getSewingDeliveryResponsibilityReview(draft.taskId, draft.milestoneRatio)
   const history = listSewingDeliveryResponsibilityReviews(draft.taskId, draft.milestoneRatio)
+  const activeSnapshotId = getSewingDeliverySlaView(draft.taskId)?.projection.snapshot.snapshotId
   return `
     <div class="fixed inset-0 z-[150] flex items-center justify-center bg-black/45 p-4">
       <section class="w-full max-w-lg space-y-4 rounded-lg border bg-background p-4 shadow-xl" role="dialog" aria-modal="true" aria-label="主管复核责任">
@@ -158,7 +161,7 @@ export function renderSewingDeliveryResponsibilityReviewDialog(): string {
         <label class="block space-y-1 text-sm"><span>复核说明</span><textarea class="min-h-[80px] w-full rounded-md border bg-background px-3 py-2" data-progress-field="sewingSlaReview.remark" data-skip-page-rerender="true">${escapeHtml(draft.remark)}</textarea></label>
         <div class="grid gap-3 sm:grid-cols-2"><label class="space-y-1 text-sm"><span>复核人</span><input class="h-9 w-full rounded-md border bg-background px-3" value="${escapeAttr(draft.reviewedBy)}" data-progress-field="sewingSlaReview.reviewedBy" data-skip-page-rerender="true" /></label><label class="space-y-1 text-sm"><span>复核时间</span><input type="datetime-local" class="h-9 w-full rounded-md border bg-background px-3" value="${escapeAttr(draft.reviewedAt.replace(' ', 'T').slice(0, 16))}" data-progress-field="sewingSlaReview.reviewedAt" data-skip-page-rerender="true" /></label></div>
         ${draft.error ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(draft.error)}</div>` : ''}
-        <section class="space-y-2"><h4 class="text-sm font-medium">复核历史</h4>${history.length > 0 ? `<div class="max-h-44 overflow-auto rounded-md border"><table class="w-full min-w-[620px] text-xs"><thead><tr class="border-b bg-muted/40 text-left"><th class="px-2 py-1.5">结论</th><th class="px-2 py-1.5">说明</th><th class="px-2 py-1.5">复核人</th><th class="px-2 py-1.5">时间</th></tr></thead><tbody>${[...history].reverse().map((review) => `<tr class="border-b last:border-b-0"><td class="px-2 py-1.5">${escapeHtml(getSewingDeliveryResponsibilityConclusionLabel(review.conclusion))}</td><td class="max-w-[240px] px-2 py-1.5">${escapeHtml(review.remark)}</td><td class="px-2 py-1.5">${escapeHtml(review.reviewedBy)}</td><td class="px-2 py-1.5">${escapeHtml(review.reviewedAt)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="rounded-md border border-dashed px-3 py-3 text-xs text-muted-foreground">暂无复核历史</div>'}</section>
+        <section class="space-y-2"><h4 class="text-sm font-medium">复核历史</h4>${history.length > 0 ? `<div class="max-h-44 overflow-auto rounded-md border"><table class="w-full min-w-[760px] text-xs"><thead><tr class="border-b bg-muted/40 text-left"><th class="px-2 py-1.5">快照</th><th class="px-2 py-1.5">结论</th><th class="px-2 py-1.5">说明</th><th class="px-2 py-1.5">复核人</th><th class="px-2 py-1.5">时间</th></tr></thead><tbody>${[...history].reverse().map((review) => `<tr class="border-b last:border-b-0"><td class="px-2 py-1.5"><div class="font-mono">${escapeHtml(review.snapshotId)}</div><div class="text-[10px] ${review.snapshotId === activeSnapshotId ? 'text-green-700' : 'text-muted-foreground'}">${review.snapshotId === activeSnapshotId ? '当前快照' : '历史快照'}</div></td><td class="px-2 py-1.5">${escapeHtml(getSewingDeliveryResponsibilityConclusionLabel(review.conclusion))}</td><td class="max-w-[240px] px-2 py-1.5">${escapeHtml(review.remark)}</td><td class="px-2 py-1.5">${escapeHtml(review.reviewedBy)}</td><td class="px-2 py-1.5">${escapeHtml(review.reviewedAt)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="rounded-md border border-dashed px-3 py-3 text-xs text-muted-foreground">暂无复核历史</div>'}</section>
         <div class="flex justify-end gap-2"><button class="h-9 rounded-md border px-4 text-sm" data-progress-action="cancel-sewing-sla-review" data-skip-page-rerender="true">取消</button><button class="h-9 rounded-md bg-primary px-4 text-sm text-primary-foreground" data-progress-action="submit-sewing-sla-review" data-skip-page-rerender="true">保存复核</button></div>
       </section>
     </div>
@@ -597,7 +600,8 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
   const visibleTasks = filteredTasks.slice(0, visibleLimit)
   const hasMore = visibleTasks.length < filteredTasks.length
   const sewingDeliverySlaByTaskId = new Map(
-    listSewingDeliverySlaViews().map((view) => [view.runtimeTaskId, view]),
+    listSewingDeliverySlaViews(undefined, visibleTasks.map((task) => task.taskId))
+      .map((view) => [view.runtimeTaskId, view]),
   )
 
   return `

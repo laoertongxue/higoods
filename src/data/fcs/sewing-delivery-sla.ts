@@ -86,6 +86,7 @@ export type SewingDeliveryResponsibilityConclusion = 'FACTORY' | 'RECEIVER' | 'S
 
 export interface SewingDeliveryResponsibilityReview {
   readonly reviewId: string
+  readonly snapshotId: string
   readonly runtimeTaskId: string
   readonly milestoneRatio: 0.3 | 0.7 | 1
   readonly conclusion: SewingDeliveryResponsibilityConclusion
@@ -325,12 +326,16 @@ export function recordSewingDeliveryResponsibilityReview(input: {
   remark: string
   reviewedBy: string
   reviewedAt: string
+  projection: SewingDeliverySlaProjection | undefined
 }): SewingDeliveryResponsibilityReview {
   const runtimeTaskId = input.runtimeTaskId.trim()
   const snapshot = runtimeTaskId ? getSewingDeliverySlaSnapshot(runtimeTaskId) : null
   if (!snapshot?.active) throw new Error('责任复核任务必须存在有效履约快照')
   if (!MILESTONE_RATIOS.includes(input.milestoneRatio)) throw new Error('复核节点比例必须为 30%、70% 或 100%')
   if (!['FACTORY', 'RECEIVER', 'SHARED'].includes(input.conclusion)) throw new Error('责任结论必须为工厂、接收方或双方共同责任')
+  if (input.projection?.snapshot.snapshotId !== snapshot.snapshotId) throw new Error('责任复核必须基于当前有效履约快照')
+  const milestone = input.projection.milestones.find((item) => item.ratio === input.milestoneRatio)
+  if (!milestone || milestone.receiverDelayRecords.length === 0) throw new Error('当前节点没有接收确认延迟，不能记录责任结论')
   const remark = input.remark.trim()
   const reviewedBy = input.reviewedBy.trim()
   if (!remark) throw new Error('责任复核说明不能为空')
@@ -339,6 +344,7 @@ export function recordSewingDeliveryResponsibilityReview(input: {
 
   const review = cloneAndFreezeResponsibilityReview({
     reviewId: `SEWING-SLA-REVIEW-${runtimeTaskId}-${String(input.milestoneRatio).replace('.', '')}-${responsibilityReviews.length + 1}`,
+    snapshotId: snapshot.snapshotId,
     runtimeTaskId,
     milestoneRatio: input.milestoneRatio,
     conclusion: input.conclusion,
@@ -364,7 +370,10 @@ export function getSewingDeliveryResponsibilityReview(
   runtimeTaskId: string,
   milestoneRatio: number,
 ): SewingDeliveryResponsibilityReview | null {
+  const currentSnapshotId = currentSnapshotIdByRuntimeTaskId.get(runtimeTaskId)
+  if (!currentSnapshotId) return null
   const reviews = listSewingDeliveryResponsibilityReviews(runtimeTaskId, milestoneRatio)
+    .filter((review) => review.snapshotId === currentSnapshotId)
   return reviews.length > 0 ? cloneAndFreezeResponsibilityReview(reviews[reviews.length - 1]) : null
 }
 
@@ -441,8 +450,8 @@ export function projectSewingDeliverySla(
     projectionSnapshot.milestones.forEach((milestone, index) => {
       const reached = reachedMilestones[index]
       if (reached.firstReachedAt) return
-      reached.receiverDelayCandidateRecords.push(
-        ...receiptBatch
+      let remainingMilestoneGap = Math.max(milestone.targetQty - previousReceivedQty, 0)
+      const receiverDelayCandidates = receiptBatch
           .filter((receipt) => {
             const effectiveReceivedQty = receipt.voided
               ? 0
@@ -452,15 +461,20 @@ export function projectSewingDeliverySla(
               && receipt.submittedAt <= milestone.deadlineAt
               && receipt.receivedAt > milestone.deadlineAt
           })
-          .map((receipt) => ({
-            recordId: receipt.recordId,
-            submittedAt: receipt.submittedAt,
-            receivedAt: receipt.receivedAt,
-            affectedQty: Math.max(receipt.receivedQty - (receipt.reversedQty ?? 0), 0),
-            delayHours: (parseDateTime(receipt.receivedAt, '实收时间').getTime() - parseDateTime(milestone.deadlineAt, '节点截止时间').getTime()) / 3_600_000,
-          }))
-          .sort((left, right) => left.recordId.localeCompare(right.recordId)),
-      )
+          .sort((left, right) => left.recordId.localeCompare(right.recordId))
+      receiverDelayCandidates.forEach((receipt) => {
+        const effectiveReceivedQty = Math.max(receipt.receivedQty - (receipt.reversedQty ?? 0), 0)
+        const affectedQty = Math.min(effectiveReceivedQty, remainingMilestoneGap)
+        if (affectedQty <= 0) return
+        reached.receiverDelayCandidateRecords.push({
+          recordId: receipt.recordId,
+          submittedAt: receipt.submittedAt,
+          receivedAt: receipt.receivedAt,
+          affectedQty,
+          delayHours: (parseDateTime(receipt.receivedAt, '实收时间').getTime() - parseDateTime(milestone.deadlineAt, '节点截止时间').getTime()) / 3_600_000,
+        })
+        remainingMilestoneGap -= affectedQty
+      })
       if (previousReceivedQty >= milestone.targetQty || confirmedReceivedQty < milestone.targetQty) return
       reached.firstReachedAt = receivedAt
     })

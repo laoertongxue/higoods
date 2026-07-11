@@ -85,9 +85,12 @@ export function getSewingDeliverySlaView(
 
 export function listSewingDeliverySlaViews(
   nowAt: string = formatOperationLocalWallClock(),
+  runtimeTaskIds?: readonly string[],
 ): readonly SewingDeliverySlaView[] {
+  const requestedTaskIds = runtimeTaskIds ? new Set(runtimeTaskIds) : null
   const snapshotsByTaskId = new Map<string, SewingDeliverySlaSnapshot>()
   listRuntimeExecutionTasks().forEach((task) => {
+    if (requestedTaskIds && !requestedTaskIds.has(task.taskId)) return
     const slaKind = classifySewingDeliverySla(task)
     if (slaKind === null) return
     const snapshot = getSewingDeliverySlaSnapshot(task.taskId)

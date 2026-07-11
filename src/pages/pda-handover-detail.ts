@@ -134,6 +134,7 @@ interface PdaHandoverDetailState {
   writebackReason: string
   writebackRemark: string
   writebackPreviewConfirmedAt: string
+  writebackSyncWarning: string
 }
 
 const detailState: PdaHandoverDetailState = {
@@ -162,9 +163,11 @@ const detailState: PdaHandoverDetailState = {
   writebackReason: '',
   writebackRemark: '',
   writebackPreviewConfirmedAt: '',
+  writebackSyncWarning: '',
 }
 
 let receiverWritebackNowProvider = (): string => formatOperationLocalWallClock()
+let receiverWritebackLinkageProbe: (() => void) | null = null
 
 export function setReceiverWritebackNowProvider(provider: () => string): () => void {
   const previous = receiverWritebackNowProvider
@@ -174,9 +177,17 @@ export function setReceiverWritebackNowProvider(provider: () => string): () => v
   }
 }
 
+export function setReceiverWritebackLinkageProbe(probe: (() => void) | null): () => void {
+  const previous = receiverWritebackLinkageProbe
+  receiverWritebackLinkageProbe = probe
+  return () => {
+    receiverWritebackLinkageProbe = previous
+  }
+}
+
 export function captureReceiverWritebackDraftState(): Pick<
   PdaHandoverDetailState,
-  'writebackRecordId' | 'writebackQty' | 'writebackReason' | 'writebackRemark' | 'writebackPreviewConfirmedAt'
+  'writebackRecordId' | 'writebackQty' | 'writebackReason' | 'writebackRemark' | 'writebackPreviewConfirmedAt' | 'writebackSyncWarning'
 > {
   return {
     writebackRecordId: detailState.writebackRecordId,
@@ -184,6 +195,7 @@ export function captureReceiverWritebackDraftState(): Pick<
     writebackReason: detailState.writebackReason,
     writebackRemark: detailState.writebackRemark,
     writebackPreviewConfirmedAt: detailState.writebackPreviewConfirmedAt,
+    writebackSyncWarning: detailState.writebackSyncWarning,
   }
 }
 
@@ -270,6 +282,7 @@ function syncHandoutState(handoverId: string): void {
   detailState.writebackReason = ''
   detailState.writebackRemark = ''
   detailState.writebackPreviewConfirmedAt = ''
+  detailState.writebackSyncWarning = ''
 }
 
 function syncPickupState(head: PdaHandoverHead): void {
@@ -308,6 +321,7 @@ function syncPickupState(head: PdaHandoverHead): void {
   detailState.writebackReason = ''
   detailState.writebackRemark = ''
   detailState.writebackPreviewConfirmedAt = ''
+  detailState.writebackSyncWarning = ''
 }
 
 function showPdaHandoverDetailToast(message: string): void {
@@ -1722,11 +1736,21 @@ function renderHandoverSlaSummary(taskId: string, unit: string): string {
   return `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700" data-sewing-sla-handover-summary="${escapeHtml(taskId)}">累计已确认实收 ${view.confirmedReceivedQty} ${escapeHtml(unit)} · ${Math.round(view.projection.progressRatio * 1000) / 10}%</div>`
 }
 
+function escapeCssAttributeValue(value: string): string {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') return CSS.escape(value)
+  return value.replace(/[\\"]/g, (character) => `\\${character}`)
+}
+
+function renderHandoutHeadLiveSummary(head: PdaHandoverHead): string {
+  const unit = head.qtyUnit || '件'
+  return `<div class="rounded-md border bg-muted/20 px-3 py-2 text-xs" data-handout-head-live-summary="${escapeHtml(head.handoverId)}"><div class="grid grid-cols-3 gap-2"><div><span class="text-muted-foreground">累计实收</span><div class="font-medium">${head.writtenBackQtyTotal} ${escapeHtml(unit)}</div></div><div><span class="text-muted-foreground">待收货</span><div class="font-medium">${head.pendingWritebackCount} 条</div></div><div><span class="text-muted-foreground">累计差异</span><div class="font-medium">${head.qtyDiffTotal} ${escapeHtml(unit)}</div></div></div>${detailState.writebackSyncWarning ? `<div class="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">${escapeHtml(detailState.writebackSyncWarning)}，请叫主管处理。</div>` : ''}</div>`
+}
+
 function refreshHandoutRecordAndSlaSummary(updated: PdaHandoverRecord): void {
   if (typeof document === 'undefined') return
   const head = findPdaHandoverHead(updated.handoverId)
   if (!head) return
-  const recordHost = document.querySelector<HTMLElement>(`[data-handout-record-id="${updated.recordId}"]`)
+  const recordHost = document.querySelector<HTMLElement>(`[data-handout-record-id="${escapeCssAttributeValue(updated.recordId)}"]`)
   if (recordHost) {
     recordHost.outerHTML = renderHandoutRecordItem(
       updated,
@@ -1737,9 +1761,12 @@ function refreshHandoutRecordAndSlaSummary(updated: PdaHandoverRecord): void {
   }
   const taskId = updated.taskId || updated.sourceTaskId
   const summaryHost = taskId
-    ? document.querySelector<HTMLElement>(`[data-sewing-sla-handover-summary="${taskId}"]`)
+    ? document.querySelector<HTMLElement>(`[data-sewing-sla-handover-summary="${escapeCssAttributeValue(taskId)}"]`)
     : null
   if (summaryHost && taskId) summaryHost.outerHTML = renderHandoverSlaSummary(taskId, updated.qtyUnit || '件')
+  const currentHead = findPdaHandoverHead(updated.handoverId)
+  const headSummaryHost = document.querySelector<HTMLElement>(`[data-handout-head-live-summary="${escapeCssAttributeValue(updated.handoverId)}"]`)
+  if (currentHead && headSummaryHost) headSummaryHost.outerHTML = renderHandoutHeadLiveSummary(currentHead)
 }
 
 function renderHandoutRecordItem(
@@ -1983,6 +2010,7 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
 
   return `
     ${renderHandoverSlaSummary(head.taskId, head.qtyUnit || '件')}
+    ${renderHandoutHeadLiveSummary(head)}
     ${renderSectionCard(
       '交出单',
       `
@@ -2548,21 +2576,41 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       return true
     }
 
+    const confirmedAt = receiverWritebackNowProvider()
+    const currentSnapshot = getSewingDeliverySlaSnapshot(record.taskId || record.sourceTaskId)
+    if (currentSnapshot?.active && !buildReceiverWritebackSlaPreview(record.recordId, receiverWrittenQty, confirmedAt)) {
+      showPdaHandoverDetailToast('履约投影校验失败，请重新确认')
+      return true
+    }
+
+    let updated: PdaHandoverRecord
     try {
-      const updated = writeBackHandoverRecord({
+      updated = writeBackHandoverRecord({
         handoverRecordId: record.recordId,
         receiverWrittenQty,
-        receiverWrittenAt: detailState.writebackPreviewConfirmedAt,
+        receiverWrittenAt: confirmedAt,
         receiverWrittenBy: '接收方扫码员',
         receiverRemark: detailState.writebackRemark.trim() || undefined,
         diffReason: detailState.writebackReason.trim() || undefined,
       })
-      detailState.writebackRecordId = ''
-      detailState.writebackQty = ''
-      detailState.writebackReason = ''
-      detailState.writebackRemark = ''
-      detailState.writebackPreviewConfirmedAt = ''
-      refreshHandoutRecordAndSlaSummary(updated)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '接收方确认收货失败'
+      showPdaHandoverDetailToast(message)
+      return true
+    }
+
+    detailState.writebackRecordId = ''
+    detailState.writebackQty = ''
+    detailState.writebackReason = ''
+    detailState.writebackRemark = ''
+    detailState.writebackPreviewConfirmedAt = ''
+    detailState.writebackSyncWarning = ''
+
+    const handoverRecordId = updated.handoverRecordId || updated.recordId
+    const isPrompt7ReturnFlow = isSpecialCraftReturnHandoverRecord(handoverRecordId)
+    const isPostFinishingReturnFlow = isPostFinishingHandoutRecord(updated)
+    try {
+      receiverWritebackLinkageProbe?.()
 
       appendTaskAudit(
         updated.taskId,
@@ -2570,10 +2618,6 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
         `接收方已确认实收对象数量 ${updated.receiverWrittenQty ?? 0} ${updated.qtyUnit}`,
         '工厂端移动应用',
       )
-
-      const handoverRecordId = updated.handoverRecordId || updated.recordId
-      const isPrompt7ReturnFlow = isSpecialCraftReturnHandoverRecord(handoverRecordId)
-      const isPostFinishingReturnFlow = isPostFinishingHandoutRecord(updated)
 
       if (isPrompt7ReturnFlow) {
         try {
@@ -2658,6 +2702,15 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
         }
       }
 
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : '未知异常'
+      detailState.writebackSyncWarning = `确认成功，仓库同步待处理：${reason}`
+    }
+
+    refreshHandoutRecordAndSlaSummary(updated)
+    if (detailState.writebackSyncWarning) {
+      showPdaHandoverDetailToast(detailState.writebackSyncWarning)
+    } else {
       showPdaHandoverDetailToast(
         isPrompt7ReturnFlow
           ? receiverWrittenQty === submittedQty
@@ -2671,9 +2724,6 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
             ? '接收方收货确认已完成'
             : '接收方已确认收货，待工厂确认差异',
       )
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '接收方确认收货失败'
-      showPdaHandoverDetailToast(message)
     }
     return true
   }
