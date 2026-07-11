@@ -278,6 +278,16 @@ export function getProcessTaskQtyDisplayUnit(task: Pick<ProcessTask, 'qtyUnit' |
   return '米'
 }
 
+export function getProcessTaskQtyDisplayMeta(
+  task: Pick<ProcessTask, 'qty' | 'qtyUnit' | 'qtyDisplayUnit'>,
+): { label: string; valueText: string } {
+  const unitLabel = getProcessTaskQtyDisplayUnit(task)
+  return {
+    label: `本单计划数量（${unitLabel}）`,
+    valueText: `本单计划数量：${task.qty} ${unitLabel}`,
+  }
+}
+
 // 预置工序任务（base task seeds）
 // 说明：这里仍然保持“整单工序任务”语义，运行时按 SKU/COLOR/ORDER 展开由 runtime-process-tasks.ts 负责。
 const GENERATED_TASK_CREATED_AT = '2026-03-01 00:00:00'

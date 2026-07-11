@@ -84,6 +84,7 @@ export interface WaterSolubleFactoryCapabilityResult {
 
 export interface WaterSolubleMobileTask extends ProcessTask {
   waterOrderId: string
+  sourceArtifactId: string
   bomItemId: string
   materialCode: string
   materialName: string
@@ -276,6 +277,9 @@ export function listWaterSolubleMobileTasks(): WaterSolubleMobileTask[] {
     qcPoints: [],
     attachments: [],
     status: order.status === 'DONE' ? 'DONE' : order.status === 'WATER_SOLUBLE_IN_PROGRESS' ? 'IN_PROGRESS' : order.status === 'PRODUCTION_PAUSED' ? 'BLOCKED' : 'NOT_STARTED',
+    acceptanceStatus: order.factoryId ? 'ACCEPTED' : 'PENDING',
+    acceptedAt: order.factoryId ? order.updatedAt : undefined,
+    acceptedBy: order.factoryId ? order.factoryName : undefined,
     taskQrValue: order.taskQrValue,
     taskQrStatus: 'ACTIVE',
     sourceEntryType: 'CRAFT',
@@ -290,6 +294,7 @@ export function listWaterSolubleMobileTasks(): WaterSolubleMobileTask[] {
     updatedAt: order.updatedAt,
     auditLogs: [],
     waterOrderId: order.waterOrderId,
+    sourceArtifactId: order.sourceArtifactId,
     bomItemId: order.bomItemId,
     materialCode: order.materialCode,
     materialName: order.materialName,

@@ -39,6 +39,10 @@ import {
   type SpecialCraftTaskWorkOrder,
 } from './special-craft-task-orders.ts'
 import { applyPendingDispatchAutoAcceptance } from './runtime-process-tasks.ts'
+import {
+  listWaterSolubleMobileTasks,
+  listWaterSolubleWorkOrders,
+} from './water-soluble-task-domain.ts'
 
 function uniqueStrings(values: Array<string | undefined | null>): string[] {
   return Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean)))
@@ -363,15 +367,31 @@ export function listPdaMobileExecutionTasks(): ProcessTask[] {
   listPrintWorkOrders()
   listDyeWorkOrders()
 
-  const baseTasks = listPdaTaskFlowTasks().filter((task) => !isSpecialCraftTask(task) && getMobileTaskProcessType(task) !== 'WOOL')
+  const waterSolubleTasks = listWaterSolubleMobileTasks()
+  const waterSolubleArtifactIds = new Set(listWaterSolubleWorkOrders().map((order) => order.sourceArtifactId))
+  const isSupersededWaterSolubleTask = (task: ProcessTask): boolean => {
+    if (task.taskUnitType !== 'SINGLE_PROCESS_TASK') return false
+    if (task.coveredProcesses?.length !== 1) return false
+    const coveredProcess = task.coveredProcesses[0]
+    if (coveredProcess.processCode !== 'WATER_SOLUBLE') return false
+    return coveredProcess.sourceArtifactIds.length === 1
+      && waterSolubleArtifactIds.has(coveredProcess.sourceArtifactIds[0])
+  }
+  const baseTasks = listPdaTaskFlowTasks().filter((task) =>
+    !isSpecialCraftTask(task)
+    && getMobileTaskProcessType(task) !== 'WOOL'
+    && !isSupersededWaterSolubleTask(task),
+  )
   const existingTaskIds = new Set(baseTasks.map((task) => task.taskId))
   const genericProcessTasks = [
     ...listPdaGenericTasksByProcess('PRINTING'),
     ...listPdaGenericTasksByProcess('DYEING'),
-  ].filter((task) => !existingTaskIds.has(task.taskId))
+  ].filter((task) => !existingTaskIds.has(task.taskId) && !isSupersededWaterSolubleTask(task))
   const existingWithGeneric = new Set([...existingTaskIds, ...genericProcessTasks.map((task) => task.taskId)])
-  const woolTasks = listWoolMobileProcessTasks().filter((task) => !existingWithGeneric.has(task.taskId))
-  const existingWithWool = new Set([...existingWithGeneric, ...woolTasks.map((task) => task.taskId)])
+  const standaloneWaterSolubleTasks = waterSolubleTasks.filter((task) => !existingWithGeneric.has(task.taskId))
+  const existingWithWaterSoluble = new Set([...existingWithGeneric, ...standaloneWaterSolubleTasks.map((task) => task.taskId)])
+  const woolTasks = listWoolMobileProcessTasks().filter((task) => !existingWithWaterSoluble.has(task.taskId))
+  const existingWithWool = new Set([...existingWithWaterSoluble, ...woolTasks.map((task) => task.taskId)])
   const specialCraftTasks = listSpecialCraftTaskOrders()
     .map((taskOrder, index) => mapSpecialCraftTaskOrderToMobileTask(taskOrder, baseTasks.length + genericProcessTasks.length + woolTasks.length + index + 1))
     .filter((task) => !existingWithWool.has(task.taskId))
@@ -380,7 +400,7 @@ export function listPdaMobileExecutionTasks(): ProcessTask[] {
     .filter((task) => !existingWithSpecial.has(task.taskId))
   const existingWithPost = new Set([...existingWithSpecial, ...postTasks.map((task) => task.taskId)])
   const thirdPartyCuttingTasks = listThirdPartyCuttingMarkerPreconditionTasks(existingWithPost)
-  return [...baseTasks, ...genericProcessTasks, ...woolTasks, ...specialCraftTasks, ...postTasks, ...thirdPartyCuttingTasks]
+  return [...baseTasks, ...genericProcessTasks, ...standaloneWaterSolubleTasks, ...woolTasks, ...specialCraftTasks, ...postTasks, ...thirdPartyCuttingTasks]
 }
 
 export function getPdaMobileExecutionTaskById(taskId: string): ProcessTask | null {

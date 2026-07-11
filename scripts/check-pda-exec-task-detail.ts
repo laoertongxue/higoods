@@ -10,6 +10,20 @@ import {
   listHandoverOrdersByTaskId,
 } from '../src/data/fcs/pda-handover-events.ts'
 import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
+import {
+  getPdaMobileExecutionTaskById,
+  listPdaMobileExecutionTasks,
+} from '../src/data/fcs/process-mobile-task-binding.ts'
+import {
+  getMobileExecutionTaskById,
+  listMobileExecutionTasks,
+} from '../src/data/fcs/mobile-execution-task-index.ts'
+import {
+  assignWaterSolubleFactory,
+  listWaterSolubleWorkOrders,
+  resetWaterSolubleDomainForChecks,
+} from '../src/data/fcs/water-soluble-task-domain.ts'
+import { getProcessTaskQtyDisplayMeta } from '../src/data/fcs/process-tasks.ts'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) {
@@ -20,7 +34,6 @@ function assert(condition: unknown, message: string): void {
 const ROOT = process.cwd()
 const PAGE_PATH = path.join(ROOT, 'src/pages/pda-exec-detail.ts')
 const PAGE_SOURCE = fs.readFileSync(PAGE_PATH, 'utf8')
-const LIST_PAGE_SOURCE = fs.readFileSync(path.join(ROOT, 'src/pages/pda-exec.ts'), 'utf8')
 
 function assertIncludes(token: string, message: string): void {
   assert(PAGE_SOURCE.includes(token), message)
@@ -58,8 +71,6 @@ function checkSourceCopy(): void {
   assertIncludes('objectType: objectMeta.objectType', 'PDA 特殊工艺写回未使用目标对象类型')
   assertIncludes('qtyUnit: objectMeta.qtyUnit', 'PDA 特殊工艺写回未使用目标对象单位')
   assertIncludes('无需绑定菲票', 'PDA 特殊工艺成衣/面料对象未展示无需菲票口径')
-  assertIncludes('getProcessTaskQtyDisplayUnit(task)', '任务详情页未优先使用精确数量显示单位')
-  assert(LIST_PAGE_SOURCE.includes('getProcessTaskQtyDisplayUnit(task)'), '任务列表页未优先使用精确数量显示单位')
 
   ;[
     '去交接（待交出）',
@@ -73,6 +84,36 @@ function checkSourceCopy(): void {
     '折叠区',
     '>确认接收裁片</button>',
   ].forEach((token) => assertExcludes(token, `任务详情页仍残留禁用文案：${token}`))
+}
+
+function checkWaterSolubleRuntimeEntry(): void {
+  resetWaterSolubleDomainForChecks()
+  const order = listWaterSolubleWorkOrders().find((item) => item.productionOrderId === 'PO-202603-083')
+    ?? listWaterSolubleWorkOrders()[0]
+  assert(order, '缺少可用于 PDA 真实入口检查的独立水溶加工单')
+  const assigned = assignWaterSolubleFactory(order.waterOrderId, 'F090')
+  assert(assigned.ok, `水溶加工单测试分厂失败：${assigned.message}`)
+
+  const rawTask = listPdaMobileExecutionTasks().find((task) => task.taskId === order.taskId)
+  assert(rawTask, 'PDA 统一任务聚合入口缺少独立水溶领域任务')
+  assert(rawTask.qty === order.plannedQty, 'PDA 水溶任务数量未使用 BOM 物料计划量')
+  assert(rawTask.qtyDisplayUnit === order.qtyUnit, 'PDA 水溶任务未保留原 BOM 精确单位')
+  assert(getPdaMobileExecutionTaskById(order.taskId)?.taskId === order.taskId, 'PDA 统一入口无法按 taskId 查询水溶任务')
+  assert(getMobileExecutionTaskById(order.taskId)?.taskId === order.taskId, '移动任务索引无法按 taskId 查询水溶任务')
+  assert(
+    listMobileExecutionTasks({ currentFactoryId: 'F090', includeCompleted: true }).some((task) => task.taskId === order.taskId),
+    '已分厂水溶任务未进入当前工厂移动执行列表',
+  )
+
+  const artifactTasks = listPdaMobileExecutionTasks().filter((task) => {
+    if ((task as typeof task & { sourceArtifactId?: string }).sourceArtifactId === order.sourceArtifactId) return true
+    return task.coveredProcesses?.some((process) => process.sourceArtifactIds.includes(order.sourceArtifactId))
+  })
+  assert(artifactTasks.length === 1, '同一独立水溶产物在 PDA 入口存在重复领域任务与通用 TASKGEN')
+  assert(artifactTasks[0]?.taskId === order.taskId, '独立水溶产物未由正确领域任务替换通用 TASKGEN')
+
+  const displayMeta = getProcessTaskQtyDisplayMeta(rawTask)
+  assert(displayMeta.valueText.includes(`${order.plannedQty} ${order.qtyUnit}`), 'PDA 运行时数量展示未优先使用 BOM 物料数量与原单位')
 }
 
 function checkAutoCreateIdempotency(): void {
@@ -106,6 +147,7 @@ function main(): void {
   checkSourceCopy()
   checkAutoCreateIdempotency()
   checkPostCapacityNodesStayOut()
+  checkWaterSolubleRuntimeEntry()
   console.log('check:pda-exec-task-detail passed')
 }
 
