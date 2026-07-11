@@ -290,6 +290,12 @@ function validatePositiveQty(value: number, fieldName: string): string | null {
   return null
 }
 
+function validateNonNegativeQty(value: number, fieldName: string): string | null {
+  if (!Number.isFinite(value)) return `${fieldName}必须是有限数字。`
+  if (value < 0) return `${fieldName}必须大于或等于 0。`
+  return null
+}
+
 export function mapWaterSolubleQtyUnit(qtyUnit: string): QtyUnit {
   const normalized = qtyUnit.trim().toLowerCase()
   if (['米', 'm', 'meter', '码', 'yard'].includes(normalized)) return 'METER'
@@ -536,12 +542,34 @@ export function submitWaterSolubleHandover(orderId: string, handoverQty: number)
   return updateOrder(order, '确认交出', `已交出 ${handoverQty} ${order.qtyUnit}，等待收货`)
 }
 
+export function linkWaterSolubleHandoverOrder(
+  orderId: string,
+  taskId: string,
+  handoverOrderId: string,
+): WaterSolubleActionResult {
+  const order = findMutableOrder(orderId)
+  if (!order) return failure(`未找到水溶加工单“${orderId}”。`)
+  if (order.taskId !== taskId) return failure('当前任务与水溶加工单不一致，不能关联交出单。')
+  const normalizedHandoverOrderId = handoverOrderId.trim()
+  if (!normalizedHandoverOrderId) return failure('交出单 ID 不能为空。')
+  if (order.handoverOrderId === normalizedHandoverOrderId) {
+    return { ok: true, message: '交出单已关联', order: cloneOrder(order) }
+  }
+  if (order.handoverOrderId) {
+    return failure(`水溶加工单已关联交出单“${order.handoverOrderId}”，不能改绑。`)
+  }
+  const statusError = requireStatus(order, 'WAIT_HANDOVER', '关联交出单')
+  if (statusError) return statusError
+  order.handoverOrderId = normalizedHandoverOrderId
+  return updateOrder(order, '关联交出单', `已关联通用交出单 ${normalizedHandoverOrderId}`)
+}
+
 export function writeBackWaterSolubleReceipt(orderId: string, receivedQty: number): WaterSolubleActionResult {
   const order = findMutableOrder(orderId)
   if (!order) return failure(`未找到水溶加工单“${orderId}”。`)
   const statusError = requireStatus(order, 'HANDOVER_WAIT_RECEIVE', '确认收货')
   if (statusError) return statusError
-  const qtyError = validatePositiveQty(receivedQty, '收货数量')
+  const qtyError = validateNonNegativeQty(receivedQty, '收货数量')
   if (qtyError) return failure(qtyError)
   order.receivedQty = receivedQty
   order.status = receivedQty === order.handoverQty ? 'DONE' : 'RECEIPT_DIFFERENCE'

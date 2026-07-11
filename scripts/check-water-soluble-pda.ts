@@ -62,6 +62,7 @@ import {
   getWaterSolubleCurrentAction,
   getWaterSolubleHandoverQtyUnit,
   getWaterSolubleWorkOrderById,
+  linkWaterSolubleHandoverOrder,
   listWaterSolubleWorkOrders,
   markWaterSolubleMaterialReady,
   resetWaterSolubleDomainForChecks,
@@ -595,6 +596,15 @@ async function main(): Promise<void> {
     assert.equal(waterHandoverHead.materialName, executableOrder.materialName)
     assert.equal(waterHandoverHead.qtyExpectedTotal, approvedOrder.handoverQty)
     assert.equal(waterHandoverHead.qtyUnit, executableOrder.qtyUnit, '通用交接必须保留原 BOM 单位')
+    assert.equal(getWaterSolubleWorkOrderById(executableOrder.waterOrderId)?.handoverOrderId, ensuredWaterHandover.handoverOrderId, 'ensure 必须由领域层回写唯一交出单 ID')
+    assert(['AUTO_CREATED', 'OPEN'].includes(waterHandoverHead.handoverOrderStatus ?? ''), 'ensure 后交出单头必须处于合法待交出初态')
+    const linkedOrderSnapshot = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)
+    assert.equal(linkWaterSolubleHandoverOrder(executableOrder.waterOrderId, executableOrder.taskId, ensuredWaterHandover.handoverOrderId).ok, true, '同一交出单 ID 重复关联必须幂等')
+    assert.deepEqual(getWaterSolubleWorkOrderById(executableOrder.waterOrderId), linkedOrderSnapshot, '幂等关联不得追加日志或修改时间')
+    assert.equal(linkWaterSolubleHandoverOrder(executableOrder.waterOrderId, `${executableOrder.taskId}-OTHER`, ensuredWaterHandover.handoverOrderId).ok, false, '跨任务关联必须拒绝')
+    assert.equal(linkWaterSolubleHandoverOrder(executableOrder.waterOrderId, executableOrder.taskId, `${ensuredWaterHandover.handoverOrderId}-OTHER`).ok, false, '已关联订单不得改绑到另一张交出单')
+    assert.deepEqual(getWaterSolubleWorkOrderById(executableOrder.waterOrderId), linkedOrderSnapshot, '关联失败必须保持水溶单原子不变')
+    assert.equal(listHandoverOrdersByTaskId(executableOrder.taskId).length, 1, '关联失败不得新增交出单头')
     appStore.navigate('/fcs/pda/handover?tab=handout')
     const handoverListHtml = renderPdaHandoverPage()
     assert(handoverListHtml.includes('水溶加工单'))
@@ -633,22 +643,81 @@ async function main(): Promise<void> {
     })
     assert.equal(waterRecord.qtyUnit, executableOrder.qtyUnit, '合法交出记录必须强制使用原 BOM 单位')
     assert.equal(getWaterSolubleWorkOrderById(executableOrder.waterOrderId)?.status, 'HANDOVER_WAIT_RECEIVE')
+    const submittedWaterHead = getHandoverOrderById(ensuredWaterHandover.handoverOrderId)!
+    assert.equal(submittedWaterHead.completionStatus, 'COMPLETED', '独立水溶单生成唯一交出记录后，交出方必须自动完成单头')
+    assert.equal(submittedWaterHead.factoryMarkedComplete, true)
+    assert.equal(submittedWaterHead.handoverOrderStatus, 'WAIT_RECEIVER_WRITEBACK')
+    assert.equal(submittedWaterHead.submittedQtyTotal, approvedOrder.handoverQty)
+    assert(!renderPdaHandoverDetailPage(ensuredWaterHandover.handoverOrderId).includes('data-pda-handoverd-action="complete-handout-head"'), '独立水溶单不得再出现隐藏的“完成交出单”动作')
     assert.throws(() => createFactoryHandoverRecord({
       handoverOrderId: ensuredWaterHandover.handoverOrderId,
       submittedQty: approvedOrder.handoverQty!,
       factorySubmittedAt: '2026-07-11 12:02:00',
       factorySubmittedBy: handoverActor.userName,
-    }), /已交出|重复/)
+    }), /已交出|重复|已完成/)
+    const beforeInvalidWritebackOrder = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)
+    const beforeInvalidWritebackHead = getHandoverOrderById(ensuredWaterHandover.handoverOrderId)
+    const beforeInvalidWritebackRecords = getPdaHandoverRecordsByHead(ensuredWaterHandover.handoverOrderId)
+    for (const invalidQty of [Number.NaN, Number.POSITIVE_INFINITY, -1]) {
+      assert.throws(() => writeBackHandoverRecord({
+        handoverRecordId: waterRecord.recordId,
+        receiverWrittenQty: invalidQty,
+        receiverWrittenAt: '2026-07-11 12:09:00',
+        receiverWrittenBy: '接收方扫码员',
+      }), /大于或等于 0 的有限数字/)
+      assert.deepEqual(getWaterSolubleWorkOrderById(executableOrder.waterOrderId), beforeInvalidWritebackOrder, '非法实收数量失败不得修改水溶单')
+      assert.deepEqual(getHandoverOrderById(ensuredWaterHandover.handoverOrderId), beforeInvalidWritebackHead, '非法实收数量失败不得修改交出单头')
+      assert.deepEqual(getPdaHandoverRecordsByHead(ensuredWaterHandover.handoverOrderId), beforeInvalidWritebackRecords, '非法实收数量失败不得修改交出记录')
+    }
     const waterWriteback = writeBackHandoverRecord({
       handoverRecordId: waterRecord.recordId,
-      receiverWrittenQty: approvedOrder.handoverQty! - 1,
+      receiverWrittenQty: 0,
       receiverWrittenAt: '2026-07-11 12:10:00',
       receiverWrittenBy: '接收方扫码员',
-      diffReason: '现场复点少一卷',
+      diffReason: '现场复点实收为零',
     })
-    assert.equal(getWaterSolubleWorkOrderById(executableOrder.waterOrderId)?.status, 'RECEIPT_DIFFERENCE')
+    const zeroReceiptOrder = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)!
+    assert.equal(zeroReceiptOrder.status, 'RECEIPT_DIFFERENCE')
+    assert.equal(zeroReceiptOrder.receivedQty, 0)
+    assert.match(zeroReceiptOrder.actionLogs.at(-1)?.detail ?? '', new RegExp(`实际收货 0 ${executableOrder.qtyUnit}`))
+    assert.equal(waterWriteback.receiverWrittenQty, 0)
+    const differenceWaterHead = getHandoverOrderById(ensuredWaterHandover.handoverOrderId)!
+    assert.equal(differenceWaterHead.completionStatus, 'COMPLETED')
+    assert.equal(differenceWaterHead.handoverOrderStatus, 'DIFF_WAIT_FACTORY_CONFIRM')
+    assert.equal(differenceWaterHead.writtenBackQtyTotal, 0)
+    const beforeRepeatedWriteback = {
+      order: getWaterSolubleWorkOrderById(executableOrder.waterOrderId),
+      head: getHandoverOrderById(ensuredWaterHandover.handoverOrderId),
+      records: getPdaHandoverRecordsByHead(ensuredWaterHandover.handoverOrderId),
+    }
+    assert.throws(() => writeBackHandoverRecord({
+      handoverRecordId: waterRecord.recordId,
+      receiverWrittenQty: 0,
+      receiverWrittenAt: '2026-07-11 12:11:00',
+      receiverWrittenBy: '接收方扫码员',
+    }), /已经处理|当前状态|确认收货/)
+    assert.deepEqual({
+      order: getWaterSolubleWorkOrderById(executableOrder.waterOrderId),
+      head: getHandoverOrderById(ensuredWaterHandover.handoverOrderId),
+      records: getPdaHandoverRecordsByHead(ensuredWaterHandover.handoverOrderId),
+    }, beforeRepeatedWriteback, '重复回写不得产生任何副作用')
     assert(acceptHandoverRecordDiff(waterWriteback.recordId), '主管必须可通过通用差异确认完成水溶单')
     assert.equal(getWaterSolubleWorkOrderById(executableOrder.waterOrderId)?.status, 'DONE')
+    const acceptedWaterHead = getHandoverOrderById(ensuredWaterHandover.handoverOrderId)!
+    assert.equal(acceptedWaterHead.completionStatus, 'COMPLETED')
+    assert.equal(acceptedWaterHead.handoverOrderStatus, 'CLOSED')
+    assert(acceptedWaterHead.receiverClosedAt, '主管接受差异后交出单头必须记录接收闭环时间')
+    const beforeRepeatedAccept = {
+      order: getWaterSolubleWorkOrderById(executableOrder.waterOrderId),
+      head: getHandoverOrderById(ensuredWaterHandover.handoverOrderId),
+      records: getPdaHandoverRecordsByHead(ensuredWaterHandover.handoverOrderId),
+    }
+    assert.equal(acceptHandoverRecordDiff(waterWriteback.recordId), null)
+    assert.deepEqual({
+      order: getWaterSolubleWorkOrderById(executableOrder.waterOrderId),
+      head: getHandoverOrderById(ensuredWaterHandover.handoverOrderId),
+      records: getPdaHandoverRecordsByHead(ensuredWaterHandover.handoverOrderId),
+    }, beforeRepeatedAccept, '重复接受差异不得产生任何副作用')
     memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
     assert.equal(executeWaterSolublePdaAction({
       action: 'HANDOVER',
@@ -680,8 +749,16 @@ async function main(): Promise<void> {
     assert.equal(executeWaterSolublePdaAction({ action: 'COMPLETE', orderId: handoverRoleOrder.waterOrderId, taskId: handoverRoleOrder.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty: handoverRoleOrder.plannedQty, reason: '', actor: operator }).ok, true)
     memoryStorage.set('fcs_pda_session', JSON.stringify(handoverActor))
     const handoverRoleHead = ensureHandoverOrderForStartedTask(handoverRoleOrder.taskId)
-    createFactoryHandoverRecord({ handoverOrderId: handoverRoleHead.handoverOrderId, submittedQty: handoverRoleOrder.plannedQty, factorySubmittedAt: '2026-07-11 13:00:00', factorySubmittedBy: handoverActor.userName })
+    const handoverRoleRecord = createFactoryHandoverRecord({ handoverOrderId: handoverRoleHead.handoverOrderId, submittedQty: handoverRoleOrder.plannedQty, factorySubmittedAt: '2026-07-11 13:00:00', factorySubmittedBy: handoverActor.userName })
     assert.equal(getWaterSolubleWorkOrderById(handoverRoleOrder.waterOrderId)?.status, 'HANDOVER_WAIT_RECEIVE')
+    writeBackHandoverRecord({ handoverRecordId: handoverRoleRecord.recordId, receiverWrittenQty: handoverRoleOrder.plannedQty, receiverWrittenAt: '2026-07-11 13:10:00', receiverWrittenBy: '接收方扫码员' })
+    assert.equal(getWaterSolubleWorkOrderById(handoverRoleOrder.waterOrderId)?.status, 'DONE')
+    const matchedWaterHead = getHandoverOrderById(handoverRoleHead.handoverOrderId)!
+    assert.equal(matchedWaterHead.completionStatus, 'COMPLETED')
+    assert.equal(matchedWaterHead.handoverOrderStatus, 'CLOSED', '实收一致后水溶单与交出单头必须同时闭环')
+    assert.equal(matchedWaterHead.submittedQtyTotal, handoverRoleOrder.plannedQty)
+    assert.equal(matchedWaterHead.writtenBackQtyTotal, handoverRoleOrder.plannedQty)
+    assert.equal(matchedWaterHead.diffQtyTotal, 0)
 
     memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
     const combined = getDyeWorkOrderById(combinedDyeOrder.dyeOrderId)

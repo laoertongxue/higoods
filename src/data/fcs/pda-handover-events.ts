@@ -64,6 +64,7 @@ import {
 import {
   getWaterSolubleWorkOrderByTaskId,
   getWaterSolubleHandoverQtyUnit,
+  linkWaterSolubleHandoverOrder,
   listWaterSolubleMobileTasks,
   resolveWaterSolubleReceiptDifference,
   submitWaterSolubleHandover,
@@ -562,7 +563,12 @@ const pickupRecordOverrides = new Map<string, Partial<PdaPickupRecord>>()
 const handoutRecordOverrides = new Map<string, Partial<PdaHandoverRecord>>()
 const headCompletionOverrides = new Map<
   string,
-  { completionStatus: PdaHeadCompletionStatus; completedByWarehouseAt?: string }
+  {
+    completionStatus: PdaHeadCompletionStatus
+    completedByWarehouseAt?: string
+    factoryMarkedComplete?: boolean
+    factoryMarkedCompleteAt?: string
+  }
 >()
 let cachedBuiltHeads: PdaHandoverHead[] | null = null
 let cachedPostFinishingBuiltHeads: PdaHandoverHead[] | null = null
@@ -770,10 +776,19 @@ function hydrateHandoverHeadDomain(head: PdaHandoverHead, records: PdaHandoverRe
   const writtenBackQtyTotal = sumBy(records, (record) => resolveReceiverWrittenQty(record) ?? 0)
   const diffQtyTotal = sumBy(records, (record) => deriveDiffQty(record) ?? 0)
   const factoryMarkedComplete = head.factoryMarkedComplete ?? head.completionStatus === 'COMPLETED'
-  const handoverOrderStatus =
+  const derivedHandoverOrderStatus =
     head.headType === 'HANDOUT'
       ? deriveHandoverOrderStatus(records, factoryMarkedComplete)
       : undefined
+  const waterRecordStatuses = records.map((record) => record.handoverRecordStatus || mapRecordLifecycleStatus(record))
+  const waterReceiverClosed = head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER'
+    && factoryMarkedComplete
+    && waterRecordStatuses.length === 1
+    && waterRecordStatuses.every((status) => status === 'WRITTEN_BACK_MATCHED' || status === 'DIFF_ACCEPTED')
+  const handoverOrderStatus = waterReceiverClosed ? 'CLOSED' : derivedHandoverOrderStatus
+  const receiverClosedAt = waterReceiverClosed
+    ? head.receiverClosedAt || records.map(resolveReceiverWrittenAt).filter((value): value is string => Boolean(value)).sort((a, b) => parseDateMs(b) - parseDateMs(a))[0]
+    : head.receiverClosedAt
 
   return {
     ...head,
@@ -794,7 +809,7 @@ function hydrateHandoverHeadDomain(head: PdaHandoverHead, records: PdaHandoverRe
     plannedQty: head.plannedQty ?? head.qtyExpectedTotal,
     factoryMarkedComplete,
     factoryMarkedCompleteAt: head.factoryMarkedCompleteAt || head.completedByWarehouseAt,
-    receiverClosedAt: head.receiverClosedAt,
+    receiverClosedAt,
     qtyActualTotal: writtenBackQtyTotal,
     qtyDiffTotal: head.qtyExpectedTotal - writtenBackQtyTotal,
   }
@@ -3228,6 +3243,8 @@ function buildHandoutLineRecord(
 function getHeadCompletionOverride(handoverId: string): {
   completionStatus: PdaHeadCompletionStatus
   completedByWarehouseAt?: string
+  factoryMarkedComplete?: boolean
+  factoryMarkedCompleteAt?: string
 } | null {
   return headCompletionOverrides.get(handoverId) ?? null
 }
@@ -3385,6 +3402,8 @@ function refreshHandoutHeadSummary(head: PdaHandoverHead): PdaHandoverHead {
         ...updated,
         completionStatus: completionOverride.completionStatus,
         completedByWarehouseAt: completionOverride.completedByWarehouseAt,
+        factoryMarkedComplete: completionOverride.factoryMarkedComplete ?? updated.factoryMarkedComplete,
+        factoryMarkedCompleteAt: completionOverride.factoryMarkedCompleteAt ?? updated.factoryMarkedCompleteAt,
       },
       records,
     )
@@ -4031,8 +4050,17 @@ export function ensureHandoverOrderForStartedTask(taskId: string): {
   handoverOrderId: string
   created: boolean
 } {
+  const waterOrder = getWaterSolubleWorkOrderByTaskId(taskId)
   const existing = listHandoverOrdersByTaskId(taskId)[0]
   if (existing) {
+    if (waterOrder) {
+      const linkResult = linkWaterSolubleHandoverOrder(
+        waterOrder.waterOrderId,
+        taskId,
+        existing.handoverOrderId || existing.handoverId,
+      )
+      if (!linkResult.ok) throw new Error(linkResult.message)
+    }
     return {
       taskId,
       handoverOrderId: existing.handoverOrderId || existing.handoverId,
@@ -4044,7 +4072,6 @@ export function ensureHandoverOrderForStartedTask(taskId: string): {
   if (!task) {
     throw new Error(`未找到任务：${taskId}`)
   }
-  const waterOrder = getWaterSolubleWorkOrderByTaskId(taskId)
   if (waterOrder && waterOrder.status !== 'WAIT_HANDOVER') {
     throw new Error(`水溶加工单当前为“${waterOrder.status}”，只有待交出时才能创建交出单。`)
   }
@@ -4132,6 +4159,10 @@ export function ensureHandoverOrderForStartedTask(taskId: string): {
     [],
   )
 
+  if (waterOrder) {
+    const linkResult = linkWaterSolubleHandoverOrder(waterOrder.waterOrderId, taskId, handoverOrderId)
+    if (!linkResult.ok) throw new Error(linkResult.message)
+  }
   handoverHeadAdditions.set(handoverOrderId, createdHead)
   invalidatePdaHandoverHeadCache()
   return { taskId, handoverOrderId, created: true }
@@ -4257,6 +4288,15 @@ export function createFactoryHandoverRecord(input: {
     if (!result.ok) throw new Error(result.message)
   }
   saveHandoutRecord(created)
+  if (waterOrder) {
+    headCompletionOverrides.set(head.handoverId, {
+      completionStatus: 'COMPLETED',
+      completedByWarehouseAt: input.factorySubmittedAt,
+      factoryMarkedComplete: true,
+      factoryMarkedCompleteAt: input.factorySubmittedAt,
+    })
+    invalidatePdaHandoverHeadCache()
+  }
   if (postFinishingLine) {
     recordPostFinishingHandoverSubmission({
       handoverId: head.handoverId,
