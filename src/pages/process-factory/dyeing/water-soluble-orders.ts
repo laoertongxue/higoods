@@ -28,6 +28,17 @@ type Overlay =
   | { type: 'supervisor-confirm'; orderId: string; decision: WaterSolubleSupervisorDecision }
   | null
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+type WaterSolubleRoleAction = 'OPERATE' | 'SUPERVISE' | 'HANDOVER'
+const ACTION_ALLOWED_ROLE_IDS: Record<WaterSolubleRoleAction, readonly string[]> = {
+  OPERATE: ['ROLE_OPERATOR', 'ROLE_PRODUCTION', 'ROLE_ADMIN'],
+  SUPERVISE: ['ROLE_PRODUCTION', 'ROLE_ADMIN'],
+  HANDOVER: ['ROLE_HANDOVER', 'ROLE_ADMIN'],
+}
+const ACTION_ROLE_ERROR: Record<WaterSolubleRoleAction, string> = {
+  OPERATE: '当前角色不能执行水溶操作。',
+  SUPERVISE: '当前角色不能处理生产暂停。',
+  HANDOVER: '当前角色不能确认交出。',
+}
 const state = {
   status: '',
   page: 1,
@@ -54,6 +65,10 @@ function normalizePageSize(value: unknown): number {
   return PAGE_SIZE_OPTIONS.includes(normalized as (typeof PAGE_SIZE_OPTIONS)[number]) ? normalized : 10
 }
 
+function canRolePerformWaterSolubleAction(roleId: string, action: WaterSolubleRoleAction): boolean {
+  return ACTION_ALLOWED_ROLE_IDS[action].includes(roleId)
+}
+
 function scopedOrders(): WaterSolubleWorkOrder[] {
   const runtime = getPdaRuntimeContext()
   const requestedFactoryId = getRequestedFactoryId()
@@ -66,13 +81,16 @@ function scopedOrders(): WaterSolubleWorkOrder[] {
   })
 }
 
-function getAuthorizedOrder(orderId: string, expectedStatuses?: WaterSolubleWorkOrder['status'][]): { order: WaterSolubleWorkOrder | null; message: string } {
+function getAuthorizedOrder(orderId: string, expectedStatuses?: WaterSolubleWorkOrder['status'][], roleAction?: WaterSolubleRoleAction): { order: WaterSolubleWorkOrder | null; message: string } {
   const runtime = getPdaRuntimeContext()
   if (!runtime) return { order: null, message: '当前为管理预览，只能查看，不能执行工厂动作。' }
   const order = getWaterSolubleWorkOrderById(orderId)
   if (!order) return { order: null, message: `未找到水溶加工单“${orderId}”。` }
   if (!order.factoryId || order.factoryId !== runtime.factoryId) {
     return { order: null, message: '当前账号不属于该加工单工厂，不能执行此操作。' }
+  }
+  if (roleAction && !canRolePerformWaterSolubleAction(runtime.roleId, roleAction)) {
+    return { order: null, message: ACTION_ROLE_ERROR[roleAction] }
   }
   if (expectedStatuses && !expectedStatuses.includes(order.status)) {
     return { order: null, message: `当前状态为“${WATER_SOLUBLE_STATUS_LABEL[order.status]}”，不能执行此操作。` }
@@ -92,8 +110,17 @@ function lastLog(order: WaterSolubleWorkOrder): string {
   return log ? `${escapeHtml(log.action)} · ${escapeHtml(log.at)}` : '暂无操作'
 }
 
-function renderPrimaryAction(order: WaterSolubleWorkOrder, canOperate: boolean): string {
-  if (!canOperate) return '<div class="rounded-md bg-muted px-3 py-2 text-center text-sm text-muted-foreground">只读查看</div>'
+function getRoleActionForStatus(status: WaterSolubleWorkOrder['status']): WaterSolubleRoleAction | null {
+  if (['WAIT_MATERIAL', 'WAIT_WATER_SOLUBLE', 'WATER_SOLUBLE_IN_PROGRESS'].includes(status)) return 'OPERATE'
+  if (status === 'PRODUCTION_PAUSED') return 'SUPERVISE'
+  if (status === 'WAIT_HANDOVER') return 'HANDOVER'
+  return null
+}
+
+function renderPrimaryAction(order: WaterSolubleWorkOrder, roleId: string | null): string {
+  const roleAction = getRoleActionForStatus(order.status)
+  if (!roleId) return '<div class="rounded-md bg-muted px-3 py-2 text-center text-sm text-muted-foreground">只读查看</div>'
+  if (roleAction && !canRolePerformWaterSolubleAction(roleId, roleAction)) return '<div class="rounded-md bg-muted px-3 py-2 text-center text-sm text-muted-foreground">等待有权限角色处理</div>'
   const current = getWaterSolubleCurrentAction(order.waterOrderId)
   if (!current) return ''
   if (order.status === 'PRODUCTION_PAUSED') return withSkipPageRerender(renderButton({ label: '主管处理', variant: 'primary', action: { prefix: 'factory-water-soluble', action: 'open-supervisor' }, className: 'w-full' })).replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}"`)
@@ -113,7 +140,7 @@ function renderCard(order: WaterSolubleWorkOrder): string {
     <div class="mt-4 rounded-lg bg-blue-50 p-3"><div class="text-xs text-blue-700">当前要做什么</div><div class="mt-1 font-semibold text-blue-900">${escapeHtml(current?.actionName || '查看状态')}</div><p class="mt-1 text-xs text-blue-700">${escapeHtml(current?.message || '')}</p></div>
     <dl class="mt-4 grid grid-cols-3 gap-2 text-center"><div class="rounded-md bg-muted/50 p-2"><dt class="text-xs text-muted-foreground">计划</dt><dd class="mt-1 font-medium">${qty(order.plannedQty, order.qtyUnit)}</dd></div><div class="rounded-md bg-muted/50 p-2"><dt class="text-xs text-muted-foreground">完成</dt><dd class="mt-1 font-medium">${qty(order.completedQty, order.qtyUnit)}</dd></div><div class="rounded-md bg-muted/50 p-2"><dt class="text-xs text-muted-foreground">差异</dt><dd class="mt-1 font-medium ${order.completedQty < order.plannedQty ? 'text-amber-700' : ''}">${difference(order)}</dd></div></dl>
     <div class="mt-3 text-xs text-muted-foreground">PDA 操作人：领域暂未记录 · 最近操作：${lastLog(order)}</div>${order.exceptionReason ? `<div class="mt-3 rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700">${escapeHtml(order.exceptionReason)}</div>` : ''}
-    <div class="mt-4 space-y-2">${renderPrimaryAction(order, canOperate)}${canOperate ? `<button data-skip-page-rerender="true" class="w-full text-center text-sm text-blue-600 hover:underline" data-factory-water-soluble-action="open-detail" data-order-id="${escapeHtml(order.waterOrderId)}">查看任务详情与记录</button>` : ''}</div>
+    <div class="mt-4 space-y-2">${renderPrimaryAction(order, canOperate ? runtime!.roleId : null)}${canOperate ? `<button data-skip-page-rerender="true" class="w-full text-center text-sm text-blue-600 hover:underline" data-factory-water-soluble-action="open-detail" data-order-id="${escapeHtml(order.waterOrderId)}">查看任务详情与记录</button>` : ''}</div>
   </article>`
 }
 
@@ -181,7 +208,14 @@ function overlay(): string {
     completion: ['WATER_SOLUBLE_IN_PROGRESS'],
     'completion-overage': ['WATER_SOLUBLE_IN_PROGRESS'],
   }
-  const access = getAuthorizedOrder(state.overlay.orderId, expectedStatuses[state.overlay.type])
+  const roleActionByOverlay: Partial<Record<NonNullable<Overlay>['type'], WaterSolubleRoleAction>> = {
+    supervisor: 'SUPERVISE',
+    'supervisor-confirm': 'SUPERVISE',
+    handover: 'HANDOVER',
+    completion: 'OPERATE',
+    'completion-overage': 'OPERATE',
+  }
+  const access = getAuthorizedOrder(state.overlay.orderId, expectedStatuses[state.overlay.type], roleActionByOverlay[state.overlay.type])
   const order = access.order
   if (!order) return ''
   if (state.overlay.type === 'detail') return detailDrawer(order)
@@ -245,7 +279,8 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
   const action = node.dataset.factoryWaterSolubleAction || ''; const orderId = node.dataset.orderId || state.overlay?.orderId || ''
   if (action === 'open-detail' || action === 'open-supervisor' || action === 'open-handover') {
     const expected = action === 'open-supervisor' ? ['PRODUCTION_PAUSED'] as WaterSolubleWorkOrder['status'][] : action === 'open-handover' ? ['WAIT_HANDOVER'] as WaterSolubleWorkOrder['status'][] : undefined
-    const access = getAuthorizedOrder(orderId, expected)
+    const roleAction = action === 'open-supervisor' ? 'SUPERVISE' : action === 'open-handover' ? 'HANDOVER' : undefined
+    const access = getAuthorizedOrder(orderId, expected, roleAction)
     if (!access.order) { rejectAction(access.message); return true }
     const type = action.replace('open-', '') as 'detail' | 'supervisor' | 'handover'
     state.overlay = { type, orderId }
@@ -253,7 +288,7 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     return true
   }
   if (action === 'select-supervisor-decision') {
-    const access = getAuthorizedOrder(orderId, ['PRODUCTION_PAUSED'])
+    const access = getAuthorizedOrder(orderId, ['PRODUCTION_PAUSED'], 'SUPERVISE')
     if (!access.order) { rejectAction(access.message); return true }
     const decision = node.dataset.decision as WaterSolubleSupervisorDecision | undefined
     if (!decision || !Object.hasOwn(SUPERVISOR_DECISION_LABEL, decision)) { rejectAction('请选择有效的主管处理方式。'); return true }
@@ -263,14 +298,14 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
   }
   if (action === 'close-overlay') { state.overlay = null; clearCompletionDraft(); refreshOverlay(); return true }
   if (action === 'cancel-completion-overage') {
-    const access = getAuthorizedOrder(orderId, ['WATER_SOLUBLE_IN_PROGRESS'])
+    const access = getAuthorizedOrder(orderId, ['WATER_SOLUBLE_IN_PROGRESS'], 'OPERATE')
     if (!access.order) { state.overlay = null; clearCompletionDraft(); refreshOverlay(); rejectAction(access.message); return true }
     state.overlay = { type: 'completion', orderId }
     refreshOverlay()
     return true
   }
   if (action === 'complete') {
-    const access = getAuthorizedOrder(orderId, ['WATER_SOLUBLE_IN_PROGRESS'])
+    const access = getAuthorizedOrder(orderId, ['WATER_SOLUBLE_IN_PROGRESS'], 'OPERATE')
     if (!access.order) { rejectAction(access.message); return true }
     state.completionDraft = { orderId, completedQty: String(access.order.plannedQty), reason: '' }
     state.overlay = { type: 'completion', orderId }
@@ -280,7 +315,7 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
   if (action === 'confirm-completion' || action === 'confirm-completion-overage') {
     const requiredOverlay = action === 'confirm-completion' ? 'completion' : 'completion-overage'
     if (!hasCurrentOverlay(requiredOverlay, orderId)) { rejectAction('当前确认已失效，请重新打开加工单。'); return true }
-    const access = getAuthorizedOrder(orderId, ['WATER_SOLUBLE_IN_PROGRESS'])
+    const access = getAuthorizedOrder(orderId, ['WATER_SOLUBLE_IN_PROGRESS'], 'OPERATE')
     if (!access.order) { rejectAction(access.message); return true }
     if (state.completionDraft.orderId !== orderId) { rejectAction('当前填写内容已失效，请重新打开加工单。'); return true }
     const completedQty = Number(state.completionDraft.completedQty.trim())
@@ -299,15 +334,15 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     return true
   }
 
-  const expectedStatusByAction: Record<string, WaterSolubleWorkOrder['status'][]> = {
-    'material-ready': ['WAIT_MATERIAL'],
-    start: ['WAIT_WATER_SOLUBLE'],
-    'confirm-supervisor-decision': ['PRODUCTION_PAUSED'],
-    'confirm-handover': ['WAIT_HANDOVER'],
+  const accessRuleByAction: Record<string, { statuses: WaterSolubleWorkOrder['status'][]; roleAction: WaterSolubleRoleAction }> = {
+    'material-ready': { statuses: ['WAIT_MATERIAL'], roleAction: 'OPERATE' },
+    start: { statuses: ['WAIT_WATER_SOLUBLE'], roleAction: 'OPERATE' },
+    'confirm-supervisor-decision': { statuses: ['PRODUCTION_PAUSED'], roleAction: 'SUPERVISE' },
+    'confirm-handover': { statuses: ['WAIT_HANDOVER'], roleAction: 'HANDOVER' },
   }
-  const expectedStatuses = expectedStatusByAction[action]
-  if (expectedStatuses) {
-    const access = getAuthorizedOrder(orderId, expectedStatuses)
+  const accessRule = accessRuleByAction[action]
+  if (accessRule) {
+    const access = getAuthorizedOrder(orderId, accessRule.statuses, accessRule.roleAction)
     if (!access.order) { rejectAction(access.message); return true }
   }
   if (action === 'material-ready') run(markWaterSolubleMaterialReady(orderId))

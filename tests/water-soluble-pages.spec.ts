@@ -31,11 +31,11 @@ async function expectSameMain(page: Page): Promise<void> {
   })).toBe(true)
 }
 
-async function loginForSeededOrder(page: Page, status: string): Promise<{ factoryId: string; orderId: string; plannedQty: number }> {
+async function loginForSeededOrder(page: Page, status: string, roleIds: string[] = ['ROLE_OPERATOR']): Promise<{ factoryId: string; orderId: string; plannedQty: number }> {
   const order = listWaterSolubleWorkOrders().find((item) => item.status === status && item.factoryId)
   if (!order?.factoryId) throw new Error(`缺少状态为 ${status} 的确定性水溶演示单`)
-  const user = listFactoryPdaUsers(order.factoryId).find((item) => item.status === 'ACTIVE')
-  if (!user) throw new Error(`工厂 ${order.factoryId} 缺少可用 PDA 用户`)
+  const user = listFactoryPdaUsers(order.factoryId).find((item) => item.status === 'ACTIVE' && roleIds.includes(item.roleId))
+  if (!user) throw new Error(`工厂 ${order.factoryId} 缺少角色 ${roleIds.join('/')} 的可用 PDA 用户`)
   const session = createPdaSessionFromUser(user)
   await page.goto('/fcs/workbench/overview')
   await page.evaluate((value) => window.localStorage.setItem('fcs_pda_session', JSON.stringify(value)), session)
@@ -50,7 +50,7 @@ async function navigateInApp(page: Page, path: string): Promise<void> {
 }
 
 async function openPausedSupervisor(page: Page): Promise<void> {
-  await loginForSeededOrder(page, 'PRODUCTION_PAUSED')
+  await loginForSeededOrder(page, 'PRODUCTION_PAUSED', ['ROLE_PRODUCTION', 'ROLE_ADMIN'])
   await page.goto('/fcs/craft/dyeing/water-soluble-orders')
   await expect(page.getByTestId('factory-water-soluble-orders-page')).toBeVisible()
   await page.getByRole('button', { name: '主管处理' }).click()
@@ -172,6 +172,46 @@ test('PFOS 合法当前工厂动作成功且 pageSize 只接受白名单', async
   await expect(page.locator('[data-testid="factory-water-soluble-pagination"] select')).toHaveValue('10')
 })
 
+test('PFOS 同厂操作员不能查看或注入主管处理动作', async ({ page }) => {
+  const arranged = await loginForSeededOrder(page, 'PRODUCTION_PAUSED', ['ROLE_OPERATOR'])
+  await page.goto('/fcs/craft/dyeing/water-soluble-orders')
+  const pausedCard = page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${arranged.orderId}"]`)
+  await expect(pausedCard).toContainText('生产暂停')
+  await expect(pausedCard.getByRole('button', { name: '主管处理' })).toHaveCount(0)
+  await page.evaluate((orderId) => {
+    const button = document.createElement('button')
+    button.dataset.factoryWaterSolubleAction = 'select-supervisor-decision'
+    button.dataset.orderId = orderId
+    button.dataset.decision = 'CONTINUE_PROCESSING'
+    button.dataset.skipPageRerender = 'true'
+    document.querySelector('[data-testid="factory-water-soluble-orders-page"]')?.appendChild(button)
+    button.click()
+    button.remove()
+  }, arranged.orderId)
+  await expect(page.getByText(/当前角色不能处理生产暂停/)).toBeVisible()
+  await expect(pausedCard).toContainText('生产暂停')
+})
+
+test('PFOS 同厂操作员完成后不能查看或注入交出动作', async ({ page }) => {
+  const { orderId, plannedQty } = await openCompletionDialog(page)
+  await page.locator('[data-factory-water-soluble-field="completedQty"]').fill(String(plannedQty))
+  await page.getByRole('button', { name: '确认上报' }).click()
+  const handoverCard = page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${orderId}"]`)
+  await expect(handoverCard).toContainText('待交出')
+  await expect(handoverCard.getByRole('button', { name: '现在交出' })).toHaveCount(0)
+  await page.evaluate((id) => {
+    const button = document.createElement('button')
+    button.dataset.factoryWaterSolubleAction = 'open-handover'
+    button.dataset.orderId = id
+    button.dataset.skipPageRerender = 'true'
+    document.querySelector('[data-testid="factory-water-soluble-orders-page"]')?.appendChild(button)
+    button.click()
+    button.remove()
+  }, orderId)
+  await expect(page.getByText(/当前角色不能确认交出/)).toBeVisible()
+  await expect(handoverCard).toContainText('待交出')
+})
+
 test('PFOS 短量必须填写真实原因并保留日志', async ({ page }) => {
   const { orderId, plannedQty } = await openCompletionDialog(page)
   await page.locator('[data-factory-water-soluble-field="completedQty"]').fill(String(plannedQty - 1))
@@ -229,6 +269,9 @@ test('PFOS 主管选择按实际数量继续交出', async ({ page }) => {
   await confirmSupervisorDecision(page, '按实际数量继续交出')
   await expect(page.getByTestId('factory-water-soluble-card').filter({ hasText: '待交出' })).toBeVisible()
   await expect(page.getByRole('button', { name: '现在交出' })).toBeVisible()
+  await page.getByRole('button', { name: '现在交出' }).click()
+  await page.getByRole('button', { name: /确认交出/ }).click()
+  await expect(page.getByTestId('factory-water-soluble-card').filter({ hasText: '交出待收货' })).toBeVisible()
   await page.evaluate((id) => {
     const button = document.createElement('button')
     button.dataset.factoryWaterSolubleAction = 'confirm-supervisor-decision'
@@ -239,7 +282,7 @@ test('PFOS 主管选择按实际数量继续交出', async ({ page }) => {
     button.click()
     button.remove()
   }, orderId)
-  await expect(page.getByText(/当前状态为“待交出”，不能执行此操作/)).toBeVisible()
+  await expect(page.getByText(/当前状态为“交出待收货”，不能执行此操作/)).toBeVisible()
 })
 
 test('PFOS 主管选择退回重做', async ({ page }) => {
