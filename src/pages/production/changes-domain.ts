@@ -2405,6 +2405,7 @@ function renderFinalProductionChangeExecution(record: ProductionChangeRecordView
       ['最终结果', productionChangeResultLabels[record.result]],
       ['执行结果', record.execution.message || '尚未执行'],
       ['执行进度', `${record.execution.progress}%`],
+      ['最近执行时间', record.lastExecutedAt || '尚未执行'],
     ])}
     ${record.execution.steps.length === 0 ? '' : renderChangeTable(
       ['执行步骤', '结果'],

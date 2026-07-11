@@ -1153,18 +1153,39 @@ assert.ok(eventFailureLine, '事件失败检查需要数量明细')
 eventFailureLine.targetQty -= 1
 eventFailureForm.reason = '同步执行失败检查'
 const recordCountBeforeFailure = listProductionChangeRecords().length
-const eventFailureResult = executeProductionChangeForForm(eventFailureForm, { shouldFail: true })
+const eventFailureResult = executeProductionChangeForForm(eventFailureForm, {
+  shouldFail: true,
+  executedAt: '2026-07-11 09:00',
+})
 assert.equal(eventFailureResult.executed, true, '失败演示必须在同一 helper 内完成并写回')
 assert.equal(eventFailureForm.execution.status, 'ROLLED_BACK', '失败演示必须写回 ROLLED_BACK')
 assert.ok(eventFailureForm.recordId, '首次执行必须向表单写入最终记录 ID')
 const rolledBackRecordId = eventFailureForm.recordId
 assert.equal(listProductionChangeRecords().length, recordCountBeforeFailure + 1, '第一次回滚必须新增一张最终记录')
-assert.equal(getProductionChangeRecord(rolledBackRecordId)?.status, 'ROLLED_BACK', '首次执行记录必须保存回滚状态')
-assert.equal(executeProductionChangeForForm(eventFailureForm).executed, true, 'ROLLED_BACK 必须允许同步重试')
+const rolledBackRecord = getProductionChangeRecord(rolledBackRecordId)
+assert.equal(rolledBackRecord?.status, 'ROLLED_BACK', '首次执行记录必须保存回滚状态')
+assert.equal(rolledBackRecord?.createdAt, '2026-07-11 09:00', '首次回滚时间必须作为变更单创建时间')
+assert.equal(rolledBackRecord?.lastExecutedAt, '2026-07-11 09:00', '回滚尝试必须保存本次失败执行时间')
+assert.ok(
+  rolledBackRecord?.documentTraces.every((trace) => trace.executedAt === '2026-07-11 09:00'),
+  '回滚留痕必须使用本次失败执行时间',
+)
+assert.equal(
+  executeProductionChangeForForm(eventFailureForm, { executedAt: '2026-07-11 10:30' }).executed,
+  true,
+  'ROLLED_BACK 必须允许同步重试',
+)
 assert.equal(eventFailureForm.execution.status, 'DONE', '回滚后同步重试成功必须写回 DONE')
 assert.equal(eventFailureForm.recordId, rolledBackRecordId, '回滚重试必须复用同一记录 ID')
 assert.equal(listProductionChangeRecords().length, recordCountBeforeFailure + 1, '回滚重试成功不得新增第二张记录')
-assert.equal(getProductionChangeRecord(rolledBackRecordId)?.status, 'DONE', '重试成功必须覆盖同一记录为 DONE')
+const retriedRecord = getProductionChangeRecord(rolledBackRecordId)
+assert.equal(retriedRecord?.status, 'DONE', '重试成功必须覆盖同一记录为 DONE')
+assert.equal(retriedRecord?.createdAt, '2026-07-11 09:00', '重试覆盖不得修改首次创建时间')
+assert.equal(retriedRecord?.lastExecutedAt, '2026-07-11 10:30', '重试成功必须更新本次执行时间')
+assert.ok(
+  retriedRecord?.documentTraces.every((trace) => trace.executedAt === '2026-07-11 10:30'),
+  '最终成功留痕必须使用本次成功执行时间',
+)
 
 const eventThrownForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
 const eventThrownLine = eventThrownForm.quantityLines[0]

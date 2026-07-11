@@ -602,6 +602,7 @@ export interface ProductionChangeRecord extends ProductionChangeDraft {
   }
   createdBy: string
   createdAt: string
+  lastExecutedAt: string
   currentFactsSnapshot: ProductionOrderChangeCurrentFacts | null
   documentTraces: ProductionChangeDocumentTrace[]
 }
@@ -1190,6 +1191,7 @@ export function buildProductionChangeRecord(
   draft: ProductionChangeDraft,
   status: ProductionChangeStatus,
   createdAt: string,
+  executedAt = createdAt,
 ): ProductionChangeRecord {
   const copiedDraft = structuredClone(draft)
   const preview = buildProductionChangePreview(copiedDraft)
@@ -1206,12 +1208,13 @@ export function buildProductionChangeRecord(
     execution: createRecordExecution(status),
     createdBy: '陈静',
     createdAt,
+    lastExecutedAt: status === 'DRAFT' || status === 'READY' ? '' : executedAt,
     currentFactsSnapshot,
     documentTraces: buildProductionChangeDocumentTraces(
       id,
       copiedDraft,
       status,
-      createdAt,
+      executedAt,
       currentFactsSnapshot,
     ),
   }

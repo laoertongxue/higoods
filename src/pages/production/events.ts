@@ -524,6 +524,7 @@ export function executeProductionChangeForForm(
   options: {
     shouldFail?: boolean
     execute?: typeof executeProductionChange
+    executedAt?: string | Date
   } = {},
 ): { executed: boolean; step: ProductionChangeFormStep; error: string } {
   if (form.execution.status === 'RUNNING' || form.execution.status === 'DONE') {
@@ -540,13 +541,16 @@ export function executeProductionChangeForForm(
     }
   }
 
-  const now = new Date()
-  const currentTimeText = [
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
-    `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
-  ].join(' ')
+  const executionTime = options.executedAt ?? new Date()
+  const executionDate = executionTime instanceof Date ? executionTime : new Date(executionTime)
+  const executedAt = typeof executionTime === 'string'
+    ? executionTime.trim()
+    : [
+      `${executionDate.getFullYear()}-${String(executionDate.getMonth() + 1).padStart(2, '0')}-${String(executionDate.getDate()).padStart(2, '0')}`,
+      `${String(executionDate.getHours()).padStart(2, '0')}:${String(executionDate.getMinutes()).padStart(2, '0')}`,
+    ].join(' ')
   const existingRecord = form.recordId ? getProductionChangeRecord(form.recordId) : null
-  const createdAt = existingRecord?.createdAt ?? currentTimeText
+  const createdAt = existingRecord?.createdAt ?? executedAt
   if (!form.recordId) form.recordId = createNextProductionChangeRecordId(createdAt)
 
   form.execution = {
@@ -576,6 +580,7 @@ export function executeProductionChangeForForm(
     },
     form.execution.status === 'DONE' ? 'DONE' : 'ROLLED_BACK',
     createdAt,
+    executedAt,
   )
   record.execution = structuredClone(form.execution)
   saveProductionChangeRecord(record)
