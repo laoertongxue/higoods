@@ -57,10 +57,17 @@ export function listRegisteredHandoutRecords(handoverId: string): PdaHandoverRec
   return Array.from(merged.values())
 }
 
-export function listRegisteredHandoutRecordVersions(): PdaHandoverRecord[] {
-  const records = listRegisteredHandoutHeads().flatMap((head) => listRegisteredHandoutRecords(head.handoverId))
+export function listRegisteredHandoutRecordVersions(runtimeTaskIds?: readonly string[]): PdaHandoverRecord[] {
+  const targetTaskIds = runtimeTaskIds ? new Set(runtimeTaskIds) : null
+  const records = listRegisteredHandoutHeads()
+    .filter((head) => !targetTaskIds || targetTaskIds.has(head.taskId))
+    .flatMap((head) => listRegisteredHandoutRecords(head.handoverId))
+    .filter((record) => !targetTaskIds || targetTaskIds.has(record.taskId))
+  const history = targetTaskIds
+    ? Array.from(targetTaskIds).flatMap((taskId) => handoutRecordVersionHistory.get(taskId) ?? [])
+    : Array.from(handoutRecordVersionHistory.values()).flat()
   return [
-    ...Array.from(handoutRecordVersionHistory.values()).flat(),
+    ...history,
     ...records,
   ]
 }

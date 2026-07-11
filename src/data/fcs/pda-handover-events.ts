@@ -3652,9 +3652,9 @@ function savePickupRecord(record: PdaPickupRecord): void {
 function saveHandoutRecord(record: PdaHandoverRecord): void {
   const current = findRecord(record.recordId)
   if (current) {
-    const history = handoutRecordVersionHistory.get(record.recordId) ?? []
+    const history = handoutRecordVersionHistory.get(current.taskId) ?? []
     history.push(cloneRecord(current))
-    handoutRecordVersionHistory.set(record.recordId, history)
+    handoutRecordVersionHistory.set(current.taskId, history)
   }
   if (record.recordId.startsWith('HOR-')) {
     const existedOverride = handoutRecordOverrides.get(record.recordId) ?? {}
@@ -4454,6 +4454,9 @@ export function writeBackHandoverRecord(input: {
   const current = findRecord(input.handoverRecordId)
   if (!current) {
     throw new Error(`未找到交出记录：${input.handoverRecordId}`)
+  }
+  if (parseDateMs(input.receiverWrittenAt) < parseDateMs(current.factorySubmittedAt)) {
+    throw new Error('实收时间不能早于交出时间')
   }
   const head = findPdaHandoverHead(current.handoverId)
   if (!head) {

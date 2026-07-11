@@ -34,7 +34,7 @@ import {
 } from '../src/data/fcs/runtime-process-tasks.ts'
 import { reassignRuntimeSewingTask } from '../src/data/fcs/runtime-sewing-reassignment.ts'
 import { selectLatestSewingDeliveryRawRecords, sumSewingDeliveryConfirmedReceiptQty, toConfirmedSewingDeliveryReceiptFact } from '../src/data/fcs/sewing-delivery-receipt-facts.ts'
-import { listRegisteredHandoutHeads, listRegisteredHandoutRecords } from '../src/data/fcs/pda-handover-handout-registry.ts'
+import { handoutRecordVersionHistory, listRegisteredHandoutHeads, listRegisteredHandoutRecords, listRegisteredHandoutRecordVersions } from '../src/data/fcs/pda-handover-handout-registry.ts'
 import { createSewingDispatchWorkbenchDraft, listSewingDispatchWorkbenchDrafts, listSewingDispatchWorkbenchRows, listSewingFactoryOptions } from '../src/data/fcs/sewing-dispatch-workbench.ts'
 import { installRuntimeTaskReadResolver, readRuntimeTaskById } from '../src/data/fcs/runtime-task-read-bridge.ts'
 import { parseFcsQrValue } from '../src/data/fcs/task-qr.ts'
@@ -2174,13 +2174,13 @@ const sewingDeliverySlaViewSource = readFileSync(new URL('../src/data/fcs/sewing
 const progressDomainSource = readFileSync(new URL('../src/data/fcs/store-domain-progress.ts', import.meta.url), 'utf8')
 assert.match(
   sewingDeliverySlaViewSource,
-  /listLatestSewingDeliveryRawRecords\(nowAt\)\.filter/,
-  '单任务履约视图必须复用registry原始记录全局版本选择结果',
+  /listLatestSewingDeliveryRawRecords\(nowAt, \[runtimeTaskId\]\)/,
+  '单任务履约视图必须定向复用registry原始记录版本选择结果',
 )
 assert.match(
   sewingDeliverySlaViewSource,
-  /const recordsByTaskId = new Map[\s\S]*?listLatestSewingDeliveryRawRecords\(nowAt\)\.forEach/,
-  '批量履约视图必须一次读取全局最新原始记录并按 taskId 预索引',
+  /const recordsByTaskId = new Map[\s\S]*?listLatestSewingDeliveryRawRecords\(nowAt, Array\.from\(targetTaskIds\)\)\.forEach/,
+  '批量履约视图必须一次定向读取目标任务原始记录并按 taskId 预索引',
 )
 assert.doesNotMatch(
   sewingDeliverySlaViewSource,
@@ -2319,6 +2319,17 @@ try {
       '非法实收数量被拒绝后交出域状态必须保持不变',
     )
   }
+  assert.throws(
+    () => writeBackHandoverRecord({
+      handoverRecordId: 'SLA-VIEW-PENDING',
+      receiverWrittenQty: 10,
+      receiverWrittenAt: '2026-07-02 08:59:59',
+      receiverWrittenBy: '时间倒挂测试员',
+    }),
+    /实收时间不能早于交出时间/,
+    '真实 PDA 回写必须在 mutation 前阻断实收时间早于交出时间',
+  )
+  assert.deepEqual(capturePdaHandoverState(), handoverBeforeInvalidWriteback, '时间倒挂回写被拒绝后交出域状态必须保持不变')
   upsertPdaHandoutRecordMock(record('SLA-VIEW-LATE-Z', 20, '2026-07-05 09:00:00'))
   writeBackHandoverRecord({
     handoverRecordId: 'SLA-VIEW-LATE-Z',
@@ -2427,6 +2438,15 @@ try {
   assert.equal(Object.isFrozen(overView), true, '履约视图必须是防御冻结的只读结果')
   assert.equal(Object.isFrozen(overView.projection), true, '履约视图不得暴露可变投影状态')
   assert.notEqual(getSewingDeliverySlaView(viewTaskId, '2026-07-08 10:00:00'), overView, '每次查询应返回独立只读视图，不缓存复制履约状态')
+
+  handoutRecordVersionHistory.set('UNRELATED-TASK-HISTORY', [{
+    ...record('UNRELATED-HISTORY', 1, '2026-07-01 08:00:00'),
+    taskId: 'UNRELATED-TASK-HISTORY',
+    get lifecycleUpdatedAt(): string { throw new Error('单任务查询不得扫描无关任务历史') },
+  }])
+  assert.equal(listRegisteredHandoutRecordVersions([viewTaskId]).some((item) => item.taskId === 'UNRELATED-TASK-HISTORY'), false, '定向 registry 读取不得返回无关 taskId 的历史版本')
+  assert.equal(getSewingDeliverySlaView(viewTaskId, '2026-07-08 10:00:00')?.confirmedReceivedQty, 130, '单任务履约查询必须定向读取该 taskId 的历史版本')
+  handoutRecordVersionHistory.delete('UNRELATED-TASK-HISTORY')
 
   const listViews = listSewingDeliverySlaViews('2026-07-08 10:00:00')
   assert(listViews.some((item) => item.runtimeTaskId === viewTaskId), '履约视图列表应包含当前有效快照任务')

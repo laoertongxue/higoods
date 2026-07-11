@@ -70,7 +70,7 @@ export function getSewingDeliverySlaView(
 ): SewingDeliverySlaView | null {
   const snapshot = resolveEligibleSnapshot(runtimeTaskId, nowAt)
   if (!snapshot) return null
-  return buildView(runtimeTaskId, snapshot, listLatestSewingDeliveryRawRecords(nowAt).filter((record) => record.taskId === runtimeTaskId), nowAt)
+  return buildView(runtimeTaskId, snapshot, listLatestSewingDeliveryRawRecords(nowAt, [runtimeTaskId]), nowAt)
 }
 
 
@@ -97,7 +97,7 @@ export function listSewingDeliverySlaViews(
   })
   const targetTaskIds = new Set(snapshotsByTaskId.keys())
   const recordsByTaskId = new Map<string, PdaHandoverRecord[]>()
-  listLatestSewingDeliveryRawRecords(nowAt).forEach((record) => {
+  listLatestSewingDeliveryRawRecords(nowAt, Array.from(targetTaskIds)).forEach((record) => {
     if (!targetTaskIds.has(record.taskId)) return
     const records = recordsByTaskId.get(record.taskId) ?? []
     records.push(record)

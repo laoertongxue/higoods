@@ -71,8 +71,9 @@ export function selectLatestSewingDeliveryRawRecords(
 
 export function listLatestSewingDeliveryRawRecords(
   nowAt: string = formatOperationLocalWallClock(),
+  runtimeTaskIds?: readonly string[],
 ): PdaHandoverRecord[] {
-  return selectLatestSewingDeliveryRawRecords(listRegisteredHandoutRecordVersions(), nowAt)
+  return selectLatestSewingDeliveryRawRecords(listRegisteredHandoutRecordVersions(runtimeTaskIds), nowAt)
 }
 
 export function toConfirmedSewingDeliveryReceiptFact(
@@ -84,6 +85,7 @@ export function toConfirmedSewingDeliveryReceiptFact(
   const submittedQty = validNonNegativeQty(record.submittedQty ?? record.plannedQty)
   const receivedQty = validNonNegativeQty(record.receiverWrittenQty)
   if (submittedQty === null || receivedQty === null || !record.factorySubmittedAt || !record.receiverWrittenAt) return null
+  if (record.receiverWrittenAt < record.factorySubmittedAt) return null
   return {
     recordId: record.handoverRecordId || record.recordId,
     submittedQty,
@@ -98,7 +100,7 @@ export function listSewingDeliveryReceiptFacts(
   runtimeTaskId: string,
   nowAt: string = formatOperationLocalWallClock(),
 ): SewingDeliveryReceiptFact[] {
-  return listLatestSewingDeliveryRawRecords(nowAt)
+  return listLatestSewingDeliveryRawRecords(nowAt, [runtimeTaskId])
     .filter((record) => record.taskId === runtimeTaskId)
     .map((record) => toConfirmedSewingDeliveryReceiptFact(record, runtimeTaskId))
     .filter((fact): fact is SewingDeliveryReceiptFact => fact !== null)
