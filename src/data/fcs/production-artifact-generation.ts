@@ -203,33 +203,21 @@ export function buildDictionaryCraftMockDocumentNo(
   return `${prefix}${toMockToken(craftCode, 7)}${toMockToken(orderId, 8)}${String(mockIndex + 1).padStart(2, '0')}`
 }
 
-const STABLE_DEMAND_SEQUENCE_BY_ARTIFACT_IDENTITY: Readonly<Record<string, string>> = {
-  'PO-202603-081|tdv_demand_SPU_TSHIRT_081|tdv_demand_SPU_TSHIRT_081-process-dye|tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye|DYE|': '01',
-  'PO-202603-087|tdv_demand_SPU_TSHIRT_081|tdv_demand_SPU_TSHIRT_081-process-dye|tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye|DYE|': '07',
-  'PO-202603-088|tdv_demand_SPU_TSHIRT_081|tdv_demand_SPU_TSHIRT_081-process-dye|tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye|DYE|': '08',
-}
-
-function buildDemandArtifactIdentity(artifact: ProductionDemandArtifact): string {
-  return [
-    artifact.orderId,
-    artifact.techPackId,
-    artifact.sourceEntryId,
-    artifact.bomItemId || '',
-    artifact.processCode,
-    artifact.craftCode || '',
-  ].join('|')
+const STABLE_DEMAND_SEQUENCE_BY_ARTIFACT_ID: Readonly<Record<string, string>> = {
+  'DEMART-13_PO-202603-081-17_TPS-PO-202603-081-25_tdv_demand_SPU_TSHIRT_081-37_tdv_demand_SPU_TSHIRT_081-process-dye-47_tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye': '01',
+  'DEMART-13_PO-202603-087-17_TPS-PO-202603-087-25_tdv_demand_SPU_TSHIRT_081-37_tdv_demand_SPU_TSHIRT_081-process-dye-47_tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye': '07',
+  'DEMART-13_PO-202603-088-17_TPS-PO-202603-088-25_tdv_demand_SPU_TSHIRT_081-37_tdv_demand_SPU_TSHIRT_081-process-dye-47_tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye': '08',
 }
 
 function buildStableDemandIdentityToken(artifact: ProductionDemandArtifact): string {
-  const identity = buildDemandArtifactIdentity(artifact)
-  const preservedSequence = STABLE_DEMAND_SEQUENCE_BY_ARTIFACT_IDENTITY[identity]
+  const preservedSequence = STABLE_DEMAND_SEQUENCE_BY_ARTIFACT_ID[artifact.artifactId]
   if (preservedSequence) return preservedSequence
-  let hash = 2166136261
-  for (const character of identity) {
-    hash ^= character.charCodeAt(0)
-    hash = Math.imul(hash, 16777619)
+  let hash = 14695981039346656037n
+  for (const character of artifact.artifactId) {
+    hash ^= BigInt(character.charCodeAt(0))
+    hash = BigInt.asUintN(64, hash * 1099511628211n)
   }
-  return String((hash >>> 0) % 1_000_000).padStart(6, '0')
+  return hash.toString(10).padStart(20, '0')
 }
 
 export function buildProductionDemandBusinessId(

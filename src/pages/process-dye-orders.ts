@@ -21,7 +21,7 @@ import {
 } from '../data/fcs/process-platform-status-adapter.ts'
 
 type CreateModeZh = '按需求创建' | '按备货创建'
-type Unit = '米'
+type Unit = string
 type DemandStatusZh = '待满足' | '部分满足' | '已满足' | '已完成交接'
 type OrderStatusZh = PlatformProcessStatus
 type ReceiptStatusZh = '待接收' | '部分接收' | '已接收'
@@ -149,6 +149,7 @@ interface DyeProcessOrder {
 
 interface DemandOption {
   demandId: string
+  sourceArtifactId?: string
   sourceProductionOrderId: string
   materialCode: string
   materialName: string
@@ -261,11 +262,11 @@ function loadOrders(): DyeProcessOrder[] {
   handedOverObjectQty: item.handedOverObjectQty,
   writtenBackObjectQty: item.writtenBackObjectQty,
   diffObjectQty: item.diffObjectQty,
-  unit: '米',
+  unit: item.unit,
   quantityDisplayFields: item.quantityDisplayFields,
-  plannedQtyLabel: item.plannedQtyLabel || '计划染色面料米数',
-  returnedQtyLabel: item.returnedQtyLabel || '已交出面料米数',
-  receivedQtyLabel: item.receivedQtyLabel || '实收面料米数',
+  plannedQtyLabel: item.plannedQtyLabel || '计划染色数量',
+  returnedQtyLabel: item.returnedQtyLabel || '已交出数量',
+  receivedQtyLabel: item.receivedQtyLabel || '实收数量',
   plannedFinishAt: item.plannedFinishAt,
   sourceSummary: item.sourceSummary,
   note: item.note,
@@ -278,14 +279,14 @@ function loadOrders(): DyeProcessOrder[] {
     materialName: demand.materialName,
     requiredQty: demand.requiredQty,
     satisfiedQty: demand.satisfiedQty,
-    unit: '米',
+    unit: demand.unit,
     status: demand.status,
   })),
   stockMaterial: item.stockMaterial
     ? {
         materialCode: item.stockMaterial.materialCode,
         materialName: item.stockMaterial.materialName,
-        unit: '米',
+        unit: item.stockMaterial.unit,
       }
     : undefined,
   materialReceipt: {
@@ -372,9 +373,11 @@ const state: DyeOrdersState = {
   dynamicDemandOptions: [],
 }
 
-function formatQty(qty: number, unit: Unit): string {
+export function formatDyeOrderQuantity(qty: number, unit: Unit): string {
   return `${qty.toLocaleString()} ${unit}`
 }
+
+const formatQty = formatDyeOrderQuantity
 
 function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs ${className}">${escapeHtml(label)}</span>`
@@ -481,6 +484,7 @@ function scheduleScrollToSection(section: Exclude<DrawerFocus, null>): void {
 function getDemandOptions(): DemandOption[] {
   const base = listPrepRequirementDemands('DYE').map((demand) => ({
     demandId: demand.demandId,
+    sourceArtifactId: demand.sourceArtifactId,
     sourceProductionOrderId: demand.sourceProductionOrderId,
     materialCode: demand.materialCode,
     materialName: demand.materialName,
@@ -552,7 +556,7 @@ function consumeCreateIntentIfExists(): void {
     materialCode: intent.materialCode,
     materialName: intent.materialName,
     requiredQty: intent.requiredQty,
-    unit: '米',
+    unit: projected?.unit || '米',
     bomItemId: projected?.bomItemId || intent.materialCode,
     requiresWaterSoluble: projected?.requiresWaterSoluble === true,
     processRoute: projected?.processRoute ? [...projected.processRoute] : ['DYE'],
@@ -599,8 +603,8 @@ function renderPlatformResultFields(order: DyeProcessOrder): string {
   const fields = order.quantityDisplayFields?.length
     ? order.quantityDisplayFields
     : [
-        { label: order.plannedQtyLabel || '计划染色面料米数', value: order.plannedFeedQty, unit: order.unit, text: `${order.plannedQtyLabel || '计划染色面料米数'}：${formatQty(order.plannedFeedQty, order.unit)}` },
-        { label: order.returnedQtyLabel || '已交出面料米数', value: getReturnedQty(order), unit: order.unit, text: `${order.returnedQtyLabel || '已交出面料米数'}：${formatQty(getReturnedQty(order), order.unit)}` },
+        { label: order.plannedQtyLabel || '计划染色数量', value: order.plannedFeedQty, unit: order.unit, text: `${order.plannedQtyLabel || '计划染色数量'}：${formatQty(order.plannedFeedQty, order.unit)}` },
+        { label: order.returnedQtyLabel || '已交出数量', value: getReturnedQty(order), unit: order.unit, text: `${order.returnedQtyLabel || '已交出数量'}：${formatQty(getReturnedQty(order), order.unit)}` },
       ]
   return fields
     .slice(0, 7)
@@ -696,7 +700,7 @@ function renderOrderRow(order: DyeProcessOrder): string {
           <p class="mt-2 text-sm font-medium">${escapeHtml(order.dyeFactoryName === TEST_FACTORY_NAME ? TEST_FACTORY_DISPLAY_NAME : order.dyeFactoryName)}</p>
           <div class="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2 xl:grid-cols-3">
             <div><span>关联需求单数：</span><span class="font-medium text-foreground">${order.linkedDemands.length}张</span></div>
-            <div><span>${escapeHtml(order.plannedQtyLabel || '计划染色面料米数')}：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</span></div>
+            <div><span>${escapeHtml(order.plannedQtyLabel || '计划染色数量')}：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</span></div>
             <div><span>计划完成时间：</span><span class="text-foreground">${escapeHtml(order.plannedFinishAt)}</span></div>
             ${order.requiresWaterSoluble ? `<div><span>当前步骤：</span><span class="font-medium text-foreground">${escapeHtml(order.currentStepLabel || '待水溶')}</span></div><div><span>水溶数量：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(order.waterSolubleCompletedQty || 0, (order.waterSolubleQtyUnit || order.unit) as Unit))} / ${escapeHtml(formatQty(order.waterSolublePlannedQty || order.plannedFeedQty, (order.waterSolubleQtyUnit || order.unit) as Unit))}</span></div>` : ''}
             <div><span>分配方式：</span><span class="font-medium text-foreground">${escapeHtml(order.assignmentMode || '派单')}</span></div>
@@ -721,7 +725,7 @@ function renderOrderRow(order: DyeProcessOrder): string {
           <div class="rounded-lg border bg-muted/20 p-3">
             <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">结果字段</h4>
             <div class="mt-2 space-y-2 text-sm">
-              <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">${escapeHtml(order.returnedQtyLabel || '已交出面料米数')}</span><span class="font-medium">${escapeHtml(formatQty(returnedQty, order.unit))}</span></div>
+              <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">${escapeHtml(order.returnedQtyLabel || '已交出数量')}</span><span class="font-medium">${escapeHtml(formatQty(returnedQty, order.unit))}</span></div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">收货批次数</span><span class="font-medium">${batchCount}批</span></div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">关联需求单</span><span class="text-right text-xs">${escapeHtml(getDemandNosText(order))}</span></div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">平台状态</span>${renderBadge(order.status, ORDER_STATUS_CLASS[order.status])}</div>
@@ -829,7 +833,7 @@ function renderDetailDrawer(): string {
             <h3 class="mb-3 text-sm font-semibold">基本信息</h3>
             <div class="grid gap-3 text-sm md:grid-cols-2">
               <div><span class="text-muted-foreground">创建方式：</span>${escapeHtml(order.createMode)}</div>
-              <div><span class="text-muted-foreground">${escapeHtml(order.plannedQtyLabel || '计划染色面料米数')}：</span>${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</div>
+              <div><span class="text-muted-foreground">${escapeHtml(order.plannedQtyLabel || '计划染色数量')}：</span>${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</div>
               <div class="md:col-span-2"><span class="text-muted-foreground">备货物料：</span>${stockMaterial ? `${escapeHtml(stockMaterial.materialCode)} · ${escapeHtml(stockMaterial.materialName)}（${escapeHtml(stockMaterial.unit)}）` : '-'}</div>
               <div class="md:col-span-2"><span class="text-muted-foreground">来源说明：</span>${escapeHtml(order.sourceSummary)}</div>
               <div class="md:col-span-2"><span class="text-muted-foreground">备注：</span>${escapeHtml(order.note)}</div>
@@ -851,7 +855,7 @@ function renderDetailDrawer(): string {
                 : `
                   <div class="overflow-x-auto rounded-md border">
                     <table class="w-full min-w-[980px] text-sm">
-                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th><th class="px-3 py-2 font-medium">物料编码/名称</th><th class="px-3 py-2 font-medium">计划染色面料米数</th><th class="px-3 py-2 font-medium">已满足面料米数</th><th class="px-3 py-2 font-medium">待满足面料米数</th><th class="px-3 py-2 font-medium">当前状态</th></tr></thead>
+                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th><th class="px-3 py-2 font-medium">物料编码/名称</th><th class="px-3 py-2 font-medium">计划染色数量</th><th class="px-3 py-2 font-medium">已满足数量</th><th class="px-3 py-2 font-medium">待满足数量</th><th class="px-3 py-2 font-medium">当前状态</th></tr></thead>
                       <tbody>
                         ${order.linkedDemands
                           .map((item) => {
@@ -870,7 +874,7 @@ function renderDetailDrawer(): string {
             <h3 class="mb-3 text-sm font-semibold">来料接收（来自 WMS）</h3>
             <div class="grid gap-3 text-sm md:grid-cols-2">
               <div><span class="text-muted-foreground">来料状态：</span>${renderBadge(order.materialReceipt.receiveStatus, RECEIPT_STATUS_CLASS[order.materialReceipt.receiveStatus])}</div>
-              <div><span class="text-muted-foreground">${escapeHtml(order.receivedQtyLabel || '实收面料米数')}：</span>${escapeHtml(formatQty(order.materialReceipt.receivedQty, order.unit))}</div>
+              <div><span class="text-muted-foreground">${escapeHtml(order.receivedQtyLabel || '实收数量')}：</span>${escapeHtml(formatQty(order.materialReceipt.receivedQty, order.unit))}</div>
               <div><span class="text-muted-foreground">接收时间：</span>${escapeHtml(order.materialReceipt.receivedAt)}</div>
               <div><span class="text-muted-foreground">接收质检结论：</span>${escapeHtml(order.materialReceipt.qualityConclusion)}</div>
               <div class="md:col-span-2"><span class="text-muted-foreground">接收凭证说明：</span>${escapeHtml(order.materialReceipt.receiptVoucher)}</div>
@@ -885,7 +889,7 @@ function renderDetailDrawer(): string {
                 : `
                   <div class="overflow-x-auto rounded-md border">
                     <table class="w-full min-w-[960px] text-sm">
-                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">收货批次号</th><th class="px-3 py-2 font-medium">${escapeHtml(order.returnedQtyLabel || '已交出面料米数')}</th><th class="px-3 py-2 font-medium">合格面料米数</th><th class="px-3 py-2 font-medium">当前可关联面料米数</th><th class="px-3 py-2 font-medium">已关联面料米数</th><th class="px-3 py-2 font-medium">状态</th><th class="px-3 py-2 font-medium">收货时间</th></tr></thead>
+                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">收货批次号</th><th class="px-3 py-2 font-medium">${escapeHtml(order.returnedQtyLabel || '已交出数量')}</th><th class="px-3 py-2 font-medium">合格数量</th><th class="px-3 py-2 font-medium">当前可关联数量</th><th class="px-3 py-2 font-medium">已关联数量</th><th class="px-3 py-2 font-medium">状态</th><th class="px-3 py-2 font-medium">收货时间</th></tr></thead>
                       <tbody>
                         ${order.batches
                           .map((batch) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(batch.batchNo)}</td><td class="px-3 py-2">${escapeHtml(formatQty(batch.returnedQty, order.unit))}</td><td class="px-3 py-2">${escapeHtml(formatQty(batch.qualifiedQty, order.unit))}</td><td class="px-3 py-2">${escapeHtml(formatQty(batch.availableQty, order.unit))}</td><td class="px-3 py-2">${escapeHtml(formatQty(batch.linkedQty, order.unit))}</td><td class="px-3 py-2">${renderBadge(batch.status, BATCH_STATUS_CLASS[batch.status])}</td><td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(batch.returnedAt)}</td></tr>`)
@@ -905,7 +909,7 @@ function renderDetailDrawer(): string {
                 : `
                   <div class="overflow-x-auto rounded-md border">
                     <table class="w-full min-w-[760px] text-sm">
-                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">收货批次号</th><th class="px-3 py-2 font-medium">需求单号</th><th class="px-3 py-2 font-medium">本次满足面料米数</th><th class="px-3 py-2 font-medium">关联时间</th></tr></thead>
+                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">收货批次号</th><th class="px-3 py-2 font-medium">需求单号</th><th class="px-3 py-2 font-medium">本次满足数量</th><th class="px-3 py-2 font-medium">关联时间</th></tr></thead>
                       <tbody>
                         ${order.destinations
                           .map((item) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(item.batchNo)}</td><td class="px-3 py-2 font-mono text-xs">${escapeHtml(item.demandId)}</td><td class="px-3 py-2">${escapeHtml(formatQty(item.fulfilledQty, order.unit))}</td><td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(item.linkedAt)}</td></tr>`)
@@ -981,6 +985,9 @@ function renderCreateDrawer(): string {
   const selectedMaterialSummary = selectedMaterial
     ? getStockMaterialSelectedSummary(selectedMaterial)
     : '请选择备货物料，可搜索物料编码/名称'
+  const selectedDemandOptions = getDemandOptions().filter((item) => state.createForm.selectedDemandIds.includes(item.demandId))
+  const systemPlannedQty = selectedDemandOptions.reduce((sum, item) => sum + item.requiredQty, 0)
+  const systemPlannedUnit = selectedDemandOptions[0]?.unit || '米'
   return `
     <div class="fixed inset-0 z-50" data-dialog-backdrop="true">
       <button class="absolute inset-0 bg-black/45" data-dye-order-action="close-create-drawer" aria-label="关闭"></button>
@@ -1049,8 +1056,10 @@ function renderCreateDrawer(): string {
                   : ''
               }
               <div>
-                <label class="mb-1 block text-xs text-muted-foreground">计划染色面料米数</label>
-                <input type="number" min="0" class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.plannedFeedQty)}" data-dye-order-create-field="plannedFeedQty" placeholder="请输入计划染色面料米数（米）" />
+                <label class="mb-1 block text-xs text-muted-foreground">${state.createForm.createMode === '按需求创建' ? '系统计算计划数量' : '计划染色数量'}</label>
+                ${state.createForm.createMode === '按需求创建'
+                  ? `<div class="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm">${escapeHtml(formatQty(systemPlannedQty, systemPlannedUnit))}</div>`
+                  : `<input type="number" min="0" class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.plannedFeedQty)}" data-dye-order-create-field="plannedFeedQty" placeholder="请输入计划染色数量" />`}
               </div>
               <div>
                 <label class="mb-1 block text-xs text-muted-foreground">计划完成时间</label>
@@ -1143,13 +1152,16 @@ function openDetail(orderNo: string, focus: DrawerFocus): void {
 
 function submitCreate(): void {
   const form = state.createForm
-  const plannedFeedQty = Number(form.plannedFeedQty)
+  const selectedDemandOptions = getDemandOptions().filter((item) => form.selectedDemandIds.includes(item.demandId))
+  const plannedFeedQty = form.createMode === '按需求创建'
+    ? selectedDemandOptions.reduce((sum, item) => sum + item.requiredQty, 0)
+    : Number(form.plannedFeedQty)
   if (!form.factoryName.trim()) {
     state.notice = '请先选择染色工厂。'
     return
   }
   if (!Number.isFinite(plannedFeedQty) || plannedFeedQty <= 0) {
-    state.notice = '请填写有效的计划染色面料米数。'
+    state.notice = '请填写有效的计划染色数量。'
     return
   }
   if (!form.plannedFinishAt) {
@@ -1200,7 +1212,6 @@ function submitCreate(): void {
     demands: selectedDemands,
     factoryId: form.factoryName.trim(),
     plannedFinishAt: fromDateTimeValue(form.plannedFinishAt),
-    plannedQty: plannedFeedQty,
     createdBy: 'FCS 业务人员',
   })
   if (!created.ok || !created.order) {

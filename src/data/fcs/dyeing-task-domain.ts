@@ -2482,17 +2482,30 @@ export function createDyeWorkOrderFromDemands(input: {
   plannedQty?: number
   sampleWaitType?: SampleWaitType
 }): { ok: boolean; message: string; order?: DyeWorkOrder } {
+  const demandIds = input.demands.map((item) => item.demandId)
+  const artifactIds = input.demands.flatMap((item) => item.sourceArtifactId ? [item.sourceArtifactId] : [])
+  if (new Set(demandIds).size !== demandIds.length || new Set(artifactIds).size !== artifactIds.length) {
+    return { ok: false, message: '所选染色需求存在重复，请重新选择。' }
+  }
+  const units = new Set(input.demands.map((item) => item.unit.trim()))
+  if (units.size > 1) return { ok: false, message: '不同数量单位的染色需求不能合并创建加工单。' }
+  const consumedDemandIds = new Set(listDyeWorkOrders().flatMap((order) => order.sourceDemandIds))
+  const consumedArtifactIds = new Set(listDyeWorkOrders().flatMap((order) => order.sourceArtifactIds || []))
+  if (demandIds.some((demandId) => consumedDemandIds.has(demandId)) || artifactIds.some((artifactId) => consumedArtifactIds.has(artifactId))) {
+    return { ok: false, message: '所选染色需求已创建加工单，请勿重复创建。' }
+  }
   const capability = validateDyeFactoryCapabilities(input.demands, input.factoryId)
   if (!capability.ok) return capability
   const factory = getFactoryMasterRecordById(input.factoryId)!
   const requiresWaterSoluble = input.demands[0]?.requiresWaterSoluble === true
   const sampleWaitType = input.sampleWaitType ?? 'NONE'
   const requiresSample = sampleWaitType !== 'NONE'
-  const plannedQty = Number.isFinite(input.plannedQty)
-    ? Number(input.plannedQty)
-    : input.demands.reduce((sum, item) => sum + item.requiredQty, 0)
+  const plannedQty = input.demands.reduce((sum, item) => sum + item.requiredQty, 0)
   if (!Number.isFinite(plannedQty) || plannedQty <= 0) {
     return { ok: false, message: '染色需求数量必须大于 0。' }
+  }
+  if (typeof input.plannedQty !== 'undefined' && Number(input.plannedQty) !== plannedQty) {
+    return { ok: false, message: '计划数量由系统按所选需求自动计算，不允许手工修改。' }
   }
   const sequence = workOrderStore.size + createdDyeOrderIds.size + 1
   const dyeOrderId = `DYE-CREATED-${String(sequence).padStart(4, '0')}`
@@ -2635,6 +2648,8 @@ export function completeDyeWaterSolubleNode(
   if (!current?.startedAt || current.finishedAt) return { ok: false, message: '请先开始水溶，且不要重复完成。' }
   if (!Number.isFinite(outputQty) || outputQty <= 0) return { ok: false, message: '水溶完成数量必须是大于 0 的有效数字。' }
   const plannedQty = order.waterSolublePlannedQty ?? order.plannedQty
+  const completedQty = order.waterSolubleCompletedQty ?? 0
+  if (outputQty < completedQty) return { ok: false, message: '水溶累计完成数量不能小于已有完成数量。' }
   if (outputQty < plannedQty && !reason.trim()) return { ok: false, message: '水溶完成数量不足，请填写原因。' }
   if (outputQty > plannedQty && !reason.trim()) return { ok: false, message: '水溶完成数量超过计划数量，请填写原因。' }
   const mutable = getMutableWorkOrder(dyeOrderId)
@@ -2660,6 +2675,9 @@ export function resolveDyeWaterSolublePause(
 ): { ok: boolean; message: string; order?: DyeWorkOrder } {
   const order = getDyeWorkOrderById(dyeOrderId)
   if (!order) return { ok: false, message: '未找到染色加工单。' }
+  if (!['CONTINUE_PROCESSING', 'CONTINUE_WITH_ACTUAL_QTY', 'RETURN_FOR_REWORK'].includes(decision)) {
+    return { ok: false, message: '未知的主管处理决定，请重新选择。' }
+  }
   if (order.status !== 'PRODUCTION_PAUSED') return { ok: false, message: '当前加工单不在生产暂停状态。' }
   const mutable = getMutableWorkOrder(dyeOrderId)
   const current = getMutableNodeRecord(dyeOrderId, 'WATER_SOLUBLE')
@@ -2844,6 +2862,13 @@ export function planDyeVat(
   input: { dyeVatNo: string; operatorName?: string },
 ): DyeExecutionNodeRecord {
   const order = getMutableWorkOrder(dyeOrderId)
+  if (order.status !== 'WAIT_VAT_PLAN') throw new Error('当前状态不允许排缸。')
+  const materialNode = getMutableNodeRecord(dyeOrderId, 'MATERIAL_READY')
+  if (!materialNode?.finishedAt) throw new Error('请先完成备料，再安排染缸。')
+  if (order.sampleWaitType !== 'NONE' && order.sampleStatus !== 'DONE') throw new Error('请先完成打样，再安排染缸。')
+  const existingVatNode = getMutableNodeRecord(dyeOrderId, 'VAT_PLAN')
+  if (existingVatNode?.startedAt || existingVatNode?.finishedAt) throw new Error('染缸已安排，请勿重复排缸。')
+  if (!input.dyeVatNo.trim()) throw new Error('请填写染缸编号。')
   const vat = listDyeVatOptions(order.dyeFactoryId).find((item) => item.dyeVatNo === input.dyeVatNo)
   const now = nowTimestamp()
   upsertNodeRecord(dyeOrderId, 'VAT_PLAN', (current) => ({
