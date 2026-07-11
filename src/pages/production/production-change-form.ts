@@ -173,7 +173,7 @@ export function renderProductionChangeFormSteps(step: ProductionChangeFormStep):
   const current = Math.max(0, productionChangeSteps.findIndex((item) => item.key === step))
   return `
     <section class="min-h-[92px] overflow-x-auto rounded-lg border bg-card p-4" data-production-change-form-steps>
-      ${renderSteps({ steps: productionChangeSteps, current, className: 'min-w-[760px]' })}
+      ${renderSteps({ steps: productionChangeSteps, current })}
     </section>
   `
 }

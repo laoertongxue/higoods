@@ -163,6 +163,35 @@ async function expectNoDocumentOverflow(page: Page): Promise<void> {
   expect(metrics.bodyScrollWidth).toBeLessThanOrEqual(metrics.bodyClientWidth)
 }
 
+async function expectProductionChangeStepsToFit(page: Page): Promise<void> {
+  const container = page.locator('[data-production-change-form-steps]')
+  await expect(container).toBeVisible()
+  const metrics = await container.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }))
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth)
+
+  for (const text of [
+    '选择生产单',
+    '系统获取当前事实',
+    '填写变更内容',
+    '唯一核心数据节点',
+    '确认处理方案',
+    '只判断必要事项',
+    '同步执行',
+    '全部提交或全部回滚',
+  ]) {
+    const item = container.getByText(text, { exact: true })
+    await expect(item).toBeVisible()
+    const [containerBox, itemBox] = await Promise.all([container.boundingBox(), item.boundingBox()])
+    expect(containerBox).not.toBeNull()
+    expect(itemBox).not.toBeNull()
+    expect(itemBox!.x).toBeGreaterThanOrEqual(containerBox!.x)
+    expect(itemBox!.x + itemBox!.width).toBeLessThanOrEqual(containerBox!.x + containerBox!.width)
+  }
+}
+
 async function expectControlInViewport(control: Locator): Promise<void> {
   await control.scrollIntoViewIfNeeded()
   await expect(control).toBeVisible()
@@ -394,6 +423,9 @@ test('可见失败入口全部回滚，重试复用同一变更单', async ({ pa
 test('两张表单及第三第四步在双视口无页面溢出、关键控件不重叠且无旧文案', async ({ page }) => {
   for (const viewport of [{ width: 1024, height: 768 }, { width: 1440, height: 900 }]) {
     await page.setViewportSize(viewport)
+    await page.goto(newChangePath)
+    await expectProductionChangeStepsToFit(page)
+
     await openContent(page, 'quantity')
     await expectNoDocumentOverflow(page)
     await expectNoUnexpectedClipping(productionChangeBody(page))
