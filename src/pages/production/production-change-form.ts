@@ -775,6 +775,31 @@ export function renderProductionChangeExecutionStep(form: ProductionChangeForm):
     }))
   const lockObjectIds = execution.lockObjectIds ?? preview.lockObjectIds
   const resultLabel = execution.resultLabel ?? productionChangeResultLabels[execution.result ?? preview.result]
+  const statusNotice = isIdle
+    ? `
+      <section class="rounded-md border bg-muted/20 px-4 py-3 text-sm">
+        <p class="font-medium">当前尚未执行，变更尚未正式生效。</p>
+        <p class="mt-1 text-muted-foreground">确认执行后，系统会在同一次操作内锁定处理范围并返回最终结果。</p>
+      </section>
+    `
+    : isRunning
+      ? `
+        <section class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p class="font-medium">${escapeHtml(getProductionChangeLockMessage())}</p>
+          <p class="mt-1">执行期间，处理范围内的生产单和关联单据只能查看。</p>
+        </section>
+      `
+      : isDone
+        ? `
+          <section class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+            执行完成，锁定已释放
+          </section>
+        `
+        : `
+          <section class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
+            已全部回滚，锁定已释放，本次没有生效
+          </section>
+        `
 
   return `
     <div class="space-y-6" data-production-change-execution>
@@ -782,7 +807,6 @@ export function renderProductionChangeExecutionStep(form: ProductionChangeForm):
         <p class="text-xs font-medium text-muted-foreground">第四步</p>
         <h2 class="mt-1 text-lg font-semibold">同步执行</h2>
         <p class="mt-2 text-sm font-medium">全部成功才生效</p>
-        <p class="mt-1 text-sm text-muted-foreground">当前进度尚未正式生效，请等待最终处理结果。</p>
       </header>
 
       <section class="grid gap-3 md:grid-cols-3" aria-label="执行前核对">
@@ -800,10 +824,7 @@ export function renderProductionChangeExecutionStep(form: ProductionChangeForm):
         </div>
       </section>
 
-      <section class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        <p class="font-medium">${escapeHtml(getProductionChangeLockMessage())}</p>
-        <p class="mt-1">执行期间，处理范围内的生产单和关联单据只能查看。</p>
-      </section>
+      ${statusNotice}
 
       ${isIdle || isRunning ? '' : `
         <section class="border-y py-4" aria-label="最终执行结果">

@@ -1850,9 +1850,8 @@ assert.ok(executionHtml.includes('data-production-change-execution'), '同步执
 ;[
   '同步执行',
   '全部成功才生效',
-  '当前进度尚未正式生效，请等待最终处理结果。',
-  '生产单正在变更，请稍后再试',
-  '执行期间，处理范围内的生产单和关联单据只能查看。',
+  '当前尚未执行，变更尚未正式生效。',
+  '确认执行后，系统会在同一次操作内锁定处理范围并返回最终结果。',
   '锁定处理范围',
   '最后核对当前事实',
   '执行全部处理动作',
@@ -1862,6 +1861,8 @@ assert.ok(executionHtml.includes('data-production-change-execution'), '同步执
 ].forEach((text) => {
   assert.ok(executionHtml.includes(text), `同步执行步骤缺少「${text}」`)
 })
+assert.ok(!executionHtml.includes('生产单正在变更，请稍后再试'), 'IDLE 不得显示正在变更锁提示')
+assert.ok(!executionHtml.includes('只能查看'), 'IDLE 不得声称处理范围当前只读锁定')
 assert.ok(executionHtml.includes('data-prod-action="execute-production-change"'), '执行前必须显示确认执行主按钮')
 assert.ok(executionHtml.includes('>确认执行</button>'), '执行前主按钮文案必须为确认执行')
 assert.ok(
@@ -1872,6 +1873,12 @@ assert.ok(
 const runningForm = createProductionChangeForm()
 runningForm.execution.status = 'RUNNING'
 const runningExecutionHtml = renderProductionChangeFormBody('execution', runningForm)
+assert.ok(runningExecutionHtml.includes('生产单正在变更，请稍后再试'), 'RUNNING 必须显示精确锁提示')
+assert.ok(
+  runningExecutionHtml.includes('执行期间，处理范围内的生产单和关联单据只能查看。'),
+  'RUNNING 必须说明处理范围只能查看',
+)
+assert.ok(!runningExecutionHtml.includes('当前尚未执行'), 'RUNNING 不得显示 IDLE 预执行说明')
 assert.match(
   runningExecutionHtml,
   /data-prod-action="execute-production-change"[\s\S]*?disabled/,
@@ -1890,16 +1897,27 @@ const renderExecutionState = (
 
 const doneExecutionHtml = renderExecutionState('PRODUCTION_PATCH', successfulExecution)
 assert.ok(doneExecutionHtml.includes('全部处理成功并已统一生效。'), '成功后必须展示成功 message')
+assert.ok(doneExecutionHtml.includes('执行完成，锁定已释放'), 'DONE 必须说明执行完成且锁已释放')
 assert.ok(doneExecutionHtml.includes('100%'), '成功后必须展示 100%')
 assert.ok(!doneExecutionHtml.includes('data-prod-action="execute-production-change"'), '成功后不得显示执行主按钮')
+;['当前尚未执行', '尚未正式生效', '生产单正在变更，请稍后再试', '只能查看', '待执行'].forEach((text) => {
+  assert.ok(!doneExecutionHtml.includes(text), `DONE 不得显示「${text}」`)
+})
 
 const rolledBackExecutionHtml = renderExecutionState('VERSION_RELATION', failedExecution)
 assert.ok(rolledBackExecutionHtml.includes('执行失败，本次没有修改任何单据。'), '回滚后必须展示失败 message')
+assert.ok(
+  rolledBackExecutionHtml.includes('已全部回滚，锁定已释放，本次没有生效'),
+  'ROLLED_BACK 必须说明全部回滚、释放锁且未生效',
+)
 assert.ok(rolledBackExecutionHtml.includes('>重新执行</button>'), '回滚后必须允许同步重新执行')
 assert.ok(
   rolledBackExecutionHtml.includes('data-prod-action="execute-production-change"'),
   '回滚后的重新执行必须复用正式执行 action',
 )
+;['当前尚未执行', '尚未正式生效', '生产单正在变更，请稍后再试', '只能查看', '待执行'].forEach((text) => {
+  assert.ok(!rolledBackExecutionHtml.includes(text), `ROLLED_BACK 不得显示「${text}」`)
+})
 
 const versionAndPatchHtml = renderExecutionState('VERSION_AND_PATCH', {
   ...successfulExecution,
