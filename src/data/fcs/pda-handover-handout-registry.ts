@@ -10,9 +10,7 @@ export function installCompleteHandoutReaders(
   headReader: () => PdaHandoverHead[],
   recordReader: (handoverId: string) => PdaHandoverRecord[],
 ): void {
-  if ((listCompleteHeads && listCompleteHeads !== headReader) || (listCompleteRecords && listCompleteRecords !== recordReader)) {
-    throw new Error('交出单完整只读来源已安装，不可重复覆盖')
-  }
+  // HMR 后 PDA 模块会提供新的 reader 引用；registry 保持单例并切换到最新来源。
   listCompleteHeads = headReader
   listCompleteRecords = recordReader
 }

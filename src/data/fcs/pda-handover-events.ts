@@ -430,6 +430,7 @@ export interface PdaHandoverRecord {
   factoryProofFiles: HandoverProofFile[]
   status: HandoverRecordStatus
   handoverRecordStatus?: HandoverRecordLifecycleStatus
+  // 生命周期版本时间：任何现有接收方实收回写都必须同步推进，用于按时点选择最新事实版本。
   lifecycleUpdatedAt?: string
   handoverRecordQrValue?: string
   warehouseReturnNo?: string

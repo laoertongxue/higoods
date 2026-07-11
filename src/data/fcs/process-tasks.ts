@@ -248,6 +248,9 @@ export interface ProcessTask {
   isSplitResult?: boolean
   isSplitSource?: boolean
   executionEnabled?: boolean
+  historicalAssignment?: boolean
+  replacedByRuntimeTaskId?: string
+  reassignedAt?: string
   defaultDocType?: 'DEMAND' | 'TASK'
   taskTypeMode?: 'PROCESS' | 'CRAFT'
   isSpecialCraft?: boolean

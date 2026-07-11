@@ -1,5 +1,5 @@
 import { appStore } from '../state/store'
-import { escapeHtml, toClassName } from '../utils'
+import { escapeCssSelectorValue, escapeHtml, toClassName } from '../utils'
 import { type ProcessTask } from '../data/fcs/process-tasks'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store'
 import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data'
@@ -641,7 +641,8 @@ function scheduleTaskFocus(taskId: string | null): void {
   if (lastFocusedTaskToken === focusToken) return
   lastFocusedTaskToken = focusToken
   window.requestAnimationFrame(() => {
-    const card = document.querySelector<HTMLElement>(`[data-pda-cutting-task-card-id="${taskId}"]`)
+    const safeTaskId = escapeCssSelectorValue(taskId)
+    const card = document.querySelector<HTMLElement>(`[data-pda-cutting-task-card-id="${safeTaskId}"]`)
     card?.scrollIntoView({ block: 'center' })
   })
 }

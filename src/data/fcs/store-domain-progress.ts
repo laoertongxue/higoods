@@ -18,6 +18,7 @@ import {
   getRuntimeTaskById,
   isRuntimeTaskExecutionTask,
   listRuntimeExecutionTasks,
+  listRuntimeProcessTasks,
   listRuntimeTasksByBaseTaskId,
   type RuntimeProcessTask,
 } from './runtime-process-tasks.ts'
@@ -44,9 +45,11 @@ import {
   getPdaPickupRecordsByHead,
 } from './pda-handover-events.ts'
 import {
+  getSewingDeliverySlaView,
   listSewingDeliverySlaViews,
   type SewingDeliverySlaView,
 } from './sewing-delivery-sla-view.ts'
+import { listAllSewingDeliverySlaSnapshots } from './sewing-delivery-sla.ts'
 
 // =============================================
 // ExceptionCase 相关
@@ -845,6 +848,47 @@ export interface ProgressFact {
       | 'WAIT_EXECUTION_DOC'
     reasonText: string
   }
+}
+
+export interface HistoricalSewingAssignmentProgressFact {
+  historical: true
+  runtimeTaskId: string
+  productionOrderId: string
+  factoryId: string
+  factoryName: string
+  assignedQty: number
+  replacedByAssignmentId: string
+  replacedByRuntimeTaskId?: string
+  reassignedAt?: string
+  sewingDeliverySla: SewingDeliverySlaView
+}
+
+export function listHistoricalSewingAssignmentProgressFacts(): HistoricalSewingAssignmentProgressFact[] {
+  const snapshots = listAllSewingDeliverySlaSnapshots()
+  const snapshotByAssignmentId = new Map(snapshots.map((snapshot) => [snapshot.assignmentId, snapshot]))
+  const inactiveTaskIds = new Set(
+    listRuntimeProcessTasks()
+      .filter((task) => task.executionEnabled === false)
+      .map((task) => task.taskId),
+  )
+  return snapshots.flatMap((snapshot) => {
+    if (snapshot.active || !snapshot.replacedByAssignmentId || !inactiveTaskIds.has(snapshot.runtimeTaskId)) return []
+    const sewingDeliverySla = getSewingDeliverySlaView(snapshot.runtimeTaskId)
+    if (!sewingDeliverySla) return []
+    const replacement = snapshotByAssignmentId.get(snapshot.replacedByAssignmentId)
+    return [{
+      historical: true as const,
+      runtimeTaskId: snapshot.runtimeTaskId,
+      productionOrderId: snapshot.productionOrderId,
+      factoryId: snapshot.factoryId,
+      factoryName: snapshot.factoryName,
+      assignedQty: snapshot.assignedQty,
+      replacedByAssignmentId: snapshot.replacedByAssignmentId,
+      replacedByRuntimeTaskId: replacement?.runtimeTaskId,
+      reassignedAt: replacement?.acceptedAt,
+      sewingDeliverySla,
+    }]
+  })
 }
 
 export interface ProgressMaterialIssueRow {

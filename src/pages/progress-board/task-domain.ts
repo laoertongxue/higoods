@@ -553,6 +553,9 @@ function renderHandoverTab(task: ProcessTask): string {
 }
 
 function renderTaskActionMenu(task: ProcessTask): string {
+  if (task.historicalAssignment) {
+    return renderBadge('已改派（历史）', 'border-slate-300 bg-slate-100 text-slate-700')
+  }
   const isOpen = state.taskActionMenuId === task.taskId
   const po = task.productionOrderId
 
@@ -655,6 +658,7 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
                             <div class="space-y-1 text-xs">
                               <div class="font-medium">${escapeHtml(getTaskDisplayName(task))}</div>
                               <div class="text-muted-foreground">${escapeHtml(PROCESS_STAGE_GROUP_LABEL[getTaskStageGroup(task.stage)])} · ${task.qty} ${escapeHtml(qtyUnit)}</div>
+                              ${task.historicalAssignment ? `<div>${renderBadge('已改派（历史）', 'border-slate-300 bg-slate-100 text-slate-700')}</div><div class="text-muted-foreground">改派至：${escapeHtml(task.replacedByRuntimeTaskId || '新任务待核对')} · ${escapeHtml(task.reassignedAt || '时间待核对')}</div>` : ''}
                               <div class="text-muted-foreground">工序节点：${escapeHtml(stageLabels[task.stage])}</div>
                               <div class="flex flex-wrap gap-1">
                                 ${
@@ -666,23 +670,23 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
                               </div>
                             </div>
                           </td>
-                          <td class="px-3 py-2">${renderPlatformStatusCell(task)}</td>
+                          <td class="px-3 py-2">${task.historicalAssignment ? renderBadge('历史只读', 'border-slate-300 bg-slate-100 text-slate-700') : renderPlatformStatusCell(task)}</td>
                           <td class="px-3 py-2">
                             <div class="space-y-1 text-xs">
-                              <div>${escapeHtml(platformSummary.riskLabel)}</div>
-                              ${renderTaskRiskBadges(risks)}
+                              <div>${escapeHtml(task.historicalAssignment ? '不参与当前风险判断' : platformSummary.riskLabel)}</div>
+                              ${task.historicalAssignment ? '' : renderTaskRiskBadges(risks)}
                             </div>
                           </td>
                           <td class="px-3 py-2">
                             <div class="max-w-[180px] space-y-1 text-xs">
-                              <div class="font-medium">${escapeHtml(platformSummary.actionHint)}</div>
+                              <div class="font-medium">${escapeHtml(task.historicalAssignment ? '查看历史履约' : platformSummary.actionHint)}</div>
                               ${platformSummary.followUpActionLabel ? `<div class="text-muted-foreground">跟单：${escapeHtml(platformSummary.followUpActionLabel)}</div>` : ''}
                             </div>
                           </td>
                           <td class="px-3 py-2">
                             <div class="max-w-[160px] space-y-1 text-xs">
                               <div>${escapeHtml(platformSummary.ownerHint)}</div>
-                              <div class="truncate text-muted-foreground">${escapeHtml(factory?.name ?? (task.assignmentStatus === 'BIDDING' ? '待定标' : '-'))}</div>
+                              <div class="truncate text-muted-foreground">${escapeHtml(task.assignedFactoryName ?? factory?.name ?? (task.assignmentStatus === 'BIDDING' ? '待定标' : '-'))}</div>
                             </div>
                           </td>
                           <td class="px-3 py-2">
@@ -839,6 +843,8 @@ function resolveDetailTab(task: ProcessTask): TaskTabKey {
     state.taskDetailTab = requestedTab
   }
 
+  if (task.historicalAssignment && !['basic', 'handover', 'logs'].includes(state.taskDetailTab)) return 'basic'
+
   return task.status === 'BLOCKED'
     ? state.taskDetailTab
     : state.taskDetailTab === 'block'
@@ -875,6 +881,7 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
   const outputValue = resolveTaskOutputValueSnapshot(task)
   const platformStatus = getPlatformStatusForRuntimeTask(task)
   const activeTab = resolveDetailTab(task)
+  const historicalSlaView = task.historicalAssignment ? getSewingDeliverySlaView(task.taskId) : null
 
   return `
     <div class="space-y-4" data-progress-task-detail-page="true">
@@ -885,7 +892,7 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
           </button>
           <h1 class="flex items-center gap-2 text-xl font-semibold">
             任务详情
-            ${renderBadge(platformStatus.platformStatusLabel, PLATFORM_PROCESS_STATUS_CLASS[platformStatus.platformStatusLabel])}
+            ${task.historicalAssignment ? renderBadge('已改派（历史）', 'border-slate-300 bg-slate-100 text-slate-700') : renderBadge(platformStatus.platformStatusLabel, PLATFORM_PROCESS_STATUS_CLASS[platformStatus.platformStatusLabel])}
           </h1>
           <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(task.taskId)} · ${escapeHtml(getTaskDisplayName(task))}</p>
         </div>
@@ -898,11 +905,17 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
           </button>
         </div>
       </header>
+      ${task.historicalAssignment ? `
+        <section class="space-y-3 rounded-lg border border-slate-300 bg-slate-50 p-4" data-historical-sewing-assignment="true">
+          <div class="flex flex-wrap items-center justify-between gap-2"><div><h2 class="font-semibold text-slate-800">已改派（历史）</h2><p class="mt-1 text-xs text-slate-600">该记录仅供追溯，不计入进行中/逾期 KPI，也不允许继续执行。</p></div>${renderBadge('历史只读', 'border-slate-300 bg-white text-slate-700')}</div>
+          <div class="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4"><div><span class="text-muted-foreground">旧任务：</span>${escapeHtml(task.taskId)}</div><div><span class="text-muted-foreground">旧工厂：</span>${escapeHtml(task.assignedFactoryName || factory?.name || task.assignedFactoryId || '-')}</div><div><span class="text-muted-foreground">改派后任务：</span>${escapeHtml(task.replacedByRuntimeTaskId || '-')}</div><div><span class="text-muted-foreground">改派时间：</span>${escapeHtml(task.reassignedAt || '-')}</div></div>
+          <p class="text-xs text-slate-600">主管复核责任：如节点存在接收确认延迟，可直接在下方对应节点进入复核并查看复核历史。</p>
+          ${renderSewingDeliverySlaDetail(historicalSlaView, formatQtyUnit(task.qtyUnit))}
+        </section>
+      ` : ''}
       <nav class="flex flex-wrap gap-1 rounded-lg border bg-card p-1 text-sm" data-progress-task-tabs="true">
         <button class="rounded px-2 py-1 ${activeTab === 'basic' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="basic" data-fast-page-render="true">基本信息</button>
-        <button class="rounded px-2 py-1 ${activeTab === 'assignment' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="assignment" data-fast-page-render="true">分配信息</button>
-        <button class="rounded px-2 py-1 ${activeTab === 'progress' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="progress" data-fast-page-render="true">进度操作</button>
-        <button class="rounded px-2 py-1 ${activeTab === 'pickup' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="pickup" data-fast-page-render="true">领料情况</button>
+        ${task.historicalAssignment ? '' : `<button class="rounded px-2 py-1 ${activeTab === 'assignment' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="assignment" data-fast-page-render="true">分配信息</button><button class="rounded px-2 py-1 ${activeTab === 'progress' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="progress" data-fast-page-render="true">进度操作</button><button class="rounded px-2 py-1 ${activeTab === 'pickup' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="pickup" data-fast-page-render="true">领料情况</button>`}
         <button class="rounded px-2 py-1 ${activeTab === 'handover' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}" data-progress-action="switch-task-tab" data-tab="handover" data-fast-page-render="true">交出情况</button>
         ${
           task.status === 'BLOCKED'
@@ -938,19 +951,19 @@ function renderProgressTaskDetailPage(taskIdParam = ''): string {
                   </div>
                   <div>
                     <p class="text-xs text-muted-foreground">平台状态</p>
-                    <div class="mt-1">${renderBadge(platformStatus.platformStatusLabel, PLATFORM_PROCESS_STATUS_CLASS[platformStatus.platformStatusLabel])}</div>
+                    <div class="mt-1">${task.historicalAssignment ? renderBadge('历史只读', 'border-slate-300 bg-slate-100 text-slate-700') : renderBadge(platformStatus.platformStatusLabel, PLATFORM_PROCESS_STATUS_CLASS[platformStatus.platformStatusLabel])}</div>
                   </div>
                   <div>
                     <p class="text-xs text-muted-foreground">工厂内部状态</p>
-                    <p>${escapeHtml(TASK_STATUS_LABEL[task.status])}</p>
+                    <p>${escapeHtml(task.historicalAssignment ? '已停止执行' : TASK_STATUS_LABEL[task.status])}</p>
                   </div>
                   <div>
                     <p class="text-xs text-muted-foreground">风险提示</p>
-                    <p>${escapeHtml(platformStatus.platformRiskLabel)}</p>
+                    <p>${escapeHtml(task.historicalAssignment ? '不参与当前风险判断' : platformStatus.platformRiskLabel)}</p>
                   </div>
                   <div>
                     <p class="text-xs text-muted-foreground">下一步动作</p>
-                    <p>${escapeHtml(platformStatus.platformActionHint)}</p>
+                    <p>${escapeHtml(task.historicalAssignment ? '查看历史履约' : platformStatus.platformActionHint)}</p>
                   </div>
                   <div>
                     <p class="text-xs text-muted-foreground">任务对象与单位</p>
