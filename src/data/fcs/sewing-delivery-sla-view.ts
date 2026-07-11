@@ -5,6 +5,7 @@ import {
   projectSewingDeliverySla,
   type SewingDeliverySlaProjection,
   type SewingDeliverySlaSnapshot,
+  type SewingDeliveryReceiptFact,
 } from './sewing-delivery-sla.ts'
 import { getRuntimeTaskById, listRuntimeExecutionTasks } from './runtime-process-tasks.ts'
 import {
@@ -13,7 +14,6 @@ import {
   listPdaHandoverHeads,
   type PdaHandoverRecord,
 } from './pda-handover-events.ts'
-import { listSewingDeliveryReceiptFacts } from './sewing-delivery-receipt-facts.ts'
 
 export interface SewingDeliverySlaView {
   readonly runtimeTaskId: string
@@ -28,6 +28,13 @@ function isVoided(record: PdaHandoverRecord): boolean {
 
 function validNonNegativeQty(value: number | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
+}
+
+function toReceiptFact(record: PdaHandoverRecord): SewingDeliveryReceiptFact | null {
+  const submittedQty = validNonNegativeQty(record.submittedQty ?? record.plannedQty)
+  const receivedQty = validNonNegativeQty(record.receiverWrittenQty)
+  if (submittedQty === null || receivedQty === null || !record.receiverWrittenAt) return null
+  return { recordId: record.handoverRecordId || record.recordId, submittedQty, submittedAt: record.factorySubmittedAt, receivedQty, receivedAt: record.receiverWrittenAt, voided: isVoided(record) }
 }
 
 function listTaskHandoutRecords(runtimeTaskId: string): PdaHandoverRecord[] {
@@ -45,7 +52,7 @@ function buildView(
     if (isVoided(record)) return sum
     return sum + (validNonNegativeQty(record.submittedQty ?? record.plannedQty) ?? 0)
   }, 0)
-  const receipts = listSewingDeliveryReceiptFacts(runtimeTaskId)
+  const receipts = records.map(toReceiptFact).filter((receipt): receipt is SewingDeliveryReceiptFact => receipt !== null)
   const projection = projectSewingDeliverySla(snapshot, receipts, nowAt)
 
   return Object.freeze({

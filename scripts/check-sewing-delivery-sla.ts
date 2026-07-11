@@ -31,6 +31,7 @@ import {
 import { reassignRuntimeSewingTask } from '../src/data/fcs/runtime-sewing-reassignment.ts'
 import { sumSewingDeliveryConfirmedReceiptQty } from '../src/data/fcs/sewing-delivery-receipt-facts.ts'
 import { listSewingFactoryOptions } from '../src/data/fcs/sewing-dispatch-workbench.ts'
+import { installRuntimeTaskReadResolver, readRuntimeTaskById } from '../src/data/fcs/runtime-task-read-bridge.ts'
 import {
   confirmDirectDispatch,
   openDispatchDialog,
@@ -53,13 +54,15 @@ import {
   restoreSewingDispatchWorkbenchPageState,
 } from '../src/pages/sewing-dispatch-workbench.ts'
 import { listBusinessFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
-import { productionOrders, registerProductionOrderSewingFactory, selectProductionOrderMainFactory, withdrawProductionOrderSewingFactory } from '../src/data/fcs/production-orders.ts'
+import { productionOrders, listProductionOrderSewingFactories, registerProductionOrderSewingFactory, selectProductionOrderMainFactory, withdrawProductionOrderSewingFactory } from '../src/data/fcs/production-orders.ts'
 import {
   getSewingDeliverySlaView,
   listSewingDeliverySlaViews,
 } from '../src/data/fcs/sewing-delivery-sla-view.ts'
 import {
   capturePdaHandoverState,
+  getPdaHandoverRecordsByHead,
+  listPdaHandoverHeads,
   restorePdaHandoverState,
   upsertPdaHandoverHeadMock,
   upsertPdaHandoutRecordMock,
@@ -2423,6 +2426,35 @@ assert.deepEqual(
   '履约视图测试结束后必须恢复快照仓，避免污染后续检查',
 )
 
+const seedParitySlaState = captureSewingDeliverySlaSnapshotStore()
+const seedParityRuntimeState = captureRuntimeDirectDispatchState()
+try {
+  const additionHeadIds = new Set(capturePdaHandoverState().handoverHeadAdditions.map(([headId]) => headId))
+  const seedHead = listPdaHandoverHeads().find((head) => {
+    if (head.headType !== 'HANDOUT' || additionHeadIds.has(head.handoverId)) return false
+    const receivedRecords = getPdaHandoverRecordsByHead(head.handoverId).filter((record) => typeof record.receiverWrittenQty === 'number' && record.receiverWrittenAt)
+    return receivedRecords.length > 0 && receivedRecords.every((record) => record.taskId === head.taskId && (record.handoverRecordStatus === 'WRITTEN_BACK_MATCHED' || record.handoverRecordStatus === 'DIFF_ACCEPTED') && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(record.factorySubmittedAt) && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(record.receiverWrittenAt ?? ''))
+  })
+  assert(seedHead, '完整只读registry回归需要一个非addition来源的已确认seed交出记录')
+  {
+    let seedTask = getRuntimeTaskById(seedHead.taskId)
+    if (!seedTask || classifySewingDeliverySla(seedTask) === null) {
+      const base = listRuntimeProcessTasks().find((task) => classifySewingDeliverySla(task) === 'INDEPENDENT_SEWING')!
+      const fixture = captureRuntimeDirectDispatchState()
+      fixture.reassignedTasks.push([seedHead.taskId, { ...structuredClone(base), taskId: seedHead.taskId, taskNo: seedHead.taskNo || seedHead.taskId, productionOrderId: seedHead.productionOrderNo, assignedFactoryId: seedHead.factoryId, assignedFactoryName: seedHead.sourceFactoryName, acceptanceStatus: 'ACCEPTED', executionEnabled: true }])
+      restoreRuntimeDirectDispatchState(fixture)
+      seedTask = getRuntimeTaskById(seedHead.taskId)
+    }
+    assert(seedTask)
+    clearSewingDeliverySlaSnapshotStore(seedTask.taskId)
+    saveSewingDeliverySlaSnapshot(createSewingDeliverySlaSnapshot({ assignmentId: `SEED-PARITY-${seedTask.taskId}`, runtimeTaskId: seedTask.taskId, productionOrderId: seedTask.productionOrderId, factoryId: seedTask.assignedFactoryId ?? 'SEED-F', factoryName: seedTask.assignedFactoryName ?? 'Seed工厂', assignedQty: seedTask.scopeQty, acceptedAt: '2026-07-01 08:00:00', slaKind: classifySewingDeliverySla(seedTask)! }))
+    assert.equal(sumSewingDeliveryConfirmedReceiptQty(seedTask.taskId), getSewingDeliverySlaView(seedTask.taskId, '2026-07-10 10:00:00')?.confirmedReceivedQty, '现有seed完整交出事实必须在改派adapter与Task6视图中一致')
+  }
+} finally {
+  restoreRuntimeDirectDispatchState(seedParityRuntimeState)
+  restoreSewingDeliverySlaSnapshotStore(seedParitySlaState)
+}
+
 const reassignmentRuntimeState = captureRuntimeDirectDispatchState()
 const reassignmentSlaState = captureSewingDeliverySlaSnapshotStore()
 const reassignmentHandoverState = capturePdaHandoverState()
@@ -2431,6 +2463,23 @@ try {
   assert(sourceBase, '改派测试需要固定独立车缝任务')
   clearSewingDeliverySlaSnapshotStore(sourceBase.taskId)
   assert(applyRuntimeDirectDispatchMeta({ taskId: sourceBase.taskId, factoryId: 'ID-F003', factoryName: '万隆车缝厂', acceptDeadline: '', taskDeadline: '2026-07-20 18:00:00', remark: '改派测试前派单', by: '跟单A', dispatchPrice: 12000, dispatchPriceCurrency: 'IDR', dispatchPriceUnit: '件', priceDiffReason: '', businessAssignedAt: '2026-07-01 08:00:00', operatedAt: '2026-07-01 10:00:00', writeBackMainFactory: false }))
+  const executionFixtureState = captureRuntimeDirectDispatchState()
+  const sourceOverrideIndex = executionFixtureState.taskOverrides.findIndex(([taskId]) => taskId === sourceBase.taskId)
+  executionFixtureState.taskOverrides[sourceOverrideIndex][1] = { ...executionFixtureState.taskOverrides[sourceOverrideIndex][1], status: 'BLOCKED', startedAt: '2026-07-02 08:00:00', finishedAt: '2026-07-03 18:00:00', blockReason: 'MATERIAL', blockRemark: '旧任务暂停结果', blockedAt: '2026-07-02 12:00:00', startHeadcount: 12, milestoneStatus: 'REPORTED', milestoneReportedQty: 99, handoverStatus: 'COMPLETED' }
+  const downstreamBase = listRuntimeProcessTasks().find((task) => task.taskId !== sourceBase.taskId)!
+  const downstreamFixture = { ...structuredClone(downstreamBase), taskId: 'TEST-REASSIGN-DOWNSTREAM', taskNo: 'TEST-REASSIGN-DOWNSTREAM', productionOrderId: sourceBase.productionOrderId, dependsOnTaskIds: [sourceBase.taskId, 'OTHER-UPSTREAM', sourceBase.taskId], baseDependsOnTaskIds: [], executionEnabled: true }
+  executionFixtureState.reassignedTasks.push([downstreamFixture.taskId, downstreamFixture])
+  const excludedCandidates = [
+    { id: 'TEST-CANCELLED-CANDIDATE', factoryId: 'ID-F024', factoryName: '取消任务工厂', status: 'CANCELLED' as const, acceptanceStatus: 'ACCEPTED' as const, withSnapshot: true },
+    { id: 'TEST-PENDING-CANDIDATE', factoryId: 'ID-F013', factoryName: '未接单工厂', status: 'NOT_STARTED' as const, acceptanceStatus: 'PENDING' as const, withSnapshot: true },
+    { id: 'TEST-NO-SNAPSHOT-CANDIDATE', factoryId: 'KOL-GOTO-001', factoryName: '无快照工厂', status: 'NOT_STARTED' as const, acceptanceStatus: 'ACCEPTED' as const, withSnapshot: false },
+  ]
+  excludedCandidates.forEach((candidate) => executionFixtureState.reassignedTasks.push([candidate.id, { ...structuredClone(sourceBase), taskId: candidate.id, taskNo: candidate.id, productionOrderId: sourceBase.productionOrderId, assignedFactoryId: candidate.factoryId, assignedFactoryName: candidate.factoryName, status: candidate.status, acceptanceStatus: candidate.acceptanceStatus, executionEnabled: true }]))
+  restoreRuntimeDirectDispatchState(executionFixtureState)
+  excludedCandidates.forEach((candidate) => {
+    registerProductionOrderSewingFactory({ productionOrderId: sourceBase.productionOrderId, factoryId: candidate.factoryId, factoryName: candidate.factoryName, by: '测试员', at: '2026-07-07 10:00:00' })
+    if (candidate.withSnapshot) saveSewingDeliverySlaSnapshot(createSewingDeliverySlaSnapshot({ assignmentId: `CANDIDATE-${candidate.id}`, runtimeTaskId: candidate.id, productionOrderId: sourceBase.productionOrderId, factoryId: candidate.factoryId, factoryName: candidate.factoryName, assignedQty: sourceBase.scopeQty, acceptedAt: '2026-07-01 08:00:00', slaKind: 'INDEPENDENT_SEWING' }))
+  })
   const source = getRuntimeTaskById(sourceBase.taskId)
   assert(source?.assignedFactoryId, '改派测试需要已派单的独立车缝任务')
   const sourceSnapshot = getSewingDeliverySlaSnapshot(source.taskId)
@@ -2439,7 +2488,10 @@ try {
   upsertPdaHandoverHeadMock({
     handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, handoverOrderNo: 'HDO-REASSIGN', headType: 'HANDOUT', qrCodeValue: 'QR-REASSIGN', taskId: source.taskId, taskNo: source.taskNo || source.taskId, productionOrderNo: source.productionOrderId, processName: source.processNameZh, sourceFactoryName: source.assignedFactoryName!, sourceFactoryId: source.assignedFactoryId, targetName: '成衣仓', targetKind: 'WAREHOUSE', receiverKind: 'WAREHOUSE', receiverId: 'WH-REASSIGN', receiverName: '成衣仓', qtyUnit: '件', factoryId: source.assignedFactoryId, taskStatus: 'IN_PROGRESS', summaryStatus: 'WRITTEN_BACK', recordCount: 1, pendingWritebackCount: 0, submittedQtyTotal: 30, writtenBackQtyTotal: 30, objectionCount: 0, plannedQty: source.scopeQty, completionStatus: 'OPEN', qtyExpectedTotal: source.scopeQty, qtyActualTotal: 30, qtyDiffTotal: 30 - source.scopeQty,
   })
-  upsertPdaHandoutRecordMock({ recordId: 'REC-REASSIGN-30', handoverRecordId: 'REC-REASSIGN-30', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 1, submittedQty: 30, plannedQty: 30, qtyUnit: '件', factorySubmittedAt: '2026-07-07 08:00:00', factorySubmittedBy: '工厂操作员', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK', receiverWrittenQty: 30, receiverWrittenAt: '2026-07-07 09:00:00', receiverWrittenBy: '仓库收货员' })
+  upsertPdaHandoutRecordMock({ recordId: 'REC-REASSIGN-30', handoverRecordId: 'REC-REASSIGN-30', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 1, submittedQty: 30, plannedQty: 30, qtyUnit: '件', factorySubmittedAt: '2026-07-07 08:00:00', factorySubmittedBy: '工厂操作员', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK_MATCHED', receiverWrittenQty: 30, receiverWrittenAt: '2026-07-07 09:00:00', receiverWrittenBy: '仓库收货员' })
+  upsertPdaHandoutRecordMock({ recordId: 'REC-WRONG-TASK', handoverRecordId: 'REC-WRONG-TASK', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: 'WRONG-TASK', sourceTaskId: source.taskId, sequenceNo: 8, submittedQty: 99, plannedQty: 99, qtyUnit: '件', factorySubmittedAt: '2026-07-07 08:00:00', factorySubmittedBy: '工厂', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK_MATCHED', receiverWrittenQty: 99, receiverWrittenAt: '2026-07-07 09:00:00', receiverWrittenBy: '仓库' })
+  upsertPdaHandoutRecordMock({ recordId: 'REC-WAIT-DIFF', handoverRecordId: 'REC-WAIT-DIFF', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 9, submittedQty: 88, plannedQty: 88, qtyUnit: '件', factorySubmittedAt: '2026-07-07 08:00:00', factorySubmittedBy: '工厂', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK_DIFF', receiverWrittenQty: 88, receiverWrittenAt: '2026-07-07 09:00:00', receiverWrittenBy: '仓库' })
+  assert.equal(sumSewingDeliveryConfirmedReceiptQty(source.taskId), 30, '错挂taskId及差异待确认记录不得计入确认实收')
   const beforeFuture = captureRuntimeDirectDispatchState()
   assert.equal(reassignRuntimeSewingTask({ sourceTaskId: source.taskId, targetFactoryId: source.assignedFactoryId, targetFactoryName: source.assignedFactoryName!, businessAssignedAt: '2026-07-08 09:00:00', operatedAt: '2026-07-08 10:00:00', reason: '同厂测试', by: '跟单A' }).ok, false, '同工厂改派必须阻断')
   assert.deepEqual(captureRuntimeDirectDispatchState(), beforeFuture, '同工厂改派失败不得产生状态')
@@ -2472,8 +2524,19 @@ try {
   assert.equal(replacement?.assignedQty, result.assignedQty)
   assert.equal(getRuntimeTaskById(source.taskId)?.executionEnabled, false, '旧任务保留历史但退出有效执行')
   assert.equal(getRuntimeTaskById(result.taskId)?.assignedFactoryId, 'ID-F007')
+  const resetTask = getRuntimeTaskById(result.taskId)!
+  assert.equal(resetTask.status, 'NOT_STARTED')
+  assert.equal(resetTask.startedAt, undefined)
+  assert.equal(resetTask.finishedAt, undefined)
+  assert.equal(resetTask.blockReason, undefined)
+  assert.equal(resetTask.blockedAt, undefined)
+  assert.equal(resetTask.milestoneReportedQty, undefined)
+  assert.equal(resetTask.handoverStatus, 'NOT_CREATED')
+  assert.deepEqual(getRuntimeTaskById(downstreamFixture.taskId)?.dependsOnTaskIds, [result.taskId, 'OTHER-UPSTREAM'], '下游依赖应将旧taskId替换为新taskId并去重保序')
+  const remainingFactoryIds = listProductionOrderSewingFactories(source.productionOrderId).map((factory) => factory.id)
+  excludedCandidates.forEach((candidate) => assert.equal(remainingFactoryIds.includes(candidate.factoryId), false, `${candidate.id} 不得保留为active承接候选`))
   const replacementAssignedQty = replacement?.assignedQty
-  upsertPdaHandoutRecordMock({ recordId: 'REC-REASSIGN-LATE-10', handoverRecordId: 'REC-REASSIGN-LATE-10', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 2, submittedQty: 10, plannedQty: 10, qtyUnit: '件', factorySubmittedAt: '2026-07-08 11:00:00', factorySubmittedBy: '原工厂操作员', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK', receiverWrittenQty: 10, receiverWrittenAt: '2026-07-08 12:00:00', receiverWrittenBy: '仓库收货员' })
+  upsertPdaHandoutRecordMock({ recordId: 'REC-REASSIGN-LATE-10', handoverRecordId: 'REC-REASSIGN-LATE-10', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 2, submittedQty: 10, plannedQty: 10, qtyUnit: '件', factorySubmittedAt: '2026-07-08 11:00:00', factorySubmittedBy: '原工厂操作员', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK_MATCHED', receiverWrittenQty: 10, receiverWrittenAt: '2026-07-08 12:00:00', receiverWrittenBy: '仓库收货员' })
   assert.equal(getSewingDeliverySlaSnapshot(result.taskId)?.assignedQty, replacementAssignedQty, '原任务改派后新增实收不得污染新快照分配量')
   assert.equal(sumSewingDeliveryConfirmedReceiptQty(result.taskId), 0, '原任务后续实收不得计入新 taskId')
   assert.equal(reassignRuntimeSewingTask({ sourceTaskId: source.taskId, targetFactoryId: 'ID-F007', targetFactoryName: '玛琅精工车缝', businessAssignedAt: '2026-07-08 09:00:00', operatedAt: '2026-07-08 10:00:00', reason: '重复', by: '跟单A' }).ok, false, '旧任务不得重复改派')
@@ -2496,15 +2559,20 @@ const sewingWorkbenchReassignmentSource = readFileSync('src/pages/sewing-dispatc
 assert.match(sewingWorkbenchReassignmentSource, /query\.get\('action'\) === 'reassign'/, '独立车缝工作台应读取查询并自动打开改派弹窗')
 assert.match(sewingWorkbenchReassignmentSource, /reassignRuntimeSewingTask\(/, '独立车缝工作台确认改派必须调用统一编排函数')
 assert.match(sewingWorkbenchReassignmentSource, /mainFactoryId: state\.reassignMainFactoryId \|\| undefined/, '独立车缝改派 handler 必须提交页面选择的主工厂')
+assert.equal((sewingWorkbenchReassignmentSource.match(/data-skip-page-rerender="true" data-sewing-dispatch-field="reassign/g) ?? []).length, 4, '独立页改派四个高频字段必须跳过整页重绘以保留输入焦点')
+assert.doesNotMatch(sewingWorkbenchReassignmentSource, /preventDefault\(\)/, '改派字段与点击 handler 不得阻断原生输入/焦点行为')
+assert.match(sewingWorkbenchReassignmentSource, /refreshSewingReassignmentDialog\(\)/, '改派失败只局部刷新弹窗错误区')
 const runtimeProcessTaskSource = readFileSync('src/data/fcs/runtime-process-tasks.ts', 'utf8')
-assert.doesNotMatch(runtimeProcessTaskSource, /export function commitRuntimeSewingTaskReassignment/, '底层 confirmedReceivedQty commit 不得公开导出')
+assert.match(runtimeProcessTaskSource, /export function reassignRuntimeSewingTask/, 'runtime 只公开统一改派入口')
 assert.doesNotMatch(`${continuousReassignmentSource}\n${sewingWorkbenchReassignmentSource}`, /confirmedReceivedQty/, '页面不得传入可伪造的确认实收数量')
 const reassignmentWrapperSource = readFileSync('src/data/fcs/runtime-sewing-reassignment.ts', 'utf8')
-const reassignmentInternalSource = readFileSync('src/data/fcs/runtime-sewing-reassignment-internal.ts', 'utf8')
-assert.match(runtimeProcessTaskSource, /installRuntimeSewingReassignmentCommit\(commitRuntimeSewingTaskReassignment\)/, '仅 runtime 模块可以安装底层改派能力')
-assert.match(reassignmentWrapperSource, /invokeRuntimeSewingReassignmentCommit\(/, '仅公开 wrapper 可以调用底层改派能力')
-assert.doesNotMatch(`${continuousReassignmentSource}\n${sewingWorkbenchReassignmentSource}`, /invokeRuntimeSewingReassignmentCommit|installRuntimeSewingReassignmentCommit/, '业务页面不得绕过公开改派入口调用 internal bridge')
-assert.match(reassignmentInternalSource, /if \(!commit\) throw new Error\('车缝改派运行时能力尚未初始化'\)/, 'internal bridge 必须显式保护初始化时序')
+const runtimeReadBridgeSource = readFileSync('src/data/fcs/runtime-task-read-bridge.ts', 'utf8')
+assert.match(reassignmentWrapperSource, /export \{ reassignRuntimeSewingTask \} from '.\/runtime-process-tasks\.ts'/, '兼容模块只允许重导出统一改派入口')
+assert.match(runtimeProcessTaskSource, /installRuntimeTaskReadResolver/, '仅 runtime 模块安装只读任务解析器')
+assert.match(runtimeReadBridgeSource, /运行时任务只读解析器已安装，不可重复覆盖/, '只读解析器必须拒绝不同实现覆盖')
+assert.doesNotMatch(`${continuousReassignmentSource}\n${sewingWorkbenchReassignmentSource}`, /installRuntimeTaskReadResolver|readRuntimeTaskById/, '业务页面不得接触只读桥')
+assert.equal((readRuntimeTaskById<{ taskId: string }>('TASKGEN-202603-0015-001__ORDER'))?.taskId, 'TASKGEN-202603-0015-001__ORDER', 'runtime初始化后只读桥应返回真实任务')
+assert.throws(() => installRuntimeTaskReadResolver(() => null), /不可重复覆盖/, '只读桥不得被不同resolver重装')
 
 const mainFactoryRuntimeState = captureRuntimeDirectDispatchState()
 try {
@@ -2587,12 +2655,17 @@ try {
   restoreContinuousDispatchPageState({ ...continuousHandlerPageState, dialog: null })
   renderContinuousDispatchPage()
   assert.equal(captureContinuousDispatchPageState().dialog?.taskId, continuousSource.taskId, '连续页应从 query 自动定位任务并打开改派弹窗')
-  Object.defineProperty(globalThis, 'window', { configurable: true, writable: true, value: continuousHandlerOriginalWindow })
-  restoreContinuousDispatchPageState({ ...continuousHandlerPageState, dialog: { mode: 'REASSIGN', taskId: continuousSource.taskId, factoryId: continuousTargetFactory.id, businessAssignedAt: '2026-07-08T09:00', operatedAt: '2026-07-08 10:00:00', biddingDeadline: '', mainFactoryChoice: 'SELECTED', error: '', reason: '连续页面改派测试', mainFactoryId: continuousTargetFactory.id } })
+  const handledQueryKey = captureContinuousDispatchPageState().handledReassignmentQueryKey
+  closeContinuousDispatchDialog()
+  renderContinuousDispatchPage()
+  assert.equal(captureContinuousDispatchPageState().dialog, null, '连续页关闭后再次 render 不得因同一 query 重开')
+  restoreContinuousDispatchPageState({ ...continuousHandlerPageState, handledReassignmentQueryKey: handledQueryKey, dialog: { mode: 'REASSIGN', taskId: continuousSource.taskId, factoryId: continuousTargetFactory.id, businessAssignedAt: '2026-07-08T09:00', operatedAt: '2026-07-08 10:00:00', biddingDeadline: '', mainFactoryChoice: 'SELECTED', error: '', reason: '连续页面改派测试', mainFactoryId: continuousTargetFactory.id } })
   assert.equal(handleContinuousDispatchEvent(continuousActionTarget('confirm-dialog', continuousSource.taskId)), true)
   assert.equal(captureContinuousDispatchPageState().dialog, null, '连续页 handler 成功后应局部关闭改派弹窗')
   assert.match(captureContinuousDispatchPageState().feedback, /已改派给/)
   assert(listRuntimeProcessTasks().some((task) => task.taskId.startsWith(`${continuousSource.taskId}__R`) && task.assignedFactoryId === continuousTargetFactory.id))
+  renderContinuousDispatchPage()
+  assert.equal(captureContinuousDispatchPageState().dialog, null, '连续页改派成功后再次 render 不得重开已消费 query')
 } finally {
   Object.defineProperty(globalThis, 'window', { configurable: true, writable: true, value: continuousHandlerOriginalWindow })
   restoreContinuousDispatchPageState(continuousHandlerPageState)
@@ -2611,7 +2684,7 @@ try {
   restoreRuntimeDirectDispatchState(fixture)
   saveSewingDeliverySlaSnapshot(createSewingDeliverySlaSnapshot({ assignmentId: 'OVER-RECEIVED', runtimeTaskId: completedTask.taskId, productionOrderId: completedTask.productionOrderId, factoryId: 'ID-F003', factoryName: '万隆车缝厂', assignedQty: 10, acceptedAt: '2026-07-01 08:00:00', slaKind: 'INDEPENDENT_SEWING' }))
   upsertPdaHandoverHeadMock({ handoverId: 'HEAD-OVER-RECEIVED', handoverOrderId: 'HEAD-OVER-RECEIVED', handoverOrderNo: 'HDO-OVER', headType: 'HANDOUT', qrCodeValue: 'QR', taskId: completedTask.taskId, taskNo: completedTask.taskNo!, productionOrderNo: completedTask.productionOrderId, processName: completedTask.processNameZh, sourceFactoryName: '万隆车缝厂', sourceFactoryId: 'ID-F003', targetName: '成衣仓', targetKind: 'WAREHOUSE', receiverKind: 'WAREHOUSE', receiverId: 'WH', receiverName: '成衣仓', qtyUnit: '件', factoryId: 'ID-F003', taskStatus: 'IN_PROGRESS', summaryStatus: 'WRITTEN_BACK', recordCount: 1, pendingWritebackCount: 0, submittedQtyTotal: 12, writtenBackQtyTotal: 12, objectionCount: 0, plannedQty: 10, completionStatus: 'COMPLETED', qtyExpectedTotal: 10, qtyActualTotal: 12, qtyDiffTotal: 2 })
-  upsertPdaHandoutRecordMock({ recordId: 'REC-OVER-12', handoverRecordId: 'REC-OVER-12', handoverId: 'HEAD-OVER-RECEIVED', handoverOrderId: 'HEAD-OVER-RECEIVED', taskId: completedTask.taskId, sourceTaskId: completedTask.taskId, sequenceNo: 1, submittedQty: 12, plannedQty: 12, qtyUnit: '件', factorySubmittedAt: '2026-07-02 08:00:00', factorySubmittedBy: '工厂', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK', receiverWrittenQty: 12, receiverWrittenAt: '2026-07-02 09:00:00', receiverWrittenBy: '仓库' })
+  upsertPdaHandoutRecordMock({ recordId: 'REC-OVER-12', handoverRecordId: 'REC-OVER-12', handoverId: 'HEAD-OVER-RECEIVED', handoverOrderId: 'HEAD-OVER-RECEIVED', taskId: completedTask.taskId, sourceTaskId: completedTask.taskId, sequenceNo: 1, submittedQty: 12, plannedQty: 12, qtyUnit: '件', factorySubmittedAt: '2026-07-02 08:00:00', factorySubmittedBy: '工厂', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK_MATCHED', receiverWrittenQty: 12, receiverWrittenAt: '2026-07-02 09:00:00', receiverWrittenBy: '仓库' })
   const beforeCompletedReassign = captureRuntimeDirectDispatchState()
   const completedResult = reassignRuntimeSewingTask({ sourceTaskId: completedTask.taskId, targetFactoryId: 'ID-F007', targetFactoryName: '目标工厂', businessAssignedAt: '2026-07-08 09:00:00', operatedAt: '2026-07-08 10:00:00', reason: '超收后改派测试', by: '跟单A' })
   assert.equal(completedResult.ok, false)
@@ -2621,6 +2694,32 @@ try {
   restorePdaHandoverState(completedReassignHandoverState)
   restoreRuntimeDirectDispatchState(completedReassignRuntimeState)
   restoreSewingDeliverySlaSnapshotStore(completedReassignSlaState)
+}
+
+for (const executionStatus of ['IN_PROGRESS', 'BLOCKED', 'DONE'] as const) {
+  const statusRuntimeState = captureRuntimeDirectDispatchState()
+  const statusSlaState = captureSewingDeliverySlaSnapshotStore()
+  try {
+    const base = listRuntimeProcessTasks().find((task) => classifySewingDeliverySla(task) === 'INDEPENDENT_SEWING')!
+    const taskId = `TEST-REASSIGN-RESET-${executionStatus}`
+    const fixture = captureRuntimeDirectDispatchState()
+    fixture.reassignedTasks.push([taskId, { ...structuredClone(base), taskId, taskNo: taskId, status: executionStatus, assignedFactoryId: 'ID-F003', assignedFactoryName: '万隆车缝厂', assignmentStatus: 'ASSIGNED', acceptanceStatus: 'ACCEPTED', executionEnabled: true, startedAt: '2026-07-02 08:00:00', finishedAt: '2026-07-03 18:00:00', blockReason: 'MATERIAL', blockedAt: '2026-07-02 12:00:00', milestoneReportedQty: 9, handoverStatus: 'COMPLETED' }])
+    restoreRuntimeDirectDispatchState(fixture)
+    saveSewingDeliverySlaSnapshot(createSewingDeliverySlaSnapshot({ assignmentId: `RESET-${executionStatus}`, runtimeTaskId: taskId, productionOrderId: base.productionOrderId, factoryId: 'ID-F003', factoryName: '万隆车缝厂', assignedQty: base.scopeQty, acceptedAt: '2026-07-01 08:00:00', slaKind: 'INDEPENDENT_SEWING' }))
+    const result = reassignRuntimeSewingTask({ sourceTaskId: taskId, targetFactoryId: 'ID-F007', targetFactoryName: '目标工厂', businessAssignedAt: '2026-07-08 09:00:00', operatedAt: '2026-07-08 10:00:00', reason: `${executionStatus}重置测试`, by: '跟单A', mainFactoryId: 'ID-F007' })
+    assert.equal(result.ok, true, result.message)
+    const reset = getRuntimeTaskById(result.taskId!)!
+    assert.equal(reset.status, 'NOT_STARTED', `${executionStatus}克隆改派后必须回未开工`)
+    assert.equal(reset.startedAt, undefined)
+    assert.equal(reset.finishedAt, undefined)
+    assert.equal(reset.blockReason, undefined)
+    assert.equal(reset.blockedAt, undefined)
+    assert.equal(reset.milestoneReportedQty, undefined)
+    assert.equal(reset.handoverStatus, 'NOT_CREATED')
+  } finally {
+    restoreRuntimeDirectDispatchState(statusRuntimeState)
+    restoreSewingDeliverySlaSnapshotStore(statusSlaState)
+  }
 }
 
 console.log('含车缝任务交付与回货时效规则检查通过')

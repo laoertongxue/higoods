@@ -48,6 +48,7 @@ export interface ContinuousDispatchState {
   currentPage: number
   pageSize: number
   dialog: ContinuousDispatchDialogDraft | null
+  handledReassignmentQueryKey: string
 }
 
 const state: ContinuousDispatchState = {
@@ -57,6 +58,7 @@ const state: ContinuousDispatchState = {
   currentPage: 1,
   pageSize: 10,
   dialog: null,
+  handledReassignmentQueryKey: '',
 }
 
 export function captureContinuousDispatchPageState(): ContinuousDispatchState {
@@ -555,7 +557,12 @@ function renderTaskTable(tasks: RuntimeProcessTask[]): string {
 export function renderContinuousDispatchPage(): string {
   if (!state.dialog && typeof window !== 'undefined') {
     const query = new URLSearchParams(window.location.search)
-    if (query.get('action') === 'reassign' && query.get('taskId')) openContinuousReassignmentDialog(query.get('taskId')!)
+    const taskId = query.get('action') === 'reassign' ? query.get('taskId') : null
+    const queryKey = taskId ? `${taskId}|${query.get('po') ?? ''}` : ''
+    if (taskId && queryKey !== state.handledReassignmentQueryKey) {
+      state.handledReassignmentQueryKey = queryKey
+      openContinuousReassignmentDialog(taskId)
+    }
   }
   const allContinuousTasks = getContinuousTasks()
   const sewingPostCount = allContinuousTasks.filter(isSewingPostContinuousTask).length

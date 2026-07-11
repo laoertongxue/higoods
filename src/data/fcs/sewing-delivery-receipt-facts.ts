@@ -1,8 +1,5 @@
-import {
-  getPdaHandoverRecordsByHead,
-  listHandoverOrdersByTaskId,
-  type PdaHandoverRecord,
-} from './pda-handover-events.ts'
+import type { PdaHandoverRecord } from './pda-handover-events.ts'
+import { listRegisteredHandoutHeads, listRegisteredHandoutRecords } from './pda-handover-handout-registry.ts'
 import type { SewingDeliveryReceiptFact } from './sewing-delivery-sla.ts'
 
 function validNonNegativeQty(value: number | undefined): number | null {
@@ -10,8 +7,11 @@ function validNonNegativeQty(value: number | undefined): number | null {
 }
 
 export function listSewingDeliveryReceiptFacts(runtimeTaskId: string): SewingDeliveryReceiptFact[] {
-  return listHandoverOrdersByTaskId(runtimeTaskId)
-    .flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId))
+  return listRegisteredHandoutHeads()
+    .filter((head) => head.taskId === runtimeTaskId)
+    .flatMap((head) => listRegisteredHandoutRecords(head.handoverId))
+    .filter((record) => record.taskId === runtimeTaskId)
+    .filter((record) => record.handoverRecordStatus === 'WRITTEN_BACK_MATCHED' || record.handoverRecordStatus === 'DIFF_ACCEPTED')
     .map((record: PdaHandoverRecord): SewingDeliveryReceiptFact | null => {
       const submittedQty = validNonNegativeQty(record.submittedQty ?? record.plannedQty)
       const receivedQty = validNonNegativeQty(record.receiverWrittenQty)

@@ -113,7 +113,13 @@ function renderReassignmentDialog(): string {
   const confirmed = sumSewingDeliveryConfirmedReceiptQty(task.taskId)
   const selectedFactory = factories.find((factory) => factory.id === state.reassignFactoryId)
   const mainFactoryOptions = [...listProductionOrderSewingFactories(task.productionOrderId).filter((factory) => factory.id !== task.assignedFactoryId), ...(selectedFactory ? [{ id: selectedFactory.id, name: selectedFactory.name }] : [])].filter((factory, index, list) => list.findIndex((item) => item.id === factory.id) === index)
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true"><button class="absolute inset-0 bg-slate-900/40" data-sewing-dispatch-action="close-reassign" aria-label="关闭改派弹窗"></button><section class="relative z-10 w-full max-w-xl rounded-lg border bg-background shadow-xl"><header class="border-b px-5 py-4"><h2 class="text-lg font-semibold">改派独立车缝任务</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</p></header><div class="space-y-3 px-5 py-4">${state.reassignError ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(state.reassignError)}</div>` : ''}<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm">原工厂：${escapeHtml(task.assignedFactoryName || '未记录')}｜已确认实收 ${formatQty(confirmed)} 件｜剩余 ${formatQty(Math.max(task.scopeQty - confirmed, 0))} 件</div><label class="block text-sm">目标工厂<select class="mt-1 h-9 w-full rounded-md border px-3" data-sewing-dispatch-field="reassignFactoryId"><option value="">请选择目标工厂</option>${factories.map((factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === state.reassignFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label><label class="block text-sm">业务分配时间<input type="datetime-local" class="mt-1 h-9 w-full rounded-md border px-3" value="${escapeHtml(state.reassignBusinessAssignedAt)}" data-sewing-dispatch-field="reassignBusinessAssignedAt" /></label><label class="block text-sm">改派原因<input class="mt-1 h-9 w-full rounded-md border px-3" value="${escapeHtml(state.reassignReason)}" data-sewing-dispatch-field="reassignReason" /></label><label class="block text-sm">改派后主工厂<select class="mt-1 h-9 w-full rounded-md border px-3" data-sewing-dispatch-field="reassignMainFactoryId"><option value="">候选超过一家时请选择</option>${mainFactoryOptions.map((factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === state.reassignMainFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label></div><footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="h-9 rounded-md border px-4 text-sm" data-sewing-dispatch-action="close-reassign">取消</button><button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white" data-sewing-dispatch-action="confirm-reassign">确认改派</button></footer></section></div>`
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true"><button class="absolute inset-0 bg-slate-900/40" data-sewing-dispatch-action="close-reassign" aria-label="关闭改派弹窗"></button><section class="relative z-10 w-full max-w-xl rounded-lg border bg-background shadow-xl"><header class="border-b px-5 py-4"><h2 class="text-lg font-semibold">改派独立车缝任务</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</p></header><div class="space-y-3 px-5 py-4">${state.reassignError ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(state.reassignError)}</div>` : ''}<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm">原工厂：${escapeHtml(task.assignedFactoryName || '未记录')}｜已确认实收 ${formatQty(confirmed)} 件｜剩余 ${formatQty(Math.max(task.scopeQty - confirmed, 0))} 件</div><label class="block text-sm">目标工厂<select class="mt-1 h-9 w-full rounded-md border px-3" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignFactoryId"><option value="">请选择目标工厂</option>${factories.map((factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === state.reassignFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label><label class="block text-sm">业务分配时间<input type="datetime-local" class="mt-1 h-9 w-full rounded-md border px-3" value="${escapeHtml(state.reassignBusinessAssignedAt)}" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignBusinessAssignedAt" /></label><label class="block text-sm">改派原因<input class="mt-1 h-9 w-full rounded-md border px-3" value="${escapeHtml(state.reassignReason)}" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignReason" /></label><label class="block text-sm">改派后主工厂<select class="mt-1 h-9 w-full rounded-md border px-3" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignMainFactoryId"><option value="">候选超过一家时请选择</option>${mainFactoryOptions.map((factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === state.reassignMainFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label></div><footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="h-9 rounded-md border px-4 text-sm" data-sewing-dispatch-action="close-reassign">取消</button><button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white" data-sewing-dispatch-action="confirm-reassign">确认改派</button></footer></section></div>`
+}
+
+function refreshSewingReassignmentDialog(): void {
+  if (typeof document === 'undefined') return
+  const host = document.querySelector<HTMLElement>('[data-sewing-reassignment-dialog-host]')
+  if (host) host.innerHTML = renderReassignmentDialog()
 }
 
 const kitBadgeClass: Record<SewingDispatchKitStatus, string> = {
@@ -1195,7 +1201,7 @@ export function renderSewingDispatchWorkbenchPage(): string {
       ${renderDrafts()}
       ${renderDetailDrawer(detailTask)}
       ${renderDispatchDialog(tasks)}
-      ${renderReassignmentDialog()}
+      <div data-sewing-reassignment-dialog-host>${renderReassignmentDialog()}</div>
     </div>
   `
 }
@@ -1349,7 +1355,10 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement): boolean
       if (!result.ok) throw new Error(result.message)
       state.feedbackMessage = `已改派给 ${factory.name}，剩余分配数量 ${formatQty(result.assignedQty || 0)} 件。`
       state.reassignTaskId = null
-    } catch (error) { state.reassignError = error instanceof Error ? error.message : '改派失败' }
+    } catch (error) {
+      state.reassignError = error instanceof Error ? error.message : '改派失败'
+      refreshSewingReassignmentDialog()
+    }
     return true
   }
   if (action === 'confirm-dispatch') {

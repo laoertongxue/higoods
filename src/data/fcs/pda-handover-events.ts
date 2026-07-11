@@ -18,12 +18,21 @@ import {
   isPostCapacityNode,
   type ProcessAssignmentGranularity,
 } from './process-craft-dict.ts'
-import {
-  getRuntimeTaskById,
-  type RuntimeExecutorKind,
-  type RuntimeProcessTask,
-  type RuntimeTaskScopeType,
+import type {
+  RuntimeExecutorKind,
+  RuntimeProcessTask,
+  RuntimeTaskScopeType,
 } from './runtime-process-tasks.ts'
+import { readRuntimeTaskById } from './runtime-task-read-bridge.ts'
+import {
+  handoverHeadAdditions,
+  handoutRecordAdditions,
+  handoutRecordOverrides,
+  installCompleteHandoutReaders,
+} from './pda-handover-handout-registry.ts'
+
+const getRuntimeTaskById = (taskId: string): RuntimeProcessTask | null =>
+  readRuntimeTaskById<RuntimeProcessTask>(taskId)
 import {
   getPdaGenericHandoutRecordSeedsByHeadId,
   getPdaGenericPickupRecordSeedsByHeadId,
@@ -556,11 +565,8 @@ export interface PdaHandoverStateSnapshot {
   cachedPostFinishingBuiltHeads: PdaHandoverHead[] | null
 }
 
-const handoverHeadAdditions = new Map<string, PdaHandoverHead>()
 const pickupRecordAdditions = new Map<string, PdaPickupRecord[]>()
-const handoutRecordAdditions = new Map<string, PdaHandoverRecord[]>()
 const pickupRecordOverrides = new Map<string, Partial<PdaPickupRecord>>()
-const handoutRecordOverrides = new Map<string, Partial<PdaHandoverRecord>>()
 const headCompletionOverrides = new Map<
   string,
   { completionStatus: PdaHeadCompletionStatus; completedByWarehouseAt?: string }
@@ -3944,6 +3950,11 @@ export function canCompletePdaHandoutHead(handoverId: string): { ok: boolean; me
 export function listHandoverOrdersByTaskId(taskId: string): PdaHandoverHead[] {
   return listPdaHandoverHeads().filter((head) => head.headType === 'HANDOUT' && head.taskId === taskId)
 }
+
+installCompleteHandoutReaders(
+  () => listPdaHandoverHeads(),
+  (handoverId) => getPdaHandoverRecordsByHead(handoverId),
+)
 
 export function getHandoverOrderById(handoverOrderId: string): PdaHandoverHead | undefined {
   return listPdaHandoverHeads().find(

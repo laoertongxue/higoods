@@ -27,7 +27,8 @@ import {
   TEST_FACTORY_NAME,
 } from './factory-mock-data.ts'
 import type { TaskDetailRow } from './task-detail-rows.ts'
-import { installRuntimeSewingReassignmentCommit } from './runtime-sewing-reassignment-internal.ts'
+import { installRuntimeTaskReadResolver } from './runtime-task-read-bridge.ts'
+import { sumSewingDeliveryConfirmedReceiptQty } from './sewing-delivery-receipt-facts.ts'
 import {
   listTaskAllocatableGroups,
   resolveTaskSplitDecision,
@@ -116,6 +117,7 @@ export type RuntimeTaskAllocatableGroup = TaskAllocatableGroup & ResolvedRuntime
 export type RuntimeTaskAllocatableGroupAssignment = TaskAllocatableGroupAssignment
 
 interface RuntimeTaskOverride {
+  dependsOnTaskIds?: string[]
   assignmentMode?: ProcessTask['assignmentMode']
   assignmentStatus?: TaskAssignmentStatus
   status?: ProcessTask['status']
@@ -379,7 +381,6 @@ export interface RuntimeSewingTaskReassignmentInput {
   reason: string
   by: string
   mainFactoryId?: string
-  confirmedReceivedQty: number
 }
 
 export interface RuntimeSewingTaskReassignmentResult {
@@ -1452,6 +1453,7 @@ function ensureDispatchBoardSeedData(): void {
       dispatchPriceCurrency: 'IDR',
       dispatchPriceUnit: '件',
       acceptanceStatus: 'ACCEPTED',
+      status: 'NOT_STARTED',
       dispatchRemark: '按裁片工序直接派单',
     },
     [
@@ -2839,7 +2841,7 @@ export function applyRuntimeDirectDispatchMeta(input: RuntimeDirectDispatchMetaI
   }
 }
 
-function commitRuntimeSewingTaskReassignment(
+export function reassignRuntimeSewingTask(
   input: RuntimeSewingTaskReassignmentInput,
 ): RuntimeSewingTaskReassignmentResult {
   const runtimeState = captureRuntimeDirectDispatchState()
@@ -2864,8 +2866,7 @@ function commitRuntimeSewingTaskReassignment(
   if (compareSewingDeliveryDateTimes(input.businessAssignedAt, input.operatedAt) > 0) {
     return reject('业务分配时间不能晚于当前操作时间')
   }
-  const confirmedReceivedQty = input.confirmedReceivedQty
-  if (!Number.isFinite(confirmedReceivedQty) || confirmedReceivedQty < 0) return reject('接收方确认实收数量无效')
+  const confirmedReceivedQty = sumSewingDeliveryConfirmedReceiptQty(input.sourceTaskId)
   const remainingQty = Math.max(snapshot.assignedQty - confirmedReceivedQty, 0)
   if (remainingQty <= 0) return reject('原任务已全部实收，无剩余数量可改派')
 
@@ -2898,6 +2899,7 @@ function commitRuntimeSewingTaskReassignment(
       assignmentMode: 'DIRECT',
       assignmentStatus: 'ASSIGNED',
       acceptanceStatus: 'ACCEPTED',
+      status: 'NOT_STARTED',
       acceptedAt: input.businessAssignedAt,
       acceptedBy: SEWING_DELIVERY_SLA_AUTO_ACCEPT_BY,
       businessAssignedAt: input.businessAssignedAt,
@@ -2908,6 +2910,28 @@ function commitRuntimeSewingTaskReassignment(
       taskDeadline: replacement.milestones.at(-1)?.deadlineAt,
       auditLogs: appendRuntimeAudit(source, 'REASSIGN_IN', auditDetail, input.by),
       executionEnabled: true,
+      startedAt: undefined,
+      finishedAt: undefined,
+      startHeadcount: undefined,
+      startProofFiles: undefined,
+      startOverdueExceptionId: undefined,
+      milestoneStatus: undefined,
+      milestoneReportedAt: undefined,
+      milestoneReportedQty: undefined,
+      milestoneProofFiles: undefined,
+      milestoneOverdueExceptionId: undefined,
+      pauseStatus: undefined,
+      pauseReasonCode: undefined,
+      pauseReasonLabel: undefined,
+      pauseRemark: undefined,
+      pauseReportedAt: undefined,
+      pauseProofFiles: undefined,
+      pauseExceptionId: undefined,
+      blockReason: undefined,
+      blockRemark: undefined,
+      blockedAt: undefined,
+      handoverOrderId: undefined,
+      handoverStatus: 'NOT_CREATED',
     }
     runtimeReassignedTasks.set(newTaskId, newTask)
     const oldUpdated = updateRuntimeTaskWithAudit(
@@ -2918,6 +2942,19 @@ function commitRuntimeSewingTaskReassignment(
       input.by,
     )
     if (!oldUpdated) throw new Error('原任务改派状态保存失败')
+    for (const downstream of listRuntimeProcessTasks()) {
+      if (downstream.taskId === newTaskId || !downstream.dependsOnTaskIds.includes(source.taskId)) continue
+      const nextDependsOnTaskIds = Array.from(new Set(
+        downstream.dependsOnTaskIds.map((taskId) => taskId === source.taskId ? newTaskId : taskId),
+      ))
+      if (!updateRuntimeTaskWithAudit(
+        downstream.taskId,
+        { dependsOnTaskIds: nextDependsOnTaskIds },
+        'REASSIGN_DEPENDENCY',
+        `上游任务改派，依赖由 ${source.taskId} 切换为 ${newTaskId}。`,
+        input.by,
+      )) throw new Error(`下游任务 ${downstream.taskId} 依赖换绑失败`)
+    }
     if (!registerProductionOrderSewingFactory({
       productionOrderId: source.productionOrderId,
       factoryId: input.targetFactoryId,
@@ -2926,11 +2963,18 @@ function commitRuntimeSewingTaskReassignment(
       at: input.operatedAt,
     })) throw new Error('新车缝承接工厂登记失败')
 
+    replaceSewingDeliverySlaSnapshot(source.taskId, replacement)
+
     const activeFactoryIds = Array.from(new Set(
       listRuntimeProcessTasks()
         .filter((task) => task.productionOrderId === source.productionOrderId)
         .filter((task) => task.taskId !== source.taskId && task.executionEnabled !== false)
-        .filter((task) => classifySewingDeliverySla(task) !== null && Boolean(task.assignedFactoryId))
+        .filter((task) => task.status !== 'CANCELLED' && task.acceptanceStatus === 'ACCEPTED')
+        .filter((task) => {
+          if (classifySewingDeliverySla(task) === null || !task.assignedFactoryId) return false
+          const activeSnapshot = getSewingDeliverySlaSnapshot(task.taskId)
+          return Boolean(activeSnapshot?.active && activeSnapshot.factoryId === task.assignedFactoryId)
+        })
         .map((task) => task.assignedFactoryId!),
     ))
     if (!withdrawProductionOrderSewingFactory({
@@ -2942,7 +2986,6 @@ function commitRuntimeSewingTaskReassignment(
       by: input.by,
       at: input.operatedAt,
     })) throw new Error('主工厂候选需要明确选择后才能完成改派')
-    replaceSewingDeliverySlaSnapshot(source.taskId, replacement)
     recomputeRuntimeTransitionsForOrder(source.productionOrderId)
     return { ok: true, message: '改派成功', assignmentId, taskId: newTaskId, assignedQty: remainingQty }
   } catch (error) {
@@ -2952,7 +2995,7 @@ function commitRuntimeSewingTaskReassignment(
   }
 }
 
-installRuntimeSewingReassignmentCommit(commitRuntimeSewingTaskReassignment)
+installRuntimeTaskReadResolver((taskId) => getRuntimeTaskById(taskId))
 
 function parseRuntimeDateLike(value: string): number {
   if (!value) return Number.NaN
