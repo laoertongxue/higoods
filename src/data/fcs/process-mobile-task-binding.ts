@@ -475,6 +475,8 @@ export function getMobileTaskProcessType(task: ProcessTask | null | undefined): 
   const coveredType = classifyCoveredProcesses(task)
   if (coveredType) return coveredType
 
+  if (task.taskUnitType === 'WHOLE_ORDER_TASK' || task.taskUnitType === 'COMBINED_PROCESS_TASK') return 'UNKNOWN'
+
   const explicitFields = [
     task.processNameZh,
     (task as GenericMobileTask).processBusinessName,

@@ -147,6 +147,29 @@ async function main(): Promise<void> {
       processBusinessCode: 'DYE',
       processNameZh: '染色加工（含水溶）',
     }), 'DYE')
+    assert.equal(getMobileTaskProcessType({
+      ...classificationBase,
+      taskUnitType: 'COMBINED_PROCESS_TASK',
+      processCode: 'UNKNOWN',
+      processNameZh: '水溶组合任务',
+      coveredProcesses: [
+        { processCode: 'WATER_SOLUBLE', processName: '水溶', sourceArtifactIds: ['ART-WATER'] },
+        { processCode: 'CUTTING', processName: '裁片', sourceArtifactIds: ['ART-CUTTING'] },
+      ],
+    }), 'UNKNOWN', '水溶加裁片组合任务不得被文本兜底误判为独立水溶')
+    assert.equal(getMobileTaskProcessType({
+      ...classificationBase,
+      taskUnitType: 'WHOLE_ORDER_TASK',
+      processCode: 'UNKNOWN',
+      processNameZh: '整单含水溶说明',
+    }), 'UNKNOWN', '整单任务不得被水溶文案兜底误判')
+    assert.equal(getMobileTaskProcessType({
+      ...classificationBase,
+      taskUnitType: 'COMBINED_PROCESS_TASK',
+      processCode: 'UNKNOWN',
+      processNameZh: '水溶连续任务',
+      coveredProcesses: [{ processCode: 'UNCLASSIFIED', processName: '待识别', sourceArtifactIds: ['ART-UNKNOWN'] }],
+    }), 'UNKNOWN', '未知组合任务不得被水溶文案兜底误判')
     assert.equal(getMobileTaskProcessType(classificationBase), 'UNKNOWN')
 
     const pdaTasks = listPdaMobileExecutionTasks()
@@ -267,6 +290,14 @@ async function main(): Promise<void> {
     appStore.navigate('/fcs/pda/exec?tab=IN_PROGRESS')
     const { handlePdaExecEvent, renderPdaExecPage, renderWaterSolubleCard } = await import('../src/pages/pda-exec.ts')
     const { handlePdaExecDetailEvent, renderPdaExecDetailPage } = await import('../src/pages/pda-exec-detail.ts')
+    const guardedCombinedTask = pdaTasks.find((task) => task.taskUnitType === 'COMBINED_PROCESS_TASK')
+    assert(guardedCombinedTask, '真实 PDA 聚合必须包含可验证的组合任务')
+    const aggregateCountBeforeGuardProbe = pdaTasks.length
+    assert.notEqual(getMobileTaskProcessType(guardedCombinedTask), 'WATER_SOLUBLE', '无独立水溶领域单的真实组合任务不得误判为 WATER_SOLUBLE')
+    assert.equal(renderWaterSolubleCard(guardedCombinedTask), '', '无独立水溶领域单时水溶专用 renderer 必须返回空')
+    const aggregateAfterGuardProbe = listPdaMobileExecutionTasks()
+    assert.equal(aggregateAfterGuardProbe.length, aggregateCountBeforeGuardProbe, '类型兜底不得让 PDA 聚合列表丢任务')
+    assert.equal(aggregateAfterGuardProbe.filter((task) => task.taskId === guardedCombinedTask.taskId).length, 1, '真实组合任务必须在 PDA 聚合中保留且不重复')
     const html = renderPdaExecPage()
     assert(html.includes('data-testid="pda-exec-page"'), '必须通过真实 PDA 页面渲染入口输出执行页')
     assert(html.includes('水溶加工单'), '水溶卡片必须显示“水溶加工单”')
