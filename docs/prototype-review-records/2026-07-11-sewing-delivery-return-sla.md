@@ -69,7 +69,7 @@
 
 浏览器自动化桥接能识别启用的动作元素，但未能触发项目的全局事件委托。该限制不属于产品问题标签，也不据此判定生产组件存在缺陷。当前保留登录、页面可达、内容可见与控制台证据；直派 / 改派、未来时间阻断、连续任务动作、接单预览、主管复核、局部 DOM、滚动位置和浏览器内 200ms 指标，需用稳定浏览器通道补验。
 
-临时索引治理核查：以 `a35cdfda` 执行 `GIT_INDEX_FILE=<临时文件> git read-tree a35cdfda`、`git add --renormalize -A .` 后，索引差异为 0；原因是该提交已经包含全部原型实现，后续仅增加验收脚本和审查记录，不能把它表述为“检测到原型改动”。整条功能分支的共同基线为 `3b4e9791fca194bb71ea795fa300aab8fb5ec5b5`；临时索引对比能列出原型数据文件和审查记录。治理脚本常规 staged、`--all` 与 `--self-test` 均通过。本记录如实保留基线口径差异，不伪造“a35cdfda 后存在原型改动”的证据。
+整条功能分支的实质治理核查：以产品方案后的功能实现基线 `25cfd50c` 创建临时 detached worktree，将 `git diff --binary 25cfd50c..HEAD` 应用到该工作区并暂存，共检测 35 个变更文件；运行 `npm run check:prototype-design-governance` 输出 `prototype design governance passed (staged): review record found`，证明完整功能差异中的原型改动与本审查记录能被治理脚本共同识别。临时工作区已删除，未影响真实索引。日常工作区在提交后保持 clean，因此默认 staged / `--all` 显示 `no prototype changes` 属于命令边界正常结果；`--self-test` 同时通过。
 
 ## 6. Mock 与边界验收
 
