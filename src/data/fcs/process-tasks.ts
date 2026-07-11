@@ -102,6 +102,7 @@ export interface ProcessTask {
   stage: ProcessStage
   qty: number
   qtyUnit: QtyUnit
+  qtyDisplayUnit?: string
   assignmentMode: AssignmentMode
   assignmentStatus: TaskAssignmentStatus
   ownerSuggestion: OwnerSuggestion
@@ -267,6 +268,14 @@ export interface ProcessTask {
   createdAt: string
   updatedAt: string
   auditLogs: TaskAuditLog[]
+}
+
+export function getProcessTaskQtyDisplayUnit(task: Pick<ProcessTask, 'qtyUnit' | 'qtyDisplayUnit'>): string {
+  const exactUnit = task.qtyDisplayUnit?.trim()
+  if (exactUnit) return exactUnit
+  if (task.qtyUnit === 'PIECE') return '件'
+  if (task.qtyUnit === 'BUNDLE') return '打'
+  return '米'
 }
 
 // 预置工序任务（base task seeds）

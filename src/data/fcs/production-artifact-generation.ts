@@ -262,9 +262,9 @@ function buildDictionaryCoverageBase(
   if (!source) return null
   const processDefinition = getProcessDefinitionByCode(definition.processCode)
   const stageDefinition = getProcessStageByCode(definition.stageCode)
-  const linkedBomItem = source.snapshot.bomItems.length > 0
+  const linkedBomItem = definition.processCode === 'WATER_SOLUBLE'
     ? source.snapshot.bomItems[mockIndex % source.snapshot.bomItems.length]
-    : undefined
+    : source.snapshot.bomItems[0]
   if (definition.processCode === 'WATER_SOLUBLE') {
     if (
       !linkedBomItem?.id

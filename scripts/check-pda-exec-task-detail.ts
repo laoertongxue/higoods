@@ -20,6 +20,7 @@ function assert(condition: unknown, message: string): void {
 const ROOT = process.cwd()
 const PAGE_PATH = path.join(ROOT, 'src/pages/pda-exec-detail.ts')
 const PAGE_SOURCE = fs.readFileSync(PAGE_PATH, 'utf8')
+const LIST_PAGE_SOURCE = fs.readFileSync(path.join(ROOT, 'src/pages/pda-exec.ts'), 'utf8')
 
 function assertIncludes(token: string, message: string): void {
   assert(PAGE_SOURCE.includes(token), message)
@@ -57,6 +58,8 @@ function checkSourceCopy(): void {
   assertIncludes('objectType: objectMeta.objectType', 'PDA 特殊工艺写回未使用目标对象类型')
   assertIncludes('qtyUnit: objectMeta.qtyUnit', 'PDA 特殊工艺写回未使用目标对象单位')
   assertIncludes('无需绑定菲票', 'PDA 特殊工艺成衣/面料对象未展示无需菲票口径')
+  assertIncludes('getProcessTaskQtyDisplayUnit(task)', '任务详情页未优先使用精确数量显示单位')
+  assert(LIST_PAGE_SOURCE.includes('getProcessTaskQtyDisplayUnit(task)'), '任务列表页未优先使用精确数量显示单位')
 
   ;[
     '去交接（待交出）',

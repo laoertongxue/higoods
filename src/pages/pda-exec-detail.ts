@@ -1,7 +1,7 @@
 import { appStore } from '../state/store'
 import { renderRealQrPlaceholder } from '../components/real-qr'
 import { escapeHtml } from '../utils'
-import { type ExecProofFile, type PauseReasonCode, type ProcessTask, type StartProofFile } from '../data/fcs/process-tasks.ts'
+import { getProcessTaskQtyDisplayUnit, type ExecProofFile, type PauseReasonCode, type ProcessTask, type StartProofFile } from '../data/fcs/process-tasks.ts'
 import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data.ts'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import {
@@ -1445,7 +1445,13 @@ function resolveTaskQtyDisplayMeta(task: ProcessTask, displayProcessName = getTa
     }
   }
 
-  const unitLabel = getQtyUnitLabel(task.qtyUnit)
+  const unitLabel = getProcessTaskQtyDisplayUnit(task)
+  if (task.qtyDisplayUnit?.trim()) {
+    return {
+      label: `本单计划数量（${unitLabel}）`,
+      valueText: `本单计划数量：${task.qty} ${unitLabel}`,
+    }
+  }
   if (unitLabel === '卷') {
     return {
       label: '本单布卷数（卷）',

@@ -1,6 +1,6 @@
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
-import { type ProcessTask } from '../data/fcs/process-tasks'
+import { getProcessTaskQtyDisplayUnit, type ProcessTask } from '../data/fcs/process-tasks'
 import {
   getTaskProcessDisplayName,
 } from '../data/fcs/page-adapters/task-execution-adapter'
@@ -151,7 +151,13 @@ function resolveTaskQtyDisplayMeta(task: ProcessTask, displayProcessName = getTa
     }
   }
 
-  const unitLabel = getQtyUnitLabel(task.qtyUnit)
+  const unitLabel = getProcessTaskQtyDisplayUnit(task)
+  if (task.qtyDisplayUnit?.trim()) {
+    return {
+      label: `本单计划数量（${unitLabel}）`,
+      valueText: `本单计划数量：${task.qty} ${unitLabel}`,
+    }
+  }
   if (unitLabel === '卷') {
     return {
       label: '本单布卷数（卷）',

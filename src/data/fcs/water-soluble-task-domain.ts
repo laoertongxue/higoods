@@ -162,20 +162,49 @@ function buildOrderFromArtifact(artifact: MaterialWaterSolubleTaskArtifact): Wat
   }
 }
 
-function buildStore(): Map<string, WaterSolubleWorkOrder> {
+function canRefreshSourceFields(order: WaterSolubleWorkOrder): boolean {
+  return order.status === 'WAIT_FACTORY_ASSIGNMENT'
+    && !order.factoryId
+    && order.completedQty === 0
+    && order.actionLogs.length === 1
+}
+
+export function syncWaterSolubleOrderStoreWithArtifacts(): void {
+  const current = orderStore ?? new Map<string, WaterSolubleWorkOrder>()
   const next = new Map<string, WaterSolubleWorkOrder>()
   listGeneratedProductionTaskArtifacts()
     .filter(isMaterialWaterSolubleTaskArtifact)
     .forEach((artifact) => {
-      const order = buildOrderFromArtifact(artifact)
-      if (!next.has(order.generationKey)) next.set(order.generationKey, order)
+      const generated = buildOrderFromArtifact(artifact)
+      const existing = current.get(generated.generationKey)
+      if (!existing) {
+        next.set(generated.generationKey, generated)
+        return
+      }
+      if (canRefreshSourceFields(existing)) {
+        next.set(generated.generationKey, {
+          ...existing,
+          sourceArtifactId: generated.sourceArtifactId,
+          productionOrderId: generated.productionOrderId,
+          productionOrderNo: generated.productionOrderNo,
+          techPackVersionId: generated.techPackVersionId,
+          bomItemId: generated.bomItemId,
+          materialCode: generated.materialCode,
+          materialName: generated.materialName,
+          materialSpec: generated.materialSpec,
+          plannedQty: generated.plannedQty,
+          qtyUnit: generated.qtyUnit,
+        })
+        return
+      }
+      next.set(generated.generationKey, existing)
     })
-  return next
+  orderStore = next
 }
 
 function ensureStore(): Map<string, WaterSolubleWorkOrder> {
-  if (!orderStore) orderStore = buildStore()
-  return orderStore
+  syncWaterSolubleOrderStoreWithArtifacts()
+  return orderStore!
 }
 
 function findMutableOrder(orderId: string): WaterSolubleWorkOrder | undefined {
@@ -238,6 +267,7 @@ export function listWaterSolubleMobileTasks(): WaterSolubleMobileTask[] {
     stage: 'PREP',
     qty: order.plannedQty,
     qtyUnit: mapWaterSolubleQtyUnit(order.qtyUnit),
+    qtyDisplayUnit: order.qtyUnit,
     assignmentMode: 'DIRECT',
     assignmentStatus: order.factoryId ? 'ASSIGNED' : 'UNASSIGNED',
     ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['DYEING_FACTORY'] },
@@ -287,13 +317,18 @@ export function getWaterSolubleCurrentAction(orderId: string): WaterSolubleCurre
 export function canAssignWaterSolubleFactory(factoryId: string): WaterSolubleFactoryCapabilityResult {
   const factory = getFactoryMasterRecordById(factoryId)
   if (!factory) return { ok: false, message: `未找到工厂“${factoryId}”。` }
-  const hasCapability = factory.processAbilities.some((ability) =>
-    ability.processCode === 'WATER_SOLUBLE'
-      && (ability.status ?? 'ACTIVE') === 'ACTIVE'
-      && ability.canReceiveTask !== false,
-  ) || Boolean(factory.selectedCapabilities?.some((ability) =>
-    ability.processCode === 'WATER_SOLUBLE' && ability.canReceiveTask !== false,
-  ))
+  if (factory.status !== 'active') return { ok: false, message: `工厂“${factory.name}”当前不是启用状态，不能分配水溶加工单。` }
+  if (!factory.eligibility.allowDispatch) return { ok: false, message: `工厂“${factory.name}”当前禁止派单，不能分配水溶加工单。` }
+  const hasFormalAbilities = factory.processAbilities.length > 0
+  const hasCapability = hasFormalAbilities
+    ? factory.processAbilities.some((ability) =>
+        ability.processCode === 'WATER_SOLUBLE'
+          && (ability.status ?? 'ACTIVE') === 'ACTIVE'
+          && ability.canReceiveTask !== false,
+      )
+    : Boolean(factory.selectedCapabilities?.some((ability) =>
+        ability.processCode === 'WATER_SOLUBLE' && ability.canReceiveTask !== false,
+      ))
   if (!hasCapability) return { ok: false, message: `工厂“${factory.name}”没有水溶能力，不能分配此加工单。` }
   return { ok: true, message: `工厂“${factory.name}”具备水溶能力。` }
 }
@@ -337,6 +372,9 @@ export function completeWaterSoluble(orderId: string, completedQty: number, exce
   if (statusError) return statusError
   const qtyError = validatePositiveQty(completedQty, '完成数量')
   if (qtyError) return failure(qtyError)
+  if (completedQty + 0.000001 < order.completedQty) {
+    return failure(`累计完成数量不能少于已有完成数量 ${order.completedQty} ${order.qtyUnit}。`)
+  }
   const reason = exceptionReason?.trim()
   if (completedQty !== order.plannedQty && !reason) {
     return failure(completedQty < order.plannedQty
@@ -386,7 +424,9 @@ export function submitWaterSolubleHandover(orderId: string, handoverQty: number)
   if (statusError) return statusError
   const qtyError = validatePositiveQty(handoverQty, '交出数量')
   if (qtyError) return failure(qtyError)
-  if (handoverQty > order.completedQty) return failure(`最多可交出 ${order.completedQty} ${order.qtyUnit}，请改成该数量以内。`)
+  if (order.handoverQty === undefined || Math.abs(handoverQty - order.handoverQty) > 0.000001) {
+    return failure(`本期不支持部分交出，请按批准数量 ${order.handoverQty ?? 0} ${order.qtyUnit} 交出。`)
+  }
   order.handoverQty = handoverQty
   order.status = 'HANDOVER_WAIT_RECEIVE'
   return updateOrder(order, '确认交出', `已交出 ${handoverQty} ${order.qtyUnit}，等待收货`)
@@ -420,5 +460,6 @@ export function resolveWaterSolubleReceiptDifference(orderId: string): WaterSolu
 }
 
 export function resetWaterSolubleDomainForChecks(): void {
-  orderStore = buildStore()
+  orderStore = new Map()
+  syncWaterSolubleOrderStoreWithArtifacts()
 }
