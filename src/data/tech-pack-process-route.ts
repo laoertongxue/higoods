@@ -18,7 +18,13 @@ type NormalizableRouteEntry = RouteEntryBase & {
 }
 
 type IndexedRouteEntry<T> = { entry: T; index: number }
-type RouteEntryGroup<T> = { items: Array<IndexedRouteEntry<T>>; forceIndependent?: boolean }
+type RouteEntryGroup<T> = {
+  items: Array<IndexedRouteEntry<T>>
+  stableOrder: number
+  forceIndependent?: boolean
+  groupIdOverride?: string
+  groupNameOverride?: string
+}
 
 const STAGE_SORT: Record<string, number> = {
   PREP: 1,
@@ -81,6 +87,102 @@ export function sortProcessRouteEntries<T extends {
     .map(({ entry }) => entry)
 }
 
+function sharesLinkedBomItem<T extends NormalizableRouteEntry>(left: T, right: T): boolean {
+  const rightIds = new Set((right.linkedBomItemIds ?? []).filter(Boolean))
+  return rightIds.size > 0 && (left.linkedBomItemIds ?? []).some((id) => Boolean(id) && rightIds.has(id))
+}
+
+function splitDependentWaterEntries<T extends NormalizableRouteEntry>(
+  initialGroups: Array<Array<IndexedRouteEntry<T>>>,
+): Array<RouteEntryGroup<T>> {
+  const allDyeEntries = initialGroups
+    .flat()
+    .filter((item) => item.entry.processCode === 'DYE')
+
+  return initialGroups.flatMap((items, groupIndex) => {
+    const hasDye = items.some((item) => item.entry.processCode === 'DYE')
+    const dependentWaterEntries = hasDye
+      ? items.filter(
+          (item) => item.entry.processCode === 'WATER_SOLUBLE'
+            && allDyeEntries.some((dye) => sharesLinkedBomItem(item.entry, dye.entry)),
+        )
+      : []
+    if (dependentWaterEntries.length === 0) {
+      return [{ items: [...items], stableOrder: groupIndex * 2 }]
+    }
+
+    const waterIndexes = new Set(dependentWaterEntries.map((item) => item.index))
+    const remainingItems = items.filter((item) => !waterIndexes.has(item.index))
+    const waterGroup: RouteEntryGroup<T> = {
+      items: dependentWaterEntries,
+      stableOrder: groupIndex * 2,
+      forceIndependent: dependentWaterEntries.length === 1,
+      groupIdOverride: dependentWaterEntries.length > 1 ? `water-soluble-split-${groupIndex + 1}` : undefined,
+      groupNameOverride: dependentWaterEntries.length > 1 ? '水溶前置并行组' : undefined,
+    }
+    const remainingGroup: RouteEntryGroup<T> = {
+      items: remainingItems,
+      stableOrder: groupIndex * 2 + 1,
+      forceIndependent: remainingItems.length === 1,
+    }
+    return [waterGroup, remainingGroup]
+  })
+}
+
+function stableSortRouteGroups<T extends NormalizableRouteEntry>(
+  groups: Array<RouteEntryGroup<T>>,
+): Array<RouteEntryGroup<T>> {
+  const groupIndexByEntryIndex = new Map<number, number>()
+  groups.forEach((group, groupIndex) => {
+    group.items.forEach((item) => groupIndexByEntryIndex.set(item.index, groupIndex))
+  })
+
+  const edges = groups.map(() => new Set<number>())
+  const indegrees = groups.map(() => 0)
+  const waterEntries = groups.flatMap((group) => group.items).filter((item) => item.entry.processCode === 'WATER_SOLUBLE')
+  const dyeEntries = groups.flatMap((group) => group.items).filter((item) => item.entry.processCode === 'DYE')
+  for (const water of waterEntries) {
+    for (const dye of dyeEntries) {
+      if (!sharesLinkedBomItem(water.entry, dye.entry)) continue
+      const waterGroupIndex = groupIndexByEntryIndex.get(water.index)
+      const dyeGroupIndex = groupIndexByEntryIndex.get(dye.index)
+      if (waterGroupIndex === undefined || dyeGroupIndex === undefined || waterGroupIndex === dyeGroupIndex) continue
+      if (edges[waterGroupIndex].has(dyeGroupIndex)) continue
+      edges[waterGroupIndex].add(dyeGroupIndex)
+      indegrees[dyeGroupIndex] += 1
+    }
+  }
+
+  const remaining = new Set(groups.map((_, index) => index))
+  const sortedGroups: Array<RouteEntryGroup<T>> = []
+  while (remaining.size > 0) {
+    const nextIndex = [...remaining]
+      .filter((index) => indegrees[index] === 0)
+      .sort((left, right) => groups[left].stableOrder - groups[right].stableOrder || left - right)[0]
+    if (nextIndex === undefined) {
+      throw new Error('水溶与染色工序路线存在无法消解的依赖循环，请检查 BOM 物料绑定')
+    }
+    remaining.delete(nextIndex)
+    sortedGroups.push(groups[nextIndex])
+    edges[nextIndex].forEach((targetIndex) => {
+      indegrees[targetIndex] -= 1
+    })
+  }
+  return sortedGroups
+}
+
+function assertWaterBeforeDyeInvariant<T extends NormalizableRouteEntry>(entries: T[]): void {
+  const waterEntries = entries.filter((item) => item.processCode === 'WATER_SOLUBLE')
+  const dyeEntries = entries.filter((item) => item.processCode === 'DYE')
+  const violation = waterEntries.find((water) => dyeEntries.some(
+    (dye) => sharesLinkedBomItem(water, dye)
+      && getNumberSort(water.routeStepNo) >= getNumberSort(dye.routeStepNo),
+  ))
+  if (violation) {
+    throw new Error('水溶与染色工序路线归一化失败：共享 BOM 物料必须先水溶、后染色')
+  }
+}
+
 export function normalizeProcessRouteEntries<T extends NormalizableRouteEntry>(entries: T[]): T[] {
   const sorted = [...entries]
     .map((entry, index) => ({ entry, index }))
@@ -97,60 +199,16 @@ export function normalizeProcessRouteEntries<T extends NormalizableRouteEntry>(e
     initialGroups[initialGroups.length - 1].push(item)
   }
 
-  const sharesBomItem = (left: T, right: T): boolean => {
-    const rightIds = new Set((right.linkedBomItemIds ?? []).filter(Boolean))
-    return rightIds.size > 0 && (left.linkedBomItemIds ?? []).some((id) => Boolean(id) && rightIds.has(id))
-  }
+  const groups = stableSortRouteGroups(splitDependentWaterEntries(initialGroups))
 
-  const groups: Array<RouteEntryGroup<T>> = initialGroups.map((items) => ({ items: [...items] }))
-  const findSharedRouteViolation = (): { dyeGroupIndex: number; waterGroupIndex: number } | null => {
-    for (let dyeGroupIndex = 0; dyeGroupIndex < groups.length; dyeGroupIndex += 1) {
-      const dyeEntries = groups[dyeGroupIndex].items.filter((item) => item.entry.processCode === 'DYE')
-      if (dyeEntries.length === 0) continue
-      for (let waterGroupIndex = dyeGroupIndex; waterGroupIndex < groups.length; waterGroupIndex += 1) {
-        const hasSharedWater = groups[waterGroupIndex].items.some(
-          (item) => item.entry.processCode === 'WATER_SOLUBLE'
-            && dyeEntries.some((dye) => sharesBomItem(item.entry, dye.entry)),
-        )
-        if (hasSharedWater) return { dyeGroupIndex, waterGroupIndex }
-      }
-    }
-    return null
-  }
-
-  const maxCorrections = Math.max(1, entries.length * entries.length)
-  for (let correctionCount = 0; correctionCount < maxCorrections; correctionCount += 1) {
-    const violation = findSharedRouteViolation()
-    if (!violation) break
-    const { dyeGroupIndex, waterGroupIndex } = violation
-
-    if (waterGroupIndex > dyeGroupIndex) {
-      const [waterGroup] = groups.splice(waterGroupIndex, 1)
-      groups.splice(dyeGroupIndex, 0, waterGroup)
-      continue
-    }
-
-    const dyeEntries = groups[dyeGroupIndex].items.filter((item) => item.entry.processCode === 'DYE')
-    const sharedWaterEntries = groups[dyeGroupIndex].items.filter(
-      (item) => item.entry.processCode === 'WATER_SOLUBLE' && dyeEntries.some((dye) => sharesBomItem(item.entry, dye.entry)),
-    )
-    if (sharedWaterEntries.length === 0) break
-    const sharedWaterIndexes = new Set(sharedWaterEntries.map((item) => item.index))
-    const remainingGroup = groups[dyeGroupIndex].items.filter((item) => !sharedWaterIndexes.has(item.index))
-    groups.splice(
-      dyeGroupIndex,
-      1,
-      { items: sharedWaterEntries, forceIndependent: true },
-      { items: remainingGroup, forceIndependent: remainingGroup.length === 1 },
-    )
-  }
-
-  return groups.flatMap((group, groupIndex) => {
+  const normalized = groups.flatMap((group, groupIndex) => {
     const stepEntries = group.items
     const stepNo = groupIndex + 1
     const isParallel = stepEntries.length > 1
     const existingGroupId = stepEntries.find((stepItem) => stepItem.entry.routeParallelGroupId)?.entry.routeParallelGroupId
-    const groupId = group.forceIndependent ? undefined : existingGroupId ?? (isParallel ? `route-step-${stepNo}` : undefined)
+    const groupId = group.forceIndependent
+      ? undefined
+      : group.groupIdOverride ?? existingGroupId ?? (isParallel ? `route-step-${stepNo}` : undefined)
     const existingGroupName = stepEntries.find((stepItem) => stepItem.entry.routeParallelGroupName)?.entry.routeParallelGroupName
 
     return stepEntries.map((item, laneIndex) => ({
@@ -158,7 +216,7 @@ export function normalizeProcessRouteEntries<T extends NormalizableRouteEntry>(e
       routeStepNo: stepNo,
       routeLaneNo: laneIndex + 1,
       routeParallelGroupId: groupId,
-      routeParallelGroupName: group.forceIndependent ? undefined : existingGroupName,
+      routeParallelGroupName: group.forceIndependent ? undefined : group.groupNameOverride ?? existingGroupName,
       routeParallelAcceptanceMode: group.forceIndependent
         ? 'INDEPENDENT_ONLY'
         : groupId
@@ -166,6 +224,8 @@ export function normalizeProcessRouteEntries<T extends NormalizableRouteEntry>(e
           : item.entry.routeParallelAcceptanceMode,
     } as T))
   })
+  assertWaterBeforeDyeInvariant(normalized)
+  return normalized
 }
 
 export function areRouteEntriesContinuous(entries: Array<{

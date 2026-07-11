@@ -226,6 +226,66 @@ const multiRouteStep = (id: string) => multiSharedRoute.find((item) => item.id =
 assert(multiRouteStep('WATER-A') < multiRouteStep('DYE-A'), '多组共享关系中第一组必须保持先水溶、后染色')
 assert(multiRouteStep('WATER-B') < multiRouteStep('DYE-B'), '多组共享关系中后续倒序组也必须被修正')
 
+const crossedParallelRoute = normalizeProcessRouteEntries([
+  {
+    ...dyeTechnique,
+    id: 'CROSS-DYE-A',
+    linkedBomItemIds: ['BOM-A'],
+    routeStepNo: 1,
+    routeLaneNo: 1,
+    routeParallelGroupId: 'CROSS-G1',
+    routeParallelGroupName: '交叉组 1',
+  },
+  {
+    ...waterTechnique,
+    id: 'CROSS-WATER-B',
+    linkedBomItemIds: ['BOM-B'],
+    routeStepNo: 1,
+    routeLaneNo: 2,
+    routeParallelGroupId: 'CROSS-G1',
+    routeParallelGroupName: '交叉组 1',
+  },
+  {
+    ...dyeTechnique,
+    id: 'CROSS-DYE-B',
+    linkedBomItemIds: ['BOM-B'],
+    routeStepNo: 2,
+    routeLaneNo: 1,
+    routeParallelGroupId: 'CROSS-G2',
+    routeParallelGroupName: '交叉组 2',
+  },
+  {
+    ...waterTechnique,
+    id: 'CROSS-WATER-A',
+    linkedBomItemIds: ['BOM-A'],
+    routeStepNo: 2,
+    routeLaneNo: 2,
+    routeParallelGroupId: 'CROSS-G2',
+    routeParallelGroupName: '交叉组 2',
+  },
+])
+const crossedStep = (id: string) => crossedParallelRoute.find((item) => item.id === id)?.routeStepNo ?? 0
+assert(crossedStep('CROSS-WATER-A') < crossedStep('CROSS-DYE-A'), '交叉依赖 A 必须保证先水溶、后染色')
+assert(crossedStep('CROSS-WATER-B') < crossedStep('CROSS-DYE-B'), '交叉依赖 B 必须保证先水溶、后染色')
+const crossedSteps = [...new Set(crossedParallelRoute.map((item) => item.routeStepNo))].sort((left, right) => left - right)
+assert.deepEqual(crossedSteps, crossedSteps.map((_, index) => index + 1), '交叉依赖归一化后的步骤号必须连续')
+for (const stepNo of crossedSteps) {
+  const lanes = crossedParallelRoute
+    .filter((item) => item.routeStepNo === stepNo)
+    .map((item) => item.routeLaneNo)
+    .sort((left, right) => left - right)
+  assert.deepEqual(lanes, lanes.map((_, index) => index + 1), `交叉依赖第 ${stepNo} 步 lane 必须连续`)
+}
+for (const bomId of ['BOM-A', 'BOM-B']) {
+  const waterStep = crossedParallelRoute.find(
+    (item) => item.processCode === 'WATER_SOLUBLE' && item.linkedBomItemIds?.includes(bomId),
+  )?.routeStepNo ?? 0
+  const dyeStep = crossedParallelRoute.find(
+    (item) => item.processCode === 'DYE' && item.linkedBomItemIds?.includes(bomId),
+  )?.routeStepNo ?? 0
+  assert(waterStep > 0 && dyeStep > 0 && waterStep < dyeStep, `交叉依赖归一化不得静默保留 ${bomId} 非法路线`)
+}
+
 const laterSharedRoute = normalizeProcessRouteEntries([
   { ...dyeTechnique, id: 'DYE-NO-SHARE', linkedBomItemIds: ['BOM-NO-SHARE'], routeStepNo: 1, routeLaneNo: 1 },
   { ...dyeTechnique, id: 'DYE-LATER', linkedBomItemIds: ['BOM-LATER'], routeStepNo: 2, routeLaneNo: 1 },
