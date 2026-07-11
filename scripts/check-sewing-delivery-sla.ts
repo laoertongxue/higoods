@@ -2326,6 +2326,16 @@ try {
     receiverWrittenAt: '2026-07-05 12:00:00',
     receiverWrittenBy: '仓库收货员',
   })
+  assert.equal(
+    getSewingDeliverySlaView(viewTaskId, '2026-07-05 10:00:00')?.submittedQty,
+    30,
+    '真实 PDA 回写覆盖当前记录后，仍必须能回看确认前已交出数量',
+  )
+  assert.equal(
+    getSewingDeliverySlaView(viewTaskId, '2026-07-05 10:00:00')?.confirmedReceivedQty,
+    0,
+    '真实 PDA 回写覆盖当前记录后，确认时间之前不得提前计入实收',
+  )
   upsertPdaHandoutRecordMock(record('SLA-VIEW-EARLY', 15, '2026-07-03 09:00:00'))
   writeBackHandoverRecord({
     handoverRecordId: 'SLA-VIEW-EARLY',
@@ -2649,6 +2659,8 @@ try {
   upsertPdaHandoutRecordMock({ recordId: 'REC-DIFF-ACCEPTED', handoverRecordId: 'REC-DIFF-ACCEPTED', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 10, submittedQty: 5, plannedQty: 5, qtyUnit: '件', factorySubmittedAt: '2026-07-07 08:00:00', factorySubmittedBy: '工厂', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'DIFF_ACCEPTED', receiverWrittenQty: 5, receiverWrittenAt: '2026-07-07 09:00:00', receiverWrittenBy: '仓库' })
   upsertPdaHandoutRecordMock({ recordId: 'REC-WAIT', handoverRecordId: 'REC-WAIT', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 11, submittedQty: 77, plannedQty: 77, qtyUnit: '件', factorySubmittedAt: '2026-07-07 08:00:00', factorySubmittedBy: '工厂', factoryProofFiles: [], status: 'PENDING_WRITEBACK', handoverRecordStatus: 'SUBMITTED_WAIT_WRITEBACK', receiverWrittenQty: 77, receiverWrittenAt: '2026-07-07 09:00:00', receiverWrittenBy: '残留字段' })
   upsertPdaHandoutRecordMock({ recordId: 'REC-VOIDED', handoverRecordId: 'REC-VOIDED', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 12, submittedQty: 66, plannedQty: 66, qtyUnit: '件', factorySubmittedAt: '2026-07-07 08:00:00', factorySubmittedBy: '工厂', factoryProofFiles: [], status: 'WRITTEN_BACK', handoverRecordStatus: 'VOIDED', receiverWrittenQty: 66, receiverWrittenAt: '2026-07-07 09:00:00', receiverWrittenBy: '仓库' })
+  upsertPdaHandoutRecordMock({ recordId: 'REC-AFTER-REASSIGN-CUTOFF', handoverRecordId: 'REC-AFTER-REASSIGN-CUTOFF', handoverId: reassignmentHeadId, handoverOrderId: reassignmentHeadId, taskId: source.taskId, sourceTaskId: source.taskId, sequenceNo: 13, submittedQty: 17, plannedQty: 17, qtyUnit: '件', factorySubmittedAt: '2026-07-08 09:30:00', factorySubmittedBy: '原工厂操作员', factoryProofFiles: [], status: 'PENDING_WRITEBACK', handoverRecordStatus: 'SUBMITTED_WAIT_WRITEBACK' })
+  writeBackHandoverRecord({ handoverRecordId: 'REC-AFTER-REASSIGN-CUTOFF', receiverWrittenQty: 17, receiverWrittenAt: '2026-07-08 11:00:00', receiverWrittenBy: '仓库收货员' })
   assert.equal(sumSewingDeliveryConfirmedReceiptQty(source.taskId), 123, 'MATCHED、WRITTEN_BACK_DIFF、DIFF_ACCEPTED应计入；错挂、WAIT残留字段、VOIDED不得计入')
   const beforeFuture = captureRuntimeDirectDispatchState()
   assert.equal(reassignRuntimeSewingTask({ sourceTaskId: source.taskId, targetFactoryId: source.assignedFactoryId, targetFactoryName: source.assignedFactoryName!, businessAssignedAt: '2026-07-08 09:00:00', operatedAt: '2026-07-08 10:00:00', reason: '同厂测试', by: '跟单A' }).ok, false, '同工厂改派必须阻断')
@@ -2671,7 +2683,7 @@ try {
     mainFactoryId: 'ID-F007',
   })
   assert.equal(result.ok, true, result.message)
-  assert.equal(result.assignedQty, sourceSnapshot.assignedQty - 123, '改派数量只扣减接收方已确认实收')
+  assert.equal(result.assignedQty, sourceSnapshot.assignedQty - 123, '改派余量必须按 operatedAt 冻结，操作后才确认的实收不得回减新分配量')
   assert(result.taskId && result.assignmentId)
   assert.equal(getSewingDeliverySlaSnapshot(source.taskId), null, '旧任务不再保有 active 快照')
   const oldHistory = listSewingDeliverySlaSnapshotHistory(source.taskId)

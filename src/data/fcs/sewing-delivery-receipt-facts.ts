@@ -1,5 +1,5 @@
 import type { PdaHandoverRecord } from './pda-handover-events.ts'
-import { listRegisteredHandoutHeads, listRegisteredHandoutRecords } from './pda-handover-handout-registry.ts'
+import { listRegisteredHandoutRecordVersions } from './pda-handover-handout-registry.ts'
 import { formatOperationLocalWallClock, type SewingDeliveryReceiptFact } from './sewing-delivery-sla.ts'
 
 function validNonNegativeQty(value: number | undefined): number | null {
@@ -72,11 +72,7 @@ export function selectLatestSewingDeliveryRawRecords(
 export function listLatestSewingDeliveryRawRecords(
   nowAt: string = formatOperationLocalWallClock(),
 ): PdaHandoverRecord[] {
-  const records: PdaHandoverRecord[] = []
-  listRegisteredHandoutHeads().forEach((head) => {
-    records.push(...listRegisteredHandoutRecords(head.handoverId))
-  })
-  return selectLatestSewingDeliveryRawRecords(records, nowAt)
+  return selectLatestSewingDeliveryRawRecords(listRegisteredHandoutRecordVersions(), nowAt)
 }
 
 export function toConfirmedSewingDeliveryReceiptFact(

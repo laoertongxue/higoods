@@ -3,6 +3,7 @@ import type { PdaHandoverHead, PdaHandoverRecord } from './pda-handover-events.t
 export const handoverHeadAdditions = new Map<string, PdaHandoverHead>()
 export const handoutRecordAdditions = new Map<string, PdaHandoverRecord[]>()
 export const handoutRecordOverrides = new Map<string, Partial<PdaHandoverRecord>>()
+export const handoutRecordVersionHistory = new Map<string, PdaHandoverRecord[]>()
 let listCompleteHeads: (() => PdaHandoverHead[]) | null = null
 let listCompleteRecords: ((handoverId: string) => PdaHandoverRecord[]) | null = null
 let completeReaderOwner = ''
@@ -54,4 +55,12 @@ export function listRegisteredHandoutRecords(handoverId: string): PdaHandoverRec
     })
   }
   return Array.from(merged.values())
+}
+
+export function listRegisteredHandoutRecordVersions(): PdaHandoverRecord[] {
+  const records = listRegisteredHandoutHeads().flatMap((head) => listRegisteredHandoutRecords(head.handoverId))
+  return [
+    ...Array.from(handoutRecordVersionHistory.values()).flat(),
+    ...records,
+  ]
 }

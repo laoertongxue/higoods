@@ -3112,7 +3112,7 @@ export function reassignRuntimeSewingTask(
   if (compareSewingDeliveryDateTimes(input.businessAssignedAt, input.operatedAt) > 0) {
     return reject('业务分配时间不能晚于当前操作时间')
   }
-  const confirmedReceivedQty = sumSewingDeliveryConfirmedReceiptQty(input.sourceTaskId)
+  const confirmedReceivedQty = sumSewingDeliveryConfirmedReceiptQty(input.sourceTaskId, input.operatedAt)
   const remainingQty = Math.max(snapshot.assignedQty - confirmedReceivedQty, 0)
   if (remainingQty <= 0) return reject('原任务已全部实收，无剩余数量可改派')
 

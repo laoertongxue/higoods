@@ -28,6 +28,7 @@ import {
   handoverHeadAdditions,
   handoutRecordAdditions,
   handoutRecordOverrides,
+  handoutRecordVersionHistory,
   installCompleteHandoutReaders,
 } from './pda-handover-handout-registry.ts'
 
@@ -559,6 +560,7 @@ export interface PdaHandoverStateSnapshot {
   handoutRecordAdditions: Array<[string, PdaHandoverRecord[]]>
   pickupRecordOverrides: Array<[string, Partial<PdaPickupRecord>]>
   handoutRecordOverrides: Array<[string, Partial<PdaHandoverRecord>]>
+  handoutRecordVersionHistory: Array<[string, PdaHandoverRecord[]]>
   headCompletionOverrides: Array<[
     string,
     { completionStatus: PdaHeadCompletionStatus; completedByWarehouseAt?: string },
@@ -2516,6 +2518,7 @@ export function capturePdaHandoverState(): PdaHandoverStateSnapshot {
     handoutRecordAdditions: Array.from(handoutRecordAdditions.entries()),
     pickupRecordOverrides: Array.from(pickupRecordOverrides.entries()),
     handoutRecordOverrides: Array.from(handoutRecordOverrides.entries()),
+    handoutRecordVersionHistory: Array.from(handoutRecordVersionHistory.entries()),
     headCompletionOverrides: Array.from(headCompletionOverrides.entries()),
     cachedBuiltHeads,
     cachedPostFinishingBuiltHeads,
@@ -2528,6 +2531,7 @@ export function restorePdaHandoverState(state: PdaHandoverStateSnapshot): void {
   handoutRecordAdditions.clear()
   pickupRecordOverrides.clear()
   handoutRecordOverrides.clear()
+  handoutRecordVersionHistory.clear()
   headCompletionOverrides.clear()
 
   const restored = structuredClone(state)
@@ -2536,6 +2540,7 @@ export function restorePdaHandoverState(state: PdaHandoverStateSnapshot): void {
   restored.handoutRecordAdditions.forEach(([id, records]) => handoutRecordAdditions.set(id, records))
   restored.pickupRecordOverrides.forEach(([id, record]) => pickupRecordOverrides.set(id, record))
   restored.handoutRecordOverrides.forEach(([id, record]) => handoutRecordOverrides.set(id, record))
+  restored.handoutRecordVersionHistory.forEach(([id, records]) => handoutRecordVersionHistory.set(id, records))
   restored.headCompletionOverrides.forEach(([id, override]) => headCompletionOverrides.set(id, override))
   cachedBuiltHeads = restored.cachedBuiltHeads
   cachedPostFinishingBuiltHeads = restored.cachedPostFinishingBuiltHeads
@@ -3645,6 +3650,12 @@ function savePickupRecord(record: PdaPickupRecord): void {
 }
 
 function saveHandoutRecord(record: PdaHandoverRecord): void {
+  const current = findRecord(record.recordId)
+  if (current) {
+    const history = handoutRecordVersionHistory.get(record.recordId) ?? []
+    history.push(cloneRecord(current))
+    handoutRecordVersionHistory.set(record.recordId, history)
+  }
   if (record.recordId.startsWith('HOR-')) {
     const existedOverride = handoutRecordOverrides.get(record.recordId) ?? {}
     handoutRecordOverrides.set(record.recordId, { ...existedOverride, ...record })
@@ -3652,7 +3663,7 @@ function saveHandoutRecord(record: PdaHandoverRecord): void {
     return
   }
 
-  const existingRecord = findRecord(record.recordId)
+  const existingRecord = current
   const head = findHead(record.handoverId)
   if (!existingRecord && head?.completionStatus === 'COMPLETED') {
     throw new Error('交出单已完成，不允许新增交出记录')
