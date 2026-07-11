@@ -2404,8 +2404,8 @@ try {
   assert.doesNotThrow(() => { initialView = getSewingDeliverySlaView(viewTaskId, '2026-07-06 10:00:00') }, '非法实收时间的脏历史事实不得让履约投影崩溃')
   assert(initialView, '有有效快照的任务应生成履约视图')
   assert.equal(initialView.runtimeTaskId, viewTaskId)
-  assert.equal(initialView.submittedQty, 68, '已交出应只汇总观察时点前的有效提交数量，未来、作废与非法提交数量不计入')
-  assert.equal(initialView.confirmedReceivedQty, 40, '待确认与作废记录不得计入确认实收')
+  assert.equal(initialView.submittedQty, 93, '实收时间非法不得抹掉合法的25件已交出；仅未来、作废与非法提交数量不计入')
+  assert.equal(initialView.confirmedReceivedQty, 40, '实收时间非法的25件只保留已交出事实，不得计入确认实收')
   assert.equal(initialView.projection.milestones[0]?.firstReachedAt, '2026-07-05 12:00:00', '首次达标时间必须按接收方确认时间稳定排序累计')
   assert.deepEqual(
     initialView.projection.milestones[0]?.receiverDelayRecordIds,
