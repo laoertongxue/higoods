@@ -30,6 +30,7 @@ import {
 } from '../src/data/fcs/runtime-process-tasks.ts'
 import { reassignRuntimeSewingTask } from '../src/data/fcs/runtime-sewing-reassignment.ts'
 import { sumSewingDeliveryConfirmedReceiptQty } from '../src/data/fcs/sewing-delivery-receipt-facts.ts'
+import { listRegisteredHandoutHeads, listRegisteredHandoutRecords } from '../src/data/fcs/pda-handover-handout-registry.ts'
 import { listSewingDispatchWorkbenchDrafts, listSewingDispatchWorkbenchRows, listSewingFactoryOptions } from '../src/data/fcs/sewing-dispatch-workbench.ts'
 import { installRuntimeTaskReadResolver, readRuntimeTaskById } from '../src/data/fcs/runtime-task-read-bridge.ts'
 import { parseFcsQrValue } from '../src/data/fcs/task-qr.ts'
@@ -2146,13 +2147,13 @@ const sewingDeliverySlaViewSource = readFileSync(new URL('../src/data/fcs/sewing
 const progressDomainSource = readFileSync(new URL('../src/data/fcs/store-domain-progress.ts', import.meta.url), 'utf8')
 assert.match(
   sewingDeliverySlaViewSource,
-  /listHandoverOrdersByTaskId\(runtimeTaskId\)/,
-  '单任务履约视图必须严格复用交出域 taskId 查询入口',
+  /listRegisteredHandoutHeads\(\)[\s\S]*?listRegisteredHandoutRecords/,
+  '单任务履约视图必须复用registry完整heads与records reader',
 )
 assert.match(
   sewingDeliverySlaViewSource,
-  /const recordsByTaskId = new Map[\s\S]*?listPdaHandoverHeads\(\)\.forEach/,
-  '批量履约视图必须一次读取交出单并按 taskId 预索引',
+  /const recordsByTaskId = new Map[\s\S]*?listRegisteredHandoutHeads\(\)\.forEach/,
+  '批量履约视图必须一次读取registry完整交出单并按 taskId 预索引',
 )
 assert.doesNotMatch(
   sewingDeliverySlaViewSource,
@@ -2565,10 +2566,10 @@ try {
     clearSewingDeliverySlaSnapshotStore(seedTask.taskId)
     saveSewingDeliverySlaSnapshot(createSewingDeliverySlaSnapshot({ assignmentId: `SEED-PARITY-${seedTask.taskId}`, runtimeTaskId: seedTask.taskId, productionOrderId: seedTask.productionOrderId, factoryId: seedTask.assignedFactoryId ?? 'SEED-F', factoryName: seedTask.assignedFactoryName ?? 'Seed工厂', assignedQty: seedTask.scopeQty, acceptedAt: '2026-07-01 08:00:00', slaKind: classifySewingDeliverySla(seedTask)! }))
     assert.equal(sumSewingDeliveryConfirmedReceiptQty(seedTask.taskId), getSewingDeliverySlaView(seedTask.taskId, '2026-07-10 10:00:00')?.confirmedReceivedQty, '现有seed完整交出事实必须在改派adapter与Task6视图中一致')
-    const directExpectedQty = listPdaHandoverHeads()
-      .filter((head) => head.headType === 'HANDOUT' && head.taskId === seedTask.taskId)
-      .flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId))
-      .filter((record) => record.taskId === seedTask.taskId && record.handoverRecordStatus !== 'VOIDED' && record.handoverRecordStatus !== 'SUBMITTED_WAIT_WRITEBACK')
+    const directExpectedQty = listRegisteredHandoutHeads()
+      .filter((head) => head.taskId === seedTask.taskId)
+      .flatMap((head) => listRegisteredHandoutRecords(head.handoverId))
+      .filter((record) => record.taskId === seedTask.taskId && ['WRITTEN_BACK_MATCHED', 'WRITTEN_BACK_DIFF', 'DIFF_ACCEPTED'].includes(record.handoverRecordStatus))
       .reduce((sum, record) => sum + (typeof record.receiverWrittenQty === 'number' && Number.isFinite(record.receiverWrittenQty) && record.receiverWrittenQty >= 0 && record.receiverWrittenAt ? record.receiverWrittenQty : 0), 0)
     assert.equal(sumSewingDeliveryConfirmedReceiptQty(seedTask.taskId), directExpectedQty, 'registry必须合并完整reader seed与新增addition，且与pda完整读取链合法实收一致')
   }

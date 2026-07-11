@@ -10,12 +10,8 @@ import {
   type SewingDeliveryReceiptFact,
 } from './sewing-delivery-sla.ts'
 import { getRuntimeTaskById, listRuntimeExecutionTasks } from './runtime-process-tasks.ts'
-import {
-  getPdaHandoverRecordsByHead,
-  listHandoverOrdersByTaskId,
-  listPdaHandoverHeads,
-  type PdaHandoverRecord,
-} from './pda-handover-events.ts'
+import type { PdaHandoverRecord } from './pda-handover-events.ts'
+import { listRegisteredHandoutHeads, listRegisteredHandoutRecords } from './pda-handover-handout-registry.ts'
 import { toConfirmedSewingDeliveryReceiptFact } from './sewing-delivery-receipt-facts.ts'
 
 export interface SewingDeliverySlaView {
@@ -34,8 +30,9 @@ function validNonNegativeQty(value: number | undefined): number | null {
 }
 
 function listTaskHandoutRecords(runtimeTaskId: string): PdaHandoverRecord[] {
-  return listHandoverOrdersByTaskId(runtimeTaskId)
-    .flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId))
+  return listRegisteredHandoutHeads()
+    .filter((head) => head.taskId === runtimeTaskId)
+    .flatMap((head) => listRegisteredHandoutRecords(head.handoverId))
     .filter((record) => record.taskId === runtimeTaskId)
 }
 
@@ -105,10 +102,10 @@ export function listSewingDeliverySlaViews(
   }
   const targetTaskIds = new Set(snapshotsByTaskId.keys())
   const recordsByTaskId = new Map<string, PdaHandoverRecord[]>()
-  listPdaHandoverHeads().forEach((head) => {
-    if (head.headType !== 'HANDOUT' || !targetTaskIds.has(head.taskId)) return
+  listRegisteredHandoutHeads().forEach((head) => {
+    if (!targetTaskIds.has(head.taskId)) return
     const records = recordsByTaskId.get(head.taskId) ?? []
-    records.push(...getPdaHandoverRecordsByHead(head.handoverId).filter((record) => record.taskId === head.taskId))
+    records.push(...listRegisteredHandoutRecords(head.handoverId).filter((record) => record.taskId === head.taskId))
     recordsByTaskId.set(head.taskId, records)
   })
   const views = Array.from(snapshotsByTaskId.entries()).map(([runtimeTaskId, snapshot]) =>
