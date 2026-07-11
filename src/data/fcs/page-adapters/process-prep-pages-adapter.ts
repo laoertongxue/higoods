@@ -1,5 +1,5 @@
 import {
-  buildDictionaryCraftMockDocumentNo,
+  buildProductionDemandBusinessId,
   listGeneratedProductionDemandArtifacts,
   type ProductionDemandArtifact,
 } from '../production-artifact-generation.ts'
@@ -75,6 +75,7 @@ export interface PrepRequirementLinkedOrder {
 
 export interface PrepRequirementDemandFact {
   demandId: string
+  sourceArtifactId?: string
   sourceProductionOrderId: string
   bomItemId: string
   requiresWaterSoluble: boolean
@@ -337,29 +338,6 @@ function toMaterialCode(meta: PrepProcessMeta, artifact: ProductionDemandArtifac
   return `M-${meta.processCode}-${craftToken ? `${craftToken}-` : ''}${orderToken}-${pad(index + 1, 2)}`
 }
 
-function resolveArtifactMockIndex(artifact: ProductionDemandArtifact, fallbackIndex: number): number {
-  const matched = artifact.sourceEntryId.match(/DICT-MOCK-[A-Z_0-9]+-(\d{2})-/)
-  if (!matched) return fallbackIndex
-  const parsed = Number(matched[1])
-  return Number.isFinite(parsed) && parsed > 0 ? parsed - 1 : fallbackIndex
-}
-
-function buildPrepDocumentNo(
-  prefix: string,
-  artifact: ProductionDemandArtifact,
-  fallbackIndex: number,
-): string {
-  if (artifact.craftCode) {
-    return buildDictionaryCraftMockDocumentNo(
-      prefix,
-      artifact.craftCode,
-      artifact.orderId,
-      resolveArtifactMockIndex(artifact, fallbackIndex),
-    )
-  }
-  return `${prefix}${artifact.orderId.replace(/\D/g, '').slice(-8)}${pad(fallbackIndex + 1, 2)}`
-}
-
 function buildFacts(processCode: PrepProcessCode): {
   demands: PrepRequirementDemandFact[]
   orders: PrepProcessOrderFact[]
@@ -384,8 +362,8 @@ function buildFacts(processCode: PrepProcessCode): {
     const orderStatus = calcOrderStatus(orderQty, satisfiedQty, index)
     const createMode: CreateModeZh = index % 2 === 0 ? '按需求创建' : '按备货创建'
 
-    const orderNo = buildPrepDocumentNo(meta.orderPrefix, artifact, index)
-    const demandNo = buildPrepDocumentNo(meta.demandPrefix, artifact, index)
+    const orderNo = buildProductionDemandBusinessId(meta.orderPrefix, artifact)
+    const demandNo = buildProductionDemandBusinessId(meta.demandPrefix, artifact)
     const batchNo = `${meta.processCode === 'PRINT' ? 'YHPH' : 'RSPH'}${artifact.orderId.replace(/\D/g, '').slice(-8)}${pad(index + 1, 2)}`
     const preparationOrderNo = `PL${artifact.orderId.replace(/\D/g, '').slice(-8)}${pad(index + 1, 2)}`
     const createdAt = order?.createdAt ?? '2026-03-01 09:00:00'
@@ -525,6 +503,7 @@ function buildFacts(processCode: PrepProcessCode): {
 
     const demandFact: PrepRequirementDemandFact = {
       demandId: demandNo,
+      sourceArtifactId: artifact.artifactId,
       sourceProductionOrderId: artifact.orderId,
       bomItemId: artifact.bomItemId || artifact.sourceEntryId,
       requiresWaterSoluble: artifact.requiresWaterSoluble === true,

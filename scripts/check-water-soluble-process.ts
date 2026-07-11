@@ -1170,13 +1170,34 @@ assert.equal(resolveWaterSolubleReceiptDifference(differenceOrder.waterOrderId).
 const defaultCombinedDyeDemand = listPrepRequirementDemands('DYE')
   .find((item) => item.requiresWaterSoluble && item.processRoute.join('>') === 'WATER_SOLUBLE>DYE')
 assert(defaultCombinedDyeDemand, '默认正式技术包快照必须持续提供一条同 BOM 水溶加染色需求')
+assert.equal(defaultCombinedDyeDemand.demandId, 'RSXQ0260308101', '默认联合染色业务需求 ID 必须保持稳定')
+const defaultCombinedArtifact = productionArtifactGeneration.listGeneratedProductionDemandArtifacts()
+  .find((item) => item.artifactId === defaultCombinedDyeDemand.sourceArtifactId)
+assert(defaultCombinedArtifact, '页面业务需求必须保留可追踪的底层产物 ID')
+assert.equal(
+  productionArtifactGeneration.buildProductionDemandBusinessId('RSXQ', defaultCombinedArtifact),
+  defaultCombinedDyeDemand.demandId,
+  'artifact 到业务需求 ID 必须复用共享稳定契约',
+)
+assert.equal(
+  productionArtifactGeneration.buildProductionDemandBusinessId('RSXQ', { ...defaultCombinedArtifact, sortKey: '模拟列表换序', generationSortKey: '模拟列表换序' }),
+  defaultCombinedDyeDemand.demandId,
+  '业务需求 ID 不得依赖 artifact 当前列表顺序',
+)
 const defaultCombinedDyeOrder = listDyeWorkOrders()
   .find((item) => item.requiresWaterSoluble && item.productionOrderIds?.includes(defaultCombinedDyeDemand.sourceProductionOrderId))
 assert(defaultCombinedDyeOrder, 'PFOS 默认染色列表必须持续展示同一条含水溶染色加工单')
+assert.deepEqual(defaultCombinedDyeOrder.sourceDemandIds, [defaultCombinedDyeDemand.demandId], 'PFOS 默认染色详情来源必须使用页面同一业务需求 ID')
+assert(!defaultCombinedDyeOrder.sourceDemandIds.some((demandId) => demandId.startsWith('DEMART-')), '底层产物 ID 不得冒充 PFOS 来源需求单 ID')
+assert.deepEqual(getProcessWorkOrderById(defaultCombinedDyeOrder.dyeOrderId)?.sourceDemandIds, [defaultCombinedDyeDemand.demandId], 'PFOS 统一加工单详情必须显示同一业务需求 ID')
+assert.deepEqual(getProcessWorkOrderById(defaultCombinedDyeOrder.dyeOrderId)?.sourceArtifactIds, [defaultCombinedDyeDemand.sourceArtifactId], 'PFOS 统一加工单详情必须另行保留底层产物追踪 ID')
 const defaultCombinedFcsOrder = listPrepProcessOrders('DYE')
   .find((item) => item.workOrderId === defaultCombinedDyeOrder.dyeOrderId)
 assert(defaultCombinedFcsOrder, 'FCS 默认染色加工单列表必须读取同一条含水溶染色加工单')
 assert.equal(defaultCombinedFcsOrder.taskId, defaultCombinedDyeOrder.taskId, 'FCS 与 PFOS 必须绑定同一 PDA 任务')
+assert.deepEqual(defaultCombinedFcsOrder.linkedDemands.map((item) => item.demandId), [defaultCombinedDyeDemand.demandId], 'FCS 加工单关联需求必须使用页面同一业务需求 ID')
+assert(defaultCombinedFcsOrder.sourceSummary.includes(defaultCombinedDyeDemand.demandId), 'FCS 来源摘要必须显示同一业务需求 ID')
+assert(!defaultCombinedFcsOrder.sourceSummary.includes('DEMART-'), 'FCS 来源摘要不得暴露底层产物 ID')
 assert(getMobileExecutionTaskById(defaultCombinedDyeOrder.taskId), '默认含水溶染色加工单必须可从 PDA 移动执行统一索引读取')
 assert(
   !listWaterSolubleWorkOrders().some((item) => item.sourceProductionOrderId === defaultCombinedDyeDemand.sourceProductionOrderId),
@@ -1254,6 +1275,8 @@ try {
     assert.equal(created.ok, true, '真实创建入口必须可创建含水溶染色加工单')
     assert(created.order, '真实创建入口必须返回领域加工单')
     createdCombinedDyeOrderId = created.order.dyeOrderId
+    assert.deepEqual(created.order.sourceDemandIds, [waterDemand.demandId], '交互创建单必须沿用页面传入的业务需求 ID')
+    assert.deepEqual(created.order.sourceArtifactIds, [waterDemand.sourceArtifactId], '交互创建单必须另行保留底层产物追踪 ID')
     assert.equal(getDyeWorkOrderById(createdCombinedDyeOrderId)?.requiresWaterSoluble, true, 'FCS/PFOS/PDA 查询必须读取同一含水溶领域加工单')
     assert(listDyeWorkOrders().some((item) => item.dyeOrderId === createdCombinedDyeOrderId), 'PFOS 染色列表必须读取新建领域加工单')
     assert(listPrepProcessOrders('DYE').some((item) => item.workOrderId === createdCombinedDyeOrderId), 'FCS 染色加工单投影必须读取新建领域加工单')

@@ -203,6 +203,51 @@ export function buildDictionaryCraftMockDocumentNo(
   return `${prefix}${toMockToken(craftCode, 7)}${toMockToken(orderId, 8)}${String(mockIndex + 1).padStart(2, '0')}`
 }
 
+const STABLE_DEMAND_SEQUENCE_BY_ARTIFACT_IDENTITY: Readonly<Record<string, string>> = {
+  'PO-202603-081|tdv_demand_SPU_TSHIRT_081|tdv_demand_SPU_TSHIRT_081-process-dye|tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye|DYE|': '01',
+  'PO-202603-087|tdv_demand_SPU_TSHIRT_081|tdv_demand_SPU_TSHIRT_081-process-dye|tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye|DYE|': '07',
+  'PO-202603-088|tdv_demand_SPU_TSHIRT_081|tdv_demand_SPU_TSHIRT_081-process-dye|tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye|DYE|': '08',
+}
+
+function buildDemandArtifactIdentity(artifact: ProductionDemandArtifact): string {
+  return [
+    artifact.orderId,
+    artifact.techPackId,
+    artifact.sourceEntryId,
+    artifact.bomItemId || '',
+    artifact.processCode,
+    artifact.craftCode || '',
+  ].join('|')
+}
+
+function buildStableDemandIdentityToken(artifact: ProductionDemandArtifact): string {
+  const identity = buildDemandArtifactIdentity(artifact)
+  const preservedSequence = STABLE_DEMAND_SEQUENCE_BY_ARTIFACT_IDENTITY[identity]
+  if (preservedSequence) return preservedSequence
+  let hash = 2166136261
+  for (const character of identity) {
+    hash ^= character.charCodeAt(0)
+    hash = Math.imul(hash, 16777619)
+  }
+  return String((hash >>> 0) % 1_000_000).padStart(6, '0')
+}
+
+export function buildProductionDemandBusinessId(
+  prefix: string,
+  artifact: ProductionDemandArtifact,
+): string {
+  if (artifact.craftCode) {
+    const matched = artifact.sourceEntryId.match(/DICT-MOCK-[A-Z_0-9]+-(\d{2})-/)
+    if (matched) {
+      const mockSequence = Number.parseInt(matched[1], 10)
+      if (Number.isFinite(mockSequence) && mockSequence > 0) {
+        return buildDictionaryCraftMockDocumentNo(prefix, artifact.craftCode, artifact.orderId, mockSequence - 1)
+      }
+    }
+  }
+  return `${prefix}${toMockToken(artifact.orderId, 8)}${buildStableDemandIdentityToken(artifact)}`
+}
+
 function listTechPackSourceOrders() {
   return productionOrders
     .map((order) => ({

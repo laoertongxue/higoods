@@ -38,6 +38,7 @@ export interface ProcessWorkOrder {
   workOrderNo: string
   processType: ProcessWorkOrderType
   sourceDemandIds: string[]
+  sourceArtifactIds?: string[]
   productionOrderIds: string[]
   factoryId: string
   factoryName: string
@@ -180,6 +181,7 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
     workOrderNo: order.dyeOrderNo,
     processType: 'DYE',
     sourceDemandIds: [...order.sourceDemandIds],
+    sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
     productionOrderIds: [...(order.productionOrderIds || [])],
     factoryId: order.dyeFactoryId,
     factoryName: order.dyeFactoryName,

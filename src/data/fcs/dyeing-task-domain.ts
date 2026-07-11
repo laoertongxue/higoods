@@ -21,6 +21,7 @@ import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-sna
 import { listActiveProcessCraftDefinitions, type ProcessCraftDefinition } from './process-craft-dict.ts'
 import {
   buildDictionaryCraftMockDocumentNo,
+  buildProductionDemandBusinessId,
   DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
   getDictionaryCraftMockSource,
   listGeneratedProductionDemandArtifacts,
@@ -71,6 +72,7 @@ export interface DyeWorkOrder {
   dyeOrderNo: string
   sourceType: 'PRODUCTION_ORDER'
   sourceDemandIds: string[]
+  sourceArtifactIds?: string[]
   productionOrderIds?: string[]
   isFirstOrder: boolean
   sampleWaitType: SampleWaitType
@@ -303,6 +305,7 @@ const DYE_WORK_ORDER_IDS = [
 
 export interface DyeDemandForWorkOrder {
   demandId: string
+  sourceArtifactId?: string
   sourceProductionOrderId: string
   bomItemId: string
   materialCode: string
@@ -445,6 +448,7 @@ function cloneWorkOrder(order: MutableDyeWorkOrder): DyeWorkOrder {
   return {
     ...order,
     sourceDemandIds: [...order.sourceDemandIds],
+    sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
     productionOrderIds: order.productionOrderIds ? [...order.productionOrderIds] : undefined,
   }
 }
@@ -2187,7 +2191,8 @@ function seedPersistentWaterSolubleDyeWorkOrder(): void {
     dyeOrderId: 'DYE-WATER-PO-202603-081',
     dyeOrderNo: 'RSJG-WATER-202603081',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: [artifact.artifactId],
+    sourceDemandIds: [buildProductionDemandBusinessId('RSXQ', artifact)],
+    sourceArtifactIds: [artifact.artifactId],
     productionOrderIds: [artifact.orderId],
     isFirstOrder: false,
     sampleWaitType: 'NONE',
@@ -2526,6 +2531,7 @@ export function createDyeWorkOrderFromDemands(input: {
     dyeOrderNo,
     sourceType: 'PRODUCTION_ORDER',
     sourceDemandIds: input.demands.map((item) => item.demandId),
+    sourceArtifactIds: input.demands.flatMap((item) => item.sourceArtifactId ? [item.sourceArtifactId] : []),
     productionOrderIds: [...new Set(input.demands.map((item) => item.sourceProductionOrderId))],
     isFirstOrder: requiresSample,
     sampleWaitType,
