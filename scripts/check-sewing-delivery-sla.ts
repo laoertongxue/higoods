@@ -2460,7 +2460,7 @@ try {
   )
   const reviewHistoryCount = responsibilityApi.listSewingDeliveryResponsibilityReviews(viewTaskId).length
   for (const invalid of [
-    { runtimeTaskId: 'TASK-NOT-FOUND', milestoneRatio: 0.3, conclusion: 'FACTORY', reviewedAt: '2026-07-08 11:30:00', expected: /有效履约快照/ },
+    { runtimeTaskId: 'TASK-NOT-FOUND', milestoneRatio: 0.3, conclusion: 'FACTORY', reviewedAt: '2026-07-08 11:30:00', expected: /对应履约快照/ },
     { runtimeTaskId: viewTaskId, milestoneRatio: 0.3, conclusion: 'UNKNOWN', reviewedAt: '2026-07-08 11:30:00', expected: /责任结论/ },
     { runtimeTaskId: viewTaskId, milestoneRatio: 0.3, conclusion: 'FACTORY', reviewedAt: '非法时间', expected: /责任复核时间/ },
   ] as const) {
@@ -2717,20 +2717,48 @@ assert.throws(() => installRuntimeTaskReadResolver(() => null), /不可重复覆
 const workbenchDispatchRuntimeState = captureRuntimeDirectDispatchState()
 const workbenchDispatchSlaState = captureSewingDeliverySlaSnapshotStore()
 const workbenchDispatchPageState = captureSewingDispatchWorkbenchPageState()
+const workbenchOriginalHtmlInputElement = globalThis.HTMLInputElement
 try {
-  const directRow = listSewingDispatchWorkbenchRows().find((row) => row.completeKitQty >= 2)
+  const fixtureSource = getRuntimeTaskById('TASKGEN-202603-084-003__ORDER')!
+  const fixtureState = captureRuntimeDirectDispatchState()
+  const fixtureTaskId = 'TEST-WORKBENCH-PARTIAL-SEWING'
+  fixtureState.reassignedTasks.push([fixtureTaskId, { ...structuredClone(fixtureSource), taskId: fixtureTaskId, taskNo: fixtureTaskId, baseTaskId: fixtureTaskId, assignmentMode: 'DIRECT', assignmentStatus: 'UNASSIGNED', assignedFactoryId: undefined, assignedFactoryName: undefined, acceptanceStatus: 'PENDING', acceptedAt: undefined, acceptedBy: undefined, deliverySlaSnapshotId: undefined, executionEnabled: true }])
+  restoreRuntimeDirectDispatchState(fixtureState)
+  const directRows = listSewingDispatchWorkbenchRows().filter((row) => row.taskId === fixtureTaskId && row.completeKitQty >= 2)
+  assert(directRows.length >= 2, '隔离 fixture 必须生成同任务多 SKU 可分配行')
+  const directRow = directRows[0]
+  const unselectedRow = directRows[1]
   const directFactory = listSewingFactoryOptions().find((factory) => factory.id === 'ID-F003') ?? listSewingFactoryOptions()[0]
   assert(directRow && directFactory, '独立车缝真实分配 handler 需要可分配行和工厂')
-  restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([directRow.taskId]), dispatchOpen: true, dispatchActionType: '直接派单', dispatchFactoryId: directFactory.id, dispatchRiskConfirmed: true, dispatchQtyByRowId: { [directRow.rowId]: '1' }, dispatchBusinessAssignedAt: '2026-07-10T08:00', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
-  const workbenchActionTarget = (action: string) => ({ closest: (selector: string) => selector.includes('[data-sewing-dispatch-action]') ? { dataset: { sewingDispatchAction: action } } : null }) as unknown as HTMLElement
+  const workbenchActionTarget = (action: string, taskId?: string) => ({ closest: (selector: string) => selector.includes('[data-sewing-dispatch-action]') ? { dataset: { sewingDispatchAction: action, taskId, dispatchType: '直接派单' } } : null }) as unknown as HTMLElement
+  assert.equal(handleSewingDispatchWorkbenchEvent(workbenchActionTarget('open-dispatch', fixtureTaskId)), true)
+  class WorkbenchInput {
+    dataset: Record<string, string>
+    value: string
+    checked: boolean
+    constructor(field: string, value: string, checked: boolean, rowId?: string) { this.dataset = { sewingDispatchField: field, ...(rowId ? { rowId } : {}) }; this.value = value; this.checked = checked }
+    closest(selector: string) { return selector.includes('[data-sewing-dispatch-field]') ? this : null }
+  }
+  Object.defineProperty(globalThis, 'HTMLInputElement', { configurable: true, writable: true, value: WorkbenchInput })
+  const cancelSkuInput = new WorkbenchInput('dispatchRowSelected', '', false, unselectedRow.rowId) as unknown as HTMLElement
+  assert.equal(handleSewingDispatchWorkbenchEvent(cancelSkuInput, { type: 'click' } as Event), false, 'SKU checkbox click 必须保留浏览器原生切换')
+  assert.equal(handleSewingDispatchWorkbenchEvent(cancelSkuInput, { type: 'change' } as Event), true)
+  const qtyInput = new WorkbenchInput('dispatchQty', '1', true, directRow.rowId) as unknown as HTMLElement
+  assert.equal(handleSewingDispatchWorkbenchEvent(qtyInput, { type: 'input' } as Event), true)
+  const timeInput = new WorkbenchInput('dispatchBusinessAssignedAt', '2026-07-10T08:00', true) as unknown as HTMLElement
+  assert.equal(handleSewingDispatchWorkbenchEvent(timeInput, { type: 'input' } as Event), true)
+  const openedState = captureSewingDispatchWorkbenchPageState()
+  restoreSewingDispatchWorkbenchPageState({ ...openedState, dispatchFactoryId: directFactory.id, dispatchRiskConfirmed: true, dispatchOperatedAt: '2026-07-10 10:00:00' })
   assert.equal(handleSewingDispatchWorkbenchEvent(workbenchActionTarget('confirm-dispatch')), true)
   const directDraft = listSewingDispatchWorkbenchDrafts()[0]
   assert.equal(directDraft?.statusLabel, '直接派单已生效并自动接单')
   assert.equal(getSewingDeliverySlaSnapshot(directDraft.runtimeTaskIds[0])?.assignedQty, 1, '真实 handler 部分数量直接派单快照分母应等于输入')
+  assert.deepEqual(getRuntimeTaskById(directDraft.runtimeTaskIds[0])?.scopeSkuLines.map((line) => line.skuCode), [directRow.skuCode], '取消选择的 SKU 不得进入本次分配 child')
+  assert(listSewingDispatchWorkbenchRows().some((row) => row.skuCode === unselectedRow.skuCode), '未选 SKU 必须保留为 residual 回到工作台')
 
   const bidRow = listSewingDispatchWorkbenchRows().find((row) => row.completeKitQty > 0)
   assert(bidRow, '直接部分分配后应有剩余行可再次竞价')
-  restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([bidRow.taskId]), dispatchOpen: true, dispatchActionType: '发起竞价', dispatchFactoryId: '', dispatchRiskConfirmed: false, dispatchQtyByRowId: { [bidRow.rowId]: '1' }, dispatchBusinessAssignedAt: '2026-07-10T09:00', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
+  restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([bidRow.taskId]), dispatchSelectedRowIds: new Set([bidRow.rowId]), dispatchOpen: true, dispatchActionType: '发起竞价', dispatchFactoryId: '', dispatchRiskConfirmed: false, dispatchQtyByRowId: { [bidRow.rowId]: '1' }, dispatchBusinessAssignedAt: '2026-07-10T09:00', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
   assert.equal(handleSewingDispatchWorkbenchEvent(workbenchActionTarget('confirm-dispatch')), true)
   const bidDraft = listSewingDispatchWorkbenchDrafts()[0]
   assert.equal(getRuntimeTaskById(bidDraft.runtimeTaskIds[0])?.assignmentStatus, 'BIDDING', '真实 handler 竞价必须写入 runtime tender')
@@ -2739,11 +2767,18 @@ try {
   const futureRow = listSewingDispatchWorkbenchRows().find((row) => row.completeKitQty > 0)
   assert(futureRow)
   const stateBeforeFutureHandler = captureRuntimeDirectDispatchState()
-  restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([futureRow.taskId]), dispatchOpen: true, dispatchActionType: '直接派单', dispatchFactoryId: directFactory.id, dispatchRiskConfirmed: true, dispatchQtyByRowId: { [futureRow.rowId]: '1' }, dispatchBusinessAssignedAt: '2026-07-10T11:00', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
+  restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([futureRow.taskId]), dispatchSelectedRowIds: new Set([futureRow.rowId]), dispatchOpen: true, dispatchActionType: '直接派单', dispatchFactoryId: directFactory.id, dispatchRiskConfirmed: true, dispatchQtyByRowId: { [futureRow.rowId]: '1' }, dispatchBusinessAssignedAt: '2026-07-10T11:00', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
   assert.equal(handleSewingDispatchWorkbenchEvent(workbenchActionTarget('confirm-dispatch')), true)
   assert.match(captureSewingDispatchWorkbenchPageState().dispatchError, /业务分配时间不能晚于当前操作时间/)
   assert.deepEqual(captureRuntimeDirectDispatchState(), stateBeforeFutureHandler, '未来业务分配时间被 handler 阻断后不得改变 runtime/production 状态')
+  const draftCountBeforeInvalidTime = listSewingDispatchWorkbenchDrafts().length
+  restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([futureRow.taskId]), dispatchSelectedRowIds: new Set([futureRow.rowId]), dispatchOpen: true, dispatchActionType: '直接派单', dispatchFactoryId: directFactory.id, dispatchRiskConfirmed: true, dispatchQtyByRowId: { [futureRow.rowId]: '1' }, dispatchBusinessAssignedAt: '', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
+  assert.equal(handleSewingDispatchWorkbenchEvent(workbenchActionTarget('confirm-dispatch')), true)
+  assert.match(captureSewingDispatchWorkbenchPageState().dispatchError, /业务分配时间/)
+  assert.deepEqual(captureRuntimeDirectDispatchState(), stateBeforeFutureHandler, '空业务时间不得改变 runtime/production 状态')
+  assert.equal(listSewingDispatchWorkbenchDrafts().length, draftCountBeforeInvalidTime, '空业务时间不得新增 draft')
 } finally {
+  Object.defineProperty(globalThis, 'HTMLInputElement', { configurable: true, writable: true, value: workbenchOriginalHtmlInputElement })
   restoreSewingDispatchWorkbenchPageState(workbenchDispatchPageState)
   restoreRuntimeDirectDispatchState(workbenchDispatchRuntimeState)
   restoreSewingDeliverySlaSnapshotStore(workbenchDispatchSlaState)

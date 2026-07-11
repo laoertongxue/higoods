@@ -343,7 +343,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handlePaymentSyncEvent(target) ||
     await handleHistoryEvent(target) ||
     await handleDispatchAcceptanceSlaEvent(target) ||
-    await handleSewingDispatchWorkbenchEvent(target) ||
+    await handleSewingDispatchWorkbenchEvent(target, event) ||
     await handleContinuousDispatchEvent(target, event) ||
     await handleDispatchBoardEvent(target) ||
     await handleDispatchTendersEvent(target) ||

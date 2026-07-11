@@ -59,6 +59,7 @@ export interface SewingDispatchWorkbenchState {
   dispatchFactoryId: string
   dispatchRiskConfirmed: boolean
   dispatchQtyByRowId: Record<string, string>
+  dispatchSelectedRowIds: Set<string>
   dispatchBusinessAssignedAt: string
   dispatchOperatedAt: string
   dispatchError: string
@@ -87,6 +88,7 @@ const state: SewingDispatchWorkbenchState = {
   dispatchFactoryId: '',
   dispatchRiskConfirmed: false,
   dispatchQtyByRowId: {},
+  dispatchSelectedRowIds: new Set<string>(),
   dispatchBusinessAssignedAt: '',
   dispatchOperatedAt: '',
   dispatchError: '',
@@ -227,11 +229,15 @@ function getFilteredTasks(): SewingDispatchWorkbenchTask[] {
   })
 }
 
-function getSelectedDispatchRows(tasks: SewingDispatchWorkbenchTask[] = listSewingDispatchWorkbenchTasks()): SewingDispatchWorkbenchRow[] {
+function getDispatchCandidateRows(tasks: SewingDispatchWorkbenchTask[] = listSewingDispatchWorkbenchTasks()): SewingDispatchWorkbenchRow[] {
   return tasks
     .filter((task) => state.selectedTaskIds.has(task.taskId))
     .flatMap((task) => task.skuRows)
     .filter((row) => row.completeKitQty > 0)
+}
+
+function getSelectedDispatchRows(tasks: SewingDispatchWorkbenchTask[] = listSewingDispatchWorkbenchTasks()): SewingDispatchWorkbenchRow[] {
+  return getDispatchCandidateRows(tasks).filter((row) => state.dispatchSelectedRowIds.has(row.rowId))
 }
 
 function getSewingMaterialPrepChecks(rows: SewingDispatchWorkbenchRow[]): MaterialPrepDispatchReadiness[] {
@@ -1087,6 +1093,7 @@ function renderDispatchCutPieceReleaseNotice(rows: SewingDispatchWorkbenchRow[],
 
 function renderDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): string {
   if (!state.dispatchOpen) return ''
+  const candidateRows = getDispatchCandidateRows(tasks)
   const selectedRows = getSelectedDispatchRows(tasks)
   const factories = listSewingFactoryOptions()
   const selectedFactory = factories.find((factory) => factory.id === state.dispatchFactoryId)
@@ -1137,17 +1144,19 @@ function renderDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): string {
             <table class="w-full min-w-[860px] text-sm">
               <thead><tr class="border-b bg-muted/40 text-xs text-muted-foreground"><th class="px-3 py-2 text-left">SKU</th><th class="px-3 py-2 text-left">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 任务</th><th class="px-3 py-2 text-left">完整齐套数量</th><th class="px-3 py-2 text-left">待分配</th><th class="px-3 py-2 text-left">本次分配数量</th></tr></thead>
               <tbody>
-                ${selectedRows.length === 0
+                ${candidateRows.length === 0
                   ? '<tr><td colspan="5" class="px-3 py-8 text-center text-sm text-muted-foreground">所选任务暂无可分配 SKU。</td></tr>'
-                  : selectedRows.map((row) => `
+                  : candidateRows.map((row) => {
+                    const selected = state.dispatchSelectedRowIds.has(row.rowId)
+                    return `
                     <tr class="border-b last:border-b-0">
-                      <td class="px-3 py-3"><div class="font-medium">${escapeHtml(row.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(row.colorName)} / ${escapeHtml(row.sizeCode)}</div></td>
+                      <td class="px-3 py-3"><div class="flex items-start gap-2"><input type="checkbox" class="mt-0.5" data-sewing-dispatch-field="dispatchRowSelected" data-row-id="${escapeHtml(row.rowId)}" data-skip-page-rerender="true" ${selected ? 'checked' : ''} /><div><div class="font-medium">${escapeHtml(row.skuCode)}</div><div class="text-xs text-muted-foreground">${escapeHtml(row.colorName)} / ${escapeHtml(row.sizeCode)}</div></div></div></td>
                       <td class="px-3 py-3">${renderProductionOrderIdentityCell(row.productionOrderNo)}<div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(row.taskNo)}</div></td>
                       <td class="px-3 py-3">${formatQty(row.completeKitQty)} 件</td>
                       <td class="px-3 py-3">${formatQty(row.remainingQty)} 件</td>
-                      <td class="px-3 py-3"><input class="h-9 w-28 rounded-md border bg-background px-2 text-sm" type="number" min="1" max="${row.completeKitQty}" data-sewing-dispatch-field="dispatchQty" data-row-id="${escapeHtml(row.rowId)}" data-skip-page-rerender="true" value="${escapeHtml(state.dispatchQtyByRowId[row.rowId] ?? String(row.completeKitQty))}" /></td>
+                      <td class="px-3 py-3"><input class="h-9 w-28 rounded-md border bg-background px-2 text-sm disabled:cursor-not-allowed disabled:bg-muted" type="number" min="1" max="${row.completeKitQty}" data-sewing-dispatch-field="dispatchQty" data-row-id="${escapeHtml(row.rowId)}" data-skip-page-rerender="true" value="${escapeHtml(state.dispatchQtyByRowId[row.rowId] ?? String(row.completeKitQty))}" ${selected ? '' : 'disabled'} /></td>
                     </tr>
-                  `).join('')}
+                  `}).join('')}
               </tbody>
             </table>
           </div>
@@ -1162,6 +1171,12 @@ function renderDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): string {
       </section>
     </div>
   `
+}
+
+function refreshSewingDispatchDialog(): void {
+  if (typeof document === 'undefined') return
+  const host = document.querySelector<HTMLElement>('[data-sewing-dispatch-dialog-host]')
+  if (host) host.innerHTML = renderDispatchDialog(listSewingDispatchWorkbenchTasks())
 }
 
 function renderDrafts(): string {
@@ -1227,7 +1242,7 @@ export function renderSewingDispatchWorkbenchPage(): string {
       ${renderTaskTable(tasks)}
       ${renderDrafts()}
       ${renderDetailDrawer(detailTask)}
-      ${renderDispatchDialog(tasks)}
+      <div data-sewing-dispatch-dialog-host>${renderDispatchDialog(tasks)}</div>
       <div data-sewing-reassignment-dialog-host>${renderReassignmentDialog()}</div>
     </div>
   `
@@ -1295,6 +1310,15 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
     state.dispatchError = ''
     return
   }
+  if (field === 'dispatchRowSelected' && node instanceof HTMLInputElement) {
+    const rowId = node.dataset.rowId
+    if (!rowId) return
+    if (node.checked) state.dispatchSelectedRowIds.add(rowId)
+    else state.dispatchSelectedRowIds.delete(rowId)
+    state.dispatchError = ''
+    refreshSewingDispatchDialog()
+    return
+  }
   if (field === 'dispatchQty') {
     const rowId = node.dataset.rowId
     if (!rowId) return
@@ -1309,10 +1333,11 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
 
 function openDispatch(taskId: string | undefined, type: string | undefined): void {
   if (taskId) state.selectedTaskIds = new Set([taskId])
-  const selectedRows = getSelectedDispatchRows()
+  const selectedRows = getDispatchCandidateRows()
   state.dispatchActionType = type === '发起竞价' ? '发起竞价' : '直接派单'
   state.dispatchOpen = selectedRows.length > 0
   state.dispatchQtyByRowId = Object.fromEntries(selectedRows.map((row) => [row.rowId, String(row.completeKitQty)]))
+  state.dispatchSelectedRowIds = new Set(selectedRows.map((row) => row.rowId))
   state.dispatchOperatedAt = formatOperationLocalWallClock()
   state.dispatchBusinessAssignedAt = operationWallClockToDateTimeLocal(state.dispatchOperatedAt)
   state.dispatchRiskConfirmed = false
@@ -1320,7 +1345,7 @@ function openDispatch(taskId: string | undefined, type: string | undefined): voi
   state.feedbackMessage = ''
 }
 
-export function handleSewingDispatchWorkbenchEvent(target: HTMLElement): boolean {
+export function handleSewingDispatchWorkbenchEvent(target: HTMLElement, event?: Event): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-sewing-dispatch-field]')
   if (
     (typeof HTMLInputElement !== 'undefined' && fieldNode instanceof HTMLInputElement)
@@ -1328,6 +1353,7 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement): boolean
   ) {
     const field = fieldNode.dataset.sewingDispatchField
     if (!field) return true
+    if (field === 'dispatchRowSelected' && event?.type === 'click') return false
     updateField(field, fieldNode)
     return true
   }
@@ -1398,33 +1424,49 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement): boolean
     const factories = listSewingFactoryOptions()
     const factory = factories.find((item) => item.id === state.dispatchFactoryId)
     const selectedRows = getSelectedDispatchRows()
+    if (selectedRows.length === 0) {
+      state.dispatchError = '请至少选择一个要分配的 SKU。'
+      refreshSewingDispatchDialog()
+      return true
+    }
     const materialPrepChecks = getSewingMaterialPrepChecks(selectedRows)
     if (!isSewingMaterialPrepReady(materialPrepChecks)) {
       state.dispatchError = formatSewingMaterialPrepError(materialPrepChecks)
+      refreshSewingDispatchDialog()
       return true
     }
     if (state.dispatchActionType === '直接派单') {
       const blockMessage = getDispatchFactoryBlockMessage(state.dispatchFactoryId)
       if (blockMessage) {
         state.dispatchError = blockMessage
+        refreshSewingDispatchDialog()
         return true
       }
     }
-    const result = createSewingDispatchWorkbenchDraft({
-      actionType: state.dispatchActionType,
-      factoryId: factory?.id,
-      factoryName: factory?.name,
-      rowIds: selectedRows.map((row) => row.rowId),
-      qtyByRowId: Object.fromEntries(Object.entries(state.dispatchQtyByRowId).map(([rowId, value]) => [rowId, Number(value)])),
-      businessAssignedAt: dateTimeLocalToOperationWallClock(state.dispatchBusinessAssignedAt),
-      operatedAt: state.dispatchOperatedAt,
-      by: '跟单A',
-    })
+    let result: ReturnType<typeof createSewingDispatchWorkbenchDraft>
+    try {
+      const businessAssignedAt = dateTimeLocalToOperationWallClock(state.dispatchBusinessAssignedAt)
+      result = createSewingDispatchWorkbenchDraft({
+        actionType: state.dispatchActionType,
+        factoryId: factory?.id,
+        factoryName: factory?.name,
+        rowIds: selectedRows.map((row) => row.rowId),
+        qtyByRowId: Object.fromEntries(selectedRows.map((row) => [row.rowId, Number(state.dispatchQtyByRowId[row.rowId])])),
+        businessAssignedAt,
+        operatedAt: state.dispatchOperatedAt,
+        by: '跟单A',
+      })
+    } catch (error) {
+      state.dispatchError = error instanceof Error ? error.message : '业务分配时间格式不正确。'
+      refreshSewingDispatchDialog()
+      return true
+    }
     const rating = factory ? getThirdPartyFactoryRatingSnapshot(factory.id) : undefined
     state.feedbackMessage = result.ok && state.dispatchActionType === '直接派单' && rating?.currentGrade === 'B'
       ? `${result.message} 已记录黄牌工厂派单确认。`
       : result.message
     state.dispatchError = result.ok ? '' : result.message
+    if (!result.ok) refreshSewingDispatchDialog()
     if (result.ok) {
       state.dispatchOpen = false
       state.selectedTaskIds = new Set<string>()
