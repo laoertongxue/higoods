@@ -1869,6 +1869,9 @@ assert.match(pdaHandoverDetailSource, /data-skip-page-rerender="true"[^>]*data-p
 assert.match(pdaHandoverDetailSource, /refreshReceiverWritebackSlaPreview\(record\.recordId\)/, '实收数量输入必须局部刷新履约预览')
 assert.match(pdaHandoverDetailSource, /refreshHandoutRecordAndSlaSummary\(updated\)/, '确认收货后必须只刷新当前记录和履约摘要')
 assert.match(pdaHandoverDetailSource, /writebackPreviewConfirmedAt/, '接收确认草稿必须固定预览确认时间')
+assert.match(pdaHandoverDetailSource, /预估确认时间/, '输入预览必须明确标注为预估确认时间')
+assert.match(pdaHandoverDetailSource, /提交时按实际时间重新计算/, '输入预览必须提示提交时会按实际时间重新计算')
+assert.doesNotMatch(pdaHandoverDetailSource, /本次确认时间：/, '输入预览不得把预估时间误写成实际确认时间')
 assert.match(pdaHandoverDetailSource, /const confirmedAt = receiverWritebackNowProvider\(\)/, '点击确认时必须重新获取实际本地墙钟')
 assert.match(pdaHandoverDetailSource, /receiverWrittenAt:\s*confirmedAt/, '真实确认必须使用点击时的同一实际确认时间')
 
@@ -1908,12 +1911,13 @@ assert.doesNotThrow(() => {
     let recordRefreshes = 0
     let summaryRefreshes = 0
     let headSummaryRefreshes = 0
+    const previewSelectors = []
     const previewHost = { set innerHTML(value) { previewWrites += 1; previewHtml = value } }
     const reviewDialogHost = { set innerHTML(value) { reviewDialogWrites += 1 } }
     const recordHost = { set outerHTML(value) { recordRefreshes += 1 } }
     const summaryHost = { set outerHTML(value) { summaryRefreshes += 1 } }
     const headSummaryHost = { set outerHTML(value) { headSummaryRefreshes += 1 } }
-    globalThis.document = { querySelector(selector) { if (selector.includes('data-sewing-sla-writeback-preview')) return previewHost; if (selector.includes('data-sewing-sla-review-dialog-host')) return reviewDialogHost; if (selector.includes('data-handout-record-id')) return recordHost; if (selector.includes('data-sewing-sla-handover-summary')) return summaryHost; if (selector.includes('data-handout-head-live-summary')) return headSummaryHost; return null } } as any
+    globalThis.document = { querySelector(selector) { if (selector.includes('data-sewing-sla-writeback-preview')) { previewSelectors.push(selector); return previewHost }; if (selector.includes('data-sewing-sla-review-dialog-host')) return reviewDialogHost; if (selector.includes('data-handout-record-id')) return recordHost; if (selector.includes('data-sewing-sla-handover-summary')) return summaryHost; if (selector.includes('data-handout-head-live-summary')) return headSummaryHost; return null } } as any
     ;(async () => {
     const runtime = await import('./src/data/fcs/runtime-process-tasks.ts')
     const sla = await import('./src/data/fcs/sewing-delivery-sla.ts')
@@ -1931,25 +1935,29 @@ assert.doesNotThrow(() => {
     try {
       sla.saveSewingDeliverySlaSnapshot(sla.createSewingDeliverySlaSnapshot({ assignmentId: 'ASSIGN-PREVIEW', runtimeTaskId: task.taskId, productionOrderId: task.productionOrderId, factoryId: 'F1', factoryName: '测试厂', assignedQty: 100, acceptedAt: '2026-07-01 10:00:00', slaKind: sla.classifySewingDeliverySla(task) }))
       handover.upsertPdaHandoverHeadMock({ handoverId: 'HEAD-PREVIEW', handoverOrderId: 'HEAD-PREVIEW', handoverOrderNo: 'HDO-PREVIEW', headType: 'HANDOUT', qrCodeValue: 'QR', taskId: task.taskId, taskNo: task.taskNo || task.taskId, productionOrderNo: task.productionOrderId, processName: task.processNameZh, sourceFactoryName: '测试厂', sourceFactoryId: 'F1', targetName: '成衣仓', targetKind: 'WAREHOUSE', receiverKind: 'WAREHOUSE', receiverId: 'WH1', receiverName: '成衣仓', qtyUnit: '件', factoryId: 'F1', taskStatus: 'IN_PROGRESS', summaryStatus: 'SUBMITTED', recordCount: 0, pendingWritebackCount: 0, submittedQtyTotal: 0, writtenBackQtyTotal: 0, objectionCount: 0, plannedQty: 100, completionStatus: 'OPEN', qtyExpectedTotal: 100, qtyActualTotal: 0, qtyDiffTotal: -100 })
-      handover.upsertPdaHandoutRecordMock({ recordId: 'REC-PREVIEW', handoverRecordId: 'REC-PREVIEW', handoverId: 'HEAD-PREVIEW', handoverOrderId: 'HEAD-PREVIEW', taskId: task.taskId, sourceTaskId: task.taskId, sequenceNo: 1, submittedQty: 30, plannedQty: 30, qtyUnit: '件', factorySubmittedAt: '2026-07-05 09:00:00', factorySubmittedBy: '工厂操作员', factoryProofFiles: [], status: 'PENDING_WRITEBACK', handoverRecordStatus: 'SUBMITTED_WAIT_WRITEBACK' })
-      const openTarget = { closest(selector) { if (selector === '[data-pda-handoverd-field]') return null; if (selector === '[data-pda-handoverd-action]') return { dataset: { pdaHandoverdAction: 'open-receiver-writeback', recordId: 'REC-PREVIEW' } }; return null } }
+      const specialRecordId = 'REC-"\\\\PREVIEW'
+      handover.upsertPdaHandoutRecordMock({ recordId: specialRecordId, handoverRecordId: specialRecordId, handoverId: 'HEAD-PREVIEW', handoverOrderId: 'HEAD-PREVIEW', taskId: task.taskId, sourceTaskId: task.taskId, sequenceNo: 1, submittedQty: 30, plannedQty: 30, qtyUnit: '件', factorySubmittedAt: '2026-07-05 09:00:00', factorySubmittedBy: '工厂操作员', factoryProofFiles: [], status: 'PENDING_WRITEBACK', handoverRecordStatus: 'SUBMITTED_WAIT_WRITEBACK' })
+      const openTarget = { closest(selector) { if (selector === '[data-pda-handoverd-field]') return null; if (selector === '[data-pda-handoverd-action]') return { dataset: { pdaHandoverdAction: 'open-receiver-writeback', recordId: specialRecordId } }; return null } }
       page.handlePdaHandoverDetailEvent(openTarget as any)
       const scrollBefore = 120
       page.handlePdaHandoverDetailEvent(new InputNode() as any)
       assert.equal(previewWrites, 1, '实收数量输入只应更新预览 host')
-      assert.match(previewHtml, /本次确认时间：2026-07-05 09:30:00/, '局部预览必须同步显示输入当时的确认时间')
+      assert.match(previewHtml, /预估确认时间：2026-07-05 09:30:00/, '局部预览必须把输入时刻标成预估确认时间')
+      assert.match(previewHtml, /提交时按实际时间重新计算/, '局部预览必须说明提交时按实际时间重新计算')
+      const escapedRecordId = specialRecordId.replace(/[\\\\"]/g, (character) => '\\\\' + character)
+      assert.equal(previewSelectors.at(-1), '[data-sewing-sla-writeback-preview][data-record-id="' + escapedRecordId + '"]', '特殊字符记录号必须安全转义后再拼入动态选择器')
       assert.equal(scrollBefore, 120, '局部输入不得改变滚动位置')
       const draft = page.captureReceiverWritebackDraftState()
       assert.equal(draft.writebackPreviewConfirmedAt, '2026-07-05 09:30:00', '有效数量输入必须固定输入当时的预览确认时间')
-      const preview = page.buildReceiverWritebackSlaPreview('REC-PREVIEW', 30, draft.writebackPreviewConfirmedAt)
+      const preview = page.buildReceiverWritebackSlaPreview(specialRecordId, 30, draft.writebackPreviewConfirmedAt)
       assert(preview)
       assert.equal(preview.projection.milestones[0]?.firstReachedAt, '2026-07-05 09:30:00', '输入预览必须按输入当时确认时间首次达标')
       currentNow = '2026-07-05 11:30:00'
-      const finalPreview = page.buildReceiverWritebackSlaPreview('REC-PREVIEW', 30, currentNow)
+      const finalPreview = page.buildReceiverWritebackSlaPreview(specialRecordId, 30, currentNow)
       assert(finalPreview)
-      const submitTarget = { closest(selector) { if (selector === '[data-pda-handoverd-field]') return null; if (selector === '[data-pda-handoverd-action]') return { dataset: { pdaHandoverdAction: 'submit-receiver-writeback', recordId: 'REC-PREVIEW' } }; return null } }
+      const submitTarget = { closest(selector) { if (selector === '[data-pda-handoverd-field]') return null; if (selector === '[data-pda-handoverd-action]') return { dataset: { pdaHandoverdAction: 'submit-receiver-writeback', recordId: specialRecordId } }; return null } }
       page.handlePdaHandoverDetailEvent(submitTarget as any)
-      const writtenRecord = handover.findPdaHandoverRecord('REC-PREVIEW')
+      const writtenRecord = handover.findPdaHandoverRecord(specialRecordId)
       assert.equal(writtenRecord?.receiverWrittenAt, '2026-07-05 11:30:00', '真实提交 handler 必须使用点击时实际确认时间')
       const confirmed = viewDomain.getSewingDeliverySlaView(task.taskId, currentNow)
       assert.notEqual(preview.projection.milestones[0]?.firstReachedAt, finalPreview.projection.milestones[0]?.firstReachedAt, '输入预估与点击确认跨时间后应允许变化')

@@ -1720,12 +1720,12 @@ export function renderReceiverWritebackSlaPreview(
 
 function renderReceiverWritebackSlaPreviewContent(recordId: string): string {
   if (!detailState.writebackPreviewConfirmedAt) return ''
-  return `${renderReceiverWritebackSlaPreview(recordId, Number(detailState.writebackQty), detailState.writebackPreviewConfirmedAt)}<div class="mt-1 text-xs text-muted-foreground">本次确认时间：${escapeHtml(detailState.writebackPreviewConfirmedAt)}</div>`
+  return `${renderReceiverWritebackSlaPreview(recordId, Number(detailState.writebackQty), detailState.writebackPreviewConfirmedAt)}<div class="mt-1 text-xs text-muted-foreground">预估确认时间：${escapeHtml(detailState.writebackPreviewConfirmedAt)}；提交时按实际时间重新计算</div>`
 }
 
 function refreshReceiverWritebackSlaPreview(recordId: string): void {
   if (typeof document === 'undefined') return
-  const host = document.querySelector<HTMLElement>(`[data-sewing-sla-writeback-preview][data-record-id="${recordId}"]`)
+  const host = document.querySelector<HTMLElement>(`[data-sewing-sla-writeback-preview][data-record-id="${escapeCssAttributeValue(recordId)}"]`)
   if (!host) return
   host.innerHTML = renderReceiverWritebackSlaPreviewContent(recordId)
 }
