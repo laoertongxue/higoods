@@ -2301,6 +2301,11 @@ try {
   })
 
   upsertPdaHandoutRecordMock(record('SLA-VIEW-PENDING', 10, '2026-07-02 09:00:00'))
+  const historyCountBeforeIdempotentSave = Array.from(handoutRecordVersionHistory.values()).flat().length
+  upsertPdaHandoutRecordMock(record('SLA-VIEW-PENDING', 10, '2026-07-02 09:00:00'))
+  assert.equal(Array.from(handoutRecordVersionHistory.values()).flat().length, historyCountBeforeIdempotentSave, '重复保存相同投影语义的交出记录不得新增历史版本')
+  upsertPdaHandoutRecordMock(record('SLA-VIEW-PENDING', 10, '2026-07-02 09:00:00', { receiverRemark: '仅备注变更' }))
+  assert.equal(Array.from(handoutRecordVersionHistory.values()).flat().length, historyCountBeforeIdempotentSave, '仅非投影备注变化不得新增 SLA 历史版本')
   const handoverBeforeInvalidWriteback = capturePdaHandoverState()
   for (const invalidReceiverQty of [Number.NaN, Number.POSITIVE_INFINITY, -1]) {
     assert.throws(
@@ -2330,6 +2335,14 @@ try {
     '真实 PDA 回写必须在 mutation 前阻断实收时间早于交出时间',
   )
   assert.deepEqual(capturePdaHandoverState(), handoverBeforeInvalidWriteback, '时间倒挂回写被拒绝后交出域状态必须保持不变')
+  for (const invalidReceiverAt of ['not-a-time', '2026-02-30 10:00:00', '2026-07-02 10:00']) {
+    assert.throws(
+      () => writeBackHandoverRecord({ handoverRecordId: 'SLA-VIEW-PENDING', receiverWrittenQty: 10, receiverWrittenAt: invalidReceiverAt, receiverWrittenBy: '非法时间测试员' }),
+      /实收时间必须为有效的 YYYY-MM-DD HH:mm:ss/,
+      `真实 PDA 回写必须拒绝非法实收时间：${invalidReceiverAt}`,
+    )
+    assert.deepEqual(capturePdaHandoverState(), handoverBeforeInvalidWriteback, '非法时间回写被拒绝后交出域状态必须保持不变')
+  }
   upsertPdaHandoutRecordMock(record('SLA-VIEW-LATE-Z', 20, '2026-07-05 09:00:00'))
   writeBackHandoverRecord({
     handoverRecordId: 'SLA-VIEW-LATE-Z',
@@ -2385,8 +2398,10 @@ try {
     status: 'WRITTEN_BACK',
   }))
   upsertPdaHandoutRecordMock(record('SLA-VIEW-FUTURE-SUBMITTED', 25, '2026-07-07 09:00:00'))
+  upsertPdaHandoutRecordMock(record('SLA-VIEW-INVALID-RECEIVED-AT', 25, '2026-07-04 09:00:00', { receiverWrittenQty: 25, receiverWrittenAt: 'not-a-time', lifecycleUpdatedAt: '2026-07-04 10:00:00', status: 'WRITTEN_BACK', handoverRecordStatus: 'WRITTEN_BACK_MATCHED' }))
 
-  const initialView = getSewingDeliverySlaView(viewTaskId, '2026-07-06 10:00:00')
+  let initialView: ReturnType<typeof getSewingDeliverySlaView> = null
+  assert.doesNotThrow(() => { initialView = getSewingDeliverySlaView(viewTaskId, '2026-07-06 10:00:00') }, '非法实收时间的脏历史事实不得让履约投影崩溃')
   assert(initialView, '有有效快照的任务应生成履约视图')
   assert.equal(initialView.runtimeTaskId, viewTaskId)
   assert.equal(initialView.submittedQty, 68, '已交出应只汇总观察时点前的有效提交数量，未来、作废与非法提交数量不计入')

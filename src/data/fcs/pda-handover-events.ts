@@ -2465,6 +2465,24 @@ function parseDateMs(value: string | undefined): number {
   return new Date(value.replace(' ', 'T')).getTime()
 }
 
+function parseStrictOperationDateTimeMs(value: string): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(value)
+  if (!match) return null
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText] = match
+  const [year, month, day, hour, minute, second] = [yearText, monthText, dayText, hourText, minuteText, secondText].map(Number)
+  const date = new Date(year, month - 1, day, hour, minute, second)
+  if (
+    !Number.isFinite(date.getTime())
+    || date.getFullYear() !== year
+    || date.getMonth() !== month - 1
+    || date.getDate() !== day
+    || date.getHours() !== hour
+    || date.getMinutes() !== minute
+    || date.getSeconds() !== second
+  ) return null
+  return date.getTime()
+}
+
 function roundNumber(value: number | undefined): number {
   if (!Number.isFinite(value)) return 0
   return Math.round(Number(value) * 100) / 100
@@ -3651,7 +3669,18 @@ function savePickupRecord(record: PdaPickupRecord): void {
 
 function saveHandoutRecord(record: PdaHandoverRecord): void {
   const current = findRecord(record.recordId)
-  if (current) {
+  const projectionVersionSignature = (item: PdaHandoverRecord): string => JSON.stringify({
+    recordId: item.handoverRecordId || item.recordId,
+    handoverId: item.handoverId,
+    taskId: item.taskId,
+    handoverRecordStatus: item.handoverRecordStatus ?? '',
+    submittedQty: item.submittedQty ?? item.plannedQty ?? null,
+    factorySubmittedAt: item.factorySubmittedAt,
+    receiverWrittenQty: item.receiverWrittenQty ?? null,
+    receiverWrittenAt: item.receiverWrittenAt ?? '',
+    lifecycleUpdatedAt: item.lifecycleUpdatedAt ?? '',
+  })
+  if (current && projectionVersionSignature(current) !== projectionVersionSignature(record)) {
     const history = handoutRecordVersionHistory.get(current.taskId) ?? []
     history.push(cloneRecord(current))
     handoutRecordVersionHistory.set(current.taskId, history)
@@ -4455,7 +4484,12 @@ export function writeBackHandoverRecord(input: {
   if (!current) {
     throw new Error(`未找到交出记录：${input.handoverRecordId}`)
   }
-  if (parseDateMs(input.receiverWrittenAt) < parseDateMs(current.factorySubmittedAt)) {
+  const receiverWrittenAtMs = parseStrictOperationDateTimeMs(input.receiverWrittenAt)
+  if (receiverWrittenAtMs === null) {
+    throw new Error('实收时间必须为有效的 YYYY-MM-DD HH:mm:ss')
+  }
+  const factorySubmittedAtMs = parseStrictOperationDateTimeMs(current.factorySubmittedAt)
+  if (factorySubmittedAtMs !== null && receiverWrittenAtMs < factorySubmittedAtMs) {
     throw new Error('实收时间不能早于交出时间')
   }
   const head = findPdaHandoverHead(current.handoverId)

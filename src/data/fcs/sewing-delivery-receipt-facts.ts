@@ -1,6 +1,6 @@
 import type { PdaHandoverRecord } from './pda-handover-events.ts'
 import { listRegisteredHandoutRecordVersions } from './pda-handover-handout-registry.ts'
-import { formatOperationLocalWallClock, type SewingDeliveryReceiptFact } from './sewing-delivery-sla.ts'
+import { compareSewingDeliveryDateTimes, formatOperationLocalWallClock, type SewingDeliveryReceiptFact } from './sewing-delivery-sla.ts'
 
 function validNonNegativeQty(value: number | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
@@ -85,7 +85,11 @@ export function toConfirmedSewingDeliveryReceiptFact(
   const submittedQty = validNonNegativeQty(record.submittedQty ?? record.plannedQty)
   const receivedQty = validNonNegativeQty(record.receiverWrittenQty)
   if (submittedQty === null || receivedQty === null || !record.factorySubmittedAt || !record.receiverWrittenAt) return null
-  if (record.receiverWrittenAt < record.factorySubmittedAt) return null
+  try {
+    if (compareSewingDeliveryDateTimes(record.receiverWrittenAt, record.factorySubmittedAt) < 0) return null
+  } catch {
+    return null
+  }
   return {
     recordId: record.handoverRecordId || record.recordId,
     submittedQty,
