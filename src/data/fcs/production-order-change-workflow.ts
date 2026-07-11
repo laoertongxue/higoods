@@ -662,19 +662,20 @@ function createAutoItem(input: Omit<ProductionChangePlanItem, 'kind' | 'options'
 function createDecisionItem(
   draft: ProductionChangeDraft,
   input: Omit<ProductionChangePlanItem, 'kind' | 'selectedValue' | 'reason'> & {
-    defaultValue?: string
     suggestedValue?: string
   },
 ): ProductionChangePlanItem {
   const decision = draft.decisionValues[input.id]
-  const { defaultValue = '', suggestedValue, reasonRequired, ...item } = input
-  const selectedValue = decision?.value ?? defaultValue
+  const { suggestedValue, reasonRequired, ...item } = input
+  const selectedValue = decision?.value ?? ''
   return {
     ...item,
     kind: 'MERCHANDISER_DECISION',
     selectedValue,
     reason: decision?.reason ?? '',
-    reasonRequired: reasonRequired || (suggestedValue !== undefined && selectedValue !== suggestedValue),
+    reasonRequired: reasonRequired || (
+      selectedValue.length > 0 && suggestedValue !== undefined && selectedValue !== suggestedValue
+    ),
   }
 }
 
@@ -798,7 +799,6 @@ function buildMaterialPlan(draft: ProductionChangeDraft, replacement: MaterialRe
               { value: 'REMAINING', label: '剩余数量替换' },
               { value: 'FULL', label: '全部数量替换' },
             ],
-            defaultValue: order.confirmedMode ?? order.suggestedMode,
             suggestedValue: order.suggestedMode,
             reasonRequired: false,
           }),

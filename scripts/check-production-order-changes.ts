@@ -325,11 +325,21 @@ const suggestedFollowingDecision = followingOrdersPreview.decisionItems.find(
   (item) => item.id === 'following-order-mode-PO-202603-007',
 )
 assert.ok(suggestedFollowingDecision, '已开工后续生产单必须产生剩余/全部替换判断')
-assert.equal(suggestedFollowingDecision.selectedValue, 'REMAINING', '已开工后续生产单必须默认采用 suggestedMode')
-assert.equal(suggestedFollowingDecision.reasonRequired, false, '接受系统建议时不得要求填写原因')
+assert.equal(suggestedFollowingDecision.selectedValue, '', '系统建议不得自动成为跟单已确认选择')
+assert.equal(suggestedFollowingDecision.reasonRequired, false, '尚未选择时不得提前要求填写偏离原因')
 assert.ok(
-  !validateProductionChangeDecisions(followingOrdersPreview).includes(suggestedFollowingDecision.id),
-  '接受系统建议且未填写原因时判断校验必须通过',
+  validateProductionChangeDecisions(followingOrdersPreview).includes(suggestedFollowingDecision.id),
+  'decisionValues 为空时已开工后续单判断必须校验失败',
+)
+const acceptedSuggestedFollowingPreview = buildProductionChangePreview({
+  ...followingOrdersDraft,
+  decisionValues: {
+    [suggestedFollowingDecision.id]: { value: 'REMAINING', reason: '' },
+  },
+})
+assert.ok(
+  !validateProductionChangeDecisions(acceptedSuggestedFollowingPreview).includes(suggestedFollowingDecision.id),
+  '跟单明确选择 suggestedMode 后必须通过且不要求原因',
 )
 ;['MI-FOLLOW-007', 'CUT-FOLLOW-007'].forEach((documentNo) => {
   assert.ok(
@@ -409,8 +419,12 @@ const confirmedModePreview = buildProductionChangePreview({
 const confirmedModeDecision = confirmedModePreview.decisionItems.find(
   (item) => item.id === 'following-order-mode-PO-202603-009',
 )
-assert.equal(confirmedModeDecision?.selectedValue, 'FULL', '后续单必须优先使用已确认模式，再回退系统建议')
-assert.equal(confirmedModeDecision?.reasonRequired, true, '已确认模式偏离系统建议时必须要求原因')
+assert.equal(confirmedModeDecision?.selectedValue, '', 'confirmedMode 可用于结果预估，但不得冒充跟单当前选择')
+assert.equal(confirmedModeDecision?.reasonRequired, false, '未明确选择时不得因 confirmedMode 偏离建议而要求原因')
+assert.ok(
+  confirmedModeDecision && validateProductionChangeDecisions(confirmedModePreview).includes(confirmedModeDecision.id),
+  'confirmedMode 存在时仍必须等待跟单明确选择',
+)
 
 const fullCurrentWithRemainingFollowingDraft: ProductionChangeDraft = {
   ...materialDraft,
@@ -558,6 +572,14 @@ assert.deepEqual(
   validateProductionChangeDecisions(incompletePreview).sort(),
   incompletePreview.decisionItems.map((item) => item.id).sort(),
   '未选择或未填写必要原因的判断项必须被校验发现',
+)
+const oldMaterialDispositionDecision = incompletePreview.decisionItems.find(
+  (item) => item.id === 'old-material-disposition',
+)
+assert.equal(oldMaterialDispositionDecision?.selectedValue, '', 'FULL 旧料去向初始必须为空')
+assert.ok(
+  oldMaterialDispositionDecision && validateProductionChangeDecisions(incompletePreview).includes(oldMaterialDispositionDecision.id),
+  'FULL 旧料去向未选择时必须校验失败',
 )
 assert.ok(incompletePreview.lockObjectIds.includes(materialDraft.productionOrderId), '锁定对象必须包含当前生产单')
 assert.ok(incompletePreview.lockObjectIds.every((id) => id.trim().length > 0), '锁定对象不得包含空值')
@@ -1427,8 +1449,22 @@ assert.ok(
 )
 assert.ok(suggestedDecisionHtml.includes('<option value="">请选择</option>'), '判断 select 必须提供空值“请选择”')
 assert.ok(
+  !suggestedDecisionHtml.includes(`<option value="${startedPlan.suggestedMode}" selected>`),
+  '系统建议不得在跟单未操作时自动选中',
+)
+assert.ok(
   !suggestedDecisionHtml.includes(`data-prod-field="productionChangeDecisionReason" data-decision-id="${followingDecisionId}"`),
-  '接受系统建议时不得显示偏离原因输入',
+  '跟单尚未选择时不得显示偏离原因输入',
+)
+suggestedDecisionForm.decisionValues[followingDecisionId] = { value: startedPlan.suggestedMode, reason: '' }
+const acceptedSuggestedDecisionHtml = renderProductionChangeFormBody('handling', suggestedDecisionForm)
+assert.ok(
+  acceptedSuggestedDecisionHtml.includes(`<option value="${startedPlan.suggestedMode}" selected>`),
+  '跟单明确接受系统建议后必须显示已选择',
+)
+assert.ok(
+  !acceptedSuggestedDecisionHtml.includes(`data-prod-field="productionChangeDecisionReason" data-decision-id="${followingDecisionId}"`),
+  '跟单明确接受系统建议时不得要求填写原因',
 )
 suggestedDecisionForm.decisionValues[followingDecisionId] = { value: 'FULL', reason: '' }
 const deviatedDecisionHtml = renderProductionChangeFormBody('handling', suggestedDecisionForm)
@@ -1463,6 +1499,14 @@ const productionEventsSource = readFileSync(
   new URL('../src/pages/production/events.ts', import.meta.url),
   'utf8',
 )
+const productionContextSource = readFileSync(
+  new URL('../src/pages/production/context.ts', import.meta.url),
+  'utf8',
+)
+const productionChangesDomainSource = readFileSync(
+  new URL('../src/pages/production/changes-domain.ts', import.meta.url),
+  'utf8',
+)
 ;[
   'PRODUCTION_CHANGE_EMPTY_FORM',
   'productionChangeFormSource',
@@ -1476,9 +1520,18 @@ const productionEventsSource = readFileSync(
   "step === 'preview'",
   '生产单变更已提交审核',
   '已通知相关负责人处理',
+  "tab === 'approval'",
+  "action === 'save-production-patch-draft'",
+  "executionStrategy: 'AFTER_APPROVAL'",
 ].forEach((text) => {
   assert.ok(!productionEventsSource.includes(text), `events.ts 不得保留旧生产单变更口径「${text}」`)
 })
+assert.ok(!productionContextSource.includes("| 'approval'"), '生产单变更详情页签类型不得保留 approval')
+assert.ok(!productionChangesDomainSource.includes("{ key: 'approval'"), '生产单变更详情不得继续渲染主管确认页签')
+assert.ok(
+  !productionChangesDomainSource.includes('data-prod-action="save-production-patch-draft"'),
+  '生产补丁不得保留借旧生产单变更单保存草稿的入口',
+)
 ;[
   'patchProductionChangeQuantityDom',
   'patchProductionChangeAllocationDom',

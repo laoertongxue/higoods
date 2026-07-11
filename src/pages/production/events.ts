@@ -63,7 +63,6 @@ import {
   markProductionTechPackPublishEvaluationEntered,
   markProductionTechPackPublishEvaluationTodo,
   productionPatchTypeModuleMap,
-  submitProductionOrderChangeOrder,
   submitProductionOrderPatch,
   submitProductionOrderTechPackChange,
   voidProductionOrderPatch,
@@ -1110,7 +1109,6 @@ export function handleProductionEvent(target: HTMLElement): boolean {
       tab === 'documents' ||
       tab === 'cost' ||
       tab === 'timing' ||
-      tab === 'approval' ||
       tab === 'records'
     ) {
       state.productionChangeDetailTab = tab
@@ -1395,54 +1393,6 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     state.productionPatchDialogOrderId = null
     state.productionPatchForm = { ...PRODUCTION_PATCH_EMPTY_FORM }
     state.productionPatchError = ''
-    return true
-  }
-
-  if (action === 'save-production-patch-draft') {
-    const orderId = state.productionPatchDialogOrderId
-    if (!orderId) return true
-    const form = state.productionPatchForm
-    const changeModule = productionPatchTypeModuleMap[form.patchType as ProductionPatchType]
-    const draftScenarioPayload =
-      changeModule === 'BOM'
-        ? {
-            changeType: 'MATERIAL_REPLACEMENT' as const,
-            materialReplacement: {
-              originalMaterial: form.material || form.colorMaterialMapping || '原物料待确认',
-              replacementMaterial: form.targetMaterial || form.targetColorMaterialMapping || form.contentText || '替代物料待确认',
-              colors: [form.color || form.targetColor || '全部颜色'],
-              sizes: [form.size || '全部尺码'],
-              effectiveFromText: '从下一次配料开始用新物料',
-            },
-          }
-        : {
-            changeType: 'QUANTITY_CHANGE' as const,
-            quantityLines: [
-              {
-                color: form.color || '全部颜色',
-                size: form.size || '全部尺码',
-                currentQty: 1,
-                newQty: 1,
-                unit: '件',
-              },
-            ],
-          }
-    const draft = submitProductionOrderChangeOrder({
-      productionOrderId: orderId,
-      ...draftScenarioPayload,
-      source: 'MATERIAL_SHORTAGE',
-      changeModules: [changeModule],
-      reason: form.reason || '补丁草稿：待补充业务原因',
-      expectedEffectiveMode: 'FROM_NEXT_PREP',
-      effectiveDescription: '从下一次配料开始',
-      changeResult: 'PRODUCTION_PATCH',
-      executionStrategy: 'AFTER_APPROVAL',
-      operatorName: currentUser.name,
-      status: 'DRAFT',
-    })
-    state.productionPatchDialogOrderId = null
-    showPlanMessage(`补丁草稿已保存为变更单：${draft.id}`)
-    openAppRoute(`/fcs/production/changes/${draft.id}`, `production-change-${draft.id}`, `生产单变更 ${draft.id}`)
     return true
   }
 

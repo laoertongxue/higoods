@@ -131,7 +131,7 @@ type TechPackChangeDetailTab =
   | 'logs'
 
 type ProductionChangeListTab = 'change-orders' | 'candidate-orders'
-type ProductionChangeDetailTab = 'content' | 'impact' | 'documents' | 'cost' | 'timing' | 'approval' | 'records'
+type ProductionChangeDetailTab = 'content' | 'impact' | 'documents' | 'cost' | 'timing' | 'records'
 type ProductionChangeFormStep = 'order' | 'content' | 'handling' | 'execution'
 type ProductionChangeFormType = ProductionChangeType
 

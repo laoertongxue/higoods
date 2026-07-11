@@ -799,7 +799,6 @@ function renderProductionPatchDialog(): string {
         </div>
         <footer class="flex items-center justify-end gap-2 border-t px-5 py-4">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="close-production-patch">取消</button>
-          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="save-production-patch-draft">保存草稿</button>
           <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-prod-action="submit-production-patch">提交补丁</button>
         </footer>
       </div>
@@ -1975,7 +1974,6 @@ function renderProductionChangeOrderDetailTabs(): string {
     { key: 'documents', label: '系统建议' },
     { key: 'cost', label: '需要处理的事' },
     { key: 'timing', label: '相关单据记录' },
-    { key: 'approval', label: '主管确认' },
     { key: 'records', label: '处理记录' },
   ] as const
   return `
@@ -2227,11 +2225,8 @@ function renderProductionChangeOrderDetailContent(order: ProductionOrderChangeOr
     )
   }
 
-  if (tab === 'cost' || tab === 'approval') {
-    return renderChangeDetailSection(
-      tab === 'approval' ? '主管确认' : '需要处理的事',
-      renderProductionChangeActionItems(order),
-    )
+  if (tab === 'cost') {
+    return renderChangeDetailSection('需要处理的事', renderProductionChangeActionItems(order))
   }
 
   if (tab === 'timing') {
