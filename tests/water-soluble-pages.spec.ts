@@ -1,4 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
+import { canAssignWaterSolubleFactory, listWaterSolubleWorkOrders } from '../src/data/fcs/water-soluble-task-domain.ts'
+import { createPdaSessionFromUser, listAllFactoryPdaUsers, listFactoryPdaUsers } from '../src/data/fcs/store-domain-pda.ts'
+import { listBusinessFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 
 const browserErrors = new WeakMap<Page, string[]>()
 
@@ -28,8 +31,27 @@ async function expectSameMain(page: Page): Promise<void> {
   })).toBe(true)
 }
 
+async function loginForSeededOrder(page: Page, status: string): Promise<{ factoryId: string; orderId: string; plannedQty: number }> {
+  const order = listWaterSolubleWorkOrders().find((item) => item.status === status && item.factoryId)
+  if (!order?.factoryId) throw new Error(`缺少状态为 ${status} 的确定性水溶演示单`)
+  const user = listFactoryPdaUsers(order.factoryId).find((item) => item.status === 'ACTIVE')
+  if (!user) throw new Error(`工厂 ${order.factoryId} 缺少可用 PDA 用户`)
+  const session = createPdaSessionFromUser(user)
+  await page.goto('/fcs/workbench/overview')
+  await page.evaluate((value) => window.localStorage.setItem('fcs_pda_session', JSON.stringify(value)), session)
+  return { factoryId: order.factoryId, orderId: order.waterOrderId, plannedQty: order.plannedQty }
+}
+
+async function navigateInApp(page: Page, path: string): Promise<void> {
+  await page.evaluate((nextPath) => {
+    window.history.pushState({}, '', nextPath)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }, path)
+}
+
 async function openPausedSupervisor(page: Page): Promise<void> {
-  await page.goto('/fcs/craft/dyeing/water-soluble-orders?factoryId=F090')
+  await loginForSeededOrder(page, 'PRODUCTION_PAUSED')
+  await page.goto('/fcs/craft/dyeing/water-soluble-orders')
   await expect(page.getByTestId('factory-water-soluble-orders-page')).toBeVisible()
   await page.getByRole('button', { name: '主管处理' }).click()
 }
@@ -38,6 +60,14 @@ async function confirmSupervisorDecision(page: Page, label: string): Promise<voi
   await page.getByRole('button', { name: label }).click()
   await expect(page.getByRole('heading', { name: `确认${label}` })).toBeVisible()
   await page.getByRole('button', { name: label }).click()
+}
+
+async function openCompletionDialog(page: Page): Promise<{ orderId: string; plannedQty: number }> {
+  const arranged = await loginForSeededOrder(page, 'WATER_SOLUBLE_IN_PROGRESS')
+  await page.goto('/fcs/craft/dyeing/water-soluble-orders')
+  await page.getByTestId('factory-water-soluble-card').filter({ has: page.getByRole('button', { name: '上报完成数量' }) }).getByRole('button', { name: '上报完成数量' }).click()
+  await expect(page.getByRole('heading', { name: '上报完成数量' })).toBeVisible()
+  return { orderId: arranged.orderId, plannedQty: arranged.plannedQty }
 }
 
 test('FCS 展示款式及完整事实详情', async ({ page }) => {
@@ -66,8 +96,120 @@ test('FCS input、select、分页和抽屉保持 main 节点及输入焦点', as
   await expectSameMain(page)
   await page.locator('[data-testid="water-soluble-pagination"] select').selectOption('20')
   await expectSameMain(page)
+  const pageSize = page.locator('[data-testid="water-soluble-pagination"] select')
+  await pageSize.evaluate((select) => {
+    const option = document.createElement('option')
+    option.value = 'Infinity'
+    option.textContent = 'Infinity'
+    select.appendChild(option)
+  })
+  await pageSize.selectOption('Infinity')
+  await expect(page.locator('[data-testid="water-soluble-pagination"] select')).toHaveValue('10')
   await page.getByRole('button', { name: '查看详情' }).first().click()
   await expectSameMain(page)
+})
+
+test('FCS 派厂抽屉只展示领域允许派单的水溶染厂', async ({ page }) => {
+  const expectedFactoryIds = listBusinessFactoryMasterRecords({ includeTestFactories: true })
+    .filter((factory) => canAssignWaterSolubleFactory(factory.id).ok)
+    .map((factory) => factory.id)
+    .sort()
+  await page.goto('/fcs/process/water-soluble-orders')
+  await page.getByRole('button', { name: '分配染厂' }).first().click()
+  const options = page.locator('[data-water-soluble-field="assignFactoryId"] option')
+  await expect(options).toHaveCount(expectedFactoryIds.length + 1)
+  for (const factoryId of expectedFactoryIds) {
+    await expect(page.locator(`[data-water-soluble-field="assignFactoryId"] option[value="${factoryId}"]`)).toHaveCount(1)
+  }
+})
+
+test('PFOS 无可信 session 时仅管理预览且 URL 不能开启动作', async ({ page }) => {
+  await page.goto('/fcs/craft/dyeing/water-soluble-orders')
+  await navigateInApp(page, '/fcs/craft/dyeing/water-soluble-orders?factoryId=F090')
+  await expect(page.getByTestId('factory-water-soluble-orders-page')).toContainText('管理预览')
+  await expect(page.getByTestId('factory-water-soluble-orders-page')).toContainText('只读')
+  for (const action of ['material-ready', 'start', 'complete', 'open-supervisor', 'open-handover', 'confirm-handover']) {
+    await expect(page.locator(`[data-factory-water-soluble-action="${action}"]`)).toHaveCount(0)
+  }
+})
+
+test('PFOS 伪造 URL 和注入外厂 orderId 都不能扩大当前工厂权限', async ({ page }) => {
+  const current = await loginForSeededOrder(page, 'WATER_SOLUBLE_IN_PROGRESS')
+  const foreignUser = listAllFactoryPdaUsers().find((item) => item.status === 'ACTIVE' && item.factoryId !== current.factoryId)
+  expect(foreignUser).toBeTruthy()
+  const foreignSession = createPdaSessionFromUser(foreignUser!)
+  await page.evaluate((value) => window.localStorage.setItem('fcs_pda_session', JSON.stringify(value)), foreignSession)
+  await page.goto('/fcs/craft/dyeing/water-soluble-orders')
+  await navigateInApp(page, `/fcs/craft/dyeing/water-soluble-orders?factoryId=${encodeURIComponent(current.factoryId)}`)
+  await expect(page.getByTestId('factory-water-soluble-orders-page')).toContainText('查看条件不属于当前登录工厂')
+  await page.evaluate((orderId) => {
+    const button = document.createElement('button')
+    button.dataset.factoryWaterSolubleAction = 'material-ready'
+    button.dataset.orderId = orderId || ''
+    button.dataset.skipPageRerender = 'true'
+    document.querySelector('[data-testid="factory-water-soluble-orders-page"]')?.appendChild(button)
+    button.click()
+    button.remove()
+  }, current.orderId)
+  await expect(page.getByText(/当前账号不属于该加工单工厂/)).toBeVisible()
+  await page.goto('/fcs/process/water-soluble-orders')
+  const protectedRow = page.locator(`button[data-order-id="${current.orderId}"]`).first().locator('xpath=ancestor::tr')
+  await expect(protectedRow).toContainText('水溶中')
+})
+
+test('PFOS 合法当前工厂动作成功且 pageSize 只接受白名单', async ({ page }) => {
+  await loginForSeededOrder(page, 'WATER_SOLUBLE_IN_PROGRESS')
+  await page.goto('/fcs/craft/dyeing/water-soluble-orders')
+  await expect(page.getByRole('button', { name: '上报完成数量' })).toBeVisible()
+  const pageSize = page.locator('[data-testid="factory-water-soluble-pagination"] select')
+  await pageSize.evaluate((select) => {
+    const option = document.createElement('option')
+    option.value = '-1'
+    option.textContent = '-1'
+    select.appendChild(option)
+  })
+  await pageSize.selectOption('-1')
+  await expect(page.locator('[data-testid="factory-water-soluble-pagination"] select')).toHaveValue('10')
+})
+
+test('PFOS 短量必须填写真实原因并保留日志', async ({ page }) => {
+  const { orderId, plannedQty } = await openCompletionDialog(page)
+  await page.locator('[data-factory-water-soluble-field="completedQty"]').fill(String(plannedQty - 1))
+  await page.getByRole('button', { name: '确认上报' }).click()
+  await expect(page.getByText('数量与计划不一致，请填写原因。')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '上报完成数量' })).toBeVisible()
+  await page.locator('[data-factory-water-soluble-field="completionReason"]').fill('现场实测短少 1 米')
+  await page.getByRole('button', { name: '确认上报' }).click()
+  const pausedCard = page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${orderId}"]`)
+  await expect(pausedCard).toContainText('现场实测短少 1 米')
+  await pausedCard.getByRole('button', { name: '查看任务详情与记录' }).click()
+  await expect(page.locator('[data-factory-water-soluble-overlay]')).toContainText('现场实测短少 1 米')
+})
+
+test('PFOS 超量必须二次确认，取消无副作用，确认后保存真实原因', async ({ page }) => {
+  const { plannedQty } = await openCompletionDialog(page)
+  await page.locator('[data-factory-water-soluble-field="completedQty"]').fill(String(plannedQty + 1))
+  await page.locator('[data-factory-water-soluble-field="completionReason"]').fill('复尺后多出 1 米')
+  await page.getByRole('button', { name: '确认上报' }).click()
+  await expect(page.getByRole('heading', { name: '确认超量完成' })).toBeVisible()
+  await page.getByRole('button', { name: '取消' }).click()
+  await expect(page.getByRole('heading', { name: '上报完成数量' })).toBeVisible()
+
+  await page.getByRole('button', { name: '确认上报' }).click()
+  await page.getByRole('button', { name: '确认超量并上报' }).click()
+  const handoverCard = page.getByTestId('factory-water-soluble-card').filter({ hasText: '待交出' })
+  await expect(handoverCard).toContainText('复尺后多出 1 米')
+})
+
+test('PFOS 非有限数和非正数均中文拦截且无副作用', async ({ page }) => {
+  await openCompletionDialog(page)
+  const input = page.locator('[data-factory-water-soluble-field="completedQty"]')
+  for (const value of ['NaN', 'Infinity', '0']) {
+    await input.fill(value)
+    await page.getByRole('button', { name: '确认上报' }).click()
+    await expect(page.getByText(value === '0' ? '完成数量必须大于 0。' : '完成数量必须是有限数字。').last()).toBeVisible()
+    await expect(page.getByRole('heading', { name: '上报完成数量' })).toBeVisible()
+  }
 })
 
 test('PFOS 主管选择继续补做并局部刷新', async ({ page }) => {
@@ -97,7 +239,7 @@ test('PFOS 主管选择按实际数量继续交出', async ({ page }) => {
     button.click()
     button.remove()
   }, orderId)
-  await expect(page.getByText(/不能处理生产暂停/)).toBeVisible()
+  await expect(page.getByText(/当前状态为“待交出”，不能执行此操作/)).toBeVisible()
 })
 
 test('PFOS 主管选择退回重做', async ({ page }) => {

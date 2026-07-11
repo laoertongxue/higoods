@@ -11,6 +11,7 @@ import { productionOrders } from '../data/fcs/production-orders.ts'
 import { escapeHtml } from '../utils.ts'
 
 type Overlay = { type: 'detail' | 'assign'; orderId: string } | null
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 const state = { keyword: '', status: '', factoryId: '', due: '', exception: '', page: 1, pageSize: 10, overlay: null as Overlay }
 
 function withSkipPageRerender(html: string): string {
@@ -90,7 +91,7 @@ function renderListRegion(): string {
   state.page = Math.min(state.page, totalPages)
   const from = (state.page - 1) * state.pageSize
   const rows = all.slice(from, from + state.pageSize)
-  return `<section class="overflow-hidden rounded-lg border bg-card" data-water-soluble-list-region>${renderTable(columns, rows, { compact: true, emptyText: '暂无符合条件的独立水溶加工单', className: 'min-w-[1580px]' })}<div data-testid="water-soluble-pagination">${withSkipPageRerender(renderTablePagination({ total: all.length, from: all.length ? from + 1 : 0, to: Math.min(from + state.pageSize, all.length), currentPage: state.page, totalPages, pageSize: state.pageSize, actionPrefix: 'water-soluble', fieldPrefix: 'water-soluble', pageSizeOptions: [10,20,50] }))}</div></section>`
+  return `<section class="overflow-hidden rounded-lg border bg-card" data-water-soluble-list-region>${renderTable(columns, rows, { compact: true, emptyText: '暂无符合条件的独立水溶加工单', className: 'min-w-[1580px]' })}<div data-testid="water-soluble-pagination">${withSkipPageRerender(renderTablePagination({ total: all.length, from: all.length ? from + 1 : 0, to: Math.min(from + state.pageSize, all.length), currentPage: state.page, totalPages, pageSize: state.pageSize, actionPrefix: 'water-soluble', fieldPrefix: 'water-soluble', pageSizeOptions: [...PAGE_SIZE_OPTIONS] }))}</div></section>`
 }
 
 function supervisorDecisionLabel(order: WaterSolubleWorkOrder): string {
@@ -111,6 +112,7 @@ function renderDetail(order: WaterSolubleWorkOrder): string {
 
 function renderAssign(order: WaterSolubleWorkOrder): string {
   const factories = listBusinessFactoryMasterRecords({ includeTestFactories: true })
+    .filter((factory) => canAssignWaterSolubleFactory(factory.id).ok)
   return withSkipPageRerender(renderSimpleDrawer({ prefix: 'water-soluble', closeAction: 'close-overlay', title: '分配染厂', subtitle: order.waterOrderNo, width: 'sm', content: `<p class="mb-3 text-sm text-muted-foreground">只能选择具备水溶能力且允许派单的染厂；领域规则会在提交时再次校验。</p><select class="h-10 w-full rounded-md border px-3" data-water-soluble-field="assignFactoryId"><option value="">请选择染厂</option>${factories.map((f) => `<option value="${escapeHtml(f.id)}">${escapeHtml(f.name)}</option>`).join('')}</select><button class="mt-4 h-10 w-full rounded-md bg-blue-600 text-white" data-water-soluble-action="confirm-assign" data-order-id="${escapeHtml(order.waterOrderId)}">确认分配</button>` }))
 }
 
@@ -139,7 +141,10 @@ export function handleProcessWaterSolubleOrdersEvent(target: HTMLElement): boole
     else if (name === 'factoryId') state.factoryId = field.value
     else if (name === 'due') state.due = field.value
     else if (name === 'exception') state.exception = field.value
-    else if (name === 'pageSize') state.pageSize = Number(field.value) || 10
+    else if (name === 'pageSize') {
+      const pageSize = Number(field.value)
+      state.pageSize = PAGE_SIZE_OPTIONS.includes(pageSize as (typeof PAGE_SIZE_OPTIONS)[number]) ? pageSize : 10
+    }
     state.page = 1; refreshList(); return true
   }
   const actionNode = target.closest<HTMLElement>('[data-water-soluble-action]')

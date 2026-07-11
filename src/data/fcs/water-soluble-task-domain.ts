@@ -98,6 +98,7 @@ export interface WaterSolubleCurrentAction {
 }
 
 const INITIAL_TIME = '2026-07-11 08:00:00'
+const DEMO_FACTORY_ID = 'F090'
 let orderStore: Map<string, WaterSolubleWorkOrder> | null = null
 
 function cloneOrder(order: WaterSolubleWorkOrder): WaterSolubleWorkOrder {
@@ -170,7 +171,58 @@ function canRefreshSourceFields(order: WaterSolubleWorkOrder): boolean {
     && order.actionLogs.length === 1
 }
 
+function seedWaterSolubleDemoOrders(store: Map<string, WaterSolubleWorkOrder>): void {
+  const factory = getFactoryMasterRecordById(DEMO_FACTORY_ID)
+  if (!factory || !canAssignWaterSolubleFactory(factory.id).ok) return
+  const orders = [...store.values()].sort((left, right) => left.generationKey.localeCompare(right.generationKey))
+  const inProgress = orders[1]
+  const paused = orders[2]
+  if (inProgress) {
+    inProgress.factoryId = factory.id
+    inProgress.factoryName = factory.name
+    inProgress.status = 'WATER_SOLUBLE_IN_PROGRESS'
+    inProgress.updatedAt = '2026-07-11 08:15:00'
+    inProgress.actionLogs.push(
+      { action: '分配染厂', detail: `已分配至 ${factory.name}`, at: '2026-07-11 08:05:00' },
+      { action: '确认原料到位', detail: '原料已到位，可以开始水溶', at: '2026-07-11 08:10:00' },
+      { action: '开始水溶', detail: '工厂已开始水溶加工', at: '2026-07-11 08:15:00' },
+    )
+  }
+  if (paused) {
+    const completedQty = Math.max(1, paused.plannedQty - Math.min(100, paused.plannedQty / 10))
+    const reason = '现场实测原料不足，等待主管确认'
+    paused.factoryId = factory.id
+    paused.factoryName = factory.name
+    paused.completedQty = completedQty
+    paused.exceptionReason = reason
+    paused.status = 'PRODUCTION_PAUSED'
+    paused.updatedAt = '2026-07-11 08:35:00'
+    paused.actionLogs.push(
+      { action: '分配染厂', detail: `已分配至 ${factory.name}`, at: '2026-07-11 08:20:00' },
+      { action: '确认原料到位', detail: '原料已到位，可以开始水溶', at: '2026-07-11 08:25:00' },
+      { action: '开始水溶', detail: '工厂已开始水溶加工', at: '2026-07-11 08:30:00' },
+      { action: '上报数量不足', detail: `实际完成 ${completedQty} ${paused.qtyUnit}；原因：${reason}`, at: '2026-07-11 08:35:00' },
+    )
+  }
+}
+
+function buildWaterSolubleOrderStore(seedDemo: boolean): Map<string, WaterSolubleWorkOrder> {
+  const store = new Map<string, WaterSolubleWorkOrder>()
+  listGeneratedProductionTaskArtifacts()
+    .filter(isMaterialWaterSolubleTaskArtifact)
+    .forEach((artifact) => {
+      const order = buildOrderFromArtifact(artifact)
+      store.set(order.generationKey, order)
+    })
+  if (seedDemo) seedWaterSolubleDemoOrders(store)
+  return store
+}
+
 export function syncWaterSolubleOrderStoreWithArtifacts(): void {
+  if (!orderStore) {
+    orderStore = buildWaterSolubleOrderStore(true)
+    return
+  }
   const current = orderStore ?? new Map<string, WaterSolubleWorkOrder>()
   const next = new Map<string, WaterSolubleWorkOrder>()
   listGeneratedProductionTaskArtifacts()
@@ -390,11 +442,11 @@ export function completeWaterSoluble(orderId: string, completedQty: number, exce
   order.exceptionReason = reason
   if (completedQty < order.plannedQty) {
     order.status = 'PRODUCTION_PAUSED'
-    return updateOrder(order, '上报数量不足', `实际完成 ${completedQty} ${order.qtyUnit}，等待主管处理`)
+    return updateOrder(order, '上报数量不足', `实际完成 ${completedQty} ${order.qtyUnit}；原因：${reason}；等待主管处理`)
   }
   order.handoverQty = completedQty
   order.status = 'WAIT_HANDOVER'
-  return updateOrder(order, '完成水溶', `实际完成 ${completedQty} ${order.qtyUnit}，等待交出`)
+  return updateOrder(order, '完成水溶', `实际完成 ${completedQty} ${order.qtyUnit}${reason ? `；原因：${reason}` : ''}；等待交出`)
 }
 
 export function resolveWaterSolublePause(orderId: string, decision: WaterSolubleSupervisorDecision): WaterSolubleActionResult {
@@ -464,7 +516,6 @@ export function resolveWaterSolubleReceiptDifference(orderId: string): WaterSolu
   return updateOrder(order, '确认收货差异', `主管已确认按实际收货 ${order.receivedQty ?? 0} ${order.qtyUnit} 完成`)
 }
 
-export function resetWaterSolubleDomainForChecks(): void {
-  orderStore = new Map()
-  syncWaterSolubleOrderStoreWithArtifacts()
+export function resetWaterSolubleDomainForChecks(options: { seedDemo?: boolean } = {}): void {
+  orderStore = buildWaterSolubleOrderStore(options.seedDemo === true)
 }
