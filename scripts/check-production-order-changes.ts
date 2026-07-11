@@ -93,6 +93,16 @@ assert.deepEqual(
 
 assert.equal(getProductionChangeLockMessage(), '生产单正在变更，请稍后再试', '锁定提示必须使用统一文案')
 
+const initialProductionChangeRecords = listProductionChangeRecords()
+const initialQuantitySeed = initialProductionChangeRecords.find((record) => record.id === 'BG-20260710-001')
+const initialMaterialSeed = initialProductionChangeRecords.find((record) => record.id === 'BG-20260710-002')
+const initialRolledBackSeed = initialProductionChangeRecords.find((record) => record.id === 'BG-20260710-003')
+assert.equal(initialQuantitySeed?.changeType, 'QUANTITY_CHANGE', '初始数量变更种子必须使用固定变更单号')
+assert.equal(initialQuantitySeed?.status, 'DONE', '初始数量变更种子必须为 DONE')
+assert.equal(initialMaterialSeed?.changeType, 'MATERIAL_REPLACEMENT', '初始替换物料种子必须使用固定变更单号')
+assert.equal(initialMaterialSeed?.status, 'READY', '初始替换物料种子必须为 READY')
+assert.equal(initialRolledBackSeed?.status, 'ROLLED_BACK', '初始回滚种子必须使用固定变更单号并为 ROLLED_BACK')
+
 const executionPreview: ProductionChangePreview = {
   result: 'PRODUCTION_PATCH',
   resultReason: '测试同步执行',
@@ -2031,18 +2041,16 @@ assert.deepEqual(
   ['PRODUCTION_PATCH', 'VERSION_AND_PATCH', 'VERSION_RELATION'].sort(),
   '生产单变更最终结果只能有三种',
 )
+assert.ok(
+  listHtml.includes('同一套流程：选择生产单 → 填写变更内容 → 确认处理方案 → 同步执行'),
+  '主入口场景卡必须明确展示统一四步流程',
+)
+assert.ok(
+  !listHtml.includes('同一套流程：变更内容 → 需要处理的事 → 处理记录 → 单据记录'),
+  '主入口场景卡不得继续展示旧四步词组',
+)
 
 const records = listProductionChangeRecords()
-assert.ok(records.length >= 3, '最终列表至少提供三条稳定演示记录')
-assert.ok(
-  records.some((record) => record.changeType === 'QUANTITY_CHANGE' && record.status === 'DONE'),
-  '稳定演示记录必须覆盖数量变更已完成',
-)
-assert.ok(
-  records.some((record) => record.changeType === 'MATERIAL_REPLACEMENT' && record.status === 'READY'),
-  '稳定演示记录必须覆盖替换物料待确认执行',
-)
-assert.ok(records.some((record) => record.status === 'ROLLED_BACK'), '稳定演示记录必须覆盖已回滚')
 assert.deepEqual(
   Array.from(new Set(records.map((record) => record.status))).filter(
     (status) => !['DRAFT', 'READY', 'EXECUTING', 'DONE', 'ROLLED_BACK'].includes(status),

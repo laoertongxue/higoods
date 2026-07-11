@@ -1355,7 +1355,7 @@ function renderProductionChangeScenarioCards(): string {
             ${renderBadge(card.badge, card.badge === '待跟单判断' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700')}
           </div>
           <div class="mt-4 flex items-center justify-between gap-3 text-sm">
-            <span class="text-muted-foreground">同一套流程：变更内容 → 需要处理的事 → 处理记录 → 单据记录</span>
+            <span class="text-muted-foreground">同一套流程：选择生产单 → 填写变更内容 → 确认处理方案 → 同步执行</span>
             <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change-type" data-change-type="${card.changeType}">填写变更内容</button>
           </div>
         </article>
