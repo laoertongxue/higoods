@@ -270,9 +270,6 @@ function cloneSizeMeasurements(items: TechPackSizeMeasurementSnapshot[]): TechPa
 function cloneBomItems(items: TechPackBomItemSnapshot[]): TechPackBomItemSnapshot[] {
   return items.map((item) => ({
     ...item,
-    materialCode: item.materialCode,
-    unit: item.unit,
-    waterSolubleRequirement: item.waterSolubleRequirement,
     applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
     linkedPatternIds: [...(item.linkedPatternIds ?? [])],
     usageProcessCodes: [...(item.usageProcessCodes ?? [])],

@@ -103,24 +103,34 @@ export function normalizeProcessRouteEntries<T extends NormalizableRouteEntry>(e
   }
 
   const groups: Array<RouteEntryGroup<T>> = initialGroups.map((items) => ({ items: [...items] }))
-  let changed = true
-  while (changed) {
-    changed = false
-    const dyeGroupIndex = groups.findIndex((group) => group.items.some((item) => item.entry.processCode === 'DYE'))
-    if (dyeGroupIndex < 0) break
-    const dyeEntries = groups[dyeGroupIndex].items.filter((item) => item.entry.processCode === 'DYE')
-    const waterGroupIndex = groups.findIndex((group) => group.items.some(
-      (item) => item.entry.processCode === 'WATER_SOLUBLE' && dyeEntries.some((dye) => sharesBomItem(item.entry, dye.entry)),
-    ))
-    if (waterGroupIndex < 0 || waterGroupIndex < dyeGroupIndex) break
+  const findSharedRouteViolation = (): { dyeGroupIndex: number; waterGroupIndex: number } | null => {
+    for (let dyeGroupIndex = 0; dyeGroupIndex < groups.length; dyeGroupIndex += 1) {
+      const dyeEntries = groups[dyeGroupIndex].items.filter((item) => item.entry.processCode === 'DYE')
+      if (dyeEntries.length === 0) continue
+      for (let waterGroupIndex = dyeGroupIndex; waterGroupIndex < groups.length; waterGroupIndex += 1) {
+        const hasSharedWater = groups[waterGroupIndex].items.some(
+          (item) => item.entry.processCode === 'WATER_SOLUBLE'
+            && dyeEntries.some((dye) => sharesBomItem(item.entry, dye.entry)),
+        )
+        if (hasSharedWater) return { dyeGroupIndex, waterGroupIndex }
+      }
+    }
+    return null
+  }
+
+  const maxCorrections = Math.max(1, entries.length * entries.length)
+  for (let correctionCount = 0; correctionCount < maxCorrections; correctionCount += 1) {
+    const violation = findSharedRouteViolation()
+    if (!violation) break
+    const { dyeGroupIndex, waterGroupIndex } = violation
 
     if (waterGroupIndex > dyeGroupIndex) {
       const [waterGroup] = groups.splice(waterGroupIndex, 1)
       groups.splice(dyeGroupIndex, 0, waterGroup)
-      changed = true
       continue
     }
 
+    const dyeEntries = groups[dyeGroupIndex].items.filter((item) => item.entry.processCode === 'DYE')
     const sharedWaterEntries = groups[dyeGroupIndex].items.filter(
       (item) => item.entry.processCode === 'WATER_SOLUBLE' && dyeEntries.some((dye) => sharesBomItem(item.entry, dye.entry)),
     )
@@ -131,9 +141,8 @@ export function normalizeProcessRouteEntries<T extends NormalizableRouteEntry>(e
       dyeGroupIndex,
       1,
       { items: sharedWaterEntries, forceIndependent: true },
-      { items: remainingGroup },
+      { items: remainingGroup, forceIndependent: remainingGroup.length === 1 },
     )
-    changed = true
   }
 
   return groups.flatMap((group, groupIndex) => {

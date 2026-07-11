@@ -19,7 +19,10 @@ import {
   resetTechnicalDataVersionRepository,
   updateTechnicalDataVersionContent,
 } from '../src/data/pcs-technical-data-version-repository.ts'
-import { normalizeProcessRouteEntries } from '../src/data/tech-pack-process-route.ts'
+import {
+  areRouteEntriesContinuous,
+  normalizeProcessRouteEntries,
+} from '../src/data/tech-pack-process-route.ts'
 import { syncPreparationProcessesFromBom } from '../src/pages/tech-pack/bom-process-linkage.ts'
 import { applyProcessRouteDraftAction } from '../src/pages/tech-pack/events.ts'
 
@@ -212,6 +215,63 @@ const unrelatedMovedDraft = applyProcessRouteDraftAction({
   processRouteUpdatedAt: '',
 }, { type: 'move-down', techniqueId: waterTechnique.id }, '水溶专项检查', '2026-07-11 11:05:00')
 assert.equal(unrelatedMovedDraft.techniques[0]?.processCode, 'DYE', '无共享 BOM 时页面路线动作不得被固定顺序保护误拦截')
+
+const multiSharedRoute = normalizeProcessRouteEntries([
+  { ...waterTechnique, id: 'WATER-A', linkedBomItemIds: ['BOM-A'], routeStepNo: 1, routeLaneNo: 1 },
+  { ...dyeTechnique, id: 'DYE-A', linkedBomItemIds: ['BOM-A'], routeStepNo: 2, routeLaneNo: 1 },
+  { ...dyeTechnique, id: 'DYE-B', linkedBomItemIds: ['BOM-B'], routeStepNo: 3, routeLaneNo: 1 },
+  { ...waterTechnique, id: 'WATER-B', linkedBomItemIds: ['BOM-B'], routeStepNo: 4, routeLaneNo: 1 },
+])
+const multiRouteStep = (id: string) => multiSharedRoute.find((item) => item.id === id)?.routeStepNo ?? 0
+assert(multiRouteStep('WATER-A') < multiRouteStep('DYE-A'), '多组共享关系中第一组必须保持先水溶、后染色')
+assert(multiRouteStep('WATER-B') < multiRouteStep('DYE-B'), '多组共享关系中后续倒序组也必须被修正')
+
+const laterSharedRoute = normalizeProcessRouteEntries([
+  { ...dyeTechnique, id: 'DYE-NO-SHARE', linkedBomItemIds: ['BOM-NO-SHARE'], routeStepNo: 1, routeLaneNo: 1 },
+  { ...dyeTechnique, id: 'DYE-LATER', linkedBomItemIds: ['BOM-LATER'], routeStepNo: 2, routeLaneNo: 1 },
+  { ...waterTechnique, id: 'WATER-LATER', linkedBomItemIds: ['BOM-LATER'], routeStepNo: 3, routeLaneNo: 1 },
+])
+const laterWaterStep = laterSharedRoute.find((item) => item.id === 'WATER-LATER')?.routeStepNo ?? 0
+const laterDyeStep = laterSharedRoute.find((item) => item.id === 'DYE-LATER')?.routeStepNo ?? 0
+assert(laterWaterStep < laterDyeStep, '首个染色不共享水溶时仍必须继续修正后续共享倒序组')
+
+const pairOnlyParallelRoute = normalizeProcessRouteEntries([
+  {
+    ...waterTechnique,
+    id: 'WATER-PAIR-ONLY',
+    linkedBomItemIds: ['BOM-PAIR'],
+    routeStepNo: 1,
+    routeLaneNo: 1,
+    routeParallelGroupId: 'PAIR-GROUP',
+    routeParallelGroupName: '水溶染色并行组',
+    routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED',
+  },
+  {
+    ...dyeTechnique,
+    id: 'DYE-PAIR-ONLY',
+    linkedBomItemIds: ['BOM-PAIR'],
+    routeStepNo: 1,
+    routeLaneNo: 2,
+    routeParallelGroupId: 'PAIR-GROUP',
+    routeParallelGroupName: '水溶染色并行组',
+    routeParallelAcceptanceMode: 'WHOLE_GROUP_ALLOWED',
+  },
+])
+const pairOnlyWater = pairOnlyParallelRoute.find((item) => item.id === 'WATER-PAIR-ONLY')
+const pairOnlyDye = pairOnlyParallelRoute.find((item) => item.id === 'DYE-PAIR-ONLY')
+assert(pairOnlyWater && pairOnlyDye, '仅水溶与染色并行拆分必须保留两条工序')
+assert.equal(pairOnlyWater.routeStepNo, 1, '仅两项并行拆分后水溶必须为第一步')
+assert.equal(pairOnlyDye.routeStepNo, 2, '仅两项并行拆分后染色必须为第二步')
+for (const item of [pairOnlyWater, pairOnlyDye]) {
+  assert.equal(item.routeParallelGroupId, undefined, '拆分后的单项步骤不得残留并行组 ID')
+  assert.equal(item.routeParallelGroupName, undefined, '拆分后的单项步骤不得残留并行组名称')
+  assert.equal(item.routeParallelAcceptanceMode, 'INDEPENDENT_ONLY', '拆分后的单项步骤必须恢复独立承接')
+}
+assert.equal(
+  areRouteEntriesContinuous(pairOnlyParallelRoute).allowed,
+  true,
+  '仅水溶与染色拆分后的连续路线必须允许连续承接',
+)
 const guardedRouteDraft = applyProcessRouteDraftAction({
   techniques: normalizedRoute,
   processRouteStatus: 'UNCONFIRMED',

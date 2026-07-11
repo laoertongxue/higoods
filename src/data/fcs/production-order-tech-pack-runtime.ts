@@ -20,9 +20,6 @@ import type {
 function cloneBomItems(items: TechnicalBomItem[]): TechnicalBomItem[] {
   return items.map((item) => ({
     ...item,
-    materialCode: item.materialCode,
-    unit: item.unit,
-    waterSolubleRequirement: item.waterSolubleRequirement,
     applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
     linkedPatternIds: [...(item.linkedPatternIds ?? [])],
     usageProcessCodes: [...(item.usageProcessCodes ?? [])],
