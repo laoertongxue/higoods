@@ -1,5 +1,6 @@
 import {
   productionOrders,
+  type ProductionOrder,
 } from './production-orders.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import {
@@ -30,6 +31,10 @@ import {
   type TaskTypeMode,
 } from './process-craft-dict.ts'
 import type { TechnicalProcessEntry } from '../pcs-technical-data-version-types.ts'
+import type {
+  ProductionOrderTechPackSnapshot,
+  TechPackBomItemSnapshot,
+} from './production-tech-pack-snapshot-types.ts'
 
 type TechPackProcessEntry = TechnicalProcessEntry
 type TechPackProcessEntryType = TechnicalProcessEntry['entryType']
@@ -64,6 +69,11 @@ export interface GeneratedProductionArtifactBase {
   requiresFeiTicket?: boolean
   packagingRequired?: boolean
   materialIssueMode?: 'WAREHOUSE_DELIVERY'
+  bomItemId?: string
+  materialCode?: string
+  materialName?: string
+  plannedQty?: number
+  plannedUnit?: string
   linkedBomItemIds?: string[]
   linkedPatternIds?: string[]
   routeStepNo?: number
@@ -80,6 +90,8 @@ export interface GeneratedDemandArtifact extends GeneratedProductionArtifactBase
   artifactType: 'DEMAND'
   demandTypeCode: string
   demandTypeLabel: string
+  requiresWaterSoluble?: boolean
+  processRoute?: Array<'WATER_SOLUBLE' | 'DYE'>
 }
 
 export interface GeneratedTaskArtifact extends GeneratedProductionArtifactBase {
@@ -577,6 +589,90 @@ function toTaskArtifact(context: ResolvedEntryContext): GeneratedTaskArtifact {
   }
 }
 
+export function calculateBomProcessPlannedQty(
+  order: ProductionOrder,
+  bomItem: TechPackBomItemSnapshot,
+): number {
+  const applicableSkuCodes = bomItem.applicableSkuCodes ?? []
+  const garmentQty = order.demandSnapshot.skuLines.reduce((sum, line) => {
+    if (applicableSkuCodes.length > 0 && !applicableSkuCodes.includes(line.skuCode)) return sum
+    return sum + line.qty
+  }, 0)
+  const plannedQty = garmentQty * bomItem.unitConsumption * (1 + bomItem.lossRate / 100)
+  return Math.round(plannedQty * 1000) / 1000
+}
+
+export interface GenerateBomDrivenPrepArtifactsForEntryInput {
+  order: ProductionOrder
+  snapshot: ProductionOrderTechPackSnapshot
+  entry: TechnicalProcessEntry
+  entryIndex: number
+}
+
+export function generateBomDrivenPrepArtifactsForEntry(
+  input: GenerateBomDrivenPrepArtifactsForEntryInput,
+): GeneratedProductionArtifact[] {
+  const { order, snapshot, entry, entryIndex } = input
+  if (entry.processCode !== 'WATER_SOLUBLE' && entry.processCode !== 'DYE') return []
+
+  const linkedBomItemIds = [...new Set(entry.linkedBomItemIds ?? [])]
+  const bomItemById = new Map(snapshot.bomItems.map((item) => [item.id, item]))
+  const context = resolveEntryContext(order.productionOrderId, entry, entryIndex)
+  context.orderQty = order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
+  context.techPackId = snapshot.sourceTechPackVersionId
+
+  return linkedBomItemIds.flatMap((bomItemId) => {
+    const bomItem = bomItemById.get(bomItemId)
+    if (!bomItem) return []
+
+    const requiresWaterSoluble = bomItem.waterSolubleRequirement === '是'
+    const dyeRequirement = bomItem.dyeRequirement?.trim()
+    const requiresDye = Boolean(dyeRequirement && dyeRequirement !== '无')
+    const materialFields = {
+      bomItemId: bomItem.id,
+      materialCode: bomItem.materialCode || bomItem.id,
+      materialName: bomItem.name,
+      plannedQty: calculateBomProcessPlannedQty(order, bomItem),
+      plannedUnit: bomItem.unit || '米',
+      linkedBomItemIds: [bomItem.id],
+    }
+    const artifactKey = [
+      order.productionOrderId,
+      snapshot.snapshotId || snapshot.sourceTechPackVersionId,
+      entry.id,
+      bomItem.id,
+    ].map(toArtifactKeySegment).join('-')
+    const bomSortSuffix = toArtifactKeySegment(bomItem.id)
+
+    if (entry.processCode === 'WATER_SOLUBLE') {
+      if (!requiresWaterSoluble || requiresDye) return []
+      return [{
+        ...toTaskArtifact(context),
+        ...materialFields,
+        artifactId: `TASKART-${artifactKey}`,
+        defaultDocType: 'TASK',
+        docTypeLabel: DOC_TYPE_LABEL.TASK,
+        taskTypeCode: 'WATER_SOLUBLE',
+        taskTypeLabel: '水溶',
+        taskScope: 'EXTERNAL_TASK',
+        generationSortKey: `${buildGenerationSortKey(context)}-${bomSortSuffix}`,
+        sortKey: `${buildSortKey(context)}-${bomSortSuffix}`,
+      }]
+    }
+
+    if (!requiresDye) return []
+    return [{
+      ...toDemandArtifact(context),
+      ...materialFields,
+      artifactId: `DEMART-${artifactKey}`,
+      requiresWaterSoluble,
+      processRoute: requiresWaterSoluble ? ['WATER_SOLUBLE', 'DYE'] : ['DYE'],
+      generationSortKey: `${buildGenerationSortKey(context)}-${bomSortSuffix}`,
+      sortKey: `${buildSortKey(context)}-${bomSortSuffix}`,
+    }]
+  })
+}
+
 function shouldGenerateDemand(entry: TechPackProcessEntry, context: ResolvedEntryContext): boolean {
   return (
     entry.entryType === 'PROCESS_BASELINE' &&
@@ -722,8 +818,10 @@ function resolveTechPackEntriesByOrder(orderId: string): TechPackProcessEntry[] 
 }
 
 export function generateProductionArtifactsForOrder(orderId: string): GeneratedProductionArtifact[] {
-  const techPackId = resolveTechPackIdByOrder(orderId)
-  if (!techPackId) return []
+  const order = productionOrders.find((item) => item.productionOrderId === orderId)
+  const snapshot = getProductionOrderTechPackSnapshot(orderId)
+  const techPackId = snapshot?.sourceTechPackVersionId ?? resolveTechPackIdByOrder(orderId)
+  if (!order || !snapshot || !techPackId) return []
 
   const entries = resolveTechPackEntriesByOrder(orderId)
   if (!entries.length) return []
@@ -734,6 +832,11 @@ export function generateProductionArtifactsForOrder(orderId: string): GeneratedP
   entries.forEach((entry, index) => {
     const context = resolveEntryContext(orderId, entry, index)
     context.techPackId = techPackId
+
+    if (entry.processCode === 'WATER_SOLUBLE' || (entry.processCode === 'DYE' && entry.linkedBomItemIds?.length)) {
+      artifacts.push(...generateBomDrivenPrepArtifactsForEntry({ order, snapshot, entry, entryIndex: index }))
+      return
+    }
 
     if (shouldGenerateDemand(entry, context)) {
       artifacts.push(toDemandArtifact(context))
