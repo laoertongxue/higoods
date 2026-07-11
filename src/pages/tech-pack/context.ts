@@ -219,6 +219,7 @@ type BomItemRow = {
   materialCode: string
   materialName: string
   spec: string
+  unit: string
   patternPieces: string[]
   linkedPatternIds: string[]
   applicableSkuCodes: string[]
@@ -226,6 +227,7 @@ type BomItemRow = {
   usage: number
   lossRate: number
   printRequirement: string
+  waterSolubleRequirement: BomRequirementFlag
   dyeRequirement: string
   shrinkRequirement: BomRequirementFlag
   washRequirement: BomRequirementFlag
@@ -699,6 +701,7 @@ function createEmptyBomFormState(): TechPackPageState['newBomItem'] {
     materialCode: '',
     materialName: '',
     spec: '',
+    unit: '米',
     patternPieces: [],
     linkedPatternIds: [],
     applicableSkuCodes: [],
@@ -706,6 +709,7 @@ function createEmptyBomFormState(): TechPackPageState['newBomItem'] {
     usage: '',
     lossRate: '',
     printRequirement: '无',
+    waterSolubleRequirement: '否',
     dyeRequirement: '无',
     shrinkRequirement: '否',
     washRequirement: '否',
@@ -1554,6 +1558,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     materialCode: 'FAB-001',
     materialName: '纯棉毛织布',
     spec: '180g/m²',
+    unit: '米',
     patternPieces: ['前片', '后片', '袖片'],
     linkedPatternIds: ['PAT-001', 'PAT-002'],
     applicableSkuCodes: [],
@@ -1561,6 +1566,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     usage: 0.8,
     lossRate: 3,
     printRequirement: '数码印',
+    waterSolubleRequirement: '否',
     dyeRequirement: '无',
     shrinkRequirement: '是',
     washRequirement: '是',
@@ -1577,6 +1583,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     materialCode: 'FAB-002',
     materialName: '弹力罗纹',
     spec: '200g/m²',
+    unit: '米',
     patternPieces: ['领片'],
     linkedPatternIds: [],
     applicableSkuCodes: [],
@@ -1584,6 +1591,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     usage: 0.1,
     lossRate: 5,
     printRequirement: '无',
+    waterSolubleRequirement: '是',
     dyeRequirement: '匹染',
     shrinkRequirement: '是',
     washRequirement: '否',
@@ -1600,6 +1608,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     materialCode: 'ACC-001',
     materialName: '纽扣',
     spec: '15mm圆形',
+    unit: '个',
     patternPieces: ['前片'],
     linkedPatternIds: [],
     applicableSkuCodes: [],
@@ -1607,6 +1616,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     usage: 5,
     lossRate: 2,
     printRequirement: '无',
+    waterSolubleRequirement: '否',
     dyeRequirement: '无',
     shrinkRequirement: '否',
     washRequirement: '否',
@@ -1819,6 +1829,7 @@ interface TechPackPageState {
     materialCode: string
     materialName: string
     spec: string
+    unit: string
     patternPieces: string[]
     linkedPatternIds: string[]
     applicableSkuCodes: string[]
@@ -1826,6 +1837,7 @@ interface TechPackPageState {
     usage: string
     lossRate: string
     printRequirement: string
+    waterSolubleRequirement: BomRequirementFlag
     dyeRequirement: string
     shrinkRequirement: BomRequirementFlag
     washRequirement: BomRequirementFlag
@@ -2114,6 +2126,8 @@ function cloneTechPack(techPack: TechPack): TechPack {
     processEntries: (techPack.processEntries ?? []).map((item) => ({
       ...item,
       detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
+      linkedBomItemIds: [...(item.linkedBomItemIds ?? [])],
+      linkedPatternIds: [...(item.linkedPatternIds ?? [])],
     })),
     sizeTable: techPack.sizeTable.map((item) => ({ ...item })),
     bomItems: techPack.bomItems.map((item) => ({
@@ -2821,14 +2835,17 @@ function getBomColorOptionsForPattern(linkedBomItemId?: string): PatternBomColor
         item.id,
         item.type,
         item.colorLabel,
+        item.materialCode,
         item.name,
         item.spec,
+        item.unit,
         item.linkedPatternIds,
         item.applicableSkuCodes,
         item.usageProcessCodes,
         item.unitConsumption,
         item.lossRate,
         item.printRequirement,
+        item.waterSolubleRequirement,
         item.dyeRequirement,
         item.shrinkRequirement,
         item.washRequirement,
@@ -2846,9 +2863,10 @@ function getBomColorOptionsForPattern(linkedBomItemId?: string): PatternBomColor
         id: item.id,
         type: item.type,
         colorLabel: item.colorLabel || '',
-        materialCode: item.name,
+        materialCode: item.materialCode || item.id,
         materialName: item.name,
         spec: item.spec,
+        unit: item.unit || '米',
         patternPieces: [],
         linkedPatternIds: [...(item.linkedPatternIds ?? [])],
         applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
@@ -2856,6 +2874,7 @@ function getBomColorOptionsForPattern(linkedBomItemId?: string): PatternBomColor
         usage: item.unitConsumption,
         lossRate: item.lossRate,
         printRequirement: item.printRequirement || '无',
+        waterSolubleRequirement: item.waterSolubleRequirement || '否',
         dyeRequirement: item.dyeRequirement || '无',
         shrinkRequirement: item.shrinkRequirement || '否',
         washRequirement: item.washRequirement || '否',
@@ -4269,9 +4288,10 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       id: item.id || `bom-${index + 1}`,
       type: item.type,
       colorLabel: item.colorLabel || '',
-      materialCode: item.id || `MAT-${index + 1}`,
+      materialCode: item.materialCode || item.id || `MAT-${index + 1}`,
       materialName: item.name,
       spec: item.spec,
+      unit: item.unit || '米',
       patternPieces,
       linkedPatternIds,
       applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
@@ -4279,6 +4299,7 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       usage: item.unitConsumption,
       lossRate: item.lossRate,
       printRequirement: item.printRequirement ?? '无',
+      waterSolubleRequirement: item.waterSolubleRequirement ?? '否',
       dyeRequirement: item.dyeRequirement ?? '无',
       shrinkRequirement: item.shrinkRequirement ?? '否',
       washRequirement: item.washRequirement ?? '否',
@@ -4920,11 +4941,14 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
         type: item.type,
         name: item.materialName,
         spec: item.spec,
+        materialCode: item.materialCode,
+        unit: item.unit || '米',
         colorLabel: item.colorLabel || undefined,
         unitConsumption: Number(item.usage) || 0,
         lossRate: Number(item.lossRate) || 0,
         supplier: '-',
         printRequirement: item.printRequirement || '无',
+        waterSolubleRequirement: item.waterSolubleRequirement || '否',
         dyeRequirement: item.dyeRequirement || '无',
         shrinkRequirement: item.shrinkRequirement || '否',
         washRequirement: item.washRequirement || '否',

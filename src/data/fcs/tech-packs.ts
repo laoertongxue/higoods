@@ -331,11 +331,14 @@ export interface TechPackBomItem {
   type: string
   name: string
   spec: string
+  materialCode?: string
+  unit?: string
   colorLabel?: string
   unitConsumption: number
   lossRate: number
   supplier: string
   printRequirement?: string
+  waterSolubleRequirement?: '是' | '否'
   dyeRequirement?: string
   shrinkRequirement?: '是' | '否'
   washRequirement?: '是' | '否'

@@ -56,6 +56,7 @@ export interface ProductionConfirmationBomSnapshotRow {
   materialType: string
   materialName: string
   materialSku: string
+  materialCode?: string
   materialColor: string
   spec: string
   unitConsumption: number | null
@@ -64,6 +65,7 @@ export interface ProductionConfirmationBomSnapshotRow {
   usageUnit: string
   materialImageUrl?: string
   printRequirement?: string
+  waterSolubleRequirement?: '是' | '否'
   dyeRequirement?: string
   applicableSkuCodes: string[]
 }
@@ -475,14 +477,16 @@ function buildBomSnapshot(order: ProductionOrder): ProductionConfirmationBomSnap
       materialType: item.type || '暂无数据',
       materialName: item.name || '暂无数据',
       materialSku: item.id,
+      materialCode: item.materialCode,
       materialColor: item.colorLabel || '暂无数据',
       spec: item.spec || '暂无数据',
       unitConsumption: Number.isFinite(item.unitConsumption) ? item.unitConsumption : null,
       lossRate: toLossRatePercent(item.lossRate),
       plannedUsageQty: Number.isFinite(plannedUsageQty) ? plannedUsageQty : null,
-      usageUnit: resolveUsageUnit(item.type),
+      usageUnit: item.unit || resolveUsageUnit(item.type),
       materialImageUrl: isAllowedLocalImage(item.materialImageUrl) ? item.materialImageUrl : undefined,
       printRequirement: item.printRequirement,
+      waterSolubleRequirement: item.waterSolubleRequirement,
       dyeRequirement: item.dyeRequirement,
       applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
     }

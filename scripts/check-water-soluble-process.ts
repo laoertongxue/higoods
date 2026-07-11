@@ -9,6 +9,15 @@ import {
   getFactorySupplyFormulaGuide,
   getFactorySupplyFormulaTemplate,
 } from '../src/data/fcs/process-craft-output-value-explainer.ts'
+import { buildProductionOrderTechPackSnapshot } from '../src/data/fcs/production-tech-pack-snapshot-builder.ts'
+import {
+  getTechnicalDataVersionContent,
+  resetTechnicalDataVersionRepository,
+  updateTechnicalDataVersionContent,
+} from '../src/data/pcs-technical-data-version-repository.ts'
+import { normalizeProcessRouteEntries } from '../src/data/tech-pack-process-route.ts'
+import { syncPreparationProcessesFromBom } from '../src/pages/tech-pack/bom-process-linkage.ts'
+import { applyProcessRouteDraftAction } from '../src/pages/tech-pack/events.ts'
 
 const printProcess = getProcessDefinitionByCode('PRINT')
 const waterProcess = getProcessDefinitionByCode('WATER_SOLUBLE')
@@ -59,5 +68,128 @@ const waterGuide = getFactorySupplyFormulaGuide('水溶')
 assert.equal(waterGuide.template, 'D', '水溶公共产值指南必须返回模板 D')
 assert(waterGuide.currentFieldKeys.includes('batchLoadCapacity'), '水溶批次型模板必须包含单次有效装载量')
 assert(waterGuide.currentFieldKeys.includes('cycleMinutes'), '水溶批次型模板必须包含单次循环分钟')
+
+const bomRows = [
+  {
+    id: 'BOM-WATER',
+    materialCode: 'MAT-WATER-001',
+    unit: '米',
+    waterSolubleRequirement: '是',
+    dyeRequirement: '无',
+  },
+  {
+    id: 'BOM-BOTH',
+    materialCode: 'MAT-BOTH-001',
+    unit: '米',
+    waterSolubleRequirement: '是',
+    dyeRequirement: '匹染',
+  },
+  {
+    id: 'BOM-DYE',
+    materialCode: 'MAT-DYE-001',
+    unit: '米',
+    waterSolubleRequirement: '否',
+    dyeRequirement: '匹染',
+  },
+]
+
+const syncResult = syncPreparationProcessesFromBom([], bomRows)
+const waterTechnique = syncResult.techniques.find((item) => item.processCode === 'WATER_SOLUBLE')
+const dyeTechnique = syncResult.techniques.find((item) => item.processCode === 'DYE')
+
+assert(waterTechnique, 'BOM 水溶要求必须自动生成 WATER_SOLUBLE 准备工序')
+assert(dyeTechnique, 'BOM 染色要求必须自动生成 DYE 准备工序')
+assert.deepEqual(
+  waterTechnique.linkedBomItemIds,
+  ['BOM-WATER', 'BOM-BOTH'],
+  '水溶工序必须只绑定实际选择水溶的 BOM 行',
+)
+assert.deepEqual(
+  dyeTechnique.linkedBomItemIds,
+  ['BOM-BOTH', 'BOM-DYE'],
+  '染色工序必须只绑定实际选择染色的 BOM 行',
+)
+assert(!waterTechnique.linkedBomItemIds?.includes('BOM-DYE'), '仅选择染色的物料不得误绑水溶工序')
+assert(!dyeTechnique.linkedBomItemIds?.includes('BOM-WATER'), '仅选择水溶的物料不得误绑染色工序')
+
+const normalizedRoute = normalizeProcessRouteEntries(syncResult.techniques)
+const normalizedWater = normalizedRoute.find((item) => item.processCode === 'WATER_SOLUBLE')
+const normalizedDye = normalizedRoute.find((item) => item.processCode === 'DYE')
+assert(normalizedWater && normalizedDye, '归一化路线必须保留水溶与染色工序')
+assert(
+  Number(normalizedWater.routeStepNo) < Number(normalizedDye.routeStepNo),
+  '同一物料同时水溶和染色时，路线必须固定先水溶、后染色',
+)
+const guardedRouteDraft = applyProcessRouteDraftAction({
+  techniques: normalizedRoute,
+  processRouteStatus: 'UNCONFIRMED',
+  processRouteConfirmedBy: '',
+  processRouteConfirmedAt: '',
+  processRouteUpdatedBy: '',
+  processRouteUpdatedAt: '',
+}, { type: 'move-down', techniqueId: normalizedWater.id }, '水溶专项检查', '2026-07-11 11:00:00')
+const guardedWater = guardedRouteDraft.techniques.find((item) => item.processCode === 'WATER_SOLUBLE')
+const guardedDye = guardedRouteDraft.techniques.find((item) => item.processCode === 'DYE')
+assert(guardedWater && guardedDye, '路线移动保护必须保留水溶与染色工序')
+assert(
+  Number(guardedWater.routeStepNo) < Number(guardedDye.routeStepNo),
+  '不得手工交换固定的先水溶、后染色顺序',
+)
+assert.equal(waterTechnique.triggerField, 'waterSolubleRequirement', '水溶必须由 waterSolubleRequirement 触发')
+assert.equal(waterTechnique.targetObject, 'BOM_MATERIAL', '水溶目标对象必须为 BOM 物料')
+assert.equal(waterTechnique.targetObjectName, 'BOM物料', '水溶目标对象名称错误')
+assert.equal(waterTechnique.defaultDocType, 'TASK', '水溶必须默认生成任务单')
+assert.equal(waterTechnique.sourceType, 'BOM', '水溶必须标记为 BOM 来源')
+
+resetTechnicalDataVersionRepository()
+const technicalVersionId = 'tdv_demand_SPU_2024_001'
+const baseContent = getTechnicalDataVersionContent(technicalVersionId)
+assert(baseContent, '正式技术包测试基线不存在')
+const processEntries = normalizedRoute.map((item) => ({
+  ...item,
+  stageName: item.stage,
+  processName: item.process,
+  craftName: item.technique,
+  outputValuePerUnit: item.outputValue,
+}))
+updateTechnicalDataVersionContent(technicalVersionId, {
+  processRouteStatus: 'CONFIRMED',
+  bomItems: bomRows.map((item) => ({
+    ...item,
+    type: '辅料',
+    name: item.materialCode,
+    spec: '测试规格',
+    unitConsumption: 1,
+    lossRate: 0,
+    supplier: '测试供应商',
+    applicableSkuCodes: ['SKU-WATER-S'],
+    linkedPatternIds: ['PATTERN-WATER'],
+    usageProcessCodes: ['WATER_SOLUBLE', 'DYE'],
+  })),
+  processEntries,
+})
+
+const formalSnapshot = buildProductionOrderTechPackSnapshot({
+  productionOrderId: 'PO-WATER-SNAPSHOT',
+  productionOrderNo: 'PO-WATER-SNAPSHOT',
+  demand: { spuCode: 'SPU-2024-001' },
+  technicalVersionId,
+  snapshotAt: '2026-07-11 12:00:00',
+  snapshotBy: '水溶专项检查',
+})
+const snapshotBomBoth = formalSnapshot.bomItems.find((item) => item.id === 'BOM-BOTH')
+const snapshotWaterProcess = formalSnapshot.processEntries.find((item) => item.processCode === 'WATER_SOLUBLE')
+assert(snapshotBomBoth, '正式技术包快照必须保留 BOM-BOTH')
+assert.equal(snapshotBomBoth.materialCode, 'MAT-BOTH-001', '正式快照必须保留 BOM 物料编码')
+assert.equal(snapshotBomBoth.unit, '米', '正式快照必须保留 BOM 单位')
+assert.equal(snapshotBomBoth.waterSolubleRequirement, '是', '正式快照必须保留水溶要求')
+assert.deepEqual(snapshotBomBoth.applicableSkuCodes, ['SKU-WATER-S'], '正式快照必须保留适用 SKU')
+assert.deepEqual(snapshotBomBoth.linkedPatternIds, ['PATTERN-WATER'], '正式快照必须保留关联纸样')
+assert.deepEqual(snapshotBomBoth.usageProcessCodes, ['WATER_SOLUBLE', 'DYE'], '正式快照必须保留使用工序')
+assert.deepEqual(
+  snapshotWaterProcess?.linkedBomItemIds,
+  ['BOM-WATER', 'BOM-BOTH'],
+  '正式快照必须保留工序关联的 BOM 行',
+)
 
 console.log('water-soluble process checks passed')

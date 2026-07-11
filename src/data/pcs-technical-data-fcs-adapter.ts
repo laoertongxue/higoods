@@ -73,6 +73,9 @@ export function buildLegacyTechPackFromTechnicalVersion(
     sizeTable: content.sizeTable.map((item) => ({ ...item })),
     bomItems: content.bomItems.map((item) => ({
       ...item,
+      materialCode: item.materialCode,
+      unit: item.unit,
+      waterSolubleRequirement: item.waterSolubleRequirement,
       applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
       linkedPatternIds: [...(item.linkedPatternIds ?? [])],
       usageProcessCodes: [...(item.usageProcessCodes ?? [])],
@@ -144,6 +147,9 @@ export function buildTechnicalContentPatchFromLegacyTechPack(
     sizeTable: techPack.sizeTable.map((item) => ({ ...item })),
     bomItems: techPack.bomItems.map((item) => ({
       ...item,
+      materialCode: item.materialCode,
+      unit: item.unit,
+      waterSolubleRequirement: item.waterSolubleRequirement,
       applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
       linkedPatternIds: [...(item.linkedPatternIds ?? [])],
       usageProcessCodes: [...(item.usageProcessCodes ?? [])],

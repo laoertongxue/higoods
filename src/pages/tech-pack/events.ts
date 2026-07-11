@@ -444,9 +444,15 @@ function buildUnconfirmedRouteDraft(
   operatorName: string,
   updatedAt: string,
 ): ProcessRouteDraftState {
+  const techniques = normalizeTechniqueRoutes(flattenTechniqueRouteGroups(groups, operatorName, updatedAt))
+  const waterSoluble = techniques.find((item) => item.processCode === 'WATER_SOLUBLE')
+  const dye = techniques.find((item) => item.processCode === 'DYE')
+  if (waterSoluble && dye && waterSoluble.routeStepNo >= dye.routeStepNo) {
+    return normalizeRouteDraft(input)
+  }
   return {
     ...input,
-    techniques: normalizeTechniqueRoutes(flattenTechniqueRouteGroups(groups, operatorName, updatedAt)),
+    techniques,
     processRouteStatus: 'UNCONFIRMED',
     processRouteConfirmedBy: '',
     processRouteConfirmedAt: '',
@@ -2193,6 +2199,10 @@ function handleTechPackField(
     state.newBomItem.spec = value
     return true
   }
+  if (field === 'new-bom-unit') {
+    state.newBomItem.unit = value || '米'
+    return true
+  }
   if (field === 'new-bom-usage') {
     state.newBomItem.usage = value
     return true
@@ -2203,6 +2213,10 @@ function handleTechPackField(
   }
   if (field === 'new-bom-print-requirement') {
     applyBomPrintRequirementChange(value)
+    return true
+  }
+  if (field === 'new-bom-water-soluble-requirement') {
+    state.newBomItem.waterSolubleRequirement = normalizeBomRequirement(value)
     return true
   }
   if (field === 'new-bom-dye-requirement') {
@@ -2420,6 +2434,15 @@ function handleTechPackField(
     if (!bomId) return true
     state.bomItems = state.bomItems.map((item) =>
       item.id === bomId ? { ...item, dyeRequirement: value } : item,
+    )
+    syncTechPackToStore()
+    return true
+  }
+  if (field === 'bom-water-soluble') {
+    const bomId = node.dataset.bomId
+    if (!bomId) return true
+    state.bomItems = state.bomItems.map((item) =>
+      item.id === bomId ? { ...item, waterSolubleRequirement: normalizeBomRequirement(value) } : item,
     )
     syncTechPackToStore()
     return true
@@ -3713,6 +3736,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       materialCode: bom.materialCode,
       materialName: bom.materialName,
       spec: bom.spec,
+      unit: bom.unit || '米',
       patternPieces: [...bom.patternPieces],
       linkedPatternIds: [...bom.linkedPatternIds],
       applicableSkuCodes: [...bom.applicableSkuCodes],
@@ -3720,6 +3744,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       usage: String(bom.usage),
       lossRate: String(bom.lossRate),
       printRequirement: bom.printRequirement,
+      waterSolubleRequirement: bom.waterSolubleRequirement || '否',
       dyeRequirement: bom.dyeRequirement,
       shrinkRequirement: bom.shrinkRequirement,
       washRequirement: bom.washRequirement,
@@ -3786,6 +3811,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       materialCode: state.newBomItem.materialCode,
       materialName: state.newBomItem.materialName,
       spec: state.newBomItem.spec,
+      unit: state.newBomItem.unit || '米',
       patternPieces,
       linkedPatternIds,
       applicableSkuCodes: [...state.newBomItem.applicableSkuCodes],
@@ -3796,6 +3822,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       usage: Number.parseFloat(state.newBomItem.usage) || 0,
       lossRate: Number.parseFloat(state.newBomItem.lossRate) || 0,
       printRequirement: state.newBomItem.printRequirement,
+      waterSolubleRequirement: state.newBomItem.waterSolubleRequirement,
       dyeRequirement: state.newBomItem.dyeRequirement,
       shrinkRequirement: state.newBomItem.shrinkRequirement,
       washRequirement: state.newBomItem.washRequirement,
