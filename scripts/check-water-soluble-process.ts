@@ -27,6 +27,29 @@ import {
 } from '../src/data/tech-pack-process-route.ts'
 import { syncPreparationProcessesFromBom } from '../src/pages/tech-pack/bom-process-linkage.ts'
 import { applyProcessRouteDraftAction } from '../src/pages/tech-pack/events.ts'
+import {
+  WATER_SOLUBLE_STATUS_LABEL,
+  assignWaterSolubleFactory,
+  canAssignWaterSolubleFactory,
+  completeWaterSoluble,
+  getWaterSolubleCurrentAction,
+  getWaterSolubleWorkOrderById,
+  getWaterSolubleWorkOrderByTaskId,
+  listWaterSolubleMobileTasks,
+  listWaterSolubleWorkOrders,
+  markWaterSolubleMaterialReady,
+  resetWaterSolubleDomainForChecks,
+  resolveWaterSolublePause,
+  resolveWaterSolubleReceiptDifference,
+  startWaterSoluble,
+  submitWaterSolubleHandover,
+  writeBackWaterSolubleReceipt,
+} from '../src/data/fcs/water-soluble-task-domain.ts'
+import { listFactoryOnboardingApplications } from '../src/data/fcs/factory-onboarding-store.ts'
+import {
+  getFactoryCapacityProfileByFactoryId,
+  listFactoryCapacityEquipments,
+} from '../src/data/fcs/factory-capacity-profile-mock.ts'
 
 const printProcess = getProcessDefinitionByCode('PRINT')
 const waterProcess = getProcessDefinitionByCode('WATER_SOLUBLE')
@@ -818,5 +841,139 @@ const zeroLossArtifacts = generateArtifactFixture({
   processEntries: [{ ...dyeArtifactEntry, id: 'ENTRY-DYE-ZERO-LOSS', linkedBomItemIds: ['ZERO-LOSS'] }],
 })
 assert.equal(zeroLossArtifacts[0]?.plannedQty, 400, '0% 损耗必须允许并正确生成计划数量')
+
+const expectedWaterStatuses = {
+  WAIT_FACTORY_ASSIGNMENT: '待分配染厂',
+  WAIT_MATERIAL: '待原料',
+  WAIT_WATER_SOLUBLE: '待水溶',
+  WATER_SOLUBLE_IN_PROGRESS: '水溶中',
+  PRODUCTION_PAUSED: '生产暂停',
+  WAIT_HANDOVER: '待交出',
+  HANDOVER_WAIT_RECEIVE: '交出待收货',
+  RECEIPT_DIFFERENCE: '收货差异',
+  DONE: '已完成',
+} as const
+assert.deepEqual(WATER_SOLUBLE_STATUS_LABEL, expectedWaterStatuses, '水溶加工单状态中文标签必须完整且稳定')
+
+resetWaterSolubleDomainForChecks()
+const firstWaterOrders = listWaterSolubleWorkOrders()
+assert(firstWaterOrders.length >= 3, '正式 WATER_SOLUBLE TASK 产物必须投影出可演示的水溶加工单')
+assert(firstWaterOrders.every((item) => item.sourceDemandIds.length === 0), '水溶加工单不得生成或关联需求单')
+assert(firstWaterOrders.every((item) => item.processCode === 'WATER_SOLUBLE'), '水溶加工单必须只消费 WATER_SOLUBLE TASK 产物')
+assert(firstWaterOrders.some((item) => item.status === 'WAIT_FACTORY_ASSIGNMENT'), '必须包含待分配染厂场景')
+assert.equal(new Set(firstWaterOrders.map((item) => item.generationKey)).size, firstWaterOrders.length, 'generationKey 必须唯一')
+const firstOrderIds = firstWaterOrders.map((item) => item.waterOrderId)
+const firstOrderQty = firstWaterOrders.map((item) => item.plannedQty)
+const repeatedWaterOrders = listWaterSolubleWorkOrders()
+assert.deepEqual(repeatedWaterOrders.map((item) => item.waterOrderId), firstOrderIds, '重复 list 的加工单 ID 必须稳定')
+assert.deepEqual(repeatedWaterOrders.map((item) => item.plannedQty), firstOrderQty, '重复 list 不得累加计划数量')
+
+const cloneProbe = firstWaterOrders[0]
+assert(cloneProbe, '缺少 clone 隔离测试加工单')
+cloneProbe.sourceDemandIds.push('SHOULD-NOT-PERSIST')
+cloneProbe.actionLogs.push({ action: '篡改', detail: '篡改', at: 'now' })
+const cloneProbeAgain = getWaterSolubleWorkOrderById(cloneProbe.waterOrderId)
+assert(cloneProbeAgain, '加工单 ID 查询失败')
+assert.deepEqual(cloneProbeAgain.sourceDemandIds, [], 'sourceDemandIds 必须深拷贝')
+assert(!cloneProbeAgain.actionLogs.some((item) => item.action === '篡改'), 'actionLogs 必须深拷贝')
+assert.equal(getWaterSolubleWorkOrderByTaskId(cloneProbe.taskId)?.waterOrderId, cloneProbe.waterOrderId, '任务 ID 必须可反查加工单')
+assert.equal(getWaterSolubleCurrentAction(cloneProbe.waterOrderId)?.actionCode, 'ASSIGN_FACTORY', '当前动作必须由加工单状态稳定派生')
+
+const mobileTasks = listWaterSolubleMobileTasks()
+assert.equal(mobileTasks.length, firstWaterOrders.length, '每张水溶加工单必须生成一条稳定移动任务')
+assert(mobileTasks.every((item) => item.processCode === 'PROC_WATER_SOLUBLE'), '移动任务系统工序编码必须为 PROC_WATER_SOLUBLE')
+assert(mobileTasks.every((item) => item.processNameZh === '水溶'), '移动任务中文工序名必须为水溶')
+assert(mobileTasks.every((item) => ['PIECE', 'BUNDLE', 'METER'].includes(item.qtyUnit)), '移动任务必须映射到现有 QtyUnit')
+assert(mobileTasks.every((item) => item.sourceQtyUnit), '移动任务必须保留原计划单位')
+assert.deepEqual(listWaterSolubleMobileTasks().map((item) => item.taskId), mobileTasks.map((item) => item.taskId), '移动任务 ID 必须稳定')
+
+assert.equal(canAssignWaterSolubleFactory('ID-F003').ok, false, '只有染色能力、没有水溶能力的染厂必须拦截')
+assert.match(canAssignWaterSolubleFactory('ID-F003').message, /水溶能力/, '无水溶能力原因必须使用中文说明')
+assert.equal(canAssignWaterSolubleFactory('F090').ok, true, '具备水溶能力的染厂必须允许分配')
+const waterFactoryProfile = getFactoryCapacityProfileByFactoryId('F090')
+assert(waterFactoryProfile.capabilityItems.some((item) => item.processCode === 'WATER_SOLUBLE'), '水溶能力必须投影到工厂产能档案 capabilityItems')
+const waterEquipment = listFactoryCapacityEquipments('F090').find((item) =>
+  item.abilityList.some((ability) => ability.processCode === 'WATER_SOLUBLE'),
+)
+assert(waterEquipment, '水溶能力必须生成产能设备能力档案')
+assert.equal(waterEquipment.equipmentType, 'GENERAL', '水溶不得新增专用设备类型')
+assert(waterEquipment.abilityList.some((item) => item.processCode === 'WATER_SOLUBLE' && item.efficiencyUnit === '批/分钟'), '水溶产能参考单位必须为批/分钟')
+const waterOnboarding = listFactoryOnboardingApplications().find((item) =>
+  item.selectedCapabilities.some((capability) => capability.processCode === 'WATER_SOLUBLE'),
+)
+assert(waterOnboarding, '入驻 Mock 必须覆盖水溶能力')
+assert.equal(waterOnboarding.primaryFactoryType, 'DYEING_FACTORY', '水溶能力必须归类为染厂能力')
+
+resetWaterSolubleDomainForChecks()
+const workflowOrder = listWaterSolubleWorkOrders().find((item) => item.status === 'WAIT_FACTORY_ASSIGNMENT')
+assert(workflowOrder, '缺少待分配染厂加工单')
+assert.equal(startWaterSoluble(workflowOrder.waterOrderId).ok, false, '未分厂不得直接开工')
+assert.match(startWaterSoluble(workflowOrder.waterOrderId).message, /当前状态/, '非法状态动作必须返回中文原因')
+assert.equal(assignWaterSolubleFactory(workflowOrder.waterOrderId, 'ID-F003').ok, false, '不得分配无水溶能力染厂')
+const assigned = assignWaterSolubleFactory(workflowOrder.waterOrderId, 'F090')
+assert.equal(assigned.ok, true, '具备水溶能力染厂应分配成功')
+assert.equal(assigned.order?.status, 'WAIT_MATERIAL', '分配染厂后必须待原料')
+assert.equal(assignWaterSolubleFactory(workflowOrder.waterOrderId, 'F090').ok, false, '重复分配必须明确失败')
+assert.equal(markWaterSolubleMaterialReady(workflowOrder.waterOrderId).order?.status, 'WAIT_WATER_SOLUBLE', '原料就绪后必须待水溶')
+assert.equal(markWaterSolubleMaterialReady(workflowOrder.waterOrderId).ok, false, '重复确认原料必须明确失败')
+assert.equal(startWaterSoluble(workflowOrder.waterOrderId).order?.status, 'WATER_SOLUBLE_IN_PROGRESS', '开工后必须水溶中')
+assert.equal(startWaterSoluble(workflowOrder.waterOrderId).ok, false, '重复开工必须明确失败')
+const plannedQty = getWaterSolubleWorkOrderById(workflowOrder.waterOrderId)?.plannedQty ?? 0
+assert.equal(completeWaterSoluble(workflowOrder.waterOrderId, Number.NaN).ok, false, '完成数量非有限数必须阻断')
+assert.equal(completeWaterSoluble(workflowOrder.waterOrderId, 0).ok, false, '完成数量必须大于 0')
+assert.equal(completeWaterSoluble(workflowOrder.waterOrderId, plannedQty + 1).ok, false, '超计划且无原因必须阻断')
+assert.equal(completeWaterSoluble(workflowOrder.waterOrderId, plannedQty).order?.status, 'WAIT_HANDOVER', '按计划完成后必须待交出')
+assert.equal(completeWaterSoluble(workflowOrder.waterOrderId, plannedQty).ok, false, '重复完工必须明确失败')
+assert.equal(submitWaterSolubleHandover(workflowOrder.waterOrderId, plannedQty + 1).ok, false, '交出数量不得超过完成数量')
+assert.equal(submitWaterSolubleHandover(workflowOrder.waterOrderId, plannedQty).order?.status, 'HANDOVER_WAIT_RECEIVE', '交出后必须等待收货')
+assert.equal(submitWaterSolubleHandover(workflowOrder.waterOrderId, plannedQty).ok, false, '重复交出必须明确失败')
+assert.equal(writeBackWaterSolubleReceipt(workflowOrder.waterOrderId, plannedQty).order?.status, 'DONE', '收货数量一致必须完成')
+assert.equal(writeBackWaterSolubleReceipt(workflowOrder.waterOrderId, plannedQty).ok, false, '重复收货回写必须明确失败')
+
+resetWaterSolubleDomainForChecks()
+const overPlanOrder = listWaterSolubleWorkOrders().find((item) => item.status === 'WAIT_FACTORY_ASSIGNMENT')!
+assignWaterSolubleFactory(overPlanOrder.waterOrderId, 'F090')
+markWaterSolubleMaterialReady(overPlanOrder.waterOrderId)
+startWaterSoluble(overPlanOrder.waterOrderId)
+assert.equal(
+  completeWaterSoluble(overPlanOrder.waterOrderId, overPlanOrder.plannedQty + 1, '现场确认多完成 1 件').order?.status,
+  'WAIT_HANDOVER',
+  '超计划填写原因后允许按实际完成量进入待交出',
+)
+
+resetWaterSolubleDomainForChecks()
+const pauseOrder = listWaterSolubleWorkOrders().find((item) => item.status === 'WAIT_FACTORY_ASSIGNMENT')!
+assignWaterSolubleFactory(pauseOrder.waterOrderId, 'F090')
+markWaterSolubleMaterialReady(pauseOrder.waterOrderId)
+startWaterSoluble(pauseOrder.waterOrderId)
+assert.equal(completeWaterSoluble(pauseOrder.waterOrderId, pauseOrder.plannedQty - 1).ok, false, '不足计划量且无原因必须阻断')
+assert.equal(getWaterSolubleWorkOrderById(pauseOrder.waterOrderId)?.status, 'WATER_SOLUBLE_IN_PROGRESS', '不足无原因不得改变状态')
+assert.equal(completeWaterSoluble(pauseOrder.waterOrderId, pauseOrder.plannedQty - 1, '物料破损').order?.status, 'PRODUCTION_PAUSED', '不足有原因必须生产暂停')
+assert.equal(resolveWaterSolublePause(pauseOrder.waterOrderId, 'CONTINUE_PROCESSING').order?.status, 'WAIT_WATER_SOLUBLE', '继续加工必须回到待水溶')
+startWaterSoluble(pauseOrder.waterOrderId)
+completeWaterSoluble(pauseOrder.waterOrderId, pauseOrder.plannedQty - 2, '物料仍不足')
+const continueActual = resolveWaterSolublePause(pauseOrder.waterOrderId, 'CONTINUE_WITH_ACTUAL_QTY')
+assert.equal(continueActual.order?.status, 'WAIT_HANDOVER', '按实际数量继续必须待交出')
+assert.equal(continueActual.order?.handoverQty, pauseOrder.plannedQty - 2, '按实际数量继续时可交数量必须等于实际完成量')
+
+resetWaterSolubleDomainForChecks()
+const reworkOrder = listWaterSolubleWorkOrders().find((item) => item.status === 'WAIT_FACTORY_ASSIGNMENT')!
+assignWaterSolubleFactory(reworkOrder.waterOrderId, 'F090')
+markWaterSolubleMaterialReady(reworkOrder.waterOrderId)
+startWaterSoluble(reworkOrder.waterOrderId)
+completeWaterSoluble(reworkOrder.waterOrderId, reworkOrder.plannedQty - 1, '需要返工')
+const rework = resolveWaterSolublePause(reworkOrder.waterOrderId, 'RETURN_FOR_REWORK')
+assert.equal(rework.order?.status, 'WAIT_WATER_SOLUBLE', '返工必须回到待水溶')
+assert.equal(rework.order?.completedQty, 0, '返工必须清理本次完成量')
+
+resetWaterSolubleDomainForChecks()
+const differenceOrder = listWaterSolubleWorkOrders().find((item) => item.status === 'WAIT_FACTORY_ASSIGNMENT')!
+assignWaterSolubleFactory(differenceOrder.waterOrderId, 'F090')
+markWaterSolubleMaterialReady(differenceOrder.waterOrderId)
+startWaterSoluble(differenceOrder.waterOrderId)
+completeWaterSoluble(differenceOrder.waterOrderId, differenceOrder.plannedQty)
+submitWaterSolubleHandover(differenceOrder.waterOrderId, differenceOrder.plannedQty)
+assert.equal(writeBackWaterSolubleReceipt(differenceOrder.waterOrderId, differenceOrder.plannedQty - 1).order?.status, 'RECEIPT_DIFFERENCE', '收货数量不同必须进入差异')
+assert.equal(resolveWaterSolubleReceiptDifference(differenceOrder.waterOrderId).order?.status, 'DONE', '确认收货差异后必须完成')
 
 console.log('water-soluble process checks passed')

@@ -293,7 +293,7 @@ function applyMachineValidations(
 function resolveFactoryTypeCode(capability: FactoryOnboardingSelectedCapability): FactoryInferredTypeCode | null {
   if (capability.processCode === 'CUT_PANEL' || ['普通裁', '激光定位裁', '定向裁', '定位裁'].includes(capability.craftName)) return 'CUTTING_FACTORY'
   if (capability.processCode === 'PRINT') return 'PRINTING_FACTORY'
-  if (capability.processCode === 'DYE') return 'DYEING_FACTORY'
+  if (capability.processCode === 'DYE' || capability.processCode === 'WATER_SOLUBLE') return 'DYEING_FACTORY'
   if (capability.processCode === 'POST_FINISHING' || ['质检', '复检', '包装', '熨烫'].includes(capability.craftName)) return 'POST_FINISHING_FACTORY'
   if (capability.processCode === 'SEW') return 'SEWING_FACTORY'
   if (capability.processCode === 'SPECIAL_CRAFT' || capability.processCode === 'EMBROIDERY' || capability.processCode === 'PLEATING' || SPECIAL_CRAFT_NAMES.has(capability.craftName)) return 'SPECIAL_CRAFT_FACTORY'
@@ -1110,7 +1110,7 @@ const CAPABILITY_SETS: Array<Array<[string, string]>> = [
   [['特殊工艺', '打条']],
   [['绣花', '绣花']],
   [['后道', '包装']],
-  [['裁片', '定向裁'], ['后道', '包装']],
+  [['染色', '匹染'], ['水溶', '水溶']],
 ]
 
 function createSeedApplications(): FactoryOnboardingApplication[] {
