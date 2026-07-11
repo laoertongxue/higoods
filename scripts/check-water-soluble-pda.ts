@@ -28,6 +28,7 @@ import {
   createFactoryHandoverRecord,
   ensureHandoverOrderForStartedTask,
   getHandoverOrderById,
+  getPdaHandoverRecordsByHead,
   listHandoverOrdersByTaskId,
   writeBackHandoverRecord,
 } from '../src/data/fcs/pda-handover-events.ts'
@@ -607,6 +608,17 @@ async function main(): Promise<void> {
     assert(handoverDetailHtml.includes(`计划交出物料数量（${executableOrder.qtyUnit}）`), '物料数量标签必须保留原 BOM 中文单位，不得改写为通用 m / 打 / 件')
     assert(handoverDetailHtml.includes(`${approvedOrder.handoverQty} ${executableOrder.qtyUnit}`), '计划交出数量必须使用原 BOM 单位')
     assert(handoverDetailHtml.includes('交出物类型：物料'), '独立水溶交出对象必须是物料，不能伪装为面料或成衣')
+    assert(!handoverDetailHtml.includes('data-pda-handoverd-field="newRecordUnit"'), '水溶交出单位必须只读，不得渲染可编辑单位输入框')
+    const beforeForgedUnit = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)
+    assert.throws(() => createFactoryHandoverRecord({
+      handoverOrderId: ensuredWaterHandover.handoverOrderId,
+      submittedQty: approvedOrder.handoverQty!,
+      qtyUnit: '打',
+      factorySubmittedAt: '2026-07-11 11:59:00',
+      factorySubmittedBy: handoverActor.userName,
+    }), /原 BOM 单位|单位/)
+    assert.deepEqual(getWaterSolubleWorkOrderById(executableOrder.waterOrderId), beforeForgedUnit, '伪造单位失败不得修改水溶领域')
+    assert.equal(getPdaHandoverRecordsByHead(waterHandoverHead.handoverId).length, 0, '伪造单位失败不得生成通用交出记录')
     assert.throws(() => createFactoryHandoverRecord({
       handoverOrderId: ensuredWaterHandover.handoverOrderId,
       submittedQty: (approvedOrder.handoverQty ?? 0) - 1,
@@ -619,6 +631,7 @@ async function main(): Promise<void> {
       factorySubmittedAt: '2026-07-11 12:01:00',
       factorySubmittedBy: handoverActor.userName,
     })
+    assert.equal(waterRecord.qtyUnit, executableOrder.qtyUnit, '合法交出记录必须强制使用原 BOM 单位')
     assert.equal(getWaterSolubleWorkOrderById(executableOrder.waterOrderId)?.status, 'HANDOVER_WAIT_RECEIVE')
     assert.throws(() => createFactoryHandoverRecord({
       handoverOrderId: ensuredWaterHandover.handoverOrderId,

@@ -4194,6 +4194,9 @@ export function createFactoryHandoverRecord(input: {
     if (waterOrder.handoverQty === undefined || Math.abs(input.submittedQty - waterOrder.handoverQty) > 0.000001) {
       throw new Error(`本期不支持部分交出，请按批准数量 ${waterOrder.handoverQty ?? 0} ${waterOrder.qtyUnit} 交出。`)
     }
+    if (input.qtyUnit !== undefined && input.qtyUnit.trim() !== waterOrder.qtyUnit) {
+      throw new Error(`水溶交出必须使用原 BOM 单位“${waterOrder.qtyUnit}”，不能改为“${input.qtyUnit.trim() || '空单位'}”。`)
+    }
   }
   const postFinishingLine = resolvePostFinishingLineForCreate(head, input.submittedQty)
 

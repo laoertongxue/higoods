@@ -91,6 +91,8 @@ import { createPdaPickupDisputeCase } from '../helpers/fcs-pda-pickup-dispute'
 import { getTaskChainTaskById } from '../data/fcs/page-adapters/task-chain-pages-adapter'
 import { renderPdaFrame } from './pda-shell'
 import { getPdaRuntimeContext } from './pda-runtime'
+import { getWaterSolubleWorkOrderByTaskId, WATER_SOLUBLE_STATUS_LABEL } from '../data/fcs/water-soluble-task-domain.ts'
+import { getCurrentPdaUser, getPdaSession } from '../data/fcs/store-domain-pda.ts'
 
 interface ProofFile {
   id: string
@@ -124,6 +126,16 @@ interface PdaHandoverDetailState {
   writebackQty: string
   writebackReason: string
   writebackRemark: string
+  waterHandoverConfirm: {
+    token: string
+    handoverId: string
+    orderId: string
+    taskId: string
+    factoryId: string
+    actorUserId: string
+    approvedQty: number
+    expectedStatus: 'WAIT_HANDOVER'
+  } | null
 }
 
 const detailState: PdaHandoverDetailState = {
@@ -151,6 +163,80 @@ const detailState: PdaHandoverDetailState = {
   writebackQty: '',
   writebackReason: '',
   writebackRemark: '',
+  waterHandoverConfirm: null,
+}
+
+let waterHandoverConfirmSequence = 0
+
+function isWaterSolubleHandoverHead(head: PdaHandoverHead | undefined): head is PdaHandoverHead {
+  return head?.headType === 'HANDOUT' && head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER'
+}
+
+function getWaterHandoverAccess(head: PdaHandoverHead): { ok: boolean; message: string; actorUserId?: string } {
+  if (!isWaterSolubleHandoverHead(head)) return { ok: true, message: '' }
+  const session = getPdaSession()
+  const user = getCurrentPdaUser()
+  const runtime = getPdaRuntimeContext()
+  if (!session || !user || user.status !== 'ACTIVE' || !runtime || runtime.userId !== user.userId) {
+    return { ok: false, message: '当前未登录或账号已失效，不能操作水溶交出单。' }
+  }
+  if (runtime.factoryId !== head.factoryId) return { ok: false, message: '该水溶交出单不属于当前工厂，不能操作。' }
+  if (!['ROLE_HANDOVER', 'ROLE_ADMIN'].includes(runtime.roleId)) {
+    return { ok: false, message: '当前角色不能操作水溶交出单，请由交接员或管理员处理。' }
+  }
+  const order = getWaterSolubleWorkOrderByTaskId(head.taskId)
+  if (!order || order.waterOrderId !== head.sourceDocId || order.factoryId !== runtime.factoryId) {
+    return { ok: false, message: '水溶加工单与当前交出单或工厂不一致，不能操作。' }
+  }
+  if (order.status !== 'WAIT_HANDOVER') {
+    return { ok: false, message: `水溶加工单当前为“${WATER_SOLUBLE_STATUS_LABEL[order.status]}”，不能重复交出。` }
+  }
+  return { ok: true, message: '', actorUserId: runtime.userId }
+}
+
+function clearWaterHandoverConfirm(): void {
+  detailState.waterHandoverConfirm = null
+}
+
+function openWaterHandoverConfirm(head: PdaHandoverHead): { ok: boolean; message: string } {
+  const access = getWaterHandoverAccess(head)
+  if (!access.ok || !access.actorUserId) return { ok: false, message: access.message }
+  const order = getWaterSolubleWorkOrderByTaskId(head.taskId)
+  if (!order?.handoverQty) return { ok: false, message: '当前水溶加工单缺少批准交出数量。' }
+  waterHandoverConfirmSequence += 1
+  detailState.waterHandoverConfirm = {
+    token: `${head.handoverId}:${access.actorUserId}:${waterHandoverConfirmSequence}`,
+    handoverId: head.handoverId,
+    orderId: order.waterOrderId,
+    taskId: head.taskId,
+    factoryId: head.factoryId,
+    actorUserId: access.actorUserId,
+    approvedQty: order.handoverQty,
+    expectedStatus: 'WAIT_HANDOVER',
+  }
+  return { ok: true, message: '' }
+}
+
+function validateWaterHandoverConfirm(head: PdaHandoverHead, token: string | undefined): { ok: boolean; message: string } {
+  const access = getWaterHandoverAccess(head)
+  if (!access.ok || !access.actorUserId) return { ok: false, message: access.message }
+  const confirm = detailState.waterHandoverConfirm
+  const order = getWaterSolubleWorkOrderByTaskId(head.taskId)
+  if (
+    !confirm
+    || !token
+    || confirm.token !== token
+    || confirm.handoverId !== head.handoverId
+    || confirm.orderId !== order?.waterOrderId
+    || confirm.taskId !== head.taskId
+    || confirm.factoryId !== head.factoryId
+    || confirm.actorUserId !== access.actorUserId
+    || confirm.approvedQty !== order?.handoverQty
+    || confirm.expectedStatus !== order?.status
+  ) {
+    return { ok: false, message: '当前水溶交出确认已失效，请重新打开确认。' }
+  }
+  return { ok: true, message: '' }
 }
 
 const LINKED_QR_FIELD = ['handoverRecord', 'QrValue'].join('')
@@ -235,6 +321,7 @@ function syncHandoutState(handoverId: string): void {
   detailState.writebackQty = ''
   detailState.writebackReason = ''
   detailState.writebackRemark = ''
+  clearWaterHandoverConfirm()
 }
 
 function syncPickupState(head: PdaHandoverHead): void {
@@ -272,6 +359,7 @@ function syncPickupState(head: PdaHandoverHead): void {
   detailState.writebackQty = ''
   detailState.writebackReason = ''
   detailState.writebackRemark = ''
+  clearWaterHandoverConfirm()
 }
 
 function showPdaHandoverDetailToast(message: string): void {
@@ -1471,6 +1559,8 @@ function renderNewHandoutRecordForm(head: PdaHandoverHead): string {
   if (head.completionStatus === 'COMPLETED') {
     return '<div class="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">交出单已完成，不允许新增交出记录。</div>'
   }
+  const waterConfirm = isWaterSolubleHandoverHead(head) ? detailState.waterHandoverConfirm : null
+  if (isWaterSolubleHandoverHead(head) && (!waterConfirm || waterConfirm.handoverId !== head.handoverId)) return ''
 
   return `
     <div class="space-y-3 rounded-md border bg-muted/20 p-3" data-testid="handout-new-record-form">
@@ -1498,15 +1588,14 @@ function renderNewHandoutRecordForm(head: PdaHandoverHead): string {
             data-pda-handoverd-field="newRecordQty"
           />
         </label>
-        <label class="space-y-1">
-          <span class="text-xs font-medium">单位</span>
-          <input
-            class="h-8 w-full rounded-md border bg-background px-2.5 text-xs"
-            value="${escapeAttr(detailState.newRecordUnit || head.qtyUnit || '件')}"
-            placeholder="例如：件 / 米 / 片"
-            data-pda-handoverd-field="newRecordUnit"
-          />
-        </label>
+        ${
+          isWaterSolubleHandoverHead(head)
+            ? `<div class="space-y-1"><span class="text-xs font-medium">单位</span><div data-testid="water-handover-readonly-unit" class="flex h-8 items-center rounded-md border bg-muted/40 px-2.5 text-xs font-medium">${escapeHtml(head.qtyUnit)}</div></div>`
+            : `<label class="space-y-1">
+                <span class="text-xs font-medium">单位</span>
+                <input class="h-8 w-full rounded-md border bg-background px-2.5 text-xs" value="${escapeAttr(detailState.newRecordUnit || head.qtyUnit || '件')}" placeholder="例如：件 / 米 / 片" data-pda-handoverd-field="newRecordUnit" />
+              </label>`
+        }
       </div>
       <div class="flex justify-end gap-2">
         <button
@@ -1517,6 +1606,7 @@ function renderNewHandoutRecordForm(head: PdaHandoverHead): string {
           class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
           data-pda-handoverd-action="submit-new-handout-record"
           data-handover-id="${escapeHtml(head.handoverId)}"
+          ${waterConfirm ? `data-water-handover-confirm-token="${escapeAttr(waterConfirm.token)}"` : ''}
         >确认交出</button>
       </div>
     </div>
@@ -1802,7 +1892,8 @@ function renderHandoutRecordItem(
 }
 
 function renderHandoutHeadDetail(head: PdaHandoverHead): string {
-  const canCreateRecord = canCreateHandoverRecord(resolveFcsDemoRole('FACTORY'))
+  const waterAccess = isWaterSolubleHandoverHead(head) ? getWaterHandoverAccess(head) : null
+  const canCreateRecord = waterAccess ? waterAccess.ok : canCreateHandoverRecord(resolveFcsDemoRole('FACTORY'))
   const isCompleted = head.completionStatus === 'COMPLETED'
   const completionCheck = canCompletePdaHandoutHead(head.handoverId)
   const records = getPdaHandoverRecordsByHead(head.handoverId)
@@ -1900,20 +1991,20 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
       <div class="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/20 px-2.5 py-2 text-xs">
         <span>${escapeHtml(isCompleted ? '交出单已完成；接收方收货确认和异议仍可继续' : completionCheck.message)}</span>
         ${
-          isCompleted
+          isCompleted || (waterAccess !== null && !waterAccess.ok)
             ? ''
             : `<button type="button" class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90" data-pda-handoverd-action="complete-handout-head" data-handover-id="${escapeHtml(head.handoverId)}">完成交出单</button>`
         }
       </div>
       <div class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700">
         <span>交出记录</span>
-        <button
-          class="inline-flex h-7 items-center rounded-md border border-blue-200 bg-white px-2.5 text-xs text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
-          data-pda-handoverd-action="open-new-handout-record"
-          data-handover-id="${escapeHtml(head.handoverId)}"
-          ${canCreateRecord && !isCompleted ? '' : `title="${isCompleted ? '交出单已完成，不允许新增交出记录' : ACTION_PERMISSION_DENIED_TEXT}" disabled`}
-        >新增交出记录</button>
+        ${
+          waterAccess !== null && !waterAccess.ok
+            ? ''
+            : `<button class="inline-flex h-7 items-center rounded-md border border-blue-200 bg-white px-2.5 text-xs text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50" data-pda-handoverd-action="open-new-handout-record" data-handover-id="${escapeHtml(head.handoverId)}" ${canCreateRecord && !isCompleted ? '' : `title="${isCompleted ? '交出单已完成，不允许新增交出记录' : ACTION_PERMISSION_DENIED_TEXT}" disabled`}>新增交出记录</button>`
+        }
       </div>
+      ${waterAccess && !waterAccess.ok ? `<div data-testid="water-handover-access-denied" class="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-700">${escapeHtml(waterAccess.message)}</div>` : ''}
       ${renderNewHandoutRecordForm(head)}
     `,
     )}
@@ -1964,6 +2055,7 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
   const pathname = appStore.getState().pathname || ''
   const handoutStateKey = `head:${head.handoverId}|${pathname}`
   const shouldAutoOpenNewRecord = head.headType === 'HANDOUT'
+    && !isWaterSolubleHandoverHead(head)
     && detailState.initializedKey !== handoutStateKey
     && getCurrentDetailQueryAction() === 'new-record'
 
@@ -2083,6 +2175,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     }
 
     if (field === 'newRecordUnit') {
+      if (detailState.waterHandoverConfirm) {
+        showPdaHandoverDetailToast('水溶交出单位来自原 BOM，不能修改。')
+        return true
+      }
       detailState.newRecordUnit = fieldNode.value
       return true
     }
@@ -2130,6 +2226,14 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
   if (action === 'complete-handout-head') {
     const handoverId = actionNode.dataset.handoverId
     if (!handoverId) return true
+    const head = findPdaHandoverHead(handoverId)
+    if (isWaterSolubleHandoverHead(head)) {
+      const access = getWaterHandoverAccess(head)
+      if (!access.ok) {
+        showPdaHandoverDetailToast(access.message)
+        return true
+      }
+    }
     const result = markPdaHandoutHeadCompleted(handoverId, nowTimestamp())
     showPdaHandoverDetailToast(result.message)
     return true
@@ -2176,10 +2280,6 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-new-handout-record') {
-    if (!canCreateHandoverRecord(resolveFcsDemoRole('FACTORY'))) {
-      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
-      return true
-    }
     const handoverId = actionNode.dataset.handoverId
     const head = handoverId ? findPdaHandoverHead(handoverId) : undefined
     if (!head || head.headType !== 'HANDOUT') {
@@ -2188,6 +2288,16 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     }
     if (head.completionStatus === 'COMPLETED') {
       showPdaHandoverDetailToast('交出单已完成，不允许新增交出记录')
+      return true
+    }
+    if (isWaterSolubleHandoverHead(head)) {
+      const opened = openWaterHandoverConfirm(head)
+      if (!opened.ok) {
+        showPdaHandoverDetailToast(opened.message)
+        return true
+      }
+    } else if (!canCreateHandoverRecord(resolveFcsDemoRole('FACTORY'))) {
+      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
       return true
     }
     const records = getPdaHandoverRecordsByHead(head.handoverId)
@@ -2213,14 +2323,11 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     detailState.newRecordQty = ''
     detailState.newRecordUnit = '件'
     detailState.newRecordRemark = ''
+    clearWaterHandoverConfirm()
     return true
   }
 
   if (action === 'submit-new-handout-record') {
-    if (!canCreateHandoverRecord(resolveFcsDemoRole('FACTORY'))) {
-      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
-      return true
-    }
     const handoverId = actionNode.dataset.handoverId
     const head = handoverId ? findPdaHandoverHead(handoverId) : undefined
     if (!head || head.headType !== 'HANDOUT') {
@@ -2229,6 +2336,16 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     }
     if (head.completionStatus === 'COMPLETED') {
       showPdaHandoverDetailToast('交出单已完成，不允许新增交出记录')
+      return true
+    }
+    if (isWaterSolubleHandoverHead(head)) {
+      const confirmation = validateWaterHandoverConfirm(head, actionNode.dataset.waterHandoverConfirmToken)
+      if (!confirmation.ok) {
+        showPdaHandoverDetailToast(confirmation.message)
+        return true
+      }
+    } else if (!canCreateHandoverRecord(resolveFcsDemoRole('FACTORY'))) {
+      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
       return true
     }
 
@@ -2242,7 +2359,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       showPdaHandoverDetailToast('请先填写有效交出数量')
       return true
     }
-    const qtyUnit = detailState.newRecordUnit.trim() || head.qtyUnit || '件'
+    const qtyUnit = isWaterSolubleHandoverHead(head) ? head.qtyUnit : detailState.newRecordUnit.trim() || head.qtyUnit || '件'
 
     try {
       const created = createFactoryHandoverRecord({
@@ -2250,7 +2367,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
         submittedQty,
         qtyUnit,
         factorySubmittedAt: nowTimestamp(),
-        factorySubmittedBy: '工厂操作员',
+        factorySubmittedBy: isWaterSolubleHandoverHead(head) ? getPdaRuntimeContext()?.userName || '交接员' : '工厂操作员',
         factoryRemark: [`扫码：${scanCode}`, detailState.newRecordRemark.trim()].filter(Boolean).join('；') || undefined,
         factoryProofFiles: [],
         objectType: detailState.newRecordObjectType,
@@ -2269,6 +2386,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       detailState.newRecordQty = ''
       detailState.newRecordUnit = qtyUnit
       detailState.newRecordRemark = ''
+      clearWaterHandoverConfirm()
       if (!isPostFinishingHandoutHead(head) && head.sourceBusinessType !== 'WATER_SOLUBLE_WORK_ORDER') {
         try {
           const outboundLinkInput = {
