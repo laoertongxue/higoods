@@ -5,7 +5,7 @@
 | 项目 | 内容 |
 | --- | --- |
 | 审查日期 | 2026-07-11 |
-| 相关需求 / 任务 | 水溶工序及独立加工单；产品实施任务 6：FCS、PFOS 页面；产品实施任务 7：PDA 统一索引；产品实施任务 8：PDA 水溶当前动作与染色门槛；产品实施任务 9：通用交接闭环；任务 10：最终验收；终审修复任务 9：PFOS 零产出语义与浏览器证据 |
+| 相关需求 / 任务 | 水溶工序及独立加工单；产品实施任务 6：FCS、PFOS 页面；产品实施任务 7：PDA 统一索引；产品实施任务 8：PDA 水溶当前动作与染色门槛；产品实施任务 9：通用交接闭环；任务 10：最终验收；终审修复任务 9：PFOS 零产出语义与浏览器证据；终审修复任务 11：四入口空值与组合 DYE 原始数量守卫 |
 | 涉及系统 | PCS（技术包 BOM 与工序预览）；FCS（独立水溶加工单管理与派厂）；PFOS（当前染厂水溶任务）；PDA（独立水溶与含水溶染色当前动作） |
 | 涉及页面路径 | FCS 独立水溶 `/fcs/process/water-soluble-orders`；FCS 染色加工单 `/fcs/process/dye-orders`；PFOS 独立水溶 `/fcs/craft/dyeing/water-soluble-orders`；PFOS 含水溶染色列表 `/fcs/craft/dyeing/work-orders` 与详情 `/fcs/craft/dyeing/work-orders/:dyeOrderId`；PDA 执行列表 `/fcs/pda/exec` 与详情 `/fcs/pda/exec/:taskId`；PDA 通用交接列表 `/fcs/pda/handover` 与详情 `/fcs/pda/handover/:handoverId`；PCS 技术包 `/pcs/products/styles/:styleId/technical-data/:versionId`；FCS 生产单技术包快照 `/fcs/production/orders/:productionOrderId/tech-pack` |
 | 端类型 | 管理端、主管端、员工执行端通用显示契约 |
@@ -31,7 +31,7 @@
 | 文案 | 通过 | 数据字典使用“水溶”“BOM物料”“任务单”等中文业务语义。 |
 | 数量与状态 | 通过 | BOM 单位在版本内容、页面 context、编辑保存和评审 diff 中原样保留，空值不补“米”；空单位行显示中文异常，只有勾选水溶、保存水溶要求、提交审核和正式生成会阻断，未勾水溶的既有空单位及无关修改仍可原样持久化；合法“米 / 个 / 公斤”保持原值。 |
 | 扫码与识别 | 通过 | 未新增水溶专用扫码、PDA 底部导航或独立菜单；已在统一执行入口新增独立水溶与含水溶染色的当前动作，任务列表、详情与扫码 taskId 继续读取同一任务。 |
-| 防错 | 通过 | 除固定顺序外，跨厂 orderId 注入、伪造 URL、节点越序和重复动作均在领域调用前阻断。PFOS 水溶完成明确覆盖三种语义：空数量阻断；0 无原因阻断且无副作用；0 + 原因进入 `PRODUCTION_PAUSED` 由主管处理。PDA Node 专项只直接覆盖后两种 0 数量语义，不把 PDA 空数量列为已直接覆盖。只有联合单的水溶主管批准量为 0 时不得开始染色。组合单 DYE 节点的染色产出是另一概念：允许 0、拒绝负数且不得超过真实投入。 |
+| 防错 | 通过 | 除固定顺序外，跨厂 orderId 注入、伪造 URL、节点越序和重复动作均在领域调用前阻断。独立 PDA 水溶、联合 PDA 水溶、PFOS 组合详情水溶、组合 PDA DYE 产出四个入口均先拒绝空值或纯空白，不产生 mutation；PDA overlay / token 可按原输入修正重试。水溶完成量显式 0 继续按“无原因阻断、带原因进入 `PRODUCTION_PAUSED`”处理；组合 DYE 产出显式 0 合法。共享移动写回对含水溶组合 DYE 要求原始 `objectQty` 在状态快照回退前存在且为有限数，`undefined`、`NaN`、`Infinity` 均阻断，普通染色兼容回退不变。 |
 | UI 样式 | 通过 | 复用既有表格和选择框样式，提示短且克制。 |
 | 组件交互 | 通过 | 行内选择和新增/编辑弹窗均沿用现有事件模式，未引入整页框架或新状态层。 |
 | 协作关系 | 通过 | BOM 行 ID 与水溶路线传到染色需求；FCS、PFOS 与领域动作读取同一染色加工单；含水溶染色单全程同厂且只在最终后处理后交出。 |
@@ -76,7 +76,7 @@
 | 操作员可能越过准备节点开始水溶，或未完成水溶直接开始染色 | `点错风险`、`状态抽象` | 染厂操作员 | 领域固定 `备料、排缸 → 水溶 → 染色` 门槛；实际 `startDyeing` 强制复用水溶完成与投入上限规则，不依赖按钮隐藏。 | 否 |
 | 水溶数量不足需要操作员心算后续可染数量 | `算不准`、`缺主管兜底` | 染厂操作员、主管 | 系统记录计划、完成和差异；不足自动暂停，主管只选择继续补做、按实际继续或退回返工；染色投入上限自动使用水溶完成量。 | 否 |
 | 联合场景仅存在检查脚本临时夹具，默认页面无法持续演示 | `追溯不足`、`协作断裂` | 生产跟单、染厂主管、现场操作员 | 在既有 `SPU-TSHIRT-081` 正式技术包种子中增加真实水溶染色 BOM 与两段准备工序；默认 FCS、PFOS、PDA 读取同一领域加工单和任务，独立水溶列表按 BOM 组合规则排除。 | 否 |
-| 水溶短量未填原因仍可能完成节点，或 PFOS 与 PDA 对零产出的解释不一致 | `算不准`、`状态抽象`、`追溯不足` | 染厂操作员、主管 | PFOS 真实浏览器直接覆盖空数量阻断、完成量 0 无原因阻断且保持完整快照、0 + 原因进入 `PRODUCTION_PAUSED` 并保存真实原因。PDA 的 `check:water-soluble-pda` Node 专项只直接覆盖 0 无原因阻断与 0 + 原因暂停，未直接覆盖空数量。联合单若主管最终批准量仍为 0，则不得开始染色；独立单不涉及该染色门槛。 | 否 |
+| 空值可能被 `Number('')` 隐式转为 0，或含水溶组合 DYE 缺失原始产出量时回退状态快照 | `算不准`、`状态抽象`、`追溯不足` | 染厂操作员、主管 | 终审修复任务 11 在独立 PDA 水溶、联合 PDA 水溶、PFOS 组合详情水溶和组合 PDA DYE 产出四个入口先检查 trim 后原文，空值或纯空白均在 mutation 前阻断；PDA 保留 overlay、草稿和原 token 供修正重试。含水溶组合 DYE 的共享移动写回在 snapshot fallback 前要求原始 `objectQty` 存在且有限，`undefined`、`NaN`、`Infinity` 均无副作用；显式 0 合法。普通染色省略数量的既有回退不变。水溶显式 0 仍执行“无原因阻断、带原因暂停”的既定规则。 | 否 |
 | 首单要求打样时可能越过色样确认直接水溶 | `点错风险`、`协作断裂` | 染厂操作员、主管 | 创建领域单时保留真实首单、等待类型和打样状态；水溶开始动作同时校验打样节点已完成，无打样要求的加工单保持原流程。 | 否 |
 | 常驻联合加工单把底层产物 ID 当作来源需求单，FCS 与 PFOS 无法对应页面需求 | `追溯不足`、`协作断裂` | 生产跟单、染厂主管 | 将 artifact 到业务需求 ID 的稳定编号契约下沉到生产产物层；需求页、常驻领域单和交互创建单统一使用业务需求 ID，底层 artifactId 仅保存在独立追踪字段。 | 否 |
 | 联合需求同时出现自动 Mock 单与领域加工单 | `选不对`、`协作断裂` | 生产跟单 | FCS 按业务需求 ID 与 artifactId 精确识别已消费来源，隐藏对应自动单；未消费的普通需求仍保留原待创建演示。 | 否 |
@@ -166,15 +166,15 @@
 - PFOS 生产暂停提供继续补做、按实际数量继续交出、退回重做三种主管决定，每项均二次确认并调用同一领域动作；非法或重复操作显示中文领域拦截。
 - PFOS 动作归属以有效 PDA session 反查的当前工厂为准；URL 只能收窄查看。无身份时只读，跨厂注入、伪造 URL、陈旧 overlay 和状态变化都会在领域调用前重新校验并阻断。
 - 页面渲染不再写领域；确定性领域 seed 提供待派厂、水溶中和生产暂停演示状态，FCS → PFOS → FCS 浏览前后加工单状态、日志和时间完全不变。
-- 完工数量改为局部 Dialog：差异原因保存真实输入，短量转主管处理，超量二次确认且取消无副作用，空数量、非有限数和负数中文阻断；水溶完成量 0 无原因阻断且无副作用，0 + 原因进入 `PRODUCTION_PAUSED`。PFOS 三种语义由终审修复任务 9 真实浏览器场景覆盖；PDA Node 专项只直接覆盖 0 无原因阻断与 0 + 原因暂停，不含空数量。FCS 派厂候选只展示领域允许工厂，两页分页参数均执行白名单。
+- 完工数量改为局部 Dialog：差异原因保存真实输入，短量转主管处理，超量二次确认且取消无副作用，空数量、非有限数和负数中文阻断；水溶完成量 0 无原因阻断且无副作用，0 + 原因进入 `PRODUCTION_PAUSED`。终审修复任务 9 的 PFOS 页面 E2E 直接覆盖独立水溶空值与 0 语义；终审修复任务 11 的 PDA E2E 直接覆盖独立 PDA 水溶、联合 PDA 水溶、PFOS 组合详情水溶、组合 PDA DYE 产出四个空值入口，但不作为 PDA 显式 0 分支的浏览器证据。FCS 派厂候选只展示领域允许工厂，两页分页参数均执行白名单。
 - PFOS 复用既有 PDA 角色做动作级分工：操作员不能看到或注入主管/交出动作，现有管理员可合法完成主管三决定和交出；渲染与 handler 共用同一权限矩阵。
 - 页面动作、筛选、分页和覆盖层均局部更新；两端均保留 10 / 20 / 50 每页口径。Playwright 已锁定 input/change/click 后 main 节点身份、连接状态、输入焦点和值；PDA 专项与通用交接均已完成直接自动检查。
 - 独立水溶已进入统一 `ProcessWorkOrder` 和移动任务索引；一条领域加工单只对应一条 `TASK-WATER`，来源筛选和关键词可按加工单、生产单及物料定位。含水溶染色单仍是 `DYE`，不重复映射为独立水溶。
 - PDA 执行列表的水溶卡片遵循员工执行端少读、少选：显示物料、计划量原单位、当前步骤、只读下一步和异常提示，唯一按钮固定“查看任务”；搜索继续局部刷新卡片容器，底部导航、分页和状态页签保持不变。
 - 统一绑定校验已覆盖水溶来源存在性、精确 taskId 和当前工厂；分类优先结构化业务码、真实来源和覆盖工序，含水溶文案的显式 DYE / COMBINED 任务仍保持染色。上述结构化依据均无法分类时，整单/组合任务在文本兜底前固定返回未知，避免仅因“水溶”文案误走独立水溶卡片并丢失任务。
-- 水溶详情已完成任务 8 执行化：独立水溶按当前状态唯一展示到料、开始、完成、主管处理或去交出；含水溶染色在同一染色任务内执行水溶后直接进入染色，不创建中间交接。组合单短量按实际 80 继续后，DYE 真实 input 固定为 80；81 产出失败且无 mutation、令牌仍可重试，80 成功损耗为 0，产出 0 允许且损耗为 80；普通染色保持既有回退行为。
+- 水溶详情已完成任务 8 执行化：独立水溶按当前状态唯一展示到料、开始、完成、主管处理或去交出；含水溶染色在同一染色任务内执行水溶后直接进入染色，不创建中间交接。组合单短量按实际 80 继续后，DYE 真实 input 固定为 80；空白产出失败且无 mutation、原令牌可重试，81 产出失败且无 mutation、令牌仍可重试，80 成功损耗为 0，显式产出 0 允许且损耗为 80；普通染色保持既有回退行为。
 - 产品实施任务 8 规格复审缺口已关闭：combined 开始染色后当前卡立即切换为“完成染色”，重复开始由领域拒绝；独立 actor wrapper 保留 taskId 与共享 current-action node 守卫。产品实施任务 9 已进一步封死 actor wrapper 的 HANDOVER 直提能力，PFOS / PDA 合法交接员统一进入通用交接单完成交出。
-- 质量复审补充的会话边界已关闭：actor 必须等于当前真实 PDA session，普通操作严格限操作员；组合染色完成还同时绑定页面 active task、工厂、状态、DYE 节点、真实 taskId 和一次性 token，并在共享移动写回边界再次校验 actor/session 与 taskId。无 actor、伪 actor、伪 task、管理员、交接员、生产主管、旧 token 和双击均无写入；成功后 token 消费。PDA 在独立或联合任务切换时都会清空草稿、overlay、token 与 pending，旧确认不能跨 taskId 写入。
+- 质量复审补充的会话边界已关闭：actor 必须等于当前真实 PDA session，普通操作严格限操作员；组合染色完成还同时绑定页面 active task、工厂、状态、DYE 节点、真实 taskId 和一次性 token，并在共享移动写回边界再次校验 actor/session 与 taskId。含水溶组合 DYE 的原始 `objectQty` 必须在 snapshot fallback 前存在且有限，`undefined`、`NaN`、`Infinity` 无写入，显式 0 保留为 0；普通染色仍可沿用原快照回退。无 actor、伪 actor、伪 task、管理员、交接员、生产主管、旧 token 和双击均无写入；成功后 token 消费。PDA 在独立或联合任务切换时都会清空草稿、overlay、token 与 pending，旧确认不能跨 taskId 写入。
 - 产品实施任务 9 已把独立水溶接入既有通用 PDA 交接：WAIT_HANDOVER 前、未派厂、错误任务和错误工厂均不能创建；合法任务重复 ensure 始终返回同一张 WATER_SOLUBLE_WORK_ORDER 交出单。交出对象是 MATERIAL，不是 FABRIC / GARMENT；来源加工单、任务、生产单、物料、批准量及原 BOM 单位保持一致。
 - 交出记录只允许一次且必须等于主管批准量；少交、超交、0、NaN、Infinity 和重复提交均在写入前阻断。通用交接提交、接收回写和主管差异确认分别驱动 HANDOVER_WAIT_RECEIVE、DONE / RECEIPT_DIFFERENCE、DONE，页面不再各写一套水溶状态。
 - 含水溶染色在内部水溶完成后没有交出；只有最终 PACK 完成生成一张 DYE_WORK_ORDER 交出单，水溶产出仅继续限制染色投入，不改变最终交出来源语义。未新增水溶专用交接页、底部导航、仓库或结算能力。
@@ -188,10 +188,10 @@
 | BOM 组合与物料边界 | `check-water-soluble-process` 直接调用 BOM 联动与正式拆解入口，覆盖仅水溶、仅染色、同行两者、均无、不同物料不误组合，以及面料、辅料、包装材料、其他四种页面物料类型 | 通过 |
 | 正式时点与版本隔离 | 无正式快照的草稿生产单经真实拆解入口返回 0 产物；正式快照生成；重复拆解 ID/数量稳定；选择新版本不改变旧快照加工单状态、派厂和版本 | 通过 |
 | 染色创建边界 | 普通与需先水溶需求混选拦截；按备货真实创建结果固定 `requiresWaterSoluble=false` 且无水溶节点；联合单双能力校验 | 通过 |
-| 独立水溶执行防错 | 能力、工厂、角色、taskId、node、非有限/负数/短量/超量/累计倒退/重复动作与一次性令牌均有专项覆盖；PFOS 真实浏览器直接覆盖空数量阻断、0 无原因无副作用、0 + 原因进入 `PRODUCTION_PAUSED`。PDA 的 `check:water-soluble-pda` Node 专项只直接覆盖 0 无原因阻断与 0 + 原因暂停，不含空数量。PDA E2E 覆盖会话、离线恢复、角色、扫码、重复点击与交接，恢复 online 后原输入成功只写 1 条日志，旧令牌不二写 | 通过 |
-| 联合执行与交接 | 联合水溶完成量 0 无原因阻断、带原因进入 `PRODUCTION_PAUSED`；只有主管批准量为 0 时不得开始染色。批准量为 80 时 DYE 真实投入固定 80，DYE 染色产出允许 0 但不得超过投入；81 失败无副作用且可重试，80 成功损耗 0。水溶至 ROLL 均无中间交出，PACK 完成后仅 1 张 `DYE_WORK_ORDER` 最终交出单 | 通过 |
+| 独立水溶执行防错 | 能力、工厂、角色、taskId、node、非有限/负数/短量/超量/累计倒退/重复动作与一次性令牌均有专项覆盖。任务 11 的 PDA E2E 直接覆盖独立水溶空白数量无 mutation、草稿与 token 可重试；Node 专项覆盖显式 0 无原因阻断与 0 + 原因暂停。这里不把 PDA E2E 写成显式 0 分支的浏览器证据 | 通过 |
+| 联合执行与交接 | 任务 11 的 PDA E2E 直接覆盖联合 PDA 水溶、PFOS 组合详情水溶和组合 PDA DYE 产出的空白输入阻断；Node 专项覆盖联合水溶显式 0 的既定规则，以及组合 DYE 原始 `objectQty` 的 `undefined` / `NaN` / `Infinity` 无 mutation、显式 0 合法。批准量为 80 时 DYE 真实投入固定 80，81 失败无副作用且可重试，80 成功损耗 0。水溶至 ROLL 均无中间交出，PACK 完成后仅 1 张 `DYE_WORK_ORDER` 最终交出单 | 通过 |
 | 独立通用交接 | 同一 task 幂等生成唯一 `WATER_SOLUBLE_WORK_ORDER`；对象为物料；保留原 BOM 单位；0 实收进入差异并由主管闭环 | 通过 |
-| 跨端一致与响应 | FCS、PFOS、PDA 读取同一加工单 ID、taskId、状态与数量；页面 E2E 覆盖当前工厂、筛选、10/20/50 分页和局部 DOM 更新。性能沿用产品实施任务 8 已记录实测：FCS 关键词筛选 25.900ms、PFOS 状态筛选 74.000ms、PDA 打开完成表单 93.400ms、原因输入 0.200ms，均小于 200ms；终审修复任务 9 全量未另抄性能数值。 | 通过 |
+| 跨端一致与响应 | FCS、PFOS、PDA 读取同一加工单 ID、taskId、状态与数量；页面 E2E 覆盖当前工厂、筛选、10/20/50 分页和局部 DOM 更新。性能沿用产品实施任务 8 已记录实测：FCS 关键词筛选 25.900ms、PFOS 状态筛选 74.000ms、PDA 打开完成表单 93.400ms、原因输入 0.200ms，均小于 200ms；终审修复任务 9 与任务 11 均未新增性能实测。 | 通过 |
 | 生产准备时效隔离 | 真实数据、runtime、页面和检查脚本源码均无 `WATER_SOLUBLE`；水溶领域 seed 前后 `buildPreparationOutputs` 结果完全一致且无水溶输出 | 通过 |
 
 ### 6.2 角色、端型与现场治理结论
@@ -206,31 +206,31 @@
 
 ### 6.3 新鲜自动检查与浏览器证据
 
-- 2026-07-12 本次文档终审复验中，以下命令均完整运行并以退出码 0 结束：`npm run check:water-soluble-pages`、`npm run check:water-soluble-process`、`npm run check:water-soluble-pda`、`npm run check:tech-pack-bom-unit-guard`、`npm run check:dyeing-workflow`。其中页面、流程、PDA 专项分别输出 `water-soluble pages check passed`、`water-soluble process checks passed`、`water-soluble PDA check passed`；空单位专项输出 `check:tech-pack-bom-unit-guard passed`；染色工作流输出 12 张加工单、5 份配方、4 个排期、1 个待审核。
+- 2026-07-13 本次最终治理记录复验中，以下命令均完整运行并以退出码 0 结束：`npm run check:water-soluble-pages`、`npm run check:water-soluble-process`、`npm run check:water-soluble-pda`、`npm run check:tech-pack-bom-unit-guard`、`npm run check:dyeing-workflow`。其中页面、流程、PDA 专项分别输出 `water-soluble pages check passed`、`water-soluble process checks passed`、`water-soluble PDA check passed`；空单位专项输出 `check:tech-pack-bom-unit-guard passed`；染色工作流输出 12 张加工单、5 份配方、4 个排期、1 个待审核。
 - `CUTTING_E2E_PORT=4203 npm run test:water-soluble-pages:e2e` 为终审修复任务 9 最新全量页面结果：20 项、20 / 20 通过，退出码 0，Playwright 报告耗时 2.9 分钟。真实页面覆盖 FCS 与 PFOS 路由、当前工厂、角色动作、日志、筛选、分页、抽屉及主管三种异常处理；新增 PFOS 零产出真实浏览器场景明确覆盖空数量即使有原因也阻断、0 无原因无副作用、0 + 原因进入生产暂停并保留结构化操作人和真实原因。另一次独立规格审查也为 20 / 20，但本文只保留上述终审修复任务 9 最新全量口径，不混写两次耗时。
-- 任务 8 的 `CUTTING_E2E_PORT=4202 npm run test:water-soluble-pda:e2e` 完整运行 18 项，18 / 18 通过，退出码 0，Playwright 报告耗时 4.8 分钟（`time` 实测 287.65 秒）；真实页面覆盖独立水溶 PDA 身份、工厂、角色、四种合法扫码字段、错码阻断、离线重试、主管处理、唯一通用交接单与联合水溶染色顺序。该 18 项浏览器规格不含水溶零产出场景；`npm run check:water-soluble-pda` Node 专项只直接覆盖 0 无原因阻断与 0 + 原因暂停，不含空数量。
-- 本轮重新执行 `--list` 确认页面规格为 20 项、PDA 规格为 18 项。性能沿用产品实施任务 8 已记录的一组实测：FCS 水溶关键词筛选 25.900ms、PFOS 水溶状态筛选 74.000ms、PDA 打开水溶完成表单 93.400ms、PDA 水溶原因输入 0.200ms，均小于 200ms；该任务 8 批次同时验证局部目标 DOM 更新、main/root 不替换、节点保持连接、输入焦点和值不丢失，终审修复任务 9 全量未另抄性能数值。FCS、PFOS 列表继续采用 10 / 20 / 50 分页白名单。
-- 在本轮 Mock 与自动检查覆盖范围内，页面错误、状态、提示和改法使用中文业务文案，数量带 BOM 原单位；异常用例覆盖无会话、跨厂、错误角色、错 task/node/扫码、离线、0 与非有限数、短量、超量、重复动作、陈旧令牌和收货差异，并验证对应写入前阻断与主管或重试路径。
+- 终审修复任务 11 先运行空值守卫定点 E2E，3 / 3 通过；随后第三方独立完整运行 `npm run test:water-soluble-pda:e2e`，18 项、18 / 18 通过，Playwright 报告耗时 4.6 分钟。当前 18 项浏览器规格直接覆盖独立 PDA 水溶、联合 PDA 水溶、PFOS 组合详情水溶和组合 PDA DYE 产出四个空值入口，验证无 mutation 及可重试上下文；不把该 E2E 写成显式 0 分支的浏览器证据。显式 0、`undefined`、`NaN`、`Infinity` 分支由 `check:water-soluble-pda` Node 专项覆盖。
+- 本轮重新执行 `--list` 确认页面规格为 20 项、PDA 规格为 18 项。性能只沿用产品实施任务 8 已记录的一组历史实测：FCS 水溶关键词筛选 25.900ms、PFOS 水溶状态筛选 74.000ms、PDA 打开水溶完成表单 93.400ms、PDA 水溶原因输入 0.200ms，均小于 200ms；该任务 8 批次同时验证局部目标 DOM 更新、main/root 不替换、节点保持连接、输入焦点和值不丢失。终审修复任务 11 没有新性能批次，不把 4.6 分钟的完整 E2E 耗时冒充交互响应数据。FCS、PFOS 列表继续采用 10 / 20 / 50 分页白名单。
+- 在本轮 Mock 与自动检查覆盖范围内，页面错误、状态、提示和改法使用中文业务文案，数量带 BOM 原单位；异常用例覆盖无会话、跨厂、错误角色、错 task/node/扫码、离线、空白、显式 0、非有限数、短量、超量、重复动作、陈旧令牌和收货差异，并验证对应写入前阻断与主管或重试路径。四入口空值由当前 PDA E2E 直接覆盖；PDA 显式 0 与共享移动写回非有限数由 Node 专项覆盖。
 - `npm run check:prototype-design-governance -- --all` 退出码 0，实际输出为 `prototype design governance passed (all): no prototype changes`。原因是治理脚本的 `--all` 读取当前未提交工作区状态；执行时本轮原型修复已在分支提交，工作区只剩本审查记录，脚本没有把历史提交范围作为 prototype changes。本文 6.6 因此另行审计累计功能分支与本轮对抗修复两层范围，未把该输出误写成“历史原型文件已由脚本逐项覆盖”。
-- 终审记录更新后最新一次 `npm run build` 退出码 0：Vite 6.4.1 转换 2214 个模块，`✓ built in 5.19s`。
+- 终审记录更新后最新一次 `npm run build` 退出码 0：Vite 6.4.1 转换 2214 个模块，`✓ built in 6.08s`。
 - 提交前以 `git merge-base HEAD main` 得到 `20e2962254b28215b66d8782814d086fcba06a8b`，`git diff --check 20e2962254b28215b66d8782814d086fcba06a8b` 退出码 0；`git status --short` 唯一输出为 `M docs/prototype-review-records/2026-07-11-water-soluble-process.md`，没有额外业务文件或构建产物混入本次文档提交。
 
 ### 6.4 范围例外与 CodeGraph
 
 - 无新增 PDA 底部导航、水溶专用仓库、结算、批次或中间交接；联合水溶继续留在染色加工单。
-- worktree 本地 CLI 执行 `codegraph sync && codegraph status` 退出码 0，显示 Project 为 `/Users/laoer/Documents/higoods/.worktrees/water-soluble-process`、1190 个文件、35136 个节点、146944 条边且 `Index is up to date`。但 CodeGraph MCP 与 worktree CLI 不是同一索引口径；本文只据 CLI 声明 worktree 本地索引最新，不把主工作树 MCP 结果当作分支代码证据。
+- worktree 本地 CLI 执行 `codegraph sync && codegraph status` 退出码 0，显示 Project 为 `/Users/laoer/Documents/higoods/.worktrees/water-soluble-process`、1190 个文件、35136 个节点、146975 条边且 `Index is up to date`。但 CodeGraph MCP 与 worktree CLI 不是同一索引口径；本文只据 CLI 声明 worktree 本地索引最新，不把主工作树 MCP 结果当作分支代码证据。
 - 唯一已接受的接收侧身份例外见第 5 节问题表与第 6 节最终结论；独立水溶交出方 session、角色、工厂与扫码门禁仅在本轮 Mock 与自动检查覆盖范围内通过，不作生产级保证。
 
-### 6.5 对抗修复边界与真实追溯证据（2026-07-12）
+### 6.5 对抗修复边界与真实追溯证据（2026-07-13）
 
 下表中“通过”均表示本轮 Mock 数据、领域原型及列明自动检查覆盖的用例通过，不表示生产环境、真实后端、真实权限或并发条件下的绝对保证。
 
 | 对抗边界 | 本轮实现与复验证据 | 结论 |
 | --- | --- | --- |
 | 正式 BOM / DICT 隔离、版本与空单位 | 独立水溶领域明确拒绝 `DICT-*` 产物与 `DICT-MOCK-*` 来源；加工单 `techPackVersionId` 直接取正式技术包版本。空单位在版本/context/UI/edit/save/review diff 保持为空，中文展示异常；未勾水溶与无关修改仍可持久化，勾水溶、保存水溶要求、提交审核和正式生成分层阻断；米/个/公斤保真。专项检查均退出 0。 | 通过 |
-| 组合水溶加染色的数量与同厂单据边界 | 同一 BOM 同时水溶、染色时只进入一张 `DYE` 加工单与一条新建移动任务。短量按实际 80 继续后 DYE input 固定 80，页面 input/output 默认 80；81 失败且加工单、节点、日志不变，原 token 可改 80 重试成功且损耗 0；output 0 允许且损耗 80。普通染色省略 output 仍按原计划量回退。后处理完成后才生成一张 `DYE_WORK_ORDER`。 | 通过 |
-| 组合染色移动写回安全 | 页面完成染色绑定 active task、真实 session、工厂、状态、DYE 节点、taskId 和一次性 token；共享移动写回再次校验真实 taskId 与可信 actor/session。只有 `ROLE_OPERATOR` 可执行普通动作；admin、handover、production、无 actor、伪 actor、伪 task、旧 token 与双击均在 mutation 前拒绝，成功后 token 消费。 | 通过 |
-| 独立水溶 PDA 身份、工厂、角色、扫码、离线与零产出 | 详情读取和动作同时绑定 active PDA session、启用账号、加工单工厂、taskId 与角色矩阵；交出前必须扫描当前 `taskQrValue`、任务号、水溶加工单号或物料码，错码不消费草稿/令牌。离线在 pending 与领域写入前阻断并保留草稿、焦点和令牌，联网后只成功一次。Node 专项只直接覆盖独立水溶完成量 0 无原因阻断、0 + 原因进入 `PRODUCTION_PAUSED`，不含空数量；本行不涉及联合单开始染色门槛或 DYE 节点染色产出。PDA E2E 18 / 18 覆盖前述身份、扫码、离线、主管与交接链路，但不作为 PDA 零产出的浏览器证据。 | 通过 |
+| 组合水溶加染色的数量与同厂单据边界 | 同一 BOM 同时水溶、染色时只进入一张 `DYE` 加工单与一条新建移动任务。短量按实际 80 继续后 DYE input 固定 80，页面 input/output 默认 80；空白 output 和 81 均失败且加工单、节点、日志不变，原 token 可改 80 重试成功且损耗 0；显式 output 0 允许且损耗 80。普通染色省略 output 仍按原计划量回退。后处理完成后才生成一张 `DYE_WORK_ORDER`。 | 通过 |
+| 组合染色移动写回安全 | 页面完成染色绑定 active task、真实 session、工厂、状态、DYE 节点、taskId 和一次性 token；共享移动写回再次校验真实 taskId 与可信 actor/session，并在读取 snapshot fallback 前要求含水溶组合 DYE 的原始 `objectQty` 存在且有限。`undefined`、`NaN`、`Infinity` 无 mutation，显式 0 保留为 0；普通染色兼容回退不变。只有 `ROLE_OPERATOR` 可执行普通动作；admin、handover、production、无 actor、伪 actor、伪 task、旧 token 与双击均在 mutation 前拒绝，成功后 token 消费。 | 通过 |
+| 独立水溶 PDA 身份、工厂、角色、扫码、离线与空值/零产出 | 详情读取和动作同时绑定 active PDA session、启用账号、加工单工厂、taskId 与角色矩阵；交出前必须扫描当前 `taskQrValue`、任务号、水溶加工单号或物料码，错码不消费草稿/令牌。离线在 pending 与领域写入前阻断并保留草稿、焦点和令牌，联网后只成功一次。PDA E2E 18 / 18 直接覆盖独立水溶空白数量无 mutation、草稿与 token 可重试；Node 专项覆盖独立水溶显式 0 无原因阻断、0 + 原因进入 `PRODUCTION_PAUSED`。不把 E2E 写成显式 0 分支的浏览器证据。 | 通过 |
 | PFOS 水溶零产出浏览器闭环 | 终审修复任务 9 的 PFOS 真实浏览器场景先以空白数量和已填原因提交，完整快照不变；再以 0 无原因提交，仍无副作用且保留同一表单；最后补填真实原因后进入 `PRODUCTION_PAUSED`，完成量为 0，并写入结构化操作人和原因日志。 | 通过 |
 | 任务与交接真实 ID 追溯 | 新建染色移动任务不再继承模板 taskId、生产单、工厂、状态或交接 ID；任务二维码由真实 taskId 重建。独立水溶交接头校验真实水溶加工单 ID、taskId、生产单、物料、工厂、批准量和原单位；跨任务、错单、错码、重复提交均无副作用。页面 E2E 可由 FCS 真实任务号和交接单号进入同一执行事实。 | 通过 |
 | PFOS 结构化最近操作人 | 水溶领域日志新增结构化 `operatorName`；actor-aware 动作以真实 session 用户名写入。PFOS 不再从详情文案猜操作人，而是反向查找最近一条有 `operatorName` 的日志，分别展示“PDA 操作人”和“最近操作”；页面 E2E 直接验证真实 PDA 动作后的姓名、动作和时间。 | 通过 |
@@ -238,16 +238,18 @@
 
 ### 6.6 累计功能分支与本轮对抗修复范围审计
 
-- 累计功能分支范围：以 `git merge-base de4b5d02 main` 得到基线 `20e2962254b28215b66d8782814d086fcba06a8b`，再对终审修复任务 9 实现 HEAD `de4b5d02b892e0698852485476b194b89e1eaf82` 运行 `git diff --name-only`，累计 62 个文件、增加 11307 行、删除 297 行；其中 `src/data` 28 个、`src/pages` 16 个、`src/router` 2 个、`src/main-handlers` 1 个，共 47 个治理口径原型相关文件。产品实施任务 9 指前文通用交接闭环，不是此处 HEAD 标签。
-- 对抗修复累计范围：`5108b8f4..de4b5d02` 共 28 个文件、增加 2676 行、删除 170 行；其中 `src/data` 10 个、`src/pages` 7 个，共 17 个原型相关文件，另含 scripts 6 个、tests 2 个、docs 2 个和 `package.json` 1 个。
-- 终审 Critical 实现范围：`809788af..de4b5d02` 共 16 个文件、增加 933 行、删除 60 行；其中 `src/data` 3 个、`src/pages` 5 个，共 8 个原型相关文件，另含 scripts 5 个、tests 1 个、docs 1 个和 `package.json` 1 个。本文档最终提交不倒灌计入该实现范围。
+- 累计功能分支范围：以 `git merge-base dc75d683 main` 得到基线 `20e2962254b28215b66d8782814d086fcba06a8b`，再对终审修复任务 11 实现 HEAD `dc75d6839e0d5d8aa724383cd28d66de70c413d2` 运行 `git diff --name-only`，累计 62 个文件、增加 11447 行、删除 297 行；其中 `src/data` 28 个、`src/pages` 16 个、`src/router` 2 个、`src/main-handlers` 1 个，共 47 个治理口径原型相关文件。产品实施任务 9 指前文通用交接闭环，不是此处 HEAD 标签；本文档最终提交不倒灌计入实现数字。
+- 对抗修复累计范围：`5108b8f4..dc75d683` 共 29 个文件、增加 2829 行、删除 183 行；其中 `src/data` 10 个、`src/pages` 8 个，共 18 个原型相关文件，另含 scripts 6 个、tests 2 个、docs 2 个和 `package.json` 1 个。
+- 终审 Critical 实现范围：`809788af..dc75d683` 共 18 个文件、增加 1090 行、删除 77 行；其中 `src/data` 3 个、`src/pages` 6 个，共 9 个原型相关文件，另含 scripts 5 个、tests 2 个、docs 1 个和 `package.json` 1 个。本文档最终提交不倒灌计入该实现范围。
 - 终审修复任务 9 PFOS 零产出实现范围：`09a88f70..de4b5d02` 共 3 个文件、增加 90 行、删除 6 行，分别为 PFOS 页面 1 个、Node 检查 1 个、Playwright 规格 1 个；文档语义基线提交 `09a88f70` 不倒灌计入实现数字。
-- 以下明细先列 17 个对抗修复累计原型文件，再单列 8 个终审 Critical 原型文件与 3 个终审修复任务 9 实现文件。
+- 终审修复任务 11 空值与原始数量守卫实现范围：`7869f50a..dc75d683` 共 5 个文件、增加 144 行、删除 7 行，分别为数据写回 1 个、页面/交互 2 个、Node 检查 1 个、Playwright 规格 1 个。
+- 以下明细先列 18 个对抗修复累计原型文件，再单列 9 个终审 Critical 原型文件、3 个终审修复任务 9 实现文件与 3 个终审修复任务 11 原型文件。
 
 - 对抗修复累计数据与领域：`src/data/fcs/dyeing-task-domain.ts`、`src/data/fcs/factory-onboarding-store.ts`、`src/data/fcs/pda-handover-events.ts`、`src/data/fcs/process-action-writeback-service.ts`、`src/data/fcs/production-artifact-generation.ts`、`src/data/fcs/production-confirmation.ts`、`src/data/fcs/water-soluble-pda-actor.ts`、`src/data/fcs/water-soluble-task-domain.ts`、`src/data/pcs-tech-pack-review-diff.ts`、`src/data/pcs-technical-data-version-bootstrap.ts`。
-- 对抗修复累计页面与交互：`src/pages/pda-exec-detail.ts`、`src/pages/pda-handover-detail.ts`、`src/pages/process-factory/dyeing/water-soluble-orders.ts`、`src/pages/process-water-soluble-orders.ts`、`src/pages/tech-pack/bom-domain.ts`、`src/pages/tech-pack/context.ts`、`src/pages/tech-pack/events.ts`。
-- 终审 Critical 原型文件：`src/data/fcs/dyeing-task-domain.ts`、`src/data/fcs/process-action-writeback-service.ts`、`src/data/pcs-tech-pack-review-diff.ts`、`src/pages/pda-exec-detail.ts`、`src/pages/process-factory/dyeing/water-soluble-orders.ts`、`src/pages/tech-pack/bom-domain.ts`、`src/pages/tech-pack/context.ts`、`src/pages/tech-pack/events.ts`。
+- 对抗修复累计页面与交互：`src/pages/pda-exec-detail.ts`、`src/pages/pda-handover-detail.ts`、`src/pages/process-factory/dyeing/events.ts`、`src/pages/process-factory/dyeing/water-soluble-orders.ts`、`src/pages/process-water-soluble-orders.ts`、`src/pages/tech-pack/bom-domain.ts`、`src/pages/tech-pack/context.ts`、`src/pages/tech-pack/events.ts`。
+- 终审 Critical 原型文件：`src/data/fcs/dyeing-task-domain.ts`、`src/data/fcs/process-action-writeback-service.ts`、`src/data/pcs-tech-pack-review-diff.ts`、`src/pages/pda-exec-detail.ts`、`src/pages/process-factory/dyeing/events.ts`、`src/pages/process-factory/dyeing/water-soluble-orders.ts`、`src/pages/tech-pack/bom-domain.ts`、`src/pages/tech-pack/context.ts`、`src/pages/tech-pack/events.ts`。
 - 终审修复任务 9 PFOS 零产出实现文件：`src/pages/process-factory/dyeing/water-soluble-orders.ts`、`scripts/check-water-soluble-pages.ts`、`tests/water-soluble-pages.spec.ts`。
+- 终审修复任务 11 原型文件：`src/data/fcs/process-action-writeback-service.ts`、`src/pages/pda-exec-detail.ts`、`src/pages/process-factory/dyeing/events.ts`；直接验证文件为 `scripts/check-water-soluble-pda.ts` 与 `tests/water-soluble-pda.spec.ts`。
 - 平台管理端（FCS / PCS）：正式 BOM、技术包版本、生产单、任务和交接真实 ID 可追溯；列表有分页，详情与筛选局部更新。
 - 染厂主管端（PFOS）：只看当前可信工厂，结构化展示最近操作人；短量、零产出、超量和收货差异均有主管兜底。
 - 现场操作员端（PDA）：一页一个当前主动作，少读、少选、少算；数量带单位，扫码优先，离线可恢复，错误给出中文改法。
