@@ -2158,6 +2158,70 @@ function seedWorkOrders(): void {
   })
 }
 
+function buildFreshDyeMobileTaskFromTemplate(input: {
+  template: PdaGenericTaskMock
+  taskId: string
+  productionOrderId: string
+  factoryId: string
+  factoryName: string
+  qty: number
+  qtyDisplayUnit: string
+  createdAt: string
+  dispatchedBy: string
+  receiveSummary: string
+  executionSummary: string
+  handoverSummary: string
+}): PdaGenericTaskMock {
+  const sourceOrder = productionOrders.find((order) => order.productionOrderId === input.productionOrderId)
+  return {
+    ...input.template,
+    taskId: input.taskId,
+    taskNo: input.taskId,
+    productionOrderId: input.productionOrderId,
+    productionOrderNo: sourceOrder?.productionOrderNo || input.productionOrderId,
+    spuCode: sourceOrder?.demandSnapshot.spuCode,
+    spuName: sourceOrder?.demandSnapshot.spuName,
+    requiredDeliveryDate: sourceOrder?.demandSnapshot.requiredDeliveryDate ?? undefined,
+    assignedFactoryId: input.factoryId,
+    assignedFactoryName: input.factoryName,
+    status: 'NOT_STARTED',
+    assignmentMode: 'DIRECT',
+    assignmentStatus: 'ASSIGNED',
+    acceptanceStatus: 'ACCEPTED',
+    dispatchedAt: input.createdAt,
+    dispatchedBy: input.dispatchedBy,
+    acceptDeadline: undefined,
+    taskDeadline: undefined,
+    acceptedAt: input.createdAt,
+    acceptedBy: input.factoryName,
+    awardedAt: undefined,
+    tenderId: undefined,
+    bidId: undefined,
+    startDueAt: undefined,
+    startDueSource: undefined,
+    startRiskStatus: undefined,
+    qty: input.qty,
+    qtyUnit: 'METER',
+    qtyDisplayUnit: input.qtyDisplayUnit,
+    taskQrValue: buildTaskQrValue(input.taskId),
+    taskQrStatus: 'ACTIVE',
+    handoverOrderId: undefined,
+    handoverStatus: 'NOT_CREATED',
+    handoutStatus: 'PENDING',
+    createdAt: input.createdAt,
+    updatedAt: input.createdAt,
+    startedAt: undefined,
+    finishedAt: undefined,
+    blockedAt: undefined,
+    blockReason: undefined,
+    blockRemark: undefined,
+    auditLogs: [],
+    mockReceiveSummary: input.receiveSummary,
+    mockExecutionSummary: input.executionSummary,
+    mockHandoverSummary: input.handoverSummary,
+  } as unknown as PdaGenericTaskMock
+}
+
 function seedPersistentWaterSolubleDyeWorkOrder(): void {
   const artifact = listGeneratedProductionDemandArtifacts()
     .find((item) => item.processCode === 'DYE' && item.requiresWaterSoluble && item.orderId === 'PO-202603-081')
@@ -2167,42 +2231,20 @@ function seedPersistentWaterSolubleDyeWorkOrder(): void {
   if (!taskTemplate) return
   const taskId = 'TASK-DYE-WATER-PO-202603-081'
   const createdAt = '2026-03-26 09:00:00'
-  registerPdaGenericProcessTask({
-    ...taskTemplate,
+  registerPdaGenericProcessTask(buildFreshDyeMobileTaskFromTemplate({
+    template: taskTemplate,
     taskId,
-    taskNo: taskId,
     productionOrderId: artifact.orderId,
-    productionOrderNo: artifact.orderId,
-    assignedFactoryId: TEST_FACTORY_ID,
-    assignedFactoryName: TEST_FACTORY_NAME,
-    status: 'NOT_STARTED',
-    assignmentMode: 'DIRECT',
-    assignmentStatus: 'ASSIGNED',
-    acceptanceStatus: 'ACCEPTED',
-    acceptedAt: createdAt,
-    acceptedBy: TEST_FACTORY_NAME,
-    awardedAt: undefined,
-    tenderId: undefined,
+    factoryId: TEST_FACTORY_ID,
+    factoryName: TEST_FACTORY_NAME,
     qty: artifact.plannedQty,
-    qtyUnit: 'METER',
     qtyDisplayUnit: artifact.plannedUnit || '米',
-    taskQrValue: buildTaskQrValue(taskId),
-    taskQrStatus: 'ACTIVE',
-    handoverOrderId: undefined,
-    handoverStatus: 'NOT_CREATED',
-    handoutStatus: 'PENDING',
     createdAt,
-    updatedAt: createdAt,
-    startedAt: undefined,
-    finishedAt: undefined,
-    blockedAt: undefined,
-    blockReason: undefined,
-    blockRemark: undefined,
-    auditLogs: [],
-    mockReceiveSummary: '染色加工单已派单，需先完成水溶。',
-    mockExecutionSummary: '同一染厂先水溶后染色，中间不交出。',
-    mockHandoverSummary: '完成染色及后处理后统一交出。',
-  })
+    dispatchedBy: '平台派单',
+    receiveSummary: '染色加工单已派单，需先完成水溶。',
+    executionSummary: '同一染厂先水溶后染色，中间不交出。',
+    handoverSummary: '完成染色及后处理后统一交出。',
+  }))
   addSeedWorkOrder({
     dyeOrderId: 'DYE-WATER-PO-202603-081',
     dyeOrderNo: 'RSJG-WATER-202603081',
@@ -2538,42 +2580,21 @@ export function createDyeWorkOrderFromDemands(input: {
   const now = nowTimestamp()
   const taskTemplate = getDyeingTasks()[0]
   if (!taskTemplate) return { ok: false, message: '缺少染色移动任务模板，无法创建加工单。' }
-  registerPdaGenericProcessTask({
-    ...taskTemplate,
+  const sourceProductionOrderId = input.demands[0]?.sourceProductionOrderId || '按备货创建'
+  registerPdaGenericProcessTask(buildFreshDyeMobileTaskFromTemplate({
+    template: taskTemplate,
     taskId,
-    taskNo: taskId,
-    productionOrderId: input.demands[0]?.sourceProductionOrderId || '按备货创建',
-    productionOrderNo: input.demands[0]?.sourceProductionOrderId || '按备货创建',
-    assignedFactoryId: factory.id,
-    assignedFactoryName: factory.name,
-    status: 'NOT_STARTED',
-    assignmentMode: 'DIRECT',
-    assignmentStatus: 'ASSIGNED',
-    acceptanceStatus: 'ACCEPTED',
-    acceptedAt: now,
-    acceptedBy: factory.name,
-    awardedAt: undefined,
-    tenderId: undefined,
+    productionOrderId: sourceProductionOrderId,
+    factoryId: factory.id,
+    factoryName: factory.name,
     qty: plannedQty,
-    qtyUnit: 'METER',
     qtyDisplayUnit: normalizedUnit,
-    taskQrValue: buildTaskQrValue(taskId),
-    taskQrStatus: 'ACTIVE',
-    handoverOrderId: undefined,
-    handoverStatus: 'NOT_CREATED',
-    handoutStatus: 'PENDING',
     createdAt: now,
-    updatedAt: now,
-    startedAt: undefined,
-    finishedAt: undefined,
-    blockedAt: undefined,
-    blockReason: undefined,
-    blockRemark: undefined,
-    auditLogs: [],
-    mockReceiveSummary: requiresWaterSoluble ? '染色加工单已派单，需先完成水溶。' : '染色加工单已派单。',
-    mockExecutionSummary: requiresWaterSoluble ? '同一染厂先水溶后染色。' : '按染色工艺执行。',
-    mockHandoverSummary: '完成全部后处理后统一交出。',
-  })
+    dispatchedBy: input.createdBy || '业务人员',
+    receiveSummary: requiresWaterSoluble ? '染色加工单已派单，需先完成水溶。' : '染色加工单已派单。',
+    executionSummary: requiresWaterSoluble ? '同一染厂先水溶后染色。' : '按染色工艺执行。',
+    handoverSummary: '完成全部后处理后统一交出。',
+  }))
   addSeedWorkOrder({
     dyeOrderId,
     dyeOrderNo,
