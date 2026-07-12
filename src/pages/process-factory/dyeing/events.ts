@@ -204,7 +204,12 @@ export function handleCraftDyeingEvent(target: HTMLElement): boolean {
     if (!dyeOrderId) return true
     const qtyText = window.prompt('请输入水溶实际完成数量')
     if (qtyText === null) return true
-    const outputQty = Number(qtyText)
+    const normalizedQtyText = qtyText.trim()
+    if (!normalizedQtyText) {
+      showDyeingToast('请填写水溶实际完成数量。')
+      return true
+    }
+    const outputQty = Number(normalizedQtyText)
     const reason = window.prompt('如数量与计划不同，请填写原因') || ''
     executeConfirmedDyeWaterAction(actionNode, 'COMPLETE', { outputQty, reason })
     return true

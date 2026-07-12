@@ -4434,7 +4434,12 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         showPdaExecDetailToast('当前填写内容已失效，请重新打开。')
         return true
       }
-      const completedQty = Number(detailState.waterCompletionDraft.completedQty.trim())
+      const completedQtyText = detailState.waterCompletionDraft.completedQty.trim()
+      if (!completedQtyText) {
+        showPdaExecDetailToast('请填写实际完成数量。')
+        return true
+      }
+      const completedQty = Number(completedQtyText)
       if (!Number.isFinite(completedQty) || completedQty < 0) {
         showPdaExecDetailToast('请输入大于或等于 0 的有效完成数量。')
         return true
@@ -4587,7 +4592,12 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         showPdaExecDetailToast('当前填写内容已失效，请重新打开。')
         return true
       }
-      const outputQty = Number(detailState.dyeWaterDraft.outputQty.trim())
+      const outputQtyText = detailState.dyeWaterDraft.outputQty.trim()
+      if (!outputQtyText) {
+        showPdaExecDetailToast('请填写实际完成数量。')
+        return true
+      }
+      const outputQty = Number(outputQtyText)
       const plannedQty = order.waterSolublePlannedQty ?? order.plannedQty
       const reason = detailState.dyeWaterDraft.reason.trim()
       if (!Number.isFinite(outputQty) || outputQty < 0) {
@@ -5113,7 +5123,12 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       }
       const outputQtyText = window.prompt(`请输入染色完成数量（${dyeOrder.qtyUnit}）`, String(actualInputQty))
       if (outputQtyText === null) return true
-      const outputQty = Number(outputQtyText.trim())
+      const normalizedOutputQtyText = outputQtyText.trim()
+      if (!normalizedOutputQtyText) {
+        showPdaExecDetailToast('请填写染色完成数量。')
+        return true
+      }
+      const outputQty = Number(normalizedOutputQtyText)
       if (!Number.isFinite(outputQty) || outputQty < 0) {
         showPdaExecDetailToast('请输入大于或等于 0 的有效染色完成数量。')
         return true

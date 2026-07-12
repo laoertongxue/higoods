@@ -346,6 +346,7 @@ async function main(): Promise<void> {
     appStore.navigate('/fcs/pda/exec?tab=IN_PROGRESS')
     const { handlePdaExecEvent, renderPdaExecPage, renderWaterSolubleCard } = await import('../src/pages/pda-exec.ts')
     const { handlePdaExecDetailEvent, renderPdaExecDetailPage } = await import('../src/pages/pda-exec-detail.ts')
+    const { handleCraftDyeingEvent } = await import('../src/pages/process-factory/dyeing/events.ts')
     const { renderPdaHandoverPage } = await import('../src/pages/pda-handover.ts')
     const { renderPdaHandoverDetailPage } = await import('../src/pages/pda-handover-detail.ts')
     const setExecDetailDraftField = (field: string, value: string, textarea = false) => {
@@ -660,6 +661,14 @@ async function main(): Promise<void> {
       textContent: '确认完成',
     }
     const confirmWaterCompletionTarget = { closest: (selector: string) => selector === '[data-pda-execd-action]' ? confirmWaterCompletionNode : null } as unknown as HTMLElement
+    const beforeBlankWaterCompletion = structuredClone(getWaterSolubleWorkOrderById(executableOrder.waterOrderId))
+    setExecDetailDraftField('waterCompletedQty', '   ')
+    setExecDetailDraftField('waterReason', '即使填写原因也不能把空白数量当成 0', true)
+    assert.equal(handlePdaExecDetailEvent(confirmWaterCompletionTarget), true)
+    assert.deepEqual(getWaterSolubleWorkOrderById(executableOrder.waterOrderId), beforeBlankWaterCompletion, '独立水溶空白数量即使有原因也必须无副作用')
+    assert(renderPdaExecDetailPage(executableOrder.taskId).includes(`data-overlay-token="${waterCompletionOverlayToken[1]}"`), '独立水溶空白数量失败必须保留原弹层令牌重试')
+    setExecDetailDraftField('waterCompletedQty', '0')
+    setExecDetailDraftField('waterReason', '', true)
     assert.equal(handlePdaExecDetailEvent(confirmWaterCompletionTarget), true)
     assert.equal(getWaterSolubleWorkOrderById(executableOrder.waterOrderId)?.status, 'WATER_SOLUBLE_IN_PROGRESS', '独立水溶 0 无原因必须由真实 handler 阻断')
     setExecDetailDraftField('waterReason', '本批物料全部不可用', true)
@@ -970,6 +979,37 @@ async function main(): Promise<void> {
       actor: operator,
     }).ok, true)
     assert.equal(listHandoverOrdersByTaskId(combined.taskId).length, 0, '含水溶染色完成内部水溶后不得生成中间交出')
+    const beforeBlankPfosWater = structuredClone(getDyeWorkOrderById(combined.dyeOrderId))
+    const pfosWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window')
+    const pfosDocumentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document')
+    const pfosPromptAnswers = ['   ', '即使填写原因也不能把空白数量当成 0']
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: undefined })
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        confirm: () => true,
+        prompt: () => pfosPromptAnswers.shift() ?? '',
+      },
+    })
+    try {
+      const pfosNode = {
+        dataset: {
+          dyeingAction: 'complete-water-soluble',
+          dyeOrderId: combined.dyeOrderId,
+          taskId: combined.taskId,
+          expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS',
+          expectedNode: 'WATER_SOLUBLE',
+        },
+      }
+      const pfosTarget = { closest: (selector: string) => selector === '[data-dyeing-action]' ? pfosNode : null } as unknown as HTMLElement
+      assert.equal(handleCraftDyeingEvent(pfosTarget), true, 'PFOS 组合水溶空白数量请求必须由真实 handler 消费')
+      assert.deepEqual(getDyeWorkOrderById(combined.dyeOrderId), beforeBlankPfosWater, 'PFOS 组合水溶空白数量即使有原因也必须无副作用')
+    } finally {
+      if (pfosWindowDescriptor) Object.defineProperty(globalThis, 'window', pfosWindowDescriptor)
+      else Reflect.deleteProperty(globalThis, 'window')
+      if (pfosDocumentDescriptor) Object.defineProperty(globalThis, 'document', pfosDocumentDescriptor)
+      else Reflect.deleteProperty(globalThis, 'document')
+    }
     const combinedWaterRunningHtml = renderPdaExecDetailPage(combined.taskId)
     assert(combinedWaterRunningHtml.includes('data-pda-execd-action="dye-water-complete"'), '水溶中必须显示完成水溶')
     const combinedWaterCompleteToken = combinedWaterRunningHtml.match(/data-pda-execd-action="dye-water-complete"[\s\S]{0,1200}?data-action-token="([^"]+)"/)
@@ -1004,6 +1044,14 @@ async function main(): Promise<void> {
       textContent: '确认完成',
     }
     const confirmCombinedWaterTarget = { closest: (selector: string) => selector === '[data-pda-execd-action]' ? confirmCombinedWaterNode : null } as unknown as HTMLElement
+    const beforeBlankCombinedWater = structuredClone(getDyeWorkOrderById(combined.dyeOrderId))
+    setExecDetailDraftField('dyeWaterOutputQty', '   ')
+    setExecDetailDraftField('dyeWaterReason', '即使填写原因也不能把空白数量当成 0', true)
+    assert.equal(handlePdaExecDetailEvent(confirmCombinedWaterTarget), true)
+    assert.deepEqual(getDyeWorkOrderById(combined.dyeOrderId), beforeBlankCombinedWater, '联合 PDA 水溶空白数量即使有原因也必须无副作用')
+    assert(renderPdaExecDetailPage(combined.taskId).includes(`data-overlay-token="${combinedWaterOverlayToken[1]}"`), '联合 PDA 水溶空白数量失败必须保留原弹层令牌重试')
+    setExecDetailDraftField('dyeWaterOutputQty', '0')
+    setExecDetailDraftField('dyeWaterReason', '', true)
     assert.equal(handlePdaExecDetailEvent(confirmCombinedWaterTarget), true)
     assert.equal(getDyeWorkOrderById(combined.dyeOrderId)?.status, 'WATER_SOLUBLE_IN_PROGRESS', '联合水溶 0 无原因必须由真实 handler 阻断')
     setExecDetailDraftField('dyeWaterReason', '本批物料全部不可用', true)
@@ -1175,6 +1223,13 @@ async function main(): Promise<void> {
       assert.deepEqual(completionSnapshot(), beforeStaleTokenCompletion, '旧令牌不得修改状态、节点或日志')
 
       promptDefaults.length = 0
+      promptAnswers = ['80', '   ']
+      const beforeBlankDyeCompletion = completionSnapshot()
+      assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(currentToken)), true, '组合染色空白产出请求必须由真实 handler 消费')
+      assert.deepEqual(completionSnapshot(), beforeBlankDyeCompletion, '组合染色空白产出不得修改状态、节点或日志')
+      assert.deepEqual(promptDefaults, ['80', '80'], '组合染色空白产出的提示默认值必须仍来自真实投入')
+
+      promptDefaults.length = 0
       promptAnswers = ['80', '81']
       const beforeHandlerOverInput = completionSnapshot()
       assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(currentToken)), true, '产出 81 的组合染色请求必须由真实 handler 阻断')
@@ -1295,8 +1350,18 @@ async function main(): Promise<void> {
     const beforeFakeTask = serviceSnapshot()
     assert.throws(() => executeMobileProcessAction({ ...servicePayload, taskId: 'TASK-FAKE', actor: operator }), /任务|不一致/, '伪 taskId 必须阻断')
     assert.deepEqual(serviceSnapshot(), beforeFakeTask, '伪 taskId 移动写回不得修改状态、节点或日志')
-    executeMobileProcessAction({ ...servicePayload, actor: operator })
-    assert.equal(getDyeWorkOrderById(serviceCombined.dyeOrderId)?.status, 'DEHYDRATING', '可信 actor 与真实 taskId 必须可经移动写回完成组合染色')
+    for (const [label, objectQty] of [['undefined', undefined], ['NaN', Number.NaN], ['Infinity', Number.POSITIVE_INFINITY]] as const) {
+      const beforeInvalidQty = serviceSnapshot()
+      assert.throws(
+        () => executeMobileProcessAction({ ...servicePayload, objectQty, actor: operator }),
+        /数量|有限|填写/,
+        `可信 actor 与真实 taskId 下 ${label} 必须在 snapshot fallback 前阻断`,
+      )
+      assert.deepEqual(serviceSnapshot(), beforeInvalidQty, `${label} 移动写回不得修改加工单、节点或日志`)
+    }
+    executeMobileProcessAction({ ...servicePayload, objectQty: 0, actor: operator })
+    assert.equal(getDyeWorkOrderById(serviceCombined.dyeOrderId)?.status, 'DEHYDRATING', '可信 actor、真实 taskId 与显式 0 必须可完成组合染色')
+    assert.equal(getDyeExecutionNodeRecord(serviceCombined.dyeOrderId, 'DYE')?.outputQty, 0, '共享移动写回必须保留显式 0')
 
     const zeroCombined = prepareCombinedCompletionProbe('ZERO-HANDLER')
     appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(zeroCombined.taskId)}`)

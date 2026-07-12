@@ -889,6 +889,9 @@ export function validateProcessAction(payload: ProcessActionPayload): { ok: bool
     }
     const actorError = validateWaterSolublePdaActor(payload.actor, combinedMobileDyeOrder.dyeFactoryId, 'OPERATE')
     if (actorError) return { ok: false, message: actorError }
+    if (payload.objectQty === undefined || !Number.isFinite(payload.objectQty)) {
+      return { ok: false, message: '请填写大于或等于 0 的有效染色完成数量。' }
+    }
   }
   const snapshot = getProcessActionStatusSnapshot(payload.sourceType, payload.sourceId)
   if (!definition.fromStatuses.includes(snapshot.status)) {
