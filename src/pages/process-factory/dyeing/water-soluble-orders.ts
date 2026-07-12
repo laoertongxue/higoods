@@ -332,7 +332,7 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     if (state.completionDraft.orderId !== orderId) { rejectAction('当前填写内容已失效，请重新打开加工单。'); return true }
     const completedQty = Number(state.completionDraft.completedQty.trim())
     if (!Number.isFinite(completedQty)) { rejectAction('完成数量必须是有限数字。'); return true }
-    if (completedQty <= 0) { rejectAction('完成数量必须大于 0。'); return true }
+    if (completedQty < 0) { rejectAction('完成数量不能小于 0。'); return true }
     const reason = state.completionDraft.reason.trim()
     if (completedQty !== access.order.plannedQty && !reason) { rejectAction('数量与计划不一致，请填写原因。'); return true }
     if (completedQty > access.order.plannedQty && action === 'confirm-completion') {

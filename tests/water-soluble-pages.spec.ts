@@ -415,6 +415,71 @@ test('PFOS 短量必须填写真实原因并保留日志', async ({ page }) => {
   await expect(page.locator('[data-factory-water-soluble-overlay]')).toContainText('现场实测短少 1 米')
 })
 
+test('PFOS 零产出无原因不写入且补填原因后进入生产暂停', async ({ page }) => {
+  const arranged = await arrangePfosOrderForRole(page, 'WATER_SOLUBLE_IN_PROGRESS', 'ROLE_OPERATOR', '零产出张三')
+  const card = page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${arranged.orderId}"]`)
+  await rememberMain(page)
+  await card.getByRole('button', { name: '上报完成数量' }).click()
+  await page.locator('[data-factory-water-soluble-field="completedQty"]').fill('0')
+
+  const before = await page.evaluate(async (orderId) => {
+    const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
+    const order = water.getWaterSolubleWorkOrderById(orderId)
+    return order && {
+      status: order.status,
+      completedQty: order.completedQty,
+      exceptionReason: order.exceptionReason,
+      actionLogCount: order.actionLogs.length,
+    }
+  }, arranged.orderId)
+
+  await page.getByRole('button', { name: '确认上报' }).click()
+  await expect(page.getByText('数量与计划不一致，请填写原因。')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '上报完成数量' })).toBeVisible()
+  const blocked = await page.evaluate(async (orderId) => {
+    const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
+    const order = water.getWaterSolubleWorkOrderById(orderId)
+    return order && {
+      status: order.status,
+      completedQty: order.completedQty,
+      exceptionReason: order.exceptionReason,
+      actionLogCount: order.actionLogs.length,
+    }
+  }, arranged.orderId)
+  expect(blocked).toEqual(before)
+
+  await page.locator('[data-factory-water-soluble-field="completionReason"]').fill('本批物料全部破损')
+  await page.getByRole('button', { name: '确认上报' }).click()
+  await expectSameMain(page)
+  const pausedCard = page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${arranged.orderId}"]`)
+  await expect(pausedCard).toContainText('生产暂停')
+  await expect(pausedCard).toContainText('完成0')
+  await expect(pausedCard).toContainText('本批物料全部破损')
+  await expect(pausedCard).toContainText(`PDA 操作人：${arranged.userName}`)
+
+  const paused = await page.evaluate(async (orderId) => {
+    const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
+    const order = water.getWaterSolubleWorkOrderById(orderId)
+    const log = order?.actionLogs.at(-1)
+    return order && {
+      status: order.status,
+      completedQty: order.completedQty,
+      exceptionReason: order.exceptionReason,
+      logAction: log?.action,
+      logDetail: log?.detail,
+      operatorName: log?.operatorName,
+    }
+  }, arranged.orderId)
+  expect(paused).toMatchObject({
+    status: 'PRODUCTION_PAUSED',
+    completedQty: 0,
+    exceptionReason: '本批物料全部破损',
+    logAction: '上报数量不足',
+    operatorName: arranged.userName,
+  })
+  expect(paused?.logDetail).toContain('本批物料全部破损')
+})
+
 test('PFOS 超量必须二次确认，取消无副作用，确认后保存真实原因', async ({ page }) => {
   const { plannedQty } = await openCompletionDialog(page)
   await page.locator('[data-factory-water-soluble-field="completedQty"]').fill(String(plannedQty + 1))
@@ -430,13 +495,13 @@ test('PFOS 超量必须二次确认，取消无副作用，确认后保存真实
   await expect(handoverCard).toContainText('复尺后多出 1 米')
 })
 
-test('PFOS 非有限数和非正数均中文拦截且无副作用', async ({ page }) => {
+test('PFOS 非有限数和负数均中文拦截且无副作用', async ({ page }) => {
   await openCompletionDialog(page)
   const input = page.locator('[data-factory-water-soluble-field="completedQty"]')
-  for (const value of ['NaN', 'Infinity', '0']) {
+  for (const value of ['NaN', 'Infinity', '-1']) {
     await input.fill(value)
     await page.getByRole('button', { name: '确认上报' }).click()
-    await expect(page.getByText(value === '0' ? '完成数量必须大于 0。' : '完成数量必须是有限数字。').last()).toBeVisible()
+    await expect(page.getByText(value === '-1' ? '完成数量不能小于 0。' : '完成数量必须是有限数字。').last()).toBeVisible()
     await expect(page.getByRole('heading', { name: '上报完成数量' })).toBeVisible()
   }
 })
