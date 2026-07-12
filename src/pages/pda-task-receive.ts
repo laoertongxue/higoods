@@ -61,6 +61,7 @@ import {
   classifySewingDeliverySla,
   formatOperationLocalWallClock,
 } from '../data/fcs/sewing-delivery-sla.ts'
+import { formatProcessQuantityWithUnit } from '../data/fcs/process-quantity-labels.ts'
 import {
   ensurePdaSessionForAction,
   getPdaRuntimeContext,
@@ -140,6 +141,8 @@ interface TaskReceiveState {
   rejectDialogOpen: boolean
   rejectingTaskId: string
   rejectReason: string
+  acceptDialogTaskId: string
+  acceptDialogAcceptedAt: string
 }
 
 const TABS: Array<{ key: TabKey; label: string }> = [
@@ -163,6 +166,8 @@ const state: TaskReceiveState = {
   rejectDialogOpen: false,
   rejectingTaskId: '',
   rejectReason: '',
+  acceptDialogTaskId: '',
+  acceptDialogAcceptedAt: '',
 }
 
 const submittedQuotes = new Map<string, SubmittedQuoteSnapshot>(
@@ -972,14 +977,17 @@ function renderAwardedCuttingTask(task: PdaTaskFlowMock, item: AwardedTender): s
 }
 
 function renderAwardedItem(item: AwardedTender): string {
-  const task = getTaskFactById(item.taskId)
+  const runtimeTask = getRuntimeTaskById(item.taskId)
+  const task = getTaskFactById(item.taskId) ?? runtimeTask
   if (task && isCuttingSpecialTask(task)) {
     return renderAwardedCuttingTask(task as PdaTaskFlowMock, item)
   }
 
   const processName = task ? getTaskProcessDisplayName(task) : item.processName
   const requiresAcceptance = Boolean(
-    task && classifySewingDeliverySla(task) !== null && task.acceptanceStatus === 'PENDING',
+    task
+    && task.acceptanceStatus === 'PENDING'
+    && (runtimeTask?.assignmentStatus === 'AWARDED' || classifySewingDeliverySla(task) !== null),
   )
   return `
     <article class="overflow-hidden rounded-lg border border-green-200 bg-card">
@@ -1041,6 +1049,36 @@ function renderAwardedItem(item: AwardedTender): string {
         </div>
       </div>
     </article>
+  `
+}
+
+function renderAcceptDialog(): string {
+  if (!state.acceptDialogTaskId) return ''
+  const task = getTaskFactById(state.acceptDialogTaskId) ?? getRuntimeTaskById(state.acceptDialogTaskId)
+  if (!task) return ''
+  return `
+    <div class="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 p-3" data-pda-tr-accept-dialog="true">
+      <article class="w-full max-w-md rounded-xl bg-background shadow-xl">
+        <header class="border-b px-4 py-3">
+          <h2 class="font-semibold">确认接单</h2>
+          <p class="mt-1 text-xs text-muted-foreground">请确认任务与接单时间；提交后将以该时间作为履约起点。</p>
+        </header>
+        <div class="space-y-2 px-4 py-3 text-sm">
+          ${renderFieldRow('任务编号', getTaskDisplayNo(task))}
+          ${renderFieldRow('工序', getTaskProcessDisplayName(task))}
+          ${renderFieldRow('数量', formatProcessQuantityWithUnit(task.qty, {
+            processType: 'SEWING',
+            objectType: '成衣',
+            qtyUnit: task.qtyUnit,
+          }))}
+          ${renderFieldRow('确认接单时间', state.acceptDialogAcceptedAt, true)}
+        </div>
+        <footer class="flex gap-2 border-t px-4 py-3">
+          <button class="inline-flex h-9 flex-1 items-center justify-center rounded-md border px-3 text-sm" data-pda-tr-action="close-accept-dialog">取消</button>
+          <button class="inline-flex h-9 flex-1 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-tr-action="confirm-accept-task" data-task-id="${escapeHtml(task.taskId)}">确认接单</button>
+        </footer>
+      </article>
+    </div>
   `
 }
 
@@ -1276,6 +1314,7 @@ export function renderPdaTaskReceivePage(): string {
 
       ${renderQuoteDialog(quotingTender)}
       ${renderRejectDialog()}
+      ${renderAcceptDialog()}
     </div>
   `
 
@@ -1412,11 +1451,28 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
 
   if (action === 'accept-task') {
     const taskId = actionNode.dataset.taskId
+    if (taskId) {
+      state.acceptDialogTaskId = taskId
+      state.acceptDialogAcceptedAt = formatOperationLocalWallClock()
+    }
+    return true
+  }
+
+  if (action === 'close-accept-dialog') {
+    state.acceptDialogTaskId = ''
+    state.acceptDialogAcceptedAt = ''
+    return true
+  }
+
+  if (action === 'confirm-accept-task') {
+    const taskId = actionNode.dataset.taskId || state.acceptDialogTaskId
     const factoryId = getCurrentFactoryId()
     const factoryName = getFactoryName(factoryId)
-    if (taskId) {
+    if (taskId && taskId === state.acceptDialogTaskId) {
       try {
-        acceptPdaTaskWithRuntimeFallback(taskId, factoryId, factoryName)
+        acceptPdaTaskWithRuntimeFallback(taskId, factoryId, factoryName, state.acceptDialogAcceptedAt)
+        state.acceptDialogTaskId = ''
+        state.acceptDialogAcceptedAt = ''
         showTaskReceiveToast('接单成功')
       } catch (error) {
         showTaskReceiveToast(error instanceof Error ? error.message : '接单失败，请联系主管处理')

@@ -1,6 +1,20 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { renderProgressBoardPage, renderProgressTaskDetailPage } from '../src/pages/progress-board.ts'
+import { state as progressBoardState } from '../src/pages/progress-board/context.ts'
+
+const delayedDemoTaskId = 'TASKGEN-202603-0015-001__ORDER'
+progressBoardState.keyword = delayedDemoTaskId
+progressBoardState.page = 1
+const delayedDemoBoard = renderProgressBoardPage()
+assert.match(delayedDemoBoard, new RegExp(delayedDemoTaskId), '进度看板必须可按任务号搜索确认延迟演示任务')
+progressBoardState.taskDetailTab = 'progress'
+const delayedDemoDetail = renderProgressTaskDetailPage(delayedDemoTaskId)
+for (const text of ['SLA-DEMO-RECEIVER-DELAY-001', '2026-07-05 08:00:00', '2026-07-05 12:00:00', '主管复核责任']) {
+  assert.match(delayedDemoDetail, new RegExp(text), `确认延迟任务详情缺少 ${text}`)
+}
+progressBoardState.keyword = ''
 
 function shiftWallClockHours(value: string, hours: number): string {
   const date = new Date(`${value.replace(' ', 'T')}Z`)

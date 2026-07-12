@@ -1326,7 +1326,8 @@ function buildRuntimeProcessTasksBase(): RuntimeProcessTask[] {
 }
 
 function buildRuntimeProcessTasks(): RuntimeProcessTask[] {
-  const baseWithOverrides = applyRuntimeOverrides(buildRuntimeProcessTasksBase().concat(
+  const baseTasks = buildRuntimeProcessTasksBase()
+  const baseWithOverrides = applyRuntimeOverrides(baseTasks.concat(
     Array.from(runtimeReassignedTasks.values()).map((task) => structuredClone(task)),
   ))
   const withSplit = applyRuntimeSplitPlans(baseWithOverrides)
@@ -1773,17 +1774,92 @@ function ensureDispatchBoardSeedData(): void {
   )
 
   seedRuntimeTaskOverride(
-    'TASKGEN-202603-082-002__ORDER',
+    'TASKGEN-202603-083-002__ORDER',
     {
-      taskDeadline: '2026-07-10 18:00:00',
-      acceptDeadline: '2026-07-01 18:00:00',
+      assignmentMode: 'BIDDING',
+      assignmentStatus: 'AWARDED',
+      tenderId: 'TENDER-TASKGEN0083002-1001',
+      assignedFactoryId: 'ID-F021',
+      assignedFactoryName: 'CV Micro Sewing Jakarta Pusat',
+      businessAssignedAt: '2026-07-01 09:00:00',
+      assignmentOperatedAt: '2026-07-01 10:00:00',
+      biddingDeadline: '2026-07-01 11:00:00',
+      awardedAt: '2026-07-01 12:00:00',
+      dispatchPrice: 13800,
+      dispatchPriceCurrency: 'IDR',
+      dispatchPriceUnit: '件',
+      acceptanceStatus: 'PENDING',
+      acceptedAt: undefined,
+      acceptedBy: undefined,
+      taskDeadline: '2026-07-10 12:00:00',
+      acceptDeadline: '2026-07-02 12:00:00',
     },
     [
-      ...getSeedBaseAuditLogs('TASKGEN-202603-082-002__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-082-002__ORDER', 'DISPATCH', '毛织任务已直派自有工厂，保留正常直派样例', '系统', '2026-06-29 09:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-082-002__ORDER', 'ACCEPT', '工厂确认接单', '自有毛织工厂', '2026-06-29 09:20:00'),
+      ...getSeedBaseAuditLogs('TASKGEN-202603-083-002__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-083-002__ORDER', 'BIDDING_START', '发起车缝任务竞价 TENDER-TASKGEN0083002-1001', '跟单A', '2026-07-01 10:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-083-002__ORDER', 'TENDER_AWARD', '已定标给 CV Micro Sewing Jakarta Pusat，等待工厂确认接单', '运营A', '2026-07-01 12:00:00'),
     ],
   )
+
+  const delayedReceiptDemoTaskId = 'TASKGEN-202603-0015-001__ORDER'
+  const delayedReceiptDemoAcceptedAt = '2026-07-01 09:00:00'
+  const delayedReceiptDemoFactoryId = 'ID-F021'
+  const delayedReceiptDemoFactoryName = 'CV Micro Sewing Jakarta Pusat'
+  seedRuntimeTaskOverride(
+    delayedReceiptDemoTaskId,
+    {
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'ASSIGNED',
+      assignedFactoryId: delayedReceiptDemoFactoryId,
+      assignedFactoryName: delayedReceiptDemoFactoryName,
+      businessAssignedAt: delayedReceiptDemoAcceptedAt,
+      assignmentOperatedAt: '2026-07-01 10:00:00',
+      dispatchedAt: delayedReceiptDemoAcceptedAt,
+      dispatchedBy: '跟单A',
+      acceptanceStatus: 'ACCEPTED',
+      acceptedAt: delayedReceiptDemoAcceptedAt,
+      acceptedBy: '系统自动接单（含车缝直接派单）',
+      status: 'IN_PROGRESS',
+      startedAt: '2026-07-01 10:00:00',
+      taskDeadline: '2026-07-10 09:00:00',
+      dispatchRemark: '含车缝接收确认延迟演示任务',
+    },
+    [
+      ...getSeedBaseAuditLogs(delayedReceiptDemoTaskId),
+      buildSeedAuditLog(delayedReceiptDemoTaskId, 'DISPATCH', '已直接派单并按业务分配时间自动接单', '跟单A', delayedReceiptDemoAcceptedAt),
+      buildSeedAuditLog(delayedReceiptDemoTaskId, 'START', '工厂已开始车缝生产', delayedReceiptDemoFactoryName, '2026-07-01 10:00:00'),
+    ],
+  )
+  if (!getSewingDeliverySlaSnapshot(delayedReceiptDemoTaskId)) {
+    saveSewingDeliverySlaSnapshot(createSewingDeliverySlaSnapshot({
+      assignmentId: 'ASSIGN-SLA-DELAY-DEMO-001',
+      runtimeTaskId: delayedReceiptDemoTaskId,
+      productionOrderId: 'PO-202603-0015',
+      factoryId: delayedReceiptDemoFactoryId,
+      factoryName: delayedReceiptDemoFactoryName,
+      assignedQty: 1400,
+      acceptedAt: delayedReceiptDemoAcceptedAt,
+      slaKind: 'INDEPENDENT_SEWING',
+    }))
+  }
+
+  const registeredDelayedDemoOrder = registerProductionOrderSewingFactory({
+    productionOrderId: 'PO-202603-0015',
+    factoryId: delayedReceiptDemoFactoryId,
+    factoryName: delayedReceiptDemoFactoryName,
+    by: '跟单A',
+    at: delayedReceiptDemoAcceptedAt,
+  })
+  if (!registeredDelayedDemoOrder) throw new Error('含车缝接收确认延迟演示任务登记车缝工厂失败')
+
+  registerProductionOrderSewingFactory({
+    productionOrderId: 'PO-202603-083',
+    factoryId: 'ID-F021',
+    factoryName: 'CV Micro Sewing Jakarta Pusat',
+    by: '运营A',
+    at: '2026-07-01 12:00:00',
+  })
+
 }
 
 function getOrderIdsFromTaskIds(taskIds: string[]): string[] {
