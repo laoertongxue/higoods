@@ -1110,7 +1110,7 @@ const CAPABILITY_SETS: Array<Array<[string, string]>> = [
   [['特殊工艺', '打条']],
   [['绣花', '绣花']],
   [['后道', '包装']],
-  [['染色', '匹染'], ['水溶', '水溶']],
+  [['裁片', '定向裁'], ['后道', '包装']],
 ]
 
 function createSeedApplications(): FactoryOnboardingApplication[] {
@@ -1129,7 +1129,7 @@ function createSeedApplications(): FactoryOnboardingApplication[] {
     '已转正式合作',
   ]
   const scenarios: Array<'valid' | 'missingProcess' | 'missingCraft' | 'capabilityMismatch'> = ['valid', 'missingProcess', 'missingCraft', 'capabilityMismatch']
-  return statuses.flatMap((status, statusIndex) =>
+  const statusSeeds = statuses.flatMap((status, statusIndex) =>
     [0, 1, 2].map((offset) => {
       const seed = statusIndex * 3 + offset + 1
       const capabilityNames = CAPABILITY_SETS[(statusIndex + offset) % CAPABILITY_SETS.length]
@@ -1140,6 +1140,14 @@ function createSeedApplications(): FactoryOnboardingApplication[] {
       return createSeedApplication(seed, status, capabilityNames, condition, scenario)
     }),
   )
+  const dyeWaterSeed = createSeedApplication(
+    statusSeeds.length + 1,
+    '已转正式合作',
+    [['染色', '匹染'], ['水溶', '水溶']],
+    '可用',
+    'valid',
+  )
+  return [...statusSeeds, dyeWaterSeed]
 }
 
 function ensureApplicationStore(): FactoryOnboardingApplication[] {

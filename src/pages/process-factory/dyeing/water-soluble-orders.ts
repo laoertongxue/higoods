@@ -105,9 +105,11 @@ function difference(order: WaterSolubleWorkOrder): string {
   return value < 0 ? `少 ${qty(Math.abs(value), order.qtyUnit)}` : `多 ${qty(value, order.qtyUnit)}`
 }
 
-function lastLog(order: WaterSolubleWorkOrder): string {
+function lastLog(order: WaterSolubleWorkOrder): { actor: string; summary: string } {
   const log = order.actionLogs.at(-1)
-  return log ? `${escapeHtml(log.action)} · ${escapeHtml(log.at)}` : '暂无操作'
+  if (!log) return { actor: '暂未记录', summary: '暂未记录' }
+  const actor = log.detail.match(/(?:^|；)操作人：([^；]+)/)?.[1]?.trim() || '暂未记录'
+  return { actor: escapeHtml(actor), summary: `${escapeHtml(log.action)} · ${escapeHtml(log.at)}` }
 }
 
 function getRoleActionForStatus(status: WaterSolubleWorkOrder['status']): WaterSolublePdaRoleAction | null {
@@ -135,11 +137,12 @@ function renderCard(order: WaterSolubleWorkOrder): string {
   const runtime = getPdaRuntimeContext()
   const canOperate = Boolean(runtime && order.factoryId === runtime.factoryId)
   const current = getWaterSolubleCurrentAction(order.waterOrderId)
+  const recentLog = lastLog(order)
   return `<article class="rounded-xl border bg-card p-4 shadow-sm" data-testid="factory-water-soluble-card" data-order-id="${escapeHtml(order.waterOrderId)}">
     <div class="flex flex-wrap items-start justify-between gap-2"><div><div class="font-mono text-xs text-muted-foreground">${escapeHtml(order.waterOrderNo)}</div><h2 class="mt-1 font-semibold">${escapeHtml(order.materialName)}</h2><p class="text-xs text-muted-foreground">${escapeHtml(order.materialCode)} · ${escapeHtml(order.productionOrderNo)}</p></div>${renderBadge(WATER_SOLUBLE_STATUS_LABEL[order.status], order.exceptionReason ? 'danger' : order.status === 'WATER_SOLUBLE_IN_PROGRESS' ? 'info' : 'warning')}</div>
     <div class="mt-4 rounded-lg bg-blue-50 p-3"><div class="text-xs text-blue-700">当前要做什么</div><div class="mt-1 font-semibold text-blue-900">${escapeHtml(current?.actionName || '查看状态')}</div><p class="mt-1 text-xs text-blue-700">${escapeHtml(current?.message || '')}</p></div>
     <dl class="mt-4 grid grid-cols-3 gap-2 text-center"><div class="rounded-md bg-muted/50 p-2"><dt class="text-xs text-muted-foreground">计划</dt><dd class="mt-1 font-medium">${qty(order.plannedQty, order.qtyUnit)}</dd></div><div class="rounded-md bg-muted/50 p-2"><dt class="text-xs text-muted-foreground">完成</dt><dd class="mt-1 font-medium">${qty(order.completedQty, order.qtyUnit)}</dd></div><div class="rounded-md bg-muted/50 p-2"><dt class="text-xs text-muted-foreground">差异</dt><dd class="mt-1 font-medium ${order.completedQty < order.plannedQty ? 'text-amber-700' : ''}">${difference(order)}</dd></div></dl>
-    <div class="mt-3 text-xs text-muted-foreground">PDA 操作人：领域暂未记录 · 最近操作：${lastLog(order)}</div>${order.exceptionReason ? `<div class="mt-3 rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700">${escapeHtml(order.exceptionReason)}</div>` : ''}
+    <div class="mt-3 text-xs text-muted-foreground">PDA 操作人：${recentLog.actor} · 最近操作：${recentLog.summary}</div>${order.exceptionReason ? `<div class="mt-3 rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700">${escapeHtml(order.exceptionReason)}</div>` : ''}
     <div class="mt-4 space-y-2">${renderPrimaryAction(order, canOperate ? runtime!.roleId : null)}${canOperate ? `<button data-skip-page-rerender="true" class="w-full text-center text-sm text-blue-600 hover:underline" data-factory-water-soluble-action="open-detail" data-order-id="${escapeHtml(order.waterOrderId)}">查看任务详情与记录</button>` : ''}</div>
   </article>`
 }

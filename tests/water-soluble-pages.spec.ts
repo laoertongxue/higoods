@@ -53,7 +53,7 @@ async function arrangePfosOrderForRole(
   page: Page,
   status: 'WAIT_MATERIAL' | 'WAIT_WATER_SOLUBLE' | 'WATER_SOLUBLE_IN_PROGRESS' | 'PRODUCTION_PAUSED' | 'WAIT_HANDOVER',
   roleId: 'ROLE_OPERATOR' | 'ROLE_PRODUCTION' | 'ROLE_HANDOVER' | 'ROLE_ADMIN',
-): Promise<{ orderId: string; factoryId: string }> {
+): Promise<{ orderId: string; factoryId: string; userName: string }> {
   await page.goto('/')
   return page.evaluate(async ({ targetStatus, targetRole }) => {
     const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
@@ -79,7 +79,7 @@ async function arrangePfosOrderForRole(
       || await pda.createFactoryPdaUser({ factoryId: order.factoryId, name: `任务3-${targetRole}`, loginId: `${order.factoryId}_task3_${targetRole}`, password: '123456', roleId: targetRole, createdBy: 'Playwright任务3' })
     localStorage.setItem('fcs_pda_session', JSON.stringify(pda.createPdaSessionFromUser(user)))
     store.appStore.navigate('/fcs/craft/dyeing/water-soluble-orders')
-    return { orderId: order.waterOrderId, factoryId: order.factoryId }
+    return { orderId: order.waterOrderId, factoryId: order.factoryId, userName: user.name }
   }, { targetStatus: status, targetRole: roleId })
 }
 
@@ -115,6 +115,37 @@ test('FCS 展示款式及完整事实详情', async ({ page }) => {
   await expect(overlay).toContainText('PDA 执行记录')
   await expect(overlay).toContainText('交接与收货结果')
   await expect(overlay).toContainText('主管处理记录')
+})
+
+test('FCS 使用领域真实任务号和交接单号进入执行事实', async ({ page }) => {
+  await page.goto('/fcs/process/water-soluble-orders')
+  await expect(page.getByText('统一执行详情入口待后续任务接入')).toHaveCount(0)
+  const taskButton = page.getByRole('button', { name: '查看任务' }).first()
+  const taskId = await taskButton.getAttribute('data-task-id')
+  expect(taskId).toBeTruthy()
+  await taskButton.click()
+  await expect(page).toHaveURL(`/fcs/pda/exec/${encodeURIComponent(taskId!)}`)
+
+  const handover = await arrangePfosOrderForRole(page, 'WAIT_HANDOVER', 'ROLE_ADMIN')
+  await page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${handover.orderId}"]`).getByRole('button', { name: '现在交出' }).click()
+  await expect(page).toHaveURL(/\/fcs\/pda\/handover\/[^?]+\?action=new-record/)
+  const handoverOrderId = decodeURIComponent(new URL(page.url()).pathname.split('/').at(-1) || '')
+  expect(handoverOrderId).toBeTruthy()
+  await navigateInApp(page, '/fcs/process/water-soluble-orders')
+  const handoverRow = page.locator(`button[data-order-id="${handover.orderId}"]`).first().locator('xpath=ancestor::tr')
+  const handoverButton = handoverRow.getByRole('button', { name: '查看交接' })
+  await expect(handoverButton).toHaveAttribute('data-handover-order-id', handoverOrderId)
+  await handoverButton.click()
+  await expect(page).toHaveURL(`/fcs/pda/handover/${encodeURIComponent(handoverOrderId)}`)
+})
+
+test('PFOS 真实 PDA 动作后展示最近操作人、动作和时间', async ({ page }) => {
+  const arranged = await arrangePfosOrderForRole(page, 'WAIT_WATER_SOLUBLE', 'ROLE_OPERATOR')
+  const card = page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${arranged.orderId}"]`)
+  await card.getByRole('button', { name: '开始水溶' }).click()
+  await expect(card).toContainText(`PDA 操作人：${arranged.userName}`)
+  await expect(card).toContainText(/最近操作：开始水溶 · \d{4}-\d{2}-\d{2}/)
+  await expect(card).not.toContainText('领域暂未记录')
 })
 
 test('FCS input、select、分页和抽屉保持 main 节点及输入焦点', async ({ page }) => {

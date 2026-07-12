@@ -8,6 +8,7 @@ import { renderToast, renderToastContainer } from '../components/ui/toast.ts'
 import { canAssignWaterSolubleFactory, assignWaterSolubleFactory, listWaterSolubleWorkOrders, WATER_SOLUBLE_STATUS_LABEL, type WaterSolubleWorkOrder, type WaterSolubleWorkOrderStatus } from '../data/fcs/water-soluble-task-domain.ts'
 import { listBusinessFactoryMasterRecords } from '../data/fcs/factory-master-store.ts'
 import { productionOrders } from '../data/fcs/production-orders.ts'
+import { appStore } from '../state/store.ts'
 import { escapeHtml } from '../utils.ts'
 
 type Overlay = { type: 'detail' | 'assign'; orderId: string } | null
@@ -56,9 +57,14 @@ function renderActions(order: WaterSolubleWorkOrder): string {
     ? withSkipPageRerender(renderButton({ label: '分配染厂', size: 'sm', variant: 'primary', action: { prefix: 'water-soluble', action: 'open-assign' }, className: '!px-2' })).replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}"`)
     : ''
   const task = order.taskId
-    ? '<span class="text-xs text-muted-foreground">任务已生成；统一执行详情入口待后续任务接入</span>'
+    ? withSkipPageRerender(renderButton({ label: '查看任务', size: 'sm', action: { prefix: 'water-soluble', action: 'open-task' }, className: '!px-2' }))
+      .replace('<button', `<button data-task-id="${escapeHtml(order.taskId)}"`)
     : '<span class="text-xs text-muted-foreground">任务入口未就绪</span>'
-  return `<div class="flex min-w-[210px] flex-wrap gap-2">${detail}${assign}${task}<span class="text-xs text-muted-foreground">执行、异常与交接在详情中查看</span></div>`
+  const handover = order.handoverOrderId
+    ? withSkipPageRerender(renderButton({ label: '查看交接', size: 'sm', action: { prefix: 'water-soluble', action: 'open-handover' }, className: '!px-2' }))
+      .replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}" data-handover-order-id="${escapeHtml(order.handoverOrderId)}"`)
+    : ''
+  return `<div class="flex min-w-[210px] flex-wrap gap-2">${detail}${assign}${task}${handover}<span class="text-xs text-muted-foreground">执行、异常与交接在详情中查看</span></div>`
 }
 
 const columns: TableColumn<WaterSolubleWorkOrder>[] = [
@@ -150,6 +156,8 @@ export function handleProcessWaterSolubleOrdersEvent(target: HTMLElement): boole
   const actionNode = target.closest<HTMLElement>('[data-water-soluble-action]')
   if (!actionNode) return false
   const action = actionNode.dataset.waterSolubleAction || ''
+  if (action === 'open-task') { const taskId = actionNode.dataset.taskId || ''; if (!taskId) return false; appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(taskId)}`); return true }
+  if (action === 'open-handover') { const handoverOrderId = actionNode.dataset.handoverOrderId || ''; if (!handoverOrderId) return false; appStore.navigate(`/fcs/pda/handover/${encodeURIComponent(handoverOrderId)}`); return true }
   if (action === 'open-detail' || action === 'open-assign') { state.overlay = { type: action === 'open-detail' ? 'detail' : 'assign', orderId: actionNode.dataset.orderId || '' }; refreshOverlay(); return true }
   if (action === 'close-overlay') { state.overlay = null; refreshOverlay(); return true }
   if (action === 'confirm-assign') { const factoryId = document.querySelector<HTMLSelectElement>('[data-water-soluble-field="assignFactoryId"]')?.value || ''; const result = assignWaterSolubleFactory(actionNode.dataset.orderId || '', factoryId); showToast(result.message, result.ok); if (result.ok) { state.overlay = null; refreshOverlay(); refreshList() } return true }
