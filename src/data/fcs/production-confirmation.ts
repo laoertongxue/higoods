@@ -414,7 +414,7 @@ function buildTaskAssignmentSnapshot(order: ProductionOrder): ProductionConfirma
       assignmentMode: resolveAssignmentModeLabel(task.assignmentMode),
       assignedAt: task.dispatchedAt || task.awardedAt,
       taskQty: task.scopeQty || task.qty,
-      qtyUnit: task.qtyUnit === 'METER' ? '米' : task.qtyUnit === 'BUNDLE' ? '打' : '件',
+      qtyUnit: task.qtyDisplayUnit?.trim() || (task.qtyUnit === 'METER' ? '米' : task.qtyUnit === 'BUNDLE' ? '打' : '件'),
       taskDeadline: task.taskDeadline,
       receiverName: task.receiverName,
       remark: task.processBusinessCode === 'POST_FINISHING'

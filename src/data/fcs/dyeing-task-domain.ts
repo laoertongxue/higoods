@@ -2179,15 +2179,26 @@ function seedPersistentWaterSolubleDyeWorkOrder(): void {
     assignmentMode: 'DIRECT',
     assignmentStatus: 'ASSIGNED',
     acceptanceStatus: 'ACCEPTED',
+    acceptedAt: createdAt,
+    acceptedBy: TEST_FACTORY_NAME,
+    awardedAt: undefined,
+    tenderId: undefined,
     qty: artifact.plannedQty,
     qtyUnit: 'METER',
     qtyDisplayUnit: artifact.plannedUnit || '米',
+    taskQrValue: buildTaskQrValue(taskId),
+    taskQrStatus: 'ACTIVE',
+    handoverOrderId: undefined,
+    handoverStatus: 'NOT_CREATED',
+    handoutStatus: 'PENDING',
     createdAt,
     updatedAt: createdAt,
     startedAt: undefined,
     finishedAt: undefined,
+    blockedAt: undefined,
     blockReason: undefined,
     blockRemark: undefined,
+    auditLogs: [],
     mockReceiveSummary: '染色加工单已派单，需先完成水溶。',
     mockExecutionSummary: '同一染厂先水溶后染色，中间不交出。',
     mockHandoverSummary: '完成染色及后处理后统一交出。',
@@ -3010,7 +3021,16 @@ export function completeDyeing(
   input: { inputQty?: number; outputQty?: number; operatorName?: string },
 ): DyeExecutionNodeRecord {
   const order = getMutableWorkOrder(dyeOrderId)
+  if (order.status !== 'DYEING') {
+    throw new Error(`当前状态为“${DYE_WORK_ORDER_STATUS_LABEL[order.status]}”，不能重复完成染色。`)
+  }
   const current = getMutableNodeRecord(dyeOrderId, 'DYE')
+  if (!current?.startedAt) {
+    throw new Error('请先开始染色，再确认完成。')
+  }
+  if (current.finishedAt) {
+    throw new Error('染色已经完成，请勿重复操作。')
+  }
   if (!current?.dyeVatNo?.trim()) {
     throw new Error('染色开始必须记录染缸编号')
   }
