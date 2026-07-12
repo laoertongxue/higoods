@@ -469,6 +469,23 @@ function renderPdaWaterSolubleDetail(order: WaterSolubleWorkOrder): string {
   return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
 }
 
+function renderWaterSolubleAccessDenied(): string {
+  const content = `
+    <div class="flex min-h-[760px] flex-col bg-background">
+      <div class="p-4">
+        <button class="inline-flex items-center rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted" data-pda-execd-action="back">
+          <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
+          返回
+        </button>
+      </div>
+      <div class="flex flex-1 items-center justify-center px-4 text-center text-sm text-muted-foreground">当前账号不能查看该工厂任务</div>
+    </div>
+  `
+  return getPdaSession()
+    ? renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
+    : content
+}
+
 function renderWaterSolubleOverlay(): string {
   const overlay = detailState.waterOverlay
   if (!overlay || overlay.taskId !== detailState.activeTaskId) return ''
@@ -3335,6 +3352,15 @@ export function renderPdaExecDetailPage(taskId: string): string {
 
   const waterSolubleOrder = task ? getWaterSolubleWorkOrderByTaskId(task.taskId) : null
   if (task && waterSolubleOrder) {
+    const session = getPdaSession()
+    if (
+      !session
+      || !task.assignedFactoryId
+      || session.factoryId !== task.assignedFactoryId
+      || session.factoryId !== waterSolubleOrder.factoryId
+    ) {
+      return renderWaterSolubleAccessDenied()
+    }
     return renderPdaWaterSolubleDetail(waterSolubleOrder)
   }
 

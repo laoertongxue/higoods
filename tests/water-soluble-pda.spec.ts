@@ -42,6 +42,193 @@ async function removeTodoModal(page: Page): Promise<void> {
   await page.locator('[data-pda-todo-modal="true"]').evaluateAll((nodes) => nodes.forEach((node) => node.remove()))
 }
 
+async function prepareWaterHandover(page: Page) {
+  await page.goto('/')
+  return page.evaluate(async () => {
+    const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
+    const handover = await import(/* @vite-ignore */ '/src/data/fcs/pda-handover-events.ts')
+    const pda = await import(/* @vite-ignore */ '/src/data/fcs/store-domain-pda.ts')
+    const order = water.listWaterSolubleWorkOrders().find((item) => item.status === 'PRODUCTION_PAUSED' && item.factoryId)
+    if (!order?.factoryId) throw new Error('缺少待主管处理的独立水溶加工单')
+    const admin = pda.listFactoryPdaUsers(order.factoryId).find((item) => item.status === 'ACTIVE' && item.roleId === 'ROLE_ADMIN')
+    if (!admin) throw new Error('缺少管理员账号')
+    const adminSession = pda.createPdaSessionFromUser(admin)
+    localStorage.setItem('fcs_pda_session', JSON.stringify(adminSession))
+    const resolved = water.executeWaterSolublePdaAction({
+      action: 'RESOLVE_PAUSE',
+      orderId: order.waterOrderId,
+      taskId: order.taskId,
+      expectedStatus: 'PRODUCTION_PAUSED',
+      expectedNode: 'SUPERVISOR',
+      decision: 'CONTINUE_WITH_ACTUAL_QTY',
+      actor: adminSession,
+    })
+    if (!resolved.ok || !resolved.order?.handoverQty) throw new Error(resolved.message)
+    const ensured = handover.ensureHandoverOrderForStartedTask(order.taskId)
+    const handoverUser = pda.listFactoryPdaUsers(order.factoryId).find((item) => item.status === 'ACTIVE' && item.roleId === 'ROLE_HANDOVER')
+      || await pda.createFactoryPdaUser({
+        factoryId: order.factoryId,
+        name: '任务3交接员',
+        loginId: `${order.factoryId}_task3_handover`,
+        password: '123456',
+        roleId: 'ROLE_HANDOVER',
+        createdBy: 'Playwright任务3',
+      })
+    localStorage.setItem('fcs_pda_session', JSON.stringify(pda.createPdaSessionFromUser(handoverUser)))
+    return {
+      orderId: order.waterOrderId,
+      taskId: order.taskId,
+      taskNo: order.taskNo,
+      taskQrValue: order.taskQrValue,
+      waterOrderNo: order.waterOrderNo,
+      materialCode: order.materialCode,
+      approvedQty: resolved.order.handoverQty,
+      logCount: resolved.order.actionLogs.length,
+      handoverOrderId: ensured.handoverOrderId,
+    }
+  })
+}
+
+async function openWaterHandoverForm(page: Page, handoverOrderId: string): Promise<void> {
+  await page.evaluate(async (id) => {
+    const store = await import(/* @vite-ignore */ '/src/state/store.ts')
+    store.appStore.navigate(`/fcs/pda/handover/${id}?action=new-record`)
+  }, handoverOrderId)
+  await page.getByRole('button', { name: '新增交出记录', exact: true }).click()
+  await expect(page.getByTestId('handout-new-record-form')).toBeVisible()
+}
+
+async function readWaterHandoverFacts(page: Page, orderId: string, handoverOrderId: string) {
+  return page.evaluate(async ({ currentOrderId, currentHandoverOrderId }) => {
+    const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
+    const handover = await import(/* @vite-ignore */ '/src/data/fcs/pda-handover-events.ts')
+    const order = water.getWaterSolubleWorkOrderById(currentOrderId)
+    const head = handover.getHandoverOrderById(currentHandoverOrderId)
+    return {
+      status: order?.status,
+      logCount: order?.actionLogs.length,
+      recordCount: handover.getPdaHandoverRecordsByHead(currentHandoverOrderId).length,
+      headCompletionStatus: head?.completionStatus,
+      headOrderStatus: head?.handoverOrderStatus,
+      submittedQtyTotal: head?.submittedQtyTotal,
+    }
+  }, { currentOrderId: orderId, currentHandoverOrderId: handoverOrderId })
+}
+
+test('独立水溶执行详情拒绝无会话和外厂账号且不泄露任务事实', async ({ page }) => {
+  await page.goto('/')
+  const seed = await page.evaluate(async () => {
+    const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
+    const pda = await import(/* @vite-ignore */ '/src/data/fcs/store-domain-pda.ts')
+    const order = water.listWaterSolubleWorkOrders().find((item) => item.factoryId === 'F090')
+      || water.listWaterSolubleWorkOrders().find((item) => item.factoryId)
+    if (!order?.factoryId) throw new Error('缺少已派厂独立水溶加工单')
+    const foreignUser = pda.listAllFactoryPdaUsers().find((item) => item.status === 'ACTIVE' && item.factoryId !== order.factoryId)
+    if (!foreignUser) throw new Error('缺少外厂账号')
+    return {
+      taskId: order.taskId,
+      materialCode: order.materialCode,
+      productionOrderNo: order.productionOrderNo,
+      plannedQtyText: `${order.plannedQty} ${order.qtyUnit}`,
+      foreignSession: pda.createPdaSessionFromUser(foreignUser),
+    }
+  })
+
+  await page.evaluate(() => localStorage.removeItem('fcs_pda_session'))
+  await page.goto(`/fcs/pda/exec/${seed.taskId}`)
+  await expect(page.getByText('当前账号不能查看该工厂任务', { exact: true })).toBeVisible()
+  await expect(page.locator('body')).not.toContainText(seed.materialCode)
+  await expect(page.locator('body')).not.toContainText(seed.productionOrderNo)
+  await expect(page.locator('body')).not.toContainText(seed.plannedQtyText)
+  await expect(page.locator('body')).not.toContainText('完整执行记录')
+
+  await page.evaluate((session) => localStorage.setItem('fcs_pda_session', JSON.stringify(session)), seed.foreignSession)
+  await page.goto(`/fcs/pda/exec/${seed.taskId}`)
+  await expect(page.getByText('当前账号不能查看该工厂任务', { exact: true })).toBeVisible()
+  await expect(page.locator('body')).not.toContainText(seed.materialCode)
+  await expect(page.locator('body')).not.toContainText(seed.productionOrderNo)
+  await expect(page.locator('body')).not.toContainText(seed.plannedQtyText)
+  await expect(page.locator('body')).not.toContainText('完整执行记录')
+})
+
+test('独立水溶交出离线失败保留草稿焦点和令牌，联网后只成功一次', async ({ page, context }) => {
+  const seed = await prepareWaterHandover(page)
+  await openWaterHandoverForm(page, seed.handoverOrderId)
+  const scanInput = page.locator('[data-pda-handoverd-field="newRecordScanCode"]')
+  const qtyInput = page.locator('[data-pda-handoverd-field="newRecordQty"]')
+  await scanInput.fill(seed.materialCode)
+  await qtyInput.fill(String(seed.approvedQty))
+  await qtyInput.focus()
+  const confirm = page.getByRole('button', { name: '确认交出', exact: true })
+  const token = await confirm.getAttribute('data-water-handover-confirm-token')
+  expect(token).toBeTruthy()
+  const before = await readWaterHandoverFacts(page, seed.orderId, seed.handoverOrderId)
+
+  await context.setOffline(true)
+  await confirm.click()
+  await expect(page.locator('#pda-handover-detail-toast-root')).toContainText('当前网络不可用，请联网后重试')
+  expect(await readWaterHandoverFacts(page, seed.orderId, seed.handoverOrderId)).toEqual(before)
+  await expect(scanInput).toHaveValue(seed.materialCode)
+  await expect(qtyInput).toHaveValue(String(seed.approvedQty))
+  await expect(qtyInput).toBeFocused()
+  await expect(confirm).toHaveAttribute('data-water-handover-confirm-token', token!)
+
+  await context.setOffline(false)
+  await confirm.click()
+  await expect.poll(() => readWaterHandoverFacts(page, seed.orderId, seed.handoverOrderId)).toMatchObject({
+    status: 'HANDOVER_WAIT_RECEIVE',
+    recordCount: 1,
+  })
+  const afterSuccess = await readWaterHandoverFacts(page, seed.orderId, seed.handoverOrderId)
+
+  await page.locator('body').evaluate(async (body, data) => {
+    const button = document.createElement('button')
+    button.dataset.pdaHandoverdAction = 'submit-new-handout-record'
+    button.dataset.handoverId = data.handoverOrderId
+    button.dataset.waterHandoverConfirmToken = data.token
+    body.appendChild(button)
+    const detail = await import(/* @vite-ignore */ '/src/pages/pda-handover-detail.ts')
+    detail.handlePdaHandoverDetailEvent(button)
+  }, { handoverOrderId: seed.handoverOrderId, token })
+  await expect(page.locator('#pda-handover-detail-toast-root')).toContainText(/失效|重复|已交出|已完成/)
+  expect(await readWaterHandoverFacts(page, seed.orderId, seed.handoverOrderId)).toEqual(afterSuccess)
+})
+
+test('独立水溶交出错误扫码阻断且不消费草稿和确认令牌', async ({ page }) => {
+  const seed = await prepareWaterHandover(page)
+  await openWaterHandoverForm(page, seed.handoverOrderId)
+  const form = page.getByTestId('handout-new-record-form')
+  const scanInput = form.locator('[data-pda-handoverd-field="newRecordScanCode"]')
+  const qtyInput = form.locator('[data-pda-handoverd-field="newRecordQty"]')
+  await scanInput.fill('WRONG-CODE')
+  await qtyInput.fill(String(seed.approvedQty))
+  await scanInput.focus()
+  const confirm = form.getByRole('button', { name: '确认交出', exact: true })
+  const token = await confirm.getAttribute('data-water-handover-confirm-token')
+  const before = await readWaterHandoverFacts(page, seed.orderId, seed.handoverOrderId)
+  await confirm.click()
+  await expect(page.locator('#pda-handover-detail-toast-root')).toContainText(/当前任务|加工单|物料/)
+  expect(await readWaterHandoverFacts(page, seed.orderId, seed.handoverOrderId)).toEqual(before)
+  await expect(scanInput).toHaveValue('WRONG-CODE')
+  await expect(qtyInput).toHaveValue(String(seed.approvedQty))
+  await expect(scanInput).toBeFocused()
+  await expect(confirm).toHaveAttribute('data-water-handover-confirm-token', token!)
+})
+
+for (const scanField of ['taskQrValue', 'taskNo', 'waterOrderNo', 'materialCode'] as const) {
+  test(`独立水溶交出接受合法扫码字段 ${scanField}`, async ({ page }) => {
+    const seed = await prepareWaterHandover(page)
+    await openWaterHandoverForm(page, seed.handoverOrderId)
+    await page.locator('[data-pda-handoverd-field="newRecordScanCode"]').fill(seed[scanField])
+    await page.locator('[data-pda-handoverd-field="newRecordQty"]').fill(String(seed.approvedQty))
+    await page.getByRole('button', { name: '确认交出', exact: true }).click()
+    await expect.poll(() => readWaterHandoverFacts(page, seed.orderId, seed.handoverOrderId)).toMatchObject({
+      status: 'HANDOVER_WAIT_RECEIVE',
+      recordCount: 1,
+    })
+  })
+}
+
 test('操作员离线完成独立水溶可原输入重试，重复点击只写一次且主管动作不可注入', async ({ page, context }) => {
   const seed = await bootstrapWaterSession(page, 'ROLE_OPERATOR')
   await page.goto(`/fcs/pda/exec/${seed.taskId}`)

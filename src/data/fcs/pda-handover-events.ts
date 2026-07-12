@@ -4186,6 +4186,21 @@ function resolvePostFinishingLineForCreate(
   return matched
 }
 
+export function validateWaterSolubleHandoverScan(head: PdaHandoverHead, scanCode: string): string | null {
+  if (head.sourceBusinessType !== 'WATER_SOLUBLE_WORK_ORDER') return null
+  const order = getWaterSolubleWorkOrderByTaskId(head.taskId)
+  if (!order || order.waterOrderId !== head.sourceDocId) {
+    return '水溶加工单与当前交出单不一致，不能交出。'
+  }
+  const normalized = scanCode.trim()
+  const allowedValues = [order.taskQrValue, order.taskNo, order.waterOrderNo, order.materialCode]
+    .map((value) => value.trim())
+    .filter(Boolean)
+  return normalized && allowedValues.includes(normalized)
+    ? null
+    : '扫码不匹配，请扫描当前任务码、水溶加工单号或物料码。'
+}
+
 export function createFactoryHandoverRecord(input: {
   handoverOrderId: string
   submittedQty: number
@@ -4206,6 +4221,7 @@ export function createFactoryHandoverRecord(input: {
   skuSize?: string
   pieceName?: string
   cutPieceLines?: PdaCutPieceHandoutLine[]
+  scanCode?: string
 }): PdaHandoverRecord {
   const head = getHandoverOrderById(input.handoverOrderId)
   if (!head || head.headType !== 'HANDOUT') {
@@ -4221,6 +4237,8 @@ export function createFactoryHandoverRecord(input: {
     ? getWaterSolubleWorkOrderByTaskId(head.taskId)
     : null
   if (waterOrder) {
+    const scanError = input.scanCode === undefined ? null : validateWaterSolubleHandoverScan(head, input.scanCode)
+    if (scanError) throw new Error(scanError)
     if (getPdaHandoverRecordsByHead(head.handoverId).length > 0 || waterOrder.status !== 'WAIT_HANDOVER') {
       throw new Error('该水溶加工单已交出，请勿重复提交。')
     }

@@ -49,6 +49,40 @@ async function navigateInApp(page: Page, path: string): Promise<void> {
   }, path)
 }
 
+async function arrangePfosOrderForRole(
+  page: Page,
+  status: 'WAIT_MATERIAL' | 'WAIT_WATER_SOLUBLE' | 'WATER_SOLUBLE_IN_PROGRESS' | 'PRODUCTION_PAUSED' | 'WAIT_HANDOVER',
+  roleId: 'ROLE_OPERATOR' | 'ROLE_PRODUCTION' | 'ROLE_HANDOVER' | 'ROLE_ADMIN',
+): Promise<{ orderId: string; factoryId: string }> {
+  await page.goto('/')
+  return page.evaluate(async ({ targetStatus, targetRole }) => {
+    const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
+    const pda = await import(/* @vite-ignore */ '/src/data/fcs/store-domain-pda.ts')
+    const store = await import(/* @vite-ignore */ '/src/state/store.ts')
+    let order = water.listWaterSolubleWorkOrders().find((item) => item.status === targetStatus && item.factoryId)
+    if (!order && targetStatus === 'WAIT_MATERIAL') {
+      const unassigned = water.listWaterSolubleWorkOrders().find((item) => item.status === 'WAIT_FACTORY_ASSIGNMENT')
+      if (!unassigned) throw new Error('缺少可派厂水溶单')
+      const result = water.assignWaterSolubleFactory(unassigned.waterOrderId, 'F090')
+      if (!result.ok || !result.order) throw new Error(result.message)
+      order = result.order
+    }
+    if (!order && (targetStatus === 'WAIT_WATER_SOLUBLE' || targetStatus === 'WAIT_HANDOVER')) {
+      const paused = water.listWaterSolubleWorkOrders().find((item) => item.status === 'PRODUCTION_PAUSED' && item.factoryId)
+      if (!paused) throw new Error('缺少生产暂停水溶单')
+      const result = water.resolveWaterSolublePause(paused.waterOrderId, targetStatus === 'WAIT_HANDOVER' ? 'CONTINUE_WITH_ACTUAL_QTY' : 'CONTINUE_PROCESSING')
+      if (!result.ok || !result.order) throw new Error(result.message)
+      order = result.order
+    }
+    if (!order?.factoryId || order.status !== targetStatus) throw new Error(`无法构造 ${targetStatus} 水溶单`)
+    const user = pda.listFactoryPdaUsers(order.factoryId).find((item) => item.status === 'ACTIVE' && item.roleId === targetRole)
+      || await pda.createFactoryPdaUser({ factoryId: order.factoryId, name: `任务3-${targetRole}`, loginId: `${order.factoryId}_task3_${targetRole}`, password: '123456', roleId: targetRole, createdBy: 'Playwright任务3' })
+    localStorage.setItem('fcs_pda_session', JSON.stringify(pda.createPdaSessionFromUser(user)))
+    store.appStore.navigate('/fcs/craft/dyeing/water-soluble-orders')
+    return { orderId: order.waterOrderId, factoryId: order.factoryId }
+  }, { targetStatus: status, targetRole: roleId })
+}
+
 async function openPausedSupervisor(page: Page): Promise<void> {
   await loginForSeededOrder(page, 'PRODUCTION_PAUSED', ['ROLE_PRODUCTION', 'ROLE_ADMIN'])
   await page.goto('/fcs/craft/dyeing/water-soluble-orders')
@@ -258,7 +292,7 @@ test('PFOS 同厂操作员不能查看或注入主管处理动作', async ({ pag
     button.click()
     button.remove()
   }, arranged.orderId)
-  await expect(page.getByText(/当前角色不能处理生产暂停/)).toBeVisible()
+  await expect(page.getByText(/当前账号不能处理水溶生产暂停/)).toBeVisible()
   await expect(pausedCard).toContainText('生产暂停')
 })
 
@@ -278,8 +312,38 @@ test('PFOS 同厂操作员完成后不能查看或注入交出动作', async ({ 
     button.click()
     button.remove()
   }, orderId)
-  await expect(page.getByText(/当前角色不能确认交出/)).toBeVisible()
+  await expect(page.getByText(/当前账号不能执行水溶交出/)).toBeVisible()
   await expect(handoverCard).toContainText('待交出')
+})
+
+for (const roleId of ['ROLE_PRODUCTION', 'ROLE_ADMIN'] as const) {
+  test(`PFOS ${roleId} 在普通执行状态不显示操作员按钮`, async ({ page }) => {
+    const actionByStatus = {
+      WAIT_MATERIAL: '确认原料到位',
+      WAIT_WATER_SOLUBLE: '开始水溶',
+      WATER_SOLUBLE_IN_PROGRESS: '上报完成数量',
+    } as const
+    for (const [status, actionLabel] of Object.entries(actionByStatus)) {
+      const arranged = await arrangePfosOrderForRole(page, status as keyof typeof actionByStatus, roleId)
+      const card = page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${arranged.orderId}"]`)
+      await expect(card).toBeVisible()
+      await expect(card.getByRole('button', { name: actionLabel, exact: true })).toHaveCount(0)
+    }
+  })
+}
+
+test('PFOS 交接员只在待交出显示交出动作且管理员保留主管和交接兜底', async ({ page }) => {
+  const handover = await arrangePfosOrderForRole(page, 'WAIT_HANDOVER', 'ROLE_HANDOVER')
+  await expect(page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${handover.orderId}"]`).getByRole('button', { name: '现在交出', exact: true })).toBeVisible()
+  for (const label of ['确认原料到位', '开始水溶', '上报完成数量', '主管处理']) {
+    await expect(page.getByRole('button', { name: label, exact: true })).toHaveCount(0)
+  }
+
+  const paused = await arrangePfosOrderForRole(page, 'PRODUCTION_PAUSED', 'ROLE_ADMIN')
+  await expect(page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${paused.orderId}"]`).getByRole('button', { name: '主管处理', exact: true })).toBeVisible()
+
+  const adminHandover = await arrangePfosOrderForRole(page, 'WAIT_HANDOVER', 'ROLE_ADMIN')
+  await expect(page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${adminHandover.orderId}"]`).getByRole('button', { name: '现在交出', exact: true })).toBeVisible()
 })
 
 test('PFOS 短量必须填写真实原因并保留日志', async ({ page }) => {
@@ -327,7 +391,8 @@ test('PFOS 主管选择继续补做并局部刷新', async ({ page }) => {
   await rememberMain(page)
   await confirmSupervisorDecision(page, '继续补做')
   await expect(page.getByTestId('factory-water-soluble-card').filter({ hasText: '待水溶' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '开始水溶' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '开始水溶' })).toHaveCount(0)
+  await expect(page.getByTestId('factory-water-soluble-card').filter({ hasText: '待水溶' })).toContainText('等待有权限角色处理')
   await expectSameMain(page)
 })
 

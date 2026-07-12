@@ -22,6 +22,7 @@ import {
   findPdaPickupRecord,
   getPdaPickupRecordsByHead,
   getPdaHandoverRecordsByHead,
+  validateWaterSolubleHandoverScan,
   reportPdaHandoverQtyObjection,
   rejectPdaPickupRecord,
   markPdaHandoutHeadCompleted,
@@ -2355,6 +2356,21 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       showPdaHandoverDetailToast('请先扫码')
       return true
     }
+    if (isWaterSolubleHandoverHead(head)) {
+      const scanError = validateWaterSolubleHandoverScan(head, scanCode)
+      if (scanError) {
+        actionNode.dataset.skipPageRerender = 'true'
+        showPdaHandoverDetailToast(scanError)
+        document.querySelector<HTMLInputElement>('[data-pda-handoverd-field="newRecordScanCode"]')?.focus()
+        return true
+      }
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        actionNode.dataset.skipPageRerender = 'true'
+        showPdaHandoverDetailToast('当前网络不可用，请联网后重试')
+        document.querySelector<HTMLInputElement>('[data-pda-handoverd-field="newRecordQty"]')?.focus()
+        return true
+      }
+    }
     if (!Number.isFinite(submittedQty) || submittedQty <= 0) {
       showPdaHandoverDetailToast('请先填写有效交出数量')
       return true
@@ -2371,6 +2387,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
         factoryRemark: [`扫码：${scanCode}`, detailState.newRecordRemark.trim()].filter(Boolean).join('；') || undefined,
         factoryProofFiles: [],
         objectType: detailState.newRecordObjectType,
+        scanCode,
       })
 
       appendTaskAudit(

@@ -16,6 +16,11 @@ import {
 } from '../../../data/fcs/water-soluble-task-domain.ts'
 import { getPdaSession } from '../../../data/fcs/store-domain-pda.ts'
 import { ensureHandoverOrderForStartedTask } from '../../../data/fcs/pda-handover-events.ts'
+import {
+  canWaterSolubleRolePerform,
+  WATER_SOLUBLE_ROLE_ERROR,
+  type WaterSolublePdaRoleAction,
+} from '../../../data/fcs/water-soluble-pda-actor.ts'
 import { getPdaRuntimeContext } from '../../pda-runtime.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
@@ -26,17 +31,6 @@ type Overlay =
   | { type: 'supervisor-confirm'; orderId: string; decision: WaterSolubleSupervisorDecision }
   | null
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
-type WaterSolubleRoleAction = 'OPERATE' | 'SUPERVISE' | 'HANDOVER'
-const ACTION_ALLOWED_ROLE_IDS: Record<WaterSolubleRoleAction, readonly string[]> = {
-  OPERATE: ['ROLE_OPERATOR', 'ROLE_PRODUCTION', 'ROLE_ADMIN'],
-  SUPERVISE: ['ROLE_PRODUCTION', 'ROLE_ADMIN'],
-  HANDOVER: ['ROLE_HANDOVER', 'ROLE_ADMIN'],
-}
-const ACTION_ROLE_ERROR: Record<WaterSolubleRoleAction, string> = {
-  OPERATE: '当前角色不能执行水溶操作。',
-  SUPERVISE: '当前角色不能处理生产暂停。',
-  HANDOVER: '当前角色不能确认交出。',
-}
 const state = {
   status: '',
   page: 1,
@@ -75,10 +69,6 @@ function normalizePageSize(value: unknown): number {
   return PAGE_SIZE_OPTIONS.includes(normalized as (typeof PAGE_SIZE_OPTIONS)[number]) ? normalized : 10
 }
 
-function canRolePerformWaterSolubleAction(roleId: string, action: WaterSolubleRoleAction): boolean {
-  return ACTION_ALLOWED_ROLE_IDS[action].includes(roleId)
-}
-
 function scopedOrders(): WaterSolubleWorkOrder[] {
   const runtime = getPdaRuntimeContext()
   const requestedFactoryId = getRequestedFactoryId()
@@ -91,7 +81,7 @@ function scopedOrders(): WaterSolubleWorkOrder[] {
   })
 }
 
-function getAuthorizedOrder(orderId: string, expectedStatuses?: WaterSolubleWorkOrder['status'][], roleAction?: WaterSolubleRoleAction): { order: WaterSolubleWorkOrder | null; message: string } {
+function getAuthorizedOrder(orderId: string, expectedStatuses?: WaterSolubleWorkOrder['status'][], roleAction?: WaterSolublePdaRoleAction): { order: WaterSolubleWorkOrder | null; message: string } {
   const runtime = getPdaRuntimeContext()
   if (!runtime) return { order: null, message: '当前为管理预览，只能查看，不能执行工厂动作。' }
   const order = getWaterSolubleWorkOrderById(orderId)
@@ -99,8 +89,8 @@ function getAuthorizedOrder(orderId: string, expectedStatuses?: WaterSolubleWork
   if (!order.factoryId || order.factoryId !== runtime.factoryId) {
     return { order: null, message: '当前账号不属于该加工单工厂，不能执行此操作。' }
   }
-  if (roleAction && !canRolePerformWaterSolubleAction(runtime.roleId, roleAction)) {
-    return { order: null, message: ACTION_ROLE_ERROR[roleAction] }
+  if (roleAction && !canWaterSolubleRolePerform(runtime.roleId, roleAction)) {
+    return { order: null, message: WATER_SOLUBLE_ROLE_ERROR[roleAction] }
   }
   if (expectedStatuses && !expectedStatuses.includes(order.status)) {
     return { order: null, message: `当前状态为“${WATER_SOLUBLE_STATUS_LABEL[order.status]}”，不能执行此操作。` }
@@ -120,7 +110,7 @@ function lastLog(order: WaterSolubleWorkOrder): string {
   return log ? `${escapeHtml(log.action)} · ${escapeHtml(log.at)}` : '暂无操作'
 }
 
-function getRoleActionForStatus(status: WaterSolubleWorkOrder['status']): WaterSolubleRoleAction | null {
+function getRoleActionForStatus(status: WaterSolubleWorkOrder['status']): WaterSolublePdaRoleAction | null {
   if (['WAIT_MATERIAL', 'WAIT_WATER_SOLUBLE', 'WATER_SOLUBLE_IN_PROGRESS'].includes(status)) return 'OPERATE'
   if (status === 'PRODUCTION_PAUSED') return 'SUPERVISE'
   if (status === 'WAIT_HANDOVER') return 'HANDOVER'
@@ -130,7 +120,7 @@ function getRoleActionForStatus(status: WaterSolubleWorkOrder['status']): WaterS
 function renderPrimaryAction(order: WaterSolubleWorkOrder, roleId: string | null): string {
   const roleAction = getRoleActionForStatus(order.status)
   if (!roleId) return '<div class="rounded-md bg-muted px-3 py-2 text-center text-sm text-muted-foreground">只读查看</div>'
-  if (roleAction && !canRolePerformWaterSolubleAction(roleId, roleAction)) return '<div class="rounded-md bg-muted px-3 py-2 text-center text-sm text-muted-foreground">等待有权限角色处理</div>'
+  if (roleAction && !canWaterSolubleRolePerform(roleId, roleAction)) return '<div class="rounded-md bg-muted px-3 py-2 text-center text-sm text-muted-foreground">等待有权限角色处理</div>'
   const current = getWaterSolubleCurrentAction(order.waterOrderId)
   if (!current) return ''
   if (order.status === 'PRODUCTION_PAUSED') return withSkipPageRerender(renderButton({ label: '主管处理', variant: 'primary', action: { prefix: 'factory-water-soluble', action: 'open-supervisor' }, className: 'w-full' })).replace('<button', `<button data-order-id="${escapeHtml(order.waterOrderId)}"`)
@@ -218,7 +208,7 @@ function overlay(): string {
     completion: ['WATER_SOLUBLE_IN_PROGRESS'],
     'completion-overage': ['WATER_SOLUBLE_IN_PROGRESS'],
   }
-  const roleActionByOverlay: Partial<Record<NonNullable<Overlay>['type'], WaterSolubleRoleAction>> = {
+  const roleActionByOverlay: Partial<Record<NonNullable<Overlay>['type'], WaterSolublePdaRoleAction>> = {
     supervisor: 'SUPERVISE',
     'supervisor-confirm': 'SUPERVISE',
     handover: 'HANDOVER',
@@ -356,7 +346,7 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     return true
   }
 
-  const accessRuleByAction: Record<string, { statuses: WaterSolubleWorkOrder['status'][]; roleAction: WaterSolubleRoleAction }> = {
+  const accessRuleByAction: Record<string, { statuses: WaterSolubleWorkOrder['status'][]; roleAction: WaterSolublePdaRoleAction }> = {
     'material-ready': { statuses: ['WAIT_MATERIAL'], roleAction: 'OPERATE' },
     start: { statuses: ['WAIT_WATER_SOLUBLE'], roleAction: 'OPERATE' },
     'confirm-supervisor-decision': { statuses: ['PRODUCTION_PAUSED'], roleAction: 'SUPERVISE' },
