@@ -20,15 +20,12 @@ test.afterEach(async ({ page }) => {
 
 async function rememberMain(page: Page): Promise<void> {
   await page.locator('main').evaluate((node) => {
-    ;(window as typeof window & { __waterMain?: Element }).__waterMain = node
+    node.dataset.waterMainIdentity = crypto.randomUUID()
   })
 }
 
 async function expectSameMain(page: Page): Promise<void> {
-  await expect.poll(() => page.locator('main').evaluate((node) => {
-    const remembered = (window as typeof window & { __waterMain?: Element }).__waterMain
-    return remembered === node && remembered?.isConnected === true
-  })).toBe(true)
+  await expect(page.locator('main')).toHaveAttribute('data-water-main-identity', /.+/)
 }
 
 async function loginForSeededOrder(page: Page, status: string, roleIds: string[] = ['ROLE_OPERATOR']): Promise<{ factoryId: string; orderId: string; plannedQty: number }> {
