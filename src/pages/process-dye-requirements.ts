@@ -42,6 +42,9 @@ interface LinkedDyeOrderSummary {
 interface DyeRequirementDemand {
   demandId: string
   sourceProductionOrderId: string
+  bomItemId: string
+  requiresWaterSoluble: boolean
+  processRoute: Array<'WATER_SOLUBLE' | 'DYE'>
   spuCode: string
   spuName: string
   techPackVersion: string
@@ -87,6 +90,9 @@ const RULES = [
 const DEMANDS: DyeRequirementDemand[] = listPrepRequirementDemands('DYE').map((item) => ({
   demandId: item.demandId,
   sourceProductionOrderId: item.sourceProductionOrderId,
+  bomItemId: item.bomItemId,
+  requiresWaterSoluble: item.requiresWaterSoluble,
+  processRoute: [...item.processRoute],
   spuCode: item.spuCode,
   spuName: item.spuName,
   techPackVersion: item.techPackVersion,
@@ -341,6 +347,7 @@ function renderDemandRow(demand: DyeRequirementDemand): string {
           <div class="flex flex-wrap items-center gap-2">
             <h3 class="font-mono text-sm font-semibold">${escapeHtml(demand.demandId)}</h3>
             ${renderBadge(status, STATUS_CLASS[status])}
+            ${demand.requiresWaterSoluble ? renderBadge('需先水溶', 'border-blue-200 bg-blue-50 text-blue-700') : ''}
             ${renderBadge(`来源生产单 ${demand.sourceProductionOrderId}`, 'border-slate-200 bg-slate-50 text-slate-700')}
           </div>
           <p class="mt-2 text-sm font-medium">${escapeHtml(demand.spuCode)} · ${escapeHtml(demand.spuName)}</p>
@@ -350,6 +357,7 @@ function renderDemandRow(demand: DyeRequirementDemand): string {
             <div><span>物料名称：</span><span class="text-foreground">${escapeHtml(demand.materialName)}</span></div>
             <div><span>需求数量：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(demand.requiredQty, demand.unit))}</span></div>
             <div class="md:col-span-2 xl:col-span-2"><span>染色要求：</span><span class="text-foreground">${escapeHtml(demand.dyeRequirement)}</span></div>
+            <div><span>工艺路线：</span><span class="font-medium text-foreground">${demand.requiresWaterSoluble ? '水溶 → 染色' : '染色'}</span></div>
           </div>
           <div class="mt-3 flex flex-wrap gap-2 border-t pt-3">
             <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-dye-req-action="open-detail" data-demand-id="${escapeHtml(demand.demandId)}">查看详情</button>
@@ -494,6 +502,8 @@ function renderDetailDrawer(): string {
               <div><span class="text-muted-foreground">需求数量：</span>${escapeHtml(formatQty(demand.requiredQty, demand.unit))}</div>
               <div><span class="text-muted-foreground">单位：</span>${escapeHtml(demand.unit)}</div>
               <div class="md:col-span-2"><span class="text-muted-foreground">染色要求：</span>${escapeHtml(demand.dyeRequirement)}</div>
+              <div><span class="text-muted-foreground">BOM 物料标识：</span><span class="font-mono">${escapeHtml(demand.bomItemId)}</span></div>
+              <div><span class="text-muted-foreground">工艺路线：</span>${demand.requiresWaterSoluble ? '水溶 → 染色（固定顺序）' : '染色'}</div>
               <div><span class="text-muted-foreground">来源 BOM 项：</span>${escapeHtml(demand.sourceBomItem)}</div>
               <div><span class="text-muted-foreground">来源技术资料版本：</span>${escapeHtml(demand.sourceTechPackVersion)}</div>
             </div>

@@ -190,6 +190,9 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
     : isWoolScenario
       ? ['WOOL']
       : ['CUT_PANEL', 'SEW']
+  const isWaterSolubleDyeDemo = demand.spuCode === 'SPU-TSHIRT-081'
+  const waterSolubleDyeBomItemId = `${seed.technicalVersionId}-bom-water-soluble-dye`
+  const waterSolubleOnlyBomItemId = `${seed.technicalVersionId}-bom-water-soluble-only`
   const processEntries = scenario === 'WHOLE_WOOL'
     ? [
         {
@@ -312,6 +315,39 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
               outputValueUnit: '产值/件',
             },
           ]
+
+  const waterSolubleDyeProcessEntries = isWaterSolubleDyeDemo
+    ? [
+        {
+          id: `${seed.technicalVersionId}-process-water-soluble`,
+          entryType: 'PROCESS_BASELINE' as const,
+          stageCode: 'PREP' as const,
+          stageName: '准备阶段',
+          processCode: 'WATER_SOLUBLE',
+          processName: '水溶',
+          assignmentGranularity: 'ORDER' as const,
+          defaultDocType: 'TASK' as const,
+          taskTypeMode: 'PROCESS' as const,
+          isSpecialCraft: false,
+          linkedBomItemIds: [waterSolubleOnlyBomItemId, waterSolubleDyeBomItemId],
+          remark: '仅水溶物料生成独立水溶加工单；同物料还需染色时由同一染色厂连续加工。',
+        },
+        {
+          id: `${seed.technicalVersionId}-process-dye`,
+          entryType: 'PROCESS_BASELINE' as const,
+          stageCode: 'PREP' as const,
+          stageName: '准备阶段',
+          processCode: 'DYE',
+          processName: '染色',
+          assignmentGranularity: 'ORDER' as const,
+          defaultDocType: 'DEMAND' as const,
+          taskTypeMode: 'PROCESS' as const,
+          isSpecialCraft: false,
+          linkedBomItemIds: [waterSolubleDyeBomItemId],
+          remark: '水溶完成后由同一染色厂继续染色，中间不交出。',
+        },
+      ]
+    : []
 
   const resolveColorMaterialInfo = (color: string, index: number) => {
     const colorKey = color.trim().toLowerCase()
@@ -488,7 +524,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         : scenario === 'GARMENT_HEAT_TRANSFER'
           ? '纯色 T-shirt 半成品烫画技术包，按成衣半成品生成特殊工艺任务。'
           : '来源生产需求单当前生效技术包。',
-    processEntries,
+    processEntries: [...processEntries, ...waterSolubleDyeProcessEntries],
     processRouteStatus: 'CONFIRMED',
     processRouteConfirmedBy: '系统初始化',
     processRouteConfirmedAt: demand.updatedAt,
@@ -514,6 +550,41 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         linkedPatternIds: [patternId],
         usageProcessCodes: mainUsageProcessCodes,
       },
+      ...(isWaterSolubleDyeDemo
+        ? [{
+            id: waterSolubleOnlyBomItemId,
+            type: '辅料',
+            name: '仅水溶花边',
+            spec: '12 毫米 / 本白',
+            colorLabel: '本白',
+            materialCode: 'MAT-WATER-ONLY-081',
+            unit: '米',
+            unitConsumption: 0.6,
+            lossRate: 0.05,
+            supplier: '生产需求单指定',
+            applicableSkuCodes: [...allSkuCodes],
+            linkedPatternIds: [patternId],
+            usageProcessCodes: ['WATER_SOLUBLE'],
+            waterSolubleRequirement: '是',
+            dyeRequirement: '无',
+          }, {
+            id: waterSolubleDyeBomItemId,
+            type: '辅料',
+            name: '水溶染色花边',
+            spec: '15 毫米 / 本白',
+            colorLabel: '目标色按生产需求',
+            materialCode: 'MAT-WATER-DYE-081',
+            unit: '米',
+            unitConsumption: 0.8,
+            lossRate: 0.05,
+            supplier: '生产需求单指定',
+            applicableSkuCodes: [...allSkuCodes],
+            linkedPatternIds: [patternId],
+            usageProcessCodes: ['WATER_SOLUBLE', 'DYE'],
+            waterSolubleRequirement: '是',
+            dyeRequirement: '匹染',
+          }]
+        : []),
     ],
     qualityRules: [],
     colorMaterialMappings: colors.map((color, index) => ({

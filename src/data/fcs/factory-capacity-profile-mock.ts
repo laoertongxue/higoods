@@ -206,10 +206,8 @@ function cloneEquipment(equipment: FactoryCapacityEquipment): FactoryCapacityEqu
   }
 }
 
-function createEmptyProfile(factoryId: string): FactoryCapacityProfile {
-  const factory = getFactoryMasterRecordById(factoryId)
-  const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
-  const capabilityItems = (factory?.selectedCapabilities || []).map((item) => ({
+function buildFactoryCapabilityItems(factory: Factory): FactoryCapacityProfile['capabilityItems'] {
+  const items = (factory.selectedCapabilities || []).map((item) => ({
     processCode: item.processCode,
     processName: item.processName,
     craftCode: item.craftCode,
@@ -217,6 +215,31 @@ function createEmptyProfile(factoryId: string): FactoryCapacityProfile {
     canReceiveTask: item.canReceiveTask,
     capacityManaged: item.capacityManaged,
   }))
+  const knownKeys = new Set(items.map((item) => `${item.processCode}::${item.craftCode}`))
+  factory.processAbilities
+    .filter((ability) => ability.processCode === 'WATER_SOLUBLE')
+    .flatMap((ability) => resolveAbilitySupportedRows(ability))
+    .forEach((row) => {
+      const key = `${row.processCode}::${row.craftCode}`
+      if (knownKeys.has(key)) return
+      const ability = factory.processAbilities.find((item) => item.processCode === row.processCode)
+      items.push({
+        processCode: row.processCode,
+        processName: row.processName,
+        craftCode: row.craftCode,
+        craftName: row.craftName,
+        canReceiveTask: ability?.canReceiveTask !== false,
+        capacityManaged: ability?.capacityManaged !== false,
+      })
+      knownKeys.add(key)
+    })
+  return items
+}
+
+function createEmptyProfile(factoryId: string): FactoryCapacityProfile {
+  const factory = getFactoryMasterRecordById(factoryId)
+  const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
+  const capabilityItems = factory ? buildFactoryCapabilityItems(factory) : []
   const machineItems = (factory?.machines || []).map((item) => ({
     machineName: item.machineName,
     machineNo: item.machineNo,
@@ -330,7 +353,7 @@ function getSeedNumericValue(
 
 function resolveEquipmentEfficiencyUnit(row: ProcessCraftDictRow): string {
   if (row.processCode === 'PRINT') return '米/分钟'
-  if (row.processCode === 'DYE') return '批/分钟'
+  if (row.processCode === 'DYE' || row.processCode === 'WATER_SOLUBLE') return '批/分钟'
   return '件/分钟'
 }
 
@@ -338,7 +361,7 @@ function resolveEquipmentEfficiencyUnitByCodes(processCode: string, craftCode: s
   const row = getProcessCraftDictRowByCode(craftCode)
   if (row) return resolveEquipmentEfficiencyUnit(row)
   if (processCode === 'PRINT') return '米/分钟'
-  if (processCode === 'DYE') return '批/分钟'
+  if (processCode === 'DYE' || processCode === 'WATER_SOLUBLE') return '批/分钟'
   return '件/分钟'
 }
 
@@ -585,6 +608,7 @@ function ensureProfile(factoryId: string): FactoryCapacityProfile {
     factoryId,
     factoryName: factory.name,
     factoryType: current.factoryType || factory.factoryType,
+    capabilityItems: buildFactoryCapabilityItems(factory),
     updatedAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
     entries: supportedRows.map((row) => normalizeEntry(existingEntryMap.get(`${row.processCode}:${row.craftCode}`), row, factoryId, preserveEmptyValues)),
   }

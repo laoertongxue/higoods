@@ -79,6 +79,7 @@ import {
   generatePieceInstancesFromColorQuantities,
   summarizePieceInstances,
   findConfiguredPieceInstancesRemoved,
+  findBomItemMissingUnitForWaterSoluble,
   getPatternPieceInstanceSpecialCraftOptions,
   PATTERN_CRAFT_POSITION_OPTIONS,
   hasEnabledColorPiece,
@@ -444,9 +445,17 @@ function buildUnconfirmedRouteDraft(
   operatorName: string,
   updatedAt: string,
 ): ProcessRouteDraftState {
+  const techniques = normalizeTechniqueRoutes(flattenTechniqueRouteGroups(groups, operatorName, updatedAt))
+  const waterSoluble = techniques.find((item) => item.processCode === 'WATER_SOLUBLE')
+  const dye = techniques.find((item) => item.processCode === 'DYE')
+  const dyeBomItemIds = new Set(dye?.linkedBomItemIds ?? [])
+  const sharesBomItem = (waterSoluble?.linkedBomItemIds ?? []).some((id) => dyeBomItemIds.has(id))
+  if (waterSoluble && dye && sharesBomItem && waterSoluble.routeStepNo >= dye.routeStepNo) {
+    return normalizeRouteDraft(input)
+  }
   return {
     ...input,
-    techniques: normalizeTechniqueRoutes(flattenTechniqueRouteGroups(groups, operatorName, updatedAt)),
+    techniques,
     processRouteStatus: 'UNCONFIRMED',
     processRouteConfirmedBy: '',
     processRouteConfirmedAt: '',
@@ -2193,6 +2202,10 @@ function handleTechPackField(
     state.newBomItem.spec = value
     return true
   }
+  if (field === 'new-bom-unit') {
+    state.newBomItem.unit = value
+    return true
+  }
   if (field === 'new-bom-usage') {
     state.newBomItem.usage = value
     return true
@@ -2203,6 +2216,16 @@ function handleTechPackField(
   }
   if (field === 'new-bom-print-requirement') {
     applyBomPrintRequirementChange(value)
+    return true
+  }
+  if (field === 'new-bom-water-soluble-requirement') {
+    const nextRequirement = normalizeBomRequirement(value)
+    if (findBomItemMissingUnitForWaterSoluble([{ ...state.newBomItem, waterSolubleRequirement: nextRequirement }])) {
+      window.alert('该物料缺少单位，不能勾选水溶。请先填写物料单位。')
+      node.value = state.newBomItem.waterSolubleRequirement
+      return true
+    }
+    state.newBomItem.waterSolubleRequirement = nextRequirement
     return true
   }
   if (field === 'new-bom-dye-requirement') {
@@ -2420,6 +2443,22 @@ function handleTechPackField(
     if (!bomId) return true
     state.bomItems = state.bomItems.map((item) =>
       item.id === bomId ? { ...item, dyeRequirement: value } : item,
+    )
+    syncTechPackToStore()
+    return true
+  }
+  if (field === 'bom-water-soluble') {
+    const bomId = node.dataset.bomId
+    if (!bomId) return true
+    const current = state.bomItems.find((item) => item.id === bomId)
+    const nextRequirement = normalizeBomRequirement(value)
+    if (current && findBomItemMissingUnitForWaterSoluble([{ ...current, waterSolubleRequirement: nextRequirement }])) {
+      window.alert('该物料缺少单位，不能勾选水溶。请先补充物料单位。')
+      node.value = current.waterSolubleRequirement
+      return true
+    }
+    state.bomItems = state.bomItems.map((item) =>
+      item.id === bomId ? { ...item, waterSolubleRequirement: nextRequirement } : item,
     )
     syncTechPackToStore()
     return true
@@ -2949,6 +2988,12 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'submit-review') {
+    const invalidBom = findBomItemMissingUnitForWaterSoluble(state.bomItems)
+    if (invalidBom) {
+      state.reviewSubmitDialogOpen = false
+      state.compatibilityMessage = `物料“${invalidBom.materialName || invalidBom.materialCode || invalidBom.id}”存在水溶要求但缺少单位，不能提交审核。请先补充物料单位。`
+      return true
+    }
     if (state.currentTechnicalVersionId) syncTechPackToStore()
     state.reviewSubmitDialogOpen = true
     state.compatibilityMessage = ''
@@ -2960,6 +3005,12 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
   if (action === 'confirm-submit-review') {
     if (!state.currentTechnicalVersionId) return true
+    const invalidBom = findBomItemMissingUnitForWaterSoluble(state.bomItems)
+    if (invalidBom) {
+      state.reviewSubmitDialogOpen = false
+      state.compatibilityMessage = `物料“${invalidBom.materialName || invalidBom.materialCode || invalidBom.id}”存在水溶要求但缺少单位，不能提交审核。请先补充物料单位。`
+      return true
+    }
     syncTechPackToStore()
     const designMessage = validateCurrentDesignRequirement('提交审核前请先补齐花型设计')
     if (designMessage) {
@@ -3713,6 +3764,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       materialCode: bom.materialCode,
       materialName: bom.materialName,
       spec: bom.spec,
+      unit: bom.unit,
       patternPieces: [...bom.patternPieces],
       linkedPatternIds: [...bom.linkedPatternIds],
       applicableSkuCodes: [...bom.applicableSkuCodes],
@@ -3720,6 +3772,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       usage: String(bom.usage),
       lossRate: String(bom.lossRate),
       printRequirement: bom.printRequirement,
+      waterSolubleRequirement: bom.waterSolubleRequirement || '否',
       dyeRequirement: bom.dyeRequirement,
       shrinkRequirement: bom.shrinkRequirement,
       washRequirement: bom.washRequirement,
@@ -3738,6 +3791,10 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
   if (action === 'save-bom') {
     if (!state.newBomItem.materialName.trim()) return true
+    if (findBomItemMissingUnitForWaterSoluble([state.newBomItem])) {
+      window.alert('该物料缺少单位，不能保存水溶要求。请先填写物料单位。')
+      return true
+    }
     const frontPatternDesignIds = getBomPatternDesignIds(state.newBomItem, 'FRONT')
     const insidePatternDesignIds = getBomPatternDesignIds(state.newBomItem, 'INSIDE')
     if (state.newBomItem.printRequirement !== '无' && !state.newBomItem.printSideMode) {
@@ -3786,6 +3843,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       materialCode: state.newBomItem.materialCode,
       materialName: state.newBomItem.materialName,
       spec: state.newBomItem.spec,
+      unit: state.newBomItem.unit,
       patternPieces,
       linkedPatternIds,
       applicableSkuCodes: [...state.newBomItem.applicableSkuCodes],
@@ -3796,6 +3854,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       usage: Number.parseFloat(state.newBomItem.usage) || 0,
       lossRate: Number.parseFloat(state.newBomItem.lossRate) || 0,
       printRequirement: state.newBomItem.printRequirement,
+      waterSolubleRequirement: state.newBomItem.waterSolubleRequirement,
       dyeRequirement: state.newBomItem.dyeRequirement,
       shrinkRequirement: state.newBomItem.shrinkRequirement,
       washRequirement: state.newBomItem.washRequirement,

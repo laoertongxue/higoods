@@ -31,6 +31,8 @@ type ProductionEventsModule = typeof import('./pages/production/events')
 type ProductionDialogsModule = typeof import('./pages/production/dialogs')
 type TaskBreakdownPageModule = typeof import('./pages/task-breakdown')
 type WlsFabricDemandBoardPageModule = typeof import('./pages/wls-fabric-demand-board')
+type ProcessWaterSolubleOrdersPageModule = typeof import('./pages/process-water-soluble-orders')
+type CraftDyeingWaterSolubleOrdersPageModule = typeof import('./pages/process-factory/dyeing/water-soluble-orders')
 
 let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
 let pcsHandlersModulePromise: Promise<PcsHandlersModule> | null = null
@@ -59,6 +61,8 @@ let productionEventsModulePromise: Promise<ProductionEventsModule> | null = null
 let productionDialogsModulePromise: Promise<ProductionDialogsModule> | null = null
 let taskBreakdownPageModulePromise: Promise<TaskBreakdownPageModule> | null = null
 let wlsFabricDemandBoardPageModulePromise: Promise<WlsFabricDemandBoardPageModule> | null = null
+let processWaterSolubleOrdersPageModulePromise: Promise<ProcessWaterSolubleOrdersPageModule> | null = null
+let craftDyeingWaterSolubleOrdersPageModulePromise: Promise<CraftDyeingWaterSolubleOrdersPageModule> | null = null
 type StoreRenderMode = 'full' | 'sidebar'
 
 let nextStoreRenderMode: StoreRenderMode = 'full'
@@ -73,6 +77,26 @@ function getFcsHandlersModule(): Promise<FcsHandlersModule> {
     })
   }
   return fcsHandlersModulePromise
+}
+
+function getProcessWaterSolubleOrdersPageModule(): Promise<ProcessWaterSolubleOrdersPageModule> {
+  if (!processWaterSolubleOrdersPageModulePromise) {
+    processWaterSolubleOrdersPageModulePromise = import('./pages/process-water-soluble-orders').catch((error) => {
+      processWaterSolubleOrdersPageModulePromise = null
+      throw error
+    })
+  }
+  return processWaterSolubleOrdersPageModulePromise
+}
+
+function getCraftDyeingWaterSolubleOrdersPageModule(): Promise<CraftDyeingWaterSolubleOrdersPageModule> {
+  if (!craftDyeingWaterSolubleOrdersPageModulePromise) {
+    craftDyeingWaterSolubleOrdersPageModulePromise = import('./pages/process-factory/dyeing/water-soluble-orders').catch((error) => {
+      craftDyeingWaterSolubleOrdersPageModulePromise = null
+      throw error
+    })
+  }
+  return craftDyeingWaterSolubleOrdersPageModulePromise
 }
 
 function getPcsHandlersModule(): Promise<PcsHandlersModule> {
@@ -502,6 +526,14 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   if (pathname.startsWith('/fcs/process/task-breakdown')) {
     const taskBreakdownPage = await getTaskBreakdownPageModule()
     return taskBreakdownPage.handleTaskBreakdownEvent(eventTarget)
+  }
+  if (pathname.startsWith('/fcs/process/water-soluble-orders')) {
+    const page = await getProcessWaterSolubleOrdersPageModule()
+    return page.handleProcessWaterSolubleOrdersEvent(eventTarget)
+  }
+  if (pathname.startsWith('/fcs/craft/dyeing/water-soluble-orders')) {
+    const page = await getCraftDyeingWaterSolubleOrdersPageModule()
+    return page.handleCraftDyeingWaterSolubleOrdersEvent(eventTarget)
   }
   if (pathname.startsWith('/fcs/progress/production-orders')) {
     const productionOrderProgressTrackingPage = await getProductionOrderProgressTrackingPageModule()

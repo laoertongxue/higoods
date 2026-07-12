@@ -58,6 +58,10 @@ import {
   getQuantityLabel,
 } from './process-quantity-labels.ts'
 import { applyWarehouseLinkageAfterAction } from './process-warehouse-linkage-service.ts'
+import {
+  validateWaterSolublePdaActor,
+  type WaterSolublePdaActor,
+} from './water-soluble-pda-actor.ts'
 
 export type ProcessActionSourceChannel = 'Web 端' | '移动端'
 export type ProcessActionSourceType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
@@ -78,6 +82,7 @@ export interface ProcessActionPayload {
   formData?: Record<string, string | number | boolean | undefined>
   remark?: string
   evidenceUrls?: string[]
+  actor?: WaterSolublePdaActor
 }
 
 export interface ProcessActionWritebackResult {
@@ -824,7 +829,7 @@ function resolveSpecialCraftObjectMeta(targetObject: string | undefined): { obje
   return { objectType: '裁片', qtyUnit: '片' }
 }
 
-function assertRequiredFields(payload: ProcessActionPayload, definition: ProcessActionDefinition, qty: number): void {
+function assertRequiredFields(payload: ProcessActionPayload, definition: ProcessActionDefinition, qty: number, allowZeroQty = false): void {
   const fields = payload.formData || {}
   for (const field of definition.requiredFields) {
     if (
@@ -846,7 +851,7 @@ function assertRequiredFields(payload: ProcessActionPayload, definition: Process
       continue
     }
     if (field.includes('数量') || field.includes('米数') || field.includes('卷数') || field.includes('长度')) {
-      if (!Number.isFinite(qty) || qty <= 0) throw new Error('请填写带对象和单位的操作数量')
+      if (!Number.isFinite(qty) || (allowZeroQty ? qty < 0 : qty <= 0)) throw new Error('请填写带对象和单位的操作数量')
       continue
     }
     if (field === '单位') {
@@ -870,13 +875,34 @@ export function validateProcessAction(payload: ProcessActionPayload): { ok: bool
   if (!definition) return { ok: false, message: '当前动作未注册，不能写回' }
   const binding = validateBinding(payload.sourceType, payload.sourceId, payload.sourceChannel)
   if (!binding.ok) return { ok: false, message: binding.reason || '加工单与移动端任务绑定无效' }
+  const combinedMobileDyeOrder = payload.sourceChannel === '移动端'
+    && payload.sourceType === 'DYE'
+    && definition.actionCode === 'DYE_FINISH_DYEING'
+    ? getDyeWorkOrderById(payload.sourceId)
+    : undefined
+  if (combinedMobileDyeOrder?.requiresWaterSoluble) {
+    if (payload.taskId !== combinedMobileDyeOrder.taskId) {
+      return { ok: false, message: '当前任务与含水溶染色加工单不一致，不能写回。' }
+    }
+    if (!payload.actor) {
+      return { ok: false, message: '缺少当前操作员身份，请重新登录。' }
+    }
+    const actorError = validateWaterSolublePdaActor(payload.actor, combinedMobileDyeOrder.dyeFactoryId, 'OPERATE')
+    if (actorError) return { ok: false, message: actorError }
+    if (payload.objectQty === undefined || !Number.isFinite(payload.objectQty)) {
+      return { ok: false, message: '请填写大于或等于 0 的有效染色完成数量。' }
+    }
+  }
   const snapshot = getProcessActionStatusSnapshot(payload.sourceType, payload.sourceId)
   if (!definition.fromStatuses.includes(snapshot.status)) {
     return { ok: false, message: `当前状态“${snapshot.label}”不能执行“${definition.actionLabel}”` }
   }
   const qty = Number.isFinite(payload.objectQty) ? Number(payload.objectQty) : snapshot.qty
+  const allowZeroQty = payload.sourceType === 'DYE'
+    && definition.actionCode === 'DYE_FINISH_DYEING'
+    && getDyeWorkOrderById(payload.sourceId)?.requiresWaterSoluble === true
   try {
-    assertRequiredFields(payload, definition, qty)
+    assertRequiredFields(payload, definition, qty, allowZeroQty)
     assertActionSpecificFields(payload, definition)
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : '必填字段不完整' }
@@ -948,9 +974,9 @@ export function executePrintAction(payload: ProcessActionPayload): Partial<Proce
 
 export function executeDyeAction(payload: ProcessActionPayload): Partial<ProcessActionWritebackResult> {
   const operatorName = payload.operatorName || (payload.sourceChannel === '移动端' ? '移动端操作员' : 'Web 端操作员')
-  const qty = Number(payload.objectQty || getProcessActionStatusSnapshot('DYE', payload.sourceId).qty || 0)
   const fields = payload.formData || {}
   const actionCode = normalizeActionCode(payload.actionCode)
+  const qty = Number(payload.objectQty ?? getProcessActionStatusSnapshot('DYE', payload.sourceId).qty ?? 0)
 
   if (actionCode === 'DYE_SAMPLE_RECEIVED') {
     completeDyeSampleWait(payload.sourceId, operatorName)

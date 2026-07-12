@@ -3,6 +3,7 @@ import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { listGeneratedCutOrderSourceRecords } from './cutting/generated-cut-orders.ts'
 import {
   getDyeWorkOrderById,
+  getDyeWorkOrderByTaskId,
   listDyeWorkOrders,
   type DyeWorkOrder,
 } from './dyeing-task-domain.ts'
@@ -27,6 +28,7 @@ import {
 import type { ProcessTask } from './process-tasks.ts'
 import {
   getPrintWorkOrderById,
+  getPrintWorkOrderByTaskId,
   listPrintWorkOrders,
   type PrintWorkOrder,
 } from './printing-task-domain.ts'
@@ -39,6 +41,12 @@ import {
   type SpecialCraftTaskWorkOrder,
 } from './special-craft-task-orders.ts'
 import { applyPendingDispatchAutoAcceptance } from './runtime-process-tasks.ts'
+import {
+  getWaterSolubleWorkOrderById,
+  getWaterSolubleWorkOrderByTaskId,
+  listWaterSolubleMobileTasks,
+  listWaterSolubleWorkOrders,
+} from './water-soluble-task-domain.ts'
 
 function uniqueStrings(values: Array<string | undefined | null>): string[] {
   return Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean)))
@@ -62,6 +70,7 @@ export type BindingReasonCode =
 export type MobileTaskProcessType =
   | 'PRINT'
   | 'DYE'
+  | 'WATER_SOLUBLE'
   | 'CUTTING'
   | 'WOOL'
   | 'SPECIAL_CRAFT'
@@ -105,6 +114,14 @@ interface ValidateBindingContext {
   sourceExists: boolean
   actualTask: ProcessTask | null
   currentFactoryId: string
+  requireExactTaskId?: boolean
+}
+
+export interface ValidateProcessMobileTaskBindingParams {
+  processType: MobileTaskProcessType
+  sourceId: string
+  taskId?: string
+  currentFactoryId?: string
 }
 
 interface MobileTaskAccessResult {
@@ -363,15 +380,31 @@ export function listPdaMobileExecutionTasks(): ProcessTask[] {
   listPrintWorkOrders()
   listDyeWorkOrders()
 
-  const baseTasks = listPdaTaskFlowTasks().filter((task) => !isSpecialCraftTask(task) && getMobileTaskProcessType(task) !== 'WOOL')
+  const waterSolubleTasks = listWaterSolubleMobileTasks()
+  const waterSolubleArtifactIds = new Set(listWaterSolubleWorkOrders().map((order) => order.sourceArtifactId))
+  const isSupersededWaterSolubleTask = (task: ProcessTask): boolean => {
+    if (task.taskUnitType !== 'SINGLE_PROCESS_TASK') return false
+    if (task.coveredProcesses?.length !== 1) return false
+    const coveredProcess = task.coveredProcesses[0]
+    if (coveredProcess.processCode !== 'WATER_SOLUBLE') return false
+    return coveredProcess.sourceArtifactIds.length === 1
+      && waterSolubleArtifactIds.has(coveredProcess.sourceArtifactIds[0])
+  }
+  const baseTasks = listPdaTaskFlowTasks().filter((task) =>
+    !isSpecialCraftTask(task)
+    && getMobileTaskProcessType(task) !== 'WOOL'
+    && !isSupersededWaterSolubleTask(task),
+  )
   const existingTaskIds = new Set(baseTasks.map((task) => task.taskId))
   const genericProcessTasks = [
     ...listPdaGenericTasksByProcess('PRINTING'),
     ...listPdaGenericTasksByProcess('DYEING'),
-  ].filter((task) => !existingTaskIds.has(task.taskId))
+  ].filter((task) => !existingTaskIds.has(task.taskId) && !isSupersededWaterSolubleTask(task))
   const existingWithGeneric = new Set([...existingTaskIds, ...genericProcessTasks.map((task) => task.taskId)])
-  const woolTasks = listWoolMobileProcessTasks().filter((task) => !existingWithGeneric.has(task.taskId))
-  const existingWithWool = new Set([...existingWithGeneric, ...woolTasks.map((task) => task.taskId)])
+  const standaloneWaterSolubleTasks = waterSolubleTasks.filter((task) => !existingWithGeneric.has(task.taskId))
+  const existingWithWaterSoluble = new Set([...existingWithGeneric, ...standaloneWaterSolubleTasks.map((task) => task.taskId)])
+  const woolTasks = listWoolMobileProcessTasks().filter((task) => !existingWithWaterSoluble.has(task.taskId))
+  const existingWithWool = new Set([...existingWithWaterSoluble, ...woolTasks.map((task) => task.taskId)])
   const specialCraftTasks = listSpecialCraftTaskOrders()
     .map((taskOrder, index) => mapSpecialCraftTaskOrderToMobileTask(taskOrder, baseTasks.length + genericProcessTasks.length + woolTasks.length + index + 1))
     .filter((task) => !existingWithWool.has(task.taskId))
@@ -380,18 +413,71 @@ export function listPdaMobileExecutionTasks(): ProcessTask[] {
     .filter((task) => !existingWithSpecial.has(task.taskId))
   const existingWithPost = new Set([...existingWithSpecial, ...postTasks.map((task) => task.taskId)])
   const thirdPartyCuttingTasks = listThirdPartyCuttingMarkerPreconditionTasks(existingWithPost)
-  return [...baseTasks, ...genericProcessTasks, ...woolTasks, ...specialCraftTasks, ...postTasks, ...thirdPartyCuttingTasks]
+  return [...baseTasks, ...genericProcessTasks, ...standaloneWaterSolubleTasks, ...woolTasks, ...specialCraftTasks, ...postTasks, ...thirdPartyCuttingTasks]
 }
 
 export function getPdaMobileExecutionTaskById(taskId: string): ProcessTask | null {
   return listPdaMobileExecutionTasks().find((task) => task.taskId === taskId) ?? null
 }
 
+function classifyStructuredProcessCode(value: string | undefined | null): MobileTaskProcessType | null {
+  const code = String(value || '').trim().toUpperCase()
+  if (!code) return null
+  if (code === 'WATER_SOLUBLE' || code === 'PROC_WATER_SOLUBLE') return 'WATER_SOLUBLE'
+  if (code === 'DYE' || code === 'DYEING' || code === 'PROC_DYE') return 'DYE'
+  if (code === 'PRINT' || code === 'PRINTING' || code === 'PROC_PRINT') return 'PRINT'
+  if (code === 'CUTTING' || code === 'PROC_CUT' || code === 'PROC_CUTTING') return 'CUTTING'
+  if (code === 'WOOL' || code === 'PROC_WOOL') return 'WOOL'
+  if (code === 'POST_FINISHING' || code === 'POST_FINISH' || code === 'PROC_POST_FINISHING') return 'POST_FINISHING'
+  if (code === 'SEWING' || code === 'SEW' || code === 'PROC_SEW') return 'SEWING'
+  if (code === 'SPECIAL_CRAFT' || code === 'PROC_SPECIAL_CRAFT') return 'SPECIAL_CRAFT'
+  return null
+}
+
+function classifyTaskBySource(task: ProcessTask): MobileTaskProcessType | null {
+  const taskLike = task as GenericMobileTask
+  if ((task.taskId.startsWith('TASK-WATER-') || 'waterOrderId' in taskLike) && getWaterSolubleWorkOrderByTaskId(task.taskId)) {
+    return 'WATER_SOLUBLE'
+  }
+  if (task.taskId.startsWith('TASK-DYE-') && getDyeWorkOrderByTaskId(task.taskId)) return 'DYE'
+  if (task.taskId.startsWith('TASK-PRINT-') && getPrintWorkOrderByTaskId(task.taskId)) return 'PRINT'
+  if ((task.taskId.startsWith('TASK-WOOL-') || task.taskId.startsWith('WOOL-')) && getWoolWorkOrderByTaskId(task.taskId)) return 'WOOL'
+  if ((task.processCode === 'POST_FINISHING' || task.taskId.startsWith('TASK-POST-'))
+    && (getPostFinishingTaskById(task.taskId) || getPostFinishingWorkOrderById(task.taskId))) return 'POST_FINISHING'
+
+  if (taskLike.cutOrderIds?.length || taskLike.cutOrderNos?.length) return 'CUTTING'
+  if (listSpecialCraftTaskOrders().some((order) => order.sourceTaskId === task.taskId || order.taskOrderId === task.taskId)) {
+    return 'SPECIAL_CRAFT'
+  }
+  return null
+}
+
+function classifyCoveredProcesses(task: ProcessTask): MobileTaskProcessType | null {
+  const coveredTypes = new Set(
+    (task.coveredProcesses || [])
+      .map((process) => classifyStructuredProcessCode(process.processCode))
+      .filter((type): type is MobileTaskProcessType => Boolean(type)),
+  )
+  if (coveredTypes.size === 2 && coveredTypes.has('DYE') && coveredTypes.has('WATER_SOLUBLE')) return 'DYE'
+  if (coveredTypes.size === 1) return [...coveredTypes][0]
+  return null
+}
+
 export function getMobileTaskProcessType(task: ProcessTask | null | undefined): MobileTaskProcessType {
   if (!task) return 'UNKNOWN'
+  const explicitType = classifyStructuredProcessCode(task.processBusinessCode)
+    || classifyStructuredProcessCode(task.processCode)
+  if (explicitType) return explicitType
+
+  const sourceType = classifyTaskBySource(task)
+  if (sourceType) return sourceType
+
+  const coveredType = classifyCoveredProcesses(task)
+  if (coveredType) return coveredType
+
   if (task.taskUnitType === 'WHOLE_ORDER_TASK' || task.taskUnitType === 'COMBINED_PROCESS_TASK') return 'UNKNOWN'
+
   const explicitFields = [
-    task.processCode,
     task.processNameZh,
     (task as GenericMobileTask).processBusinessName,
   ]
@@ -406,6 +492,7 @@ export function getMobileTaskProcessType(task: ProcessTask | null | undefined): 
     .join(' ')
   if (/PROC_PRINT|PRINT\b|印花|转印/.test(explicitFields)) return 'PRINT'
   if (/PROC_DYE|DYE\b|染色/.test(explicitFields)) return 'DYE'
+  if (/PROC_WATER_SOLUBLE|WATER_SOLUBLE|水溶/.test(explicitFields)) return 'WATER_SOLUBLE'
   if (/PROC_CUT|CUTTING|裁片|定位裁/.test(explicitFields)) return 'CUTTING'
   if (/PROC_WOOL|WOOL|毛织|毛织/.test(explicitFields)) return 'WOOL'
   if (/POST_FINISH|后道/.test(explicitFields)) return 'POST_FINISHING'
@@ -576,6 +663,7 @@ function validateBinding(context: ValidateBindingContext): ProcessMobileTaskBind
   const actualTaskNo = task?.taskNo || task?.taskId || ''
   const isTaskFound = Boolean(task)
   const isBound = Boolean(expectedTaskId || actualTaskId)
+    && (!context.requireExactTaskId || Boolean(expectedTaskId && actualTaskId === expectedTaskId))
   const isProcessTypeMatched = task
     ? context.processType === 'SPECIAL_CRAFT'
       ? isSpecialCraftOperationMatched(task, context.expectedOperationName)
@@ -590,10 +678,12 @@ function validateBinding(context: ValidateBindingContext): ProcessMobileTaskBind
   let reasonCode: BindingReasonCode = 'OK'
   if (!context.sourceExists) {
     reasonCode = 'SOURCE_OBJECT_MISSING'
-  } else if (!isBound) {
+  } else if (!expectedTaskId && !actualTaskId) {
     reasonCode = 'TASK_NOT_BOUND'
   } else if (!isTaskFound) {
     reasonCode = 'TASK_MISSING'
+  } else if (!isBound) {
+    reasonCode = 'TASK_NOT_BOUND'
   } else if (!isProcessTypeMatched) {
     reasonCode = 'TASK_PROCESS_TYPE_MISMATCH'
   } else if (!isFactoryMatched) {
@@ -713,6 +803,31 @@ export function validateDyeWorkOrderMobileTaskBinding(dyeOrderId: string): Proce
   })
 }
 
+export function validateWaterSolubleWorkOrderMobileTaskBinding(
+  sourceId: string,
+  options: { taskId?: string; currentFactoryId?: string } = {},
+): ProcessMobileTaskBindingResult {
+  const order = getWaterSolubleWorkOrderById(sourceId) ?? getWaterSolubleWorkOrderByTaskId(sourceId)
+  const linkedOrder = order ? getWaterSolubleWorkOrderByTaskId(order.taskId) : null
+  const sourceExists = Boolean(order && linkedOrder?.waterOrderId === order.waterOrderId)
+  return validateBinding({
+    workOrderId: order?.waterOrderId || sourceId,
+    workOrderNo: order?.waterOrderNo || sourceId,
+    processType: 'WATER_SOLUBLE',
+    sourceType: 'WATER_SOLUBLE_WORK_ORDER',
+    sourceId,
+    expectedTaskId: order?.taskId,
+    expectedTaskNo: order?.taskNo,
+    expectedFactoryId: order?.factoryId,
+    sourceExists,
+    actualTask: options.taskId || order?.taskId
+      ? getPdaMobileExecutionTaskById(options.taskId || order!.taskId)
+      : null,
+    currentFactoryId: options.currentFactoryId || order?.factoryId || TEST_FACTORY_ID,
+    requireExactTaskId: true,
+  })
+}
+
 export function validateWoolWorkOrderMobileTaskBinding(woolOrderId: string): ProcessMobileTaskBindingResult {
   const order = getWoolWorkOrderById(woolOrderId) ?? getWoolWorkOrderByTaskId(woolOrderId)
   return validateBinding({
@@ -810,9 +925,15 @@ export function validatePostFinishingMobileTaskBinding(postOrderId: string): Pro
   })
 }
 
-export function validateProcessMobileTaskBinding(params: { processType: MobileTaskProcessType; sourceId: string }): ProcessMobileTaskBindingResult {
+export function validateProcessMobileTaskBinding(params: ValidateProcessMobileTaskBindingParams): ProcessMobileTaskBindingResult {
   if (params.processType === 'PRINT') return validatePrintWorkOrderMobileTaskBinding(params.sourceId)
   if (params.processType === 'DYE') return validateDyeWorkOrderMobileTaskBinding(params.sourceId)
+  if (params.processType === 'WATER_SOLUBLE') {
+    return validateWaterSolubleWorkOrderMobileTaskBinding(params.sourceId, {
+      taskId: params.taskId,
+      currentFactoryId: params.currentFactoryId,
+    })
+  }
   if (params.processType === 'WOOL') return validateWoolWorkOrderMobileTaskBinding(params.sourceId)
   if (params.processType === 'CUTTING') return validateCuttingOrderMobileTaskBinding(params.sourceId)
   if (params.processType === 'SPECIAL_CRAFT') return validateSpecialCraftMobileTaskBinding(params.sourceId)
@@ -846,6 +967,10 @@ export function listInvalidProcessMobileTaskBindings(filter: { processType?: Mob
   }
   if (!filter.processType || filter.processType === 'DYE') {
     results.push(...listDyeWorkOrders().map((order) => validateDyeWorkOrderMobileTaskBinding(order.dyeOrderId)))
+  }
+  if (!filter.processType || filter.processType === 'WATER_SOLUBLE') {
+    results.push(...listWaterSolubleWorkOrders()
+      .map((order) => validateWaterSolubleWorkOrderMobileTaskBinding(order.waterOrderId)))
   }
   if (!filter.processType || filter.processType === 'WOOL') {
     results.push(...listWoolWorkOrders().map((order) => validateWoolWorkOrderMobileTaskBinding(order.woolOrderId)))

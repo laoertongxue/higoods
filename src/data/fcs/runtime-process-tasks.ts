@@ -1201,7 +1201,7 @@ function applyManualContinuousMergeDemo(tasks: RuntimeProcessTask[]): RuntimePro
     createdBy: '生产计划员',
   })
   return applyContinuousMergePlan(pleatKnittingDemo, {
-    taskIds: ['TASKGEN-202603-082-001__ORDER', 'TASKGEN-202603-082-002__ORDER'],
+    taskIds: ['TASKGEN-202603-082-002__ORDER', 'TASKGEN-202603-082-003__ORDER'],
     mergedTaskId: 'TASKGEN-202603-082-002__ORDER',
     createdAt: '2026-03-20 10:20:00',
     createdBy: '生产计划员',
@@ -1331,7 +1331,8 @@ function buildRuntimeProcessTasks(): RuntimeProcessTask[] {
     Array.from(runtimeReassignedTasks.values()).map((task) => structuredClone(task)),
   ))
   const withSplit = applyRuntimeSplitPlans(baseWithOverrides)
-  const withOverrides = applyRuntimeContinuousMergePlans(applyManualContinuousMergeDemo(applyRuntimeOverrides(withSplit)))
+  const mergedTasks = applyRuntimeContinuousMergePlans(applyManualContinuousMergeDemo(applyRuntimeOverrides(withSplit)))
+  const withOverrides = applyRuntimeOverrides(mergedTasks)
   const grouped = new Map<string, RuntimeProcessTask[]>()
   for (const task of withOverrides) {
     const current = grouped.get(task.productionOrderId) ?? []
@@ -1613,7 +1614,7 @@ function ensureDispatchBoardSeedData(): void {
   )
 
   seedRuntimeTaskOverride(
-    'TASKGEN-202603-0004-006__ORDER',
+    'TASKGEN-202603-0004-007__ORDER',
     {
       assignmentMode: 'DIRECT',
       assignmentStatus: 'ASSIGNED',
@@ -1635,10 +1636,10 @@ function ensureDispatchBoardSeedData(): void {
       dispatchRemark: 'KOL 小单整单直派',
     },
     [
-      ...getSeedBaseAuditLogs('TASKGEN-202603-0004-006__ORDER'),
-      buildSeedAuditLog('TASKGEN-202603-0004-006__ORDER', 'DISPATCH', '已发起 KOL 整单直接派单', '跟单A', '2026-03-18 12:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0004-006__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.kolGoto.name, '2026-03-18 14:00:00'),
-      buildSeedAuditLog('TASKGEN-202603-0004-006__ORDER', 'FINISH', '工厂已完工', directFactorySeeds.kolGoto.name, '2026-03-27 16:50:00'),
+      ...getSeedBaseAuditLogs('TASKGEN-202603-0004-007__ORDER'),
+      buildSeedAuditLog('TASKGEN-202603-0004-007__ORDER', 'DISPATCH', '已发起 KOL 整单直接派单', '跟单A', '2026-03-18 12:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0004-007__ORDER', 'ACCEPT', '工厂已确认接单', directFactorySeeds.kolGoto.name, '2026-03-18 14:00:00'),
+      buildSeedAuditLog('TASKGEN-202603-0004-007__ORDER', 'FINISH', '工厂已完工', directFactorySeeds.kolGoto.name, '2026-03-27 16:50:00'),
     ],
   )
 

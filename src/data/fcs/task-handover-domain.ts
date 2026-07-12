@@ -75,6 +75,7 @@ export function getHandoverRecordQrDisplayValue(
 }
 
 export function getHandoverObjectTypeLabel(type?: HandoverObjectType | 'GARMENT'): string {
+  if (type === 'MATERIAL') return '物料'
   if (type === 'FABRIC') return '面料'
   if (type === 'CUT_PIECE') return '裁片'
   if (type === 'SEMI_FINISHED_GARMENT') return '半成品'

@@ -54,6 +54,11 @@ import {
   isProcessDyeOrdersDialogOpen,
 } from '../pages/process-dye-orders'
 import {
+  closeProcessWaterSolubleOrdersOverlay,
+  handleProcessWaterSolubleOrdersEvent,
+  isProcessWaterSolubleOrdersOverlayOpen,
+} from '../pages/process-water-soluble-orders'
+import {
   handleProcessPrintOrdersEvent,
   isProcessPrintOrdersDialogOpen,
 } from '../pages/process-print-orders'
@@ -195,6 +200,11 @@ import {
 import { handleCraftCuttingPickupManagementEvent } from '../pages/process-factory/cutting/pickup-management'
 import { handleCraftCuttingHandoverOrdersEvent } from '../pages/process-factory/cutting/handover-orders'
 import { handleCraftDyeingEvent } from '../pages/process-factory/dyeing/events'
+import {
+  closeCraftDyeingWaterSolubleOverlay,
+  handleCraftDyeingWaterSolubleOrdersEvent,
+  isCraftDyeingWaterSolubleOverlayOpen,
+} from '../pages/process-factory/dyeing/water-soluble-orders'
 import { handlePostFinishingEvent } from '../pages/process-factory/post-finishing/events'
 import { handleCraftPrintingEvent } from '../pages/process-factory/printing/events'
 import { handleCraftWoolEvent } from '../pages/process-factory/wool/work-orders'
@@ -229,6 +239,12 @@ import { closeProductionObjectOverlays } from '../components/production-object-o
 
 export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
+  if (pathname.startsWith('/fcs/process/water-soluble-orders')) {
+    return handleProcessWaterSolubleOrdersEvent(target)
+  }
+  if (pathname.startsWith('/fcs/craft/dyeing/water-soluble-orders')) {
+    return handleCraftDyeingWaterSolubleOrdersEvent(target)
+  }
   if (pathname.startsWith('/fcs/dispatch/acceptance-sla')) {
     return handleDispatchAcceptanceSlaEvent(target)
   }
@@ -391,6 +407,14 @@ export function dispatchFcsPageSubmit(form: HTMLFormElement): boolean {
 }
 
 export function closeFcsDialogsOnEscape(): boolean {
+  if (isProcessWaterSolubleOrdersOverlayOpen()) {
+    closeProcessWaterSolubleOrdersOverlay()
+    return true
+  }
+  if (isCraftDyeingWaterSolubleOverlayOpen()) {
+    closeCraftDyeingWaterSolubleOverlay()
+    return true
+  }
   if (closeProductionObjectOverlays()) {
     return true
   }

@@ -102,6 +102,7 @@ export interface ProcessTask {
   stage: ProcessStage
   qty: number
   qtyUnit: QtyUnit
+  qtyDisplayUnit?: string
   assignmentMode: AssignmentMode
   assignmentStatus: TaskAssignmentStatus
   ownerSuggestion: OwnerSuggestion
@@ -273,6 +274,24 @@ export interface ProcessTask {
   createdAt: string
   updatedAt: string
   auditLogs: TaskAuditLog[]
+}
+
+export function getProcessTaskQtyDisplayUnit(task: Pick<ProcessTask, 'qtyUnit' | 'qtyDisplayUnit'>): string {
+  const exactUnit = task.qtyDisplayUnit?.trim()
+  if (exactUnit) return exactUnit
+  if (task.qtyUnit === 'PIECE') return '件'
+  if (task.qtyUnit === 'BUNDLE') return '打'
+  return '米'
+}
+
+export function getProcessTaskQtyDisplayMeta(
+  task: Pick<ProcessTask, 'qty' | 'qtyUnit' | 'qtyDisplayUnit'>,
+): { label: string; valueText: string } {
+  const unitLabel = getProcessTaskQtyDisplayUnit(task)
+  return {
+    label: `本单计划数量（${unitLabel}）`,
+    valueText: `本单计划数量：${task.qty} ${unitLabel}`,
+  }
 }
 
 // 预置工序任务（base task seeds）
@@ -724,7 +743,9 @@ function resolveTaskUnitReceiver(unit: GeneratedTaskUnitPreview | undefined, art
 }
 
 type TaskEmissionArtifactLike = Pick<GeneratedTaskArtifact, 'artifactId' | 'generationSortKey' | 'sortKey'>
+  & Partial<Pick<GeneratedTaskArtifact, 'artifactType' | 'defaultDocType' | 'processCode'>>
 type TaskEmissionUnitLike = Pick<GeneratedTaskUnitPreview, 'previewUnitId' | 'sourceArtifactIds' | 'taskUnitType'>
+  & Partial<Pick<GeneratedTaskUnitPreview, 'coveredProcesses'>>
 
 function getTaskGenerationSortKey(artifact: TaskEmissionArtifactLike): string {
   return artifact.generationSortKey ?? artifact.sortKey
@@ -759,6 +780,41 @@ function isMergedTaskEmissionUnit(unit: TaskEmissionUnitLike | undefined): boole
   return unit?.taskUnitType === 'COMBINED_PROCESS_TASK' || unit?.taskUnitType === 'WHOLE_ORDER_TASK'
 }
 
+function isStandaloneWaterSolubleTaskArtifact(artifact: TaskEmissionArtifactLike): boolean {
+  return artifact.artifactType === 'TASK'
+    && artifact.defaultDocType === 'TASK'
+    && artifact.processCode === 'WATER_SOLUBLE'
+}
+
+function isolateStandaloneWaterSolubleArtifactsFromMergedUnits<
+  TArtifact extends TaskEmissionArtifactLike,
+  TUnit extends TaskEmissionUnitLike,
+>(orderArtifacts: TArtifact[], generatedUnits: TUnit[]): TUnit[] {
+  const standaloneArtifactIds = new Set(
+    orderArtifacts
+      .filter(isStandaloneWaterSolubleTaskArtifact)
+      .map((artifact) => artifact.artifactId),
+  )
+  if (standaloneArtifactIds.size === 0) return generatedUnits
+
+  return generatedUnits.map((unit) => {
+    if (!isMergedTaskEmissionUnit(unit)) return unit
+    const sourceArtifactIds = unit.sourceArtifactIds.filter((artifactId) => !standaloneArtifactIds.has(artifactId))
+    if (sourceArtifactIds.length === unit.sourceArtifactIds.length) return unit
+    const coveredProcesses = unit.coveredProcesses
+      ?.map((process) => ({
+        ...process,
+        sourceArtifactIds: process.sourceArtifactIds.filter((artifactId) => !standaloneArtifactIds.has(artifactId)),
+      }))
+      .filter((process) => process.sourceArtifactIds.length > 0)
+    return {
+      ...unit,
+      sourceArtifactIds,
+      coveredProcesses,
+    }
+  })
+}
+
 function getTaskEmissionKey(artifact: TaskEmissionArtifactLike, unit: TaskEmissionUnitLike | undefined): string {
   return isMergedTaskEmissionUnit(unit) ? `unit:${unit?.previewUnitId}` : `artifact:${artifact.artifactId}`
 }
@@ -775,8 +831,9 @@ export function buildGeneratedTaskEmissionPlans<
   orderArtifacts: TArtifact[],
   generatedUnits: TUnit[],
 ): GeneratedTaskEmissionPlan<TArtifact, TUnit>[] {
+  const isolatedGeneratedUnits = isolateStandaloneWaterSolubleArtifactsFromMergedUnits(orderArtifacts, generatedUnits)
   const findUnit = (artifact: TArtifact): TUnit | undefined =>
-    generatedUnits.find((unit) => unit.sourceArtifactIds.includes(artifact.artifactId))
+    isolatedGeneratedUnits.find((unit) => unit.sourceArtifactIds.includes(artifact.artifactId))
   const stableTaskIds = new Map<string, { taskId: string; stableSeq: number }>()
 
   for (const artifact of [...orderArtifacts].sort(compareTaskArtifactsForGeneration)) {

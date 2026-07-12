@@ -41,7 +41,7 @@ const TEMPLATE_B_CRAFT_NAMES = [
   '部位毛织',
 ] as const
 const TEMPLATE_C_CRAFT_NAMES = ['丝网印', '数码印', '压褶', '打条', '激光切', '捆条', '橡筋定长切割'] as const
-const TEMPLATE_D_CRAFT_NAMES = ['匹染', '色织', '缩水', '洗水'] as const
+const TEMPLATE_D_CRAFT_NAMES = ['水溶', '匹染', '色织', '缩水', '洗水'] as const
 
 export const FACTORY_SUPPLY_TEMPLATE_BY_CRAFT_NAME: Record<string, FactorySupplyFormulaTemplate> = Object.fromEntries(
   [

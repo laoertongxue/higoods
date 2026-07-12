@@ -293,7 +293,7 @@ function applyMachineValidations(
 function resolveFactoryTypeCode(capability: FactoryOnboardingSelectedCapability): FactoryInferredTypeCode | null {
   if (capability.processCode === 'CUT_PANEL' || ['普通裁', '激光定位裁', '定向裁', '定位裁'].includes(capability.craftName)) return 'CUTTING_FACTORY'
   if (capability.processCode === 'PRINT') return 'PRINTING_FACTORY'
-  if (capability.processCode === 'DYE') return 'DYEING_FACTORY'
+  if (capability.processCode === 'DYE' || capability.processCode === 'WATER_SOLUBLE') return 'DYEING_FACTORY'
   if (capability.processCode === 'POST_FINISHING' || ['质检', '复检', '包装', '熨烫'].includes(capability.craftName)) return 'POST_FINISHING_FACTORY'
   if (capability.processCode === 'SEW') return 'SEWING_FACTORY'
   if (capability.processCode === 'SPECIAL_CRAFT' || capability.processCode === 'EMBROIDERY' || capability.processCode === 'PLEATING' || SPECIAL_CRAFT_NAMES.has(capability.craftName)) return 'SPECIAL_CRAFT_FACTORY'
@@ -1129,7 +1129,7 @@ function createSeedApplications(): FactoryOnboardingApplication[] {
     '已转正式合作',
   ]
   const scenarios: Array<'valid' | 'missingProcess' | 'missingCraft' | 'capabilityMismatch'> = ['valid', 'missingProcess', 'missingCraft', 'capabilityMismatch']
-  return statuses.flatMap((status, statusIndex) =>
+  const statusSeeds = statuses.flatMap((status, statusIndex) =>
     [0, 1, 2].map((offset) => {
       const seed = statusIndex * 3 + offset + 1
       const capabilityNames = CAPABILITY_SETS[(statusIndex + offset) % CAPABILITY_SETS.length]
@@ -1140,6 +1140,14 @@ function createSeedApplications(): FactoryOnboardingApplication[] {
       return createSeedApplication(seed, status, capabilityNames, condition, scenario)
     }),
   )
+  const dyeWaterSeed = createSeedApplication(
+    statusSeeds.length + 1,
+    '已转正式合作',
+    [['染色', '匹染'], ['水溶', '水溶']],
+    '可用',
+    'valid',
+  )
+  return [...statusSeeds, dyeWaterSeed]
 }
 
 function ensureApplicationStore(): FactoryOnboardingApplication[] {

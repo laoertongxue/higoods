@@ -38,5 +38,6 @@ export { renderCraftPrintingStatisticsPage } from './printing/statistics'
 export { renderCraftPrintingDashboardsPage } from './printing/dashboards'
 
 export { renderCraftDyeingWorkOrdersPage } from './dyeing/work-orders'
+export { renderCraftDyeingWaterSolubleOrdersPage } from './dyeing/water-soluble-orders'
 export { renderCraftDyeingDyeOrdersPage } from './dyeing/dye-orders'
 export { renderCraftDyeingReportsPage } from './dyeing/reports'

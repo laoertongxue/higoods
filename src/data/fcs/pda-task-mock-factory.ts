@@ -1902,6 +1902,15 @@ export function listPdaGenericProcessTasks(): PdaGenericTaskMock[] {
   return [...PDA_GENERIC_PROCESS_TASKS, ...PDA_TEST_FACTORY_PROCESS_TASKS]
 }
 
+export function registerPdaGenericProcessTask(task: PdaGenericTaskMock): void {
+  const index = PDA_GENERIC_PROCESS_TASKS.findIndex((item) => item.taskId === task.taskId)
+  if (index >= 0) {
+    PDA_GENERIC_PROCESS_TASKS[index] = task
+    return
+  }
+  PDA_GENERIC_PROCESS_TASKS.push(task)
+}
+
 export function listPdaGenericBiddingTenderMocks(): PdaMobileBiddingTenderMock[] {
   return PDA_GENERIC_BIDDING_TENDERS.map((item) => ({ ...item }))
 }

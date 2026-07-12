@@ -71,6 +71,19 @@ import {
   buildHandoverRecordQrValue,
   buildTaskQrValue,
 } from './task-qr.ts'
+import {
+  getWaterSolubleWorkOrderByTaskId,
+  getWaterSolubleHandoverQtyUnit,
+  linkWaterSolubleHandoverOrder,
+  listWaterSolubleMobileTasks,
+  resolveWaterSolubleReceiptDifference,
+  submitWaterSolubleHandover,
+  writeBackWaterSolubleReceipt,
+} from './water-soluble-task-domain.ts'
+import {
+  validateWaterSolublePdaActor,
+  type WaterSolublePdaActor,
+} from './water-soluble-pda-actor.ts'
 
 export type HandoverAction = 'PICKUP' | 'HANDOUT'
 export type HandoverStatus = 'PENDING' | 'CONFIRMED'
@@ -97,6 +110,7 @@ export type HandoverRecordLifecycleStatus =
   | 'OBJECTION_RESOLVED'
   | 'VOIDED'
 export type HandoverObjectType =
+  | 'MATERIAL'
   | 'FABRIC'
   | 'CUT_PIECE'
   | 'SEMI_FINISHED_GARMENT'
@@ -147,7 +161,7 @@ export type HandoverRecordStatus =
   | 'OBJECTION_PROCESSING'
   | 'OBJECTION_RESOLVED'
 
-export type PdaHandoutObjectType = 'GARMENT' | 'CUT_PIECE' | 'FABRIC'
+export type PdaHandoutObjectType = 'MATERIAL' | 'GARMENT' | 'CUT_PIECE' | 'FABRIC'
 
 export interface PdaCutPieceHandoutLine {
   lineId: string
@@ -374,6 +388,10 @@ export interface PdaHandoverHead {
   runtimeTaskId?: string
   sourceDocId?: string
   sourceDocNo?: string
+  sourceBusinessType?: 'WATER_SOLUBLE_WORK_ORDER' | 'DYE_WORK_ORDER'
+  materialCode?: string
+  materialName?: string
+  materialSpec?: string
   pickupSourceType?: 'NORMAL' | 'SEWING_SELF_RETURN'
   scopeType?: RuntimeTaskScopeType
   scopeKey?: string
@@ -573,7 +591,12 @@ const pickupRecordAdditions = new Map<string, PdaPickupRecord[]>()
 const pickupRecordOverrides = new Map<string, Partial<PdaPickupRecord>>()
 const headCompletionOverrides = new Map<
   string,
-  { completionStatus: PdaHeadCompletionStatus; completedByWarehouseAt?: string }
+  {
+    completionStatus: PdaHeadCompletionStatus
+    completedByWarehouseAt?: string
+    factoryMarkedComplete?: boolean
+    factoryMarkedCompleteAt?: string
+  }
 >()
 let cachedBuiltHeads: PdaHandoverHead[] | null = null
 let cachedPostFinishingBuiltHeads: PdaHandoverHead[] | null = null
@@ -622,6 +645,7 @@ function normalizeFactorySubmittedBy(value: string | undefined): string {
 }
 
 function resolveHandoverObjectType(record: Pick<PdaHandoverRecord, 'handoutObjectType'>): HandoverObjectType {
+  if (record.handoutObjectType === 'MATERIAL') return 'MATERIAL'
   if (record.handoutObjectType === 'CUT_PIECE') return 'CUT_PIECE'
   if (record.handoutObjectType === 'FABRIC') return 'FABRIC'
   return 'FINISHED_GARMENT'
@@ -782,10 +806,19 @@ function hydrateHandoverHeadDomain(head: PdaHandoverHead, records: PdaHandoverRe
   const writtenBackQtyTotal = sumBy(records, (record) => resolveReceiverWrittenQty(record) ?? 0)
   const diffQtyTotal = sumBy(records, (record) => deriveDiffQty(record) ?? 0)
   const factoryMarkedComplete = head.factoryMarkedComplete ?? head.completionStatus === 'COMPLETED'
-  const handoverOrderStatus =
+  const derivedHandoverOrderStatus =
     head.headType === 'HANDOUT'
       ? deriveHandoverOrderStatus(records, factoryMarkedComplete)
       : undefined
+  const waterRecordStatuses = records.map((record) => record.handoverRecordStatus || mapRecordLifecycleStatus(record))
+  const waterReceiverClosed = head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER'
+    && factoryMarkedComplete
+    && waterRecordStatuses.length === 1
+    && waterRecordStatuses.every((status) => status === 'WRITTEN_BACK_MATCHED' || status === 'DIFF_ACCEPTED')
+  const handoverOrderStatus = waterReceiverClosed ? 'CLOSED' : derivedHandoverOrderStatus
+  const receiverClosedAt = waterReceiverClosed
+    ? head.receiverClosedAt || records.map(resolveReceiverWrittenAt).filter((value): value is string => Boolean(value)).sort((a, b) => parseDateMs(b) - parseDateMs(a))[0]
+    : head.receiverClosedAt
 
   return {
     ...head,
@@ -806,7 +839,7 @@ function hydrateHandoverHeadDomain(head: PdaHandoverHead, records: PdaHandoverRe
     plannedQty: head.plannedQty ?? head.qtyExpectedTotal,
     factoryMarkedComplete,
     factoryMarkedCompleteAt: head.factoryMarkedCompleteAt || head.completedByWarehouseAt,
-    receiverClosedAt: head.receiverClosedAt,
+    receiverClosedAt,
     qtyActualTotal: writtenBackQtyTotal,
     qtyDiffTotal: head.qtyExpectedTotal - writtenBackQtyTotal,
   }
@@ -2828,7 +2861,7 @@ function resolveHandoutProcessKey(
   if (!processCode) return null
   const normalized = processCode.toUpperCase()
   if (normalized.includes('PRINT')) return 'PRINTING'
-  if (normalized.includes('DYE')) return 'DYEING'
+  if (normalized.includes('DYE') || normalized.includes('WATER_SOLUBLE')) return 'DYEING'
   if (normalized.includes('CUT')) return 'CUTTING'
   if (normalized.includes('IRON')) return 'IRONING'
   if (normalized.includes('PACK')) return 'PACKAGING'
@@ -2845,6 +2878,7 @@ function deriveHandoutObjectType(
   sourceDoc?: WarehouseReturnOrder | WarehouseIssueOrder,
 ): PdaHandoutObjectType {
   if (record?.handoutObjectType) return record.handoutObjectType
+  if (head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER') return 'MATERIAL'
 
   const processKey =
     resolveHandoutProcessKey(runtimeTask?.processCode) ||
@@ -2863,6 +2897,7 @@ function deriveHandoutObjectType(
 }
 
 function getHandoutObjectTypeLabel(objectType: PdaHandoutObjectType): string {
+  if (objectType === 'MATERIAL') return '物料'
   if (objectType === 'CUT_PIECE') return '裁片'
   if (objectType === 'FABRIC') return '面料'
   return '成衣'
@@ -2877,6 +2912,14 @@ function getHandoutQtyLabels(
       primaryQtyLabel: '计划交出裁片片数（片）',
       writtenQtyLabel: '接收方实收裁片片数（片）',
       pendingQtyLabel: '待接收方确认裁片片数（片）',
+    }
+  }
+  if (objectType === 'MATERIAL') {
+    const normalizedUnit = unit || '单位'
+    return {
+      primaryQtyLabel: `计划交出物料数量（${normalizedUnit}）`,
+      writtenQtyLabel: `接收方实收物料数量（${normalizedUnit}）`,
+      pendingQtyLabel: `待接收方确认物料数量（${normalizedUnit}）`,
     }
   }
   if (objectType === 'FABRIC') {
@@ -3027,6 +3070,13 @@ function buildHandoutInfoLines(record: PdaHandoverRecord, objectType: PdaHandout
       record.materialSpec ? `面料说明：${record.materialSpec}` : '',
     ].filter(Boolean)
   }
+  if (objectType === 'MATERIAL') {
+    return [
+      record.materialName ? `物料：${record.materialName}` : '',
+      record.materialCode ? `物料编码：${record.materialCode}` : '',
+      record.materialSpec ? `规格：${record.materialSpec}` : '',
+    ].filter(Boolean)
+  }
 
   return [
     record.postFinishingRecheckOrderNo ? `来源复检单：${record.postFinishingRecheckOrderNo}` : '',
@@ -3045,6 +3095,9 @@ function buildHandoutListLine(record: PdaHandoverRecord, objectType: PdaHandoutO
   if (objectType === 'FABRIC') {
     return `${record.materialCode || record.skuCode || record.materialName || '面料'} / ${record.skuColor || '未标颜色'} / ${formatQtyValue(record.plannedQty, record.qtyUnit || '卷')}`
   }
+  if (objectType === 'MATERIAL') {
+    return `${record.materialName || '物料'} / ${record.materialCode || '未标编码'} / ${formatQtyValue(record.plannedQty, record.qtyUnit || '')}`
+  }
   return `${record.skuColor || '未标颜色'} / ${record.skuCode || record.materialCode || record.materialName || '成衣'} / ${formatQtyValue(record.plannedQty, record.qtyUnit || '件')}`
 }
 
@@ -3055,7 +3108,9 @@ export function deriveHandoutRecordProfile(
   sourceDoc: WarehouseReturnOrder | WarehouseIssueOrder | undefined = getPdaHeadSourceExecutionDoc(head.handoverId),
 ): PdaHandoutRecordProfile {
   const objectType = deriveHandoutObjectType(head, record, runtimeTask, sourceDoc)
-  const displayUnit = normalizeDisplayUnit(record.qtyUnit || head.qtyUnit, objectType === 'FABRIC' ? '卷' : objectType === 'CUT_PIECE' ? '片' : '件')
+  const displayUnit = objectType === 'MATERIAL'
+    ? (record.qtyUnit || head.qtyUnit)
+    : normalizeDisplayUnit(record.qtyUnit || head.qtyUnit, objectType === 'FABRIC' ? '卷' : objectType === 'CUT_PIECE' ? '片' : '件')
   const labels = getHandoutQtyLabels(objectType, displayUnit)
   if (objectType === 'CUT_PIECE') {
     const cutPieceRecordSummary = deriveCutPieceRecordSummary(record)
@@ -3121,10 +3176,12 @@ export function deriveHandoutObjectProfile(
   sourceDoc: WarehouseReturnOrder | WarehouseIssueOrder | undefined = getPdaHeadSourceExecutionDoc(head.handoverId),
 ): PdaHandoutObjectProfile {
   const objectType = deriveHandoutObjectType(head, records[0], runtimeTask, sourceDoc)
-  const displayUnit = normalizeDisplayUnit(
-    records[0]?.qtyUnit || head.qtyUnit,
-    objectType === 'FABRIC' ? '卷' : objectType === 'CUT_PIECE' ? '片' : '件',
-  )
+  const displayUnit = objectType === 'MATERIAL'
+    ? (records[0]?.qtyUnit || head.qtyUnit)
+    : normalizeDisplayUnit(
+        records[0]?.qtyUnit || head.qtyUnit,
+        objectType === 'FABRIC' ? '卷' : objectType === 'CUT_PIECE' ? '片' : '件',
+      )
   const labels = getHandoutQtyLabels(objectType, displayUnit)
   if (objectType === 'CUT_PIECE') {
     const cutPieceRecordSummary = buildCutPieceHeadSummary(head, records)
@@ -3169,7 +3226,15 @@ export function deriveHandoutObjectProfile(
     writtenQtyLabel: labels.writtenQtyLabel,
     pendingQtyLabel: labels.pendingQtyLabel,
     displayUnit,
-    objectInfoLines: records.slice(0, 3).map((record) => buildHandoutListLine(record, objectType)),
+    objectInfoLines: records.length > 0
+      ? records.slice(0, 3).map((record) => buildHandoutListLine(record, objectType))
+      : head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER'
+        ? [
+            `物料：${head.materialName || '—'}`,
+            `物料编码：${head.materialCode || '—'}`,
+            head.materialSpec ? `规格：${head.materialSpec}` : '',
+          ].filter(Boolean)
+        : [],
     totalPlannedQty,
     totalWrittenQty,
     totalPendingQty,
@@ -3344,6 +3409,8 @@ function buildHandoutLineRecord(
 function getHeadCompletionOverride(handoverId: string): {
   completionStatus: PdaHeadCompletionStatus
   completedByWarehouseAt?: string
+  factoryMarkedComplete?: boolean
+  factoryMarkedCompleteAt?: string
 } | null {
   return headCompletionOverrides.get(handoverId) ?? null
 }
@@ -3501,6 +3568,8 @@ function refreshHandoutHeadSummary(head: PdaHandoverHead): PdaHandoverHead {
         ...updated,
         completionStatus: completionOverride.completionStatus,
         completedByWarehouseAt: completionOverride.completedByWarehouseAt,
+        factoryMarkedComplete: completionOverride.factoryMarkedComplete ?? updated.factoryMarkedComplete,
+        factoryMarkedCompleteAt: completionOverride.factoryMarkedCompleteAt ?? updated.factoryMarkedCompleteAt,
       },
       records,
     )
@@ -3657,6 +3726,7 @@ function findTaskById(taskId: string): RuntimeProcessTask | PdaTaskMockProcessTa
   return getRuntimeTaskById(taskId)
     ?? listPdaGenericProcessTasks().find((task) => task.taskId === taskId)
     ?? listWoolMobileProcessTasks().find((task) => task.taskId === taskId)
+    ?? listWaterSolubleMobileTasks().find((task) => task.taskId === taskId)
     ?? null
 }
 
@@ -4170,8 +4240,17 @@ export function ensureHandoverOrderForStartedTask(taskId: string): {
   handoverOrderId: string
   created: boolean
 } {
+  const waterOrder = getWaterSolubleWorkOrderByTaskId(taskId)
   const existing = listHandoverOrdersByTaskId(taskId)[0]
   if (existing) {
+    if (waterOrder) {
+      const linkResult = linkWaterSolubleHandoverOrder(
+        waterOrder.waterOrderId,
+        taskId,
+        existing.handoverOrderId || existing.handoverId,
+      )
+      if (!linkResult.ok) throw new Error(linkResult.message)
+    }
     return {
       taskId,
       handoverOrderId: existing.handoverOrderId || existing.handoverId,
@@ -4183,10 +4262,20 @@ export function ensureHandoverOrderForStartedTask(taskId: string): {
   if (!task) {
     throw new Error(`未找到任务：${taskId}`)
   }
-  if (!isTaskEligibleForHandover(task)) {
+  if (waterOrder && waterOrder.status !== 'WAIT_HANDOVER') {
+    throw new Error(`水溶加工单当前为“${waterOrder.status}”，只有待交出时才能创建交出单。`)
+  }
+  if (waterOrder && (!waterOrder.factoryId || waterOrder.factoryId !== task.assignedFactoryId)) {
+    throw new Error('水溶加工单尚未正确派厂，不能创建交出单。')
+  }
+  const dyeHandoverEligible = (task as typeof task & { waterSolubleHandoverEligible?: boolean }).waterSolubleHandoverEligible
+  if (!waterOrder && dyeHandoverEligible === false) {
+    throw new Error('含水溶染色加工单尚未完成包装，不能创建中间交出单。')
+  }
+  if (!waterOrder && !isTaskEligibleForHandover(task)) {
     throw new Error(`当前任务不进入交出链路：${taskId}`)
   }
-  if (!task.startedAt) {
+  if (!waterOrder && !task.startedAt) {
     throw new Error(`任务尚未开工，不能创建交出单：${taskId}`)
   }
 
@@ -4212,7 +4301,7 @@ export function ensureHandoverOrderForStartedTask(taskId: string): {
       taskNo: task.taskNo || task.taskId,
       sourceTaskNo: task.taskNo || task.taskId,
       productionOrderNo,
-      processName: task.processNameZh,
+      processName: waterOrder ? '水溶' : task.processNameZh,
       sourceFactoryName: task.assignedFactoryName || '待分配工厂',
       sourceFactoryId: task.assignedFactoryId,
       targetName: receiver.receiverName,
@@ -4220,7 +4309,9 @@ export function ensureHandoverOrderForStartedTask(taskId: string): {
       receiverKind: receiver.receiverKind,
       receiverId: receiver.receiverId,
       receiverName: receiver.receiverName,
-      qtyUnit: task.qtyUnit === 'METER' ? 'm' : task.qtyUnit === 'BUNDLE' ? '打' : '件',
+      qtyUnit: waterOrder
+        ? getWaterSolubleHandoverQtyUnit(waterOrder.qtyUnit)
+        : task.qtyDisplayUnit?.trim() || (task.qtyUnit === 'METER' ? 'm' : task.qtyUnit === 'BUNDLE' ? '打' : '件'),
       factoryId: task.assignedFactoryId || '',
       taskStatus: task.status === 'DONE' ? 'DONE' : 'IN_PROGRESS',
       summaryStatus: 'NONE',
@@ -4232,28 +4323,38 @@ export function ensureHandoverOrderForStartedTask(taskId: string): {
       diffQtyTotal: 0,
       objectionCount: 0,
       completionStatus: 'OPEN',
-      plannedQty: task.qty,
-      qtyExpectedTotal: task.qty,
+      plannedQty: waterOrder?.handoverQty ?? task.qty,
+      qtyExpectedTotal: waterOrder?.handoverQty ?? task.qty,
       qtyActualTotal: 0,
-      qtyDiffTotal: task.qty,
+      qtyDiffTotal: waterOrder?.handoverQty ?? task.qty,
       runtimeTaskId: taskId,
       stageCode: task.stageCode,
       stageName: task.stageName,
-      processBusinessCode: task.processBusinessCode,
-      processBusinessName: task.processBusinessName,
+      processBusinessCode: waterOrder ? 'WATER_SOLUBLE' : task.processBusinessCode,
+      processBusinessName: waterOrder ? '水溶' : task.processBusinessName,
       craftCode: task.craftCode,
       craftName: task.craftName,
       taskTypeCode: task.taskTypeMode === 'CRAFT' ? task.craftCode || task.processBusinessCode : task.processBusinessCode,
-      taskTypeLabel: task.taskCategoryZh,
+      taskTypeLabel: waterOrder ? '水溶加工单' : task.taskCategoryZh,
       assignmentGranularity: task.assignmentGranularity,
       assignmentGranularityLabel,
       isSpecialCraft: task.isSpecialCraft,
       factoryMarkedComplete: false,
       factoryMarkedCompleteAt: undefined,
+      sourceDocId: waterOrder?.waterOrderId,
+      sourceDocNo: waterOrder?.waterOrderNo,
+      sourceBusinessType: waterOrder ? 'WATER_SOLUBLE_WORK_ORDER' : task.processBusinessCode === 'DYE' ? 'DYE_WORK_ORDER' : undefined,
+      materialCode: waterOrder?.materialCode,
+      materialName: waterOrder?.materialName,
+      materialSpec: waterOrder?.materialSpec,
     },
     [],
   )
 
+  if (waterOrder) {
+    const linkResult = linkWaterSolubleHandoverOrder(waterOrder.waterOrderId, taskId, handoverOrderId)
+    if (!linkResult.ok) throw new Error(linkResult.message)
+  }
   handoverHeadAdditions.set(handoverOrderId, createdHead)
   invalidatePdaHandoverHeadCache()
   return { taskId, handoverOrderId, created: true }
@@ -4273,6 +4374,21 @@ function resolvePostFinishingLineForCreate(
     throw new Error(`本次交出数量不能超过单个复检明细可交出库存，请按 SKU 分批交出；当前最大可交出 ${Math.max(...lines.map((line) => line.availableHandoverGarmentQty))}${head.qtyUnit}`)
   }
   return matched
+}
+
+export function validateWaterSolubleHandoverScan(head: PdaHandoverHead, scanCode: string): string | null {
+  if (head.sourceBusinessType !== 'WATER_SOLUBLE_WORK_ORDER') return null
+  const order = getWaterSolubleWorkOrderByTaskId(head.taskId)
+  if (!order || order.waterOrderId !== head.sourceDocId) {
+    return '水溶加工单与当前交出单不一致，不能交出。'
+  }
+  const normalized = scanCode.trim()
+  const allowedValues = [order.taskQrValue, order.taskNo, order.waterOrderNo, order.materialCode]
+    .map((value) => value.trim())
+    .filter(Boolean)
+  return normalized && allowedValues.includes(normalized)
+    ? null
+    : '扫码不匹配，请扫描当前任务码、水溶加工单号或物料码。'
 }
 
 export function createFactoryHandoverRecord(input: {
@@ -4295,6 +4411,8 @@ export function createFactoryHandoverRecord(input: {
   skuSize?: string
   pieceName?: string
   cutPieceLines?: PdaCutPieceHandoutLine[]
+  scanCode?: string
+  actor?: WaterSolublePdaActor
 }): PdaHandoverRecord {
   const head = getHandoverOrderById(input.handoverOrderId)
   if (!head || head.headType !== 'HANDOUT') {
@@ -4302,6 +4420,33 @@ export function createFactoryHandoverRecord(input: {
   }
   if (head.completionStatus === 'COMPLETED') {
     throw new Error('交出单已完成，不允许新增交出记录')
+  }
+  if (!Number.isFinite(input.submittedQty) || input.submittedQty <= 0) {
+    throw new Error('交出数量必须是大于 0 的有限数字')
+  }
+  const isWaterSolubleHead = head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER'
+  const waterOrder = isWaterSolubleHead
+    ? getWaterSolubleWorkOrderByTaskId(head.taskId)
+    : null
+  if (isWaterSolubleHead) {
+    if (!waterOrder || waterOrder.waterOrderId !== head.sourceDocId) {
+      throw new Error('水溶加工单与当前交出单不一致，不能交出。')
+    }
+    if (!input.actor) throw new Error('水溶交出缺少当前登录交接身份，不能操作。')
+    const actorError = validateWaterSolublePdaActor(input.actor, waterOrder.factoryId, 'HANDOVER')
+    if (actorError) throw new Error(actorError)
+    if (!input.scanCode?.trim()) throw new Error('请扫描当前任务码、水溶加工单号或物料码。')
+    const scanError = validateWaterSolubleHandoverScan(head, input.scanCode)
+    if (scanError) throw new Error(scanError)
+    if (getPdaHandoverRecordsByHead(head.handoverId).length > 0 || waterOrder.status !== 'WAIT_HANDOVER') {
+      throw new Error('该水溶加工单已交出，请勿重复提交。')
+    }
+    if (waterOrder.handoverQty === undefined || Math.abs(input.submittedQty - waterOrder.handoverQty) > 0.000001) {
+      throw new Error(`本期不支持部分交出，请按批准数量 ${waterOrder.handoverQty ?? 0} ${waterOrder.qtyUnit} 交出。`)
+    }
+    if (input.qtyUnit !== undefined && input.qtyUnit.trim() !== waterOrder.qtyUnit) {
+      throw new Error(`水溶交出必须使用原 BOM 单位“${waterOrder.qtyUnit}”，不能改为“${input.qtyUnit.trim() || '空单位'}”。`)
+    }
   }
   const postFinishingLine = resolvePostFinishingLineForCreate(head, input.submittedQty)
 
@@ -4324,9 +4469,9 @@ export function createFactoryHandoverRecord(input: {
       postFinishingSkuLineId: postFinishingLine?.skuLineId,
       objectType: postFinishingLine ? 'FINISHED_GARMENT' : input.objectType,
       garmentEquivalentQty: input.garmentEquivalentQty,
-      materialCode: input.materialCode || postFinishingLine?.skuCode,
-      materialName: input.materialName || (postFinishingLine ? '后道复检合格成衣' : undefined),
-      materialSpec: input.materialSpec || (postFinishingLine ? `${postFinishingLine.spuName} / ${postFinishingLine.colorName} / ${postFinishingLine.sizeName}` : undefined),
+      materialCode: input.materialCode || waterOrder?.materialCode || postFinishingLine?.skuCode,
+      materialName: input.materialName || waterOrder?.materialName || (postFinishingLine ? '后道复检合格成衣' : undefined),
+      materialSpec: input.materialSpec || waterOrder?.materialSpec || (postFinishingLine ? `${postFinishingLine.spuName} / ${postFinishingLine.colorName} / ${postFinishingLine.sizeName}` : undefined),
       skuCode: input.skuCode || postFinishingLine?.skuCode,
       skuColor: input.skuColor || postFinishingLine?.colorName,
       skuSize: input.skuSize || postFinishingLine?.sizeName,
@@ -4335,6 +4480,8 @@ export function createFactoryHandoverRecord(input: {
       handoutObjectType:
         postFinishingLine
           ? 'GARMENT'
+          : waterOrder
+            ? 'MATERIAL'
           : input.handoutObjectType
           ? input.handoutObjectType
           : input.objectType === 'CUT_PIECE'
@@ -4355,7 +4502,20 @@ export function createFactoryHandoverRecord(input: {
     head,
   )
 
+  if (waterOrder) {
+    const result = submitWaterSolubleHandover(waterOrder.waterOrderId, input.submittedQty)
+    if (!result.ok) throw new Error(result.message)
+  }
   saveHandoutRecord(created)
+  if (waterOrder) {
+    headCompletionOverrides.set(head.handoverId, {
+      completionStatus: 'COMPLETED',
+      completedByWarehouseAt: input.factorySubmittedAt,
+      factoryMarkedComplete: true,
+      factoryMarkedCompleteAt: input.factorySubmittedAt,
+    })
+    invalidatePdaHandoverHeadCache()
+  }
   if (postFinishingLine) {
     recordPostFinishingHandoverSubmission({
       handoverId: head.handoverId,
@@ -4561,7 +4721,7 @@ export function writeBackHandoverRecord(input: {
   diffReason?: string
 }): PdaHandoverRecord {
   if (!Number.isFinite(input.receiverWrittenQty) || input.receiverWrittenQty < 0) {
-    throw new Error('实收数量必须为非负有限数')
+    throw new Error('实收数量必须为非负有限数（大于或等于 0 的有限数字）')
   }
   const current = findRecord(input.handoverRecordId)
   if (!current) {
@@ -4578,6 +4738,16 @@ export function writeBackHandoverRecord(input: {
   const head = findPdaHandoverHead(current.handoverId)
   if (!head) {
     throw new Error(`未找到交出单：${current.handoverId}`)
+  }
+  if (!Number.isFinite(input.receiverWrittenQty) || input.receiverWrittenQty < 0) {
+    throw new Error('收货数量必须是大于或等于 0 的有限数字')
+  }
+  const waterOrder = head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER'
+    ? getWaterSolubleWorkOrderByTaskId(head.taskId)
+    : null
+  if (waterOrder) {
+    const result = writeBackWaterSolubleReceipt(waterOrder.waterOrderId, input.receiverWrittenQty)
+    if (!result.ok) throw new Error(result.message)
   }
 
   const updated = hydrateHandoverRecordDomain(
@@ -4613,6 +4783,13 @@ export function acceptHandoverRecordDiff(handoverRecordId: string): PdaHandoverR
   const head = findPdaHandoverHead(current.handoverId)
   if (!head) {
     throw new Error(`未找到交出单：${current.handoverId}`)
+  }
+  const waterOrder = head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER'
+    ? getWaterSolubleWorkOrderByTaskId(head.taskId)
+    : null
+  if (waterOrder) {
+    const result = resolveWaterSolubleReceiptDifference(waterOrder.waterOrderId)
+    if (!result.ok) throw new Error(result.message)
   }
 
   const updated = hydrateHandoverRecordDomain(

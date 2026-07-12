@@ -200,11 +200,13 @@ export function renderBomTab(): string {
                     <th class="px-3 py-2 text-left">物料名称</th>
                     <th class="px-3 py-2 text-left">规格</th>
                     <th class="px-3 py-2 text-right">单位用量</th>
+                    <th class="px-3 py-2 text-left">单位</th>
                     <th class="px-3 py-2 text-right">损耗率(%)</th>
                     <th class="px-3 py-2 text-left">印花需求</th>
                     <th class="px-3 py-2 text-left">印花面别</th>
                     <th class="px-3 py-2 text-left">正面花型</th>
                     <th class="px-3 py-2 text-left">里面花型</th>
+                    <th class="px-3 py-2 text-left">水溶要求</th>
                     <th class="px-3 py-2 text-left">染色需求</th>
                     <th class="px-3 py-2 text-left">缩水需求</th>
                     <th class="px-3 py-2 text-left">洗水需求</th>
@@ -220,7 +222,7 @@ export function renderBomTab(): string {
                             <tr class="border-b last:border-0 bg-muted/10">
                               <td class="px-3 py-2 font-medium">${escapeHtml(spuLabel)}</td>
                               <td class="px-3 py-2 text-sm">${escapeHtml(group.colorLabel)}</td>
-                              <td colspan="11" class="px-3 py-2 text-sm text-muted-foreground">当前 SKU 暂无适用物料</td>
+                              <td colspan="16" class="px-3 py-2 text-sm text-muted-foreground">当前 SKU 暂无适用物料</td>
                             </tr>
                           `
                         }
@@ -257,6 +259,13 @@ export function renderBomTab(): string {
                                 <td class="px-3 py-2 font-medium">${escapeHtml(item.materialName)}</td>
                                 <td class="px-3 py-2 text-sm text-muted-foreground">${escapeHtml(item.spec || '-')}</td>
                                 <td class="px-3 py-2 text-right">${item.usage}</td>
+                                <td class="px-3 py-2" data-bom-unit-missing="${item.unit.trim() ? 'false' : 'true'}">
+                                  ${
+                                    item.unit.trim()
+                                      ? escapeHtml(item.unit)
+                                      : '<div class="whitespace-nowrap font-medium text-red-600">缺少单位</div><div class="mt-1 whitespace-nowrap text-[11px] text-red-600">缺少单位，不能勾选水溶</div>'
+                                  }
+                                </td>
                                 <td class="px-3 py-2 text-right">${item.lossRate}%</td>
                                 <td class="px-3 py-2">
                                   ${
@@ -272,6 +281,18 @@ export function renderBomTab(): string {
                                 <td class="px-3 py-2">${item.printRequirement === '无' ? '<span class="text-muted-foreground">-</span>' : item.printSideMode ? escapeHtml(renderPrintSideModeLabel(item.printSideMode)) : '<span class="text-amber-600">待配置</span>'}</td>
                                 <td class="px-3 py-2" data-tech-preview-cell="front" data-bom-id="${item.id}">${renderBomPrintBindingCell(item, 'FRONT')}</td>
                                 <td class="px-3 py-2" data-tech-preview-cell="inside" data-bom-id="${item.id}">${renderBomPrintBindingCell(item, 'INSIDE')}</td>
+                                <td class="px-3 py-2">
+                                  ${
+                                    readonly
+                                      ? renderTextValue(item.waterSolubleRequirement)
+                                      : `<select class="h-8 w-20 rounded-md border px-2 text-sm" data-tech-field="bom-water-soluble" data-bom-id="${item.id}" data-testid="bom-water-soluble-requirement-select">
+                                          ${bomRequirementOptions
+                                            .map((option) => `<option value="${option}" ${item.waterSolubleRequirement === option ? 'selected' : ''}>${option}</option>`)
+                                            .join('')}
+                                        </select>`
+                                  }
+                                  ${item.waterSolubleRequirement === '是' && item.dyeRequirement !== '无' ? '<div class="mt-1 whitespace-nowrap text-[11px] text-amber-700">固定顺序：先水溶、后染色</div>' : ''}
+                                </td>
                                 <td class="px-3 py-2">
                                   ${
                                     readonly
@@ -504,6 +525,10 @@ export function renderBomFormDialog(): string {
               <span class="text-sm">单位用量</span>
               <input type="number" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-usage" value="${escapeHtml(state.newBomItem.usage)}" placeholder="0" />
             </label>
+            <label class="space-y-1">
+              <span class="text-sm">单位</span>
+              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-unit" value="${escapeHtml(state.newBomItem.unit)}" placeholder="请输入物料单位" />
+            </label>
           </div>
 
           <div class="space-y-4">
@@ -539,6 +564,15 @@ export function renderBomFormDialog(): string {
             }
             ${showDesignPickers ? renderPatternDesignPicker('正面花型', 'FRONT', frontDesignOptions, selectedFrontDesignIds) : ''}
             ${showDesignPickers ? renderPatternDesignPicker('里面花型', 'INSIDE', insideDesignOptions, selectedInsideDesignIds) : ''}
+            <label class="space-y-1">
+              <span class="text-sm">水溶要求</span>
+              <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-water-soluble-requirement" data-testid="new-bom-water-soluble-requirement-select">
+                ${bomRequirementOptions
+                  .map((option) => `<option value="${option}" ${state.newBomItem.waterSolubleRequirement === option ? 'selected' : ''}>${option}</option>`)
+                  .join('')}
+              </select>
+              ${state.newBomItem.waterSolubleRequirement === '是' && state.newBomItem.dyeRequirement !== '无' ? '<span class="text-xs text-amber-700">固定顺序：先水溶、后染色</span>' : ''}
+            </label>
             <label class="space-y-1">
               <span class="text-sm">染色需求</span>
               <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-dye-requirement">

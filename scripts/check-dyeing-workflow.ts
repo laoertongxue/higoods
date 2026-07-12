@@ -4,6 +4,8 @@ import process from 'node:process'
 import assert from 'node:assert/strict'
 
 import {
+  completeDyeing,
+  getDyeExecutionNodeRecord,
   getDyeOrderHandoverSummary,
   getDyeWorkOrderByTaskId,
   hasDirectPackingToReviewOrCompleteTransition,
@@ -153,6 +155,14 @@ function main(): void {
   const packingOrder = orders.find((order) => order.status === 'WAIT_HANDOVER')
   assert(packingOrder, '包装完成后必须进入待送货')
   assert(getDyeWorkOrderByTaskId(packingOrder.taskId)?.status === 'WAIT_HANDOVER', '包装后待送货节点缺失')
+
+  const baselineOrder = orders.find((order) => order.dyeOrderId === 'DWO-006')
+  assert(baselineOrder && !baselineOrder.requiresWaterSoluble && baselineOrder.status === 'DYEING', 'DWO-006 必须保持普通染色执行中基线')
+  completeDyeing(baselineOrder.dyeOrderId, { inputQty: 1200, outputQty: 1101, operatorName: '普通染色基线检查员' })
+  const baselineCompletedNode = getDyeExecutionNodeRecord(baselineOrder.dyeOrderId, 'DYE')
+  assert.equal(baselineCompletedNode?.inputQty, 1200, '普通染色必须保留调用方 inputQty 基线行为')
+  assert.equal(baselineCompletedNode?.outputQty, 1101, '普通染色 outputQty 超过旧节点投入时不得被组合单上限误伤')
+  assert.equal(baselineCompletedNode?.lossQty, 99, '普通染色必须继续按调用方投入计算损耗')
 
   printTerms.forEach((term) => {
     assertNotIncludes(workOrdersSource, term, '染色加工单页面')

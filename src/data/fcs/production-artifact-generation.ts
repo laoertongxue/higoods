@@ -1,5 +1,6 @@
 import {
   productionOrders,
+  type ProductionOrder,
 } from './production-orders.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import {
@@ -30,6 +31,10 @@ import {
   type TaskTypeMode,
 } from './process-craft-dict.ts'
 import type { TechnicalProcessEntry } from '../pcs-technical-data-version-types.ts'
+import type {
+  ProductionOrderTechPackSnapshot,
+  TechPackBomItemSnapshot,
+} from './production-tech-pack-snapshot-types.ts'
 
 type TechPackProcessEntry = TechnicalProcessEntry
 type TechPackProcessEntryType = TechnicalProcessEntry['entryType']
@@ -64,6 +69,11 @@ export interface GeneratedProductionArtifactBase {
   requiresFeiTicket?: boolean
   packagingRequired?: boolean
   materialIssueMode?: 'WAREHOUSE_DELIVERY'
+  bomItemId?: string
+  materialCode?: string
+  materialName?: string
+  plannedQty?: number
+  plannedUnit?: string
   linkedBomItemIds?: string[]
   linkedPatternIds?: string[]
   routeStepNo?: number
@@ -80,6 +90,8 @@ export interface GeneratedDemandArtifact extends GeneratedProductionArtifactBase
   artifactType: 'DEMAND'
   demandTypeCode: string
   demandTypeLabel: string
+  requiresWaterSoluble?: boolean
+  processRoute?: Array<'WATER_SOLUBLE' | 'DYE'>
 }
 
 export interface GeneratedTaskArtifact extends GeneratedProductionArtifactBase {
@@ -168,6 +180,11 @@ function toArtifactKeySegment(entryId: string): string {
   return entryId.replace(/[^A-Za-z0-9_-]/g, '_')
 }
 
+function toUnambiguousArtifactIdentitySegment(value: string): string {
+  const encoded = encodeURIComponent(value)
+  return `${encoded.length}_${encoded}`
+}
+
 function toMockToken(value: string, size: number): string {
   const digits = value.replace(/\D/g, '')
   return (digits || value.replace(/[^A-Za-z0-9]/g, '') || '0').slice(-size).padStart(size, '0')
@@ -184,6 +201,39 @@ export function buildDictionaryCraftMockDocumentNo(
   mockIndex: number,
 ): string {
   return `${prefix}${toMockToken(craftCode, 7)}${toMockToken(orderId, 8)}${String(mockIndex + 1).padStart(2, '0')}`
+}
+
+const STABLE_DEMAND_SEQUENCE_BY_ARTIFACT_ID: Readonly<Record<string, string>> = {
+  'DEMART-13_PO-202603-081-17_TPS-PO-202603-081-25_tdv_demand_SPU_TSHIRT_081-37_tdv_demand_SPU_TSHIRT_081-process-dye-47_tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye': '01',
+  'DEMART-13_PO-202603-087-17_TPS-PO-202603-087-25_tdv_demand_SPU_TSHIRT_081-37_tdv_demand_SPU_TSHIRT_081-process-dye-47_tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye': '07',
+  'DEMART-13_PO-202603-088-17_TPS-PO-202603-088-25_tdv_demand_SPU_TSHIRT_081-37_tdv_demand_SPU_TSHIRT_081-process-dye-47_tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye': '08',
+}
+
+function buildStableDemandIdentityToken(artifact: ProductionDemandArtifact): string {
+  const preservedSequence = STABLE_DEMAND_SEQUENCE_BY_ARTIFACT_ID[artifact.artifactId]
+  if (preservedSequence) return preservedSequence
+  let hash = 14695981039346656037n
+  for (const character of artifact.artifactId) {
+    hash ^= BigInt(character.charCodeAt(0))
+    hash = BigInt.asUintN(64, hash * 1099511628211n)
+  }
+  return hash.toString(10).padStart(20, '0')
+}
+
+export function buildProductionDemandBusinessId(
+  prefix: string,
+  artifact: ProductionDemandArtifact,
+): string {
+  if (artifact.craftCode) {
+    const matched = artifact.sourceEntryId.match(/DICT-MOCK-[A-Z_0-9]+-(\d{2})-/)
+    if (matched) {
+      const mockSequence = Number.parseInt(matched[1], 10)
+      if (Number.isFinite(mockSequence) && mockSequence > 0) {
+        return buildDictionaryCraftMockDocumentNo(prefix, artifact.craftCode, artifact.orderId, mockSequence - 1)
+      }
+    }
+  }
+  return `${prefix}${toMockToken(artifact.orderId, 8)}${buildStableDemandIdentityToken(artifact)}`
 }
 
 function listTechPackSourceOrders() {
@@ -245,7 +295,25 @@ function buildDictionaryCoverageBase(
   if (!source) return null
   const processDefinition = getProcessDefinitionByCode(definition.processCode)
   const stageDefinition = getProcessStageByCode(definition.stageCode)
-  const linkedBomItem = source.snapshot.bomItems[0]
+  const linkedBomItem = definition.processCode === 'WATER_SOLUBLE'
+    ? source.snapshot.bomItems[mockIndex % source.snapshot.bomItems.length]
+    : source.snapshot.bomItems[0]
+  if (definition.processCode === 'WATER_SOLUBLE') {
+    if (
+      !linkedBomItem?.id
+      || !linkedBomItem.name?.trim()
+    ) return null
+  }
+  const waterSolubleMaterialFields = definition.processCode === 'WATER_SOLUBLE' && linkedBomItem
+    ? {
+        bomItemId: linkedBomItem.id,
+        materialCode: linkedBomItem.materialCode || linkedBomItem.id,
+        materialName: linkedBomItem.name,
+        plannedQty: calculateBomProcessPlannedQty(source.order, linkedBomItem),
+        plannedUnit: linkedBomItem.unit || '米',
+        linkedBomItemIds: [linkedBomItem.id],
+      }
+    : {}
   const sourceEntryId = toCoverageSourceEntryId(definition, mockIndex, source.snapshot.snapshotId)
   const sortKey = `${toCoverageSortKey(definition, mockIndex)}-${source.order.productionOrderId}`
 
@@ -288,6 +356,7 @@ function buildDictionaryCoverageBase(
     packagingRequired: definition.processCode === 'WOOL' && definition.craftName === '整件毛织' ? false : undefined,
     materialIssueMode: definition.processCode === 'WOOL' ? 'WAREHOUSE_DELIVERY' : undefined,
     linkedBomItemIds: linkedBomItem ? [linkedBomItem.id] : undefined,
+    ...waterSolubleMaterialFields,
     linkedPatternIds: undefined,
     docTypeLabel: definition.defaultDocType === 'DEMAND' ? `${definition.craftName}需求单` : DOC_TYPE_LABEL.TASK,
     generationSortKey: sortKey,
@@ -577,12 +646,155 @@ function toTaskArtifact(context: ResolvedEntryContext): GeneratedTaskArtifact {
   }
 }
 
+export function calculateBomProcessPlannedQty(
+  order: ProductionOrder,
+  bomItem: TechPackBomItemSnapshot,
+): number {
+  const bomLabel = `BOM ${bomItem.id}（${bomItem.materialCode || bomItem.name || bomItem.id}）`
+  for (const line of order.demandSnapshot.skuLines) {
+    if (!Number.isFinite(line.qty)) {
+      throw new Error(`${bomLabel}计划数量计算失败：SKU ${line.skuCode} 数量必须是有限数`)
+    }
+    if (line.qty < 0) {
+      throw new Error(`${bomLabel}计划数量计算失败：SKU ${line.skuCode} 数量必须大于等于 0`)
+    }
+  }
+
+  const applicableSkuCodes = bomItem.applicableSkuCodes ?? []
+  const garmentQty = order.demandSnapshot.skuLines.reduce((sum, line) => {
+    if (applicableSkuCodes.length > 0 && !applicableSkuCodes.includes(line.skuCode)) return sum
+    return sum + line.qty
+  }, 0)
+  if (garmentQty <= 0) {
+    const reason = applicableSkuCodes.length > 0
+      ? '适用 SKU 未匹配到大于 0 的生产数量'
+      : '生产数量合计必须大于 0'
+    throw new Error(`${bomLabel}计划数量计算失败：${reason}`)
+  }
+  if (!Number.isFinite(bomItem.unitConsumption)) {
+    throw new Error(`${bomLabel}计划数量计算失败：BOM 单位用量必须是有限数`)
+  }
+  if (bomItem.unitConsumption <= 0) {
+    throw new Error(`${bomLabel}计划数量计算失败：BOM 单位用量必须大于 0`)
+  }
+  if (!Number.isFinite(bomItem.lossRate)) {
+    throw new Error(`${bomLabel}计划数量计算失败：BOM 损耗率必须是有限数`)
+  }
+  if (bomItem.lossRate < 0) {
+    throw new Error(`${bomLabel}计划数量计算失败：BOM 损耗率必须大于等于 0`)
+  }
+  const plannedQty = garmentQty * bomItem.unitConsumption * (1 + bomItem.lossRate / 100)
+  if (!Number.isFinite(plannedQty)) {
+    throw new Error(`${bomLabel}计划数量计算失败：计划数量必须是有限数`)
+  }
+  const roundedPlannedQty = Math.round(plannedQty * 1000) / 1000
+  if (!Number.isFinite(roundedPlannedQty)) {
+    throw new Error(`${bomLabel}计划数量计算失败：计划数量必须是有限数`)
+  }
+  if (roundedPlannedQty <= 0) {
+    throw new Error(`${bomLabel}计划数量计算失败：计划数量必须大于 0`)
+  }
+  return roundedPlannedQty
+}
+
+interface GenerateBomDrivenPrepArtifactsForEntryInput {
+  order: ProductionOrder
+  snapshot: ProductionOrderTechPackSnapshot
+  entry: TechnicalProcessEntry
+  entryIndex: number
+}
+
+function generateBomDrivenPrepArtifactsForEntry(
+  input: GenerateBomDrivenPrepArtifactsForEntryInput,
+): GeneratedProductionArtifact[] {
+  const { order, snapshot, entry, entryIndex } = input
+  if (entry.processCode !== 'WATER_SOLUBLE' && entry.processCode !== 'DYE') return []
+
+  const linkedBomItemIds = [...new Set(entry.linkedBomItemIds ?? [])]
+  const bomItemById = new Map(snapshot.bomItems.map((item) => [item.id, item]))
+  const context = resolveEntryContext(order.productionOrderId, entry, entryIndex)
+  context.orderQty = order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
+  context.techPackId = snapshot.sourceTechPackVersionId
+
+  return linkedBomItemIds.flatMap((bomItemId) => {
+    const bomItem = bomItemById.get(bomItemId)
+    if (!bomItem) return []
+
+    const requiresWaterSoluble = bomItem.waterSolubleRequirement === '是'
+    const dyeRequirement = bomItem.dyeRequirement?.trim()
+    const requiresDye = Boolean(dyeRequirement && dyeRequirement !== '无')
+    if (entry.processCode === 'WATER_SOLUBLE' && (!requiresWaterSoluble || requiresDye)) return []
+    if (entry.processCode === 'DYE' && !requiresDye) return []
+    if (!bomItem.unit?.trim()) {
+      throw new Error(`BOM ${bomItem.id}（${bomItem.materialCode || bomItem.name || bomItem.id}）产物生成失败：BOM 数量单位不能为空`)
+    }
+
+    const materialFields = {
+      bomItemId: bomItem.id,
+      materialCode: bomItem.materialCode || bomItem.id,
+      materialName: bomItem.name,
+      plannedQty: calculateBomProcessPlannedQty(order, bomItem),
+      plannedUnit: bomItem.unit.trim(),
+      linkedBomItemIds: [bomItem.id],
+    }
+    const techPackVersionKey = snapshot.sourceTechPackVersionId
+      || snapshot.sourceTechPackVersionCode
+      || snapshot.snapshotId
+    const artifactKey = [
+      order.productionOrderId,
+      snapshot.snapshotId,
+      techPackVersionKey,
+      entry.id,
+      bomItem.id,
+    ].map(toUnambiguousArtifactIdentitySegment).join('-')
+    const bomSortSuffix = toArtifactKeySegment(bomItem.id)
+
+    if (entry.processCode === 'WATER_SOLUBLE') {
+      return [{
+        ...toTaskArtifact(context),
+        ...materialFields,
+        artifactId: `TASKART-${artifactKey}`,
+        defaultDocType: 'TASK',
+        docTypeLabel: DOC_TYPE_LABEL.TASK,
+        taskTypeCode: 'WATER_SOLUBLE',
+        taskTypeLabel: '水溶',
+        taskScope: 'EXTERNAL_TASK',
+        generationSortKey: `${buildGenerationSortKey(context)}-${bomSortSuffix}`,
+        sortKey: `${buildSortKey(context)}-${bomSortSuffix}`,
+      }]
+    }
+
+    return [{
+      ...toDemandArtifact(context),
+      ...materialFields,
+      artifactId: `DEMART-${artifactKey}`,
+      requiresWaterSoluble,
+      processRoute: requiresWaterSoluble ? ['WATER_SOLUBLE', 'DYE'] : ['DYE'],
+      generationSortKey: `${buildGenerationSortKey(context)}-${bomSortSuffix}`,
+      sortKey: `${buildSortKey(context)}-${bomSortSuffix}`,
+    }]
+  })
+}
+
 function shouldGenerateDemand(entry: TechPackProcessEntry, context: ResolvedEntryContext): boolean {
   return (
     entry.entryType === 'PROCESS_BASELINE' &&
     context.stageCode === 'PREP' &&
     context.defaultDocType === 'DEMAND' &&
     (context.processCode === 'PRINT' || context.processCode === 'DYE')
+  )
+}
+
+function shouldGenerateWaterSolubleTask(
+  entry: TechPackProcessEntry,
+  context: ResolvedEntryContext,
+): boolean {
+  return (
+    entry.entryType === 'PROCESS_BASELINE'
+    && context.stageCode === 'PREP'
+    && context.defaultDocType === 'TASK'
+    && context.processCode === 'WATER_SOLUBLE'
+    && context.isActive
   )
 }
 
@@ -713,17 +925,28 @@ function createPostFinishingRollupArtifact(
   }
 }
 
-function resolveTechPackIdByOrder(orderId: string): string | null {
-  return getProductionOrderTechPackSnapshot(orderId)?.sourceTechPackVersionId ?? null
-}
-
 function resolveTechPackEntriesByOrder(orderId: string): TechPackProcessEntry[] {
   return getProductionOrderProcessEntries(orderId)
 }
 
+function dedupeBomDrivenArtifacts(
+  artifacts: GeneratedProductionArtifact[],
+): GeneratedProductionArtifact[] {
+  const seenKeys = new Set<string>()
+  return artifacts.filter((artifact) => {
+    if (!artifact.bomItemId) return true
+    const key = [artifact.artifactType, artifact.processCode, artifact.bomItemId].join('\u0000')
+    if (seenKeys.has(key)) return false
+    seenKeys.add(key)
+    return true
+  })
+}
+
 export function generateProductionArtifactsForOrder(orderId: string): GeneratedProductionArtifact[] {
-  const techPackId = resolveTechPackIdByOrder(orderId)
-  if (!techPackId) return []
+  const order = productionOrders.find((item) => item.productionOrderId === orderId)
+  const snapshot = getProductionOrderTechPackSnapshot(orderId)
+  if (!order || !snapshot || !snapshot.sourceTechPackVersionId) return []
+  const techPackId = snapshot.sourceTechPackVersionId
 
   const entries = resolveTechPackEntriesByOrder(orderId)
   if (!entries.length) return []
@@ -734,6 +957,20 @@ export function generateProductionArtifactsForOrder(orderId: string): GeneratedP
   entries.forEach((entry, index) => {
     const context = resolveEntryContext(orderId, entry, index)
     context.techPackId = techPackId
+
+    if (entry.processCode === 'WATER_SOLUBLE') {
+      if (shouldGenerateWaterSolubleTask(entry, context)) {
+        artifacts.push(...generateBomDrivenPrepArtifactsForEntry({ order, snapshot, entry, entryIndex: index }))
+      }
+      return
+    }
+
+    if (entry.processCode === 'DYE' && entry.linkedBomItemIds?.length) {
+      if (shouldGenerateDemand(entry, context) && context.isActive) {
+        artifacts.push(...generateBomDrivenPrepArtifactsForEntry({ order, snapshot, entry, entryIndex: index }))
+      }
+      return
+    }
 
     if (shouldGenerateDemand(entry, context)) {
       artifacts.push(toDemandArtifact(context))
@@ -761,7 +998,7 @@ export function generateProductionArtifactsForOrder(orderId: string): GeneratedP
 
   artifacts.push(...directNonPostArtifacts)
 
-  return artifacts.sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+  return dedupeBomDrivenArtifacts(artifacts).sort((a, b) => a.sortKey.localeCompare(b.sortKey))
 }
 
 export function generateProductionArtifactBundleForOrder(orderId: string): GeneratedProductionArtifactBundle {
