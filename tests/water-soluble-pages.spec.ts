@@ -54,11 +54,10 @@ async function arrangePfosOrderForRole(
   status: 'WAIT_MATERIAL' | 'WAIT_WATER_SOLUBLE' | 'WATER_SOLUBLE_IN_PROGRESS' | 'PRODUCTION_PAUSED' | 'WAIT_HANDOVER',
   roleId: 'ROLE_OPERATOR' | 'ROLE_PRODUCTION' | 'ROLE_HANDOVER' | 'ROLE_ADMIN',
 ): Promise<{ orderId: string; factoryId: string; userName: string }> {
-  await page.goto('/')
+  if (page.url() === 'about:blank') await page.goto('/')
   const arranged = await page.evaluate(async ({ targetStatus, targetRole }) => {
     const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
     const pda = await import(/* @vite-ignore */ '/src/data/fcs/store-domain-pda.ts')
-    const store = await import(/* @vite-ignore */ '/src/state/store.ts')
     water.resetWaterSolubleDomainForChecks({ seedDemo: true })
     let order = water.listWaterSolubleWorkOrders().find((item) => item.status === targetStatus && item.factoryId)
     if (!order && targetStatus === 'WAIT_MATERIAL') {
@@ -79,12 +78,24 @@ async function arrangePfosOrderForRole(
     const user = pda.listFactoryPdaUsers(order.factoryId).find((item) => item.status === 'ACTIVE' && item.roleId === targetRole)
       || await pda.createFactoryPdaUser({ factoryId: order.factoryId, name: `任务3-${targetRole}`, loginId: `${order.factoryId}_task3_${targetRole}`, password: '123456', roleId: targetRole, createdBy: 'Playwright任务3' })
     localStorage.setItem('fcs_pda_session', JSON.stringify(pda.createPdaSessionFromUser(user)))
-    store.appStore.navigate('/fcs/craft/dyeing/water-soluble-orders')
     return { orderId: order.waterOrderId, factoryId: order.factoryId, userName: user.name }
   }, { targetStatus: status, targetRole: roleId })
+  await navigateInApp(page, '/fcs/workbench/overview')
+  await expect(page).toHaveURL('/fcs/workbench/overview')
+  await expect(page.getByTestId('factory-water-soluble-orders-page')).toHaveCount(0)
+  await navigateInApp(page, '/fcs/craft/dyeing/water-soluble-orders')
   await expect(page).toHaveURL('/fcs/craft/dyeing/water-soluble-orders')
   await expect(page.getByTestId('factory-water-soluble-orders-page')).toBeVisible()
-  await expect(page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${arranged.orderId}"]`)).toBeVisible()
+  const card = page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${arranged.orderId}"]`)
+  await expect(card).toBeVisible()
+  const statusLabels = {
+    WAIT_MATERIAL: '待原料',
+    WAIT_WATER_SOLUBLE: '待水溶',
+    WATER_SOLUBLE_IN_PROGRESS: '水溶中',
+    PRODUCTION_PAUSED: '生产暂停',
+    WAIT_HANDOVER: '待交出',
+  } as const
+  await expect(card).toContainText(statusLabels[status])
   return arranged
 }
 
