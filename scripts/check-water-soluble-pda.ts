@@ -10,6 +10,7 @@ import {
   completeDyeing,
   completeDyeSampleTest,
   completeDyeSampleWait,
+  createDyeWorkOrderFromDemands,
   executeDyeWaterSolublePdaAction,
   getDyeExecutionNodeRecord,
   getDyeWorkOrderById,
@@ -1073,8 +1074,18 @@ async function main(): Promise<void> {
     assert.deepEqual(getProcessActionOperationRecordsByTask(combined.taskId), beforeOverInputLogs, '产出超过真实投入失败不得新增操作日志')
 
     const adminUser = listFactoryPdaUsers(combined.dyeFactoryId).find((item) => item.status === 'ACTIVE' && item.roleId === 'ROLE_ADMIN')
-    assert(adminUser, '含水溶染色完成防护必须有本厂管理员账号用于越权测试')
+    const productionUser = listFactoryPdaUsers(combined.dyeFactoryId).find((item) => item.status === 'ACTIVE' && item.roleId === 'ROLE_PRODUCTION')
+      || await createFactoryPdaUser({
+        factoryId: combined.dyeFactoryId,
+        name: '水溶专项生产主管',
+        loginId: `${combined.dyeFactoryId}_water_production_check`,
+        password: '123456',
+        roleId: 'ROLE_PRODUCTION',
+        createdBy: '水溶专项检查',
+      })
+    assert(adminUser && productionUser, '含水溶染色完成防护必须有本厂管理员和生产主管账号用于越权测试')
     const admin = createPdaSessionFromUser(adminUser)
+    const production = createPdaSessionFromUser(productionUser)
     const completionSnapshot = () => ({
       order: getDyeWorkOrderById(combined.dyeOrderId),
       node: getDyeExecutionNodeRecord(combined.dyeOrderId, 'DYE'),
@@ -1133,6 +1144,11 @@ async function main(): Promise<void> {
       const beforeAdminCompletion = completionSnapshot()
       assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(initialToken)), true, '管理员组合染色完成请求必须被 handler 消费')
       assert.deepEqual(completionSnapshot(), beforeAdminCompletion, '管理员不得代替普通操作员完成组合染色')
+
+      memoryStorage.set('fcs_pda_session', JSON.stringify(production))
+      const beforeProductionCompletion = completionSnapshot()
+      assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(initialToken)), true, '生产主管组合染色完成请求必须被 handler 消费')
+      assert.deepEqual(completionSnapshot(), beforeProductionCompletion, '生产主管不得代替普通操作员完成组合染色')
 
       memoryStorage.set('fcs_pda_session', JSON.stringify(handoverActor))
       const beforeHandoverCompletion = completionSnapshot()
@@ -1201,6 +1217,107 @@ async function main(): Promise<void> {
     assert.equal(combinedFinalOrders[0].qtyUnit, '公斤', '联合染色最终交出单头必须优先使用任务权威显示单位')
     assert.equal(ensureHandoverOrderForStartedTask(combined.taskId).created, false)
     assert.equal(listHandoverOrdersByTaskId(combined.taskId).length, 1, '联合染色重复 ensure 不得重复创建')
+
+    const zeroCreated = createDyeWorkOrderFromDemands({
+      demands: [{
+        demandId: 'DYE-ZERO-HANDLER-DEMAND',
+        sourceArtifactId: 'DYE-ZERO-HANDLER-ARTIFACT',
+        sourceProductionOrderId: 'PO-DYE-ZERO-HANDLER',
+        bomItemId: 'BOM-DYE-ZERO-HANDLER',
+        materialCode: 'MAT-DYE-ZERO-HANDLER',
+        materialName: '产出 0 专项面料',
+        requiredQty: 100,
+        unit: combined.qtyUnit,
+        requiresWaterSoluble: true,
+        processRoute: ['WATER_SOLUBLE', 'DYE'],
+      }],
+      factoryId: combined.dyeFactoryId,
+      plannedFinishAt: '2026-07-20 18:00:00',
+      createdBy: '组合染色产出 0 专项检查',
+    })
+    assert.equal(zeroCreated.ok, true, zeroCreated.message)
+    const zeroCombined = zeroCreated.order
+    assert(zeroCombined, '必须创建第二张含水溶染色单验证真实产出 0')
+    if (zeroCombined.isFirstOrder && zeroCombined.sampleWaitType !== 'NONE') {
+      startDyeSampleWait(zeroCombined.dyeOrderId, { waitType: zeroCombined.sampleWaitType, operatorName: operator.userName })
+      completeDyeSampleWait(zeroCombined.dyeOrderId, operator.userName)
+      startDyeSampleTest(zeroCombined.dyeOrderId, operator.userName)
+      completeDyeSampleTest(zeroCombined.dyeOrderId, { colorNo: 'WS-ZERO', operatorName: operator.userName })
+    }
+    startDyeMaterialWait(zeroCombined.dyeOrderId, operator.userName)
+    completeDyeMaterialWait(zeroCombined.dyeOrderId, operator.userName)
+    startDyeMaterialReady(zeroCombined.dyeOrderId, operator.userName)
+    completeDyeMaterialReady(zeroCombined.dyeOrderId, { outputQty: zeroCombined.plannedQty, operatorName: operator.userName })
+    const zeroVat = listDyeVatOptions(zeroCombined.dyeFactoryId)[0]
+    assert(zeroVat, '产出 0 探针必须有可用染缸')
+    planDyeVat(zeroCombined.dyeOrderId, { dyeVatNo: zeroVat.dyeVatNo, operatorName: operator.userName })
+    memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+    assert.equal(executeDyeWaterSolublePdaAction({
+      action: 'START', dyeOrderId: zeroCombined.dyeOrderId, taskId: zeroCombined.taskId,
+      expectedStatus: 'WAIT_WATER_SOLUBLE', expectedNode: 'WATER_SOLUBLE', actor: operator,
+    }).ok, true)
+    assert.equal(executeDyeWaterSolublePdaAction({
+      action: 'COMPLETE', dyeOrderId: zeroCombined.dyeOrderId, taskId: zeroCombined.taskId,
+      expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'WATER_SOLUBLE', outputQty: 80,
+      reason: '产出 0 专项检查的水溶短量', actor: operator,
+    }).ok, true)
+    memoryStorage.set('fcs_pda_session', JSON.stringify(supervisor))
+    assert.equal(executeDyeWaterSolublePdaAction({
+      action: 'RESOLVE_PAUSE', dyeOrderId: zeroCombined.dyeOrderId, taskId: zeroCombined.taskId,
+      expectedStatus: 'PRODUCTION_PAUSED', expectedNode: 'WATER_SOLUBLE', decision: 'CONTINUE_WITH_ACTUAL_QTY', actor: supervisor,
+    }).ok, true)
+    memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+    startDyeing(zeroCombined.dyeOrderId, { dyeVatNo: zeroVat.dyeVatNo, inputQty: 80, operatorName: operator.userName })
+    appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(zeroCombined.taskId)}`)
+    const zeroHtml = renderPdaExecDetailPage(zeroCombined.taskId)
+    const zeroToken = zeroHtml.match(/data-pda-execd-action="dye-complete-dye"[\s\S]{0,1200}?data-action-token="([^"]+)"/)
+    assert(zeroToken, '产出 0 的组合染色完成按钮必须有一次性令牌')
+    const zeroNode = {
+      dataset: {
+        pdaExecdAction: 'dye-complete-dye', dyeOrderId: zeroCombined.dyeOrderId, taskId: zeroCombined.taskId,
+        expectedStatus: 'DYEING', expectedNode: 'DYE', actionToken: zeroToken[1],
+      },
+      disabled: false, isConnected: true, textContent: '完成染色',
+    }
+    const zeroTarget = { closest: (selector: string) => selector === '[data-pda-execd-action]' ? zeroNode : null } as unknown as HTMLElement
+    const zeroWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window')
+    const zeroDocumentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document')
+    const zeroAnswers = ['80', '0']
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: undefined })
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        location: { search: '', pathname: `/fcs/pda/exec/${encodeURIComponent(zeroCombined.taskId)}` },
+        history: { pushState: () => undefined, replaceState: () => undefined },
+        prompt: () => zeroAnswers.shift() ?? '',
+      },
+    })
+    try {
+      assert.equal(handlePdaExecDetailEvent(zeroTarget), true, '组合染色真实 handler 必须接收产出 0')
+      const zeroCompletedOrder = getDyeWorkOrderById(zeroCombined.dyeOrderId)
+      const zeroCompletedNode = getDyeExecutionNodeRecord(zeroCombined.dyeOrderId, 'DYE')
+      assert.equal(zeroCompletedOrder?.status, 'DEHYDRATING', '组合染色产出 0 后必须进入脱水')
+      assert.equal(zeroCompletedNode?.inputQty, 80)
+      assert.equal(zeroCompletedNode?.outputQty, 0, '真实写回不得把产出 0 替换为计划量')
+      assert.equal(zeroCompletedNode?.lossQty, 80, '产出 0 时损耗必须等于真实投入')
+      assert.equal(getProcessActionOperationRecordsByTask(zeroCombined.taskId)[0]?.objectQty, 0, '操作日志必须记录真实产出 0')
+      const afterZeroCompletion = {
+        order: zeroCompletedOrder,
+        node: zeroCompletedNode,
+        logs: getProcessActionOperationRecordsByTask(zeroCombined.taskId),
+      }
+      assert.equal(handlePdaExecDetailEvent(zeroTarget), true, '产出 0 成功后的旧令牌必须被消费')
+      assert.deepEqual({
+        order: getDyeWorkOrderById(zeroCombined.dyeOrderId),
+        node: getDyeExecutionNodeRecord(zeroCombined.dyeOrderId, 'DYE'),
+        logs: getProcessActionOperationRecordsByTask(zeroCombined.taskId),
+      }, afterZeroCompletion, '产出 0 成功后的旧令牌不得重复写入')
+    } finally {
+      if (zeroWindowDescriptor) Object.defineProperty(globalThis, 'window', zeroWindowDescriptor)
+      else Reflect.deleteProperty(globalThis, 'window')
+      if (zeroDocumentDescriptor) Object.defineProperty(globalThis, 'document', zeroDocumentDescriptor)
+      else Reflect.deleteProperty(globalThis, 'document')
+    }
   } finally {
     if (lockedUserId) updateFactoryPdaUser(lockedUserId, { status: 'ACTIVE', updatedBy: '水溶专项检查 finally 恢复' })
     memoryStorage.clear()

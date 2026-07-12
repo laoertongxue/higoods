@@ -824,7 +824,7 @@ function resolveSpecialCraftObjectMeta(targetObject: string | undefined): { obje
   return { objectType: '裁片', qtyUnit: '片' }
 }
 
-function assertRequiredFields(payload: ProcessActionPayload, definition: ProcessActionDefinition, qty: number): void {
+function assertRequiredFields(payload: ProcessActionPayload, definition: ProcessActionDefinition, qty: number, allowZeroQty = false): void {
   const fields = payload.formData || {}
   for (const field of definition.requiredFields) {
     if (
@@ -846,7 +846,7 @@ function assertRequiredFields(payload: ProcessActionPayload, definition: Process
       continue
     }
     if (field.includes('数量') || field.includes('米数') || field.includes('卷数') || field.includes('长度')) {
-      if (!Number.isFinite(qty) || qty <= 0) throw new Error('请填写带对象和单位的操作数量')
+      if (!Number.isFinite(qty) || (allowZeroQty ? qty < 0 : qty <= 0)) throw new Error('请填写带对象和单位的操作数量')
       continue
     }
     if (field === '单位') {
@@ -875,8 +875,11 @@ export function validateProcessAction(payload: ProcessActionPayload): { ok: bool
     return { ok: false, message: `当前状态“${snapshot.label}”不能执行“${definition.actionLabel}”` }
   }
   const qty = Number.isFinite(payload.objectQty) ? Number(payload.objectQty) : snapshot.qty
+  const allowZeroQty = payload.sourceType === 'DYE'
+    && definition.actionCode === 'DYE_FINISH_DYEING'
+    && getDyeWorkOrderById(payload.sourceId)?.requiresWaterSoluble === true
   try {
-    assertRequiredFields(payload, definition, qty)
+    assertRequiredFields(payload, definition, qty, allowZeroQty)
     assertActionSpecificFields(payload, definition)
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : '必填字段不完整' }
@@ -948,9 +951,14 @@ export function executePrintAction(payload: ProcessActionPayload): Partial<Proce
 
 export function executeDyeAction(payload: ProcessActionPayload): Partial<ProcessActionWritebackResult> {
   const operatorName = payload.operatorName || (payload.sourceChannel === '移动端' ? '移动端操作员' : 'Web 端操作员')
-  const qty = Number(payload.objectQty || getProcessActionStatusSnapshot('DYE', payload.sourceId).qty || 0)
   const fields = payload.formData || {}
   const actionCode = normalizeActionCode(payload.actionCode)
+  const isCombinedZeroCompletion = actionCode === 'DYE_FINISH_DYEING'
+    && payload.objectQty === 0
+    && getDyeWorkOrderById(payload.sourceId)?.requiresWaterSoluble === true
+  const qty = isCombinedZeroCompletion
+    ? 0
+    : Number(payload.objectQty || getProcessActionStatusSnapshot('DYE', payload.sourceId).qty || 0)
 
   if (actionCode === 'DYE_SAMPLE_RECEIVED') {
     completeDyeSampleWait(payload.sourceId, operatorName)
