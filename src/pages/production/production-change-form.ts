@@ -249,10 +249,10 @@ function renderQuantityLine(line: ProductionChangeForm['quantityLines'][number],
           ? `<input data-prod-field="productionChangeQuantitySize" data-skip-page-rerender="true" data-line-id="${escapeHtml(line.id)}" value="${escapeHtml(line.size)}" class="w-20 rounded-md border px-2 py-1.5" placeholder="尺码" ${readOnly ? 'disabled' : ''} />`
           : escapeHtml(line.size)}
       </td>
-      <td class="whitespace-nowrap px-3 py-3">${line.originalQty} 件</td>
-      <td class="whitespace-nowrap px-3 py-3">${line.currentQty} 件</td>
+      <td class="whitespace-nowrap px-3 py-3">${escapeHtml(String(line.originalQty))} 件</td>
+      <td class="whitespace-nowrap px-3 py-3">${escapeHtml(String(line.currentQty))} 件</td>
       <td class="px-3 py-3">
-        <input data-prod-field="productionChangeQuantityTargetQty" data-skip-page-rerender="true" data-line-id="${escapeHtml(line.id)}" type="number" min="0" step="1" value="${line.targetQty}" class="w-24 rounded-md border px-2 py-1.5" ${readOnly ? 'disabled' : ''} />
+        <input data-prod-field="productionChangeQuantityTargetQty" data-skip-page-rerender="true" data-line-id="${escapeHtml(line.id)}" type="number" min="0" step="1" value="${escapeHtml(String(line.targetQty))}" class="w-24 rounded-md border px-2 py-1.5" ${readOnly ? 'disabled' : ''} />
       </td>
       <td class="whitespace-nowrap px-3 py-3" data-production-change-quantity-delta data-line-id="${escapeHtml(line.id)}">${escapeHtml(differenceText)}</td>
       <td class="whitespace-nowrap px-3 py-3" data-production-change-quantity-status data-line-id="${escapeHtml(line.id)}">${line.targetQty === 0 ? '已取消' : line.isNew ? '新增' : '保留'}</td>
@@ -523,13 +523,13 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm, readOn
       <div class="grid gap-4 border-y py-4 md:grid-cols-2">
         <div>
           <p class="text-sm text-muted-foreground">建议替换生产数量</p>
-          <p class="mt-1 text-2xl font-semibold">${suggestedProductionQty} 件</p>
+          <p class="mt-1 text-2xl font-semibold">${escapeHtml(String(suggestedProductionQty))} 件</p>
           <p class="mt-1 text-xs text-muted-foreground">系统根据当前生产事实自动计算。</p>
         </div>
         <label class="space-y-1 text-sm">
           <span class="font-medium">跟单确认用于生产的数量</span>
-          <input data-prod-field="productionChangeConfirmedProductionQty" data-skip-page-rerender="true" type="number" min="0" max="${totalDemandQty}" step="1" value="${replacement.confirmedProductionQty}" class="w-full rounded-md border px-3 py-2" ${readOnly ? 'disabled' : ''} />
-          <span class="block text-xs text-muted-foreground">最多 ${totalDemandQty} 件，仅填写成衣生产件数。</span>
+          <input data-prod-field="productionChangeConfirmedProductionQty" data-skip-page-rerender="true" type="number" min="0" max="${escapeHtml(String(totalDemandQty))}" step="1" value="${escapeHtml(String(replacement.confirmedProductionQty))}" class="w-full rounded-md border px-3 py-2" ${readOnly ? 'disabled' : ''} />
+          <span class="block text-xs text-muted-foreground">最多 ${escapeHtml(String(totalDemandQty))} 件，仅填写成衣生产件数。</span>
         </label>
       </div>
       <div>
@@ -538,14 +538,14 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm, readOn
             调整颜色尺码分配
             <i data-lucide="chevron-down" class="ml-1 inline h-4 w-4"></i>
           </button>
-          <p class="text-sm font-medium" data-production-change-allocation-summary>分配合计 ${allocationTotal} 件 / 确认 ${replacement.confirmedProductionQty} 件</p>
+          <p class="text-sm font-medium" data-production-change-allocation-summary>分配合计 ${escapeHtml(String(allocationTotal))} 件 / 确认 ${escapeHtml(String(replacement.confirmedProductionQty))} 件</p>
         </div>
         <p class="mt-2 text-sm text-red-700" data-production-change-allocation-error>${escapeHtml(allocationError)}</p>
         ${form.advancedAllocationOpen ? `
           <div class="mt-3 overflow-x-auto rounded-md border">
             <table class="min-w-[760px] text-left text-sm">
               <thead class="bg-muted/40 text-xs text-muted-foreground">
-                <tr>${['商品编码', '颜色', '尺码', '需求数量', '系统建议', '确认生产数量'].map((title) => `<th class="px-3 py-2 font-medium">${title}</th>`).join('')}</tr>
+                <tr>${['商品编码', '颜色', '尺码', '需求数量', '已完成生产件数', '剩余待生产件数', '确认生产数量'].map((title) => `<th class="px-3 py-2 font-medium">${title}</th>`).join('')}</tr>
               </thead>
               <tbody class="divide-y">
                 ${allocations.map((line) => `
@@ -553,9 +553,10 @@ export function renderMaterialReplacementForm(form: ProductionChangeForm, readOn
                     <td class="px-3 py-3">${escapeHtml(line.skuCode)}</td>
                     <td class="px-3 py-3">${escapeHtml(line.color)}</td>
                     <td class="px-3 py-3">${escapeHtml(line.size)}</td>
-                    <td class="px-3 py-3">${line.demandQty} 件</td>
-                    <td class="px-3 py-3">${line.suggestedReplacementQty} 件</td>
-                    <td class="px-3 py-3"><input data-prod-field="productionChangeAllocationQty" data-skip-page-rerender="true" data-allocation-id="${escapeHtml(line.id)}" type="number" min="0" max="${line.demandQty}" step="1" value="${line.confirmedReplacementQty}" class="w-24 rounded-md border px-2 py-1.5" ${readOnly ? 'disabled' : ''} /></td>
+                    <td class="px-3 py-3">${escapeHtml(String(line.demandQty))} 件</td>
+                    <td class="px-3 py-3">${escapeHtml(String(line.oldMaterialFactQty))} 件</td>
+                    <td class="px-3 py-3">${escapeHtml(String(line.suggestedReplacementQty))} 件</td>
+                    <td class="px-3 py-3"><input data-prod-field="productionChangeAllocationQty" data-skip-page-rerender="true" data-allocation-id="${escapeHtml(line.id)}" type="number" min="0" max="${escapeHtml(String(line.demandQty))}" step="1" value="${escapeHtml(String(line.confirmedReplacementQty))}" class="w-24 rounded-md border px-2 py-1.5" ${readOnly ? 'disabled' : ''} /></td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -648,6 +649,46 @@ function renderHandlingSummary(preview: ProductionChangePreview): string {
   `
 }
 
+function renderHandlingAffectedFacts(preview: ProductionChangePreview): string {
+  const rows = preview.affectedOrderIds.flatMap((productionOrderId) => {
+    const facts = getProductionOrderChangeCurrentFacts(productionOrderId)
+    if (!facts) {
+      return [[productionOrderId, '生产单', productionOrderId, '尚无结构化事实', '-', '-', '-', '执行前必须重新读取']]
+    }
+    const demandPlannedQty = facts.demandQuantityFacts.reduce((sum, fact) => sum + fact.currentDemandQty, 0)
+    const demandDoneQty = facts.demandQuantityFacts.reduce((sum, fact) => sum + fact.executedQty, 0)
+    const demandPendingQty = facts.demandQuantityFacts.reduce((sum, fact) => sum + fact.pendingQty, 0)
+    return [
+      [
+        productionOrderId,
+        '生产单',
+        productionOrderId,
+        demandDoneQty > 0 ? '已开工' : '未开工',
+        `${demandPlannedQty} 件`,
+        `${demandDoneQty} 件`,
+        `${demandPendingQty} 件`,
+        '按确认后的变更方案统一处理',
+      ],
+      ...facts.documentFacts.map((fact) => [
+        productionOrderId,
+        fact.group,
+        fact.documentNo,
+        fact.status,
+        fact.plannedQty,
+        fact.doneQty,
+        fact.pendingQty,
+        fact.note,
+      ]),
+    ]
+  })
+  return renderFactTable(
+    '受影响生产单及关联单据当前事实',
+    ['生产单', '单据类型', '单据号', '当前状态', '计划数量', '已完成', '待处理', '处理依据'],
+    rows,
+    '暂无受影响单据事实',
+  )
+}
+
 function renderHandlingPlanItem(item: ProductionChangePlanItem): string {
   return `
     <article class="border-t py-3 first:border-t-0">
@@ -720,6 +761,7 @@ function renderProductionChangeHandlingStep(form: ProductionChangeForm): string 
   return `
     <div class="space-y-6" data-production-change-handling>
       ${renderHandlingSummary(preview)}
+      ${renderHandlingAffectedFacts(preview)}
       <section class="border-y py-4">
         <p class="text-xs font-medium text-muted-foreground">最终结果</p>
         <h2 class="mt-1 text-base font-semibold">${escapeHtml(productionChangeResultLabels[preview.result])}</h2>

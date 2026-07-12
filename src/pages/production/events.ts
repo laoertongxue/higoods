@@ -55,6 +55,8 @@ import {
 } from './demand-domain'
 import {
   getProductionOrderTechPackRelation,
+  getProductionOrderChangeCurrentFacts,
+  listProductionOrderChangeCurrentFacts,
   getProductionOrderChangeOrder,
   listSelectableTechPackVersionsByOrder,
   listProductionOrderChangeOrdersByProductionOrder,
@@ -69,6 +71,9 @@ import {
   type ChangeEffectiveMode,
   type PatchEffectivePoint,
   type ProductionPatchType,
+  applyProductionOrderQuantityFactChange,
+  appendProductionOrderMaterialChangeHistory,
+  replaceProductionOrderChangeCurrentFacts,
 } from '../../data/fcs/production-tech-pack-change-domain'
 import {
   areMaterialSelectionsEquivalent,
@@ -81,9 +86,14 @@ import {
   executeProductionChange,
   getProductionChangeRecord,
   getProductionChangeDecisionSuggestedValue,
+  getProductionChangeLockMessage,
+  isProductionChangeObjectLocked,
   listAffectedDocumentNosForOrder,
   listReplacementMaterialOptions,
+  normalizeProductionChangeOccurredAt,
+  productionChangeResultLabels,
   normalizeMaterialReplacementAllocations,
+  restoreProductionChangeRecordSnapshot,
   saveProductionChangeRecord,
   validateProductionChangeDecisions,
 } from '../../data/fcs/production-order-change-workflow.ts'
@@ -255,6 +265,7 @@ export function createInitializedProductionChangeForm(
     allocations: normalized.allocations,
     followingOrders: createFollowingOrderPlans(normalizedOrderId),
   }
+  form.confirmedFactsFingerprint = buildProductionChangePreviewForForm(form).factsFingerprint
   return form
 }
 
@@ -283,10 +294,26 @@ export function validateProductionChangeFormStep(
     if (form.changeType === 'QUANTITY_CHANGE') {
       if (
         form.quantityLines.some(
-          (line) => !Number.isInteger(line.targetQty) || line.targetQty < 0,
+          (line) =>
+            !Number.isSafeInteger(line.originalQty) ||
+            !Number.isSafeInteger(line.currentQty) ||
+            !Number.isSafeInteger(line.targetQty) ||
+            line.originalQty < 0 ||
+            line.currentQty < 0 ||
+            line.targetQty < 0,
         )
       ) {
         return '变更后数量必须为非负整数。'
+      }
+      const lineIds = form.quantityLines.map((line) => line.id.trim())
+      if (lineIds.some((id) => !id) || new Set(lineIds).size !== lineIds.length) {
+        return '需求明细标识不能重复或为空，请重新添加明细。'
+      }
+      const existingFactIds = new Set(
+        (getProductionOrderChangeCurrentFacts(form.productionOrderId)?.demandQuantityFacts ?? []).map((fact) => fact.id),
+      )
+      if (form.quantityLines.some((line) => line.isNew && existingFactIds.has(line.id))) {
+        return '新增需求明细与已有事实冲突，请重新添加明细。'
       }
       if (
         form.quantityLines.some(
@@ -294,6 +321,14 @@ export function validateProductionChangeFormStep(
         )
       ) {
         return '新增明细数量大于 0 时，请填写商品编码、颜色和尺码。'
+      }
+      const quantityKeys = form.quantityLines.map((line) =>
+        [line.skuCode, line.color, line.size]
+          .map((value) => value.normalize('NFKC').trim().toUpperCase())
+          .join('\u0000'),
+      )
+      if (new Set(quantityKeys).size !== quantityKeys.length) {
+        return '商品编码、颜色和尺码组合不能重复。'
       }
       if (!form.quantityLines.some((line) => line.targetQty !== line.currentQty || (line.isNew && line.targetQty > 0))) {
         return '数量内容未发生变化，请至少调整一条需求明细。'
@@ -303,30 +338,64 @@ export function validateProductionChangeFormStep(
     }
 
     const replacement = form.materialReplacement
+    if (!replacement) return '替换物料变更缺少变更内容。'
     if (!replacement.originalMaterialId || !replacement.replacementMaterialId) {
       return '请选择原面料和新面料。'
     }
+    const currentMaterialOptions = listCurrentMaterialOptionsForOrder(form.productionOrderId)
+    const replacementMaterialOptions = listReplacementMaterialOptions()
     if (
       areMaterialSelectionsEquivalent(
         replacement.originalMaterialId,
-        listCurrentMaterialOptionsForOrder(form.productionOrderId),
+        currentMaterialOptions,
         replacement.replacementMaterialId,
-        listReplacementMaterialOptions(),
+        replacementMaterialOptions,
       )
     ) {
       return '新面料不能与原面料相同。'
     }
-    if (!Number.isInteger(replacement.confirmedProductionQty) || replacement.confirmedProductionQty <= 0) {
+    if (!currentMaterialOptions.some((option) => option.value === replacement.originalMaterialId)) {
+      return '请选择当前生产单事实中的原面料。'
+    }
+    if (!replacementMaterialOptions.some((option) => option.value === replacement.replacementMaterialId)) {
+      return '请选择系统中的新面料。'
+    }
+    if (!Number.isSafeInteger(replacement.confirmedProductionQty) || replacement.confirmedProductionQty <= 0) {
       return '确认生产件数必须为正整数。'
     }
+    if (
+      replacement.allocations.some((line) =>
+        !Number.isSafeInteger(line.demandQty) ||
+        !Number.isSafeInteger(line.oldMaterialFactQty) ||
+        !Number.isSafeInteger(line.suggestedReplacementQty) ||
+        line.demandQty < 0 ||
+        line.oldMaterialFactQty < 0 ||
+        line.suggestedReplacementQty < 0,
+      )
+    ) {
+      return '系统计算的生产件数无效，请重新选择生产单。'
+    }
     const totalDemandQty = replacement.allocations.reduce((sum, line) => sum + line.demandQty, 0)
+    const totalRemainingQty = replacement.allocations.reduce(
+      (sum, line) => sum + line.suggestedReplacementQty,
+      0,
+    )
     if (replacement.confirmedProductionQty > totalDemandQty) {
       return `确认生产件数不能超过当前需求总数 ${totalDemandQty} 件。`
+    }
+    if (replacement.replacementMode === 'FULL' && replacement.confirmedProductionQty !== totalDemandQty) {
+      return `全部数量替换必须覆盖当前需求总数 ${totalDemandQty} 件。`
+    }
+    if (
+      replacement.replacementMode === 'REMAINING' &&
+      replacement.confirmedProductionQty > totalRemainingQty
+    ) {
+      return `剩余数量替换不能超过剩余待生产总数 ${totalRemainingQty} 件。`
     }
     if (
       replacement.allocations.some(
         (line) =>
-          !Number.isInteger(line.confirmedReplacementQty) ||
+          !Number.isSafeInteger(line.confirmedReplacementQty) ||
           line.confirmedReplacementQty < 0 ||
           line.confirmedReplacementQty > line.demandQty,
       )
@@ -340,12 +409,23 @@ export function validateProductionChangeFormStep(
     if (allocationTotal !== replacement.confirmedProductionQty) {
       return '分配合计必须等于确认生产件数。'
     }
+    if (
+      replacement.replacementMode === 'REMAINING' &&
+      replacement.allocations.some((line) => line.confirmedReplacementQty > line.suggestedReplacementQty)
+    ) {
+      return '剩余数量替换不能超过对应颜色尺码的剩余待生产数量。'
+    }
     if (!form.reason.trim()) return '请填写物料替换原因。'
     return ''
   }
 
   if (step === 'handling') {
-    const missingDecisionIds = validateProductionChangeDecisions(buildProductionChangePreviewForForm(form))
+    let missingDecisionIds: string[]
+    try {
+      missingDecisionIds = validateProductionChangeDecisions(buildProductionChangePreviewForForm(form))
+    } catch {
+      return '处理方案无法生成，请返回检查变更内容。'
+    }
     return missingDecisionIds.length > 0
       ? `请先完成 ${missingDecisionIds.length} 项待跟单判断。`
       : ''
@@ -366,9 +446,11 @@ function startProductionChange(
   productionOrderId = '',
   changeType: ProductionChangeForm['changeType'] = 'QUANTITY_CHANGE',
 ): void {
+  state.techPackChangeVersionDialogOrderId = null
+  state.productionPatchDialogOrderId = null
   state.productionChangeSelectedOrderId = ''
   state.productionChangeForm = createInitializedProductionChangeForm(productionOrderId, changeType)
-  state.productionChangeFormStep = productionOrderId ? 'content' : 'order'
+  state.productionChangeFormStep = 'order'
   state.productionChangeFormError = ''
   openAppRoute('/fcs/production/changes/new', 'production-change-new', '新增生产单变更')
 }
@@ -380,6 +462,12 @@ function resetProductionChangeDerivedState(): void {
 function resetProductionChangeFormDerivedState(form: ProductionChangeForm): void {
   form.decisionValues = {}
   form.execution = createProductionChangeForm().execution
+}
+
+function isCompletedProductionChangeForm(form: ProductionChangeForm): boolean {
+  return form.execution.status === 'DONE' || Boolean(
+    form.recordId && getProductionChangeRecord(form.recordId)?.status === 'DONE',
+  )
 }
 
 function rebuildProductionChangeMaterialPlan(): void {
@@ -402,6 +490,7 @@ function rebuildProductionChangeMaterialPlan(): void {
     allocations: normalized.allocations,
     followingOrders: createFollowingOrderPlans(form.productionOrderId),
   }
+  form.confirmedFactsFingerprint = buildProductionChangePreviewForForm(form).factsFingerprint
   resetProductionChangeDerivedState()
   state.productionChangeFormError = ''
 }
@@ -528,6 +617,13 @@ function moveProductionChangeFormToStep(targetStep: ProductionChangeFormStep): v
   )
   state.productionChangeFormStep = result.step
   state.productionChangeFormError = result.error
+  if (!result.error && result.step === 'execution' && !state.productionChangeForm.confirmedFactsFingerprint) {
+    state.productionChangeForm.confirmedFactsFingerprint = buildProductionChangePreviewForForm(
+      state.productionChangeForm,
+    ).factsFingerprint
+  } else if (result.step !== 'execution') {
+    state.productionChangeForm.confirmedFactsFingerprint = ''
+  }
 }
 
 export function executeProductionChangeForForm(
@@ -538,47 +634,36 @@ export function executeProductionChangeForForm(
     executedAt?: string | Date
   } = {},
 ): { executed: boolean; step: ProductionChangeFormStep; error: string } {
-  if (form.execution.status === 'RUNNING' || form.execution.status === 'DONE') {
-    return { executed: false, step: 'execution', error: '' }
+  if (form.execution.status === 'RUNNING') {
+    return { executed: false, step: 'execution', error: '生产单正在变更，请稍后再试' }
   }
-
-  const preview = buildProductionChangePreviewForForm(form)
-  const missingDecisionIds = validateProductionChangeDecisions(preview)
-  if (missingDecisionIds.length > 0) {
-    return {
-      executed: false,
-      step: 'handling',
-      error: `请先完成 ${missingDecisionIds.length} 项待跟单判断。`,
-    }
-  }
-
-  const executionTime = options.executedAt ?? new Date()
-  const executionDate = executionTime instanceof Date ? executionTime : new Date(executionTime)
-  const executedAt = typeof executionTime === 'string'
-    ? executionTime.trim()
-    : [
-      `${executionDate.getFullYear()}-${String(executionDate.getMonth() + 1).padStart(2, '0')}-${String(executionDate.getDate()).padStart(2, '0')}`,
-      `${String(executionDate.getHours()).padStart(2, '0')}:${String(executionDate.getMinutes()).padStart(2, '0')}`,
-    ].join(' ')
   const existingRecord = form.recordId ? getProductionChangeRecord(form.recordId) : null
-  const createdAt = existingRecord?.createdAt ?? executedAt
-  if (!form.recordId) form.recordId = createNextProductionChangeRecordId(createdAt)
+  if (form.execution.status === 'DONE' || existingRecord?.status === 'DONE') {
+    return { executed: false, step: 'execution', error: '已完成的变更记录不能修改，请按原记录新建变更。' }
+  }
+  for (const step of ['order', 'content', 'handling'] as const) {
+    const error = validateProductionChangeFormStep(step, form)
+    if (error) return { executed: false, step, error }
+  }
 
-  form.execution = {
-    status: 'RUNNING',
-    message: '',
-    progress: 0,
-    steps: [],
-  }
   try {
-    const execute = options.execute ?? executeProductionChange
-    form.execution = execute(preview, { shouldFail: options.shouldFail })
-  } catch {
-    form.execution = createProductionChangeRolledBackResult(preview)
-  }
-  const record = buildProductionChangeRecord(
-    form.recordId,
-    {
+    const executionTime = normalizeProductionChangeOccurredAt(options.executedAt ?? new Date())
+    const executedAt = executionTime.text
+    const createdAt = existingRecord?.createdAt ?? executedAt
+    const retryingRolledBackRecord = existingRecord?.status === 'ROLLED_BACK'
+    if (existingRecord && !retryingRolledBackRecord) {
+      return { executed: false, step: 'execution', error: '当前变更记录不能再次执行，请新建变更。' }
+    }
+    const preview = buildProductionChangePreviewForForm(form)
+    if (form.confirmedFactsFingerprint) {
+      preview.factsFingerprint = form.confirmedFactsFingerprint
+    }
+    if (preview.lockObjectIds.some((objectId) => isProductionChangeObjectLocked(objectId))) {
+      return { executed: false, step: 'execution', error: getProductionChangeLockMessage() }
+    }
+    if (!form.recordId) form.recordId = createNextProductionChangeRecordId(createdAt)
+
+    const draft = {
       productionOrderId: form.productionOrderId,
       changeType: form.changeType,
       reason: form.reason,
@@ -588,14 +673,99 @@ export function executeProductionChangeForForm(
         : null,
       decisionValues: structuredClone(form.decisionValues),
       affectedDocumentNos: listAffectedDocumentNosForOrder(form.productionOrderId),
-    },
-    form.execution.status === 'DONE' ? 'DONE' : 'ROLLED_BACK',
-    createdAt,
-    executedAt,
-  )
-  record.execution = structuredClone(form.execution)
-  saveProductionChangeRecord(record)
-  return { executed: true, step: 'execution', error: '' }
+    }
+    const factsBeforeExecution = listProductionOrderChangeCurrentFacts()
+    const affectedOrderIdSet = new Set(preview.affectedOrderIds)
+    const recordBeforeExecution = existingRecord ? structuredClone(existingRecord) : null
+    const restoreExecutionScope = (): void => {
+      replaceProductionOrderChangeCurrentFacts([
+        ...listProductionOrderChangeCurrentFacts().filter(
+          (facts) => !affectedOrderIdSet.has(facts.productionOrderId),
+        ),
+        ...factsBeforeExecution.filter((facts) => affectedOrderIdSet.has(facts.productionOrderId)),
+      ])
+      restoreProductionChangeRecordSnapshot(form.recordId, recordBeforeExecution)
+    }
+    let persisted = false
+    const persistExecutionResult = (
+      executionResult: ReturnType<typeof executeProductionChange>,
+    ): ReturnType<typeof executeProductionChange> => {
+      try {
+        restoreExecutionScope()
+        const record = buildProductionChangeRecord(
+          form.recordId,
+          draft,
+          executionResult.status === 'DONE' ? 'DONE' : 'ROLLED_BACK',
+          createdAt,
+          executedAt,
+        )
+        record.execution = structuredClone(executionResult)
+        if (executionResult.status === 'DONE') {
+          if (form.changeType === 'QUANTITY_CHANGE') {
+            applyProductionOrderQuantityFactChange(
+              form.productionOrderId,
+              form.quantityLines,
+              form.recordId,
+              executedAt,
+            )
+          } else {
+            appendProductionOrderMaterialChangeHistory(
+              form.productionOrderId,
+              form.recordId,
+              productionChangeResultLabels[record.result],
+              `${form.materialReplacement.replacementMode === 'FULL' ? '全部数量' : '剩余数量'}替换 ${form.materialReplacement.confirmedProductionQty} 件`,
+              executedAt,
+            )
+          }
+        }
+        saveProductionChangeRecord(record, { allowReplace: retryingRolledBackRecord })
+        persisted = true
+        return executionResult
+      } catch {
+        restoreExecutionScope()
+        const rolledBackResult = createProductionChangeRolledBackResult(preview)
+        const rolledBackRecord = buildProductionChangeRecord(
+          form.recordId,
+          draft,
+          'ROLLED_BACK',
+          createdAt,
+          executedAt,
+        )
+        rolledBackRecord.execution = structuredClone(rolledBackResult)
+        saveProductionChangeRecord(rolledBackRecord, { allowReplace: retryingRolledBackRecord })
+        persisted = true
+        return rolledBackResult
+      }
+    }
+    form.execution = {
+      status: 'RUNNING',
+      message: '',
+      progress: 0,
+      steps: [],
+    }
+    const execute = options.execute ?? executeProductionChange
+    try {
+      form.execution = execute(preview, {
+        shouldFail: options.shouldFail,
+        persist: persistExecutionResult,
+      })
+    } catch {
+      form.execution = createProductionChangeRolledBackResult(preview)
+      persistExecutionResult(form.execution)
+    }
+    if (!persisted && execute !== executeProductionChange) persistExecutionResult(form.execution)
+    if (form.execution.message === '当前事实已变化，请重新确认处理方案') {
+      const recordId = form.recordId
+      const reason = form.reason
+      const refreshedForm = createInitializedProductionChangeForm(form.productionOrderId, form.changeType)
+      Object.assign(form, refreshedForm, { recordId, reason })
+      return { executed: true, step: 'content', error: '当前事实已变化，请重新填写变更内容并确认处理方案。' }
+    }
+    return { executed: true, step: 'execution', error: '' }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '生产单变更执行失败'
+    return { executed: false, step: 'execution', error: message }
+  }
 }
 
 interface ProductionChangeFieldMeta {
@@ -616,6 +786,9 @@ export function applyProductionChangeFieldValue(
   value: string,
   meta: ProductionChangeFieldMeta = {},
 ): ProductionChangeFieldResult {
+  if (form.execution.status === 'DONE' || (form.recordId && getProductionChangeRecord(form.recordId)?.status === 'DONE')) {
+    return { handled: true }
+  }
   if (field === 'productionChangeReason') {
     form.reason = value
     resetProductionChangeFormDerivedState(form)
@@ -1268,7 +1441,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
     state.productionChangeForm = createInitializedProductionChangeForm(orderId, changeType)
     state.productionChangeFormError = ''
     state.productionChangeSelectedOrderId = ''
-    state.productionChangeFormStep = orderId ? 'content' : 'order'
+    state.productionChangeFormStep = 'order'
     openAppRoute('/fcs/production/changes/new', 'production-change-new', '新增生产单变更')
     return true
   }
@@ -1280,6 +1453,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'add-production-change-quantity-line') {
+    if (isCompletedProductionChangeForm(state.productionChangeForm)) return true
     state.productionChangeForm.quantityLines.push({
       id: nextLocalEntityId('QTY-NEW', 4),
       skuCode: '',
@@ -1298,6 +1472,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'remove-production-change-quantity-line') {
+    if (isCompletedProductionChangeForm(state.productionChangeForm)) return true
     const lineId = actionNode.dataset.lineId
     state.productionChangeForm.quantityLines = state.productionChangeForm.quantityLines.filter(
       (line) => line.id !== lineId || !line.isNew,
@@ -1308,6 +1483,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'set-production-change-replacement-mode') {
+    if (isCompletedProductionChangeForm(state.productionChangeForm)) return true
     const mode = actionNode.dataset.mode
     if (mode !== 'REMAINING' && mode !== 'FULL') return true
     state.productionChangeForm.materialReplacement.replacementMode = mode
@@ -1316,6 +1492,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'set-production-change-scope') {
+    if (isCompletedProductionChangeForm(state.productionChangeForm)) return true
     const scope = actionNode.dataset.scope
     if (scope !== 'CURRENT_ONLY' && scope !== 'CURRENT_AND_FOLLOWING') return true
     state.productionChangeForm.materialReplacement.scope = scope

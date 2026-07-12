@@ -10,6 +10,7 @@ import {
   buildProductionChangePreview,
   buildMaterialReplacementAllocations,
   createFollowingOrderPlans,
+  createProductionChangeFactsFingerprint,
   createNextProductionChangeRecordId,
   createQuantityLinesForOrder,
   executeProductionChange,
@@ -18,6 +19,7 @@ import {
   inferProductionChangeResult,
   isProductionChangeObjectLocked,
   listProductionChangeRecords,
+  listProductionChangeDocumentTraces,
   listAffectedDocumentNosForOrder,
   listReplacementMaterialOptions,
   LEGACY_ORIGINAL_MATERIAL_PREFIX,
@@ -115,7 +117,8 @@ assert.ok(initialQuantitySeed?.currentFactsSnapshot, '最终记录必须保存�
 const executionPreview: ProductionChangePreview = {
   result: 'PRODUCTION_PATCH',
   resultReason: '测试同步执行',
-  affectedOrderIds: ['PO-LOCK-001'],
+  factsFingerprint: createProductionChangeFactsFingerprint('PO-202603-0004'),
+  affectedOrderIds: ['PO-202603-0004'],
   autoItems: [],
   decisionItems: [],
   summary: {
@@ -125,7 +128,7 @@ const executionPreview: ProductionChangePreview = {
     costDeltaText: '测试成本变化',
     deliveryImpactText: '测试交期变化',
   },
-  lockObjectIds: [' PO-LOCK-001 ', '', 'DOC-LOCK-001', 'PO-LOCK-001'],
+  lockObjectIds: [' PO-202603-0004 ', '', 'DOC-LOCK-001', 'PO-202603-0004'],
 }
 const executionPreviewBefore = structuredClone(executionPreview)
 let successHookCount = 0
@@ -133,8 +136,14 @@ const successfulExecution = executeProductionChange(executionPreview, {
   onStep: () => {
     successHookCount += 1
     assert.ok(
-      ['PO-LOCK-001', 'DOC-LOCK-001'].every(isProductionChangeObjectLocked),
+      ['PO-202603-0004', 'DOC-LOCK-001'].every(isProductionChangeObjectLocked),
       '成功执行 hook 内全部处理对象必须保持锁定',
+    )
+  },
+  persist: () => {
+    assert.ok(
+      ['PO-202603-0004', 'DOC-LOCK-001'].every(isProductionChangeObjectLocked),
+      '事实写入和记录保存回调执行时全部处理对象必须仍保持锁定',
     )
   },
 })
@@ -143,13 +152,45 @@ assert.ok(successHookCount > 0, '成功执行必须同步触发步骤 hook')
 assert.equal(successfulExecution.status, 'DONE', '成功执行必须返回 DONE')
 assert.equal(successfulExecution.message, '全部处理成功并已统一生效。', '成功提示必须精确')
 assert.equal(successfulExecution.progress, 100, '成功执行必须返回 100%')
-assert.deepEqual(successfulExecution.lockObjectIds, ['PO-LOCK-001', 'DOC-LOCK-001'], '锁 ID 必须过滤空值并去重')
+assert.deepEqual(successfulExecution.lockObjectIds, ['PO-202603-0004', 'DOC-LOCK-001'], '锁 ID 必须过滤空值并去重')
 assert.ok(successfulExecution.steps.every((step) => step.status === 'DONE'), '成功步骤必须全部 DONE')
 assert.ok(
-  ['PO-LOCK-001', 'DOC-LOCK-001'].every((id) => !isProductionChangeObjectLocked(id)),
+  ['PO-202603-0004', 'DOC-LOCK-001'].every((id) => !isProductionChangeObjectLocked(id)),
   '成功返回后必须释放全部锁',
 )
 assert.deepEqual(executionPreview, executionPreviewBefore, '成功执行不得修改输入 preview')
+
+const persistenceAttempts: string[] = []
+const persistenceFailureResult = executeProductionChange(executionPreview, {
+  persist: (result) => {
+    persistenceAttempts.push(result.status)
+    throw new Error('模拟持久化失败')
+  },
+})
+assert.deepEqual(persistenceAttempts, ['DONE'], '持久化异常不得再次调用同一回调写入矛盾状态')
+assert.equal(persistenceFailureResult.status, 'ROLLED_BACK', '持久化异常必须返回标准回滚结果')
+
+const staleFactLines = createQuantityLinesForOrder('PO-202603-0004')
+staleFactLines[0].targetQty -= 1
+const staleFactPreview = buildProductionChangePreview({
+  productionOrderId: 'PO-202603-0004',
+  changeType: 'QUANTITY_CHANGE',
+  reason: '事实变化探针',
+  quantityLines: staleFactLines,
+  materialReplacement: null,
+  decisionValues: {},
+  affectedDocumentNos: listAffectedDocumentNosForOrder('PO-202603-0004'),
+})
+changeDomain.applyProductionOrderQuantityFactChange(
+  'PO-202603-0004',
+  [{ ...staleFactLines[0], targetQty: staleFactLines[0].currentQty - 2 }],
+  'BG-STALE-PROBE',
+  '2026-07-11 08:00',
+)
+const staleFactExecution = executeProductionChange(staleFactPreview)
+assert.equal(staleFactExecution.status, 'ROLLED_BACK', '执行前事实变化必须整单回滚')
+assert.equal(staleFactExecution.message, '当前事实已变化，请重新确认处理方案')
+changeDomain.resetProductionOrderChangeCurrentFactsForTesting()
 
 let failureHookCount = 0
 const failedExecution = executeProductionChange(executionPreview, {
@@ -157,7 +198,7 @@ const failedExecution = executeProductionChange(executionPreview, {
   onProgress: () => {
     failureHookCount += 1
     assert.ok(
-      ['PO-LOCK-001', 'DOC-LOCK-001'].every(isProductionChangeObjectLocked),
+      ['PO-202603-0004', 'DOC-LOCK-001'].every(isProductionChangeObjectLocked),
       '失败执行 hook 内全部处理对象必须保持锁定',
     )
   },
@@ -174,7 +215,7 @@ assert.ok(
 )
 assert.equal(failedExecution.steps.at(-1)?.label, '全部回滚', '失败最后一步必须显示全部回滚')
 assert.ok(
-  ['PO-LOCK-001', 'DOC-LOCK-001'].every((id) => !isProductionChangeObjectLocked(id)),
+  ['PO-202603-0004', 'DOC-LOCK-001'].every((id) => !isProductionChangeObjectLocked(id)),
   '失败返回后必须释放全部锁',
 )
 assert.deepEqual(executionPreview, executionPreviewBefore, '失败执行不得修改输入 preview')
@@ -188,14 +229,14 @@ const outerExecution = executeProductionChange(executionPreview, {
     assert.equal(nestedExecution.message, getProductionChangeLockMessage(), '锁冲突必须返回统一锁提示')
     assert.ok(nestedExecution.steps.every((step) => step.status === 'ROLLED_BACK'), '锁冲突步骤必须全部说明已回滚')
     assert.ok(
-      ['PO-LOCK-001', 'DOC-LOCK-001'].every(isProductionChangeObjectLocked),
+      ['PO-202603-0004', 'DOC-LOCK-001'].every(isProductionChangeObjectLocked),
       '内层冲突返回后不得释放外层持有的锁',
     )
   },
 })
 assert.equal(outerExecution.status, 'DONE', '拒绝内层重入不得影响外层同步执行')
 assert.ok(
-  ['PO-LOCK-001', 'DOC-LOCK-001'].every((id) => !isProductionChangeObjectLocked(id)),
+  ['PO-202603-0004', 'DOC-LOCK-001'].every((id) => !isProductionChangeObjectLocked(id)),
   '外层执行结束后才释放锁',
 )
 
@@ -215,7 +256,7 @@ assert.ok(
 )
 assert.equal(thrownHookExecution.steps.at(-1)?.label, '全部回滚', 'hook 异常最后一步必须全部回滚')
 assert.ok(
-  ['PO-LOCK-001', 'DOC-LOCK-001'].every((id) => !isProductionChangeObjectLocked(id)),
+  ['PO-202603-0004', 'DOC-LOCK-001'].every((id) => !isProductionChangeObjectLocked(id)),
   'hook 异常返回后必须释放锁',
 )
 assert.equal(executeProductionChange(executionPreview).status, 'DONE', 'hook 异常回滚后必须允许再次执行')
@@ -453,6 +494,51 @@ const followingOrdersDraft: ProductionChangeDraft = {
   decisionValues: {},
 }
 const followingOrdersPreview = buildProductionChangePreview(followingOrdersDraft)
+const futureOnlyPreview = buildProductionChangePreview({
+  ...followingOrdersDraft,
+  materialReplacement: {
+    ...followingOrdersDraft.materialReplacement!,
+    followingOrders: [],
+  },
+})
+assert.ok(
+  futureOnlyPreview.autoItems.some((item) => item.id === 'future-production-order-version-relation'),
+  '当前没有已创建后续单时，正式版本调整仍必须作用于以后新建生产单',
+)
+const futureRelationItem = futureOnlyPreview.autoItems.find(
+  (item) => item.id === 'future-production-order-version-relation',
+)
+assert.ok(futureRelationItem?.affectedDocumentNo.startsWith('正式版本关系-'), '未来生产单正式版本调整必须绑定明确关系对象')
+assert.ok(
+  futureRelationItem && futureOnlyPreview.lockObjectIds.includes(futureRelationItem.affectedDocumentNo),
+  '未来生产单正式版本关系必须进入锁定范围',
+)
+const noOldMaterialFollowingPreview = buildProductionChangePreview({
+  ...followingOrdersDraft,
+  materialReplacement: {
+    ...followingOrdersDraft.materialReplacement!,
+    replacementMode: 'FULL',
+    followingOrders: [
+      {
+        productionOrderId: 'PO-202603-0102',
+        progressText: '任务已建立但尚未领料',
+        started: true,
+        suggestedMode: 'FULL',
+        confirmedMode: 'FULL',
+        affectedDocumentNos: [],
+      },
+    ],
+  },
+  decisionValues: {
+    'following-order-mode-PO-202603-0102': { value: 'FULL', reason: '' },
+  },
+})
+assert.ok(
+  !noOldMaterialFollowingPreview.decisionItems.some(
+    (item) => item.id === 'following-old-material-disposition-PO-202603-0102',
+  ),
+  '后续生产单没有旧料、裁片或完成数量时不得制造实物去向判断',
+)
 const followingTraceDecisionValues = {
   'following-order-mode-PO-202603-007': { value: 'REMAINING', reason: '按已领料事实只处理剩余数量。' },
 }
@@ -469,6 +555,7 @@ const followingTraceCurrentFactDocumentNos = (followingTraceRecord.currentFactsS
   .map((fact) => fact.documentNo.trim())
   .filter(Boolean)
 const followingTraceExpectedDocumentNos = Array.from(new Set([
+  ...followingTraceRecord.preview.affectedOrderIds,
   ...followingTraceCurrentFactDocumentNos,
   ...followingTracePlanDocumentNos,
 ])).sort()
@@ -488,6 +575,15 @@ assert.deepEqual(
   assert.ok(trace?.beforeText && trace.afterText && trace.handlingText, '留痕必须包含前后值和处理方式')
   assert.equal(trace?.executedAt, '2026-07-11 12:00', '成功留痕必须保存执行时间')
 })
+assert.ok(
+  new Set(followingTraceRecord.documentTraces.map((trace) => `${trace.beforeText}\u0000${trace.afterText}`)).size > 1,
+  '不同生产单和上下游单据必须生成各自的前后差异，不能复制同一段留痕',
+)
+assert.ok(
+  followingTraceRecord.documentTraces.some((trace) => trace.documentTypeLabel === '生产单') &&
+    followingTraceRecord.documentTraces.some((trace) => trace.documentTypeLabel === '裁剪单'),
+  '留痕必须识别生产单和具体上下游单据类型',
+)
 const unstartedFollowingAutoItem = followingOrdersPreview.autoItems.find(
   (item) => item.id === 'following-order-auto-PO-202603-006',
 )
@@ -790,6 +886,21 @@ assert.deepEqual(validateProductionChangeDecisions(completedPreview), [], '必�
 const quantityFactoryOrderId = 'PO-202603-0004'
 const factoryQuantityLines = createQuantityLinesForOrder(quantityFactoryOrderId)
 assert.ok(factoryQuantityLines.length >= 2, '现有关系生产单必须生成至少两条数量明细')
+const factoryDemandFacts = changeDomain.getProductionOrderChangeCurrentFacts(quantityFactoryOrderId)?.demandQuantityFacts ?? []
+assert.deepEqual(
+  factoryQuantityLines.map((line) => [line.id, line.skuCode, line.color, line.size, line.currentQty]),
+  factoryDemandFacts.map((fact) => [fact.id, fact.skuCode, fact.color, fact.size, fact.currentDemandQty]),
+  '第一步当前需求事实与第二步数量明细必须逐行来自同一数据对象',
+)
+assert.ok(createQuantityLinesForOrder('PO-202604-0018').length > 0, 'PO-202604-0018 必须能从当前事实进入变更流程')
+const factBasedAllocations = buildMaterialReplacementAllocations(quantityFactoryOrderId, 0)
+factBasedAllocations.forEach((allocation) => {
+  const fact = factoryDemandFacts.find((item) =>
+    item.skuCode === allocation.skuCode && item.color === allocation.color && item.size === allocation.size,
+  )
+  assert.equal(allocation.oldMaterialFactQty, Math.min(fact?.executedQty ?? 0, allocation.demandQty), '已完成生产件数必须读取事实')
+  assert.equal(allocation.suggestedReplacementQty, allocation.demandQty - allocation.oldMaterialFactQty, '剩余待生产件数必须由需求减已完成得到')
+})
 factoryQuantityLines.forEach((line) => {
   assert.equal(line.unit, '件', '数量明细单位必须为件')
   assert.equal(line.originalQty, line.currentQty, '数量明细原数量与当前数量必须一致')
@@ -813,19 +924,15 @@ assert.ok(
   '旧数量记录匹配结果不得伪装成新增需求',
 )
 const adaptedBlackM = legacyQuantityAdaptation.quantityLines.find(
-  (line) => line.color === 'Black' && line.size === 'M',
+  (line) => line.color === '黑色' && line.size === 'M',
 )
-assert.equal(adaptedBlackM?.targetQty, 970, '黑色 M 必须按旧记录差额 -30 映射到当前 Black M 1000→970')
+assert.equal(adaptedBlackM?.targetQty, 1170, '黑色 M 必须按旧记录差额 -30 映射到当前事实 1200→1170')
 assert.equal(
   legacyQuantityAdaptation.quantityLines.reduce((sum, line) => sum + line.targetQty, 0),
-  factoryQuantityLines.reduce((sum, line) => sum + line.currentQty, 0) - 30,
+  factoryQuantityLines.reduce((sum, line) => sum + line.currentQty, 0) - 50,
   '目标总量必须等于当前需求总量加所有已匹配旧行差额',
 )
-assert.deepEqual(
-  legacyQuantityAdaptation.unmatchedLegacyLines.map((line) => `${line.color}/${line.size}`),
-  ['藏青色/L'],
-  '无法对应当前需求的藏青色 L 必须进入未匹配旧行',
-)
+assert.deepEqual(legacyQuantityAdaptation.unmatchedLegacyLines, [], '当前事实中的两条旧记录必须全部安全匹配')
 const safeLegacyQuantityAdaptation = adaptLegacyQuantityLinesForEdit(
   quantityFactoryOrderId,
   [legacyQuantityOrder.quantityLines[0]],
@@ -947,7 +1054,7 @@ const cuttingAutoItem = quantityPreview.autoItems.find(
 assert.ok(cuttingAutoItem, '数量变更必须生成裁剪单未执行数量自动调整 AUTO 项')
 assert.equal(
   cuttingAutoItem.description,
-  '已执行数量保持不变，只调整剩余计划并写入变更留痕。',
+  '已执行数量保持不变，按每条需求明细的增减分别调整剩余计划并写入变更留痕。',
   '裁剪数量 AUTO 项必须使用确认后的系统处理文案',
 )
 assert.ok(
@@ -955,6 +1062,113 @@ assert.ok(
   '裁剪数量 AUTO 项必须使用当前事实中的实际单据号',
 )
 assert.equal(quantityPreview.decisionItems.length, 0, '数量变更的可判断事项必须全部由系统自动处理')
+
+const coveredNewLinePreview = buildProductionChangePreview({
+  productionOrderId: quantityFactoryOrderId,
+  changeType: 'QUANTITY_CHANGE',
+  reason: '新增正式版本已覆盖的黑色 S 明细',
+  quantityLines: [
+    ...createQuantityLinesForOrder(quantityFactoryOrderId),
+    {
+      id: 'QTY-COVERED-S',
+      skuCode: 'SKU-010-S-BLK',
+      color: '黑色',
+      size: 'S',
+      originalQty: 0,
+      currentQty: 0,
+      targetQty: 50,
+      unit: '件',
+      isNew: true,
+      coveredByCurrentVersion: false,
+    },
+  ],
+  materialReplacement: null,
+  decisionValues: {},
+  affectedDocumentNos: quantityPreviewDocumentNos,
+})
+assert.equal(coveredNewLinePreview.result, 'PRODUCTION_PATCH', '正式版本已覆盖的新增明细只能生成生产单补丁')
+const coveredOtherOrderLines = createQuantityLinesForOrder('PO-202604-0018')
+const coveredOtherOrderPreview = buildProductionChangePreview({
+  productionOrderId: 'PO-202604-0018',
+  changeType: 'QUANTITY_CHANGE',
+  reason: '其他生产单新增正式版本已覆盖的 XS 明细',
+  quantityLines: [
+    ...coveredOtherOrderLines,
+    {
+      id: 'QTY-018-COVERED-XS',
+      skuCode: 'SKU-018-XS-PRINT',
+      color: '全色',
+      size: 'XS',
+      originalQty: 0,
+      currentQty: 0,
+      targetQty: 40,
+      unit: '件',
+      isNew: true,
+      coveredByCurrentVersion: false,
+    },
+  ],
+  materialReplacement: null,
+  decisionValues: {},
+  affectedDocumentNos: listAffectedDocumentNosForOrder('PO-202604-0018'),
+})
+assert.equal(coveredOtherOrderPreview.result, 'PRODUCTION_PATCH', '所有生产单都必须按各自当前正式版本判断新增明细覆盖关系')
+const uncoveredNewLinePreview = buildProductionChangePreview({
+  productionOrderId: quantityFactoryOrderId,
+  changeType: 'QUANTITY_CHANGE',
+  reason: '新增正式版本未覆盖的绿色 XXL 明细',
+  quantityLines: [
+    ...createQuantityLinesForOrder(quantityFactoryOrderId),
+    {
+      id: 'QTY-UNCOVERED-XXL',
+      skuCode: 'SKU-NEW-XXL-GRN',
+      color: '绿色',
+      size: 'XXL',
+      originalQty: 0,
+      currentQty: 0,
+      targetQty: 30,
+      unit: '件',
+      isNew: true,
+      coveredByCurrentVersion: true,
+    },
+  ],
+  materialReplacement: null,
+  decisionValues: {},
+  affectedDocumentNos: quantityPreviewDocumentNos,
+})
+assert.equal(uncoveredNewLinePreview.result, 'VERSION_AND_PATCH', '正式版本未覆盖的新增明细必须同时调整版本绑定并打补丁')
+
+const offsetQuantityLines = createQuantityLinesForOrder(quantityFactoryOrderId)
+offsetQuantityLines[0].targetQty += 30
+offsetQuantityLines[1].targetQty -= 30
+const offsetQuantityPreview = buildProductionChangePreview({
+  productionOrderId: quantityFactoryOrderId,
+  changeType: 'QUANTITY_CHANGE',
+  reason: '两条明细一增一减且总量不变',
+  quantityLines: offsetQuantityLines,
+  materialReplacement: null,
+  decisionValues: {},
+  affectedDocumentNos: quantityPreviewDocumentNos,
+})
+assert.ok(
+  offsetQuantityPreview.autoItems.some((item) => item.description.includes('每条需求明细的增加或减少')),
+  '总量净变化为零时仍必须逐明细驱动物料、成本和交期处理',
+)
+
+const belowExecutedLines = createQuantityLinesForOrder(quantityFactoryOrderId)
+belowExecutedLines[0].targetQty = 300
+const belowExecutedPreview = buildProductionChangePreview({
+  productionOrderId: quantityFactoryOrderId,
+  changeType: 'QUANTITY_CHANGE',
+  reason: '目标数量低于已完成数量',
+  quantityLines: belowExecutedLines,
+  materialReplacement: null,
+  decisionValues: {},
+  affectedDocumentNos: quantityPreviewDocumentNos,
+})
+assert.ok(
+  belowExecutedPreview.decisionItems.some((item) => item.id === `quantity-over-produced-${belowExecutedLines[0].id}`),
+  '目标数量低于已完成数量时必须要求跟单确认超出成品去向',
+)
 
 const totalDemandQty = factoryQuantityLines.reduce((sum, line) => sum + line.currentQty, 0)
 const allocationScenarios = [
@@ -1076,6 +1290,10 @@ const renderProductionChangeOrderDetailPage = requireFunction<(id: string) => st
   pageExports,
   'renderProductionChangeOrderDetailPage',
 )
+const renderProductionChangeRelationDetailPage = requireFunction<(id: string) => string>(
+  pageExports,
+  'renderProductionChangeRelationDetailPage',
+)
 
 const listProductionOrderChangeOrders = requireFunction<() => Array<Record<string, any>>>(
   domainExports,
@@ -1173,6 +1391,13 @@ const helperReplacementOption = listReplacementMaterialOptions()[0]
 assert.ok(helperReplacementOption, '字段 helper 检查需要替换面料候选')
 incompleteHandlingForm.materialReplacement.replacementMaterialId = helperReplacementOption.value
 incompleteHandlingForm.materialReplacement.replacementMode = 'FULL'
+incompleteHandlingForm.materialReplacement.allocations.forEach((line) => {
+  line.confirmedReplacementQty = line.demandQty
+})
+incompleteHandlingForm.materialReplacement.confirmedProductionQty = incompleteHandlingForm.materialReplacement.allocations.reduce(
+  (sum, line) => sum + line.confirmedReplacementQty,
+  0,
+)
 incompleteHandlingForm.reason = '全部数量替换。'
 const blockedHandlingTransition = transitionProductionChangeStep('handling', 'execution', incompleteHandlingForm)
 assert.equal(blockedHandlingTransition.step, 'handling', '判断未完成时 handling 必须阻断进入 execution')
@@ -1181,6 +1406,7 @@ assert.match(blockedHandlingTransition.error, /^请先完成 \d+ 项待跟单判
 const eventSuccessForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
 const eventSuccessLine = eventSuccessForm.quantityLines[0]
 assert.ok(eventSuccessLine, '事件执行检查需要数量明细')
+const eventSuccessFactBefore = changeDomain.getProductionOrderChangeCurrentFacts(quantityFactoryOrderId)
 eventSuccessLine.targetQty -= 1
 eventSuccessForm.reason = '同步执行成功检查'
 const eventSuccessResult = executeProductionChangeForForm(eventSuccessForm)
@@ -1189,6 +1415,219 @@ assert.equal(eventSuccessResult.step, 'execution', '正式执行成功后必须�
 assert.equal(eventSuccessForm.execution.status, 'DONE', '正式执行必须写回 DONE')
 assert.equal(eventSuccessForm.execution.message, '全部处理成功并已统一生效。', '正式执行必须写回成功提示')
 assert.equal(executeProductionChangeForForm(eventSuccessForm).executed, false, 'DONE 必须阻止重复执行')
+assert.equal(
+  changeDomain.getProductionOrderChangeCurrentFacts(quantityFactoryOrderId)?.demandQuantityFacts[0]?.currentDemandQty,
+  (eventSuccessFactBefore?.demandQuantityFacts[0]?.currentDemandQty ?? 0) - 1,
+  '成功执行后下一次读取必须得到已更新的需求明细事实',
+)
+const doneReason = eventSuccessForm.reason
+applyProductionChangeFieldValue(eventSuccessForm, 'productionChangeReason', '试图覆写完成记录')
+assert.equal(eventSuccessForm.reason, doneReason, 'DONE 表单字段必须保持只读')
+
+const factsBeforeNestedIndependentChanges = changeDomain.listProductionOrderChangeCurrentFacts()
+const recordsBeforeNestedIndependentChanges = listProductionChangeRecords()
+const outerIndependentForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
+outerIndependentForm.quantityLines[0].targetQty -= 1
+outerIndependentForm.reason = '外层独立生产单变更'
+const innerIndependentForm = createInitializedProductionChangeForm('PO-202604-0018', 'QUANTITY_CHANGE')
+innerIndependentForm.quantityLines[0].targetQty -= 1
+innerIndependentForm.reason = '内层不冲突生产单变更'
+let innerIndependentResult: ReturnType<typeof executeProductionChangeForForm> | null = null
+const outerIndependentResult = executeProductionChangeForForm(outerIndependentForm, {
+  execute: (preview, executionOptions) => {
+    innerIndependentResult = executeProductionChangeForForm(innerIndependentForm, { executedAt: '2026-07-12 09:10' })
+    return executeProductionChange(preview, executionOptions)
+  },
+  executedAt: '2026-07-12 09:11',
+})
+assert.equal(innerIndependentResult?.executed, true, '不冲突内层生产单变更必须执行成功')
+assert.equal(outerIndependentResult.executed, true, '外层生产单变更必须执行成功')
+assert.equal(getProductionChangeRecord(innerIndependentForm.recordId)?.status, 'DONE', '外层提交不得抹掉内层最终记录')
+assert.equal(
+  changeDomain.getProductionOrderChangeCurrentFacts('PO-202604-0018')?.demandQuantityFacts[0]?.currentDemandQty,
+  innerIndependentForm.quantityLines[0].targetQty,
+  '外层回滚快照不得抹掉不冲突生产单的新事实',
+)
+changeDomain.replaceProductionOrderChangeCurrentFacts(factsBeforeNestedIndependentChanges)
+replaceProductionChangeRecordsForTesting(recordsBeforeNestedIndependentChanges)
+
+const lockConflictForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
+lockConflictForm.quantityLines[0].targetQty -= 1
+lockConflictForm.reason = '锁冲突不得消耗变更单号'
+const lockConflictPreview = buildProductionChangePreview({
+  productionOrderId: lockConflictForm.productionOrderId,
+  changeType: lockConflictForm.changeType,
+  reason: lockConflictForm.reason,
+  quantityLines: lockConflictForm.quantityLines,
+  materialReplacement: null,
+  decisionValues: lockConflictForm.decisionValues,
+  affectedDocumentNos: listAffectedDocumentNosForOrder(lockConflictForm.productionOrderId),
+})
+let lockConflictEventResult: ReturnType<typeof executeProductionChangeForForm> | null = null
+executeProductionChange(lockConflictPreview, {
+  onStep: () => {
+    if (lockConflictEventResult) return
+    lockConflictEventResult = executeProductionChangeForForm(lockConflictForm)
+  },
+})
+assert.equal(lockConflictEventResult?.executed, false, '锁冲突必须在事件入口直接阻断')
+assert.equal(lockConflictEventResult?.error, getProductionChangeLockMessage(), '锁冲突必须使用统一提示')
+assert.equal(lockConflictForm.recordId, '', '锁冲突不得预留或消耗生产单变更记录 ID')
+
+const staleFormExecution = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
+const staleFormLine = staleFormExecution.quantityLines[0]
+assert.ok(staleFormLine, '陈旧表单执行探针需要需求明细')
+staleFormLine.targetQty += 1
+staleFormExecution.reason = '陈旧表单不得覆盖新事实'
+const factsBeforeStaleFormProbe = changeDomain.listProductionOrderChangeCurrentFacts()
+changeDomain.applyProductionOrderQuantityFactChange(
+  quantityFactoryOrderId,
+  [{ ...staleFormLine, targetQty: staleFormLine.currentQty - 2 }],
+  'BG-STALE-FORM-PROBE',
+  '2026-07-11 08:45',
+)
+const currentQtyAfterExternalChange = changeDomain.getProductionOrderChangeCurrentFacts(
+  quantityFactoryOrderId,
+)?.demandQuantityFacts[0]?.currentDemandQty
+const staleFormResult = executeProductionChangeForForm(staleFormExecution)
+assert.equal(staleFormResult.step, 'content', '陈旧表单必须退回第二步重新填写变更内容')
+assert.equal(staleFormExecution.execution.status, 'IDLE', '陈旧表单刷新事实后不得保留可直接重试的执行状态')
+assert.equal(
+  staleFormExecution.quantityLines[0]?.currentQty,
+  currentQtyAfterExternalChange,
+  '陈旧表单必须重新读取最新需求事实',
+)
+assert.equal(
+  executeProductionChangeForForm(staleFormExecution).step,
+  'content',
+  '刷新事实后未重新填写变更内容不得直接执行',
+)
+assert.equal(
+  changeDomain.getProductionOrderChangeCurrentFacts(quantityFactoryOrderId)?.demandQuantityFacts[0]?.currentDemandQty,
+  currentQtyAfterExternalChange,
+  '陈旧表单回滚不得覆盖外部已经形成的新事实',
+)
+changeDomain.replaceProductionOrderChangeCurrentFacts(factsBeforeStaleFormProbe)
+
+const emptyExecutionResult = executeProductionChangeForForm(createProductionChangeForm())
+assert.equal(emptyExecutionResult.executed, false, '空表单不得直接生成成功记录')
+assert.equal(emptyExecutionResult.step, 'order', '空表单必须在第一步被阻断')
+
+for (const invalidQty of [Number.NaN, Number.POSITIVE_INFINITY, 1.5, -1, Number.MAX_VALUE]) {
+  const invalidForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
+  invalidForm.quantityLines[0].targetQty = invalidQty
+  invalidForm.reason = '非法数量执行探针'
+  const invalidResult = executeProductionChangeForForm(invalidForm)
+  assert.equal(invalidResult.executed, false, `非法数量 ${String(invalidQty)} 不得执行`)
+  assert.equal(invalidResult.step, 'content', '非法数量必须在变更内容步骤阻断')
+}
+
+const duplicateQuantityForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
+duplicateQuantityForm.quantityLines[0].targetQty -= 1
+duplicateQuantityForm.quantityLines.push({
+  ...structuredClone(duplicateQuantityForm.quantityLines[0]),
+  id: 'QTY-DUPLICATE-PROBE',
+  targetQty: 1,
+  isNew: true,
+})
+duplicateQuantityForm.reason = '重复需求明细探针'
+assert.ok(
+  executeProductionChangeForForm(duplicateQuantityForm).error.includes('组合不能重复'),
+  '重复商品编码、颜色、尺码组合必须在执行入口阻断',
+)
+
+const duplicateQuantityIdForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
+duplicateQuantityIdForm.quantityLines[0].targetQty -= 1
+duplicateQuantityIdForm.quantityLines.push({
+  id: duplicateQuantityIdForm.quantityLines[0].id,
+  skuCode: 'SKU-MALICIOUS-NEW',
+  color: '绿色',
+  size: 'XXL',
+  originalQty: 0,
+  currentQty: 0,
+  targetQty: 10,
+  unit: '件',
+  isNew: true,
+  coveredByCurrentVersion: false,
+})
+duplicateQuantityIdForm.reason = '新增需求明细 ID 冲突探针'
+assert.match(
+  executeProductionChangeForForm(duplicateQuantityIdForm).error,
+  /需求明细标识不能重复|新增需求明细与已有事实冲突/,
+  '新增需求明细不得复用已有事实 ID',
+)
+const factsBeforeDuplicateNewIdProbe = changeDomain.listProductionOrderChangeCurrentFacts()
+assert.throws(
+  () => changeDomain.applyProductionOrderQuantityFactChange(
+    quantityFactoryOrderId,
+    [
+      {
+        id: 'QTY-SAME-NEW',
+        skuCode: 'SKU-NEW-A',
+        color: '绿色',
+        size: 'S',
+        originalQty: 0,
+        currentQty: 0,
+        targetQty: 10,
+        isNew: true,
+      },
+      {
+        id: 'QTY-SAME-NEW',
+        skuCode: 'SKU-NEW-B',
+        color: '绿色',
+        size: 'M',
+        originalQty: 0,
+        currentQty: 0,
+        targetQty: 20,
+        isNew: true,
+      },
+    ],
+    'BG-DUPLICATE-NEW-ID-PROBE',
+    '2026-07-12 09:30',
+  ),
+  /需求明细标识不能重复/,
+  '领域写入层必须拒绝同一批新增明细复用相同 ID',
+)
+assert.throws(
+  () => changeDomain.applyProductionOrderQuantityFactChange(
+    quantityFactoryOrderId,
+    [
+      {
+        id: ' DQF-PO-202603-0004-BLK-M ',
+        skuCode: 'SKU-WHITESPACE-COLLISION',
+        color: '绿色',
+        size: 'XXL',
+        originalQty: 0,
+        currentQty: 0,
+        targetQty: 10,
+        isNew: true,
+      },
+    ],
+    'BG-WHITESPACE-ID-PROBE',
+    '2026-07-12 09:31',
+  ),
+  /与已有事实冲突/,
+  '领域写入层必须先标准化 ID，再拒绝空格变体复用已有事实 ID',
+)
+changeDomain.replaceProductionOrderChangeCurrentFacts(factsBeforeDuplicateNewIdProbe)
+
+const invalidMaterialForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'MATERIAL_REPLACEMENT')
+invalidMaterialForm.materialReplacement.replacementMaterialId = 'FAB-NOT-IN-SYSTEM'
+invalidMaterialForm.reason = '非法面料探针'
+assert.ok(
+  executeProductionChangeForForm(invalidMaterialForm).error.includes('系统中的新面料'),
+  '不在系统物料档案中的新面料必须被执行入口阻断',
+)
+
+const invalidTimeForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
+invalidTimeForm.quantityLines[0].targetQty -= 1
+invalidTimeForm.reason = '无效时间探针'
+assert.equal(
+  executeProductionChangeForForm(invalidTimeForm, { executedAt: '2026-02-30 09:00' }).executed,
+  false,
+  '不存在的日历时间不得落入最终记录',
+)
+assert.equal(invalidTimeForm.recordId, '', '时间校验失败前不得分配变更单号')
 
 const eventFailureForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
 const eventFailureLine = eventFailureForm.quantityLines[0]
@@ -1260,6 +1699,7 @@ assert.equal(
   '重新选择生产单或场景必须使用新的业务变更身份',
 )
 resetProductionChangeRecordsForTesting()
+changeDomain.resetProductionOrderChangeCurrentFactsForTesting()
 
 const initializedMaterialForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'MATERIAL_REPLACEMENT')
 const initialMaterialSuggestion = initializedMaterialForm.materialReplacement.allocations.reduce(
@@ -1294,6 +1734,131 @@ assert.deepEqual(
   createFollowingOrderPlans(quantityFactoryOrderId),
   '物料表单必须按当前事实初始化后续生产单',
 )
+
+const partialFullReplacementForm = structuredClone(initializedMaterialForm)
+partialFullReplacementForm.materialReplacement.replacementMaterialId = helperReplacementOption.value
+partialFullReplacementForm.materialReplacement.replacementMode = 'FULL'
+partialFullReplacementForm.reason = '全部数量替换不能只填部分数量'
+assert.match(
+  validateProductionChangeFormStep('content', partialFullReplacementForm),
+  /全部数量替换必须覆盖当前需求总数/,
+  '全部数量替换必须严格等于需求总数',
+)
+
+const excessiveRemainingForm = structuredClone(initializedMaterialForm)
+excessiveRemainingForm.materialReplacement.replacementMaterialId = helperReplacementOption.value
+excessiveRemainingForm.reason = '剩余数量替换不能覆盖已完成事实'
+const excessiveRemainingLine = excessiveRemainingForm.materialReplacement.allocations[0]
+assert.ok(excessiveRemainingLine, '剩余数量边界测试需要颜色尺码分配')
+excessiveRemainingLine.confirmedReplacementQty = excessiveRemainingLine.suggestedReplacementQty + 1
+excessiveRemainingForm.materialReplacement.confirmedProductionQty = excessiveRemainingForm.materialReplacement.allocations.reduce(
+  (sum, line) => sum + line.confirmedReplacementQty,
+  0,
+)
+assert.match(
+  validateProductionChangeFormStep('content', excessiveRemainingForm),
+  /不能超过对应颜色尺码的剩余待生产数量|不能超过剩余待生产总数/,
+  '剩余数量替换不得再次覆盖已完成生产数量',
+)
+
+const followingFullDispositionForm = structuredClone(initializedMaterialForm)
+followingFullDispositionForm.materialReplacement.replacementMaterialId = helperReplacementOption.value
+followingFullDispositionForm.materialReplacement.scope = 'CURRENT_AND_FOLLOWING'
+followingFullDispositionForm.reason = '后续已开工生产单全部替换'
+followingFullDispositionForm.decisionValues['following-order-mode-PO-202603-0101'] = {
+  value: 'FULL',
+  reason: '',
+}
+const followingFullDispositionPreview = buildProductionChangePreview({
+  productionOrderId: followingFullDispositionForm.productionOrderId,
+  changeType: 'MATERIAL_REPLACEMENT',
+  reason: followingFullDispositionForm.reason,
+  quantityLines: followingFullDispositionForm.quantityLines,
+  materialReplacement: followingFullDispositionForm.materialReplacement,
+  decisionValues: followingFullDispositionForm.decisionValues,
+  affectedDocumentNos: listAffectedDocumentNosForOrder(followingFullDispositionForm.productionOrderId),
+})
+assert.ok(
+  followingFullDispositionPreview.decisionItems.some(
+    (item) => item.id === 'following-old-material-disposition-PO-202603-0101',
+  ),
+  '已开工后续生产单选择全部替换时必须单独确认旧料和在制品去向',
+)
+const multiOrderSnapshotRecord = buildProductionChangeRecord(
+  'BG-MULTI-ORDER-SNAPSHOT',
+  {
+    productionOrderId: followingFullDispositionForm.productionOrderId,
+    changeType: 'MATERIAL_REPLACEMENT',
+    reason: followingFullDispositionForm.reason,
+    quantityLines: followingFullDispositionForm.quantityLines,
+    materialReplacement: followingFullDispositionForm.materialReplacement,
+    decisionValues: followingFullDispositionForm.decisionValues,
+    affectedDocumentNos: listAffectedDocumentNosForOrder(followingFullDispositionForm.productionOrderId),
+  },
+  'DONE',
+  '2026-07-12 09:00',
+)
+assert.deepEqual(
+  multiOrderSnapshotRecord.affectedOrderFactsSnapshots.map((facts) => facts.productionOrderId).sort(),
+  ['PO-202603-0004', 'PO-202603-0101', 'PO-202603-0102'].sort(),
+  '当前及后续范围的最终记录必须保存全部受影响生产单事实快照',
+)
+const followingCutTrace = multiOrderSnapshotRecord.documentTraces.find(
+  (trace) => trace.documentNo === 'CUT-260306-101-01',
+)
+assert.ok(followingCutTrace?.beforeText.includes('计划 1,000 件'), '后续裁剪单留痕必须保存自身计划数量')
+assert.ok(
+  followingCutTrace?.afterText.includes(followingFullDispositionForm.materialReplacement.replacementMaterialId),
+  '后续裁剪单留痕必须明确记录执行后的新面料',
+)
+const convertedUnitLines = createQuantityLinesForOrder('PO-202603-0101')
+convertedUnitLines[0].targetQty = 900
+const convertedUnitRecord = buildProductionChangeRecord(
+  'BG-CONVERTED-UNIT-TRACE',
+  {
+    productionOrderId: 'PO-202603-0101',
+    changeType: 'QUANTITY_CHANGE',
+    reason: '验证领料单单位换算后的新计划',
+    quantityLines: convertedUnitLines,
+    materialReplacement: null,
+    decisionValues: {},
+    affectedDocumentNos: ['WLS-PL-260306-101'],
+  },
+  'DONE',
+  '2026-07-12 09:05',
+)
+assert.ok(
+  convertedUnitRecord.documentTraces.find((trace) => trace.documentNo === 'WLS-PL-260306-101')?.afterText.includes('新计划 1134 米'),
+  '非件数单据必须按需求明细到单据单位的换算关系记录自身新计划',
+)
+
+const followingFactProbeForm = structuredClone(initializedMaterialForm)
+followingFactProbeForm.materialReplacement.replacementMaterialId = helperReplacementOption.value
+followingFactProbeForm.materialReplacement.scope = 'CURRENT_AND_FOLLOWING'
+const followingFactPreview = buildProductionChangePreview({
+  productionOrderId: followingFactProbeForm.productionOrderId,
+  changeType: 'MATERIAL_REPLACEMENT',
+  reason: '后续生产单事实变化探针',
+  quantityLines: followingFactProbeForm.quantityLines,
+  materialReplacement: followingFactProbeForm.materialReplacement,
+  decisionValues: followingFactProbeForm.decisionValues,
+  affectedDocumentNos: listAffectedDocumentNosForOrder(followingFactProbeForm.productionOrderId),
+})
+const followingFactOrderId = followingFactPreview.affectedOrderIds.find((id) => id !== quantityFactoryOrderId)
+assert.ok(followingFactOrderId, '跨生产单替换必须包含至少一张后续生产单')
+const followingFactProbeFacts = changeDomain.listProductionOrderChangeCurrentFacts()
+changeDomain.replaceProductionOrderChangeCurrentFacts([
+  ...followingFactProbeFacts.map((facts) => {
+    if (facts.productionOrderId !== followingFactOrderId) return facts
+    const copiedFacts = structuredClone(facts)
+    if (copiedFacts.demandQuantityFacts[0]) copiedFacts.demandQuantityFacts[0].currentDemandQty += 1
+    return copiedFacts
+  }),
+])
+const followingFactExecution = executeProductionChange(followingFactPreview)
+assert.equal(followingFactExecution.status, 'ROLLED_BACK', '后续生产单事实变化也必须整单回滚')
+assert.equal(followingFactExecution.message, '当前事实已变化，请重新确认处理方案')
+changeDomain.resetProductionOrderChangeCurrentFactsForTesting()
 
 const helperMaterialForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'MATERIAL_REPLACEMENT')
 helperMaterialForm.materialReplacement.replacementMaterialId = helperReplacementOption.value
@@ -1523,6 +2088,20 @@ assert.equal(state.productionChangeForm.reason, '', '新增变更必须清空旧
 assert.deepEqual(state.productionChangeForm.decisionValues, {}, '新增变更必须清空旧跟单判断')
 assert.equal(state.productionChangeForm.execution.status, 'IDLE', '新增变更必须清空旧执行结果')
 assert.equal(state.productionChangeFormError, '', '新增变更必须清空旧错误')
+const preselectedEntryActionNode = {
+  dataset: {
+    prodAction: 'start-production-change-type',
+    changeType: 'MATERIAL_REPLACEMENT',
+    orderId: quantityFactoryOrderId,
+  },
+  closest(selector: string) {
+    return selector === '[data-prod-field]' ? null : selector === '[data-prod-action]' ? this : null
+  },
+} as unknown as HTMLElement
+assert.equal(handleProductionEvent(preselectedEntryActionNode), true, '预选生产单入口必须由统一事件处理')
+assert.equal(state.productionChangeFormStep, 'order', '预选生产单后仍必须停留在第一步查看当前事实')
+assert.equal(state.productionChangeForm.productionOrderId, quantityFactoryOrderId, '预选入口必须保留生产单')
+assert.ok(renderProductionChangeNewPage().includes('当前事实'), '预选生产单第一步必须展示当前事实')
 state.productionChangeForm.reason = '当前页输入内容'
 state.productionChangeFormStep = 'content'
 assert.ok(renderProductionChangeNewPage().includes('当前页输入内容'), '当前页重渲染不得重置正在填写的表单')
@@ -1577,7 +2156,7 @@ selectableProductionOrderIds.forEach((productionOrderId) => {
   )
   assert.ok(candidateTotalDemandQty > 0, `生产单 ${productionOrderId} 的物料表单总需求上限必须大于 0`)
 })
-assert.ok(!selectableProductionOrderIds.includes('PO-202604-0018'), '无颜色尺码需求明细的生产单不得进入本版候选')
+assert.ok(selectableProductionOrderIds.includes('PO-202604-0018'), '具备当前需求明细的生产单必须进入候选')
 
 const legacyHistoryFactsBeforeRender = changeDomain.getProductionOrderChangeCurrentFacts('PO-202604-0018')
 assert.ok(legacyHistoryFactsBeforeRender, '历史展示归一检查需要旧流程事实样本')
@@ -1800,8 +2379,8 @@ assert.ok(quantityEditHtml.includes('data-production-change-form-body="content"'
   assert.ok(!quantityEditHtml.includes(`data-production-change-form-body="${step}"`), `旧记录页不得渲染 ${step} 主体`)
 })
 assert.ok(
-  /data-prod-field="productionChangeQuantityTargetQty"[^>]*value="970"/.test(quantityEditHtml),
-  '数量编辑页必须按差额把黑色 M 回填为 970',
+  /data-prod-field="productionChangeQuantityTargetQty"[^>]*value="1170"/.test(quantityEditHtml),
+  '数量编辑页必须按差额把黑色 M 回填为 1170',
 )
 assert.equal(
   (quantityEditHtml.match(/data-production-change-quantity-row/g) ?? []).length,
@@ -1809,13 +2388,12 @@ assert.equal(
   '数量编辑页不得因旧记录增加需求行',
 )
 assert.ok(
-  /<strong[^>]*data-production-change-quantity-target-total[^>]*>\s*3470\s*件\s*<\/strong>/.test(quantityEditHtml),
-  '数量编辑页目标合计必须只应用已匹配旧行差额，不能变成 3670',
+  /<strong[^>]*data-production-change-quantity-target-total[^>]*>\s*2050\s*件\s*<\/strong>/.test(quantityEditHtml),
+  '数量编辑页目标合计必须按当前事实应用两条旧行差额',
 )
 assert.ok(!quantityEditHtml.includes('data-line-id="CHANGE-PO-202603-0004-001-LEGACY'), '未匹配旧行不得渲染为新增需求行')
-assert.ok(quantityEditHtml.includes('无法安全对应当前需求明细，不能直接保存，请按原记录新建变更'), '存在未匹配旧行时必须显示只读警告')
 assert.ok(quantityEditHtml.includes('旧记录只读，如需调整请按原记录新建变更'), '旧数量变更记录必须明确提示只读')
-assert.ok(quantityEditHtml.includes('藏青色') && quantityEditHtml.includes('L'), '只读警告必须展示未匹配的原记录明细')
+assert.ok(quantityEditHtml.includes('藏青色') && quantityEditHtml.includes('L'), '旧记录必须展示藏青色 L 明细')
 assert.ok(!quantityEditHtml.includes('data-prod-action="save-production-change-draft"'), '旧数量变更记录不得显示保存草稿动作')
 assert.ok(!quantityEditHtml.includes('data-prod-action="submit-production-change-order"'), '旧数量变更记录不得显示保存变更内容动作')
 assert.ok(!quantityEditHtml.includes('data-prod-action="set-production-change-type"'), '旧数量变更记录不得允许切换变更类型')
@@ -1880,6 +2458,9 @@ assert.ok(quantityHandlingHtml.includes('data-production-change-handling'), '第
 assert.ok(quantityHandlingHtml.includes('裁剪单未执行数量自动调整'), '第三步必须展示数量场景 AUTO 项')
 assert.ok(quantityHandlingHtml.includes('生产单打补丁'), '第三步必须展示最终结果中文名')
 assert.ok(quantityHandlingHtml.includes('变更明细均被当前正式版本覆盖'), '第三步必须展示最终结果原因')
+;['受影响生产单及关联单据当前事实', '计划数量', '已完成', '待处理', 'SP-202603-004-01', 'CUT-202603-004-01'].forEach((text) => {
+  assert.ok(quantityHandlingHtml.includes(text), `第三步必须展示当前生产单及关联单据事实「${text}」`)
+})
 
 const suggestedDecisionForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'MATERIAL_REPLACEMENT')
 suggestedDecisionForm.materialReplacement.replacementMaterialId = replacementOption.value
@@ -1889,6 +2470,9 @@ const startedPlan = suggestedDecisionForm.materialReplacement.followingOrders.fi
 assert.ok(startedPlan, '第三步判断渲染需要已开工后续生产单')
 const followingDecisionId = `following-order-mode-${startedPlan.productionOrderId}`
 const suggestedDecisionHtml = renderProductionChangeFormBody('handling', suggestedDecisionForm)
+;['PO-202603-0101', 'WLS-PL-260306-101', 'CUT-260306-101-01', '部分领料', '部分裁剪'].forEach((text) => {
+  assert.ok(suggestedDecisionHtml.includes(text), `第三步必须展示后续生产单真实进度和数量「${text}」`)
+})
 assert.ok(
   suggestedDecisionHtml.includes(`data-prod-field="productionChangeDecisionValue" data-decision-id="${followingDecisionId}"`),
   '待跟单判断必须使用约定 select 和 decisionId',
@@ -2017,12 +2601,14 @@ const executeProductionChangeSource = productionChangeWorkflowSource.slice(
 ;[
   "action === 'execute-production-change'",
   "action === 'simulate-production-change-failure'",
-  "form.execution.status === 'RUNNING' || form.execution.status === 'DONE'",
-  'form.execution = execute(preview, { shouldFail: options.shouldFail })',
+  "form.execution.status === 'RUNNING'",
+  "existingRecord?.status === 'DONE'",
+  'persist: persistExecutionResult',
   'form.execution = createProductionChangeRolledBackResult(preview)',
 ].forEach((text) => {
   assert.ok(productionEventsSource.includes(text), `events.ts 缺少第四步同步写回或防重复证据「${text}」`)
 })
+assert.ok(executeProductionChangeSource.includes('options.persist?.(result)'), '同步执行器必须在锁内完成事实和记录持久化')
 
 const task5RenderedSurfaces = [
   ['列表和场景卡', listHtml],
@@ -2262,6 +2848,21 @@ julyElevenRecord.documentTraces.forEach((trace) => { trace.changeOrderId = julyE
 saveProductionChangeRecord(julyElevenRecord)
 assert.equal(createNextProductionChangeRecordId('2026-07-11 09:00'), 'BG-20260711-002', '同日期必须按已有记录续号')
 resetProductionChangeRecordsForTesting()
+assert.equal(createNextProductionChangeRecordId('2026-07-12 09:00'), 'BG-20260712-001', '首次分配必须预留当日 001')
+assert.equal(createNextProductionChangeRecordId('2026-07-12 09:00'), 'BG-20260712-002', '连续分配必须返回不同变更单号')
+assert.throws(() => createNextProductionChangeRecordId('2026-02-30 09:00'), /时间无效/, '不存在的日期不得生成变更单号')
+assert.throws(() => createNextProductionChangeRecordId('2026-99-99 09:00'), /时间无效/, '非法月份不得生成变更单号')
+assert.throws(
+  () => saveProductionChangeRecord(structuredClone(initialQuantitySeed!)),
+  /不能覆盖/,
+  '默认保存不得静默覆盖同 ID 最终记录',
+)
+assert.throws(
+  () => saveProductionChangeRecord(structuredClone(initialQuantitySeed!), { allowReplace: true }),
+  /已完成.*不能覆盖/,
+  '即使显式允许替换，领域保存层也不得覆盖 DONE 记录',
+)
+resetProductionChangeRecordsForTesting()
 
 const finalStatusLabels = ['草稿', '待确认执行', '同步执行中', '已完成', '已回滚']
 const finalListHeaders = ['变更单号', '生产单', '变更场景', '最终结果', '待判断事项', '处理状态', '执行结果', '发起时间', '操作']
@@ -2272,6 +2873,10 @@ assert.ok(
   productionChangesDomainSource.includes('listProductionChangeRecords()'),
   '最终主列表必须使用 listProductionChangeRecords',
 )
+const unifiedRelationHtml = renderProductionChangeRelationDetailPage('PO-202603-0004')
+assert.ok(unifiedRelationHtml.includes('data-prod-action="start-production-change"'), '生产单关系页变更动作必须进入统一四步流程')
+assert.ok(!unifiedRelationHtml.includes('data-prod-action="open-tech-pack-version-change"'), '生产单关系页不得绕过四步直接变更版本')
+assert.ok(!unifiedRelationHtml.includes('data-prod-action="open-production-patch"'), '生产单关系页不得绕过四步直接发起补丁')
 
 const quantityRecord = records.find((record) => record.changeType === 'QUANTITY_CHANGE' && record.status === 'DONE')
 assert.ok(quantityRecord, '需要一张已完成数量变更样例')
@@ -2284,6 +2889,26 @@ const quantityDetailHtml = renderProductionChangeOrderDetailPage(quantityRecord.
 })
 assert.ok(quantityRecord.documentTraces.length > 0, '已完成数量变更必须有双向单据留痕')
 assert.ok(quantityRecord.documentTraces.every((trace) => trace.changeOrderId === quantityRecord.id), '每条留痕必须可反查来源变更单号')
+assert.ok(
+  quantityRecord.documentTraces
+    .filter((trace) => trace.documentTypeLabel === '裁剪/铺布/裁片')
+    .every((trace) => trace.afterText.includes('新计划') && trace.afterText.includes('→')),
+  '件数单据留痕必须包含该单据自己的变更后计划数量和关联需求明细前后值',
+)
+quantityRecord.documentTraces.forEach((trace) => {
+  assert.ok(
+    listProductionChangeDocumentTraces(trace.documentNo).some((item) => item.changeOrderId === quantityRecord.id),
+    `单据 ${trace.documentNo} 自身必须能按单据号反查来源变更`,
+  )
+})
+;['商品编码', '原需求', '当前需求', '已完成', '待处理', '物料', '可变更', '单据类型', '计划数量'].forEach((text) => {
+  assert.ok(quantityDetailHtml.includes(text), `最终详情当前事实必须展示明细字段「${text}」`)
+})
+const finalRecordEditHtml = renderProductionChangeEditPage(quantityRecord.id)
+assert.ok(finalRecordEditHtml.includes('查看生产单变更记录'), 'BG 最终记录 edit 路由必须读取最终记录数据源')
+assert.ok(finalRecordEditHtml.includes('已形成的变更记录只读'), 'BG 最终记录 edit 路由必须明确只读')
+assert.ok(finalRecordEditHtml.includes('按原记录新建变更'), 'BG 最终记录 edit 路由必须提供新建入口')
+assert.ok(!finalRecordEditHtml.includes(`未找到生产单变更单：${quantityRecord.id}`), 'BG 最终记录 edit 路由不得误报未找到')
 const detailSnapshotBeforeMutation = quantityDetailHtml
 const returnedRecordForMutation = getProductionChangeRecord(quantityRecord.id)
 if (returnedRecordForMutation?.currentFactsSnapshot?.documentFacts[0]) {

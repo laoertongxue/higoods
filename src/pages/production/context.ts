@@ -143,6 +143,7 @@ interface ProductionChangeForm {
   quantityLines: QuantityChangeLine[]
   materialReplacement: MaterialReplacementDraft
   decisionValues: Record<string, { value: string; reason: string }>
+  confirmedFactsFingerprint: string
   advancedAllocationOpen: boolean
   execution: {
     status: 'IDLE' | 'RUNNING' | 'DONE' | 'ROLLED_BACK'
@@ -170,6 +171,7 @@ export function createProductionChangeForm(): ProductionChangeForm {
     quantityLines: [],
     materialReplacement: createEmptyMaterialReplacementDraft(),
     decisionValues: {},
+    confirmedFactsFingerprint: '',
     advancedAllocationOpen: false,
     execution: createIdleExecutionState(),
   }

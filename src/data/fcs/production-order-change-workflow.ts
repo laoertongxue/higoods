@@ -1,11 +1,11 @@
 import { listMaterialArchives } from '../pcs-material-archive-repository.ts'
 import {
   getProductionOrderChangeCurrentFacts,
+  listCurrentFormalVersionDemandCoverage,
   listProductionOrderTechPackRelations,
   type ProductionOrderChangeCurrentFacts,
 } from './production-tech-pack-change-domain.ts'
 import { productionOrders, type ProductionOrderStatus } from './production-orders.ts'
-import { resolveLinkedDemandForProductionOrder } from './production-upstream-chain.ts'
 
 export type ProductionChangeType = 'QUANTITY_CHANGE' | 'MATERIAL_REPLACEMENT'
 
@@ -100,6 +100,24 @@ const PRODUCTION_CHANGE_FOLLOWING_ORDER_SCENARIO_SEEDS: Record<string, Following
   ],
 }
 
+function normalizeDemandKeyPart(value: string): string {
+  return value.normalize('NFKC').trim().toUpperCase()
+}
+
+function createDemandCoverageKey(line: Pick<QuantityChangeLine, 'skuCode' | 'color' | 'size'>): string {
+  return [line.skuCode, line.color, line.size].map(normalizeDemandKeyPart).join('\u0000')
+}
+
+export function isQuantityLineCoveredByCurrentFormalVersion(
+  productionOrderId: string,
+  line: Pick<QuantityChangeLine, 'skuCode' | 'color' | 'size'>,
+): boolean {
+  const formalVersionKeys = listCurrentFormalVersionDemandCoverage(productionOrderId)
+    .map(createDemandCoverageKey)
+  return new Set(formalVersionKeys)
+    .has(createDemandCoverageKey(line))
+}
+
 export function createEmptyMaterialReplacementDraft(): MaterialReplacementDraft {
   return {
     originalMaterialId: '',
@@ -114,17 +132,17 @@ export function createEmptyMaterialReplacementDraft(): MaterialReplacementDraft 
 }
 
 export function createQuantityLinesForOrder(productionOrderId: string): QuantityChangeLine[] {
-  const demand = resolveLinkedDemandForProductionOrder(productionOrderId)
-  if (!demand) return []
+  const facts = getProductionOrderChangeCurrentFacts(productionOrderId)
+  if (!facts) return []
 
-  return demand.skuLines.map((line, index) => ({
-    id: `${productionOrderId}-QTY-${index + 1}`,
-    skuCode: line.skuCode,
-    color: line.color,
-    size: line.size,
-    originalQty: line.qty,
-    currentQty: line.qty,
-    targetQty: line.qty,
+  return facts.demandQuantityFacts.map((fact) => ({
+    id: fact.id,
+    skuCode: fact.skuCode,
+    color: fact.color,
+    size: fact.size,
+    originalQty: fact.originalDemandQty,
+    currentQty: fact.currentDemandQty,
+    targetQty: fact.currentDemandQty,
     unit: '件',
     isNew: false,
     coveredByCurrentVersion: true,
@@ -378,12 +396,15 @@ export function buildMaterialReplacementAllocations(
   confirmedProductionQty: number,
 ): MaterialReplacementAllocation[] {
   const quantityLines = createQuantityLinesForOrder(productionOrderId)
+  const demandFacts = getProductionOrderChangeCurrentFacts(productionOrderId)?.demandQuantityFacts ?? []
+  const demandFactById = new Map(demandFacts.map((fact) => [fact.id, fact]))
   if (quantityLines.length === 0) return []
 
   const allocations = quantityLines.map((line, index) => {
     const normalizedDemandQty = Number.isFinite(line.currentQty) ? Math.round(line.currentQty) : 0
     const demandQty = Math.max(0, normalizedDemandQty)
-    const oldMaterialFactQty = Math.floor(demandQty * 0.55)
+    const executedQty = demandFactById.get(line.id)?.executedQty ?? 0
+    const oldMaterialFactQty = Math.min(Math.max(Math.round(executedQty), 0), demandQty)
     return {
       id: `${productionOrderId}-ALLOC-${index + 1}`,
       skuCode: line.skuCode,
@@ -550,11 +571,13 @@ export interface ProductionChangeExecutionOptions {
   shouldFail?: boolean
   onProgress?: (progress: number, result: ProductionChangeExecutionResult) => void
   onStep?: (step: ProductionChangeExecutionStep, result: ProductionChangeExecutionResult) => void
+  persist?: (result: ProductionChangeExecutionResult) => ProductionChangeExecutionResult | void
 }
 
 export interface ProductionChangePreview {
   result: ProductionChangeResult
   resultReason: string
+  factsFingerprint: string
   affectedOrderIds: string[]
   autoItems: ProductionChangePlanItem[]
   decisionItems: ProductionChangePlanItem[]
@@ -604,6 +627,7 @@ export interface ProductionChangeRecord extends ProductionChangeDraft {
   createdAt: string
   lastExecutedAt: string
   currentFactsSnapshot: ProductionOrderChangeCurrentFacts | null
+  affectedOrderFactsSnapshots: ProductionOrderChangeCurrentFacts[]
   documentTraces: ProductionChangeDocumentTrace[]
 }
 
@@ -648,8 +672,22 @@ export function executeProductionChange(
     return createProductionChangeRolledBackResult(preview, lockObjectIds, getProductionChangeLockMessage())
   }
   lockObjectIds.forEach((objectId) => activeProductionChangeLocks.add(objectId))
+  let persistenceStarted = false
 
   try {
+    const currentFingerprint = createProductionChangeScopeFingerprint(
+      preview.affectedOrderIds,
+      [...preview.autoItems, ...preview.decisionItems],
+    )
+    if (!currentFingerprint || currentFingerprint !== preview.factsFingerprint) {
+      const staleFactsResult = createProductionChangeRolledBackResult(
+        preview,
+        lockObjectIds,
+        '当前事实已变化，请重新确认处理方案',
+      )
+      persistenceStarted = true
+      return options.persist?.(staleFactsResult) ?? staleFactsResult
+    }
     const failed = options.shouldFail === true
     const stepSeeds = [
       { id: 'LOCK', label: '锁定处理范围' },
@@ -679,9 +717,15 @@ export function executeProductionChange(
       options.onStep?.(step, result)
       options.onProgress?.(result.progress, result)
     })
-    return result
+    persistenceStarted = true
+    return options.persist?.(result) ?? result
   } catch {
-    return createProductionChangeRolledBackResult(preview, lockObjectIds)
+    const rolledBackResult = createProductionChangeRolledBackResult(preview, lockObjectIds)
+    if (!persistenceStarted) {
+      persistenceStarted = true
+      options.persist?.(rolledBackResult)
+    }
+    return rolledBackResult
   } finally {
     lockObjectIds.forEach((objectId) => activeProductionChangeLocks.delete(objectId))
   }
@@ -745,6 +789,31 @@ function resolveFollowingOrderMode(
   return order.confirmedMode ?? order.suggestedMode
 }
 
+function parseBusinessQuantity(value: string): number {
+  const matched = value.replace(/,/g, '').match(/\d+(?:\.\d+)?/)
+  return matched ? Number(matched[0]) : 0
+}
+
+function getFollowingOldMaterialFactSummary(
+  productionOrderId: string,
+  sourceProductionOrderId: string,
+  originalMaterialId: string,
+): string {
+  const facts = getProductionOrderChangeCurrentFacts(productionOrderId)
+  const sourceFacts = getProductionOrderChangeCurrentFacts(sourceProductionOrderId)
+  if (!facts || !sourceFacts) return ''
+  const sourceMaterialFact = sourceFacts.materialFacts.find((fact) => fact.id === originalMaterialId)
+  const sourceMaterialCode = sourceMaterialFact?.material.trim().split(/\s+/)[0]?.toUpperCase()
+  if (!sourceMaterialCode) return ''
+  const originalMaterialFact = facts.materialFacts.find(
+    (fact) => fact.material.trim().toUpperCase().startsWith(sourceMaterialCode),
+  )
+  const pickedMaterialQty = originalMaterialFact ? parseBusinessQuantity(originalMaterialFact.pickedQty) : 0
+  if (pickedMaterialQty <= 0) return ''
+  const executedQty = facts.demandQuantityFacts.reduce((sum, fact) => sum + fact.executedQty, 0)
+  return `已领旧料约 ${pickedMaterialQty}，已完成生产 ${executedQty} 件`
+}
+
 function buildDocumentPlanItems(
   idPrefix: string,
   title: string,
@@ -769,7 +838,7 @@ function buildQuantityDocumentPlanItems(affectedDocumentNos: string[]): Producti
       id: `quantity-current-document-${index + 1}`,
       group: '上下游单据',
       title: isCuttingOrder ? '裁剪单未执行数量自动调整' : '关联单据未执行数量自动调整',
-      description: '已执行数量保持不变，只调整剩余计划并写入变更留痕。',
+      description: '已执行数量保持不变，按每条需求明细的增减分别调整剩余计划并写入变更留痕。',
       affectedDocumentNo,
     })
   })
@@ -835,10 +904,34 @@ function buildQuantityPlan(draft: ProductionChangeDraft): ProductionChangePlanBu
       id: 'quantity-cost-delivery',
       group: '成本与交期',
       title: '成本与交期自动重算',
-      description: '系统按需求净变化和已发生事实重算未发生的物料、加工成本与关联交期。',
+      description: '系统按每条需求明细的增加或减少分别重算物料、加工成本与关联交期；净变化只用于汇总展示。',
       affectedDocumentNo: '',
     }),
   )
+
+  const currentFacts = getProductionOrderChangeCurrentFacts(draft.productionOrderId)
+  const executedQtyByDemandKey = new Map(
+    (currentFacts?.demandQuantityFacts ?? []).map((fact) => [createDemandCoverageKey(fact), fact.executedQty]),
+  )
+  const decisionItems = draft.quantityLines.flatMap((line) => {
+    const overProducedQty = Math.max((executedQtyByDemandKey.get(createDemandCoverageKey(line)) ?? 0) - line.targetQty, 0)
+    if (overProducedQty === 0) return []
+    return [
+      createDecisionItem(draft, {
+        id: `quantity-over-produced-${line.id}`,
+        group: '实物去向',
+        title: `${line.color} ${line.size} 已完成数量超出新需求`,
+        description: `已完成数量比变更后需求多 ${overProducedQty} 件，需要确认这部分成品的业务去向。`,
+        affectedDocumentNo: draft.productionOrderId,
+        options: [
+          { value: 'KEEP_AS_STOCK', label: '转库存保留' },
+          { value: 'TRANSFER_TO_OTHER_ORDER', label: '转其他生产单使用' },
+          { value: 'SETTLEMENT_DIFFERENCE', label: '按生产差异结算' },
+        ],
+        reasonRequired: false,
+      }),
+    ]
+  })
 
   if (requiresNewFormalVersion) {
     autoItems.push(
@@ -858,7 +951,7 @@ function buildQuantityPlan(draft: ProductionChangeDraft): ProductionChangePlanBu
       ? '存在新增且当前正式版本未覆盖的颜色尺码明细，需要调整正式版本绑定并同步生产单补丁。'
       : '变更明细均被当前正式版本覆盖，只需更新当前生产单及其未执行数据。',
     autoItems,
-    decisionItems: [],
+    decisionItems,
   }
 }
 
@@ -900,6 +993,23 @@ function buildMaterialPlan(draft: ProductionChangeDraft, replacement: MaterialRe
   const decisionItems: ProductionChangePlanItem[] = []
 
   if (replacement.scope === 'CURRENT_AND_FOLLOWING') {
+    if (followingModes.length === 0) {
+      const relation = listProductionOrderTechPackRelations().find(
+        (item) => item.productionOrderId === draft.productionOrderId,
+      )
+      const relationObjectId = relation
+        ? `正式版本关系-${relation.productionOrderId}-${relation.currentTechPackVersionId}`
+        : `正式版本关系-${draft.productionOrderId}`
+      autoItems.push(
+        createAutoItem({
+          id: 'future-production-order-version-relation',
+          group: '上下游单据',
+          title: '更新以后新建生产单使用的正式版本',
+          description: '当前没有已创建的后续生产单；系统调整正式版本关系后，以后新建的同款生产单直接使用新面料版本。',
+          affectedDocumentNo: relationObjectId,
+        }),
+      )
+    }
     followingModes.forEach(({ order, finalMode }) => {
       if (!order.started) {
         autoItems.push(
@@ -932,6 +1042,29 @@ function buildMaterialPlan(draft: ProductionChangeDraft, replacement: MaterialRe
         )
       }
 
+      const oldMaterialFactSummary = getFollowingOldMaterialFactSummary(
+        order.productionOrderId,
+        draft.productionOrderId,
+        replacement.originalMaterialId,
+      )
+      if (finalMode === 'FULL' && oldMaterialFactSummary) {
+        decisionItems.push(
+          createDecisionItem(draft, {
+            id: `following-old-material-disposition-${order.productionOrderId}`,
+            group: '实物去向',
+            title: `${order.productionOrderId} 已形成旧料实物的去向`,
+            description: `${oldMaterialFactSummary}。该生产单选择全部数量替换后，需要确认旧料、裁片和在制品的业务去向。`,
+            affectedDocumentNo: order.productionOrderId,
+            options: [
+              { value: 'RETURN_TO_STOCK', label: '退回库存' },
+              { value: 'TRANSFER_USE', label: '转其他生产单使用' },
+              { value: 'DISPOSE', label: '按现场规则处置' },
+            ],
+            reasonRequired: false,
+          }),
+        )
+      }
+
       autoItems.push(
         ...buildDocumentPlanItems(
           `following-document-${order.productionOrderId}`,
@@ -951,8 +1084,8 @@ function buildMaterialPlan(draft: ProductionChangeDraft, replacement: MaterialRe
       createAutoItem({
         id: 'old-material-fact-kept',
         group: '实物去向',
-        title: '保留旧面料已形成事实',
-        description: `已有 ${oldMaterialFactQty} 件对应的旧面料事实数量，系统继续计入当前生产单，只替换剩余数量。`,
+        title: '保留已完成生产数量',
+        description: `已有 ${oldMaterialFactQty} 件完成生产，系统继续计入当前生产单，只替换剩余待生产数量。`,
         affectedDocumentNo: '',
       }),
     )
@@ -963,7 +1096,7 @@ function buildMaterialPlan(draft: ProductionChangeDraft, replacement: MaterialRe
         id: 'old-material-disposition',
         group: '实物去向',
         title: '旧面料成品退出当前需求后的去向',
-        description: `已有 ${oldMaterialFactQty} 件对应的旧面料事实数量，全部替换后需确认不再计入当前需求的实物去向。`,
+        description: `已有 ${oldMaterialFactQty} 件完成生产，全部替换后需确认这些成品不再计入当前需求时的实物去向。`,
         affectedDocumentNo: '',
         options: [
           { value: 'RETURN_TO_STOCK', label: '转库存' },
@@ -1021,6 +1154,12 @@ export function buildProductionChangePreview(draft: ProductionChangeDraft): Prod
   const sanitizedDraft: ProductionChangeDraft = {
     ...draft,
     productionOrderId: draft.productionOrderId.trim(),
+    quantityLines: draft.quantityLines.map((line) => ({
+      ...line,
+      coveredByCurrentVersion: line.isNew
+        ? isQuantityLineCoveredByCurrentFormalVersion(draft.productionOrderId, line)
+        : line.coveredByCurrentVersion,
+    })),
     affectedDocumentNos: sanitizeObjectIds(draft.affectedDocumentNos),
     materialReplacement,
   }
@@ -1046,6 +1185,7 @@ export function buildProductionChangePreview(draft: ProductionChangeDraft): Prod
   return {
     result: plan.result,
     resultReason: plan.resultReason,
+    factsFingerprint: createProductionChangeScopeFingerprint(affectedOrderIds, planItems),
     affectedOrderIds,
     autoItems: plan.autoItems,
     decisionItems: plan.decisionItems,
@@ -1067,6 +1207,27 @@ export function buildProductionChangePreview(draft: ProductionChangeDraft): Prod
     },
     lockObjectIds: Array.from(new Set([...affectedOrderIds, ...affectedDocumentIds])).filter((id) => id.trim().length > 0),
   }
+}
+
+export function createProductionChangeFactsFingerprint(productionOrderId: string): string {
+  const normalizedOrderId = productionOrderId.trim()
+  return normalizedOrderId ? createProductionChangeScopeFingerprint([normalizedOrderId], []) : ''
+}
+
+export function createProductionChangeScopeFingerprint(
+  affectedOrderIds: string[],
+  planItems: ProductionChangePlanItem[],
+): string {
+  const orderFacts = sanitizeObjectIds(affectedOrderIds).map((productionOrderId) => ({
+    productionOrderId,
+    facts: getProductionOrderChangeCurrentFacts(productionOrderId),
+  }))
+  const handlingFacts = planItems.map((item) => ({
+    id: item.id,
+    kind: item.kind,
+    affectedDocumentNo: item.affectedDocumentNo,
+  }))
+  return JSON.stringify({ orderFacts, handlingFacts })
 }
 
 export function validateProductionChangeDecisions(preview: ProductionChangePreview): string[] {
@@ -1138,14 +1299,33 @@ function summarizeQuantityChange(
   }
 }
 
-function getTraceHandlingText(draft: ProductionChangeDraft, status: ProductionChangeStatus): string {
+function getTraceHandlingText(
+  draft: ProductionChangeDraft,
+  status: ProductionChangeStatus,
+  planItem?: ProductionChangePlanItem,
+): string {
   if (status === 'ROLLED_BACK') return '同步执行失败，全部回滚，单据保持变更前内容'
-  const decisions = Object.values(draft.decisionValues)
-    .filter((decision) => decision.value.trim())
-    .map((decision) => decision.reason.trim() ? `${decision.value}（${decision.reason.trim()}）` : decision.value)
-  return decisions.length > 0
-    ? `跟单决定：${decisions.join('；')}`
-    : '系统按当前事实自动处理未执行部分'
+  if (!planItem) return '系统按当前事实自动处理未执行部分'
+  if (planItem.kind === 'AUTO') return planItem.description
+  const decision = draft.decisionValues[planItem.id]
+  const selectedLabel = planItem.options.find((option) => option.value === decision?.value)?.label
+  return selectedLabel
+    ? `跟单确认：${selectedLabel}${decision?.reason.trim() ? `（${decision.reason.trim()}）` : ''}`
+    : planItem.description
+}
+
+function getDocumentTypeLabel(documentNo: string, fact?: ProductionOrderChangeCurrentFacts['documentFacts'][number]): string {
+  if (fact) return fact.group
+  if (documentNo.startsWith('正式版本关系-')) return '正式版本关系'
+  if (documentNo.startsWith('PO-')) return '生产单'
+  if (documentNo.startsWith('CUT-')) return '裁剪单'
+  if (documentNo.startsWith('SP-')) return '铺布单'
+  if (documentNo.startsWith('WLS-') || documentNo.startsWith('MR-') || documentNo.startsWith('MI-')) return '配料/领料单'
+  if (documentNo.startsWith('DY-')) return '染色加工单'
+  if (documentNo.startsWith('PR-')) return '印花加工单'
+  if (documentNo.startsWith('SEW-')) return '车缝加工单'
+  if (documentNo.startsWith('SET-')) return '结算单'
+  return '关联单据'
 }
 
 function buildProductionChangeDocumentTraces(
@@ -1153,37 +1333,99 @@ function buildProductionChangeDocumentTraces(
   draft: ProductionChangeDraft,
   status: ProductionChangeStatus,
   executedAt: string,
-  currentFactsSnapshot: ProductionOrderChangeCurrentFacts | null,
+  affectedOrderFactsSnapshots: ProductionOrderChangeCurrentFacts[],
+  preview: ProductionChangePreview,
 ): ProductionChangeDocumentTrace[] {
   if (status === 'DRAFT' || status === 'READY' || status === 'EXECUTING') return []
   const documentNos = sanitizeObjectIds(
     draft.affectedDocumentNos?.length
       ? draft.affectedDocumentNos
-      : currentFactsSnapshot?.documentFacts.slice(0, 3).map((fact) => fact.documentNo),
+      : affectedOrderFactsSnapshots.flatMap((facts) => facts.documentFacts.slice(0, 3).map((fact) => fact.documentNo)),
   )
-  const factByDocumentNo = new Map(
-    (currentFactsSnapshot?.documentFacts ?? []).map((fact) => [fact.documentNo, fact]),
+  const factEntries = affectedOrderFactsSnapshots.flatMap((facts) =>
+    facts.documentFacts.map((fact) => ({ facts, fact })),
+  )
+  const factByDocumentNo = new Map(factEntries.map(({ fact }) => [fact.documentNo, fact]))
+  const ownerFactsByDocumentNo = new Map(factEntries.map(({ fact, facts }) => [fact.documentNo, facts]))
+  const planItemByDocumentNo = new Map(
+    [...preview.autoItems, ...preview.decisionItems]
+      .filter((item) => item.affectedDocumentNo)
+      .map((item) => [item.affectedDocumentNo, item]),
+  )
+  const followingOrderById = new Map(
+    (draft.materialReplacement?.followingOrders ?? []).map((order) => [order.productionOrderId, order]),
   )
   const quantitySummary = summarizeQuantityChange(draft)
   const material = draft.materialReplacement
-  const beforeText = draft.changeType === 'QUANTITY_CHANGE'
-    ? quantitySummary.beforeText
-    : `原物料：${material?.originalMaterialId || '未记录'}`
-  const afterText = status === 'ROLLED_BACK'
-    ? `未生效，保持变更前：${beforeText}`
-    : draft.changeType === 'QUANTITY_CHANGE'
-      ? quantitySummary.afterText
-      : `新物料：${material?.replacementMaterialId || '未记录'}，替换 ${material?.confirmedProductionQty ?? 0} 件`
 
-  return documentNos.map((documentNo) => ({
-    changeOrderId: id,
-    documentNo,
-    documentTypeLabel: factByDocumentNo.get(documentNo)?.group ?? '关联单据',
-    beforeText,
-    afterText,
-    handlingText: getTraceHandlingText(draft, status),
-    executedAt: status === 'DONE' || status === 'ROLLED_BACK' ? executedAt : '尚未执行',
-  }))
+  return documentNos.map((documentNo) => {
+    const fact = factByDocumentNo.get(documentNo)
+    const ownerFacts = ownerFactsByDocumentNo.get(documentNo)
+    const planItem = planItemByDocumentNo.get(documentNo)
+    const followingOrder = followingOrderById.get(documentNo)
+    const ownerFollowingOrder = followingOrder ?? (
+      ownerFacts ? followingOrderById.get(ownerFacts.productionOrderId) : undefined
+    )
+    let beforeText: string
+    let afterText: string
+    if (fact) {
+      beforeText = `${fact.status}；计划 ${fact.plannedQty}；已完成 ${fact.doneQty}；待处理 ${fact.pendingQty}`
+      if (draft.changeType === 'QUANTITY_CHANGE') {
+        const linkedLines = draft.quantityLines.filter((line) => fact.demandFactIds?.includes(line.id))
+        const linkedDelta = linkedLines.reduce((sum, line) => sum + line.targetQty - line.currentQty, 0)
+        const plannedQty = parseBusinessQuantity(fact.plannedQty)
+        const doneQty = parseBusinessQuantity(fact.doneQty)
+        const linkedTargetQty = linkedLines.reduce((sum, line) => sum + line.targetQty, 0)
+        const afterPlanText = fact.plannedQty.includes('件') && linkedLines.length > 0
+          ? `新计划 ${Math.max(doneQty, plannedQty + linkedDelta)} 件`
+          : fact.quantityPerDemandUnit && fact.planUnit && linkedLines.length > 0
+            ? `新计划 ${Math.max(doneQty, Math.round(linkedTargetQty * fact.quantityPerDemandUnit * 100) / 100)} ${fact.planUnit}`
+            : `原单位计划 ${fact.plannedQty}，缺少需求到单据单位换算关系`
+        const linkedSummary = linkedLines.length > 0
+          ? linkedLines.map((line) => `${line.color}/${line.size} ${line.currentQty}→${line.targetQty} 件`).join('；')
+          : quantitySummary.afterText
+        afterText = `${fact.status}；${afterPlanText}；已完成 ${fact.doneQty} 保持不变；${linkedSummary}`
+      } else {
+        const followingOrderMode = ownerFollowingOrder
+          ? resolveFollowingOrderMode(draft, ownerFollowingOrder)
+          : material?.replacementMode ?? 'REMAINING'
+        const linkedDemandFacts = ownerFacts?.demandQuantityFacts.filter(
+          (demand) => !fact.demandFactIds?.length || fact.demandFactIds.includes(demand.id),
+        ) ?? []
+        const replacementQty = documentNo === draft.productionOrderId
+          ? material?.confirmedProductionQty ?? 0
+          : followingOrderMode === 'FULL'
+            ? linkedDemandFacts.reduce((sum, demand) => sum + demand.currentDemandQty, 0)
+            : linkedDemandFacts.reduce((sum, demand) => sum + demand.pendingQty, 0)
+        afterText = `${fact.status}；原计划 ${fact.plannedQty}；已完成 ${fact.doneQty} 保持原物料事实；对应生产 ${replacementQty} 件改用 ${material?.replacementMaterialId || '未记录'}`
+      }
+    } else if (documentNo === draft.productionOrderId) {
+      beforeText = draft.changeType === 'QUANTITY_CHANGE'
+        ? quantitySummary.beforeText
+        : `当前生产单原物料 ${material?.originalMaterialId || '未记录'}，需求 ${material?.allocations.reduce((sum, line) => sum + line.demandQty, 0) ?? 0} 件`
+      afterText = draft.changeType === 'QUANTITY_CHANGE'
+        ? quantitySummary.afterText
+        : `当前生产单改用 ${material?.replacementMaterialId || '未记录'}，按${material?.replacementMode === 'FULL' ? '全部数量' : '剩余数量'}替换 ${material?.confirmedProductionQty ?? 0} 件`
+    } else if (followingOrder) {
+      beforeText = `${followingOrder.progressText}；系统建议${followingOrder.suggestedMode === 'FULL' ? '全部数量替换' : '剩余数量替换'}`
+      afterText = `跟单确认按${resolveFollowingOrderMode(draft, followingOrder) === 'FULL' ? '全部数量' : '剩余数量'}替换`
+    } else {
+      beforeText = `关联 ${getDocumentTypeLabel(documentNo)}；保持当前状态和已完成数量`
+      afterText = draft.changeType === 'QUANTITY_CHANGE'
+        ? `需求明细调整为：${quantitySummary.afterText}`
+        : `未执行部分改用 ${material?.replacementMaterialId || '未记录'}，确认替换 ${material?.confirmedProductionQty ?? 0} 件；${planItem?.description ?? '按所属生产单确认方案同步'}`
+    }
+    if (status === 'ROLLED_BACK') afterText = `未生效，保持变更前：${beforeText}`
+    return {
+      changeOrderId: id,
+      documentNo,
+      documentTypeLabel: getDocumentTypeLabel(documentNo, fact),
+      beforeText,
+      afterText,
+      handlingText: getTraceHandlingText(draft, status, planItem),
+      executedAt,
+    }
+  })
 }
 
 export function buildProductionChangeRecord(
@@ -1195,11 +1437,16 @@ export function buildProductionChangeRecord(
 ): ProductionChangeRecord {
   const copiedDraft = structuredClone(draft)
   const preview = buildProductionChangePreview(copiedDraft)
-  const currentFactsSnapshot = structuredClone(
-    getProductionOrderChangeCurrentFacts(copiedDraft.productionOrderId),
-  )
+  const affectedOrderFactsSnapshots = preview.affectedOrderIds
+    .map((productionOrderId) => getProductionOrderChangeCurrentFacts(productionOrderId))
+    .filter((facts): facts is ProductionOrderChangeCurrentFacts => Boolean(facts))
+    .map((facts) => structuredClone(facts))
+  const currentFactsSnapshot = affectedOrderFactsSnapshots.find(
+    (facts) => facts.productionOrderId === copiedDraft.productionOrderId,
+  ) ?? null
   const affectedDocumentNos = sanitizeObjectIds([
-    ...(currentFactsSnapshot?.documentFacts ?? []).map((fact) => fact.documentNo),
+    ...preview.affectedOrderIds,
+    ...affectedOrderFactsSnapshots.flatMap((facts) => facts.documentFacts.map((fact) => fact.documentNo)),
     ...preview.autoItems.map((item) => item.affectedDocumentNo),
     ...preview.decisionItems.map((item) => item.affectedDocumentNo),
   ])
@@ -1216,12 +1463,14 @@ export function buildProductionChangeRecord(
     createdAt,
     lastExecutedAt: status === 'DRAFT' || status === 'READY' ? '' : executedAt,
     currentFactsSnapshot,
+    affectedOrderFactsSnapshots,
     documentTraces: buildProductionChangeDocumentTraces(
       id,
       copiedDraft,
       status,
       executedAt,
-      currentFactsSnapshot,
+      affectedOrderFactsSnapshots,
+      preview,
     ),
   }
 }
@@ -1280,6 +1529,26 @@ function buildProductionChangeSeedRecords(): ProductionChangeRecord[] {
 }
 
 let productionChangeRecords = buildProductionChangeSeedRecords()
+const reservedProductionChangeSequences = new Map<string, number>()
+let productionChangeDocumentTraceIndex = buildProductionChangeDocumentTraceIndex(productionChangeRecords)
+
+function buildProductionChangeDocumentTraceIndex(
+  records: ProductionChangeRecord[],
+): Map<string, ProductionChangeDocumentTrace[]> {
+  const index = new Map<string, ProductionChangeDocumentTrace[]>()
+  records.forEach((record) => {
+    record.documentTraces.forEach((trace) => {
+      const documentNo = trace.documentNo.trim()
+      if (!documentNo) return
+      index.set(documentNo, [...(index.get(documentNo) ?? []), structuredClone(trace)])
+    })
+  })
+  return index
+}
+
+function rebuildProductionChangeDocumentTraceIndex(): void {
+  productionChangeDocumentTraceIndex = buildProductionChangeDocumentTraceIndex(productionChangeRecords)
+}
 
 export function listProductionChangeRecords(): ProductionChangeRecord[] {
   return structuredClone(productionChangeRecords)
@@ -1290,29 +1559,60 @@ export function getProductionChangeRecord(id: string): ProductionChangeRecord | 
   return record ? structuredClone(record) : null
 }
 
-export function saveProductionChangeRecord(record: ProductionChangeRecord): void {
+export function listProductionChangeDocumentTraces(documentNo: string): ProductionChangeDocumentTrace[] {
+  return structuredClone(productionChangeDocumentTraceIndex.get(documentNo.trim()) ?? [])
+}
+
+export function saveProductionChangeRecord(
+  record: ProductionChangeRecord,
+  options: { allowReplace?: boolean } = {},
+): void {
   const copiedRecord = structuredClone(record)
+  const existingRecord = productionChangeRecords.find((item) => item.id === copiedRecord.id)
+  if (existingRecord) {
+    if (existingRecord.status === 'DONE') {
+      throw new Error(`已完成的生产单变更记录 ${copiedRecord.id} 不能覆盖`)
+    }
+    if (options.allowReplace !== true || existingRecord.status !== 'ROLLED_BACK') {
+      throw new Error(`生产单变更记录 ${copiedRecord.id} 已存在`)
+    }
+  }
   productionChangeRecords = [
     copiedRecord,
     ...productionChangeRecords.filter((item) => item.id !== copiedRecord.id),
   ]
+  rebuildProductionChangeDocumentTraceIndex()
 }
 
 export function resetProductionChangeRecordsForTesting(): void {
   productionChangeRecords = buildProductionChangeSeedRecords()
+  reservedProductionChangeSequences.clear()
+  rebuildProductionChangeDocumentTraceIndex()
+}
+
+export function restoreProductionChangeRecords(records: ProductionChangeRecord[]): void {
+  productionChangeRecords = structuredClone(records)
+  rebuildProductionChangeDocumentTraceIndex()
+}
+
+export function restoreProductionChangeRecordSnapshot(
+  recordId: string,
+  recordSnapshot: ProductionChangeRecord | null,
+): void {
+  const normalizedRecordId = recordId.trim()
+  productionChangeRecords = [
+    ...(recordSnapshot ? [structuredClone(recordSnapshot)] : []),
+    ...productionChangeRecords.filter((record) => record.id !== normalizedRecordId),
+  ]
+  rebuildProductionChangeDocumentTraceIndex()
 }
 
 export function replaceProductionChangeRecordsForTesting(records: ProductionChangeRecord[]): void {
-  productionChangeRecords = structuredClone(records)
+  restoreProductionChangeRecords(records)
 }
 
 function getProductionChangeRecordDatePrefix(occurredAt: string | Date): string {
-  if (typeof occurredAt === 'string') {
-    const matched = occurredAt.trim().match(/^(\d{4})-(\d{2})-(\d{2})/)
-    if (matched) return `${matched[1]}${matched[2]}${matched[3]}`
-  }
-  const date = occurredAt instanceof Date ? occurredAt : new Date(occurredAt)
-  if (Number.isNaN(date.getTime())) throw new Error('生产单变更记录时间无效')
+  const date = normalizeProductionChangeOccurredAt(occurredAt).date
   return [
     date.getFullYear(),
     String(date.getMonth() + 1).padStart(2, '0'),
@@ -1320,11 +1620,43 @@ function getProductionChangeRecordDatePrefix(occurredAt: string | Date): string 
   ].join('')
 }
 
+export function normalizeProductionChangeOccurredAt(
+  occurredAt: string | Date,
+): { date: Date; text: string } {
+  if (occurredAt instanceof Date) {
+    if (Number.isNaN(occurredAt.getTime())) throw new Error('生产单变更记录时间无效')
+    const date = new Date(occurredAt.getTime())
+    return {
+      date,
+      text: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`,
+    }
+  }
+  const matched = occurredAt.trim().match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/)
+  if (!matched) throw new Error('生产单变更记录时间无效')
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText = '00'] = matched
+  const values = [yearText, monthText, dayText, hourText, minuteText, secondText].map(Number)
+  const [year, month, day, hour, minute, second] = values
+  const date = new Date(year, month - 1, day, hour, minute, second)
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day ||
+    date.getHours() !== hour ||
+    date.getMinutes() !== minute ||
+    date.getSeconds() !== second
+  ) {
+    throw new Error('生产单变更记录时间无效')
+  }
+  return { date, text: `${yearText}-${monthText}-${dayText} ${hourText}:${minuteText}` }
+}
+
 export function createNextProductionChangeRecordId(occurredAt: string | Date = new Date()): string {
   const datePrefix = getProductionChangeRecordDatePrefix(occurredAt)
-  const nextSequence = productionChangeRecords.reduce((maxSequence, record) => {
+  const savedMax = productionChangeRecords.reduce((maxSequence, record) => {
     const matched = record.id.match(new RegExp(`^BG-${datePrefix}-(\\d+)$`))
     return matched ? Math.max(maxSequence, Number(matched[1])) : maxSequence
-  }, 0) + 1
+  }, 0)
+  const nextSequence = Math.max(savedMax, reservedProductionChangeSequences.get(datePrefix) ?? 0) + 1
+  reservedProductionChangeSequences.set(datePrefix, nextSequence)
   return `BG-${datePrefix}-${String(nextSequence).padStart(3, '0')}`
 }

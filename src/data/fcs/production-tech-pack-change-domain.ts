@@ -331,6 +331,9 @@ export interface ProductionChangeModuleLanding {
 export interface ProductionOrderDemandQuantityFact {
   id: string
   scope: string
+  skuCode: string
+  color: string
+  size: string
   originalDemandQty: number
   currentDemandQty: number
   proposedDemandQty: number
@@ -353,8 +356,11 @@ export interface ProductionOrderMaterialFact {
 
 export interface ProductionOrderDocumentFact {
   id: string
-  group: '裁剪/铺布/裁片' | '印花/染色/特殊工艺' | '车缝/后道/交出' | '结算/成本'
+  group: '配料/领料' | '裁剪/铺布/裁片' | '印花/染色/特殊工艺' | '车缝/后道/交出' | '结算/成本'
   documentNo: string
+  demandFactIds?: string[]
+  quantityPerDemandUnit?: number
+  planUnit?: string
   generatedAt: string
   status: string
   plannedQty: string
@@ -2149,13 +2155,16 @@ let progressSnapshots: ProductionProgressSnapshot[] = relations.map((relation) =
   ],
 }))
 
-export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[] = [
+export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[] = [
   {
     productionOrderId: 'PO-202603-0004',
     demandQuantityFacts: [
       {
         id: 'DQF-PO-202603-0004-BLK-M',
         scope: '黑色 / M / 第 2 批',
+        skuCode: 'SKU-010-M-BLK',
+        color: '黑色',
+        size: 'M',
         originalDemandQty: 1200,
         currentDemandQty: 1200,
         proposedDemandQty: 1020,
@@ -2167,6 +2176,9 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
       {
         id: 'DQF-PO-202603-0004-NVY-L',
         scope: '藏青色 / L / 第 2 批',
+        skuCode: 'SKU-010-L-NVY',
+        color: '藏青色',
+        size: 'L',
         originalDemandQty: 900,
         currentDemandQty: 900,
         proposedDemandQty: 780,
@@ -2203,6 +2215,7 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
         id: 'DOC-PO-202603-0004-SP-001',
         group: '裁剪/铺布/裁片',
         documentNo: 'SP-202603-004-01',
+        demandFactIds: ['DQF-PO-202603-0004-BLK-M'],
         generatedAt: '2026-03-18 09:30',
         status: '已铺布待裁',
         plannedQty: '540 件',
@@ -2214,6 +2227,7 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
         id: 'DOC-PO-202603-0004-CUT-001',
         group: '裁剪/铺布/裁片',
         documentNo: 'CUT-202603-004-01',
+        demandFactIds: ['DQF-PO-202603-0004-BLK-M'],
         generatedAt: '2026-03-18 14:10',
         status: '部分裁剪',
         plannedQty: '540 件',
@@ -2240,6 +2254,9 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
       {
         id: 'DQF-PO-202604-0018-PRINT',
         scope: '印花款 / S-M / 全色',
+        skuCode: 'SKU-018-SM-PRINT',
+        color: '全色',
+        size: 'S-M',
         originalDemandQty: 1500,
         currentDemandQty: 1500,
         proposedDemandQty: 1500,
@@ -2251,6 +2268,9 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
       {
         id: 'DQF-PO-202604-0018-DYE',
         scope: '焦糖色 / L-XL / 第 1 批',
+        skuCode: 'SKU-018-LXL-CARAMEL',
+        color: '焦糖色',
+        size: 'L-XL',
         originalDemandQty: 720,
         currentDemandQty: 720,
         proposedDemandQty: 840,
@@ -2287,6 +2307,7 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
         id: 'DOC-PO-202604-0018-PR-001',
         group: '印花/染色/特殊工艺',
         documentNo: 'PR-202603-018-01',
+        demandFactIds: ['DQF-PO-202604-0018-PRINT'],
         generatedAt: '2026-03-20 10:45',
         status: '待开工',
         plannedQty: '520 件',
@@ -2298,6 +2319,7 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
         id: 'DOC-PO-202604-0018-DY-001',
         group: '印花/染色/特殊工艺',
         documentNo: 'DY-202603-018-01',
+        demandFactIds: ['DQF-PO-202604-0018-DYE'],
         generatedAt: '2026-03-20 13:20',
         status: '加工中',
         plannedQty: '380 件',
@@ -2324,6 +2346,9 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
       {
         id: 'DQF-PO-202603-0007-SEW',
         scope: '整单 / 全色全码 / 第 1 批',
+        skuCode: 'SKU-007-ALL',
+        color: '全色',
+        size: '全码',
         originalDemandQty: 1800,
         currentDemandQty: 1800,
         proposedDemandQty: 1620,
@@ -2335,13 +2360,16 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
       {
         id: 'DQF-PO-202603-0007-XL',
         scope: '黑色 / XL / 已交出范围',
+        skuCode: 'SKU-007-XL-BLK',
+        color: '黑色',
+        size: 'XL',
         originalDemandQty: 360,
         currentDemandQty: 360,
         proposedDemandQty: 300,
         generatedDocumentQty: 360,
         executedQty: 360,
         pendingQty: 0,
-        note: '已交出数量不可追回，差异进入结算补差或客户确认。',
+        note: '已交出数量不可追回，差异进入结算补差或跟单确认。',
       },
     ],
     materialFacts: [
@@ -2371,6 +2399,7 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
         id: 'DOC-PO-202603-0007-SEW-001',
         group: '车缝/后道/交出',
         documentNo: 'SEW-202603-013-01',
+        demandFactIds: ['DQF-PO-202603-0007-SEW'],
         generatedAt: '2026-03-16 08:40',
         status: '部分交出',
         plannedQty: '1,800 件',
@@ -2382,6 +2411,7 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
         id: 'DOC-PO-202603-0007-SET-001',
         group: '结算/成本',
         documentNo: 'SET-202603-013-01',
+        demandFactIds: ['DQF-PO-202603-0007-SEW'],
         generatedAt: '2026-03-22 17:30',
         status: '部分结算',
         plannedQty: '1,510 件',
@@ -2402,7 +2432,133 @@ export const productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFact
       },
     ],
   },
+  {
+    productionOrderId: 'PO-202603-0101',
+    demandQuantityFacts: [
+      {
+        id: 'DQF-PO-202603-0101-ALL',
+        scope: '整单 / 全色全码',
+        skuCode: 'SKU-0101-ALL',
+        color: '全色',
+        size: '全码',
+        originalDemandQty: 1000,
+        currentDemandQty: 1000,
+        proposedDemandQty: 1000,
+        generatedDocumentQty: 900,
+        executedQty: 120,
+        pendingQty: 780,
+        note: '已领料并完成部分裁剪，未执行部分可按确认方案替换。',
+      },
+    ],
+    materialFacts: [
+      {
+        id: 'MAT-PO-202603-0101-FAB-A01',
+        material: 'FAB-A01 弹力斜纹布 / 黑色 / 280g',
+        requiredQty: '1,260 米',
+        preparedQty: '1,080 米',
+        pickedQty: '900 米',
+        changeableQty: '180 米',
+        sourceDocument: '领料单 WLS-PL-260306-101',
+        note: '已领旧料及已裁裁片需要在全部替换时确认去向。',
+      },
+    ],
+    documentFacts: [
+      {
+        id: 'DOC-PO-202603-0101-WLS-001',
+        group: '配料/领料',
+        documentNo: 'WLS-PL-260306-101',
+        demandFactIds: ['DQF-PO-202603-0101-ALL'],
+        quantityPerDemandUnit: 1.26,
+        planUnit: '米',
+        generatedAt: '2026-03-06 08:30',
+        status: '部分领料',
+        plannedQty: '1,260 米',
+        doneQty: '900 米',
+        pendingQty: '360 米',
+        note: '已领数量保持事实，未领部分按新面料方案调整。',
+      },
+      {
+        id: 'DOC-PO-202603-0101-CUT-001',
+        group: '裁剪/铺布/裁片',
+        documentNo: 'CUT-260306-101-01',
+        demandFactIds: ['DQF-PO-202603-0101-ALL'],
+        generatedAt: '2026-03-06 13:40',
+        status: '部分裁剪',
+        plannedQty: '1,000 件',
+        doneQty: '120 件',
+        pendingQty: '880 件',
+        note: '已裁裁片保持追溯，未裁数量按确认方案处理。',
+      },
+    ],
+    historyFacts: [],
+  },
+  {
+    productionOrderId: 'PO-202603-0102',
+    demandQuantityFacts: [
+      {
+        id: 'DQF-PO-202603-0102-ALL',
+        scope: '整单 / 全色全码',
+        skuCode: 'SKU-0102-ALL',
+        color: '全色',
+        size: '全码',
+        originalDemandQty: 800,
+        currentDemandQty: 800,
+        proposedDemandQty: 800,
+        generatedDocumentQty: 0,
+        executedQty: 0,
+        pendingQty: 800,
+        note: '尚未生成执行单据，可整体切换新正式版本。',
+      },
+    ],
+    materialFacts: [
+      {
+        id: 'MAT-PO-202603-0102-FAB-A01',
+        material: 'FAB-A01 弹力斜纹布 / 黑色 / 280g',
+        requiredQty: '1,010 米',
+        preparedQty: '0 米',
+        pickedQty: '0 米',
+        changeableQty: '1,010 米',
+        sourceDocument: '尚未生成配料单',
+        note: '未形成旧料实物，可直接改用新面料。',
+      },
+    ],
+    documentFacts: [],
+    historyFacts: [],
+  },
 ]
+
+export interface FormalVersionDemandCoverageItem {
+  skuCode: string
+  color: string
+  size: string
+}
+
+const formalVersionDemandCoverageByVersionId: Record<string, FormalVersionDemandCoverageItem[]> = {
+  'TDV-SPU-2024-010-v1-0': [
+    { skuCode: 'SKU-010-M-BLK', color: '黑色', size: 'M' },
+    { skuCode: 'SKU-010-L-NVY', color: '藏青色', size: 'L' },
+    { skuCode: 'SKU-010-S-BLK', color: '黑色', size: 'S' },
+  ],
+  'TDV-SPU-2024-013-v1-0': [
+    { skuCode: 'SKU-007-ALL', color: '全色', size: '全码' },
+    { skuCode: 'SKU-007-XL-BLK', color: '黑色', size: 'XL' },
+  ],
+  tdv_seed_project_018_base: [
+    { skuCode: 'SKU-018-SM-PRINT', color: '全色', size: 'S-M' },
+    { skuCode: 'SKU-018-LXL-CARAMEL', color: '焦糖色', size: 'L-XL' },
+    { skuCode: 'SKU-018-XS-PRINT', color: '全色', size: 'XS' },
+  ],
+}
+
+export function listCurrentFormalVersionDemandCoverage(
+  productionOrderId: string,
+): FormalVersionDemandCoverageItem[] {
+  const relation = getRelationWithEvaluation(productionOrderId.trim())
+  if (!relation) return []
+  return clone(formalVersionDemandCoverageByVersionId[relation.currentTechPackVersionId] ?? [])
+}
+
+const initialProductionOrderChangeCurrentFacts = clone(productionOrderChangeCurrentFacts)
 
 let restrictionSnapshots: ChangeRestrictionSnapshot[] = relations.map((relation) => ({
   restrictionSnapshotId: `REST-${relation.productionOrderId}`,
@@ -3558,6 +3714,103 @@ export function getProductionProgressSnapshot(productionOrderId: string): Produc
 export function getProductionOrderChangeCurrentFacts(productionOrderId: string): ProductionOrderChangeCurrentFacts | null {
   const found = productionOrderChangeCurrentFacts.find((item) => item.productionOrderId === productionOrderId)
   return found ? clone(found) : null
+}
+
+export function listProductionOrderChangeCurrentFacts(): ProductionOrderChangeCurrentFacts[] {
+  return clone(productionOrderChangeCurrentFacts)
+}
+
+export function replaceProductionOrderChangeCurrentFacts(
+  facts: ProductionOrderChangeCurrentFacts[],
+): void {
+  productionOrderChangeCurrentFacts = clone(facts)
+}
+
+export function applyProductionOrderQuantityFactChange(
+  productionOrderId: string,
+  lines: Array<{
+    id: string
+    skuCode: string
+    color: string
+    size: string
+    originalQty: number
+    currentQty: number
+    targetQty: number
+    isNew: boolean
+  }>,
+  changeOrderNo: string,
+  occurredAt: string,
+): void {
+  const facts = productionOrderChangeCurrentFacts.find((item) => item.productionOrderId === productionOrderId)
+  if (!facts) throw new Error('生产单当前事实不存在')
+  const normalizedLines = lines.map((line) => ({ ...line, id: line.id.trim() }))
+  const lineIds = normalizedLines.map((line) => line.id)
+  if (lineIds.some((id) => !id) || new Set(lineIds).size !== lineIds.length) {
+    throw new Error('需求明细标识不能重复或为空')
+  }
+
+  const factById = new Map(facts.demandQuantityFacts.map((fact) => [fact.id, fact]))
+  normalizedLines.forEach((line) => {
+    const existing = factById.get(line.id)
+    if (existing && line.isNew) {
+      throw new Error(`新增需求明细 ID ${line.id} 与已有事实冲突`)
+    }
+    if (existing) {
+      existing.proposedDemandQty = line.targetQty
+      existing.currentDemandQty = line.targetQty
+      existing.pendingQty = Math.max(line.targetQty - existing.executedQty, 0)
+      return
+    }
+    if (!line.isNew || line.targetQty <= 0) return
+    facts.demandQuantityFacts.push({
+      id: line.id,
+      scope: `${line.color} / ${line.size} / 变更新增`,
+      skuCode: line.skuCode,
+      color: line.color,
+      size: line.size,
+      originalDemandQty: 0,
+      currentDemandQty: line.targetQty,
+      proposedDemandQty: line.targetQty,
+      generatedDocumentQty: 0,
+      executedQty: 0,
+      pendingQty: line.targetQty,
+      note: '由生产单变更新增，尚未生成下游单据。',
+    })
+    factById.set(line.id, facts.demandQuantityFacts.at(-1)!)
+  })
+  facts.historyFacts.unshift({
+    id: `HIS-${productionOrderId}-${changeOrderNo}`,
+    changeOrderNo,
+    result: '生产单打补丁',
+    status: '已完成',
+    affectedScope: '需求数量明细',
+    lockStatus: '已释放',
+    note: `${occurredAt} 已同步更新需求明细并保留原数量。`,
+  })
+}
+
+export function appendProductionOrderMaterialChangeHistory(
+  productionOrderId: string,
+  changeOrderNo: string,
+  result: string,
+  affectedScope: string,
+  occurredAt: string,
+): void {
+  const facts = productionOrderChangeCurrentFacts.find((item) => item.productionOrderId === productionOrderId)
+  if (!facts) throw new Error('生产单当前事实不存在')
+  facts.historyFacts.unshift({
+    id: `HIS-${productionOrderId}-${changeOrderNo}`,
+    changeOrderNo,
+    result,
+    status: '已完成',
+    affectedScope,
+    lockStatus: '已释放',
+    note: `${occurredAt} 已按确认方案完成物料替换。`,
+  })
+}
+
+export function resetProductionOrderChangeCurrentFactsForTesting(): void {
+  productionOrderChangeCurrentFacts = clone(initialProductionOrderChangeCurrentFacts)
 }
 
 export function getChangeRestrictionSnapshot(productionOrderId: string): ChangeRestrictionSnapshot | null {

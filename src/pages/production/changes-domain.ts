@@ -449,7 +449,7 @@ function renderVersionChangeDialog(): string {
           ${hasBlockingRestriction ? `<p class="mr-auto text-sm text-red-600">存在硬限制，不能提交版本关系变更。</p>` : ''}
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-prod-action="close-tech-pack-version-change">取消</button>
           ${hasBlockingRestriction ? `
-            <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-prod-action="open-production-patch" data-order-id="${escapeHtml(productionOrderId)}">改为发起补丁</button>
+            <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-prod-action="start-production-change" data-order-id="${escapeHtml(productionOrderId)}">进入生产单变更</button>
           ` : `
             <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-prod-action="submit-tech-pack-version-change">提交变更申请</button>
           `}
@@ -1237,8 +1237,7 @@ function renderRelationWorkItem(relation: ProductionOrderTechPackRelation): stri
         </div>
         <div class="flex flex-wrap gap-1.5">
           <button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="open-production-change-detail" data-order-id="${escapeHtml(relation.productionOrderId)}">查看判断</button>
-          <button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="open-tech-pack-version-change" data-order-id="${escapeHtml(relation.productionOrderId)}">变更版本</button>
-          <button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="open-production-patch" data-order-id="${escapeHtml(relation.productionOrderId)}">发起补丁</button>
+          <button class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="start-production-change" data-order-id="${escapeHtml(relation.productionOrderId)}">发起生产单变更</button>
           <button class="rounded-md px-2.5 py-1.5 text-xs hover:bg-muted" data-prod-action="open-production-change-history" data-order-id="${escapeHtml(relation.productionOrderId)}">日志</button>
         </div>
       </div>
@@ -1332,13 +1331,13 @@ function renderProductionChangeScenarioCards(): string {
     {
       changeType: 'QUANTITY_CHANGE',
       title: '修改生产单需求数量',
-      desc: '按颜色、尺码填写原数量和新数量，系统计算本次变化。',
+      desc: '按需求明细逐条填写变更后数量，原数量和当前数量由系统保留。',
       badge: '待跟单判断',
     },
     {
       changeType: 'MATERIAL_REPLACEMENT',
       title: '替换物料',
-      desc: '填写原物料、替代物料、适用颜色尺码，并说明从哪里开始用新物料。',
+      desc: '选择原面料和新面料，确认剩余或全部数量，以及当前或后续生产单范围。',
       badge: '待确认处理',
     },
   ]
@@ -1750,7 +1749,7 @@ function renderPatchTab(productionOrderId: string): string {
     <section class="rounded-lg border bg-card p-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <h3 class="text-base font-semibold">生产补丁</h3>
-        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-production-patch" data-order-id="${escapeHtml(productionOrderId)}">发起补丁</button>
+        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="start-production-change" data-order-id="${escapeHtml(productionOrderId)}">发起生产单变更</button>
       </div>
       <div class="mt-4 overflow-x-auto rounded-md border">
         <table class="w-full min-w-[1120px] text-sm">
@@ -2282,6 +2281,27 @@ export function renderProductionChangeNewPage(): string {
 }
 
 export function renderProductionChangeEditPage(changeOrderId: string): string {
+  const finalRecord = getProductionChangeRecord(changeOrderId)
+  if (finalRecord) {
+    return `
+      <div class="space-y-4">
+        <header class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="/fcs/production/changes/${escapeHtml(changeOrderId)}">返回详情</button>
+              <h1 class="text-xl font-semibold">查看生产单变更记录</h1>
+            </div>
+            <p class="mt-1 text-sm text-muted-foreground">当前变更单号：${escapeHtml(changeOrderId)}</p>
+            <p class="mt-1 text-sm text-amber-700">已形成的变更记录只读，如需调整请按原记录新建变更。</p>
+          </div>
+          <button class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90" data-prod-action="start-production-change" data-order-id="${escapeHtml(finalRecord.productionOrderId)}" data-change-type="${escapeHtml(finalRecord.changeType)}">按原记录新建变更</button>
+        </header>
+        ${renderChangeDetailSection('变更内容', renderFinalProductionChangeContent(finalRecord))}
+        ${renderChangeDetailSection('当前事实', renderFinalProductionChangeFacts(finalRecord))}
+        ${renderChangeDetailSection('执行结果', renderFinalProductionChangeExecution(finalRecord))}
+      </div>
+    `
+  }
   const order = getProductionOrderChangeOrder(changeOrderId)
   if (!order) {
     return `
@@ -2364,16 +2384,67 @@ function renderFinalProductionChangeContent(record: ProductionChangeRecordView):
 }
 
 function renderFinalProductionChangeFacts(record: ProductionChangeRecordView): string {
-  const facts = record.currentFactsSnapshot
-  if (!facts) return '<p class="text-sm text-muted-foreground">未找到当前事实。</p>'
-  return renderInfoTiles([
-    ['生产单', facts.productionOrderId],
-    ['需求明细', `${facts.demandQuantityFacts.length} 条`],
-    ['物料事实', `${facts.materialFacts.length} 条`],
-    ['关联单据', facts.documentFacts.map((item) => item.documentNo).join('、') || '暂无'],
-    ['历史变更', `${facts.historyFacts.length} 条`],
-    ['事实读取口径', '系统读取，页面只读'],
-  ])
+  const snapshots = record.affectedOrderFactsSnapshots?.length
+    ? record.affectedOrderFactsSnapshots
+    : record.currentFactsSnapshot
+      ? [record.currentFactsSnapshot]
+      : []
+  if (snapshots.length === 0) return '<p class="text-sm text-muted-foreground">未找到当前事实。</p>'
+  return snapshots.map((facts) => `
+    <section class="border-t pt-4 first:border-t-0 first:pt-0">
+    ${renderInfoTiles([
+      ['生产单', facts.productionOrderId],
+      ['事实读取口径', '系统读取，执行前快照，只读'],
+      ['需求明细', `${facts.demandQuantityFacts.length} 条`],
+      ['物料事实', `${facts.materialFacts.length} 条`],
+    ])}
+    <div class="mt-4 space-y-4">
+      ${renderChangeTable(
+        ['商品编码', '颜色', '尺码', '原需求', '当前需求', '已完成', '待处理', '事实说明'],
+        facts.demandQuantityFacts.map((fact) => `<tr>
+          <td class="px-3 py-3">${escapeHtml(fact.skuCode)}</td>
+          <td class="px-3 py-3">${escapeHtml(fact.color)}</td>
+          <td class="px-3 py-3">${escapeHtml(fact.size)}</td>
+          <td class="px-3 py-3">${escapeHtml(`${fact.originalDemandQty} 件`)}</td>
+          <td class="px-3 py-3">${escapeHtml(`${fact.currentDemandQty} 件`)}</td>
+          <td class="px-3 py-3">${escapeHtml(`${fact.executedQty} 件`)}</td>
+          <td class="px-3 py-3">${escapeHtml(`${fact.pendingQty} 件`)}</td>
+          <td class="px-3 py-3">${escapeHtml(fact.note)}</td>
+        </tr>`),
+        '暂无需求事实',
+        'min-w-[1120px]',
+      )}
+      ${renderChangeTable(
+        ['物料', '需求', '已备', '已领', '可变更', '来源单据', '事实说明'],
+        facts.materialFacts.map((fact) => `<tr>
+          <td class="px-3 py-3">${escapeHtml(fact.material)}</td>
+          <td class="px-3 py-3">${escapeHtml(fact.requiredQty)}</td>
+          <td class="px-3 py-3">${escapeHtml(fact.preparedQty)}</td>
+          <td class="px-3 py-3">${escapeHtml(fact.pickedQty)}</td>
+          <td class="px-3 py-3">${escapeHtml(fact.changeableQty)}</td>
+          <td class="px-3 py-3">${escapeHtml(fact.sourceDocument)}</td>
+          <td class="px-3 py-3">${escapeHtml(fact.note)}</td>
+        </tr>`),
+        '暂无物料事实',
+        'min-w-[1120px]',
+      )}
+      ${renderChangeTable(
+        ['单据类型', '单据号', '状态', '计划数量', '已完成', '待处理', '事实说明'],
+        facts.documentFacts.map((fact) => `<tr>
+          <td class="px-3 py-3">${escapeHtml(fact.group)}</td>
+          <td class="px-3 py-3">${escapeHtml(fact.documentNo)}</td>
+          <td class="px-3 py-3">${escapeHtml(fact.status)}</td>
+          <td class="px-3 py-3">${escapeHtml(fact.plannedQty)}</td>
+          <td class="px-3 py-3">${escapeHtml(fact.doneQty)}</td>
+          <td class="px-3 py-3">${escapeHtml(fact.pendingQty)}</td>
+          <td class="px-3 py-3">${escapeHtml(fact.note)}</td>
+        </tr>`),
+        '暂无关联单据事实',
+        'min-w-[1120px]',
+      )}
+    </div>
+    </section>
+  `).join('')
 }
 
 function renderFinalProductionChangePlan(record: ProductionChangeRecordView): string {
