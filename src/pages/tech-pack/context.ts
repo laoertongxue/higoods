@@ -4689,11 +4689,20 @@ function resolveLatestWoolInternalStyleCode(
     ?.internalStyleCode?.trim() || ''
 }
 
+type BomUnitWaterSolubleCandidate = {
+  unit?: string
+  waterSolubleRequirement?: string
+  materialCode?: string
+  materialName?: string
+  name?: string
+}
+
+function findBomItemMissingUnitForWaterSoluble<T extends BomUnitWaterSolubleCandidate>(items: T[]): T | null {
+  return items.find((item) => item.waterSolubleRequirement === '是' && !String(item.unit || '').trim()) ?? null
+}
+
 function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { touch: true, persist: true }): boolean {
   if (!state.techPack) return false
-  if (state.bomItems.some((item) => item.waterSolubleRequirement === '是' && !item.unit.trim())) {
-    return false
-  }
 
   const routeSignatureBefore = getProcessRouteSignature(state.techniques)
   state.techniques = syncBomDrivenPrepTechniques(state.techniques, state.bomItems)
@@ -5472,6 +5481,7 @@ export {
   syncMaterialCostRows,
   syncProcessCostRows,
   getChecklist,
+  findBomItemMissingUnitForWaterSoluble,
   syncTechPackToStore,
   closeAllDialogs,
   resetPatternForm,

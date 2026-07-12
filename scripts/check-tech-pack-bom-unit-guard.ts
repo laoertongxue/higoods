@@ -48,15 +48,21 @@ Object.defineProperty(globalThis, 'window', {
 })
 
 const {
+  getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
   getTechnicalDataVersionStoreSnapshot,
   replaceTechnicalDataVersionStore,
   resetTechnicalDataVersionRepository,
 } = await import('../src/data/pcs-technical-data-version-repository.ts')
 const { buildTechPackReviewDiffSnapshot } = await import('../src/data/pcs-tech-pack-review-diff.ts')
+const {
+  listTechPackVersionLogsByVersionId,
+  resetTechPackVersionLogRepository,
+} = await import('../src/data/pcs-tech-pack-version-log-repository.ts')
 const { handleTechPackEvent, renderTechPackPage } = await import('../src/pages/tech-pack.ts')
 
 resetTechnicalDataVersionRepository()
+resetTechPackVersionLogRepository()
 const seeded = getTechnicalDataVersionStoreSnapshot()
 const baseRecord = seeded.records.find((item) => item.versionStatus === 'DRAFT')
 assert(baseRecord, '技术包 BOM 单位回归缺少草稿版本基线')
@@ -201,6 +207,14 @@ const selectWaterSoluble = (bomId: string, value: '是' | '否') => {
   return { select, handled: handleTechPackEvent(select as unknown as HTMLElement) }
 }
 
+const selectBomField = (field: string, bomId: string, value: string) => {
+  const select = new FakeHTMLSelectElement()
+  select.dataset.techField = field
+  select.dataset.bomId = bomId
+  select.value = value
+  return { select, handled: handleTechPackEvent(select as unknown as HTMLElement) }
+}
+
 const triggerAction = (techAction: string, bomId?: string) => handleTechPackEvent({
   closest: (selector: string) => selector === '[data-tech-action]'
     ? ({ dataset: { techAction, ...(bomId ? { bomId } : {}) } } as HTMLElement)
@@ -244,6 +258,50 @@ assert(alerts.some((message) => message.includes('缺少单位')), '阻断时必
 
 const illegalHtml = renderBom(illegalVersion)
 assert.match(illegalHtml, /缺少单位，不能勾选水溶/, '已有空单位且水溶为是的异常数据必须显式展示')
+const unrelatedDyeChange = selectBomField('bom-dye', 'BOM-LEGAL-ILLEGAL-1', '需染色')
+assert.equal(unrelatedDyeChange.handled, true, '已有异常数据不得阻断无关染色修改 handler')
+const savedAfterUnrelatedDyeChange = getTechnicalDataVersionContent(illegalVersion.record.technicalVersionId)?.bomItems ?? []
+assert.equal(
+  savedAfterUnrelatedDyeChange.find((item) => item.id === 'BOM-LEGAL-ILLEGAL-1')?.dyeRequirement,
+  '需染色',
+  '已有异常数据下无关染色修改必须持久化到 repository',
+)
+assert.equal(
+  savedAfterUnrelatedDyeChange.find((item) => item.id === 'BOM-MISSING-ILLEGAL')?.unit,
+  '',
+  '无关修改持久化时必须原样保留异常 BOM 空单位事实',
+)
+assert.equal(
+  savedAfterUnrelatedDyeChange.find((item) => item.id === 'BOM-MISSING-ILLEGAL')?.waterSolubleRequirement,
+  '是',
+  '无关修改持久化时不得静默清除异常 BOM 水溶事实',
+)
+
+const reviewRecordBefore = getTechnicalDataVersionById(illegalVersion.record.technicalVersionId)
+const reviewLogsBefore = listTechPackVersionLogsByVersionId(illegalVersion.record.technicalVersionId)
+assert.equal(triggerAction('submit-review'), true, '提交审核入口必须由真实 handler 接管')
+const blockedSubmitHtml = renderTechPackPage(illegalVersion.record.styleCode, {
+  styleId: illegalVersion.record.styleId,
+  technicalVersionId: illegalVersion.record.technicalVersionId,
+})
+assert.equal(
+  blockedSubmitHtml.includes('data-tech-action="confirm-submit-review"'),
+  false,
+  '存在空单位水溶异常时不得打开提交审核确认弹窗',
+)
+assert.match(blockedSubmitHtml, /缺少单位，不能提交审核/, '提交审核入口必须显示中文阻断原因')
+assert.equal(triggerAction('confirm-submit-review'), true, '直接触发提交审核确认也必须由真实 handler 接管')
+assert.deepEqual(
+  getTechnicalDataVersionById(illegalVersion.record.technicalVersionId),
+  reviewRecordBefore,
+  '提交审核阻断前后版本审核状态与记录不得变化',
+)
+assert.deepEqual(
+  listTechPackVersionLogsByVersionId(illegalVersion.record.technicalVersionId),
+  reviewLogsBefore,
+  '提交审核阻断不得新增版本审核日志',
+)
+
 assert.equal(triggerAction('edit-bom', 'BOM-MISSING-ILLEGAL'), true, '已有异常 BOM 行必须可进入编辑态供修正')
 assert.equal(triggerAction('save-bom'), true, '已有异常 BOM 行保存动作必须被真实 handler 接管')
 assert(alerts.some((message) => message.includes('不能保存水溶要求')), '已有异常 BOM 行保存时必须中文阻断')

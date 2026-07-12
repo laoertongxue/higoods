@@ -79,6 +79,7 @@ import {
   generatePieceInstancesFromColorQuantities,
   summarizePieceInstances,
   findConfiguredPieceInstancesRemoved,
+  findBomItemMissingUnitForWaterSoluble,
   getPatternPieceInstanceSpecialCraftOptions,
   PATTERN_CRAFT_POSITION_OPTIONS,
   hasEnabledColorPiece,
@@ -2218,12 +2219,13 @@ function handleTechPackField(
     return true
   }
   if (field === 'new-bom-water-soluble-requirement') {
-    if (normalizeBomRequirement(value) === '是' && !state.newBomItem.unit.trim()) {
+    const nextRequirement = normalizeBomRequirement(value)
+    if (findBomItemMissingUnitForWaterSoluble([{ ...state.newBomItem, waterSolubleRequirement: nextRequirement }])) {
       window.alert('该物料缺少单位，不能勾选水溶。请先填写物料单位。')
       node.value = state.newBomItem.waterSolubleRequirement
       return true
     }
-    state.newBomItem.waterSolubleRequirement = normalizeBomRequirement(value)
+    state.newBomItem.waterSolubleRequirement = nextRequirement
     return true
   }
   if (field === 'new-bom-dye-requirement') {
@@ -2450,7 +2452,7 @@ function handleTechPackField(
     if (!bomId) return true
     const current = state.bomItems.find((item) => item.id === bomId)
     const nextRequirement = normalizeBomRequirement(value)
-    if (current && nextRequirement === '是' && !current.unit.trim()) {
+    if (current && findBomItemMissingUnitForWaterSoluble([{ ...current, waterSolubleRequirement: nextRequirement }])) {
       window.alert('该物料缺少单位，不能勾选水溶。请先补充物料单位。')
       node.value = current.waterSolubleRequirement
       return true
@@ -2986,6 +2988,12 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'submit-review') {
+    const invalidBom = findBomItemMissingUnitForWaterSoluble(state.bomItems)
+    if (invalidBom) {
+      state.reviewSubmitDialogOpen = false
+      state.compatibilityMessage = `物料“${invalidBom.materialName || invalidBom.materialCode || invalidBom.id}”存在水溶要求但缺少单位，不能提交审核。请先补充物料单位。`
+      return true
+    }
     if (state.currentTechnicalVersionId) syncTechPackToStore()
     state.reviewSubmitDialogOpen = true
     state.compatibilityMessage = ''
@@ -2997,6 +3005,12 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
   if (action === 'confirm-submit-review') {
     if (!state.currentTechnicalVersionId) return true
+    const invalidBom = findBomItemMissingUnitForWaterSoluble(state.bomItems)
+    if (invalidBom) {
+      state.reviewSubmitDialogOpen = false
+      state.compatibilityMessage = `物料“${invalidBom.materialName || invalidBom.materialCode || invalidBom.id}”存在水溶要求但缺少单位，不能提交审核。请先补充物料单位。`
+      return true
+    }
     syncTechPackToStore()
     const designMessage = validateCurrentDesignRequirement('提交审核前请先补齐花型设计')
     if (designMessage) {
@@ -3777,7 +3791,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
   if (action === 'save-bom') {
     if (!state.newBomItem.materialName.trim()) return true
-    if (state.newBomItem.waterSolubleRequirement === '是' && !state.newBomItem.unit.trim()) {
+    if (findBomItemMissingUnitForWaterSoluble([state.newBomItem])) {
       window.alert('该物料缺少单位，不能保存水溶要求。请先填写物料单位。')
       return true
     }
