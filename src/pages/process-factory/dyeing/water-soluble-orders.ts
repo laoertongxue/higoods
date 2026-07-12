@@ -108,7 +108,8 @@ function difference(order: WaterSolubleWorkOrder): string {
 function lastLog(order: WaterSolubleWorkOrder): { actor: string; summary: string } {
   const log = [...order.actionLogs].reverse().find((item) => /(?:^|；)操作人：([^；]+)/.test(item.detail))
   if (!log) return { actor: '暂未记录', summary: '暂未记录' }
-  const actor = log.detail.match(/(?:^|；)操作人：([^；]+)/)?.[1]?.trim() || '暂未记录'
+  const actorMatches = [...log.detail.matchAll(/(?:^|；)操作人：([^；]+)/g)]
+  const actor = actorMatches.at(-1)?.[1]?.trim() || '暂未记录'
   return { actor: escapeHtml(actor), summary: `${escapeHtml(log.action)} · ${escapeHtml(log.at)}` }
 }
 

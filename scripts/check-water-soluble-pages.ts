@@ -131,7 +131,7 @@ const actorCompletedOrder = executeWaterSolublePdaAction({
   expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS',
   expectedNode: 'COMPLETE',
   completedQty: actorStartedOrder.plannedQty,
-  reason: '',
+  reason: '现场复尺；操作人：伪造姓名',
   actor,
 })
 assert(actorCompletedOrder.ok, '真实 PDA 完成动作必须成功')

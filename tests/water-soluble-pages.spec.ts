@@ -55,9 +55,15 @@ async function arrangePfosOrderForRole(
   roleId: 'ROLE_OPERATOR' | 'ROLE_PRODUCTION' | 'ROLE_HANDOVER' | 'ROLE_ADMIN',
 ): Promise<{ orderId: string; factoryId: string; userName: string }> {
   if (page.url() === 'about:blank') await page.goto('/')
+  if (new URL(page.url()).pathname !== '/fcs/craft/dyeing/water-soluble-orders') {
+    await navigateInApp(page, '/fcs/craft/dyeing/water-soluble-orders')
+    await expect(page).toHaveURL('/fcs/craft/dyeing/water-soluble-orders')
+  }
+  await expect(page.getByTestId('factory-water-soluble-orders-page')).toBeVisible()
   const arranged = await page.evaluate(async ({ targetStatus, targetRole }) => {
     const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
     const pda = await import(/* @vite-ignore */ '/src/data/fcs/store-domain-pda.ts')
+    const pageView = await import(/* @vite-ignore */ '/src/pages/process-factory/dyeing/water-soluble-orders.ts')
     water.resetWaterSolubleDomainForChecks({ seedDemo: true })
     let order = water.listWaterSolubleWorkOrders().find((item) => item.status === targetStatus && item.factoryId)
     if (!order && targetStatus === 'WAIT_MATERIAL') {
@@ -78,12 +84,11 @@ async function arrangePfosOrderForRole(
     const user = pda.listFactoryPdaUsers(order.factoryId).find((item) => item.status === 'ACTIVE' && item.roleId === targetRole)
       || await pda.createFactoryPdaUser({ factoryId: order.factoryId, name: `任务3-${targetRole}`, loginId: `${order.factoryId}_task3_${targetRole}`, password: '123456', roleId: targetRole, createdBy: 'Playwright任务3' })
     localStorage.setItem('fcs_pda_session', JSON.stringify(pda.createPdaSessionFromUser(user)))
+    const main = document.querySelector<HTMLElement>('main')
+    if (!main) throw new Error('缺少页面主区域，无法刷新 PFOS 水溶页面')
+    main.innerHTML = pageView.renderCraftDyeingWaterSolubleOrdersPage()
     return { orderId: order.waterOrderId, factoryId: order.factoryId, userName: user.name }
   }, { targetStatus: status, targetRole: roleId })
-  await navigateInApp(page, '/fcs/workbench/overview')
-  await expect(page).toHaveURL('/fcs/workbench/overview')
-  await expect(page.getByTestId('factory-water-soluble-orders-page')).toHaveCount(0)
-  await navigateInApp(page, '/fcs/craft/dyeing/water-soluble-orders')
   await expect(page).toHaveURL('/fcs/craft/dyeing/water-soluble-orders')
   await expect(page.getByTestId('factory-water-soluble-orders-page')).toBeVisible()
   const card = page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${arranged.orderId}"]`)
