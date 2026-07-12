@@ -1473,8 +1473,11 @@ for (const outputType of expectedOutputTypes) {
 const pendingOutputHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001')
 const pendingOutputDrawerHtml = detailDrawerHtml(pendingOutputHtml, 'PREP-202603-001')
 assertHtmlIncludes(pendingOutputDrawerHtml, '待跟单确认', '未确认工作项记录必须展示产出空态')
-for (const text of ['本次用料', '物料名称', '物料编码', '物料类型', '应备', '已配', '已领', 'FAB-202603-001', '60S 棉府绸印花底布'] as const) {
+for (const text of ['本次用料', '物料名称', '物料编码', '物料类型', 'FAB-202603-001', '60S 棉府绸印花底布'] as const) {
   assertHtmlIncludes(pendingOutputDrawerHtml, text, `详情抽屉本次用料缺少「${text}」`)
+}
+for (const text of ['应备', '已配', '已领'] as const) {
+  assert.ok(!pendingOutputDrawerHtml.includes(`<th class="px-3 py-2 text-left font-medium">${text}</th>`), `详情抽屉本次用料不应展示「${text}」列`)
 }
 assertHtmlIncludes(pendingOutputDrawerHtml, 'https://images.unsplash.com/', '详情抽屉本次用料必须展示真实图片')
 for (const text of ['责任角色', '版师主管', '操作梭织基码纸样'] as const) {

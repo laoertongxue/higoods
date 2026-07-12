@@ -542,7 +542,7 @@ function renderMaterialRequirementTable(record: ProductionPreparationRecord): st
       <table class="w-full text-sm">
         <thead class="bg-muted/60 text-xs text-muted-foreground">
           <tr>
-            ${['图片', '物料名称', '物料编码', '物料类型', '应备', '已配', '已领'].map((head) => `<th class="px-3 py-2 text-left font-medium">${escapeHtml(head)}</th>`).join('')}
+            ${['图片', '物料名称', '物料编码', '物料类型'].map((head) => `<th class="px-3 py-2 text-left font-medium">${escapeHtml(head)}</th>`).join('')}
           </tr>
         </thead>
         <tbody>
@@ -554,9 +554,6 @@ function renderMaterialRequirementTable(record: ProductionPreparationRecord): st
                   <td class="px-3 py-2 font-medium">${escapeHtml(material.materialName)}</td>
                   <td class="px-3 py-2">序号 ${material.externalSerialNo ?? '-'}</td>
                   <td class="px-3 py-2 text-muted-foreground">-</td>
-                  <td class="px-3 py-2 text-muted-foreground">-</td>
-                  <td class="px-3 py-2 text-muted-foreground">-</td>
-                  <td class="px-3 py-2 text-muted-foreground">-</td>
                 `
                 : `
                   <td class="px-3 py-2">
@@ -565,9 +562,6 @@ function renderMaterialRequirementTable(record: ProductionPreparationRecord): st
                   <td class="px-3 py-2 font-medium">${escapeHtml(material.materialName)}</td>
                   <td class="px-3 py-2 font-mono text-xs">${escapeHtml(material.materialNo)}</td>
                   <td class="px-3 py-2">${escapeHtml(material.materialType)}</td>
-                  <td class="px-3 py-2">${material.requiredQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
-                  <td class="px-3 py-2">${material.preparedQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
-                  <td class="px-3 py-2">${material.issuedQty.toLocaleString()} ${escapeHtml(material.unit)}</td>
                 `}
             </tr>
           `).join('')}

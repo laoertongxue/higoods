@@ -501,6 +501,7 @@ export interface PostFinishingWaitProcessWarehouseRecord {
   skuCode: string
   colorName: string
   sizeName: string
+  skuImageUrl?: string
   skuSummary: string
   inboundGarmentQty: number
   availableGarmentQty: number
@@ -533,6 +534,7 @@ export interface PostFinishingSewingSelfReturnItem {
   skuCode: string
   colorName: string
   sizeName: string
+  skuImageUrl?: string
   submittedQty: number
   confirmedQty?: number
   qtyUnit: string
@@ -809,6 +811,18 @@ function pad(value: number): string {
   return String(value).padStart(3, '0')
 }
 
+function resolveSkuImageUrl(spuName: string, _colorName: string): string {
+  const text = spuName.toLowerCase()
+  if (text.includes('jacket') || text.includes('hoodie') || text.includes('blazer') || text.includes('jaket') || text.includes('外套')) return '/jacket-sample.jpg'
+  if (text.includes('dress') || text.includes('skirt') || text.includes('rok') || text.includes('裙')) return '/dress-sample-1.jpg'
+  if (text.includes('pants') || text.includes('celana') || text.includes('jogger') || text.includes('裤')) return '/pants-sample.jpg'
+  if (text.includes('cardigan') || text.includes('knit') || text.includes('针织') || text.includes('sweater')) return '/cardigan-sample.jpg'
+  if (text.includes('kemeja') || text.includes('shirt') || text.includes('衬衫') || text.includes('polo') || text.includes('kaos') || text.includes('t 恤') || text.includes('t恤')) return '/shirt-sample.jpg'
+  if (text.includes('denim') || text.includes('牛仔')) return '/denim-shorts-sample.jpg'
+  if (text.includes('lace') || text.includes('蕾丝')) return '/lace-dress-sample.jpg'
+  return '/tshirt-sample.jpg'
+}
+
 function sku(skuId: string, spuId: string, spuCode: string, spuName: string, colorName: string, sizeName: string, qty: number): PostFinishingSkuLine {
   return {
     skuLineId: `${skuId}-LINE`,
@@ -819,7 +833,7 @@ function sku(skuId: string, spuId: string, spuCode: string, spuName: string, col
     skuCode: skuId,
     colorName,
     sizeName,
-    imageUrl: `https://placehold.co/96x96?text=${encodeURIComponent(sizeName)}`,
+    imageUrl: resolveSkuImageUrl(spuName, colorName),
     plannedQty: qty,
     receivedQty: qty,
     availableQty: qty,
@@ -4212,10 +4226,15 @@ export function ensurePostFinishingSewingSelfReturnMockRecords(): PostFinishingS
         deviceFactoryId: FULL_CAPABILITY_FACTORY_ID,
         deviceFactoryName: FULL_CAPABILITY_FACTORY_NAME,
         deviceUserName: '后道管理员',
-        items: context.skuLines.map((line) => ({
-          skuLineId: line.skuLineId,
-          submittedQty: contextIndex === 0 ? line.plannedQty : Math.max(1, Math.round(line.plannedQty * 0.75)),
-        })),
+        items: contextIndex === 0
+          ? context.skuLines.slice(0, -1).map((line) => ({
+              skuLineId: line.skuLineId,
+              submittedQty: line.plannedQty,
+            }))
+          : context.skuLines.map((line) => ({
+              skuLineId: line.skuLineId,
+              submittedQty: Math.max(1, Math.round(line.plannedQty * 0.75)),
+            })),
       })
     })
 
@@ -4225,6 +4244,17 @@ export function ensurePostFinishingSewingSelfReturnMockRecords(): PostFinishingS
 export function getPostFinishingSewingSelfReturnRecord(recordIdOrNo: string): PostFinishingSewingSelfReturnRecord | undefined {
   const record = listPostFinishingSewingSelfReturnRecords().find((item) => item.recordId === recordIdOrNo || item.recordNo === recordIdOrNo)
   return record ? cloneSewingSelfReturnRecord(record) : undefined
+}
+
+export function getPostFinishingSewingSelfReturnSourceSkuLines(recordIdOrNo: string): PostFinishingSkuLine[] {
+  const record = listPostFinishingSewingSelfReturnRecords().find((item) => item.recordId === recordIdOrNo || item.recordNo === recordIdOrNo)
+  if (!record) return []
+  const context = SOURCE_CONTEXTS.find((ctx) => (
+    ctx.productionOrderNo === record.productionOrderNo
+    && ctx.sourceTaskNo === record.sourceTaskNo
+  ))
+  if (!context) return []
+  return context.skuLines.map(cloneSkuLine)
 }
 
 export function resetPostFinishingSewingSelfReturnDemoRecords(): void {
@@ -4302,6 +4332,7 @@ export function createPostFinishingSewingSelfReturn(input: PostFinishingSewingSe
       skuCode: line.skuCode,
       colorName: line.colorName,
       sizeName: line.sizeName,
+      skuImageUrl: line.imageUrl,
       skuSummary,
       inboundGarmentQty: submittedQty,
       availableGarmentQty: 0,
@@ -4339,6 +4370,7 @@ export function createPostFinishingSewingSelfReturn(input: PostFinishingSewingSe
       skuCode: line.skuCode,
       colorName: line.colorName,
       sizeName: line.sizeName,
+      skuImageUrl: line.imageUrl,
       submittedQty,
       qtyUnit: line.qtyUnit,
       plannedQty: line.plannedQty,
@@ -4442,6 +4474,14 @@ export function confirmPostFinishingSewingSelfReturnReceipt(input: PostFinishing
   const current = store.sewingSelfReturnRecords[recordIndex]
   if (current.status === '已驳回') throw new Error('该自助回货记录已驳回，不能确认入库。')
   const now = nowText()
+  const defaultLocation = getPostFinishingSewingSelfReturnDefaultLocation()
+  const existingCount = store.waitProcessReceiptRecords.length
+
+  const context = SOURCE_CONTEXTS.find((ctx) => (
+    ctx.productionOrderNo === current.productionOrderNo
+    && ctx.sourceTaskNo === current.sourceTaskNo
+  ))
+
   const confirmedItems = current.items.map((item) => {
     const lineInput = input.lines.find((line) => (
       line.itemId === item.itemId
@@ -4454,19 +4494,124 @@ export function confirmPostFinishingSewingSelfReturnReceipt(input: PostFinishing
     return { ...item, confirmedQty }
   })
 
-  const confirmedByWarehouseId = new Map(confirmedItems.map((item) => [item.warehouseRecordId, item.confirmedQty ?? item.submittedQty]))
+  const existingSkuIds = new Set(current.items.map((item) => item.skuId))
+  const newItemInputs = input.lines.filter((line) => (
+    line.confirmedQty && line.confirmedQty > 0
+    && (line.skuLineId || line.skuId)
+    && !existingSkuIds.has(line.skuId ?? '')
+    && !current.items.some((item) => item.skuLineId === line.skuLineId || item.skuId === line.skuId)
+  ))
+
+  const newItems: PostFinishingSewingSelfReturnItem[] = []
+  const newWarehouseRecords: PostFinishingWaitProcessWarehouseRecord[] = []
+
+  if (context) {
+    newItemInputs.forEach((lineInput, newIndex) => {
+      const skuLine = context.skuLines.find((candidate) => (
+        candidate.skuLineId === lineInput.skuLineId
+        || candidate.skuId === lineInput.skuId
+        || candidate.skuCode === lineInput.skuId
+      ))
+      if (!skuLine) return
+      const confirmedQty = roundQty(Number(lineInput.confirmedQty) || 0)
+      if (confirmedQty <= 0) return
+      const itemSeq = confirmedItems.length + newItems.length + 1
+      const itemId = `${current.recordId}-ITEM-${itemSeq}`
+      const handoverRecordId = `HDR-SEW-SELF-${current.recordId}-${itemSeq}`
+      const handoverRecordNo = `车缝现场交出记录-${current.recordId.replace('PF-SELF-RET-', '')}-${itemSeq}`
+      const whSeq = store.waitProcessReceiptRecords.length + newItems.length + 1
+      const warehouseRecordId = `PF-WP-SELF-CONFIRM-${whSeq}`
+      const warehouseRecordNo = `后道待加工入库-确认-${whSeq}`
+      const skuSummary = `${skuLine.skuCode} / ${skuLine.colorName} / ${skuLine.sizeName}`
+
+      newItems.push({
+        itemId,
+        skuLineId: skuLine.skuLineId,
+        skuId: skuLine.skuId,
+        skuCode: skuLine.skuCode,
+        colorName: skuLine.colorName,
+        sizeName: skuLine.sizeName,
+        skuImageUrl: skuLine.imageUrl,
+        submittedQty: 0,
+        confirmedQty,
+        qtyUnit: skuLine.qtyUnit,
+        plannedQty: skuLine.plannedQty,
+        handoverRecordId,
+        handoverRecordNo,
+        warehouseRecordId,
+        warehouseRecordNo,
+      })
+
+      newWarehouseRecords.push({
+        warehouseRecordId,
+        warehouseRecordNo,
+        upstreamHandoverRecordNo: handoverRecordNo,
+        postOrderId: `PF-SELF-${current.recordId}`,
+        postOrderNo: current.recordNo,
+        sourceProductionOrderNo: current.productionOrderNo,
+        sourceTaskNo: current.sourceTaskNo || '未关联车缝任务',
+        postSourceLabel: '车缝自助回货',
+        managedPostFactoryName: current.managedPostFactoryName,
+        styleNo: current.styleNo,
+        spuId: current.spuId,
+        spuCode: current.spuCode,
+        spuName: current.spuName,
+        skuId: skuLine.skuId,
+        skuCode: skuLine.skuCode,
+        colorName: skuLine.colorName,
+        sizeName: skuLine.sizeName,
+        skuImageUrl: skuLine.imageUrl,
+        skuSummary,
+        inboundGarmentQty: confirmedQty,
+        availableGarmentQty: confirmedQty,
+        plannedGarmentQty: skuLine.plannedQty,
+        qtyUnit: skuLine.qtyUnit,
+        inboundAt: now,
+        updatedAt: now,
+        areaId: defaultLocation.areaId,
+        areaName: defaultLocation.areaName,
+        locationId: defaultLocation.locationId,
+        locationCode: defaultLocation.locationCode,
+        receiptConfirmStatus: '已确认入库',
+        selfReturnRecordId: current.recordId,
+        selfReturnRecordNo: current.recordNo,
+        submittedGarmentQty: 0,
+        confirmedGarmentQty: confirmedQty,
+        confirmationAt: now,
+        confirmationBy: input.confirmerName || '后道确认人',
+        confirmationRemark: input.remark?.trim(),
+        flowRecords: [{
+          flowRecordId: `${warehouseRecordId}-FLOW-1`,
+          flowRecordNo: `${warehouseRecordNo}-流水-1`,
+          flowType: '后道确认入库',
+          operatedAt: now,
+          operatorName: input.confirmerName || '后道确认人',
+          qty: confirmedQty,
+          qtyUnit: skuLine.qtyUnit,
+          beforeQty: 0,
+          afterQty: confirmedQty,
+          sourceActionRecordNo: current.recordNo,
+          remark: input.remark?.trim() || `后道确认入库：确认时补充 SKU ${skuLine.skuCode}，确认${confirmedQty}${skuLine.qtyUnit}`,
+        }],
+      })
+    })
+  }
+
+  const allItems = [...confirmedItems, ...newItems]
+  const confirmedByWarehouseId = new Map(allItems.map((item) => [item.warehouseRecordId, item.confirmedQty ?? item.submittedQty]))
   store.waitProcessReceiptRecords = store.waitProcessReceiptRecords.map((record) => {
     if (!record.selfReturnRecordId || record.selfReturnRecordId !== current.recordId) return record
     const confirmedQty = confirmedByWarehouseId.get(record.warehouseRecordId)
     if (typeof confirmedQty !== 'number') return record
     return updateSewingSelfReturnWarehouseRecordForConfirm(record, confirmedQty, input.confirmerName || '后道确认人', now, input.remark?.trim())
   })
+  store.waitProcessReceiptRecords = [...store.waitProcessReceiptRecords, ...newWarehouseRecords]
 
-  const hasDiff = confirmedItems.some((item) => item.confirmedQty !== item.submittedQty)
+  const hasDiff = allItems.some((item) => item.confirmedQty !== item.submittedQty)
   const nextRecord: PostFinishingSewingSelfReturnRecord = {
     ...current,
     status: hasDiff ? '数量差异待处理' : '已确认入库',
-    items: confirmedItems,
+    items: allItems,
     confirmedAt: now,
     confirmedBy: input.confirmerName || '后道确认人',
     confirmationRemark: input.remark?.trim() || undefined,
@@ -4496,6 +4641,195 @@ export function confirmPostFinishingSewingSelfReturnWarehouseRecord(input: {
     remark: input.remark,
     lines,
   })
+}
+
+export function updatePostFinishingSewingSelfReturnConfirmedQty(input: {
+  recordId: string
+  confirmerName: string
+  remark?: string
+  lines: Array<{ itemId?: string; skuLineId?: string; skuId?: string; confirmedQty: number }>
+}): PostFinishingSewingSelfReturnRecord {
+  const store = readPostFinishingWarehouseStore()
+  const recordIndex = store.sewingSelfReturnRecords.findIndex((item) => item.recordId === input.recordId || item.recordNo === input.recordId)
+  if (recordIndex < 0) throw new Error('未找到车缝自助回货记录。')
+  const current = store.sewingSelfReturnRecords[recordIndex]
+  if (current.status === '已驳回') throw new Error('该自助回货记录已驳回，不能修改确认数量。')
+  if (current.status === '待后道确认') throw new Error('该记录尚未确认入库，请先执行确认操作。')
+
+  const now = nowText()
+  const defaultLocation = getPostFinishingSewingSelfReturnDefaultLocation()
+
+  const context = SOURCE_CONTEXTS.find((ctx) => (
+    ctx.productionOrderNo === current.productionOrderNo
+    && ctx.sourceTaskNo === current.sourceTaskNo
+  ))
+
+  const updatedItems = current.items.map((item) => {
+    const lineInput = input.lines.find((line) => (
+      line.itemId === item.itemId
+      || line.warehouseRecordId === item.warehouseRecordId
+      || line.skuLineId === item.skuLineId
+      || line.skuId === item.skuId
+    ))
+    const confirmedQty = roundQty(Number(lineInput?.confirmedQty ?? item.confirmedQty ?? item.submittedQty) || 0)
+    if (confirmedQty < 0) throw new Error('确认数量不能小于 0。')
+    return { ...item, confirmedQty }
+  })
+
+  const existingSkuIds = new Set(current.items.map((item) => item.skuId))
+  const newItemInputs = input.lines.filter((line) => (
+    line.confirmedQty && line.confirmedQty > 0
+    && (line.skuLineId || line.skuId)
+    && !existingSkuIds.has(line.skuId ?? '')
+    && !current.items.some((item) => item.skuLineId === line.skuLineId || item.skuId === line.skuId)
+  ))
+
+  const newItems: PostFinishingSewingSelfReturnItem[] = []
+  const newWarehouseRecords: PostFinishingWaitProcessWarehouseRecord[] = []
+
+  if (context) {
+    newItemInputs.forEach((lineInput, newIndex) => {
+      const skuLine = context.skuLines.find((candidate) => (
+        candidate.skuLineId === lineInput.skuLineId
+        || candidate.skuId === lineInput.skuId
+        || candidate.skuCode === lineInput.skuId
+      ))
+      if (!skuLine) return
+      const confirmedQty = roundQty(Number(lineInput.confirmedQty) || 0)
+      if (confirmedQty <= 0) return
+      const itemSeq = updatedItems.length + newItems.length + 1
+      const itemId = `${current.recordId}-ITEM-${itemSeq}`
+      const handoverRecordId = `HDR-SEW-SELF-${current.recordId}-EDIT-${itemSeq}`
+      const handoverRecordNo = `车缝现场交出记录-${current.recordId.replace('PF-SELF-RET-', '')}-EDIT-${itemSeq}`
+      const whSeq = store.waitProcessReceiptRecords.length + newItems.length + 1
+      const warehouseRecordId = `PF-WP-SELF-EDIT-${whSeq}`
+      const warehouseRecordNo = `后道待加工入库-修改-${whSeq}`
+      const skuSummary = `${skuLine.skuCode} / ${skuLine.colorName} / ${skuLine.sizeName}`
+
+      newItems.push({
+        itemId,
+        skuLineId: skuLine.skuLineId,
+        skuId: skuLine.skuId,
+        skuCode: skuLine.skuCode,
+        colorName: skuLine.colorName,
+        sizeName: skuLine.sizeName,
+        skuImageUrl: skuLine.imageUrl,
+        submittedQty: 0,
+        confirmedQty,
+        qtyUnit: skuLine.qtyUnit,
+        plannedQty: skuLine.plannedQty,
+        handoverRecordId,
+        handoverRecordNo,
+        warehouseRecordId,
+        warehouseRecordNo,
+      })
+
+      newWarehouseRecords.push({
+        warehouseRecordId,
+        warehouseRecordNo,
+        upstreamHandoverRecordNo: handoverRecordNo,
+        postOrderId: `PF-SELF-${current.recordId}`,
+        postOrderNo: current.recordNo,
+        sourceProductionOrderNo: current.productionOrderNo,
+        sourceTaskNo: current.sourceTaskNo || '未关联车缝任务',
+        postSourceLabel: '车缝自助回货',
+        managedPostFactoryName: current.managedPostFactoryName,
+        styleNo: current.styleNo,
+        spuId: current.spuId,
+        spuCode: current.spuCode,
+        spuName: current.spuName,
+        skuId: skuLine.skuId,
+        skuCode: skuLine.skuCode,
+        colorName: skuLine.colorName,
+        sizeName: skuLine.sizeName,
+        skuImageUrl: skuLine.imageUrl,
+        skuSummary,
+        inboundGarmentQty: confirmedQty,
+        availableGarmentQty: confirmedQty,
+        plannedGarmentQty: skuLine.plannedQty,
+        qtyUnit: skuLine.qtyUnit,
+        inboundAt: now,
+        updatedAt: now,
+        areaId: defaultLocation.areaId,
+        areaName: defaultLocation.areaName,
+        locationId: defaultLocation.locationId,
+        locationCode: defaultLocation.locationCode,
+        receiptConfirmStatus: '数量差异待处理',
+        selfReturnRecordId: current.recordId,
+        selfReturnRecordNo: current.recordNo,
+        submittedGarmentQty: 0,
+        confirmedGarmentQty: confirmedQty,
+        confirmationAt: now,
+        confirmationBy: input.confirmerName,
+        confirmationRemark: input.remark?.trim(),
+        flowRecords: [{
+          flowRecordId: `${warehouseRecordId}-FLOW-1`,
+          flowRecordNo: `${warehouseRecordNo}-流水-1`,
+          flowType: '后道修改确认数量',
+          operatedAt: now,
+          operatorName: input.confirmerName,
+          qty: confirmedQty,
+          qtyUnit: skuLine.qtyUnit,
+          beforeQty: 0,
+          afterQty: confirmedQty,
+          sourceActionRecordNo: current.recordNo,
+          remark: input.remark?.trim() || `修改确认数量：补充 SKU ${skuLine.skuCode}，确认${confirmedQty}${skuLine.qtyUnit}`,
+        }],
+      })
+    })
+  }
+
+  const allItems = [...updatedItems, ...newItems]
+  const confirmedByWarehouseId = new Map(allItems.map((item) => [item.warehouseRecordId, item.confirmedQty ?? item.submittedQty]))
+  store.waitProcessReceiptRecords = store.waitProcessReceiptRecords.map((record) => {
+    if (!record.selfReturnRecordId || record.selfReturnRecordId !== current.recordId) return record
+    const confirmedQty = confirmedByWarehouseId.get(record.warehouseRecordId)
+    if (typeof confirmedQty !== 'number') return record
+    const submittedQty = record.submittedGarmentQty ?? record.inboundGarmentQty
+    const nextStatus: PostFinishingSewingSelfReturnStatus = confirmedQty === submittedQty ? '已确认入库' : '数量差异待处理'
+    const flowIndex = record.flowRecords.length + 1
+    return {
+      ...record,
+      inboundGarmentQty: confirmedQty,
+      availableGarmentQty: confirmedQty,
+      confirmedGarmentQty: confirmedQty,
+      receiptConfirmStatus: nextStatus,
+      confirmationAt: now,
+      confirmationBy: input.confirmerName,
+      confirmationRemark: input.remark?.trim(),
+      updatedAt: now,
+      flowRecords: [
+        ...record.flowRecords,
+        {
+          flowRecordId: `${record.warehouseRecordId}-FLOW-${flowIndex}`,
+          flowRecordNo: `${record.warehouseRecordNo}-流水-${flowIndex}`,
+          flowType: '后道修改确认数量',
+          operatedAt: now,
+          operatorName: input.confirmerName,
+          qty: confirmedQty,
+          qtyUnit: record.qtyUnit,
+          beforeQty: record.availableGarmentQty,
+          afterQty: confirmedQty,
+          sourceActionRecordNo: record.selfReturnRecordNo || record.warehouseRecordNo,
+          remark: input.remark?.trim() || `修改确认数量：${record.availableGarmentQty}${record.qtyUnit} → ${confirmedQty}${record.qtyUnit}`,
+        },
+      ],
+    }
+  })
+  store.waitProcessReceiptRecords = [...store.waitProcessReceiptRecords, ...newWarehouseRecords]
+
+  const hasDiff = allItems.some((item) => item.confirmedQty !== item.submittedQty)
+  const nextRecord: PostFinishingSewingSelfReturnRecord = {
+    ...current,
+    status: hasDiff ? '数量差异待处理' : '已确认入库',
+    items: allItems,
+    confirmedAt: now,
+    confirmedBy: input.confirmerName,
+    confirmationRemark: input.remark?.trim() || `修改确认数量，${input.confirmerName}操作`,
+  }
+  store.sewingSelfReturnRecords[recordIndex] = nextRecord
+  writePostFinishingWarehouseStore(store)
+  return cloneSewingSelfReturnRecord(nextRecord)
 }
 
 export function rejectPostFinishingSewingSelfReturnReceipt(input: {

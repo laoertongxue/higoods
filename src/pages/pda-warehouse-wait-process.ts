@@ -1516,9 +1516,16 @@ function renderPostFinishingSelfReturnConfirmDrawer(): string {
           <button type="button" class="rounded-full border px-3 py-1 text-xs" data-pda-warehouse-action="close-post-self-return-confirm">关闭</button>
         </div>
         <div class="mt-4 rounded-2xl border bg-card px-4 py-4 text-xs leading-5 shadow-sm">
-          <div class="font-semibold text-foreground">${escapeHtml(row.skuCode)} / ${escapeHtml(row.colorName)} / ${escapeHtml(row.sizeName)}</div>
-          <div class="mt-1 text-muted-foreground">自助登记：${submittedQty} ${escapeHtml(row.qtyUnit)} · 来源：${escapeHtml(row.selfReturnRecordNo || row.postOrderNo)}</div>
-          <div class="text-muted-foreground">默认库位：${escapeHtml(row.areaName || '-')} / ${escapeHtml(row.locationCode || '-')}</div>
+          <div class="flex gap-3">
+            ${row.skuImageUrl
+              ? `<img src="${escapeHtml(row.skuImageUrl)}" alt="${escapeHtml(row.skuCode)}" class="h-16 w-16 flex-shrink-0 rounded-xl border object-cover" loading="lazy" referrerpolicy="no-referrer" />`
+              : ''}
+            <div class="min-w-0 flex-1">
+              <div class="font-semibold text-foreground">${escapeHtml(row.skuCode)} / ${escapeHtml(row.colorName)} / ${escapeHtml(row.sizeName)}</div>
+              <div class="mt-1 text-muted-foreground">自助登记：${submittedQty} ${escapeHtml(row.qtyUnit)} · 来源：${escapeHtml(row.selfReturnRecordNo || row.postOrderNo)}</div>
+              <div class="text-muted-foreground">默认库位：${escapeHtml(row.areaName || '-')} / ${escapeHtml(row.locationCode || '-')}</div>
+            </div>
+          </div>
         </div>
         <div class="mt-4 space-y-3">
           <label class="block text-xs font-medium text-muted-foreground">
@@ -1634,12 +1641,19 @@ function renderPostFinishingWaitProcessPage(): string {
           const submittedQty = item.submittedGarmentQty ?? item.inboundGarmentQty
           return `
           <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
-            <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+              ${item.skuImageUrl
+                ? `<img src="${escapeHtml(item.skuImageUrl)}" alt="${escapeHtml(item.skuCode)}" class="mt-0.5 h-14 w-14 flex-shrink-0 rounded-xl border object-cover" loading="lazy" referrerpolicy="no-referrer" />`
+                : ''}
               <div class="min-w-0 flex-1">
-                <div class="text-sm font-semibold">${escapeHtml(item.skuCode)}</div>
-                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.spuName)} · ${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</div>
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0 flex-1">
+                    <div class="text-sm font-semibold">${escapeHtml(item.skuCode)}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.spuName)} · ${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</div>
+                  </div>
+                  ${renderPostFinishingReceiptStatus(item)}
+                </div>
               </div>
-              ${renderPostFinishingReceiptStatus(item)}
             </div>
             <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
               <div>生产单：${escapeHtml(item.sourceProductionOrderNo)}</div>
