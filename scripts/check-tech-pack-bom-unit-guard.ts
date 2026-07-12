@@ -53,6 +53,7 @@ const {
   replaceTechnicalDataVersionStore,
   resetTechnicalDataVersionRepository,
 } = await import('../src/data/pcs-technical-data-version-repository.ts')
+const { buildTechPackReviewDiffSnapshot } = await import('../src/data/pcs-tech-pack-review-diff.ts')
 const { handleTechPackEvent, renderTechPackPage } = await import('../src/pages/tech-pack.ts')
 
 resetTechnicalDataVersionRepository()
@@ -108,12 +109,83 @@ const createVersion = (suffix: string, illegal = false) => {
 
 const normalVersion = createVersion('NORMAL')
 const illegalVersion = createVersion('ILLEGAL', true)
+const reviewStyleId = 'STYLE-BOM-UNIT-REVIEW-DIFF'
+const reviewBomItem = {
+  ...baseContent.bomItems[0],
+  id: 'BOM-REVIEW-UNIT',
+  materialCode: 'MAT-REVIEW-UNIT',
+  name: '审核单位差异物料',
+  unit: '',
+  waterSolubleRequirement: '否' as const,
+}
+const reviewBaseline = {
+  record: {
+    ...baseRecord,
+    technicalVersionId: 'tdv_bom_unit_review_baseline',
+    technicalVersionCode: 'TDV-BOM-UNIT-REVIEW-1',
+    styleId: reviewStyleId,
+    styleCode: reviewStyleId,
+    styleName: 'BOM 单位差异审核款',
+    versionNo: 1,
+    versionLabel: 'V1',
+    versionStatus: 'PUBLISHED' as const,
+    publishedAt: '2026-07-10 10:00',
+    publishedBy: '审核基线发布人',
+  },
+  content: {
+    ...baseContent,
+    technicalVersionId: 'tdv_bom_unit_review_baseline',
+    bomItems: [reviewBomItem],
+  },
+}
+const createReviewDraft = (suffix: string, unit: string, versionNo: number) => ({
+  record: {
+    ...reviewBaseline.record,
+    technicalVersionId: `tdv_bom_unit_review_${suffix}`,
+    technicalVersionCode: `TDV-BOM-UNIT-REVIEW-${versionNo}`,
+    versionNo,
+    versionLabel: `V${versionNo}`,
+    versionStatus: 'DRAFT' as const,
+    publishedAt: '',
+    publishedBy: '',
+  },
+  content: {
+    ...reviewBaseline.content,
+    technicalVersionId: `tdv_bom_unit_review_${suffix}`,
+    bomItems: [{ ...reviewBomItem, unit }],
+  },
+})
+const reviewMeterDraft = createReviewDraft('meter', '米', 2)
+const reviewEmptyDraft = createReviewDraft('empty', '', 3)
 replaceTechnicalDataVersionStore({
   version: seeded.version,
-  records: [normalVersion.record, illegalVersion.record],
-  contents: [normalVersion.content, illegalVersion.content],
+  records: [
+    normalVersion.record,
+    illegalVersion.record,
+    reviewBaseline.record,
+    reviewMeterDraft.record,
+    reviewEmptyDraft.record,
+  ],
+  contents: [
+    normalVersion.content,
+    illegalVersion.content,
+    reviewBaseline.content,
+    reviewMeterDraft.content,
+    reviewEmptyDraft.content,
+  ],
   pendingItems: [],
 })
+
+const emptyToMeterDiff = buildTechPackReviewDiffSnapshot(reviewMeterDraft.record, 'BUYER')
+assert.equal(emptyToMeterDiff.diffStatus, '有差异', '已发布空单位改为米时必须产生审核差异')
+assert.equal(emptyToMeterDiff.changedCount, 1, '空单位改为米必须只产生一条物料清单修改')
+assert(
+  emptyToMeterDiff.items.some((item) => item.scope === '物料清单' && item.changeType === '修改'),
+  '空单位改为米的审核明细必须标记物料清单修改',
+)
+const emptyToEmptyDiff = buildTechPackReviewDiffSnapshot(reviewEmptyDraft.record, 'BUYER')
+assert.equal(emptyToEmptyDiff.diffStatus, '无差异', '已发布空单位和草稿空单位必须保持无差异')
+assert.equal(emptyToEmptyDiff.changedCount, 0, '空单位保持为空不得产生虚假修改')
 
 const renderBom = (version: typeof normalVersion) => renderTechPackPage(version.record.styleCode, {
   styleId: version.record.styleId,

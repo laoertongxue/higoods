@@ -119,7 +119,7 @@ function normalizeReviewItem(scope: string, item: unknown): unknown {
       name: normalizeText(record.name || record.materialName),
       spec: normalizeText(record.spec),
       materialCode: normalizeText(record.materialCode),
-      unit: normalizeText(record.unit || '米'),
+      unit: normalizeText(record.unit),
       colorLabel: normalizeText(record.colorLabel),
       unitConsumption: normalizeNumber(record.unitConsumption || record.usage),
       lossRate: normalizeNumber(record.lossRate),
