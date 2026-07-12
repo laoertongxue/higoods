@@ -55,10 +55,11 @@ async function arrangePfosOrderForRole(
   roleId: 'ROLE_OPERATOR' | 'ROLE_PRODUCTION' | 'ROLE_HANDOVER' | 'ROLE_ADMIN',
 ): Promise<{ orderId: string; factoryId: string; userName: string }> {
   await page.goto('/')
-  return page.evaluate(async ({ targetStatus, targetRole }) => {
+  const arranged = await page.evaluate(async ({ targetStatus, targetRole }) => {
     const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
     const pda = await import(/* @vite-ignore */ '/src/data/fcs/store-domain-pda.ts')
     const store = await import(/* @vite-ignore */ '/src/state/store.ts')
+    water.resetWaterSolubleDomainForChecks({ seedDemo: true })
     let order = water.listWaterSolubleWorkOrders().find((item) => item.status === targetStatus && item.factoryId)
     if (!order && targetStatus === 'WAIT_MATERIAL') {
       const unassigned = water.listWaterSolubleWorkOrders().find((item) => item.status === 'WAIT_FACTORY_ASSIGNMENT')
@@ -81,6 +82,10 @@ async function arrangePfosOrderForRole(
     store.appStore.navigate('/fcs/craft/dyeing/water-soluble-orders')
     return { orderId: order.waterOrderId, factoryId: order.factoryId, userName: user.name }
   }, { targetStatus: status, targetRole: roleId })
+  await expect(page).toHaveURL('/fcs/craft/dyeing/water-soluble-orders')
+  await expect(page.getByTestId('factory-water-soluble-orders-page')).toBeVisible()
+  await expect(page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${arranged.orderId}"]`)).toBeVisible()
+  return arranged
 }
 
 async function openPausedSupervisor(page: Page): Promise<void> {
