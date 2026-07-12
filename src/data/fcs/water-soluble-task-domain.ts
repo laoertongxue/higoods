@@ -124,6 +124,8 @@ type MaterialWaterSolubleTaskArtifact = GeneratedTaskArtifact & Required<Pick<Ge
 function isMaterialWaterSolubleTaskArtifact(artifact: GeneratedTaskArtifact): artifact is MaterialWaterSolubleTaskArtifact {
   return artifact.processCode === 'WATER_SOLUBLE'
     && artifact.artifactType === 'TASK'
+    && !artifact.artifactId.startsWith('DICT-')
+    && !artifact.sourceEntryId.startsWith('DICT-MOCK-')
     && Boolean(artifact.bomItemId?.trim())
     && Boolean(artifact.materialCode?.trim())
     && Boolean(artifact.materialName?.trim())
@@ -150,7 +152,7 @@ function buildOrderFromArtifact(artifact: MaterialWaterSolubleTaskArtifact): Wat
     processCode: 'WATER_SOLUBLE',
     productionOrderId: artifact.orderId,
     productionOrderNo: productionOrder?.productionOrderNo ?? artifact.orderId,
-    techPackVersionId: productionOrder?.selectedTechPackVersionId ?? artifact.techPackId,
+    techPackVersionId: artifact.techPackId,
     bomItemId,
     materialCode: artifact.materialCode,
     materialName: artifact.materialName,

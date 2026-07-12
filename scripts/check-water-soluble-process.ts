@@ -922,10 +922,15 @@ const expectedWaterStatuses = {
 } as const
 assert.deepEqual(WATER_SOLUBLE_STATUS_LABEL, expectedWaterStatuses, '水溶加工单状态中文标签必须完整且稳定')
 
-const generatedWaterTaskArtifacts = productionArtifactGeneration.listGeneratedProductionTaskArtifacts().filter(
+const allGeneratedWaterTaskArtifacts = productionArtifactGeneration.listGeneratedProductionTaskArtifacts().filter(
   (item) => item.artifactType === 'TASK' && item.processCode === 'WATER_SOLUBLE',
 )
-assert(generatedWaterTaskArtifacts.length > 0, '必须存在携带真实 BOM 数据的 WATER_SOLUBLE TASK 演示产物')
+const isDictionaryCoverageArtifact = (artifact: { artifactId: string; sourceEntryId: string }) =>
+  artifact.artifactId.startsWith('DICT-') || artifact.sourceEntryId.startsWith('DICT-MOCK-')
+const generatedWaterTaskArtifacts = allGeneratedWaterTaskArtifacts.filter(
+  (artifact) => !isDictionaryCoverageArtifact(artifact),
+)
+assert(generatedWaterTaskArtifacts.length > 0, '必须存在来自正式技术包 BOM 的非 DICT WATER_SOLUBLE TASK 演示产物')
 generatedWaterTaskArtifacts.forEach((artifact) => {
   assert(artifact.bomItemId, `水溶产物 ${artifact.artifactId} 缺少 BOM 行`)
   assert(artifact.materialCode?.trim(), `水溶产物 ${artifact.artifactId} 缺少物料编码`)
@@ -954,6 +959,13 @@ productionArtifactGeneration.listGeneratedProductionTaskArtifacts()
 resetWaterSolubleDomainForChecks()
 const firstWaterOrders = listWaterSolubleWorkOrders()
 assert.equal(firstWaterOrders.length, generatedWaterTaskArtifacts.length, '每条有效 WATER_SOLUBLE TASK 产物必须投影且不得追加伪造加工单')
+assert(
+  firstWaterOrders.every((item) => !isDictionaryCoverageArtifact({
+    artifactId: item.sourceArtifactId,
+    sourceEntryId: allGeneratedWaterTaskArtifacts.find((artifact) => artifact.artifactId === item.sourceArtifactId)?.sourceEntryId ?? '',
+  })),
+  '水溶加工单的 sourceArtifactId 必须全部来自非 DICT 正式产物',
+)
 assert(firstWaterOrders.every((item) => item.sourceDemandIds.length === 0), '水溶加工单不得生成或关联需求单')
 assert(firstWaterOrders.every((item) => item.processCode === 'WATER_SOLUBLE'), '水溶加工单必须只消费 WATER_SOLUBLE TASK 产物')
 firstWaterOrders.forEach((order) => {
@@ -964,6 +976,16 @@ firstWaterOrders.forEach((order) => {
   assert.equal(order.materialName, artifact.materialName, '加工单物料名称必须原样复制来源产物')
   assert.equal(order.plannedQty, artifact.plannedQty, '加工单计划数量必须原样复制来源产物')
   assert.equal(order.qtyUnit, artifact.plannedUnit, '加工单计划单位必须原样复制来源产物')
+  const productionOrder = productionOrders.find((item) => item.productionOrderId === order.productionOrderId)
+  const formalSnapshot = productionOrder?.techPackSnapshot
+  assert(formalSnapshot, `加工单 ${order.waterOrderId} 缺少正式技术包快照`)
+  assert.equal(order.techPackVersionId, formalSnapshot.sourceTechPackVersionId, '加工单版本必须固定为产物对应正式快照版本')
+  const sourceBomItem = formalSnapshot.bomItems.find((item) => item.id === order.bomItemId)
+  assert(sourceBomItem, `加工单 ${order.waterOrderId} 无法反查正式快照 BOM ${order.bomItemId}`)
+  assert.equal(sourceBomItem.waterSolubleRequirement, '是', '独立水溶加工单来源 BOM 必须选择水溶')
+  assert.equal(sourceBomItem.dyeRequirement, '无', '独立水溶加工单来源 BOM 必须不需染色')
+  assert(Number.isFinite(order.plannedQty) && order.plannedQty > 0, '独立水溶加工单必须保留完整计划数量')
+  assert(order.qtyUnit.trim(), '独立水溶加工单必须保留 BOM 单位')
 })
 assert(firstWaterOrders.some((item) => item.status === 'WAIT_FACTORY_ASSIGNMENT'), '必须包含待分配染厂场景')
 assert.equal(new Set(firstWaterOrders.map((item) => item.generationKey)).size, firstWaterOrders.length, 'generationKey 必须唯一')
@@ -1174,6 +1196,13 @@ try {
   assert(syncedOrder, '新增有效物料产物后必须同步新增水溶加工单')
   syncedOrderId = syncedOrder.waterOrderId
   assert(!syncBaseIds.has(syncedOrder.waterOrderId), '同步新增不得复用无关加工单身份')
+  syncProductionOrder.selectedTechPackVersionId = 'UNPUBLISHED-DRAFT-X'
+  syncWaterSolubleOrderStoreWithArtifacts()
+  assert.equal(
+    getWaterSolubleWorkOrderById(syncedOrder.waterOrderId)?.techPackVersionId,
+    syncSnapshot.sourceTechPackVersionId,
+    '未派厂加工单切换未发布草稿后也必须继续引用产物对应正式快照版本',
+  )
   assert.equal(assignWaterSolubleFactory(syncedOrder.waterOrderId, 'F090').order?.status, 'WAIT_MATERIAL', '同步测试加工单必须可进入执行态')
   syncWaterSolubleOrderStoreWithArtifacts()
   const preservedSyncedOrder = getWaterSolubleWorkOrderById(syncedOrder.waterOrderId)

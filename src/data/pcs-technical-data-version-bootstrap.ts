@@ -192,6 +192,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
       : ['CUT_PANEL', 'SEW']
   const isWaterSolubleDyeDemo = demand.spuCode === 'SPU-TSHIRT-081'
   const waterSolubleDyeBomItemId = `${seed.technicalVersionId}-bom-water-soluble-dye`
+  const waterSolubleOnlyBomItemId = `${seed.technicalVersionId}-bom-water-soluble-only`
   const processEntries = scenario === 'WHOLE_WOOL'
     ? [
         {
@@ -328,8 +329,8 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
           defaultDocType: 'TASK' as const,
           taskTypeMode: 'PROCESS' as const,
           isSpecialCraft: false,
-          linkedBomItemIds: [waterSolubleDyeBomItemId],
-          remark: '该物料由同一染色厂先完成水溶，再连续进入染色。',
+          linkedBomItemIds: [waterSolubleOnlyBomItemId, waterSolubleDyeBomItemId],
+          remark: '仅水溶物料生成独立水溶加工单；同物料还需染色时由同一染色厂连续加工。',
         },
         {
           id: `${seed.technicalVersionId}-process-dye`,
@@ -551,6 +552,22 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
       },
       ...(isWaterSolubleDyeDemo
         ? [{
+            id: waterSolubleOnlyBomItemId,
+            type: '辅料',
+            name: '仅水溶花边',
+            spec: '12 毫米 / 本白',
+            colorLabel: '本白',
+            materialCode: 'MAT-WATER-ONLY-081',
+            unit: '米',
+            unitConsumption: 0.6,
+            lossRate: 0.05,
+            supplier: '生产需求单指定',
+            applicableSkuCodes: [...allSkuCodes],
+            linkedPatternIds: [patternId],
+            usageProcessCodes: ['WATER_SOLUBLE'],
+            waterSolubleRequirement: '是',
+            dyeRequirement: '无',
+          }, {
             id: waterSolubleDyeBomItemId,
             type: '辅料',
             name: '水溶染色花边',
