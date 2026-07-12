@@ -58,6 +58,10 @@ import {
   getQuantityLabel,
 } from './process-quantity-labels.ts'
 import { applyWarehouseLinkageAfterAction } from './process-warehouse-linkage-service.ts'
+import {
+  validateWaterSolublePdaActor,
+  type WaterSolublePdaActor,
+} from './water-soluble-pda-actor.ts'
 
 export type ProcessActionSourceChannel = 'Web 端' | '移动端'
 export type ProcessActionSourceType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
@@ -78,6 +82,7 @@ export interface ProcessActionPayload {
   formData?: Record<string, string | number | boolean | undefined>
   remark?: string
   evidenceUrls?: string[]
+  actor?: WaterSolublePdaActor
 }
 
 export interface ProcessActionWritebackResult {
@@ -870,6 +875,21 @@ export function validateProcessAction(payload: ProcessActionPayload): { ok: bool
   if (!definition) return { ok: false, message: '当前动作未注册，不能写回' }
   const binding = validateBinding(payload.sourceType, payload.sourceId, payload.sourceChannel)
   if (!binding.ok) return { ok: false, message: binding.reason || '加工单与移动端任务绑定无效' }
+  const combinedMobileDyeOrder = payload.sourceChannel === '移动端'
+    && payload.sourceType === 'DYE'
+    && definition.actionCode === 'DYE_FINISH_DYEING'
+    ? getDyeWorkOrderById(payload.sourceId)
+    : undefined
+  if (combinedMobileDyeOrder?.requiresWaterSoluble) {
+    if (payload.taskId !== combinedMobileDyeOrder.taskId) {
+      return { ok: false, message: '当前任务与含水溶染色加工单不一致，不能写回。' }
+    }
+    if (!payload.actor) {
+      return { ok: false, message: '缺少当前操作员身份，请重新登录。' }
+    }
+    const actorError = validateWaterSolublePdaActor(payload.actor, combinedMobileDyeOrder.dyeFactoryId, 'OPERATE')
+    if (actorError) return { ok: false, message: actorError }
+  }
   const snapshot = getProcessActionStatusSnapshot(payload.sourceType, payload.sourceId)
   if (!definition.fromStatuses.includes(snapshot.status)) {
     return { ok: false, message: `当前状态“${snapshot.label}”不能执行“${definition.actionLabel}”` }
@@ -953,12 +973,7 @@ export function executeDyeAction(payload: ProcessActionPayload): Partial<Process
   const operatorName = payload.operatorName || (payload.sourceChannel === '移动端' ? '移动端操作员' : 'Web 端操作员')
   const fields = payload.formData || {}
   const actionCode = normalizeActionCode(payload.actionCode)
-  const isCombinedZeroCompletion = actionCode === 'DYE_FINISH_DYEING'
-    && payload.objectQty === 0
-    && getDyeWorkOrderById(payload.sourceId)?.requiresWaterSoluble === true
-  const qty = isCombinedZeroCompletion
-    ? 0
-    : Number(payload.objectQty || getProcessActionStatusSnapshot('DYE', payload.sourceId).qty || 0)
+  const qty = Number(payload.objectQty ?? getProcessActionStatusSnapshot('DYE', payload.sourceId).qty ?? 0)
 
   if (actionCode === 'DYE_SAMPLE_RECEIVED') {
     completeDyeSampleWait(payload.sourceId, operatorName)

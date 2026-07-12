@@ -5137,6 +5137,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           objectType: '面料',
           objectQty: outputQty,
           qtyUnit: dyeOrder.qtyUnit,
+          actor: session,
         })
         dyeWaterPrimaryActionTokens.delete(dyeOrderId)
         showPdaExecDetailToast('染色完成，已进入脱水')
