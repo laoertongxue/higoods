@@ -57,6 +57,7 @@ import {
   listFactoryPdaUsers,
   updateFactoryPdaUser,
 } from '../src/data/fcs/store-domain-pda.ts'
+import { getProcessActionOperationRecordsByTask } from '../src/data/fcs/process-action-writeback-service.ts'
 import {
   assignWaterSolubleFactory,
   executeWaterSolublePdaAction,
@@ -1059,7 +1060,127 @@ async function main(): Promise<void> {
       /已经开始|重复/,
     )
     assert.deepEqual(getDyeExecutionNodeRecord(combined.dyeOrderId, 'DYE'), dyeNodeAfterStart, '重复开始染色不得修改节点事实')
-    completeDyeing(combined.dyeOrderId, { inputQty: 80, outputQty: 80, operatorName: operator.userName })
+    const beforeOverInputOrder = getDyeWorkOrderById(combined.dyeOrderId)
+    const beforeOverInputNode = getDyeExecutionNodeRecord(combined.dyeOrderId, 'DYE')
+    const beforeOverInputLogs = getProcessActionOperationRecordsByTask(combined.taskId)
+    assert.throws(
+      () => completeDyeing(combined.dyeOrderId, { inputQty: 100, outputQty: 81, operatorName: operator.userName }),
+      /不能超过.*投入|完成数量.*投入/,
+      '染色产出 81 不能超过真实投入 80',
+    )
+    assert.deepEqual(getDyeWorkOrderById(combined.dyeOrderId), beforeOverInputOrder, '产出超过真实投入失败不得修改加工单状态')
+    assert.deepEqual(getDyeExecutionNodeRecord(combined.dyeOrderId, 'DYE'), beforeOverInputNode, '产出超过真实投入失败不得修改染色节点')
+    assert.deepEqual(getProcessActionOperationRecordsByTask(combined.taskId), beforeOverInputLogs, '产出超过真实投入失败不得新增操作日志')
+
+    const adminUser = listFactoryPdaUsers(combined.dyeFactoryId).find((item) => item.status === 'ACTIVE' && item.roleId === 'ROLE_ADMIN')
+    assert(adminUser, '含水溶染色完成防护必须有本厂管理员账号用于越权测试')
+    const admin = createPdaSessionFromUser(adminUser)
+    const completionSnapshot = () => ({
+      order: getDyeWorkOrderById(combined.dyeOrderId),
+      node: getDyeExecutionNodeRecord(combined.dyeOrderId, 'DYE'),
+      logs: getProcessActionOperationRecordsByTask(combined.taskId),
+    })
+    const makeCompletionTarget = (token: string, overrides: Record<string, string> = {}) => {
+      const node = {
+        dataset: {
+          pdaExecdAction: 'dye-complete-dye',
+          dyeOrderId: combined.dyeOrderId,
+          taskId: combined.taskId,
+          expectedStatus: 'DYEING',
+          expectedNode: 'DYE',
+          actionToken: token,
+          ...overrides,
+        },
+        disabled: false,
+        isConnected: true,
+        textContent: '完成染色',
+      }
+      return { closest: (selector: string) => selector === '[data-pda-execd-action]' ? node : null } as unknown as HTMLElement
+    }
+    const getCompletionToken = () => {
+      const html = renderPdaExecDetailPage(combined.taskId)
+      const match = html.match(/data-pda-execd-action="dye-complete-dye"[\s\S]{0,1200}?data-action-token="([^"]+)"/)
+      assert(match, '含水溶染色完成按钮必须提供真实一次性动作令牌')
+      return match[1]
+    }
+    const originalWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window')
+    const originalDocumentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document')
+    const promptDefaults: string[] = []
+    let promptAnswers: string[] = []
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: undefined })
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        location: { search: '', pathname: `/fcs/pda/exec/${encodeURIComponent(combined.taskId)}` },
+        history: { pushState: () => undefined, replaceState: () => undefined },
+        prompt: (_message: string, defaultValue?: string) => {
+          promptDefaults.push(String(defaultValue ?? ''))
+          return promptAnswers.shift() ?? String(defaultValue ?? '')
+        },
+      },
+    })
+    try {
+      appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(combined.taskId)}`)
+      memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+      const initialToken = getCompletionToken()
+
+      memoryStorage.delete('fcs_pda_session')
+      const beforeNoSessionCompletion = completionSnapshot()
+      assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(initialToken)), true, '无 session 的组合染色完成请求必须被 handler 消费')
+      assert.deepEqual(completionSnapshot(), beforeNoSessionCompletion, '无 session 拒绝不得修改状态、节点或日志')
+
+      memoryStorage.set('fcs_pda_session', JSON.stringify(admin))
+      const beforeAdminCompletion = completionSnapshot()
+      assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(initialToken)), true, '管理员组合染色完成请求必须被 handler 消费')
+      assert.deepEqual(completionSnapshot(), beforeAdminCompletion, '管理员不得代替普通操作员完成组合染色')
+
+      memoryStorage.set('fcs_pda_session', JSON.stringify(handoverActor))
+      const beforeHandoverCompletion = completionSnapshot()
+      assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(initialToken)), true, '交接员组合染色完成请求必须被 handler 消费')
+      assert.deepEqual(completionSnapshot(), beforeHandoverCompletion, '交接员不得完成组合染色')
+
+      const otherTask = listDyeWorkOrders().find((item) => item.taskId !== combined.taskId && item.dyeFactoryId === combined.dyeFactoryId)
+      assert(otherTask, '必须存在同厂任务 A 验证注入组合染色任务 B')
+      memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+      appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(otherTask.taskId)}`)
+      const beforeWrongPageCompletion = completionSnapshot()
+      assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(initialToken)), true, '任务 A 页面注入任务 B 完成请求必须被 handler 消费')
+      assert.deepEqual(completionSnapshot(), beforeWrongPageCompletion, '同厂任务 A 页面不得注入任务 B 完成染色')
+
+      appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(combined.taskId)}`)
+      const staleToken = getCompletionToken()
+      const currentToken = getCompletionToken()
+      assert.notEqual(currentToken, staleToken, '组合染色完成令牌必须每次渲染更新，旧令牌不能复用')
+      const beforeStaleTokenCompletion = completionSnapshot()
+      assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(staleToken)), true, '旧令牌请求必须被 handler 消费')
+      assert.deepEqual(completionSnapshot(), beforeStaleTokenCompletion, '旧令牌不得修改状态、节点或日志')
+
+      promptDefaults.length = 0
+      promptAnswers = ['80', '81']
+      const beforeHandlerOverInput = completionSnapshot()
+      assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(currentToken)), true, '产出 81 的组合染色请求必须由真实 handler 阻断')
+      assert.deepEqual(completionSnapshot(), beforeHandlerOverInput, '真实 handler 产出超投入失败不得修改状态、节点或日志')
+      assert.deepEqual(promptDefaults, ['80', '80'], '短量继续后完成染色的两个输入默认值都必须来自 DYE 节点真实投入 80')
+
+      promptDefaults.length = 0
+      promptAnswers = ['80', '80']
+      assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(currentToken)), true, '失败后必须可用页面原按钮和同一令牌改正为 80 完成组合染色')
+      const completedDyeNode = getDyeExecutionNodeRecord(combined.dyeOrderId, 'DYE')
+      assert.equal(getDyeWorkOrderById(combined.dyeOrderId)?.status, 'DEHYDRATING', '完成染色后必须进入脱水')
+      assert.equal(completedDyeNode?.inputQty, 80, '完成染色不得被输入框或计划量改写真实投入')
+      assert.equal(completedDyeNode?.outputQty, 80)
+      assert.equal(completedDyeNode?.lossQty, 0, '染色损耗不得为负数')
+      assert.deepEqual(promptDefaults, ['80', '80'], '成功完成时两个输入默认值仍必须是 DYE 节点真实投入')
+
+      const afterSuccessfulCompletion = completionSnapshot()
+      assert.equal(handlePdaExecDetailEvent(makeCompletionTarget(currentToken)), true, '双击/重复提交必须由 handler 消费并拒绝')
+      assert.deepEqual(completionSnapshot(), afterSuccessfulCompletion, '双击/重复提交不得二次修改状态、节点或日志')
+    } finally {
+      if (originalWindowDescriptor) Object.defineProperty(globalThis, 'window', originalWindowDescriptor)
+      else Reflect.deleteProperty(globalThis, 'window')
+      if (originalDocumentDescriptor) Object.defineProperty(globalThis, 'document', originalDocumentDescriptor)
+      else Reflect.deleteProperty(globalThis, 'document')
+    }
     for (const nodeCode of ['DEHYDRATE', 'DRY', 'SET', 'ROLL'] as const) {
       startDyeNode(combined.dyeOrderId, nodeCode, operator.userName)
       const startedNode = getDyeExecutionNodeRecord(combined.dyeOrderId, nodeCode)

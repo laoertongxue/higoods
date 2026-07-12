@@ -3055,6 +3055,21 @@ export function completeDyeing(
   if (!current?.dyeVatNo?.trim()) {
     throw new Error('染色开始必须记录染缸编号')
   }
+  const actualInputQty = current.inputQty
+  if (!Number.isFinite(actualInputQty) || Number(actualInputQty) < 0) {
+    throw new Error('染色节点缺少有效投入数量，请先重新确认染色投入。')
+  }
+  const outputQty = Number.isFinite(input.outputQty)
+    ? Number(input.outputQty)
+    : order.requiresWaterSoluble
+      ? Number.NaN
+      : Number(current.outputQty || order.plannedQty)
+  if (!Number.isFinite(outputQty) || outputQty < 0) {
+    throw new Error('请输入大于或等于 0 的有效染色完成数量。')
+  }
+  if (outputQty > Number(actualInputQty)) {
+    throw new Error(`染色完成数量不能超过真实投入 ${actualInputQty} ${getQtyUnit(order)}。`)
+  }
   const now = nowTimestamp()
   upsertNodeRecord(dyeOrderId, 'DYE', () => ({
     nodeRecordId: current.nodeRecordId,
@@ -3068,11 +3083,9 @@ export function completeDyeing(
     finishedAt: now,
     dyeVatId: current.dyeVatId,
     dyeVatNo: current.dyeVatNo,
-    inputQty: Number.isFinite(input.inputQty) ? Number(input.inputQty) : current.inputQty || order.plannedQty,
-    outputQty: Number.isFinite(input.outputQty) ? Number(input.outputQty) : current.outputQty || order.plannedQty,
-    lossQty:
-      (Number.isFinite(input.inputQty) ? Number(input.inputQty) : current.inputQty || order.plannedQty)
-      - (Number.isFinite(input.outputQty) ? Number(input.outputQty) : current.outputQty || order.plannedQty),
+    inputQty: Number(actualInputQty),
+    outputQty,
+    lossQty: Number(actualInputQty) - outputQty,
     qtyUnit: getQtyUnit(order),
     remark: '染色完成，进入脱水',
   }))
