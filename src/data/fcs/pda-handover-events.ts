@@ -70,6 +70,10 @@ import {
   submitWaterSolubleHandover,
   writeBackWaterSolubleReceipt,
 } from './water-soluble-task-domain.ts'
+import {
+  validateWaterSolublePdaActor,
+  type WaterSolublePdaActor,
+} from './water-soluble-pda-actor.ts'
 
 export type HandoverAction = 'PICKUP' | 'HANDOUT'
 export type HandoverStatus = 'PENDING' | 'CONFIRMED'
@@ -4222,6 +4226,7 @@ export function createFactoryHandoverRecord(input: {
   pieceName?: string
   cutPieceLines?: PdaCutPieceHandoutLine[]
   scanCode?: string
+  actor?: WaterSolublePdaActor
 }): PdaHandoverRecord {
   const head = getHandoverOrderById(input.handoverOrderId)
   if (!head || head.headType !== 'HANDOUT') {
@@ -4233,11 +4238,19 @@ export function createFactoryHandoverRecord(input: {
   if (!Number.isFinite(input.submittedQty) || input.submittedQty <= 0) {
     throw new Error('交出数量必须是大于 0 的有限数字')
   }
-  const waterOrder = head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER'
+  const isWaterSolubleHead = head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER'
+  const waterOrder = isWaterSolubleHead
     ? getWaterSolubleWorkOrderByTaskId(head.taskId)
     : null
-  if (waterOrder) {
-    const scanError = input.scanCode === undefined ? null : validateWaterSolubleHandoverScan(head, input.scanCode)
+  if (isWaterSolubleHead) {
+    if (!waterOrder || waterOrder.waterOrderId !== head.sourceDocId) {
+      throw new Error('水溶加工单与当前交出单不一致，不能交出。')
+    }
+    if (!input.actor) throw new Error('水溶交出缺少当前登录交接身份，不能操作。')
+    const actorError = validateWaterSolublePdaActor(input.actor, waterOrder.factoryId, 'HANDOVER')
+    if (actorError) throw new Error(actorError)
+    if (!input.scanCode?.trim()) throw new Error('请扫描当前任务码、水溶加工单号或物料码。')
+    const scanError = validateWaterSolubleHandoverScan(head, input.scanCode)
     if (scanError) throw new Error(scanError)
     if (getPdaHandoverRecordsByHead(head.handoverId).length > 0 || waterOrder.status !== 'WAIT_HANDOVER') {
       throw new Error('该水溶加工单已交出，请勿重复提交。')

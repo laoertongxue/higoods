@@ -219,8 +219,6 @@ function openWaterHandoverConfirm(head: PdaHandoverHead): { ok: boolean; message
 }
 
 function validateWaterHandoverConfirm(head: PdaHandoverHead, token: string | undefined): { ok: boolean; message: string } {
-  const access = getWaterHandoverAccess(head)
-  if (!access.ok || !access.actorUserId) return { ok: false, message: access.message }
   const confirm = detailState.waterHandoverConfirm
   const order = getWaterSolubleWorkOrderByTaskId(head.taskId)
   if (
@@ -231,10 +229,14 @@ function validateWaterHandoverConfirm(head: PdaHandoverHead, token: string | und
     || confirm.orderId !== order?.waterOrderId
     || confirm.taskId !== head.taskId
     || confirm.factoryId !== head.factoryId
-    || confirm.actorUserId !== access.actorUserId
     || confirm.approvedQty !== order?.handoverQty
     || confirm.expectedStatus !== order?.status
   ) {
+    return { ok: false, message: '当前水溶交出确认已失效，请重新打开确认。' }
+  }
+  const access = getWaterHandoverAccess(head)
+  if (!access.ok || !access.actorUserId) return { ok: false, message: access.message }
+  if (confirm.actorUserId !== access.actorUserId) {
     return { ok: false, message: '当前水溶交出确认已失效，请重新打开确认。' }
   }
   return { ok: true, message: '' }
@@ -2388,6 +2390,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
         factoryProofFiles: [],
         objectType: detailState.newRecordObjectType,
         scanCode,
+        actor: isWaterSolubleHandoverHead(head) ? getPdaSession() || undefined : undefined,
       })
 
       appendTaskAudit(

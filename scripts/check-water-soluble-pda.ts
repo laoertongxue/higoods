@@ -776,6 +776,8 @@ async function main(): Promise<void> {
       qtyUnit: '打',
       factorySubmittedAt: '2026-07-11 11:59:00',
       factorySubmittedBy: handoverActor.userName,
+      actor: handoverActor,
+      scanCode: executableOrder.materialCode,
     }), /原 BOM 单位|单位/)
     assert.deepEqual(getWaterSolubleWorkOrderById(executableOrder.waterOrderId), beforeForgedUnit, '伪造单位失败不得修改水溶领域')
     assert.equal(getPdaHandoverRecordsByHead(waterHandoverHead.handoverId).length, 0, '伪造单位失败不得生成通用交出记录')
@@ -784,12 +786,16 @@ async function main(): Promise<void> {
       submittedQty: (approvedOrder.handoverQty ?? 0) - 1,
       factorySubmittedAt: '2026-07-11 12:00:00',
       factorySubmittedBy: handoverActor.userName,
+      actor: handoverActor,
+      scanCode: executableOrder.materialCode,
     }), /批准数量|部分交出/)
     const waterRecord = createFactoryHandoverRecord({
       handoverOrderId: ensuredWaterHandover.handoverOrderId,
       submittedQty: approvedOrder.handoverQty!,
       factorySubmittedAt: '2026-07-11 12:01:00',
       factorySubmittedBy: handoverActor.userName,
+      actor: handoverActor,
+      scanCode: executableOrder.materialCode,
     })
     assert.equal(waterRecord.qtyUnit, executableOrder.qtyUnit, '合法交出记录必须强制使用原 BOM 单位')
     assert.equal(getWaterSolubleWorkOrderById(executableOrder.waterOrderId)?.status, 'HANDOVER_WAIT_RECEIVE')
@@ -804,6 +810,8 @@ async function main(): Promise<void> {
       submittedQty: approvedOrder.handoverQty!,
       factorySubmittedAt: '2026-07-11 12:02:00',
       factorySubmittedBy: handoverActor.userName,
+      actor: handoverActor,
+      scanCode: executableOrder.materialCode,
     }), /已交出|重复|已完成/)
     const beforeInvalidWritebackOrder = getWaterSolubleWorkOrderById(executableOrder.waterOrderId)
     const beforeInvalidWritebackHead = getHandoverOrderById(ensuredWaterHandover.handoverOrderId)
@@ -899,7 +907,7 @@ async function main(): Promise<void> {
     assert.equal(executeWaterSolublePdaAction({ action: 'COMPLETE', orderId: handoverRoleOrder.waterOrderId, taskId: handoverRoleOrder.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'COMPLETE', completedQty: handoverRoleOrder.plannedQty, reason: '', actor: operator }).ok, true)
     memoryStorage.set('fcs_pda_session', JSON.stringify(handoverActor))
     const handoverRoleHead = ensureHandoverOrderForStartedTask(handoverRoleOrder.taskId)
-    const handoverRoleRecord = createFactoryHandoverRecord({ handoverOrderId: handoverRoleHead.handoverOrderId, submittedQty: handoverRoleOrder.plannedQty, factorySubmittedAt: '2026-07-11 13:00:00', factorySubmittedBy: handoverActor.userName })
+    const handoverRoleRecord = createFactoryHandoverRecord({ handoverOrderId: handoverRoleHead.handoverOrderId, submittedQty: handoverRoleOrder.plannedQty, factorySubmittedAt: '2026-07-11 13:00:00', factorySubmittedBy: handoverActor.userName, actor: handoverActor, scanCode: handoverRoleOrder.materialCode })
     assert.equal(getWaterSolubleWorkOrderById(handoverRoleOrder.waterOrderId)?.status, 'HANDOVER_WAIT_RECEIVE')
     writeBackHandoverRecord({ handoverRecordId: handoverRoleRecord.recordId, receiverWrittenQty: handoverRoleOrder.plannedQty, receiverWrittenAt: '2026-07-11 13:10:00', receiverWrittenBy: '接收方扫码员' })
     assert.equal(getWaterSolubleWorkOrderById(handoverRoleOrder.waterOrderId)?.status, 'DONE')
