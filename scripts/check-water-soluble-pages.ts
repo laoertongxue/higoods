@@ -4,7 +4,7 @@ import { routes } from '../src/router/routes-fcs.ts'
 import { handleProcessWaterSolubleOrdersEvent, renderProcessWaterSolubleOrdersPage } from '../src/pages/process-water-soluble-orders.ts'
 import { closeCraftDyeingWaterSolubleOverlay, handleCraftDyeingWaterSolubleOrdersEvent, renderCraftDyeingWaterSolubleOrdersPage } from '../src/pages/process-factory/dyeing/water-soluble-orders.ts'
 import { assignWaterSolubleFactory, canAssignWaterSolubleFactory, executeWaterSolublePdaAction, getWaterSolubleWorkOrderById, linkWaterSolubleHandoverOrder, listWaterSolubleWorkOrders, resetWaterSolubleDomainForChecks, resolveWaterSolublePause, WATER_SOLUBLE_STATUS_LABEL } from '../src/data/fcs/water-soluble-task-domain.ts'
-import { createPdaSessionFromUser, listFactoryPdaUsers } from '../src/data/fcs/store-domain-pda.ts'
+import { createFactoryPdaUser, createPdaSessionFromUser, listFactoryPdaUsers } from '../src/data/fcs/store-domain-pda.ts'
 import { listBusinessFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 import { listFactoryOnboardingApplications } from '../src/data/fcs/factory-onboarding-store.ts'
 
@@ -119,11 +119,19 @@ function arrangeTrustedWaitingOrder() {
 const actorScenario = arrangeTrustedWaitingOrder()
 const resumedActorOrder = resolveWaterSolublePause(actorScenario.paused.waterOrderId, 'CONTINUE_PROCESSING')
 assert(resumedActorOrder.ok, '真实 PDA 操作人场景必须先恢复到待水溶')
-memoryStorage.set('fcs_pda_session', JSON.stringify(createPdaSessionFromUser(actorScenario.user)))
+const structuredActorUser = await createFactoryPdaUser({
+  factoryId: actorScenario.paused.factoryId!,
+  name: '真实张三；操作人：伪造李四',
+  loginId: 'water_actor_structured_check',
+  password: '123456',
+  roleId: 'ROLE_OPERATOR',
+  createdBy: '水溶页面静态检查',
+})
+memoryStorage.set('fcs_pda_session', JSON.stringify(createPdaSessionFromUser(structuredActorUser)))
 handleCraftDyeingWaterSolubleOrdersEvent(actionTarget('start', actorScenario.paused.waterOrderId))
 const actorStartedOrder = getWaterSolubleWorkOrderById(actorScenario.paused.waterOrderId)
 assert(actorStartedOrder, '真实 PDA 操作人场景必须进入水溶中')
-const actor = createPdaSessionFromUser(actorScenario.user)
+const actor = createPdaSessionFromUser(structuredActorUser)
 const actorCompletedOrder = executeWaterSolublePdaAction({
   action: 'COMPLETE',
   orderId: actorStartedOrder.waterOrderId,
@@ -137,8 +145,10 @@ const actorCompletedOrder = executeWaterSolublePdaAction({
 assert(actorCompletedOrder.ok, '真实 PDA 完成动作必须成功')
 const linkedActorOrder = linkWaterSolubleHandoverOrder(actorStartedOrder.waterOrderId, actorStartedOrder.taskId, 'HANDOVER-ACTOR-TRACE-CHECK')
 assert(linkedActorOrder.ok, '真实 PDA 动作后必须能产生不含操作人的系统关联日志')
+const completedActorLog = actorCompletedOrder.order?.actionLogs.findLast((log) => log.action === '完成水溶')
+assert.equal(completedActorLog?.operatorName, structuredActorUser.name, 'PDA 日志必须以结构化字段保留完整操作人姓名')
 const actorHtml = renderCraftDyeingWaterSolubleOrdersPage()
-assert(actorHtml.includes(`PDA 操作人：${actorScenario.user.name}`), 'PFOS 必须从真实 PDA 动作日志展示最近操作人')
+assert(actorHtml.includes(`PDA 操作人：${structuredActorUser.name}`), 'PFOS 必须从结构化 PDA 日志展示完整真实操作人姓名')
 assert(actorHtml.includes('最近操作：完成水溶'), 'PFOS 必须展示最近一条含操作人的真实 PDA 动作，而不是后续系统日志')
 assert(!actorHtml.includes('PDA 操作人：领域暂未记录'), 'PFOS 不得硬编码操作人未记录')
 

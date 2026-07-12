@@ -53,6 +53,7 @@ async function arrangePfosOrderForRole(
   page: Page,
   status: 'WAIT_MATERIAL' | 'WAIT_WATER_SOLUBLE' | 'WATER_SOLUBLE_IN_PROGRESS' | 'PRODUCTION_PAUSED' | 'WAIT_HANDOVER',
   roleId: 'ROLE_OPERATOR' | 'ROLE_PRODUCTION' | 'ROLE_HANDOVER' | 'ROLE_ADMIN',
+  actorName?: string,
 ): Promise<{ orderId: string; factoryId: string; userName: string }> {
   if (page.url() === 'about:blank') await page.goto('/')
   if (new URL(page.url()).pathname !== '/fcs/craft/dyeing/water-soluble-orders') {
@@ -60,7 +61,7 @@ async function arrangePfosOrderForRole(
     await expect(page).toHaveURL('/fcs/craft/dyeing/water-soluble-orders')
   }
   await expect(page.getByTestId('factory-water-soluble-orders-page')).toBeVisible()
-  const arranged = await page.evaluate(async ({ targetStatus, targetRole }) => {
+  const arranged = await page.evaluate(async ({ targetStatus, targetRole, requestedActorName }) => {
     const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
     const pda = await import(/* @vite-ignore */ '/src/data/fcs/store-domain-pda.ts')
     const pageView = await import(/* @vite-ignore */ '/src/pages/process-factory/dyeing/water-soluble-orders.ts')
@@ -81,14 +82,16 @@ async function arrangePfosOrderForRole(
       order = result.order
     }
     if (!order?.factoryId || order.status !== targetStatus) throw new Error(`无法构造 ${targetStatus} 水溶单`)
-    const user = pda.listFactoryPdaUsers(order.factoryId).find((item) => item.status === 'ACTIVE' && item.roleId === targetRole)
-      || await pda.createFactoryPdaUser({ factoryId: order.factoryId, name: `任务3-${targetRole}`, loginId: `${order.factoryId}_task3_${targetRole}`, password: '123456', roleId: targetRole, createdBy: 'Playwright任务3' })
+    const user = requestedActorName
+      ? await pda.createFactoryPdaUser({ factoryId: order.factoryId, name: requestedActorName, loginId: `${order.factoryId}_structured_actor_${Date.now()}`, password: '123456', roleId: targetRole, createdBy: 'Playwright结构化操作人检查' })
+      : pda.listFactoryPdaUsers(order.factoryId).find((item) => item.status === 'ACTIVE' && item.roleId === targetRole)
+        || await pda.createFactoryPdaUser({ factoryId: order.factoryId, name: `任务3-${targetRole}`, loginId: `${order.factoryId}_task3_${targetRole}`, password: '123456', roleId: targetRole, createdBy: 'Playwright任务3' })
     localStorage.setItem('fcs_pda_session', JSON.stringify(pda.createPdaSessionFromUser(user)))
     const main = document.querySelector<HTMLElement>('main')
     if (!main) throw new Error('缺少页面主区域，无法刷新 PFOS 水溶页面')
     main.innerHTML = pageView.renderCraftDyeingWaterSolubleOrdersPage()
     return { orderId: order.waterOrderId, factoryId: order.factoryId, userName: user.name }
-  }, { targetStatus: status, targetRole: roleId })
+  }, { targetStatus: status, targetRole: roleId, requestedActorName: actorName })
   await expect(page).toHaveURL('/fcs/craft/dyeing/water-soluble-orders')
   await expect(page.getByTestId('factory-water-soluble-orders-page')).toBeVisible()
   const card = page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${arranged.orderId}"]`)
@@ -161,7 +164,7 @@ test('FCS 使用领域真实任务号和交接单号进入执行事实', async (
 })
 
 test('PFOS 真实 PDA 动作后展示最近操作人、动作和时间', async ({ page }) => {
-  const arranged = await arrangePfosOrderForRole(page, 'WAIT_WATER_SOLUBLE', 'ROLE_OPERATOR')
+  const arranged = await arrangePfosOrderForRole(page, 'WAIT_WATER_SOLUBLE', 'ROLE_OPERATOR', '真实张三；操作人：伪造李四')
   const card = page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${arranged.orderId}"]`)
   await card.getByRole('button', { name: '开始水溶' }).click()
   await expect(card).toContainText(`PDA 操作人：${arranged.userName}`)

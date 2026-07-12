@@ -40,6 +40,7 @@ export interface WaterSolubleActionLog {
   action: string
   detail: string
   at: string
+  operatorName?: string
 }
 
 export interface WaterSolubleWorkOrder {
@@ -401,6 +402,7 @@ function attachWaterSolublePdaActor(result: WaterSolubleActionResult, actor: Wat
   const order = result.order ? findMutableOrder(result.order.waterOrderId) : undefined
   const lastLog = order?.actionLogs.at(-1)
   if (!order || !lastLog) return result
+  lastLog.operatorName = actor.userName
   lastLog.detail = `${lastLog.detail}；操作人：${actor.userName}`
   return { ...result, order: cloneOrder(order) }
 }

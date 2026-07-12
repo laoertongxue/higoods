@@ -106,11 +106,9 @@ function difference(order: WaterSolubleWorkOrder): string {
 }
 
 function lastLog(order: WaterSolubleWorkOrder): { actor: string; summary: string } {
-  const log = [...order.actionLogs].reverse().find((item) => /(?:^|；)操作人：([^；]+)/.test(item.detail))
+  const log = [...order.actionLogs].reverse().find((item) => item.operatorName?.trim())
   if (!log) return { actor: '暂未记录', summary: '暂未记录' }
-  const actorMatches = [...log.detail.matchAll(/(?:^|；)操作人：([^；]+)/g)]
-  const actor = actorMatches.at(-1)?.[1]?.trim() || '暂未记录'
-  return { actor: escapeHtml(actor), summary: `${escapeHtml(log.action)} · ${escapeHtml(log.at)}` }
+  return { actor: escapeHtml(log.operatorName!.trim()), summary: `${escapeHtml(log.action)} · ${escapeHtml(log.at)}` }
 }
 
 function getRoleActionForStatus(status: WaterSolubleWorkOrder['status']): WaterSolublePdaRoleAction | null {
