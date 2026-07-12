@@ -18,6 +18,7 @@ import {
   getRuntimeTaskById,
   isRuntimeTaskExecutionTask,
   listRuntimeExecutionTasks,
+  listRuntimeProcessTasks,
   listRuntimeTasksByBaseTaskId,
   type RuntimeProcessTask,
 } from './runtime-process-tasks.ts'
@@ -43,6 +44,11 @@ import {
   getPdaPickupHeads,
   getPdaPickupRecordsByHead,
 } from './pda-handover-events.ts'
+import {
+  listSewingDeliverySlaViews,
+  type SewingDeliverySlaView,
+} from './sewing-delivery-sla-view.ts'
+import { listAllSewingDeliverySlaSnapshots } from './sewing-delivery-sla.ts'
 
 // =============================================
 // ExceptionCase 相关
@@ -830,6 +836,7 @@ export interface ProgressFact {
   executionDocs: WarehouseExecutionDoc[]
   pickupHeadIds: string[]
   handoutHeadIds: string[]
+  sewingDeliverySla?: SewingDeliverySlaView
   startReadiness: {
     canStart: boolean
     reasonCode:
@@ -840,6 +847,55 @@ export interface ProgressFact {
       | 'WAIT_EXECUTION_DOC'
     reasonText: string
   }
+}
+
+export interface HistoricalSewingAssignmentProgressFact {
+  historical: true
+  runtimeTaskId: string
+  productionOrderId: string
+  factoryId: string
+  factoryName: string
+  assignedQty: number
+  replacedByAssignmentId: string
+  replacedByRuntimeTaskId?: string
+  reassignedAt?: string
+  sewingDeliverySla: SewingDeliverySlaView
+}
+
+export function listHistoricalSewingAssignmentProgressFacts(): HistoricalSewingAssignmentProgressFact[] {
+  const snapshots = listAllSewingDeliverySlaSnapshots()
+  const snapshotByAssignmentId = new Map(snapshots.map((snapshot) => [snapshot.assignmentId, snapshot]))
+  const inactiveTaskIds = new Set(
+    listRuntimeProcessTasks()
+      .filter((task) => task.executionEnabled === false)
+      .map((task) => task.taskId),
+  )
+  const historicalSnapshotByTaskId = new Map(
+    snapshots
+      .filter((snapshot) => !snapshot.active && Boolean(snapshot.replacedByAssignmentId) && inactiveTaskIds.has(snapshot.runtimeTaskId))
+      .map((snapshot) => [snapshot.runtimeTaskId, snapshot] as const),
+  )
+  const historicalViewByTaskId = new Map(
+    listSewingDeliverySlaViews(undefined, Array.from(historicalSnapshotByTaskId.keys()))
+      .map((view) => [view.runtimeTaskId, view] as const),
+  )
+  return Array.from(historicalSnapshotByTaskId.values()).flatMap((snapshot) => {
+    const sewingDeliverySla = historicalViewByTaskId.get(snapshot.runtimeTaskId)
+    if (!sewingDeliverySla) return []
+    const replacement = snapshotByAssignmentId.get(snapshot.replacedByAssignmentId)
+    return [{
+      historical: true as const,
+      runtimeTaskId: snapshot.runtimeTaskId,
+      productionOrderId: snapshot.productionOrderId,
+      factoryId: snapshot.factoryId,
+      factoryName: snapshot.factoryName,
+      assignedQty: snapshot.assignedQty,
+      replacedByAssignmentId: snapshot.replacedByAssignmentId,
+      replacedByRuntimeTaskId: replacement?.runtimeTaskId,
+      reassignedAt: replacement?.acceptedAt,
+      sewingDeliverySla,
+    }]
+  })
 }
 
 export interface ProgressMaterialIssueRow {
@@ -1114,10 +1170,14 @@ function evaluateRuntimeStartReadiness(task: RuntimeProcessTask): ProgressFact['
 export function listProgressFacts(): ProgressFact[] {
   const pickupHeads = getPdaPickupHeads()
   const handoutHeads = getPdaHandoutHeads()
+  const sewingDeliverySlaByTaskId = new Map(
+    listSewingDeliverySlaViews().map((view) => [view.runtimeTaskId, view] as const),
+  )
 
   return listRuntimeExecutionTasks().map((task) => {
     const executionDocs = listWarehouseExecutionDocsByRuntimeTaskId(task.taskId)
     const requests = getRequestsByRuntimeTask(task)
+    const sewingDeliverySla = sewingDeliverySlaByTaskId.get(task.taskId)
     return {
       artifactId: task.sourceEntryId ? `TASKART-${task.productionOrderId}-${task.sourceEntryId}` : undefined,
       artifactType: 'TASK',
@@ -1151,6 +1211,7 @@ export function listProgressFacts(): ProgressFact[] {
       executionDocs,
       pickupHeadIds: pickupHeads.filter((head) => head.runtimeTaskId === task.taskId).map((head) => head.handoverId),
       handoutHeadIds: handoutHeads.filter((head) => head.runtimeTaskId === task.taskId).map((head) => head.handoverId),
+      ...(sewingDeliverySla ? { sewingDeliverySla } : {}),
       startReadiness: evaluateRuntimeStartReadiness(task),
     }
   })

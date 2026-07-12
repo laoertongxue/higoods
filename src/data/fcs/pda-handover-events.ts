@@ -18,12 +18,22 @@ import {
   isPostCapacityNode,
   type ProcessAssignmentGranularity,
 } from './process-craft-dict.ts'
-import {
-  getRuntimeTaskById,
-  type RuntimeExecutorKind,
-  type RuntimeProcessTask,
-  type RuntimeTaskScopeType,
+import type {
+  RuntimeExecutorKind,
+  RuntimeProcessTask,
+  RuntimeTaskScopeType,
 } from './runtime-process-tasks.ts'
+import { readRuntimeTaskById } from './runtime-task-read-bridge.ts'
+import {
+  handoverHeadAdditions,
+  handoutRecordAdditions,
+  handoutRecordOverrides,
+  handoutRecordVersionHistory,
+  installCompleteHandoutReaders,
+} from './pda-handover-handout-registry.ts'
+
+const getRuntimeTaskById = (taskId: string): RuntimeProcessTask | null =>
+  readRuntimeTaskById<RuntimeProcessTask>(taskId)
 import {
   getPdaGenericHandoutRecordSeedsByHeadId,
   getPdaGenericPickupRecordSeedsByHeadId,
@@ -421,6 +431,8 @@ export interface PdaHandoverRecord {
   factoryProofFiles: HandoverProofFile[]
   status: HandoverRecordStatus
   handoverRecordStatus?: HandoverRecordLifecycleStatus
+  // 生命周期版本时间：任何现有接收方实收回写都必须同步推进，用于按时点选择最新事实版本。
+  lifecycleUpdatedAt?: string
   handoverRecordQrValue?: string
   warehouseReturnNo?: string
   warehouseWrittenQty?: number
@@ -542,11 +554,23 @@ export interface PdaHandoverSummary {
   objectionCount: number
 }
 
-const handoverHeadAdditions = new Map<string, PdaHandoverHead>()
+export interface PdaHandoverStateSnapshot {
+  handoverHeadAdditions: Array<[string, PdaHandoverHead]>
+  pickupRecordAdditions: Array<[string, PdaPickupRecord[]]>
+  handoutRecordAdditions: Array<[string, PdaHandoverRecord[]]>
+  pickupRecordOverrides: Array<[string, Partial<PdaPickupRecord>]>
+  handoutRecordOverrides: Array<[string, Partial<PdaHandoverRecord>]>
+  handoutRecordVersionHistory: Array<[string, PdaHandoverRecord[]]>
+  headCompletionOverrides: Array<[
+    string,
+    { completionStatus: PdaHeadCompletionStatus; completedByWarehouseAt?: string },
+  ]>
+  cachedBuiltHeads: PdaHandoverHead[] | null
+  cachedPostFinishingBuiltHeads: PdaHandoverHead[] | null
+}
+
 const pickupRecordAdditions = new Map<string, PdaPickupRecord[]>()
-const handoutRecordAdditions = new Map<string, PdaHandoverRecord[]>()
 const pickupRecordOverrides = new Map<string, Partial<PdaPickupRecord>>()
-const handoutRecordOverrides = new Map<string, Partial<PdaHandoverRecord>>()
 const headCompletionOverrides = new Map<
   string,
   { completionStatus: PdaHeadCompletionStatus; completedByWarehouseAt?: string }
@@ -696,7 +720,9 @@ function hydrateHandoverRecordDomain(
   const submittedQty = resolveSubmittedQty(record)
   const receiverWrittenQty = resolveReceiverWrittenQty(record)
   const receiverWrittenAt = resolveReceiverWrittenAt(record)
-  const handoverRecordStatus = mapRecordLifecycleStatus(record)
+  const handoverRecordStatus = record.handoverRecordStatus === 'VOIDED'
+    ? 'VOIDED'
+    : mapRecordLifecycleStatus(record)
   const diffQty = deriveDiffQty(record)
 
   return {
@@ -1243,6 +1269,59 @@ const PDA_MOCK_CUTTING_FACTORY_ID = TEST_FACTORY_ID
 const KOL_WHOLE_ORDER_HANDOUT_HEAD_ID = 'HOH-TASKGEN-202603-0001-001'
 
 const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
+  {
+    handoverId: 'HOH-SLA-DELAY-DEMO-001',
+    handoverOrderId: 'HOH-SLA-DELAY-DEMO-001',
+    handoverOrderNo: 'HDO-SLA-DELAY-DEMO-001',
+    headType: 'HANDOUT',
+    qrCodeValue: buildHandoutHeadQrCodeValue('HOH-SLA-DELAY-DEMO-001'),
+    handoverOrderQrValue: buildHandoverOrderQrValue('HOH-SLA-DELAY-DEMO-001'),
+    taskId: 'TASKGEN-202603-0015-001__ORDER',
+    sourceTaskId: 'TASKGEN-202603-0015-001__ORDER',
+    taskNo: 'TASKGEN-202603-0015-001',
+    sourceTaskNo: 'TASKGEN-202603-0015-001',
+    productionOrderNo: 'PO-202603-0015',
+    processName: '车缝',
+    sourceFactoryId: 'ID-F021',
+    sourceFactoryName: 'CV Micro Sewing Jakarta Pusat',
+    targetName: '成衣仓',
+    targetKind: 'WAREHOUSE',
+    receiverKind: 'WAREHOUSE',
+    receiverId: 'WH-GARMENT-DEMO',
+    receiverName: '成衣仓',
+    qtyUnit: '件',
+    factoryId: 'ID-F021',
+    taskStatus: 'IN_PROGRESS',
+    summaryStatus: 'WRITTEN_BACK',
+    handoverOrderStatus: 'PARTIAL_WRITTEN_BACK',
+    recordCount: 1,
+    pendingWritebackCount: 0,
+    submittedQtyTotal: 420,
+    writtenBackQtyTotal: 420,
+    diffQtyTotal: 0,
+    objectionCount: 0,
+    completionStatus: 'OPEN',
+    plannedQty: 1400,
+    qtyExpectedTotal: 1400,
+    qtyActualTotal: 420,
+    qtyDiffTotal: 980,
+    runtimeTaskId: 'TASKGEN-202603-0015-001__ORDER',
+    sourceDocNo: 'SLA-DELAY-DEMO-001',
+    scopeLabel: '车缝成衣交出',
+    executorKind: 'EXTERNAL_FACTORY',
+    transitionFromPrev: 'RETURN_TO_WAREHOUSE',
+    transitionToNext: 'RETURN_TO_WAREHOUSE',
+    stageCode: 'PROD',
+    stageName: '生产阶段',
+    processBusinessCode: 'SEW',
+    processBusinessName: '车缝',
+    taskTypeCode: 'SINGLE_PROCESS_TASK',
+    taskTypeLabel: '单工序任务',
+    assignmentGranularity: 'ORDER',
+    assignmentGranularityLabel: '整单',
+    isSpecialCraft: false,
+    lastRecordAt: '2026-07-05 12:00:00',
+  },
   {
     handoverId: KOL_WHOLE_ORDER_HANDOUT_HEAD_ID,
     handoverOrderId: KOL_WHOLE_ORDER_HANDOUT_HEAD_ID,
@@ -1875,6 +1954,36 @@ const PDA_MOCK_PICKUP_RECORDS: Record<string, PdaPickupRecord[]> = {
 }
 
 const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
+  'HOH-SLA-DELAY-DEMO-001': [
+    {
+      recordId: 'SLA-DEMO-RECEIVER-DELAY-001',
+      handoverRecordId: 'SLA-DEMO-RECEIVER-DELAY-001',
+      handoverRecordNo: 'SLA-DEMO-RECEIVER-DELAY-001',
+      handoverId: 'HOH-SLA-DELAY-DEMO-001',
+      handoverOrderId: 'HOH-SLA-DELAY-DEMO-001',
+      taskId: 'TASKGEN-202603-0015-001__ORDER',
+      sourceTaskId: 'TASKGEN-202603-0015-001__ORDER',
+      sequenceNo: 1,
+      handoutObjectType: 'GARMENT',
+      objectType: 'GARMENT',
+      handoutItemLabel: '首批车缝成衣',
+      plannedQty: 420,
+      submittedQty: 420,
+      qtyUnit: '件',
+      factorySubmittedAt: '2026-07-05 08:00:00',
+      factorySubmittedBy: 'CV Micro Sewing Jakarta Pusat 操作员',
+      factorySubmittedByKind: 'FACTORY',
+      factoryProofFiles: [],
+      status: 'WRITTEN_BACK',
+      handoverRecordStatus: 'WRITTEN_BACK_MATCHED',
+      lifecycleUpdatedAt: '2026-07-05 12:00:00',
+      receiverWrittenQty: 420,
+      receiverWrittenAt: '2026-07-05 12:00:00',
+      receiverWrittenBy: '成衣仓收货员',
+      receiverProofFiles: [],
+      diffQty: 0,
+    },
+  ],
   'HOH-KOL-WHOLE-DONE-0001': [
     {
       recordId: 'HOR-KOL-WHOLE-DONE-0001-001',
@@ -2439,6 +2548,24 @@ function parseDateMs(value: string | undefined): number {
   return new Date(value.replace(' ', 'T')).getTime()
 }
 
+function parseStrictOperationDateTimeMs(value: string): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(value)
+  if (!match) return null
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText] = match
+  const [year, month, day, hour, minute, second] = [yearText, monthText, dayText, hourText, minuteText, secondText].map(Number)
+  const date = new Date(year, month - 1, day, hour, minute, second)
+  if (
+    !Number.isFinite(date.getTime())
+    || date.getFullYear() !== year
+    || date.getMonth() !== month - 1
+    || date.getDate() !== day
+    || date.getHours() !== hour
+    || date.getMinutes() !== minute
+    || date.getSeconds() !== second
+  ) return null
+  return date.getTime()
+}
+
 function roundNumber(value: number | undefined): number {
   if (!Number.isFinite(value)) return 0
   return Math.round(Number(value) * 100) / 100
@@ -2483,6 +2610,41 @@ function cloneRecord(record: PdaHandoverRecord): PdaHandoverRecord {
     receiverProofFiles: cloneProofFiles(record.receiverProofFiles ?? []),
     objectionProofFiles: cloneProofFiles(record.objectionProofFiles ?? []),
   }
+}
+
+export function capturePdaHandoverState(): PdaHandoverStateSnapshot {
+  return structuredClone({
+    handoverHeadAdditions: Array.from(handoverHeadAdditions.entries()),
+    pickupRecordAdditions: Array.from(pickupRecordAdditions.entries()),
+    handoutRecordAdditions: Array.from(handoutRecordAdditions.entries()),
+    pickupRecordOverrides: Array.from(pickupRecordOverrides.entries()),
+    handoutRecordOverrides: Array.from(handoutRecordOverrides.entries()),
+    handoutRecordVersionHistory: Array.from(handoutRecordVersionHistory.entries()),
+    headCompletionOverrides: Array.from(headCompletionOverrides.entries()),
+    cachedBuiltHeads,
+    cachedPostFinishingBuiltHeads,
+  })
+}
+
+export function restorePdaHandoverState(state: PdaHandoverStateSnapshot): void {
+  handoverHeadAdditions.clear()
+  pickupRecordAdditions.clear()
+  handoutRecordAdditions.clear()
+  pickupRecordOverrides.clear()
+  handoutRecordOverrides.clear()
+  handoutRecordVersionHistory.clear()
+  headCompletionOverrides.clear()
+
+  const restored = structuredClone(state)
+  restored.handoverHeadAdditions.forEach(([id, head]) => handoverHeadAdditions.set(id, head))
+  restored.pickupRecordAdditions.forEach(([id, records]) => pickupRecordAdditions.set(id, records))
+  restored.handoutRecordAdditions.forEach(([id, records]) => handoutRecordAdditions.set(id, records))
+  restored.pickupRecordOverrides.forEach(([id, record]) => pickupRecordOverrides.set(id, record))
+  restored.handoutRecordOverrides.forEach(([id, record]) => handoutRecordOverrides.set(id, record))
+  restored.handoutRecordVersionHistory.forEach(([id, records]) => handoutRecordVersionHistory.set(id, records))
+  restored.headCompletionOverrides.forEach(([id, override]) => headCompletionOverrides.set(id, override))
+  cachedBuiltHeads = restored.cachedBuiltHeads
+  cachedPostFinishingBuiltHeads = restored.cachedPostFinishingBuiltHeads
 }
 
 function sumBy<T>(rows: T[], picker: (row: T) => number): number {
@@ -3589,6 +3751,23 @@ function savePickupRecord(record: PdaPickupRecord): void {
 }
 
 function saveHandoutRecord(record: PdaHandoverRecord): void {
+  const current = findRecord(record.recordId)
+  const projectionVersionSignature = (item: PdaHandoverRecord): string => JSON.stringify({
+    recordId: item.handoverRecordId || item.recordId,
+    handoverId: item.handoverId,
+    taskId: item.taskId,
+    handoverRecordStatus: item.handoverRecordStatus ?? '',
+    submittedQty: item.submittedQty ?? item.plannedQty ?? null,
+    factorySubmittedAt: item.factorySubmittedAt,
+    receiverWrittenQty: item.receiverWrittenQty ?? null,
+    receiverWrittenAt: item.receiverWrittenAt ?? '',
+    lifecycleUpdatedAt: item.lifecycleUpdatedAt ?? '',
+  })
+  if (current && projectionVersionSignature(current) !== projectionVersionSignature(record)) {
+    const history = handoutRecordVersionHistory.get(current.taskId) ?? []
+    history.push(cloneRecord(current))
+    handoutRecordVersionHistory.set(current.taskId, history)
+  }
   if (record.recordId.startsWith('HOR-')) {
     const existedOverride = handoutRecordOverrides.get(record.recordId) ?? {}
     handoutRecordOverrides.set(record.recordId, { ...existedOverride, ...record })
@@ -3596,7 +3775,7 @@ function saveHandoutRecord(record: PdaHandoverRecord): void {
     return
   }
 
-  const existingRecord = findRecord(record.recordId)
+  const existingRecord = current
   const head = findHead(record.handoverId)
   if (!existingRecord && head?.completionStatus === 'COMPLETED') {
     throw new Error('交出单已完成，不允许新增交出记录')
@@ -3896,6 +4075,13 @@ export function canCompletePdaHandoutHead(handoverId: string): { ok: boolean; me
 export function listHandoverOrdersByTaskId(taskId: string): PdaHandoverHead[] {
   return listPdaHandoverHeads().filter((head) => head.headType === 'HANDOUT' && head.taskId === taskId)
 }
+
+const disposeCompleteHandoutReaders = installCompleteHandoutReaders(
+  () => listPdaHandoverHeads(),
+  (handoverId) => getPdaHandoverRecordsByHead(handoverId),
+  import.meta.url,
+)
+import.meta.hot?.dispose(disposeCompleteHandoutReaders)
 
 export function getHandoverOrderById(handoverOrderId: string): PdaHandoverHead | undefined {
   return listPdaHandoverHeads().find(
@@ -4374,9 +4560,20 @@ export function writeBackHandoverRecord(input: {
   receiverRemark?: string
   diffReason?: string
 }): PdaHandoverRecord {
+  if (!Number.isFinite(input.receiverWrittenQty) || input.receiverWrittenQty < 0) {
+    throw new Error('实收数量必须为非负有限数')
+  }
   const current = findRecord(input.handoverRecordId)
   if (!current) {
     throw new Error(`未找到交出记录：${input.handoverRecordId}`)
+  }
+  const receiverWrittenAtMs = parseStrictOperationDateTimeMs(input.receiverWrittenAt)
+  if (receiverWrittenAtMs === null) {
+    throw new Error('实收时间必须为有效的 YYYY-MM-DD HH:mm:ss')
+  }
+  const factorySubmittedAtMs = parseStrictOperationDateTimeMs(current.factorySubmittedAt)
+  if (factorySubmittedAtMs !== null && receiverWrittenAtMs < factorySubmittedAtMs) {
+    throw new Error('实收时间不能早于交出时间')
   }
   const head = findPdaHandoverHead(current.handoverId)
   if (!head) {
@@ -4393,6 +4590,7 @@ export function writeBackHandoverRecord(input: {
       diffReason: input.diffReason?.trim() || undefined,
       warehouseWrittenQty: input.receiverWrittenQty,
       warehouseWrittenAt: input.receiverWrittenAt,
+      lifecycleUpdatedAt: input.receiverWrittenAt,
     },
     head,
   )

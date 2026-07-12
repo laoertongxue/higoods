@@ -1,14 +1,17 @@
-import { productionOrders, type ProductionOrder } from './production-orders.ts'
+import { listProductionOrderSewingFactories, productionOrders, selectProductionOrderMainFactory, type ProductionOrder } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
 import type { TechPackCutPiecePartSnapshot } from './production-tech-pack-snapshot-types.ts'
 import {
   applyRuntimeDirectDispatchMeta,
-  dispatchRuntimeTaskByDetailGroups,
+  allocateRuntimeSewingTaskScope,
+  captureRuntimeDirectDispatchState,
   getRuntimeTaskById,
-  isRuntimeSewingTask,
+  isRuntimeIndependentSewingTask,
   isRuntimeTaskExecutionTask,
   listRuntimeProcessTasks,
   listRuntimeTaskAllocatableGroups,
+  restoreRuntimeDirectDispatchState,
+  upsertRuntimeTaskTender,
   type RuntimeProcessTask,
   type RuntimeTaskAllocatableGroup,
 } from './runtime-process-tasks.ts'
@@ -16,6 +19,12 @@ import {
   buildDispatchAcceptanceDeadline,
   resolveDispatchAcceptanceSlaForTask,
 } from './dispatch-acceptance-sla.ts'
+import {
+  captureSewingDeliverySlaSnapshotStore,
+  compareSewingDeliveryDateTimes,
+  formatOperationLocalWallClock,
+  restoreSewingDeliverySlaSnapshotStore,
+} from './sewing-delivery-sla.ts'
 import { listFactoryMasterRecords } from './factory-master-store.ts'
 import { getThirdPartyFactoryRatingSnapshot } from './third-party-factory-rating.ts'
 import {
@@ -178,6 +187,8 @@ export interface SewingDispatchDraft {
   skuSummary: string
   qty: number
   statusLabel: string
+  runtimeTaskIds: string[]
+  tenderIds: string[]
 }
 
 const assignmentStatusLabels: Record<string, string> = {
@@ -191,6 +202,20 @@ const assignmentStatusLabels: Record<string, string> = {
 const auxiliaryCraftKeywords = ['绣花', '打条', '压褶', '打揽', '烫画', '直喷', '贝壳绣', '曲牙绣', '一字贝']
 
 const sewingDispatchDrafts: SewingDispatchDraft[] = []
+
+export function runSewingDispatchWorkbenchTransaction<T>(operation: () => T): T {
+  const runtimeState = captureRuntimeDirectDispatchState()
+  const snapshotState = captureSewingDeliverySlaSnapshotStore()
+  const draftState = structuredClone(sewingDispatchDrafts)
+  try {
+    return operation()
+  } catch (error) {
+    restoreRuntimeDirectDispatchState(runtimeState)
+    restoreSewingDeliverySlaSnapshotStore(snapshotState)
+    sewingDispatchDrafts.splice(0, sewingDispatchDrafts.length, ...draftState)
+    throw error
+  }
+}
 
 const styleImageFallbackBySpu: Record<string, string> = {
   'SPU-2024-010': '/pants-sample.jpg',
@@ -934,7 +959,7 @@ function buildWorkbenchTask(taskRows: SewingDispatchWorkbenchRow[]): SewingDispa
 
 export function listSewingDispatchWorkbenchRows(): SewingDispatchWorkbenchRow[] {
   return listRuntimeProcessTasks()
-    .filter((task) => isRuntimeTaskExecutionTask(task) && isRuntimeSewingTask(task))
+    .filter((task) => isRuntimeTaskExecutionTask(task) && isRuntimeIndependentSewingTask(task))
     .flatMap((task) => {
       const order = getOrder(task)
       if (!order) return []
@@ -996,8 +1021,11 @@ export function createSewingDispatchWorkbenchDraft(input: {
   factoryName?: string
   rowIds: string[]
   qtyByRowId?: Record<string, number>
+  businessAssignedAt?: string
+  operatedAt?: string
+  mainFactoryIdByProductionOrderId?: Record<string, string>
   by: string
-}): { ok: boolean; message: string; draft?: SewingDispatchDraft } {
+}): { ok: boolean; message: string; draft?: SewingDispatchDraft; runtimeTaskIds?: string[] } {
   const rows = input.rowIds.map((rowId) => getSewingDispatchWorkbenchRow(rowId)).filter((row): row is SewingDispatchWorkbenchRow => Boolean(row))
   if (rows.length === 0) return { ok: false, message: '请先选择要分配的 SKU。' }
   if (input.actionType === '直接派单' && (!input.factoryId || !input.factoryName)) {
@@ -1015,104 +1043,116 @@ export function createSewingDispatchWorkbenchDraft(input: {
     return qty <= 0 || qty > row.completeKitQty || qty > row.remainingQty
   })
   if (overQtyRow) return { ok: false, message: `${overQtyRow.skuCode} 分配数量必须大于 0，且不能超过完整齐套数量和待分配数量。` }
+  const operatedAt = input.operatedAt ?? formatOperationLocalWallClock()
+  const businessAssignedAt = input.businessAssignedAt ?? operatedAt
+  if (compareSewingDeliveryDateTimes(businessAssignedAt, operatedAt) > 0) {
+    return { ok: false, message: '业务分配时间不能晚于当前操作时间' }
+  }
+  const rowsByTask = new Map<string, SewingDispatchWorkbenchRow[]>()
+  rows.forEach((row) => rowsByTask.set(row.taskId, [...(rowsByTask.get(row.taskId) ?? []), row]))
 
-  if (input.actionType === '直接派单' && input.factoryId && input.factoryName) {
-    const rowsByTask = new Map<string, SewingDispatchWorkbenchRow[]>()
-    rows.forEach((row) => {
-      const list = rowsByTask.get(row.taskId) || []
-      list.push(row)
-      rowsByTask.set(row.taskId, list)
-    })
-
-    for (const [taskId, taskRows] of rowsByTask.entries()) {
-      const sourceTask = getRuntimeTaskById(taskId)
-      if (!sourceTask) return { ok: false, message: '车缝任务不存在或已被移除。' }
-      const dispatchedAt = nowTimestamp()
-      const acceptanceSla = resolveDispatchAcceptanceSlaForTask(sourceTask, input.factoryId, input.factoryName, dispatchedAt)
-      if (acceptanceSla.ruleSource === 'UNCONFIGURED') {
-        return { ok: false, message: acceptanceSla.missingReason ?? '当前车缝工序工艺未配置接单时效。' }
+  try {
+    return runSewingDispatchWorkbenchTransaction(() => {
+      const mainFactoryIdByOrder = new Map<string, string>()
+      if (input.actionType === '直接派单') {
+        for (const productionOrderId of new Set(rows.map((row) => row.productionOrderId))) {
+          const order = productionOrders.find((item) => item.productionOrderId === productionOrderId)
+          if (!order) throw new Error(`生产单 ${productionOrderId} 不存在`)
+          const activeFactories = listProductionOrderSewingFactories(productionOrderId)
+          const candidates = [...activeFactories, { id: input.factoryId!, name: input.factoryName! }]
+            .filter((factory, index, list) => list.findIndex((item) => item.id === factory.id) === index)
+          const currentMainValid = order.mainFactoryStatus === 'CONFIRMED'
+            && Boolean(order.mainFactoryId)
+            && candidates.some((factory) => factory.id === order.mainFactoryId)
+          const explicitMainFactoryId = input.mainFactoryIdByProductionOrderId?.[productionOrderId]?.trim()
+          if (explicitMainFactoryId && !candidates.some((factory) => factory.id === explicitMainFactoryId)) {
+            throw new Error(`${order.productionOrderNo} 选择的主工厂不在本次有效车缝候选中`)
+          }
+          if (explicitMainFactoryId) mainFactoryIdByOrder.set(productionOrderId, explicitMainFactoryId)
+          else if (currentMainValid && order.mainFactoryId) mainFactoryIdByOrder.set(productionOrderId, order.mainFactoryId)
+          else if (candidates.length === 1) mainFactoryIdByOrder.set(productionOrderId, candidates[0].id)
+          else throw new Error(`${order.productionOrderNo} 当前没有有效主工厂且有多个车缝候选，请按生产单明确选择主工厂`)
+        }
       }
-
-      const allGroups = listRuntimeTaskAllocatableGroups(taskId)
-      if (allGroups.length === taskRows.length && taskRows.every((row) => row.allocatableGroupKey)) {
-        const result = dispatchRuntimeTaskByDetailGroups({
+      const runtimeTaskIds: string[] = []
+      const tenderIds: string[] = []
+      for (const [taskId, taskRows] of rowsByTask.entries()) {
+        const allocated = allocateRuntimeSewingTaskScope({
           taskId,
+          lines: taskRows.map((row) => ({ skuCode: row.skuCode, qty: input.qtyByRowId?.[row.rowId] ?? row.completeKitQty })),
           by: input.by,
-          assignments: taskRows
-            .filter((row) => row.allocatableGroupKey)
-            .map((row) => ({
-              groupKey: row.allocatableGroupKey || '',
-              factoryId: input.factoryId || '',
-              factoryName: input.factoryName || '',
-            })),
+          operatedAt,
         })
-        if (!result.ok || !result.resultAssignments) {
-          return { ok: false, message: result.message ?? '车缝明细派单失败。' }
-        }
-
-        const assignmentsByTaskId = new Map<string, (typeof result.resultAssignments)[number]>()
-        for (const assignment of result.resultAssignments) {
-          const current = assignmentsByTaskId.get(assignment.taskId)
-          assignmentsByTaskId.set(assignment.taskId, current
-            ? {
-                ...current,
-                outputValueTotal: (current.outputValueTotal ?? 0) + (assignment.outputValueTotal ?? 0),
-              }
-            : { ...assignment })
-        }
-
-        for (const assignment of assignmentsByTaskId.values()) {
-          const assignmentTask = getRuntimeTaskById(assignment.taskId) ?? sourceTask
-          const assignmentSla = resolveDispatchAcceptanceSlaForTask(
-            assignmentTask,
-            assignment.factoryId,
-            assignment.factoryName,
-            dispatchedAt,
-          )
-          applyRuntimeDirectDispatchMeta({
-            taskId: assignment.taskId,
-            factoryId: assignment.factoryId,
-            factoryName: assignment.factoryName,
-            acceptDeadline: buildDispatchAcceptanceDeadline(dispatchedAt, assignmentSla),
-            taskDeadline: sourceTask.taskDeadline || addDays(dispatchedAt, 7),
+        runtimeTaskIds.push(allocated.taskId)
+        if (input.actionType === '直接派单') {
+          const acceptanceSla = resolveDispatchAcceptanceSlaForTask(allocated, input.factoryId!, input.factoryName!, businessAssignedAt)
+          if (acceptanceSla.ruleSource === 'UNCONFIGURED') throw new Error(acceptanceSla.missingReason ?? '当前车缝工序工艺未配置接单时效。')
+          const updated = applyRuntimeDirectDispatchMeta({
+            taskId: allocated.taskId,
+            factoryId: input.factoryId!,
+            factoryName: input.factoryName!,
+            acceptDeadline: buildDispatchAcceptanceDeadline(businessAssignedAt, acceptanceSla),
+            taskDeadline: allocated.taskDeadline || addDays(businessAssignedAt, 9),
             remark: '车缝分配工作台直接派单',
             by: input.by,
-            dispatchedAt,
-            autoAccept: assignmentSla.autoAccept,
-            acceptanceSla: assignmentSla,
-            dispatchPrice: sourceTask.dispatchPrice ?? sourceTask.standardPrice ?? 0,
-            dispatchPriceCurrency: sourceTask.dispatchPriceCurrency ?? sourceTask.standardPriceCurrency ?? 'IDR',
-            dispatchPriceUnit: sourceTask.dispatchPriceUnit ?? sourceTask.standardPriceUnit ?? '件',
+            businessAssignedAt,
+            operatedAt,
+            dispatchedAt: operatedAt,
+            autoAccept: true,
+            acceptanceSla,
+            dispatchPrice: allocated.dispatchPrice ?? allocated.standardPrice ?? 0,
+            dispatchPriceCurrency: allocated.dispatchPriceCurrency ?? allocated.standardPriceCurrency ?? 'IDR',
+            dispatchPriceUnit: allocated.dispatchPriceUnit ?? allocated.standardPriceUnit ?? '件',
             priceDiffReason: '',
-            outputValuePerUnit: assignment.outputValuePerUnit,
-            outputValueUnit: assignment.outputValueUnit,
-            outputValueTotal: assignment.outputValueTotal,
-            outputValueDifficulty: assignment.outputValueDifficulty,
+            writeBackMainFactory: false,
           })
+          if (!updated) throw new Error(`任务 ${allocated.taskId} 直接派单提交失败。`)
+        } else {
+          const tenderId = `TENDER-${allocated.taskId}-${operatedAt.replace(/\D/g, '')}`
+          const updated = upsertRuntimeTaskTender(allocated.taskId, {
+            tenderId,
+            biddingDeadline: addDays(operatedAt, 1),
+            taskDeadline: allocated.taskDeadline || addDays(operatedAt, 9),
+            businessAssignedAt,
+            assignmentOperatedAt: operatedAt,
+          }, input.by)
+          if (!updated) throw new Error(`任务 ${allocated.taskId} 发起竞价失败。`)
+          tenderIds.push(tenderId)
         }
       }
-    }
+      for (const [productionOrderId, mainFactoryId] of mainFactoryIdByOrder.entries()) {
+        const order = productionOrders.find((item) => item.productionOrderId === productionOrderId)
+        if (order?.mainFactoryStatus === 'CONFIRMED' && order.mainFactoryId === mainFactoryId) continue
+        const selected = selectProductionOrderMainFactory({ productionOrderId, factoryId: mainFactoryId, by: input.by, at: operatedAt, reason: '车缝分配工作台按生产单明确主工厂。' })
+        if (!selected) throw new Error(`${order?.productionOrderNo ?? productionOrderId} 主工厂选择失败`)
+      }
+      const draft: SewingDispatchDraft = {
+        draftId: `SEW-DRAFT-${String(sewingDispatchDrafts.length + 1).padStart(4, '0')}`,
+        createdAt: operatedAt,
+        createdBy: input.by,
+        actionType: input.actionType,
+        factoryId: input.factoryId,
+        factoryName: input.factoryName,
+        rowIds: rows.map((row) => row.rowId),
+        skuSummary: rows.map((row) => row.skuCode).join('、'),
+        qty: rows.reduce((total, row) => total + (input.qtyByRowId?.[row.rowId] ?? row.completeKitQty), 0),
+        statusLabel: input.actionType === '直接派单' ? '直接派单已生效并自动接单' : '竞价已发起，待定标后工厂确认接单',
+        runtimeTaskIds,
+        tenderIds,
+      }
+      sewingDispatchDrafts.unshift(draft)
+      return { ok: true, message: draft.statusLabel, draft, runtimeTaskIds }
+    })
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : '车缝工作台分配失败。' }
   }
-
-  const draft: SewingDispatchDraft = {
-    draftId: `SEW-DRAFT-${String(sewingDispatchDrafts.length + 1).padStart(4, '0')}`,
-    createdAt: nowTimestamp(),
-    createdBy: input.by,
-    actionType: input.actionType,
-    factoryId: input.factoryId,
-    factoryName: input.factoryName,
-    rowIds: rows.map((row) => row.rowId),
-    skuSummary: rows.map((row) => row.skuCode).join('、'),
-    qty: rows.reduce((total, row) => total + (input.qtyByRowId?.[row.rowId] ?? row.completeKitQty), 0),
-    statusLabel: input.actionType === '直接派单' ? '已生成直接派单演示记录' : '已生成竞价演示记录',
-  }
-  sewingDispatchDrafts.unshift(draft)
-  return { ok: true, message: draft.statusLabel, draft }
 }
 
 export function listSewingDispatchWorkbenchDrafts(): SewingDispatchDraft[] {
   return sewingDispatchDrafts.map((draft) => ({
     ...draft,
     rowIds: [...draft.rowIds],
+    runtimeTaskIds: [...draft.runtimeTaskIds],
+    tenderIds: [...draft.tenderIds],
   }))
 }

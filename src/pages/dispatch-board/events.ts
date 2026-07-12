@@ -18,6 +18,7 @@ import {
   openDispatchDialog,
   closeDispatchDialog,
   confirmDirectDispatch,
+  refreshDirectDispatchBusinessAssignedAtFeedback,
   setTaskAssignMode,
   batchSetTaskAssignMode,
 } from './dispatch-domain.ts'
@@ -31,6 +32,7 @@ import {
   openViewTender,
   closeViewTender,
   closePriceSnapshot,
+  refreshTenderBusinessAssignedAtFeedback,
 } from './tender-domain.ts'
 
 function getTenderSelectableFactoryIds(): Set<string> {
@@ -168,6 +170,12 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement |
     return
   }
 
+  if (field === 'dispatch.businessAssignedAt') {
+    state.dispatchForm.businessAssignedAt = node.value
+    state.dispatchDialogError = null
+    return
+  }
+
   if (field === 'dispatch.taskDeadline') {
     state.dispatchForm.taskDeadline = node.value
     return
@@ -212,11 +220,9 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement |
     return
   }
 
-  if (field === 'tender.mainFactoryId') {
+  if (field === 'tender.businessAssignedAt') {
     state.createTenderError = null
-    state.createTenderForm.mainFactoryId = node.value
-    const selectedFactory = candidateFactories.find((factory) => factory.id === node.value)
-    state.createTenderForm.mainFactoryName = selectedFactory?.name ?? ''
+    state.createTenderForm.businessAssignedAt = node.value
     return
   }
 
@@ -237,6 +243,12 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
     if (!field) return true
 
     updateField(field, fieldNode)
+    if (field === 'dispatch.businessAssignedAt') {
+      refreshDirectDispatchBusinessAssignedAtFeedback(fieldNode)
+    }
+    if (field === 'tender.businessAssignedAt') {
+      refreshTenderBusinessAssignedAtFeedback(fieldNode)
+    }
     return true
   }
 
@@ -437,11 +449,6 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
       state.createTenderForm.selectedPool.add(factoryId)
     }
 
-    if (!state.createTenderForm.selectedPool.has(state.createTenderForm.mainFactoryId)) {
-      state.createTenderForm.mainFactoryId = ''
-      state.createTenderForm.mainFactoryName = ''
-    }
-
     state.createTenderForm.selectedPool = new Set(state.createTenderForm.selectedPool)
     return true
   }
@@ -455,8 +462,6 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
   if (action === 'clear-all-pool') {
     state.createTenderError = null
     state.createTenderForm.selectedPool = new Set<string>()
-    state.createTenderForm.mainFactoryId = ''
-    state.createTenderForm.mainFactoryName = ''
     return true
   }
 

@@ -63,6 +63,7 @@ import {
   type TaskChainTender,
   resolveTaskChainTenderId,
 } from '../../data/fcs/page-adapters/task-chain-pages-adapter.ts'
+import { listHistoricalSewingAssignmentTaskFacts } from '../../data/fcs/page-adapters/task-execution-adapter.ts'
 import { listProgressFacts, type ProgressFact } from '../../data/fcs/store-domain-progress.ts'
 
 applyQualitySeedBootstrap()
@@ -154,7 +155,8 @@ interface ProgressBoardState {
   stageFilter: string
   riskFilter: string
   factoryFilter: string
-  visibleTaskLimit: number
+  page: number
+  pageSize: number
 
   taskDetailTab: TaskTabKey
 
@@ -165,7 +167,7 @@ interface ProgressBoardState {
   taskActionMenuId: string | null
 }
 
-const TASK_LIST_PAGE_SIZE = 8
+const TASK_LIST_PAGE_SIZE = 20
 
 const state: ProgressBoardState = {
   initializedByQuery: false,
@@ -179,7 +181,8 @@ const state: ProgressBoardState = {
   stageFilter: 'ALL',
   riskFilter: 'ALL',
   factoryFilter: 'ALL',
-  visibleTaskLimit: TASK_LIST_PAGE_SIZE,
+  page: 1,
+  pageSize: TASK_LIST_PAGE_SIZE,
 
   taskDetailTab: 'basic',
 
@@ -310,12 +313,20 @@ function listBoardTasks(): ProcessTask[] {
   return listTaskChainTasks()
 }
 
+function listHistoricalBoardTasks(): ProcessTask[] {
+  return listHistoricalSewingAssignmentTaskFacts()
+}
+
+function listDisplayBoardTasks(): ProcessTask[] {
+  return [...listBoardTasks(), ...listHistoricalBoardTasks()]
+}
+
 function getTaskDisplayName(task: ProcessTask): string {
   return getTaskChainTaskDisplayName(task)
 }
 
 function getTaskById(taskId: string): ProcessTask | undefined {
-  return getTaskChainTaskById(taskId)
+  return getTaskChainTaskById(taskId) ?? listHistoricalBoardTasks().find((task) => task.taskId === taskId)
 }
 
 function toTimestampNumber(value: string | undefined): number {
@@ -799,6 +810,7 @@ function parseDateTime(value: string | undefined): number {
 }
 
 function getTaskRisks(task: ProcessTask): TaskRiskFlag[] {
+  if (task.historicalAssignment) return []
   const risks: TaskRiskFlag[] = []
   const order = getOrderById(task.productionOrderId)
 
@@ -861,11 +873,11 @@ function getTaskKpiStats(): {
 function getFilteredTasks(): ProcessTask[] {
   const keyword = state.keyword.trim().toLowerCase()
 
-  return listBoardTasks().filter((task) => {
+  return listDisplayBoardTasks().filter((task) => {
     if (keyword) {
       const order = getOrderById(task.productionOrderId)
       const factory = task.assignedFactoryId ? getFactoryById(task.assignedFactoryId) : null
-      const target = `${task.taskId} ${task.productionOrderId} ${order?.legacyOrderNo ?? ''} ${getOrderSpuCode(order, '')} ${getOrderSpuName(order)} ${factory?.name ?? ''}`.toLowerCase()
+      const target = `${task.taskId} ${task.productionOrderId} ${order?.legacyOrderNo ?? ''} ${getOrderSpuCode(order, '')} ${getOrderSpuName(order)} ${task.assignedFactoryName ?? factory?.name ?? ''} ${task.replacedByRuntimeTaskId ?? ''}`.toLowerCase()
       if (!target.includes(keyword)) return false
     }
 
@@ -940,12 +952,12 @@ function syncPresetFromQuery(): void {
 
   if (presetTaskId) {
     state.keyword = presetTaskId
-    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+    state.page = 1
   }
 
   if (presetPoId && !presetTaskId) {
     state.keyword = presetPoId
-    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+    state.page = 1
   }
 }
 

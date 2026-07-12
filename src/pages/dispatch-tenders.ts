@@ -4,6 +4,23 @@ import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
   renderProductionOrderIdentityCell,
 } from '../data/fcs/production-order-identity'
+import {
+  awardRuntimeTaskTender,
+  captureRuntimeDirectDispatchState,
+  getRuntimeTaskById,
+  listRuntimeProcessTasks,
+  prepareRuntimeTaskTenderAward,
+  restoreRuntimeDirectDispatchState,
+  type RuntimeProcessTask,
+  type RuntimeTaskTenderAwardInput,
+} from '../data/fcs/runtime-process-tasks.ts'
+import {
+  captureSewingDeliverySlaSnapshotStore,
+  compareSewingDeliveryDateTimes,
+  formatOperationLocalWallClock,
+  restoreSewingDeliverySlaSnapshotStore,
+} from '../data/fcs/sewing-delivery-sla.ts'
+import { state as dispatchBoardState } from './dispatch-board/context.ts'
 
 type TenderStatus = 'BIDDING' | 'AWAIT_AWARD' | 'AWARDED'
 
@@ -19,7 +36,8 @@ const STATUS_BADGE: Record<TenderStatus, string> = {
   AWARDED: 'bg-green-100 text-green-700 border-green-200',
 }
 
-interface FactoryQuoteEntry {
+export interface FactoryQuoteEntry {
+  factoryId: string
   factoryName: string
   hasQuoted: boolean
   quotePrice?: number
@@ -28,9 +46,10 @@ interface FactoryQuoteEntry {
   remark?: string
 }
 
-interface TenderRow {
+export interface TenderRow {
   tenderId: string
   taskId: string
+  taskIds?: string[]
   productionOrderId: string
   processNameZh: string
   qty: number
@@ -47,6 +66,7 @@ interface TenderRow {
   taskDeadline: string
   status: TenderStatus
   awardedFactory?: string
+  awardedFactoryId?: string
   awardedPrice?: number
   awardReason?: string
   remark?: string
@@ -69,6 +89,7 @@ const MOCK_TENDERS: TenderRow[] = [
     factoryPoolNames: ['万隆车缝厂', '棉兰卫星工厂', '玛琅精工车缝', '泗水裁片厂'],
     factoryQuotes: [
       {
+        factoryId: 'ID-F003',
         factoryName: '万隆车缝厂',
         hasQuoted: true,
         quotePrice: 14200,
@@ -76,14 +97,15 @@ const MOCK_TENDERS: TenderRow[] = [
         deliveryDays: 10,
       },
       {
+        factoryId: 'ID-F011',
         factoryName: '棉兰卫星工厂',
         hasQuoted: true,
         quotePrice: 13800,
         quoteTime: '2026-03-15 14:22',
         deliveryDays: 12,
       },
-      { factoryName: '玛琅精工车缝', hasQuoted: false },
-      { factoryName: '泗水裁片厂', hasQuoted: false },
+      { factoryId: 'ID-F012', factoryName: '玛琅精工车缝', hasQuoted: false },
+      { factoryId: 'ID-F004', factoryName: '泗水裁片厂', hasQuoted: false },
     ],
     minPrice: 12000,
     maxPrice: 16000,
@@ -108,6 +130,7 @@ const MOCK_TENDERS: TenderRow[] = [
     factoryPoolNames: ['雅加达绣花专工厂', '三宝垄整烫厂', '日惹包装厂', '棉兰卫星工厂', '泗水裁片厂'],
     factoryQuotes: [
       {
+        factoryId: 'ID-F010',
         factoryName: '雅加达绣花专工厂',
         hasQuoted: true,
         quotePrice: 12800,
@@ -115,6 +138,7 @@ const MOCK_TENDERS: TenderRow[] = [
         deliveryDays: 12,
       },
       {
+        factoryId: 'ID-F020',
         factoryName: '三宝垄整烫厂',
         hasQuoted: true,
         quotePrice: 11500,
@@ -122,6 +146,7 @@ const MOCK_TENDERS: TenderRow[] = [
         deliveryDays: 10,
       },
       {
+        factoryId: 'ID-F021',
         factoryName: '日惹包装厂',
         hasQuoted: true,
         quotePrice: 10200,
@@ -130,6 +155,7 @@ const MOCK_TENDERS: TenderRow[] = [
         remark: '急单可缩短2天',
       },
       {
+        factoryId: 'ID-F011',
         factoryName: '棉兰卫星工厂',
         hasQuoted: true,
         quotePrice: 16200,
@@ -137,6 +163,7 @@ const MOCK_TENDERS: TenderRow[] = [
         deliveryDays: 9,
       },
       {
+        factoryId: 'ID-F004',
         factoryName: '泗水裁片厂',
         hasQuoted: true,
         quotePrice: 13500,
@@ -166,6 +193,7 @@ const MOCK_TENDERS: TenderRow[] = [
     factoryPoolNames: ['万隆车缝厂', '玛琅精工车缝', '棉兰卫星工厂'],
     factoryQuotes: [
       {
+        factoryId: 'ID-F003',
         factoryName: '万隆车缝厂',
         hasQuoted: true,
         quotePrice: 13200,
@@ -173,6 +201,7 @@ const MOCK_TENDERS: TenderRow[] = [
         deliveryDays: 10,
       },
       {
+        factoryId: 'ID-F012',
         factoryName: '玛琅精工车缝',
         hasQuoted: true,
         quotePrice: 13800,
@@ -180,6 +209,7 @@ const MOCK_TENDERS: TenderRow[] = [
         deliveryDays: 8,
       },
       {
+        factoryId: 'ID-F011',
         factoryName: '棉兰卫星工厂',
         hasQuoted: true,
         quotePrice: 14100,
@@ -192,6 +222,7 @@ const MOCK_TENDERS: TenderRow[] = [
     biddingDeadline: '2026-03-08 18:00:00',
     taskDeadline: '2026-04-01 18:00:00',
     status: 'AWARDED',
+    awardedFactoryId: 'ID-F003',
     awardedFactory: '万隆车缝厂',
     awardedPrice: 13200,
     awardReason: '报价最低且交期最短，综合评估最优',
@@ -236,9 +267,15 @@ interface CreateTenderForm {
 }
 
 interface LocalAward {
+  awardedFactoryId: string
   awardedFactory: string
   awardedPrice: number
   awardReason: string
+}
+
+interface RuntimeTenderBatchAwardInput extends Omit<RuntimeTaskTenderAwardInput, 'taskId'> {
+  taskIds: string[]
+  allowLegacyLocalOnly?: boolean
 }
 
 interface TendersPageState {
@@ -250,7 +287,7 @@ interface TendersPageState {
   createPreviewTenderId: string
   form: CreateTenderForm
   viewTenderId: string | null
-  viewAwardFactoryName: string
+  viewAwardFactoryId: string
   viewAwardReason: string
 }
 
@@ -263,7 +300,7 @@ const state: TendersPageState = {
   createPreviewTenderId: genTenderId(),
   form: emptyCreateForm(),
   viewTenderId: null,
-  viewAwardFactoryName: '',
+  viewAwardFactoryId: '',
   viewAwardReason: '',
 }
 
@@ -352,8 +389,72 @@ function formatDeviation(
   }
 }
 
-function getAllTenders(): TenderRow[] {
-  return [...MOCK_TENDERS, ...state.localTenders]
+function projectRuntimeTenderRows(now: string): TenderRow[] {
+  return listRuntimeProcessTasks().flatMap((task) => {
+    const localTender = dispatchBoardState.tenderState[task.taskId]
+    if (!localTender || task.assignmentMode !== 'BIDDING') return []
+
+    const factoryQuotes: FactoryQuoteEntry[] = localTender.factoryQuotes
+      ? localTender.factoryQuotes.map((quote) => ({ ...quote }))
+      : localTender.factoryPool.map((factoryId, index) => {
+          const hasQuoted = localTender.participatingFactoryIds?.includes(factoryId) ?? false
+          return {
+            factoryId,
+            factoryName: localTender.factoryPoolNames[index] ?? factoryId,
+            hasQuoted,
+            quotePrice: hasQuoted
+              ? localTender.currentMinPrice ?? localTender.currentMaxPrice ?? localTender.standardPrice
+              : undefined,
+          }
+        })
+    const hasValidQuote = factoryQuotes.some(
+      (quote) => quote.hasQuoted && quote.quotePrice != null && Number.isFinite(quote.quotePrice),
+    )
+    const biddingFinished = compareSewingDeliveryDateTimes(localTender.biddingDeadline, now) <= 0
+    const status: TenderStatus = task.assignmentStatus === 'AWARDED'
+      ? 'AWARDED'
+      : localTender.tenderStatus === 'BIDDING' && biddingFinished && hasValidQuote
+        ? 'AWAIT_AWARD'
+        : localTender.tenderStatus
+
+    return [{
+      tenderId: localTender.tenderId,
+      taskId: task.taskId,
+      productionOrderId: task.productionOrderId,
+      processNameZh: task.processNameZh,
+      qty: task.qty,
+      qtyUnit: task.qtyUnit,
+      standardPrice: localTender.standardPrice,
+      currency: localTender.currency,
+      unit: localTender.unit,
+      factoryPoolCount: localTender.factoryPool.length,
+      factoryPoolNames: [...localTender.factoryPoolNames],
+      factoryQuotes,
+      minPrice: localTender.minPrice,
+      maxPrice: localTender.maxPrice,
+      biddingDeadline: localTender.biddingDeadline,
+      taskDeadline: localTender.taskDeadline,
+      status,
+      awardedFactoryId: task.assignedFactoryId ?? localTender.awardedFactoryId,
+      awardedFactory: task.assignedFactoryName ?? localTender.awardedFactoryName,
+      awardedPrice: task.dispatchPrice ?? localTender.awardedPrice,
+      remark: localTender.remark,
+      createdAt: localTender.createdAt,
+      createdBy: '跟单A',
+    }]
+  })
+}
+
+export function listDispatchTenderRows(now = formatOperationLocalWallClock()): TenderRow[] {
+  const rowsByTenderId = new Map(
+    [...MOCK_TENDERS, ...state.localTenders].map((row) => [row.tenderId, row] as const),
+  )
+  projectRuntimeTenderRows(now).forEach((row) => rowsByTenderId.set(row.tenderId, row))
+  return Array.from(rowsByTenderId.values())
+}
+
+function getAllTenders(now = formatOperationLocalWallClock()): TenderRow[] {
+  return listDispatchTenderRows(now)
 }
 
 function getEffectiveAward(tender: TenderRow): LocalAward | undefined {
@@ -362,6 +463,7 @@ function getEffectiveAward(tender: TenderRow): LocalAward | undefined {
 
   if (tender.awardedFactory && tender.awardedPrice != null) {
     return {
+      awardedFactoryId: tender.awardedFactoryId ?? '',
       awardedFactory: tender.awardedFactory,
       awardedPrice: tender.awardedPrice,
       awardReason: tender.awardReason ?? '',
@@ -379,18 +481,19 @@ function toEffectiveTender(tender: TenderRow): TenderRow {
     ...tender,
     status: 'AWARDED',
     awardedFactory: award.awardedFactory,
+    awardedFactoryId: award.awardedFactoryId,
     awardedPrice: award.awardedPrice,
     awardReason: award.awardReason,
   }
 }
 
-function getViewTender(): TenderRow | null {
+function getViewTender(now = formatOperationLocalWallClock()): TenderRow | null {
   if (!state.viewTenderId) return null
-  return getAllTenders().find((tender) => tender.tenderId === state.viewTenderId) ?? null
+  return getAllTenders(now).find((tender) => tender.tenderId === state.viewTenderId) ?? null
 }
 
-function getStats(): { bidding: number; awaitAward: number; awarded: number; total: number } {
-  const allTenders = getAllTenders().map((tender) => toEffectiveTender(tender))
+function getStats(now = formatOperationLocalWallClock()): { bidding: number; awaitAward: number; awarded: number; total: number } {
+  const allTenders = getAllTenders(now).map((tender) => toEffectiveTender(tender))
 
   return {
     bidding: allTenders.filter((tender) => tender.status === 'BIDDING').length,
@@ -400,8 +503,8 @@ function getStats(): { bidding: number; awaitAward: number; awarded: number; tot
   }
 }
 
-function getFilteredTenders(): TenderRow[] {
-  const allTenders = getAllTenders().map((tender) => toEffectiveTender(tender))
+function getFilteredTenders(now = formatOperationLocalWallClock()): TenderRow[] {
+  const allTenders = getAllTenders(now).map((tender) => toEffectiveTender(tender))
   const keyword = state.keyword.trim().toLowerCase()
 
   return allTenders.filter((tender) => {
@@ -452,19 +555,19 @@ function closeCreateDrawer(): void {
   state.form = emptyCreateForm()
 }
 
-function openViewDrawer(tenderId: string): void {
-  const tender = getAllTenders().find((row) => row.tenderId === tenderId)
+function openViewDrawer(tenderId: string, now = formatOperationLocalWallClock()): void {
+  const tender = getAllTenders(now).find((row) => row.tenderId === tenderId)
   if (!tender) return
 
   const award = getEffectiveAward(tender)
   state.viewTenderId = tenderId
-  state.viewAwardFactoryName = award?.awardedFactory ?? ''
+  state.viewAwardFactoryId = award?.awardedFactoryId ?? ''
   state.viewAwardReason = award?.awardReason ?? ''
 }
 
 function closeViewDrawer(): void {
   state.viewTenderId = null
-  state.viewAwardFactoryName = ''
+  state.viewAwardFactoryId = ''
   state.viewAwardReason = ''
 }
 
@@ -511,8 +614,35 @@ function showTenderToast(message: string): void {
   }, 2400)
 }
 
-function confirmAwardInView(): void {
-  const tender = getViewTender()
+export function awardRuntimeTenderTasks(input: RuntimeTenderBatchAwardInput): {
+  ok: boolean
+  message?: string
+  tasks?: RuntimeProcessTask[]
+} {
+  if (input.allowLegacyLocalOnly && input.taskIds.every((taskId) => !getRuntimeTaskById(taskId))) {
+    return { ok: true, tasks: [] }
+  }
+  let preparations: ReturnType<typeof prepareRuntimeTaskTenderAward>[]
+  try {
+    preparations = input.taskIds.map((taskId) => prepareRuntimeTaskTenderAward({ ...input, taskId }))
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : '竞价定标前置校验失败' }
+  }
+
+  const runtimeState = captureRuntimeDirectDispatchState()
+  const snapshotState = captureSewingDeliverySlaSnapshotStore()
+  try {
+    const tasks = preparations.map(({ input: awardInput }) => awardRuntimeTaskTender(awardInput))
+    return { ok: true, tasks }
+  } catch (error) {
+    restoreRuntimeDirectDispatchState(runtimeState)
+    restoreSewingDeliverySlaSnapshotStore(snapshotState)
+    return { ok: false, message: error instanceof Error ? error.message : '竞价定标提交失败' }
+  }
+}
+
+function confirmAwardInView(now = formatOperationLocalWallClock()): void {
+  const tender = getViewTender(now)
   if (!tender) return
 
   const effective = toEffectiveTender(tender)
@@ -520,7 +650,7 @@ function confirmAwardInView(): void {
 
   const selectedQuote = tender.factoryQuotes.find(
     (quote) =>
-      quote.factoryName === state.viewAwardFactoryName &&
+      quote.factoryId === state.viewAwardFactoryId &&
       quote.hasQuoted &&
       quote.quotePrice != null,
   )
@@ -530,9 +660,25 @@ function confirmAwardInView(): void {
     selectedQuote.quotePrice < tender.minPrice || selectedQuote.quotePrice > tender.maxPrice
   if (priceOutOfRange && state.viewAwardReason.trim() === '') return
 
+  const taskIds = tender.taskIds?.length ? tender.taskIds : [tender.taskId]
+  const awardResult = awardRuntimeTenderTasks({
+    taskIds,
+    factoryId: selectedQuote.factoryId,
+    factoryName: selectedQuote.factoryName,
+    awardedAt: now,
+    awardedPrice: selectedQuote.quotePrice,
+    by: '平台定标员',
+    allowLegacyLocalOnly: tender.processNameZh !== '车缝',
+  })
+  if (!awardResult.ok) {
+    showTenderToast(awardResult.message || '定标失败，请刷新后重试')
+    return
+  }
+
   state.localAwards = {
     ...state.localAwards,
     [tender.tenderId]: {
+      awardedFactoryId: selectedQuote.factoryId,
       awardedFactory: selectedQuote.factoryName,
       awardedPrice: selectedQuote.quotePrice,
       awardReason: state.viewAwardReason.trim(),
@@ -556,14 +702,14 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
   const unquotedCount = tender.factoryPoolCount - quotedCount
   const remaining = calcRemaining(tender.biddingDeadline)
   const quotedRows = tender.factoryQuotes.filter((quote) => quote.hasQuoted && quote.quotePrice != null)
-  const selectedQuote = quotedRows.find((quote) => quote.factoryName === state.viewAwardFactoryName)
+  const selectedQuote = quotedRows.find((quote) => quote.factoryId === state.viewAwardFactoryId)
   const selectedPrice = selectedQuote?.quotePrice
   const priceOutOfRange =
     selectedPrice != null && (selectedPrice < tender.minPrice || selectedPrice > tender.maxPrice)
   const needReason = priceOutOfRange
   const canConfirm =
     effectiveStatus === 'AWAIT_AWARD' &&
-    state.viewAwardFactoryName !== '' &&
+    state.viewAwardFactoryId !== '' &&
     selectedPrice != null &&
     (!needReason || state.viewAwardReason.trim() !== '')
 
@@ -708,10 +854,10 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
 
                   const belowMin = quote.quotePrice != null && quote.quotePrice < tender.minPrice
                   const aboveMax = quote.quotePrice != null && quote.quotePrice > tender.maxPrice
-                  const isAwarded = effectiveAward?.awardedFactory === quote.factoryName
+                  const isAwarded = effectiveAward?.awardedFactoryId === quote.factoryId
 
                   return `
-                    <div class="px-3 py-2.5 ${isAwarded ? 'bg-green-50' : ''}">
+                    <div class="px-3 py-2.5 ${isAwarded ? 'bg-green-50' : ''}" data-quote-factory-id="${escapeHtml(quote.factoryId)}" data-awarded="${isAwarded ? 'true' : 'false'}">
                       <div class="flex items-center justify-between gap-2">
                         <div class="flex flex-wrap items-center gap-2">
                           <span class="text-sm font-medium">${escapeHtml(quote.factoryName)}</span>
@@ -807,7 +953,7 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
                               ? '<p class="px-3 py-3 text-sm text-muted-foreground">暂无有效报价</p>'
                               : quotedRows
                                   .map((quote) => {
-                                    const isSelected = state.viewAwardFactoryName === quote.factoryName
+                                    const isSelected = state.viewAwardFactoryId === quote.factoryId
                                     const deviation = formatDeviation(
                                       quote.quotePrice as number,
                                       tender.standardPrice,
@@ -818,7 +964,7 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
                                     const isLow = (quote.quotePrice as number) < tender.minPrice
 
                                     return `
-                                      <button class="flex w-full items-start gap-2.5 px-3 py-2.5 text-left hover:bg-muted/30 ${isSelected ? 'bg-blue-50' : ''}" data-tender-action="select-award-factory" data-factory-name="${escapeHtml(quote.factoryName)}">
+                                      <button class="flex w-full items-start gap-2.5 px-3 py-2.5 text-left hover:bg-muted/30 ${isSelected ? 'bg-blue-50' : ''}" data-tender-action="select-award-factory" data-factory-id="${escapeHtml(quote.factoryId)}">
                                         <span class="mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border ${isSelected ? 'border-blue-600' : 'border-muted-foreground/40'}">
                                           <span class="h-2 w-2 rounded-full ${isSelected ? 'bg-blue-600' : 'bg-transparent'}"></span>
                                         </span>
@@ -868,8 +1014,8 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
 
                       <div class="flex items-center justify-between pt-1">
                         <p class="text-xs text-muted-foreground">${
-                          state.viewAwardFactoryName
-                            ? `已选：${escapeHtml(state.viewAwardFactoryName)}`
+                          selectedQuote
+                            ? `已选：${escapeHtml(selectedQuote.factoryName)}`
                             : '请选择中标工厂'
                         }</p>
                         <button class="inline-flex h-8 items-center rounded-md bg-purple-600 px-3 text-sm font-medium text-white hover:bg-purple-700 ${canConfirm ? '' : 'pointer-events-none opacity-50'}" data-tender-action="confirm-award">
@@ -1116,10 +1262,10 @@ function renderRow(tender: TenderRow): string {
   `
 }
 
-export function renderDispatchTendersPage(): string {
-  const stats = getStats()
-  const filtered = getFilteredTenders()
-  const viewTender = getViewTender()
+export function renderDispatchTendersPage(now = formatOperationLocalWallClock()): string {
+  const stats = getStats(now)
+  const filtered = getFilteredTenders(now)
+  const viewTender = getViewTender(now)
 
   return `
     <div class="space-y-6">
@@ -1238,7 +1384,11 @@ function confirmCreateTender(): void {
     unit: state.form.unit,
     factoryPoolCount: selectedPoolIds.length,
     factoryPoolNames: poolNames,
-    factoryQuotes: poolNames.map((name) => ({ factoryName: name, hasQuoted: false })),
+    factoryQuotes: selectedPoolIds.map((factoryId, index) => ({
+      factoryId,
+      factoryName: poolNames[index],
+      hasQuoted: false,
+    })),
     minPrice,
     maxPrice,
     biddingDeadline: state.form.biddingDeadline.replace('T', ' '),
@@ -1314,7 +1464,10 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement |
   }
 }
 
-export function handleDispatchTendersEvent(target: HTMLElement): boolean {
+export function handleDispatchTendersEvent(
+  target: HTMLElement,
+  now = formatOperationLocalWallClock(),
+): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-tender-field]')
   if (
     fieldNode instanceof HTMLInputElement ||
@@ -1353,7 +1506,7 @@ export function handleDispatchTendersEvent(target: HTMLElement): boolean {
     const tenderId = actionNode.dataset.tenderId
     if (!tenderId) return true
 
-    openViewDrawer(tenderId)
+    openViewDrawer(tenderId, now)
     return true
   }
 
@@ -1393,15 +1546,15 @@ export function handleDispatchTendersEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'select-award-factory') {
-    const factoryName = actionNode.dataset.factoryName
-    if (!factoryName) return true
+    const factoryId = actionNode.dataset.factoryId
+    if (!factoryId) return true
 
-    state.viewAwardFactoryName = factoryName
+    state.viewAwardFactoryId = factoryId
     return true
   }
 
   if (action === 'confirm-award') {
-    confirmAwardInView()
+    confirmAwardInView(now)
     return true
   }
 

@@ -1,5 +1,5 @@
 import { appStore } from '../state/store'
-import { escapeHtml, toClassName } from '../utils'
+import { escapeCssSelectorValue, escapeHtml, toClassName } from '../utils'
 import { type ProcessTask } from '../data/fcs/process-tasks'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store'
 import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data'
@@ -52,6 +52,16 @@ import {
   filterReceiveQuotedTenders,
 } from '../data/fcs/pda-receive-scope.ts'
 import { acceptWoolWorkOrder } from '../data/fcs/wool-task-domain.ts'
+import {
+  acceptRuntimeTaskAssignment,
+  getRuntimeTaskById,
+  rejectRuntimeTaskAssignment,
+} from '../data/fcs/runtime-process-tasks.ts'
+import {
+  classifySewingDeliverySla,
+  formatOperationLocalWallClock,
+} from '../data/fcs/sewing-delivery-sla.ts'
+import { formatProcessQuantityWithUnit } from '../data/fcs/process-quantity-labels.ts'
 import {
   ensurePdaSessionForAction,
   getPdaRuntimeContext,
@@ -131,6 +141,8 @@ interface TaskReceiveState {
   rejectDialogOpen: boolean
   rejectingTaskId: string
   rejectReason: string
+  acceptDialogTaskId: string
+  acceptDialogAcceptedAt: string
 }
 
 const TABS: Array<{ key: TabKey; label: string }> = [
@@ -154,6 +166,8 @@ const state: TaskReceiveState = {
   rejectDialogOpen: false,
   rejectingTaskId: '',
   rejectReason: '',
+  acceptDialogTaskId: '',
+  acceptDialogAcceptedAt: '',
 }
 
 const submittedQuotes = new Map<string, SubmittedQuoteSnapshot>(
@@ -170,8 +184,38 @@ const submittedQuotes = new Map<string, SubmittedQuoteSnapshot>(
 
 let lastFocusedTaskToken = ''
 
+interface LegacyAcceptanceOverride {
+  acceptedAt: string
+  acceptedBy: string
+}
+
+const legacyAcceptanceOverrides = new Map<string, LegacyAcceptanceOverride>()
+
+export function projectPdaTaskLegacyAcceptance(task: ProcessTask): ProcessTask {
+  const override = legacyAcceptanceOverrides.get(task.taskId)
+  if (!override) return task
+  return {
+    ...task,
+    acceptanceStatus: 'ACCEPTED',
+    acceptedAt: override.acceptedAt,
+    acceptedBy: override.acceptedBy,
+    updatedAt: override.acceptedAt,
+    auditLogs: [
+      ...task.auditLogs,
+      {
+        id: `AL-LEGACY-ACCEPT-${task.taskId}`,
+        action: 'ACCEPT_TASK',
+        detail: '旧版非履约考核 Mock 任务确认接单',
+        at: override.acceptedAt,
+        by: override.acceptedBy,
+      },
+    ],
+  }
+}
+
 function getTaskFactById(taskId: string): ProcessTask | null {
-  return getPdaMobileExecutionTaskById(taskId) ?? getPdaTaskFlowTaskById(taskId) ?? null
+  const task = getPdaMobileExecutionTaskById(taskId) ?? getPdaTaskFlowTaskById(taskId) ?? null
+  return task ? projectPdaTaskLegacyAcceptance(task) : null
 }
 
 function isPostFinishingDirectOnlyFactory(factoryId: string): boolean {
@@ -278,57 +322,63 @@ function getTaskPricing(task: ProcessTask): {
   return { directPrice, currency, unit }
 }
 
-function mutateAcceptTask(taskId: string, by: string): void {
-  const now = nowTimestamp()
+export function acceptPdaTaskWithRuntimeFallback(
+  taskId: string,
+  factoryId: string,
+  by: string,
+  acceptedAt = formatOperationLocalWallClock(),
+): ProcessTask {
   const task = getTaskFactById(taskId)
-  if (!task) return
+  if (!task) throw new Error('任务不存在或已被移除')
   const woolOrderId = (task as ProcessTask & { woolOrderId?: string }).woolOrderId
   if (task.processBusinessCode === 'WOOL' && woolOrderId) {
-    acceptWoolWorkOrder(woolOrderId, by, now)
+    acceptWoolWorkOrder(woolOrderId, by, acceptedAt)
+    return getTaskFactById(taskId) ?? task
   }
   if (task.processBusinessCode === 'POST_FINISHING' || task.processCode === 'POST_FINISHING' || task.processNameZh === '后道') {
-    acceptPostFinishingTask(taskId, by, now)
+    acceptPostFinishingTask(taskId, by, acceptedAt)
+    return getTaskFactById(taskId) ?? task
   }
-
-  task.acceptanceStatus = 'ACCEPTED'
-  task.acceptedAt = now
-  task.acceptedBy = by
-  task.updatedAt = now
-  task.auditLogs = [
-    ...task.auditLogs,
-    {
-      id: `AL-ACC-${Date.now()}`,
-      action: 'ACCEPT_TASK',
-      detail: '工厂确认接单',
-      at: now,
-      by,
-    },
-  ]
+  if (getRuntimeTaskById(taskId)) {
+    return acceptRuntimeTaskAssignment(taskId, { factoryId, acceptedAt, acceptedBy: by })
+  }
+  if (classifySewingDeliverySla(task) !== null) {
+    throw new Error('任务尚未进入统一运行时任务仓，请联系主管处理')
+  }
+  if (task.assignedFactoryId && task.assignedFactoryId !== factoryId) {
+    throw new Error('当前登录工厂与任务归属不一致，不能接单')
+  }
+  legacyAcceptanceOverrides.set(taskId, { acceptedAt, acceptedBy: by })
+  return projectPdaTaskLegacyAcceptance(task)
 }
 
-function mutateRejectTask(taskId: string, reason: string, by: string): void {
-  const now = nowTimestamp()
+export function rejectPdaTaskWithRuntimeFallback(taskId: string, factoryId: string, reason: string, rejectedAt: string, rejectedBy: string): ProcessTask {
+  const runtimeTask = getRuntimeTaskById(taskId)
+  if (runtimeTask) return rejectRuntimeTaskAssignment(taskId, { factoryId, reason, rejectedAt, rejectedBy })
   const task = getTaskFactById(taskId)
-  if (!task) return
+  if (!task) throw new Error('任务不存在或已被移除')
+  if (classifySewingDeliverySla(task) !== null) throw new Error('任务尚未进入统一运行时任务仓，请联系主管处理')
+  if (task.assignedFactoryId && task.assignedFactoryId !== factoryId) throw new Error('当前登录工厂与任务归属不一致，无权拒单')
+  if (task.acceptanceStatus === 'REJECTED') throw new Error('任务已拒单，不可重复拒单')
   if (task.processBusinessCode === 'POST_FINISHING' || task.processCode === 'POST_FINISHING' || task.processNameZh === '后道') {
-    rejectPostFinishingTask(taskId, reason, by, now)
+    rejectPostFinishingTask(taskId, reason, rejectedBy, rejectedAt)
   }
-
   task.acceptanceStatus = 'REJECTED'
   task.assignmentStatus = 'UNASSIGNED'
   task.assignedFactoryId = undefined
   task.assignedFactoryName = undefined
-  task.updatedAt = now
+  task.updatedAt = rejectedAt
   task.auditLogs = [
     ...task.auditLogs,
     {
       id: `AL-REJ-${Date.now()}`,
       action: 'REJECT_TASK',
       detail: `工厂拒绝接单，原因：${reason}`,
-      at: now,
-      by,
+      at: rejectedAt,
+      by: rejectedBy,
     },
   ]
+  return task
 }
 
 function showTaskReceiveToast(message: string): void {
@@ -443,14 +493,16 @@ function getActiveBiddingTenders(): BiddingTender[] {
     .sort((left, right) => left.biddingDeadline.localeCompare(right.biddingDeadline))
 }
 
-function getAwardedTenders(selectedFactoryId: string): AwardedTender[] {
-  const taskFacts = listPdaMobileExecutionTasks()
+export function listPdaAwardedTendersForFactory(selectedFactoryId: string): AwardedTender[] {
+  const taskFacts = listPdaMobileExecutionTasks().map(projectPdaTaskLegacyAcceptance)
   const awardedTaskIds = new Set(
     listPdaAwardedTenderNoticesByFactoryId(selectedFactoryId).map((item) => item.taskId),
   )
 
   return filterReceiveAwardedTaskFacts(taskFacts, selectedFactoryId)
-    .filter((task) => awardedTaskIds.has(task.taskId))
+    .filter((task) => getRuntimeTaskById(task.taskId) || (
+      awardedTaskIds.has(task.taskId) && classifySewingDeliverySla(task) === null
+    ))
     .map((task) => ({
       tenderId: resolveTaskChainTenderId(task) || `TENDER-${task.taskId}`,
       taskId: task.taskId,
@@ -483,7 +535,10 @@ function getAwardedTenders(selectedFactoryId: string): AwardedTender[] {
 }
 
 function getPendingAcceptTasks(selectedFactoryId: string): ProcessTask[] {
-  const tasks = filterReceivePendingAcceptTasks(listPdaMobileExecutionTasks(), selectedFactoryId)
+  const tasks = filterReceivePendingAcceptTasks(
+    listPdaMobileExecutionTasks().map(projectPdaTaskLegacyAcceptance),
+    selectedFactoryId,
+  )
   if (!isPostFinishingDirectOnlyFactory(selectedFactoryId)) return tasks
   return tasks.filter((task) => getMobileTaskProcessType(task) === 'POST_FINISHING')
 }
@@ -591,7 +646,8 @@ function scheduleTaskFocus(taskId: string | null): void {
   if (lastFocusedTaskToken === focusToken) return
   lastFocusedTaskToken = focusToken
   window.requestAnimationFrame(() => {
-    const card = document.querySelector<HTMLElement>(`[data-pda-cutting-task-card-id="${taskId}"]`)
+    const safeTaskId = escapeCssSelectorValue(taskId)
+    const card = document.querySelector<HTMLElement>(`[data-pda-cutting-task-card-id="${safeTaskId}"]`)
     card?.scrollIntoView({ block: 'center' })
   })
 }
@@ -711,7 +767,6 @@ function renderPendingAcceptCuttingTask(task: PdaTaskFlowMock, factoryName: stri
             class="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
             data-pda-tr-action="accept-task"
             data-task-id="${escapeHtml(task.taskId)}"
-            data-factory-name="${escapeHtml(factoryName)}"
           >接单</button>
         </div>
       </div>
@@ -768,7 +823,6 @@ function renderPendingAcceptTask(task: ProcessTask, factoryName: string): string
             class="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
             data-pda-tr-action="accept-task"
             data-task-id="${escapeHtml(task.taskId)}"
-            data-factory-name="${escapeHtml(factoryName)}"
           >接单</button>
         </div>
       </div>
@@ -923,12 +977,18 @@ function renderAwardedCuttingTask(task: PdaTaskFlowMock, item: AwardedTender): s
 }
 
 function renderAwardedItem(item: AwardedTender): string {
-  const task = getTaskFactById(item.taskId)
+  const runtimeTask = getRuntimeTaskById(item.taskId)
+  const task = getTaskFactById(item.taskId) ?? runtimeTask
   if (task && isCuttingSpecialTask(task)) {
     return renderAwardedCuttingTask(task as PdaTaskFlowMock, item)
   }
 
   const processName = task ? getTaskProcessDisplayName(task) : item.processName
+  const requiresAcceptance = Boolean(
+    task
+    && task.acceptanceStatus === 'PENDING'
+    && (runtimeTask?.assignmentStatus === 'AWARDED' || classifySewingDeliverySla(task) !== null),
+  )
   return `
     <article class="overflow-hidden rounded-lg border border-green-200 bg-card">
       <div class="space-y-2 p-3">
@@ -970,17 +1030,55 @@ function renderAwardedItem(item: AwardedTender): string {
             data-task-id="${escapeHtml(item.taskId)}"
           >查看任务详情</button>
 
-          <button
-            class="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-            data-pda-tr-action="open-exec"
-            data-task-id="${escapeHtml(item.taskId)}"
-          >
-            去执行
-            <i data-lucide="chevron-right" class="ml-0.5 h-3.5 w-3.5"></i>
-          </button>
+          ${
+            requiresAcceptance
+              ? `<button
+                  class="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                  data-pda-tr-action="accept-task"
+                  data-task-id="${escapeHtml(item.taskId)}"
+                >确认接单</button>`
+              : `<button
+                  class="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                  data-pda-tr-action="open-exec"
+                  data-task-id="${escapeHtml(item.taskId)}"
+                >
+                  去执行
+                  <i data-lucide="chevron-right" class="ml-0.5 h-3.5 w-3.5"></i>
+                </button>`
+          }
         </div>
       </div>
     </article>
+  `
+}
+
+function renderAcceptDialog(): string {
+  if (!state.acceptDialogTaskId) return ''
+  const task = getTaskFactById(state.acceptDialogTaskId) ?? getRuntimeTaskById(state.acceptDialogTaskId)
+  if (!task) return ''
+  return `
+    <div class="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 p-3" data-pda-tr-accept-dialog="true">
+      <article class="w-full max-w-md rounded-xl bg-background shadow-xl">
+        <header class="border-b px-4 py-3">
+          <h2 class="font-semibold">确认接单</h2>
+          <p class="mt-1 text-xs text-muted-foreground">请确认任务与接单时间；提交后将以该时间作为履约起点。</p>
+        </header>
+        <div class="space-y-2 px-4 py-3 text-sm">
+          ${renderFieldRow('任务编号', getTaskDisplayNo(task))}
+          ${renderFieldRow('工序', getTaskProcessDisplayName(task))}
+          ${renderFieldRow('数量', formatProcessQuantityWithUnit(task.qty, {
+            processType: 'SEWING',
+            objectType: '成衣',
+            qtyUnit: task.qtyUnit,
+          }))}
+          ${renderFieldRow('确认接单时间', state.acceptDialogAcceptedAt, true)}
+        </div>
+        <footer class="flex gap-2 border-t px-4 py-3">
+          <button class="inline-flex h-9 flex-1 items-center justify-center rounded-md border px-3 text-sm" data-pda-tr-action="close-accept-dialog">取消</button>
+          <button class="inline-flex h-9 flex-1 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-tr-action="confirm-accept-task" data-task-id="${escapeHtml(task.taskId)}">确认接单</button>
+        </footer>
+      </article>
+    </div>
   `
 }
 
@@ -1108,7 +1206,7 @@ export function renderPdaTaskReceivePage(): string {
   const activeBiddingTenders = getActiveBiddingTenders()
   syncQuoteDialogWithQuery(activeBiddingTenders)
   const allQuotedTenders = getQuotedTenders(selectedFactoryId)
-  const awardedTenders = getAwardedTenders(selectedFactoryId)
+  const awardedTenders = listPdaAwardedTendersForFactory(selectedFactoryId)
   const filteredPendingTasks = getFilteredPendingTasks(pendingAcceptTasks)
   const tabCounts = getTabCounts(
     pendingAcceptTasks,
@@ -1202,7 +1300,7 @@ export function renderPdaTaskReceivePage(): string {
             ? `
               <div class="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-muted-foreground">
                 <i data-lucide="info" class="h-3.5 w-3.5 shrink-0 text-green-600"></i>
-                平台定标即视为任务归属确定，无需二次确认，直接进入生产执行。
+                含车缝任务中标后请先确认接单；确认时间将作为交付时效起点。
               </div>
               ${
                 awardedTenders.length === 0
@@ -1216,6 +1314,7 @@ export function renderPdaTaskReceivePage(): string {
 
       ${renderQuoteDialog(quotingTender)}
       ${renderRejectDialog()}
+      ${renderAcceptDialog()}
     </div>
   `
 
@@ -1338,19 +1437,46 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
 
   if (action === 'confirm-reject') {
     if (!state.rejectReason.trim() || !state.rejectingTaskId) return true
-    const factoryName = getFactoryName(getCurrentFactoryId())
-    mutateRejectTask(state.rejectingTaskId, state.rejectReason.trim(), factoryName)
-    closeRejectDialog()
-    showTaskReceiveToast('已拒绝接单')
+    const factoryId = getCurrentFactoryId()
+    const factoryName = getFactoryName(factoryId)
+    try {
+      rejectPdaTaskWithRuntimeFallback(state.rejectingTaskId, factoryId, state.rejectReason.trim(), formatOperationLocalWallClock(), factoryName)
+      closeRejectDialog()
+      showTaskReceiveToast('已拒绝接单')
+    } catch (error) {
+      showTaskReceiveToast(error instanceof Error ? error.message : '拒单失败，请联系主管处理')
+    }
     return true
   }
 
   if (action === 'accept-task') {
     const taskId = actionNode.dataset.taskId
-    const factoryName = actionNode.dataset.factoryName || getFactoryName(getCurrentFactoryId())
     if (taskId) {
-      mutateAcceptTask(taskId, factoryName)
-      showTaskReceiveToast('接单成功')
+      state.acceptDialogTaskId = taskId
+      state.acceptDialogAcceptedAt = formatOperationLocalWallClock()
+    }
+    return true
+  }
+
+  if (action === 'close-accept-dialog') {
+    state.acceptDialogTaskId = ''
+    state.acceptDialogAcceptedAt = ''
+    return true
+  }
+
+  if (action === 'confirm-accept-task') {
+    const taskId = actionNode.dataset.taskId || state.acceptDialogTaskId
+    const factoryId = getCurrentFactoryId()
+    const factoryName = getFactoryName(factoryId)
+    if (taskId && taskId === state.acceptDialogTaskId) {
+      try {
+        acceptPdaTaskWithRuntimeFallback(taskId, factoryId, factoryName, state.acceptDialogAcceptedAt)
+        state.acceptDialogTaskId = ''
+        state.acceptDialogAcceptedAt = ''
+        showTaskReceiveToast('接单成功')
+      } catch (error) {
+        showTaskReceiveToast(error instanceof Error ? error.message : '接单失败，请联系主管处理')
+      }
     }
     return true
   }

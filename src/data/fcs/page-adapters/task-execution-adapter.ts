@@ -1,8 +1,10 @@
 import { processTasks, type ProcessTask } from '../process-tasks.ts'
 import {
   listRuntimeExecutionTasks,
+  listRuntimeProcessTasks,
   type RuntimeProcessTask,
 } from '../runtime-process-tasks.ts'
+import { listAllSewingDeliverySlaSnapshots } from '../sewing-delivery-sla.ts'
 
 export interface ExecutionTaskFact extends ProcessTask {
   displayStageName: string
@@ -421,6 +423,28 @@ export function listExecutionTaskFacts(): ProcessTask[] {
     if (splitSeqA !== splitSeqB) return splitSeqA - splitSeqB
     return (a.taskNo || a.taskId).localeCompare(b.taskNo || b.taskId)
   })
+}
+
+export function listHistoricalSewingAssignmentTaskFacts(): ProcessTask[] {
+  const snapshots = listAllSewingDeliverySlaSnapshots()
+  const snapshotByAssignmentId = new Map(snapshots.map((snapshot) => [snapshot.assignmentId, snapshot]))
+  const runtimeTaskIdByAssignmentId = new Map(snapshots.map((snapshot) => [snapshot.assignmentId, snapshot.runtimeTaskId]))
+  const inactiveByTaskId = new Map(
+    snapshots
+      .filter((snapshot) => !snapshot.active && Boolean(snapshot.replacedByAssignmentId))
+      .map((snapshot) => [snapshot.runtimeTaskId, snapshot] as const),
+  )
+  return listRuntimeProcessTasks()
+    .filter((task) => task.executionEnabled === false && inactiveByTaskId.has(task.taskId))
+    .map((runtimeTask) => {
+      const snapshot = inactiveByTaskId.get(runtimeTask.taskId)!
+      const fact = createFallbackTask(runtimeTask)
+      syncTaskFromRuntime(fact, runtimeTask, true)
+      fact.historicalAssignment = true
+      fact.replacedByRuntimeTaskId = runtimeTaskIdByAssignmentId.get(snapshot.replacedByAssignmentId!)
+      fact.reassignedAt = snapshotByAssignmentId.get(snapshot.replacedByAssignmentId!)?.acceptedAt
+      return fact
+    })
 }
 
 export function getExecutionTaskFactById(taskId: string): ProcessTask | null {

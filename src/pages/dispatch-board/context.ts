@@ -31,6 +31,7 @@ import {
   applyPendingDispatchAutoAcceptance,
   batchDispatchRuntimeTasks,
   batchSetRuntimeTaskAssignMode,
+  captureRuntimeDirectDispatchState,
   createRuntimeTaskTenderByDetailGroups,
   dispatchRuntimeTaskByDetailGroups,
   getRuntimeTaskById as getRuntimeTaskByIdFromStore,
@@ -38,8 +39,10 @@ import {
   isRuntimeTaskExecutionTask,
   listRuntimeTaskAllocatableGroups,
   listRuntimeProcessTasks,
+  prepareRuntimeDirectDispatchMeta,
   resolveRuntimeAllocatableGroupOutputValue,
   resolveRuntimeTaskOutputValue,
+  restoreRuntimeDirectDispatchState,
   setRuntimeTaskAssignMode,
   upsertRuntimeTaskTender,
   validateRuntimeBatchDispatchSelection,
@@ -48,6 +51,7 @@ import {
   type RuntimeProcessTask,
 } from '../../data/fcs/runtime-process-tasks.ts'
 import { resolveDispatchAcceptanceSlaForTask } from '../../data/fcs/dispatch-acceptance-sla.ts'
+import { classifySewingDeliverySla } from '../../data/fcs/sewing-delivery-sla.ts'
 import {
   initialQualityInspections,
   initialAllocationByTaskId,
@@ -199,6 +203,15 @@ interface LocalTender {
   currentMaxPrice?: number
   currentMinPrice?: number
   participatingFactoryIds?: string[]
+  factoryQuotes?: Array<{
+    factoryId: string
+    factoryName: string
+    hasQuoted: boolean
+    quotePrice?: number
+    quoteTime?: string
+    deliveryDays?: number
+    remark?: string
+  }>
   mainFactoryId?: string
   mainFactoryName?: string
   awardedFactoryId?: string
@@ -546,6 +559,7 @@ interface DirectDispatchForm {
   factoryId: string
   factoryName: string
   acceptDeadline: string
+  businessAssignedAt: string
   taskDeadline: string
   remark: string
   dispatchPrice: string
@@ -561,9 +575,8 @@ interface CreateTenderForm {
   maxPrice: string
   biddingDeadline: string
   taskDeadline: string
+  businessAssignedAt: string
   remark: string
-  mainFactoryId: string
-  mainFactoryName: string
   selectedPool: Set<string>
 }
 
@@ -621,6 +634,7 @@ function emptyDispatchForm(): DirectDispatchForm {
     factoryId: '',
     factoryName: '',
     acceptDeadline: '',
+    businessAssignedAt: '',
     taskDeadline: '',
     remark: '',
     dispatchPrice: '',
@@ -638,9 +652,8 @@ function emptyCreateTenderForm(): CreateTenderForm {
     maxPrice: '',
     biddingDeadline: '',
     taskDeadline: '',
+    businessAssignedAt: '',
     remark: '',
-    mainFactoryId: '',
-    mainFactoryName: '',
     selectedPool: new Set<string>(),
   }
 }
@@ -1453,9 +1466,9 @@ function getTaskById(taskId: string | null): DispatchTask | null {
 
 function getDispatchDialogTasks(): DispatchTask[] {
   if (!state.dispatchDialogTaskIds || state.dispatchDialogTaskIds.length === 0) return []
-
-  const selected = new Set(state.dispatchDialogTaskIds)
-  return getEffectiveTasks().filter((task) => selected.has(task.taskId))
+  return state.dispatchDialogTaskIds
+    .map((taskId) => getTaskById(taskId))
+    .filter((task): task is DispatchTask => Boolean(task && isRuntimeTaskExecutionTask(task)))
 }
 
 function getTaskAllocatableGroups(task: DispatchTask | null): RuntimeTaskAllocatableGroup[] {
@@ -1507,6 +1520,7 @@ function getDispatchDialogValidation(tasks: DispatchTask[]): {
   const changed = dispatchPrice != null ? Math.abs(dispatchPrice - std.price) >= 0.001 : false
   const needDiffReason = changed
   const singleTask = tasks.length === 1 ? tasks[0] : null
+  const includesSewingDeliverySla = tasks.some((task) => classifySewingDeliverySla(task) !== null)
   const detailMode = Boolean(singleTask && supportsDetailAssignment(singleTask) && state.dispatchForm.mode === 'DETAIL')
   let acceptanceSlaReady = false
   let acceptanceSlaMissingReason: string | null = null
@@ -1536,7 +1550,8 @@ function getDispatchDialogValidation(tasks: DispatchTask[]): {
 
   const valid =
     acceptanceSlaReady &&
-    state.dispatchForm.taskDeadline.trim() !== '' &&
+    state.dispatchForm.businessAssignedAt.trim() !== '' &&
+    (includesSewingDeliverySla || state.dispatchForm.taskDeadline.trim() !== '') &&
     dispatchPrice != null &&
     (!needDiffReason || state.dispatchForm.priceDiffReason.trim() !== '')
 
@@ -1562,6 +1577,7 @@ export {
   productionOrders,
   batchDispatchRuntimeTasks,
   batchSetRuntimeTaskAssignMode,
+  captureRuntimeDirectDispatchState,
   createFreezeFromDirectDispatch,
   createRuntimeTaskTenderByDetailGroups,
   convertFreezeToCommitment,
@@ -1575,7 +1591,9 @@ export {
   listCapacityFreezes,
   listRuntimeTaskAllocatableGroups,
   listRuntimeProcessTasks,
+  prepareRuntimeDirectDispatchMeta,
   releaseFreeze,
+  restoreRuntimeDirectDispatchState,
   setRuntimeTaskAssignMode,
   upsertRuntimeTaskTender,
   validateRuntimeBatchDispatchSelection,

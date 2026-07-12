@@ -117,7 +117,10 @@ async function main(): Promise<void> {
   assertIncludes(continuousDispatchSource, '车缝+后道连续任务', '连续工序任务分配页缺少车缝+后道 Tab')
   assertIncludes(continuousDispatchSource, '其他连续工序任务', '连续工序任务分配页缺少其他连续工序任务 Tab')
   assertNotIncludes(continuousDispatchSource, "WITH_CUTTING", '连续工序任务分配页不得保留含裁片第三 Tab')
-  assertIncludes(continuousDispatchSource, '整任务分配', '连续工序任务分配页必须标明整任务分配')
+  assertIncludes(continuousDispatchSource, '整任务范围', '连续工序任务分配页必须标明分配粒度')
+  assertIncludes(continuousDispatchSource, '直接派单', '连续工序任务行操作必须提供直接派单')
+  assertIncludes(continuousDispatchSource, '发起竞价', '连续工序任务行操作必须提供发起竞价')
+  assertNotIncludes(continuousDispatchSource, '>整任务分配</button>', '整任务分配是粒度说明，不得继续作为动作名')
   assertIncludes(continuousDispatchSource, '裁片是否可做成衣', '车缝+后道连续任务必须展示裁片可做成衣判断')
   assertIncludes(continuousDispatchSource, '辅料是否满足生产', '车缝+后道连续任务必须展示辅料齐套判断')
   ;['覆盖工序', '承接能力', '产能窗口', '接单截止', '任务截止'].forEach((token) => {
@@ -550,6 +553,8 @@ async function main(): Promise<void> {
     })`,
   )
   const cuttingTaskAnchor = cuttingContinuousRuntimeTask.taskNo || cuttingContinuousRuntimeTask.taskId
+  assertIncludes(continuousDispatchWithCuttingHtml, '直接派单', '真实连续工序任务行缺少直接派单')
+  assertIncludes(continuousDispatchWithCuttingHtml, '发起竞价', '真实连续工序任务行缺少发起竞价')
   const cuttingTaskIndex = continuousDispatchWithCuttingHtml.indexOf(cuttingTaskAnchor)
   assert(cuttingTaskIndex >= 0, '其他连续工序任务 Tab 必须渲染真实含裁片任务行')
   const cuttingTaskRowEndIndex = continuousDispatchWithCuttingHtml.indexOf('</tr>', cuttingTaskIndex)
@@ -594,7 +599,7 @@ async function main(): Promise<void> {
         if (selector === '[data-continuous-dispatch-action]') {
           return {
             dataset: {
-              continuousDispatchAction: 'set-bidding',
+              continuousDispatchAction: 'open-bidding',
               taskId: ${JSON.stringify(cuttingContinuousRuntimeTask.taskId)},
             },
           }
@@ -603,9 +608,8 @@ async function main(): Promise<void> {
       },
     })`,
   )
-  assertIncludes(continuousDispatchAfterActionHtml, '已将连续工序任务设为整任务竞价分配', '连续工序任务整任务分配操作必须可达并展示反馈')
+  assertIncludes(continuousDispatchAfterActionHtml, '工厂确认接单后启动时效', '发起竞价操作必须真实打开竞价弹窗')
   assertIncludes(continuousDispatchAfterActionHtml, '<option value="20" selected>20 条/页</option>', '连续工序任务每页条数交互必须生效')
-  assertIncludes(continuousDispatchAfterActionHtml, '招标中', '连续工序任务整任务分配后必须更新分配状态')
   const kolSampleRuntimeTasks = runtimeTasks.filter((task: {
     saleTypeSnapshot?: string
     taskUnitType?: string

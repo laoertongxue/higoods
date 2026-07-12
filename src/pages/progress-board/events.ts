@@ -23,41 +23,60 @@ import {
 } from './actions.ts'
 import { buildTaskRouteCardPrintLink } from '../../data/fcs/fcs-route-links.ts'
 import { isRuntimeSewingTask } from '../../data/fcs/runtime-process-tasks.ts'
+import {
+  closeSewingDeliveryResponsibilityReview,
+  openSewingDeliveryResponsibilityReview,
+  renderSewingDeliveryResponsibilityReviewDialog,
+  submitSewingDeliveryResponsibilityReview,
+  updateSewingDeliveryResponsibilityReviewField,
+} from './task-domain.ts'
+
+function refreshSewingDeliveryResponsibilityReviewDialog(): void {
+  if (typeof document === 'undefined') return
+  const host = document.querySelector<HTMLElement>('[data-sewing-sla-review-dialog-host]')
+  if (host) host.innerHTML = renderSewingDeliveryResponsibilityReviewDialog()
+}
 
 function updateField(field: string, node: HTMLElement): void {
   if (field === 'keyword' && node instanceof HTMLInputElement) {
     state.keyword = node.value
-    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+    state.page = 1
     return
   }
 
   if (field === 'statusFilter' && node instanceof HTMLSelectElement) {
     state.statusFilter = node.value
-    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+    state.page = 1
     return
   }
 
   if (field === 'assignmentStatusFilter' && node instanceof HTMLSelectElement) {
     state.assignmentStatusFilter = node.value
-    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+    state.page = 1
     return
   }
 
   if (field === 'assignmentModeFilter' && node instanceof HTMLSelectElement) {
     state.assignmentModeFilter = node.value
-    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+    state.page = 1
     return
   }
 
   if (field === 'stageFilter' && node instanceof HTMLSelectElement) {
     state.stageFilter = node.value
-    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+    state.page = 1
     return
   }
 
   if (field === 'riskFilter' && node instanceof HTMLSelectElement) {
     state.riskFilter = node.value
-    state.visibleTaskLimit = TASK_LIST_PAGE_SIZE
+    state.page = 1
+    return
+  }
+
+  if (field === 'pageSize' && node instanceof HTMLSelectElement) {
+    state.pageSize = Number(node.value) || TASK_LIST_PAGE_SIZE
+    state.page = 1
     return
   }
 
@@ -153,6 +172,32 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'review-sewing-sla-responsibility') {
+    const taskId = actionNode.dataset.taskId
+    const ratio = Number(actionNode.dataset.ratio)
+    try {
+      if (!taskId) throw new Error('缺少待复核任务')
+      openSewingDeliveryResponsibilityReview(taskId, ratio)
+      refreshSewingDeliveryResponsibilityReviewDialog()
+    } catch (error) {
+      showProgressBoardToast(error instanceof Error ? error.message : '责任复核打开失败', 'error')
+    }
+    return true
+  }
+
+  if (action === 'cancel-sewing-sla-review') {
+    closeSewingDeliveryResponsibilityReview()
+    refreshSewingDeliveryResponsibilityReviewDialog()
+    return true
+  }
+
+  if (action === 'submit-sewing-sla-review') {
+    const result = submitSewingDeliveryResponsibilityReview()
+    refreshSewingDeliveryResponsibilityReviewDialog()
+    showProgressBoardToast(result.message, result.ok ? 'success' : 'error')
+    return true
+  }
+
   if (action === 'kpi-filter') {
     const kpi = actionNode.dataset.kpi
     if (kpi) handleTaskKpiClick(kpi)
@@ -168,8 +213,13 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'show-more-tasks') {
-    state.visibleTaskLimit += TASK_LIST_PAGE_SIZE
+  if (action === 'task-page-prev') {
+    state.page = Math.max(1, state.page - 1)
+    return true
+  }
+
+  if (action === 'task-page-next') {
+    state.page += 1
     return true
   }
 
@@ -285,6 +335,10 @@ export function handleProgressBoardEvent(target: HTMLElement): boolean {
   if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLSelectElement || fieldNode instanceof HTMLTextAreaElement) {
     const field = fieldNode.dataset.progressField
     if (!field) return true
+    if (field.startsWith('sewingSlaReview.')) {
+      updateSewingDeliveryResponsibilityReviewField(field.slice('sewingSlaReview.'.length), fieldNode.value)
+      return true
+    }
     updateField(field, fieldNode)
     return true
   }
