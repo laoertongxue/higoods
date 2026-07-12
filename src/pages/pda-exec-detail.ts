@@ -4630,7 +4630,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       const oldText = button.textContent || '开始染色'
       button.disabled = true
       button.textContent = '处理中…'
-      const inputText = window.prompt('请输入染色投入数量', String(order.waterSolubleCompletedQty ?? order.plannedQty))
+      const inputText = window.prompt(`请输入染色投入数量（${order.qtyUnit}）`, String(order.waterSolubleCompletedQty ?? order.plannedQty))
       if (inputText === null) {
         pendingDyeWaterActions.delete(key)
         button.disabled = false

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import {
   completeDyeMaterialReady,
@@ -68,6 +69,7 @@ import {
   resetWaterSolubleDomainForChecks,
 } from '../src/data/fcs/water-soluble-task-domain.ts'
 import type { ProcessTask } from '../src/data/fcs/process-tasks.ts'
+import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
 import { appStore } from '../src/state/store.ts'
 
 const memoryStorage = new Map<string, string>()
@@ -158,6 +160,13 @@ async function main(): Promise<void> {
     const combinedMobileTask = getPdaMobileExecutionTaskById(combinedDyeOrder.taskId)
     assert(combinedMobileTask, '含水溶染色加工单必须保留既有移动任务')
     assert.equal(getMobileTaskProcessType(combinedMobileTask), 'DYE', 'processName 含水溶时仍应优先按显式 DYE 业务字段识别')
+
+    const pdaExecDetailSource = readFileSync('src/pages/pda-exec-detail.ts', 'utf8')
+    assert(
+      pdaExecDetailSource.includes("window.prompt(`请输入染色投入数量（${getDyeWorkOrderQtyUnit(order)}）`")
+        || pdaExecDetailSource.includes("window.prompt(`请输入染色投入数量（${order.qtyUnit}）`"),
+      'PDA 开始染色输入提示必须显示当前加工单单位',
+    )
 
     const classificationBase = {
       taskId: 'TASK-CLASSIFY-PROBE',
@@ -660,7 +669,7 @@ async function main(): Promise<void> {
     assert.match(wrapperBypass.message, /通用交接单/)
     appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(executableOrder.taskId)}`)
     const waitHandoverDetail = renderPdaExecDetailPage(executableOrder.taskId)
-    const goHandoverButton = waitHandoverDetail.match(/data-pda-execd-action="water-go-handover"[\s\S]{0,500}?data-action-token="([^"]+)"/)
+    const goHandoverButton = waitHandoverDetail.match(/data-pda-execd-action="water-go-handover"[\s\S]{0,1200}?data-action-token="([^"]+)"/)
     assert(goHandoverButton, '合法交接员必须在独立水溶详情看到唯一“去交出”动作')
     const goHandoverNode = {
       dataset: {
@@ -853,8 +862,22 @@ async function main(): Promise<void> {
     assert.equal(matchedWaterHead.diffQtyTotal, 0)
 
     memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+    const waitMaterialOrder = listDyeWorkOrders().find((order) => order.status === 'WAIT_MATERIAL')
+    assert(waitMaterialOrder, '必须存在待原料染色单验证后处理越序阻断')
+    const beforeIllegalPackOrder = getDyeWorkOrderById(waitMaterialOrder.dyeOrderId)
+    const beforeIllegalPackNode = getDyeExecutionNodeRecord(waitMaterialOrder.dyeOrderId, 'PACK')
+    const beforeIllegalPackHandovers = listHandoverOrdersByTaskId(waitMaterialOrder.taskId)
+    assert.throws(() => startDyeNode(waitMaterialOrder.dyeOrderId, 'PACK', '越序探针'), /状态|前序|顺序/, 'WAIT_MATERIAL 不得直接开始包装')
+    assert.throws(() => completeDyeNode(waitMaterialOrder.dyeOrderId, 'PACK', { outputQty: 1 }), /状态|前序|顺序/, 'WAIT_MATERIAL 不得直接完成包装')
+    assert.deepEqual(getDyeWorkOrderById(waitMaterialOrder.dyeOrderId), beforeIllegalPackOrder, '越序开始包装失败不得修改加工单')
+    assert.deepEqual(getDyeExecutionNodeRecord(waitMaterialOrder.dyeOrderId, 'PACK'), beforeIllegalPackNode, '越序开始包装失败不得创建节点')
+    assert.deepEqual(listHandoverOrdersByTaskId(waitMaterialOrder.taskId), beforeIllegalPackHandovers, '越序开始包装失败不得生成交出单')
+
     const combined = getDyeWorkOrderById(combinedDyeOrder.dyeOrderId)
     assert(combined, '含水溶染色加工单必须仍可读取')
+    const combinedGenericTask = listPdaGenericProcessTasks().find((task) => task.taskId === combined.taskId)
+    assert(combinedGenericTask, '联合染色必须存在通用移动任务')
+    combinedGenericTask.qtyDisplayUnit = '公斤'
     assert.equal(validateDyeStartPrerequisite(combined.dyeOrderId, 80).ok, false)
     if (combined.isFirstOrder && combined.sampleWaitType !== 'NONE') {
       startDyeSampleWait(combined.dyeOrderId, { waitType: combined.sampleWaitType, operatorName: operator.userName })
@@ -925,7 +948,13 @@ async function main(): Promise<void> {
     completeDyeing(combined.dyeOrderId, { inputQty: 80, outputQty: 80, operatorName: operator.userName })
     for (const nodeCode of ['DEHYDRATE', 'DRY', 'SET', 'ROLL'] as const) {
       startDyeNode(combined.dyeOrderId, nodeCode, operator.userName)
+      const startedNode = getDyeExecutionNodeRecord(combined.dyeOrderId, nodeCode)
+      assert.throws(() => startDyeNode(combined.dyeOrderId, nodeCode, operator.userName), /已经开始|重复/, `${nodeCode} 不得重复开始`)
+      assert.deepEqual(getDyeExecutionNodeRecord(combined.dyeOrderId, nodeCode), startedNode, `${nodeCode} 重复开始失败不得改写节点`)
       completeDyeNode(combined.dyeOrderId, nodeCode, { outputQty: 80, operatorName: operator.userName })
+      const completedNode = getDyeExecutionNodeRecord(combined.dyeOrderId, nodeCode)
+      assert.throws(() => completeDyeNode(combined.dyeOrderId, nodeCode, { outputQty: 79, operatorName: operator.userName }), /状态|已经完成|重复/, `${nodeCode} 不得重复完成`)
+      assert.deepEqual(getDyeExecutionNodeRecord(combined.dyeOrderId, nodeCode), completedNode, `${nodeCode} 重复完成失败不得改写节点`)
       assert.equal(listHandoverOrdersByTaskId(combined.taskId).length, 0, `${nodeCode} 完成后仍不得生成交出单`)
     }
     startDyeNode(combined.dyeOrderId, 'PACK', operator.userName)
@@ -934,6 +963,7 @@ async function main(): Promise<void> {
     const combinedFinalOrders = listHandoverOrdersByTaskId(combined.taskId)
     assert.equal(combinedFinalOrders.length, 1, '只有 PACK 完成后可生成一张最终交出单')
     assert.equal(combinedFinalOrders[0].sourceBusinessType, 'DYE_WORK_ORDER', '联合染色最终交出必须保持染色加工单来源语义')
+    assert.equal(combinedFinalOrders[0].qtyUnit, '公斤', '联合染色最终交出单头必须优先使用任务权威显示单位')
     assert.equal(ensureHandoverOrderForStartedTask(combined.taskId).created, false)
     assert.equal(listHandoverOrdersByTaskId(combined.taskId).length, 1, '联合染色重复 ensure 不得重复创建')
   } finally {

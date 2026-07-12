@@ -725,13 +725,16 @@ function generateBomDrivenPrepArtifactsForEntry(
     const requiresDye = Boolean(dyeRequirement && dyeRequirement !== '无')
     if (entry.processCode === 'WATER_SOLUBLE' && (!requiresWaterSoluble || requiresDye)) return []
     if (entry.processCode === 'DYE' && !requiresDye) return []
+    if (!bomItem.unit?.trim()) {
+      throw new Error(`BOM ${bomItem.id}（${bomItem.materialCode || bomItem.name || bomItem.id}）产物生成失败：BOM 数量单位不能为空`)
+    }
 
     const materialFields = {
       bomItemId: bomItem.id,
       materialCode: bomItem.materialCode || bomItem.id,
       materialName: bomItem.name,
       plannedQty: calculateBomProcessPlannedQty(order, bomItem),
-      plannedUnit: bomItem.unit || '米',
+      plannedUnit: bomItem.unit.trim(),
       linkedBomItemIds: [bomItem.id],
     }
     const techPackVersionKey = snapshot.sourceTechPackVersionId

@@ -2539,15 +2539,26 @@ export function createDyeWorkOrderFromDemands(input: {
     assignmentMode: 'DIRECT',
     assignmentStatus: 'ASSIGNED',
     acceptanceStatus: 'ACCEPTED',
+    acceptedAt: now,
+    acceptedBy: factory.name,
+    awardedAt: undefined,
+    tenderId: undefined,
     qty: plannedQty,
     qtyUnit: 'METER',
     qtyDisplayUnit: normalizedUnit,
+    taskQrValue: buildTaskQrValue(taskId),
+    taskQrStatus: 'ACTIVE',
+    handoverOrderId: undefined,
+    handoverStatus: 'NOT_CREATED',
+    handoutStatus: 'PENDING',
     createdAt: now,
     updatedAt: now,
     startedAt: undefined,
     finishedAt: undefined,
+    blockedAt: undefined,
     blockReason: undefined,
     blockRemark: undefined,
+    auditLogs: [],
     mockReceiveSummary: requiresWaterSoluble ? '染色加工单已派单，需先完成水溶。' : '染色加工单已派单。',
     mockExecutionSummary: requiresWaterSoluble ? '同一染厂先水溶后染色。' : '按染色工艺执行。',
     mockHandoverSummary: '完成全部后处理后统一交出。',
@@ -2659,7 +2670,7 @@ export function completeDyeWaterSolubleNode(
   if (!order) return { ok: false, message: '未找到染色加工单。' }
   const current = getDyeExecutionNodeRecord(dyeOrderId, 'WATER_SOLUBLE')
   if (!current?.startedAt || current.finishedAt) return { ok: false, message: '请先开始水溶，且不要重复完成。' }
-  if (!Number.isFinite(outputQty) || outputQty <= 0) return { ok: false, message: '水溶完成数量必须是大于 0 的有效数字。' }
+  if (!Number.isFinite(outputQty) || outputQty < 0) return { ok: false, message: '水溶完成数量必须是大于或等于 0 的有效数字。' }
   const plannedQty = order.waterSolublePlannedQty ?? order.plannedQty
   const completedQty = order.waterSolubleCompletedQty ?? 0
   if (outputQty < completedQty) return { ok: false, message: '水溶累计完成数量不能小于已有完成数量。' }
@@ -2695,6 +2706,9 @@ export function resolveDyeWaterSolublePause(
   const mutable = getMutableWorkOrder(dyeOrderId)
   const current = getMutableNodeRecord(dyeOrderId, 'WATER_SOLUBLE')
   if (decision === 'CONTINUE_WITH_ACTUAL_QTY') {
+    if ((mutable.waterSolubleCompletedQty ?? 0) <= 0) {
+      return { ok: false, message: '当前没有可投入染色的水溶完成数量。' }
+    }
     mutable.status = 'WAIT_VAT_PLAN'
     mutable.remark = `${supervisor}确认按水溶实际完成数量继续染色`
   } else {
@@ -3060,14 +3074,51 @@ function getNodeStatusAfterComplete(nodeCode: Extract<DyeExecutionNodeCode, 'DEH
   }
 }
 
+type DyePostNodeCode = Extract<DyeExecutionNodeCode, 'DEHYDRATE' | 'DRY' | 'SET' | 'ROLL' | 'PACK'>
+
+const DYE_POST_NODE_PREDECESSOR: Record<
+  DyePostNodeCode,
+  Extract<DyeExecutionNodeCode, 'DYE' | 'DEHYDRATE' | 'DRY' | 'SET' | 'ROLL'>
+> = {
+  DEHYDRATE: 'DYE',
+  DRY: 'DEHYDRATE',
+  SET: 'DRY',
+  ROLL: 'SET',
+  PACK: 'ROLL',
+}
+
+const DYE_POST_NODE_EXPECTED_STATUS: Record<DyePostNodeCode, DyeWorkOrderStatus> = {
+  DEHYDRATE: 'DEHYDRATING',
+  DRY: 'DRYING',
+  SET: 'SETTING',
+  ROLL: 'ROLLING',
+  PACK: 'PACKING',
+}
+
+function assertDyePostNodeReady(order: DyeWorkOrder, nodeCode: DyePostNodeCode): void {
+  const expectedStatus = DYE_POST_NODE_EXPECTED_STATUS[nodeCode]
+  if (order.status !== expectedStatus) {
+    throw new Error(`当前状态为“${DYE_WORK_ORDER_STATUS_LABEL[order.status]}”，不能执行${DYE_NODE_LABEL[nodeCode]}。`)
+  }
+  const predecessor = DYE_POST_NODE_PREDECESSOR[nodeCode]
+  if (!getMutableNodeRecord(order.dyeOrderId, predecessor)?.finishedAt) {
+    throw new Error(`请先完成前序节点“${DYE_NODE_LABEL[predecessor]}”，再执行${DYE_NODE_LABEL[nodeCode]}。`)
+  }
+}
+
 export function startDyeNode(
   dyeOrderId: string,
   nodeCode: Extract<DyeExecutionNodeCode, 'DEHYDRATE' | 'DRY' | 'SET' | 'ROLL' | 'PACK'>,
   operatorName = '染色工厂',
 ): DyeExecutionNodeRecord {
   const order = getMutableWorkOrder(dyeOrderId)
+  assertDyePostNodeReady(order, nodeCode)
+  const current = getMutableNodeRecord(dyeOrderId, nodeCode)
+  if (current?.startedAt || current?.finishedAt) {
+    throw new Error(`${DYE_NODE_LABEL[nodeCode]}已经开始或完成，请勿重复操作。`)
+  }
   const now = nowTimestamp()
-  upsertNodeRecord(dyeOrderId, nodeCode, (current) => ({
+  upsertNodeRecord(dyeOrderId, nodeCode, () => ({
     nodeRecordId: current?.nodeRecordId || createNodeRecordId(dyeOrderId, nodeCode),
     dyeOrderId,
     taskId: order.taskId,
@@ -3092,7 +3143,14 @@ export function completeDyeNode(
   input: { outputQty?: number; operatorName?: string },
 ): DyeExecutionNodeRecord {
   const order = getMutableWorkOrder(dyeOrderId)
+  assertDyePostNodeReady(order, nodeCode)
   const current = getMutableNodeRecord(dyeOrderId, nodeCode)
+  if (!current?.startedAt) {
+    throw new Error(`请先开始${DYE_NODE_LABEL[nodeCode]}，再确认完成。`)
+  }
+  if (current.finishedAt) {
+    throw new Error(`${DYE_NODE_LABEL[nodeCode]}已经完成，请勿重复操作。`)
+  }
   const now = nowTimestamp()
   upsertNodeRecord(dyeOrderId, nodeCode, () => ({
     nodeRecordId: current?.nodeRecordId || createNodeRecordId(dyeOrderId, nodeCode),

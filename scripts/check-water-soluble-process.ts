@@ -21,6 +21,7 @@ import {
   upsertFactoryMasterRecord,
 } from '../src/data/fcs/factory-master-store.ts'
 import { getProcessTaskQtyDisplayUnit } from '../src/data/fcs/process-tasks.ts'
+import { buildTaskQrValue } from '../src/data/fcs/task-qr.ts'
 import type { ProductionOrderTechPackSnapshot } from '../src/data/fcs/production-tech-pack-snapshot-types.ts'
 import {
   getTechnicalDataVersionContent,
@@ -894,6 +895,7 @@ assertInvalidQuantity({}, /BOM INVALID-QTY.*SKU SKU-WATER-S.*大于等于 0/, [
 assertInvalidQuantity({ unitConsumption: 0 }, /BOM INVALID-QTY.*单位用量.*大于 0/)
 assertInvalidQuantity({ unitConsumption: -1 }, /BOM INVALID-QTY.*单位用量.*大于 0/)
 assertInvalidQuantity({ unitConsumption: Number.NaN }, /BOM INVALID-QTY.*单位用量.*有限数/)
+assertInvalidQuantity({ unit: '   ' }, /BOM INVALID-QTY.*数量单位.*不能为空/)
 assertInvalidQuantity({ lossRate: -1 }, /BOM INVALID-QTY.*损耗率.*大于等于 0/)
 assertInvalidQuantity({ lossRate: Number.NaN }, /BOM INVALID-QTY.*损耗率.*有限数/)
 assertInvalidQuantity({ unitConsumption: Number.MAX_VALUE / 2, lossRate: 0 }, /BOM INVALID-QTY.*计划数量.*有限数/, [
@@ -1115,7 +1117,7 @@ assert.equal(startWaterSoluble(workflowOrder.waterOrderId).order?.status, 'WATER
 assert.equal(startWaterSoluble(workflowOrder.waterOrderId).ok, false, '重复开工必须明确失败')
 const plannedQty = getWaterSolubleWorkOrderById(workflowOrder.waterOrderId)?.plannedQty ?? 0
 assert.equal(completeWaterSoluble(workflowOrder.waterOrderId, Number.NaN).ok, false, '完成数量非有限数必须阻断')
-assert.equal(completeWaterSoluble(workflowOrder.waterOrderId, 0).ok, false, '完成数量必须大于 0')
+assert.equal(completeWaterSoluble(workflowOrder.waterOrderId, 0).ok, false, '零产出未填原因必须阻断')
 assert.equal(completeWaterSoluble(workflowOrder.waterOrderId, plannedQty + 1).ok, false, '超计划且无原因必须阻断')
 assert.equal(completeWaterSoluble(workflowOrder.waterOrderId, plannedQty).order?.status, 'WAIT_HANDOVER', '按计划完成后必须待交出')
 assert.equal(completeWaterSoluble(workflowOrder.waterOrderId, plannedQty).ok, false, '重复完工必须明确失败')
@@ -1125,6 +1127,18 @@ assert.equal(submitWaterSolubleHandover(workflowOrder.waterOrderId, plannedQty).
 assert.equal(submitWaterSolubleHandover(workflowOrder.waterOrderId, plannedQty).ok, false, '重复交出必须明确失败')
 assert.equal(writeBackWaterSolubleReceipt(workflowOrder.waterOrderId, plannedQty).order?.status, 'DONE', '收货数量一致必须完成')
 assert.equal(writeBackWaterSolubleReceipt(workflowOrder.waterOrderId, plannedQty).ok, false, '重复收货回写必须明确失败')
+
+resetWaterSolubleDomainForChecks()
+const zeroOutputOrder = listWaterSolubleWorkOrders().find((item) => item.status === 'WAIT_FACTORY_ASSIGNMENT')!
+assignWaterSolubleFactory(zeroOutputOrder.waterOrderId, 'F090')
+markWaterSolubleMaterialReady(zeroOutputOrder.waterOrderId)
+startWaterSoluble(zeroOutputOrder.waterOrderId)
+assert.equal(completeWaterSoluble(zeroOutputOrder.waterOrderId, 0).ok, false, '零产出无原因必须保持水溶中')
+const zeroOutputPaused = completeWaterSoluble(zeroOutputOrder.waterOrderId, 0, '本批物料全部破损')
+assert.equal(zeroOutputPaused.order?.status, 'PRODUCTION_PAUSED', '零产出有原因必须进入生产暂停')
+assert.equal(zeroOutputPaused.order?.completedQty, 0, '生产暂停必须保留实际零产出事实')
+assert.equal(resolveWaterSolublePause(zeroOutputOrder.waterOrderId, 'CONTINUE_WITH_ACTUAL_QTY').ok, false, '零产出不得按实际数量继续交出')
+assert.equal(getWaterSolubleWorkOrderById(zeroOutputOrder.waterOrderId)?.status, 'PRODUCTION_PAUSED', '拒绝零数量交出后不得改变暂停状态')
 
 resetWaterSolubleDomainForChecks()
 const overPlanOrder = listWaterSolubleWorkOrders().find((item) => item.status === 'WAIT_FACTORY_ASSIGNMENT')!
@@ -1421,6 +1435,15 @@ try {
     const dyeOrdersPage = await tsImport('../src/pages/process-dye-orders.ts', import.meta.url) as typeof import('../src/pages/process-dye-orders.ts')
     assert.equal(dyeOrdersPage.formatDyeOrderQuantity(7, listPrepProcessOrders('DYE').find((order) => order.workOrderId === kgCreated.order?.dyeOrderId)!.unit), '7 公斤', 'FCS 染色加工单页面数量渲染必须使用运行时公斤单位')
     assert.equal(dyeOrdersPage.formatDyeOrderQuantity(5, listPrepProcessOrders('DYE').find((order) => order.workOrderId === rollCreated.order?.dyeOrderId)!.unit), '5 卷', 'FCS 染色加工单页面数量渲染必须使用运行时卷单位')
+    const kgMobileTask = listPdaGenericProcessTasks().find((task) => task.taskId === kgCreated.order?.taskId)
+    assert(kgCreated.order && kgMobileTask, '公斤染色加工单必须同步生成移动任务')
+    assert.equal(kgMobileTask.taskQrValue, buildTaskQrValue(kgMobileTask.taskId), '动态染色任务二维码必须按新 taskId 重建')
+    assert.equal(kgMobileTask.qtyDisplayUnit, '公斤', '动态染色任务必须保留原需求单位作为权威显示单位')
+    assert.equal(kgMobileTask.startedAt, undefined, '动态染色任务不得继承模板开工事实')
+    assert.equal(kgMobileTask.finishedAt, undefined, '动态染色任务不得继承模板完工事实')
+    assert.deepEqual(kgMobileTask.auditLogs, [], '动态染色任务不得继承模板审计事实')
+    assert.equal(kgMobileTask.handoverOrderId, undefined, '动态染色任务不得继承模板交出单 ID')
+    assert.equal(kgMobileTask.handoverStatus, 'NOT_CREATED', '动态染色任务交接状态必须从未创建开始')
 
     const created = createDyeWorkOrderFromDemands({
       demands: [waterDemand],
@@ -1481,7 +1504,7 @@ try {
     assert.equal(getMobileExecutionTaskById(created.order.taskId)?.status, 'IN_PROGRESS', '开始水溶后 PDA 统一任务索引必须同步为进行中')
     assert.equal(startDyeWaterSolubleNode(createdCombinedDyeOrderId, '操作员').ok, false, '重复开始水溶必须拦截')
     assert.equal(completeDyeWaterSolubleNode(createdCombinedDyeOrderId, Number.NaN, '异常值').ok, false, '非有限完成数量必须拦截')
-    assert.equal(completeDyeWaterSolubleNode(createdCombinedDyeOrderId, 0, '异常值').ok, false, '水溶完成数量必须大于 0')
+    assert.equal(completeDyeWaterSolubleNode(createdCombinedDyeOrderId, 0, '').ok, false, '水溶零产出未填原因必须阻断')
     assert.equal(completeDyeWaterSolubleNode(createdCombinedDyeOrderId, orderForExecution.plannedQty + 1, '').ok, false, '超计划完成数量无原因必须拦截')
     const beforeBlankShortage = getDyeWorkOrderById(createdCombinedDyeOrderId)!
     const beforeBlankShortageNode = getDyeExecutionNodeRecord(createdCombinedDyeOrderId, 'WATER_SOLUBLE')!
@@ -1538,6 +1561,18 @@ try {
     assert.equal(reworkDyeResult.order?.status, 'WAIT_WATER_SOLUBLE', '主管退回返工必须回到待水溶')
     assert.equal(reworkDyeResult.order?.waterSolubleCompletedQty, 0, '退回返工必须清空本次水溶完成量')
     assert.equal(getMobileExecutionTaskById(reworkDyeOrder.taskId)?.status, 'NOT_STARTED', '退回返工后 PDA 统一任务索引必须回到待执行')
+
+    const zeroCombined = createDyeWorkOrderFromDemands({ demands: [cloneDyeDemand('ZERO-OUTPUT-COMBINED')], factoryId: 'DYE-WATER-CAP-BOTH', plannedFinishAt: '2026-07-21 18:00:00' }).order!
+    domain.completeDyeMaterialReady(zeroCombined.dyeOrderId, { outputQty: zeroCombined.plannedQty })
+    domain.planDyeVat(zeroCombined.dyeOrderId, { dyeVatNo: 'VAT-CHECK' })
+    startDyeWaterSolubleNode(zeroCombined.dyeOrderId, '操作员')
+    assert.equal(completeDyeWaterSolubleNode(zeroCombined.dyeOrderId, 0, '').ok, false, '联合水溶零产出无原因必须阻断')
+    const zeroCombinedPaused = completeDyeWaterSolubleNode(zeroCombined.dyeOrderId, 0, '本批物料全部不可用')
+    assert.equal(zeroCombinedPaused.order?.status, 'PRODUCTION_PAUSED', '联合水溶零产出有原因必须进入生产暂停')
+    const beforeZeroActualDecision = getDyeWorkOrderById(zeroCombined.dyeOrderId)
+    assert.equal(resolveDyeWaterSolublePause(zeroCombined.dyeOrderId, 'CONTINUE_WITH_ACTUAL_QTY', '主管').ok, false, '联合水溶零产出不得按实际数量开始染色')
+    assert.deepEqual(getDyeWorkOrderById(zeroCombined.dyeOrderId), beforeZeroActualDecision, '拒绝零数量继续后不得改变加工单事实')
+    assert.equal(validateDyeStartPrerequisite(zeroCombined.dyeOrderId, 0).ok, false, '零投入不得开始染色')
   } finally {
     capabilityFactories.forEach((fixture) => removeFactoryMasterRecord(fixture.id))
   }

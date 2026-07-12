@@ -482,7 +482,7 @@ export function completeWaterSoluble(orderId: string, completedQty: number, exce
   if (!order) return failure(`未找到水溶加工单“${orderId}”。`)
   const statusError = requireStatus(order, 'WATER_SOLUBLE_IN_PROGRESS', '上报完成数量')
   if (statusError) return statusError
-  const qtyError = validatePositiveQty(completedQty, '完成数量')
+  const qtyError = validateNonNegativeQty(completedQty, '完成数量')
   if (qtyError) return failure(qtyError)
   if (completedQty + 0.000001 < order.completedQty) {
     return failure(`累计完成数量不能少于已有完成数量 ${order.completedQty} ${order.qtyUnit}。`)

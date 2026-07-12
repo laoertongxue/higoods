@@ -4119,7 +4119,9 @@ export function ensureHandoverOrderForStartedTask(taskId: string): {
       receiverKind: receiver.receiverKind,
       receiverId: receiver.receiverId,
       receiverName: receiver.receiverName,
-      qtyUnit: waterOrder ? getWaterSolubleHandoverQtyUnit(waterOrder.qtyUnit) : task.qtyUnit === 'METER' ? 'm' : task.qtyUnit === 'BUNDLE' ? '打' : '件',
+      qtyUnit: waterOrder
+        ? getWaterSolubleHandoverQtyUnit(waterOrder.qtyUnit)
+        : task.qtyDisplayUnit?.trim() || (task.qtyUnit === 'METER' ? 'm' : task.qtyUnit === 'BUNDLE' ? '打' : '件'),
       factoryId: task.assignedFactoryId || '',
       taskStatus: task.status === 'DONE' ? 'DONE' : 'IN_PROGRESS',
       summaryStatus: 'NONE',

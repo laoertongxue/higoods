@@ -97,7 +97,9 @@ function checkWaterSolubleRuntimeEntry(): void {
     && artifact.processCode === 'WATER_SOLUBLE'
     && Boolean(artifact.bomItemId)
     && Number(artifact.plannedQty) > 0
-    && Boolean(artifact.plannedUnit),
+    && Boolean(artifact.plannedUnit)
+    && !artifact.artifactId.startsWith('DICT-')
+    && !artifact.sourceEntryId.startsWith('DICT-MOCK-'),
   )
   assert(waterArtifacts.length > 0, '缺少可用于 PDA 真实入口检查的独立水溶 TASK 产物')
 
