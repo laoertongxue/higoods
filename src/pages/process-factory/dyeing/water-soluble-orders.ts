@@ -330,7 +330,9 @@ export function handleCraftDyeingWaterSolubleOrdersEvent(target: HTMLElement): b
     const access = getAuthorizedOrder(orderId, ['WATER_SOLUBLE_IN_PROGRESS'], 'OPERATE')
     if (!access.order) { rejectAction(access.message); return true }
     if (state.completionDraft.orderId !== orderId) { rejectAction('当前填写内容已失效，请重新打开加工单。'); return true }
-    const completedQty = Number(state.completionDraft.completedQty.trim())
+    const completedQtyInput = state.completionDraft.completedQty.trim()
+    if (!completedQtyInput) { rejectAction('请填写完成数量。'); return true }
+    const completedQty = Number(completedQtyInput)
     if (!Number.isFinite(completedQty)) { rejectAction('完成数量必须是有限数字。'); return true }
     if (completedQty < 0) { rejectAction('完成数量不能小于 0。'); return true }
     const reason = state.completionDraft.reason.trim()

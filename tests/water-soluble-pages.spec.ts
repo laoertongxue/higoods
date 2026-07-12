@@ -420,33 +420,35 @@ test('PFOS 零产出无原因不写入且补填原因后进入生产暂停', asy
   const card = page.locator(`[data-testid="factory-water-soluble-card"][data-order-id="${arranged.orderId}"]`)
   await rememberMain(page)
   await card.getByRole('button', { name: '上报完成数量' }).click()
-  await page.locator('[data-factory-water-soluble-field="completedQty"]').fill('0')
+  await page.locator('[data-factory-water-soluble-field="completedQty"]').fill('   ')
+  await page.locator('[data-factory-water-soluble-field="completionReason"]').fill('本批物料全部破损')
 
   const before = await page.evaluate(async (orderId) => {
     const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
     const order = water.getWaterSolubleWorkOrderById(orderId)
-    return order && {
-      status: order.status,
-      completedQty: order.completedQty,
-      exceptionReason: order.exceptionReason,
-      actionLogCount: order.actionLogs.length,
-    }
+    return order ? structuredClone(order) : null
   }, arranged.orderId)
 
   await page.getByRole('button', { name: '确认上报' }).click()
-  await expect(page.getByText('数量与计划不一致，请填写原因。')).toBeVisible()
+  await expect(page.getByText('请填写完成数量。')).toBeVisible()
   await expect(page.getByRole('heading', { name: '上报完成数量' })).toBeVisible()
-  const blocked = await page.evaluate(async (orderId) => {
+  const blankBlocked = await page.evaluate(async (orderId) => {
     const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
     const order = water.getWaterSolubleWorkOrderById(orderId)
-    return order && {
-      status: order.status,
-      completedQty: order.completedQty,
-      exceptionReason: order.exceptionReason,
-      actionLogCount: order.actionLogs.length,
-    }
+    return order ? structuredClone(order) : null
   }, arranged.orderId)
-  expect(blocked).toEqual(before)
+  expect(blankBlocked).toEqual(before)
+
+  await page.locator('[data-factory-water-soluble-field="completedQty"]').fill('0')
+  await page.locator('[data-factory-water-soluble-field="completionReason"]').fill('')
+  await page.getByRole('button', { name: '确认上报' }).click()
+  await expect(page.getByText('数量与计划不一致，请填写原因。')).toBeVisible()
+  const zeroWithoutReasonBlocked = await page.evaluate(async (orderId) => {
+    const water = await import(/* @vite-ignore */ '/src/data/fcs/water-soluble-task-domain.ts')
+    const order = water.getWaterSolubleWorkOrderById(orderId)
+    return order ? structuredClone(order) : null
+  }, arranged.orderId)
+  expect(zeroWithoutReasonBlocked).toEqual(before)
 
   await page.locator('[data-factory-water-soluble-field="completionReason"]').fill('本批物料全部破损')
   await page.getByRole('button', { name: '确认上报' }).click()
