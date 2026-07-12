@@ -168,7 +168,8 @@
     "test:pda-handover-pickup-dispute-platform-resolution:e2e": "playwright test tests/pda-handover-pickup-dispute-platform-resolution.spec.ts",
     "test:cutting:all:e2e": "playwright test tests/cutting-*.spec.ts",
     "check:process-factory-tabs-and-post-finishing": "tsx scripts/check-process-factory-tabs-and-post-finishing.ts",
-    "test:process-factory-tabs-and-post-finishing:e2e": "playwright test tests/process-factory-tabs-and-post-finishing.spec.ts"
+    "test:process-factory-tabs-and-post-finishing:e2e": "playwright test tests/process-factory-tabs-and-post-finishing.spec.ts",
+    "test:production-order-change-final:e2e": "playwright test --config=playwright.production-order-change.config.ts"
   },
   "dependencies": {
     "lucide": "^0.468.0",
