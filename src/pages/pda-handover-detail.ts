@@ -93,6 +93,7 @@ import { getTaskChainTaskById } from '../data/fcs/page-adapters/task-chain-pages
 import { renderPdaFrame } from './pda-shell'
 import { getPdaRuntimeContext } from './pda-runtime'
 import { getWaterSolubleWorkOrderByTaskId, WATER_SOLUBLE_STATUS_LABEL } from '../data/fcs/water-soluble-task-domain.ts'
+import { canWaterSolubleRolePerform } from '../data/fcs/water-soluble-pda-actor.ts'
 import { getCurrentPdaUser, getPdaSession } from '../data/fcs/store-domain-pda.ts'
 
 interface ProofFile {
@@ -182,7 +183,7 @@ function getWaterHandoverAccess(head: PdaHandoverHead): { ok: boolean; message: 
     return { ok: false, message: '当前未登录或账号已失效，不能操作水溶交出单。' }
   }
   if (runtime.factoryId !== head.factoryId) return { ok: false, message: '该水溶交出单不属于当前工厂，不能操作。' }
-  if (!['ROLE_HANDOVER', 'ROLE_ADMIN'].includes(runtime.roleId)) {
+  if (!canWaterSolubleRolePerform(session.roleId, 'HANDOVER')) {
     return { ok: false, message: '当前角色不能操作水溶交出单，请由交接员或管理员处理。' }
   }
   const order = getWaterSolubleWorkOrderByTaskId(head.taskId)
