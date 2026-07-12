@@ -83,17 +83,19 @@ Object.defineProperty(globalThis, 'localStorage', {
 })
 
 class FakeInputElement {
-  dataset = { pdaExecField: 'searchKeyword' }
+  dataset: Record<string, string> = { pdaExecField: 'searchKeyword' }
   value: string
   constructor(value = '') {
     this.value = value
   }
   closest(selector: string): FakeInputElement | null {
-    return selector === '[data-pda-exec-field]' ? this : null
+    if (selector === '[data-pda-exec-field]' && this.dataset.pdaExecField) return this
+    if (selector === '[data-pda-execd-field]' && this.dataset.pdaExecdField) return this
+    return null
   }
 }
 class FakeSelectElement {}
-class FakeTextAreaElement {}
+class FakeTextAreaElement extends FakeInputElement {}
 Object.defineProperty(globalThis, 'HTMLInputElement', { configurable: true, value: FakeInputElement })
 Object.defineProperty(globalThis, 'HTMLSelectElement', { configurable: true, value: FakeSelectElement })
 Object.defineProperty(globalThis, 'HTMLTextAreaElement', { configurable: true, value: FakeTextAreaElement })
@@ -341,6 +343,11 @@ async function main(): Promise<void> {
     const { handlePdaExecDetailEvent, renderPdaExecDetailPage } = await import('../src/pages/pda-exec-detail.ts')
     const { renderPdaHandoverPage } = await import('../src/pages/pda-handover.ts')
     const { renderPdaHandoverDetailPage } = await import('../src/pages/pda-handover-detail.ts')
+    const setExecDetailDraftField = (field: string, value: string, textarea = false) => {
+      const fieldNode = textarea ? new FakeTextAreaElement(value) : new FakeInputElement(value)
+      fieldNode.dataset = { pdaExecdField: field }
+      assert.equal(handlePdaExecDetailEvent(fieldNode as unknown as HTMLElement), true, `详情字段 ${field} 必须由真实 handler 消费`)
+    }
     const guardedCombinedTask = pdaTasks.find((task) => task.taskUnitType === 'COMBINED_PROCESS_TASK')
     assert(guardedCombinedTask, '真实 PDA 聚合必须包含可验证的组合任务')
     const aggregateCountBeforeGuardProbe = pdaTasks.length
@@ -616,6 +623,48 @@ async function main(): Promise<void> {
       handoverHeadCountBeforeRetry,
       '重复请求不得生成交接单头或记录',
     )
+
+    const runningWaterHtml = renderPdaExecDetailPage(executableOrder.taskId)
+    const waterCompleteToken = runningWaterHtml.match(/data-pda-execd-action="water-complete"[\s\S]{0,1200}?data-action-token="([^"]+)"/)
+    assert(waterCompleteToken, '水溶中详情必须提供真实完成动作令牌')
+    const openWaterCompletionNode = {
+      dataset: {
+        pdaExecdAction: 'water-complete',
+        orderId: executableOrder.waterOrderId,
+        taskId: executableOrder.taskId,
+        expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS',
+        actionToken: waterCompleteToken[1],
+      },
+    }
+    assert.equal(handlePdaExecDetailEvent({ closest: (selector: string) => selector === '[data-pda-execd-action]' ? openWaterCompletionNode : null } as unknown as HTMLElement), true)
+    const waterCompletionOverlayHtml = renderPdaExecDetailPage(executableOrder.taskId)
+    const waterCompletionOverlayToken = waterCompletionOverlayHtml.match(/data-pda-execd-action="water-confirm-completion"[\s\S]{0,1200}?data-overlay-token="([^"]+)"/)
+    assert(waterCompletionOverlayToken, '独立水溶完成弹层必须生成真实确认令牌')
+    setExecDetailDraftField('waterCompletedQty', '0')
+    setExecDetailDraftField('waterReason', '', true)
+    const confirmWaterCompletionNode = {
+      dataset: {
+        pdaExecdAction: 'water-confirm-completion',
+        orderId: executableOrder.waterOrderId,
+        taskId: executableOrder.taskId,
+        expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS',
+        overlayToken: waterCompletionOverlayToken[1],
+      },
+      disabled: false,
+      isConnected: true,
+      textContent: '确认完成',
+    }
+    const confirmWaterCompletionTarget = { closest: (selector: string) => selector === '[data-pda-execd-action]' ? confirmWaterCompletionNode : null } as unknown as HTMLElement
+    assert.equal(handlePdaExecDetailEvent(confirmWaterCompletionTarget), true)
+    assert.equal(getWaterSolubleWorkOrderById(executableOrder.waterOrderId)?.status, 'WATER_SOLUBLE_IN_PROGRESS', '独立水溶 0 无原因必须由真实 handler 阻断')
+    setExecDetailDraftField('waterReason', '本批物料全部不可用', true)
+    assert.equal(handlePdaExecDetailEvent(confirmWaterCompletionTarget), true)
+    assert.equal(getWaterSolubleWorkOrderById(executableOrder.waterOrderId)?.status, 'PRODUCTION_PAUSED', '独立水溶 0 有原因必须经真实 handler 进入生产暂停')
+
+    resetWaterSolubleDomainForChecks({ seedDemo: false })
+    assert.equal(assignWaterSolubleFactory(executableOrder.waterOrderId, operator.factoryId).ok, true)
+    assert.equal(markWaterSolubleMaterialReady(executableOrder.waterOrderId).ok, true)
+    assert.equal(executeWaterSolublePdaAction(retryStartInput).ok, true)
 
     const missingReason = executeWaterSolublePdaAction({
       action: 'COMPLETE',
@@ -893,6 +942,7 @@ async function main(): Promise<void> {
     assert(dyeVat, '含水溶染色单工厂必须存在可用染缸')
     planDyeVat(combined.dyeOrderId, { dyeVatNo: dyeVat.dyeVatNo, operatorName: operator.userName })
 
+    appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(combined.taskId)}`)
     const combinedWaitWaterHtml = renderPdaExecDetailPage(combined.taskId)
     assert(combinedWaitWaterHtml.includes('data-testid="pda-combined-dye-current-action"'), '含水溶染色详情必须显示统一当前动作区')
     assert(combinedWaitWaterHtml.includes('data-pda-execd-action="dye-water-start"'), '待水溶时必须只显示开始水溶')
@@ -909,6 +959,62 @@ async function main(): Promise<void> {
     assert.equal(listHandoverOrdersByTaskId(combined.taskId).length, 0, '含水溶染色完成内部水溶后不得生成中间交出')
     const combinedWaterRunningHtml = renderPdaExecDetailPage(combined.taskId)
     assert(combinedWaterRunningHtml.includes('data-pda-execd-action="dye-water-complete"'), '水溶中必须显示完成水溶')
+    const combinedWaterCompleteToken = combinedWaterRunningHtml.match(/data-pda-execd-action="dye-water-complete"[\s\S]{0,1200}?data-action-token="([^"]+)"/)
+    assert(combinedWaterCompleteToken, '联合水溶中详情必须提供真实完成动作令牌')
+    const openCombinedWaterCompletionNode = {
+      dataset: {
+        pdaExecdAction: 'dye-water-complete',
+        dyeOrderId: combined.dyeOrderId,
+        taskId: combined.taskId,
+        expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS',
+        expectedNode: 'WATER_SOLUBLE',
+        actionToken: combinedWaterCompleteToken[1],
+      },
+    }
+    assert.equal(handlePdaExecDetailEvent({ closest: (selector: string) => selector === '[data-pda-execd-action]' ? openCombinedWaterCompletionNode : null } as unknown as HTMLElement), true)
+    const combinedWaterOverlayHtml = renderPdaExecDetailPage(combined.taskId)
+    const combinedWaterOverlayToken = combinedWaterOverlayHtml.match(/data-pda-execd-action="dye-water-confirm-completion"[\s\S]{0,3000}?data-overlay-token="([^"]+)"/)
+    assert(combinedWaterOverlayToken, `联合水溶完成弹层必须生成真实确认令牌；动作=${(combinedWaterOverlayHtml.match(/data-pda-execd-action="[^"]+"/g) || []).join('、')}`)
+    setExecDetailDraftField('dyeWaterOutputQty', '0')
+    setExecDetailDraftField('dyeWaterReason', '', true)
+    const confirmCombinedWaterNode = {
+      dataset: {
+        pdaExecdAction: 'dye-water-confirm-completion',
+        dyeOrderId: combined.dyeOrderId,
+        taskId: combined.taskId,
+        expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS',
+        expectedNode: 'WATER_SOLUBLE',
+        overlayToken: combinedWaterOverlayToken[1],
+      },
+      disabled: false,
+      isConnected: true,
+      textContent: '确认完成',
+    }
+    const confirmCombinedWaterTarget = { closest: (selector: string) => selector === '[data-pda-execd-action]' ? confirmCombinedWaterNode : null } as unknown as HTMLElement
+    assert.equal(handlePdaExecDetailEvent(confirmCombinedWaterTarget), true)
+    assert.equal(getDyeWorkOrderById(combined.dyeOrderId)?.status, 'WATER_SOLUBLE_IN_PROGRESS', '联合水溶 0 无原因必须由真实 handler 阻断')
+    setExecDetailDraftField('dyeWaterReason', '本批物料全部不可用', true)
+    assert.equal(handlePdaExecDetailEvent(confirmCombinedWaterTarget), true)
+    assert.equal(getDyeWorkOrderById(combined.dyeOrderId)?.status, 'PRODUCTION_PAUSED', '联合水溶 0 有原因必须经真实 handler 进入生产暂停')
+    memoryStorage.set('fcs_pda_session', JSON.stringify(supervisor))
+    assert.equal(executeDyeWaterSolublePdaAction({
+      action: 'RESOLVE_PAUSE',
+      dyeOrderId: combined.dyeOrderId,
+      taskId: combined.taskId,
+      expectedStatus: 'PRODUCTION_PAUSED',
+      expectedNode: 'WATER_SOLUBLE',
+      decision: 'CONTINUE_PROCESSING',
+      actor: supervisor,
+    }).ok, true)
+    memoryStorage.set('fcs_pda_session', JSON.stringify(operator))
+    assert.equal(executeDyeWaterSolublePdaAction({
+      action: 'START',
+      dyeOrderId: combined.dyeOrderId,
+      taskId: combined.taskId,
+      expectedStatus: 'WAIT_WATER_SOLUBLE',
+      expectedNode: 'WATER_SOLUBLE',
+      actor: operator,
+    }).ok, true)
     assert.equal(executeDyeWaterSolublePdaAction({
       action: 'COMPLETE',
       dyeOrderId: combined.dyeOrderId,

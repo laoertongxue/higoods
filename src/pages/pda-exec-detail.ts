@@ -4406,8 +4406,8 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         return true
       }
       const completedQty = Number(detailState.waterCompletionDraft.completedQty.trim())
-      if (!Number.isFinite(completedQty) || completedQty <= 0) {
-        showPdaExecDetailToast('请输入大于 0 的有效完成数量。')
+      if (!Number.isFinite(completedQty) || completedQty < 0) {
+        showPdaExecDetailToast('请输入大于或等于 0 的有效完成数量。')
         return true
       }
       const reason = detailState.waterCompletionDraft.reason.trim()
@@ -4561,8 +4561,8 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       const outputQty = Number(detailState.dyeWaterDraft.outputQty.trim())
       const plannedQty = order.waterSolublePlannedQty ?? order.plannedQty
       const reason = detailState.dyeWaterDraft.reason.trim()
-      if (!Number.isFinite(outputQty) || outputQty <= 0) {
-        showPdaExecDetailToast('请输入大于 0 的有效完成数量。')
+      if (!Number.isFinite(outputQty) || outputQty < 0) {
+        showPdaExecDetailToast('请输入大于或等于 0 的有效完成数量。')
         return true
       }
       if (outputQty !== plannedQty && !reason) {

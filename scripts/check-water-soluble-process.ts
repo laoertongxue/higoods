@@ -1433,6 +1433,8 @@ try {
     assert.equal(listPrepProcessOrders('DYE').find((order) => order.workOrderId === rollCreated.order?.dyeOrderId)?.unit, '卷', 'FCS 加工单投影必须保留卷单位原文')
     const { tsImport } = await import('tsx/esm/api')
     const dyeOrdersPage = await tsImport('../src/pages/process-dye-orders.ts', import.meta.url) as typeof import('../src/pages/process-dye-orders.ts')
+    const domain = await import('../src/data/fcs/dyeing-task-domain.ts')
+    const handoverDomain = await import('../src/data/fcs/pda-handover-events.ts')
     assert.equal(dyeOrdersPage.formatDyeOrderQuantity(7, listPrepProcessOrders('DYE').find((order) => order.workOrderId === kgCreated.order?.dyeOrderId)!.unit), '7 公斤', 'FCS 染色加工单页面数量渲染必须使用运行时公斤单位')
     assert.equal(dyeOrdersPage.formatDyeOrderQuantity(5, listPrepProcessOrders('DYE').find((order) => order.workOrderId === rollCreated.order?.dyeOrderId)!.unit), '5 卷', 'FCS 染色加工单页面数量渲染必须使用运行时卷单位')
     const kgMobileTask = listPdaGenericProcessTasks().find((task) => task.taskId === kgCreated.order?.taskId)
@@ -1444,6 +1446,27 @@ try {
     assert.deepEqual(kgMobileTask.auditLogs, [], '动态染色任务不得继承模板审计事实')
     assert.equal(kgMobileTask.handoverOrderId, undefined, '动态染色任务不得继承模板交出单 ID')
     assert.equal(kgMobileTask.handoverStatus, 'NOT_CREATED', '动态染色任务交接状态必须从未创建开始')
+
+    const yardCreated = createDyeWorkOrderFromDemands({ demands: [cloneDyeDemand('YARD-UNIT', { requiredQty: 9, unit: '码' })], factoryId: 'DYE-WATER-CAP-BOTH', plannedFinishAt: '2026-07-20 18:00:00' })
+    assert(yardCreated.order, '码单位含水溶染色单必须创建成功')
+    const yardTask = listPdaGenericProcessTasks().find((task) => task.taskId === yardCreated.order!.taskId)
+    assert.equal(yardTask?.qtyDisplayUnit, '码', '码单位必须保留为移动任务权威显示单位')
+    domain.completeDyeMaterialReady(yardCreated.order.dyeOrderId, { outputQty: yardCreated.order.plannedQty, operatorName: '码单位检查员' })
+    domain.planDyeVat(yardCreated.order.dyeOrderId, { dyeVatNo: 'VAT-YARD', operatorName: '码单位检查员' })
+    assert.equal(startDyeWaterSolubleNode(yardCreated.order.dyeOrderId, '码单位检查员').ok, true)
+    assert.equal(completeDyeWaterSolubleNode(yardCreated.order.dyeOrderId, yardCreated.order.plannedQty, '').ok, true)
+    assert.equal(getDyeExecutionNodeRecord(yardCreated.order.dyeOrderId, 'WATER_SOLUBLE')?.qtyUnit, '码', '水溶执行节点必须保留码单位')
+    startDyeing(yardCreated.order.dyeOrderId, { dyeVatNo: 'VAT-YARD', inputQty: yardCreated.order.plannedQty, operatorName: '码单位检查员' })
+    domain.completeDyeing(yardCreated.order.dyeOrderId, { inputQty: yardCreated.order.plannedQty, outputQty: yardCreated.order.plannedQty, operatorName: '码单位检查员' })
+    assert.equal(getDyeExecutionNodeRecord(yardCreated.order.dyeOrderId, 'DYE')?.qtyUnit, '码', '染色执行节点必须保留码单位')
+    for (const nodeCode of ['DEHYDRATE', 'DRY', 'SET', 'ROLL', 'PACK'] as const) {
+      domain.startDyeNode(yardCreated.order.dyeOrderId, nodeCode, '码单位检查员')
+      domain.completeDyeNode(yardCreated.order.dyeOrderId, nodeCode, { outputQty: yardCreated.order.plannedQty, operatorName: '码单位检查员' })
+      assert.equal(getDyeExecutionNodeRecord(yardCreated.order.dyeOrderId, nodeCode)?.qtyUnit, '码', `${nodeCode} 执行节点必须保留码单位`)
+    }
+    const yardHandoverHeads = handoverDomain.listHandoverOrdersByTaskId(yardCreated.order.taskId)
+    assert.equal(yardHandoverHeads.length, 1, '码单位联合染色包装完成后必须只生成一次最终交接')
+    assert.equal(yardHandoverHeads[0].qtyUnit, '码', '最终交接单头必须保留码单位')
 
     const created = createDyeWorkOrderFromDemands({
       demands: [waterDemand],
@@ -1473,8 +1496,6 @@ try {
 
     const orderForExecution = getDyeWorkOrderById(createdCombinedDyeOrderId)!
     // 专项入口只允许在既有准备节点完成后开始；测试通过公共领域动作补齐必要节点。
-    const domain = await import('../src/data/fcs/dyeing-task-domain.ts')
-
     const sampleRequired = createDyeWorkOrderFromDemands({
       demands: [cloneDyeDemand('SAMPLE')],
       factoryId: 'DYE-WATER-CAP-BOTH',
