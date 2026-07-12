@@ -2202,7 +2202,7 @@ function handleTechPackField(
     return true
   }
   if (field === 'new-bom-unit') {
-    state.newBomItem.unit = value || '米'
+    state.newBomItem.unit = value
     return true
   }
   if (field === 'new-bom-usage') {
@@ -2218,6 +2218,11 @@ function handleTechPackField(
     return true
   }
   if (field === 'new-bom-water-soluble-requirement') {
+    if (normalizeBomRequirement(value) === '是' && !state.newBomItem.unit.trim()) {
+      window.alert('该物料缺少单位，不能勾选水溶。请先填写物料单位。')
+      node.value = state.newBomItem.waterSolubleRequirement
+      return true
+    }
     state.newBomItem.waterSolubleRequirement = normalizeBomRequirement(value)
     return true
   }
@@ -2443,8 +2448,15 @@ function handleTechPackField(
   if (field === 'bom-water-soluble') {
     const bomId = node.dataset.bomId
     if (!bomId) return true
+    const current = state.bomItems.find((item) => item.id === bomId)
+    const nextRequirement = normalizeBomRequirement(value)
+    if (current && nextRequirement === '是' && !current.unit.trim()) {
+      window.alert('该物料缺少单位，不能勾选水溶。请先补充物料单位。')
+      node.value = current.waterSolubleRequirement
+      return true
+    }
     state.bomItems = state.bomItems.map((item) =>
-      item.id === bomId ? { ...item, waterSolubleRequirement: normalizeBomRequirement(value) } : item,
+      item.id === bomId ? { ...item, waterSolubleRequirement: nextRequirement } : item,
     )
     syncTechPackToStore()
     return true
@@ -3738,7 +3750,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       materialCode: bom.materialCode,
       materialName: bom.materialName,
       spec: bom.spec,
-      unit: bom.unit || '米',
+      unit: bom.unit,
       patternPieces: [...bom.patternPieces],
       linkedPatternIds: [...bom.linkedPatternIds],
       applicableSkuCodes: [...bom.applicableSkuCodes],
@@ -3765,6 +3777,10 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
   if (action === 'save-bom') {
     if (!state.newBomItem.materialName.trim()) return true
+    if (state.newBomItem.waterSolubleRequirement === '是' && !state.newBomItem.unit.trim()) {
+      window.alert('该物料缺少单位，不能保存水溶要求。请先填写物料单位。')
+      return true
+    }
     const frontPatternDesignIds = getBomPatternDesignIds(state.newBomItem, 'FRONT')
     const insidePatternDesignIds = getBomPatternDesignIds(state.newBomItem, 'INSIDE')
     if (state.newBomItem.printRequirement !== '无' && !state.newBomItem.printSideMode) {
@@ -3813,7 +3829,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       materialCode: state.newBomItem.materialCode,
       materialName: state.newBomItem.materialName,
       spec: state.newBomItem.spec,
-      unit: state.newBomItem.unit || '米',
+      unit: state.newBomItem.unit,
       patternPieces,
       linkedPatternIds,
       applicableSkuCodes: [...state.newBomItem.applicableSkuCodes],

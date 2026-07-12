@@ -2867,7 +2867,7 @@ function getBomColorOptionsForPattern(linkedBomItemId?: string): PatternBomColor
         materialCode: item.materialCode || item.id,
         materialName: item.name,
         spec: item.spec,
-        unit: item.unit || '米',
+        unit: item.unit || '',
         patternPieces: [],
         linkedPatternIds: [...(item.linkedPatternIds ?? [])],
         applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
@@ -4292,7 +4292,7 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       materialCode: item.materialCode || item.id || `MAT-${index + 1}`,
       materialName: item.name,
       spec: item.spec,
-      unit: item.unit || '米',
+      unit: item.unit || '',
       patternPieces,
       linkedPatternIds,
       applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
@@ -4689,8 +4689,11 @@ function resolveLatestWoolInternalStyleCode(
     ?.internalStyleCode?.trim() || ''
 }
 
-function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { touch: true, persist: true }): void {
-  if (!state.techPack) return
+function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { touch: true, persist: true }): boolean {
+  if (!state.techPack) return false
+  if (state.bomItems.some((item) => item.waterSolubleRequirement === '是' && !item.unit.trim())) {
+    return false
+  }
 
   const routeSignatureBefore = getProcessRouteSignature(state.techniques)
   state.techniques = syncBomDrivenPrepTechniques(state.techniques, state.bomItems)
@@ -4943,7 +4946,7 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
         name: item.materialName,
         spec: item.spec,
         materialCode: item.materialCode,
-        unit: item.unit || '米',
+        unit: item.unit,
         colorLabel: item.colorLabel || undefined,
         unitConsumption: Number(item.usage) || 0,
         lossRate: Number(item.lossRate) || 0,
@@ -5051,6 +5054,7 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
     }
     saveTechnicalDataVersionContent(state.currentTechnicalVersionId, patch, currentUser.name)
   }
+  return true
 }
 
 function closeAllDialogs(): void {

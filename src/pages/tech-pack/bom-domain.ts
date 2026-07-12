@@ -259,7 +259,13 @@ export function renderBomTab(): string {
                                 <td class="px-3 py-2 font-medium">${escapeHtml(item.materialName)}</td>
                                 <td class="px-3 py-2 text-sm text-muted-foreground">${escapeHtml(item.spec || '-')}</td>
                                 <td class="px-3 py-2 text-right">${item.usage}</td>
-                                <td class="px-3 py-2">${escapeHtml(item.unit || '米')}</td>
+                                <td class="px-3 py-2" data-bom-unit-missing="${item.unit.trim() ? 'false' : 'true'}">
+                                  ${
+                                    item.unit.trim()
+                                      ? escapeHtml(item.unit)
+                                      : '<div class="whitespace-nowrap font-medium text-red-600">缺少单位</div><div class="mt-1 whitespace-nowrap text-[11px] text-red-600">缺少单位，不能勾选水溶</div>'
+                                  }
+                                </td>
                                 <td class="px-3 py-2 text-right">${item.lossRate}%</td>
                                 <td class="px-3 py-2">
                                   ${
@@ -521,7 +527,7 @@ export function renderBomFormDialog(): string {
             </label>
             <label class="space-y-1">
               <span class="text-sm">单位</span>
-              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-unit" value="${escapeHtml(state.newBomItem.unit || '米')}" placeholder="米" />
+              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-unit" value="${escapeHtml(state.newBomItem.unit)}" placeholder="请输入物料单位" />
             </label>
           </div>
 
