@@ -133,8 +133,11 @@ export interface FactoryWaitProcessStockItem extends FactoryWarehouseBaseItem {
 export interface FactoryWaitHandoverStockItem extends FactoryWarehouseBaseItem {
   taskId?: string
   taskNo?: string
+  sourceType?: 'PRODUCTION_ORDER' | 'STOCK'
   productionOrderId?: string
   productionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   completedQty: number
   lossQty: number
   waitHandoverQty: number
@@ -208,6 +211,11 @@ export interface FactoryWarehouseOutboundRecord {
   craftName?: string
   sourceTaskId?: string
   sourceTaskNo?: string
+  sourceType?: 'PRODUCTION_ORDER' | 'STOCK'
+  productionOrderId?: string
+  productionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   handoverOrderId?: string
   handoverOrderNo?: string
   handoverRecordId?: string
@@ -997,6 +1005,22 @@ function buildOutboundRecordFromHandoverRecordInput(input: {
   const status = resolveHandoutStatus(record)
   const skuInfo = deriveSkuFromRecord(record)
   const factoryProcess = resolvePrimaryFactoryProcess(factory)
+  const sourceType = head.sourceType || record.sourceType
+  const sourceFields = sourceType === 'STOCK'
+    ? {
+        sourceType: 'STOCK' as const,
+        stockMaterialId: head.stockMaterialId || record.stockMaterialId,
+        stockMaterialName: head.stockMaterialName || record.stockMaterialName,
+        productionOrderId: undefined,
+        productionOrderNo: undefined,
+      }
+    : {
+        sourceType: 'PRODUCTION_ORDER' as const,
+        productionOrderId: head.productionOrderId,
+        productionOrderNo: head.productionOrderNo,
+        stockMaterialId: undefined,
+        stockMaterialName: undefined,
+      }
 
   return {
     outboundRecordId: `OUT-${head.handoverId}-${String(recordIndex + 1).padStart(3, '0')}`,
@@ -1010,6 +1034,7 @@ function buildOutboundRecordFromHandoverRecordInput(input: {
     processName: factoryProcess.processName,
     sourceTaskId: head.taskId,
     sourceTaskNo: head.taskNo,
+    ...sourceFields,
     handoverOrderId: head.handoverOrderId || head.handoverId,
     handoverOrderNo: head.handoverOrderNo || head.handoverId,
     handoverRecordId: record.handoverRecordId || record.recordId,
@@ -1067,8 +1092,11 @@ function buildWaitHandoverStockItemFromOutbound(
     craftName: record.craftName,
     taskId: record.sourceTaskId,
     taskNo: record.sourceTaskNo,
-    productionOrderId: record.sourceTaskId,
-    productionOrderNo: record.sourceTaskNo,
+    sourceType: record.sourceType,
+    productionOrderId: record.productionOrderId,
+    productionOrderNo: record.productionOrderNo,
+    stockMaterialId: record.stockMaterialId,
+    stockMaterialName: record.stockMaterialName,
     itemKind: record.itemKind,
     itemName: record.itemName,
     materialSku: record.materialSku,
@@ -1112,6 +1140,21 @@ function buildPendingWaitHandoverStockItem(input: {
   if (remainingQty <= 0) return null
   const location = pickWarehouseLocation(warehouse, head.handoverId, '待交出')
   const factoryProcess = resolvePrimaryFactoryProcess(factory)
+  const sourceFields = head.sourceType === 'STOCK'
+    ? {
+        sourceType: 'STOCK' as const,
+        stockMaterialId: head.stockMaterialId,
+        stockMaterialName: head.stockMaterialName,
+        productionOrderId: undefined,
+        productionOrderNo: undefined,
+      }
+    : {
+        sourceType: 'PRODUCTION_ORDER' as const,
+        productionOrderId: head.productionOrderId,
+        productionOrderNo: head.productionOrderNo,
+        stockMaterialId: undefined,
+        stockMaterialName: undefined,
+      }
 
   return {
     stockItemId: `WHS-${head.handoverId}-PENDING`,
@@ -1124,8 +1167,7 @@ function buildPendingWaitHandoverStockItem(input: {
     processName: factoryProcess.processName,
     taskId: head.taskId,
     taskNo: head.taskNo,
-    productionOrderId: head.taskId,
-    productionOrderNo: head.productionOrderNo,
+    ...sourceFields,
     itemKind: deriveFactoryItemKind({
       processCode: head.processBusinessCode,
     }),
@@ -1152,6 +1194,7 @@ function buildMockCompletedWaitHandoverStockItem(input: {
   factory: Factory
   taskId: string
   taskNo: string
+  productionOrderId: string
   productionOrderNo: string
   itemKind: FactoryWarehouseItemKind
   itemName: string
@@ -1182,7 +1225,8 @@ function buildMockCompletedWaitHandoverStockItem(input: {
     processName: factoryProcess.processName,
     taskId: input.taskId,
     taskNo: input.taskNo,
-    productionOrderId: input.taskId,
+    sourceType: 'PRODUCTION_ORDER',
+    productionOrderId: input.productionOrderId,
     productionOrderNo: input.productionOrderNo,
     itemKind: input.itemKind,
     itemName: input.itemName,
@@ -1645,6 +1689,7 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
         factory: completionSeedFactory,
         taskId: 'TASK-PRINT-COMPLETE-SEED-001',
         taskNo: 'TASK-PRINT-COMPLETE-SEED-001',
+        productionOrderId: 'PO-20260330-PRINT-001',
         productionOrderNo: 'PO-20260330-PRINT-001',
         itemKind: '面料',
         itemName: '印花面料待交出',
@@ -1675,6 +1720,9 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
         processName: factoryProcess.processName,
         sourceTaskId: 'TASK-PRINT-COMPLETE-SEED-001',
         sourceTaskNo: 'TASK-PRINT-COMPLETE-SEED-001',
+        sourceType: 'PRODUCTION_ORDER',
+        productionOrderId: 'PO-20260330-PRINT-001',
+        productionOrderNo: 'PO-20260330-PRINT-001',
         handoverOrderId: 'HOH-PRINT-SEED-001',
         handoverOrderNo: 'HDO-PRINT-SEED-001',
         handoverRecordId: 'HOR-PRINT-SEED-001',
@@ -2356,6 +2404,52 @@ export function buildFactoryWaitHandoverStockItemFromOutboundRecord(
   record: FactoryWarehouseOutboundRecord,
 ): FactoryWaitHandoverStockItem {
   return cloneValue(buildWaitHandoverStockItemFromOutbound(record))
+}
+
+export function buildFactoryPendingWaitHandoverStockItem(
+  head: PdaHandoverHead,
+  factory: Factory,
+  warehouse: FactoryInternalWarehouse,
+): FactoryWaitHandoverStockItem | null {
+  const item = buildPendingWaitHandoverStockItem({ head, factory, warehouse })
+  return item ? cloneValue(item) : null
+}
+
+export function syncFactoryWarehouseHandoverSourceByTaskId(taskId: string): void {
+  if (!internalWarehouseStore) return
+  const store = internalWarehouseStore
+
+  store.outboundRecords = store.outboundRecords.filter(
+    (record) => record.sourceTaskId !== taskId,
+  )
+  store.waitHandoverStockItems = store.waitHandoverStockItems.filter(
+    (item) => item.taskId !== taskId,
+  )
+
+  listPdaHandoverHeads()
+    .filter((head) => head.headType === 'HANDOUT' && head.taskId === taskId)
+    .forEach((head) => {
+      const sourceFactory = resolveFactoryByName(
+        head.sourceFactoryName,
+        head.processBusinessCode === 'POST_FINISHING' ? 'SATELLITE_FINISHING' : undefined,
+      )
+      if (!sourceFactory || !isNonSewingFactory(sourceFactory)) return
+      const warehouse = store.warehouses.find(
+        (item) => item.factoryId === sourceFactory.id && item.warehouseKind === 'WAIT_HANDOVER',
+      )
+      if (!warehouse) return
+
+      const pendingItem = buildPendingWaitHandoverStockItem({ factory: sourceFactory, warehouse, head })
+      if (pendingItem) store.waitHandoverStockItems.push(pendingItem)
+
+      getPdaHandoverRecordsByHead(head.handoverId).forEach((record, index) => {
+        const outbound = buildOutboundRecordFromHandoverRecord(head, record, sourceFactory, warehouse, index)
+        const stockItem = buildWaitHandoverStockItemFromOutbound(outbound)
+        outbound.relatedWaitHandoverStockItemId = stockItem.stockItemId
+        store.outboundRecords.push(outbound)
+        store.waitHandoverStockItems.push(stockItem)
+      })
+    })
 }
 
 export function upsertFactoryWarehouseInboundRecord(

@@ -17,8 +17,20 @@ import { getMobileExecutionTaskById } from '../src/data/fcs/mobile-execution-tas
 import { submitPrintHandover } from '../src/data/fcs/process-execution-writeback.ts'
 import { applyPrintWarehouseLinkageAfterAction } from '../src/data/fcs/process-warehouse-linkage-service.ts'
 import { getProcessWarehouseRecordById, listProcessHandoverRecords } from '../src/data/fcs/process-warehouse-domain.ts'
-import { getPdaHandoverSourceDisplay, listHandoverOrdersByTaskId } from '../src/data/fcs/pda-handover-events.ts'
-import { listFactoryWaitProcessStockItems } from '../src/data/fcs/factory-internal-warehouse.ts'
+import {
+  getPdaHandoverRecordsByHead,
+  getPdaHandoverSourceDisplay,
+  listHandoverOrdersByTaskId,
+} from '../src/data/fcs/pda-handover-events.ts'
+import {
+  buildFactoryPendingWaitHandoverStockItem,
+  buildFactoryWaitHandoverStockItemFromOutboundRecord,
+  buildOutboundRecordFromHandoverRecord,
+  listFactoryInternalWarehouseFactoryOptions,
+  listFactoryInternalWarehouses,
+  listFactoryWaitHandoverStockItems,
+  listFactoryWaitProcessStockItems,
+} from '../src/data/fcs/factory-internal-warehouse.ts'
 
 function fail(message: string): never {
   throw new Error(`[check-printing-workflow] ${message}`)
@@ -117,8 +129,8 @@ assert(progressSource.includes('接收方回写'), '进度页缺少接收方回�
 assert(progressSource.includes('审核'), '进度页缺少审核节点')
 
 const { listPdaGenericProcessTasks, registerPdaGenericProcessTask } = await import(`../src/data/fcs/pda-task-${'mo'}${'ck'}-factory.ts`)
-const tasks = listPdaGenericProcessTasks()
 const orders = listPrintWorkOrders()
+const tasks = listPdaGenericProcessTasks()
 assert(orders.length > 0, '未生成印花加工单数据')
 assert(orders.some((order) => getPrintWorkOrderStatusLabel(order.status) === '待送货'), '印花状态缺少待送货')
 assert(!hasDirectTransferToReviewTransition(), '仍存在转印完成直达审核的链路')
@@ -133,6 +145,174 @@ orders.forEach((order) => {
   assert(Boolean(order.stockMaterialId), `${order.printOrderNo} 备货来源必须有 stockMaterialId`)
   assert(!order.sourceProductionOrderId, `${order.printOrderNo} 备货来源不得伪造 sourceProductionOrderId`)
 })
+
+const migratedStockOrders = orders.filter((order) => order.sourceType === 'STOCK')
+const waitHandoverStockItems = listFactoryWaitHandoverStockItems()
+const expectedStockHandoverCounts = new Map<string, { heads: number; records: number; warehouseItems: number }>([
+  ['PH-20260328-007', { heads: 1, records: 1, warehouseItems: 2 }],
+  ['PH-20260329-008', { heads: 1, records: 1, warehouseItems: 2 }],
+  ['PH-20260329-009', { heads: 0, records: 0, warehouseItems: 0 }],
+  ['PH-20260329-010', { heads: 1, records: 1, warehouseItems: 1 }],
+  ['PH-20260329-011', { heads: 0, records: 0, warehouseItems: 0 }],
+  ['PH-20260329-012', { heads: 0, records: 0, warehouseItems: 0 }],
+])
+assert(migratedStockOrders.length === 6, `旧印花备货 Mock 应迁移 6 条，实际 ${migratedStockOrders.length} 条`)
+migratedStockOrders.forEach((order) => {
+  const sourceLabel = `${order.printOrderNo} 旧备货来源`
+  assert(Boolean(order.stockMaterialId), `${sourceLabel}加工单缺少 stockMaterialId`)
+  assert(Boolean(order.stockMaterialName), `${sourceLabel}加工单缺少 stockMaterialName`)
+  assert(order.sourceProductionOrderId === undefined, `${sourceLabel}加工单仍携带伪生产单 ID`)
+  assert(order.sourceProductionOrderNo === undefined, `${sourceLabel}加工单仍携带伪生产单号`)
+  assert(order.productionOrderOrderedAt === undefined, `${sourceLabel}加工单仍携带伪生产单下单时间`)
+  assert(order.productionOrderIds.length === 0, `${sourceLabel}加工单仍携带伪生产单集合`)
+
+  const task = tasks.find((item) => item.taskId === order.taskId)
+  assert(task?.sourceType === 'STOCK', `${sourceLabel} PDA 任务来源必须为 STOCK`)
+  assert(task?.stockMaterialId === order.stockMaterialId, `${sourceLabel} PDA 任务 stockMaterialId 不一致`)
+  assert(task?.stockMaterialName === order.stockMaterialName, `${sourceLabel} PDA 任务 stockMaterialName 不一致`)
+  assert(task?.productionOrderId === undefined, `${sourceLabel} PDA 任务仍携带伪生产单 ID`)
+  assert(task?.productionOrderNo === undefined, `${sourceLabel} PDA 任务仍携带伪生产单号`)
+  assert(task?.sourceProductionOrderId === undefined, `${sourceLabel} PDA 任务仍携带伪来源生产单 ID`)
+
+  const mobileTask = getMobileExecutionTaskById(order.taskId)
+  assert(mobileTask?.sourceType === 'STOCK', `${sourceLabel}移动索引来源必须为 STOCK`)
+  assert(mobileTask?.stockMaterialId === order.stockMaterialId, `${sourceLabel}移动索引 stockMaterialId 不一致`)
+  assert(mobileTask?.stockMaterialName === order.stockMaterialName, `${sourceLabel}移动索引 stockMaterialName 不一致`)
+  assert(mobileTask?.productionOrderId === undefined, `${sourceLabel}移动索引仍携带伪生产单 ID`)
+  assert(mobileTask?.productionOrderNo === undefined, `${sourceLabel}移动索引仍携带伪生产单号`)
+
+  const heads = listHandoverOrdersByTaskId(order.taskId)
+  const expectedHandover = expectedStockHandoverCounts.get(order.printOrderNo)
+  assert(Boolean(expectedHandover), `${sourceLabel}缺少交出事实数量预期`)
+  assert(heads.length === expectedHandover!.heads, `${sourceLabel}交出单数量应为 ${expectedHandover!.heads}，实际 ${heads.length}`)
+  const records = heads.flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId))
+  assert(records.length === expectedHandover!.records, `${sourceLabel}交出记录数量应为 ${expectedHandover!.records}，实际 ${records.length}`)
+  heads.forEach((head) => {
+    assert(head.sourceType === 'STOCK', `${sourceLabel}交出单来源必须为 STOCK`)
+    assert(head.stockMaterialId === order.stockMaterialId, `${sourceLabel}交出单 stockMaterialId 不一致`)
+    assert(head.stockMaterialName === order.stockMaterialName, `${sourceLabel}交出单 stockMaterialName 不一致`)
+    assert(head.productionOrderId === undefined, `${sourceLabel}交出单仍携带伪生产单 ID`)
+    assert(head.productionOrderNo === undefined, `${sourceLabel}交出单仍携带伪生产单号`)
+    getPdaHandoverRecordsByHead(head.handoverId).forEach((record) => {
+      assert(record.sourceType === 'STOCK', `${sourceLabel}交出记录来源必须为 STOCK`)
+      assert(record.stockMaterialId === order.stockMaterialId, `${sourceLabel}交出记录 stockMaterialId 不一致`)
+      assert(record.stockMaterialName === order.stockMaterialName, `${sourceLabel}交出记录 stockMaterialName 不一致`)
+      assert(record.productionOrderId === undefined, `${sourceLabel}交出记录仍携带伪生产单 ID`)
+      assert(record.productionOrderNo === undefined, `${sourceLabel}交出记录仍携带伪生产单号`)
+    })
+  })
+
+  const warehouseItems = waitHandoverStockItems.filter((item) => item.taskId === order.taskId)
+  assert(
+    warehouseItems.length === expectedHandover!.warehouseItems,
+    `${sourceLabel}待交出仓条目数量应为 ${expectedHandover!.warehouseItems}，实际 ${warehouseItems.length}`,
+  )
+  warehouseItems.forEach((item) => {
+    assert(item.sourceType === 'STOCK', `${sourceLabel}待交出仓来源必须为 STOCK`)
+    assert(item.stockMaterialId === order.stockMaterialId, `${sourceLabel}待交出仓 stockMaterialId 不一致`)
+    assert(item.stockMaterialName === order.stockMaterialName, `${sourceLabel}待交出仓 stockMaterialName 不一致`)
+    assert(item.productionOrderId === undefined, `${sourceLabel}待交出仓仍携带伪生产单 ID`)
+    assert(item.productionOrderNo === undefined, `${sourceLabel}待交出仓仍携带伪生产单号`)
+  })
+})
+
+const seedSourceSnapshot = JSON.stringify({
+  tasks: migratedStockOrders.map((order) => listPdaGenericProcessTasks().find((task) => task.taskId === order.taskId)),
+  heads: migratedStockOrders.flatMap((order) => listHandoverOrdersByTaskId(order.taskId)),
+  records: migratedStockOrders.flatMap((order) =>
+    listHandoverOrdersByTaskId(order.taskId).flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId)),
+  ),
+})
+listPrintWorkOrders()
+assert(
+  JSON.stringify({
+    tasks: migratedStockOrders.map((order) => listPdaGenericProcessTasks().find((task) => task.taskId === order.taskId)),
+    heads: migratedStockOrders.flatMap((order) => listHandoverOrdersByTaskId(order.taskId)),
+    records: migratedStockOrders.flatMap((order) =>
+      listHandoverOrdersByTaskId(order.taskId).flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId)),
+    ),
+  }) === seedSourceSnapshot,
+  '印花加工单列表查询不得修改 PDA 任务、交出单或交出记录',
+)
+
+const builderFactory = listFactoryInternalWarehouseFactoryOptions().find((factory) =>
+  listFactoryInternalWarehouses().some((warehouse) => warehouse.factoryId === factory.id && warehouse.warehouseKind === 'WAIT_HANDOVER'),
+)
+const builderWarehouse = builderFactory
+  ? listFactoryInternalWarehouses().find((warehouse) => warehouse.factoryId === builderFactory.id && warehouse.warehouseKind === 'WAIT_HANDOVER')
+  : undefined
+assert(Boolean(builderFactory && builderWarehouse), '缺少厂内待交出仓 builder 检查所需工厂和仓库')
+
+const stockBuilderOrder = migratedStockOrders.find((order) => order.printOrderNo === 'PH-20260328-007')!
+const stockBuilderHead = listHandoverOrdersByTaskId(stockBuilderOrder.taskId)[0]!
+const stockBuilderRecord = getPdaHandoverRecordsByHead(stockBuilderHead.handoverId)[0]!
+const stockOutbound = buildOutboundRecordFromHandoverRecord(stockBuilderHead, stockBuilderRecord, builderFactory!, builderWarehouse!)
+const stockOutboundItem = buildFactoryWaitHandoverStockItemFromOutboundRecord(stockOutbound)
+const stockPendingItem = buildFactoryPendingWaitHandoverStockItem(
+  { ...stockBuilderHead, qtyExpectedTotal: stockBuilderHead.qtyExpectedTotal + 1, submittedQtyTotal: 0 },
+  builderFactory!,
+  builderWarehouse!,
+)
+;[stockOutboundItem, stockPendingItem].forEach((item) => {
+  assert(item?.sourceType === 'STOCK', '备货来源厂内待交出仓 builder 必须输出 STOCK')
+  assert(item?.stockMaterialId === stockBuilderOrder.stockMaterialId, '备货来源厂内待交出仓 builder 未保留 stockMaterialId')
+  assert(item?.stockMaterialName === stockBuilderOrder.stockMaterialName, '备货来源厂内待交出仓 builder 未保留 stockMaterialName')
+  assert(item?.productionOrderId === undefined, '备货来源厂内待交出仓 builder 不得输出生产单 ID')
+  assert(item?.productionOrderNo === undefined, '备货来源厂内待交出仓 builder 不得输出生产单号')
+})
+
+const productionBuilderOrder = orders.find((order) => order.printOrderNo === 'PH-20260328-006')!
+const productionBuilderHead = listHandoverOrdersByTaskId(productionBuilderOrder.taskId)
+  .find((head) => head.productionOrderId === productionBuilderOrder.sourceProductionOrderId)!
+const productionBuilderRecord = getPdaHandoverRecordsByHead(productionBuilderHead.handoverId)[0]!
+const productionOutbound = buildOutboundRecordFromHandoverRecord(
+  productionBuilderHead,
+  {
+    ...productionBuilderRecord,
+    productionOrderId: 'STALE-RECORD-PRODUCTION-ORDER-ID',
+    productionOrderNo: 'STALE-RECORD-PRODUCTION-ORDER-NO',
+  },
+  builderFactory!,
+  builderWarehouse!,
+)
+const productionOutboundItem = buildFactoryWaitHandoverStockItemFromOutboundRecord(productionOutbound)
+const productionPendingItem = buildFactoryPendingWaitHandoverStockItem(
+  { ...productionBuilderHead, qtyExpectedTotal: productionBuilderHead.qtyExpectedTotal + 1, submittedQtyTotal: 0 },
+  builderFactory!,
+  builderWarehouse!,
+)
+;[productionOutboundItem, productionPendingItem].forEach((item) => {
+  assert(item?.sourceType === 'PRODUCTION_ORDER', '生产来源厂内待交出仓 builder 必须输出 PRODUCTION_ORDER')
+  assert(item?.productionOrderId === productionBuilderOrder.sourceProductionOrderId, '生产来源厂内待交出仓 builder 未保留真实生产单 ID')
+  assert(item?.productionOrderNo === productionBuilderOrder.sourceProductionOrderNo, '生产来源厂内待交出仓 builder 未保留真实生产单号')
+  assert(item?.productionOrderId !== item?.taskId, '生产来源厂内待交出仓 builder 不得把任务 ID 当生产单 ID')
+  assert(item?.stockMaterialId === undefined, '生产来源厂内待交出仓 builder 不得输出 stockMaterialId')
+  assert(item?.stockMaterialName === undefined, '生产来源厂内待交出仓 builder 不得输出 stockMaterialName')
+})
+
+orders
+  .filter((order) => order.sourceType === 'PRODUCTION_ORDER')
+  .forEach((order) => {
+    waitHandoverStockItems
+      .filter((item) => item.taskId === order.taskId)
+      .forEach((item) => {
+        assert(item.sourceType === 'PRODUCTION_ORDER', `${order.printOrderNo} 生产来源待交出仓类型不一致`)
+        assert(item.productionOrderId !== item.taskId, `${order.printOrderNo} 待交出仓不得把任务 ID 当生产单 ID`)
+        if (item.productionOrderId) {
+          assert(item.productionOrderId === order.sourceProductionOrderId, `${order.printOrderNo} 待交出仓未保留真实生产单 ID`)
+          assert(item.productionOrderNo === order.sourceProductionOrderNo, `${order.printOrderNo} 待交出仓未保留真实生产单号`)
+        }
+        assert(item.stockMaterialId === undefined, `${order.printOrderNo} 生产来源待交出仓不得携带 stockMaterialId`)
+        assert(item.stockMaterialName === undefined, `${order.printOrderNo} 生产来源待交出仓不得携带 stockMaterialName`)
+      })
+  })
+
+const completedWarehouseSeed = waitHandoverStockItems.find((item) => item.taskId === 'TASK-PRINT-COMPLETE-SEED-001')
+assert(Boolean(completedWarehouseSeed), '缺少印花完成态待交出仓 Mock')
+assert(completedWarehouseSeed?.sourceType === 'PRODUCTION_ORDER', '印花完成态待交出仓 Mock 必须为生产单来源')
+assert(completedWarehouseSeed?.productionOrderId === 'PO-20260330-PRINT-001', '印花完成态待交出仓 Mock 未保留真实生产单 ID')
+assert(completedWarehouseSeed?.productionOrderNo === 'PO-20260330-PRINT-001', '印花完成态待交出仓 Mock 未保留真实生产单号')
+assert(completedWarehouseSeed?.productionOrderId !== completedWarehouseSeed?.taskId, '印花完成态待交出仓 Mock 不得把任务 ID 当生产单 ID')
 
 const realStock = listFactoryWaitProcessStockItems().find((item) => item.itemKind === '面料' && item.receivedQty > 0 && item.materialSku)!
 const stockCreated = createPrintWorkOrderFromStock({

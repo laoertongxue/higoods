@@ -5,6 +5,8 @@ import {
   getHandoverOrderById,
   getPdaHandoverRecordsByHead,
   listHandoverOrdersByTaskId,
+  upsertPdaHandoverHeadMock,
+  upsertPdaHandoutRecordMock,
   writeBackHandoverRecord,
   type PdaHandoverHead,
   type PdaHandoverRecord,
@@ -24,6 +26,7 @@ import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import { getProcessWorkOrderStockMaterial, isValidProcessWorkOrderPlannedFinishAt } from './process-work-order-stock.ts'
+import { syncFactoryWarehouseHandoverSourceByTaskId } from './factory-internal-warehouse.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
 import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
@@ -284,22 +287,13 @@ function getVisiblePrintWorkOrderIds(): Set<string> {
   )
 }
 
-function toGeneratedPrintWorkOrder(order: MutablePrintWorkOrder, index: number): MutablePrintWorkOrder {
+function buildGeneratedPrintWorkOrder(order: MutablePrintWorkOrder, index: number): MutablePrintWorkOrder {
   if (createdPrintOrderIds.has(order.printOrderId)) return order
   const context = getGeneratedPrintContext(index)
   if (!context) {
     const sourceProductionOrderId = order.sourceProductionOrderId || order.productionOrderIds[0]
     const sourceOrder = productionOrders.find((item) => item.productionOrderId === sourceProductionOrderId)
     if (!sourceOrder) {
-      const task = getPrintingTaskById(order.taskId)
-      if (task) {
-        task.sourceType = 'STOCK'
-        task.stockMaterialId = `STOCK-${order.printOrderId}`
-        task.stockMaterialName = order.materialSku
-        delete task.productionOrderId
-        delete task.productionOrderNo
-        task.sourceProductionOrderId = undefined
-      }
       return {
         ...order,
         sourceType: 'STOCK',
@@ -320,15 +314,6 @@ function toGeneratedPrintWorkOrder(order: MutablePrintWorkOrder, index: number):
     }
   }
   const { productionOrder, techPackSnapshot, craftDefinition, mockIndex, plannedQty, materialName, materialColor } = context
-  const task = getPrintingTaskById(order.taskId)
-  if (task) {
-    task.sourceType = 'PRODUCTION_ORDER'
-    task.productionOrderId = productionOrder.productionOrderId
-    task.productionOrderNo = productionOrder.productionOrderNo
-    task.sourceProductionOrderId = productionOrder.productionOrderId
-    delete task.stockMaterialId
-    delete task.stockMaterialName
-  }
   return {
     ...order,
     sourceType: 'PRODUCTION_ORDER',
@@ -349,10 +334,65 @@ function toGeneratedPrintWorkOrder(order: MutablePrintWorkOrder, index: number):
   }
 }
 
+function syncSeedSourceToTaskAndHandovers(order: MutablePrintWorkOrder): void {
+  const task = getPrintingTaskById(order.taskId)
+  if (task) {
+    if (order.sourceType === 'STOCK') {
+      task.sourceType = 'STOCK'
+      task.stockMaterialId = order.stockMaterialId
+      task.stockMaterialName = order.stockMaterialName
+      task.productionOrderId = undefined
+      task.productionOrderNo = undefined
+      task.sourceProductionOrderId = undefined
+    } else {
+      task.sourceType = 'PRODUCTION_ORDER'
+      task.productionOrderId = order.sourceProductionOrderId
+      task.productionOrderNo = order.sourceProductionOrderNo
+      task.sourceProductionOrderId = order.sourceProductionOrderId
+      task.stockMaterialId = undefined
+      task.stockMaterialName = undefined
+    }
+    registerPdaGenericProcessTask(task)
+  }
+
+  listHandoverOrdersByTaskId(order.taskId).forEach((head) => {
+    const records = getPdaHandoverRecordsByHead(head.handoverId)
+    const sourceFields = order.sourceType === 'STOCK'
+      ? {
+          sourceType: 'STOCK' as const,
+          stockMaterialId: order.stockMaterialId,
+          stockMaterialName: order.stockMaterialName,
+          productionOrderId: undefined,
+          productionOrderNo: undefined,
+        }
+      : {
+          sourceType: 'PRODUCTION_ORDER' as const,
+          productionOrderId: order.sourceProductionOrderId,
+          productionOrderNo: order.sourceProductionOrderNo,
+          stockMaterialId: undefined,
+          stockMaterialName: undefined,
+        }
+    upsertPdaHandoverHeadMock({ ...head, ...sourceFields })
+    records.forEach((record) => {
+      upsertPdaHandoutRecordMock({ ...record, ...sourceFields })
+    })
+  })
+  syncFactoryWarehouseHandoverSourceByTaskId(order.taskId)
+}
+
+function normalizeSeedWorkOrderSources(): void {
+  Array.from(workOrderStore.values())
+    .sort((left, right) => left.printOrderNo.localeCompare(right.printOrderNo))
+    .forEach((order, index) => {
+      const normalized = buildGeneratedPrintWorkOrder(order, index)
+      workOrderStore.set(normalized.printOrderId, normalized)
+      syncSeedSourceToTaskAndHandovers(normalized)
+    })
+}
+
 function listGeneratedPrintWorkOrders(): MutablePrintWorkOrder[] {
   return Array.from(workOrderStore.values())
     .sort((left, right) => left.printOrderNo.localeCompare(right.printOrderNo))
-    .map((order, index) => toGeneratedPrintWorkOrder(order, index))
 }
 
 function cloneWorkOrder(order: MutablePrintWorkOrder): PrintWorkOrder {
@@ -1568,6 +1608,7 @@ function seedDomain(): void {
   if (seeded) return
   seeded = true
   seedWorkOrders()
+  normalizeSeedWorkOrderSources()
   seedNodeRecords()
   seedReviewRecords()
 }
