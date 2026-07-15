@@ -107,25 +107,60 @@ export interface ProductionChangeMaterialIdentity {
   sourceTechPackVersionId: string
   sourceBomItemId: string
   canonicalMaterialId: string
+  snapshotMaterialId: string
 }
 
-export function resolveProductionChangeMaterialIdentity(
-  productionOrderId: string,
-  materialFactId: string,
+function toProductionChangeMaterialIdentity(
+  fact: NonNullable<ReturnType<typeof getProductionOrderChangeCurrentFacts>>['materialFacts'][number] | undefined,
 ): ProductionChangeMaterialIdentity | null {
-  const fact = getProductionOrderChangeCurrentFacts(productionOrderId)?.materialFacts
-    .find((item) => item.id === materialFactId)
   if (
     !fact?.sourceTechPackVersionId?.trim()
     || !fact.sourceBomItemId?.trim()
     || !fact.canonicalMaterialId?.trim()
+    || !fact.snapshotMaterialId?.trim()
   ) return null
   return {
     factId: fact.id,
     sourceTechPackVersionId: fact.sourceTechPackVersionId,
     sourceBomItemId: fact.sourceBomItemId,
     canonicalMaterialId: fact.canonicalMaterialId,
+    snapshotMaterialId: fact.snapshotMaterialId,
   }
+}
+
+export function resolveProductionChangeMaterialIdentity(
+  productionOrderId: string,
+  materialFactId: string,
+): ProductionChangeMaterialIdentity | null {
+  return toProductionChangeMaterialIdentity(
+    getProductionOrderChangeCurrentFacts(productionOrderId)?.materialFacts
+      .find((item) => item.id === materialFactId),
+  )
+}
+
+export function resolveProductionChangeMaterialIdentityByCanonicalMaterialId(
+  productionOrderId: string,
+  canonicalMaterialId: string,
+): ProductionChangeMaterialIdentity | null {
+  const matches = getProductionOrderChangeCurrentFacts(productionOrderId)?.materialFacts
+    .filter((item) => item.canonicalMaterialId === canonicalMaterialId) ?? []
+  return matches.length === 1 ? toProductionChangeMaterialIdentity(matches[0]) : null
+}
+
+export function resolveProductionChangeMaterialIdentityTargets(
+  originProductionOrderId: string,
+  originMaterialFactId: string,
+  affectedOrderIds: string[],
+): Map<string, ProductionChangeMaterialIdentity> {
+  const origin = resolveProductionChangeMaterialIdentity(originProductionOrderId, originMaterialFactId)
+  if (!origin) return new Map()
+  return new Map(affectedOrderIds.flatMap((productionOrderId) => {
+    const target = resolveProductionChangeMaterialIdentityByCanonicalMaterialId(
+      productionOrderId,
+      origin.canonicalMaterialId,
+    )
+    return target ? [[productionOrderId, target] as const] : []
+  }))
 }
 
 type FollowingOrderPlan = MaterialReplacementDraft['followingOrders'][number]
@@ -431,7 +466,7 @@ export function createFollowingOrderPlans(
   ;(PRODUCTION_CHANGE_FOLLOWING_ORDER_SCENARIO_SEEDS[productionOrderId] ?? []).forEach((seed) => {
     const orderId = seed.productionOrderId.trim()
     const orderState = resolveFollowingOrderStateFromOrderStatus(seed.orderStatus)
-    if (!orderId || blockedOrderIds.has(orderId) || uniquePlans.has(orderId) || !orderState.changeable) return
+    if (!orderId || blockedOrderIds.has(orderId) || !orderState.changeable) return
     const suggestedMode: MaterialReplacementMode = orderState.started ? 'REMAINING' : 'FULL'
     uniquePlans.set(orderId, {
       productionOrderId: orderId,

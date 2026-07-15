@@ -348,6 +348,7 @@ export interface ProductionOrderMaterialFact {
   sourceTechPackVersionId?: string
   sourceBomItemId?: string
   canonicalMaterialId?: string
+  snapshotMaterialId?: string
   material: string
   requiredQty: string
   preparedQty: string
@@ -1820,6 +1821,78 @@ let relations: ProductionOrderTechPackRelation[] = [
     restrictionSummary: ['已生成菲票', '已交出部分裁片'],
   },
   {
+    relationId: 'TPR-PO-202603-0101',
+    productionOrderId: 'PO-202603-0101',
+    productionOrderNo: 'PO-202603-0101',
+    spuId: 'STYLE-SPU-2024-010',
+    spuCode: 'SPU-2024-010',
+    styleName: 'Celana Jogger Pria',
+    colorCount: 3,
+    sizeCount: 5,
+    deliveryDate: '2026-04-25',
+    buyerName: '廖敏',
+    merchandiserName: '陈静',
+    currentTechPackVersionId: 'TDV-SPU-2024-010-v1-1',
+    currentTechPackVersionNo: '正式版 v1.1',
+    frozenSnapshotId: 'TPS-20260306-0101',
+    frozenAt: '2026-03-06 08:00',
+    frozenBy: '系统生成',
+    relationStatus: 'CURRENT',
+    latestPublishedTechPackVersionId: 'TDV-SPU-2024-010-v1-2',
+    latestPublishedTechPackVersionNo: '正式版 v1.2',
+    latestPublishedAt: '2026-03-18 14:30',
+    publishedVersionCount: 3,
+    hasNewerPublishedVersion: true,
+    activePatchCount: 0,
+    pendingPatchCount: 0,
+    historyPatchCount: 0,
+    latestChangeRecordId: '',
+    updatedAt: '2026-03-06 08:00',
+    diffSummary: [
+      { module: 'BOM', count: 1 },
+      { module: 'PATTERN', count: 0 },
+      { module: 'DESIGN', count: 0 },
+    ],
+    progressSummary: ['配料：已配 86%', '领料：已领 71%', '裁片：已开工 120 件', '车缝：未交出'],
+    restrictionSummary: ['已领旧料和部分裁片需保留追溯'],
+  },
+  {
+    relationId: 'TPR-PO-202603-0102',
+    productionOrderId: 'PO-202603-0102',
+    productionOrderNo: 'PO-202603-0102',
+    spuId: 'STYLE-SPU-2024-010',
+    spuCode: 'SPU-2024-010',
+    styleName: 'Celana Jogger Pria',
+    colorCount: 3,
+    sizeCount: 5,
+    deliveryDate: '2026-05-02',
+    buyerName: '廖敏',
+    merchandiserName: '陈静',
+    currentTechPackVersionId: 'TDV-SPU-2024-010-v1-2',
+    currentTechPackVersionNo: '正式版 v1.2',
+    frozenSnapshotId: 'TPS-20260308-0102',
+    frozenAt: '2026-03-08 09:00',
+    frozenBy: '系统生成',
+    relationStatus: 'CURRENT',
+    latestPublishedTechPackVersionId: 'TDV-SPU-2024-010-v1-2',
+    latestPublishedTechPackVersionNo: '正式版 v1.2',
+    latestPublishedAt: '2026-03-18 14:30',
+    publishedVersionCount: 3,
+    hasNewerPublishedVersion: false,
+    activePatchCount: 0,
+    pendingPatchCount: 0,
+    historyPatchCount: 0,
+    latestChangeRecordId: '',
+    updatedAt: '2026-03-08 09:00',
+    diffSummary: [
+      { module: 'BOM', count: 0 },
+      { module: 'PATTERN', count: 0 },
+      { module: 'DESIGN', count: 0 },
+    ],
+    progressSummary: ['配料：未开始', '领料：未开始', '裁片：未开始', '车缝：未交出'],
+    restrictionSummary: ['无限制项'],
+  },
+  {
     relationId: 'TPR-PO-202603-0005',
     productionOrderId: 'PO-202603-0005',
     productionOrderNo: 'PO-202603-0005',
@@ -2198,7 +2271,8 @@ export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[
         id: 'MAT-PO-202603-0004-FAB-A01',
         sourceTechPackVersionId: 'tdv_demand_SPU_2024_010',
         sourceBomItemId: 'tdv_demand_SPU_2024_010-bom-main',
-        canonicalMaterialId: 'tdv_demand_SPU_2024_010-bom-main',
+        canonicalMaterialId: 'material_business_fab_a01',
+        snapshotMaterialId: 'tdv_demand_SPU_2024_010-bom-main',
         material: 'FAB-A01 弹力斜纹布 / 黑色 / 280g',
         requiredQty: '1,380 米',
         preparedQty: '980 米',
@@ -2385,7 +2459,8 @@ export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[
         id: 'MAT-PO-202603-0007-FAB-C09',
         sourceTechPackVersionId: 'tdv_demand_SPU_2024_013',
         sourceBomItemId: 'tdv_demand_SPU_2024_013-bom-main',
-        canonicalMaterialId: 'tdv_demand_SPU_2024_013-bom-main',
+        canonicalMaterialId: 'material_business_fab_c09',
+        snapshotMaterialId: 'tdv_demand_SPU_2024_013-bom-main',
         material: 'FAB-C09 棉弹布 / 黑色 / 240g',
         requiredQty: '2,120 米',
         preparedQty: '2,120 米',
@@ -2464,6 +2539,10 @@ export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[
     materialFacts: [
       {
         id: 'MAT-PO-202603-0101-FAB-A01',
+        sourceTechPackVersionId: 'TDV-SPU-2024-010-v1-1',
+        sourceBomItemId: 'BOM-PO-202603-0101-FAB-A01',
+        canonicalMaterialId: 'material_business_fab_a01',
+        snapshotMaterialId: 'BOM-PO-202603-0101-FAB-A01',
         material: 'FAB-A01 弹力斜纹布 / 黑色 / 280g',
         requiredQty: '1,260 米',
         preparedQty: '1,080 米',
@@ -2524,6 +2603,10 @@ export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[
     materialFacts: [
       {
         id: 'MAT-PO-202603-0102-FAB-A01',
+        sourceTechPackVersionId: 'TDV-SPU-2024-010-v1-2',
+        sourceBomItemId: 'BOM-PO-202603-0102-FAB-A01',
+        canonicalMaterialId: 'material_business_fab_a01',
+        snapshotMaterialId: 'BOM-PO-202603-0102-FAB-A01',
         material: 'FAB-A01 弹力斜纹布 / 黑色 / 280g',
         requiredQty: '1,010 米',
         preparedQty: '0 米',
@@ -3814,9 +3897,14 @@ export function appendProductionOrderMaterialChangeHistory(
 ): void {
   const facts = productionOrderChangeCurrentFacts.find((item) => item.productionOrderId === productionOrderId)
   if (!facts) throw new Error('生产单当前事实不存在')
+  const normalizedChangeOrderNo = changeOrderNo.trim()
+  if (!normalizedChangeOrderNo) throw new Error('物料变更记录 ID 不能为空')
+  if (facts.historyFacts.some((history) => history.changeOrderNo === normalizedChangeOrderNo)) {
+    throw new Error(`生产单 ${productionOrderId} 已存在物料变更记录 ${normalizedChangeOrderNo}`)
+  }
   facts.historyFacts.unshift({
-    id: `HIS-${productionOrderId}-${changeOrderNo}`,
-    changeOrderNo,
+    id: `HIS-${productionOrderId}-${normalizedChangeOrderNo}`,
+    changeOrderNo: normalizedChangeOrderNo,
     result,
     status: '已完成',
     affectedScope,
@@ -3841,6 +3929,7 @@ export function applyProductionOrderMaterialFactReplacement(input: {
     || !fact.sourceBomItemId?.trim()
     || !fact.sourceTechPackVersionId?.trim()
     || !fact.canonicalMaterialId?.trim()
+    || !fact.snapshotMaterialId?.trim()
   ) {
     return null
   }
@@ -3851,6 +3940,7 @@ export function applyProductionOrderMaterialFactReplacement(input: {
     throw new Error('物料替换后的正式物料、技术包版本和变更记录不能为空')
   }
   fact.canonicalMaterialId = replacementMaterialId
+  fact.snapshotMaterialId = replacementMaterialId
   fact.sourceTechPackVersionId = resultingTechPackVersionId
   return clone(fact)
 }
