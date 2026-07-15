@@ -804,9 +804,23 @@ function ensureInitialPdaLoadingShell(state = appStore.getState()): void {
   root.innerHTML = renderAppShell(state, renderPdaLoadingShell())
 }
 
+const supplementManagementRoutePath = '/fcs/craft/cutting/supplement-management'
+let previousRenderedPagePathname = ''
+
+async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
+  const isSupplementManagementEntry = normalizedPathname === supplementManagementRoutePath
+    && previousRenderedPagePathname !== supplementManagementRoutePath
+  previousRenderedPagePathname = normalizedPathname
+  if (!isSupplementManagementEntry) return
+
+  const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
+  supplementManagementPage.enterCraftCuttingSupplementManagementRoute()
+}
+
 async function renderCurrentPageContent(pathname: string): Promise<string> {
   try {
     const normalizedPathname = pathname.split('?')[0].split('#')[0]
+    await preparePageRouteEntry(normalizedPathname)
     if (normalizedPathname === '/fcs/production/demand-inbox') {
       const productionDemandPage = await getProductionDemandPageModule()
       const page = productionDemandPage.renderProductionDemandInboxPage()

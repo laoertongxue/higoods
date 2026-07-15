@@ -367,6 +367,118 @@ test('列显示、顺序、冻结和每页条数持久化，且列操作只刷�
   await expect(page.getByText('1 / 1', { exact: true })).toBeVisible()
 })
 
+test('列设置与每页条数一次用户操作只写入并刷新一次', async ({ page }) => {
+  await openList(page)
+  await openColumnSettings(page)
+  await page.evaluate((key) => {
+    const table = document.querySelector('[data-cutting-supplement-region="table"]')
+    const pagination = document.querySelector('[data-cutting-supplement-region="pagination"]')
+    const overlay = document.querySelector('[data-cutting-supplement-region="overlay"]')
+    if (!table || !pagination || !overlay) throw new Error('缺少事件去重验收区域')
+    const acceptanceWindow = window as typeof window & {
+      __supplementSingleDispatch?: {
+        storageWrites: number
+        tableMutations: number
+        paginationMutations: number
+        overlayMutations: number
+        reset(): void
+      }
+    }
+    const state = {
+      storageWrites: 0,
+      tableMutations: 0,
+      paginationMutations: 0,
+      overlayMutations: 0,
+      reset() {
+        this.storageWrites = 0
+        this.tableMutations = 0
+        this.paginationMutations = 0
+        this.overlayMutations = 0
+      },
+    }
+    acceptanceWindow.__supplementSingleDispatch = state
+    const originalSetItem = Storage.prototype.setItem
+    Storage.prototype.setItem = function patchedSetItem(storageKey, value) {
+      if (storageKey === key) state.storageWrites += 1
+      return originalSetItem.call(this, storageKey, value)
+    }
+    new MutationObserver((records) => { state.tableMutations += records.length })
+      .observe(table, { childList: true })
+    new MutationObserver((records) => { state.paginationMutations += records.length })
+      .observe(pagination, { childList: true })
+    new MutationObserver((records) => { state.overlayMutations += records.length })
+      .observe(overlay, { childList: true })
+  }, storageKey)
+
+  await settingRow(page, 'processDemand').getByLabel('显示').uncheck()
+  await expect(page.locator('th[data-column-key="processDemand"]')).toHaveCount(0)
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
+  expect(await page.evaluate(() => {
+    const state = (window as typeof window & { __supplementSingleDispatch?: Record<string, number> })
+      .__supplementSingleDispatch
+    return state && {
+      storageWrites: state.storageWrites,
+      tableMutations: state.tableMutations,
+      paginationMutations: state.paginationMutations,
+      overlayMutations: state.overlayMutations,
+    }
+  })).toEqual({ storageWrites: 1, tableMutations: 1, paginationMutations: 0, overlayMutations: 1 })
+
+  await page.getByRole('button', { name: '关闭', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '列设置' })).toHaveCount(0)
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => {
+    const state = (window as typeof window & { __supplementSingleDispatch?: { reset(): void } })
+      .__supplementSingleDispatch
+    state?.reset()
+    resolve()
+  })))
+  await page.locator('[data-cutting-supplement-field="pageSize"]').selectOption('20')
+  await expect(page.locator('[data-standard-list-table-section] tbody tr')).toHaveCount(12)
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
+  expect(await page.evaluate(() => {
+    const state = (window as typeof window & { __supplementSingleDispatch?: Record<string, number> })
+      .__supplementSingleDispatch
+    return state && {
+      storageWrites: state.storageWrites,
+      tableMutations: state.tableMutations,
+      paginationMutations: state.paginationMutations,
+      overlayMutations: state.overlayMutations,
+    }
+  })).toEqual({ storageWrites: 1, tableMutations: 1, paginationMutations: 1, overlayMutations: 0 })
+})
+
+test('SPA 离开补料管理后返回重置页码和排序但保留列偏好', async ({ page }) => {
+  await openList(page)
+  await openColumnSettings(page)
+  await settingRow(page, 'processDemand').getByLabel('显示').uncheck()
+  await page.getByRole('button', { name: '关闭', exact: true }).click()
+
+  const quantityHeader = page.locator('th[data-column-key="supplementQty"]')
+  await quantityHeader.getByRole('button').click()
+  await expect(quantityHeader).toHaveAttribute('aria-sort', 'ascending')
+  await page.getByRole('button', { name: '下一页' }).click()
+  await expect(page.getByText('2 / 2', { exact: true })).toBeVisible()
+
+  const spaNavigate = async (pathname: string) => {
+    await page.evaluate((nextPathname) => {
+      const button = document.createElement('button')
+      button.dataset.nav = nextPathname
+      button.dataset.spaAcceptanceNav = 'true'
+      document.querySelector('#app')?.append(button)
+      button.click()
+    }, pathname)
+  }
+  await spaNavigate('/fcs/craft/cutting/production-progress')
+  await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/production-progress$/)
+  await spaNavigate(route)
+  await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/supplement-management$/)
+  await waitForList(page)
+
+  await expect(page.getByText('1 / 2', { exact: true })).toBeVisible()
+  await expect(page.locator('th[data-column-key="supplementQty"]')).toHaveAttribute('aria-sort', 'none')
+  await expect(page.locator('th[data-column-key="processDemand"]')).toHaveCount(0)
+})
+
 test('冻结补料单号和固定操作列在表格横向滚动时坐标稳定', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 })
   await openList(page)

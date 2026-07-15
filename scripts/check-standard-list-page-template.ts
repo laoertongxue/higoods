@@ -452,6 +452,29 @@ assert.deepEqual(
   '损坏 JSON 必须回退规范化默认值',
 )
 
+for (const invalidStoredPreferences of [
+  null,
+  [],
+  {},
+  { order: 'recordNo', visibleKeys: [], frozenKeys: [], pageSize: 10 },
+  { order: [], visibleKeys: 'recordNo', frozenKeys: [], pageSize: 10 },
+  { order: [], visibleKeys: [], frozenKeys: 'recordNo', pageSize: 10 },
+  { order: [], visibleKeys: [], frozenKeys: [], pageSize: '10' },
+]) {
+  storage.setItem('standard-list-columns', JSON.stringify(invalidStoredPreferences))
+  assert.deepEqual(
+    loadListColumnPreferences(
+      storage,
+      'standard-list-columns',
+      columnRules,
+      invalidDefaultColumnPreferences,
+      allowedPageSizes,
+    ),
+    normalizedDefaultColumnPreferences,
+    `不完整或字段类型错误的 Storage 必须回退规范化默认值：${JSON.stringify(invalidStoredPreferences)}`,
+  )
+}
+
 storage.setItem('standard-list-columns', JSON.stringify({
   order: ['qty'],
   visibleKeys: ['qty'],
@@ -879,6 +902,10 @@ function supplementField(field: string, value: string): HTMLElement {
   return target as unknown as HTMLElement
 }
 
+function supplementControlEvent(type: 'click' | 'input' | 'change'): Event {
+  return { type } as Event
+}
+
 function supplementColumnDragTarget(columnKey: string): HTMLElement {
   const target = {
     dataset: {
@@ -1011,7 +1038,18 @@ supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('nex
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('reset-filters'))
 assert(supplementDom.regions.get('pagination')?.innerHTML.includes('1 / 2'), '重置筛选后必须回到第 1 页')
 
-supplementPage.handleCraftCuttingSupplementManagementEvent(supplementField('pageSize', '20'))
+assert.equal(
+  supplementPage.handleCraftCuttingSupplementManagementEvent(
+    supplementField('pageSize', '20'),
+    supplementControlEvent('input'),
+  ),
+  false,
+  '每页条数 input 事件不得处理',
+)
+supplementPage.handleCraftCuttingSupplementManagementEvent(
+  supplementField('pageSize', '20'),
+  supplementControlEvent('change'),
+)
 assert(supplementDom.regions.get('pagination')?.innerHTML.includes('1 / 1'), '切换每页条数后必须回到第 1 页')
 assert.equal((supplementDom.regions.get('table')?.innerHTML.match(/data-record-id=/g) ?? []).length, supplementTotal, '20 条/页必须展示全部补料记录')
 
@@ -1109,16 +1147,36 @@ assert.equal(defaultSupplementStorage.read(supplementStorageKey), preferencesBef
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('close-column-settings'))
 
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('sort-column', { columnKey: 'supplementQty' }))
-supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }))
+assert.equal(
+  supplementPage.handleCraftCuttingSupplementManagementEvent(
+    supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }),
+    supplementControlEvent('click'),
+  ),
+  false,
+  '列显示 click 事件不得处理',
+)
+supplementPage.handleCraftCuttingSupplementManagementEvent(
+  supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }),
+  supplementControlEvent('change'),
+)
 assert(!supplementDom.regions.get('table')?.innerHTML.includes('data-column-key="supplementQty"'), '列显隐必须局部刷新表格')
-supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }))
+supplementPage.handleCraftCuttingSupplementManagementEvent(
+  supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }),
+  supplementControlEvent('change'),
+)
 assert(supplementDom.regions.get('table')?.innerHTML.includes('aria-sort="none"'), '隐藏当前排序列后必须取消排序')
 
 for (const key of ['target', 'recordNo']) {
-  supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: key }))
+  supplementPage.handleCraftCuttingSupplementManagementEvent(
+    supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: key }),
+    supplementControlEvent('change'),
+  )
 }
 const preferencesBeforeFrozenOverflow = defaultSupplementStorage.read(supplementStorageKey)
-supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: 'supplementQty' }))
+supplementPage.handleCraftCuttingSupplementManagementEvent(
+  supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: 'supplementQty' }),
+  supplementControlEvent('change'),
+)
 assert.equal(defaultSupplementStorage.read(supplementStorageKey), preferencesBeforeFrozenOverflow, '冻结宽度超过 520 时不得改变偏好')
 assert(supplementDom.regions.get('feedback')?.innerHTML.includes('520'), '冻结宽度超过上限时必须提供业务反馈')
 
@@ -1126,18 +1184,18 @@ supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('res
 assert.equal(defaultSupplementStorage.read(supplementStorageKey), null, '恢复默认必须清除本地偏好')
 assertDefaultPageSize(supplementDom.regions.get('pagination')?.innerHTML ?? '', '恢复默认必须回到 10 条/页')
 
-supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: 'supplementQty' }))
-supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }))
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: 'supplementQty' }), supplementControlEvent('change'))
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }), supplementControlEvent('change'))
 let storedSupplementPreferences = JSON.parse(defaultSupplementStorage.read(supplementStorageKey) ?? '{}') as StandardListColumnPreferences
 assert(!storedSupplementPreferences.frozenKeys.includes('supplementQty'), '隐藏冻结列时必须同时解除冻结')
-supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }))
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }), supplementControlEvent('change'))
 
 for (const key of ['target', 'recordNo']) {
-  supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: key }))
+  supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: key }), supplementControlEvent('change'))
 }
-supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }))
-supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: 'supplementQty' }))
-supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }))
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }), supplementControlEvent('change'))
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: 'supplementQty' }), supplementControlEvent('change'))
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }), supplementControlEvent('change'))
 storedSupplementPreferences = JSON.parse(defaultSupplementStorage.read(supplementStorageKey) ?? '{}') as StandardListColumnPreferences
 assert.deepEqual(
   storedSupplementPreferences.frozenKeys,
@@ -1147,7 +1205,7 @@ assert.deepEqual(
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('restore-column-settings'))
 
 for (const key of ['target', 'supplementQty', 'recordNo']) {
-  supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: key }))
+  supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: key }), supplementControlEvent('change'))
 }
 storedSupplementPreferences = JSON.parse(defaultSupplementStorage.read(supplementStorageKey) ?? '{}') as StandardListColumnPreferences
 assert.deepEqual(storedSupplementPreferences.frozenKeys, ['recordNo', 'target'], '新增前置冻结列时必须从尾部清退超限列')

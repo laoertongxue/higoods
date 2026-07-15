@@ -35,6 +35,19 @@ interface StandardListStorage {
   removeItem(key: string): unknown
 }
 
+function isStoredColumnPreferences(value: unknown): value is StandardListColumnPreferences {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+
+  const candidate = value as Record<string, unknown>
+  return Array.isArray(candidate.order)
+    && candidate.order.every((key) => typeof key === 'string')
+    && Array.isArray(candidate.visibleKeys)
+    && candidate.visibleKeys.every((key) => typeof key === 'string')
+    && Array.isArray(candidate.frozenKeys)
+    && candidate.frozenKeys.every((key) => typeof key === 'string')
+    && typeof candidate.pageSize === 'number'
+}
+
 function uniqueKnownKeys(value: unknown, knownKeys: Set<string>): string[] {
   if (!Array.isArray(value)) return []
 
@@ -164,7 +177,9 @@ export function loadListColumnPreferences(
   try {
     const storedValue = storage.getItem(storageKey)
     if (storedValue === null) return normalizedDefaults
-    return normalizeListColumnPreferences(rules, JSON.parse(storedValue), allowedPageSizes)
+    const parsed: unknown = JSON.parse(storedValue)
+    if (!isStoredColumnPreferences(parsed)) return normalizedDefaults
+    return normalizeListColumnPreferences(rules, parsed, allowedPageSizes)
   } catch {
     return normalizedDefaults
   }

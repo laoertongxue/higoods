@@ -1515,6 +1515,11 @@ function ensureSupplementListPreferences(): void {
   if (storage) saveListColumnPreferences(storage, supplementListStorageKey, state.columnPreferences)
 }
 
+export function enterCraftCuttingSupplementManagementRoute(): void {
+  state.page = 1
+  state.sort = null
+}
+
 function saveSupplementListPreferences(): void {
   const storage = getSupplementListStorage()
   if (storage) saveListColumnPreferences(storage, supplementListStorageKey, state.columnPreferences)
@@ -2150,6 +2155,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   const fieldNode = target.closest<HTMLInputElement | HTMLSelectElement>('[data-cutting-supplement-field]')
   const field = fieldNode?.dataset.cuttingSupplementField
   if (field === 'pageSize') {
+    if (event?.type !== 'change') return false
     const pageSize = Number(fieldNode.value)
     if (supplementListPageSizes.includes(pageSize)) {
       state.columnPreferences = normalizeSupplementListPreferences({
@@ -2226,6 +2232,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   }
 
   if (action === 'toggle-column-visibility') {
+    if (event?.type !== 'change') return false
     const columnKey = actionNode.dataset.cuttingSupplementColumnKey || actionNode.dataset.columnKey || ''
     const rule = supplementListColumnRules.find((item) => item.key === columnKey)
     if (!rule || rule.required || rule.actionColumn) return true
@@ -2250,6 +2257,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   }
 
   if (action === 'toggle-column-freeze') {
+    if (event?.type !== 'change') return false
     const columnKey = actionNode.dataset.cuttingSupplementColumnKey || actionNode.dataset.columnKey || ''
     const column = supplementListColumns.find((item) => item.key === columnKey)
     if (!column?.freezeable || column.actionColumn) return true
