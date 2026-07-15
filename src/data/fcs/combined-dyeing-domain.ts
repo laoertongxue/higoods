@@ -35,16 +35,42 @@ function normalizeQuantity(value: number): number {
   return Object.is(normalized, -0) ? 0 : normalized
 }
 
-function hasValidCalendarDate(value: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})(?:$|[T\s])/.exec(value)
-  if (!match || !Number.isFinite(Date.parse(value))) return false
+function parseProductionOrderOrderedAt(value: string): number {
+  if (/[zZ]$|[+-]\d{2}:\d{2}$/.test(value)) {
+    throw new Error('生产单下单时间仅支持无时区格式 YYYY-MM-DD HH:mm:ss 或 YYYY-MM-DDTHH:mm:ss')
+  }
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/.exec(value)
+  if (!match) {
+    throw new Error('生产单下单时间必须使用 YYYY-MM-DD HH:mm:ss 或 YYYY-MM-DDTHH:mm:ss')
+  }
 
   const year = Number(match[1])
   const month = Number(match[2])
   const day = Number(match[3])
+  const hour = Number(match[4])
+  const minute = Number(match[5])
+  const second = Number(match[6])
   const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
   const daysInMonth = [31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-  return month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth[month - 1]!
+  const hasValidDate = year >= 1
+    && month >= 1
+    && month <= 12
+    && day >= 1
+    && day <= daysInMonth[month - 1]!
+  const hasValidTime = hour >= 0 && hour <= 23
+    && minute >= 0 && minute <= 59
+    && second >= 0 && second <= 59
+  if (!hasValidDate || !hasValidTime) {
+    throw new Error('生产单下单时间包含非法日期或时分秒')
+  }
+
+  return year * 10_000_000_000
+    + month * 100_000_000
+    + day * 1_000_000
+    + hour * 10_000
+    + minute * 100
+    + second
 }
 
 function assertUniqueMembers(members: readonly CombinedDyeingMemberSnapshot[]): void {
@@ -67,7 +93,36 @@ function assertUniqueMembers(members: readonly CombinedDyeingMemberSnapshot[]): 
   }
 }
 
-function validateMembers(members: readonly CombinedDyeingMemberSnapshot[]): void {
+interface ValidatedCombinedDyeingMember {
+  member: CombinedDyeingMemberSnapshot
+  orderedAtSortKey: number
+}
+
+function canonicalizeMember(member: CombinedDyeingMemberSnapshot): CombinedDyeingMemberSnapshot {
+  const dyeWorkOrderId = member.dyeWorkOrderId.trim()
+  const dyeWorkOrderNo = member.dyeWorkOrderNo.trim()
+  const productionOrderId = member.productionOrderId.trim()
+  const productionOrderNo = member.productionOrderNo.trim()
+  const requiredIdentities = [
+    [dyeWorkOrderId, '染色加工单 ID'],
+    [dyeWorkOrderNo, '染色加工单号'],
+    [productionOrderId, '生产单 ID'],
+    [productionOrderNo, '生产单号'],
+  ] as const
+  for (const [value, label] of requiredIdentities) {
+    if (!value) throw new Error(`${label}不能为空`)
+  }
+
+  return {
+    ...member,
+    dyeWorkOrderId,
+    dyeWorkOrderNo,
+    productionOrderId,
+    productionOrderNo,
+  }
+}
+
+function validateMembers(members: readonly CombinedDyeingMemberSnapshot[]): ValidatedCombinedDyeingMember[] {
   if (members.length === 0) {
     throw new Error('合并染色分配至少包含 1 个成员')
   }
@@ -77,7 +132,8 @@ function validateMembers(members: readonly CombinedDyeingMemberSnapshot[]): void
     throw new Error('成员数量单位不能为空')
   }
 
-  for (const member of members) {
+  const validatedMembers = members.map((sourceMember): ValidatedCombinedDyeingMember => {
+    const member = canonicalizeMember(sourceMember)
     assertFiniteNumber(member.requiredQty, '需求数量')
     if (member.requiredQty <= 0) {
       throw new Error('需求数量必须大于 0')
@@ -92,19 +148,19 @@ function validateMembers(members: readonly CombinedDyeingMemberSnapshot[]): void
       throw new Error('合并染色成员数量单位必须一致')
     }
 
-    if (!member.productionOrderOrderedAt.trim() || !hasValidCalendarDate(member.productionOrderOrderedAt)) {
-      throw new Error('生产单下单时间不能为空且必须是合法日期')
-    }
-  }
+    const orderedAtSortKey = parseProductionOrderOrderedAt(member.productionOrderOrderedAt)
+    return { member, orderedAtSortKey }
+  })
 
-  assertUniqueMembers(members)
+  assertUniqueMembers(validatedMembers.map((item) => item.member))
+  return validatedMembers
 }
 
-function compareMembers(left: CombinedDyeingMemberSnapshot, right: CombinedDyeingMemberSnapshot): number {
-  const timeDifference = Date.parse(left.productionOrderOrderedAt) - Date.parse(right.productionOrderOrderedAt)
+function compareMembers(left: ValidatedCombinedDyeingMember, right: ValidatedCombinedDyeingMember): number {
+  const timeDifference = left.orderedAtSortKey - right.orderedAtSortKey
   if (timeDifference !== 0) return timeDifference
-  if (left.productionOrderNo < right.productionOrderNo) return -1
-  if (left.productionOrderNo > right.productionOrderNo) return 1
+  if (left.member.productionOrderNo < right.member.productionOrderNo) return -1
+  if (left.member.productionOrderNo > right.member.productionOrderNo) return 1
   return 0
 }
 
@@ -116,10 +172,10 @@ export function allocateCombinedDyeingOutput(
   if (actualOutputQty < 0) {
     throw new Error('实际产出数量不得小于 0')
   }
-  validateMembers(members)
+  const validatedMembers = validateMembers(members)
 
   let remainingOutputQty = normalizeQuantity(actualOutputQty)
-  const allocations = [...members].sort(compareMembers).map((member): CombinedDyeingMemberAllocation => {
+  const allocations = validatedMembers.sort(compareMembers).map(({ member }): CombinedDyeingMemberAllocation => {
     const remainingNeed = normalizeQuantity(Math.max(member.requiredQty - member.effectiveSatisfiedQtyBeforeTask, 0))
     const allocatedQty = normalizeQuantity(Math.min(remainingNeed, remainingOutputQty))
     const unmetQty = normalizeQuantity(remainingNeed - allocatedQty)

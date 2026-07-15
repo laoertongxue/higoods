@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import {
   allocateCombinedDyeingOutput,
@@ -10,7 +11,7 @@ const memberA: CombinedDyeingMemberSnapshot = {
   dyeWorkOrderNo: '染色加工单-A',
   productionOrderId: 'PO-A',
   productionOrderNo: 'PO-001',
-  productionOrderOrderedAt: '2026-07-15T08:00:00+08:00',
+  productionOrderOrderedAt: '2026-07-15 08:00:00',
   requiredQty: 600,
   effectiveSatisfiedQtyBeforeTask: 0,
   qtyUnit: 'Yard',
@@ -21,7 +22,7 @@ const memberB: CombinedDyeingMemberSnapshot = {
   dyeWorkOrderNo: '染色加工单-B',
   productionOrderId: 'PO-B',
   productionOrderNo: 'PO-002',
-  productionOrderOrderedAt: '2026-07-15T09:00:00+08:00',
+  productionOrderOrderedAt: '2026-07-15T09:00:00',
   requiredQty: 400,
   effectiveSatisfiedQtyBeforeTask: 0,
   qtyUnit: 'Yard',
@@ -32,7 +33,7 @@ const memberC: CombinedDyeingMemberSnapshot = {
   dyeWorkOrderNo: '染色加工单-C',
   productionOrderId: 'PO-C',
   productionOrderNo: 'PO-003',
-  productionOrderOrderedAt: '2026-07-15T09:00:00+08:00',
+  productionOrderOrderedAt: '2026-07-15 09:00:00',
   requiredQty: 200,
   effectiveSatisfiedQtyBeforeTask: 0,
   qtyUnit: 'Yard',
@@ -43,6 +44,10 @@ function allocationSummary(actualOutputQty: number) {
 }
 
 function main(): void {
+  const domainSource = readFileSync(new URL('../src/data/fcs/combined-dyeing-domain.ts', import.meta.url), 'utf8')
+  assert(!domainSource.includes('Date.parse'), '合并染色排序不得重新引入环境相关 Date.parse')
+  assert(!/\bnew\s+Date\s*\(/.test(domainSource), '合并染色排序不得重新引入环境相关 new Date')
+
   const partial = allocationSummary(800)
   assert.deepEqual(
     partial.allocations.map(({ productionOrderNo, allocatedQty, satisfaction, unmetQty }) => ({
@@ -120,13 +125,68 @@ function main(): void {
   assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, effectiveSatisfiedQtyBeforeTask: Number.NaN }], 0), /任务前已满足数量/, '任务前已满足数量必须是有限数')
   assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, effectiveSatisfiedQtyBeforeTask: 601 }], 0), /任务前已满足数量/, '任务前已满足数量不得超过需求')
   assert.throws(() => allocateCombinedDyeingOutput([memberA, { ...memberB, qtyUnit: '米' }], 0), /数量单位必须一致/, '成员单位不一致必须拒绝')
+
+  const identityFields = [
+    ['dyeWorkOrderId', '染色加工单 ID'],
+    ['dyeWorkOrderNo', '染色加工单号'],
+    ['productionOrderId', '生产单 ID'],
+    ['productionOrderNo', '生产单号'],
+  ] as const
+  for (const [field, label] of identityFields) {
+    assert.throws(
+      () => allocateCombinedDyeingOutput([{ ...memberA, [field]: '' }], 0),
+      new RegExp(`${label}不能为空`),
+      `${label}空字符串必须拒绝`,
+    )
+    assert.throws(
+      () => allocateCombinedDyeingOutput([{ ...memberA, [field]: '   ' }], 0),
+      new RegExp(`${label}不能为空`),
+      `${label}纯空格必须拒绝`,
+    )
+  }
+
   assert.throws(() => allocateCombinedDyeingOutput([memberA, { ...memberB, dyeWorkOrderId: memberA.dyeWorkOrderId }], 0), /染色加工单/, '重复染色加工单必须拒绝')
   assert.throws(() => allocateCombinedDyeingOutput([memberA, { ...memberB, dyeWorkOrderNo: memberA.dyeWorkOrderNo }], 0), /染色加工单/, '重复染色加工单号必须拒绝')
   assert.throws(() => allocateCombinedDyeingOutput([memberA, { ...memberB, productionOrderId: memberA.productionOrderId }], 0), /生产单/, '重复生产单必须拒绝')
   assert.throws(() => allocateCombinedDyeingOutput([memberA, { ...memberB, productionOrderNo: memberA.productionOrderNo }], 0), /生产单/, '重复生产单号必须拒绝')
+  assert.throws(() => allocateCombinedDyeingOutput([memberA, { ...memberB, dyeWorkOrderId: ` ${memberA.dyeWorkOrderId} ` }], 0), /染色加工单/, 'trim 后重复染色加工单 ID 必须拒绝')
+  assert.throws(() => allocateCombinedDyeingOutput([memberA, { ...memberB, dyeWorkOrderNo: ` ${memberA.dyeWorkOrderNo} ` }], 0), /染色加工单/, 'trim 后重复染色加工单号必须拒绝')
+  assert.throws(() => allocateCombinedDyeingOutput([memberA, { ...memberB, productionOrderId: ` ${memberA.productionOrderId} ` }], 0), /生产单/, 'trim 后重复生产单 ID 必须拒绝')
+  assert.throws(() => allocateCombinedDyeingOutput([memberA, { ...memberB, productionOrderNo: ` ${memberA.productionOrderNo} ` }], 0), /生产单/, 'trim 后重复生产单号必须拒绝')
+
+  const canonicalIdentity = allocateCombinedDyeingOutput([{
+    ...memberA,
+    dyeWorkOrderId: ` ${memberA.dyeWorkOrderId} `,
+    dyeWorkOrderNo: ` ${memberA.dyeWorkOrderNo} `,
+    productionOrderId: ` ${memberA.productionOrderId} `,
+    productionOrderNo: ` ${memberA.productionOrderNo} `,
+  }], 0).allocations[0]!
+  assert.deepEqual(
+    [canonicalIdentity.dyeWorkOrderId, canonicalIdentity.dyeWorkOrderNo, canonicalIdentity.productionOrderId, canonicalIdentity.productionOrderNo],
+    [memberA.dyeWorkOrderId, memberA.dyeWorkOrderNo, memberA.productionOrderId, memberA.productionOrderNo],
+    '分配结果必须输出 trim 后的成员身份',
+  )
+
   assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, productionOrderOrderedAt: '' }], 0), /下单时间/, '空下单时间必须拒绝')
   assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, productionOrderOrderedAt: 'not-a-date' }], 0), /下单时间/, '非法下单时间必须拒绝')
-  assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, productionOrderOrderedAt: '2026-02-30T08:00:00+08:00' }], 0), /下单时间/, '不存在的日历日期必须拒绝')
+  assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, productionOrderOrderedAt: '2026-02-30 08:00:00' }], 0), /下单时间/, '不存在的日历日期必须拒绝')
+  assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, productionOrderOrderedAt: '2026-07-15 24:00:00' }], 0), /下单时间/, '非法小时必须拒绝')
+  assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, productionOrderOrderedAt: '2026-07-15 09:00' }], 0), /下单时间/, '缺少秒的时间格式必须拒绝')
+  assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, productionOrderOrderedAt: '2026-07-15T09:00:00Z' }], 0), /无时区/, '显式 Z 时区必须拒绝')
+  assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, productionOrderOrderedAt: '2026-07-15T09:00:00+08:00' }], 0), /无时区/, '显式 offset 时区必须拒绝')
+
+  const originalTimezone = process.env.TZ
+  const allocationOrderByTimezone = (timezone: string): string[] => {
+    process.env.TZ = timezone
+    return allocateCombinedDyeingOutput([memberC, memberB, memberA], 0).allocations.map((item) => item.productionOrderNo)
+  }
+  try {
+    assert.deepEqual(allocationOrderByTimezone('UTC'), ['PO-001', 'PO-002', 'PO-003'], 'UTC 环境必须保持固定排序')
+    assert.deepEqual(allocationOrderByTimezone('Asia/Shanghai'), ['PO-001', 'PO-002', 'PO-003'], '上海时区环境必须保持相同排序')
+  } finally {
+    if (originalTimezone === undefined) delete process.env.TZ
+    else process.env.TZ = originalTimezone
+  }
 
   const inputWithManualAllocation = Object.freeze([
     Object.freeze({ ...memberC, allocatedQty: 999 }),
