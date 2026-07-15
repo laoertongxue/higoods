@@ -405,7 +405,7 @@ function listVisibleRawDyeWorkOrders(): MutableDyeWorkOrder[] {
     if (
       createdDyeOrderIds.has(order.dyeOrderId)
       || reviewRecordStore.has(order.dyeOrderId)
-      || ['WAIT_HANDOVER', 'HANDOVER_WAIT_RECEIVE', 'WAIT_REVIEW', 'PARTIAL_HANDOVER', 'FULL_HANDOVER', 'HANDOVER_DIFFERENCE'].includes(order.status)
+      || ['WAIT_HANDOVER', 'HANDOVER_WAIT_RECEIVE', 'WAIT_REVIEW', 'PARTIAL_HANDOVER', 'FULL_HANDOVER', 'HANDOVER_DIFFERENCE', 'COMPLETED', 'REJECTED'].includes(order.status)
     ) {
       selected.set(order.dyeOrderId, order)
     }
@@ -848,6 +848,8 @@ function syncPreVatStatus(order: MutableDyeWorkOrder): void {
     || order.status === 'HANDOVER_WAIT_RECEIVE'
     || order.status === 'FULL_HANDOVER'
     || order.status === 'HANDOVER_DIFFERENCE'
+    || order.status === 'COMPLETED'
+    || order.status === 'REJECTED'
     || order.status === 'WAIT_WATER_SOLUBLE'
     || order.status === 'WATER_SOLUBLE_IN_PROGRESS'
     || order.status === 'PRODUCTION_PAUSED'
@@ -2347,14 +2349,33 @@ registerCreatedDyeWorkOrderReader(listCreatedDyeWorkOrders)
 
 export function getDyeWorkOrderById(dyeOrderId: string): DyeWorkOrder | undefined {
   syncDerivedWorkflow()
+  const canonical = workOrderStore.get(dyeOrderId)
   const order = listGeneratedDyeWorkOrders().find((item) => item.dyeOrderId === dyeOrderId)
-  return order ? cloneWorkOrder(order) : undefined
+  return order && canonical
+    ? cloneWorkOrder({
+        ...order,
+        dyeOrderId: canonical.dyeOrderId,
+        dyeOrderNo: canonical.dyeOrderNo,
+        taskId: canonical.taskId,
+        taskNo: canonical.taskNo,
+      })
+    : undefined
 }
 
 export function getDyeWorkOrderByTaskId(taskId: string): DyeWorkOrder | undefined {
   syncDerivedWorkflow()
-  const order = listGeneratedDyeWorkOrders().find((item) => item.taskId === taskId)
-  return order ? cloneWorkOrder(order) : undefined
+  const canonical = Array.from(workOrderStore.values()).find((item) => item.taskId === taskId)
+  if (!canonical) return undefined
+  const order = listGeneratedDyeWorkOrders().find((item) => item.dyeOrderId === canonical.dyeOrderId)
+  return order
+    ? cloneWorkOrder({
+        ...order,
+        dyeOrderId: canonical.dyeOrderId,
+        dyeOrderNo: canonical.dyeOrderNo,
+        taskId: canonical.taskId,
+        taskNo: canonical.taskNo,
+      })
+    : undefined
 }
 
 export function listDyeExecutionNodeRecords(dyeOrderId?: string): DyeExecutionNodeRecord[] {
@@ -2463,8 +2484,8 @@ export function getDyeWorkOrderSummary(): DyeWorkOrderSummary {
     waitHandoverCount: orders.filter((order) => order.status === 'WAIT_HANDOVER').length,
     waitReceiveCount: orders.filter((order) => order.status === 'HANDOVER_WAIT_RECEIVE').length,
     partialHandoverCount: orders.filter((order) => order.status === 'PARTIAL_HANDOVER' || order.status === 'WAIT_REVIEW').length,
-    fullHandoverCount: orders.filter((order) => order.status === 'FULL_HANDOVER').length,
-    handoverDifferenceCount: orders.filter((order) => order.status === 'HANDOVER_DIFFERENCE').length,
+    fullHandoverCount: orders.filter((order) => order.status === 'FULL_HANDOVER' || order.status === 'COMPLETED').length,
+    handoverDifferenceCount: orders.filter((order) => order.status === 'HANDOVER_DIFFERENCE' || order.status === 'REJECTED').length,
     diffQty: orders.reduce((sum, order) => sum + Math.abs(getDyeOrderHandoverSummary(order.dyeOrderId).diffQty), 0),
     objectionCount: orders.reduce((sum, order) => sum + getDyeOrderHandoverSummary(order.dyeOrderId).objectionCount, 0),
     vatUtilizationCount: vatInUse.length,
@@ -2483,7 +2504,9 @@ export function listDyeReportRows(): DyeReportRow[] {
       currentNode: getCurrentNode(order),
       waitingReason: getWaitingReason(order),
       startedAt: order.sampleWaitStartedAt || getDyeExecutionNodeRecord(order.dyeOrderId, 'DYE')?.startedAt,
-      finishedAt: order.status === 'FULL_HANDOVER' ? (getDyeReviewRecordByOrderId(order.dyeOrderId)?.reviewedAt || order.updatedAt) : undefined,
+      finishedAt: order.status === 'FULL_HANDOVER' || order.status === 'COMPLETED'
+        ? (getDyeReviewRecordByOrderId(order.dyeOrderId)?.reviewedAt || order.updatedAt)
+        : undefined,
       durationHours: Number(getStatusDurationHours(order)),
       dyeVatNo: getCurrentDyeVatNo(order),
       plannedQty: order.plannedQty,

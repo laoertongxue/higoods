@@ -5,8 +5,21 @@ import path from 'node:path'
 import { menusBySystem } from '../src/data/app-shell-config.ts'
 import { listProcessWorkOrders } from '../src/data/fcs/process-work-order-domain.ts'
 import { listPrepProcessOrders } from '../src/data/fcs/page-adapters/process-prep-pages-adapter.ts'
-import { listPrintWorkOrders } from '../src/data/fcs/printing-task-domain.ts'
-import { listDyeWorkOrders } from '../src/data/fcs/dyeing-task-domain.ts'
+import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
+import {
+  getPrintWorkOrderById,
+  getPrintWorkOrderByTaskId,
+  getPrintWorkOrderSummary,
+  listPrintingDashboardBuckets,
+  listPrintWorkOrders,
+} from '../src/data/fcs/printing-task-domain.ts'
+import {
+  getDyeWorkOrderById,
+  getDyeWorkOrderByTaskId,
+  getDyeWorkOrderSummary,
+  listDyeReportRows,
+  listDyeWorkOrders,
+} from '../src/data/fcs/dyeing-task-domain.ts'
 import { routes } from '../src/router/routes-fcs.ts'
 
 const ROOT = process.cwd()
@@ -31,6 +44,8 @@ function flattenPfosMenuTitles(): string[] {
 
 const domainSource = read('src/data/fcs/process-work-order-domain.ts')
 const adapterSource = read('src/data/fcs/page-adapters/process-prep-pages-adapter.ts')
+const printDomainSource = read('src/data/fcs/printing-task-domain.ts')
+const dyeDomainSource = read('src/data/fcs/dyeing-task-domain.ts')
 const platformPrintSource = read('src/pages/process-print-orders.ts')
 const platformDyeSource = read('src/pages/process-dye-orders.ts')
 const pfosPrintSource = read('src/pages/process-factory/printing/work-orders.ts')
@@ -79,9 +94,6 @@ function assertWorkOrderIdentity(
   factoryIdentities.forEach(([workOrderId]) => {
     assert(platformIds.has(workOrderId), '工厂端只能使用平台加工单 ID 和加工单号')
   })
-  factoryNos.forEach((orderNo) => {
-    assert(!/-\d{2}$/.test(orderNo), '工厂端只能使用平台加工单 ID 和加工单号')
-  })
   assert.deepEqual(
     sortIdentities(platformIdentities),
     sortIdentities(factoryIdentities),
@@ -89,10 +101,76 @@ function assertWorkOrderIdentity(
   )
 }
 
+function assertCanonicalIdentity(
+  platformOrders: Array<{ workOrderId?: string; orderNo: string }>,
+  unifiedOrders: Array<{ workOrderId: string; workOrderNo: string }>,
+  factoryOrders: Array<{ workOrderId: string; orderNo: string; taskId: string }>,
+  getById: (workOrderId: string) => { workOrderId: string; orderNo: string; taskId: string } | undefined,
+  getByTaskId: (taskId: string) => { workOrderId: string; orderNo: string; taskId: string } | undefined,
+): void {
+  const canonicalIdentities = factoryOrders.map(({ workOrderId, orderNo }) => [workOrderId, orderNo] as [string, string])
+  const taskIds = factoryOrders.map((order) => order.taskId)
+  const registeredPdaTaskIds = new Set(listPdaGenericProcessTasks().map((task) => task.taskId))
+  assert.equal(new Set(taskIds).size, taskIds.length, '公开加工单与 PDA 任务必须一对一绑定')
+  taskIds.forEach((taskId) => assert(registeredPdaTaskIds.has(taskId), `${taskId} 未注册为 PDA 任务`))
+  assert.deepEqual(
+    sortIdentities(unifiedOrders.map((order) => [order.workOrderId, order.workOrderNo])),
+    sortIdentities(canonicalIdentities),
+    '工厂端只能使用平台加工单 ID 和加工单号',
+  )
+  assert.deepEqual(
+    sortIdentities(platformOrders.map((order) => [order.workOrderId || '', order.orderNo])),
+    sortIdentities(canonicalIdentities),
+    '工厂端只能使用平台加工单 ID 和加工单号',
+  )
+  factoryOrders.forEach((order) => {
+    const canonical = getById(order.workOrderId)
+    const pdaBound = getByTaskId(order.taskId)
+    assert.deepEqual(
+      canonical && [canonical.workOrderId, canonical.orderNo],
+      [order.workOrderId, order.orderNo],
+      'canonical 加工单身份不得被任何端转换',
+    )
+    assert.deepEqual(
+      pdaBound && [pdaBound.workOrderId, pdaBound.orderNo],
+      [order.workOrderId, order.orderNo],
+      'PDA 任务必须反查原平台加工单 ID 和加工单号',
+    )
+  })
+}
+
 assertWorkOrderIdentity(
   platformPrintOrders,
   printWorkOrders.map((order) => ({ workOrderId: order.printOrderId, orderNo: order.printOrderNo })),
 )
+assertCanonicalIdentity(
+  platformPrintOrders,
+  unifiedPrintOrders,
+  printWorkOrders.map((order) => ({ workOrderId: order.printOrderId, orderNo: order.printOrderNo, taskId: order.taskId })),
+  (workOrderId) => {
+    const order = getPrintWorkOrderById(workOrderId)
+    return order && { workOrderId: order.printOrderId, orderNo: order.printOrderNo, taskId: order.taskId }
+  },
+  (taskId) => {
+    const order = getPrintWorkOrderByTaskId(taskId)
+    return order && { workOrderId: order.printOrderId, orderNo: order.printOrderNo, taskId: order.taskId }
+  },
+)
+assertCanonicalIdentity(
+  platformDyeOrders,
+  unifiedDyeOrders,
+  dyeWorkOrders.map((order) => ({ workOrderId: order.dyeOrderId, orderNo: order.dyeOrderNo, taskId: order.taskId })),
+  (workOrderId) => {
+    const order = getDyeWorkOrderById(workOrderId)
+    return order && { workOrderId: order.dyeOrderId, orderNo: order.dyeOrderNo, taskId: order.taskId }
+  },
+  (taskId) => {
+    const order = getDyeWorkOrderByTaskId(taskId)
+    return order && { workOrderId: order.dyeOrderId, orderNo: order.dyeOrderNo, taskId: order.taskId }
+  },
+)
+assertNotIncludes(printDomainSource, 'printOrderNo: buildPrintWorkOrderNo', '印花 canonical 加工单身份')
+assertNotIncludes(dyeDomainSource, 'dyeOrderNo: index < generatedCount', '染色 canonical 加工单身份')
 assertWorkOrderIdentity(
   platformDyeOrders,
   dyeWorkOrders.map((order) => ({ workOrderId: order.dyeOrderId, orderNo: order.dyeOrderNo })),
@@ -147,6 +225,25 @@ assert.deepEqual(
 ].forEach((label) => {
   assert(unifiedDyeOrders.some((order) => order.statusLabel === label), `染色状态覆盖缺少：${label}`)
 })
+
+const printSummary = getPrintWorkOrderSummary()
+const printCompletedCount = printWorkOrders.filter((order) => ['FULL_HANDOVER', 'COMPLETED'].includes(order.status)).length
+const printRejectedCount = printWorkOrders.filter((order) => ['HANDOVER_DIFFERENCE', 'REJECTED'].includes(order.status)).length
+assert.equal(printSummary.fullHandoverCount, printCompletedCount, '印花终态列表数量必须与汇总一致')
+assert.equal(printSummary.handoverDifferenceCount, printRejectedCount, '印花驳回列表数量必须与汇总一致')
+assert(
+  (listPrintingDashboardBuckets().find((bucket) => bucket.key === 'abnormal')?.count || 0) >= printRejectedCount,
+  '印花看板必须统计已驳回加工单',
+)
+
+const dyeSummary = getDyeWorkOrderSummary()
+const dyeCompletedCount = dyeWorkOrders.filter((order) => ['FULL_HANDOVER', 'COMPLETED'].includes(order.status)).length
+const dyeRejectedCount = dyeWorkOrders.filter((order) => ['HANDOVER_DIFFERENCE', 'REJECTED'].includes(order.status)).length
+assert.equal(dyeSummary.fullHandoverCount, dyeCompletedCount, '染色终态列表数量必须与汇总一致')
+assert.equal(dyeSummary.handoverDifferenceCount, dyeRejectedCount, '染色驳回列表数量必须与汇总一致')
+listDyeReportRows()
+  .filter((row) => dyeWorkOrders.some((order) => order.dyeOrderId === row.dyeOrderId && order.status === 'COMPLETED'))
+  .forEach((row) => assert(row.finishedAt, `${row.dyeOrderNo} 已完成但染色报表缺少完成时间`))
 
 ;[...unifiedPrintOrders, ...unifiedDyeOrders].forEach((order) => {
   assert(order.sourceDemandIds.length > 0, `${order.workOrderNo} 缺少来源需求单`)

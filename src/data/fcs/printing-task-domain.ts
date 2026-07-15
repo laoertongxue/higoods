@@ -9,7 +9,11 @@ import {
   type PdaHandoverHead,
   type PdaHandoverRecord,
 } from './pda-handover-events.ts'
-import { listPdaGenericProcessTasks, type PdaGenericTaskMock } from './pda-task-mock-factory.ts'
+import {
+  listPdaGenericProcessTasks,
+  registerPdaGenericProcessTask,
+  type PdaGenericTaskMock,
+} from './pda-task-mock-factory.ts'
 import { type HandoverReceiverKind } from './process-tasks.ts'
 import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
@@ -335,6 +339,22 @@ function getPrintingTaskById(taskId: string): PdaGenericTaskMock | undefined {
   return getPrintingTasks().find((task) => task.taskId === taskId)
 }
 
+function ensurePrintingTaskClone(sourceTaskId: string, taskId: string, productionOrderNo: string): void {
+  if (getPrintingTaskById(taskId)) return
+  const source = getPrintingTaskById(sourceTaskId)
+  if (!source) return
+  registerPdaGenericProcessTask({
+    ...source,
+    taskId,
+    taskNo: taskId,
+    taskQrValue: buildTaskQrValue(taskId),
+    productionOrderNo,
+    auditLogs: source.auditLogs.map((log) => ({ ...log, taskId })),
+  })
+}
+
+ensurePrintingTaskClone('TASK-PRINT-000716', 'TASK-PRINT-000724', 'PO-20260329-079')
+
 function syncLinkedTaskState(
   taskId: string,
   input: {
@@ -591,6 +611,11 @@ function seedWorkOrders(): void {
     startedAt: '2026-03-28 13:20:00',
     acceptanceStatus: 'ACCEPTED',
   })
+  syncLinkedTaskState('TASK-PRINT-000724', {
+    status: 'IN_PROGRESS',
+    startedAt: '2026-03-29 13:20:00',
+    acceptanceStatus: 'ACCEPTED',
+  })
   syncLinkedTaskState('TASK-PRINT-000712', {
     status: 'DONE',
     startedAt: '2026-03-28 08:50:00',
@@ -822,8 +847,8 @@ function seedWorkOrders(): void {
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'TRANSFERRING',
-    taskId: 'TASK-PRINT-000716',
-    taskNo: 'TASK-PRINT-000716',
+    taskId: 'TASK-PRINT-000724',
+    taskNo: 'TASK-PRINT-000724',
     createdAt: '2026-03-28 08:40:00',
     updatedAt: '2026-03-29 14:10:00',
     remark: '打印已完成，当前正在转印',
@@ -1189,7 +1214,7 @@ function seedNodeRecords(): void {
     {
       nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.TRANSFERRING, 'COLOR_TEST'),
       printOrderId: PRINT_WORK_ORDER_IDS.TRANSFERRING,
-      taskId: 'TASK-PRINT-000716',
+      taskId: 'TASK-PRINT-000724',
       nodeCode: 'COLOR_TEST',
       nodeName: PRINT_NODE_LABEL.COLOR_TEST,
       operatorUserId: 'USR-PRINT-15',
@@ -1202,7 +1227,7 @@ function seedNodeRecords(): void {
     {
       nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.TRANSFERRING, 'PRINT'),
       printOrderId: PRINT_WORK_ORDER_IDS.TRANSFERRING,
-      taskId: 'TASK-PRINT-000716',
+      taskId: 'TASK-PRINT-000724',
       nodeCode: 'PRINT',
       nodeName: PRINT_NODE_LABEL.PRINT,
       operatorUserId: 'USR-PRINT-16',
@@ -1219,7 +1244,7 @@ function seedNodeRecords(): void {
     {
       nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.TRANSFERRING, 'TRANSFER'),
       printOrderId: PRINT_WORK_ORDER_IDS.TRANSFERRING,
-      taskId: 'TASK-PRINT-000716',
+      taskId: 'TASK-PRINT-000724',
       nodeCode: 'TRANSFER',
       nodeName: PRINT_NODE_LABEL.TRANSFER,
       operatorUserId: 'USR-PRINT-17',
@@ -1583,14 +1608,33 @@ export function listPrintWorkOrders(): PrintWorkOrder[] {
 
 export function getPrintWorkOrderById(printOrderId: string): PrintWorkOrder | undefined {
   syncDerivedWorkflow()
+  const canonical = workOrderStore.get(printOrderId)
   const order = listGeneratedPrintWorkOrders().find((item) => item.printOrderId === printOrderId)
-  return order ? cloneWorkOrder(order) : undefined
+  return order && canonical
+    ? cloneWorkOrder({
+        ...order,
+        printOrderId: canonical.printOrderId,
+        printOrderNo: canonical.printOrderNo,
+        taskId: canonical.taskId,
+        taskNo: canonical.taskNo,
+      })
+    : undefined
 }
 
 export function getPrintWorkOrderByTaskId(taskId: string): PrintWorkOrder | undefined {
   syncDerivedWorkflow()
-  const order = listGeneratedPrintWorkOrders().find((item) => item.taskId === taskId)
-  return order ? cloneWorkOrder(order) : undefined
+  const canonical = Array.from(workOrderStore.values()).find((item) => item.taskId === taskId)
+  if (!canonical) return undefined
+  const order = listGeneratedPrintWorkOrders().find((item) => item.printOrderId === canonical.printOrderId)
+  return order
+    ? cloneWorkOrder({
+        ...order,
+        printOrderId: canonical.printOrderId,
+        printOrderNo: canonical.printOrderNo,
+        taskId: canonical.taskId,
+        taskNo: canonical.taskNo,
+      })
+    : undefined
 }
 
 export function listPrintExecutionNodeRecords(printOrderId?: string): PrintExecutionNodeRecord[] {
@@ -2000,8 +2044,8 @@ export function getPrintWorkOrderSummary(): PrintWorkOrderSummary {
     waitHandoverCount: orders.filter((order) => order.status === 'WAIT_HANDOVER').length,
     waitReceiveCount: orders.filter((order) => order.status === 'HANDOVER_WAIT_RECEIVE').length,
     partialHandoverCount: orders.filter((order) => order.status === 'PARTIAL_HANDOVER').length,
-    fullHandoverCount: orders.filter((order) => order.status === 'FULL_HANDOVER').length,
-    handoverDifferenceCount: orders.filter((order) => order.status === 'HANDOVER_DIFFERENCE').length,
+    fullHandoverCount: orders.filter((order) => order.status === 'FULL_HANDOVER' || order.status === 'COMPLETED').length,
+    handoverDifferenceCount: orders.filter((order) => order.status === 'HANDOVER_DIFFERENCE' || order.status === 'REJECTED').length,
     printCompletedQty: nodes
       .filter((node) => node.nodeCode === 'PRINT')
       .reduce((sum, node) => sum + (node.outputQty ?? 0), 0),
