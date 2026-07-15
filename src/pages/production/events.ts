@@ -77,8 +77,10 @@ import {
   type PatchEffectivePoint,
   type ProductionPatchType,
   applyProductionOrderQuantityFactChange,
+  applyProductionOrderChangeTechPackIdentity,
   appendProductionOrderMaterialChangeHistory,
   replaceProductionOrderChangeCurrentFacts,
+  restoreProductionOrderTechPackRelationSnapshot,
 } from '../../data/fcs/production-tech-pack-change-domain'
 import {
   areMaterialSelectionsEquivalent,
@@ -96,11 +98,13 @@ import {
   listAffectedDocumentNosForOrder,
   listReplacementMaterialOptions,
   normalizeProductionChangeOccurredAt,
+  predictProductionChangeTechPackIdentity,
   productionChangeResultLabels,
   normalizeMaterialReplacementAllocations,
   restoreProductionChangeRecordSnapshot,
   saveProductionChangeRecord,
   validateProductionChangeDecisions,
+  type ProductionChangeTechPackIdentity,
 } from '../../data/fcs/production-order-change-workflow.ts'
 import {
   buildProductionChangePreviewForForm,
@@ -635,9 +639,27 @@ function roundProcessPlannedQty(value: number): number {
   return Math.round(value * 1_000_000) / 1_000_000
 }
 
+function buildProductionChangeTechPackIdentityPredictions(
+  preview: ReturnType<typeof buildProductionChangePreviewForForm>,
+): Map<string, ProductionChangeTechPackIdentity> {
+  return new Map(preview.affectedOrderIds.flatMap((productionOrderId) => {
+    const relation = getProductionOrderTechPackRelation(productionOrderId)
+    const facts = getProductionOrderChangeCurrentFacts(productionOrderId)
+    if (!relation || !facts) return []
+    return [[productionOrderId, predictProductionChangeTechPackIdentity({
+      result: preview.result,
+      currentTechPackVersionId: relation.currentTechPackVersionId,
+      currentTechPackVersionLabel: relation.currentTechPackVersionNo,
+      latestPublishedTechPackVersionId: relation.latestPublishedTechPackVersionId,
+      latestPublishedTechPackVersionLabel: relation.latestPublishedTechPackVersionNo,
+    })] as const]
+  }))
+}
+
 export function buildPostChangeProcessWorkOrderSnapshotsForForm(
   form: ProductionChangeForm,
   preview: ReturnType<typeof buildProductionChangePreviewForForm>,
+  techPackIdentityPredictions = buildProductionChangeTechPackIdentityPredictions(preview),
 ): FormalProductionOrderProcessSnapshot[] {
   const affectedOrderIds = new Set(preview.affectedOrderIds)
   const currentTotal = form.quantityLines.reduce((sum, line) => sum + line.currentQty, 0)
@@ -664,14 +686,26 @@ export function buildPostChangeProcessWorkOrderSnapshotsForForm(
         const plannedQty = form.changeType === 'QUANTITY_CHANGE' && isCurrentProductionOrder
           ? roundProcessPlannedQty(current.plannedQty * quantityRatio)
           : current.plannedQty
+        const usesReplacedMaterial = Boolean(
+          replacementMaterial
+          && current.materialId === form.materialReplacement.originalMaterialId,
+        )
+        const predictedTechPackIdentity = techPackIdentityPredictions.get(current.productionOrderId)
+        const usesVersionPrediction = preview.result === 'VERSION_RELATION' || preview.result === 'VERSION_AND_PATCH'
+        const techPackIdentity = usesVersionPrediction && predictedTechPackIdentity
+          ? predictedTechPackIdentity
+          : {
+              techPackVersionId: current.techPackVersionId,
+              techPackVersionLabel: current.techPackVersionLabel,
+            }
         return {
           productionOrderId: current.productionOrderId,
           productionOrderNo: current.productionOrderNo,
           orderedAt: current.orderedAt,
-          techPackVersionId: current.techPackVersionId,
-          techPackVersionLabel: current.techPackVersionLabel,
-          materialId: replacementMaterial?.materialId ?? current.materialId,
-          materialName: replacementMaterial?.materialName ?? current.materialName,
+          techPackVersionId: techPackIdentity.techPackVersionId,
+          techPackVersionLabel: techPackIdentity.techPackVersionLabel,
+          materialId: usesReplacedMaterial ? replacementMaterial!.materialId : current.materialId,
+          materialName: usesReplacedMaterial ? replacementMaterial!.materialName : current.materialName,
           targetColor: current.targetColor,
           plannedQty,
           qtyUnit: current.qtyUnit,
@@ -737,8 +771,16 @@ export function executeProductionChangeForForm(
       decisionValues: structuredClone(form.decisionValues),
       affectedDocumentNos: listAffectedDocumentNosForOrder(form.productionOrderId),
     }
-    const processWorkOrderSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(form, preview)
+    const techPackIdentityPredictions = buildProductionChangeTechPackIdentityPredictions(preview)
+    const processWorkOrderSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(
+      form,
+      preview,
+      techPackIdentityPredictions,
+    )
     const factsBeforeExecution = listProductionOrderChangeCurrentFacts()
+    const relationSnapshotsBeforeExecution = preview.affectedOrderIds
+      .map((productionOrderId) => getProductionOrderTechPackRelation(productionOrderId))
+      .filter((relation): relation is NonNullable<typeof relation> => Boolean(relation))
     const affectedOrderIdSet = new Set(preview.affectedOrderIds)
     const recordBeforeExecution = existingRecord ? structuredClone(existingRecord) : null
     const restoreExecutionScope = (): void => {
@@ -748,6 +790,7 @@ export function executeProductionChangeForForm(
         ),
         ...factsBeforeExecution.filter((facts) => affectedOrderIdSet.has(facts.productionOrderId)),
       ])
+      relationSnapshotsBeforeExecution.forEach(restoreProductionOrderTechPackRelationSnapshot)
       restoreProductionChangeRecordSnapshot(form.recordId, recordBeforeExecution)
     }
     let persisted = false
@@ -781,6 +824,14 @@ export function executeProductionChangeForForm(
               executedAt,
             )
           }
+          techPackIdentityPredictions.forEach((identity, productionOrderId) => {
+            applyProductionOrderChangeTechPackIdentity(
+              productionOrderId,
+              identity,
+              form.recordId,
+              executedAt,
+            )
+          })
         }
         saveProductionChangeRecord(record, { allowReplace: retryingRolledBackRecord })
         persisted = true

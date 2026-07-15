@@ -8,6 +8,7 @@ import {
   type FormalProductionOrderProcessSnapshot,
 } from '../src/data/fcs/production-process-work-order-service.ts'
 import { getDyeWorkOrderById } from '../src/data/fcs/dyeing-task-domain.ts'
+import { getPrintWorkOrderById } from '../src/data/fcs/printing-task-domain.ts'
 import {
   adaptLegacyQuantityLinesForEdit,
   areMaterialSelectionsEquivalent,
@@ -32,6 +33,7 @@ import {
   createLegacyMaterialValue,
   normalizeMaterialReplacementAllocations,
   productionChangeResultLabels,
+  predictProductionChangeTechPackIdentity,
   quantityChangeRequiresNewFormalVersion,
   resolveFollowingOrderStateFromProgressFallback,
   replaceProductionChangeRecordsForTesting,
@@ -1520,6 +1522,223 @@ assert.deepEqual(
   [uiMaterialArchive.materialId, uiMaterialArchive.materialName],
   '物料变更必须真实更新加工单物料事实',
 )
+
+const scopedMaterialProductionOrderId = 'PO-CHANGE-UI-SCOPED-MATERIAL'
+const scopedDyeSnapshot: FormalProductionOrderProcessSnapshot = {
+  ...workflowSyncSnapshot,
+  productionOrderId: scopedMaterialProductionOrderId,
+  productionOrderNo: scopedMaterialProductionOrderId,
+  processCodes: ['DYE'],
+  materialId: 'MAT-SCOPED-ORIGINAL',
+  materialName: '本次需要替换的原面料',
+}
+const scopedPrintSnapshot: FormalProductionOrderProcessSnapshot = {
+  ...workflowSyncSnapshot,
+  productionOrderId: scopedMaterialProductionOrderId,
+  productionOrderNo: scopedMaterialProductionOrderId,
+  processCodes: ['PRINT'],
+  materialId: 'MAT-SCOPED-OTHER',
+  materialName: '不在本次替换范围的印花底布',
+}
+const scopedDyeOrder = ensureProcessWorkOrdersForFormalProductionOrder(scopedDyeSnapshot)
+const scopedPrintOrder = ensureProcessWorkOrdersForFormalProductionOrder(scopedPrintSnapshot)
+const scopedPrintBefore = getPrintWorkOrderById(scopedPrintOrder.printWorkOrderId!)!
+const scopedMaterialForm = createProductionChangeForm()
+Object.assign(scopedMaterialForm, {
+  recordId: 'BG-UI-MATERIAL-SCOPED-001',
+  productionOrderId: scopedMaterialProductionOrderId,
+  changeType: 'MATERIAL_REPLACEMENT',
+  materialReplacement: {
+    ...scopedMaterialForm.materialReplacement,
+    originalMaterialId: scopedDyeSnapshot.materialId,
+    replacementMaterialId: uiMaterialArchive.materialId,
+    replacementMode: 'FULL',
+    confirmedProductionQty: 100,
+  },
+})
+const scopedChangedSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(scopedMaterialForm, {
+  ...executionPreview,
+  affectedOrderIds: [scopedMaterialProductionOrderId],
+})
+assert.equal(
+  scopedChangedSnapshots.find((snapshot) => snapshot.processCodes[0] === 'DYE')?.materialId,
+  uiMaterialArchive.materialId,
+  '物料替换只应改写使用原物料的染色加工单',
+)
+assert.equal(
+  scopedChangedSnapshots.find((snapshot) => snapshot.processCodes[0] === 'PRINT')?.materialId,
+  scopedPrintSnapshot.materialId,
+  '同生产单使用其他 BOM 物料的印花加工单必须保持原物料',
+)
+executeProductionChange(executionPreview, {
+  processWorkOrderSnapshots: scopedChangedSnapshots,
+  changeRecordId: scopedMaterialForm.recordId,
+  persist: (result) => result,
+})
+assert.equal(getDyeWorkOrderById(scopedDyeOrder.dyeWorkOrderId!)?.materialId, uiMaterialArchive.materialId)
+assert.deepEqual(getPrintWorkOrderById(scopedPrintOrder.printWorkOrderId!), scopedPrintBefore, '未命中原物料的印花加工单 ID、单号、物料和快照必须全部不变')
+
+const unmatchedMaterialForm = structuredClone(scopedMaterialForm)
+unmatchedMaterialForm.recordId = 'BG-UI-MATERIAL-UNMATCHED-001'
+unmatchedMaterialForm.materialReplacement.originalMaterialId = 'MAT-NOT-USED-BY-AFFECTED-ORDERS'
+const unmatchedSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(unmatchedMaterialForm, {
+  ...executionPreview,
+  affectedOrderIds: [scopedMaterialProductionOrderId],
+})
+assert.deepEqual(
+  unmatchedSnapshots.map((snapshot) => snapshot.materialId).sort(),
+  [uiMaterialArchive.materialId, scopedPrintSnapshot.materialId].sort(),
+  '目标订单没有加工单使用原物料时必须完整保留现有物料事实',
+)
+
+const versionRelation = changeDomain.getProductionOrderTechPackRelation('PO-202603-0004')!
+const versionFactsBefore = changeDomain.listProductionOrderChangeCurrentFacts()
+const predictedVersionIdentity = predictProductionChangeTechPackIdentity({
+  result: 'VERSION_RELATION',
+  currentTechPackVersionId: versionRelation.currentTechPackVersionId,
+  currentTechPackVersionLabel: versionRelation.currentTechPackVersionNo,
+  latestPublishedTechPackVersionId: versionRelation.latestPublishedTechPackVersionId,
+  latestPublishedTechPackVersionLabel: versionRelation.latestPublishedTechPackVersionNo,
+})
+assert.deepEqual(predictedVersionIdentity, {
+  techPackVersionId: versionRelation.latestPublishedTechPackVersionId,
+  techPackVersionLabel: versionRelation.latestPublishedTechPackVersionNo,
+}, '版本关系结果必须稳定预测为当前关系中的最新正式版本')
+
+const versionWorkOrderSeed: FormalProductionOrderProcessSnapshot = {
+  ...workflowSyncSnapshot,
+  productionOrderId: versionRelation.productionOrderId,
+  productionOrderNo: versionRelation.productionOrderNo,
+  techPackVersionId: versionRelation.currentTechPackVersionId,
+  techPackVersionLabel: versionRelation.currentTechPackVersionNo,
+  processCodes: ['DYE'],
+}
+ensureProcessWorkOrdersForFormalProductionOrder(versionWorkOrderSeed)
+const versionForm = createProductionChangeForm()
+Object.assign(versionForm, {
+  recordId: 'BG-UI-VERSION-IDENTITY-001',
+  productionOrderId: versionRelation.productionOrderId,
+  changeType: 'QUANTITY_CHANGE',
+})
+const versionPreview: ProductionChangePreview = {
+  ...executionPreview,
+  result: 'VERSION_RELATION',
+  affectedOrderIds: [versionRelation.productionOrderId],
+}
+const versionSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(versionForm, versionPreview)
+assert.ok(versionSnapshots.length > 0, '版本身份检查需要正式加工单快照')
+assert.ok(versionSnapshots.every((snapshot) => (
+  snapshot.techPackVersionId === predictedVersionIdentity.techPackVersionId
+  && snapshot.techPackVersionLabel === predictedVersionIdentity.techPackVersionLabel
+)), '版本型变更的加工快照必须使用持久化目标正式版本 ID 和标签')
+changeDomain.applyProductionOrderChangeTechPackIdentity(
+  versionRelation.productionOrderId,
+  predictedVersionIdentity,
+  versionForm.recordId,
+  '2026-07-16 12:30:00',
+)
+const persistedVersionFacts = changeDomain.getProductionOrderChangeCurrentFacts(versionRelation.productionOrderId)!
+assert.deepEqual(
+  [persistedVersionFacts.currentTechPackVersionId, persistedVersionFacts.currentTechPackVersionLabel],
+  [versionSnapshots[0]!.techPackVersionId, versionSnapshots[0]!.techPackVersionLabel],
+  'helper 产出的技术包身份必须与 persist 后 current facts 完全一致',
+)
+const persistedRelationAfterFirstApply = changeDomain.getProductionOrderTechPackRelation(versionRelation.productionOrderId)
+changeDomain.applyProductionOrderChangeTechPackIdentity(
+  versionRelation.productionOrderId,
+  predictedVersionIdentity,
+  versionForm.recordId,
+  '2026-07-16 12:31:00',
+)
+assert.deepEqual(
+  changeDomain.getProductionOrderTechPackRelation(versionRelation.productionOrderId),
+  persistedRelationAfterFirstApply,
+  '相同 changeRecordId 重复应用正式版本身份必须幂等',
+)
+changeDomain.replaceProductionOrderChangeCurrentFacts(versionFactsBefore)
+changeDomain.restoreProductionOrderTechPackRelationSnapshot(versionRelation)
+
+const patchRelation = changeDomain.getProductionOrderTechPackRelation('PO-202603-0007')!
+const patchIdentity = predictProductionChangeTechPackIdentity({
+  result: 'PRODUCTION_PATCH',
+  currentTechPackVersionId: patchRelation.currentTechPackVersionId,
+  currentTechPackVersionLabel: patchRelation.currentTechPackVersionNo,
+  latestPublishedTechPackVersionId: patchRelation.latestPublishedTechPackVersionId,
+  latestPublishedTechPackVersionLabel: patchRelation.latestPublishedTechPackVersionNo,
+})
+assert.deepEqual(patchIdentity, {
+  techPackVersionId: patchRelation.currentTechPackVersionId,
+  techPackVersionLabel: patchRelation.currentTechPackVersionNo,
+}, '仅生产补丁必须保持原正式版本身份')
+
+const eventVersionFactsBefore = changeDomain.listProductionOrderChangeCurrentFacts()
+const eventVersionRelationBefore = structuredClone(patchRelation)
+ensureProcessWorkOrdersForFormalProductionOrder({
+  ...workflowSyncSnapshot,
+  productionOrderId: patchRelation.productionOrderId,
+  productionOrderNo: patchRelation.productionOrderNo,
+  techPackVersionId: patchRelation.currentTechPackVersionId,
+  techPackVersionLabel: patchRelation.currentTechPackVersionNo,
+  processCodes: ['DYE'],
+})
+const patchSnapshotForm = createProductionChangeForm()
+Object.assign(patchSnapshotForm, {
+  productionOrderId: patchRelation.productionOrderId,
+  changeType: 'QUANTITY_CHANGE',
+})
+const patchSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(patchSnapshotForm, {
+  ...executionPreview,
+  result: 'PRODUCTION_PATCH',
+  affectedOrderIds: [patchRelation.productionOrderId],
+})
+assert.ok(patchSnapshots.length > 0)
+assert.ok(patchSnapshots.every((snapshot) => (
+  snapshot.techPackVersionId === patchRelation.currentTechPackVersionId
+  && snapshot.techPackVersionLabel === patchRelation.currentTechPackVersionNo
+)), 'PRODUCTION_PATCH 的 post-change 加工快照必须保持原正式版本 ID 和标签')
+const eventVersionForm = createInitializedProductionChangeForm(patchRelation.productionOrderId, 'QUANTITY_CHANGE')
+eventVersionForm.recordId = 'BG-UI-VERSION-PERSIST-001'
+eventVersionForm.reason = '新增正式版本未覆盖的需求明细。'
+eventVersionForm.quantityLines.push({
+  id: 'DQF-UI-VERSION-NEW',
+  skuCode: 'SKU-UI-VERSION-NEW',
+  color: '测试蓝',
+  size: 'M',
+  originalQty: 0,
+  currentQty: 0,
+  targetQty: 10,
+  unit: '件',
+  isNew: true,
+  coveredByCurrentVersion: false,
+})
+const eventVersionDraft: ProductionChangeDraft = {
+  productionOrderId: eventVersionForm.productionOrderId,
+  changeType: eventVersionForm.changeType,
+  reason: eventVersionForm.reason,
+  quantityLines: eventVersionForm.quantityLines,
+  materialReplacement: null,
+  decisionValues: {},
+  affectedDocumentNos: listAffectedDocumentNosForOrder(eventVersionForm.productionOrderId),
+}
+const eventVersionPreviewSeed = buildProductionChangePreview(eventVersionDraft)
+eventVersionForm.decisionValues = Object.fromEntries(eventVersionPreviewSeed.decisionItems.map((item) => [
+  item.id,
+  { value: item.options[0]!.value, reason: '按系统建议执行。' },
+]))
+eventVersionForm.confirmedFactsFingerprint = buildProductionChangePreview({
+  ...eventVersionDraft,
+  decisionValues: eventVersionForm.decisionValues,
+}).factsFingerprint
+const eventVersionExecution = executeProductionChangeForForm(eventVersionForm, { executedAt: '2026-07-16 12:40:00' })
+assert.equal(eventVersionExecution.error, '', '真实事件入口必须完成版本型生产变更')
+const eventVersionFactsAfter = changeDomain.getProductionOrderChangeCurrentFacts(patchRelation.productionOrderId)!
+assert.deepEqual(
+  [eventVersionFactsAfter.currentTechPackVersionId, eventVersionFactsAfter.currentTechPackVersionLabel],
+  [patchRelation.latestPublishedTechPackVersionId, patchRelation.latestPublishedTechPackVersionNo],
+  'events persist 必须应用 helper 同一份正式版本预测结果',
+)
+changeDomain.replaceProductionOrderChangeCurrentFacts(eventVersionFactsBefore)
+changeDomain.restoreProductionOrderTechPackRelationSnapshot(eventVersionRelationBefore)
 
 const initializedQuantityForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
 assert.equal(initializedQuantityForm.productionOrderId, quantityFactoryOrderId, '初始化必须保留所选生产单')

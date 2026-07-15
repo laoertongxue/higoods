@@ -381,6 +381,8 @@ export interface ProductionOrderHistoryFact {
 
 export interface ProductionOrderChangeCurrentFacts {
   productionOrderId: string
+  currentTechPackVersionId?: string
+  currentTechPackVersionLabel?: string
   demandQuantityFacts: ProductionOrderDemandQuantityFact[]
   materialFacts: ProductionOrderMaterialFact[]
   documentFacts: ProductionOrderDocumentFact[]
@@ -3713,11 +3715,16 @@ export function getProductionProgressSnapshot(productionOrderId: string): Produc
 
 export function getProductionOrderChangeCurrentFacts(productionOrderId: string): ProductionOrderChangeCurrentFacts | null {
   const found = productionOrderChangeCurrentFacts.find((item) => item.productionOrderId === productionOrderId)
-  return found ? clone(found) : null
+  if (!found) return null
+  const copied = clone(found)
+  const relation = relations.find((item) => item.productionOrderId === productionOrderId)
+  copied.currentTechPackVersionId ??= relation?.currentTechPackVersionId
+  copied.currentTechPackVersionLabel ??= relation?.currentTechPackVersionNo
+  return copied
 }
 
 export function listProductionOrderChangeCurrentFacts(): ProductionOrderChangeCurrentFacts[] {
-  return clone(productionOrderChangeCurrentFacts)
+  return productionOrderChangeCurrentFacts.map((facts) => getProductionOrderChangeCurrentFacts(facts.productionOrderId)!)
 }
 
 export function replaceProductionOrderChangeCurrentFacts(
@@ -3807,6 +3814,55 @@ export function appendProductionOrderMaterialChangeHistory(
     lockStatus: '已释放',
     note: `${occurredAt} 已按确认方案完成物料替换。`,
   })
+}
+
+export function applyProductionOrderChangeTechPackIdentity(
+  productionOrderId: string,
+  identity: { techPackVersionId: string; techPackVersionLabel: string },
+  changeRecordId: string,
+  occurredAt: string,
+): { techPackVersionId: string; techPackVersionLabel: string } {
+  const relation = relations.find((item) => item.productionOrderId === productionOrderId)
+  const facts = productionOrderChangeCurrentFacts.find((item) => item.productionOrderId === productionOrderId)
+  if (!relation || !facts) throw new Error('生产单当前正式版本事实不存在')
+  const normalizedIdentity = {
+    techPackVersionId: identity.techPackVersionId.trim(),
+    techPackVersionLabel: identity.techPackVersionLabel.trim(),
+  }
+  if (!normalizedIdentity.techPackVersionId || !normalizedIdentity.techPackVersionLabel) {
+    throw new Error('生产单正式版本 ID 和标签不能为空')
+  }
+  const normalizedChangeRecordId = changeRecordId.trim()
+  if (!normalizedChangeRecordId) throw new Error('生产变更记录 ID 不能为空')
+  if (relation.latestChangeRecordId === normalizedChangeRecordId) {
+    facts.currentTechPackVersionId = relation.currentTechPackVersionId
+    facts.currentTechPackVersionLabel = relation.currentTechPackVersionNo
+    return {
+      techPackVersionId: relation.currentTechPackVersionId,
+      techPackVersionLabel: relation.currentTechPackVersionNo,
+    }
+  }
+  const versionChanged = relation.currentTechPackVersionId !== normalizedIdentity.techPackVersionId
+    || relation.currentTechPackVersionNo !== normalizedIdentity.techPackVersionLabel
+  relation.currentTechPackVersionId = normalizedIdentity.techPackVersionId
+  relation.currentTechPackVersionNo = normalizedIdentity.techPackVersionLabel
+  relation.latestChangeRecordId = normalizedChangeRecordId
+  relation.updatedAt = occurredAt
+  if (versionChanged) {
+    relation.relationStatus = 'CHANGED'
+    relation.hasNewerPublishedVersion = relation.latestPublishedTechPackVersionId !== normalizedIdentity.techPackVersionId
+  }
+  facts.currentTechPackVersionId = normalizedIdentity.techPackVersionId
+  facts.currentTechPackVersionLabel = normalizedIdentity.techPackVersionLabel
+  return clone(normalizedIdentity)
+}
+
+export function restoreProductionOrderTechPackRelationSnapshot(
+  snapshot: ProductionOrderTechPackRelation,
+): void {
+  const index = relations.findIndex((item) => item.productionOrderId === snapshot.productionOrderId)
+  if (index < 0) throw new Error('生产单技术包版本关系不存在')
+  relations[index] = clone(snapshot)
 }
 
 export function resetProductionOrderChangeCurrentFactsForTesting(): void {

@@ -16,6 +16,30 @@ export type ProductionChangeType = 'QUANTITY_CHANGE' | 'MATERIAL_REPLACEMENT'
 
 export type ProductionChangeResult = 'PRODUCTION_PATCH' | 'VERSION_RELATION' | 'VERSION_AND_PATCH'
 
+export interface ProductionChangeTechPackIdentity {
+  techPackVersionId: string
+  techPackVersionLabel: string
+}
+
+export function predictProductionChangeTechPackIdentity(input: {
+  result: ProductionChangeResult
+  currentTechPackVersionId: string
+  currentTechPackVersionLabel: string
+  latestPublishedTechPackVersionId: string
+  latestPublishedTechPackVersionLabel: string
+}): ProductionChangeTechPackIdentity {
+  const usesLatestPublishedVersion = input.result === 'VERSION_RELATION' || input.result === 'VERSION_AND_PATCH'
+  return usesLatestPublishedVersion
+    ? {
+        techPackVersionId: input.latestPublishedTechPackVersionId,
+        techPackVersionLabel: input.latestPublishedTechPackVersionLabel,
+      }
+    : {
+        techPackVersionId: input.currentTechPackVersionId,
+        techPackVersionLabel: input.currentTechPackVersionLabel,
+      }
+}
+
 export type MaterialReplacementMode = 'REMAINING' | 'FULL'
 
 export type MaterialReplacementScope = 'CURRENT_ONLY' | 'CURRENT_AND_FOLLOWING'
