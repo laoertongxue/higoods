@@ -6,7 +6,8 @@ import { listPdaGenericProcessTasks, registerPdaGenericProcessTask } from '../sr
 import { listHandoverOrdersByTaskId } from '../src/data/fcs/pda-handover-events.ts'
 import { submitDyeHandover, submitPrintHandover } from '../src/data/fcs/process-execution-writeback.ts'
 import { renderPdaHandoverDetailPage } from '../src/pages/pda-handover-detail.ts'
-import { listFactoryWaitProcessStockItems } from '../src/data/fcs/factory-internal-warehouse.ts'
+import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
+import { listProcessWorkOrderStockMaterials } from '../src/data/fcs/process-work-order-stock.ts'
 
 function markTaskStarted(taskId: string): void {
   const task = listPdaGenericProcessTasks().find((item) => item.taskId === taskId)
@@ -36,30 +37,59 @@ function assertProductionDetail(html: string, productionOrderNo: string, label: 
 }
 
 const printOrders = listPrintWorkOrders()
-const realStock = listFactoryWaitProcessStockItems().find((item) => item.itemKind === '面料' && item.receivedQty > 0 && item.materialSku)!
+function getTargetFactoryId(processCode: 'DYE' | 'PRINT'): string {
+  const factory = listFactoryMasterRecords()
+    .filter((item) => item.status === 'active' && item.eligibility.allowDispatch)
+    .find((item) => item.processAbilities.some((ability) => (
+      ability.processCode === processCode
+      && (ability.status ?? 'ACTIVE') === 'ACTIVE'
+      && ability.canReceiveTask !== false
+    )))
+  assert(factory, `缺少可派单的${processCode === 'DYE' ? '染色' : '印花'}目标工厂`)
+  return factory.id
+}
+
+const printFactoryId = getTargetFactoryId('PRINT')
+const dyeFactoryId = getTargetFactoryId('DYE')
+const printStock = listProcessWorkOrderStockMaterials({ factoryId: printFactoryId, processCode: 'PRINT' })[0]
+const dyeStock = listProcessWorkOrderStockMaterials({ factoryId: dyeFactoryId, processCode: 'DYE' })[0]
+assert(printStock, '缺少当前印花目标工厂的合格备货库存')
+assert(dyeStock, '缺少当前染色目标工厂的合格备货库存')
+assert.deepEqual(
+  [printStock.factoryId, printStock.processCode, printStock.status, printStock.differenceQty],
+  [printFactoryId, 'PRINT', '已入待加工仓', 0],
+  '印花详情测试必须使用同工厂、同工序、正常入仓且无差异的库存',
+)
+assert.deepEqual(
+  [dyeStock.factoryId, dyeStock.processCode, dyeStock.status, dyeStock.differenceQty],
+  [dyeFactoryId, 'DYE', '已入待加工仓', 0],
+  '染色详情测试必须使用同工厂、同工序、正常入仓且无差异的库存',
+)
+assert.notEqual(printStock.stockMaterialId, dyeStock.stockMaterialId, '染色与印花详情测试必须使用各自不同的真实库存来源')
+
 const stockPrint = createPrintWorkOrderFromStock({
-  stockMaterialId: realStock.stockItemId,
-  stockMaterialName: realStock.itemName,
-  materialSku: realStock.materialSku!,
-  factoryId: printOrders[0]!.printFactoryId,
+  stockMaterialId: printStock.stockMaterialId,
+  stockMaterialName: printStock.stockMaterialName,
+  materialSku: printStock.materialSku,
+  factoryId: printFactoryId,
   plannedQty: 48,
-  qtyUnit: realStock.unit,
+  qtyUnit: printStock.qtyUnit,
   plannedFinishAt: '2026-07-31 18:00',
   processName: '数码印花',
 })
 assert(stockPrint.ok && stockPrint.order, '备货印花加工单创建失败')
 markTaskStarted(stockPrint.order.taskId)
 submitPrintHandover(stockPrint.order.taskId, { submittedQty: stockPrint.order.plannedQty })
-assertStockDetail(renderTaskHandoverDetail(stockPrint.order.taskId), realStock.stockItemId, realStock.itemName, '备货印花')
+assertStockDetail(renderTaskHandoverDetail(stockPrint.order.taskId), printStock.stockMaterialId, printStock.stockMaterialName, '备货印花')
 
 const dyeOrders = listDyeWorkOrders()
 const stockDye = createDyeWorkOrderFromStock({
-  stockMaterialId: realStock.stockItemId,
-  stockMaterialName: realStock.itemName,
-  materialSku: realStock.materialSku!,
-  factoryId: dyeOrders[0]!.dyeFactoryId,
+  stockMaterialId: dyeStock.stockMaterialId,
+  stockMaterialName: dyeStock.stockMaterialName,
+  materialSku: dyeStock.materialSku,
+  factoryId: dyeFactoryId,
   plannedQty: 52,
-  qtyUnit: realStock.unit,
+  qtyUnit: dyeStock.qtyUnit,
   plannedFinishAt: '2026-07-31 18:00',
   processName: '常规染色',
   targetColor: '深海蓝',
@@ -67,7 +97,7 @@ const stockDye = createDyeWorkOrderFromStock({
 assert(stockDye.ok && stockDye.order, '备货染色加工单创建失败')
 markTaskStarted(stockDye.order.taskId)
 submitDyeHandover(stockDye.order.taskId, { submittedQty: stockDye.order.plannedQty })
-assertStockDetail(renderTaskHandoverDetail(stockDye.order.taskId), realStock.stockItemId, realStock.itemName, '备货染色')
+assertStockDetail(renderTaskHandoverDetail(stockDye.order.taskId), dyeStock.stockMaterialId, dyeStock.stockMaterialName, '备货染色')
 
 const productionPrint = printOrders.find((order) => order.sourceType === 'PRODUCTION_ORDER')!
 markTaskStarted(productionPrint.taskId)
