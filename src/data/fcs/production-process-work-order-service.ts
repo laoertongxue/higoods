@@ -72,6 +72,13 @@ export function buildFormalProductionOrderProcessSnapshots(
       if (!bomItem) throw new Error(`生产单 ${order.productionOrderNo} 的${processLabel}工艺绑定了不存在的 BOM：${bomItemId}`)
       return bomItem
     })
+    if (
+      processCode === 'DYE'
+      && bomItems.some((item) => item.waterSolubleRequirement === '是')
+      && bomItems.some((item) => item.waterSolubleRequirement !== '是')
+    ) {
+      throw new Error(`生产单 ${order.productionOrderNo} 的染色工艺绑定的 BOM 水溶属性不一致，请先统一并修正正式 BOM 工艺属性`)
+    }
     const units = [...new Set(bomItems.map((item) => item.unit?.trim()).filter((unit): unit is string => Boolean(unit)))]
     if (units.length !== 1 || bomItems.some((item) => !item.unit?.trim())) {
       throw new Error(`生产单 ${order.productionOrderNo} 的${processLabel}工艺绑定多种或缺失数量单位，无法合并为一张加工单`)
