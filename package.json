@@ -181,7 +181,8 @@
     "test:cutting:all:e2e": "playwright test tests/cutting-*.spec.ts",
     "check:process-factory-tabs-and-post-finishing": "tsx scripts/check-process-factory-tabs-and-post-finishing.ts",
     "test:process-factory-tabs-and-post-finishing:e2e": "playwright test tests/process-factory-tabs-and-post-finishing.spec.ts",
-    "test:production-order-change-final:e2e": "playwright test --config=playwright.production-order-change.config.ts"
+    "test:production-order-change-final:e2e": "playwright test --config=playwright.production-order-change.config.ts",
+    "test:supplement-management-list-template:e2e": "CUTTING_E2E_PORT=$(node -e \"const net=require('node:net');const server=net.createServer();server.listen(0,'127.0.0.1',()=>{console.log(server.address().port);server.close()})\") playwright test tests/supplement-management-list-template.spec.ts"
   },
   "dependencies": {
     "lucide": "^0.468.0",

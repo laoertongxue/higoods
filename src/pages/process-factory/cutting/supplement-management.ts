@@ -1603,6 +1603,12 @@ function refreshSupplementList(): void {
   setSupplementRegion('pagination', renderListPagination(view.paging))
 }
 
+function refreshSupplementTableAndPagination(): void {
+  const view = getSupplementListView()
+  setSupplementRegion('table', renderListTable(view.paging))
+  setSupplementRegion('pagination', renderListPagination(view.paging))
+}
+
 function refreshSupplementTable(): void {
   setSupplementRegion('table', renderListTable(getSupplementListView().paging))
 }
@@ -2152,7 +2158,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
       })
       state.page = 1
       saveSupplementListPreferences()
-      refreshSupplementList()
+      refreshSupplementTableAndPagination()
     }
     return true
   }
@@ -2188,7 +2194,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
 
   if (action === 'prev-page' || action === 'next-page') {
     state.page += action === 'prev-page' ? -1 : 1
-    refreshSupplementList()
+    refreshSupplementTableAndPagination()
     return true
   }
 
@@ -2202,7 +2208,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
         ? { key: columnKey, direction: 'desc' }
         : null
     state.page = 1
-    refreshSupplementList()
+    refreshSupplementTableAndPagination()
     return true
   }
 
@@ -2238,7 +2244,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     })
     if (!visibleKeys.has(columnKey) && state.sort?.key === columnKey) state.sort = null
     saveSupplementListPreferences()
-    refreshSupplementList()
+    refreshSupplementTable()
     refreshSupplementOverlay()
     return true
   }
@@ -2276,7 +2282,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     state.columnPreferences = nextPreferences
     saveSupplementListPreferences()
     refreshSupplementFeedback()
-    refreshSupplementList()
+    refreshSupplementTable()
     refreshSupplementOverlay()
     return true
   }
@@ -2289,7 +2295,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     const storage = getSupplementListStorage()
     if (storage) clearListColumnPreferences(storage, supplementListStorageKey)
     refreshSupplementFeedback()
-    refreshSupplementList()
+    refreshSupplementTableAndPagination()
     refreshSupplementOverlay()
     return true
   }
