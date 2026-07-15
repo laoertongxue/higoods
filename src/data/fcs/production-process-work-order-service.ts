@@ -38,7 +38,7 @@ function validateSnapshot(snapshot: FormalProductionOrderProcessSnapshot): void 
   }
   if (snapshot.processCodes.length === 0) throw new Error('正式生产单加工工艺不能为空')
   const unsupportedProcessCodes = snapshot.processCodes
-    .map((code) => String(code).trim().toUpperCase())
+    .map((code) => String(code).trim())
     .filter((code) => code !== 'DYE' && code !== 'PRINT')
   if (unsupportedProcessCodes.length > 0) {
     throw new Error(`不支持的生产工艺：${[...new Set(unsupportedProcessCodes)].join('、')}`)

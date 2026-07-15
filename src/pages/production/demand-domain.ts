@@ -1110,7 +1110,7 @@ function createProductionOrdersForDemands(
   return created
 }
 
-type CreatedProductionOrderGroup = {
+export type CreatedProductionOrderGroup = {
   demands: ProductionDemand[]
   order: ProductionOrder
 }
@@ -1196,9 +1196,10 @@ function closeDemandGenerateFlow(): void {
   resetDemandGenerateForm()
 }
 
-function applyCreatedProductionOrderGroups(created: CreatedProductionOrderGroup[], now: string): void {
+export function applyCreatedProductionOrderGroups(created: CreatedProductionOrderGroup[], now: string): void {
   if (created.length === 0) return
 
+  const preparedSnapshots = created.map((item) => buildFormalProductionOrderProcessSnapshots(item.order))
   const orderIdByDemandId = new Map<string, string>()
   for (const item of created) {
     for (const demand of item.demands) {
@@ -1206,11 +1207,6 @@ function applyCreatedProductionOrderGroups(created: CreatedProductionOrderGroup[
     }
   }
   state.orders = [...state.orders, ...created.map((item) => item.order)]
-  for (const item of created) {
-    for (const snapshot of buildFormalProductionOrderProcessSnapshots(item.order)) {
-      ensureProcessWorkOrdersForFormalProductionOrder(snapshot)
-    }
-  }
   state.demands = state.demands.map((demand) => {
     const productionOrderId = orderIdByDemandId.get(demand.demandId)
     if (!productionOrderId) return demand
@@ -1222,6 +1218,9 @@ function applyCreatedProductionOrderGroups(created: CreatedProductionOrderGroup[
       updatedAt: now,
     }
   })
+  for (const snapshots of preparedSnapshots) {
+    for (const snapshot of snapshots) ensureProcessWorkOrdersForFormalProductionOrder(snapshot)
+  }
 }
 
 function openCreatedProductionOrders(created: CreatedProductionOrderGroup[]): void {

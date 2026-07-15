@@ -10,6 +10,11 @@ import {
 } from '../src/data/fcs/process-work-order-domain.ts'
 import { getPrintWorkOrderById, getPrintWorkOrderByTaskId } from '../src/data/fcs/printing-task-domain.ts'
 import { productionOrders } from '../src/data/fcs/production-orders.ts'
+import { state } from '../src/pages/production/context.ts'
+import {
+  applyCreatedProductionOrderGroups,
+  type CreatedProductionOrderGroup,
+} from '../src/pages/production/demand-domain.ts'
 import {
   buildFormalProductionOrderProcessSnapshots,
   ensureProcessWorkOrdersForFormalProductionOrder,
@@ -244,6 +249,115 @@ assert.throws(
   /不支持的生产工艺：WASH/,
   '未知工艺不能静默忽略',
 )
+assert.throws(
+  () => ensureProcessWorkOrdersForFormalProductionOrder({
+    ...dyeOnly,
+    productionOrderId: 'PO-AUTO-LOWERCASE-001',
+    productionOrderNo: 'PO-AUTO-LOWERCASE-001',
+    processCodes: JSON.parse('["dye"]'),
+  }),
+  /不支持的生产工艺：dye/,
+  '小写工艺码必须明确拒绝，不能校验通过后静默忽略',
+)
+
+const transactionDemand = state.demands.find((demand) => !demand.hasProductionOrder)
+assert(transactionDemand, '缺少可用于生产单批次事务检查的未转换需求')
+const transactionNow = '2026-07-15 20:00:00'
+const transactionOrder = {
+  ...routeOrder,
+  productionOrderId: 'PO-AUTO-TRANSACTION-001',
+  productionOrderNo: 'PO-AUTO-TRANSACTION-001',
+  demandId: transactionDemand.demandId,
+  sourceDemandIds: [transactionDemand.demandId],
+}
+const missingBomOrder = {
+  ...routeOrder,
+  productionOrderId: 'PO-AUTO-MISSING-BOM-001',
+  productionOrderNo: 'PO-AUTO-MISSING-BOM-001',
+  techPackSnapshot: {
+    ...routeOrder.techPackSnapshot,
+    bomItems: [dyeBom],
+    processEntries: [{
+      ...processTemplate,
+      id: 'PROCESS-DYE-MISSING-BOM-001',
+      processCode: 'DYE',
+      processName: '缺失物料染色',
+      linkedBomItemIds: ['BOM-NOT-FOUND'],
+    }],
+  },
+}
+const mixedUnitOrder = {
+  ...routeOrder,
+  productionOrderId: 'PO-AUTO-TRANSACTION-MIXED-001',
+  productionOrderNo: 'PO-AUTO-TRANSACTION-MIXED-001',
+  techPackSnapshot: {
+    ...routeOrder.techPackSnapshot,
+    bomItems: [dyeBom, printBom],
+    processEntries: [{
+      ...processTemplate,
+      id: 'PROCESS-DYE-TRANSACTION-MIXED-001',
+      processCode: 'DYE',
+      processName: '混合单位染色',
+      linkedBomItemIds: [dyeBom.id, printBom.id],
+    }],
+  },
+}
+const transactionGroup: CreatedProductionOrderGroup = {
+  demands: [transactionDemand],
+  order: transactionOrder,
+}
+const transactionOrdersBefore = state.orders.length
+const transactionDemandBefore = {
+  hasProductionOrder: transactionDemand.hasProductionOrder,
+  productionOrderId: transactionDemand.productionOrderId,
+  demandStatus: transactionDemand.demandStatus,
+  updatedAt: transactionDemand.updatedAt,
+}
+const transactionDyeCountBefore = listProcessWorkOrders('DYE').length
+const transactionPrintCountBefore = listProcessWorkOrders('PRINT').length
+
+function assertFailedBatchLeavesStateUnchanged(invalidOrder: typeof missingBomOrder, errorPattern: RegExp): void {
+  const invalidGroup: CreatedProductionOrderGroup = { demands: [], order: invalidOrder }
+  assert.throws(
+    () => applyCreatedProductionOrderGroups([transactionGroup, invalidGroup], transactionNow),
+    errorPattern,
+  )
+  assert.equal(state.orders.length, transactionOrdersBefore, '批次预校验失败后生产单数量必须不变')
+  assert.equal(
+    state.orders.some((order) => order.productionOrderId === transactionOrder.productionOrderId),
+    false,
+    '批次预校验失败后有效生产单也不得部分落库',
+  )
+  const currentDemand = state.demands.find((demand) => demand.demandId === transactionDemand.demandId)
+  assert(currentDemand, '失败后原需求必须仍存在')
+  assert.deepEqual({
+    hasProductionOrder: currentDemand.hasProductionOrder,
+    productionOrderId: currentDemand.productionOrderId,
+    demandStatus: currentDemand.demandStatus,
+    updatedAt: currentDemand.updatedAt,
+  }, transactionDemandBefore, '批次预校验失败后需求状态必须不变')
+  assert.equal(listProcessWorkOrders('DYE').length, transactionDyeCountBefore, '失败后染色加工单数量必须不变')
+  assert.equal(listProcessWorkOrders('PRINT').length, transactionPrintCountBefore, '失败后印花加工单数量必须不变')
+}
+
+assertFailedBatchLeavesStateUnchanged(missingBomOrder, /绑定了不存在的 BOM：BOM-NOT-FOUND/)
+assertFailedBatchLeavesStateUnchanged(mixedUnitOrder, /绑定多种或缺失数量单位，无法合并为一张加工单/)
+assertFailedBatchLeavesStateUnchanged(missingBomOrder, /绑定了不存在的 BOM：BOM-NOT-FOUND/)
+
+applyCreatedProductionOrderGroups([transactionGroup], transactionNow)
+assert.equal(
+  state.orders.filter((order) => order.productionOrderId === transactionOrder.productionOrderId).length,
+  1,
+  '失败后修正并重试只能落库一张生产单',
+)
+const convertedTransactionDemand = state.demands.find((demand) => demand.demandId === transactionDemand.demandId)
+assert.deepEqual(
+  [convertedTransactionDemand?.hasProductionOrder, convertedTransactionDemand?.productionOrderId, convertedTransactionDemand?.demandStatus],
+  [true, transactionOrder.productionOrderId, 'CONVERTED'],
+  '修正并重试后需求必须一次性转换完成',
+)
+assert.equal(listProcessWorkOrders('DYE').length, transactionDyeCountBefore + 1, '修正重试后应新增一张染色加工单')
+assert.equal(listProcessWorkOrders('PRINT').length, transactionPrintCountBefore + 1, '修正重试后应新增一张印花加工单')
 
 const beforeDyeCount = listProcessWorkOrders('DYE').length
 const beforePrintCount = listProcessWorkOrders('PRINT').length
