@@ -29,7 +29,7 @@ export function deriveFormalProductionOrderMaterialFields(
   materialItems: FormalProductionOrderMaterialItem[],
 ): { materialId: string; materialName: string } {
   return {
-    materialId: materialItems.map((item) => item.materialId).join('+'),
+    materialId: [...new Set(materialItems.map((item) => item.materialId.trim()))].sort().join('+'),
     materialName: materialItems.map((item) => item.materialName).join('、'),
   }
 }

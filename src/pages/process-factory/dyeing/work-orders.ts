@@ -14,6 +14,7 @@ import {
   loadListColumnPreferences,
   normalizeListColumnPreferences,
   paginateStandardListRows,
+  resetStandardListEntryTransientStateOnRouteEntry,
   saveListColumnPreferences,
   sortStandardListRows,
   type StandardListColumnPreferences,
@@ -175,6 +176,7 @@ function renderWorkspace(): string {
 }
 
 export function renderCraftDyeingWorkOrdersPage(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
   installColumnDragEvents()
   return `<div data-dye-work-orders-root data-skip-page-rerender="true"><div data-dye-work-orders-workspace>${renderWorkspace()}</div></div>`
 }

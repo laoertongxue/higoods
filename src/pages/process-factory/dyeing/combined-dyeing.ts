@@ -17,6 +17,7 @@ import {
   loadListColumnPreferences,
   normalizeListColumnPreferences,
   paginateStandardListRows,
+  resetStandardListEntryTransientStateOnRouteEntry,
   saveListColumnPreferences,
   sortStandardListRows,
   type StandardListColumnPreferences,
@@ -117,6 +118,10 @@ function currentVersion(task: CombinedDyeingTask): CombinedDyeingAllocationVersi
   return task.allocationVersions.find((version) => version.current)
 }
 
+export function getCombinedDyeingCurrentExcess(task: CombinedDyeingTask): number | undefined {
+  return currentVersion(task)?.excessQty
+}
+
 function sumRequired(task: CombinedDyeingTask): number {
   return task.members.reduce((sum, member) => sum + member.requiredQty - member.effectiveSatisfiedQtyBeforeTask, 0)
 }
@@ -176,6 +181,7 @@ const columns: StandardListColumn<CombinedDyeingTask>[] = [
   { key: 'input', title: '实际投入', width: 130, align: 'right', sortable: true, render: (task) => quantity(task.actualInputQty, task.qtyUnit), sortValue: (task) => task.actualInputQty },
   { key: 'output', title: '实际产出', width: 130, align: 'right', sortable: true, render: (task) => quantity(task.actualOutputQty, task.qtyUnit), sortValue: (task) => task.actualOutputQty },
   { key: 'unmet', title: '未满足数量', width: 140, align: 'right', sortable: true, render: (task) => quantity(currentUnmet(task), task.qtyUnit), sortValue: currentUnmet },
+  { key: 'excess', title: '超出数量', width: 130, align: 'right', sortable: true, render: (task) => quantity(getCombinedDyeingCurrentExcess(task), task.qtyUnit), sortValue: getCombinedDyeingCurrentExcess },
   { key: 'status', title: '状态', width: 100, required: true, sortable: true, render: renderTaskStatus, sortValue: (task) => task.status },
   { key: 'createdAt', title: '创建时间', width: 150, sortable: true, render: (task) => escapeHtml(formatDateTime(task.createdAt)), sortValue: (task) => task.createdAt },
   { key: 'completedAt', title: '完成时间', width: 150, sortable: true, render: (task) => escapeHtml(formatDateTime(task.completedAt || '')), sortValue: (task) => task.completedAt },
@@ -564,6 +570,7 @@ export function syncCombinedDyeingDeepLink(search: string): void {
 }
 
 export function renderCraftCombinedDyeingPage(): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
   if (typeof window !== 'undefined') syncCombinedDyeingDeepLink(window.location.search)
   installCombinedDyeingColumnDragEvents()
   return `

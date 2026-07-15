@@ -730,7 +730,7 @@ export function buildPostChangeProcessWorkOrderSnapshotsForForm(
           return matchesOriginalMaterial
             ? {
                 sourceBomItemId: item.sourceBomItemId,
-                materialId: replacementMaterial!.materialId,
+                materialId: replacementMaterial!.materialCode.trim(),
                 materialName: replacementMaterial!.materialName,
               }
             : { ...item }
@@ -907,7 +907,7 @@ export function executeProductionChangeForForm(
                 snapshot.productionOrderId === productionOrderId
                 && snapshot.materialItems?.some((item) => (
                   item.sourceBomItemId === targetIdentity.sourceBomItemId
-                  && item.materialId === form.materialReplacement.replacementMaterialId
+                  && item.materialId === replacementMaterialSnapshot!.materialCode.trim()
                 ))
               ))
               const resultingTechPackVersionId = persistedMaterialSnapshot?.techPackVersionId

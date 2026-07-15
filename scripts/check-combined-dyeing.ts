@@ -34,6 +34,7 @@ import {
 import {
   createDefaultCombinedDyeingPreferences,
   getCombinedDyeingCandidateReason,
+  getCombinedDyeingCurrentExcess,
   paginateCombinedDyeingOverlayRows,
   parseCombinedDyeingResultInputs,
   restoreCombinedDyeingPreferences,
@@ -85,7 +86,7 @@ function checkCombinedDyeingWorkspaceWiring(): void {
   for (const label of ['创建合并染色', '完成染色', '更正染色结果', '删除任务', '查看已删除任务']) {
     assertIncludes(page, label, `合并染色页面缺少操作：${label}`)
   }
-  for (const label of ['合并染色任务号', '染厂', '面料', '目标颜色', '染色工艺', '成员数', '需求合计', '实际产出', '状态', '创建时间', '完成时间']) {
+  for (const label of ['合并染色任务号', '染厂', '面料', '目标颜色', '染色工艺', '成员数', '需求合计', '实际产出', '未满足数量', '超出数量', '状态', '创建时间', '完成时间']) {
     assertIncludes(page, label, `合并染色列表缺少列：${label}`)
   }
   assertIncludes(page, '平台加工单号', '创建抽屉必须只读显示平台加工单号')
@@ -180,9 +181,13 @@ function checkLinkedCombinedDyeingHistory(): void {
   const orderB = getDyeWorkOrderById('DYE-COMBINED-DEMO-002')!
   assert(orderA && orderB, '深链历史渲染需要两张中央演示加工单')
   const completed = createCombinedDyeingTask({ dyeWorkOrderIds: [orderA.dyeOrderId, orderB.dyeOrderId], createdBy: '染厂主管', createdAt: '2026-07-16 20:00:00' })
+  assert.equal(getCombinedDyeingCurrentExcess(completed), undefined, '待染色任务没有分配版本，列表超出数量必须显示为 —')
   completeCombinedDyeingTask(completed.taskId, { actualInputQty: 1250, actualOutputQty: 1200, completedBy: '染厂主管', completedAt: '2026-07-16 20:30:00' })
+  assert.equal(getCombinedDyeingCurrentExcess(getCombinedDyeingTaskById(completed.taskId)!), 200, '完成 1200 Yard 后列表权威超出数量必须为 200 Yard')
   correctCombinedDyeingResult(completed.taskId, { actualInputQty: 1150, actualOutputQty: 1100, reason: '复核超出量', correctedBy: '染厂主管', correctedAt: '2026-07-16 20:40:00' })
+  assert.equal(getCombinedDyeingCurrentExcess(getCombinedDyeingTaskById(completed.taskId)!), 100, '更正为 1100 Yard 后列表排序值必须使用当前版本超出 100 Yard')
   deleteCombinedDyeingTask(completed.taskId, { deletedBy: '染厂主管', deletedAt: '2026-07-16 20:50:00', reason: '深链历史验收' })
+  assert.equal(getCombinedDyeingCurrentExcess(getCombinedDyeingTaskById(completed.taskId)!), 100, '软删除后列表历史仍必须保留当前版本超出 100 Yard')
 
   syncCombinedDyeingDeepLink(`?taskId=${completed.taskId}`)
   const deletedTaskHtml = renderCraftCombinedDyeingPage()
@@ -254,8 +259,8 @@ function checkCentralCombinedDyeingDemoSeed(): void {
 
 function checkCombinedDyeingPageHelpers(): void {
   const expectedDefaults = {
-    order: ['taskNo', 'factory', 'material', 'color', 'process', 'members', 'required', 'input', 'output', 'unmet', 'status', 'createdAt', 'completedAt', 'actions'],
-    visibleKeys: ['taskNo', 'factory', 'material', 'color', 'process', 'members', 'required', 'input', 'output', 'unmet', 'status', 'createdAt', 'completedAt', 'actions'],
+    order: ['taskNo', 'factory', 'material', 'color', 'process', 'members', 'required', 'input', 'output', 'unmet', 'excess', 'status', 'createdAt', 'completedAt', 'actions'],
+    visibleKeys: ['taskNo', 'factory', 'material', 'color', 'process', 'members', 'required', 'input', 'output', 'unmet', 'excess', 'status', 'createdAt', 'completedAt', 'actions'],
     frozenKeys: ['taskNo'],
     pageSize: 10,
   }

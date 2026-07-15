@@ -158,16 +158,16 @@ assert.deepEqual(
     qtyUnit: snapshot.qtyUnit,
   })),
   [
-    { materialId: dyeBom.id, materialName: '染色针织布 / 180g', targetColor: '雾霾蓝', plannedQty: 55, qtyUnit: '米' },
-    { materialId: printBom.id, materialName: '印花裁片 / 前后幅', targetColor: '米白底蓝花', plannedQty: 210, qtyUnit: '片' },
+    { materialId: dyeBom.materialCode, materialName: '染色针织布 / 180g', targetColor: '雾霾蓝', plannedQty: 55, qtyUnit: '米' },
+    { materialId: printBom.materialCode, materialName: '印花裁片 / 前后幅', targetColor: '米白底蓝花', plannedQty: 210, qtyUnit: '片' },
   ],
   '染色和印花快照必须分别读取其工艺路线绑定的 BOM',
 )
 assert.deepEqual(
   routeSnapshots.map((snapshot) => snapshot.materialItems),
   [
-    [{ sourceBomItemId: dyeBom.id, materialId: dyeBom.id, materialName: '染色针织布 / 180g' }],
-    [{ sourceBomItemId: printBom.id, materialId: printBom.id, materialName: '印花裁片 / 前后幅' }],
+    [{ sourceBomItemId: dyeBom.id, materialId: dyeBom.materialCode, materialName: '染色针织布 / 180g' }],
+    [{ sourceBomItemId: printBom.id, materialId: printBom.materialCode, materialName: '印花裁片 / 前后幅' }],
   ],
   '正式工艺快照必须保留每条 BOM constituent 的位置身份与当前物料身份',
 )
@@ -230,7 +230,7 @@ assert.deepEqual(
     qtyUnit: snapshot.qtyUnit,
   })),
   [{
-    materialId: 'BOM-DYE-001+BOM-DYE-002',
+    materialId: 'MAT-DYE-001+MAT-DYE-002',
     materialName: '染色针织布 / 180g、染色罗纹布 / 2x2 罗纹',
     targetColor: '雾霾蓝、深海蓝',
     plannedQty: 80,
@@ -240,10 +240,130 @@ assert.deepEqual(
 )
 assert.equal(aggregatedDyeSnapshots.length, 1, '一个生产单的同类染色工艺必须只生成一张快照')
 assert.deepEqual(aggregatedDyeSnapshots[0]?.materialItems, [
-  { sourceBomItemId: dyeBom.id, materialId: dyeBom.id, materialName: '染色针织布 / 180g' },
-  { sourceBomItemId: secondDyeBom.id, materialId: secondDyeBom.id, materialName: '染色罗纹布 / 2x2 罗纹' },
+  { sourceBomItemId: dyeBom.id, materialId: dyeBom.materialCode, materialName: '染色针织布 / 180g' },
+  { sourceBomItemId: secondDyeBom.id, materialId: secondDyeBom.materialCode, materialName: '染色罗纹布 / 2x2 罗纹' },
 ], '同一 DYE 聚合多个 BOM 时必须保留 constituent，禁止只留下拼接字符串')
 assert.equal(aggregatedDyeSnapshots[0]?.requiresWaterSoluble, false, '全部染色 BOM 均不需水溶时必须生成普通染色快照')
+
+const sameActualMaterialOrders = ['A', 'B'].map((suffix) => ({
+  ...routeOrder,
+  productionOrderId: `PO-AUTO-SAME-MATERIAL-${suffix}`,
+  productionOrderNo: `PO-AUTO-SAME-MATERIAL-${suffix}`,
+  techPackSnapshot: {
+    ...routeOrder.techPackSnapshot,
+    bomItems: [{ ...dyeBom, id: `BOM-${suffix}`, materialCode: '  MAT-SAME-001  ' }],
+    processEntries: [{
+      ...processTemplate,
+      id: `PROCESS-DYE-SAME-${suffix}`,
+      processCode: 'DYE',
+      processName: '匹染',
+      linkedBomItemIds: [`BOM-${suffix}`],
+    }],
+  },
+}))
+const sameActualMaterialSnapshots = sameActualMaterialOrders.map((order) => ({
+  ...buildFormalProductionOrderProcessSnapshots(order)[0]!,
+  factoryId: 'FACTORY-DYE-SAME-001',
+  factoryName: '同一染厂',
+  targetColor: '同一蓝',
+}))
+assert.deepEqual(
+  sameActualMaterialSnapshots.map((snapshot) => [snapshot.materialItems?.[0]?.sourceBomItemId, snapshot.materialId]),
+  [['BOM-A', 'MAT-SAME-001'], ['BOM-B', 'MAT-SAME-001']],
+  '不同正式生产单的 BOM 行只用于追溯，相同 materialCode 必须形成相同实际物料身份',
+)
+const sameActualMaterialWorkOrders = sameActualMaterialSnapshots.map((snapshot) => (
+  ensureProcessWorkOrdersForFormalProductionOrder(snapshot).dyeWorkOrderId!
+))
+assert.doesNotThrow(() => createCombinedDyeingTask({
+  dyeWorkOrderIds: sameActualMaterialWorkOrders,
+  createdBy: '实际物料身份检查人',
+  createdAt: '2026-07-16 11:00:00',
+}), 'BOM 行不同但正式物料编码相同、同厂同色同工艺的染色加工单必须允许合并染色')
+
+const differentActualMaterialSnapshot = {
+  ...buildFormalProductionOrderProcessSnapshots({
+    ...sameActualMaterialOrders[1]!,
+    productionOrderId: 'PO-AUTO-DIFFERENT-MATERIAL-C',
+    productionOrderNo: 'PO-AUTO-DIFFERENT-MATERIAL-C',
+    techPackSnapshot: {
+      ...sameActualMaterialOrders[1]!.techPackSnapshot,
+      bomItems: [{ ...dyeBom, id: 'BOM-C', materialCode: 'MAT-DIFFERENT-001' }],
+      processEntries: [{
+        ...processTemplate,
+        id: 'PROCESS-DYE-DIFFERENT-C',
+        processCode: 'DYE',
+        processName: '匹染',
+        linkedBomItemIds: ['BOM-C'],
+      }],
+    },
+  })[0]!,
+  factoryId: 'FACTORY-DYE-SAME-001',
+  factoryName: '同一染厂',
+  targetColor: '同一蓝',
+}
+const differentActualMaterialWorkOrder = ensureProcessWorkOrdersForFormalProductionOrder(differentActualMaterialSnapshot).dyeWorkOrderId!
+assert.throws(() => createCombinedDyeingTask({
+  dyeWorkOrderIds: [sameActualMaterialWorkOrders[0]!, differentActualMaterialWorkOrder],
+  createdBy: '实际物料身份检查人',
+  createdAt: '2026-07-16 11:01:00',
+}), /同一面料/, '正式物料编码不同的染色加工单必须拒绝合并')
+
+assert.throws(() => buildFormalProductionOrderProcessSnapshots({
+  ...routeOrder,
+  productionOrderId: 'PO-AUTO-MISSING-MATERIAL-CODE',
+  productionOrderNo: 'PO-AUTO-MISSING-MATERIAL-CODE',
+  techPackSnapshot: {
+    ...routeOrder.techPackSnapshot,
+    bomItems: [{ ...dyeBom, id: 'BOM-MISSING-CODE', materialCode: '  ' }],
+    processEntries: [{
+      ...processTemplate,
+      id: 'PROCESS-DYE-MISSING-CODE',
+      processCode: 'DYE',
+      processName: '匹染',
+      linkedBomItemIds: ['BOM-MISSING-CODE'],
+    }],
+  },
+}), /缺少稳定物料编码.*无法生成加工单/, '参与染色或印花的正式 BOM 缺少 materialCode 时必须中文失败关闭')
+
+const aggregateIdentityOrder = (suffix: string, bomItems: typeof dyeBom[], linkedBomItemIds: string[]) => ({
+  ...routeOrder,
+  productionOrderId: `PO-AUTO-AGGREGATE-IDENTITY-${suffix}`,
+  productionOrderNo: `PO-AUTO-AGGREGATE-IDENTITY-${suffix}`,
+  techPackSnapshot: {
+    ...routeOrder.techPackSnapshot,
+    bomItems,
+    processEntries: [{
+      ...processTemplate,
+      id: `PROCESS-DYE-AGGREGATE-${suffix}`,
+      processCode: 'DYE',
+      processName: '组合面料匹染',
+      linkedBomItemIds,
+    }],
+  },
+})
+const aggregateBomA = { ...dyeBom, id: 'BOM-AGG-A', materialCode: 'MAT-AGG-A', name: '甲面料' }
+const aggregateBomB = { ...dyeBom, id: 'BOM-AGG-B', materialCode: 'MAT-AGG-B', name: '乙面料' }
+const aggregateIdentitySnapshots = [
+  buildFormalProductionOrderProcessSnapshots(aggregateIdentityOrder('BA', [aggregateBomB, aggregateBomA], ['BOM-AGG-B', 'BOM-AGG-A']))[0]!,
+  buildFormalProductionOrderProcessSnapshots(aggregateIdentityOrder('AB', [aggregateBomA, aggregateBomB], ['BOM-AGG-A', 'BOM-AGG-B']))[0]!,
+]
+assert.deepEqual(
+  aggregateIdentitySnapshots.map((snapshot) => snapshot.materialId),
+  ['MAT-AGG-A+MAT-AGG-B', 'MAT-AGG-A+MAT-AGG-B'],
+  '同组实际物料即使 BOM 顺序不同也必须生成稳定的聚合 materialId',
+)
+assert.deepEqual(
+  aggregateIdentitySnapshots.map((snapshot) => snapshot.materialName),
+  ['乙面料 / 180g、甲面料 / 180g', '甲面料 / 180g、乙面料 / 180g'],
+  'materialName 必须保留正式 BOM 原始顺序',
+)
+const duplicateActualIdentitySnapshot = buildFormalProductionOrderProcessSnapshots(aggregateIdentityOrder(
+  'DUPLICATE',
+  [{ ...aggregateBomA, id: 'BOM-AGG-A1' }, { ...aggregateBomA, id: 'BOM-AGG-A2', name: '甲面料第二行' }],
+  ['BOM-AGG-A1', 'BOM-AGG-A2'],
+))[0]!
+assert.equal(duplicateActualIdentitySnapshot.materialId, 'MAT-AGG-A', '重复正式物料编码必须在聚合 materialId 中去重')
 
 const allWaterDyeOrder: ProductionOrder = {
   ...routeOrder,

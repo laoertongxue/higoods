@@ -116,6 +116,10 @@ export function buildFormalProductionOrderProcessSnapshots(
       if (!bomItem) throw new Error(`生产单 ${order.productionOrderNo} 的${processLabel}工艺绑定了不存在的 BOM：${bomItemId}`)
       return bomItem
     })
+    const missingMaterialCodeItem = bomItems.find((item) => !item.materialCode?.trim())
+    if (missingMaterialCodeItem) {
+      throw new Error(`生产单 ${order.productionOrderNo} 的${processLabel}工艺 BOM ${missingMaterialCodeItem.id} 缺少稳定物料编码，无法生成加工单`)
+    }
     if (
       processCode === 'DYE'
       && bomItems.some((item) => item.waterSolubleRequirement === '是')
@@ -133,9 +137,10 @@ export function buildFormalProductionOrderProcessSnapshots(
     ))
     const materialItems = bomItems.map((item) => ({
       sourceBomItemId: item.id,
-      materialId: item.id,
+      materialId: item.materialCode!.trim(),
       materialName: `${item.name}${item.spec ? ` / ${item.spec}` : ''}`,
     }))
+    const materialFields = deriveFormalProductionOrderMaterialFields(materialItems)
     const targetColors = [...new Set(bomItems.map((item) => item.colorLabel).filter((color): color is string => Boolean(color)))]
     const processName = [...new Set(entries.map((entry) => entry.processName).filter(Boolean))].join('、') || processLabel
     const snapshot: FormalProductionOrderProcessSnapshot = {
@@ -144,8 +149,8 @@ export function buildFormalProductionOrderProcessSnapshots(
       orderedAt: order.createdAt,
       techPackVersionId: techPackSnapshot.sourceTechPackVersionId,
       techPackVersionLabel: techPackSnapshot.sourceTechPackVersionLabel || techPackSnapshot.versionLabel,
-      materialId: materialItems.map((item) => item.materialId).join('+'),
-      materialName: materialItems.map((item) => item.materialName).join('、'),
+      materialId: materialFields.materialId,
+      materialName: materialFields.materialName,
       materialItems,
       targetColor: targetColors.join('、') || order.demandSnapshot.skuLines[0]?.color || '按技术包配色',
       plannedQty,

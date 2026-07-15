@@ -108,7 +108,7 @@
     "check:capacity-equipment-linkage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-capacity-equipment-linkage.ts",
     "check:printing-workflow": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-printing-workflow.ts",
     "check:dyeing-workflow": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-dyeing-workflow.ts",
-    "check:combined-dyeing": "tsx scripts/check-combined-dyeing.ts",
+    "check:combined-dyeing": "tsx scripts/check-combined-dyeing.ts && tsx scripts/check-dye-list-reentry.ts",
     "check:dispatch-board-assignment": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-dispatch-board-assignment.ts",
     "check:sewing-dispatch-workbench": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-sewing-dispatch-workbench.ts",
     "check:dispatch-acceptance-sla": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-dispatch-acceptance-sla.ts",

@@ -3951,8 +3951,8 @@ export function applyProductionOrderMaterialFactReplacement(input: {
   ) {
     throw new Error('物料替换后的正式物料编码、名称、技术包版本和变更记录不能为空')
   }
-  fact.canonicalMaterialId = replacementMaterialId
-  fact.snapshotMaterialId = replacementMaterialId
+  fact.canonicalMaterialId = replacementMaterialCode
+  fact.snapshotMaterialId = replacementMaterialCode
   fact.sourceTechPackVersionId = resultingTechPackVersionId
   fact.material = `${replacementMaterialCode} ${replacementMaterialName}`
   return clone(fact)
