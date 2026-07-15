@@ -635,6 +635,68 @@ assert(
   '多个左冻结列必须按前序列宽累计 left 偏移',
 )
 
+const middleFrozenColumns: StandardListColumn<DemoRow>[] = [
+  standardListColumns[0],
+  {
+    key: 'target',
+    title: '补料对象',
+    width: 180,
+    freezeable: true,
+    render: () => '裁片单',
+  },
+  standardListColumns[1],
+  standardListColumns[2],
+]
+const middleFrozenTableHtml = renderStandardListTable({
+  columns: middleFrozenColumns,
+  rows: [{ recordNo: 'BL-004', qty: 12 }],
+  preferences: {
+    order: ['recordNo', 'target', 'qty', 'actions'],
+    visibleKeys: ['recordNo', 'target', 'qty', 'actions'],
+    frozenKeys: ['qty'],
+    pageSize: 10,
+  },
+  sort: null,
+  eventPrefix: 'demo-list',
+})
+const middleFrozenHeaderKeys = [...middleFrozenTableHtml.matchAll(/<th[\s\S]*?data-column-key="([^"]+)"/g)]
+  .map((match) => match[1])
+assert.deepEqual(
+  middleFrozenHeaderKeys,
+  ['qty', 'recordNo', 'target', 'actions'],
+  '冻结中间列必须立即进入表格最左侧固定区',
+)
+assert.match(
+  middleFrozenTableHtml,
+  /style="[^"]*left: 0px;[^"]*"[\s\S]*?data-column-key="qty"/,
+  '首个冻结列必须显式固定在 left 0px',
+)
+
+const multipleMiddleFrozenTableHtml = renderStandardListTable({
+  columns: middleFrozenColumns,
+  rows: [{ recordNo: 'BL-005', qty: 15 }],
+  preferences: {
+    order: ['recordNo', 'target', 'qty', 'actions'],
+    visibleKeys: ['recordNo', 'target', 'qty', 'actions'],
+    frozenKeys: ['target', 'qty'],
+    pageSize: 10,
+  },
+  sort: null,
+  eventPrefix: 'demo-list',
+})
+const multipleFrozenHeaderKeys = [...multipleMiddleFrozenTableHtml.matchAll(/<th[\s\S]*?data-column-key="([^"]+)"/g)]
+  .map((match) => match[1])
+assert.deepEqual(
+  multipleFrozenHeaderKeys,
+  ['target', 'qty', 'recordNo', 'actions'],
+  '多个冻结列必须按用户列顺序组成最左侧固定区',
+)
+assert.match(
+  multipleMiddleFrozenTableHtml,
+  /style="[^"]*left: 180px;[^"]*"[\s\S]*?data-column-key="qty"/,
+  '第二个冻结列必须按前一个冻结列宽度累计 left 偏移',
+)
+
 const forcedActionTableHtml = renderStandardListTable({
   columns: standardListColumns,
   rows: [{ recordNo: 'BL-003', qty: 1 }],

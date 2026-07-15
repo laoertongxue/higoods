@@ -82,6 +82,23 @@ function isColumnVisible(
   return visibleKeys.has(column.key) || Boolean(column.required) || Boolean(column.actionColumn)
 }
 
+function visibleTableColumns<T>(
+  columns: readonly StandardListColumn<T>[],
+  preferences: Readonly<StandardListColumnPreferences>,
+): StandardListColumn<T>[] {
+  const visibleKeys = new Set(preferences.visibleKeys)
+  const frozenKeys = new Set(preferences.frozenKeys)
+  const visible = orderedColumns(columns, preferences.order).filter((column) =>
+    isColumnVisible(column, visibleKeys),
+  )
+  const actionColumns = visible.filter((column) => column.actionColumn)
+  const regularColumns = visible.filter((column) => !column.actionColumn)
+  const frozenColumns = regularColumns.filter((column) => column.freezeable && frozenKeys.has(column.key))
+  const scrollableColumns = regularColumns.filter((column) => !column.freezeable || !frozenKeys.has(column.key))
+
+  return [...frozenColumns, ...scrollableColumns, ...actionColumns]
+}
+
 function frozenClass(
   column: Pick<StandardListColumn<never>, 'actionColumn'>,
   left: number,
@@ -133,10 +150,7 @@ function renderSortHeader<T>(
 }
 
 export function renderStandardListTable<T>(config: StandardListTableConfig<T>): string {
-  const visibleKeys = new Set(config.preferences.visibleKeys)
-  const columns = orderedColumns(config.columns, config.preferences.order).filter(
-    (column) => isColumnVisible(column, visibleKeys),
-  )
+  const columns = visibleTableColumns(config.columns, config.preferences)
   const frozenKeys = new Set(config.preferences.frozenKeys)
   const leftOffsets = new Map<string, number>()
   let frozenWidth = 0
@@ -146,6 +160,7 @@ export function renderStandardListTable<T>(config: StandardListTableConfig<T>): 
       frozenWidth += columnWidth(column)
     }
   }
+  const lastFrozenKey = [...leftOffsets.keys()].at(-1)
   const minWidth = columns.reduce((sum, column) => sum + columnWidth(column), 0)
 
   const headers = columns.map((column) => {
@@ -155,6 +170,7 @@ export function renderStandardListTable<T>(config: StandardListTableConfig<T>): 
       'h-10 px-3 text-xs font-medium text-muted-foreground align-middle whitespace-nowrap',
       alignmentClass(column.align),
       isFrozen ? frozenClass(column, left ?? 0, true) : '',
+      column.key === lastFrozenKey ? 'shadow-[6px_0_8px_-8px_rgba(15,23,42,0.75)]' : '',
     ].filter(Boolean).join(' ')
     const ariaSort = column.sortable
       ? config.sort?.key === column.key
@@ -165,7 +181,7 @@ export function renderStandardListTable<T>(config: StandardListTableConfig<T>): 
     return `
       <th
         class="${classes}"
-        style="width: ${column.width}px; min-width: ${columnWidth(column)}px;${left && !column.actionColumn ? ` left: ${left}px;` : ''}"
+        style="width: ${column.width}px; min-width: ${columnWidth(column)}px;${left !== undefined && !column.actionColumn ? ` left: ${left}px;` : ''}"
         data-column-key="${escapeHtml(column.key)}"
         ${ariaSort ? `aria-sort="${ariaSort}"` : ''}
       >
@@ -184,11 +200,12 @@ export function renderStandardListTable<T>(config: StandardListTableConfig<T>): 
               'px-3 py-2 text-sm align-middle',
               alignmentClass(column.align),
               isFrozen ? frozenClass(column, left ?? 0, false) : '',
+              column.key === lastFrozenKey ? 'shadow-[6px_0_8px_-8px_rgba(15,23,42,0.75)]' : '',
             ].filter(Boolean).join(' ')
             return `
               <td
                 class="${classes}"
-                style="width: ${column.width}px; min-width: ${columnWidth(column)}px;${left && !column.actionColumn ? ` left: ${left}px;` : ''}"
+                style="width: ${column.width}px; min-width: ${columnWidth(column)}px;${left !== undefined && !column.actionColumn ? ` left: ${left}px;` : ''}"
               >${column.render(row, rowIndex)}</td>
             `
           }).join('')}
