@@ -68,6 +68,16 @@ function assertStandardListGovernanceSection(section: string): void {
   )
   assert.match(
     section,
+    /^- 标准列表摘要卡片必须采用 48px 单行布局，标签和值水平排列，不得使用上下两段造成额外垂直占用。$/m,
+    '标准列表治理章节必须规定 48px 单行摘要卡片',
+  )
+  assert.match(
+    section,
+    /^- 所有可排序列必须显示未排序、升序和降序三态图标；图标必须由组件直接输出，局部刷新后仍保持可见。$/m,
+    '标准列表治理章节必须规定稳定可见的三态排序图标',
+  )
+  assert.match(
+    section,
     /^- 所有数据列表必须分页；即使当前只有少量 Mock 数据，也必须展示分页控件，并明确当前页、每页条数和总数口径。$/m,
     '标准列表治理章节必须强制所有数据列表分页',
   )
@@ -75,6 +85,11 @@ function assertStandardListGovernanceSection(section: string): void {
     section,
     /^- 当列总宽超过表格可视区、需要横向滚动时，必须支持显示列选择、列顺序拖拽调整、普通冻结列固定左侧和数据排序。$/m,
     '标准列表治理章节必须以横向滚动为触发条件要求完整列管理',
+  )
+  assert.match(
+    section,
+    /^- 用户冻结的普通列必须立即进入表格最左侧固定区，从横向滚动开始到结束都不移动；多列冻结按用户列顺序排列，取消冻结后恢复普通列位置。$/m,
+    '标准列表治理章节必须定义真正的左侧冻结行为',
   )
   assert.match(
     section,
@@ -120,6 +135,9 @@ const rejectedGovernanceVariants = [
   standardListGovernanceSection.replace('不得出现无业务逻辑的说明性文案', '不禁止无业务逻辑的说明性文案'),
   standardListGovernanceSection.replace('允许展示真实业务状态', '不允许展示真实业务状态'),
   standardListGovernanceSection.replace('必须优先复用公共组件', '无需优先复用公共组件'),
+  standardListGovernanceSection.replace('必须采用 48px 单行布局', '不必采用 48px 单行布局'),
+  standardListGovernanceSection.replace('必须显示未排序、升序和降序三态图标', '不必显示未排序、升序和降序三态图标'),
+  standardListGovernanceSection.replace('从横向滚动开始到结束都不移动', '可以随横向滚动移动'),
 ]
 for (const [index, rejectedVariant] of rejectedGovernanceVariants.entries()) {
   assert.notEqual(rejectedVariant, standardListGovernanceSection, `治理否定变体 ${index + 1} 必须实际改变章节内容`)
