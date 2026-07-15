@@ -38,23 +38,97 @@ const slotMarkers = {
 const mainSource = fs.readFileSync(new URL('../src/main.ts', import.meta.url), 'utf8')
 const fcsHandlerSource = fs.readFileSync(new URL('../src/main-handlers/fcs-handlers.ts', import.meta.url), 'utf8')
 const agentsSource = fs.readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8')
-assert.match(agentsSource, /标准列表页模板/, 'AGENTS.md 必须定义标准列表页模板')
-assert.match(agentsSource, /\/fcs\/craft\/cutting\/supplement-management/, 'AGENTS.md 必须写明标准模板页面路由')
-assert.match(agentsSource, /src\/components\/ui\/list-page\.ts/, 'AGENTS.md 必须写明标准列表页核心组件')
-assert.match(agentsSource, /新增列表页[\s\S]{0,80}调整的既有列表页[\s\S]{0,120}模板/, '新增和被调整的既有列表页必须对齐标准模板')
-assert.match(agentsSource, /不批量迁移其他既有页面/, '标准模板治理不得要求本任务批量迁移其他既有页面')
-assert.match(agentsSource, /所有数据列表.*分页/, 'AGENTS.md 必须强制所有数据列表分页')
-assert.match(agentsSource, /列多时.*显示列选择.*列排序.*拖拽.*冻结列.*数据排序/, '宽表必须支持完整列管理能力')
-assert.match(agentsSource, /操作列.*固定在右侧.*不随横向滚动/, '操作列必须固定右侧且不随横向滚动')
-assert.match(agentsSource, /列显示.*列顺序.*冻结.*每页条数.*按路由持久化/, '列偏好和每页条数必须按路由持久化')
-assert.match(agentsSource, /当前页.*排序.*不持久化/, '当前页和数据排序不得持久化')
-assert.match(agentsSource, /禁止无业务逻辑的说明性文案/, '任一模块必须禁止无业务逻辑的说明性文案')
-assert.match(agentsSource, /真实业务状态.*风险.*异常.*空态/, '治理规则必须允许真实业务反馈文案')
-assert.match(agentsSource, /1366×768/, '标准列表页必须以 1366×768 为标准验收分辨率')
-assert.match(agentsSource, /1280×720/, '标准列表页必须保证 1280×720 最低可用')
-assert.match(agentsSource, /页面主体.*不产生横向溢出.*宽表.*内部滚动/, '页面主体不得横向溢出，宽表必须内部滚动')
-assert.match(agentsSource, /例外.*prototype review record.*理由/, '标准列表页例外必须在审查记录写明理由')
-assert.match(agentsSource, /优先复用公共组件.*不复制页面模板/, '列表页必须优先复用公共组件而非复制模板')
+
+function extractStandardListGovernanceSection(source: string): string {
+  const headingMatch = /^### 7\.3 标准列表页模板治理\s*$/m.exec(source)
+  assert(headingMatch, 'AGENTS.md 必须定义“### 7.3 标准列表页模板治理”章节')
+  const sectionStart = headingMatch.index
+  const contentStart = sectionStart + headingMatch[0].length
+  const remainingSource = source.slice(contentStart)
+  const nextHeadingOffset = remainingSource.search(/^#{1,3}\s+/m)
+  const sectionEnd = nextHeadingOffset >= 0 ? contentStart + nextHeadingOffset : source.length
+  return source.slice(sectionStart, sectionEnd).trim()
+}
+
+function assertStandardListGovernanceSection(section: string): void {
+  assert.match(
+    section,
+    /^标准列表页模板以补料管理页面 `\/fcs\/craft\/cutting\/supplement-management` 为验收基准。核心公共组件为 `src\/components\/ui\/list-page\.ts`，表格渲染与列偏好模型分别位于 `src\/components\/ui\/list-table\.ts`、`src\/components\/ui\/list-table-model\.ts`。$/m,
+    '标准列表治理章节必须在完整行写明模板路由和公共组件',
+  )
+  assert.match(
+    section,
+    /^- 后续所有新增列表页，以及被调整的既有列表页，都必须以该模板的样式、公共组件和交互为基准；调整既有列表页的结构、筛选、统计、表格或分页时同步向模板对齐。本任务不批量迁移其他既有页面。$/m,
+    '标准列表治理章节必须要求新增和被调整的既有列表页对齐模板，并限定本任务迁移范围',
+  )
+  assert.match(
+    section,
+    /^- 必须优先复用公共组件，不得复制页面模板；公共骨架或表格能力不足时，先在 `src\/components\/ui\/` 内补充最小通用能力，再由业务页面组合使用。$/m,
+    '标准列表治理章节必须优先复用公共组件且不得复制页面模板',
+  )
+  assert.match(
+    section,
+    /^- 所有数据列表必须分页；即使当前只有少量 Mock 数据，也必须展示分页控件，并明确当前页、每页条数和总数口径。$/m,
+    '标准列表治理章节必须强制所有数据列表分页',
+  )
+  assert.match(
+    section,
+    /^- 当列总宽超过表格可视区、需要横向滚动时，必须支持显示列选择、列顺序拖拽调整、普通冻结列固定左侧和数据排序。$/m,
+    '标准列表治理章节必须以横向滚动为触发条件要求完整列管理',
+  )
+  assert.match(
+    section,
+    /^- 必需列和业务防错列必须声明为不可隐藏的“必需列”（代码字段为 `required`）；操作列也必须保持可见。$/m,
+    '标准列表治理章节必须要求必需列和业务防错列声明为不可隐藏的必需列',
+  )
+  assert.match(
+    section,
+    /^- 操作列必须固定在右侧且不随横向滚动，并始终保持可见和可操作。$/m,
+    '标准列表治理章节必须要求操作列固定右侧且不随横向滚动',
+  )
+  assert.match(
+    section,
+    /^- 列显示、列顺序、冻结列和每页条数必须按路由持久化；当前页和数据排序不得持久化，刷新或重新进入页面时回到稳定默认状态。$/m,
+    '标准列表治理章节必须限定持久化和不持久化状态',
+  )
+  assert.match(
+    section,
+    /^- 任一模块不得出现无业务逻辑的说明性文案；允许展示真实业务状态、风险、异常和空态，以及完成当前任务所必需的操作反馈。$/m,
+    '标准列表治理章节必须禁止无业务逻辑说明文案并允许真实业务反馈',
+  )
+  assert.match(
+    section,
+    /^- 以 1366×768 为标准验收分辨率，1280×720 为最低可用分辨率；页面主体不得产生横向溢出，宽表必须在表格容器内部滚动。$/m,
+    '标准列表治理章节必须明确分辨率和横向溢出边界',
+  )
+  assert.match(
+    section,
+    /^- 任何无法遵循上述规则的业务例外，都必须在对应的 prototype review record 写明理由、影响范围和替代防错措施。$/m,
+    '标准列表治理章节必须要求例外写入审查记录',
+  )
+}
+
+const standardListGovernanceSection = extractStandardListGovernanceSection(agentsSource)
+assertStandardListGovernanceSection(standardListGovernanceSection)
+
+const rejectedGovernanceVariants = [
+  standardListGovernanceSection.replace('所有数据列表必须分页', '所有数据列表不必分页'),
+  standardListGovernanceSection.replace(
+    '必须支持显示列选择、列顺序拖拽调整、普通冻结列固定左侧和数据排序',
+    '不必支持显示列选择、列顺序拖拽调整、普通冻结列固定左侧和数据排序',
+  ),
+  standardListGovernanceSection.replace('不得出现无业务逻辑的说明性文案', '不禁止无业务逻辑的说明性文案'),
+  standardListGovernanceSection.replace('允许展示真实业务状态', '不允许展示真实业务状态'),
+  standardListGovernanceSection.replace('必须优先复用公共组件', '无需优先复用公共组件'),
+]
+for (const [index, rejectedVariant] of rejectedGovernanceVariants.entries()) {
+  assert.notEqual(rejectedVariant, standardListGovernanceSection, `治理否定变体 ${index + 1} 必须实际改变章节内容`)
+  assert.throws(
+    () => assertStandardListGovernanceSection(rejectedVariant),
+    undefined,
+    `治理否定变体 ${index + 1} 必须被拒绝`,
+  )
+}
 assert.match(mainSource, /root\.addEventListener\('dragstart', dispatchListColumnDragEvent\)/, 'main.ts 必须委托列拖动开始事件')
 assert.match(mainSource, /root\.addEventListener\('dragover', dispatchListColumnDragEvent\)/, 'main.ts 必须委托列拖动经过事件')
 assert.match(mainSource, /root\.addEventListener\('drop', dispatchListColumnDragEvent\)/, 'main.ts 必须委托列拖动放置事件')
