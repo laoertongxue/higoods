@@ -1481,10 +1481,10 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement, event?: 
       const businessAssignedAt = dateTimeLocalToOperationWallClock(state.dispatchBusinessAssignedAt)
       result = createSewingDispatchWorkbenchDraft({
         actionType: state.dispatchActionType,
-        factoryId: factory?.id,
-        factoryName: factory?.name,
         rowIds: selectedRows.map((row) => row.rowId),
-        qtyByRowId: Object.fromEntries(selectedRows.map((row) => [row.rowId, Number(state.dispatchQtyByRowId[row.rowId])])),
+        factoryIdByRowId: state.dispatchActionType === '直接派单' && factory
+          ? Object.fromEntries(selectedRows.map((row) => [row.rowId, factory.id]))
+          : undefined,
         businessAssignedAt,
         operatedAt,
         mainFactoryIdByProductionOrderId: state.dispatchMainFactoryIdByProductionOrderId,
