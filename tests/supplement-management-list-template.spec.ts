@@ -193,6 +193,17 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 1280, height: 720
     await expect(page.locator('[data-cutting-supplement-field="pageSize"]')).toHaveValue('10')
     await expect(page.getByRole('button', { name: '下一页' })).toBeVisible()
 
+    const statCards = page.locator('[data-standard-list-stats] > div')
+    await expect(statCards).toHaveCount(3)
+    for (const card of await statCards.all()) {
+      const cardBox = await visibleBox(card, '标准列表摘要卡片')
+      expect(cardBox.height).toBeGreaterThanOrEqual(47)
+      expect(cardBox.height).toBeLessThanOrEqual(49)
+      const labelBox = await visibleBox(card.locator('span'), '摘要标签')
+      const valueBox = await visibleBox(card.locator('strong'), '摘要数值')
+      expect(Math.abs((labelBox.y + labelBox.height / 2) - (valueBox.y + valueBox.height / 2))).toBeLessThanOrEqual(1)
+    }
+
     const overflow = await page.evaluate(() => ({
       body: [document.body.scrollWidth, document.body.clientWidth],
       document: [document.documentElement.scrollWidth, document.documentElement.clientWidth],
@@ -244,6 +255,7 @@ test('默认分页、三态排序及临时状态刷新后回到默认', async ({
   await page.getByRole('button', { name: '上一页' }).click()
   const quantityHeader = page.locator('th[data-column-key="supplementQty"]')
   const quantitySort = quantityHeader.getByRole('button')
+  await expect(quantityHeader.locator('[data-standard-list-sort-icon="none"] svg')).toBeVisible()
   const quantityColumnIndex = await tableHeaders(page).evaluateAll(
     (headers) => headers.findIndex((header) => header.getAttribute('data-column-key') === 'supplementQty'),
   )
@@ -253,12 +265,15 @@ test('默认分页、三态排序及临时状态刷新后回到默认', async ({
 
   await quantitySort.click()
   await expect(quantityHeader).toHaveAttribute('aria-sort', 'ascending')
+  await expect(quantityHeader.locator('[data-standard-list-sort-icon="asc"] svg')).toBeVisible()
   expect(await quantities()).toEqual([...await quantities()].sort((a, b) => a - b))
   await quantitySort.click()
   await expect(quantityHeader).toHaveAttribute('aria-sort', 'descending')
+  await expect(quantityHeader.locator('[data-standard-list-sort-icon="desc"] svg')).toBeVisible()
   expect(await quantities()).toEqual([...await quantities()].sort((a, b) => b - a))
   await quantitySort.click()
   await expect(quantityHeader).toHaveAttribute('aria-sort', 'none')
+  await expect(quantityHeader.locator('[data-standard-list-sort-icon="none"] svg')).toBeVisible()
   await expect(rows.first().locator('td').first()).toContainText(defaultFirstRecord)
 
   await quantitySort.click()
@@ -361,8 +376,10 @@ test('列显示、顺序、冻结和每页条数持久化，且列操作只刷�
   await page.reload()
   await waitForList(page)
   await expect(page.locator('th[data-column-key="processDemand"]')).toHaveCount(0)
-  expect((await headerOrder(page)).slice(0, 2)).toEqual(['created', 'recordNo'])
+  expect((await headerOrder(page)).slice(0, 2)).toEqual(['recordNo', 'created'])
   await expect(page.locator('th[data-column-key="recordNo"]')).toHaveClass(/sticky/)
+  const reloadedPreferences = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '{}'), storageKey)
+  expect(reloadedPreferences.order.slice(0, 2)).toEqual(['created', 'recordNo'])
   await expect(page.locator('[data-cutting-supplement-field="pageSize"]')).toHaveValue('20')
   await expect(page.getByText('1 / 1', { exact: true })).toBeVisible()
 })
@@ -479,27 +496,46 @@ test('SPA 离开补料管理后返回重置页码和排序但保留列偏好', a
   await expect(page.locator('th[data-column-key="processDemand"]')).toHaveCount(0)
 })
 
-test('冻结补料单号和固定操作列在表格横向滚动时坐标稳定', async ({ page }) => {
+test('冻结中间列立即进入左侧固定区，多列冻结不重叠且取消后恢复普通位置', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 })
   await openList(page)
   await openColumnSettings(page)
-  await settingRow(page, 'recordNo').getByLabel('冻结').check()
+  await settingRow(page, 'supplementQty').getByLabel('冻结').check()
   await page.getByRole('button', { name: '关闭', exact: true }).click()
 
+  expect(await headerOrder(page)).toEqual([
+    'supplementQty', 'recordNo', 'target', 'materialDemand', 'processDemand', 'status', 'created', 'actions',
+  ])
+
   const scroll = page.locator('[data-standard-list-scroll]')
-  const recordNo = page.locator('th[data-column-key="recordNo"]')
+  const supplementQty = page.locator('th[data-column-key="supplementQty"]')
   const actions = page.locator('th[data-column-key="actions"]')
   const scrollBefore = await visibleBox(scroll, '表格横向滚动容器')
-  const recordNoBefore = await visibleBox(recordNo, '冻结补料单号表头')
+  const supplementQtyBefore = await visibleBox(supplementQty, '冻结补料数量表头')
   const actionsBefore = await visibleBox(actions, '固定操作列表头')
   expect(Math.abs(actionsBefore.x + actionsBefore.width - (scrollBefore.x + scrollBefore.width))).toBeLessThanOrEqual(1)
   await scroll.evaluate((element) => { element.scrollLeft = element.scrollWidth })
   await expect.poll(() => scroll.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0)
   const scrollAfter = await visibleBox(scroll, '滚动后的表格横向滚动容器')
-  const recordNoAfter = await visibleBox(recordNo, '滚动后的冻结补料单号表头')
+  const supplementQtyAfter = await visibleBox(supplementQty, '滚动后的冻结补料数量表头')
   const actionsAfter = await visibleBox(actions, '滚动后的固定操作列表头')
-  expect(Math.abs(recordNoAfter.x - recordNoBefore.x)).toBeLessThanOrEqual(1)
+  expect(Math.abs(supplementQtyAfter.x - supplementQtyBefore.x)).toBeLessThanOrEqual(1)
   expect(Math.abs(actionsAfter.x + actionsAfter.width - (scrollAfter.x + scrollAfter.width))).toBeLessThanOrEqual(1)
+
+  await openColumnSettings(page)
+  await settingRow(page, 'recordNo').getByLabel('冻结').check()
+  await page.getByRole('button', { name: '关闭', exact: true }).click()
+  expect((await headerOrder(page)).slice(0, 2)).toEqual(['recordNo', 'supplementQty'])
+  const recordNoBox = await visibleBox(page.locator('th[data-column-key="recordNo"]'), '首个冻结补料单号表头')
+  const supplementQtyBox = await visibleBox(supplementQty, '第二个冻结补料数量表头')
+  expect(Math.abs(supplementQtyBox.x - (recordNoBox.x + recordNoBox.width))).toBeLessThanOrEqual(1)
+
+  await openColumnSettings(page)
+  await settingRow(page, 'supplementQty').getByLabel('冻结').uncheck()
+  await page.getByRole('button', { name: '关闭', exact: true }).click()
+  expect(await headerOrder(page)).toEqual([
+    'recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'created', 'actions',
+  ])
 })
 
 test('恢复默认清除列偏好并保持 main 节点', async ({ page }) => {
