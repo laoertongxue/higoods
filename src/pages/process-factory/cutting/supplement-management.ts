@@ -1603,6 +1603,10 @@ function refreshSupplementList(): void {
   setSupplementRegion('pagination', renderListPagination(view.paging))
 }
 
+function refreshSupplementTable(): void {
+  setSupplementRegion('table', renderListTable(getSupplementListView().paging))
+}
+
 function refreshSupplementOverlay(): void {
   setSupplementRegion('overlay', renderListOverlay())
 }
@@ -2070,9 +2074,24 @@ export function isCraftCuttingSupplementManagementDialogOpen(): boolean {
 }
 
 export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement, event?: Event): boolean {
+  const internalDragEvent = event as (DragEvent & {
+    higoodStandardListColumnDrag?: true
+    higoodStandardListColumnKey?: string
+  }) | undefined
+  if (event?.type === 'dragend') {
+    if (!internalDragEvent?.higoodStandardListColumnDrag) return false
+    state.draggedColumnKey = ''
+    return true
+  }
+
   const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
-  if (dragNode && event && ['dragstart', 'dragover', 'drop'].includes(event.type)) {
-    const dragEvent = event as DragEvent
+  if (
+    dragNode
+    && event
+    && internalDragEvent?.higoodStandardListColumnDrag
+    && ['dragstart', 'dragover', 'drop'].includes(event.type)
+  ) {
+    const dragEvent = internalDragEvent
     const columnKey = dragNode.dataset.cuttingSupplementColumnKey
       || dragNode.dataset.dragSource
       || dragNode.dataset.dropTarget
@@ -2082,15 +2101,20 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     if (event.type === 'dragstart') {
       state.draggedColumnKey = column?.key || ''
       if (!column) return false
-      dragEvent.dataTransfer?.setData('text/plain', column.key)
+      dragEvent.dataTransfer?.setData('application/x-higood-list-column-key', column.key)
       if (dragEvent.dataTransfer) dragEvent.dataTransfer.effectAllowed = 'move'
       return true
     }
 
-    const sourceKey = state.draggedColumnKey || dragEvent.dataTransfer?.getData('text/plain') || ''
+    const sourceKey = dragEvent.higoodStandardListColumnKey || ''
     const sourceColumn = supplementListColumns.find((item) => item.key === sourceKey && !item.actionColumn)
     const targetColumn = supplementListColumns.find((item) => item.key === columnKey && !item.actionColumn)
-    if (!sourceColumn || !targetColumn || sourceColumn.key === targetColumn.key) {
+    if (
+      !sourceColumn
+      || !targetColumn
+      || state.draggedColumnKey !== sourceColumn.key
+      || sourceColumn.key === targetColumn.key
+    ) {
       if (event.type === 'drop') state.draggedColumnKey = ''
       return false
     }
@@ -2112,7 +2136,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
       order,
     })
     saveSupplementListPreferences()
-    refreshSupplementList()
+    refreshSupplementTable()
     refreshSupplementOverlay()
     return true
   }

@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import { chromium } from 'playwright'
+import { createServer } from 'vite'
 
 import {
   renderStandardListPage,
@@ -37,16 +39,34 @@ const fcsHandlerSource = fs.readFileSync(new URL('../src/main-handlers/fcs-handl
 assert.match(mainSource, /root\.addEventListener\('dragstart', dispatchListColumnDragEvent\)/, 'main.ts 必须委托列拖动开始事件')
 assert.match(mainSource, /root\.addEventListener\('dragover', dispatchListColumnDragEvent\)/, 'main.ts 必须委托列拖动经过事件')
 assert.match(mainSource, /root\.addEventListener\('drop', dispatchListColumnDragEvent\)/, 'main.ts 必须委托列拖动放置事件')
-const dragDispatchStart = mainSource.indexOf('async function dispatchListColumnDragEvent')
+assert.match(mainSource, /root\.addEventListener\('dragend', dispatchListColumnDragEvent\)/, 'main.ts 必须委托列拖动结束事件并清理会话')
+const dragDispatchStart = mainSource.indexOf('function dispatchListColumnDragEvent')
 const dragDispatchEnd = mainSource.indexOf("root.addEventListener('dragstart'", dragDispatchStart)
 assert(dragDispatchStart >= 0 && dragDispatchEnd > dragDispatchStart, 'main.ts 必须提供独立列拖动分发函数')
 const dragDispatchSource = mainSource.slice(dragDispatchStart, dragDispatchEnd)
-assert(dragDispatchSource.includes("closest('[data-standard-list-column-drag]')"), '列拖动委托只能处理标准列表列拖动节点')
+assert(!dragDispatchSource.startsWith('async '), '列拖动入口必须同步决定是否 preventDefault')
+assert(dragDispatchSource.includes("'[data-standard-list-column-drag]'"), '列拖动委托只能处理标准列表列拖动节点')
+assert(mainSource.includes('application/x-higood-list-column-key'), '列拖动必须使用 HiGood 专用 MIME')
+assert(!dragDispatchSource.includes("setData('text/plain'"), '列拖动不得把 text/plain 作为可信列来源')
+assert(
+  dragDispatchSource.indexOf('event.preventDefault()') < dragDispatchSource.indexOf('dispatchPageEvent('),
+  '合法 dragover 必须在异步页面分发前同步 preventDefault',
+)
 assert(!/\brender(?:WithFocusRestore|PageContentOnly)?\s*\(/.test(dragDispatchSource), '列拖动委托不得触发页面主体重绘')
 assert.match(
   fcsHandlerSource,
-  /handleCraftCuttingSupplementManagementEvent\(target, event\)/,
-  'FCS 通用回退路径必须把原始 Event 传给补料管理处理器',
+  /const isSupplementManagementRoute = pathname\.startsWith\('\/fcs\/craft\/cutting\/supplement-management'\)/,
+  'FCS 通用回退必须识别补料管理路由',
+)
+assert.match(
+  fcsHandlerSource,
+  /isSupplementManagementRoute\s*&&\s*target\.closest\('\[data-cutting-supplement-action\], \[data-standard-list-column-drag\]'\)[\s\S]{0,160}handleCraftCuttingSupplementManagementEvent\(target, event\)/,
+  'FCS 补料事件直达路径必须限定 pathname 并传入原始 Event',
+)
+assert.match(
+  fcsHandlerSource,
+  /isSupplementManagementRoute && await handleCraftCuttingSupplementManagementEvent\(target, event\)/,
+  'FCS 通用兜底链不得在其他标准列表路由调用补料处理器',
 )
 const supplementRouteDispatchIndex = mainSource.indexOf("pathname.startsWith('/fcs/craft/cutting/supplement-management')")
 const fcsHandlerFallbackIndex = mainSource.indexOf("const handlerSystem = getCurrentHandlerSystem(pathname)")
@@ -783,7 +803,7 @@ function supplementColumnDragTarget(columnKey: string): HTMLElement {
   return target as unknown as HTMLElement
 }
 
-function supplementDragEvent(type: 'dragstart' | 'dragover' | 'drop', initialData = ''): {
+function supplementDragEvent(type: 'dragstart' | 'dragover' | 'drop' | 'dragend', initialData = '', internal = true): {
   event: Event
   dataTransfer: { getData(format: string): string; setData(format: string, value: string): void }
   wasPrevented(): boolean
@@ -794,16 +814,18 @@ function supplementDragEvent(type: 'dragstart' | 'dragover' | 'drop', initialDat
     effectAllowed: 'all',
     dropEffect: 'none',
     getData(format: string) {
-      return format === 'text/plain' ? transferred : ''
+      return format === 'application/x-higood-list-column-key' ? transferred : ''
     },
     setData(format: string, value: string) {
-      if (format === 'text/plain') transferred = value
+      if (format === 'application/x-higood-list-column-key') transferred = value
     },
   }
   return {
     event: {
       type,
       dataTransfer,
+      higoodStandardListColumnDrag: internal || undefined,
+      higoodStandardListColumnKey: internal ? initialData : undefined,
       preventDefault() {
         prevented = true
       },
@@ -921,12 +943,12 @@ assert.equal(
   true,
   '合法列拖动开始必须被页面处理',
 )
-assert.equal(dragStart.dataTransfer.getData('text/plain'), 'created', '拖动开始必须写入源列')
+assert.equal(dragStart.dataTransfer.getData('application/x-higood-list-column-key'), 'created', '拖动开始必须写入专用 MIME 源列')
 assert.equal(defaultSupplementStorage.read(supplementStorageKey), preferencesBeforeDrag, '拖动开始不得提前修改偏好')
-const dragOver = supplementDragEvent('dragover')
+const dragOver = supplementDragEvent('dragover', 'created')
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('recordNo'), dragOver.event)
 assert.equal(dragOver.wasPrevented(), true, '合法放置目标必须允许 drop')
-const drop = supplementDragEvent('drop', dragStart.dataTransfer.getData('text/plain'))
+const drop = supplementDragEvent('drop', dragStart.dataTransfer.getData('application/x-higood-list-column-key'))
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('recordNo'), drop.event)
 assert.equal(drop.wasPrevented(), true, '合法放置必须阻止浏览器默认行为')
 let draggedPreferences = JSON.parse(defaultSupplementStorage.read(supplementStorageKey) ?? '{}') as StandardListColumnPreferences
@@ -963,19 +985,34 @@ assert.equal(actionSourceDrop.wasPrevented(), false, '操作列不得进入合�
 
 const validSourceStart = supplementDragEvent('dragstart')
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('created'), validSourceStart.event)
-const actionTargetDrop = supplementDragEvent('drop', validSourceStart.dataTransfer.getData('text/plain'))
+const actionTargetDrop = supplementDragEvent('drop', validSourceStart.dataTransfer.getData('application/x-higood-list-column-key'))
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('actions'), actionTargetDrop.event)
 assert.equal(defaultSupplementStorage.read(supplementStorageKey), preferencesBeforeInvalidDrag, '操作列不得作为放置目标且必须保持最后')
 assert.equal(actionTargetDrop.wasPrevented(), false, '操作列目标不得允许 drop')
 
 const unknownTargetStart = supplementDragEvent('dragstart')
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('created'), unknownTargetStart.event)
-const unknownTargetDrop = supplementDragEvent('drop', unknownTargetStart.dataTransfer.getData('text/plain'))
+const unknownTargetDrop = supplementDragEvent('drop', unknownTargetStart.dataTransfer.getData('application/x-higood-list-column-key'))
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('unknown'), unknownTargetDrop.event)
 assert.equal(defaultSupplementStorage.read(supplementStorageKey), preferencesBeforeInvalidDrag, '未知目标列不得修改偏好')
 assert.equal(unknownTargetDrop.wasPrevented(), false, '未知目标列不得允许 drop')
 draggedPreferences = JSON.parse(defaultSupplementStorage.read(supplementStorageKey) ?? '{}') as StandardListColumnPreferences
 assert.equal(draggedPreferences.order.at(-1), 'actions', '任意拖动后操作列都必须保持最后')
+
+const preferencesBeforeExternalUnitDrop = defaultSupplementStorage.read(supplementStorageKey)
+const externalDrop = supplementDragEvent('drop', 'status', false)
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('recordNo'), externalDrop.event)
+assert.equal(defaultSupplementStorage.read(supplementStorageKey), preferencesBeforeExternalUnitDrop, '无内部会话标记的拖入不得修改偏好')
+
+const cancelledStart = supplementDragEvent('dragstart')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('status'), cancelledStart.event)
+supplementPage.handleCraftCuttingSupplementManagementEvent(
+  supplementColumnDragTarget('status'),
+  supplementDragEvent('dragend', 'status').event,
+)
+const cancelledDrop = supplementDragEvent('drop', 'status')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('recordNo'), cancelledDrop.event)
+assert.equal(defaultSupplementStorage.read(supplementStorageKey), preferencesBeforeExternalUnitDrop, 'dragend 后页面处理器必须拒绝后续 drop')
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('close-column-settings'))
 
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('sort-column', { columnKey: 'supplementQty' }))
@@ -1060,5 +1097,102 @@ installSupplementBrowser(failingStorage)
 const failingSupplementPage = await import('../src/pages/process-factory/cutting/supplement-management.ts?standard-list-failing-storage')
 assert.doesNotThrow(() => failingSupplementPage.renderCraftCuttingSupplementManagementPage(), 'Storage 异常不得阻断补料管理渲染')
 assertDefaultPageSize(failingSupplementPage.renderCraftCuttingSupplementManagementPage(), 'Storage 异常必须回退默认偏好')
+
+async function checkSupplementColumnDragInChromium(): Promise<void> {
+  const server = await createServer({
+    logLevel: 'error',
+    server: { host: '127.0.0.1', port: 0 },
+  })
+  await server.listen()
+  const pageUrl = new URL(
+    '/fcs/craft/cutting/supplement-management',
+    server.resolvedUrls?.local[0] ?? 'http://127.0.0.1:5173',
+  ).toString()
+  const browser = await chromium.launch({ headless: true })
+  const page = await browser.newPage({ viewport: { width: 1366, height: 768 } })
+  const pageErrors: string[] = []
+  page.on('pageerror', (error) => pageErrors.push(error.message))
+
+  try {
+    await page.goto(pageUrl)
+    await page.evaluate((key) => localStorage.removeItem(key), supplementStorageKey)
+    await page.reload()
+    await page.getByRole('button', { name: '列设置' }).click()
+    await page.locator('main').evaluate((main) => { main.dataset.columnDragBrowserMarker = 'kept' })
+    await page.evaluate(() => {
+      ;(window as typeof window & { __standardListDropCount?: number }).__standardListDropCount = 0
+      document.addEventListener('drop', () => {
+        const testWindow = window as typeof window & { __standardListDropCount?: number }
+        testWindow.__standardListDropCount = (testWindow.__standardListDropCount ?? 0) + 1
+      })
+    })
+
+    const createdColumn = page.locator('[data-standard-list-column-key="created"]')
+    const recordNoColumn = page.locator('[data-standard-list-column-key="recordNo"]')
+    await createdColumn.dragTo(recordNoColumn)
+
+    assert.equal(
+      await page.evaluate(() => (window as typeof window & { __standardListDropCount?: number }).__standardListDropCount ?? 0),
+      1,
+      '真实 Chromium 拖动必须派发 drop',
+    )
+    assert.equal(
+      await page.locator('main').getAttribute('data-column-drag-browser-marker'),
+      'kept',
+      '真实拖动不得替换 main 页面主体',
+    )
+    const browserHeaderOrder = await page.locator('[data-standard-list-table-section] thead th[data-column-key]').evaluateAll(
+      (headers) => headers.map((header) => header.getAttribute('data-column-key')),
+    )
+    assert.deepEqual(
+      browserHeaderOrder,
+      ['created', 'recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'actions'],
+      '真实 Chromium drop 必须局部更新列顺序并保持操作列最后',
+    )
+    const browserPreferences = await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key) ?? '{}') as StandardListColumnPreferences,
+      supplementStorageKey,
+    )
+    assert.deepEqual(browserPreferences.order, browserHeaderOrder, '真实 Chromium drop 必须持久化列顺序')
+
+    const preferencesBeforeExternalDrop = JSON.stringify(browserPreferences)
+    await page.evaluate(({ storageKey }) => {
+      const target = document.querySelector<HTMLElement>('[data-standard-list-column-key="recordNo"]')
+      const transfer = new DataTransfer()
+      transfer.setData('text/plain', 'status')
+      target?.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer }))
+      target?.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }))
+      return localStorage.getItem(storageKey)
+    }, { storageKey: supplementStorageKey })
+    assert.equal(
+      await page.evaluate((key) => localStorage.getItem(key), supplementStorageKey),
+      preferencesBeforeExternalDrop,
+      '外部 text/plain 拖入不得修改列偏好',
+    )
+
+    await page.evaluate(() => {
+      const source = document.querySelector<HTMLElement>('[data-standard-list-column-key="status"]')
+      const target = document.querySelector<HTMLElement>('[data-standard-list-column-key="recordNo"]')
+      const transfer = new DataTransfer()
+      transfer.setData('application/x-higood-list-column-key', 'status')
+      source?.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: transfer }))
+      source?.dispatchEvent(new DragEvent('dragend', { bubbles: true, cancelable: false, dataTransfer: transfer }))
+      target?.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer }))
+      target?.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }))
+    })
+    assert.equal(
+      await page.evaluate((key) => localStorage.getItem(key), supplementStorageKey),
+      preferencesBeforeExternalDrop,
+      'dragend 取消拖拽后不得继续接受 drop',
+    )
+    assert.deepEqual(pageErrors, [], '真实 Chromium 拖拽不得产生页面错误')
+    console.log('Chromium column drag passed: drop=1, order/storage updated, external text and cancelled drag ignored')
+  } finally {
+    await browser.close()
+    await server.close()
+  }
+}
+
+await checkSupplementColumnDragInChromium()
 
 console.log('standard list page template check passed')

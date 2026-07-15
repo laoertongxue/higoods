@@ -1590,16 +1590,53 @@ function handleShellAction(actionNode: HTMLElement): boolean {
   return false
 }
 
-async function dispatchListColumnDragEvent(event: DragEvent): Promise<void> {
+const STANDARD_LIST_COLUMN_DRAG_MIME = 'application/x-higood-list-column-key'
+
+interface StandardListColumnDragEvent extends DragEvent {
+  higoodStandardListColumnDrag?: true
+  higoodStandardListColumnKey?: string
+}
+
+let activeStandardListColumnDrag: { columnKey: string; pathname: string } | null = null
+
+function dispatchListColumnDragEvent(event: DragEvent): void {
   const target = resolveEventElementTarget(event.target)
-  if (!target?.closest('[data-standard-list-column-drag]')) return
-  const handled = await dispatchPageEvent(target, event)
-  if (handled) event.preventDefault()
+  const dragNode = target?.closest<HTMLElement>('[data-standard-list-column-drag]')
+  const dataTransfer = event.dataTransfer
+  const pathname = appStore.getState().pathname
+
+  if (event.type === 'dragstart') {
+    const columnKey = dragNode?.dataset.dragSource || ''
+    if (!target || !dragNode || !dataTransfer || !columnKey) return
+    activeStandardListColumnDrag = { columnKey, pathname }
+    dataTransfer.setData(STANDARD_LIST_COLUMN_DRAG_MIME, columnKey)
+    dataTransfer.effectAllowed = 'move'
+  } else {
+    const activeDrag = activeStandardListColumnDrag
+    if (!target || !activeDrag || activeDrag.pathname !== pathname) {
+      if (event.type === 'dragend') activeStandardListColumnDrag = null
+      return
+    }
+
+    if (event.type === 'dragover' || event.type === 'drop') {
+      const hasInternalMime = Array.from(dataTransfer?.types ?? []).includes(STANDARD_LIST_COLUMN_DRAG_MIME)
+      if (!dragNode || !hasInternalMime) return
+      event.preventDefault()
+      if (dataTransfer) dataTransfer.dropEffect = 'move'
+    }
+  }
+
+  const internalEvent = event as StandardListColumnDragEvent
+  internalEvent.higoodStandardListColumnDrag = true
+  internalEvent.higoodStandardListColumnKey = activeStandardListColumnDrag?.columnKey
+  if (event.type === 'drop' || event.type === 'dragend') activeStandardListColumnDrag = null
+  void dispatchPageEvent(target, internalEvent)
 }
 
 root.addEventListener('dragstart', dispatchListColumnDragEvent)
 root.addEventListener('dragover', dispatchListColumnDragEvent)
 root.addEventListener('drop', dispatchListColumnDragEvent)
+root.addEventListener('dragend', dispatchListColumnDragEvent)
 
 root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)

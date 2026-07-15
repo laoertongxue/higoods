@@ -239,6 +239,7 @@ import { closeProductionObjectOverlays } from '../components/production-object-o
 
 export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
+  const isSupplementManagementRoute = pathname.startsWith('/fcs/craft/cutting/supplement-management')
   if (pathname.startsWith('/fcs/process/water-soluble-orders')) {
     return handleProcessWaterSolubleOrdersEvent(target)
   }
@@ -278,7 +279,10 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   ) {
     return handleCraftCuttingSpecialProcessesEvent(target)
   }
-  if (target.closest('[data-cutting-supplement-action], [data-standard-list-column-drag]')) {
+  if (
+    isSupplementManagementRoute
+    && target.closest('[data-cutting-supplement-action], [data-standard-list-column-drag]')
+  ) {
     return handleCraftCuttingSupplementManagementEvent(target, event)
   }
   if (target.closest('[data-cut-piece-release-action]')) {
@@ -388,7 +392,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleCraftCuttingSpecialProcessesEvent(target) ||
     await handleCraftCuttingSummaryEvent(target) ||
     await handleCraftCuttingCutPieceReleaseEvent(target) ||
-    await handleCraftCuttingSupplementManagementEvent(target, event) ||
+    (isSupplementManagementRoute && await handleCraftCuttingSupplementManagementEvent(target, event)) ||
     await handleCraftCuttingDailyProductionReportEvent(target) ||
     await handleCraftCuttingAbMaterialStatisticsEvent(target) ||
     await handleDeductionAnalysisEvent(target) ||
