@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import { createServer as createNetServer } from 'node:net'
 import { chromium } from 'playwright'
 import { createServer } from 'vite'
 
@@ -1098,16 +1099,39 @@ const failingSupplementPage = await import('../src/pages/process-factory/cutting
 assert.doesNotThrow(() => failingSupplementPage.renderCraftCuttingSupplementManagementPage(), 'Storage 异常不得阻断补料管理渲染')
 assertDefaultPageSize(failingSupplementPage.renderCraftCuttingSupplementManagementPage(), 'Storage 异常必须回退默认偏好')
 
+async function findFreeLoopbackPort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const probe = createNetServer()
+    probe.unref()
+    probe.once('error', reject)
+    probe.listen(0, '127.0.0.1', () => {
+      const address = probe.address()
+      if (!address || typeof address === 'string') {
+        probe.close()
+        reject(new Error('无法取得 Chromium 检查的本地空闲端口'))
+        return
+      }
+      probe.close((error) => {
+        if (error) reject(error)
+        else resolve(address.port)
+      })
+    })
+  })
+}
+
 async function checkSupplementColumnDragInChromium(): Promise<void> {
+  const browserPort = await findFreeLoopbackPort()
+  assert(browserPort > 0, '真实 Chromium 检查必须预先分配可用端口，禁止把 port: 0 交给 Vite')
   const server = await createServer({
     logLevel: 'error',
-    server: { host: '127.0.0.1', port: 0 },
+    server: { host: '127.0.0.1', port: browserPort, strictPort: true },
   })
   await server.listen()
-  const pageUrl = new URL(
-    '/fcs/craft/cutting/supplement-management',
-    server.resolvedUrls?.local[0] ?? 'http://127.0.0.1:5173',
-  ).toString()
+  assert.equal(server.config.server.strictPort, true, '真实 Chromium 检查必须使用 strictPort，禁止 Vite 自动换端口')
+  const localUrl = server.resolvedUrls?.local[0]
+  assert(localUrl, '真实 Chromium 检查必须取得 Vite 实际监听地址')
+  assert.equal(Number(new URL(localUrl).port), browserPort, 'Vite 实际监听端口必须等于预先分配端口')
+  const pageUrl = new URL('/fcs/craft/cutting/supplement-management', localUrl).toString()
   const browser = await chromium.launch({ headless: true })
   const page = await browser.newPage({ viewport: { width: 1366, height: 768 } })
   const pageErrors: string[] = []
@@ -1120,9 +1144,39 @@ async function checkSupplementColumnDragInChromium(): Promise<void> {
     await page.getByRole('button', { name: '列设置' }).click()
     await page.locator('main').evaluate((main) => { main.dataset.columnDragBrowserMarker = 'kept' })
     await page.evaluate(() => {
-      ;(window as typeof window & { __standardListDropCount?: number }).__standardListDropCount = 0
+      const main = document.querySelector('main')
+      const stats = document.querySelector('[data-cutting-supplement-region="stats"]')
+      const pagination = document.querySelector('[data-cutting-supplement-region="pagination"]')
+      if (!main || !stats || !pagination) throw new Error('缺少列拖拽稳定性检查所需 DOM 区域')
+      const testWindow = window as typeof window & {
+        __standardListDropCount?: number
+        __standardListStableDom?: {
+          main: Element
+          stats: Element
+          pagination: Element
+          statsMutations: number
+          paginationMutations: number
+        }
+      }
+      testWindow.__standardListDropCount = 0
+      testWindow.__standardListStableDom = {
+        main,
+        stats,
+        pagination,
+        statsMutations: 0,
+        paginationMutations: 0,
+      }
+      new MutationObserver((records) => {
+        if (testWindow.__standardListStableDom) {
+          testWindow.__standardListStableDom.statsMutations += records.length
+        }
+      }).observe(stats, { attributes: true, characterData: true, childList: true, subtree: true })
+      new MutationObserver((records) => {
+        if (testWindow.__standardListStableDom) {
+          testWindow.__standardListStableDom.paginationMutations += records.length
+        }
+      }).observe(pagination, { attributes: true, characterData: true, childList: true, subtree: true })
       document.addEventListener('drop', () => {
-        const testWindow = window as typeof window & { __standardListDropCount?: number }
         testWindow.__standardListDropCount = (testWindow.__standardListDropCount ?? 0) + 1
       })
     })
@@ -1185,8 +1239,37 @@ async function checkSupplementColumnDragInChromium(): Promise<void> {
       preferencesBeforeExternalDrop,
       'dragend 取消拖拽后不得继续接受 drop',
     )
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    }))
+    const stableDomResult = await page.evaluate(() => {
+      const state = (window as typeof window & {
+        __standardListStableDom?: {
+          main: Element
+          stats: Element
+          pagination: Element
+          statsMutations: number
+          paginationMutations: number
+        }
+      }).__standardListStableDom
+      if (!state) throw new Error('缺少列拖拽稳定性检查状态')
+      return {
+        mainSame: document.querySelector('main') === state.main,
+        statsSame: document.querySelector('[data-cutting-supplement-region="stats"]') === state.stats,
+        paginationSame: document.querySelector('[data-cutting-supplement-region="pagination"]') === state.pagination,
+        statsMutations: state.statsMutations,
+        paginationMutations: state.paginationMutations,
+      }
+    })
+    assert.deepEqual(stableDomResult, {
+      mainSame: true,
+      statsSame: true,
+      paginationSame: true,
+      statsMutations: 0,
+      paginationMutations: 0,
+    }, '真实 Chromium 列拖拽不得替换页面主体、统计或分页 DOM，也不得修改统计和分页内容')
     assert.deepEqual(pageErrors, [], '真实 Chromium 拖拽不得产生页面错误')
-    console.log('Chromium column drag passed: drop=1, order/storage updated, external text and cancelled drag ignored')
+    console.log(`Chromium column drag passed on allocated port ${browserPort}: drop=1, DOM regions stable, order/storage updated, external text and cancelled drag ignored`)
   } finally {
     await browser.close()
     await server.close()
