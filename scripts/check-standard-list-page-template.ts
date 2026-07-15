@@ -642,4 +642,215 @@ assert.equal(
 )
 assert.equal(JSON.stringify(standardListPreferences), preferencesBeforeRender, '渲染不得修改列偏好输入')
 
+type MutableRegion = { innerHTML: string }
+
+function createMemoryStorageWithSeed(seed: Record<string, string> = {}) {
+  const values = new Map(Object.entries(seed))
+  return {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+    removeItem: (key: string) => values.delete(key),
+    read: (key: string) => values.get(key) ?? null,
+  }
+}
+
+function installSupplementBrowser(storageValue: {
+  getItem(key: string): string | null
+  setItem(key: string, value: string): unknown
+  removeItem(key: string): unknown
+}) {
+  const regions = new Map<string, MutableRegion>([
+    ['feedback', { innerHTML: '' }],
+    ['stats', { innerHTML: '' }],
+    ['table', { innerHTML: '' }],
+    ['pagination', { innerHTML: '' }],
+    ['overlay', { innerHTML: '' }],
+  ])
+  const fields = new Map<string, { value: string }>([
+    ['sourceType', { value: 'ALL' }],
+    ['keyword', { value: '' }],
+  ])
+  const documentStub = {
+    querySelector(selector: string) {
+      const region = selector.match(/data-cutting-supplement-region="([^"]+)"/)?.[1]
+      if (region) return regions.get(region) ?? null
+      const field = selector.match(/data-cutting-supplement-field="([^"]+)"/)?.[1]
+      if (field) return fields.get(field) ?? null
+      return null
+    },
+  }
+  const windowStub = {
+    location: {
+      pathname: '/fcs/craft/cutting/supplement-management',
+      search: '',
+    },
+    localStorage: storageValue,
+  }
+  Object.assign(globalThis, {
+    document: documentStub,
+    window: windowStub,
+    localStorage: storageValue,
+  })
+  return { regions, fields }
+}
+
+function supplementAction(
+  action: string,
+  extra: Record<string, string> = {},
+): HTMLElement {
+  const target = {
+    dataset: {
+      cuttingSupplementAction: action,
+      ...extra,
+    },
+    closest(selector: string) {
+      return selector === '[data-cutting-supplement-action]' || selector === '[data-skip-page-rerender="true"]'
+        ? target
+        : null
+    },
+  }
+  return target as unknown as HTMLElement
+}
+
+function supplementField(field: string, value: string): HTMLElement {
+  const target = {
+    value,
+    dataset: {
+      cuttingSupplementField: field,
+    },
+    closest(selector: string) {
+      return selector === '[data-cutting-supplement-field]'
+        || selector === '[data-skip-page-rerender="true"]'
+        ? target
+        : null
+    },
+  }
+  return target as unknown as HTMLElement
+}
+
+function countRecordRows(html: string): number {
+  return [...html.matchAll(/data-record-id="[^"]+"/g)].length
+}
+
+function assertDefaultPageSize(html: string, message: string): void {
+  assert.match(html, /<option value="10" selected>10 条\/页<\/option>/, message)
+}
+
+const supplementStorageKey = 'higood:list-page:/fcs/craft/cutting/supplement-management'
+const defaultSupplementStorage = createMemoryStorageWithSeed()
+const supplementDom = installSupplementBrowser(defaultSupplementStorage)
+const supplementPage = await import('../src/pages/process-factory/cutting/supplement-management.ts?standard-list-check')
+let supplementHtml = supplementPage.renderCraftCuttingSupplementManagementPage()
+
+for (const marker of [
+  'data-standard-list-page',
+  'data-standard-list-scroll',
+  'data-cutting-supplement-region="stats"',
+  'data-cutting-supplement-region="table"',
+  'data-cutting-supplement-region="pagination"',
+  'data-cutting-supplement-region="overlay"',
+]) {
+  assert(supplementHtml.includes(marker), `补料管理列表缺少标准局部区域：${marker}`)
+}
+assert(supplementHtml.includes('列设置'), '补料管理列表必须提供列设置按钮')
+assert(!supplementHtml.includes('工艺工厂运营系统 / 裁床厂管理 / 裁后处理 / 补料管理'), '补料管理列表不得保留面包屑')
+assert(!supplementHtml.includes('列表对象是补料单；新增补料填写后会弹窗确认。'), '补料管理列表不得保留列表说明')
+const supplementStatsClass = supplementHtml.match(/class="([^"]*)"[^>]*data-standard-list-stats/)?.[1] ?? ''
+assert(!supplementStatsClass.split(' ').includes('border'), '补料管理统计组不得有外框')
+assert.match(
+  supplementHtml,
+  /<th[^>]*class="[^"]*sticky[^"]*right-0[^"]*"[^>]*data-column-key="actions"/,
+  '补料管理操作列必须 sticky right',
+)
+assert.equal(countRecordRows(supplementHtml), 10, '默认当前页必须只渲染 10 条补料记录')
+const supplementTotal = Number(supplementHtml.match(/共 (\d+) 条/)?.[1] ?? 0)
+assert(supplementTotal >= 12, '补料管理必须提供至少 12 条确定性记录')
+assert(supplementHtml.includes('PR-SUP-') && supplementHtml.includes('DY-SUP-'), '补料列表必须保留印花与染色需求演示记录')
+assert(supplementHtml.includes('1 / 2'), '默认 10 条/页时必须可进入第 2 页')
+assertDefaultPageSize(supplementHtml, '补料管理默认必须为 10 条/页')
+assert(supplementHtml.includes('data-skip-page-rerender="true"'), '局部交互控件必须跳过整页重渲染')
+
+assert.equal(
+  supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('next-page')),
+  true,
+  '下一页动作必须被页面处理',
+)
+assert(supplementDom.regions.get('pagination')?.innerHTML.includes('2 / 2'), '下一页必须局部刷新到第 2 页')
+assert((supplementDom.regions.get('table')?.innerHTML.match(/data-record-id=/g) ?? []).length >= 2, '第 2 页必须渲染剩余记录')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('prev-page'))
+assert(supplementDom.regions.get('pagination')?.innerHTML.includes('1 / 2'), '上一页必须局部刷新回第 1 页')
+
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('next-page'))
+supplementDom.fields.get('keyword')!.value = 'SUP-'
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('apply-filters'))
+assert(supplementDom.regions.get('pagination')?.innerHTML.includes('1 / 2'), '筛选后必须回到第 1 页')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('next-page'))
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('reset-filters'))
+assert(supplementDom.regions.get('pagination')?.innerHTML.includes('1 / 2'), '重置筛选后必须回到第 1 页')
+
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementField('pageSize', '20'))
+assert(supplementDom.regions.get('pagination')?.innerHTML.includes('1 / 1'), '切换每页条数后必须回到第 1 页')
+assert.equal((supplementDom.regions.get('table')?.innerHTML.match(/data-record-id=/g) ?? []).length, supplementTotal, '20 条/页必须展示全部补料记录')
+
+for (const expected of ['ascending', 'descending', 'none']) {
+  supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('sort-column', { columnKey: 'recordNo' }))
+  assert(
+    supplementDom.regions.get('table')?.innerHTML.includes(`aria-sort="${expected}"`),
+    `排序三态必须依次进入 ${expected}`,
+  )
+}
+
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('open-column-settings'))
+assert(supplementDom.regions.get('overlay')?.innerHTML.includes('列设置'), '必须局部打开列设置')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('close-column-settings'))
+assert.equal(supplementDom.regions.get('overlay')?.innerHTML, '', '必须局部关闭列设置')
+
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('sort-column', { columnKey: 'supplementQty' }))
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }))
+assert(!supplementDom.regions.get('table')?.innerHTML.includes('data-column-key="supplementQty"'), '列显隐必须局部刷新表格')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }))
+assert(supplementDom.regions.get('table')?.innerHTML.includes('aria-sort="none"'), '隐藏当前排序列后必须取消排序')
+
+for (const key of ['target', 'recordNo']) {
+  supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: key }))
+}
+const preferencesBeforeFrozenOverflow = defaultSupplementStorage.read(supplementStorageKey)
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: 'supplementQty' }))
+assert.equal(defaultSupplementStorage.read(supplementStorageKey), preferencesBeforeFrozenOverflow, '冻结宽度超过 520 时不得改变偏好')
+assert(supplementDom.regions.get('feedback')?.innerHTML.includes('520'), '冻结宽度超过上限时必须提供业务反馈')
+
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('restore-column-settings'))
+assert.equal(defaultSupplementStorage.read(supplementStorageKey), null, '恢复默认必须清除本地偏好')
+assertDefaultPageSize(supplementDom.regions.get('pagination')?.innerHTML ?? '', '恢复默认必须回到 10 条/页')
+
+const firstRecordId = supplementHtml.match(/data-record-id="([^"]+)"/)?.[1]
+assert(firstRecordId, '补料管理列表必须提供详情记录 ID')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('open-detail', { recordId: firstRecordId }))
+assert(supplementDom.regions.get('overlay')?.innerHTML.includes('补料单详情'), '查看详情必须只刷新覆盖层')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('close-detail'))
+assert.equal(supplementDom.regions.get('overlay')?.innerHTML, '', '关闭详情必须清空覆盖层')
+
+const validPreferences = {
+  order: ['recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'created', 'actions'],
+  visibleKeys: ['recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'created', 'actions'],
+  frozenKeys: ['recordNo'],
+  pageSize: 20,
+}
+installSupplementBrowser(createMemoryStorageWithSeed({
+  [supplementStorageKey]: JSON.stringify(validPreferences),
+}))
+const storedSupplementPage = await import('../src/pages/process-factory/cutting/supplement-management.ts?standard-list-valid-storage')
+const storedSupplementHtml = storedSupplementPage.renderCraftCuttingSupplementManagementPage()
+assert.equal(countRecordRows(storedSupplementHtml), supplementTotal, '有效 localStorage 偏好必须加载 20 条/页')
+assert.match(storedSupplementHtml, /<option value="20" selected>20 条\/页<\/option>/, '有效 localStorage 页大小必须生效')
+
+installSupplementBrowser(createMemoryStorageWithSeed({ [supplementStorageKey]: '{broken json' }))
+const brokenSupplementPage = await import('../src/pages/process-factory/cutting/supplement-management.ts?standard-list-broken-storage')
+assertDefaultPageSize(brokenSupplementPage.renderCraftCuttingSupplementManagementPage(), '损坏 localStorage 必须回退默认偏好')
+
+installSupplementBrowser(failingStorage)
+const failingSupplementPage = await import('../src/pages/process-factory/cutting/supplement-management.ts?standard-list-failing-storage')
+assert.doesNotThrow(() => failingSupplementPage.renderCraftCuttingSupplementManagementPage(), 'Storage 异常不得阻断补料管理渲染')
+assertDefaultPageSize(failingSupplementPage.renderCraftCuttingSupplementManagementPage(), 'Storage 异常必须回退默认偏好')
+
 console.log('standard list page template check passed')
