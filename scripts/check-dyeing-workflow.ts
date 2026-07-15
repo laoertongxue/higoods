@@ -176,9 +176,51 @@ function main(): void {
 
   const combinedDemoA = getDyeWorkOrderById('DYE-COMBINED-DEMO-001')!
   const combinedDemoB = getDyeWorkOrderById('DYE-COMBINED-DEMO-002')!
-  const noHistoryOrder = orders.find((order) => order.sourceType === 'PRODUCTION_ORDER' && !order.combinedDyeing)!
+  const noHistoryOrder = orders.find((order) => order.sourceType === 'PRODUCTION_ORDER' && order.formalProductionOrderSnapshot && !order.combinedDyeing)!
   assert(combinedDemoA && combinedDemoB && noHistoryOrder, '需要合并染色联动展示测试加工单')
   assert.equal(buildDyeWorkOrderCombinedDyeingView(noHistoryOrder), undefined, '无合并历史的生产单加工单不得伪造合并投影')
+  const noHistorySnapshot = noHistoryOrder.formalProductionOrderSnapshot!
+  assert(noHistorySnapshot, '无合并历史测试加工单必须有生产单快照')
+  const autoSyncOnlyOrder = {
+    ...structuredClone(noHistoryOrder),
+    autoSyncHistory: [{
+      changeRecordId: 'CHANGE-AUTO-SYNC-ONLY',
+      before: structuredClone(noHistorySnapshot),
+      after: { ...structuredClone(noHistorySnapshot), plannedQty: noHistorySnapshot.plannedQty + 10 },
+      syncedAt: '2026-07-16 07:10:00',
+    }],
+  }
+  const changeImpactOnlyOrder = {
+    ...structuredClone(noHistoryOrder),
+    changeImpact: [{
+      changeRecordId: 'CHANGE-IMPACT-ONLY',
+      before: structuredClone(noHistorySnapshot),
+      after: { ...structuredClone(noHistorySnapshot), plannedQty: noHistorySnapshot.plannedQty + 20 },
+      reason: '已执行' as const,
+      recordedAt: '2026-07-16 07:20:00',
+      suggestedAction: '业务人员确认变更影响',
+    }],
+  }
+  const changeOnlyVariants = [
+    autoSyncOnlyOrder,
+    changeImpactOnlyOrder,
+    {
+      ...structuredClone(noHistoryOrder),
+      autoSyncHistory: autoSyncOnlyOrder.autoSyncHistory,
+      changeImpact: changeImpactOnlyOrder.changeImpact,
+    },
+  ]
+  changeOnlyVariants.forEach((order, index) => {
+    const view = buildDyeWorkOrderCombinedDyeingView(order)!
+    assert(view, `仅生产变更记录场景 ${index + 1} 仍需返回详情投影`)
+    assert.equal(view.hasCombinedDyeingHistory, false, `仅生产变更记录场景 ${index + 1} 不得伪造合并染色历史`)
+    assert.equal(view.activeTask, undefined, `仅生产变更记录场景 ${index + 1} 不得伪造活动任务`)
+    assert.equal(view.requiredQty, 0, `仅生产变更记录场景 ${index + 1} 的合并需求必须为 0`)
+    assert.equal(view.currentEffectiveAllocationQty, 0, `仅生产变更记录场景 ${index + 1} 的有效分配必须为 0`)
+    assert.equal(view.unmetQty, 0, `仅生产变更记录场景 ${index + 1} 的未满足必须为 0`)
+    assert.deepEqual(view.history, [], `仅生产变更记录场景 ${index + 1} 的合并任务历史必须为空`)
+    assert.deepEqual(view.allocationVersions, [], `仅生产变更记录场景 ${index + 1} 的分配版本必须为空`)
+  })
 
   const combinedTask = createCombinedDyeingTask({
     dyeWorkOrderIds: [combinedDemoA.dyeOrderId, combinedDemoB.dyeOrderId],
@@ -186,6 +228,7 @@ function main(): void {
     createdAt: '2026-07-16 08:00:00',
   })
   const waitingProjection = buildDyeWorkOrderCombinedDyeingView(getDyeWorkOrderById(combinedDemoA.dyeOrderId)!)!
+  assert.equal(waitingProjection.hasCombinedDyeingHistory, true, '活动任务必须标记存在合并染色历史')
   assert.equal(waitingProjection.activeTask?.taskNo, combinedTask.taskNo, '活动合并任务必须投影平台任务号')
   assert.equal(waitingProjection.occupiedByActiveTask, true, '待染色任务必须显示当前占用')
   assert.equal(waitingProjection.currentEffectiveAllocationQty, 0, '待染色任务尚无有效分配')
@@ -261,6 +304,7 @@ function main(): void {
     reason: '现场复核后删除任务',
   })
   const deletedProjection = buildDyeWorkOrderCombinedDyeingView(getDyeWorkOrderById(combinedDemoB.dyeOrderId)!)!
+  assert.equal(deletedProjection.hasCombinedDyeingHistory, true, '软删除后仍必须标记存在合并染色历史')
   assert.equal(deletedProjection.activeTask, undefined, '已删除任务不得伪装为当前占用')
   assert.equal(deletedProjection.occupiedByActiveTask, false, '已删除任务必须解除当前占用')
   assert.equal(deletedProjection.currentEffectiveAllocationQty, 400, '删除已完成任务后有效分配事实仍保留')

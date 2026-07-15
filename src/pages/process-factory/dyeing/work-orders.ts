@@ -65,9 +65,12 @@ function satisfactionLabel(value: 'FULL' | 'PARTIAL' | 'UNMET'): string {
   return '未满足'
 }
 
-function renderCombinedDyeing(order: DyeWorkOrder): string {
+export function renderDyeWorkOrderCombinedDyeingCell(order: DyeWorkOrder): string {
   const projection = buildDyeWorkOrderCombinedDyeingView(order)
   if (!projection) return '<span class="text-xs text-muted-foreground">—</span>'
+  if (!projection.hasCombinedDyeingHistory) {
+    return '<span class="text-xs text-muted-foreground">尚未加入合并染色</span>'
+  }
   const tone = projection.satisfaction === 'FULL' ? 'success' : projection.satisfaction === 'PARTIAL' ? 'warning' : 'neutral'
   const active = projection.activeTask
     ? `<div class="flex flex-wrap items-center gap-1.5">${renderBadge('已加入合并染色', 'info')}<button type="button" class="font-mono text-xs font-medium text-blue-600 hover:underline" data-dyeing-action="navigate" data-href="/fcs/craft/dyeing/combined-dyeing?taskId=${encodeURIComponent(projection.activeTask.taskId)}">${escapeHtml(projection.activeTask.taskNo)}</button></div>`
@@ -99,7 +102,7 @@ function renderActions(order: DyeWorkOrder): string {
 const columns: StandardListColumn<DyeWorkOrder>[] = [
   { key: 'workOrderNo', title: '染色加工单号', width: 190, required: true, freezeable: true, sortable: true, render: renderOrderNo, sortValue: (order) => order.dyeOrderNo },
   { key: 'source', title: '来源', width: 170, required: true, freezeable: true, sortable: true, render: (order) => order.sourceType === 'STOCK' ? `<div>备货</div><div class="text-xs text-muted-foreground">${escapeHtml(order.stockMaterialName || order.stockMaterialId || '—')}</div>` : `<div>生产单</div><div class="font-mono text-xs text-muted-foreground">${escapeHtml(order.sourceProductionOrderNo || order.sourceProductionOrderId || '—')}</div>`, sortValue: (order) => order.sourceProductionOrderNo || order.stockMaterialName },
-  { key: 'combined', title: '合并染色', width: 280, required: true, sortable: true, render: renderCombinedDyeing, sortValue: (order) => buildDyeWorkOrderCombinedDyeingView(order)?.satisfaction },
+  { key: 'combined', title: '合并染色', width: 280, required: true, sortable: true, render: renderDyeWorkOrderCombinedDyeingCell, sortValue: (order) => { const view = buildDyeWorkOrderCombinedDyeingView(order); return view?.hasCombinedDyeingHistory ? view.satisfaction : undefined } },
   { key: 'material', title: '原料面料', width: 210, sortable: true, render: (order) => `<div>${escapeHtml(order.rawMaterialSku)}</div><div class="text-xs text-muted-foreground">${escapeHtml(order.composition || '暂无数据')}</div>`, sortValue: (order) => order.rawMaterialSku },
   { key: 'color', title: '目标颜色', width: 120, sortable: true, render: (order) => `<div>${escapeHtml(order.targetColor)}</div><div class="text-xs text-muted-foreground">${escapeHtml(order.colorNo || '待确认')}</div>`, sortValue: (order) => order.targetColor },
   { key: 'plannedQty', title: '计划数量', width: 120, align: 'right', sortable: true, render: (order) => formatDyeQty(order.plannedQty, order.qtyUnit), sortValue: (order) => order.plannedQty },

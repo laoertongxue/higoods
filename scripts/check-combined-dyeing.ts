@@ -42,6 +42,11 @@ import {
   syncCombinedDyeingDeepLink,
 } from '../src/pages/process-factory/dyeing/combined-dyeing.ts'
 import { renderCraftDyeingWorkOrderDetailPage } from '../src/pages/process-factory/dyeing/work-order-detail.ts'
+import {
+  renderDyeWorkOrderCombinedDyeingSection,
+  resolveDyeWorkOrderCombinedHistoryPagination,
+} from '../src/pages/process-factory/dyeing/work-order-detail.ts'
+import { renderDyeWorkOrderCombinedDyeingCell } from '../src/pages/process-factory/dyeing/work-orders.ts'
 
 function readWorkspaceFile(path: string): string {
   return readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
@@ -98,6 +103,55 @@ function checkCombinedDyeingWorkspaceWiring(): void {
   assert(!page.includes('registerFormalProductionOrderDyeWorkOrder'), '页面不得直接写 canonical 染色加工单或 PDA store')
 }
 
+function checkChangeOnlyRendering(): void {
+  assert.deepEqual(
+    resolveDyeWorkOrderCombinedHistoryPagination('DYE-OLD', 'DYE-NEXT', { tasks: 3, versions: 2, impacts: 4, syncs: 5 }),
+    { ownerId: 'DYE-NEXT', pages: { tasks: 1, versions: 1, impacts: 1, syncs: 1 } },
+    '打开不同加工单详情时四类合并相关分页必须重置到第 1 页',
+  )
+  const source = listDyeWorkOrders().find((order) => order.sourceType === 'PRODUCTION_ORDER' && order.formalProductionOrderSnapshot)!
+  assert(source?.formalProductionOrderSnapshot, '生产变更独立展示需要生产单快照')
+  const snapshot = source.formalProductionOrderSnapshot
+  const autoSync = {
+    changeRecordId: 'CHANGE-UI-AUTO-ONLY',
+    before: structuredClone(snapshot),
+    after: { ...structuredClone(snapshot), plannedQty: snapshot.plannedQty + 10 },
+    syncedAt: '2026-07-16 19:10:00',
+  }
+  const impact = {
+    changeRecordId: 'CHANGE-UI-IMPACT-ONLY',
+    before: structuredClone(snapshot),
+    after: { ...structuredClone(snapshot), plannedQty: snapshot.plannedQty + 20 },
+    reason: '已执行' as const,
+    recordedAt: '2026-07-16 19:20:00',
+    suggestedAction: '业务人员确认变更影响',
+  }
+  const variants = [
+    { autoSyncHistory: [autoSync], changeImpact: undefined },
+    { autoSyncHistory: undefined, changeImpact: [impact] },
+    { autoSyncHistory: [autoSync], changeImpact: [impact] },
+  ]
+  variants.forEach((variant, index) => {
+    const order = {
+      ...structuredClone(source),
+      dyeOrderId: `DYE-CHANGE-ONLY-UI-${index + 1}`,
+      dyeOrderNo: `RSJG-CHANGE-ONLY-UI-${index + 1}`,
+      combinedDyeing: undefined,
+      ...variant,
+    }
+    const cell = renderDyeWorkOrderCombinedDyeingCell(order)
+    assert(cell.includes('尚未加入合并染色'), `仅生产变更记录场景 ${index + 1} 的列表必须显示尚未加入`)
+    ;['保留历史分配', '未满足', '有效 0'].forEach((text) => assert(!cell.includes(text), `仅生产变更记录场景 ${index + 1} 的列表不得显示 ${text}`))
+    const detail = renderDyeWorkOrderCombinedDyeingSection(order)
+    assert(detail.includes('尚未加入合并染色'), `仅生产变更记录场景 ${index + 1} 的详情必须明确尚未加入`)
+    ;['成员已锁定', '当前有效分配', '未满足量', '分配版本 / 更正历史', '历史任务与删除历史'].forEach((text) => {
+      assert(!detail.includes(text), `仅生产变更记录场景 ${index + 1} 的详情不得显示 ${text}`)
+    })
+    if (variant.autoSyncHistory) assert(detail.includes(autoSync.changeRecordId), `仅生产变更记录场景 ${index + 1} 必须保留自动同步记录`)
+    if (variant.changeImpact) assert(detail.includes(impact.suggestedAction), `仅生产变更记录场景 ${index + 1} 必须保留变更影响记录`)
+  })
+}
+
 function checkLinkedCombinedDyeingHistory(): void {
   const fakeTasks = [
     { taskId: 'ACTIVE-TASK', status: 'WAIT_DYEING' },
@@ -125,8 +179,13 @@ function checkLinkedCombinedDyeingHistory(): void {
   const workOrderDetailHtml = renderCraftDyeingWorkOrderDetailPage(orderB.dyeOrderId)
   assert(workOrderDetailHtml.includes('超出数量'), '加工单版本历史必须展示超出数量列')
   assert(workOrderDetailHtml.includes('200 Yard') && workOrderDetailHtml.includes('100 Yard'), '软删除后详情仍必须展示两版超出数量')
+  const deletedCell = renderDyeWorkOrderCombinedDyeingCell(getDyeWorkOrderById(orderB.dyeOrderId)!)
+  assert(deletedCell.includes('当前无活动任务，保留历史分配'), '已删除任务的列表必须保留历史分配语义')
+  assert(deletedCell.includes('有效 400 Yard'), '已删除任务的列表必须显示历史有效分配')
 
   const next = createCombinedDyeingTask({ dyeWorkOrderIds: [orderA.dyeOrderId, orderB.dyeOrderId], createdBy: '染厂主管', createdAt: '2026-07-16 21:00:00' })
+  const activeCell = renderDyeWorkOrderCombinedDyeingCell(getDyeWorkOrderById(orderA.dyeOrderId)!)
+  assert(activeCell.includes('已加入合并染色') && activeCell.includes(next.taskNo), '活动任务的列表必须展示当前徽标和任务号')
   syncCombinedDyeingDeepLink(`?taskId=${next.taskId}`)
   const switchedTaskHtml = renderCraftCombinedDyeingPage()
   assert(switchedTaskHtml.includes(`合并染色详情 · ${next.taskNo}`) && !switchedTaskHtml.includes(`合并染色详情 · ${completed.taskNo}`), 'SPA 多次进入不同 taskId 必须切换到新目标详情')
@@ -605,6 +664,7 @@ function checkCombinedDyeingLifecycle(): void {
 
 function main(): void {
   checkCombinedDyeingWorkspaceWiring()
+  checkChangeOnlyRendering()
   checkCentralCombinedDyeingDemoSeed()
   checkCombinedDyeingPageHelpers()
 

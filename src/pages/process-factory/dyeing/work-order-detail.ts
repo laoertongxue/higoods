@@ -73,6 +73,20 @@ const consumedWebActionKeys = new Set<string>()
 const COMBINED_PAGE_SIZE = 10
 type CombinedHistoryScope = 'tasks' | 'versions' | 'impacts' | 'syncs'
 const combinedHistoryPages: Record<CombinedHistoryScope, number> = { tasks: 1, versions: 1, impacts: 1, syncs: 1 }
+let combinedHistoryOwnerId = ''
+
+export function resolveDyeWorkOrderCombinedHistoryPagination(
+  currentOwnerId: string,
+  nextOwnerId: string,
+  pages: Readonly<Record<CombinedHistoryScope, number>>,
+): { ownerId: string; pages: Record<CombinedHistoryScope, number> } {
+  return {
+    ownerId: nextOwnerId,
+    pages: currentOwnerId === nextOwnerId
+      ? { ...pages }
+      : { tasks: 1, versions: 1, impacts: 1, syncs: 1 },
+  }
+}
 
 function combinedSatisfactionLabel(value: CombinedDyeingSatisfaction): string {
   if (value === 'FULL') return '已满足'
@@ -102,9 +116,15 @@ function combinedPagination(scope: CombinedHistoryScope, total: number, page: nu
   }).replace('<footer ', `<footer data-combined-history-scope="${scope}" `)
 }
 
-function renderCombinedDyeingSection(order: DyeWorkOrder): string {
+export function renderDyeWorkOrderCombinedDyeingSection(order: DyeWorkOrder): string {
+  const pagination = resolveDyeWorkOrderCombinedHistoryPagination(combinedHistoryOwnerId, order.dyeOrderId, combinedHistoryPages)
+  combinedHistoryOwnerId = pagination.ownerId
+  Object.assign(combinedHistoryPages, pagination.pages)
   const view = buildDyeWorkOrderCombinedDyeingView(order)
-  if (!view) return ''
+  if (!view) {
+    if (order.sourceType !== 'PRODUCTION_ORDER') return ''
+    return `<div data-dye-work-order-combined-region data-dye-order-id="${escapeHtml(order.dyeOrderId)}">${renderSection('合并染色', '<div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-muted-foreground">尚未加入合并染色</div>')}</div>`
+  }
   const activeVersion = view.activeTask?.allocationVersions.find((version) => version.current)
   const activeAllocation = activeVersion?.allocations.find((allocation) => allocation.dyeWorkOrderId === order.dyeOrderId)
   const taskPage = paginateStandardListRows(view.history, combinedHistoryPages.tasks, COMBINED_PAGE_SIZE)
@@ -164,7 +184,10 @@ function renderCombinedDyeingSection(order: DyeWorkOrder): string {
     { key: 'syncedAt', title: '同步时间', minWidth: '150px', render: (record: typeof view.autoSyncHistory[number]) => escapeHtml(record.syncedAt) },
   ], syncPage.rows, { compact: true, emptyText: '暂无自动同步历史' })
 
-  return `<div data-dye-work-order-combined-region data-dye-order-id="${escapeHtml(order.dyeOrderId)}">${renderSection('合并染色', `<div class="space-y-4">${currentTask}<section><h3 class="mb-2 font-medium">分配版本 / 更正历史</h3><div class="overflow-x-auto rounded-md border">${versionTable}${combinedPagination('versions', versionRows.length, versionPage.currentPage)}</div></section><section><h3 class="mb-2 font-medium">历史任务与删除历史</h3><div class="overflow-x-auto rounded-md border">${taskTable}${combinedPagination('tasks', view.history.length, taskPage.currentPage)}</div></section><section><h3 class="mb-2 font-medium">生产单变更影响</h3><div class="overflow-x-auto rounded-md border">${impactTable}${combinedPagination('impacts', view.changeImpacts.length, impactPage.currentPage)}</div></section><section><h3 class="mb-2 font-medium">未执行自动同步历史</h3><div class="overflow-x-auto rounded-md border">${syncTable}${combinedPagination('syncs', view.autoSyncHistory.length, syncPage.currentPage)}</div></section></div>`)}</div>`
+  const combinedHistoryContent = view.hasCombinedDyeingHistory
+    ? `${currentTask}<section><h3 class="mb-2 font-medium">分配版本 / 更正历史</h3><div class="overflow-x-auto rounded-md border">${versionTable}${combinedPagination('versions', versionRows.length, versionPage.currentPage)}</div></section><section><h3 class="mb-2 font-medium">历史任务与删除历史</h3><div class="overflow-x-auto rounded-md border">${taskTable}${combinedPagination('tasks', view.history.length, taskPage.currentPage)}</div></section>`
+    : '<div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-muted-foreground">尚未加入合并染色</div>'
+  return `<div data-dye-work-order-combined-region data-dye-order-id="${escapeHtml(order.dyeOrderId)}">${renderSection('合并染色', `<div class="space-y-4">${combinedHistoryContent}<section><h3 class="mb-2 font-medium">生产单变更影响</h3><div class="overflow-x-auto rounded-md border">${impactTable}${combinedPagination('impacts', view.changeImpacts.length, impactPage.currentPage)}</div></section><section><h3 class="mb-2 font-medium">未执行自动同步历史</h3><div class="overflow-x-auto rounded-md border">${syncTable}${combinedPagination('syncs', view.autoSyncHistory.length, syncPage.currentPage)}</div></section></div>`)}</div>`
 }
 
 export function handleDyeWorkOrderCombinedDetailEvent(target: HTMLElement): boolean {
@@ -179,7 +202,7 @@ export function handleDyeWorkOrderCombinedDetailEvent(target: HTMLElement): bool
   combinedHistoryPages[scope] = Math.max(1, combinedHistoryPages[scope] + (action === 'next-page' ? 1 : -1))
   const order = getDyeWorkOrderById(region.dataset.dyeOrderId || '')
   if (!order) return true
-  region.outerHTML = renderCombinedDyeingSection(order)
+  region.outerHTML = renderDyeWorkOrderCombinedDyeingSection(order)
   const nextRegion = document.querySelector<HTMLElement>(`[data-dye-work-order-combined-region][data-dye-order-id="${order.dyeOrderId}"]`)
   if (nextRegion) hydrateIcons(nextRegion)
   return true
@@ -489,7 +512,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
             ${renderField('水溶差异', `${diff > 0 ? '多' : diff < 0 ? '少' : '一致'}${diff === 0 ? '' : ` ${Math.abs(diff)} ${unit}`}`)}
             ${renderField('连续加工', '同一家染厂完成，水溶完成数量为染色投入上限')}
           </div>${renderContinuousWaterSolubleActions(domainOrder)}`) : ''}
-          ${renderCombinedDyeingSection(domainOrder)}
+          ${renderDyeWorkOrderCombinedDyeingSection(domainOrder)}
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/craft/dyeing/work-orders">返回染色加工单</button>
         </div>
       `
@@ -803,7 +826,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
       ${renderDetailTabs(order.workOrderId, activeTab)}
       ${renderWebActionPanel(order.workOrderId, order.statusLabel, webActions, platformStatus.platformStatusLabel)}
       ${sections[activeTab]}
-      ${domainOrder ? renderCombinedDyeingSection(domainOrder) : ''}
+      ${domainOrder ? renderDyeWorkOrderCombinedDyeingSection(domainOrder) : ''}
       ${renderWebOperationRecords(webOperationRecords)}
     </div>
   `

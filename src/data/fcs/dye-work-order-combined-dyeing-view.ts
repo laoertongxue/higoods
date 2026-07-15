@@ -14,6 +14,7 @@ import type {
 } from './process-work-order-domain.ts'
 
 export interface DyeWorkOrderCombinedDyeingView {
+  hasCombinedDyeingHistory: boolean
   activeTask?: CombinedDyeingTask
   occupiedByActiveTask: boolean
   requiredQty: number
@@ -37,9 +38,16 @@ export function buildDyeWorkOrderCombinedDyeingView(
   if (history.length === 0 && !(order.changeImpact?.length || order.autoSyncHistory?.length)) return undefined
 
   const activeTask = history.find((task) => task.status !== 'DELETED')
-  const fulfillment = getEffectiveDyeingFulfillment(order.dyeOrderId)
-  const requiredQty = fulfillment.requiredQty > 0 ? fulfillment.requiredQty : order.plannedQty
-  const currentEffectiveAllocationQty = fulfillment.requiredQty > 0 ? fulfillment.effectiveSatisfiedQty : 0
+  const hasCombinedDyeingHistory = history.length > 0
+  const fulfillment = hasCombinedDyeingHistory
+    ? getEffectiveDyeingFulfillment(order.dyeOrderId)
+    : undefined
+  const requiredQty = hasCombinedDyeingHistory
+    ? (fulfillment!.requiredQty > 0 ? fulfillment!.requiredQty : order.plannedQty)
+    : 0
+  const currentEffectiveAllocationQty = fulfillment && fulfillment.requiredQty > 0
+    ? fulfillment.effectiveSatisfiedQty
+    : 0
   const unmetQty = Math.max(0, requiredQty - currentEffectiveAllocationQty)
   const satisfaction: CombinedDyeingSatisfaction = unmetQty === 0
     ? 'FULL'
@@ -50,6 +58,7 @@ export function buildDyeWorkOrderCombinedDyeingView(
   })))
 
   return {
+    hasCombinedDyeingHistory,
     activeTask: activeTask ? structuredClone(activeTask) : undefined,
     occupiedByActiveTask: Boolean(activeTask),
     requiredQty,
