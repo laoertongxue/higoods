@@ -1,7 +1,7 @@
 {
   "src/pages/adjustments.ts": "88a7494e5b76ae6ebb5d73e1ae32305efb9d8ebd44dd3bf8d5238ef4b20141e5",
   "src/pages/capacity.ts": "d227679ae629142e4df8c8264bd25e4ec01f5c788685186aee21d4a3452d38ed",
-  "src/pages/continuous-dispatch.ts": "f4f8a7a2019982a65b5594e81a3670713d2f218dbf8f78a54d8b7e5fafa563d4",
+  "src/pages/continuous-dispatch.ts": "53a4e4e144cd4ee1fd92be735e2af6bd365bb4e2185a7ed706cff5cd1b504f2e",
   "src/pages/dispatch-acceptance-sla.ts": "ab18788faf639fad41e407592421c35ed1815fe185a6d80b610f839ac03e932b",
   "src/pages/dispatch-board/board-domain.ts": "5fcf87ddf1a1b7d683c6980c48cd15a89e53eff8c9ff2decc9206c1a7742c2bc",
   "src/pages/dispatch-board/core.ts": "39f3f696165b709a05c65ac231ddf71e5794f7c593c94695de63dbf5d7b2e9bf",
