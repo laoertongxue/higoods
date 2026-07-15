@@ -87,8 +87,37 @@ function statusClass(status: string): string {
   return 'bg-blue-50 text-blue-700'
 }
 
-function renderStatus(status: string): string {
-  return `<span class="inline-flex rounded-full px-2 py-1 text-xs font-medium ${statusClass(status)}">${escapeHtml(status)}</span>`
+type StatusDetailKey =
+  | 'printing'
+  | 'dyeing'
+  | 'breakdown'
+  | 'materialPrep'
+  | 'factory'
+  | 'marker'
+  | 'spreading'
+  | 'cutting'
+  | 'inbound'
+  | 'shipping'
+
+const STATUS_DETAIL_TAB: Record<StatusDetailKey, string> = {
+  printing: 'material-flow',
+  dyeing: 'material-flow',
+  breakdown: 'cut-orders',
+  materialPrep: 'material-flow',
+  factory: 'material-flow',
+  marker: 'marker-spreading',
+  spreading: 'marker-spreading',
+  cutting: 'fei-tickets',
+  inbound: 'warehouse-bags',
+  shipping: 'handover',
+}
+
+function buildStatusDetailPath(row: ProductionOrderOverviewRow, key: StatusDetailKey): string {
+  return `/fcs/craft/cutting/production-progress-detail/${encodeURIComponent(row.id)}?tab=${STATUS_DETAIL_TAB[key]}`
+}
+
+function renderStatus(row: ProductionOrderOverviewRow, status: string, key: StatusDetailKey): string {
+  return `<button type="button" class="inline-flex rounded-full px-2 py-1 text-xs font-medium hover:ring-2 hover:ring-blue-200 ${statusClass(status)}" data-nav="${escapeHtml(buildStatusDetailPath(row, key))}">${escapeHtml(status)}</button>`
 }
 
 function renderProductionOrderCell(row: ProductionOrderOverviewRow): string {
@@ -132,11 +161,11 @@ function renderFactoryLines(row: ProductionOrderOverviewRow): string {
         <span>工厂</span><span>类型</span><span>接单</span><span>领取</span>
       </div>
       ${getFactoryLines(row).map((line) => `
-        <div class="grid grid-cols-[minmax(150px,1.4fr)_95px_70px_80px] items-center border-t px-2 py-2 leading-5">
+        <div class="grid grid-cols-[minmax(150px,1.4fr)_95px_70px_80px] items-center border-t px-2 py-2 leading-5" data-cutting-overview-factory-line>
           <span class="font-medium text-foreground">${escapeHtml(line.factoryName)}</span>
           <span class="text-muted-foreground">${escapeHtml(line.factoryTypeLabel)}</span>
-          <span>${escapeHtml(line.acceptanceLabel)}</span>
-          <span>${escapeHtml(line.pickupLabel)}</span>
+          <button type="button" class="text-left hover:underline" data-nav="${escapeHtml(buildStatusDetailPath(row, 'factory'))}">${escapeHtml(line.acceptanceLabel)}</button>
+          <button type="button" class="text-left hover:underline" data-nav="${escapeHtml(buildStatusDetailPath(row, 'factory'))}">${escapeHtml(line.pickupLabel)}</button>
         </div>
       `).join('')}
     </div>
@@ -146,7 +175,7 @@ function renderFactoryLines(row: ProductionOrderOverviewRow): string {
 function renderShippingCell(row: ProductionOrderOverviewRow): string {
   return `
     <div class="space-y-2 text-xs leading-5">
-      ${renderStatus(row.shippingStatus)}
+      ${renderStatus(row, row.shippingStatus, 'shipping')}
       <div class="text-muted-foreground">接收工厂：${escapeHtml(row.receiverFactoryNames.join('、') || '—')}</div>
     </div>
   `
@@ -188,15 +217,15 @@ function renderTable(rows: ProductionOrderOverviewRow[], state: ProductionOrderO
               <tr class="border-b align-top last:border-b-0 hover:bg-muted/20" data-production-order-id="${escapeHtml(row.productionOrderId)}">
                 <td class="sticky left-0 z-10 bg-card px-3 py-3">${renderProductionOrderCell(row)}</td>
                 <td class="sticky left-[240px] z-10 bg-card px-3 py-3">${renderStyleCell(row)}</td>
-                <td class="px-3 py-3">${renderStatus(row.printingStatus)}</td>
-                <td class="px-3 py-3">${renderStatus(row.dyeingStatus)}</td>
-                <td class="px-3 py-3">${renderStatus(row.breakdownStatus)}</td>
-                <td class="px-3 py-3">${renderStatus(row.materialPrepStatus)}</td>
+                <td class="px-3 py-3">${renderStatus(row, row.printingStatus, 'printing')}</td>
+                <td class="px-3 py-3">${renderStatus(row, row.dyeingStatus, 'dyeing')}</td>
+                <td class="px-3 py-3">${renderStatus(row, row.breakdownStatus, 'breakdown')}</td>
+                <td class="px-3 py-3">${renderStatus(row, row.materialPrepStatus, 'materialPrep')}</td>
                 <td class="px-3 py-3">${renderFactoryLines(row)}</td>
-                <td class="px-3 py-3">${renderStatus(row.markerStatus)}</td>
-                <td class="px-3 py-3">${renderStatus(row.spreadingStatus)}</td>
-                <td class="px-3 py-3">${renderStatus(row.cuttingStatus)}</td>
-                <td class="px-3 py-3">${renderStatus(row.inboundStatus)}</td>
+                <td class="px-3 py-3">${renderStatus(row, row.markerStatus, 'marker')}</td>
+                <td class="px-3 py-3">${renderStatus(row, row.spreadingStatus, 'spreading')}</td>
+                <td class="px-3 py-3">${renderStatus(row, row.cuttingStatus, 'cutting')}</td>
+                <td class="px-3 py-3">${renderStatus(row, row.inboundStatus, 'inbound')}</td>
                 <td class="px-3 py-3">${renderShippingCell(row)}</td>
               </tr>
             `).join('') : '<tr><td colspan="12" class="px-6 py-12 text-center text-sm text-muted-foreground">当前筛选条件下暂无匹配生产单。</td></tr>'}

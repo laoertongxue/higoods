@@ -43,6 +43,7 @@ interface MaterialPrepOverviewSource {
 
 interface CuttingProgressOverviewSource {
   productionOrderId: string
+  detailRecordId?: string
   markerStatus: string
   spreadingStatus: string
   cuttingStatus: string
@@ -143,6 +144,7 @@ export function buildDefaultProductionOrderOverviewSources(): ProductionOrderOve
     })),
     cuttingProgressRows: progressRows.map((row) => ({
       productionOrderId: row.productionOrderId,
+      detailRecordId: row.id,
       markerStatus: row.hasSpreadingRecord ? '已完成' : '未开始',
       spreadingStatus: row.hasSpreadingRecord ? '已完成' : '未开始',
       cuttingStatus: row.cuttingCompletionSummary.label || '—',
@@ -197,7 +199,7 @@ function buildRow(
   const receiverFactoryNames = cutting?.receiverFactoryNames ?? []
 
   return {
-    id: order.productionOrderId,
+    id: cutting?.detailRecordId ?? order.productionOrderId,
     productionOrderId: order.productionOrderId,
     productionOrderNo: order.productionOrderNo,
     productionOrderCreatedAt: order.createdAt,
