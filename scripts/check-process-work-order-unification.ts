@@ -63,6 +63,7 @@ const stockSourceBoundaryFiles = [
   'src/data/fcs/process-execution-writeback.ts',
   'src/data/fcs/pda-handover-events.ts',
   'src/pages/pda-handover.ts',
+  'src/pages/pda-handover-detail.ts',
 ]
 
 assertIncludes(domainSource, 'export interface ProcessWorkOrder', '统一加工单领域')
@@ -81,6 +82,7 @@ for (const file of stockSourceBoundaryFiles) {
 }
 assertIncludes(pdaHandoverSource, 'getPdaHandoverSourceDisplay(head)', 'PDA 交出页来源展示')
 assertIncludes(pdaHandoverSource, 'renderHandoverSourceField(head)', 'PDA 交出页来源字段')
+assertIncludes(read('src/pages/pda-handover-detail.ts'), 'renderPdaHandoverSourceIdentity(head)', 'PDA 交出详情来源字段')
 
 const printWorkOrders = listPrintWorkOrders()
 const dyeWorkOrders = listDyeWorkOrders()
