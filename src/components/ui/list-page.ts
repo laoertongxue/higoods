@@ -25,9 +25,9 @@ export function renderStandardListStats(items: StandardListStatItem[]): string {
       ${items
         .map(
           (item) => `
-            <div class="min-w-[10rem] flex-1 rounded-lg border bg-card px-4 py-3">
-              <div class="text-xs text-muted-foreground">${escapeHtml(item.label)}</div>
-              <div class="mt-1 text-xl font-semibold tabular-nums">${escapeHtml(item.value)}</div>
+            <div class="flex h-12 min-w-[10rem] flex-1 items-center justify-between gap-4 rounded-lg border bg-card px-4">
+              <span class="text-sm text-muted-foreground">${escapeHtml(item.label)}</span>
+              <strong class="text-lg font-semibold tabular-nums">${escapeHtml(item.value)}</strong>
             </div>
           `,
         )

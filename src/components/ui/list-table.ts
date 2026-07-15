@@ -93,6 +93,22 @@ function frozenClass(
   return `sticky ${left === 0 ? 'left-0' : ''} bg-background ${header ? 'z-20' : 'z-10'}`
 }
 
+function renderSortIcon(direction: 'asc' | 'desc' | null): string {
+  const body = direction === 'asc'
+    ? '<path d="m18 15-6-6-6 6"/><path d="M12 9v12"/>'
+    : direction === 'desc'
+      ? '<path d="m6 9 6 6 6-6"/><path d="M12 15V3"/>'
+      : '<path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/>'
+  const state = direction ?? 'none'
+  const tone = direction ? 'border-primary/40 bg-primary/5 text-primary' : 'border-border bg-background text-muted-foreground'
+
+  return `
+    <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border ${tone}" data-standard-list-sort-icon="${state}">
+      <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>
+    </span>
+  `
+}
+
 function renderSortHeader<T>(
   column: StandardListColumn<T>,
   sort: StandardListSortState | null,
@@ -101,7 +117,6 @@ function renderSortHeader<T>(
   const activeDirection = sort?.key === column.key ? sort.direction : null
   const nextDirection = activeDirection === 'asc' ? 'desc' : 'asc'
   const actionAttr = toActionAttr({ prefix: eventPrefix, action: 'sort-column' })
-  const icon = activeDirection === 'asc' ? 'arrow-up' : activeDirection === 'desc' ? 'arrow-down' : 'arrow-up-down'
 
   return `
     <button
@@ -112,7 +127,7 @@ function renderSortHeader<T>(
       aria-label="按${escapeHtml(column.title)}${nextDirection === 'asc' ? '升序' : '降序'}排列"
     >
       <span>${escapeHtml(column.title)}</span>
-      <i data-lucide="${icon}" class="h-3.5 w-3.5" aria-hidden="true"></i>
+      ${renderSortIcon(activeDirection)}
     </button>
   `
 }
