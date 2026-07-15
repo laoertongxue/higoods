@@ -34,6 +34,11 @@ import {
   validateWaterSolublePdaActor,
   type WaterSolublePdaActor,
 } from './water-soluble-pda-actor.ts'
+import {
+  getActiveCombinedDyeingMembership,
+  getEffectiveDyeingFulfillment,
+  type CombinedDyeingSatisfaction,
+} from './combined-dyeing-domain.ts'
 
 export type DyeWorkOrderStatus =
   | 'WAIT_SAMPLE'
@@ -101,6 +106,8 @@ export interface DyeWorkOrder {
   width?: string
   weightGsm?: number
   targetColor: string
+  dyeProcessCode: 'DYE'
+  dyeProcessName: string
   plannedQty: number
   qtyUnit: string
   plannedFinishAt?: string
@@ -133,6 +140,16 @@ export interface DyeWorkOrder {
   updatedAt: string
   remark?: string
   formalProductionOrderSnapshot?: FormalProductionOrderProcessSnapshotRecord
+  combinedDyeing?: DyeWorkOrderCombinedDyeingProjection
+}
+
+export interface DyeWorkOrderCombinedDyeingProjection {
+  currentTaskId?: string
+  currentTaskNo?: string
+  effectiveSatisfiedQty: number
+  remainingNeedQty: number
+  satisfaction: CombinedDyeingSatisfaction
+  occupiedByActiveTask: boolean
 }
 
 export interface DyeExecutionNodeRecord {
@@ -436,6 +453,8 @@ function buildGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): 
     rawMaterialSku: materialName,
     composition: techPackSnapshot.bomItems[0]?.spec || order.composition,
     targetColor,
+    dyeProcessCode: 'DYE',
+    dyeProcessName: craftDefinition.craftName,
     colorNo: techPackSnapshot.sourceTechPackVersionCode || order.colorNo,
     plannedQty,
     plannedRollCount: Math.max(1, Math.ceil(plannedQty / 80)),
@@ -467,6 +486,18 @@ function normalizeSeedWorkOrderSources(): void {
 }
 
 function cloneWorkOrder(order: MutableDyeWorkOrder): DyeWorkOrder {
+  const activeMembership = getActiveCombinedDyeingMembership(order.dyeOrderId)
+  const fulfillment = getEffectiveDyeingFulfillment(order.dyeOrderId)
+  const combinedDyeing = activeMembership || fulfillment.requiredQty > 0
+    ? {
+        currentTaskId: activeMembership?.taskId,
+        currentTaskNo: activeMembership?.taskNo,
+        effectiveSatisfiedQty: fulfillment.effectiveSatisfiedQty,
+        remainingNeedQty: fulfillment.requiredQty > 0 ? fulfillment.remainingNeedQty : order.plannedQty,
+        satisfaction: fulfillment.requiredQty > 0 ? fulfillment.satisfaction : 'UNMET' as const,
+        occupiedByActiveTask: Boolean(activeMembership),
+      }
+    : undefined
   return {
     ...order,
     sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
@@ -474,6 +505,7 @@ function cloneWorkOrder(order: MutableDyeWorkOrder): DyeWorkOrder {
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
       ? { ...order.formalProductionOrderSnapshot, processCodes: [...order.formalProductionOrderSnapshot.processCodes] }
       : undefined,
+    combinedDyeing,
   }
 }
 
@@ -958,12 +990,17 @@ function addSeedWorkOrder(input: Omit<
   | 'waterSolublePlannedQty'
   | 'waterSolubleCompletedQty'
   | 'waterSolubleQtyUnit'
+  | 'dyeProcessCode'
+  | 'dyeProcessName'
+  | 'combinedDyeing'
 > & {
   dispatchPrice?: number
   requiresWaterSoluble?: boolean
   waterSolublePlannedQty?: number
   waterSolubleCompletedQty?: number
   waterSolubleQtyUnit?: string
+  dyeProcessCode?: 'DYE'
+  dyeProcessName?: string
 }): void {
   const task = getDyeingTaskById(input.taskId)
   const handoverOrder = input.handoverOrderId ? getHandoverOrderById(input.handoverOrderId) : getPrimaryHandoverOrder(input.taskId)
@@ -989,6 +1026,8 @@ function addSeedWorkOrder(input: Omit<
 
   workOrderStore.set(input.dyeOrderId, {
     ...input,
+    dyeProcessCode: input.dyeProcessCode ?? 'DYE',
+    dyeProcessName: input.dyeProcessName?.trim() || input.formalProductionOrderSnapshot?.processName || '普通染色',
     requiresWaterSoluble: input.requiresWaterSoluble === true,
     waterSolublePlannedQty: input.requiresWaterSoluble ? (input.waterSolublePlannedQty ?? input.plannedQty) : undefined,
     waterSolubleCompletedQty: input.requiresWaterSoluble ? (input.waterSolubleCompletedQty ?? 0) : undefined,
@@ -2461,6 +2500,8 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
     rawMaterialSku: input.materialId,
     composition: input.materialName,
     targetColor: input.targetColor,
+    dyeProcessCode: 'DYE',
+    dyeProcessName: input.processName,
     plannedQty: input.plannedQty,
     qtyUnit: input.qtyUnit,
     requiresWaterSoluble: input.requiresWaterSoluble === true,
@@ -2727,6 +2768,8 @@ export function createDyeWorkOrderFromStock(input: {
     sampleWaitStartedAt: requiresSample ? now : undefined,
     rawMaterialSku: materialSku,
     targetColor: input.targetColor.trim() || '按工艺要求执行',
+    dyeProcessCode: 'DYE',
+    dyeProcessName: input.processName.trim(),
     plannedQty,
     qtyUnit: normalizedUnit,
     plannedFinishAt,

@@ -3,9 +3,26 @@ import { readFileSync } from 'node:fs'
 
 import {
   allocateCombinedDyeingOutput,
+  completeCombinedDyeingTask,
+  correctCombinedDyeingResult,
+  createCombinedDyeingTask,
+  deleteCombinedDyeingTask,
+  getActiveCombinedDyeingMembership,
+  getCombinedDyeingTaskById,
+  getEffectiveDyeingFulfillment,
+  listCombinedDyeingTasks,
   parseCombinedDyeingQuantityMinorUnits,
   type CombinedDyeingMemberSnapshot,
 } from '../src/data/fcs/combined-dyeing-domain.ts'
+import {
+  createDyeWorkOrderFromStock,
+  getDyeWorkOrderById,
+  listDyeExecutionNodeRecords,
+  listDyeWorkOrders,
+  registerFormalProductionOrderDyeWorkOrder,
+  type DyeWorkOrder,
+} from '../src/data/fcs/dyeing-task-domain.ts'
+import { listProcessWorkOrderStockMaterials } from '../src/data/fcs/process-work-order-stock.ts'
 
 const memberA: CombinedDyeingMemberSnapshot = {
   dyeWorkOrderId: 'DYE-WO-A',
@@ -66,6 +83,248 @@ function assertQuantityConservation(
   }
   assert(result.allocations.every((item) => Number.isFinite(item.allocatedQty) && Number.isFinite(item.unmetQty)), '所有成员数量输出必须有限')
   assert(Number.isFinite(result.excessQty), '超出数量必须有限')
+}
+
+let lifecycleWorkOrderSequence = 0
+
+function registerLifecycleWorkOrder(overrides: Partial<{
+  factoryId: string
+  materialId: string
+  materialName: string
+  targetColor: string
+  processName: string
+  plannedQty: number
+  orderedAt: string
+}> = {}): DyeWorkOrder {
+  lifecycleWorkOrderSequence += 1
+  const suffix = String(lifecycleWorkOrderSequence).padStart(3, '0')
+  return registerFormalProductionOrderDyeWorkOrder({
+    workOrderId: `DYE-COMBINED-LIFE-${suffix}`,
+    workOrderNo: `RSJG-COMBINED-LIFE-${suffix}`,
+    productionOrderId: `PO-COMBINED-LIFE-${suffix}`,
+    productionOrderNo: `PO-COMBINED-${suffix}`,
+    orderedAt: overrides.orderedAt ?? `2026-07-16 ${String(8 + (lifecycleWorkOrderSequence % 8)).padStart(2, '0')}:00:00`,
+    techPackVersionId: `TP-COMBINED-${suffix}`,
+    techPackVersionLabel: '技术包 V1',
+    materialId: overrides.materialId ?? 'MAT-COMBINED-001',
+    materialName: overrides.materialName ?? '合并染色面料',
+    targetColor: overrides.targetColor ?? '深蓝',
+    plannedQty: overrides.plannedQty ?? 100,
+    qtyUnit: '米',
+    processCodes: ['DYE'],
+    processName: overrides.processName ?? '活性染色',
+    factoryId: overrides.factoryId ?? 'FAC-COMBINED-DYE',
+    factoryName: `染厂-${overrides.factoryId ?? 'FAC-COMBINED-DYE'}`,
+    spuCode: `SPU-COMBINED-${suffix}`,
+    spuName: `合并染色款-${suffix}`,
+    requiredDeliveryDate: '2026-07-25 18:00:00',
+  })
+}
+
+function checkCombinedDyeingLifecycle(): void {
+  const baseA = registerLifecycleWorkOrder({ plannedQty: 60, orderedAt: '2026-07-16 08:00:00' })
+  const baseB = registerLifecycleWorkOrder({ plannedQty: 40, orderedAt: '2026-07-16 09:00:00' })
+  assert.throws(() => createCombinedDyeingTask({ workOrders: [baseA], createdBy: '计划员', createdAt: '2026-07-16 10:00:00' }), /至少.*2/, '少于 2 张加工单必须拒绝')
+  assert.throws(() => createCombinedDyeingTask({ workOrders: [{ ...baseA, productionOrderIds: [] }, baseB], createdBy: '计划员' }), /只能关联一张生产单/, '生产单 ID 列表为空必须拒绝')
+  assert.throws(() => createCombinedDyeingTask({ workOrders: [{ ...baseA, productionOrderIds: undefined }, baseB], createdBy: '计划员' }), /只能关联一张生产单/, '生产单 ID 列表缺失必须拒绝')
+
+  const stock = listProcessWorkOrderStockMaterials({ processCode: 'DYE' })[0]!
+  assert(stock, '测试前置：必须存在真实染色备货库存')
+  const stockResult = createDyeWorkOrderFromStock({
+    stockMaterialId: stock.stockMaterialId,
+    stockMaterialName: stock.stockMaterialName,
+    materialSku: stock.materialSku,
+    factoryId: stock.factoryId,
+    plannedFinishAt: '2026-07-25 18:00',
+    plannedQty: Math.min(10, stock.availableQty),
+    qtyUnit: stock.qtyUnit,
+    processName: '活性染色',
+    targetColor: '深蓝',
+  })
+  assert(stockResult.ok && stockResult.order, '测试前置：真实备货染色加工单必须创建成功')
+  assert.throws(() => createCombinedDyeingTask({ workOrders: [baseA, stockResult.order!], createdBy: '计划员' }), /生产单来源/, 'STOCK 加工单必须拒绝')
+  assert.throws(() => createCombinedDyeingTask({ workOrders: [baseA, registerLifecycleWorkOrder({ factoryId: 'FAC-OTHER' })], createdBy: '计划员' }), /染厂/, '不同染厂必须拒绝')
+  assert.throws(() => createCombinedDyeingTask({ workOrders: [baseA, registerLifecycleWorkOrder({ materialId: 'MAT-OTHER' })], createdBy: '计划员' }), /面料/, '不同面料必须拒绝')
+  assert.throws(() => createCombinedDyeingTask({ workOrders: [baseA, registerLifecycleWorkOrder({ targetColor: '黑色' })], createdBy: '计划员' }), /目标颜色/, '不同目标颜色必须拒绝')
+  assert.throws(() => createCombinedDyeingTask({ workOrders: [baseA, registerLifecycleWorkOrder({ processName: '分散染色' })], createdBy: '计划员' }), /染色工艺/, '不同染色工艺必须拒绝')
+
+  const created = createCombinedDyeingTask({
+    workOrders: [baseB, baseA],
+    createdBy: '计划员',
+    createdAt: '2026-07-16 10:00:00',
+    remark: '同缸染色',
+  })
+  assert.equal(created.status, 'WAIT_DYEING')
+  assert.equal(created.members.length, 2)
+  assert.equal(created.actualInputQty, undefined, '创建时不得填写实际投入')
+  assert.equal(created.actualOutputQty, undefined, '创建时不得填写实际产出')
+  assert.throws(() => createCombinedDyeingTask({ workOrders: [baseA, registerLifecycleWorkOrder()], createdBy: '计划员' }), /已加入未删除/, '活动任务成员不得再次占用')
+  assert.equal(getActiveCombinedDyeingMembership(baseA.dyeOrderId)?.taskId, created.taskId)
+
+  const returned = getCombinedDyeingTaskById(created.taskId)!
+  returned.members[0]!.requiredQty = 999
+  assert.notEqual(getCombinedDyeingTaskById(created.taskId)!.members[0]!.requiredQty, 999, '任务和成员返回值必须深克隆')
+
+  assert.throws(() => completeCombinedDyeingTask(created.taskId, {
+    actualInputQty: 0,
+    actualOutputQty: 0,
+    completedBy: '染厂主管',
+    completedAt: '2026-07-16 13:00:00',
+    remark: '零投入',
+  }), /投入.*大于 0/, '实际投入必须大于 0')
+  assert.throws(() => completeCombinedDyeingTask(created.taskId, {
+    actualInputQty: 100.0001,
+    actualOutputQty: 0,
+    completedBy: '染厂主管',
+    completedAt: '2026-07-16 13:00:00',
+    remark: '精度错误',
+  }), /最多 3 位小数/, '实际投入必须遵循三位小数合同')
+
+  const factsBeforeCompletion = {
+    combinedTasks: listCombinedDyeingTasks({ includeDeleted: true }).length,
+    dyeWorkOrders: listDyeWorkOrders().length,
+    dyeNodes: listDyeExecutionNodeRecords().length,
+  }
+  const completed = completeCombinedDyeingTask(created.taskId, {
+    actualInputQty: 100,
+    actualOutputQty: 70,
+    completedBy: '染厂主管',
+    completedAt: '2026-07-16 13:00:00',
+    remark: '短产完成',
+  })
+  assert.equal(completed.status, 'COMPLETED')
+  assert.equal(completed.allocationVersions.length, 1)
+  assert.equal(completed.allocationVersions[0]!.versionNo, 1)
+  assert.equal(completed.allocationVersions[0]!.current, true)
+  assert.deepEqual(completed.allocationVersions[0]!.allocations.map((item) => [item.allocatedQty, item.satisfaction]), [[60, 'FULL'], [10, 'PARTIAL']])
+  assert.deepEqual({
+    combinedTasks: listCombinedDyeingTasks({ includeDeleted: true }).length,
+    dyeWorkOrders: listDyeWorkOrders().length,
+    dyeNodes: listDyeExecutionNodeRecords().length,
+  }, factsBeforeCompletion, '一次完成不得生成投缸、补染、继续染、后续任务或新加工单记录')
+  assert.throws(() => completeCombinedDyeingTask(created.taskId, {
+    actualInputQty: 100,
+    actualOutputQty: 70,
+    completedBy: '染厂主管',
+    completedAt: '2026-07-16 13:01:00',
+    remark: '重复',
+  }), /只能完成一次/, '任务只能完成一次')
+
+  const beforeBlankCorrection = getCombinedDyeingTaskById(created.taskId)
+  assert.throws(() => correctCombinedDyeingResult(created.taskId, {
+    actualInputQty: 100,
+    actualOutputQty: 50,
+    reason: '',
+    correctedBy: '主管',
+    correctedAt: '2026-07-16 13:59:00',
+  }), /更正原因不能为空/, '更正原因必填')
+  assert.deepEqual(getCombinedDyeingTaskById(created.taskId), beforeBlankCorrection, '更正校验失败不得改写 current 版本')
+
+  const corrected = correctCombinedDyeingResult(created.taskId, {
+    actualInputQty: 100,
+    actualOutputQty: 50,
+    reason: '复秤修正',
+    correctedBy: '主管',
+    correctedAt: '2026-07-16 14:00:00',
+  })
+  assert.equal(corrected.allocationVersions.length, 2)
+  assert.equal(corrected.allocationVersions[0]!.current, false)
+  assert.equal(corrected.allocationVersions[1]!.versionNo, 2)
+  assert.equal(corrected.allocationVersions[1]!.current, true)
+  const beforeRejectedMemberCorrection = getCombinedDyeingTaskById(created.taskId)
+  assert.throws(() => correctCombinedDyeingResult(created.taskId, {
+    actualInputQty: 100,
+    actualOutputQty: 50,
+    reason: '非法更换成员',
+    correctedBy: '主管',
+    correctedAt: '2026-07-16 14:01:00',
+    members: [],
+  } as never), /不接受字段：members/, '更正不得修改成员或合并身份')
+  assert.deepEqual(getCombinedDyeingTaskById(created.taskId), beforeRejectedMemberCorrection, '非法更正不得污染任务')
+  corrected.allocationVersions[1]!.allocations[0]!.allocatedQty = 999
+  assert.notEqual(getCombinedDyeingTaskById(created.taskId)!.allocationVersions[1]!.allocations[0]!.allocatedQty, 999, '版本和分配返回值必须深克隆')
+
+  const fulfillmentA = getEffectiveDyeingFulfillment(baseA.dyeOrderId)
+  const fulfillmentB = getEffectiveDyeingFulfillment(baseB.dyeOrderId)
+  assert.deepEqual([fulfillmentA.effectiveSatisfiedQty, fulfillmentA.remainingNeedQty, fulfillmentA.satisfaction], [50, 10, 'PARTIAL'])
+  assert.deepEqual([fulfillmentB.effectiveSatisfiedQty, fulfillmentB.remainingNeedQty, fulfillmentB.satisfaction], [0, 40, 'UNMET'])
+  const projectedA = getDyeWorkOrderById(baseA.dyeOrderId)!.combinedDyeing
+  assert.deepEqual(
+    [projectedA?.currentTaskId, projectedA?.effectiveSatisfiedQty, projectedA?.remainingNeedQty, projectedA?.satisfaction, projectedA?.occupiedByActiveTask],
+    [created.taskId, 50, 10, 'PARTIAL', true],
+    '染色加工单必须读取合并任务当前投影',
+  )
+
+  const beforeBlankDelete = getCombinedDyeingTaskById(created.taskId)
+  assert.throws(() => deleteCombinedDyeingTask(created.taskId, {
+    deletedBy: '计划主管',
+    deletedAt: '2026-07-16 14:59:00',
+    reason: '',
+  }), /删除原因不能为空/, '删除原因必填')
+  assert.deepEqual(getCombinedDyeingTaskById(created.taskId), beforeBlankDelete, '删除校验失败不得提前改写状态')
+
+  const deletedCompleted = deleteCombinedDyeingTask(created.taskId, {
+    deletedBy: '计划主管',
+    deletedAt: '2026-07-16 15:00:00',
+    reason: '任务归档删除',
+  })
+  assert.equal(deletedCompleted.status, 'DELETED')
+  assert.equal(listCombinedDyeingTasks().some((item) => item.taskId === created.taskId), false, '默认列表排除已删除')
+  assert.equal(listCombinedDyeingTasks({ includeDeleted: true }).some((item) => item.taskId === created.taskId), true, 'includeDeleted 保留历史')
+  assert.equal(getEffectiveDyeingFulfillment(baseA.dyeOrderId).effectiveSatisfiedQty, 50, '删除已完成任务不得撤回有效满足量')
+  assert.equal(getActiveCombinedDyeingMembership(baseA.dyeOrderId), undefined, '删除必须释放活动占用')
+  assert.throws(() => correctCombinedDyeingResult(created.taskId, {
+    actualInputQty: 100,
+    actualOutputQty: 60,
+    reason: '删除后修正',
+    correctedBy: '主管',
+    correctedAt: '2026-07-16 16:00:00',
+  }), /已删除/, '已删除任务不得更正')
+  assert.throws(() => deleteCombinedDyeingTask(created.taskId, { deletedBy: '主管', deletedAt: '2026-07-16 16:00:00', reason: '重复删除' }), /已删除/, '重复删除明确拒绝')
+
+  const followA = registerLifecycleWorkOrder({ plannedQty: 40, orderedAt: '2026-07-16 10:00:00' })
+  const followTask = createCombinedDyeingTask({ workOrders: [baseA, followA], createdBy: '计划员' })
+  assert.notEqual(followTask.taskId, created.taskId, '删除后新任务 ID 仍必须唯一')
+  assert.notEqual(followTask.taskNo, created.taskNo, '删除后新任务号仍必须唯一')
+  assert.equal(followTask.members.find((item) => item.dyeWorkOrderId === baseA.dyeOrderId)?.effectiveSatisfiedQtyBeforeTask, 50, '下一任务必须扣除历史有效分配')
+  const waitingDelete = deleteCombinedDyeingTask(followTask.taskId, { deletedBy: '计划员', deletedAt: '2026-07-16 17:00:00', reason: '计划取消' })
+  assert.equal(waitingDelete.status, 'DELETED', '待染色任务允许软删除')
+  assert.equal(getActiveCombinedDyeingMembership(baseA.dyeOrderId), undefined, '删除待染色任务释放全部占用')
+
+  const startedA = { ...registerLifecycleWorkOrder({ plannedQty: 20 }), status: 'DYEING' as const }
+  const startedB = { ...registerLifecycleWorkOrder({ plannedQty: 20 }), status: 'DEHYDRATING' as const }
+  const startedTask = createCombinedDyeingTask({ workOrders: [startedA, startedB], createdBy: '计划员' })
+  assert.equal(startedTask.status, 'WAIT_DYEING', '已开始但未被活动合并任务占用的来源加工单仍可创建合并任务')
+  deleteCombinedDyeingTask(startedTask.taskId, { deletedBy: '计划员', deletedAt: '2026-07-16 17:10:00', reason: '验证后取消' })
+
+  const zeroA = registerLifecycleWorkOrder({ plannedQty: 10 })
+  const zeroB = registerLifecycleWorkOrder({ plannedQty: 10 })
+  const zeroTask = createCombinedDyeingTask({ workOrders: [zeroA, zeroB], createdBy: '计划员' })
+  const zeroCompleted = completeCombinedDyeingTask(zeroTask.taskId, {
+    actualInputQty: 20,
+    actualOutputQty: 0,
+    completedBy: '染厂主管',
+    completedAt: '2026-07-16 18:00:00',
+    remark: '零产出终止',
+  })
+  assert(zeroCompleted.allocationVersions[0]!.allocations.every((item) => item.satisfaction === 'UNMET'), '实际产出 0 合法且不得生成后续任务')
+
+  const fullA = registerLifecycleWorkOrder({ plannedQty: 10 })
+  const fullB = registerLifecycleWorkOrder({ plannedQty: 10 })
+  const fullTask = createCombinedDyeingTask({ workOrders: [fullA, fullB], createdBy: '计划员' })
+  completeCombinedDyeingTask(fullTask.taskId, {
+    actualInputQty: 20,
+    actualOutputQty: 20,
+    completedBy: '染厂主管',
+    completedAt: '2026-07-16 18:10:00',
+    remark: '足量完成',
+  })
+  deleteCombinedDyeingTask(fullTask.taskId, { deletedBy: '计划员', deletedAt: '2026-07-16 18:20:00', reason: '已完成归档' })
+  assert.throws(
+    () => createCombinedDyeingTask({ workOrders: [fullA, registerLifecycleWorkOrder({ plannedQty: 10 })], createdBy: '计划员' }),
+    /已全部满足/,
+    '已全部满足的加工单即使释放占用也无需再次参加',
+  )
 }
 
 function main(): void {
@@ -290,7 +549,9 @@ function main(): void {
   assert.deepEqual(inputWithManualAllocation, inputSnapshot, '纯函数不得修改输入数组或成员对象')
   assert.deepEqual(calculated.allocations.map((item) => item.allocatedQty), [600, 200, 0], '外部传入的人工分配值必须被忽略，结果只能由领域函数计算')
 
-  console.log('✓ 合并染色分配领域检查通过')
+  checkCombinedDyeingLifecycle()
+
+  console.log('✓ 合并染色分配与任务生命周期领域检查通过')
 }
 
 main()
