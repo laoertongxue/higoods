@@ -67,7 +67,30 @@ try {
   assert.equal(await rootHandle.evaluate((node) => node.isConnected), true, 'SKU 选厂不得替换页面根节点')
   assert.equal(await page.locator('[data-sewing-dispatch-dialog-host] [role="dialog"]').count(), 1, 'SKU 选厂不得重复创建弹窗')
 
-  console.log(`车缝分配性能检查通过：打开弹窗 ${openDuration.toFixed(2)}ms，SKU 选厂 ${factoryDuration.toFixed(2)}ms，预算 ${budgetMs}ms`)
+  await page.goto(`${baseUrl}/fcs/dispatch/continuous`, { waitUntil: 'domcontentloaded' })
+  await page.locator('[data-continuous-dispatch-page]').waitFor()
+  await page.evaluate(() => {
+    ;(window as Window & { __continuousInteractionDuration?: number }).__continuousInteractionDuration = undefined
+    document.addEventListener('click', (event) => {
+      const target = event.target instanceof Element ? event.target.closest('[data-continuous-dispatch-action="switch-tab"][data-tab="OTHER"]') : null
+      if (!target) return
+      const startedAt = performance.now()
+      const observer = new MutationObserver(() => {
+        const activeTab = document.querySelector('[data-continuous-dispatch-action="switch-tab"][data-tab="OTHER"]')
+        if (!activeTab?.classList.contains('border-blue-600')) return
+        ;(window as Window & { __continuousInteractionDuration?: number }).__continuousInteractionDuration = performance.now() - startedAt
+        observer.disconnect()
+      })
+      observer.observe(document.body, { childList: true, subtree: true })
+    }, { capture: true, once: true })
+  })
+  await page.locator('[data-continuous-dispatch-action="switch-tab"][data-tab="OTHER"]').click()
+  await page.waitForFunction(() => Number.isFinite((window as Window & { __continuousInteractionDuration?: number }).__continuousInteractionDuration))
+  const continuousTabDuration = await page.evaluate(() => (window as Window & { __continuousInteractionDuration?: number }).__continuousInteractionDuration ?? Number.POSITIVE_INFINITY)
+  assert(continuousTabDuration <= budgetMs, `连续工序页签响应 ${continuousTabDuration.toFixed(2)}ms，超过 ${budgetMs}ms`)
+  assert.equal(await page.locator('[data-continuous-dispatch-page]').count(), 1, '连续工序页签切换后页面根节点数量必须保持为 1')
+
+  console.log(`车缝分配性能检查通过：打开弹窗 ${openDuration.toFixed(2)}ms，SKU 选厂 ${factoryDuration.toFixed(2)}ms，连续工序页签 ${continuousTabDuration.toFixed(2)}ms，预算 ${budgetMs}ms`)
 } finally {
   await browser.close()
 }
