@@ -218,10 +218,7 @@ function renderDispatchDialog(): string {
         </header>
         <div class="space-y-4 px-5 py-4">
           ${dialog.error ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(dialog.error)}</div>` : ''}
-          ${reassign ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm">原工厂：${escapeHtml(task.assignedFactoryName || '未记录')}｜已确认实收 ${confirmedQty.toLocaleString()} 件｜剩余 ${Math.max(task.scopeQty - confirmedQty, 0).toLocaleString()} 件</div>` : `<div class="inline-flex rounded-md border bg-muted/20 p-1 text-sm">
-            <button type="button" class="rounded px-3 py-1.5 ${direct ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}" data-skip-page-rerender="true" data-continuous-dispatch-action="switch-dialog-mode" data-mode="DIRECT">直接派单</button>
-            <button type="button" class="rounded px-3 py-1.5 ${direct ? 'text-muted-foreground' : 'bg-background font-medium shadow-sm'}" data-skip-page-rerender="true" data-continuous-dispatch-action="switch-dialog-mode" data-mode="BIDDING">发起竞价</button>
-          </div>`}
+          ${reassign ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm">原工厂：${escapeHtml(task.assignedFactoryName || '未记录')}｜已确认实收 ${confirmedQty.toLocaleString()} 件｜剩余 ${Math.max(task.scopeQty - confirmedQty, 0).toLocaleString()} 件</div>` : ''}
           <div class="grid gap-3 sm:grid-cols-2">
             <label class="space-y-1 text-sm">
               <span class="text-muted-foreground">业务分配时间</span>
@@ -275,12 +272,61 @@ function renderDispatchDialog(): string {
 }
 
 function getContinuousTasks(): RuntimeProcessTask[] {
-  return listRuntimeProcessTasks()
+  const runtimeTasks = listRuntimeProcessTasks()
     .filter((task) =>
       task.taskUnitType === 'COMBINED_PROCESS_TASK'
       && task.acceptanceMode === 'CONTINUOUS_PROCESS'
       && ((task.mergeSourceTaskIds ?? []).length > 0 || task.generationRuleName === '任务清单人工合并')
     )
+  const sewingPostSource = runtimeTasks.find((task) => task.taskId === 'CONT-SEW-POST-UNASSIGNED')
+  const cuttingSource = runtimeTasks.find((task) => task.taskId === 'TASKGEN-202603-082-002__ORDER')
+  const statusDemos: RuntimeProcessTask[] = sewingPostSource
+    ? [
+        {
+          ...structuredClone(sewingPostSource),
+          taskId: 'CONT-SEW-POST-BIDDING',
+          taskNo: 'CONT-SEW-POST-BIDDING',
+          assignmentMode: 'BIDDING',
+          assignmentStatus: 'BIDDING',
+          tenderId: 'TENDER-CONT-SEW-POST-BIDDING',
+          biddingDeadline: '2026-07-15 18:00:00',
+        },
+        {
+          ...structuredClone(sewingPostSource),
+          taskId: 'CONT-SEW-POST-ASSIGNED',
+          taskNo: 'CONT-SEW-POST-ASSIGNED',
+          assignmentMode: 'DIRECT',
+          assignmentStatus: 'ASSIGNED',
+          assignedFactoryId: 'ID-F014',
+          assignedFactoryName: 'PT Nusantara Finishing & Packing',
+          acceptanceStatus: 'ACCEPTED',
+          acceptedAt: '2026-07-13 09:00:00',
+          acceptedBy: '系统自动接单',
+        },
+      ]
+    : []
+  if (cuttingSource) {
+    statusDemos.push({
+      ...structuredClone(cuttingSource),
+      taskId: 'CONT-CUT-PACK-ASSIGNED',
+      taskNo: 'CONT-CUT-PACK-ASSIGNED',
+      processNameZh: '裁片+车缝+后道+包装组合任务',
+      processBusinessName: '裁片+车缝+后道+包装组合任务',
+      coveredProcesses: [
+        ...(cuttingSource.coveredProcesses ?? []),
+        { processCode: 'POST_FINISHING', processName: '后道', sourceArtifactIds: ['CONT-CUT-PACK-ASSIGNED'] },
+        { processCode: 'PACK', processName: '包装', sourceArtifactIds: ['CONT-CUT-PACK-ASSIGNED'] },
+      ],
+      assignmentMode: 'DIRECT',
+      assignmentStatus: 'ASSIGNED',
+      assignedFactoryId: 'ID-F014',
+      assignedFactoryName: 'PT Nusantara Finishing & Packing',
+      acceptanceStatus: 'ACCEPTED',
+      acceptedAt: '2026-07-13 09:30:00',
+      acceptedBy: '系统自动接单',
+    })
+  }
+  return [...runtimeTasks, ...statusDemos]
     .sort((left, right) => left.productionOrderId.localeCompare(right.productionOrderId) || left.seq - right.seq)
 }
 
@@ -692,16 +738,6 @@ export function handleContinuousDispatchEvent(target: HTMLElement, event?: Pick<
   if (action === 'close-dialog') {
     state.dialog = null
     refreshDialogHost()
-    return true
-  }
-
-  if (action === 'switch-dialog-mode' && state.dialog) {
-    const mode = actionNode.dataset.mode
-    if (mode === 'DIRECT' || mode === 'BIDDING') {
-      state.dialog.mode = mode
-      state.dialog.error = ''
-      refreshDialogHost()
-    }
     return true
   }
 

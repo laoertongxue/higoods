@@ -89,9 +89,8 @@ assert.ok(firstDispatchRow, '车缝分配工作台必须有可演示的 SKU 行'
 for (const blockedSnapshot of blockedSnapshots) {
   const blockedDispatchResult = createSewingDispatchWorkbenchDraft({
     actionType: '直接派单',
-    factoryId: blockedSnapshot.factoryId,
-    factoryName: blockedSnapshot.factoryName,
     rowIds: [firstDispatchRow.rowId],
+    factoryIdByRowId: { [firstDispatchRow.rowId]: blockedSnapshot.factoryId },
     by: '对抗式核查',
   })
   assert.equal(blockedDispatchResult.ok, false, `${blockedSnapshot.factoryId} 不能绕过页面直接创建车缝分配草稿`)
