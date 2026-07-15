@@ -140,6 +140,17 @@ function runSelfTest(): void {
   assert.throws(() => validateBaselineIntegrity({ 'src/pages/old.ts': 'a'.repeat(64) }, { 'src/pages/old.ts': 'b'.repeat(64) }))
   assert.throws(() => validateBaselineIntegrity({ 'src/pages/new.ts': 'a'.repeat(64) }, {}))
   assert.doesNotThrow(() => validateBaselineIntegrity({}, { 'src/pages/migrated.ts': 'a'.repeat(64) }))
+  assert.throws(
+    () => assertPage('src/pages/new-list.ts', '<table></table> renderTablePagination', {}, new Set(['src/pages/new-list.ts']), new Set(['src/pages/new-list.ts'])),
+    /必须声明 @page-pattern/,
+  )
+  assert.throws(
+    () => assertPage('src/pages/marked-list.ts', '// @page-pattern: list', {}, new Set(['src/pages/marked-list.ts']), new Set(['src/pages/marked-list.ts'])),
+    /未完整使用标准列表骨架/,
+  )
+  assert.doesNotThrow(
+    () => assertPage('src/pages/detail.ts', '// @page-pattern: detail <table></table>', {}, new Set(['src/pages/detail.ts']), new Set(['src/pages/detail.ts'])),
+  )
   const workflow = readFileSync(join(ROOT, '.github/workflows/list-page-governance.yml'), 'utf8')
   assert.match(workflow, /name:\s+list-page-governance/)
   assert.match(workflow, /pull_request:/)
