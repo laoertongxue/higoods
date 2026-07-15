@@ -1,3 +1,5 @@
+// @page-pattern: list
+
 import { escapeHtml } from '../../../utils.ts'
 import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress.ts'
 import {
@@ -14,8 +16,26 @@ import type { TechPackBomItemSnapshot } from '../../../data/fcs/production-tech-
 import type { TechnicalColorMaterialMappingLine } from '../../../data/pcs-technical-data-version-types.ts'
 import { buildProductionPieceTruth } from '../../../domain/fcs-cutting-piece-truth/index.ts'
 import { appStore } from '../../../state/store.ts'
-import { getCanonicalCuttingMeta, renderCuttingPageHeader } from './meta.ts'
-import { renderCompactKpiGroup } from './layout.helpers.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderSecondaryButton } from '../../../components/ui/button.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import {
+  clearListColumnPreferences,
+  loadListColumnPreferences,
+  normalizeListColumnPreferences,
+  paginateStandardListRows,
+  saveListColumnPreferences,
+  sortStandardListRows,
+  type StandardListColumnPreferences,
+  type StandardListColumnRule,
+  type StandardListPageSlice,
+  type StandardListSortState,
+} from '../../../components/ui/list-table-model.ts'
+import {
+  renderStandardListColumnSettings,
+  renderStandardListTable,
+  type StandardListColumn,
+} from '../../../components/ui/list-table.ts'
 
 type SupplementSourceType = 'production-order' | 'cut-order'
 type SupplementFilterSourceType = 'ALL' | SupplementSourceType
@@ -187,6 +207,31 @@ interface SupplementManagementState {
   pendingConfirmDraft: SupplementDraft | null
   records: SupplementRecord[]
   feedback: SupplementFeedback | null
+  page: number
+  sort: StandardListSortState | null
+  columnPreferences: StandardListColumnPreferences
+  columnSettingsOpen: boolean
+  draggedColumnKey: string
+}
+
+const supplementListPageSizes = [10, 20, 50]
+const supplementListStorageKey = 'higood:list-page:/fcs/craft/cutting/supplement-management'
+const supplementListMaxFrozenWidth = 520
+const supplementListColumnRules: StandardListColumnRule[] = [
+  { key: 'recordNo', required: true, freezeable: true },
+  { key: 'target', required: true, freezeable: true },
+  { key: 'supplementQty', freezeable: true },
+  { key: 'materialDemand' },
+  { key: 'processDemand' },
+  { key: 'status', freezeable: true },
+  { key: 'created', freezeable: true },
+  { key: 'actions', required: true, actionColumn: true },
+]
+const defaultSupplementListColumnPreferences: StandardListColumnPreferences = {
+  order: supplementListColumnRules.map((column) => column.key),
+  visibleKeys: supplementListColumnRules.map((column) => column.key),
+  frozenKeys: [],
+  pageSize: 10,
 }
 
 const state: SupplementManagementState = {
@@ -204,9 +249,19 @@ const state: SupplementManagementState = {
   pendingConfirmDraft: null,
   records: [],
   feedback: null,
+  page: 1,
+  sort: null,
+  columnPreferences: normalizeListColumnPreferences(
+    supplementListColumnRules,
+    defaultSupplementListColumnPreferences,
+    supplementListPageSizes,
+  ),
+  columnSettingsOpen: false,
+  draggedColumnKey: '',
 }
 
 let mockSupplementOrdersSeeded = false
+let supplementListPreferencesLoaded = false
 
 const sourceTypeLabels: Record<SupplementSourceType, string> = {
   'production-order': '生产单',
@@ -862,7 +917,7 @@ function renderFeedback(): string {
   return `
     <div class="flex items-center justify-between rounded-lg border px-4 py-3 text-sm ${className}">
       <span>${escapeHtml(state.feedback.message)}</span>
-      <button type="button" class="rounded px-2 py-1 text-xs hover:bg-black/5" data-cutting-supplement-action="clear-feedback">关闭</button>
+      <button type="button" class="rounded px-2 py-1 text-xs hover:bg-black/5" data-skip-page-rerender="true" data-cutting-supplement-action="clear-feedback">关闭</button>
     </div>
   `
 }
@@ -876,7 +931,7 @@ function renderStatChip(label: string, value: number): string {
   `
 }
 
-function renderFilters(): string {
+function renderFilterControls(): string {
   return `
     <section class="rounded-lg border bg-card p-4">
       <div class="grid gap-3 md:grid-cols-[180px_minmax(240px,1fr)_auto_auto] md:items-end">
@@ -892,11 +947,15 @@ function renderFilters(): string {
           <span class="text-muted-foreground">关键词</span>
           <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-supplement-field="keyword" value="${escapeHtml(state.filters.keyword)}" placeholder="补料单、生产单、裁片单、SPU、物料SKU" />
         </label>
-        <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-cutting-supplement-action="apply-filters">筛选</button>
-        <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-cutting-supplement-action="reset-filters">重置</button>
+        <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-cutting-supplement-action="apply-filters">筛选</button>
+        <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-supplement-action="reset-filters">重置</button>
       </div>
     </section>
   `
+}
+
+function renderFilters(): string {
+  return `<div data-cutting-supplement-region="filters">${renderFilterControls()}</div>`
 }
 
 function renderSourcePickerPage(): string {
@@ -1293,73 +1352,276 @@ function formatMaterialDemandSummary(demands: SupplementMaterialDemand[]): strin
     .join('、') || '无'
 }
 
-function renderRecords(records: SupplementRecord[]): string {
-  return `
-    <section class="rounded-lg border bg-card">
-      <div class="flex items-center justify-between border-b px-4 py-3">
-        <h2 class="text-base font-semibold">补料单列表</h2>
-        <p class="text-xs text-muted-foreground">列表对象是补料单；新增补料填写后会弹窗确认。</p>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="bg-muted/50 text-xs text-muted-foreground">
-            <tr>
-              <th class="px-4 py-3 font-medium">补料单号</th>
-              <th class="px-4 py-3 font-medium">补料对象</th>
-              <th class="px-4 py-3 font-medium">补料数量</th>
-              <th class="px-4 py-3 font-medium">物料需求</th>
-              <th class="px-4 py-3 font-medium">印染需求</th>
-              <th class="px-4 py-3 font-medium">状态</th>
-              <th class="px-4 py-3 font-medium">创建</th>
-              <th class="px-4 py-3 font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${records.map((record) => {
-              const totalQty = record.draft.lines.reduce((sum, line) => sum + line.supplementQty, 0)
-              const processNos = [...record.printDemandNos, ...record.dyeDemandNos]
-              const sourceRecord = getCandidateById(record.draft.candidateId)?.record
-              const spuImageUrl = sourceRecord ? getSpuImageUrl(sourceRecord) : '/pants-sample.jpg'
-              const materialImages = record.draft.materialDemands.slice(0, 3).map((item) => `
-                <img class="h-8 w-8 rounded border object-cover" src="${escapeHtml(item.materialImageUrl)}" alt="${escapeHtml(item.materialSku)}" />
-              `).join('')
-              return `
-                <tr class="border-t">
-                  <td class="px-4 py-3 font-semibold">${escapeHtml(record.recordNo)}</td>
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-3">
-                      <img class="h-12 w-12 rounded-md border object-cover" src="${escapeHtml(spuImageUrl)}" alt="${escapeHtml(record.draft.spuCode)}" />
-                      <div>
-                        <div class="font-medium">${escapeHtml(sourceTypeLabels[record.draft.sourceType])} ${escapeHtml(record.draft.sourceNo)}</div>
-                        <div class="text-xs text-muted-foreground">${escapeHtml(record.draft.productionOrderNo)} / ${escapeHtml(record.draft.spuCode)}</div>
-                        <div class="text-xs text-muted-foreground">${escapeHtml(record.draft.styleName)}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="px-4 py-3 font-medium tabular-nums">${formatInteger(totalQty)} 件</td>
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-2">
-                      <div class="flex flex-wrap gap-1">${materialImages}</div>
-                      <div>
-                        <div class="tabular-nums">${escapeHtml(formatMaterialDemandSummary(record.draft.materialDemands))}</div>
-                        <div class="mt-1 text-xs text-muted-foreground">${formatInteger(record.draft.materialDemands.length)} 种物料</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="px-4 py-3 text-xs">${escapeHtml(processNos.join('、') || '无')}</td>
-                  <td class="px-4 py-3"><span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">${escapeHtml(record.status)}</span></td>
-                  <td class="px-4 py-3">${escapeHtml(record.createdBy)}<div class="text-xs text-muted-foreground">${escapeHtml(record.createdAt)}</div></td>
-                  <td class="px-4 py-3">
-                    <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-supplement-action="open-detail" data-record-id="${escapeHtml(record.id)}">查看详情</button>
-                  </td>
-                </tr>
-              `
-            }).join('') || '<tr><td class="px-4 py-8 text-center text-muted-foreground" colspan="8">暂无补料单。</td></tr>'}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  `
+function getSupplementTotalQty(record: SupplementRecord): number {
+  return record.draft.lines.reduce((sum, line) => sum + Number(line.supplementQty || 0), 0)
+}
+
+const supplementListColumns: StandardListColumn<SupplementRecord>[] = [
+  {
+    key: 'recordNo',
+    title: '补料单号',
+    width: 170,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    render: (record) => `<span class="font-semibold">${escapeHtml(record.recordNo)}</span>`,
+    sortValue: (record) => record.recordNo,
+  },
+  {
+    key: 'target',
+    title: '补料对象',
+    width: 250,
+    required: true,
+    freezeable: true,
+    render: (record) => {
+      const sourceRecord = getCandidateById(record.draft.candidateId)?.record
+      const spuImageUrl = sourceRecord ? getSpuImageUrl(sourceRecord) : '/pants-sample.jpg'
+      return `
+        <div class="flex items-center gap-3">
+          <img class="h-12 w-12 rounded-md border object-cover" src="${escapeHtml(spuImageUrl)}" alt="${escapeHtml(record.draft.spuCode)}" />
+          <div class="min-w-0">
+            <div class="truncate font-medium">${escapeHtml(sourceTypeLabels[record.draft.sourceType])} ${escapeHtml(record.draft.sourceNo)}</div>
+            <div class="truncate text-xs text-muted-foreground">${escapeHtml(record.draft.productionOrderNo)} / ${escapeHtml(record.draft.spuCode)}</div>
+            <div class="truncate text-xs text-muted-foreground">${escapeHtml(record.draft.styleName)}</div>
+          </div>
+        </div>
+      `
+    },
+  },
+  {
+    key: 'supplementQty',
+    title: '补料数量',
+    width: 120,
+    freezeable: true,
+    sortable: true,
+    align: 'right',
+    render: (record) => `<span class="font-medium tabular-nums">${escapeHtml(formatInteger(getSupplementTotalQty(record)))} 件</span>`,
+    sortValue: getSupplementTotalQty,
+  },
+  {
+    key: 'materialDemand',
+    title: '物料需求',
+    width: 300,
+    render: (record) => {
+      const materialImages = record.draft.materialDemands.slice(0, 3).map((item) => `
+        <img class="h-8 w-8 rounded border object-cover" src="${escapeHtml(item.materialImageUrl)}" alt="${escapeHtml(item.materialSku)}" />
+      `).join('')
+      return `
+        <div class="flex items-center gap-2">
+          <div class="flex shrink-0 flex-wrap gap-1">${materialImages}</div>
+          <div class="min-w-0">
+            <div class="truncate tabular-nums">${escapeHtml(formatMaterialDemandSummary(record.draft.materialDemands))}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatInteger(record.draft.materialDemands.length))} 种物料</div>
+          </div>
+        </div>
+      `
+    },
+  },
+  {
+    key: 'processDemand',
+    title: '印染需求',
+    width: 240,
+    render: (record) => `<span class="text-xs">${escapeHtml([...record.printDemandNos, ...record.dyeDemandNos].join('、') || '无')}</span>`,
+  },
+  {
+    key: 'status',
+    title: '状态',
+    width: 110,
+    freezeable: true,
+    render: (record) => `<span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">${escapeHtml(record.status)}</span>`,
+  },
+  {
+    key: 'created',
+    title: '创建',
+    width: 190,
+    freezeable: true,
+    sortable: true,
+    render: (record) => `${escapeHtml(record.createdBy)}<div class="text-xs text-muted-foreground">${escapeHtml(record.createdAt)}</div>`,
+    sortValue: (record) => record.createdAt,
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 110,
+    required: true,
+    actionColumn: true,
+    align: 'right',
+    render: (record) => `
+      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-supplement-action="open-detail" data-record-id="${escapeHtml(record.id)}">查看详情</button>
+    `,
+  },
+]
+
+export function normalizeSupplementListPreferences(
+  raw: Partial<StandardListColumnPreferences> | null | undefined,
+): StandardListColumnPreferences {
+  const normalized = normalizeListColumnPreferences(
+    supplementListColumnRules,
+    raw,
+    supplementListPageSizes,
+  )
+  const columnsByKey = new Map(supplementListColumns.map((column) => [column.key, column]))
+  const visibleKeys = new Set(normalized.visibleKeys)
+  const requestedFrozenKeys = new Set(normalized.frozenKeys)
+  const frozenColumns = normalized.order
+    .map((key) => columnsByKey.get(key))
+    .filter((column): column is StandardListColumn<SupplementRecord> => Boolean(
+      column
+      && !column.actionColumn
+      && column.freezeable
+      && visibleKeys.has(column.key)
+      && requestedFrozenKeys.has(column.key),
+    ))
+  let frozenWidth = frozenColumns.reduce(
+    (sum, column) => sum + Math.max(column.width, column.minWidth ?? 0),
+    0,
+  )
+  while (frozenWidth > supplementListMaxFrozenWidth && frozenColumns.length > 0) {
+    const removed = frozenColumns.pop()
+    if (removed) frozenWidth -= Math.max(removed.width, removed.minWidth ?? 0)
+  }
+
+  return {
+    ...normalized,
+    frozenKeys: frozenColumns.map((column) => column.key),
+  }
+}
+
+interface SupplementListView {
+  filtered: SupplementRecord[]
+  paging: StandardListPageSlice<SupplementRecord>
+}
+
+function getSupplementListStorage(): Storage | null {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage
+  } catch {
+    return null
+  }
+}
+
+function ensureSupplementListPreferences(): void {
+  if (supplementListPreferencesLoaded) return
+  supplementListPreferencesLoaded = true
+  const storage = getSupplementListStorage()
+  const loadedPreferences = storage
+    ? loadListColumnPreferences(
+        storage,
+        supplementListStorageKey,
+        supplementListColumnRules,
+        defaultSupplementListColumnPreferences,
+        supplementListPageSizes,
+      )
+    : defaultSupplementListColumnPreferences
+  state.columnPreferences = normalizeSupplementListPreferences(loadedPreferences)
+  if (storage) saveListColumnPreferences(storage, supplementListStorageKey, state.columnPreferences)
+}
+
+export function enterCraftCuttingSupplementManagementRoute(): void {
+  state.page = 1
+  state.sort = null
+}
+
+function saveSupplementListPreferences(): void {
+  const storage = getSupplementListStorage()
+  if (storage) saveListColumnPreferences(storage, supplementListStorageKey, state.columnPreferences)
+}
+
+function getSupplementListView(): SupplementListView {
+  const filtered = getFilteredRecords()
+  const sorted = sortStandardListRows(filtered, state.sort, (record, key) =>
+    supplementListColumns.find((column) => column.key === key)?.sortValue?.(record),
+  )
+  const paging = paginateStandardListRows(sorted, state.page, state.columnPreferences.pageSize)
+  state.page = paging.currentPage
+  return { filtered, paging }
+}
+
+function withSkipPageRerender(html: string): string {
+  return html
+    .replaceAll('data-cutting-supplement-action=', 'data-skip-page-rerender="true" data-cutting-supplement-action=')
+    .replaceAll('data-cutting-supplement-field=', 'data-skip-page-rerender="true" data-cutting-supplement-field=')
+}
+
+function renderListStats(records: SupplementRecord[]): string {
+  return renderStandardListStats([
+    { label: '补料单', value: records.length },
+    { label: '已确认', value: records.filter((record) => record.status === '已确认').length },
+    { label: '涉及生产单', value: new Set(records.map((record) => record.draft.productionOrderNo)).size },
+  ])
+}
+
+function renderListTable(paging: StandardListPageSlice<SupplementRecord>): string {
+  return withSkipPageRerender(renderStandardListTable({
+    columns: supplementListColumns,
+    rows: paging.rows,
+    preferences: state.columnPreferences,
+    sort: state.sort,
+    eventPrefix: 'cutting-supplement',
+    emptyText: '暂无补料单。',
+  }))
+}
+
+function renderListPagination(paging: StandardListPageSlice<SupplementRecord>): string {
+  return withSkipPageRerender(renderTablePagination({
+    total: paging.total,
+    from: paging.from,
+    to: paging.to,
+    currentPage: paging.currentPage,
+    totalPages: paging.totalPages,
+    pageSize: paging.pageSize,
+    actionPrefix: 'cutting-supplement',
+    fieldPrefix: 'cutting-supplement',
+    pageSizeOptions: supplementListPageSizes,
+  }))
+}
+
+function renderListOverlay(): string {
+  const activeRecord = state.activeRecordId ? getRecordById(state.activeRecordId) : undefined
+  if (activeRecord) return renderSupplementDetailDialog(activeRecord)
+  if (!state.columnSettingsOpen) return ''
+  return withSkipPageRerender(renderStandardListColumnSettings({
+    title: '列设置',
+    columns: supplementListColumns,
+    preferences: state.columnPreferences,
+    eventPrefix: 'cutting-supplement',
+    maxFrozenWidth: supplementListMaxFrozenWidth,
+  }))
+}
+
+function setSupplementRegion(region: string, html: string): void {
+  if (typeof document === 'undefined') return
+  const element = document.querySelector<HTMLElement>(`[data-cutting-supplement-region="${region}"]`)
+  if (element) element.innerHTML = html
+}
+
+function refreshSupplementFeedback(): void {
+  setSupplementRegion('feedback', renderFeedback())
+}
+
+function refreshSupplementFilters(): void {
+  setSupplementRegion('filters', renderFilterControls())
+}
+
+function refreshSupplementList(): void {
+  const view = getSupplementListView()
+  setSupplementRegion('stats', renderListStats(view.filtered))
+  setSupplementRegion('table', renderListTable(view.paging))
+  setSupplementRegion('pagination', renderListPagination(view.paging))
+}
+
+function refreshSupplementTableAndPagination(): void {
+  const view = getSupplementListView()
+  setSupplementRegion('table', renderListTable(view.paging))
+  setSupplementRegion('pagination', renderListPagination(view.paging))
+}
+
+function refreshSupplementTable(): void {
+  setSupplementRegion('table', renderListTable(getSupplementListView().paging))
+}
+
+function refreshSupplementOverlay(): void {
+  setSupplementRegion('overlay', renderListOverlay())
 }
 
 function buildSupplementProcessLinks(record: SupplementRecord): SupplementProcessLink[] {
@@ -1490,7 +1752,7 @@ function renderSupplementDetailDialog(record: SupplementRecord | undefined): str
             <h2 class="text-lg font-semibold">补料单详情</h2>
             <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)} / ${escapeHtml(record.draft.productionOrderNo)} / ${escapeHtml(record.draft.styleName)}</p>
           </div>
-          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-supplement-action="close-detail">关闭</button>
+          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-supplement-action="close-detail">关闭</button>
         </div>
         <div class="flex-1 space-y-4 overflow-y-auto p-5">
           <section class="rounded-lg border p-4">
@@ -1746,25 +2008,53 @@ function ensureMockSupplementOrders(): void {
   if (state.records.length) return
 
   const candidates = buildCandidates().filter((candidate) => candidate.canInitiate && candidate.abAnalysisRows.length > 0)
-  const pickedCandidates = [
-    candidates.find((candidate) => candidate.sourceType === 'cut-order'),
-    candidates.find((candidate) => candidate.sourceType === 'production-order'),
-  ].filter(Boolean) as SupplementCandidate[]
-  const drafts = pickedCandidates
-    .map((candidate, index) => buildMockDraft(
-      candidate,
-      index === 0 ? '裁片损耗' : '尺码齐套不足',
-      index === 0 ? '验片后发现左前片有破损，需要按裁片单新增补料。' : '生产单部分尺码齐套不足，需要补齐后续车缝用料。',
-      index === 0 ? 'none' : 'print-dye',
-    ))
-    .filter(Boolean) as SupplementDraft[]
+  if (!candidates.length) return
+  const reasons = ['裁片损耗', '尺码齐套不足', '验片破损', '裁剪差异']
+  const details = [
+    '验片后发现左前片有破损，需要按裁片单新增补料。',
+    '生产单部分尺码齐套不足，需要补齐后续车缝用料。',
+    '现场复核发现裁片损坏，按实际缺口补齐。',
+    '裁剪数量与计划存在差异，主管确认后发起补料。',
+  ]
+  const creators = ['裁床主管 周敏', '裁床组长 林洁', '验片主管 陈玲', '裁床主管 王海']
+  const records: SupplementRecord[] = []
 
-  state.records = drafts.map((draft, index) => buildSupplementRecordFromDraft(draft, {
-    sequence: index + 1,
-    status: '已确认',
-    createdAt: index === 0 ? '2026-03-25 15:40' : '2026-03-25 14:20',
-    createdBy: index === 0 ? '裁床主管 周敏' : '裁床组长 林洁',
-  }))
+  for (let index = 0; index < 12; index += 1) {
+    const candidate = candidates[index % candidates.length]
+    const draft = buildMockDraft(
+      candidate,
+      reasons[index % reasons.length],
+      details[index % details.length],
+      index % 3 === 1 ? 'print-dye' : 'none',
+    )
+    if (!draft) continue
+    const lines = draft.lines.map((line, lineIndex) => ({
+      ...line,
+      supplementQty: line.supplementQty + (index % 4) + lineIndex,
+    }))
+    const materialDemands = buildMaterialDemands(candidate, lines)
+    if (index % 3 === 1 && materialDemands[0]) {
+      materialDemands[0] = {
+        ...materialDemands[0],
+        printRequired: true,
+        dyeRequired: true,
+        processNote: '补料面料需先补印花，再按生产单颜色要求补染色。',
+      }
+    }
+    const variedDraft: SupplementDraft = {
+      ...draft,
+      lines,
+      materialDemands,
+    }
+    records.push(buildSupplementRecordFromDraft(variedDraft, {
+      sequence: index + 1,
+      status: '已确认',
+      createdAt: `2026-03-${String(25 - Math.floor(index / 4)).padStart(2, '0')} ${String(16 - (index % 4)).padStart(2, '0')}:${String((index * 7) % 60).padStart(2, '0')}`,
+      createdBy: creators[index % creators.length],
+    }))
+  }
+
+  state.records = records
 }
 
 function setFiltersFromDom(): void {
@@ -1796,25 +2086,227 @@ export function isCraftCuttingSupplementManagementDialogOpen(): boolean {
   return Boolean(state.activeRecordId || state.pendingConfirmDraft)
 }
 
-export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement): boolean {
+export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement, event?: Event): boolean {
+  const internalDragEvent = event as (DragEvent & {
+    higoodStandardListColumnDrag?: true
+    higoodStandardListColumnKey?: string
+  }) | undefined
+  if (event?.type === 'dragend') {
+    if (!internalDragEvent?.higoodStandardListColumnDrag) return false
+    state.draggedColumnKey = ''
+    return true
+  }
+
+  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
+  if (
+    dragNode
+    && event
+    && internalDragEvent?.higoodStandardListColumnDrag
+    && ['dragstart', 'dragover', 'drop'].includes(event.type)
+  ) {
+    const dragEvent = internalDragEvent
+    const columnKey = dragNode.dataset.cuttingSupplementColumnKey
+      || dragNode.dataset.dragSource
+      || dragNode.dataset.dropTarget
+      || ''
+    const column = supplementListColumns.find((item) => item.key === columnKey && !item.actionColumn)
+
+    if (event.type === 'dragstart') {
+      state.draggedColumnKey = column?.key || ''
+      if (!column) return false
+      dragEvent.dataTransfer?.setData('application/x-higood-list-column-key', column.key)
+      if (dragEvent.dataTransfer) dragEvent.dataTransfer.effectAllowed = 'move'
+      return true
+    }
+
+    const sourceKey = dragEvent.higoodStandardListColumnKey || ''
+    const sourceColumn = supplementListColumns.find((item) => item.key === sourceKey && !item.actionColumn)
+    const targetColumn = supplementListColumns.find((item) => item.key === columnKey && !item.actionColumn)
+    if (
+      !sourceColumn
+      || !targetColumn
+      || state.draggedColumnKey !== sourceColumn.key
+      || sourceColumn.key === targetColumn.key
+    ) {
+      if (event.type === 'drop') state.draggedColumnKey = ''
+      return false
+    }
+
+    if (event.type === 'dragover') {
+      event.preventDefault()
+      if (dragEvent.dataTransfer) dragEvent.dataTransfer.dropEffect = 'move'
+      return true
+    }
+
+    state.draggedColumnKey = ''
+    event.preventDefault()
+    const order = state.columnPreferences.order.filter((key) => key !== sourceColumn.key)
+    const targetIndex = order.indexOf(targetColumn.key)
+    if (targetIndex < 0) return false
+    order.splice(targetIndex, 0, sourceColumn.key)
+    state.columnPreferences = normalizeSupplementListPreferences({
+      ...state.columnPreferences,
+      order,
+    })
+    saveSupplementListPreferences()
+    refreshSupplementTable()
+    refreshSupplementOverlay()
+    return true
+  }
+
+  const fieldNode = target.closest<HTMLInputElement | HTMLSelectElement>('[data-cutting-supplement-field]')
+  const field = fieldNode?.dataset.cuttingSupplementField
+  if (field === 'pageSize') {
+    if (event?.type !== 'change') return false
+    const pageSize = Number(fieldNode.value)
+    if (supplementListPageSizes.includes(pageSize)) {
+      state.columnPreferences = normalizeSupplementListPreferences({
+        ...state.columnPreferences,
+        pageSize,
+      })
+      state.page = 1
+      saveSupplementListPreferences()
+      refreshSupplementTableAndPagination()
+    }
+    return true
+  }
+
   const actionNode = target.closest<HTMLElement>('[data-cutting-supplement-action]')
   const action = actionNode?.dataset.cuttingSupplementAction
   if (!actionNode || !action) return false
 
   if (action === 'clear-feedback') {
     state.feedback = null
+    refreshSupplementFeedback()
     return true
   }
 
   if (action === 'apply-filters') {
     setFiltersFromDom()
+    state.page = 1
     state.feedback = null
+    refreshSupplementFeedback()
+    refreshSupplementList()
     return true
   }
 
   if (action === 'reset-filters') {
     state.filters = { sourceType: 'ALL', keyword: '' }
+    state.page = 1
     state.feedback = null
+    refreshSupplementFeedback()
+    refreshSupplementFilters()
+    refreshSupplementList()
+    return true
+  }
+
+  if (action === 'prev-page' || action === 'next-page') {
+    state.page += action === 'prev-page' ? -1 : 1
+    refreshSupplementTableAndPagination()
+    return true
+  }
+
+  if (action === 'sort-column') {
+    const columnKey = actionNode.dataset.columnKey || ''
+    const column = supplementListColumns.find((item) => item.key === columnKey && item.sortable)
+    if (!column) return true
+    state.sort = state.sort?.key !== columnKey
+      ? { key: columnKey, direction: 'asc' }
+      : state.sort.direction === 'asc'
+        ? { key: columnKey, direction: 'desc' }
+        : null
+    state.page = 1
+    refreshSupplementTableAndPagination()
+    return true
+  }
+
+  if (action === 'open-column-settings') {
+    state.columnSettingsOpen = true
+    state.activeRecordId = ''
+    refreshSupplementOverlay()
+    return true
+  }
+
+  if (action === 'close-column-settings') {
+    state.columnSettingsOpen = false
+    refreshSupplementOverlay()
+    return true
+  }
+
+  if (action === 'toggle-column-visibility') {
+    if (event?.type !== 'change') return false
+    const columnKey = actionNode.dataset.cuttingSupplementColumnKey || actionNode.dataset.columnKey || ''
+    const rule = supplementListColumnRules.find((item) => item.key === columnKey)
+    if (!rule || rule.required || rule.actionColumn) return true
+    const visibleKeys = new Set(state.columnPreferences.visibleKeys)
+    const frozenKeys = new Set(state.columnPreferences.frozenKeys)
+    if (visibleKeys.has(columnKey)) {
+      visibleKeys.delete(columnKey)
+      frozenKeys.delete(columnKey)
+    } else {
+      visibleKeys.add(columnKey)
+    }
+    state.columnPreferences = normalizeSupplementListPreferences({
+      ...state.columnPreferences,
+      visibleKeys: [...visibleKeys],
+      frozenKeys: [...frozenKeys],
+    })
+    if (!visibleKeys.has(columnKey) && state.sort?.key === columnKey) state.sort = null
+    saveSupplementListPreferences()
+    refreshSupplementTable()
+    refreshSupplementOverlay()
+    return true
+  }
+
+  if (action === 'toggle-column-freeze') {
+    if (event?.type !== 'change') return false
+    const columnKey = actionNode.dataset.cuttingSupplementColumnKey || actionNode.dataset.columnKey || ''
+    const column = supplementListColumns.find((item) => item.key === columnKey)
+    if (!column?.freezeable || column.actionColumn) return true
+    const frozenKeys = new Set(state.columnPreferences.frozenKeys)
+    const addingFreeze = !frozenKeys.has(columnKey)
+    if (frozenKeys.has(columnKey)) {
+      frozenKeys.delete(columnKey)
+    } else {
+      frozenKeys.add(columnKey)
+    }
+    const nextPreferences = normalizeSupplementListPreferences({
+      ...state.columnPreferences,
+      frozenKeys: [...frozenKeys],
+    })
+    if (addingFreeze && !nextPreferences.frozenKeys.includes(columnKey)) {
+      const visible = state.columnPreferences.visibleKeys.includes(columnKey)
+      state.feedback = visible
+        ? { tone: 'warning', message: `冻结列总宽度不能超过 ${supplementListMaxFrozenWidth}px，请先取消其他冻结列。` }
+        : { tone: 'warning', message: '请先显示该列，再设置冻结。' }
+      refreshSupplementFeedback()
+      refreshSupplementOverlay()
+      return true
+    }
+    const evictedFrozenKeys = state.columnPreferences.frozenKeys.filter(
+      (key) => !nextPreferences.frozenKeys.includes(key),
+    )
+    state.feedback = addingFreeze && evictedFrozenKeys.length > 0
+      ? { tone: 'warning', message: `冻结列总宽度不能超过 ${supplementListMaxFrozenWidth}px，已自动取消后置冻结列。` }
+      : null
+    state.columnPreferences = nextPreferences
+    saveSupplementListPreferences()
+    refreshSupplementFeedback()
+    refreshSupplementTable()
+    refreshSupplementOverlay()
+    return true
+  }
+
+  if (action === 'restore-column-settings') {
+    state.columnPreferences = normalizeSupplementListPreferences(defaultSupplementListColumnPreferences)
+    state.page = 1
+    state.sort = null
+    state.feedback = null
+    const storage = getSupplementListStorage()
+    if (storage) clearListColumnPreferences(storage, supplementListStorageKey)
+    refreshSupplementFeedback()
+    refreshSupplementTableAndPagination()
+    refreshSupplementOverlay()
     return true
   }
 
@@ -1857,6 +2349,8 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
   if (action === 'start-create') {
     clearSupplementCreateState()
     state.activeRecordId = ''
+    state.columnSettingsOpen = false
+    state.page = 1
     state.feedback = null
     return false
   }
@@ -1897,14 +2391,19 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
       return true
     }
     state.activeRecordId = recordId
+    state.columnSettingsOpen = false
     clearSupplementCreateState()
     state.feedback = null
+    refreshSupplementFeedback()
+    refreshSupplementOverlay()
     return true
   }
 
   if (action === 'close-detail') {
     state.activeRecordId = ''
     state.feedback = null
+    refreshSupplementFeedback()
+    refreshSupplementOverlay()
     return true
   }
 
@@ -1944,6 +2443,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
     if (!state.pendingConfirmDraft) return false
     const record = buildSupplementRecord(state.pendingConfirmDraft)
     state.records = [record, ...state.records]
+    state.page = 1
     state.pendingConfirmDraft = null
     state.activeCandidateId = ''
     state.activeRecordId = record.id
@@ -1954,7 +2454,9 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
 
   if (action === 'close-overlay') {
     state.activeRecordId = ''
+    state.columnSettingsOpen = false
     state.pendingConfirmDraft = null
+    refreshSupplementOverlay()
     return true
   }
 
@@ -1963,35 +2465,34 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
 
 export function renderCraftCuttingSupplementManagementPage(): string {
   ensureMockSupplementOrders()
+  ensureSupplementListPreferences()
   if (isSupplementCreateMode()) {
     return renderCraftCuttingSupplementCreatePage()
   }
 
-  const records = getFilteredRecords()
-  const productionOrderCount = new Set(records.map((item) => item.draft.productionOrderNo)).size
-  const activeRecord = state.activeRecordId ? getRecordById(state.activeRecordId) : undefined
+  const view = getSupplementListView()
+  const columnSettingsButton = withSkipPageRerender(renderSecondaryButton(
+    '列设置',
+    { prefix: 'cutting-supplement', action: 'open-column-settings' },
+    'columns-3',
+  ))
 
-  return `
-    <div class="space-y-5 p-6">
-      ${renderCuttingPageHeader(getCanonicalCuttingMeta('supplement-management'), {
-        actionsHtml: `
-          <div class="flex flex-wrap gap-2">
-            <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cutting-supplement-action="start-create" data-nav="${supplementCreatePath}">新增补料</button>
-          </div>
-        `,
-      })}
-      <div class="text-sm text-muted-foreground">工艺工厂运营系统 / 裁床厂管理 / 裁后处理 / 补料管理</div>
-      ${renderFeedback()}
-      ${renderFilters()}
-      ${renderCompactKpiGroup(`
-        ${renderStatChip('补料单', records.length)}
-        ${renderStatChip('已确认', records.filter((item) => item.status === '已确认').length)}
-        ${renderStatChip('涉及生产单', productionOrderCount)}
-      `)}
-      ${renderRecords(records)}
-      ${renderSupplementDetailDialog(activeRecord)}
-    </div>
-  `
+  return renderStandardListPage({
+    title: '补料管理',
+    primaryActionsHtml: `
+      <div class="flex flex-wrap gap-2">
+        <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cutting-supplement-action="start-create" data-nav="${supplementCreatePath}">新增补料</button>
+      </div>
+    `,
+    feedbackHtml: `<div data-cutting-supplement-region="feedback">${renderFeedback()}</div>`,
+    filtersHtml: renderFilters(),
+    statsHtml: `<div data-cutting-supplement-region="stats">${renderListStats(view.filtered)}</div>`,
+    listTitle: '补料单列表',
+    listActionsHtml: columnSettingsButton,
+    tableHtml: `<div data-cutting-supplement-region="table">${renderListTable(view.paging)}</div>`,
+    paginationHtml: `<div data-cutting-supplement-region="pagination">${renderListPagination(view.paging)}</div>`,
+    overlaysHtml: `<div data-cutting-supplement-region="overlay">${renderListOverlay()}</div>`,
+  })
 }
 
 export function renderCraftCuttingSupplementCreatePage(): string {

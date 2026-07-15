@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "prebuild": "npm run check:list-page-governance",
     "preview": "vite preview",
     "test": "node --experimental-strip-types --experimental-specifier-resolution=node",
     "check:menu-routes": "tsx scripts/check-menu-routes.mjs",
@@ -15,6 +16,9 @@
     "check:third-party-cutting-task-boundaries": "tsx scripts/check-third-party-cutting-task-boundaries.ts",
     "check:third-party-factory-rating": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-third-party-factory-rating.ts",
     "check:prototype-design-governance": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-prototype-design-governance.ts",
+    "check:list-page-governance:static": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-list-page-governance.ts",
+    "check:list-page-governance": "npm run check:list-page-governance:static && npm run check:standard-list-page-template && npm run check:prototype-design-governance -- --all",
+    "check:standard-list-page-template": "npm exec tsc -- --noEmit --target ES2022 --module ESNext --moduleResolution Bundler --strict --skipLibCheck --allowImportingTsExtensions --lib ES2022,DOM src/components/ui/list-table.ts && node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-standard-list-page-template.ts",
     "check:fcs-truth-sources": "node scripts/check-fcs-truth-sources.mjs --write-report",
     "check:settlement-linked-mock-factory": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-settlement-linked-mock-factory.ts",
     "check:factory-settlement-reconciliation": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-settlement-reconciliation.ts",
@@ -181,7 +185,8 @@
     "test:cutting:all:e2e": "playwright test tests/cutting-*.spec.ts",
     "check:process-factory-tabs-and-post-finishing": "tsx scripts/check-process-factory-tabs-and-post-finishing.ts",
     "test:process-factory-tabs-and-post-finishing:e2e": "playwright test tests/process-factory-tabs-and-post-finishing.spec.ts",
-    "test:production-order-change-final:e2e": "playwright test --config=playwright.production-order-change.config.ts"
+    "test:production-order-change-final:e2e": "playwright test --config=playwright.production-order-change.config.ts",
+    "test:supplement-management-list-template:e2e": "PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_PORT=$(node -e \"const net=require('node:net');const server=net.createServer();server.listen(0,'127.0.0.1',()=>{console.log(server.address().port);server.close()})\") playwright test tests/supplement-management-list-template.spec.ts"
   },
   "dependencies": {
     "lucide": "^0.468.0",

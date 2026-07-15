@@ -609,6 +609,10 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const productionProgressPage = await import('./pages/process-factory/cutting/production-progress')
     return productionProgressPage.handleCraftCuttingProductionProgressEvent(eventTarget, event)
   }
+  if (pathname.startsWith('/fcs/craft/cutting/supplement-management')) {
+    const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
+    return supplementManagementPage.handleCraftCuttingSupplementManagementEvent(eventTarget, event)
+  }
   if (pathname.startsWith('/wls/fabric-demand-board')) {
     try {
       const fabricDemandBoardPage = await getWlsFabricDemandBoardPageModule()
@@ -836,9 +840,23 @@ function ensureInitialPdaLoadingShell(state = appStore.getState()): void {
   root.innerHTML = renderAppShell(state, renderPdaLoadingShell())
 }
 
+const supplementManagementRoutePath = '/fcs/craft/cutting/supplement-management'
+let previousRenderedPagePathname = ''
+
+async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
+  const isSupplementManagementEntry = normalizedPathname === supplementManagementRoutePath
+    && previousRenderedPagePathname !== supplementManagementRoutePath
+  previousRenderedPagePathname = normalizedPathname
+  if (!isSupplementManagementEntry) return
+
+  const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
+  supplementManagementPage.enterCraftCuttingSupplementManagementRoute()
+}
+
 async function renderCurrentPageContent(pathname: string): Promise<string> {
   try {
     const normalizedPathname = pathname.split('?')[0].split('#')[0]
+    await preparePageRouteEntry(normalizedPathname)
     if (normalizedPathname === '/fcs/production/demand-inbox') {
       const productionDemandPage = await getProductionDemandPageModule()
       const page = productionDemandPage.renderProductionDemandInboxPage()
@@ -1621,6 +1639,54 @@ function handleShellAction(actionNode: HTMLElement): boolean {
 
   return false
 }
+
+const STANDARD_LIST_COLUMN_DRAG_MIME = 'application/x-higood-list-column-key'
+
+interface StandardListColumnDragEvent extends DragEvent {
+  higoodStandardListColumnDrag?: true
+  higoodStandardListColumnKey?: string
+}
+
+let activeStandardListColumnDrag: { columnKey: string; pathname: string } | null = null
+
+function dispatchListColumnDragEvent(event: DragEvent): void {
+  const target = resolveEventElementTarget(event.target)
+  const dragNode = target?.closest<HTMLElement>('[data-standard-list-column-drag]')
+  const dataTransfer = event.dataTransfer
+  const pathname = appStore.getState().pathname
+
+  if (event.type === 'dragstart') {
+    const columnKey = dragNode?.dataset.dragSource || ''
+    if (!target || !dragNode || !dataTransfer || !columnKey) return
+    activeStandardListColumnDrag = { columnKey, pathname }
+    dataTransfer.setData(STANDARD_LIST_COLUMN_DRAG_MIME, columnKey)
+    dataTransfer.effectAllowed = 'move'
+  } else {
+    const activeDrag = activeStandardListColumnDrag
+    if (!target || !activeDrag || activeDrag.pathname !== pathname) {
+      if (event.type === 'dragend') activeStandardListColumnDrag = null
+      return
+    }
+
+    if (event.type === 'dragover' || event.type === 'drop') {
+      const hasInternalMime = Array.from(dataTransfer?.types ?? []).includes(STANDARD_LIST_COLUMN_DRAG_MIME)
+      if (!dragNode || !hasInternalMime) return
+      event.preventDefault()
+      if (dataTransfer) dataTransfer.dropEffect = 'move'
+    }
+  }
+
+  const internalEvent = event as StandardListColumnDragEvent
+  internalEvent.higoodStandardListColumnDrag = true
+  internalEvent.higoodStandardListColumnKey = activeStandardListColumnDrag?.columnKey
+  if (event.type === 'drop' || event.type === 'dragend') activeStandardListColumnDrag = null
+  void dispatchPageEvent(target, internalEvent)
+}
+
+root.addEventListener('dragstart', dispatchListColumnDragEvent)
+root.addEventListener('dragover', dispatchListColumnDragEvent)
+root.addEventListener('drop', dispatchListColumnDragEvent)
+root.addEventListener('dragend', dispatchListColumnDragEvent)
 
 root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)
