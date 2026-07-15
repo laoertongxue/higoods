@@ -637,6 +637,16 @@ assert(
   '操作列必须排在普通列最后',
 )
 
+const descendingListTableHtml = renderStandardListTable({
+  columns: standardListColumns,
+  rows: [{ recordNo: 'BL-006', qty: 6 }],
+  preferences: standardListPreferences,
+  sort: { key: 'qty', direction: 'desc' },
+  eventPrefix: 'demo-list',
+})
+assert(descendingListTableHtml.includes('aria-label="恢复数量默认顺序"'), '降序状态必须准确提示下一步恢复默认顺序')
+assert.match(descendingListTableHtml, /data-standard-list-sort-icon="desc"/, '降序状态必须输出向下排序图标')
+
 const cumulativeFrozenTableHtml = renderStandardListTable({
   columns: standardListColumns,
   rows: [{ recordNo: 'BL-002', qty: 3 }],

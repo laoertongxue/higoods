@@ -269,6 +269,7 @@ test('默认分页、三态排序及临时状态刷新后回到默认', async ({
   expect(await quantities()).toEqual([...await quantities()].sort((a, b) => a - b))
   await quantitySort.click()
   await expect(quantityHeader).toHaveAttribute('aria-sort', 'descending')
+  await expect(quantitySort).toHaveAttribute('aria-label', '恢复补料数量默认顺序')
   await expect(quantityHeader.locator('[data-standard-list-sort-icon="desc"] svg')).toBeVisible()
   expect(await quantities()).toEqual([...await quantities()].sort((a, b) => b - a))
   await quantitySort.click()

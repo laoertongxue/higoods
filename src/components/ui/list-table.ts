@@ -132,8 +132,12 @@ function renderSortHeader<T>(
   eventPrefix: string,
 ): string {
   const activeDirection = sort?.key === column.key ? sort.direction : null
-  const nextDirection = activeDirection === 'asc' ? 'desc' : 'asc'
   const actionAttr = toActionAttr({ prefix: eventPrefix, action: 'sort-column' })
+  const nextActionLabel = activeDirection === 'asc'
+    ? `按${column.title}降序排列`
+    : activeDirection === 'desc'
+      ? `恢复${column.title}默认顺序`
+      : `按${column.title}升序排列`
 
   return `
     <button
@@ -141,7 +145,7 @@ function renderSortHeader<T>(
       class="inline-flex w-full items-center gap-1.5 font-medium"
       ${actionAttr}
       data-column-key="${escapeHtml(column.key)}"
-      aria-label="按${escapeHtml(column.title)}${nextDirection === 'asc' ? '升序' : '降序'}排列"
+      aria-label="${escapeHtml(nextActionLabel)}"
     >
       <span>${escapeHtml(column.title)}</span>
       ${renderSortIcon(activeDirection)}
