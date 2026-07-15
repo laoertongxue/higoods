@@ -12,6 +12,7 @@ import {
   getEffectiveDyeingFulfillment,
   listCombinedDyeingTasks,
   parseCombinedDyeingQuantityMinorUnits,
+  recordCombinedDyeingProductionChangeImpact,
   type CombinedDyeingMemberSnapshot,
 } from '../src/data/fcs/combined-dyeing-domain.ts'
 import {
@@ -333,6 +334,28 @@ function checkCombinedDyeingLifecycle(): void {
   const waitingDelete = deleteCombinedDyeingTask(followTask.taskId, { deletedBy: '计划员', deletedAt: '2026-07-16 17:00:00', reason: '计划取消' })
   assert.equal(waitingDelete.status, 'DELETED', '待染色任务允许软删除')
   assert.equal(getActiveCombinedDyeingMembership(baseA.dyeOrderId), undefined, '删除待染色任务释放全部占用')
+
+  const impacted = recordCombinedDyeingProductionChangeImpact(followTask.taskId, {
+    changeRecordId: 'BG-COMBINED-HISTORY-001',
+    dyeWorkOrderId: baseA.dyeOrderId,
+    before: baseA.formalProductionOrderSnapshot!,
+    after: { ...baseA.formalProductionOrderSnapshot!, plannedQty: 66 },
+    reason: '已加入合并染色',
+    recordedAt: '2026-07-16 17:01:00',
+    suggestedAction: '由计划员确认是否撤销未执行合并任务后自动同步。',
+  })
+  impacted.changeImpact![0]!.after.plannedQty = 999
+  assert.equal(getCombinedDyeingTaskById(followTask.taskId)?.changeImpact?.[0]?.after.plannedQty, 66, '合并任务影响历史读取必须深克隆')
+  recordCombinedDyeingProductionChangeImpact(followTask.taskId, {
+    changeRecordId: 'BG-COMBINED-HISTORY-001',
+    dyeWorkOrderId: baseA.dyeOrderId,
+    before: baseA.formalProductionOrderSnapshot!,
+    after: { ...baseA.formalProductionOrderSnapshot!, plannedQty: 77 },
+    reason: '已加入合并染色',
+    recordedAt: '2026-07-16 17:02:00',
+    suggestedAction: '重复事件不得覆盖。',
+  })
+  assert.equal(getCombinedDyeingTaskById(followTask.taskId)?.changeImpact?.length, 1, '同一变更事件不得重复覆盖或追加合并影响历史')
 
   const unrestrictedA = registerLifecycleWorkOrder({ plannedQty: 20 })
   const unrestrictedB = registerLifecycleWorkOrder({ plannedQty: 20 })

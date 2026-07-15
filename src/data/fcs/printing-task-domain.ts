@@ -20,6 +20,8 @@ import { type HandoverReceiverKind, type QtyUnit } from './process-tasks.ts'
 import type {
   FormalProductionOrderProcessSnapshot,
   FormalProductionOrderProcessSnapshotRecord,
+  ProcessWorkOrderAutoSyncRecord,
+  ProcessWorkOrderChangeImpact,
   ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
 import { buildTaskQrValue } from './task-qr.ts'
@@ -107,6 +109,8 @@ export interface PrintWorkOrder {
   updatedAt: string
   remark?: string
   formalProductionOrderSnapshot?: FormalProductionOrderProcessSnapshotRecord
+  changeImpact?: ProcessWorkOrderChangeImpact[]
+  autoSyncHistory?: ProcessWorkOrderAutoSyncRecord[]
 }
 
 export interface PrintExecutionNodeRecord {
@@ -402,6 +406,8 @@ function cloneWorkOrder(order: MutablePrintWorkOrder): PrintWorkOrder {
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
       ? { ...order.formalProductionOrderSnapshot, processCodes: [...order.formalProductionOrderSnapshot.processCodes] }
       : undefined,
+    changeImpact: order.changeImpact ? structuredClone(order.changeImpact) : undefined,
+    autoSyncHistory: order.autoSyncHistory ? structuredClone(order.autoSyncHistory) : undefined,
   }
 }
 
@@ -1885,6 +1891,148 @@ export function registerFormalProductionOrderPrintWorkOrder(input: FormalProduct
   })
   createdPrintOrderIds.add(input.workOrderId)
   return getPrintWorkOrderById(input.workOrderId)!
+}
+
+export const PRINT_PRODUCTION_CHANGE_NOT_EXECUTED_STATUSES: readonly PrintWorkOrderStatus[] = [
+  'WAIT_ARTWORK',
+  'WAIT_COLOR_TEST',
+  'WAIT_PRINT',
+]
+
+export interface PreparedPrintWorkOrderProductionChangeSync {
+  workOrderId?: string
+  outcome: 'NOT_FOUND' | 'UNCHANGED' | 'AUTO_SYNCED' | 'PROTECTED'
+  before?: FormalProductionOrderProcessSnapshotRecord
+  after?: FormalProductionOrderProcessSnapshotRecord
+  impact?: ProcessWorkOrderChangeImpact
+  commit: () => void
+}
+
+function toPrintSnapshotRecord(snapshot: FormalProductionOrderProcessSnapshot): FormalProductionOrderProcessSnapshotRecord {
+  return {
+    productionOrderId: snapshot.productionOrderId,
+    productionOrderNo: snapshot.productionOrderNo,
+    orderedAt: snapshot.orderedAt,
+    techPackVersionId: snapshot.techPackVersionId,
+    techPackVersionLabel: snapshot.techPackVersionLabel,
+    materialId: snapshot.materialId,
+    materialName: snapshot.materialName,
+    targetColor: snapshot.targetColor,
+    plannedQty: snapshot.plannedQty,
+    qtyUnit: snapshot.qtyUnit,
+    processCodes: [...snapshot.processCodes],
+    processName: snapshot.printProcessName || '印花',
+    spuCode: snapshot.spuCode,
+    spuName: snapshot.spuName,
+    requiredDeliveryDate: snapshot.requiredDeliveryDate,
+  }
+}
+
+function hasActualPrintExecution(order: MutablePrintWorkOrder): boolean {
+  const hasNodeFact = (nodeRecordStore.get(order.printOrderId) ?? [])
+    .some((node) => Boolean(node.startedAt || node.finishedAt))
+  const review = reviewRecordStore.get(order.printOrderId)
+  const hasReviewFact = Boolean(review?.reviewedAt || review?.handoverRecordIds?.length || review?.submittedQty)
+  const hasHandoverFact = getPrintOrderHandoverRecords(order.printOrderId).length > 0
+  const isExplicitlyNotExecuted = PRINT_PRODUCTION_CHANGE_NOT_EXECUTED_STATUSES.includes(order.status)
+  return hasNodeFact || hasReviewFact || hasHandoverFact || !isExplicitlyNotExecuted
+}
+
+function toPrintPdaQtyUnit(qtyDisplayUnit: string): QtyUnit {
+  return ['件', '片', '个', '套'].includes(qtyDisplayUnit)
+    ? 'PIECE'
+    : ['卷', '捆', '包', '打'].includes(qtyDisplayUnit)
+      ? 'BUNDLE'
+      : 'METER'
+}
+
+export function prepareFormalProductionOrderPrintWorkOrderSync(
+  snapshot: FormalProductionOrderProcessSnapshot,
+  options: { changeRecordId: string; recordedAt: string },
+): PreparedPrintWorkOrderProductionChangeSync {
+  seedDomain()
+  const current = Array.from(workOrderStore.values()).find((order) => (
+    order.sourceType === 'PRODUCTION_ORDER' && order.sourceProductionOrderId === snapshot.productionOrderId
+  ))
+  if (!current) return { outcome: 'NOT_FOUND', commit: () => undefined }
+  const before = current.formalProductionOrderSnapshot
+  if (!before) throw new Error(`印花加工单 ${current.printOrderNo} 缺少正式生产单快照`)
+  const after = toPrintSnapshotRecord(snapshot)
+  const alreadyRecorded = [...(current.changeImpact ?? []), ...(current.autoSyncHistory ?? [])]
+    .some((item) => item.changeRecordId === options.changeRecordId)
+  if (alreadyRecorded || JSON.stringify(before) === JSON.stringify(after)) {
+    return { workOrderId: current.printOrderId, outcome: 'UNCHANGED', before, after, commit: () => undefined }
+  }
+  if (hasActualPrintExecution(current)) {
+    const impact: ProcessWorkOrderChangeImpact = {
+      changeRecordId: options.changeRecordId,
+      before: structuredClone(before),
+      after: structuredClone(after),
+      reason: '已执行',
+      recordedAt: options.recordedAt,
+      suggestedAction: '保留原执行快照，由计划员按实际进度处理数量、物料和交期影响。',
+    }
+    const next = cloneWorkOrder(current)
+    next.changeImpact = [...(current.changeImpact ?? []), structuredClone(impact)]
+    return {
+      workOrderId: current.printOrderId,
+      outcome: 'PROTECTED',
+      before,
+      after,
+      impact,
+      commit: () => { workOrderStore.set(current.printOrderId, next) },
+    }
+  }
+
+  const next = cloneWorkOrder(current)
+  next.sourceProductionOrderNo = snapshot.productionOrderNo
+  next.productionOrderOrderedAt = snapshot.orderedAt
+  next.productionOrderIds = [snapshot.productionOrderId]
+  next.patternNo = snapshot.techPackVersionId
+  next.patternVersion = snapshot.techPackVersionLabel
+  next.materialSku = snapshot.materialId
+  next.materialColor = snapshot.targetColor
+  next.plannedQty = snapshot.plannedQty
+  next.qtyUnit = snapshot.qtyUnit
+  if (snapshot.factoryId !== undefined) {
+    next.printFactoryId = snapshot.factoryId
+    next.printFactoryName = snapshot.factoryName || snapshot.factoryId || '待分配工厂'
+  }
+  next.formalProductionOrderSnapshot = structuredClone(after)
+  next.updatedAt = options.recordedAt
+  next.remark = `${after.processName}；来源正式生产单 ${snapshot.productionOrderNo}；技术包 ${snapshot.techPackVersionLabel}。`
+  next.autoSyncHistory = [...(current.autoSyncHistory ?? []), {
+    changeRecordId: options.changeRecordId,
+    before: structuredClone(before),
+    after: structuredClone(after),
+    syncedAt: options.recordedAt,
+  }]
+  const currentTask = getPrintingTaskById(current.taskId)
+  const nextTask = currentTask ? structuredClone(currentTask) : undefined
+  if (nextTask) {
+    nextTask.productionOrderId = snapshot.productionOrderId
+    nextTask.productionOrderNo = snapshot.productionOrderNo
+    nextTask.sourceProductionOrderId = snapshot.productionOrderId
+    nextTask.spuCode = snapshot.spuCode
+    nextTask.spuName = snapshot.spuName
+    nextTask.requiredDeliveryDate = snapshot.requiredDeliveryDate
+    nextTask.qty = snapshot.plannedQty
+    nextTask.qtyUnit = toPrintPdaQtyUnit(snapshot.qtyUnit)
+    nextTask.qtyDisplayUnit = snapshot.qtyUnit
+    nextTask.processNameZh = after.processName
+    nextTask.processBusinessName = after.processName
+    nextTask.updatedAt = options.recordedAt
+  }
+  return {
+    workOrderId: current.printOrderId,
+    outcome: 'AUTO_SYNCED',
+    before,
+    after,
+    commit: () => {
+      workOrderStore.set(current.printOrderId, next)
+      if (nextTask) registerPdaGenericProcessTask(nextTask)
+    },
+  }
 }
 
 export function createPrintWorkOrderFromStock(input: {

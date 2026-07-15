@@ -6,6 +6,12 @@ import {
   type ProductionOrderChangeCurrentFacts,
 } from './production-tech-pack-change-domain.ts'
 import { productionOrders, type ProductionOrderStatus } from './production-orders.ts'
+import {
+  buildFormalProductionOrderProcessSnapshots,
+  syncProcessWorkOrdersAfterProductionOrderChange,
+  validateFormalProductionOrderProcessSnapshot,
+  type FormalProductionOrderProcessSnapshot,
+} from './production-process-work-order-service.ts'
 
 export type ProductionChangeType = 'QUANTITY_CHANGE' | 'MATERIAL_REPLACEMENT'
 
@@ -572,6 +578,9 @@ export interface ProductionChangeExecutionOptions {
   onProgress?: (progress: number, result: ProductionChangeExecutionResult) => void
   onStep?: (step: ProductionChangeExecutionStep, result: ProductionChangeExecutionResult) => void
   persist?: (result: ProductionChangeExecutionResult) => ProductionChangeExecutionResult | void
+  processWorkOrderSnapshots?: FormalProductionOrderProcessSnapshot[] | (() => FormalProductionOrderProcessSnapshot[])
+  changeRecordId?: string
+  processWorkOrderSyncRecordedAt?: string
 }
 
 export interface ProductionChangePreview {
@@ -718,7 +727,22 @@ export function executeProductionChange(
       options.onProgress?.(result.progress, result)
     })
     persistenceStarted = true
-    return options.persist?.(result) ?? result
+    const persistedResult = options.persist?.(result) ?? result
+    if (persistedResult.status !== 'DONE') return persistedResult
+    const snapshots = typeof options.processWorkOrderSnapshots === 'function'
+      ? options.processWorkOrderSnapshots()
+      : options.processWorkOrderSnapshots ?? preview.affectedOrderIds.flatMap((productionOrderId) => {
+          const order = productionOrders.find((item) => item.productionOrderId === productionOrderId)
+          return order ? buildFormalProductionOrderProcessSnapshots(order) : []
+        })
+    snapshots.forEach(validateFormalProductionOrderProcessSnapshot)
+    snapshots.forEach((snapshot) => {
+      syncProcessWorkOrdersAfterProductionOrderChange(snapshot, {
+        changeRecordId: options.changeRecordId || `PRODUCTION-CHANGE:${preview.factsFingerprint}`,
+        recordedAt: options.processWorkOrderSyncRecordedAt,
+      })
+    })
+    return persistedResult
   } catch {
     const rolledBackResult = createProductionChangeRolledBackResult(preview, lockObjectIds)
     if (!persistenceStarted) {

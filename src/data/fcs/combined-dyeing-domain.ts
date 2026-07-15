@@ -2,6 +2,10 @@ import {
   getCanonicalDyeWorkOrderById,
   type CanonicalDyeWorkOrder,
 } from './dye-work-order-canonical-registry.ts'
+import type {
+  FormalProductionOrderProcessSnapshotRecord,
+  ProcessWorkOrderChangeImpactReason,
+} from './process-work-order-domain.ts'
 
 export type CombinedDyeingTaskStatus = 'WAIT_DYEING' | 'COMPLETED' | 'DELETED'
 
@@ -77,6 +81,17 @@ export interface CombinedDyeingTask {
   deletedBy?: string
   deletedAt?: string
   deleteReason?: string
+  changeImpact?: CombinedDyeingProductionChangeImpact[]
+}
+
+export interface CombinedDyeingProductionChangeImpact {
+  changeRecordId: string
+  dyeWorkOrderId: string
+  before: FormalProductionOrderProcessSnapshotRecord
+  after: FormalProductionOrderProcessSnapshotRecord
+  reason: ProcessWorkOrderChangeImpactReason
+  recordedAt: string
+  suggestedAction: string
 }
 
 export interface EffectiveDyeingFulfillment {
@@ -93,6 +108,13 @@ export interface ActiveCombinedDyeingMembership {
   taskId: string
   taskNo: string
   status: Exclude<CombinedDyeingTaskStatus, 'DELETED'>
+}
+
+export interface ProductionChangeProtectedCombinedDyeingMembership {
+  taskId: string
+  taskNo: string
+  status: CombinedDyeingTaskStatus
+  protection: 'ACTIVE_MEMBERSHIP' | 'COMPLETED_ALLOCATION'
 }
 
 const COMBINED_DYEING_QTY_SCALE = 1000
@@ -604,6 +626,70 @@ export function getActiveCombinedDyeingMembership(dyeWorkOrderId: string): Activ
   ))
   if (!task || task.status === 'DELETED') return undefined
   return deepClone({ taskId: task.taskId, taskNo: task.taskNo, status: task.status })
+}
+
+export function getProductionChangeProtectedCombinedDyeingMembership(
+  dyeWorkOrderId: string,
+): ProductionChangeProtectedCombinedDyeingMembership | undefined {
+  const active = Array.from(combinedDyeingTaskStore.values()).find((task) => (
+    task.status !== 'DELETED' && task.members.some((member) => member.dyeWorkOrderId === dyeWorkOrderId)
+  ))
+  if (active) {
+    return deepClone({
+      taskId: active.taskId,
+      taskNo: active.taskNo,
+      status: active.status,
+      protection: 'ACTIVE_MEMBERSHIP',
+    })
+  }
+  const completed = Array.from(combinedDyeingTaskStore.values()).find((task) => (
+    task.allocationVersions.some((version) => (
+      version.current && version.allocations.some((allocation) => allocation.dyeWorkOrderId === dyeWorkOrderId)
+    ))
+  ))
+  return completed
+    ? deepClone({
+        taskId: completed.taskId,
+        taskNo: completed.taskNo,
+        status: completed.status,
+        protection: 'COMPLETED_ALLOCATION',
+      })
+    : undefined
+}
+
+export function prepareCombinedDyeingProductionChangeImpact(
+  taskId: string,
+  input: CombinedDyeingProductionChangeImpact,
+): { commit: () => void } {
+  const task = combinedDyeingTaskStore.get(taskId)
+  if (!task) throw new Error(`未找到合并染色任务：${taskId}`)
+  requireText(input.changeRecordId, '生产变更记录 ID')
+  requireText(input.dyeWorkOrderId, '染色加工单 ID')
+  requireText(input.recordedAt, '影响记录时间')
+  requireText(input.suggestedAction, '建议动作')
+  if (!task.members.some((member) => member.dyeWorkOrderId === input.dyeWorkOrderId)) {
+    throw new Error(`染色加工单 ${input.dyeWorkOrderId} 不属于合并染色任务 ${task.taskNo}`)
+  }
+  const history = task.changeImpact ?? []
+  if (history.some((item) => (
+    item.changeRecordId === input.changeRecordId && item.dyeWorkOrderId === input.dyeWorkOrderId
+  ))) {
+    return { commit: () => undefined }
+  }
+  const nextHistory = [...history, deepClone(input)]
+  return {
+    commit: () => {
+      task.changeImpact = nextHistory
+    },
+  }
+}
+
+export function recordCombinedDyeingProductionChangeImpact(
+  taskId: string,
+  input: CombinedDyeingProductionChangeImpact,
+): CombinedDyeingTask {
+  prepareCombinedDyeingProductionChangeImpact(taskId, input).commit()
+  return deepClone(combinedDyeingTaskStore.get(taskId)!)
 }
 
 export function getEffectiveDyeingFulfillment(dyeWorkOrderId: string): EffectiveDyeingFulfillment {

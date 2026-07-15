@@ -1,15 +1,28 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-import { getDyeExecutionRoute, getDyeWorkOrderById, getDyeWorkOrderByTaskId } from '../src/data/fcs/dyeing-task-domain.ts'
+import {
+  getDyeExecutionRoute,
+  getDyeWorkOrderById,
+  getDyeWorkOrderByTaskId,
+  startDyeSampleTest,
+  createDyeWorkOrderFromStock,
+} from '../src/data/fcs/dyeing-task-domain.ts'
+import {
+  createCombinedDyeingTask,
+  completeCombinedDyeingTask,
+  deleteCombinedDyeingTask,
+  getCombinedDyeingTaskById,
+} from '../src/data/fcs/combined-dyeing-domain.ts'
 import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
 import {
   getProcessWorkOrderById,
   listProcessWorkOrders,
   type ProcessWorkOrder,
 } from '../src/data/fcs/process-work-order-domain.ts'
-import { getPrintWorkOrderById, getPrintWorkOrderByTaskId } from '../src/data/fcs/printing-task-domain.ts'
+import { getPrintWorkOrderById, getPrintWorkOrderByTaskId, startColorTest } from '../src/data/fcs/printing-task-domain.ts'
 import { productionOrders, type ProductionOrder } from '../src/data/fcs/production-orders.ts'
+import { listProcessWorkOrderStockMaterials } from '../src/data/fcs/process-work-order-stock.ts'
 import { state } from '../src/pages/production/context.ts'
 import {
   applyCreatedProductionOrderGroups,
@@ -18,6 +31,7 @@ import {
 import {
   buildFormalProductionOrderProcessSnapshots,
   ensureProcessWorkOrdersForFormalProductionOrder,
+  syncProcessWorkOrdersAfterProductionOrderChange,
   type FormalProductionOrderProcessSnapshot,
 } from '../src/data/fcs/production-process-work-order-service.ts'
 
@@ -589,6 +603,199 @@ assert.deepEqual(
     }),
   '幂等触发不得重新编号',
 )
+
+const syncBase: FormalProductionOrderProcessSnapshot = {
+  ...dyeAndPrint,
+  productionOrderId: 'PO-AUTO-SYNC-001',
+  productionOrderNo: 'PO-AUTO-SYNC-001',
+  orderedAt: '2026-07-16 08:00:00',
+  materialId: 'MAT-SYNC-OLD',
+  materialName: '同步前面料',
+  targetColor: '同步前蓝色',
+  plannedQty: 100,
+  qtyUnit: '米',
+  techPackVersionId: 'TP-SYNC-V1',
+  techPackVersionLabel: '技术包 V1',
+  dyeProcessName: '同步前染色',
+  printProcessName: '同步前印花',
+  requiresWaterSoluble: false,
+}
+const syncCreated = ensureProcessWorkOrdersForFormalProductionOrder(syncBase)
+const syncChanged: FormalProductionOrderProcessSnapshot = {
+  ...syncBase,
+  orderedAt: '2026-07-16 09:30:00',
+  materialId: 'MAT-SYNC-NEW',
+  materialName: '同步后面料',
+  targetColor: '同步后绿色',
+  plannedQty: 135,
+  qtyUnit: '码',
+  techPackVersionId: 'TP-SYNC-V2',
+  techPackVersionLabel: '技术包 V2',
+  dyeProcessName: '同步后活性染色',
+  printProcessName: '同步后数码印花',
+  requiresWaterSoluble: true,
+}
+const syncResult = syncProcessWorkOrdersAfterProductionOrderChange(syncChanged, {
+  changeRecordId: 'BG-SYNC-001',
+  recordedAt: '2026-07-16 10:00:00',
+})
+assert.deepEqual(syncResult.autoSynced.sort(), [syncCreated.dyeWorkOrderId, syncCreated.printWorkOrderId].sort(), '未执行染色/印花加工单必须一起自动同步')
+const syncedDye = getDyeWorkOrderById(syncCreated.dyeWorkOrderId!)!
+const syncedPrint = getPrintWorkOrderById(syncCreated.printWorkOrderId!)!
+assert.equal(syncedDye.dyeOrderId, syncCreated.dyeWorkOrderId, '染色加工单 ID 不得改变')
+assert.equal(syncedDye.taskId, syncCreated.dyeWorkOrderId, '染色 PDA canonical 任务 ID 不得改变')
+assert.equal(syncedPrint.printOrderId, syncCreated.printWorkOrderId, '印花加工单 ID 不得改变')
+assert.equal(syncedPrint.taskId, syncCreated.printWorkOrderId, '印花 PDA canonical 任务 ID 不得改变')
+assert.deepEqual(
+  [syncedDye.materialId, syncedDye.composition, syncedDye.targetColor, syncedDye.dyeProcessName, syncedDye.plannedQty, syncedDye.qtyUnit, syncedDye.requiresWaterSoluble],
+  ['MAT-SYNC-NEW', '同步后面料', '同步后绿色', '同步后活性染色', 135, '码', true],
+  '未执行染色加工单必须覆盖新生产快照和水溶计划事实',
+)
+assert.deepEqual(
+  [syncedPrint.materialSku, syncedPrint.materialColor, syncedPrint.patternNo, syncedPrint.patternVersion, syncedPrint.plannedQty, syncedPrint.qtyUnit],
+  ['MAT-SYNC-NEW', '同步后绿色', 'TP-SYNC-V2', '技术包 V2', 135, '码'],
+  '未执行印花加工单必须覆盖新生产快照',
+)
+assert.equal(syncedDye.autoSyncHistory?.length, 1, '染色加工单自动同步必须留痕')
+assert.equal(syncedPrint.autoSyncHistory?.length, 1, '印花加工单自动同步必须留痕')
+syncProcessWorkOrdersAfterProductionOrderChange(syncChanged, { changeRecordId: 'BG-SYNC-001', recordedAt: '2026-07-16 10:00:01' })
+assert.equal(getDyeWorkOrderById(syncCreated.dyeWorkOrderId!)?.autoSyncHistory?.length, 1, '同一变更事件重复回调不得重复写同步历史')
+
+const executedSnapshot: FormalProductionOrderProcessSnapshot = {
+  ...dyeOnly,
+  productionOrderId: 'PO-AUTO-SYNC-EXECUTED',
+  productionOrderNo: 'PO-AUTO-SYNC-EXECUTED',
+}
+const executedCreated = ensureProcessWorkOrdersForFormalProductionOrder(executedSnapshot)
+startDyeSampleTest(executedCreated.dyeWorkOrderId!, '真实执行人')
+const executedBefore = getDyeWorkOrderById(executedCreated.dyeWorkOrderId!)!
+syncProcessWorkOrdersAfterProductionOrderChange({
+  ...executedSnapshot,
+  materialId: 'MAT-EXECUTED-NEW',
+  materialName: '执行后变更面料',
+  plannedQty: 999,
+}, { changeRecordId: 'BG-SYNC-EXECUTED', recordedAt: '2026-07-16 10:10:00' })
+const executedAfter = getDyeWorkOrderById(executedCreated.dyeWorkOrderId!)!
+assert.equal(executedAfter.materialId, executedBefore.materialId, '已有真实执行节点时不得覆盖原加工事实')
+assert.equal(executedAfter.plannedQty, executedBefore.plannedQty, '已有真实执行节点时不得覆盖原计划数量')
+assert.equal(executedAfter.changeImpact?.at(-1)?.reason, '已执行', '已有真实执行节点必须记录已执行影响')
+executedAfter.changeImpact![0]!.after.plannedQty = 1
+assert.equal(getDyeWorkOrderById(executedCreated.dyeWorkOrderId!)?.changeImpact?.[0]?.after.plannedQty, 999, '加工单影响历史读取必须深克隆')
+syncProcessWorkOrdersAfterProductionOrderChange({
+  ...executedSnapshot,
+  materialId: 'MAT-EXECUTED-NEWER',
+  materialName: '第二次执行后变更面料',
+  plannedQty: 888,
+}, { changeRecordId: 'BG-SYNC-EXECUTED-002', recordedAt: '2026-07-16 10:11:00' })
+assert.equal(getDyeWorkOrderById(executedCreated.dyeWorkOrderId!)?.changeImpact?.length, 2, '多次不同生产变更必须保留全部加工单影响历史')
+assert.equal(getProcessWorkOrderById(executedCreated.dyeWorkOrderId!)?.changeImpact?.length, 2, '平台统一加工单读取必须透出全部生产变更影响历史')
+
+const executedPrintSnapshot: FormalProductionOrderProcessSnapshot = {
+  ...printOnly,
+  productionOrderId: 'PO-AUTO-SYNC-PRINT-EXECUTED',
+  productionOrderNo: 'PO-AUTO-SYNC-PRINT-EXECUTED',
+}
+const executedPrintCreated = ensureProcessWorkOrdersForFormalProductionOrder(executedPrintSnapshot)
+startColorTest(executedPrintCreated.printWorkOrderId!, '真实印花执行人')
+syncProcessWorkOrdersAfterProductionOrderChange({ ...executedPrintSnapshot, materialId: 'MAT-PRINT-EXECUTED-NEW', plannedQty: 777 }, {
+  changeRecordId: 'BG-SYNC-PRINT-EXECUTED',
+  recordedAt: '2026-07-16 10:12:00',
+})
+assert.equal(getPrintWorkOrderById(executedPrintCreated.printWorkOrderId!)?.materialSku, executedPrintSnapshot.materialId, '印花实际开始后不得覆盖原加工事实')
+assert.equal(getPrintWorkOrderById(executedPrintCreated.printWorkOrderId!)?.changeImpact?.at(-1)?.reason, '已执行', '印花实际开始后必须记录已执行影响')
+
+const combinedA: FormalProductionOrderProcessSnapshot = {
+  ...dyeOnly,
+  productionOrderId: 'PO-AUTO-SYNC-COMBINED-A',
+  productionOrderNo: 'PO-AUTO-SYNC-COMBINED-A',
+  materialId: 'MAT-SYNC-COMBINED',
+  materialName: '合并同步面料',
+  targetColor: '合并蓝',
+  dyeProcessName: '合并活性染色',
+  plannedQty: 60,
+}
+const combinedB: FormalProductionOrderProcessSnapshot = {
+  ...combinedA,
+  productionOrderId: 'PO-AUTO-SYNC-COMBINED-B',
+  productionOrderNo: 'PO-AUTO-SYNC-COMBINED-B',
+  plannedQty: 40,
+}
+const combinedAOrder = ensureProcessWorkOrdersForFormalProductionOrder(combinedA)
+const combinedBOrder = ensureProcessWorkOrdersForFormalProductionOrder(combinedB)
+const combinedTask = createCombinedDyeingTask({
+  dyeWorkOrderIds: [combinedAOrder.dyeWorkOrderId!, combinedBOrder.dyeWorkOrderId!],
+  createdBy: '同步检查计划员',
+  createdAt: '2026-07-16 10:20:00',
+})
+syncProcessWorkOrdersAfterProductionOrderChange({ ...combinedA, plannedQty: 88, materialName: '合并后新名称' }, {
+  changeRecordId: 'BG-SYNC-COMBINED',
+  recordedAt: '2026-07-16 10:21:00',
+})
+assert.equal(getDyeWorkOrderById(combinedAOrder.dyeWorkOrderId!)?.plannedQty, 60, '活动合并任务成员不得改写加工单成员事实')
+assert.equal(getDyeWorkOrderById(combinedAOrder.dyeWorkOrderId!)?.changeImpact?.at(-1)?.reason, '已加入合并染色')
+assert.equal(getCombinedDyeingTaskById(combinedTask.taskId)?.changeImpact?.at(-1)?.reason, '已加入合并染色', '合并任务也必须记录生产变更影响')
+deleteCombinedDyeingTask(combinedTask.taskId, { deletedBy: '同步检查计划员', deletedAt: '2026-07-16 10:22:00', reason: '未执行任务取消' })
+syncProcessWorkOrdersAfterProductionOrderChange({ ...combinedA, plannedQty: 88, materialName: '合并后新名称' }, {
+  changeRecordId: 'BG-SYNC-COMBINED-AFTER-DELETE',
+  recordedAt: '2026-07-16 10:23:00',
+})
+assert.equal(getDyeWorkOrderById(combinedAOrder.dyeWorkOrderId!)?.plannedQty, 88, '未完成合并任务删除后必须释放占用并允许同步最新快照')
+
+const completedCombinedA = { ...combinedA, productionOrderId: 'PO-AUTO-SYNC-COMPLETED-A', productionOrderNo: 'PO-AUTO-SYNC-COMPLETED-A' }
+const completedCombinedB = { ...combinedB, productionOrderId: 'PO-AUTO-SYNC-COMPLETED-B', productionOrderNo: 'PO-AUTO-SYNC-COMPLETED-B' }
+const completedCombinedAOrder = ensureProcessWorkOrdersForFormalProductionOrder(completedCombinedA)
+const completedCombinedBOrder = ensureProcessWorkOrdersForFormalProductionOrder(completedCombinedB)
+const completedCombinedTask = createCombinedDyeingTask({
+  dyeWorkOrderIds: [completedCombinedAOrder.dyeWorkOrderId!, completedCombinedBOrder.dyeWorkOrderId!],
+  createdBy: '同步检查计划员',
+  createdAt: '2026-07-16 10:30:00',
+})
+completeCombinedDyeingTask(completedCombinedTask.taskId, {
+  actualInputQty: 100,
+  actualOutputQty: 100,
+  completedBy: '染厂主管',
+  completedAt: '2026-07-16 10:31:00',
+})
+deleteCombinedDyeingTask(completedCombinedTask.taskId, { deletedBy: '同步检查计划员', deletedAt: '2026-07-16 10:32:00', reason: '完成后归档' })
+syncProcessWorkOrdersAfterProductionOrderChange({ ...completedCombinedA, plannedQty: 70 }, {
+  changeRecordId: 'BG-SYNC-COMPLETED-AFTER-DELETE',
+  recordedAt: '2026-07-16 10:33:00',
+})
+assert.equal(getDyeWorkOrderById(completedCombinedAOrder.dyeWorkOrderId!)?.plannedQty, 60, '已有完成分配的合并任务删除后仍不得覆盖成员执行快照')
+assert.equal(getDyeWorkOrderById(completedCombinedAOrder.dyeWorkOrderId!)?.changeImpact?.at(-1)?.reason, '已加入合并染色')
+assert.equal(getCombinedDyeingTaskById(completedCombinedTask.taskId)?.changeImpact?.at(-1)?.reason, '已加入合并染色', '已删除但有完成分配的合并任务仍须保留变更影响')
+
+const stockDyeMaterial = listProcessWorkOrderStockMaterials({ processCode: 'DYE' })[0]!
+const stockDyeCreated = createDyeWorkOrderFromStock({
+  stockMaterialId: stockDyeMaterial.stockMaterialId,
+  stockMaterialName: stockDyeMaterial.stockMaterialName,
+  materialSku: stockDyeMaterial.materialSku,
+  factoryId: stockDyeMaterial.factoryId,
+  plannedQty: Math.min(10, stockDyeMaterial.availableQty),
+  qtyUnit: stockDyeMaterial.qtyUnit,
+  plannedFinishAt: '2026-07-30 18:00',
+  processName: '备货染色',
+  targetColor: '备货蓝',
+})
+assert(stockDyeCreated.ok && stockDyeCreated.order, '测试前置：必须通过真实备货入口创建 STOCK 染色加工单')
+const stockDyeBeforeSync = getProcessWorkOrderById(stockDyeCreated.order.dyeOrderId)!
+syncProcessWorkOrdersAfterProductionOrderChange({
+  ...dyeOnly,
+  productionOrderId: stockDyeBeforeSync.workOrderId,
+  productionOrderNo: '伪生产单不得命中 STOCK',
+  plannedQty: stockDyeBeforeSync.plannedQty + 100,
+}, { changeRecordId: 'BG-STOCK-MUST-NOT-SYNC', recordedAt: '2026-07-16 10:40:00' })
+assert.deepEqual(getProcessWorkOrderById(stockDyeBeforeSync.workOrderId), stockDyeBeforeSync, 'STOCK 加工单不得受生产单变更同步影响')
+
+const atomicDyeBefore = getDyeWorkOrderById(syncCreated.dyeWorkOrderId!)!
+const atomicPrintBefore = getPrintWorkOrderById(syncCreated.printWorkOrderId!)!
+assert.throws(() => syncProcessWorkOrdersAfterProductionOrderChange({
+  ...syncChanged,
+  materialId: '',
+  plannedQty: 160,
+}, { changeRecordId: 'BG-SYNC-INVALID-ATOMIC' }), /BOM 面料快照/, '染色+印花同步必须在任一写入前完整校验快照')
+assert.deepEqual(getDyeWorkOrderById(syncCreated.dyeWorkOrderId!), atomicDyeBefore, '无效快照不得留下染色半同步')
+assert.deepEqual(getPrintWorkOrderById(syncCreated.printWorkOrderId!), atomicPrintBefore, '无效快照不得留下印花半同步')
 
 function assertGeneratedOrder(
   orderId: string,

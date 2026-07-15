@@ -4,6 +4,11 @@ import { createProductionChangeForm, state } from '../src/pages/production/conte
 import * as changeDomain from '../src/data/fcs/production-tech-pack-change-domain.ts'
 import { listMaterialArchives } from '../src/data/pcs-material-archive-repository.ts'
 import {
+  ensureProcessWorkOrdersForFormalProductionOrder,
+  type FormalProductionOrderProcessSnapshot,
+} from '../src/data/fcs/production-process-work-order-service.ts'
+import { getDyeWorkOrderById } from '../src/data/fcs/dyeing-task-domain.ts'
+import {
   adaptLegacyQuantityLinesForEdit,
   areMaterialSelectionsEquivalent,
   buildProductionChangeRecord,
@@ -260,6 +265,47 @@ assert.ok(
   'hook 异常返回后必须释放锁',
 )
 assert.equal(executeProductionChange(executionPreview).status, 'DONE', 'hook 异常回滚后必须允许再次执行')
+
+const workflowSyncSnapshot: FormalProductionOrderProcessSnapshot = {
+  productionOrderId: 'PO-CHANGE-WORKFLOW-SYNC',
+  productionOrderNo: 'PO-CHANGE-WORKFLOW-SYNC',
+  orderedAt: '2026-07-16 11:00:00',
+  techPackVersionId: 'TP-CHANGE-SYNC-V1',
+  techPackVersionLabel: '技术包 V1',
+  materialId: 'MAT-CHANGE-SYNC-V1',
+  materialName: '变更同步前面料',
+  targetColor: '藏青',
+  plannedQty: 100,
+  qtyUnit: '米',
+  processCodes: ['DYE'],
+  dyeProcessName: '活性染色',
+  spuCode: 'SPU-CHANGE-SYNC',
+  spuName: '生产变更同步款',
+  requiredDeliveryDate: '2026-08-20',
+}
+const workflowSyncOrder = ensureProcessWorkOrdersForFormalProductionOrder(workflowSyncSnapshot)
+const workflowChangedSnapshot = { ...workflowSyncSnapshot, materialId: 'MAT-CHANGE-SYNC-V2', materialName: '变更同步后面料', plannedQty: 120 }
+const workflowSuccess = executeProductionChange(executionPreview, {
+  processWorkOrderSnapshots: [workflowChangedSnapshot],
+  changeRecordId: 'BG-WORKFLOW-SYNC-001',
+  persist: (result) => result,
+})
+assert.equal(workflowSuccess.status, 'DONE')
+assert.equal(getDyeWorkOrderById(workflowSyncOrder.dyeWorkOrderId!)?.materialId, 'MAT-CHANGE-SYNC-V2', '生产变更成功持久化后必须自动同步加工单')
+
+const noSyncBefore = getDyeWorkOrderById(workflowSyncOrder.dyeWorkOrderId!)!
+executeProductionChange(executionPreview, {
+  shouldFail: true,
+  processWorkOrderSnapshots: [{ ...workflowChangedSnapshot, plannedQty: 130 }],
+  changeRecordId: 'BG-WORKFLOW-SYNC-ROLLBACK',
+})
+assert.equal(getDyeWorkOrderById(workflowSyncOrder.dyeWorkOrderId!)?.plannedQty, noSyncBefore.plannedQty, 'shouldFail 回滚不得同步加工单')
+executeProductionChange(executionPreview, {
+  processWorkOrderSnapshots: [{ ...workflowChangedSnapshot, plannedQty: 140 }],
+  changeRecordId: 'BG-WORKFLOW-SYNC-PERSIST-ROLLBACK',
+  persist: () => ({ ...successfulExecution, status: 'ROLLED_BACK' }),
+})
+assert.equal(getDyeWorkOrderById(workflowSyncOrder.dyeWorkOrderId!)?.plannedQty, noSyncBefore.plannedQty, '持久化返回回滚不得同步加工单')
 
 ;[
   [

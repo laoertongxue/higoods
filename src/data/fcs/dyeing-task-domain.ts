@@ -14,6 +14,8 @@ import { type HandoverReceiverKind, type QtyUnit } from './process-tasks.ts'
 import type {
   FormalProductionOrderProcessSnapshot,
   FormalProductionOrderProcessSnapshotRecord,
+  ProcessWorkOrderAutoSyncRecord,
+  ProcessWorkOrderChangeImpact,
   ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
 import { buildTaskQrValue } from './task-qr.ts'
@@ -37,7 +39,9 @@ import {
 import {
   getActiveCombinedDyeingMembership,
   getEffectiveDyeingFulfillment,
+  getProductionChangeProtectedCombinedDyeingMembership,
   type CombinedDyeingSatisfaction,
+  type ProductionChangeProtectedCombinedDyeingMembership,
 } from './combined-dyeing-domain.ts'
 import { registerCanonicalDyeWorkOrderReader } from './dye-work-order-canonical-registry.ts'
 
@@ -142,6 +146,8 @@ export interface DyeWorkOrder {
   updatedAt: string
   remark?: string
   formalProductionOrderSnapshot?: FormalProductionOrderProcessSnapshotRecord
+  changeImpact?: ProcessWorkOrderChangeImpact[]
+  autoSyncHistory?: ProcessWorkOrderAutoSyncRecord[]
   combinedDyeing?: DyeWorkOrderCombinedDyeingProjection
 }
 
@@ -510,6 +516,8 @@ function cloneWorkOrder(order: MutableDyeWorkOrder): DyeWorkOrder {
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
       ? { ...order.formalProductionOrderSnapshot, processCodes: [...order.formalProductionOrderSnapshot.processCodes] }
       : undefined,
+    changeImpact: order.changeImpact ? structuredClone(order.changeImpact) : undefined,
+    autoSyncHistory: order.autoSyncHistory ? structuredClone(order.autoSyncHistory) : undefined,
     combinedDyeing,
   }
 }
@@ -2549,6 +2557,162 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
   })
   createdDyeOrderIds.add(input.workOrderId)
   return getDyeWorkOrderById(input.workOrderId)!
+}
+
+export const DYE_PRODUCTION_CHANGE_NOT_EXECUTED_STATUSES: readonly DyeWorkOrderStatus[] = [
+  'WAIT_SAMPLE',
+  'WAIT_MATERIAL',
+  'MATERIAL_READY',
+  'WAIT_VAT_PLAN',
+  'WAIT_WATER_SOLUBLE',
+]
+
+export interface PreparedDyeWorkOrderProductionChangeSync {
+  workOrderId?: string
+  outcome: 'NOT_FOUND' | 'UNCHANGED' | 'AUTO_SYNCED' | 'PROTECTED'
+  protectedCombinedMembership?: ProductionChangeProtectedCombinedDyeingMembership
+  before?: FormalProductionOrderProcessSnapshotRecord
+  after?: FormalProductionOrderProcessSnapshotRecord
+  impact?: ProcessWorkOrderChangeImpact
+  commit: () => void
+}
+
+function toDyeSnapshotRecord(snapshot: FormalProductionOrderProcessSnapshot): FormalProductionOrderProcessSnapshotRecord {
+  return {
+    productionOrderId: snapshot.productionOrderId,
+    productionOrderNo: snapshot.productionOrderNo,
+    orderedAt: snapshot.orderedAt,
+    techPackVersionId: snapshot.techPackVersionId,
+    techPackVersionLabel: snapshot.techPackVersionLabel,
+    materialId: snapshot.materialId,
+    materialName: snapshot.materialName,
+    targetColor: snapshot.targetColor,
+    plannedQty: snapshot.plannedQty,
+    qtyUnit: snapshot.qtyUnit,
+    processCodes: [...snapshot.processCodes],
+    processName: snapshot.dyeProcessName || '染色',
+    spuCode: snapshot.spuCode,
+    spuName: snapshot.spuName,
+    requiredDeliveryDate: snapshot.requiredDeliveryDate,
+  }
+}
+
+function hasActualDyeExecution(order: MutableDyeWorkOrder): boolean {
+  const hasNodeFact = (nodeRecordStore.get(order.dyeOrderId) ?? [])
+    .some((node) => Boolean(node.startedAt || node.finishedAt))
+  const review = reviewRecordStore.get(order.dyeOrderId)
+  const hasReviewFact = Boolean(review?.reviewedAt || review?.handoverRecordIds?.length || review?.submittedQty)
+  const hasHandoverFact = getDyeOrderHandoverRecords(order.dyeOrderId).length > 0
+  const isExplicitlyNotExecuted = DYE_PRODUCTION_CHANGE_NOT_EXECUTED_STATUSES.includes(order.status)
+  return hasNodeFact || hasReviewFact || hasHandoverFact || !isExplicitlyNotExecuted
+}
+
+function toPdaQtyUnit(qtyDisplayUnit: string): QtyUnit {
+  return ['件', '片', '个', '套'].includes(qtyDisplayUnit)
+    ? 'PIECE'
+    : ['卷', '捆', '包', '打'].includes(qtyDisplayUnit)
+      ? 'BUNDLE'
+      : 'METER'
+}
+
+export function prepareFormalProductionOrderDyeWorkOrderSync(
+  snapshot: FormalProductionOrderProcessSnapshot,
+  options: { changeRecordId: string; recordedAt: string },
+): PreparedDyeWorkOrderProductionChangeSync {
+  seedDomain()
+  const current = Array.from(workOrderStore.values()).find((order) => (
+    order.sourceType === 'PRODUCTION_ORDER' && order.sourceProductionOrderId === snapshot.productionOrderId
+  ))
+  if (!current) return { outcome: 'NOT_FOUND', commit: () => undefined }
+  const before = current.formalProductionOrderSnapshot
+  if (!before) throw new Error(`染色加工单 ${current.dyeOrderNo} 缺少正式生产单快照`)
+  const after = toDyeSnapshotRecord(snapshot)
+  const alreadyRecorded = [...(current.changeImpact ?? []), ...(current.autoSyncHistory ?? [])]
+    .some((item) => item.changeRecordId === options.changeRecordId)
+  if (alreadyRecorded || JSON.stringify(before) === JSON.stringify(after)) {
+    return { workOrderId: current.dyeOrderId, outcome: 'UNCHANGED', before, after, commit: () => undefined }
+  }
+
+  const combinedMembership = getProductionChangeProtectedCombinedDyeingMembership(current.dyeOrderId)
+  const reason = combinedMembership ? '已加入合并染色' : hasActualDyeExecution(current) ? '已执行' : undefined
+  if (reason) {
+    const impact: ProcessWorkOrderChangeImpact = {
+      changeRecordId: options.changeRecordId,
+      before: structuredClone(before),
+      after: structuredClone(after),
+      reason,
+      recordedAt: options.recordedAt,
+      suggestedAction: reason === '已加入合并染色'
+        ? '由计划员核对合并染色任务；未执行任务可先删除后重新同步，已完成分配需保留原执行事实。'
+        : '保留原执行快照，由计划员按实际进度处理数量、物料和交期影响。',
+    }
+    const next = cloneWorkOrder(current)
+    next.changeImpact = [...(current.changeImpact ?? []), structuredClone(impact)]
+    return {
+      workOrderId: current.dyeOrderId,
+      outcome: 'PROTECTED',
+      protectedCombinedMembership: combinedMembership,
+      before,
+      after,
+      impact,
+      commit: () => { workOrderStore.set(current.dyeOrderId, next) },
+    }
+  }
+
+  const next = cloneWorkOrder(current)
+  next.sourceProductionOrderNo = snapshot.productionOrderNo
+  next.productionOrderOrderedAt = snapshot.orderedAt
+  next.productionOrderIds = [snapshot.productionOrderId]
+  next.rawMaterialSku = snapshot.materialId
+  next.materialId = snapshot.materialId
+  next.composition = snapshot.materialName
+  next.targetColor = snapshot.targetColor
+  next.dyeProcessName = snapshot.dyeProcessName || '染色'
+  next.plannedQty = snapshot.plannedQty
+  next.qtyUnit = snapshot.qtyUnit
+  next.requiresWaterSoluble = snapshot.requiresWaterSoluble === true
+  next.waterSolublePlannedQty = next.requiresWaterSoluble ? snapshot.plannedQty : undefined
+  next.waterSolubleCompletedQty = next.requiresWaterSoluble ? 0 : undefined
+  next.waterSolubleQtyUnit = next.requiresWaterSoluble ? snapshot.qtyUnit : undefined
+  if (snapshot.factoryId !== undefined) {
+    next.dyeFactoryId = snapshot.factoryId
+    next.dyeFactoryName = snapshot.factoryName || snapshot.factoryId || '待分配工厂'
+  }
+  next.formalProductionOrderSnapshot = structuredClone(after)
+  next.updatedAt = options.recordedAt
+  next.remark = `${after.processName}；来源正式生产单 ${snapshot.productionOrderNo}；技术包 ${snapshot.techPackVersionLabel}。`
+  next.autoSyncHistory = [...(current.autoSyncHistory ?? []), {
+    changeRecordId: options.changeRecordId,
+    before: structuredClone(before),
+    after: structuredClone(after),
+    syncedAt: options.recordedAt,
+  }]
+  const currentTask = getDyeingTaskById(current.taskId)
+  const nextTask = currentTask ? structuredClone(currentTask) : undefined
+  if (nextTask) {
+    nextTask.productionOrderId = snapshot.productionOrderId
+    nextTask.productionOrderNo = snapshot.productionOrderNo
+    nextTask.sourceProductionOrderId = snapshot.productionOrderId
+    nextTask.spuCode = snapshot.spuCode
+    nextTask.spuName = snapshot.spuName
+    nextTask.requiredDeliveryDate = snapshot.requiredDeliveryDate
+    nextTask.qty = snapshot.plannedQty
+    nextTask.qtyUnit = toPdaQtyUnit(snapshot.qtyUnit)
+    nextTask.qtyDisplayUnit = snapshot.qtyUnit
+    nextTask.processNameZh = after.processName
+    nextTask.processBusinessName = after.processName
+    nextTask.updatedAt = options.recordedAt
+  }
+  return {
+    workOrderId: current.dyeOrderId,
+    outcome: 'AUTO_SYNCED',
+    before,
+    after,
+    commit: () => {
+      workOrderStore.set(current.dyeOrderId, next)
+      if (nextTask) registerPdaGenericProcessTask(nextTask)
+    },
+  }
 }
 
 export function listDyeExecutionNodeRecords(dyeOrderId?: string): DyeExecutionNodeRecord[] {

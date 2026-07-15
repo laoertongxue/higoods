@@ -73,6 +73,24 @@ export interface FormalProductionOrderProcessSnapshotRecord extends Omit<
   processName: string
 }
 
+export type ProcessWorkOrderChangeImpactReason = '已执行' | '已加入合并染色'
+
+export interface ProcessWorkOrderChangeImpact {
+  changeRecordId: string
+  before: FormalProductionOrderProcessSnapshotRecord
+  after: FormalProductionOrderProcessSnapshotRecord
+  reason: ProcessWorkOrderChangeImpactReason
+  recordedAt: string
+  suggestedAction: string
+}
+
+export interface ProcessWorkOrderAutoSyncRecord {
+  changeRecordId: string
+  before: FormalProductionOrderProcessSnapshotRecord
+  after: FormalProductionOrderProcessSnapshotRecord
+  syncedAt: string
+}
+
 export interface ProcessWorkOrder {
   workOrderId: string
   workOrderNo: string
@@ -156,6 +174,8 @@ export interface ProcessWorkOrder {
   reviewRecords: Array<PrintReviewRecord | DyeReviewRecord>
   handoverRecords: PdaHandoverRecord[]
   formalProductionOrderSnapshot?: FormalProductionOrderProcessSnapshotRecord
+  changeImpact?: ProcessWorkOrderChangeImpact[]
+  autoSyncHistory?: ProcessWorkOrderAutoSyncRecord[]
   createdAt: string
   updatedAt: string
 }
@@ -285,6 +305,8 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
       ? { ...order.formalProductionOrderSnapshot, processCodes: [...order.formalProductionOrderSnapshot.processCodes] }
       : undefined,
+    changeImpact: order.changeImpact ? structuredClone(order.changeImpact) : undefined,
+    autoSyncHistory: order.autoSyncHistory ? structuredClone(order.autoSyncHistory) : undefined,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
   }
@@ -361,6 +383,8 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
       ? { ...order.formalProductionOrderSnapshot, processCodes: [...order.formalProductionOrderSnapshot.processCodes] }
       : undefined,
+    changeImpact: order.changeImpact ? structuredClone(order.changeImpact) : undefined,
+    autoSyncHistory: order.autoSyncHistory ? structuredClone(order.autoSyncHistory) : undefined,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
   }

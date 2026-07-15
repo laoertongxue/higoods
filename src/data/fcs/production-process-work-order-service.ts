@@ -1,11 +1,18 @@
-import { registerFormalProductionOrderDyeWorkOrder } from './dyeing-task-domain.ts'
+import {
+  prepareFormalProductionOrderDyeWorkOrderSync,
+  registerFormalProductionOrderDyeWorkOrder,
+} from './dyeing-task-domain.ts'
 import {
   issueProcessWorkOrderIdentity,
   listProcessWorkOrders,
   type FormalProductionOrderProcessSnapshot,
   type ProcessWorkOrderType,
 } from './process-work-order-domain.ts'
-import { registerFormalProductionOrderPrintWorkOrder } from './printing-task-domain.ts'
+import {
+  prepareFormalProductionOrderPrintWorkOrderSync,
+  registerFormalProductionOrderPrintWorkOrder,
+} from './printing-task-domain.ts'
+import { prepareCombinedDyeingProductionChangeImpact } from './combined-dyeing-domain.ts'
 import type { ProductionOrder } from './production-orders.ts'
 
 export type { FormalProductionOrderProcessSnapshot } from './process-work-order-domain.ts'
@@ -13,6 +20,17 @@ export type { FormalProductionOrderProcessSnapshot } from './process-work-order-
 export interface EnsuredProductionProcessWorkOrders {
   dyeWorkOrderId?: string
   printWorkOrderId?: string
+}
+
+export interface ProductionOrderChangeWorkOrderSyncOptions {
+  changeRecordId?: string
+  recordedAt?: string
+}
+
+export interface ProductionOrderChangeWorkOrderSyncResult {
+  autoSynced: string[]
+  protected: string[]
+  unchanged: string[]
 }
 
 function findExistingWorkOrderId(
@@ -181,5 +199,73 @@ export function ensureProcessWorkOrdersForFormalProductionOrder(
     }
   }
 
+  return result
+}
+
+function createDefaultChangeRecordId(snapshot: FormalProductionOrderProcessSnapshot): string {
+  return [
+    'PRODUCTION-CHANGE',
+    snapshot.productionOrderId,
+    snapshot.orderedAt,
+    snapshot.techPackVersionId,
+    snapshot.materialId,
+    snapshot.targetColor,
+    snapshot.plannedQty,
+    snapshot.qtyUnit,
+    snapshot.dyeProcessName ?? '',
+    snapshot.printProcessName ?? '',
+    snapshot.requiresWaterSoluble === true ? 'WATER' : 'NO_WATER',
+  ].join('|')
+}
+
+export function syncProcessWorkOrdersAfterProductionOrderChange(
+  snapshot: FormalProductionOrderProcessSnapshot,
+  options: ProductionOrderChangeWorkOrderSyncOptions = {},
+): ProductionOrderChangeWorkOrderSyncResult {
+  validateFormalProductionOrderProcessSnapshot(snapshot)
+  const changeRecordId = options.changeRecordId?.trim() || createDefaultChangeRecordId(snapshot)
+  const recordedAt = options.recordedAt?.trim() || new globalThis.Date().toISOString()
+  const preparations: Array<{ commit: () => void }> = []
+  const result: ProductionOrderChangeWorkOrderSyncResult = { autoSynced: [], protected: [], unchanged: [] }
+  const processCodes = new Set(snapshot.processCodes)
+
+  if (processCodes.has('DYE')) {
+    const prepared = prepareFormalProductionOrderDyeWorkOrderSync(snapshot, { changeRecordId, recordedAt })
+    preparations.push(prepared)
+    if (prepared.workOrderId && prepared.outcome === 'AUTO_SYNCED') result.autoSynced.push(prepared.workOrderId)
+    if (prepared.workOrderId && prepared.outcome === 'PROTECTED') result.protected.push(prepared.workOrderId)
+    if (prepared.workOrderId && prepared.outcome === 'UNCHANGED') result.unchanged.push(prepared.workOrderId)
+    if (
+      prepared.outcome === 'PROTECTED'
+      && prepared.protectedCombinedMembership
+      && prepared.before
+      && prepared.after
+      && prepared.impact
+      && prepared.workOrderId
+    ) {
+      preparations.push(prepareCombinedDyeingProductionChangeImpact(
+        prepared.protectedCombinedMembership.taskId,
+        {
+          changeRecordId,
+          dyeWorkOrderId: prepared.workOrderId,
+          before: prepared.before,
+          after: prepared.after,
+          reason: '已加入合并染色',
+          recordedAt,
+          suggestedAction: prepared.impact.suggestedAction,
+        },
+      ))
+    }
+  }
+
+  if (processCodes.has('PRINT')) {
+    const prepared = prepareFormalProductionOrderPrintWorkOrderSync(snapshot, { changeRecordId, recordedAt })
+    preparations.push(prepared)
+    if (prepared.workOrderId && prepared.outcome === 'AUTO_SYNCED') result.autoSynced.push(prepared.workOrderId)
+    if (prepared.workOrderId && prepared.outcome === 'PROTECTED') result.protected.push(prepared.workOrderId)
+    if (prepared.workOrderId && prepared.outcome === 'UNCHANGED') result.unchanged.push(prepared.workOrderId)
+  }
+
+  preparations.forEach((prepared) => prepared.commit())
   return result
 }
