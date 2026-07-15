@@ -43,6 +43,11 @@ import {
   type DyeWorkOrder,
 } from '../../../data/fcs/dyeing-task-domain.ts'
 import { escapeHtml, formatDateTime } from '../../../utils.ts'
+import {
+  removeCombinedDyeingTaskIdFromUrl,
+  resolveCombinedDyeingDeepLink,
+  shouldClearCombinedDyeingOverlay,
+} from '../../../data/fcs/combined-dyeing-deep-link.ts'
 
 const EVENT_PREFIX = 'combined-dyeing'
 const PREFERENCE_KEY = '/fcs/craft/dyeing/combined-dyeing:list-columns'
@@ -68,6 +73,7 @@ const state: {
   includeDeleted: boolean
   selectedWorkOrderIds: string[]
   overlay: OverlayState
+  deepLinkedTaskId: string
   overlayError: string
   sort: StandardListSortState | null
   preferences: StandardListColumnPreferences
@@ -79,6 +85,7 @@ const state: {
   includeDeleted: false,
   selectedWorkOrderIds: [],
   overlay: null,
+  deepLinkedTaskId: '',
   overlayError: '',
   sort: null,
   preferences: {
@@ -537,7 +544,26 @@ function renderOverlay(): string {
   return renderDeleteDialog(task)
 }
 
+export function syncCombinedDyeingDeepLink(search: string): void {
+  const resolution = resolveCombinedDyeingDeepLink(
+    search,
+    listCombinedDyeingTasks({ includeDeleted: true }),
+  )
+  if (resolution.kind === 'detail') {
+    state.overlay = { kind: 'detail', taskId: resolution.taskId }
+    state.deepLinkedTaskId = resolution.taskId
+    state.overlayError = ''
+    return
+  }
+  if (shouldClearCombinedDyeingOverlay(resolution, state.deepLinkedTaskId)) {
+    state.overlay = null
+    state.deepLinkedTaskId = ''
+    state.overlayError = ''
+  }
+}
+
 export function renderCraftCombinedDyeingPage(): string {
+  if (typeof window !== 'undefined') syncCombinedDyeingDeepLink(window.location.search)
   installCombinedDyeingColumnDragEvents()
   return `
     <div data-combined-dyeing-root data-skip-page-rerender="true">
@@ -580,6 +606,7 @@ function showToast(title: string, description?: string, danger = false): void {
 
 function openOverlay(overlay: NonNullable<OverlayState>): void {
   state.overlay = overlay
+  state.deepLinkedTaskId = ''
   state.overlayError = ''
   if (overlay.kind === 'create') {
     state.selectedWorkOrderIds = []
@@ -716,7 +743,17 @@ export function handleCraftCombinedDyeingEvent(target: HTMLElement, event?: Even
   if (action === 'open-correct' && taskId) { openOverlay({ kind: 'correct', taskId }); return true }
   if (action === 'open-delete' && taskId) { openOverlay({ kind: 'delete', taskId }); return true }
   if (action === 'open-column-settings') { openOverlay({ kind: 'columns' }); return true }
-  if (action === 'close-overlay' || action === 'close-column-settings') { state.overlay = null; state.overlayError = ''; refreshOverlay(); return true }
+  if (action === 'close-overlay' || action === 'close-column-settings') {
+    const closesDeepLink = Boolean(state.deepLinkedTaskId)
+    state.overlay = null
+    state.deepLinkedTaskId = ''
+    state.overlayError = ''
+    if (closesDeepLink && typeof window !== 'undefined') {
+      window.history.replaceState(window.history.state, '', removeCombinedDyeingTaskIdFromUrl(window.location.href))
+    }
+    refreshOverlay()
+    return true
+  }
 
   if (action === 'toggle-member') {
     const workOrderId = actionNode.dataset.combinedDyeingId || ''

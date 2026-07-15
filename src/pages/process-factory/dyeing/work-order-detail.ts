@@ -143,6 +143,7 @@ function renderCombinedDyeingSection(order: DyeWorkOrder): string {
     { key: 'input', title: '实际投入', width: '110px', align: 'right' as const, render: (row: typeof versionRows[number]) => formatDyeQty(row.version.actualInputQty, order.qtyUnit) },
     { key: 'output', title: '实际产出', width: '110px', align: 'right' as const, render: (row: typeof versionRows[number]) => formatDyeQty(row.version.actualOutputQty, order.qtyUnit) },
     { key: 'allocated', title: '本单分配', width: '110px', align: 'right' as const, render: (row: typeof versionRows[number]) => formatDyeQty(row.allocation?.allocatedQty ?? 0, order.qtyUnit) },
+    { key: 'excess', title: '超出数量', width: '110px', align: 'right' as const, render: (row: typeof versionRows[number]) => formatDyeQty(row.version.excessQty, order.qtyUnit) },
     { key: 'satisfaction', title: '满足状态', width: '100px', render: (row: typeof versionRows[number]) => escapeHtml(combinedSatisfactionLabel(row.allocation?.satisfaction ?? 'UNMET')) },
     { key: 'reason', title: '更正说明', minWidth: '180px', render: (row: typeof versionRows[number]) => escapeHtml(row.version.reason || '—') },
     { key: 'operator', title: '操作人 / 时间', minWidth: '170px', render: (row: typeof versionRows[number]) => `<div>${escapeHtml(row.version.operator)}</div><div class="text-xs text-muted-foreground">${escapeHtml(row.version.operatedAt)}</div>` },

@@ -44,7 +44,10 @@ export function buildDyeWorkOrderCombinedDyeingView(
   const satisfaction: CombinedDyeingSatisfaction = unmetQty === 0
     ? 'FULL'
     : currentEffectiveAllocationQty > 0 ? 'PARTIAL' : 'UNMET'
-  const allocationVersions = history.flatMap((task) => task.allocationVersions.map((version) => structuredClone(version)))
+  const allocationVersions = history.flatMap((task) => task.allocationVersions.map((version) => ({
+    ...structuredClone(version),
+    excessQty: version.excessQty,
+  })))
 
   return {
     activeTask: activeTask ? structuredClone(activeTask) : undefined,

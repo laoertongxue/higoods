@@ -25,6 +25,11 @@ import {
 } from '../src/data/fcs/dyeing-task-domain.ts'
 import { listProcessWorkOrderStockMaterials } from '../src/data/fcs/process-work-order-stock.ts'
 import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
+import { buildDyeWorkOrderCombinedDyeingView } from '../src/data/fcs/dye-work-order-combined-dyeing-view.ts'
+import {
+  removeCombinedDyeingTaskIdFromUrl,
+  resolveCombinedDyeingDeepLink,
+} from '../src/data/fcs/combined-dyeing-deep-link.ts'
 import {
   createDefaultCombinedDyeingPreferences,
   getCombinedDyeingCandidateReason,
@@ -34,7 +39,9 @@ import {
   submitCombinedDyeingResultInputs,
   toggleCombinedDyeingSelection,
   renderCraftCombinedDyeingPage,
+  syncCombinedDyeingDeepLink,
 } from '../src/pages/process-factory/dyeing/combined-dyeing.ts'
+import { renderCraftDyeingWorkOrderDetailPage } from '../src/pages/process-factory/dyeing/work-order-detail.ts'
 
 function readWorkspaceFile(path: string): string {
   return readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
@@ -89,6 +96,43 @@ function checkCombinedDyeingWorkspaceWiring(): void {
   assert(/return `<div data-combined-dyeing-id="\$\{escapeHtml\(task\.taskId\)\}">\$\{renderFormDialog\(/.test(page), '完成与更正弹窗必须由任务 ID 容器整体包裹，确保底部提交按钮能定位任务')
   assert(!page.includes('ensureCombinedDyeingDemoCandidates'), '页面不得在 render 时注入合并染色演示加工单')
   assert(!page.includes('registerFormalProductionOrderDyeWorkOrder'), '页面不得直接写 canonical 染色加工单或 PDA store')
+}
+
+function checkLinkedCombinedDyeingHistory(): void {
+  const fakeTasks = [
+    { taskId: 'ACTIVE-TASK', status: 'WAIT_DYEING' },
+    { taskId: 'DELETED-TASK', status: 'DELETED' },
+  ]
+  assert.deepEqual(resolveCombinedDyeingDeepLink('?taskId=ACTIVE-TASK', fakeTasks), { kind: 'detail', taskId: 'ACTIVE-TASK' }, '活动任务深链必须解析为详情')
+  assert.deepEqual(resolveCombinedDyeingDeepLink('?taskId=DELETED-TASK', fakeTasks), { kind: 'detail', taskId: 'DELETED-TASK' }, '已删除任务深链必须解析为历史详情')
+  assert.deepEqual(resolveCombinedDyeingDeepLink('?taskId=NOT-FOUND', fakeTasks), { kind: 'invalid', taskId: 'NOT-FOUND' }, '不存在任务深链必须安全识别')
+  assert.deepEqual(resolveCombinedDyeingDeepLink('', fakeTasks), { kind: 'none' }, '无 taskId 时必须保持列表')
+  assert.equal(removeCombinedDyeingTaskIdFromUrl('/fcs/craft/dyeing/combined-dyeing?taskId=ACTIVE-TASK&from=work-order#history'), '/fcs/craft/dyeing/combined-dyeing?from=work-order#history', '关闭深链详情只移除 taskId')
+
+  const orderA = getDyeWorkOrderById('DYE-COMBINED-DEMO-001')!
+  const orderB = getDyeWorkOrderById('DYE-COMBINED-DEMO-002')!
+  assert(orderA && orderB, '深链历史渲染需要两张中央演示加工单')
+  const completed = createCombinedDyeingTask({ dyeWorkOrderIds: [orderA.dyeOrderId, orderB.dyeOrderId], createdBy: '染厂主管', createdAt: '2026-07-16 20:00:00' })
+  completeCombinedDyeingTask(completed.taskId, { actualInputQty: 1250, actualOutputQty: 1200, completedBy: '染厂主管', completedAt: '2026-07-16 20:30:00' })
+  correctCombinedDyeingResult(completed.taskId, { actualInputQty: 1150, actualOutputQty: 1100, reason: '复核超出量', correctedBy: '染厂主管', correctedAt: '2026-07-16 20:40:00' })
+  deleteCombinedDyeingTask(completed.taskId, { deletedBy: '染厂主管', deletedAt: '2026-07-16 20:50:00', reason: '深链历史验收' })
+
+  syncCombinedDyeingDeepLink(`?taskId=${completed.taskId}`)
+  const deletedTaskHtml = renderCraftCombinedDyeingPage()
+  assert(deletedTaskHtml.includes(`合并染色详情 · ${completed.taskNo}`), '已删除任务链接必须自动打开目标历史详情')
+  const projection = buildDyeWorkOrderCombinedDyeingView(getDyeWorkOrderById(orderB.dyeOrderId)!)!
+  assert.deepEqual(projection.allocationVersions.map((version) => version.excessQty), [200, 100], '投影必须保留更正前后权威超出数量')
+  const workOrderDetailHtml = renderCraftDyeingWorkOrderDetailPage(orderB.dyeOrderId)
+  assert(workOrderDetailHtml.includes('超出数量'), '加工单版本历史必须展示超出数量列')
+  assert(workOrderDetailHtml.includes('200 Yard') && workOrderDetailHtml.includes('100 Yard'), '软删除后详情仍必须展示两版超出数量')
+
+  const next = createCombinedDyeingTask({ dyeWorkOrderIds: [orderA.dyeOrderId, orderB.dyeOrderId], createdBy: '染厂主管', createdAt: '2026-07-16 21:00:00' })
+  syncCombinedDyeingDeepLink(`?taskId=${next.taskId}`)
+  const switchedTaskHtml = renderCraftCombinedDyeingPage()
+  assert(switchedTaskHtml.includes(`合并染色详情 · ${next.taskNo}`) && !switchedTaskHtml.includes(`合并染色详情 · ${completed.taskNo}`), 'SPA 多次进入不同 taskId 必须切换到新目标详情')
+  syncCombinedDyeingDeepLink('?taskId=NOT-FOUND')
+  assert(!renderCraftCombinedDyeingPage().includes('合并染色详情 ·'), '非法 taskId 必须安全回到列表')
+  deleteCombinedDyeingTask(next.taskId, { deletedBy: '染厂主管', deletedAt: '2026-07-16 21:10:00', reason: '测试清理' })
 }
 
 function centralSeedSnapshot() {
@@ -786,6 +830,7 @@ function main(): void {
   assert.deepEqual(calculated.allocations.map((item) => item.allocatedQty), [600, 200, 0], '外部传入的人工分配值必须被忽略，结果只能由领域函数计算')
 
   checkCombinedDyeingLifecycle()
+  checkLinkedCombinedDyeingHistory()
 
   console.log('✓ 合并染色分配与任务生命周期领域检查通过')
 }

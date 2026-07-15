@@ -26,6 +26,11 @@ import {
   deleteCombinedDyeingTask,
 } from '../src/data/fcs/combined-dyeing-domain.ts'
 import { buildDyeWorkOrderCombinedDyeingView } from '../src/data/fcs/dye-work-order-combined-dyeing-view.ts'
+import {
+  removeCombinedDyeingTaskIdFromUrl,
+  resolveCombinedDyeingDeepLink,
+  shouldClearCombinedDyeingOverlay,
+} from '../src/data/fcs/combined-dyeing-deep-link.ts'
 import { getMobileExecutionTaskById } from '../src/data/fcs/mobile-execution-task-index.ts'
 import { listPdaGenericProcessTasks, registerPdaGenericProcessTask } from '../src/data/fcs/pda-task-mock-factory.ts'
 import { submitDyeHandover } from '../src/data/fcs/process-execution-writeback.ts'
@@ -185,10 +190,22 @@ function main(): void {
   assert.equal(waitingProjection.occupiedByActiveTask, true, '待染色任务必须显示当前占用')
   assert.equal(waitingProjection.currentEffectiveAllocationQty, 0, '待染色任务尚无有效分配')
   assert.equal(waitingProjection.satisfaction, 'UNMET', '待染色任务必须显示未满足')
+  const activeAndDeletedTasks = [
+    { taskId: combinedTask.taskId, status: 'WAIT_DYEING' },
+    { taskId: 'COMBINED-DYE-DELETED', status: 'DELETED' },
+  ]
+  assert.deepEqual(resolveCombinedDyeingDeepLink(`?taskId=${combinedTask.taskId}`, activeAndDeletedTasks), { kind: 'detail', taskId: combinedTask.taskId }, '活动任务深链必须解析为目标详情')
+  assert.deepEqual(resolveCombinedDyeingDeepLink('?taskId=COMBINED-DYE-DELETED', activeAndDeletedTasks), { kind: 'detail', taskId: 'COMBINED-DYE-DELETED' }, '已删除任务深链必须仍解析为历史详情')
+  assert.deepEqual(resolveCombinedDyeingDeepLink('?taskId=NOT-FOUND', activeAndDeletedTasks), { kind: 'invalid', taskId: 'NOT-FOUND' }, '不存在任务深链必须安全识别为非法')
+  assert.deepEqual(resolveCombinedDyeingDeepLink('', activeAndDeletedTasks), { kind: 'none' }, '无 taskId 查询时必须保持列表')
+  assert.equal(shouldClearCombinedDyeingOverlay({ kind: 'none' }, ''), false, '无 query 不得清除人工打开的创建或详情 overlay')
+  assert.equal(shouldClearCombinedDyeingOverlay({ kind: 'none' }, combinedTask.taskId), true, '外部移除 query 时必须关闭此前由深链打开的详情')
+  assert.equal(shouldClearCombinedDyeingOverlay({ kind: 'invalid', taskId: 'NOT-FOUND' }, combinedTask.taskId), true, '非法 taskId 必须清除旧深链详情')
+  assert.equal(removeCombinedDyeingTaskIdFromUrl('/fcs/craft/dyeing/combined-dyeing?taskId=COMBINED-DYE-001&from=work-order#history'), '/fcs/craft/dyeing/combined-dyeing?from=work-order#history', '关闭深链详情必须只移除 taskId 并保留其他查询和 hash')
 
   completeCombinedDyeingTask(combinedTask.taskId, {
-    actualInputQty: 900,
-    actualOutputQty: 800,
+    actualInputQty: 1250,
+    actualOutputQty: 1200,
     completedBy: '染厂主管',
     completedAt: '2026-07-16 09:00:00',
   })
@@ -196,9 +213,10 @@ function main(): void {
   const partialProjection = buildDyeWorkOrderCombinedDyeingView(getDyeWorkOrderById(combinedDemoB.dyeOrderId)!)!
   assert.equal(fullProjection.currentEffectiveAllocationQty, 600, '第一张加工单必须按顺序足量分配')
   assert.equal(fullProjection.satisfaction, 'FULL', '第一张加工单必须显示已满足')
-  assert.equal(partialProjection.currentEffectiveAllocationQty, 200, '第二张加工单必须显示当前有效分配')
-  assert.equal(partialProjection.satisfaction, 'PARTIAL', '第二张加工单必须显示部分满足')
-  assert.equal(partialProjection.unmetQty, 200, '第二张加工单必须直接显示未满足数量')
+  assert.equal(partialProjection.currentEffectiveAllocationQty, 400, '第二张加工单必须显示当前有效分配')
+  assert.equal(partialProjection.satisfaction, 'FULL', '第二张加工单必须显示已满足')
+  assert.equal(partialProjection.unmetQty, 0, '第二张加工单足量后未满足数量必须为 0')
+  assert.equal(partialProjection.allocationVersions[0]?.excessQty, 200, '超量完成必须保留领域版本的权威超出数量')
 
   const beforeSnapshot = getDyeWorkOrderById(combinedDemoB.dyeOrderId)!.formalProductionOrderSnapshot!
   const protectedChange = prepareFormalProductionOrderDyeWorkOrderSync({
@@ -215,8 +233,8 @@ function main(): void {
   assert.equal(getDyeWorkOrderById(combinedDemoB.dyeOrderId)!.plannedQty, 400, '受保护加工单不得覆盖原执行快照')
 
   correctCombinedDyeingResult(combinedTask.taskId, {
-    actualInputQty: 1050,
-    actualOutputQty: 1000,
+    actualInputQty: 1150,
+    actualOutputQty: 1100,
     reason: '复核后更正产出',
     correctedBy: '染厂主管',
     correctedAt: '2026-07-16 10:00:00',
@@ -225,6 +243,7 @@ function main(): void {
   assert.equal(correctedProjection.satisfaction, 'FULL', '更正后必须按当前版本显示已满足')
   assert.equal(correctedProjection.currentEffectiveAllocationQty, 400, '更正后有效分配必须重算')
   assert.deepEqual(correctedProjection.allocationVersions.map((version) => version.versionNo), [1, 2], '更正前后分配版本必须永久保留')
+  assert.deepEqual(correctedProjection.allocationVersions.map((version) => version.excessQty), [200, 100], '更正前后必须保留各自不同的权威超出数量')
   assert.equal(correctedProjection.allocationVersions.filter((version) => version.current).length, 1, '只能有一个当前分配版本')
 
   const activeWorkOrdersSource = readFile('src/pages/process-factory/dyeing/work-orders.ts')
@@ -247,6 +266,7 @@ function main(): void {
   assert.equal(deletedProjection.currentEffectiveAllocationQty, 400, '删除已完成任务后有效分配事实仍保留')
   assert.equal(deletedProjection.history[0]?.status, 'DELETED', '已删除任务必须保留历史事实')
   assert.equal(deletedProjection.history[0]?.deleteReason, '现场复核后删除任务', '删除历史必须保留删除原因')
+  assert.deepEqual(deletedProjection.allocationVersions.map((version) => version.excessQty), [200, 100], '软删除后投影仍必须永久保留每版超出数量')
   assertIncludes(activeDetailSource, '历史任务', '删除后详情必须继续展示历史事实')
 
   const stockTemplate = listFactoryWaitProcessStockItems().find((item) => item.itemKind === '面料' && item.receivedQty > 0 && item.materialSku)!
