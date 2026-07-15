@@ -9,13 +9,12 @@ import {
   type ProcessWorkOrder,
 } from '../src/data/fcs/process-work-order-domain.ts'
 import { getPrintWorkOrderById, getPrintWorkOrderByTaskId } from '../src/data/fcs/printing-task-domain.ts'
-
-const serviceModule = await import('../src/data/fcs/production-process-work-order-service.ts').catch(() => null)
-assert(serviceModule, '缺少正式生产单自动生成加工单服务')
-
-const {
+import { productionOrders } from '../src/data/fcs/production-orders.ts'
+import {
+  buildFormalProductionOrderProcessSnapshots,
   ensureProcessWorkOrdersForFormalProductionOrder,
-} = serviceModule
+  type FormalProductionOrderProcessSnapshot,
+} from '../src/data/fcs/production-process-work-order-service.ts'
 
 const baseSnapshot = {
   orderedAt: '2026-07-15 18:30:00',
@@ -26,9 +25,12 @@ const baseSnapshot = {
   targetColor: '雾霾蓝',
   plannedQty: 1280,
   qtyUnit: '米',
+  spuCode: 'SPU-FORMAL-001',
+  spuName: '正式生产款',
+  requiredDeliveryDate: '2026-08-31',
 }
 
-const dyeOnly = {
+const dyeOnly: FormalProductionOrderProcessSnapshot = {
   ...baseSnapshot,
   productionOrderId: 'PO-AUTO-DYE-001',
   productionOrderNo: 'PO-AUTO-DYE-001',
@@ -37,7 +39,7 @@ const dyeOnly = {
   factoryId: 'FACTORY-DYE-001',
   factoryName: '雅加达染色一厂',
 }
-const printOnly = {
+const printOnly: FormalProductionOrderProcessSnapshot = {
   ...baseSnapshot,
   productionOrderId: 'PO-AUTO-PRINT-001',
   productionOrderNo: 'PO-AUTO-PRINT-001',
@@ -47,7 +49,7 @@ const printOnly = {
   factoryId: 'FACTORY-PRINT-001',
   factoryName: '万隆印花一厂',
 }
-const dyeAndPrint = {
+const dyeAndPrint: FormalProductionOrderProcessSnapshot = {
   ...baseSnapshot,
   productionOrderId: 'PO-AUTO-COMBINED-001',
   productionOrderNo: 'PO-AUTO-COMBINED-001',
@@ -55,6 +57,193 @@ const dyeAndPrint = {
   dyeProcessName: '匹染',
   printProcessName: '数码印花',
 }
+
+const sourceOrder = productionOrders.find((order) => (
+  order.techPackSnapshot
+  && order.techPackSnapshot.bomItems.length > 0
+  && order.techPackSnapshot.processEntries.length > 0
+))
+assert(sourceOrder?.techPackSnapshot, '缺少可用于真实技术包快照检查的生产单')
+const bomTemplate = sourceOrder.techPackSnapshot.bomItems[0]
+const processTemplate = sourceOrder.techPackSnapshot.processEntries[0]
+const dyeBom = {
+  ...bomTemplate,
+  id: 'BOM-DYE-001',
+  materialCode: 'MAT-DYE-001',
+  name: '染色针织布',
+  spec: '180g',
+  colorLabel: '雾霾蓝',
+  unit: '米',
+  unitConsumption: 0.5,
+  lossRate: 0.1,
+}
+const printBom = {
+  ...bomTemplate,
+  id: 'BOM-PRINT-001',
+  materialCode: 'MAT-PRINT-001',
+  name: '印花裁片',
+  spec: '前后幅',
+  colorLabel: '米白底蓝花',
+  unit: '片',
+  unitConsumption: 2,
+  lossRate: 0.05,
+}
+const routeOrder = {
+  ...sourceOrder,
+  productionOrderId: 'PO-AUTO-ROUTE-001',
+  productionOrderNo: 'PO-AUTO-ROUTE-001',
+  createdAt: '2026-07-15 19:00:00',
+  demandSnapshot: {
+    ...sourceOrder.demandSnapshot,
+    spuCode: 'SPU-ROUTE-001',
+    spuName: '双色工艺连衣裙',
+    requiredDeliveryDate: '2026-09-15',
+    skuLines: [{ skuCode: 'SKU-ROUTE-001', size: 'M', color: '蓝色', qty: 100 }],
+  },
+  techPackSnapshot: {
+    ...sourceOrder.techPackSnapshot,
+    sourceTechPackVersionId: 'TPV-ROUTE-001',
+    sourceTechPackVersionLabel: '正式版 V5',
+    bomItems: [dyeBom, printBom],
+    processEntries: [
+      {
+        ...processTemplate,
+        id: 'PROCESS-DYE-001',
+        processCode: 'DYE',
+        processName: '匹染',
+        linkedBomItemIds: [dyeBom.id],
+      },
+      {
+        ...processTemplate,
+        id: 'PROCESS-PRINT-001',
+        processCode: 'PRINT',
+        processName: '裁片印花',
+        linkedBomItemIds: [printBom.id],
+      },
+    ],
+  },
+}
+const routeSnapshots = buildFormalProductionOrderProcessSnapshots(routeOrder)
+assert.deepEqual(
+  routeSnapshots.map((snapshot: { processCodes: string[] }) => snapshot.processCodes),
+  [['DYE'], ['PRINT']],
+  '正式生产单必须按染色和印花分别生成工艺快照',
+)
+assert.deepEqual(
+  routeSnapshots.map((snapshot: typeof baseSnapshot) => ({
+    materialId: snapshot.materialId,
+    materialName: snapshot.materialName,
+    targetColor: snapshot.targetColor,
+    plannedQty: snapshot.plannedQty,
+    qtyUnit: snapshot.qtyUnit,
+  })),
+  [
+    { materialId: dyeBom.id, materialName: '染色针织布 / 180g', targetColor: '雾霾蓝', plannedQty: 55, qtyUnit: '米' },
+    { materialId: printBom.id, materialName: '印花裁片 / 前后幅', targetColor: '米白底蓝花', plannedQty: 210, qtyUnit: '片' },
+  ],
+  '染色和印花快照必须分别读取其工艺路线绑定的 BOM',
+)
+
+const secondDyeBom = {
+  ...dyeBom,
+  id: 'BOM-DYE-002',
+  materialCode: 'MAT-DYE-002',
+  name: '染色罗纹布',
+  spec: '2x2 罗纹',
+  colorLabel: '深海蓝',
+  unitConsumption: 0.25,
+  lossRate: 0,
+}
+const aggregatedDyeSnapshots = buildFormalProductionOrderProcessSnapshots({
+  ...routeOrder,
+  productionOrderId: 'PO-AUTO-MULTI-DYE-001',
+  productionOrderNo: 'PO-AUTO-MULTI-DYE-001',
+  techPackSnapshot: {
+    ...routeOrder.techPackSnapshot,
+    bomItems: [dyeBom, secondDyeBom],
+    processEntries: [{
+      ...processTemplate,
+      id: 'PROCESS-DYE-MULTI-001',
+      processCode: 'DYE',
+      processName: '组合面料匹染',
+      linkedBomItemIds: [dyeBom.id, secondDyeBom.id],
+    }],
+  },
+})
+assert.deepEqual(
+  aggregatedDyeSnapshots.map((snapshot) => ({
+    materialId: snapshot.materialId,
+    materialName: snapshot.materialName,
+    targetColor: snapshot.targetColor,
+    plannedQty: snapshot.plannedQty,
+    qtyUnit: snapshot.qtyUnit,
+  })),
+  [{
+    materialId: 'BOM-DYE-001+BOM-DYE-002',
+    materialName: '染色针织布 / 180g、染色罗纹布 / 2x2 罗纹',
+    targetColor: '雾霾蓝、深海蓝',
+    plannedQty: 80,
+    qtyUnit: '米',
+  }],
+  '同一工艺绑定多个同单位 BOM 时必须按物料用量和损耗明确聚合',
+)
+assert.throws(
+  () => buildFormalProductionOrderProcessSnapshots({
+    ...routeOrder,
+    productionOrderId: 'PO-AUTO-MIXED-UNIT-001',
+    productionOrderNo: 'PO-AUTO-MIXED-UNIT-001',
+    techPackSnapshot: {
+      ...routeOrder.techPackSnapshot,
+      bomItems: [dyeBom, printBom],
+      processEntries: [{
+        ...processTemplate,
+        id: 'PROCESS-DYE-MIXED-UNIT-001',
+        processCode: 'DYE',
+        processName: '混合单位染色',
+        linkedBomItemIds: [dyeBom.id, printBom.id],
+      }],
+    },
+  }),
+  /绑定多种或缺失数量单位，无法合并为一张加工单/,
+  '同一工艺绑定不同单位 BOM 时必须明确阻断',
+)
+
+for (const snapshot of routeSnapshots) ensureProcessWorkOrdersForFormalProductionOrder(snapshot)
+const routeDyeOrder = listProcessWorkOrders('DYE').find((order) => order.sourceProductionOrderId === routeOrder.productionOrderId)
+const routePrintOrder = listProcessWorkOrders('PRINT').find((order) => order.sourceProductionOrderId === routeOrder.productionOrderId)
+assert(routeDyeOrder && routePrintOrder, '不同 BOM 的染色和印花快照必须分别生成加工单')
+const routePdaTasks = listPdaGenericProcessTasks()
+const routeDyeTask = routePdaTasks.find((task) => task.taskId === routeDyeOrder.taskId)
+const routePrintTask = routePdaTasks.find((task) => task.taskId === routePrintOrder.taskId)
+assert(routeDyeTask && routePrintTask, '不同 BOM 的加工单必须注册 PDA 任务')
+for (const task of [routeDyeTask, routePrintTask]) {
+  assert.deepEqual(
+    [task.productionOrderId, task.productionOrderNo, task.spuCode, task.spuName, task.requiredDeliveryDate],
+    ['PO-AUTO-ROUTE-001', 'PO-AUTO-ROUTE-001', 'SPU-ROUTE-001', '双色工艺连衣裙', '2026-09-15'],
+    'PDA 任务必须使用正式生产单的商品与交期快照',
+  )
+}
+assert.deepEqual(
+  [routeDyeTask.qtyUnit, routeDyeTask.qtyDisplayUnit],
+  ['METER', '米'],
+  '染色 PDA 数量单位必须与米一致',
+)
+assert.deepEqual(
+  [routePrintTask.qtyUnit, routePrintTask.qtyDisplayUnit],
+  ['PIECE', '片'],
+  '印花 PDA 数量单位必须与片一致',
+)
+
+assert.throws(
+  () => ensureProcessWorkOrdersForFormalProductionOrder({
+    ...dyeOnly,
+    productionOrderId: 'PO-AUTO-UNKNOWN-001',
+    productionOrderNo: 'PO-AUTO-UNKNOWN-001',
+    processCodes: JSON.parse('["WASH"]'),
+  }),
+  /不支持的生产工艺：WASH/,
+  '未知工艺不能静默忽略',
+)
 
 const beforeDyeCount = listProcessWorkOrders('DYE').length
 const beforePrintCount = listProcessWorkOrders('PRINT').length
@@ -102,7 +291,11 @@ assert.deepEqual(
   '幂等触发不得重新编号',
 )
 
-function assertGeneratedOrder(orderId: string, source: typeof dyeAndPrint, processType: 'DYE' | 'PRINT'): void {
+function assertGeneratedOrder(
+  orderId: string,
+  source: FormalProductionOrderProcessSnapshot,
+  processType: 'DYE' | 'PRINT',
+): void {
   const order = getProcessWorkOrderById(orderId)
   assert(order, `${orderId} 缺少统一加工单`)
   assert.equal(order.processType, processType)
@@ -122,6 +315,9 @@ function assertGeneratedOrder(orderId: string, source: typeof dyeAndPrint, proce
     qtyUnit: source.qtyUnit,
     processCodes: source.processCodes,
     processName: processType === 'DYE' ? source.dyeProcessName : source.printProcessName,
+    spuCode: source.spuCode,
+    spuName: source.spuName,
+    requiredDeliveryDate: source.requiredDeliveryDate,
   }, '加工单必须保存正式技术包、BOM 面料、颜色、工艺、数量、单位与下单时间快照')
 }
 
@@ -180,7 +376,9 @@ const applyCreatedSource = demandDomainSource.slice(applyCreatedStart, openCreat
 const writeOrdersAt = applyCreatedSource.indexOf('state.orders =')
 const ensureOrdersAt = applyCreatedSource.indexOf('ensureProcessWorkOrdersForFormalProductionOrder')
 assert(writeOrdersAt >= 0 && ensureOrdersAt > writeOrdersAt, '必须先写入生产单，再自动生成加工单')
-assert(applyCreatedSource.includes('techPackSnapshot.processEntries'), '正式快照必须读取生产单技术包工艺')
-assert(applyCreatedSource.includes('techPackSnapshot.bomItems'), '正式快照必须读取生产单 BOM 面料')
+assert(
+  applyCreatedSource.includes('buildFormalProductionOrderProcessSnapshots(item.order)'),
+  '生产单写入后必须通过已验证的纯转换函数生成各工艺快照',
+)
 
 console.log('生产单自动生成加工单检查通过')

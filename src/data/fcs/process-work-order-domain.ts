@@ -41,7 +41,9 @@ import {
 export type ProcessWorkOrderType = 'PRINT' | 'DYE' | 'WATER_SOLUBLE'
 export type ProcessWorkOrderStatus = PrintWorkOrderStatus | DyeWorkOrderStatus | WaterSolubleWorkOrderStatus
 
-export interface FormalProductionOrderProcessSnapshotRecord {
+export type FormalProductionProcessCode = 'DYE' | 'PRINT'
+
+export interface FormalProductionOrderProcessSnapshot {
   productionOrderId: string
   productionOrderNo: string
   orderedAt: string
@@ -52,7 +54,20 @@ export interface FormalProductionOrderProcessSnapshotRecord {
   targetColor: string
   plannedQty: number
   qtyUnit: string
-  processCodes: string[]
+  processCodes: FormalProductionProcessCode[]
+  dyeProcessName?: string
+  printProcessName?: string
+  factoryId?: string
+  factoryName?: string
+  spuCode: string
+  spuName: string
+  requiredDeliveryDate: string
+}
+
+export interface FormalProductionOrderProcessSnapshotRecord extends Omit<
+  FormalProductionOrderProcessSnapshot,
+  'dyeProcessName' | 'printProcessName' | 'factoryId' | 'factoryName'
+> {
   processName: string
 }
 

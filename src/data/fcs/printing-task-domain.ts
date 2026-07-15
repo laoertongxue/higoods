@@ -14,7 +14,11 @@ import {
   registerPdaGenericProcessTask,
   type PdaGenericTaskMock,
 } from './pda-task-mock-factory.ts'
-import { type HandoverReceiverKind } from './process-tasks.ts'
+import { type HandoverReceiverKind, type QtyUnit } from './process-tasks.ts'
+import type {
+  FormalProductionOrderProcessSnapshot,
+  FormalProductionOrderProcessSnapshotRecord,
+} from './process-work-order-domain.ts'
 import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
@@ -93,20 +97,7 @@ export interface PrintWorkOrder {
   createdAt: string
   updatedAt: string
   remark?: string
-  formalProductionOrderSnapshot?: {
-    productionOrderId: string
-    productionOrderNo: string
-    orderedAt: string
-    techPackVersionId: string
-    techPackVersionLabel: string
-    materialId: string
-    materialName: string
-    targetColor: string
-    plannedQty: number
-    qtyUnit: string
-    processCodes: string[]
-    processName: string
-  }
+  formalProductionOrderSnapshot?: FormalProductionOrderProcessSnapshotRecord
 }
 
 export interface PrintExecutionNodeRecord {
@@ -363,58 +354,75 @@ function getPrintingTaskById(taskId: string): PdaGenericTaskMock | undefined {
   return getPrintingTasks().find((task) => task.taskId === taskId)
 }
 
-function buildFreshPrintMobileTaskFromTemplate(input: {
-  template: PdaGenericTaskMock
+function buildFreshPrintMobileTask(input: {
   taskId: string
   taskNo: string
   productionOrderId: string
   productionOrderNo: string
+  spuCode: string
+  spuName: string
+  requiredDeliveryDate: string
   factoryId: string
   factoryName: string
   qty: number
   qtyDisplayUnit: string
+  processName: string
   createdAt: string
 }): PdaGenericTaskMock {
   const hasFactory = Boolean(input.factoryId)
+  const qtyUnit: QtyUnit = ['件', '片', '个', '套'].includes(input.qtyDisplayUnit)
+    ? 'PIECE'
+    : ['卷', '捆', '包', '打'].includes(input.qtyDisplayUnit)
+      ? 'BUNDLE'
+      : 'METER'
   return {
-    ...input.template,
     taskId: input.taskId,
     taskNo: input.taskNo,
     productionOrderId: input.productionOrderId,
     productionOrderNo: input.productionOrderNo,
-    assignedFactoryId: hasFactory ? input.factoryId : undefined,
-    assignedFactoryName: hasFactory ? input.factoryName : '待分配工厂',
-    status: 'NOT_STARTED',
+    spuCode: input.spuCode,
+    spuName: input.spuName,
+    requiredDeliveryDate: input.requiredDeliveryDate,
+    seq: 1,
+    processCode: 'PROC_PRINT',
+    processNameZh: input.processName,
+    stage: 'PREP',
+    qty: input.qty,
+    qtyUnit,
+    qtyDisplayUnit: input.qtyDisplayUnit,
     assignmentMode: 'DIRECT',
     assignmentStatus: hasFactory ? 'ASSIGNED' : 'UNASSIGNED',
+    ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['PRINTING'] },
+    assignedFactoryId: hasFactory ? input.factoryId : undefined,
+    assignedFactoryName: hasFactory ? input.factoryName : '待分配工厂',
+    qcPoints: [],
+    attachments: [],
+    status: 'NOT_STARTED',
     acceptanceStatus: hasFactory ? 'ACCEPTED' : 'PENDING',
+    dispatchRemark: hasFactory ? '印花加工单已分配，待工厂接收。' : '正式生产单已生成加工单，待分配工厂。',
     dispatchedAt: hasFactory ? input.createdAt : undefined,
     dispatchedBy: hasFactory ? '平台自动生成' : undefined,
-    acceptedAt: undefined,
-    acceptedBy: undefined,
-    awardedAt: undefined,
-    tenderId: undefined,
-    bidId: undefined,
-    qty: input.qty,
-    qtyUnit: 'METER',
-    qtyDisplayUnit: input.qtyDisplayUnit,
     taskQrValue: buildTaskQrValue(input.taskId),
     taskQrStatus: 'ACTIVE',
-    handoverOrderId: undefined,
     handoverStatus: 'NOT_CREATED',
+    receiverKind: 'WAREHOUSE',
+    receiverId: 'WH-TRANSFER',
+    receiverName: '中转区域',
+    sourceProductionOrderId: input.productionOrderId,
+    stageCode: 'PREP',
+    stageName: '准备阶段',
+    processBusinessCode: 'PRINT',
+    processBusinessName: input.processName,
+    mockProcessKey: 'PRINTING',
+    mockOrigin: hasFactory ? 'EXEC_NOT_STARTED' : 'DIRECT_PENDING',
     handoutStatus: 'PENDING',
     createdAt: input.createdAt,
     updatedAt: input.createdAt,
-    startedAt: undefined,
-    finishedAt: undefined,
-    blockedAt: undefined,
-    blockReason: undefined,
-    blockRemark: undefined,
     auditLogs: [],
     mockReceiveSummary: hasFactory ? '印花加工单已分配，待工厂接收。' : '印花加工单待分配工厂。',
     mockExecutionSummary: '按正式技术包印花工艺执行。',
     mockHandoverSummary: '完成印花后统一交出。',
-  } as unknown as PdaGenericTaskMock
+  }
 }
 
 function ensurePrintingTaskClone(sourceTaskId: string, taskId: string, productionOrderId: string): void {
@@ -1724,52 +1732,40 @@ export function getPrintWorkOrderByTaskId(taskId: string): PrintWorkOrder | unde
     : undefined
 }
 
-export function registerFormalProductionOrderPrintWorkOrder(input: {
+export function registerFormalProductionOrderPrintWorkOrder(input: FormalProductionOrderProcessSnapshot & {
   workOrderId: string
   workOrderNo: string
-  sourceProductionOrderId: string
-  productionOrderNo: string
-  orderedAt: string
-  techPackVersionId: string
-  techPackVersionLabel: string
-  materialId: string
-  materialName: string
-  targetColor: string
-  plannedQty: number
-  qtyUnit: string
-  processCodes: string[]
   processName: string
-  factoryId?: string
-  factoryName?: string
 }): PrintWorkOrder {
   seedDomain()
   const existing = Array.from(workOrderStore.values())
-    .find((order) => order.sourceProductionOrderId === input.sourceProductionOrderId)
+    .find((order) => order.sourceProductionOrderId === input.productionOrderId)
   if (existing) return cloneWorkOrder(existing)
 
-  const taskTemplate = getPrintingTasks()[0]
-  if (!taskTemplate) throw new Error('缺少印花移动任务模板，无法注册正式生产单加工单。')
   const factoryId = input.factoryId || ''
   const factoryName = input.factoryName || '待分配工厂'
-  registerPdaGenericProcessTask(buildFreshPrintMobileTaskFromTemplate({
-    template: taskTemplate,
+  registerPdaGenericProcessTask(buildFreshPrintMobileTask({
     taskId: input.workOrderId,
     taskNo: input.workOrderNo,
-    productionOrderId: input.sourceProductionOrderId,
+    productionOrderId: input.productionOrderId,
     productionOrderNo: input.productionOrderNo,
+    spuCode: input.spuCode,
+    spuName: input.spuName,
+    requiredDeliveryDate: input.requiredDeliveryDate,
     factoryId,
     factoryName,
     qty: input.plannedQty,
     qtyDisplayUnit: input.qtyUnit,
+    processName: input.processName,
     createdAt: input.orderedAt,
   }))
   addSeedWorkOrder({
     printOrderId: input.workOrderId,
     printOrderNo: input.workOrderNo,
     sourceType: 'PRODUCTION_ORDER',
-    sourceProductionOrderId: input.sourceProductionOrderId,
+    sourceProductionOrderId: input.productionOrderId,
     sourceDemandIds: [],
-    productionOrderIds: [input.sourceProductionOrderId],
+    productionOrderIds: [input.productionOrderId],
     isFirstOrder: false,
     patternNo: input.techPackVersionId,
     patternVersion: input.techPackVersionLabel,
@@ -1792,7 +1788,7 @@ export function registerFormalProductionOrderPrintWorkOrder(input: {
     updatedAt: input.orderedAt,
     remark: `${input.processName}；来源正式生产单 ${input.productionOrderNo}；技术包 ${input.techPackVersionLabel}。`,
     formalProductionOrderSnapshot: {
-      productionOrderId: input.sourceProductionOrderId,
+      productionOrderId: input.productionOrderId,
       productionOrderNo: input.productionOrderNo,
       orderedAt: input.orderedAt,
       techPackVersionId: input.techPackVersionId,
@@ -1804,6 +1800,9 @@ export function registerFormalProductionOrderPrintWorkOrder(input: {
       qtyUnit: input.qtyUnit,
       processCodes: [...input.processCodes],
       processName: input.processName,
+      spuCode: input.spuCode,
+      spuName: input.spuName,
+      requiredDeliveryDate: input.requiredDeliveryDate,
     },
   })
   createdPrintOrderIds.add(input.workOrderId)

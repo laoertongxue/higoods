@@ -40,7 +40,10 @@ import {
   renderProductionObjectCodeButton,
   renderProductionOrderIdentityCell,
 } from '../../data/fcs/production-order-identity'
-import { ensureProcessWorkOrdersForFormalProductionOrder } from '../../data/fcs/production-process-work-order-service.ts'
+import {
+  buildFormalProductionOrderProcessSnapshots,
+  ensureProcessWorkOrdersForFormalProductionOrder,
+} from '../../data/fcs/production-process-work-order-service.ts'
 
 const PRODUCTION_DEMAND_IDENTITY_COLUMN_TITLE = '需求单号 / ID商品采购单单号 / 售卖类型'
 
@@ -1204,33 +1207,9 @@ function applyCreatedProductionOrderGroups(created: CreatedProductionOrderGroup[
   }
   state.orders = [...state.orders, ...created.map((item) => item.order)]
   for (const item of created) {
-    const techPackSnapshot = item.order.techPackSnapshot
-    if (!techPackSnapshot) continue
-    const processEntries = techPackSnapshot.processEntries
-      .filter((entry) => entry.processCode === 'DYE' || entry.processCode === 'PRINT')
-    const processCodes = [...new Set(processEntries.map((entry) => entry.processCode))]
-    if (processCodes.length === 0) continue
-    const linkedBomItemId = processEntries.flatMap((entry) => entry.linkedBomItemIds || [])[0]
-    const bomItem = techPackSnapshot.bomItems.find((item) => item.id === linkedBomItemId)
-      ?? techPackSnapshot.bomItems[0]
-    if (!bomItem) continue
-    const productionQty = item.order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
-    const plannedQty = Math.max(1, productionQty * bomItem.unitConsumption * (1 + bomItem.lossRate))
-    ensureProcessWorkOrdersForFormalProductionOrder({
-      productionOrderId: item.order.productionOrderId,
-      productionOrderNo: item.order.productionOrderNo,
-      orderedAt: item.order.createdAt,
-      techPackVersionId: techPackSnapshot.sourceTechPackVersionId,
-      techPackVersionLabel: techPackSnapshot.sourceTechPackVersionLabel || techPackSnapshot.versionLabel,
-      materialId: bomItem.id,
-      materialName: `${bomItem.name}${bomItem.spec ? ` / ${bomItem.spec}` : ''}`,
-      targetColor: bomItem.colorLabel || item.order.demandSnapshot.skuLines[0]?.color || '按技术包配色',
-      plannedQty,
-      qtyUnit: bomItem.unit || '件',
-      processCodes,
-      dyeProcessName: processEntries.find((entry) => entry.processCode === 'DYE')?.processName,
-      printProcessName: processEntries.find((entry) => entry.processCode === 'PRINT')?.processName,
-    })
+    for (const snapshot of buildFormalProductionOrderProcessSnapshots(item.order)) {
+      ensureProcessWorkOrdersForFormalProductionOrder(snapshot)
+    }
   }
   state.demands = state.demands.map((demand) => {
     const productionOrderId = orderIdByDemandId.get(demand.demandId)

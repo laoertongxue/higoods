@@ -10,7 +10,11 @@ import {
   type PdaHandoverRecord,
 } from './pda-handover-events.ts'
 import { listPdaGenericProcessTasks, registerPdaGenericProcessTask, type PdaGenericTaskMock } from './pda-task-mock-factory.ts'
-import { type HandoverReceiverKind } from './process-tasks.ts'
+import { type HandoverReceiverKind, type QtyUnit } from './process-tasks.ts'
+import type {
+  FormalProductionOrderProcessSnapshot,
+  FormalProductionOrderProcessSnapshotRecord,
+} from './process-work-order-domain.ts'
 import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
@@ -124,20 +128,7 @@ export interface DyeWorkOrder {
   createdAt: string
   updatedAt: string
   remark?: string
-  formalProductionOrderSnapshot?: {
-    productionOrderId: string
-    productionOrderNo: string
-    orderedAt: string
-    techPackVersionId: string
-    techPackVersionLabel: string
-    materialId: string
-    materialName: string
-    targetColor: string
-    plannedQty: number
-    qtyUnit: string
-    processCodes: string[]
-    processName: string
-  }
+  formalProductionOrderSnapshot?: FormalProductionOrderProcessSnapshotRecord
 }
 
 export interface DyeExecutionNodeRecord {
@@ -2181,14 +2172,19 @@ function seedWorkOrders(): void {
   })
 }
 
-function buildFreshDyeMobileTaskFromTemplate(input: {
-  template: PdaGenericTaskMock
+function buildFreshDyeMobileTask(input: {
   taskId: string
+  taskNo?: string
   productionOrderId: string
+  productionOrderNo?: string
+  spuCode?: string
+  spuName?: string
+  requiredDeliveryDate?: string
   factoryId: string
   factoryName: string
   qty: number
   qtyDisplayUnit: string
+  processName?: string
   createdAt: string
   dispatchedBy: string
   receiveSummary: string
@@ -2196,53 +2192,62 @@ function buildFreshDyeMobileTaskFromTemplate(input: {
   handoverSummary: string
 }): PdaGenericTaskMock {
   const sourceOrder = productionOrders.find((order) => order.productionOrderId === input.productionOrderId)
+  const hasFactory = Boolean(input.factoryId)
+  const qtyUnit: QtyUnit = ['件', '片', '个', '套'].includes(input.qtyDisplayUnit)
+    ? 'PIECE'
+    : ['卷', '捆', '包', '打'].includes(input.qtyDisplayUnit)
+      ? 'BUNDLE'
+      : 'METER'
   return {
-    ...input.template,
     taskId: input.taskId,
-    taskNo: input.taskId,
+    taskNo: input.taskNo || input.taskId,
     productionOrderId: input.productionOrderId,
-    productionOrderNo: sourceOrder?.productionOrderNo || input.productionOrderId,
-    spuCode: sourceOrder?.demandSnapshot.spuCode,
-    spuName: sourceOrder?.demandSnapshot.spuName,
-    requiredDeliveryDate: sourceOrder?.demandSnapshot.requiredDeliveryDate ?? undefined,
-    assignedFactoryId: input.factoryId || undefined,
-    assignedFactoryName: input.factoryId ? input.factoryName : '待分配工厂',
-    status: 'NOT_STARTED',
-    assignmentMode: 'DIRECT',
-    assignmentStatus: input.factoryId ? 'ASSIGNED' : 'UNASSIGNED',
-    acceptanceStatus: input.factoryId ? 'ACCEPTED' : 'PENDING',
-    dispatchedAt: input.factoryId ? input.createdAt : undefined,
-    dispatchedBy: input.factoryId ? input.dispatchedBy : undefined,
-    acceptDeadline: undefined,
-    taskDeadline: undefined,
-    acceptedAt: input.factoryId ? input.createdAt : undefined,
-    acceptedBy: input.factoryId ? input.factoryName : undefined,
-    awardedAt: undefined,
-    tenderId: undefined,
-    bidId: undefined,
-    startDueAt: undefined,
-    startDueSource: undefined,
-    startRiskStatus: undefined,
+    productionOrderNo: input.productionOrderNo || sourceOrder?.productionOrderNo || input.productionOrderId,
+    spuCode: input.spuCode || sourceOrder?.demandSnapshot.spuCode || '',
+    spuName: input.spuName || sourceOrder?.demandSnapshot.spuName || '',
+    requiredDeliveryDate: input.requiredDeliveryDate || sourceOrder?.demandSnapshot.requiredDeliveryDate || '',
+    seq: 1,
+    processCode: 'PROC_DYE',
+    processNameZh: input.processName || '染色',
+    stage: 'PREP',
     qty: input.qty,
-    qtyUnit: 'METER',
+    qtyUnit,
     qtyDisplayUnit: input.qtyDisplayUnit,
+    assignmentMode: 'DIRECT',
+    assignmentStatus: hasFactory ? 'ASSIGNED' : 'UNASSIGNED',
+    ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['DYEING'] },
+    assignedFactoryId: hasFactory ? input.factoryId : undefined,
+    assignedFactoryName: hasFactory ? input.factoryName : '待分配工厂',
+    qcPoints: [],
+    attachments: [],
+    status: 'NOT_STARTED',
+    dispatchRemark: hasFactory ? '染色加工单已分配，待工厂接收。' : '正式生产单已生成加工单，待分配工厂。',
+    dispatchedAt: hasFactory ? input.createdAt : undefined,
+    dispatchedBy: hasFactory ? input.dispatchedBy : undefined,
+    acceptanceStatus: hasFactory ? 'ACCEPTED' : 'PENDING',
+    acceptedAt: hasFactory ? input.createdAt : undefined,
+    acceptedBy: hasFactory ? input.factoryName : undefined,
     taskQrValue: buildTaskQrValue(input.taskId),
     taskQrStatus: 'ACTIVE',
-    handoverOrderId: undefined,
     handoverStatus: 'NOT_CREATED',
+    receiverKind: 'WAREHOUSE',
+    receiverId: 'WH-TRANSFER',
+    receiverName: '中转区域',
+    sourceProductionOrderId: input.productionOrderId,
+    stageCode: 'PREP',
+    stageName: '准备阶段',
+    processBusinessCode: 'DYE',
+    processBusinessName: input.processName || '染色',
+    mockProcessKey: 'DYEING',
+    mockOrigin: hasFactory ? 'EXEC_NOT_STARTED' : 'DIRECT_PENDING',
     handoutStatus: 'PENDING',
     createdAt: input.createdAt,
     updatedAt: input.createdAt,
-    startedAt: undefined,
-    finishedAt: undefined,
-    blockedAt: undefined,
-    blockReason: undefined,
-    blockRemark: undefined,
     auditLogs: [],
     mockReceiveSummary: input.receiveSummary,
     mockExecutionSummary: input.executionSummary,
     mockHandoverSummary: input.handoverSummary,
-  } as unknown as PdaGenericTaskMock
+  }
 }
 
 function seedPersistentWaterSolubleDyeWorkOrder(): void {
@@ -2250,12 +2255,9 @@ function seedPersistentWaterSolubleDyeWorkOrder(): void {
     .find((item) => item.processCode === 'DYE' && item.requiresWaterSoluble && item.orderId === 'PO-202603-081')
   if (!artifact || workOrderStore.has('DYE-WATER-PO-202603-081')) return
 
-  const taskTemplate = getDyeingTasks()[0]
-  if (!taskTemplate) return
   const taskId = 'TASK-DYE-WATER-PO-202603-081'
   const createdAt = '2026-03-26 09:00:00'
-  registerPdaGenericProcessTask(buildFreshDyeMobileTaskFromTemplate({
-    template: taskTemplate,
+  registerPdaGenericProcessTask(buildFreshDyeMobileTask({
     taskId,
     productionOrderId: artifact.orderId,
     factoryId: TEST_FACTORY_ID,
@@ -2399,56 +2401,44 @@ export function getDyeWorkOrderByTaskId(taskId: string): DyeWorkOrder | undefine
     : undefined
 }
 
-export function registerFormalProductionOrderDyeWorkOrder(input: {
+export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductionOrderProcessSnapshot & {
   workOrderId: string
   workOrderNo: string
-  sourceProductionOrderId: string
-  productionOrderNo: string
-  orderedAt: string
-  techPackVersionId: string
-  techPackVersionLabel: string
-  materialId: string
-  materialName: string
-  targetColor: string
-  plannedQty: number
-  qtyUnit: string
-  processCodes: string[]
   processName: string
-  factoryId?: string
-  factoryName?: string
 }): DyeWorkOrder {
   seedDomain()
   const existing = Array.from(workOrderStore.values())
-    .find((order) => order.sourceProductionOrderId === input.sourceProductionOrderId)
+    .find((order) => order.sourceProductionOrderId === input.productionOrderId)
   if (existing) return cloneWorkOrder(existing)
 
-  const taskTemplate = getDyeingTasks()[0]
-  if (!taskTemplate) throw new Error('缺少染色移动任务模板，无法注册正式生产单加工单。')
   const factoryId = input.factoryId || ''
   const factoryName = input.factoryName || '待分配工厂'
-  registerPdaGenericProcessTask(buildFreshDyeMobileTaskFromTemplate({
-    template: taskTemplate,
+  registerPdaGenericProcessTask(buildFreshDyeMobileTask({
     taskId: input.workOrderId,
-    productionOrderId: input.sourceProductionOrderId,
+    taskNo: input.workOrderNo,
+    productionOrderId: input.productionOrderId,
+    productionOrderNo: input.productionOrderNo,
+    spuCode: input.spuCode,
+    spuName: input.spuName,
+    requiredDeliveryDate: input.requiredDeliveryDate,
     factoryId,
     factoryName,
     qty: input.plannedQty,
     qtyDisplayUnit: input.qtyUnit,
+    processName: input.processName,
     createdAt: input.orderedAt,
     dispatchedBy: '平台自动生成',
     receiveSummary: factoryId ? '染色加工单已分配，待工厂接收。' : '染色加工单待分配工厂。',
     executionSummary: `按${input.processName}执行。`,
     handoverSummary: '完成染色及后处理后统一交出。',
   }))
-  const registeredTask = getDyeingTaskById(input.workOrderId)
-  if (registeredTask) registeredTask.taskNo = input.workOrderNo
   addSeedWorkOrder({
     dyeOrderId: input.workOrderId,
     dyeOrderNo: input.workOrderNo,
     sourceType: 'PRODUCTION_ORDER',
-    sourceProductionOrderId: input.sourceProductionOrderId,
+    sourceProductionOrderId: input.productionOrderId,
     sourceDemandIds: [],
-    productionOrderIds: [input.sourceProductionOrderId],
+    productionOrderIds: [input.productionOrderId],
     isFirstOrder: false,
     sampleWaitType: 'NONE',
     sampleStatus: 'NOT_REQUIRED',
@@ -2468,7 +2458,7 @@ export function registerFormalProductionOrderDyeWorkOrder(input: {
     updatedAt: input.orderedAt,
     remark: `${input.processName}；来源正式生产单 ${input.productionOrderNo}；技术包 ${input.techPackVersionLabel}。`,
     formalProductionOrderSnapshot: {
-      productionOrderId: input.sourceProductionOrderId,
+      productionOrderId: input.productionOrderId,
       productionOrderNo: input.productionOrderNo,
       orderedAt: input.orderedAt,
       techPackVersionId: input.techPackVersionId,
@@ -2480,6 +2470,9 @@ export function registerFormalProductionOrderDyeWorkOrder(input: {
       qtyUnit: input.qtyUnit,
       processCodes: [...input.processCodes],
       processName: input.processName,
+      spuCode: input.spuCode,
+      spuName: input.spuName,
+      requiredDeliveryDate: input.requiredDeliveryDate,
     },
   })
   createdDyeOrderIds.add(input.workOrderId)
@@ -2709,11 +2702,8 @@ export function createDyeWorkOrderFromDemands(input: {
   const dyeOrderNo = `RSJG-CREATED-${String(sequence).padStart(4, '0')}`
   const taskId = `TASK-${dyeOrderId}`
   const now = nowTimestamp()
-  const taskTemplate = getDyeingTasks()[0]
-  if (!taskTemplate) return { ok: false, message: '缺少染色移动任务模板，无法创建加工单。' }
   const sourceProductionOrderId = input.demands[0]?.sourceProductionOrderId || '按备货创建'
-  registerPdaGenericProcessTask(buildFreshDyeMobileTaskFromTemplate({
-    template: taskTemplate,
+  registerPdaGenericProcessTask(buildFreshDyeMobileTask({
     taskId,
     productionOrderId: sourceProductionOrderId,
     factoryId: factory.id,
