@@ -15,6 +15,8 @@ import {
   openProcessWebStatusActionDialog,
 } from '../shared/web-status-action-dialog.ts'
 import { handleCraftCombinedDyeingEvent as handleCombinedDyeingWorkspaceEvent } from './combined-dyeing.ts'
+import { handleDyeWorkOrderListEvent } from './work-orders.ts'
+import { handleDyeWorkOrderCombinedDetailEvent } from './work-order-detail.ts'
 
 export function handleCraftCombinedDyeingEvent(target: HTMLElement, event?: Event): boolean {
   return handleCombinedDyeingWorkspaceEvent(target, event)
@@ -156,6 +158,8 @@ function executeConfirmedDyeWaterAction(
 }
 
 export function handleCraftDyeingEvent(target: HTMLElement): boolean {
+  if (handleDyeWorkOrderListEvent(target)) return true
+  if (handleDyeWorkOrderCombinedDetailEvent(target)) return true
   const dialogHandled = handleProcessWebStatusActionDialogEvent(target, {
     toast: showDyeingToast,
     refresh: refreshCurrentDyeingPage,

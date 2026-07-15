@@ -8,6 +8,7 @@ import {
   createDyeWorkOrderFromStock,
   getDyeExecutionNodeRecord,
   getDyeOrderHandoverSummary,
+  getDyeWorkOrderById,
   getDyeWorkOrderByTaskId,
   hasDirectPackingToReviewOrCompleteTransition,
   listDyeFormulaRecords,
@@ -16,7 +17,15 @@ import {
   listDyeVatSchedules,
   listDyeWorkOrders,
   validateDyeStartPayload,
+  prepareFormalProductionOrderDyeWorkOrderSync,
 } from '../src/data/fcs/dyeing-task-domain.ts'
+import {
+  completeCombinedDyeingTask,
+  correctCombinedDyeingResult,
+  createCombinedDyeingTask,
+  deleteCombinedDyeingTask,
+} from '../src/data/fcs/combined-dyeing-domain.ts'
+import { buildDyeWorkOrderCombinedDyeingView } from '../src/data/fcs/dye-work-order-combined-dyeing-view.ts'
 import { getMobileExecutionTaskById } from '../src/data/fcs/mobile-execution-task-index.ts'
 import { listPdaGenericProcessTasks, registerPdaGenericProcessTask } from '../src/data/fcs/pda-task-mock-factory.ts'
 import { submitDyeHandover } from '../src/data/fcs/process-execution-writeback.ts'
@@ -160,6 +169,86 @@ function main(): void {
     assert(!order.sourceProductionOrderId, `${order.dyeOrderNo} 备货来源不得伪造 sourceProductionOrderId`)
   })
 
+  const combinedDemoA = getDyeWorkOrderById('DYE-COMBINED-DEMO-001')!
+  const combinedDemoB = getDyeWorkOrderById('DYE-COMBINED-DEMO-002')!
+  const noHistoryOrder = orders.find((order) => order.sourceType === 'PRODUCTION_ORDER' && !order.combinedDyeing)!
+  assert(combinedDemoA && combinedDemoB && noHistoryOrder, '需要合并染色联动展示测试加工单')
+  assert.equal(buildDyeWorkOrderCombinedDyeingView(noHistoryOrder), undefined, '无合并历史的生产单加工单不得伪造合并投影')
+
+  const combinedTask = createCombinedDyeingTask({
+    dyeWorkOrderIds: [combinedDemoA.dyeOrderId, combinedDemoB.dyeOrderId],
+    createdBy: '染厂主管',
+    createdAt: '2026-07-16 08:00:00',
+  })
+  const waitingProjection = buildDyeWorkOrderCombinedDyeingView(getDyeWorkOrderById(combinedDemoA.dyeOrderId)!)!
+  assert.equal(waitingProjection.activeTask?.taskNo, combinedTask.taskNo, '活动合并任务必须投影平台任务号')
+  assert.equal(waitingProjection.occupiedByActiveTask, true, '待染色任务必须显示当前占用')
+  assert.equal(waitingProjection.currentEffectiveAllocationQty, 0, '待染色任务尚无有效分配')
+  assert.equal(waitingProjection.satisfaction, 'UNMET', '待染色任务必须显示未满足')
+
+  completeCombinedDyeingTask(combinedTask.taskId, {
+    actualInputQty: 900,
+    actualOutputQty: 800,
+    completedBy: '染厂主管',
+    completedAt: '2026-07-16 09:00:00',
+  })
+  const fullProjection = buildDyeWorkOrderCombinedDyeingView(getDyeWorkOrderById(combinedDemoA.dyeOrderId)!)!
+  const partialProjection = buildDyeWorkOrderCombinedDyeingView(getDyeWorkOrderById(combinedDemoB.dyeOrderId)!)!
+  assert.equal(fullProjection.currentEffectiveAllocationQty, 600, '第一张加工单必须按顺序足量分配')
+  assert.equal(fullProjection.satisfaction, 'FULL', '第一张加工单必须显示已满足')
+  assert.equal(partialProjection.currentEffectiveAllocationQty, 200, '第二张加工单必须显示当前有效分配')
+  assert.equal(partialProjection.satisfaction, 'PARTIAL', '第二张加工单必须显示部分满足')
+  assert.equal(partialProjection.unmetQty, 200, '第二张加工单必须直接显示未满足数量')
+
+  const beforeSnapshot = getDyeWorkOrderById(combinedDemoB.dyeOrderId)!.formalProductionOrderSnapshot!
+  const protectedChange = prepareFormalProductionOrderDyeWorkOrderSync({
+    ...beforeSnapshot,
+    plannedQty: 450,
+    dyeProcessName: beforeSnapshot.processName,
+  }, { changeRecordId: 'CHANGE-DYE-WORKFLOW-COMBINED-001', recordedAt: '2026-07-16 09:10:00' })
+  assert.equal(protectedChange.outcome, 'PROTECTED', '活动合并任务中的加工单变更必须保护原快照')
+  protectedChange.commit()
+  const impactedProjection = buildDyeWorkOrderCombinedDyeingView(getDyeWorkOrderById(combinedDemoB.dyeOrderId)!)!
+  assert.equal(impactedProjection.changeImpacts.length, 1, '详情投影必须保留生产单变更影响')
+  assert.equal(impactedProjection.changeImpacts[0]!.before.plannedQty, 400, '变更影响必须保留变更前数量')
+  assert.equal(impactedProjection.changeImpacts[0]!.after.plannedQty, 450, '变更影响必须显示变更后数量')
+  assert.equal(getDyeWorkOrderById(combinedDemoB.dyeOrderId)!.plannedQty, 400, '受保护加工单不得覆盖原执行快照')
+
+  correctCombinedDyeingResult(combinedTask.taskId, {
+    actualInputQty: 1050,
+    actualOutputQty: 1000,
+    reason: '复核后更正产出',
+    correctedBy: '染厂主管',
+    correctedAt: '2026-07-16 10:00:00',
+  })
+  const correctedProjection = buildDyeWorkOrderCombinedDyeingView(getDyeWorkOrderById(combinedDemoB.dyeOrderId)!)!
+  assert.equal(correctedProjection.satisfaction, 'FULL', '更正后必须按当前版本显示已满足')
+  assert.equal(correctedProjection.currentEffectiveAllocationQty, 400, '更正后有效分配必须重算')
+  assert.deepEqual(correctedProjection.allocationVersions.map((version) => version.versionNo), [1, 2], '更正前后分配版本必须永久保留')
+  assert.equal(correctedProjection.allocationVersions.filter((version) => version.current).length, 1, '只能有一个当前分配版本')
+
+  const activeWorkOrdersSource = readFile('src/pages/process-factory/dyeing/work-orders.ts')
+  const activeDetailSource = readFile('src/pages/process-factory/dyeing/work-order-detail.ts')
+  ;['已加入合并染色', '/fcs/craft/dyeing/combined-dyeing?taskId=', '只读，不可改号'].forEach((text) => {
+    assertIncludes(activeWorkOrdersSource, text, '染色加工单列表联动')
+  })
+  ;['合并染色', '成员已锁定', '当前有效分配', '生产单变更影响', '建议动作'].forEach((text) => {
+    assertIncludes(activeDetailSource, text, '染色加工单详情联动')
+  })
+
+  deleteCombinedDyeingTask(combinedTask.taskId, {
+    deletedBy: '染厂主管',
+    deletedAt: '2026-07-16 11:00:00',
+    reason: '现场复核后删除任务',
+  })
+  const deletedProjection = buildDyeWorkOrderCombinedDyeingView(getDyeWorkOrderById(combinedDemoB.dyeOrderId)!)!
+  assert.equal(deletedProjection.activeTask, undefined, '已删除任务不得伪装为当前占用')
+  assert.equal(deletedProjection.occupiedByActiveTask, false, '已删除任务必须解除当前占用')
+  assert.equal(deletedProjection.currentEffectiveAllocationQty, 400, '删除已完成任务后有效分配事实仍保留')
+  assert.equal(deletedProjection.history[0]?.status, 'DELETED', '已删除任务必须保留历史事实')
+  assert.equal(deletedProjection.history[0]?.deleteReason, '现场复核后删除任务', '删除历史必须保留删除原因')
+  assertIncludes(activeDetailSource, '历史任务', '删除后详情必须继续展示历史事实')
+
   const stockTemplate = listFactoryWaitProcessStockItems().find((item) => item.itemKind === '面料' && item.receivedQty > 0 && item.materialSku)!
   const realStock = upsertFactoryWaitProcessStockItem({
     ...stockTemplate,
@@ -195,6 +284,7 @@ function main(): void {
   assert.equal(stockCreated.order.sourceType, 'STOCK', '备货染色加工单来源必须是 STOCK')
   assert.equal(stockCreated.order.stockMaterialId, realStock.stockItemId, '备货染色加工单必须保留 stockMaterialId')
   assert(!stockCreated.order.sourceProductionOrderId, '备货染色加工单不得伪造生产单')
+  assert.equal(buildDyeWorkOrderCombinedDyeingView(stockCreated.order), undefined, '备货加工单不得显示生产单合并染色投影')
   const stockRouteCard = buildTaskRouteCardPrintDoc({ sourceType: 'DYEING_WORK_ORDER', sourceId: stockCreated.order.dyeOrderId })
   assert.equal(stockRouteCard.workOrderSourceType, 'STOCK', '备货任务流转卡必须保留备货来源类型')
   assert.equal(stockRouteCard.stockMaterialId, realStock.stockItemId, '备货任务流转卡必须保留备货物料 ID')

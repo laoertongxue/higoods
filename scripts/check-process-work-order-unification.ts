@@ -168,6 +168,8 @@ const EXPECTED_DYE_CANONICAL_IDENTITIES: Array<[string, string]> = [
   ['DWO-010', 'DY-20260328-010'],
   ['DWO-011', 'DY-20260328-011'],
   ['DYE-WATER-PO-202603-081', 'RSJG-WATER-202603081'],
+  ['DYE-COMBINED-DEMO-001', 'RSJG-202607-901'],
+  ['DYE-COMBINED-DEMO-002', 'RSJG-202607-902'],
 ]
 
 function sortIdentities(identities: Array<[string, string]>): Array<[string, string]> {
@@ -298,6 +300,37 @@ assertWorkOrderIdentity(
   platformDyeOrders,
   dyeWorkOrders.map((order) => ({ workOrderId: order.dyeOrderId, orderNo: order.dyeOrderNo })),
 )
+
+const dyeingTasks = listPdaGenericProcessTasks().filter((task) => task.mockProcessKey === 'DYEING')
+;[
+  ['DYE-COMBINED-DEMO-001', 'RSJG-202607-901'],
+  ['DYE-COMBINED-DEMO-002', 'RSJG-202607-902'],
+].forEach(([workOrderId, workOrderNo]) => {
+  const platformOrder = platformDyeOrders.find((order) => order.workOrderId === workOrderId)
+  const factoryOrder = unifiedDyeOrders.find((order) => order.workOrderId === workOrderId)
+  const canonicalOrder = getDyeWorkOrderById(workOrderId)
+  assert(platformOrder, `${workOrderNo} 缺少平台端加工单`)
+  assert(factoryOrder, `${workOrderNo} 缺少工厂端加工单`)
+  assert(canonicalOrder, `${workOrderNo} 缺少 canonical 染色加工单`)
+  assert.deepEqual(
+    [platformOrder.workOrderId, platformOrder.orderNo],
+    [factoryOrder.workOrderId, factoryOrder.workOrderNo],
+    `${workOrderNo} 平台端与工厂端必须共用加工单 ID/编号`,
+  )
+  assert.deepEqual(
+    [canonicalOrder.dyeOrderId, canonicalOrder.dyeOrderNo],
+    [workOrderId, workOrderNo],
+    `${workOrderNo} canonical 染色加工单身份不得改号`,
+  )
+  const pdaTask = dyeingTasks.find((task) => task.taskId === canonicalOrder.taskId)
+  assert(pdaTask, `${workOrderNo} 缺少对应 PDA 染色任务`)
+  const pdaCanonicalOrder = getDyeWorkOrderByTaskId(pdaTask.taskId)
+  assert.deepEqual(
+    [pdaCanonicalOrder?.dyeOrderId, pdaCanonicalOrder?.dyeOrderNo],
+    [workOrderId, workOrderNo],
+    `${workOrderNo} PDA 必须反查到同一平台加工单 ID/编号`,
+  )
+})
 
 const printingTasks = listPdaGenericProcessTasks().filter((task) => task.mockProcessKey === 'PRINTING')
 const transferringPrintOrder = printWorkOrders.find((order) => order.sourceType === 'PRODUCTION_ORDER')
