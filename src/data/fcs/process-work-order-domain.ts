@@ -41,10 +41,26 @@ import {
 export type ProcessWorkOrderType = 'PRINT' | 'DYE' | 'WATER_SOLUBLE'
 export type ProcessWorkOrderStatus = PrintWorkOrderStatus | DyeWorkOrderStatus | WaterSolubleWorkOrderStatus
 
+export interface FormalProductionOrderProcessSnapshotRecord {
+  productionOrderId: string
+  productionOrderNo: string
+  orderedAt: string
+  techPackVersionId: string
+  techPackVersionLabel: string
+  materialId: string
+  materialName: string
+  targetColor: string
+  plannedQty: number
+  qtyUnit: string
+  processCodes: string[]
+  processName: string
+}
+
 export interface ProcessWorkOrder {
   workOrderId: string
   workOrderNo: string
   processType: ProcessWorkOrderType
+  sourceProductionOrderId?: string
   sourceDemandIds: string[]
   sourceArtifactIds?: string[]
   productionOrderIds: string[]
@@ -117,6 +133,7 @@ export interface ProcessWorkOrder {
   executionNodes: Array<PrintExecutionNodeRecord | DyeExecutionNodeRecord>
   reviewRecords: Array<PrintReviewRecord | DyeReviewRecord>
   handoverRecords: PdaHandoverRecord[]
+  formalProductionOrderSnapshot?: FormalProductionOrderProcessSnapshotRecord
   createdAt: string
   updatedAt: string
 }
@@ -193,6 +210,7 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
     workOrderId,
     workOrderNo,
     processType: 'PRINT',
+    sourceProductionOrderId: order.sourceProductionOrderId,
     sourceDemandIds: [...order.sourceDemandIds],
     productionOrderIds: [...order.productionOrderIds],
     factoryId: order.printFactoryId,
@@ -213,7 +231,7 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
     materialName: order.materialColor ? `${order.materialSku} / ${order.materialColor}` : order.materialSku,
     materialBatchNos: order.sourceDemandIds,
     status: order.status,
-    statusLabel: getPrintWorkOrderStatusLabel(order.status),
+    statusLabel: order.printFactoryId ? getPrintWorkOrderStatusLabel(order.status) : '待分配工厂',
     taskId: order.taskId,
     taskNo: order.taskNo,
     taskQrValue: order.taskQrValue,
@@ -234,6 +252,9 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
     executionNodes: listPrintExecutionNodeRecords(order.printOrderId),
     reviewRecords: review ? [review] : [],
     handoverRecords: cloneHandoverRecords(getPrintOrderHandoverRecords(order.printOrderId)),
+    formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
+      ? { ...order.formalProductionOrderSnapshot, processCodes: [...order.formalProductionOrderSnapshot.processCodes] }
+      : undefined,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
   }
@@ -255,6 +276,7 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
     workOrderId,
     workOrderNo,
     processType: 'DYE',
+    sourceProductionOrderId: order.sourceProductionOrderId,
     sourceDemandIds: [...order.sourceDemandIds],
     sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
     productionOrderIds: [...(order.productionOrderIds || [])],
@@ -274,7 +296,7 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
     materialName: order.composition ? `${order.rawMaterialSku} / ${order.composition}` : order.rawMaterialSku,
     materialBatchNos: order.sourceDemandIds,
     status: order.status,
-    statusLabel: getDyeWorkOrderStatusLabel(order.status),
+    statusLabel: order.dyeFactoryId ? getDyeWorkOrderStatusLabel(order.status) : '待分配工厂',
     taskId: order.taskId,
     taskNo: order.taskNo,
     taskQrValue: order.taskQrValue,
@@ -301,6 +323,9 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
     executionNodes: listDyeExecutionNodeRecords(order.dyeOrderId),
     reviewRecords: review ? [review] : [],
     handoverRecords: cloneHandoverRecords(getDyeOrderHandoverRecords(order.dyeOrderId)),
+    formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
+      ? { ...order.formalProductionOrderSnapshot, processCodes: [...order.formalProductionOrderSnapshot.processCodes] }
+      : undefined,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
   }
@@ -332,4 +357,27 @@ export function getProcessWorkOrderByNo(workOrderNo: string): ProcessWorkOrder |
 
 export function getProcessWorkOrderStatusLabel(order: ProcessWorkOrder): string {
   return order.statusLabel
+}
+
+export function issueProcessWorkOrderIdentity(
+  processType: Extract<ProcessWorkOrderType, 'DYE' | 'PRINT'>,
+  orderedAt: string,
+): { workOrderId: string; workOrderNo: string } {
+  const existing = listProcessWorkOrders(processType)
+  const prefix = processType === 'DYE' ? 'DWO-AUTO' : 'PWO-PRINT-AUTO'
+  const numberPrefix = processType === 'DYE' ? 'DY' : 'PH'
+  const datePart = orderedAt.replace(/\D/g, '').slice(0, 8) || '00000000'
+  const occupiedIds = new Set(existing.map((order) => order.workOrderId))
+  const occupiedNos = new Set(existing.map((order) => order.workOrderNo))
+  let sequence = 1
+  while (sequence <= 999999) {
+    const padded = String(sequence).padStart(6, '0')
+    const workOrderId = `${prefix}-${padded}`
+    const workOrderNo = `${numberPrefix}-${datePart}-${padded}`
+    if (!occupiedIds.has(workOrderId) && !occupiedNos.has(workOrderNo)) {
+      return { workOrderId, workOrderNo }
+    }
+    sequence += 1
+  }
+  throw new Error(`${processType === 'DYE' ? '染色' : '印花'}加工单编号已耗尽`)
 }

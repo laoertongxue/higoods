@@ -77,6 +77,7 @@ export interface DyeWorkOrder {
   dyeOrderId: string
   dyeOrderNo: string
   sourceType: 'PRODUCTION_ORDER'
+  sourceProductionOrderId?: string
   sourceDemandIds: string[]
   sourceArtifactIds?: string[]
   productionOrderIds?: string[]
@@ -123,6 +124,20 @@ export interface DyeWorkOrder {
   createdAt: string
   updatedAt: string
   remark?: string
+  formalProductionOrderSnapshot?: {
+    productionOrderId: string
+    productionOrderNo: string
+    orderedAt: string
+    techPackVersionId: string
+    techPackVersionLabel: string
+    materialId: string
+    materialName: string
+    targetColor: string
+    plannedQty: number
+    qtyUnit: string
+    processCodes: string[]
+    processName: string
+  }
 }
 
 export interface DyeExecutionNodeRecord {
@@ -452,6 +467,9 @@ function cloneWorkOrder(order: MutableDyeWorkOrder): DyeWorkOrder {
     sourceDemandIds: [...order.sourceDemandIds],
     sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
     productionOrderIds: order.productionOrderIds ? [...order.productionOrderIds] : undefined,
+    formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
+      ? { ...order.formalProductionOrderSnapshot, processCodes: [...order.formalProductionOrderSnapshot.processCodes] }
+      : undefined,
   }
 }
 
@@ -946,13 +964,16 @@ function addSeedWorkOrder(input: Omit<
   const task = getDyeingTaskById(input.taskId)
   const handoverOrder = input.handoverOrderId ? getHandoverOrderById(input.handoverOrderId) : getPrimaryHandoverOrder(input.taskId)
   if (task) {
+    const hasFactory = Boolean(input.dyeFactoryId)
     task.assignmentMode = 'DIRECT'
-    task.assignmentStatus = 'ASSIGNED'
-    task.acceptanceStatus = 'ACCEPTED'
+    task.assignmentStatus = hasFactory ? 'ASSIGNED' : 'UNASSIGNED'
+    task.acceptanceStatus = hasFactory ? 'ACCEPTED' : 'PENDING'
+    task.assignedFactoryId = hasFactory ? input.dyeFactoryId : undefined
+    task.assignedFactoryName = hasFactory ? input.dyeFactoryName : '待分配工厂'
     task.tenderId = undefined
     task.awardedAt = undefined
-    task.dispatchedBy = '平台派单'
-    task.dispatchRemark = '染色加工单派单后直接进入执行待加工'
+    task.dispatchedBy = hasFactory ? '平台派单' : undefined
+    task.dispatchRemark = hasFactory ? '染色加工单派单后直接进入执行待加工' : '正式生产单已生成加工单，待分配工厂。'
     task.dispatchPrice = input.dispatchPrice ?? 1500
     task.dispatchPriceCurrency = 'IDR'
     task.dispatchPriceUnit = 'Yard'
@@ -2184,18 +2205,18 @@ function buildFreshDyeMobileTaskFromTemplate(input: {
     spuCode: sourceOrder?.demandSnapshot.spuCode,
     spuName: sourceOrder?.demandSnapshot.spuName,
     requiredDeliveryDate: sourceOrder?.demandSnapshot.requiredDeliveryDate ?? undefined,
-    assignedFactoryId: input.factoryId,
-    assignedFactoryName: input.factoryName,
+    assignedFactoryId: input.factoryId || undefined,
+    assignedFactoryName: input.factoryId ? input.factoryName : '待分配工厂',
     status: 'NOT_STARTED',
     assignmentMode: 'DIRECT',
-    assignmentStatus: 'ASSIGNED',
-    acceptanceStatus: 'ACCEPTED',
-    dispatchedAt: input.createdAt,
-    dispatchedBy: input.dispatchedBy,
+    assignmentStatus: input.factoryId ? 'ASSIGNED' : 'UNASSIGNED',
+    acceptanceStatus: input.factoryId ? 'ACCEPTED' : 'PENDING',
+    dispatchedAt: input.factoryId ? input.createdAt : undefined,
+    dispatchedBy: input.factoryId ? input.dispatchedBy : undefined,
     acceptDeadline: undefined,
     taskDeadline: undefined,
-    acceptedAt: input.createdAt,
-    acceptedBy: input.factoryName,
+    acceptedAt: input.factoryId ? input.createdAt : undefined,
+    acceptedBy: input.factoryId ? input.factoryName : undefined,
     awardedAt: undefined,
     tenderId: undefined,
     bidId: undefined,
@@ -2376,6 +2397,93 @@ export function getDyeWorkOrderByTaskId(taskId: string): DyeWorkOrder | undefine
         taskNo: canonical.taskNo,
       })
     : undefined
+}
+
+export function registerFormalProductionOrderDyeWorkOrder(input: {
+  workOrderId: string
+  workOrderNo: string
+  sourceProductionOrderId: string
+  productionOrderNo: string
+  orderedAt: string
+  techPackVersionId: string
+  techPackVersionLabel: string
+  materialId: string
+  materialName: string
+  targetColor: string
+  plannedQty: number
+  qtyUnit: string
+  processCodes: string[]
+  processName: string
+  factoryId?: string
+  factoryName?: string
+}): DyeWorkOrder {
+  seedDomain()
+  const existing = Array.from(workOrderStore.values())
+    .find((order) => order.sourceProductionOrderId === input.sourceProductionOrderId)
+  if (existing) return cloneWorkOrder(existing)
+
+  const taskTemplate = getDyeingTasks()[0]
+  if (!taskTemplate) throw new Error('缺少染色移动任务模板，无法注册正式生产单加工单。')
+  const factoryId = input.factoryId || ''
+  const factoryName = input.factoryName || '待分配工厂'
+  registerPdaGenericProcessTask(buildFreshDyeMobileTaskFromTemplate({
+    template: taskTemplate,
+    taskId: input.workOrderId,
+    productionOrderId: input.sourceProductionOrderId,
+    factoryId,
+    factoryName,
+    qty: input.plannedQty,
+    qtyDisplayUnit: input.qtyUnit,
+    createdAt: input.orderedAt,
+    dispatchedBy: '平台自动生成',
+    receiveSummary: factoryId ? '染色加工单已分配，待工厂接收。' : '染色加工单待分配工厂。',
+    executionSummary: `按${input.processName}执行。`,
+    handoverSummary: '完成染色及后处理后统一交出。',
+  }))
+  const registeredTask = getDyeingTaskById(input.workOrderId)
+  if (registeredTask) registeredTask.taskNo = input.workOrderNo
+  addSeedWorkOrder({
+    dyeOrderId: input.workOrderId,
+    dyeOrderNo: input.workOrderNo,
+    sourceType: 'PRODUCTION_ORDER',
+    sourceProductionOrderId: input.sourceProductionOrderId,
+    sourceDemandIds: [],
+    productionOrderIds: [input.sourceProductionOrderId],
+    isFirstOrder: false,
+    sampleWaitType: 'NONE',
+    sampleStatus: 'NOT_REQUIRED',
+    rawMaterialSku: input.materialId,
+    composition: input.materialName,
+    targetColor: input.targetColor,
+    plannedQty: input.plannedQty,
+    qtyUnit: input.qtyUnit,
+    dyeFactoryId: factoryId,
+    dyeFactoryName: factoryName,
+    targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
+    targetTransferWarehouseName: '中转区域',
+    status: 'WAIT_MATERIAL',
+    taskId: input.workOrderId,
+    taskNo: input.workOrderNo,
+    createdAt: input.orderedAt,
+    updatedAt: input.orderedAt,
+    remark: `${input.processName}；来源正式生产单 ${input.productionOrderNo}；技术包 ${input.techPackVersionLabel}。`,
+    formalProductionOrderSnapshot: {
+      productionOrderId: input.sourceProductionOrderId,
+      productionOrderNo: input.productionOrderNo,
+      orderedAt: input.orderedAt,
+      techPackVersionId: input.techPackVersionId,
+      techPackVersionLabel: input.techPackVersionLabel,
+      materialId: input.materialId,
+      materialName: input.materialName,
+      targetColor: input.targetColor,
+      plannedQty: input.plannedQty,
+      qtyUnit: input.qtyUnit,
+      processCodes: [...input.processCodes],
+      processName: input.processName,
+    },
+  })
+  createdDyeOrderIds.add(input.workOrderId)
+  return getDyeWorkOrderById(input.workOrderId)!
 }
 
 export function listDyeExecutionNodeRecords(dyeOrderId?: string): DyeExecutionNodeRecord[] {
