@@ -6,6 +6,7 @@ import { listPdaGenericProcessTasks, registerPdaGenericProcessTask } from '../sr
 import { listHandoverOrdersByTaskId } from '../src/data/fcs/pda-handover-events.ts'
 import { submitDyeHandover, submitPrintHandover } from '../src/data/fcs/process-execution-writeback.ts'
 import { renderPdaHandoverDetailPage } from '../src/pages/pda-handover-detail.ts'
+import { listFactoryWaitProcessStockItems } from '../src/data/fcs/factory-internal-warehouse.ts'
 
 function markTaskStarted(taskId: string): void {
   const task = listPdaGenericProcessTasks().find((item) => item.taskId === taskId)
@@ -35,29 +36,30 @@ function assertProductionDetail(html: string, productionOrderNo: string, label: 
 }
 
 const printOrders = listPrintWorkOrders()
+const realStock = listFactoryWaitProcessStockItems().find((item) => item.itemKind === '面料' && item.receivedQty > 0 && item.materialSku)!
 const stockPrint = createPrintWorkOrderFromStock({
-  stockMaterialId: 'STOCK-PRINT-DETAIL-001',
-  stockMaterialName: '详情检查印花基布',
-  materialSku: 'MAT-PRINT-DETAIL-001',
+  stockMaterialId: realStock.stockItemId,
+  stockMaterialName: realStock.itemName,
+  materialSku: realStock.materialSku!,
   factoryId: printOrders[0]!.printFactoryId,
   plannedQty: 48,
-  qtyUnit: '米',
+  qtyUnit: realStock.unit,
   plannedFinishAt: '2026-07-31 18:00',
   processName: '数码印花',
 })
 assert(stockPrint.ok && stockPrint.order, '备货印花加工单创建失败')
 markTaskStarted(stockPrint.order.taskId)
 submitPrintHandover(stockPrint.order.taskId, { submittedQty: stockPrint.order.plannedQty })
-assertStockDetail(renderTaskHandoverDetail(stockPrint.order.taskId), 'STOCK-PRINT-DETAIL-001', '详情检查印花基布', '备货印花')
+assertStockDetail(renderTaskHandoverDetail(stockPrint.order.taskId), realStock.stockItemId, realStock.itemName, '备货印花')
 
 const dyeOrders = listDyeWorkOrders()
 const stockDye = createDyeWorkOrderFromStock({
-  stockMaterialId: 'STOCK-DYE-DETAIL-001',
-  stockMaterialName: '详情检查染色坯布',
-  materialSku: 'MAT-DYE-DETAIL-001',
+  stockMaterialId: realStock.stockItemId,
+  stockMaterialName: realStock.itemName,
+  materialSku: realStock.materialSku!,
   factoryId: dyeOrders[0]!.dyeFactoryId,
   plannedQty: 52,
-  qtyUnit: '米',
+  qtyUnit: realStock.unit,
   plannedFinishAt: '2026-07-31 18:00',
   processName: '常规染色',
   targetColor: '深海蓝',
@@ -65,7 +67,7 @@ const stockDye = createDyeWorkOrderFromStock({
 assert(stockDye.ok && stockDye.order, '备货染色加工单创建失败')
 markTaskStarted(stockDye.order.taskId)
 submitDyeHandover(stockDye.order.taskId, { submittedQty: stockDye.order.plannedQty })
-assertStockDetail(renderTaskHandoverDetail(stockDye.order.taskId), 'STOCK-DYE-DETAIL-001', '详情检查染色坯布', '备货染色')
+assertStockDetail(renderTaskHandoverDetail(stockDye.order.taskId), realStock.stockItemId, realStock.itemName, '备货染色')
 
 const productionPrint = printOrders.find((order) => order.sourceType === 'PRODUCTION_ORDER')!
 markTaskStarted(productionPrint.taskId)

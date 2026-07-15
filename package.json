@@ -71,6 +71,7 @@
     "check:pda-cutting-task-spreading-orders": "tsx scripts/check-pda-cutting-task-spreading-orders.ts",
     "check:pda-handover-pages": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-handover-pages.ts",
     "check:pda-handover-detail-source": "tsx scripts/check-pda-handover-detail-source.ts",
+    "check:stock-process-work-order-creation": "tsx scripts/check-stock-process-work-order-creation.ts",
     "check:post-route-qc-recheck": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-post-route-qc-recheck.ts",
     "check:process-craft-output-value-rules": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-process-craft-output-value-rules.ts",
     "check:water-soluble-process": "npm exec tsc -- --noEmit --target ES2022 --module ESNext --moduleResolution Bundler --strict --skipLibCheck --allowImportingTsExtensions scripts/check-water-soluble-types.ts && node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-water-soluble-process.ts",

@@ -23,6 +23,7 @@ import type {
 import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
+import { getProcessWorkOrderStockMaterial, isValidProcessWorkOrderPlannedFinishAt } from './process-work-order-stock.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
 import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
@@ -77,6 +78,7 @@ export interface PrintWorkOrder {
   isFabricPrinting?: boolean
   plannedQty: number
   qtyUnit: string
+  plannedFinishAt?: string
   qtyLabel?: string
   plannedRollCount?: number
   assignmentMode: '派单'
@@ -1856,14 +1858,21 @@ export function createPrintWorkOrderFromStock(input: {
   createdBy?: string
 }): { ok: boolean; message: string; order?: PrintWorkOrder } {
   const stockMaterialId = input.stockMaterialId.trim()
+  const stockMaterial = getProcessWorkOrderStockMaterial(stockMaterialId)
   const stockMaterialName = input.stockMaterialName.trim()
   const materialSku = input.materialSku.trim()
   const qtyUnit = input.qtyUnit.trim()
+  const plannedFinishAt = input.plannedFinishAt.trim()
   const processName = input.processName.trim()
-  if (!stockMaterialId || !stockMaterialName || !materialSku) return { ok: false, message: '请选择有效的备货物料。' }
+  if (!stockMaterial) return { ok: false, message: '请选择仓库中存在的备货物料。' }
+  if (stockMaterial.stockMaterialName !== stockMaterialName || stockMaterial.materialSku !== materialSku) {
+    return { ok: false, message: '备货物料名称或编码与仓库库存不一致，请重新选择。' }
+  }
+  if (stockMaterial.qtyUnit !== qtyUnit) return { ok: false, message: '计划数量单位必须与仓库库存单位一致。' }
   if (!Number.isFinite(input.plannedQty) || input.plannedQty <= 0 || !qtyUnit) {
     return { ok: false, message: '计划数量和单位必须有效。' }
   }
+  if (!isValidProcessWorkOrderPlannedFinishAt(plannedFinishAt)) return { ok: false, message: '请填写有效的计划完成时间。' }
   if (!processName) return { ok: false, message: '请填写印花工艺。' }
   const factory = getFactoryMasterRecordById(input.factoryId)
   const canReceivePrint = factory?.status === 'active'
@@ -1888,7 +1897,7 @@ export function createPrintWorkOrderFromStock(input: {
     stockMaterialName,
     spuCode: '',
     spuName: stockMaterialName,
-    requiredDeliveryDate: input.plannedFinishAt,
+    requiredDeliveryDate: plannedFinishAt,
     factoryId: factory.id,
     factoryName: factory.name,
     qty: input.plannedQty,
@@ -1912,6 +1921,7 @@ export function createPrintWorkOrderFromStock(input: {
     isFabricPrinting: true,
     plannedQty: input.plannedQty,
     qtyUnit,
+    plannedFinishAt,
     qtyLabel: '计划数量',
     printFactoryId: factory.id,
     printFactoryName: factory.name,
@@ -1922,7 +1932,7 @@ export function createPrintWorkOrderFromStock(input: {
     taskNo: printOrderNo,
     createdAt: now,
     updatedAt: now,
-    remark: `${processName}；按备货创建；创建人：${input.createdBy || '业务人员'}；计划完成：${input.plannedFinishAt}`,
+    remark: `${processName}；按备货创建；创建人：${input.createdBy || '业务人员'}；计划完成：${plannedFinishAt}`,
   })
   createdPrintOrderIds.add(printOrderId)
   return { ok: true, message: '', order: getPrintWorkOrderById(printOrderId) }

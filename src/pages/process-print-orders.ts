@@ -3,6 +3,7 @@ import { escapeHtml } from '../utils'
 import { listPrepProcessOrders, type PrepProcessOrderFact } from '../data/fcs/page-adapters/process-prep-pages-adapter'
 import { createPrintWorkOrderFromStock } from '../data/fcs/printing-task-domain.ts'
 import { listFactoryMasterRecords } from '../data/fcs/factory-master-store.ts'
+import { listProcessWorkOrderStockMaterials } from '../data/fcs/process-work-order-stock.ts'
 import {
   PLATFORM_PROCESS_STATUS_CLASS,
   listPlatformStatusOptions,
@@ -30,6 +31,7 @@ const factories = listFactoryMasterRecords()
     && (ability.status ?? 'ACTIVE') === 'ACTIVE'
     && ability.canReceiveTask !== false,
   ))
+const stockMaterials = listProcessWorkOrderStockMaterials()
 
 const defaultForm = (): PrintCreateForm => ({
   stockMaterialId: '',
@@ -51,6 +53,7 @@ const state = {
   selectedWorkOrderId: null as string | null,
   createOpen: false,
   notice: null as string | null,
+  formError: null as string | null,
   form: defaultForm(),
 }
 
@@ -135,16 +138,17 @@ function renderDetail(): string {
 }
 
 function renderInput(field: keyof PrintCreateForm, label: string, value: string, type = 'text'): string {
-  return `<label class="block"><span class="mb-1 block text-xs text-muted-foreground">${label}</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm" type="${type}" value="${escapeHtml(value)}" data-print-create-field="${field}" /></label>`
+  return `<label class="block"><span class="mb-1 block text-xs text-muted-foreground">${label}</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm" type="${type}" value="${escapeHtml(value)}" data-skip-page-rerender="true" data-print-create-field="${field}" /></label>`
 }
 
-function renderSelect(field: keyof PrintCreateForm, label: string, options: Array<{ value: string; label: string }>, value: string): string {
-  return `<label class="block"><span class="mb-1 block text-xs text-muted-foreground">${label}</span><select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-print-create-field="${field}">${options.map((item) => `<option value="${escapeHtml(item.value)}" ${item.value === value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}</select></label>`
+function renderSelect(field: keyof PrintCreateForm, label: string, options: Array<{ value: string; label: string }>, value: string, placeholder?: string): string {
+  return `<label class="block"><span class="mb-1 block text-xs text-muted-foreground">${label}</span><select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-skip-page-rerender="true" data-print-create-field="${field}">${placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : ''}${options.map((item) => `<option value="${escapeHtml(item.value)}" ${item.value === value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}</select></label>`
 }
 
 function renderCreate(): string {
   if (!state.createOpen) return ''
   const form = state.form
+  const selectedStock = stockMaterials.find((item) => item.stockMaterialId === form.stockMaterialId)
   return `
     <div class="fixed inset-0 z-40 bg-black/30" data-print-order-action="close-create"></div>
     <aside class="fixed inset-y-0 right-0 z-50 w-full max-w-xl overflow-y-auto border-l bg-background p-6 shadow-xl">
@@ -154,16 +158,16 @@ function renderCreate(): string {
       </div>
       <p class="mt-4 rounded-md bg-blue-50 p-3 text-sm text-blue-800">生产单来源由系统自动生成，只读且不能在此手工创建。</p>
       <div class="mt-5 grid gap-4 sm:grid-cols-2">
-        ${renderInput('stockMaterialId', '备货物料 ID', form.stockMaterialId)}
-        ${renderInput('materialSku', '物料编码', form.materialSku)}
-        <div class="sm:col-span-2">${renderInput('stockMaterialName', '物料名称', form.stockMaterialName)}</div>
+        <div class="sm:col-span-2">${renderSelect('stockMaterialId', '仓库备货库存', stockMaterials.map((item) => ({ value: item.stockMaterialId, label: `${item.stockMaterialName} / ${item.materialSku} / 可用 ${item.availableQty} ${item.qtyUnit}` })), form.stockMaterialId, '请选择真实库存')}</div>
+        <div class="sm:col-span-2 rounded-md border bg-muted/20 p-3 text-sm" data-print-stock-selection-summary>${selectedStock ? `<div class="font-medium">${escapeHtml(selectedStock.stockMaterialName)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(selectedStock.materialSku)} · ${escapeHtml(selectedStock.warehouseName)} · 可用 ${escapeHtml(String(selectedStock.availableQty))} ${escapeHtml(selectedStock.qtyUnit)}</div>` : '<span class="text-muted-foreground">选择库存后自动带出名称、编码、仓库与单位。</span>'}</div>
         ${renderInput('plannedQty', '计划数量', form.plannedQty, 'number')}
-        ${renderInput('qtyUnit', '数量单位', form.qtyUnit)}
+        <label class="block"><span class="mb-1 block text-xs text-muted-foreground">数量单位</span><input class="h-10 w-full rounded-md border bg-muted px-3 text-sm" value="${escapeHtml(form.qtyUnit)}" data-print-stock-unit readonly /></label>
         ${renderSelect('factoryId', '印花工厂', factories.map((factory) => ({ value: factory.id, label: factory.name })), form.factoryId)}
         ${renderInput('plannedFinishAt', '计划完成时间', form.plannedFinishAt, 'datetime-local')}
         <div class="sm:col-span-2">${renderInput('processName', '印花工艺', form.processName)}</div>
       </div>
-      <button class="mt-6 w-full rounded-md bg-primary px-4 py-2.5 text-sm text-primary-foreground" data-print-order-action="submit-create">创建印花加工单</button>
+      ${state.formError ? `<p class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" data-print-create-error>${escapeHtml(state.formError)}</p>` : ''}
+      <button class="mt-3 w-full rounded-md bg-primary px-4 py-2.5 text-sm text-primary-foreground" data-print-order-action="submit-create">创建印花加工单</button>
     </aside>
   `
 }
@@ -191,8 +195,8 @@ export function renderProcessPrintOrdersPage(): string {
         <select class="h-10 rounded-md border bg-background px-3 text-sm" data-print-order-field="modeFilter">${(['全部', '生产单自动生成', '按备货创建'] as ModeFilter[]).map((mode) => `<option ${state.modeFilter === mode ? 'selected' : ''}>${mode}</option>`).join('')}</select>
       </section>
       <section class="overflow-hidden rounded-lg border bg-card">
-        <div class="overflow-x-auto"><table class="w-full min-w-[980px] text-sm"><thead class="bg-muted/50 text-left"><tr><th class="px-4 py-3">平台加工单号</th><th class="px-4 py-3">来源</th><th class="px-4 py-3">工厂</th><th class="px-4 py-3">计划数量</th><th class="px-4 py-3">平台状态</th><th class="px-4 py-3">风险提示</th><th class="px-4 py-3">下一步动作</th><th class="px-4 py-3">操作</th></tr></thead><tbody>
-          ${rows.map((order) => `<tr class="border-t"><td class="px-4 py-3 font-mono text-xs">${escapeHtml(order.workOrderNo || order.orderNo)}</td><td class="px-4 py-3">${renderSource(order)}</td><td class="px-4 py-3">${escapeHtml(order.factoryName)}</td><td class="px-4 py-3">${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</td><td class="px-4 py-3">${renderStatus(order)}</td><td class="px-4 py-3">${escapeHtml(order.platformRiskLabel || '-')}</td><td class="px-4 py-3">${escapeHtml(order.followUpActionLabel || '查看详情')}</td><td class="px-4 py-3"><button class="text-primary hover:underline" data-print-order-action="open-detail" data-work-order-id="${escapeHtml(order.workOrderId || order.orderNo)}">查看</button></td></tr>`).join('') || '<tr><td colspan="8" class="px-4 py-10 text-center text-muted-foreground">暂无加工单</td></tr>'}
+        <div class="overflow-x-auto"><table class="w-full min-w-[1080px] text-sm"><thead class="bg-muted/50 text-left"><tr><th class="px-4 py-3">平台加工单号</th><th class="px-4 py-3">来源</th><th class="px-4 py-3">工厂</th><th class="px-4 py-3">计划数量</th><th class="px-4 py-3">计划完成</th><th class="px-4 py-3">平台状态</th><th class="px-4 py-3">风险提示</th><th class="px-4 py-3">下一步动作</th><th class="px-4 py-3">操作</th></tr></thead><tbody>
+          ${rows.map((order) => `<tr class="border-t"><td class="px-4 py-3 font-mono text-xs">${escapeHtml(order.workOrderNo || order.orderNo)}</td><td class="px-4 py-3">${renderSource(order)}</td><td class="px-4 py-3">${escapeHtml(order.factoryName)}</td><td class="px-4 py-3">${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</td><td class="px-4 py-3">${escapeHtml(order.plannedFinishAt)}</td><td class="px-4 py-3">${renderStatus(order)}</td><td class="px-4 py-3">${escapeHtml(order.platformRiskLabel || '-')}</td><td class="px-4 py-3">${escapeHtml(order.followUpActionLabel || '查看详情')}</td><td class="px-4 py-3"><button class="text-primary hover:underline" data-print-order-action="open-detail" data-work-order-id="${escapeHtml(order.workOrderId || order.orderNo)}">查看</button></td></tr>`).join('') || '<tr><td colspan="9" class="px-4 py-10 text-center text-muted-foreground">暂无加工单</td></tr>'}
         </tbody></table></div>
         ${renderPagination(filtered.length, totalPages)}
       </section>
@@ -215,12 +219,14 @@ function submitCreate(): void {
     processName: form.processName,
   })
   if (!result.ok || !result.order) {
-    state.notice = result.message
+    state.formError = result.message
     return
   }
   state.notice = `已创建印花加工单 ${result.order.printOrderNo}`
   state.createOpen = false
   state.form = defaultForm()
+  state.formError = null
+  state.page = Math.max(1, Math.ceil(getOrders().length / state.pageSize))
 }
 
 export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
@@ -228,6 +234,21 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
   if (createField) {
     const field = createField.dataset.printCreateField as keyof PrintCreateForm
     state.form[field] = createField.value
+    if (field === 'stockMaterialId') {
+      const selected = stockMaterials.find((item) => item.stockMaterialId === createField.value)
+      state.form.stockMaterialName = selected?.stockMaterialName || ''
+      state.form.materialSku = selected?.materialSku || ''
+      state.form.qtyUnit = selected?.qtyUnit || ''
+      const drawer = createField.closest<HTMLElement>('aside')
+      const unitInput = drawer?.querySelector<HTMLInputElement>('[data-print-stock-unit]')
+      if (unitInput) unitInput.value = selected?.qtyUnit || ''
+      const summary = drawer?.querySelector<HTMLElement>('[data-print-stock-selection-summary]')
+      if (summary) summary.textContent = selected
+        ? `${selected.stockMaterialName} / ${selected.materialSku} / ${selected.warehouseName} / 可用 ${selected.availableQty} ${selected.qtyUnit}`
+        : '选择库存后自动带出名称、编码、仓库与单位。'
+    }
+    state.formError = null
+    createField.closest<HTMLElement>('aside')?.querySelector('[data-print-create-error]')?.remove()
     return true
   }
   const field = target.closest<HTMLInputElement | HTMLSelectElement>('[data-print-order-field]')
@@ -248,12 +269,12 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
   }
   if (action === 'open-detail') state.selectedWorkOrderId = actionNode.dataset.workOrderId || null
   if (action === 'close-detail') state.selectedWorkOrderId = null
-  if (action === 'create-new') { state.createOpen = true; state.notice = null }
-  if (action === 'close-create') { state.createOpen = false; state.form = defaultForm() }
+  if (action === 'create-new') { state.createOpen = true; state.notice = null; state.formError = null }
+  if (action === 'close-create') { state.createOpen = false; state.form = defaultForm(); state.formError = null }
   if (action === 'submit-create') submitCreate()
   if (action === 'page-prev') state.page = Math.max(1, state.page - 1)
   if (action === 'page-next') state.page += 1
-  if (action === 'close-all') { state.selectedWorkOrderId = null; state.createOpen = false }
+  if (action === 'close-all') { state.selectedWorkOrderId = null; state.createOpen = false; state.formError = null }
   return true
 }
 

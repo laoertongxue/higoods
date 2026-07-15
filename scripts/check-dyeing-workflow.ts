@@ -23,6 +23,7 @@ import { submitDyeHandover } from '../src/data/fcs/process-execution-writeback.t
 import { applyDyeWarehouseLinkageAfterAction } from '../src/data/fcs/process-warehouse-linkage-service.ts'
 import { getProcessWarehouseRecordById, listProcessHandoverRecords } from '../src/data/fcs/process-warehouse-domain.ts'
 import { getPdaHandoverSourceDisplay, listHandoverOrdersByTaskId } from '../src/data/fcs/pda-handover-events.ts'
+import { listFactoryWaitProcessStockItems } from '../src/data/fcs/factory-internal-warehouse.ts'
 
 const repoRoot = process.cwd()
 const dyePages = [
@@ -143,32 +144,33 @@ function main(): void {
     assert(!order.sourceProductionOrderId, `${order.dyeOrderNo} 备货来源不得伪造 sourceProductionOrderId`)
   })
 
+  const realStock = listFactoryWaitProcessStockItems().find((item) => item.itemKind === '面料' && item.receivedQty > 0 && item.materialSku)!
   const stockCreated = createDyeWorkOrderFromStock({
-    stockMaterialId: 'STOCK-DYE-CHECK-001',
-    stockMaterialName: '染色检查坯布',
-    materialSku: 'MAT-DYE-CHECK-001',
+    stockMaterialId: realStock.stockItemId,
+    stockMaterialName: realStock.itemName,
+    materialSku: realStock.materialSku!,
     factoryId: orders[0]!.dyeFactoryId,
     plannedQty: 80,
-    qtyUnit: '米',
+    qtyUnit: realStock.unit,
     plannedFinishAt: '2026-07-31 18:00',
     processName: '常规染色',
     targetColor: '海军蓝',
   })
   assert(stockCreated.ok && stockCreated.order, '备货必须可以直接创建染色加工单')
   assert.equal(stockCreated.order.sourceType, 'STOCK', '备货染色加工单来源必须是 STOCK')
-  assert.equal(stockCreated.order.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色加工单必须保留 stockMaterialId')
+  assert.equal(stockCreated.order.stockMaterialId, realStock.stockItemId, '备货染色加工单必须保留 stockMaterialId')
   assert(!stockCreated.order.sourceProductionOrderId, '备货染色加工单不得伪造生产单')
   const stockTask = listPdaGenericProcessTasks().find((task) => task.taskId === stockCreated.order!.taskId)
   assert(stockTask, '备货染色加工单必须注册 PDA 任务')
   assert.equal(stockTask.sourceType, 'STOCK', '备货染色 PDA 任务来源必须是 STOCK')
-  assert.equal(stockTask.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色 PDA 任务必须保留 stockMaterialId')
-  assert.equal(stockTask.stockMaterialName, '染色检查坯布', '备货染色 PDA 任务必须保留 stockMaterialName')
+  assert.equal(stockTask.stockMaterialId, realStock.stockItemId, '备货染色 PDA 任务必须保留 stockMaterialId')
+  assert.equal(stockTask.stockMaterialName, realStock.itemName, '备货染色 PDA 任务必须保留 stockMaterialName')
   assert.equal(stockTask.productionOrderId, undefined, '备货染色 PDA 任务不得写空生产单 ID')
   assert.equal(stockTask.productionOrderNo, undefined, '备货染色 PDA 任务不得写空生产单号')
   registerPdaGenericProcessTask({ ...stockTask, startedAt: '2026-07-15 10:00:00' })
   const stockMobileTask = getMobileExecutionTaskById(stockCreated.order.taskId)
   assert.equal(stockMobileTask?.sourceType, 'STOCK', '备货染色移动索引来源必须是 STOCK')
-  assert.equal(stockMobileTask?.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色移动索引必须保留 stockMaterialId')
+  assert.equal(stockMobileTask?.stockMaterialId, realStock.stockItemId, '备货染色移动索引必须保留 stockMaterialId')
   assert.equal(stockMobileTask?.productionOrderId, undefined, '备货染色移动索引不得回填生产单 ID')
   const stockWarehouseLinkage = applyDyeWarehouseLinkageAfterAction({
     success: true,
@@ -183,24 +185,24 @@ function main(): void {
   })
   const stockWarehouseRecord = getProcessWarehouseRecordById(stockWarehouseLinkage.createdWaitHandoverWarehouseRecordId)
   assert.equal(stockWarehouseRecord?.sourceType, 'STOCK', '备货染色仓记录来源必须是 STOCK')
-  assert.equal(stockWarehouseRecord?.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色仓记录必须保留 stockMaterialId')
+  assert.equal(stockWarehouseRecord?.stockMaterialId, realStock.stockItemId, '备货染色仓记录必须保留 stockMaterialId')
   assert.equal(stockWarehouseRecord?.sourceProductionOrderId, undefined, '备货染色仓记录不得保留空生产单 ID')
   assert.equal(stockWarehouseRecord?.sourceDemandId, undefined, '备货染色仓记录不得保留空需求 ID')
   const stockSubmit = submitDyeHandover(stockCreated.order.taskId, { submittedQty: stockCreated.order.plannedQty })
   const stockPdaHead = listHandoverOrdersByTaskId(stockCreated.order.taskId)[0]
   assert.equal(stockPdaHead?.sourceType, 'STOCK', '备货染色 PDA 交出单来源必须是 STOCK')
-  assert.equal(stockPdaHead?.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色 PDA 交出单必须保留 stockMaterialId')
+  assert.equal(stockPdaHead?.stockMaterialId, realStock.stockItemId, '备货染色 PDA 交出单必须保留 stockMaterialId')
   assert.equal(stockPdaHead?.productionOrderId, undefined, '备货染色 PDA 交出单不得写生产单 ID')
   assert.equal(stockPdaHead?.productionOrderNo, undefined, '备货染色 PDA 交出单不得写生产单号')
-  assert.deepEqual(getPdaHandoverSourceDisplay(stockPdaHead!), { label: '备货物料', value: '染色检查坯布 / STOCK-DYE-CHECK-001' }, '备货染色 PDA 页面必须展示备货物料')
+  assert.deepEqual(getPdaHandoverSourceDisplay(stockPdaHead!), { label: '备货物料', value: `${realStock.itemName} / ${realStock.stockItemId}` }, '备货染色 PDA 页面必须展示备货物料')
   assert.equal(stockSubmit.handoverRecord.sourceType, 'STOCK', '备货染色 PDA 交出记录来源必须是 STOCK')
-  assert.equal(stockSubmit.handoverRecord.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色 PDA 交出记录必须保留 stockMaterialId')
-  assert.equal(stockSubmit.handoverRecord.stockMaterialName, '染色检查坯布', '备货染色 PDA 交出记录必须保留 stockMaterialName')
+  assert.equal(stockSubmit.handoverRecord.stockMaterialId, realStock.stockItemId, '备货染色 PDA 交出记录必须保留 stockMaterialId')
+  assert.equal(stockSubmit.handoverRecord.stockMaterialName, realStock.itemName, '备货染色 PDA 交出记录必须保留 stockMaterialName')
   assert.equal(stockSubmit.handoverRecord.productionOrderId, undefined, '备货染色 PDA 交出记录不得写生产单 ID')
   assert.equal(stockSubmit.handoverRecord.productionOrderNo, undefined, '备货染色 PDA 交出记录不得写生产单号')
   const stockHandoverRecord = listProcessHandoverRecords({ sourceWorkOrderId: stockCreated.order.dyeOrderId })
     .find((record) => record.sourceType === 'STOCK')
-  assert.equal(stockHandoverRecord?.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色交出回写必须保留 stockMaterialId')
+  assert.equal(stockHandoverRecord?.stockMaterialId, realStock.stockItemId, '备货染色交出回写必须保留 stockMaterialId')
   assert.equal(stockHandoverRecord?.sourceProductionOrderId, undefined, '备货染色交出回写不得保留空生产单 ID')
 
   const productionOrder = orders.find((order) => order.sourceType === 'PRODUCTION_ORDER')!

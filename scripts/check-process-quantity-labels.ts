@@ -109,7 +109,7 @@ assertIncludes('src/pages/process-factory/printing/work-order-detail.ts', 'getPr
 assertIncludes('src/pages/pda-exec.ts', 'formatProcessQuantityWithUnit', '移动端列表必须使用统一数量文案')
 assertIncludes('src/pages/pda-exec-detail.ts', 'qtyLabel', '移动端写回必须携带 qtyLabel')
 assertIncludes('src/pages/process-print-orders.ts', 'plannedQtyLabel', '平台印花页必须展示对象化数量标签')
-assertIncludes('src/pages/process-dye-orders.ts', '计划染色面料米数', '平台染色页必须展示面料米数')
+assertIncludes('src/pages/process-dye-orders.ts', 'plannedQtyLabel', '平台染色页必须使用加工单运行时数量标签')
 assertIncludes('src/pages/print/task-card-shared.ts', '完成对象数量（按单据单位）', '打印模板不得只写完成数量')
 assertIncludes('src/data/fcs/task-print-cards.ts', 'getQuantityLabel', '打印卡片必须使用统一数量文案')
 assertIncludes('src/pages/process-factory/special-craft/task-orders.ts', '当前裁片数量', '特殊工艺列表必须显示裁片数量')

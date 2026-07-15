@@ -92,6 +92,7 @@ export interface ProcessWorkOrder {
   isFabricPrinting?: boolean
   plannedQty: number
   plannedUnit: string
+  plannedFinishAt?: string
   assignmentMode: '派单'
   assignmentModeEditable: false
   dispatchPrice: number
@@ -248,6 +249,7 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
     isFabricPrinting: getProcessObjectType(quantityContext) === '面料',
     plannedQty: order.plannedQty,
     plannedUnit: order.qtyUnit,
+    plannedFinishAt: order.plannedFinishAt || order.formalProductionOrderSnapshot?.requiredDeliveryDate,
     assignmentMode: order.assignmentMode,
     assignmentModeEditable: order.assignmentModeEditable,
     dispatchPrice: order.dispatchPrice,
@@ -317,6 +319,7 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
     qtyLabel: getQuantityLabel(quantityContext),
     plannedQty: order.plannedQty,
     plannedUnit: order.qtyUnit,
+    plannedFinishAt: order.plannedFinishAt || order.formalProductionOrderSnapshot?.requiredDeliveryDate,
     assignmentMode: order.assignmentMode,
     assignmentModeEditable: order.assignmentModeEditable,
     dispatchPrice: order.dispatchPrice,

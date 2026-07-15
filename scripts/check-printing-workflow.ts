@@ -18,6 +18,7 @@ import { submitPrintHandover } from '../src/data/fcs/process-execution-writeback
 import { applyPrintWarehouseLinkageAfterAction } from '../src/data/fcs/process-warehouse-linkage-service.ts'
 import { getProcessWarehouseRecordById, listProcessHandoverRecords } from '../src/data/fcs/process-warehouse-domain.ts'
 import { getPdaHandoverSourceDisplay, listHandoverOrdersByTaskId } from '../src/data/fcs/pda-handover-events.ts'
+import { listFactoryWaitProcessStockItems } from '../src/data/fcs/factory-internal-warehouse.ts'
 
 function fail(message: string): never {
   throw new Error(`[check-printing-workflow] ${message}`)
@@ -133,30 +134,31 @@ orders.forEach((order) => {
   assert(!order.sourceProductionOrderId, `${order.printOrderNo} 备货来源不得伪造 sourceProductionOrderId`)
 })
 
+const realStock = listFactoryWaitProcessStockItems().find((item) => item.itemKind === '面料' && item.receivedQty > 0 && item.materialSku)!
 const stockCreated = createPrintWorkOrderFromStock({
-  stockMaterialId: 'STOCK-PRINT-CHECK-001',
-  stockMaterialName: '印花检查基布',
-  materialSku: 'MAT-PRINT-CHECK-001',
+  stockMaterialId: realStock.stockItemId,
+  stockMaterialName: realStock.itemName,
+  materialSku: realStock.materialSku!,
   factoryId: orders[0]!.printFactoryId,
   plannedQty: 60,
-  qtyUnit: '米',
+  qtyUnit: realStock.unit,
   plannedFinishAt: '2026-07-31 18:00',
   processName: '数码印花',
 })
 assert(stockCreated.ok && stockCreated.order, '备货必须可以直接创建印花加工单')
 assert(stockCreated.order.sourceType === 'STOCK', '备货印花加工单来源必须是 STOCK')
-assert(stockCreated.order.stockMaterialId === 'STOCK-PRINT-CHECK-001', '备货印花加工单必须保留 stockMaterialId')
+assert(stockCreated.order.stockMaterialId === realStock.stockItemId, '备货印花加工单必须保留 stockMaterialId')
 assert(!stockCreated.order.sourceProductionOrderId, '备货印花加工单不得伪造生产单')
 const stockTask = listPdaGenericProcessTasks().find((task) => task.taskId === stockCreated.order!.taskId)
 assert(stockTask?.sourceType === 'STOCK', '备货印花 PDA 任务来源必须是 STOCK')
-assert(stockTask?.stockMaterialId === 'STOCK-PRINT-CHECK-001', '备货印花 PDA 任务必须保留 stockMaterialId')
-assert(stockTask?.stockMaterialName === '印花检查基布', '备货印花 PDA 任务必须保留 stockMaterialName')
+assert(stockTask?.stockMaterialId === realStock.stockItemId, '备货印花 PDA 任务必须保留 stockMaterialId')
+assert(stockTask?.stockMaterialName === realStock.itemName, '备货印花 PDA 任务必须保留 stockMaterialName')
 assert(stockTask?.productionOrderId === undefined, '备货印花 PDA 任务不得写空生产单 ID')
 assert(stockTask?.productionOrderNo === undefined, '备货印花 PDA 任务不得写空生产单号')
 if (stockTask) registerPdaGenericProcessTask({ ...stockTask, startedAt: '2026-07-15 10:00:00' })
 const stockMobileTask = getMobileExecutionTaskById(stockCreated.order.taskId)
 assert(stockMobileTask?.sourceType === 'STOCK', '备货印花移动索引来源必须是 STOCK')
-assert(stockMobileTask?.stockMaterialId === 'STOCK-PRINT-CHECK-001', '备货印花移动索引必须保留 stockMaterialId')
+assert(stockMobileTask?.stockMaterialId === realStock.stockItemId, '备货印花移动索引必须保留 stockMaterialId')
 assert(stockMobileTask?.productionOrderId === undefined, '备货印花移动索引不得回填生产单 ID')
 const stockWarehouseLinkage = applyPrintWarehouseLinkageAfterAction({
   success: true,
@@ -171,24 +173,24 @@ const stockWarehouseLinkage = applyPrintWarehouseLinkageAfterAction({
 })
 const stockWarehouseRecord = getProcessWarehouseRecordById(stockWarehouseLinkage.createdWaitHandoverWarehouseRecordId)
 assert(stockWarehouseRecord?.sourceType === 'STOCK', '备货印花仓记录来源必须是 STOCK')
-assert(stockWarehouseRecord?.stockMaterialId === 'STOCK-PRINT-CHECK-001', '备货印花仓记录必须保留 stockMaterialId')
+assert(stockWarehouseRecord?.stockMaterialId === realStock.stockItemId, '备货印花仓记录必须保留 stockMaterialId')
 assert(stockWarehouseRecord?.sourceProductionOrderId === undefined, '备货印花仓记录不得保留空生产单 ID')
 assert(stockWarehouseRecord?.sourceDemandId === undefined, '备货印花仓记录不得保留空需求 ID')
 const stockSubmit = submitPrintHandover(stockCreated.order.taskId, { submittedQty: stockCreated.order.plannedQty })
 const stockPdaHead = listHandoverOrdersByTaskId(stockCreated.order.taskId)[0]
 assert(stockPdaHead?.sourceType === 'STOCK', '备货印花 PDA 交出单来源必须是 STOCK')
-assert(stockPdaHead?.stockMaterialId === 'STOCK-PRINT-CHECK-001', '备货印花 PDA 交出单必须保留 stockMaterialId')
+assert(stockPdaHead?.stockMaterialId === realStock.stockItemId, '备货印花 PDA 交出单必须保留 stockMaterialId')
 assert(stockPdaHead?.productionOrderId === undefined, '备货印花 PDA 交出单不得写生产单 ID')
 assert(stockPdaHead?.productionOrderNo === undefined, '备货印花 PDA 交出单不得写生产单号')
-assert(JSON.stringify(getPdaHandoverSourceDisplay(stockPdaHead!)) === JSON.stringify({ label: '备货物料', value: '印花检查基布 / STOCK-PRINT-CHECK-001' }), '备货印花 PDA 页面必须展示备货物料')
+assert(JSON.stringify(getPdaHandoverSourceDisplay(stockPdaHead!)) === JSON.stringify({ label: '备货物料', value: `${realStock.itemName} / ${realStock.stockItemId}` }), '备货印花 PDA 页面必须展示备货物料')
 assert(stockSubmit.handoverRecord.sourceType === 'STOCK', '备货印花 PDA 交出记录来源必须是 STOCK')
-assert(stockSubmit.handoverRecord.stockMaterialId === 'STOCK-PRINT-CHECK-001', '备货印花 PDA 交出记录必须保留 stockMaterialId')
-assert(stockSubmit.handoverRecord.stockMaterialName === '印花检查基布', '备货印花 PDA 交出记录必须保留 stockMaterialName')
+assert(stockSubmit.handoverRecord.stockMaterialId === realStock.stockItemId, '备货印花 PDA 交出记录必须保留 stockMaterialId')
+assert(stockSubmit.handoverRecord.stockMaterialName === realStock.itemName, '备货印花 PDA 交出记录必须保留 stockMaterialName')
 assert(stockSubmit.handoverRecord.productionOrderId === undefined, '备货印花 PDA 交出记录不得写生产单 ID')
 assert(stockSubmit.handoverRecord.productionOrderNo === undefined, '备货印花 PDA 交出记录不得写生产单号')
 const stockHandoverRecord = listProcessHandoverRecords({ sourceWorkOrderId: stockCreated.order.printOrderId })
   .find((record) => record.sourceType === 'STOCK')
-assert(stockHandoverRecord?.stockMaterialId === 'STOCK-PRINT-CHECK-001', '备货印花交出回写必须保留 stockMaterialId')
+assert(stockHandoverRecord?.stockMaterialId === realStock.stockItemId, '备货印花交出回写必须保留 stockMaterialId')
 assert(stockHandoverRecord?.sourceProductionOrderId === undefined, '备货印花交出回写不得保留空生产单 ID')
 
 const productionOrder = orders.find((order) => order.sourceType === 'PRODUCTION_ORDER')!

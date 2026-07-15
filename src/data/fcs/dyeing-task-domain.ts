@@ -19,6 +19,7 @@ import type {
 import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
+import { getProcessWorkOrderStockMaterial, isValidProcessWorkOrderPlannedFinishAt } from './process-work-order-stock.ts'
 import { registerCreatedDyeWorkOrderReader } from './dyeing-created-work-order-registry.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
@@ -102,6 +103,7 @@ export interface DyeWorkOrder {
   targetColor: string
   plannedQty: number
   qtyUnit: string
+  plannedFinishAt?: string
   requiresWaterSoluble: boolean
   waterSolublePlannedQty?: number
   waterSolubleCompletedQty?: number
@@ -2661,13 +2663,20 @@ export function createDyeWorkOrderFromStock(input: {
   sampleWaitType?: SampleWaitType
 }): { ok: boolean; message: string; order?: DyeWorkOrder } {
   const stockMaterialId = input.stockMaterialId.trim()
+  const stockMaterial = getProcessWorkOrderStockMaterial(stockMaterialId)
   const stockMaterialName = input.stockMaterialName.trim()
   const materialSku = input.materialSku.trim()
   const normalizedUnit = input.qtyUnit.trim()
-  if (!stockMaterialId || !stockMaterialName || !materialSku) return { ok: false, message: '请选择有效的备货物料。' }
+  const plannedFinishAt = input.plannedFinishAt.trim()
+  if (!stockMaterial) return { ok: false, message: '请选择仓库中存在的备货物料。' }
+  if (stockMaterial.stockMaterialName !== stockMaterialName || stockMaterial.materialSku !== materialSku) {
+    return { ok: false, message: '备货物料名称或编码与仓库库存不一致，请重新选择。' }
+  }
+  if (stockMaterial.qtyUnit !== normalizedUnit) return { ok: false, message: '计划数量单位必须与仓库库存单位一致。' }
   if (!Number.isFinite(input.plannedQty) || input.plannedQty <= 0 || !normalizedUnit) {
     return { ok: false, message: '计划数量和单位必须有效。' }
   }
+  if (!isValidProcessWorkOrderPlannedFinishAt(plannedFinishAt)) return { ok: false, message: '请填写有效的计划完成时间。' }
   if (!input.processName.trim()) return { ok: false, message: '请填写染色工艺。' }
   if (!hasActiveFactoryProcessAbility(input.factoryId, 'DYE')) {
     return { ok: false, message: '所选工厂不可派单或缺少正式有效的染色能力。' }
@@ -2713,6 +2722,7 @@ export function createDyeWorkOrderFromStock(input: {
     targetColor: input.targetColor.trim() || '按工艺要求执行',
     plannedQty,
     qtyUnit: normalizedUnit,
+    plannedFinishAt,
     requiresWaterSoluble: false,
     dyeFactoryId: factory.id,
     dyeFactoryName: factory.name,
@@ -2723,7 +2733,7 @@ export function createDyeWorkOrderFromStock(input: {
     taskNo: taskId,
     createdAt: now,
     updatedAt: now,
-    remark: `${input.processName.trim()}；按备货创建；创建人：${input.createdBy || '业务人员'}；计划完成：${input.plannedFinishAt}`,
+    remark: `${input.processName.trim()}；按备货创建；创建人：${input.createdBy || '业务人员'}；计划完成：${plannedFinishAt}`,
   })
   createdDyeOrderIds.add(dyeOrderId)
   return { ok: true, message: '', order: getDyeWorkOrderById(dyeOrderId) }

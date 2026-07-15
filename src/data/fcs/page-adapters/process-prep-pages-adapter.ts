@@ -525,7 +525,7 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
     : validateDyeWorkOrderMobileTaskBinding(order.workOrderId)
   const platformStatus = getPlatformStatusForProcessWorkOrder(order)
   const platformResultView = getPlatformProcessResultView(order.processType, order.workOrderId)
-  const unit = order.plannedUnit === '米' ? '米' : order.plannedUnit === 'Yard' ? 'Yard' : '片'
+  const unit = order.plannedUnit || '片'
   const quantityContext = {
     processType: order.processType,
     sourceType: order.processType === 'PRINT' ? 'PRINTING_WORK_ORDER' : 'DYEING_WORK_ORDER',
@@ -609,7 +609,7 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
     returnedQtyLabel: getQuantityLabel({ ...quantityContext, qtyPurpose: '已交出' }),
     receivedQtyLabel: getQuantityLabel({ ...quantityContext, qtyPurpose: '实收' }),
     diffQtyLabel: getQuantityLabel({ ...quantityContext, qtyPurpose: '差异' }),
-    plannedFinishAt: order.updatedAt,
+    plannedFinishAt: order.plannedFinishAt || order.formalProductionOrderSnapshot?.requiredDeliveryDate || order.updatedAt,
     sourceSummary: order.sourceType === 'STOCK'
       ? `按备货创建：${order.stockMaterialName || order.materialName}`
       : `生产单 ${order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'} 自动生成`,
