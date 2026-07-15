@@ -49,7 +49,11 @@ import { escapeHtml, formatDateTime } from '../../../utils.ts'
 const EVENT_PREFIX = 'combined-dyeing'
 const PREFERENCE_KEY = '/fcs/craft/dyeing/combined-dyeing:list-columns'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
+const OVERLAY_PAGE_SIZE = 10
 const DEFAULT_OPERATOR = '染厂主管'
+
+type OverlayPageScope = 'candidates' | 'members' | 'versions' | 'deletions'
+type OverlayPageState = Record<OverlayPageScope, { currentPage: number; pageSize: number }>
 
 type OverlayState =
   | { kind: 'create' }
@@ -70,6 +74,7 @@ const state: {
   sort: StandardListSortState | null
   preferences: StandardListColumnPreferences
   preferencesLoaded: boolean
+  overlayPages: OverlayPageState
 } = {
   currentPage: 1,
   keyword: '',
@@ -85,6 +90,12 @@ const state: {
     pageSize: 10,
   },
   preferencesLoaded: false,
+  overlayPages: {
+    candidates: { currentPage: 1, pageSize: OVERLAY_PAGE_SIZE },
+    members: { currentPage: 1, pageSize: OVERLAY_PAGE_SIZE },
+    versions: { currentPage: 1, pageSize: OVERLAY_PAGE_SIZE },
+    deletions: { currentPage: 1, pageSize: OVERLAY_PAGE_SIZE },
+  },
 }
 
 let columnDragEventsInstalled = false
@@ -210,19 +221,62 @@ const columns: StandardListColumn<CombinedDyeingTask>[] = [
 ]
 
 const columnRules = columns.map(({ key, required, freezeable, actionColumn }) => ({ key, required, freezeable, actionColumn }))
-const defaultPreferences = normalizeListColumnPreferences(columnRules, {
-  order: columns.map((column) => column.key),
-  visibleKeys: columns.map((column) => column.key),
-  frozenKeys: ['taskNo'],
-  pageSize: 10,
-}, PAGE_SIZE_OPTIONS)
+export function createDefaultCombinedDyeingPreferences(): StandardListColumnPreferences {
+  return normalizeListColumnPreferences(columnRules, {
+    order: columns.map((column) => column.key),
+    visibleKeys: columns.map((column) => column.key),
+    frozenKeys: ['taskNo'],
+    pageSize: 10,
+  }, PAGE_SIZE_OPTIONS)
+}
+
+export function restoreCombinedDyeingPreferences(
+  storage?: { removeItem(key: string): unknown },
+): StandardListColumnPreferences {
+  if (storage) clearListColumnPreferences(storage, PREFERENCE_KEY)
+  return createDefaultCombinedDyeingPreferences()
+}
+
+export function paginateCombinedDyeingOverlayRows<T>(
+  rows: readonly T[],
+  currentPage: number,
+  pageSize = OVERLAY_PAGE_SIZE,
+) {
+  return paginateStandardListRows(rows, currentPage, pageSize)
+}
+
+export function toggleCombinedDyeingSelection(selectedIds: readonly string[], workOrderId: string): string[] {
+  return selectedIds.includes(workOrderId)
+    ? selectedIds.filter((id) => id !== workOrderId)
+    : [...selectedIds, workOrderId]
+}
+
+export function parseCombinedDyeingResultInputs(
+  rawActualInputQty: string,
+  rawActualOutputQty: string,
+): { actualInputQty: number; actualOutputQty: number } {
+  const inputText = rawActualInputQty.trim()
+  const outputText = rawActualOutputQty.trim()
+  if (!inputText) throw new Error('实际投入总量不能为空')
+  if (!outputText) throw new Error('实际产出总量不能为空')
+  return { actualInputQty: Number(inputText), actualOutputQty: Number(outputText) }
+}
+
+export function submitCombinedDyeingResultInputs<T>(
+  rawActualInputQty: string,
+  rawActualOutputQty: string,
+  submit: (quantities: { actualInputQty: number; actualOutputQty: number }) => T,
+): T {
+  return submit(parseCombinedDyeingResultInputs(rawActualInputQty, rawActualOutputQty))
+}
 
 function ensurePreferencesLoaded(): void {
   if (state.preferencesLoaded) return
   state.preferencesLoaded = true
+  const defaults = createDefaultCombinedDyeingPreferences()
   state.preferences = typeof window === 'undefined'
-    ? defaultPreferences
-    : loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaultPreferences, PAGE_SIZE_OPTIONS)
+    ? defaults
+    : loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaults, PAGE_SIZE_OPTIONS)
 }
 
 function filteredTasks(): CombinedDyeingTask[] {
@@ -304,12 +358,17 @@ function remainingNeedForCandidate(order: DyeWorkOrder): number {
   return fulfillment.requiredQty > 0 ? fulfillment.remainingNeedQty : order.plannedQty
 }
 
-function candidateReason(order: DyeWorkOrder, selectedFirst?: DyeWorkOrder): string {
-  const membership = getActiveCombinedDyeingMembership(order.dyeOrderId)
-  if (membership && !state.selectedWorkOrderIds.includes(order.dyeOrderId)) return `已参加 ${membership.taskNo}`
-  const fulfillment = getEffectiveDyeingFulfillment(order.dyeOrderId)
-  if (fulfillment.requiredQty > 0 && fulfillment.remainingNeedQty === 0) return '已全部满足'
-  if (!selectedFirst || state.selectedWorkOrderIds.includes(order.dyeOrderId)) return ''
+type CombinedDyeingCandidateIdentity = Pick<DyeWorkOrder, 'dyeOrderId' | 'dyeFactoryId' | 'materialId' | 'targetColor' | 'dyeProcessCode' | 'dyeProcessName'>
+
+export function getCombinedDyeingCandidateReason(input: {
+  order: CombinedDyeingCandidateIdentity
+  selectedFirst?: CombinedDyeingCandidateIdentity
+  selectedIds: readonly string[]
+  activeTaskNo?: string
+}): string {
+  const { order, selectedFirst, selectedIds, activeTaskNo } = input
+  if (activeTaskNo && !selectedIds.includes(order.dyeOrderId)) return `已参加 ${activeTaskNo}`
+  if (!selectedFirst || selectedIds.includes(order.dyeOrderId)) return ''
   if (order.dyeFactoryId !== selectedFirst.dyeFactoryId) return '染厂不同'
   if (order.materialId !== selectedFirst.materialId) return '面料不同'
   if (order.targetColor !== selectedFirst.targetColor) return '目标颜色不同'
@@ -317,8 +376,32 @@ function candidateReason(order: DyeWorkOrder, selectedFirst?: DyeWorkOrder): str
   return ''
 }
 
+function candidateReason(order: DyeWorkOrder, selectedFirst?: DyeWorkOrder): string {
+  const membership = getActiveCombinedDyeingMembership(order.dyeOrderId)
+  return getCombinedDyeingCandidateReason({
+    order,
+    selectedFirst,
+    selectedIds: state.selectedWorkOrderIds,
+    activeTaskNo: membership?.taskNo,
+  })
+}
+
+function renderOverlayPagination(
+  scope: OverlayPageScope,
+  paging: { total: number; from: number; to: number; currentPage: number; totalPages: number; pageSize: number },
+): string {
+  return renderTablePagination({
+    ...paging,
+    actionPrefix: EVENT_PREFIX,
+    fieldPrefix: EVENT_PREFIX,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
+  }).replace('<footer ', `<footer data-combined-dyeing-page-scope="${scope}" `)
+}
+
 function renderCreateDrawer(): string {
   const candidates = productionCandidates()
+  const paging = paginateCombinedDyeingOverlayRows(candidates, state.overlayPages.candidates.currentPage, state.overlayPages.candidates.pageSize)
+  state.overlayPages.candidates.currentPage = paging.currentPage
   const first = state.selectedWorkOrderIds.length > 0 ? candidates.find((order) => order.dyeOrderId === state.selectedWorkOrderIds[0]) : undefined
   const selectedOrders = state.selectedWorkOrderIds.map((id) => candidates.find((order) => order.dyeOrderId === id)).filter((order): order is DyeWorkOrder => Boolean(order))
   const selectedQty = selectedOrders.reduce((sum, order) => sum + remainingNeedForCandidate(order), 0)
@@ -335,7 +418,7 @@ function renderCreateDrawer(): string {
     { key: 'material', title: '面料 / 颜色 / 工艺', minWidth: '220px', render: (order: DyeWorkOrder) => `<div>${escapeHtml(order.composition || order.rawMaterialSku)}</div><div class="text-xs text-muted-foreground">${escapeHtml(order.targetColor)} · ${escapeHtml(order.dyeProcessName)}</div>` },
     { key: 'qty', title: '剩余需求', width: '110px', align: 'right' as const, render: (order: DyeWorkOrder) => quantity(remainingNeedForCandidate(order), order.qtyUnit) },
     { key: 'reason', title: '校验结果', minWidth: '130px', render: (order: DyeWorkOrder) => { const reason = candidateReason(order, first); return reason ? `<span class="text-xs text-amber-700">${escapeHtml(reason)}</span>` : '<span class="text-xs text-emerald-700">可选择</span>' } },
-  ], candidates, { compact: true, emptyText: '暂无生产单来源染色加工单' })
+  ], paging.rows, { compact: true, emptyText: '暂无生产单来源染色加工单' })
 
   const content = `
     <div class="space-y-4">
@@ -345,7 +428,10 @@ function renderCreateDrawer(): string {
       </div>
       <p class="text-sm text-muted-foreground">首张加工单确定染厂、面料、目标颜色和染色工艺；其他不兼容项会明确原因并禁选。创建后成员立即锁定，不能增删。</p>
       ${state.overlayError ? `<p class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">${escapeHtml(state.overlayError)}</p>` : ''}
-      <div class="max-h-[55vh] overflow-auto rounded-lg border">${table}</div>
+      <div data-combined-dyeing-page-scope="candidates" class="rounded-lg border">
+        <div class="max-h-[46vh] overflow-auto">${table}</div>
+        ${renderOverlayPagination('candidates', paging)}
+      </div>
     </div>
   `
   return renderFormDrawer({
@@ -365,26 +451,44 @@ function renderMemberTable(task: CombinedDyeingTask): string {
     const orderedAtComparison = left.productionOrderOrderedAt.localeCompare(right.productionOrderOrderedAt)
     return orderedAtComparison || left.productionOrderNo.localeCompare(right.productionOrderNo, 'zh-CN')
   })
-  return renderTable([
-    { key: 'sequence', title: '顺序', width: '64px', align: 'center' as const, render: (_member, index) => String(index + 1) },
+  const paging = paginateCombinedDyeingOverlayRows(orderedMembers, state.overlayPages.members.currentPage, state.overlayPages.members.pageSize)
+  state.overlayPages.members.currentPage = paging.currentPage
+  const table = renderTable([
+    { key: 'sequence', title: '顺序', width: '64px', align: 'center' as const, render: (_member, index) => String(paging.from + index) },
     { key: 'workOrderNo', title: '平台加工单号', minWidth: '150px', render: (member) => `<div class="font-medium">${escapeHtml(member.dyeWorkOrderNo)}</div><div class="text-xs text-muted-foreground">成员已锁定</div>` },
     { key: 'productionOrder', title: '生产单 / 下单时间', minWidth: '180px', render: (member) => `<div>${escapeHtml(member.productionOrderNo)}</div><div class="text-xs text-muted-foreground">${escapeHtml(formatDateTime(member.productionOrderOrderedAt))}</div>` },
     { key: 'required', title: '需求量', width: '110px', align: 'right' as const, render: (member) => quantity(member.requiredQty - member.effectiveSatisfiedQtyBeforeTask, member.qtyUnit) },
     { key: 'allocated', title: '有效分配', width: '110px', align: 'right' as const, render: (member) => quantity(allocationByOrder.get(member.dyeWorkOrderId)?.allocatedQty ?? 0, member.qtyUnit) },
     { key: 'satisfaction', title: '满足状态', width: '100px', render: (member) => { const value = allocationByOrder.get(member.dyeWorkOrderId)?.satisfaction ?? 'UNMET'; return renderBadge(satisfactionLabel(value), value === 'FULL' ? 'success' : value === 'PARTIAL' ? 'warning' : 'neutral') } },
     { key: 'unmet', title: '未满足', width: '110px', align: 'right' as const, render: (member) => quantity(allocationByOrder.get(member.dyeWorkOrderId)?.unmetQty ?? member.requiredQty - member.effectiveSatisfiedQtyBeforeTask, member.qtyUnit) },
-  ], orderedMembers, { compact: true })
+  ], paging.rows, { compact: true })
+  return `<div data-combined-dyeing-page-scope="members">${table}${renderOverlayPagination('members', paging)}</div>`
 }
 
 function renderVersionHistory(task: CombinedDyeingTask): string {
-  return renderTable([
+  const paging = paginateCombinedDyeingOverlayRows(task.allocationVersions, state.overlayPages.versions.currentPage, state.overlayPages.versions.pageSize)
+  state.overlayPages.versions.currentPage = paging.currentPage
+  const table = renderTable([
     { key: 'versionNo', title: '版本', width: '70px', render: (version: CombinedDyeingAllocationVersion) => `第 ${version.versionNo} 版${version.current ? '（当前）' : ''}` },
     { key: 'input', title: '实际投入', width: '110px', align: 'right' as const, render: (version: CombinedDyeingAllocationVersion) => quantity(version.actualInputQty, task.qtyUnit) },
     { key: 'output', title: '实际产出', width: '110px', align: 'right' as const, render: (version: CombinedDyeingAllocationVersion) => quantity(version.actualOutputQty, task.qtyUnit) },
     { key: 'excess', title: '超出数量', width: '110px', align: 'right' as const, render: (version: CombinedDyeingAllocationVersion) => quantity(version.excessQty, task.qtyUnit) },
     { key: 'operator', title: '操作人 / 时间', minWidth: '170px', render: (version: CombinedDyeingAllocationVersion) => `<div>${escapeHtml(version.operator)}</div><div class="text-xs text-muted-foreground">${escapeHtml(formatDateTime(version.operatedAt))}</div>` },
     { key: 'reason', title: '备注 / 更正原因', minWidth: '180px', render: (version: CombinedDyeingAllocationVersion) => escapeHtml(version.reason || '—') },
-  ], task.allocationVersions, { compact: true, emptyText: '尚未登记染色结果' })
+  ], paging.rows, { compact: true, emptyText: '尚未登记染色结果' })
+  return `<div data-combined-dyeing-page-scope="versions">${table}${renderOverlayPagination('versions', paging)}</div>`
+}
+
+function renderDeletionHistory(task: CombinedDyeingTask): string {
+  const rows = task.deletedAt ? [{ operator: task.deletedBy || '—', deletedAt: task.deletedAt, reason: task.deleteReason || '—' }] : []
+  const paging = paginateCombinedDyeingOverlayRows(rows, state.overlayPages.deletions.currentPage, state.overlayPages.deletions.pageSize)
+  state.overlayPages.deletions.currentPage = paging.currentPage
+  const table = renderTable([
+    { key: 'operator', title: '操作人', width: '120px', render: (row: typeof rows[number]) => escapeHtml(row.operator) },
+    { key: 'deletedAt', title: '删除时间', width: '160px', render: (row: typeof rows[number]) => escapeHtml(formatDateTime(row.deletedAt)) },
+    { key: 'reason', title: '删除原因', minWidth: '180px', render: (row: typeof rows[number]) => escapeHtml(row.reason) },
+  ], paging.rows, { compact: true, emptyText: '当前无删除记录' })
+  return `<div data-combined-dyeing-page-scope="deletions">${table}${renderOverlayPagination('deletions', paging)}</div>`
 }
 
 function renderDetailDrawerContent(task: CombinedDyeingTask): string {
@@ -411,7 +515,7 @@ function renderDetailDrawerContent(task: CombinedDyeingTask): string {
       <section><h3 class="mb-2 font-semibold">执行与更正历史</h3><div class="overflow-auto rounded-lg border">${renderVersionHistory(task)}</div></section>
       <section class="rounded-lg border p-4 text-sm">
         <h3 class="mb-2 font-semibold">删除历史</h3>
-        ${task.deletedAt ? `<p>${escapeHtml(task.deletedBy || '—')} 于 ${escapeHtml(formatDateTime(task.deletedAt))} 删除：${escapeHtml(task.deleteReason || '—')}</p>` : '<p class="text-muted-foreground">当前无删除记录</p>'}
+        <div class="overflow-auto rounded-lg border">${renderDeletionHistory(task)}</div>
       </section>
     </div>
   `
@@ -524,7 +628,15 @@ function showToast(title: string, description?: string, danger = false): void {
 function openOverlay(overlay: NonNullable<OverlayState>): void {
   state.overlay = overlay
   state.overlayError = ''
-  if (overlay.kind === 'create') state.selectedWorkOrderIds = []
+  if (overlay.kind === 'create') {
+    state.selectedWorkOrderIds = []
+    state.overlayPages.candidates = { currentPage: 1, pageSize: OVERLAY_PAGE_SIZE }
+  }
+  if (overlay.kind === 'detail') {
+    state.overlayPages.members.currentPage = 1
+    state.overlayPages.versions.currentPage = 1
+    state.overlayPages.deletions.currentPage = 1
+  }
   refreshOverlay()
 }
 
@@ -537,8 +649,13 @@ function fieldValue(name: string): string {
   return field?.value.trim() || ''
 }
 
-function readResultQuantities(): { actualInputQty: number; actualOutputQty: number } {
-  return { actualInputQty: Number(fieldValue('actualInputQty')), actualOutputQty: Number(fieldValue('actualOutputQty')) }
+function rawFieldValue(name: string): string {
+  return rootElement()?.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${name}"]`)?.value ?? ''
+}
+
+function overlayPageScope(target: Element): OverlayPageScope | null {
+  const value = target.closest<HTMLElement>('[data-combined-dyeing-page-scope]')?.dataset.combinedDyeingPageScope
+  return value === 'candidates' || value === 'members' || value === 'versions' || value === 'deletions' ? value : null
 }
 
 function persistPreferences(): void {
@@ -587,17 +704,19 @@ function installCombinedDyeingColumnDragEvents(): void {
 function updateColumnPreference(action: string, columnKey: string): void {
   const column = columns.find((item) => item.key === columnKey)
   if (!column || column.actionColumn) return
+  let visibleKeys = [...state.preferences.visibleKeys]
+  let frozenKeys = [...state.preferences.frozenKeys]
   if (action === 'toggle-column-visibility' && !column.required) {
-    state.preferences.visibleKeys = state.preferences.visibleKeys.includes(columnKey)
+    visibleKeys = visibleKeys.includes(columnKey)
       ? state.preferences.visibleKeys.filter((key) => key !== columnKey)
       : [...state.preferences.visibleKeys, columnKey]
   }
   if (action === 'toggle-column-freeze' && column.freezeable) {
-    state.preferences.frozenKeys = state.preferences.frozenKeys.includes(columnKey)
+    frozenKeys = frozenKeys.includes(columnKey)
       ? state.preferences.frozenKeys.filter((key) => key !== columnKey)
       : [...state.preferences.frozenKeys, columnKey]
   }
-  state.preferences = normalizeListColumnPreferences(columnRules, state.preferences, PAGE_SIZE_OPTIONS)
+  state.preferences = normalizeListColumnPreferences(columnRules, { ...state.preferences, visibleKeys, frozenKeys }, PAGE_SIZE_OPTIONS)
   persistPreferences()
   refreshWorkspace()
   refreshOverlay()
@@ -619,7 +738,13 @@ export function handleCraftCombinedDyeingEvent(target: HTMLElement, event?: Even
     }
     if (field === 'pageSize') {
       const size = Number(fieldNode.value)
-      state.preferences.pageSize = PAGE_SIZE_OPTIONS.includes(size) ? size : 10
+      const scope = overlayPageScope(fieldNode)
+      if (scope) {
+        state.overlayPages[scope] = { currentPage: 1, pageSize: PAGE_SIZE_OPTIONS.includes(size) ? size : OVERLAY_PAGE_SIZE }
+        refreshOverlay()
+        return true
+      }
+      state.preferences = { ...state.preferences, pageSize: PAGE_SIZE_OPTIONS.includes(size) ? size : 10 }
       state.currentPage = 1
       persistPreferences()
       refreshWorkspace()
@@ -642,9 +767,7 @@ export function handleCraftCombinedDyeingEvent(target: HTMLElement, event?: Even
 
   if (action === 'toggle-member') {
     const workOrderId = actionNode.dataset.combinedDyeingId || ''
-    state.selectedWorkOrderIds = state.selectedWorkOrderIds.includes(workOrderId)
-      ? state.selectedWorkOrderIds.filter((id) => id !== workOrderId)
-      : [...state.selectedWorkOrderIds, workOrderId]
+    state.selectedWorkOrderIds = toggleCombinedDyeingSelection(state.selectedWorkOrderIds, workOrderId)
     state.overlayError = ''
     refreshOverlay()
     return true
@@ -667,7 +790,9 @@ export function handleCraftCombinedDyeingEvent(target: HTMLElement, event?: Even
 
   if (action === 'submit-complete' && taskId) {
     try {
-      completeCombinedDyeingTask(taskId, { ...readResultQuantities(), remark: fieldValue('remark'), completedBy: DEFAULT_OPERATOR, completedAt: nowBusinessTimestamp() })
+      submitCombinedDyeingResultInputs(rawFieldValue('actualInputQty'), rawFieldValue('actualOutputQty'), (quantities) => (
+        completeCombinedDyeingTask(taskId, { ...quantities, remark: fieldValue('remark'), completedBy: DEFAULT_OPERATOR, completedAt: nowBusinessTimestamp() })
+      ))
       state.overlay = { kind: 'detail', taskId }
       state.overlayError = ''
       refreshWorkspace(); refreshOverlay(); showToast('染色结果已登记', '未满足数量已终止，不会自动生成继续染或补染任务')
@@ -677,7 +802,9 @@ export function handleCraftCombinedDyeingEvent(target: HTMLElement, event?: Even
 
   if (action === 'submit-correct' && taskId) {
     try {
-      correctCombinedDyeingResult(taskId, { ...readResultQuantities(), reason: fieldValue('reason'), correctedBy: DEFAULT_OPERATOR, correctedAt: nowBusinessTimestamp() })
+      submitCombinedDyeingResultInputs(rawFieldValue('actualInputQty'), rawFieldValue('actualOutputQty'), (quantities) => (
+        correctCombinedDyeingResult(taskId, { ...quantities, reason: fieldValue('reason'), correctedBy: DEFAULT_OPERATOR, correctedAt: nowBusinessTimestamp() })
+      ))
       state.overlay = { kind: 'detail', taskId }
       state.overlayError = ''
       refreshWorkspace(); refreshOverlay(); showToast('染色结果已更正', '系统已按原生产单顺序重新计算分配')
@@ -702,8 +829,17 @@ export function handleCraftCombinedDyeingEvent(target: HTMLElement, event?: Even
     return true
   }
   if (action === 'reset-filter') { state.keyword = ''; state.includeDeleted = false; state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'prev-page') { state.currentPage = Math.max(1, state.currentPage - 1); refreshWorkspace(); return true }
-  if (action === 'next-page') { state.currentPage += 1; refreshWorkspace(); return true }
+  if (action === 'prev-page' || action === 'next-page') {
+    const scope = overlayPageScope(actionNode)
+    if (scope) {
+      state.overlayPages[scope].currentPage = Math.max(1, state.overlayPages[scope].currentPage + (action === 'next-page' ? 1 : -1))
+      refreshOverlay()
+      return true
+    }
+    state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshWorkspace()
+    return true
+  }
 
   if (action === 'sort-column') {
     const columnKey = actionNode.dataset.columnKey || ''
@@ -719,8 +855,9 @@ export function handleCraftCombinedDyeingEvent(target: HTMLElement, event?: Even
     return true
   }
   if (action === 'restore-column-settings') {
-    state.preferences = defaultPreferences
-    if (typeof window !== 'undefined') clearListColumnPreferences(window.localStorage, PREFERENCE_KEY)
+    state.preferences = restoreCombinedDyeingPreferences(typeof window === 'undefined' ? undefined : window.localStorage)
+    state.sort = null
+    state.currentPage = 1
     refreshWorkspace(); refreshOverlay()
     return true
   }

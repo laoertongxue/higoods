@@ -24,6 +24,15 @@ import {
   type DyeWorkOrder,
 } from '../src/data/fcs/dyeing-task-domain.ts'
 import { listProcessWorkOrderStockMaterials } from '../src/data/fcs/process-work-order-stock.ts'
+import {
+  createDefaultCombinedDyeingPreferences,
+  getCombinedDyeingCandidateReason,
+  paginateCombinedDyeingOverlayRows,
+  parseCombinedDyeingResultInputs,
+  restoreCombinedDyeingPreferences,
+  submitCombinedDyeingResultInputs,
+  toggleCombinedDyeingSelection,
+} from '../src/pages/process-factory/dyeing/combined-dyeing.ts'
 
 function readWorkspaceFile(path: string): string {
   return readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
@@ -76,6 +85,62 @@ function checkCombinedDyeingWorkspaceWiring(): void {
   assertIncludes(page, "addEventListener('drop'", '列顺序拖拽必须局部提交新顺序')
   assertIncludes(page, 'function remainingNeedForCandidate', '尚无合并分配历史的候选必须回退加工单计划量，不得显示 0 需求')
   assert(/return `<div data-combined-dyeing-id="\$\{escapeHtml\(task\.taskId\)\}">\$\{renderFormDialog\(/.test(page), '完成与更正弹窗必须由任务 ID 容器整体包裹，确保底部提交按钮能定位任务')
+}
+
+function checkCombinedDyeingPageHelpers(): void {
+  const expectedDefaults = {
+    order: ['taskNo', 'factory', 'material', 'color', 'process', 'members', 'required', 'input', 'output', 'unmet', 'status', 'createdAt', 'completedAt', 'actions'],
+    visibleKeys: ['taskNo', 'factory', 'material', 'color', 'process', 'members', 'required', 'input', 'output', 'unmet', 'status', 'createdAt', 'completedAt', 'actions'],
+    frozenKeys: ['taskNo'],
+    pageSize: 10,
+  }
+  const modified = createDefaultCombinedDyeingPreferences()
+  modified.order.reverse()
+  modified.visibleKeys.splice(0, 3)
+  modified.frozenKeys.push('factory')
+  modified.pageSize = 50
+  assert.deepEqual(createDefaultCombinedDyeingPreferences(), expectedDefaults, '运行时修改不得污染默认列偏好')
+
+  const removedKeys: string[] = []
+  const restored = restoreCombinedDyeingPreferences({ removeItem: (key: string) => removedKeys.push(key) })
+  assert.deepEqual(restored, expectedDefaults, '恢复默认必须恢复默认列、冻结、顺序和每页 10 条')
+  assert.deepEqual(removedKeys, ['/fcs/craft/dyeing/combined-dyeing:list-columns'], '恢复默认必须清除本路由本地偏好')
+  restored.order.pop()
+  assert.deepEqual(createDefaultCombinedDyeingPreferences(), expectedDefaults, '恢复结果也不得与默认对象共享数组')
+
+  const rows = Array.from({ length: 23 }, (_, index) => `ROW-${index + 1}`)
+  for (const label of ['候选加工单', '成员分配明细', '执行更正历史', '删除历史']) {
+    const page = paginateCombinedDyeingOverlayRows(rows, 2)
+    assert.deepEqual(page.rows, rows.slice(10, 20), `${label}第 2 页必须只包含第 11-20 条`)
+    assert.deepEqual([page.total, page.totalPages, page.from, page.to, page.pageSize], [23, 3, 11, 20, 10], `${label}必须输出完整分页口径`)
+  }
+
+  let selected = toggleCombinedDyeingSelection([], 'ROW-1')
+  selected = toggleCombinedDyeingSelection(selected, 'ROW-11')
+  assert.deepEqual(selected, ['ROW-1', 'ROW-11'], '候选跨页选择必须保留前一页选择')
+  assert.deepEqual(paginateCombinedDyeingOverlayRows(rows, 2).rows[0], 'ROW-11', '候选翻页必须稳定切片')
+
+  assert.throws(() => parseCombinedDyeingResultInputs('', '10'), /实际投入总量不能为空/, '空投入必须明确拒绝')
+  assert.throws(() => parseCombinedDyeingResultInputs('10', '   '), /实际产出总量不能为空/, '空产出必须明确拒绝')
+  assert.deepEqual(parseCombinedDyeingResultInputs(' 0 ', ' 0 '), { actualInputQty: 0, actualOutputQty: 0 }, '明确输入 0 必须保留给领域规则处理')
+  for (const [mode, input, output, expectedMessage] of [
+    ['完成', '', '10', '实际投入总量不能为空'],
+    ['完成', '10', '', '实际产出总量不能为空'],
+    ['更正', '', '10', '实际投入总量不能为空'],
+    ['更正', '10', '', '实际产出总量不能为空'],
+  ] as const) {
+    let domainCalls = 0
+    assert.throws(
+      () => submitCombinedDyeingResultInputs(input, output, () => { domainCalls += 1 }),
+      new RegExp(expectedMessage),
+      `${mode}提交必须先验证原始输入`,
+    )
+    assert.equal(domainCalls, 0, `${mode}空输入时不得调用领域函数`)
+  }
+
+  const fulfilledCandidate = { dyeOrderId: memberA.dyeWorkOrderId, dyeFactoryId: 'FAC-1', materialId: 'MAT-1', targetColor: '深蓝', dyeProcessCode: 'DYE', dyeProcessName: '活性染色' }
+  assert.equal(getCombinedDyeingCandidateReason({ order: fulfilledCandidate, selectedIds: [], activeTaskNo: undefined }), '', '已全部满足不是候选禁选条件')
+  assert.equal(getCombinedDyeingCandidateReason({ order: fulfilledCandidate, selectedIds: [], activeTaskNo: 'HBRW-000001' }), '已参加 HBRW-000001', '活动合并任务占用仍必须禁选')
 }
 
 const memberA: CombinedDyeingMemberSnapshot = {
@@ -439,18 +504,15 @@ function checkCombinedDyeingLifecycle(): void {
     remark: '足量完成',
   })
   deleteCombinedDyeingTask(fullTask.taskId, { deletedBy: '计划员', deletedAt: '2026-07-16 18:20:00', reason: '已完成归档' })
-  assert.throws(
-    () => {
-      const next = registerLifecycleWorkOrder({ plannedQty: 10 })
-      return createCombinedDyeingTask({ dyeWorkOrderIds: [fullA.dyeOrderId, next.dyeOrderId], createdBy: '计划员' })
-    },
-    /已全部满足/,
-    '已全部满足的加工单即使释放占用也无需再次参加',
-  )
+  const next = registerLifecycleWorkOrder({ plannedQty: 10 })
+  const reusedFullySatisfied = createCombinedDyeingTask({ dyeWorkOrderIds: [fullA.dyeOrderId, next.dyeOrderId], createdBy: '计划员' })
+  assert.equal(reusedFullySatisfied.members[0]?.effectiveSatisfiedQtyBeforeTask, 10, '已全部满足的生产来源加工单仍允许由主管手工选择')
+  deleteCombinedDyeingTask(reusedFullySatisfied.taskId, { deletedBy: '计划员', deletedAt: '2026-07-16 18:30:00', reason: '验证后取消' })
 }
 
 function main(): void {
   checkCombinedDyeingWorkspaceWiring()
+  checkCombinedDyeingPageHelpers()
 
   const domainSource = readFileSync(new URL('../src/data/fcs/combined-dyeing-domain.ts', import.meta.url), 'utf8')
   assert(!domainSource.includes('Date.parse'), '合并染色排序不得重新引入环境相关 Date.parse')

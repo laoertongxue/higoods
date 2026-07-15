@@ -413,9 +413,6 @@ function buildTaskMember(workOrder: CanonicalDyeWorkOrder): CombinedDyeingTaskMe
     throw new Error(`染色加工单 ${workOrder.dyeOrderNo} 必须且只能关联一张生产单`)
   }
   const fulfillment = getEffectiveDyeingFulfillment(workOrder.dyeOrderId)
-  if (fulfillment.requiredQty > 0 && fulfillment.remainingNeedQty === 0) {
-    throw new Error(`染色加工单 ${workOrder.dyeOrderNo} 已全部满足，无需再次参加合并染色`)
-  }
   const requiredQty = fromQuantityMinorUnits(parseCombinedDyeingQuantityMinorUnits(workOrder.plannedQty, `染色加工单 ${workOrder.dyeOrderNo} 的需求数量`))
   const materialId = requireText(workOrder.materialId, `染色加工单 ${workOrder.dyeOrderNo} 的面料标识`)
   return {
