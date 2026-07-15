@@ -14,6 +14,7 @@ import { type HandoverReceiverKind, type QtyUnit } from './process-tasks.ts'
 import type {
   FormalProductionOrderProcessSnapshot,
   FormalProductionOrderProcessSnapshotRecord,
+  ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
 import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
@@ -24,8 +25,6 @@ import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack
 import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
 import { listActiveProcessCraftDefinitions, type ProcessCraftDefinition } from './process-craft-dict.ts'
 import {
-  buildDictionaryCraftMockDocumentNo,
-  buildProductionDemandBusinessId,
   DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
   getDictionaryCraftMockSource,
   listGeneratedProductionDemandArtifacts,
@@ -80,9 +79,12 @@ export type DyeReviewStatus = DyeReceiptStatus | 'WAIT_REVIEW' | 'REJECTED'
 export interface DyeWorkOrder {
   dyeOrderId: string
   dyeOrderNo: string
-  sourceType: 'PRODUCTION_ORDER'
+  sourceType: ProcessWorkOrderSourceType
   sourceProductionOrderId?: string
-  sourceDemandIds: string[]
+  sourceProductionOrderNo?: string
+  productionOrderOrderedAt?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   sourceArtifactIds?: string[]
   productionOrderIds?: string[]
   isFirstOrder: boolean
@@ -317,19 +319,6 @@ const DYE_WORK_ORDER_IDS = [
   'DWO-013',
 ] as const
 
-export interface DyeDemandForWorkOrder {
-  demandId: string
-  sourceArtifactId?: string
-  sourceProductionOrderId: string
-  bomItemId: string
-  materialCode: string
-  materialName: string
-  requiredQty: number
-  unit: string
-  requiresWaterSoluble: boolean
-  processRoute: Array<'WATER_SOLUBLE' | 'DYE'>
-}
-
 export type DyeWaterSolublePauseDecision = 'CONTINUE_PROCESSING' | 'CONTINUE_WITH_ACTUAL_QTY' | 'RETURN_FOR_REWORK'
 
 const createdDyeOrderIds = new Set<string>()
@@ -374,10 +363,6 @@ function getGeneratedDyeCraft(index: number): { craftDefinition: ProcessCraftDef
     craftDefinition,
     mockIndex: index % DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
   }
-}
-
-function buildDyeDemandId(craftCode: string, productionOrderId: string, mockIndex: number): string {
-  return buildDictionaryCraftMockDocumentNo('RSXQ', craftCode, productionOrderId, mockIndex)
 }
 
 function getGeneratedDyeContext(index: number): GeneratedDyeContext | null {
@@ -427,12 +412,23 @@ function toGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): Mut
   if (createdDyeOrderIds.has(order.dyeOrderId)) return order
   const generatedCount = GENERATED_DYE_CRAFTS.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION
   const context = getGeneratedDyeContext(index) ?? (generatedCount > 0 ? getGeneratedDyeContext(index % generatedCount) : null)
-  if (!context) return order
+  if (!context) {
+    const sourceProductionOrderId = order.sourceProductionOrderId || order.productionOrderIds?.[0]
+    const sourceOrder = productionOrders.find((item) => item.productionOrderId === sourceProductionOrderId)
+    return {
+      ...order,
+      sourceProductionOrderId,
+      sourceProductionOrderNo: order.sourceProductionOrderNo || sourceOrder?.productionOrderNo || sourceProductionOrderId,
+      productionOrderOrderedAt: order.productionOrderOrderedAt || sourceOrder?.createdAt || order.createdAt,
+    }
+  }
   const { productionOrder, techPackSnapshot, craftDefinition, mockIndex, plannedQty, materialName, targetColor } = context
-  const demandId = buildDyeDemandId(craftDefinition.craftCode, productionOrder.productionOrderId, mockIndex)
   return {
     ...order,
-    sourceDemandIds: [demandId],
+    sourceType: 'PRODUCTION_ORDER',
+    sourceProductionOrderId: productionOrder.productionOrderId,
+    sourceProductionOrderNo: productionOrder.productionOrderNo,
+    productionOrderOrderedAt: productionOrder.createdAt,
     productionOrderIds: [productionOrder.productionOrderId],
     isFirstOrder: mockIndex === 0,
     rawMaterialSku: materialName,
@@ -455,7 +451,6 @@ function listGeneratedDyeWorkOrders(): MutableDyeWorkOrder[] {
 function cloneWorkOrder(order: MutableDyeWorkOrder): DyeWorkOrder {
   return {
     ...order,
-    sourceDemandIds: [...order.sourceDemandIds],
     sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
     productionOrderIds: order.productionOrderIds ? [...order.productionOrderIds] : undefined,
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
@@ -1090,7 +1085,6 @@ function seedWorkOrders(): void {
     dyeOrderId: DYE_WORK_ORDER_IDS[0],
     dyeOrderNo: 'DY-20260328-001',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['DM-DYE-001'],
     productionOrderIds: ['PO-20260328-401'],
     isFirstOrder: true,
     sampleWaitType: 'WAIT_SAMPLE_GARMENT',
@@ -1122,7 +1116,6 @@ function seedWorkOrders(): void {
     dyeOrderId: DYE_WORK_ORDER_IDS[1],
     dyeOrderNo: 'DY-20260328-002',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['DM-DYE-002'],
     productionOrderIds: ['PO-20260328-402'],
     isFirstOrder: false,
     sampleWaitType: 'NONE',
@@ -1152,7 +1145,6 @@ function seedWorkOrders(): void {
     dyeOrderId: DYE_WORK_ORDER_IDS[2],
     dyeOrderNo: 'DY-20260328-003',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['DM-DYE-003'],
     productionOrderIds: ['PO-20260328-403'],
     isFirstOrder: true,
     sampleWaitType: 'WAIT_COLOR_CARD',
@@ -1200,7 +1192,6 @@ function seedWorkOrders(): void {
     dyeOrderId: DYE_WORK_ORDER_IDS[3],
     dyeOrderNo: 'DY-20260328-004',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['DM-DYE-004'],
     productionOrderIds: ['PO-20260328-404'],
     isFirstOrder: false,
     sampleWaitType: 'NONE',
@@ -1249,7 +1240,6 @@ function seedWorkOrders(): void {
     dyeOrderId: DYE_WORK_ORDER_IDS[4],
     dyeOrderNo: 'DY-20260328-005',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['DM-DYE-005'],
     productionOrderIds: ['PO-20260328-405'],
     isFirstOrder: true,
     sampleWaitType: 'WAIT_COLOR_CARD',
@@ -1373,7 +1363,6 @@ function seedWorkOrders(): void {
     dyeOrderId: DYE_WORK_ORDER_IDS[5],
     dyeOrderNo: 'DY-20260328-006',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['DM-DYE-006'],
     productionOrderIds: ['PO-20260328-406'],
     isFirstOrder: false,
     sampleWaitType: 'NONE',
@@ -1452,7 +1441,6 @@ function seedWorkOrders(): void {
     dyeOrderId: DYE_WORK_ORDER_IDS[6],
     dyeOrderNo: 'DY-20260328-007',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['DM-DYE-007'],
     productionOrderIds: ['PO-20260328-414'],
     isFirstOrder: false,
     sampleWaitType: 'NONE',
@@ -1586,7 +1574,6 @@ function seedWorkOrders(): void {
     dyeOrderId: DYE_WORK_ORDER_IDS[7],
     dyeOrderNo: 'DY-20260328-008',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['DM-DYE-008'],
     productionOrderIds: ['PO-20260328-415'],
     isFirstOrder: false,
     sampleWaitType: 'NONE',
@@ -1649,7 +1636,6 @@ function seedWorkOrders(): void {
     dyeOrderId: DYE_WORK_ORDER_IDS[8],
     dyeOrderNo: 'DY-20260328-009',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['DM-DYE-009'],
     productionOrderIds: ['PO-20260328-416'],
     isFirstOrder: false,
     sampleWaitType: 'NONE',
@@ -1698,7 +1684,6 @@ function seedWorkOrders(): void {
     dyeOrderId: DYE_WORK_ORDER_IDS[9],
     dyeOrderNo: 'DY-20260328-010',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['DM-DYE-010'],
     productionOrderIds: ['PO-20260328-417'],
     isFirstOrder: false,
     sampleWaitType: 'NONE',
@@ -1746,7 +1731,6 @@ function seedWorkOrders(): void {
     dyeOrderId: DYE_WORK_ORDER_IDS[10],
     dyeOrderNo: 'DY-20260328-011',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['DM-DYE-011'],
     productionOrderIds: ['PO-20260328-418'],
     isFirstOrder: false,
     sampleWaitType: 'NONE',
@@ -1878,7 +1862,6 @@ function seedWorkOrders(): void {
     dyeOrderId: DYE_WORK_ORDER_IDS[11],
     dyeOrderNo: 'DY-20260329-012',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['DM-DYE-012'],
     productionOrderIds: ['PO-20260329-412'],
     isFirstOrder: false,
     sampleWaitType: 'NONE',
@@ -1928,7 +1911,6 @@ function seedWorkOrders(): void {
     dyeOrderId: DYE_WORK_ORDER_IDS[12],
     dyeOrderNo: 'DY-20260329-013',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['DM-DYE-013'],
     productionOrderIds: ['PO-20260329-413'],
     isFirstOrder: false,
     sampleWaitType: 'NONE',
@@ -2274,7 +2256,9 @@ function seedPersistentWaterSolubleDyeWorkOrder(): void {
     dyeOrderId: 'DYE-WATER-PO-202603-081',
     dyeOrderNo: 'RSJG-WATER-202603081',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: [buildProductionDemandBusinessId('RSXQ', artifact)],
+    sourceProductionOrderId: artifact.orderId,
+    sourceProductionOrderNo: productionOrders.find((order) => order.productionOrderId === artifact.orderId)?.productionOrderNo || artifact.orderId,
+    productionOrderOrderedAt: createdAt,
     sourceArtifactIds: [artifact.artifactId],
     productionOrderIds: [artifact.orderId],
     isFirstOrder: false,
@@ -2405,6 +2389,7 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
   workOrderId: string
   workOrderNo: string
   processName: string
+  requiresWaterSoluble?: boolean
 }): DyeWorkOrder {
   seedDomain()
   const existing = Array.from(workOrderStore.values())
@@ -2437,7 +2422,8 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
     dyeOrderNo: input.workOrderNo,
     sourceType: 'PRODUCTION_ORDER',
     sourceProductionOrderId: input.productionOrderId,
-    sourceDemandIds: [],
+    sourceProductionOrderNo: input.productionOrderNo,
+    productionOrderOrderedAt: input.orderedAt,
     productionOrderIds: [input.productionOrderId],
     isFirstOrder: false,
     sampleWaitType: 'NONE',
@@ -2447,6 +2433,10 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
     targetColor: input.targetColor,
     plannedQty: input.plannedQty,
     qtyUnit: input.qtyUnit,
+    requiresWaterSoluble: input.requiresWaterSoluble === true,
+    waterSolublePlannedQty: input.requiresWaterSoluble ? input.plannedQty : undefined,
+    waterSolubleCompletedQty: input.requiresWaterSoluble ? 0 : undefined,
+    waterSolubleQtyUnit: input.requiresWaterSoluble ? input.qtyUnit : undefined,
     dyeFactoryId: factoryId,
     dyeFactoryName: factoryName,
     targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
@@ -2618,19 +2608,6 @@ export function listDyeReportRows(): DyeReportRow[] {
   })
 }
 
-export function validateDyeDemandSelection(
-  demands: DyeDemandForWorkOrder[],
-): { ok: boolean; message: string } {
-  if (demands.length === 0) {
-    return { ok: false, message: '请至少选择一张染色需求。' }
-  }
-  const waterModes = new Set(demands.map((item) => item.requiresWaterSoluble === true))
-  if (waterModes.size > 1) {
-    return { ok: false, message: '所选染色需求的水溶要求不一致，请分别创建加工单。' }
-  }
-  return { ok: true, message: '' }
-}
-
 function hasActiveFactoryProcessAbility(factoryId: string, processCode: 'WATER_SOLUBLE' | 'DYE'): boolean {
   const factory = getFactoryMasterRecordById(factoryId)
   if (!factory || factory.status !== 'active' || !factory.eligibility.allowDispatch) return false
@@ -2641,100 +2618,72 @@ function hasActiveFactoryProcessAbility(factoryId: string, processCode: 'WATER_S
   )
 }
 
-export function validateDyeFactoryCapabilities(
-  demands: DyeDemandForWorkOrder[],
-  factoryId: string,
-): { ok: boolean; message: string } {
-  const selection = validateDyeDemandSelection(demands)
-  if (!selection.ok) return selection
-  if (!hasActiveFactoryProcessAbility(factoryId, 'DYE')) {
-    return { ok: false, message: '所选工厂不可派单或缺少正式有效的染色能力。' }
-  }
-  if (demands[0]?.requiresWaterSoluble && !hasActiveFactoryProcessAbility(factoryId, 'WATER_SOLUBLE')) {
-    return { ok: false, message: '需先水溶的染色加工单只能分配给同时具备水溶和染色能力的工厂。' }
-  }
-  return { ok: true, message: '' }
-}
-
-export function createDyeWorkOrderFromDemands(input: {
-  demands: DyeDemandForWorkOrder[]
+export function createDyeWorkOrderFromStock(input: {
+  stockMaterialId: string
+  stockMaterialName: string
+  materialSku: string
   factoryId: string
   plannedFinishAt: string
   createdBy?: string
-  plannedQty?: number
+  plannedQty: number
+  qtyUnit: string
+  processName: string
+  targetColor: string
   sampleWaitType?: SampleWaitType
 }): { ok: boolean; message: string; order?: DyeWorkOrder } {
-  if (input.demands.some((item) => !Number.isFinite(item.requiredQty) || item.requiredQty <= 0)) {
-    return { ok: false, message: '每条染色需求数量都必须是大于 0 的有效数字。' }
+  const stockMaterialId = input.stockMaterialId.trim()
+  const stockMaterialName = input.stockMaterialName.trim()
+  const materialSku = input.materialSku.trim()
+  const normalizedUnit = input.qtyUnit.trim()
+  if (!stockMaterialId || !stockMaterialName || !materialSku) return { ok: false, message: '请选择有效的备货物料。' }
+  if (!Number.isFinite(input.plannedQty) || input.plannedQty <= 0 || !normalizedUnit) {
+    return { ok: false, message: '计划数量和单位必须有效。' }
   }
-  const normalizedUnits = input.demands.map((item) => item.unit.trim())
-  if (normalizedUnits.some((unit) => !unit)) {
-    return { ok: false, message: '每条染色需求都必须填写数量单位。' }
+  if (!input.processName.trim()) return { ok: false, message: '请填写染色工艺。' }
+  if (!hasActiveFactoryProcessAbility(input.factoryId, 'DYE')) {
+    return { ok: false, message: '所选工厂不可派单或缺少正式有效的染色能力。' }
   }
-  const demandIds = input.demands.map((item) => item.demandId)
-  const artifactIds = input.demands.flatMap((item) => item.sourceArtifactId ? [item.sourceArtifactId] : [])
-  if (new Set(demandIds).size !== demandIds.length || new Set(artifactIds).size !== artifactIds.length) {
-    return { ok: false, message: '所选染色需求存在重复，请重新选择。' }
-  }
-  const units = new Set(normalizedUnits)
-  if (units.size > 1) return { ok: false, message: '不同数量单位的染色需求不能合并创建加工单。' }
-  const consumedDemandIds = new Set(listDyeWorkOrders().flatMap((order) => order.sourceDemandIds))
-  const consumedArtifactIds = new Set(listDyeWorkOrders().flatMap((order) => order.sourceArtifactIds || []))
-  if (demandIds.some((demandId) => consumedDemandIds.has(demandId)) || artifactIds.some((artifactId) => consumedArtifactIds.has(artifactId))) {
-    return { ok: false, message: '所选染色需求已创建加工单，请勿重复创建。' }
-  }
-  const capability = validateDyeFactoryCapabilities(input.demands, input.factoryId)
-  if (!capability.ok) return capability
   const factory = getFactoryMasterRecordById(input.factoryId)!
-  const requiresWaterSoluble = input.demands[0]?.requiresWaterSoluble === true
-  const normalizedUnit = normalizedUnits[0]
   const sampleWaitType = input.sampleWaitType ?? 'NONE'
   const requiresSample = sampleWaitType !== 'NONE'
-  const plannedQty = input.demands.reduce((sum, item) => sum + item.requiredQty, 0)
-  if (!Number.isFinite(plannedQty) || plannedQty <= 0) {
-    return { ok: false, message: '染色需求数量必须大于 0。' }
-  }
-  if (typeof input.plannedQty !== 'undefined' && Number(input.plannedQty) !== plannedQty) {
-    return { ok: false, message: '计划数量由系统按所选需求自动计算，不允许手工修改。' }
-  }
+  const plannedQty = input.plannedQty
   const sequence = workOrderStore.size + createdDyeOrderIds.size + 1
   const dyeOrderId = `DYE-CREATED-${String(sequence).padStart(4, '0')}`
   const dyeOrderNo = `RSJG-CREATED-${String(sequence).padStart(4, '0')}`
   const taskId = `TASK-${dyeOrderId}`
   const now = nowTimestamp()
-  const sourceProductionOrderId = input.demands[0]?.sourceProductionOrderId || '按备货创建'
   registerPdaGenericProcessTask(buildFreshDyeMobileTask({
     taskId,
-    productionOrderId: sourceProductionOrderId,
+    productionOrderId: '',
+    productionOrderNo: '',
+    spuName: stockMaterialName,
     factoryId: factory.id,
     factoryName: factory.name,
     qty: plannedQty,
     qtyDisplayUnit: normalizedUnit,
     createdAt: now,
     dispatchedBy: input.createdBy || '业务人员',
-    receiveSummary: requiresWaterSoluble ? '染色加工单已派单，需先完成水溶。' : '染色加工单已派单。',
-    executionSummary: requiresWaterSoluble ? '同一染厂先水溶后染色。' : '按染色工艺执行。',
+    processName: input.processName.trim(),
+    receiveSummary: '备货染色加工单已派单。',
+    executionSummary: `按${input.processName.trim()}执行。`,
     handoverSummary: '完成全部后处理后统一交出。',
   }))
   addSeedWorkOrder({
     dyeOrderId,
     dyeOrderNo,
-    sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: input.demands.map((item) => item.demandId),
-    sourceArtifactIds: input.demands.flatMap((item) => item.sourceArtifactId ? [item.sourceArtifactId] : []),
-    productionOrderIds: [...new Set(input.demands.map((item) => item.sourceProductionOrderId))],
+    sourceType: 'STOCK',
+    stockMaterialId,
+    stockMaterialName,
+    productionOrderIds: [],
     isFirstOrder: requiresSample,
     sampleWaitType,
     sampleStatus: requiresSample ? 'WAITING' : 'NOT_REQUIRED',
     sampleWaitStartedAt: requiresSample ? now : undefined,
-    rawMaterialSku: input.demands.map((item) => item.materialName).join('、'),
-    targetColor: '按需求目标色执行',
+    rawMaterialSku: materialSku,
+    targetColor: input.targetColor.trim() || '按工艺要求执行',
     plannedQty,
     qtyUnit: normalizedUnit,
-    requiresWaterSoluble,
-    waterSolublePlannedQty: requiresWaterSoluble ? plannedQty : undefined,
-    waterSolubleCompletedQty: requiresWaterSoluble ? 0 : undefined,
-    waterSolubleQtyUnit: requiresWaterSoluble ? normalizedUnit : undefined,
+    requiresWaterSoluble: false,
     dyeFactoryId: factory.id,
     dyeFactoryName: factory.name,
     targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
@@ -2744,9 +2693,7 @@ export function createDyeWorkOrderFromDemands(input: {
     taskNo: taskId,
     createdAt: now,
     updatedAt: now,
-    remark: requiresWaterSoluble
-      ? `同一染厂连续完成水溶 → 染色；创建人：${input.createdBy || '业务人员'}；计划完成：${input.plannedFinishAt}`
-      : `普通染色加工单；创建人：${input.createdBy || '业务人员'}；计划完成：${input.plannedFinishAt}`,
+    remark: `${input.processName.trim()}；按备货创建；创建人：${input.createdBy || '业务人员'}；计划完成：${input.plannedFinishAt}`,
   })
   createdDyeOrderIds.add(dyeOrderId)
   return { ok: true, message: '', order: getDyeWorkOrderById(dyeOrderId) }

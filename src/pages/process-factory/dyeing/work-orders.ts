@@ -55,7 +55,7 @@ function renderOrdersTable(): string {
               objectType: 'DYE_WORK_ORDER',
               objectId: order.dyeOrderNo,
               label: order.dyeOrderNo,
-              relatedProductionOrderNo: order.productionOrderIds?.[0],
+              relatedProductionOrderNo: order.sourceProductionOrderNo || order.sourceProductionOrderId,
               defaultTab: 'progress',
               highlightKey: `DYE_WORK_ORDER:${order.dyeOrderNo}`,
               className: 'font-mono text-blue-600 hover:underline',

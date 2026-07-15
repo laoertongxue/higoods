@@ -5,6 +5,7 @@ import assert from 'node:assert/strict'
 
 import {
   completeDyeing,
+  createDyeWorkOrderFromStock,
   getDyeExecutionNodeRecord,
   getDyeOrderHandoverSummary,
   getDyeWorkOrderByTaskId,
@@ -78,6 +79,7 @@ function main(): void {
   }
 
   const workOrdersSource = readFile('src/pages/process-factory/dyeing/work-orders.ts')
+  const platformOrdersSource = readFile('src/pages/process-dye-orders.ts')
   const appShellSource = readFile('src/data/app-shell-config.ts')
   const warehouseSource = readFile('src/pages/process-factory/dyeing/warehouse.ts')
   const routesSource = readFile('src/router/routes-fcs.ts')
@@ -88,6 +90,9 @@ function main(): void {
   const handoverDetailSource = readFile('src/pages/pda-handover-detail.ts')
 
   assertIncludes(workOrdersSource, '染色加工单', '染色加工单页面')
+  ;['按需求创建', '选择染色需求', '染色需求单号'].forEach((term) => {
+    assertNotIncludes(platformOrdersSource, term, '平台染色加工单页面')
+  })
   assertIncludes(workOrdersSource, '打印任务流转卡', '染色加工单页面')
   assertIncludes(workOrdersSource, "buildTaskRouteCardPrintLink('DYEING_WORK_ORDER', order.dyeOrderId)", '染色加工单打印任务流转卡必须使用 DYEING_WORK_ORDER + dyeOrderId')
   assertNotIncludes(workOrdersSource, '打印任务交货卡', '染色加工单页面不得提前增加打印任务交货卡入口')
@@ -121,6 +126,32 @@ function main(): void {
   assert(orders.every((order) => order.receiverName === '中转区域' || order.receiverName === '仓库'), '接收方必须是中转区域或仓库')
   assert(orders.every((order) => !order.targetTransferWarehouseName.includes('裁床仓') && !order.targetTransferWarehouseName.includes('裁片仓')), '染色完成后不能直接进入裁床仓')
   assert(orders.some((order) => Boolean(order.handoverOrderId)), '开工后的染色任务必须有交出单')
+  orders.forEach((order) => {
+    if (order.sourceType === 'PRODUCTION_ORDER') {
+      assert(Boolean(order.sourceProductionOrderId), `${order.dyeOrderNo} 生产单来源必须有唯一 sourceProductionOrderId`)
+      assert(!order.stockMaterialId, `${order.dyeOrderNo} 生产单来源不得携带 stockMaterialId`)
+      return
+    }
+    assert(order.sourceType === 'STOCK', `${order.dyeOrderNo} 来源类型只能是生产单或备货`)
+    assert(Boolean(order.stockMaterialId), `${order.dyeOrderNo} 备货来源必须有 stockMaterialId`)
+    assert(!order.sourceProductionOrderId, `${order.dyeOrderNo} 备货来源不得伪造 sourceProductionOrderId`)
+  })
+
+  const stockCreated = createDyeWorkOrderFromStock({
+    stockMaterialId: 'STOCK-DYE-CHECK-001',
+    stockMaterialName: '染色检查坯布',
+    materialSku: 'MAT-DYE-CHECK-001',
+    factoryId: orders[0]!.dyeFactoryId,
+    plannedQty: 80,
+    qtyUnit: '米',
+    plannedFinishAt: '2026-07-31 18:00',
+    processName: '常规染色',
+    targetColor: '海军蓝',
+  })
+  assert(stockCreated.ok && stockCreated.order, '备货必须可以直接创建染色加工单')
+  assert.equal(stockCreated.order.sourceType, 'STOCK', '备货染色加工单来源必须是 STOCK')
+  assert.equal(stockCreated.order.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色加工单必须保留 stockMaterialId')
+  assert(!stockCreated.order.sourceProductionOrderId, '备货染色加工单不得伪造生产单')
 
   const waitReviewOrder = orders.find((order) => order.status === 'WAIT_REVIEW')
   assert(waitReviewOrder, '需要至少一条待审核染色加工单')
@@ -139,7 +170,7 @@ function main(): void {
   assert(formulas.every((item) => !('handoverOrderId' in item) && !('taskQrValue' in item)), '染色配方不能创建交出单或任务二维码')
 
   const reportRows = listDyeReportRows()
-  assert(reportRows.length === orders.length, '染色统计需要覆盖所有加工单')
+  assert(orders.every((order) => reportRows.some((row) => row.dyeOrderId === order.dyeOrderId)), '染色统计需要覆盖所有加工单')
   assert(reportRows.some((row) => row.waitingReason.length > 0), '报表必须展示等待原因')
   assert(reportRows.some((row) => row.durationHours >= 0), '报表必须展示节点耗时')
   assert(reportRows.some((row) => row.dyeVatNo), '报表必须展示染缸利用')

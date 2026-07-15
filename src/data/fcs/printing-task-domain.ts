@@ -18,15 +18,16 @@ import { type HandoverReceiverKind, type QtyUnit } from './process-tasks.ts'
 import type {
   FormalProductionOrderProcessSnapshot,
   FormalProductionOrderProcessSnapshotRecord,
+  ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
 import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
+import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
 import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
 import { listActiveProcessCraftDefinitions, type ProcessCraftDefinition } from './process-craft-dict.ts'
 import {
-  buildDictionaryCraftMockDocumentNo,
   DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
   getDictionaryCraftMockSource,
 } from './production-artifact-generation.ts'
@@ -57,9 +58,12 @@ export type PrintReviewStatus = PrintReceiptStatus
 export interface PrintWorkOrder {
   printOrderId: string
   printOrderNo: string
-  sourceType: 'PRODUCTION_ORDER'
+  sourceType: ProcessWorkOrderSourceType
   sourceProductionOrderId?: string
-  sourceDemandIds: string[]
+  sourceProductionOrderNo?: string
+  productionOrderOrderedAt?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   productionOrderIds: string[]
   isFirstOrder: boolean
   artworkTaskId?: string
@@ -249,10 +253,6 @@ function getGeneratedPrintCraft(index: number): { craftDefinition: ProcessCraftD
   }
 }
 
-function buildPrintDemandId(craftCode: string, productionOrderId: string, mockIndex: number): string {
-  return buildDictionaryCraftMockDocumentNo('YHXQ', craftCode, productionOrderId, mockIndex)
-}
-
 function getGeneratedPrintContext(index: number): GeneratedPrintContext | null {
   const generatedCraft = getGeneratedPrintCraft(index)
   if (!generatedCraft) return null
@@ -285,12 +285,48 @@ function getVisiblePrintWorkOrderIds(): Set<string> {
 function toGeneratedPrintWorkOrder(order: MutablePrintWorkOrder, index: number): MutablePrintWorkOrder {
   if (createdPrintOrderIds.has(order.printOrderId)) return order
   const context = getGeneratedPrintContext(index)
-  if (!context) return order
+  if (!context) {
+    const sourceProductionOrderId = order.sourceProductionOrderId || order.productionOrderIds[0]
+    const sourceOrder = productionOrders.find((item) => item.productionOrderId === sourceProductionOrderId)
+    if (!sourceOrder) {
+      const task = getPrintingTaskById(order.taskId)
+      if (task) {
+        task.productionOrderId = ''
+        task.productionOrderNo = ''
+        task.sourceProductionOrderId = undefined
+      }
+      return {
+        ...order,
+        sourceType: 'STOCK',
+        sourceProductionOrderId: undefined,
+        sourceProductionOrderNo: undefined,
+        productionOrderOrderedAt: undefined,
+        productionOrderIds: [],
+        stockMaterialId: `STOCK-${order.printOrderId}`,
+        stockMaterialName: order.materialSku,
+        remark: `${order.remark || '印花加工'}；来源备货物料 ${order.materialSku}。`,
+      }
+    }
+    return {
+      ...order,
+      sourceProductionOrderId,
+      sourceProductionOrderNo: order.sourceProductionOrderNo || sourceOrder.productionOrderNo,
+      productionOrderOrderedAt: order.productionOrderOrderedAt || sourceOrder.createdAt,
+    }
+  }
   const { productionOrder, techPackSnapshot, craftDefinition, mockIndex, plannedQty, materialName, materialColor } = context
-  const demandId = buildPrintDemandId(craftDefinition.craftCode, productionOrder.productionOrderId, mockIndex)
+  const task = getPrintingTaskById(order.taskId)
+  if (task) {
+    task.productionOrderId = productionOrder.productionOrderId
+    task.productionOrderNo = productionOrder.productionOrderNo
+    task.sourceProductionOrderId = productionOrder.productionOrderId
+  }
   return {
     ...order,
-    sourceDemandIds: [demandId],
+    sourceType: 'PRODUCTION_ORDER',
+    sourceProductionOrderId: productionOrder.productionOrderId,
+    sourceProductionOrderNo: productionOrder.productionOrderNo,
+    productionOrderOrderedAt: productionOrder.createdAt,
     productionOrderIds: [productionOrder.productionOrderId],
     isFirstOrder: mockIndex === 0,
     patternNo: techPackSnapshot.sourceTechPackVersionCode || techPackSnapshot.styleCode,
@@ -314,7 +350,6 @@ function listGeneratedPrintWorkOrders(): MutablePrintWorkOrder[] {
 function cloneWorkOrder(order: MutablePrintWorkOrder): PrintWorkOrder {
   return {
     ...order,
-    sourceDemandIds: [...order.sourceDemandIds],
     productionOrderIds: [...order.productionOrderIds],
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
       ? { ...order.formalProductionOrderSnapshot, processCodes: [...order.formalProductionOrderSnapshot.processCodes] }
@@ -357,8 +392,8 @@ function getPrintingTaskById(taskId: string): PdaGenericTaskMock | undefined {
 function buildFreshPrintMobileTask(input: {
   taskId: string
   taskNo: string
-  productionOrderId: string
-  productionOrderNo: string
+  productionOrderId?: string
+  productionOrderNo?: string
   spuCode: string
   spuName: string
   requiredDeliveryDate: string
@@ -378,8 +413,8 @@ function buildFreshPrintMobileTask(input: {
   return {
     taskId: input.taskId,
     taskNo: input.taskNo,
-    productionOrderId: input.productionOrderId,
-    productionOrderNo: input.productionOrderNo,
+    productionOrderId: input.productionOrderId || '',
+    productionOrderNo: input.productionOrderNo || '',
     spuCode: input.spuCode,
     spuName: input.spuName,
     requiredDeliveryDate: input.requiredDeliveryDate,
@@ -732,7 +767,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.WAIT_ARTWORK,
     printOrderNo: 'PH-20260328-001',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-001'],
     productionOrderIds: ['PO-20260328-071'],
     isFirstOrder: true,
     patternNo: 'PAT-HT-001',
@@ -761,7 +795,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.WAIT_COLOR_TEST,
     printOrderNo: 'PH-20260328-002',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-002'],
     productionOrderIds: ['PO-20260328-072'],
     isFirstOrder: false,
     patternNo: 'PAT-HT-018',
@@ -790,7 +823,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.WAIT_PRINT,
     printOrderNo: 'PH-20260328-003',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-003'],
     productionOrderIds: ['PO-20260328-073'],
     isFirstOrder: false,
     patternNo: 'PAT-HT-026',
@@ -819,7 +851,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.PRINTING,
     printOrderNo: 'PH-20260328-004',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-004'],
     productionOrderIds: ['PO-20260328-074'],
     isFirstOrder: true,
     patternNo: 'PAT-HT-032',
@@ -846,7 +877,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.WAIT_HANDOVER,
     printOrderNo: 'PH-20260328-005',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-005'],
     productionOrderIds: ['PO-20260328-075'],
     isFirstOrder: false,
     patternNo: 'PAT-HT-037',
@@ -873,7 +903,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.HANDOVER_WAIT_RECEIVE,
     printOrderNo: 'PH-20260328-006',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-006'],
     productionOrderIds: ['PO-20260328-076'],
     isFirstOrder: true,
     patternNo: 'PAT-HT-041',
@@ -900,7 +929,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.PARTIAL_HANDOVER,
     printOrderNo: 'PH-20260328-007',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-007'],
     productionOrderIds: ['PO-20260328-077'],
     isFirstOrder: false,
     patternNo: 'PAT-HT-045',
@@ -927,7 +955,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.TRANSFERRING,
     printOrderNo: 'PH-20260329-009',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-009'],
     productionOrderIds: ['PO-20260329-079'],
     isFirstOrder: false,
     patternNo: 'PAT-HT-061',
@@ -953,7 +980,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.HANDOVER_DIFFERENCE,
     printOrderNo: 'PH-20260329-010',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-010'],
     productionOrderIds: ['PO-20260329-080'],
     isFirstOrder: true,
     patternNo: 'PAT-HT-066',
@@ -980,7 +1006,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.FULL_HANDOVER,
     printOrderNo: 'PH-20260329-008',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-008'],
     productionOrderIds: ['PO-20260329-078'],
     isFirstOrder: false,
     patternNo: 'PAT-HT-052',
@@ -1007,7 +1032,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.WAIT_PRINT_EXTRA,
     printOrderNo: 'PH-20260329-011',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-011'],
     productionOrderIds: ['PO-20260329-081'],
     isFirstOrder: false,
     patternNo: 'PAT-HT-071',
@@ -1033,7 +1057,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.PRINTING_EXTRA,
     printOrderNo: 'PH-20260329-012',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-012'],
     productionOrderIds: ['PO-20260329-082'],
     isFirstOrder: true,
     patternNo: 'PAT-HT-073',
@@ -1764,7 +1787,8 @@ export function registerFormalProductionOrderPrintWorkOrder(input: FormalProduct
     printOrderNo: input.workOrderNo,
     sourceType: 'PRODUCTION_ORDER',
     sourceProductionOrderId: input.productionOrderId,
-    sourceDemandIds: [],
+    sourceProductionOrderNo: input.productionOrderNo,
+    productionOrderOrderedAt: input.orderedAt,
     productionOrderIds: [input.productionOrderId],
     isFirstOrder: false,
     patternNo: input.techPackVersionId,
@@ -1807,6 +1831,87 @@ export function registerFormalProductionOrderPrintWorkOrder(input: FormalProduct
   })
   createdPrintOrderIds.add(input.workOrderId)
   return getPrintWorkOrderById(input.workOrderId)!
+}
+
+export function createPrintWorkOrderFromStock(input: {
+  stockMaterialId: string
+  stockMaterialName: string
+  materialSku: string
+  factoryId: string
+  plannedQty: number
+  qtyUnit: string
+  plannedFinishAt: string
+  processName: string
+  createdBy?: string
+}): { ok: boolean; message: string; order?: PrintWorkOrder } {
+  const stockMaterialId = input.stockMaterialId.trim()
+  const stockMaterialName = input.stockMaterialName.trim()
+  const materialSku = input.materialSku.trim()
+  const qtyUnit = input.qtyUnit.trim()
+  const processName = input.processName.trim()
+  if (!stockMaterialId || !stockMaterialName || !materialSku) return { ok: false, message: '请选择有效的备货物料。' }
+  if (!Number.isFinite(input.plannedQty) || input.plannedQty <= 0 || !qtyUnit) {
+    return { ok: false, message: '计划数量和单位必须有效。' }
+  }
+  if (!processName) return { ok: false, message: '请填写印花工艺。' }
+  const factory = getFactoryMasterRecordById(input.factoryId)
+  const canReceivePrint = factory?.status === 'active'
+    && factory.eligibility.allowDispatch
+    && factory.processAbilities.some((ability) =>
+      ability.processCode === 'PRINT'
+      && (ability.status ?? 'ACTIVE') === 'ACTIVE'
+      && ability.canReceiveTask !== false,
+    )
+  if (!factory || !canReceivePrint) return { ok: false, message: '所选工厂不可派单或缺少正式有效的印花能力。' }
+
+  seedDomain()
+  const sequence = workOrderStore.size + createdPrintOrderIds.size + 1
+  const printOrderId = `PRINT-STOCK-${String(sequence).padStart(4, '0')}`
+  const printOrderNo = `YHJG-STOCK-${String(sequence).padStart(4, '0')}`
+  const now = nowTimestamp()
+  registerPdaGenericProcessTask(buildFreshPrintMobileTask({
+    taskId: printOrderId,
+    taskNo: printOrderNo,
+    spuCode: '',
+    spuName: stockMaterialName,
+    requiredDeliveryDate: input.plannedFinishAt,
+    factoryId: factory.id,
+    factoryName: factory.name,
+    qty: input.plannedQty,
+    qtyDisplayUnit: qtyUnit,
+    processName,
+    createdAt: now,
+  }))
+  addSeedWorkOrder({
+    printOrderId,
+    printOrderNo,
+    sourceType: 'STOCK',
+    stockMaterialId,
+    stockMaterialName,
+    productionOrderIds: [],
+    isFirstOrder: false,
+    patternNo: processName,
+    patternVersion: '备货创建',
+    materialSku,
+    objectType: '面料',
+    isPiecePrinting: false,
+    isFabricPrinting: true,
+    plannedQty: input.plannedQty,
+    qtyUnit,
+    qtyLabel: '计划数量',
+    printFactoryId: factory.id,
+    printFactoryName: factory.name,
+    targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
+    targetTransferWarehouseName: '中转区域',
+    status: 'WAIT_ARTWORK',
+    taskId: printOrderId,
+    taskNo: printOrderNo,
+    createdAt: now,
+    updatedAt: now,
+    remark: `${processName}；按备货创建；创建人：${input.createdBy || '业务人员'}；计划完成：${input.plannedFinishAt}`,
+  })
+  createdPrintOrderIds.add(printOrderId)
+  return { ok: true, message: '', order: getPrintWorkOrderById(printOrderId) }
 }
 
 export function listPrintExecutionNodeRecords(printOrderId?: string): PrintExecutionNodeRecord[] {

@@ -847,7 +847,7 @@ function renderPrintingTaskCard(
           <span class="text-xs font-medium">${renderPdaObjectCode({
             objectType: 'PRINT_WORK_ORDER',
             objectId: printOrder.printOrderNo,
-            relatedProductionOrderNo: printOrder.productionOrderIds?.[0] || task.productionOrderId,
+            relatedProductionOrderNo: printOrder.sourceProductionOrderNo || printOrder.sourceProductionOrderId || task.productionOrderId,
           })}</span>
           <span class="text-xs text-muted-foreground">花型</span>
           <span class="text-xs">${escapeHtml(printOrder.patternNo)} / ${escapeHtml(printOrder.patternVersion)}</span>
@@ -964,7 +964,7 @@ function renderPrintingTaskCard(
                   ? renderPdaObjectCode({
                       objectType: 'HANDOVER_ORDER',
                       objectId: handoverOrder?.handoverOrderNo || printOrder.handoverOrderNo || printOrder.handoverOrderId,
-                      relatedProductionOrderNo: handoverOrder?.productionOrderNo || printOrder.productionOrderIds?.[0] || task.productionOrderId,
+                      relatedProductionOrderNo: handoverOrder?.productionOrderNo || printOrder.sourceProductionOrderNo || printOrder.sourceProductionOrderId || task.productionOrderId,
                     })
                   : '未生成'
               }</div>
@@ -1246,7 +1246,7 @@ function renderDyeingTaskCard(
           <span class="text-xs font-medium">${renderPdaObjectCode({
             objectType: 'DYE_WORK_ORDER',
             objectId: dyeOrder.dyeOrderNo,
-            relatedProductionOrderNo: dyeOrder.productionOrderIds?.[0] || task.productionOrderId,
+            relatedProductionOrderNo: dyeOrder.sourceProductionOrderNo || dyeOrder.sourceProductionOrderId || task.productionOrderId,
           })}</span>
           <span class="text-xs text-muted-foreground">当前状态</span>
           <span class="text-xs">${escapeHtml(getDyeWorkOrderStatusLabel(dyeOrder.status))}</span>
@@ -1488,7 +1488,7 @@ function renderDyeingTaskCard(
                   ? renderPdaObjectCode({
                       objectType: 'HANDOVER_ORDER',
                       objectId: handoverOrder?.handoverOrderNo || dyeOrder.handoverOrderNo || dyeOrder.handoverOrderId,
-                      relatedProductionOrderNo: handoverOrder?.productionOrderNo || dyeOrder.productionOrderIds?.[0] || task.productionOrderId,
+                      relatedProductionOrderNo: handoverOrder?.productionOrderNo || dyeOrder.sourceProductionOrderNo || dyeOrder.sourceProductionOrderId || task.productionOrderId,
                     })
                   : '未生成'
               }</div>

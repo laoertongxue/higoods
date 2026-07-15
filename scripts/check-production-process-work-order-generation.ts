@@ -471,9 +471,11 @@ function assertGeneratedOrder(
   const order = getProcessWorkOrderById(orderId)
   assert(order, `${orderId} 缺少统一加工单`)
   assert.equal(order.processType, processType)
+  assert.equal(order.sourceType, 'PRODUCTION_ORDER', '正式生产单直生加工单来源类型必须是生产单')
   assert.equal(order.sourceProductionOrderId, source.productionOrderId, '加工单必须保存唯一来源生产单')
-  assert.deepEqual(order.productionOrderIds, [source.productionOrderId], '加工单来源生产单集合只能有一项')
-  assert.deepEqual(order.sourceDemandIds, [], '正式生产单直生加工单不得生成染色/印花需求单号')
+  assert.equal(order.sourceProductionOrderNo, source.productionOrderNo, '加工单必须保存来源生产单号')
+  assert.equal(order.productionOrderOrderedAt, source.orderedAt, '加工单必须保存来源生产单下单时间')
+  assert.equal(order.stockMaterialId, undefined, '生产单来源不得携带备货物料')
   assert.deepEqual(order.formalProductionOrderSnapshot, {
     productionOrderId: source.productionOrderId,
     productionOrderNo: source.productionOrderNo,

@@ -1689,7 +1689,7 @@ function buildRuntimeRelatedDocuments(order: ProductionOrder): RelatedDocument[]
     }
   }
 
-  for (const workOrder of listPrintWorkOrders().filter((item) => matchesProductionOrder(order, item.productionOrderIds))) {
+  for (const workOrder of listPrintWorkOrders().filter((item) => matchesProductionOrder(order, [item.sourceProductionOrderId]))) {
     documents.push({
       docGroup: '印花',
       docType: '印花工单',
@@ -1704,7 +1704,7 @@ function buildRuntimeRelatedDocuments(order: ProductionOrder): RelatedDocument[]
     })
   }
 
-  for (const workOrder of listDyeWorkOrders().filter((item) => matchesProductionOrder(order, item.productionOrderIds || []))) {
+  for (const workOrder of listDyeWorkOrders().filter((item) => matchesProductionOrder(order, [item.sourceProductionOrderId]))) {
     documents.push({
       docGroup: '染色',
       docType: '染色工单',
@@ -2706,12 +2706,12 @@ function buildMaterialPrepIndexes(): ProductionObjectSearchIndex[] {
 
 function buildPrintWorkOrderIndexes(): ProductionObjectSearchIndex[] {
   return listPrintWorkOrders().map((workOrder) => {
-    const order = findOrderByAny(workOrder.productionOrderIds)
+    const order = findOrderByAny([workOrder.sourceProductionOrderId, workOrder.sourceProductionOrderNo])
     return {
       id: `PRINT_WORK_ORDER-${workOrder.printOrderNo}`,
       objectType: 'PRINT_WORK_ORDER',
       primaryNo: workOrder.printOrderNo,
-      secondaryNo: workOrder.productionOrderIds[0],
+      secondaryNo: workOrder.sourceProductionOrderNo || workOrder.sourceProductionOrderId,
       displayTitle: `${workOrder.patternNo}｜${workOrder.printFactoryName}`,
       keywords: unique([
         workOrder.printOrderId,
@@ -2723,11 +2723,13 @@ function buildPrintWorkOrderIndexes(): ProductionObjectSearchIndex[] {
         workOrder.materialColor,
         workOrder.handoverOrderNo,
         workOrder.printFactoryName,
-        ...workOrder.productionOrderIds,
-        ...workOrder.sourceDemandIds,
+        workOrder.sourceProductionOrderId,
+        workOrder.sourceProductionOrderNo,
+        workOrder.stockMaterialId,
+        workOrder.stockMaterialName,
       ]),
-      relatedProductionOrderNo: order?.productionOrderNo || workOrder.productionOrderIds[0],
-      relatedDemandNo: order?.demandId || workOrder.sourceDemandIds[0],
+      relatedProductionOrderNo: order?.productionOrderNo || workOrder.sourceProductionOrderNo,
+      relatedDemandNo: order?.demandId,
       statusText: PRINT_WORK_ORDER_STATUS_LABEL[workOrder.status],
       ownerRole: '工厂',
       sourceDomain: 'PFOS',
@@ -2743,13 +2745,12 @@ function buildPrintWorkOrderIndexes(): ProductionObjectSearchIndex[] {
 
 function buildDyeWorkOrderIndexes(): ProductionObjectSearchIndex[] {
   return listDyeWorkOrders().map((workOrder) => {
-    const productionOrderIds = workOrder.productionOrderIds || []
-    const order = findOrderByAny(productionOrderIds)
+    const order = findOrderByAny([workOrder.sourceProductionOrderId, workOrder.sourceProductionOrderNo])
     return {
       id: `DYE_WORK_ORDER-${workOrder.dyeOrderNo}`,
       objectType: 'DYE_WORK_ORDER',
       primaryNo: workOrder.dyeOrderNo,
-      secondaryNo: productionOrderIds[0],
+      secondaryNo: workOrder.sourceProductionOrderNo || workOrder.sourceProductionOrderId,
       displayTitle: `${workOrder.rawMaterialSku}｜${workOrder.dyeFactoryName}`,
       keywords: unique([
         workOrder.dyeOrderId,
@@ -2760,11 +2761,13 @@ function buildDyeWorkOrderIndexes(): ProductionObjectSearchIndex[] {
         workOrder.targetColor,
         workOrder.handoverOrderNo,
         workOrder.dyeFactoryName,
-        ...productionOrderIds,
-        ...workOrder.sourceDemandIds,
+        workOrder.sourceProductionOrderId,
+        workOrder.sourceProductionOrderNo,
+        workOrder.stockMaterialId,
+        workOrder.stockMaterialName,
       ]),
-      relatedProductionOrderNo: order?.productionOrderNo || productionOrderIds[0],
-      relatedDemandNo: order?.demandId || workOrder.sourceDemandIds[0],
+      relatedProductionOrderNo: order?.productionOrderNo || workOrder.sourceProductionOrderNo,
+      relatedDemandNo: order?.demandId,
       statusText: DYE_WORK_ORDER_STATUS_LABEL[workOrder.status],
       ownerRole: '工厂',
       sourceDomain: 'PFOS',

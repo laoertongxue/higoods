@@ -172,7 +172,7 @@ function getPrintSourceInfo(task: ProcessTask): Partial<MobileExecutionTaskSourc
     printOrderNo: normalizeString(order.printOrderNo),
     sourceIds: uniqueStrings([order.printOrderId, (order as typeof order & { workOrderId?: string }).workOrderId]),
     sourceNos: uniqueStrings([order.printOrderNo, (order as typeof order & { workOrderNo?: string }).workOrderNo]),
-    productionOrderNo: normalizeString(order.productionOrderIds?.[0] || task.productionOrderId),
+    productionOrderNo: normalizeString(order.sourceProductionOrderNo || order.sourceProductionOrderId || task.productionOrderId),
     patternNo: normalizeString(order.patternNo),
     materialSku: normalizeString(order.materialSku),
   }
@@ -190,7 +190,7 @@ function getDyeSourceInfo(task: ProcessTask): Partial<MobileExecutionTaskSourceI
     dyeOrderNo: normalizeString(order.dyeOrderNo),
     sourceIds: uniqueStrings([order.dyeOrderId, (order as typeof order & { workOrderId?: string }).workOrderId]),
     sourceNos: uniqueStrings([order.dyeOrderNo, (order as typeof order & { workOrderNo?: string }).workOrderNo]),
-    productionOrderNo: normalizeString(order.productionOrderIds?.[0] || task.productionOrderId),
+    productionOrderNo: normalizeString(order.sourceProductionOrderNo || order.sourceProductionOrderId || task.productionOrderId),
     rawMaterialSku: normalizeString(order.rawMaterialSku),
     targetColor: normalizeString(order.targetColor),
     colorNo: normalizeString(order.colorNo),

@@ -466,8 +466,10 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
       `
         <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-3">
           ${renderField('加工单号', order.workOrderNo)}
-          ${renderField('来源需求单', order.sourceDemandIds.join('、'))}
-          ${renderField('关联生产单', order.productionOrderIds.join('、'))}
+          ${renderField('来源类型', order.sourceType === 'STOCK' ? '按备货创建' : '生产单自动生成')}
+          ${renderField('来源对象', order.sourceType === 'STOCK'
+            ? (order.stockMaterialName || order.stockMaterialId || '-')
+            : (order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'))}
           ${renderField('工厂', formatFactoryDisplayName(order.factoryName, order.factoryId))}
           ${renderField('分配方式', order.assignmentMode || '派单')}
           ${renderField('派单价格', order.dispatchPriceDisplay || '1500 IDR/Yard')}

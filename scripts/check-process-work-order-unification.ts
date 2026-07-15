@@ -56,6 +56,8 @@ const docsSource = read('docs/fcs-process-work-order-unification.md')
 const appShellSource = read('src/data/app-shell-config.ts')
 
 assertIncludes(domainSource, 'export interface ProcessWorkOrder', '统一加工单领域')
+assertIncludes(domainSource, "export type ProcessWorkOrderSourceType = 'PRODUCTION_ORDER' | 'STOCK'", '统一加工单来源类型')
+assertNotIncludes(domainSource, 'sourceDemandIds', '统一加工单领域')
 assertIncludes(domainSource, "processType: 'PRINT'", '印花统一加工单')
 assertIncludes(domainSource, "processType: 'DYE'", '染色统一加工单')
 assertIncludes(domainSource, 'listProcessWorkOrders', '统一加工单领域')
@@ -229,14 +231,14 @@ assertWorkOrderIdentity(
 )
 
 const printingTasks = listPdaGenericProcessTasks().filter((task) => task.mockProcessKey === 'PRINTING')
-const transferringPrintOrder = getPrintWorkOrderByTaskId('TASK-PRINT-000724')
-const transferringPrintTask = printingTasks.find((task) => task.taskId === 'TASK-PRINT-000724')
-assert(transferringPrintOrder, 'TASK-PRINT-000724 缺少来源印花加工单')
-assert(transferringPrintTask, 'TASK-PRINT-000724 未注册为 PDA 任务')
-assert.equal(transferringPrintOrder.productionOrderIds.length, 1, 'TASK-PRINT-000724 来源生产单必须唯一')
+const transferringPrintOrder = printWorkOrders.find((order) => order.sourceType === 'PRODUCTION_ORDER')
+const transferringPrintTask = printingTasks.find((task) => task.taskId === transferringPrintOrder?.taskId)
+assert(transferringPrintOrder, '缺少生产单来源印花加工单')
+assert(transferringPrintTask, `${transferringPrintOrder.taskId} 未注册为 PDA 任务`)
+assert(transferringPrintOrder.sourceProductionOrderId, `${transferringPrintOrder.taskId} 来源生产单必须唯一`)
 assert.deepEqual(
   [transferringPrintTask.productionOrderId, transferringPrintTask.productionOrderNo],
-  [transferringPrintOrder.productionOrderIds[0], transferringPrintOrder.productionOrderIds[0]],
+  [transferringPrintOrder.sourceProductionOrderId, transferringPrintOrder.sourceProductionOrderNo],
   'PDA task 的 productionOrderId/no 必须与加工单 source production order 成对一致',
 )
 
@@ -330,8 +332,16 @@ listDyeReportRows()
   .forEach((row) => assert(row.finishedAt, `${row.dyeOrderNo} 已完成但染色报表缺少完成时间`))
 
 ;[...unifiedPrintOrders, ...unifiedDyeOrders].forEach((order) => {
-  assert(order.sourceDemandIds.length > 0, `${order.workOrderNo} 缺少来源需求单`)
-  assert(order.productionOrderIds.length > 0, `${order.workOrderNo} 缺少生产单`)
+  if (order.sourceType === 'PRODUCTION_ORDER') {
+    assert(Boolean(order.sourceProductionOrderId), `${order.workOrderNo} 生产单来源必须有唯一 sourceProductionOrderId`)
+    assert(Boolean(order.sourceProductionOrderNo), `${order.workOrderNo} 生产单来源必须保留生产单号`)
+    assert(Boolean(order.productionOrderOrderedAt), `${order.workOrderNo} 生产单来源必须保留下单时间`)
+    assert(!order.stockMaterialId, `${order.workOrderNo} 生产单来源不得携带 stockMaterialId`)
+  } else {
+    assert.equal(order.sourceType, 'STOCK', `${order.workOrderNo} 来源类型只能是生产单或备货`)
+    assert(Boolean(order.stockMaterialId && order.stockMaterialName), `${order.workOrderNo} 备货来源必须保留物料快照`)
+    assert(!order.sourceProductionOrderId, `${order.workOrderNo} 备货来源不得伪造生产单`)
+  }
   assert(Boolean(order.factoryId && order.factoryName), `${order.workOrderNo} 缺少工厂`)
   assert(Boolean(order.materialSku && order.materialName), `${order.workOrderNo} 缺少面料`)
   assert(order.plannedQty > 0 && Boolean(order.plannedUnit), `${order.workOrderNo} 计划加工数量缺少单位`)
@@ -374,6 +384,8 @@ assertNotIncludes(platformPrintSource, '/fcs/pda/exec', '平台印花列表')
 assertNotIncludes(platformDyeSource, '/fcs/pda/exec', '平台染色列表')
 assertNotIncludes(platformPrintSource, '/fcs/pda/handover', '平台印花列表')
 assertNotIncludes(platformDyeSource, '/fcs/pda/handover', '平台染色列表')
+;['按需求创建', '选择印花需求', '印花需求单号'].forEach((token) => assertNotIncludes(platformPrintSource, token, '平台印花列表'))
+;['按需求创建', '选择染色需求', '染色需求单号'].forEach((token) => assertNotIncludes(platformDyeSource, token, '平台染色列表'))
 
 assertIncludes(pfosPrintSource, 'buildPrintingWorkOrderDetailLink(order.printOrderId)', '工厂端印花详情入口')
 assertIncludes(pfosDyeSource, 'buildDyeingWorkOrderDetailLink(order.dyeOrderId)', '工厂端染色详情入口')

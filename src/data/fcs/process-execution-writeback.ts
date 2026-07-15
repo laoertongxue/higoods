@@ -111,10 +111,6 @@ function ensureDyeHandoverOrderId(order: DyeWorkOrder): string {
   return ensureHandoverOrderForStartedTask(order.taskId).handoverOrderId
 }
 
-function buildProductionOrderNo(ids: string[] | undefined): string {
-  return ids?.[0] || ''
-}
-
 function createPrintWaitHandoverRecord(order: PrintWorkOrder, qty: number, operatedAt?: string) {
   return createWaitHandoverWarehouseRecord({
     craftType: 'PRINT',
@@ -123,10 +119,10 @@ function createPrintWaitHandoverRecord(order: PrintWorkOrder, qty: number, opera
     sourceWorkOrderNo: order.printOrderNo,
     sourceTaskId: order.taskId,
     sourceTaskNo: order.taskNo,
-    sourceProductionOrderId: buildProductionOrderNo(order.productionOrderIds),
-    sourceProductionOrderNo: buildProductionOrderNo(order.productionOrderIds),
-    sourceDemandId: order.sourceDemandIds[0] || '',
-    sourceDemandNo: order.sourceDemandIds[0] || '',
+    sourceProductionOrderId: order.sourceProductionOrderId || '',
+    sourceProductionOrderNo: order.sourceProductionOrderNo || '',
+    sourceDemandId: '',
+    sourceDemandNo: '',
     sourceFactoryId: order.printFactoryId,
     sourceFactoryName: order.printFactoryName,
     targetFactoryId: order.targetTransferWarehouseId,
@@ -156,10 +152,10 @@ function createDyeWaitHandoverRecord(order: DyeWorkOrder, qty: number, operatedA
     sourceWorkOrderNo: order.dyeOrderNo,
     sourceTaskId: order.taskId,
     sourceTaskNo: order.taskNo,
-    sourceProductionOrderId: buildProductionOrderNo(order.productionOrderIds),
-    sourceProductionOrderNo: buildProductionOrderNo(order.productionOrderIds),
-    sourceDemandId: order.sourceDemandIds[0] || '',
-    sourceDemandNo: order.sourceDemandIds[0] || '',
+    sourceProductionOrderId: order.sourceProductionOrderId || '',
+    sourceProductionOrderNo: order.sourceProductionOrderNo || '',
+    sourceDemandId: '',
+    sourceDemandNo: '',
     sourceFactoryId: order.dyeFactoryId,
     sourceFactoryName: order.dyeFactoryName,
     targetFactoryId: order.targetTransferWarehouseId,
@@ -288,8 +284,8 @@ export function submitPrintHandover(taskId: string, payload: QtyWritebackPayload
     sourceWorkOrderNo: order.printOrderNo,
     sourceTaskId: order.taskId,
     sourceTaskNo: order.taskNo,
-    sourceProductionOrderId: buildProductionOrderNo(order.productionOrderIds),
-    sourceProductionOrderNo: buildProductionOrderNo(order.productionOrderIds),
+    sourceProductionOrderId: order.sourceProductionOrderId || '',
+    sourceProductionOrderNo: order.sourceProductionOrderNo || '',
     handoverFactoryId: order.printFactoryId,
     handoverFactoryName: order.printFactoryName,
     receiveFactoryId: order.targetTransferWarehouseId,
@@ -437,8 +433,8 @@ export function submitDyeHandover(taskId: string, payload: QtyWritebackPayload =
     sourceWorkOrderNo: order.dyeOrderNo,
     sourceTaskId: order.taskId,
     sourceTaskNo: order.taskNo,
-    sourceProductionOrderId: buildProductionOrderNo(order.productionOrderIds),
-    sourceProductionOrderNo: buildProductionOrderNo(order.productionOrderIds),
+    sourceProductionOrderId: order.sourceProductionOrderId || '',
+    sourceProductionOrderNo: order.sourceProductionOrderNo || '',
     handoverFactoryId: order.dyeFactoryId,
     handoverFactoryName: order.dyeFactoryName,
     receiveFactoryId: order.targetTransferWarehouseId,

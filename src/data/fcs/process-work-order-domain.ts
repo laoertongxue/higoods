@@ -40,6 +40,7 @@ import {
 
 export type ProcessWorkOrderType = 'PRINT' | 'DYE' | 'WATER_SOLUBLE'
 export type ProcessWorkOrderStatus = PrintWorkOrderStatus | DyeWorkOrderStatus | WaterSolubleWorkOrderStatus
+export type ProcessWorkOrderSourceType = 'PRODUCTION_ORDER' | 'STOCK'
 
 export type FormalProductionProcessCode = 'DYE' | 'PRINT'
 
@@ -75,8 +76,12 @@ export interface ProcessWorkOrder {
   workOrderId: string
   workOrderNo: string
   processType: ProcessWorkOrderType
+  sourceType: ProcessWorkOrderSourceType
   sourceProductionOrderId?: string
-  sourceDemandIds: string[]
+  sourceProductionOrderNo?: string
+  productionOrderOrderedAt?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   sourceArtifactIds?: string[]
   productionOrderIds: string[]
   factoryId: string
@@ -158,7 +163,10 @@ function mapWaterSolubleWorkOrder(order: WaterSolubleWorkOrder): ProcessWorkOrde
     workOrderId: order.waterOrderId,
     workOrderNo: order.waterOrderNo,
     processType: 'WATER_SOLUBLE',
-    sourceDemandIds: [...order.sourceDemandIds],
+    sourceType: 'PRODUCTION_ORDER',
+    sourceProductionOrderId: order.productionOrderId,
+    sourceProductionOrderNo: order.productionOrderNo,
+    productionOrderOrderedAt: order.createdAt,
     sourceArtifactIds: [order.sourceArtifactId],
     productionOrderIds: [order.productionOrderId],
     factoryId: order.factoryId || '',
@@ -225,8 +233,12 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
     workOrderId,
     workOrderNo,
     processType: 'PRINT',
+    sourceType: order.sourceType,
     sourceProductionOrderId: order.sourceProductionOrderId,
-    sourceDemandIds: [...order.sourceDemandIds],
+    sourceProductionOrderNo: order.sourceProductionOrderNo,
+    productionOrderOrderedAt: order.productionOrderOrderedAt,
+    stockMaterialId: order.stockMaterialId,
+    stockMaterialName: order.stockMaterialName,
     productionOrderIds: [...order.productionOrderIds],
     factoryId: order.printFactoryId,
     factoryName: order.printFactoryName,
@@ -244,7 +256,7 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
     dispatchPriceDisplay: order.dispatchPriceDisplay,
     materialSku: order.materialSku,
     materialName: order.materialColor ? `${order.materialSku} / ${order.materialColor}` : order.materialSku,
-    materialBatchNos: order.sourceDemandIds,
+    materialBatchNos: [],
     status: order.status,
     statusLabel: order.printFactoryId ? getPrintWorkOrderStatusLabel(order.status) : '待分配工厂',
     taskId: order.taskId,
@@ -291,8 +303,12 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
     workOrderId,
     workOrderNo,
     processType: 'DYE',
+    sourceType: order.sourceType,
     sourceProductionOrderId: order.sourceProductionOrderId,
-    sourceDemandIds: [...order.sourceDemandIds],
+    sourceProductionOrderNo: order.sourceProductionOrderNo,
+    productionOrderOrderedAt: order.productionOrderOrderedAt,
+    stockMaterialId: order.stockMaterialId,
+    stockMaterialName: order.stockMaterialName,
     sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
     productionOrderIds: [...(order.productionOrderIds || [])],
     factoryId: order.dyeFactoryId,
@@ -309,7 +325,7 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
     dispatchPriceDisplay: order.dispatchPriceDisplay,
     materialSku: order.rawMaterialSku,
     materialName: order.composition ? `${order.rawMaterialSku} / ${order.composition}` : order.rawMaterialSku,
-    materialBatchNos: order.sourceDemandIds,
+    materialBatchNos: [],
     status: order.status,
     statusLabel: order.dyeFactoryId ? getDyeWorkOrderStatusLabel(order.status) : '待分配工厂',
     taskId: order.taskId,

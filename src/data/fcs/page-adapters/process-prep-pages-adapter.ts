@@ -24,7 +24,7 @@ import { TEST_FACTORY_NAME } from '../factory-mock-data.ts'
 
 type PrepProcessCode = 'PRINT' | 'DYE'
 type PrepUnit = string
-type CreateModeZh = '按需求创建' | '按备货创建'
+type CreateModeZh = '生产单自动生成' | '按备货创建'
 type DemandStatusZh = '待满足' | '部分满足' | '已满足' | '已完成交接'
 type OrderStatusZh = PlatformProcessStatus
 type LegacyOrderStatusZh = '待接收来料' | '待开工' | '加工中' | '部分交出' | '全部交出' | '已关闭'
@@ -96,17 +96,6 @@ export interface PrepRequirementDemandFact {
   linkedOrders: PrepRequirementLinkedOrder[]
 }
 
-export interface PrepOrderLinkedDemandFact {
-  demandId: string
-  sourceProductionOrderId: string
-  materialCode: string
-  materialName: string
-  requiredQty: number
-  satisfiedQty: number
-  unit: PrepUnit
-  status: DemandStatusZh
-}
-
 export interface PrepOrderStockMaterialFact {
   materialCode: string
   materialName: string
@@ -133,7 +122,7 @@ export interface PrepOrderReturnBatchFact {
 
 export interface PrepOrderBatchDestinationFact {
   batchNo: string
-  demandId: string
+  sourceLabel: string
   fulfilledQty: number
   linkedAt: string
 }
@@ -142,6 +131,10 @@ export interface PrepProcessOrderFact {
   workOrderId?: string
   sourceArtifactIds?: string[]
   processType?: PrepProcessCode
+  sourceType: 'PRODUCTION_ORDER' | 'STOCK'
+  sourceProductionOrderId?: string
+  sourceProductionOrderNo?: string
+  productionOrderOrderedAt?: string
   orderNo: string
   workOrderNo?: string
   statusLabel?: string
@@ -210,7 +203,6 @@ export interface PrepProcessOrderFact {
   note: string
   createdAt: string
   updatedAt: string
-  linkedDemands: PrepOrderLinkedDemandFact[]
   stockMaterial?: PrepOrderStockMaterialFact
   materialReceipt: PrepOrderMaterialReceiptFact
   batches: PrepOrderReturnBatchFact[]
@@ -341,9 +333,8 @@ function buildFacts(processCode: PrepProcessCode): {
     const ratio = SATISFIED_RATIO_PATTERN[index % SATISFIED_RATIO_PATTERN.length]
     const satisfiedQty = clampInt(orderQty * ratio)
     const handoverCompleted = ratio >= 1 && index % 2 === 0
-    const demandStatus = toDemandStatus(orderQty, satisfiedQty, handoverCompleted)
     const orderStatus = calcOrderStatus(orderQty, satisfiedQty, index)
-    const createMode: CreateModeZh = index % 2 === 0 ? '按需求创建' : '按备货创建'
+    const createMode: CreateModeZh = '生产单自动生成'
     const artifactUnit = artifact.plannedUnit || meta.unit
 
     const orderNo = buildProductionDemandBusinessId(meta.orderPrefix, artifact)
@@ -402,6 +393,10 @@ function buildFacts(processCode: PrepProcessCode): {
 
     const orderFact: PrepProcessOrderFact = {
       sourceArtifactIds: [artifact.artifactId],
+      sourceType: 'PRODUCTION_ORDER',
+      sourceProductionOrderId: artifact.orderId,
+      sourceProductionOrderNo: order?.productionOrderNo || artifact.orderId,
+      productionOrderOrderedAt: createdAt,
       orderNo,
       status: legacyOrderStatusToPlatformStatus(orderStatus),
       statusLabel: orderStatus,
@@ -428,30 +423,10 @@ function buildFacts(processCode: PrepProcessCode): {
       plannedFeedQty: orderQty,
       unit: artifactUnit,
       plannedFinishAt: order?.demandSnapshot.requiredDeliveryDate ?? order?.updatedAt ?? '2026-03-20 18:00:00',
-      sourceSummary: `由需求单 ${demandNo} 转入${meta.processLabel}执行`,
-      note: `${meta.processLabel}执行示例数据，底层来源为统一需求生成结果。`,
+      sourceSummary: `生产单 ${order?.productionOrderNo || artifact.orderId} 自动生成`,
+      note: `${meta.processLabel}执行示例数据，来源为正式生产单工艺快照。`,
       createdAt,
       updatedAt,
-      linkedDemands: [
-        {
-          demandId: demandNo,
-          sourceProductionOrderId: artifact.orderId,
-          materialCode: toMaterialCode(meta, artifact, index),
-          materialName: `${meta.materialLabel} ${order?.demandSnapshot.spuName ?? artifact.orderId}`,
-          requiredQty: orderQty,
-          satisfiedQty,
-          unit: artifactUnit,
-          status: demandStatus,
-        },
-      ],
-      stockMaterial:
-        createMode === '按备货创建'
-          ? {
-              materialCode: toMaterialCode(meta, artifact, index),
-              materialName: `${meta.materialLabel} ${order?.demandSnapshot.spuName ?? artifact.orderId}`,
-              unit: artifactUnit,
-            }
-          : undefined,
       materialReceipt: {
         receiveStatus: calcReceiptStatus(orderQty, satisfiedQty),
         receivedQty: satisfiedQty,
@@ -478,7 +453,7 @@ function buildFacts(processCode: PrepProcessCode): {
           ? [
               {
                 batchNo,
-                demandId: demandNo,
+                sourceLabel: order?.productionOrderNo || artifact.orderId,
                 fulfilledQty: linkedQty,
                 linkedAt: updatedAt,
               },
@@ -496,8 +471,8 @@ function buildFacts(processCode: PrepProcessCode): {
       spuCode: order?.demandSnapshot.spuCode ?? '-',
       spuName: order?.demandSnapshot.spuName ?? '-',
       techPackVersion: order?.techPackSnapshot?.sourceTechPackVersionLabel ?? '-',
-      materialCode: orderFact.linkedDemands[0].materialCode,
-      materialName: orderFact.linkedDemands[0].materialName,
+      materialCode: toMaterialCode(meta, artifact, index),
+      materialName: `${meta.materialLabel} ${order?.demandSnapshot.spuName ?? artifact.orderId}`,
       requiredQty: orderQty,
       unit: artifactUnit,
       requirementText: toRequirementText(meta, artifact),
@@ -531,18 +506,11 @@ function cloneDemands(input: PrepRequirementDemandFact[]): PrepRequirementDemand
 function cloneOrders(input: PrepProcessOrderFact[]): PrepProcessOrderFact[] {
   return input.map((item) => ({
     ...item,
-    linkedDemands: item.linkedDemands.map((demand) => ({ ...demand })),
     stockMaterial: item.stockMaterial ? { ...item.stockMaterial } : undefined,
     materialReceipt: { ...item.materialReceipt },
     batches: item.batches.map((batch) => ({ ...batch })),
     destinations: item.destinations.map((dest) => ({ ...dest })),
   }))
-}
-
-function toDemandStatusFromOrder(order: ProcessWorkOrder): DemandStatusZh {
-  if (order.status === 'COMPLETED') return '已完成交接'
-  if (order.handoverRecords.length > 0) return '部分满足'
-  return '待满足'
 }
 
 function toReceiptStatusFromOrder(order: ProcessWorkOrder): ReceiptStatusZh {
@@ -570,8 +538,6 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
   const receivedQty = order.handoverRecords.reduce((sum, record) => sum + (record.receiverWrittenQty ?? record.submittedQty ?? 0), 0)
   const submittedQty = order.handoverRecords.reduce((sum, record) => sum + (record.submittedQty ?? 0), 0)
   const satisfiedQty = order.status === 'COMPLETED' ? order.plannedQty : Math.min(order.plannedQty, receivedQty || submittedQty)
-  const demandIds = order.sourceDemandIds.length > 0 ? order.sourceDemandIds : [`${order.processType}-DEMAND-${order.workOrderId}`]
-  const productionOrderIds = order.productionOrderIds.length > 0 ? order.productionOrderIds : ['暂无生产单']
   const batchNoPrefix = order.processType === 'PRINT' ? 'YHPH' : 'RSPH'
   const materialName = order.processType === 'PRINT'
     ? (order.printPayload?.materialColor ? `${order.materialSku} / ${order.printPayload.materialColor}` : order.materialName)
@@ -581,6 +547,10 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
   return {
     workOrderId: order.workOrderId,
     processType: order.processType,
+    sourceType: order.sourceType,
+    sourceProductionOrderId: order.sourceProductionOrderId,
+    sourceProductionOrderNo: order.sourceProductionOrderNo,
+    productionOrderOrderedAt: order.productionOrderOrderedAt,
     orderNo: order.workOrderNo,
     workOrderNo: order.workOrderNo,
     status: platformResultView?.platformStatusLabel || platformStatus.platformStatusLabel,
@@ -624,7 +594,7 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
     detailLink: platformResultView?.detailLink,
     craftDetailLink: platformResultView?.craftDetailLink,
     mobileTaskLink: platformResultView?.mobileTaskLink,
-    createMode: '按需求创建',
+    createMode: order.sourceType === 'STOCK' ? '按备货创建' : '生产单自动生成',
     factoryName: order.factoryName,
     plannedFeedQty: order.plannedQty,
     completedObjectQty: platformResultView?.completedObjectQty,
@@ -640,25 +610,19 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
     receivedQtyLabel: getQuantityLabel({ ...quantityContext, qtyPurpose: '实收' }),
     diffQtyLabel: getQuantityLabel({ ...quantityContext, qtyPurpose: '差异' }),
     plannedFinishAt: order.updatedAt,
-    sourceSummary: `来源需求单 ${demandIds.join('、')} / 生产单 ${productionOrderIds.join('、')}`,
+    sourceSummary: order.sourceType === 'STOCK'
+      ? `按备货创建：${order.stockMaterialName || order.materialName}`
+      : `生产单 ${order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'} 自动生成`,
     note: `${order.processType === 'PRINT' ? '印花' : '染色'}加工单统一来源：平台视图与工艺工厂 Web 视图使用同一个加工单号。`,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
-    linkedDemands: demandIds.map((demandId, index) => ({
-      demandId,
-      sourceProductionOrderId: productionOrderIds[index] || productionOrderIds[0],
-      materialCode: order.materialSku,
-      materialName,
-      requiredQty: order.plannedQty,
-      satisfiedQty,
-      unit,
-      status: toDemandStatusFromOrder(order),
-    })),
-    stockMaterial: {
-      materialCode: order.materialSku,
-      materialName,
-      unit,
-    },
+    stockMaterial: order.sourceType === 'STOCK'
+      ? {
+          materialCode: order.stockMaterialId || order.materialSku,
+          materialName: order.stockMaterialName || materialName,
+          unit,
+        }
+      : undefined,
     materialReceipt: {
       receiveStatus: toReceiptStatusFromOrder(order),
       receivedQty: satisfiedQty,
@@ -685,7 +649,9 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
         ? [
             {
               batchNo,
-              demandId: demandIds[0],
+              sourceLabel: order.sourceType === 'STOCK'
+                ? (order.stockMaterialName || order.materialName)
+                : (order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'),
               fulfilledQty: satisfiedQty,
               linkedAt: order.handoverRecords[0]?.receiverWrittenAt || order.updatedAt,
             },
@@ -699,19 +665,22 @@ function toDemandFactFromProcessOrder(
   orderFact: PrepProcessOrderFact,
   index: number,
 ): PrepRequirementDemandFact | null {
+  if (orderFact.sourceType !== 'PRODUCTION_ORDER' || !orderFact.sourceProductionOrderId) return null
   const meta = META_BY_PROCESS[processCode]
-  const linkedDemand = orderFact.linkedDemands[0]
-  if (!linkedDemand) return null
-
-  const productionOrder = productionOrders.find((order) => order.productionOrderId === linkedDemand.sourceProductionOrderId)
+  const productionOrder = productionOrders.find((order) => order.productionOrderId === orderFact.sourceProductionOrderId)
   const techPackSnapshot = productionOrder?.techPackSnapshot ?? null
   const sourceBomItem = techPackSnapshot?.bomItems[0]
+  const materialCode = sourceBomItem?.id || `${processCode}-${orderFact.workOrderId || orderFact.orderNo}`
+  const materialName = sourceBomItem
+    ? `${sourceBomItem.name}${sourceBomItem.spec ? ` / ${sourceBomItem.spec}` : ''}`
+    : `${meta.materialLabel} / ${orderFact.orderNo}`
   const sourceBomLabel = sourceBomItem
     ? `${sourceBomItem.name}${sourceBomItem.spec ? ` / ${sourceBomItem.spec}` : ''}`
-    : linkedDemand.materialName
-  const satisfiedQty = Math.max(0, Math.round(linkedDemand.satisfiedQty || orderFact.materialReceipt.receivedQty || 0))
-  const handoverCompleted = linkedDemand.status === '已完成交接' || orderFact.status === '已完成'
-  const batchNo = `${processCode === 'PRINT' ? 'YHPH' : 'RSPH'}${linkedDemand.sourceProductionOrderId.replace(/\D/g, '').slice(-8)}${pad(index + 1, 2)}`
+    : materialName
+  const satisfiedQty = Math.max(0, Math.round(orderFact.materialReceipt.receivedQty || 0))
+  const handoverCompleted = orderFact.status === '已完成'
+  const batchNo = `${processCode === 'PRINT' ? 'YHPH' : 'RSPH'}${orderFact.sourceProductionOrderId.replace(/\D/g, '').slice(-8)}${pad(index + 1, 2)}`
+  const demandId = `${processCode}-PROCESS-DETAIL-${orderFact.workOrderId || orderFact.orderNo}`
   const traceLines: PrepRequirementTraceLine[] =
     satisfiedQty > 0
       ? [
@@ -720,16 +689,16 @@ function toDemandFactFromProcessOrder(
             batchNo,
             batchSupplyQty: clampInt(satisfiedQty * 1.05),
             usedQty: satisfiedQty,
-            unit: linkedDemand.unit,
+            unit: orderFact.unit,
             batchStatus: handoverCompleted ? '已入裁片仓' : '质检中',
           },
         ]
       : []
 
   return {
-    demandId: linkedDemand.demandId,
-    sourceProductionOrderId: linkedDemand.sourceProductionOrderId,
-    bomItemId: sourceBomItem?.id || linkedDemand.materialCode,
+    demandId,
+    sourceProductionOrderId: orderFact.sourceProductionOrderId,
+    bomItemId: materialCode,
     requiresWaterSoluble: sourceBomItem?.waterSolubleRequirement === '是',
     processRoute: processCode === 'DYE'
       ? sourceBomItem?.waterSolubleRequirement === '是' ? ['WATER_SOLUBLE', 'DYE'] : ['DYE']
@@ -737,10 +706,10 @@ function toDemandFactFromProcessOrder(
     spuCode: productionOrder?.demandSnapshot.spuCode ?? '-',
     spuName: productionOrder?.demandSnapshot.spuName ?? '-',
     techPackVersion: techPackSnapshot?.sourceTechPackVersionLabel ?? '-',
-    materialCode: linkedDemand.materialCode,
-    materialName: linkedDemand.materialName,
-    requiredQty: linkedDemand.requiredQty,
-    unit: linkedDemand.unit,
+    materialCode,
+    materialName,
+    requiredQty: orderFact.plannedFeedQty,
+    unit: orderFact.unit,
     requirementText: `${meta.processLabel}要求：按技术包 ${techPackSnapshot?.sourceTechPackVersionLabel ?? '-'} / ${sourceBomLabel} 执行`,
     sourceBomItem: sourceBomLabel,
     sourceTechPackVersion: techPackSnapshot?.sourceTechPackVersionLabel ?? '-',
@@ -751,12 +720,12 @@ function toDemandFactFromProcessOrder(
       satisfiedQty > 0
         ? [
             {
-              preparationOrderNo: `PL${linkedDemand.sourceProductionOrderId.replace(/\D/g, '').slice(-8)}${pad(index + 1, 2)}`,
+              preparationOrderNo: `PL${orderFact.sourceProductionOrderId.replace(/\D/g, '').slice(-8)}${pad(index + 1, 2)}`,
               qty: satisfiedQty,
-              unit: linkedDemand.unit,
+              unit: orderFact.unit,
               preparedAt: orderFact.materialReceipt.receivedAt,
               warehouseName: toWarehouseName(index),
-              preparationStatus: satisfiedQty < linkedDemand.requiredQty ? '部分配料' : '已完成配料',
+              preparationStatus: satisfiedQty < orderFact.plannedFeedQty ? '部分配料' : '已完成配料',
               cumulativeSatisfiedQty: satisfiedQty,
               traceLines,
             },
@@ -769,7 +738,7 @@ function toDemandFactFromProcessOrder(
         factoryName: orderFact.factoryName,
         status: toLinkedOrderStatus(orderFact.status),
         returnedQty: satisfiedQty,
-        unit: linkedDemand.unit,
+        unit: orderFact.unit,
       },
     ],
   }

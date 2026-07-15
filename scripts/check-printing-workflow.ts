@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import {
+  createPrintWorkOrderFromStock,
   getPrintExecutionNodeRecord,
   getPrintOrderHandoverHead,
   getPrintOrderHandoverRecords,
@@ -37,6 +38,7 @@ const pageFiles = [
 const pageSources = pageFiles.map((file) => ({ file, source: readFile(file) }))
 const appShellSource = readFile('src/data/app-shell-config.ts')
 const workOrdersPageSource = readFile('src/pages/process-factory/printing/work-orders.ts')
+const platformOrdersPageSource = readFile('src/pages/process-print-orders.ts')
 const warehousePageSource = readFile('src/pages/process-factory/printing/warehouse.ts')
 const routesSource = readFile('src/router/routes-fcs.ts')
 const oldTemplateToken = ['renderProcessFactory', 'Scaf', 'foldPage'].join('')
@@ -59,6 +61,9 @@ pageSources.forEach(({ file, source }) => {
 
 const taskDetailSource = readFile('src/pages/pda-exec-detail.ts')
 assert(workOrdersPageSource.includes('打印任务流转卡'), '印花加工单页缺少打印任务流转卡入口')
+;['按需求创建', '选择印花需求', '印花需求单号'].forEach((term) => {
+  assert(!platformOrdersPageSource.includes(term), `平台印花加工单页面不应包含：${term}`)
+})
 assert(
   workOrdersPageSource.includes("buildTaskRouteCardPrintLink('PRINTING_WORK_ORDER', order.printOrderId)"),
   '印花加工单页打印任务流转卡必须使用 PRINTING_WORK_ORDER + printOrderId',
@@ -111,6 +116,32 @@ const orders = listPrintWorkOrders()
 assert(orders.length > 0, '未生成印花加工单数据')
 assert(orders.some((order) => getPrintWorkOrderStatusLabel(order.status) === '待送货'), '印花状态缺少待送货')
 assert(!hasDirectTransferToReviewTransition(), '仍存在转印完成直达审核的链路')
+
+orders.forEach((order) => {
+  if (order.sourceType === 'PRODUCTION_ORDER') {
+    assert(Boolean(order.sourceProductionOrderId), `${order.printOrderNo} 生产单来源必须有唯一 sourceProductionOrderId`)
+    assert(!order.stockMaterialId, `${order.printOrderNo} 生产单来源不得携带 stockMaterialId`)
+    return
+  }
+  assert(order.sourceType === 'STOCK', `${order.printOrderNo} 来源类型只能是生产单或备货`)
+  assert(Boolean(order.stockMaterialId), `${order.printOrderNo} 备货来源必须有 stockMaterialId`)
+  assert(!order.sourceProductionOrderId, `${order.printOrderNo} 备货来源不得伪造 sourceProductionOrderId`)
+})
+
+const stockCreated = createPrintWorkOrderFromStock({
+  stockMaterialId: 'STOCK-PRINT-CHECK-001',
+  stockMaterialName: '印花检查基布',
+  materialSku: 'MAT-PRINT-CHECK-001',
+  factoryId: orders[0]!.printFactoryId,
+  plannedQty: 60,
+  qtyUnit: '米',
+  plannedFinishAt: '2026-07-31 18:00',
+  processName: '数码印花',
+})
+assert(stockCreated.ok && stockCreated.order, '备货必须可以直接创建印花加工单')
+assert(stockCreated.order.sourceType === 'STOCK', '备货印花加工单来源必须是 STOCK')
+assert(stockCreated.order.stockMaterialId === 'STOCK-PRINT-CHECK-001', '备货印花加工单必须保留 stockMaterialId')
+assert(!stockCreated.order.sourceProductionOrderId, '备货印花加工单不得伪造生产单')
 
 orders.forEach((order) => {
   const task = tasks.find((item) => item.taskId === order.taskId)

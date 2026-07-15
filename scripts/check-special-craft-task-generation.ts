@@ -317,8 +317,6 @@ assert(dyeDemands.length >= expectedDyeCount, '染色需求 mock 数据必须覆
 assert(printPrepOrders.length >= expectedPrintCount, 'Web 印花加工单 mock 数据必须覆盖印花字典工艺，每个至少 3 条')
 assert(dyePrepOrders.length >= expectedDyeCount, 'Web 染色加工单 mock 数据必须覆盖染色字典工艺，每个至少 3 条')
 
-const printDemandIds = new Set(printDemands.map((demand) => demand.demandId))
-const dyeDemandIds = new Set(dyeDemands.map((demand) => demand.demandId))
 printDemands.forEach((demand) => {
   assertExistingProductionOrderWithSnapshot(demand.sourceProductionOrderId, '印花需求必须来源于已有生产单')
   assert(demand.demandId.startsWith('YHXQ'), '印花需求单号必须由生产单生成')
@@ -330,16 +328,22 @@ dyeDemands.forEach((demand) => {
   assert(!demand.demandId.includes('DM-DYE'), '染色需求不得继续使用旧 seed 需求号')
 })
 printWorkOrders.forEach((order) => {
-  assert(order.productionOrderIds.length === 1, '印花加工单必须精确关联一个已有生产单')
-  assertExistingProductionOrderWithSnapshot(order.productionOrderIds[0], '印花加工单必须来源于已有生产单')
-  assert(order.sourceDemandIds.every((demandId) => printDemandIds.has(demandId)), '印花加工单必须关联 Web 印花需求')
-  assert(order.printOrderNo.startsWith('YHJG'), '印花加工单号必须由生产单生成')
+  if (order.sourceType === 'PRODUCTION_ORDER') {
+    assertExistingProductionOrderWithSnapshot(order.sourceProductionOrderId!, '印花加工单必须来源于已有生产单')
+    assert(Boolean(order.sourceProductionOrderNo && order.productionOrderOrderedAt), '印花加工单必须保留生产单号与下单时间')
+    assert(!order.stockMaterialId, '生产单来源印花加工单不得携带备货来源')
+  } else {
+    assert(Boolean(order.stockMaterialId && order.stockMaterialName), '无真实生产单的印花 mock 必须迁为可追溯备货来源')
+    assert(!order.sourceProductionOrderId && !order.sourceProductionOrderNo, '备货来源印花加工单不得伪造生产单')
+  }
+  assert(order.printOrderNo.trim().length > 0, '印花加工单必须保留稳定单号')
 })
 dyeWorkOrders.forEach((order) => {
-  assert(order.productionOrderIds?.length === 1, '染色加工单必须精确关联一个已有生产单')
-  assertExistingProductionOrderWithSnapshot(order.productionOrderIds![0], '染色加工单必须来源于已有生产单')
-  assert(order.sourceDemandIds.every((demandId) => dyeDemandIds.has(demandId)), '染色加工单必须关联 Web 染色需求')
-  assert(order.dyeOrderNo.startsWith('RSJG'), '染色加工单号必须由生产单生成')
+  assert(order.sourceType === 'PRODUCTION_ORDER', '字典工艺染色加工单必须由生产单自动生成')
+  assertExistingProductionOrderWithSnapshot(order.sourceProductionOrderId!, '染色加工单必须来源于已有生产单')
+  assert(Boolean(order.sourceProductionOrderNo && order.productionOrderOrderedAt), '染色加工单必须保留生产单号与下单时间')
+  assert(!order.stockMaterialId, '生产单来源染色加工单不得携带备货来源')
+  assert(order.dyeOrderNo.trim().length > 0, '染色加工单必须保留稳定单号')
 })
 
 const sampleTask = storeTasks[0]
