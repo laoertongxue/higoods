@@ -75,6 +75,13 @@ function columnWidth(column: Pick<StandardListColumn<never>, 'width' | 'minWidth
   return Math.max(column.width, column.minWidth ?? 0)
 }
 
+function isColumnVisible(
+  column: Pick<StandardListColumn<never>, 'key' | 'required' | 'actionColumn'>,
+  visibleKeys: ReadonlySet<string>,
+): boolean {
+  return visibleKeys.has(column.key) || Boolean(column.required) || Boolean(column.actionColumn)
+}
+
 function frozenClass(
   column: Pick<StandardListColumn<never>, 'actionColumn'>,
   left: number,
@@ -113,7 +120,7 @@ function renderSortHeader<T>(
 export function renderStandardListTable<T>(config: StandardListTableConfig<T>): string {
   const visibleKeys = new Set(config.preferences.visibleKeys)
   const columns = orderedColumns(config.columns, config.preferences.order).filter(
-    (column) => visibleKeys.has(column.key) || column.required || column.actionColumn,
+    (column) => isColumnVisible(column, visibleKeys),
   )
   const frozenKeys = new Set(config.preferences.frozenKeys)
   const leftOffsets = new Map<string, number>()
@@ -223,7 +230,7 @@ export function renderStandardListColumnSettings<T>(
   const frozenKeys = new Set(config.preferences.frozenKeys)
   const frozenWidth = columns.reduce(
     (sum, column) => sum + (
-      visibleKeys.has(column.key) && frozenKeys.has(column.key) && !column.actionColumn
+      isColumnVisible(column, visibleKeys) && frozenKeys.has(column.key) && !column.actionColumn
         ? columnWidth(column)
         : 0
     ),
@@ -254,7 +261,7 @@ export function renderStandardListColumnSettings<T>(
             <span class="min-w-0 flex-1 truncate text-sm font-medium">${escapeHtml(column.title)}</span>
             ${isAction ? '' : renderSettingCheckbox({
               label: '显示',
-              checked: visibleKeys.has(column.key) || Boolean(column.required),
+              checked: isColumnVisible(column, visibleKeys),
               disabled: Boolean(column.required),
               eventPrefix: config.eventPrefix,
               action: 'toggle-column-visibility',

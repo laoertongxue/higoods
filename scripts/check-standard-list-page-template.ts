@@ -572,6 +572,36 @@ assert(
   '隐藏冻结列不得占用冻结宽度上限',
 )
 
+const requiredFrozenColumns: StandardListColumn<DemoRow>[] = [
+  {
+    key: 'requiredWide',
+    title: '必需宽列',
+    width: 450,
+    required: true,
+    freezeable: true,
+    render: () => '必需宽列',
+  },
+  standardListColumns[1],
+  standardListColumns[2],
+]
+const requiredFrozenSettingsHtml = renderStandardListColumnSettings({
+  title: '列设置',
+  columns: requiredFrozenColumns,
+  preferences: {
+    order: ['requiredWide', 'qty', 'actions'],
+    visibleKeys: ['qty', 'actions'],
+    frozenKeys: ['requiredWide'],
+    pageSize: 10,
+  },
+  eventPrefix: 'demo-list',
+  maxFrozenWidth: 520,
+})
+const qtySettingsAfterRequiredFrozen = columnSettingsItem(requiredFrozenSettingsHtml, 'qty', 'actions')
+assert(
+  qtySettingsAfterRequiredFrozen.includes('disabled'),
+  'required 冻结列即使不在 visibleKeys 中也必须占用冻结宽度上限',
+)
+
 const duplicateActionColumns: StandardListColumn<DemoRow>[] = [
   ...standardListColumns,
   {
