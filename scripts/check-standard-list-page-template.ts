@@ -542,6 +542,69 @@ const frozenLimitSettingsHtml = renderStandardListColumnSettings({
 const wideSettings = columnSettingsItem(frozenLimitSettingsHtml, 'wide', 'actions')
 assert(wideSettings.includes('disabled'), '冻结总宽度超限时必须禁用未冻结列的冻结控件')
 
+const hiddenFrozenColumns: StandardListColumn<DemoRow>[] = [
+  standardListColumns[0],
+  {
+    key: 'hiddenWide',
+    title: '隐藏宽列',
+    width: 400,
+    freezeable: true,
+    render: () => '隐藏宽列',
+  },
+  standardListColumns[1],
+  standardListColumns[2],
+]
+const hiddenFrozenSettingsHtml = renderStandardListColumnSettings({
+  title: '列设置',
+  columns: hiddenFrozenColumns,
+  preferences: {
+    order: ['recordNo', 'hiddenWide', 'qty', 'actions'],
+    visibleKeys: ['recordNo', 'qty', 'actions'],
+    frozenKeys: ['recordNo', 'hiddenWide'],
+    pageSize: 10,
+  },
+  eventPrefix: 'demo-list',
+  maxFrozenWidth: 520,
+})
+const qtySettingsAfterHiddenFrozen = columnSettingsItem(hiddenFrozenSettingsHtml, 'qty', 'actions')
+assert(
+  !qtySettingsAfterHiddenFrozen.includes('disabled'),
+  '隐藏冻结列不得占用冻结宽度上限',
+)
+
+const duplicateActionColumns: StandardListColumn<DemoRow>[] = [
+  ...standardListColumns,
+  {
+    key: 'moreActions',
+    title: '更多操作',
+    width: 100,
+    actionColumn: true,
+    render: () => '<button type="button">更多</button>',
+  },
+]
+assert.throws(
+  () => renderStandardListTable({
+    columns: duplicateActionColumns,
+    rows: [],
+    preferences: standardListPreferences,
+    sort: null,
+    eventPrefix: 'demo-list',
+  }),
+  /标准列表最多只能定义一个操作列/,
+  '多个操作列必须抛出中文开发错误',
+)
+assert.throws(
+  () => renderStandardListColumnSettings({
+    title: '列设置',
+    columns: duplicateActionColumns,
+    preferences: standardListPreferences,
+    eventPrefix: 'demo-list',
+    maxFrozenWidth: 520,
+  }),
+  /标准列表最多只能定义一个操作列/,
+  '列设置同样必须拒绝多个操作列',
+)
+
 assert.equal(
   JSON.stringify(standardListColumns.map(({ render, sortValue, ...column }) => column)),
   columnsBeforeRender,

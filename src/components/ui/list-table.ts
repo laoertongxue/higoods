@@ -14,6 +14,9 @@ export interface StandardListColumn<T> {
   freezeable?: boolean
   sortable?: boolean
   actionColumn?: boolean
+  /**
+   * 返回可信 HTML。调用方必须先对来自业务数据的纯文本执行 HTML 转义。
+   */
   render(row: T, index: number): string
   sortValue?: (row: T) => unknown
 }
@@ -39,6 +42,10 @@ function orderedColumns<T>(
   columns: readonly StandardListColumn<T>[],
   orderedKeys: readonly string[],
 ): StandardListColumn<T>[] {
+  if (columns.filter((column) => column.actionColumn).length > 1) {
+    throw new Error('标准列表最多只能定义一个操作列')
+  }
+
   const byKey = new Map(columns.map((column) => [column.key, column]))
   const seen = new Set<string>()
   const regular: StandardListColumn<T>[] = []
@@ -58,17 +65,21 @@ function orderedColumns<T>(
   return [...regular, ...columns.filter((column) => column.actionColumn)]
 }
 
-function alignmentClass(align: StandardListColumn<unknown>['align']): string {
+function alignmentClass(align: 'left' | 'center' | 'right' | undefined): string {
   if (align === 'center') return 'text-center'
   if (align === 'right') return 'text-right'
   return 'text-left'
 }
 
-function columnWidth(column: StandardListColumn<unknown>): number {
+function columnWidth(column: Pick<StandardListColumn<never>, 'width' | 'minWidth'>): number {
   return Math.max(column.width, column.minWidth ?? 0)
 }
 
-function frozenClass(column: StandardListColumn<unknown>, left: number, header: boolean): string {
+function frozenClass(
+  column: Pick<StandardListColumn<never>, 'actionColumn'>,
+  left: number,
+  header: boolean,
+): string {
   if (column.actionColumn) {
     return `sticky right-0 bg-background border-l ${header ? 'z-30' : 'z-20'}`
   }
@@ -211,7 +222,11 @@ export function renderStandardListColumnSettings<T>(
   const visibleKeys = new Set(config.preferences.visibleKeys)
   const frozenKeys = new Set(config.preferences.frozenKeys)
   const frozenWidth = columns.reduce(
-    (sum, column) => sum + (frozenKeys.has(column.key) && !column.actionColumn ? columnWidth(column) : 0),
+    (sum, column) => sum + (
+      visibleKeys.has(column.key) && frozenKeys.has(column.key) && !column.actionColumn
+        ? columnWidth(column)
+        : 0
+    ),
     0,
   )
   const prefix = toDataPrefix(config.eventPrefix)
