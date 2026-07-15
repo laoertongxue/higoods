@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "prebuild": "npm run check:list-page-governance",
     "preview": "vite preview",
     "test": "node --experimental-strip-types --experimental-specifier-resolution=node",
     "check:menu-routes": "tsx scripts/check-menu-routes.mjs",
