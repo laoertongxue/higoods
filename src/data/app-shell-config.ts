@@ -277,8 +277,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'Split',
           children: [
             { key: 'process-task-breakdown', title: '任务清单', icon: 'Split', href: '/fcs/process/task-breakdown' },
-            { key: 'process-dye-requirements', title: '染色需求单', icon: 'ClipboardList', href: '/fcs/process/dye-requirements' },
-            { key: 'process-print-requirements', title: '印花需求单', icon: 'FileText', href: '/fcs/process/print-requirements' },
             { key: 'process-water-soluble-orders', title: '水溶加工单', icon: 'Waves', href: '/fcs/process/water-soluble-orders' },
             { key: 'process-dye-orders', title: '染色加工单', icon: 'Package', href: '/fcs/process/dye-orders' },
             { key: 'process-print-orders', title: '印花加工单', icon: 'ClipboardSignature', href: '/fcs/process/print-orders' },

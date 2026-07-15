@@ -596,13 +596,13 @@ export function buildPreparationOutputs(input: PreparationOutputBuildInput): Pro
 
   if (selectedItems.some((item) => item.itemType === '数码印/DTF/DTG花型')) {
     outputs.push(
-      { outputType: '印花需求单', outputNo: `PRD-${input.recordNo.slice(-3)}`, outputHref: '/fcs/process/print-requirements', outputStatus: status, outputGeneratedAt: input.outputPublishedAt },
+      { outputType: '印花需求单', outputNo: `PRD-${input.recordNo.slice(-3)}`, outputHref: '/fcs/process/print-orders', outputStatus: status, outputGeneratedAt: input.outputPublishedAt },
       { outputType: '印花加工单', outputNo: `PRO-${input.recordNo.slice(-3)}`, outputHref: '/fcs/process/print-orders', outputStatus: status, outputGeneratedAt: input.outputPublishedAt },
     )
   }
   if (selectedItems.some((item) => item.itemType === '染色调色（纱线）' || item.itemType === '染色调色（面料）')) {
     outputs.push(
-      { outputType: '染色需求单', outputNo: `DYD-${input.recordNo.slice(-3)}`, outputHref: '/fcs/process/dye-requirements', outputStatus: status, outputGeneratedAt: input.outputPublishedAt },
+      { outputType: '染色需求单', outputNo: `DYD-${input.recordNo.slice(-3)}`, outputHref: '/fcs/process/dye-orders', outputStatus: status, outputGeneratedAt: input.outputPublishedAt },
       { outputType: '染色加工单', outputNo: `DYO-${input.recordNo.slice(-3)}`, outputHref: '/fcs/process/dye-orders', outputStatus: status, outputGeneratedAt: input.outputPublishedAt },
     )
   }

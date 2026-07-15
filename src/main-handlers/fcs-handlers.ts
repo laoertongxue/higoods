@@ -42,14 +42,6 @@ import {
 } from '../pages/production-craft-dict'
 import { handleTechPackEvent, isTechPackDialogOpen } from '../pages/tech-pack'
 import {
-  handleProcessDyeRequirementsEvent,
-  isProcessDyeRequirementsDialogOpen,
-} from '../pages/process-dye-requirements'
-import {
-  handleProcessPrintRequirementsEvent,
-  isProcessPrintRequirementsDialogOpen,
-} from '../pages/process-print-requirements'
-import {
   handleProcessDyeOrdersEvent,
   isProcessDyeOrdersDialogOpen,
 } from '../pages/process-dye-orders'
@@ -346,8 +338,6 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleProductionEvent(target) ||
     await handleProductionCraftDictEvent(target) ||
     await handleTechPackEvent(target) ||
-    await handleProcessDyeRequirementsEvent(target) ||
-    await handleProcessPrintRequirementsEvent(target) ||
     await handleProcessDyeOrdersEvent(target) ||
     await handleProcessPrintOrdersEvent(target) ||
     await handleMaterialIssueEvent(target) ||
@@ -481,20 +471,6 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.breakdownAction = 'close-dialog'
     handleTaskBreakdownEvent(fakeButton)
-    return true
-  }
-
-  if (isProcessDyeRequirementsDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.dyeReqAction = 'close-all'
-    handleProcessDyeRequirementsEvent(fakeButton)
-    return true
-  }
-
-  if (isProcessPrintRequirementsDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.printReqAction = 'close-all'
-    handleProcessPrintRequirementsEvent(fakeButton)
     return true
   }
 

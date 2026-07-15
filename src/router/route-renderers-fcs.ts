@@ -122,17 +122,9 @@ export const renderProcessWaterSolubleOrdersPage = createAsyncRenderer(
   () => import('../pages/process-water-soluble-orders'),
   'renderProcessWaterSolubleOrdersPage',
 )
-export const renderProcessDyeRequirementsPage = createAsyncRenderer(
-  () => import('../pages/process-dye-requirements'),
-  'renderProcessDyeRequirementsPage',
-)
 export const renderProcessPrintOrdersPage = createAsyncRenderer(
   () => import('../pages/process-print-orders'),
   'renderProcessPrintOrdersPage',
-)
-export const renderProcessPrintRequirementsPage = createAsyncRenderer(
-  () => import('../pages/process-print-requirements'),
-  'renderProcessPrintRequirementsPage',
 )
 export const renderMaterialIssuePage = createAsyncRenderer(
   () => import('../pages/material-issue'),

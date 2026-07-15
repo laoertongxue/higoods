@@ -37,8 +37,8 @@ function assertNotIncludes(source: string, token: string, label: string): void {
   assert(!source.includes(token), `${label} 不应包含：${token}`)
 }
 
-function flattenPfosMenuTitles(): string[] {
-  return (menusBySystem.pfos || []).flatMap((group) =>
+function flattenMenuTitles(system: keyof typeof menusBySystem): string[] {
+  return (menusBySystem[system] || []).flatMap((group) =>
     group.items.flatMap((item) => [item.title, ...(item.children || []).map((child) => child.title)]),
   )
 }
@@ -55,6 +55,10 @@ const routesSource = read('src/router/routes-fcs.ts')
 const pdaHandoverSource = read('src/pages/pda-handover.ts')
 const docsSource = read('docs/fcs-process-work-order-unification.md')
 const appShellSource = read('src/data/app-shell-config.ts')
+const preparationTimingSource = read('src/data/fcs/production-preparation-timing.ts')
+const fcsRouteRenderersSource = read('src/router/route-renderers-fcs.ts')
+const sharedRouteRenderersSource = read('src/router/route-renderers.ts')
+const fcsHandlersSource = read('src/main-handlers/fcs-handlers.ts')
 const stockSourceBoundaryFiles = [
   'src/data/fcs/dyeing-task-domain.ts',
   'src/data/fcs/printing-task-domain.ts',
@@ -65,6 +69,42 @@ const stockSourceBoundaryFiles = [
   'src/pages/pda-handover.ts',
   'src/pages/pda-handover-detail.ts',
 ]
+
+const fcsMenuTitles = flattenMenuTitles('fcs')
+;[
+  'src/pages/process-dye-requirements.ts',
+  'src/pages/process-print-requirements.ts',
+  'src/pages/process-order-create-bridge.ts',
+].forEach((relativePath) => assert(!fs.existsSync(path.join(ROOT, relativePath)), `${relativePath} 必须删除`))
+assert(!fcsMenuTitles.includes('染色需求单'), 'FCS 菜单不应保留染色需求单')
+assert(!fcsMenuTitles.includes('印花需求单'), 'FCS 菜单不应保留印花需求单')
+assert(fcsMenuTitles.includes('染色加工单'), 'FCS 菜单必须保留染色加工单')
+assert(fcsMenuTitles.includes('印花加工单'), 'FCS 菜单必须保留印花加工单')
+assert(!('/fcs/process/dye-requirements' in routes.exactRoutes), '染色需求单路由必须删除')
+assert(!('/fcs/process/print-requirements' in routes.exactRoutes), '印花需求单路由必须删除')
+assert('/fcs/process/dye-orders' in routes.exactRoutes, '染色加工单路由必须保留')
+assert('/fcs/process/print-orders' in routes.exactRoutes, '印花加工单路由必须保留')
+;[fcsRouteRenderersSource, sharedRouteRenderersSource].forEach((source, index) => {
+  const label = index === 0 ? 'FCS route renderer' : '共享 route renderer'
+  ;['process-dye-requirements', 'process-print-requirements', 'renderProcessDyeRequirementsPage', 'renderProcessPrintRequirementsPage']
+    .forEach((token) => assertNotIncludes(source, token, label))
+  ;['renderProcessDyeOrdersPage', 'renderProcessPrintOrdersPage']
+    .forEach((token) => assertIncludes(source, token, label))
+})
+;[
+  'process-dye-requirements',
+  'process-print-requirements',
+  'handleProcessDyeRequirementsEvent',
+  'handleProcessPrintRequirementsEvent',
+  'isProcessDyeRequirementsDialogOpen',
+  'isProcessPrintRequirementsDialogOpen',
+].forEach((token) => assertNotIncludes(fcsHandlersSource, token, 'FCS handler'))
+;['handleProcessDyeOrdersEvent', 'handleProcessPrintOrdersEvent']
+  .forEach((token) => assertIncludes(fcsHandlersSource, token, 'FCS handler'))
+;['/fcs/process/dye-requirements', '/fcs/process/print-requirements']
+  .forEach((token) => assertNotIncludes(preparationTimingSource, token, '生产准备产出链接'))
+;['/fcs/process/dye-orders', '/fcs/process/print-orders']
+  .forEach((token) => assertIncludes(preparationTimingSource, token, '生产准备产出链接'))
 
 assertIncludes(domainSource, 'export interface ProcessWorkOrder', '统一加工单领域')
 assertIncludes(domainSource, "export type ProcessWorkOrderSourceType = 'PRODUCTION_ORDER' | 'STOCK'", '统一加工单来源类型')
@@ -447,7 +487,7 @@ assertIncludes(routesSource, "renderRouteRedirect('/fcs/craft/printing/work-orde
 assertIncludes(routesSource, "renderRouteRedirect('/fcs/craft/printing/work-orders?tab=progress'", '印花进度兼容跳转')
 assertIncludes(routesSource, "renderRouteRedirect('/fcs/craft/dyeing/work-orders?tab=formula'", '染色配方兼容跳转')
 
-const menuTitles = flattenPfosMenuTitles()
+const menuTitles = flattenMenuTitles('pfos')
 assert(menuTitles.includes('印花加工单'), 'PFOS 菜单缺少印花加工单')
 assert(menuTitles.includes('染色加工单'), 'PFOS 菜单缺少染色加工单')
 assert(menuTitles.includes('染色统计'), 'PFOS 菜单缺少染色统计')
