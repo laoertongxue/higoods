@@ -2069,7 +2069,54 @@ export function isCraftCuttingSupplementManagementDialogOpen(): boolean {
   return Boolean(state.activeRecordId || state.pendingConfirmDraft)
 }
 
-export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement, _event?: Event): boolean {
+export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement, event?: Event): boolean {
+  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
+  if (dragNode && event && ['dragstart', 'dragover', 'drop'].includes(event.type)) {
+    const dragEvent = event as DragEvent
+    const columnKey = dragNode.dataset.cuttingSupplementColumnKey
+      || dragNode.dataset.dragSource
+      || dragNode.dataset.dropTarget
+      || ''
+    const column = supplementListColumns.find((item) => item.key === columnKey && !item.actionColumn)
+
+    if (event.type === 'dragstart') {
+      state.draggedColumnKey = column?.key || ''
+      if (!column) return false
+      dragEvent.dataTransfer?.setData('text/plain', column.key)
+      if (dragEvent.dataTransfer) dragEvent.dataTransfer.effectAllowed = 'move'
+      return true
+    }
+
+    const sourceKey = state.draggedColumnKey || dragEvent.dataTransfer?.getData('text/plain') || ''
+    const sourceColumn = supplementListColumns.find((item) => item.key === sourceKey && !item.actionColumn)
+    const targetColumn = supplementListColumns.find((item) => item.key === columnKey && !item.actionColumn)
+    if (!sourceColumn || !targetColumn || sourceColumn.key === targetColumn.key) {
+      if (event.type === 'drop') state.draggedColumnKey = ''
+      return false
+    }
+
+    if (event.type === 'dragover') {
+      event.preventDefault()
+      if (dragEvent.dataTransfer) dragEvent.dataTransfer.dropEffect = 'move'
+      return true
+    }
+
+    state.draggedColumnKey = ''
+    event.preventDefault()
+    const order = state.columnPreferences.order.filter((key) => key !== sourceColumn.key)
+    const targetIndex = order.indexOf(targetColumn.key)
+    if (targetIndex < 0) return false
+    order.splice(targetIndex, 0, sourceColumn.key)
+    state.columnPreferences = normalizeSupplementListPreferences({
+      ...state.columnPreferences,
+      order,
+    })
+    saveSupplementListPreferences()
+    refreshSupplementList()
+    refreshSupplementOverlay()
+    return true
+  }
+
   const fieldNode = target.closest<HTMLInputElement | HTMLSelectElement>('[data-cutting-supplement-field]')
   const field = fieldNode?.dataset.cuttingSupplementField
   if (field === 'pageSize') {

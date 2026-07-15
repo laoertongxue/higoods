@@ -1590,6 +1590,17 @@ function handleShellAction(actionNode: HTMLElement): boolean {
   return false
 }
 
+async function dispatchListColumnDragEvent(event: DragEvent): Promise<void> {
+  const target = resolveEventElementTarget(event.target)
+  if (!target?.closest('[data-standard-list-column-drag]')) return
+  const handled = await dispatchPageEvent(target, event)
+  if (handled) event.preventDefault()
+}
+
+root.addEventListener('dragstart', dispatchListColumnDragEvent)
+root.addEventListener('dragover', dispatchListColumnDragEvent)
+root.addEventListener('drop', dispatchListColumnDragEvent)
+
 root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return

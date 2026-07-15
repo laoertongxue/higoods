@@ -33,6 +33,21 @@ const slotMarkers = {
 } as const
 
 const mainSource = fs.readFileSync(new URL('../src/main.ts', import.meta.url), 'utf8')
+const fcsHandlerSource = fs.readFileSync(new URL('../src/main-handlers/fcs-handlers.ts', import.meta.url), 'utf8')
+assert.match(mainSource, /root\.addEventListener\('dragstart', dispatchListColumnDragEvent\)/, 'main.ts 必须委托列拖动开始事件')
+assert.match(mainSource, /root\.addEventListener\('dragover', dispatchListColumnDragEvent\)/, 'main.ts 必须委托列拖动经过事件')
+assert.match(mainSource, /root\.addEventListener\('drop', dispatchListColumnDragEvent\)/, 'main.ts 必须委托列拖动放置事件')
+const dragDispatchStart = mainSource.indexOf('async function dispatchListColumnDragEvent')
+const dragDispatchEnd = mainSource.indexOf("root.addEventListener('dragstart'", dragDispatchStart)
+assert(dragDispatchStart >= 0 && dragDispatchEnd > dragDispatchStart, 'main.ts 必须提供独立列拖动分发函数')
+const dragDispatchSource = mainSource.slice(dragDispatchStart, dragDispatchEnd)
+assert(dragDispatchSource.includes("closest('[data-standard-list-column-drag]')"), '列拖动委托只能处理标准列表列拖动节点')
+assert(!/\brender(?:WithFocusRestore|PageContentOnly)?\s*\(/.test(dragDispatchSource), '列拖动委托不得触发页面主体重绘')
+assert.match(
+  fcsHandlerSource,
+  /handleCraftCuttingSupplementManagementEvent\(target, event\)/,
+  'FCS 通用回退路径必须把原始 Event 传给补料管理处理器',
+)
 const supplementRouteDispatchIndex = mainSource.indexOf("pathname.startsWith('/fcs/craft/cutting/supplement-management')")
 const fcsHandlerFallbackIndex = mainSource.indexOf("const handlerSystem = getCurrentHandlerSystem(pathname)")
 assert(supplementRouteDispatchIndex >= 0, 'main.ts 必须为补料管理提供 route-specific 事件分支')
@@ -751,6 +766,53 @@ function supplementField(field: string, value: string): HTMLElement {
   return target as unknown as HTMLElement
 }
 
+function supplementColumnDragTarget(columnKey: string): HTMLElement {
+  const target = {
+    dataset: {
+      cuttingSupplementColumnKey: columnKey,
+      dragSource: columnKey,
+      dropTarget: columnKey,
+    },
+    closest(selector: string) {
+      return selector === '[data-standard-list-column-drag]'
+        || selector === '[data-skip-page-rerender="true"]'
+        ? target
+        : null
+    },
+  }
+  return target as unknown as HTMLElement
+}
+
+function supplementDragEvent(type: 'dragstart' | 'dragover' | 'drop', initialData = ''): {
+  event: Event
+  dataTransfer: { getData(format: string): string; setData(format: string, value: string): void }
+  wasPrevented(): boolean
+} {
+  let transferred = initialData
+  let prevented = false
+  const dataTransfer = {
+    effectAllowed: 'all',
+    dropEffect: 'none',
+    getData(format: string) {
+      return format === 'text/plain' ? transferred : ''
+    },
+    setData(format: string, value: string) {
+      if (format === 'text/plain') transferred = value
+    },
+  }
+  return {
+    event: {
+      type,
+      dataTransfer,
+      preventDefault() {
+        prevented = true
+      },
+    } as unknown as Event,
+    dataTransfer,
+    wasPrevented: () => prevented,
+  }
+}
+
 function countRecordRows(html: string): number {
   return [...html.matchAll(/data-record-id="[^"]+"/g)].length
 }
@@ -850,6 +912,71 @@ supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('ope
 assert(supplementDom.regions.get('overlay')?.innerHTML.includes('列设置'), '必须局部打开列设置')
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('close-column-settings'))
 assert.equal(supplementDom.regions.get('overlay')?.innerHTML, '', '必须局部关闭列设置')
+
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('open-column-settings'))
+const preferencesBeforeDrag = defaultSupplementStorage.read(supplementStorageKey)
+const dragStart = supplementDragEvent('dragstart')
+assert.equal(
+  supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('created'), dragStart.event),
+  true,
+  '合法列拖动开始必须被页面处理',
+)
+assert.equal(dragStart.dataTransfer.getData('text/plain'), 'created', '拖动开始必须写入源列')
+assert.equal(defaultSupplementStorage.read(supplementStorageKey), preferencesBeforeDrag, '拖动开始不得提前修改偏好')
+const dragOver = supplementDragEvent('dragover')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('recordNo'), dragOver.event)
+assert.equal(dragOver.wasPrevented(), true, '合法放置目标必须允许 drop')
+const drop = supplementDragEvent('drop', dragStart.dataTransfer.getData('text/plain'))
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('recordNo'), drop.event)
+assert.equal(drop.wasPrevented(), true, '合法放置必须阻止浏览器默认行为')
+let draggedPreferences = JSON.parse(defaultSupplementStorage.read(supplementStorageKey) ?? '{}') as StandardListColumnPreferences
+assert.deepEqual(
+  draggedPreferences.order,
+  ['created', 'recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'actions'],
+  'drop 必须把源列移动到目标列之前并保持操作列最后',
+)
+assert(
+  (supplementDom.regions.get('table')?.innerHTML.indexOf('data-column-key="created"') ?? -1)
+    < (supplementDom.regions.get('table')?.innerHTML.indexOf('data-column-key="recordNo"') ?? -1),
+  '列拖动后必须局部刷新表格顺序',
+)
+assert(
+  (supplementDom.regions.get('overlay')?.innerHTML.indexOf('data-standard-list-column-key="created"') ?? -1)
+    < (supplementDom.regions.get('overlay')?.innerHTML.indexOf('data-standard-list-column-key="recordNo"') ?? -1),
+  '列拖动后必须局部刷新列设置顺序',
+)
+
+const preferencesBeforeInvalidDrag = defaultSupplementStorage.read(supplementStorageKey)
+const invalidSourceStart = supplementDragEvent('dragstart')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('unknown'), invalidSourceStart.event)
+const invalidSourceDrop = supplementDragEvent('drop', 'unknown')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('recordNo'), invalidSourceDrop.event)
+assert.equal(defaultSupplementStorage.read(supplementStorageKey), preferencesBeforeInvalidDrag, '未知源列不得修改偏好')
+assert.equal(invalidSourceDrop.wasPrevented(), false, '未知源列不得允许 drop')
+
+const actionSourceStart = supplementDragEvent('dragstart')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('actions'), actionSourceStart.event)
+const actionSourceDrop = supplementDragEvent('drop', 'actions')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('recordNo'), actionSourceDrop.event)
+assert.equal(defaultSupplementStorage.read(supplementStorageKey), preferencesBeforeInvalidDrag, '操作列不得作为拖动源')
+assert.equal(actionSourceDrop.wasPrevented(), false, '操作列不得进入合法放置流程')
+
+const validSourceStart = supplementDragEvent('dragstart')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('created'), validSourceStart.event)
+const actionTargetDrop = supplementDragEvent('drop', validSourceStart.dataTransfer.getData('text/plain'))
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('actions'), actionTargetDrop.event)
+assert.equal(defaultSupplementStorage.read(supplementStorageKey), preferencesBeforeInvalidDrag, '操作列不得作为放置目标且必须保持最后')
+assert.equal(actionTargetDrop.wasPrevented(), false, '操作列目标不得允许 drop')
+
+const unknownTargetStart = supplementDragEvent('dragstart')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('created'), unknownTargetStart.event)
+const unknownTargetDrop = supplementDragEvent('drop', unknownTargetStart.dataTransfer.getData('text/plain'))
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementColumnDragTarget('unknown'), unknownTargetDrop.event)
+assert.equal(defaultSupplementStorage.read(supplementStorageKey), preferencesBeforeInvalidDrag, '未知目标列不得修改偏好')
+assert.equal(unknownTargetDrop.wasPrevented(), false, '未知目标列不得允许 drop')
+draggedPreferences = JSON.parse(defaultSupplementStorage.read(supplementStorageKey) ?? '{}') as StandardListColumnPreferences
+assert.equal(draggedPreferences.order.at(-1), 'actions', '任意拖动后操作列都必须保持最后')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('close-column-settings'))
 
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('sort-column', { columnKey: 'supplementQty' }))
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }))
