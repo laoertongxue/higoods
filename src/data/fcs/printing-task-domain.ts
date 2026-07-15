@@ -1913,6 +1913,9 @@ export function createPrintWorkOrderFromStock(input: {
   if (!Number.isFinite(input.plannedQty) || input.plannedQty <= 0 || !qtyUnit) {
     return { ok: false, message: '计划数量和单位必须有效。' }
   }
+  if (input.plannedQty > stockMaterial.availableQty) {
+    return { ok: false, message: `计划数量超过可用库存，当前最多可用 ${stockMaterial.availableQty} ${stockMaterial.qtyUnit}。` }
+  }
   if (!isValidProcessWorkOrderPlannedFinishAt(plannedFinishAt)) return { ok: false, message: '请填写有效的计划完成时间。' }
   if (!processName) return { ok: false, message: '请填写印花工艺。' }
   const factory = getFactoryMasterRecordById(input.factoryId)

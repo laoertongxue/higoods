@@ -137,8 +137,8 @@ function renderDetail(): string {
   `
 }
 
-function renderInput(field: keyof PrintCreateForm, label: string, value: string, type = 'text'): string {
-  return `<label class="block"><span class="mb-1 block text-xs text-muted-foreground">${label}</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm" type="${type}" value="${escapeHtml(value)}" data-skip-page-rerender="true" data-print-create-field="${field}" /></label>`
+function renderInput(field: keyof PrintCreateForm, label: string, value: string, type = 'text', max?: number): string {
+  return `<label class="block"><span class="mb-1 block text-xs text-muted-foreground">${label}</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm" type="${type}" value="${escapeHtml(value)}" ${typeof max === 'number' ? `max="${max}"` : ''} data-skip-page-rerender="true" data-print-create-field="${field}" /></label>`
 }
 
 function renderSelect(field: keyof PrintCreateForm, label: string, options: Array<{ value: string; label: string }>, value: string, placeholder?: string): string {
@@ -160,7 +160,7 @@ function renderCreate(): string {
       <div class="mt-5 grid gap-4 sm:grid-cols-2">
         <div class="sm:col-span-2">${renderSelect('stockMaterialId', '仓库备货库存', stockMaterials.map((item) => ({ value: item.stockMaterialId, label: `${item.stockMaterialName} / ${item.materialSku} / 可用 ${item.availableQty} ${item.qtyUnit}` })), form.stockMaterialId, '请选择真实库存')}</div>
         <div class="sm:col-span-2 rounded-md border bg-muted/20 p-3 text-sm" data-print-stock-selection-summary>${selectedStock ? `<div class="font-medium">${escapeHtml(selectedStock.stockMaterialName)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(selectedStock.materialSku)} · ${escapeHtml(selectedStock.warehouseName)} · 可用 ${escapeHtml(String(selectedStock.availableQty))} ${escapeHtml(selectedStock.qtyUnit)}</div>` : '<span class="text-muted-foreground">选择库存后自动带出名称、编码、仓库与单位。</span>'}</div>
-        ${renderInput('plannedQty', '计划数量', form.plannedQty, 'number')}
+        ${renderInput('plannedQty', '计划数量', form.plannedQty, 'number', selectedStock?.availableQty)}
         <label class="block"><span class="mb-1 block text-xs text-muted-foreground">数量单位</span><input class="h-10 w-full rounded-md border bg-muted px-3 text-sm" value="${escapeHtml(form.qtyUnit)}" data-print-stock-unit readonly /></label>
         ${renderSelect('factoryId', '印花工厂', factories.map((factory) => ({ value: factory.id, label: factory.name })), form.factoryId)}
         ${renderInput('plannedFinishAt', '计划完成时间', form.plannedFinishAt, 'datetime-local')}
@@ -242,6 +242,11 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
       const drawer = createField.closest<HTMLElement>('aside')
       const unitInput = drawer?.querySelector<HTMLInputElement>('[data-print-stock-unit]')
       if (unitInput) unitInput.value = selected?.qtyUnit || ''
+      const qtyInput = drawer?.querySelector<HTMLInputElement>('[data-print-create-field="plannedQty"]')
+      if (qtyInput) {
+        if (selected) qtyInput.max = String(selected.availableQty)
+        else qtyInput.removeAttribute('max')
+      }
       const summary = drawer?.querySelector<HTMLElement>('[data-print-stock-selection-summary]')
       if (summary) summary.textContent = selected
         ? `${selected.stockMaterialName} / ${selected.materialSku} / ${selected.warehouseName} / 可用 ${selected.availableQty} ${selected.qtyUnit}`
