@@ -2589,6 +2589,7 @@ export interface PreparedDyeWorkOrderProductionChangeSync {
   after?: FormalProductionOrderProcessSnapshotRecord
   impact?: ProcessWorkOrderChangeImpact
   commit: () => void
+  rollback: () => void
 }
 
 function toDyeSnapshotRecord(snapshot: FormalProductionOrderProcessSnapshot): FormalProductionOrderProcessSnapshotRecord {
@@ -2640,14 +2641,21 @@ export function prepareFormalProductionOrderDyeWorkOrderSync(
   const current = Array.from(workOrderStore.values()).find((order) => (
     order.sourceType === 'PRODUCTION_ORDER' && order.sourceProductionOrderId === snapshot.productionOrderId
   ))
-  if (!current) return { outcome: 'NOT_FOUND', commit: () => undefined }
+  if (!current) return { outcome: 'NOT_FOUND', commit: () => undefined, rollback: () => undefined }
   const before = current.formalProductionOrderSnapshot
   if (!before) throw new Error(`染色加工单 ${current.dyeOrderNo} 缺少正式生产单快照`)
   const after = toDyeSnapshotRecord(snapshot)
   const alreadyRecorded = [...(current.changeImpact ?? []), ...(current.autoSyncHistory ?? [])]
     .some((item) => item.changeRecordId === options.changeRecordId)
   if (alreadyRecorded || JSON.stringify(before) === JSON.stringify(after)) {
-    return { workOrderId: current.dyeOrderId, outcome: 'UNCHANGED', before, after, commit: () => undefined }
+    return {
+      workOrderId: current.dyeOrderId,
+      outcome: 'UNCHANGED',
+      before,
+      after,
+      commit: () => undefined,
+      rollback: () => undefined,
+    }
   }
 
   const combinedMembership = getProductionChangeProtectedCombinedDyeingMembership(current.dyeOrderId)
@@ -2665,6 +2673,7 @@ export function prepareFormalProductionOrderDyeWorkOrderSync(
     }
     const next = cloneWorkOrder(current)
     next.changeImpact = [...(current.changeImpact ?? []), structuredClone(impact)]
+    let committed = false
     return {
       workOrderId: current.dyeOrderId,
       outcome: 'PROTECTED',
@@ -2672,7 +2681,16 @@ export function prepareFormalProductionOrderDyeWorkOrderSync(
       before,
       after,
       impact,
-      commit: () => { workOrderStore.set(current.dyeOrderId, next) },
+      commit: () => {
+        if (committed) return
+        workOrderStore.set(current.dyeOrderId, cloneWorkOrder(next))
+        committed = true
+      },
+      rollback: () => {
+        if (!committed) return
+        workOrderStore.set(current.dyeOrderId, cloneWorkOrder(current))
+        committed = false
+      },
     }
   }
 
@@ -2706,6 +2724,7 @@ export function prepareFormalProductionOrderDyeWorkOrderSync(
   }]
   const currentTask = getDyeingTaskById(current.taskId)
   const nextTask = currentTask ? structuredClone(currentTask) : undefined
+  const beforeTask = currentTask ? structuredClone(currentTask) : undefined
   if (nextTask) {
     nextTask.productionOrderId = snapshot.productionOrderId
     nextTask.productionOrderNo = snapshot.productionOrderNo
@@ -2720,14 +2739,23 @@ export function prepareFormalProductionOrderDyeWorkOrderSync(
     nextTask.processBusinessName = after.processName
     nextTask.updatedAt = options.recordedAt
   }
+  let committed = false
   return {
     workOrderId: current.dyeOrderId,
     outcome: 'AUTO_SYNCED',
     before,
     after,
     commit: () => {
-      workOrderStore.set(current.dyeOrderId, next)
+      if (committed) return
+      workOrderStore.set(current.dyeOrderId, cloneWorkOrder(next))
       if (nextTask) registerPdaGenericProcessTask(nextTask)
+      committed = true
+    },
+    rollback: () => {
+      if (!committed) return
+      workOrderStore.set(current.dyeOrderId, cloneWorkOrder(current))
+      if (beforeTask) registerPdaGenericProcessTask(structuredClone(beforeTask))
+      committed = false
     },
   }
 }

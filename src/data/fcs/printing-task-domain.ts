@@ -1920,6 +1920,7 @@ export interface PreparedPrintWorkOrderProductionChangeSync {
   after?: FormalProductionOrderProcessSnapshotRecord
   impact?: ProcessWorkOrderChangeImpact
   commit: () => void
+  rollback: () => void
 }
 
 function toPrintSnapshotRecord(snapshot: FormalProductionOrderProcessSnapshot): FormalProductionOrderProcessSnapshotRecord {
@@ -1971,14 +1972,21 @@ export function prepareFormalProductionOrderPrintWorkOrderSync(
   const current = Array.from(workOrderStore.values()).find((order) => (
     order.sourceType === 'PRODUCTION_ORDER' && order.sourceProductionOrderId === snapshot.productionOrderId
   ))
-  if (!current) return { outcome: 'NOT_FOUND', commit: () => undefined }
+  if (!current) return { outcome: 'NOT_FOUND', commit: () => undefined, rollback: () => undefined }
   const before = current.formalProductionOrderSnapshot
   if (!before) throw new Error(`印花加工单 ${current.printOrderNo} 缺少正式生产单快照`)
   const after = toPrintSnapshotRecord(snapshot)
   const alreadyRecorded = [...(current.changeImpact ?? []), ...(current.autoSyncHistory ?? [])]
     .some((item) => item.changeRecordId === options.changeRecordId)
   if (alreadyRecorded || JSON.stringify(before) === JSON.stringify(after)) {
-    return { workOrderId: current.printOrderId, outcome: 'UNCHANGED', before, after, commit: () => undefined }
+    return {
+      workOrderId: current.printOrderId,
+      outcome: 'UNCHANGED',
+      before,
+      after,
+      commit: () => undefined,
+      rollback: () => undefined,
+    }
   }
   if (hasActualPrintExecution(current)) {
     const impact: ProcessWorkOrderChangeImpact = {
@@ -1991,13 +1999,23 @@ export function prepareFormalProductionOrderPrintWorkOrderSync(
     }
     const next = cloneWorkOrder(current)
     next.changeImpact = [...(current.changeImpact ?? []), structuredClone(impact)]
+    let committed = false
     return {
       workOrderId: current.printOrderId,
       outcome: 'PROTECTED',
       before,
       after,
       impact,
-      commit: () => { workOrderStore.set(current.printOrderId, next) },
+      commit: () => {
+        if (committed) return
+        workOrderStore.set(current.printOrderId, cloneWorkOrder(next))
+        committed = true
+      },
+      rollback: () => {
+        if (!committed) return
+        workOrderStore.set(current.printOrderId, cloneWorkOrder(current))
+        committed = false
+      },
     }
   }
 
@@ -2026,6 +2044,7 @@ export function prepareFormalProductionOrderPrintWorkOrderSync(
   }]
   const currentTask = getPrintingTaskById(current.taskId)
   const nextTask = currentTask ? structuredClone(currentTask) : undefined
+  const beforeTask = currentTask ? structuredClone(currentTask) : undefined
   if (nextTask) {
     nextTask.productionOrderId = snapshot.productionOrderId
     nextTask.productionOrderNo = snapshot.productionOrderNo
@@ -2040,14 +2059,23 @@ export function prepareFormalProductionOrderPrintWorkOrderSync(
     nextTask.processBusinessName = after.processName
     nextTask.updatedAt = options.recordedAt
   }
+  let committed = false
   return {
     workOrderId: current.printOrderId,
     outcome: 'AUTO_SYNCED',
     before,
     after,
     commit: () => {
-      workOrderStore.set(current.printOrderId, next)
+      if (committed) return
+      workOrderStore.set(current.printOrderId, cloneWorkOrder(next))
       if (nextTask) registerPdaGenericProcessTask(nextTask)
+      committed = true
+    },
+    rollback: () => {
+      if (!committed) return
+      workOrderStore.set(current.printOrderId, cloneWorkOrder(current))
+      if (beforeTask) registerPdaGenericProcessTask(structuredClone(beforeTask))
+      committed = false
     },
   }
 }

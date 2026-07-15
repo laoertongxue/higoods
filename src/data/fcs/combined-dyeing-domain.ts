@@ -660,7 +660,7 @@ export function getProductionChangeProtectedCombinedDyeingMembership(
 export function prepareCombinedDyeingProductionChangeImpact(
   taskId: string,
   input: CombinedDyeingProductionChangeImpact,
-): { commit: () => void } {
+): { commit: () => void; rollback: () => void } {
   const task = combinedDyeingTaskStore.get(taskId)
   if (!task) throw new Error(`未找到合并染色任务：${taskId}`)
   requireText(input.changeRecordId, '生产变更记录 ID')
@@ -674,12 +674,22 @@ export function prepareCombinedDyeingProductionChangeImpact(
   if (history.some((item) => (
     item.changeRecordId === input.changeRecordId && item.dyeWorkOrderId === input.dyeWorkOrderId
   ))) {
-    return { commit: () => undefined }
+    return { commit: () => undefined, rollback: () => undefined }
   }
+  const beforeHistory = task.changeImpact === undefined ? undefined : deepClone(task.changeImpact)
   const nextHistory = [...history, deepClone(input)]
+  let committed = false
   return {
     commit: () => {
-      task.changeImpact = nextHistory
+      if (committed) return
+      task.changeImpact = deepClone(nextHistory)
+      committed = true
+    },
+    rollback: () => {
+      if (!committed) return
+      if (beforeHistory === undefined) delete task.changeImpact
+      else task.changeImpact = deepClone(beforeHistory)
+      committed = false
     },
   }
 }

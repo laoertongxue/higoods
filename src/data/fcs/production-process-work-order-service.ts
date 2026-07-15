@@ -29,6 +29,7 @@ export interface EnsuredProductionProcessWorkOrders {
 export interface ProductionOrderChangeWorkOrderSyncOptions {
   changeRecordId?: string
   recordedAt?: string
+  beforeCommitPreparation?: (index: number) => void
 }
 
 export interface ProductionOrderChangeWorkOrderSyncResult {
@@ -40,6 +41,7 @@ export interface ProductionOrderChangeWorkOrderSyncResult {
 export interface PreparedProductionOrderChangeWorkOrderSyncBatch {
   result: ProductionOrderChangeWorkOrderSyncResult
   commit: () => void
+  rollback: () => void
 }
 
 function findExistingWorkOrderId(
@@ -273,7 +275,7 @@ export function prepareSyncProcessWorkOrdersAfterProductionOrderChanges(
   }
   const batchRecordId = options.changeRecordId?.trim()
   const recordedAt = options.recordedAt?.trim() || new globalThis.Date().toISOString()
-  const preparations: Array<{ commit: () => void }> = []
+  const preparations: Array<{ commit: () => void; rollback: () => void }> = []
   const result: ProductionOrderChangeWorkOrderSyncResult = { autoSynced: [], protected: [], unchanged: [] }
 
   snapshots.forEach((snapshot) => {
@@ -319,12 +321,30 @@ export function prepareSyncProcessWorkOrdersAfterProductionOrderChanges(
   })
 
   let committed = false
+  let rolledBack = false
+  let committedPreparations: Array<{ commit: () => void; rollback: () => void }> = []
+  const rollbackCommittedPreparations = (): void => {
+    committedPreparations.slice().reverse().forEach((prepared) => prepared.rollback())
+    committedPreparations = []
+    committed = false
+    rolledBack = true
+  }
   return {
     result,
     commit: () => {
-      if (committed) return
-      preparations.forEach((prepared) => prepared.commit())
-      committed = true
+      if (committed || rolledBack) return
+      try {
+        preparations.forEach((prepared, index) => {
+          options.beforeCommitPreparation?.(index)
+          prepared.commit()
+          committedPreparations.push(prepared)
+        })
+        committed = true
+      } catch (error) {
+        rollbackCommittedPreparations()
+        throw error
+      }
     },
+    rollback: rollbackCommittedPreparations,
   }
 }

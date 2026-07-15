@@ -109,6 +109,7 @@ import {
   restoreProductionChangeRecordSnapshot,
   saveProductionChangeRecord,
   validateProductionChangeDecisions,
+  resolveProductionChangeMaterialIdentity,
   resolveProductionChangeMaterialIdentityTargets,
   type ProductionChangeTechPackIdentity,
 } from '../../data/fcs/production-order-change-workflow.ts'
@@ -370,7 +371,7 @@ export function validateProductionChangeFormStep(
       return '新面料不能与原面料相同。'
     }
     if (!currentMaterialOptions.some((option) => option.value === replacement.originalMaterialId)) {
-      return '请选择当前生产单事实中的原面料。'
+      return '请选择具备稳定正式物料映射的当前原面料。'
     }
     if (!replacementMaterialOptions.some((option) => option.value === replacement.replacementMaterialId)) {
       return '请选择系统中的新面料。'
@@ -678,6 +679,12 @@ export function buildPostChangeProcessWorkOrderSnapshotsForForm(
   if (form.changeType === 'MATERIAL_REPLACEMENT' && !replacementMaterial) {
     throw new Error('请选择系统中的新面料')
   }
+  if (
+    form.changeType === 'MATERIAL_REPLACEMENT'
+    && !resolveProductionChangeMaterialIdentity(form.productionOrderId, form.materialReplacement.originalMaterialId)
+  ) {
+    throw new Error('当前原面料缺少稳定正式物料映射，不能执行替换')
+  }
   const materialIdentityTargets = form.changeType === 'MATERIAL_REPLACEMENT'
     ? resolveProductionChangeMaterialIdentityTargets(
         form.productionOrderId,
@@ -769,6 +776,7 @@ export function executeProductionChangeForForm(
     shouldFail?: boolean
     execute?: typeof executeProductionChange
     executedAt?: string | Date
+    beforeProcessWorkOrderPreparationCommit?: (index: number) => void
   } = {},
 ): { executed: boolean; step: ProductionChangeFormStep; error: string } {
   if (form.execution.status === 'RUNNING') {
@@ -818,6 +826,18 @@ export function executeProductionChangeForForm(
           preview.affectedOrderIds,
         )
       : new Map()
+    if (
+      form.changeType === 'MATERIAL_REPLACEMENT'
+      && (materialIdentityTargets.size === 0 || !materialIdentityTargets.has(form.productionOrderId))
+    ) {
+      throw new Error('当前原面料缺少稳定正式物料映射，不能执行替换')
+    }
+    const replacementMaterialSnapshot = form.changeType === 'MATERIAL_REPLACEMENT'
+      ? getMaterialArchiveById(form.materialReplacement.replacementMaterialId)
+      : null
+    if (form.changeType === 'MATERIAL_REPLACEMENT' && !replacementMaterialSnapshot) {
+      throw new Error('请选择系统中的新面料')
+    }
     const techPackIdentityPredictions = buildProductionChangeTechPackIdentityPredictions(
       preview,
       form.changeType === 'MATERIAL_REPLACEMENT'
@@ -896,7 +916,7 @@ export function executeProductionChangeForForm(
               const persistedFact = applyProductionOrderMaterialFactReplacement({
                 productionOrderId,
                 factId: targetIdentity.factId,
-                replacementMaterialId: form.materialReplacement.replacementMaterialId,
+                replacementMaterial: replacementMaterialSnapshot!,
                 resultingTechPackVersionId,
                 changeRecordId: form.recordId,
               })
@@ -958,6 +978,7 @@ export function executeProductionChangeForForm(
         processWorkOrderSnapshots,
         changeRecordId: form.recordId,
         processWorkOrderSyncRecordedAt: executedAt,
+        beforeProcessWorkOrderPreparationCommit: options.beforeProcessWorkOrderPreparationCommit,
       })
     } catch {
       form.execution = createProductionChangeRolledBackResult(preview)

@@ -665,6 +665,7 @@ export interface ProductionChangeExecutionOptions {
   processWorkOrderSnapshots?: FormalProductionOrderProcessSnapshot[] | (() => FormalProductionOrderProcessSnapshot[])
   changeRecordId?: string
   processWorkOrderSyncRecordedAt?: string
+  beforeProcessWorkOrderPreparationCommit?: (index: number) => void
 }
 
 export interface ProductionChangePreview {
@@ -766,7 +767,8 @@ export function executeProductionChange(
   }
   lockObjectIds.forEach((objectId) => activeProductionChangeLocks.add(objectId))
   let persistenceStarted = false
-  let persistedDoneResult: ProductionChangeExecutionResult | null = null
+  let persistedDone = false
+  let preparedWorkOrderBatch: ReturnType<typeof prepareSyncProcessWorkOrdersAfterProductionOrderChanges> | null = null
 
   try {
     const currentFingerprint = createProductionChangeScopeFingerprint(
@@ -811,7 +813,7 @@ export function executeProductionChange(
       options.onStep?.(step, result)
       options.onProgress?.(result.progress, result)
     })
-    const preparedWorkOrderBatch = failed
+    preparedWorkOrderBatch = failed
       ? null
       : (() => {
           try {
@@ -824,6 +826,7 @@ export function executeProductionChange(
             return prepareSyncProcessWorkOrdersAfterProductionOrderChanges(snapshots, {
               changeRecordId: options.changeRecordId || `PRODUCTION-CHANGE:${preview.factsFingerprint}`,
               recordedAt: options.processWorkOrderSyncRecordedAt,
+              beforeCommitPreparation: options.beforeProcessWorkOrderPreparationCommit,
             })
           } catch {
             return null
@@ -835,12 +838,19 @@ export function executeProductionChange(
     persistenceStarted = true
     const persistedResult = options.persist?.(result) ?? result
     if (persistedResult.status !== 'DONE') return persistedResult
-    persistedDoneResult = persistedResult
+    persistedDone = true
     preparedWorkOrderBatch?.commit()
     return persistedResult
   } catch {
-    if (persistedDoneResult) return persistedDoneResult
+    preparedWorkOrderBatch?.rollback()
     const rolledBackResult = createProductionChangeRolledBackResult(preview, lockObjectIds)
+    if (persistedDone) {
+      try {
+        return options.persist?.(rolledBackResult) ?? rolledBackResult
+      } catch {
+        return rolledBackResult
+      }
+    }
     if (!persistenceStarted) {
       persistenceStarted = true
       options.persist?.(rolledBackResult)

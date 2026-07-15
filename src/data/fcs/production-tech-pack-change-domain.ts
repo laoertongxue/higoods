@@ -3916,7 +3916,11 @@ export function appendProductionOrderMaterialChangeHistory(
 export function applyProductionOrderMaterialFactReplacement(input: {
   productionOrderId: string
   factId: string
-  replacementMaterialId: string
+  replacementMaterial: {
+    materialId: string
+    materialCode: string
+    materialName: string
+  }
   resultingTechPackVersionId: string
   changeRecordId: string
 }): ProductionOrderMaterialFact | null {
@@ -3933,15 +3937,24 @@ export function applyProductionOrderMaterialFactReplacement(input: {
   ) {
     return null
   }
-  const replacementMaterialId = input.replacementMaterialId.trim()
+  const replacementMaterialId = input.replacementMaterial.materialId.trim()
+  const replacementMaterialCode = input.replacementMaterial.materialCode.trim()
+  const replacementMaterialName = input.replacementMaterial.materialName.trim()
   const resultingTechPackVersionId = input.resultingTechPackVersionId.trim()
   const changeRecordId = input.changeRecordId.trim()
-  if (!replacementMaterialId || !resultingTechPackVersionId || !changeRecordId) {
-    throw new Error('物料替换后的正式物料、技术包版本和变更记录不能为空')
+  if (
+    !replacementMaterialId
+    || !replacementMaterialCode
+    || !replacementMaterialName
+    || !resultingTechPackVersionId
+    || !changeRecordId
+  ) {
+    throw new Error('物料替换后的正式物料编码、名称、技术包版本和变更记录不能为空')
   }
   fact.canonicalMaterialId = replacementMaterialId
   fact.snapshotMaterialId = replacementMaterialId
   fact.sourceTechPackVersionId = resultingTechPackVersionId
+  fact.material = `${replacementMaterialCode} ${replacementMaterialName}`
   return clone(fact)
 }
 
