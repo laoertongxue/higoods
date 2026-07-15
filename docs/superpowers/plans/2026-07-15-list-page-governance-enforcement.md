@@ -162,11 +162,12 @@ assert.match(mainSource, /@page-pattern: list/)
 在 `package.json` 增加：
 
 ```json
-"check:list-page-governance": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-list-page-governance.ts",
+"check:list-page-governance:static": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-list-page-governance.ts",
+"check:list-page-governance": "npm run check:list-page-governance:static && npm run check:standard-list-page-template && npm run check:prototype-design-governance -- --all",
 "prebuild": "npm run check:list-page-governance"
 ```
 
-脚本从 `GOVERNANCE_BASE_SHA` 环境变量读取可选 base SHA；本地构建不依赖 GitHub 环境变量，PR Workflow 显式传入 base SHA。
+静态脚本从 `GOVERNANCE_BASE_SHA` 环境变量读取可选 base SHA；本地构建不依赖 GitHub 环境变量，PR Workflow 显式传入 base SHA。Workflow 的静态校验使用 `npm run check:list-page-governance:static`，避免在统一门禁中重复启动浏览器；构建阶段仍会通过 `prebuild` 完整复核。
 
 - [ ] **步骤 4：运行红绿验证**
 
