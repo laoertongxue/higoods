@@ -9,6 +9,8 @@ import {
   buildProductionOrderOverviewRows,
   type ProductionOrderOverviewSources,
 } from '../src/pages/process-factory/cutting/production-order-overview-projection.ts'
+import { renderMultiSelectFilter } from '../src/components/ui/filter-bar.ts'
+import { renderWorkbenchPagination } from '../src/pages/process-factory/cutting/layout.helpers.ts'
 
 assert.equal(summarizeThreeStageStatus([], false), '—')
 assert.equal(summarizeThreeStageStatus(['NOT_STARTED', 'NOT_STARTED'], true), '未开始')
@@ -111,5 +113,27 @@ assert.equal(rows[0].factoryLines[0].pickupLabel, '部分领取')
 assert.equal('riskTags' in rows[0], false)
 assert.equal('blocker' in rows[0], false)
 assert.equal('exceptionFacts' in rows[0], false)
+
+const multiSelectHtml = renderMultiSelectFilter({
+  label: '印花状态',
+  field: 'printing-status',
+  selectedValues: ['进行中'],
+  options: ['未开始', '进行中', '已完成', '无需印花'],
+  actionAttr: 'data-cutting-overview-multiselect',
+})
+assert.match(multiSelectHtml, /印花状态（1）/)
+assert.match(multiSelectHtml, /type="checkbox"/)
+assert.match(multiSelectHtml, /data-cutting-overview-multiselect="printing-status"/)
+
+const paginationHtml = renderWorkbenchPagination({
+  page: 1,
+  pageSize: 20,
+  total: 86,
+  itemUnit: '张生产单',
+  actionAttr: 'data-overview-action',
+  pageAction: 'page',
+  pageSizeAttr: 'data-overview-page-size',
+})
+assert.match(paginationHtml, /共 86 张生产单/)
 
 console.log('cutting production order overview model checks passed')

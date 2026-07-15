@@ -57,6 +57,41 @@ export function renderSearchInputWithClear(config: SearchInputConfig & { clearAc
   `
 }
 
+export function renderMultiSelectFilter(config: {
+  label: string
+  field: string
+  selectedValues: string[]
+  options: string[]
+  actionAttr: string
+}): string {
+  const selected = new Set(config.selectedValues)
+  const selectedCount = selected.size ? `（${selected.size}）` : ''
+
+  return `
+    <details class="relative">
+      <summary class="flex h-10 min-w-32 cursor-pointer list-none items-center justify-between gap-2 rounded-md border bg-background px-3 text-sm">
+        <span>${escapeHtml(config.label)}${selectedCount}</span>
+        <i data-lucide="chevron-down" class="h-4 w-4 text-muted-foreground"></i>
+      </summary>
+      <div class="absolute z-40 mt-1 min-w-44 space-y-1 rounded-md border bg-popover p-2 shadow-md">
+        ${config.options
+          .map((option) => `
+            <label class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted">
+              <input
+                type="checkbox"
+                ${config.actionAttr}="${escapeHtml(config.field)}"
+                value="${escapeHtml(option)}"
+                ${selected.has(option) ? 'checked' : ''}
+              >
+              <span>${escapeHtml(option)}</span>
+            </label>
+          `)
+          .join('')}
+      </div>
+    </details>
+  `
+}
+
 // ============ 筛选栏组件 ============
 
 /**
