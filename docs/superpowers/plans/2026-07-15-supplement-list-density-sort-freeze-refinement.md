@@ -35,7 +35,7 @@ const compactStatsHtml = renderStandardListStats([
   { label: '补料单', value: 12 },
   { label: '已确认', value: 12 },
 ])
-assert.match(compactStatsHtml, /min-h-12/)
+assert.match(compactStatsHtml, /h-12/)
 assert.match(compactStatsHtml, /items-center/)
 assert.match(compactStatsHtml, /justify-between/)
 assert.doesNotMatch(compactStatsHtml, /mt-1 text-xl/)
@@ -70,14 +70,14 @@ assert.match(ascendingHtml, /aria-sort="ascending"/)
 npm run check:standard-list-page-template
 ```
 
-预期：FAIL，至少缺少 `min-h-12` 单行摘要或 `data-standard-list-sort-icon` 内联 SVG。
+预期：FAIL，至少缺少 `h-12` 单行摘要或 `data-standard-list-sort-icon` 内联 SVG。
 
 - [ ] **步骤 3：实现 48px 单行摘要**
 
 将 `renderStandardListStats()` 的卡片内部改为同一 flex 行：
 
 ```ts
-<div class="flex min-h-12 min-w-[10rem] flex-1 items-center justify-between gap-4 rounded-lg border bg-card px-4">
+<div class="flex h-12 min-w-[10rem] flex-1 items-center justify-between gap-4 rounded-lg border bg-card px-4">
   <span class="text-sm text-muted-foreground">${escapeHtml(item.label)}</span>
   <strong class="text-lg font-semibold tabular-nums">${escapeHtml(item.value)}</strong>
 </div>
