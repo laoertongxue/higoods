@@ -22,6 +22,7 @@ import { listPdaGenericProcessTasks, registerPdaGenericProcessTask } from '../sr
 import { submitDyeHandover } from '../src/data/fcs/process-execution-writeback.ts'
 import { applyDyeWarehouseLinkageAfterAction } from '../src/data/fcs/process-warehouse-linkage-service.ts'
 import { getProcessWarehouseRecordById, listProcessHandoverRecords } from '../src/data/fcs/process-warehouse-domain.ts'
+import { getPdaHandoverSourceDisplay, listHandoverOrdersByTaskId } from '../src/data/fcs/pda-handover-events.ts'
 
 const repoRoot = process.cwd()
 const dyePages = [
@@ -185,7 +186,18 @@ function main(): void {
   assert.equal(stockWarehouseRecord?.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色仓记录必须保留 stockMaterialId')
   assert.equal(stockWarehouseRecord?.sourceProductionOrderId, undefined, '备货染色仓记录不得保留空生产单 ID')
   assert.equal(stockWarehouseRecord?.sourceDemandId, undefined, '备货染色仓记录不得保留空需求 ID')
-  submitDyeHandover(stockCreated.order.taskId, { submittedQty: stockCreated.order.plannedQty })
+  const stockSubmit = submitDyeHandover(stockCreated.order.taskId, { submittedQty: stockCreated.order.plannedQty })
+  const stockPdaHead = listHandoverOrdersByTaskId(stockCreated.order.taskId)[0]
+  assert.equal(stockPdaHead?.sourceType, 'STOCK', '备货染色 PDA 交出单来源必须是 STOCK')
+  assert.equal(stockPdaHead?.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色 PDA 交出单必须保留 stockMaterialId')
+  assert.equal(stockPdaHead?.productionOrderId, undefined, '备货染色 PDA 交出单不得写生产单 ID')
+  assert.equal(stockPdaHead?.productionOrderNo, undefined, '备货染色 PDA 交出单不得写生产单号')
+  assert.deepEqual(getPdaHandoverSourceDisplay(stockPdaHead!), { label: '备货物料', value: '染色检查坯布 / STOCK-DYE-CHECK-001' }, '备货染色 PDA 页面必须展示备货物料')
+  assert.equal(stockSubmit.handoverRecord.sourceType, 'STOCK', '备货染色 PDA 交出记录来源必须是 STOCK')
+  assert.equal(stockSubmit.handoverRecord.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色 PDA 交出记录必须保留 stockMaterialId')
+  assert.equal(stockSubmit.handoverRecord.stockMaterialName, '染色检查坯布', '备货染色 PDA 交出记录必须保留 stockMaterialName')
+  assert.equal(stockSubmit.handoverRecord.productionOrderId, undefined, '备货染色 PDA 交出记录不得写生产单 ID')
+  assert.equal(stockSubmit.handoverRecord.productionOrderNo, undefined, '备货染色 PDA 交出记录不得写生产单号')
   const stockHandoverRecord = listProcessHandoverRecords({ sourceWorkOrderId: stockCreated.order.dyeOrderId })
     .find((record) => record.sourceType === 'STOCK')
   assert.equal(stockHandoverRecord?.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色交出回写必须保留 stockMaterialId')
@@ -211,7 +223,17 @@ function main(): void {
   assert.equal(productionWarehouseRecord?.sourceType, 'PRODUCTION_ORDER', '生产单染色仓记录来源必须是 PRODUCTION_ORDER')
   assert.equal(productionWarehouseRecord?.sourceProductionOrderId, productionOrder.sourceProductionOrderId, '生产单染色仓记录必须保留生产单 ID')
   assert.equal(productionWarehouseRecord?.stockMaterialId, undefined, '生产单染色仓记录不得携带备货来源')
-  submitDyeHandover(productionOrder.taskId, { submittedQty: productionOrder.plannedQty })
+  const productionSubmit = submitDyeHandover(productionOrder.taskId, { submittedQty: productionOrder.plannedQty })
+  const productionPdaHead = listHandoverOrdersByTaskId(productionOrder.taskId)[0]
+  assert.equal(productionPdaHead?.sourceType, 'PRODUCTION_ORDER', '生产单染色 PDA 交出单来源必须是 PRODUCTION_ORDER')
+  assert.equal(productionPdaHead?.productionOrderId, productionOrder.sourceProductionOrderId, '生产单染色 PDA 交出单必须保留生产单 ID')
+  assert.equal(productionPdaHead?.productionOrderNo, productionOrder.sourceProductionOrderNo, '生产单染色 PDA 交出单必须保留生产单号')
+  assert.equal(productionPdaHead?.stockMaterialId, undefined, '生产单染色 PDA 交出单不得携带备货来源')
+  assert.deepEqual(getPdaHandoverSourceDisplay(productionPdaHead!), { label: '生产单号', value: productionOrder.sourceProductionOrderNo }, '生产单染色 PDA 页面必须展示生产单号')
+  assert.equal(productionSubmit.handoverRecord.productionOrderId, productionOrder.sourceProductionOrderId, '生产单染色 PDA 交出记录必须保留生产单 ID')
+  assert.equal(productionSubmit.handoverRecord.productionOrderNo, productionOrder.sourceProductionOrderNo, '生产单染色 PDA 交出记录必须保留生产单号')
+  assert.equal(productionSubmit.handoverRecord.stockMaterialId, undefined, '生产单染色 PDA 交出记录不得携带备货来源')
+  assert.equal(productionSubmit.handoverRecord.stockMaterialName, undefined, '生产单染色 PDA 交出记录不得携带备货名称')
   const productionHandoverRecord = listProcessHandoverRecords({ sourceWorkOrderId: productionOrder.dyeOrderId })
     .find((record) => record.sourceType === 'PRODUCTION_ORDER')
   assert.equal(productionHandoverRecord?.sourceProductionOrderId, productionOrder.sourceProductionOrderId, '生产单染色交出回写必须保留生产单 ID')

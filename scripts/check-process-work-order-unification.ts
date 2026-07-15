@@ -52,6 +52,7 @@ const pfosDyeSource = read('src/pages/process-factory/dyeing/work-orders.ts')
 const printDetailSource = read('src/pages/process-factory/printing/work-order-detail.ts')
 const dyeDetailSource = read('src/pages/process-factory/dyeing/work-order-detail.ts')
 const routesSource = read('src/router/routes-fcs.ts')
+const pdaHandoverSource = read('src/pages/pda-handover.ts')
 const docsSource = read('docs/fcs-process-work-order-unification.md')
 const appShellSource = read('src/data/app-shell-config.ts')
 const stockSourceBoundaryFiles = [
@@ -60,6 +61,8 @@ const stockSourceBoundaryFiles = [
   'src/data/fcs/mobile-execution-task-index.ts',
   'src/data/fcs/process-warehouse-linkage-service.ts',
   'src/data/fcs/process-execution-writeback.ts',
+  'src/data/fcs/pda-handover-events.ts',
+  'src/pages/pda-handover.ts',
 ]
 
 assertIncludes(domainSource, 'export interface ProcessWorkOrder', '统一加工单领域')
@@ -72,10 +75,12 @@ assertIncludes(adapterSource, 'listProcessWorkOrders', '平台加工单 adapter'
 assertIncludes(adapterSource, 'mapUnifiedWorkOrderToPrepOrder', '平台加工单 adapter')
 for (const file of stockSourceBoundaryFiles) {
   const source = read(file)
-  ;["sourceProductionOrderId || ''", "productionOrderId: ''", "sourceDemandId: ''", "sourceDemandNo: ''"].forEach((token) => {
+  ;["sourceProductionOrderId || ''", "productionOrderId: ''", "productionOrderNo: ''", "sourceDemandId: ''", "sourceDemandNo: ''"].forEach((token) => {
     assertNotIncludes(source, token, `${file} 备货来源边界`)
   })
 }
+assertIncludes(pdaHandoverSource, 'getPdaHandoverSourceDisplay(head)', 'PDA 交出页来源展示')
+assertIncludes(pdaHandoverSource, 'renderHandoverSourceField(head)', 'PDA 交出页来源字段')
 
 const printWorkOrders = listPrintWorkOrders()
 const dyeWorkOrders = listDyeWorkOrders()
