@@ -3,18 +3,18 @@ import { expect, test } from '@playwright/test'
 import { collectPageErrors, expectNoPageErrors } from './helpers/seed-cutting-runtime-state'
 
 const expectedHeaders = [
-  '紧急程度',
-  '生产单号',
-  '款号 / SPU',
-  '下单件数',
-  '计划发货日期',
-  '配料进展',
-  '领料进展',
-  '裁片单数',
-  '当前进展',
-  '部位差异',
-  '风险提示',
-  '操作',
+  '生产单',
+  '款式',
+  '印花',
+  '染色',
+  '拆解',
+  '配料',
+  '派单工厂 / 接单 / 领取',
+  '唛架',
+  '铺布',
+  '裁剪',
+  '入仓',
+  '发货 / 接收工厂',
 ] as const
 
 test('裁片生产单进度主表的表头和数据列保持 12 列对齐', async ({ page }) => {
@@ -25,7 +25,13 @@ test('裁片生产单进度主表的表头和数据列保持 12 列对齐', asyn
   const table = page.getByTestId('cutting-production-progress-main-table')
   await expect(table).toBeVisible()
 
-  const headers = await table.locator('thead th').evaluateAll((elements) =>
+  await expect(table.locator('thead tr')).toHaveCount(2)
+  const groupHeaders = await table.locator('thead tr').first().locator('th').evaluateAll((elements) =>
+    elements.map((element) => element.textContent?.trim() ?? ''),
+  )
+  expect(groupHeaders).toEqual(['下单', '印染', '中转仓', '裁床厂'])
+
+  const headers = await table.locator('thead tr').nth(1).locator('th').evaluateAll((elements) =>
     elements.map((element) => element.textContent?.trim() ?? ''),
   )
   expect(headers).toEqual(expectedHeaders)
@@ -34,11 +40,10 @@ test('裁片生产单进度主表的表头和数据列保持 12 列对齐', asyn
   await expect(firstRow).toBeVisible()
   await expect(firstRow.locator('td')).toHaveCount(expectedHeaders.length)
 
-  await expect(table.locator('thead th').nth(5)).toHaveText('配料进展')
-  await expect(table.locator('thead th').nth(6)).toHaveText('领料进展')
-  await expect(table.locator('thead th').nth(7)).toHaveText('裁片单数')
-  await expect(table.locator('thead th').nth(8)).toHaveText('当前进展')
-  await expect(table.locator('thead th').nth(10)).toHaveText('风险提示')
+  await expect(table.locator('thead tr').first().locator('th').nth(0)).toHaveAttribute('colspan', '2')
+  await expect(table.locator('thead tr').first().locator('th').nth(1)).toHaveAttribute('colspan', '2')
+  await expect(table.locator('thead tr').first().locator('th').nth(2)).toHaveAttribute('colspan', '3')
+  await expect(table.locator('thead tr').first().locator('th').nth(3)).toHaveAttribute('colspan', '5')
 
   await expectNoPageErrors(errors)
 })

@@ -85,6 +85,12 @@ import {
   type HandoverRecord,
 } from '../../../data/fcs/cutting/handover-orders.ts'
 import { buildBindingProcessOrders } from './binding-strip-orders.ts'
+import { buildProductionOrderOverviewRows } from './production-order-overview-projection.ts'
+import {
+  createProductionOrderOverviewPageState,
+  handleProductionOrderOverviewEvent,
+  renderProductionOrderOverview,
+} from './production-order-overview-view.ts'
 
 type ProductionProgressQuickFilter = 'URGENT_ONLY' | 'PREP_DELAY' | 'CLAIM_EXCEPTION' | 'CUTTING_ACTIVE'
 type ProductionProgressQuickFilterExtended =
@@ -246,6 +252,8 @@ const state: ProductionProgressPageState = {
   page: 1,
   pageSize: 20,
 }
+
+const productionOrderOverviewState = createProductionOrderOverviewPageState()
 
 let productionProgressProjectionCache: ProductionProgressProjection | null = null
 let spreadingDifferenceCache: SpreadingDifference[] | null = null
@@ -2832,10 +2840,9 @@ function renderProductionProgressDetailPanel(row: ProductionProgressRow): string
 }
 
 export function renderCraftCuttingProductionProgressPage(): string {
-  syncDrillContextFromPath()
   const pathname = appStore.getState().pathname
   const meta = getCanonicalCuttingMeta(pathname, 'production-progress')
-  const rows = getDisplayRows()
+  const rows = buildProductionOrderOverviewRows()
 
   return `
     <div class="space-y-3 p-4">
@@ -2843,88 +2850,7 @@ export function renderCraftCuttingProductionProgressPage(): string {
         showAliasBadge: isCuttingAliasPath(pathname),
       })}
 
-      ${renderStickyFilterShell(`
-        <div class="space-y-3">
-          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-12">
-            <label class="space-y-2 md:col-span-2 xl:col-span-3">
-              <span class="text-sm font-medium text-foreground">关键词</span>
-              <input
-                type="text"
-                value="${escapeHtml(state.filters.keyword)}"
-                placeholder="支持生产单号 / 款号 / SPU"
-                class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                data-cutting-progress-field="keyword"
-              />
-            </label>
-            <label class="space-y-2 xl:col-span-2">
-              <span class="text-sm font-medium text-foreground">生产单号</span>
-              <input
-                type="text"
-                value="${escapeHtml(state.filters.productionOrderNo)}"
-                placeholder="PO-..."
-                class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                data-cutting-progress-field="production-order"
-              />
-            </label>
-            ${renderFilterSelect('裁床主状态', 'stage', state.filters.currentStage, [
-              { value: 'ALL', label: '全部' },
-              { value: 'NOT_STARTED', label: '未开工' },
-              { value: 'STARTED', label: '已开工' },
-            ])}
-            ${renderFilterSelect('完成状态', 'completion', state.filters.completionState, [
-              { value: 'ALL', label: '全部' },
-              { value: 'IN_PROGRESS', label: '进行中' },
-              { value: 'COMPLETED', label: '已完成' },
-              { value: 'DATA_PENDING', label: '数据待补' },
-              { value: 'HAS_EXCEPTION', label: '有异常' },
-            ])}
-            <div class="space-y-2 md:col-span-2 xl:col-span-4">
-              <span class="text-sm font-medium text-foreground">时间筛选</span>
-              <div class="grid gap-2 sm:grid-cols-[minmax(150px,0.85fr)_1fr_auto_1fr]">
-                <select
-                  class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  data-cutting-progress-field="time-category"
-                >
-                  ${[
-                    { value: 'ALL', label: '全部时间点' },
-                    { value: 'DEMAND_CREATED', label: '需求单创建' },
-                    { value: 'PRODUCTION_ORDER_CREATED', label: '生产单生成' },
-                    { value: 'CUTTING_TASK_ASSIGNED', label: '裁片任务分配' },
-                    { value: 'CUTTING_TASK_ACCEPTED', label: '接单时间' },
-                    { value: 'MARKER_PLAN_CREATED', label: '拍唛架' },
-                    { value: 'SPREADING_STARTED', label: '铺布' },
-                    { value: 'COMPLETED', label: '完结' },
-                  ]
-                    .map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === state.filters.timeCategory ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
-                    .join('')}
-                </select>
-                <input
-                  type="date"
-                  value="${escapeHtml(state.filters.timeRangeFrom)}"
-                  class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  data-cutting-progress-field="time-from"
-                />
-                <span class="flex h-10 items-center justify-center text-sm text-muted-foreground">至</span>
-                <input
-                  type="date"
-                  value="${escapeHtml(state.filters.timeRangeTo)}"
-                  class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  data-cutting-progress-field="time-to"
-                />
-              </div>
-            </div>
-            ${renderFilterSelect('排序', 'sort', state.filters.sortBy, [
-              { value: 'URGENCY_THEN_SHIP', label: '默认：紧急程度 + 发货时间' },
-              { value: 'SHIP_DATE_ASC', label: '计划发货日期升序' },
-              { value: 'ORDER_QTY_DESC', label: '本单成衣件数降序' },
-            ])}
-          </div>
-        </div>
-      `)}
-
-      ${renderStatsCards(rows)}
-      ${renderActiveStateBar()}
-      ${renderMainTable(rows)}
+      ${renderProductionOrderOverview(rows, productionOrderOverviewState)}
     </div>
   `
 }
@@ -2986,7 +2912,9 @@ function navigateToRecordTarget(recordId: string | undefined, key: CuttingCanoni
   return true
 }
 
-export function handleCraftCuttingProductionProgressEvent(target: Element): boolean {
+export function handleCraftCuttingProductionProgressEvent(target: Element, event?: Event): boolean {
+  if (handleProductionOrderOverviewEvent(target, productionOrderOverviewState, event)) return true
+
   const pageSizeNode = target.closest<HTMLElement>('[data-cutting-progress-page-size]')
   if (pageSizeNode) {
     const input = pageSizeNode as HTMLSelectElement
