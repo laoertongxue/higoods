@@ -25,26 +25,56 @@ export interface CombinedDyeingAllocationResult {
 }
 
 const COMBINED_DYEING_QTY_SCALE = 1000
+const COMBINED_DYEING_BINARY_TAIL_TOLERANCE = Number.EPSILON * 4
+const MAX_SAFE_MINOR_UNITS = BigInt(Number.MAX_SAFE_INTEGER)
 
-function toQuantityMinorUnits(value: number, label: string): number {
+function parseExactDecimalMinorUnits(decimalText: string): bigint | null {
+  const match = /^(-?)(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/.exec(decimalText)
+  if (!match) return null
+
+  const sign = match[1] === '-' ? -1n : 1n
+  const integerDigits = match[2]!
+  const fractionDigits = match[3] ?? ''
+  const exponent = Number(match[4] ?? 0)
+  const coefficientDigits = `${integerDigits}${fractionDigits}`
+  const minorUnitPower = exponent - fractionDigits.length + 3
+
+  let minorUnits: bigint
+  if (minorUnitPower >= 0) {
+    minorUnits = BigInt(`${coefficientDigits}${'0'.repeat(minorUnitPower)}`)
+  } else {
+    const digitsToRemove = -minorUnitPower
+    if (digitsToRemove > coefficientDigits.length) return null
+    const removedDigits = coefficientDigits.slice(-digitsToRemove)
+    if (!/^0+$/.test(removedDigits)) return null
+    minorUnits = BigInt(coefficientDigits.slice(0, -digitsToRemove) || '0')
+  }
+
+  return sign * minorUnits
+}
+
+export function parseCombinedDyeingQuantityMinorUnits(value: number, label = '数量'): number {
   if (!Number.isFinite(value)) {
     throw new Error(`${label}必须是有限数`)
   }
-
-  const scaledValue = value * COMBINED_DYEING_QTY_SCALE
-  if (!Number.isFinite(scaledValue) || Math.abs(scaledValue) > Number.MAX_SAFE_INTEGER) {
+  if (Math.abs(value) > Number.MAX_SAFE_INTEGER / COMBINED_DYEING_QTY_SCALE) {
     throw new Error(`${label}超过安全上限，乘 1000 后必须不大于 Number.MAX_SAFE_INTEGER`)
   }
 
-  const roundedMinorUnits = Math.round(scaledValue)
+  const exactMinorUnits = parseExactDecimalMinorUnits(value.toString())
+  if (exactMinorUnits !== null) {
+    if (exactMinorUnits < -MAX_SAFE_MINOR_UNITS || exactMinorUnits > MAX_SAFE_MINOR_UNITS) {
+      throw new Error(`${label}超过安全上限，乘 1000 后必须是安全整数`)
+    }
+    return Number(exactMinorUnits)
+  }
+
+  const roundedMinorUnits = Math.round(value * COMBINED_DYEING_QTY_SCALE)
   if (value !== 0 && roundedMinorUnits === 0) {
     throw new Error(`${label}最多 3 位小数，非零数量不得规范化为 0`)
   }
-  const binaryTolerance = Math.min(
-    Number.EPSILON * Math.max(1, Math.abs(scaledValue)),
-    Number.EPSILON * COMBINED_DYEING_QTY_SCALE,
-  )
-  if (Math.abs(scaledValue - roundedMinorUnits) > binaryTolerance) {
+  const normalizedQuantity = roundedMinorUnits / COMBINED_DYEING_QTY_SCALE
+  if (Math.abs(value - normalizedQuantity) > COMBINED_DYEING_BINARY_TAIL_TOLERANCE) {
     throw new Error(`${label}最多 3 位小数`)
   }
   if (!Number.isSafeInteger(roundedMinorUnits)) {
@@ -165,12 +195,12 @@ function validateMembers(members: readonly CombinedDyeingMemberSnapshot[]): Vali
     if (member.requiredQty <= 0) {
       throw new Error(`${memberIdentity} 的需求数量必须大于 0`)
     }
-    const requiredMinorUnits = toQuantityMinorUnits(member.requiredQty, `${memberIdentity} 的需求数量`)
+    const requiredMinorUnits = parseCombinedDyeingQuantityMinorUnits(member.requiredQty, `${memberIdentity} 的需求数量`)
 
     if (member.effectiveSatisfiedQtyBeforeTask < 0) {
       throw new Error(`${memberIdentity} 的任务前已满足数量必须在 0 到需求数量之间`)
     }
-    const satisfiedBeforeMinorUnits = toQuantityMinorUnits(
+    const satisfiedBeforeMinorUnits = parseCombinedDyeingQuantityMinorUnits(
       member.effectiveSatisfiedQtyBeforeTask,
       `${memberIdentity} 的任务前已满足数量`,
     )
@@ -214,7 +244,7 @@ export function allocateCombinedDyeingOutput(
   if (actualOutputQty < 0) {
     throw new Error('实际产出数量不得小于 0')
   }
-  const actualOutputMinorUnits = toQuantityMinorUnits(actualOutputQty, '实际产出数量')
+  const actualOutputMinorUnits = parseCombinedDyeingQuantityMinorUnits(actualOutputQty, '实际产出数量')
   const validatedMembers = validateMembers(members)
 
   let remainingOutputMinorUnits = actualOutputMinorUnits

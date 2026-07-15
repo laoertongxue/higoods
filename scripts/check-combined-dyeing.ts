@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 
 import {
   allocateCombinedDyeingOutput,
+  parseCombinedDyeingQuantityMinorUnits,
   type CombinedDyeingMemberSnapshot,
 } from '../src/data/fcs/combined-dyeing-domain.ts'
 
@@ -151,7 +152,36 @@ function main(): void {
   assert.equal(thousandth.excessQty, 0)
   assertQuantityConservation([{ ...memberA, requiredQty: 0.999 }], 0.999)
 
+  assert.equal(parseCombinedDyeingQuantityMinorUnits(2.002), 2002, '2.002 必须精确解析为 2002 个最小单位')
+  assert.equal(parseCombinedDyeingQuantityMinorUnits(10.001), 10001, '10.001 必须精确解析为 10001 个最小单位')
+  assert.equal(parseCombinedDyeingQuantityMinorUnits(1e3), 1_000_000, '科学计数写法 1e3 必须解析为 1000')
+  assert.equal(parseCombinedDyeingQuantityMinorUnits(1e-3), 1, '科学计数写法 1e-3 必须解析为 0.001')
+  assert.equal(parseCombinedDyeingQuantityMinorUnits(0.1 + 0.2), 300, '0.1 + 0.2 只允许消除固定 EPSILON 范围内的机器尾差')
+  assert.throws(() => parseCombinedDyeingQuantityMinorUnits(0.0001), /最多 3 位小数/, '0.0001 必须拒绝')
+  assert.throws(() => parseCombinedDyeingQuantityMinorUnits(2.0021), /最多 3 位小数/, '2.0021 必须拒绝')
+  assert.throws(() => parseCombinedDyeingQuantityMinorUnits(999_999_999_999.9999), /最多 3 位小数/, '大数量第四位小数必须拒绝')
+
+  const exactThreeDecimals = allocateCombinedDyeingOutput([
+    { ...memberA, requiredQty: 2.002 },
+    { ...memberB, requiredQty: 10.001 },
+  ], 12.003)
+  assert.deepEqual(
+    exactThreeDecimals.allocations.map((item) => [item.allocatedQty, item.satisfaction, item.unmetQty]),
+    [
+      [2.002, 'FULL', 0],
+      [10.001, 'FULL', 0],
+    ],
+    '合法三位小数必须精确分配且不得产生尾差',
+  )
+  assertQuantityConservation([
+    { ...memberA, requiredQty: 2.002 },
+    { ...memberB, requiredQty: 10.001 },
+  ], 12.003)
+
   const safeLargeQty = 999_999_999_999.999
+  const safeLargeMinorUnits = parseCombinedDyeingQuantityMinorUnits(safeLargeQty)
+  assert.equal(safeLargeMinorUnits, 999_999_999_999_999, '安全大数必须精确解析为整数最小单位')
+  assert(Number.isSafeInteger(safeLargeMinorUnits), '数量解析函数只能输出安全整数')
   const safeLarge = allocateCombinedDyeingOutput([{ ...memberA, requiredQty: safeLargeQty }], safeLargeQty)
   assert.equal(safeLarge.allocations[0]!.allocatedQty, safeLargeQty, '安全整数范围内的大数量必须原值守恒')
   assert.equal(safeLarge.allocations[0]!.unmetQty, 0)
