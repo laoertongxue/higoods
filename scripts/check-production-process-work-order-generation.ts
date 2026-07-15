@@ -9,7 +9,7 @@ import {
   type ProcessWorkOrder,
 } from '../src/data/fcs/process-work-order-domain.ts'
 import { getPrintWorkOrderById, getPrintWorkOrderByTaskId } from '../src/data/fcs/printing-task-domain.ts'
-import { productionOrders } from '../src/data/fcs/production-orders.ts'
+import { productionOrders, type ProductionOrder } from '../src/data/fcs/production-orders.ts'
 import { state } from '../src/pages/production/context.ts'
 import {
   applyCreatedProductionOrderGroups,
@@ -302,6 +302,61 @@ const mixedUnitOrder = {
     }],
   },
 }
+const zeroPlannedQtyOrder = {
+  ...routeOrder,
+  productionOrderId: 'PO-AUTO-TRANSACTION-ZERO-QTY-001',
+  productionOrderNo: 'PO-AUTO-TRANSACTION-ZERO-QTY-001',
+  demandSnapshot: {
+    ...routeOrder.demandSnapshot,
+    skuLines: routeOrder.demandSnapshot.skuLines.map((line) => ({ ...line, qty: 0 })),
+  },
+  techPackSnapshot: {
+    ...routeOrder.techPackSnapshot,
+    bomItems: [dyeBom],
+    processEntries: [{
+      ...processTemplate,
+      id: 'PROCESS-DYE-ZERO-QTY-001',
+      processCode: 'DYE',
+      processName: '零数量染色',
+      linkedBomItemIds: [dyeBom.id],
+    }],
+  },
+}
+const emptyTechPackVersionOrder = {
+  ...routeOrder,
+  productionOrderId: 'PO-AUTO-TRANSACTION-EMPTY-TP-001',
+  productionOrderNo: 'PO-AUTO-TRANSACTION-EMPTY-TP-001',
+  techPackSnapshot: {
+    ...routeOrder.techPackSnapshot,
+    sourceTechPackVersionId: '',
+    sourceTechPackVersionLabel: '',
+    versionLabel: '',
+    bomItems: [dyeBom],
+    processEntries: [{
+      ...processTemplate,
+      id: 'PROCESS-DYE-EMPTY-TP-001',
+      processCode: 'DYE',
+      processName: '空版本染色',
+      linkedBomItemIds: [dyeBom.id],
+    }],
+  },
+}
+const emptyMaterialNameOrder = {
+  ...routeOrder,
+  productionOrderId: 'PO-AUTO-TRANSACTION-EMPTY-MATERIAL-001',
+  productionOrderNo: 'PO-AUTO-TRANSACTION-EMPTY-MATERIAL-001',
+  techPackSnapshot: {
+    ...routeOrder.techPackSnapshot,
+    bomItems: [{ ...dyeBom, name: '', spec: '' }],
+    processEntries: [{
+      ...processTemplate,
+      id: 'PROCESS-DYE-EMPTY-MATERIAL-001',
+      processCode: 'DYE',
+      processName: '空物料名染色',
+      linkedBomItemIds: [dyeBom.id],
+    }],
+  },
+}
 const transactionGroup: CreatedProductionOrderGroup = {
   demands: [transactionDemand],
   order: transactionOrder,
@@ -316,7 +371,7 @@ const transactionDemandBefore = {
 const transactionDyeCountBefore = listProcessWorkOrders('DYE').length
 const transactionPrintCountBefore = listProcessWorkOrders('PRINT').length
 
-function assertFailedBatchLeavesStateUnchanged(invalidOrder: typeof missingBomOrder, errorPattern: RegExp): void {
+function assertFailedBatchLeavesStateUnchanged(invalidOrder: ProductionOrder, errorPattern: RegExp): void {
   const invalidGroup: CreatedProductionOrderGroup = { demands: [], order: invalidOrder }
   assert.throws(
     () => applyCreatedProductionOrderGroups([transactionGroup, invalidGroup], transactionNow),
@@ -342,6 +397,9 @@ function assertFailedBatchLeavesStateUnchanged(invalidOrder: typeof missingBomOr
 
 assertFailedBatchLeavesStateUnchanged(missingBomOrder, /绑定了不存在的 BOM：BOM-NOT-FOUND/)
 assertFailedBatchLeavesStateUnchanged(mixedUnitOrder, /绑定多种或缺失数量单位，无法合并为一张加工单/)
+assertFailedBatchLeavesStateUnchanged(zeroPlannedQtyOrder, /正式生产单加工数量和单位必须有效/)
+assertFailedBatchLeavesStateUnchanged(emptyTechPackVersionOrder, /正式生产单必须携带已发布技术包版本快照/)
+assertFailedBatchLeavesStateUnchanged(emptyMaterialNameOrder, /正式生产单必须携带 BOM 面料快照/)
 assertFailedBatchLeavesStateUnchanged(missingBomOrder, /绑定了不存在的 BOM：BOM-NOT-FOUND/)
 
 applyCreatedProductionOrderGroups([transactionGroup], transactionNow)

@@ -24,7 +24,9 @@ function findExistingWorkOrderId(
     ?.workOrderId
 }
 
-function validateSnapshot(snapshot: FormalProductionOrderProcessSnapshot): void {
+export function validateFormalProductionOrderProcessSnapshot(
+  snapshot: FormalProductionOrderProcessSnapshot,
+): void {
   if (!snapshot.productionOrderId.trim()) throw new Error('正式生产单 ID 不能为空')
   if (!snapshot.productionOrderNo.trim()) throw new Error('正式生产单号不能为空')
   if (!snapshot.techPackVersionId.trim() || !snapshot.techPackVersionLabel.trim()) {
@@ -81,7 +83,7 @@ export function buildFormalProductionOrderProcessSnapshots(
     const materialNames = bomItems.map((item) => `${item.name}${item.spec ? ` / ${item.spec}` : ''}`)
     const targetColors = [...new Set(bomItems.map((item) => item.colorLabel).filter((color): color is string => Boolean(color)))]
     const processName = [...new Set(entries.map((entry) => entry.processName).filter(Boolean))].join('、') || processLabel
-    return {
+    const snapshot: FormalProductionOrderProcessSnapshot = {
       productionOrderId: order.productionOrderId,
       productionOrderNo: order.productionOrderNo,
       orderedAt: order.createdAt,
@@ -99,13 +101,15 @@ export function buildFormalProductionOrderProcessSnapshots(
       spuName: order.demandSnapshot.spuName,
       requiredDeliveryDate: order.demandSnapshot.requiredDeliveryDate || '',
     }
+    validateFormalProductionOrderProcessSnapshot(snapshot)
+    return snapshot
   })
 }
 
 export function ensureProcessWorkOrdersForFormalProductionOrder(
   snapshot: FormalProductionOrderProcessSnapshot,
 ): EnsuredProductionProcessWorkOrders {
-  validateSnapshot(snapshot)
+  validateFormalProductionOrderProcessSnapshot(snapshot)
   const processCodes = new Set(snapshot.processCodes)
   const result: EnsuredProductionProcessWorkOrders = {}
 
