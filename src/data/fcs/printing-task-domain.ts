@@ -291,8 +291,11 @@ function toGeneratedPrintWorkOrder(order: MutablePrintWorkOrder, index: number):
     if (!sourceOrder) {
       const task = getPrintingTaskById(order.taskId)
       if (task) {
-        task.productionOrderId = ''
-        task.productionOrderNo = ''
+        task.sourceType = 'STOCK'
+        task.stockMaterialId = `STOCK-${order.printOrderId}`
+        task.stockMaterialName = order.materialSku
+        delete task.productionOrderId
+        delete task.productionOrderNo
         task.sourceProductionOrderId = undefined
       }
       return {
@@ -317,9 +320,12 @@ function toGeneratedPrintWorkOrder(order: MutablePrintWorkOrder, index: number):
   const { productionOrder, techPackSnapshot, craftDefinition, mockIndex, plannedQty, materialName, materialColor } = context
   const task = getPrintingTaskById(order.taskId)
   if (task) {
+    task.sourceType = 'PRODUCTION_ORDER'
     task.productionOrderId = productionOrder.productionOrderId
     task.productionOrderNo = productionOrder.productionOrderNo
     task.sourceProductionOrderId = productionOrder.productionOrderId
+    delete task.stockMaterialId
+    delete task.stockMaterialName
   }
   return {
     ...order,
@@ -392,8 +398,11 @@ function getPrintingTaskById(taskId: string): PdaGenericTaskMock | undefined {
 function buildFreshPrintMobileTask(input: {
   taskId: string
   taskNo: string
+  sourceType?: ProcessWorkOrderSourceType
   productionOrderId?: string
   productionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   spuCode: string
   spuName: string
   requiredDeliveryDate: string
@@ -405,6 +414,7 @@ function buildFreshPrintMobileTask(input: {
   createdAt: string
 }): PdaGenericTaskMock {
   const hasFactory = Boolean(input.factoryId)
+  const sourceType: ProcessWorkOrderSourceType = input.sourceType === 'STOCK' ? 'STOCK' : 'PRODUCTION_ORDER'
   const qtyUnit: QtyUnit = ['件', '片', '个', '套'].includes(input.qtyDisplayUnit)
     ? 'PIECE'
     : ['卷', '捆', '包', '打'].includes(input.qtyDisplayUnit)
@@ -413,8 +423,10 @@ function buildFreshPrintMobileTask(input: {
   return {
     taskId: input.taskId,
     taskNo: input.taskNo,
-    productionOrderId: input.productionOrderId || '',
-    productionOrderNo: input.productionOrderNo || '',
+    sourceType,
+    ...(sourceType === 'STOCK'
+      ? { stockMaterialId: input.stockMaterialId, stockMaterialName: input.stockMaterialName }
+      : { productionOrderId: input.productionOrderId, productionOrderNo: input.productionOrderNo, sourceProductionOrderId: input.productionOrderId }),
     spuCode: input.spuCode,
     spuName: input.spuName,
     requiredDeliveryDate: input.requiredDeliveryDate,
@@ -443,7 +455,6 @@ function buildFreshPrintMobileTask(input: {
     receiverKind: 'WAREHOUSE',
     receiverId: 'WH-TRANSFER',
     receiverName: '中转区域',
-    sourceProductionOrderId: input.productionOrderId,
     stageCode: 'PREP',
     stageName: '准备阶段',
     processBusinessCode: 'PRINT',
@@ -1872,6 +1883,9 @@ export function createPrintWorkOrderFromStock(input: {
   registerPdaGenericProcessTask(buildFreshPrintMobileTask({
     taskId: printOrderId,
     taskNo: printOrderNo,
+    sourceType: 'STOCK',
+    stockMaterialId,
+    stockMaterialName,
     spuCode: '',
     spuName: stockMaterialName,
     requiredDeliveryDate: input.plannedFinishAt,

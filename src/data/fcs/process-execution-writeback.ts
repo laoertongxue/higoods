@@ -89,6 +89,18 @@ function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
 
+function buildProcessSource(order: Pick<PrintWorkOrder | DyeWorkOrder,
+  'sourceType' | 'sourceProductionOrderId' | 'sourceProductionOrderNo' | 'stockMaterialId' | 'stockMaterialName'
+>) {
+  return order.sourceType === 'STOCK'
+    ? { sourceType: 'STOCK' as const, stockMaterialId: order.stockMaterialId, stockMaterialName: order.stockMaterialName }
+    : {
+        sourceType: 'PRODUCTION_ORDER' as const,
+        sourceProductionOrderId: order.sourceProductionOrderId,
+        sourceProductionOrderNo: order.sourceProductionOrderNo,
+      }
+}
+
 function requirePrintOrderByTaskId(taskId: string): PrintWorkOrder {
   const order = getPrintWorkOrderByTaskId(taskId)
   if (!order) throw new Error(`未找到印花加工单：${taskId}`)
@@ -119,10 +131,7 @@ function createPrintWaitHandoverRecord(order: PrintWorkOrder, qty: number, opera
     sourceWorkOrderNo: order.printOrderNo,
     sourceTaskId: order.taskId,
     sourceTaskNo: order.taskNo,
-    sourceProductionOrderId: order.sourceProductionOrderId || '',
-    sourceProductionOrderNo: order.sourceProductionOrderNo || '',
-    sourceDemandId: '',
-    sourceDemandNo: '',
+    ...buildProcessSource(order),
     sourceFactoryId: order.printFactoryId,
     sourceFactoryName: order.printFactoryName,
     targetFactoryId: order.targetTransferWarehouseId,
@@ -152,10 +161,7 @@ function createDyeWaitHandoverRecord(order: DyeWorkOrder, qty: number, operatedA
     sourceWorkOrderNo: order.dyeOrderNo,
     sourceTaskId: order.taskId,
     sourceTaskNo: order.taskNo,
-    sourceProductionOrderId: order.sourceProductionOrderId || '',
-    sourceProductionOrderNo: order.sourceProductionOrderNo || '',
-    sourceDemandId: '',
-    sourceDemandNo: '',
+    ...buildProcessSource(order),
     sourceFactoryId: order.dyeFactoryId,
     sourceFactoryName: order.dyeFactoryName,
     targetFactoryId: order.targetTransferWarehouseId,
@@ -284,8 +290,7 @@ export function submitPrintHandover(taskId: string, payload: QtyWritebackPayload
     sourceWorkOrderNo: order.printOrderNo,
     sourceTaskId: order.taskId,
     sourceTaskNo: order.taskNo,
-    sourceProductionOrderId: order.sourceProductionOrderId || '',
-    sourceProductionOrderNo: order.sourceProductionOrderNo || '',
+    ...buildProcessSource(order),
     handoverFactoryId: order.printFactoryId,
     handoverFactoryName: order.printFactoryName,
     receiveFactoryId: order.targetTransferWarehouseId,
@@ -433,8 +438,7 @@ export function submitDyeHandover(taskId: string, payload: QtyWritebackPayload =
     sourceWorkOrderNo: order.dyeOrderNo,
     sourceTaskId: order.taskId,
     sourceTaskNo: order.taskNo,
-    sourceProductionOrderId: order.sourceProductionOrderId || '',
-    sourceProductionOrderNo: order.sourceProductionOrderNo || '',
+    ...buildProcessSource(order),
     handoverFactoryId: order.dyeFactoryId,
     handoverFactoryName: order.dyeFactoryName,
     receiveFactoryId: order.targetTransferWarehouseId,

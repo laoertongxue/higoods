@@ -356,11 +356,11 @@ function resolveTaskSpecificImage(
 }
 
 function resolvePrintImage(input: {
-  productionOrderId: string
+  productionOrderId?: string
   processName: string
   craftName?: string
 }): TaskPrintImage {
-  const snapshot = safeBuildProductionSnapshot(input.productionOrderId)
+  const snapshot = input.productionOrderId ? safeBuildProductionSnapshot(input.productionOrderId) : null
   return (
     firstImage('商品图片', snapshot?.imageSnapshot.productImages, '商品主图')
     || firstImage('款图', snapshot?.imageSnapshot.styleImages, '款图')
@@ -863,7 +863,7 @@ function buildRouteCardFromPrintWorkOrder(sourceId: string): TaskRouteCardBuildR
       qtyUnit: order.qtyUnit,
       dueAt: order.updatedAt,
       qrValue: order.taskQrValue || buildTaskQrValue(order.taskId),
-      image: resolvePrintImage({ productionOrderId: order.sourceProductionOrderId || '', processName: '印花', craftName: order.patternNo }),
+      image: resolvePrintImage({ productionOrderId: order.sourceProductionOrderId, processName: '印花', craftName: order.patternNo }),
       summaryRemark: order.remark || '印花加工单生成',
       titleOverride: '印花任务流转卡',
       summaryRowsOverride: [
@@ -928,7 +928,7 @@ function buildRouteCardFromDyeWorkOrder(sourceId: string): TaskRouteCardBuildRes
       qtyUnit: order.qtyUnit,
       dueAt: order.updatedAt,
       qrValue: order.taskQrValue || buildTaskQrValue(order.taskId),
-      image: resolvePrintImage({ productionOrderId: order.sourceProductionOrderId || '', processName: '染色', craftName: order.targetColor }),
+      image: resolvePrintImage({ productionOrderId: order.sourceProductionOrderId, processName: '染色', craftName: order.targetColor }),
       summaryRemark: order.remark || order.waitingReason || '染色加工单生成',
       titleOverride: '染色任务流转卡',
       summaryRowsOverride: [

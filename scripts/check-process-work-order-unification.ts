@@ -54,6 +54,13 @@ const dyeDetailSource = read('src/pages/process-factory/dyeing/work-order-detail
 const routesSource = read('src/router/routes-fcs.ts')
 const docsSource = read('docs/fcs-process-work-order-unification.md')
 const appShellSource = read('src/data/app-shell-config.ts')
+const stockSourceBoundaryFiles = [
+  'src/data/fcs/dyeing-task-domain.ts',
+  'src/data/fcs/printing-task-domain.ts',
+  'src/data/fcs/mobile-execution-task-index.ts',
+  'src/data/fcs/process-warehouse-linkage-service.ts',
+  'src/data/fcs/process-execution-writeback.ts',
+]
 
 assertIncludes(domainSource, 'export interface ProcessWorkOrder', '统一加工单领域')
 assertIncludes(domainSource, "export type ProcessWorkOrderSourceType = 'PRODUCTION_ORDER' | 'STOCK'", '统一加工单来源类型')
@@ -63,6 +70,12 @@ assertIncludes(domainSource, "processType: 'DYE'", '染色统一加工单')
 assertIncludes(domainSource, 'listProcessWorkOrders', '统一加工单领域')
 assertIncludes(adapterSource, 'listProcessWorkOrders', '平台加工单 adapter')
 assertIncludes(adapterSource, 'mapUnifiedWorkOrderToPrepOrder', '平台加工单 adapter')
+for (const file of stockSourceBoundaryFiles) {
+  const source = read(file)
+  ;["sourceProductionOrderId || ''", "productionOrderId: ''", "sourceDemandId: ''", "sourceDemandNo: ''"].forEach((token) => {
+    assertNotIncludes(source, token, `${file} 备货来源边界`)
+  })
+}
 
 const printWorkOrders = listPrintWorkOrders()
 const dyeWorkOrders = listDyeWorkOrders()

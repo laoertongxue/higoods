@@ -415,6 +415,15 @@ function toGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): Mut
   if (!context) {
     const sourceProductionOrderId = order.sourceProductionOrderId || order.productionOrderIds?.[0]
     const sourceOrder = productionOrders.find((item) => item.productionOrderId === sourceProductionOrderId)
+    const task = getDyeingTaskById(order.taskId)
+    if (task && sourceOrder) {
+      task.sourceType = 'PRODUCTION_ORDER'
+      task.productionOrderId = sourceOrder.productionOrderId
+      task.productionOrderNo = sourceOrder.productionOrderNo
+      task.sourceProductionOrderId = sourceOrder.productionOrderId
+      delete task.stockMaterialId
+      delete task.stockMaterialName
+    }
     return {
       ...order,
       sourceProductionOrderId,
@@ -423,6 +432,15 @@ function toGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): Mut
     }
   }
   const { productionOrder, techPackSnapshot, craftDefinition, mockIndex, plannedQty, materialName, targetColor } = context
+  const task = getDyeingTaskById(order.taskId)
+  if (task) {
+    task.sourceType = 'PRODUCTION_ORDER'
+    task.productionOrderId = productionOrder.productionOrderId
+    task.productionOrderNo = productionOrder.productionOrderNo
+    task.sourceProductionOrderId = productionOrder.productionOrderId
+    delete task.stockMaterialId
+    delete task.stockMaterialName
+  }
   return {
     ...order,
     sourceType: 'PRODUCTION_ORDER',
@@ -2157,8 +2175,11 @@ function seedWorkOrders(): void {
 function buildFreshDyeMobileTask(input: {
   taskId: string
   taskNo?: string
-  productionOrderId: string
+  sourceType?: ProcessWorkOrderSourceType
+  productionOrderId?: string
   productionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   spuCode?: string
   spuName?: string
   requiredDeliveryDate?: string
@@ -2173,7 +2194,10 @@ function buildFreshDyeMobileTask(input: {
   executionSummary: string
   handoverSummary: string
 }): PdaGenericTaskMock {
-  const sourceOrder = productionOrders.find((order) => order.productionOrderId === input.productionOrderId)
+  const sourceType: ProcessWorkOrderSourceType = input.sourceType === 'STOCK' ? 'STOCK' : 'PRODUCTION_ORDER'
+  const sourceOrder = input.productionOrderId
+    ? productionOrders.find((order) => order.productionOrderId === input.productionOrderId)
+    : undefined
   const hasFactory = Boolean(input.factoryId)
   const qtyUnit: QtyUnit = ['件', '片', '个', '套'].includes(input.qtyDisplayUnit)
     ? 'PIECE'
@@ -2183,8 +2207,14 @@ function buildFreshDyeMobileTask(input: {
   return {
     taskId: input.taskId,
     taskNo: input.taskNo || input.taskId,
-    productionOrderId: input.productionOrderId,
-    productionOrderNo: input.productionOrderNo || sourceOrder?.productionOrderNo || input.productionOrderId,
+    sourceType,
+    ...(sourceType === 'STOCK'
+      ? { stockMaterialId: input.stockMaterialId, stockMaterialName: input.stockMaterialName }
+      : {
+          productionOrderId: input.productionOrderId,
+          productionOrderNo: input.productionOrderNo || sourceOrder?.productionOrderNo || input.productionOrderId,
+          sourceProductionOrderId: input.productionOrderId,
+        }),
     spuCode: input.spuCode || sourceOrder?.demandSnapshot.spuCode || '',
     spuName: input.spuName || sourceOrder?.demandSnapshot.spuName || '',
     requiredDeliveryDate: input.requiredDeliveryDate || sourceOrder?.demandSnapshot.requiredDeliveryDate || '',
@@ -2215,7 +2245,6 @@ function buildFreshDyeMobileTask(input: {
     receiverKind: 'WAREHOUSE',
     receiverId: 'WH-TRANSFER',
     receiverName: '中转区域',
-    sourceProductionOrderId: input.productionOrderId,
     stageCode: 'PREP',
     stageName: '准备阶段',
     processBusinessCode: 'DYE',
@@ -2654,8 +2683,9 @@ export function createDyeWorkOrderFromStock(input: {
   const now = nowTimestamp()
   registerPdaGenericProcessTask(buildFreshDyeMobileTask({
     taskId,
-    productionOrderId: '',
-    productionOrderNo: '',
+    sourceType: 'STOCK',
+    stockMaterialId,
+    stockMaterialName,
     spuName: stockMaterialName,
     factoryId: factory.id,
     factoryName: factory.name,

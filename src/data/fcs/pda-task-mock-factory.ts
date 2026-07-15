@@ -43,7 +43,7 @@ export type PdaTaskMockOrigin =
   | 'AWARDED_REJECTED'
 
 export interface PdaGenericTaskMock extends ProcessTask {
-  productionOrderNo: string
+  productionOrderNo?: string
   spuCode: string
   spuName: string
   requiredDeliveryDate: string

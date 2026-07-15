@@ -17,6 +17,11 @@ import {
   listDyeWorkOrders,
   validateDyeStartPayload,
 } from '../src/data/fcs/dyeing-task-domain.ts'
+import { getMobileExecutionTaskById } from '../src/data/fcs/mobile-execution-task-index.ts'
+import { listPdaGenericProcessTasks, registerPdaGenericProcessTask } from '../src/data/fcs/pda-task-mock-factory.ts'
+import { submitDyeHandover } from '../src/data/fcs/process-execution-writeback.ts'
+import { applyDyeWarehouseLinkageAfterAction } from '../src/data/fcs/process-warehouse-linkage-service.ts'
+import { getProcessWarehouseRecordById, listProcessHandoverRecords } from '../src/data/fcs/process-warehouse-domain.ts'
 
 const repoRoot = process.cwd()
 const dyePages = [
@@ -152,6 +157,65 @@ function main(): void {
   assert.equal(stockCreated.order.sourceType, 'STOCK', '备货染色加工单来源必须是 STOCK')
   assert.equal(stockCreated.order.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色加工单必须保留 stockMaterialId')
   assert(!stockCreated.order.sourceProductionOrderId, '备货染色加工单不得伪造生产单')
+  const stockTask = listPdaGenericProcessTasks().find((task) => task.taskId === stockCreated.order!.taskId)
+  assert(stockTask, '备货染色加工单必须注册 PDA 任务')
+  assert.equal(stockTask.sourceType, 'STOCK', '备货染色 PDA 任务来源必须是 STOCK')
+  assert.equal(stockTask.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色 PDA 任务必须保留 stockMaterialId')
+  assert.equal(stockTask.stockMaterialName, '染色检查坯布', '备货染色 PDA 任务必须保留 stockMaterialName')
+  assert.equal(stockTask.productionOrderId, undefined, '备货染色 PDA 任务不得写空生产单 ID')
+  assert.equal(stockTask.productionOrderNo, undefined, '备货染色 PDA 任务不得写空生产单号')
+  registerPdaGenericProcessTask({ ...stockTask, startedAt: '2026-07-15 10:00:00' })
+  const stockMobileTask = getMobileExecutionTaskById(stockCreated.order.taskId)
+  assert.equal(stockMobileTask?.sourceType, 'STOCK', '备货染色移动索引来源必须是 STOCK')
+  assert.equal(stockMobileTask?.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色移动索引必须保留 stockMaterialId')
+  assert.equal(stockMobileTask?.productionOrderId, undefined, '备货染色移动索引不得回填生产单 ID')
+  const stockWarehouseLinkage = applyDyeWarehouseLinkageAfterAction({
+    success: true,
+    sourceType: 'DYE',
+    sourceId: stockCreated.order.dyeOrderId,
+    taskId: stockCreated.order.taskId,
+    actionCode: 'DYE_FINISH_PACKING',
+    previousStatus: 'PACKING',
+    nextStatus: 'WAIT_HANDOVER',
+    objectQty: stockCreated.order.plannedQty,
+    qtyUnit: stockCreated.order.qtyUnit,
+  })
+  const stockWarehouseRecord = getProcessWarehouseRecordById(stockWarehouseLinkage.createdWaitHandoverWarehouseRecordId)
+  assert.equal(stockWarehouseRecord?.sourceType, 'STOCK', '备货染色仓记录来源必须是 STOCK')
+  assert.equal(stockWarehouseRecord?.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色仓记录必须保留 stockMaterialId')
+  assert.equal(stockWarehouseRecord?.sourceProductionOrderId, undefined, '备货染色仓记录不得保留空生产单 ID')
+  assert.equal(stockWarehouseRecord?.sourceDemandId, undefined, '备货染色仓记录不得保留空需求 ID')
+  submitDyeHandover(stockCreated.order.taskId, { submittedQty: stockCreated.order.plannedQty })
+  const stockHandoverRecord = listProcessHandoverRecords({ sourceWorkOrderId: stockCreated.order.dyeOrderId })
+    .find((record) => record.sourceType === 'STOCK')
+  assert.equal(stockHandoverRecord?.stockMaterialId, 'STOCK-DYE-CHECK-001', '备货染色交出回写必须保留 stockMaterialId')
+  assert.equal(stockHandoverRecord?.sourceProductionOrderId, undefined, '备货染色交出回写不得保留空生产单 ID')
+
+  const productionOrder = orders.find((order) => order.sourceType === 'PRODUCTION_ORDER')!
+  const productionTask = listPdaGenericProcessTasks().find((task) => task.taskId === productionOrder.taskId)
+  assert.equal(productionTask?.sourceType, 'PRODUCTION_ORDER', '生产单染色 PDA 任务来源必须是 PRODUCTION_ORDER')
+  assert.equal(productionTask?.productionOrderId, productionOrder.sourceProductionOrderId, '生产单染色 PDA 任务必须保留生产单 ID')
+  assert.equal(productionTask?.stockMaterialId, undefined, '生产单染色 PDA 任务不得携带备货来源')
+  if (productionTask) registerPdaGenericProcessTask({ ...productionTask, startedAt: productionTask.startedAt || '2026-07-15 10:00:00' })
+  const productionWarehouseLinkage = applyDyeWarehouseLinkageAfterAction({
+    success: true,
+    sourceType: 'DYE',
+    sourceId: productionOrder.dyeOrderId,
+    taskId: productionOrder.taskId,
+    actionCode: 'DYE_FINISH_PACKING',
+    previousStatus: 'PACKING',
+    nextStatus: 'WAIT_HANDOVER',
+    objectQty: productionOrder.plannedQty,
+  })
+  const productionWarehouseRecord = getProcessWarehouseRecordById(productionWarehouseLinkage.createdWaitHandoverWarehouseRecordId)
+  assert.equal(productionWarehouseRecord?.sourceType, 'PRODUCTION_ORDER', '生产单染色仓记录来源必须是 PRODUCTION_ORDER')
+  assert.equal(productionWarehouseRecord?.sourceProductionOrderId, productionOrder.sourceProductionOrderId, '生产单染色仓记录必须保留生产单 ID')
+  assert.equal(productionWarehouseRecord?.stockMaterialId, undefined, '生产单染色仓记录不得携带备货来源')
+  submitDyeHandover(productionOrder.taskId, { submittedQty: productionOrder.plannedQty })
+  const productionHandoverRecord = listProcessHandoverRecords({ sourceWorkOrderId: productionOrder.dyeOrderId })
+    .find((record) => record.sourceType === 'PRODUCTION_ORDER')
+  assert.equal(productionHandoverRecord?.sourceProductionOrderId, productionOrder.sourceProductionOrderId, '生产单染色交出回写必须保留生产单 ID')
+  assert.equal(productionHandoverRecord?.stockMaterialId, undefined, '生产单染色交出回写不得携带备货来源')
 
   const waitReviewOrder = orders.find((order) => order.status === 'WAIT_REVIEW')
   assert(waitReviewOrder, '需要至少一条待审核染色加工单')
