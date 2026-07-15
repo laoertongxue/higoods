@@ -54,7 +54,7 @@ interface CuttingProgressOverviewSource {
 
 export interface ProductionOrderOverviewSources {
   productionOrders: OverviewProductionOrderSource[]
-  productionDemands: Array<{ demandId: string; createdAt: string }>
+  productionDemands: Array<{ demandId: string; createdAt: string; imageUrl?: string }>
   printingOrders: Array<{ productionOrderIds: string[]; status: string }>
   dyeingOrders: Array<{ productionOrderIds?: string[]; status: string }>
   materialPrepRows: MaterialPrepOverviewSource[]
@@ -115,13 +115,26 @@ function buildDefaultFactoryFacts(): Array<FactoryProgressFact & { productionOrd
       productionOrderId: record.productionOrderId,
       factoryId,
       factoryName,
-      factoryTypeLabel: normalizeFactoryType(record.cuttingTaskAssigneeType),
+      factoryTypeLabel: factoryName === '未派单' ? '—' : normalizeFactoryType(record.cuttingTaskAssigneeType),
       accepted: Boolean(factoryName !== '未派单' && !record.cuttingTaskAssignmentStatus.includes('未')),
       requiredQty,
       pickedQty: pickedQtyByOrderAndFactory.get(`${record.productionOrderId}::${factoryName}`) ?? 0,
     })
   })
-  return [...grouped.values()]
+  const facts = [...grouped.values()]
+  const multiFactoryDemo = facts.find((fact) => fact.productionOrderId === 'PO-202603-0002')
+  if (multiFactoryDemo) {
+    facts.push({
+      productionOrderId: multiFactoryDemo.productionOrderId,
+      factoryId: 'FACTORY-CENTRAL-SURABAYA',
+      factoryName: '泗水中央裁床厂',
+      factoryTypeLabel: '中央工厂',
+      accepted: true,
+      requiredQty: Math.max(1, Math.round(multiFactoryDemo.requiredQty / 2)),
+      pickedQty: Math.max(1, Math.round(multiFactoryDemo.requiredQty / 4)),
+    })
+  }
+  return facts
 }
 
 export function buildDefaultProductionOrderOverviewSources(): ProductionOrderOverviewSources {
@@ -195,6 +208,7 @@ function buildRow(
   const styleName = order.techPackSnapshot?.styleName || order.demandSnapshot.spuName || '—'
   const styleImageUrl = order.techPackSnapshot?.imageSnapshot.styleImages[0]
     || order.techPackSnapshot?.imageSnapshot.productImages?.[0]
+    || demand?.imageUrl
     || '/placeholder.svg?height=80&width=80'
   const receiverFactoryNames = cutting?.receiverFactoryNames ?? []
 

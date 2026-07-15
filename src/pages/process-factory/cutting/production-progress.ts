@@ -2912,8 +2912,8 @@ function navigateToRecordTarget(recordId: string | undefined, key: CuttingCanoni
   return true
 }
 
-export function handleCraftCuttingProductionProgressEvent(target: Element): boolean {
-  if (handleProductionOrderOverviewEvent(target, productionOrderOverviewState)) return true
+export function handleCraftCuttingProductionProgressEvent(target: Element, event?: Event): boolean {
+  if (handleProductionOrderOverviewEvent(target, productionOrderOverviewState, event)) return true
 
   const pageSizeNode = target.closest<HTMLElement>('[data-cutting-progress-page-size]')
   if (pageSizeNode) {

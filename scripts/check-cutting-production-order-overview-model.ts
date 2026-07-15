@@ -114,16 +114,27 @@ assert.equal('riskTags' in rows[0], false)
 assert.equal('blocker' in rows[0], false)
 assert.equal('exceptionFacts' in rows[0], false)
 
+const defaultRows = buildProductionOrderOverviewRows()
+assert(defaultRows.some((row) => row.factoryLines.length >= 2), '默认演示数据必须包含一张多工厂生产单')
+assert(
+  defaultRows.some((row) => row.factoryLines.some((line) => line.factoryTypeLabel === '中央工厂')),
+  '默认演示数据必须包含中央工厂',
+)
+assert(
+  defaultRows.every((row) => row.factoryLines.every((line) => line.factoryName !== '未派单' || line.factoryTypeLabel === '—')),
+  '未派单不能显示中央工厂或第三方工厂类型',
+)
+
 const multiSelectHtml = renderMultiSelectFilter({
   label: '印花状态',
   field: 'printing-status',
   selectedValues: ['进行中'],
   options: ['未开始', '进行中', '已完成', '无需印花'],
-  actionAttr: 'data-cutting-overview-multiselect',
+  actionAttr: 'data-cutting-overview-filter',
 })
 assert.match(multiSelectHtml, /印花状态（1）/)
 assert.match(multiSelectHtml, /type="checkbox"/)
-assert.match(multiSelectHtml, /data-cutting-overview-multiselect="printing-status"/)
+assert.match(multiSelectHtml, /data-cutting-overview-filter="printing-status"/)
 
 const paginationHtml = renderWorkbenchPagination({
   page: 1,

@@ -63,6 +63,7 @@ export function renderMultiSelectFilter(config: {
   selectedValues: string[]
   options: string[]
   actionAttr: string
+  skipPageRerender?: boolean
 }): string {
   const selected = new Set(config.selectedValues)
   const selectedCount = selected.size ? `（${selected.size}）` : ''
@@ -80,6 +81,7 @@ export function renderMultiSelectFilter(config: {
               <input
                 type="checkbox"
                 ${config.actionAttr}="${escapeHtml(config.field)}"
+                ${config.skipPageRerender ? 'data-skip-page-rerender="true"' : ''}
                 value="${escapeHtml(option)}"
                 ${selected.has(option) ? 'checked' : ''}
               >

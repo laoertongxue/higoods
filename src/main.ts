@@ -573,6 +573,10 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const transferBagsPage = await getCraftCuttingTransferBagsPageModule()
     return transferBagsPage.handleCraftCuttingTransferBagsEvent(eventTarget)
   }
+  if (pathname.startsWith('/fcs/craft/cutting/production-progress')) {
+    const productionProgressPage = await import('./pages/process-factory/cutting/production-progress')
+    return productionProgressPage.handleCraftCuttingProductionProgressEvent(eventTarget, event)
+  }
   if (pathname.startsWith('/wls/fabric-demand-board')) {
     try {
       const fabricDemandBoardPage = await getWlsFabricDemandBoardPageModule()

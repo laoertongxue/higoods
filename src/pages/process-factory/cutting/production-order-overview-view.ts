@@ -60,6 +60,8 @@ const MULTI_SELECT_CONFIG = {
 type MultiSelectField = keyof typeof MULTI_SELECT_CONFIG
 type MultiSelectFilterKey = (typeof MULTI_SELECT_CONFIG)[MultiSelectField]['key']
 
+let latestOverviewRows: ProductionOrderOverviewRow[] = []
+
 function includesSelected(selected: string[], values: string[]): boolean {
   return selected.length === 0 || values.some((value) => selected.includes(value))
 }
@@ -128,6 +130,9 @@ const STATUS_DETAIL_TAB: Record<StatusDetailKey, string> = {
 }
 
 function buildStatusDetailPath(row: ProductionOrderOverviewRow, key: StatusDetailKey): string {
+  if (row.id === row.productionOrderId) {
+    return `/fcs/production/orders/${encodeURIComponent(row.productionOrderId)}`
+  }
   return `/fcs/craft/cutting/production-progress-detail/${encodeURIComponent(row.id)}?tab=${STATUS_DETAIL_TAB[key]}`
 }
 
@@ -255,6 +260,7 @@ function renderTable(rows: ProductionOrderOverviewRow[], state: ProductionOrderO
         actionAttr: 'data-cutting-overview-action',
         pageAction: 'set-page',
         pageSizeAttr: 'data-cutting-overview-page-size',
+        extraAttrs: 'data-skip-page-rerender="true"',
       })}
     </section>
   `
@@ -274,7 +280,7 @@ function renderFilters(state: ProductionOrderOverviewPageState): string {
             data-cutting-overview-keyword
             data-skip-page-rerender="true"
           />
-          <button type="button" class="h-10 rounded-md border bg-background px-3 text-sm hover:bg-muted" data-cutting-overview-action="apply-keyword">查询</button>
+          <button type="button" class="h-10 rounded-md border bg-background px-3 text-sm hover:bg-muted" data-cutting-overview-action="apply-keyword" data-skip-page-rerender="true">查询</button>
         </div>
       </label>
       ${Object.entries(MULTI_SELECT_CONFIG).map(([field, config]) => renderMultiSelectFilter({
@@ -282,9 +288,10 @@ function renderFilters(state: ProductionOrderOverviewPageState): string {
         field,
         selectedValues: state.filters[config.key],
         options: [...config.options],
-        actionAttr: 'data-cutting-overview-multiselect',
+        actionAttr: 'data-cutting-overview-filter',
+        skipPageRerender: true,
       })).join('')}
-      <button type="button" class="h-10 rounded-md border bg-background px-3 text-sm hover:bg-muted" data-cutting-overview-action="clear-filters">重置</button>
+      <button type="button" class="h-10 rounded-md border bg-background px-3 text-sm hover:bg-muted" data-cutting-overview-action="clear-filters" data-skip-page-rerender="true">重置</button>
     </div>
   `)
 }
@@ -293,11 +300,44 @@ export function renderProductionOrderOverview(
   rows: ProductionOrderOverviewRow[],
   state: ProductionOrderOverviewPageState,
 ): string {
-  const filteredRows = filterRows(rows, state.filters)
-  return `${renderFilters(state)}${renderTable(filteredRows, state)}`
+  latestOverviewRows = rows
+  return `<div data-cutting-overview-root>${renderProductionOrderOverviewContent(rows, state)}</div>`
 }
 
-export function handleProductionOrderOverviewEvent(target: Element, state: ProductionOrderOverviewPageState): boolean {
+function renderProductionOrderOverviewContent(
+  rows: ProductionOrderOverviewRow[],
+  state: ProductionOrderOverviewPageState,
+): string {
+  const filteredRows = filterRows(rows, state.filters)
+  return `${renderFilters(state)}<div data-cutting-overview-results>${renderTable(filteredRows, state)}</div>`
+}
+
+function refreshProductionOrderOverview(target: Element, state: ProductionOrderOverviewPageState): void {
+  const root = target.closest<HTMLElement>('[data-cutting-overview-root]')
+  if (!root) return
+  window.setTimeout(() => {
+    if (!root.isConnected) return
+    Object.entries(MULTI_SELECT_CONFIG).forEach(([field, config]) => {
+      const inputs = [...root.querySelectorAll<HTMLInputElement>(`input[data-cutting-overview-filter="${field}"]`)]
+      const selectedValues = new Set(state.filters[config.key])
+      inputs.forEach((input) => {
+        input.checked = selectedValues.has(input.value)
+      })
+      const summary = inputs[0]?.closest('details')?.querySelector('summary')
+      if (summary) summary.textContent = `${config.label}${selectedValues.size ? `（${selectedValues.size}）` : ''}`
+    })
+    const keywordInput = root.querySelector<HTMLInputElement>('[data-cutting-overview-keyword]')
+    if (keywordInput && keywordInput.value !== state.filters.keyword) keywordInput.value = state.filters.keyword
+    const results = root.querySelector<HTMLElement>('[data-cutting-overview-results]')
+    if (results) results.innerHTML = renderTable(filterRows(latestOverviewRows, state.filters), state)
+  }, 0)
+}
+
+export function handleProductionOrderOverviewEvent(
+  target: Element,
+  state: ProductionOrderOverviewPageState,
+  event?: Event,
+): boolean {
   const keywordNode = target.closest<HTMLInputElement>('[data-cutting-overview-keyword]')
   if (keywordNode) {
     state.filters.keyword = keywordNode.value
@@ -305,9 +345,10 @@ export function handleProductionOrderOverviewEvent(target: Element, state: Produ
     return true
   }
 
-  const multiSelectNode = target.closest<HTMLInputElement>('[data-cutting-overview-multiselect]')
+  const multiSelectNode = target.closest<HTMLInputElement>('[data-cutting-overview-filter]')
   if (multiSelectNode) {
-    const field = multiSelectNode.dataset.cuttingOverviewMultiselect as MultiSelectField | undefined
+    if (event?.type === 'input') return true
+    const field = multiSelectNode.dataset.cuttingOverviewFilter as MultiSelectField | undefined
     const config = field ? MULTI_SELECT_CONFIG[field] : undefined
     if (!config) return false
     const key = config.key as MultiSelectFilterKey
@@ -316,6 +357,7 @@ export function handleProductionOrderOverviewEvent(target: Element, state: Produ
     else current.delete(multiSelectNode.value)
     state.filters[key] = [...current]
     state.page = 1
+    refreshProductionOrderOverview(target, state)
     return true
   }
 
@@ -323,6 +365,7 @@ export function handleProductionOrderOverviewEvent(target: Element, state: Produ
   if (pageSizeNode) {
     state.pageSize = Number(pageSizeNode.value) || 20
     state.page = 1
+    refreshProductionOrderOverview(target, state)
     return true
   }
 
@@ -331,11 +374,16 @@ export function handleProductionOrderOverviewEvent(target: Element, state: Produ
   if (!action) return false
   if (action === 'clear-filters') {
     Object.assign(state, createProductionOrderOverviewPageState())
+    refreshProductionOrderOverview(target, state)
     return true
   }
-  if (action === 'apply-keyword') return true
+  if (action === 'apply-keyword') {
+    refreshProductionOrderOverview(target, state)
+    return true
+  }
   if (action === 'set-page') {
     state.page = Number(actionNode.dataset.page) || 1
+    refreshProductionOrderOverview(target, state)
     return true
   }
   return false
