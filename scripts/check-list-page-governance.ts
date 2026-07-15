@@ -60,7 +60,7 @@ function listFiles(directory: string): string[] {
 function readJson(path: string): Record<string, string> {
   if (!existsSync(path)) return {}
   const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown
-  assert(parsed && typeof parsed === 'object' && !Array.isArray(parsed), `${path} 必须是对象`) 
+  assert(parsed && typeof parsed === 'object' && !Array.isArray(parsed), `${path} 必须是对象`)
   for (const [key, value] of Object.entries(parsed)) {
     assert(/^src\/pages\/.*\.ts$/.test(key), `基线路径必须位于 src/pages：${key}`)
     assert(typeof value === 'string' && /^[a-f0-9]{64}$/.test(value), `基线哈希格式错误：${key}`)
@@ -140,6 +140,12 @@ function runSelfTest(): void {
   assert.throws(() => validateBaselineIntegrity({ 'src/pages/old.ts': 'a'.repeat(64) }, { 'src/pages/old.ts': 'b'.repeat(64) }))
   assert.throws(() => validateBaselineIntegrity({ 'src/pages/new.ts': 'a'.repeat(64) }, {}))
   assert.doesNotThrow(() => validateBaselineIntegrity({}, { 'src/pages/migrated.ts': 'a'.repeat(64) }))
+  const workflow = readFileSync(join(ROOT, '.github/workflows/list-page-governance.yml'), 'utf8')
+  assert.match(workflow, /name:\s+list-page-governance/)
+  assert.match(workflow, /pull_request:/)
+  assert.match(workflow, /branches:\s*\n\s*- main/)
+  assert.match(workflow, /GOVERNANCE_BASE_SHA:/)
+  assert.match(workflow, /npm run check:list-page-governance/)
   console.log('list page governance self-test passed')
 }
 
