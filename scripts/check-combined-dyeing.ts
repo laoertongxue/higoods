@@ -24,6 +24,7 @@ import {
   type DyeWorkOrder,
 } from '../src/data/fcs/dyeing-task-domain.ts'
 import { listProcessWorkOrderStockMaterials } from '../src/data/fcs/process-work-order-stock.ts'
+import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
 import {
   createDefaultCombinedDyeingPreferences,
   getCombinedDyeingCandidateReason,
@@ -32,6 +33,7 @@ import {
   restoreCombinedDyeingPreferences,
   submitCombinedDyeingResultInputs,
   toggleCombinedDyeingSelection,
+  renderCraftCombinedDyeingPage,
 } from '../src/pages/process-factory/dyeing/combined-dyeing.ts'
 
 function readWorkspaceFile(path: string): string {
@@ -85,6 +87,53 @@ function checkCombinedDyeingWorkspaceWiring(): void {
   assertIncludes(page, "addEventListener('drop'", '列顺序拖拽必须局部提交新顺序')
   assertIncludes(page, 'function remainingNeedForCandidate', '尚无合并分配历史的候选必须回退加工单计划量，不得显示 0 需求')
   assert(/return `<div data-combined-dyeing-id="\$\{escapeHtml\(task\.taskId\)\}">\$\{renderFormDialog\(/.test(page), '完成与更正弹窗必须由任务 ID 容器整体包裹，确保底部提交按钮能定位任务')
+  assert(!page.includes('ensureCombinedDyeingDemoCandidates'), '页面不得在 render 时注入合并染色演示加工单')
+  assert(!page.includes('registerFormalProductionOrderDyeWorkOrder'), '页面不得直接写 canonical 染色加工单或 PDA store')
+}
+
+function centralSeedSnapshot() {
+  return {
+    dyeOrderIds: listDyeWorkOrders().map((order) => order.dyeOrderId).sort(),
+    pdaTaskIds: listPdaGenericProcessTasks().map((task) => task.taskId).sort(),
+  }
+}
+
+function checkCentralCombinedDyeingDemoSeed(): void {
+  const demoIds = ['DYE-COMBINED-DEMO-001', 'DYE-COMBINED-DEMO-002']
+  const demoProductionOrderIds = ['PO-COMBINED-DEMO-901', 'PO-COMBINED-DEMO-902']
+  const beforeRender = centralSeedSnapshot()
+  assert(demoIds.every((id) => beforeRender.dyeOrderIds.includes(id)), '未渲染合并染色页面前，中央染色 seed 必须已有两张兼容演示加工单')
+  assert(demoIds.every((id) => beforeRender.pdaTaskIds.includes(id)), '未渲染合并染色页面前，PDA 任务必须已有相同两张中央演示任务')
+
+  renderCraftCombinedDyeingPage()
+  const afterFirstRender = centralSeedSnapshot()
+  renderCraftCombinedDyeingPage()
+  const afterSecondRender = centralSeedSnapshot()
+  assert.deepEqual(afterFirstRender, beforeRender, '首次渲染合并染色页面不得写 canonical 或 PDA store')
+  assert.deepEqual(afterSecondRender, beforeRender, '重复渲染合并染色页面不得改变 canonical 或 PDA store')
+
+  const demoOrders = demoIds.map((id) => getDyeWorkOrderById(id))
+  assert(demoOrders.every(Boolean), '中央 demo ID 必须精确命中实际 canonical 染色加工单')
+  assert.deepEqual(demoOrders.map((order) => order!.sourceProductionOrderId), demoProductionOrderIds, '两张 demo 必须分别关联明确且唯一的生产单')
+  assert.equal(new Set(demoOrders.map((order) => order!.sourceProductionOrderId)).size, 2, '两张 demo 不得共享生产单 ID')
+  for (const productionOrderId of demoProductionOrderIds) {
+    assert.equal(
+      listDyeWorkOrders().filter((order) => order.sourceType === 'PRODUCTION_ORDER' && order.sourceProductionOrderId === productionOrderId).length,
+      1,
+      `中央 seed 不得为 ${productionOrderId} 制造第二张染色加工单`,
+    )
+  }
+
+  const first = demoOrders[0]!
+  const snapshot = first.formalProductionOrderSnapshot!
+  const idempotent = registerFormalProductionOrderDyeWorkOrder({
+    ...snapshot,
+    workOrderId: 'DYE-COMBINED-DEMO-DUPLICATE',
+    workOrderNo: 'RSJG-COMBINED-DEMO-DUPLICATE',
+    processName: snapshot.processName,
+  })
+  assert.equal(idempotent.dyeOrderId, first.dyeOrderId, '按同一生产单重复注册必须返回实际 canonical ID，不得依赖调用方期待 ID')
+  assert.deepEqual(centralSeedSnapshot(), beforeRender, '按同一生产单幂等注册不得新增加工单或 PDA 任务')
 }
 
 function checkCombinedDyeingPageHelpers(): void {
@@ -512,6 +561,7 @@ function checkCombinedDyeingLifecycle(): void {
 
 function main(): void {
   checkCombinedDyeingWorkspaceWiring()
+  checkCentralCombinedDyeingDemoSeed()
   checkCombinedDyeingPageHelpers()
 
   const domainSource = readFileSync(new URL('../src/data/fcs/combined-dyeing-domain.ts', import.meta.url), 'utf8')

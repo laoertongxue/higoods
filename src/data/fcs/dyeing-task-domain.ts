@@ -2380,12 +2380,126 @@ function seedPersistentWaterSolubleDyeWorkOrder(): void {
   createdDyeOrderIds.add('DYE-WATER-PO-202603-081')
 }
 
+function seedCombinedDyeingDemoWorkOrders(): void {
+  const common = {
+    techPackVersionId: 'TP-COMBINED-DEMO-V1',
+    techPackVersionLabel: '技术包 V1',
+    materialId: 'MAT-COMBINED-DEMO-001',
+    materialName: '40 支精梳棉双面布',
+    targetColor: '藏青色',
+    qtyUnit: 'Yard',
+    processCodes: ['DYE'] as const,
+    processName: '活性染色',
+    factoryId: 'F090',
+    factoryName: '全能力测试工厂',
+    requiredDeliveryDate: '2026-07-28 18:00:00',
+  }
+  const demos = [
+    {
+      workOrderId: 'DYE-COMBINED-DEMO-001',
+      workOrderNo: 'RSJG-202607-901',
+      productionOrderId: 'PO-COMBINED-DEMO-901',
+      productionOrderNo: 'PO-202607-0901',
+      orderedAt: '2026-07-15 08:30:00',
+      plannedQty: 600,
+      spuCode: 'SPU-COMBINED-901',
+      spuName: '藏青基础款上衣',
+    },
+    {
+      workOrderId: 'DYE-COMBINED-DEMO-002',
+      workOrderNo: 'RSJG-202607-902',
+      productionOrderId: 'PO-COMBINED-DEMO-902',
+      productionOrderNo: 'PO-202607-0902',
+      orderedAt: '2026-07-15 09:10:00',
+      plannedQty: 400,
+      spuCode: 'SPU-COMBINED-902',
+      spuName: '藏青基础款下装',
+    },
+  ]
+
+  for (const demo of demos) {
+    const existing = Array.from(workOrderStore.values())
+      .find((order) => order.sourceType === 'PRODUCTION_ORDER' && order.sourceProductionOrderId === demo.productionOrderId)
+    if (existing) continue
+
+    registerPdaGenericProcessTask(buildFreshDyeMobileTask({
+      taskId: demo.workOrderId,
+      taskNo: demo.workOrderNo,
+      productionOrderId: demo.productionOrderId,
+      productionOrderNo: demo.productionOrderNo,
+      spuCode: demo.spuCode,
+      spuName: demo.spuName,
+      requiredDeliveryDate: common.requiredDeliveryDate,
+      factoryId: common.factoryId,
+      factoryName: common.factoryName,
+      qty: demo.plannedQty,
+      qtyDisplayUnit: common.qtyUnit,
+      processName: common.processName,
+      createdAt: demo.orderedAt,
+      dispatchedBy: '平台自动生成',
+      receiveSummary: '染色加工单已分配，待工厂接收。',
+      executionSummary: `按${common.processName}执行。`,
+      handoverSummary: '完成染色及后处理后统一交出。',
+    }))
+    addSeedWorkOrder({
+      dyeOrderId: demo.workOrderId,
+      dyeOrderNo: demo.workOrderNo,
+      sourceType: 'PRODUCTION_ORDER',
+      sourceProductionOrderId: demo.productionOrderId,
+      sourceProductionOrderNo: demo.productionOrderNo,
+      productionOrderOrderedAt: demo.orderedAt,
+      productionOrderIds: [demo.productionOrderId],
+      isFirstOrder: false,
+      sampleWaitType: 'NONE',
+      sampleStatus: 'NOT_REQUIRED',
+      rawMaterialSku: common.materialId,
+      composition: common.materialName,
+      targetColor: common.targetColor,
+      materialId: common.materialId,
+      dyeProcessCode: 'DYE',
+      dyeProcessName: common.processName,
+      plannedQty: demo.plannedQty,
+      qtyUnit: common.qtyUnit,
+      dyeFactoryId: common.factoryId,
+      dyeFactoryName: common.factoryName,
+      targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
+      targetTransferWarehouseName: '中转区域',
+      status: 'WAIT_MATERIAL',
+      taskId: demo.workOrderId,
+      taskNo: demo.workOrderNo,
+      createdAt: demo.orderedAt,
+      updatedAt: demo.orderedAt,
+      remark: `${common.processName}；来源中央演示生产单 ${demo.productionOrderNo}；技术包 ${common.techPackVersionLabel}。`,
+      formalProductionOrderSnapshot: {
+        productionOrderId: demo.productionOrderId,
+        productionOrderNo: demo.productionOrderNo,
+        orderedAt: demo.orderedAt,
+        techPackVersionId: common.techPackVersionId,
+        techPackVersionLabel: common.techPackVersionLabel,
+        materialId: common.materialId,
+        materialName: common.materialName,
+        materialItems: [{ sourceBomItemId: common.materialId, materialId: common.materialId, materialName: common.materialName }],
+        targetColor: common.targetColor,
+        plannedQty: demo.plannedQty,
+        qtyUnit: common.qtyUnit,
+        processCodes: [...common.processCodes],
+        processName: common.processName,
+        spuCode: demo.spuCode,
+        spuName: demo.spuName,
+        requiredDeliveryDate: common.requiredDeliveryDate,
+      },
+    })
+    createdDyeOrderIds.add(demo.workOrderId)
+  }
+}
+
 function seedDomain(): void {
   if (seeded) return
   seeded = true
   seedWorkOrders()
   normalizeSeedWorkOrderSources()
   seedPersistentWaterSolubleDyeWorkOrder()
+  seedCombinedDyeingDemoWorkOrders()
 }
 
 function getMutableWorkOrder(dyeOrderId: string): MutableDyeWorkOrder {

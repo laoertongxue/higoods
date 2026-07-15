@@ -39,9 +39,7 @@ import {
   type CombinedDyeingTask,
 } from '../../../data/fcs/combined-dyeing-domain.ts'
 import {
-  getDyeWorkOrderById,
   listDyeWorkOrders,
-  registerFormalProductionOrderDyeWorkOrder,
   type DyeWorkOrder,
 } from '../../../data/fcs/dyeing-task-domain.ts'
 import { escapeHtml, formatDateTime } from '../../../utils.ts'
@@ -105,50 +103,6 @@ function nowBusinessTimestamp(): string {
   const date = new Date()
   const pad = (value: number) => String(value).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
-}
-
-function ensureCombinedDyeingDemoCandidates(): void {
-  if (getDyeWorkOrderById('DYE-COMBINED-DEMO-001') && getDyeWorkOrderById('DYE-COMBINED-DEMO-002')) return
-
-  const common = {
-    techPackVersionId: 'TP-COMBINED-DEMO-V1',
-    techPackVersionLabel: '技术包 V1',
-    materialId: 'MAT-COMBINED-DEMO-001',
-    materialName: '40 支精梳棉双面布',
-    targetColor: '藏青色',
-    qtyUnit: 'Yard',
-    processCodes: ['DYE'] as const,
-    processName: '活性染色',
-    factoryId: 'F090',
-    factoryName: '全能力测试工厂',
-    requiredDeliveryDate: '2026-07-28 18:00:00',
-  }
-  if (!getDyeWorkOrderById('DYE-COMBINED-DEMO-001')) {
-    registerFormalProductionOrderDyeWorkOrder({
-      ...common,
-      workOrderId: 'DYE-COMBINED-DEMO-001',
-      workOrderNo: 'RSJG-202607-901',
-      productionOrderId: 'PO-COMBINED-DEMO-901',
-      productionOrderNo: 'PO-202607-0901',
-      orderedAt: '2026-07-15 08:30:00',
-      plannedQty: 600,
-      spuCode: 'SPU-COMBINED-901',
-      spuName: '藏青基础款上衣',
-    })
-  }
-  if (!getDyeWorkOrderById('DYE-COMBINED-DEMO-002')) {
-    registerFormalProductionOrderDyeWorkOrder({
-      ...common,
-      workOrderId: 'DYE-COMBINED-DEMO-002',
-      workOrderNo: 'RSJG-202607-902',
-      productionOrderId: 'PO-COMBINED-DEMO-902',
-      productionOrderNo: 'PO-202607-0902',
-      orderedAt: '2026-07-15 09:10:00',
-      plannedQty: 400,
-      spuCode: 'SPU-COMBINED-902',
-      spuName: '藏青基础款下装',
-    })
-  }
 }
 
 function currentVersion(task: CombinedDyeingTask): CombinedDyeingAllocationVersion | undefined {
@@ -584,7 +538,6 @@ function renderOverlay(): string {
 }
 
 export function renderCraftCombinedDyeingPage(): string {
-  ensureCombinedDyeingDemoCandidates()
   installCombinedDyeingColumnDragEvents()
   return `
     <div data-combined-dyeing-root data-skip-page-rerender="true">
