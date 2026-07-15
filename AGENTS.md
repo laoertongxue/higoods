@@ -226,6 +226,16 @@ Mock 数据应优先表现：
 - 大型页面必须拆分渲染函数，避免单文件中堆积巨型 HTML 模板；稳定不变的静态片段可以缓存或复用，减少重复字符串构造。
 - 不为了性能引入 React、状态管理框架、虚拟 DOM 或复杂基础设施；优先在现有字符串模板架构内做局部优化。
 
+### 7.3.1 列表页变更硬门禁
+
+标准列表页模板的要求必须通过自动检查执行，不能只依赖人工约定：
+
+- 新增或调整的列表页必须在页面源文件顶部声明 `// @page-pattern: list`，并通过 `npm run check:list-page-governance`。
+- 列表页必须使用标准列表页组件契约：`renderStandardListPage`、`renderStandardListTable` 和 `renderTablePagination`，同时具备分页、列排序 / 显示 / 冻结能力与右侧固定操作栏。
+- `scripts/standard-list-page-baseline.json` 只允许保留尚未迁移且未发生变化的历史页面哈希。基线哈希不得被修改，也不得为绕过检查新增；完成迁移后应删除对应基线条目。
+- `npm run build` 会自动先执行统一列表页治理检查；Pull Request 和推送到 `main` 必须通过 GitHub Actions 的 `list-page-governance` 必检状态。
+- 例外只能通过原型审查记录说明范围、原因和迁移计划，不能通过修改检查脚本或基线文件绕过门禁。
+
 ### 7.3 标准列表页模板治理
 
 标准列表页模板以补料管理页面 `/fcs/craft/cutting/supplement-management` 为验收基准。核心公共组件为 `src/components/ui/list-page.ts`，表格渲染与列偏好模型分别位于 `src/components/ui/list-table.ts`、`src/components/ui/list-table-model.ts`。

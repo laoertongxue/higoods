@@ -1,3 +1,5 @@
+// @page-pattern: list
+
 import { escapeHtml } from '../../../utils.ts'
 import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress.ts'
 import {

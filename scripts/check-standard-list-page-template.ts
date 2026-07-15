@@ -38,6 +38,7 @@ const slotMarkers = {
 const mainSource = fs.readFileSync(new URL('../src/main.ts', import.meta.url), 'utf8')
 const fcsHandlerSource = fs.readFileSync(new URL('../src/main-handlers/fcs-handlers.ts', import.meta.url), 'utf8')
 const agentsSource = fs.readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8')
+const supplementPageSource = fs.readFileSync(new URL('../src/pages/process-factory/cutting/supplement-management.ts', import.meta.url), 'utf8')
 
 function extractStandardListGovernanceSection(source: string): string {
   const headingMatch = /^### 7\.3 标准列表页模板治理\s*$/m.exec(source)
@@ -125,6 +126,9 @@ function assertStandardListGovernanceSection(section: string): void {
 
 const standardListGovernanceSection = extractStandardListGovernanceSection(agentsSource)
 assertStandardListGovernanceSection(standardListGovernanceSection)
+assert.match(agentsSource, /npm run check:list-page-governance/, 'AGENTS.md 必须要求统一列表页治理命令')
+assert.match(agentsSource, /基线.*哈希.*不得.*修改/, 'AGENTS.md 必须禁止修改历史列表页基线哈希')
+assert.match(supplementPageSource, /@page-pattern:\s*list/, '补料管理页面必须声明列表页模式')
 
 const rejectedGovernanceVariants = [
   standardListGovernanceSection.replace('所有数据列表必须分页', '所有数据列表不必分页'),
