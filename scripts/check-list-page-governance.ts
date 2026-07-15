@@ -71,10 +71,16 @@ function readJson(path: string): Record<string, string> {
 function readBaseBaseline(baseSha: string | undefined): Record<string, string> | null {
   if (!baseSha) return null
   try {
-    const source = execFileSync('git', ['show', `${baseSha}:scripts/standard-list-page-baseline.json`], { encoding: 'utf8' })
+    const source = execFileSync('git', ['show', `${baseSha}:scripts/standard-list-page-baseline.json`], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     return JSON.parse(source) as Record<string, string>
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const stderr = error && typeof error === 'object' && 'stderr' in error
+      ? String((error as { stderr?: Buffer }).stderr || '')
+      : ''
+    const message = `${error instanceof Error ? error.message : String(error)}\n${stderr}`
     if (message.includes('does not exist in') || message.includes('exists on disk, but not in')) return null
     throw error
   }
