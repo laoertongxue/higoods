@@ -38,6 +38,9 @@ export type PrintWorkOrderStatus =
   | 'PARTIAL_HANDOVER'
   | 'FULL_HANDOVER'
   | 'HANDOVER_DIFFERENCE'
+  | 'WAIT_REVIEW'
+  | 'COMPLETED'
+  | 'REJECTED'
 
 export type PrintExecutionNodeCode = 'COLOR_TEST' | 'PRINT' | 'TRANSFER' | 'HANDOVER'
 export type PrintReceiptStatus = 'WAIT_RECEIVE' | 'PARTIAL_HANDOVER' | 'FULL_HANDOVER' | 'HANDOVER_DIFFERENCE'
@@ -163,6 +166,9 @@ export const PRINT_WORK_ORDER_STATUS_LABEL: Record<PrintWorkOrderStatus, string>
   PARTIAL_HANDOVER: '部分交出',
   FULL_HANDOVER: '全部交出',
   HANDOVER_DIFFERENCE: '收货差异',
+  WAIT_REVIEW: '待审核',
+  COMPLETED: '已完成',
+  REJECTED: '已驳回',
 }
 
 export const PRINT_NODE_LABEL: Record<PrintExecutionNodeCode, string> = {
@@ -236,10 +242,6 @@ function buildPrintDemandId(craftCode: string, productionOrderId: string, mockIn
   return buildDictionaryCraftMockDocumentNo('YHXQ', craftCode, productionOrderId, mockIndex)
 }
 
-function buildPrintWorkOrderNo(craftCode: string, productionOrderId: string, mockIndex: number): string {
-  return buildDictionaryCraftMockDocumentNo('YHJG', craftCode, productionOrderId, mockIndex)
-}
-
 function getGeneratedPrintContext(index: number): GeneratedPrintContext | null {
   const generatedCraft = getGeneratedPrintCraft(index)
   if (!generatedCraft) return null
@@ -265,7 +267,6 @@ function getVisiblePrintWorkOrderIds(): Set<string> {
   return new Set(
     Array.from(workOrderStore.values())
       .sort((left, right) => left.printOrderNo.localeCompare(right.printOrderNo))
-      .slice(0, GENERATED_PRINT_CRAFTS.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION)
       .map((order) => order.printOrderId),
   )
 }
@@ -277,7 +278,6 @@ function toGeneratedPrintWorkOrder(order: MutablePrintWorkOrder, index: number):
   const demandId = buildPrintDemandId(craftDefinition.craftCode, productionOrder.productionOrderId, mockIndex)
   return {
     ...order,
-    printOrderNo: buildPrintWorkOrderNo(craftDefinition.craftCode, productionOrder.productionOrderId, mockIndex),
     sourceDemandIds: [demandId],
     productionOrderIds: [productionOrder.productionOrderId],
     isFirstOrder: mockIndex === 0,
@@ -296,7 +296,6 @@ function toGeneratedPrintWorkOrder(order: MutablePrintWorkOrder, index: number):
 function listGeneratedPrintWorkOrders(): MutablePrintWorkOrder[] {
   return Array.from(workOrderStore.values())
     .sort((left, right) => left.printOrderNo.localeCompare(right.printOrderNo))
-    .slice(0, GENERATED_PRINT_CRAFTS.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION)
     .map((order, index) => toGeneratedPrintWorkOrder(order, index))
 }
 
@@ -1421,11 +1420,11 @@ function syncOrderFromReview(order: MutablePrintWorkOrder, review?: MutableRevie
   if (!review) return false
 
   if (review.reviewStatus === 'FULL_HANDOVER') {
-    order.status = 'FULL_HANDOVER'
+    order.status = review.reviewedAt ? 'COMPLETED' : 'WAIT_REVIEW'
   } else if (review.reviewStatus === 'HANDOVER_DIFFERENCE') {
-    order.status = 'HANDOVER_DIFFERENCE'
+    order.status = review.reviewedAt && review.rejectReason ? 'REJECTED' : 'WAIT_REVIEW'
   } else if (review.reviewStatus === 'PARTIAL_HANDOVER') {
-    order.status = 'PARTIAL_HANDOVER'
+    order.status = 'WAIT_REVIEW'
   } else {
     order.status = 'HANDOVER_WAIT_RECEIVE'
   }

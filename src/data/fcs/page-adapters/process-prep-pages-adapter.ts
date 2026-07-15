@@ -21,7 +21,6 @@ import {
 import { getPlatformProcessResultView } from '../platform-process-result-view.ts'
 import { getQuantityLabel, type ProcessObjectType } from '../process-quantity-labels.ts'
 import { TEST_FACTORY_NAME } from '../factory-mock-data.ts'
-import { listRegisteredCreatedDyeWorkOrders } from '../dyeing-created-work-order-registry.ts'
 
 type PrepProcessCode = 'PRINT' | 'DYE'
 type PrepUnit = string
@@ -240,23 +239,6 @@ const META_BY_PROCESS: Record<PrepProcessCode, PrepProcessMeta> = {
 }
 
 const SATISFIED_RATIO_PATTERN = [0, 0.45, 0.7, 1]
-const CREATED_DYE_STATUS_LABEL: Record<string, string> = {
-  WAIT_MATERIAL: '待原料',
-  WAIT_VAT_PLAN: '待排缸',
-  WAIT_WATER_SOLUBLE: '待水溶',
-  WATER_SOLUBLE_IN_PROGRESS: '水溶中',
-  PRODUCTION_PAUSED: '生产暂停',
-  DYEING: '染色中',
-  WAIT_HANDOVER: '待交出',
-  HANDOVER_WAIT_RECEIVE: '交出待收货',
-  FULL_HANDOVER: '全部交出',
-}
-
-function getCreatedDyeCurrentStepLabel(order: ReturnType<typeof listRegisteredCreatedDyeWorkOrders>[number]): string {
-  if (order.requiresWaterSoluble && order.status === 'WAIT_VAT_PLAN' && (order.waterSolubleCompletedQty ?? 0) > 0) return '待染色'
-  return CREATED_DYE_STATUS_LABEL[order.status] || '加工中'
-}
-
 function pad(num: number, size: number): string {
   return String(num).padStart(size, '0')
 }
@@ -798,7 +780,6 @@ function buildFactsFromProcessWorkOrders(processCode: PrepProcessCode): {
   orders: PrepProcessOrderFact[]
 } {
   const orders = listProcessWorkOrders(processCode)
-    .slice(0, 3)
     .map(mapUnifiedWorkOrderToPrepOrder)
   const demands = orders
     .map((order, index) => toDemandFactFromProcessOrder(processCode, order, index))
@@ -807,73 +788,10 @@ function buildFactsFromProcessWorkOrders(processCode: PrepProcessCode): {
   return { demands, orders }
 }
 
-const PRINT_FACTS = buildFacts('PRINT')
-const DYE_FACTS = buildFacts('DYE')
-
 export function listPrepRequirementDemands(processCode: PrepProcessCode): PrepRequirementDemandFact[] {
   return cloneDemands(buildFacts(processCode).demands)
 }
 
 export function listPrepProcessOrders(processCode: PrepProcessCode): PrepProcessOrderFact[] {
-  const base = cloneOrders(processCode === 'PRINT' ? PRINT_FACTS.orders : DYE_FACTS.orders)
-  if (processCode !== 'DYE') return base
-  const registeredOrders = listRegisteredCreatedDyeWorkOrders()
-  const consumedDemandIds = new Set(registeredOrders.flatMap((order) => order.sourceDemandIds))
-  const consumedArtifactIds = new Set(registeredOrders.flatMap((order) => order.sourceArtifactIds || []))
-  const availableBase = base.filter((order) =>
-    !order.linkedDemands.some((demand) => consumedDemandIds.has(demand.demandId))
-    && !(order.sourceArtifactIds || []).some((artifactId) => consumedArtifactIds.has(artifactId)),
-  )
-  const existingIds = new Set(availableBase.flatMap((item) => [item.workOrderId, item.orderNo]))
-  const demandFactsById = new Map(listPrepRequirementDemands('DYE').map((demand) => [demand.demandId, demand]))
-  const created = registeredOrders
-    .filter((order) => !existingIds.has(order.dyeOrderId) && !existingIds.has(order.dyeOrderNo))
-    .map<PrepProcessOrderFact>((order) => ({
-      workOrderId: order.dyeOrderId,
-      sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
-      processType: 'DYE',
-      orderNo: order.dyeOrderNo,
-      workOrderNo: order.dyeOrderNo,
-      status: order.status === 'FULL_HANDOVER' ? '已完成' : order.status === 'PRODUCTION_PAUSED' ? '异常' : order.status === 'WAIT_MATERIAL' ? '准备中' : '加工中',
-      statusLabel: CREATED_DYE_STATUS_LABEL[order.status] || '加工中',
-      factoryInternalStatusLabel: CREATED_DYE_STATUS_LABEL[order.status] || '加工中',
-      platformStatusLabel: order.status === 'FULL_HANDOVER' ? '已完成' : order.status === 'PRODUCTION_PAUSED' ? '异常' : '加工中',
-      platformStageLabel: order.requiresWaterSoluble ? '同厂连续加工' : '染色加工',
-      platformRiskLevel: order.status === 'PRODUCTION_PAUSED' ? '异常' : '无风险',
-      platformRiskLabel: order.status === 'PRODUCTION_PAUSED' ? '水溶数量不足，待主管处理' : '按计划推进',
-      taskId: order.taskId,
-      taskNo: order.taskNo,
-      createMode: '按需求创建',
-      factoryName: order.dyeFactoryName,
-      plannedFeedQty: order.plannedQty,
-      requiresWaterSoluble: order.requiresWaterSoluble,
-      waterSolublePlannedQty: order.waterSolublePlannedQty,
-      waterSolubleCompletedQty: order.waterSolubleCompletedQty,
-      waterSolubleQtyUnit: order.waterSolubleQtyUnit,
-      currentStepLabel: getCreatedDyeCurrentStepLabel(order),
-      completedObjectQty: order.requiresWaterSoluble ? order.waterSolubleCompletedQty : undefined,
-      unit: order.qtyUnit,
-      plannedFinishAt: order.updatedAt,
-      sourceSummary: `来源需求单 ${order.sourceDemandIds.join('、')}`,
-      note: order.remark || '',
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt,
-      linkedDemands: order.sourceDemandIds.map((demandId, index) => {
-        const demand = demandFactsById.get(demandId)
-        return {
-          demandId,
-          sourceProductionOrderId: demand?.sourceProductionOrderId || order.productionOrderIds?.[index] || order.productionOrderIds?.[0] || '暂无生产单',
-          materialCode: demand?.materialCode || order.rawMaterialSku,
-          materialName: demand?.materialName || order.rawMaterialSku,
-          requiredQty: demand?.requiredQty || order.plannedQty,
-          satisfiedQty: 0,
-          unit: demand?.unit || order.qtyUnit,
-          status: '待满足',
-        }
-      }),
-      materialReceipt: { receiveStatus: '待接收', receivedQty: 0, receivedAt: '-', receiptVoucher: '待接收后回填', qualityConclusion: '待来料接收' },
-      batches: [],
-      destinations: [],
-    }))
-  return [...created, ...availableBase]
+  return cloneOrders(buildFactsFromProcessWorkOrders(processCode).orders)
 }

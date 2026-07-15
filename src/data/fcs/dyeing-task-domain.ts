@@ -53,6 +53,8 @@ export type DyeWorkOrderStatus =
   | 'PARTIAL_HANDOVER'
   | 'FULL_HANDOVER'
   | 'HANDOVER_DIFFERENCE'
+  | 'COMPLETED'
+  | 'REJECTED'
 
 export type SampleWaitType = 'NONE' | 'WAIT_SAMPLE_GARMENT' | 'WAIT_COLOR_CARD'
 export type SampleStatus = 'NOT_REQUIRED' | 'WAITING' | 'TESTING' | 'DONE'
@@ -254,12 +256,14 @@ export const DYE_WORK_ORDER_STATUS_LABEL: Record<DyeWorkOrderStatus, string> = {
   SETTING: '定型中',
   ROLLING: '打卷中',
   PACKING: '包装中',
-  WAIT_HANDOVER: '待交出',
+  WAIT_HANDOVER: '待送货',
   HANDOVER_WAIT_RECEIVE: '交出待收货',
   WAIT_REVIEW: '待审核',
   PARTIAL_HANDOVER: '部分交出',
   FULL_HANDOVER: '全部交出',
   HANDOVER_DIFFERENCE: '收货差异',
+  COMPLETED: '已完成',
+  REJECTED: '已驳回',
 }
 
 export const SAMPLE_WAIT_TYPE_LABEL: Record<SampleWaitType, string> = {
@@ -370,10 +374,6 @@ function buildDyeDemandId(craftCode: string, productionOrderId: string, mockInde
   return buildDictionaryCraftMockDocumentNo('RSXQ', craftCode, productionOrderId, mockIndex)
 }
 
-function buildDyeWorkOrderNo(craftCode: string, productionOrderId: string, mockIndex: number): string {
-  return buildDictionaryCraftMockDocumentNo('RSJG', craftCode, productionOrderId, mockIndex)
-}
-
 function getGeneratedDyeContext(index: number): GeneratedDyeContext | null {
   const generatedCraft = getGeneratedDyeCraft(index)
   if (!generatedCraft) return null
@@ -424,10 +424,8 @@ function toGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): Mut
   if (!context) return order
   const { productionOrder, techPackSnapshot, craftDefinition, mockIndex, plannedQty, materialName, targetColor } = context
   const demandId = buildDyeDemandId(craftDefinition.craftCode, productionOrder.productionOrderId, mockIndex)
-  const baseWorkOrderNo = buildDyeWorkOrderNo(craftDefinition.craftCode, productionOrder.productionOrderId, mockIndex)
   return {
     ...order,
-    dyeOrderNo: index < generatedCount ? baseWorkOrderNo : `${baseWorkOrderNo}-${String(index + 1).padStart(2, '0')}`,
     sourceDemandIds: [demandId],
     productionOrderIds: [productionOrder.productionOrderId],
     isFirstOrder: mockIndex === 0,
@@ -825,7 +823,9 @@ function syncDyeOrderFromReview(order: MutableDyeWorkOrder, review?: MutableDyeR
   if (review.reviewStatus === 'WAIT_RECEIVE') {
     order.status = 'HANDOVER_WAIT_RECEIVE'
   } else if (review.reviewStatus === 'REJECTED') {
-    order.status = 'HANDOVER_DIFFERENCE'
+    order.status = 'REJECTED'
+  } else if (review.reviewStatus === 'FULL_HANDOVER' && review.reviewedAt) {
+    order.status = 'COMPLETED'
   } else {
     order.status = review.reviewStatus
   }

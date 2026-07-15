@@ -55,6 +55,49 @@ const unifiedDyeOrders = listProcessWorkOrders('DYE')
 const platformPrintOrders = listPrepProcessOrders('PRINT')
 const platformDyeOrders = listPrepProcessOrders('DYE')
 
+function sortIdentities(identities: Array<[string, string]>): Array<[string, string]> {
+  return [...identities].sort(([leftId, leftNo], [rightId, rightNo]) =>
+    leftId.localeCompare(rightId) || leftNo.localeCompare(rightNo),
+  )
+}
+
+function assertWorkOrderIdentity(
+  platformOrders: Array<{ workOrderId?: string; orderNo: string }>,
+  factoryOrders: Array<{ workOrderId: string; orderNo: string }>,
+): void {
+  const platformIdentities = platformOrders.map((order) => [order.workOrderId || '', order.orderNo] as [string, string])
+  const factoryIdentities = factoryOrders.map((order) => [order.workOrderId, order.orderNo] as [string, string])
+  const platformIds = new Set(platformIdentities.map(([workOrderId]) => workOrderId))
+  const factoryIds = new Set(factoryIdentities.map(([workOrderId]) => workOrderId))
+  const platformNos = platformIdentities.map(([, orderNo]) => orderNo)
+  const factoryNos = factoryIdentities.map(([, orderNo]) => orderNo)
+
+  assert.equal(platformIds.size, platformIdentities.length, '工厂端只能使用平台加工单 ID 和加工单号')
+  assert.equal(factoryIds.size, factoryIdentities.length, '工厂端只能使用平台加工单 ID 和加工单号')
+  assert.equal(new Set(platformNos).size, platformNos.length, '工厂端只能使用平台加工单 ID 和加工单号')
+  assert.equal(new Set(factoryNos).size, factoryNos.length, '工厂端只能使用平台加工单 ID 和加工单号')
+  factoryIdentities.forEach(([workOrderId]) => {
+    assert(platformIds.has(workOrderId), '工厂端只能使用平台加工单 ID 和加工单号')
+  })
+  factoryNos.forEach((orderNo) => {
+    assert(!/-\d{2}$/.test(orderNo), '工厂端只能使用平台加工单 ID 和加工单号')
+  })
+  assert.deepEqual(
+    sortIdentities(platformIdentities),
+    sortIdentities(factoryIdentities),
+    '工厂端只能使用平台加工单 ID 和加工单号',
+  )
+}
+
+assertWorkOrderIdentity(
+  platformPrintOrders,
+  printWorkOrders.map((order) => ({ workOrderId: order.printOrderId, orderNo: order.printOrderNo })),
+)
+assertWorkOrderIdentity(
+  platformDyeOrders,
+  dyeWorkOrders.map((order) => ({ workOrderId: order.dyeOrderId, orderNo: order.dyeOrderNo })),
+)
+
 assert(unifiedPrintOrders.length >= 3, 'PRINT 至少需要 3 条统一加工单')
 assert(unifiedDyeOrders.length >= 3, 'DYE 至少需要 3 条统一加工单')
 assert.deepEqual(

@@ -176,6 +176,8 @@ function cloneHandoverRecords(records: PdaHandoverRecord[]): PdaHandoverRecord[]
 }
 
 function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
+  const workOrderId = order.printOrderId
+  const workOrderNo = order.printOrderNo
   const review = getPrintReviewRecordByOrderId(order.printOrderId)
   const quantityContext = {
     processType: 'PRINT',
@@ -188,8 +190,8 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
     isFabricPrinting: order.isFabricPrinting,
   }
   return {
-    workOrderId: order.printOrderId,
-    workOrderNo: order.printOrderNo,
+    workOrderId,
+    workOrderNo,
     processType: 'PRINT',
     sourceDemandIds: [...order.sourceDemandIds],
     productionOrderIds: [...order.productionOrderIds],
@@ -219,8 +221,8 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
     handoverOrderNo: order.handoverOrderNo,
     reviewRecordId: review?.reviewRecordId,
     printPayload: {
-      printOrderId: order.printOrderId,
-      printOrderNo: order.printOrderNo,
+      printOrderId: workOrderId,
+      printOrderNo: workOrderNo,
       patternNo: order.patternNo,
       patternVersion: order.patternVersion,
       materialColor: order.materialColor,
@@ -238,6 +240,8 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
 }
 
 function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
+  const workOrderId = order.dyeOrderId
+  const workOrderNo = order.dyeOrderNo
   const review = getDyeReviewRecordByOrderId(order.dyeOrderId)
   const quantityContext = {
     processType: 'DYE',
@@ -248,8 +252,8 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
     qtyPurpose: '计划' as const,
   }
   return {
-    workOrderId: order.dyeOrderId,
-    workOrderNo: order.dyeOrderNo,
+    workOrderId,
+    workOrderNo,
     processType: 'DYE',
     sourceDemandIds: [...order.sourceDemandIds],
     sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
@@ -278,8 +282,8 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
     handoverOrderNo: order.handoverOrderNo,
     reviewRecordId: review?.reviewRecordId,
     dyePayload: {
-      dyeOrderId: order.dyeOrderId,
-      dyeOrderNo: order.dyeOrderNo,
+      dyeOrderId: workOrderId,
+      dyeOrderNo: workOrderNo,
       isFirstOrder: order.isFirstOrder,
       sampleWaitType: order.sampleWaitType,
       sampleStatus: order.sampleStatus,
