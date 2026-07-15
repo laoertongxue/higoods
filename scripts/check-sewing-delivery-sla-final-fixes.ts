@@ -27,22 +27,38 @@ import {
 const runtimeState = captureRuntimeDirectDispatchState()
 const slaState = captureSewingDeliverySlaSnapshotStore()
 try {
-  const seedRow = listSewingDispatchWorkbenchRows().find((row) => row.completeKitQty >= 4)
+  const fixtureRows = listSewingDispatchWorkbenchRows().filter((row) =>
+    row.completeKitQty === row.remainingQty && row.remainingQty > 1,
+  )
+  const seedRow = fixtureRows.find((row) =>
+    fixtureRows.filter((candidate) => candidate.taskId === row.taskId).length >= 4,
+  )
   const taskId = seedRow?.taskId
-  assert.ok(taskId, '必须存在可连续部分分配的独立车缝任务')
+  assert.ok(taskId, '必须存在至少四个完整齐套 SKU 的独立车缝任务')
+  const taskRows = fixtureRows.filter((row) => row.taskId === taskId)
+  const [firstRow, directRow, biddingRow, futureRow] = taskRows
   const source = getRuntimeTaskById(taskId)
-  assert.ok(source, '部分数量分配测试任务必须存在')
-  const firstLine = source.scopeSkuLines.find((line) => line.skuCode === seedRow?.skuCode)
-  assert.ok(firstLine && firstLine.qty >= 2, '部分数量分配测试任务必须有可拆 SKU')
+  assert.ok(source, '整 SKU 分配测试任务必须存在')
+
+  assert.throws(
+    () => allocateRuntimeSewingTaskScope({
+      taskId,
+      lines: [{ skuCode: firstRow.skuCode, qty: firstRow.remainingQty - 1 }],
+      by: '跟单A',
+      operatedAt: '2026-07-10 10:00:00',
+    }),
+    /全部待分配数量|不能按数量拆分/,
+    '同一个 SKU 不得按数量拆给多家工厂',
+  )
 
   const allocated = allocateRuntimeSewingTaskScope({
     taskId,
-    lines: [{ skuCode: firstLine.skuCode, qty: 1 }],
+    lines: [{ skuCode: firstRow.skuCode, qty: firstRow.remainingQty }],
     by: '跟单A',
     operatedAt: '2026-07-10 10:00:00',
   })
-  assert.notEqual(allocated.taskId, taskId, '部分数量必须生成真实运行时分配子任务')
-  assert.equal(allocated.scopeQty, 1)
+  assert.notEqual(allocated.taskId, taskId, '选择部分 SKU 时必须生成真实运行时分配子任务')
+  assert.equal(allocated.scopeQty, firstRow.remainingQty)
   assert.equal(getRuntimeTaskById(taskId)?.executionEnabled, false, '原任务分区后必须停用，避免与子任务重复执行')
   const firstGroup = listRuntimeTaskSplitGroupsByOrder(source.productionOrderId).find((group) => group.sourceTaskId === taskId)
   assert.ok(firstGroup)
@@ -62,15 +78,15 @@ try {
       '下游必须等待本次分配与全部剩余分区任务',
     )
   }
-  const firstResidualRow = listSewingDispatchWorkbenchRows().find((row) => row.skuCode === firstLine.skuCode && row.taskId !== allocated.taskId)
-  assert.ok(firstResidualRow, '剩余数量必须作为可执行子任务保留在工作台继续分配')
+  const firstResidualRow = listSewingDispatchWorkbenchRows().find((row) => row.skuCode === firstRow.skuCode && row.taskId !== allocated.taskId)
+  assert.equal(firstResidualRow, undefined, '完整 SKU 分区后不得保留同 SKU 的剩余数量行')
+  const currentDirectRow = listSewingDispatchWorkbenchRows().find((row) => row.skuCode === directRow.skuCode)
+  assert.ok(currentDirectRow, '未选择的其他 SKU 必须保留在工作台继续分配')
 
   const direct = createSewingDispatchWorkbenchDraft({
     actionType: '直接派单',
-    factoryId: 'ID-F003',
-    factoryName: '万隆车缝厂',
-    rowIds: [firstResidualRow.rowId],
-    qtyByRowId: { [firstResidualRow.rowId]: 1 },
+    rowIds: [currentDirectRow.rowId],
+    factoryIdByRowId: { [currentDirectRow.rowId]: 'ID-F001' },
     businessAssignedAt: '2026-07-10 08:00:00',
     operatedAt: '2026-07-10 10:00:00',
     by: '跟单A',
@@ -78,7 +94,7 @@ try {
   assert.equal(direct.ok, true, direct.message)
   assert.ok(direct.runtimeTaskIds?.length, '成功 draft 必须关联真实运行时任务')
   const directTaskId = direct.runtimeTaskIds![0]
-  assert.equal(getSewingDeliverySlaSnapshot(directTaskId)?.assignedQty, 1, '直接派单快照分母必须等于输入数量')
+  assert.equal(getSewingDeliverySlaSnapshot(directTaskId)?.assignedQty, directRow.remainingQty, '直接派单快照分母必须等于 SKU 全部待分配数量')
   const directTaskBeforeIllegalReuse = structuredClone(getRuntimeTaskById(directTaskId))
   const directSnapshotBeforeIllegalReuse = getSewingDeliverySlaSnapshot(directTaskId)
   assert.throws(
@@ -94,14 +110,13 @@ try {
   assert.deepEqual(getRuntimeTaskById(directTaskId), directTaskBeforeIllegalReuse, '非法复用普通入口必须原子拒绝且不改变任务')
   assert.deepEqual(getSewingDeliverySlaSnapshot(directTaskId), directSnapshotBeforeIllegalReuse, '非法复用普通入口不得替换履约快照或污染旧实收归属')
   const secondGroup = listRuntimeTaskSplitGroupsByOrder(source.productionOrderId).find((group) => group.sourceTaskId === taskId)
-  assert.equal(secondGroup?.resultTasks.reduce((sum, task) => sum + task.scopeQty, 0), source.scopeQty, '连续第二次部分分配后总范围仍须守恒')
+  assert.equal(secondGroup?.resultTasks.reduce((sum, task) => sum + task.scopeQty, 0), source.scopeQty, '连续第二次整 SKU 分配后总范围仍须守恒')
 
-  const remainingRow = listSewingDispatchWorkbenchRows().find((row) => row.skuCode === firstLine.skuCode)
-  assert.ok(remainingRow, '直接派出部分数量后仍应有剩余行')
+  const remainingRow = listSewingDispatchWorkbenchRows().find((row) => row.skuCode === biddingRow.skuCode)
+  assert.ok(remainingRow, '其他未分配 SKU 应继续保留')
   const bidding = createSewingDispatchWorkbenchDraft({
     actionType: '发起竞价',
     rowIds: [remainingRow.rowId],
-    qtyByRowId: { [remainingRow.rowId]: 1 },
     businessAssignedAt: '2026-07-10 09:00:00',
     operatedAt: '2026-07-10 10:00:00',
     by: '跟单A',
@@ -117,11 +132,11 @@ try {
   acceptRuntimeTaskAssignment(bidTaskId, { factoryId: 'ID-F003', acceptedAt: '2026-07-10 12:00:00', acceptedBy: '万隆车缝厂' })
   assert.equal(getSewingDeliverySlaSnapshot(bidTaskId)?.assignedQty, bidTask.scopeQty)
 
-  const futureRow = listSewingDispatchWorkbenchRows().find((row) => row.completeKitQty > 0)
-  assert.ok(futureRow)
+  const currentFutureRow = listSewingDispatchWorkbenchRows().find((row) => row.skuCode === futureRow.skuCode)
+  assert.ok(currentFutureRow)
   const future = createSewingDispatchWorkbenchDraft({
-    actionType: '直接派单', factoryId: 'ID-F003', factoryName: '万隆车缝厂', rowIds: [futureRow.rowId],
-    qtyByRowId: { [futureRow.rowId]: 1 }, businessAssignedAt: '2026-07-10 11:00:00', operatedAt: '2026-07-10 10:00:00', by: '跟单A',
+    actionType: '直接派单', rowIds: [currentFutureRow.rowId], factoryIdByRowId: { [currentFutureRow.rowId]: 'ID-F001' },
+    businessAssignedAt: '2026-07-10 11:00:00', operatedAt: '2026-07-10 10:00:00', by: '跟单A',
   })
   assert.equal(future.ok, false)
   assert.match(future.message, /业务分配时间不能晚于当前操作时间/)
@@ -144,7 +159,7 @@ try {
   assert.equal(directRedispatched?.assignedFactoryId, 'ID-F002')
   assert.equal(directRedispatched?.acceptanceStatus, 'PENDING', 'DIRECT拒单后必须可正常再次派单')
 
-  const rejectBid = createSewingDispatchWorkbenchDraft({ actionType: '发起竞价', rowIds: [futureRow.rowId], qtyByRowId: { [futureRow.rowId]: 1 }, businessAssignedAt: '2026-07-10 10:00:00', operatedAt: '2026-07-10 10:00:00', by: '跟单A' })
+  const rejectBid = createSewingDispatchWorkbenchDraft({ actionType: '发起竞价', rowIds: [currentFutureRow.rowId], businessAssignedAt: '2026-07-10 10:00:00', operatedAt: '2026-07-10 10:00:00', by: '跟单A' })
   assert.equal(rejectBid.ok, true, rejectBid.message)
   const rejectTaskId = rejectBid.runtimeTaskIds![0]
   const rejectTask = awardRuntimeTaskTender({ taskId: rejectTaskId, factoryId: 'ID-F003', factoryName: '万隆车缝厂', awardedAt: '2026-07-10 12:30:00', awardedPrice: 12000, by: '跟单A' })

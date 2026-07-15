@@ -33,6 +33,8 @@ type TaskBreakdownPageModule = typeof import('./pages/task-breakdown')
 type WlsFabricDemandBoardPageModule = typeof import('./pages/wls-fabric-demand-board')
 type ProcessWaterSolubleOrdersPageModule = typeof import('./pages/process-water-soluble-orders')
 type CraftDyeingWaterSolubleOrdersPageModule = typeof import('./pages/process-factory/dyeing/water-soluble-orders')
+type SewingDispatchWorkbenchPageModule = typeof import('./pages/sewing-dispatch-workbench')
+type ContinuousDispatchPageModule = typeof import('./pages/continuous-dispatch')
 
 let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
 let pcsHandlersModulePromise: Promise<PcsHandlersModule> | null = null
@@ -63,6 +65,8 @@ let taskBreakdownPageModulePromise: Promise<TaskBreakdownPageModule> | null = nu
 let wlsFabricDemandBoardPageModulePromise: Promise<WlsFabricDemandBoardPageModule> | null = null
 let processWaterSolubleOrdersPageModulePromise: Promise<ProcessWaterSolubleOrdersPageModule> | null = null
 let craftDyeingWaterSolubleOrdersPageModulePromise: Promise<CraftDyeingWaterSolubleOrdersPageModule> | null = null
+let sewingDispatchWorkbenchPageModulePromise: Promise<SewingDispatchWorkbenchPageModule> | null = null
+let continuousDispatchPageModulePromise: Promise<ContinuousDispatchPageModule> | null = null
 type StoreRenderMode = 'full' | 'sidebar'
 
 let nextStoreRenderMode: StoreRenderMode = 'full'
@@ -97,6 +101,26 @@ function getCraftDyeingWaterSolubleOrdersPageModule(): Promise<CraftDyeingWaterS
     })
   }
   return craftDyeingWaterSolubleOrdersPageModulePromise
+}
+
+function getSewingDispatchWorkbenchPageModule(): Promise<SewingDispatchWorkbenchPageModule> {
+  if (!sewingDispatchWorkbenchPageModulePromise) {
+    sewingDispatchWorkbenchPageModulePromise = import('./pages/sewing-dispatch-workbench').catch((error) => {
+      sewingDispatchWorkbenchPageModulePromise = null
+      throw error
+    })
+  }
+  return sewingDispatchWorkbenchPageModulePromise
+}
+
+function getContinuousDispatchPageModule(): Promise<ContinuousDispatchPageModule> {
+  if (!continuousDispatchPageModulePromise) {
+    continuousDispatchPageModulePromise = import('./pages/continuous-dispatch').catch((error) => {
+      continuousDispatchPageModulePromise = null
+      throw error
+    })
+  }
+  return continuousDispatchPageModulePromise
 }
 
 function getPcsHandlersModule(): Promise<PcsHandlersModule> {
@@ -523,6 +547,14 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const dispatchBoardPage = await getDispatchBoardPageModule()
     return dispatchBoardPage.handleDispatchBoardEvent(eventTarget)
   }
+  if (pathname.startsWith('/fcs/dispatch/sewing')) {
+    const sewingDispatchWorkbenchPage = await getSewingDispatchWorkbenchPageModule()
+    return sewingDispatchWorkbenchPage.handleSewingDispatchWorkbenchEvent(eventTarget, event)
+  }
+  if (pathname.startsWith('/fcs/dispatch/continuous')) {
+    const continuousDispatchPage = await getContinuousDispatchPageModule()
+    return continuousDispatchPage.handleContinuousDispatchEvent(eventTarget, event)
+  }
   if (pathname.startsWith('/fcs/process/task-breakdown')) {
     const taskBreakdownPage = await getTaskBreakdownPageModule()
     return taskBreakdownPage.handleTaskBreakdownEvent(eventTarget)
@@ -572,6 +604,14 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   if (pathname.startsWith('/fcs/craft/cutting/transfer-bags')) {
     const transferBagsPage = await getCraftCuttingTransferBagsPageModule()
     return transferBagsPage.handleCraftCuttingTransferBagsEvent(eventTarget)
+  }
+  if (pathname.startsWith('/fcs/craft/cutting/production-progress')) {
+    const productionProgressPage = await import('./pages/process-factory/cutting/production-progress')
+    return productionProgressPage.handleCraftCuttingProductionProgressEvent(eventTarget, event)
+  }
+  if (pathname.startsWith('/fcs/craft/cutting/supplement-management')) {
+    const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
+    return supplementManagementPage.handleCraftCuttingSupplementManagementEvent(eventTarget, event)
   }
   if (pathname.startsWith('/wls/fabric-demand-board')) {
     try {
@@ -800,9 +840,23 @@ function ensureInitialPdaLoadingShell(state = appStore.getState()): void {
   root.innerHTML = renderAppShell(state, renderPdaLoadingShell())
 }
 
+const supplementManagementRoutePath = '/fcs/craft/cutting/supplement-management'
+let previousRenderedPagePathname = ''
+
+async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
+  const isSupplementManagementEntry = normalizedPathname === supplementManagementRoutePath
+    && previousRenderedPagePathname !== supplementManagementRoutePath
+  previousRenderedPagePathname = normalizedPathname
+  if (!isSupplementManagementEntry) return
+
+  const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
+  supplementManagementPage.enterCraftCuttingSupplementManagementRoute()
+}
+
 async function renderCurrentPageContent(pathname: string): Promise<string> {
   try {
     const normalizedPathname = pathname.split('?')[0].split('#')[0]
+    await preparePageRouteEntry(normalizedPathname)
     if (normalizedPathname === '/fcs/production/demand-inbox') {
       const productionDemandPage = await getProductionDemandPageModule()
       const page = productionDemandPage.renderProductionDemandInboxPage()
@@ -1585,6 +1639,54 @@ function handleShellAction(actionNode: HTMLElement): boolean {
 
   return false
 }
+
+const STANDARD_LIST_COLUMN_DRAG_MIME = 'application/x-higood-list-column-key'
+
+interface StandardListColumnDragEvent extends DragEvent {
+  higoodStandardListColumnDrag?: true
+  higoodStandardListColumnKey?: string
+}
+
+let activeStandardListColumnDrag: { columnKey: string; pathname: string } | null = null
+
+function dispatchListColumnDragEvent(event: DragEvent): void {
+  const target = resolveEventElementTarget(event.target)
+  const dragNode = target?.closest<HTMLElement>('[data-standard-list-column-drag]')
+  const dataTransfer = event.dataTransfer
+  const pathname = appStore.getState().pathname
+
+  if (event.type === 'dragstart') {
+    const columnKey = dragNode?.dataset.dragSource || ''
+    if (!target || !dragNode || !dataTransfer || !columnKey) return
+    activeStandardListColumnDrag = { columnKey, pathname }
+    dataTransfer.setData(STANDARD_LIST_COLUMN_DRAG_MIME, columnKey)
+    dataTransfer.effectAllowed = 'move'
+  } else {
+    const activeDrag = activeStandardListColumnDrag
+    if (!target || !activeDrag || activeDrag.pathname !== pathname) {
+      if (event.type === 'dragend') activeStandardListColumnDrag = null
+      return
+    }
+
+    if (event.type === 'dragover' || event.type === 'drop') {
+      const hasInternalMime = Array.from(dataTransfer?.types ?? []).includes(STANDARD_LIST_COLUMN_DRAG_MIME)
+      if (!dragNode || !hasInternalMime) return
+      event.preventDefault()
+      if (dataTransfer) dataTransfer.dropEffect = 'move'
+    }
+  }
+
+  const internalEvent = event as StandardListColumnDragEvent
+  internalEvent.higoodStandardListColumnDrag = true
+  internalEvent.higoodStandardListColumnKey = activeStandardListColumnDrag?.columnKey
+  if (event.type === 'drop' || event.type === 'dragend') activeStandardListColumnDrag = null
+  void dispatchPageEvent(target, internalEvent)
+}
+
+root.addEventListener('dragstart', dispatchListColumnDragEvent)
+root.addEventListener('dragover', dispatchListColumnDragEvent)
+root.addEventListener('drop', dispatchListColumnDragEvent)
+root.addEventListener('dragend', dispatchListColumnDragEvent)
 
 root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)

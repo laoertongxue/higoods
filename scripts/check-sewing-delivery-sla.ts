@@ -1784,10 +1784,7 @@ try {
   assert.match(html, /分配数量/, '直接派单弹窗必须展示整任务数量')
   assert.match(html, /30% 节点[\s\S]*70% 节点[\s\S]*100% 节点/, '直接派单弹窗必须展示三个节点预览')
   assert.match(html, /当前主工厂/, '含车缝连续任务必须展示当前主工厂')
-  handleContinuousDispatchEvent(continuousActionTarget('switch-dialog-mode', undefined, { mode: 'BIDDING' }))
-  assert.match(renderContinuousDispatchPage(), /工厂确认接单后启动时效/, '分配方式切换必须在同一弹窗内局部更新')
-  handleContinuousDispatchEvent(continuousActionTarget('switch-dialog-mode', undefined, { mode: 'DIRECT' }))
-  assert.match(renderContinuousDispatchPage(), /当前主工厂/, '分配方式应可从竞价切回直接派单')
+  assert.doesNotMatch(html, /工厂确认接单后启动时效/, '直接派单弹窗不得混入竞价提示')
 
   handleContinuousDispatchEvent(continuousFieldTarget('factoryId', continuousFactory.id))
   handleContinuousDispatchEvent(continuousFieldTarget('businessAssignedAt', '2026-07-09T09:00'))
@@ -2048,7 +2045,7 @@ const dispatchDomainSource = readFileSync(new URL('../src/pages/dispatch-board/d
 const continuousDispatchSource = readFileSync(new URL('../src/pages/continuous-dispatch.ts', import.meta.url), 'utf8')
 assert.match(continuousDispatchSource, /data-skip-page-rerender="true"[^>]*data-continuous-dispatch-action="open-direct"/, '打开直接派单弹窗不得触发整页重绘')
 assert.match(continuousDispatchSource, /data-skip-page-rerender="true"[^>]*data-continuous-dispatch-action="open-bidding"/, '打开竞价弹窗不得触发整页重绘')
-assert.match(continuousDispatchSource, /data-skip-page-rerender="true"[^>]*data-continuous-dispatch-action="switch-dialog-mode"/, '分配方式切换不得触发整页重绘')
+assert.doesNotMatch(continuousDispatchSource, /data-continuous-dispatch-action="switch-dialog-mode"/, '直接派单与发起竞价必须使用独立弹窗，不得在弹窗内切换模式')
 assert.match(continuousDispatchSource, /data-skip-page-rerender="true"[^>]*data-continuous-dispatch-field="businessAssignedAt"/, '业务分配时间 change 不得触发整页重绘')
 assert.match(continuousDispatchSource, /host\.innerHTML = renderDispatchDialog\(\)/, '弹窗交互必须只更新弹窗 host')
 assert.doesNotMatch(continuousDispatchSource, /root\.innerHTML/, '连续工序分配弹窗不得直接整页重绘')
@@ -2909,6 +2906,13 @@ const workbenchDispatchPageState = captureSewingDispatchWorkbenchPageState()
 const workbenchOriginalHtmlInputElement = globalThis.HTMLInputElement
 let workbenchSubmitNow = '2026-07-10 10:00:00'
 try {
+  const sewingWorkbenchHtml = renderSewingDispatchWorkbenchPage()
+  assert.match(sewingWorkbenchHtml, /车缝任务 \/ 生产单/)
+  assert.match(sewingWorkbenchHtml, /SKU 数 \/ 任务数量/)
+  assert.match(sewingWorkbenchHtml, /可分配状态/)
+  assert.doesNotMatch(sewingWorkbenchHtml, /<th[^>]*>毛织片<\/th>/)
+  assert.doesNotMatch(sewingWorkbenchHtml, /<th[^>]*>特种工艺裁片<\/th>/)
+  assert.doesNotMatch(sewingWorkbenchHtml, /min-w-\[2260px\]/)
   setSewingDispatchWorkbenchNowProviderForTest(() => workbenchSubmitNow)
   const fixtureSource = getRuntimeTaskById('TASKGEN-202603-084-003__ORDER')!
   const fixtureState = captureRuntimeDirectDispatchState()
@@ -2926,6 +2930,17 @@ try {
   assert(directRow && directFactory, '独立车缝真实分配 handler 需要可分配行和工厂')
   const workbenchActionTarget = (action: string, taskId?: string) => ({ closest: (selector: string) => selector.includes('[data-sewing-dispatch-action]') ? { dataset: { sewingDispatchAction: action, taskId, dispatchType: '直接派单' } } : null }) as unknown as HTMLElement
   assert.equal(handleSewingDispatchWorkbenchEvent(workbenchActionTarget('open-dispatch', fixtureTaskId)), true)
+  const directDialogHtml = renderSewingDispatchWorkbenchPage()
+  assert.match(directDialogHtml, /业务分配时间/)
+  assert.match(directDialogHtml, /承接工厂/)
+  assert.match(directDialogHtml, /确认唯一主工厂|确认主工厂/)
+  assert.match(directDialogHtml, /交付完成/)
+  assert.match(directDialogHtml, /30% 回货/)
+  assert.match(directDialogHtml, /2026-\d{2}-\d{2} \d{2}:\d{2}/, '时效必须展示具体年月日时分')
+  assert.doesNotMatch(directDialogHtml, /本次分配数量/)
+  assert.doesNotMatch(directDialogHtml, /实际操作时间/)
+  assert.doesNotMatch(directDialogHtml, /配料前置校验/)
+  assert.doesNotMatch(directDialogHtml, /分配方式/)
   class WorkbenchInput {
     dataset: Record<string, string>
     value: string
@@ -2939,31 +2954,33 @@ try {
     assert.equal(handleSewingDispatchWorkbenchEvent(cancelSkuInput, { type: 'click' } as Event), false, 'SKU checkbox click 必须保留浏览器原生切换')
     assert.equal(handleSewingDispatchWorkbenchEvent(cancelSkuInput, { type: 'change' } as Event), true)
   }
-  const qtyInput = new WorkbenchInput('dispatchQty', '1', true, directRow.rowId) as unknown as HTMLElement
-  assert.equal(handleSewingDispatchWorkbenchEvent(qtyInput, { type: 'input' } as Event), true)
   const timeInput = new WorkbenchInput('dispatchBusinessAssignedAt', '2026-07-10T10:30', true) as unknown as HTMLElement
   assert.equal(handleSewingDispatchWorkbenchEvent(timeInput, { type: 'input' } as Event), true)
   const openedState = captureSewingDispatchWorkbenchPageState()
-  restoreSewingDispatchWorkbenchPageState({ ...openedState, dispatchFactoryId: directFactory.id, dispatchRiskConfirmed: true })
+  restoreSewingDispatchWorkbenchPageState({
+    ...openedState,
+    dispatchFactoryIdByRowId: Object.fromEntries(directRows.map((row) => [row.rowId, directFactory.id])),
+    dispatchMainFactoryIdByProductionOrderId: { [fixtureSource.productionOrderId]: directFactory.id },
+  })
   workbenchSubmitNow = '2026-07-10 11:00:00'
   assert.equal(handleSewingDispatchWorkbenchEvent(workbenchActionTarget('confirm-dispatch')), true)
   const directDraft = listSewingDispatchWorkbenchDrafts()[0]
   assert.equal(directDraft?.statusLabel, '直接派单已生效并自动接单')
-  assert.equal(getSewingDeliverySlaSnapshot(directDraft.runtimeTaskIds[0])?.assignedQty, 1, '真实 handler 部分数量直接派单快照分母应等于输入')
+  assert.equal(directDraft.runtimeTaskIds.length, directRows.length, '真实 handler 必须为每个完整 SKU 生成独立工厂归属')
+  assert.equal(directDraft.qty, directRows.reduce((sum, row) => sum + row.remainingQty, 0), '真实 handler 必须提交所有完整 SKU 的全部待分配数量')
   assert.equal(getRuntimeTaskById(directDraft.runtimeTaskIds[0])?.assignmentOperatedAt, '2026-07-10 11:00:00', 'direct提交必须记录点击时墙钟，而不是弹窗打开时间')
-  assert.deepEqual(getRuntimeTaskById(directDraft.runtimeTaskIds[0])?.scopeSkuLines.map((line) => line.skuCode), [directRow.skuCode], '取消选择的 SKU 不得进入本次分配 child')
-  directRows.slice(1).forEach((row) => assert(listSewingDispatchWorkbenchRows().some((remaining) => remaining.skuCode === row.skuCode), `${row.skuCode} 未选 SKU 必须保留为 residual 回到工作台`))
+  directRows.forEach((row) => assert.equal(listSewingDispatchWorkbenchRows().some((remaining) => remaining.taskId === fixtureTaskId && remaining.skuCode === row.skuCode), false, `${row.skuCode} 必须整 SKU 派出且不保留数量残行`))
   const partialGroup = listRuntimeTaskSplitGroupsByOrder(fixtureSource.productionOrderId).find((group) => group.sourceTaskId === fixtureTaskId)
   assert.equal(partialGroup?.resultTasks.reduce((sum, task) => sum + task.scopeQty, 0), fixtureSource.scopeQty, '真实handler部分SKU分配前后总scope必须守恒')
   assert.equal(productionOrders.find((order) => order.productionOrderId === fixtureSource.productionOrderId)?.mainFactoryId, directFactory.id, '无有效主工厂且首个唯一候选时应自动成为主工厂')
 
   const secondFactory = listSewingFactoryOptions().find((factory) => factory.id !== directFactory.id)!
   const secondFactoryRow = listSewingDispatchWorkbenchRows().find((row) => row.productionOrderId === fixtureSource.productionOrderId && row.taskId !== directDraft.runtimeTaskIds[0] && row.completeKitQty > 0)!
-  const secondDirect = createSewingDispatchWorkbenchDraft({ actionType: '直接派单', factoryId: secondFactory.id, factoryName: secondFactory.name, rowIds: [secondFactoryRow.rowId], qtyByRowId: { [secondFactoryRow.rowId]: 1 }, businessAssignedAt: '2026-07-10 08:30:00', operatedAt: '2026-07-10 10:00:00', by: '跟单A' })
+  const secondDirect = createSewingDispatchWorkbenchDraft({ actionType: '直接派单', rowIds: [secondFactoryRow.rowId], factoryIdByRowId: { [secondFactoryRow.rowId]: secondFactory.id }, businessAssignedAt: '2026-07-10 08:30:00', operatedAt: '2026-07-10 10:00:00', by: '跟单A' })
   assert.equal(secondDirect.ok, true, secondDirect.message)
   assert.equal(productionOrders.find((order) => order.productionOrderId === fixtureSource.productionOrderId)?.mainFactoryId, directFactory.id, '同生产单第二次部分派给工厂B时必须默认保留既有主工厂A')
   const explicitSwitchRow = listSewingDispatchWorkbenchRows().find((row) => row.productionOrderId === fixtureSource.productionOrderId && row.completeKitQty > 0)!
-  const explicitSwitch = createSewingDispatchWorkbenchDraft({ actionType: '直接派单', factoryId: secondFactory.id, factoryName: secondFactory.name, rowIds: [explicitSwitchRow.rowId], qtyByRowId: { [explicitSwitchRow.rowId]: 1 }, businessAssignedAt: '2026-07-10 09:00:00', operatedAt: '2026-07-10 10:00:00', mainFactoryIdByProductionOrderId: { [fixtureSource.productionOrderId]: secondFactory.id }, by: '跟单A' })
+  const explicitSwitch = createSewingDispatchWorkbenchDraft({ actionType: '直接派单', rowIds: [explicitSwitchRow.rowId], factoryIdByRowId: { [explicitSwitchRow.rowId]: secondFactory.id }, businessAssignedAt: '2026-07-10 09:00:00', operatedAt: '2026-07-10 10:00:00', mainFactoryIdByProductionOrderId: { [fixtureSource.productionOrderId]: secondFactory.id }, by: '跟单A' })
   assert.equal(explicitSwitch.ok, true, explicitSwitch.message)
   assert.equal(productionOrders.find((order) => order.productionOrderId === fixtureSource.productionOrderId)?.mainFactoryId, secondFactory.id, '显式选择B后才允许变更主工厂')
 
@@ -2977,7 +2994,7 @@ try {
   const multiFirstRow = listSewingDispatchWorkbenchRows().find((row) => row.productionOrderId === fixtureSource.productionOrderId && row.completeKitQty > 0)!
   const multiSecondRow = listSewingDispatchWorkbenchRows().find((row) => row.productionOrderId === secondOrderId && row.completeKitQty > 0)!
   assert(multiFirstRow && multiSecondRow, '跨生产单主工厂测试需要两个可分配行')
-  const multiDirect = createSewingDispatchWorkbenchDraft({ actionType: '直接派单', factoryId: secondFactory.id, factoryName: secondFactory.name, rowIds: [multiFirstRow.rowId, multiSecondRow.rowId], qtyByRowId: { [multiFirstRow.rowId]: 1, [multiSecondRow.rowId]: 1 }, businessAssignedAt: '2026-07-10 09:10:00', operatedAt: '2026-07-10 10:00:00', mainFactoryIdByProductionOrderId: { [fixtureSource.productionOrderId]: directFactory.id, [secondOrderId]: secondFactory.id }, by: '跟单A' })
+  const multiDirect = createSewingDispatchWorkbenchDraft({ actionType: '直接派单', rowIds: [multiFirstRow.rowId, multiSecondRow.rowId], factoryIdByRowId: { [multiFirstRow.rowId]: secondFactory.id, [multiSecondRow.rowId]: secondFactory.id }, businessAssignedAt: '2026-07-10 09:10:00', operatedAt: '2026-07-10 10:00:00', mainFactoryIdByProductionOrderId: { [fixtureSource.productionOrderId]: directFactory.id, [secondOrderId]: secondFactory.id }, by: '跟单A' })
   assert.equal(multiDirect.ok, true, multiDirect.message)
   assert.equal(productionOrders.find((order) => order.productionOrderId === fixtureSource.productionOrderId)?.mainFactoryId, directFactory.id, '批量跨PO必须按PO保留/选择各自主工厂A')
   assert.equal(productionOrders.find((order) => order.productionOrderId === secondOrderId)?.mainFactoryId, secondFactory.id, '批量跨PO必须按PO选择各自主工厂B')
@@ -2985,7 +3002,7 @@ try {
   const invalidMultiRow = listSewingDispatchWorkbenchRows().find((row) => row.productionOrderId === secondOrderId && row.completeKitQty > 0)!
   const beforeInvalidMulti = captureRuntimeDirectDispatchState()
   const beforeInvalidMultiDrafts = listSewingDispatchWorkbenchDrafts()
-  const invalidMulti = createSewingDispatchWorkbenchDraft({ actionType: '直接派单', factoryId: secondFactory.id, factoryName: secondFactory.name, rowIds: [invalidMultiRow.rowId], qtyByRowId: { [invalidMultiRow.rowId]: 1 }, businessAssignedAt: '2026-07-10 09:20:00', operatedAt: '2026-07-10 10:00:00', mainFactoryIdByProductionOrderId: { [secondOrderId]: 'NO-SUCH-MAIN' }, by: '跟单A' })
+  const invalidMulti = createSewingDispatchWorkbenchDraft({ actionType: '直接派单', rowIds: [invalidMultiRow.rowId], factoryIdByRowId: { [invalidMultiRow.rowId]: secondFactory.id }, businessAssignedAt: '2026-07-10 09:20:00', operatedAt: '2026-07-10 10:00:00', mainFactoryIdByProductionOrderId: { [secondOrderId]: 'NO-SUCH-MAIN' }, by: '跟单A' })
   assert.equal(invalidMulti.ok, false)
   const afterInvalidMulti = captureRuntimeDirectDispatchState()
   assert.deepEqual({ ...afterInvalidMulti, auditSeq: beforeInvalidMulti.auditSeq }, beforeInvalidMulti, '跨PO主工厂校验失败必须回滚runtime/production/audit业务状态')
@@ -2993,7 +3010,7 @@ try {
 
   const bidRow = listSewingDispatchWorkbenchRows().find((row) => row.completeKitQty > 0)
   assert(bidRow, '直接部分分配后应有剩余行可再次竞价')
-  restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([bidRow.taskId]), dispatchSelectedRowIds: new Set([bidRow.rowId]), dispatchOpen: true, dispatchActionType: '发起竞价', dispatchFactoryId: '', dispatchRiskConfirmed: false, dispatchQtyByRowId: { [bidRow.rowId]: '1' }, dispatchBusinessAssignedAt: '2026-07-10T09:00', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
+  restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([bidRow.taskId]), dispatchSelectedRowIds: new Set([bidRow.rowId]), dispatchOpen: true, dispatchActionType: '发起竞价', dispatchBatchFactoryId: '', dispatchFactoryIdByRowId: {}, dispatchBusinessAssignedAt: '2026-07-10T09:00', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
   assert.equal(handleSewingDispatchWorkbenchEvent(workbenchActionTarget('confirm-dispatch')), true)
   const bidDraft = listSewingDispatchWorkbenchDrafts()[0]
   assert.equal(getRuntimeTaskById(bidDraft.runtimeTaskIds[0])?.assignmentStatus, 'BIDDING', '真实 handler 竞价必须写入 runtime tender')
@@ -3018,14 +3035,16 @@ try {
     assert.deepEqual(after.reassignedTasks, before.reassignedTasks, `${message}：reassignedTasks`)
     assert.deepEqual(businessAuditLogs(after), businessAuditLogs(before), `${message}：不得新增业务审计日志`)
   }
-  restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([futureRow.taskId]), dispatchSelectedRowIds: new Set([futureRow.rowId]), dispatchOpen: true, dispatchActionType: '直接派单', dispatchFactoryId: directFactory.id, dispatchRiskConfirmed: true, dispatchQtyByRowId: { [futureRow.rowId]: '1' }, dispatchBusinessAssignedAt: '2026-07-10T11:01', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
+  const futureTaskRows = listSewingDispatchWorkbenchRows().filter((row) => row.taskId === futureRow.taskId && row.completeKitQty >= row.remainingQty)
+  const futureFactoryMap = Object.fromEntries(futureTaskRows.map((row) => [row.rowId, directFactory.id]))
+  restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([futureRow.taskId]), dispatchSelectedRowIds: new Set(futureTaskRows.map((row) => row.rowId)), dispatchOpen: true, dispatchActionType: '直接派单', dispatchBatchFactoryId: '', dispatchFactoryIdByRowId: futureFactoryMap, dispatchBusinessAssignedAt: '2026-07-10T11:01', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
   assert.equal(handleSewingDispatchWorkbenchEvent(workbenchActionTarget('confirm-dispatch')), true)
   assert.match(captureSewingDispatchWorkbenchPageState().dispatchError, /业务分配时间不能晚于当前操作时间/)
   assertBusinessStateUnchanged(stateBeforeFutureHandler, '未来业务分配时间被 handler 阻断后不得改变业务状态')
   assert.deepEqual(captureSewingDeliverySlaSnapshotStore(), slaBeforeFutureHandler, '未来业务分配时间不得改变SLA快照/复核状态')
   assert.deepEqual(listSewingDispatchWorkbenchDrafts(), draftsBeforeFutureHandler, '未来业务分配时间不得新增或修改draft')
   const draftCountBeforeInvalidTime = listSewingDispatchWorkbenchDrafts().length
-  restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([futureRow.taskId]), dispatchSelectedRowIds: new Set([futureRow.rowId]), dispatchOpen: true, dispatchActionType: '直接派单', dispatchFactoryId: directFactory.id, dispatchRiskConfirmed: true, dispatchQtyByRowId: { [futureRow.rowId]: '1' }, dispatchBusinessAssignedAt: '', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
+  restoreSewingDispatchWorkbenchPageState({ ...workbenchDispatchPageState, selectedTaskIds: new Set([futureRow.taskId]), dispatchSelectedRowIds: new Set(futureTaskRows.map((row) => row.rowId)), dispatchOpen: true, dispatchActionType: '直接派单', dispatchBatchFactoryId: '', dispatchFactoryIdByRowId: futureFactoryMap, dispatchBusinessAssignedAt: '', dispatchOperatedAt: '2026-07-10 10:00:00', dispatchError: '' })
   assert.equal(handleSewingDispatchWorkbenchEvent(workbenchActionTarget('confirm-dispatch')), true)
   assert.match(captureSewingDispatchWorkbenchPageState().dispatchError, /业务分配时间/)
   assertBusinessStateUnchanged(stateBeforeFutureHandler, '空业务时间不得改变业务状态')
