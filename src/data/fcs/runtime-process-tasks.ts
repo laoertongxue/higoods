@@ -1200,10 +1200,16 @@ function applyManualContinuousMergeDemo(tasks: RuntimeProcessTask[]): RuntimePro
     createdAt: '2026-03-20 10:00:00',
     createdBy: '生产计划员',
   })
-  return applyContinuousMergePlan(pleatKnittingDemo, {
+  const cuttingSewingDemo = applyContinuousMergePlan(pleatKnittingDemo, {
     taskIds: ['TASKGEN-202603-082-002__ORDER', 'TASKGEN-202603-082-003__ORDER'],
     mergedTaskId: 'TASKGEN-202603-082-002__ORDER',
     createdAt: '2026-03-20 10:20:00',
+    createdBy: '生产计划员',
+  })
+  return applyContinuousMergePlan(cuttingSewingDemo, {
+    taskIds: ['TASKGEN-202603-083-003__ORDER', 'TASKGEN-202603-083-005__ORDER'],
+    mergedTaskId: 'CONT-SEW-POST-UNASSIGNED',
+    createdAt: '2026-07-13 09:00:00',
     createdBy: '生产计划员',
   })
 }
@@ -2259,8 +2265,9 @@ export interface RuntimeSewingScopeAllocationInput {
 }
 
 /**
- * 把一个独立车缝执行范围原子分区为“本次分配范围 + 剩余范围”。
- * 分区继续使用既有 split plan，因此下游依赖会等待全部分区任务完成。
+ * 把独立车缝任务按完整 SKU 原子分区为“本次分配范围 + 剩余范围”。
+ * 同一个 SKU 不允许再按数量拆分；分区继续使用既有 split plan，
+ * 因此下游依赖会等待全部 SKU 分区任务完成。
  */
 export function allocateRuntimeSewingTaskScope(input: RuntimeSewingScopeAllocationInput): RuntimeProcessTask {
   const task = getRuntimeTaskById(input.taskId)
@@ -2278,7 +2285,10 @@ export function allocateRuntimeSewingTaskScope(input: RuntimeSewingScopeAllocati
     if (!skuCode || requestedBySku.has(skuCode)) throw new Error('本次分配 SKU 不能为空或重复')
     if (!Number.isInteger(line.qty) || line.qty <= 0) throw new Error(`${skuCode || 'SKU'} 分配数量必须为正整数`)
     const available = availableBySku.get(skuCode)
-    if (!available || line.qty > available.qty) throw new Error(`${skuCode} 分配数量超过待分配数量`)
+    if (!available) throw new Error(`${skuCode} 不在当前待分配范围内`)
+    if (line.qty !== available.qty) {
+      throw new Error(`${skuCode} 必须按 SKU 全部待分配数量 ${available.qty} 件分配，不能按数量拆分`)
+    }
     requestedBySku.set(skuCode, line.qty)
   }
   if (requestedBySku.size === 0) throw new Error('请至少选择一个 SKU 分配数量')
@@ -2387,7 +2397,7 @@ export function allocateRuntimeSewingTaskScope(input: RuntimeSewingScopeAllocati
       executionEnabled: false,
       assignmentStatus: 'ASSIGNED',
       updatedAt: eventAt,
-      auditLogs: appendRuntimeAudit(rootTask, 'QUANTITY_SPLIT', `按 SKU 数量分区，本次 ${selectedQty} 件，剩余 ${task.scopeQty - selectedQty} 件`, input.by),
+      auditLogs: appendRuntimeAudit(rootTask, 'QUANTITY_SPLIT', `按完整 SKU 分区，本次 ${selectedQty} 件，剩余 ${task.scopeQty - selectedQty} 件`, input.by),
     })
     const allocated = getRuntimeTaskById(selectedTaskId)
     if (!allocated || allocated.scopeQty !== selectedQty) throw new Error('车缝数量分区结果生成失败')

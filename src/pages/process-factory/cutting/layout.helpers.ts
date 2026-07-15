@@ -236,6 +236,7 @@ export function renderWorkbenchPagination(options: {
   pageSizeAttr: string
   extraAttrs?: string
   pageSizeOptions?: number[]
+  itemUnit?: string
 }): string {
   const pageSizeOptions = options.pageSizeOptions ?? [20, 50, 100]
   const totalPages = Math.max(1, Math.ceil(options.total / options.pageSize))
@@ -244,11 +245,12 @@ export function renderWorkbenchPagination(options: {
   const pageWindow = buildPaginationWindow(safePage, totalPages)
   const start = options.total === 0 ? 0 : (safePage - 1) * options.pageSize + 1
   const end = options.total === 0 ? 0 : Math.min(options.total, safePage * options.pageSize)
+  const itemUnit = options.itemUnit ?? '条'
 
   return `
     <div class="flex flex-col gap-2 border-t px-3 py-2.5 lg:flex-row lg:items-center lg:justify-between">
       <div class="text-xs text-muted-foreground">
-        显示 ${start}-${end} 条，共 ${options.total} 条，第 ${safePage} / ${totalPages} 页
+        显示 ${start}-${end} ${escapeHtml(itemUnit)}，共 ${options.total} ${escapeHtml(itemUnit)}，第 ${safePage} / ${totalPages} 页
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <label class="flex items-center gap-2 text-xs text-muted-foreground">

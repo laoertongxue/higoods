@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs'
 import * as productionOrderDomain from '../src/data/fcs/production-orders.ts'
 import {
   acceptRuntimeTaskAssignment,
+  allocateRuntimeSewingTaskScope,
   applyRuntimeDirectDispatchMeta,
   awardRuntimeTaskTender,
   captureRuntimeDirectDispatchState,
@@ -20,7 +21,9 @@ import {
 import {
   createSewingDispatchWorkbenchDraft,
   listSewingDispatchWorkbenchDrafts,
+  listSewingDispatchWorkbenchRows,
   listSewingDispatchWorkbenchTasks,
+  listSewingFactoryOptions,
   runSewingDispatchWorkbenchTransaction,
 } from '../src/data/fcs/sewing-dispatch-workbench.ts'
 import {
@@ -33,6 +36,14 @@ import {
   openDispatchDialog,
 } from '../src/pages/dispatch-board/dispatch-domain.ts'
 import { state as dispatchBoardState } from '../src/pages/dispatch-board/context.ts'
+import {
+  captureSewingDispatchWorkbenchPageState,
+  handleSewingDispatchWorkbenchEvent,
+  renderSewingDispatchWorkbenchPage,
+  restoreSewingDispatchWorkbenchPageState,
+  setSewingDispatchWorkbenchNowProviderForTest,
+} from '../src/pages/sewing-dispatch-workbench.ts'
+import { handleContinuousDispatchEvent, renderContinuousDispatchPage } from '../src/pages/continuous-dispatch.ts'
 
 const runtimeTasks = listRuntimeProcessTasks().filter((task) => isRuntimeTaskExecutionTask(task))
 
@@ -57,6 +68,7 @@ assert.equal(
 )
 
 const combinedSewingTask = runtimeTasks.find((task) =>
+  task.taskId.startsWith('TASKGEN-') &&
   task.processBusinessCode === 'COMBINED_PROCESS_TASK' &&
   task.coveredProcesses?.some((process) => process.processCode === 'SEW'),
 )
@@ -78,7 +90,6 @@ assert.equal(isRuntimeSewingTask(specialCraftNamedLikeSewing), false, '特殊工
 
 const workbenchTasks = listSewingDispatchWorkbenchTasks()
 assert(workbenchTasks.length > 0, '车缝分配工作台必须有可展示的 mock 任务')
-assert.equal(workbenchTasks.length, 2, '稳定中标样本占用一条独立车缝任务后，工作台待分配任务应为 2 条')
 assert.equal(workbenchTasks.some((task) => task.taskId === 'TASKGEN-202603-083-002__ORDER'), false, '已中标待确认任务不得继续出现在车缝待分配工作台')
 assert(
   workbenchTasks.some((task) => task.taskId === sewingBusinessTask.taskId),
@@ -181,9 +192,20 @@ try {
   restoreRuntimeDirectDispatchState(stateBeforeKeepMainFactoryUiTest)
 }
 
-openDispatchDialog([sewingBusinessTask.taskId])
-assert.equal(dispatchBoardState.dispatchForm.mainFactoryGroupKey, '', '没有有效车缝主工厂时不得默认保留订单创建主工厂，必须由用户明确选择本次分配单元')
-closeDispatchDialog()
+const stateBeforeMissingMainFactoryUiTest = captureRuntimeDirectDispatchState()
+try {
+  const order = productionOrderDomain.productionOrders.find((item) => item.productionOrderId === sewingBusinessTask.productionOrderId)
+  assert(order)
+  order.mainFactoryId = productionOrderDomain.PENDING_MAIN_FACTORY_ID
+  order.mainFactorySnapshot = productionOrderDomain.createPendingMainFactorySnapshot()
+  order.mainFactoryStatus = 'PENDING_SEWING_ASSIGNMENT'
+  order.sewingFactorySnapshots = []
+  openDispatchDialog([sewingBusinessTask.taskId])
+  assert.equal(dispatchBoardState.dispatchForm.mainFactoryGroupKey, '', '没有有效车缝主工厂时不得默认保留订单创建主工厂，必须由用户明确选择本次分配单元')
+} finally {
+  closeDispatchDialog()
+  restoreRuntimeDirectDispatchState(stateBeforeMissingMainFactoryUiTest)
+}
 
 const directDispatchBase = {
   taskId: sewingBusinessTask.taskId,
@@ -429,5 +451,130 @@ assert.match(dispatchDomainSource, /当前主工厂：/, '按明细多工厂派�
 assert.match(dispatchDomainSource, /formatProductionOrderMainFactoryName/, '主工厂展示必须复用生产单唯一主工厂口径')
 assert.match(dispatchDomainSource, /KEEP_CURRENT_MAIN_FACTORY/, '按明细多工厂派单必须具备保留当前有效主工厂的明确选择值')
 assert.match(dispatchDomainSource, /保留当前主工厂/, '已有有效主工厂时必须向用户展示保留选项')
+
+const sewingPostContinuousTasks = listRuntimeProcessTasks().filter((task) =>
+  task.taskUnitType === 'COMBINED_PROCESS_TASK'
+  && task.acceptanceMode === 'CONTINUOUS_PROCESS'
+  && task.coveredProcesses?.some((process) => process.processCode === 'SEW')
+  && task.coveredProcesses?.some((process) => process.processName === '后道'),
+)
+assert(sewingPostContinuousTasks.some((task) => task.assignmentStatus === 'UNASSIGNED'), '车缝+后道必须有待分配 Mock')
+const continuousHtml = renderContinuousDispatchPage()
+assert.match(continuousHtml, /车缝\+后道/)
+assert.match(continuousHtml, /待分配/)
+assert.match(continuousHtml, /招标中/)
+assert.match(continuousHtml, /已分配/)
+assert.match(continuousHtml, /CONT-SEW-POST-BIDDING/, '车缝+后道列表必须有招标中 Mock')
+assert.match(continuousHtml, /CONT-SEW-POST-ASSIGNED/, '车缝+后道列表必须有已分配 Mock')
+const continuousOtherHtml = (() => {
+  handleContinuousDispatchEvent({
+    closest(selector: string) {
+      if (selector === '[data-continuous-dispatch-action]') {
+        return { dataset: { continuousDispatchAction: 'switch-tab', tab: 'OTHER' } }
+      }
+      return null
+    },
+  } as unknown as HTMLElement)
+  return renderContinuousDispatchPage()
+})()
+assert.match(continuousOtherHtml, /CONT-CUT-PACK-ASSIGNED/, '其他连续工序页签必须有裁片到包装样例')
+assert.match(continuousOtherHtml, /裁片.*车缝.*后道.*包装/s, '裁片到包装样例必须展示完整覆盖工序')
+const continuousPageSource = readFileSync(new URL('../src/pages/continuous-dispatch.ts', import.meta.url), 'utf8')
+assert.doesNotMatch(continuousPageSource, /data-continuous-dispatch-action="switch-dialog-mode"/, '连续工序直接派单与竞价弹窗不得在弹窗内切换模式')
+
+const sewingPageHtml = renderSewingDispatchWorkbenchPage()
+assert.match(sewingPageHtml, /车缝任务 \/ 生产单/)
+assert.match(sewingPageHtml, /SKU 数 \/ 任务数量/)
+assert.match(sewingPageHtml, /可分配状态/)
+assert.doesNotMatch(sewingPageHtml, /<th[^>]*>毛织片<\/th>/)
+assert.doesNotMatch(sewingPageHtml, /<th[^>]*>特种工艺裁片<\/th>/)
+assert.doesNotMatch(sewingPageHtml, /min-w-\[2260px\]/)
+
+const sewingPageStateBeforeFocusedDialog = captureSewingDispatchWorkbenchPageState()
+try {
+  setSewingDispatchWorkbenchNowProviderForTest(() => '2026-07-13 09:00:00')
+  const dialogActionTarget = {
+    closest: (selector: string) => selector.includes('[data-sewing-dispatch-action]')
+      ? { dataset: { sewingDispatchAction: 'open-dispatch', taskId: 'TASKGEN-202603-084-003__ORDER', dispatchType: '直接派单' } }
+      : null,
+  } as unknown as HTMLElement
+  assert.equal(handleSewingDispatchWorkbenchEvent(dialogActionTarget), true)
+  const directDialogHtml = renderSewingDispatchWorkbenchPage()
+  assert.match(directDialogHtml, /业务分配时间/)
+  assert.match(directDialogHtml, /承接工厂/)
+  assert.match(directDialogHtml, /确认主工厂/)
+  assert.match(directDialogHtml, /交付完成/)
+  assert.match(directDialogHtml, /30% 回货/)
+  assert.match(directDialogHtml, /2026-\d{2}-\d{2} \d{2}:\d{2}/)
+  assert.doesNotMatch(directDialogHtml, /本次分配数量/)
+  assert.doesNotMatch(directDialogHtml, /实际操作时间/)
+  assert.doesNotMatch(directDialogHtml, /配料前置校验/)
+  assert.doesNotMatch(directDialogHtml, /分配方式/)
+} finally {
+  setSewingDispatchWorkbenchNowProviderForTest()
+  restoreSewingDispatchWorkbenchPageState(sewingPageStateBeforeFocusedDialog)
+}
+
+const wholeSkuFixtureRows = listSewingDispatchWorkbenchRows().filter((row) =>
+  row.productionOrderId === 'PO-202603-084' && row.completeKitQty === row.remainingQty && row.remainingQty > 1,
+)
+assert(wholeSkuFixtureRows.length >= 2, '必须存在同一生产单至少两个完整齐套 SKU，覆盖按 SKU 分配多工厂')
+const [firstSkuRow, secondSkuRow] = wholeSkuFixtureRows
+
+const stateBeforeWholeSkuGuard = captureRuntimeDirectDispatchState()
+try {
+  assert.throws(
+    () => allocateRuntimeSewingTaskScope({
+      taskId: firstSkuRow.taskId,
+      lines: [{ skuCode: firstSkuRow.skuCode, qty: firstSkuRow.remainingQty - 1 }],
+      by: '测试跟单',
+      operatedAt: '2026-07-13 09:00:00',
+    }),
+    /SKU.*全部待分配数量|整.*SKU|不能按数量拆分/,
+    '独立车缝分配必须拒绝把同一个 SKU 按数量拆给工厂',
+  )
+} finally {
+  restoreRuntimeDirectDispatchState(stateBeforeWholeSkuGuard)
+}
+
+const availableFactories = listSewingFactoryOptions()
+const firstFactory = availableFactories.find((factory) => factory.id === 'ID-F001')
+const secondFactory = availableFactories.find((factory) => factory.id === 'ID-F011')
+assert(firstFactory && secondFactory, '必须存在两家可用于多工厂分配验收的车缝工厂')
+
+const stateBeforeSkuFactoryAllocation = captureRuntimeDirectDispatchState()
+const slaBeforeSkuFactoryAllocation = captureSewingDeliverySlaSnapshotStore()
+try {
+  const order = productionOrderDomain.productionOrders.find((item) => item.productionOrderId === firstSkuRow.productionOrderId)
+  assert(order)
+  order.mainFactoryId = productionOrderDomain.PENDING_MAIN_FACTORY_ID
+  order.mainFactorySnapshot = productionOrderDomain.createPendingMainFactorySnapshot()
+  order.mainFactoryStatus = 'PENDING_SEWING_ASSIGNMENT'
+  order.sewingFactorySnapshots = []
+
+  const result = createSewingDispatchWorkbenchDraft({
+    actionType: '直接派单',
+    rowIds: [firstSkuRow.rowId, secondSkuRow.rowId],
+    factoryIdByRowId: {
+      [firstSkuRow.rowId]: firstFactory.id,
+      [secondSkuRow.rowId]: secondFactory.id,
+    },
+    businessAssignedAt: '2026-07-13 08:00:00',
+    operatedAt: '2026-07-13 09:00:00',
+    mainFactoryIdByProductionOrderId: { [firstSkuRow.productionOrderId]: firstFactory.id },
+    by: '测试跟单',
+  })
+  assert.equal(result.ok, true, result.message)
+  assert.equal(result.draft?.factorySummaries.length, 2, '同一生产单不同 SKU 必须能在一次操作中分配给两家工厂')
+  assert.deepEqual(
+    result.draft?.factorySummaries.map((summary) => summary.factoryId).sort(),
+    [firstFactory.id, secondFactory.id].sort(),
+  )
+  assert.equal(result.draft?.qty, firstSkuRow.remainingQty + secondSkuRow.remainingQty, '每个 SKU 必须按全部待分配数量派出')
+  assert.equal(order.mainFactoryId, firstFactory.id, '多家车缝工厂承接时必须确认唯一主工厂')
+} finally {
+  restoreRuntimeDirectDispatchState(stateBeforeSkuFactoryAllocation)
+  restoreSewingDeliverySlaSnapshotStore(slaBeforeSkuFactoryAllocation)
+}
 
 console.log(`车缝分配工作台检查通过：taskCount=${workbenchTasks.length}`)
