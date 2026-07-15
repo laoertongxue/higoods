@@ -18,6 +18,10 @@ import type {
   ProcessWorkOrderChangeImpact,
   ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
+import {
+  deriveFormalProductionOrderMaterialFields,
+  normalizeFormalProductionOrderMaterialItems,
+} from './formal-production-order-material-items.ts'
 import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
@@ -514,7 +518,13 @@ function cloneWorkOrder(order: MutableDyeWorkOrder): DyeWorkOrder {
     sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
     productionOrderIds: order.productionOrderIds ? [...order.productionOrderIds] : undefined,
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
-      ? { ...order.formalProductionOrderSnapshot, processCodes: [...order.formalProductionOrderSnapshot.processCodes] }
+      ? {
+          ...order.formalProductionOrderSnapshot,
+          processCodes: [...order.formalProductionOrderSnapshot.processCodes],
+          materialItems: order.formalProductionOrderSnapshot.materialItems
+            ? order.formalProductionOrderSnapshot.materialItems.map((item) => ({ ...item }))
+            : undefined,
+        }
       : undefined,
     changeImpact: order.changeImpact ? structuredClone(order.changeImpact) : undefined,
     autoSyncHistory: order.autoSyncHistory ? structuredClone(order.autoSyncHistory) : undefined,
@@ -2483,6 +2493,9 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
     .find((order) => order.sourceProductionOrderId === input.productionOrderId)
   if (existing) return cloneWorkOrder(existing)
 
+  const materialItems = normalizeFormalProductionOrderMaterialItems(input)
+  const materialFields = deriveFormalProductionOrderMaterialFields(materialItems)
+
   const factoryId = input.factoryId || ''
   const factoryName = input.factoryName || '待分配工厂'
   registerPdaGenericProcessTask(buildFreshDyeMobileTask({
@@ -2515,10 +2528,10 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
     isFirstOrder: false,
     sampleWaitType: 'NONE',
     sampleStatus: 'NOT_REQUIRED',
-    rawMaterialSku: input.materialId,
-    composition: input.materialName,
+    rawMaterialSku: materialFields.materialId,
+    composition: materialFields.materialName,
     targetColor: input.targetColor,
-    materialId: input.materialId,
+    materialId: materialFields.materialId,
     dyeProcessCode: 'DYE',
     dyeProcessName: input.processName,
     plannedQty: input.plannedQty,
@@ -2543,8 +2556,9 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
       orderedAt: input.orderedAt,
       techPackVersionId: input.techPackVersionId,
       techPackVersionLabel: input.techPackVersionLabel,
-      materialId: input.materialId,
-      materialName: input.materialName,
+      materialId: materialFields.materialId,
+      materialName: materialFields.materialName,
+      materialItems,
       targetColor: input.targetColor,
       plannedQty: input.plannedQty,
       qtyUnit: input.qtyUnit,
@@ -2578,14 +2592,17 @@ export interface PreparedDyeWorkOrderProductionChangeSync {
 }
 
 function toDyeSnapshotRecord(snapshot: FormalProductionOrderProcessSnapshot): FormalProductionOrderProcessSnapshotRecord {
+  const materialItems = normalizeFormalProductionOrderMaterialItems(snapshot)
+  const materialFields = deriveFormalProductionOrderMaterialFields(materialItems)
   return {
     productionOrderId: snapshot.productionOrderId,
     productionOrderNo: snapshot.productionOrderNo,
     orderedAt: snapshot.orderedAt,
     techPackVersionId: snapshot.techPackVersionId,
     techPackVersionLabel: snapshot.techPackVersionLabel,
-    materialId: snapshot.materialId,
-    materialName: snapshot.materialName,
+    materialId: materialFields.materialId,
+    materialName: materialFields.materialName,
+    materialItems,
     targetColor: snapshot.targetColor,
     plannedQty: snapshot.plannedQty,
     qtyUnit: snapshot.qtyUnit,
@@ -2663,9 +2680,9 @@ export function prepareFormalProductionOrderDyeWorkOrderSync(
   next.sourceProductionOrderNo = snapshot.productionOrderNo
   next.productionOrderOrderedAt = snapshot.orderedAt
   next.productionOrderIds = [snapshot.productionOrderId]
-  next.rawMaterialSku = snapshot.materialId
-  next.materialId = snapshot.materialId
-  next.composition = snapshot.materialName
+  next.rawMaterialSku = after.materialId
+  next.materialId = after.materialId
+  next.composition = after.materialName
   next.targetColor = snapshot.targetColor
   next.dyeProcessName = snapshot.dyeProcessName || '染色'
   next.plannedQty = snapshot.plannedQty

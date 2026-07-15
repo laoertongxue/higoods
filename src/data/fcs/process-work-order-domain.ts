@@ -37,12 +37,19 @@ import {
   getProcessObjectType,
   getQuantityLabel,
 } from './process-quantity-labels.ts'
+import { cloneFormalProductionOrderMaterialItems } from './formal-production-order-material-items.ts'
 
 export type ProcessWorkOrderType = 'PRINT' | 'DYE' | 'WATER_SOLUBLE'
 export type ProcessWorkOrderStatus = PrintWorkOrderStatus | DyeWorkOrderStatus | WaterSolubleWorkOrderStatus
 export type ProcessWorkOrderSourceType = 'PRODUCTION_ORDER' | 'STOCK'
 
 export type FormalProductionProcessCode = 'DYE' | 'PRINT'
+
+export interface FormalProductionOrderMaterialItem {
+  sourceBomItemId: string
+  materialId: string
+  materialName: string
+}
 
 export interface FormalProductionOrderProcessSnapshot {
   productionOrderId: string
@@ -52,6 +59,7 @@ export interface FormalProductionOrderProcessSnapshot {
   techPackVersionLabel: string
   materialId: string
   materialName: string
+  materialItems?: FormalProductionOrderMaterialItem[]
   targetColor: string
   plannedQty: number
   qtyUnit: string
@@ -303,7 +311,13 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
     reviewRecords: review ? [review] : [],
     handoverRecords: cloneHandoverRecords(getPrintOrderHandoverRecords(order.printOrderId)),
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
-      ? { ...order.formalProductionOrderSnapshot, processCodes: [...order.formalProductionOrderSnapshot.processCodes] }
+      ? {
+          ...order.formalProductionOrderSnapshot,
+          processCodes: [...order.formalProductionOrderSnapshot.processCodes],
+          materialItems: order.formalProductionOrderSnapshot.materialItems
+            ? cloneFormalProductionOrderMaterialItems(order.formalProductionOrderSnapshot.materialItems)
+            : undefined,
+        }
       : undefined,
     changeImpact: order.changeImpact ? structuredClone(order.changeImpact) : undefined,
     autoSyncHistory: order.autoSyncHistory ? structuredClone(order.autoSyncHistory) : undefined,
@@ -381,7 +395,13 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
     reviewRecords: review ? [review] : [],
     handoverRecords: cloneHandoverRecords(getDyeOrderHandoverRecords(order.dyeOrderId)),
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
-      ? { ...order.formalProductionOrderSnapshot, processCodes: [...order.formalProductionOrderSnapshot.processCodes] }
+      ? {
+          ...order.formalProductionOrderSnapshot,
+          processCodes: [...order.formalProductionOrderSnapshot.processCodes],
+          materialItems: order.formalProductionOrderSnapshot.materialItems
+            ? cloneFormalProductionOrderMaterialItems(order.formalProductionOrderSnapshot.materialItems)
+            : undefined,
+        }
       : undefined,
     changeImpact: order.changeImpact ? structuredClone(order.changeImpact) : undefined,
     autoSyncHistory: order.autoSyncHistory ? structuredClone(order.autoSyncHistory) : undefined,

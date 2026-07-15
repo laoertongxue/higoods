@@ -51,6 +51,10 @@ import {
   type FormalProductionOrderProcessSnapshot,
 } from '../../data/fcs/process-work-order-domain.ts'
 import {
+  deriveFormalProductionOrderMaterialFields,
+  normalizeFormalProductionOrderMaterialItems,
+} from '../../data/fcs/formal-production-order-material-items.ts'
+import {
   openDemandBatchGenerate,
   openDemandMergeGenerate,
   openDemandSingleGenerate,
@@ -78,6 +82,7 @@ import {
   type ProductionPatchType,
   applyProductionOrderQuantityFactChange,
   applyProductionOrderChangeTechPackIdentity,
+  applyProductionOrderMaterialFactReplacement,
   appendProductionOrderMaterialChangeHistory,
   replaceProductionOrderChangeCurrentFacts,
   restoreProductionOrderTechPackRelationSnapshot,
@@ -104,6 +109,7 @@ import {
   restoreProductionChangeRecordSnapshot,
   saveProductionChangeRecord,
   validateProductionChangeDecisions,
+  resolveProductionChangeMaterialIdentity,
   type ProductionChangeTechPackIdentity,
 } from '../../data/fcs/production-order-change-workflow.ts'
 import {
@@ -671,6 +677,12 @@ export function buildPostChangeProcessWorkOrderSnapshotsForForm(
   if (form.changeType === 'MATERIAL_REPLACEMENT' && !replacementMaterial) {
     throw new Error('请选择系统中的新面料')
   }
+  const originalMaterialIdentity = form.changeType === 'MATERIAL_REPLACEMENT'
+    ? resolveProductionChangeMaterialIdentity(
+        form.productionOrderId,
+        form.materialReplacement.originalMaterialId,
+      )
+    : null
 
   return (['DYE', 'PRINT'] as const).flatMap((processType) => (
     listProcessWorkOrders(processType)
@@ -686,10 +698,28 @@ export function buildPostChangeProcessWorkOrderSnapshotsForForm(
         const plannedQty = form.changeType === 'QUANTITY_CHANGE' && isCurrentProductionOrder
           ? roundProcessPlannedQty(current.plannedQty * quantityRatio)
           : current.plannedQty
-        const usesReplacedMaterial = Boolean(
+        const currentMaterialItems = normalizeFormalProductionOrderMaterialItems(current)
+        const hasStructuredMaterialItems = Boolean(current.materialItems?.length)
+        const canApplyMaterialReplacement = Boolean(
           replacementMaterial
-          && current.materialId === form.materialReplacement.originalMaterialId,
+          && originalMaterialIdentity
+          && originalMaterialIdentity.sourceTechPackVersionId === current.techPackVersionId,
         )
+        const materialItems = currentMaterialItems.map((item) => {
+          const matchesOriginalMaterial = canApplyMaterialReplacement && (
+            hasStructuredMaterialItems
+              ? item.sourceBomItemId === originalMaterialIdentity!.sourceBomItemId
+              : item.materialId === originalMaterialIdentity!.canonicalMaterialId
+          )
+          return matchesOriginalMaterial
+            ? {
+                sourceBomItemId: item.sourceBomItemId,
+                materialId: replacementMaterial!.materialId,
+                materialName: replacementMaterial!.materialName,
+              }
+            : { ...item }
+        })
+        const materialFields = deriveFormalProductionOrderMaterialFields(materialItems)
         const predictedTechPackIdentity = techPackIdentityPredictions.get(current.productionOrderId)
         const usesVersionPrediction = preview.result === 'VERSION_RELATION' || preview.result === 'VERSION_AND_PATCH'
         const techPackIdentity = usesVersionPrediction && predictedTechPackIdentity
@@ -704,8 +734,9 @@ export function buildPostChangeProcessWorkOrderSnapshotsForForm(
           orderedAt: current.orderedAt,
           techPackVersionId: techPackIdentity.techPackVersionId,
           techPackVersionLabel: techPackIdentity.techPackVersionLabel,
-          materialId: usesReplacedMaterial ? replacementMaterial!.materialId : current.materialId,
-          materialName: usesReplacedMaterial ? replacementMaterial!.materialName : current.materialName,
+          materialId: materialFields.materialId,
+          materialName: materialFields.materialName,
+          materialItems,
           targetColor: current.targetColor,
           plannedQty,
           qtyUnit: current.qtyUnit,
@@ -816,6 +847,28 @@ export function executeProductionChangeForForm(
               executedAt,
             )
           } else {
+            const originalMaterialIdentity = resolveProductionChangeMaterialIdentity(
+              form.productionOrderId,
+              form.materialReplacement.originalMaterialId,
+            )
+            const persistedMaterialSnapshot = originalMaterialIdentity
+              ? processWorkOrderSnapshots.find((snapshot) => (
+                  snapshot.productionOrderId === form.productionOrderId
+                  && snapshot.materialItems?.some((item) => (
+                    item.sourceBomItemId === originalMaterialIdentity.sourceBomItemId
+                    && item.materialId === form.materialReplacement.replacementMaterialId
+                  ))
+                ))
+              : undefined
+            if (originalMaterialIdentity && persistedMaterialSnapshot) {
+              applyProductionOrderMaterialFactReplacement({
+                productionOrderId: form.productionOrderId,
+                factId: originalMaterialIdentity.factId,
+                replacementMaterialId: form.materialReplacement.replacementMaterialId,
+                resultingTechPackVersionId: persistedMaterialSnapshot.techPackVersionId,
+                changeRecordId: form.recordId,
+              })
+            }
             appendProductionOrderMaterialChangeHistory(
               form.productionOrderId,
               form.recordId,

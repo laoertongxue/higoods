@@ -13,6 +13,10 @@ import {
   registerFormalProductionOrderPrintWorkOrder,
 } from './printing-task-domain.ts'
 import { prepareCombinedDyeingProductionChangeImpact } from './combined-dyeing-domain.ts'
+import {
+  deriveFormalProductionOrderMaterialFields,
+  normalizeFormalProductionOrderMaterialItems,
+} from './formal-production-order-material-items.ts'
 import type { ProductionOrder } from './production-orders.ts'
 
 export type { FormalProductionOrderProcessSnapshot } from './process-work-order-domain.ts'
@@ -57,6 +61,21 @@ export function validateFormalProductionOrderProcessSnapshot(
   }
   if (!snapshot.materialId.trim() || !snapshot.materialName.trim()) {
     throw new Error('正式生产单必须携带 BOM 面料快照')
+  }
+  const materialItems = normalizeFormalProductionOrderMaterialItems(snapshot)
+  if (materialItems.some((item) => (
+    !item.sourceBomItemId.trim() || !item.materialId.trim() || !item.materialName.trim()
+  ))) {
+    throw new Error('正式生产单 BOM 物料构成的来源行、物料 ID 和名称不能为空')
+  }
+  if (new Set(materialItems.map((item) => item.sourceBomItemId)).size !== materialItems.length) {
+    throw new Error('正式生产单 BOM 物料构成的来源行不能重复')
+  }
+  if (snapshot.materialItems?.length) {
+    const derived = deriveFormalProductionOrderMaterialFields(materialItems)
+    if (snapshot.materialId !== derived.materialId || snapshot.materialName !== derived.materialName) {
+      throw new Error('正式生产单 BOM 聚合物料字段必须由物料构成稳定派生')
+    }
   }
   if (!Number.isFinite(snapshot.plannedQty) || snapshot.plannedQty <= 0 || !snapshot.qtyUnit.trim()) {
     throw new Error('正式生产单加工数量和单位必须有效')
@@ -110,7 +129,11 @@ export function buildFormalProductionOrderProcessSnapshots(
       (sum, item) => sum + productionQty * item.unitConsumption * (1 + item.lossRate),
       0,
     ))
-    const materialNames = bomItems.map((item) => `${item.name}${item.spec ? ` / ${item.spec}` : ''}`)
+    const materialItems = bomItems.map((item) => ({
+      sourceBomItemId: item.id,
+      materialId: item.id,
+      materialName: `${item.name}${item.spec ? ` / ${item.spec}` : ''}`,
+    }))
     const targetColors = [...new Set(bomItems.map((item) => item.colorLabel).filter((color): color is string => Boolean(color)))]
     const processName = [...new Set(entries.map((entry) => entry.processName).filter(Boolean))].join('、') || processLabel
     const snapshot: FormalProductionOrderProcessSnapshot = {
@@ -119,8 +142,9 @@ export function buildFormalProductionOrderProcessSnapshots(
       orderedAt: order.createdAt,
       techPackVersionId: techPackSnapshot.sourceTechPackVersionId,
       techPackVersionLabel: techPackSnapshot.sourceTechPackVersionLabel || techPackSnapshot.versionLabel,
-      materialId: bomItems.map((item) => item.id).join('+'),
-      materialName: materialNames.join('、'),
+      materialId: materialItems.map((item) => item.materialId).join('+'),
+      materialName: materialItems.map((item) => item.materialName).join('、'),
+      materialItems,
       targetColor: targetColors.join('、') || order.demandSnapshot.skuLines[0]?.color || '按技术包配色',
       plannedQty,
       qtyUnit: units[0],
@@ -142,6 +166,8 @@ export function ensureProcessWorkOrdersForFormalProductionOrder(
   snapshot: FormalProductionOrderProcessSnapshot,
 ): EnsuredProductionProcessWorkOrders {
   validateFormalProductionOrderProcessSnapshot(snapshot)
+  const materialItems = normalizeFormalProductionOrderMaterialItems(snapshot)
+  const materialFields = deriveFormalProductionOrderMaterialFields(materialItems)
   const processCodes = new Set(snapshot.processCodes)
   const result: EnsuredProductionProcessWorkOrders = {}
 
@@ -158,8 +184,9 @@ export function ensureProcessWorkOrdersForFormalProductionOrder(
         orderedAt: snapshot.orderedAt,
         techPackVersionId: snapshot.techPackVersionId,
         techPackVersionLabel: snapshot.techPackVersionLabel,
-        materialId: snapshot.materialId,
-        materialName: snapshot.materialName,
+        materialId: materialFields.materialId,
+        materialName: materialFields.materialName,
+        materialItems,
         targetColor: snapshot.targetColor,
         plannedQty: snapshot.plannedQty,
         qtyUnit: snapshot.qtyUnit,
@@ -188,8 +215,9 @@ export function ensureProcessWorkOrdersForFormalProductionOrder(
         orderedAt: snapshot.orderedAt,
         techPackVersionId: snapshot.techPackVersionId,
         techPackVersionLabel: snapshot.techPackVersionLabel,
-        materialId: snapshot.materialId,
-        materialName: snapshot.materialName,
+        materialId: materialFields.materialId,
+        materialName: materialFields.materialName,
+        materialItems,
         targetColor: snapshot.targetColor,
         plannedQty: snapshot.plannedQty,
         qtyUnit: snapshot.qtyUnit,

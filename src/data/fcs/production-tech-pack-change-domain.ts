@@ -345,6 +345,9 @@ export interface ProductionOrderDemandQuantityFact {
 
 export interface ProductionOrderMaterialFact {
   id: string
+  sourceTechPackVersionId?: string
+  sourceBomItemId?: string
+  canonicalMaterialId?: string
   material: string
   requiredQty: string
   preparedQty: string
@@ -2193,6 +2196,9 @@ export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[
     materialFacts: [
       {
         id: 'MAT-PO-202603-0004-FAB-A01',
+        sourceTechPackVersionId: 'tdv_demand_SPU_2024_010',
+        sourceBomItemId: 'tdv_demand_SPU_2024_010-bom-main',
+        canonicalMaterialId: 'tdv_demand_SPU_2024_010-bom-main',
         material: 'FAB-A01 弹力斜纹布 / 黑色 / 280g',
         requiredQty: '1,380 米',
         preparedQty: '980 米',
@@ -2377,6 +2383,9 @@ export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[
     materialFacts: [
       {
         id: 'MAT-PO-202603-0007-FAB-C09',
+        sourceTechPackVersionId: 'tdv_demand_SPU_2024_013',
+        sourceBomItemId: 'tdv_demand_SPU_2024_013-bom-main',
+        canonicalMaterialId: 'tdv_demand_SPU_2024_013-bom-main',
         material: 'FAB-C09 棉弹布 / 黑色 / 240g',
         requiredQty: '2,120 米',
         preparedQty: '2,120 米',
@@ -3814,6 +3823,36 @@ export function appendProductionOrderMaterialChangeHistory(
     lockStatus: '已释放',
     note: `${occurredAt} 已按确认方案完成物料替换。`,
   })
+}
+
+export function applyProductionOrderMaterialFactReplacement(input: {
+  productionOrderId: string
+  factId: string
+  replacementMaterialId: string
+  resultingTechPackVersionId: string
+  changeRecordId: string
+}): ProductionOrderMaterialFact | null {
+  const facts = productionOrderChangeCurrentFacts.find(
+    (item) => item.productionOrderId === input.productionOrderId,
+  )
+  const fact = facts?.materialFacts.find((item) => item.id === input.factId)
+  if (
+    !fact
+    || !fact.sourceBomItemId?.trim()
+    || !fact.sourceTechPackVersionId?.trim()
+    || !fact.canonicalMaterialId?.trim()
+  ) {
+    return null
+  }
+  const replacementMaterialId = input.replacementMaterialId.trim()
+  const resultingTechPackVersionId = input.resultingTechPackVersionId.trim()
+  const changeRecordId = input.changeRecordId.trim()
+  if (!replacementMaterialId || !resultingTechPackVersionId || !changeRecordId) {
+    throw new Error('物料替换后的正式物料、技术包版本和变更记录不能为空')
+  }
+  fact.canonicalMaterialId = replacementMaterialId
+  fact.sourceTechPackVersionId = resultingTechPackVersionId
+  return clone(fact)
 }
 
 export function applyProductionOrderChangeTechPackIdentity(

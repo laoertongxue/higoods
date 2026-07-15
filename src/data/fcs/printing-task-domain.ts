@@ -24,6 +24,10 @@ import type {
   ProcessWorkOrderChangeImpact,
   ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
+import {
+  deriveFormalProductionOrderMaterialFields,
+  normalizeFormalProductionOrderMaterialItems,
+} from './formal-production-order-material-items.ts'
 import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
@@ -404,7 +408,13 @@ function cloneWorkOrder(order: MutablePrintWorkOrder): PrintWorkOrder {
     ...order,
     productionOrderIds: [...order.productionOrderIds],
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
-      ? { ...order.formalProductionOrderSnapshot, processCodes: [...order.formalProductionOrderSnapshot.processCodes] }
+      ? {
+          ...order.formalProductionOrderSnapshot,
+          processCodes: [...order.formalProductionOrderSnapshot.processCodes],
+          materialItems: order.formalProductionOrderSnapshot.materialItems
+            ? order.formalProductionOrderSnapshot.materialItems.map((item) => ({ ...item }))
+            : undefined,
+        }
       : undefined,
     changeImpact: order.changeImpact ? structuredClone(order.changeImpact) : undefined,
     autoSyncHistory: order.autoSyncHistory ? structuredClone(order.autoSyncHistory) : undefined,
@@ -1825,6 +1835,9 @@ export function registerFormalProductionOrderPrintWorkOrder(input: FormalProduct
     .find((order) => order.sourceProductionOrderId === input.productionOrderId)
   if (existing) return cloneWorkOrder(existing)
 
+  const materialItems = normalizeFormalProductionOrderMaterialItems(input)
+  const materialFields = deriveFormalProductionOrderMaterialFields(materialItems)
+
   const factoryId = input.factoryId || ''
   const factoryName = input.factoryName || '待分配工厂'
   registerPdaGenericProcessTask(buildFreshPrintMobileTask({
@@ -1853,7 +1866,7 @@ export function registerFormalProductionOrderPrintWorkOrder(input: FormalProduct
     isFirstOrder: false,
     patternNo: input.techPackVersionId,
     patternVersion: input.techPackVersionLabel,
-    materialSku: input.materialId,
+    materialSku: materialFields.materialId,
     materialColor: input.targetColor,
     objectType: '面料',
     isPiecePrinting: false,
@@ -1877,8 +1890,9 @@ export function registerFormalProductionOrderPrintWorkOrder(input: FormalProduct
       orderedAt: input.orderedAt,
       techPackVersionId: input.techPackVersionId,
       techPackVersionLabel: input.techPackVersionLabel,
-      materialId: input.materialId,
-      materialName: input.materialName,
+      materialId: materialFields.materialId,
+      materialName: materialFields.materialName,
+      materialItems,
       targetColor: input.targetColor,
       plannedQty: input.plannedQty,
       qtyUnit: input.qtyUnit,
@@ -1909,14 +1923,17 @@ export interface PreparedPrintWorkOrderProductionChangeSync {
 }
 
 function toPrintSnapshotRecord(snapshot: FormalProductionOrderProcessSnapshot): FormalProductionOrderProcessSnapshotRecord {
+  const materialItems = normalizeFormalProductionOrderMaterialItems(snapshot)
+  const materialFields = deriveFormalProductionOrderMaterialFields(materialItems)
   return {
     productionOrderId: snapshot.productionOrderId,
     productionOrderNo: snapshot.productionOrderNo,
     orderedAt: snapshot.orderedAt,
     techPackVersionId: snapshot.techPackVersionId,
     techPackVersionLabel: snapshot.techPackVersionLabel,
-    materialId: snapshot.materialId,
-    materialName: snapshot.materialName,
+    materialId: materialFields.materialId,
+    materialName: materialFields.materialName,
+    materialItems,
     targetColor: snapshot.targetColor,
     plannedQty: snapshot.plannedQty,
     qtyUnit: snapshot.qtyUnit,
@@ -1990,7 +2007,7 @@ export function prepareFormalProductionOrderPrintWorkOrderSync(
   next.productionOrderIds = [snapshot.productionOrderId]
   next.patternNo = snapshot.techPackVersionId
   next.patternVersion = snapshot.techPackVersionLabel
-  next.materialSku = snapshot.materialId
+  next.materialSku = after.materialId
   next.materialColor = snapshot.targetColor
   next.plannedQty = snapshot.plannedQty
   next.qtyUnit = snapshot.qtyUnit

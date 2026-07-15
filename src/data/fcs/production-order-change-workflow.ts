@@ -102,6 +102,32 @@ export interface MaterialReplacementDraft {
   }>
 }
 
+export interface ProductionChangeMaterialIdentity {
+  factId: string
+  sourceTechPackVersionId: string
+  sourceBomItemId: string
+  canonicalMaterialId: string
+}
+
+export function resolveProductionChangeMaterialIdentity(
+  productionOrderId: string,
+  materialFactId: string,
+): ProductionChangeMaterialIdentity | null {
+  const fact = getProductionOrderChangeCurrentFacts(productionOrderId)?.materialFacts
+    .find((item) => item.id === materialFactId)
+  if (
+    !fact?.sourceTechPackVersionId?.trim()
+    || !fact.sourceBomItemId?.trim()
+    || !fact.canonicalMaterialId?.trim()
+  ) return null
+  return {
+    factId: fact.id,
+    sourceTechPackVersionId: fact.sourceTechPackVersionId,
+    sourceBomItemId: fact.sourceBomItemId,
+    canonicalMaterialId: fact.canonicalMaterialId,
+  }
+}
+
 type FollowingOrderPlan = MaterialReplacementDraft['followingOrders'][number]
 
 interface FollowingOrderScenarioSeed {

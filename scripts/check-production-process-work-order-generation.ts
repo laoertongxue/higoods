@@ -163,6 +163,14 @@ assert.deepEqual(
   ],
   '染色和印花快照必须分别读取其工艺路线绑定的 BOM',
 )
+assert.deepEqual(
+  routeSnapshots.map((snapshot) => snapshot.materialItems),
+  [
+    [{ sourceBomItemId: dyeBom.id, materialId: dyeBom.id, materialName: '染色针织布 / 180g' }],
+    [{ sourceBomItemId: printBom.id, materialId: printBom.id, materialName: '印花裁片 / 前后幅' }],
+  ],
+  '正式工艺快照必须保留每条 BOM constituent 的位置身份与当前物料身份',
+)
 
 const waterSolubleDyeOrder: ProductionOrder = {
   ...routeOrder,
@@ -231,6 +239,10 @@ assert.deepEqual(
   '同一工艺绑定多个同单位 BOM 时必须按物料用量和损耗明确聚合',
 )
 assert.equal(aggregatedDyeSnapshots.length, 1, '一个生产单的同类染色工艺必须只生成一张快照')
+assert.deepEqual(aggregatedDyeSnapshots[0]?.materialItems, [
+  { sourceBomItemId: dyeBom.id, materialId: dyeBom.id, materialName: '染色针织布 / 180g' },
+  { sourceBomItemId: secondDyeBom.id, materialId: secondDyeBom.id, materialName: '染色罗纹布 / 2x2 罗纹' },
+], '同一 DYE 聚合多个 BOM 时必须保留 constituent，禁止只留下拼接字符串')
 assert.equal(aggregatedDyeSnapshots[0]?.requiresWaterSoluble, false, '全部染色 BOM 均不需水溶时必须生成普通染色快照')
 
 const allWaterDyeOrder: ProductionOrder = {
@@ -855,6 +867,11 @@ function assertGeneratedOrder(
     techPackVersionLabel: source.techPackVersionLabel,
     materialId: source.materialId,
     materialName: source.materialName,
+    materialItems: source.materialItems ?? [{
+      sourceBomItemId: source.materialId,
+      materialId: source.materialId,
+      materialName: source.materialName,
+    }],
     targetColor: source.targetColor,
     plannedQty: source.plannedQty,
     qtyUnit: source.qtyUnit,
@@ -870,6 +887,14 @@ assertGeneratedOrder(dyeOnlyFirst.dyeWorkOrderId!, dyeOnly, 'DYE')
 assertGeneratedOrder(printOnlyFirst.printWorkOrderId!, printOnly, 'PRINT')
 assertGeneratedOrder(combinedFirst.dyeWorkOrderId!, dyeAndPrint, 'DYE')
 assertGeneratedOrder(combinedFirst.printWorkOrderId!, dyeAndPrint, 'PRINT')
+
+const clonedMaterialSnapshot = getProcessWorkOrderById(combinedFirst.dyeWorkOrderId!)!
+clonedMaterialSnapshot.formalProductionOrderSnapshot!.materialItems![0]!.materialId = 'MUTATED-OUTSIDE-DOMAIN'
+assert.notEqual(
+  getProcessWorkOrderById(combinedFirst.dyeWorkOrderId!)?.formalProductionOrderSnapshot?.materialItems?.[0]?.materialId,
+  'MUTATED-OUTSIDE-DOMAIN',
+  '读取加工单返回的 materialItems 必须深拷贝，外部修改不得污染领域事实',
+)
 
 for (const orderId of [combinedFirst.dyeWorkOrderId!, combinedFirst.printWorkOrderId!]) {
   const order = getProcessWorkOrderById(orderId) as ProcessWorkOrder
