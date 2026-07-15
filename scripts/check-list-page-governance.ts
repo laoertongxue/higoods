@@ -75,7 +75,7 @@ function readBaseBaseline(baseSha: string | undefined): Record<string, string> |
     return JSON.parse(source) as Record<string, string>
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    if (message.includes('does not exist in')) return null
+    if (message.includes('does not exist in') || message.includes('exists on disk, but not in')) return null
     throw error
   }
 }
