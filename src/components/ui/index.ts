@@ -16,6 +16,7 @@ export * from './card.ts'
 
 // ============ 数据展示组件 ============
 export * from './table.ts'
+export * from './list-page.ts'
 
 // ============ 表单组件 ============
 export * from './form.ts'

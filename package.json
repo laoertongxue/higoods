@@ -15,6 +15,7 @@
     "check:third-party-cutting-task-boundaries": "tsx scripts/check-third-party-cutting-task-boundaries.ts",
     "check:third-party-factory-rating": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-third-party-factory-rating.ts",
     "check:prototype-design-governance": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-prototype-design-governance.ts",
+    "check:standard-list-page-template": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-standard-list-page-template.ts",
     "check:fcs-truth-sources": "node scripts/check-fcs-truth-sources.mjs --write-report",
     "check:settlement-linked-mock-factory": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-settlement-linked-mock-factory.ts",
     "check:factory-settlement-reconciliation": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-settlement-reconciliation.ts",
