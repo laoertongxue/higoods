@@ -39,6 +39,7 @@ import {
   getEffectiveDyeingFulfillment,
   type CombinedDyeingSatisfaction,
 } from './combined-dyeing-domain.ts'
+import { registerCanonicalDyeWorkOrderReader } from './dye-work-order-canonical-registry.ts'
 
 export type DyeWorkOrderStatus =
   | 'WAIT_SAMPLE'
@@ -106,6 +107,7 @@ export interface DyeWorkOrder {
   width?: string
   weightGsm?: number
   targetColor: string
+  materialId: string
   dyeProcessCode: 'DYE'
   dyeProcessName: string
   plannedQty: number
@@ -366,6 +368,7 @@ interface GeneratedDyeContext {
   mockIndex: number
   plannedQty: number
   materialName: string
+  materialId: string
   targetColor: string
 }
 
@@ -401,6 +404,7 @@ function getGeneratedDyeContext(index: number): GeneratedDyeContext | null {
     mockIndex: generatedCraft.mockIndex,
     plannedQty: Math.max(1, Math.round(getProductionOrderQty(productionOrder) * 1.12)),
     materialName: bomItem ? `${bomItem.name}${bomItem.spec ? ` / ${bomItem.spec}` : ''}` : productionOrder.demandSnapshot.spuName,
+    materialId: bomItem?.id || `DYE-MATERIAL-${productionOrder.productionOrderId}`,
     targetColor: bomItem?.colorLabel || productionOrder.demandSnapshot.skuLines[0]?.color || '按技术包配色',
   }
 }
@@ -441,7 +445,7 @@ function buildGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): 
       productionOrderOrderedAt: order.productionOrderOrderedAt || sourceOrder?.createdAt || order.createdAt,
     }
   }
-  const { productionOrder, techPackSnapshot, craftDefinition, mockIndex, plannedQty, materialName, targetColor } = context
+  const { productionOrder, techPackSnapshot, craftDefinition, mockIndex, plannedQty, materialName, materialId, targetColor } = context
   return {
     ...order,
     sourceType: 'PRODUCTION_ORDER',
@@ -451,6 +455,7 @@ function buildGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): 
     productionOrderIds: [productionOrder.productionOrderId],
     isFirstOrder: mockIndex === 0,
     rawMaterialSku: materialName,
+    materialId,
     composition: techPackSnapshot.bomItems[0]?.spec || order.composition,
     targetColor,
     dyeProcessCode: 'DYE',
@@ -993,6 +998,7 @@ function addSeedWorkOrder(input: Omit<
   | 'dyeProcessCode'
   | 'dyeProcessName'
   | 'combinedDyeing'
+  | 'materialId'
 > & {
   dispatchPrice?: number
   requiresWaterSoluble?: boolean
@@ -1001,6 +1007,7 @@ function addSeedWorkOrder(input: Omit<
   waterSolubleQtyUnit?: string
   dyeProcessCode?: 'DYE'
   dyeProcessName?: string
+  materialId?: string
 }): void {
   const task = getDyeingTaskById(input.taskId)
   const handoverOrder = input.handoverOrderId ? getHandoverOrderById(input.handoverOrderId) : getPrimaryHandoverOrder(input.taskId)
@@ -1026,6 +1033,7 @@ function addSeedWorkOrder(input: Omit<
 
   workOrderStore.set(input.dyeOrderId, {
     ...input,
+    materialId: input.materialId?.trim() || input.rawMaterialSku.trim(),
     dyeProcessCode: input.dyeProcessCode ?? 'DYE',
     dyeProcessName: input.dyeProcessName?.trim() || input.formalProductionOrderSnapshot?.processName || '普通染色',
     requiresWaterSoluble: input.requiresWaterSoluble === true,
@@ -2438,6 +2446,8 @@ export function getDyeWorkOrderById(dyeOrderId: string): DyeWorkOrder | undefine
     : undefined
 }
 
+registerCanonicalDyeWorkOrderReader(getDyeWorkOrderById)
+
 export function getDyeWorkOrderByTaskId(taskId: string): DyeWorkOrder | undefined {
   syncDerivedWorkflow()
   const canonical = Array.from(workOrderStore.values()).find((item) => item.taskId === taskId)
@@ -2500,6 +2510,7 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
     rawMaterialSku: input.materialId,
     composition: input.materialName,
     targetColor: input.targetColor,
+    materialId: input.materialId,
     dyeProcessCode: 'DYE',
     dyeProcessName: input.processName,
     plannedQty: input.plannedQty,

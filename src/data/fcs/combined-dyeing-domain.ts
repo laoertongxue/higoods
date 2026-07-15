@@ -1,4 +1,7 @@
-import type { DyeWorkOrder } from './dyeing-task-domain.ts'
+import {
+  getCanonicalDyeWorkOrderById,
+  type CanonicalDyeWorkOrder,
+} from './dye-work-order-canonical-registry.ts'
 
 export type CombinedDyeingTaskStatus = 'WAIT_DYEING' | 'COMPLETED' | 'DELETED'
 
@@ -29,8 +32,9 @@ export interface CombinedDyeingAllocationResult {
 export interface CombinedDyeingTaskMemberSnapshot extends CombinedDyeingMemberSnapshot {
   dyeFactoryId: string
   dyeFactoryName: string
-  materialIdentity: string
+  materialId: string
   rawMaterialSku: string
+  materialName: string
   targetColor: string
   dyeProcessCode: string
   dyeProcessName: string
@@ -54,8 +58,9 @@ export interface CombinedDyeingTask {
   status: CombinedDyeingTaskStatus
   dyeFactoryId: string
   dyeFactoryName: string
-  materialIdentity: string
+  materialId: string
   rawMaterialSku: string
+  materialName: string
   targetColor: string
   dyeProcessCode: string
   dyeProcessName: string
@@ -376,7 +381,7 @@ function getCurrentAllocationVersion(task: CombinedDyeingTask): CombinedDyeingAl
   return task.allocationVersions.find((version) => version.current)
 }
 
-function buildTaskMember(workOrder: DyeWorkOrder): CombinedDyeingTaskMemberSnapshot {
+function buildTaskMember(workOrder: CanonicalDyeWorkOrder): CombinedDyeingTaskMemberSnapshot {
   if (workOrder.sourceType !== 'PRODUCTION_ORDER') {
     throw new Error(`染色加工单 ${workOrder.dyeOrderNo} 只允许生产单来源参加合并染色`)
   }
@@ -390,10 +395,7 @@ function buildTaskMember(workOrder: DyeWorkOrder): CombinedDyeingTaskMemberSnaps
     throw new Error(`染色加工单 ${workOrder.dyeOrderNo} 已全部满足，无需再次参加合并染色`)
   }
   const requiredQty = fromQuantityMinorUnits(parseCombinedDyeingQuantityMinorUnits(workOrder.plannedQty, `染色加工单 ${workOrder.dyeOrderNo} 的需求数量`))
-  const materialIdentity = requireText(
-    workOrder.formalProductionOrderSnapshot?.materialId || workOrder.rawMaterialSku,
-    `染色加工单 ${workOrder.dyeOrderNo} 的面料标识`,
-  )
+  const materialId = requireText(workOrder.materialId, `染色加工单 ${workOrder.dyeOrderNo} 的面料标识`)
   return {
     dyeWorkOrderId: requireText(workOrder.dyeOrderId, '染色加工单 ID'),
     dyeWorkOrderNo: requireText(workOrder.dyeOrderNo, '染色加工单号'),
@@ -405,8 +407,9 @@ function buildTaskMember(workOrder: DyeWorkOrder): CombinedDyeingTaskMemberSnaps
     qtyUnit: requireText(workOrder.qtyUnit, `染色加工单 ${workOrder.dyeOrderNo} 的数量单位`),
     dyeFactoryId: requireText(workOrder.dyeFactoryId, `染色加工单 ${workOrder.dyeOrderNo} 的染厂`),
     dyeFactoryName: requireText(workOrder.dyeFactoryName, `染色加工单 ${workOrder.dyeOrderNo} 的染厂名称`),
-    materialIdentity,
+    materialId,
     rawMaterialSku: requireText(workOrder.rawMaterialSku, `染色加工单 ${workOrder.dyeOrderNo} 的面料编码`),
+    materialName: requireText(workOrder.composition || workOrder.rawMaterialSku, `染色加工单 ${workOrder.dyeOrderNo} 的面料名称`),
     targetColor: requireText(workOrder.targetColor, `染色加工单 ${workOrder.dyeOrderNo} 的目标颜色`),
     dyeProcessCode: requireText(workOrder.dyeProcessCode, `染色加工单 ${workOrder.dyeOrderNo} 的染色工艺编码`),
     dyeProcessName: requireText(workOrder.dyeProcessName, `染色加工单 ${workOrder.dyeOrderNo} 的染色工艺`),
@@ -417,7 +420,7 @@ function assertSameMergeIdentity(members: readonly CombinedDyeingTaskMemberSnaps
   const first = members[0]!
   for (const member of members.slice(1)) {
     if (member.dyeFactoryId !== first.dyeFactoryId) throw new Error('合并染色成员必须属于同一染厂')
-    if (member.materialIdentity !== first.materialIdentity || member.rawMaterialSku !== first.rawMaterialSku) {
+    if (member.materialId !== first.materialId) {
       throw new Error('合并染色成员必须使用同一面料')
     }
     if (member.targetColor !== first.targetColor) throw new Error('合并染色成员必须使用同一目标颜色')
@@ -434,14 +437,22 @@ function assertAllowedKeys(input: object, allowedKeys: readonly string[], label:
 }
 
 export function createCombinedDyeingTask(input: {
-  workOrders: readonly DyeWorkOrder[]
+  dyeWorkOrderIds: readonly string[]
   createdBy: string
   createdAt?: string
   remark?: string
 }): CombinedDyeingTask {
-  assertAllowedKeys(input, ['workOrders', 'createdBy', 'createdAt', 'remark'], '创建合并染色任务')
-  if (input.workOrders.length < 2) throw new Error('合并染色任务至少需要 2 张染色加工单')
-  const members = input.workOrders.map(buildTaskMember)
+  assertAllowedKeys(input, ['dyeWorkOrderIds', 'createdBy', 'createdAt', 'remark'], '创建合并染色任务')
+  if (input.dyeWorkOrderIds.length < 2) throw new Error('合并染色任务至少需要 2 张染色加工单')
+  const canonicalIds = input.dyeWorkOrderIds.map((id) => requireText(id, '染色加工单 ID'))
+  if (new Set(canonicalIds).size !== canonicalIds.length) throw new Error('合并染色任务不得包含重复染色加工单 ID')
+  const canonicalWorkOrders = canonicalIds.map((id) => {
+    const order = getCanonicalDyeWorkOrderById(id)
+    if (!order) throw new Error(`未找到染色加工单：${id}`)
+    if (order.dyeOrderId !== id) throw new Error(`染色加工单 canonical ID 不一致：${id}`)
+    return order
+  })
+  const members = canonicalWorkOrders.map(buildTaskMember)
   assertUniqueMembers(members)
   assertSameMergeIdentity(members)
   for (const member of members) {
@@ -451,7 +462,10 @@ export function createCombinedDyeingTask(input: {
     }
   }
 
-  const sequence = combinedDyeingTaskSequence++
+  const createdBy = requireText(input.createdBy, '创建人')
+  const createdAt = input.createdAt === undefined ? nowBusinessTimestamp() : requireText(input.createdAt, '创建时间')
+  const remark = input.remark?.trim() || undefined
+  const sequence = combinedDyeingTaskSequence
   const sequenceText = String(sequence).padStart(6, '0')
   const first = members[0]!
   const task: CombinedDyeingTask = {
@@ -460,26 +474,28 @@ export function createCombinedDyeingTask(input: {
     status: 'WAIT_DYEING',
     dyeFactoryId: first.dyeFactoryId,
     dyeFactoryName: first.dyeFactoryName,
-    materialIdentity: first.materialIdentity,
+    materialId: first.materialId,
     rawMaterialSku: first.rawMaterialSku,
+    materialName: first.materialName,
     targetColor: first.targetColor,
     dyeProcessCode: first.dyeProcessCode,
     dyeProcessName: first.dyeProcessName,
     qtyUnit: first.qtyUnit,
     members: deepClone(members),
     allocationVersions: [],
-    createdBy: requireText(input.createdBy, '创建人'),
-    createdAt: input.createdAt ? requireText(input.createdAt, '创建时间') : nowBusinessTimestamp(),
-    remark: input.remark?.trim() || undefined,
+    createdBy,
+    createdAt,
+    remark,
   }
   combinedDyeingTaskStore.set(task.taskId, task)
+  combinedDyeingTaskSequence = sequence + 1
   return deepClone(task)
 }
 
 export function completeCombinedDyeingTask(taskId: string, input: {
   actualInputQty: number
   actualOutputQty: number
-  remark: string
+  remark?: string
   completedBy: string
   completedAt: string
 }): CombinedDyeingTask {
@@ -492,6 +508,7 @@ export function completeCombinedDyeingTask(taskId: string, input: {
   if (input.actualOutputQty < 0) throw new Error('实际产出数量不得小于 0')
   const outputMinorUnits = parseCombinedDyeingQuantityMinorUnits(input.actualOutputQty, '实际产出数量')
   const allocation = allocateCombinedDyeingOutput(task.members, fromQuantityMinorUnits(outputMinorUnits))
+  const remark = input.remark?.trim() ?? ''
   const version: CombinedDyeingAllocationVersion = {
     versionNo: 1,
     actualInputQty: fromQuantityMinorUnits(inputMinorUnits),
@@ -500,7 +517,7 @@ export function completeCombinedDyeingTask(taskId: string, input: {
     excessQty: allocation.excessQty,
     operator: requireText(input.completedBy, '完成人'),
     operatedAt: requireText(input.completedAt, '完成时间'),
-    reason: input.remark.trim() || undefined,
+    reason: remark || undefined,
     current: true,
   }
   task.status = 'COMPLETED'
@@ -508,7 +525,7 @@ export function completeCombinedDyeingTask(taskId: string, input: {
   task.actualOutputQty = version.actualOutputQty
   task.completedBy = version.operator
   task.completedAt = version.operatedAt
-  task.remark = input.remark.trim() || task.remark
+  task.remark = remark
   task.allocationVersions.push(version)
   return deepClone(task)
 }
