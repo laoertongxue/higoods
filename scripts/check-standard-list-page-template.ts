@@ -118,11 +118,17 @@ const columnRules: StandardListColumnRule[] = [
   { key: 'actions', required: true, actionColumn: true },
 ]
 const allowedPageSizes = [10, 20, 50]
-const defaultColumnPreferences: StandardListColumnPreferences = {
-  order: ['recordNo', 'qty', 'actions'],
-  visibleKeys: ['recordNo', 'qty', 'actions'],
+const invalidDefaultColumnPreferences: StandardListColumnPreferences = {
+  order: ['unknown', 'actions', 'qty'],
+  visibleKeys: ['unknown', 'qty'],
+  frozenKeys: ['unknown', 'actions', 'recordNo'],
+  pageSize: 999,
+}
+const normalizedDefaultColumnPreferences: StandardListColumnPreferences = {
+  order: ['qty', 'recordNo', 'actions'],
+  visibleKeys: ['qty', 'recordNo', 'actions'],
   frozenKeys: ['recordNo'],
-  pageSize: 20,
+  pageSize: 10,
 }
 
 const normalizedPreferences = normalizeListColumnPreferences(
@@ -141,6 +147,51 @@ assert.deepEqual(normalizedPreferences, {
   frozenKeys: ['qty'],
   pageSize: 10,
 })
+
+const optionalActionPreferences = normalizeListColumnPreferences(
+  [
+    { key: 'recordNo', required: true, freezeable: true },
+    { key: 'remark' },
+    { key: 'actions', actionColumn: true },
+  ],
+  {
+    order: ['actions', 'recordNo'],
+    visibleKeys: ['recordNo'],
+    frozenKeys: [],
+    pageSize: 10,
+  },
+  allowedPageSizes,
+)
+assert.deepEqual(
+  optionalActionPreferences.order,
+  ['recordNo', 'remark', 'actions'],
+  '操作列即使不是必需列也必须排在最后',
+)
+assert.deepEqual(
+  optionalActionPreferences.visibleKeys,
+  ['recordNo', 'actions'],
+  '操作列即使不是必需列也必须自动可见',
+)
+
+const nonFreezeablePreferences = normalizeListColumnPreferences(
+  [
+    { key: 'recordNo', required: true, freezeable: true },
+    { key: 'remark', required: false },
+    { key: 'actions', actionColumn: true },
+  ],
+  {
+    order: ['recordNo', 'remark', 'actions'],
+    visibleKeys: ['recordNo', 'remark', 'actions'],
+    frozenKeys: ['recordNo', 'remark'],
+    pageSize: 10,
+  },
+  allowedPageSizes,
+)
+assert.deepEqual(
+  nonFreezeablePreferences.frozenKeys,
+  ['recordNo'],
+  '未声明可冻结的普通列不得保留在冻结列中',
+)
 
 const rows = [
   { recordNo: 'B2', qty: 2 },
@@ -238,11 +289,34 @@ assert.deepEqual(
     storage,
     'standard-list-columns',
     columnRules,
-    defaultColumnPreferences,
+    invalidDefaultColumnPreferences,
     allowedPageSizes,
   ),
-  defaultColumnPreferences,
+  normalizedDefaultColumnPreferences,
   '损坏 JSON 必须回退规范化默认值',
+)
+
+storage.setItem('standard-list-columns', JSON.stringify({
+  order: ['qty'],
+  visibleKeys: ['qty'],
+  frozenKeys: ['recordNo'],
+  pageSize: 20,
+}))
+assert.deepEqual(
+  loadListColumnPreferences(
+    storage,
+    'standard-list-columns',
+    columnRules,
+    invalidDefaultColumnPreferences,
+    allowedPageSizes,
+  ),
+  {
+    order: ['qty', 'recordNo', 'actions'],
+    visibleKeys: ['qty', 'recordNo', 'actions'],
+    frozenKeys: ['recordNo'],
+    pageSize: 20,
+  },
+  '有效存储 JSON 必须正常读取并规范化',
 )
 
 saveListColumnPreferences(storage, 'standard-list-columns', normalizedPreferences)
@@ -264,10 +338,10 @@ assert.deepEqual(
     failingStorage,
     'standard-list-columns',
     columnRules,
-    defaultColumnPreferences,
+    invalidDefaultColumnPreferences,
     allowedPageSizes,
   ),
-  defaultColumnPreferences,
+  normalizedDefaultColumnPreferences,
   'Storage 读取异常必须回退规范化默认值',
 )
 assert.doesNotThrow(() => saveListColumnPreferences(failingStorage, 'standard-list-columns', normalizedPreferences))
