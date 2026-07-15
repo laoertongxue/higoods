@@ -46,6 +46,7 @@ import { escapeHtml, formatDateTime } from '../../../utils.ts'
 import {
   removeCombinedDyeingTaskIdFromUrl,
   resolveCombinedDyeingDeepLink,
+  resolveCombinedDyeingOverlayUrl,
   shouldClearCombinedDyeingOverlay,
 } from '../../../data/fcs/combined-dyeing-deep-link.ts'
 
@@ -566,7 +567,7 @@ export function renderCraftCombinedDyeingPage(): string {
   if (typeof window !== 'undefined') syncCombinedDyeingDeepLink(window.location.search)
   installCombinedDyeingColumnDragEvents()
   return `
-    <div data-combined-dyeing-root data-skip-page-rerender="true">
+    <div data-combined-dyeing-root data-testid="combined-dyeing-root" data-skip-page-rerender="true">
       <div data-combined-dyeing-workspace>${renderWorkspace()}</div>
       <div data-combined-dyeing-overlay>${renderOverlay()}</div>
       <div data-combined-dyeing-toast-region class="fixed right-4 top-20 z-[80] w-full max-w-sm"></div>
@@ -605,6 +606,10 @@ function showToast(title: string, description?: string, danger = false): void {
 }
 
 function openOverlay(overlay: NonNullable<OverlayState>): void {
+  if (typeof window !== 'undefined') {
+    const nextUrl = resolveCombinedDyeingOverlayUrl(window.location.href, state.deepLinkedTaskId, overlay.kind)
+    if (nextUrl !== window.location.href) window.history.replaceState(window.history.state, '', nextUrl)
+  }
   state.overlay = overlay
   state.deepLinkedTaskId = ''
   state.overlayError = ''

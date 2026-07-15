@@ -20,6 +20,16 @@ export function removeCombinedDyeingTaskIdFromUrl(url: string): string {
   return `${parsed.pathname}${parsed.search}${parsed.hash}`
 }
 
+export function resolveCombinedDyeingOverlayUrl(
+  url: string,
+  currentDeepLinkedTaskId: string,
+  overlayKind: 'create' | 'detail' | 'complete' | 'correct' | 'delete' | 'columns',
+): string {
+  return currentDeepLinkedTaskId && overlayKind !== 'detail'
+    ? removeCombinedDyeingTaskIdFromUrl(url)
+    : url
+}
+
 export function shouldClearCombinedDyeingOverlay(
   resolution: CombinedDyeingDeepLinkResolution,
   currentDeepLinkedTaskId: string,

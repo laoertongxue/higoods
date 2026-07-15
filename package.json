@@ -168,6 +168,7 @@
     "check:pcs-material-archive-units": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-material-archive-units.ts",
     "check:pcs-product-testing-v1": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-product-testing-v1.ts",
     "test:process-work-order-unification:e2e": "playwright test tests/process-work-order-unification.spec.ts",
+    "test:combined-dyeing:e2e": "playwright test tests/combined-dyeing.spec.ts",
     "test:water-soluble-pages:e2e": "playwright test tests/water-soluble-pages.spec.ts",
     "test:water-soluble-pda:e2e": "playwright test tests/water-soluble-pda.spec.ts",
     "test:process-warehouse-unification:e2e": "playwright test tests/process-warehouse-unification.spec.ts",

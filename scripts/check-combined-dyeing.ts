@@ -29,6 +29,7 @@ import { buildDyeWorkOrderCombinedDyeingView } from '../src/data/fcs/dye-work-or
 import {
   removeCombinedDyeingTaskIdFromUrl,
   resolveCombinedDyeingDeepLink,
+  resolveCombinedDyeingOverlayUrl,
 } from '../src/data/fcs/combined-dyeing-deep-link.ts'
 import {
   createDefaultCombinedDyeingPreferences,
@@ -63,6 +64,7 @@ function checkCombinedDyeingWorkspaceWiring(): void {
   const handlers = readWorkspaceFile('src/main-handlers/fcs-handlers.ts')
   const events = readWorkspaceFile('src/pages/process-factory/dyeing/events.ts')
   const page = readWorkspaceFile('src/pages/process-factory/dyeing/combined-dyeing.ts')
+  const platformPage = readWorkspaceFile('src/pages/process-dye-orders.ts')
 
   const workOrderMenuIndex = menu.indexOf("title: '染色加工单'")
   const combinedMenuIndex = menu.indexOf("title: '合并染色'", workOrderMenuIndex)
@@ -101,6 +103,7 @@ function checkCombinedDyeingWorkspaceWiring(): void {
   assert(/return `<div data-combined-dyeing-id="\$\{escapeHtml\(task\.taskId\)\}">\$\{renderFormDialog\(/.test(page), '完成与更正弹窗必须由任务 ID 容器整体包裹，确保底部提交按钮能定位任务')
   assert(!page.includes('ensureCombinedDyeingDemoCandidates'), '页面不得在 render 时注入合并染色演示加工单')
   assert(!page.includes('registerFormalProductionOrderDyeWorkOrder'), '页面不得直接写 canonical 染色加工单或 PDA store')
+  assertIncludes(platformPage, 'order.workOrderNo,', '平台染色加工单列表必须支持按唯一平台加工单号搜索')
 }
 
 function checkChangeOnlyRendering(): void {
@@ -162,6 +165,16 @@ function checkLinkedCombinedDyeingHistory(): void {
   assert.deepEqual(resolveCombinedDyeingDeepLink('?taskId=NOT-FOUND', fakeTasks), { kind: 'invalid', taskId: 'NOT-FOUND' }, '不存在任务深链必须安全识别')
   assert.deepEqual(resolveCombinedDyeingDeepLink('', fakeTasks), { kind: 'none' }, '无 taskId 时必须保持列表')
   assert.equal(removeCombinedDyeingTaskIdFromUrl('/fcs/craft/dyeing/combined-dyeing?taskId=ACTIVE-TASK&from=work-order#history'), '/fcs/craft/dyeing/combined-dyeing?from=work-order#history', '关闭深链详情只移除 taskId')
+  assert.equal(
+    resolveCombinedDyeingOverlayUrl('/fcs/craft/dyeing/combined-dyeing?taskId=ACTIVE-TASK&from=work-order#history', 'ACTIVE-TASK', 'delete'),
+    '/fcs/craft/dyeing/combined-dyeing?from=work-order#history',
+    '深链详情切换删除确认时必须先移除 taskId，避免页面同步重新覆盖确认弹窗',
+  )
+  assert.equal(
+    resolveCombinedDyeingOverlayUrl('/fcs/craft/dyeing/combined-dyeing?taskId=ACTIVE-TASK', 'ACTIVE-TASK', 'detail'),
+    '/fcs/craft/dyeing/combined-dyeing?taskId=ACTIVE-TASK',
+    '深链详情自身不得提前清除 taskId',
+  )
 
   const orderA = getDyeWorkOrderById('DYE-COMBINED-DEMO-001')!
   const orderB = getDyeWorkOrderById('DYE-COMBINED-DEMO-002')!

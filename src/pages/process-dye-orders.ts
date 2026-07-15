@@ -77,6 +77,7 @@ function getFilteredOrders(): PrepProcessOrderFact[] {
     if (state.modeFilter !== '全部' && order.createMode !== state.modeFilter) return false
     if (!keyword) return true
     return [
+      order.workOrderNo,
       order.orderNo,
       order.factoryName,
       order.sourceProductionOrderNo,
