@@ -24,15 +24,38 @@ export interface CombinedDyeingAllocationResult {
   excessQty: number
 }
 
-function assertFiniteNumber(value: number, label: string): void {
+const COMBINED_DYEING_QTY_SCALE = 1000
+
+function toQuantityMinorUnits(value: number, label: string): number {
   if (!Number.isFinite(value)) {
     throw new Error(`${label}必须是有限数`)
   }
+
+  const scaledValue = value * COMBINED_DYEING_QTY_SCALE
+  if (!Number.isFinite(scaledValue) || Math.abs(scaledValue) > Number.MAX_SAFE_INTEGER) {
+    throw new Error(`${label}超过安全上限，乘 1000 后必须不大于 Number.MAX_SAFE_INTEGER`)
+  }
+
+  const roundedMinorUnits = Math.round(scaledValue)
+  if (value !== 0 && roundedMinorUnits === 0) {
+    throw new Error(`${label}最多 3 位小数，非零数量不得规范化为 0`)
+  }
+  const binaryTolerance = Math.min(
+    Number.EPSILON * Math.max(1, Math.abs(scaledValue)),
+    Number.EPSILON * COMBINED_DYEING_QTY_SCALE,
+  )
+  if (Math.abs(scaledValue - roundedMinorUnits) > binaryTolerance) {
+    throw new Error(`${label}最多 3 位小数`)
+  }
+  if (!Number.isSafeInteger(roundedMinorUnits)) {
+    throw new Error(`${label}超过安全上限，乘 1000 后必须是安全整数`)
+  }
+
+  return Object.is(roundedMinorUnits, -0) ? 0 : roundedMinorUnits
 }
 
-function normalizeQuantity(value: number): number {
-  const normalized = Number(value.toPrecision(15))
-  return Object.is(normalized, -0) ? 0 : normalized
+function fromQuantityMinorUnits(value: number): number {
+  return value / COMBINED_DYEING_QTY_SCALE
 }
 
 function parseProductionOrderOrderedAt(value: string): number {
@@ -96,6 +119,8 @@ function assertUniqueMembers(members: readonly CombinedDyeingMemberSnapshot[]): 
 interface ValidatedCombinedDyeingMember {
   member: CombinedDyeingMemberSnapshot
   orderedAtSortKey: number
+  requiredMinorUnits: number
+  satisfiedBeforeMinorUnits: number
 }
 
 function canonicalizeMember(member: CombinedDyeingMemberSnapshot): CombinedDyeingMemberSnapshot {
@@ -119,6 +144,7 @@ function canonicalizeMember(member: CombinedDyeingMemberSnapshot): CombinedDyein
     dyeWorkOrderNo,
     productionOrderId,
     productionOrderNo,
+    qtyUnit: member.qtyUnit.trim(),
   }
 }
 
@@ -127,29 +153,46 @@ function validateMembers(members: readonly CombinedDyeingMemberSnapshot[]): Vali
     throw new Error('合并染色分配至少包含 1 个成员')
   }
 
-  const qtyUnit = members[0]!.qtyUnit
-  if (!qtyUnit.trim()) {
-    throw new Error('成员数量单位不能为空')
+  const canonicalMembers = members.map(canonicalizeMember)
+  const qtyUnit = canonicalMembers[0]!.qtyUnit
+  if (!qtyUnit) {
+    const firstMember = canonicalMembers[0]!
+    throw new Error(`染色加工单 ${firstMember.dyeWorkOrderNo}/生产单 ${firstMember.productionOrderNo} 的数量单位不能为空`)
   }
 
-  const validatedMembers = members.map((sourceMember): ValidatedCombinedDyeingMember => {
-    const member = canonicalizeMember(sourceMember)
-    assertFiniteNumber(member.requiredQty, '需求数量')
+  const validatedMembers = canonicalMembers.map((member): ValidatedCombinedDyeingMember => {
+    const memberIdentity = `染色加工单 ${member.dyeWorkOrderNo}/生产单 ${member.productionOrderNo}`
     if (member.requiredQty <= 0) {
-      throw new Error('需求数量必须大于 0')
+      throw new Error(`${memberIdentity} 的需求数量必须大于 0`)
     }
+    const requiredMinorUnits = toQuantityMinorUnits(member.requiredQty, `${memberIdentity} 的需求数量`)
 
-    assertFiniteNumber(member.effectiveSatisfiedQtyBeforeTask, '任务前已满足数量')
-    if (member.effectiveSatisfiedQtyBeforeTask < 0 || member.effectiveSatisfiedQtyBeforeTask > member.requiredQty) {
-      throw new Error('任务前已满足数量必须在 0 到需求数量之间')
+    if (member.effectiveSatisfiedQtyBeforeTask < 0) {
+      throw new Error(`${memberIdentity} 的任务前已满足数量必须在 0 到需求数量之间`)
+    }
+    const satisfiedBeforeMinorUnits = toQuantityMinorUnits(
+      member.effectiveSatisfiedQtyBeforeTask,
+      `${memberIdentity} 的任务前已满足数量`,
+    )
+    if (satisfiedBeforeMinorUnits > requiredMinorUnits) {
+      throw new Error(`${memberIdentity} 的任务前已满足数量必须在 0 到需求数量之间`)
     }
 
     if (member.qtyUnit !== qtyUnit) {
-      throw new Error('合并染色成员数量单位必须一致')
+      throw new Error(`${memberIdentity} 的数量单位必须一致`)
     }
 
     const orderedAtSortKey = parseProductionOrderOrderedAt(member.productionOrderOrderedAt)
-    return { member, orderedAtSortKey }
+    return {
+      member: {
+        ...member,
+        requiredQty: fromQuantityMinorUnits(requiredMinorUnits),
+        effectiveSatisfiedQtyBeforeTask: fromQuantityMinorUnits(satisfiedBeforeMinorUnits),
+      },
+      orderedAtSortKey,
+      requiredMinorUnits,
+      satisfiedBeforeMinorUnits,
+    }
   })
 
   assertUniqueMembers(validatedMembers.map((item) => item.member))
@@ -168,22 +211,29 @@ export function allocateCombinedDyeingOutput(
   members: readonly CombinedDyeingMemberSnapshot[],
   actualOutputQty: number,
 ): CombinedDyeingAllocationResult {
-  assertFiniteNumber(actualOutputQty, '实际产出数量')
   if (actualOutputQty < 0) {
     throw new Error('实际产出数量不得小于 0')
   }
+  const actualOutputMinorUnits = toQuantityMinorUnits(actualOutputQty, '实际产出数量')
   const validatedMembers = validateMembers(members)
 
-  let remainingOutputQty = normalizeQuantity(actualOutputQty)
-  const allocations = validatedMembers.sort(compareMembers).map(({ member }): CombinedDyeingMemberAllocation => {
-    const remainingNeed = normalizeQuantity(Math.max(member.requiredQty - member.effectiveSatisfiedQtyBeforeTask, 0))
-    const allocatedQty = normalizeQuantity(Math.min(remainingNeed, remainingOutputQty))
-    const unmetQty = normalizeQuantity(remainingNeed - allocatedQty)
-    remainingOutputQty = normalizeQuantity(remainingOutputQty - allocatedQty)
+  let remainingOutputMinorUnits = actualOutputMinorUnits
+  const allocations = validatedMembers.sort(compareMembers).map(({
+    member,
+    requiredMinorUnits,
+    satisfiedBeforeMinorUnits,
+  }): CombinedDyeingMemberAllocation => {
+    const remainingNeedMinorUnits = requiredMinorUnits - satisfiedBeforeMinorUnits
+    const allocatedMinorUnits = Math.min(remainingNeedMinorUnits, remainingOutputMinorUnits)
+    const unmetMinorUnits = remainingNeedMinorUnits - allocatedMinorUnits
+    remainingOutputMinorUnits -= allocatedMinorUnits
 
-    const satisfaction: CombinedDyeingSatisfaction = unmetQty === 0
+    const allocatedQty = fromQuantityMinorUnits(allocatedMinorUnits)
+    const unmetQty = fromQuantityMinorUnits(unmetMinorUnits)
+
+    const satisfaction: CombinedDyeingSatisfaction = unmetMinorUnits === 0
       ? 'FULL'
-      : allocatedQty > 0
+      : allocatedMinorUnits > 0
         ? 'PARTIAL'
         : 'UNMET'
 
@@ -204,6 +254,6 @@ export function allocateCombinedDyeingOutput(
 
   return {
     allocations,
-    excessQty: remainingOutputQty,
+    excessQty: fromQuantityMinorUnits(remainingOutputMinorUnits),
   }
 }

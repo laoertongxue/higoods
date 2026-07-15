@@ -43,6 +43,30 @@ function allocationSummary(actualOutputQty: number) {
   return allocateCombinedDyeingOutput([memberC, memberA, memberB], actualOutputQty)
 }
 
+function toMinorUnits(value: number): number {
+  return Math.round(value * 1000)
+}
+
+function assertQuantityConservation(
+  members: readonly CombinedDyeingMemberSnapshot[],
+  actualOutputQty: number,
+): void {
+  const result = allocateCombinedDyeingOutput(members, actualOutputQty)
+  const actualOutputMinor = toMinorUnits(actualOutputQty)
+  const allocatedMinor = result.allocations.reduce((sum, item) => sum + toMinorUnits(item.allocatedQty), 0)
+  assert.equal(allocatedMinor + toMinorUnits(result.excessQty), actualOutputMinor, '分配数量与超出数量之和必须等于规范化实际产出')
+  for (const allocation of result.allocations) {
+    const remainingNeedMinor = toMinorUnits(allocation.requiredQty) - toMinorUnits(allocation.effectiveSatisfiedQtyBeforeTask)
+    assert.equal(
+      toMinorUnits(allocation.allocatedQty) + toMinorUnits(allocation.unmetQty),
+      remainingNeedMinor,
+      `${allocation.dyeWorkOrderNo}/${allocation.productionOrderNo} 的分配数量与未满足数量必须等于剩余需求`,
+    )
+  }
+  assert(result.allocations.every((item) => Number.isFinite(item.allocatedQty) && Number.isFinite(item.unmetQty)), '所有成员数量输出必须有限')
+  assert(Number.isFinite(result.excessQty), '超出数量必须有限')
+}
+
 function main(): void {
   const domainSource = readFileSync(new URL('../src/data/fcs/combined-dyeing-domain.ts', import.meta.url), 'utf8')
   assert(!domainSource.includes('Date.parse'), '合并染色排序不得重新引入环境相关 Date.parse')
@@ -103,7 +127,7 @@ function main(): void {
   const decimal = allocateCombinedDyeingOutput([
     { ...memberA, requiredQty: 0.1 },
     { ...memberB, requiredQty: 0.2 },
-  ], 0.3)
+  ], 0.1 + 0.2)
   assert.deepEqual(
     decimal.allocations.map((item) => [item.allocatedQty, item.satisfaction, item.unmetQty]),
     [
@@ -113,6 +137,41 @@ function main(): void {
     '小数数量不得因浮点残差误判为部分满足',
   )
   assert.equal(decimal.excessQty, 0)
+  assertQuantityConservation([
+    { ...memberA, requiredQty: 0.1 },
+    { ...memberB, requiredQty: 0.2 },
+  ], 0.1 + 0.2)
+
+  const thousandth = allocateCombinedDyeingOutput([{ ...memberA, requiredQty: 0.999 }], 0.999)
+  assert.deepEqual(
+    thousandth.allocations.map((item) => [item.allocatedQty, item.satisfaction, item.unmetQty]),
+    [[0.999, 'FULL', 0]],
+    '0.999 必须作为合法的千分之一精度数量完整分配',
+  )
+  assert.equal(thousandth.excessQty, 0)
+  assertQuantityConservation([{ ...memberA, requiredQty: 0.999 }], 0.999)
+
+  const safeLargeQty = 999_999_999_999.999
+  const safeLarge = allocateCombinedDyeingOutput([{ ...memberA, requiredQty: safeLargeQty }], safeLargeQty)
+  assert.equal(safeLarge.allocations[0]!.allocatedQty, safeLargeQty, '安全整数范围内的大数量必须原值守恒')
+  assert.equal(safeLarge.allocations[0]!.unmetQty, 0)
+  assert.equal(safeLarge.excessQty, 0)
+  assertQuantityConservation([{ ...memberA, requiredQty: safeLargeQty }], safeLargeQty)
+
+  assert.throws(() => allocationSummary(0.9999), /最多 3 位小数/, '实际产出超过 3 位小数必须拒绝')
+  assert.throws(() => allocationSummary(1e-19), /最多 3 位小数/, '非零微量实际产出不得静默规范化为 0')
+  assert.throws(() => allocationSummary(-1e-19), /不得小于 0/, '负数微量实际产出必须按负数拒绝')
+  assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, requiredQty: 1.0001 }], 0), /染色加工单-A\/生产单 PO-001.*需求数量最多 3 位小数/, '成员需求超精度错误必须定位加工单和生产单')
+  assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, requiredQty: 1_000_000_000_000.0001 }], 0), /最多 3 位小数/, '大数量真实第四位小数不得被容差吞掉')
+  assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, requiredQty: 999_999_999_999.9999 }], 0), /最多 3 位小数/, '接近合法大数的第四位小数不得被改写到相邻数量')
+  assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, effectiveSatisfiedQtyBeforeTask: 0.0001 }], 0), /染色加工单-A\/生产单 PO-001.*任务前已满足数量最多 3 位小数/, '任务前已满足数量超精度错误必须定位加工单和生产单')
+  assert.throws(() => allocationSummary(Number.MAX_VALUE), /安全上限/, '实际产出超过安全上限必须拒绝')
+  assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, requiredQty: Number.MAX_VALUE }], 0), /安全上限/, '成员需求超过安全上限必须拒绝')
+  assert.throws(
+    () => allocateCombinedDyeingOutput([{ ...memberA, requiredQty: safeLargeQty, effectiveSatisfiedQtyBeforeTask: Number.MAX_VALUE }], 0),
+    /安全上限/,
+    '任务前已满足数量超过安全上限必须拒绝',
+  )
 
   for (const invalidOutput of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
     assert.throws(() => allocationSummary(invalidOutput), /实际产出数量/, `必须拒绝非法实际产出：${invalidOutput}`)
@@ -124,7 +183,10 @@ function main(): void {
   assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, effectiveSatisfiedQtyBeforeTask: -1 }], 0), /任务前已满足数量/, '任务前已满足数量不得为负数')
   assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, effectiveSatisfiedQtyBeforeTask: Number.NaN }], 0), /任务前已满足数量/, '任务前已满足数量必须是有限数')
   assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, effectiveSatisfiedQtyBeforeTask: 601 }], 0), /任务前已满足数量/, '任务前已满足数量不得超过需求')
-  assert.throws(() => allocateCombinedDyeingOutput([memberA, { ...memberB, qtyUnit: '米' }], 0), /数量单位必须一致/, '成员单位不一致必须拒绝')
+  assert.throws(() => allocateCombinedDyeingOutput([{ ...memberA, qtyUnit: '   ' }], 0), /染色加工单-A\/生产单 PO-001.*数量单位不能为空/, '空单位错误必须定位加工单和生产单')
+  assert.throws(() => allocateCombinedDyeingOutput([memberA, { ...memberB, qtyUnit: '米' }], 0), /染色加工单-B\/生产单 PO-002.*数量单位必须一致/, '混合单位错误必须定位加工单和生产单')
+  const trimmedUnit = allocateCombinedDyeingOutput([{ ...memberA, qtyUnit: ' Yard ' }, memberB], 0)
+  assert(trimmedUnit.allocations.every((item) => item.qtyUnit === 'Yard'), '成员单位必须 trim 后比较并返回')
 
   const identityFields = [
     ['dyeWorkOrderId', '染色加工单 ID'],
