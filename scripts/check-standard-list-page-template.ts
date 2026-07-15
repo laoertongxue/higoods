@@ -14,6 +14,11 @@ import {
   type StandardListColumnPreferences,
   type StandardListColumnRule,
 } from '../src/components/ui/list-table-model.ts'
+import {
+  renderStandardListColumnSettings,
+  renderStandardListTable,
+  type StandardListColumn,
+} from '../src/components/ui/list-table.ts'
 
 const slotMarkers = {
   title: 'UNIQUE_TITLE_SLOT',
@@ -346,5 +351,202 @@ assert.deepEqual(
 )
 assert.doesNotThrow(() => saveListColumnPreferences(failingStorage, 'standard-list-columns', normalizedPreferences))
 assert.doesNotThrow(() => clearListColumnPreferences(failingStorage, 'standard-list-columns'))
+
+type DemoRow = {
+  recordNo: string
+  qty: number
+}
+
+const standardListColumns: StandardListColumn<DemoRow>[] = [
+  {
+    key: 'recordNo',
+    title: '补料单号<&"\'',
+    width: 150,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    render: (row) => row.recordNo,
+  },
+  {
+    key: 'qty',
+    title: '数量',
+    width: 120,
+    freezeable: true,
+    sortable: true,
+    render: (row) => `${row.qty} 件`,
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 100,
+    required: true,
+    actionColumn: true,
+    render: () => '<button type="button">查看</button>',
+  },
+]
+const standardListPreferences: StandardListColumnPreferences = {
+  order: ['recordNo', 'qty', 'actions'],
+  visibleKeys: ['recordNo', 'qty', 'actions'],
+  frozenKeys: ['recordNo'],
+  pageSize: 10,
+}
+const columnsBeforeRender = JSON.stringify(standardListColumns.map(({ render, sortValue, ...column }) => column))
+const preferencesBeforeRender = JSON.stringify(standardListPreferences)
+
+const standardListTableHtml = renderStandardListTable({
+  columns: standardListColumns,
+  rows: [{ recordNo: 'BL<&"\'-001', qty: 8 }],
+  preferences: standardListPreferences,
+  sort: { key: 'qty', direction: 'asc' },
+  eventPrefix: 'demo-list',
+  emptyText: '暂无补料单',
+})
+
+assert(standardListTableHtml.includes('data-standard-list-scroll'), '表格自身必须提供横向滚动容器')
+assert(standardListTableHtml.includes('overflow-x-auto'), '横向滚动必须限制在表格容器内')
+assert(standardListTableHtml.includes('min-width: 370px'), '表格最小宽度必须按可见列宽求和')
+assert.match(
+  standardListTableHtml,
+  /<th[^>]*class="[^"]*sticky[^"]*left-0[^"]*bg-[^"]*z-[^"]*"[^>]*data-column-key="recordNo"/,
+  '冻结表头必须 sticky left-0，并有不透明背景与层级',
+)
+assert.match(
+  standardListTableHtml,
+  /<td[^>]*class="[^"]*sticky[^"]*left-0[^"]*bg-[^"]*z-[^"]*"/,
+  '冻结单元格必须 sticky left-0，并有不透明背景与层级',
+)
+assert.match(
+  standardListTableHtml,
+  /<th[^>]*class="[^"]*sticky[^"]*right-0[^"]*bg-[^"]*border-l[^"]*z-[^"]*"[^>]*data-column-key="actions"/,
+  '操作列表头必须固定在右侧并与数据列分隔',
+)
+assert.match(
+  standardListTableHtml,
+  /<td[^>]*class="[^"]*sticky[^"]*right-0[^"]*bg-[^"]*border-l[^"]*z-[^"]*"/,
+  '操作列单元格必须固定在右侧并与数据列分隔',
+)
+assert(standardListTableHtml.includes('data-demo-list-action="sort-column"'), '排序表头必须输出事件动作')
+assert(standardListTableHtml.includes('data-column-key="qty"'), '排序动作必须标记列 key')
+assert(standardListTableHtml.includes('aria-sort="ascending"'), '当前升序列必须输出 aria-sort')
+assert(standardListTableHtml.includes('aria-label="按数量降序排列"'), '排序按钮必须提供中文可访问名称')
+assert(standardListTableHtml.includes('补料单号&lt;&amp;&quot;&#39;'), '表头纯文本必须转义 HTML')
+assert(standardListTableHtml.includes('BL<&"\'-001'), '列 render 返回值必须视为可信 HTML')
+assert(
+  standardListTableHtml.indexOf('data-column-key="actions"') >
+    standardListTableHtml.indexOf('data-column-key="qty"'),
+  '操作列必须排在普通列最后',
+)
+
+const cumulativeFrozenTableHtml = renderStandardListTable({
+  columns: standardListColumns,
+  rows: [{ recordNo: 'BL-002', qty: 3 }],
+  preferences: {
+    ...standardListPreferences,
+    order: ['qty', 'recordNo', 'actions'],
+    frozenKeys: ['qty', 'recordNo'],
+  },
+  sort: null,
+  eventPrefix: 'demo-list',
+})
+assert(
+  cumulativeFrozenTableHtml.includes('left: 120px'),
+  '多个左冻结列必须按前序列宽累计 left 偏移',
+)
+
+const forcedActionTableHtml = renderStandardListTable({
+  columns: standardListColumns,
+  rows: [{ recordNo: 'BL-003', qty: 1 }],
+  preferences: {
+    ...standardListPreferences,
+    order: ['actions', 'recordNo'],
+    visibleKeys: ['recordNo'],
+  },
+  sort: null,
+  eventPrefix: 'demo-list',
+})
+assert(forcedActionTableHtml.includes('data-column-key="actions"'), '操作列即使不在 visibleKeys 中也必须显示')
+assert(
+  forcedActionTableHtml.indexOf('data-column-key="actions"') >
+    forcedActionTableHtml.indexOf('data-column-key="recordNo"'),
+  '操作列即使被提前排序也必须固定在最后',
+)
+
+const emptyTableHtml = renderStandardListTable({
+  columns: standardListColumns,
+  rows: [],
+  preferences: standardListPreferences,
+  sort: null,
+  eventPrefix: 'demo-list',
+  emptyText: '暂无补料单<&"\'',
+})
+assert(emptyTableHtml.includes('<thead'), '空数据时必须保留表头')
+assert(emptyTableHtml.includes('暂无补料单&lt;&amp;&quot;&#39;'), '空状态纯文本必须转义 HTML')
+
+const columnSettingsHtml = renderStandardListColumnSettings({
+  title: '列设置',
+  columns: standardListColumns,
+  preferences: standardListPreferences,
+  eventPrefix: 'demo-list',
+  maxFrozenWidth: 520,
+})
+assert(columnSettingsHtml.includes('draggable="true"'), '普通列设置项必须可拖动')
+assert(columnSettingsHtml.includes('data-standard-list-column-drag'), '列设置必须提供拖动标记')
+assert(columnSettingsHtml.includes('data-drag-source="recordNo"'), '列设置必须提供拖动源')
+assert(columnSettingsHtml.includes('data-drop-target="qty"'), '列设置必须提供放置目标')
+assert(columnSettingsHtml.includes('data-demo-list-action="toggle-column-visibility"'), '列设置必须提供显隐动作')
+assert(columnSettingsHtml.includes('data-demo-list-action="toggle-column-freeze"'), '列设置必须提供冻结动作')
+assert(columnSettingsHtml.includes('data-demo-list-action="restore-column-settings"'), '列设置必须提供恢复默认动作')
+assert(columnSettingsHtml.includes('data-demo-list-action="close-column-settings"'), '列设置必须提供关闭动作')
+assert(columnSettingsHtml.includes('data-demo-list-column-key="recordNo"'), '列设置动作必须标记列 key')
+assert(columnSettingsHtml.includes('补料单号&lt;&amp;&quot;&#39;'), '列设置列名必须转义 HTML')
+assert(!columnSettingsHtml.includes('<p class="text-sm text-muted-foreground">'), '列设置抽屉不得提供副标题')
+assert(!columnSettingsHtml.includes('拖动调整'), '列设置不得加入说明性文案')
+
+function columnSettingsItem(html: string, key: string, nextKey?: string): string {
+  const start = html.indexOf(`data-standard-list-column-key="${key}"`)
+  const end = nextKey ? html.indexOf(`data-standard-list-column-key="${nextKey}"`, start + 1) : html.length
+  assert(start >= 0 && end > start, `缺少列设置项：${key}`)
+  return html.slice(start, end)
+}
+
+const recordNoSettings = columnSettingsItem(columnSettingsHtml, 'recordNo', 'qty')
+const actionSettings = columnSettingsItem(columnSettingsHtml, 'actions')
+assert(recordNoSettings.includes('disabled'), 'required 列的隐藏控件必须禁用')
+assert(actionSettings.includes('draggable="false"'), '操作列必须不可拖动')
+assert(!actionSettings.includes('toggle-column-visibility'), '操作列必须不可隐藏')
+assert(!actionSettings.includes('toggle-column-freeze'), '操作列必须不可冻结')
+
+const wideColumns: StandardListColumn<DemoRow>[] = [
+  standardListColumns[0],
+  {
+    key: 'wide',
+    title: '宽列',
+    width: 400,
+    freezeable: true,
+    render: () => '宽列',
+  },
+  standardListColumns[2],
+]
+const frozenLimitSettingsHtml = renderStandardListColumnSettings({
+  title: '列设置',
+  columns: wideColumns,
+  preferences: {
+    order: ['recordNo', 'wide', 'actions'],
+    visibleKeys: ['recordNo', 'wide', 'actions'],
+    frozenKeys: ['recordNo'],
+    pageSize: 10,
+  },
+  eventPrefix: 'demo-list',
+  maxFrozenWidth: 520,
+})
+const wideSettings = columnSettingsItem(frozenLimitSettingsHtml, 'wide', 'actions')
+assert(wideSettings.includes('disabled'), '冻结总宽度超限时必须禁用未冻结列的冻结控件')
+
+assert.equal(
+  JSON.stringify(standardListColumns.map(({ render, sortValue, ...column }) => column)),
+  columnsBeforeRender,
+  '渲染不得修改列定义输入',
+)
+assert.equal(JSON.stringify(standardListPreferences), preferencesBeforeRender, '渲染不得修改列偏好输入')
 
 console.log('standard list page template check passed')
