@@ -19,6 +19,21 @@ export interface ProductionOrderOverviewPageState {
   pageSize: number
 }
 
+export const PRODUCTION_ORDER_OVERVIEW_HEADERS = [
+  '生产单',
+  '款式',
+  '印花',
+  '染色',
+  '拆解',
+  '配料',
+  '派单工厂 / 接单 / 领取',
+  '唛架',
+  '铺布',
+  '裁剪',
+  '入仓',
+  '发货 / 接收工厂',
+] as const
+
 export function createProductionOrderOverviewPageState(): ProductionOrderOverviewPageState {
   return {
     filters: {
@@ -207,7 +222,7 @@ function renderTable(rows: ProductionOrderOverviewRow[], state: ProductionOrderO
               <th colspan="5" class="px-3 py-2 text-center font-semibold">裁床厂</th>
             </tr>
             <tr>
-              ${['生产单', '款式', '印花', '染色', '拆解', '配料', '派单工厂 / 接单 / 领取', '唛架', '铺布', '裁剪', '入仓', '发货 / 接收工厂']
+              ${PRODUCTION_ORDER_OVERVIEW_HEADERS
                 .map((label, index) => `<th class="${index === 0 ? 'sticky left-0 z-30 bg-muted/95' : index === 1 ? 'sticky left-[240px] z-30 bg-muted/95' : ''} px-3 py-2 text-left font-medium">${label}</th>`)
                 .join('')}
             </tr>

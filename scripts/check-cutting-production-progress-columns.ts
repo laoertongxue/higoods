@@ -12,16 +12,24 @@ const modelPath = path.join(
   repoRoot,
   'src/pages/process-factory/cutting/production-progress-model.ts',
 )
+const overviewViewPath = path.join(
+  repoRoot,
+  'src/pages/process-factory/cutting/production-order-overview-view.ts',
+)
 
 const productionHeaders = [
   '生产单',
-  '交期 / 数量',
-  '裁片单概况',
-  '数量账摘要',
-  '唛架 / 铺布',
-  '菲票 / 入仓',
-  '交出 / 风险',
-  '操作',
+  '款式',
+  '印花',
+  '染色',
+  '拆解',
+  '配料',
+  '派单工厂 / 接单 / 领取',
+  '唛架',
+  '铺布',
+  '裁剪',
+  '入仓',
+  '发货 / 接收工厂',
 ] as const
 
 const cutOrderHeaders = [
@@ -55,7 +63,8 @@ function extractHeaderConfig(source: string, constName: string): string[] {
 function main(): void {
   const source = read(sourcePath)
   const modelSource = read(modelPath)
-  const actualProductionHeaders = extractHeaderConfig(source, 'PRODUCTION_PROGRESS_TABLE_HEADERS')
+  const overviewViewSource = read(overviewViewPath)
+  const actualProductionHeaders = extractHeaderConfig(overviewViewSource, 'PRODUCTION_ORDER_OVERVIEW_HEADERS')
   const actualCutOrderHeaders = extractHeaderConfig(source, 'CUT_ORDER_PROGRESS_TABLE_HEADERS')
 
   assert(
@@ -68,12 +77,21 @@ function main(): void {
   )
 
   assert(modelSource.includes("type ProductionProgressViewDimension = 'CUT_ORDER' | 'PRODUCTION_ORDER'"), '裁床进度模型缺少 CUT_ORDER / PRODUCTION_ORDER 双维度定义')
-  assert(source.includes("viewDimension: 'PRODUCTION_ORDER'"), '裁床进度默认视图必须是生产单维度')
-  assert(source.includes('生产单列表'), '裁床进度缺少生产单列表文案')
+  assert(source.includes('buildProductionOrderOverviewRows'), '裁床进度页未委托只读业务事实投影')
+  assert(source.includes('renderProductionOrderOverview'), '裁床进度页未委托生产单总览视图')
+  assert(overviewViewSource.includes('colspan="2"'), '生产单总览缺少下单 / 印染分组列')
+  assert(overviewViewSource.includes('colspan="3"'), '生产单总览缺少中转仓分组列')
+  assert(overviewViewSource.includes('colspan="5"'), '生产单总览缺少裁床厂分组列')
+  assert(overviewViewSource.includes('sticky left-0'), '生产单总览未固定生产单列')
+  assert(overviewViewSource.includes('sticky left-[240px]'), '生产单总览未固定款式列')
+  assert(overviewViewSource.includes('data-cutting-overview-factory-line'), '生产单总览缺少逐行对齐的工厂事实')
+  assert(!overviewViewSource.includes('当前阻塞'), '生产单总览不得输出当前阻塞')
+  assert(!overviewViewSource.includes('异常事实'), '生产单总览不得输出异常事实')
+  assert(!overviewViewSource.includes('风险提示'), '生产单总览不得输出风险提示')
+  assert(!overviewViewSource.includes('data-cutting-overview-mutate'), '生产单总览不得提供状态写入入口')
   assert(source.includes('裁片单主表'), '裁床进度缺少裁片单主表文案')
   assert(source.includes('renderCutOrderTable'), '裁床进度缺少裁片单维度表格')
-  assert(source.includes('renderProductionOrderTable'), '裁床进度缺少生产单维度表格')
-  assert(source.includes('renderMainTable'), '裁床进度缺少双维度统一入口')
+  assert(source.includes('renderProductionOrderTable'), '裁床详情链路缺少原生产单事实表格')
   assert(source.includes('sourceOrderProgressLines'), '裁床进度裁片单维度未复用现有裁片单来源')
   assert(source.includes('cutOrderNo'), '裁床进度裁片单维度缺少裁片单号来源')
   assert(source.includes('materialSku'), '裁床进度裁片单维度缺少面料 SKU 来源')
@@ -91,7 +109,7 @@ function main(): void {
       '裁床进度列与默认维度检查通过',
       `生产单维度列数：${actualProductionHeaders.length}`,
       `裁片单维度列数：${actualCutOrderHeaders.length}`,
-      '默认维度：PRODUCTION_ORDER',
+      '默认视图：生产单总览',
     ].join('\n'),
   )
 }
