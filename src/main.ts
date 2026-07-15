@@ -33,6 +33,7 @@ type TaskBreakdownPageModule = typeof import('./pages/task-breakdown')
 type WlsFabricDemandBoardPageModule = typeof import('./pages/wls-fabric-demand-board')
 type ProcessWaterSolubleOrdersPageModule = typeof import('./pages/process-water-soluble-orders')
 type CraftDyeingWaterSolubleOrdersPageModule = typeof import('./pages/process-factory/dyeing/water-soluble-orders')
+type SewingDispatchWorkbenchPageModule = typeof import('./pages/sewing-dispatch-workbench')
 
 let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
 let pcsHandlersModulePromise: Promise<PcsHandlersModule> | null = null
@@ -63,6 +64,7 @@ let taskBreakdownPageModulePromise: Promise<TaskBreakdownPageModule> | null = nu
 let wlsFabricDemandBoardPageModulePromise: Promise<WlsFabricDemandBoardPageModule> | null = null
 let processWaterSolubleOrdersPageModulePromise: Promise<ProcessWaterSolubleOrdersPageModule> | null = null
 let craftDyeingWaterSolubleOrdersPageModulePromise: Promise<CraftDyeingWaterSolubleOrdersPageModule> | null = null
+let sewingDispatchWorkbenchPageModulePromise: Promise<SewingDispatchWorkbenchPageModule> | null = null
 type StoreRenderMode = 'full' | 'sidebar'
 
 let nextStoreRenderMode: StoreRenderMode = 'full'
@@ -97,6 +99,16 @@ function getCraftDyeingWaterSolubleOrdersPageModule(): Promise<CraftDyeingWaterS
     })
   }
   return craftDyeingWaterSolubleOrdersPageModulePromise
+}
+
+function getSewingDispatchWorkbenchPageModule(): Promise<SewingDispatchWorkbenchPageModule> {
+  if (!sewingDispatchWorkbenchPageModulePromise) {
+    sewingDispatchWorkbenchPageModulePromise = import('./pages/sewing-dispatch-workbench').catch((error) => {
+      sewingDispatchWorkbenchPageModulePromise = null
+      throw error
+    })
+  }
+  return sewingDispatchWorkbenchPageModulePromise
 }
 
 function getPcsHandlersModule(): Promise<PcsHandlersModule> {
@@ -522,6 +534,10 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   if (pathname.startsWith('/fcs/dispatch/board')) {
     const dispatchBoardPage = await getDispatchBoardPageModule()
     return dispatchBoardPage.handleDispatchBoardEvent(eventTarget)
+  }
+  if (pathname.startsWith('/fcs/dispatch/sewing')) {
+    const sewingDispatchWorkbenchPage = await getSewingDispatchWorkbenchPageModule()
+    return sewingDispatchWorkbenchPage.handleSewingDispatchWorkbenchEvent(eventTarget, event)
   }
   if (pathname.startsWith('/fcs/process/task-breakdown')) {
     const taskBreakdownPage = await getTaskBreakdownPageModule()

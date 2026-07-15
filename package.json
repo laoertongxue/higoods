@@ -108,6 +108,7 @@
     "check:sewing-delivery-sla": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-sewing-delivery-sla.ts",
     "check:sewing-delivery-sla-final-fixes": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-sewing-delivery-sla-final-fixes.ts",
     "check:sewing-delivery-sla-adversarial-ui": "tsx scripts/check-sewing-delivery-sla-adversarial-ui.ts",
+    "check:sewing-dispatch-performance": "tsx scripts/check-sewing-dispatch-performance.ts",
     "check:sewing-awarded-pda-seed": "tsx scripts/check-sewing-awarded-pda-seed.ts",
     "check:sewing-reassignment-cold-start": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-sewing-reassignment-cold-start.ts",
     "check:capacity-calendar-ia": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-capacity-calendar-ia.ts",

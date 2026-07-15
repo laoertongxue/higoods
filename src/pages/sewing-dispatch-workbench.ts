@@ -1229,7 +1229,7 @@ export function renderSewingDispatchWorkbenchPage(): string {
   const summary = summarizeSewingDispatchWorkbench(tasks)
   const detailTask = tasks.find((task) => task.taskId === state.detailTaskId)
   return `
-    <div class="space-y-4">
+    <div class="space-y-4" data-sewing-dispatch-page>
       <header class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 class="text-2xl font-bold">车缝分配工作台</h1>

@@ -251,6 +251,9 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   if (pathname.startsWith('/fcs/dispatch/continuous')) {
     return handleContinuousDispatchEvent(target, event)
   }
+  if (pathname.startsWith('/fcs/dispatch/sewing')) {
+    return handleSewingDispatchWorkbenchEvent(target, event)
+  }
   if (pathname.startsWith('/fcs/material-prep/list')) {
     return handleFcsMaterialPrepListEvent(target)
   }

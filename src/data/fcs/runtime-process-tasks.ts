@@ -1200,10 +1200,16 @@ function applyManualContinuousMergeDemo(tasks: RuntimeProcessTask[]): RuntimePro
     createdAt: '2026-03-20 10:00:00',
     createdBy: '生产计划员',
   })
-  return applyContinuousMergePlan(pleatKnittingDemo, {
+  const cuttingSewingDemo = applyContinuousMergePlan(pleatKnittingDemo, {
     taskIds: ['TASKGEN-202603-082-002__ORDER', 'TASKGEN-202603-082-003__ORDER'],
     mergedTaskId: 'TASKGEN-202603-082-002__ORDER',
     createdAt: '2026-03-20 10:20:00',
+    createdBy: '生产计划员',
+  })
+  return applyContinuousMergePlan(cuttingSewingDemo, {
+    taskIds: ['TASKGEN-202603-083-003__ORDER', 'TASKGEN-202603-083-005__ORDER'],
+    mergedTaskId: 'CONT-SEW-POST-UNASSIGNED',
+    createdAt: '2026-07-13 09:00:00',
     createdBy: '生产计划员',
   })
 }
