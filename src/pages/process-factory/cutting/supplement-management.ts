@@ -1450,6 +1450,41 @@ const supplementListColumns: StandardListColumn<SupplementRecord>[] = [
   },
 ]
 
+export function normalizeSupplementListPreferences(
+  raw: Partial<StandardListColumnPreferences> | null | undefined,
+): StandardListColumnPreferences {
+  const normalized = normalizeListColumnPreferences(
+    supplementListColumnRules,
+    raw,
+    supplementListPageSizes,
+  )
+  const columnsByKey = new Map(supplementListColumns.map((column) => [column.key, column]))
+  const visibleKeys = new Set(normalized.visibleKeys)
+  const requestedFrozenKeys = new Set(normalized.frozenKeys)
+  const frozenColumns = normalized.order
+    .map((key) => columnsByKey.get(key))
+    .filter((column): column is StandardListColumn<SupplementRecord> => Boolean(
+      column
+      && !column.actionColumn
+      && column.freezeable
+      && visibleKeys.has(column.key)
+      && requestedFrozenKeys.has(column.key),
+    ))
+  let frozenWidth = frozenColumns.reduce(
+    (sum, column) => sum + Math.max(column.width, column.minWidth ?? 0),
+    0,
+  )
+  while (frozenWidth > supplementListMaxFrozenWidth && frozenColumns.length > 0) {
+    const removed = frozenColumns.pop()
+    if (removed) frozenWidth -= Math.max(removed.width, removed.minWidth ?? 0)
+  }
+
+  return {
+    ...normalized,
+    frozenKeys: frozenColumns.map((column) => column.key),
+  }
+}
+
 interface SupplementListView {
   filtered: SupplementRecord[]
   paging: StandardListPageSlice<SupplementRecord>
@@ -1467,7 +1502,7 @@ function ensureSupplementListPreferences(): void {
   if (supplementListPreferencesLoaded) return
   supplementListPreferencesLoaded = true
   const storage = getSupplementListStorage()
-  state.columnPreferences = storage
+  const loadedPreferences = storage
     ? loadListColumnPreferences(
         storage,
         supplementListStorageKey,
@@ -1475,11 +1510,9 @@ function ensureSupplementListPreferences(): void {
         defaultSupplementListColumnPreferences,
         supplementListPageSizes,
       )
-    : normalizeListColumnPreferences(
-        supplementListColumnRules,
-        defaultSupplementListColumnPreferences,
-        supplementListPageSizes,
-      )
+    : defaultSupplementListColumnPreferences
+  state.columnPreferences = normalizeSupplementListPreferences(loadedPreferences)
+  if (storage) saveListColumnPreferences(storage, supplementListStorageKey, state.columnPreferences)
 }
 
 function saveSupplementListPreferences(): void {
@@ -2036,13 +2069,16 @@ export function isCraftCuttingSupplementManagementDialogOpen(): boolean {
   return Boolean(state.activeRecordId || state.pendingConfirmDraft)
 }
 
-export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement): boolean {
+export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement, _event?: Event): boolean {
   const fieldNode = target.closest<HTMLInputElement | HTMLSelectElement>('[data-cutting-supplement-field]')
   const field = fieldNode?.dataset.cuttingSupplementField
   if (field === 'pageSize') {
     const pageSize = Number(fieldNode.value)
     if (supplementListPageSizes.includes(pageSize)) {
-      state.columnPreferences = { ...state.columnPreferences, pageSize }
+      state.columnPreferences = normalizeSupplementListPreferences({
+        ...state.columnPreferences,
+        pageSize,
+      })
       state.page = 1
       saveSupplementListPreferences()
       refreshSupplementList()
@@ -2117,13 +2153,18 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
     const rule = supplementListColumnRules.find((item) => item.key === columnKey)
     if (!rule || rule.required || rule.actionColumn) return true
     const visibleKeys = new Set(state.columnPreferences.visibleKeys)
-    if (visibleKeys.has(columnKey)) visibleKeys.delete(columnKey)
-    else visibleKeys.add(columnKey)
-    state.columnPreferences = normalizeListColumnPreferences(
-      supplementListColumnRules,
-      { ...state.columnPreferences, visibleKeys: [...visibleKeys] },
-      supplementListPageSizes,
-    )
+    const frozenKeys = new Set(state.columnPreferences.frozenKeys)
+    if (visibleKeys.has(columnKey)) {
+      visibleKeys.delete(columnKey)
+      frozenKeys.delete(columnKey)
+    } else {
+      visibleKeys.add(columnKey)
+    }
+    state.columnPreferences = normalizeSupplementListPreferences({
+      ...state.columnPreferences,
+      visibleKeys: [...visibleKeys],
+      frozenKeys: [...frozenKeys],
+    })
     if (!visibleKeys.has(columnKey) && state.sort?.key === columnKey) state.sort = null
     saveSupplementListPreferences()
     refreshSupplementList()
@@ -2136,29 +2177,32 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
     const column = supplementListColumns.find((item) => item.key === columnKey)
     if (!column?.freezeable || column.actionColumn) return true
     const frozenKeys = new Set(state.columnPreferences.frozenKeys)
+    const addingFreeze = !frozenKeys.has(columnKey)
     if (frozenKeys.has(columnKey)) {
       frozenKeys.delete(columnKey)
     } else {
-      const visibleKeys = new Set(state.columnPreferences.visibleKeys)
-      const frozenWidth = supplementListColumns.reduce((sum, item) => {
-        const visible = visibleKeys.has(item.key) || item.required || item.actionColumn
-        return visible && frozenKeys.has(item.key) ? sum + Math.max(item.width, item.minWidth ?? 0) : sum
-      }, 0)
-      const visible = visibleKeys.has(column.key) || column.required
-      if (visible && frozenWidth + Math.max(column.width, column.minWidth ?? 0) > supplementListMaxFrozenWidth) {
-        state.feedback = { tone: 'warning', message: `冻结列总宽度不能超过 ${supplementListMaxFrozenWidth}px，请先取消其他冻结列。` }
-        refreshSupplementFeedback()
-        refreshSupplementOverlay()
-        return true
-      }
       frozenKeys.add(columnKey)
     }
-    state.feedback = null
-    state.columnPreferences = normalizeListColumnPreferences(
-      supplementListColumnRules,
-      { ...state.columnPreferences, frozenKeys: [...frozenKeys] },
-      supplementListPageSizes,
+    const nextPreferences = normalizeSupplementListPreferences({
+      ...state.columnPreferences,
+      frozenKeys: [...frozenKeys],
+    })
+    if (addingFreeze && !nextPreferences.frozenKeys.includes(columnKey)) {
+      const visible = state.columnPreferences.visibleKeys.includes(columnKey)
+      state.feedback = visible
+        ? { tone: 'warning', message: `冻结列总宽度不能超过 ${supplementListMaxFrozenWidth}px，请先取消其他冻结列。` }
+        : { tone: 'warning', message: '请先显示该列，再设置冻结。' }
+      refreshSupplementFeedback()
+      refreshSupplementOverlay()
+      return true
+    }
+    const evictedFrozenKeys = state.columnPreferences.frozenKeys.filter(
+      (key) => !nextPreferences.frozenKeys.includes(key),
     )
+    state.feedback = addingFreeze && evictedFrozenKeys.length > 0
+      ? { tone: 'warning', message: `冻结列总宽度不能超过 ${supplementListMaxFrozenWidth}px，已自动取消后置冻结列。` }
+      : null
+    state.columnPreferences = nextPreferences
     saveSupplementListPreferences()
     refreshSupplementFeedback()
     refreshSupplementList()
@@ -2167,11 +2211,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement)
   }
 
   if (action === 'restore-column-settings') {
-    state.columnPreferences = normalizeListColumnPreferences(
-      supplementListColumnRules,
-      defaultSupplementListColumnPreferences,
-      supplementListPageSizes,
-    )
+    state.columnPreferences = normalizeSupplementListPreferences(defaultSupplementListColumnPreferences)
     state.page = 1
     state.sort = null
     state.feedback = null

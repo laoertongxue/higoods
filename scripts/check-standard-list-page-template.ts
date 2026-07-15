@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 
 import {
   renderStandardListPage,
@@ -30,6 +31,28 @@ const slotMarkers = {
   pagination: 'UNIQUE_PAGINATION_SLOT',
   overlays: 'UNIQUE_OVERLAYS_SLOT',
 } as const
+
+const mainSource = fs.readFileSync(new URL('../src/main.ts', import.meta.url), 'utf8')
+const supplementRouteDispatchIndex = mainSource.indexOf("pathname.startsWith('/fcs/craft/cutting/supplement-management')")
+const fcsHandlerFallbackIndex = mainSource.indexOf("const handlerSystem = getCurrentHandlerSystem(pathname)")
+assert(supplementRouteDispatchIndex >= 0, 'main.ts 必须为补料管理提供 route-specific 事件分支')
+assert(
+  supplementRouteDispatchIndex < fcsHandlerFallbackIndex,
+  '补料管理 route-specific 分支必须位于 FCS handlers 全包回退之前',
+)
+const supplementRouteDispatchSource = mainSource.slice(supplementRouteDispatchIndex, fcsHandlerFallbackIndex)
+assert(
+  supplementRouteDispatchSource.includes("import('./pages/process-factory/cutting/supplement-management')"),
+  '补料管理首次动作必须直接动态导入页面模块',
+)
+assert(
+  supplementRouteDispatchSource.includes('handleCraftCuttingSupplementManagementEvent(eventTarget, event)'),
+  '补料管理 route-specific 分支必须直接调用页面事件处理器',
+)
+assert(
+  !supplementRouteDispatchSource.includes('getFcsHandlersModule'),
+  '补料管理 route-specific 分支不得预取 FCS handlers 全包',
+)
 
 const statsHtml = renderStandardListStats([{ label: slotMarkers.stats, value: 12 }])
 
@@ -732,6 +755,14 @@ function countRecordRows(html: string): number {
   return [...html.matchAll(/data-record-id="[^"]+"/g)].length
 }
 
+function tableHeader(html: string, columnKey: string): string {
+  const markerIndex = html.indexOf(`data-column-key="${columnKey}"`)
+  const start = html.lastIndexOf('<th', markerIndex)
+  const end = html.indexOf('</th>', markerIndex)
+  assert(start >= 0 && end > markerIndex, `缺少列表表头：${columnKey}`)
+  return html.slice(start, end + 5)
+}
+
 function assertDefaultPageSize(html: string, message: string): void {
   assert.match(html, /<option value="10" selected>10 条\/页<\/option>/, message)
 }
@@ -740,6 +771,21 @@ const supplementStorageKey = 'higood:list-page:/fcs/craft/cutting/supplement-man
 const defaultSupplementStorage = createMemoryStorageWithSeed()
 const supplementDom = installSupplementBrowser(defaultSupplementStorage)
 const supplementPage = await import('../src/pages/process-factory/cutting/supplement-management.ts?standard-list-check')
+assert.equal(
+  typeof supplementPage.normalizeSupplementListPreferences,
+  'function',
+  '补料页面必须提供纯函数规范化页面列偏好',
+)
+assert.deepEqual(
+  supplementPage.normalizeSupplementListPreferences({
+    order: ['recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'created', 'actions'],
+    visibleKeys: ['recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'created', 'actions'],
+    frozenKeys: ['recordNo', 'target', 'supplementQty'],
+    pageSize: 10,
+  }).frozenKeys,
+  ['recordNo', 'target'],
+  '超宽冻结偏好必须按当前列顺序从后往前清退到 520px 内',
+)
 let supplementHtml = supplementPage.renderCraftCuttingSupplementManagementPage()
 
 for (const marker of [
@@ -823,6 +869,38 @@ supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('res
 assert.equal(defaultSupplementStorage.read(supplementStorageKey), null, '恢复默认必须清除本地偏好')
 assertDefaultPageSize(supplementDom.regions.get('pagination')?.innerHTML ?? '', '恢复默认必须回到 10 条/页')
 
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: 'supplementQty' }))
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }))
+let storedSupplementPreferences = JSON.parse(defaultSupplementStorage.read(supplementStorageKey) ?? '{}') as StandardListColumnPreferences
+assert(!storedSupplementPreferences.frozenKeys.includes('supplementQty'), '隐藏冻结列时必须同时解除冻结')
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }))
+
+for (const key of ['target', 'recordNo']) {
+  supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: key }))
+}
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }))
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: 'supplementQty' }))
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-visibility', { cuttingSupplementColumnKey: 'supplementQty' }))
+storedSupplementPreferences = JSON.parse(defaultSupplementStorage.read(supplementStorageKey) ?? '{}') as StandardListColumnPreferences
+assert.deepEqual(
+  storedSupplementPreferences.frozenKeys,
+  ['recordNo', 'target'],
+  'hide-freeze-show 不得重新激活第三列形成 540px 冻结宽度',
+)
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('restore-column-settings'))
+
+for (const key of ['target', 'supplementQty', 'recordNo']) {
+  supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('toggle-column-freeze', { cuttingSupplementColumnKey: key }))
+}
+storedSupplementPreferences = JSON.parse(defaultSupplementStorage.read(supplementStorageKey) ?? '{}') as StandardListColumnPreferences
+assert.deepEqual(storedSupplementPreferences.frozenKeys, ['recordNo', 'target'], '新增前置冻结列时必须从尾部清退超限列')
+assert.match(
+  supplementDom.regions.get('feedback')?.innerHTML ?? '',
+  /已自动取消后置冻结列/,
+  '从尾部清退超限冻结列时必须显示中文反馈',
+)
+supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('restore-column-settings'))
+
 const firstRecordId = supplementHtml.match(/data-record-id="([^"]+)"/)?.[1]
 assert(firstRecordId, '补料管理列表必须提供详情记录 ID')
 supplementPage.handleCraftCuttingSupplementManagementEvent(supplementAction('open-detail', { recordId: firstRecordId }))
@@ -833,7 +911,7 @@ assert.equal(supplementDom.regions.get('overlay')?.innerHTML, '', '关闭详情�
 const validPreferences = {
   order: ['recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'created', 'actions'],
   visibleKeys: ['recordNo', 'target', 'supplementQty', 'materialDemand', 'processDemand', 'status', 'created', 'actions'],
-  frozenKeys: ['recordNo'],
+  frozenKeys: ['recordNo', 'target', 'supplementQty'],
   pageSize: 20,
 }
 installSupplementBrowser(createMemoryStorageWithSeed({
@@ -843,6 +921,9 @@ const storedSupplementPage = await import('../src/pages/process-factory/cutting/
 const storedSupplementHtml = storedSupplementPage.renderCraftCuttingSupplementManagementPage()
 assert.equal(countRecordRows(storedSupplementHtml), supplementTotal, '有效 localStorage 偏好必须加载 20 条/页')
 assert.match(storedSupplementHtml, /<option value="20" selected>20 条\/页<\/option>/, '有效 localStorage 页大小必须生效')
+assert(tableHeader(storedSupplementHtml, 'recordNo').includes('sticky'), '超宽 Storage 加载后必须保留前序可用冻结列')
+assert(tableHeader(storedSupplementHtml, 'target').includes('sticky'), '超宽 Storage 加载后必须保留 520px 内的冻结列')
+assert(!tableHeader(storedSupplementHtml, 'supplementQty').includes('sticky'), '超宽 Storage 加载后必须清退后置超限冻结列')
 
 installSupplementBrowser(createMemoryStorageWithSeed({ [supplementStorageKey]: '{broken json' }))
 const brokenSupplementPage = await import('../src/pages/process-factory/cutting/supplement-management.ts?standard-list-broken-storage')
