@@ -97,6 +97,8 @@ export function buildFormalProductionOrderProcessSnapshots(
       processCodes: [processCode],
       dyeProcessName: processCode === 'DYE' ? processName : undefined,
       printProcessName: processCode === 'PRINT' ? processName : undefined,
+      requiresWaterSoluble: processCode === 'DYE'
+        && bomItems.some((item) => item.waterSolubleRequirement === '是'),
       spuCode: order.demandSnapshot.spuCode,
       spuName: order.demandSnapshot.spuName,
       requiredDeliveryDate: order.demandSnapshot.requiredDeliveryDate || '',
@@ -138,6 +140,7 @@ export function ensureProcessWorkOrdersForFormalProductionOrder(
         spuCode: snapshot.spuCode,
         spuName: snapshot.spuName,
         requiredDeliveryDate: snapshot.requiredDeliveryDate,
+        requiresWaterSoluble: snapshot.requiresWaterSoluble === true,
       }).dyeOrderId
     }
   }

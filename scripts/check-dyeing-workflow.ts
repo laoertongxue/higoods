@@ -23,7 +23,8 @@ import { submitDyeHandover } from '../src/data/fcs/process-execution-writeback.t
 import { applyDyeWarehouseLinkageAfterAction } from '../src/data/fcs/process-warehouse-linkage-service.ts'
 import { getProcessWarehouseRecordById, listProcessHandoverRecords } from '../src/data/fcs/process-warehouse-domain.ts'
 import { getPdaHandoverSourceDisplay, listHandoverOrdersByTaskId } from '../src/data/fcs/pda-handover-events.ts'
-import { listFactoryWaitProcessStockItems } from '../src/data/fcs/factory-internal-warehouse.ts'
+import { listFactoryWaitProcessStockItems, upsertFactoryWaitProcessStockItem } from '../src/data/fcs/factory-internal-warehouse.ts'
+import { buildTaskDeliveryCardPrintDocByRecordId, buildTaskRouteCardPrintDoc } from '../src/data/fcs/task-print-cards.ts'
 
 const repoRoot = process.cwd()
 const dyePages = [
@@ -124,7 +125,22 @@ function main(): void {
   assertIncludes(taskDetailSource, '染缸编号', '任务详情页面')
   assertIncludes(taskDetailSource, '待送货', '任务详情页面')
 
+  const sourceIdentitySnapshot = () => listPdaGenericProcessTasks()
+    .filter((task) => task.taskId.startsWith('TASK-DYE-'))
+    .map((task) => ({
+      taskId: task.taskId,
+      sourceType: task.sourceType,
+      productionOrderId: task.productionOrderId,
+      productionOrderNo: task.productionOrderNo,
+      sourceProductionOrderId: task.sourceProductionOrderId,
+      stockMaterialId: task.stockMaterialId,
+      stockMaterialName: task.stockMaterialName,
+    }))
   const orders = listDyeWorkOrders()
+  const taskSourcesBeforeRepeatedQueries = sourceIdentitySnapshot()
+  listDyeWorkOrders()
+  getDyeWorkOrderByTaskId(orders[0]!.taskId)
+  assert.deepEqual(sourceIdentitySnapshot(), taskSourcesBeforeRepeatedQueries, '重复 list/get 染色加工单不得改写 PDA 任务来源字段')
   assert(orders.length >= 6, '染色加工单数据不足')
   assert(orders.every((order) => Boolean(order.taskId && order.taskNo)), '染色加工单必须关联染色任务')
   assert(orders.every((order) => order.taskQrValue.startsWith('FCS:TASK:v1:')), '染色任务必须有任务二维码')
@@ -144,7 +160,26 @@ function main(): void {
     assert(!order.sourceProductionOrderId, `${order.dyeOrderNo} 备货来源不得伪造 sourceProductionOrderId`)
   })
 
-  const realStock = listFactoryWaitProcessStockItems().find((item) => item.itemKind === '面料' && item.receivedQty > 0 && item.materialSku)!
+  const stockTemplate = listFactoryWaitProcessStockItems().find((item) => item.itemKind === '面料' && item.receivedQty > 0 && item.materialSku)!
+  const realStock = upsertFactoryWaitProcessStockItem({
+    ...stockTemplate,
+    stockItemId: 'WPS-DYE-WORKFLOW-QUALIFIED',
+    sourceRecordId: 'INB-DYE-WORKFLOW-QUALIFIED',
+    sourceRecordNo: 'RK-DYE-WORKFLOW-QUALIFIED',
+    factoryId: orders[0]!.dyeFactoryId,
+    factoryName: orders[0]!.dyeFactoryName,
+    warehouseId: `FIW-${orders[0]!.dyeFactoryId}-WAIT_PROCESS`,
+    warehouseName: `${orders[0]!.dyeFactoryName} · 待加工仓`,
+    processCode: 'DYE',
+    processName: '染色',
+    itemName: '染色流程合格备货面料',
+    materialSku: 'FAB-DYE-WORKFLOW-QUALIFIED',
+    expectedQty: 160,
+    receivedQty: 160,
+    differenceQty: 0,
+    status: '已入待加工仓',
+    abnormalReason: undefined,
+  })
   const stockCreated = createDyeWorkOrderFromStock({
     stockMaterialId: realStock.stockItemId,
     stockMaterialName: realStock.itemName,
@@ -160,6 +195,11 @@ function main(): void {
   assert.equal(stockCreated.order.sourceType, 'STOCK', '备货染色加工单来源必须是 STOCK')
   assert.equal(stockCreated.order.stockMaterialId, realStock.stockItemId, '备货染色加工单必须保留 stockMaterialId')
   assert(!stockCreated.order.sourceProductionOrderId, '备货染色加工单不得伪造生产单')
+  const stockRouteCard = buildTaskRouteCardPrintDoc({ sourceType: 'DYEING_WORK_ORDER', sourceId: stockCreated.order.dyeOrderId })
+  assert.equal(stockRouteCard.workOrderSourceType, 'STOCK', '备货任务流转卡必须保留备货来源类型')
+  assert.equal(stockRouteCard.stockMaterialId, realStock.stockItemId, '备货任务流转卡必须保留备货物料 ID')
+  assert(stockRouteCard.summaryRows.some((row) => row.label === '备货物料' && row.value === realStock.itemName), '备货任务流转卡必须展示备货物料，不得展示空生产单号')
+  assert(!stockRouteCard.summaryRows.some((row) => row.value === '按备货创建'), '备货任务流转卡不得使用“按备货创建”占位生产单号')
   const stockTask = listPdaGenericProcessTasks().find((task) => task.taskId === stockCreated.order!.taskId)
   assert(stockTask, '备货染色加工单必须注册 PDA 任务')
   assert.equal(stockTask.sourceType, 'STOCK', '备货染色 PDA 任务来源必须是 STOCK')
@@ -189,6 +229,11 @@ function main(): void {
   assert.equal(stockWarehouseRecord?.sourceProductionOrderId, undefined, '备货染色仓记录不得保留空生产单 ID')
   assert.equal(stockWarehouseRecord?.sourceDemandId, undefined, '备货染色仓记录不得保留空需求 ID')
   const stockSubmit = submitDyeHandover(stockCreated.order.taskId, { submittedQty: stockCreated.order.plannedQty })
+  const stockDeliveryCard = buildTaskDeliveryCardPrintDocByRecordId(stockSubmit.handoverRecord.handoverRecordId || stockSubmit.handoverRecord.recordId)
+  assert.equal(stockDeliveryCard.sourceType, 'STOCK', '备货任务交货卡必须保留备货来源类型')
+  assert.equal(stockDeliveryCard.stockMaterialId, realStock.stockItemId, '备货任务交货卡必须保留备货物料 ID')
+  assert(stockDeliveryCard.summaryRows.some((row) => row.label === '备货物料' && row.value === realStock.itemName), '备货任务交货卡必须展示备货物料')
+  assert(!stockDeliveryCard.summaryRows.some((row) => row.label === '生产单号'), '备货任务交货卡不得展示空生产单号')
   const stockPdaHead = listHandoverOrdersByTaskId(stockCreated.order.taskId)[0]
   assert.equal(stockPdaHead?.sourceType, 'STOCK', '备货染色 PDA 交出单来源必须是 STOCK')
   assert.equal(stockPdaHead?.stockMaterialId, realStock.stockItemId, '备货染色 PDA 交出单必须保留 stockMaterialId')

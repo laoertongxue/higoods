@@ -32,7 +32,6 @@ const factories = listFactoryMasterRecords()
     && (ability.status ?? 'ACTIVE') === 'ACTIVE'
     && ability.canReceiveTask !== false,
   ))
-const stockMaterials = listProcessWorkOrderStockMaterials()
 
 const defaultForm = (): DyeCreateForm => ({
   stockMaterialId: '',
@@ -57,6 +56,10 @@ const state = {
   notice: null as string | null,
   formError: null as string | null,
   form: defaultForm(),
+}
+
+function getStockMaterials(factoryId = state.form.factoryId) {
+  return listProcessWorkOrderStockMaterials({ factoryId, processCode: 'DYE' })
 }
 
 export function formatDyeOrderQuantity(qty: number, unit: string): string {
@@ -142,6 +145,7 @@ function renderDetail(): string {
 function renderCreate(): string {
   if (!state.createOpen) return ''
   const form = state.form
+  const stockMaterials = getStockMaterials(form.factoryId)
   const selectedStock = stockMaterials.find((item) => item.stockMaterialId === form.stockMaterialId)
   return `
     <div class="fixed inset-0 z-40 bg-black/30" data-dye-order-action="close-create"></div>
@@ -156,7 +160,7 @@ function renderCreate(): string {
         <div class="sm:col-span-2 rounded-md border bg-muted/20 p-3 text-sm" data-dye-stock-selection-summary>${selectedStock ? `<div class="font-medium">${escapeHtml(selectedStock.stockMaterialName)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(selectedStock.materialSku)} · ${escapeHtml(selectedStock.warehouseName)} · 可用 ${escapeHtml(String(selectedStock.availableQty))} ${escapeHtml(selectedStock.qtyUnit)}</div>` : '<span class="text-muted-foreground">选择库存后自动带出名称、编码、仓库与单位。</span>'}</div>
         ${renderInput('plannedQty', '计划数量', form.plannedQty, 'number', selectedStock?.availableQty)}
         <label class="block"><span class="mb-1 block text-xs text-muted-foreground">数量单位</span><input class="h-10 w-full rounded-md border bg-muted px-3 text-sm" value="${escapeHtml(form.qtyUnit)}" data-dye-stock-unit readonly /></label>
-        ${renderSelect('factoryId', '染色工厂', factories.map((factory) => ({ value: factory.id, label: factory.name })), form.factoryId)}
+        ${renderSelect('factoryId', '染色工厂', factories.map((factory) => ({ value: factory.id, label: factory.name })), form.factoryId, undefined, false)}
         ${renderInput('plannedFinishAt', '计划完成时间', form.plannedFinishAt, 'datetime-local')}
         ${renderInput('processName', '染色工艺', form.processName)}
         ${renderInput('targetColor', '目标颜色', form.targetColor)}
@@ -171,8 +175,8 @@ function renderInput(field: keyof DyeCreateForm, label: string, value: string, t
   return `<label class="block"><span class="mb-1 block text-xs text-muted-foreground">${label}</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm" type="${type}" value="${escapeHtml(value)}" ${typeof max === 'number' ? `max="${max}"` : ''} data-skip-page-rerender="true" data-dye-create-field="${field}" /></label>`
 }
 
-function renderSelect(field: keyof DyeCreateForm, label: string, options: Array<{ value: string; label: string }>, value: string, placeholder?: string): string {
-  return `<label class="block"><span class="mb-1 block text-xs text-muted-foreground">${label}</span><select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-skip-page-rerender="true" data-dye-create-field="${field}">${placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : ''}${options.map((item) => `<option value="${escapeHtml(item.value)}" ${item.value === value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}</select></label>`
+function renderSelect(field: keyof DyeCreateForm, label: string, options: Array<{ value: string; label: string }>, value: string, placeholder?: string, skipPageRerender = true): string {
+  return `<label class="block"><span class="mb-1 block text-xs text-muted-foreground">${label}</span><select class="h-10 w-full rounded-md border bg-background px-3 text-sm" ${skipPageRerender ? 'data-skip-page-rerender="true"' : ''} data-dye-create-field="${field}">${placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : ''}${options.map((item) => `<option value="${escapeHtml(item.value)}" ${item.value === value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}</select></label>`
 }
 
 function renderPagination(total: number, totalPages: number): string {
@@ -238,8 +242,14 @@ export function handleProcessDyeOrdersEvent(target: HTMLElement): boolean {
   if (createField) {
     const field = createField.dataset.dyeCreateField as keyof DyeCreateForm
     state.form[field] = createField.value
+    if (field === 'factoryId' && !getStockMaterials(createField.value).some((item) => item.stockMaterialId === state.form.stockMaterialId)) {
+      state.form.stockMaterialId = ''
+      state.form.stockMaterialName = ''
+      state.form.materialSku = ''
+      state.form.qtyUnit = ''
+    }
     if (field === 'stockMaterialId') {
-      const selected = stockMaterials.find((item) => item.stockMaterialId === createField.value)
+      const selected = getStockMaterials().find((item) => item.stockMaterialId === createField.value)
       state.form.stockMaterialName = selected?.stockMaterialName || ''
       state.form.materialSku = selected?.materialSku || ''
       state.form.qtyUnit = selected?.qtyUnit || ''

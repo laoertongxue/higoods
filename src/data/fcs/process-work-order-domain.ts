@@ -58,6 +58,7 @@ export interface FormalProductionOrderProcessSnapshot {
   processCodes: FormalProductionProcessCode[]
   dyeProcessName?: string
   printProcessName?: string
+  requiresWaterSoluble?: boolean
   factoryId?: string
   factoryName?: string
   spuCode: string

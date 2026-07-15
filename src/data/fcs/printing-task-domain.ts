@@ -1906,6 +1906,11 @@ export function createPrintWorkOrderFromStock(input: {
   const plannedFinishAt = input.plannedFinishAt.trim()
   const processName = input.processName.trim()
   if (!stockMaterial) return { ok: false, message: '请选择仓库中存在的备货物料。' }
+  if (stockMaterial.factoryId !== input.factoryId) return { ok: false, message: '所选备货物料不属于当前印花工厂。' }
+  if (stockMaterial.processCode !== 'PRINT') return { ok: false, message: '所选备货物料不属于印花工序。' }
+  if (stockMaterial.status !== '已入待加工仓' || stockMaterial.differenceQty !== 0) {
+    return { ok: false, message: '所选备货物料尚未正常入待加工仓或存在待处理差异。' }
+  }
   if (stockMaterial.stockMaterialName !== stockMaterialName || stockMaterial.materialSku !== materialSku) {
     return { ok: false, message: '备货物料名称或编码与仓库库存不一致，请重新选择。' }
   }

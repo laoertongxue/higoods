@@ -81,7 +81,7 @@ import {
   validateDyeStartPrerequisite,
 } from '../src/data/fcs/dyeing-task-domain.ts'
 import { listFactoryOnboardingApplications } from '../src/data/fcs/factory-onboarding-store.ts'
-import { listFactoryWaitProcessStockItems } from '../src/data/fcs/factory-internal-warehouse.ts'
+import { listProcessWorkOrderStockMaterials } from '../src/data/fcs/process-work-order-stock.ts'
 import {
   getFactoryCapacityProfileByFactoryId,
   listFactoryCapacityEquipments,
@@ -1307,16 +1307,16 @@ assert(
   '同 BOM 水溶加染色不得进入独立水溶加工单列表',
 )
 
-const realBoundaryStock = listFactoryWaitProcessStockItems().find((item) => item.itemKind === '面料' && item.receivedQty > 0 && item.materialSku)!
+const realBoundaryStock = listProcessWorkOrderStockMaterials({ processCode: 'DYE' })[0]!
 const stockCreated = createDyeWorkOrderFromStock({
-  stockMaterialId: realBoundaryStock.stockItemId,
-  stockMaterialName: realBoundaryStock.itemName,
-  materialSku: realBoundaryStock.materialSku!,
-  factoryId: defaultCombinedDyeOrder.dyeFactoryId,
+  stockMaterialId: realBoundaryStock.stockMaterialId,
+  stockMaterialName: realBoundaryStock.stockMaterialName,
+  materialSku: realBoundaryStock.materialSku,
+  factoryId: realBoundaryStock.factoryId,
   plannedFinishAt: '2026-07-20 18:00:00',
   createdBy: '按备货创建边界检查',
   plannedQty: 10,
-  qtyUnit: realBoundaryStock.unit,
+  qtyUnit: realBoundaryStock.qtyUnit,
   processName: '普通染色',
   targetColor: '深蓝',
 })

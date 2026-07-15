@@ -7,9 +7,15 @@ export interface ProcessWorkOrderStockMaterial {
   availableQty: number
   qtyUnit: string
   warehouseName: string
+  factoryId: string
+  factoryName: string
+  processCode?: string
+  processName?: string
+  status: '待领料' | '已入待加工仓' | '差异待处理'
+  differenceQty: number
 }
 
-export function listProcessWorkOrderStockMaterials(): ProcessWorkOrderStockMaterial[] {
+function mapProcessWorkOrderStockMaterials(): ProcessWorkOrderStockMaterial[] {
   return listFactoryWaitProcessStockItems()
     .filter((item) => item.itemKind === '面料' && item.receivedQty > 0 && Boolean(item.materialSku?.trim()))
     .map((item) => ({
@@ -19,12 +25,30 @@ export function listProcessWorkOrderStockMaterials(): ProcessWorkOrderStockMater
       availableQty: item.receivedQty,
       qtyUnit: item.unit,
       warehouseName: item.warehouseName,
+      factoryId: item.factoryId,
+      factoryName: item.factoryName,
+      processCode: item.processCode,
+      processName: item.processName,
+      status: item.status,
+      differenceQty: item.differenceQty,
     }))
+}
+
+export function listProcessWorkOrderStockMaterials(filter?: {
+  factoryId?: string
+  processCode?: 'DYE' | 'PRINT'
+}): ProcessWorkOrderStockMaterial[] {
+  return mapProcessWorkOrderStockMaterials().filter((item) => (
+    item.status === '已入待加工仓'
+    && item.differenceQty === 0
+    && (!filter?.factoryId || item.factoryId === filter.factoryId)
+    && (!filter?.processCode || item.processCode === filter.processCode)
+  ))
 }
 
 export function getProcessWorkOrderStockMaterial(stockMaterialId: string): ProcessWorkOrderStockMaterial | undefined {
   const normalizedId = stockMaterialId.trim()
-  return listProcessWorkOrderStockMaterials().find((item) => item.stockMaterialId === normalizedId)
+  return mapProcessWorkOrderStockMaterials().find((item) => item.stockMaterialId === normalizedId)
 }
 
 export function isValidProcessWorkOrderPlannedFinishAt(value: string): boolean {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-import { getDyeWorkOrderById, getDyeWorkOrderByTaskId } from '../src/data/fcs/dyeing-task-domain.ts'
+import { getDyeExecutionRoute, getDyeWorkOrderById, getDyeWorkOrderByTaskId } from '../src/data/fcs/dyeing-task-domain.ts'
 import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
 import {
   getProcessWorkOrderById,
@@ -148,6 +148,29 @@ assert.deepEqual(
   ],
   '染色和印花快照必须分别读取其工艺路线绑定的 BOM',
 )
+
+const waterSolubleDyeOrder: ProductionOrder = {
+  ...routeOrder,
+  productionOrderId: 'PO-AUTO-WATER-DYE-001',
+  productionOrderNo: 'PO-AUTO-WATER-DYE-001',
+  techPackSnapshot: {
+    ...routeOrder.techPackSnapshot,
+    bomItems: [{ ...dyeBom, waterSolubleRequirement: '是', usageProcessCodes: ['WATER_SOLUBLE', 'DYE'] }],
+    processEntries: [{
+      ...processTemplate,
+      id: 'PROCESS-DYE-WATER-001',
+      processCode: 'DYE',
+      processName: '水溶后染色',
+      linkedBomItemIds: [dyeBom.id],
+    }],
+  },
+}
+const waterSolubleDyeSnapshot = buildFormalProductionOrderProcessSnapshots(waterSolubleDyeOrder)[0]
+assert.equal(waterSolubleDyeSnapshot?.requiresWaterSoluble, true, '正式生产单染色快照必须从工艺绑定 BOM 的水溶语义推导联合水溶')
+const waterSolubleDyeResult = ensureProcessWorkOrdersForFormalProductionOrder(waterSolubleDyeSnapshot!)
+const waterSolubleDyeWorkOrder = getDyeWorkOrderById(waterSolubleDyeResult.dyeWorkOrderId!)
+assert.equal(waterSolubleDyeWorkOrder?.requiresWaterSoluble, true, '正式生产单统一确保入口必须把水溶语义传给染色加工单')
+assert(getDyeExecutionRoute(waterSolubleDyeWorkOrder!.dyeOrderId).includes('WATER_SOLUBLE'), '正式生产单联合水溶染色必须进入单一水溶后染色执行路线')
 
 const secondDyeBom = {
   ...dyeBom,

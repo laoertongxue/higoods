@@ -1488,6 +1488,59 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
     })
   }
 
+  if (firstWarehouseFactory && firstWaitProcessWarehouse) {
+    ;([
+      {
+        processCode: 'DYE',
+        processName: '染色',
+        suffix: 'DYE-001',
+        itemName: '40S 精梳棉染色备货面料',
+        materialSku: 'FAB-STOCK-DYE-001',
+        receivedQty: 360,
+      },
+      {
+        processCode: 'PRINT',
+        processName: '印花',
+        suffix: 'PRINT-001',
+        itemName: '数码印花备货底布',
+        materialSku: 'FAB-STOCK-PRINT-001',
+        receivedQty: 280,
+      },
+    ] as const).forEach((seed) => {
+      const location = pickWarehouseLocation(firstWaitProcessWarehouse, `STOCK-${seed.suffix}`, '已入库')
+      inboundRecords.push({
+        inboundRecordId: `INB-STOCK-${seed.suffix}`,
+        inboundRecordNo: `RK-STOCK-${seed.suffix}`,
+        warehouseId: firstWaitProcessWarehouse.warehouseId,
+        warehouseName: firstWaitProcessWarehouse.warehouseName,
+        factoryId: firstWarehouseFactory.id,
+        factoryName: firstWarehouseFactory.name,
+        factoryKind: firstWarehouseFactory.factoryType,
+        processCode: seed.processCode,
+        processName: seed.processName,
+        sourceRecordId: `ISSUE-STOCK-${seed.suffix}`,
+        sourceRecordNo: `WL-STOCK-${seed.suffix}`,
+        sourceRecordType: 'MATERIAL_PICKUP',
+        sourceObjectName: '面辅料仓',
+        itemKind: '面料',
+        itemName: seed.itemName,
+        materialSku: seed.materialSku,
+        expectedQty: seed.receivedQty,
+        receivedQty: seed.receivedQty,
+        differenceQty: 0,
+        unit: '米',
+        receiverName: firstWarehouseFactory.name,
+        receivedAt: '2026-07-15 08:30:00',
+        areaName: location.areaName,
+        shelfNo: location.shelfNo,
+        locationNo: location.locationNo,
+        status: '已入库',
+        photoList: [],
+        remark: '平台按备货创建演示库存',
+      })
+    })
+  }
+
   ONBOARDING_CUTTING_FACTORIES.forEach((demoFactory) => {
     const onboardingWaitProcessWarehouse = waitProcessWarehouseMap.get(demoFactory.factoryId)
     if (!onboardingWaitProcessWarehouse) return

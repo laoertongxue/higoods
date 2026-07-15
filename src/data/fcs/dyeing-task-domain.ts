@@ -410,22 +410,13 @@ function getVisibleDyeWorkOrderIds(): Set<string> {
   return new Set(listVisibleRawDyeWorkOrders().map((order) => order.dyeOrderId))
 }
 
-function toGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): MutableDyeWorkOrder {
+function buildGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): MutableDyeWorkOrder {
   if (createdDyeOrderIds.has(order.dyeOrderId)) return order
   const generatedCount = GENERATED_DYE_CRAFTS.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION
   const context = getGeneratedDyeContext(index) ?? (generatedCount > 0 ? getGeneratedDyeContext(index % generatedCount) : null)
   if (!context) {
     const sourceProductionOrderId = order.sourceProductionOrderId || order.productionOrderIds?.[0]
     const sourceOrder = productionOrders.find((item) => item.productionOrderId === sourceProductionOrderId)
-    const task = getDyeingTaskById(order.taskId)
-    if (task && sourceOrder) {
-      task.sourceType = 'PRODUCTION_ORDER'
-      task.productionOrderId = sourceOrder.productionOrderId
-      task.productionOrderNo = sourceOrder.productionOrderNo
-      task.sourceProductionOrderId = sourceOrder.productionOrderId
-      delete task.stockMaterialId
-      delete task.stockMaterialName
-    }
     return {
       ...order,
       sourceProductionOrderId,
@@ -434,15 +425,6 @@ function toGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): Mut
     }
   }
   const { productionOrder, techPackSnapshot, craftDefinition, mockIndex, plannedQty, materialName, targetColor } = context
-  const task = getDyeingTaskById(order.taskId)
-  if (task) {
-    task.sourceType = 'PRODUCTION_ORDER'
-    task.productionOrderId = productionOrder.productionOrderId
-    task.productionOrderNo = productionOrder.productionOrderNo
-    task.sourceProductionOrderId = productionOrder.productionOrderId
-    delete task.stockMaterialId
-    delete task.stockMaterialName
-  }
   return {
     ...order,
     sourceType: 'PRODUCTION_ORDER',
@@ -465,7 +447,23 @@ function toGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): Mut
 
 function listGeneratedDyeWorkOrders(): MutableDyeWorkOrder[] {
   return listVisibleRawDyeWorkOrders()
-    .map((order, index) => toGeneratedDyeWorkOrder(order, index))
+}
+
+function normalizeSeedWorkOrderSources(): void {
+  listVisibleRawDyeWorkOrders().forEach((order, index) => {
+    if (createdDyeOrderIds.has(order.dyeOrderId)) return
+    const normalized = buildGeneratedDyeWorkOrder(order, index)
+    workOrderStore.set(normalized.dyeOrderId, normalized)
+    const task = getDyeingTaskById(normalized.taskId)
+    if (!task) return
+    task.sourceType = normalized.sourceType
+    task.productionOrderId = normalized.sourceProductionOrderId
+    task.productionOrderNo = normalized.sourceProductionOrderNo
+    task.sourceProductionOrderId = normalized.sourceProductionOrderId
+    task.stockMaterialId = normalized.stockMaterialId
+    task.stockMaterialName = normalized.stockMaterialName
+    registerPdaGenericProcessTask(task)
+  })
 }
 
 function cloneWorkOrder(order: MutableDyeWorkOrder): DyeWorkOrder {
@@ -2321,6 +2319,7 @@ function seedDomain(): void {
   if (seeded) return
   seeded = true
   seedWorkOrders()
+  normalizeSeedWorkOrderSources()
   seedPersistentWaterSolubleDyeWorkOrder()
 }
 
@@ -2669,6 +2668,11 @@ export function createDyeWorkOrderFromStock(input: {
   const normalizedUnit = input.qtyUnit.trim()
   const plannedFinishAt = input.plannedFinishAt.trim()
   if (!stockMaterial) return { ok: false, message: '请选择仓库中存在的备货物料。' }
+  if (stockMaterial.factoryId !== input.factoryId) return { ok: false, message: '所选备货物料不属于当前染色工厂。' }
+  if (stockMaterial.processCode !== 'DYE') return { ok: false, message: '所选备货物料不属于染色工序。' }
+  if (stockMaterial.status !== '已入待加工仓' || stockMaterial.differenceQty !== 0) {
+    return { ok: false, message: '所选备货物料尚未正常入待加工仓或存在待处理差异。' }
+  }
   if (stockMaterial.stockMaterialName !== stockMaterialName || stockMaterial.materialSku !== materialSku) {
     return { ok: false, message: '备货物料名称或编码与仓库库存不一致，请重新选择。' }
   }
