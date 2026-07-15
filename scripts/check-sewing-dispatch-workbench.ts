@@ -36,6 +36,13 @@ import {
   openDispatchDialog,
 } from '../src/pages/dispatch-board/dispatch-domain.ts'
 import { state as dispatchBoardState } from '../src/pages/dispatch-board/context.ts'
+import {
+  captureSewingDispatchWorkbenchPageState,
+  handleSewingDispatchWorkbenchEvent,
+  renderSewingDispatchWorkbenchPage,
+  restoreSewingDispatchWorkbenchPageState,
+  setSewingDispatchWorkbenchNowProviderForTest,
+} from '../src/pages/sewing-dispatch-workbench.ts'
 
 const runtimeTasks = listRuntimeProcessTasks().filter((task) => isRuntimeTaskExecutionTask(task))
 
@@ -442,6 +449,39 @@ assert.match(dispatchDomainSource, /当前主工厂：/, '按明细多工厂派�
 assert.match(dispatchDomainSource, /formatProductionOrderMainFactoryName/, '主工厂展示必须复用生产单唯一主工厂口径')
 assert.match(dispatchDomainSource, /KEEP_CURRENT_MAIN_FACTORY/, '按明细多工厂派单必须具备保留当前有效主工厂的明确选择值')
 assert.match(dispatchDomainSource, /保留当前主工厂/, '已有有效主工厂时必须向用户展示保留选项')
+
+const sewingPageHtml = renderSewingDispatchWorkbenchPage()
+assert.match(sewingPageHtml, /车缝任务 \/ 生产单/)
+assert.match(sewingPageHtml, /SKU 数 \/ 任务数量/)
+assert.match(sewingPageHtml, /可分配状态/)
+assert.doesNotMatch(sewingPageHtml, /<th[^>]*>毛织片<\/th>/)
+assert.doesNotMatch(sewingPageHtml, /<th[^>]*>特种工艺裁片<\/th>/)
+assert.doesNotMatch(sewingPageHtml, /min-w-\[2260px\]/)
+
+const sewingPageStateBeforeFocusedDialog = captureSewingDispatchWorkbenchPageState()
+try {
+  setSewingDispatchWorkbenchNowProviderForTest(() => '2026-07-13 09:00:00')
+  const dialogActionTarget = {
+    closest: (selector: string) => selector.includes('[data-sewing-dispatch-action]')
+      ? { dataset: { sewingDispatchAction: 'open-dispatch', taskId: 'TASKGEN-202603-084-003__ORDER', dispatchType: '直接派单' } }
+      : null,
+  } as unknown as HTMLElement
+  assert.equal(handleSewingDispatchWorkbenchEvent(dialogActionTarget), true)
+  const directDialogHtml = renderSewingDispatchWorkbenchPage()
+  assert.match(directDialogHtml, /业务分配时间/)
+  assert.match(directDialogHtml, /承接工厂/)
+  assert.match(directDialogHtml, /确认主工厂/)
+  assert.match(directDialogHtml, /交付完成/)
+  assert.match(directDialogHtml, /30% 回货/)
+  assert.match(directDialogHtml, /2026-\d{2}-\d{2} \d{2}:\d{2}/)
+  assert.doesNotMatch(directDialogHtml, /本次分配数量/)
+  assert.doesNotMatch(directDialogHtml, /实际操作时间/)
+  assert.doesNotMatch(directDialogHtml, /配料前置校验/)
+  assert.doesNotMatch(directDialogHtml, /分配方式/)
+} finally {
+  setSewingDispatchWorkbenchNowProviderForTest()
+  restoreSewingDispatchWorkbenchPageState(sewingPageStateBeforeFocusedDialog)
+}
 
 const wholeSkuFixtureRows = listSewingDispatchWorkbenchRows().filter((row) =>
   row.productionOrderId === 'PO-202603-084' && row.completeKitQty === row.remainingQty && row.remainingQty > 1,
