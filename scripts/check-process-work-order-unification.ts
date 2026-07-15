@@ -55,6 +55,8 @@ const routesSource = read('src/router/routes-fcs.ts')
 const pdaHandoverSource = read('src/pages/pda-handover.ts')
 const docsSource = read('docs/fcs-process-work-order-unification.md')
 const appShellSource = read('src/data/app-shell-config.ts')
+const truthSourceAuditMarkdown = read('docs/fcs-truth-source-audit.md')
+const truthSourceAuditJson = read('docs/fcs-truth-source-audit.json')
 const preparationTimingSource = read('src/data/fcs/production-preparation-timing.ts')
 const fcsRouteRenderersSource = read('src/router/route-renderers-fcs.ts')
 const sharedRouteRenderersSource = read('src/router/route-renderers.ts')
@@ -71,6 +73,13 @@ const stockSourceBoundaryFiles = [
 ]
 
 const fcsMenuTitles = flattenMenuTitles('fcs')
+;[truthSourceAuditMarkdown, truthSourceAuditJson].forEach((source, index) => {
+  const label = index === 0 ? '真源审计 Markdown' : '真源审计 JSON'
+  ;['process-dye-requirements', 'process-print-requirements']
+    .forEach((token) => assertNotIncludes(source, token, label))
+  ;['src/pages/process-dye-orders.ts', 'src/pages/process-print-orders.ts']
+    .forEach((token) => assertIncludes(source, token, label))
+})
 ;[
   'src/pages/process-dye-requirements.ts',
   'src/pages/process-print-requirements.ts',

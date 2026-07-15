@@ -1,19 +1,154 @@
 {
-  "generatedAt": "2026-03-22T15:00:18.004Z",
+  "generatedAt": "2026-07-15T15:37:30.658Z",
   "summary": {
-    "scannedFiles": 71,
-    "totalFindings": 22,
+    "scannedFiles": 205,
+    "totalFindings": 57,
     "highRiskCount": 0,
-    "mediumRiskCount": 0,
-    "lowRiskCount": 22,
-    "pageCheckedCount": 18,
+    "mediumRiskCount": 19,
+    "lowRiskCount": 38,
+    "pageCheckedCount": 16,
     "pageHighRiskCount": 0,
     "legacySeedHits": 2,
-    "selfGuessHits": 0,
-    "unstableIdHits": 20
+    "selfGuessHits": 7,
+    "unstableIdHits": 48
   },
   "highRiskFindings": [],
   "findings": [
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/cutting/cutting-runtime-event-ledger.ts",
+      "line": 561,
+      "content": "return value.replace(/[^0-9]/g, '').slice(0, 14) || `${Date.now()}`",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "LOW",
+      "file": "src/data/fcs/cutting/fei-ticket-numbering.ts",
+      "line": 92,
+      "content": "return value.replace(/[^0-9]/g, '').slice(0, 14) || String(Date.now())",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "LOW",
+      "file": "src/data/fcs/dyeing-warehouse-view.ts",
+      "line": 72,
+      "content": "return Date.now() - time <= range",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "LOW",
+      "file": "src/data/fcs/factory-internal-warehouse.ts",
+      "line": 3234,
+      "content": "const now = Date.now()",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "LOW",
+      "file": "src/data/fcs/factory-mobile-todos.ts",
+      "line": 90,
+      "content": "const diff = parseDateMs(dueAt) - Date.now()",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/factory-onboarding-flow.ts",
+      "line": 511,
+      "content": "return `FON-${Date.now()}`",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/factory-onboarding-flow.ts",
+      "line": 515,
+      "content": "return `FACTORY-TEMP-${Date.now()}`",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/factory-onboarding-flow.ts",
+      "line": 778,
+      "content": "applicationId: payload.applicationId || `FOA-${Date.now()}`,",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/factory-onboarding-flow.ts",
+      "line": 1348,
+      "content": "const reviewId = `REV-${Date.now()}`",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/factory-onboarding-flow.ts",
+      "line": 1368,
+      "content": "supplementId: `SUP-${Date.now()}`,",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/factory-onboarding-store.ts",
+      "line": 439,
+      "content": "applicationId: String(raw.applicationId || `FOA-${Date.now()}`),",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/factory-onboarding-store.ts",
+      "line": 440,
+      "content": "applicationNo: String(raw.applicationNo || `FON-${Date.now()}`),",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/factory-onboarding-store.ts",
+      "line": 441,
+      "content": "factoryTempId: String(raw.factoryTempId || `FACTORY-TEMP-${Date.now()}`),",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/factory-sample-verification-store.ts",
+      "line": 58,
+      "content": "sampleReviewId: String(record.sampleReviewId || record.reviewId || `SV-REV-${Date.now()}`),",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "LOW",
+      "file": "src/data/fcs/factory-sample-verification-store.ts",
+      "line": 506,
+      "content": "const idSeed = Date.now()",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
     {
       "type": "unstable-id",
       "key": "date-now",
@@ -28,7 +163,25 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/data/fcs/pda-start-link.ts",
-      "line": 193,
+      "line": 412,
+      "content": "if (!value) return Date.now()",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "LOW",
+      "file": "src/data/fcs/pda-start-link.ts",
+      "line": 415,
+      "content": "return Number.isFinite(parsed) ? parsed : Date.now()",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "LOW",
+      "file": "src/data/fcs/pda-start-link.ts",
+      "line": 500,
       "content": "export function getTaskStartDueInfo(task: ProcessTask, nowMs: number = Date.now()): {",
       "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
     },
@@ -36,8 +189,98 @@
       "type": "unstable-id",
       "key": "date-now",
       "severity": "LOW",
+      "file": "src/data/fcs/pda-task-mock-factory.ts",
+      "line": 464,
+      "content": "const date = new Date(Date.now() + hoursFromNow * 3600 * 1000)",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/post-finishing-domain.ts",
+      "line": 3922,
+      "content": "const areaId = input.areaId || `PFAREA-${input.warehouseMode}-${Date.now()}`",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/post-finishing-domain.ts",
+      "line": 4002,
+      "content": "const locationId = input.locationId || `PFLOC-${input.warehouseMode}-${Date.now()}`",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "LOW",
+      "file": "src/data/fcs/printing-warehouse-view.ts",
+      "line": 72,
+      "content": "return Date.now() - time <= range",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "LOW",
+      "file": "src/data/fcs/process-statistics-domain.ts",
+      "line": 177,
+      "content": "const now = Date.now()",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "LOW",
+      "file": "src/data/fcs/process-statistics-domain.ts",
+      "line": 284,
+      "content": "const now = Date.now()",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "math-random",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/production-preparation-timing-runtime.ts",
+      "line": 68,
+      "content": "return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`",
+      "hint": "检测到 Math.random，建议确认是否仅用于 UI 临时对象"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/production-preparation-timing-runtime.ts",
+      "line": 68,
+      "content": "return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "LOW",
       "file": "src/data/fcs/runtime-process-tasks.ts",
-      "line": 1253,
+      "line": 2376,
+      "content": "splitGroupId: ownerPlan?.splitGroupId ?? `SG-${rootNo}-QTY-${String(Date.now()).slice(-6)}`,",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "LOW",
+      "file": "src/data/fcs/runtime-process-tasks.ts",
+      "line": 2420,
+      "content": "const splitGroupId = `SG-${rootTaskNo}-TD-${String(Date.now()).slice(-6)}`",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "LOW",
+      "file": "src/data/fcs/runtime-process-tasks.ts",
+      "line": 3400,
       "content": "const now = Date.now()",
       "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
     },
@@ -46,8 +289,53 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/data/fcs/runtime-process-tasks.ts",
-      "line": 1345,
+      "line": 3496,
       "content": "const now = Date.now()",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/store-domain-pda.ts",
+      "line": 842,
+      "content": "userId: `PDAU-${Date.now()}`,",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "math-random",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/store-domain-settlement-seeds.ts",
+      "line": 616,
+      "content": "return Math.random()",
+      "hint": "检测到 Math.random，建议确认是否仅用于 UI 临时对象"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/wool-task-domain.ts",
+      "line": 2185,
+      "content": "const recoveryId = `KWP-RECOVER-${Date.now()}`",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/wool-task-domain.ts",
+      "line": 2820,
+      "content": "const areaId = input.areaId || `KAREA-${input.warehouseMode}-${Date.now()}`",
+      "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
+    },
+    {
+      "type": "unstable-id",
+      "key": "date-now",
+      "severity": "MEDIUM",
+      "file": "src/data/fcs/wool-task-domain.ts",
+      "line": 2890,
+      "content": "const locationId = input.locationId || `KLOC-${input.warehouseMode}-${Date.now()}`",
       "hint": "Date.now 使用建议复核是否会影响业务对象稳定性"
     },
     {
@@ -55,7 +343,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-task-receive.ts",
-      "line": 206,
+      "line": 295,
       "content": "const diff = parseDateMs(deadline) - Date.now()",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -64,44 +352,8 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-task-receive.ts",
-      "line": 270,
-      "content": "id: `AL-ACC-${Date.now()}`,",
-      "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
-    },
-    {
-      "type": "unstable-id",
-      "key": "date-now",
-      "severity": "LOW",
-      "file": "src/pages/pda-task-receive.ts",
-      "line": 292,
+      "line": 374,
       "content": "id: `AL-REJ-${Date.now()}`,",
-      "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
-    },
-    {
-      "type": "unstable-id",
-      "key": "date-now",
-      "severity": "LOW",
-      "file": "src/pages/pda-task-receive-detail.ts",
-      "line": 84,
-      "content": "id: `AL-ACC-${Date.now()}`,",
-      "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
-    },
-    {
-      "type": "unstable-id",
-      "key": "date-now",
-      "severity": "LOW",
-      "file": "src/pages/pda-task-receive-detail.ts",
-      "line": 106,
-      "content": "id: `AL-REJ-${Date.now()}`,",
-      "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
-    },
-    {
-      "type": "unstable-id",
-      "key": "date-now",
-      "severity": "LOW",
-      "file": "src/pages/pda-task-receive-detail.ts",
-      "line": 288,
-      "content": "const diff = new Date(acceptDeadline.replace(' ', 'T')).getTime() - Date.now()",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
     {
@@ -109,7 +361,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec.ts",
-      "line": 169,
+      "line": 271,
       "content": "const diff = parseDateMs(taskDeadline) - Date.now()",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -118,7 +370,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec.ts",
-      "line": 245,
+      "line": 348,
       "content": "id: `AL-FINISH-${Date.now()}`,",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -127,16 +379,79 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec.ts",
-      "line": 267,
+      "line": 370,
       "content": "const nowMs = Date.now()",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
+    },
+    {
+      "type": "self-guess",
+      "key": "guess-status-by-text",
+      "severity": "LOW",
+      "file": "src/pages/pda-exec-detail.ts",
+      "line": 286,
+      "content": "if (status === '待质检' || status === '待后道' || status === '待复检' || status === '待交出') return 'IN_PROGRESS'",
+      "hint": "页面内通过文案状态直接推断业务判断"
+    },
+    {
+      "type": "self-guess",
+      "key": "guess-status-by-text",
+      "severity": "LOW",
+      "file": "src/pages/pda-exec-detail.ts",
+      "line": 342,
+      "content": "status: task.status.includes('中') ? 'IN_PROGRESS' : task.status === '已交后道工厂' || task.status === '后道完成' ? 'DONE' : 'NOT_STARTED',",
+      "hint": "页面内通过文案状态直接推断业务判断"
+    },
+    {
+      "type": "self-guess",
+      "key": "guess-status-by-text",
+      "severity": "LOW",
+      "file": "src/pages/pda-exec-detail.ts",
+      "line": 353,
+      "content": "handoverStatus: task.status === '已交后道工厂' ? 'WRITTEN_BACK' : 'NOT_CREATED',",
+      "hint": "页面内通过文案状态直接推断业务判断"
+    },
+    {
+      "type": "self-guess",
+      "key": "guess-status-by-text",
+      "severity": "LOW",
+      "file": "src/pages/pda-exec-detail.ts",
+      "line": 2889,
+      "content": "const projectLines = order.postProjectLines.filter((line) => line.status === '待开始')",
+      "hint": "页面内通过文案状态直接推断业务判断"
+    },
+    {
+      "type": "self-guess",
+      "key": "guess-status-by-text",
+      "severity": "LOW",
+      "file": "src/pages/pda-exec-detail.ts",
+      "line": 2931,
+      "content": "${line.status === '待开始' ? `",
+      "hint": "页面内通过文案状态直接推断业务判断"
+    },
+    {
+      "type": "self-guess",
+      "key": "guess-status-by-text",
+      "severity": "LOW",
+      "file": "src/pages/pda-exec-detail.ts",
+      "line": 3315,
+      "content": "const canStartPost = task.status === '待后道'",
+      "hint": "页面内通过文案状态直接推断业务判断"
+    },
+    {
+      "type": "self-guess",
+      "key": "guess-status-by-text",
+      "severity": "LOW",
+      "file": "src/pages/pda-exec-detail.ts",
+      "line": 3317,
+      "content": "const canTransfer = task.status === '后道完成' || task.status === '待交后道工厂'",
+      "hint": "页面内通过文案状态直接推断业务判断"
     },
     {
       "type": "unstable-id",
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec-detail.ts",
-      "line": 172,
+      "line": 1955,
       "content": "const diff = parseDateMs(taskDeadline) - Date.now()",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -145,7 +460,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec-detail.ts",
-      "line": 249,
+      "line": 2041,
       "content": "id: `${scope}-proof-${Date.now()}`,",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -154,7 +469,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec-detail.ts",
-      "line": 392,
+      "line": 2188,
       "content": "id: `AL-START-${Date.now()}`,",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -163,7 +478,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec-detail.ts",
-      "line": 412,
+      "line": 2208,
       "content": "id: `AL-FINISH-${Date.now()}`,",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -172,7 +487,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec-detail.ts",
-      "line": 1143,
+      "line": 5957,
       "content": "if (Number.isNaN(startMs) || startMs > Date.now()) {",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -181,7 +496,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec-detail.ts",
-      "line": 1183,
+      "line": 6052,
       "content": "if (Number.isNaN(reportMs) || reportMs > Date.now()) {",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -190,7 +505,7 @@
       "key": "date-now",
       "severity": "LOW",
       "file": "src/pages/pda-exec-detail.ts",
-      "line": 1226,
+      "line": 6100,
       "content": "if (Number.isNaN(reportMs) || reportMs > Date.now()) {",
       "hint": "页面层时间计算/临时对象通常可接受，建议确认未用于业务 identity"
     },
@@ -208,39 +523,21 @@
       "key": "direct-material-legacy-import",
       "severity": "LOW",
       "file": "src/pages/material-statements.ts",
-      "line": 8,
+      "line": 11,
       "content": "} from '../data/fcs/store-domain-dispatch-process'",
       "hint": "页面直接读取 dispatch 兼容层，请确认不是旧 seed 字段直读"
     }
   ],
   "pageCoverage": [
     {
-      "file": "src/pages/process-print-requirements.ts",
-      "category": "准备阶段页面",
-      "primarySources": [
-        "../data/fcs/page-adapters/process-prep-pages-adapter"
-      ],
-      "legacySeedHits": 0,
-      "selfGuessHits": 0,
-      "riskLevel": "低",
-      "suggestion": "继续保持，仅做事实源绑定维护"
-    },
-    {
-      "file": "src/pages/process-dye-requirements.ts",
-      "category": "准备阶段页面",
-      "primarySources": [
-        "../data/fcs/page-adapters/process-prep-pages-adapter"
-      ],
-      "legacySeedHits": 0,
-      "selfGuessHits": 0,
-      "riskLevel": "低",
-      "suggestion": "继续保持，仅做事实源绑定维护"
-    },
-    {
       "file": "src/pages/process-print-orders.ts",
       "category": "准备阶段页面",
       "primarySources": [
-        "../data/fcs/page-adapters/process-prep-pages-adapter"
+        "../data/fcs/page-adapters/process-prep-pages-adapter",
+        "../data/fcs/printing-task-domain.ts",
+        "../data/fcs/factory-master-store.ts",
+        "../data/fcs/process-work-order-stock.ts",
+        "../data/fcs/process-platform-status-adapter.ts"
       ],
       "legacySeedHits": 0,
       "selfGuessHits": 0,
@@ -251,7 +548,11 @@
       "file": "src/pages/process-dye-orders.ts",
       "category": "准备阶段页面",
       "primarySources": [
-        "../data/fcs/page-adapters/process-prep-pages-adapter"
+        "../data/fcs/page-adapters/process-prep-pages-adapter",
+        "../data/fcs/dyeing-task-domain.ts",
+        "../data/fcs/factory-master-store.ts",
+        "../data/fcs/process-work-order-stock.ts",
+        "../data/fcs/process-platform-status-adapter.ts"
       ],
       "legacySeedHits": 0,
       "selfGuessHits": 0,
@@ -262,11 +563,16 @@
       "file": "src/pages/task-breakdown.ts",
       "category": "核心执行页",
       "primarySources": [
-        "../data/fcs/production-orders",
-        "../data/fcs/runtime-process-tasks",
-        "../data/fcs/production-demands",
-        "../data/fcs/page-adapters/task-execution-adapter",
-        "../data/fcs/task-detail-rows"
+        "../data/fcs/production-orders.ts",
+        "../data/fcs/production-order-identity.ts",
+        "../data/fcs/runtime-process-tasks.ts",
+        "../data/fcs/process-tasks.ts",
+        "../data/fcs/pda-start-link.ts",
+        "../data/fcs/pda-exec-link.ts",
+        "../data/fcs/production-artifact-generation.ts",
+        "../data/fcs/cutting/generated-cut-orders.ts",
+        "../data/fcs/page-adapters/task-execution-adapter.ts",
+        "../data/fcs/task-detail-rows.ts"
       ],
       "legacySeedHits": 0,
       "selfGuessHits": 0,
@@ -287,10 +593,19 @@
       "category": "PDA 页面",
       "primarySources": [
         "../data/fcs/process-tasks",
-        "../data/fcs/indonesia-factories",
+        "../data/fcs/factory-master-store",
+        "../data/fcs/factory-mock-data",
         "../data/fcs/page-adapters/task-execution-adapter",
         "../data/fcs/page-adapters/task-chain-pages-adapter",
-        "../data/fcs/pda-cutting-special"
+        "../data/fcs/pda-mobile-mock",
+        "../data/fcs/pda-cutting-execution-source.ts",
+        "../data/fcs/process-mobile-task-binding.ts",
+        "../data/fcs/post-finishing-domain.ts",
+        "../data/fcs/pda-receive-scope.ts",
+        "../data/fcs/wool-task-domain.ts",
+        "../data/fcs/runtime-process-tasks.ts",
+        "../data/fcs/sewing-delivery-sla.ts",
+        "../data/fcs/process-quantity-labels.ts"
       ],
       "legacySeedHits": 0,
       "selfGuessHits": 0,
@@ -303,9 +618,15 @@
       "primarySources": [
         "../data/fcs/process-tasks",
         "../data/fcs/production-orders",
-        "../data/fcs/indonesia-factories",
+        "../data/fcs/factory-master-store",
+        "../data/fcs/factory-mock-data",
+        "../data/fcs/pda-mobile-mock",
         "../data/fcs/page-adapters/task-execution-adapter",
-        "../data/fcs/pda-cutting-special"
+        "../data/fcs/pda-cutting-execution-source.ts",
+        "../data/fcs/process-mobile-task-binding.ts",
+        "../data/fcs/special-craft-pda-scope.ts",
+        "../data/fcs/dispatch-acceptance-sla.ts",
+        "../data/fcs/sewing-delivery-sla.ts"
       ],
       "legacySeedHits": 0,
       "selfGuessHits": 0,
@@ -317,9 +638,18 @@
       "category": "PDA 页面",
       "primarySources": [
         "../data/fcs/process-tasks",
-        "../data/fcs/indonesia-factories",
         "../data/fcs/page-adapters/task-execution-adapter",
-        "../data/fcs/pda-cutting-special",
+        "../data/fcs/pda-cutting-execution-source.ts",
+        "../data/fcs/pda-task-mock-factory.ts",
+        "../data/fcs/wool-task-domain.ts",
+        "../data/fcs/water-soluble-task-domain.ts",
+        "../data/fcs/mobile-execution-task-index.ts",
+        "../data/fcs/process-mobile-task-binding.ts",
+        "../data/fcs/special-craft-pda-scope.ts",
+        "../data/fcs/printing-task-domain.ts",
+        "../data/fcs/dyeing-task-domain.ts",
+        "../data/fcs/post-finishing-domain.ts",
+        "../data/fcs/process-quantity-labels.ts",
         "../data/fcs/pda-start-link",
         "../data/fcs/pda-exec-link"
       ],
@@ -332,15 +662,40 @@
       "file": "src/pages/pda-exec-detail.ts",
       "category": "PDA 页面",
       "primarySources": [
-        "../data/fcs/process-tasks",
-        "../data/fcs/indonesia-factories",
+        "../data/fcs/process-tasks.ts",
+        "../data/fcs/factory-mock-data.ts",
+        "../data/fcs/factory-master-store.ts",
+        "../data/fcs/pda-handover-events.ts",
         "../data/fcs/page-adapters/task-execution-adapter",
-        "../data/fcs/pda-cutting-special",
+        "../data/fcs/pda-cutting-execution-source.ts",
+        "../data/fcs/cutting/special-craft-fei-ticket-flow.ts",
+        "../data/fcs/special-craft-task-orders.ts",
+        "../data/fcs/process-warehouse-domain.ts",
         "../data/fcs/pda-start-link",
-        "../data/fcs/pda-exec-link"
+        "../data/fcs/pda-exec-link",
+        "../data/fcs/task-qr.ts",
+        "../data/fcs/factory-mock-data.ts",
+        "../data/fcs/production-order-identity.ts",
+        "../data/fcs/production-object-overview.ts",
+        "../data/fcs/printing-task-domain.ts",
+        "../data/fcs/wool-task-domain.ts",
+        "../data/fcs/dyeing-task-domain.ts",
+        "../data/fcs/process-execution-writeback.ts",
+        "../data/fcs/process-action-writeback-service.ts",
+        "../data/fcs/process-quantity-labels.ts",
+        "../data/fcs/post-finishing-domain.ts",
+        "../data/fcs/post-finishing-domain.ts",
+        "../data/fcs/mobile-execution-task-index.ts",
+        "../data/fcs/process-mobile-task-binding.ts",
+        "../data/fcs/special-craft-pda-scope.ts",
+        "../data/fcs/store-domain-pda.ts",
+        "../data/fcs/sewing-delivery-sla-view.ts",
+        "../data/fcs/sewing-delivery-sla.ts",
+        "../data/fcs/water-soluble-task-domain.ts",
+        "../data/fcs/water-soluble-pda-actor.ts"
       ],
       "legacySeedHits": 0,
-      "selfGuessHits": 0,
+      "selfGuessHits": 7,
       "riskLevel": "低",
       "suggestion": "继续保持，仅做事实源绑定维护"
     },
@@ -360,7 +715,7 @@
         "../data/fcs/process-tasks",
         "../data/fcs/production-orders",
         "../data/fcs/indonesia-factories",
-        "../data/fcs/store-domain-progress",
+        "../data/fcs/store-domain-progress.ts",
         "../data/fcs/handover-ledger-view",
         "../data/fcs/page-adapters/task-chain-pages-adapter"
       ],
@@ -385,7 +740,12 @@
       "category": "长尾页面",
       "primarySources": [
         "../data/fcs/production-orders",
-        "../data/fcs/page-adapters/long-tail-pages-adapter"
+        "../data/fcs/capacity-calendar",
+        "../data/fcs/capacity-calendar-overrides",
+        "../data/fcs/page-adapters/long-tail-pages-adapter",
+        "../data/fcs/factory-capacity-profile-mock",
+        "../data/fcs/factory-master-store",
+        "../data/fcs/production-order-identity"
       ],
       "legacySeedHits": 0,
       "selfGuessHits": 0,
@@ -416,7 +776,8 @@
       "primarySources": [
         "../data/fcs/store-domain-dispatch-process",
         "../data/fcs/page-adapters/task-execution-adapter",
-        "../data/fcs/store-domain-quality-bootstrap"
+        "../data/fcs/store-domain-quality-bootstrap",
+        "../data/fcs/production-order-identity"
       ],
       "legacySeedHits": 1,
       "selfGuessHits": 0,
@@ -428,7 +789,10 @@
       "category": "进度/异常/台账页",
       "primarySources": [
         "../data/fcs/store-domain-dispatch-process",
-        "../data/fcs/store-domain-quality-bootstrap"
+        "../data/fcs/store-domain-settlement-seeds",
+        "../data/fcs/store-domain-quality-bootstrap",
+        "../data/fcs/settlement-flow-boundaries",
+        "../data/fcs/production-order-identity"
       ],
       "legacySeedHits": 1,
       "selfGuessHits": 0,
@@ -462,7 +826,7 @@
       "name": "运行时任务层",
       "file": "src/data/fcs/runtime-process-tasks.ts",
       "exists": true,
-      "findingsCount": 2,
+      "findingsCount": 4,
       "note": "通过（无高/中风险）"
     },
     {
