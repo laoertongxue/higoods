@@ -339,7 +339,7 @@ function getPrintingTaskById(taskId: string): PdaGenericTaskMock | undefined {
   return getPrintingTasks().find((task) => task.taskId === taskId)
 }
 
-function ensurePrintingTaskClone(sourceTaskId: string, taskId: string, productionOrderNo: string): void {
+function ensurePrintingTaskClone(sourceTaskId: string, taskId: string, productionOrderId: string): void {
   if (getPrintingTaskById(taskId)) return
   const source = getPrintingTaskById(sourceTaskId)
   if (!source) return
@@ -348,8 +348,14 @@ function ensurePrintingTaskClone(sourceTaskId: string, taskId: string, productio
     taskId,
     taskNo: taskId,
     taskQrValue: buildTaskQrValue(taskId),
-    productionOrderNo,
-    auditLogs: source.auditLogs.map((log) => ({ ...log, taskId })),
+    productionOrderId,
+    productionOrderNo: productionOrderId,
+    tenderId: source.tenderId ? `${source.tenderId}-${taskId}` : undefined,
+    materialRequestNo: source.materialRequestNo ? `MR-PRINT-${taskId.split('-').at(-1)}` : undefined,
+    auditLogs: source.auditLogs.map((log, index) => ({
+      ...log,
+      id: `AL-${taskId}-${log.action}-${index + 1}`,
+    })),
   })
 }
 

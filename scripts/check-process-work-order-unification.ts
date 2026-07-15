@@ -10,6 +10,7 @@ import {
   getPrintWorkOrderById,
   getPrintWorkOrderByTaskId,
   getPrintWorkOrderSummary,
+  listPrintExecutionNodeRecords,
   listPrintingDashboardBuckets,
   listPrintWorkOrders,
 } from '../src/data/fcs/printing-task-domain.ts'
@@ -44,8 +45,6 @@ function flattenPfosMenuTitles(): string[] {
 
 const domainSource = read('src/data/fcs/process-work-order-domain.ts')
 const adapterSource = read('src/data/fcs/page-adapters/process-prep-pages-adapter.ts')
-const printDomainSource = read('src/data/fcs/printing-task-domain.ts')
-const dyeDomainSource = read('src/data/fcs/dyeing-task-domain.ts')
 const platformPrintSource = read('src/pages/process-print-orders.ts')
 const platformDyeSource = read('src/pages/process-dye-orders.ts')
 const pfosPrintSource = read('src/pages/process-factory/printing/work-orders.ts')
@@ -69,6 +68,36 @@ const unifiedPrintOrders = listProcessWorkOrders('PRINT')
 const unifiedDyeOrders = listProcessWorkOrders('DYE')
 const platformPrintOrders = listPrepProcessOrders('PRINT')
 const platformDyeOrders = listPrepProcessOrders('DYE')
+
+const EXPECTED_PRINT_CANONICAL_IDENTITIES: Array<[string, string]> = [
+  ['PWO-PRINT-001', 'PH-20260328-001'],
+  ['PWO-PRINT-002', 'PH-20260328-002'],
+  ['PWO-PRINT-003', 'PH-20260328-003'],
+  ['PWO-PRINT-004', 'PH-20260328-004'],
+  ['PWO-PRINT-005', 'PH-20260328-005'],
+  ['PWO-PRINT-006', 'PH-20260328-006'],
+  ['PWO-PRINT-007', 'PH-20260328-007'],
+  ['PWO-PRINT-008', 'PH-20260329-008'],
+  ['PWO-PRINT-009', 'PH-20260329-009'],
+  ['PWO-PRINT-010', 'PH-20260329-010'],
+  ['PWO-PRINT-011', 'PH-20260329-011'],
+  ['PWO-PRINT-012', 'PH-20260329-012'],
+]
+
+const EXPECTED_DYE_CANONICAL_IDENTITIES: Array<[string, string]> = [
+  ['DWO-001', 'DY-20260328-001'],
+  ['DWO-002', 'DY-20260328-002'],
+  ['DWO-003', 'DY-20260328-003'],
+  ['DWO-004', 'DY-20260328-004'],
+  ['DWO-005', 'DY-20260328-005'],
+  ['DWO-006', 'DY-20260328-006'],
+  ['DWO-007', 'DY-20260328-007'],
+  ['DWO-008', 'DY-20260328-008'],
+  ['DWO-009', 'DY-20260328-009'],
+  ['DWO-010', 'DY-20260328-010'],
+  ['DWO-011', 'DY-20260328-011'],
+  ['DYE-WATER-PO-202603-081', 'RSJG-WATER-202603081'],
+]
 
 function sortIdentities(identities: Array<[string, string]>): Array<[string, string]> {
   return [...identities].sort(([leftId, leftNo], [rightId, rightNo]) =>
@@ -108,9 +137,17 @@ function assertCanonicalIdentity(
   getById: (workOrderId: string) => { workOrderId: string; orderNo: string; taskId: string } | undefined,
   getByTaskId: (taskId: string) => { workOrderId: string; orderNo: string; taskId: string } | undefined,
 ): void {
-  const canonicalIdentities = factoryOrders.map(({ workOrderId, orderNo }) => [workOrderId, orderNo] as [string, string])
+  const canonicalOrders = factoryOrders.map(({ workOrderId }) => {
+    const canonical = getById(workOrderId)
+    assert(canonical, `${workOrderId} 缺少 canonical 加工单`)
+    return canonical
+  })
+  const canonicalIdentities = canonicalOrders.map(({ workOrderId, orderNo }) => [workOrderId, orderNo] as [string, string])
   const taskIds = factoryOrders.map((order) => order.taskId)
   const registeredPdaTaskIds = new Set(listPdaGenericProcessTasks().map((task) => task.taskId))
+  assert.equal(new Set(canonicalIdentities.map(([workOrderId]) => workOrderId)).size, canonicalIdentities.length, 'canonical 加工单 ID 必须一对一')
+  assert.equal(new Set(canonicalIdentities.map(([, orderNo]) => orderNo)).size, canonicalIdentities.length, 'canonical 加工单号必须一对一')
+  assert.equal(factoryOrders.length, canonicalOrders.length, '公开加工单集合不得扩展 canonical 集合')
   assert.equal(new Set(taskIds).size, taskIds.length, '公开加工单与 PDA 任务必须一对一绑定')
   taskIds.forEach((taskId) => assert(registeredPdaTaskIds.has(taskId), `${taskId} 未注册为 PDA 任务`))
   assert.deepEqual(
@@ -123,14 +160,13 @@ function assertCanonicalIdentity(
     sortIdentities(canonicalIdentities),
     '工厂端只能使用平台加工单 ID 和加工单号',
   )
+  assert.deepEqual(
+    sortIdentities(factoryOrders.map((order) => [order.workOrderId, order.orderNo])),
+    sortIdentities(canonicalIdentities),
+    '公开加工单集合不得改写或扩展 canonical 加工单身份',
+  )
   factoryOrders.forEach((order) => {
-    const canonical = getById(order.workOrderId)
     const pdaBound = getByTaskId(order.taskId)
-    assert.deepEqual(
-      canonical && [canonical.workOrderId, canonical.orderNo],
-      [order.workOrderId, order.orderNo],
-      'canonical 加工单身份不得被任何端转换',
-    )
     assert.deepEqual(
       pdaBound && [pdaBound.workOrderId, pdaBound.orderNo],
       [order.workOrderId, order.orderNo],
@@ -169,12 +205,60 @@ assertCanonicalIdentity(
     return order && { workOrderId: order.dyeOrderId, orderNo: order.dyeOrderNo, taskId: order.taskId }
   },
 )
-assertNotIncludes(printDomainSource, 'printOrderNo: buildPrintWorkOrderNo', '印花 canonical 加工单身份')
-assertNotIncludes(dyeDomainSource, 'dyeOrderNo: index < generatedCount', '染色 canonical 加工单身份')
+assert.deepEqual(
+  sortIdentities(printWorkOrders.map((order) => {
+    const canonical = getPrintWorkOrderById(order.printOrderId)
+    assert(canonical, `${order.printOrderId} 缺少 canonical 印花加工单`)
+    return [canonical.printOrderId, canonical.printOrderNo]
+  })),
+  sortIdentities(EXPECTED_PRINT_CANONICAL_IDENTITIES),
+  '印花 canonical getter 必须返回 raw store 的既有加工单身份',
+)
+assert.deepEqual(
+  sortIdentities(dyeWorkOrders.map((order) => {
+    const canonical = getDyeWorkOrderById(order.dyeOrderId)
+    assert(canonical, `${order.dyeOrderId} 缺少 canonical 染色加工单`)
+    return [canonical.dyeOrderId, canonical.dyeOrderNo]
+  })),
+  sortIdentities(EXPECTED_DYE_CANONICAL_IDENTITIES),
+  '染色 canonical getter 必须返回 raw store 的既有加工单身份',
+)
 assertWorkOrderIdentity(
   platformDyeOrders,
   dyeWorkOrders.map((order) => ({ workOrderId: order.dyeOrderId, orderNo: order.dyeOrderNo })),
 )
+
+const printingTasks = listPdaGenericProcessTasks().filter((task) => task.mockProcessKey === 'PRINTING')
+const transferringPrintOrder = getPrintWorkOrderByTaskId('TASK-PRINT-000724')
+const transferringPrintTask = printingTasks.find((task) => task.taskId === 'TASK-PRINT-000724')
+assert(transferringPrintOrder, 'TASK-PRINT-000724 缺少来源印花加工单')
+assert(transferringPrintTask, 'TASK-PRINT-000724 未注册为 PDA 任务')
+assert.equal(transferringPrintOrder.productionOrderIds.length, 1, 'TASK-PRINT-000724 来源生产单必须唯一')
+assert.deepEqual(
+  [transferringPrintTask.productionOrderId, transferringPrintTask.productionOrderNo],
+  [transferringPrintOrder.productionOrderIds[0], transferringPrintOrder.productionOrderIds[0]],
+  'PDA task 的 productionOrderId/no 必须与加工单 source production order 成对一致',
+)
+
+const publicPrintingTasks = printWorkOrders.map((order) => {
+  const task = printingTasks.find((item) => item.taskId === order.taskId)
+  assert(task, `${order.taskId} 未注册为印花 PDA 任务`)
+  return task
+})
+assert.equal(new Set(publicPrintingTasks.map((task) => task.taskNo)).size, publicPrintingTasks.length, '印花 PDA taskNo 不得跨任务复用')
+assert.equal(new Set(publicPrintingTasks.map((task) => task.taskQrValue)).size, publicPrintingTasks.length, '印花 PDA 二维码身份不得跨任务复用')
+const auditLogIds = publicPrintingTasks.flatMap((task) => task.auditLogs.map((log) => log.id))
+assert.equal(new Set(auditLogIds).size, auditLogIds.length, '印花 PDA 任务审计日志 ID 不得跨任务复用')
+const printNodeRecords = printWorkOrders.flatMap((order) => listPrintExecutionNodeRecords(order.printOrderId))
+assert.equal(
+  new Set(printNodeRecords.map((record) => record.nodeRecordId)).size,
+  printNodeRecords.length,
+  '印花执行节点 ID 不得跨任务复用',
+)
+printNodeRecords.forEach((record) => {
+  const order = printWorkOrders.find((item) => item.printOrderId === record.printOrderId)
+  assert.equal(record.taskId, order?.taskId, '印花执行节点必须绑定当前加工单的独立任务身份')
+})
 
 assert(unifiedPrintOrders.length >= 3, 'PRINT 至少需要 3 条统一加工单')
 assert(unifiedDyeOrders.length >= 3, 'DYE 至少需要 3 条统一加工单')
