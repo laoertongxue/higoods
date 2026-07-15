@@ -293,6 +293,34 @@ const workflowSuccess = executeProductionChange(executionPreview, {
 assert.equal(workflowSuccess.status, 'DONE')
 assert.equal(getDyeWorkOrderById(workflowSyncOrder.dyeWorkOrderId!)?.materialId, 'MAT-CHANGE-SYNC-V2', '生产变更成功持久化后必须自动同步加工单')
 
+const workflowAtomicFirst: FormalProductionOrderProcessSnapshot = {
+  ...workflowSyncSnapshot,
+  productionOrderId: 'PO-CHANGE-WORKFLOW-ATOMIC-FIRST',
+  productionOrderNo: 'PO-CHANGE-WORKFLOW-ATOMIC-FIRST',
+}
+const workflowAtomicSecond: FormalProductionOrderProcessSnapshot = {
+  ...workflowSyncSnapshot,
+  productionOrderId: 'PO-CHANGE-WORKFLOW-ATOMIC-SECOND',
+  productionOrderNo: 'PO-CHANGE-WORKFLOW-ATOMIC-SECOND',
+}
+const workflowAtomicFirstOrder = ensureProcessWorkOrdersForFormalProductionOrder(workflowAtomicFirst)
+ensureProcessWorkOrdersForFormalProductionOrder(workflowAtomicSecond)
+let invalidBatchPersistCount = 0
+const invalidBatchExecution = executeProductionChange(executionPreview, {
+  processWorkOrderSnapshots: [
+    { ...workflowAtomicFirst, plannedQty: 160 },
+    { ...workflowAtomicSecond, materialId: '' },
+  ],
+  changeRecordId: 'BG-WORKFLOW-ATOMIC-INVALID',
+  persist: (result) => {
+    invalidBatchPersistCount += 1
+    return result
+  },
+})
+assert.equal(invalidBatchExecution.status, 'ROLLED_BACK', '任一加工快照准备失败必须整批回滚')
+assert.equal(invalidBatchPersistCount, 0, '加工快照批量准备失败时不得调用生产变更 persist')
+assert.equal(getDyeWorkOrderById(workflowAtomicFirstOrder.dyeWorkOrderId!)?.plannedQty, 100, '第二条准备失败不得改写第一张加工单')
+
 const noSyncBefore = getDyeWorkOrderById(workflowSyncOrder.dyeWorkOrderId!)!
 executeProductionChange(executionPreview, {
   shouldFail: true,
@@ -306,6 +334,15 @@ executeProductionChange(executionPreview, {
   persist: () => ({ ...successfulExecution, status: 'ROLLED_BACK' }),
 })
 assert.equal(getDyeWorkOrderById(workflowSyncOrder.dyeWorkOrderId!)?.plannedQty, noSyncBefore.plannedQty, '持久化返回回滚不得同步加工单')
+const persistenceThrowExecution = executeProductionChange(executionPreview, {
+  processWorkOrderSnapshots: [{ ...workflowChangedSnapshot, plannedQty: 150 }],
+  changeRecordId: 'BG-WORKFLOW-SYNC-PERSIST-THROW',
+  persist: () => {
+    throw new Error('模拟生产变更持久化异常')
+  },
+})
+assert.equal(persistenceThrowExecution.status, 'ROLLED_BACK', '持久化抛错必须返回回滚结果')
+assert.equal(getDyeWorkOrderById(workflowSyncOrder.dyeWorkOrderId!)?.plannedQty, noSyncBefore.plannedQty, '持久化抛错不得提交已准备的加工单批次')
 
 ;[
   [
@@ -1393,9 +1430,95 @@ const executeProductionChangeForForm = requireFunction<(
   step: typeof state.productionChangeFormStep
   error: string
 }>(eventExports, 'executeProductionChangeForForm')
+const buildPostChangeProcessWorkOrderSnapshotsForForm = requireFunction<(
+  form: typeof state.productionChangeForm,
+  preview: ProductionChangePreview,
+) => FormalProductionOrderProcessSnapshot[]>(eventExports, 'buildPostChangeProcessWorkOrderSnapshotsForForm')
 const handleProductionEvent = requireFunction<(target: HTMLElement) => boolean>(
   eventExports,
   'handleProductionEvent',
+)
+
+const uiQuantitySnapshot: FormalProductionOrderProcessSnapshot = {
+  ...workflowSyncSnapshot,
+  productionOrderId: 'PO-CHANGE-UI-QUANTITY',
+  productionOrderNo: 'PO-CHANGE-UI-QUANTITY',
+  plannedQty: 100,
+}
+const uiQuantityOrder = ensureProcessWorkOrdersForFormalProductionOrder(uiQuantitySnapshot)
+const uiQuantityForm = createProductionChangeForm()
+Object.assign(uiQuantityForm, {
+  recordId: 'BG-UI-QUANTITY-001',
+  productionOrderId: uiQuantitySnapshot.productionOrderId,
+  changeType: 'QUANTITY_CHANGE',
+  quantityLines: [{
+    id: 'UI-QTY-1', skuCode: 'SKU-UI', color: '蓝色', size: 'M', currentQty: 100, targetQty: 125,
+    isNew: false, coveredByCurrentVersion: true,
+  }],
+})
+const uiQuantityChangedSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(uiQuantityForm, {
+  ...executionPreview,
+  affectedOrderIds: [uiQuantitySnapshot.productionOrderId],
+})
+assert.equal(uiQuantityChangedSnapshots[0]?.plannedQty, 125, 'events 数量变更快照必须从当前加工单事实按确认数量更新计划数量')
+assert.equal(uiQuantityChangedSnapshots[0]?.productionOrderNo, uiQuantitySnapshot.productionOrderNo, 'events 快照必须保留正式生产单号')
+assert.equal(getDyeWorkOrderById(uiQuantityOrder.dyeWorkOrderId!)?.plannedQty, 100, 'events helper 只构造候选快照，不得提前写加工单')
+const uiQuantityIdentityBefore = getDyeWorkOrderById(uiQuantityOrder.dyeWorkOrderId!)!
+const uiQuantityExecution = executeProductionChange(executionPreview, {
+  processWorkOrderSnapshots: uiQuantityChangedSnapshots,
+  changeRecordId: uiQuantityForm.recordId,
+  processWorkOrderSyncRecordedAt: '2026-07-16 12:10:00',
+  persist: (result) => result,
+})
+assert.equal(uiQuantityExecution.status, 'DONE', 'events 同款 options 必须可提交数量变更加工快照')
+assert.deepEqual(
+  [getDyeWorkOrderById(uiQuantityOrder.dyeWorkOrderId!)?.dyeOrderId, getDyeWorkOrderById(uiQuantityOrder.dyeWorkOrderId!)?.dyeOrderNo],
+  [uiQuantityIdentityBefore.dyeOrderId, uiQuantityIdentityBefore.dyeOrderNo],
+  '数量变更同步后加工单 ID 和单号必须保持不变',
+)
+assert.equal(getDyeWorkOrderById(uiQuantityOrder.dyeWorkOrderId!)?.plannedQty, 125, '数量变更必须真实更新加工单计划数量')
+
+const uiMaterialArchive = listMaterialArchives('fabric').find((material) => material.materialId !== uiQuantitySnapshot.materialId)
+assert(uiMaterialArchive, '缺少可用于 UI 物料变更快照检查的面料档案')
+const uiMaterialForm = createProductionChangeForm()
+Object.assign(uiMaterialForm, {
+  recordId: 'BG-UI-MATERIAL-001',
+  productionOrderId: uiQuantitySnapshot.productionOrderId,
+  changeType: 'MATERIAL_REPLACEMENT',
+  materialReplacement: {
+    ...uiMaterialForm.materialReplacement,
+    originalMaterialId: uiQuantitySnapshot.materialId,
+    replacementMaterialId: uiMaterialArchive.materialId,
+    replacementMode: 'FULL',
+    confirmedProductionQty: 125,
+  },
+})
+const uiMaterialChangedSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(uiMaterialForm, {
+  ...executionPreview,
+  affectedOrderIds: [uiQuantitySnapshot.productionOrderId],
+})
+assert.deepEqual(
+  [uiMaterialChangedSnapshots[0]?.materialId, uiMaterialChangedSnapshots[0]?.materialName],
+  [uiMaterialArchive.materialId, uiMaterialArchive.materialName],
+  'events 物料变更快照必须使用已确认的真实物料档案 ID 和名称',
+)
+const uiMaterialIdentityBefore = getDyeWorkOrderById(uiQuantityOrder.dyeWorkOrderId!)!
+const uiMaterialExecution = executeProductionChange(executionPreview, {
+  processWorkOrderSnapshots: uiMaterialChangedSnapshots,
+  changeRecordId: uiMaterialForm.recordId,
+  processWorkOrderSyncRecordedAt: '2026-07-16 12:11:00',
+  persist: (result) => result,
+})
+assert.equal(uiMaterialExecution.status, 'DONE', 'events 同款 options 必须可提交物料变更加工快照')
+assert.deepEqual(
+  [getDyeWorkOrderById(uiQuantityOrder.dyeWorkOrderId!)?.dyeOrderId, getDyeWorkOrderById(uiQuantityOrder.dyeWorkOrderId!)?.dyeOrderNo],
+  [uiMaterialIdentityBefore.dyeOrderId, uiMaterialIdentityBefore.dyeOrderNo],
+  '物料变更同步后加工单 ID 和单号必须保持不变',
+)
+assert.deepEqual(
+  [getDyeWorkOrderById(uiQuantityOrder.dyeWorkOrderId!)?.materialId, getDyeWorkOrderById(uiQuantityOrder.dyeWorkOrderId!)?.composition],
+  [uiMaterialArchive.materialId, uiMaterialArchive.materialName],
+  '物料变更必须真实更新加工单物料事实',
 )
 
 const initializedQuantityForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')

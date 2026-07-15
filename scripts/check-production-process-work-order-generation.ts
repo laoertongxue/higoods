@@ -31,6 +31,7 @@ import {
 import {
   buildFormalProductionOrderProcessSnapshots,
   ensureProcessWorkOrdersForFormalProductionOrder,
+  prepareSyncProcessWorkOrdersAfterProductionOrderChanges,
   syncProcessWorkOrdersAfterProductionOrderChange,
   type FormalProductionOrderProcessSnapshot,
 } from '../src/data/fcs/production-process-work-order-service.ts'
@@ -796,6 +797,42 @@ assert.throws(() => syncProcessWorkOrdersAfterProductionOrderChange({
 }, { changeRecordId: 'BG-SYNC-INVALID-ATOMIC' }), /BOM 面料快照/, '染色+印花同步必须在任一写入前完整校验快照')
 assert.deepEqual(getDyeWorkOrderById(syncCreated.dyeWorkOrderId!), atomicDyeBefore, '无效快照不得留下染色半同步')
 assert.deepEqual(getPrintWorkOrderById(syncCreated.printWorkOrderId!), atomicPrintBefore, '无效快照不得留下印花半同步')
+
+const batchFirst: FormalProductionOrderProcessSnapshot = {
+  ...dyeOnly,
+  productionOrderId: 'PO-AUTO-SYNC-BATCH-FIRST',
+  productionOrderNo: 'PO-AUTO-SYNC-BATCH-FIRST',
+  plannedQty: 50,
+}
+const batchSecond: FormalProductionOrderProcessSnapshot = {
+  ...dyeOnly,
+  productionOrderId: 'PO-AUTO-SYNC-BATCH-SECOND',
+  productionOrderNo: 'PO-AUTO-SYNC-BATCH-SECOND',
+  plannedQty: 60,
+}
+const batchFirstOrder = ensureProcessWorkOrdersForFormalProductionOrder(batchFirst)
+const batchSecondOrder = ensureProcessWorkOrdersForFormalProductionOrder(batchSecond)
+const batchFirstBefore = getDyeWorkOrderById(batchFirstOrder.dyeWorkOrderId!)!
+assert.throws(
+  () => prepareSyncProcessWorkOrdersAfterProductionOrderChanges([
+    { ...batchFirst, plannedQty: 75 },
+    { ...batchSecond, materialId: '' },
+  ], { changeRecordId: 'BG-SYNC-BATCH-INVALID' }),
+  /BOM 面料快照/,
+  '批量准备必须先校验全部快照，第二条失败时不得留下第一条候选写入',
+)
+assert.deepEqual(getDyeWorkOrderById(batchFirstOrder.dyeWorkOrderId!), batchFirstBefore, '批量准备失败不得改写第一张加工单')
+
+const preparedBatch = prepareSyncProcessWorkOrdersAfterProductionOrderChanges([
+  { ...batchFirst, plannedQty: 75 },
+  { ...batchSecond, plannedQty: 85 },
+], { changeRecordId: 'BG-SYNC-BATCH-SUCCESS', recordedAt: '2026-07-16 10:45:00' })
+assert.equal(getDyeWorkOrderById(batchFirstOrder.dyeWorkOrderId!)?.plannedQty, 50, '批量 prepare 阶段不得提前写第一张加工单')
+assert.equal(getDyeWorkOrderById(batchSecondOrder.dyeWorkOrderId!)?.plannedQty, 60, '批量 prepare 阶段不得提前写第二张加工单')
+assert.doesNotThrow(() => preparedBatch.commit(), '已完成业务校验的批量 commit 必须是不可失败的纯内存提交')
+assert.equal(getDyeWorkOrderById(batchFirstOrder.dyeWorkOrderId!)?.plannedQty, 75, '批量 commit 必须同步第一张加工单')
+assert.equal(getDyeWorkOrderById(batchSecondOrder.dyeWorkOrderId!)?.plannedQty, 85, '批量 commit 必须同步第二张加工单')
+assert.doesNotThrow(() => preparedBatch.commit(), '重复 commit 必须幂等且不可抛出')
 
 function assertGeneratedOrder(
   orderId: string,

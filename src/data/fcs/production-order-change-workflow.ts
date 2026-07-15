@@ -8,8 +8,7 @@ import {
 import { productionOrders, type ProductionOrderStatus } from './production-orders.ts'
 import {
   buildFormalProductionOrderProcessSnapshots,
-  syncProcessWorkOrdersAfterProductionOrderChange,
-  validateFormalProductionOrderProcessSnapshot,
+  prepareSyncProcessWorkOrdersAfterProductionOrderChanges,
   type FormalProductionOrderProcessSnapshot,
 } from './production-process-work-order-service.ts'
 
@@ -682,6 +681,7 @@ export function executeProductionChange(
   }
   lockObjectIds.forEach((objectId) => activeProductionChangeLocks.add(objectId))
   let persistenceStarted = false
+  let persistedDoneResult: ProductionChangeExecutionResult | null = null
 
   try {
     const currentFingerprint = createProductionChangeScopeFingerprint(
@@ -726,24 +726,35 @@ export function executeProductionChange(
       options.onStep?.(step, result)
       options.onProgress?.(result.progress, result)
     })
+    const preparedWorkOrderBatch = failed
+      ? null
+      : (() => {
+          try {
+            const snapshots = typeof options.processWorkOrderSnapshots === 'function'
+              ? options.processWorkOrderSnapshots()
+              : options.processWorkOrderSnapshots ?? preview.affectedOrderIds.flatMap((productionOrderId) => {
+                  const order = productionOrders.find((item) => item.productionOrderId === productionOrderId)
+                  return order ? buildFormalProductionOrderProcessSnapshots(order) : []
+                })
+            return prepareSyncProcessWorkOrdersAfterProductionOrderChanges(snapshots, {
+              changeRecordId: options.changeRecordId || `PRODUCTION-CHANGE:${preview.factsFingerprint}`,
+              recordedAt: options.processWorkOrderSyncRecordedAt,
+            })
+          } catch {
+            return null
+          }
+        })()
+    if (!failed && !preparedWorkOrderBatch) {
+      return createProductionChangeRolledBackResult(preview, lockObjectIds)
+    }
     persistenceStarted = true
     const persistedResult = options.persist?.(result) ?? result
     if (persistedResult.status !== 'DONE') return persistedResult
-    const snapshots = typeof options.processWorkOrderSnapshots === 'function'
-      ? options.processWorkOrderSnapshots()
-      : options.processWorkOrderSnapshots ?? preview.affectedOrderIds.flatMap((productionOrderId) => {
-          const order = productionOrders.find((item) => item.productionOrderId === productionOrderId)
-          return order ? buildFormalProductionOrderProcessSnapshots(order) : []
-        })
-    snapshots.forEach(validateFormalProductionOrderProcessSnapshot)
-    snapshots.forEach((snapshot) => {
-      syncProcessWorkOrdersAfterProductionOrderChange(snapshot, {
-        changeRecordId: options.changeRecordId || `PRODUCTION-CHANGE:${preview.factsFingerprint}`,
-        recordedAt: options.processWorkOrderSyncRecordedAt,
-      })
-    })
+    persistedDoneResult = persistedResult
+    preparedWorkOrderBatch?.commit()
     return persistedResult
   } catch {
+    if (persistedDoneResult) return persistedDoneResult
     const rolledBackResult = createProductionChangeRolledBackResult(preview, lockObjectIds)
     if (!persistenceStarted) {
       persistenceStarted = true

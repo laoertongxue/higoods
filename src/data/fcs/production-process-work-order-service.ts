@@ -33,6 +33,11 @@ export interface ProductionOrderChangeWorkOrderSyncResult {
   unchanged: string[]
 }
 
+export interface PreparedProductionOrderChangeWorkOrderSyncBatch {
+  result: ProductionOrderChangeWorkOrderSyncResult
+  commit: () => void
+}
+
 function findExistingWorkOrderId(
   productionOrderId: string,
   processType: Extract<ProcessWorkOrderType, 'DYE' | 'PRINT'>,
@@ -222,50 +227,76 @@ export function syncProcessWorkOrdersAfterProductionOrderChange(
   snapshot: FormalProductionOrderProcessSnapshot,
   options: ProductionOrderChangeWorkOrderSyncOptions = {},
 ): ProductionOrderChangeWorkOrderSyncResult {
-  validateFormalProductionOrderProcessSnapshot(snapshot)
-  const changeRecordId = options.changeRecordId?.trim() || createDefaultChangeRecordId(snapshot)
+  const prepared = prepareSyncProcessWorkOrdersAfterProductionOrderChanges([snapshot], options)
+  prepared.commit()
+  return prepared.result
+}
+
+export function prepareSyncProcessWorkOrdersAfterProductionOrderChanges(
+  snapshots: FormalProductionOrderProcessSnapshot[],
+  options: ProductionOrderChangeWorkOrderSyncOptions = {},
+): PreparedProductionOrderChangeWorkOrderSyncBatch {
+  snapshots.forEach(validateFormalProductionOrderProcessSnapshot)
+  const snapshotKeys = snapshots.flatMap((snapshot) => (
+    [...new Set(snapshot.processCodes)].map((processCode) => `${snapshot.productionOrderId}:${processCode}`)
+  ))
+  if (new Set(snapshotKeys).size !== snapshotKeys.length) {
+    throw new Error('同一生产单的同一加工工艺不能重复同步')
+  }
+  const batchRecordId = options.changeRecordId?.trim()
   const recordedAt = options.recordedAt?.trim() || new globalThis.Date().toISOString()
   const preparations: Array<{ commit: () => void }> = []
   const result: ProductionOrderChangeWorkOrderSyncResult = { autoSynced: [], protected: [], unchanged: [] }
-  const processCodes = new Set(snapshot.processCodes)
 
-  if (processCodes.has('DYE')) {
-    const prepared = prepareFormalProductionOrderDyeWorkOrderSync(snapshot, { changeRecordId, recordedAt })
-    preparations.push(prepared)
-    if (prepared.workOrderId && prepared.outcome === 'AUTO_SYNCED') result.autoSynced.push(prepared.workOrderId)
-    if (prepared.workOrderId && prepared.outcome === 'PROTECTED') result.protected.push(prepared.workOrderId)
-    if (prepared.workOrderId && prepared.outcome === 'UNCHANGED') result.unchanged.push(prepared.workOrderId)
-    if (
-      prepared.outcome === 'PROTECTED'
-      && prepared.protectedCombinedMembership
-      && prepared.before
-      && prepared.after
-      && prepared.impact
-      && prepared.workOrderId
-    ) {
-      preparations.push(prepareCombinedDyeingProductionChangeImpact(
-        prepared.protectedCombinedMembership.taskId,
-        {
-          changeRecordId,
-          dyeWorkOrderId: prepared.workOrderId,
-          before: prepared.before,
-          after: prepared.after,
-          reason: '已加入合并染色',
-          recordedAt,
-          suggestedAction: prepared.impact.suggestedAction,
-        },
-      ))
+  snapshots.forEach((snapshot) => {
+    const changeRecordId = batchRecordId || createDefaultChangeRecordId(snapshot)
+    const processCodes = new Set(snapshot.processCodes)
+
+    if (processCodes.has('DYE')) {
+      const prepared = prepareFormalProductionOrderDyeWorkOrderSync(snapshot, { changeRecordId, recordedAt })
+      preparations.push(prepared)
+      if (prepared.workOrderId && prepared.outcome === 'AUTO_SYNCED') result.autoSynced.push(prepared.workOrderId)
+      if (prepared.workOrderId && prepared.outcome === 'PROTECTED') result.protected.push(prepared.workOrderId)
+      if (prepared.workOrderId && prepared.outcome === 'UNCHANGED') result.unchanged.push(prepared.workOrderId)
+      if (
+        prepared.outcome === 'PROTECTED'
+        && prepared.protectedCombinedMembership
+        && prepared.before
+        && prepared.after
+        && prepared.impact
+        && prepared.workOrderId
+      ) {
+        preparations.push(prepareCombinedDyeingProductionChangeImpact(
+          prepared.protectedCombinedMembership.taskId,
+          {
+            changeRecordId,
+            dyeWorkOrderId: prepared.workOrderId,
+            before: prepared.before,
+            after: prepared.after,
+            reason: '已加入合并染色',
+            recordedAt,
+            suggestedAction: prepared.impact.suggestedAction,
+          },
+        ))
+      }
     }
-  }
 
-  if (processCodes.has('PRINT')) {
-    const prepared = prepareFormalProductionOrderPrintWorkOrderSync(snapshot, { changeRecordId, recordedAt })
-    preparations.push(prepared)
-    if (prepared.workOrderId && prepared.outcome === 'AUTO_SYNCED') result.autoSynced.push(prepared.workOrderId)
-    if (prepared.workOrderId && prepared.outcome === 'PROTECTED') result.protected.push(prepared.workOrderId)
-    if (prepared.workOrderId && prepared.outcome === 'UNCHANGED') result.unchanged.push(prepared.workOrderId)
-  }
+    if (processCodes.has('PRINT')) {
+      const prepared = prepareFormalProductionOrderPrintWorkOrderSync(snapshot, { changeRecordId, recordedAt })
+      preparations.push(prepared)
+      if (prepared.workOrderId && prepared.outcome === 'AUTO_SYNCED') result.autoSynced.push(prepared.workOrderId)
+      if (prepared.workOrderId && prepared.outcome === 'PROTECTED') result.protected.push(prepared.workOrderId)
+      if (prepared.workOrderId && prepared.outcome === 'UNCHANGED') result.unchanged.push(prepared.workOrderId)
+    }
+  })
 
-  preparations.forEach((prepared) => prepared.commit())
-  return result
+  let committed = false
+  return {
+    result,
+    commit: () => {
+      if (committed) return
+      preparations.forEach((prepared) => prepared.commit())
+      committed = true
+    },
+  }
 }

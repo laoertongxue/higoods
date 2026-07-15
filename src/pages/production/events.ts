@@ -45,6 +45,11 @@ import {
   setMaterialDraftLineConfirmedQty,
 } from './context'
 import { getDemandCurrentTechPackInfo } from '../../data/fcs/production-tech-pack-snapshot-builder.ts'
+import { getMaterialArchiveById } from '../../data/pcs-material-archive-repository.ts'
+import {
+  listProcessWorkOrders,
+  type FormalProductionOrderProcessSnapshot,
+} from '../../data/fcs/process-work-order-domain.ts'
 import {
   openDemandBatchGenerate,
   openDemandMergeGenerate,
@@ -626,6 +631,64 @@ function moveProductionChangeFormToStep(targetStep: ProductionChangeFormStep): v
   }
 }
 
+function roundProcessPlannedQty(value: number): number {
+  return Math.round(value * 1_000_000) / 1_000_000
+}
+
+export function buildPostChangeProcessWorkOrderSnapshotsForForm(
+  form: ProductionChangeForm,
+  preview: ReturnType<typeof buildProductionChangePreviewForForm>,
+): FormalProductionOrderProcessSnapshot[] {
+  const affectedOrderIds = new Set(preview.affectedOrderIds)
+  const currentTotal = form.quantityLines.reduce((sum, line) => sum + line.currentQty, 0)
+  const targetTotal = form.quantityLines.reduce((sum, line) => sum + line.targetQty, 0)
+  const quantityRatio = currentTotal > 0 ? targetTotal / currentTotal : 1
+  const replacementMaterial = form.changeType === 'MATERIAL_REPLACEMENT'
+    ? getMaterialArchiveById(form.materialReplacement.replacementMaterialId)
+    : null
+  if (form.changeType === 'MATERIAL_REPLACEMENT' && !replacementMaterial) {
+    throw new Error('请选择系统中的新面料')
+  }
+
+  return (['DYE', 'PRINT'] as const).flatMap((processType) => (
+    listProcessWorkOrders(processType)
+      .filter((workOrder) => (
+        workOrder.sourceType === 'PRODUCTION_ORDER'
+        && Boolean(workOrder.sourceProductionOrderId)
+        && affectedOrderIds.has(workOrder.sourceProductionOrderId!)
+        && Boolean(workOrder.formalProductionOrderSnapshot)
+      ))
+      .map((workOrder) => {
+        const current = workOrder.formalProductionOrderSnapshot!
+        const isCurrentProductionOrder = workOrder.sourceProductionOrderId === form.productionOrderId
+        const plannedQty = form.changeType === 'QUANTITY_CHANGE' && isCurrentProductionOrder
+          ? roundProcessPlannedQty(current.plannedQty * quantityRatio)
+          : current.plannedQty
+        return {
+          productionOrderId: current.productionOrderId,
+          productionOrderNo: current.productionOrderNo,
+          orderedAt: current.orderedAt,
+          techPackVersionId: current.techPackVersionId,
+          techPackVersionLabel: current.techPackVersionLabel,
+          materialId: replacementMaterial?.materialId ?? current.materialId,
+          materialName: replacementMaterial?.materialName ?? current.materialName,
+          targetColor: current.targetColor,
+          plannedQty,
+          qtyUnit: current.qtyUnit,
+          processCodes: [processType],
+          dyeProcessName: processType === 'DYE' ? current.processName : undefined,
+          printProcessName: processType === 'PRINT' ? current.processName : undefined,
+          requiresWaterSoluble: current.requiresWaterSoluble,
+          factoryId: workOrder.factoryId,
+          factoryName: workOrder.factoryName,
+          spuCode: current.spuCode,
+          spuName: current.spuName,
+          requiredDeliveryDate: current.requiredDeliveryDate,
+        }
+      })
+  ))
+}
+
 export function executeProductionChangeForForm(
   form: ProductionChangeForm,
   options: {
@@ -674,6 +737,7 @@ export function executeProductionChangeForForm(
       decisionValues: structuredClone(form.decisionValues),
       affectedDocumentNos: listAffectedDocumentNosForOrder(form.productionOrderId),
     }
+    const processWorkOrderSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(form, preview)
     const factsBeforeExecution = listProductionOrderChangeCurrentFacts()
     const affectedOrderIdSet = new Set(preview.affectedOrderIds)
     const recordBeforeExecution = existingRecord ? structuredClone(existingRecord) : null
@@ -748,6 +812,9 @@ export function executeProductionChangeForForm(
       form.execution = execute(preview, {
         shouldFail: options.shouldFail,
         persist: persistExecutionResult,
+        processWorkOrderSnapshots,
+        changeRecordId: form.recordId,
+        processWorkOrderSyncRecordedAt: executedAt,
       })
     } catch {
       form.execution = createProductionChangeRolledBackResult(preview)
