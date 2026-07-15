@@ -191,7 +191,7 @@ import {
 } from '../pages/process-factory/cutting/warehouse-hub'
 import { handleCraftCuttingPickupManagementEvent } from '../pages/process-factory/cutting/pickup-management'
 import { handleCraftCuttingHandoverOrdersEvent } from '../pages/process-factory/cutting/handover-orders'
-import { handleCraftDyeingEvent } from '../pages/process-factory/dyeing/events'
+import { handleCraftCombinedDyeingEvent, handleCraftDyeingEvent } from '../pages/process-factory/dyeing/events'
 import {
   closeCraftDyeingWaterSolubleOverlay,
   handleCraftDyeingWaterSolubleOrdersEvent,
@@ -236,6 +236,9 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   }
   if (pathname.startsWith('/fcs/craft/dyeing/water-soluble-orders')) {
     return handleCraftDyeingWaterSolubleOrdersEvent(target)
+  }
+  if (pathname.startsWith('/fcs/craft/dyeing/combined-dyeing')) {
+    return handleCraftCombinedDyeingEvent(target, event)
   }
   if (pathname.startsWith('/fcs/dispatch/acceptance-sla')) {
     return handleDispatchAcceptanceSlaEvent(target)

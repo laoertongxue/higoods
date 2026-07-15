@@ -14,6 +14,11 @@ import {
   handleProcessWebStatusActionDialogEvent,
   openProcessWebStatusActionDialog,
 } from '../shared/web-status-action-dialog.ts'
+import { handleCraftCombinedDyeingEvent as handleCombinedDyeingWorkspaceEvent } from './combined-dyeing.ts'
+
+export function handleCraftCombinedDyeingEvent(target: HTMLElement, event?: Event): boolean {
+  return handleCombinedDyeingWorkspaceEvent(target, event)
+}
 
 function showDyeingToast(message: string): void {
   if (typeof document === 'undefined' || typeof window === 'undefined') return

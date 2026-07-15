@@ -25,6 +25,59 @@ import {
 } from '../src/data/fcs/dyeing-task-domain.ts'
 import { listProcessWorkOrderStockMaterials } from '../src/data/fcs/process-work-order-stock.ts'
 
+function readWorkspaceFile(path: string): string {
+  return readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
+}
+
+function assertIncludes(source: string, expected: string, message: string): void {
+  assert(source.includes(expected), message)
+}
+
+function checkCombinedDyeingWorkspaceWiring(): void {
+  const menu = readWorkspaceFile('src/data/app-shell-config.ts')
+  const routes = readWorkspaceFile('src/router/routes-fcs.ts')
+  const renderers = readWorkspaceFile('src/router/route-renderers-fcs.ts')
+  const handlers = readWorkspaceFile('src/main-handlers/fcs-handlers.ts')
+  const events = readWorkspaceFile('src/pages/process-factory/dyeing/events.ts')
+  const page = readWorkspaceFile('src/pages/process-factory/dyeing/combined-dyeing.ts')
+
+  const workOrderMenuIndex = menu.indexOf("title: '染色加工单'")
+  const combinedMenuIndex = menu.indexOf("title: '合并染色'", workOrderMenuIndex)
+  const waterSolubleMenuIndex = menu.indexOf("title: '水溶加工单'", workOrderMenuIndex)
+  assert(workOrderMenuIndex >= 0 && combinedMenuIndex > workOrderMenuIndex && combinedMenuIndex < waterSolubleMenuIndex, '合并染色菜单必须紧跟染色加工单')
+  assertIncludes(menu, "href: '/fcs/craft/dyeing/combined-dyeing'", '合并染色菜单必须指向独立路由')
+  assertIncludes(routes, "'/fcs/craft/dyeing/combined-dyeing'", 'FCS 路由必须注册合并染色页面')
+  assertIncludes(routes, 'renderCraftCombinedDyeingPage', 'FCS 路由必须调用合并染色 renderer')
+  assertIncludes(renderers, "import('../pages/process-factory/dyeing/combined-dyeing')", '必须异步加载合并染色页面')
+  assertIncludes(handlers, "pathname.startsWith('/fcs/craft/dyeing/combined-dyeing')", 'FCS handler 必须优先分派合并染色事件')
+  assertIncludes(events, 'handleCraftCombinedDyeingEvent', '染色事件入口必须导出合并染色局部事件处理器')
+
+  assertIncludes(page, '// @page-pattern: list', '合并染色必须声明标准列表页模式')
+  assertIncludes(page, 'renderStandardListPage', '合并染色必须复用标准列表页骨架')
+  assertIncludes(page, 'renderStandardListTable', '合并染色必须复用标准列表表格')
+  assertIncludes(page, 'renderTablePagination', '合并染色列表必须使用统一分页')
+  assertIncludes(page, 'pageSize: 10', '合并染色列表默认每页 10 条')
+  for (const label of ['创建合并染色', '完成染色', '更正染色结果', '删除任务', '查看已删除任务']) {
+    assertIncludes(page, label, `合并染色页面缺少操作：${label}`)
+  }
+  for (const label of ['合并染色任务号', '染厂', '面料', '目标颜色', '染色工艺', '成员数', '需求合计', '实际产出', '状态', '创建时间', '完成时间']) {
+    assertIncludes(page, label, `合并染色列表缺少列：${label}`)
+  }
+  assertIncludes(page, '平台加工单号', '创建抽屉必须只读显示平台加工单号')
+  assert(!page.includes('name="workOrderNo"'), '创建抽屉不得允许输入或改写加工单号')
+  assertIncludes(page, 'data-combined-dyeing-root', '页面必须声明合并染色局部交互根节点')
+  assertIncludes(page, 'data-skip-page-rerender="true"', '局部交互按钮与输入必须跳过整页重绘')
+  assert(!page.includes('root.innerHTML'), '合并染色局部交互不得调用 root.innerHTML 整页重绘')
+  for (const action of ['sort-column', 'open-column-settings', 'toggle-column-visibility', 'toggle-column-freeze', 'restore-column-settings']) {
+    assertIncludes(page, action, `合并染色标准列表缺少局部列交互：${action}`)
+  }
+  assertIncludes(page, 'installCombinedDyeingColumnDragEvents', '合并染色列表必须在当前分支安装列拖拽排序事件')
+  assertIncludes(page, "addEventListener('dragstart'", '列顺序拖拽必须记录来源列')
+  assertIncludes(page, "addEventListener('drop'", '列顺序拖拽必须局部提交新顺序')
+  assertIncludes(page, 'function remainingNeedForCandidate', '尚无合并分配历史的候选必须回退加工单计划量，不得显示 0 需求')
+  assert(/return `<div data-combined-dyeing-id="\$\{escapeHtml\(task\.taskId\)\}">\$\{renderFormDialog\(/.test(page), '完成与更正弹窗必须由任务 ID 容器整体包裹，确保底部提交按钮能定位任务')
+}
+
 const memberA: CombinedDyeingMemberSnapshot = {
   dyeWorkOrderId: 'DYE-WO-A',
   dyeWorkOrderNo: '染色加工单-A',
@@ -397,6 +450,8 @@ function checkCombinedDyeingLifecycle(): void {
 }
 
 function main(): void {
+  checkCombinedDyeingWorkspaceWiring()
+
   const domainSource = readFileSync(new URL('../src/data/fcs/combined-dyeing-domain.ts', import.meta.url), 'utf8')
   assert(!domainSource.includes('Date.parse'), '合并染色排序不得重新引入环境相关 Date.parse')
   assert(!/\bnew\s+Date\s*\(/.test(domainSource), '合并染色排序不得重新引入环境相关 new Date')
