@@ -110,6 +110,77 @@ function settingRow(page: Page, columnKey: string): Locator {
   return page.locator(`[data-standard-list-column-key="${columnKey}"]`)
 }
 
+async function visibleBox(locator: Locator, label: string) {
+  await expect(locator, `${label}必须可见`).toBeVisible()
+  const box = await locator.boundingBox()
+  expect(box, `${label}必须有可测量的边界`).not.toBeNull()
+  return box!
+}
+
+async function rememberFilterRefreshBoundary(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const main = document.querySelector('main')
+    const stats = document.querySelector('[data-cutting-supplement-region="stats"]')
+    const pagination = document.querySelector('[data-cutting-supplement-region="pagination"]')
+    const overlay = document.querySelector('[data-cutting-supplement-region="overlay"]')
+    if (!main || !stats || !pagination || !overlay) throw new Error('缺少筛选刷新边界验收区域')
+    const acceptanceWindow = window as typeof window & {
+      __supplementFilterBoundary?: {
+        main: Element
+        statsMutations: number
+        paginationMutations: number
+        overlay: Element
+        overlayMutations: number
+      }
+    }
+    acceptanceWindow.__supplementFilterBoundary = {
+      main,
+      statsMutations: 0,
+      paginationMutations: 0,
+      overlay,
+      overlayMutations: 0,
+    }
+    new MutationObserver((records) => {
+      if (acceptanceWindow.__supplementFilterBoundary) {
+        acceptanceWindow.__supplementFilterBoundary.statsMutations += records.length
+      }
+    }).observe(stats, { childList: true, subtree: true })
+    new MutationObserver((records) => {
+      if (acceptanceWindow.__supplementFilterBoundary) {
+        acceptanceWindow.__supplementFilterBoundary.paginationMutations += records.length
+      }
+    }).observe(pagination, { childList: true, subtree: true })
+    new MutationObserver((records) => {
+      if (acceptanceWindow.__supplementFilterBoundary) {
+        acceptanceWindow.__supplementFilterBoundary.overlayMutations += records.length
+      }
+    }).observe(overlay, { attributes: true, childList: true, characterData: true, subtree: true })
+  })
+}
+
+async function filterRefreshBoundaryResult(page: Page) {
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
+  return page.evaluate(() => {
+    const state = (window as typeof window & {
+      __supplementFilterBoundary?: {
+        main: Element
+        statsMutations: number
+        paginationMutations: number
+        overlay: Element
+        overlayMutations: number
+      }
+    }).__supplementFilterBoundary
+    if (!state) throw new Error('缺少筛选刷新边界验收状态')
+    return {
+      mainSame: document.querySelector('main') === state.main,
+      statsMutations: state.statsMutations,
+      paginationMutations: state.paginationMutations,
+      overlaySame: document.querySelector('[data-cutting-supplement-region="overlay"]') === state.overlay,
+      overlayMutations: state.overlayMutations,
+    }
+  })
+}
+
 for (const viewport of [{ width: 1366, height: 768 }, { width: 1280, height: 720 }]) {
   test(`补料管理模板在 ${viewport.width}×${viewport.height} 无页面横向溢出`, async ({ page }) => {
     await page.setViewportSize(viewport)
@@ -143,21 +214,24 @@ test('默认分页、三态排序及临时状态刷新后回到默认', async ({
   await expect(page.getByText('1 / 2', { exact: true })).toBeVisible()
   const defaultFirstRecord = (await rows.first().locator('td').first().innerText()).trim()
 
-  const firstClickDuration = await page.evaluate(() => new Promise<number>((resolve, reject) => {
+  const firstClickDuration = await page.evaluate((targetRecordNo) => new Promise<number>((resolve, reject) => {
     const table = document.querySelector('[data-cutting-supplement-region="table"]')
     const next = document.querySelector<HTMLButtonElement>('[data-cutting-supplement-action="next-page"]')
     if (!table || !next) {
       reject(new Error('缺少首次翻页性能验收元素'))
       return
     }
-    const startedAt = performance.now()
-    const observer = new MutationObserver(() => {
-      observer.disconnect()
-      resolve(performance.now() - startedAt)
+    requestAnimationFrame(() => {
+      const startedAt = performance.now()
+      const observer = new MutationObserver(() => {
+        if (!table.textContent?.includes(targetRecordNo)) return
+        observer.disconnect()
+        resolve(performance.now() - startedAt)
+      })
+      observer.observe(table, { childList: true, subtree: true })
+      next.click()
     })
-    observer.observe(table, { childList: true, subtree: true })
-    next.click()
-  }))
+  }), 'SUP-030002-011')
   expect(firstClickDuration).toBeLessThan(200)
   console.log(`首次下一页实际 DOM 响应：${firstClickDuration.toFixed(1)}ms`)
   await expect(rows).toHaveCount(2)
@@ -187,6 +261,12 @@ test('默认分页、三态排序及临时状态刷新后回到默认', async ({
   await expect(quantityHeader).toHaveAttribute('aria-sort', 'none')
   await expect(rows.first().locator('td').first()).toContainText(defaultFirstRecord)
 
+  await quantitySort.click()
+  await expect(quantityHeader).toHaveAttribute('aria-sort', 'ascending')
+  await quantitySort.click()
+  await expect(quantityHeader).toHaveAttribute('aria-sort', 'descending')
+  expect(await quantities()).toEqual([...await quantities()].sort((a, b) => b - a))
+
   await page.getByRole('button', { name: '下一页' }).click()
   stability = await stableRegionResult(page)
   expect(stability.mainSame).toBe(true)
@@ -195,6 +275,45 @@ test('默认分页、三态排序及临时状态刷新后回到默认', async ({
   await page.reload()
   await expect(page.getByText('1 / 2', { exact: true })).toBeVisible()
   await expect(page.locator('th[data-column-key="supplementQty"]')).toHaveAttribute('aria-sort', 'none')
+})
+
+test('筛选与重置改变结果并回到第 1 页，且不刷新无关覆盖层', async ({ page }) => {
+  await openList(page)
+  const rows = page.locator('[data-standard-list-table-section] tbody tr')
+  await page.getByRole('button', { name: '下一页' }).click()
+  await expect(page.getByText('2 / 2', { exact: true })).toBeVisible()
+  const targetRecordNo = (await rows.first().locator('td').first().innerText()).trim()
+  const targetSourceType = (await rows.first().locator('td').nth(1).innerText()).includes('裁片单')
+    ? 'cut-order'
+    : 'production-order'
+
+  await rememberFilterRefreshBoundary(page)
+  await page.locator('[data-cutting-supplement-field="sourceType"]').selectOption(targetSourceType)
+  await page.locator('[data-cutting-supplement-field="keyword"]').fill(targetRecordNo)
+  await page.getByRole('button', { name: '筛选', exact: true }).click()
+  await expect(rows).toHaveCount(1)
+  await expect(rows.first().locator('td').first()).toContainText(targetRecordNo)
+  await expect(page.getByText('1 / 1', { exact: true })).toBeVisible()
+  await expect(page.locator('[data-standard-list-stats]').getByText('1', { exact: true }).first()).toBeVisible()
+  let boundary = await filterRefreshBoundaryResult(page)
+  expect(boundary.mainSame).toBe(true)
+  expect(boundary.statsMutations).toBeGreaterThan(0)
+  expect(boundary.paginationMutations).toBeGreaterThan(0)
+  expect(boundary.overlaySame).toBe(true)
+  expect(boundary.overlayMutations).toBe(0)
+
+  await rememberFilterRefreshBoundary(page)
+  await page.getByRole('button', { name: '重置', exact: true }).click()
+  await expect(rows).toHaveCount(10)
+  await expect(page.getByText('1 / 2', { exact: true })).toBeVisible()
+  await expect(page.locator('[data-cutting-supplement-field="sourceType"]')).toHaveValue('ALL')
+  await expect(page.locator('[data-cutting-supplement-field="keyword"]')).toHaveValue('')
+  boundary = await filterRefreshBoundaryResult(page)
+  expect(boundary.mainSame).toBe(true)
+  expect(boundary.statsMutations).toBeGreaterThan(0)
+  expect(boundary.paginationMutations).toBeGreaterThan(0)
+  expect(boundary.overlaySame).toBe(true)
+  expect(boundary.overlayMutations).toBe(0)
 })
 
 test('列显示、顺序、冻结和每页条数持久化，且列操作只刷新相关区域', async ({ page }) => {
@@ -258,20 +377,17 @@ test('冻结补料单号和固定操作列在表格横向滚动时坐标稳定',
   const scroll = page.locator('[data-standard-list-scroll]')
   const recordNo = page.locator('th[data-column-key="recordNo"]')
   const actions = page.locator('th[data-column-key="actions"]')
-  const before = {
-    left: (await recordNo.boundingBox())?.x,
-    right: (await actions.boundingBox())?.x,
-    width: (await actions.boundingBox())?.width,
-  }
+  const scrollBefore = await visibleBox(scroll, '表格横向滚动容器')
+  const recordNoBefore = await visibleBox(recordNo, '冻结补料单号表头')
+  const actionsBefore = await visibleBox(actions, '固定操作列表头')
+  expect(Math.abs(actionsBefore.x + actionsBefore.width - (scrollBefore.x + scrollBefore.width))).toBeLessThanOrEqual(1)
   await scroll.evaluate((element) => { element.scrollLeft = element.scrollWidth })
   await expect.poll(() => scroll.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0)
-  const after = {
-    left: (await recordNo.boundingBox())?.x,
-    right: (await actions.boundingBox())?.x,
-    width: (await actions.boundingBox())?.width,
-  }
-  expect(Math.abs((after.left ?? 0) - (before.left ?? 0))).toBeLessThanOrEqual(1)
-  expect(Math.abs(((after.right ?? 0) + (after.width ?? 0)) - ((before.right ?? 0) + (before.width ?? 0)))).toBeLessThanOrEqual(1)
+  const scrollAfter = await visibleBox(scroll, '滚动后的表格横向滚动容器')
+  const recordNoAfter = await visibleBox(recordNo, '滚动后的冻结补料单号表头')
+  const actionsAfter = await visibleBox(actions, '滚动后的固定操作列表头')
+  expect(Math.abs(recordNoAfter.x - recordNoBefore.x)).toBeLessThanOrEqual(1)
+  expect(Math.abs(actionsAfter.x + actionsAfter.width - (scrollAfter.x + scrollAfter.width))).toBeLessThanOrEqual(1)
 })
 
 test('恢复默认清除列偏好并保持 main 节点', async ({ page }) => {
