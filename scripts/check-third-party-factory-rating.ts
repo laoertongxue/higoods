@@ -666,7 +666,10 @@ for (const blockedSnapshot of blockedSnapshots) {
     by: '对抗式核查',
   })
   assert.equal(blockedStatementResult.ok, false, `${blockedSnapshot.factoryId} 不能绕过页面直接创建对账单`)
-  assert.ok(blockedStatementResult.message?.includes('已拉黑'), `${blockedSnapshot.factoryId} 直接建单应返回结算拦截提示`)
+  const blockedStatementPolicy = evaluateThirdPartyFactorySettlementPolicy(blockedSnapshot.factoryId)
+  assert.equal(blockedStatementPolicy.allowedToCreateNewStatement, false, `${blockedSnapshot.factoryId} 结算评估必须阻断新建`)
+  assert.equal(blockedStatementPolicy.historyReadable, true, `${blockedSnapshot.factoryId} 历史账本必须可查看`)
+  assert.equal(blockedStatementResult.message, blockedStatementPolicy.reason, `${blockedSnapshot.factoryId} 直接建单必须返回统一结算规则原因`)
 }
 
 const source = readRequiredSource(
@@ -773,9 +776,15 @@ assert.ok(!sewingDispatchSource.includes("cooperationStatusLabel === '黑名单'
 assert.ok(!sewingDispatchSource.includes("cooperationStatusLabel === '考核中'"), '车缝分配页面不应继续用合作状态硬编码考核中阻断')
 
 const statementsSource = readRequiredSource(new URL('../src/pages/statements.ts', import.meta.url), '缺少对账单页面文件')
-assert.ok(statementsSource.includes('isThirdPartyFactorySettlementBlocked'), '对账单页面未判断黑名单结算拦截')
-assert.ok(statementsSource.includes('该工厂已拉黑，不能发起结算。请主管处理历史账款。'), '对账单页面缺少黑名单结算提示')
+assert.ok(statementsSource.includes('evaluateThirdPartyFactorySettlementPolicy'), '对账单页面必须使用统一结算规则评估')
+assert.ok(statementsSource.includes('settlementPolicy.reason'), '对账单页面必须展示统一结算规则返回的阻断原因')
 assert.ok(statementsSource.includes('blacklistSettlementBlocked'), '对账单页面缺少黑名单结算阻断变量')
+
+const settlementSeedSource = readRequiredSource(
+  new URL('../src/data/fcs/store-domain-settlement-seeds.ts', import.meta.url),
+  '缺少对账单域数据文件',
+)
+assert.ok(settlementSeedSource.includes('evaluateThirdPartyFactorySettlementPolicy'), '对账单域函数必须使用统一结算规则评估')
 
 const routeRendererSource = readRequiredSource(
   new URL('../src/router/route-renderers-fcs.ts', import.meta.url),
