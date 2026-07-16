@@ -1,0 +1,91 @@
+import assert from 'node:assert/strict'
+import { listDyeWorkOrders } from '../src/data/fcs/dyeing-task-domain.ts'
+import {
+  advanceDyeWorkOrderOnlineStatus,
+  getDyeWorkOrderOnlineRecord,
+  isDyeWorkOrderHighRiskStatusChange,
+  listDyeWorkOrderOnlineLogs,
+  updateDyeWorkOrderFromPfos,
+} from '../src/data/fcs/dye-work-order-online-domain.ts'
+
+const order = listDyeWorkOrders().find((item) => getDyeWorkOrderOnlineRecord(item.dyeOrderId).status === '等待处理')
+assert(order, '至少需要一张等待处理的染色加工单')
+
+const initial = getDyeWorkOrderOnlineRecord(order.dyeOrderId)
+assert.equal(initial.status, '等待处理')
+
+advanceDyeWorkOrderOnlineStatus(order.dyeOrderId, {
+  action: '接单',
+  operatorName: '染厂操作员',
+  operatedAt: '2026-07-16 08:00:00',
+  source: 'PDA',
+})
+assert.equal(getDyeWorkOrderOnlineRecord(order.dyeOrderId).status, '等待处理')
+
+advanceDyeWorkOrderOnlineStatus(order.dyeOrderId, {
+  action: '开工',
+  operatorName: '染厂操作员',
+  operatedAt: '2026-07-16 08:10:00',
+  source: 'PDA',
+})
+assert.equal(getDyeWorkOrderOnlineRecord(order.dyeOrderId).status, '染色中')
+
+advanceDyeWorkOrderOnlineStatus(order.dyeOrderId, {
+  action: '完工',
+  operatorName: '染厂操作员',
+  operatedAt: '2026-07-16 12:00:00',
+  source: 'PDA',
+  completedQty: 80,
+  lossQty: 3,
+})
+const completed = getDyeWorkOrderOnlineRecord(order.dyeOrderId)
+assert.equal(completed.status, '染色完成')
+assert.equal(completed.completedQty, 80)
+assert.equal(completed.lossQty, 3)
+
+assert.equal(isDyeWorkOrderHighRiskStatusChange('染色完成', '等待处理'), true)
+updateDyeWorkOrderFromPfos(order.dyeOrderId, {
+  expectedVersion: completed.version,
+  operatorName: '染厂主管',
+  operatedAt: '2026-07-16 12:10:00',
+  status: '等待处理',
+  plannedFinishAt: '2026-07-20 18:00:00',
+  factoryId: order.dyeFactoryId,
+  factoryName: order.dyeFactoryName,
+  receiverName: order.receiverName,
+  shade: '深色',
+  temperature: 205,
+  rawMaterialQty: 83,
+  rawMaterialRollCount: 2,
+  completedQty: 80,
+  lossQty: 3,
+  remark: '主管回退复核',
+})
+assert.equal(getDyeWorkOrderOnlineRecord(order.dyeOrderId).status, '等待处理')
+assert.throws(
+  () => updateDyeWorkOrderFromPfos(order.dyeOrderId, {
+    expectedVersion: completed.version,
+    operatorName: '染厂主管',
+    operatedAt: '2026-07-16 12:11:00',
+    status: '取消',
+    plannedFinishAt: '2026-07-20 18:00:00',
+    factoryId: order.dyeFactoryId,
+    factoryName: order.dyeFactoryName,
+    receiverName: order.receiverName,
+    shade: '深色',
+    temperature: 205,
+    rawMaterialQty: 83,
+    rawMaterialRollCount: 2,
+    completedQty: 80,
+    lossQty: 3,
+    remark: '过期版本',
+  }),
+  /已被其他操作更新/,
+)
+
+const logs = listDyeWorkOrderOnlineLogs(order.dyeOrderId)
+assert(logs.some((log) => log.action === 'PFOS人工编辑'))
+assert(logs.some((log) => log.action === '开工'))
+assert(logs.every((log) => log.workOrderNo === order.dyeOrderNo))
+
+console.log('dye work order online alignment check passed')
