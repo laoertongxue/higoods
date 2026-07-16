@@ -1653,6 +1653,10 @@ function renderStatsFilter(params: URLSearchParams, month: string, activeTab: 'm
         ${renderPreparationMultiSelect({ label: '记录状态', field: 'recordStatus', selectedValues: valuesOf(params, 'recordStatus').filter((value) => value !== '全部'), options: options.recordStatuses.filter((value) => value !== '全部') })}
         ${renderPreparationMultiSelect({ label: '准备项', field: 'itemType', selectedValues: dependencyOptions.selectedItemTypes, options: preparationItemTypes, visibleOptions: dependencyOptions.visibleItemTypes })}
         ${renderPreparationMultiSelect({ label: '责任团队', field: 'ownerTeam', selectedValues: dependencyOptions.selectedOwnerTeams, options: options.ownerTeams, visibleOptions: dependencyOptions.visibleOwnerTeams })}
+        <label class="flex min-w-[240px] flex-col gap-1 text-sm">
+          <span class="text-muted-foreground">关键词</span>
+          <input name="keyword" value="${escapeHtml(valueOf(params, 'keyword'))}" placeholder="商品 / 生产单 / 准备项 / 跟单" class="h-9 rounded-md border bg-background px-3" />
+        </label>
         <button type="button" class="inline-flex h-9 shrink-0 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-prep-stats-filter-scope]" data-nav-base="${STATS_PAGE_PATH}">筛选</button>
         <button type="button" class="inline-flex h-9 shrink-0 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${STATS_PAGE_PATH}?tab=${escapeHtml(activeTab)}&month=${escapeHtml(DEFAULT_MONTH)}">重置</button>
       </div>
@@ -1872,7 +1876,6 @@ function getStatsViewData(params: URLSearchParams, month: string): {
   delete filter.startDate
   delete filter.endDate
   delete filter.itemProgresses
-  delete filter.keyword
   const details = getStatsDetails(month, filter)
   const stats = buildStatsRows(month, details)
   const monthKey = month.replace('-', '')

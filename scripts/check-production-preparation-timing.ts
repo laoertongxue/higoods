@@ -1227,6 +1227,13 @@ const marchStats = buildMonthlyPreparationStats('2026-03')
 assert.ok(Array.isArray(marchStats), 'buildMonthlyPreparationStats 必须返回数组')
 const marchDetails = buildMonthlyPreparationCompletionDetails('2026-03')
 assert.ok(Array.isArray(marchDetails), 'buildMonthlyPreparationCompletionDetails 必须返回数组')
+const mayaKeywordDetails = buildMonthlyPreparationCompletionDetails('2026-03', { keyword: 'Maya' })
+assert.ok(mayaKeywordDetails.length > 0, '统计关键词必须能命中已知跟单 Maya 的完成明细')
+assert.ok(mayaKeywordDetails.length < marchDetails.length, '统计关键词必须收窄月度完成明细')
+assert.ok(
+  mayaKeywordDetails.every((row: { merchandiserName: string }) => row.merchandiserName === 'Maya'),
+  '统计关键词 Maya 只能保留对应跟单记录',
+)
 const marchCompletedCount = marchStats.reduce(
   (sum: number, row: { completedCount: number }) => sum + row.completedCount,
   0,
@@ -2234,7 +2241,7 @@ const statsFilterHtml = statsHtml.slice(
 for (const removedFilter of ['买手', '责任人', '是否超时', '准备项进度', '花型师', '开始日期', '结束日期'] as const) {
   assert.ok(!statsFilterHtml.includes(removedFilter), `统计筛选不得出现「${removedFilter}」`)
 }
-const statsFilterOrder = ['月份', '跟单', '记录状态', '准备项', '责任团队', '筛选', '重置']
+const statsFilterOrder = ['月份', '跟单', '记录状态', '准备项', '责任团队', '关键词', '筛选', '重置']
 let statsFilterCursor = -1
 for (const label of statsFilterOrder) {
   const index = statsFilterHtml.indexOf(label, statsFilterCursor + 1)
@@ -2246,6 +2253,16 @@ const multiSelectStatsHtml = await renderStatsAt(
 )
 assertHtmlIncludes(multiSelectStatsHtml, '跟单（2）', '统计必须回显两个跟单选项')
 assert.ok(!multiSelectStatsHtml.includes('准备项进度'), '统计不得出现准备项进度筛选')
+const keywordStatsHtml = await renderStatsAt(
+  '/fcs/production/preparation-timing-statistics?tab=detail&month=2026-03&keyword=Maya',
+)
+assert.match(
+  keywordStatsHtml,
+  /name="keyword"[^>]*value="Maya"[^>]*placeholder="商品 \/ 生产单 \/ 准备项 \/ 跟单"/,
+  '统计筛选必须回显单值关键词控件',
+)
+assertHtmlIncludes(keywordStatsHtml, '共 1 条，第 1/1 页', '统计页面必须真实应用关键词收窄完成明细')
+assertHtmlIncludes(keywordStatsHtml, 'keyword=Maya', '统计页面链接必须传播合法关键词')
 assertHtmlIncludes(
   multiSelectStatsHtml,
   'merchandiserName=Maya&amp;merchandiserName=Raka',

@@ -170,6 +170,32 @@ test('月度统计支持准备项团队联动且不展示准备项进度', async
   expect(await candidateValues(itemType)).toEqual(['梭织基码纸样', '梭织齐码纸样'])
 })
 
+test('统计关键词筛选收窄完成明细并可重置清除', async ({ page }) => {
+  await page.goto(`${statisticsRoute}?tab=monthly&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-stats-filter-scope]')
+  const scope = page.locator('[data-prep-stats-filter-scope]')
+  const keyword = scope.locator('input[name="keyword"]')
+
+  await expect(keyword).toHaveAttribute('placeholder', '商品 / 生产单 / 准备项 / 跟单')
+  await keyword.fill('Maya')
+  await scope.getByRole('button', { name: '筛选', exact: true }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.get('keyword')).toBe('Maya')
+  await waitForStableFilterScope(page, '[data-prep-stats-filter-scope]')
+  await expect(page.getByText('本月完成准备项', { exact: true }).locator('..')).toContainText('1项')
+
+  const detailTab = page.getByRole('button', { name: '明细统计', exact: true })
+  await expect(detailTab).toHaveAttribute('data-nav', /keyword=Maya/)
+  await detailTab.click()
+  await expect.poll(() => new URL(page.url()).searchParams.get('keyword')).toBe('Maya')
+  await expect(page.getByText('共 1 条，第 1/1 页', { exact: true })).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'Maya', exact: true })).toBeVisible()
+
+  await page.locator('[data-prep-stats-filter-scope]').getByRole('button', { name: '重置', exact: true }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.has('keyword')).toBe(false)
+  await expect(page.locator('[data-prep-stats-filter-scope] input[name="keyword"]')).toHaveValue('')
+  await expect(page.getByText('共 19 条，第 1/3 页', { exact: true })).toBeVisible()
+})
+
 test('统计 tab 分页和月份明细链接只传播白名单并保留合法重复参数', async ({ page }) => {
   const legacyQuery = new URLSearchParams([
     ['tab', 'monthly'],
