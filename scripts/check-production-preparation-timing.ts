@@ -280,6 +280,7 @@ type EvidenceItem = {
   selectedByMerchandiser?: boolean
   actualFinishAt?: string
   accessoryPurchaseOrderNos?: string[]
+  accessoryPurchaseOrderedAts?: string[]
   accessoryPurchaseUpdatedAt?: string
   uploads?: Array<{ fileName?: string; uploadedAt?: string; uploadedBy?: string; fileDataUrl?: string }>
 }
@@ -315,6 +316,137 @@ function assertDependsOn(record: { recordNo: string; items: EvidenceItem[] }, it
     item.dependsOnItemIds.includes(dependency.itemId),
     `${record.recordNo} ${itemType} 必须依赖 ${dependencyType}`,
   )
+}
+
+const derivedRows = productionPreparationRecords.flatMap((record) =>
+  record.items
+    .filter((item) => item.selectedByMerchandiser !== false && item.status !== '无需')
+    .map((item) => ({
+      record,
+      item: item as EvidenceItem,
+      progress: derivePreparationItemProgress(item, record),
+    })),
+)
+const allMockItemRows = productionPreparationRecords.flatMap((record) =>
+  record.items.map((item) => ({ record, item: item as EvidenceItem })),
+)
+const dependencyEvidenceIsValid = (
+  record: (typeof productionPreparationRecords)[number],
+  item: EvidenceItem,
+): boolean => item.dependsOnItemIds.every((dependencyId) => {
+  const dependency = record.items.find((candidate) => candidate.itemId === dependencyId)
+  return Boolean(dependency && hasValidPreparationCompletionEvidence(dependency))
+})
+const unconfirmedDerivedRows = derivedRows.filter(
+  ({ record }) => !(record.workItemsConfirmedBy && record.workItemsConfirmedAt),
+)
+const processStatuses = ['进行中', '待确认', '已超时'] as const
+const processStatusCoverage = new Set(
+  derivedRows
+    .filter(({ record, item, progress }) =>
+      processStatuses.includes(item.status as typeof processStatuses[number]) &&
+      dependencyEvidenceIsValid(record, item) &&
+      !hasValidPreparationCompletionEvidence(item) &&
+      !item.uploads?.length &&
+      progress === '未开始')
+    .map(({ item }) => item.status),
+)
+const multiOrderAccessoryRow = derivedRows.find(({ item, progress }) =>
+  item.itemType === '辅料下单' &&
+  progress === '已完成' &&
+  (item.accessoryPurchaseOrderNos?.length ?? 0) >= 2 &&
+  item.accessoryPurchaseOrderedAts?.length === item.accessoryPurchaseOrderNos?.length &&
+  !item.uploads?.length &&
+  item.accessoryPurchaseOrderedAts.at(-1) === item.actualFinishAt,
+)
+const monthlyCoverageRows = buildMonthlyPreparationCompletionDetails('2026-03')
+const coverageMatrix = [
+  {
+    scenario: '跟单未确认工作项时，所有选中项派生为不满足开始条件且不能已完成',
+    covered: unconfirmedDerivedRows.length > 0 && unconfirmedDerivedRows.every(
+      ({ item, progress }) => progress === '不满足开始条件' && item.status !== '已完成',
+    ),
+  },
+  {
+    scenario: '前置准备项缺少有效完成凭证时，后续项不满足开始条件',
+    covered: derivedRows.some(({ record, item, progress }) =>
+      item.dependsOnItemIds.length > 0 &&
+      !dependencyEvidenceIsValid(record, item) &&
+      progress === '不满足开始条件'),
+  },
+  {
+    scenario: '前置准备项已满足但当前项尚未上传时，待开始项派生为未开始',
+    covered: derivedRows.some(({ record, item, progress }) =>
+      item.status === '待开始' &&
+      item.dependsOnItemIds.length > 0 &&
+      dependencyEvidenceIsValid(record, item) &&
+      !item.uploads?.length &&
+      progress === '未开始'),
+  },
+  {
+    scenario: '进行中、待确认、已超时底层状态在依赖满足且无当前凭证时均派生为未开始',
+    covered: processStatuses.every((status) => processStatusCoverage.has(status)),
+  },
+  {
+    scenario: '普通准备项具备已完成状态、实际完成时间和完整上传凭证时派生为已完成',
+    covered: derivedRows.some(({ item, progress }) =>
+      item.itemType !== '辅料下单' &&
+      item.status === '已完成' &&
+      Boolean(item.actualFinishAt) &&
+      Boolean(item.uploads?.some((upload) => upload.fileName && upload.uploadedBy && upload.uploadedAt)) &&
+      progress === '已完成'),
+  },
+  {
+    scenario: '辅料下单含至少两个采购单号及对应时间，完成时间取最后下单时间且无需上传',
+    covered: Boolean(multiOrderAccessoryRow),
+  },
+  {
+    scenario: '至少一条记录包含三个或以上责任团队',
+    covered: productionPreparationRecords.some(
+      (record) => new Set(record.items.map((item) => item.ownerTeam)).size >= 3,
+    ),
+  },
+  {
+    scenario: '月度明细包含多个跟单、准备项和责任团队的有效完成记录',
+    covered:
+      new Set(monthlyCoverageRows.map((row) => row.merchandiserName)).size >= 2 &&
+      new Set(monthlyCoverageRows.map((row) => row.itemType)).size >= 2 &&
+      new Set(monthlyCoverageRows.map((row) => row.ownerTeam)).size >= 2 &&
+      monthlyCoverageRows.every((row) => hasValidPreparationCompletionEvidence(row)),
+  },
+] as const
+assert.deepEqual(
+  coverageMatrix.filter(({ covered }) => !covered).map(({ scenario }) => scenario),
+  [],
+  '生产准备 Mock 覆盖矩阵存在缺失场景',
+)
+
+for (const { record, item, progress } of derivedRows) {
+  if (progress === '已完成') {
+    assert.equal(
+      hasValidPreparationCompletionEvidence(item),
+      true,
+      `${record.recordNo}/${item.itemType} 派生已完成但缺少有效完成凭证`,
+    )
+  }
+  if (!(record.workItemsConfirmedBy && record.workItemsConfirmedAt)) {
+    assert.notEqual(progress, '已完成', `${record.recordNo}/${item.itemType} 未确认工作项却派生为已完成`)
+  }
+}
+
+for (const { record, item } of allMockItemRows) {
+  if (item.itemType === '辅料下单' && item.status === '已完成') {
+    assert.ok(
+      item.accessoryPurchaseOrderNos?.some(Boolean) && item.actualFinishAt,
+      `${record.recordNo}/${item.itemType} 已完成但缺少采购单号或完成时间`,
+    )
+  }
+  if (item.itemType !== '辅料下单' && item.status === '已完成') {
+    assert.ok(
+      item.uploads?.some((upload) => upload.fileName && upload.uploadedBy && upload.uploadedAt),
+      `${record.recordNo}/${item.itemType} 普通准备项已完成但缺少完整上传凭证`,
+    )
+  }
 }
 
 function runtimeUploadFor(
