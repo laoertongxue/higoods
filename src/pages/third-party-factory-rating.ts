@@ -234,7 +234,7 @@ function filterSnapshots(rows: RatingRow[], query: RatingQuery): RatingRow[] {
 
 function renderSelect(name: string, value: string, options: Array<[string, string]>): string {
   return `
-    <select name="${escapeHtml(name)}" class="h-9 rounded-md border bg-background px-3 text-sm" data-third-party-rating-field="${escapeHtml(name)}">
+    <select name="${escapeHtml(name)}" class="h-9 min-w-0 rounded-md border bg-background px-3 text-sm" data-third-party-rating-field="${escapeHtml(name)}">
       ${options.map(([optionValue, label]) => {
         const formValue = optionValue === 'ALL' ? '' : optionValue
         const selected = optionValue === value ? 'selected' : ''
@@ -246,16 +246,16 @@ function renderSelect(name: string, value: string, options: Array<[string, strin
 
 function renderFilters(query: RatingQuery): string {
   return `
-    <form action="${PAGE_PATH}" method="get" class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-6" data-third-party-rating-filters>
+    <form action="${PAGE_PATH}" method="get" class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-3 xl:grid-cols-[minmax(240px,1.6fr)_repeat(5,minmax(132px,1fr))_auto]" data-third-party-rating-filters>
       <input type="hidden" name="page" value="1">
       <input type="hidden" name="pageSize" value="${escapeHtml(query.pageSize)}">
-      <input name="keyword" value="${escapeHtml(query.keyword)}" class="h-9 rounded-md border bg-background px-3 text-sm md:col-span-2" placeholder="工厂名称 / 编码" data-third-party-rating-field="keyword" />
+      <input name="keyword" value="${escapeHtml(query.keyword)}" class="h-9 min-w-0 rounded-md border bg-background px-3 text-sm" placeholder="工厂名称 / 编码" data-third-party-rating-field="keyword" />
       ${renderSelect('grade', query.grade, [['ALL', '全部评级'], ['S', 'S 级'], ['A', 'A 级'], ['B', 'B 级'], ['C', 'C 级']])}
       ${renderSelect('cooperationStatus', query.cooperationStatus, [['ALL', '全部合作状态'], ['正常合作', '正常合作'], ['考核中', '考核中'], ['黑名单', '黑名单']])}
       ${renderSelect('scale', query.scale, [['ALL', '全部规模'], ['大型工厂', '大型工厂'], ['小型工厂', '小型工厂']])}
       ${renderSelect('dispatch', query.dispatch, [['ALL', '全部派单'], ['ALLOW', '允许派单'], ['LIMITED', '限制派单'], ['BLOCKED', '禁止派单']])}
       ${renderSelect('settlement', query.settlement, [['ALL', '全部结算'], ['ALLOW', '允许结算'], ['BLOCKED', '禁止新结算']])}
-      <div class="flex flex-wrap gap-2 md:col-span-6">
+      <div class="flex shrink-0 gap-2">
         <button type="button" class="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground" data-nav-from-fields="[data-third-party-rating-filters]" data-nav-base="${PAGE_PATH}">筛选</button>
         <button type="button" class="h-9 rounded-md border px-4 text-sm hover:bg-muted" data-nav="${PAGE_PATH}">重置</button>
       </div>
@@ -266,11 +266,7 @@ function renderFilters(query: RatingQuery): string {
 function renderLinkedStats(rows: RatingRow[]): string {
   const countBy = (predicate: (row: RatingRow) => boolean) => rows.filter(predicate).length
   return `
-    <section class="space-y-2" data-third-party-rating-stats>
-      <div class="flex items-center justify-between gap-3">
-        <h2 class="text-sm font-medium text-muted-foreground">联动统计</h2>
-        <span class="text-xs text-muted-foreground">随当前筛选结果实时计算</span>
-      </div>
+    <section data-third-party-rating-stats>
       ${renderStandardListStats([
         { label: '全部三方车缝工厂', value: rows.length },
         { label: '正常合作', value: countBy((row) => row.cooperationStatusLabel === '正常合作') },
