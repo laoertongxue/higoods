@@ -340,24 +340,27 @@ const dependencyEvidenceIsValid = (
 const unconfirmedDerivedRows = derivedRows.filter(
   ({ record }) => !(record.workItemsConfirmedBy && record.workItemsConfirmedAt),
 )
-const processStatuses = ['进行中', '待确认', '已超时'] as const
-const processStatusCoverage = new Set(
-  derivedRows
-    .filter(({ record, item, progress }) =>
-      processStatuses.includes(item.status as typeof processStatuses[number]) &&
-      dependencyEvidenceIsValid(record, item) &&
-      !hasValidPreparationCompletionEvidence(item) &&
-      !item.uploads?.length &&
-      progress === '未开始')
-    .map(({ item }) => item.status),
-)
-const multiOrderAccessoryRow = derivedRows.find(({ item, progress }) =>
+const multiOrderAccessoryRow = derivedRows.find(({ item }) =>
   item.itemType === '辅料下单' &&
-  progress === '已完成' &&
-  (item.accessoryPurchaseOrderNos?.length ?? 0) >= 2 &&
-  item.accessoryPurchaseOrderedAts?.length === item.accessoryPurchaseOrderNos?.length &&
-  !item.uploads?.length &&
-  item.accessoryPurchaseOrderedAts.at(-1) === item.actualFinishAt,
+  (item.accessoryPurchaseOrderNos?.length ?? 0) >= 2,
+)
+assert.ok(multiOrderAccessoryRow, '辅料下单 Mock 必须至少包含一条多采购单记录')
+const accessoryOrderNos = multiOrderAccessoryRow.item.accessoryPurchaseOrderNos ?? []
+const accessoryOrderedAts = multiOrderAccessoryRow.item.accessoryPurchaseOrderedAts ?? []
+assert.ok(accessoryOrderNos.length >= 2, '辅料下单 Mock 必须至少包含两个采购单号')
+assert.equal(accessoryOrderedAts.length, accessoryOrderNos.length, '辅料下单每个采购单号必须有对应下单时间')
+assert.ok(accessoryOrderNos.every((orderNo) => orderNo.trim()), '辅料下单采购单号不得为空')
+assert.ok(accessoryOrderedAts.every((orderedAt) => orderedAt.trim()), '辅料下单采购单对应下单时间不得为空')
+assert.equal(
+  multiOrderAccessoryRow.item.actualFinishAt,
+  [...accessoryOrderedAts].sort().at(-1),
+  '辅料下单实际完成时间必须取最晚下单时间',
+)
+assert.equal(multiOrderAccessoryRow.item.uploads?.length ?? 0, 0, '辅料下单完成不应依赖上传凭证')
+assert.equal(
+  hasValidPreparationCompletionEvidence(multiOrderAccessoryRow.item),
+  true,
+  '辅料下单多采购单 Mock 必须具备有效完成凭证',
 )
 const monthlyCoverageRows = buildMonthlyPreparationCompletionDetails('2026-03')
 const coverageMatrix = [
@@ -375,17 +378,17 @@ const coverageMatrix = [
       progress === '不满足开始条件'),
   },
   {
-    scenario: '前置准备项已满足但当前项尚未上传时，待开始项派生为未开始',
+    scenario: '前置准备项已满足但当前项无有效凭证时派生为未开始',
     covered: derivedRows.some(({ record, item, progress }) =>
-      item.status === '待开始' &&
       item.dependsOnItemIds.length > 0 &&
       dependencyEvidenceIsValid(record, item) &&
-      !item.uploads?.length &&
+      !hasValidPreparationCompletionEvidence(item) &&
       progress === '未开始'),
   },
   {
-    scenario: '进行中、待确认、已超时底层状态在依赖满足且无当前凭证时均派生为未开始',
-    covered: processStatuses.every((status) => processStatusCoverage.has(status)),
+    scenario: '进行中、待确认、已超时之一的底层状态可派生为未开始',
+    covered: derivedRows.some(({ item, progress }) =>
+      ['进行中', '待确认', '已超时'].includes(item.status) && progress === '未开始'),
   },
   {
     scenario: '普通准备项具备已完成状态、实际完成时间和完整上传凭证时派生为已完成',
@@ -398,7 +401,7 @@ const coverageMatrix = [
   },
   {
     scenario: '辅料下单含至少两个采购单号及对应时间，完成时间取最后下单时间且无需上传',
-    covered: Boolean(multiOrderAccessoryRow),
+    covered: multiOrderAccessoryRow.progress === '已完成',
   },
   {
     scenario: '至少一条记录包含三个或以上责任团队',

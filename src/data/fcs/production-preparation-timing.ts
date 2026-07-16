@@ -976,7 +976,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     techPackVersionLabel: 'TP-v1.4',
     techPackPublishedAt: '2026-03-04T09:00:00',
     status: '进行中',
-    currentBlockerText: '毛织齐码纸样待开始，面料染色已完成',
+    currentBlockerText: '毛织齐码纸样整理中，面料染色已完成',
     expectedFinishAt: '2026-03-11T18:00:00',
     closedReason: '',
     outputReady: false,
@@ -984,7 +984,7 @@ export const productionPreparationRecords: ProductionPreparationRecord[] = [
     items: [
       req('毛织基码纸样', '已完成', '毛织团队', 'Yuni', '2026-03-04T11:00:00', '2026-03-05T18:00:00', '2026-03-05T17:00:00', '毛织主线', [], '毛织基码', { evidenceSummary: '毛织基码纸样已上传' }),
       req('版衣制作', '已完成', '车板团队', 'Dewi', '2026-03-06T09:00:00', '2026-03-07T18:00:00', '2026-03-07T16:50:00', '毛织主线', ['prep-202603-004-item-01'], '版衣', { evidenceSummary: '毛织版衣已完成' }),
-      req('毛织齐码纸样', '待开始', '毛织团队', 'Yuni', '2026-03-08T09:00:00', '2026-03-09T18:00:00', '', '毛织主线', ['prep-202603-004-item-02'], '毛织齐码', { evidenceSummary: '版衣已完成，待开始 M-XL 毛织齐码' }),
+      req('毛织齐码纸样', '进行中', '毛织团队', 'Yuni', '2026-03-08T09:00:00', '2026-03-09T18:00:00', '', '毛织主线', ['prep-202603-004-item-02'], '毛织齐码', { evidenceSummary: 'M-XL 毛织齐码整理中' }),
       req('辅料下单', '已完成', '采购团队', '周怡', '2026-03-06T09:00:00', '2026-03-08T18:00:00', '2026-03-08T13:10:00', '辅料并行', [], '主辅料', { evidenceSummary: '拉链和绳头采购单已同步' }),
       opt('染色调色（面料）', true, '已完成', '染色团队', 'Wulan', '2026-03-07T09:00:00', '2026-03-10T18:00:00', '2026-03-10T16:40:00', '染色并行', '面料染色', { dependsOnItemIds: ['prep-202603-004-item-06'], evidenceSummary: '雾蓝色面料色卡已确认', dyeRequirement: { materialNo: 'FAB-202603-004', materialName: '12GG 羊毛混纺纱', colorName: '雾蓝', pantoneCode: 'PANTONE 14-4318 TPX', remark: '先出 1 张色卡给跟单确认。', maintainedBy: 'Nadia', maintainedAt: '2026-03-04T10:20:00' } }),
       req('确认染色要求（面料）', '已完成', '跟单角色', 'Nadia', '2026-03-04T09:30:00', '2026-03-04T12:00:00', '2026-03-04T10:20:00', '染色并行', [], '面料染色', { evidenceSummary: '跟单已确认雾蓝色和潘通色号', dyeRequirement: { materialNo: 'FAB-202603-004', materialName: '12GG 羊毛混纺纱', colorName: '雾蓝', pantoneCode: 'PANTONE 14-4318 TPX', remark: '先出 1 张色卡给跟单确认。', maintainedBy: 'Nadia', maintainedAt: '2026-03-04T10:20:00' } }),
