@@ -16,6 +16,8 @@ import {
   getDyeWorkOrderOnlineSummary,
   listDyeWorkOrderOnlineRows,
 } from '../src/data/fcs/dye-work-order-online-view.ts'
+import { buildDyeingWorkOrderDetailLink } from '../src/data/fcs/fcs-route-links.ts'
+import { renderDyeWorkOrderOverlay } from '../src/pages/process-factory/dyeing/work-order-overlays.ts'
 
 const order = listDyeWorkOrders().find((item) => getDyeWorkOrderOnlineRecord(item.dyeOrderId).status === '等待处理')
 assert(order, '至少需要一张等待处理的染色加工单')
@@ -122,5 +124,14 @@ const workOrdersSource = fs.readFileSync(path.join(process.cwd(), 'src/pages/pro
 ].forEach((text) => assert(workOrdersSource.includes(text), `染色加工单列表缺少：${text}`))
 assert(workOrdersSource.includes('renderStandardListTable'), '染色加工单列表必须使用标准列表模板')
 ;['查看配方', '查看统计'].forEach((text) => assert(!workOrdersSource.includes(text), `单张染色加工单列表不应保留：${text}`))
+
+assert.equal(buildDyeingWorkOrderDetailLink(order.dyeOrderId), `/fcs/craft/dyeing/work-orders?dyeOrderId=${order.dyeOrderId}`)
+const editHtml = renderDyeWorkOrderOverlay({ type: 'edit', dyeOrderId: order.dyeOrderId })
+;['预计完成时间', '生产工厂', '面料接收人', '深浅', '温度', '计划数量', '原料数量', '原料卷数', '完成数量', '损耗数量', '备注'].forEach((text) => {
+  assert(editHtml.includes(text), `编辑弹窗缺少：${text}`)
+})
+assert(editHtml.includes('readonly'), '计划数量和平台加工单号必须只读')
+assert(!editHtml.includes('染缸执行'))
+assert(!editHtml.includes('移动端执行任务引用'))
 
 console.log('dye work order online alignment check passed')

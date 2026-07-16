@@ -137,7 +137,6 @@ import {
   renderCraftDyeingReportsPage,
   renderCraftDyeingWaitHandoverWarehousePage,
   renderCraftDyeingWaitProcessWarehousePage,
-  renderCraftDyeingWorkOrderDetailPage,
   renderCraftDyeingWorkOrdersPage,
   renderCraftCombinedDyeingPage,
   renderCraftDyeingWaterSolubleOrdersPage,
@@ -525,7 +524,10 @@ export const routes: RouteRegistry = {
     },
     {
       pattern: /^\/fcs\/craft\/dyeing\/work-orders\/([^/]+)$/,
-      render: (match) => renderCraftDyeingWorkOrderDetailPage(decodeURIComponent(match[1])),
+      render: (match) => renderRouteRedirect(
+        `/fcs/craft/dyeing/work-orders?dyeOrderId=${encodeURIComponent(decodeURIComponent(match[1]))}`,
+        '正在跳转到染色加工单',
+      ),
     },
     {
       pattern: /^\/fcs\/craft\/wool\/work-orders\/([^/]+)$/,

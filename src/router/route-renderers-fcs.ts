@@ -482,10 +482,6 @@ export const renderCraftDyeingWaterSolubleOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/water-soluble-orders'),
   'renderCraftDyeingWaterSolubleOrdersPage',
 )
-export const renderCraftDyeingWorkOrderDetailPage = createAsyncRenderer(
-  () => import('../pages/process-factory/dyeing/work-order-detail'),
-  'renderCraftDyeingWorkOrderDetailPage',
-)
 export const renderCraftDyeingWaitProcessWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/warehouse'),
   'renderCraftDyeingWaitProcessWarehousePage',

@@ -199,7 +199,7 @@ export function buildDyeingOrderLink(dyeOrderId: string): string {
 }
 
 export function buildDyeingWorkOrderDetailLink(dyeOrderId: string): string {
-  return `/fcs/craft/dyeing/work-orders/${encodeSegment(dyeOrderId)}`
+  return `/fcs/craft/dyeing/work-orders?dyeOrderId=${encodeSegment(dyeOrderId)}`
 }
 
 export function buildWoolWorkOrdersLink(woolOrderId?: string): string {

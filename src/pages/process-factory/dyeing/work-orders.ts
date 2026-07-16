@@ -30,8 +30,20 @@ import {
   type DyeWorkOrderOnlineFilters,
   type DyeWorkOrderOnlineRow,
 } from '../../../data/fcs/dye-work-order-online-view.ts'
-import { DYE_WORK_ORDER_ONLINE_STATUSES, type DyeWorkOrderOnlineStatus } from '../../../data/fcs/dye-work-order-online-domain.ts'
+import {
+  DYE_WORK_ORDER_ONLINE_STATUSES,
+  getDyeWorkOrderOnlineRecord,
+  isDyeWorkOrderHighRiskStatusChange,
+  updateDyeWorkOrderFromPfos,
+  type DyeWorkOrderOnlineStatus,
+  type DyeWorkOrderPfosEditInput,
+} from '../../../data/fcs/dye-work-order-online-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
+import {
+  readDyeWorkOrderEditInput,
+  renderDyeWorkOrderOverlay,
+  type DyeWorkOrderOverlayState,
+} from './work-order-overlays.ts'
 
 const EVENT_PREFIX = 'dye-work-orders'
 const PREFERENCE_KEY = '/fcs/craft/dyeing/work-orders:list-columns'
@@ -45,6 +57,8 @@ const state: {
   preferences: StandardListColumnPreferences
   preferencesLoaded: boolean
   showColumnSettings: boolean
+  overlay: DyeWorkOrderOverlayState
+  pendingEditInput: DyeWorkOrderPfosEditInput | null
 } = {
   currentPage: 1,
   filters: { ...DEFAULT_DYE_WORK_ORDER_ONLINE_FILTERS, statuses: [] },
@@ -53,6 +67,8 @@ const state: {
   preferences: { order: [], visibleKeys: [], frozenKeys: ['dyeInfo'], pageSize: 10 },
   preferencesLoaded: false,
   showColumnSettings: false,
+  overlay: null,
+  pendingEditInput: null,
 }
 
 let columnDragEventsInstalled = false
@@ -71,11 +87,12 @@ function statusTone(status: DyeWorkOrderOnlineStatus): 'success' | 'warning' | '
 }
 
 function renderActions(row: DyeWorkOrderOnlineRow): string {
+  const addId = (button: string) => button.replace('<button', `<button data-id="${escapeHtml(row.dyeOrderId)}"`)
   return `<div class="flex flex-wrap justify-end gap-1.5">
-    ${renderSecondaryButton('查看', { prefix: EVENT_PREFIX, action: 'view', payload: { id: row.dyeOrderId } })}
-    ${renderPrimaryButton('编辑', { prefix: EVENT_PREFIX, action: 'edit', payload: { id: row.dyeOrderId } })}
-    ${renderSecondaryButton('日志', { prefix: EVENT_PREFIX, action: 'logs', payload: { id: row.dyeOrderId } })}
-    ${renderSecondaryButton('打印流程卡', { prefix: EVENT_PREFIX, action: 'print-one', payload: { id: row.dyeOrderId } }, 'printer')}
+    ${addId(renderSecondaryButton('查看', { prefix: EVENT_PREFIX, action: 'view' }))}
+    ${addId(renderPrimaryButton('编辑', { prefix: EVENT_PREFIX, action: 'edit' }))}
+    ${addId(renderSecondaryButton('日志', { prefix: EVENT_PREFIX, action: 'logs' }))}
+    ${addId(renderSecondaryButton('打印流程卡', { prefix: EVENT_PREFIX, action: 'print-one' }, 'printer'))}
   </div>`
 }
 
@@ -234,8 +251,15 @@ function renderWorkspace(): string {
 
 export function renderCraftDyeingWorkOrdersPage(): string {
   resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
+  syncOverlayFromLocation()
   installColumnDragEvents()
-  return `<div data-dye-work-orders-root data-skip-page-rerender="true"><div data-dye-work-orders-workspace>${renderWorkspace()}</div></div>`
+  return `<div data-dye-work-orders-root data-skip-page-rerender="true"><div data-dye-work-orders-workspace>${renderWorkspace()}</div><div data-dye-work-orders-overlay>${state.overlay ? renderDyeWorkOrderOverlay(state.overlay) : ''}</div></div>`
+}
+
+function syncOverlayFromLocation(): void {
+  if (state.overlay || typeof window === 'undefined') return
+  const dyeOrderId = new URLSearchParams(window.location.search).get('dyeOrderId')
+  if (dyeOrderId) state.overlay = { type: 'view', dyeOrderId }
 }
 
 function rootElement(): HTMLElement | null {
@@ -247,6 +271,42 @@ function refreshWorkspace(): void {
   if (!region) return
   region.innerHTML = renderWorkspace()
   hydrateIcons(region)
+}
+
+function refreshOverlay(): void {
+  const region = rootElement()?.querySelector<HTMLElement>('[data-dye-work-orders-overlay]')
+  if (!region) return
+  region.innerHTML = state.overlay ? renderDyeWorkOrderOverlay(state.overlay) : ''
+  hydrateIcons(region)
+}
+
+function replaceDyeOrderQuery(dyeOrderId?: string): void {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  if (dyeOrderId) url.searchParams.set('dyeOrderId', dyeOrderId)
+  else url.searchParams.delete('dyeOrderId')
+  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+}
+
+function closeOverlay(): void {
+  state.overlay = null
+  state.pendingEditInput = null
+  replaceDyeOrderQuery()
+  refreshOverlay()
+}
+
+function saveEdit(input: DyeWorkOrderPfosEditInput): void {
+  const dyeOrderId = state.overlay?.dyeOrderId
+  if (!dyeOrderId) return
+  try {
+    updateDyeWorkOrderFromPfos(dyeOrderId, input)
+    closeOverlay()
+    refreshWorkspace()
+  } catch (error) {
+    state.overlay = { type: 'edit', dyeOrderId, error: error instanceof Error ? error.message : '保存失败' }
+    state.pendingEditInput = null
+    refreshOverlay()
+  }
 }
 
 function persistPreferences(): void {
@@ -337,6 +397,43 @@ export function handleDyeWorkOrderListEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-dye-work-orders-action]')
   if (!actionNode) return Boolean(field)
   const action = actionNode.dataset.dyeWorkOrdersAction || ''
+  if (action === 'view' || action === 'edit' || action === 'logs') {
+    const dyeOrderId = actionNode.dataset.id || ''
+    if (!dyeOrderId) return true
+    state.overlay = { type: action, dyeOrderId }
+    state.pendingEditInput = null
+    replaceDyeOrderQuery(dyeOrderId)
+    refreshOverlay()
+    return true
+  }
+  if (action === 'close-overlay') { closeOverlay(); return true }
+  if (action === 'save-edit') {
+    const dyeOrderId = state.overlay?.dyeOrderId
+    if (!dyeOrderId) return true
+    try {
+      const input = readDyeWorkOrderEditInput(root)
+      const current = getDyeWorkOrderOnlineRecord(dyeOrderId)
+      if (isDyeWorkOrderHighRiskStatusChange(current.status, input.status)) {
+        state.pendingEditInput = input
+        state.overlay = { type: 'edit', dyeOrderId, confirmHighRisk: true }
+        refreshOverlay()
+      } else saveEdit(input)
+    } catch (error) {
+      state.overlay = { type: 'edit', dyeOrderId, error: error instanceof Error ? error.message : '请检查填写内容' }
+      refreshOverlay()
+    }
+    return true
+  }
+  if (action === 'confirm-high-risk') {
+    if (state.pendingEditInput) saveEdit(state.pendingEditInput)
+    return true
+  }
+  if (action === 'cancel-high-risk') {
+    if (state.overlay) state.overlay = { type: 'edit', dyeOrderId: state.overlay.dyeOrderId }
+    state.pendingEditInput = null
+    refreshOverlay()
+    return true
+  }
   if (action === 'apply-filter') { state.filters = readFilters(root); state.currentPage = 1; refreshWorkspace(); return true }
   if (action === 'reset-filter') { state.filters = { ...DEFAULT_DYE_WORK_ORDER_ONLINE_FILTERS, statuses: [] }; state.currentPage = 1; refreshWorkspace(); return true }
   if (action === 'toggle-selection') {
@@ -363,5 +460,5 @@ export function handleDyeWorkOrderListEvent(target: HTMLElement): boolean {
     if (typeof window !== 'undefined') clearListColumnPreferences(window.localStorage, PREFERENCE_KEY)
     state.preferences = defaultPreferences(); state.sort = null; state.currentPage = 1; refreshWorkspace(); return true
   }
-  return ['view', 'edit', 'logs', 'print-one', 'export', 'export-preparation', 'export-overdue', 'batch-print'].includes(action)
+  return ['print-one', 'export', 'export-preparation', 'export-overdue', 'batch-print'].includes(action)
 }
