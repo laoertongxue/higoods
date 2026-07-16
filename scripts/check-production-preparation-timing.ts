@@ -1361,6 +1361,32 @@ const ordinaryValidItem = {
   }],
 }
 assert.equal(hasValidPreparationCompletionEvidence(ordinaryValidItem), true, '普通准备项必须识别完整上传凭证')
+const monthlyMissingUploadFixture = {
+  ...progressFixtureRecord,
+  recordId: 'prep-monthly-missing-upload',
+  recordNo: 'PREP-MONTHLY-MISSING-UPLOAD',
+  enteredAt: '2026-03-01T09:00:00',
+  items: [{
+    ...ordinaryCompletedItem,
+    itemId: 'prep-monthly-missing-upload-item',
+    recordId: 'prep-monthly-missing-upload',
+    plannedStartAt: '2026-03-01T09:00:00',
+    plannedFinishAt: '2026-03-02T18:00:00',
+    actualFinishAt: '2026-03-02T10:00:00',
+    uploads: [],
+  }],
+}
+productionPreparationRecords.push(monthlyMissingUploadFixture)
+try {
+  assert.ok(
+    !buildMonthlyPreparationCompletionDetails('2026-03').some(
+      (detail: { recordNo?: string }) => detail.recordNo === monthlyMissingUploadFixture.recordNo,
+    ),
+    '普通准备项即使状态已完成且有实际完成时间，无完整上传凭证也不得进入月度完成明细',
+  )
+} finally {
+  productionPreparationRecords.pop()
+}
 const accessoryWithoutOrderItem = {
   ...progressFixtureItems[0],
   itemType: '辅料下单' as const,
@@ -1426,6 +1452,18 @@ const multiSelectFilterFixture = [
     items: [{ ...progressFixtureItems[0], itemId: 'prep-progress-b-1', recordId: 'prep-progress-record-b', itemType: '毛织基码纸样' as const, ownerTeam: '毛织团队' }],
   },
 ]
+for (const [filter, label] of [
+  [{ merchandiserNames: [], merchandiserName: '跟单甲' }, '跟单'],
+  [{ recordStatuses: [], recordStatus: '进行中' }, '记录状态'],
+  [{ itemTypes: [], itemType: '梭织基码纸样' }, '准备项类型'],
+  [{ ownerTeams: [], ownerTeam: '版师团队' }, '责任团队'],
+] as const) {
+  assert.equal(
+    filterProductionPreparationRecords(filter, multiSelectFilterFixture).length,
+    multiSelectFilterFixture.length,
+    `${label}新数组显式为空时必须表示不限制，不得回退旧单值字段`,
+  )
+}
 assert.equal(
   filterProductionPreparationRecords(
     { itemTypes: ['梭织基码纸样'], ownerTeams: ['车板团队'] },

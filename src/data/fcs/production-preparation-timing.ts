@@ -1454,7 +1454,7 @@ export function derivePreparationItemProgress(
 }
 
 function selectedFilterValues<T>(values: T[] | undefined, legacyValue?: T | '全部'): T[] {
-  if (values?.length) return values
+  if (values !== undefined) return values
   return legacyValue && legacyValue !== '全部' ? [legacyValue] : []
 }
 
