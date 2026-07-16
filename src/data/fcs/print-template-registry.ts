@@ -58,6 +58,7 @@ import {
   renderQualityDisputeProcessingTemplate,
   renderSettlementChangeRequestTemplate,
 } from '../../pages/print/templates/business-request-form-template.ts'
+import { renderDyeWorkOrderFlowCardTemplate } from '../../pages/print/templates/dye-work-order-flow-card-template.ts'
 
 export interface PrintTemplateRegistration {
   templateCode: string
@@ -253,12 +254,12 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
     render: renderTaskRouteCardTemplate,
   },
   {
-    templateCode: 'DYEING_WORK_ORDER_ROUTE_CARD',
-    templateName: '染色任务流转卡',
+    templateCode: 'DYEING_WORK_ORDER_FLOW_CARD',
+    templateName: '染整生产流程卡',
     documentType: 'TASK_ROUTE_CARD',
     supportedSourceTypes: ['DYEING_WORK_ORDER'],
     buildDocument: buildDyeingWorkOrderRouteCardPrintDocument,
-    render: renderTaskRouteCardTemplate,
+    render: renderDyeWorkOrderFlowCardTemplate,
   },
   {
     templateCode: 'SPECIAL_CRAFT_TASK_ORDER_ROUTE_CARD',

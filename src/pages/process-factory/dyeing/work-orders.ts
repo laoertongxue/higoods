@@ -24,6 +24,7 @@ import {
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import {
   DEFAULT_DYE_WORK_ORDER_ONLINE_FILTERS,
+  buildDyeWorkOrderCsv,
   filterDyeWorkOrderOnlineRows,
   getDyeWorkOrderOnlineSummary,
   listDyeWorkOrderOnlineRows,
@@ -288,6 +289,28 @@ function replaceDyeOrderQuery(dyeOrderId?: string): void {
   window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
 }
 
+function downloadCsv(kind: '全部' | '备料' | '超期未完结'): void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return
+  const rows = filteredRows(listDyeWorkOrderOnlineRows())
+  const blob = new Blob([buildDyeWorkOrderCsv(rows, kind)], { type: 'text/csv;charset=utf-8' })
+  const href = window.URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = href
+  anchor.download = `染色加工单-${kind}-${new Date().toISOString().slice(0, 10)}.csv`
+  anchor.click()
+  window.URL.revokeObjectURL(href)
+}
+
+function openFlowCard(ids: string[]): void {
+  if (typeof window === 'undefined') return
+  if (!ids.length) {
+    window.alert('请先选择需要打印的染色加工单。')
+    return
+  }
+  const href = `/fcs/print/task-route-card?sourceType=DYEING_WORK_ORDER&sourceId=${encodeURIComponent(ids.join(','))}`
+  window.open(href, '_blank', 'noopener,noreferrer')
+}
+
 function closeOverlay(): void {
   state.overlay = null
   state.pendingEditInput = null
@@ -434,6 +457,11 @@ export function handleDyeWorkOrderListEvent(target: HTMLElement): boolean {
     refreshOverlay()
     return true
   }
+  if (action === 'export') { downloadCsv('全部'); return true }
+  if (action === 'export-preparation') { downloadCsv('备料'); return true }
+  if (action === 'export-overdue') { downloadCsv('超期未完结'); return true }
+  if (action === 'print-one') { openFlowCard([actionNode.dataset.id || ''].filter(Boolean)); return true }
+  if (action === 'batch-print') { openFlowCard([...state.selectedIds]); return true }
   if (action === 'apply-filter') { state.filters = readFilters(root); state.currentPage = 1; refreshWorkspace(); return true }
   if (action === 'reset-filter') { state.filters = { ...DEFAULT_DYE_WORK_ORDER_ONLINE_FILTERS, statuses: [] }; state.currentPage = 1; refreshWorkspace(); return true }
   if (action === 'toggle-selection') {
@@ -460,5 +488,5 @@ export function handleDyeWorkOrderListEvent(target: HTMLElement): boolean {
     if (typeof window !== 'undefined') clearListColumnPreferences(window.localStorage, PREFERENCE_KEY)
     state.preferences = defaultPreferences(); state.sort = null; state.currentPage = 1; refreshWorkspace(); return true
   }
-  return ['print-one', 'export', 'export-preparation', 'export-overdue', 'batch-print'].includes(action)
+  return false
 }

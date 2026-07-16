@@ -18,6 +18,7 @@ import {
 } from '../src/data/fcs/dye-work-order-online-view.ts'
 import { buildDyeingWorkOrderDetailLink } from '../src/data/fcs/fcs-route-links.ts'
 import { renderDyeWorkOrderOverlay } from '../src/pages/process-factory/dyeing/work-order-overlays.ts'
+import { buildDyeWorkOrderFlowCardPrintDocument } from '../src/pages/print/templates/dye-work-order-flow-card-template.ts'
 
 const order = listDyeWorkOrders().find((item) => getDyeWorkOrderOnlineRecord(item.dyeOrderId).status === '等待处理')
 assert(order, '至少需要一张等待处理的染色加工单')
@@ -133,5 +134,16 @@ const editHtml = renderDyeWorkOrderOverlay({ type: 'edit', dyeOrderId: order.dye
 assert(editHtml.includes('readonly'), '计划数量和平台加工单号必须只读')
 assert(!editHtml.includes('染缸执行'))
 assert(!editHtml.includes('移动端执行任务引用'))
+
+const flowCard = buildDyeWorkOrderFlowCardPrintDocument(order.dyeOrderId)
+assert.equal(flowCard.sourceId, order.dyeOrderId)
+const flowCardText = JSON.stringify(flowCard)
+;[
+  '染整生产流程卡', 'Kartu Alur Produksi Pencelupan dan Penyempurnaan',
+  order.dyeOrderNo, '下单日期', '是否加急', '生产单号', '色样备注',
+  'No. Warna', 'Bahan baku', 'Kuantitas', 'Formula pencelupan',
+  'Pencelupan', 'Penghilangan air', 'Pengeringan', 'Finishing', 'Kemasan',
+].forEach((text) => assert(flowCardText.includes(text), `染整生产流程卡缺少：${text}`))
+assert(!flowCardText.includes('工厂加工单号'))
 
 console.log('dye work order online alignment check passed')
