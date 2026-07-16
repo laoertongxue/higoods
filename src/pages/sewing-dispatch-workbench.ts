@@ -193,6 +193,16 @@ function getPageDispatchPolicyDecision(row: SewingDispatchWorkbenchRow, factoryI
   if (!isPageDispatchRatingGovernanceTarget(factoryId)) {
     return createPageAllowDispatchDecision('普通车缝工厂按派单齐套规则处理。', ['可派单'])
   }
+  if (!getThirdPartyFactoryRatingSnapshot(factoryId)) {
+    return {
+      allowed: false,
+      severity: 'BLOCK',
+      reason: '该三方车缝工厂缺少三方评级快照，不能派单。请先完成评级。',
+      displayBadges: ['未评级', '禁止派单'],
+      requiresConfirm: false,
+      sortPriority: 0,
+    }
+  }
   return evaluateThirdPartyFactoryDispatchPolicy({
     factoryId,
     actionType: state.dispatchActionType,

@@ -724,17 +724,43 @@ const dispatchFactoryOptionSource = sliceRequiredSource(
   'function getCutPieceReleaseBadgeClass',
   '车缝分配工厂选项片段缺失',
 )
+const pageDispatchPolicyDecisionSource = sliceRequiredSource(
+  sewingDispatchSource,
+  'function getPageDispatchPolicyDecision',
+  'function renderDispatchFactoryOption',
+  '车缝分配页面评级策略片段缺失',
+)
 const directDispatchDialogSource = sliceRequiredSource(
   sewingDispatchSource,
   'function renderDirectDispatchDialog',
   'function renderBiddingDialog',
   '直接派单弹窗片段缺失',
 )
+const confirmDispatchSource = sliceRequiredSource(
+  sewingDispatchSource,
+  "if (action === 'confirm-dispatch')",
+  'const factoryCount',
+  '确认派单事件片段缺失',
+)
+const policyOverrideSource = sliceRequiredSource(
+  confirmDispatchSource,
+  'policyOverrideByRowId',
+  'businessAssignedAt',
+  '确认派单页面策略覆盖片段缺失',
+)
 assert.ok(sewingDispatchSource.includes('evaluateThirdPartyFactoryDispatchPolicy'), '车缝分配页面必须使用统一派单规则评估')
 assert.ok(sewingDispatchSource.includes('dispatchRiskConfirmedByFactoryId'), '车缝分配页面必须记录黄牌风险确认')
 assert.ok(sewingDispatchSource.includes('dispatchSupervisorAssignedByFactoryId'), '车缝分配页面必须记录主管指定确认')
 assert.ok(sewingDispatchSource.includes('data-sewing-dispatch-field="dispatchRiskConfirmed"'), '直接派单弹窗必须提供黄牌风险确认入口')
 assert.ok(sewingDispatchSource.includes('data-sewing-dispatch-field="dispatchSupervisorAssigned"'), '直接派单弹窗必须提供主管指定确认入口')
+assert.ok(pageDispatchPolicyDecisionSource.includes('缺少三方评级快照'), '页面级派单策略必须对治理对象缺评级快照显示阻断')
+assert.ok(pageDispatchPolicyDecisionSource.includes("severity: 'BLOCK'"), '页面级派单策略缺评级快照时必须返回 BLOCK')
+assert.ok(confirmDispatchSource.includes('policyContextByFactoryId'), '确认派单必须传入页面确认上下文')
+assert.ok(confirmDispatchSource.includes('riskConfirmed'), '确认派单必须传入黄牌风险确认上下文')
+assert.ok(confirmDispatchSource.includes('supervisorAssigned'), '确认派单必须传入主管指定确认上下文')
+assert.ok(policyOverrideSource.includes('documentTypeLabel'), '确认派单页面策略覆盖必须传入单据类型')
+assert.ok(policyOverrideSource.includes('isUrgentOrder'), '确认派单页面策略覆盖必须传入急单标记')
+assert.ok(!policyOverrideSource.includes('dispatchQty:'), '确认派单页面策略覆盖不得传入 dispatchQty，数量必须由领域层读取真实行数量')
 assert.ok(dispatchFactoryOptionSource.includes('getPageDispatchPolicyDecision'), '车缝分配工厂选项未消费页面级统一派单评估结果')
 assert.ok(dispatchFactoryOptionSource.includes('displayBadges'), '车缝分配工厂选项未展示统一评估标签')
 assert.ok(directDispatchDialogSource.includes('renderDispatchFactoryOption'), '直接派单弹窗未渲染带评级策略的工厂选项')
@@ -743,6 +769,7 @@ assert.ok(
   '直接派单弹窗缺少黄牌提醒后的确认派单动作入口',
 )
 assert.ok(!sewingDispatchSource.includes('getDispatchFactoryBlockMessage'), '车缝分配页面不应继续使用旧的工厂阻断文案 helper')
+assert.ok(!sewingDispatchSource.includes("cooperationStatusLabel === '黑名单'"), '车缝分配页面不应继续用合作状态硬编码黑名单阻断')
 assert.ok(!sewingDispatchSource.includes("cooperationStatusLabel === '考核中'"), '车缝分配页面不应继续用合作状态硬编码考核中阻断')
 
 const statementsSource = readRequiredSource(new URL('../src/pages/statements.ts', import.meta.url), '缺少对账单页面文件')
