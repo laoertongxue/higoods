@@ -6,6 +6,7 @@ import {
   createSewingDispatchWorkbenchDraft,
   listSewingDispatchWorkbenchRows,
   listSewingFactoryOptions,
+  runSewingDispatchWorkbenchTransaction,
 } from '../src/data/fcs/sewing-dispatch-workbench.ts'
 import {
   listStatementBuildCandidates,
@@ -25,6 +26,7 @@ import {
   isThirdPartyFactorySettlementBlocked,
   listThirdPartyFactoryPerformanceRecords,
   listThirdPartyFactoryRatingSnapshots,
+  thirdPartyFactoryRatingSnapshots,
 } from '../src/data/fcs/third-party-factory-rating.ts'
 
 function readRequiredSource(url: URL, message: string): string {
@@ -212,6 +214,19 @@ assert.equal(bGradeUnconfirmedDecision.allowed, false, '黄牌工厂超小单阈
 assert.equal(bGradeUnconfirmedDecision.requiresConfirm, true, '黄牌工厂超小单阈值必须要求确认')
 assert.equal(bGradeUnconfirmedDecision.sortPriority, 40, '黄牌工厂排序优先级必须为 40')
 
+const bGradeSmallOrderUnconfirmedDecision = evaluateThirdPartyFactoryDispatchPolicy({
+  factoryId: bGrade.factoryId,
+  actionType: '直接派单',
+  documentTypeLabel: '常规单',
+  dispatchQty: Math.min(bGrade.smallOrderLimitQty ?? 300, 100),
+  isUrgentOrder: false,
+  riskConfirmed: false,
+  isSupervisorAssigned: false,
+})
+assert.equal(bGradeSmallOrderUnconfirmedDecision.allowed, false, '黄牌工厂小单非急单未确认前也不能派单')
+assert.equal(bGradeSmallOrderUnconfirmedDecision.requiresConfirm, true, '黄牌工厂小单非急单仍必须要求确认')
+assert.equal(bGradeSmallOrderUnconfirmedDecision.sortPriority, 40, '黄牌工厂小单非急单排序优先级必须为 40')
+
 const bGradeConfirmedDecision = evaluateThirdPartyFactoryDispatchPolicy({
   factoryId: bGrade.factoryId,
   actionType: '直接派单',
@@ -323,6 +338,20 @@ function getAvailableDispatchRow(message: string): typeof firstDispatchRow {
   return row
 }
 
+function getAvailableDispatchRows(count: number, message: string): typeof firstDispatchRow[] {
+  const groups = new Map<string, typeof firstDispatchRow[]>()
+  for (const row of listSewingDispatchWorkbenchRows().filter((item) => item.remainingQty > 0 && item.completeKitQty >= item.remainingQty)) {
+    groups.set(row.taskId, [...(groups.get(row.taskId) ?? []), row])
+  }
+  const rows = [...groups.values()].find((items) => items.length >= count)?.slice(0, count)
+  assert.ok(rows, message)
+  return rows
+}
+
+function runWithDispatchRollback<T>(operation: () => T): T {
+  return runSewingDispatchWorkbenchTransaction(operation, { rollbackOnSuccess: true })
+}
+
 function assertDispatchBlockedMessage(message: string, detail: string): void {
   assert.ok(
     (message.includes('派单') || message.includes('车缝分配')) &&
@@ -341,6 +370,23 @@ const trialRegularResult = createSewingDispatchWorkbenchDraft({
 assert.equal(trialRegularResult.ok, false, '考核中工厂常规单必须阻断')
 assert.ok(trialRegularResult.message.includes('只能接试产单'), '考核中常规单阻断原因必须明确')
 
+const trialOverLimitRows = getAvailableDispatchRows(2, '车缝分配工作台必须有两个同任务齐套 SKU 用于验证考核中合计上限')
+const trialOverLimitByRowId = Object.fromEntries(
+  trialOverLimitRows.map((row) => [row.rowId, trialDispatchSnapshot.factoryId]),
+)
+const trialOverLimitOverrideByRowId = Object.fromEntries(
+  trialOverLimitRows.map((row) => [row.rowId, { documentTypeLabel: '试产单' as const, dispatchQty: 200, isUrgentOrder: false }]),
+)
+const trialOverLimitMultiRowResult = createSewingDispatchWorkbenchDraft({
+  actionType: '直接派单',
+  rowIds: trialOverLimitRows.map((row) => row.rowId),
+  factoryIdByRowId: trialOverLimitByRowId,
+  policyOverrideByRowId: trialOverLimitOverrideByRowId,
+  by: '对抗式核查',
+})
+assert.equal(trialOverLimitMultiRowResult.ok, false, '考核中同一工厂多 SKU 合计超过首单上限必须阻断')
+assert.ok(trialOverLimitMultiRowResult.message.includes('超过首单上限'), '考核中合计超量阻断原因必须明确')
+
 const bGradeWithoutConfirm = createSewingDispatchWorkbenchDraft({
   actionType: '直接派单',
   rowIds: [firstDispatchRow.rowId],
@@ -350,6 +396,16 @@ const bGradeWithoutConfirm = createSewingDispatchWorkbenchDraft({
 })
 assert.equal(bGradeWithoutConfirm.ok, false, 'B 级黄牌未确认风险必须阻断')
 assert.ok(bGradeWithoutConfirm.message.includes('黄牌'), 'B 级黄牌阻断原因必须明确')
+
+const bGradeSmallWithoutConfirm = createSewingDispatchWorkbenchDraft({
+  actionType: '直接派单',
+  rowIds: [firstDispatchRow.rowId],
+  factoryIdByRowId: { [firstDispatchRow.rowId]: bGradeDispatchSnapshot.factoryId },
+  policyOverrideByRowId: { [firstDispatchRow.rowId]: { documentTypeLabel: '常规单', dispatchQty: 100, isUrgentOrder: false } },
+  by: '对抗式核查',
+})
+assert.equal(bGradeSmallWithoutConfirm.ok, false, 'B 级黄牌小单非急单未确认风险必须阻断')
+assert.ok(bGradeSmallWithoutConfirm.message.includes('黄牌'), 'B 级黄牌小单非急单阻断原因必须明确')
 
 const supervisorBidding = createSewingDispatchWorkbenchDraft({
   actionType: '发起竞价',
@@ -361,19 +417,45 @@ const supervisorBidding = createSewingDispatchWorkbenchDraft({
 assert.equal(supervisorBidding.ok, false, '主管指定工厂不能参与竞价')
 assert.ok(supervisorBidding.message.includes('不参与竞价'), '主管指定竞价阻断原因必须明确')
 
-const unratedBidding = createSewingDispatchWorkbenchDraft({
+const internalFactoryRow = getAvailableDispatchRow('车缝分配工作台必须有可验证内部车缝工厂派单的齐套 SKU 行')
+const internalFactoryDirectResult = runWithDispatchRollback(() => createSewingDispatchWorkbenchDraft({
+  actionType: '直接派单',
+  rowIds: [internalFactoryRow.rowId],
+  factoryIdByRowId: { [internalFactoryRow.rowId]: 'ID-F001' },
+  policyOverrideByRowId: { [internalFactoryRow.rowId]: { documentTypeLabel: '常规单', dispatchQty: internalFactoryRow.remainingQty, isUrgentOrder: false } },
+  by: '对抗式核查',
+}))
+assert.equal(internalFactoryDirectResult.ok, true, '非三方/非评级治理车缝工厂不得因为缺少三方评级快照被阻断')
+
+const governedMissingSnapshotIndex = thirdPartyFactoryRatingSnapshots.findIndex((item) => item.factoryId === trialDispatchSnapshot.factoryId)
+assert.ok(governedMissingSnapshotIndex >= 0, '必须能临时移除一个三方车缝评级治理对象的快照')
+const [governedMissingSnapshot] = thirdPartyFactoryRatingSnapshots.splice(governedMissingSnapshotIndex, 1)
+try {
+  const governedMissingSnapshotResult = createSewingDispatchWorkbenchDraft({
+    actionType: '直接派单',
+    rowIds: [firstDispatchRow.rowId],
+    factoryIdByRowId: { [firstDispatchRow.rowId]: governedMissingSnapshot.factoryId },
+    policyOverrideByRowId: { [firstDispatchRow.rowId]: { documentTypeLabel: '试产单', dispatchQty: 1, isUrgentOrder: false } },
+    by: '对抗式核查',
+  })
+  assert.equal(governedMissingSnapshotResult.ok, false, '三方车缝评级治理对象缺少评级快照时必须阻断')
+  assert.ok(governedMissingSnapshotResult.message.includes('缺少三方评级快照'), '治理对象缺评级快照阻断原因必须明确')
+} finally {
+  thirdPartyFactoryRatingSnapshots.splice(governedMissingSnapshotIndex, 0, governedMissingSnapshot)
+}
+
+const unknownNonGovernedBidding = runWithDispatchRollback(() => createSewingDispatchWorkbenchDraft({
   actionType: '发起竞价',
   rowIds: [firstDispatchRow.rowId],
   policyOverrideByRowId: { [firstDispatchRow.rowId]: { documentTypeLabel: '常规单', dispatchQty: firstDispatchRow.remainingQty, isUrgentOrder: false } },
   biddingFactoryIds: ['UNKNOWN-THIRD-PARTY-FACTORY'],
   policyContextByFactoryId: { 'UNKNOWN-THIRD-PARTY-FACTORY': { riskConfirmed: true, supervisorAssigned: true } },
   by: '对抗式核查',
-})
-assert.equal(unratedBidding.ok, false, '无评级快照工厂即使传入确认上下文也必须阻断竞价')
-assert.ok(unratedBidding.message.includes('缺少三方评级快照'), '无评级快照阻断原因必须明确')
+}))
+assert.equal(unknownNonGovernedBidding.ok, true, '不在三方评级治理集合内的显式竞价候选不得因为缺少三方评级快照被阻断')
 
 const trialAllowedRow = getAvailableDispatchRow('车缝分配工作台必须有可验证试产派单的齐套 SKU 行')
-const trialAllowedResult = createSewingDispatchWorkbenchDraft({
+const trialAllowedResult = runWithDispatchRollback(() => createSewingDispatchWorkbenchDraft({
   actionType: '直接派单',
   rowIds: [trialAllowedRow.rowId],
   factoryIdByRowId: { [trialAllowedRow.rowId]: trialDispatchSnapshot.factoryId },
@@ -385,29 +467,40 @@ const trialAllowedResult = createSewingDispatchWorkbenchDraft({
     },
   },
   by: '对抗式核查',
-})
+}))
 assert.equal(trialAllowedResult.ok, true, '考核中工厂试产单额度内必须允许派单')
 
 const bGradeConfirmedRow = getAvailableDispatchRow('车缝分配工作台必须有可验证黄牌确认派单的齐套 SKU 行')
-const bGradeConfirmed = createSewingDispatchWorkbenchDraft({
+const bGradeConfirmed = runWithDispatchRollback(() => createSewingDispatchWorkbenchDraft({
   actionType: '直接派单',
   rowIds: [bGradeConfirmedRow.rowId],
   factoryIdByRowId: { [bGradeConfirmedRow.rowId]: bGradeDispatchSnapshot.factoryId },
   policyOverrideByRowId: { [bGradeConfirmedRow.rowId]: { documentTypeLabel: '常规单', dispatchQty: 301, isUrgentOrder: true } },
   policyContextByFactoryId: { [bGradeDispatchSnapshot.factoryId]: { riskConfirmed: true } },
   by: '对抗式核查',
-})
+}))
 assert.equal(bGradeConfirmed.ok, true, 'B 级黄牌确认风险后必须允许派单')
 
+const bGradeSmallConfirmedRow = getAvailableDispatchRow('车缝分配工作台必须有可验证黄牌小单确认派单的齐套 SKU 行')
+const bGradeSmallConfirmed = runWithDispatchRollback(() => createSewingDispatchWorkbenchDraft({
+  actionType: '直接派单',
+  rowIds: [bGradeSmallConfirmedRow.rowId],
+  factoryIdByRowId: { [bGradeSmallConfirmedRow.rowId]: bGradeDispatchSnapshot.factoryId },
+  policyOverrideByRowId: { [bGradeSmallConfirmedRow.rowId]: { documentTypeLabel: '常规单', dispatchQty: 100, isUrgentOrder: false } },
+  policyContextByFactoryId: { [bGradeDispatchSnapshot.factoryId]: { riskConfirmed: true } },
+  by: '对抗式核查',
+}))
+assert.equal(bGradeSmallConfirmed.ok, true, 'B 级黄牌小单非急单确认风险后必须允许派单')
+
 const supervisorAssignedRow = getAvailableDispatchRow('车缝分配工作台必须有可验证主管指定派单的齐套 SKU 行')
-const supervisorAssigned = createSewingDispatchWorkbenchDraft({
+const supervisorAssigned = runWithDispatchRollback(() => createSewingDispatchWorkbenchDraft({
   actionType: '直接派单',
   rowIds: [supervisorAssignedRow.rowId],
   factoryIdByRowId: { [supervisorAssignedRow.rowId]: supervisorDispatchSnapshot.factoryId },
   policyOverrideByRowId: { [supervisorAssignedRow.rowId]: { documentTypeLabel: '常规单', dispatchQty: supervisorAssignedRow.remainingQty, isUrgentOrder: false } },
   policyContextByFactoryId: { [supervisorDispatchSnapshot.factoryId]: { supervisorAssigned: true } },
   by: '对抗式核查',
-})
+}))
 assert.equal(supervisorAssigned.ok, true, '主管指定工厂由主管指定后必须允许派单')
 
 for (const blockedSnapshot of blockedSnapshots) {

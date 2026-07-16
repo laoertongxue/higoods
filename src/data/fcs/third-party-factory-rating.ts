@@ -568,12 +568,11 @@ export function evaluateThirdPartyFactoryDispatchPolicy(input: DispatchPolicyInp
 
   if (snapshot.dispatchControl === 'WARN_CONFIRM') {
     const smallOrderLimitQty = snapshot.smallOrderLimitQty
-    const requiresConfirm = input.isUrgentOrder || (typeof smallOrderLimitQty === 'number' && input.dispatchQty > smallOrderLimitQty)
-    if (requiresConfirm && !input.riskConfirmed) {
+    if (!input.riskConfirmed) {
       return createDispatchDecision(
         false,
         'WARN',
-        `黄牌工厂建议只派 ${smallOrderLimitQty ?? 300} 件以内非急单，需要确认交期余量。`,
+        `黄牌工厂建议只派 ${smallOrderLimitQty ?? 300} 件以内非急单，需要确认交期余量和质量风险。`,
         ['黄牌提醒', '需确认'],
         true,
         40,
