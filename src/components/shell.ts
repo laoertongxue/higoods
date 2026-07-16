@@ -303,12 +303,14 @@ function renderTabsBar(state: AppState): string {
   `
 }
 
+export function isStandalonePrintPath(pathname: string): boolean {
+  return pathname.startsWith('/fcs/print/')
+    || pathname.startsWith('/fcs/task-print/')
+    || /^\/fcs\/production\/orders\/[^/]+\/confirmation-print/.test(pathname)
+}
+
 export function renderAppShell(state: AppState, pageContent: string): string {
-  if (
-    state.pathname.startsWith('/fcs/print/')
-    || state.pathname.startsWith('/fcs/task-print/')
-    || /^\/fcs\/production\/orders\/[^/]+\/confirmation-print/.test(state.pathname)
-  ) {
+  if (isStandalonePrintPath(state.pathname)) {
     return `
       <div class="min-h-screen bg-slate-100" data-standalone-print-root="true">
         ${pageContent}

@@ -2741,7 +2741,7 @@ export function getPostFinishingSourceLabel(order: Pick<PostFinishingWorkOrder, 
 }
 
 export function getPostFinishingFlowText(order: Pick<PostFinishingWorkOrder, 'requiresPostFinishing'>): string {
-  return order.requiresPostFinishing ? '扫码收货 -> 质检 -> 后道 -> 复检' : '扫码收货 -> 质检 -> 复检'
+  return order.requiresPostFinishing ? '扫码收货 -> 质检 -> 后道 -> 复检 -> 交出' : '扫码收货 -> 质检 -> 复检 -> 交出'
 }
 
 export function listPostFinishingSourceStyleOptions(): PostFinishingSourceContext[] {
