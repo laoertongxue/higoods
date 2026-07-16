@@ -24,6 +24,7 @@ import {
   handleFactoryPerformanceEvent,
   isFactoryPerformanceDialogOpen,
 } from '../pages/factory-performance'
+import { handleThirdPartyFactoryRatingEvent } from '../pages/third-party-factory-rating'
 import {
   handleSettlementEvent,
   handleSettlementSubmit,
@@ -272,6 +273,19 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   }
   if (pathname.startsWith('/fcs/material-prep/other')) {
     return handleFcsOtherPrepEvent(target)
+  }
+  if (
+    pathname.startsWith('/fcs/factories/third-party-rating')
+    && (
+      event?.type === 'dragend'
+      || target.closest([
+        '[data-third-party-rating-action]',
+        '[data-third-party-rating-field]',
+        '[data-standard-list-column-drag]',
+      ].join(', '))
+    )
+  ) {
+    return handleThirdPartyFactoryRatingEvent(target, event)
   }
   if (pathname.startsWith('/fcs/factories/profile')) {
     return handleFactoryPageEvent(target)

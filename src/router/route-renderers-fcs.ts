@@ -37,6 +37,10 @@ export const renderFactoryPerformancePage = createAsyncRenderer(
 )
 export const renderFactoryOnboardingPage = createAsyncRenderer(() => import('../pages/factory-onboarding'), 'renderFactoryOnboardingPage')
 export const renderFactoryProfilePage = createAsyncRenderer(() => import('../pages/factory-profile'), 'renderFactoryProfilePage')
+export const renderThirdPartyFactoryRatingPage = createAsyncRenderer(
+  () => import('../pages/third-party-factory-rating'),
+  'renderThirdPartyFactoryRatingPage',
+)
 export const renderFactoryStatusPage = createAsyncRenderer(() => import('../pages/factory-status'), 'renderFactoryStatusPage')
 export const renderOverviewPage = createAsyncRenderer(() => import('../pages/workbench'), 'renderOverviewPage')
 export const renderTodosPage = createAsyncRenderer(() => import('../pages/workbench'), 'renderTodosPage')
