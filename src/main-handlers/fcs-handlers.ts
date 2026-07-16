@@ -24,7 +24,10 @@ import {
   handleFactoryPerformanceEvent,
   isFactoryPerformanceDialogOpen,
 } from '../pages/factory-performance'
-import { handleThirdPartyFactoryRatingEvent } from '../pages/third-party-factory-rating'
+import {
+  handleThirdPartyFactoryRatingEvent,
+  handleThirdPartyFactoryRatingSubmit,
+} from '../pages/third-party-factory-rating'
 import {
   handleSettlementEvent,
   handleSettlementSubmit,
@@ -420,6 +423,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
 
 export function dispatchFcsPageSubmit(form: HTMLFormElement): boolean {
   return (
+    handleThirdPartyFactoryRatingSubmit(form) ||
     handleFactoryPageSubmit(form) ||
     handleCapabilitySubmit(form) ||
     handleSettlementSubmit(form) ||

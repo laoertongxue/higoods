@@ -152,7 +152,11 @@ assert.ok(ratingPageSource.includes('renderStandardListTable'), '三方工厂评
 assert.ok(ratingPageSource.includes('renderTablePagination'), '三方工厂评级页必须使用标准分页')
 assert.ok(ratingPageSource.includes('listThirdPartyFactoryRatingSnapshots'), '三方工厂评级页必须读取评级快照')
 assert.ok(ratingPageSource.includes('联动统计'), '三方工厂评级页必须表达筛选后联动统计')
+assert.ok(ratingPageSource.includes('全部三方车缝工厂'), '三方工厂评级统计卡必须展示全部三方车缝工厂')
 assert.ok(ratingPageSource.includes('查看评级'), '三方工厂评级页必须有详情入口')
+assert.ok(ratingPageSource.includes('handleThirdPartyFactoryRatingSubmit'), '三方工厂评级页必须导出筛选提交处理')
+assert.ok(ratingPageSource.includes('FormData'), '三方工厂评级页筛选提交必须读取表单字段')
+assert.ok(ratingPageSource.includes('data-third-party-rating-field="keyword"'), '三方工厂评级页关键字筛选必须有事件字段标记')
 
 const filterIndex = ratingPageSource.indexOf('data-third-party-rating-filters')
 const statsIndex = ratingPageSource.indexOf('data-third-party-rating-stats')
@@ -215,5 +219,15 @@ const capacityMenuIndex = appShellSource.indexOf("key: 'factories-capacity-profi
 assert.ok(profileMenuIndex >= 0 && ratingMenuIndex > profileMenuIndex, '三方工厂评级菜单必须位于工厂档案之后')
 assert.ok(capacityMenuIndex > ratingMenuIndex, '三方工厂评级菜单必须位于工厂产能档案之前')
 assert.ok(appShellSource.includes("title: '三方工厂评级'"), '菜单标题必须是三方工厂评级')
+
+const fcsHandlersSource = readRequiredSource(
+  new URL('../src/main-handlers/fcs-handlers.ts', import.meta.url),
+  '缺少 FCS 事件处理文件',
+)
+assert.ok(fcsHandlersSource.includes('handleThirdPartyFactoryRatingSubmit'), 'FCS submit 分发必须接入三方工厂评级筛选提交')
+assert.ok(
+  fcsHandlersSource.indexOf('handleThirdPartyFactoryRatingSubmit(form)') >= 0,
+  '三方工厂评级筛选提交必须进入 dispatchFcsPageSubmit',
+)
 
 console.log('check:third-party-factory-rating passed')

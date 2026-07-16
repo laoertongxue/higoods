@@ -25,6 +25,7 @@ import {
   type FactoryRatingPerformanceRecord,
   type FactoryRatingSnapshot,
 } from '../data/fcs/third-party-factory-rating.ts'
+import { appStore } from '../state/store.ts'
 import { escapeHtml } from '../utils.ts'
 
 const PAGE_PATH = '/fcs/factories/third-party-rating'
@@ -32,7 +33,6 @@ const EVENT_PREFIX = 'third-party-rating'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 const COLUMN_STORAGE_KEY = 'fcs.third-party-factory-rating.columns.v1'
 const MAX_FROZEN_WIDTH = 520
-const STORE_MODULE_PATH = '../state/store.ts'
 
 type DispatchFilter = 'ALL' | 'ALLOW' | 'LIMITED' | 'BLOCKED'
 type SettlementFilter = 'ALL' | 'ALLOW' | 'BLOCKED'
@@ -56,10 +56,6 @@ interface RatingQuery {
 interface RatingRow extends FactoryRatingSnapshot {
   displayFactoryName: string
   displayFactoryCode: string
-}
-
-interface RatingNavigationStore {
-  navigate(pathname: string): void
 }
 
 let draggedColumnKey = ''
@@ -229,7 +225,7 @@ function filterSnapshots(rows: RatingRow[], query: RatingQuery): RatingRow[] {
 
 function renderSelect(name: string, value: string, options: Array<[string, string]>): string {
   return `
-    <select name="${escapeHtml(name)}" class="h-9 rounded-md border bg-background px-3 text-sm">
+    <select name="${escapeHtml(name)}" class="h-9 rounded-md border bg-background px-3 text-sm" data-third-party-rating-field="${escapeHtml(name)}">
       ${options.map(([optionValue, label]) => `
         <option value="${escapeHtml(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(label)}</option>
       `).join('')}
@@ -242,7 +238,7 @@ function renderFilters(query: RatingQuery): string {
     <form action="${PAGE_PATH}" method="get" class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-6" data-third-party-rating-filters>
       <input type="hidden" name="page" value="1">
       <input type="hidden" name="pageSize" value="${escapeHtml(query.pageSize)}">
-      <input name="keyword" value="${escapeHtml(query.keyword)}" class="h-9 rounded-md border bg-background px-3 text-sm md:col-span-2" placeholder="工厂名称 / 编码" />
+      <input name="keyword" value="${escapeHtml(query.keyword)}" class="h-9 rounded-md border bg-background px-3 text-sm md:col-span-2" placeholder="工厂名称 / 编码" data-third-party-rating-field="keyword" />
       ${renderSelect('grade', query.grade, [['ALL', '全部评级'], ['S', 'S 级'], ['A', 'A 级'], ['B', 'B 级'], ['C', 'C 级']])}
       ${renderSelect('cooperationStatus', query.cooperationStatus, [['ALL', '全部合作状态'], ['正常合作', '正常合作'], ['考核中', '考核中'], ['黑名单', '黑名单']])}
       ${renderSelect('scale', query.scale, [['ALL', '全部规模'], ['大型工厂', '大型工厂'], ['小型工厂', '小型工厂']])}
@@ -265,7 +261,7 @@ function renderLinkedStats(rows: RatingRow[]): string {
         <span class="text-xs text-muted-foreground">随当前筛选结果实时计算</span>
       </div>
       ${renderStandardListStats([
-        { label: '当前结果总数', value: rows.length },
+        { label: '全部三方车缝工厂', value: rows.length },
         { label: '正常合作', value: countBy((row) => row.cooperationStatusLabel === '正常合作') },
         { label: '考核中', value: countBy((row) => row.cooperationStatusLabel === '考核中') },
         { label: '黑名单', value: countBy((row) => row.cooperationStatusLabel === '黑名单') },
@@ -565,16 +561,8 @@ function renderColumnSettingsOverlay(query: RatingQuery, preferences: StandardLi
   })
 }
 
-async function loadNavigationStore(): Promise<RatingNavigationStore | null> {
-  const { appStore } = await import(STORE_MODULE_PATH) as { appStore?: RatingNavigationStore }
-  return appStore ?? null
-}
-
 function navigateRatingList(href: string): void {
-  void loadNavigationStore().then((appStore) => {
-    if (!appStore) return
-    appStore.navigate(href)
-  })
+  appStore.navigate(href)
 }
 
 function getCurrentPaging(query: RatingQuery): { currentPage: number, totalPages: number } {
@@ -618,6 +606,32 @@ function refreshColumnSettings(query: RatingQuery, patch: Partial<RatingQuery> =
     columnSettings: patch.columnSettings ?? true,
     refreshKey: String(Date.now()),
   }))
+}
+
+function readFormValue(formData: FormData, key: string): string {
+  const value = formData.get(key)
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+export function handleThirdPartyFactoryRatingSubmit(form: HTMLFormElement): boolean {
+  if (!form.matches('[data-third-party-rating-filters]')) return false
+
+  const formData = new FormData(form)
+  const pageSize = Number(readFormValue(formData, 'pageSize'))
+  navigateRatingList(buildHref(readQuery(), {
+    keyword: readFormValue(formData, 'keyword'),
+    grade: readFormValue(formData, 'grade') || 'ALL',
+    cooperationStatus: readFormValue(formData, 'cooperationStatus') || 'ALL',
+    scale: readFormValue(formData, 'scale') || 'ALL',
+    dispatch: normalizeDispatchFilter(readFormValue(formData, 'dispatch')),
+    settlement: normalizeSettlementFilter(readFormValue(formData, 'settlement')),
+    page: 1,
+    pageSize: PAGE_SIZE_OPTIONS.includes(pageSize) ? pageSize : getColumnPreferences().pageSize,
+    viewFactoryId: '',
+    columnSettings: false,
+    refreshKey: '',
+  }))
+  return true
 }
 
 export function handleThirdPartyFactoryRatingEvent(target: HTMLElement, event?: Event): boolean {
