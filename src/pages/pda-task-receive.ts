@@ -52,6 +52,7 @@ import {
   filterReceiveQuotedTenders,
 } from '../data/fcs/pda-receive-scope.ts'
 import { acceptWoolWorkOrder } from '../data/fcs/wool-task-domain.ts'
+import { recordDyeWorkOrderPdaAcceptance } from '../data/fcs/dye-work-order-online-domain.ts'
 import {
   acceptRuntimeTaskAssignment,
   getRuntimeTaskById,
@@ -1470,7 +1471,10 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
     const factoryName = getFactoryName(factoryId)
     if (taskId && taskId === state.acceptDialogTaskId) {
       try {
-        acceptPdaTaskWithRuntimeFallback(taskId, factoryId, factoryName, state.acceptDialogAcceptedAt)
+        const runtime = getPdaRuntimeContext()
+        const acceptedAt = state.acceptDialogAcceptedAt
+        acceptPdaTaskWithRuntimeFallback(taskId, factoryId, factoryName, acceptedAt)
+        recordDyeWorkOrderPdaAcceptance(taskId, runtime?.userName || factoryName, acceptedAt)
         state.acceptDialogTaskId = ''
         state.acceptDialogAcceptedAt = ''
         showTaskReceiveToast('接单成功')

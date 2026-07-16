@@ -110,6 +110,10 @@ import {
   type ProcessActionOperationRecord,
 } from '../data/fcs/process-action-writeback-service.ts'
 import {
+  advanceDyeWorkOrderOnlineStatus,
+  getDyeWorkOrderOnlineRecord,
+} from '../data/fcs/dye-work-order-online-domain.ts'
+import {
   formatProcessQuantityWithUnit,
   getQuantityLabel,
 } from '../data/fcs/process-quantity-labels.ts'
@@ -1140,7 +1144,8 @@ function renderCombinedDyeCurrentActionCard(task: TaskWithHandoverFields, order:
     ? `<button type="button" class="min-h-11 w-full rounded-lg bg-primary px-4 py-3 text-base font-semibold text-primary-foreground disabled:opacity-60" data-pda-execd-action="${action.action}" data-combined-primary-action="true" data-dye-order-id="${escapeHtml(order.dyeOrderId)}" data-task-id="${escapeHtml(task.taskId)}" data-expected-status="${escapeHtml(order.status)}" data-expected-node="${action.node}" data-action-token="${escapeHtml(token)}">${escapeHtml(action.label)}</button>`
     : `<div class="text-sm text-blue-800">${order.status === 'PRODUCTION_PAUSED' ? '等待生产主管处理数量不足。' : '当前账号不能执行此动作。'}</div>`
   primary = primary.replace('<button ', '<button data-skip-page-rerender="true" ')
-  return `<article class="rounded-lg border bg-card" data-testid="pda-combined-dye-current-action"><header class="border-b px-4 py-3"><div class="flex items-center justify-between gap-2"><h2 class="text-sm font-semibold">染色加工（含水溶）</h2>${renderPrintingStatusBadge(stepLabel, order.status === 'PRODUCTION_PAUSED' ? 'danger' : 'info')}</div></header><div class="space-y-4 p-4"><div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs"><span class="text-muted-foreground">当前物料</span><span class="font-medium">${escapeHtml(order.rawMaterialSku)}</span><span class="text-muted-foreground">计划数量</span><span>${order.waterSolublePlannedQty ?? order.plannedQty} ${escapeHtml(order.waterSolubleQtyUnit || order.qtyUnit)}</span><span class="text-muted-foreground">水溶完成</span><span>${order.waterSolubleCompletedQty ?? 0} ${escapeHtml(order.waterSolubleQtyUnit || order.qtyUnit)}</span><span class="text-muted-foreground">当前步骤</span><span class="font-medium">${escapeHtml(stepLabel)}</span></div><section class="rounded-lg border border-blue-200 bg-blue-50 p-4"><p class="mb-3 text-xs font-medium text-blue-800">现在要做：${escapeHtml(action?.label || '等待主管处理')}</p>${primary}</section><details class="rounded-lg border bg-background"><summary class="cursor-pointer px-4 py-3 text-sm font-medium">完整执行记录（${records.length} 条）</summary><div class="space-y-2 border-t p-4">${records.map((record) => `<div class="text-xs"><span class="font-medium">${escapeHtml(record.nodeName)}</span><span class="ml-2 text-muted-foreground">${escapeHtml(record.finishedAt ? '已完成' : record.startedAt ? '进行中' : '待开始')}</span></div>`).join('') || '<div class="text-xs text-muted-foreground">暂无执行记录</div>'}</div></details></div><div data-testid="pda-combined-dye-overlay">${renderCombinedDyeWaterOverlay()}</div></article>`
+  const onlineStatus = getDyeWorkOrderOnlineRecord(order.dyeOrderId).status
+  return `<article class="rounded-lg border bg-card" data-testid="pda-combined-dye-current-action"><header class="border-b px-4 py-3"><div class="flex items-center justify-between gap-2"><h2 class="text-sm font-semibold">染色加工（含水溶）</h2>${renderPrintingStatusBadge(onlineStatus, onlineStatus === '取消' ? 'danger' : 'info')}</div></header><div class="space-y-4 p-4"><div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs"><span class="text-muted-foreground">当前物料</span><span class="font-medium">${escapeHtml(order.rawMaterialSku)}</span><span class="text-muted-foreground">计划数量</span><span>${order.waterSolublePlannedQty ?? order.plannedQty} ${escapeHtml(order.waterSolubleQtyUnit || order.qtyUnit)}</span><span class="text-muted-foreground">水溶完成</span><span>${order.waterSolubleCompletedQty ?? 0} ${escapeHtml(order.waterSolubleQtyUnit || order.qtyUnit)}</span><span class="text-muted-foreground">当前状态</span><span class="font-medium">${escapeHtml(onlineStatus)}</span><span class="text-muted-foreground">当前步骤</span><span class="font-medium">${escapeHtml(stepLabel)}</span></div><section class="rounded-lg border border-blue-200 bg-blue-50 p-4"><p class="mb-3 text-xs font-medium text-blue-800">现在要做：${escapeHtml(action?.label || '等待主管处理')}</p>${primary}</section><details class="rounded-lg border bg-background"><summary class="cursor-pointer px-4 py-3 text-sm font-medium">完整执行记录（${records.length} 条）</summary><div class="space-y-2 border-t p-4">${records.map((record) => `<div class="text-xs"><span class="font-medium">${escapeHtml(record.nodeName)}</span><span class="ml-2 text-muted-foreground">${escapeHtml(record.finishedAt ? '已完成' : record.startedAt ? '进行中' : '待开始')}</span></div>`).join('') || '<div class="text-xs text-muted-foreground">暂无执行记录</div>'}</div></details></div><div data-testid="pda-combined-dye-overlay">${renderCombinedDyeWaterOverlay()}</div></article>`
 }
 
 function refreshCombinedDyeCurrentAction(dyeOrderId: string): void {
@@ -1184,6 +1189,7 @@ function renderDyeingTaskCard(
   const canOperate = canOperateDyeingNode(task)
   const sampleReady = !dyeOrder.isFirstOrder || Boolean(dyeOrder.sampleWaitFinishedAt) || dyeOrder.sampleWaitType === 'NONE'
   const canPlanVat = Boolean(materialReadyNode?.finishedAt) && (dyeOrder.sampleStatus === 'DONE' || dyeOrder.sampleStatus === 'NOT_REQUIRED')
+  const onlineStatus = getDyeWorkOrderOnlineRecord(dyeOrder.dyeOrderId).status
 
   const sampleWaitBadge = dyeOrder.sampleWaitFinishedAt
     ? renderPrintingStatusBadge('等样衣/色样完成', 'success')
@@ -1236,7 +1242,7 @@ function renderDyeingTaskCard(
             <i data-lucide="droplets" class="h-4 w-4"></i>
             染色任务
           </h2>
-          ${renderPrintingStatusBadge(getDyeWorkOrderStatusLabel(dyeOrder.status), dyeOrder.status === 'FULL_HANDOVER' ? 'success' : dyeOrder.status === 'HANDOVER_DIFFERENCE' ? 'danger' : dyeOrder.status === 'WAIT_HANDOVER' || dyeOrder.status === 'HANDOVER_WAIT_RECEIVE' || dyeOrder.status === 'PARTIAL_HANDOVER' ? 'warning' : 'info')}
+          ${renderPrintingStatusBadge(onlineStatus, onlineStatus === '已完成' ? 'success' : onlineStatus === '取消' ? 'danger' : onlineStatus === '待审核' || onlineStatus === '部分入库' ? 'warning' : 'info')}
         </div>
       </header>
 
@@ -1249,7 +1255,7 @@ function renderDyeingTaskCard(
             relatedProductionOrderNo: dyeOrder.sourceProductionOrderNo || dyeOrder.sourceProductionOrderId || task.productionOrderId,
           })}</span>
           <span class="text-xs text-muted-foreground">当前状态</span>
-          <span class="text-xs">${escapeHtml(getDyeWorkOrderStatusLabel(dyeOrder.status))}</span>
+          <span class="text-xs">${escapeHtml(onlineStatus)}</span>
           <span class="text-xs text-muted-foreground">目标颜色</span>
           <span class="text-xs">${escapeHtml(dyeOrder.targetColor)}</span>
           <span class="text-xs text-muted-foreground">色号</span>
@@ -4730,7 +4736,11 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       }
       const dyeVatNo = getDyeExecutionNodeRecord(dyeOrderId, 'VAT_PLAN')?.dyeVatNo || listDyeVatOptions(order.dyeFactoryId)[0]?.dyeVatNo || ''
       try {
+        getDyeWorkOrderOnlineRecord(dyeOrderId)
         startDyeing(dyeOrderId, { dyeVatNo, inputQty, operatorName: session.userName })
+        advanceDyeWorkOrderOnlineStatus(dyeOrderId, {
+          action: '开工', operatorName: session.userName, operatedAt: nowTimestamp(), source: 'PDA',
+        })
         pendingDyeWaterActions.delete(key)
         showPdaExecDetailToast('染色开始已记录')
         refreshCombinedDyeCurrentAction(dyeOrderId)

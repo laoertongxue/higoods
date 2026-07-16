@@ -100,6 +100,27 @@ assert(logs.some((log) => log.action === 'PFOS人工编辑'))
 assert(logs.some((log) => log.action === '开工'))
 assert(logs.every((log) => log.workOrderNo === order.dyeOrderNo))
 
+const pdaOrder = listDyeWorkOrders().find((item) => item.dyeOrderId !== order.dyeOrderId && getDyeWorkOrderOnlineRecord(item.dyeOrderId).status === '等待处理')
+assert(pdaOrder, '至少需要第二张等待处理的染色加工单验证 PDA 顺序')
+assert.throws(
+  () => advanceDyeWorkOrderOnlineStatus(pdaOrder.dyeOrderId, {
+    action: '开工', operatorName: '操作员', operatedAt: '2026-07-16 08:00:00', source: 'PDA',
+  }),
+  /请先接单/,
+)
+advanceDyeWorkOrderOnlineStatus(pdaOrder.dyeOrderId, {
+  action: '接单', operatorName: '操作员', operatedAt: '2026-07-16 08:01:00', source: 'PDA',
+})
+advanceDyeWorkOrderOnlineStatus(pdaOrder.dyeOrderId, {
+  action: '开工', operatorName: '操作员', operatedAt: '2026-07-16 08:02:00', source: 'PDA',
+})
+assert.throws(
+  () => advanceDyeWorkOrderOnlineStatus(pdaOrder.dyeOrderId, {
+    action: '交出', operatorName: '操作员', operatedAt: '2026-07-16 08:03:00', source: 'PDA',
+  }),
+  /请先完工/,
+)
+
 const rows = listDyeWorkOrderOnlineRows()
 assert(rows.length >= 8, '染色加工单线上列表演示数据不足')
 assert(rows.every((row) => row.workOrderNo === row.platformWorkOrderNo), '列表只能使用平台加工单号')
@@ -116,6 +137,17 @@ assert(buildDyeWorkOrderCsv(rows, '备料').startsWith('\uFEFF'))
 assert(buildDyeWorkOrderCsv(rows, '超期未完结').includes('平台加工单号'))
 
 const workOrdersSource = fs.readFileSync(path.join(process.cwd(), 'src/pages/process-factory/dyeing/work-orders.ts'), 'utf8')
+const pdaReceiveSource = fs.readFileSync(path.join(process.cwd(), 'src/pages/pda-task-receive.ts'), 'utf8')
+const pdaExecSource = fs.readFileSync(path.join(process.cwd(), 'src/pages/pda-exec-detail.ts'), 'utf8')
+const actionWritebackSource = fs.readFileSync(path.join(process.cwd(), 'src/data/fcs/process-action-writeback-service.ts'), 'utf8')
+const dyeDomainSource = fs.readFileSync(path.join(process.cwd(), 'src/data/fcs/dyeing-task-domain.ts'), 'utf8')
+assert(pdaReceiveSource.includes('recordDyeWorkOrderPdaAcceptance'), 'PDA 确认接单后必须同步染色加工单接单状态')
+assert(pdaExecSource.includes('getDyeWorkOrderOnlineRecord'), 'PDA 必须展示与 PFOS 相同的染色加工单状态')
+assert(pdaExecSource.includes("action: '开工'"), '含水溶染色直接开工后必须同步线上状态')
+;["action: '开工'", "action: '完工'", "action: '交出'"].forEach((text) => {
+  assert(actionWritebackSource.includes(text), `染色动作写回缺少线上状态映射：${text}`)
+})
+assert(dyeDomainSource.includes('notifyDyeReceiptOnlineStatus'), '染色收货确认必须同步部分入库或已完成')
 ;[
   '查询项', '状态', '销售类型', '生产工厂', '染色工艺', '面料接收人',
   '是否纱线', '是否补料', 'GTG仓是否有库存', '物料类型', '染色色号',

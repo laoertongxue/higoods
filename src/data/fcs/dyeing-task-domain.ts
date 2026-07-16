@@ -2596,6 +2596,26 @@ export function getDyeWorkOrderByTaskId(taskId: string): DyeWorkOrder | undefine
     : undefined
 }
 
+export interface DyeReceiptOnlineStatusEvent {
+  dyeOrderId: string
+  receivedBy: string
+  receivedAt: string
+  receivedQty: number
+  expectedQty: number
+}
+
+let dyeReceiptOnlineStatusListener: ((event: DyeReceiptOnlineStatusEvent) => void) | null = null
+
+export function registerDyeReceiptOnlineStatusListener(
+  listener: (event: DyeReceiptOnlineStatusEvent) => void,
+): void {
+  dyeReceiptOnlineStatusListener = listener
+}
+
+function notifyDyeReceiptOnlineStatus(event: DyeReceiptOnlineStatusEvent): void {
+  dyeReceiptOnlineStatusListener?.(event)
+}
+
 export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductionOrderProcessSnapshot & {
   workOrderId: string
   workOrderNo: string
@@ -3823,6 +3843,13 @@ export function confirmDyeReceipt(
   )
   applyDyeReceiptState(order, review)
   updateOrderTimestamp(order, review.reviewedAt)
+  notifyDyeReceiptOnlineStatus({
+    dyeOrderId,
+    receivedBy: input.receivedBy,
+    receivedAt: review.reviewedAt,
+    receivedQty,
+    expectedQty: getCurrentOutputQty(order) || order.plannedQty,
+  })
   return cloneReviewRecord(review)
 }
 

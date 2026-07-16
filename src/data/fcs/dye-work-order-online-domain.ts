@@ -1,5 +1,7 @@
 import {
   getDyeWorkOrderById,
+  getDyeWorkOrderByTaskId,
+  registerDyeReceiptOnlineStatusListener,
   type DyeWorkOrder,
   type DyeWorkOrderStatus,
 } from './dyeing-task-domain.ts'
@@ -328,3 +330,28 @@ export function advanceDyeWorkOrderOnlineStatus(
   })
   return cloneRecord(record)
 }
+
+export function recordDyeWorkOrderPdaAcceptance(
+  taskId: string,
+  operatorName: string,
+  operatedAt: string,
+): DyeWorkOrderOnlineRecord | null {
+  const order = getDyeWorkOrderByTaskId(taskId)
+  if (!order) return null
+  return advanceDyeWorkOrderOnlineStatus(order.dyeOrderId, {
+    action: '接单',
+    operatorName,
+    operatedAt,
+    source: 'PDA',
+  })
+}
+
+registerDyeReceiptOnlineStatusListener((event) => {
+  advanceDyeWorkOrderOnlineStatus(event.dyeOrderId, {
+    action: event.receivedQty < event.expectedQty ? '部分入库' : '全部入库',
+    operatorName: event.receivedBy,
+    operatedAt: event.receivedAt,
+    source: '入库',
+    remark: `累计实收 ${event.receivedQty} / 应收 ${event.expectedQty}`,
+  })
+})
