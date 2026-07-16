@@ -145,6 +145,10 @@ assert.ok(!factoryProfileSource.includes('listThirdPartyFactoryPerformanceRecord
 const sewingDispatchSource = readFileSync(new URL('../src/pages/sewing-dispatch-workbench.ts', import.meta.url), 'utf8')
 assert.ok(sewingDispatchSource.includes('getThirdPartyFactoryRatingSnapshot'), '车缝分配工作台未读取评级快照')
 assert.ok(sewingDispatchSource.includes('该工厂为黄牌工厂，建议只分配小单、简单单'), '车缝分配缺少 B 级黄牌提醒')
+assert.ok(
+  sewingDispatchSource.includes('确认派单') && sewingDispatchSource.includes('confirm-dispatch'),
+  '车缝分配工作台缺少黄牌提醒后的确认派单动作入口',
+)
 assert.ok(sewingDispatchSource.includes('该工厂已拉黑，不能派单。请更换工厂。'), '车缝分配缺少黑名单派单拦截')
 assert.ok(sewingDispatchSource.includes('该工厂还在试用期，只能接试产单。'), '车缝分配缺少考核中拦截')
 
