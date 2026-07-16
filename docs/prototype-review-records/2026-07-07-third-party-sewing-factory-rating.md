@@ -6,7 +6,7 @@
 | --- | --- |
 | 系统 | FCS |
 | 页面名称 | 三方工厂评级、工厂档案、车缝分配工作台、对账单生成 |
-| 页面路径 | `/fcs/factories/third-party-rating`、`/fcs/factory-profile`、`/fcs/dispatch/sewing`、对账单生成页 |
+| 页面路径 | `/fcs/factories/third-party-rating`、`/fcs/factories/profile`、`/fcs/dispatch/sewing`、对账单生成页 |
 | 端类型 | 管理端 |
 | 主要角色 | PPIC、工厂管理、跟单/结算人员、业务主管 |
 | 主要任务 | 集中查看三方车缝工厂评级、筛选评级风险、派单前风控、结算前拦截 |
