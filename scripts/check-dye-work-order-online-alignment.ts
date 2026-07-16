@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import process from 'node:process'
 import { listDyeWorkOrders } from '../src/data/fcs/dyeing-task-domain.ts'
 import {
   advanceDyeWorkOrderOnlineStatus,
@@ -108,5 +111,16 @@ const summary = getDyeWorkOrderOnlineSummary(rows)
 assert(summary.plannedQtyByUnit.some((item) => item.unit === 'Yard'))
 assert(buildDyeWorkOrderCsv(rows, '备料').startsWith('\uFEFF'))
 assert(buildDyeWorkOrderCsv(rows, '超期未完结').includes('平台加工单号'))
+
+const workOrdersSource = fs.readFileSync(path.join(process.cwd(), 'src/pages/process-factory/dyeing/work-orders.ts'), 'utf8')
+;[
+  '查询项', '状态', '销售类型', '生产工厂', '染色工艺', '面料接收人',
+  '是否纱线', '是否补料', 'GTG仓是否有库存', '物料类型', '染色色号',
+  '成分', '幅宽', '克重', '导出备料数据', '导出超期未完结',
+  '批量打印染整生产流程卡', '商品信息', '采购单信息', '原料/面料',
+  '属性信息', '时间/加工厂', '附加信息', '查看', '编辑', '日志', '打印流程卡',
+].forEach((text) => assert(workOrdersSource.includes(text), `染色加工单列表缺少：${text}`))
+assert(workOrdersSource.includes('renderStandardListTable'), '染色加工单列表必须使用标准列表模板')
+;['查看配方', '查看统计'].forEach((text) => assert(!workOrdersSource.includes(text), `单张染色加工单列表不应保留：${text}`))
 
 console.log('dye work order online alignment check passed')

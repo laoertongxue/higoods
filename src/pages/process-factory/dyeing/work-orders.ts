@@ -2,7 +2,8 @@
 
 import { hydrateIcons } from '../../../components/shell.ts'
 import { renderBadge } from '../../../components/ui/badge.ts'
-import { renderSecondaryButton } from '../../../components/ui/button.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../../../components/ui/button.ts'
+import { renderInput } from '../../../components/ui/form.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
 import {
   renderStandardListColumnSettings,
@@ -21,21 +22,16 @@ import {
   type StandardListSortState,
 } from '../../../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
-import { renderInput } from '../../../components/ui/form.ts'
 import {
-  getDyeOrderHandoverSummary,
-  getDyeCurrentStepLabel,
-  getDyeWorkOrderSummary,
-  listDyeWorkOrders,
-  type DyeWorkOrder,
-} from '../../../data/fcs/dyeing-task-domain.ts'
-import { buildDyeWorkOrderCombinedDyeingView } from '../../../data/fcs/dye-work-order-combined-dyeing-view.ts'
-import { buildDyeingWorkOrderDetailLink, buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
-import { formatFactoryDisplayName } from '../../../data/fcs/factory-display-data.ts'
-import { getStartPrerequisiteByTaskId } from '../../../data/fcs/pda-start-link.ts'
-import { renderProductionObjectCodeButton } from '../../../data/fcs/production-order-identity.ts'
+  DEFAULT_DYE_WORK_ORDER_ONLINE_FILTERS,
+  filterDyeWorkOrderOnlineRows,
+  getDyeWorkOrderOnlineSummary,
+  listDyeWorkOrderOnlineRows,
+  type DyeWorkOrderOnlineFilters,
+  type DyeWorkOrderOnlineRow,
+} from '../../../data/fcs/dye-work-order-online-view.ts'
+import { DYE_WORK_ORDER_ONLINE_STATUSES, type DyeWorkOrderOnlineStatus } from '../../../data/fcs/dye-work-order-online-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
-import { formatDyeQty, getDyeVatSummary, renderActionButton, renderWorkOrderStatusBadge } from './shared.ts'
 
 const EVENT_PREFIX = 'dye-work-orders'
 const PREFERENCE_KEY = '/fcs/craft/dyeing/work-orders:list-columns'
@@ -43,16 +39,18 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const state: {
   currentPage: number
-  keyword: string
+  filters: DyeWorkOrderOnlineFilters
+  selectedIds: Set<string>
   sort: StandardListSortState | null
   preferences: StandardListColumnPreferences
   preferencesLoaded: boolean
   showColumnSettings: boolean
 } = {
   currentPage: 1,
-  keyword: '',
+  filters: { ...DEFAULT_DYE_WORK_ORDER_ONLINE_FILTERS, statuses: [] },
+  selectedIds: new Set(),
   sort: null,
-  preferences: { order: [], visibleKeys: [], frozenKeys: ['workOrderNo'], pageSize: 10 },
+  preferences: { order: [], visibleKeys: [], frozenKeys: ['dyeInfo'], pageSize: 10 },
   preferencesLoaded: false,
   showColumnSettings: false,
 }
@@ -60,59 +58,80 @@ const state: {
 let columnDragEventsInstalled = false
 let draggedColumnKey = ''
 
-function satisfactionLabel(value: 'FULL' | 'PARTIAL' | 'UNMET'): string {
-  if (value === 'FULL') return '已满足'
-  if (value === 'PARTIAL') return '部分满足'
-  return '未满足'
+function formatQty(value: number, unit: string): string {
+  return `${value.toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${escapeHtml(unit)}`
 }
 
-export function renderDyeWorkOrderCombinedDyeingCell(order: DyeWorkOrder): string {
-  const projection = buildDyeWorkOrderCombinedDyeingView(order)
-  if (!projection) return '<span class="text-xs text-muted-foreground">—</span>'
-  if (!projection.hasCombinedDyeingHistory) {
-    return '<span class="text-xs text-muted-foreground">尚未加入合并染色</span>'
-  }
-  const tone = projection.satisfaction === 'FULL' ? 'success' : projection.satisfaction === 'PARTIAL' ? 'warning' : 'neutral'
-  const active = projection.activeTask
-    ? `<div class="flex flex-wrap items-center gap-1.5">${renderBadge('已加入合并染色', 'info')}<button type="button" class="font-mono text-xs font-medium text-blue-600 hover:underline" data-dyeing-action="navigate" data-href="/fcs/craft/dyeing/combined-dyeing?taskId=${encodeURIComponent(projection.activeTask.taskId)}">${escapeHtml(projection.activeTask.taskNo)}</button></div>`
-    : '<div class="text-xs text-muted-foreground">当前无活动任务，保留历史分配</div>'
-  return `<div class="space-y-1.5">${active}<div class="flex flex-wrap items-center gap-1.5">${renderBadge(satisfactionLabel(projection.satisfaction), tone)}<span class="text-xs">有效 ${formatDyeQty(projection.currentEffectiveAllocationQty, order.qtyUnit)}</span><span class="text-xs text-muted-foreground">未满足 ${formatDyeQty(projection.unmetQty, order.qtyUnit)}</span></div></div>`
+function statusTone(status: DyeWorkOrderOnlineStatus): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
+  if (status === '已完成') return 'success'
+  if (status === '取消') return 'neutral'
+  if (status === '等待处理' || status === '待审核') return 'warning'
+  if (status === '染色中' || status === '部分入库') return 'info'
+  return 'success'
 }
 
-function renderOrderNo(order: DyeWorkOrder): string {
-  return `<div class="space-y-1"><div class="font-mono text-xs font-medium">${renderProductionObjectCodeButton({
-    objectType: 'DYE_WORK_ORDER',
-    objectId: order.dyeOrderNo,
-    label: order.dyeOrderNo,
-    relatedProductionOrderNo: order.sourceProductionOrderNo || order.sourceProductionOrderId,
-    defaultTab: 'progress',
-    highlightKey: `DYE_WORK_ORDER:${order.dyeOrderNo}`,
-    className: 'font-mono text-blue-600 hover:underline',
-  })}</div><div class="text-[11px] text-muted-foreground">平台加工单号，只读，不可改号</div>${order.requiresWaterSoluble ? '<span class="inline-flex rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700">需先水溶</span>' : ''}</div>`
+function renderActions(row: DyeWorkOrderOnlineRow): string {
+  return `<div class="flex flex-wrap justify-end gap-1.5">
+    ${renderSecondaryButton('查看', { prefix: EVENT_PREFIX, action: 'view', payload: { id: row.dyeOrderId } })}
+    ${renderPrimaryButton('编辑', { prefix: EVENT_PREFIX, action: 'edit', payload: { id: row.dyeOrderId } })}
+    ${renderSecondaryButton('日志', { prefix: EVENT_PREFIX, action: 'logs', payload: { id: row.dyeOrderId } })}
+    ${renderSecondaryButton('打印流程卡', { prefix: EVENT_PREFIX, action: 'print-one', payload: { id: row.dyeOrderId } }, 'printer')}
+  </div>`
 }
 
-function renderActions(order: DyeWorkOrder): string {
-  return `<div class="flex flex-wrap justify-end gap-2">${[
-    ['查看详情', buildDyeingWorkOrderDetailLink(order.dyeOrderId)],
-    ['打印任务流转卡', buildTaskRouteCardPrintLink('DYEING_WORK_ORDER', order.dyeOrderId)],
-    ['查看配方', `${buildDyeingWorkOrderDetailLink(order.dyeOrderId)}?tab=formula`],
-    ['查看统计', `${buildDyeingWorkOrderDetailLink(order.dyeOrderId)}?tab=statistics`],
-  ].map(([label, href]) => renderActionButton({ label, action: 'navigate', attrs: { href } })).join('')}</div>`
-}
-
-const columns: StandardListColumn<DyeWorkOrder>[] = [
-  { key: 'workOrderNo', title: '染色加工单号', width: 190, required: true, freezeable: true, sortable: true, render: renderOrderNo, sortValue: (order) => order.dyeOrderNo },
-  { key: 'source', title: '来源', width: 170, required: true, freezeable: true, sortable: true, render: (order) => order.sourceType === 'STOCK' ? `<div>备货</div><div class="text-xs text-muted-foreground">${escapeHtml(order.stockMaterialName || order.stockMaterialId || '—')}</div>` : `<div>生产单</div><div class="font-mono text-xs text-muted-foreground">${escapeHtml(order.sourceProductionOrderNo || order.sourceProductionOrderId || '—')}</div>`, sortValue: (order) => order.sourceProductionOrderNo || order.stockMaterialName },
-  { key: 'combined', title: '合并染色', width: 280, required: true, sortable: true, render: renderDyeWorkOrderCombinedDyeingCell, sortValue: (order) => { const view = buildDyeWorkOrderCombinedDyeingView(order); return view?.hasCombinedDyeingHistory ? view.satisfaction : undefined } },
-  { key: 'material', title: '原料面料', width: 210, sortable: true, render: (order) => `<div>${escapeHtml(order.rawMaterialSku)}</div><div class="text-xs text-muted-foreground">${escapeHtml(order.composition || '暂无数据')}</div>`, sortValue: (order) => order.rawMaterialSku },
-  { key: 'color', title: '目标颜色', width: 120, sortable: true, render: (order) => `<div>${escapeHtml(order.targetColor)}</div><div class="text-xs text-muted-foreground">${escapeHtml(order.colorNo || '待确认')}</div>`, sortValue: (order) => order.targetColor },
-  { key: 'plannedQty', title: '计划数量', width: 120, align: 'right', sortable: true, render: (order) => formatDyeQty(order.plannedQty, order.qtyUnit), sortValue: (order) => order.plannedQty },
-  { key: 'factory', title: '染色工厂', width: 180, sortable: true, render: (order) => escapeHtml(formatFactoryDisplayName(order.dyeFactoryName, order.dyeFactoryId)), sortValue: (order) => order.dyeFactoryName },
-  { key: 'status', title: '当前状态', width: 120, required: true, sortable: true, render: (order) => renderWorkOrderStatusBadge(order.status), sortValue: (order) => order.status },
-  { key: 'preparation', title: '开工准备', width: 220, render: (order) => { const prerequisite = getStartPrerequisiteByTaskId(order.taskId); return `<div class="font-medium">${escapeHtml(order.requiresWaterSoluble ? getDyeCurrentStepLabel(order) : prerequisite?.statusLabel || '按加工单状态判断')}</div><div class="text-xs text-muted-foreground">${escapeHtml(order.requiresWaterSoluble ? '同一染厂先完成水溶，再开始染色' : '实际染色前确认坯布和染化料到位')}</div>` } },
-  { key: 'vat', title: '染缸', width: 110, sortable: true, render: (order) => escapeHtml(getDyeVatSummary(order).dyeVatNo), sortValue: (order) => getDyeVatSummary(order).dyeVatNo },
-  { key: 'handover', title: '交出 / 收货', width: 180, render: (order) => { const handover = getDyeOrderHandoverSummary(order.dyeOrderId); return `<div>${escapeHtml(order.handoverOrderNo || order.handoverOrderId || '未生成')}</div><div class="text-xs text-muted-foreground">待收货 ${handover.pendingWritebackCount} 条 · 差异 ${handover.diffQty}</div>` } },
-  { key: 'actions', title: '操作', width: 360, required: true, actionColumn: true, render: renderActions },
+const columns: StandardListColumn<DyeWorkOrderOnlineRow>[] = [
+  {
+    key: 'dyeInfo', title: '染色信息', width: 205, required: true, freezeable: true, sortable: true,
+    sortValue: (row) => row.workOrderNo,
+    render: (row) => `<div class="space-y-1.5">
+      <label class="flex items-center gap-2"><input type="checkbox" ${state.selectedIds.has(row.dyeOrderId) ? 'checked' : ''} data-dye-work-orders-action="toggle-selection" data-id="${escapeHtml(row.dyeOrderId)}"><span class="font-mono font-medium text-blue-700">${escapeHtml(row.workOrderNo)}</span></label>
+      <div class="text-xs text-muted-foreground">任务单号：${escapeHtml(row.taskNo)}</div>
+      <div class="text-xs text-muted-foreground">生产单号：${escapeHtml(row.productionOrderNo || '—')}</div>
+      <div class="text-xs text-muted-foreground">需求单号：${escapeHtml(row.demandNo)}</div>
+      <div class="flex flex-wrap gap-1">${renderBadge(row.status, statusTone(row.status))}${row.isOverdue ? renderBadge('超期未完结', 'danger') : ''}</div>
+    </div>`,
+  },
+  {
+    key: 'product', title: '商品信息', width: 190, required: true, sortable: true,
+    sortValue: (row) => row.productCode,
+    render: (row) => `<div class="flex gap-2"><img src="${escapeHtml(row.productImageUrl)}" alt="商品图" class="h-16 w-12 rounded border object-cover"><div><div class="font-medium">${escapeHtml(row.productCode)}</div><div class="mt-1 text-xs text-muted-foreground">销售类型：${escapeHtml(row.salesType)}</div></div></div>`,
+  },
+  {
+    key: 'purchase', title: '采购单信息', width: 190, sortable: true,
+    sortValue: (row) => row.purchaseOrderNo,
+    render: (row) => `<div class="space-y-1"><div>${escapeHtml(row.purchaseOrderNo)}：${escapeHtml(row.purchaseType)}</div><div class="text-xs">面料接收人：${escapeHtml(row.receiverName || '待分配')}</div><div class="text-xs text-red-600">接收人库存：${formatQty(row.receiverInventoryQty, row.qtyUnit)}</div><div class="text-xs text-red-600">GTG 仓库存：${formatQty(row.gtgInventoryQty, row.qtyUnit)}</div></div>`,
+  },
+  {
+    key: 'material', title: '原料/面料', width: 250, required: true, sortable: true,
+    sortValue: (row) => row.rawMaterialSku,
+    render: (row) => `<div class="flex gap-2"><img src="${escapeHtml(row.materialImageUrl)}" alt="面料图" class="h-16 w-12 rounded border object-cover"><div class="min-w-0"><div class="font-medium">${escapeHtml(row.materialName)}</div><div class="break-all font-mono text-xs text-muted-foreground">原料 SKU：${escapeHtml(row.rawMaterialSku)}</div><div class="break-all font-mono text-xs text-muted-foreground">染色 SKU：${escapeHtml(row.colorSku)}</div><div class="text-xs">待染数量：${formatQty(Math.max(0, row.plannedQty - row.completedQty), row.qtyUnit)}</div></div></div>`,
+  },
+  {
+    key: 'attributes', title: '属性信息', width: 190, sortable: true,
+    sortValue: (row) => row.processName,
+    render: (row) => `<div class="space-y-1 text-xs"><div>工艺名称：${escapeHtml(row.processName)}</div><div>类型：${escapeHtml(row.materialType)}</div><div>深浅：${escapeHtml(row.shade || '—')}</div><div>温度：${row.temperature ? `${row.temperature}℃` : '—'}</div><div>成分：${escapeHtml(row.composition)}</div><div>幅宽：${escapeHtml(row.width || '—')}　克重：${row.weightGsm ?? '—'}</div></div>`,
+  },
+  {
+    key: 'factoryTime', title: '时间/加工厂', width: 205, sortable: true,
+    sortValue: (row) => row.plannedFinishAt,
+    render: (row) => `<div class="space-y-1 text-xs"><div>加工厂：${escapeHtml(row.factoryName || '待分配工厂')}</div><div>下单时间：${escapeHtml(row.orderedAt)}</div><div>预计完成：${escapeHtml(row.plannedFinishAt || '—')}</div><div>完成时间：${escapeHtml(row.completedAt || '—')}</div><div>交货时间：${escapeHtml(row.deliveredAt || '—')}</div></div>`,
+  },
+  {
+    key: 'qty', title: '数量', width: 165, sortable: true, align: 'right',
+    sortValue: (row) => row.plannedQty,
+    render: (row) => `<div class="space-y-1 text-xs"><div>计划数量：${formatQty(row.plannedQty, row.qtyUnit)}</div><div>原料使用：${formatQty(row.rawMaterialQty, row.qtyUnit)}</div><div>原料卷数：${row.rawMaterialRollCount} 卷</div><div>备料数量：${formatQty(row.preparedQty, row.qtyUnit)}</div><div>备料重量：${row.preparedWeightKg} kg</div><div>完成数量：${formatQty(row.completedQty, row.qtyUnit)}</div><div>损耗数量：${formatQty(row.lossQty, row.qtyUnit)}</div></div>`,
+  },
+  {
+    key: 'extra', title: '附加信息', width: 175,
+    render: (row) => `<div class="space-y-1 text-xs"><div>面料接收人：${escapeHtml(row.receiverName || '—')}</div><div>交出单号：${escapeHtml(row.handoverOrderNo || '—')}</div><div>头缸/复染：${escapeHtml(row.headVatOrRedye)}</div></div>`,
+  },
+  {
+    key: 'otherQty', title: '其他数量', width: 160, sortable: true, align: 'right',
+    sortValue: (row) => row.pendingInboundQty,
+    render: (row) => `<div class="space-y-1 text-xs"><div>待回写：${row.pendingWritebackQty}</div><div>差异数量：${row.differenceQty}</div><div>异议数量：${row.objectionQty}</div><div>待回货数量：${formatQty(row.pendingInboundQty, row.qtyUnit)}</div></div>`,
+  },
+  { key: 'remark', title: '备注', width: 190, render: (row) => `<div class="whitespace-normal text-xs">${escapeHtml(row.remark || '—')}</div>` },
+  { key: 'actions', title: '操作', width: 330, required: true, actionColumn: true, render: renderActions },
 ]
 
 const columnRules = columns.map(({ key, required, freezeable, actionColumn }) => ({ key, required, freezeable, actionColumn }))
@@ -121,7 +140,7 @@ function defaultPreferences(): StandardListColumnPreferences {
   return normalizeListColumnPreferences(columnRules, {
     order: columns.map((column) => column.key),
     visibleKeys: columns.map((column) => column.key),
-    frozenKeys: ['workOrderNo'],
+    frozenKeys: ['dyeInfo'],
     pageSize: 10,
   }, PAGE_SIZE_OPTIONS)
 }
@@ -135,39 +154,77 @@ function ensurePreferencesLoaded(): void {
     : loadListColumnPreferences(window.localStorage, PREFERENCE_KEY, columnRules, defaults, PAGE_SIZE_OPTIONS)
 }
 
-function filteredOrders(): DyeWorkOrder[] {
-  const keyword = state.keyword.trim().toLocaleLowerCase('zh-CN')
-  return listDyeWorkOrders().filter((order) => !keyword || [
-    order.dyeOrderNo,
-    order.sourceProductionOrderNo,
-    order.stockMaterialName,
-    order.rawMaterialSku,
-    order.targetColor,
-    order.dyeFactoryName,
-  ].some((value) => value?.toLocaleLowerCase('zh-CN').includes(keyword)))
+function option(value: string, current: string, label = value): string {
+  return `<option value="${escapeHtml(value)}" ${value === current ? 'selected' : ''}>${escapeHtml(label)}</option>`
 }
 
-function renderFilters(): string {
-  return `<div class="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-3"><div class="min-w-[18rem] flex-1"><label class="mb-1 block text-xs text-muted-foreground">加工单号 / 来源 / 面料 / 颜色 / 工厂</label>${renderInput({ value: state.keyword, placeholder: '输入关键词后查询', prefix: EVENT_PREFIX, field: 'keyword' })}</div>${renderSecondaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}</div>`
+function selectField(label: string, field: string, options: string[], current: string, className = 'min-w-[9rem]'): string {
+  return `<label class="${className}"><span class="mb-1 block text-xs text-muted-foreground">${escapeHtml(label)}</span><select class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" data-dye-work-orders-field="${escapeHtml(field)}">${options.map((value) => option(value, current)).join('')}</select></label>`
+}
+
+function textField(label: string, field: string, value: string, placeholder = ''): string {
+  return `<label class="min-w-[8rem] flex-1"><span class="mb-1 block text-xs text-muted-foreground">${escapeHtml(label)}</span>${renderInput({ value, placeholder, prefix: EVENT_PREFIX, field })}</label>`
+}
+
+function uniqueValues(rows: DyeWorkOrderOnlineRow[], getValue: (row: DyeWorkOrderOnlineRow) => string): string[] {
+  return ['', ...new Set(rows.map(getValue).filter(Boolean))]
+}
+
+function renderFilters(rows: DyeWorkOrderOnlineRow[]): string {
+  const filters = state.filters
+  return `<div class="space-y-3 rounded-lg border bg-card p-3">
+    <div class="flex flex-wrap items-end gap-3">
+      ${selectField('查询项', 'keywordField', ['全部', '加工单号', '任务单号', '生产单号', '采购单号', '商品编码'], filters.keywordField === 'all' ? '全部' : ({ workOrderNo: '加工单号', taskNo: '任务单号', productionOrderNo: '生产单号', purchaseOrderNo: '采购单号', productCode: '商品编码' } as Record<string, string>)[filters.keywordField] || '全部')}
+      ${textField('查询内容', 'keyword', filters.keyword, '请输入查询内容')}
+      ${selectField('状态', 'status', ['', ...DYE_WORK_ORDER_ONLINE_STATUSES], filters.statuses[0] || '', 'min-w-[8rem]')}
+      ${selectField('销售类型', 'salesType', uniqueValues(rows, (row) => row.salesType), filters.salesType)}
+      ${selectField('生产工厂', 'factoryName', uniqueValues(rows, (row) => row.factoryName), filters.factoryName)}
+      ${selectField('染色工艺', 'processName', uniqueValues(rows, (row) => row.processName), filters.processName)}
+      ${selectField('面料接收人', 'receiverName', uniqueValues(rows, (row) => row.receiverName), filters.receiverName)}
+    </div>
+    <div class="flex flex-wrap items-end gap-3">
+      ${selectField('是否纱线', 'yarn', ['全部', '是', '否'], filters.yarn, 'min-w-[7rem]')}
+      ${selectField('是否补料', 'replenishment', ['全部', '是', '否'], filters.replenishment, 'min-w-[7rem]')}
+      ${selectField('GTG仓是否有库存', 'gtgInStock', ['全部', '是', '否'], filters.gtgInStock, 'min-w-[10rem]')}
+      ${selectField('物料类型', 'materialType', ['', '面料', '纱线'], filters.materialType)}
+      ${textField('染色色号', 'colorNo', filters.colorNo)}
+      ${textField('成分', 'composition', filters.composition)}
+      ${textField('幅宽', 'width', filters.width)}
+      ${textField('克重', 'weightGsm', filters.weightGsm)}
+      ${renderPrimaryButton('查询', { prefix: EVENT_PREFIX, action: 'apply-filter' }, 'search')}
+      ${renderSecondaryButton('重置', { prefix: EVENT_PREFIX, action: 'reset-filter' }, 'rotate-ccw')}
+    </div>
+  </div>`
+}
+
+function renderSummaryValue(items: Array<{ unit: string; qty: number }>): string {
+  return items.length ? items.map((item) => `${item.qty.toLocaleString('zh-CN')} ${item.unit}`).join(' / ') : '0'
+}
+
+function filteredRows(allRows: DyeWorkOrderOnlineRow[]): DyeWorkOrderOnlineRow[] {
+  return filterDyeWorkOrderOnlineRows(allRows, state.filters)
 }
 
 function renderWorkspace(): string {
   ensurePreferencesLoaded()
-  const orders = filteredOrders()
-  const sorted = sortStandardListRows(orders, state.sort, (order, key) => columns.find((column) => column.key === key)?.sortValue?.(order))
+  const allRows = listDyeWorkOrderOnlineRows()
+  const rows = filteredRows(allRows)
+  const sorted = sortStandardListRows(rows, state.sort, (row, key) => columns.find((column) => column.key === key)?.sortValue?.(row))
   const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
   state.currentPage = paging.currentPage
-  const summary = getDyeWorkOrderSummary()
+  const summary = getDyeWorkOrderOnlineSummary(rows)
   return renderStandardListPage({
     title: '染色加工单',
-    filtersHtml: renderFilters(),
+    primaryActionsHtml: `<div class="flex flex-wrap gap-2">${renderSecondaryButton('导出', { prefix: EVENT_PREFIX, action: 'export' }, 'download')}${renderSecondaryButton('导出备料数据', { prefix: EVENT_PREFIX, action: 'export-preparation' }, 'download')}${renderSecondaryButton('导出超期未完结', { prefix: EVENT_PREFIX, action: 'export-overdue' }, 'download')}${renderPrimaryButton('批量打印染整生产流程卡', { prefix: EVENT_PREFIX, action: 'batch-print' }, 'printer')}</div>`,
+    filtersHtml: renderFilters(allRows),
     statsHtml: renderStandardListStats([
-      { label: '加工单', value: summary.total },
-      { label: '待排染缸', value: summary.waitVatPlanCount },
-      { label: '待交出', value: summary.waitHandoverCount },
-      { label: '当前筛选', value: orders.length },
+      { label: '计划数量', value: renderSummaryValue(summary.plannedQtyByUnit) },
+      { label: '原料使用数量', value: renderSummaryValue(summary.rawMaterialQtyByUnit) },
+      { label: '完成数量', value: renderSummaryValue(summary.completedQtyByUnit) },
+      { label: '损耗数量', value: renderSummaryValue(summary.lossQtyByUnit) },
+      { label: '采购单数量', value: summary.purchaseOrderCount },
     ]),
-    listTitle: '染色加工单表格',
+    listTitle: `染色加工单（已选 ${state.selectedIds.size} 项）`,
     listActionsHtml: renderSecondaryButton('列设置', { prefix: EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2'),
     tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: EVENT_PREFIX, emptyText: '暂无染色加工单' }),
     paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: EVENT_PREFIX, fieldPrefix: EVENT_PREFIX, pageSizeOptions: PAGE_SIZE_OPTIONS }),
@@ -194,6 +251,34 @@ function refreshWorkspace(): void {
 
 function persistPreferences(): void {
   if (typeof window !== 'undefined') saveListColumnPreferences(window.localStorage, PREFERENCE_KEY, state.preferences)
+}
+
+function readField(root: HTMLElement, field: string): string {
+  return root.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-dye-work-orders-field="${field}"]`)?.value.trim() || ''
+}
+
+function readFilters(root: HTMLElement): DyeWorkOrderOnlineFilters {
+  const keywordFieldLabel = readField(root, 'keywordField')
+  const keywordFieldMap: Record<string, DyeWorkOrderOnlineFilters['keywordField']> = { 全部: 'all', 加工单号: 'workOrderNo', 任务单号: 'taskNo', 生产单号: 'productionOrderNo', 采购单号: 'purchaseOrderNo', 商品编码: 'productCode' }
+  const status = readField(root, 'status') as DyeWorkOrderOnlineStatus | ''
+  return {
+    ...state.filters,
+    keywordField: keywordFieldMap[keywordFieldLabel] || 'all',
+    keyword: readField(root, 'keyword'),
+    statuses: status ? [status] : [],
+    salesType: readField(root, 'salesType'),
+    factoryName: readField(root, 'factoryName'),
+    processName: readField(root, 'processName'),
+    receiverName: readField(root, 'receiverName'),
+    yarn: readField(root, 'yarn') as DyeWorkOrderOnlineFilters['yarn'],
+    replenishment: readField(root, 'replenishment') as DyeWorkOrderOnlineFilters['replenishment'],
+    gtgInStock: readField(root, 'gtgInStock') as DyeWorkOrderOnlineFilters['gtgInStock'],
+    materialType: readField(root, 'materialType'),
+    colorNo: readField(root, 'colorNo'),
+    composition: readField(root, 'composition'),
+    width: readField(root, 'width'),
+    weightGsm: readField(root, 'weightGsm'),
+  }
 }
 
 function updateColumnPreference(action: string, columnKey: string): void {
@@ -252,8 +337,14 @@ export function handleDyeWorkOrderListEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-dye-work-orders-action]')
   if (!actionNode) return Boolean(field)
   const action = actionNode.dataset.dyeWorkOrdersAction || ''
-  if (action === 'apply-filter') { state.keyword = root.querySelector<HTMLInputElement>('[data-dye-work-orders-field="keyword"]')?.value.trim() || ''; state.currentPage = 1; refreshWorkspace(); return true }
-  if (action === 'reset-filter') { state.keyword = ''; state.currentPage = 1; refreshWorkspace(); return true }
+  if (action === 'apply-filter') { state.filters = readFilters(root); state.currentPage = 1; refreshWorkspace(); return true }
+  if (action === 'reset-filter') { state.filters = { ...DEFAULT_DYE_WORK_ORDER_ONLINE_FILTERS, statuses: [] }; state.currentPage = 1; refreshWorkspace(); return true }
+  if (action === 'toggle-selection') {
+    const id = actionNode.dataset.id || ''
+    if (state.selectedIds.has(id)) state.selectedIds.delete(id); else state.selectedIds.add(id)
+    refreshWorkspace()
+    return true
+  }
   if (action === 'prev-page' || action === 'next-page') { state.currentPage = Math.max(1, state.currentPage + (action === 'next-page' ? 1 : -1)); refreshWorkspace(); return true }
   if (action === 'sort-column') {
     const key = actionNode.dataset.columnKey || ''
@@ -272,5 +363,5 @@ export function handleDyeWorkOrderListEvent(target: HTMLElement): boolean {
     if (typeof window !== 'undefined') clearListColumnPreferences(window.localStorage, PREFERENCE_KEY)
     state.preferences = defaultPreferences(); state.sort = null; state.currentPage = 1; refreshWorkspace(); return true
   }
-  return false
+  return ['view', 'edit', 'logs', 'print-one', 'export', 'export-preparation', 'export-overdue', 'batch-print'].includes(action)
 }

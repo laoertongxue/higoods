@@ -115,8 +115,10 @@ function main(): void {
   ;['按需求创建', '选择染色需求', '染色需求单号'].forEach((term) => {
     assertNotIncludes(platformOrdersSource, term, '平台染色加工单页面')
   })
-  assertIncludes(workOrdersSource, '打印任务流转卡', '染色加工单页面')
-  assertIncludes(workOrdersSource, "buildTaskRouteCardPrintLink('DYEING_WORK_ORDER', order.dyeOrderId)", '染色加工单打印任务流转卡必须使用 DYEING_WORK_ORDER + dyeOrderId')
+  ;['查看', '编辑', '日志', '打印流程卡'].forEach((term) => {
+    assertIncludes(workOrdersSource, term, '染色加工单页面')
+  })
+  assertNotIncludes(workOrdersSource, "buildTaskRouteCardPrintLink('DYEING_WORK_ORDER', order.dyeOrderId)", '染色加工单页面不再使用旧任务流转卡')
   assertNotIncludes(workOrdersSource, '打印任务交货卡', '染色加工单页面不得提前增加打印任务交货卡入口')
   assertIncludes(appShellSource, '染色待加工仓', '染厂管理菜单')
   assertIncludes(appShellSource, '染色待交出仓', '染厂管理菜单')
@@ -289,11 +291,7 @@ function main(): void {
   assert.deepEqual(correctedProjection.allocationVersions.map((version) => version.excessQty), [200, 100], '更正前后必须保留各自不同的权威超出数量')
   assert.equal(correctedProjection.allocationVersions.filter((version) => version.current).length, 1, '只能有一个当前分配版本')
 
-  const activeWorkOrdersSource = readFile('src/pages/process-factory/dyeing/work-orders.ts')
   const activeDetailSource = readFile('src/pages/process-factory/dyeing/work-order-detail.ts')
-  ;['已加入合并染色', '/fcs/craft/dyeing/combined-dyeing?taskId=', '只读，不可改号'].forEach((text) => {
-    assertIncludes(activeWorkOrdersSource, text, '染色加工单列表联动')
-  })
   ;['合并染色', '成员已锁定', '当前有效分配', '生产单变更影响', '建议动作'].forEach((text) => {
     assertIncludes(activeDetailSource, text, '染色加工单详情联动')
   })
