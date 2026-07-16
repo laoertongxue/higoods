@@ -383,6 +383,7 @@ const coverageMatrix = [
       item.dependsOnItemIds.length > 0 &&
       dependencyEvidenceIsValid(record, item) &&
       !hasValidPreparationCompletionEvidence(item) &&
+      (item.uploads?.length ?? 0) === 0 &&
       progress === '未开始'),
   },
   {
