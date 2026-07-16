@@ -1708,16 +1708,85 @@ for (const text of [
   '生产准备时效',
   '准备台账',
   '日期',
+  '跟单',
+  '记录状态',
+  '准备项',
+  '准备项进度',
   '责任团队',
-  '责任人',
 ] as const) {
   assertHtmlIncludes(ledgerHtml, text, `准备台账 HTML 缺少「${text}」`)
 }
 assert.ok(!ledgerHtml.includes('>月份<'), '准备台账筛选不应继续展示月份筛选')
-assert.ok(!ledgerHtml.includes('>跟单<'), '准备台账筛选不应继续展示跟单筛选')
 assert.ok(!ledgerHtml.includes('>花型师<'), '准备台账筛选不应继续展示花型师筛选')
 assert.ok(!ledgerHtml.includes('>开始日期<'), '准备台账筛选不应继续单独展示开始日期')
 assert.ok(!ledgerHtml.includes('>结束日期<'), '准备台账筛选不应继续单独展示结束日期')
+const ledgerFilterHtml = ledgerHtml.slice(
+  ledgerHtml.indexOf('<section data-prep-filter-scope'),
+  ledgerHtml.indexOf('</section>', ledgerHtml.indexOf('<section data-prep-filter-scope')) + '</section>'.length,
+)
+for (const removedFilter of ['买手', '责任人', '是否超时'] as const) {
+  assert.ok(!ledgerFilterHtml.includes(removedFilter), `准备台账筛选不得出现「${removedFilter}」`)
+}
+const ledgerFilterOrder = ['日期', '跟单', '记录状态', '准备项', '准备项进度', '责任团队', '关键词', '筛选', '重置']
+let ledgerFilterCursor = -1
+for (const label of ledgerFilterOrder) {
+  const index = ledgerFilterHtml.indexOf(label, ledgerFilterCursor + 1)
+  assert.ok(index > ledgerFilterCursor, `准备台账筛选顺序缺少或错位：「${label}」`)
+  ledgerFilterCursor = index
+}
+
+const multiSelectLedgerHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&merchandiserName=Maya&merchandiserName=Raka&itemProgress=未开始',
+)
+assertHtmlIncludes(multiSelectLedgerHtml, '跟单（2）', '准备台账必须回显两个跟单选项')
+assertHtmlIncludes(multiSelectLedgerHtml, '准备项进度（1）', '准备台账必须回显一个准备项进度选项')
+assert.match(multiSelectLedgerHtml, /name="merchandiserName"[^>]*value="Maya"[^>]*checked/, '准备台账必须勾选 Maya')
+assert.match(multiSelectLedgerHtml, /name="merchandiserName"[^>]*value="Raka"[^>]*checked/, '准备台账必须勾选 Raka')
+
+const legacySingleValueLedgerHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&merchandiserName=Maya&recordStatus=进行中&itemType=梭织基码纸样&ownerTeam=版师团队&itemProgress=未开始',
+)
+for (const summary of ['跟单（1）', '记录状态（1）', '准备项（1）', '准备项进度（1）', '责任团队（1）'] as const) {
+  assertHtmlIncludes(legacySingleValueLedgerHtml, summary, `旧单值 URL 必须兼容回显「${summary}」`)
+}
+
+const repeatedLinkLedgerHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&merchandiserName=Maya&merchandiserName=Raka',
+)
+assertHtmlIncludes(
+  repeatedLinkLedgerHtml,
+  'merchandiserName=Maya&amp;merchandiserName=Raka',
+  '台账分页、详情或操作链接必须保留重复跟单参数',
+)
+assert.match(
+  repeatedLinkLedgerHtml,
+  /data-nav="[^"]*merchandiserName=Maya&amp;merchandiserName=Raka&amp;recordId=/,
+  '台账详情链接必须保留重复跟单参数',
+)
+assert.match(
+  repeatedLinkLedgerHtml,
+  /data-nav="[^"]*merchandiserName=Maya&amp;merchandiserName=Raka&amp;recordId=[^"]*&amp;itemId=[^"]*&amp;action=operate-item"/,
+  '台账操作弹窗链接必须保留重复跟单参数',
+)
+const repeatedPaginationLedgerHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordStatus=未开始&recordStatus=进行中&recordStatus=部分超时&recordStatus=已完成',
+)
+assert.match(
+  repeatedPaginationLedgerHtml,
+  /data-nav="[^"]*recordStatus=[^"]*&amp;recordStatus=[^"]*&amp;recordStatus=[^"]*&amp;recordStatus=[^"]*&amp;page=2"/,
+  '台账分页链接必须保留重复记录状态参数',
+)
+
+const incompatibleDependencyHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&itemType=梭织基码纸样&ownerTeam=染色团队',
+)
+assertHtmlIncludes(incompatibleDependencyHtml, '准备项（1）', '不兼容旧 URL 仍必须回显准备项')
+assertHtmlIncludes(incompatibleDependencyHtml, '责任团队（1）', '不兼容旧 URL 仍必须回显责任团队')
+assert.match(incompatibleDependencyHtml, /name="itemType"[^>]*value="梭织基码纸样"[^>]*checked/, '不兼容准备项必须保持勾选')
+assert.match(incompatibleDependencyHtml, /name="ownerTeam"[^>]*value="染色团队"[^>]*checked/, '不兼容责任团队必须保持勾选')
+assertHtmlIncludes(incompatibleDependencyHtml, 'data-prep-filter-option-label', '联动选项必须提供局部显隐 data 属性')
+assertHtmlIncludes(incompatibleDependencyHtml, 'data-prep-filter-summary', '联动摘要必须提供局部更新 data 属性')
+assertHtmlIncludes(incompatibleDependencyHtml, '当前筛选条件下暂无生产准备记录', '不兼容旧 URL 必须保留选择并产生无结果')
 for (const text of [
   '月度统计',
   '明细统计',
@@ -1971,21 +2040,21 @@ assert.ok(
 )
 
 const filteredRowActionHtml = await renderAt(
-  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&patternDesigner=Diah',
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&merchandiserName=Raka',
 )
 assertHtmlIncludes(
   filteredRowActionHtml,
-  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;patternDesigner=Diah&amp;recordId=prep-202604-003"',
+  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;merchandiserName=Raka&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;recordId=prep-202604-003"',
   '筛选列表行的查看详情入口必须继承当前筛选条件',
 )
 assertHtmlIncludes(
   filteredRowActionHtml,
-  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;patternDesigner=Diah&amp;recordId=prep-202604-003&amp;itemId=prep-202604-003-item-01&amp;action=operate-item"',
+  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;merchandiserName=Raka&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;recordId=prep-202604-003&amp;itemId=prep-202604-003-item-01&amp;action=operate-item"',
   '筛选列表行的准备项操作入口必须继承当前筛选条件',
 )
 assert.ok(!filteredRowActionHtml.includes('确认工作项'), '已确认准备项记录不应继续展示确认工作项入口')
 const filteredDetailActionHtml = await renderAt(
-  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&patternDesigner=Diah&recordId=prep-202604-003',
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&merchandiserName=Raka&recordId=prep-202604-003',
 )
 assertHtmlIncludes(filteredDetailActionHtml, '上传记录', '详情抽屉必须展示工作项上传历史')
 assertHtmlIncludes(pendingOutputDrawerHtml, '下载记录', '基码纸样卡片必须展示下载记录')
@@ -1994,7 +2063,7 @@ assert.ok(!filteredDetailActionHtml.includes('上传完成图片原型区域'), 
 assert.ok(!filteredDetailActionHtml.includes('分配花型师'), '详情抽屉不应再展示分配花型师入口')
 assert.ok(!filteredDetailActionHtml.includes('上传完成图片'), '详情抽屉不应再展示上传完成图片入口')
 const confirmItemsHtml = await renderAt(
-  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&patternDesigner=Diah&recordId=prep-202604-003&action=confirm-items',
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&merchandiserName=Raka&recordId=prep-202604-003&action=confirm-items',
 )
 assertHtmlIncludes(confirmItemsHtml, 'data-prep-confirm-items-form', '确认工作项弹窗必须输出表单标记')
 assertHtmlIncludes(confirmItemsHtml, '确认生产准备工作项', '确认工作项弹窗必须显示标题')
@@ -2126,6 +2195,40 @@ assertHtmlIncludes(
 
 const statsHtml = await renderStatsAt('/fcs/production/preparation-timing-statistics?tab=monthly&month=2026-03')
 const detailStatsHtml = await renderStatsAt('/fcs/production/preparation-timing-statistics?tab=detail&month=2026-03')
+const statsFilterHtml = statsHtml.slice(
+  statsHtml.indexOf('<section data-prep-stats-filter-scope'),
+  statsHtml.indexOf('</section>', statsHtml.indexOf('<section data-prep-stats-filter-scope')) + '</section>'.length,
+)
+for (const removedFilter of ['买手', '责任人', '是否超时', '准备项进度', '花型师', '开始日期', '结束日期'] as const) {
+  assert.ok(!statsFilterHtml.includes(removedFilter), `统计筛选不得出现「${removedFilter}」`)
+}
+const statsFilterOrder = ['月份', '跟单', '记录状态', '准备项', '责任团队', '筛选', '重置']
+let statsFilterCursor = -1
+for (const label of statsFilterOrder) {
+  const index = statsFilterHtml.indexOf(label, statsFilterCursor + 1)
+  assert.ok(index > statsFilterCursor, `统计筛选顺序缺少或错位：「${label}」`)
+  statsFilterCursor = index
+}
+const multiSelectStatsHtml = await renderStatsAt(
+  '/fcs/production/preparation-timing-statistics?tab=monthly&month=2026-03&merchandiserName=Maya&merchandiserName=Raka',
+)
+assertHtmlIncludes(multiSelectStatsHtml, '跟单（2）', '统计必须回显两个跟单选项')
+assert.ok(!multiSelectStatsHtml.includes('准备项进度'), '统计不得出现准备项进度筛选')
+assertHtmlIncludes(
+  multiSelectStatsHtml,
+  'merchandiserName=Maya&amp;merchandiserName=Raka',
+  '统计分页和月份点击明细链接必须保留重复跟单参数',
+)
+assert.match(
+  multiSelectStatsHtml,
+  /data-nav="[^"]*tab=detail[^"]*merchandiserName=Maya&amp;merchandiserName=Raka[^"]*"/,
+  '月度点击明细链接必须保留重复跟单参数',
+)
+assert.match(
+  multiSelectStatsHtml,
+  /data-nav="[^"]*merchandiserName=Maya&amp;merchandiserName=Raka[^"]*&amp;monthlyPage=2"/,
+  '统计分页链接必须保留重复跟单参数',
+)
 appStore.navigate('/fcs/production/preparation-timing-statistics?tab=monthly&month=2026-03', { historyMode: 'replace' })
 const routedStatsHtml = await renderProductionPreparationTimingStatisticsPage()
 assert.equal(typeof routedStatsHtml, 'string', '无参数渲染必须返回 HTML 字符串')
@@ -2237,6 +2340,18 @@ assertHtmlIncludes(
 )
 
 const pageSource = source('src/pages/production/preparation-timing.ts')
+const mainSource = source('src/main.ts')
+const productionEventsSource = source('src/pages/production/events.ts')
+assert.ok(pageSource.includes('renderMultiSelectFilter'), '页面必须复用 renderMultiSelectFilter')
+assert.ok(pageSource.includes('function valuesOf('), '页面必须新增 valuesOf(params, key)')
+assert.ok(pageSource.includes('.getAll(key)'), 'valuesOf 必须使用 URLSearchParams.getAll')
+assert.ok(pageSource.includes('data-prep-filter-option-label'), '页面必须输出准备项与团队联动 option data 属性')
+assert.ok(pageSource.includes('syncPreparationFilterDependencies'), '页面必须存在筛选联动局部 DOM 同步函数')
+assert.ok(pageSource.includes("[data-prep-filter-checkbox]"), '筛选事件必须识别 checkbox')
+assert.ok(mainSource.includes("field.type === 'checkbox'"), 'buildNavigationFromFields 必须区分 checkbox')
+assert.ok(mainSource.includes('params.append(field.name, value)'), 'checked checkbox 必须使用 params.append')
+assert.ok(mainSource.includes("params.set('page', '1')"), '字段筛选提交必须重置 page=1')
+assert.ok(productionEventsSource.includes("'/fcs/production/preparation-timing-statistics'"), '生产事件路径必须覆盖统计页')
 assert.ok(!pageSource.includes('染色买手审核'), '本次不应新增染色买手审核流程')
 assert.ok(!pageSource.includes('印花买手审核'), '本次不应新增印花买手审核流程')
 for (const oldCall of [

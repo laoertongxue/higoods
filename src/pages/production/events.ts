@@ -108,7 +108,10 @@ import {
 } from './preparation-timing'
 
 function isProductionPreparationTimingPath(): boolean {
-  return typeof window !== 'undefined' && window.location.pathname === '/fcs/production/preparation-timing'
+  return typeof window !== 'undefined' && (
+    window.location.pathname === '/fcs/production/preparation-timing' ||
+    window.location.pathname === '/fcs/production/preparation-timing-statistics'
+  )
 }
 
 function getDefaultTechPackChangeTargetVersionId(productionOrderId: string): string {

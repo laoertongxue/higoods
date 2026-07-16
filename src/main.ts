@@ -1329,7 +1329,13 @@ function buildNavigationFromFields(node: HTMLElement): string | null {
 
   const params = new URLSearchParams()
   scope.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input[name], select[name], textarea[name]').forEach((field) => {
-    if (field instanceof HTMLInputElement && (field.type === 'checkbox' || field.type === 'radio') && !field.checked) return
+    if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+      if (!field.checked) return
+      const value = field.value.trim()
+      if (value) params.append(field.name, value)
+      return
+    }
+    if (field instanceof HTMLInputElement && field.type === 'radio' && !field.checked) return
     const value = field.value.trim()
     if (value) params.set(field.name, value)
   })

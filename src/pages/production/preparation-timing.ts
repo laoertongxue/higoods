@@ -1,5 +1,6 @@
 import { escapeHtml, formatDateTime } from '../../utils.ts'
 import { appStore } from '../../state/store.ts'
+import { renderMultiSelectFilter } from '../../components/ui/filter-bar.ts'
 import {
   appendDownloadRecord,
   buildUploadRecordsFromFiles,
@@ -17,6 +18,7 @@ import {
   getProductionPreparationFilterOptions,
   getProductionPreparationRecord,
   preparationOwnerRoleRules,
+  preparationItemOwnerTeamMap,
   preparationItemTypes,
   preparationTypeDefaultItems,
   productionPreparationRecords,
@@ -25,6 +27,7 @@ import {
   type ExternalPreparationMaterial,
   type PreparationDyeRequirement,
   type PreparationItemType,
+  type PreparationItemProgress,
   type PreparationMaterialLine,
   type PreparationRecordStatus,
   type PreparationUploadRecord,
@@ -44,15 +47,13 @@ const LEDGER_FILTER_KEYS = [
   'startDate',
   'endDate',
   'merchandiserName',
-  'buyerName',
   'recordStatus',
   'itemType',
+  'itemProgress',
   'ownerTeam',
-  'ownerName',
-  'patternDesigner',
-  'overdueOnly',
   'keyword',
 ] as const
+const ITEM_PROGRESS_OPTIONS: PreparationItemProgress[] = ['不满足开始条件', '未开始', '已完成']
 
 const PREPARATION_ACTION_LABELS: Record<PreparationItemType, string> = {
   梭织基码纸样: '上传梭织基码纸样',
@@ -77,22 +78,31 @@ function valueOf(params: URLSearchParams, key: string): string {
   return params.get(key)?.trim() ?? ''
 }
 
-function buildPathHref(path: string, values: Record<string, string | number | boolean | null | undefined>): string {
-  const params = new URLSearchParams()
+function valuesOf(params: URLSearchParams, key: string): string[] {
+  return Array.from(new Set(params.getAll(key).map((value) => value.trim()).filter(Boolean)))
+}
+
+type HrefValues = Record<string, string | number | boolean | null | undefined>
+
+function buildPathHref(path: string, values: HrefValues, source?: URLSearchParams): string {
+  const params = new URLSearchParams(source)
   for (const [key, value] of Object.entries(values)) {
-    if (value === undefined || value === null || value === '') continue
+    if (value === undefined || value === null || value === '') {
+      params.delete(key)
+      continue
+    }
     params.set(key, String(value))
   }
   const query = params.toString()
   return query ? `${path}?${query}` : path
 }
 
-function buildHref(values: Record<string, string | number | boolean | null | undefined>): string {
-  return buildPathHref(PAGE_PATH, values)
+function buildHref(values: HrefValues, source?: URLSearchParams): string {
+  return buildPathHref(PAGE_PATH, values, source)
 }
 
-function buildStatsHref(values: Record<string, string | number | boolean | null | undefined>): string {
-  return buildPathHref(STATS_PAGE_PATH, values)
+function buildStatsHref(values: HrefValues, source?: URLSearchParams): string {
+  return buildPathHref(STATS_PAGE_PATH, values, source)
 }
 
 function renderBadge(label: string, tone: 'slate' | 'blue' | 'green' | 'amber' | 'red' = 'slate'): string {
@@ -114,39 +124,24 @@ function statusTone(status: string): 'slate' | 'blue' | 'green' | 'amber' | 'red
   return 'slate'
 }
 
-function renderOptions(options: Array<string | { value: string; label: string }>, selected: string): string {
-  return options
-    .map((option) => {
-      const value = typeof option === 'string' ? option : option.value
-      const label = typeof option === 'string' ? option : option.label
-      return `<option value="${escapeHtml(value)}" ${value === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`
-    })
-    .join('')
-}
-
 function parseFilter(params: URLSearchParams): ProductionPreparationFilter {
   const filter: ProductionPreparationFilter = {}
   const startDate = valueOf(params, 'startDate')
   const endDate = valueOf(params, 'endDate')
-  const merchandiserName = valueOf(params, 'merchandiserName')
-  const buyerName = valueOf(params, 'buyerName')
-  const recordStatus = valueOf(params, 'recordStatus')
-  const itemType = valueOf(params, 'itemType')
-  const ownerTeam = valueOf(params, 'ownerTeam')
-  const ownerName = valueOf(params, 'ownerName')
-  const patternDesigner = valueOf(params, 'patternDesigner')
+  const merchandiserNames = valuesOf(params, 'merchandiserName')
+  const recordStatuses = valuesOf(params, 'recordStatus').filter((value) => value !== '全部') as PreparationRecordStatus[]
+  const itemTypes = valuesOf(params, 'itemType').filter((value) => value !== '全部') as PreparationItemType[]
+  const ownerTeams = valuesOf(params, 'ownerTeam')
+  const itemProgresses = valuesOf(params, 'itemProgress') as PreparationItemProgress[]
   const keyword = valueOf(params, 'keyword')
 
   if (startDate) filter.startDate = startDate
   if (endDate) filter.endDate = endDate
-  if (merchandiserName) filter.merchandiserName = merchandiserName
-  if (buyerName) filter.buyerName = buyerName
-  if (recordStatus && recordStatus !== '全部') filter.recordStatus = recordStatus as PreparationRecordStatus
-  if (itemType && itemType !== '全部') filter.itemType = itemType as PreparationItemType
-  if (ownerTeam) filter.ownerTeam = ownerTeam
-  if (ownerName) filter.ownerName = ownerName
-  if (patternDesigner) filter.patternDesigner = patternDesigner
-  if (params.get('overdueOnly') === 'true') filter.overdueOnly = true
+  filter.merchandiserNames = merchandiserNames
+  filter.recordStatuses = recordStatuses
+  filter.itemTypes = itemTypes
+  filter.ownerTeams = ownerTeams
+  filter.itemProgresses = itemProgresses
   if (keyword) filter.keyword = keyword
   return filter
 }
@@ -161,19 +156,20 @@ function endDateOfMonth(month: string): string {
   return new Date(year, monthValue, 0).toISOString().slice(0, 10)
 }
 
-function getLedgerQueryValues(params: URLSearchParams, month: string): Record<string, string> {
-  const values: Record<string, string> = { tab: 'ledger', month }
+function getLedgerQueryParams(params: URLSearchParams, month: string): URLSearchParams {
+  const next = new URLSearchParams()
+  next.set('tab', 'ledger')
+  next.set('month', month)
   for (const key of LEDGER_FILTER_KEYS) {
-    const value = valueOf(params, key)
-    if (value) values[key] = value
+    for (const value of valuesOf(params, key)) next.append(key, value)
   }
   const page = valueOf(params, 'page')
-  if (page) values.page = page
-  return values
+  if (page) next.set('page', page)
+  return next
 }
 
 function buildLedgerHrefFromParams(params: URLSearchParams, month: string): string {
-  return buildHref(getLedgerQueryValues(params, month))
+  return buildHref({}, getLedgerQueryParams(params, month))
 }
 
 function buildLedgerActionHref(
@@ -181,7 +177,7 @@ function buildLedgerActionHref(
   month: string,
   values: Record<string, string | number | boolean | null | undefined>,
 ): string {
-  return buildHref({ ...getLedgerQueryValues(params, month), ...values })
+  return buildHref(values, getLedgerQueryParams(params, month))
 }
 
 function filterLedgerRecords(
@@ -281,8 +277,8 @@ function paginateRows<T>(rows: T[], page: number, pageSize: number): T[] {
 
 function renderStatsPagination(total: number, page: number, pageSize: number, pageKey: string, params: URLSearchParams, month: string): string {
   const totalPages = pageCount(total, pageSize)
-  const prevHref = page > 1 ? buildStatsHref({ ...Object.fromEntries(params), month, [pageKey]: page - 1 }) : ''
-  const nextHref = page < totalPages ? buildStatsHref({ ...Object.fromEntries(params), month, [pageKey]: page + 1 }) : ''
+  const prevHref = page > 1 ? buildStatsHref({ month, [pageKey]: page - 1 }, params) : ''
+  const nextHref = page < totalPages ? buildStatsHref({ month, [pageKey]: page + 1 }, params) : ''
   const renderButton = (label: string, href: string) =>
     href
       ? `<button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(href)}">${escapeHtml(label)}</button>`
@@ -345,10 +341,10 @@ function renderHeader(params: URLSearchParams, month: string): string {
   `
 }
 
-function renderStatsHeader(activeTab: 'monthly' | 'detail', month: string): string {
+function renderStatsHeader(activeTab: 'monthly' | 'detail', month: string, params: URLSearchParams): string {
   const tabs = [
-    { key: 'monthly', label: '月度统计', href: buildStatsHref({ tab: 'monthly', month }) },
-    { key: 'detail', label: '明细统计', href: buildStatsHref({ tab: 'detail', month }) },
+    { key: 'monthly', label: '月度统计', href: buildStatsHref({ tab: 'monthly', month, monthlyPage: 1, detailPage: null }, params) },
+    { key: 'detail', label: '明细统计', href: buildStatsHref({ tab: 'detail', month, detailPage: 1, monthlyPage: null }, params) },
   ] as const
 
   return `
@@ -367,18 +363,64 @@ function renderStatsHeader(activeTab: 'monthly' | 'detail', month: string): stri
   `
 }
 
+function renderPreparationMultiSelect(config: {
+  label: string
+  field: 'merchandiserName' | 'recordStatus' | 'itemType' | 'itemProgress' | 'ownerTeam'
+  selectedValues: string[]
+  options: string[]
+  optionTeam?: (option: string) => string
+  visibleOptions?: Set<string>
+}): string {
+  const options = Array.from(new Set([...config.options, ...config.selectedValues]))
+  let html = renderMultiSelectFilter({
+    label: config.label,
+    field: config.field,
+    selectedValues: config.selectedValues,
+    options,
+    actionAttr: 'data-prep-filter-checkbox',
+    skipPageRerender: true,
+  })
+  html = html
+    .replace('<details class=', `<details data-prep-filter-group="${config.field}" class=`)
+    .replace('<summary class=', `<summary data-prep-filter-summary="${config.field}" data-prep-filter-label="${escapeHtml(config.label)}" class=`)
+    .replaceAll('<input\n', `<input\n                name="${config.field}"\n`)
+
+  for (const option of options) {
+    const hidden = config.visibleOptions && !config.visibleOptions.has(option) && !config.selectedValues.includes(option)
+    const team = config.optionTeam?.(option) ?? ''
+    html = html.replace(
+      '<label class=',
+      `<label data-prep-filter-option-label data-prep-filter-field="${config.field}" data-prep-filter-value="${escapeHtml(option)}" data-prep-filter-option-team="${escapeHtml(team)}" ${hidden ? 'hidden ' : ''}class=`,
+    )
+  }
+  return html
+}
+
+function getDependencyOptions(params: URLSearchParams): {
+  selectedItemTypes: PreparationItemType[]
+  selectedOwnerTeams: string[]
+  visibleItemTypes: Set<string>
+  visibleOwnerTeams: Set<string>
+} {
+  const selectedItemTypes = valuesOf(params, 'itemType')
+    .filter((value) => value !== '全部') as PreparationItemType[]
+  const selectedOwnerTeams = valuesOf(params, 'ownerTeam')
+  const visibleItemTypes = new Set<string>(selectedItemTypes)
+  const visibleOwnerTeams = new Set<string>(selectedOwnerTeams)
+
+  for (const itemType of preparationItemTypes) {
+    const ownerTeam = preparationItemOwnerTeamMap[itemType]
+    if (!selectedOwnerTeams.length || selectedOwnerTeams.includes(ownerTeam)) visibleItemTypes.add(itemType)
+    if (!selectedItemTypes.length || selectedItemTypes.includes(itemType)) visibleOwnerTeams.add(ownerTeam)
+  }
+  return { selectedItemTypes, selectedOwnerTeams, visibleItemTypes, visibleOwnerTeams }
+}
+
 function renderLedgerFilter(params: URLSearchParams, month: string): string {
   const options = getProductionPreparationFilterOptions()
   const startDate = valueOf(params, 'startDate') || startDateOfMonth(month)
   const endDate = valueOf(params, 'endDate') || endDateOfMonth(month)
-  const ownerTeam = valueOf(params, 'ownerTeam')
-  const ownerNames = ownerTeam
-    ? flattenProductionPreparationItems()
-      .filter((item) => item.ownerTeam === ownerTeam)
-      .map((item) => item.ownerName)
-      .filter((name) => name && name !== '待确认' && name !== '待分配')
-    : []
-  const ownerNameOptions = Array.from(new Set(ownerNames)).sort()
+  const dependencyOptions = getDependencyOptions(params)
 
   return `
     <section data-prep-filter-scope class="rounded-xl border bg-card p-3">
@@ -393,48 +435,19 @@ function renderLedgerFilter(params: URLSearchParams, month: string): string {
             <input type="date" name="endDate" value="${escapeHtml(endDate)}" class="h-9 min-w-0 flex-1 rounded-md border bg-background px-2" />
           </span>
         </label>
-        ${renderSelectField('买手', 'buyerName', ['', ...options.buyerNames], valueOf(params, 'buyerName'), '全部买手')}
-        ${renderSelectField('记录状态', 'recordStatus', options.recordStatuses, valueOf(params, 'recordStatus') || '全部')}
-        ${renderSelectField('准备项类型', 'itemType', options.itemTypes, valueOf(params, 'itemType') || '全部')}
-        ${renderSelectField('责任团队', 'ownerTeam', ['', ...options.ownerTeams], valueOf(params, 'ownerTeam'), '全部团队')}
-        ${renderSelectField('责任人', 'ownerName', ['', ...ownerNameOptions], valueOf(params, 'ownerName'), ownerTeam ? '全部责任人' : '先选团队')}
-        ${renderSelectField(
-          '是否超时',
-          'overdueOnly',
-          [
-            { value: '', label: '全部' },
-            { value: 'true', label: '只看超时' },
-          ],
-          valueOf(params, 'overdueOnly'),
-        )}
+        ${renderPreparationMultiSelect({ label: '跟单', field: 'merchandiserName', selectedValues: valuesOf(params, 'merchandiserName'), options: options.merchandiserNames })}
+        ${renderPreparationMultiSelect({ label: '记录状态', field: 'recordStatus', selectedValues: valuesOf(params, 'recordStatus').filter((value) => value !== '全部'), options: options.recordStatuses.filter((value) => value !== '全部') })}
+        ${renderPreparationMultiSelect({ label: '准备项', field: 'itemType', selectedValues: dependencyOptions.selectedItemTypes, options: preparationItemTypes, optionTeam: (itemType) => preparationItemOwnerTeamMap[itemType as PreparationItemType], visibleOptions: dependencyOptions.visibleItemTypes })}
+        ${renderPreparationMultiSelect({ label: '准备项进度', field: 'itemProgress', selectedValues: valuesOf(params, 'itemProgress'), options: ITEM_PROGRESS_OPTIONS })}
+        ${renderPreparationMultiSelect({ label: '责任团队', field: 'ownerTeam', selectedValues: dependencyOptions.selectedOwnerTeams, options: options.ownerTeams, optionTeam: (ownerTeam) => ownerTeam, visibleOptions: dependencyOptions.visibleOwnerTeams })}
         <label class="flex min-w-[240px] flex-col gap-1 text-sm">
           <span class="text-muted-foreground">关键词</span>
-          <input name="keyword" value="${escapeHtml(valueOf(params, 'keyword'))}" placeholder="商品 / 生产单 / 准备项 / 责任人" class="h-9 rounded-md border bg-background px-3" />
+          <input name="keyword" value="${escapeHtml(valueOf(params, 'keyword'))}" placeholder="商品 / 生产单 / 准备项" class="h-9 rounded-md border bg-background px-3" />
         </label>
         <button type="button" class="inline-flex h-9 shrink-0 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-prep-filter-scope]" data-nav-base="${PAGE_PATH}">筛选</button>
         <button type="button" class="inline-flex h-9 shrink-0 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${PAGE_PATH}?tab=ledger&month=${escapeHtml(DEFAULT_MONTH)}&startDate=${escapeHtml(startDateOfMonth(DEFAULT_MONTH))}&endDate=${escapeHtml(endDateOfMonth(DEFAULT_MONTH))}">重置</button>
       </div>
     </section>
-  `
-}
-
-function renderSelectField(
-  label: string,
-  name: string,
-  options: Array<string | { value: string; label: string }>,
-  selected: string,
-  emptyLabel?: string,
-): string {
-  const normalizedOptions = emptyLabel
-    ? options.map((option) => option === '' ? { value: '', label: emptyLabel } : option)
-    : options
-  return `
-    <label class="flex flex-col gap-1 text-sm">
-      <span class="text-muted-foreground">${escapeHtml(label)}</span>
-      <select name="${escapeHtml(name)}" class="h-9 min-w-[132px] rounded-md border bg-background px-2">
-        ${renderOptions(normalizedOptions, selected)}
-      </select>
-    </label>
   `
 }
 
@@ -1596,53 +1609,28 @@ function renderOperationLogs(record: ProductionPreparationRecord): string {
 
 function renderStatsFilter(params: URLSearchParams, month: string, activeTab: 'monthly' | 'detail'): string {
   const options = getProductionPreparationFilterOptions()
-  const startDate = valueOf(params, 'startDate') || startDateOfMonth(month)
-  const endDate = valueOf(params, 'endDate') || endDateOfMonth(month)
-  const ownerTeam = valueOf(params, 'ownerTeam')
-  const ownerNames = ownerTeam
-    ? flattenProductionPreparationItems()
-      .filter((item) => item.ownerTeam === ownerTeam)
-      .map((item) => item.ownerName)
-      .filter((name) => name && name !== '待确认' && name !== '待分配')
-    : []
-  const ownerNameOptions = Array.from(new Set(ownerNames)).sort()
+  const dependencyOptions = getDependencyOptions(params)
   return `
     <section data-prep-stats-filter-scope class="rounded-xl border bg-card p-3">
       <input type="hidden" name="tab" value="${escapeHtml(activeTab)}" />
-      <input type="hidden" name="month" value="${escapeHtml(month)}" />
       <div class="flex flex-nowrap items-end gap-2 overflow-x-auto pb-1">
         <label class="flex min-w-[150px] flex-col gap-1 text-sm">
-          <span class="text-muted-foreground">开始日期</span>
-          <input type="date" name="startDate" value="${escapeHtml(startDate)}" class="h-9 rounded-md border bg-background px-2" />
+          <span class="text-muted-foreground">月份</span>
+          <input type="month" name="month" value="${escapeHtml(month)}" class="h-9 rounded-md border bg-background px-2" />
         </label>
-        <label class="flex min-w-[150px] flex-col gap-1 text-sm">
-          <span class="text-muted-foreground">结束日期</span>
-          <input type="date" name="endDate" value="${escapeHtml(endDate)}" class="h-9 rounded-md border bg-background px-2" />
-        </label>
-        ${renderSelectField('买手', 'buyerName', ['', ...options.buyerNames], valueOf(params, 'buyerName'), '全部买手')}
-        ${renderSelectField('准备项类型', 'itemType', options.itemTypes, valueOf(params, 'itemType') || '全部')}
-        ${renderSelectField('责任团队', 'ownerTeam', ['', ...options.ownerTeams], valueOf(params, 'ownerTeam'), '全部团队')}
-        ${renderSelectField('责任人', 'ownerName', ['', ...ownerNameOptions], valueOf(params, 'ownerName'), ownerTeam ? '全部责任人' : '先选团队')}
-        ${renderSelectField(
-          '是否超时',
-          'overdueOnly',
-          [
-            { value: '', label: '全部' },
-            { value: 'true', label: '只看超时' },
-          ],
-          valueOf(params, 'overdueOnly'),
-        )}
-        <button type="button" class="inline-flex h-9 shrink-0 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-prep-stats-filter-scope]" data-nav-base="${STATS_PAGE_PATH}">筛选统计</button>
-        <button type="button" class="inline-flex h-9 shrink-0 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${STATS_PAGE_PATH}?tab=${escapeHtml(activeTab)}&month=${escapeHtml(DEFAULT_MONTH)}&startDate=${escapeHtml(startDateOfMonth(DEFAULT_MONTH))}&endDate=${escapeHtml(endDateOfMonth(DEFAULT_MONTH))}">重置</button>
+        ${renderPreparationMultiSelect({ label: '跟单', field: 'merchandiserName', selectedValues: valuesOf(params, 'merchandiserName'), options: options.merchandiserNames })}
+        ${renderPreparationMultiSelect({ label: '记录状态', field: 'recordStatus', selectedValues: valuesOf(params, 'recordStatus').filter((value) => value !== '全部'), options: options.recordStatuses.filter((value) => value !== '全部') })}
+        ${renderPreparationMultiSelect({ label: '准备项', field: 'itemType', selectedValues: dependencyOptions.selectedItemTypes, options: preparationItemTypes, optionTeam: (itemType) => preparationItemOwnerTeamMap[itemType as PreparationItemType], visibleOptions: dependencyOptions.visibleItemTypes })}
+        ${renderPreparationMultiSelect({ label: '责任团队', field: 'ownerTeam', selectedValues: dependencyOptions.selectedOwnerTeams, options: options.ownerTeams, optionTeam: (ownerTeam) => ownerTeam, visibleOptions: dependencyOptions.visibleOwnerTeams })}
+        <button type="button" class="inline-flex h-9 shrink-0 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-prep-stats-filter-scope]" data-nav-base="${STATS_PAGE_PATH}">筛选</button>
+        <button type="button" class="inline-flex h-9 shrink-0 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${STATS_PAGE_PATH}?tab=${escapeHtml(activeTab)}&month=${escapeHtml(DEFAULT_MONTH)}">重置</button>
       </div>
     </section>
   `
 }
 
 function getStatsDetails(month: string, filter: ProductionPreparationFilter): MonthlyPreparationCompletionDetail[] {
-  const { overdueOnly: _ignoredOverdueOnly, ...detailFilter } = filter
-  const details = buildMonthlyPreparationCompletionDetails(month, detailFilter)
-  return filter.overdueOnly ? details.filter((detail) => !detail.onTime) : details
+  return buildMonthlyPreparationCompletionDetails(month, filter)
 }
 
 function buildStatsRows(month: string, details: MonthlyPreparationCompletionDetail[]): StatsTableRow[] {
@@ -1717,11 +1705,11 @@ function renderStatsTable(month: string, rows: StatsTableRow[], params: URLSearc
           <tbody>
             ${pagedRows.map((row) => {
               const detailHref = buildStatsHref({
-                ...Object.fromEntries(params),
                 tab: 'detail',
                 month,
-                detailPage: 1,
-              })
+                detailPage: null,
+                monthlyPage: null,
+              }, params)
               return `
                 <tr class="border-b last:border-b-0">
                   <td class="px-4 py-3">
@@ -1850,6 +1838,10 @@ function getStatsViewData(params: URLSearchParams, month: string): {
   monthKey: string
 } {
   const filter = parseFilter(params)
+  delete filter.startDate
+  delete filter.endDate
+  delete filter.itemProgresses
+  delete filter.keyword
   const details = getStatsDetails(month, filter)
   const stats = buildStatsRows(month, details)
   const monthKey = month.replace('-', '')
@@ -1912,7 +1904,7 @@ export function renderProductionPreparationTimingStatisticsPage(pathname?: strin
 
   return `
     <div class="flex flex-col gap-5 p-6">
-      ${renderStatsHeader(activeTab, month)}
+      ${renderStatsHeader(activeTab, month, params)}
       ${activeTab === 'detail' ? renderDetailStatsTab(params, month) : renderMonthlyStatsTab(params, month)}
     </div>
   `
@@ -2303,7 +2295,45 @@ function addAccessoryOrderRow(button: HTMLElement): void {
   rows.appendChild(row)
 }
 
+function syncPreparationFilterDependencies(checkbox: HTMLInputElement): void {
+  const scope = checkbox.closest<HTMLElement>('[data-prep-filter-scope], [data-prep-stats-filter-scope]')
+  if (!scope) return
+  const checkedValues = (field: string) => Array.from(
+    scope.querySelectorAll<HTMLInputElement>(`[data-prep-filter-checkbox="${field}"]:checked`),
+    (input) => input.value,
+  )
+  const selectedItemTypes = checkedValues('itemType') as PreparationItemType[]
+  const selectedOwnerTeams = checkedValues('ownerTeam')
+  const selectedItemTeams = new Set(selectedItemTypes.map((itemType) => preparationItemOwnerTeamMap[itemType]))
+
+  scope.querySelectorAll<HTMLElement>('[data-prep-filter-option-label]').forEach((label) => {
+    const field = label.dataset.prepFilterField
+    if (field !== 'itemType' && field !== 'ownerTeam') return
+    const value = label.dataset.prepFilterValue ?? ''
+    const team = label.dataset.prepFilterOptionTeam ?? ''
+    const selected = checkedValues(field).includes(value)
+    const compatible = field === 'itemType'
+      ? selectedOwnerTeams.length === 0 || selectedOwnerTeams.includes(team)
+      : selectedItemTypes.length === 0 || selectedItemTeams.has(team)
+    label.hidden = !selected && !compatible
+  })
+
+  scope.querySelectorAll<HTMLElement>('[data-prep-filter-summary]').forEach((summary) => {
+    const field = summary.dataset.prepFilterSummary ?? ''
+    const label = summary.dataset.prepFilterLabel ?? ''
+    const count = checkedValues(field).length
+    const text = summary.querySelector<HTMLElement>('span')
+    if (text) text.textContent = `${label}${count ? `（${count}）` : ''}`
+  })
+}
+
 export function handleProductionPreparationTimingEvent(target: HTMLElement): boolean {
+  const filterCheckbox = target.closest<HTMLInputElement>('[data-prep-filter-checkbox]')
+  if (filterCheckbox) {
+    syncPreparationFilterDependencies(filterCheckbox)
+    return false
+  }
+
   const materialSourceSelect = target.closest<HTMLSelectElement>('[data-prep-material-source]')
   if (materialSourceSelect) {
     syncMaterialSource(materialSourceSelect)
