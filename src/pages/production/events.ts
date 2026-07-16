@@ -1307,8 +1307,8 @@ function updateProductionField(
   }
 }
 
-export function handleProductionEvent(target: HTMLElement): boolean {
-  if (isProductionPreparationTimingPath() && handleProductionPreparationTimingEvent(target)) return true
+export function handleProductionEvent(target: HTMLElement, event?: Event): boolean {
+  if (isProductionPreparationTimingPath() && handleProductionPreparationTimingEvent(target, event)) return true
 
   const fieldNode = target.closest<HTMLElement>('[data-prod-field]')
   if (

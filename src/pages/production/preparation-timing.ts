@@ -1,6 +1,28 @@
+// @page-pattern: list
+
 import { escapeHtml, formatDateTime } from '../../utils.ts'
 import { appStore } from '../../state/store.ts'
 import { renderMultiSelectFilter } from '../../components/ui/filter-bar.ts'
+import { renderSecondaryButton } from '../../components/ui/button.ts'
+import { renderStandardListPage } from '../../components/ui/list-page.ts'
+import { renderTablePagination } from '../../components/ui/pagination.ts'
+import {
+  clearListColumnPreferences,
+  loadListColumnPreferences,
+  normalizeListColumnPreferences,
+  paginateStandardListRows,
+  saveListColumnPreferences,
+  sortStandardListRows,
+  type StandardListColumnPreferences,
+  type StandardListColumnRule,
+  type StandardListPageSlice,
+  type StandardListSortState,
+} from '../../components/ui/list-table-model.ts'
+import {
+  renderStandardListColumnSettings,
+  renderStandardListTable,
+  type StandardListColumn,
+} from '../../components/ui/list-table.ts'
 import {
   appendDownloadRecord,
   buildUploadRecordsFromFiles,
@@ -40,7 +62,6 @@ import {
 const PAGE_PATH = '/fcs/production/preparation-timing'
 const STATS_PAGE_PATH = '/fcs/production/preparation-timing-statistics'
 const DEFAULT_MONTH = '2026-03'
-const LEDGER_PAGE_SIZE = 5
 const MONTHLY_STATS_PAGE_SIZE = 5
 const DETAIL_STATS_PAGE_SIZE = 8
 const LEDGER_FILTER_KEYS = [
@@ -61,6 +82,53 @@ const STATS_FILTER_KEYS = [
   'keyword',
 ] as const
 const ITEM_PROGRESS_OPTIONS: PreparationItemProgress[] = ['不满足开始条件', '未开始', '已完成']
+
+const ledgerPageSizes = [5, 10, 20, 50]
+const ledgerStorageKey = 'higood:list-page:/fcs/production/preparation-timing:ledger'
+const ledgerMaxFrozenWidth = 620
+const ledgerColumnRules: StandardListColumnRule[] = [
+  { key: 'product', required: true, freezeable: true },
+  { key: 'people', required: true, freezeable: true },
+  { key: 'timing', required: true, freezeable: true },
+  { key: 'status', required: true, freezeable: true },
+  { key: 'completion' },
+  { key: 'outputs' },
+  { key: 'actions', required: true, actionColumn: true },
+]
+const defaultLedgerColumnPreferences: StandardListColumnPreferences = {
+  order: ledgerColumnRules.map((column) => column.key),
+  visibleKeys: ledgerColumnRules.map((column) => column.key),
+  frozenKeys: [],
+  pageSize: 5,
+}
+
+interface LedgerListState {
+  page: number
+  sort: StandardListSortState | null
+  columnPreferences: StandardListColumnPreferences
+  columnSettingsOpen: boolean
+  draggedColumnKey: string
+  preferencesLoaded: boolean
+  records: ProductionPreparationRecord[]
+  month: string
+  params: URLSearchParams
+}
+
+const ledgerListState: LedgerListState = {
+  page: 1,
+  sort: null,
+  columnPreferences: normalizeListColumnPreferences(
+    ledgerColumnRules,
+    defaultLedgerColumnPreferences,
+    ledgerPageSizes,
+  ),
+  columnSettingsOpen: false,
+  draggedColumnKey: '',
+  preferencesLoaded: false,
+  records: [],
+  month: DEFAULT_MONTH,
+  params: new URLSearchParams(),
+}
 
 const PREPARATION_ACTION_LABELS: Record<PreparationItemType, string> = {
   梭织基码纸样: '上传梭织基码纸样',
@@ -267,21 +335,6 @@ function outputGeneratedAt(record: ProductionPreparationRecord): string {
     .sort((left, right) => right.localeCompare(left))[0] ?? ''
 }
 
-function ledgerPageCount(records: ProductionPreparationRecord[]): number {
-  return Math.max(1, Math.ceil(records.length / LEDGER_PAGE_SIZE))
-}
-
-function getLedgerPage(params: URLSearchParams, records: ProductionPreparationRecord[]): number {
-  const rawPage = Number.parseInt(valueOf(params, 'page'), 10)
-  const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1
-  return Math.min(page, ledgerPageCount(records))
-}
-
-function paginateLedgerRecords(records: ProductionPreparationRecord[], page: number): ProductionPreparationRecord[] {
-  const start = (page - 1) * LEDGER_PAGE_SIZE
-  return records.slice(start, start + LEDGER_PAGE_SIZE)
-}
-
 function pageCount(total: number, pageSize: number): number {
   return Math.max(1, Math.ceil(total / pageSize))
 }
@@ -317,31 +370,6 @@ function renderStatsPagination(total: number, page: number, pageSize: number, pa
   `
 }
 
-function renderLedgerPagination(
-  records: ProductionPreparationRecord[],
-  page: number,
-  month: string,
-  params: URLSearchParams,
-): string {
-  const pageCount = ledgerPageCount(records)
-  const prevHref = page > 1 ? buildLedgerActionHref(params, month, { page: page - 1 }) : ''
-  const nextHref = page < pageCount ? buildLedgerActionHref(params, month, { page: page + 1 }) : ''
-  const renderButton = (label: string, href: string) =>
-    href
-      ? `<button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(href)}">${escapeHtml(label)}</button>`
-      : `<button type="button" class="rounded-md border px-3 py-1.5 text-xs text-muted-foreground opacity-50" disabled>${escapeHtml(label)}</button>`
-
-  return `
-    <div class="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3 text-sm">
-      <span class="text-muted-foreground">共 ${records.length} 条，第 ${page}/${pageCount} 页</span>
-      <div class="flex items-center gap-2">
-        ${renderButton('上一页', prevHref)}
-        ${renderButton('下一页', nextHref)}
-      </div>
-    </div>
-  `
-}
-
 function escapeCsvValue(value: unknown): string {
   const text = value == null ? '' : String(value)
   if (/[",\n\r]/.test(text)) return `"${text.replaceAll('"', '""')}"`
@@ -353,13 +381,10 @@ function csvDataUri(rows: string[][]): string {
   return `data:text/csv;charset=utf-8,${encodeURIComponent(`\uFEFF${lines.join('\n')}`)}`
 }
 
-function renderHeader(params: URLSearchParams, month: string): string {
+function renderHeaderActions(params: URLSearchParams, month: string): string {
   const externalMaterialsHref = buildLedgerActionHref(params, month, { action: 'external-materials' })
   return `
-    <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <h1 class="text-2xl font-semibold text-foreground">生产准备时效</h1>
-      <button type="button" class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" data-nav="${escapeHtml(externalMaterialsHref)}">维护非系统内物料</button>
-    </header>
+    <button type="button" class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" data-nav="${escapeHtml(externalMaterialsHref)}">维护非系统内物料</button>
   `
 }
 
@@ -856,86 +881,155 @@ function renderLedgerActions(
   `
 }
 
-function renderLedgerTable(records: ProductionPreparationRecord[], month: string, params: URLSearchParams): string {
-  const page = getLedgerPage(params, records)
-  const pageRecords = paginateLedgerRecords(records, page)
-
+function renderLedgerProductCell(record: ProductionPreparationRecord): string {
+  const confirmed = hasConfirmedWorkItems(record)
   return `
-    <section class="rounded-xl border bg-card">
-      <div class="flex items-center justify-between border-b px-5 py-4">
-        <div>
-          <h2 class="text-base font-semibold">准备台账</h2>
-          <p class="text-xs text-muted-foreground">按日期段筛选进入准备或完成的记录，避免混入其他时间范围的准备项。</p>
+    <div class="flex min-w-[260px] gap-3">
+      <img src="${escapeHtml(record.imageUrl)}" alt="${escapeHtml(record.spuName)}" class="h-14 w-14 rounded-md border object-cover" />
+      <div>
+        <div class="font-medium text-foreground">${escapeHtml(record.spuName)}</div>
+        <div class="mt-1">${renderProductTypeCell(record, confirmed)}</div>
+        <div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(record.spuCode)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.sourceReason)}</div>
+        <div class="mt-2 space-y-0.5 text-xs text-muted-foreground">
+          <div>达到做大货要求：${escapeHtml(formatDateTime(record.largeGoodsReachedAt))}</div>
+          <div>阈值 ${record.largeGoodsThresholdQty} 件 / 达到 ${record.largeGoodsReachedQty} 件 / ${record.largeGoodsReachedDays} 天</div>
         </div>
-        <span class="text-xs text-muted-foreground">共 ${records.length} 条，第 ${page}/${ledgerPageCount(records)} 页</span>
       </div>
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[1080px] text-sm">
-          <thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
-            <tr>
-              ${['商品', '选品/买手/跟单', '准备时间', '整体状态', '完成情况', '产出', '操作'].map((head) => `<th class="px-4 py-3 font-medium">${escapeHtml(head)}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              pageRecords.length
-                ? pageRecords.map((record) => renderLedgerRow(record, month, params)).join('')
-                : `<tr><td colspan="7" class="h-28 px-4 text-center text-muted-foreground">当前筛选条件下暂无生产准备记录</td></tr>`
-            }
-          </tbody>
-        </table>
-      </div>
-      ${renderLedgerPagination(records, page, month, params)}
-    </section>
+    </div>
   `
 }
 
-function renderLedgerRow(record: ProductionPreparationRecord, month: string, params: URLSearchParams): string {
-  const confirmed = hasConfirmedWorkItems(record)
-  const actualFinishAt = actualPreparationFinishAt(record)
-
+function renderLedgerPeopleCell(record: ProductionPreparationRecord): string {
   return `
-    <tr class="border-b align-top last:border-b-0 hover:bg-muted/30">
-      <td class="px-4 py-4">
-        <div class="flex min-w-[230px] gap-3">
-          <img src="${escapeHtml(record.imageUrl)}" alt="${escapeHtml(record.spuName)}" class="h-14 w-14 rounded-md border object-cover" />
-          <div>
-            <div class="font-medium text-foreground">${escapeHtml(record.spuName)}</div>
-            <div class="mt-1">${renderProductTypeCell(record, confirmed)}</div>
-            <div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(record.spuCode)}</div>
-            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.sourceReason)}</div>
-            <div class="mt-2 space-y-0.5 text-xs text-muted-foreground">
-              <div>达到做大货要求：${escapeHtml(formatDateTime(record.largeGoodsReachedAt))}</div>
-              <div>阈值 ${record.largeGoodsThresholdQty} 件 / 达到 ${record.largeGoodsReachedQty} 件 / ${record.largeGoodsReachedDays} 天</div>
-            </div>
-          </div>
-        </div>
-      </td>
-      <td class="px-4 py-4">
-        <div>选品：${escapeHtml(record.selectionName)}</div>
-        <div class="mt-1 text-xs text-muted-foreground">买手：${escapeHtml(record.buyerName)}</div>
-        <div class="mt-1 text-xs text-muted-foreground">跟单：${escapeHtml(record.merchandiserName)}</div>
-      </td>
-      <td class="px-4 py-4 whitespace-nowrap text-xs">
-        <div>进入：${escapeHtml(formatDateTime(record.enteredAt))}</div>
-        <div class="mt-1 text-muted-foreground">预计：${escapeHtml(formatDateTime(record.expectedFinishAt))}</div>
-        <div class="mt-1 text-muted-foreground">实际：${escapeHtml(actualFinishAt ? formatDateTime(actualFinishAt) : '-')}</div>
-      </td>
-      <td class="px-4 py-4">${renderBadge(record.status, statusTone(record.status))}</td>
-      <td class="px-4 py-4">
-        ${renderCompletionSituation(record)}
-      </td>
-      <td class="px-4 py-4">
-        ${renderLedgerOutputList(record)}
-      </td>
-      <td class="sticky right-0 bg-card px-4 py-4">
-        ${renderLedgerActions(record, confirmed, month, params)}
-      </td>
-    </tr>
+    <div class="min-w-[170px]">
+      <div>选品：${escapeHtml(record.selectionName)}</div>
+      <div class="mt-1 text-xs text-muted-foreground">买手：${escapeHtml(record.buyerName)}</div>
+      <div class="mt-1 text-xs text-muted-foreground">跟单：${escapeHtml(record.merchandiserName)}</div>
+    </div>
   `
+}
+
+function renderLedgerTimingCell(record: ProductionPreparationRecord): string {
+  const actualFinishAt = actualPreparationFinishAt(record)
+  return `
+    <div class="min-w-[180px] whitespace-nowrap text-xs">
+      <div>进入：${escapeHtml(formatDateTime(record.enteredAt))}</div>
+      <div class="mt-1 text-muted-foreground">预计：${escapeHtml(formatDateTime(record.expectedFinishAt))}</div>
+      <div class="mt-1 text-muted-foreground">实际：${escapeHtml(actualFinishAt ? formatDateTime(actualFinishAt) : '-')}</div>
+    </div>
+  `
+}
+
+function createLedgerColumns(month: string, params: URLSearchParams): StandardListColumn<ProductionPreparationRecord>[] {
+  return [
+    {
+      key: 'product', title: '商品', width: 300, minWidth: 280, required: true, freezeable: true, sortable: true,
+      sortValue: (record) => record.spuCode,
+      render: renderLedgerProductCell,
+    },
+    {
+      key: 'people', title: '选品/买手/跟单', width: 210, minWidth: 190, required: true, freezeable: true, sortable: true,
+      sortValue: (record) => `${record.merchandiserName}-${record.buyerName}-${record.selectionName}`,
+      render: renderLedgerPeopleCell,
+    },
+    {
+      key: 'timing', title: '准备时间', width: 220, minWidth: 210, required: true, freezeable: true, sortable: true,
+      sortValue: (record) => record.enteredAt,
+      render: renderLedgerTimingCell,
+    },
+    {
+      key: 'status', title: '整体状态', width: 130, minWidth: 120, required: true, freezeable: true, sortable: true,
+      sortValue: (record) => record.status,
+      render: (record) => renderBadge(record.status, statusTone(record.status)),
+    },
+    {
+      key: 'completion', title: '完成情况', width: 250, minWidth: 230, sortable: true,
+      sortValue: (record) => requiredItems(record).filter(hasCompletionEvidence).length,
+      render: renderCompletionSituation,
+    },
+    {
+      key: 'outputs', title: '产出', width: 300, minWidth: 280, sortable: true,
+      sortValue: (record) => record.outputs.filter((output) => output.outputStatus === '已生成').length,
+      render: renderLedgerOutputList,
+    },
+    {
+      key: 'actions', title: '操作', width: 220, minWidth: 210, required: true, actionColumn: true,
+      render: (record) => renderLedgerActions(record, hasConfirmedWorkItems(record), month, params),
+    },
+  ]
+}
+
+function getLedgerStorage(): Storage | null {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage
+  } catch {
+    return null
+  }
+}
+
+function ensureLedgerPreferences(): void {
+  if (ledgerListState.preferencesLoaded) return
+  ledgerListState.preferencesLoaded = true
+  const storage = getLedgerStorage()
+  ledgerListState.columnPreferences = storage
+    ? loadListColumnPreferences(storage, ledgerStorageKey, ledgerColumnRules, defaultLedgerColumnPreferences, ledgerPageSizes)
+    : normalizeListColumnPreferences(ledgerColumnRules, defaultLedgerColumnPreferences, ledgerPageSizes)
+}
+
+function saveLedgerPreferences(): void {
+  const storage = getLedgerStorage()
+  if (storage) saveListColumnPreferences(storage, ledgerStorageKey, ledgerListState.columnPreferences)
+}
+
+function getLedgerListView(): StandardListPageSlice<ProductionPreparationRecord> {
+  const columns = createLedgerColumns(ledgerListState.month, ledgerListState.params)
+  const sorted = sortStandardListRows(ledgerListState.records, ledgerListState.sort, (record, key) =>
+    columns.find((column) => column.key === key)?.sortValue?.(record),
+  )
+  const paging = paginateStandardListRows(sorted, ledgerListState.page, ledgerListState.columnPreferences.pageSize)
+  ledgerListState.page = paging.currentPage
+  return paging
+}
+
+function renderLedgerStandardTable(paging: StandardListPageSlice<ProductionPreparationRecord>): string {
+  return renderStandardListTable({
+    columns: createLedgerColumns(ledgerListState.month, ledgerListState.params),
+    rows: paging.rows,
+    preferences: ledgerListState.columnPreferences,
+    sort: ledgerListState.sort,
+    eventPrefix: 'production-preparation-ledger',
+    emptyText: '当前筛选条件下暂无生产准备记录',
+  })
+}
+
+function renderLedgerStandardPagination(paging: StandardListPageSlice<ProductionPreparationRecord>): string {
+  return renderTablePagination({
+    total: paging.total,
+    from: paging.from,
+    to: paging.to,
+    currentPage: paging.currentPage,
+    totalPages: paging.totalPages,
+    pageSize: paging.pageSize,
+    actionPrefix: 'production-preparation-ledger',
+    fieldPrefix: 'production-preparation-ledger',
+    pageSizeOptions: ledgerPageSizes,
+  })
+}
+
+function renderLedgerColumnSettings(): string {
+  if (!ledgerListState.columnSettingsOpen) return ''
+  return renderStandardListColumnSettings({
+    title: '准备台账列设置',
+    columns: createLedgerColumns(ledgerListState.month, ledgerListState.params),
+    preferences: ledgerListState.columnPreferences,
+    eventPrefix: 'production-preparation-ledger',
+    maxFrozenWidth: ledgerMaxFrozenWidth,
+  })
 }
 
 function renderLedgerTab(params: URLSearchParams, month: string): string {
+  ensureLedgerPreferences()
   const filter = parseFilter(params)
   const runtime = loadPreparationRuntimeState()
   const recordsWithRuntime = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
@@ -956,11 +1050,18 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
     ? detailRecord.items.find((item) => item.itemId === activeItemId) ?? null
     : null
   const action = valueOf(params, 'action')
-
-  return `
-    ${renderLedgerFilter(params, month)}
-    ${renderKpis(records, month, filter)}
-    ${renderLedgerTable(records, month, params)}
+  const requestedPage = Number.parseInt(valueOf(params, 'page'), 10)
+  ledgerListState.page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1
+  ledgerListState.records = records
+  ledgerListState.month = month
+  ledgerListState.params = new URLSearchParams(params)
+  const paging = getLedgerListView()
+  const columnSettingsButton = `
+    <span data-skip-page-rerender="true">
+      ${renderSecondaryButton('列设置', { prefix: 'production-preparation-ledger', action: 'open-column-settings' }, 'columns-3')}
+    </span>
+  `
+  const businessOverlays = `
     ${detailRecord && !action ? renderDetailDrawer(detailRecord, params, month) : ''}
     ${detailRecord ? renderConfirmItemsDialog(detailRecord, params, month) : ''}
     ${detailRecord && activeItem ? renderDyeRequirementDialog(detailRecord, activeItem, params, month) : ''}
@@ -968,6 +1069,22 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
     ${detailRecord && activeItem ? renderOperateItemDialog(detailRecord, activeItem, params, month) : ''}
     ${renderExternalMaterialsDialog(params, month)}
   `
+
+  return renderStandardListPage({
+    title: '生产准备时效',
+    primaryActionsHtml: renderHeaderActions(params, month),
+    filtersHtml: renderLedgerFilter(params, month),
+    statsHtml: renderKpis(records, month, filter),
+    listTitle: '准备台账',
+    listActionsHtml: columnSettingsButton,
+    tableHtml: `<div data-prep-list-kind="ledger" data-prep-list-region="table" data-skip-page-rerender="true">${renderLedgerStandardTable(paging)}</div>`,
+    paginationHtml: `<div data-prep-list-region="pagination" data-skip-page-rerender="true">${renderLedgerStandardPagination(paging)}</div>`,
+    overlaysHtml: `
+      <div data-prep-list-region="column-settings" data-skip-page-rerender="true">${renderLedgerColumnSettings()}</div>
+      <div data-prep-list-region="business-overlays">${businessOverlays}</div>
+    `,
+    className: 'min-w-0',
+  })
 }
 
 function renderDetailDrawer(record: ProductionPreparationRecord, params: URLSearchParams, month: string): string {
@@ -1921,12 +2038,7 @@ export function renderProductionPreparationTimingPage(pathname?: string): string
   const params = url.searchParams
   const month = valueOf(params, 'month') || DEFAULT_MONTH
 
-  return `
-    <div class="flex flex-col gap-5 p-6">
-      ${renderHeader(params, month)}
-      ${renderLedgerTab(params, month)}
-    </div>
-  `
+  return renderLedgerTab(params, month)
 }
 
 export function renderProductionPreparationTimingStatisticsPage(pathname?: string): string {
@@ -2362,7 +2474,211 @@ function syncPreparationFilterDependencies(checkbox: HTMLInputElement): void {
   })
 }
 
-export function handleProductionPreparationTimingEvent(target: HTMLElement): boolean {
+function setLedgerRegion(region: string, html: string): void {
+  if (typeof document === 'undefined') return
+  const element = document.querySelector<HTMLElement>(`[data-prep-list-region="${region}"]`)
+  if (element) element.innerHTML = html
+}
+
+function refreshLedgerTableAndPagination(): void {
+  const paging = getLedgerListView()
+  setLedgerRegion('table', renderLedgerStandardTable(paging))
+  setLedgerRegion('pagination', renderLedgerStandardPagination(paging))
+}
+
+function refreshLedgerTable(): void {
+  setLedgerRegion('table', renderLedgerStandardTable(getLedgerListView()))
+}
+
+function refreshLedgerColumnSettings(): void {
+  setLedgerRegion('column-settings', renderLedgerColumnSettings())
+}
+
+function persistLedgerPageInUrl(): void {
+  ledgerListState.params.set('page', String(ledgerListState.page))
+  if (typeof window === 'undefined') return
+  const href = buildLedgerHrefFromParams(ledgerListState.params, ledgerListState.month)
+  window.history.replaceState(window.history.state, '', href)
+}
+
+function ledgerColumnWidth(column: StandardListColumn<ProductionPreparationRecord>): number {
+  return Math.max(column.width, column.minWidth ?? 0)
+}
+
+function canFreezeLedgerColumn(columnKey: string): boolean {
+  const columns = createLedgerColumns(ledgerListState.month, ledgerListState.params)
+  const visibleKeys = new Set(ledgerListState.columnPreferences.visibleKeys)
+  const frozenKeys = new Set(ledgerListState.columnPreferences.frozenKeys)
+  const candidate = columns.find((column) => column.key === columnKey)
+  if (!candidate?.freezeable || !visibleKeys.has(columnKey)) return false
+  frozenKeys.add(columnKey)
+  return columns.reduce((total, column) =>
+    total + (visibleKeys.has(column.key) && frozenKeys.has(column.key) ? ledgerColumnWidth(column) : 0), 0) <= ledgerMaxFrozenWidth
+}
+
+function handleLedgerListEvent(target: HTMLElement, event?: Event): boolean {
+  const dragEvent = event as (DragEvent & {
+    higoodStandardListColumnDrag?: true
+    higoodStandardListColumnKey?: string
+  }) | undefined
+  if (event?.type === 'dragend') {
+    if (!dragEvent?.higoodStandardListColumnDrag) return false
+    ledgerListState.draggedColumnKey = ''
+    return true
+  }
+
+  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
+  if (dragNode && dragEvent?.higoodStandardListColumnDrag && ['dragstart', 'dragover', 'drop'].includes(event?.type ?? '')) {
+    const columnKey = dragNode.dataset.productionPreparationLedgerColumnKey
+      || dragNode.dataset.dragSource
+      || dragNode.dataset.dropTarget
+      || ''
+    const column = createLedgerColumns(ledgerListState.month, ledgerListState.params)
+      .find((item) => item.key === columnKey && !item.actionColumn)
+    if (event?.type === 'dragstart') {
+      ledgerListState.draggedColumnKey = column?.key ?? ''
+      return Boolean(column)
+    }
+    const sourceKey = dragEvent.higoodStandardListColumnKey ?? ''
+    const targetKey = column?.key ?? ''
+    if (!sourceKey || !targetKey || sourceKey === targetKey || ledgerListState.draggedColumnKey !== sourceKey) return false
+    if (event?.type === 'dragover') {
+      event.preventDefault()
+      return true
+    }
+    event?.preventDefault()
+    ledgerListState.draggedColumnKey = ''
+    const order = ledgerListState.columnPreferences.order.filter((key) => key !== sourceKey)
+    const targetIndex = order.indexOf(targetKey)
+    if (targetIndex < 0) return false
+    order.splice(targetIndex, 0, sourceKey)
+    ledgerListState.columnPreferences = normalizeListColumnPreferences(
+      ledgerColumnRules,
+      { ...ledgerListState.columnPreferences, order },
+      ledgerPageSizes,
+    )
+    saveLedgerPreferences()
+    refreshLedgerTable()
+    refreshLedgerColumnSettings()
+    return true
+  }
+
+  const fieldNode = target.closest<HTMLInputElement | HTMLSelectElement>('[data-production-preparation-ledger-field]')
+  if (fieldNode?.dataset.productionPreparationLedgerField === 'pageSize') {
+    if (event?.type !== 'change') return false
+    const pageSize = Number(fieldNode.value)
+    if (ledgerPageSizes.includes(pageSize)) {
+      ledgerListState.columnPreferences = normalizeListColumnPreferences(
+        ledgerColumnRules,
+        { ...ledgerListState.columnPreferences, pageSize },
+        ledgerPageSizes,
+      )
+      ledgerListState.page = 1
+      saveLedgerPreferences()
+      persistLedgerPageInUrl()
+      refreshLedgerTableAndPagination()
+    }
+    return true
+  }
+
+  const actionNode = target.closest<HTMLElement>('[data-production-preparation-ledger-action]')
+  const action = actionNode?.dataset.productionPreparationLedgerAction
+  if (!actionNode || !action) return false
+
+  if (action === 'prev-page' || action === 'next-page') {
+    ledgerListState.page += action === 'prev-page' ? -1 : 1
+    const paging = getLedgerListView()
+    persistLedgerPageInUrl()
+    setLedgerRegion('table', renderLedgerStandardTable(paging))
+    setLedgerRegion('pagination', renderLedgerStandardPagination(paging))
+    return true
+  }
+  if (action === 'sort-column') {
+    const columnKey = actionNode.dataset.columnKey ?? ''
+    const column = createLedgerColumns(ledgerListState.month, ledgerListState.params)
+      .find((item) => item.key === columnKey && item.sortable)
+    if (!column) return true
+    ledgerListState.sort = ledgerListState.sort?.key !== columnKey
+      ? { key: columnKey, direction: 'asc' }
+      : ledgerListState.sort.direction === 'asc'
+        ? { key: columnKey, direction: 'desc' }
+        : null
+    ledgerListState.page = 1
+    persistLedgerPageInUrl()
+    refreshLedgerTableAndPagination()
+    return true
+  }
+  if (action === 'open-column-settings') {
+    ledgerListState.columnSettingsOpen = true
+    refreshLedgerColumnSettings()
+    return true
+  }
+  if (action === 'close-column-settings') {
+    ledgerListState.columnSettingsOpen = false
+    refreshLedgerColumnSettings()
+    return true
+  }
+  if (action === 'toggle-column-visibility') {
+    if (event?.type !== 'change') return false
+    const columnKey = actionNode.dataset.productionPreparationLedgerColumnKey ?? actionNode.dataset.columnKey ?? ''
+    const rule = ledgerColumnRules.find((item) => item.key === columnKey)
+    if (!rule || rule.required || rule.actionColumn) return true
+    const visibleKeys = new Set(ledgerListState.columnPreferences.visibleKeys)
+    const frozenKeys = new Set(ledgerListState.columnPreferences.frozenKeys)
+    if (visibleKeys.has(columnKey)) {
+      visibleKeys.delete(columnKey)
+      frozenKeys.delete(columnKey)
+    } else {
+      visibleKeys.add(columnKey)
+    }
+    ledgerListState.columnPreferences = normalizeListColumnPreferences(
+      ledgerColumnRules,
+      { ...ledgerListState.columnPreferences, visibleKeys: [...visibleKeys], frozenKeys: [...frozenKeys] },
+      ledgerPageSizes,
+    )
+    if (!visibleKeys.has(columnKey) && ledgerListState.sort?.key === columnKey) ledgerListState.sort = null
+    saveLedgerPreferences()
+    refreshLedgerTable()
+    refreshLedgerColumnSettings()
+    return true
+  }
+  if (action === 'toggle-column-freeze') {
+    if (event?.type !== 'change') return false
+    const columnKey = actionNode.dataset.productionPreparationLedgerColumnKey ?? actionNode.dataset.columnKey ?? ''
+    const frozenKeys = new Set(ledgerListState.columnPreferences.frozenKeys)
+    if (frozenKeys.has(columnKey)) frozenKeys.delete(columnKey)
+    else if (canFreezeLedgerColumn(columnKey)) frozenKeys.add(columnKey)
+    ledgerListState.columnPreferences = normalizeListColumnPreferences(
+      ledgerColumnRules,
+      { ...ledgerListState.columnPreferences, frozenKeys: [...frozenKeys] },
+      ledgerPageSizes,
+    )
+    saveLedgerPreferences()
+    refreshLedgerTable()
+    refreshLedgerColumnSettings()
+    return true
+  }
+  if (action === 'restore-column-settings') {
+    ledgerListState.columnPreferences = normalizeListColumnPreferences(
+      ledgerColumnRules,
+      defaultLedgerColumnPreferences,
+      ledgerPageSizes,
+    )
+    ledgerListState.page = 1
+    ledgerListState.sort = null
+    const storage = getLedgerStorage()
+    if (storage) clearListColumnPreferences(storage, ledgerStorageKey)
+    persistLedgerPageInUrl()
+    refreshLedgerTableAndPagination()
+    refreshLedgerColumnSettings()
+    return true
+  }
+  return false
+}
+
+export function handleProductionPreparationTimingEvent(target: HTMLElement, event?: Event): boolean {
+  if (handleLedgerListEvent(target, event)) return true
+
   const filterCheckbox = target.closest<HTMLInputElement>('[data-prep-filter-checkbox]')
   if (filterCheckbox) {
     syncPreparationFilterDependencies(filterCheckbox)

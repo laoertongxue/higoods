@@ -154,6 +154,89 @@ test('不兼容旧 URL 保留两个已选值并显示空态', async ({ page }) =
   expect(new URL(page.url()).searchParams.getAll('ownerTeam')).toEqual(['染色团队'])
 })
 
+test('准备台账标准列表局部分页、三态排序和列偏好可用', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await page.evaluate(() => {
+    window.localStorage.removeItem('higood:list-page:/fcs/production/preparation-timing:ledger')
+  })
+  await page.reload()
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  await expect(page.locator('[data-standard-list-page]')).toBeVisible()
+  await expect(page.locator('[data-standard-list-scroll]')).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+  expect(await page.locator('[data-standard-list-scroll]').evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true)
+
+  const responseMs = await page.evaluate(() => new Promise<number>((resolve, reject) => {
+    const root = document.querySelector('[data-standard-list-page]')
+    const table = document.querySelector('[data-prep-list-region="table"]')
+    const next = document.querySelector<HTMLButtonElement>('[data-production-preparation-ledger-action="next-page"]')
+    if (!root || !table || !next) {
+      reject(new Error('准备台账标准分页元素缺失'))
+      return
+    }
+    ;(window as Window & { __prepLedgerRoot?: Element }).__prepLedgerRoot = root
+    const startedAt = performance.now()
+    const observer = new MutationObserver(() => {
+      observer.disconnect()
+      resolve(performance.now() - startedAt)
+    })
+    observer.observe(table, { childList: true, subtree: true })
+    next.click()
+    window.setTimeout(() => {
+      observer.disconnect()
+      reject(new Error('准备台账下一页未局部更新'))
+    }, 500)
+  }))
+  expect(responseMs).toBeLessThan(200)
+  await expect.poll(() => new URL(page.url()).searchParams.get('page')).toBe('2')
+  await expect(page.getByText('PREP-202603-006', { exact: false })).toBeVisible()
+  expect(await page.evaluate(() =>
+    (window as Window & { __prepLedgerRoot?: Element }).__prepLedgerRoot === document.querySelector('[data-standard-list-page]'),
+  )).toBe(true)
+
+  const productHeader = page.locator('th[data-column-key="product"]')
+  const sortButton = productHeader.getByRole('button')
+  await sortButton.click()
+  await expect(productHeader).toHaveAttribute('aria-sort', 'ascending')
+  await sortButton.click()
+  await expect(productHeader).toHaveAttribute('aria-sort', 'descending')
+  await sortButton.click()
+  await expect(productHeader).toHaveAttribute('aria-sort', 'none')
+
+  await page.getByRole('button', { name: '列设置', exact: true }).click()
+  const outputsSetting = page.locator('[data-standard-list-column-key="outputs"]')
+  await expect(outputsSetting).toBeVisible()
+  await outputsSetting.locator('[data-production-preparation-ledger-action="toggle-column-visibility"]').uncheck()
+  await expect(page.locator('th[data-column-key="outputs"]')).toHaveCount(0)
+  await page.reload()
+  await expect(page.locator('th[data-column-key="outputs"]')).toHaveCount(0)
+
+  await page.getByRole('button', { name: '列设置', exact: true }).click()
+  await page.getByRole('button', { name: '恢复默认', exact: true }).click()
+  await expect(page.locator('th[data-column-key="outputs"]')).toBeVisible()
+
+  const statusSetting = page.locator('[data-standard-list-column-key="status"]')
+  await statusSetting.locator('[data-production-preparation-ledger-action="toggle-column-freeze"]').check()
+  await expect(page.locator('thead th[data-column-key]').first()).toHaveAttribute('data-column-key', 'status')
+  await page.reload()
+  await expect(page.locator('thead th[data-column-key]').first()).toHaveAttribute('data-column-key', 'status')
+  await page.getByRole('button', { name: '列设置', exact: true }).click()
+  await page.locator('[data-standard-list-column-key="status"] [data-production-preparation-ledger-action="toggle-column-freeze"]').uncheck()
+  await expect(page.locator('thead th[data-column-key]').first()).toHaveAttribute('data-column-key', 'product')
+
+  const timingSetting = page.locator('[data-standard-list-column-key="timing"]')
+  const peopleSetting = page.locator('[data-standard-list-column-key="people"]')
+  await timingSetting.dragTo(peopleSetting)
+  await expect.poll(() => page.locator('thead th[data-column-key]').evaluateAll((headers) =>
+    headers.slice(0, 3).map((header) => header.getAttribute('data-column-key')),
+  )).toEqual(['product', 'timing', 'people'])
+  await page.reload()
+  await expect.poll(() => page.locator('thead th[data-column-key]').evaluateAll((headers) =>
+    headers.slice(0, 3).map((header) => header.getAttribute('data-column-key')),
+  )).toEqual(['product', 'timing', 'people'])
+})
+
 test('月度统计支持准备项团队联动且不展示准备项进度', async ({ page }) => {
   await page.goto(`${statisticsRoute}?tab=monthly&month=2026-03`)
   await waitForStableFilterScope(page, '[data-prep-stats-filter-scope]')
