@@ -57,6 +57,18 @@ async function waitForStableFilterScope(page: Page, selector: string): Promise<v
   }).toMatch(/[0-9a-f-]{36}/)
 }
 
+function expectStatsWhitelist(urlValue: string): void {
+  const params = new URL(urlValue).searchParams
+  expect(params.getAll('merchandiserName')).toEqual(['Maya', 'Raka'])
+  expect(params.getAll('recordStatus')).toEqual(['进行中', '已完成'])
+  expect(params.getAll('itemType')).toEqual(['梭织基码纸样', '辅料下单'])
+  expect(params.getAll('ownerTeam')).toEqual(['版师团队'])
+  expect(params.get('keyword')).toBe('FADAH')
+  for (const key of ['itemProgress', 'buyerName', 'ownerName', 'overdueOnly', 'patternDesigner'] as const) {
+    expect(params.has(key), `${key} 不得传播`).toBe(false)
+  }
+}
+
 test('台账提交保留两个跟单重复参数并重置页码', async ({ page }) => {
   await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03&page=2`)
   await waitForStableFilterScope(page, '[data-prep-filter-scope]')
@@ -156,4 +168,42 @@ test('月度统计支持准备项团队联动且不展示准备项进度', async
   await checkFilterOption(ownerTeam, '版师团队')
   await expect(ownerTeam.locator('[data-prep-filter-summary]')).toContainText('责任团队（1）')
   expect(await candidateValues(itemType)).toEqual(['梭织基码纸样', '梭织齐码纸样'])
+})
+
+test('统计 tab 分页和月份明细链接只传播白名单并保留合法重复参数', async ({ page }) => {
+  const legacyQuery = new URLSearchParams([
+    ['tab', 'monthly'],
+    ['month', '2026-03'],
+    ['merchandiserName', 'Maya'],
+    ['merchandiserName', 'Raka'],
+    ['recordStatus', '进行中'],
+    ['recordStatus', '已完成'],
+    ['itemType', '梭织基码纸样'],
+    ['itemType', '辅料下单'],
+    ['ownerTeam', '版师团队'],
+    ['keyword', 'FADAH'],
+    ['itemProgress', '未开始'],
+    ['buyerName', '李乔'],
+    ['ownerName', 'Diah'],
+    ['overdueOnly', 'true'],
+    ['patternDesigner', '冰冰'],
+  ])
+  const route = `${statisticsRoute}?${legacyQuery.toString()}`
+  await page.goto(route)
+  await waitForStableFilterScope(page, '[data-prep-stats-filter-scope]')
+
+  const detailTabUrl = await page.getByRole('button', { name: '明细统计', exact: true }).getAttribute('data-nav')
+  const nextPageUrl = await page.getByRole('button', { name: '下一页', exact: true }).getAttribute('data-nav')
+  const monthDetailUrl = await page.locator('section').filter({ has: page.getByRole('heading', { name: '统计表' }) })
+    .getByRole('button', { name: '2026-03', exact: true }).first().getAttribute('data-nav')
+  expect(detailTabUrl).toBeTruthy()
+  expect(nextPageUrl).toBeTruthy()
+  expect(monthDetailUrl).toBeTruthy()
+  expectStatsWhitelist(new URL(detailTabUrl!, page.url()).toString())
+  expectStatsWhitelist(new URL(nextPageUrl!, page.url()).toString())
+  expectStatsWhitelist(new URL(monthDetailUrl!, page.url()).toString())
+
+  await page.getByRole('button', { name: '明细统计', exact: true }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.get('tab')).toBe('detail')
+  expectStatsWhitelist(page.url())
 })

@@ -57,6 +57,16 @@ export function renderSearchInputWithClear(config: SearchInputConfig & { clearAc
   `
 }
 
+type HtmlAttributes = Record<string, string>
+
+function renderHtmlAttributes(attributes: HtmlAttributes = {}): string {
+  const rendered = Object.entries(attributes)
+    .filter(([name]) => /^[A-Za-z_:][A-Za-z0-9:._-]*$/.test(name))
+    .map(([name, value]) => `${name}="${escapeHtml(value)}"`)
+    .join(' ')
+  return rendered ? `${rendered} ` : ''
+}
+
 export function renderMultiSelectFilter(config: {
   label: string
   field: string
@@ -64,30 +74,45 @@ export function renderMultiSelectFilter(config: {
   options: string[]
   actionAttr: string
   skipPageRerender?: boolean
+  inputName?: string
+  containerAttributes?: HtmlAttributes
+  summaryAttributes?: HtmlAttributes
+  inputAttributes?: HtmlAttributes
+  optionAttributes?: (option: string) => HtmlAttributes
 }): string {
   const selected = new Set(config.selectedValues)
   const selectedCount = selected.size ? `（${selected.size}）` : ''
+  const containerAttributes = renderHtmlAttributes(config.containerAttributes)
+  const summaryAttributes = renderHtmlAttributes(config.summaryAttributes)
 
   return `
-    <details class="relative">
-      <summary class="flex h-10 min-w-32 cursor-pointer list-none items-center justify-between gap-2 rounded-md border bg-background px-3 text-sm">
+    <details ${containerAttributes}class="relative">
+      <summary ${summaryAttributes}class="flex h-10 min-w-32 cursor-pointer list-none items-center justify-between gap-2 rounded-md border bg-background px-3 text-sm">
         <span>${escapeHtml(config.label)}${selectedCount}</span>
         <i data-lucide="chevron-down" class="h-4 w-4 text-muted-foreground"></i>
       </summary>
       <div class="absolute z-40 mt-1 min-w-44 space-y-1 rounded-md border bg-popover p-2 shadow-md">
         ${config.options
-          .map((option) => `
-            <label class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted">
+          .map((option) => {
+            const optionAttributes = renderHtmlAttributes(config.optionAttributes?.(option))
+            const inputAttributes = renderHtmlAttributes({
+              [config.actionAttr]: config.field,
+              ...(config.inputName ? { name: config.inputName } : {}),
+              ...(config.skipPageRerender ? { 'data-skip-page-rerender': 'true' } : {}),
+              ...config.inputAttributes,
+            })
+            return `
+            <label ${optionAttributes}class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted">
               <input
                 type="checkbox"
-                ${config.actionAttr}="${escapeHtml(config.field)}"
-                ${config.skipPageRerender ? 'data-skip-page-rerender="true"' : ''}
+                ${inputAttributes}
                 value="${escapeHtml(option)}"
                 ${selected.has(option) ? 'checked' : ''}
               >
               <span>${escapeHtml(option)}</span>
             </label>
-          `)
+          `
+          })
           .join('')}
       </div>
     </details>

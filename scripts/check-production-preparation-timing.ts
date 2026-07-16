@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
+import { renderMultiSelectFilter } from '../src/components/ui/filter-bar.ts'
 import {
   EMPTY_PREPARATION_RUNTIME_STATE,
   PREPARATION_RUNTIME_STORAGE_KEY,
@@ -46,6 +47,37 @@ function getCompletedCount(stats: Array<{ itemType: string; completedCount: numb
   assert.ok(row, `2026-03 统计缺少${itemType}`)
   return row.completedCount
 }
+
+const legacyMultiSelectHtml = renderMultiSelectFilter({
+  label: '旧筛选',
+  field: 'legacy-field',
+  selectedValues: ['选项一'],
+  options: ['选项一'],
+  actionAttr: 'data-legacy-filter',
+})
+assertHtmlIncludes(legacyMultiSelectHtml, 'data-legacy-filter="legacy-field"', '共享多选旧调用必须保持 actionAttr 输出')
+assertHtmlIncludes(legacyMultiSelectHtml, '<details class="relative">', '共享多选旧调用必须保持 details 输出')
+assertHtmlIncludes(legacyMultiSelectHtml, '<label class="flex cursor-pointer', '共享多选旧调用必须保持 option label 输出')
+assert.ok(!legacyMultiSelectHtml.includes('name="legacy-field"'), '共享多选旧调用不得意外新增 name 属性')
+
+const structuredMultiSelectHtml = renderMultiSelectFilter({
+  label: '结构化筛选',
+  field: 'structured-field',
+  selectedValues: ['选项一'],
+  options: ['选项一'],
+  actionAttr: 'data-structured-filter',
+  inputName: 'structured-name',
+  containerAttributes: { 'data-prep-filter-group': '结构化<&>' },
+  summaryAttributes: { 'data-prep-filter-summary': 'structured-field' },
+  optionAttributes: (option) => ({
+    'data-related-owner-team': `${option}<&>`,
+    hidden: '',
+  }),
+})
+assertHtmlIncludes(structuredMultiSelectHtml, 'name="structured-name"', '共享多选必须支持显式 inputName')
+assertHtmlIncludes(structuredMultiSelectHtml, 'data-prep-filter-summary="structured-field"', '共享多选必须支持 summaryAttributes')
+assertHtmlIncludes(structuredMultiSelectHtml, 'data-prep-filter-group="结构化&lt;&amp;&gt;"', '共享多选容器属性必须转义')
+assertHtmlIncludes(structuredMultiSelectHtml, 'data-related-owner-team="选项一&lt;&amp;&gt;"', '共享多选选项属性必须转义')
 
 for (const file of [
   'src/data/fcs/production-preparation-timing.ts',
@@ -2343,6 +2375,11 @@ const pageSource = source('src/pages/production/preparation-timing.ts')
 const mainSource = source('src/main.ts')
 const productionEventsSource = source('src/pages/production/events.ts')
 assert.ok(pageSource.includes('renderMultiSelectFilter'), '页面必须复用 renderMultiSelectFilter')
+assert.ok(!pageSource.includes(".replace('<details class='"), '生产准备多选不得字符串替换 details HTML')
+assert.ok(!pageSource.includes(".replace('<summary class='"), '生产准备多选不得字符串替换 summary HTML')
+assert.ok(!pageSource.includes(".replaceAll('<input"), '生产准备多选不得字符串替换 input HTML')
+assert.ok(pageSource.includes('function getStatsQueryParams('), '统计链接必须使用查询白名单 helper')
+assert.ok(pageSource.includes("placeholder=\"商品 / 生产单 / 准备项 / 跟单\""), '台账关键词提示必须包含跟单')
 assert.ok(pageSource.includes('function valuesOf('), '页面必须新增 valuesOf(params, key)')
 assert.ok(pageSource.includes('.getAll(key)'), 'valuesOf 必须使用 URLSearchParams.getAll')
 assert.ok(pageSource.includes('data-prep-filter-option-label'), '页面必须输出准备项与团队联动 option data 属性')
