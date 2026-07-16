@@ -58,6 +58,15 @@ interface RatingRow extends FactoryRatingSnapshot {
   displayFactoryCode: string
 }
 
+interface RatingPaging {
+  total: number
+  from: number
+  to: number
+  currentPage: number
+  totalPages: number
+  pageSize: number
+}
+
 let draggedColumnKey = ''
 
 const columnRules = [
@@ -226,9 +235,11 @@ function filterSnapshots(rows: RatingRow[], query: RatingQuery): RatingRow[] {
 function renderSelect(name: string, value: string, options: Array<[string, string]>): string {
   return `
     <select name="${escapeHtml(name)}" class="h-9 rounded-md border bg-background px-3 text-sm" data-third-party-rating-field="${escapeHtml(name)}">
-      ${options.map(([optionValue, label]) => `
-        <option value="${escapeHtml(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(label)}</option>
-      `).join('')}
+      ${options.map(([optionValue, label]) => {
+        const formValue = optionValue === 'ALL' ? '' : optionValue
+        const selected = optionValue === value ? 'selected' : ''
+        return `<option value="${escapeHtml(formValue)}" ${selected}>${escapeHtml(label)}</option>`
+      }).join('')}
     </select>
   `
 }
@@ -245,7 +256,7 @@ function renderFilters(query: RatingQuery): string {
       ${renderSelect('dispatch', query.dispatch, [['ALL', '全部派单'], ['ALLOW', '允许派单'], ['LIMITED', '限制派单'], ['BLOCKED', '禁止派单']])}
       ${renderSelect('settlement', query.settlement, [['ALL', '全部结算'], ['ALLOW', '允许结算'], ['BLOCKED', '禁止新结算']])}
       <div class="flex flex-wrap gap-2 md:col-span-6">
-        <button type="submit" class="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">筛选</button>
+        <button type="button" class="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground" data-nav-from-fields="[data-third-party-rating-filters]" data-nav-base="${PAGE_PATH}">筛选</button>
         <button type="button" class="h-9 rounded-md border px-4 text-sm hover:bg-muted" data-nav="${PAGE_PATH}">重置</button>
       </div>
     </form>
@@ -561,6 +572,30 @@ function renderColumnSettingsOverlay(query: RatingQuery, preferences: StandardLi
   })
 }
 
+function renderRatingPagination(query: RatingQuery, paging: RatingPaging): string {
+  const paginationHtml = renderTablePagination({
+    total: paging.total,
+    from: paging.from,
+    to: paging.to,
+    currentPage: paging.currentPage,
+    totalPages: paging.totalPages,
+    pageSize: paging.pageSize,
+    actionPrefix: EVENT_PREFIX,
+    fieldPrefix: EVENT_PREFIX,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
+  })
+
+  return paginationHtml
+    .replace(
+      'data-third-party-rating-action="prev-page"',
+      `data-nav="${escapeHtml(buildHref(query, { page: Math.max(1, paging.currentPage - 1), refreshKey: '' }))}"`,
+    )
+    .replace(
+      'data-third-party-rating-action="next-page"',
+      `data-nav="${escapeHtml(buildHref(query, { page: Math.min(paging.totalPages, paging.currentPage + 1), refreshKey: '' }))}"`,
+    )
+}
+
 function navigateRatingList(href: string): void {
   appStore.navigate(href)
 }
@@ -613,9 +648,7 @@ function readFormValue(formData: FormData, key: string): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-export function handleThirdPartyFactoryRatingSubmit(form: HTMLFormElement): boolean {
-  if (!form.matches('[data-third-party-rating-filters]')) return false
-
+function applyRatingFilters(form: HTMLFormElement): void {
   const formData = new FormData(form)
   const pageSize = Number(readFormValue(formData, 'pageSize'))
   navigateRatingList(buildHref(readQuery(), {
@@ -631,6 +664,12 @@ export function handleThirdPartyFactoryRatingSubmit(form: HTMLFormElement): bool
     columnSettings: false,
     refreshKey: '',
   }))
+}
+
+export function handleThirdPartyFactoryRatingSubmit(form: HTMLFormElement): boolean {
+  if (!form.matches('[data-third-party-rating-filters]')) return false
+
+  applyRatingFilters(form)
   return true
 }
 
@@ -829,7 +868,7 @@ export function renderThirdPartyFactoryRatingPage(): string {
     statsHtml: renderLinkedStats(filteredRows),
     listTitle: '评级标准列表',
     listActionsHtml: `
-      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-third-party-rating-action="open-column-settings">列设置</button>
+      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildHref(query, { columnSettings: true, refreshKey: '' }))}">列设置</button>
     `,
     tableHtml: renderStandardListTable({
       columns,
@@ -839,17 +878,7 @@ export function renderThirdPartyFactoryRatingPage(): string {
       eventPrefix: EVENT_PREFIX,
       emptyText: '暂无符合条件的三方车缝工厂',
     }),
-    paginationHtml: renderTablePagination({
-      total: paging.total,
-      from: paging.from,
-      to: paging.to,
-      currentPage: paging.currentPage,
-      totalPages: paging.totalPages,
-      pageSize: paging.pageSize,
-      actionPrefix: EVENT_PREFIX,
-      fieldPrefix: EVENT_PREFIX,
-      pageSizeOptions: PAGE_SIZE_OPTIONS,
-    }),
+    paginationHtml: renderRatingPagination(query, paging),
     overlaysHtml: `
       ${renderRatingDrawer(activeSnapshot, query)}
       ${renderColumnSettingsOverlay(query, preferences)}
