@@ -62,6 +62,8 @@ interface RatingNavigationStore {
   navigate(pathname: string): void
 }
 
+let draggedColumnKey = ''
+
 const columnRules = [
   { key: 'factory', required: true, freezeable: true },
   { key: 'grade', required: true },
@@ -599,6 +601,17 @@ function getActionColumnKey(actionNode: HTMLElement): string {
   return actionNode.dataset.thirdPartyRatingColumnKey || actionNode.dataset.columnKey || ''
 }
 
+function getDragColumnKey(dragNode: HTMLElement): string {
+  return dragNode.dataset.thirdPartyRatingColumnKey
+    || dragNode.dataset.dragSource
+    || dragNode.dataset.dropTarget
+    || ''
+}
+
+function getDraggableColumn(columnKey: string): StandardListColumn<RatingRow> | undefined {
+  return columns.find((item) => item.key === columnKey && !item.actionColumn)
+}
+
 function refreshColumnSettings(query: RatingQuery, patch: Partial<RatingQuery> = {}): void {
   navigateRatingList(buildHref(query, {
     ...patch,
@@ -608,6 +621,66 @@ function refreshColumnSettings(query: RatingQuery, patch: Partial<RatingQuery> =
 }
 
 export function handleThirdPartyFactoryRatingEvent(target: HTMLElement, event?: Event): boolean {
+  const dragEvent = event as (DragEvent & {
+    higoodStandardListColumnDrag?: true
+    higoodStandardListColumnKey?: string
+  }) | undefined
+
+  if (event?.type === 'dragend') {
+    if (!draggedColumnKey && !dragEvent?.higoodStandardListColumnDrag) return false
+    draggedColumnKey = ''
+    return true
+  }
+
+  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
+  if (dragNode && event && ['dragstart', 'dragover', 'drop'].includes(event.type)) {
+    const columnKey = getDragColumnKey(dragNode)
+    const column = getDraggableColumn(columnKey)
+
+    if (event.type === 'dragstart') {
+      draggedColumnKey = column?.key || ''
+      if (!column) return false
+      dragEvent?.dataTransfer?.setData('application/x-higood-list-column-key', column.key)
+      if (dragEvent?.dataTransfer) dragEvent.dataTransfer.effectAllowed = 'move'
+      return true
+    }
+
+    const sourceKey = dragEvent?.higoodStandardListColumnKey
+      || dragEvent?.dataTransfer?.getData('application/x-higood-list-column-key')
+      || draggedColumnKey
+    const sourceColumn = getDraggableColumn(sourceKey)
+    const targetColumn = getDraggableColumn(columnKey)
+    if (
+      !sourceColumn
+      || !targetColumn
+      || (draggedColumnKey !== '' && draggedColumnKey !== sourceColumn.key)
+      || sourceColumn.key === targetColumn.key
+    ) {
+      if (event.type === 'drop') draggedColumnKey = ''
+      return false
+    }
+
+    if (event.type === 'dragover') {
+      event.preventDefault()
+      if (dragEvent?.dataTransfer) dragEvent.dataTransfer.dropEffect = 'move'
+      return true
+    }
+
+    draggedColumnKey = ''
+    event.preventDefault()
+    const preferences = getColumnPreferences()
+    const order = preferences.order.filter((key) => key !== sourceColumn.key)
+    const targetIndex = order.indexOf(targetColumn.key)
+    if (targetIndex < 0) return false
+    order.splice(targetIndex, 0, sourceColumn.key)
+    saveColumnPreferences(normalizeColumnPreferences({
+      ...preferences,
+      order,
+    }))
+    refreshColumnSettings(readQuery())
+    return true
+  }
+
   const query = readQuery()
   const fieldNode = target.closest<HTMLInputElement | HTMLSelectElement>('[data-third-party-rating-field]')
   const field = fieldNode?.dataset.thirdPartyRatingField
