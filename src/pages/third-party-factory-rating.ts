@@ -1,10 +1,17 @@
 // @page-pattern: list
 
 import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
-import { renderStandardListTable, type StandardListColumn } from '../components/ui/list-table.ts'
 import {
+  renderStandardListColumnSettings,
+  renderStandardListTable,
+  type StandardListColumn,
+} from '../components/ui/list-table.ts'
+import {
+  clearListColumnPreferences,
+  loadListColumnPreferences,
   normalizeListColumnPreferences,
   paginateStandardListRows,
+  saveListColumnPreferences,
   sortStandardListRows,
   type StandardListColumnPreferences,
   type StandardListSortDirection,
@@ -23,6 +30,9 @@ import { escapeHtml } from '../utils.ts'
 const PAGE_PATH = '/fcs/factories/third-party-rating'
 const EVENT_PREFIX = 'third-party-rating'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
+const COLUMN_STORAGE_KEY = 'fcs.third-party-factory-rating.columns.v1'
+const MAX_FROZEN_WIDTH = 520
+const STORE_MODULE_PATH = '../state/store.ts'
 
 type DispatchFilter = 'ALL' | 'ALLOW' | 'LIMITED' | 'BLOCKED'
 type SettlementFilter = 'ALL' | 'ALLOW' | 'BLOCKED'
@@ -39,11 +49,17 @@ interface RatingQuery {
   viewFactoryId: string
   sortKey: string
   sortDirection: StandardListSortDirection | ''
+  columnSettings: boolean
+  refreshKey: string
 }
 
 interface RatingRow extends FactoryRatingSnapshot {
   displayFactoryName: string
   displayFactoryCode: string
+}
+
+interface RatingNavigationStore {
+  navigate(pathname: string): void
 }
 
 const columnRules = [
@@ -69,9 +85,46 @@ const defaultColumnPreferences: StandardListColumnPreferences = normalizeListCol
   PAGE_SIZE_OPTIONS,
 )
 
+function getListStorage(): Storage | null {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage
+  } catch {
+    return null
+  }
+}
+
+function normalizeColumnPreferences(
+  raw: Partial<StandardListColumnPreferences> | null | undefined,
+): StandardListColumnPreferences {
+  return normalizeListColumnPreferences(columnRules, raw, PAGE_SIZE_OPTIONS)
+}
+
+function getColumnPreferences(): StandardListColumnPreferences {
+  const storage = getListStorage()
+  if (!storage) return defaultColumnPreferences
+  return normalizeColumnPreferences(loadListColumnPreferences(
+    storage,
+    COLUMN_STORAGE_KEY,
+    columnRules,
+    defaultColumnPreferences,
+    PAGE_SIZE_OPTIONS,
+  ))
+}
+
+function saveColumnPreferences(preferences: StandardListColumnPreferences): void {
+  const storage = getListStorage()
+  if (storage) saveListColumnPreferences(storage, COLUMN_STORAGE_KEY, normalizeColumnPreferences(preferences))
+}
+
+function clearColumnPreferences(): void {
+  const storage = getListStorage()
+  if (storage) clearListColumnPreferences(storage, COLUMN_STORAGE_KEY)
+}
+
 function readQuery(): RatingQuery {
   const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search)
-  const pageSize = Number(params.get('pageSize') ?? '10')
+  const defaultPageSize = getColumnPreferences().pageSize
+  const pageSize = Number(params.get('pageSize') ?? String(defaultPageSize))
   const sortDirection = params.get('sortDirection')
 
   return {
@@ -86,6 +139,8 @@ function readQuery(): RatingQuery {
     viewFactoryId: params.get('viewFactoryId') ?? '',
     sortKey: params.get('sortKey') ?? '',
     sortDirection: sortDirection === 'asc' || sortDirection === 'desc' ? sortDirection : '',
+    columnSettings: params.get('columnSettings') === '1',
+    refreshKey: params.get('refreshKey') ?? '',
   }
 }
 
@@ -116,6 +171,8 @@ function buildHref(query: RatingQuery, patch: Partial<RatingQuery>): string {
   if (next.page > 1) params.set('page', String(next.page))
   if (next.pageSize !== 10) params.set('pageSize', String(next.pageSize))
   if (next.viewFactoryId) params.set('viewFactoryId', next.viewFactoryId)
+  if (next.columnSettings) params.set('columnSettings', '1')
+  if (next.refreshKey) params.set('refreshKey', next.refreshKey)
   if (next.sortKey && next.sortDirection) {
     params.set('sortKey', next.sortKey)
     params.set('sortDirection', next.sortDirection)
@@ -341,23 +398,8 @@ const columns: readonly StandardListColumn<RatingRow>[] = [
   },
 ]
 
-function getColumnPreferences(): StandardListColumnPreferences {
-  return defaultColumnPreferences
-}
-
 function getSortValue(row: RatingRow, key: string): unknown {
   return columns.find((column) => column.key === key)?.sortValue?.(row)
-}
-
-function renderPageNavigation(query: RatingQuery, currentPage: number, totalPages: number): string {
-  const prevPage = Math.max(1, currentPage - 1)
-  const nextPage = Math.min(totalPages, currentPage + 1)
-  return `
-    <div class="mt-2 flex justify-end gap-2">
-      <button type="button" class="h-8 rounded-md border px-3 text-xs ${currentPage <= 1 ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}" data-nav="${escapeHtml(buildHref(query, { page: prevPage }))}">上一页</button>
-      <button type="button" class="h-8 rounded-md border px-3 text-xs ${currentPage >= totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}" data-nav="${escapeHtml(buildHref(query, { page: nextPage }))}">下一页</button>
-    </div>
-  `
 }
 
 function renderRatingScoreDetail(snapshot: FactoryRatingSnapshot): string {
@@ -510,6 +552,180 @@ function renderRatingDrawer(snapshot: RatingRow | undefined, query: RatingQuery)
   `
 }
 
+function renderColumnSettingsOverlay(query: RatingQuery, preferences: StandardListColumnPreferences): string {
+  if (!query.columnSettings) return ''
+  return renderStandardListColumnSettings({
+    title: '列设置',
+    columns,
+    preferences,
+    eventPrefix: EVENT_PREFIX,
+    maxFrozenWidth: MAX_FROZEN_WIDTH,
+  })
+}
+
+async function loadNavigationStore(): Promise<RatingNavigationStore | null> {
+  const { appStore } = await import(STORE_MODULE_PATH) as { appStore?: RatingNavigationStore }
+  return appStore ?? null
+}
+
+function navigateRatingList(href: string): void {
+  void loadNavigationStore().then((appStore) => {
+    if (!appStore) return
+    appStore.navigate(href)
+  })
+}
+
+function getCurrentPaging(query: RatingQuery): { currentPage: number, totalPages: number } {
+  const filteredRows = filterSnapshots(getRatingRows(), query)
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / query.pageSize))
+  const currentPage = Math.min(Math.max(1, query.page), totalPages)
+  return { currentPage, totalPages }
+}
+
+function getNextSortPatch(
+  query: RatingQuery,
+  columnKey: string,
+): Pick<RatingQuery, 'sortKey' | 'sortDirection' | 'page'> {
+  if (query.sortKey !== columnKey || !query.sortDirection) {
+    return { sortKey: columnKey, sortDirection: 'asc', page: 1 }
+  }
+  if (query.sortDirection === 'asc') {
+    return { sortKey: columnKey, sortDirection: 'desc', page: 1 }
+  }
+  return { sortKey: '', sortDirection: '', page: 1 }
+}
+
+function getActionColumnKey(actionNode: HTMLElement): string {
+  return actionNode.dataset.thirdPartyRatingColumnKey || actionNode.dataset.columnKey || ''
+}
+
+function refreshColumnSettings(query: RatingQuery, patch: Partial<RatingQuery> = {}): void {
+  navigateRatingList(buildHref(query, {
+    ...patch,
+    columnSettings: patch.columnSettings ?? true,
+    refreshKey: String(Date.now()),
+  }))
+}
+
+export function handleThirdPartyFactoryRatingEvent(target: HTMLElement, event?: Event): boolean {
+  const query = readQuery()
+  const fieldNode = target.closest<HTMLInputElement | HTMLSelectElement>('[data-third-party-rating-field]')
+  const field = fieldNode?.dataset.thirdPartyRatingField
+
+  if (field === 'pageSize') {
+    if (event?.type !== 'change') return false
+    if (!fieldNode) return false
+    const pageSize = Number(fieldNode.value)
+    if (!PAGE_SIZE_OPTIONS.includes(pageSize)) return true
+    const preferences = normalizeColumnPreferences({
+      ...getColumnPreferences(),
+      pageSize,
+    })
+    saveColumnPreferences(preferences)
+    event.preventDefault()
+    navigateRatingList(buildHref(query, { page: 1, pageSize, refreshKey: '' }))
+    return true
+  }
+
+  const actionNode = target.closest<HTMLElement>('[data-third-party-rating-action]')
+  const action = actionNode?.dataset.thirdPartyRatingAction
+  if (!actionNode || !action) return false
+
+  if (action === 'sort-column') {
+    const columnKey = actionNode.dataset.columnKey || ''
+    const column = columns.find((item) => item.key === columnKey && item.sortable)
+    if (!column) return true
+    event?.preventDefault()
+    navigateRatingList(buildHref(query, { ...getNextSortPatch(query, columnKey), refreshKey: '' }))
+    return true
+  }
+
+  if (action === 'prev-page' || action === 'next-page') {
+    const paging = getCurrentPaging(query)
+    const nextPage = action === 'prev-page'
+      ? Math.max(1, paging.currentPage - 1)
+      : Math.min(paging.totalPages, paging.currentPage + 1)
+    event?.preventDefault()
+    navigateRatingList(buildHref(query, { page: nextPage, refreshKey: '' }))
+    return true
+  }
+
+  if (action === 'open-column-settings') {
+    event?.preventDefault()
+    navigateRatingList(buildHref(query, { columnSettings: true, refreshKey: '' }))
+    return true
+  }
+
+  if (action === 'close-column-settings') {
+    event?.preventDefault()
+    navigateRatingList(buildHref(query, { columnSettings: false, refreshKey: '' }))
+    return true
+  }
+
+  if (action === 'restore-column-settings') {
+    event?.preventDefault()
+    clearColumnPreferences()
+    navigateRatingList(buildHref(query, {
+      columnSettings: true,
+      page: 1,
+      pageSize: 10,
+      sortKey: '',
+      sortDirection: '',
+      refreshKey: String(Date.now()),
+    }))
+    return true
+  }
+
+  if (action === 'toggle-column-visibility') {
+    if (event?.type !== 'change') return false
+    const columnKey = getActionColumnKey(actionNode)
+    const rule = columnRules.find((item) => item.key === columnKey)
+    if (!rule || rule.required || rule.actionColumn) return true
+    const preferences = getColumnPreferences()
+    const visibleKeys = new Set(preferences.visibleKeys)
+    const frozenKeys = new Set(preferences.frozenKeys)
+    if (visibleKeys.has(columnKey)) {
+      visibleKeys.delete(columnKey)
+      frozenKeys.delete(columnKey)
+    } else {
+      visibleKeys.add(columnKey)
+    }
+    saveColumnPreferences(normalizeColumnPreferences({
+      ...preferences,
+      visibleKeys: [...visibleKeys],
+      frozenKeys: [...frozenKeys],
+    }))
+    event.preventDefault()
+    refreshColumnSettings(query, visibleKeys.has(columnKey) || query.sortKey !== columnKey
+      ? {}
+      : { sortKey: '', sortDirection: '', page: 1 })
+    return true
+  }
+
+  if (action === 'toggle-column-freeze') {
+    if (event?.type !== 'change') return false
+    const columnKey = getActionColumnKey(actionNode)
+    const column = columns.find((item) => item.key === columnKey)
+    if (!column?.freezeable || column.actionColumn) return true
+    const preferences = getColumnPreferences()
+    const frozenKeys = new Set(preferences.frozenKeys)
+    if (frozenKeys.has(columnKey)) {
+      frozenKeys.delete(columnKey)
+    } else {
+      frozenKeys.add(columnKey)
+    }
+    saveColumnPreferences(normalizeColumnPreferences({
+      ...preferences,
+      frozenKeys: [...frozenKeys],
+    }))
+    event.preventDefault()
+    refreshColumnSettings(query)
+    return true
+  }
+
+  return false
+}
+
 export function renderThirdPartyFactoryRatingPage(): string {
   const query = readQuery()
   const rows = getRatingRows()
@@ -518,34 +734,38 @@ export function renderThirdPartyFactoryRatingPage(): string {
   const sortedRows = sortStandardListRows(filteredRows, sortState, getSortValue)
   const paging = paginateStandardListRows(sortedRows, query.page, query.pageSize)
   const activeSnapshot = rows.find((row) => row.factoryId === query.viewFactoryId || row.factoryCode === query.viewFactoryId)
+  const preferences = getColumnPreferences()
 
   return renderStandardListPage({
     title: '三方工厂评级',
     filtersHtml: renderFilters(query),
     statsHtml: renderLinkedStats(filteredRows),
     listTitle: '评级标准列表',
+    listActionsHtml: `
+      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-third-party-rating-action="open-column-settings">列设置</button>
+    `,
     tableHtml: renderStandardListTable({
       columns,
       rows: paging.rows,
-      preferences: getColumnPreferences(),
+      preferences,
       sort: sortState,
       eventPrefix: EVENT_PREFIX,
       emptyText: '暂无符合条件的三方车缝工厂',
     }),
-    paginationHtml: `
-      ${renderTablePagination({
-        total: paging.total,
-        from: paging.from,
-        to: paging.to,
-        currentPage: paging.currentPage,
-        totalPages: paging.totalPages,
-        pageSize: paging.pageSize,
-        actionPrefix: EVENT_PREFIX,
-        fieldPrefix: EVENT_PREFIX,
-        pageSizeOptions: PAGE_SIZE_OPTIONS,
-      })}
-      ${renderPageNavigation(query, paging.currentPage, paging.totalPages)}
+    paginationHtml: renderTablePagination({
+      total: paging.total,
+      from: paging.from,
+      to: paging.to,
+      currentPage: paging.currentPage,
+      totalPages: paging.totalPages,
+      pageSize: paging.pageSize,
+      actionPrefix: EVENT_PREFIX,
+      fieldPrefix: EVENT_PREFIX,
+      pageSizeOptions: PAGE_SIZE_OPTIONS,
+    }),
+    overlaysHtml: `
+      ${renderRatingDrawer(activeSnapshot, query)}
+      ${renderColumnSettingsOverlay(query, preferences)}
     `,
-    overlaysHtml: renderRatingDrawer(activeSnapshot, query),
   })
 }
