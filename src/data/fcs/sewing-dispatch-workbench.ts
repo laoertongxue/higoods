@@ -1077,37 +1077,30 @@ function getPolicyInputForRow(
     factoryId,
     actionType,
     documentTypeLabel: override?.documentTypeLabel ?? deriveDispatchDocumentType(order),
-    dispatchQty: dispatchQty ?? override?.dispatchQty ?? row.remainingQty,
+    dispatchQty: dispatchQty ?? row.remainingQty,
     isUrgentOrder: override?.isUrgentOrder ?? isUrgentProductionOrder(order),
     riskConfirmed: context?.riskConfirmed === true,
     isSupervisorAssigned: context?.supervisorAssigned === true,
   }
 }
 
-function getPolicyDispatchQtyForRow(
-  row: SewingDispatchWorkbenchRow,
-  input: { policyOverrideByRowId?: SewingDispatchPolicyOverrideByRowId },
-): number {
-  return input.policyOverrideByRowId?.[row.rowId]?.dispatchQty ?? row.remainingQty
+function getPolicyDispatchQtyForRow(row: SewingDispatchWorkbenchRow): number {
+  return row.remainingQty
 }
 
-function getTotalPolicyDispatchQty(
-  rows: SewingDispatchWorkbenchRow[],
-  input: { policyOverrideByRowId?: SewingDispatchPolicyOverrideByRowId },
-): number {
-  return rows.reduce((total, row) => total + getPolicyDispatchQtyForRow(row, input), 0)
+function getTotalPolicyDispatchQty(rows: SewingDispatchWorkbenchRow[]): number {
+  return rows.reduce((total, row) => total + getPolicyDispatchQtyForRow(row), 0)
 }
 
 function getDirectDispatchQtyByFactoryId(
   rows: SewingDispatchWorkbenchRow[],
   factoryByRowId: Map<string, { id: string; name: string }>,
-  input: { policyOverrideByRowId?: SewingDispatchPolicyOverrideByRowId },
 ): Map<string, number> {
   const qtyByFactoryId = new Map<string, number>()
   for (const row of rows) {
     const factory = factoryByRowId.get(row.rowId)
     if (!factory) continue
-    qtyByFactoryId.set(factory.id, (qtyByFactoryId.get(factory.id) ?? 0) + getPolicyDispatchQtyForRow(row, input))
+    qtyByFactoryId.set(factory.id, (qtyByFactoryId.get(factory.id) ?? 0) + getPolicyDispatchQtyForRow(row))
   }
   return qtyByFactoryId
 }
@@ -1162,7 +1155,7 @@ export function createSewingDispatchWorkbenchDraft(input: {
     }
   }
   if (input.actionType === '直接派单') {
-    const dispatchQtyByFactoryId = getDirectDispatchQtyByFactoryId(rows, factoryByRowId, input)
+    const dispatchQtyByFactoryId = getDirectDispatchQtyByFactoryId(rows, factoryByRowId)
     for (const [rowId, factory] of factoryByRowId.entries()) {
       const row = rows.find((item) => item.rowId === rowId)
       if (!row) continue
@@ -1177,7 +1170,7 @@ export function createSewingDispatchWorkbenchDraft(input: {
     }
   } else {
     const biddingFactoryIds = input.biddingFactoryIds ?? []
-    const dispatchQty = getTotalPolicyDispatchQty(rows, input)
+    const dispatchQty = getTotalPolicyDispatchQty(rows)
     for (const factoryId of biddingFactoryIds) {
       for (const row of rows) {
         const policyResult = evaluateGovernedDispatchPolicy(getPolicyInputForRow(row, input.actionType, factoryId, input, dispatchQty))
