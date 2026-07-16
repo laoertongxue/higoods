@@ -48,7 +48,6 @@ import {
   renderDyeWorkOrderCombinedDyeingSection,
   resolveDyeWorkOrderCombinedHistoryPagination,
 } from '../src/pages/process-factory/dyeing/work-order-detail.ts'
-import { renderDyeWorkOrderCombinedDyeingCell } from '../src/pages/process-factory/dyeing/work-orders.ts'
 
 function readWorkspaceFile(path: string): string {
   return readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
@@ -66,6 +65,7 @@ function checkCombinedDyeingWorkspaceWiring(): void {
   const events = readWorkspaceFile('src/pages/process-factory/dyeing/events.ts')
   const page = readWorkspaceFile('src/pages/process-factory/dyeing/combined-dyeing.ts')
   const platformPage = readWorkspaceFile('src/pages/process-dye-orders.ts')
+  const workOrderPage = readWorkspaceFile('src/pages/process-factory/dyeing/work-orders.ts')
 
   const workOrderMenuIndex = menu.indexOf("title: '染色加工单'")
   const combinedMenuIndex = menu.indexOf("title: '合并染色'", workOrderMenuIndex)
@@ -105,6 +105,7 @@ function checkCombinedDyeingWorkspaceWiring(): void {
   assert(!page.includes('ensureCombinedDyeingDemoCandidates'), '页面不得在 render 时注入合并染色演示加工单')
   assert(!page.includes('registerFormalProductionOrderDyeWorkOrder'), '页面不得直接写 canonical 染色加工单或 PDA store')
   assertIncludes(platformPage, 'order.workOrderNo,', '平台染色加工单列表必须支持按唯一平台加工单号搜索')
+  assert(!workOrderPage.includes("title: '合并染色'"), '单张染色加工单列表不得重新混入合并染色列；合并染色使用独立菜单和详情历史')
 }
 
 function checkChangeOnlyRendering(): void {
@@ -143,9 +144,6 @@ function checkChangeOnlyRendering(): void {
       combinedDyeing: undefined,
       ...variant,
     }
-    const cell = renderDyeWorkOrderCombinedDyeingCell(order)
-    assert(cell.includes('尚未加入合并染色'), `仅生产变更记录场景 ${index + 1} 的列表必须显示尚未加入`)
-    ;['保留历史分配', '未满足', '有效 0'].forEach((text) => assert(!cell.includes(text), `仅生产变更记录场景 ${index + 1} 的列表不得显示 ${text}`))
     const detail = renderDyeWorkOrderCombinedDyeingSection(order)
     assert(detail.includes('尚未加入合并染色'), `仅生产变更记录场景 ${index + 1} 的详情必须明确尚未加入`)
     ;['成员已锁定', '当前有效分配', '未满足量', '分配版本 / 更正历史', '历史任务与删除历史'].forEach((text) => {
@@ -197,13 +195,13 @@ function checkLinkedCombinedDyeingHistory(): void {
   const workOrderDetailHtml = renderCraftDyeingWorkOrderDetailPage(orderB.dyeOrderId)
   assert(workOrderDetailHtml.includes('超出数量'), '加工单版本历史必须展示超出数量列')
   assert(workOrderDetailHtml.includes('200 Yard') && workOrderDetailHtml.includes('100 Yard'), '软删除后详情仍必须展示两版超出数量')
-  const deletedCell = renderDyeWorkOrderCombinedDyeingCell(getDyeWorkOrderById(orderB.dyeOrderId)!)
-  assert(deletedCell.includes('当前无活动任务，保留历史分配'), '已删除任务的列表必须保留历史分配语义')
-  assert(deletedCell.includes('有效 400 Yard'), '已删除任务的列表必须显示历史有效分配')
+  const deletedDetail = renderDyeWorkOrderCombinedDyeingSection(getDyeWorkOrderById(orderB.dyeOrderId)!)
+  assert(deletedDetail.includes('当前没有活动合并染色任务'), '已删除任务的加工单详情必须保留历史分配语义')
+  assert(deletedDetail.includes('400 Yard'), '已删除任务的加工单详情必须显示历史有效分配')
 
   const next = createCombinedDyeingTask({ dyeWorkOrderIds: [orderA.dyeOrderId, orderB.dyeOrderId], createdBy: '染厂主管', createdAt: '2026-07-16 21:00:00' })
-  const activeCell = renderDyeWorkOrderCombinedDyeingCell(getDyeWorkOrderById(orderA.dyeOrderId)!)
-  assert(activeCell.includes('已加入合并染色') && activeCell.includes(next.taskNo), '活动任务的列表必须展示当前徽标和任务号')
+  const activeDetail = renderDyeWorkOrderCombinedDyeingSection(getDyeWorkOrderById(orderA.dyeOrderId)!)
+  assert(activeDetail.includes('当前任务号') && activeDetail.includes(next.taskNo), '活动任务的加工单详情必须展示当前任务号')
   syncCombinedDyeingDeepLink(`?taskId=${next.taskId}`)
   const switchedTaskHtml = renderCraftCombinedDyeingPage()
   assert(switchedTaskHtml.includes(`合并染色详情 · ${next.taskNo}`) && !switchedTaskHtml.includes(`合并染色详情 · ${completed.taskNo}`), 'SPA 多次进入不同 taskId 必须切换到新目标详情')
