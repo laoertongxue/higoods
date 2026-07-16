@@ -102,7 +102,7 @@ const columns: StandardListColumn<DyeWorkOrderOnlineRow>[] = [
     key: 'dyeInfo', title: '染色信息', width: 205, required: true, freezeable: true, sortable: true,
     sortValue: (row) => row.workOrderNo,
     render: (row) => `<div class="space-y-1.5">
-      <label class="flex items-center gap-2"><input type="checkbox" ${state.selectedIds.has(row.dyeOrderId) ? 'checked' : ''} data-dye-work-orders-action="toggle-selection" data-id="${escapeHtml(row.dyeOrderId)}"><span class="font-mono font-medium text-blue-700">${escapeHtml(row.workOrderNo)}</span></label>
+      <label class="flex items-center gap-2"><input type="checkbox" ${state.selectedIds.has(row.dyeOrderId) ? 'checked' : ''} data-dye-work-orders-action="toggle-selection" data-id="${escapeHtml(row.dyeOrderId)}"><span class="font-mono font-medium text-blue-700" data-work-order-no="${escapeHtml(row.workOrderNo)}">${escapeHtml(row.workOrderNo)}</span></label>
       <div class="text-xs text-muted-foreground">任务单号：${escapeHtml(row.taskNo)}</div>
       <div class="text-xs text-muted-foreground">生产单号：${escapeHtml(row.productionOrderNo || '—')}</div>
       <div class="text-xs text-muted-foreground">需求单号：${escapeHtml(row.demandNo)}</div>

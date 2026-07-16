@@ -1167,6 +1167,15 @@ function refreshCombinedDyeOverlay(): void {
   if (node) node.innerHTML = renderCombinedDyeWaterOverlay()
 }
 
+function refreshDyeingTaskCard(dyeOrderId: string): void {
+  if (typeof document === 'undefined') return
+  const order = getDyeWorkOrderById(dyeOrderId)
+  const task = order ? getTaskFactById(order.taskId) as TaskWithHandoverFields | null : null
+  const node = document.querySelector<HTMLElement>('[data-testid="pda-dyeing-task-card"]')
+  if (!order || !task || !node) return
+  node.outerHTML = renderDyeingTaskCard(task, order, getTaskHandoverOrder(task))
+}
+
 function renderDyeingTaskCard(
   task: TaskWithHandoverFields,
   dyeOrder: DyeWorkOrder,
@@ -1235,7 +1244,7 @@ function renderDyeingTaskCard(
   ]
 
   return `
-    <article class="rounded-lg border bg-card">
+    <article class="rounded-lg border bg-card" data-testid="pda-dyeing-task-card" data-skip-page-rerender="true">
       <header class="border-b px-4 py-3">
         <div class="flex items-center justify-between gap-2">
           <h2 class="flex items-center gap-2 text-sm font-semibold">
@@ -1255,7 +1264,7 @@ function renderDyeingTaskCard(
             relatedProductionOrderNo: dyeOrder.sourceProductionOrderNo || dyeOrder.sourceProductionOrderId || task.productionOrderId,
           })}</span>
           <span class="text-xs text-muted-foreground">当前状态</span>
-          <span class="text-xs">${escapeHtml(onlineStatus)}</span>
+          <span class="text-xs" data-testid="pda-dye-online-status">${escapeHtml(onlineStatus)}</span>
           <span class="text-xs text-muted-foreground">目标颜色</span>
           <span class="text-xs">${escapeHtml(dyeOrder.targetColor)}</span>
           <span class="text-xs text-muted-foreground">色号</span>
@@ -4924,6 +4933,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         })
       }
       showPdaExecDetailToast('交出记录已生成，Web 端交出与仓库待收货记录已同步')
+      if (dyeOrderForQty) refreshDyeingTaskCard(dyeOrderForQty.dyeOrderId)
     } catch (error) {
       showPdaExecDetailToast(error instanceof Error ? error.message : '交出失败')
     }
@@ -5389,6 +5399,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           formData: { dyeVatNo, 染缸号: dyeVatNo },
         })
         showPdaExecDetailToast('染色开始已记录')
+        refreshDyeingTaskCard(dyeOrderId)
         return true
       }
 
@@ -5408,6 +5419,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           remark: inputQtyText ? `投入面料米数${Number(inputQtyText)} ${dyeOrder.qtyUnit}` : undefined,
         })
         showPdaExecDetailToast('染色完成，已进入脱水')
+        refreshDyeingTaskCard(dyeOrderId)
         return true
       }
 

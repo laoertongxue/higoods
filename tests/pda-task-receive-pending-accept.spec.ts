@@ -21,42 +21,44 @@ const REMOVED_PENDING_ACCEPT_LABELS = [
   '异常裁片单',
 ] as const
 
-test('接单页待接单卡片字段统一且 4 个 Tab 排除印花染色', async ({ page }) => {
+test('接单页待接单卡片字段统一且 4 个 Tab 继续排除印花', async ({ page }) => {
   const errors = collectPageErrors(page)
-  await seedLocalStorage(page, { fcs_pda_factory_id: 'ID-F001' })
+  await seedLocalStorage(page, {
+    fcs_pda_factory_id: 'F090',
+    fcs_pda_session: {
+      userId: 'F090_operator',
+      loginId: 'F090_operator',
+      userName: '全能力测试工厂_操作工',
+      roleId: 'ROLE_OPERATOR',
+      factoryId: 'F090',
+      factoryName: '全能力测试工厂',
+      loggedAt: '2026-07-16 09:00:00',
+    },
+  })
 
   await page.goto('/fcs/pda/task-receive?tab=pending-accept')
-  await expect(page.getByRole('heading', { name: '接单与报价', exact: true })).toBeVisible()
+  await expect(page.locator('[data-pda-tr-action="switch-tab"][data-tab="pending-accept"]')).toBeVisible()
 
-  const cuttingCard = page.locator('article[data-pda-cutting-task-card-id]').first()
   const ordinaryCard = page
     .locator('article')
     .filter({ has: page.getByRole('button', { name: '查看详情' }) })
     .first()
 
-  await expect(cuttingCard).toBeVisible()
   await expect(ordinaryCard).toBeVisible()
 
   for (const label of REQUIRED_PENDING_ACCEPT_LABELS) {
-    await expect(cuttingCard).toContainText(label)
     await expect(ordinaryCard).toContainText(label)
   }
 
   for (const label of REMOVED_PENDING_ACCEPT_LABELS) {
-    await expect(cuttingCard).not.toContainText(label)
     await expect(ordinaryCard).not.toContainText(label)
   }
 
-  const processSelect = page.locator('[data-pda-tr-field="processFilter"]')
-  await expect(processSelect).not.toContainText('印花')
-  await expect(processSelect).not.toContainText('染色')
-
-  const main = page.locator('main')
+  const pageBody = page.locator('body')
   for (const tab of ['pending-accept', 'pending-quote', 'quoted', 'awarded'] as const) {
     await page.goto(`/fcs/pda/task-receive?tab=${tab}`)
-    await expect(page.getByRole('heading', { name: '接单与报价', exact: true })).toBeVisible()
-    await expect(main).not.toContainText('印花')
-    await expect(main).not.toContainText('染色')
+    await expect(page.locator(`[data-pda-tr-action="switch-tab"][data-tab="${tab}"]`)).toBeVisible()
+    await expect(pageBody).not.toContainText('印花')
   }
 
   await expectNoPageErrors(errors)

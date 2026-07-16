@@ -74,19 +74,24 @@ function renderEdit(dyeOrderId: string, error = ''): string {
 function renderLogs(dyeOrderId: string): string {
   const record = getDyeWorkOrderOnlineRecord(dyeOrderId)
   const logs = listDyeWorkOrderOnlineLogs(dyeOrderId).slice(0, 10)
-  const rows = logs.map((log) => `<tr class="border-b last:border-0"><td class="px-3 py-2 text-xs">${escapeHtml(log.operatedAt)}</td><td class="px-3 py-2 text-xs">${escapeHtml(log.operatorName)}<div class="text-muted-foreground">${escapeHtml(log.source)}</div></td><td class="px-3 py-2 text-xs">${escapeHtml(log.beforeStatus)} → ${escapeHtml(log.afterStatus)}</td><td class="px-3 py-2 text-xs">${log.changes.length ? log.changes.map((change) => `${escapeHtml(change.label)}：${escapeHtml(change.before)} → ${escapeHtml(change.after)}`).join('<br>') : escapeHtml(log.action)}</td></tr>`).join('')
+  const rows = logs.map((log) => `<tr class="border-b last:border-0"><td class="px-3 py-2 text-xs">${escapeHtml(log.operatedAt)}</td><td class="px-3 py-2 text-xs">${escapeHtml(log.operatorName)}<div class="text-muted-foreground">${escapeHtml(log.source)}</div></td><td class="px-3 py-2 text-xs">${escapeHtml(log.beforeStatus)} → ${escapeHtml(log.afterStatus)}</td><td class="px-3 py-2 text-xs"><div class="font-medium">${escapeHtml(log.action)}</div>${log.changes.map((change) => `<div>${escapeHtml(change.label)}：${escapeHtml(change.before)} → ${escapeHtml(change.after)}</div>`).join('')}</td></tr>`).join('')
   const body = `<div class="max-h-[65vh] overflow-auto"><table class="w-full min-w-[560px] text-left"><thead class="bg-muted/50"><tr><th class="px-3 py-2 text-xs">时间</th><th class="px-3 py-2 text-xs">操作人/操作端</th><th class="px-3 py-2 text-xs">状态</th><th class="px-3 py-2 text-xs">变更内容</th></tr></thead><tbody>${rows || '<tr><td colspan="4" class="px-3 py-10 text-center text-sm text-muted-foreground">暂无操作日志</td></tr>'}</tbody></table></div><div class="mt-3 flex items-center justify-between text-xs text-muted-foreground"><span>共 ${logs.length} 条，第 1 / 1 页</span><div class="flex gap-2"><button type="button" disabled class="rounded border px-2 py-1 opacity-50">上一页</button><button type="button" disabled class="rounded border px-2 py-1 opacity-50">下一页</button></div></div>`
   return renderDialog({ title: `操作日志 - ${record.workOrderNo}`, closeAction: { prefix: EVENT_PREFIX, action: 'close-overlay' }, width: 'lg' }, body, renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }))
 }
 
 export function renderDyeWorkOrderOverlay(state: NonNullable<DyeWorkOrderOverlayState>): string {
+  let content: string
   if (state.confirmHighRisk) {
     const record = getDyeWorkOrderOnlineRecord(state.dyeOrderId)
-    return renderSimpleConfirmDialog({ prefix: EVENT_PREFIX, closeAction: 'cancel-high-risk', confirmAction: 'confirm-high-risk', title: '确认高风险状态变更', description: `当前状态为“${record.status}”。取消或回退状态会永久保留操作记录。`, confirmLabel: '确认保存', danger: true })
+    content = renderSimpleConfirmDialog({ prefix: EVENT_PREFIX, closeAction: 'cancel-high-risk', confirmAction: 'confirm-high-risk', title: '确认高风险状态变更', description: `当前状态为“${record.status}”。取消或回退状态会永久保留操作记录。`, confirmLabel: '确认保存', danger: true })
+  } else if (state.type === 'edit') {
+    content = renderEdit(state.dyeOrderId, state.error)
+  } else if (state.type === 'logs') {
+    content = renderLogs(state.dyeOrderId)
+  } else {
+    content = renderView(state.dyeOrderId)
   }
-  if (state.type === 'edit') return renderEdit(state.dyeOrderId, state.error)
-  if (state.type === 'logs') return renderLogs(state.dyeOrderId)
-  return renderView(state.dyeOrderId)
+  return `<div data-skip-page-rerender="true">${content}</div>`
 }
 
 function value(root: ParentNode, field: string): string {
@@ -100,23 +105,24 @@ function numericValue(root: ParentNode, field: string): number {
 }
 
 export function readDyeWorkOrderEditInput(root: ParentNode): DyeWorkOrderPfosEditInput {
-  const factory = root.querySelector<HTMLSelectElement>('[data-dye-work-orders-field="factory"]')
-  const temperature = value(root, 'temperature')
+  const editRoot = root.querySelector<HTMLElement>('[data-dye-work-orders-overlay]') || root
+  const factory = editRoot.querySelector<HTMLSelectElement>('[data-dye-work-orders-field="factory"]')
+  const temperature = value(editRoot, 'temperature')
   return {
-    expectedVersion: Number(root.querySelector<HTMLInputElement>('[data-dye-work-orders-edit="expectedVersion"]')?.value || 0),
+    expectedVersion: Number(editRoot.querySelector<HTMLInputElement>('[data-dye-work-orders-edit="expectedVersion"]')?.value || 0),
     operatorName: '染厂主管',
     operatedAt: new Date().toLocaleString('zh-CN', { hour12: false }).replaceAll('/', '-'),
-    status: value(root, 'status') as DyeWorkOrderPfosEditInput['status'],
-    plannedFinishAt: value(root, 'plannedFinishAt'),
-    factoryId: factory?.value || root.querySelector<HTMLInputElement>('[data-dye-work-orders-edit="factoryId"]')?.value || '',
+    status: value(editRoot, 'status') as DyeWorkOrderPfosEditInput['status'],
+    plannedFinishAt: value(editRoot, 'plannedFinishAt'),
+    factoryId: factory?.value || editRoot.querySelector<HTMLInputElement>('[data-dye-work-orders-edit="factoryId"]')?.value || '',
     factoryName: factory?.selectedOptions[0]?.textContent?.trim() || '',
-    receiverName: value(root, 'receiverName'),
-    shade: value(root, 'shade') as DyeWorkOrderPfosEditInput['shade'],
+    receiverName: value(editRoot, 'receiverName'),
+    shade: value(editRoot, 'shade') as DyeWorkOrderPfosEditInput['shade'],
     temperature: temperature ? Number(temperature) as 190 | 200 | 205 : null,
-    rawMaterialQty: numericValue(root, 'rawMaterialQty'),
-    rawMaterialRollCount: numericValue(root, 'rawMaterialRollCount'),
-    completedQty: numericValue(root, 'completedQty'),
-    lossQty: numericValue(root, 'lossQty'),
-    remark: value(root, 'remark'),
+    rawMaterialQty: numericValue(editRoot, 'rawMaterialQty'),
+    rawMaterialRollCount: numericValue(editRoot, 'rawMaterialRollCount'),
+    completedQty: numericValue(editRoot, 'completedQty'),
+    lossQty: numericValue(editRoot, 'lossQty'),
+    remark: value(editRoot, 'remark'),
   }
 }
