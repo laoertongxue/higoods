@@ -185,7 +185,7 @@ export function renderStandardListTable<T>(config: StandardListTableConfig<T>): 
     return `
       <th
         class="${classes}"
-        style="width: ${column.width}px; min-width: ${columnWidth(column)}px;${left !== undefined && !column.actionColumn ? ` left: ${left}px;` : ''}"
+        style="width: ${columnWidth(column)}px; min-width: ${columnWidth(column)}px; max-width: ${columnWidth(column)}px;${left !== undefined && !column.actionColumn ? ` left: ${left}px;` : ''}"
         data-column-key="${escapeHtml(column.key)}"
         ${ariaSort ? `aria-sort="${ariaSort}"` : ''}
       >
@@ -209,7 +209,7 @@ export function renderStandardListTable<T>(config: StandardListTableConfig<T>): 
             return `
               <td
                 class="${classes}"
-                style="width: ${column.width}px; min-width: ${columnWidth(column)}px;${left !== undefined && !column.actionColumn ? ` left: ${left}px;` : ''}"
+                style="width: ${columnWidth(column)}px; min-width: ${columnWidth(column)}px; max-width: ${columnWidth(column)}px;${left !== undefined && !column.actionColumn ? ` left: ${left}px;` : ''}"
               >${column.render(row, rowIndex)}</td>
             `
           }).join('')}
@@ -225,7 +225,7 @@ export function renderStandardListTable<T>(config: StandardListTableConfig<T>): 
 
   return `
     <div class="max-w-full overflow-x-auto" data-standard-list-scroll>
-      <table class="w-full border-collapse" style="min-width: ${minWidth}px">
+      <table class="w-full table-fixed border-collapse" style="min-width: ${minWidth}px">
         <thead class="border-b bg-muted/50">
           <tr>${headers}</tr>
         </thead>

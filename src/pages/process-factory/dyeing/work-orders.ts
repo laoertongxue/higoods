@@ -79,6 +79,12 @@ function formatQty(value: number, unit: string): string {
   return `${value.toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${escapeHtml(unit)}`
 }
 
+function renderListImage(url: string, alt: string): string {
+  return url
+    ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" class="h-16 w-12 rounded border object-cover">`
+    : `<div class="flex h-16 w-12 shrink-0 items-center justify-center rounded border bg-muted/30 px-1 text-center text-[10px] text-muted-foreground">暂无图片</div>`
+}
+
 function statusTone(status: DyeWorkOrderOnlineStatus): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
   if (status === '已完成') return 'success'
   if (status === '取消') return 'neutral'
@@ -110,9 +116,9 @@ const columns: StandardListColumn<DyeWorkOrderOnlineRow>[] = [
     </div>`,
   },
   {
-    key: 'product', title: '商品信息', width: 190, required: true, sortable: true,
+    key: 'product', title: '商品信息', width: 190, required: true, freezeable: true, sortable: true,
     sortValue: (row) => row.productCode,
-    render: (row) => `<div class="flex gap-2"><img src="${escapeHtml(row.productImageUrl)}" alt="商品图" class="h-16 w-12 rounded border object-cover"><div><div class="font-medium">${escapeHtml(row.productCode)}</div><div class="mt-1 text-xs text-muted-foreground">销售类型：${escapeHtml(row.salesType)}</div></div></div>`,
+    render: (row) => `<div class="flex gap-2">${renderListImage(row.productImageUrl, '商品图')}<div><div class="font-medium">${escapeHtml(row.productCode)}</div><div class="mt-1 text-xs text-muted-foreground">销售类型：${escapeHtml(row.salesType)}</div></div></div>`,
   },
   {
     key: 'purchase', title: '采购单信息', width: 190, sortable: true,
@@ -122,7 +128,7 @@ const columns: StandardListColumn<DyeWorkOrderOnlineRow>[] = [
   {
     key: 'material', title: '原料/面料', width: 250, required: true, sortable: true,
     sortValue: (row) => row.rawMaterialSku,
-    render: (row) => `<div class="flex gap-2"><img src="${escapeHtml(row.materialImageUrl)}" alt="面料图" class="h-16 w-12 rounded border object-cover"><div class="min-w-0"><div class="font-medium">${escapeHtml(row.materialName)}</div><div class="break-all font-mono text-xs text-muted-foreground">原料 SKU：${escapeHtml(row.rawMaterialSku)}</div><div class="break-all font-mono text-xs text-muted-foreground">染色 SKU：${escapeHtml(row.colorSku)}</div><div class="text-xs">待染数量：${formatQty(Math.max(0, row.plannedQty - row.completedQty), row.qtyUnit)}</div></div></div>`,
+    render: (row) => `<div class="flex gap-2">${renderListImage(row.materialImageUrl, '面料图')}<div class="min-w-0"><div class="font-medium">${escapeHtml(row.materialName)}</div><div class="break-all font-mono text-xs text-muted-foreground">原料 SKU：${escapeHtml(row.rawMaterialSku)}</div><div class="break-all font-mono text-xs text-muted-foreground">染色 SKU：${escapeHtml(row.colorSku)}</div><div class="text-xs">待染数量：${formatQty(Math.max(0, row.plannedQty - row.completedQty), row.qtyUnit)}</div></div></div>`,
   },
   {
     key: 'attributes', title: '属性信息', width: 190, sortable: true,
@@ -423,7 +429,7 @@ export function handleDyeWorkOrderListEvent(target: HTMLElement): boolean {
   if (action === 'view' || action === 'edit' || action === 'logs') {
     const dyeOrderId = actionNode.dataset.id || ''
     if (!dyeOrderId) return true
-    state.overlay = { type: action, dyeOrderId }
+    state.overlay = { type: action, dyeOrderId, ...(action === 'logs' ? { logPage: 1 } : {}) }
     state.pendingEditInput = null
     replaceDyeOrderQuery(dyeOrderId)
     refreshOverlay()
@@ -438,7 +444,7 @@ export function handleDyeWorkOrderListEvent(target: HTMLElement): boolean {
       const current = getDyeWorkOrderOnlineRecord(dyeOrderId)
       if (isDyeWorkOrderHighRiskStatusChange(current.status, input.status)) {
         state.pendingEditInput = input
-        state.overlay = { type: 'edit', dyeOrderId, confirmHighRisk: true }
+        state.overlay = { type: 'edit', dyeOrderId, confirmHighRisk: true, targetStatus: input.status }
         refreshOverlay()
       } else saveEdit(input)
     } catch (error) {
@@ -455,6 +461,14 @@ export function handleDyeWorkOrderListEvent(target: HTMLElement): boolean {
     if (state.overlay) state.overlay = { type: 'edit', dyeOrderId: state.overlay.dyeOrderId }
     state.pendingEditInput = null
     refreshOverlay()
+    return true
+  }
+  if (action === 'prev-log-page' || action === 'next-log-page') {
+    if (state.overlay?.type === 'logs') {
+      const current = state.overlay.logPage || 1
+      state.overlay = { ...state.overlay, logPage: Math.max(1, current + (action === 'next-log-page' ? 1 : -1)) }
+      refreshOverlay()
+    }
     return true
   }
   if (action === 'export') { downloadCsv('全部'); return true }

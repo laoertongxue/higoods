@@ -2707,6 +2707,39 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
   return getDyeWorkOrderById(input.workOrderId)!
 }
 
+export function assignDyeWorkOrderFactory(
+  dyeOrderId: string,
+  input: { factoryId: string; factoryName: string; assignedAt: string; assignedBy: string },
+): DyeWorkOrder {
+  const order = getMutableWorkOrder(dyeOrderId)
+  const factoryId = input.factoryId.trim()
+  const factoryName = input.factoryName.trim() || (factoryId ? factoryId : '待分配工厂')
+  const changed = order.dyeFactoryId !== factoryId || order.dyeFactoryName !== factoryName
+
+  order.dyeFactoryId = factoryId
+  order.dyeFactoryName = factoryName
+  order.updatedAt = input.assignedAt
+
+  const task = getDyeingTaskById(order.taskId)
+  if (task) {
+    task.assignmentMode = 'DIRECT'
+    task.assignmentStatus = factoryId ? 'ASSIGNED' : 'UNASSIGNED'
+    task.assignedFactoryId = factoryId || undefined
+    task.assignedFactoryName = factoryName
+    task.dispatchedAt = factoryId ? input.assignedAt : undefined
+    task.dispatchedBy = factoryId ? input.assignedBy : undefined
+    task.dispatchRemark = factoryId ? '染色加工单已分配，待工厂接单。' : '染色加工单待分配工厂。'
+    if (changed) {
+      task.acceptanceStatus = 'PENDING'
+      task.acceptedAt = undefined
+      task.acceptedBy = undefined
+    }
+    task.updatedAt = input.assignedAt
+  }
+
+  return cloneWorkOrder(order)
+}
+
 export const DYE_PRODUCTION_CHANGE_NOT_EXECUTED_STATUSES: readonly DyeWorkOrderStatus[] = [
   'WAIT_SAMPLE',
   'WAIT_MATERIAL',

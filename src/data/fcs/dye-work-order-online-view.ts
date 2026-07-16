@@ -88,6 +88,7 @@ export interface DyeWorkOrderOnlineRow {
   materialType: string
   headVatOrRedye: string
   handoverOrderNo: string
+  batchNo: string
   sourceType: 'PRODUCTION_ORDER' | 'STOCK'
   remark: string
 }
@@ -105,10 +106,32 @@ export interface DyeWorkOrderOnlineSummary {
   purchaseOrderCount: number
 }
 
-const PRODUCT_IMAGES = ['/shirt-sample.jpg', '/cardigan-sample.jpg', '/dress-sample-1.jpg', '/tshirt-sample.jpg']
-const MATERIAL_IMAGES = ['/materials/fabric-main.jpg', '/materials/fabric-contrast.jpg', '/materials/fabric-lining.jpg', '/materials/yarn-stitching.jpg']
-const MATERIAL_NAMES = ['细冰丝坑条 Td-s 025', '牛奶丝 R063', '50D 四面弹里布 S256', '棉感针织布 K118']
-const SALES_TYPES = ['预售', '现货']
+const DYE_WORK_ORDER_PRESENTATION_FACTS: Record<string, Partial<Pick<DyeWorkOrderOnlineRow,
+  'productImageUrl' | 'materialImageUrl' | 'materialName' | 'productCode' | 'salesType' | 'purchaseOrderNo' | 'purchaseType' | 'demandNo' | 'plannedFinishAt'
+>>> = {
+  'DWO-001': {
+    productImageUrl: '/shirt-sample.jpg',
+    materialImageUrl: '/materials/fabric-main.jpg',
+    materialName: '细冰丝坑条 Td-s 025',
+    plannedFinishAt: '2026-07-14 18:00:00',
+  },
+  'DWO-002': {
+    productImageUrl: '/cardigan-sample.jpg',
+    materialImageUrl: '/materials/fabric-contrast.jpg',
+    materialName: '牛奶丝 R063',
+  },
+  'DWO-003': {
+    productImageUrl: '/dress-sample-1.jpg',
+    materialImageUrl: '/materials/fabric-lining.jpg',
+    materialName: '50D 四面弹里布 S256',
+    plannedFinishAt: '2026-07-15 18:00:00',
+  },
+  'DWO-004': {
+    productImageUrl: '/tshirt-sample.jpg',
+    materialImageUrl: '/materials/yarn-stitching.jpg',
+    materialName: '棉感针织布 K118',
+  },
+}
 
 export const DEFAULT_DYE_WORK_ORDER_ONLINE_FILTERS: DyeWorkOrderOnlineFilters = {
   keywordField: 'all',
@@ -136,55 +159,45 @@ function round(value: number, digits = 2): number {
   return Math.round(value * factor) / factor
 }
 
-function hasStarted(status: DyeWorkOrderOnlineStatus): boolean {
-  return !['等待处理', '取消'].includes(status)
-}
-
-function hasFinished(status: DyeWorkOrderOnlineStatus): boolean {
-  return ['染色完成', '待审核', '部分入库', '已完成'].includes(status)
-}
-
-function makeRow(order: DyeWorkOrder, index: number): DyeWorkOrderOnlineRow {
+function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
   const online = getDyeWorkOrderOnlineRecord(order.dyeOrderId)
   const handover = getDyeOrderHandoverSummary(order.dyeOrderId)
-  const started = hasStarted(online.status)
-  const finished = hasFinished(online.status)
+  const presentation = DYE_WORK_ORDER_PRESENTATION_FACTS[order.dyeOrderId] || {}
   const partialInbound = online.status === '部分入库'
   const plannedQty = order.plannedQty
-  const rawMaterialQty = online.rawMaterialQty || (started ? plannedQty : 0)
-  const completedQty = online.completedQty || (finished ? round(plannedQty * (partialInbound ? 0.72 : 0.96)) : 0)
-  const lossQty = online.lossQty || (finished ? round(Math.max(0, rawMaterialQty - completedQty)) : 0)
+  const rawMaterialQty = online.rawMaterialQty
+  const completedQty = online.completedQty
+  const lossQty = online.lossQty
   const orderedAt = order.productionOrderOrderedAt || order.createdAt
-  const plannedFinishAt = online.plannedFinishAt
-    || order.plannedFinishAt
-    || (index % 4 === 0 ? '2026-07-14 18:00:00' : `2026-07-${String(20 + (index % 5)).padStart(2, '0')} 18:00:00`)
+  const plannedFinishAt = online.plannedFinishAt || order.plannedFinishAt || presentation.plannedFinishAt || ''
   const isClosed = online.status === '取消' || online.status === '已完成'
   const pendingInboundQty = partialInbound ? round(Math.max(0, plannedQty - completedQty)) : 0
-  const productCode = order.sourceProductionOrderNo
-    ? `SPU-${order.sourceProductionOrderNo.replace(/\D/g, '').slice(-6).padStart(6, '0')}`
-    : `STOCK-${String(index + 1).padStart(4, '0')}`
+  const snapshot = order.formalProductionOrderSnapshot
+  const productCode = presentation.productCode || snapshot?.spuCode || order.stockMaterialId || '—'
+  const materialName = presentation.materialName || snapshot?.materialName || order.stockMaterialName || order.rawMaterialSku
+  const isYarn = /纱|yarn/i.test(`${materialName} ${order.rawMaterialSku}`)
   return {
     dyeOrderId: order.dyeOrderId,
     workOrderNo: order.dyeOrderNo,
     platformWorkOrderNo: order.dyeOrderNo,
     taskNo: order.taskNo,
     productionOrderNo: order.sourceProductionOrderNo || '',
-    demandNo: order.sourceType === 'PRODUCTION_ORDER' ? `REQ-${String(323316 + index)}` : '备货创建',
+    demandNo: presentation.demandNo || order.sourceArtifactIds?.[0] || (order.sourceType === 'STOCK' ? '备货创建' : '—'),
     productCode,
-    productImageUrl: PRODUCT_IMAGES[index % PRODUCT_IMAGES.length]!,
-    purchaseOrderNo: order.sourceType === 'PRODUCTION_ORDER' ? String(323316 + index) : '备货创建',
-    purchaseType: order.sourceType === 'PRODUCTION_ORDER' ? '预售' : '备货',
-    salesType: SALES_TYPES[index % SALES_TYPES.length]!,
-    receiverInventoryQty: index % 3 === 0 ? 0 : 19 + index * 7,
-    gtgInventoryQty: index % 4 === 0 ? 0 : 1200 + index * 511,
-    materialName: MATERIAL_NAMES[index % MATERIAL_NAMES.length]!,
-    materialImageUrl: MATERIAL_IMAGES[index % MATERIAL_IMAGES.length]!,
+    productImageUrl: presentation.productImageUrl || '',
+    purchaseOrderNo: presentation.purchaseOrderNo || (order.sourceType === 'STOCK' ? '备货创建' : '—'),
+    purchaseType: presentation.purchaseType || (order.sourceType === 'STOCK' ? '备货' : '—'),
+    salesType: presentation.salesType || '—',
+    receiverInventoryQty: 0,
+    gtgInventoryQty: 0,
+    materialName,
+    materialImageUrl: presentation.materialImageUrl || '',
     rawMaterialSku: order.rawMaterialSku,
     colorSku: `${order.rawMaterialSku}-${order.targetColor.replace(/\s+/g, '-')}`,
-    colorNo: order.colorNo || `M2607${String(150000 + index).slice(-6)}P`,
-    composition: order.composition || (index % 2 === 0 ? '96% 聚酯纤维 / 4% 氨纶' : '92% 聚酯纤维 / 8% 氨纶'),
-    width: order.width || String(165 + (index % 3) * 5),
-    weightGsm: order.weightGsm || 150 + (index % 4) * 10,
+    colorNo: order.colorNo || order.targetColor || '—',
+    composition: snapshot && order.composition === snapshot.materialName ? '—' : order.composition || '—',
+    width: order.width || '—',
+    weightGsm: order.weightGsm ?? null,
     processName: order.dyeProcessName || '匹染',
     factoryId: online.factoryId,
     factoryName: online.factoryName,
@@ -195,13 +208,13 @@ function makeRow(order: DyeWorkOrder, index: number): DyeWorkOrderOnlineRow {
     plannedQty,
     qtyUnit: order.qtyUnit,
     rawMaterialQty,
-    rawMaterialRollCount: online.rawMaterialRollCount || (started ? Math.max(1, Math.ceil(plannedQty / 80)) : 0),
-    preparedQty: started ? plannedQty : 0,
-    preparedWeightKg: started ? round(plannedQty * 0.1) : 0,
+    rawMaterialRollCount: online.rawMaterialRollCount,
+    preparedQty: online.rawMaterialQty,
+    preparedWeightKg: 0,
     completedQty,
     lossQty,
     pendingWritebackQty: handover.pendingWritebackCount,
-    differenceQty: handover.diffQty || (finished ? round(completedQty - plannedQty) : 0),
+    differenceQty: handover.diffQty,
     objectionQty: handover.objectionCount,
     pendingInboundQty,
     orderedAt,
@@ -209,11 +222,12 @@ function makeRow(order: DyeWorkOrder, index: number): DyeWorkOrderOnlineRow {
     completedAt: online.completedAt,
     deliveredAt: online.deliveredAt,
     isOverdue: Boolean(plannedFinishAt && new Date(plannedFinishAt).getTime() < Date.now() && !isClosed),
-    isYarn: index % 7 === 6,
-    isReplenishment: index % 4 === 1,
-    materialType: index % 7 === 6 ? '纱线' : '面料',
-    headVatOrRedye: index % 5 === 0 ? '头缸' : index % 5 === 1 ? '复染' : '—',
+    isYarn,
+    isReplenishment: /补料/.test(order.remark || ''),
+    materialType: isYarn ? '纱线' : '面料',
+    headVatOrRedye: '—',
     handoverOrderNo: order.handoverOrderNo || order.handoverOrderId || '',
+    batchNo: order.sourceArtifactIds?.[1] || '—',
     sourceType: order.sourceType,
     remark: online.remark,
   }

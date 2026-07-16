@@ -1,4 +1,5 @@
 import {
+  assignDyeWorkOrderFactory,
   getDyeWorkOrderById,
   getDyeWorkOrderByTaskId,
   registerDyeReceiptOnlineStatusListener,
@@ -218,6 +219,40 @@ export function isDyeWorkOrderHighRiskStatusChange(
   return after === '取消' || (after !== '取消' && before !== '取消' && STATUS_RANK[after] < STATUS_RANK[before])
 }
 
+export function getDyeWorkOrderOnlineActionError(
+  dyeOrderId: string,
+  action: DyeWorkOrderOnlineAction,
+): string | null {
+  const record = getMutableRecord(dyeOrderId)
+  if (record.status === '取消' && action !== '主管取消') return '当前加工单已取消，不能继续操作'
+  if (action === '接单') return record.status === '等待处理' && !record.accepted ? null : '当前加工单不能重复接单'
+  if (action === '开工') {
+    if (record.status !== '等待处理') return '当前加工单不是等待处理状态，不能开工'
+    return record.accepted ? null : '请先接单后再开工'
+  }
+  if (action === '完工') return record.status === '染色中' ? null : '当前加工单尚未开工，不能完工'
+  if (action === '交出') return record.status === '染色完成' ? null : '请先完工后再交出'
+  if (action === '部分入库') return record.status === '待审核' || record.status === '部分入库' ? null : '当前加工单不能部分入库'
+  if (action === '全部入库') return record.status === '待审核' || record.status === '部分入库' ? null : '当前加工单不能全部入库'
+  if (action === '主管取消') return record.status === '已完成' ? '已完成加工单不能取消' : null
+  return '当前加工单不能执行该操作'
+}
+
+export function assertDyeWorkOrderOnlineActionAllowed(
+  dyeOrderId: string,
+  action: DyeWorkOrderOnlineAction,
+): void {
+  const error = getDyeWorkOrderOnlineActionError(dyeOrderId, action)
+  if (error) throw new Error(error)
+}
+
+export function isDyeWorkOrderOnlineActionAllowed(
+  dyeOrderId: string,
+  action: DyeWorkOrderOnlineAction,
+): boolean {
+  return getDyeWorkOrderOnlineActionError(dyeOrderId, action) === null
+}
+
 export function updateDyeWorkOrderFromPfos(
   dyeOrderId: string,
   input: DyeWorkOrderPfosEditInput,
@@ -232,6 +267,15 @@ export function updateDyeWorkOrderFromPfos(
   if (!DYE_WORK_ORDER_ONLINE_STATUSES.includes(input.status)) throw new Error('状态不在允许范围内')
 
   const before = cloneRecord(record)
+  const factoryChanged = before.factoryId !== input.factoryId || before.factoryName !== input.factoryName
+  if (factoryChanged) {
+    assignDyeWorkOrderFactory(dyeOrderId, {
+      factoryId: input.factoryId,
+      factoryName: input.factoryName,
+      assignedAt: input.operatedAt,
+      assignedBy: input.operatorName,
+    })
+  }
   Object.assign(record, {
     status: input.status,
     plannedFinishAt: input.plannedFinishAt,
@@ -249,6 +293,7 @@ export function updateDyeWorkOrderFromPfos(
     deliveredAt: input.status === '待审核' && !record.deliveredAt ? input.operatedAt : record.deliveredAt,
     updatedAt: input.operatedAt,
     version: record.version + 1,
+    accepted: factoryChanged && input.status === '等待处理' ? false : record.accepted,
   })
 
   const fields: Array<[keyof DyeWorkOrderOnlineRecord, string]> = [
@@ -284,17 +329,15 @@ export function advanceDyeWorkOrderOnlineStatus(
   input: DyeWorkOrderPdaActionInput,
 ): DyeWorkOrderOnlineRecord {
   const record = getMutableRecord(dyeOrderId)
+  assertDyeWorkOrderOnlineActionAllowed(dyeOrderId, input.action)
   const beforeStatus = record.status
   let nextStatus = beforeStatus
 
   if (input.action === '接单') {
-    if (record.status !== '等待处理' || record.accepted) throw new Error('当前加工单不能重复接单')
     record.accepted = true
   } else if (input.action === '开工') {
-    if (record.status !== '等待处理' || !record.accepted) throw new Error('请先接单后再开工')
     nextStatus = '染色中'
   } else if (input.action === '完工') {
-    if (record.status !== '染色中') throw new Error('当前加工单尚未开工，不能完工')
     nextStatus = '染色完成'
     assertNonNegative('完成数量', input.completedQty ?? record.completedQty)
     assertNonNegative('损耗数量', input.lossQty ?? record.lossQty)
@@ -302,17 +345,13 @@ export function advanceDyeWorkOrderOnlineStatus(
     record.lossQty = input.lossQty ?? record.lossQty
     record.completedAt = input.operatedAt
   } else if (input.action === '交出') {
-    if (record.status !== '染色完成') throw new Error('请先完工后再交出')
     nextStatus = '待审核'
     record.deliveredAt = input.operatedAt
   } else if (input.action === '部分入库') {
-    if (record.status !== '待审核' && record.status !== '部分入库') throw new Error('当前加工单不能部分入库')
     nextStatus = '部分入库'
   } else if (input.action === '全部入库') {
-    if (record.status !== '待审核' && record.status !== '部分入库') throw new Error('当前加工单不能全部入库')
     nextStatus = '已完成'
   } else if (input.action === '主管取消') {
-    if (record.status === '已完成') throw new Error('已完成加工单不能取消')
     nextStatus = '取消'
   }
 
@@ -344,6 +383,11 @@ export function recordDyeWorkOrderPdaAcceptance(
     operatedAt,
     source: 'PDA',
   })
+}
+
+export function assertDyeWorkOrderPdaAcceptanceAllowed(taskId: string): void {
+  const order = getDyeWorkOrderByTaskId(taskId)
+  if (order) assertDyeWorkOrderOnlineActionAllowed(order.dyeOrderId, '接单')
 }
 
 registerDyeReceiptOnlineStatusListener((event) => {

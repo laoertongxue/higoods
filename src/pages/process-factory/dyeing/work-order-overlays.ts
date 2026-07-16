@@ -17,6 +17,8 @@ export type DyeWorkOrderOverlayState = null | {
   type: 'view' | 'edit' | 'logs'
   dyeOrderId: string
   confirmHighRisk?: boolean
+  targetStatus?: DyeWorkOrderPfosEditInput['status']
+  logPage?: number
   error?: string
 }
 
@@ -28,12 +30,18 @@ function formField(label: string, html: string, className = ''): string {
   return `<label class="space-y-1.5 ${className}"><span class="text-sm font-medium">${escapeHtml(label)}</span>${html}</label>`
 }
 
+function renderProductImage(url: string): string {
+  return url
+    ? `<img src="${escapeHtml(url)}" alt="商品图" class="h-24 w-20 rounded border object-cover">`
+    : '<div class="flex h-24 w-20 shrink-0 items-center justify-center rounded border bg-muted/30 px-2 text-center text-xs text-muted-foreground">暂无商品图</div>'
+}
+
 function renderView(dyeOrderId: string): string {
   const row = listDyeWorkOrderOnlineRows().find((item) => item.dyeOrderId === dyeOrderId)
   if (!row) return renderDialog({ title: '查看染色加工单', closeAction: { prefix: EVENT_PREFIX, action: 'close-overlay' } }, '<p class="text-sm text-red-600">染色加工单不存在。</p>')
   const body = `<div class="max-h-[68vh] space-y-5 overflow-y-auto pr-1">
     <div class="flex items-start gap-4 rounded-lg border bg-muted/20 p-4">
-      <img src="${escapeHtml(row.productImageUrl)}" alt="商品图" class="h-24 w-20 rounded border object-cover">
+      ${renderProductImage(row.productImageUrl)}
       <div class="grid flex-1 grid-cols-2 gap-3">${field('平台加工单号', row.workOrderNo)}${field('当前状态', row.status)}${field('生产单号', row.productionOrderNo)}${field('任务单号', row.taskNo)}</div>
     </div>
     <div class="grid grid-cols-2 gap-4">${field('预计完成时间', row.plannedFinishAt)}${field('生产工厂', row.factoryName || '待分配工厂')}${field('面料接收人', row.receiverName)}${field('染色工艺', row.processName)}${field('深浅', row.shade)}${field('温度', row.temperature ? `${row.temperature}℃` : '')}</div>
@@ -71,11 +79,15 @@ function renderEdit(dyeOrderId: string, error = ''): string {
   return renderFormDialog({ title: `编辑染色加工单 - ${row.workOrderNo}`, closeAction: { prefix: EVENT_PREFIX, action: 'close-overlay' }, submitAction: { prefix: EVENT_PREFIX, action: 'save-edit', label: '保存' }, width: 'lg' }, body)
 }
 
-function renderLogs(dyeOrderId: string): string {
+function renderLogs(dyeOrderId: string, requestedPage = 1): string {
   const record = getDyeWorkOrderOnlineRecord(dyeOrderId)
-  const logs = listDyeWorkOrderOnlineLogs(dyeOrderId).slice(0, 10)
-  const rows = logs.map((log) => `<tr class="border-b last:border-0"><td class="px-3 py-2 text-xs">${escapeHtml(log.operatedAt)}</td><td class="px-3 py-2 text-xs">${escapeHtml(log.operatorName)}<div class="text-muted-foreground">${escapeHtml(log.source)}</div></td><td class="px-3 py-2 text-xs">${escapeHtml(log.beforeStatus)} → ${escapeHtml(log.afterStatus)}</td><td class="px-3 py-2 text-xs"><div class="font-medium">${escapeHtml(log.action)}</div>${log.changes.map((change) => `<div>${escapeHtml(change.label)}：${escapeHtml(change.before)} → ${escapeHtml(change.after)}</div>`).join('')}</td></tr>`).join('')
-  const body = `<div class="max-h-[65vh] overflow-auto"><table class="w-full min-w-[560px] text-left"><thead class="bg-muted/50"><tr><th class="px-3 py-2 text-xs">时间</th><th class="px-3 py-2 text-xs">操作人/操作端</th><th class="px-3 py-2 text-xs">状态</th><th class="px-3 py-2 text-xs">变更内容</th></tr></thead><tbody>${rows || '<tr><td colspan="4" class="px-3 py-10 text-center text-sm text-muted-foreground">暂无操作日志</td></tr>'}</tbody></table></div><div class="mt-3 flex items-center justify-between text-xs text-muted-foreground"><span>共 ${logs.length} 条，第 1 / 1 页</span><div class="flex gap-2"><button type="button" disabled class="rounded border px-2 py-1 opacity-50">上一页</button><button type="button" disabled class="rounded border px-2 py-1 opacity-50">下一页</button></div></div>`
+  const allLogs = listDyeWorkOrderOnlineLogs(dyeOrderId)
+  const pageSize = 10
+  const totalPages = Math.max(1, Math.ceil(allLogs.length / pageSize))
+  const page = Math.min(totalPages, Math.max(1, requestedPage))
+  const pageLogs = allLogs.slice((page - 1) * pageSize, page * pageSize)
+  const rows = pageLogs.map((log) => `<tr class="border-b last:border-0"><td class="px-3 py-2 text-xs">${escapeHtml(log.operatedAt)}</td><td class="px-3 py-2 text-xs">${escapeHtml(log.operatorName)}<div class="text-muted-foreground">${escapeHtml(log.source)}</div></td><td class="px-3 py-2 text-xs">${escapeHtml(log.beforeStatus)} → ${escapeHtml(log.afterStatus)}</td><td class="px-3 py-2 text-xs"><div class="font-medium">${escapeHtml(log.action)}</div>${log.changes.map((change) => `<div>${escapeHtml(change.label)}：${escapeHtml(change.before)} → ${escapeHtml(change.after)}</div>`).join('')}</td></tr>`).join('')
+  const body = `<div class="max-h-[65vh] overflow-auto"><table class="w-full min-w-[560px] text-left"><thead class="bg-muted/50"><tr><th class="px-3 py-2 text-xs">时间</th><th class="px-3 py-2 text-xs">操作人/操作端</th><th class="px-3 py-2 text-xs">状态</th><th class="px-3 py-2 text-xs">变更内容</th></tr></thead><tbody>${rows || '<tr><td colspan="4" class="px-3 py-10 text-center text-sm text-muted-foreground">暂无操作日志</td></tr>'}</tbody></table></div><div class="mt-3 flex items-center justify-between text-xs text-muted-foreground"><span>共 ${allLogs.length} 条，第 ${page} / ${totalPages} 页</span><div class="flex gap-2"><button type="button" data-dye-work-orders-action="prev-log-page" ${page <= 1 ? 'disabled' : ''} class="rounded border px-2 py-1 disabled:opacity-50">上一页</button><button type="button" data-dye-work-orders-action="next-log-page" ${page >= totalPages ? 'disabled' : ''} class="rounded border px-2 py-1 disabled:opacity-50">下一页</button></div></div>`
   return renderDialog({ title: `操作日志 - ${record.workOrderNo}`, closeAction: { prefix: EVENT_PREFIX, action: 'close-overlay' }, width: 'lg' }, body, renderSecondaryButton('关闭', { prefix: EVENT_PREFIX, action: 'close-overlay' }))
 }
 
@@ -83,11 +95,12 @@ export function renderDyeWorkOrderOverlay(state: NonNullable<DyeWorkOrderOverlay
   let content: string
   if (state.confirmHighRisk) {
     const record = getDyeWorkOrderOnlineRecord(state.dyeOrderId)
-    content = renderSimpleConfirmDialog({ prefix: EVENT_PREFIX, closeAction: 'cancel-high-risk', confirmAction: 'confirm-high-risk', title: '确认高风险状态变更', description: `当前状态为“${record.status}”。取消或回退状态会永久保留操作记录。`, confirmLabel: '确认保存', danger: true })
+    const targetStatus = state.targetStatus || record.status
+    content = renderSimpleConfirmDialog({ prefix: EVENT_PREFIX, closeAction: 'cancel-high-risk', confirmAction: 'confirm-high-risk', title: '确认高风险状态变更', description: `状态将从“${record.status} → ${targetStatus}”。该变更会影响 PDA 当前可执行动作，并永久保留操作记录。`, confirmLabel: '确认保存', danger: true })
   } else if (state.type === 'edit') {
     content = renderEdit(state.dyeOrderId, state.error)
   } else if (state.type === 'logs') {
-    content = renderLogs(state.dyeOrderId)
+    content = renderLogs(state.dyeOrderId, state.logPage)
   } else {
     content = renderView(state.dyeOrderId)
   }

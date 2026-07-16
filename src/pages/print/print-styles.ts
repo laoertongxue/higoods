@@ -97,6 +97,52 @@ export function renderUnifiedPrintStyles(): string {
         align-items: stretch;
       }
 
+      .print-card-title-row {
+        display: grid;
+        grid-template-columns: 14mm 1fr auto;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .print-card-sequence {
+        display: flex;
+        width: 11mm;
+        height: 11mm;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid #111827;
+        border-radius: 999px;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .print-card-page-count {
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .print-dye-image-grid {
+        grid-template-columns: 1fr;
+        align-content: start;
+      }
+
+      .print-production-image-card img,
+      .print-image-fallback {
+        width: 100%;
+        height: 32mm;
+        margin-top: 4px;
+        object-fit: cover;
+      }
+
+      .print-image-fallback {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f1f5f9;
+        color: #64748b;
+        font-size: 9px;
+      }
+
       .print-production-header {
         display: grid;
         grid-template-columns: 1fr 34mm;

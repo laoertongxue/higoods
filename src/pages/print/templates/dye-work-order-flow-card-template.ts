@@ -47,6 +47,7 @@ function buildSingle(input: PrintDocumentBuildInput, row: DyeWorkOrderOnlineRow)
     printTitle: '染整生产流程卡',
     printSubtitle: 'Kartu Alur Produksi Pencelupan dan Penyempurnaan',
     headerFields: fields([
+      ['卡序号 Urutan kartu', '1', true],
       ['平台加工单号', row.workOrderNo, true],
       ['下单日期 Tgl', row.orderedAt.split(' ')[0] || row.orderedAt],
       ['是否加急 Mendesak', row.isOverdue ? '是 Ya' : '否 Tidak'],
@@ -71,7 +72,9 @@ function buildSingle(input: PrintDocumentBuildInput, row: DyeWorkOrderOnlineRow)
           ['TPG 色卡', '—'],
           ['TCX 色卡', '—'],
           ['样衣 SPU', row.productCode],
+          ['布料样品 SPU', row.productCode],
           ['翻单 SPU', row.productCode],
+          ['批号 No. batch', row.batchNo],
         ]),
       },
       {
@@ -160,11 +163,16 @@ function renderFields(items: PrintField[]): string {
   return `<div class="print-field-grid">${items.map((item) => `<div class="print-field ${item.emphasis ? 'print-field-emphasis' : ''}"><div class="print-field-label">${escapeHtml(item.label)}</div><div class="print-field-value">${escapeHtml(item.value || '—')}</div></div>`).join('')}</div>`
 }
 
-function renderSingle(document: PrintDocument): string {
+function renderImageBlocks(document: PrintDocument): string {
+  return `<section class="print-production-image-grid print-dye-image-grid">${document.imageBlocks.map((item) => `<figure class="print-production-image-card"><figcaption><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.imageLabel || item.sourceLabel || '')}</span></figcaption>${item.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.title)}">` : `<div class="print-image-fallback">${escapeHtml(item.fallbackLabel || '暂无图片')}</div>`}</figure>`).join('')}</section>`
+}
+
+function renderSingle(document: PrintDocument, sequence = 1, total = 1): string {
   const qr = document.qrCodes[0]
+  const headerFields = document.headerFields.map((item) => item.label.startsWith('卡序号') ? { ...item, value: String(sequence) } : item)
   return `<article class="print-paper-a4"><div class="print-card-sheet">
-    <header><div class="print-card-title">${escapeHtml(document.printTitle)}</div><div class="print-card-subtitle">${escapeHtml(document.printSubtitle)}</div></header>
-    <div class="print-main-grid"><section><div class="print-section-title">基础信息 Informasi dasar</div>${renderFields(document.headerFields)}</section><section class="print-qr-box"><div class="print-section-title">${escapeHtml(qr?.title || '二维码')}</div><div class="print-qr-inner">${qr ? renderRealQrPlaceholder({ value: qr.value, size: 112, title: qr.title, label: qr.title }) : ''}</div></section></div>
+    <header class="print-card-title-row"><div class="print-card-sequence" aria-label="卡序号 ${sequence}">${sequence}</div><div><div class="print-card-title">${escapeHtml(document.printTitle)}</div><div class="print-card-subtitle">${escapeHtml(document.printSubtitle)}</div></div>${total > 1 ? `<div class="print-card-page-count">${sequence} / ${total}</div>` : ''}</header>
+    <div class="print-main-grid">${renderImageBlocks(document)}<section><div class="print-section-title">基础信息 Informasi dasar</div>${renderFields(headerFields)}</section><section class="print-qr-box"><div class="print-section-title">${escapeHtml(qr?.title || '二维码')}</div><div class="print-qr-inner">${qr ? renderRealQrPlaceholder({ value: qr.value, size: 112, title: qr.title, label: qr.title }) : ''}</div></section></div>
     ${document.sections.map((section) => `<section class="print-section"><div class="print-section-title">${escapeHtml(section.title)}</div>${renderFields(section.fields)}</section>`).join('')}
     ${document.tables.map((table) => `<section class="print-section"><div class="print-section-title">${escapeHtml(table.title)}</div><table class="print-table"><thead><tr>${table.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody>${table.rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell || ' ')}</td>`).join('')}</tr>`).join('')}</tbody></table></section>`).join('')}
     <section class="print-section print-avoid-break"><div class="print-section-title">签字区 Tanda tangan</div><div class="print-signature-grid">${document.signatureBlocks.map((block) => `<div class="print-signature-cell"><div class="print-signature-label">${escapeHtml(block.label)}</div><div class="print-signature-role">${escapeHtml(block.signerRole)}</div></div>`).join('')}</div></section>
@@ -175,5 +183,5 @@ function renderSingle(document: PrintDocument): string {
 export function renderDyeWorkOrderFlowCardTemplate(document: PrintDocument): string {
   const ids = document.relatedObjectIds || [document.sourceId]
   if (ids.length === 1) return renderSingle(document)
-  return ids.map((id) => renderSingle(buildDyeWorkOrderFlowCardPrintDocument(id))).join('')
+  return ids.map((id, index) => renderSingle(buildDyeWorkOrderFlowCardPrintDocument(id), index + 1, ids.length)).join('')
 }

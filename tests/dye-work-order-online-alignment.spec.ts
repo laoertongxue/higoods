@@ -104,7 +104,9 @@ test('PFOS 列表支持局部查看编辑日志和中印双语流程卡', async 
   const row = page.locator('tbody tr').filter({ has: page.locator('[data-work-order-no]') }).first()
   await expect(row).toBeVisible()
   const workOrderNo = await row.locator('[data-work-order-no]').getAttribute('data-work-order-no')
+  const dyeOrderId = await row.getByRole('button', { name: '日志', exact: true }).getAttribute('data-id')
   expect(workOrderNo).toBeTruthy()
+  expect(dyeOrderId).toBeTruthy()
 
   // 首次打开用于预热异步模块，性能口径从第二次可观察操作开始。
   await row.getByRole('button', { name: '查看', exact: true }).click()
@@ -143,10 +145,33 @@ test('PFOS 列表支持局部查看编辑日志和中印双语流程卡', async 
   await expect(page.getByRole('cell', { name: '等待处理 → 染色中', exact: true })).toBeVisible()
   await page.getByRole('button', { name: '关闭', exact: true }).last().click()
 
+  await page.evaluate(async (orderId) => {
+    const online = await import(/* @vite-ignore */ '/src/data/fcs/dye-work-order-online-domain.ts')
+    for (let index = 0; index < 11; index += 1) {
+      const current = online.getDyeWorkOrderOnlineRecord(orderId)
+      online.updateDyeWorkOrderFromPfos(orderId, {
+        ...current,
+        expectedVersion: current.version,
+        operatorName: '浏览器日志验收',
+        operatedAt: `2026-07-16 11:${String(index).padStart(2, '0')}:00`,
+        remark: `日志分页验收-${index + 1}`,
+      })
+    }
+  }, dyeOrderId!)
+  await updatedRow.getByRole('button', { name: '日志', exact: true }).click()
+  await expect(editOverlay).toContainText(/共 1[2-9] 条，第 1 \/ 2 页/)
+  const nextLogPage = editOverlay.getByRole('button', { name: '下一页', exact: true })
+  await expect(nextLogPage).toBeEnabled()
+  await nextLogPage.click()
+  await expect(editOverlay).toContainText('第 2 / 2 页')
+  await page.getByRole('button', { name: '关闭', exact: true }).last().click()
+
   await updatedRow.getByRole('button', { name: '编辑', exact: true }).click()
   await editOverlay.locator('[data-dye-work-orders-field="status"]').selectOption({ label: '取消' })
   await editOverlay.getByRole('button', { name: '保存', exact: true }).click()
   await expect(editOverlay.getByRole('heading', { name: '确认高风险状态变更' })).toBeVisible()
+  await expect(editOverlay).toContainText('染色中 → 取消')
+  await expect(editOverlay).toContainText('会影响 PDA 当前可执行动作')
   const highRiskDialogBox = await editOverlay.locator('.relative.bg-background.rounded-lg').boundingBox()
   expect(highRiskDialogBox).not.toBeNull()
   expect(highRiskDialogBox!.y).toBeGreaterThanOrEqual(0)
@@ -168,6 +193,11 @@ test('PFOS 列表支持局部查看编辑日志和中印双语流程卡', async 
   await expect(page.locator('footer').last()).toContainText('1 /')
 
   await page.getByRole('button', { name: '列设置', exact: true }).click()
+  const productSetting = page.locator('[data-standard-list-column-key="product"]')
+  await productSetting.getByRole('checkbox', { name: '冻结' }).check()
+  const materialSetting = page.locator('[data-standard-list-column-key="material"]')
+  const purchaseSetting = page.locator('[data-standard-list-column-key="purchase"]')
+  await materialSetting.dragTo(purchaseSetting)
   const remarkSetting = page.locator('[data-standard-list-column-key="remark"]')
   await remarkSetting.getByRole('checkbox', { name: '显示' }).uncheck()
   await page.getByRole('button', { name: '关闭', exact: true }).last().click()
@@ -175,10 +205,37 @@ test('PFOS 列表支持局部查看编辑日志和中印双语流程卡', async 
   const storedPreferences = await page.evaluate(() => JSON.parse(localStorage.getItem('/fcs/craft/dyeing/work-orders:list-columns') || '{}'))
   expect(storedPreferences.pageSize).toBe(20)
   expect(storedPreferences.visibleKeys).not.toContain('remark')
+  expect(storedPreferences.frozenKeys).toContain('product')
+  expect(storedPreferences.order.indexOf('material')).toBeLessThan(storedPreferences.order.indexOf('purchase'))
   await navigateInApp(page, '/fcs/craft/dyeing/combined-dyeing')
   await navigateToListInApp(page)
   await expect(page.locator('[data-dye-work-orders-field="pageSize"]').last()).toHaveValue('20')
   await expect(page.locator('th[data-column-key="remark"]')).toHaveCount(0)
+  const persistedHeaders = await page.locator('thead th[data-column-key]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-column-key')))
+  expect(persistedHeaders.indexOf('material')).toBeLessThan(persistedHeaders.indexOf('purchase'))
+
+  const scrollRegion = page.locator('[data-standard-list-scroll]')
+  const dyeHeader = page.locator('th[data-column-key="dyeInfo"]')
+  const productHeader = page.locator('th[data-column-key="product"]')
+  const actionHeader = page.locator('th[data-column-key="actions"]')
+  const normalHeader = page.locator('th[data-column-key="material"]')
+  const beforeScroll = {
+    dye: await dyeHeader.boundingBox(),
+    product: await productHeader.boundingBox(),
+    action: await actionHeader.boundingBox(),
+    normal: await normalHeader.boundingBox(),
+  }
+  await scrollRegion.evaluate((node) => { node.scrollLeft = node.scrollWidth })
+  const afterScroll = {
+    dye: await dyeHeader.boundingBox(),
+    product: await productHeader.boundingBox(),
+    action: await actionHeader.boundingBox(),
+    normal: await normalHeader.boundingBox(),
+  }
+  expect(Math.abs(afterScroll.dye!.x - beforeScroll.dye!.x)).toBeLessThan(2)
+  expect(Math.abs(afterScroll.product!.x - beforeScroll.product!.x)).toBeLessThan(2)
+  expect(Math.abs(afterScroll.action!.x - beforeScroll.action!.x)).toBeLessThan(2)
+  expect(Math.abs(afterScroll.normal!.x - beforeScroll.normal!.x)).toBeGreaterThan(100)
 
   const popupPromise = context.waitForEvent('page')
   await updatedRow.getByRole('button', { name: '打印流程卡', exact: true }).click()
@@ -190,12 +247,67 @@ test('PFOS 列表支持局部查看编辑日志和中印双语流程卡', async 
   await expect(printPage.getByText(workOrderNo!, { exact: true }).first()).toBeVisible()
   await expect(printPage.getByText('染色加工单二维码', { exact: true }).first()).toBeVisible()
   await expect(printPage.locator('.print-qr-box svg')).toBeVisible()
+  await expect(printPage.locator('.print-card-sequence')).toHaveText('1')
+  await expect(printPage.getByText('布料样品 SPU', { exact: true })).toBeVisible()
+  await expect(printPage.getByText('批号 No. batch', { exact: true })).toBeVisible()
+  await expect(printPage.locator('.print-production-image-card')).toHaveCount(2)
   await expect(printPage.getByText('复样 Pencocokan sampel/duplikasi sampel', { exact: true })).toBeVisible()
   await expect(printPage.getByText('出货 Pengiriman', { exact: true })).toBeVisible()
   await expect(printPage.getByText('签字区 Tanda tangan', { exact: true })).toBeVisible()
   expect(await printPage.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
   await printPage.screenshot({ path: 'output/playwright/dye-work-order-flow-card-1280x720.png', fullPage: true })
   await printPage.close()
+})
+
+test('PFOS 取消后 PDA 立即阻断当前动作且底层加工单不变', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  const seed = await page.evaluate(async () => {
+    const dye = await import(/* @vite-ignore */ '/src/data/fcs/dyeing-task-domain.ts')
+    const online = await import(/* @vite-ignore */ '/src/data/fcs/dye-work-order-online-domain.ts')
+    const pda = await import(/* @vite-ignore */ '/src/data/fcs/store-domain-pda.ts')
+    const mock = await import(/* @vite-ignore */ '/src/data/fcs/pda-task-mock-factory.ts')
+    const tasks = await import(/* @vite-ignore */ '/src/data/fcs/process-mobile-task-binding.ts')
+    const factories = await import(/* @vite-ignore */ '/src/data/fcs/factory-master-store.ts')
+    const factory = factories.listFactoryMasterRecords().find((item) => item.id === 'F090')!
+    const user = pda.listFactoryPdaUsers(factory.id).find((item) => item.status === 'ACTIVE' && item.roleId === 'ROLE_OPERATOR')!
+    const session = pda.createPdaSessionFromUser(user)
+    const order = dye.registerFormalProductionOrderDyeWorkOrder({
+      workOrderId: 'DWO-E2E-CANCEL-001', workOrderNo: 'RS-E2E-CANCEL-001', processName: '匹染',
+      productionOrderId: 'PO-E2E-CANCEL-001', productionOrderNo: 'PO-E2E-CANCEL-001', orderedAt: '2026-07-16 07:00:00',
+      techPackVersionId: 'TP-E2E-CANCEL-001', techPackVersionLabel: 'v1.0', materialId: 'FAB-E2E-CANCEL-001',
+      materialName: '取消验收面料', targetColor: '黑色', plannedQty: 80, qtyUnit: '米', processCodes: ['DYE'],
+      dyeProcessName: '匹染', factoryId: session.factoryId, factoryName: session.factoryName,
+      spuCode: 'SPU-E2E-CANCEL-001', spuName: '取消验收商品', requiredDeliveryDate: '2026-07-22',
+    })
+    const task = tasks.listPdaMobileExecutionTasks().find((item) => item.taskId === order.taskId)!
+    mock.registerPdaGenericProcessTask({ ...task, status: 'IN_PROGRESS', acceptanceStatus: 'ACCEPTED', acceptedAt: '2026-07-16 07:10:00', acceptedBy: session.userName })
+    online.advanceDyeWorkOrderOnlineStatus(order.dyeOrderId, { action: '接单', operatorName: session.userName, operatedAt: '2026-07-16 07:10:00', source: 'PDA' })
+    online.advanceDyeWorkOrderOnlineStatus(order.dyeOrderId, { action: '开工', operatorName: session.userName, operatedAt: '2026-07-16 07:20:00', source: 'PDA' })
+    const current = online.getDyeWorkOrderOnlineRecord(order.dyeOrderId)
+    online.updateDyeWorkOrderFromPfos(order.dyeOrderId, { ...current, expectedVersion: current.version, operatorName: '染厂主管', operatedAt: '2026-07-16 07:30:00', status: '取消', remark: '取消后立即停止 PDA' })
+    localStorage.setItem('fcs_pda_session', JSON.stringify(session))
+    return { dyeOrderId: order.dyeOrderId, taskId: order.taskId }
+  })
+
+  await navigateInApp(page, `/fcs/pda/exec/${seed.taskId}`)
+  await page.locator('[data-pda-todo-modal="true"]').evaluateAll((nodes) => nodes.forEach((node) => node.remove()))
+  await expect(page.locator('[data-testid="pda-dye-online-status"]')).toHaveText('取消')
+  await expect(page.getByRole('button', { name: '开始染色', exact: true })).toBeDisabled()
+  const mutationResult = await page.evaluate(async ({ dyeOrderId, taskId }) => {
+    const service = await import(/* @vite-ignore */ '/src/data/fcs/process-action-writeback-service.ts')
+    const dye = await import(/* @vite-ignore */ '/src/data/fcs/dyeing-task-domain.ts')
+    const before = dye.getDyeWorkOrderById(dyeOrderId)?.status
+    let error = ''
+    try {
+      service.executeMobileProcessAction({ sourceType: 'DYE', sourceId: dyeOrderId, taskId, actionCode: 'DYE_START_DYEING', operatorName: '操作员', operatedAt: '2026-07-16 07:40:00', objectQty: 80, qtyUnit: '米' })
+    } catch (caught) {
+      error = caught instanceof Error ? caught.message : String(caught)
+    }
+    return { before, after: dye.getDyeWorkOrderById(dyeOrderId)?.status, error }
+  }, seed)
+  expect(mutationResult.error).toContain('已取消')
+  expect(mutationResult.after).toBe(mutationResult.before)
 })
 
 test('PDA 接单、开工、完工和交出依次同步 PFOS 状态', async ({ page }) => {
@@ -256,17 +368,21 @@ test('PDA 接单、开工、完工和交出依次同步 PFOS 状态', async ({ p
   })
 
   await navigateInApp(page, '/fcs/pda/task-receive?tab=pending-accept')
-  const receiveFacts = await page.evaluate(async (taskId) => {
+  const receiveFacts = await page.evaluate(async ({ taskId, dyeOrderId }) => {
     const tasks = await import(/* @vite-ignore */ '/src/data/fcs/process-mobile-task-binding.ts')
     const scope = await import(/* @vite-ignore */ '/src/data/fcs/pda-receive-scope.ts')
     const pda = await import(/* @vite-ignore */ '/src/data/fcs/store-domain-pda.ts')
+    const platform = await import(/* @vite-ignore */ '/src/data/fcs/page-adapters/process-prep-pages-adapter.ts')
     const task = tasks.listPdaMobileExecutionTasks().find((item) => item.taskId === taskId)
     const session = pda.getPdaSession()
-    return { task, session, eligible: scope.isReceiveEligibleTask(task, session?.factoryId) }
-  }, seed.taskId)
+    const platformOrder = platform.listPrepProcessOrders('DYE').find((item) => item.workOrderId === dyeOrderId)
+    return { task, session, platformOrder, eligible: scope.isReceiveEligibleTask(task, session?.factoryId) }
+  }, seed)
   expect(receiveFacts.task, JSON.stringify(receiveFacts)).toBeTruthy()
   expect(receiveFacts.task?.acceptanceStatus, JSON.stringify(receiveFacts)).toBe('PENDING')
   expect(receiveFacts.task?.assignedFactoryId, JSON.stringify(receiveFacts)).toBe(receiveFacts.session?.factoryId)
+  expect(receiveFacts.task?.taskNo, JSON.stringify(receiveFacts)).toBe(seed.workOrderNo)
+  expect(receiveFacts.platformOrder?.orderNo, JSON.stringify(receiveFacts)).toBe(seed.workOrderNo)
   expect(receiveFacts.eligible, JSON.stringify(receiveFacts)).toBe(true)
   const taskCard = page.locator('article').filter({ hasText: seed.workOrderNo }).first()
   await expect(taskCard).toBeVisible()

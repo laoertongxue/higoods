@@ -685,7 +685,7 @@ git commit -m "test: verify dye work order online alignment"
 - 修改：仅限回归发现的本功能相关文件
 - 审查：`docs/prototype-review-records/2026-07-16-dye-work-order-online-alignment.md`
 
-- [ ] **步骤 1：运行完整相关检查**
+- [x] **步骤 1：运行完整相关检查**
 
 ```bash
 npm run check:production-process-work-order-generation
@@ -702,7 +702,7 @@ npm run test:combined-dyeing:e2e
 
 预期：全部 PASS。合并染色专项和端到端结果必须保持不变。
 
-- [ ] **步骤 2：在 1366×768 验收 PFOS 页面**
+- [x] **步骤 2：在 1366×768 验收 PFOS 页面**
 
 检查：
 
@@ -713,11 +713,11 @@ npm run test:combined-dyeing:e2e
 - 输入、弹窗开关和行操作不整页闪烁。
 - 列显示、列顺序、冻结和每页条数持久化；当前页和排序重新进入后恢复默认。
 
-- [ ] **步骤 3：在 1280×720 验收最低分辨率**
+- [x] **步骤 3：在 1280×720 验收最低分辨率**
 
 检查编辑弹窗可滚动且“保存修改”可达；高风险二次确认不被遮挡；流程卡打印预览不截断二维码、加工单号和工序签认区。
 
-- [ ] **步骤 4：同步 CodeGraph 并确认工作树**
+- [x] **步骤 4：同步 CodeGraph 并确认工作树**
 
 ```bash
 codegraph sync
@@ -727,7 +727,7 @@ git status --short
 
 预期：CodeGraph 显示 `Index is up to date`；工作树仅包含本轮确认要提交的文件，或在最终修复提交后为空。
 
-- [ ] **步骤 5：提交最终收口修复**
+- [x] **步骤 5：提交最终收口修复**
 
 如果视觉或回归发现本功能问题：
 
@@ -756,3 +756,67 @@ git commit -m "fix: finish dye work order online alignment"
 | 原型治理、列表治理、低分辨率和 200ms | 任务 7、8 |
 
 计划范围只包含已确认的原型字段和动作，不包含未来扩展、后端接口、权限或数据库建设。
+
+---
+
+### 任务 9：对抗式审查修复与验收缺口收口
+
+**文件：**
+- 修改：`scripts/check-dye-work-order-online-alignment.ts`
+- 修改：`scripts/check-process-work-order-unification.ts`
+- 修改：`tests/dye-work-order-online-alignment.spec.ts`
+- 修改：`tests/process-work-order-unification.spec.ts`
+- 修改：`src/data/fcs/dye-work-order-online-domain.ts`
+- 修改：`src/data/fcs/dye-work-order-online-view.ts`
+- 修改：`src/data/fcs/dyeing-task-domain.ts`
+- 修改：`src/data/fcs/process-action-writeback-service.ts`
+- 修改：`src/pages/pda-exec-detail.ts`
+- 修改：`src/pages/process-factory/dyeing/work-order-overlays.ts`
+- 修改：`src/pages/process-factory/dyeing/work-orders.ts`
+- 修改：`src/pages/print/templates/dye-work-order-flow-card-template.ts`
+- 修改：`src/pages/print/print-styles.ts`
+- 修改：`docs/prototype-review-records/2026-07-16-dye-work-order-online-alignment.md`
+
+- [x] **步骤 1：先补红灯测试**
+
+在静态专项检查中增加以下断言并运行，确认因当前缺陷失败：
+
+```bash
+npm run check:dye-work-order-online-alignment
+npm run check:process-work-order-unification
+```
+
+断言覆盖：取消或回退后 PDA 动作阻断；工厂归属同步真实加工单与 PDA 任务；实际数量为 0 不回退；正式生产单快照不按数组序号伪造；超过 10 条日志可翻页；流程卡输出图片、卡序号、布料样品 SPU 和批号；高风险确认明确说明目标状态及 PDA 影响；统一加工单不再依赖复杂详情页。
+
+- [x] **步骤 2：统一 PFOS、PDA 和真实加工单状态/归属**
+
+在 `dye-work-order-online-domain.ts` 提供 PDA 动作预校验，由 `process-action-writeback-service.ts` 在修改底层任务前调用；PDA 按钮读取同一允许动作结果。PFOS 保存工厂时由 `dyeing-task-domain.ts` 同步 `DyeWorkOrder.dyeFactoryId/dyeFactoryName` 及同 ID PDA 任务的分配字段，再更新线上记录和永久日志。
+
+- [x] **步骤 3：修复列表事实、数量和日志分页**
+
+数值只在 `null/undefined` 时回退，明确的 `0` 原样展示。商品、物料、颜色和生产来源优先读取 `formalProductionOrderSnapshot` 与加工单字段；缺少事实显示 `—`，不再按数组序号拼接编号或属性。日志弹窗按每页 10 条真实分页，显示总数并支持上一页、下一页。
+
+- [x] **步骤 4：补齐流程卡和列表治理验收**
+
+流程卡头部使用“色样/基础信息/二维码”三列并真正输出图片块；增加卡序号、布料样品 SPU、批号。页面级 E2E 验证列顺序、冻结和每页条数持久化，横向滚动时平台加工单号固定左侧、操作栏固定右侧。
+
+- [x] **步骤 5：迁移统一加工单旧验收并全量验证**
+
+将旧“查看详情/审核记录/染色配方/移动端详情入口”验收迁移为当前确认的列表内查看、编辑、日志、打印和同一平台加工单号跨 PFOS/PDA 一致性。运行：
+
+```bash
+npm run check:dye-work-order-online-alignment
+npm run check:process-work-order-unification
+npm run check:production-process-work-order-generation
+npm run check:production-order-changes
+npm run check:dyeing-workflow
+npm run check:combined-dyeing
+npm run check:list-page-governance
+npm run check:prototype-design-governance -- --all
+npm run build
+npm run test:dye-work-order-online-alignment:e2e
+npm run test:process-work-order-unification:e2e
+npm run test:combined-dyeing:e2e
+```
+
+预期：全部 PASS；如仓库既有非本功能基线仍失败，必须提供可复现证据并确认本轮没有扩大失败范围。
