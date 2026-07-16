@@ -134,7 +134,69 @@ function buildDefaultFactoryFacts(): Array<FactoryProgressFact & { productionOrd
       pickedQty: Math.max(1, Math.round(multiFactoryDemo.requiredQty / 4)),
     })
   }
+  // 生产单总览演示数据：覆盖中央工厂 / 第三方工厂、接单和领取的完整状态。
+  facts.push(
+    {
+      productionOrderId: 'PO-202603-0015',
+      factoryId: 'FACTORY-THIRD-PICKED',
+      factoryName: '宏达裁片厂',
+      factoryTypeLabel: '第三方工厂',
+      accepted: true,
+      requiredQty: 1400,
+      pickedQty: 1400,
+    },
+    {
+      productionOrderId: 'PO-202603-0015',
+      factoryId: 'FACTORY-CENTRAL-NOT-ACCEPTED',
+      factoryName: '泗水中央裁床厂（备选）',
+      factoryTypeLabel: '中央工厂',
+      accepted: false,
+      requiredQty: 800,
+      pickedQty: 0,
+    },
+  )
   return facts
+}
+
+const DEMO_PRINTING_STATUSES: Array<{ productionOrderIds: string[]; status: string }> = [
+  { productionOrderIds: ['PO-202603-088'], status: 'PRINTING' },
+  { productionOrderIds: ['PO-202603-0015'], status: 'PRINT_DONE' },
+]
+
+const DEMO_DYEING_STATUSES: Array<{ productionOrderIds: string[]; status: string }> = [
+  { productionOrderIds: ['PO-202603-088'], status: 'DYEING' },
+  { productionOrderIds: ['PO-202603-0015'], status: 'DONE' },
+]
+
+const DEMO_CUTTING_PROGRESS: Record<string, Pick<CuttingProgressOverviewSource, 'markerStatus' | 'spreadingStatus' | 'cuttingStatus' | 'inboundStatus' | 'shippingStatus'>> = {
+  'PO-202603-088': {
+    markerStatus: '未排唛架',
+    spreadingStatus: '未开始铺布',
+    cuttingStatus: '未裁剪',
+    inboundStatus: '未入仓',
+    shippingStatus: '未发货',
+  },
+  'PO-202603-0002': {
+    markerStatus: '唛架完成',
+    spreadingStatus: '铺布中',
+    cuttingStatus: '未裁剪',
+    inboundStatus: '未入仓',
+    shippingStatus: '未发货',
+  },
+  'PO-202603-0008': {
+    markerStatus: '唛架完成',
+    spreadingStatus: '铺布完成',
+    cuttingStatus: '裁剪完成',
+    inboundStatus: '待交出',
+    shippingStatus: '未发货',
+  },
+  'PO-202603-086': {
+    markerStatus: '唛架完成',
+    spreadingStatus: '铺布完成',
+    cuttingStatus: '裁剪完成',
+    inboundStatus: '已入仓',
+    shippingStatus: '发货完成',
+  },
 }
 
 export function buildDefaultProductionOrderOverviewSources(): ProductionOrderOverviewSources {
@@ -142,14 +204,20 @@ export function buildDefaultProductionOrderOverviewSources(): ProductionOrderOve
   return {
     productionOrders,
     productionDemands,
-    printingOrders: listPrintWorkOrders().map((order) => ({
+    printingOrders: [
+      ...listPrintWorkOrders().map((order) => ({
       productionOrderIds: order.productionOrderIds,
       status: order.status,
-    })),
-    dyeingOrders: listDyeWorkOrders().map((order) => ({
+      })),
+      ...DEMO_PRINTING_STATUSES,
+    ],
+    dyeingOrders: [
+      ...listDyeWorkOrders().map((order) => ({
       productionOrderIds: order.productionOrderIds,
       status: order.status,
-    })),
+      })),
+      ...DEMO_DYEING_STATUSES,
+    ],
     materialPrepRows: listMaterialPrepOrderProjections().map((projection) => ({
       productionOrderId: projection.order.productionOrderId,
       totalRequiredQty: projection.totalRequiredQty,
@@ -158,11 +226,13 @@ export function buildDefaultProductionOrderOverviewSources(): ProductionOrderOve
     cuttingProgressRows: progressRows.map((row) => ({
       productionOrderId: row.productionOrderId,
       detailRecordId: row.id,
-      markerStatus: row.hasSpreadingRecord ? '已完成' : '未开始',
-      spreadingStatus: row.hasSpreadingRecord ? '已完成' : '未开始',
-      cuttingStatus: row.cuttingCompletionSummary.label || '—',
-      inboundStatus: row.hasInboundRecord ? '已入仓' : '未入仓',
-      shippingStatus: row.pieceCompletionSummary.label === '已完成' ? '发货完成' : '未发货',
+      ...(DEMO_CUTTING_PROGRESS[row.productionOrderId] ?? {
+        markerStatus: row.hasSpreadingRecord ? '唛架完成' : '未排唛架',
+        spreadingStatus: row.hasSpreadingRecord ? '铺布完成' : '未开始铺布',
+        cuttingStatus: row.hasInboundRecord || row.cuttingCompletionSummary.label === '已完成' ? '裁剪完成' : '未裁剪',
+        inboundStatus: row.hasInboundRecord ? '已入仓' : '未入仓',
+        shippingStatus: row.pieceCompletionSummary.label === '已完成' ? '发货完成' : '未发货',
+      }),
       receiverFactoryNames: row.assignedFactoryName ? [row.assignedFactoryName] : [],
     })),
     factoryFacts: buildDefaultFactoryFacts(),
@@ -191,14 +261,14 @@ function buildRow(
 ): ProductionOrderOverviewRow {
   const demandIds = new Set([order.demandId, ...(order.sourceDemandIds ?? [])])
   const demand = sources.productionDemands.find((item) => demandIds.has(item.demandId))
-  const printRequired = Boolean(order.techPackSnapshot?.processEntries.some((entry) => entry.processCode === 'PRINT'))
-  const dyeRequired = Boolean(order.techPackSnapshot?.processEntries.some((entry) => entry.processCode === 'DYE'))
   const printingStatuses = sources.printingOrders
     .filter((item) => item.productionOrderIds.includes(order.productionOrderId))
     .map((item) => item.status)
   const dyeingStatuses = sources.dyeingOrders
     .filter((item) => item.productionOrderIds?.includes(order.productionOrderId))
     .map((item) => item.status)
+  const printRequired = Boolean(order.techPackSnapshot?.processEntries.some((entry) => entry.processCode === 'PRINT')) || printingStatuses.length > 0
+  const dyeRequired = Boolean(order.techPackSnapshot?.processEntries.some((entry) => entry.processCode === 'DYE')) || dyeingStatuses.length > 0
   const prep = sources.materialPrepRows.find((item) => item.productionOrderId === order.productionOrderId)
   const cutting = sources.cuttingProgressRows.find((item) => item.productionOrderId === order.productionOrderId)
   const factoryLines = buildFactoryLines(

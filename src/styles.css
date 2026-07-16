@@ -117,11 +117,25 @@
   overflow: visible;
 }
 
+/* 生产单总览筛选层必须高于表格的 sticky 表头，避免下拉选项被盖住。 */
+[data-cutting-filter-shell='true'].production-order-overview-filter-shell {
+  z-index: 60;
+}
+
 [data-cutting-filter-shell='true'] .cutting-filter-single-line {
   max-height: none;
   overflow-x: auto;
   overflow-y: visible;
   padding-bottom: 0.25rem;
+}
+
+/* 生产单总览的下拉菜单需要越过单行横向滚动容器显示，避免打开后被裁掉。 */
+[data-cutting-filter-shell='true'].production-order-overview-filter-shell .cutting-filter-single-line {
+  overflow: visible;
+}
+
+[data-cutting-filter-shell='true'].production-order-overview-filter-shell details > div {
+  z-index: 70;
 }
 
 [data-cutting-filter-shell='true'] .cutting-filter-single-line > .space-y-3,
