@@ -25,6 +25,22 @@ import {
   listThirdPartyFactoryRatingSnapshots,
 } from '../src/data/fcs/third-party-factory-rating.ts'
 
+function readRequiredSource(url: URL, message: string): string {
+  try {
+    return readFileSync(url, 'utf8')
+  } catch (error) {
+    assert.fail(`${message}: ${(error as Error).message}`)
+  }
+}
+
+function sliceRequiredSource(source: string, startMarker: string, endMarker: string, message: string): string {
+  const startIndex = source.indexOf(startMarker)
+  assert.ok(startIndex >= 0, `${message}: 缺少起始片段 ${startMarker}`)
+  const endIndex = source.indexOf(endMarker, startIndex + startMarker.length)
+  assert.ok(endIndex > startIndex, `${message}: 缺少结束片段 ${endMarker}`)
+  return source.slice(startIndex, endIndex)
+}
+
 const snapshots = listThirdPartyFactoryRatingSnapshots()
 const thirdPartySewingFactories = listFactoryMasterRecords().filter(
   (factory) =>
@@ -119,11 +135,17 @@ for (const blockedSnapshot of blockedSnapshots) {
   assert.ok(blockedStatementResult.message?.includes('已拉黑'), `${blockedSnapshot.factoryId} 直接建单应返回结算拦截提示`)
 }
 
-const source = readFileSync(new URL('../src/data/fcs/third-party-factory-rating.ts', import.meta.url), 'utf8')
+const source = readRequiredSource(
+  new URL('../src/data/fcs/third-party-factory-rating.ts', import.meta.url),
+  '缺少三方工厂评级数据源文件',
+)
 assert.ok(source.includes('近 90 天仅用于生产时效查看'), '缺少 90 天非考核期说明')
 assert.ok(!source.includes('TRIAL') && !source.includes('BLACKLISTED'), '页面数据不应直接暴露英文状态码')
 
-const ratingPageSource = readFileSync(new URL('../src/pages/third-party-factory-rating.ts', import.meta.url), 'utf8')
+const ratingPageSource = readRequiredSource(
+  new URL('../src/pages/third-party-factory-rating.ts', import.meta.url),
+  '缺少三方工厂评级页文件',
+)
 assert.ok(ratingPageSource.includes('@page-pattern: list'), '三方工厂评级页必须声明标准列表页模式')
 assert.ok(ratingPageSource.includes('renderStandardListPage'), '三方工厂评级页必须使用标准列表页外壳')
 assert.ok(ratingPageSource.includes('renderStandardListTable'), '三方工厂评级页必须使用标准列表表格')
@@ -137,34 +159,57 @@ const statsIndex = ratingPageSource.indexOf('data-third-party-rating-stats')
 assert.ok(filterIndex >= 0, '三方工厂评级页缺少筛选区标记')
 assert.ok(statsIndex > filterIndex, '联动统计卡片必须位于筛选区下方')
 
-const factoryProfileSource = readFileSync(new URL('../src/pages/factory-profile.ts', import.meta.url), 'utf8')
+const factoryProfileSource = readRequiredSource(
+  new URL('../src/pages/factory-profile.ts', import.meta.url),
+  '缺少工厂档案页文件',
+)
 assert.ok(!factoryProfileSource.includes('renderFactoryRatingPanel'), '工厂档案不应再渲染完整评级面板')
 assert.ok(!factoryProfileSource.includes('评级与派单风控'), '工厂档案不应再展示评级与派单风控大卡片')
 assert.ok(!factoryProfileSource.includes('listThirdPartyFactoryPerformanceRecords'), '工厂档案不应再读取评级履约记录')
 
-const sewingDispatchSource = readFileSync(new URL('../src/pages/sewing-dispatch-workbench.ts', import.meta.url), 'utf8')
-assert.ok(sewingDispatchSource.includes('getThirdPartyFactoryRatingSnapshot'), '车缝分配工作台未读取评级快照')
-assert.ok(sewingDispatchSource.includes('该工厂为黄牌工厂，建议只分配小单、简单单'), '车缝分配缺少 B 级黄牌提醒')
-assert.ok(
-  sewingDispatchSource.includes('确认派单') && sewingDispatchSource.includes('confirm-dispatch'),
-  '车缝分配工作台缺少黄牌提醒后的确认派单动作入口',
+const sewingDispatchSource = readRequiredSource(
+  new URL('../src/pages/sewing-dispatch-workbench.ts', import.meta.url),
+  '缺少车缝分配工作台文件',
 )
+const dispatchFactoryOptionSource = sliceRequiredSource(
+  sewingDispatchSource,
+  'function renderDispatchFactoryOption',
+  'function getCutPieceReleaseBadgeClass',
+  '车缝分配工厂选项片段缺失',
+)
+const directDispatchDialogSource = sliceRequiredSource(
+  sewingDispatchSource,
+  'function renderDirectDispatchDialog',
+  'function renderBiddingDialog',
+  '直接派单弹窗片段缺失',
+)
+assert.ok(dispatchFactoryOptionSource.includes('getThirdPartyFactoryRatingSnapshot'), '车缝分配工厂选项未读取评级快照')
+assert.ok(dispatchFactoryOptionSource.includes('dispatchPolicyLabel'), '车缝分配工厂选项未展示评级派单策略')
+assert.ok(directDispatchDialogSource.includes('renderDispatchFactoryOption'), '直接派单弹窗未渲染带评级策略的工厂选项')
+assert.ok(
+  directDispatchDialogSource.includes('确认派单') && directDispatchDialogSource.includes('confirm-dispatch'),
+  '直接派单弹窗缺少黄牌提醒后的确认派单动作入口',
+)
+assert.ok(sewingDispatchSource.includes('该工厂为黄牌工厂，建议只分配小单、简单单'), '车缝分配缺少 B 级黄牌提醒')
 assert.ok(sewingDispatchSource.includes('该工厂已拉黑，不能派单。请更换工厂。'), '车缝分配缺少黑名单派单拦截')
 assert.ok(sewingDispatchSource.includes('该工厂还在试用期，只能接试产单。'), '车缝分配缺少考核中拦截')
 
-const statementsSource = readFileSync(new URL('../src/pages/statements.ts', import.meta.url), 'utf8')
+const statementsSource = readRequiredSource(new URL('../src/pages/statements.ts', import.meta.url), '缺少对账单页面文件')
 assert.ok(statementsSource.includes('isThirdPartyFactorySettlementBlocked'), '对账单页面未判断黑名单结算拦截')
 assert.ok(statementsSource.includes('该工厂已拉黑，不能发起结算。请主管处理历史账款。'), '对账单页面缺少黑名单结算提示')
 assert.ok(statementsSource.includes('blacklistSettlementBlocked'), '对账单页面缺少黑名单结算阻断变量')
 
-const routeRendererSource = readFileSync(new URL('../src/router/route-renderers-fcs.ts', import.meta.url), 'utf8')
+const routeRendererSource = readRequiredSource(
+  new URL('../src/router/route-renderers-fcs.ts', import.meta.url),
+  '缺少 FCS 路由 renderer 文件',
+)
 assert.ok(routeRendererSource.includes('renderThirdPartyFactoryRatingPage'), '缺少三方工厂评级页 renderer')
 
-const routesSource = readFileSync(new URL('../src/router/routes-fcs.ts', import.meta.url), 'utf8')
+const routesSource = readRequiredSource(new URL('../src/router/routes-fcs.ts', import.meta.url), '缺少 FCS 路由文件')
 assert.ok(routesSource.includes("'/fcs/factories/third-party-rating'"), '缺少三方工厂评级路由')
 assert.ok(routesSource.includes('renderThirdPartyFactoryRatingPage'), '三方工厂评级路由未绑定页面 renderer')
 
-const appShellSource = readFileSync(new URL('../src/data/app-shell-config.ts', import.meta.url), 'utf8')
+const appShellSource = readRequiredSource(new URL('../src/data/app-shell-config.ts', import.meta.url), '缺少应用菜单配置文件')
 const profileMenuIndex = appShellSource.indexOf("key: 'factories-profile'")
 const ratingMenuIndex = appShellSource.indexOf("key: 'factories-third-party-rating'")
 const capacityMenuIndex = appShellSource.indexOf("key: 'factories-capacity-profile'")
