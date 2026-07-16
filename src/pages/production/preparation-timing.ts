@@ -130,6 +130,11 @@ const ledgerListState: LedgerListState = {
   params: new URLSearchParams(),
 }
 
+function resetLedgerTransientState(): void {
+  ledgerListState.page = 1
+  ledgerListState.sort = null
+}
+
 const PREPARATION_ACTION_LABELS: Record<PreparationItemType, string> = {
   梭织基码纸样: '上传梭织基码纸样',
   毛织基码纸样: '上传毛织基码纸样',
@@ -1030,6 +1035,7 @@ function renderLedgerColumnSettings(): string {
 
 function renderLedgerTab(params: URLSearchParams, month: string): string {
   ensureLedgerPreferences()
+  resetLedgerTransientState()
   const filter = parseFilter(params)
   const runtime = loadPreparationRuntimeState()
   const recordsWithRuntime = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
@@ -1050,8 +1056,6 @@ function renderLedgerTab(params: URLSearchParams, month: string): string {
     ? detailRecord.items.find((item) => item.itemId === activeItemId) ?? null
     : null
   const action = valueOf(params, 'action')
-  const requestedPage = Number.parseInt(valueOf(params, 'page'), 10)
-  ledgerListState.page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1
   ledgerListState.records = records
   ledgerListState.month = month
   ledgerListState.params = new URLSearchParams(params)
@@ -2494,13 +2498,6 @@ function refreshLedgerColumnSettings(): void {
   setLedgerRegion('column-settings', renderLedgerColumnSettings())
 }
 
-function persistLedgerPageInUrl(): void {
-  ledgerListState.params.set('page', String(ledgerListState.page))
-  if (typeof window === 'undefined') return
-  const href = buildLedgerHrefFromParams(ledgerListState.params, ledgerListState.month)
-  window.history.replaceState(window.history.state, '', href)
-}
-
 function ledgerColumnWidth(column: StandardListColumn<ProductionPreparationRecord>): number {
   return Math.max(column.width, column.minWidth ?? 0)
 }
@@ -2575,7 +2572,6 @@ function handleLedgerListEvent(target: HTMLElement, event?: Event): boolean {
       )
       ledgerListState.page = 1
       saveLedgerPreferences()
-      persistLedgerPageInUrl()
       refreshLedgerTableAndPagination()
     }
     return true
@@ -2588,7 +2584,6 @@ function handleLedgerListEvent(target: HTMLElement, event?: Event): boolean {
   if (action === 'prev-page' || action === 'next-page') {
     ledgerListState.page += action === 'prev-page' ? -1 : 1
     const paging = getLedgerListView()
-    persistLedgerPageInUrl()
     setLedgerRegion('table', renderLedgerStandardTable(paging))
     setLedgerRegion('pagination', renderLedgerStandardPagination(paging))
     return true
@@ -2604,7 +2599,6 @@ function handleLedgerListEvent(target: HTMLElement, event?: Event): boolean {
         ? { key: columnKey, direction: 'desc' }
         : null
     ledgerListState.page = 1
-    persistLedgerPageInUrl()
     refreshLedgerTableAndPagination()
     return true
   }
@@ -2668,7 +2662,6 @@ function handleLedgerListEvent(target: HTMLElement, event?: Event): boolean {
     ledgerListState.sort = null
     const storage = getLedgerStorage()
     if (storage) clearListColumnPreferences(storage, ledgerStorageKey)
-    persistLedgerPageInUrl()
     refreshLedgerTableAndPagination()
     refreshLedgerColumnSettings()
     return true

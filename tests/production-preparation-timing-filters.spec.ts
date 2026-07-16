@@ -69,6 +69,32 @@ function expectStatsWhitelist(urlValue: string): void {
   }
 }
 
+function ledgerSortButton(page: Page): Locator {
+  return page.locator('th[data-column-key="product"]').getByRole('button')
+}
+
+async function expectLedgerDefaults(page: Page): Promise<void> {
+  await expect(page.getByText('PREP-202603-001', { exact: false })).toBeVisible()
+  await expect(page.getByText('PREP-202603-006', { exact: false })).toHaveCount(0)
+  await expect(page.locator('th[data-column-key="product"]')).toHaveAttribute('aria-sort', 'none')
+  await expect(page.locator('[data-production-preparation-ledger-action="prev-page"]')).toBeDisabled()
+}
+
+async function navigateBySpaTab(page: Page, href: string, key: string): Promise<void> {
+  await page.locator('[data-playwright-spa-nav]').evaluateAll((nodes) => nodes.forEach((node) => node.remove()))
+  await page.locator('#app').evaluate((root, input) => {
+    const button = document.createElement('button')
+    button.dataset.playwrightSpaNav = ''
+    button.dataset.action = 'open-tab'
+    button.dataset.tabKey = input.key
+    button.dataset.tabTitle = input.key
+    button.dataset.tabHref = input.href
+    root.appendChild(button)
+  }, { href, key })
+  await page.locator('[data-playwright-spa-nav]').evaluate((button) => (button as HTMLButtonElement).click())
+  await expect(page).toHaveURL(new RegExp(href.replaceAll('/', '\\/')))
+}
+
 test('台账提交保留两个跟单重复参数并重置页码', async ({ page }) => {
   await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03&page=2`)
   await waitForStableFilterScope(page, '[data-prep-filter-scope]')
@@ -189,7 +215,7 @@ test('准备台账标准列表局部分页、三态排序和列偏好可用', as
     }, 500)
   }))
   expect(responseMs).toBeLessThan(200)
-  await expect.poll(() => new URL(page.url()).searchParams.get('page')).toBe('2')
+  await expect.poll(() => new URL(page.url()).searchParams.has('page')).toBe(false)
   await expect(page.getByText('PREP-202603-006', { exact: false })).toBeVisible()
   expect(await page.evaluate(() =>
     (window as Window & { __prepLedgerRoot?: Element }).__prepLedgerRoot === document.querySelector('[data-standard-list-page]'),
@@ -235,6 +261,53 @@ test('准备台账标准列表局部分页、三态排序和列偏好可用', as
   await expect.poll(() => page.locator('thead th[data-column-key]').evaluateAll((headers) =>
     headers.slice(0, 3).map((header) => header.getAttribute('data-column-key')),
   )).toEqual(['product', 'timing', 'people'])
+})
+
+test('准备台账停在第二页刷新后回到第一页', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await page.locator('[data-production-preparation-ledger-action="next-page"]').click()
+  await expect(page.getByText('PREP-202603-006', { exact: false })).toBeVisible()
+
+  await page.reload()
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  await expectLedgerDefaults(page)
+})
+
+test('准备台账保持排序刷新后回到未排序', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await ledgerSortButton(page).click()
+  await expect(page.locator('th[data-column-key="product"]')).toHaveAttribute('aria-sort', 'ascending')
+
+  await page.reload()
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  await expectLedgerDefaults(page)
+})
+
+test('准备台账 SPA 离开再进入后回到第一页且未排序', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await page.locator('[data-production-preparation-ledger-action="next-page"]').click()
+  await ledgerSortButton(page).click()
+  await expect(page.getByText('PREP-202603-006', { exact: false })).toBeVisible()
+  await expect(page.locator('th[data-column-key="product"]')).toHaveAttribute('aria-sort', 'ascending')
+
+  await navigateBySpaTab(page, statisticsRoute, 'production-preparation-timing-statistics-test')
+  await navigateBySpaTab(page, ledgerRoute, 'production-preparation-timing-test')
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  await expectLedgerDefaults(page)
+})
+
+test('准备台账筛选后回到第一页且排序重置', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await page.locator('[data-production-preparation-ledger-action="next-page"]').click()
+  await ledgerSortButton(page).click()
+  const recordStatus = filterGroup(page, 'recordStatus')
+  await checkFilterOption(recordStatus, '进行中')
+
+  await page.locator('[data-prep-filter-scope]').getByRole('button', { name: '筛选', exact: true }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.getAll('recordStatus')).toEqual(['进行中'])
+  expect(new URL(page.url()).searchParams.get('page')).toBe('1')
+  await expect(page.locator('th[data-column-key="product"]')).toHaveAttribute('aria-sort', 'none')
+  await expect(page.locator('[data-production-preparation-ledger-action="prev-page"]')).toBeDisabled()
 })
 
 test('月度统计支持准备项团队联动且不展示准备项进度', async ({ page }) => {
