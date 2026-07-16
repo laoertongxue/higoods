@@ -30,6 +30,7 @@ export type PreparationOutputStatus = '预计生成' | '已生成'
 
 export type PreparationRecordStatus = '未开始' | '进行中' | '部分超时' | '已完成' | '已关闭'
 export type PreparationMaterialSource = '系统内物料' | '非系统内物料'
+export type PreparationItemProgress = '不满足开始条件' | '未开始' | '已完成'
 
 export type PreparationItemStatus =
   | '无需'
@@ -256,16 +257,28 @@ export interface ProductionPreparationFilter {
   month?: string
   startDate?: string
   endDate?: string
-  merchandiserName?: string
-  buyerName?: string
-  recordStatus?: PreparationRecordStatus | '全部'
-  itemType?: PreparationItemType | '全部'
-  ownerTeam?: string
-  ownerName?: string
+  merchandiserNames?: string[]
+  recordStatuses?: PreparationRecordStatus[]
+  itemTypes?: PreparationItemType[]
+  ownerTeams?: string[]
+  itemProgresses?: PreparationItemProgress[]
   patternDesigner?: string
-  overdueOnly?: boolean
   keyword?: string
   quickFilter?: '我的花型任务' | '待上传完成图' | '待买手确认'
+  /** @deprecated 页面迁移到多选参数前的兼容字段。 */
+  merchandiserName?: string
+  /** @deprecated 页面迁移到多选参数前的兼容字段。 */
+  buyerName?: string
+  /** @deprecated 使用 recordStatuses。 */
+  recordStatus?: PreparationRecordStatus | '全部'
+  /** @deprecated 使用 itemTypes。 */
+  itemType?: PreparationItemType | '全部'
+  /** @deprecated 使用 ownerTeams。 */
+  ownerTeam?: string
+  /** @deprecated 页面迁移到团队多选前的兼容字段。 */
+  ownerName?: string
+  /** @deprecated 页面迁移到准备项进度多选前的兼容字段。 */
+  overdueOnly?: boolean
 }
 
 export interface ProductionPreparationFilterOptions {
@@ -298,6 +311,20 @@ export const preparationItemTypes: PreparationItemType[] = [
   '染色调色（面料）',
   '辅料下单',
 ]
+
+export const preparationItemOwnerTeamMap: Record<PreparationItemType, string> = {
+  梭织基码纸样: '版师团队',
+  毛织基码纸样: '毛织团队',
+  版衣制作: '车板团队',
+  梭织齐码纸样: '版师团队',
+  毛织齐码纸样: '毛织团队',
+  '数码印/DTF/DTG花型': '花型团队',
+  '确认染色要求（纱线）': '跟单角色',
+  '染色调色（纱线）': '染色团队',
+  '确认染色要求（面料）': '跟单角色',
+  '染色调色（面料）': '染色团队',
+  辅料下单: '采购团队',
+}
 
 export const preparationTypeDefaultItems = {
   '非烫画&非毛织（纯梭织）': [
@@ -1394,15 +1421,54 @@ function hasPatternUploadGap(item: ProductionPreparationItem): boolean {
   )
 }
 
+export function hasValidPreparationCompletionEvidence(
+  item: Pick<
+    ProductionPreparationItem,
+    'itemType' | 'status' | 'actualFinishAt' | 'accessoryPurchaseOrderNos' | 'accessoryPurchaseUpdatedAt' | 'uploads'
+  >,
+): boolean {
+  if (item.status !== '已完成' || !item.actualFinishAt) return false
+  if (item.itemType === '辅料下单') {
+    return Boolean(
+      item.accessoryPurchaseOrderNos?.some(Boolean) &&
+        item.accessoryPurchaseUpdatedAt &&
+        item.accessoryPurchaseUpdatedAt === item.actualFinishAt,
+    )
+  }
+  return Boolean(
+    item.uploads?.some((upload) => upload.fileName && upload.uploadedBy && upload.uploadedAt),
+  )
+}
+
+export function derivePreparationItemProgress(
+  item: ProductionPreparationItem,
+  record: Pick<ProductionPreparationRecord, 'workItemsConfirmedBy' | 'workItemsConfirmedAt' | 'items'>,
+): PreparationItemProgress {
+  if (!record.workItemsConfirmedBy || !record.workItemsConfirmedAt) return '不满足开始条件'
+  const dependenciesCompleted = item.dependsOnItemIds.every((dependencyId) => {
+    const dependency = record.items.find((candidate) => candidate.itemId === dependencyId)
+    return dependency ? hasValidPreparationCompletionEvidence(dependency) : false
+  })
+  if (!dependenciesCompleted) return '不满足开始条件'
+  return hasValidPreparationCompletionEvidence(item) ? '已完成' : '未开始'
+}
+
+function selectedFilterValues<T>(values: T[] | undefined, legacyValue?: T | '全部'): T[] {
+  if (values?.length) return values
+  return legacyValue && legacyValue !== '全部' ? [legacyValue] : []
+}
+
 function matchesCompletionItemFilter(item: FlattenedPreparationItem, filter: ProductionPreparationFilter): boolean {
   const patternDesigner =
     filter.quickFilter === '我的花型任务'
       ? '林小美'
       : resolvePatternDesignerName(filter.patternDesigner)
+  const itemTypes = selectedFilterValues(filter.itemTypes, filter.itemType)
+  const ownerTeams = selectedFilterValues(filter.ownerTeams, filter.ownerTeam)
 
   if (!isSelectedPreparationItem(item) || item.recordStatus === '已关闭') return false
-  if (filter.itemType && filter.itemType !== '全部' && item.itemType !== filter.itemType) return false
-  if (filter.ownerTeam && item.ownerTeam !== filter.ownerTeam) return false
+  if (itemTypes.length && !itemTypes.includes(item.itemType)) return false
+  if (ownerTeams.length && !ownerTeams.includes(item.ownerTeam)) return false
   if (filter.ownerName && item.ownerName !== filter.ownerName) return false
   if (patternDesigner && (item.itemType !== '数码印/DTF/DTG花型' || item.patternDesignerName !== patternDesigner)) return false
   if (filter.overdueOnly && !(item.status === '已超时' || item.overdueHours > 0)) return false
@@ -1422,6 +1488,11 @@ export function filterProductionPreparationRecords(
   records: ProductionPreparationRecord[] = productionPreparationRecords,
 ): ProductionPreparationRecord[] {
   const keyword = normalize(filter.keyword)
+  const merchandiserNames = selectedFilterValues(filter.merchandiserNames, filter.merchandiserName)
+  const recordStatuses = selectedFilterValues(filter.recordStatuses, filter.recordStatus)
+  const itemTypes = selectedFilterValues(filter.itemTypes, filter.itemType)
+  const ownerTeams = selectedFilterValues(filter.ownerTeams, filter.ownerTeam)
+  const itemProgresses = filter.itemProgresses ?? []
   const patternDesigner =
     filter.quickFilter === '我的花型任务'
       ? '林小美'
@@ -1441,22 +1512,16 @@ export function filterProductionPreparationRecords(
       if (!enteredInMonth && !finishedInMonth) return false
     }
 
-    if (filter.merchandiserName && record.merchandiserName !== filter.merchandiserName) return false
+    if (merchandiserNames.length && !merchandiserNames.includes(record.merchandiserName)) return false
     if (filter.buyerName && record.buyerName !== filter.buyerName) return false
-    if (filter.recordStatus && filter.recordStatus !== '全部' && record.status !== filter.recordStatus) return false
-    if (
-      filter.itemType &&
-      filter.itemType !== '全部' &&
-      !filterableItems.some((item) => item.itemType === filter.itemType)
-    ) {
-      return false
-    }
-    if (
-      filter.ownerTeam &&
-      !filterableItems.some((item) => item.ownerTeam === filter.ownerTeam)
-    ) {
-      return false
-    }
+    if (recordStatuses.length && !recordStatuses.includes(record.status)) return false
+    const hasItemFilter = itemTypes.length > 0 || ownerTeams.length > 0 || itemProgresses.length > 0
+    if (hasItemFilter && !filterableItems.some((item) => {
+      if (itemTypes.length && !itemTypes.includes(item.itemType)) return false
+      if (ownerTeams.length && !ownerTeams.includes(item.ownerTeam)) return false
+      if (itemProgresses.length && !itemProgresses.includes(derivePreparationItemProgress(item, record))) return false
+      return true
+    })) return false
     if (
       filter.ownerName &&
       !filterableItems.some((item) => item.ownerName === filter.ownerName)
@@ -1569,14 +1634,14 @@ export function buildMonthlyPreparationCompletionDetails(
   month: string,
   filter: ProductionPreparationFilter = {},
 ): MonthlyPreparationCompletionDetail[] {
-  const { month: _ignoredMonth, ...recordFilter } = filter
+  const { month: _ignoredMonth, itemProgresses: _ignoredItemProgresses, ...recordFilter } = filter
   return flattenProductionPreparationItems(filterProductionPreparationRecords(recordFilter))
     .filter(
       (item) =>
         matchesCompletionItemFilter(item, recordFilter) &&
         item.recordStatus !== '已关闭' &&
         item.selectedByMerchandiser === true &&
-        item.status === '已完成' &&
+        hasValidPreparationCompletionEvidence(item) &&
         item.actualFinishAt.startsWith(month),
     )
     .map((item) => {

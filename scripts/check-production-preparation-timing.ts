@@ -64,7 +64,10 @@ const productionPreparationDataModule = await import('../src/data/fcs/production
   buildMonthlyPreparationStats: typeof import('../src/data/fcs/production-preparation-timing.ts').buildMonthlyPreparationStats
   filterProductionPreparationRecords: typeof import('../src/data/fcs/production-preparation-timing.ts').filterProductionPreparationRecords
   flattenProductionPreparationItems: typeof import('../src/data/fcs/production-preparation-timing.ts').flattenProductionPreparationItems
+  derivePreparationItemProgress: typeof import('../src/data/fcs/production-preparation-timing.ts').derivePreparationItemProgress
+  hasValidPreparationCompletionEvidence: typeof import('../src/data/fcs/production-preparation-timing.ts').hasValidPreparationCompletionEvidence
   externalPreparationMaterials: typeof import('../src/data/fcs/production-preparation-timing.ts').externalPreparationMaterials
+  preparationItemOwnerTeamMap: typeof import('../src/data/fcs/production-preparation-timing.ts').preparationItemOwnerTeamMap
   preparationOwnerRoleRules: Array<{ ownerTeam: string; roleLabels: string[]; actionScope: string }>
   preparationOwnerTeams: string[]
   preparationTypeDefaultItems: typeof import('../src/data/fcs/production-preparation-timing.ts').preparationTypeDefaultItems
@@ -83,6 +86,23 @@ assert.ok(preparationOwnerRoleRules.length >= 6, '责任团队角色映射必须
 for (const team of preparationOwnerTeams) {
   assert.ok(preparationOwnerRoleRules.some((rule) => rule.ownerTeam === team), `责任团队 ${team} 缺少角色映射`)
 }
+assert.deepEqual(
+  productionPreparationDataModule.preparationItemOwnerTeamMap,
+  {
+    梭织基码纸样: '版师团队',
+    毛织基码纸样: '毛织团队',
+    版衣制作: '车板团队',
+    梭织齐码纸样: '版师团队',
+    毛织齐码纸样: '毛织团队',
+    '数码印/DTF/DTG花型': '花型团队',
+    '确认染色要求（纱线）': '跟单角色',
+    '染色调色（纱线）': '染色团队',
+    '确认染色要求（面料）': '跟单角色',
+    '染色调色（面料）': '染色团队',
+    辅料下单: '采购团队',
+  },
+  '准备项责任团队固定映射必须完整且准确',
+)
 
 function materialLines(record: {
   materialRequirement?: {
@@ -228,6 +248,8 @@ const {
   buildMonthlyPreparationStats,
   filterProductionPreparationRecords,
   flattenProductionPreparationItems,
+  derivePreparationItemProgress,
+  hasValidPreparationCompletionEvidence,
   preparationTypeDefaultItems,
   productionPreparationRecords,
 } = productionPreparationDataModule
@@ -1183,6 +1205,27 @@ assert.ok(
   patternTeamOnlyDetails.every((row: { ownerTeam: string }) => row.ownerTeam === '花型团队'),
   '按责任团队筛选月度统计时，完成明细只能包含该责任团队',
 )
+const multiSelectPatternDetails = buildMonthlyPreparationCompletionDetails('2026-03', {
+  itemTypes: ['数码印/DTF/DTG花型', '梭织基码纸样'],
+  ownerTeams: ['花型团队'],
+  itemProgresses: ['不满足开始条件'],
+})
+assert.ok(multiSelectPatternDetails.length > 0, '月度明细必须支持准备项类型和责任团队多选')
+assert.ok(
+  multiSelectPatternDetails.every(
+    (row: { itemType: string; ownerTeam: string }) =>
+      row.itemType === '数码印/DTF/DTG花型' && row.ownerTeam === '花型团队',
+  ),
+  '月度明细的类型和团队多选必须在同一完成项上匹配',
+)
+assert.equal(
+  multiSelectPatternDetails.length,
+  buildMonthlyPreparationCompletionDetails('2026-03', {
+    itemTypes: ['数码印/DTF/DTG花型', '梭织基码纸样'],
+    ownerTeams: ['花型团队'],
+  }).length,
+  '月度完成明细不得读取 itemProgresses，统计只依赖实际完成事实',
+)
 const designerOnlyDetails = buildMonthlyPreparationCompletionDetails('2026-03', { patternDesigner: '冰冰' })
 assert.ok(designerOnlyDetails.length > 0, '2026-03 冰冰完成明细必须有数据')
 assert.ok(
@@ -1260,6 +1303,158 @@ assert.equal(
   filterProductionPreparationRecords({ quickFilter: '待买手确认' }, unselectedPatternFilterFixture).length,
   0,
   '待买手确认不应命中未选择花型选填项',
+)
+
+const progressFixtureSource = productionPreparationRecords.find(
+  (record: { recordNo?: string }) => record.recordNo === 'PREP-202603-002',
+)
+assert.ok(progressFixtureSource, '缺少准备项进度与多选筛选 fixture 源记录')
+const progressFixtureItems = progressFixtureSource.items.slice(0, 2).map((item, index) => ({
+  ...item,
+  itemId: `prep-progress-item-${index + 1}`,
+  recordId: 'prep-progress-record',
+  selectedByMerchandiser: true,
+  dependsOnItemIds: [],
+  status: '待开始' as const,
+  actualFinishAt: '',
+  uploads: [],
+  accessoryPurchaseOrderNos: undefined,
+  accessoryPurchaseUpdatedAt: undefined,
+}))
+const progressFixtureRecord = {
+  ...progressFixtureSource,
+  recordId: 'prep-progress-record',
+  recordNo: 'PREP-PROGRESS-RECORD',
+  merchandiserName: '跟单甲',
+  status: '进行中' as const,
+  workItemsConfirmedBy: '确认人',
+  workItemsConfirmedAt: '2026-03-01T09:00:00',
+  items: progressFixtureItems,
+}
+const ordinaryCompletedItem = {
+  ...progressFixtureItems[0],
+  itemType: '梭织基码纸样' as const,
+  ownerTeam: '版师团队',
+  status: '已完成' as const,
+  actualFinishAt: '2026-03-02T10:00:00',
+  uploads: [],
+}
+assert.equal(
+  hasValidPreparationCompletionEvidence(ordinaryCompletedItem),
+  false,
+  '普通准备项状态已完成但没有完整上传时不算有效完成',
+)
+const ordinaryValidItem = {
+  ...ordinaryCompletedItem,
+  uploads: [{
+    uploadId: 'upload-progress-valid',
+    recordId: progressFixtureRecord.recordId,
+    itemId: ordinaryCompletedItem.itemId,
+    itemType: ordinaryCompletedItem.itemType,
+    fileName: '完成凭证.pdf',
+    fileType: 'application/pdf',
+    fileSize: 1,
+    fileDataUrl: '',
+    uploadedBy: '版师甲',
+    uploadedAt: ordinaryCompletedItem.actualFinishAt,
+    note: '',
+  }],
+}
+assert.equal(hasValidPreparationCompletionEvidence(ordinaryValidItem), true, '普通准备项必须识别完整上传凭证')
+const accessoryWithoutOrderItem = {
+  ...progressFixtureItems[0],
+  itemType: '辅料下单' as const,
+  ownerTeam: '采购团队',
+  status: '已完成' as const,
+  actualFinishAt: '2026-03-02T11:00:00',
+  accessoryPurchaseOrderNos: [],
+  accessoryPurchaseUpdatedAt: '',
+}
+assert.equal(
+  hasValidPreparationCompletionEvidence(accessoryWithoutOrderItem),
+  false,
+  '辅料下单状态已完成但没有采购单号和下单时间时不算有效完成',
+)
+assert.equal(
+  hasValidPreparationCompletionEvidence({
+    ...accessoryWithoutOrderItem,
+    accessoryPurchaseOrderNos: ['FPO-PROGRESS-001'],
+    accessoryPurchaseUpdatedAt: accessoryWithoutOrderItem.actualFinishAt,
+  }),
+  true,
+  '辅料下单的最后下单时间等于实际完成时间时必须算有效完成且不依赖上传',
+)
+assert.equal(
+  derivePreparationItemProgress(progressFixtureItems[0], { ...progressFixtureRecord, workItemsConfirmedAt: '' }),
+  '不满足开始条件',
+  '未确认工作项时准备项进度必须是不满足开始条件',
+)
+const dependencyBlockedRecord = {
+  ...progressFixtureRecord,
+  items: [ordinaryCompletedItem, { ...progressFixtureItems[1], dependsOnItemIds: [ordinaryCompletedItem.itemId] }],
+}
+assert.equal(
+  derivePreparationItemProgress(dependencyBlockedRecord.items[1], dependencyBlockedRecord),
+  '不满足开始条件',
+  '依赖项缺少有效完成凭证时准备项进度必须是不满足开始条件',
+)
+assert.equal(
+  derivePreparationItemProgress(ordinaryValidItem, { ...progressFixtureRecord, items: [ordinaryValidItem] }),
+  '已完成',
+  '当前项具备有效完成凭证时准备项进度必须是已完成',
+)
+assert.equal(
+  derivePreparationItemProgress(progressFixtureItems[0], progressFixtureRecord),
+  '未开始',
+  '满足开始条件但尚无有效完成凭证时所有过程状态统一派生为未开始',
+)
+
+const multiSelectFilterFixture = [
+  {
+    ...progressFixtureRecord,
+    items: [
+      { ...progressFixtureItems[0], itemType: '梭织基码纸样' as const, ownerTeam: '版师团队' },
+      { ...progressFixtureItems[1], itemType: '版衣制作' as const, ownerTeam: '车板团队' },
+    ],
+  },
+  {
+    ...progressFixtureRecord,
+    recordId: 'prep-progress-record-b',
+    recordNo: 'PREP-PROGRESS-RECORD-B',
+    merchandiserName: '跟单乙',
+    status: '未开始' as const,
+    items: [{ ...progressFixtureItems[0], itemId: 'prep-progress-b-1', recordId: 'prep-progress-record-b', itemType: '毛织基码纸样' as const, ownerTeam: '毛织团队' }],
+  },
+]
+assert.equal(
+  filterProductionPreparationRecords(
+    { itemTypes: ['梭织基码纸样'], ownerTeams: ['车板团队'] },
+    multiSelectFilterFixture,
+  ).length,
+  0,
+  '准备项筛选必须由同一准备项同时匹配，禁止 A 项匹配类型、B 项匹配团队',
+)
+assert.deepEqual(
+  filterProductionPreparationRecords(
+    { merchandiserNames: ['跟单甲', '跟单乙'], recordStatuses: ['进行中', '未开始'] },
+    multiSelectFilterFixture,
+  ).map((record) => record.recordNo),
+  ['PREP-PROGRESS-RECORD', 'PREP-PROGRESS-RECORD-B'],
+  '同一筛选组内多个值必须按 OR 匹配',
+)
+assert.deepEqual(
+  filterProductionPreparationRecords(
+    {
+      merchandiserNames: ['跟单甲', '跟单乙'],
+      recordStatuses: ['进行中'],
+      itemTypes: ['梭织基码纸样', '毛织基码纸样'],
+      ownerTeams: ['版师团队', '毛织团队'],
+      itemProgresses: ['未开始'],
+    },
+    multiSelectFilterFixture,
+  ).map((record) => record.recordNo),
+  ['PREP-PROGRESS-RECORD'],
+  '不同筛选组之间必须按 AND 匹配，准备项三个条件必须落在同一次 some 判断内',
 )
 const printOnlyRecord = productionPreparationRecords.find(
   (record: { recordId?: string }) => record.recordId === 'prep-202603-003',
