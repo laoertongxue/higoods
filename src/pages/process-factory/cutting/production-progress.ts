@@ -2840,6 +2840,9 @@ function renderProductionProgressDetailPanel(row: ProductionProgressRow): string
 }
 
 export function renderCraftCuttingProductionProgressPage(): string {
+  if (appStore.getState().pathname.startsWith('/fcs/craft/cutting/production-order-progress')) {
+    return renderLegacyCuttingProductionProgressPage()
+  }
   const pathname = appStore.getState().pathname
   const meta = getCanonicalCuttingMeta(pathname, 'production-progress')
   const rows = buildProductionOrderOverviewRows()
@@ -2851,6 +2854,68 @@ export function renderCraftCuttingProductionProgressPage(): string {
       })}
 
       ${renderProductionOrderOverview(rows, productionOrderOverviewState)}
+    </div>
+  `
+}
+
+/** 原裁床总览中的“生产单进度”页面，保留原有筛选、统计和进度明细能力。 */
+function renderLegacyCuttingProductionProgressPage(): string {
+  syncDrillContextFromPath()
+  const rows = getDisplayRows()
+
+  return `
+    <div class="space-y-3 p-4">
+      <header class="rounded-xl border bg-card p-4">
+        <p class="text-sm text-muted-foreground">裁床总览</p>
+        <h1 class="text-2xl font-semibold text-foreground">生产单进度</h1>
+        <p class="mt-1 text-sm text-muted-foreground">查看生产单在裁床主链路中的推进情况。</p>
+      </header>
+      ${renderStickyFilterShell(`
+        <div class="space-y-3">
+          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-12">
+            <label class="space-y-2 md:col-span-2 xl:col-span-3">
+              <span class="text-sm font-medium text-foreground">关键词</span>
+              <input type="text" value="${escapeHtml(state.filters.keyword)}" placeholder="支持生产单号 / 款号 / SPU" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-cutting-progress-field="keyword" />
+            </label>
+            <label class="space-y-2 xl:col-span-2">
+              <span class="text-sm font-medium text-foreground">生产单号</span>
+              <input type="text" value="${escapeHtml(state.filters.productionOrderNo)}" placeholder="PO-..." class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-cutting-progress-field="production-order" />
+            </label>
+            ${renderFilterSelect('裁床主状态', 'stage', state.filters.currentStage, [
+              { value: 'ALL', label: '全部' },
+              { value: 'NOT_STARTED', label: '未开工' },
+              { value: 'STARTED', label: '已开工' },
+            ])}
+            ${renderFilterSelect('完成状态', 'completion', state.filters.completionState, [
+              { value: 'ALL', label: '全部' },
+              { value: 'IN_PROGRESS', label: '进行中' },
+              { value: 'COMPLETED', label: '已完成' },
+              { value: 'DATA_PENDING', label: '数据待补' },
+              { value: 'HAS_EXCEPTION', label: '有异常' },
+            ])}
+            ${renderFilterSelect('时间点', 'time-category', state.filters.timeCategory, [
+              { value: 'ALL', label: '全部时间点' },
+              { value: 'DEMAND_CREATED', label: '需求单创建' },
+              { value: 'PRODUCTION_ORDER_CREATED', label: '生产单生成' },
+              { value: 'CUTTING_TASK_ASSIGNED', label: '裁片任务分配' },
+              { value: 'CUTTING_TASK_ACCEPTED', label: '接单时间' },
+              { value: 'MARKER_PLAN_CREATED', label: '拍唛架' },
+              { value: 'SPREADING_STARTED', label: '铺布' },
+              { value: 'COMPLETED', label: '完结' },
+            ])}
+            <label class="space-y-2 xl:col-span-2"><span class="text-sm font-medium text-foreground">开始日期</span><input type="date" value="${escapeHtml(state.filters.timeRangeFrom)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-progress-field="time-from" /></label>
+            <label class="space-y-2 xl:col-span-2"><span class="text-sm font-medium text-foreground">结束日期</span><input type="date" value="${escapeHtml(state.filters.timeRangeTo)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-progress-field="time-to" /></label>
+            ${renderFilterSelect('排序', 'sort', state.filters.sortBy, [
+              { value: 'URGENCY_THEN_SHIP', label: '默认：紧急程度 + 发货时间' },
+              { value: 'SHIP_DATE_ASC', label: '计划发货日期升序' },
+              { value: 'ORDER_QTY_DESC', label: '本单成衣件数降序' },
+            ])}
+          </div>
+        </div>
+      `)}
+      ${renderStatsCards(rows)}
+      ${renderActiveStateBar()}
+      ${renderMainTable(rows)}
     </div>
   `
 }
