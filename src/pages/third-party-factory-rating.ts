@@ -1,0 +1,551 @@
+// @page-pattern: list
+
+import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
+import { renderStandardListTable, type StandardListColumn } from '../components/ui/list-table.ts'
+import {
+  normalizeListColumnPreferences,
+  paginateStandardListRows,
+  sortStandardListRows,
+  type StandardListColumnPreferences,
+  type StandardListSortDirection,
+  type StandardListSortState,
+} from '../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../components/ui/pagination.ts'
+import {
+  getThirdPartyFactoryTimingSummary,
+  listThirdPartyFactoryPerformanceRecords,
+  listThirdPartyFactoryRatingSnapshots,
+  type FactoryRatingPerformanceRecord,
+  type FactoryRatingSnapshot,
+} from '../data/fcs/third-party-factory-rating.ts'
+import { escapeHtml } from '../utils.ts'
+
+const PAGE_PATH = '/fcs/factories/third-party-rating'
+const EVENT_PREFIX = 'third-party-rating'
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
+
+type DispatchFilter = 'ALL' | 'ALLOW' | 'LIMITED' | 'BLOCKED'
+type SettlementFilter = 'ALL' | 'ALLOW' | 'BLOCKED'
+
+interface RatingQuery {
+  keyword: string
+  grade: string
+  cooperationStatus: string
+  scale: string
+  dispatch: DispatchFilter
+  settlement: SettlementFilter
+  page: number
+  pageSize: number
+  viewFactoryId: string
+  sortKey: string
+  sortDirection: StandardListSortDirection | ''
+}
+
+interface RatingRow extends FactoryRatingSnapshot {
+  displayFactoryName: string
+  displayFactoryCode: string
+}
+
+const columnRules = [
+  { key: 'factory', required: true, freezeable: true },
+  { key: 'grade', required: true },
+  { key: 'score' },
+  { key: 'cooperation', required: true },
+  { key: 'scale' },
+  { key: 'dispatch' },
+  { key: 'settlement' },
+  { key: 'reason' },
+  { key: 'actions', required: true, actionColumn: true },
+]
+
+const defaultColumnPreferences: StandardListColumnPreferences = normalizeListColumnPreferences(
+  columnRules,
+  {
+    order: columnRules.map((column) => column.key),
+    visibleKeys: columnRules.map((column) => column.key),
+    frozenKeys: [],
+    pageSize: 10,
+  },
+  PAGE_SIZE_OPTIONS,
+)
+
+function readQuery(): RatingQuery {
+  const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search)
+  const pageSize = Number(params.get('pageSize') ?? '10')
+  const sortDirection = params.get('sortDirection')
+
+  return {
+    keyword: params.get('keyword')?.trim() ?? '',
+    grade: params.get('grade') ?? 'ALL',
+    cooperationStatus: params.get('cooperationStatus') ?? 'ALL',
+    scale: params.get('scale') ?? 'ALL',
+    dispatch: normalizeDispatchFilter(params.get('dispatch')),
+    settlement: normalizeSettlementFilter(params.get('settlement')),
+    page: Math.max(1, Number(params.get('page') ?? '1') || 1),
+    pageSize: PAGE_SIZE_OPTIONS.includes(pageSize) ? pageSize : 10,
+    viewFactoryId: params.get('viewFactoryId') ?? '',
+    sortKey: params.get('sortKey') ?? '',
+    sortDirection: sortDirection === 'asc' || sortDirection === 'desc' ? sortDirection : '',
+  }
+}
+
+function normalizeDispatchFilter(value: string | null): DispatchFilter {
+  if (value === 'ALLOW' || value === 'LIMITED' || value === 'BLOCKED') return value
+  return 'ALL'
+}
+
+function normalizeSettlementFilter(value: string | null): SettlementFilter {
+  if (value === 'ALLOW' || value === 'BLOCKED') return value
+  return 'ALL'
+}
+
+function getSortState(query: RatingQuery): StandardListSortState | null {
+  if (!query.sortKey || !query.sortDirection) return null
+  return { key: query.sortKey, direction: query.sortDirection }
+}
+
+function buildHref(query: RatingQuery, patch: Partial<RatingQuery>): string {
+  const next: RatingQuery = { ...query, ...patch }
+  const params = new URLSearchParams()
+  if (next.keyword) params.set('keyword', next.keyword)
+  if (next.grade !== 'ALL') params.set('grade', next.grade)
+  if (next.cooperationStatus !== 'ALL') params.set('cooperationStatus', next.cooperationStatus)
+  if (next.scale !== 'ALL') params.set('scale', next.scale)
+  if (next.dispatch !== 'ALL') params.set('dispatch', next.dispatch)
+  if (next.settlement !== 'ALL') params.set('settlement', next.settlement)
+  if (next.page > 1) params.set('page', String(next.page))
+  if (next.pageSize !== 10) params.set('pageSize', String(next.pageSize))
+  if (next.viewFactoryId) params.set('viewFactoryId', next.viewFactoryId)
+  if (next.sortKey && next.sortDirection) {
+    params.set('sortKey', next.sortKey)
+    params.set('sortDirection', next.sortDirection)
+  }
+  const search = params.toString()
+  return search ? `${PAGE_PATH}?${search}` : PAGE_PATH
+}
+
+function getRatingRows(): RatingRow[] {
+  return listThirdPartyFactoryRatingSnapshots().map((snapshot) => ({
+    ...snapshot,
+    displayFactoryName: snapshot.factoryName,
+    displayFactoryCode: snapshot.factoryCode,
+  }))
+}
+
+function isDispatchMatch(snapshot: FactoryRatingSnapshot, filter: DispatchFilter): boolean {
+  if (filter === 'ALL') return true
+  if (filter === 'BLOCKED') return snapshot.cooperationStatusLabel === '黑名单'
+  if (filter === 'LIMITED') return snapshot.cooperationStatusLabel === '考核中' || snapshot.currentGrade === 'B'
+  return snapshot.cooperationStatusLabel === '正常合作' && snapshot.currentGrade !== 'B'
+}
+
+function isSettlementMatch(snapshot: FactoryRatingSnapshot, filter: SettlementFilter): boolean {
+  if (filter === 'ALL') return true
+  if (filter === 'BLOCKED') return snapshot.settlementBlocked
+  return !snapshot.settlementBlocked
+}
+
+function filterSnapshots(rows: RatingRow[], query: RatingQuery): RatingRow[] {
+  const keyword = query.keyword.toLowerCase()
+
+  return rows.filter((snapshot) => {
+    const keywordMatched =
+      !keyword ||
+      snapshot.displayFactoryName.toLowerCase().includes(keyword) ||
+      snapshot.factoryName.toLowerCase().includes(keyword) ||
+      snapshot.displayFactoryCode.toLowerCase().includes(keyword) ||
+      snapshot.factoryCode.toLowerCase().includes(keyword) ||
+      snapshot.factoryId.toLowerCase().includes(keyword)
+
+    return (
+      keywordMatched &&
+      (query.grade === 'ALL' || snapshot.currentGrade === query.grade) &&
+      (query.cooperationStatus === 'ALL' || snapshot.cooperationStatusLabel === query.cooperationStatus) &&
+      (query.scale === 'ALL' || snapshot.scaleLabel === query.scale) &&
+      isDispatchMatch(snapshot, query.dispatch) &&
+      isSettlementMatch(snapshot, query.settlement)
+    )
+  })
+}
+
+function renderSelect(name: string, value: string, options: Array<[string, string]>): string {
+  return `
+    <select name="${escapeHtml(name)}" class="h-9 rounded-md border bg-background px-3 text-sm">
+      ${options.map(([optionValue, label]) => `
+        <option value="${escapeHtml(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(label)}</option>
+      `).join('')}
+    </select>
+  `
+}
+
+function renderFilters(query: RatingQuery): string {
+  return `
+    <form action="${PAGE_PATH}" method="get" class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-6" data-third-party-rating-filters>
+      <input type="hidden" name="page" value="1">
+      <input type="hidden" name="pageSize" value="${escapeHtml(query.pageSize)}">
+      <input name="keyword" value="${escapeHtml(query.keyword)}" class="h-9 rounded-md border bg-background px-3 text-sm md:col-span-2" placeholder="工厂名称 / 编码" />
+      ${renderSelect('grade', query.grade, [['ALL', '全部评级'], ['S', 'S 级'], ['A', 'A 级'], ['B', 'B 级'], ['C', 'C 级']])}
+      ${renderSelect('cooperationStatus', query.cooperationStatus, [['ALL', '全部合作状态'], ['正常合作', '正常合作'], ['考核中', '考核中'], ['黑名单', '黑名单']])}
+      ${renderSelect('scale', query.scale, [['ALL', '全部规模'], ['大型工厂', '大型工厂'], ['小型工厂', '小型工厂']])}
+      ${renderSelect('dispatch', query.dispatch, [['ALL', '全部派单'], ['ALLOW', '允许派单'], ['LIMITED', '限制派单'], ['BLOCKED', '禁止派单']])}
+      ${renderSelect('settlement', query.settlement, [['ALL', '全部结算'], ['ALLOW', '允许结算'], ['BLOCKED', '禁止新结算']])}
+      <div class="flex flex-wrap gap-2 md:col-span-6">
+        <button type="submit" class="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">筛选</button>
+        <button type="button" class="h-9 rounded-md border px-4 text-sm hover:bg-muted" data-nav="${PAGE_PATH}">重置</button>
+      </div>
+    </form>
+  `
+}
+
+function renderLinkedStats(rows: RatingRow[]): string {
+  const countBy = (predicate: (row: RatingRow) => boolean) => rows.filter(predicate).length
+  return `
+    <section class="space-y-2" data-third-party-rating-stats>
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="text-sm font-medium text-muted-foreground">联动统计</h2>
+        <span class="text-xs text-muted-foreground">随当前筛选结果实时计算</span>
+      </div>
+      ${renderStandardListStats([
+        { label: '当前结果总数', value: rows.length },
+        { label: '正常合作', value: countBy((row) => row.cooperationStatusLabel === '正常合作') },
+        { label: '考核中', value: countBy((row) => row.cooperationStatusLabel === '考核中') },
+        { label: '黑名单', value: countBy((row) => row.cooperationStatusLabel === '黑名单') },
+        { label: 'S 级', value: countBy((row) => row.currentGrade === 'S') },
+        { label: 'A 级', value: countBy((row) => row.currentGrade === 'A') },
+        { label: 'B 级', value: countBy((row) => row.currentGrade === 'B') },
+        { label: 'C 级', value: countBy((row) => row.currentGrade === 'C') },
+      ])}
+    </section>
+  `
+}
+
+function renderRatingBadge(row: FactoryRatingSnapshot): string {
+  const toneByGrade: Record<FactoryRatingSnapshot['currentGrade'], string> = {
+    S: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    A: 'border-blue-200 bg-blue-50 text-blue-700',
+    B: 'border-amber-200 bg-amber-50 text-amber-700',
+    C: 'border-red-200 bg-red-50 text-red-700',
+  }
+  return `<span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${toneByGrade[row.currentGrade]}">${escapeHtml(row.currentGrade)} 级</span>`
+}
+
+function renderPolicyTone(text: string): string {
+  if (text.includes('禁止')) return 'border-red-200 bg-red-50 text-red-700'
+  if (text.includes('仅允许') || text.includes('黄牌') || text.includes('建议')) return 'border-amber-200 bg-amber-50 text-amber-700'
+  return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+}
+
+function renderTrialLimit(row: FactoryRatingSnapshot): string {
+  return row.firstTrialLimitQty === null ? '无首单上限' : `首单上限 ${row.firstTrialLimitQty} 件`
+}
+
+function getDeliveryDelayDays(record: FactoryRatingPerformanceRecord): number {
+  const planned = new Date(record.plannedDeliveryAt.replace(' ', 'T')).getTime()
+  const actual = new Date(record.actualDeliveryAt.replace(' ', 'T')).getTime()
+  if (!Number.isFinite(planned) || !Number.isFinite(actual) || actual <= planned) return 0
+  return Math.ceil((actual - planned) / 86_400_000)
+}
+
+const columns: readonly StandardListColumn<RatingRow>[] = [
+  {
+    key: 'factory',
+    title: '工厂',
+    width: 230,
+    minWidth: 230,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    render: (row) => `
+      <div class="space-y-1">
+        <div class="font-medium">${escapeHtml(row.displayFactoryName)}</div>
+        <div class="font-mono text-xs text-muted-foreground">${escapeHtml(row.displayFactoryCode)}</div>
+      </div>
+    `,
+    sortValue: (row) => row.displayFactoryName,
+  },
+  {
+    key: 'grade',
+    title: '评级',
+    width: 110,
+    required: true,
+    sortable: true,
+    render: (row) => renderRatingBadge(row),
+    sortValue: (row) => row.currentGrade,
+  },
+  {
+    key: 'score',
+    title: '分数',
+    width: 120,
+    align: 'right',
+    sortable: true,
+    render: (row) => `
+      <div class="font-medium tabular-nums">${escapeHtml(row.totalScore)} 分</div>
+      <div class="text-xs text-muted-foreground">交期扣 ${escapeHtml(row.deliveryDeductionScore)} / 质量扣 ${escapeHtml(row.qualityDeductionScore)}</div>
+    `,
+    sortValue: (row) => row.totalScore,
+  },
+  {
+    key: 'cooperation',
+    title: '合作状态',
+    width: 120,
+    required: true,
+    sortable: true,
+    render: (row) => `<span class="text-sm font-medium">${escapeHtml(row.cooperationStatusLabel)}</span>`,
+    sortValue: (row) => row.cooperationStatusLabel,
+  },
+  {
+    key: 'scale',
+    title: '规模',
+    width: 140,
+    sortable: true,
+    render: (row) => `
+      <div>${escapeHtml(row.scaleLabel)}</div>
+      <div class="text-xs text-muted-foreground">${escapeHtml(row.sewingSeatCount)} 个车位</div>
+    `,
+    sortValue: (row) => row.sewingSeatCount,
+  },
+  {
+    key: 'dispatch',
+    title: '派单策略',
+    width: 260,
+    render: (row) => `
+      <div class="inline-flex rounded-md border px-2 py-1 text-xs ${renderPolicyTone(row.dispatchPolicyLabel)}">${escapeHtml(row.dispatchPolicyLabel)}</div>
+      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(renderTrialLimit(row))}</div>
+    `,
+  },
+  {
+    key: 'settlement',
+    title: '结算策略',
+    width: 220,
+    render: (row) => `
+      <div class="inline-flex rounded-md border px-2 py-1 text-xs ${renderPolicyTone(row.settlementPolicyLabel)}">${escapeHtml(row.settlementPolicyLabel)}</div>
+    `,
+  },
+  {
+    key: 'reason',
+    title: '评级原因',
+    width: 280,
+    render: (row) => `<p class="line-clamp-2 text-sm text-muted-foreground">${escapeHtml(row.recentRatingReason)}</p>`,
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 110,
+    required: true,
+    actionColumn: true,
+    render: (row) => `
+      <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildHref(readQuery(), { viewFactoryId: row.factoryId }))}">
+        查看评级
+      </button>
+    `,
+  },
+]
+
+function getColumnPreferences(): StandardListColumnPreferences {
+  return defaultColumnPreferences
+}
+
+function getSortValue(row: RatingRow, key: string): unknown {
+  return columns.find((column) => column.key === key)?.sortValue?.(row)
+}
+
+function renderPageNavigation(query: RatingQuery, currentPage: number, totalPages: number): string {
+  const prevPage = Math.max(1, currentPage - 1)
+  const nextPage = Math.min(totalPages, currentPage + 1)
+  return `
+    <div class="mt-2 flex justify-end gap-2">
+      <button type="button" class="h-8 rounded-md border px-3 text-xs ${currentPage <= 1 ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}" data-nav="${escapeHtml(buildHref(query, { page: prevPage }))}">上一页</button>
+      <button type="button" class="h-8 rounded-md border px-3 text-xs ${currentPage >= totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}" data-nav="${escapeHtml(buildHref(query, { page: nextPage }))}">下一页</button>
+    </div>
+  `
+}
+
+function renderRatingScoreDetail(snapshot: FactoryRatingSnapshot): string {
+  const items = [
+    ['当前评级', `${snapshot.currentGrade} 级`],
+    ['综合分数', `${snapshot.totalScore} 分`],
+    ['交期扣分', `${snapshot.deliveryDeductionScore} 分`],
+    ['质量扣分', `${snapshot.qualityDeductionScore} 分`],
+    ['人工扣分', `${snapshot.manualDeductionScore} 分`],
+    ['首单规则', renderTrialLimit(snapshot)],
+  ]
+
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <h3 class="font-semibold">评级详情</h3>
+      <div class="mt-3 grid gap-3 sm:grid-cols-3">
+        ${items.map(([label, value]) => `
+          <div class="rounded-md border bg-background p-3">
+            <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
+            <div class="mt-1 text-sm font-medium">${escapeHtml(value)}</div>
+          </div>
+        `).join('')}
+      </div>
+      <p class="mt-3 text-sm text-muted-foreground">${escapeHtml(snapshot.recentRatingReason)}</p>
+    </section>
+  `
+}
+
+function renderStrategyDetail(snapshot: FactoryRatingSnapshot): string {
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <h3 class="font-semibold">派单 / 结算策略</h3>
+      <div class="mt-3 grid gap-3 md:grid-cols-2">
+        <div class="rounded-md border bg-background p-3">
+          <div class="text-xs text-muted-foreground">派单策略</div>
+          <p class="mt-1 text-sm">${escapeHtml(snapshot.dispatchPolicyLabel)}</p>
+        </div>
+        <div class="rounded-md border bg-background p-3">
+          <div class="text-xs text-muted-foreground">结算策略</div>
+          <p class="mt-1 text-sm">${escapeHtml(snapshot.settlementPolicyLabel)}</p>
+        </div>
+      </div>
+    </section>
+  `
+}
+
+function renderTimingDetail(snapshot: FactoryRatingSnapshot): string {
+  const summary = getThirdPartyFactoryTimingSummary(snapshot.factoryId)
+  if (!summary) {
+    return `
+      <section class="rounded-lg border bg-card p-4">
+        <h3 class="font-semibold">近 90 天 / 首单说明</h3>
+        <p class="mt-2 text-sm text-muted-foreground">暂无近 90 天或首单考核摘要。</p>
+      </section>
+    `
+  }
+
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <h3 class="font-semibold">近 90 天 / 首单说明</h3>
+      <div class="mt-3 grid gap-3 sm:grid-cols-4">
+        <div class="rounded-md border bg-background p-3">
+          <div class="text-xs text-muted-foreground">统计范围</div>
+          <div class="mt-1 text-sm font-medium">${escapeHtml(summary.rangeLabel)}</div>
+        </div>
+        <div class="rounded-md border bg-background p-3">
+          <div class="text-xs text-muted-foreground">派单数量</div>
+          <div class="mt-1 text-sm font-medium">${escapeHtml(summary.dispatchedOrderCount)} 单</div>
+        </div>
+        <div class="rounded-md border bg-background p-3">
+          <div class="text-xs text-muted-foreground">准时率</div>
+          <div class="mt-1 text-sm font-medium">${escapeHtml(summary.onTimeRate)}</div>
+        </div>
+        <div class="rounded-md border bg-background p-3">
+          <div class="text-xs text-muted-foreground">异常单</div>
+          <div class="mt-1 text-sm font-medium">${escapeHtml(summary.exceptionOrderCount)} 单</div>
+        </div>
+      </div>
+      <p class="mt-3 text-sm text-muted-foreground">平均延期 ${escapeHtml(summary.averageDelayDays)} 天，归责瑕疵率 ${escapeHtml(summary.defectRate)}。${escapeHtml(summary.timingNote)}</p>
+    </section>
+  `
+}
+
+function renderPerformanceRecords(records: FactoryRatingPerformanceRecord[]): string {
+  if (records.length === 0) {
+    return `
+      <section class="rounded-lg border bg-card p-4">
+        <h3 class="font-semibold">履约记录</h3>
+        <p class="mt-3 rounded-md border bg-background p-4 text-sm text-muted-foreground">暂无履约记录</p>
+      </section>
+    `
+  }
+
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <h3 class="font-semibold">履约记录</h3>
+      <div class="mt-3 overflow-x-auto">
+        <table class="w-full min-w-[760px] border-collapse text-sm">
+          <thead class="border-b bg-muted/50 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 text-left">生产单</th>
+              <th class="px-3 py-2 text-left">单据类型</th>
+              <th class="px-3 py-2 text-right">发出数量</th>
+              <th class="px-3 py-2 text-right">合格数量</th>
+              <th class="px-3 py-2 text-right">延期</th>
+              <th class="px-3 py-2 text-left">结果</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${records.map((record) => `
+              <tr class="border-b last:border-b-0">
+                <td class="px-3 py-2 font-medium">${escapeHtml(record.productionOrderNo)}</td>
+                <td class="px-3 py-2">${escapeHtml(record.documentTypeLabel)}</td>
+                <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(record.issuedQty)} 件</td>
+                <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(record.qualifiedQty)} 件</td>
+                <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(getDeliveryDelayDays(record))} 天</td>
+                <td class="px-3 py-2 text-muted-foreground">${escapeHtml(record.resultSummary)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `
+}
+
+function renderRatingDrawer(snapshot: RatingRow | undefined, query: RatingQuery): string {
+  if (!snapshot) return ''
+  const records = listThirdPartyFactoryPerformanceRecords(snapshot.factoryId)
+
+  return `
+    <div class="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="third-party-rating-drawer-title">
+      <button class="absolute inset-0 bg-black/40" data-nav="${escapeHtml(buildHref(query, { viewFactoryId: '' }))}" aria-label="关闭评级详情"></button>
+      <aside class="absolute right-0 top-0 h-full w-full max-w-3xl overflow-y-auto bg-background p-5 shadow-xl">
+        <header class="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 id="third-party-rating-drawer-title" class="text-lg font-semibold">评级详情</h2>
+            <p class="text-sm text-muted-foreground">${escapeHtml(snapshot.displayFactoryName)} / ${escapeHtml(snapshot.displayFactoryCode)}</p>
+          </div>
+          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildHref(query, { viewFactoryId: '' }))}">关闭</button>
+        </header>
+        <div class="space-y-4">
+          ${renderRatingScoreDetail(snapshot)}
+          ${renderStrategyDetail(snapshot)}
+          ${renderTimingDetail(snapshot)}
+          ${renderPerformanceRecords(records)}
+        </div>
+      </aside>
+    </div>
+  `
+}
+
+export function renderThirdPartyFactoryRatingPage(): string {
+  const query = readQuery()
+  const rows = getRatingRows()
+  const filteredRows = filterSnapshots(rows, query)
+  const sortState = getSortState(query)
+  const sortedRows = sortStandardListRows(filteredRows, sortState, getSortValue)
+  const paging = paginateStandardListRows(sortedRows, query.page, query.pageSize)
+  const activeSnapshot = rows.find((row) => row.factoryId === query.viewFactoryId || row.factoryCode === query.viewFactoryId)
+
+  return renderStandardListPage({
+    title: '三方工厂评级',
+    filtersHtml: renderFilters(query),
+    statsHtml: renderLinkedStats(filteredRows),
+    listTitle: '评级标准列表',
+    tableHtml: renderStandardListTable({
+      columns,
+      rows: paging.rows,
+      preferences: getColumnPreferences(),
+      sort: sortState,
+      eventPrefix: EVENT_PREFIX,
+      emptyText: '暂无符合条件的三方车缝工厂',
+    }),
+    paginationHtml: `
+      ${renderTablePagination({
+        total: paging.total,
+        from: paging.from,
+        to: paging.to,
+        currentPage: paging.currentPage,
+        totalPages: paging.totalPages,
+        pageSize: paging.pageSize,
+        actionPrefix: EVENT_PREFIX,
+        fieldPrefix: EVENT_PREFIX,
+        pageSizeOptions: PAGE_SIZE_OPTIONS,
+      })}
+      ${renderPageNavigation(query, paging.currentPage, paging.totalPages)}
+    `,
+    overlaysHtml: renderRatingDrawer(activeSnapshot, query),
+  })
+}
