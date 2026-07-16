@@ -7,6 +7,12 @@ import {
   listDyeWorkOrderOnlineLogs,
   updateDyeWorkOrderFromPfos,
 } from '../src/data/fcs/dye-work-order-online-domain.ts'
+import {
+  buildDyeWorkOrderCsv,
+  filterDyeWorkOrderOnlineRows,
+  getDyeWorkOrderOnlineSummary,
+  listDyeWorkOrderOnlineRows,
+} from '../src/data/fcs/dye-work-order-online-view.ts'
 
 const order = listDyeWorkOrders().find((item) => getDyeWorkOrderOnlineRecord(item.dyeOrderId).status === '等待处理')
 assert(order, '至少需要一张等待处理的染色加工单')
@@ -87,5 +93,20 @@ const logs = listDyeWorkOrderOnlineLogs(order.dyeOrderId)
 assert(logs.some((log) => log.action === 'PFOS人工编辑'))
 assert(logs.some((log) => log.action === '开工'))
 assert(logs.every((log) => log.workOrderNo === order.dyeOrderNo))
+
+const rows = listDyeWorkOrderOnlineRows()
+assert(rows.length >= 8, '染色加工单线上列表演示数据不足')
+assert(rows.every((row) => row.workOrderNo === row.platformWorkOrderNo), '列表只能使用平台加工单号')
+assert(rows.some((row) => row.productImageUrl && row.materialImageUrl), '列表需要商品图和面料图')
+assert(rows.some((row) => row.status === '部分入库' && row.pendingInboundQty > 0), '列表需要部分入库样本')
+assert(rows.some((row) => row.isOverdue && !['取消', '已完成'].includes(row.status)), '列表需要超期未完结样本')
+
+const filtered = filterDyeWorkOrderOnlineRows(rows, { statuses: ['染色中'] })
+assert(filtered.length > 0, '列表需要染色中样本')
+assert(filtered.every((row) => row.status === '染色中'))
+const summary = getDyeWorkOrderOnlineSummary(rows)
+assert(summary.plannedQtyByUnit.some((item) => item.unit === 'Yard'))
+assert(buildDyeWorkOrderCsv(rows, '备料').startsWith('\uFEFF'))
+assert(buildDyeWorkOrderCsv(rows, '超期未完结').includes('平台加工单号'))
 
 console.log('dye work order online alignment check passed')

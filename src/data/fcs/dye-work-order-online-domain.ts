@@ -93,6 +93,10 @@ const records = new Map<string, DyeWorkOrderOnlineRecord>()
 const logs = new Map<string, DyeWorkOrderOnlineLog[]>()
 let logSequence = 0
 
+const ONLINE_STATUS_SEED_BY_ORDER_ID: Partial<Record<string, DyeWorkOrderOnlineStatus>> = {
+  'DWO-009': '部分入库',
+}
+
 const STATUS_RANK: Record<DyeWorkOrderOnlineStatus, number> = {
   等待处理: 0,
   取消: 99,
@@ -126,7 +130,7 @@ function cloneLog(log: DyeWorkOrderOnlineLog): DyeWorkOrderOnlineLog {
 }
 
 function makeInitialRecord(order: DyeWorkOrder): DyeWorkOrderOnlineRecord {
-  const status = mapExecutionStatus(order.status)
+  const status = ONLINE_STATUS_SEED_BY_ORDER_ID[order.dyeOrderId] || mapExecutionStatus(order.status)
   return {
     dyeOrderId: order.dyeOrderId,
     workOrderNo: order.dyeOrderNo,
