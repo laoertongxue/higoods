@@ -26,7 +26,7 @@ export const PRODUCTION_ORDER_OVERVIEW_HEADERS = [
   '染色',
   '拆解',
   '配料',
-  '派单工厂 / 接单 / 领取',
+  '工厂 / 接单 / 领取',
   '唛架',
   '铺布',
   '裁剪',
@@ -93,10 +93,10 @@ function getFactoryLines(row: ProductionOrderOverviewRow): ProductionOrderOvervi
 }
 
 function statusClass(status: string): string {
-  if (['已完成', '配料完成', '领取完成', '已接单', '已入仓', '发货完成'].includes(status)) {
+  if (['已完成', '配料完成', '领取完成', '已接单', '已入仓', '发货完成', '唛架完成', '铺布完成', '裁剪完成'].includes(status)) {
     return 'bg-emerald-50 text-emerald-700'
   }
-  if (['进行中', '部分配料', '部分领取'].includes(status) || status.includes('未完成')) {
+  if (['进行中', '部分配料', '部分领取', '铺布中', '待交出'].includes(status) || status.includes('未完成')) {
     return 'bg-amber-50 text-amber-700'
   }
   if (status.startsWith('无需')) return 'bg-slate-100 text-slate-600'
@@ -221,32 +221,37 @@ function renderTable(rows: ProductionOrderOverviewRow[], state: ProductionOrderO
           </colgroup>
           <thead class="sticky top-0 z-20 border-b bg-muted/95 text-muted-foreground backdrop-blur">
             <tr class="border-b">
-              <th colspan="2" class="px-3 py-2 text-center font-semibold">下单</th>
-              <th colspan="2" class="px-3 py-2 text-center font-semibold">印染</th>
-              <th colspan="3" class="px-3 py-2 text-center font-semibold">中转仓</th>
-              <th colspan="5" class="px-3 py-2 text-center font-semibold">裁床厂</th>
+              <th colspan="2" class="border-r-2 border-slate-300 bg-slate-100 px-3 py-2 text-center font-semibold text-slate-700">下单</th>
+              <th colspan="2" class="border-r-2 border-blue-200 bg-blue-50 px-3 py-2 text-center font-semibold text-blue-800">印染</th>
+              <th colspan="2" class="border-r-2 border-amber-200 bg-amber-50 px-3 py-2 text-center font-semibold text-amber-800">中转仓</th>
+              <th colspan="6" class="bg-emerald-50 px-3 py-2 text-center font-semibold text-emerald-800">裁床厂</th>
             </tr>
             <tr>
               ${PRODUCTION_ORDER_OVERVIEW_HEADERS
-                .map((label, index) => `<th class="${index === 0 ? 'sticky left-0 z-30 bg-muted/95' : index === 1 ? 'sticky left-[240px] z-30 bg-muted/95' : ''} px-3 py-2 text-left font-medium">${label}</th>`)
+                .map((label, index) => {
+                  const sticky = index === 0 ? 'sticky left-0 z-30 bg-slate-100' : index === 1 ? 'sticky left-[240px] z-30 bg-slate-100' : ''
+                  const group = index < 2 ? 'bg-slate-50' : index < 4 ? 'bg-blue-50/60' : index < 6 ? 'bg-amber-50/60' : 'bg-emerald-50/60'
+                  const boundary = [0, 2, 4, 6].includes(index) ? 'border-l-2 border-slate-300' : ''
+                  return `<th class="${sticky} ${group} ${boundary} px-3 py-2 text-left font-medium">${label}</th>`
+                })
                 .join('')}
             </tr>
           </thead>
           <tbody>
             ${pagination.items.length ? pagination.items.map((row) => `
               <tr class="border-b align-top last:border-b-0 hover:bg-muted/20" data-production-order-id="${escapeHtml(row.productionOrderId)}">
-                <td class="sticky left-0 z-10 bg-card px-3 py-3">${renderProductionOrderCell(row)}</td>
-                <td class="sticky left-[240px] z-10 bg-card px-3 py-3">${renderStyleCell(row)}</td>
-                <td class="px-3 py-3">${renderStatus(row, row.printingStatus, 'printing')}</td>
-                <td class="px-3 py-3">${renderStatus(row, row.dyeingStatus, 'dyeing')}</td>
-                <td class="px-3 py-3">${renderStatus(row, row.breakdownStatus, 'breakdown')}</td>
-                <td class="px-3 py-3">${renderStatus(row, row.materialPrepStatus, 'materialPrep')}</td>
-                <td class="px-3 py-3">${renderFactoryLines(row)}</td>
-                <td class="px-3 py-3">${renderStatus(row, row.markerStatus, 'marker')}</td>
-                <td class="px-3 py-3">${renderStatus(row, row.spreadingStatus, 'spreading')}</td>
-                <td class="px-3 py-3">${renderStatus(row, row.cuttingStatus, 'cutting')}</td>
-                <td class="px-3 py-3">${renderStatus(row, row.inboundStatus, 'inbound')}</td>
-                <td class="px-3 py-3">${renderShippingCell(row)}</td>
+                <td class="sticky left-0 z-10 bg-slate-50 px-3 py-3">${renderProductionOrderCell(row)}</td>
+                <td class="sticky left-[240px] z-10 bg-slate-50 px-3 py-3">${renderStyleCell(row)}</td>
+                <td class="border-l-2 border-slate-300 bg-blue-50/30 px-3 py-3">${renderStatus(row, row.printingStatus, 'printing')}</td>
+                <td class="bg-blue-50/30 px-3 py-3">${renderStatus(row, row.dyeingStatus, 'dyeing')}</td>
+                <td class="border-l-2 border-slate-300 bg-amber-50/30 px-3 py-3">${renderStatus(row, row.breakdownStatus, 'breakdown')}</td>
+                <td class="bg-amber-50/30 px-3 py-3">${renderStatus(row, row.materialPrepStatus, 'materialPrep')}</td>
+                <td class="border-l-2 border-slate-300 bg-emerald-50/30 px-3 py-3">${renderFactoryLines(row)}</td>
+                <td class="bg-emerald-50/30 px-3 py-3">${renderStatus(row, row.markerStatus, 'marker')}</td>
+                <td class="bg-emerald-50/30 px-3 py-3">${renderStatus(row, row.spreadingStatus, 'spreading')}</td>
+                <td class="bg-emerald-50/30 px-3 py-3">${renderStatus(row, row.cuttingStatus, 'cutting')}</td>
+                <td class="bg-emerald-50/30 px-3 py-3">${renderStatus(row, row.inboundStatus, 'inbound')}</td>
+                <td class="bg-emerald-50/30 px-3 py-3">${renderShippingCell(row)}</td>
               </tr>
             `).join('') : '<tr><td colspan="12" class="px-6 py-12 text-center text-sm text-muted-foreground">当前筛选条件下暂无匹配生产单。</td></tr>'}
           </tbody>
@@ -280,7 +285,6 @@ function renderFilters(state: ProductionOrderOverviewPageState): string {
             data-cutting-overview-keyword
             data-skip-page-rerender="true"
           />
-          <button type="button" class="h-10 rounded-md border bg-background px-3 text-sm hover:bg-muted" data-cutting-overview-action="apply-keyword" data-skip-page-rerender="true">查询</button>
         </div>
       </label>
       ${Object.entries(MULTI_SELECT_CONFIG).map(([field, config]) => renderMultiSelectFilter({
@@ -291,9 +295,10 @@ function renderFilters(state: ProductionOrderOverviewPageState): string {
         actionAttr: 'data-cutting-overview-filter',
         skipPageRerender: true,
       })).join('')}
+      <button type="button" class="h-10 rounded-md border bg-background px-4 text-sm hover:bg-muted" data-cutting-overview-action="apply-keyword" data-skip-page-rerender="true">查询</button>
       <button type="button" class="h-10 rounded-md border bg-background px-3 text-sm hover:bg-muted" data-cutting-overview-action="clear-filters" data-skip-page-rerender="true">重置</button>
     </div>
-  `)
+  `, 'production-order-overview-filter-shell')
 }
 
 export function renderProductionOrderOverview(
@@ -309,7 +314,7 @@ function renderProductionOrderOverviewContent(
   state: ProductionOrderOverviewPageState,
 ): string {
   const filteredRows = filterRows(rows, state.filters)
-  return `${renderFilters(state)}<div data-cutting-overview-results>${renderTable(filteredRows, state)}</div>`
+  return `${renderFilters(state)}<div class="mt-5" data-cutting-overview-results>${renderTable(filteredRows, state)}</div>`
 }
 
 function refreshProductionOrderOverview(target: Element, state: ProductionOrderOverviewPageState): void {
