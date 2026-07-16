@@ -113,6 +113,167 @@ assert.ok(bGrade, '缺少 B 级工厂')
 assert.equal(isThirdPartyFactorySettlementBlocked(bGrade.factoryId), false, 'B 级工厂不能禁止结算')
 assert.ok(bGrade.dispatchPolicyLabel.includes('小单'), 'B 级工厂必须提示小单、简单单')
 
+const sGrade = snapshots.find((item) => item.currentGrade === 'S')
+assert.ok(sGrade, '缺少 S 级工厂')
+const aGrade = snapshots.find((item) => item.currentGrade === 'A' && item.cooperationStatusLabel === '正常合作')
+assert.ok(aGrade, '缺少 A 级正常合作工厂')
+const supervisorAssignedSnapshot = snapshots.find((item) => item.dispatchControl === 'SUPERVISOR_DIRECT_ONLY')
+assert.ok(supervisorAssignedSnapshot, '缺少主管指定工厂')
+
+const unknownFactoryUnconfirmedDecision = evaluateThirdPartyFactoryDispatchPolicy({
+  factoryId: 'UNKNOWN-THIRD-PARTY-FACTORY',
+  actionType: '直接派单',
+  documentTypeLabel: '常规单',
+  dispatchQty: 1,
+  isUrgentOrder: false,
+  riskConfirmed: false,
+  isSupervisorAssigned: false,
+})
+assert.equal(unknownFactoryUnconfirmedDecision.allowed, false, '无评级工厂未确认前不能派单')
+assert.equal(unknownFactoryUnconfirmedDecision.requiresConfirm, true, '无评级工厂必须要求人工确认')
+assert.equal(unknownFactoryUnconfirmedDecision.sortPriority, 10, '无评级工厂排序优先级必须最低可确认')
+
+const unknownFactoryConfirmedDecision = evaluateThirdPartyFactoryDispatchPolicy({
+  factoryId: 'UNKNOWN-THIRD-PARTY-FACTORY',
+  actionType: '直接派单',
+  documentTypeLabel: '常规单',
+  dispatchQty: 1,
+  isUrgentOrder: false,
+  riskConfirmed: true,
+  isSupervisorAssigned: false,
+})
+assert.equal(unknownFactoryConfirmedDecision.allowed, true, '无评级工厂人工确认后可以继续派单')
+assert.equal(unknownFactoryConfirmedDecision.requiresConfirm, false, '无评级工厂确认后不能继续要求确认')
+assert.equal(unknownFactoryConfirmedDecision.sortPriority, 10, '无评级工厂确认后仍保持低排序优先级')
+
+for (const invalidDispatchQty of [Number.NaN, Number.POSITIVE_INFINITY, 0, -1]) {
+  const invalidQtyDecision = evaluateThirdPartyFactoryDispatchPolicy({
+    factoryId: sGrade.factoryId,
+    actionType: '直接派单',
+    documentTypeLabel: '常规单',
+    dispatchQty: invalidDispatchQty,
+    isUrgentOrder: false,
+    riskConfirmed: false,
+    isSupervisorAssigned: false,
+  })
+  assert.equal(invalidQtyDecision.allowed, false, `无效派单数量 ${String(invalidDispatchQty)} 必须阻断`)
+  assert.equal(invalidQtyDecision.severity, 'BLOCK', `无效派单数量 ${String(invalidDispatchQty)} 必须显示阻断`)
+}
+
+const blacklistedDispatchDecision = evaluateThirdPartyFactoryDispatchPolicy({
+  factoryId: blacklisted.factoryId,
+  actionType: '直接派单',
+  documentTypeLabel: '常规单',
+  dispatchQty: 1,
+  isUrgentOrder: false,
+  riskConfirmed: false,
+  isSupervisorAssigned: false,
+})
+assert.equal(blacklistedDispatchDecision.allowed, false, '黑名单工厂必须阻断派单')
+assert.equal(blacklistedDispatchDecision.severity, 'BLOCK', '黑名单工厂必须显示阻断')
+assert.equal(blacklistedDispatchDecision.sortPriority, 0, '黑名单工厂排序优先级必须为 0')
+
+const supervisorUnconfirmedDecision = evaluateThirdPartyFactoryDispatchPolicy({
+  factoryId: supervisorAssignedSnapshot.factoryId,
+  actionType: '直接派单',
+  documentTypeLabel: '常规单',
+  dispatchQty: 1,
+  isUrgentOrder: false,
+  riskConfirmed: false,
+  isSupervisorAssigned: false,
+})
+assert.equal(supervisorUnconfirmedDecision.allowed, false, '主管指定工厂未确认主管指定前不能派单')
+assert.equal(supervisorUnconfirmedDecision.requiresConfirm, true, '主管指定工厂未确认时必须要求确认')
+assert.equal(supervisorUnconfirmedDecision.sortPriority, 50, '主管指定工厂排序优先级必须为 50')
+
+const supervisorConfirmedDecision = evaluateThirdPartyFactoryDispatchPolicy({
+  factoryId: supervisorAssignedSnapshot.factoryId,
+  actionType: '直接派单',
+  documentTypeLabel: '常规单',
+  dispatchQty: 1,
+  isUrgentOrder: false,
+  riskConfirmed: false,
+  isSupervisorAssigned: true,
+})
+assert.equal(supervisorConfirmedDecision.allowed, true, '主管指定工厂确认主管指定后可以派单')
+assert.equal(supervisorConfirmedDecision.requiresConfirm, false, '主管指定工厂确认后不能继续要求确认')
+assert.equal(supervisorConfirmedDecision.sortPriority, 50, '主管指定工厂确认后排序优先级必须为 50')
+
+const bGradeUnconfirmedDecision = evaluateThirdPartyFactoryDispatchPolicy({
+  factoryId: bGrade.factoryId,
+  actionType: '直接派单',
+  documentTypeLabel: '常规单',
+  dispatchQty: (bGrade.smallOrderLimitQty ?? 300) + 1,
+  isUrgentOrder: false,
+  riskConfirmed: false,
+  isSupervisorAssigned: false,
+})
+assert.equal(bGradeUnconfirmedDecision.allowed, false, '黄牌工厂超小单阈值未确认前不能派单')
+assert.equal(bGradeUnconfirmedDecision.requiresConfirm, true, '黄牌工厂超小单阈值必须要求确认')
+assert.equal(bGradeUnconfirmedDecision.sortPriority, 40, '黄牌工厂排序优先级必须为 40')
+
+const bGradeConfirmedDecision = evaluateThirdPartyFactoryDispatchPolicy({
+  factoryId: bGrade.factoryId,
+  actionType: '直接派单',
+  documentTypeLabel: '常规单',
+  dispatchQty: (bGrade.smallOrderLimitQty ?? 300) + 1,
+  isUrgentOrder: false,
+  riskConfirmed: true,
+  isSupervisorAssigned: false,
+})
+assert.equal(bGradeConfirmedDecision.allowed, true, '黄牌工厂风险确认后可以派单')
+assert.equal(bGradeConfirmedDecision.requiresConfirm, false, '黄牌工厂风险确认后不能继续要求确认')
+assert.equal(bGradeConfirmedDecision.sortPriority, 40, '黄牌工厂确认后排序优先级必须为 40')
+
+const sGradeAllowedDecision = evaluateThirdPartyFactoryDispatchPolicy({
+  factoryId: sGrade.factoryId,
+  actionType: '直接派单',
+  documentTypeLabel: '常规单',
+  dispatchQty: 1,
+  isUrgentOrder: false,
+  riskConfirmed: false,
+  isSupervisorAssigned: false,
+})
+assert.equal(sGradeAllowedDecision.allowed, true, 'S 级工厂必须允许派单')
+assert.equal(sGradeAllowedDecision.sortPriority, 100, 'S 级优先派单排序优先级必须为 100')
+
+const aGradeAllowedDecision = evaluateThirdPartyFactoryDispatchPolicy({
+  factoryId: aGrade.factoryId,
+  actionType: '直接派单',
+  documentTypeLabel: '常规单',
+  dispatchQty: 1,
+  isUrgentOrder: false,
+  riskConfirmed: false,
+  isSupervisorAssigned: false,
+})
+assert.equal(aGradeAllowedDecision.allowed, true, 'A 级正常合作工厂必须允许派单')
+assert.equal(aGradeAllowedDecision.sortPriority, 60, 'A 级正常合作排序优先级必须为 60')
+
+const originalTrialLimitQty = trialSnapshot.firstTrialLimitQty
+trialSnapshot.firstTrialLimitQty = null
+const trialDefaultLimitDecision = evaluateThirdPartyFactoryDispatchPolicy({
+  factoryId: trialSnapshot.factoryId,
+  actionType: '直接派单',
+  documentTypeLabel: '试产单',
+  dispatchQty: 300,
+  isUrgentOrder: false,
+  riskConfirmed: false,
+  isSupervisorAssigned: false,
+})
+const trialDefaultOverLimitDecision = evaluateThirdPartyFactoryDispatchPolicy({
+  factoryId: trialSnapshot.factoryId,
+  actionType: '直接派单',
+  documentTypeLabel: '试产单',
+  dispatchQty: 301,
+  isUrgentOrder: false,
+  riskConfirmed: false,
+  isSupervisorAssigned: false,
+})
+trialSnapshot.firstTrialLimitQty = originalTrialLimitQty
+assert.equal(trialDefaultLimitDecision.allowed, true, '考核中工厂缺少首单上限时必须默认允许 300 件试产单')
+assert.equal(trialDefaultLimitDecision.sortPriority, 70, '考核中工厂排序优先级必须为 70')
+assert.equal(trialDefaultOverLimitDecision.allowed, false, '考核中工厂缺少首单上限时超过 300 件必须阻断')
+
 const sewingFactoryOptions = listSewingFactoryOptions()
 for (const snapshot of snapshots) {
   const master =

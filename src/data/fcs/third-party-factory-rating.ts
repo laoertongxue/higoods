@@ -27,6 +27,7 @@ export interface DispatchPolicyDecision {
   reason: string
   displayBadges: string[]
   requiresConfirm: boolean
+  // 数值越大，候选展示时越靠前。
   sortPriority: number
 }
 
@@ -511,30 +512,37 @@ function createDispatchDecision(
 }
 
 function createAllowDecision(snapshot: FactoryRatingSnapshot): DispatchPolicyDecision {
-  const priority = snapshot.dispatchControl === 'PRIORITY' ? 0 : 10
+  const priority = snapshot.dispatchControl === 'PRIORITY' ? 100 : 60
   return createDispatchDecision(true, 'ALLOW', snapshot.dispatchPolicyLabel, [snapshot.currentGrade, '可派单'], false, priority)
 }
 
 export function evaluateThirdPartyFactoryDispatchPolicy(input: DispatchPolicyInput): DispatchPolicyDecision {
+  if (!Number.isFinite(input.dispatchQty) || input.dispatchQty <= 0) {
+    return createDispatchDecision(false, 'BLOCK', '派单数量必须是大于 0 的有效数字。', ['数量无效'], false, 0)
+  }
+
   const snapshot = getThirdPartyFactoryRatingSnapshot(input.factoryId)
   if (!snapshot) {
-    return createDispatchDecision(true, 'WARN', '未找到三方工厂评级，需要主管人工确认后再派单。', ['未评级', '需确认'], true, 60)
+    if (!input.riskConfirmed) {
+      return createDispatchDecision(false, 'WARN', '未找到三方工厂评级，需要主管人工确认后再派单。', ['未评级', '需确认'], true, 10)
+    }
+    return createDispatchDecision(true, 'ALLOW', '未找到三方工厂评级，已人工确认后继续派单。', ['未评级', '已确认'], false, 10)
   }
 
   if (snapshot.dispatchControl === 'BLOCKED') {
-    return createDispatchDecision(false, 'BLOCK', snapshot.dispatchPolicyLabel, ['禁止派单'], false, 100)
+    return createDispatchDecision(false, 'BLOCK', snapshot.dispatchPolicyLabel, ['禁止派单'], false, 0)
   }
 
   if (input.actionType === '发起竞价' && !snapshot.canJoinBidding) {
-    return createDispatchDecision(false, 'BLOCK', '该工厂不参与竞价，只能按指定规则处理。', ['不可竞价'], false, 90)
+    return createDispatchDecision(false, 'BLOCK', '该工厂不参与竞价，只能按指定规则处理。', ['不可竞价'], false, 50)
   }
 
   if (!snapshot.allowedDocumentTypes.includes(input.documentTypeLabel)) {
-    return createDispatchDecision(false, 'BLOCK', '该工厂还在考核中，只能接试产单。', ['仅试产单'], false, 80)
+    return createDispatchDecision(false, 'BLOCK', '该工厂还在考核中，只能接试产单。', ['仅试产单'], false, 70)
   }
 
   if (snapshot.dispatchControl === 'TRIAL_ONLY') {
-    const firstTrialLimitQty = snapshot.firstTrialLimitQty ?? 0
+    const firstTrialLimitQty = snapshot.firstTrialLimitQty ?? 300
     if (input.dispatchQty > firstTrialLimitQty) {
       return createDispatchDecision(
         false,
@@ -542,20 +550,20 @@ export function evaluateThirdPartyFactoryDispatchPolicy(input: DispatchPolicyInp
         `本次派单数量 ${input.dispatchQty} 件超过首单上限 ${firstTrialLimitQty} 件。`,
         ['超过首单上限'],
         false,
-        80,
+        70,
       )
     }
-    return createDispatchDecision(true, 'ALLOW', '考核中工厂在首单试产额度内可以派单。', ['考核中', '试产额度内'], false, 20)
+    return createDispatchDecision(true, 'ALLOW', '考核中工厂在首单试产额度内可以派单。', ['考核中', '试产额度内'], false, 70)
   }
 
   if (snapshot.dispatchControl === 'SUPERVISOR_DIRECT_ONLY') {
     if (input.actionType === '发起竞价') {
-      return createDispatchDecision(false, 'BLOCK', '主管指定工厂不参与竞价。', ['不可竞价'], false, 90)
+      return createDispatchDecision(false, 'BLOCK', '主管指定工厂不参与竞价。', ['不可竞价'], false, 50)
     }
     if (!input.isSupervisorAssigned) {
-      return createDispatchDecision(true, 'WARN', '该工厂需要主管指定确认后才能直接派单。', ['主管指定', '需确认'], true, 40)
+      return createDispatchDecision(false, 'WARN', '该工厂需要主管指定确认后才能直接派单。', ['主管指定', '需确认'], true, 50)
     }
-    return createDispatchDecision(true, 'ALLOW', '主管已指定，可以直接派单。', ['主管指定'], false, 15)
+    return createDispatchDecision(true, 'ALLOW', '主管已指定，可以直接派单。', ['主管指定'], false, 50)
   }
 
   if (snapshot.dispatchControl === 'WARN_CONFIRM') {
@@ -563,15 +571,15 @@ export function evaluateThirdPartyFactoryDispatchPolicy(input: DispatchPolicyInp
     const requiresConfirm = input.isUrgentOrder || (typeof smallOrderLimitQty === 'number' && input.dispatchQty > smallOrderLimitQty)
     if (requiresConfirm && !input.riskConfirmed) {
       return createDispatchDecision(
-        true,
+        false,
         'WARN',
         `黄牌工厂建议只派 ${smallOrderLimitQty ?? 300} 件以内非急单，需要确认交期余量。`,
         ['黄牌提醒', '需确认'],
         true,
-        30,
+        40,
       )
     }
-    return createDispatchDecision(true, 'ALLOW', '黄牌风险已确认，可以派单。', ['黄牌已确认'], false, 25)
+    return createDispatchDecision(true, 'ALLOW', '黄牌风险已确认，可以派单。', ['黄牌已确认'], false, 40)
   }
 
   return createAllowDecision(snapshot)
