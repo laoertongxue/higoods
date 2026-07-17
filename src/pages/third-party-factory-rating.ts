@@ -420,7 +420,7 @@ const columns: readonly StandardListColumn<RatingRow>[] = [
     width: 180,
     sortable: true,
     render: (row) => renderAssessmentResult(row),
-    sortValue: (row) => row.latestTrialDefectRate ?? 999,
+    sortValue: (row) => row.latestTrialDefectRate,
   },
   {
     key: 'dispatch',
