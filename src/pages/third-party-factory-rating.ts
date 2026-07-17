@@ -77,6 +77,8 @@ const columnRules = [
   { key: 'score' },
   { key: 'cooperation', required: true },
   { key: 'scale' },
+  { key: 'trialSummary' },
+  { key: 'assessmentResult' },
   { key: 'dispatch' },
   { key: 'settlement' },
   { key: 'reason' },
@@ -303,6 +305,37 @@ function renderTrialLimit(row: FactoryRatingSnapshot): string {
   return row.firstTrialLimitQty === null ? '无首单上限' : `首单上限 ${row.firstTrialLimitQty} 件`
 }
 
+function formatPercent(value: number | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '未质检'
+  return `${(value * 100).toFixed(1)}%`
+}
+
+function renderTrialSummary(row: FactoryRatingSnapshot): string {
+  const roundText = row.assessmentRound ? `第 ${row.assessmentRound} 轮` : '未开始'
+  const orderText = row.latestTrialOrderNo ?? '等待试产单'
+  const delayText = typeof row.latestTrialDelayDays === 'number'
+    ? row.latestTrialDelayDays > 0 ? `延期 ${row.latestTrialDelayDays} 天` : '准时'
+    : '未交出'
+  return `
+    <div class="space-y-1">
+      <div class="font-medium">试产轮次：${escapeHtml(roundText)} / ${escapeHtml(orderText)}</div>
+      <div class="text-xs text-muted-foreground">生产单号：${escapeHtml(row.latestTrialProductionOrderNo ?? '未关联生产单')}</div>
+      <div class="text-xs text-muted-foreground">完成时效：${escapeHtml(delayText)}，不良率 ${escapeHtml(formatPercent(row.latestTrialDefectRate))}</div>
+    </div>
+  `
+}
+
+function renderAssessmentResult(row: FactoryRatingSnapshot): string {
+  const autoDecision = row.latestTrialAutoDecision ?? '未评级'
+  const manualDecision = row.latestTrialManualDecision ?? row.assessmentDecision ?? '未确认'
+  return `
+    <div class="space-y-1">
+      <div class="text-sm">系统建议：${escapeHtml(autoDecision)}</div>
+      <div class="text-xs text-muted-foreground">人工结论：${escapeHtml(manualDecision)}</div>
+    </div>
+  `
+}
+
 function getDeliveryDelayDays(record: FactoryRatingPerformanceRecord): number {
   const planned = new Date(record.plannedDeliveryAt.replace(' ', 'T')).getTime()
   const actual = new Date(record.actualDeliveryAt.replace(' ', 'T')).getTime()
@@ -372,6 +405,22 @@ const columns: readonly StandardListColumn<RatingRow>[] = [
       `
     },
     sortValue: (row) => row.sewingSeatCount,
+  },
+  {
+    key: 'trialSummary',
+    title: '试产单情况',
+    width: 260,
+    sortable: true,
+    render: (row) => renderTrialSummary(row),
+    sortValue: (row) => row.assessmentRound ?? 0,
+  },
+  {
+    key: 'assessmentResult',
+    title: '试产结论',
+    width: 180,
+    sortable: true,
+    render: (row) => renderAssessmentResult(row),
+    sortValue: (row) => row.latestTrialDefectRate ?? 999,
   },
   {
     key: 'dispatch',
