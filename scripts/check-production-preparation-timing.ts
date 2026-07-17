@@ -595,6 +595,91 @@ assert.equal(
   '纯下载不得把记录具体卡点泛化为运行态通用文案',
 )
 
+const wrongOwnerRecordA = productionPreparationRecords.find((record) => record.recordNo === 'PREP-202603-001')
+const wrongOwnerRecordB = productionPreparationRecords.find((record) => record.recordNo === 'PREP-202604-003')
+assert.ok(wrongOwnerRecordA && wrongOwnerRecordB, '缺少 runtime 联合归属 fixture')
+const wrongOwnerItemB = wrongOwnerRecordB.items.find((item) => item.selectedByMerchandiser !== false && item.status !== '无需')
+assert.ok(wrongOwnerItemB, 'runtime 联合归属 fixture 缺少 B 记录准备项')
+const wrongOwnerUpload = runtimeUploadFor(wrongOwnerRecordA, wrongOwnerItemB, 91)
+const wrongOwnerRuntime = appendDownloadRecord(
+  { ...EMPTY_PREPARATION_RUNTIME_STATE, uploads: [wrongOwnerUpload] },
+  {
+    recordId: wrongOwnerRecordA.recordId,
+    itemId: wrongOwnerItemB.itemId,
+    uploadId: wrongOwnerUpload.uploadId,
+    fileName: wrongOwnerUpload.fileName,
+    downloadedBy: '测试用户',
+  },
+)
+const [wrongOwnerMergedA, wrongOwnerMergedB] = mergePreparationRuntimeRecords(
+  [wrongOwnerRecordA, wrongOwnerRecordB],
+  wrongOwnerRuntime,
+)
+for (const [sourceRecord, mergedRecord] of [
+  [wrongOwnerRecordA, wrongOwnerMergedA],
+  [wrongOwnerRecordB, wrongOwnerMergedB],
+] as const) {
+  assert.equal(mergedRecord.status, sourceRecord.status, `${sourceRecord.recordNo} 不得接收错误联合归属 runtime 后改变状态`)
+  assert.equal(
+    mergedRecord.currentBlockerText,
+    sourceRecord.currentBlockerText,
+    `${sourceRecord.recordNo} 不得接收错误联合归属 runtime 后改变具体卡点`,
+  )
+  assert.ok(
+    mergedRecord.items.every((item) => !(item.uploads ?? []).some((upload) => upload.uploadId === wrongOwnerUpload.uploadId)),
+    `${sourceRecord.recordNo} 不得误收 recordId/itemId 不匹配的上传`,
+  )
+  assert.ok(
+    mergedRecord.items.every((item) => !(item.downloads ?? []).some((download) => download.downloadId === wrongOwnerRuntime.downloads[0].downloadId)),
+    `${sourceRecord.recordNo} 不得误收 recordId/itemId 不匹配的下载`,
+  )
+}
+assert.equal(
+  wrongOwnerMergedB.items.find((item) => item.itemId === wrongOwnerItemB.itemId)?.actualFinishAt,
+  wrongOwnerItemB.actualFinishAt,
+  '错误联合归属上传不得改变 B 记录准备项完成时间',
+)
+
+const closedOutputBaseRecord = productionPreparationRecords.find((record) => record.recordNo === 'PREP-202604-001')
+assert.ok(closedOutputBaseRecord, '缺少已关闭产出隔离 fixture')
+const closedOutputRecord = {
+  ...closedOutputBaseRecord,
+  status: '已关闭' as const,
+  currentBlockerText: '业务已关闭，保留原始卡点',
+  outputReady: false,
+  outputPublishedAt: '',
+  productionDemandNo: '',
+  productionOrderNo: '',
+  outputs: [],
+}
+const closedSelectedItems = closedOutputRecord.items.filter(
+  (item) => item.selectedByMerchandiser !== false && item.status !== '无需',
+)
+assert.ok(closedSelectedItems.length > 0, '已关闭产出隔离 fixture 缺少已选准备项')
+const closedRuntime = {
+  ...EMPTY_PREPARATION_RUNTIME_STATE,
+  confirmedRecords: {
+    [closedOutputRecord.recordId]: {
+      confirmedBy: '测试用户',
+      confirmedAt: '2026-07-03T09:00',
+      selectedItemIds: closedSelectedItems.map((item) => item.itemId),
+    },
+  },
+  uploads: [runtimeUploadFor(closedOutputRecord, closedSelectedItems[0], 92)],
+}
+const closedMergedRecord = mergePreparationRuntimeRecords([closedOutputRecord], closedRuntime)[0]
+for (const field of [
+  'outputReady',
+  'outputPublishedAt',
+  'productionDemandNo',
+  'productionOrderNo',
+] as const) {
+  assert.equal(closedMergedRecord[field], closedOutputRecord[field], `已关闭记录不得改变 ${field}`)
+}
+assert.deepEqual(closedMergedRecord.outputs, closedOutputRecord.outputs, '已关闭记录不得生成或改变正式产出')
+assert.equal(closedMergedRecord.status, closedOutputRecord.status, '已关闭记录必须保持已关闭')
+assert.equal(closedMergedRecord.currentBlockerText, closedOutputRecord.currentBlockerText, '已关闭记录必须保持具体卡点')
+
 const mergedRecords = mergePreparationRuntimeRecords(productionPreparationRecords, {
   ...EMPTY_PREPARATION_RUNTIME_STATE,
   uploads: [
@@ -2745,11 +2830,14 @@ for (const statusCode of ['PENDING', 'DONE', 'IN_PROGRESS', 'CANCELLED', 'ON_HOL
 }
 
 const storageFallbackOriginalWindow = (globalThis as { window?: unknown }).window
+const recoveryStorage = new Map<string, string>()
+let recoveryStorageWritable = false
 ;(globalThis as { window?: unknown }).window = {
   localStorage: {
-    getItem: () => null,
-    setItem: () => {
-      throw new Error('模拟 localStorage 写入失败')
+    getItem: (key: string) => recoveryStorage.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      if (!recoveryStorageWritable) throw new Error('模拟 localStorage 写入失败')
+      recoveryStorage.set(key, value)
     },
   },
 }
@@ -2766,6 +2854,27 @@ try {
     loadPreparationRuntimeState(),
     sessionRuntimeState,
     'localStorage 写入失败后当前会话必须能读取刚保存的运行态',
+  )
+  recoveryStorageWritable = true
+  assert.deepEqual(
+    loadPreparationRuntimeState(),
+    sessionRuntimeState,
+    'localStorage 恢复后 load 必须继续返回最新会话降级状态',
+  )
+  assert.deepEqual(
+    JSON.parse(recoveryStorage.get(PREPARATION_RUNTIME_STORAGE_KEY) ?? '{}'),
+    sessionRuntimeState,
+    'localStorage 恢复后 load 必须补写会话降级状态',
+  )
+  const recoveredPersistentState = {
+    ...EMPTY_PREPARATION_RUNTIME_STATE,
+    externalMaterials: [{ serialNo: 1000, materialName: '恢复后的真实存储物料' }],
+  }
+  recoveryStorage.set(PREPARATION_RUNTIME_STORAGE_KEY, JSON.stringify(recoveredPersistentState))
+  assert.deepEqual(
+    loadPreparationRuntimeState(),
+    recoveredPersistentState,
+    '降级状态补写成功后必须清除缓存，后续 load 从真实存储读取',
   )
   const circularRuntimeState = { ...EMPTY_PREPARATION_RUNTIME_STATE } as typeof EMPTY_PREPARATION_RUNTIME_STATE & {
     self?: unknown

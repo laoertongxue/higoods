@@ -73,6 +73,14 @@ export function createLocalId(prefix: string): string {
 
 export function loadPreparationRuntimeState(): PreparationRuntimeState {
   let raw = sessionRuntimeStateRaw
+  if (raw) {
+    try {
+      window.localStorage.setItem(PREPARATION_RUNTIME_STORAGE_KEY, raw)
+      sessionRuntimeStateRaw = null
+    } catch {
+      // 存储仍不可用时继续使用当前会话最近一次成功序列化的状态。
+    }
+  }
   try {
     raw ??= window.localStorage.getItem(PREPARATION_RUNTIME_STORAGE_KEY)
   } catch {
@@ -127,21 +135,28 @@ export function mergePreparationRuntimeRecords(
       ? confirmation.overrideReason ?? ''
       : record.prepTypeOverrideReason
     const selectionOverridden = selection.overridden
-    const hasRuntimeUpload = runtime.uploads.some((upload) => upload.recordId === record.recordId)
+    const runtimeItemIds = new Set(items.map((item) => item.itemId))
+    const hasRuntimeUpload = runtime.uploads.some(
+      (upload) => upload.recordId === record.recordId && runtimeItemIds.has(upload.itemId),
+    )
     const hasRuntimeAccessoryOrder = items.some((item) => item.itemType === '辅料下单' && runtime.accessoryPurchaseOrders[item.itemId])
     const runtimeOutputReady = isRuntimeOutputReady(items, workItemsConfirmedBy, workItemsConfirmedAt)
-    const outputReady = selectionOverridden
-      ? runtimeOutputReady
-      : record.outputReady || ((hasRuntimeUpload || hasRuntimeAccessoryOrder) && runtimeOutputReady)
-    const productionDemandNo = selectionOverridden && outputReady
+    const outputReady = record.status === '已关闭'
+      ? record.outputReady
+      : selectionOverridden
+        ? runtimeOutputReady
+        : record.outputReady || ((hasRuntimeUpload || hasRuntimeAccessoryOrder) && runtimeOutputReady)
+    const productionDemandNo = record.status !== '已关闭' && selectionOverridden && outputReady
       ? record.productionDemandNo || runtimeProductionDemandNo(record.recordNo)
       : record.productionDemandNo
-    const productionOrderNo = selectionOverridden && outputReady
+    const productionOrderNo = record.status !== '已关闭' && selectionOverridden && outputReady
       ? record.productionOrderNo || runtimeProductionOrderNo(record.recordNo)
       : record.productionOrderNo
-    const outputPublishedAt = outputReady
-      ? record.outputPublishedAt || latestCompletionEvidenceAt(items)
-      : selectionOverridden ? '' : record.outputPublishedAt
+    const outputPublishedAt = record.status === '已关闭'
+      ? record.outputPublishedAt
+      : outputReady
+        ? record.outputPublishedAt || latestCompletionEvidenceAt(items)
+        : selectionOverridden ? '' : record.outputPublishedAt
     const derivedRecordState = shouldDeriveRuntimeRecordState(record, runtime, confirmation)
       ? deriveRuntimeRecordState(record, items, workItemsConfirmedBy, workItemsConfirmedAt)
       : { status: record.status, currentBlockerText: record.currentBlockerText }
@@ -162,16 +177,18 @@ export function mergePreparationRuntimeRecords(
       productionOrderNo,
       outputReady,
       outputPublishedAt,
-      outputs: buildPreparationOutputs({
-        recordNo: record.recordNo,
-        productionDemandNo,
-        productionOrderNo,
-        outputReady,
-        outputPublishedAt,
-        workItemsConfirmedBy,
-        workItemsConfirmedAt,
-        items,
-      }),
+      outputs: record.status === '已关闭'
+        ? record.outputs
+        : buildPreparationOutputs({
+            recordNo: record.recordNo,
+            productionDemandNo,
+            productionOrderNo,
+            outputReady,
+            outputPublishedAt,
+            workItemsConfirmedBy,
+            workItemsConfirmedAt,
+            items,
+          }),
       items,
     }
   })
@@ -185,8 +202,8 @@ function hasRuntimeMergeChangesForRecord(
   if (confirmation) return true
   const itemIds = new Set(record.items.map((item) => item.itemId))
   return (
-    runtime.uploads.some((upload) => upload.recordId === record.recordId || itemIds.has(upload.itemId)) ||
-    runtime.downloads.some((download) => download.recordId === record.recordId || itemIds.has(download.itemId)) ||
+    runtime.uploads.some((upload) => upload.recordId === record.recordId && itemIds.has(upload.itemId)) ||
+    runtime.downloads.some((download) => download.recordId === record.recordId && itemIds.has(download.itemId)) ||
     Object.keys(runtime.dyeRequirements).some((itemId) => itemIds.has(itemId)) ||
     Object.keys(runtime.accessoryPurchaseOrders).some((itemId) => itemIds.has(itemId))
   )
@@ -200,7 +217,7 @@ function shouldDeriveRuntimeRecordState(
   if (confirmation) return true
   const itemIds = new Set(record.items.map((item) => item.itemId))
   return (
-    runtime.uploads.some((upload) => upload.recordId === record.recordId || itemIds.has(upload.itemId)) ||
+    runtime.uploads.some((upload) => upload.recordId === record.recordId && itemIds.has(upload.itemId)) ||
     Object.keys(runtime.dyeRequirements).some((itemId) => itemIds.has(itemId)) ||
     Object.keys(runtime.accessoryPurchaseOrders).some((itemId) => itemIds.has(itemId))
   )
@@ -407,8 +424,12 @@ function mergePreparationRuntimeItem(
   runtime: PreparationRuntimeState,
   selection: RuntimeSelection,
 ): ProductionPreparationItem {
-  const uploads = runtime.uploads.filter((upload) => upload.itemId === item.itemId)
-  const downloads = runtime.downloads.filter((download) => download.itemId === item.itemId)
+  const uploads = runtime.uploads.filter(
+    (upload) => upload.recordId === item.recordId && upload.itemId === item.itemId,
+  )
+  const downloads = runtime.downloads.filter(
+    (download) => download.recordId === item.recordId && download.itemId === item.itemId,
+  )
   const dyeRequirement = runtime.dyeRequirements[item.itemId] ?? item.dyeRequirement
   const accessoryOrder = item.itemType === '辅料下单' ? runtime.accessoryPurchaseOrders[item.itemId] : undefined
   const selectedByMerchandiser = selection.overridden
