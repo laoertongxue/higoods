@@ -428,6 +428,32 @@ test('月度统计支持准备项团队联动且不展示准备项进度', async
   expect(await candidateValues(itemType)).toEqual(['梭织基码纸样', '梭织齐码纸样'])
 })
 
+test('统计四类多选保留重复参数且关键词保持单值', async ({ page }) => {
+  await page.goto(`${statisticsRoute}?tab=monthly&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-stats-filter-scope]')
+  const scope = page.locator('[data-prep-stats-filter-scope]')
+
+  for (const [field, values] of [
+    ['merchandiserName', ['Maya', 'Raka']],
+    ['recordStatus', ['进行中', '已完成']],
+    ['itemType', ['梭织基码纸样', '辅料下单']],
+    ['ownerTeam', ['版师团队', '采购团队']],
+  ] as const) {
+    const group = filterGroup(page, field)
+    for (const value of values) await checkFilterOption(group, value)
+    await expect(group.locator('[data-prep-filter-summary]')).toContainText(`（${values.length}）`)
+  }
+  await scope.locator('input[name="keyword"]').fill('FADAH')
+  await scope.getByRole('button', { name: '筛选', exact: true }).click()
+
+  await expect.poll(() => new URL(page.url()).searchParams.getAll('merchandiserName')).toEqual(['Maya', 'Raka'])
+  expect(new URL(page.url()).searchParams.getAll('recordStatus')).toEqual(['进行中', '已完成'])
+  expect(new URL(page.url()).searchParams.getAll('itemType')).toEqual(['梭织基码纸样', '辅料下单'])
+  expect(new URL(page.url()).searchParams.getAll('ownerTeam')).toEqual(['版师团队', '采购团队'])
+  expect(new URL(page.url()).searchParams.getAll('keyword')).toEqual(['FADAH'])
+  expect(new URL(page.url()).searchParams.has('itemProgress')).toBe(false)
+})
+
 test('统计关键词筛选收窄完成明细并可重置清除', async ({ page }) => {
   await page.goto(`${statisticsRoute}?tab=monthly&month=2026-03`)
   await waitForStableFilterScope(page, '[data-prep-stats-filter-scope]')
@@ -701,4 +727,129 @@ test('统计页 SPA 离开再进入后重置页码排序和列设置抽屉', asy
   await expect(page.locator('[data-prep-stats-region="pagination"]')).toContainText('1 / 3')
   await expect(page.locator('th[data-column-key="itemType"]')).toHaveAttribute('aria-sort', 'none')
   await expect(page.getByRole('heading', { name: '月度统计列设置', exact: true })).toHaveCount(0)
+})
+
+test('双视口页面无横向溢出且台账操作列始终可见无重叠', async ({ page }) => {
+  for (const viewport of [
+    { width: 1366, height: 768 },
+    { width: 1280, height: 720 },
+  ]) {
+    await page.setViewportSize(viewport)
+    for (const route of [
+      `${ledgerRoute}?tab=ledger&month=2026-03`,
+      `${statisticsRoute}?tab=monthly&month=2026-03`,
+      `${statisticsRoute}?tab=detail&month=2026-03`,
+    ]) {
+      await page.goto(route)
+      const filterSelector = route.includes('statistics') ? '[data-prep-stats-filter-scope]' : '[data-prep-filter-scope]'
+      await waitForStableFilterScope(page, filterSelector)
+      const layout = await page.evaluate(() => ({
+        htmlFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        bodyFits: document.body.scrollWidth <= document.body.clientWidth,
+        internalScrolls: Array.from(document.querySelectorAll<HTMLElement>('[data-standard-list-scroll]'))
+          .some((element) => element.scrollWidth > element.clientWidth),
+      }))
+      expect(layout, `${viewport.width}x${viewport.height} ${route}`).toEqual({
+        htmlFits: true,
+        bodyFits: true,
+        internalScrolls: true,
+      })
+      await expect(page.locator('h1').first()).not.toBeEmpty()
+      await expect(page.locator('h1').first().locator('xpath=ancestor::*[@data-standard-list-table-section]')).toHaveCount(0)
+    }
+
+    await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+    await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+    const actionLayout = await page.locator('tbody tr').first().evaluate((row) => {
+      const cell = row.querySelector<HTMLElement>('td:last-child')
+      if (!cell) throw new Error('台账操作列缺失')
+      const cellBox = cell.getBoundingClientRect()
+      const buttons = Array.from(cell.querySelectorAll<HTMLElement>('button')).map((button) => button.getBoundingClientRect())
+      return {
+        stickyRight: getComputedStyle(cell).position === 'sticky' && getComputedStyle(cell).right === '0px',
+        insideViewport: cellBox.left >= 0 && cellBox.right <= window.innerWidth,
+        buttonsInsideCell: buttons.every((box) => box.left >= cellBox.left && box.right <= cellBox.right),
+        buttonsDoNotOverlap: buttons.every((box, index) => index === 0 || box.top >= buttons[index - 1].bottom || box.left >= buttons[index - 1].right),
+      }
+    })
+    expect(actionLayout).toEqual({
+      stickyRight: true,
+      insideViewport: true,
+      buttonsInsideCell: true,
+      buttonsDoNotOverlap: true,
+    })
+  }
+})
+
+test('多选联动和列设置等待异步事件链完成且响应小于 200ms', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  const linkageMs = await page.evaluate(async () => {
+    const checkbox = document.querySelector<HTMLInputElement>('input[name="itemType"][value="毛织基码纸样"]')
+    const teamLabel = document.querySelector<HTMLInputElement>('input[name="ownerTeam"][value="采购团队"]')?.closest('label')
+    if (!checkbox || !teamLabel) throw new Error('多选联动性能元素缺失')
+    const startedAt = performance.now()
+    checkbox.click()
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => reject(new Error('多选联动未完成')), 1000)
+      const waitUntilUpdated = () => {
+        if (teamLabel.hidden) {
+          window.clearTimeout(timeout)
+          resolve()
+          return
+        }
+        requestAnimationFrame(waitUntilUpdated)
+      }
+      waitUntilUpdated()
+    })
+    await Promise.resolve()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    return performance.now() - startedAt
+  })
+  expect(linkageMs).toBeLessThan(200)
+
+  const columnSettingsMs = await page.evaluate(async () => {
+    const button = document.querySelector<HTMLButtonElement>('[data-production-preparation-ledger-action="open-column-settings"]')
+    const region = document.querySelector<HTMLElement>('[data-prep-list-region="column-settings"]')
+    if (!button || !region) throw new Error('列设置性能元素缺失')
+    const startedAt = performance.now()
+    button.click()
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => reject(new Error('列设置未完成')), 1000)
+      const observer = new MutationObserver(() => {
+        if (!region.textContent?.includes('准备台账列设置')) return
+        observer.disconnect()
+        window.clearTimeout(timeout)
+        resolve()
+      })
+      observer.observe(region, { childList: true, subtree: true })
+      if (region.textContent?.includes('准备台账列设置')) {
+        observer.disconnect()
+        window.clearTimeout(timeout)
+        resolve()
+      }
+    })
+    await Promise.resolve()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    return performance.now() - startedAt
+  })
+  expect(columnSettingsMs).toBeLessThan(200)
+})
+
+test('筛选文案只保留批准字段且标题不在列表卡片内', async ({ page }) => {
+  for (const route of [
+    `${ledgerRoute}?tab=ledger&month=2026-03`,
+    `${statisticsRoute}?tab=monthly&month=2026-03`,
+  ]) {
+    await page.goto(route)
+    const scope = page.locator(route.includes('statistics') ? '[data-prep-stats-filter-scope]' : '[data-prep-filter-scope]')
+    await expect(scope).toBeVisible()
+    for (const forbidden of ['责任人', '是否超时', '买手']) {
+      await expect(scope.getByText(forbidden, { exact: true })).toHaveCount(0)
+    }
+    await expect(page.locator('h1').first()).toHaveText(route.includes('statistics') ? '生产准备时效统计' : '生产准备时效')
+    await expect(page.locator('h1').first().locator('xpath=ancestor::*[@data-standard-list-table-section]')).toHaveCount(0)
+  }
 })
