@@ -878,6 +878,7 @@ assert.ok(ratingPageSource.includes('latestTrialAutoDecision'), '三方工厂评
 assert.ok(ratingPageSource.includes('trialSummary'), '三方工厂评级页必须有试产单情况列')
 assert.ok(ratingPageSource.includes('试产轮次'), '三方工厂评级列表必须展示试产轮次')
 assert.ok(ratingPageSource.includes('不良率'), '三方工厂评级列表必须展示不良率')
+assert.ok(ratingPageSource.includes("fcs.third-party-factory-rating.columns.v2"), '三方工厂评级新增列后必须升级列偏好版本，避免旧偏好隐藏试产列')
 const ratingPageHtml = renderThirdPartyFactoryRatingPage()
 for (const requiredText of ['试产单情况', '试产结论', '试产轮次', '不良率', '系统建议', '人工结论', '查看评级']) {
   assert.ok(ratingPageHtml.includes(requiredText), `三方工厂评级列表渲染结果必须展示 ${requiredText}`)
