@@ -310,6 +310,19 @@ function formatPercent(value: number | undefined): string {
   return `${(value * 100).toFixed(1)}%`
 }
 
+function isOpenTrialAssessment(row: FactoryRatingSnapshot): boolean {
+  return (
+    row.latestTrialAssessmentStatus === 'WAIT_TRIAL_DISPATCH' ||
+    row.latestTrialAssessmentStatus === 'TRIAL_DISPATCHED' ||
+    row.latestTrialAssessmentStatus === 'WAIT_QC'
+  )
+}
+
+function getTrialAssessmentSortDefectRate(row: FactoryRatingSnapshot): number | undefined {
+  if (isOpenTrialAssessment(row)) return undefined
+  return row.latestTrialDefectRate
+}
+
 function formatTrialTiming(row: FactoryRatingSnapshot): string {
   if (row.latestTrialAssessmentStatus === 'WAIT_TRIAL_DISPATCH') return '待派出'
   if (row.latestTrialAssessmentStatus === 'TRIAL_DISPATCHED') return '未交出'
@@ -319,13 +332,7 @@ function formatTrialTiming(row: FactoryRatingSnapshot): string {
 }
 
 function formatTrialDefectRate(row: FactoryRatingSnapshot): string {
-  if (
-    row.latestTrialAssessmentStatus === 'WAIT_TRIAL_DISPATCH' ||
-    row.latestTrialAssessmentStatus === 'TRIAL_DISPATCHED' ||
-    row.latestTrialAssessmentStatus === 'WAIT_QC'
-  ) {
-    return '未质检'
-  }
+  if (isOpenTrialAssessment(row)) return '未质检'
   return formatPercent(row.latestTrialDefectRate)
 }
 
@@ -437,7 +444,7 @@ const columns: readonly StandardListColumn<RatingRow>[] = [
     width: 180,
     sortable: true,
     render: (row) => renderAssessmentResult(row),
-    sortValue: (row) => row.latestTrialDefectRate,
+    sortValue: (row) => getTrialAssessmentSortDefectRate(row),
   },
   {
     key: 'dispatch',
