@@ -239,6 +239,36 @@ test('不兼容旧 URL 保留两个已选值并显示空态', async ({ page }) =
   expect(new URL(page.url()).searchParams.getAll('ownerTeam')).toEqual(['染色团队'])
 })
 
+test('准备项进度多选提交后真实筛选同一准备项并重置页码', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03&page=2`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  const itemType = filterGroup(page, 'itemType')
+  const ownerTeam = filterGroup(page, 'ownerTeam')
+  const itemProgress = filterGroup(page, 'itemProgress')
+
+  await checkFilterOption(itemType, '版衣制作')
+  await checkFilterOption(ownerTeam, '车板团队')
+  await checkFilterOption(itemProgress, '不满足开始条件')
+  await checkFilterOption(itemProgress, '已完成')
+  await expect(itemProgress.locator('[data-prep-filter-summary]')).toContainText('准备项进度（2）')
+
+  await page.locator('[data-prep-filter-scope]').getByRole('button', { name: '筛选', exact: true }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.getAll('itemProgress')).toEqual(['不满足开始条件', '已完成'])
+  expect(new URL(page.url()).searchParams.get('page')).toBe('1')
+  await expect(page.locator('[data-prep-list-region="pagination"]')).toContainText('共 5 条')
+  await expect.poll(() => page.locator('tbody tr').evaluateAll((rows) => rows.map((row) => {
+    const match = row.textContent?.match(/PREP-\d{6}-\d{3}/)
+    return match?.[0] ?? ''
+  }))).toEqual([
+    'PREP-202603-001',
+    'PREP-202603-002',
+    'PREP-202603-004',
+    'PREP-202603-005',
+    'PREP-202603-006',
+  ])
+  await expect(page.getByText('PREP-202603-003', { exact: false })).toHaveCount(0)
+})
+
 test('准备台账标准列表局部分页、三态排序和列偏好可用', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })
   await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
@@ -689,13 +719,13 @@ test('台账无关点击和统计关键词输入不刷新列表且响应小于 2
     let mutations = 0
     const observer = new MutationObserver((records) => { mutations += records.length })
     observer.observe(table, { childList: true, subtree: true, attributes: true })
-    keyword.value = '性能反例'
-    const startedAt = performance.now()
-    const inputEvent = new InputEvent('input', { bubbles: true, inputType: 'insertText', data: '性能反例' }) as InputEvent & {
-      higoodResponseCompletionProbe?: () => void
-    }
-    const responseMs = await new Promise<number>((resolve, reject) => {
-      const timeout = window.setTimeout(() => reject(new Error('统计输入异步事件链未完成')), 1000)
+    const responseTimes = await Promise.all(['性', '性能', '性能反例'].map((value) => new Promise<number>((resolve, reject) => {
+      keyword.value = value
+      const startedAt = performance.now()
+      const inputEvent = new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }) as InputEvent & {
+        higoodResponseCompletionProbe?: () => void
+      }
+      const timeout = window.setTimeout(() => reject(new Error(`统计输入异步事件链未完成：${value}`)), 1000)
       inputEvent.higoodResponseCompletionProbe = async () => {
         await Promise.resolve()
         await new Promise((nextTask) => setTimeout(nextTask, 0))
@@ -704,11 +734,12 @@ test('台账无关点击和统计关键词输入不刷新列表且响应小于 2
         resolve(performance.now() - startedAt)
       }
       keyword.dispatchEvent(inputEvent)
-    })
+    })))
     observer.disconnect()
-    return { mutations, responseMs }
+    return { mutations, finalValue: keyword.value, responseMs: Math.max(...responseTimes) }
   })
   expect(statsResult.mutations).toBe(0)
+  expect(statsResult.finalValue).toBe('性能反例')
   expect(statsResult.responseMs).toBeLessThan(200)
 })
 
@@ -729,20 +760,19 @@ test('统计页 SPA 离开再进入后重置页码排序和列设置抽屉', asy
   await expect(page.getByRole('heading', { name: '月度统计列设置', exact: true })).toHaveCount(0)
 })
 
-test('双视口页面无横向溢出且台账操作列始终可见无重叠', async ({ page }) => {
-  for (const viewport of [
-    { width: 1366, height: 768 },
-    { width: 1280, height: 720 },
-  ]) {
+for (const viewport of [
+  { width: 1366, height: 768 },
+  { width: 1280, height: 720 },
+]) {
+  test(`${viewport.width}x${viewport.height} 页面无横向溢出且台账操作列始终可见无重叠`, async ({ page }) => {
     await page.setViewportSize(viewport)
     for (const route of [
       `${ledgerRoute}?tab=ledger&month=2026-03`,
       `${statisticsRoute}?tab=monthly&month=2026-03`,
       `${statisticsRoute}?tab=detail&month=2026-03`,
     ]) {
-      await page.goto(route)
-      const filterSelector = route.includes('statistics') ? '[data-prep-stats-filter-scope]' : '[data-prep-filter-scope]'
-      await waitForStableFilterScope(page, filterSelector)
+      await page.goto(route, { waitUntil: 'domcontentloaded' })
+      await expect(page.locator('[data-standard-list-page]')).toBeVisible()
       const layout = await page.evaluate(() => ({
         htmlFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
         bodyFits: document.body.scrollWidth <= document.body.clientWidth,
@@ -756,30 +786,29 @@ test('双视口页面无横向溢出且台账操作列始终可见无重叠', as
       })
       await expect(page.locator('h1').first()).not.toBeEmpty()
       await expect(page.locator('h1').first().locator('xpath=ancestor::*[@data-standard-list-table-section]')).toHaveCount(0)
-    }
-
-    await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
-    await waitForStableFilterScope(page, '[data-prep-filter-scope]')
-    const actionLayout = await page.locator('tbody tr').first().evaluate((row) => {
-      const cell = row.querySelector<HTMLElement>('td:last-child')
-      if (!cell) throw new Error('台账操作列缺失')
-      const cellBox = cell.getBoundingClientRect()
-      const buttons = Array.from(cell.querySelectorAll<HTMLElement>('button')).map((button) => button.getBoundingClientRect())
-      return {
-        stickyRight: getComputedStyle(cell).position === 'sticky' && getComputedStyle(cell).right === '0px',
-        insideViewport: cellBox.left >= 0 && cellBox.right <= window.innerWidth,
-        buttonsInsideCell: buttons.every((box) => box.left >= cellBox.left && box.right <= cellBox.right),
-        buttonsDoNotOverlap: buttons.every((box, index) => index === 0 || box.top >= buttons[index - 1].bottom || box.left >= buttons[index - 1].right),
+      if (!route.includes('statistics')) {
+        const actionLayout = await page.locator('tbody tr').first().evaluate((row) => {
+          const cell = row.querySelector<HTMLElement>('td:last-child')
+          if (!cell) throw new Error('台账操作列缺失')
+          const cellBox = cell.getBoundingClientRect()
+          const buttons = Array.from(cell.querySelectorAll<HTMLElement>('button')).map((button) => button.getBoundingClientRect())
+          return {
+            stickyRight: getComputedStyle(cell).position === 'sticky' && getComputedStyle(cell).right === '0px',
+            insideViewport: cellBox.left >= 0 && cellBox.right <= window.innerWidth,
+            buttonsInsideCell: buttons.every((box) => box.left >= cellBox.left && box.right <= cellBox.right),
+            buttonsDoNotOverlap: buttons.every((box, index) => index === 0 || box.top >= buttons[index - 1].bottom || box.left >= buttons[index - 1].right),
+          }
+        })
+        expect(actionLayout).toEqual({
+          stickyRight: true,
+          insideViewport: true,
+          buttonsInsideCell: true,
+          buttonsDoNotOverlap: true,
+        })
       }
-    })
-    expect(actionLayout).toEqual({
-      stickyRight: true,
-      insideViewport: true,
-      buttonsInsideCell: true,
-      buttonsDoNotOverlap: true,
-    })
-  }
-})
+    }
+  })
+}
 
 test('多选联动和列设置等待异步事件链完成且响应小于 200ms', async ({ page }) => {
   await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
