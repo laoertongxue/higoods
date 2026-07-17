@@ -1,5 +1,6 @@
 import {
   getDyeOrderHandoverSummary,
+  getDyeReviewRecordByOrderId,
   listDyeWorkOrders,
   type DyeWorkOrder,
 } from './dyeing-task-domain.ts'
@@ -43,7 +44,6 @@ export interface DyeWorkOrderOnlineRow {
   platformWorkOrderNo: string
   taskNo: string
   productionOrderNo: string
-  demandNo: string
   productCode: string
   productImageUrl: string
   purchaseOrderNo: string
@@ -106,25 +106,36 @@ export interface DyeWorkOrderOnlineSummary {
   purchaseOrderCount: number
 }
 
+function relativeDemoFinishAt(days: number): string {
+  const date = new Date()
+  date.setHours(18, 0, 0, 0)
+  date.setDate(date.getDate() + days)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day} 18:00:00`
+}
+
 const DYE_WORK_ORDER_PRESENTATION_FACTS: Record<string, Partial<Pick<DyeWorkOrderOnlineRow,
-  'productImageUrl' | 'materialImageUrl' | 'materialName' | 'productCode' | 'salesType' | 'purchaseOrderNo' | 'purchaseType' | 'demandNo' | 'plannedFinishAt'
+  'productImageUrl' | 'materialImageUrl' | 'materialName' | 'productCode' | 'salesType' | 'purchaseOrderNo' | 'purchaseType' | 'plannedFinishAt'
 >>> = {
   'DWO-001': {
     productImageUrl: '/shirt-sample.jpg',
     materialImageUrl: '/materials/fabric-main.jpg',
     materialName: '细冰丝坑条 Td-s 025',
-    plannedFinishAt: '2026-07-14 18:00:00',
+    plannedFinishAt: relativeDemoFinishAt(-2),
   },
   'DWO-002': {
     productImageUrl: '/cardigan-sample.jpg',
     materialImageUrl: '/materials/fabric-contrast.jpg',
     materialName: '牛奶丝 R063',
+    plannedFinishAt: relativeDemoFinishAt(2),
   },
   'DWO-003': {
     productImageUrl: '/dress-sample-1.jpg',
     materialImageUrl: '/materials/fabric-lining.jpg',
     materialName: '50D 四面弹里布 S256',
-    plannedFinishAt: '2026-07-15 18:00:00',
+    plannedFinishAt: relativeDemoFinishAt(-1),
   },
   'DWO-004': {
     productImageUrl: '/tshirt-sample.jpg',
@@ -163,6 +174,7 @@ function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
   const online = getDyeWorkOrderOnlineRecord(order.dyeOrderId)
   const handover = getDyeOrderHandoverSummary(order.dyeOrderId)
   const presentation = DYE_WORK_ORDER_PRESENTATION_FACTS[order.dyeOrderId] || {}
+  const receiptReview = getDyeReviewRecordByOrderId(order.dyeOrderId)
   const partialInbound = online.status === '部分入库'
   const plannedQty = order.plannedQty
   const rawMaterialQty = online.rawMaterialQty
@@ -171,7 +183,8 @@ function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
   const orderedAt = order.productionOrderOrderedAt || order.createdAt
   const plannedFinishAt = online.plannedFinishAt || order.plannedFinishAt || presentation.plannedFinishAt || ''
   const isClosed = online.status === '取消' || online.status === '已完成'
-  const pendingInboundQty = partialInbound ? round(Math.max(0, plannedQty - completedQty)) : 0
+  const expectedInboundQty = handover.submittedQty || completedQty || plannedQty
+  const pendingInboundQty = partialInbound ? round(Math.max(0, expectedInboundQty - (receiptReview?.receivedQty || 0))) : 0
   const snapshot = order.formalProductionOrderSnapshot
   const productCode = presentation.productCode || snapshot?.spuCode || order.stockMaterialId || '—'
   const materialName = presentation.materialName || snapshot?.materialName || order.stockMaterialName || order.rawMaterialSku
@@ -182,7 +195,6 @@ function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
     platformWorkOrderNo: order.dyeOrderNo,
     taskNo: order.taskNo,
     productionOrderNo: order.sourceProductionOrderNo || '',
-    demandNo: presentation.demandNo || order.sourceArtifactIds?.[0] || (order.sourceType === 'STOCK' ? '备货创建' : '—'),
     productCode,
     productImageUrl: presentation.productImageUrl || '',
     purchaseOrderNo: presentation.purchaseOrderNo || (order.sourceType === 'STOCK' ? '备货创建' : '—'),
@@ -223,7 +235,7 @@ function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
     deliveredAt: online.deliveredAt,
     isOverdue: Boolean(plannedFinishAt && new Date(plannedFinishAt).getTime() < Date.now() && !isClosed),
     isYarn,
-    isReplenishment: /补料/.test(order.remark || ''),
+    isReplenishment: order.isReplenishment === true,
     materialType: isYarn ? '纱线' : '面料',
     headVatOrRedye: '—',
     handoverOrderNo: order.handoverOrderNo || order.handoverOrderId || '',

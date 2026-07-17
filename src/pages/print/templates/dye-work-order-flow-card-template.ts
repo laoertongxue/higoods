@@ -53,7 +53,6 @@ function buildSingle(input: PrintDocumentBuildInput, row: DyeWorkOrderOnlineRow)
       ['是否加急 Mendesak', row.isOverdue ? '是 Ya' : '否 Tidak'],
       ['开单日期 Tgl buka', generatedAt],
       ['生产单号 No. Produksi', row.productionOrderNo || '备货创建'],
-      ['需求单号 No. Permintaan', row.demandNo],
     ]),
     imageBlocks: [
       { title: '色样备注 Cat sampel', imageUrl: row.materialImageUrl, imageLabel: row.colorNo, sourceLabel: '色卡 / 面料样', fallbackLabel: '暂无色样' },

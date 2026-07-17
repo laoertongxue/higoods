@@ -111,8 +111,11 @@ import {
 } from '../data/fcs/process-action-writeback-service.ts'
 import {
   advanceDyeWorkOrderOnlineStatus,
+  assertDyeWorkOrderOnlineActionAllowed,
+  assertDyeWorkOrderPdaStartAllowed,
   getDyeWorkOrderOnlineRecord,
   isDyeWorkOrderOnlineActionAllowed,
+  recordDyeWorkOrderPdaStart,
 } from '../data/fcs/dye-work-order-online-domain.ts'
 import {
   formatProcessQuantityWithUnit,
@@ -655,7 +658,7 @@ function getTaskHandoverOrder(task: TaskWithHandoverFields): PdaHandoverHead | n
     || task.status === 'IN_PROGRESS'
     || task.status === 'DONE'
     || task.status === 'BLOCKED'
-  if (!handoverOrder && started && canTaskUseHandover(task)) {
+  if (!handoverOrder && started && canTaskUseHandover(task) && !getDyeWorkOrderByTaskId(task.taskId)) {
     try {
       const ensured = ensureHandoverOrderForStartedTask(task.taskId)
       handoverOrder = getHandoverOrderById(ensured.handoverOrderId) ?? null
@@ -1139,7 +1142,9 @@ function renderCombinedDyeCurrentActionCard(task: TaskWithHandoverFields, order:
   const onlineStatus = getDyeWorkOrderOnlineRecord(order.dyeOrderId).status
   const onlineAllowed = onlineStatus !== '取消' && (
     action?.node !== 'DYE'
-    || isDyeWorkOrderOnlineActionAllowed(order.dyeOrderId, action.action === 'dye-complete-dye' ? '完工' : '开工')
+    || (action.action === 'dye-complete-dye'
+      ? isDyeWorkOrderOnlineActionAllowed(order.dyeOrderId, '完工')
+      : onlineStatus === '染色中' || isDyeWorkOrderOnlineActionAllowed(order.dyeOrderId, '开工'))
   )
   const actorAllowed = Boolean(action && onlineAllowed && session && !validateWaterSolublePdaActor(session, order.dyeFactoryId, action.role))
   const token = action?.action === 'dye-complete-dye'
@@ -1208,7 +1213,7 @@ function renderDyeingTaskCard(
   const sampleReady = !dyeOrder.isFirstOrder || Boolean(dyeOrder.sampleWaitFinishedAt) || dyeOrder.sampleWaitType === 'NONE'
   const canPlanVat = Boolean(materialReadyNode?.finishedAt) && (dyeOrder.sampleStatus === 'DONE' || dyeOrder.sampleStatus === 'NOT_REQUIRED')
   const onlineStatus = getDyeWorkOrderOnlineRecord(dyeOrder.dyeOrderId).status
-  const canStartDye = isDyeWorkOrderOnlineActionAllowed(dyeOrder.dyeOrderId, '开工')
+  const canStartDye = onlineStatus === '染色中' || isDyeWorkOrderOnlineActionAllowed(dyeOrder.dyeOrderId, '开工')
   const canCompleteDye = isDyeWorkOrderOnlineActionAllowed(dyeOrder.dyeOrderId, '完工')
   const canContinuePostProcess = onlineStatus === '染色中' || onlineStatus === '染色完成'
   const canSubmitHandover = isDyeWorkOrderOnlineActionAllowed(dyeOrder.dyeOrderId, '交出')
@@ -3510,7 +3515,11 @@ export function renderPdaExecDetailPage(taskId: string): string {
       suggestedAction: '请切换到对应辅助工艺或特种工艺工厂账号后查看',
     }
   }
-  const canStart = status === 'NOT_STARTED' && prereq.met && mobileTaskAccess.canExecuteInMobile
+  const dyeOrderForStart = getDyeWorkOrderByTaskId(task.taskId)
+  const canStart = status === 'NOT_STARTED'
+    && prereq.met
+    && mobileTaskAccess.canExecuteInMobile
+    && (!dyeOrderForStart || isDyeWorkOrderOnlineActionAllowed(dyeOrderForStart.dyeOrderId, '开工'))
   const canFinish = status === 'IN_PROGRESS' && mobileTaskAccess.canExecuteInMobile && !isSimpleFiveStepExecution
   const startRule = getTaskStartRuleState(task)
   const startDueInfo = getTaskStartDueInfo(task)
@@ -4758,11 +4767,16 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       }
       const dyeVatNo = getDyeExecutionNodeRecord(dyeOrderId, 'VAT_PLAN')?.dyeVatNo || listDyeVatOptions(order.dyeFactoryId)[0]?.dyeVatNo || ''
       try {
-        getDyeWorkOrderOnlineRecord(dyeOrderId)
+        const online = getDyeWorkOrderOnlineRecord(dyeOrderId)
+        if (online.status !== '染色中') {
+          assertDyeWorkOrderOnlineActionAllowed(dyeOrderId, '开工')
+        }
         startDyeing(dyeOrderId, { dyeVatNo, inputQty, operatorName: session.userName })
-        advanceDyeWorkOrderOnlineStatus(dyeOrderId, {
-          action: '开工', operatorName: session.userName, operatedAt: nowTimestamp(), source: 'PDA',
-        })
+        if (online.status !== '染色中') {
+          advanceDyeWorkOrderOnlineStatus(dyeOrderId, {
+            action: '开工', operatorName: session.userName, operatedAt: nowTimestamp(), source: 'PDA',
+          })
+        }
         pendingDyeWaterActions.delete(key)
         showPdaExecDetailToast('染色开始已记录')
         refreshCombinedDyeCurrentAction(dyeOrderId)
@@ -5981,6 +5995,13 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       return true
     }
 
+    try {
+      assertDyeWorkOrderPdaStartAllowed(taskId)
+    } catch (error) {
+      showPdaExecDetailToast(error instanceof Error ? error.message : '当前染色加工单不能开工')
+      return true
+    }
+
     const prereq = getStartPrerequisite(task)
 
     if (!prereq.met) {
@@ -6026,6 +6047,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         headcount,
         proofFiles: detailState.startProofFiles,
       })
+      recordDyeWorkOrderPdaStart(taskId, getPdaSession()?.userName || '现场操作员', startTime)
     }
     if (!isWoolTask && isSpecialCraftExecutionTask(task, getTaskProcessDisplayName(task))) {
       try {
@@ -6060,13 +6082,17 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         syncMilestoneOverdueExceptions()
         return true
       }
-      const ensured = ensureHandoverOrderForStartedTask(taskId)
-      const updatedTask = getTaskFactById(taskId) as TaskWithHandoverFields | null
-      const handoverOrder = getHandoverOrderById(ensured.handoverOrderId) ?? null
-      if (updatedTask) {
-        syncTaskHandoverFields(updatedTask, handoverOrder)
+      if (getDyeWorkOrderByTaskId(taskId)) {
+        startToast = '开工成功'
+      } else {
+        const ensured = ensureHandoverOrderForStartedTask(taskId)
+        const updatedTask = getTaskFactById(taskId) as TaskWithHandoverFields | null
+        const handoverOrder = getHandoverOrderById(ensured.handoverOrderId) ?? null
+        if (updatedTask) {
+          syncTaskHandoverFields(updatedTask, handoverOrder)
+        }
+        startToast = ensured.created ? '开工成功，交出单已生成' : '开工成功，交出单已就绪'
       }
-      startToast = ensured.created ? '开工成功，交出单已生成' : '开工成功，交出单已就绪'
     } catch {
       startToast = '开工成功'
     }

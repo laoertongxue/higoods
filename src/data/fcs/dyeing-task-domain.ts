@@ -95,6 +95,7 @@ export interface DyeWorkOrder {
   dyeOrderId: string
   dyeOrderNo: string
   sourceType: ProcessWorkOrderSourceType
+  isReplenishment?: boolean
   sourceProductionOrderId?: string
   sourceProductionOrderNo?: string
   productionOrderOrderedAt?: string
@@ -419,10 +420,20 @@ function getGeneratedDyeContext(index: number): GeneratedDyeContext | null {
   }
 }
 
+function getGeneratedSeedPlannedQty(index: number, fallback: number): number {
+  const generatedCount = GENERATED_DYE_CRAFTS.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION
+  const context = getGeneratedDyeContext(index) ?? (generatedCount > 0 ? getGeneratedDyeContext(index % generatedCount) : null)
+  return context?.plannedQty ?? fallback
+}
+
+function scaleSeedQty(index: number, originalPlan: number, originalQty: number): number {
+  return Number((originalQty * getGeneratedSeedPlannedQty(index, originalPlan) / originalPlan).toFixed(2))
+}
+
 function listVisibleRawDyeWorkOrders(): MutableDyeWorkOrder[] {
   const sorted = Array.from(workOrderStore.values()).sort((left, right) => left.dyeOrderNo.localeCompare(right.dyeOrderNo))
   const selected = new Map<string, MutableDyeWorkOrder>()
-  for (const order of sorted.slice(0, GENERATED_DYE_CRAFTS.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION)) {
+  for (const order of sorted.slice(0, DYE_WORK_ORDER_IDS.length)) {
     selected.set(order.dyeOrderId, order)
   }
   for (const order of sorted) {
@@ -485,9 +496,20 @@ function listGeneratedDyeWorkOrders(): MutableDyeWorkOrder[] {
 
 function normalizeSeedWorkOrderSources(): void {
   listVisibleRawDyeWorkOrders().forEach((order, index) => {
-    if (createdDyeOrderIds.has(order.dyeOrderId)) return
+    if (createdDyeOrderIds.has(order.dyeOrderId) || order.sourceType === 'STOCK') return
+    const originalPlannedQty = order.plannedQty
     const normalized = buildGeneratedDyeWorkOrder(order, index)
     workOrderStore.set(normalized.dyeOrderId, normalized)
+    const scale = normalized.plannedQty / originalPlannedQty
+    const records = nodeRecordStore.get(normalized.dyeOrderId)
+    if (records && scale !== 1) {
+      nodeRecordStore.set(normalized.dyeOrderId, records.map((record) => ({
+        ...record,
+        inputQty: typeof record.inputQty === 'number' ? Number((record.inputQty * scale).toFixed(2)) : undefined,
+        outputQty: typeof record.outputQty === 'number' ? Number((record.outputQty * scale).toFixed(2)) : undefined,
+        lossQty: typeof record.lossQty === 'number' ? Number((record.lossQty * scale).toFixed(2)) : undefined,
+      })))
+    }
     const task = getDyeingTaskById(normalized.taskId)
     if (!task) return
     task.sourceType = normalized.sourceType
@@ -973,7 +995,7 @@ function syncDerivedWorkflow(): void {
       order.handoverOrderId = head.handoverOrderId || head.handoverId
       order.handoverOrderNo = head.handoverOrderNo
       syncTaskHandoverFields(order.taskId, order.handoverOrderId)
-    } else if (!order.handoverOrderId && (!order.requiresWaterSoluble || order.status === 'WAIT_HANDOVER')) {
+    } else if (!order.handoverOrderId && order.status === 'WAIT_HANDOVER') {
       const ensured = ensureStartedTaskHandover(order.taskId)
       if (ensured) {
         const nextHead = getHandoverOrderById(ensured)
@@ -1031,22 +1053,37 @@ function addSeedWorkOrder(input: Omit<
   const handoverOrder = input.handoverOrderId ? getHandoverOrderById(input.handoverOrderId) : getPrimaryHandoverOrder(input.taskId)
   if (task) {
     const hasFactory = Boolean(input.dyeFactoryId)
+    const executionStarted = [
+      'WATER_SOLUBLE_IN_PROGRESS', 'PRODUCTION_PAUSED', 'DYEING', 'DEHYDRATING', 'DRYING',
+      'SETTING', 'ROLLING', 'PACKING', 'WAIT_HANDOVER', 'HANDOVER_WAIT_RECEIVE', 'WAIT_REVIEW',
+      'PARTIAL_HANDOVER', 'FULL_HANDOVER', 'HANDOVER_DIFFERENCE', 'COMPLETED', 'REJECTED',
+    ].includes(input.status)
     task.assignmentMode = 'DIRECT'
     task.assignmentStatus = hasFactory ? 'ASSIGNED' : 'UNASSIGNED'
-    task.acceptanceStatus = hasFactory ? 'ACCEPTED' : 'PENDING'
+    task.acceptanceStatus = hasFactory && executionStarted ? 'ACCEPTED' : 'PENDING'
+    if (task.acceptanceStatus === 'PENDING') {
+      task.acceptedAt = undefined
+      task.acceptedBy = undefined
+    }
     task.assignedFactoryId = hasFactory ? input.dyeFactoryId : undefined
     task.assignedFactoryName = hasFactory ? input.dyeFactoryName : '待分配工厂'
     task.tenderId = undefined
     task.awardedAt = undefined
     task.dispatchedBy = hasFactory ? '平台派单' : undefined
-    task.dispatchRemark = hasFactory ? '染色加工单派单后直接进入执行待加工' : '正式生产单已生成加工单，待分配工厂。'
+    task.dispatchRemark = hasFactory ? '染色加工单已分配，待工厂接单。' : '正式生产单已生成加工单，待分配工厂。'
     task.dispatchPrice = input.dispatchPrice ?? 1500
     task.dispatchPriceCurrency = 'IDR'
     task.dispatchPriceUnit = 'Yard'
     task.standardPriceCurrency = 'IDR'
     task.standardPriceUnit = 'Yard'
-    task.mockOrigin = 'DIRECT_ASSIGNED_EXECUTION'
-    task.mockReceiveSummary = '染色加工单已派单，直接进入执行待加工。'
+    task.mockOrigin = task.acceptanceStatus === 'PENDING' ? 'DIRECT_PENDING' : 'DIRECT_ASSIGNED_EXECUTION'
+    task.mockReceiveSummary = task.acceptanceStatus === 'PENDING' ? '染色加工单已分配，待工厂接单。' : '染色加工单已接单。'
+    task.sourceType = input.sourceType
+    task.productionOrderId = input.sourceType === 'PRODUCTION_ORDER' ? input.sourceProductionOrderId || input.productionOrderIds?.[0] : undefined
+    task.productionOrderNo = input.sourceType === 'PRODUCTION_ORDER' ? input.sourceProductionOrderNo : undefined
+    task.sourceProductionOrderId = task.productionOrderId
+    task.stockMaterialId = input.sourceType === 'STOCK' ? input.stockMaterialId : undefined
+    task.stockMaterialName = input.sourceType === 'STOCK' ? input.stockMaterialName : undefined
   }
 
   workOrderStore.set(input.dyeOrderId, {
@@ -1084,6 +1121,28 @@ function seedWorkOrders(): void {
   const vats = listFactoryDyeVatCapacities(TEST_FACTORY_ID)
   const primaryVat = vats[0]
   const secondaryVat = vats[1] ?? vats[0]
+  const waitReceiveSubmittedQty = scaleSeedQty(7, 910, 910)
+  const partialSubmittedQty = scaleSeedQty(8, 980, 980)
+  const partialReceivedQty = scaleSeedQty(8, 980, 900)
+  const cancelledSubmittedQty = scaleSeedQty(9, 860, 860)
+  const cancelledReceivedQty = scaleSeedQty(9, 860, 842)
+  const completedSubmittedQty = scaleSeedQty(10, 1180, 1172)
+  const partialTaskId = 'TASK-DYE-000734'
+  const partialTaskTemplate = getDyeingTaskById('TASK-DYE-000729')
+  if (partialTaskTemplate && !getDyeingTaskById(partialTaskId)) {
+    registerPdaGenericProcessTask({
+      ...structuredClone(partialTaskTemplate),
+      taskId: partialTaskId,
+      taskNo: partialTaskId,
+      taskQrValue: buildTaskQrValue(partialTaskId),
+      handoverOrderId: undefined,
+      handoverStatus: 'NOT_CREATED',
+      auditLogs: partialTaskTemplate.auditLogs.map((log, index) => ({
+        ...log,
+        id: `AL-${partialTaskId}-${index + 1}`,
+      })),
+    })
+  }
 
   syncLinkedTaskState('TASK-DYE-000726', {
     status: 'IN_PROGRESS',
@@ -1111,7 +1170,7 @@ function seedWorkOrders(): void {
     blockReason: undefined,
     blockRemark: undefined,
   })
-  syncLinkedTaskState('TASK-DYE-000729', {
+  syncLinkedTaskState(partialTaskId, {
     status: 'IN_PROGRESS',
     acceptanceStatus: 'ACCEPTED',
     startedAt: '2026-03-27 15:00:00',
@@ -1135,32 +1194,35 @@ function seedWorkOrders(): void {
   })
 
   const orderWaitReview = ensureSeededHandoverRecord({
-    taskId: 'TASK-DYE-000729',
-    submittedQty: 980,
-    receiverWrittenQty: 972,
+    taskId: partialTaskId,
+    submittedQty: partialSubmittedQty,
+    receiverWrittenQty: partialReceivedQty,
     submittedAt: '2026-03-28 18:10:00',
     receiverWrittenAt: '2026-03-28 20:40:00',
-    diffReason: '中转区域复核少 8 米',
+    diffReason: `中转区域复核少 ${Number((partialSubmittedQty - partialReceivedQty).toFixed(2))} 米`,
   })
   const orderRejected = ensureSeededHandoverRecord({
     taskId: 'TASK-DYE-000730',
-    submittedQty: 860,
-    receiverWrittenQty: 842,
+    submittedQty: cancelledSubmittedQty,
+    receiverWrittenQty: cancelledReceivedQty,
     submittedAt: '2026-03-28 16:00:00',
     receiverWrittenAt: '2026-03-28 19:30:00',
     diffReason: '卷数和长度复核不一致',
   })
   const orderCompleted = ensureSeededHandoverRecord({
     taskId: 'TASK-DYE-000731',
-    submittedQty: 1180,
-    receiverWrittenQty: 1180,
+    submittedQty: completedSubmittedQty,
+    receiverWrittenQty: completedSubmittedQty,
     submittedAt: '2026-03-29 16:20:00',
     receiverWrittenAt: '2026-03-29 17:10:00',
   })
   const orderSubmitted = ensureSeededHandoverRecord({
     taskId: 'TASK-DYE-000728',
-    submittedQty: 910,
+    submittedQty: waitReceiveSubmittedQty,
     submittedAt: '2026-03-28 17:25:00',
+    receiverWrittenQty: waitReceiveSubmittedQty,
+    receiverWrittenAt: '2026-03-28 18:10:00',
+    receiverRemark: '中转区域已足额回写，等待平台审核',
   })
   const orderWaitHandover = ensureStartedTaskHandover('TASK-DYE-000727')
 
@@ -1199,6 +1261,7 @@ function seedWorkOrders(): void {
     dyeOrderId: DYE_WORK_ORDER_IDS[1],
     dyeOrderNo: 'DY-20260328-002',
     sourceType: 'PRODUCTION_ORDER',
+    isReplenishment: true,
     productionOrderIds: ['PO-20260328-402'],
     isFirstOrder: false,
     sampleWaitType: 'NONE',
@@ -1270,6 +1333,14 @@ function seedWorkOrders(): void {
       remark: '色号确认中',
     },
   ])
+  const acceptedWaitingTask = getDyeingTaskById('TASK-DYE-000723')
+  if (acceptedWaitingTask) {
+    acceptedWaitingTask.acceptanceStatus = 'ACCEPTED'
+    acceptedWaitingTask.acceptedAt = '2026-03-28 09:10:00'
+    acceptedWaitingTask.acceptedBy = 'PDA 接单员'
+    acceptedWaitingTask.mockReceiveSummary = '染厂已接单，等待色卡确认后开工。'
+    registerPdaGenericProcessTask(acceptedWaitingTask)
+  }
 
   addSeedWorkOrder({
     dyeOrderId: DYE_WORK_ORDER_IDS[3],
@@ -1446,6 +1517,7 @@ function seedWorkOrders(): void {
     dyeOrderId: DYE_WORK_ORDER_IDS[5],
     dyeOrderNo: 'DY-20260328-006',
     sourceType: 'PRODUCTION_ORDER',
+    isReplenishment: true,
     productionOrderIds: ['PO-20260328-406'],
     isFirstOrder: false,
     sampleWaitType: 'NONE',
@@ -1676,11 +1748,11 @@ function seedWorkOrders(): void {
     dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
-    status: 'HANDOVER_WAIT_RECEIVE',
+    status: 'WAIT_REVIEW',
     taskId: 'TASK-DYE-000728',
     taskNo: 'TASK-DYE-000728',
     handoverOrderId: orderSubmitted.handoverOrderId,
-    waitingReason: '已交出，等待确认收货',
+    waitingReason: '接收方已回写，等待平台审核',
     createdAt: '2026-03-28 10:50:00',
     updatedAt: '2026-03-28 17:30:00',
   })
@@ -1738,11 +1810,11 @@ function seedWorkOrders(): void {
     dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
-    status: 'WAIT_REVIEW',
-    taskId: 'TASK-DYE-000729',
-    taskNo: 'TASK-DYE-000729',
+    status: 'PARTIAL_HANDOVER',
+    taskId: partialTaskId,
+    taskNo: partialTaskId,
     handoverOrderId: orderWaitReview.handoverOrderId,
-    waitingReason: '接收方已回写，等待平台审核',
+    waitingReason: '已部分入库，剩余数量不再继续染色',
     createdAt: '2026-03-27 14:50:00',
     updatedAt: '2026-03-28 20:40:00',
   })
@@ -1750,7 +1822,7 @@ function seedWorkOrders(): void {
     {
       nodeRecordId: `${DYE_WORK_ORDER_IDS[8]}-PACK`,
       dyeOrderId: DYE_WORK_ORDER_IDS[8],
-      taskId: 'TASK-DYE-000729',
+      taskId: partialTaskId,
       nodeCode: 'PACK',
       nodeName: DYE_NODE_LABEL.PACK,
       operatorUserId: 'USR-DYE-05',
@@ -1960,8 +2032,8 @@ function seedWorkOrders(): void {
     plannedQty: 930,
     qtyUnit: '米',
     plannedRollCount: 15,
-    dyeFactoryId: TEST_FACTORY_ID,
-    dyeFactoryName: TEST_FACTORY_NAME,
+    dyeFactoryId: '',
+    dyeFactoryName: '待分配工厂',
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'WAIT_VAT_PLAN',
@@ -1993,8 +2065,9 @@ function seedWorkOrders(): void {
   addSeedWorkOrder({
     dyeOrderId: DYE_WORK_ORDER_IDS[12],
     dyeOrderNo: 'DY-20260329-013',
-    sourceType: 'PRODUCTION_ORDER',
-    productionOrderIds: ['PO-20260329-413'],
+    sourceType: 'STOCK',
+    stockMaterialId: 'STOCK-DYE-FABRIC-013',
+    stockMaterialName: '备货棉涤坯布',
     isFirstOrder: false,
     sampleWaitType: 'NONE',
     sampleStatus: 'NOT_REQUIRED',
@@ -2009,35 +2082,18 @@ function seedWorkOrders(): void {
     plannedQty: 940,
     qtyUnit: '米',
     plannedRollCount: 16,
-    dyeFactoryId: TEST_FACTORY_ID,
-    dyeFactoryName: TEST_FACTORY_NAME,
+    dyeFactoryId: 'ID-F002',
+    dyeFactoryName: 'PT Prima Printing Center',
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
-    status: 'PACKING',
+    status: 'WAIT_MATERIAL',
     taskId: 'TASK-DYE-000733',
     taskNo: 'TASK-DYE-000733',
-    waitingReason: '包装中',
+    waitingReason: '备货创建，等待坯布到厂',
     createdAt: '2026-03-29 09:00:00',
     updatedAt: '2026-03-29 10:05:00',
-    remark: '包装中演示样本，完成包装后进入染色待交出仓',
+    remark: '业务人员按备货创建，已分配染厂，等待原料面料',
   })
-  setNodeRecords(DYE_WORK_ORDER_IDS[12], [
-    {
-      nodeRecordId: `${DYE_WORK_ORDER_IDS[12]}-MATERIAL_READY`,
-      dyeOrderId: DYE_WORK_ORDER_IDS[12],
-      taskId: 'TASK-DYE-000733',
-      nodeCode: 'MATERIAL_READY',
-      nodeName: DYE_NODE_LABEL.MATERIAL_READY,
-      operatorUserId: 'USR-DYE-01',
-      operatorName: '染色工厂',
-      startedAt: '2026-03-29 09:25:00',
-      finishedAt: '2026-03-29 10:05:00',
-      inputQty: 940,
-      outputQty: 940,
-      qtyUnit: '米',
-      remark: '备料完成',
-    },
-  ])
 
   if (primaryVat) {
     addVatSchedule({
@@ -2099,17 +2155,31 @@ function seedWorkOrders(): void {
     })
   }
 
+  const waitAuditHead = orderSubmitted.handoverOrderId ? getHandoverOrderById(orderSubmitted.handoverOrderId) : undefined
+  if (waitAuditHead) {
+    const waitAuditReview = createReviewFromHandover(workOrderStore.get(DYE_WORK_ORDER_IDS[7])!, waitAuditHead)
+    reviewRecordStore.set(DYE_WORK_ORDER_IDS[7], {
+      ...waitAuditReview,
+      receivedQty: waitReceiveSubmittedQty,
+      diffQty: 0,
+      reviewStatus: 'WAIT_REVIEW',
+      reviewedBy: '中转仓管',
+      reviewedAt: '2026-03-28 18:10:00',
+      remark: '中转区域已足额回写，等待平台审核',
+    })
+  }
+
   const waitReviewHead = orderWaitReview.handoverOrderId ? getHandoverOrderById(orderWaitReview.handoverOrderId) : undefined
   if (waitReviewHead) {
     const partialReview = createReviewFromHandover(workOrderStore.get(DYE_WORK_ORDER_IDS[8])!, waitReviewHead)
     reviewRecordStore.set(DYE_WORK_ORDER_IDS[8], {
       ...partialReview,
-      receivedQty: partialReview.submittedQty,
-      diffQty: 0,
-      reviewStatus: 'WAIT_REVIEW',
+      receivedQty: partialReceivedQty,
+      diffQty: Number((partialReceivedQty - partialSubmittedQty).toFixed(2)),
+      reviewStatus: 'PARTIAL_HANDOVER',
       reviewedBy: '中转仓管',
       reviewedAt: '2026-03-28 17:30:00',
-      remark: '接收方已回写，等待平台审核',
+      remark: '本次按实收数量部分入库，剩余数量终止',
     })
   }
 
@@ -2181,8 +2251,8 @@ function seedWorkOrders(): void {
     formulaNo: 'FORMULA-DYE-009',
     dyeOrderId: DYE_WORK_ORDER_IDS[8],
     dyeOrderNo: 'DY-20260328-009',
-    taskId: 'TASK-DYE-000729',
-    taskNo: 'TASK-DYE-000729',
+    taskId: partialTaskId,
+    taskNo: partialTaskId,
     colorNo: 'C-330',
     rawMaterialSku: 'FAB-DYE-009',
     targetColor: '豆沙粉',
@@ -2301,9 +2371,9 @@ function buildFreshDyeMobileTask(input: {
     dispatchRemark: hasFactory ? '染色加工单已分配，待工厂接收。' : '正式生产单已生成加工单，待分配工厂。',
     dispatchedAt: hasFactory ? input.createdAt : undefined,
     dispatchedBy: hasFactory ? input.dispatchedBy : undefined,
-    acceptanceStatus: hasFactory ? 'ACCEPTED' : 'PENDING',
-    acceptedAt: hasFactory ? input.createdAt : undefined,
-    acceptedBy: hasFactory ? input.factoryName : undefined,
+    acceptanceStatus: 'PENDING',
+    acceptedAt: undefined,
+    acceptedBy: undefined,
     taskQrValue: buildTaskQrValue(input.taskId),
     taskQrStatus: 'ACTIVE',
     handoverStatus: 'NOT_CREATED',
@@ -2604,16 +2674,25 @@ export interface DyeReceiptOnlineStatusEvent {
   expectedQty: number
 }
 
-let dyeReceiptOnlineStatusListener: ((event: DyeReceiptOnlineStatusEvent) => void) | null = null
+interface DyeReceiptOnlineStatusListener {
+  validate: (event: DyeReceiptOnlineStatusEvent) => void
+  commit: (event: DyeReceiptOnlineStatusEvent) => void
+}
+
+let dyeReceiptOnlineStatusListener: DyeReceiptOnlineStatusListener | null = null
 
 export function registerDyeReceiptOnlineStatusListener(
-  listener: (event: DyeReceiptOnlineStatusEvent) => void,
+  listener: DyeReceiptOnlineStatusListener,
 ): void {
   dyeReceiptOnlineStatusListener = listener
 }
 
+function validateDyeReceiptOnlineStatus(event: DyeReceiptOnlineStatusEvent): void {
+  dyeReceiptOnlineStatusListener?.validate(event)
+}
+
 function notifyDyeReceiptOnlineStatus(event: DyeReceiptOnlineStatusEvent): void {
-  dyeReceiptOnlineStatusListener?.(event)
+  dyeReceiptOnlineStatusListener?.commit(event)
 }
 
 export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductionOrderProcessSnapshot & {
@@ -3857,6 +3936,16 @@ export function confirmDyeReceipt(
 ): DyeReviewRecord {
   const { order, review } = getMutableDyeReceiptReview(dyeOrderId)
   const receivedQty = Number.isFinite(input.receivedQty) ? Number(input.receivedQty) : review.submittedQty
+  const receivedAt = nowTimestamp()
+  const expectedQty = getCurrentOutputQty(order) || order.plannedQty
+  const onlineEvent = {
+    dyeOrderId,
+    receivedBy: input.receivedBy,
+    receivedAt,
+    receivedQty,
+    expectedQty,
+  }
+  validateDyeReceiptOnlineStatus(onlineEvent)
   review.receivedQty = receivedQty
   review.diffQty = Number((receivedQty - review.submittedQty).toFixed(2))
   review.reviewStatus = resolveDyeReceiptStatus({
@@ -3865,7 +3954,7 @@ export function confirmDyeReceipt(
     receivedQty,
   })
   review.reviewedBy = input.receivedBy
-  review.reviewedAt = nowTimestamp()
+  review.reviewedAt = receivedAt
   review.rejectReason = undefined
   review.remark = input.remark?.trim() || (
     review.reviewStatus === 'WAIT_REVIEW'
@@ -3876,13 +3965,7 @@ export function confirmDyeReceipt(
   )
   applyDyeReceiptState(order, review)
   updateOrderTimestamp(order, review.reviewedAt)
-  notifyDyeReceiptOnlineStatus({
-    dyeOrderId,
-    receivedBy: input.receivedBy,
-    receivedAt: review.reviewedAt,
-    receivedQty,
-    expectedQty: getCurrentOutputQty(order) || order.plannedQty,
-  })
+  notifyDyeReceiptOnlineStatus(onlineEvent)
   return cloneReviewRecord(review)
 }
 

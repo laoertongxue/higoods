@@ -166,6 +166,8 @@ const EXPECTED_DYE_CANONICAL_IDENTITIES: Array<[string, string]> = [
   ['DWO-009', 'DY-20260328-009'],
   ['DWO-010', 'DY-20260328-010'],
   ['DWO-011', 'DY-20260328-011'],
+  ['DWO-012', 'DY-20260329-012'],
+  ['DWO-013', 'DY-20260329-013'],
   ['DYE-WATER-PO-202603-081', 'RSJG-WATER-202603081'],
   ['DYE-COMBINED-DEMO-001', 'RSJG-202607-901'],
   ['DYE-COMBINED-DEMO-002', 'RSJG-202607-902'],
@@ -443,7 +445,11 @@ listDyeReportRows()
     assert(Boolean(order.stockMaterialId && order.stockMaterialName), `${order.workOrderNo} 备货来源必须保留物料快照`)
     assert(!order.sourceProductionOrderId, `${order.workOrderNo} 备货来源不得伪造生产单`)
   }
-  assert(Boolean(order.factoryId && order.factoryName), `${order.workOrderNo} 缺少工厂`)
+  if (order.factoryId) {
+    assert(Boolean(order.factoryName && order.factoryName !== '待分配工厂'), `${order.workOrderNo} 已分配工厂但缺少工厂名称`)
+  } else {
+    assert.equal(order.factoryName, '待分配工厂', `${order.workOrderNo} 未分配工厂必须明确展示待分配工厂`)
+  }
   assert(Boolean(order.materialSku && order.materialName), `${order.workOrderNo} 缺少面料`)
   assert(order.plannedQty > 0 && Boolean(order.plannedUnit), `${order.workOrderNo} 计划加工数量缺少单位`)
   assert(Boolean(order.taskId && order.taskNo), `${order.workOrderNo} 缺少移动端执行任务`)

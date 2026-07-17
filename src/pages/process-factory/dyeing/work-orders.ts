@@ -79,6 +79,25 @@ function formatQty(value: number, unit: string): string {
   return `${value.toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${escapeHtml(unit)}`
 }
 
+function formatDifference(value: number, unit: string): string {
+  if (value > 0) return `多 ${formatQty(value, unit)}`
+  if (value < 0) return `少 ${formatQty(Math.abs(value), unit)}`
+  return '一致'
+}
+
+function isInventoryShortage(inventoryQty: number, plannedQty: number): boolean {
+  return inventoryQty < plannedQty
+}
+
+function inventoryClass(inventoryQty: number, plannedQty: number): string {
+  return isInventoryShortage(inventoryQty, plannedQty) ? 'font-medium text-red-600' : 'text-muted-foreground'
+}
+
+function pendingDyeQty(row: DyeWorkOrderOnlineRow): number {
+  if (['染色完成', '待审核', '部分入库', '已完成', '取消'].includes(row.status)) return 0
+  return Math.max(0, row.plannedQty - row.completedQty)
+}
+
 function renderListImage(url: string, alt: string): string {
   return url
     ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" class="h-16 w-12 rounded border object-cover">`
@@ -111,8 +130,7 @@ const columns: StandardListColumn<DyeWorkOrderOnlineRow>[] = [
       <label class="flex items-center gap-2"><input type="checkbox" ${state.selectedIds.has(row.dyeOrderId) ? 'checked' : ''} data-dye-work-orders-action="toggle-selection" data-id="${escapeHtml(row.dyeOrderId)}"><span class="font-mono font-medium text-blue-700" data-work-order-no="${escapeHtml(row.workOrderNo)}">${escapeHtml(row.workOrderNo)}</span></label>
       <div class="text-xs text-muted-foreground">任务单号：${escapeHtml(row.taskNo)}</div>
       <div class="text-xs text-muted-foreground">生产单号：${escapeHtml(row.productionOrderNo || '—')}</div>
-      <div class="text-xs text-muted-foreground">需求单号：${escapeHtml(row.demandNo)}</div>
-      <div class="flex flex-wrap gap-1">${renderBadge(row.status, statusTone(row.status))}${row.isOverdue ? renderBadge('超期未完结', 'danger') : ''}</div>
+      <div class="flex flex-wrap gap-1">${renderBadge(row.status, statusTone(row.status))}${row.isReplenishment ? renderBadge('补料', 'warning') : ''}${row.isOverdue ? renderBadge('超期未完结', 'danger') : ''}</div>
     </div>`,
   },
   {
@@ -123,12 +141,12 @@ const columns: StandardListColumn<DyeWorkOrderOnlineRow>[] = [
   {
     key: 'purchase', title: '采购单信息', width: 190, sortable: true,
     sortValue: (row) => row.purchaseOrderNo,
-    render: (row) => `<div class="space-y-1"><div>${escapeHtml(row.purchaseOrderNo)}：${escapeHtml(row.purchaseType)}</div><div class="text-xs">面料接收人：${escapeHtml(row.receiverName || '待分配')}</div><div class="text-xs text-red-600">接收人库存：${formatQty(row.receiverInventoryQty, row.qtyUnit)}</div><div class="text-xs text-red-600">GTG 仓库存：${formatQty(row.gtgInventoryQty, row.qtyUnit)}</div></div>`,
+    render: (row) => `<div class="space-y-1"><div>${escapeHtml(row.purchaseOrderNo)}：${escapeHtml(row.purchaseType)}</div><div class="text-xs">面料接收人：${escapeHtml(row.receiverName || '待分配')}</div><div class="text-xs ${inventoryClass(row.receiverInventoryQty, row.plannedQty)}">接收人库存：${formatQty(row.receiverInventoryQty, row.qtyUnit)}</div><div class="text-xs ${inventoryClass(row.gtgInventoryQty, row.plannedQty)}">GTG 仓库存：${formatQty(row.gtgInventoryQty, row.qtyUnit)}</div></div>`,
   },
   {
     key: 'material', title: '原料/面料', width: 250, required: true, sortable: true,
     sortValue: (row) => row.rawMaterialSku,
-    render: (row) => `<div class="flex gap-2">${renderListImage(row.materialImageUrl, '面料图')}<div class="min-w-0"><div class="font-medium">${escapeHtml(row.materialName)}</div><div class="break-all font-mono text-xs text-muted-foreground">原料 SKU：${escapeHtml(row.rawMaterialSku)}</div><div class="break-all font-mono text-xs text-muted-foreground">染色 SKU：${escapeHtml(row.colorSku)}</div><div class="text-xs">待染数量：${formatQty(Math.max(0, row.plannedQty - row.completedQty), row.qtyUnit)}</div></div></div>`,
+    render: (row) => `<div class="flex gap-2">${renderListImage(row.materialImageUrl, '面料图')}<div class="min-w-0"><div class="font-medium">${escapeHtml(row.materialName)}</div><div class="break-all font-mono text-xs text-muted-foreground">原料 SKU：${escapeHtml(row.rawMaterialSku)}</div><div class="break-all font-mono text-xs text-muted-foreground">染色 SKU：${escapeHtml(row.colorSku)}</div><div class="text-xs">待染数量：${formatQty(pendingDyeQty(row), row.qtyUnit)}</div></div></div>`,
   },
   {
     key: 'attributes', title: '属性信息', width: 190, sortable: true,
@@ -152,7 +170,7 @@ const columns: StandardListColumn<DyeWorkOrderOnlineRow>[] = [
   {
     key: 'otherQty', title: '其他数量', width: 160, sortable: true, align: 'right',
     sortValue: (row) => row.pendingInboundQty,
-    render: (row) => `<div class="space-y-1 text-xs"><div>待回写：${row.pendingWritebackQty}</div><div>差异数量：${row.differenceQty}</div><div>异议数量：${row.objectionQty}</div><div>待回货数量：${formatQty(row.pendingInboundQty, row.qtyUnit)}</div></div>`,
+    render: (row) => `<div class="space-y-1 text-xs"><div>待回写：${row.pendingWritebackQty}</div><div>差异数量：${formatDifference(row.differenceQty, row.qtyUnit)}</div><div>异议数量：${row.objectionQty}</div><div>待回货数量：${formatQty(row.pendingInboundQty, row.qtyUnit)}</div></div>`,
   },
   { key: 'remark', title: '备注', width: 190, render: (row) => `<div class="whitespace-normal text-xs">${escapeHtml(row.remark || '—')}</div>` },
   { key: 'actions', title: '操作', width: 330, required: true, actionColumn: true, render: renderActions },
@@ -303,7 +321,9 @@ function downloadCsv(kind: '全部' | '备料' | '超期未完结'): void {
   const anchor = document.createElement('a')
   anchor.href = href
   anchor.download = `染色加工单-${kind}-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(anchor)
   anchor.click()
+  anchor.remove()
   window.URL.revokeObjectURL(href)
 }
 

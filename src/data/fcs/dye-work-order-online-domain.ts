@@ -2,10 +2,12 @@ import {
   assignDyeWorkOrderFactory,
   getDyeWorkOrderById,
   getDyeWorkOrderByTaskId,
+  listDyeExecutionNodeRecords,
   registerDyeReceiptOnlineStatusListener,
   type DyeWorkOrder,
   type DyeWorkOrderStatus,
 } from './dyeing-task-domain.ts'
+import { listPdaGenericProcessTasks } from './pda-task-mock-factory.ts'
 
 export const DYE_WORK_ORDER_ONLINE_STATUSES = [
   '等待处理',
@@ -96,10 +98,6 @@ const records = new Map<string, DyeWorkOrderOnlineRecord>()
 const logs = new Map<string, DyeWorkOrderOnlineLog[]>()
 let logSequence = 0
 
-const ONLINE_STATUS_SEED_BY_ORDER_ID: Partial<Record<string, DyeWorkOrderOnlineStatus>> = {
-  'DWO-009': '部分入库',
-}
-
 const STATUS_RANK: Record<DyeWorkOrderOnlineStatus, number> = {
   等待处理: 0,
   取消: 99,
@@ -133,12 +131,22 @@ function cloneLog(log: DyeWorkOrderOnlineLog): DyeWorkOrderOnlineLog {
 }
 
 function makeInitialRecord(order: DyeWorkOrder): DyeWorkOrderOnlineRecord {
-  const status = ONLINE_STATUS_SEED_BY_ORDER_ID[order.dyeOrderId] || mapExecutionStatus(order.status)
+  const status = mapExecutionStatus(order.status)
+  const task = listPdaGenericProcessTasks().find((item) => item.taskId === order.taskId)
+  const nodes = listDyeExecutionNodeRecords(order.dyeOrderId)
+  const dyeInputQty = nodes.find((node) => node.nodeCode === 'DYE')?.inputQty || 0
+  const completedNode = [...nodes]
+    .reverse()
+    .find((node) => node.finishedAt && typeof node.outputQty === 'number')
+  const hasCompletedDyeing = ['染色完成', '待审核', '部分入库', '已完成', '取消'].includes(status)
+  const completedQty = hasCompletedDyeing ? completedNode?.outputQty || 0 : 0
+  const rawMaterialQty = dyeInputQty || completedQty
+  const lossQty = completedQty > 0 ? Number(Math.max(0, rawMaterialQty - completedQty).toFixed(2)) : 0
   return {
     dyeOrderId: order.dyeOrderId,
     workOrderNo: order.dyeOrderNo,
     status,
-    accepted: status !== '等待处理',
+    accepted: Boolean(order.dyeFactoryId && (task?.acceptanceStatus === 'ACCEPTED' || status !== '等待处理')),
     version: 1,
     plannedFinishAt: order.plannedFinishAt || '',
     factoryId: order.dyeFactoryId,
@@ -146,10 +154,10 @@ function makeInitialRecord(order: DyeWorkOrder): DyeWorkOrderOnlineRecord {
     receiverName: order.receiverName,
     shade: '',
     temperature: null,
-    rawMaterialQty: 0,
-    rawMaterialRollCount: 0,
-    completedQty: 0,
-    lossQty: 0,
+    rawMaterialQty,
+    rawMaterialRollCount: rawMaterialQty > 0 ? order.plannedRollCount || Math.max(1, Math.ceil(rawMaterialQty / 80)) : 0,
+    completedQty,
+    lossQty,
     remark: order.remark || '',
     completedAt: status === '染色完成' || status === '待审核' || status === '部分入库' || status === '已完成' ? order.updatedAt : '',
     deliveredAt: status === '待审核' || status === '部分入库' || status === '已完成' ? order.updatedAt : '',
@@ -216,7 +224,12 @@ export function isDyeWorkOrderHighRiskStatusChange(
   before: DyeWorkOrderOnlineStatus,
   after: DyeWorkOrderOnlineStatus,
 ): boolean {
-  return after === '取消' || (after !== '取消' && before !== '取消' && STATUS_RANK[after] < STATUS_RANK[before])
+  if (before === after) return false
+  return after === '取消'
+    || before === '取消'
+    || after === '部分入库'
+    || after === '已完成'
+    || STATUS_RANK[after] < STATUS_RANK[before]
 }
 
 export function getDyeWorkOrderOnlineActionError(
@@ -225,7 +238,11 @@ export function getDyeWorkOrderOnlineActionError(
 ): string | null {
   const record = getMutableRecord(dyeOrderId)
   if (record.status === '取消' && action !== '主管取消') return '当前加工单已取消，不能继续操作'
-  if (action === '接单') return record.status === '等待处理' && !record.accepted ? null : '当前加工单不能重复接单'
+  if (action === '接单') {
+    if (!record.factoryId) return '当前加工单待分配工厂，不能接单'
+    if (record.accepted) return '当前加工单不能重复接单'
+    return record.status === '取消' || record.status === '已完成' ? '当前加工单不能接单' : null
+  }
   if (action === '开工') {
     if (record.status !== '等待处理') return '当前加工单不是等待处理状态，不能开工'
     return record.accepted ? null : '请先接单后再开工'
@@ -259,6 +276,7 @@ export function updateDyeWorkOrderFromPfos(
 ): DyeWorkOrderOnlineRecord {
   const record = getMutableRecord(dyeOrderId)
   if (input.expectedVersion !== record.version) throw new Error('加工单已被其他操作更新，请重新打开后再保存')
+  if (record.status === '已完成' && input.status !== '已完成') throw new Error('已完成加工单不能修改状态')
   assertNonNegative('原料数量', input.rawMaterialQty)
   assertNonNegative('原料卷数', input.rawMaterialRollCount)
   assertNonNegative('完成数量', input.completedQty)
@@ -293,7 +311,7 @@ export function updateDyeWorkOrderFromPfos(
     deliveredAt: input.status === '待审核' && !record.deliveredAt ? input.operatedAt : record.deliveredAt,
     updatedAt: input.operatedAt,
     version: record.version + 1,
-    accepted: factoryChanged && input.status === '等待处理' ? false : record.accepted,
+    accepted: factoryChanged ? false : record.accepted,
   })
 
   const fields: Array<[keyof DyeWorkOrderOnlineRecord, string]> = [
@@ -377,8 +395,30 @@ export function recordDyeWorkOrderPdaAcceptance(
 ): DyeWorkOrderOnlineRecord | null {
   const order = getDyeWorkOrderByTaskId(taskId)
   if (!order) return null
+  const current = getDyeWorkOrderOnlineRecord(order.dyeOrderId)
+  if (current.accepted) return current
   return advanceDyeWorkOrderOnlineStatus(order.dyeOrderId, {
     action: '接单',
+    operatorName,
+    operatedAt,
+    source: 'PDA',
+  })
+}
+
+export function assertDyeWorkOrderPdaStartAllowed(taskId: string): void {
+  const order = getDyeWorkOrderByTaskId(taskId)
+  if (order) assertDyeWorkOrderOnlineActionAllowed(order.dyeOrderId, '开工')
+}
+
+export function recordDyeWorkOrderPdaStart(
+  taskId: string,
+  operatorName: string,
+  operatedAt: string,
+): DyeWorkOrderOnlineRecord | null {
+  const order = getDyeWorkOrderByTaskId(taskId)
+  if (!order) return null
+  return advanceDyeWorkOrderOnlineStatus(order.dyeOrderId, {
+    action: '开工',
     operatorName,
     operatedAt,
     source: 'PDA',
@@ -390,12 +430,20 @@ export function assertDyeWorkOrderPdaAcceptanceAllowed(taskId: string): void {
   if (order) assertDyeWorkOrderOnlineActionAllowed(order.dyeOrderId, '接单')
 }
 
-registerDyeReceiptOnlineStatusListener((event) => {
-  advanceDyeWorkOrderOnlineStatus(event.dyeOrderId, {
-    action: event.receivedQty < event.expectedQty ? '部分入库' : '全部入库',
-    operatorName: event.receivedBy,
-    operatedAt: event.receivedAt,
-    source: '入库',
-    remark: `累计实收 ${event.receivedQty} / 应收 ${event.expectedQty}`,
-  })
+registerDyeReceiptOnlineStatusListener({
+  validate: (event) => {
+    assertDyeWorkOrderOnlineActionAllowed(
+      event.dyeOrderId,
+      event.receivedQty < event.expectedQty ? '部分入库' : '全部入库',
+    )
+  },
+  commit: (event) => {
+    advanceDyeWorkOrderOnlineStatus(event.dyeOrderId, {
+      action: event.receivedQty < event.expectedQty ? '部分入库' : '全部入库',
+      operatorName: event.receivedBy,
+      operatedAt: event.receivedAt,
+      source: '入库',
+      remark: `累计实收 ${event.receivedQty} / 应收 ${event.expectedQty}`,
+    })
+  },
 })

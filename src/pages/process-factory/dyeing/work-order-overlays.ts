@@ -9,6 +9,7 @@ import {
   type DyeWorkOrderPfosEditInput,
 } from '../../../data/fcs/dye-work-order-online-domain.ts'
 import { listDyeWorkOrderOnlineRows } from '../../../data/fcs/dye-work-order-online-view.ts'
+import { listBusinessFactoryMasterRecords } from '../../../data/fcs/factory-master-store.ts'
 import { escapeHtml } from '../../../utils.ts'
 
 const EVENT_PREFIX = 'dye-work-orders'
@@ -54,8 +55,13 @@ function renderEdit(dyeOrderId: string, error = ''): string {
   const row = listDyeWorkOrderOnlineRows().find((item) => item.dyeOrderId === dyeOrderId)
   if (!row) return renderView(dyeOrderId)
   const record = getDyeWorkOrderOnlineRecord(dyeOrderId)
-  const factories = [...new Map(listDyeWorkOrderOnlineRows().map((item) => [item.factoryId, item.factoryName])).entries()].filter(([, name]) => name)
-  const receivers = [...new Set(listDyeWorkOrderOnlineRows().map((item) => item.receiverName).filter(Boolean))]
+  const factoryOptions = listBusinessFactoryMasterRecords({ includeTestFactories: true })
+    .filter((factory) => factory.factoryType === 'CENTRAL_DYE'
+      || factory.processAbilities.some((ability) => ability.processCode === 'DYE' && ability.status !== 'DISABLED'))
+    .map((factory) => ({ value: factory.id, label: factory.name }))
+  if (record.factoryId && !factoryOptions.some((factory) => factory.value === record.factoryId)) {
+    factoryOptions.unshift({ value: record.factoryId, label: record.factoryName || record.factoryId })
+  }
   const body = `<div class="max-h-[68vh] space-y-4 overflow-y-auto pr-1" data-skip-page-rerender="true">
     ${error ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(error)}</div>` : ''}
     <input type="hidden" value="${record.version}" data-dye-work-orders-edit="expectedVersion">
@@ -65,8 +71,8 @@ function renderEdit(dyeOrderId: string, error = ''): string {
       ${formField('计划数量', renderInput({ value: `${row.plannedQty} ${row.qtyUnit}`, readonly: true }))}
       ${formField('预计完成时间', renderInput({ value: record.plannedFinishAt, prefix: EVENT_PREFIX, field: 'plannedFinishAt' }))}
       ${formField('状态', renderSelect({ value: record.status, options: DYE_WORK_ORDER_ONLINE_STATUSES.map((value) => ({ value, label: value })), prefix: EVENT_PREFIX, field: 'status' }))}
-      ${formField('生产工厂', renderSelect({ value: record.factoryId, options: factories.map(([value, label]) => ({ value, label })), prefix: EVENT_PREFIX, field: 'factory' }))}
-      ${formField('面料接收人', renderSelect({ value: record.receiverName, options: receivers.map((value) => ({ value, label: value })), prefix: EVENT_PREFIX, field: 'receiverName' }))}
+      ${formField('生产工厂', renderSelect({ value: record.factoryId, options: factoryOptions, prefix: EVENT_PREFIX, field: 'factory' }))}
+      ${formField('面料接收人', renderInput({ value: record.receiverName, prefix: EVENT_PREFIX, field: 'receiverName' }))}
       ${formField('深浅', renderSelect({ value: record.shade, options: ['', '浅色', '深色'].map((value) => ({ value, label: value || '未选择' })), prefix: EVENT_PREFIX, field: 'shade' }))}
       ${formField('温度', renderSelect({ value: record.temperature ? String(record.temperature) : '', options: ['', '190', '200', '205'].map((value) => ({ value, label: value ? `${value}℃` : '未选择' })), prefix: EVENT_PREFIX, field: 'temperature' }))}
       ${formField('原料数量', renderInput({ type: 'number', value: String(record.rawMaterialQty), prefix: EVENT_PREFIX, field: 'rawMaterialQty' }))}

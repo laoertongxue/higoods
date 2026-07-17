@@ -65,6 +65,7 @@ import {
 import {
   advanceDyeWorkOrderOnlineStatus,
   assertDyeWorkOrderOnlineActionAllowed,
+  getDyeWorkOrderOnlineRecord,
 } from './dye-work-order-online-domain.ts'
 
 export type ProcessActionSourceChannel = 'Web 端' | '移动端'
@@ -996,9 +997,11 @@ export function executeDyeAction(payload: ProcessActionPayload): Partial<Process
   } else if (actionCode === 'DYE_SCHEDULE_VAT') {
     planDyeVat(payload.sourceId, { dyeVatNo: String(fields.dyeVatNo || getDefaultF090DyeVatNo()), operatorName })
   } else if (actionCode === 'DYE_START_DYEING') {
-    if (payload.sourceChannel === '移动端') assertDyeWorkOrderOnlineActionAllowed(payload.sourceId, '开工')
+    const shouldAdvanceOnlineStart = payload.sourceChannel === '移动端'
+      && getDyeWorkOrderOnlineRecord(payload.sourceId).status !== '染色中'
+    if (shouldAdvanceOnlineStart) assertDyeWorkOrderOnlineActionAllowed(payload.sourceId, '开工')
     startDyeing(payload.sourceId, { dyeVatNo: String(fields.dyeVatNo || getDefaultF090DyeVatNo()), operatorName })
-    if (payload.sourceChannel === '移动端') {
+    if (shouldAdvanceOnlineStart) {
       advanceDyeWorkOrderOnlineStatus(payload.sourceId, {
         action: '开工', operatorName, operatedAt: payload.operatedAt || '', source: 'PDA',
       })
@@ -1348,7 +1351,7 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
   }
   if (canonicalPayload.sourceChannel === '移动端' && canonicalPayload.sourceType === 'DYE') {
     const onlineAction = canonicalPayload.actionCode === 'DYE_START_DYEING'
-      ? '开工'
+      ? getDyeWorkOrderOnlineRecord(canonicalPayload.sourceId).status === '染色中' ? null : '开工'
       : canonicalPayload.actionCode === 'DYE_FINISH_DYEING'
         ? '完工'
         : canonicalPayload.actionCode === 'DYE_SUBMIT_HANDOVER'

@@ -62,6 +62,7 @@ import {
   executeMobileProcessAction,
   getProcessActionOperationRecordsByTask,
 } from '../src/data/fcs/process-action-writeback-service.ts'
+import { recordDyeWorkOrderPdaAcceptance, recordDyeWorkOrderPdaStart } from '../src/data/fcs/dye-work-order-online-domain.ts'
 import {
   assignWaterSolubleFactory,
   executeWaterSolublePdaAction,
@@ -74,7 +75,7 @@ import {
   resetWaterSolubleDomainForChecks,
 } from '../src/data/fcs/water-soluble-task-domain.ts'
 import type { ProcessTask } from '../src/data/fcs/process-tasks.ts'
-import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
+import { acceptPdaGenericProcessTask, listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
 import { appStore } from '../src/state/store.ts'
 
 const memoryStorage = new Map<string, string>()
@@ -950,6 +951,12 @@ async function main(): Promise<void> {
     assert(combined, '含水溶染色加工单必须仍可读取')
     const combinedGenericTask = listPdaGenericProcessTasks().find((task) => task.taskId === combined.taskId)
     assert(combinedGenericTask, '联合染色必须存在通用移动任务')
+    assert.equal(combinedGenericTask.acceptanceStatus, 'PENDING', '正式含水溶染色加工单必须先由 PDA 接单')
+    acceptPdaGenericProcessTask(combined.taskId, { acceptedAt: '2026-07-16 08:00:00', acceptedBy: operator.userName })
+    recordDyeWorkOrderPdaAcceptance(combined.taskId, operator.userName, '2026-07-16 08:00:00')
+    combinedGenericTask.status = 'IN_PROGRESS'
+    combinedGenericTask.startedAt = '2026-07-16 08:05:00'
+    recordDyeWorkOrderPdaStart(combined.taskId, operator.userName, '2026-07-16 08:05:00')
     combinedGenericTask.qtyDisplayUnit = '公斤'
     assert.equal(validateDyeStartPrerequisite(combined.dyeOrderId, 80).ok, false)
     if (combined.isFirstOrder && combined.sampleWaitType !== 'NONE') {

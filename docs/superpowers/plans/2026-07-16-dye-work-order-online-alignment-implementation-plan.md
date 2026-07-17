@@ -1,10 +1,10 @@
 # 单张染色加工单线上对齐实现计划
 
-> **面向 AI 代理的工作者：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
+> **面向 AI 代理的工作者：** 使用 superpowers:executing-plans 按用户确认的内联检查点逐任务实现。步骤使用 Markdown 复选框跟踪进度；提交命令仅作为可选交付建议，不代表本轮自动提交。
 
 **目标：** 将 PFOS 单张染色加工单改造成与线上业务一致的标准列表、人工编辑、统一日志和中印双语流程卡，并让 PDA 的接单、开工、完工、交出和入库推进同一套七状态。
 
-**架构：** 保留现有染色执行域作为内部执行事实，新建一个小型“线上业务视图域”集中维护七状态、人工编辑值和统一日志，避免继续扩张 `dyeing-task-domain.ts`。PFOS 列表、弹窗、导出和打印都读取该业务视图；PDA 在既有动作成功后调用同一状态推进函数。合并染色域保持不变。
+**架构：** 保留现有染色执行域作为内部执行事实，使用小型“线上业务视图域”集中维护七个执行状态、独立工厂分配状态、人工编辑值和统一日志。PFOS 列表、弹窗、导出和打印读取该业务视图；PDA 在既有动作成功后推进同一状态。需求单号不再进入列表、导出或打印，合并染色域保持不变。
 
 **技术栈：** Vite、TypeScript、Tailwind CSS、Vanilla TypeScript 字符串模板、现有 `src/components/ui/` 标准列表组件、Node 静态检查、Playwright。
 
@@ -56,7 +56,7 @@
 - 创建：`scripts/check-dye-work-order-online-alignment.ts`
 - 修改：`package.json`
 
-- [ ] **步骤 1：编写失败的状态域检查**
+- [x] **步骤 1：编写失败的状态域检查**
 
 在检查脚本中先写出状态、人工编辑、PDA 映射和日志期望：
 
@@ -101,7 +101,7 @@ assert(listDyeWorkOrderOnlineLogs(order.dyeOrderId).some((log) => log.action ===
 assert(listDyeWorkOrderOnlineLogs(order.dyeOrderId).some((log) => log.action === '开工'))
 ```
 
-- [ ] **步骤 2：运行检查并确认失败**
+- [x] **步骤 2：运行检查并确认失败**
 
 运行：
 
@@ -111,7 +111,7 @@ node --experimental-strip-types --experimental-specifier-resolution=node scripts
 
 预期：FAIL，报错无法找到 `dye-work-order-online-domain.ts`。
 
-- [ ] **步骤 3：实现七状态、编辑值和统一日志**
+- [x] **步骤 3：实现七状态、编辑值和统一日志**
 
 实现明确类型和入口：
 
@@ -154,7 +154,7 @@ const PDA_NEXT_STATUS: Record<DyeWorkOrderOnlineAction, DyeWorkOrderOnlineStatus
 "check:dye-work-order-online-alignment": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-dye-work-order-online-alignment.ts"
 ```
 
-- [ ] **步骤 4：运行专项检查并确认通过**
+- [x] **步骤 4：运行专项检查并确认通过**
 
 运行：
 
@@ -164,7 +164,7 @@ npm run check:dye-work-order-online-alignment
 
 预期：输出 `dye work order online alignment check passed`。
 
-- [ ] **步骤 5：提交状态域**
+- [x] **步骤 5：完成状态域检查点并记录可选提交命令**
 
 ```bash
 git add src/data/fcs/dye-work-order-online-domain.ts scripts/check-dye-work-order-online-alignment.ts package.json
@@ -179,7 +179,7 @@ git commit -m "feat: add dye work order online status domain"
 - 创建：`src/data/fcs/dye-work-order-online-view.ts`
 - 修改：`scripts/check-dye-work-order-online-alignment.ts`
 
-- [ ] **步骤 1：增加失败的视图模型检查**
+- [x] **步骤 1：增加失败的视图模型检查**
 
 ```ts
 import {
@@ -203,13 +203,13 @@ assert(summary.plannedQtyByUnit.some((item) => item.unit === 'Yard'))
 assert(buildDyeWorkOrderCsv(rows, '备料').startsWith('\uFEFF'))
 ```
 
-- [ ] **步骤 2：运行检查并确认失败**
+- [x] **步骤 2：运行检查并确认失败**
 
 运行：`npm run check:dye-work-order-online-alignment`
 
 预期：FAIL，报错无法找到 `dye-work-order-online-view.ts`。
 
-- [ ] **步骤 3：实现线上列表行和演示资料适配器**
+- [x] **步骤 3：实现线上列表行和演示资料适配器**
 
 定义单一列表行：
 
@@ -220,7 +220,6 @@ export interface DyeWorkOrderOnlineRow {
   platformWorkOrderNo: string
   taskNo: string
   productionOrderNo: string
-  demandNo: string
   productCode: string
   productImageUrl: string
   purchaseOrderNo: string
@@ -261,13 +260,13 @@ export interface DyeWorkOrderOnlineRow {
 
 优先从正式生产单快照和现有交出/收货事实取值；当前原型没有的商品图片、采购库存、色卡和备料要求使用按加工单号固定的演示资料表，不使用随机值。汇总按单位分组。CSV 提供“全部、备料、超期未完结”三种字段集合。
 
-- [ ] **步骤 4：运行检查并确认通过**
+- [x] **步骤 4：运行检查并确认通过**
 
 运行：`npm run check:dye-work-order-online-alignment`
 
 预期：PASS，且所有列表行的平台加工单号唯一。
 
-- [ ] **步骤 5：提交视图模型**
+- [x] **步骤 5：完成视图模型检查点并记录可选提交命令**
 
 ```bash
 git add src/data/fcs/dye-work-order-online-view.ts scripts/check-dye-work-order-online-alignment.ts
@@ -283,7 +282,7 @@ git commit -m "feat: add dye work order online list view"
 - 修改：`scripts/check-dye-work-order-online-alignment.ts`
 - 修改：`scripts/check-dyeing-workflow.ts`
 
-- [ ] **步骤 1：增加失败的页面契约检查**
+- [x] **步骤 1：增加失败的页面契约检查**
 
 ```ts
 import { renderCraftDyeingWorkOrdersPage } from '../src/pages/process-factory/dyeing/work-orders.ts'
@@ -304,7 +303,7 @@ assert(html.includes('data-standard-list-table'))
 
 同时把 `scripts/check-dyeing-workflow.ts` 中“打印任务流转卡”和复杂详情入口断言改为“打印流程卡”“查看”“编辑”“日志”。
 
-- [ ] **步骤 2：运行检查并确认失败**
+- [x] **步骤 2：运行检查并确认失败**
 
 运行：
 
@@ -315,7 +314,7 @@ npm run check:dyeing-workflow
 
 预期：专项检查因线上字段缺失而 FAIL；既有染色检查因旧打印文案断言变更而 FAIL。
 
-- [ ] **步骤 3：实现标准列表结构**
+- [x] **步骤 3：实现标准列表结构**
 
 保留 `// @page-pattern: list`，将页面状态扩展为：
 
@@ -346,7 +345,7 @@ const actions = [
 ]
 ```
 
-- [ ] **步骤 4：运行列表和染色检查**
+- [x] **步骤 4：运行列表和染色检查**
 
 运行：
 
@@ -358,7 +357,7 @@ npm run check:list-page-governance
 
 预期：三项全部 PASS；标准列表基线文件不发生变化。
 
-- [ ] **步骤 5：提交列表重做**
+- [x] **步骤 5：完成列表检查点并记录可选提交命令**
 
 ```bash
 git add src/pages/process-factory/dyeing/work-orders.ts scripts/check-dye-work-order-online-alignment.ts scripts/check-dyeing-workflow.ts
@@ -379,7 +378,7 @@ git commit -m "feat: align dye work order list with online business"
 - 修改：`src/router/route-renderers-fcs.ts`
 - 修改：`scripts/check-dye-work-order-online-alignment.ts`
 
-- [ ] **步骤 1：增加失败的弹窗和路由检查**
+- [x] **步骤 1：增加失败的弹窗和路由检查**
 
 ```ts
 import { buildDyeingWorkOrderDetailLink } from '../src/data/fcs/fcs-route-links.ts'
@@ -398,13 +397,13 @@ assert(!editHtml.includes('染缸执行'))
 assert(!editHtml.includes('移动端执行任务引用'))
 ```
 
-- [ ] **步骤 2：运行检查并确认失败**
+- [x] **步骤 2：运行检查并确认失败**
 
 运行：`npm run check:dye-work-order-online-alignment`
 
 预期：FAIL，报错弹窗模块不存在或旧详情链接仍指向独立详情页。
 
-- [ ] **步骤 3：实现三个弹窗和编辑保存**
+- [x] **步骤 3：实现三个弹窗和编辑保存**
 
 弹窗模块导出：
 
@@ -424,7 +423,7 @@ export function readDyeWorkOrderEditInput(root: ParentNode): DyeWorkOrderPfosEdi
 
 列表首次进入时读取 `dyeOrderId` 查询参数并打开查看弹窗。关闭弹窗时移除查询参数，不重置列表列偏好。旧 `/fcs/craft/dyeing/work-orders/:id` 路由重定向到列表深链；删除 `renderCraftDyeingWorkOrderDetailPage` 路由引用，不删除旧页面文件，避免扩大到无关历史消费者。
 
-- [ ] **步骤 4：运行专项、路由和构建检查**
+- [x] **步骤 4：运行专项、路由和构建检查**
 
 运行：
 
@@ -436,7 +435,7 @@ npm run build
 
 预期：全部 PASS，平台侧打开工厂端详情进入列表只读弹窗。
 
-- [ ] **步骤 5：提交弹窗和深链**
+- [x] **步骤 5：完成弹窗和深链检查点并记录可选提交命令**
 
 ```bash
 git add src/pages/process-factory/dyeing/work-order-overlays.ts src/pages/process-factory/dyeing/work-orders.ts src/pages/process-factory/dyeing/events.ts src/data/fcs/fcs-route-links.ts src/pages/process-dye-orders.ts src/router/routes-fcs.ts src/router/route-renderers-fcs.ts scripts/check-dye-work-order-online-alignment.ts
@@ -454,7 +453,7 @@ git commit -m "feat: add dye work order online dialogs"
 - 修改：`src/data/fcs/print-template-registry.ts`
 - 修改：`scripts/check-dye-work-order-online-alignment.ts`
 
-- [ ] **步骤 1：增加失败的导出和流程卡检查**
+- [x] **步骤 1：增加失败的导出和流程卡检查**
 
 ```ts
 import { buildDyeWorkOrderFlowCardPrintDocument } from '../src/pages/print/templates/dye-work-order-flow-card-template.ts'
@@ -471,13 +470,13 @@ for (const text of [
 assert(!cardText.includes('工厂加工单号'))
 ```
 
-- [ ] **步骤 2：运行检查并确认失败**
+- [x] **步骤 2：运行检查并确认失败**
 
 运行：`npm run check:dye-work-order-online-alignment`
 
 预期：FAIL，报错专用流程卡构建器不存在。
 
-- [ ] **步骤 3：实现下载和专用打印模板**
+- [x] **步骤 3：实现下载和专用打印模板**
 
 列表中的三个导出按钮调用 `buildDyeWorkOrderCsv`，使用带 UTF-8 BOM 的 `Blob` 下载。批量打印要求 `selectedIds.size > 0`，生成：
 
@@ -486,11 +485,11 @@ const href = `/fcs/print/task-route-card?sourceType=DYEING_WORK_ORDER&sourceId=$
 window.open(href, '_blank', 'noopener,noreferrer')
 ```
 
-打印构建器识别逗号分隔 ID，按勾选顺序生成多张文档，每张设置独立分页。单张卡片包含二维码、日期、生产单/需求来源、色样、色卡、SPU、供应商、原料、颜色、数量、成分、幅宽、克重、备料要求和八个现场签认工序。备货来源明确显示“备货创建”。
+打印构建器识别逗号分隔 ID，按勾选顺序生成多张文档，每张设置独立分页。单张卡片包含二维码、日期、生产单或备货来源、色样、色卡、SPU、供应商、原料、颜色、数量、成分、幅宽、克重、备料要求和八个现场签认工序。不得展示或推导需求单号；备货来源明确显示“备货创建”。
 
 `buildDyeingWorkOrderRouteCardPrintDocument` 委托给专用构建器，其他工艺的通用任务流转卡不改变。
 
-- [ ] **步骤 4：运行专项和打印回归检查**
+- [x] **步骤 4：运行专项和打印回归检查**
 
 运行：
 
@@ -502,7 +501,7 @@ npm run test:print-service-post-route-card:e2e
 
 预期：全部 PASS；单张和多张流程卡均包含平台加工单号。
 
-- [ ] **步骤 5：提交导出和流程卡**
+- [x] **步骤 5：完成导出和流程卡检查点并记录可选提交命令**
 
 ```bash
 git add src/pages/print/templates/dye-work-order-flow-card-template.ts src/pages/process-factory/dyeing/work-orders.ts src/pages/print/templates/task-route-card-template.ts src/data/fcs/print-template-registry.ts scripts/check-dye-work-order-online-alignment.ts
@@ -520,7 +519,7 @@ git commit -m "feat: add dye work order exports and flow card"
 - 修改：`src/data/fcs/dyeing-task-domain.ts`
 - 修改：`scripts/check-dye-work-order-online-alignment.ts`
 
-- [ ] **步骤 1：增加失败的 PDA 映射和顺序检查**
+- [x] **步骤 1：增加失败的 PDA 映射和顺序检查**
 
 ```ts
 const pdaOrder = listDyeWorkOrders().find((item) => item.dyeOrderId !== order.dyeOrderId)!
@@ -544,13 +543,13 @@ assert.throws(
 )
 ```
 
-- [ ] **步骤 2：运行检查并确认失败**
+- [x] **步骤 2：运行检查并确认失败**
 
 运行：`npm run check:dye-work-order-online-alignment`
 
 预期：FAIL，因为当前 PDA 动作尚未写入线上状态域或顺序校验尚未启用。
 
-- [ ] **步骤 3：在既有动作成功点写入统一状态**
+- [x] **步骤 3：在既有动作成功点写入统一状态**
 
 接入规则：
 
@@ -574,7 +573,7 @@ advanceDyeWorkOrderOnlineStatus(dyeOrder.dyeOrderId, {
 
 PDA 页面展示 `getDyeWorkOrderOnlineRecord(...).status`，但主按钮仍由当前允许动作决定；接单状态仍显示“等待处理”，下一动作明确为“开工”。
 
-- [ ] **步骤 4：运行 PDA、染色和专项检查**
+- [x] **步骤 4：运行 PDA、染色和专项检查**
 
 运行：
 
@@ -586,7 +585,7 @@ npm run check:pda-exec-task-detail
 
 预期：全部 PASS，PFOS 与 PDA 显示同一七状态。
 
-- [ ] **步骤 5：提交 PDA 状态接通**
+- [x] **步骤 5：完成 PDA 状态检查点并记录可选提交命令**
 
 ```bash
 git add src/pages/pda-task-receive.ts src/pages/pda-exec-detail.ts src/data/fcs/process-action-writeback-service.ts src/data/fcs/dyeing-task-domain.ts scripts/check-dye-work-order-online-alignment.ts
@@ -602,7 +601,7 @@ git commit -m "feat: sync dye PDA actions to online status"
 - 创建：`docs/prototype-review-records/2026-07-16-dye-work-order-online-alignment.md`
 - 修改：`package.json`
 
-- [ ] **步骤 1：编写失败的 Playwright 验收**
+- [x] **步骤 1：编写失败的 Playwright 验收**
 
 ```ts
 import { expect, test } from '@playwright/test'
@@ -642,13 +641,13 @@ test('染色加工单线上列表、人工编辑、日志、打印与 PDA 状态
 
 第二个用例从 PDA 待接单进入同一任务，依次完成接单和开工，再返回 PFOS 验证状态为“染色中”；继续完成染色和交出后验证状态为“待审核”。测试中所有按钮响应时间必须小于 200ms，忽略 Vite 首次异步模块冷编译时间并先执行一次可观察预热。
 
-- [ ] **步骤 2：运行端到端测试并确认失败**
+- [x] **步骤 2：运行端到端测试并确认失败**
 
 运行：`npm run test:dye-work-order-online-alignment:e2e`
 
 预期：FAIL，直到页面、弹窗、打印和 PDA 数据测试标识全部接通。
 
-- [ ] **步骤 3：补齐测试标识、治理记录和演示数据**
+- [x] **步骤 3：补齐测试标识、治理记录和演示数据**
 
 只为稳定定位增加业务语义明确的 `data-testid` 或 `data-work-order-no`。审查记录填写：角色匹配、信息负荷、数量与状态、扫码与识别、防错、协作关系、追溯和低分辨率结论。明确 PFOS 为主管/业务端，PDA 为员工执行端；记录没有列表治理例外。
 
@@ -658,7 +657,7 @@ test('染色加工单线上列表、人工编辑、日志、打印与 PDA 状态
 "test:dye-work-order-online-alignment:e2e": "playwright test tests/dye-work-order-online-alignment.spec.ts"
 ```
 
-- [ ] **步骤 4：运行端到端和治理检查**
+- [x] **步骤 4：运行端到端和治理检查**
 
 运行：
 
@@ -670,7 +669,7 @@ npm run check:prototype-design-governance -- --all
 
 预期：全部 PASS；Chromium 中没有控制台错误，弹窗操作不引起整页闪烁或滚动位置丢失。
 
-- [ ] **步骤 5：提交端到端验收和治理记录**
+- [x] **步骤 5：完成端到端验收检查点并记录可选提交命令**
 
 ```bash
 git add tests/dye-work-order-online-alignment.spec.ts docs/prototype-review-records/2026-07-16-dye-work-order-online-alignment.md package.json src/pages/process-factory/dyeing/work-orders.ts src/pages/process-factory/dyeing/work-order-overlays.ts
@@ -727,7 +726,7 @@ git status --short
 
 预期：CodeGraph 显示 `Index is up to date`；工作树仅包含本轮确认要提交的文件，或在最终修复提交后为空。
 
-- [x] **步骤 5：提交最终收口修复**
+- [x] **步骤 5：完成最终收口检查点并记录可选提交命令**
 
 如果视觉或回归发现本功能问题：
 
@@ -754,6 +753,11 @@ git commit -m "fix: finish dye work order online alignment"
 | 取消复杂详情入口 | 任务 4 |
 | 合并染色不变 | 任务 8 回归 |
 | 原型治理、列表治理、低分辨率和 200ms | 任务 7、8 |
+| 删除需求单号及其回退来源 | 任务 10 |
+| 工厂分配状态与七个执行状态分维度 | 任务 10 |
+| 人工状态影响矩阵与已完成终态 | 任务 10 |
+| 进行中改派责任转移 | 任务 10 |
+| 入库、导出、批量打印和改派真实浏览器验收 | 任务 10 |
 
 计划范围只包含已确认的原型字段和动作，不包含未来扩展、后端接口、权限或数据库建设。
 
@@ -820,3 +824,146 @@ npm run test:combined-dyeing:e2e
 ```
 
 预期：全部 PASS；如仓库既有非本功能基线仍失败，必须提供可复现证据并确认本轮没有扩大失败范围。
+
+---
+
+### 任务 10：统一最终产品口径并补齐真实浏览器验收
+
+**文件：**
+- 修改：`docs/superpowers/specs/2026-07-16-dye-work-order-online-alignment-design.md`
+- 修改：`docs/superpowers/plans/2026-07-16-dye-work-order-online-alignment-implementation-plan.md`
+- 修改：`docs/prototype-review-records/2026-07-16-dye-work-order-online-alignment.md`
+- 修改：`src/data/fcs/dye-work-order-online-domain.ts`
+- 修改：`src/data/fcs/dye-work-order-online-view.ts`
+- 修改：`src/pages/process-factory/dyeing/work-orders.ts`
+- 修改：`src/pages/print/templates/dye-work-order-flow-card-template.ts`
+- 修改：`scripts/check-dye-work-order-online-alignment.ts`
+- 修改：`tests/dye-work-order-online-alignment.spec.ts`
+
+- [x] **步骤 1：先补三组失败的验收**
+
+在专项检查中断言列表行、CSV 和流程卡均不再包含 `demandNo` 或“需求单号”；断言未分配工厂仍为“等待处理”但不可接单；断言从取消恢复、回退、部分入库和已完成属于高风险，且已完成不能再修改状态。
+
+在 Playwright 中新增三个独立用例：
+
+1. 接收方部分入库后 PFOS 显示“部分入库”和剩余数量，累计全部入库后显示“已完成”。
+2. 三种导出产生真实下载；未勾选批量打印被阻断；按勾选顺序生成多张独立分页流程卡。
+3. 原染厂开工后由 PFOS 改派；原染厂不能继续操作；新染厂重新接单后保持“染色中”并继续下一动作。
+
+- [x] **步骤 2：运行红灯并确认失败原因**
+
+```bash
+npm run check:dye-work-order-online-alignment
+npm run test:dye-work-order-online-alignment:e2e
+```
+
+预期：专项检查因需求单号仍存在、取消恢复未纳入高风险或已完成仍可修改而失败；浏览器测试因入库、下载/批量打印或改派闭环尚未覆盖而失败。
+
+- [x] **步骤 3：实现最小产品口径修复**
+
+- 从列表行、列表列、CSV 和流程卡移除需求单号及 `sourceArtifactIds` 回退。
+- 保持 `status = 等待处理`，以工厂是否分配决定 PDA 是否可接单。
+- 将所有取消恢复和状态回退纳入高风险确认；已完成状态禁止人工改为其他状态。
+- 人工改状态只更新线上状态、必要时间和日志，不创建完成、交出或入库业务单据。
+- 进行中改派保持执行状态，重置接单责任和任务归属，新染厂重新接单后继续。
+
+- [x] **步骤 4：运行专项与三组浏览器验收**
+
+```bash
+npm run check:dye-work-order-online-alignment
+npm run test:dye-work-order-online-alignment:e2e
+```
+
+预期：专项检查通过；所有染色线上对齐 Playwright 用例通过，浏览器控制台无错误。
+
+- [x] **步骤 5：更新审查记录并运行完整回归**
+
+只有获得新鲜浏览器证据后，才能把入库、导出/批量打印和进行中改派标记为“通过”。运行：
+
+```bash
+npm run check:production-process-work-order-generation
+npm run check:production-order-changes
+npm run check:dyeing-workflow
+npm run check:combined-dyeing
+npm run check:dye-work-order-online-alignment
+npm run check:list-page-governance
+npm run check:prototype-design-governance -- --all
+npm run build
+npm run test:dye-work-order-online-alignment:e2e
+npm run test:combined-dyeing:e2e
+codegraph sync
+codegraph status
+```
+
+预期：全部 PASS，CodeGraph 显示索引为最新；审查记录中的每项“通过”均有对应检查或真实浏览器证据。
+
+---
+
+### 任务 11：统一事实型 Mock 与多业务场景覆盖
+
+**文件：**
+- 修改：`scripts/check-dye-work-order-online-alignment.ts`
+- 修改：`src/data/fcs/dyeing-task-domain.ts`
+- 修改：`src/data/fcs/dye-work-order-online-domain.ts`
+- 修改：`src/data/fcs/dye-work-order-online-view.ts`
+- 修改：`src/pages/process-factory/dyeing/work-orders.ts`
+- 修改：`tests/dye-work-order-online-alignment.spec.ts`
+- 修改：`docs/prototype-review-records/2026-07-16-dye-work-order-online-alignment.md`
+
+- [x] **步骤 1：增加统一事实型 Mock 红灯检查**
+
+在专项检查中读取全部可见行及其加工单、执行节点和接收记录，逐条断言：
+
+```ts
+assert(actualInputQty >= actualOutputQty)
+assert.equal(lossQty, actualInputQty - actualOutputQty)
+assert(handoverQty >= receivedQty)
+assert.equal(pendingInboundQty, handoverQty - receivedQty)
+```
+
+同时断言场景矩阵包含待分配、待接单、已接单待开工、染色中、补料、染色完成、待审核、部分入库、取消、已完成、备货、超期、含水溶与合并染色成员。
+
+- [x] **步骤 2：运行专项检查并确认红灯原因**
+
+```bash
+npm run check:dye-work-order-online-alignment
+```
+
+预期：FAIL，明确指出旧 Mock 的计划量与交出量不一致、部分入库实收事实错误、执行状态数量为 0，以及不可见场景缺失。
+
+- [x] **步骤 3：在共同事实源修正并补充 Mock**
+
+由 `dyeing-task-domain.ts` 基于最终生产单快照数量生成节点、交出和接收数量；由 `dye-work-order-online-domain.ts` 从节点与接收事实初始化线上实际数量，不再通过 `ONLINE_STATUS_SEED_BY_ORDER_ID` 伪造部分入库。补充待分配工厂与备货来源，确保对应 PDA 任务归属、接单状态和加工单号一致。
+
+- [x] **步骤 4：验证专项检查由红转绿**
+
+```bash
+npm run check:dye-work-order-online-alignment
+npm run check:dyeing-workflow
+npm run check:process-work-order-unification
+```
+
+预期：全部 PASS；专项输出包含场景数量和数量一致性检查通过。
+
+- [x] **步骤 5：补齐真实浏览器场景验收**
+
+Playwright 在 PFOS 列表验证状态筛选、待分配工厂、补料、备货、超期、部分入库剩余量、已完成数量；进入 PDA 验证待分配任务不可接单及已分配任务可按原顺序推进。
+
+```bash
+npm run test:dye-work-order-online-alignment:e2e
+```
+
+预期：全部 PASS，浏览器控制台无错误。
+
+- [x] **步骤 6：更新治理记录并完整收口**
+
+```bash
+npm run check:list-page-governance
+npm run check:prototype-design-governance -- --all
+npm run build
+git diff --check
+codegraph sync
+codegraph status
+```
+
+预期：全部 PASS，CodeGraph 显示索引为最新；审查记录明确列出 Mock 场景及业务不变量证据。
