@@ -87,6 +87,10 @@ const ITEM_PROGRESS_OPTIONS: PreparationItemProgress[] = ['不满足开始条件
 const ledgerPageSizes = [5, 10, 20, 50]
 const ledgerStorageKey = 'higood:list-page:/fcs/production/preparation-timing:ledger'
 const ledgerMaxFrozenWidth = 620
+const statsPageSizes = [5, 8, 10, 20, 50]
+const monthlyStorageKey = 'higood:list-page:/fcs/production/preparation-timing-statistics:monthly'
+const detailStorageKey = 'higood:list-page:/fcs/production/preparation-timing-statistics:detail'
+const statsMaxFrozenWidth = 620
 const ledgerColumnRules: StandardListColumnRule[] = [
   { key: 'product', required: true, freezeable: true },
   { key: 'people', required: true, freezeable: true },
@@ -176,6 +180,87 @@ const PREPARATION_ACTION_LABELS: Record<PreparationItemType, string> = {
 interface StatsTableRow extends MonthlyPreparationStatRow {
   ownerTeamText: string
   basisText: string
+}
+
+type StatsListKind = 'monthly' | 'detail'
+
+interface StatsListState {
+  page: number
+  sort: StandardListSortState | null
+  columnPreferences: StandardListColumnPreferences
+  columnSettingsOpen: boolean
+  draggedColumnKey: string
+  preferencesLoaded: boolean
+  filterSignature: string
+}
+
+const monthlyColumnRules: StandardListColumnRule[] = [
+  { key: 'month', required: true, freezeable: true },
+  { key: 'itemType', required: true, freezeable: true },
+  { key: 'completedCount' },
+  { key: 'onTimeCompletedCount' },
+  { key: 'overdueCompletedCount' },
+  { key: 'averageDurationHours' },
+  { key: 'ownerTeamText', freezeable: true },
+  { key: 'latestFinishedAt' },
+  { key: 'basisText' },
+]
+const detailColumnRules: StandardListColumnRule[] = [
+  { key: 'month', freezeable: true },
+  { key: 'recordNo', required: true, freezeable: true },
+  { key: 'spuCode', required: true, freezeable: true },
+  { key: 'spuName' },
+  { key: 'productionOrderNo', required: true, freezeable: true },
+  { key: 'confirmedProductPrepType' },
+  { key: 'buyerName' },
+  { key: 'merchandiserName' },
+  { key: 'itemType', required: true, freezeable: true },
+  { key: 'requiredKind' },
+  { key: 'ownerTeam', freezeable: true },
+  { key: 'ownerName' },
+  { key: 'plannedFinishAt' },
+  { key: 'actualFinishAt', required: true, freezeable: true },
+  { key: 'onTime' },
+  { key: 'evidenceSummary' },
+]
+
+function createDefaultStatsPreferences(rules: StandardListColumnRule[], pageSize: number): StandardListColumnPreferences {
+  return {
+    order: rules.map((column) => column.key),
+    visibleKeys: rules.map((column) => column.key),
+    frozenKeys: [],
+    pageSize,
+  }
+}
+
+const defaultMonthlyPreferences = createDefaultStatsPreferences(monthlyColumnRules, MONTHLY_STATS_PAGE_SIZE)
+const defaultDetailPreferences = createDefaultStatsPreferences(detailColumnRules, DETAIL_STATS_PAGE_SIZE)
+
+function createStatsListState(rules: StandardListColumnRule[], defaults: StandardListColumnPreferences): StatsListState {
+  return {
+    page: 1,
+    sort: null,
+    columnPreferences: normalizeListColumnPreferences(rules, defaults, statsPageSizes),
+    columnSettingsOpen: false,
+    draggedColumnKey: '',
+    preferencesLoaded: false,
+    filterSignature: '',
+  }
+}
+
+const monthlyStatsListState = createStatsListState(monthlyColumnRules, defaultMonthlyPreferences)
+const detailStatsListState = createStatsListState(detailColumnRules, defaultDetailPreferences)
+let activeStatsListKind: StatsListKind = 'monthly'
+
+export function enterProductionPreparationTimingStatisticsRoute(): void {
+  for (const state of [monthlyStatsListState, detailStatsListState]) {
+    state.page = 1
+    state.sort = null
+    state.columnSettingsOpen = false
+    state.draggedColumnKey = ''
+    state.filterSignature = ''
+  }
+  activeStatsListKind = 'monthly'
 }
 
 function valueOf(params: URLSearchParams, key: string): string {
@@ -364,41 +449,6 @@ function outputGeneratedAt(record: ProductionPreparationRecord): string {
     .sort((left, right) => right.localeCompare(left))[0] ?? ''
 }
 
-function pageCount(total: number, pageSize: number): number {
-  return Math.max(1, Math.ceil(total / pageSize))
-}
-
-function getPage(params: URLSearchParams, key: string, total: number, pageSize: number): number {
-  const rawPage = Number.parseInt(valueOf(params, key), 10)
-  const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1
-  return Math.min(page, pageCount(total, pageSize))
-}
-
-function paginateRows<T>(rows: T[], page: number, pageSize: number): T[] {
-  const start = (page - 1) * pageSize
-  return rows.slice(start, start + pageSize)
-}
-
-function renderStatsPagination(total: number, page: number, pageSize: number, pageKey: string, params: URLSearchParams, month: string): string {
-  const totalPages = pageCount(total, pageSize)
-  const prevHref = page > 1 ? buildStatsHref({ month, [pageKey]: page - 1 }, params) : ''
-  const nextHref = page < totalPages ? buildStatsHref({ month, [pageKey]: page + 1 }, params) : ''
-  const renderButton = (label: string, href: string) =>
-    href
-      ? `<button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(href)}">${escapeHtml(label)}</button>`
-      : `<button type="button" class="rounded-md border px-3 py-1.5 text-xs text-muted-foreground opacity-50" disabled>${escapeHtml(label)}</button>`
-
-  return `
-    <div class="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3 text-sm">
-      <span class="text-muted-foreground">共 ${total} 条，第 ${page}/${totalPages} 页</span>
-      <div class="flex items-center gap-2">
-        ${renderButton('上一页', prevHref)}
-        ${renderButton('下一页', nextHref)}
-      </div>
-    </div>
-  `
-}
-
 function escapeCsvValue(value: unknown): string {
   const text = value == null ? '' : String(value)
   if (/[",\n\r]/.test(text)) return `"${text.replaceAll('"', '""')}"`
@@ -424,18 +474,15 @@ function renderStatsHeader(activeTab: 'monthly' | 'detail', month: string, param
   ] as const
 
   return `
-    <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <h1 class="text-2xl font-semibold text-foreground">生产准备时效统计</h1>
-      <nav class="flex rounded-lg border bg-background p-1 text-sm">
-        ${tabs.map((tab) => `
-          <button
-            type="button"
-            data-nav="${escapeHtml(tab.href)}"
-            class="rounded-md px-4 py-2 ${activeTab === tab.key ? 'bg-blue-600 text-white shadow-sm' : 'text-muted-foreground hover:bg-muted'}"
-          >${escapeHtml(tab.label)}</button>
-        `).join('')}
-      </nav>
-    </header>
+    <nav class="flex rounded-lg border bg-background p-1 text-sm">
+      ${tabs.map((tab) => `
+        <button
+          type="button"
+          data-nav="${escapeHtml(tab.href)}"
+          class="rounded-md px-4 py-2 ${activeTab === tab.key ? 'bg-blue-600 text-white shadow-sm' : 'text-muted-foreground hover:bg-muted'}"
+        >${escapeHtml(tab.label)}</button>
+      `).join('')}
+    </nav>
   `
 }
 
@@ -1866,101 +1913,144 @@ function renderStatsSummary(details: MonthlyPreparationCompletionDetail[], stats
   `
 }
 
-function renderStatsTable(month: string, rows: StatsTableRow[], params: URLSearchParams): string {
-  const page = getPage(params, 'monthlyPage', rows.length, MONTHLY_STATS_PAGE_SIZE)
-  const pagedRows = paginateRows(rows, page, MONTHLY_STATS_PAGE_SIZE)
-
-  return `
-    <section class="rounded-xl border bg-card">
-      <div class="border-b px-5 py-4">
-        <h2 class="font-semibold">统计表</h2>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[760px] text-sm">
-          <thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
-            <tr>
-              ${['统计月份', '准备项', '完成数量', '按时完成数量', '超时完成数量', '平均耗时小时', '责任团队', '最近完成时间', '口径说明'].map((head) => `<th class="px-4 py-3 font-medium">${escapeHtml(head)}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${pagedRows.map((row) => {
-              const detailHref = buildStatsHref({
-                tab: 'detail',
-                month,
-                detailPage: null,
-                monthlyPage: null,
-              }, params)
-              return `
-                <tr class="border-b last:border-b-0">
-                  <td class="px-4 py-3">
-                    <button type="button" data-nav="${escapeHtml(detailHref)}" class="font-medium text-blue-600 hover:underline">${escapeHtml(month)}</button>
-                  </td>
-                  <td class="px-4 py-3 font-medium">${escapeHtml(row.itemType)}</td>
-                  <td class="px-4 py-3">${row.completedCount}</td>
-                  <td class="px-4 py-3">${row.onTimeCompletedCount}</td>
-                  <td class="px-4 py-3">${row.overdueCompletedCount}</td>
-                  <td class="px-4 py-3">${row.averageDurationHours}</td>
-                  <td class="px-4 py-3">${escapeHtml(row.ownerTeamText)}</td>
-                  <td class="px-4 py-3">${escapeHtml(row.latestFinishedAt ? formatDateTime(row.latestFinishedAt) : '-')}</td>
-                  <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(row.basisText)}</td>
-                </tr>
-              `
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-      ${renderStatsPagination(rows.length, page, MONTHLY_STATS_PAGE_SIZE, 'monthlyPage', params, month)}
-    </section>
-  `
+function statsState(kind: StatsListKind): StatsListState {
+  return kind === 'monthly' ? monthlyStatsListState : detailStatsListState
 }
 
-function renderDetailTable(month: string, details: MonthlyPreparationCompletionDetail[], params: URLSearchParams): string {
-  const page = getPage(params, 'detailPage', details.length, DETAIL_STATS_PAGE_SIZE)
-  const pagedDetails = paginateRows(details, page, DETAIL_STATS_PAGE_SIZE)
+function statsRules(kind: StatsListKind): StandardListColumnRule[] {
+  return kind === 'monthly' ? monthlyColumnRules : detailColumnRules
+}
 
-  return `
-    <section class="rounded-xl border bg-card">
-      <div class="border-b px-5 py-4">
-        <h2 class="font-semibold">明细表</h2>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[1480px] text-sm">
-          <thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
-            <tr>
-              ${['统计月份', '准备记录编号', 'SPU', '商品名', '生产单号', '商品类型', '买手', '跟单', '准备项', '必做/选填', '责任团队', '责任人', '计划完成时间', '实际完成时间', '是否超时', '证据摘要'].map((head) => `<th class="px-4 py-3 font-medium">${escapeHtml(head)}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              pagedDetails.length
-                ? pagedDetails.map((detail) => `
-                  <tr class="border-b last:border-b-0">
-                    <td class="px-4 py-3">${escapeHtml(month)}</td>
-                    <td class="px-4 py-3 font-mono text-xs">${escapeHtml(detail.recordNo)}</td>
-                    <td class="px-4 py-3 font-mono text-xs">${escapeHtml(detail.spuCode)}</td>
-                    <td class="px-4 py-3 font-medium">${escapeHtml(detail.spuName)}</td>
-                    <td class="px-4 py-3 font-mono text-xs">${escapeHtml(detail.productionOrderNo)}</td>
-                    <td class="px-4 py-3">${escapeHtml(detail.confirmedProductPrepType)}</td>
-                    <td class="px-4 py-3">${escapeHtml(detail.buyerName)}</td>
-                    <td class="px-4 py-3">${escapeHtml(detail.merchandiserName)}</td>
-                    <td class="px-4 py-3">${escapeHtml(detail.itemType)}</td>
-                    <td class="px-4 py-3">${escapeHtml(detail.requiredKind)}</td>
-                    <td class="px-4 py-3">${escapeHtml(detail.ownerTeam)}</td>
-                    <td class="px-4 py-3">${escapeHtml(detail.ownerName)}</td>
-                    <td class="px-4 py-3">${escapeHtml(formatDateTime(detail.plannedFinishAt))}</td>
-                    <td class="px-4 py-3">${escapeHtml(formatDateTime(detail.actualFinishAt))}</td>
-                    <td class="px-4 py-3">${renderBadge(detail.onTime ? '否' : '是', detail.onTime ? 'green' : 'red')}</td>
-                    <td class="px-4 py-3 max-w-[260px] text-xs text-muted-foreground">${escapeHtml(detail.evidenceSummary || '-')}</td>
-                  </tr>
-                `).join('')
-                : '<tr><td colspan="16" class="h-24 px-4 text-center text-muted-foreground">当前月份暂无完成明细</td></tr>'
-            }
-          </tbody>
-        </table>
-      </div>
-      ${renderStatsPagination(details.length, page, DETAIL_STATS_PAGE_SIZE, 'detailPage', params, month)}
-    </section>
-  `
+function statsDefaults(kind: StatsListKind): StandardListColumnPreferences {
+  return kind === 'monthly' ? defaultMonthlyPreferences : defaultDetailPreferences
+}
+
+function statsStorageKey(kind: StatsListKind): string {
+  return kind === 'monthly' ? monthlyStorageKey : detailStorageKey
+}
+
+function statsEventPrefix(kind: StatsListKind): string {
+  return `production-preparation-stats-${kind}`
+}
+
+function ensureStatsPreferences(kind: StatsListKind): void {
+  const state = statsState(kind)
+  if (state.preferencesLoaded) return
+  state.preferencesLoaded = true
+  const storage = getLedgerStorage()
+  state.columnPreferences = storage
+    ? loadListColumnPreferences(storage, statsStorageKey(kind), statsRules(kind), statsDefaults(kind), statsPageSizes)
+    : normalizeListColumnPreferences(statsRules(kind), statsDefaults(kind), statsPageSizes)
+}
+
+function saveStatsPreferences(kind: StatsListKind): void {
+  const storage = getLedgerStorage()
+  if (storage) saveListColumnPreferences(storage, statsStorageKey(kind), statsState(kind).columnPreferences)
+}
+
+function getStatsFilterSignature(params: URLSearchParams, month: string): string {
+  const signature = new URLSearchParams()
+  signature.set('month', month)
+  for (const key of STATS_FILTER_KEYS) {
+    for (const value of valuesOf(params, key)) signature.append(key, value)
+  }
+  return signature.toString()
+}
+
+function syncStatsListContext(kind: StatsListKind, params: URLSearchParams, month: string): void {
+  const state = statsState(kind)
+  const nextSignature = getStatsFilterSignature(params, month)
+  if (activeStatsListKind !== kind || (state.filterSignature && state.filterSignature !== nextSignature)) {
+    state.page = 1
+    state.sort = null
+    state.columnSettingsOpen = false
+    state.draggedColumnKey = ''
+  }
+  state.filterSignature = nextSignature
+  activeStatsListKind = kind
+}
+
+function buildMonthlyDetailHref(params: URLSearchParams, month: string): string {
+  return buildStatsHref({ tab: 'detail', month, detailPage: 1, monthlyPage: null }, params)
+}
+
+function createMonthlyStatsColumns(month: string, params: URLSearchParams): StandardListColumn<StatsTableRow>[] {
+  const detailHref = buildMonthlyDetailHref(params, month)
+  return [
+    {
+      key: 'month', title: '统计月份', width: 120, required: true, freezeable: true, sortable: true,
+      sortValue: () => month,
+      render: () => `<button type="button" data-nav="${escapeHtml(detailHref)}" class="font-medium text-blue-600 hover:underline">${escapeHtml(month)}</button>`,
+    },
+    { key: 'itemType', title: '准备项', width: 220, required: true, freezeable: true, sortable: true, sortValue: (row) => row.itemType, render: (row) => escapeHtml(row.itemType) },
+    { key: 'completedCount', title: '完成数量', width: 120, sortable: true, sortValue: (row) => row.completedCount, render: (row) => String(row.completedCount) },
+    { key: 'onTimeCompletedCount', title: '按时完成数量', width: 140, sortable: true, sortValue: (row) => row.onTimeCompletedCount, render: (row) => String(row.onTimeCompletedCount) },
+    { key: 'overdueCompletedCount', title: '超时完成数量', width: 140, sortable: true, sortValue: (row) => row.overdueCompletedCount, render: (row) => String(row.overdueCompletedCount) },
+    { key: 'averageDurationHours', title: '平均耗时小时', width: 140, sortable: true, sortValue: (row) => row.averageDurationHours, render: (row) => String(row.averageDurationHours) },
+    { key: 'ownerTeamText', title: '责任团队', width: 160, freezeable: true, sortable: true, sortValue: (row) => row.ownerTeamText, render: (row) => escapeHtml(row.ownerTeamText) },
+    { key: 'latestFinishedAt', title: '最近完成时间', width: 180, sortable: true, sortValue: (row) => row.latestFinishedAt, render: (row) => escapeHtml(row.latestFinishedAt ? formatDateTime(row.latestFinishedAt) : '-') },
+    { key: 'basisText', title: '口径说明', width: 360, render: (row) => `<span class="text-xs text-muted-foreground">${escapeHtml(row.basisText)}</span>` },
+  ]
+}
+
+function createDetailStatsColumns(month: string): StandardListColumn<MonthlyPreparationCompletionDetail>[] {
+  return [
+    { key: 'month', title: '统计月份', width: 120, freezeable: true, sortable: true, sortValue: () => month, render: () => escapeHtml(month) },
+    { key: 'recordNo', title: '准备记录编号', width: 170, required: true, freezeable: true, sortable: true, sortValue: (row) => row.recordNo, render: (row) => `<span class="font-mono text-xs">${escapeHtml(row.recordNo)}</span>` },
+    { key: 'spuCode', title: 'SPU', width: 160, required: true, freezeable: true, sortable: true, sortValue: (row) => row.spuCode, render: (row) => `<span class="font-mono text-xs">${escapeHtml(row.spuCode)}</span>` },
+    { key: 'spuName', title: '商品名', width: 200, sortable: true, sortValue: (row) => row.spuName, render: (row) => `<span class="font-medium">${escapeHtml(row.spuName)}</span>` },
+    { key: 'productionOrderNo', title: '生产单号', width: 170, required: true, freezeable: true, sortable: true, sortValue: (row) => row.productionOrderNo, render: (row) => `<span class="font-mono text-xs">${escapeHtml(row.productionOrderNo)}</span>` },
+    { key: 'confirmedProductPrepType', title: '商品类型', width: 180, sortable: true, sortValue: (row) => row.confirmedProductPrepType, render: (row) => escapeHtml(row.confirmedProductPrepType) },
+    { key: 'buyerName', title: '买手', width: 110, sortable: true, sortValue: (row) => row.buyerName, render: (row) => escapeHtml(row.buyerName) },
+    { key: 'merchandiserName', title: '跟单', width: 110, sortable: true, sortValue: (row) => row.merchandiserName, render: (row) => escapeHtml(row.merchandiserName) },
+    { key: 'itemType', title: '准备项', width: 220, required: true, freezeable: true, sortable: true, sortValue: (row) => row.itemType, render: (row) => escapeHtml(row.itemType) },
+    { key: 'requiredKind', title: '必做/选填', width: 120, sortable: true, sortValue: (row) => row.requiredKind, render: (row) => escapeHtml(row.requiredKind) },
+    { key: 'ownerTeam', title: '责任团队', width: 140, freezeable: true, sortable: true, sortValue: (row) => row.ownerTeam, render: (row) => escapeHtml(row.ownerTeam) },
+    { key: 'ownerName', title: '责任人', width: 120, sortable: true, sortValue: (row) => row.ownerName, render: (row) => escapeHtml(row.ownerName) },
+    { key: 'plannedFinishAt', title: '计划完成时间', width: 180, sortable: true, sortValue: (row) => row.plannedFinishAt, render: (row) => escapeHtml(formatDateTime(row.plannedFinishAt)) },
+    { key: 'actualFinishAt', title: '实际完成时间', width: 180, required: true, freezeable: true, sortable: true, sortValue: (row) => row.actualFinishAt, render: (row) => escapeHtml(formatDateTime(row.actualFinishAt)) },
+    { key: 'onTime', title: '是否超时', width: 110, sortable: true, sortValue: (row) => row.onTime ? 0 : 1, render: (row) => renderBadge(row.onTime ? '否' : '是', row.onTime ? 'green' : 'red') },
+    { key: 'evidenceSummary', title: '证据摘要', width: 280, sortable: true, sortValue: (row) => row.evidenceSummary, render: (row) => `<span class="text-xs text-muted-foreground">${escapeHtml(row.evidenceSummary || '-')}</span>` },
+  ]
+}
+
+function getMonthlyStatsView(rows: StatsTableRow[], month: string, params: URLSearchParams): StandardListPageSlice<StatsTableRow> {
+  const columns = createMonthlyStatsColumns(month, params)
+  const state = monthlyStatsListState
+  const sorted = sortStandardListRows(rows, state.sort, (row, key) => columns.find((column) => column.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.page, state.columnPreferences.pageSize)
+  state.page = paging.currentPage
+  return paging
+}
+
+function getDetailStatsView(rows: MonthlyPreparationCompletionDetail[], month: string): StandardListPageSlice<MonthlyPreparationCompletionDetail> {
+  const columns = createDetailStatsColumns(month)
+  const state = detailStatsListState
+  const sorted = sortStandardListRows(rows, state.sort, (row, key) => columns.find((column) => column.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.page, state.columnPreferences.pageSize)
+  state.page = paging.currentPage
+  return paging
+}
+
+function renderStatsStandardTable(kind: StatsListKind, month: string, params: URLSearchParams, details: MonthlyPreparationCompletionDetail[], stats: StatsTableRow[]): string {
+  if (kind === 'monthly') {
+    const paging = getMonthlyStatsView(stats, month, params)
+    return renderStandardListTable({ columns: createMonthlyStatsColumns(month, params), rows: paging.rows, preferences: monthlyStatsListState.columnPreferences, sort: monthlyStatsListState.sort, eventPrefix: statsEventPrefix(kind), emptyText: '当前筛选条件下暂无月度统计' })
+  }
+  const paging = getDetailStatsView(details, month)
+  return renderStandardListTable({ columns: createDetailStatsColumns(month), rows: paging.rows, preferences: detailStatsListState.columnPreferences, sort: detailStatsListState.sort, eventPrefix: statsEventPrefix(kind), emptyText: '当前月份暂无完成明细' })
+}
+
+function renderStatsStandardPagination(kind: StatsListKind, month: string, params: URLSearchParams, details: MonthlyPreparationCompletionDetail[], stats: StatsTableRow[]): string {
+  const paging = kind === 'monthly' ? getMonthlyStatsView(stats, month, params) : getDetailStatsView(details, month)
+  return renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: statsEventPrefix(kind), fieldPrefix: statsEventPrefix(kind), pageSizeOptions: statsPageSizes })
+}
+
+function renderStatsColumnSettings(kind: StatsListKind, month: string, params: URLSearchParams): string {
+  const state = statsState(kind)
+  if (!state.columnSettingsOpen) return ''
+  const columns = kind === 'monthly' ? createMonthlyStatsColumns(month, params) : createDetailStatsColumns(month)
+  return renderStandardListColumnSettings({ title: kind === 'monthly' ? '月度统计列设置' : '明细统计列设置', columns, preferences: state.columnPreferences, eventPrefix: statsEventPrefix(kind), maxFrozenWidth: statsMaxFrozenWidth })
 }
 
 function buildStatsCsvRows(month: string, rows: StatsTableRow[]): string[][] {
@@ -2015,7 +2105,6 @@ function buildDetailCsvRows(month: string, rows: MonthlyPreparationCompletionDet
 function getStatsViewData(params: URLSearchParams, month: string): {
   details: MonthlyPreparationCompletionDetail[]
   stats: StatsTableRow[]
-  monthKey: string
 } {
   const filter = parseFilter(params)
   delete filter.startDate
@@ -2023,40 +2112,27 @@ function getStatsViewData(params: URLSearchParams, month: string): {
   delete filter.itemProgresses
   const details = getStatsDetails(month, filter)
   const stats = buildStatsRows(month, details)
-  const monthKey = month.replace('-', '')
-  return { details, stats, monthKey }
+  return { details, stats }
 }
 
-function renderMonthlyStatsTab(params: URLSearchParams, month: string): string {
-  const { details, stats, monthKey } = getStatsViewData(params, month)
-  const statsFileName = `生产准备时效月度统计-${monthKey}.csv`
-
+function renderStatsBasisNotice(): string {
   return `
-    <section class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+    <section class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
       顶部口径说明：统计完成数量时，以准备项实际完成时间所在月份为准；已关闭记录、无需项、未选择选填项不计入完成数量。
     </section>
-    ${renderStatsFilter(params, month, 'monthly')}
-    <div class="flex flex-wrap gap-2">
-      <a class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" href="${escapeHtml(csvDataUri(buildStatsCsvRows(month, stats)))}" download="${escapeHtml(statsFileName)}">导出月度统计</a>
-    </div>
-    ${renderStatsSummary(details, stats)}
-    ${renderStatsTable(month, stats, params)}
   `
 }
 
-function renderDetailStatsTab(params: URLSearchParams, month: string): string {
-  const { details, monthKey } = getStatsViewData(params, month)
-  const detailFileName = `生产准备时效完成明细-${monthKey}.csv`
-
+function renderStatsListActions(kind: StatsListKind, month: string, details: MonthlyPreparationCompletionDetail[], stats: StatsTableRow[]): string {
+  const monthKey = month.replace('-', '')
+  const exportLink = kind === 'monthly'
+    ? `<a class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" href="${escapeHtml(csvDataUri(buildStatsCsvRows(month, stats)))}" download="${escapeHtml(`生产准备时效月度统计-${monthKey}.csv`)}">导出月度统计</a>`
+    : `<a class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" href="${escapeHtml(csvDataUri(buildDetailCsvRows(month, details)))}" download="${escapeHtml(`生产准备时效完成明细-${monthKey}.csv`)}">导出完成明细</a>`
   return `
-    <section class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-      顶部口径说明：统计完成数量时，以准备项实际完成时间所在月份为准；已关闭记录、无需项、未选择选填项不计入完成数量。
-    </section>
-    ${renderStatsFilter(params, month, 'detail')}
-    <div class="flex flex-wrap gap-2">
-      <a class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" href="${escapeHtml(csvDataUri(buildDetailCsvRows(month, details)))}" download="${escapeHtml(detailFileName)}">导出完成明细</a>
+    <div class="flex flex-wrap items-center gap-2" data-skip-page-rerender="true">
+      ${exportLink}
+      ${renderSecondaryButton('列设置', { prefix: statsEventPrefix(kind), action: 'open-column-settings' }, 'columns-3')}
     </div>
-    ${renderDetailTable(month, details, params)}
   `
 }
 
@@ -2075,13 +2151,23 @@ export function renderProductionPreparationTimingStatisticsPage(pathname?: strin
   const params = url.searchParams
   const activeTab = params.get('tab') === 'detail' ? 'detail' : 'monthly'
   const month = valueOf(params, 'month') || DEFAULT_MONTH
+  ensureStatsPreferences(activeTab)
+  syncStatsListContext(activeTab, params, month)
+  const { details, stats } = getStatsViewData(params, month)
 
-  return `
-    <div class="flex flex-col gap-5 p-6">
-      ${renderStatsHeader(activeTab, month, params)}
-      ${activeTab === 'detail' ? renderDetailStatsTab(params, month) : renderMonthlyStatsTab(params, month)}
-    </div>
-  `
+  return renderStandardListPage({
+    title: '生产准备时效统计',
+    primaryActionsHtml: renderStatsHeader(activeTab, month, params),
+    feedbackHtml: renderStatsBasisNotice(),
+    filtersHtml: renderStatsFilter(params, month, activeTab),
+    statsHtml: activeTab === 'monthly' ? renderStatsSummary(details, stats) : '',
+    listTitle: activeTab === 'monthly' ? '统计表' : '明细表',
+    listActionsHtml: renderStatsListActions(activeTab, month, details, stats),
+    tableHtml: `<div data-prep-list-kind="${activeTab}" data-prep-stats-region="table" data-skip-page-rerender="true">${renderStatsStandardTable(activeTab, month, params, details, stats)}</div>`,
+    paginationHtml: `<div data-prep-stats-region="pagination" data-skip-page-rerender="true">${renderStatsStandardPagination(activeTab, month, params, details, stats)}</div>`,
+    overlaysHtml: `<div data-prep-stats-region="column-settings" data-skip-page-rerender="true">${renderStatsColumnSettings(activeTab, month, params)}</div>`,
+    className: 'min-w-0',
+  })
 }
 
 function currentIsoMinute(): string {
@@ -2695,8 +2781,201 @@ function handleLedgerListEvent(target: HTMLElement, event?: Event): boolean {
   return false
 }
 
+function getCurrentStatsContext(): {
+  kind: StatsListKind
+  month: string
+  params: URLSearchParams
+  details: MonthlyPreparationCompletionDetail[]
+  stats: StatsTableRow[]
+} {
+  const url = new URL(appStore.getState().pathname || STATS_PAGE_PATH, 'http://higoods.local')
+  const params = url.searchParams
+  const kind: StatsListKind = params.get('tab') === 'detail' ? 'detail' : 'monthly'
+  const month = valueOf(params, 'month') || DEFAULT_MONTH
+  const { details, stats } = getStatsViewData(params, month)
+  return { kind, month, params, details, stats }
+}
+
+function setStatsRegion(region: string, html: string): void {
+  if (typeof document === 'undefined') return
+  const element = document.querySelector<HTMLElement>(`[data-prep-stats-region="${region}"]`)
+  if (!element) return
+  element.innerHTML = html
+  hydrateIcons(element)
+}
+
+function refreshStatsTableAndPagination(context = getCurrentStatsContext()): void {
+  setStatsRegion('table', renderStatsStandardTable(context.kind, context.month, context.params, context.details, context.stats))
+  setStatsRegion('pagination', renderStatsStandardPagination(context.kind, context.month, context.params, context.details, context.stats))
+}
+
+function refreshStatsTable(context = getCurrentStatsContext()): void {
+  setStatsRegion('table', renderStatsStandardTable(context.kind, context.month, context.params, context.details, context.stats))
+}
+
+function refreshStatsColumnSettings(context = getCurrentStatsContext()): void {
+  setStatsRegion('column-settings', renderStatsColumnSettings(context.kind, context.month, context.params))
+}
+
+function statsColumnMetadata(kind: StatsListKind, month: string, params: URLSearchParams): Array<{
+  key: string
+  width: number
+  minWidth?: number
+  freezeable?: boolean
+  actionColumn?: boolean
+  sortable?: boolean
+}> {
+  const columns = kind === 'monthly' ? createMonthlyStatsColumns(month, params) : createDetailStatsColumns(month)
+  return columns.map(({ key, width, minWidth, freezeable, actionColumn, sortable }) => ({ key, width, minWidth, freezeable, actionColumn, sortable }))
+}
+
+function canFreezeStatsColumn(kind: StatsListKind, columnKey: string, month: string, params: URLSearchParams): boolean {
+  const state = statsState(kind)
+  const columns = statsColumnMetadata(kind, month, params)
+  const visibleKeys = new Set(state.columnPreferences.visibleKeys)
+  const frozenKeys = new Set(state.columnPreferences.frozenKeys)
+  const candidate = columns.find((column) => column.key === columnKey)
+  if (!candidate?.freezeable || !visibleKeys.has(columnKey)) return false
+  frozenKeys.add(columnKey)
+  return columns.reduce((total, column) =>
+    total + (visibleKeys.has(column.key) && frozenKeys.has(column.key) ? Math.max(column.width, column.minWidth ?? 0) : 0), 0) <= statsMaxFrozenWidth
+}
+
+function handleStatsListEvent(target: HTMLElement, event?: Event): boolean {
+  const context = getCurrentStatsContext()
+  const { kind, month, params } = context
+  const prefix = statsEventPrefix(kind)
+  const state = statsState(kind)
+  const rules = statsRules(kind)
+  const defaults = statsDefaults(kind)
+  const dragEvent = event as (DragEvent & {
+    higoodStandardListColumnDrag?: true
+    higoodStandardListColumnKey?: string
+  }) | undefined
+
+  if (event?.type === 'dragend') {
+    if (!dragEvent?.higoodStandardListColumnDrag) return false
+    state.draggedColumnKey = ''
+    return true
+  }
+
+  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
+  if (dragNode && dragEvent?.higoodStandardListColumnDrag && ['dragstart', 'dragover', 'drop'].includes(event?.type ?? '')) {
+    const columnKey = dragNode.getAttribute(`data-${prefix}-column-key`)
+      || dragNode.dataset.dragSource
+      || dragNode.dataset.dropTarget
+      || ''
+    const column = statsColumnMetadata(kind, month, params).find((item) => item.key === columnKey && !item.actionColumn)
+    if (event?.type === 'dragstart') {
+      state.draggedColumnKey = column?.key ?? ''
+      return Boolean(column)
+    }
+    const sourceKey = dragEvent.higoodStandardListColumnKey ?? ''
+    const targetKey = column?.key ?? ''
+    if (!sourceKey || !targetKey || sourceKey === targetKey || state.draggedColumnKey !== sourceKey) return false
+    if (event?.type === 'dragover') {
+      event.preventDefault()
+      return true
+    }
+    event?.preventDefault()
+    state.draggedColumnKey = ''
+    const order = state.columnPreferences.order.filter((key) => key !== sourceKey)
+    const targetIndex = order.indexOf(targetKey)
+    if (targetIndex < 0) return false
+    order.splice(targetIndex, 0, sourceKey)
+    state.columnPreferences = normalizeListColumnPreferences(rules, { ...state.columnPreferences, order }, statsPageSizes)
+    saveStatsPreferences(kind)
+    refreshStatsTable(context)
+    refreshStatsColumnSettings(context)
+    return true
+  }
+
+  const fieldNode = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${prefix}-field]`)
+  if (fieldNode?.getAttribute(`data-${prefix}-field`) === 'pageSize') {
+    if (event?.type !== 'change') return false
+    const pageSize = Number(fieldNode.value)
+    if (statsPageSizes.includes(pageSize)) {
+      state.columnPreferences = normalizeListColumnPreferences(rules, { ...state.columnPreferences, pageSize }, statsPageSizes)
+      state.page = 1
+      saveStatsPreferences(kind)
+      refreshStatsTableAndPagination(context)
+    }
+    return true
+  }
+
+  const actionNode = target.closest<HTMLElement>(`[data-${prefix}-action]`)
+  const action = actionNode?.getAttribute(`data-${prefix}-action`) ?? ''
+  if (!actionNode || !action) return false
+
+  if (action === 'prev-page' || action === 'next-page') {
+    state.page += action === 'prev-page' ? -1 : 1
+    refreshStatsTableAndPagination(context)
+    return true
+  }
+  if (action === 'sort-column') {
+    const columnKey = actionNode.dataset.columnKey ?? ''
+    const sortable = statsColumnMetadata(kind, month, params).some((column) => column.key === columnKey && column.sortable)
+    if (!sortable) return true
+    state.sort = state.sort?.key !== columnKey
+      ? { key: columnKey, direction: 'asc' }
+      : state.sort.direction === 'asc'
+        ? { key: columnKey, direction: 'desc' }
+        : null
+    state.page = 1
+    refreshStatsTableAndPagination(context)
+    return true
+  }
+  if (action === 'open-column-settings' || action === 'close-column-settings') {
+    state.columnSettingsOpen = action === 'open-column-settings'
+    refreshStatsColumnSettings(context)
+    return true
+  }
+
+  const columnKey = actionNode.getAttribute(`data-${prefix}-column-key`) ?? actionNode.dataset.columnKey ?? ''
+  if (action === 'toggle-column-visibility') {
+    if (event?.type !== 'change') return false
+    const rule = rules.find((item) => item.key === columnKey)
+    if (!rule || rule.required || rule.actionColumn) return true
+    const visibleKeys = new Set(state.columnPreferences.visibleKeys)
+    const frozenKeys = new Set(state.columnPreferences.frozenKeys)
+    if (visibleKeys.has(columnKey)) {
+      visibleKeys.delete(columnKey)
+      frozenKeys.delete(columnKey)
+    } else visibleKeys.add(columnKey)
+    state.columnPreferences = normalizeListColumnPreferences(rules, { ...state.columnPreferences, visibleKeys: [...visibleKeys], frozenKeys: [...frozenKeys] }, statsPageSizes)
+    if (!visibleKeys.has(columnKey) && state.sort?.key === columnKey) state.sort = null
+    saveStatsPreferences(kind)
+    refreshStatsTable(context)
+    refreshStatsColumnSettings(context)
+    return true
+  }
+  if (action === 'toggle-column-freeze') {
+    if (event?.type !== 'change') return false
+    const frozenKeys = new Set(state.columnPreferences.frozenKeys)
+    if (frozenKeys.has(columnKey)) frozenKeys.delete(columnKey)
+    else if (canFreezeStatsColumn(kind, columnKey, month, params)) frozenKeys.add(columnKey)
+    state.columnPreferences = normalizeListColumnPreferences(rules, { ...state.columnPreferences, frozenKeys: [...frozenKeys] }, statsPageSizes)
+    saveStatsPreferences(kind)
+    refreshStatsTable(context)
+    refreshStatsColumnSettings(context)
+    return true
+  }
+  if (action === 'restore-column-settings') {
+    state.columnPreferences = normalizeListColumnPreferences(rules, defaults, statsPageSizes)
+    state.page = 1
+    state.sort = null
+    const storage = getLedgerStorage()
+    if (storage) clearListColumnPreferences(storage, statsStorageKey(kind))
+    refreshStatsTableAndPagination(context)
+    refreshStatsColumnSettings(context)
+    return true
+  }
+  return false
+}
+
 export function handleProductionPreparationTimingEvent(target: HTMLElement, event?: Event): boolean {
   if (handleLedgerListEvent(target, event)) return true
+  if (handleStatsListEvent(target, event)) return true
 
   const filterCheckbox = target.closest<HTMLInputElement>('[data-prep-filter-checkbox]')
   if (filterCheckbox) {
