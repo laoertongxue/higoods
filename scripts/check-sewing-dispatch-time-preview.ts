@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   buildSewingDeliverySlaPreviewModel,
   renderSewingDeliverySlaPreview,
@@ -72,5 +73,15 @@ for (const text of ['交付完成', '30% 回货', '70% 回货', '100% 回货', '
   assert.match(html, new RegExp(text))
 }
 assert.doesNotMatch(html, /实际操作时间/)
+
+const sewingWorkbenchSource = readFileSync(
+  new URL('../src/pages/sewing-dispatch-workbench.ts', import.meta.url),
+  'utf8',
+)
+assert.match(sewingWorkbenchSource, /renderSewingDeliverySlaPreview/)
+assert.match(sewingWorkbenchSource, /data-sewing-direct-sla-preview-slot/)
+assert.match(sewingWorkbenchSource, /data-sewing-reassign-sla-preview-slot/)
+assert.match(sewingWorkbenchSource, /refreshSewingReassignmentSlaPreview/)
+assert.doesNotMatch(sewingWorkbenchSource, /function renderDirectDispatchDeadlines/)
 
 console.log('车缝派单统一时效预览检查通过')

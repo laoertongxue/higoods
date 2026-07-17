@@ -15,7 +15,11 @@ import {
   getCutPieceReleaseSummaryForProductionOrder,
   type CutPieceReleaseSummary,
 } from '../data/fcs/cut-piece-release.ts'
-import { classifySewingDeliverySla, createSewingDeliverySlaSnapshot, formatOperationLocalWallClock, operationWallClockToDateTimeLocal, dateTimeLocalToOperationWallClock } from '../data/fcs/sewing-delivery-sla.ts'
+import { formatOperationLocalWallClock, operationWallClockToDateTimeLocal, dateTimeLocalToOperationWallClock } from '../data/fcs/sewing-delivery-sla.ts'
+import {
+  buildSewingDeliverySlaPreviewModel,
+  renderSewingDeliverySlaPreview,
+} from '../components/sewing-delivery-sla-preview.ts'
 import { sumSewingDeliveryConfirmedReceiptQty } from '../data/fcs/sewing-delivery-receipt-facts.ts'
 import { reassignRuntimeSewingTask } from '../data/fcs/runtime-sewing-reassignment.ts'
 import { getRuntimeTaskById, listRuntimeProcessTasks } from '../data/fcs/runtime-process-tasks.ts'
@@ -122,9 +126,51 @@ function renderReassignmentDialog(): string {
   if (!task) return ''
   const factories = listSewingFactoryOptions().filter((factory) => factory.id !== task.assignedFactoryId)
   const confirmed = sumSewingDeliveryConfirmedReceiptQty(task.taskId)
+  const remainingQty = Math.max(task.scopeQty - confirmed, 0)
   const selectedFactory = factories.find((factory) => factory.id === state.reassignFactoryId)
   const mainFactoryOptions = [...listProductionOrderSewingFactories(task.productionOrderId).filter((factory) => factory.id !== task.assignedFactoryId), ...(selectedFactory ? [{ id: selectedFactory.id, name: selectedFactory.name }] : [])].filter((factory, index, list) => list.findIndex((item) => item.id === factory.id) === index)
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true"><button class="absolute inset-0 bg-slate-900/40" data-sewing-dispatch-action="close-reassign" aria-label="关闭改派弹窗"></button><section class="relative z-10 w-full max-w-xl rounded-lg border bg-background shadow-xl"><header class="border-b px-5 py-4"><h2 class="text-lg font-semibold">改派独立车缝任务</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</p></header><div class="space-y-3 px-5 py-4">${state.reassignError ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(state.reassignError)}</div>` : ''}<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm">原工厂：${escapeHtml(task.assignedFactoryName || '未记录')}｜已确认实收 ${formatQty(confirmed)} 件｜剩余 ${formatQty(Math.max(task.scopeQty - confirmed, 0))} 件</div><label class="block text-sm">目标工厂<select class="mt-1 h-9 w-full rounded-md border px-3" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignFactoryId"><option value="">请选择目标工厂</option>${factories.map((factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === state.reassignFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label><label class="block text-sm">业务分配时间<input type="datetime-local" class="mt-1 h-9 w-full rounded-md border px-3" value="${escapeHtml(state.reassignBusinessAssignedAt)}" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignBusinessAssignedAt" /></label><label class="block text-sm">改派原因<input class="mt-1 h-9 w-full rounded-md border px-3" value="${escapeHtml(state.reassignReason)}" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignReason" /></label><label class="block text-sm">改派后主工厂<select class="mt-1 h-9 w-full rounded-md border px-3" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignMainFactoryId"><option value="">候选超过一家时请选择</option>${mainFactoryOptions.map((factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === state.reassignMainFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label></div><footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="h-9 rounded-md border px-4 text-sm" data-sewing-dispatch-action="close-reassign">取消</button><button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white" data-sewing-dispatch-action="confirm-reassign">确认改派</button></footer></section></div>`
+  const previewModel = buildSewingDeliverySlaPreviewModel({
+    task,
+    businessAssignedAt: state.reassignBusinessAssignedAt,
+    assignedQty: remainingQty,
+    currentOperationAt: sewingDispatchNowProvider(),
+  })
+  const confirmDisabled = !state.reassignFactoryId || !previewModel.valid
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <button class="absolute inset-0 bg-slate-900/40" data-sewing-dispatch-action="close-reassign" aria-label="关闭改派弹窗"></button>
+      <section class="relative z-10 max-h-[88vh] w-full max-w-xl overflow-hidden rounded-lg border bg-background shadow-xl">
+        <header class="border-b px-5 py-4"><h2 class="text-lg font-semibold">改派独立车缝任务</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</p></header>
+        <div class="max-h-[calc(88vh-142px)] space-y-3 overflow-auto px-5 py-4">
+          <div data-sewing-reassign-error>${state.reassignError ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(state.reassignError)}</div>` : ''}</div>
+          <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm">原工厂：${escapeHtml(task.assignedFactoryName || '未记录')}｜已确认实收 ${formatQty(confirmed)} 件｜剩余 ${formatQty(remainingQty)} 件</div>
+          <label class="block text-sm">目标工厂<select class="mt-1 h-9 w-full rounded-md border px-3" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignFactoryId"><option value="">请选择目标工厂</option>${factories.map((factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === state.reassignFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label>
+          <label class="block text-sm">业务分配时间<input type="datetime-local" class="mt-1 h-9 w-full rounded-md border px-3" value="${escapeHtml(state.reassignBusinessAssignedAt)}" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignBusinessAssignedAt" /><span class="mt-1 block text-xs text-muted-foreground">可回填，但不能晚于提交时的当前时间；改派后目标工厂自动接单。</span></label>
+          <div data-sewing-reassign-sla-preview-slot>${renderSewingDeliverySlaPreview({ task, businessAssignedAt: state.reassignBusinessAssignedAt, assignedQty: remainingQty, currentOperationAt: sewingDispatchNowProvider() })}</div>
+          <label class="block text-sm">改派原因<input class="mt-1 h-9 w-full rounded-md border px-3" value="${escapeHtml(state.reassignReason)}" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignReason" /></label>
+          <label class="block text-sm">改派后主工厂<select class="mt-1 h-9 w-full rounded-md border px-3" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignMainFactoryId"><option value="">候选超过一家时请选择</option>${mainFactoryOptions.map((factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === state.reassignMainFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label>
+        </div>
+        <footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="h-9 rounded-md border px-4 text-sm" data-sewing-dispatch-action="close-reassign">取消</button><button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white ${confirmDisabled ? 'cursor-not-allowed opacity-50' : ''}" data-sewing-reassign-confirm data-sewing-dispatch-action="confirm-reassign" ${confirmDisabled ? 'disabled' : ''}>确认改派</button></footer>
+      </section>
+    </div>
+  `
+}
+
+function refreshSewingReassignmentSlaPreview(): void {
+  if (typeof document === 'undefined') return
+  const task = state.reassignTaskId ? getRuntimeTaskById(state.reassignTaskId) : null
+  if (!task) return
+  const remainingQty = Math.max(task.scopeQty - sumSewingDeliveryConfirmedReceiptQty(task.taskId), 0)
+  const input = { task, businessAssignedAt: state.reassignBusinessAssignedAt, assignedQty: remainingQty, currentOperationAt: sewingDispatchNowProvider() }
+  const slot = document.querySelector<HTMLElement>('[data-sewing-reassign-sla-preview-slot]')
+  if (slot) slot.innerHTML = renderSewingDeliverySlaPreview(input)
+  const button = document.querySelector<HTMLButtonElement>('[data-sewing-reassign-confirm]')
+  if (button) {
+    const disabled = !state.reassignFactoryId || !buildSewingDeliverySlaPreviewModel(input).valid
+    button.disabled = disabled
+    button.classList.toggle('cursor-not-allowed', disabled)
+    button.classList.toggle('opacity-50', disabled)
+  }
 }
 
 function refreshSewingReassignmentDialog(): void {
@@ -352,38 +398,20 @@ function renderDispatchAcceptanceSlaPreview(rows: SewingDispatchWorkbenchRow[], 
   `
 }
 
-function renderDirectDispatchDeadlines(rows: SewingDispatchWorkbenchRow[]): string {
-  if (!state.dispatchBusinessAssignedAt) return ''
-  try {
-    const acceptedAt = dateTimeLocalToOperationWallClock(state.dispatchBusinessAssignedAt)
-    const task = getRuntimeTaskById(rows[0]?.taskId ?? '')
-    const slaKind = task ? classifySewingDeliverySla(task) : null
-    if (!task || !slaKind) return ''
-    const snapshot = createSewingDeliverySlaSnapshot({
-      assignmentId: 'SEWING-DISPATCH-PREVIEW',
-      runtimeTaskId: task.taskId,
-      productionOrderId: task.productionOrderId,
-      factoryId: 'PREVIEW',
-      factoryName: '预览',
-      assignedQty: rows.reduce((sum, row) => sum + row.remainingQty, 0),
-      acceptedAt,
-      slaKind,
-    })
-    const [thirty, seventy, hundred] = snapshot.milestones
-    const deadlines: Array<[string, string, string]> = [
-      ['交付完成', hundred.deadlineAt, '前完成 100%'],
-      ['30% 回货', thirty.deadlineAt, '前确认实收达到 30%'],
-      ['70% 回货', seventy.deadlineAt, '前确认实收达到 70%'],
-      ['100% 回货', hundred.deadlineAt, '前确认实收达到 100%'],
-    ]
-    return `<section data-sewing-dispatch-deadline-region class="space-y-2 rounded-md border p-3">
-      <div class="text-sm font-medium">交付时效与按比例回货要求</div>
-      ${deadlines.map(([label, deadlineAt, requirement]) => `<div class="grid gap-1 text-sm sm:grid-cols-[110px_1fr]"><span class="text-muted-foreground">${label}</span><span class="font-medium">${escapeHtml(deadlineAt.slice(0, 16))} ${requirement}</span></div>`).join('')}
-      <div class="text-xs text-muted-foreground">以业务分配时间作为自动接单时间，按满 24 小时滚动；仅接收方确认实收计入回货比例。</div>
-    </section>`
-  } catch {
-    return '<section data-sewing-dispatch-deadline-region class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">请填写有效的业务分配时间。</section>'
+function getDirectDispatchSlaPreviewInput(rows = getDispatchCandidateRows()) {
+  const task = getRuntimeTaskById(rows[0]?.taskId ?? '')
+  if (!task) return null
+  return {
+    task,
+    businessAssignedAt: state.dispatchBusinessAssignedAt,
+    assignedQty: rows.reduce((sum, row) => sum + row.remainingQty, 0),
+    currentOperationAt: sewingDispatchNowProvider(),
   }
+}
+
+function renderDirectDispatchSlaPreview(rows: SewingDispatchWorkbenchRow[]): string {
+  const input = getDirectDispatchSlaPreviewInput(rows)
+  return input ? renderSewingDeliverySlaPreview(input) : ''
 }
 
 function getSelectedFactoryCandidatesByProductionOrder(rows: SewingDispatchWorkbenchRow[]): Map<string, Array<{ id: string; name: string }>> {
@@ -1129,6 +1157,9 @@ function renderDirectDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): strin
   const rows = getDispatchCandidateRows(tasks)
   const factories = listSewingFactoryOptions()
   const missingFactory = rows.some((row) => !state.dispatchFactoryIdByRowId[row.rowId])
+  const previewInput = getDirectDispatchSlaPreviewInput(rows)
+  const previewInvalid = !previewInput || !buildSewingDeliverySlaPreviewModel(previewInput).valid
+  const confirmDisabled = rows.length === 0 || missingFactory || previewInvalid
   return `<div class="fixed inset-0 z-50" role="dialog" aria-modal="true">
     <button class="absolute inset-0 bg-black/40" data-sewing-dispatch-action="close-dispatch" data-skip-page-rerender="true" aria-label="关闭"></button>
     <section class="absolute left-1/2 top-1/2 max-h-[88vh] w-[min(900px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border bg-background shadow-xl">
@@ -1139,10 +1170,10 @@ function renderDirectDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): strin
           <div class="overflow-x-auto rounded-lg border"><table class="w-full min-w-[760px] text-sm"><thead><tr class="border-b bg-muted/40 text-xs text-muted-foreground"><th class="w-14 px-3 py-2">选择</th><th class="px-3 py-2 text-left">SKU</th><th class="px-3 py-2 text-left">颜色 / 尺码</th><th class="px-3 py-2 text-left">任务数量</th><th class="px-3 py-2 text-left">承接工厂</th></tr></thead><tbody data-sewing-dispatch-factory-rows>${renderDirectDispatchFactoryRows(rows)}</tbody></table></div>
         </section>
         ${renderDispatchMainFactoryChoices(rows)}
-        ${renderDirectDispatchDeadlines(rows)}
+        <div data-sewing-direct-sla-preview-slot>${renderDirectDispatchSlaPreview(rows)}</div>
         ${renderDispatchErrorRegion()}
       </div>
-      <footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="rounded-md border px-4 py-2 text-sm" data-sewing-dispatch-action="close-dispatch" data-skip-page-rerender="true">取消</button><button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white ${rows.length === 0 || missingFactory ? 'cursor-not-allowed opacity-50' : ''}" data-sewing-dispatch-action="confirm-dispatch" data-skip-page-rerender="true" ${rows.length === 0 || missingFactory ? 'disabled' : ''}>确认派单</button></footer>
+      <footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="rounded-md border px-4 py-2 text-sm" data-sewing-dispatch-action="close-dispatch" data-skip-page-rerender="true">取消</button><button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white ${confirmDisabled ? 'cursor-not-allowed opacity-50' : ''}" data-sewing-direct-confirm data-sewing-dispatch-action="confirm-dispatch" data-skip-page-rerender="true" ${confirmDisabled ? 'disabled' : ''}>确认派单</button></footer>
     </section>
   </div>`
 }
@@ -1168,6 +1199,7 @@ function refreshSewingDispatchFactoryRows(): void {
   const region = document.querySelector<HTMLElement>('[data-sewing-dispatch-factory-rows]')
   if (region) region.innerHTML = renderDirectDispatchFactoryRows(getDispatchCandidateRows())
   refreshSewingDispatchMainFactoryRegion()
+  refreshSewingDispatchSlaPreview()
   refreshSewingDispatchErrorRegion()
 }
 
@@ -1177,10 +1209,20 @@ function refreshSewingDispatchMainFactoryRegion(): void {
   if (region) region.outerHTML = renderDispatchMainFactoryChoices(getDispatchCandidateRows())
 }
 
-function refreshSewingDispatchDeadlineRegion(): void {
+function refreshSewingDispatchSlaPreview(): void {
   if (typeof document === 'undefined') return
-  const region = document.querySelector<HTMLElement>('[data-sewing-dispatch-deadline-region]')
-  if (region) region.outerHTML = renderDirectDispatchDeadlines(getDispatchCandidateRows())
+  const rows = getDispatchCandidateRows()
+  const input = getDirectDispatchSlaPreviewInput(rows)
+  const slot = document.querySelector<HTMLElement>('[data-sewing-direct-sla-preview-slot]')
+  if (slot) slot.innerHTML = input ? renderSewingDeliverySlaPreview(input) : ''
+  const button = document.querySelector<HTMLButtonElement>('[data-sewing-direct-confirm]')
+  if (button) {
+    const missingFactory = rows.some((row) => !state.dispatchFactoryIdByRowId[row.rowId])
+    const disabled = rows.length === 0 || missingFactory || !input || !buildSewingDeliverySlaPreviewModel(input).valid
+    button.disabled = disabled
+    button.classList.toggle('cursor-not-allowed', disabled)
+    button.classList.toggle('opacity-50', disabled)
+  }
 }
 
 function refreshSewingDispatchErrorRegion(): void {
@@ -1285,8 +1327,16 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
     state.page = 1
     return
   }
-  if (field === 'reassignFactoryId') state.reassignFactoryId = node.value
-  if (field === 'reassignBusinessAssignedAt') state.reassignBusinessAssignedAt = node.value
+  if (field === 'reassignFactoryId') {
+    state.reassignFactoryId = node.value
+    state.reassignError = ''
+    refreshSewingReassignmentSlaPreview()
+  }
+  if (field === 'reassignBusinessAssignedAt') {
+    state.reassignBusinessAssignedAt = node.value
+    state.reassignError = ''
+    refreshSewingReassignmentSlaPreview()
+  }
   if (field === 'reassignReason') state.reassignReason = node.value
   if (field === 'reassignMainFactoryId') state.reassignMainFactoryId = node.value
   if (field === 'selectTask' && node instanceof HTMLInputElement) {
@@ -1313,6 +1363,7 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
     if (rowId) state.dispatchFactoryIdByRowId[rowId] = node.value
     state.dispatchError = ''
     refreshSewingDispatchMainFactoryRegion()
+    refreshSewingDispatchSlaPreview()
     refreshSewingDispatchErrorRegion()
     return
   }
@@ -1335,7 +1386,7 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
   if (field === 'dispatchBusinessAssignedAt') {
     state.dispatchBusinessAssignedAt = node.value
     state.dispatchError = ''
-    refreshSewingDispatchDeadlineRegion()
+    refreshSewingDispatchSlaPreview()
     refreshSewingDispatchErrorRegion()
   }
 }
