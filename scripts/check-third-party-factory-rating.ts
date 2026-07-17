@@ -4,7 +4,7 @@ import { indonesiaFactories } from '../src/data/fcs/indonesia-factories.ts'
 import { getFactoryCapacityProfileByFactoryId } from '../src/data/fcs/factory-capacity-profile-mock.ts'
 import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 import { renderThirdPartyFactoryRatingPage } from '../src/pages/third-party-factory-rating.ts'
-import { awardRuntimeTaskTender } from '../src/data/fcs/runtime-process-tasks.ts'
+import { awardRuntimeTaskTender, reassignRuntimeSewingTask } from '../src/data/fcs/runtime-process-tasks.ts'
 import {
   createSewingDispatchWorkbenchDraft,
   listSewingDispatchWorkbenchRows,
@@ -75,6 +75,8 @@ for (const factory of thirdPartySewingFactories) {
   const snapshot = snapshots.find((item) => item.factoryId === factory.id)
   const capacityProfile = getFactoryCapacityProfileByFactoryId(factory.id)
   assert.ok(snapshot, `${factory.id} 必须有评级快照`)
+  assert.equal(snapshot.factoryCode, factory.code, `${factory.id} 评级快照工厂编码必须与工厂主档一致`)
+  assert.equal(snapshot.factoryName, factory.name, `${factory.id} 评级快照工厂名称必须与工厂主档一致`)
   assert.equal(capacityProfile.sewingSeatCount, masterSeatCount, `${factory.id} 产能档案车位数必须从工厂主档同步`)
   assert.equal(snapshot.sewingSeatCount, masterSeatCount, `${factory.id} 评级快照车位数必须从工厂主档/产能资料同步`)
   assert.equal(snapshot.scaleLabel, masterSeatCount >= 30 ? '大型工厂' : '小型工厂', `${factory.id} 规模必须由车缝车位数派生`)
@@ -102,6 +104,10 @@ for (const snapshot of snapshots) {
 }
 
 for (const record of trialAssessmentRecords) {
+  const master = thirdPartySewingFactories.find((item) => item.id === record.factoryId)
+  assert.ok(master, `${record.assessmentId} 必须能匹配三方车缝工厂主档`)
+  assert.equal(record.factoryCode, master.code, `${record.assessmentId} 试产记录工厂编码必须与工厂主档一致`)
+  assert.equal(record.factoryName, master.name, `${record.assessmentId} 试产记录工厂名称必须与工厂主档一致`)
   for (const item of record.factoryLiabilityDefectReasonItems) {
     assert.ok(
       SEWING_FACTORY_LIABILITY_REASONS.includes(item.reasonName),
@@ -112,6 +118,9 @@ for (const record of trialAssessmentRecords) {
   assert.equal(record.factoryLiabilityDefectQty, metrics.factoryLiabilityDefectQty, `${record.assessmentId} 工厂责任瑕疵数量必须由原因明细求和`)
   assert.equal(record.defectiveQty, metrics.defectiveQty, `${record.assessmentId} 不良数量必须等于返工数量 + 工厂责任瑕疵数量`)
   assert.equal(record.defectRate, metrics.defectRate, `${record.assessmentId} 不良率必须由不良数量 / 质检数量计算`)
+  if (record.inspectedQty > 0) {
+    assert.equal(record.qualifiedQty + record.defectiveQty, record.inspectedQty, `${record.assessmentId} 质检数量必须等于合格数量 + 不良数量`)
+  }
 }
 
 assert.ok(
@@ -740,6 +749,29 @@ const bGradeAwardBlocked = runWithDispatchRollback(() => {
 })
 assert.equal(bGradeAwardBlocked, true, '黄牌未确认定标拦截必须在真实定标入口生效')
 
+const bGradeAwardConfirmed = runWithDispatchRollback(() => {
+  const biddingRow = getAvailableDispatchRow('车缝分配工作台必须有可验证黄牌确认后定标的齐套 SKU 行')
+  const biddingResult = createSewingDispatchWorkbenchDraft({
+    actionType: '发起竞价',
+    rowIds: [biddingRow.rowId],
+    by: '对抗式核查',
+  })
+  assert.equal(biddingResult.ok, true, '黄牌确认后定标验证前必须能发起竞价')
+  const [taskId] = biddingResult.runtimeTaskIds ?? []
+  assert.ok(taskId, '黄牌确认后定标验证必须有待定标任务')
+  const awarded = awardRuntimeTaskTender({
+    taskId,
+    factoryId: bGradeDispatchSnapshot.factoryId,
+    factoryName: bGradeDispatchSnapshot.factoryName,
+    awardedAt: '2026-07-16 10:06:00',
+    awardedPrice: 12000,
+    by: '对抗式核查',
+    riskConfirmed: true,
+  })
+  return awarded.assignedFactoryId
+})
+assert.equal(bGradeAwardConfirmed, bGradeDispatchSnapshot.factoryId, 'B 级黄牌风险确认后必须允许定标')
+
 const supervisorAwardBlocked = runWithDispatchRollback(() => {
   const biddingRow = getAvailableDispatchRow('车缝分配工作台必须有可验证主管指定定标拦截的齐套 SKU 行')
   const biddingResult = createSewingDispatchWorkbenchDraft({
@@ -787,6 +819,18 @@ const normalFactoryAwarded = runWithDispatchRollback(() => {
   return awarded.assignedFactoryId
 })
 assert.equal(normalFactoryAwarded, 'ID-F001', '非三方/非评级治理车缝工厂定标不得因为缺少三方评级快照失败')
+
+const blacklistedReassignBlocked = reassignRuntimeSewingTask({
+  sourceTaskId: 'TASKGEN-202603-0015-001__ORDER',
+  targetFactoryId: blacklisted.factoryId,
+  targetFactoryName: blacklisted.factoryName,
+  businessAssignedAt: '2026-07-16 11:00:00',
+  operatedAt: '2026-07-16 11:05:00',
+  reason: '对抗式核查黑名单改派绕过',
+  by: '对抗式核查',
+})
+assert.equal(blacklistedReassignBlocked.ok, false, '黑名单工厂不得通过改派绕过派单规则')
+assertDispatchBlockedMessage(blacklistedReassignBlocked.message, '黑名单改派必须返回派单拦截提示')
 
 const bGradeConfirmedRow = getAvailableDispatchRow('车缝分配工作台必须有可验证黄牌确认派单的齐套 SKU 行')
 const bGradeConfirmed = runWithDispatchRollback(() => createSewingDispatchWorkbenchDraft({
@@ -937,7 +981,7 @@ assert.ok(ratingPageSource.includes('getTrialAssessmentSortDefectRate'), '三方
 assert.ok(ratingPageSource.includes('sortValue: (row) => getTrialAssessmentSortDefectRate(row)'), '三方工厂评级试产结论列排序必须使用未质检空值排序 helper')
 assert.ok(ratingPageSource.includes('试产轮次'), '三方工厂评级列表必须展示试产轮次')
 assert.ok(ratingPageSource.includes('不良率'), '三方工厂评级列表必须展示不良率')
-assert.ok(ratingPageSource.includes("fcs.third-party-factory-rating.columns.v2"), '三方工厂评级新增列后必须升级列偏好版本，避免旧偏好隐藏试产列')
+assert.ok(ratingPageSource.includes("fcs.third-party-factory-rating.columns.v3"), '三方工厂评级新增列后必须升级列偏好版本，避免旧偏好隐藏试产列')
 const ratingPageHtml = renderThirdPartyFactoryRatingPage()
 for (const requiredText of ['试产单情况', '试产结论', '试产轮次', '不良率', '系统建议', '人工结论', '查看评级']) {
   assert.ok(ratingPageHtml.includes(requiredText), `三方工厂评级列表渲染结果必须展示 ${requiredText}`)
@@ -968,6 +1012,63 @@ function renderRatingPageWithSearch(search: string): string {
       delete target.window
     }
   }
+}
+
+function createMemoryStorage(initial: Record<string, string> = {}): Storage {
+  const values = new Map(Object.entries(initial))
+  return {
+    get length() {
+      return values.size
+    },
+    clear() {
+      values.clear()
+    },
+    getItem(key: string) {
+      return values.get(key) ?? null
+    },
+    key(index: number) {
+      return [...values.keys()][index] ?? null
+    },
+    removeItem(key: string) {
+      values.delete(key)
+    },
+    setItem(key: string, value: string) {
+      values.set(key, value)
+    },
+  }
+}
+
+function renderRatingPageWithSearchAndStorage(search: string, localStorage: Storage): string {
+  const target = globalThis as typeof globalThis & {
+    window?: { location: { search: string }; localStorage?: Storage }
+  }
+  const previousWindow = target.window
+  target.window = {
+    ...(previousWindow ?? {}),
+    location: { search },
+    localStorage,
+  }
+  try {
+    return renderThirdPartyFactoryRatingPage()
+  } finally {
+    if (previousWindow) {
+      target.window = previousWindow
+    } else {
+      delete target.window
+    }
+  }
+}
+
+const oldColumnPreferenceHtml = renderRatingPageWithSearchAndStorage('', createMemoryStorage({
+  'fcs.third-party-factory-rating.columns.v2': JSON.stringify({
+    order: ['factory', 'grade', 'score', 'cooperation', 'scale', 'dispatch', 'settlement', 'reason', 'actions'],
+    visibleKeys: ['factory', 'grade', 'score', 'cooperation', 'scale', 'dispatch', 'settlement', 'reason', 'actions'],
+    frozenKeys: [],
+    pageSize: 10,
+  }),
+}))
+for (const requiredText of ['试产单情况', '试产结论', '试产轮次', '系统建议']) {
+  assert.ok(oldColumnPreferenceHtml.includes(requiredText), `旧列偏好存在时三方工厂评级列表仍必须展示 ${requiredText}`)
 }
 
 for (const expectation of [
@@ -1092,14 +1193,41 @@ assert.ok(policyOverrideSource.includes('isUrgentOrder'), '确认派单页面策
 assert.ok(!policyOverrideSource.includes('dispatchQty:'), '确认派单页面策略覆盖不得传入 dispatchQty，数量必须由领域层读取真实行数量')
 assert.ok(dispatchFactoryOptionSource.includes('getPageDispatchPolicyDecision'), '车缝分配工厂选项未消费页面级统一派单评估结果')
 assert.ok(dispatchFactoryOptionSource.includes('displayBadges'), '车缝分配工厂选项未展示统一评估标签')
+assert.ok(!dispatchFactoryOptionSource.includes('dispatchPolicyLabel'), '车缝分配工厂选项不得用自由文本派单策略兜底展示')
 assert.ok(directDispatchDialogSource.includes('renderDispatchFactoryOption'), '直接派单弹窗未渲染带评级策略的工厂选项')
 assert.ok(
   directDispatchDialogSource.includes('确认派单') && directDispatchDialogSource.includes('confirm-dispatch'),
   '直接派单弹窗缺少黄牌提醒后的确认派单动作入口',
 )
+assert.ok(sewingDispatchSource.includes('renderReassignPolicyFeedback'), '车缝改派弹窗必须展示统一派单规则反馈')
+assert.ok(sewingDispatchSource.includes("riskConfirmed: state.dispatchRiskConfirmedByFactoryId[factory.id] === true"), '车缝改派提交必须传入黄牌风险确认上下文')
+assert.ok(sewingDispatchSource.includes("supervisorAssigned: state.dispatchSupervisorAssignedByFactoryId[factory.id] === true"), '车缝改派提交必须传入主管指定确认上下文')
 assert.ok(!sewingDispatchSource.includes('getDispatchFactoryBlockMessage'), '车缝分配页面不应继续使用旧的工厂阻断文案 helper')
 assert.ok(!sewingDispatchSource.includes("cooperationStatusLabel === '黑名单'"), '车缝分配页面不应继续用合作状态硬编码黑名单阻断')
 assert.ok(!sewingDispatchSource.includes("cooperationStatusLabel === '考核中'"), '车缝分配页面不应继续用合作状态硬编码考核中阻断')
+
+const runtimeProcessTasksSource = readRequiredSource(
+  new URL('../src/data/fcs/runtime-process-tasks.ts', import.meta.url),
+  '缺少运行时工序任务域文件',
+)
+assert.ok(runtimeProcessTasksSource.includes('evaluateRuntimeTenderAwardDispatchPolicy'), '竞价定标域函数必须导出统一派单规则评估入口')
+assert.ok(runtimeProcessTasksSource.includes('riskConfirmed: input.riskConfirmed === true'), '竞价定标和改派域函数必须消费黄牌风险确认上下文')
+assert.ok(runtimeProcessTasksSource.includes('isSupervisorAssigned: input.supervisorAssigned === true'), '竞价定标和改派域函数必须消费主管指定确认上下文')
+assert.ok(runtimeProcessTasksSource.includes('export function reassignRuntimeSewingTask'), '运行时车缝任务必须保留改派域函数')
+assert.ok(runtimeProcessTasksSource.includes('factoryId: input.targetFactoryId'), '改派域函数必须按目标工厂执行派单规则')
+assert.ok(runtimeProcessTasksSource.includes('不能改派'), '改派域函数必须对缺评级或规则阻断返回业务提示')
+
+const dispatchTendersSource = readRequiredSource(
+  new URL('../src/pages/dispatch-tenders.ts', import.meta.url),
+  '缺少派单竞价页面文件',
+)
+assert.ok(dispatchTendersSource.includes('evaluateRuntimeTenderAwardDispatchPolicy'), '竞价定标页面必须使用运行时统一派单规则评估')
+assert.ok(dispatchTendersSource.includes('renderTenderAwardPolicyControls'), '竞价定标页面必须展示候选工厂规则结果和确认入口')
+assert.ok(dispatchTendersSource.includes('viewAwardRiskConfirmedByFactoryId'), '竞价定标页面必须记录黄牌风险确认')
+assert.ok(dispatchTendersSource.includes('viewAwardSupervisorAssignedByFactoryId'), '竞价定标页面必须记录主管指定确认')
+assert.ok(dispatchTendersSource.includes('selectedPolicyDecision?.allowed !== false'), '竞价定标确认按钮必须受统一派单规则约束')
+assert.ok(dispatchTendersSource.includes('riskConfirmed: state.viewAwardRiskConfirmedByFactoryId[selectedQuote.factoryId] === true'), '竞价定标提交必须传入黄牌风险确认上下文')
+assert.ok(dispatchTendersSource.includes('supervisorAssigned: state.viewAwardSupervisorAssignedByFactoryId[selectedQuote.factoryId] === true'), '竞价定标提交必须传入主管指定确认上下文')
 
 const statementsSource = readRequiredSource(new URL('../src/pages/statements.ts', import.meta.url), '缺少对账单页面文件')
 const statementsBuildViewSource = sliceRequiredSource(

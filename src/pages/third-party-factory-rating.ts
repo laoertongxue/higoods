@@ -37,7 +37,7 @@ import { escapeHtml } from '../utils.ts'
 const PAGE_PATH = '/fcs/factories/third-party-rating'
 const EVENT_PREFIX = 'third-party-rating'
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
-const COLUMN_STORAGE_KEY = 'fcs.third-party-factory-rating.columns.v2'
+const COLUMN_STORAGE_KEY = 'fcs.third-party-factory-rating.columns.v3'
 const MAX_FROZEN_WIDTH = 520
 
 type DispatchFilter = 'ALL' | 'ALLOW' | 'LIMITED' | 'BLOCKED'

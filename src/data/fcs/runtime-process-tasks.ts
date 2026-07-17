@@ -50,6 +50,7 @@ import type { Factory, FactoryProcessAbility } from './factory-types.ts'
 import {
   evaluateThirdPartyFactoryDispatchPolicy,
   getThirdPartyFactoryRatingSnapshot,
+  type DispatchPolicyDecision,
   type FactoryRatingDocumentTypeLabel,
 } from './third-party-factory-rating.ts'
 import {
@@ -365,6 +366,8 @@ export interface RuntimeTaskTenderAwardInput {
   awardedAt: string
   awardedPrice: number
   by: string
+  riskConfirmed?: boolean
+  supervisorAssigned?: boolean
 }
 
 export interface PreparedRuntimeTaskTenderAward {
@@ -389,6 +392,8 @@ export interface RuntimeSewingTaskReassignmentInput {
   reason: string
   by: string
   mainFactoryId?: string
+  riskConfirmed?: boolean
+  supervisorAssigned?: boolean
 }
 
 export interface RuntimeSewingTaskReassignmentResult {
@@ -520,22 +525,38 @@ function isUrgentTenderAwardOrder(task: RuntimeProcessTask): boolean {
   return order?.demandSnapshot.priority === 'URGENT'
 }
 
-function assertTenderAwardRatingPolicy(input: RuntimeTaskTenderAwardInput, task: RuntimeProcessTask): void {
-  if (!isRuntimeSewingTask(task)) return
-  if (!isThirdPartyFactoryRatingGovernanceTarget(input.factoryId)) return
+export function evaluateRuntimeTenderAwardDispatchPolicy(
+  input: RuntimeTaskTenderAwardInput,
+): DispatchPolicyDecision | null {
+  const task = getRuntimeTaskById(input.taskId)
+  if (!task || !isRuntimeSewingTask(task)) return null
+  if (!isThirdPartyFactoryRatingGovernanceTarget(input.factoryId)) return null
   if (!getThirdPartyFactoryRatingSnapshot(input.factoryId)) {
-    throw new Error('该三方车缝工厂缺少三方评级快照，不能定标。请先完成评级。')
+    return {
+      allowed: false,
+      severity: 'BLOCK',
+      reason: '该三方车缝工厂缺少三方评级快照，不能定标。请先完成评级。',
+      displayBadges: ['未评级', '禁止定标'],
+      requiresConfirm: false,
+      sortPriority: 0,
+    }
   }
-  const decision = evaluateThirdPartyFactoryDispatchPolicy({
+  return evaluateThirdPartyFactoryDispatchPolicy({
     factoryId: input.factoryId,
     actionType: '发起竞价',
     documentTypeLabel: deriveTenderAwardDocumentType(task),
     dispatchQty: task.scopeQty,
     isUrgentOrder: isUrgentTenderAwardOrder(task),
-    riskConfirmed: false,
-    isSupervisorAssigned: false,
+    riskConfirmed: input.riskConfirmed === true,
+    isSupervisorAssigned: input.supervisorAssigned === true,
   })
-  if (!decision.allowed) throw new Error(decision.reason)
+}
+
+function assertTenderAwardRatingPolicy(input: RuntimeTaskTenderAwardInput, task: RuntimeProcessTask): void {
+  if (!isRuntimeSewingTask(task)) return
+  if (!isThirdPartyFactoryRatingGovernanceTarget(input.factoryId)) return
+  const decision = evaluateRuntimeTenderAwardDispatchPolicy(input)
+  if (!decision || !decision.allowed) throw new Error(decision?.reason ?? '该三方车缝工厂不能定标')
 }
 
 function getOrderSkuLines(productionOrderId: string): RuntimeTaskSkuLine[] {
@@ -3261,6 +3282,21 @@ export function reassignRuntimeSewingTask(
   const confirmedReceivedQty = sumSewingDeliveryConfirmedReceiptQty(input.sourceTaskId, input.operatedAt)
   const remainingQty = Math.max(snapshot.assignedQty - confirmedReceivedQty, 0)
   if (remainingQty <= 0) return reject('原任务已全部实收，无剩余数量可改派')
+  if (isThirdPartyFactoryRatingGovernanceTarget(input.targetFactoryId)) {
+    if (!getThirdPartyFactoryRatingSnapshot(input.targetFactoryId)) {
+      return reject('该三方车缝工厂缺少三方评级快照，不能改派。请先完成评级。')
+    }
+    const decision = evaluateThirdPartyFactoryDispatchPolicy({
+      factoryId: input.targetFactoryId,
+      actionType: '直接派单',
+      documentTypeLabel: deriveTenderAwardDocumentType(source),
+      dispatchQty: remainingQty,
+      isUrgentOrder: isUrgentTenderAwardOrder(source),
+      riskConfirmed: input.riskConfirmed === true,
+      isSupervisorAssigned: input.supervisorAssigned === true,
+    })
+    if (!decision.allowed) return reject(decision.reason)
+  }
 
   const sequence = listSewingDeliverySlaSnapshotHistory(input.sourceTaskId).length + 1
   const assignmentId = `${input.sourceTaskId}-REASSIGN-${input.operatedAt.replace(/\D/g, '')}-${String(sequence).padStart(3, '0')}`

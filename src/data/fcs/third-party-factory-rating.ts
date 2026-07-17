@@ -124,7 +124,7 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
   {
     factoryId: 'ID-F021',
     factoryCode: 'ID-FAC-0021',
-    factoryName: '雅加达顺达车缝厂',
+    factoryName: 'CV Micro Sewing Jakarta Pusat',
     factoryTypeLabel: '第三方车缝工厂',
     sewingSeatCount: 48,
     scaleLabel: '大型工厂',
@@ -148,7 +148,7 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
   {
     factoryId: 'ID-F022',
     factoryCode: 'ID-FAC-0022',
-    factoryName: '泗水安和车缝厂',
+    factoryName: 'CV Micro Sewing Bandung Utara',
     factoryTypeLabel: '第三方车缝工厂',
     sewingSeatCount: 36,
     scaleLabel: '大型工厂',
@@ -172,7 +172,7 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
   {
     factoryId: 'ID-F023',
     factoryCode: 'ID-FAC-0023',
-    factoryName: '万隆明达小型车缝组',
+    factoryName: 'CV Micro Sewing Surabaya Barat',
     factoryTypeLabel: '第三方车缝工厂',
     sewingSeatCount: 18,
     scaleLabel: '小型工厂',
@@ -196,7 +196,7 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
   {
     factoryId: 'ID-F024',
     factoryCode: 'ID-FAC-0024',
-    factoryName: '勿加泗立成车缝厂',
+    factoryName: 'CV Micro Sewing Semarang Timur',
     factoryTypeLabel: '第三方车缝工厂',
     sewingSeatCount: 28,
     scaleLabel: '小型工厂',
@@ -220,7 +220,7 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
   {
     factoryId: 'ID-F025',
     factoryCode: 'ID-FAC-0025',
-    factoryName: '登巴萨新协车缝组',
+    factoryName: 'CV Micro Sewing Tangerang Selatan',
     factoryTypeLabel: '第三方车缝工厂',
     sewingSeatCount: 16,
     scaleLabel: '小型工厂',
