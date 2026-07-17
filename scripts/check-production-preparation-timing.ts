@@ -567,6 +567,34 @@ for (const [index, sourceRecord] of productionPreparationRecords.entries()) {
   )
 }
 
+const downloadOnlySourceRecord = productionPreparationRecords.find((record) => record.recordNo === 'PREP-202603-002')
+assert.ok(downloadOnlySourceRecord, '缺少纯下载状态保持 fixture')
+const downloadOnlyBaseItem = downloadOnlySourceRecord.items.find((item) => isBasePatternItem(item.itemType))
+assert.ok(downloadOnlyBaseItem, '纯下载状态保持 fixture 缺少基码纸样')
+const downloadOnlyRuntime = appendDownloadRecord(EMPTY_PREPARATION_RUNTIME_STATE, {
+  recordId: downloadOnlySourceRecord.recordId,
+  itemId: downloadOnlyBaseItem.itemId,
+  uploadId: downloadOnlyBaseItem.uploads?.[0]?.uploadId ?? 'download-only-upload',
+  fileName: downloadOnlyBaseItem.uploads?.[0]?.fileName ?? 'download-only-base.prj',
+  downloadedBy: '测试用户',
+})
+const downloadOnlyMergedRecord = mergePreparationRuntimeRecords(
+  [downloadOnlySourceRecord],
+  downloadOnlyRuntime,
+)[0]
+assert.ok(
+  downloadOnlyMergedRecord.items
+    .find((item) => item.itemId === downloadOnlyBaseItem.itemId)
+    ?.downloads?.some((download) => download.downloadId === downloadOnlyRuntime.downloads[0].downloadId),
+  '纯下载 runtime 必须合并到对应基码纸样的下载记录',
+)
+assert.equal(downloadOnlyMergedRecord.status, downloadOnlySourceRecord.status, '纯下载不得改变记录状态')
+assert.equal(
+  downloadOnlyMergedRecord.currentBlockerText,
+  downloadOnlySourceRecord.currentBlockerText,
+  '纯下载不得把记录具体卡点泛化为运行态通用文案',
+)
+
 const mergedRecords = mergePreparationRuntimeRecords(productionPreparationRecords, {
   ...EMPTY_PREPARATION_RUNTIME_STATE,
   uploads: [
@@ -824,13 +852,10 @@ const unconfirmedDerivedSource = {
 }
 const unconfirmedDerivedRecord = mergePreparationRuntimeRecords(
   [unconfirmedDerivedSource],
-  appendDownloadRecord(EMPTY_PREPARATION_RUNTIME_STATE, {
-    recordId: unconfirmedDerivedSource.recordId,
-    itemId: unconfirmedDerivedSource.items[0].itemId,
-    uploadId: 'unconfirmed-runtime-download',
-    fileName: 'unconfirmed-base.prj',
-    downloadedBy: '测试用户',
-  }),
+  {
+    ...EMPTY_PREPARATION_RUNTIME_STATE,
+    uploads: [runtimeUploadFor(unconfirmedDerivedSource, unconfirmedDerivedSource.items[0], 90)],
+  },
 )[0]
 assert.equal(unconfirmedDerivedRecord.status, '未开始', '未确认工作项的记录必须派生为未开始')
 assert.equal(unconfirmedDerivedRecord.currentBlockerText, '待跟单确认生产准备工作项', '未确认记录必须明确卡在跟单确认')
