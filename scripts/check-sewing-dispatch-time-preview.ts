@@ -84,4 +84,15 @@ assert.match(sewingWorkbenchSource, /data-sewing-reassign-sla-preview-slot/)
 assert.match(sewingWorkbenchSource, /refreshSewingReassignmentSlaPreview/)
 assert.doesNotMatch(sewingWorkbenchSource, /function renderDirectDispatchDeadlines/)
 
+const continuousDispatchSource = readFileSync(
+  new URL('../src/pages/continuous-dispatch.ts', import.meta.url),
+  'utf8',
+)
+assert.match(continuousDispatchSource, /renderSewingDeliverySlaPreview/)
+assert.match(continuousDispatchSource, /data-continuous-sla-preview-slot/)
+assert.match(continuousDispatchSource, /refreshContinuousDispatchSlaPreview/)
+assert.doesNotMatch(continuousDispatchSource, /function renderMilestonePreview/)
+assert.doesNotMatch(continuousDispatchSource, /实际操作时间/)
+assert.doesNotMatch(continuousDispatchSource, />分配数量</)
+
 console.log('车缝派单统一时效预览检查通过')

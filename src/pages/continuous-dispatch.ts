@@ -11,7 +11,6 @@ import { productionOrders, listProductionOrderSewingFactories } from '../data/fc
 import { listBusinessFactoryMasterRecords } from '../data/fcs/factory-master-store.ts'
 import {
   classifySewingDeliverySla,
-  createSewingDeliverySlaSnapshot,
   dateTimeLocalToOperationWallClock,
   formatOperationLocalWallClock,
   operationWallClockToDateTimeLocal,
@@ -22,6 +21,10 @@ import {
   renderProductionOrderIdentityCell,
 } from '../data/fcs/production-order-identity.ts'
 import { renderTablePagination } from '../components/ui/pagination.ts'
+import {
+  buildSewingDeliverySlaPreviewModel,
+  renderSewingDeliverySlaPreview,
+} from '../components/sewing-delivery-sla-preview.ts'
 import { escapeHtml, toClassName } from '../utils.ts'
 
 type ContinuousDispatchTab = 'SEWING_POST' | 'OTHER'
@@ -151,45 +154,32 @@ function refreshDialogHost(): void {
   host.innerHTML = renderDispatchDialog()
 }
 
-function renderMilestonePreview(task: RuntimeProcessTask, businessAssignedAt: string): string {
-  const slaKind = classifySewingDeliverySla(task)
-  if (!slaKind) {
-    return `
-      <div class="grid gap-2 sm:grid-cols-3">
-        ${['30% 节点', '70% 节点', '100% 节点'].map((label) => `
-          <div class="rounded-md border bg-muted/20 p-2 text-xs">
-            <div class="text-muted-foreground">${label}</div>
-            <div class="mt-1 font-medium">不适用含车缝交付时效</div>
-          </div>
-        `).join('')}
-      </div>
-    `
+function getContinuousDispatchSlaPreviewInput() {
+  const dialog = state.dialog
+  const task = getDialogTask()
+  if (!dialog || !task || (dialog.mode !== 'DIRECT' && dialog.mode !== 'REASSIGN')) return null
+  const confirmedQty = dialog.mode === 'REASSIGN'
+    ? sumSewingDeliveryConfirmedReceiptQty(task.taskId)
+    : 0
+  return {
+    task,
+    businessAssignedAt: dialog.businessAssignedAt,
+    assignedQty: dialog.mode === 'REASSIGN' ? Math.max(task.scopeQty - confirmedQty, 0) : task.scopeQty,
+    currentOperationAt: formatOperationLocalWallClock(),
   }
+}
 
-  try {
-    const snapshot = createSewingDeliverySlaSnapshot({
-      assignmentId: 'CONTINUOUS-DISPATCH-PREVIEW',
-      runtimeTaskId: task.taskId,
-      productionOrderId: task.productionOrderId,
-      factoryId: state.dialog?.factoryId || 'PREVIEW-FACTORY',
-      factoryName: '预览工厂',
-      assignedQty: task.scopeQty,
-      acceptedAt: dateTimeLocalToOperationWallClock(businessAssignedAt),
-      slaKind,
-    })
-    return `
-      <div class="grid gap-2 sm:grid-cols-3">
-        ${snapshot.milestones.map((milestone) => `
-          <div class="rounded-md border bg-blue-50/40 p-2 text-xs">
-            <div class="text-muted-foreground">${Math.round(milestone.ratio * 100)}% 节点</div>
-            <div class="mt-1 font-medium">${escapeHtml(milestone.deadlineAt)}</div>
-            <div class="mt-1 text-muted-foreground">应累计实收 ${milestone.targetQty.toLocaleString()} 件</div>
-          </div>
-        `).join('')}
-      </div>
-    `
-  } catch {
-    return '<div class="text-xs text-amber-700">请先填写有效的业务分配时间，再查看 30% / 70% / 100% 节点。</div>'
+function refreshContinuousDispatchSlaPreview(): void {
+  if (typeof document === 'undefined') return
+  const input = getContinuousDispatchSlaPreviewInput()
+  const slot = document.querySelector<HTMLElement>('[data-continuous-sla-preview-slot]')
+  if (slot) slot.innerHTML = input ? renderSewingDeliverySlaPreview(input) : ''
+  const button = document.querySelector<HTMLButtonElement>('[data-continuous-dispatch-confirm]')
+  if (button && state.dialog && (state.dialog.mode === 'DIRECT' || state.dialog.mode === 'REASSIGN')) {
+    const disabled = !state.dialog.factoryId || !input || !buildSewingDeliverySlaPreviewModel(input).valid
+    button.disabled = disabled
+    button.classList.toggle('cursor-not-allowed', disabled)
+    button.classList.toggle('opacity-50', disabled)
   }
 }
 
@@ -204,6 +194,9 @@ function renderDispatchDialog(): string {
   const direct = dialog.mode === 'DIRECT'
   const reassign = dialog.mode === 'REASSIGN'
   const confirmedQty = reassign ? sumSewingDeliveryConfirmedReceiptQty(task.taskId) : 0
+  const previewInput = getContinuousDispatchSlaPreviewInput()
+  const previewInvalid = (direct || reassign) && (!previewInput || !buildSewingDeliverySlaPreviewModel(previewInput).valid)
+  const confirmDisabled = (direct || reassign) && (!dialog.factoryId || previewInvalid)
   const mainFactoryOptions = reassign ? [...listProductionOrderSewingFactories(task.productionOrderId).filter((factory) => factory.id !== task.assignedFactoryId), ...(selectedFactory ? [{ id: selectedFactory.id, name: selectedFactory.name, code: selectedFactory.code, tags: [] }] : [])].filter((factory, index, list) => list.findIndex((item) => item.id === factory.id) === index) : []
   return `
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
@@ -219,17 +212,12 @@ function renderDispatchDialog(): string {
         <div class="space-y-4 px-5 py-4">
           ${dialog.error ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(dialog.error)}</div>` : ''}
           ${reassign ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm">原工厂：${escapeHtml(task.assignedFactoryName || '未记录')}｜已确认实收 ${confirmedQty.toLocaleString()} 件｜剩余 ${Math.max(task.scopeQty - confirmedQty, 0).toLocaleString()} 件</div>` : ''}
-          <div class="grid gap-3 sm:grid-cols-2">
-            <label class="space-y-1 text-sm">
+          <div>
+            <label class="block max-w-sm space-y-1 text-sm">
               <span class="text-muted-foreground">业务分配时间</span>
               <input type="datetime-local" class="h-9 w-full rounded-md border px-3" value="${escapeHtml(dialog.businessAssignedAt)}" data-skip-page-rerender="true" data-continuous-dispatch-field="businessAssignedAt" />
-              <span class="block text-xs text-muted-foreground">可回填，但不能晚于实际操作时间 ${escapeHtml(dialog.operatedAt)}</span>
+              <span class="block text-xs text-muted-foreground">可回填，但不能晚于提交时的当前时间${direct || reassign ? '；派单后工厂自动接单。' : '。'}</span>
             </label>
-            <div class="rounded-md border bg-muted/20 px-3 py-2 text-sm">
-              <div class="text-muted-foreground">分配数量</div>
-              <div class="mt-1 text-lg font-semibold">${task.scopeQty.toLocaleString()} 件</div>
-              <div class="text-xs text-muted-foreground">连续工序任务不拆成明细</div>
-            </div>
           </div>
           ${direct || reassign ? `
             <label class="block space-y-1 text-sm">
@@ -250,10 +238,7 @@ function renderDispatchDialog(): string {
                 </div>
               </div>
             ` : ''}
-            <div>
-              <div class="mb-2 text-sm font-medium">回货时效节点预览</div>
-              ${renderMilestonePreview(task, dialog.businessAssignedAt)}
-            </div>
+            <div data-continuous-sla-preview-slot>${previewInput ? renderSewingDeliverySlaPreview(previewInput) : ''}</div>
           ` : `
             <label class="block space-y-1 text-sm">
               <span class="text-muted-foreground">竞价截止时间</span>
@@ -264,7 +249,7 @@ function renderDispatchDialog(): string {
         </div>
         <footer class="flex justify-end gap-2 border-t px-5 py-4">
           <button type="button" class="h-9 rounded-md border px-4 text-sm" data-skip-page-rerender="true" data-continuous-dispatch-action="close-dialog">取消</button>
-          <button type="button" class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-continuous-dispatch-action="confirm-dialog" data-task-id="${escapeHtml(task.taskId)}">${reassign ? '确认改派' : direct ? '确认直接派单' : '确认发起竞价'}</button>
+          <button type="button" class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700 ${confirmDisabled ? 'cursor-not-allowed opacity-50' : ''}" data-continuous-dispatch-confirm data-continuous-dispatch-action="confirm-dialog" data-task-id="${escapeHtml(task.taskId)}" ${confirmDisabled ? 'disabled' : ''}>${reassign ? '确认改派' : direct ? '确认直接派单' : '确认发起竞价'}</button>
         </footer>
       </section>
     </div>
@@ -698,6 +683,10 @@ export function handleContinuousDispatchEvent(target: HTMLElement, event?: Pick<
         state.dialog.mainFactoryChoice = value
       }
       state.dialog.error = ''
+      if (field === 'businessAssignedAt') {
+        refreshContinuousDispatchSlaPreview()
+        return true
+      }
       refreshDialogHost()
       return true
     }
