@@ -32,6 +32,15 @@ import {
   listThirdPartyFactoryRatingSnapshots,
   thirdPartyFactoryRatingSnapshots,
 } from '../src/data/fcs/third-party-factory-rating.ts'
+import {
+  SEWING_FACTORY_LIABILITY_REASONS,
+} from '../src/data/fcs/factory-settlement-reconciliation.ts'
+import {
+  calculateTrialAssessmentDefectMetrics,
+  getLatestThirdPartyFactoryTrialAssessmentRecord,
+  hasOpenThirdPartyFactoryTrialAssessment,
+  listThirdPartyFactoryTrialAssessmentRecords,
+} from '../src/data/fcs/third-party-factory-trial-assessment.ts'
 
 function readRequiredSource(url: URL, message: string): string {
   try {
@@ -67,6 +76,46 @@ for (const factory of thirdPartySewingFactories) {
   assert.equal(snapshot.scaleLabel, masterSeatCount >= 30 ? '大型工厂' : '小型工厂', `${factory.id} 规模必须由车缝车位数派生`)
   assert.equal(snapshot.firstTrialLimitQty, masterSeatCount >= 30 ? 1000 : 300, `${factory.id} 首单上限必须由车缝车位数派生`)
 }
+
+const trialAssessmentRecords = listThirdPartyFactoryTrialAssessmentRecords()
+assert.ok(trialAssessmentRecords.length >= snapshots.length, '每个三方车缝工厂至少需要一条可追溯的试产考核记录或等待首轮试产记录')
+
+for (const snapshot of snapshots) {
+  const records = trialAssessmentRecords.filter((item) => item.factoryId === snapshot.factoryId)
+  assert.ok(records.length > 0, `${snapshot.factoryId} 必须有试产考核记录`)
+  const rounds = new Set(records.map((item) => item.assessmentRound))
+  assert.equal(rounds.size, records.length, `${snapshot.factoryId} 每个考核轮次只能有一个试产单`)
+  assert.ok(getLatestThirdPartyFactoryTrialAssessmentRecord(snapshot.factoryId), `${snapshot.factoryId} 必须能读取最新试产考核记录`)
+}
+
+for (const record of trialAssessmentRecords) {
+  for (const item of record.factoryLiabilityDefectReasonItems) {
+    assert.ok(
+      SEWING_FACTORY_LIABILITY_REASONS.includes(item.reasonName),
+      `${record.assessmentId} 存在字典外工厂责任瑕疵原因 ${item.reasonName}`,
+    )
+  }
+  const metrics = calculateTrialAssessmentDefectMetrics(record)
+  assert.equal(record.factoryLiabilityDefectQty, metrics.factoryLiabilityDefectQty, `${record.assessmentId} 工厂责任瑕疵数量必须由原因明细求和`)
+  assert.equal(record.defectiveQty, metrics.defectiveQty, `${record.assessmentId} 不良数量必须等于返工数量 + 工厂责任瑕疵数量`)
+  assert.equal(record.defectRate, metrics.defectRate, `${record.assessmentId} 不良率必须由不良数量 / 质检数量计算`)
+}
+
+assert.ok(
+  trialAssessmentRecords.some((item) => item.effectiveDecision === '延长考核' && item.assessmentRound === 1),
+  '必须有首轮后延长考核样例',
+)
+assert.ok(
+  trialAssessmentRecords.some((item) => item.assessmentRound >= 2 && item.autoRatingDecision),
+  '必须有延长后重新评级的试产记录',
+)
+assert.ok(
+  trialAssessmentRecords.some((item) =>
+    (item.status === 'TRIAL_DISPATCHED' || item.status === 'WAIT_QC') &&
+    hasOpenThirdPartyFactoryTrialAssessment(item.factoryId),
+  ),
+  '必须有未完成试产考核记录用于验证重复派单阻断',
+)
 assert.ok(snapshots.some((item) => item.currentGrade === 'S'), '缺少 S 级样例')
 assert.ok(snapshots.some((item) => item.currentGrade === 'A'), '缺少 A 级样例')
 assert.ok(snapshots.some((item) => item.currentGrade === 'B'), '缺少 B 级黄牌样例')
