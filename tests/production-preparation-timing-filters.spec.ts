@@ -73,6 +73,51 @@ function ledgerSortButton(page: Page): Locator {
   return page.locator('th[data-column-key="product"]').getByRole('button')
 }
 
+function decodeCsvDataUri(uri: string): string {
+  return decodeURIComponent(uri.slice(uri.indexOf(',') + 1)).replace(/^\uFEFF/, '')
+}
+
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = []
+  let row: string[] = []
+  let value = ''
+  let quoted = false
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+    if (char === '"') {
+      if (quoted && text[index + 1] === '"') {
+        value += '"'
+        index += 1
+      } else quoted = !quoted
+    } else if (char === ',' && !quoted) {
+      row.push(value)
+      value = ''
+    } else if ((char === '\n' || char === '\r') && !quoted) {
+      if (char === '\r' && text[index + 1] === '\n') index += 1
+      row.push(value)
+      rows.push(row)
+      row = []
+      value = ''
+    } else value += char
+  }
+  row.push(value)
+  rows.push(row)
+  return rows
+}
+
+async function exportedCsvRows(link: Locator): Promise<string[][]> {
+  const href = await link.getAttribute('href')
+  expect(href).toMatch(/^data:text\/csv/)
+  return parseCsv(decodeCsvDataUri(href!))
+}
+
+async function paginationTotal(page: Page, region: 'list' | 'stats'): Promise<number> {
+  const text = await page.locator(`[data-prep-${region}-region="pagination"]`).innerText()
+  const match = text.match(/共\s*(\d+)\s*条/)
+  expect(match).not.toBeNull()
+  return Number(match![1])
+}
+
 async function expectLedgerDefaults(page: Page): Promise<void> {
   await expect(page.getByText('PREP-202603-001', { exact: false })).toBeVisible()
   await expect(page.getByText('PREP-202603-006', { exact: false })).toHaveCount(0)
@@ -511,7 +556,13 @@ test('月度统计标准列表局部分页、三态排序和列偏好可用', as
   await expect.poll(() => page.locator('thead th[data-column-key]').evaluateAll((headers) =>
     headers.slice(0, 4).map((header) => header.getAttribute('data-column-key')),
   )).toEqual(['month', 'itemType', 'latestFinishedAt', 'completedCount'])
-  await expect(page.getByRole('link', { name: '导出月度统计', exact: true })).toHaveAttribute('href', /^data:text\/csv/)
+  const monthlyExport = page.getByRole('link', { name: '导出月度统计', exact: true })
+  const monthlyCsvRows = await exportedCsvRows(monthlyExport)
+  expect(monthlyCsvRows[0]).toEqual([
+    '统计月份', '准备项', '完成数量', '按时完成数量', '超时完成数量', '平均耗时小时',
+    '责任团队', '最近完成时间', '口径说明', '完成基码', '完成齐码', '完成花型', '完成染色',
+  ])
+  expect(monthlyCsvRows).toHaveLength((await paginationTotal(page, 'stats')) + 1)
 })
 
 test('明细统计独立分页排序列偏好并在 Tab 切换后重置瞬时状态', async ({ page }) => {
@@ -549,7 +600,13 @@ test('明细统计独立分页排序列偏好并在 Tab 切换后重置瞬时状
   await expect(page.locator('[data-prep-stats-region="pagination"]')).toContainText('1 / 4')
   await expect(page.locator('th[data-column-key="recordNo"]')).toHaveAttribute('aria-sort', 'none')
   await expect(page.locator('th[data-column-key="buyerName"]')).toHaveCount(0)
-  await expect(page.getByRole('link', { name: '导出完成明细', exact: true })).toHaveAttribute('href', /^data:text\/csv/)
+  const detailExport = page.getByRole('link', { name: '导出完成明细', exact: true })
+  const detailCsvRows = await exportedCsvRows(detailExport)
+  expect(detailCsvRows[0]).toEqual([
+    '统计月份', '准备记录编号', 'SPU', '商品名', '生产单号', '商品类型', '买手', '跟单',
+    '准备项', '必做/选填', '责任团队', '责任人', '计划完成时间', '实际完成时间', '是否超时', '证据摘要',
+  ])
+  expect(detailCsvRows).toHaveLength((await paginationTotal(page, 'stats')) + 1)
 
   await page.getByRole('button', { name: '列设置', exact: true }).click()
   await page.getByRole('button', { name: '恢复默认', exact: true }).click()
@@ -564,6 +621,47 @@ test('明细统计独立分页排序列偏好并在 Tab 切换后重置瞬时状
   await expect.poll(() => page.locator('thead th[data-column-key]').evaluateAll((headers) =>
     headers.slice(0, 8).map((header) => header.getAttribute('data-column-key')),
   )).toEqual(['month', 'recordNo', 'spuCode', 'spuName', 'productionOrderNo', 'confirmedProductPrepType', 'merchandiserName', 'buyerName'])
+})
+
+test('台账无关点击和统计关键词输入不刷新列表且响应小于 200ms', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  const ledgerResult = await page.evaluate(async () => {
+    const table = document.querySelector('[data-prep-list-region="table"]')
+    const heading = document.querySelector('h1')
+    if (!table || !heading) throw new Error('台账性能反例元素缺失')
+    let mutations = 0
+    const observer = new MutationObserver((records) => { mutations += records.length })
+    observer.observe(table, { childList: true, subtree: true, attributes: true })
+    const startedAt = performance.now()
+    heading.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    const responseMs = performance.now() - startedAt
+    await new Promise((resolve) => setTimeout(resolve, 60))
+    observer.disconnect()
+    return { mutations, responseMs }
+  })
+  expect(ledgerResult.mutations).toBe(0)
+  expect(ledgerResult.responseMs).toBeLessThan(200)
+
+  await page.goto(`${statisticsRoute}?tab=monthly&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-stats-filter-scope]')
+  const statsResult = await page.evaluate(async () => {
+    const table = document.querySelector('[data-prep-stats-region="table"]')
+    const keyword = document.querySelector<HTMLInputElement>('[data-prep-stats-filter-scope] input[name="keyword"]')
+    if (!table || !keyword) throw new Error('统计性能反例元素缺失')
+    let mutations = 0
+    const observer = new MutationObserver((records) => { mutations += records.length })
+    observer.observe(table, { childList: true, subtree: true, attributes: true })
+    keyword.value = '性能反例'
+    const startedAt = performance.now()
+    keyword.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: '性能反例' }))
+    const responseMs = performance.now() - startedAt
+    await new Promise((resolve) => setTimeout(resolve, 60))
+    observer.disconnect()
+    return { mutations, responseMs }
+  })
+  expect(statsResult.mutations).toBe(0)
+  expect(statsResult.responseMs).toBeLessThan(200)
 })
 
 test('统计页 SPA 离开再进入后重置页码排序和列设置抽屉', async ({ page }) => {

@@ -1660,9 +1660,13 @@ const renderProductionPreparationTimingStatisticsPage = pageModule.renderProduct
 const handleProductionPreparationTimingEvent = pageModule.handleProductionPreparationTimingEvent as
   | ((target: HTMLElement) => boolean)
   | undefined
+const buildProductionPreparationCsvDataUri = (pageModule as Record<string, unknown>).buildProductionPreparationCsvDataUri as
+  | ((rows: string[][]) => string)
+  | undefined
 assert.equal(typeof renderProductionPreparationTimingPage, 'function', '页面必须导出 renderProductionPreparationTimingPage')
 assert.equal(typeof renderProductionPreparationTimingStatisticsPage, 'function', '页面必须导出 renderProductionPreparationTimingStatisticsPage')
 assert.equal(typeof handleProductionPreparationTimingEvent, 'function', '页面必须导出 handleProductionPreparationTimingEvent')
+assert.equal(typeof buildProductionPreparationCsvDataUri, 'function', '页面必须导出可独立验证的标准 CSV 编码函数')
 
 const { appStore } = await import('../src/state/store.ts')
 async function renderAt(path: string): Promise<string> {
@@ -1700,6 +1704,33 @@ assert.ok(timingPageSource.includes('ledgerListState.columnSettingsOpen = false'
 assert.ok(timingPageSource.includes("ledgerListState.draggedColumnKey = ''"), '路由重进必须清理列拖拽状态')
 assert.ok(timingPageSource.includes('hydrateIcons(element)'), '准备台账局部渲染后必须仅 hydrate 新区域图标')
 assert.ok(source('src/main.ts').includes('enterProductionPreparationTimingRoute()'), '主路由生命周期必须调用生产准备台账进入钩子')
+
+const statsHandlerStart = timingPageSource.indexOf('function handleStatsListEvent')
+const statsHandlerContextCall = timingPageSource.indexOf('const context = getCurrentStatsContext()', statsHandlerStart)
+const statsHandlerTargetGate = timingPageSource.indexOf('if (!isStatsListEventTarget(target, event)) return false', statsHandlerStart)
+assert.ok(statsHandlerStart >= 0 && statsHandlerTargetGate > statsHandlerStart, '统计事件处理器必须先识别统计列表目标')
+assert.ok(statsHandlerTargetGate < statsHandlerContextCall, '统计列表目标门禁必须早于完整统计聚合')
+assert.ok(
+  timingPageSource.includes("if (!isCurrentPreparationTimingRoute(STATS_PAGE_PATH)) return false"),
+  '统计事件处理器必须先按统计路由快速返回',
+)
+assert.ok(
+  timingPageSource.includes("if (!isCurrentPreparationTimingRoute(PAGE_PATH)) return false"),
+  '台账事件处理器必须先按台账路由快速返回',
+)
+assert.ok(
+  timingPageSource.includes("if (!isLedgerListEventTarget(target, event)) return false"),
+  '台账 dragend 必须先确认台账列表目标，禁止吞掉统计 dragend',
+)
+
+const csvEscapeText = decodeURIComponent(
+  buildProductionPreparationCsvDataUri!([['普通', '含,逗号', '含"引号', '含\n换行']]).split(',').slice(1).join(','),
+)
+assert.equal(
+  csvEscapeText,
+  '\uFEFF普通,"含,逗号","含""引号","含\n换行"',
+  'CSV 必须按标准转义逗号、双引号和换行',
+)
 
 const staticDownloadFixture = productionPreparationRecords.find(
   (record: { recordNo?: string }) => record.recordNo === 'PREP-202603-003',

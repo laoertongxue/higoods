@@ -455,7 +455,7 @@ function escapeCsvValue(value: unknown): string {
   return text
 }
 
-function csvDataUri(rows: string[][]): string {
+export function buildProductionPreparationCsvDataUri(rows: string[][]): string {
   const lines = rows.map((row) => row.map(escapeCsvValue).join(','))
   return `data:text/csv;charset=utf-8,${encodeURIComponent(`\uFEFF${lines.join('\n')}`)}`
 }
@@ -2126,8 +2126,8 @@ function renderStatsBasisNotice(): string {
 function renderStatsListActions(kind: StatsListKind, month: string, details: MonthlyPreparationCompletionDetail[], stats: StatsTableRow[]): string {
   const monthKey = month.replace('-', '')
   const exportLink = kind === 'monthly'
-    ? `<a class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" href="${escapeHtml(csvDataUri(buildStatsCsvRows(month, stats)))}" download="${escapeHtml(`生产准备时效月度统计-${monthKey}.csv`)}">导出月度统计</a>`
-    : `<a class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" href="${escapeHtml(csvDataUri(buildDetailCsvRows(month, details)))}" download="${escapeHtml(`生产准备时效完成明细-${monthKey}.csv`)}">导出完成明细</a>`
+    ? `<a class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" href="${escapeHtml(buildProductionPreparationCsvDataUri(buildStatsCsvRows(month, stats)))}" download="${escapeHtml(`生产准备时效月度统计-${monthKey}.csv`)}">导出月度统计</a>`
+    : `<a class="inline-flex h-9 items-center rounded-md border bg-card px-4 text-sm hover:bg-muted" href="${escapeHtml(buildProductionPreparationCsvDataUri(buildDetailCsvRows(month, details)))}" download="${escapeHtml(`生产准备时效完成明细-${monthKey}.csv`)}">导出完成明细</a>`
   return `
     <div class="flex flex-wrap items-center gap-2" data-skip-page-rerender="true">
       ${exportLink}
@@ -2625,7 +2625,24 @@ function canFreezeLedgerColumn(columnKey: string): boolean {
     total + (visibleKeys.has(column.key) && frozenKeys.has(column.key) ? ledgerColumnWidth(column) : 0), 0) <= ledgerMaxFrozenWidth
 }
 
+function isCurrentPreparationTimingRoute(routePath: string): boolean {
+  return (appStore.getState().pathname || '').split('?')[0].split('#')[0] === routePath
+}
+
+function isLedgerListEventTarget(target: HTMLElement, event?: Event): boolean {
+  if (event?.type === 'dragend' && !(event as DragEvent & { higoodStandardListColumnDrag?: true }).higoodStandardListColumnDrag) {
+    return false
+  }
+  return Boolean(target.closest<HTMLElement>([
+    '[data-production-preparation-ledger-action]',
+    '[data-production-preparation-ledger-field]',
+    '[data-production-preparation-ledger-column-key]',
+  ].join(',')))
+}
+
 function handleLedgerListEvent(target: HTMLElement, event?: Event): boolean {
+  if (!isCurrentPreparationTimingRoute(PAGE_PATH)) return false
+  if (!isLedgerListEventTarget(target, event)) return false
   const dragEvent = event as (DragEvent & {
     higoodStandardListColumnDrag?: true
     higoodStandardListColumnKey?: string
@@ -2841,7 +2858,26 @@ function canFreezeStatsColumn(kind: StatsListKind, columnKey: string, month: str
     total + (visibleKeys.has(column.key) && frozenKeys.has(column.key) ? Math.max(column.width, column.minWidth ?? 0) : 0), 0) <= statsMaxFrozenWidth
 }
 
+function currentStatsListKind(): StatsListKind {
+  const pathname = appStore.getState().pathname || STATS_PAGE_PATH
+  return new URL(pathname, 'http://higoods.local').searchParams.get('tab') === 'detail' ? 'detail' : 'monthly'
+}
+
+function isStatsListEventTarget(target: HTMLElement, event?: Event): boolean {
+  const prefix = statsEventPrefix(currentStatsListKind())
+  if (event?.type === 'dragend' && !(event as DragEvent & { higoodStandardListColumnDrag?: true }).higoodStandardListColumnDrag) {
+    return false
+  }
+  return Boolean(target.closest<HTMLElement>([
+    `[data-${prefix}-action]`,
+    `[data-${prefix}-field]`,
+    `[data-${prefix}-column-key]`,
+  ].join(',')))
+}
+
 function handleStatsListEvent(target: HTMLElement, event?: Event): boolean {
+  if (!isCurrentPreparationTimingRoute(STATS_PAGE_PATH)) return false
+  if (!isStatsListEventTarget(target, event)) return false
   const context = getCurrentStatsContext()
   const { kind, month, params } = context
   const prefix = statsEventPrefix(kind)
