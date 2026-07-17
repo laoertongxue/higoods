@@ -1,3 +1,5 @@
+// @page-pattern: list
+
 import {
   applyRuntimeDirectDispatchMeta,
   getRuntimeTaskById,
@@ -21,6 +23,23 @@ import {
   renderProductionOrderIdentityCell,
 } from '../data/fcs/production-order-identity.ts'
 import { renderTablePagination } from '../components/ui/pagination.ts'
+import { renderSecondaryButton } from '../components/ui/button.ts'
+import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
+import {
+  clearListColumnPreferences,
+  loadListColumnPreferences,
+  normalizeListColumnPreferences,
+  paginateStandardListRows,
+  saveListColumnPreferences,
+  sortStandardListRows,
+  type StandardListColumnPreferences,
+  type StandardListSortState,
+} from '../components/ui/list-table-model.ts'
+import {
+  renderStandardListColumnSettings,
+  renderStandardListTable,
+  type StandardListColumn,
+} from '../components/ui/list-table.ts'
 import {
   buildSewingDeliverySlaPreviewModel,
   renderSewingDeliverySlaPreview,
@@ -50,6 +69,9 @@ export interface ContinuousDispatchState {
   feedback: string
   currentPage: number
   pageSize: number
+  sort: StandardListSortState | null
+  columnSettingsOpen: boolean
+  draggedColumnKey: string
   dialog: ContinuousDispatchDialogDraft | null
   handledReassignmentQueryKey: string
 }
@@ -60,6 +82,9 @@ const state: ContinuousDispatchState = {
   feedback: '',
   currentPage: 1,
   pageSize: 10,
+  sort: null,
+  columnSettingsOpen: false,
+  draggedColumnKey: '',
   dialog: null,
   handledReassignmentQueryKey: '',
 }
@@ -78,6 +103,15 @@ export function closeContinuousDispatchDialog(): void {
 }
 
 const CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+const CONTINUOUS_LIST_STORAGE_KEY = 'higood:list:/fcs/dispatch/continuous'
+const CONTINUOUS_LIST_MAX_FROZEN_WIDTH = 420
+let continuousListPreferencesLoaded = false
+let continuousListPreferences: StandardListColumnPreferences = {
+  order: [],
+  visibleKeys: [],
+  frozenKeys: ['productionOrder'],
+  pageSize: 10,
+}
 
 const assignmentStatusLabel: Record<RuntimeProcessTask['assignmentStatus'], string> = {
   UNASSIGNED: '待分配',
@@ -176,7 +210,8 @@ function refreshContinuousDispatchSlaPreview(): void {
   if (slot) slot.innerHTML = input ? renderSewingDeliverySlaPreview(input) : ''
   const button = document.querySelector<HTMLButtonElement>('[data-continuous-dispatch-confirm]')
   if (button && state.dialog && (state.dialog.mode === 'DIRECT' || state.dialog.mode === 'REASSIGN')) {
-    const disabled = !state.dialog.factoryId || !input || !buildSewingDeliverySlaPreviewModel(input).valid
+    const previewModel = input ? buildSewingDeliverySlaPreviewModel(input) : null
+    const disabled = !state.dialog.factoryId || Boolean(previewModel?.supported && !previewModel.valid)
     button.disabled = disabled
     button.classList.toggle('cursor-not-allowed', disabled)
     button.classList.toggle('opacity-50', disabled)
@@ -195,13 +230,14 @@ function renderDispatchDialog(): string {
   const reassign = dialog.mode === 'REASSIGN'
   const confirmedQty = reassign ? sumSewingDeliveryConfirmedReceiptQty(task.taskId) : 0
   const previewInput = getContinuousDispatchSlaPreviewInput()
-  const previewInvalid = (direct || reassign) && (!previewInput || !buildSewingDeliverySlaPreviewModel(previewInput).valid)
+  const previewModel = previewInput ? buildSewingDeliverySlaPreviewModel(previewInput) : null
+  const previewInvalid = Boolean(previewModel?.supported && !previewModel.valid)
   const confirmDisabled = (direct || reassign) && (!dialog.factoryId || previewInvalid)
   const mainFactoryOptions = reassign ? [...listProductionOrderSewingFactories(task.productionOrderId).filter((factory) => factory.id !== task.assignedFactoryId), ...(selectedFactory ? [{ id: selectedFactory.id, name: selectedFactory.name, code: selectedFactory.code, tags: [] }] : [])].filter((factory, index, list) => list.findIndex((item) => item.id === factory.id) === index) : []
   return `
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <button type="button" class="absolute inset-0 bg-slate-900/40" data-skip-page-rerender="true" data-continuous-dispatch-action="close-dialog" aria-label="关闭分配弹窗"></button>
-      <section class="relative z-10 max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-lg border bg-background shadow-xl">
+      <section class="relative z-10 max-h-[88vh] w-full max-w-2xl overflow-hidden rounded-lg border bg-background shadow-xl">
         <header class="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div>
             <h2 class="text-lg font-semibold">${reassign ? '改派含车缝任务' : direct ? '直接派单' : '发起竞价'}</h2>
@@ -209,7 +245,7 @@ function renderDispatchDialog(): string {
           </div>
           <button type="button" class="h-9 rounded-md border px-3 text-sm" data-skip-page-rerender="true" data-continuous-dispatch-action="close-dialog">关闭</button>
         </header>
-        <div class="space-y-4 px-5 py-4">
+        <div class="max-h-[calc(88vh-142px)] space-y-4 overflow-y-auto px-5 py-4">
           ${dialog.error ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(dialog.error)}</div>` : ''}
           ${reassign ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm">原工厂：${escapeHtml(task.assignedFactoryName || '未记录')}｜已确认实收 ${confirmedQty.toLocaleString()} 件｜剩余 ${Math.max(task.scopeQty - confirmedQty, 0).toLocaleString()} 件</div>` : ''}
           <div>
@@ -229,7 +265,7 @@ function renderDispatchDialog(): string {
             </label>
             ${reassign ? `<label class="block space-y-1 text-sm"><span class="text-muted-foreground">改派原因</span><input class="h-9 w-full rounded-md border px-3" value="${escapeHtml(dialog.reason)}" data-skip-page-rerender="true" data-continuous-dispatch-field="reason" /></label>` : ''}
             ${reassign ? `<label class="block space-y-1 text-sm"><span class="text-muted-foreground">改派后主工厂</span><select class="h-9 w-full rounded-md border px-3" data-skip-page-rerender="true" data-continuous-dispatch-field="mainFactoryId"><option value="">候选超过一家时请选择</option>${mainFactoryOptions.map((factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === dialog.mainFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label>` : ''}
-            ${containsSewing(task) ? `
+            ${direct && containsSewing(task) ? `
               <div class="rounded-md border p-3 text-sm">
                 <div><span class="text-muted-foreground">当前主工厂：</span><span class="font-medium">${escapeHtml(order?.mainFactorySnapshot?.name || '待确认')}</span></div>
                 <div class="mt-2 flex flex-wrap gap-4">
@@ -472,117 +508,139 @@ function renderActions(task: RuntimeProcessTask): string {
   `
 }
 
-function getPagedTasks(tasks: RuntimeProcessTask[]) {
-  const total = tasks.length
-  const pageSize = CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS.includes(state.pageSize as typeof CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS[number])
-    ? state.pageSize
-    : 10
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
-  const currentPage = Math.min(Math.max(1, state.currentPage), totalPages)
-  const start = (currentPage - 1) * pageSize
-  const rows = tasks.slice(start, start + pageSize)
-  return {
-    rows,
-    total,
-    pageSize,
-    currentPage,
-    totalPages,
-    from: total === 0 ? 0 : start + 1,
-    to: Math.min(total, start + rows.length),
+const continuousListColumns: StandardListColumn<RuntimeProcessTask>[] = [
+  {
+    key: 'productionOrder',
+    title: PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+    width: 190,
+    minWidth: 190,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    sortValue: (task) => task.productionOrderId,
+    render: (task) => {
+      const order = getTaskOrder(task)
+      return `${renderProductionOrderIdentityCell(task.productionOrderId)}<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order?.demandSnapshot.saleType ?? task.saleTypeSnapshot ?? '—')}</div>`
+    },
+  },
+  {
+    key: 'task',
+    title: '连续任务',
+    width: 180,
+    minWidth: 180,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    sortValue: (task) => task.taskNo || task.taskId,
+    render: (task) => `<div class="font-medium">${escapeHtml(task.processNameZh)}</div><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</div><div class="mt-1 text-xs text-muted-foreground">来源：${escapeHtml(task.generationRuleName || '任务清单人工合并')}</div>`,
+  },
+  {
+    key: 'processes',
+    title: '覆盖工序',
+    width: 130,
+    minWidth: 130,
+    render: (task) => `<div class="flex flex-wrap gap-1">${getCoveredProcessNames(task).map((name) => `<span class="rounded-md border bg-muted/40 px-2 py-0.5 text-xs">${escapeHtml(name)}</span>`).join('')}</div>`,
+  },
+  {
+    key: 'scope',
+    title: '整任务范围',
+    width: 220,
+    minWidth: 220,
+    sortable: true,
+    sortValue: (task) => Number(task.qty || task.scopeQty || 0),
+    render: (task) => `<div class="break-all text-xs text-muted-foreground"><div>合并来源：${escapeHtml((task.mergeSourceTaskIds ?? []).join('、') || '任务清单')}</div><div>计划数量：${Number(task.qty || task.scopeQty || 0).toLocaleString()} 件</div><div>合并人：${escapeHtml(task.mergeCreatedBy || '生产计划员')}</div></div>`,
+  },
+  {
+    key: 'readiness',
+    title: '分配前判断',
+    width: 240,
+    minWidth: 240,
+    required: true,
+    render: renderReadiness,
+  },
+  {
+    key: 'status',
+    title: '分配状态',
+    width: 150,
+    minWidth: 150,
+    sortable: true,
+    sortValue: (task) => task.assignmentStatus,
+    render: renderAssignmentCell,
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 190,
+    minWidth: 190,
+    required: true,
+    actionColumn: true,
+    render: renderActions,
+  },
+]
+
+const continuousListColumnRules = continuousListColumns.map(({ key, required, freezeable, actionColumn }) => ({
+  key,
+  required,
+  freezeable,
+  actionColumn,
+}))
+
+function normalizeContinuousListPreferences(raw: Partial<StandardListColumnPreferences> | null | undefined): StandardListColumnPreferences {
+  return normalizeListColumnPreferences(
+    continuousListColumnRules,
+    raw,
+    [...CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS],
+  )
+}
+
+function ensureContinuousListPreferences(): void {
+  if (continuousListPreferencesLoaded) return
+  continuousListPreferencesLoaded = true
+  const defaults = normalizeContinuousListPreferences({
+    order: continuousListColumns.map((column) => column.key),
+    visibleKeys: continuousListColumns.map((column) => column.key),
+    frozenKeys: ['productionOrder'],
+    pageSize: state.pageSize,
+  })
+  try {
+    continuousListPreferences = typeof window === 'undefined'
+      ? defaults
+      : loadListColumnPreferences(window.localStorage, CONTINUOUS_LIST_STORAGE_KEY, continuousListColumnRules, defaults, [...CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS])
+  } catch {
+    continuousListPreferences = defaults
   }
+  state.pageSize = continuousListPreferences.pageSize
+}
+
+function saveContinuousListPreferences(): void {
+  try {
+    if (typeof window !== 'undefined') saveListColumnPreferences(window.localStorage, CONTINUOUS_LIST_STORAGE_KEY, continuousListPreferences)
+  } catch {
+    // 原型环境无法使用本地存储时保持当前会话偏好。
+  }
+}
+
+function getPagedTasks(tasks: RuntimeProcessTask[]) {
+  ensureContinuousListPreferences()
+  const sorted = sortStandardListRows(tasks, state.sort, (task, key) =>
+    continuousListColumns.find((column) => column.key === key)?.sortValue?.(task),
+  )
+  const paging = paginateStandardListRows(sorted, state.currentPage, continuousListPreferences.pageSize)
+  state.currentPage = paging.currentPage
+  state.pageSize = paging.pageSize
+  return paging
 }
 
 function renderTaskTable(tasks: RuntimeProcessTask[]): string {
   const paging = getPagedTasks(tasks)
-  const emptyRow = state.tab === 'SEWING_POST'
-    ? `
-      <tr>
-        <td colspan="7" class="px-3 py-8 text-sm">
-          <div class="mx-auto max-w-2xl rounded-md border border-dashed bg-muted/20 p-4 text-left">
-            <div class="font-medium text-slate-800">当前暂无已由任务清单合并形成的车缝+后道连续任务。</div>
-            <div class="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-              <div><span class="text-muted-foreground">裁片是否可做成衣：</span><span class="font-medium text-emerald-700">有车缝+后道连续任务后按车缝工作台齐套口径校验</span></div>
-              <div><span class="text-muted-foreground">辅料是否满足生产：</span><span class="font-medium text-emerald-700">直接派单或发起竞价前必须满足</span></div>
-            </div>
-          </div>
-        </td>
-      </tr>
-    `
-    : '<tr><td colspan="7" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选下暂无连续工序任务。</td></tr>'
-
-  return `
-    <section class="rounded-lg border bg-card">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-        <div>
-          <h2 class="text-base font-semibold">连续工序任务列表</h2>
-          <p class="mt-1 text-xs text-muted-foreground">只展示任务清单人工合并形成的连续工序任务，分配时按整任务处理。</p>
-        </div>
-        <div class="text-xs text-muted-foreground">搜索结果：${paging.total} 个连续工序任务</div>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[980px] table-fixed text-sm">
-          <thead>
-            <tr class="border-b bg-muted/40 text-xs text-muted-foreground">
-              <th class="w-[146px] px-3 py-2 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 售卖类型</th>
-              <th class="w-[136px] px-3 py-2 text-left font-medium">连续任务</th>
-              <th class="w-[86px] px-3 py-2 text-left font-medium">覆盖工序</th>
-              <th class="w-[148px] px-3 py-2 text-left font-medium">整任务范围</th>
-              <th class="w-[168px] px-3 py-2 text-left font-medium">分配前判断</th>
-              <th class="w-[120px] min-w-[120px] px-3 py-2 text-left font-medium">分配状态</th>
-              <th class="w-[176px] min-w-[176px] border-l bg-muted/40 px-3 py-2 text-left font-medium shadow-sm xl:sticky xl:right-0 xl:z-20">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              paging.total === 0
-                ? emptyRow
-                : paging.rows.map((task) => {
-                    const order = getTaskOrder(task)
-                    const coveredNames = getCoveredProcessNames(task)
-                    return `
-                      <tr class="border-b align-top last:border-b-0">
-                        <td class="break-words px-3 py-3">
-                          ${renderProductionOrderIdentityCell(task.productionOrderId)}
-                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order?.demandSnapshot.saleType ?? task.saleTypeSnapshot ?? '—')}</div>
-                        </td>
-                        <td class="break-words px-3 py-3">
-                          <div class="font-medium">${escapeHtml(task.processNameZh)}</div>
-                          <div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</div>
-                          <div class="mt-1 text-xs text-muted-foreground">来源：${escapeHtml(task.generationRuleName || '任务清单人工合并')}</div>
-                        </td>
-                        <td class="px-3 py-3">
-                          <div class="flex flex-wrap gap-1">
-                            ${coveredNames.map((name) => `<span class="rounded-md border bg-muted/40 px-2 py-0.5 text-xs">${escapeHtml(name)}</span>`).join('')}
-                          </div>
-                        </td>
-                        <td class="break-all px-3 py-3 text-xs text-muted-foreground">
-                          <div>合并来源：${escapeHtml((task.mergeSourceTaskIds ?? []).join('、') || '任务清单')}</div>
-                          <div>计划数量：${Number(task.qty || task.scopeQty || 0).toLocaleString()} 件</div>
-                          <div>合并人：${escapeHtml(task.mergeCreatedBy || '生产计划员')}</div>
-                        </td>
-                        <td class="break-words px-3 py-3">${renderReadiness(task)}</td>
-                        <td class="w-[120px] min-w-[120px] px-3 py-3">${renderAssignmentCell(task)}</td>
-                        <td class="w-[176px] min-w-[176px] border-l bg-card px-3 py-3 shadow-sm xl:sticky xl:right-0 xl:z-10">${renderActions(task)}</td>
-                      </tr>
-                    `
-                  }).join('')
-            }
-          </tbody>
-        </table>
-      </div>
-      ${renderTablePagination({
-        total: paging.total,
-        from: paging.from,
-        to: paging.to,
-        currentPage: paging.currentPage,
-        totalPages: paging.totalPages,
-        pageSize: paging.pageSize,
-        actionPrefix: 'continuous-dispatch',
-        fieldPrefix: 'continuous-dispatch',
-        pageSizeOptions: CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS,
-      })}
-    </section>
-  `
+  return renderStandardListTable({
+    columns: continuousListColumns,
+    rows: paging.rows,
+    preferences: continuousListPreferences,
+    sort: state.sort,
+    eventPrefix: 'continuous-dispatch',
+    emptyText: state.tab === 'SEWING_POST' ? '当前暂无车缝到后道连续任务。' : '当前筛选下暂无连续工序任务。',
+  })
 }
 
 export function renderContinuousDispatchPage(): string {
@@ -603,57 +661,87 @@ export function renderContinuousDispatchPage(): string {
   const filteredPendingCount = filteredTasks.filter((task) => task.assignmentStatus === 'BIDDING' || task.assignmentStatus === 'ASSIGNING').length
   const filteredAssignedCount = filteredTasks.filter((task) => task.assignmentStatus === 'ASSIGNED' || task.assignmentStatus === 'AWARDED').length
   const filteredCuttingCount = filteredTasks.filter(isCuttingContinuousTask).length
-
-  return `
-    <div class="space-y-4" data-continuous-dispatch-page>
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 class="text-xl font-semibold">连续工序任务分配</h1>
-          <p class="mt-1 text-sm text-muted-foreground">承接任务清单人工合并出的连续工序任务，分配范围固定为整任务，不重新拆分到明细。</p>
-        </div>
+  const paging = getPagedTasks(filteredTasks)
+  const filtersHtml = `
+    <div class="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3">
+      <div class="relative min-w-[260px] flex-1">
+        <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"></i>
+        <input class="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm" placeholder="生产单号 / 任务号 / 工序 / 工厂" value="${escapeHtml(state.keyword)}" data-continuous-dispatch-field="keyword" data-fast-page-render="true" />
       </div>
-
-      <section class="rounded-lg border bg-card p-3">
-        <div class="flex flex-wrap items-center gap-3">
-          <div class="relative min-w-[260px] flex-1">
-            <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"></i>
-            <input
-              class="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm"
-              placeholder="生产单号 / 任务号 / 工序 / 工厂"
-              value="${escapeHtml(state.keyword)}"
-              data-continuous-dispatch-field="keyword"
-              data-fast-page-render="true"
-            />
-          </div>
-          <div class="flex flex-wrap gap-2">
-            ${renderTabButton('SEWING_POST', '车缝+后道连续任务', sewingPostCount)}
-            ${renderTabButton('OTHER', '其他连续工序任务', otherCount)}
-          </div>
-        </div>
-        <div class="mt-3 text-xs text-muted-foreground">
-          含裁片连续任务归入其他连续工序任务：我方裁床提供唛架方案；三方上报裁片完成数量和可做成衣数；不生成我方加工单。车缝+后道连续任务继续使用车缝齐套判断。
-        </div>
-        <div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          ${renderMetric('当前筛选任务', filteredTasks.length, state.tab === 'SEWING_POST' ? '车缝+后道连续任务' : '其他连续工序任务')}
-          ${renderMetric('待选择分配方式', filteredUnassignedCount + filteredPendingCount, '待分配/分配中/招标中', 'text-amber-700')}
-          ${renderMetric('已指定承接工厂', filteredAssignedCount, '已分配/已中标', 'text-emerald-700')}
-          ${renderMetric('含裁片提示', filteredCuttingCount, '我方提供唛架方案，三方上报裁片完成')}
-        </div>
-      </section>
-
-      ${
-        state.feedback
-          ? `<section class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">${escapeHtml(state.feedback)}</section>`
-          : ''
-      }
-
-      ${renderTaskTable(filteredTasks)}
-      <div data-continuous-dispatch-dialog-host>${renderDispatchDialog()}</div>
+      <div class="flex flex-wrap gap-2">${renderTabButton('SEWING_POST', '车缝+后道连续任务', sewingPostCount)}${renderTabButton('OTHER', '其他连续工序任务', otherCount)}</div>
     </div>
   `
+  const statsHtml = renderStandardListStats([
+    { label: '当前筛选任务', value: filteredTasks.length },
+    { label: '待选择分配方式', value: filteredUnassignedCount + filteredPendingCount },
+    { label: '已指定承接工厂', value: filteredAssignedCount },
+    { label: '含裁片任务', value: filteredCuttingCount },
+  ])
+  const columnSettingsButton = renderSecondaryButton('列设置', { prefix: 'continuous-dispatch', action: 'open-column-settings' }, 'columns-3')
+  const columnSettingsHtml = state.columnSettingsOpen
+    ? renderStandardListColumnSettings({
+        title: '列设置',
+        columns: continuousListColumns,
+        preferences: continuousListPreferences,
+        eventPrefix: 'continuous-dispatch',
+        maxFrozenWidth: CONTINUOUS_LIST_MAX_FROZEN_WIDTH,
+      })
+    : ''
+  const pageHtml = renderStandardListPage({
+    title: '连续工序任务分配',
+    feedbackHtml: state.feedback ? `<section class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">${escapeHtml(state.feedback)}</section>` : '',
+    filtersHtml,
+    statsHtml,
+    listTitle: '连续工序任务列表',
+    listActionsHtml: `<div class="flex items-center gap-3"><span class="text-xs text-muted-foreground">共 ${paging.total} 个任务</span>${columnSettingsButton}</div>`,
+    tableHtml: renderTaskTable(filteredTasks),
+    paginationHtml: renderTablePagination({
+      total: paging.total,
+      from: paging.from,
+      to: paging.to,
+      currentPage: paging.currentPage,
+      totalPages: paging.totalPages,
+      pageSize: paging.pageSize,
+      actionPrefix: 'continuous-dispatch',
+      fieldPrefix: 'continuous-dispatch',
+      pageSizeOptions: CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS,
+    }),
+    overlaysHtml: `<div data-continuous-column-settings-host>${columnSettingsHtml}</div><div data-continuous-dispatch-dialog-host>${renderDispatchDialog()}</div>`,
+  })
+  return `<div data-continuous-dispatch-page>${pageHtml}</div>`
 }
 
-export function handleContinuousDispatchEvent(target: HTMLElement, event?: Pick<Event, 'type'>): boolean {
+export function handleContinuousDispatchEvent(target: HTMLElement, event?: Event): boolean {
+  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
+  if (dragNode && event && ['dragstart', 'dragover', 'drop', 'dragend'].includes(event.type)) {
+    const dragEvent = event as DragEvent & { higoodStandardListColumnKey?: string }
+    const columnKey = dragNode.dataset.continuousDispatchColumnKey || dragNode.dataset.dragSource || dragNode.dataset.dropTarget || ''
+    if (event.type === 'dragstart') {
+      state.draggedColumnKey = columnKey
+      dragEvent.dataTransfer?.setData('application/x-higood-list-column-key', columnKey)
+      return Boolean(columnKey)
+    }
+    if (event.type === 'dragend') {
+      state.draggedColumnKey = ''
+      return true
+    }
+    const sourceKey = dragEvent.higoodStandardListColumnKey || state.draggedColumnKey
+    if (!sourceKey || !columnKey || sourceKey === columnKey) return false
+    if (event.type === 'dragover') {
+      event.preventDefault()
+      return true
+    }
+    event.preventDefault()
+    const order = continuousListPreferences.order.filter((key) => key !== sourceKey)
+    const targetIndex = order.indexOf(columnKey)
+    if (targetIndex < 0) return false
+    order.splice(targetIndex, 0, sourceKey)
+    continuousListPreferences = normalizeContinuousListPreferences({ ...continuousListPreferences, order })
+    state.draggedColumnKey = ''
+    saveContinuousListPreferences()
+    return true
+  }
+
   const fieldNode = target.closest<HTMLElement>('[data-continuous-dispatch-field]')
   if (fieldNode && 'value' in fieldNode) {
     if (fieldNode.dataset.continuousDispatchField === 'keyword') {
@@ -666,6 +754,8 @@ export function handleContinuousDispatchEvent(target: HTMLElement, event?: Pick<
       state.pageSize = CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS.includes(nextPageSize as typeof CONTINUOUS_DISPATCH_PAGE_SIZE_OPTIONS[number])
         ? nextPageSize
         : 10
+      continuousListPreferences = normalizeContinuousListPreferences({ ...continuousListPreferences, pageSize: state.pageSize })
+      saveContinuousListPreferences()
       state.currentPage = 1
       return true
     }
@@ -695,6 +785,72 @@ export function handleContinuousDispatchEvent(target: HTMLElement, event?: Pick<
   const actionNode = target.closest<HTMLElement>('[data-continuous-dispatch-action]')
   if (!actionNode) return false
   const action = actionNode.dataset.continuousDispatchAction
+
+  if (action === 'sort-column') {
+    const columnKey = actionNode.dataset.columnKey || ''
+    const column = continuousListColumns.find((item) => item.key === columnKey && item.sortable)
+    if (!column) return true
+    state.sort = state.sort?.key !== columnKey
+      ? { key: columnKey, direction: 'asc' }
+      : state.sort.direction === 'asc'
+        ? { key: columnKey, direction: 'desc' }
+        : null
+    state.currentPage = 1
+    return true
+  }
+  if (action === 'open-column-settings') {
+    state.columnSettingsOpen = true
+    return true
+  }
+  if (action === 'close-column-settings') {
+    state.columnSettingsOpen = false
+    return true
+  }
+  if (action === 'restore-column-settings') {
+    continuousListPreferences = normalizeContinuousListPreferences({
+      order: continuousListColumns.map((column) => column.key),
+      visibleKeys: continuousListColumns.map((column) => column.key),
+      frozenKeys: ['productionOrder'],
+      pageSize: 10,
+    })
+    state.currentPage = 1
+    state.pageSize = continuousListPreferences.pageSize
+    state.sort = null
+    try {
+      if (typeof window !== 'undefined') clearListColumnPreferences(window.localStorage, CONTINUOUS_LIST_STORAGE_KEY)
+    } catch {
+      // 原型环境无法使用本地存储时仍恢复当前会话默认值。
+    }
+    return true
+  }
+  if (action === 'toggle-column-visibility' && event?.type === 'change') {
+    const columnKey = actionNode.dataset.continuousDispatchColumnKey || actionNode.dataset.columnKey || ''
+    const column = continuousListColumns.find((item) => item.key === columnKey)
+    if (!column || column.required || column.actionColumn) return true
+    const visibleKeys = new Set(continuousListPreferences.visibleKeys)
+    const frozenKeys = new Set(continuousListPreferences.frozenKeys)
+    if (visibleKeys.has(columnKey)) {
+      visibleKeys.delete(columnKey)
+      frozenKeys.delete(columnKey)
+    } else {
+      visibleKeys.add(columnKey)
+    }
+    continuousListPreferences = normalizeContinuousListPreferences({ ...continuousListPreferences, visibleKeys: [...visibleKeys], frozenKeys: [...frozenKeys] })
+    if (!visibleKeys.has(columnKey) && state.sort?.key === columnKey) state.sort = null
+    saveContinuousListPreferences()
+    return true
+  }
+  if (action === 'toggle-column-freeze' && event?.type === 'change') {
+    const columnKey = actionNode.dataset.continuousDispatchColumnKey || actionNode.dataset.columnKey || ''
+    const column = continuousListColumns.find((item) => item.key === columnKey)
+    if (!column?.freezeable || column.actionColumn) return true
+    const frozenKeys = new Set(continuousListPreferences.frozenKeys)
+    if (frozenKeys.has(columnKey)) frozenKeys.delete(columnKey)
+    else frozenKeys.add(columnKey)
+    continuousListPreferences = normalizeContinuousListPreferences({ ...continuousListPreferences, frozenKeys: [...frozenKeys] })
+    saveContinuousListPreferences()
+    return true
+  }
 
   if (action === 'switch-tab') {
     const tab = actionNode.dataset.tab as ContinuousDispatchTab | undefined
