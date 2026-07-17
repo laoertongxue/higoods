@@ -27,6 +27,10 @@ import {
   type FactoryRatingPerformanceRecord,
   type FactoryRatingSnapshot,
 } from '../data/fcs/third-party-factory-rating.ts'
+import {
+  listThirdPartyFactoryTrialAssessmentRecords,
+  type ThirdPartyFactoryTrialAssessmentRecord,
+} from '../data/fcs/third-party-factory-trial-assessment.ts'
 import { appStore } from '../state/store.ts'
 import { escapeHtml } from '../utils.ts'
 
@@ -360,6 +364,84 @@ function renderAssessmentResult(row: FactoryRatingSnapshot): string {
   `
 }
 
+function formatTrialAssessmentStatus(status: ThirdPartyFactoryTrialAssessmentRecord['status']): string {
+  const labelByStatus: Record<ThirdPartyFactoryTrialAssessmentRecord['status'], string> = {
+    WAIT_TRIAL_DISPATCH: '待派出',
+    TRIAL_DISPATCHED: '已派出未交出',
+    WAIT_QC: '待质检',
+    AUTO_RATED: '系统已评级',
+    MANUAL_CONFIRMED: '人工已确认',
+  }
+  return labelByStatus[status]
+}
+
+function formatTrialAssessmentTiming(record: ThirdPartyFactoryTrialAssessmentRecord): string {
+  if (record.status === 'WAIT_TRIAL_DISPATCH') return '待派出'
+  if (record.status === 'TRIAL_DISPATCHED') return '未交出'
+  if (record.status === 'WAIT_QC') return '待质检'
+  return record.delayDays > 0 ? `延期 ${record.delayDays} 天` : '准时'
+}
+
+function renderTrialAssessmentDefectReasons(record: ThirdPartyFactoryTrialAssessmentRecord): string {
+  if (record.factoryLiabilityDefectReasonItems.length === 0) return '无工厂责任瑕疵'
+  return record.factoryLiabilityDefectReasonItems
+    .map((item) => `${item.reasonName} ${item.qty} 件`)
+    .join('，')
+}
+
+function renderTrialAssessmentRecords(records: ThirdPartyFactoryTrialAssessmentRecord[]): string {
+  if (records.length === 0) {
+    return `
+      <section class="rounded-lg border bg-card p-4">
+        <h3 class="font-semibold">试产考核记录</h3>
+        <p class="mt-3 rounded-md border bg-background p-4 text-sm text-muted-foreground">暂无试产考核记录</p>
+      </section>
+    `
+  }
+
+  const sortedRecords = [...records].sort((left, right) => right.assessmentRound - left.assessmentRound)
+
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <h3 class="font-semibold">试产考核记录</h3>
+      <div class="mt-3 space-y-3">
+        ${sortedRecords.map((record) => `
+          <article class="rounded-md border bg-background p-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div class="text-sm font-medium">第 ${escapeHtml(record.assessmentRound)} 轮 / ${escapeHtml(record.trialOrderNo)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">生产单：${escapeHtml(record.productionOrderNo)}，状态：${escapeHtml(formatTrialAssessmentStatus(record.status))}</div>
+              </div>
+              <div class="rounded-full border px-2.5 py-1 text-xs text-muted-foreground">试产数量 ${escapeHtml(record.dispatchQty)} 件</div>
+            </div>
+            <div class="mt-3 grid gap-2 text-sm md:grid-cols-3">
+              <div class="rounded-md border p-2">
+                <div class="text-xs text-muted-foreground">完成时效</div>
+                <div class="mt-1 font-medium">${escapeHtml(formatTrialAssessmentTiming(record))}</div>
+                <div class="mt-1 text-xs text-muted-foreground">计划 ${escapeHtml(record.plannedDeliveryAt)} / 实际 ${escapeHtml(record.actualDeliveryAt || '未交出')}</div>
+              </div>
+              <div class="rounded-md border p-2">
+                <div class="text-xs text-muted-foreground">质检情况</div>
+                <div class="mt-1 font-medium">质检 ${escapeHtml(record.inspectedQty)} 件，不良 ${escapeHtml(record.defectiveQty)} 件，不良率 ${escapeHtml(record.inspectedQty > 0 ? formatPercent(record.defectRate) : '未质检')}</div>
+                <div class="mt-1 text-xs text-muted-foreground">返工 ${escapeHtml(record.reworkQty)} 件，工厂责任瑕疵 ${escapeHtml(record.factoryLiabilityDefectQty)} 件</div>
+              </div>
+              <div class="rounded-md border p-2">
+                <div class="text-xs text-muted-foreground">评级结论</div>
+                <div class="mt-1 font-medium">时效 ${escapeHtml(record.timelinessGrade)} / 质量 ${escapeHtml(record.qualityGrade)} / 自动 ${escapeHtml(record.autoRatingGrade)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">系统建议：${escapeHtml(record.autoRatingDecision ?? '待评级')}，人工结论：${escapeHtml(record.manualDecision ?? '未确认')}</div>
+              </div>
+            </div>
+            <div class="mt-2 rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
+              工厂责任瑕疵原因：${escapeHtml(renderTrialAssessmentDefectReasons(record))}
+              ${record.manualReason ? `；人工说明：${escapeHtml(record.manualReason)}` : ''}
+            </div>
+          </article>
+        `).join('')}
+      </div>
+    </section>
+  `
+}
+
 function getDeliveryDelayDays(record: FactoryRatingPerformanceRecord): number {
   const planned = new Date(record.plannedDeliveryAt.replace(' ', 'T')).getTime()
   const actual = new Date(record.actualDeliveryAt.replace(' ', 'T')).getTime()
@@ -650,6 +732,7 @@ function renderPerformanceRecords(records: FactoryRatingPerformanceRecord[]): st
 function renderRatingDrawer(snapshot: RatingRow | undefined, query: RatingQuery): string {
   if (!snapshot) return ''
   const records = listThirdPartyFactoryPerformanceRecords(snapshot.factoryId)
+  const trialRecords = listThirdPartyFactoryTrialAssessmentRecords(snapshot.factoryId)
 
   return `
     <div class="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="third-party-rating-drawer-title">
@@ -666,6 +749,7 @@ function renderRatingDrawer(snapshot: RatingRow | undefined, query: RatingQuery)
           ${renderRatingScoreDetail(snapshot)}
           ${renderAssessmentDecisionDetail(snapshot)}
           ${renderStrategyDetail(snapshot)}
+          ${renderTrialAssessmentRecords(trialRecords)}
           ${renderTimingDetail(snapshot)}
           ${renderPerformanceRecords(records)}
         </div>
