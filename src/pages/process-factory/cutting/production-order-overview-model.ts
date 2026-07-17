@@ -1,6 +1,6 @@
 export type ThreeStageFact = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE'
 
-export type FactoryTypeLabel = '中央工厂' | '第三方工厂' | '—'
+export type FactoryTypeLabel = '中央工厂' | '第三方工厂' | '待分配'
 
 export interface FactoryProgressFact {
   factoryId: string
@@ -15,7 +15,7 @@ export interface ProductionOrderOverviewFactoryLine {
   factoryId: string
   factoryName: string
   factoryTypeLabel: FactoryTypeLabel
-  acceptanceLabel: '未接单' | '已接单'
+  acceptanceLabel: '未接单' | '已经接单'
   pickupLabel: '未领取' | '部分领取' | '领取完成'
 }
 
@@ -64,7 +64,7 @@ const DYE_ACTIVE = new Set([
 ])
 
 export function summarizeThreeStageStatus(facts: ThreeStageFact[], known: boolean): string {
-  if (!known) return '—'
+  if (!known) return '未开始'
   if (!facts.length || facts.every((fact) => fact === 'NOT_STARTED')) return '未开始'
   if (facts.every((fact) => fact === 'DONE')) return '已完成'
   return '进行中'
@@ -72,18 +72,20 @@ export function summarizeThreeStageStatus(facts: ThreeStageFact[], known: boolea
 
 export function summarizePrintStatus(required: boolean, statuses: string[]): string {
   if (!required) return '无需印花'
-  return summarizeThreeStageStatus(
+  const summary = summarizeThreeStageStatus(
     statuses.map((status) => (PRINT_DONE.has(status) ? 'DONE' : PRINT_ACTIVE.has(status) ? 'IN_PROGRESS' : 'NOT_STARTED')),
     true,
   )
+  return summary === '已完成' ? '印花完成' : summary === '进行中' ? '印花中' : '未开始'
 }
 
 export function summarizeDyeStatus(required: boolean, statuses: string[]): string {
   if (!required) return '无需染色'
-  return summarizeThreeStageStatus(
+  const summary = summarizeThreeStageStatus(
     statuses.map((status) => (DYE_DONE.has(status) ? 'DONE' : DYE_ACTIVE.has(status) ? 'IN_PROGRESS' : 'NOT_STARTED')),
     true,
   )
+  return summary === '已完成' ? '染色完成' : summary === '进行中' ? '染色中' : '未开始'
 }
 
 export function buildFactoryLines(facts: FactoryProgressFact[]): ProductionOrderOverviewFactoryLine[] {
@@ -91,7 +93,7 @@ export function buildFactoryLines(facts: FactoryProgressFact[]): ProductionOrder
     factoryId: fact.factoryId,
     factoryName: fact.factoryName,
     factoryTypeLabel: fact.factoryTypeLabel,
-    acceptanceLabel: fact.accepted ? '已接单' : '未接单',
+    acceptanceLabel: fact.accepted ? '已经接单' : '未接单',
     pickupLabel:
       fact.pickedQty <= 0 ? '未领取' : fact.pickedQty >= fact.requiredQty ? '领取完成' : '部分领取',
   }))
