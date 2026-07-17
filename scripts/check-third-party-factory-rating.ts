@@ -37,6 +37,7 @@ import {
 } from '../src/data/fcs/factory-settlement-reconciliation.ts'
 import {
   calculateTrialAssessmentDefectMetrics,
+  getLatestEffectiveThirdPartyFactoryTrialAssessmentRecord,
   getLatestThirdPartyFactoryTrialAssessmentRecord,
   hasOpenThirdPartyFactoryTrialAssessment,
   listThirdPartyFactoryTrialAssessmentRecords,
@@ -111,11 +112,41 @@ assert.ok(
 )
 assert.ok(
   trialAssessmentRecords.some((item) =>
-    (item.status === 'TRIAL_DISPATCHED' || item.status === 'WAIT_QC') &&
+    (item.status === 'WAIT_TRIAL_DISPATCH' || item.status === 'TRIAL_DISPATCHED' || item.status === 'WAIT_QC') &&
     hasOpenThirdPartyFactoryTrialAssessment(item.factoryId),
   ),
   '必须有未完成试产考核记录用于验证重复派单阻断',
 )
+const waitingTrialDispatchRecord = trialAssessmentRecords.find((item) => item.status === 'WAIT_TRIAL_DISPATCH')
+assert.ok(
+  waitingTrialDispatchRecord && hasOpenThirdPartyFactoryTrialAssessment(waitingTrialDispatchRecord.factoryId),
+  '等待派出试产单也必须视为未完成试产考核',
+)
+
+for (const snapshot of snapshots) {
+  const latestEffectiveRecord = getLatestEffectiveThirdPartyFactoryTrialAssessmentRecord(snapshot.factoryId)
+  if (!latestEffectiveRecord) {
+    assert.equal(snapshot.cooperationStatusLabel, '考核中', `${snapshot.factoryId} 只有考核中工厂允许缺少已生效试产结论`)
+    continue
+  }
+  const expectedCooperationStatus = {
+    转正: '正常合作',
+    延长考核: '考核中',
+    拉黑: '黑名单',
+  }[latestEffectiveRecord.effectiveDecision]
+  assert.equal(
+    snapshot.cooperationStatusLabel,
+    expectedCooperationStatus,
+    `${snapshot.factoryId} 快照合作状态不能与最新已生效试产结论冲突`,
+  )
+  if (snapshot.assessmentDecision) {
+    assert.equal(
+      snapshot.assessmentDecision,
+      latestEffectiveRecord.effectiveDecision,
+      `${snapshot.factoryId} 快照考核结论必须与最新已生效试产结论一致`,
+    )
+  }
+}
 assert.ok(snapshots.some((item) => item.currentGrade === 'S'), '缺少 S 级样例')
 assert.ok(snapshots.some((item) => item.currentGrade === 'A'), '缺少 A 级样例')
 assert.ok(snapshots.some((item) => item.currentGrade === 'B'), '缺少 B 级黄牌样例')
