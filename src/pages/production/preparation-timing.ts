@@ -442,7 +442,7 @@ function outputGeneratedAt(record: ProductionPreparationRecord): string {
 
 function escapeCsvValue(value: unknown): string {
   const text = value == null ? '' : String(value)
-  const safeText = /^[=+\-@\t]/.test(text) ? `'${text}` : text
+  const safeText = /^[=+\-@\t\r\n]/.test(text) ? `'${text}` : text
   if (/[",\n\r]/.test(safeText)) return `"${safeText.replaceAll('"', '""')}"`
   return safeText
 }
@@ -778,7 +778,7 @@ function renderExternalMaterialsDialog(params: URLSearchParams, month: string): 
                 <th class="px-3 py-2 text-left font-medium">物料名称</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody data-prep-external-material-list>
               ${allExternalMaterials().map((material) => `
                 <tr class="border-t">
                   <td class="px-3 py-2">${material.serialNo}</td>
@@ -1487,10 +1487,10 @@ function renderItemUploadHistory(item: ProductionPreparationItem): string {
         isBasePatternItem(item.itemType)
           ? `
             <div class="mt-3 text-sm font-medium">下载记录</div>
-            <div class="mt-2 space-y-1 text-xs text-muted-foreground">
+            <div class="mt-2 space-y-1 text-xs text-muted-foreground" data-prep-download-history>
               ${
                 downloads.length
-                  ? downloads.map((download) => `<div>${escapeHtml(download.fileName)}｜${escapeHtml(download.downloadedBy)}｜${escapeHtml(formatDateTime(download.downloadedAt))}</div>`).join('')
+                  ? downloads.map((download) => `<div data-prep-download-record>${escapeHtml(download.fileName)}｜${escapeHtml(download.downloadedBy)}｜${escapeHtml(formatDateTime(download.downloadedAt))}</div>`).join('')
                   : '<div>暂无下载记录</div>'
               }
             </div>

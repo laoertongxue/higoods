@@ -70,64 +70,95 @@ interface ActionCompletionCondition {
   attributeValue?: string
   absent?: boolean
   urlIncludes?: string
+  count?: number
 }
 
-async function measureActionResponse(trigger: Locator, condition: ActionCompletionCondition): Promise<number> {
-  const page = trigger.page()
-  await trigger.evaluate((node) => {
-    const measuredWindow = window as Window & { __higoodActionStartedAt?: number }
-    delete measuredWindow.__higoodActionStartedAt
-    const markStart = (event: Event) => {
-      if (event.target !== node && !(node as Element).contains(event.target as Node)) return
-      measuredWindow.__higoodActionStartedAt = performance.now()
-      document.removeEventListener('click', markStart, true)
+type MeasuredEventType = 'click' | 'change'
+
+async function installBrowserResponseMeasurement(
+  trigger: Locator,
+  eventType: MeasuredEventType,
+  condition: ActionCompletionCondition,
+): Promise<string> {
+  const token = crypto.randomUUID()
+  await trigger.evaluate((node, measurement) => {
+    const measuredWindow = window as Window & {
+      __higoodBrowserResponseMeasurements?: Record<string, number>
     }
-    document.addEventListener('click', markStart, true)
-  })
-  await trigger.click({ noWaitAfter: true })
-  await page.waitForFunction((expected) => {
-    if (expected.urlIncludes && !window.location.href.includes(expected.urlIncludes)) return false
-    if (expected.secondarySelector && !document.querySelector(expected.secondarySelector)) return false
-    if (!expected.selector) return true
-    const target = document.querySelector(expected.selector)
-    if (expected.absent) return !target
-    if (!target) return false
-    if (expected.textIncludes && !target.textContent?.includes(expected.textIncludes)) return false
-    if (expected.attribute && target.getAttribute(expected.attribute) !== expected.attributeValue) return false
-    return true
-  }, condition, { timeout: 1500, polling: 'raf' })
-  return page.evaluate(() => {
-    const startedAt = (window as Window & { __higoodActionStartedAt?: number }).__higoodActionStartedAt
-    if (startedAt == null) throw new Error('未捕获真实 click 事件起点')
-    return performance.now() - startedAt
-  })
+    measuredWindow.__higoodBrowserResponseMeasurements ??= {}
+    delete measuredWindow.__higoodBrowserResponseMeasurements[measurement.token]
+    node.setAttribute('data-prep-performance-trigger', measurement.token)
+
+    const conditionSatisfied = (): boolean => {
+      const expected = measurement.condition
+      if (expected.urlIncludes && !window.location.href.includes(expected.urlIncludes)) return false
+      if (expected.secondarySelector && !document.querySelector(expected.secondarySelector)) return false
+      if (!expected.selector) return true
+      const targets = document.querySelectorAll(expected.selector)
+      if (typeof expected.count === 'number' && targets.length !== expected.count) return false
+      const target = targets.item(0)
+      if (expected.absent) return targets.length === 0
+      if (!target) return false
+      if (expected.textIncludes && !target.textContent?.includes(expected.textIncludes)) return false
+      if (expected.attribute && target.getAttribute(expected.attribute) !== expected.attributeValue) return false
+      return true
+    }
+
+    const captureStart = (event: Event) => {
+      const eventTarget = event.target
+      if (!(eventTarget instanceof Node) || (eventTarget !== node && !node.contains(eventTarget))) return
+      document.removeEventListener(measurement.eventType, captureStart, true)
+      const startedAt = performance.now()
+      const pollFinalState = () => {
+        if (conditionSatisfied()) {
+          measuredWindow.__higoodBrowserResponseMeasurements![measurement.token] = performance.now() - startedAt
+          node.removeAttribute('data-prep-performance-trigger')
+          return
+        }
+        requestAnimationFrame(pollFinalState)
+      }
+      requestAnimationFrame(pollFinalState)
+    }
+    document.addEventListener(measurement.eventType, captureStart, true)
+  }, { token, eventType, condition })
+  return token
+}
+
+async function readBrowserResponseMeasurement(page: Page, token: string, resultReadDelayMs = 0): Promise<number> {
+  await page.waitForFunction((measurementToken) => {
+    const measuredWindow = window as Window & {
+      __higoodBrowserResponseMeasurements?: Record<string, number>
+    }
+    return measuredWindow.__higoodBrowserResponseMeasurements?.[measurementToken] != null
+  }, token, { timeout: 1500, polling: 'raf' })
+  if (resultReadDelayMs > 0) await page.waitForTimeout(resultReadDelayMs)
+  return page.evaluate((measurementToken) => {
+    const measuredWindow = window as Window & {
+      __higoodBrowserResponseMeasurements?: Record<string, number>
+    }
+    const duration = measuredWindow.__higoodBrowserResponseMeasurements?.[measurementToken]
+    if (duration == null) throw new Error('浏览器内响应耗时尚未固定')
+    return duration
+  }, token)
+}
+
+async function measureActionResponse(
+  trigger: Locator,
+  condition: ActionCompletionCondition,
+  resultReadDelayMs = 0,
+  clickPosition?: { x: number; y: number },
+): Promise<number> {
+  const page = trigger.page()
+  const token = await installBrowserResponseMeasurement(trigger, 'click', condition)
+  await trigger.click({ noWaitAfter: true, position: clickPosition })
+  return readBrowserResponseMeasurement(page, token, resultReadDelayMs)
 }
 
 async function measureSelectResponse(trigger: Locator, value: string, condition: ActionCompletionCondition): Promise<number> {
   const page = trigger.page()
-  await trigger.evaluate((node) => {
-    const measuredWindow = window as Window & { __higoodChangeStartedAt?: number }
-    delete measuredWindow.__higoodChangeStartedAt
-    const markStart = (event: Event) => {
-      if (event.target !== node) return
-      measuredWindow.__higoodChangeStartedAt = performance.now()
-      document.removeEventListener('change', markStart, true)
-    }
-    document.addEventListener('change', markStart, true)
-  })
+  const token = await installBrowserResponseMeasurement(trigger, 'change', condition)
   await trigger.selectOption(value)
-  await page.waitForFunction((expected) => {
-    const target = expected.selector ? document.querySelector(expected.selector) : null
-    return (!expected.selector || (expected.absent ? !target : Boolean(target)))
-      && (!expected.secondarySelector || Boolean(document.querySelector(expected.secondarySelector)))
-      && (!expected.textIncludes || target?.textContent?.includes(expected.textIncludes))
-      && (!expected.attribute || target?.getAttribute(expected.attribute) === expected.attributeValue)
-  }, condition, { timeout: 1500, polling: 'raf' })
-  return page.evaluate(() => {
-    const startedAt = (window as Window & { __higoodChangeStartedAt?: number }).__higoodChangeStartedAt
-    if (startedAt == null) throw new Error('未捕获真实 change 事件起点')
-    return performance.now() - startedAt
-  })
+  return readBrowserResponseMeasurement(page, token)
 }
 
 function expectStatsWhitelist(urlValue: string): void {
@@ -191,6 +222,7 @@ test('CSV 导出中和公式注入前缀并保留标准转义', () => {
     ['+SUM(A1:A2)', '含"引号'],
     ['-10', '多\n行'],
     ['@cmd', '\tTAB'],
+    ['\r=cmd', '\n=cmd'],
   ])
   expect(parseCsv(decodeCsvDataUri(dataUri))).toEqual([
     ['危险值', '普通值'],
@@ -198,6 +230,7 @@ test('CSV 导出中和公式注入前缀并保留标准转义', () => {
     ["'+SUM(A1:A2)", '含"引号'],
     ["'-10", '多\n行'],
     ["'@cmd", "'\tTAB"],
+    ["'\r=cmd", "'\n=cmd"],
   ])
 })
 
@@ -208,10 +241,49 @@ test('专项 E2E 命令和 CI 只执行生产准备时效 spec', () => {
   const command = packageJson.scripts['test:production-preparation-timing:e2e']
   expect(command).toContain('PLAYWRIGHT_REUSE_EXISTING_SERVER=false')
   expect(command).toContain('CUTTING_E2E_PORT=')
-  expect(command).toContain('tests/production-preparation-timing-filters.spec.ts')
+  const playwrightTarget = command.split(/\s+playwright test\s+/)[1]?.trim()
+  expect(playwrightTarget).toBe('tests/production-preparation-timing-filters.spec.ts')
 
   const workflow = readFileSync(new URL('../.github/workflows/list-page-governance.yml', import.meta.url), 'utf8')
   expect(workflow).toContain('npm run test:production-preparation-timing:e2e')
+})
+
+test('浏览器内固定响应终点不计入 Playwright 结果读取延迟', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+
+  const responseMs = await measureActionResponse(
+    page.locator('[data-production-preparation-ledger-action="next-page"]'),
+    { selector: '[data-prep-list-region="pagination"]', textIncludes: '2 / 2' },
+    250,
+  )
+
+  expect(responseMs).toBeLessThan(200)
+})
+
+test('下载动作以新增下载记录行作为唯一完成事实', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  await page.locator('tbody tr').filter({ hasText: 'PREP-202603-002' })
+    .getByRole('button', { name: '上传毛织基码纸样', exact: true }).click()
+  await page.locator('[data-prep-operate-item-form] input[type="file"]').setInputFiles({
+    name: '下载记录验收.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('download history acceptance'),
+  })
+  await page.locator('[data-prep-operate-item-form] button[type="submit"]').click()
+  await page.locator('tbody tr').filter({ hasText: 'PREP-202603-002' })
+    .getByRole('button', { name: '上传毛织基码纸样', exact: true }).click()
+
+  const history = page.locator('[data-prep-download-history]')
+  await expect(history).toBeVisible()
+  const beforeCount = await history.locator('[data-prep-download-record]').count()
+  const downloadButton = page.locator('[data-prep-operate-item-form] [data-prep-action="download-upload"]').first()
+  await Promise.all([
+    page.waitForEvent('download'),
+    downloadButton.click(),
+  ])
+  await expect(history.locator('[data-prep-download-record]')).toHaveCount(beforeCount + 1)
 })
 
 async function paginationTotal(page: Page, region: 'list' | 'stats'): Promise<number> {
@@ -481,6 +553,13 @@ test('生产准备关键真实动作完成响应均小于 200ms', async ({ page 
     completedRow.getByRole('button', { name: '登记辅料下单', exact: true }),
     { selector: '[data-prep-accessory-order-form]' },
   )
+  const accessoryRowCount = await page.locator('[data-prep-accessory-order-row]').count()
+  responseTimes.accessoryRowAdd = await measureActionResponse(
+    page.locator('[data-prep-accessory-order-form] [data-prep-action="add-accessory-order-row"]'),
+    { selector: '[data-prep-accessory-order-row]', count: accessoryRowCount + 1 },
+  )
+  await page.locator('input[name="accessoryPurchaseOrderNo"]').last().fill('FPO-PERF-001')
+  await page.locator('input[name="accessoryPurchaseOrderedAt"]').last().fill('2026-03-06T10:30')
   responseTimes.dialogSubmit = await measureActionResponse(
     page.locator('[data-prep-accessory-order-form] button[type="submit"]'),
     { selector: '[data-prep-accessory-order-form]', absent: true, secondarySelector: '[data-prep-filter-scope]' },
@@ -526,9 +605,10 @@ test('生产准备关键真实动作完成响应均小于 200ms', async ({ page 
     page.locator('tbody tr').filter({ hasText: 'PREP-202603-002' }).getByRole('button', { name: '上传毛织基码纸样', exact: true }),
     { selector: '[data-prep-operate-item-form]', textIncludes: '性能验收.txt' },
   )
+  const downloadRecordCount = await page.locator('[data-prep-download-record]').count()
   responseTimes.download = await measureActionResponse(
     page.locator('[data-prep-operate-item-form] [data-prep-action="download-upload"]').filter({ hasText: '下载' }).last(),
-    { selector: '[data-prep-operate-item-form]', textIncludes: '性能验收.txt｜当前用户｜' },
+    { selector: '[data-prep-download-record]', count: downloadRecordCount + 1 },
   )
   responseTimes.uploadClose = await measureActionResponse(
     page.locator('[data-prep-operate-item-form]').getByRole('button', { name: '取消', exact: true }),
@@ -565,52 +645,77 @@ test('生产准备关键真实动作完成响应均小于 200ms', async ({ page 
     page.locator('[data-standard-list-column-key="outputs"] [data-production-preparation-ledger-action="toggle-column-visibility"]'),
     { selector: 'th[data-column-key="outputs"]', absent: true },
   )
+  responseTimes.columnFreeze = await measureActionResponse(
+    page.locator('[data-standard-list-column-key="people"] [data-production-preparation-ledger-action="toggle-column-freeze"]'),
+    { selector: 'thead th[data-column-key]', attribute: 'data-column-key', attributeValue: 'people' },
+  )
+  responseTimes.columnRestore = await measureActionResponse(
+    page.getByRole('button', { name: '恢复默认', exact: true }),
+    { selector: 'thead th[data-column-key]', attribute: 'data-column-key', attributeValue: 'product' },
+  )
 
   for (const [action, responseMs] of Object.entries(responseTimes)) {
     expect(responseMs, `${action} 响应 ${responseMs.toFixed(1)}ms`).toBeLessThan(200)
   }
 })
 
-test('响应探针只在局部分页最终 DOM 可见后完成', async ({ page }) => {
+test('维护非系统内物料打开新增关闭响应均小于 200ms', async ({ page }) => {
   await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
   await waitForStableFilterScope(page, '[data-prep-filter-scope]')
-
-  const result = await page.evaluate(() => new Promise<{ pagination: string; rowVisible: boolean }>((resolve, reject) => {
-    const next = document.querySelector<HTMLButtonElement>('[data-production-preparation-ledger-action="next-page"]')
-    if (!next) return reject(new Error('下一页按钮缺失'))
-    const clickEvent = new MouseEvent('click', { bubbles: true }) as MouseEvent & {
-      higoodResponseCompletionProbe?: () => void
-    }
-    const timeout = window.setTimeout(() => reject(new Error('响应探针未完成')), 1000)
-    clickEvent.higoodResponseCompletionProbe = () => {
-      window.clearTimeout(timeout)
-      resolve({
-        pagination: document.querySelector('[data-prep-list-region="pagination"]')?.textContent ?? '',
-        rowVisible: Boolean(Array.from(document.querySelectorAll('tbody tr')).some((row) => row.textContent?.includes('PREP-202603-006'))),
-      })
-    }
-    next.dispatchEvent(clickEvent)
-  }))
-
-  expect(result.pagination).toContain('2 / 2')
-  expect(result.rowVisible).toBe(true)
+  const responseTimes: Record<string, number> = {}
+  responseTimes.open = await measureActionResponse(
+    page.getByRole('button', { name: '维护非系统内物料', exact: true }),
+    { selector: '[data-prep-external-material-form]' },
+  )
+  const uniqueExternalMaterial = `性能验收物料-${Date.now()}`
+  await page.locator('[data-prep-external-material-form] input[name="materialName"]').fill(uniqueExternalMaterial)
+  responseTimes.add = await measureActionResponse(
+    page.locator('[data-prep-external-material-form] button[type="submit"]'),
+    { selector: '[data-prep-external-material-form]', absent: true, secondarySelector: '[data-prep-filter-scope]' },
+  )
+  await page.getByRole('button', { name: '维护非系统内物料', exact: true }).click()
+  await expect(page.locator('[data-prep-external-material-list]')).toContainText(uniqueExternalMaterial)
+  responseTimes.close = await measureActionResponse(
+    page.getByRole('button', { name: '关闭', exact: true }),
+    { selector: '[data-prep-external-material-form]', absent: true },
+    0,
+    { x: 5, y: 5 },
+  )
+  for (const [action, responseMs] of Object.entries(responseTimes)) {
+    expect(responseMs, `${action} 响应 ${responseMs.toFixed(1)}ms`).toBeLessThan(200)
+  }
 })
 
-test('主事件入口在最终渲染之后才结束响应探针', () => {
-  const source = readFileSync(new URL('../src/main.ts', import.meta.url), 'utf8')
-  const clickHandler = source.slice(
-    source.indexOf("root.addEventListener('click'"),
-    source.indexOf("root.addEventListener('input'"),
-  )
-  const inputHandler = source.slice(
-    source.indexOf("root.addEventListener('input'"),
-    source.indexOf("root.addEventListener('compositionend'"),
+test('统计筛选分页每页条数和排序响应均小于 200ms', async ({ page }) => {
+  await page.goto(`${statisticsRoute}?tab=monthly&month=2026-03`)
+  await page.evaluate(() => localStorage.removeItem('higood:list-page:/fcs/production/preparation-timing-statistics:monthly'))
+  await page.reload()
+  await waitForStableFilterScope(page, '[data-prep-stats-filter-scope]')
+  const responseTimes: Record<string, number> = {}
+  await checkFilterOption(filterGroup(page, 'ownerTeam'), '版师团队')
+  responseTimes.filter = await measureActionResponse(
+    page.locator('[data-prep-stats-filter-scope] [data-nav-from-fields]'),
+    { urlIncludes: 'ownerTeam=%E7%89%88%E5%B8%88%E5%9B%A2%E9%98%9F', selector: '[data-prep-stats-region="pagination"]' },
   )
 
-  expect(clickHandler.lastIndexOf('completeResponseProbe(event)'))
-    .toBeGreaterThan(clickHandler.lastIndexOf('await renderWithFocusRestore(focusSnapshot)'))
-  expect(inputHandler.lastIndexOf('completeResponseProbe(event)'))
-    .toBeGreaterThan(inputHandler.lastIndexOf('await renderWithFocusRestore(focusSnapshot)'))
+  await page.goto(`${statisticsRoute}?tab=monthly&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-stats-filter-scope]')
+  responseTimes.pageSize = await measureSelectResponse(
+    page.locator('[data-production-preparation-stats-monthly-field="pageSize"]'),
+    '8',
+    { selector: '[data-prep-stats-region="pagination"]', textIncludes: '1 / 2' },
+  )
+  responseTimes.pagination = await measureActionResponse(
+    page.locator('[data-production-preparation-stats-monthly-action="next-page"]'),
+    { selector: '[data-prep-stats-region="pagination"]', textIncludes: '2 / 2' },
+  )
+  responseTimes.sort = await measureActionResponse(
+    page.locator('th[data-column-key="itemType"]').getByRole('button'),
+    { selector: 'th[data-column-key="itemType"]', attribute: 'aria-sort', attributeValue: 'ascending' },
+  )
+  for (const [action, responseMs] of Object.entries(responseTimes)) {
+    expect(responseMs, `${action} 响应 ${responseMs.toFixed(1)}ms`).toBeLessThan(200)
+  }
 })
 
 test('准备台账标准列表局部分页、三态排序和列偏好可用', async ({ page }) => {
@@ -1081,20 +1186,11 @@ test('台账无关点击和统计关键词输入不刷新列表且响应小于 2
     const observer = new MutationObserver((records) => { mutations += records.length })
     observer.observe(table, { childList: true, subtree: true, attributes: true })
     const startedAt = performance.now()
-    const clickEvent = new MouseEvent('click', { bubbles: true }) as MouseEvent & {
-      higoodResponseCompletionProbe?: () => void
-    }
-    const responseMs = await new Promise<number>((resolve, reject) => {
-      const timeout = window.setTimeout(() => reject(new Error('台账点击异步事件链未完成')), 1000)
-      clickEvent.higoodResponseCompletionProbe = async () => {
-        await Promise.resolve()
-        await new Promise((nextTask) => setTimeout(nextTask, 0))
-        await new Promise<void>((nextFrame) => requestAnimationFrame(() => nextFrame()))
-        window.clearTimeout(timeout)
-        resolve(performance.now() - startedAt)
-      }
-      heading.dispatchEvent(clickEvent)
-    })
+    heading.click()
+    await Promise.resolve()
+    await new Promise((nextTask) => setTimeout(nextTask, 0))
+    await new Promise<void>((nextFrame) => requestAnimationFrame(() => nextFrame()))
+    const responseMs = performance.now() - startedAt
     observer.disconnect()
     return { mutations, responseMs }
   })
@@ -1110,22 +1206,16 @@ test('台账无关点击和统计关键词输入不刷新列表且响应小于 2
     let mutations = 0
     const observer = new MutationObserver((records) => { mutations += records.length })
     observer.observe(table, { childList: true, subtree: true, attributes: true })
-    const responseTimes = await Promise.all(['性', '性能', '性能反例'].map((value) => new Promise<number>((resolve, reject) => {
+    const responseTimes: number[] = []
+    for (const value of ['性', '性能', '性能反例']) {
       keyword.value = value
       const startedAt = performance.now()
-      const inputEvent = new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }) as InputEvent & {
-        higoodResponseCompletionProbe?: () => void
-      }
-      const timeout = window.setTimeout(() => reject(new Error(`统计输入异步事件链未完成：${value}`)), 1000)
-      inputEvent.higoodResponseCompletionProbe = async () => {
-        await Promise.resolve()
-        await new Promise((nextTask) => setTimeout(nextTask, 0))
-        await new Promise<void>((nextFrame) => requestAnimationFrame(() => nextFrame()))
-        window.clearTimeout(timeout)
-        resolve(performance.now() - startedAt)
-      }
-      keyword.dispatchEvent(inputEvent)
-    })))
+      keyword.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }))
+      await Promise.resolve()
+      await new Promise((nextTask) => setTimeout(nextTask, 0))
+      await new Promise<void>((nextFrame) => requestAnimationFrame(() => nextFrame()))
+      responseTimes.push(performance.now() - startedAt)
+    }
     observer.disconnect()
     return { mutations, finalValue: keyword.value, responseMs: Math.max(...responseTimes) }
   })
