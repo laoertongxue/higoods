@@ -66,6 +66,56 @@ export interface PreparationDownloadRecord {
   downloadedAt: string
 }
 
+export interface PreparationUploadFileDescriptor {
+  name?: string
+  fileName?: string
+  type?: string
+  fileType?: string
+}
+
+const imageUploadExtensions = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'heic'])
+const paperUploadExtensions = new Set([...imageUploadExtensions, 'pdf', 'dxf', 'dwg', 'plt', 'astm', 'aama'])
+const patternUploadExtensions = new Set([...imageUploadExtensions, 'ai', 'psd', 'pdf', 'cdr', 'eps'])
+
+function uploadFileExtension(file: PreparationUploadFileDescriptor): string {
+  const fileName = (file.name || file.fileName || '').trim().toLowerCase()
+  return fileName.includes('.') ? fileName.split('.').at(-1) ?? '' : ''
+}
+
+export function isValidPreparationUploadFile(
+  itemType: PreparationItemType,
+  file: PreparationUploadFileDescriptor,
+): boolean {
+  const extension = uploadFileExtension(file)
+  const mimeType = (file.type || file.fileType || '').trim().toLowerCase()
+  const isImage = mimeType.startsWith('image/') || imageUploadExtensions.has(extension)
+  if (itemType === '版衣制作' || itemType === '染色调色（纱线）' || itemType === '染色调色（面料）') {
+    return isImage
+  }
+  if (itemType === '数码印/DTF/DTG花型') {
+    return isImage || patternUploadExtensions.has(extension)
+  }
+  if (
+    itemType === '梭织基码纸样' ||
+    itemType === '毛织基码纸样' ||
+    itemType === '梭织齐码纸样' ||
+    itemType === '毛织齐码纸样'
+  ) {
+    return paperUploadExtensions.has(extension)
+  }
+  return false
+}
+
+export function preparationUploadAccept(itemType: PreparationItemType): string {
+  if (itemType === '版衣制作' || itemType === '染色调色（纱线）' || itemType === '染色调色（面料）') {
+    return 'image/*'
+  }
+  if (itemType === '数码印/DTF/DTG花型') {
+    return 'image/*,.ai,.psd,.pdf,.cdr,.eps'
+  }
+  return 'image/*,.pdf,.dxf,.dwg,.plt,.astm,.aama'
+}
+
 export interface PreparationMaterialRequirement {
   materialNo: string
   materialName: string
@@ -745,9 +795,11 @@ function createItems(recordId: string, productionOrderNo: string, seeds: Prepara
     const itemId = `${recordId}-item-${String(index + 1).padStart(2, '0')}`
     const shouldBackfillUpload =
       seed.itemType !== '辅料下单' &&
+      !seed.itemType.startsWith('确认染色要求') &&
       seed.selectedByMerchandiser !== false &&
       seed.status === '已完成' &&
       Boolean(seed.actualFinishAt)
+    const completionFile = mockCompletionUploadFile(seed.itemType, seed.actualFinishAt)
     const uploads = 'uploads' in seed
       ? seed.uploads ?? []
       : shouldBackfillUpload
@@ -756,10 +808,10 @@ function createItems(recordId: string, productionOrderNo: string, seeds: Prepara
             recordId,
             itemId,
             itemType: seed.itemType,
-            fileName: `${seed.itemType}-${seed.actualFinishAt.slice(0, 10)}.pdf`,
-            fileType: 'application/pdf',
+            fileName: completionFile.fileName,
+            fileType: completionFile.fileType,
             fileSize: 1024,
-            fileDataUrl: 'data:application/pdf;base64,JVBERi0xLjQ=',
+            fileDataUrl: completionFile.fileDataUrl,
             uploadedBy: seed.ownerName,
             uploadedAt: seed.actualFinishAt,
             note: seed.evidenceSummary || '历史完成资料',
@@ -796,6 +848,21 @@ function createItems(recordId: string, productionOrderNo: string, seeds: Prepara
       downloads: seed.downloads ?? [],
     }
   })
+}
+
+function mockCompletionUploadFile(itemType: PreparationItemType, actualFinishAt: string): {
+  fileName: string
+  fileType: string
+  fileDataUrl: string
+} {
+  const baseName = `${itemType}-${actualFinishAt.slice(0, 10)}`
+  if (itemType === '版衣制作' || itemType.includes('染色调色')) {
+    return { fileName: `${baseName}.jpg`, fileType: 'image/jpeg', fileDataUrl: 'data:image/jpeg;base64,/9j/4AAQSkZJRg==' }
+  }
+  if (itemType === '数码印/DTF/DTG花型') {
+    return { fileName: `${baseName}.png`, fileType: 'image/png', fileDataUrl: 'data:image/png;base64,iVBORw0KGgo=' }
+  }
+  return { fileName: `${baseName}.pdf`, fileType: 'application/pdf', fileDataUrl: 'data:application/pdf;base64,JVBERi0xLjQ=' }
 }
 
 function record(seed: RecordSeed): ProductionPreparationRecord {
@@ -1441,7 +1508,7 @@ function hasPatternUploadGap(item: ProductionPreparationItem): boolean {
 export function hasValidPreparationCompletionEvidence(
   item: Pick<
     ProductionPreparationItem,
-    'itemType' | 'status' | 'actualFinishAt' | 'accessoryPurchaseOrderNos' | 'accessoryPurchaseOrderedAts' | 'accessoryPurchaseUpdatedAt' | 'uploads'
+    'itemType' | 'status' | 'actualFinishAt' | 'accessoryPurchaseOrderNos' | 'accessoryPurchaseOrderedAts' | 'accessoryPurchaseUpdatedAt' | 'uploads' | 'dyeRequirement'
   >,
 ): boolean {
   if (item.status !== '已完成' || !item.actualFinishAt) return false
@@ -1459,9 +1526,35 @@ export function hasValidPreparationCompletionEvidence(
         item.accessoryPurchaseUpdatedAt === item.actualFinishAt,
     )
   }
+  if (item.itemType === '确认染色要求（纱线）' || item.itemType === '确认染色要求（面料）') {
+    return Boolean(
+      item.dyeRequirement?.materialName &&
+      item.dyeRequirement.colorName &&
+      item.dyeRequirement.pantoneCode &&
+      item.dyeRequirement.maintainedBy &&
+      item.dyeRequirement.maintainedAt === item.actualFinishAt,
+    )
+  }
   return Boolean(
-    item.uploads?.some((upload) => upload.fileName && upload.uploadedBy && upload.uploadedAt),
+    item.uploads?.some((upload) =>
+      upload.fileName &&
+      upload.uploadedBy &&
+      upload.uploadedAt &&
+      isValidPreparationUploadFile(item.itemType, upload),
+    ),
   )
+}
+
+export function canWritePreparationItemRuntime(
+  record: Pick<ProductionPreparationRecord, 'status' | 'workItemsConfirmedBy' | 'workItemsConfirmedAt' | 'items'>,
+  item: ProductionPreparationItem,
+): boolean {
+  if (record.status === '已关闭' || !record.workItemsConfirmedBy || !record.workItemsConfirmedAt) return false
+  if (item.selectedByMerchandiser === false || item.status === '无需') return false
+  return item.dependsOnItemIds.every((dependencyId) => {
+    const dependency = record.items.find((candidate) => candidate.itemId === dependencyId)
+    return Boolean(dependency && hasValidPreparationCompletionEvidence(dependency))
+  })
 }
 
 export function derivePreparationItemProgress(

@@ -1,4 +1,5 @@
 import {
+  isValidPreparationUploadFile,
   buildPreparationOutputs,
   hasValidPreparationCompletionEvidence,
   preparationTypeDefaultItems,
@@ -413,7 +414,14 @@ function latestCompletionEvidenceAt(items: ProductionPreparationItem[]): string 
     .filter(isSelectedPreparationItem)
     .flatMap((item) => [
       item.actualFinishAt,
-      ...(item.uploads ?? []).filter((upload) => upload.fileName && upload.uploadedAt && upload.uploadedBy).map((upload) => upload.uploadedAt),
+      ...(item.uploads ?? [])
+        .filter((upload) =>
+          upload.fileName &&
+          upload.uploadedAt &&
+          upload.uploadedBy &&
+          isValidPreparationUploadFile(item.itemType, upload),
+        )
+        .map((upload) => upload.uploadedAt),
     ])
     .filter(Boolean)
     .sort((left, right) => right.localeCompare(left))[0] ?? ''
@@ -438,7 +446,9 @@ function mergePreparationRuntimeItem(
       : item.requiredKind === '必做' || Boolean(selection.itemIds?.has(item.itemId))
     : item.selectedByMerchandiser
   if (!uploads.length && !downloads.length && !accessoryOrder && !selection.overridden && dyeRequirement === item.dyeRequirement) return item
-  const lastUpload = uploads.slice().sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))[0]
+  const lastUpload = uploads
+    .filter((upload) => isValidPreparationUploadFile(item.itemType, upload))
+    .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))[0]
   const accessoryOrderNos = accessoryOrder?.orderNos.map((orderNo) => orderNo.trim()) ?? []
   const accessoryOrderedAts = accessoryOrder?.orderedAts?.map((orderedAt) => orderedAt.trim()) ?? []
   const accessoryCompleted = Boolean(
@@ -504,6 +514,8 @@ export async function buildUploadRecordsFromFiles(input: {
   uploadedBy: string
   note: string
 }): Promise<PreparationUploadRecord[]> {
+  const invalidFile = input.files.find((file) => !isValidPreparationUploadFile(input.itemType, file))
+  if (invalidFile) throw new Error(`${input.itemType} 不支持上传文件：${invalidFile.name}`)
   const uploadedAt = nowIsoMinute()
   const records: PreparationUploadRecord[] = []
   for (const file of input.files) {

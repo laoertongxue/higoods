@@ -101,6 +101,8 @@ const productionPreparationDataModule = await import('../src/data/fcs/production
   flattenProductionPreparationItems: typeof import('../src/data/fcs/production-preparation-timing.ts').flattenProductionPreparationItems
   derivePreparationItemProgress: typeof import('../src/data/fcs/production-preparation-timing.ts').derivePreparationItemProgress
   hasValidPreparationCompletionEvidence: typeof import('../src/data/fcs/production-preparation-timing.ts').hasValidPreparationCompletionEvidence
+  canWritePreparationItemRuntime: typeof import('../src/data/fcs/production-preparation-timing.ts').canWritePreparationItemRuntime
+  isValidPreparationUploadFile: typeof import('../src/data/fcs/production-preparation-timing.ts').isValidPreparationUploadFile
   externalPreparationMaterials: typeof import('../src/data/fcs/production-preparation-timing.ts').externalPreparationMaterials
   preparationItemOwnerTeamMap: typeof import('../src/data/fcs/production-preparation-timing.ts').preparationItemOwnerTeamMap
   preparationOwnerRoleRules: Array<{ ownerTeam: string; roleLabels: string[]; actionScope: string }>
@@ -521,13 +523,14 @@ function runtimeUploadFor(
   item: { itemId: string; itemType: string },
   index: number,
 ) {
+  const isImageEvidence = item.itemType === '版衣制作' || item.itemType.includes('染色调色') || item.itemType.includes('花型')
   return {
     uploadId: `runtime-ready-upload-${index + 1}`,
     recordId: record.recordId,
     itemId: item.itemId,
     itemType: item.itemType,
-    fileName: `runtime-ready-${index + 1}.pdf`,
-    fileType: 'application/pdf',
+    fileName: `runtime-ready-${index + 1}.${isImageEvidence ? 'jpg' : 'pdf'}`,
+    fileType: isImageEvidence ? 'image/jpeg' : 'application/pdf',
     fileSize: 1024,
     fileDataUrl: 'data:application/pdf;base64,JVBERi0xLjQ=',
     uploadedBy: '测试用户',
@@ -688,8 +691,8 @@ const mergedRecords = mergePreparationRuntimeRecords(productionPreparationRecord
       recordId: productionPreparationRecords[0].recordId,
       itemId: productionPreparationRecords[0].items[0].itemId,
       itemType: productionPreparationRecords[0].items[0].itemType,
-      fileName: 'base.prj',
-      fileType: 'application/octet-stream',
+      fileName: 'base.pdf',
+      fileType: 'application/pdf',
       fileSize: 12,
       fileDataUrl: 'data:application/octet-stream;base64,YQ==',
       uploadedBy: '测试用户',
@@ -719,7 +722,7 @@ const runtimeOutputItems = runtimeOutputFixture.items.filter(
   (item) => item.selectedByMerchandiser !== false && item.status !== '无需',
 )
 const runtimeReadyUploads = runtimeOutputItems
-  .filter((item) => item.itemType !== '辅料下单')
+  .filter((item) => item.itemType !== '辅料下单' && !item.itemType.startsWith('确认染色要求'))
   .map((item, index) => runtimeUploadFor(runtimeOutputFixture, item, index))
 const runtimeReadyRecord = mergePreparationRuntimeRecords(productionPreparationRecords, {
   ...EMPTY_PREPARATION_RUNTIME_STATE,
@@ -1266,8 +1269,9 @@ for (const record of productionPreparationRecords) {
   for (const item of selectedItems.filter((current) => current.itemType === '染色调色（纱线）' || current.itemType === '染色调色（面料）')) {
     if (item.status !== '已完成') continue
     const requirementType = item.itemType === '染色调色（纱线）' ? '确认染色要求（纱线）' : '确认染色要求（面料）'
+    const requirementItem = itemByType(record, requirementType)
     assert.ok(
-      hasUploadEvidence(itemByType(record, requirementType)),
+      requirementItem && hasValidPreparationCompletionEvidence(requirementItem),
       `${record.recordNo} ${item.itemType} 已完成时，${requirementType} 必须已完成`,
     )
   }
@@ -1788,6 +1792,95 @@ const ordinaryValidItem = {
   }],
 }
 assert.equal(hasValidPreparationCompletionEvidence(ordinaryValidItem), true, '普通准备项必须识别完整上传凭证')
+assert.equal(
+  productionPreparationDataModule.hasValidPreparationCompletionEvidence({
+    ...ordinaryValidItem,
+    uploads: [{ ...ordinaryValidItem.uploads[0], fileName: '伪造完成说明.txt', fileType: 'text/plain' }],
+  }),
+  false,
+  '普通准备项不得把 txt 当成真实完成凭证',
+)
+const uploadFileFixtures = [
+  ['梭织基码纸样', '基码纸样.pdf', 'application/pdf', true],
+  ['毛织齐码纸样', '齐码纸样.dxf', 'application/dxf', true],
+  ['版衣制作', '版衣完成图.jpg', 'image/jpeg', true],
+  ['版衣制作', '版衣说明.pdf', 'application/pdf', false],
+  ['数码印/DTF/DTG花型', '花型完成图.png', 'image/png', true],
+  ['数码印/DTF/DTG花型', '花型源文件.psd', 'image/vnd.adobe.photoshop', true],
+  ['染色调色（面料）', '染色色卡.jpg', 'image/jpeg', true],
+  ['染色调色（纱线）', '染色说明.txt', 'text/plain', false],
+] as const
+for (const [itemType, name, type, expected] of uploadFileFixtures) {
+  assert.equal(
+    productionPreparationDataModule.isValidPreparationUploadFile(itemType, { name, type }),
+    expected,
+    `${itemType} 上传文件 ${name} 的真实产物校验错误`,
+  )
+}
+for (const record of productionPreparationRecords) {
+  for (const item of record.items) {
+    if (
+      item.status !== '已完成' ||
+      item.itemType === '辅料下单' ||
+      item.itemType.startsWith('确认染色要求')
+    ) continue
+    assert.ok(item.uploads?.length, `${record.recordNo} ${item.itemType} 缺少完成上传凭证`)
+    assert.ok(
+      item.uploads?.every((upload) => productionPreparationDataModule.isValidPreparationUploadFile(
+        item.itemType,
+        { name: upload.fileName, type: upload.fileType },
+      )),
+      `${record.recordNo} ${item.itemType} Mock 完成凭证类型不符合真实产物`,
+    )
+  }
+}
+
+const writableFixture = {
+  ...progressFixtureRecord,
+  status: '进行中' as const,
+  items: progressFixtureItems,
+}
+assert.equal(
+  productionPreparationDataModule.canWritePreparationItemRuntime(writableFixture, progressFixtureItems[0]),
+  true,
+  '已确认、已选择且满足前置条件的准备项必须允许写入运行态',
+)
+assert.equal(
+  productionPreparationDataModule.canWritePreparationItemRuntime(
+    { ...writableFixture, status: '已关闭' as const },
+    progressFixtureItems[0],
+  ),
+  false,
+  '已关闭记录必须拒绝所有准备项运行态写入',
+)
+assert.equal(
+  productionPreparationDataModule.canWritePreparationItemRuntime(
+    { ...writableFixture, workItemsConfirmedAt: '' },
+    progressFixtureItems[0],
+  ),
+  false,
+  '未确认工作项的记录必须拒绝准备项运行态写入',
+)
+assert.equal(
+  productionPreparationDataModule.canWritePreparationItemRuntime(
+    writableFixture,
+    { ...progressFixtureItems[0], selectedByMerchandiser: false },
+  ),
+  false,
+  '未选择准备项必须拒绝运行态写入',
+)
+const blockedFixtureItem = {
+  ...progressFixtureItems[1],
+  dependsOnItemIds: [progressFixtureItems[0].itemId],
+}
+assert.equal(
+  productionPreparationDataModule.canWritePreparationItemRuntime(
+    { ...writableFixture, items: [progressFixtureItems[0], blockedFixtureItem] },
+    blockedFixtureItem,
+  ),
+  false,
+  '前置项没有有效完成凭证时必须拒绝运行态写入',
+)
 const monthlyMissingUploadFixture = {
   ...progressFixtureRecord,
   recordId: 'prep-monthly-missing-upload',
@@ -2004,6 +2097,30 @@ for (const marker of ['data-standard-list-page', 'data-standard-list-table-secti
 assertHtmlIncludes(ledgerContractHtml, 'data-column-key="actions"', '准备台账缺少固定操作列')
 assertHtmlIncludes(ledgerContractHtml, 'data-production-preparation-ledger-action="open-column-settings"', '准备台账缺少列设置入口')
 assertHtmlIncludes(ledgerContractHtml, 'data-production-preparation-ledger-field="pageSize"', '准备台账缺少每页条数设置')
+const closedUiFixture = productionPreparationRecords.find((record) => record.recordNo === 'PREP-202603-002')
+assert.ok(closedUiFixture, '缺少已关闭操作栏反例 fixture')
+const originalClosedUiStatus = closedUiFixture.status
+closedUiFixture.status = '已关闭'
+try {
+  const closedLedgerHtml = await renderAt('/fcs/production/preparation-timing?month=2026-03')
+  const recordPosition = closedLedgerHtml.indexOf(closedUiFixture.recordNo)
+  const rowStart = closedLedgerHtml.lastIndexOf('<tr', recordPosition)
+  const rowEnd = closedLedgerHtml.indexOf('</tr>', recordPosition)
+  const closedRowHtml = closedLedgerHtml.slice(rowStart, rowEnd)
+  assertHtmlIncludes(closedRowHtml, '查看详情', '已关闭记录必须保留查看详情入口')
+  assert.ok(!closedRowHtml.includes('action=operate-item'), '已关闭记录操作栏不得展示任何准备项操作入口')
+  assert.ok(!closedRowHtml.includes('确认工作项'), '已关闭记录操作栏不得展示确认工作项入口')
+  const closedActionHtml = await renderAt(
+    `/fcs/production/preparation-timing?month=2026-03&recordId=${closedUiFixture.recordId}&itemId=${closedUiFixture.items[0].itemId}&action=operate-item`,
+  )
+  assert.ok(!closedActionHtml.includes('data-prep-operate-item-form'), '已关闭记录即使直达操作 URL 也不得渲染上传表单')
+} finally {
+  closedUiFixture.status = originalClosedUiStatus
+}
+assert.ok(
+  (timingPageSource.match(/canWritePreparationItemRuntime\(record, item\)/g)?.length ?? 0) >= 4,
+  '普通上传、染色要求、辅料登记和下载必须共用准备项运行态写入边界',
+)
 assert.ok(!timingPageSource.includes('persistLedgerPageInUrl'), '准备台账当前页不得写回 URL 或跨完整渲染保留')
 assert.ok(timingPageSource.includes('export function enterProductionPreparationTimingRoute()'), '准备台账必须提供独立路由进入生命周期')
 assert.ok(!/function renderLedgerTab[\s\S]*?resetLedgerTransientState\(\)/.test(timingPageSource), '同路由完整渲染不得重置页码和排序')
@@ -2040,7 +2157,7 @@ assert.equal(
 )
 
 const staticDownloadFixture = productionPreparationRecords.find(
-  (record: { recordNo?: string }) => record.recordNo === 'PREP-202603-003',
+  (record: { recordNo?: string }) => record.recordNo === 'PREP-202603-005',
 ) as
   | {
       recordId: string
@@ -2050,7 +2167,9 @@ const staticDownloadFixture = productionPreparationRecords.find(
       }>
     }
   | undefined
-const staticDownloadItem = staticDownloadFixture?.items.find((item) => item.uploads?.length)
+const staticDownloadItem = staticDownloadFixture?.items.find((item) =>
+  item.uploads?.length && isBasePatternItem((item as { itemType: import('../src/data/fcs/production-preparation-timing.ts').PreparationItemType }).itemType),
+)
 const staticDownloadUpload = staticDownloadItem?.uploads?.[0]
 assert.ok(staticDownloadFixture && staticDownloadItem && staticDownloadUpload, '缺少静态历史上传下载 fixture')
 const originalWindow = (globalThis as { window?: unknown }).window
@@ -2079,6 +2198,7 @@ try {
             dataset: {
               prepAction: 'download-upload',
               uploadId: staticDownloadUpload.uploadId,
+              itemId: staticDownloadItem.itemId,
             },
           }
         : null,

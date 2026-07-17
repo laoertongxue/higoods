@@ -267,8 +267,8 @@ test('下载动作以新增下载记录行作为唯一完成事实', async ({ pa
   await page.locator('tbody tr').filter({ hasText: 'PREP-202603-002' })
     .getByRole('button', { name: '上传毛织基码纸样', exact: true }).click()
   await page.locator('[data-prep-operate-item-form] input[type="file"]').setInputFiles({
-    name: '下载记录验收.txt',
-    mimeType: 'text/plain',
+    name: '下载记录验收.pdf',
+    mimeType: 'application/pdf',
     buffer: Buffer.from('download history acceptance'),
   })
   await page.locator('[data-prep-operate-item-form] button[type="submit"]').click()
@@ -284,6 +284,50 @@ test('下载动作以新增下载记录行作为唯一完成事实', async ({ pa
     downloadButton.click(),
   ])
   await expect(history.locator('[data-prep-download-record]')).toHaveCount(beforeCount + 1)
+})
+
+test('普通上传重新校验隐藏准备项且拒绝绕过串行前置条件', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  await page.locator('tbody tr').filter({ hasText: 'PREP-202603-002' })
+    .getByRole('button', { name: '上传毛织基码纸样', exact: true }).click()
+  await page.locator('[data-prep-operate-item-form] input[name="itemId"]')
+    .evaluate((input) => { (input as HTMLInputElement).value = 'prep-202603-002-item-03' })
+  await page.locator('[data-prep-operate-item-form] input[type="file"]').setInputFiles({
+    name: '试图绕过串行约束.jpg',
+    mimeType: 'image/jpeg',
+    buffer: Buffer.from('tampered item id'),
+  })
+  await page.locator('[data-prep-operate-item-form] button[type="submit"]').click()
+  await expect(page.locator('[data-prep-operate-item-form]')).toBeVisible()
+  await page.waitForTimeout(250)
+  const runtimeUploads = await page.evaluate(() => {
+    const runtime = JSON.parse(localStorage.getItem('higood.production-preparation.runtime.v1') || '{"uploads":[]}')
+    return runtime.uploads || []
+  })
+  expect(runtimeUploads).not.toEqual(expect.arrayContaining([
+    expect.objectContaining({ recordId: 'prep-202603-002', itemId: 'prep-202603-002-item-03' }),
+  ]))
+})
+
+test('普通上传拒绝与准备项真实产物不符的 txt 文件', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  await page.locator('tbody tr').filter({ hasText: 'PREP-202603-002' })
+    .getByRole('button', { name: '上传毛织基码纸样', exact: true }).click()
+  await page.locator('[data-prep-operate-item-form] input[type="file"]').setInputFiles({
+    name: '不是纸样凭证.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('not a pattern evidence'),
+  })
+  await page.locator('[data-prep-operate-item-form] button[type="submit"]').click()
+  await expect(page.locator('[data-prep-operate-item-form]')).toBeVisible()
+  await page.waitForTimeout(250)
+  const invalidUploadCount = await page.evaluate(() => {
+    const runtime = JSON.parse(localStorage.getItem('higood.production-preparation.runtime.v1') || '{"uploads":[]}')
+    return (runtime.uploads || []).filter((upload: { fileName?: string }) => upload.fileName === '不是纸样凭证.txt').length
+  })
+  expect(invalidUploadCount).toBe(0)
 })
 
 async function paginationTotal(page: Page, region: 'list' | 'stats'): Promise<number> {
@@ -592,8 +636,8 @@ test('生产准备关键真实动作完成响应均小于 200ms', async ({ page 
     { selector: '[data-prep-operate-item-form]' },
   )
   await page.locator('[data-prep-operate-item-form] input[type="file"]').setInputFiles({
-    name: '性能验收.txt',
-    mimeType: 'text/plain',
+    name: '性能验收.pdf',
+    mimeType: 'application/pdf',
     buffer: Buffer.from('production preparation timing performance acceptance'),
   })
   responseTimes.uploadSubmit = await measureActionResponse(
@@ -603,7 +647,7 @@ test('生产准备关键真实动作完成响应均小于 200ms', async ({ page 
 
   responseTimes.uploadHistoryOpen = await measureActionResponse(
     page.locator('tbody tr').filter({ hasText: 'PREP-202603-002' }).getByRole('button', { name: '上传毛织基码纸样', exact: true }),
-    { selector: '[data-prep-operate-item-form]', textIncludes: '性能验收.txt' },
+    { selector: '[data-prep-operate-item-form]', textIncludes: '性能验收.pdf' },
   )
   const downloadRecordCount = await page.locator('[data-prep-download-record]').count()
   responseTimes.download = await measureActionResponse(
@@ -695,7 +739,11 @@ test('统计筛选分页每页条数和排序响应均小于 200ms', async ({ pa
   await checkFilterOption(filterGroup(page, 'ownerTeam'), '版师团队')
   responseTimes.filter = await measureActionResponse(
     page.locator('[data-prep-stats-filter-scope] [data-nav-from-fields]'),
-    { urlIncludes: 'ownerTeam=%E7%89%88%E5%B8%88%E5%9B%A2%E9%98%9F', selector: '[data-prep-stats-region="pagination"]' },
+    {
+      urlIncludes: 'ownerTeam=%E7%89%88%E5%B8%88%E5%9B%A2%E9%98%9F',
+      selector: '[data-prep-stats-completed-count="毛织基码纸样"]',
+      textIncludes: '0',
+    },
   )
 
   await page.goto(`${statisticsRoute}?tab=monthly&month=2026-03`)
@@ -703,7 +751,11 @@ test('统计筛选分页每页条数和排序响应均小于 200ms', async ({ pa
   responseTimes.pageSize = await measureSelectResponse(
     page.locator('[data-production-preparation-stats-monthly-field="pageSize"]'),
     '8',
-    { selector: '[data-prep-stats-region="pagination"]', textIncludes: '1 / 2' },
+    {
+      selector: '[data-prep-stats-pagination-state]',
+      attribute: 'data-prep-stats-page-size',
+      attributeValue: '8',
+    },
   )
   responseTimes.pagination = await measureActionResponse(
     page.locator('[data-production-preparation-stats-monthly-action="next-page"]'),
