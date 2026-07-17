@@ -1608,7 +1608,7 @@ export function buildProductionPreparationKpis(
 ): ProductionPreparationKpi[] {
   const activeRecords = records.filter((record) => record.status !== '已关闭')
   const requiredItems = flattenProductionPreparationItems(activeRecords).filter(isSelectedPreparationItem)
-  const completedCount = requiredItems.filter((item) => item.status === '已完成').length
+  const completedCount = requiredItems.filter(hasValidPreparationCompletionEvidence).length
   const overdueCount = requiredItems.filter((item) => item.status === '已超时' || item.overdueHours > 0).length
   const completionRate = requiredItems.length ? Math.round((completedCount / requiredItems.length) * 100) : 0
   const pendingBuyerReviewCount = requiredItems.filter(

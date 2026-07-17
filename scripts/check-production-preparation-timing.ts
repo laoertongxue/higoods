@@ -8,7 +8,9 @@ import {
   PREPARATION_RUNTIME_STORAGE_KEY,
   appendDownloadRecord,
   isBasePatternItem,
+  loadPreparationRuntimeState,
   mergePreparationRuntimeRecords,
+  savePreparationRuntimeState,
 } from '../src/data/fcs/production-preparation-timing-runtime.ts'
 
 function source(path: string): string {
@@ -94,6 +96,7 @@ const productionPreparationDataModule = await import('../src/data/fcs/production
   buildPreparationOutputs: typeof import('../src/data/fcs/production-preparation-timing.ts').buildPreparationOutputs
   buildMonthlyPreparationCompletionDetails: typeof import('../src/data/fcs/production-preparation-timing.ts').buildMonthlyPreparationCompletionDetails
   buildMonthlyPreparationStats: typeof import('../src/data/fcs/production-preparation-timing.ts').buildMonthlyPreparationStats
+  buildProductionPreparationKpis: typeof import('../src/data/fcs/production-preparation-timing.ts').buildProductionPreparationKpis
   filterProductionPreparationRecords: typeof import('../src/data/fcs/production-preparation-timing.ts').filterProductionPreparationRecords
   flattenProductionPreparationItems: typeof import('../src/data/fcs/production-preparation-timing.ts').flattenProductionPreparationItems
   derivePreparationItemProgress: typeof import('../src/data/fcs/production-preparation-timing.ts').derivePreparationItemProgress
@@ -106,6 +109,27 @@ const productionPreparationDataModule = await import('../src/data/fcs/production
   productionPreparationRecords: typeof import('../src/data/fcs/production-preparation-timing.ts').productionPreparationRecords
 }
 const { externalPreparationMaterials, preparationOwnerRoleRules, preparationOwnerTeams } = productionPreparationDataModule
+const kpiEvidenceFixture = productionPreparationDataModule.productionPreparationRecords.find((record) =>
+  record.status !== '已关闭' && record.items.some((item) =>
+    item.itemType !== '辅料下单' && productionPreparationDataModule.hasValidPreparationCompletionEvidence(item),
+  ),
+)
+assert.ok(kpiEvidenceFixture, '缺少 KPI 有效完成证据 fixture')
+const kpiEvidenceItem = kpiEvidenceFixture.items.find((item) =>
+  item.itemType !== '辅料下单' && productionPreparationDataModule.hasValidPreparationCompletionEvidence(item),
+)
+assert.ok(kpiEvidenceItem, '缺少可破坏上传证据的 KPI 准备项 fixture')
+const invalidEvidenceKpis = productionPreparationDataModule.buildProductionPreparationKpis([
+  {
+    ...kpiEvidenceFixture,
+    items: [{ ...kpiEvidenceItem, uploads: [] }],
+  },
+])
+assert.equal(
+  invalidEvidenceKpis.find((kpi) => kpi.key === 'completion-rate')?.value,
+  0,
+  '状态为已完成但缺少有效上传证据的准备项不得计入 KPI 完成率',
+)
 assert.ok(externalPreparationMaterials.length >= 100, '非系统内物料初始化数据必须完整覆盖业务清单')
 assert.equal(externalPreparationMaterials[0]?.serialNo, 1, '非系统内物料序号必须从 1 开始')
 assert.equal(
@@ -721,10 +745,27 @@ const reconfirmedMissingEvidenceRecord = mergePreparationRuntimeRecords(producti
   uploads: [],
   downloads: [],
 }).find((record: { recordNo?: string }) => record.recordNo === 'PREP-202604-001') as
-  | { outputReady?: boolean; outputs?: unknown[] }
+  | {
+      outputReady?: boolean
+      outputs?: unknown[]
+      status?: string
+      currentBlockerText?: string
+      items?: Array<{ itemId?: string; status?: string }>
+    }
   | undefined
 assert.equal(reconfirmedMissingEvidenceRecord?.outputReady, false, 'runtime 重新选择未完成选填项后不得继续沿用静态 ready')
 assert.equal(reconfirmedMissingEvidenceRecord?.outputs?.length ?? 0, 0, 'runtime 重新选择选填项但缺上传证据时不得生成产出对象')
+assert.equal(
+  reconfirmedMissingEvidenceRecord?.items?.find((item) => item.itemId === newlySelectedPatternItem.itemId)?.status,
+  '待开始',
+  '重新勾选且没有完成证据的无需项必须恢复为待开始',
+)
+assert.equal(reconfirmedMissingEvidenceRecord?.status, '进行中', '已确认但未全部完成且无超时的记录必须派生为进行中')
+assert.equal(
+  reconfirmedMissingEvidenceRecord?.currentBlockerText,
+  '已确认生产准备工作项，仍有已选准备项未完成',
+  '进行中记录必须明确仍有已选准备项未完成',
+)
 const reconfirmedReadyRecord = mergePreparationRuntimeRecords(productionPreparationRecords, {
   ...EMPTY_PREPARATION_RUNTIME_STATE,
   confirmedRecords: {
@@ -737,16 +778,85 @@ const reconfirmedReadyRecord = mergePreparationRuntimeRecords(productionPreparat
   uploads: [runtimeUploadFor(readyReconfirmationFixture, newlySelectedPatternItem, 20)],
   downloads: [],
 }).find((record: { recordNo?: string }) => record.recordNo === 'PREP-202604-001') as
-  | { outputReady?: boolean; outputs?: Array<{ outputType?: string }> }
+  | {
+      outputReady?: boolean
+      outputs?: Array<{ outputType?: string }>
+      status?: string
+      currentBlockerText?: string
+    }
   | undefined
 assert.equal(reconfirmedReadyRecord?.outputReady, true, 'runtime 重新选择选填项且补齐上传证据后必须恢复 ready')
 assert.ok((reconfirmedReadyRecord?.outputs?.length ?? 0) > 0, 'runtime 重新选择选填项且补齐上传证据后必须恢复产出对象')
+assert.equal(reconfirmedReadyRecord?.status, '已完成', '已确认且全部已选准备项有有效证据时记录必须派生为已完成')
+assert.equal(reconfirmedReadyRecord?.currentBlockerText, '全部已选准备项完成', '已完成记录必须明确全部已选准备项完成')
 for (const outputType of ['印花需求单', '印花加工单'] as const) {
   assert.ok(
     reconfirmedReadyRecord?.outputs?.some((output) => output.outputType === outputType),
     `runtime 重新选择花型且补齐上传证据后产出缺少「${outputType}」`,
   )
 }
+
+const unconfirmedDerivedRecord = mergePreparationRuntimeRecords([
+  {
+    ...productionPreparationDataModule.productionPreparationRecords.find(
+      (record) => record.recordId === readyReconfirmationFixture.recordId,
+    )!,
+    status: '已完成',
+    currentBlockerText: '陈旧卡点',
+    workItemsConfirmedBy: '',
+    workItemsConfirmedAt: '',
+  },
+], EMPTY_PREPARATION_RUNTIME_STATE)[0]
+assert.equal(unconfirmedDerivedRecord.status, '未开始', '未确认工作项的记录必须派生为未开始')
+assert.equal(unconfirmedDerivedRecord.currentBlockerText, '待跟单确认生产准备工作项', '未确认记录必须明确卡在跟单确认')
+
+const overdueSourceRecord = productionPreparationDataModule.productionPreparationRecords.find(
+  (record) => record.recordId === readyReconfirmationFixture.recordId,
+)!
+const overdueRuntimeRecord = mergePreparationRuntimeRecords([
+  {
+    ...overdueSourceRecord,
+    status: '已完成',
+    currentBlockerText: '陈旧卡点',
+    items: overdueSourceRecord.items.map((item) => item.itemId === newlySelectedPatternItem.itemId
+      ? { ...item, status: '无需', overdueHours: 6 }
+      : item),
+  },
+], {
+  ...EMPTY_PREPARATION_RUNTIME_STATE,
+  confirmedRecords: {
+    [readyReconfirmationFixture.recordId]: {
+      confirmedBy: '测试用户',
+      confirmedAt: '2026-07-02T11:05',
+      selectedItemIds: reconfirmedItemIds,
+    },
+  },
+})[0]
+assert.equal(overdueRuntimeRecord.status, '部分超时', '已确认、未全部完成且存在超时小时的记录必须派生为部分超时')
+assert.equal(
+  overdueRuntimeRecord.currentBlockerText,
+  '存在超时准备项，仍有已选准备项未完成',
+  '部分超时记录必须明确超时且仍有未完成准备项',
+)
+
+const closedDerivedRecord = mergePreparationRuntimeRecords([
+  {
+    ...overdueSourceRecord,
+    status: '已关闭',
+    currentBlockerText: '记录已关闭',
+  },
+], {
+  ...EMPTY_PREPARATION_RUNTIME_STATE,
+  confirmedRecords: {
+    [readyReconfirmationFixture.recordId]: {
+      confirmedBy: '测试用户',
+      confirmedAt: '2026-07-02T11:06',
+      selectedItemIds: reconfirmedItemIds,
+    },
+  },
+})[0]
+assert.equal(closedDerivedRecord.status, '已关闭', '已关闭记录不得被运行态状态派生覆盖')
+assert.equal(closedDerivedRecord.currentBlockerText, '记录已关闭', '已关闭记录必须保留原卡点')
 const typeSwitchedReadyRecord = mergePreparationRuntimeRecords(productionPreparationRecords, {
   ...EMPTY_PREPARATION_RUNTIME_STATE,
   confirmedRecords: {
@@ -2187,21 +2297,21 @@ assert.ok(
 )
 
 const filteredRowActionHtml = await renderAt(
-  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&merchandiserName=Raka',
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=部分超时&merchandiserName=Raka',
 )
 assertHtmlIncludes(
   filteredRowActionHtml,
-  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;merchandiserName=Raka&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;recordId=prep-202604-003"',
+  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;merchandiserName=Raka&amp;recordStatus=%E9%83%A8%E5%88%86%E8%B6%85%E6%97%B6&amp;recordId=prep-202604-003"',
   '筛选列表行的查看详情入口必须继承当前筛选条件',
 )
 assertHtmlIncludes(
   filteredRowActionHtml,
-  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;merchandiserName=Raka&amp;recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD&amp;recordId=prep-202604-003&amp;itemId=prep-202604-003-item-01&amp;action=operate-item"',
+  'data-nav="/fcs/production/preparation-timing?tab=ledger&amp;month=2026-04&amp;merchandiserName=Raka&amp;recordStatus=%E9%83%A8%E5%88%86%E8%B6%85%E6%97%B6&amp;recordId=prep-202604-003&amp;itemId=prep-202604-003-item-01&amp;action=operate-item"',
   '筛选列表行的准备项操作入口必须继承当前筛选条件',
 )
 assert.ok(!filteredRowActionHtml.includes('确认工作项'), '已确认准备项记录不应继续展示确认工作项入口')
 const filteredDetailActionHtml = await renderAt(
-  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&merchandiserName=Raka&recordId=prep-202604-003',
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=部分超时&merchandiserName=Raka&recordId=prep-202604-003',
 )
 assertHtmlIncludes(filteredDetailActionHtml, '上传记录', '详情抽屉必须展示工作项上传历史')
 assertHtmlIncludes(pendingOutputDrawerHtml, '下载记录', '基码纸样卡片必须展示下载记录')
@@ -2566,6 +2676,42 @@ assert.ok(pageSource.includes('accessoryPurchaseOrders'), '辅料下单必须写
 for (const statusCode of ['PENDING', 'DONE', 'IN_PROGRESS', 'CANCELLED', 'ON_HOLD'] as const) {
   assert.ok(!ledgerHtml.includes(statusCode), `准备台账 HTML 不得包含英文状态码 ${statusCode}`)
   assert.ok(!statsHtml.includes(statusCode), `月度统计 HTML 不得包含英文状态码 ${statusCode}`)
+}
+
+const storageFallbackOriginalWindow = (globalThis as { window?: unknown }).window
+;(globalThis as { window?: unknown }).window = {
+  localStorage: {
+    getItem: () => null,
+    setItem: () => {
+      throw new Error('模拟 localStorage 写入失败')
+    },
+  },
+}
+try {
+  const sessionRuntimeState = {
+    ...EMPTY_PREPARATION_RUNTIME_STATE,
+    externalMaterials: [{ serialNo: 999, materialName: '会话降级物料' }],
+  }
+  assert.doesNotThrow(
+    () => savePreparationRuntimeState(sessionRuntimeState),
+    'localStorage 写入失败时保存动作不得中断',
+  )
+  assert.deepEqual(
+    loadPreparationRuntimeState(),
+    sessionRuntimeState,
+    'localStorage 写入失败后当前会话必须能读取刚保存的运行态',
+  )
+  const circularRuntimeState = { ...EMPTY_PREPARATION_RUNTIME_STATE } as typeof EMPTY_PREPARATION_RUNTIME_STATE & {
+    self?: unknown
+  }
+  circularRuntimeState.self = circularRuntimeState
+  assert.throws(
+    () => savePreparationRuntimeState(circularRuntimeState),
+    /circular|cyclic/i,
+    '会话级降级不得吞掉 JSON 序列化错误',
+  )
+} finally {
+  ;(globalThis as { window?: unknown }).window = storageFallbackOriginalWindow
 }
 
 console.log('production preparation timing checks passed')

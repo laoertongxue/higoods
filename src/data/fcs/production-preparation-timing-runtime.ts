@@ -16,6 +16,8 @@ import {
 
 export const PREPARATION_RUNTIME_STORAGE_KEY = 'higood.production-preparation.runtime.v1'
 
+let sessionRuntimeStateRaw: string | null = null
+
 interface ConfirmedPreparationRecord {
   confirmedBy: string
   confirmedAt: string
@@ -70,9 +72,14 @@ export function createLocalId(prefix: string): string {
 }
 
 export function loadPreparationRuntimeState(): PreparationRuntimeState {
+  let raw = sessionRuntimeStateRaw
   try {
-    const raw = window.localStorage.getItem(PREPARATION_RUNTIME_STORAGE_KEY)
-    if (!raw) return EMPTY_PREPARATION_RUNTIME_STATE
+    raw ??= window.localStorage.getItem(PREPARATION_RUNTIME_STORAGE_KEY)
+  } catch {
+    // 当前会话仍可读取最近一次已序列化的保存结果。
+  }
+  if (!raw) return EMPTY_PREPARATION_RUNTIME_STATE
+  try {
     const parsed = JSON.parse(raw) as Partial<PreparationRuntimeState>
     return {
       confirmedRecords: parsed.confirmedRecords ?? {},
@@ -88,7 +95,14 @@ export function loadPreparationRuntimeState(): PreparationRuntimeState {
 }
 
 export function savePreparationRuntimeState(state: PreparationRuntimeState): void {
-  window.localStorage.setItem(PREPARATION_RUNTIME_STORAGE_KEY, JSON.stringify(state))
+  const raw = JSON.stringify(state)
+  if (raw === undefined) throw new TypeError('生产准备运行态无法序列化')
+  try {
+    window.localStorage.setItem(PREPARATION_RUNTIME_STORAGE_KEY, raw)
+    sessionRuntimeStateRaw = null
+  } catch {
+    sessionRuntimeStateRaw = raw
+  }
 }
 
 export function mergePreparationRuntimeRecords(
@@ -127,8 +141,15 @@ export function mergePreparationRuntimeRecords(
     const outputPublishedAt = outputReady
       ? record.outputPublishedAt || latestCompletionEvidenceAt(items)
       : selectionOverridden ? '' : record.outputPublishedAt
+    const derivedRecordState = deriveRuntimeRecordState(
+      record,
+      items,
+      workItemsConfirmedBy,
+      workItemsConfirmedAt,
+    )
     return {
       ...record,
+      ...derivedRecordState,
       confirmedProductPrepType,
       prepTypeSource,
       prepTypeConfirmedBy: confirmation?.confirmedBy ?? record.prepTypeConfirmedBy,
@@ -311,6 +332,28 @@ function isSelectedPreparationItem(item: ProductionPreparationItem): boolean {
   return item.selectedByMerchandiser !== false && item.status !== '无需'
 }
 
+function deriveRuntimeRecordState(
+  record: ProductionPreparationRecord,
+  items: ProductionPreparationItem[],
+  workItemsConfirmedBy: string,
+  workItemsConfirmedAt: string,
+): Pick<ProductionPreparationRecord, 'status' | 'currentBlockerText'> {
+  if (record.status === '已关闭') {
+    return { status: record.status, currentBlockerText: record.currentBlockerText }
+  }
+  if (!(workItemsConfirmedBy && workItemsConfirmedAt)) {
+    return { status: '未开始', currentBlockerText: '待跟单确认生产准备工作项' }
+  }
+  const selectedItems = items.filter(isSelectedPreparationItem)
+  if (selectedItems.length > 0 && selectedItems.every(hasValidPreparationCompletionEvidence)) {
+    return { status: '已完成', currentBlockerText: '全部已选准备项完成' }
+  }
+  if (selectedItems.some((item) => item.status === '已超时' || item.overdueHours > 0)) {
+    return { status: '部分超时', currentBlockerText: '存在超时准备项，仍有已选准备项未完成' }
+  }
+  return { status: '进行中', currentBlockerText: '已确认生产准备工作项，仍有已选准备项未完成' }
+}
+
 function isRuntimeOutputReady(
   items: ProductionPreparationItem[],
   workItemsConfirmedBy: string,
@@ -357,11 +400,18 @@ function mergePreparationRuntimeItem(
       accessoryOrderedAts.every(Boolean),
   )
   const accessoryCompletedAt = accessoryCompleted ? accessoryOrderedAts.slice().sort().at(-1) : undefined
+  const status = !selectedByMerchandiser
+    ? '无需'
+    : lastUpload || accessoryCompleted
+      ? '已完成'
+      : item.status === '无需' || item.status === '待判断'
+        ? '待开始'
+        : item.status
   return {
     ...item,
     dyeRequirement,
     selectedByMerchandiser,
-    status: !selectedByMerchandiser ? '无需' : lastUpload || accessoryCompleted ? '已完成' : item.status,
+    status,
     actualFinishAt: accessoryCompletedAt ?? lastUpload?.uploadedAt ?? item.actualFinishAt,
     evidenceSummary: accessoryOrder
       ? `已登记 ${accessoryOrder.orderNos.length} 个面辅料采购单号`
