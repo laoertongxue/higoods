@@ -269,7 +269,7 @@ test('下载动作以新增下载记录行作为唯一完成事实', async ({ pa
   await page.locator('[data-prep-operate-item-form] input[type="file"]').setInputFiles({
     name: '下载记录验收.pdf',
     mimeType: 'application/pdf',
-    buffer: Buffer.from('download history acceptance'),
+    buffer: Buffer.from('%PDF-1.4 download history acceptance'),
   })
   await page.locator('[data-prep-operate-item-form] button[type="submit"]').click()
   await page.locator('tbody tr').filter({ hasText: 'PREP-202603-002' })
@@ -291,15 +291,18 @@ test('普通上传重新校验隐藏准备项且拒绝绕过串行前置条件',
   await waitForStableFilterScope(page, '[data-prep-filter-scope]')
   await page.locator('tbody tr').filter({ hasText: 'PREP-202603-002' })
     .getByRole('button', { name: '上传毛织基码纸样', exact: true }).click()
-  await page.locator('[data-prep-operate-item-form] input[name="itemId"]')
-    .evaluate((input) => { (input as HTMLInputElement).value = 'prep-202603-002-item-03' })
-  await page.locator('[data-prep-operate-item-form] input[type="file"]').setInputFiles({
+  const form = page.locator('[data-prep-operate-item-form]')
+  await form.locator('input[type="file"]').setInputFiles({
     name: '试图绕过串行约束.jpg',
     mimeType: 'image/jpeg',
-    buffer: Buffer.from('tampered item id'),
+    buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]),
   })
-  await page.locator('[data-prep-operate-item-form] button[type="submit"]').click()
-  await expect(page.locator('[data-prep-operate-item-form]')).toBeVisible()
+  await form.evaluate((node) => {
+    const currentForm = node as HTMLFormElement
+    const itemId = currentForm.querySelector<HTMLInputElement>('input[name="itemId"]')!
+    itemId.value = 'prep-202603-002-item-03'
+    currentForm.requestSubmit(currentForm.querySelector<HTMLButtonElement>('button[type="submit"]')!)
+  })
   await page.waitForTimeout(250)
   const runtimeUploads = await page.evaluate(() => {
     const runtime = JSON.parse(localStorage.getItem('higood.production-preparation.runtime.v1') || '{"uploads":[]}')
@@ -328,6 +331,182 @@ test('普通上传拒绝与准备项真实产物不符的 txt 文件', async ({ 
     return (runtime.uploads || []).filter((upload: { fileName?: string }) => upload.fileName === '不是纸样凭证.txt').length
   })
   expect(invalidUploadCount).toBe(0)
+})
+
+test('普通上传拒绝扩展名与 MIME 不一致的伪装文件', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  await page.locator('tbody tr').filter({ hasText: 'PREP-202603-002' })
+    .getByRole('button', { name: '上传毛织基码纸样', exact: true }).click()
+  const input = page.locator('[data-prep-operate-item-form] input[type="file"]')
+  await input.setInputFiles({
+    name: '伪装图片.txt',
+    mimeType: 'image/png',
+    buffer: Buffer.from('plain text'),
+  })
+  await page.locator('[data-prep-operate-item-form] button[type="submit"]').click()
+  await expect(page.locator('[data-prep-operate-item-form]')).toBeVisible()
+  await input.setInputFiles({
+    name: '伪装图片.jpg',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('plain text'),
+  })
+  await page.locator('[data-prep-operate-item-form] button[type="submit"]').click()
+  await expect(page.locator('[data-prep-operate-item-form]')).toBeVisible()
+  expect(await page.evaluate(() => {
+    const runtime = JSON.parse(localStorage.getItem('higood.production-preparation.runtime.v1') || '{"uploads":[]}')
+    return (runtime.uploads || []).filter((upload: { fileName?: string }) => upload.fileName?.startsWith('伪装图片.')).length
+  })).toBe(0)
+})
+
+test('同时篡改普通上传记录和准备项也不得跨记录写入', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03&recordId=prep-202603-002&itemId=prep-202603-002-item-01&action=operate-item`)
+  const form = page.locator('[data-prep-operate-item-form]')
+  await expect(form).toBeVisible()
+  await form.locator('input[name="recordId"]').evaluate((input) => { (input as HTMLInputElement).value = 'prep-202603-004' })
+  await form.locator('input[name="itemId"]').evaluate((input) => { (input as HTMLInputElement).value = 'prep-202603-004-item-03' })
+  await form.locator('input[type="file"]').setInputFiles({
+    name: '跨记录篡改.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from('%PDF-1.4 cross record'),
+  })
+  await form.evaluate((node) => {
+    const currentForm = node as HTMLFormElement
+    currentForm.querySelector<HTMLInputElement>('input[name="recordId"]')!.value = 'prep-202603-004'
+    currentForm.querySelector<HTMLInputElement>('input[name="itemId"]')!.value = 'prep-202603-004-item-03'
+    currentForm.requestSubmit(currentForm.querySelector<HTMLButtonElement>('button[type="submit"]')!)
+  })
+  expect(await page.evaluate(() => {
+    const runtime = JSON.parse(localStorage.getItem('higood.production-preparation.runtime.v1') || '{"uploads":[]}')
+    return (runtime.uploads || []).filter((upload: { fileName?: string }) => upload.fileName === '跨记录篡改.pdf').length
+  })).toBe(0)
+})
+
+test('确认项、染色要求和辅料下单均绑定当前路由上下文', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03&recordId=prep-202603-001&action=confirm-items`)
+  const confirmForm = page.locator('[data-prep-confirm-items-form]')
+  await confirmForm.evaluate((node) => {
+    const currentForm = node as HTMLFormElement
+    currentForm.querySelector<HTMLInputElement>('input[name="recordId"]')!.value = 'prep-202603-003'
+    currentForm.requestSubmit(currentForm.querySelector<HTMLButtonElement>('button[type="submit"]')!)
+  })
+  await expect.poll(() => new URL(page.url()).searchParams.get('recordId')).toBe('prep-202603-001')
+  expect(await page.evaluate(() => {
+    const runtime = JSON.parse(localStorage.getItem('higood.production-preparation.runtime.v1') || '{"confirmedRecords":{}}')
+    return runtime.confirmedRecords?.['prep-202603-003']
+  })).toBeUndefined()
+
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-04&recordId=prep-202604-004&itemId=prep-202604-004-item-10&action=operate-item`)
+  const dyeForm = page.locator('[data-prep-dye-requirement-form]')
+  await dyeForm.locator('input[name="pantoneCode"]').fill('PANTONE 18-0000')
+  await dyeForm.locator('input[name="colorSampleName"]').fill('篡改色样')
+  await dyeForm.locator('textarea[name="requirementText"]').fill('不应保存')
+  await dyeForm.evaluate((node) => {
+    const currentForm = node as HTMLFormElement
+    currentForm.dataset.prepActionContext = 'operate-item:tampered:context'
+    currentForm.requestSubmit(currentForm.querySelector<HTMLButtonElement>('button[type="submit"]')!)
+  })
+  await expect.poll(() => new URL(page.url()).searchParams.get('itemId')).toBe('prep-202604-004-item-10')
+  expect(await page.evaluate(() => {
+    const runtime = JSON.parse(localStorage.getItem('higood.production-preparation.runtime.v1') || '{"dyeRequirements":{}}')
+    return runtime.dyeRequirements?.['prep-202604-004-item-10']
+  })).toBeUndefined()
+
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03&recordId=prep-202603-002&itemId=prep-202603-002-item-06&action=operate-item`)
+  const accessoryForm = page.locator('[data-prep-accessory-order-form]')
+  await accessoryForm.evaluate((node) => {
+    const currentForm = node as HTMLFormElement
+    currentForm.querySelector<HTMLInputElement>('input[name="recordId"]')!.value = 'prep-202603-004'
+    currentForm.querySelector<HTMLInputElement>('input[name="itemId"]')!.value = 'prep-202603-004-item-04'
+    currentForm.requestSubmit(currentForm.querySelector<HTMLButtonElement>('button[type="submit"]')!)
+  })
+  await expect.poll(() => new URL(page.url()).searchParams.get('itemId')).toBe('prep-202603-002-item-06')
+  expect(await page.evaluate(() => {
+    const runtime = JSON.parse(localStorage.getItem('higood.production-preparation.runtime.v1') || '{"accessoryPurchaseOrders":{}}')
+    return runtime.accessoryPurchaseOrders?.['prep-202603-004-item-04']
+  })).toBeUndefined()
+})
+
+test('下载严格校验上传归属且非基码文件可下载但不追加审计', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03&recordId=prep-202603-005&itemId=prep-202603-005-item-01&action=operate-item`)
+  const auditCountBeforeTampering = await page.evaluate(() => {
+    const runtime = JSON.parse(localStorage.getItem('higood.production-preparation.runtime.v1') || '{"downloads":[]}')
+    return (runtime.downloads || []).length
+  })
+  const tamperedDownload = page.locator('[data-prep-operate-item-form] [data-prep-action="download-upload"]').first()
+  await tamperedDownload.evaluate((button) => {
+    const element = button as HTMLElement
+    element.dataset.recordId = 'prep-202603-004'
+    element.dataset.itemId = 'prep-202603-004-item-01'
+    element.dataset.uploadId = 'prep-202603-004-item-01-history-upload-01'
+    element.click()
+  })
+  expect(await page.evaluate(() => {
+    const runtime = JSON.parse(localStorage.getItem('higood.production-preparation.runtime.v1') || '{"downloads":[]}')
+    return (runtime.downloads || []).length
+  })).toBe(auditCountBeforeTampering)
+
+  await page.evaluate(() => {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('itemId')
+    window.history.replaceState({}, '', `${url.pathname}${url.search}`)
+  })
+  await page.locator('[data-prep-operate-item-form] [data-prep-action="download-upload"]').first().click()
+  expect(await page.evaluate(() => {
+    const runtime = JSON.parse(localStorage.getItem('higood.production-preparation.runtime.v1') || '{"downloads":[]}')
+    return (runtime.downloads || []).length
+  })).toBe(auditCountBeforeTampering)
+
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03&recordId=prep-202603-003&itemId=prep-202603-003-item-01&action=operate-item`)
+  const auditCountBeforeNonBaseDownload = await page.evaluate(() => {
+    const runtime = JSON.parse(localStorage.getItem('higood.production-preparation.runtime.v1') || '{"downloads":[]}')
+    return (runtime.downloads || []).length
+  })
+  const nonBaseDownload = page.locator('[data-prep-operate-item-form] [data-prep-action="download-upload"]').first()
+  await Promise.all([page.waitForEvent('download'), nonBaseDownload.click()])
+  expect(await page.evaluate(() => {
+    const runtime = JSON.parse(localStorage.getItem('higood.production-preparation.runtime.v1') || '{"downloads":[]}')
+    return (runtime.downloads || []).length
+  })).toBe(auditCountBeforeNonBaseDownload)
+})
+
+test('花型必须分别上传完成图和源文件后才能完成', async ({ page }) => {
+  const route = `${ledgerRoute}?tab=ledger&month=2026-04&recordId=prep-202604-003&itemId=prep-202604-003-item-01&action=operate-item`
+  await page.goto(route)
+  const form = page.locator('[data-prep-operate-item-form]')
+  await expect(form).toBeVisible()
+  await form.locator('input[name="completionImages"]').setInputFiles({
+    name: '花型完成图.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x49, 0x48, 0x44, 0x52]),
+  })
+  await form.locator('button[type="submit"]').click()
+  await expect(form).toBeVisible()
+  expect(await page.evaluate(() => {
+    const runtime = JSON.parse(localStorage.getItem('higood.production-preparation.runtime.v1') || '{"uploads":[]}')
+    return (runtime.uploads || []).filter((upload: { itemId?: string }) => upload.itemId === 'prep-202604-003-item-01').length
+  })).toBe(0)
+
+  await form.locator('input[name="patternFiles"]').setInputFiles({
+    name: '花型源文件.ai',
+    mimeType: 'application/postscript',
+    buffer: Buffer.from('%!PS-Adobe AI source'),
+  })
+  await expect.poll(() => form.evaluate((node) => ({
+    completionImages: node.querySelector<HTMLInputElement>('input[name="completionImages"]')?.files?.length ?? 0,
+    patternFiles: node.querySelector<HTMLInputElement>('input[name="patternFiles"]')?.files?.length ?? 0,
+    valid: (node as HTMLFormElement).checkValidity(),
+  }))).toEqual({ completionImages: 1, patternFiles: 1, valid: true })
+  await form.locator('button[type="submit"]').click()
+  await expect(form).toHaveCount(0)
+  const uploads = await page.evaluate(() => {
+    const runtime = JSON.parse(localStorage.getItem('higood.production-preparation.runtime.v1') || '{"uploads":[]}')
+    return (runtime.uploads || []).filter((upload: { itemId?: string }) => upload.itemId === 'prep-202604-003-item-01')
+  })
+  expect(uploads).toEqual(expect.arrayContaining([
+    expect.objectContaining({ fileName: '花型完成图.png' }),
+    expect.objectContaining({ fileName: '花型源文件.ai' }),
+  ]))
 })
 
 async function paginationTotal(page: Page, region: 'list' | 'stats'): Promise<number> {
@@ -638,7 +817,7 @@ test('生产准备关键真实动作完成响应均小于 200ms', async ({ page 
   await page.locator('[data-prep-operate-item-form] input[type="file"]').setInputFiles({
     name: '性能验收.pdf',
     mimeType: 'application/pdf',
-    buffer: Buffer.from('production preparation timing performance acceptance'),
+    buffer: Buffer.from('%PDF-1.4 production preparation timing performance acceptance'),
   })
   responseTimes.uploadSubmit = await measureActionResponse(
     page.locator('[data-prep-operate-item-form] button[type="submit"]'),

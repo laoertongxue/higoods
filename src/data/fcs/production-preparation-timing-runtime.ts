@@ -1,4 +1,7 @@
 import {
+  isPatternCompletionImageFile,
+  isPatternSourceFile,
+  hasValidPreparationUploadFileSignature,
   isValidPreparationUploadFile,
   buildPreparationOutputs,
   hasValidPreparationCompletionEvidence,
@@ -449,6 +452,16 @@ function mergePreparationRuntimeItem(
   const lastUpload = uploads
     .filter((upload) => isValidPreparationUploadFile(item.itemType, upload))
     .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))[0]
+  const validUploads = uploads.filter((upload) => isValidPreparationUploadFile(item.itemType, upload))
+  const patternCompletionImageIds = item.itemType === '数码印/DTF/DTG花型'
+    ? validUploads.filter(isPatternCompletionImageFile).map((upload) => upload.uploadId)
+    : item.completionImageIds
+  const patternFileIds = item.itemType === '数码印/DTF/DTG花型'
+    ? validUploads.filter(isPatternSourceFile).map((upload) => upload.uploadId)
+    : item.patternFileIds
+  const patternCompleted = item.itemType === '数码印/DTF/DTG花型'
+    ? Boolean(patternCompletionImageIds?.length && patternFileIds?.length)
+    : false
   const accessoryOrderNos = accessoryOrder?.orderNos.map((orderNo) => orderNo.trim()) ?? []
   const accessoryOrderedAts = accessoryOrder?.orderedAts?.map((orderedAt) => orderedAt.trim()) ?? []
   const accessoryCompleted = Boolean(
@@ -460,7 +473,7 @@ function mergePreparationRuntimeItem(
   const accessoryCompletedAt = accessoryCompleted ? accessoryOrderedAts.slice().sort().at(-1) : undefined
   const status = !selectedByMerchandiser
     ? '无需'
-    : lastUpload || accessoryCompleted
+    : (item.itemType === '数码印/DTF/DTG花型' ? patternCompleted : Boolean(lastUpload)) || accessoryCompleted
       ? '已完成'
       : item.status === '无需' || item.status === '待判断'
         ? '待开始'
@@ -470,10 +483,16 @@ function mergePreparationRuntimeItem(
     dyeRequirement,
     selectedByMerchandiser,
     status,
-    actualFinishAt: accessoryCompletedAt ?? lastUpload?.uploadedAt ?? item.actualFinishAt,
+    actualFinishAt: accessoryCompletedAt ?? (item.itemType === '数码印/DTF/DTG花型'
+      ? patternCompleted ? lastUpload?.uploadedAt : item.actualFinishAt
+      : lastUpload?.uploadedAt) ?? item.actualFinishAt,
     evidenceSummary: accessoryOrder
       ? `已登记 ${accessoryOrder.orderNos.length} 个面辅料采购单号`
-      : lastUpload ? `最后上传：${lastUpload.fileName}` : item.evidenceSummary,
+      : item.itemType === '数码印/DTF/DTG花型' && validUploads.length
+        ? `完成图 ${patternCompletionImageIds?.length ?? 0} 张，花型源文件 ${patternFileIds?.length ?? 0} 个`
+        : lastUpload ? `最后上传：${lastUpload.fileName}` : item.evidenceSummary,
+    completionImageIds: patternCompletionImageIds,
+    patternFileIds,
     accessoryPurchaseOrderNos: accessoryOrder ? accessoryOrderNos : item.accessoryPurchaseOrderNos,
     accessoryPurchaseOrderedAts: accessoryOrder ? accessoryOrderedAts : item.accessoryPurchaseOrderedAts,
     accessoryPurchaseUpdatedAt: accessoryCompletedAt ?? item.accessoryPurchaseUpdatedAt,
@@ -516,6 +535,11 @@ export async function buildUploadRecordsFromFiles(input: {
 }): Promise<PreparationUploadRecord[]> {
   const invalidFile = input.files.find((file) => !isValidPreparationUploadFile(input.itemType, file))
   if (invalidFile) throw new Error(`${input.itemType} 不支持上传文件：${invalidFile.name}`)
+  for (const file of input.files) {
+    if (!await hasValidPreparationUploadFileSignature(file)) {
+      throw new Error(`${input.itemType} 文件内容与类型不匹配：${file.name}`)
+    }
+  }
   const uploadedAt = nowIsoMinute()
   const records: PreparationUploadRecord[] = []
   for (const file of input.files) {

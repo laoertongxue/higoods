@@ -42,6 +42,8 @@ import {
   getProductionPreparationFilterOptions,
   getProductionPreparationRecord,
   hasValidPreparationCompletionEvidence,
+  isPatternCompletionImageFile,
+  isPatternSourceFile,
   isValidPreparationUploadFile,
   preparationUploadAccept,
   preparationOwnerRoleRules,
@@ -68,6 +70,38 @@ const PAGE_PATH = '/fcs/production/preparation-timing'
 const STATS_PAGE_PATH = '/fcs/production/preparation-timing-statistics'
 const DEFAULT_MONTH = '2026-03'
 const MONTHLY_STATS_PAGE_SIZE = 5
+
+function preparationActionContextId(action: 'confirm-items' | 'operate-item', recordId: string, itemId = ''): string {
+  return [action, recordId, itemId].filter(Boolean).join(':')
+}
+
+function currentPreparationBrowserLocation(): URL {
+  if (typeof window !== 'undefined') {
+    return new URL(`${window.location.pathname}${window.location.search}`, window.location.origin)
+  }
+  return new URL(appStore.getState().pathname || PAGE_PATH, 'http://higoods.local')
+}
+
+function matchesTrustedPreparationActionContext(
+  form: HTMLFormElement,
+  formData: FormData,
+  action: 'confirm-items' | 'operate-item',
+  requireItem: boolean,
+): boolean {
+  const currentLocation = currentPreparationBrowserLocation()
+  if (currentLocation.pathname !== PAGE_PATH || currentLocation.searchParams.get('action') !== action) return false
+  const routeRecordId = currentLocation.searchParams.get('recordId')?.trim() ?? ''
+  const routeItemId = currentLocation.searchParams.get('itemId')?.trim() ?? ''
+  const formRecordId = String(formData.get('recordId') ?? '').trim()
+  const formItemId = String(formData.get('itemId') ?? '').trim()
+  const trustedContextId = preparationActionContextId(action, routeRecordId, routeItemId)
+  return Boolean(
+    routeRecordId &&
+    routeRecordId === formRecordId &&
+    (!requireItem || (routeItemId && routeItemId === formItemId)) &&
+    form.dataset.prepActionContext === trustedContextId,
+  )
+}
 const DETAIL_STATS_PAGE_SIZE = 8
 const LEDGER_FILTER_KEYS = [
   'startDate',
@@ -1481,7 +1515,7 @@ function renderItemUploadHistory(item: ProductionPreparationItem): string {
                 <div class="font-medium">${escapeHtml(upload.fileName)}</div>
                 <div class="mt-1 text-muted-foreground">${escapeHtml(upload.uploadedBy)}｜${escapeHtml(formatDateTime(upload.uploadedAt))}｜${Math.ceil(upload.fileSize / 1024)}KB</div>
                 ${upload.note ? `<div class="mt-1 text-muted-foreground">${escapeHtml(upload.note)}</div>` : ''}
-                <button type="button" class="mt-2 text-blue-600 hover:underline" data-prep-action="download-upload" data-upload-id="${escapeHtml(upload.uploadId)}" data-item-id="${escapeHtml(item.itemId)}">下载</button>
+                ${upload.fileDataUrl ? `<button type="button" class="mt-2 text-blue-600 hover:underline" data-prep-action="download-upload" data-record-id="${escapeHtml(item.recordId)}" data-upload-id="${escapeHtml(upload.uploadId)}" data-item-id="${escapeHtml(item.itemId)}">下载</button>` : ''}
               </div>
             `).join('')
             : missingCompletionEvidence
@@ -1563,7 +1597,7 @@ function renderConfirmItemsDialog(record: ProductionPreparationRecord, params: U
           <h3 class="text-lg font-semibold">确认生产准备工作项</h3>
           <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.spuName)}｜${escapeHtml(record.spuCode)}</p>
         </div>
-        <form class="flex min-h-0 flex-1 flex-col" data-prep-confirm-items-form>
+        <form class="flex min-h-0 flex-1 flex-col" data-prep-confirm-items-form data-prep-action-context="${escapeHtml(preparationActionContextId('confirm-items', record.recordId))}">
           <div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
             <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
             <input type="hidden" name="overrideReason" value="${escapeHtml(record.prepTypeOverrideReason || record.confirmationRemark)}" />
@@ -1636,7 +1670,7 @@ function renderDyeRequirementDialog(
       <section class="absolute left-1/2 top-10 w-[720px] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl bg-background p-5 shadow-2xl">
         <h3 class="text-lg font-semibold">确认染色要求</h3>
         <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.spuName)}｜${escapeHtml(item.itemType)}</p>
-        <form class="mt-4 space-y-4" data-prep-dye-requirement-form>
+        <form class="mt-4 space-y-4" data-prep-dye-requirement-form data-prep-action-context="${escapeHtml(preparationActionContextId('operate-item', record.recordId, item.itemId))}">
           <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
           <input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />
           <input type="hidden" name="materialNo" value="${escapeHtml(materialNo)}" />
@@ -1682,13 +1716,26 @@ function renderOperateItemDialog(
       <section class="absolute left-1/2 top-10 w-[760px] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl bg-background p-5 shadow-2xl">
         <h3 class="text-lg font-semibold">${escapeHtml(item.itemType)}</h3>
         <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.spuName)}</p>
-        <form class="mt-4 space-y-4" data-prep-operate-item-form>
+        <form class="mt-4 space-y-4" data-prep-operate-item-form data-skip-page-rerender="true" data-prep-action-context="${escapeHtml(preparationActionContextId('operate-item', record.recordId, item.itemId))}">
           <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
           <input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />
-          <label class="block text-sm">
-            <span class="text-muted-foreground">上传文件</span>
-            <input type="file" name="files" accept="${escapeHtml(preparationUploadAccept(item.itemType))}" class="mt-1 w-full rounded-md border px-3 py-2" multiple required />
-          </label>
+          ${item.itemType === '数码印/DTF/DTG花型'
+            ? `
+              <label class="block text-sm">
+                <span class="text-muted-foreground">完成图</span>
+                <input type="file" name="completionImages" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/tiff,image/heic" class="mt-1 w-full rounded-md border px-3 py-2" multiple required />
+              </label>
+              <label class="block text-sm">
+                <span class="text-muted-foreground">花型源文件</span>
+                <input type="file" name="patternFiles" accept=".ai,.psd,.cdr,.eps,.pdf" class="mt-1 w-full rounded-md border px-3 py-2" multiple required />
+              </label>
+            `
+            : `
+              <label class="block text-sm">
+                <span class="text-muted-foreground">上传文件</span>
+                <input type="file" name="files" accept="${escapeHtml(preparationUploadAccept(item.itemType))}" class="mt-1 w-full rounded-md border px-3 py-2" multiple required />
+              </label>
+            `}
           <label class="block text-sm">
             <span class="text-muted-foreground">样衣制作人</span>
             <input name="sampleMaker" class="mt-1 h-10 w-full rounded-md border px-3" placeholder="填写样衣制作人" />
@@ -1727,7 +1774,7 @@ function renderAccessoryOrderDialog(
       <section class="absolute left-1/2 top-10 w-[680px] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl bg-background p-5 shadow-2xl">
         <h3 class="text-lg font-semibold">登记辅料下单</h3>
         <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)}｜${escapeHtml(record.spuName)}</p>
-        <form class="mt-4 space-y-4" data-prep-accessory-order-form>
+        <form class="mt-4 space-y-4" data-prep-accessory-order-form data-prep-action-context="${escapeHtml(preparationActionContextId('operate-item', record.recordId, item.itemId))}">
           <input type="hidden" name="recordId" value="${escapeHtml(record.recordId)}" />
           <input type="hidden" name="itemId" value="${escapeHtml(item.itemId)}" />
           <div>
@@ -2227,7 +2274,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
 
   if (form.matches('[data-prep-confirm-items-form]')) {
     const recordId = String(formData.get('recordId') ?? '').trim()
-    if (!recordId) return true
+    if (!recordId || !matchesTrustedPreparationActionContext(form, formData, 'confirm-items', false)) return true
     const sourceRecord = productionPreparationRecords.find((record) => record.recordId === recordId)
     if (!sourceRecord || sourceRecord.status === '已关闭') return true
     const confirmedProductPrepType = String(formData.get('confirmedProductPrepType') ?? '').trim() as ProductPrepType
@@ -2315,7 +2362,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
   if (form.matches('[data-prep-dye-requirement-form]')) {
     const recordId = String(formData.get('recordId') ?? '').trim()
     const itemId = String(formData.get('itemId') ?? '').trim()
-    if (!recordId || !itemId) return true
+    if (!recordId || !itemId || !matchesTrustedPreparationActionContext(form, formData, 'operate-item', true)) return true
 
     const runtime = loadPreparationRuntimeState()
     const record = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
@@ -2375,7 +2422,13 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
     const orderedAts = formData.getAll('accessoryPurchaseOrderedAt')
       .map((value) => String(value).trim())
     const orderRows = orderNos.map((orderNo, index) => ({ orderNo, orderedAt: orderedAts[index] ?? '' }))
-    if (!recordId || !itemId || !orderRows.length || orderRows.some((row) => !row.orderNo || !row.orderedAt)) return true
+    if (
+      !recordId ||
+      !itemId ||
+      !matchesTrustedPreparationActionContext(form, formData, 'operate-item', true) ||
+      !orderRows.length ||
+      orderRows.some((row) => !row.orderNo || !row.orderedAt)
+    ) return true
     const completedAt = orderRows.map((row) => row.orderedAt).sort().at(-1)!
 
     const runtime = loadPreparationRuntimeState()
@@ -2405,7 +2458,7 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
 
   const recordId = String(formData.get('recordId') ?? '').trim()
   const itemId = String(formData.get('itemId') ?? '').trim()
-  if (!recordId || !itemId) return true
+  if (!recordId || !itemId || !matchesTrustedPreparationActionContext(form, formData, 'operate-item', true)) return true
 
   const runtime = loadPreparationRuntimeState()
   const record = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
@@ -2415,21 +2468,45 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
   if (!item || !canWritePreparationItemRuntime(record, item)) return true
 
   const fileInput = form.querySelector<HTMLInputElement>('input[type="file"][name="files"]')
-  const files = Array.from(fileInput?.files ?? [])
+  const completionImageInput = form.querySelector<HTMLInputElement>('input[type="file"][name="completionImages"]')
+  const patternFileInput = form.querySelector<HTMLInputElement>('input[type="file"][name="patternFiles"]')
+  const completionImages = Array.from(completionImageInput?.files ?? [])
+  const patternFiles = Array.from(patternFileInput?.files ?? [])
+  const files = item.itemType === '数码印/DTF/DTG花型'
+    ? [...completionImages, ...patternFiles]
+    : Array.from(fileInput?.files ?? [])
   const note = String(formData.get('note') ?? '').trim()
   const sampleMaker = String(formData.get('sampleMaker') ?? '').trim()
   const uploadNote = [sampleMaker ? `样衣制作人：${sampleMaker}` : '', note].filter(Boolean).join('；')
 
+  if (item.itemType === '数码印/DTF/DTG花型' && (!completionImages.length || !patternFiles.length)) {
+    const missingInput = !completionImages.length ? completionImageInput : patternFileInput
+    missingInput?.setCustomValidity('花型完成必须同时上传完成图和花型源文件')
+    missingInput?.reportValidity()
+    return true
+  }
   if (!files.length) {
+    return true
+  }
+  const invalidPatternCompletionImage = completionImages.find((file) => !isPatternCompletionImageFile(file))
+  const invalidPatternSourceFile = patternFiles.find((file) => !isPatternSourceFile(file))
+  if (invalidPatternCompletionImage || invalidPatternSourceFile) {
+    const invalidInput = invalidPatternCompletionImage ? completionImageInput : patternFileInput
+    const invalidFile = invalidPatternCompletionImage ?? invalidPatternSourceFile
+    invalidInput?.setCustomValidity(`${item.itemType} 不支持上传 ${invalidFile?.name ?? ''}`)
+    invalidInput?.reportValidity()
     return true
   }
   const invalidFile = files.find((file) => !isValidPreparationUploadFile(item.itemType, file))
   if (invalidFile) {
-    fileInput?.setCustomValidity(`${item.itemType} 不支持上传 ${invalidFile.name}`)
-    fileInput?.reportValidity()
+    const invalidInput = fileInput ?? completionImageInput ?? patternFileInput
+    invalidInput?.setCustomValidity(`${item.itemType} 不支持上传 ${invalidFile.name}`)
+    invalidInput?.reportValidity()
     return true
   }
   fileInput?.setCustomValidity('')
+  completionImageInput?.setCustomValidity('')
+  patternFileInput?.setCustomValidity('')
 
   try {
     const uploadRecords = await buildUploadRecordsFromFiles({
@@ -3076,27 +3153,40 @@ export function handleProductionPreparationTimingEvent(target: HTMLElement, even
   if (!actionNode || actionNode.dataset.prepAction !== 'download-upload') return false
 
   const uploadId = actionNode.dataset.uploadId
+  const actionRecordId = actionNode.dataset.recordId
   const actionItemId = actionNode.dataset.itemId
-  if (!uploadId || !actionItemId) return true
+  if (!uploadId || !actionRecordId || !actionItemId) return true
+
+  const currentLocation = currentPreparationBrowserLocation()
+  const routeRecordId = currentLocation.searchParams.get('recordId')?.trim() ?? ''
+  const routeItemId = currentLocation.searchParams.get('itemId')?.trim() ?? ''
+  if (
+    currentLocation.pathname !== PAGE_PATH ||
+    currentLocation.searchParams.get('action') !== 'operate-item' ||
+    routeRecordId !== actionRecordId ||
+    routeItemId !== actionItemId
+  ) return true
 
   const runtime = loadPreparationRuntimeState()
   const mergedRecords = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
-  const upload = runtime.uploads.find((item) => item.uploadId === uploadId && item.itemId === actionItemId) ??
+  const upload = runtime.uploads.find((item) => item.uploadId === uploadId && item.recordId === actionRecordId && item.itemId === actionItemId) ??
     mergedRecords.flatMap((record) => record.items)
       .flatMap((item) => item.uploads ?? [])
-      .find((item) => item.uploadId === uploadId && item.itemId === actionItemId)
+      .find((item) => item.uploadId === uploadId && item.recordId === actionRecordId && item.itemId === actionItemId)
   if (!upload) return true
   const ownerRecord = mergedRecords.find((record) => record.recordId === upload.recordId)
   const ownerItem = ownerRecord?.items.find((item) => item.itemId === upload.itemId)
-  if (!ownerRecord || !ownerItem || !isBasePatternItem(ownerItem.itemType) || !canWritePreparationItemRuntime(ownerRecord, ownerItem)) return true
+  if (!ownerRecord || !ownerItem || !upload.fileDataUrl) return true
 
-  savePreparationRuntimeState(appendDownloadRecord(runtime, {
-    recordId: upload.recordId,
-    itemId: upload.itemId,
-    uploadId: upload.uploadId,
-    fileName: upload.fileName,
-    downloadedBy: '当前用户',
-  }))
+  if (isBasePatternItem(ownerItem.itemType) && canWritePreparationItemRuntime(ownerRecord, ownerItem)) {
+    savePreparationRuntimeState(appendDownloadRecord(runtime, {
+      recordId: upload.recordId,
+      itemId: upload.itemId,
+      uploadId: upload.uploadId,
+      fileName: upload.fileName,
+      downloadedBy: '当前用户',
+    }))
+  }
 
   if (upload.fileDataUrl) {
     const link = document.createElement('a')
@@ -3107,6 +3197,6 @@ export function handleProductionPreparationTimingEvent(target: HTMLElement, even
     link.remove()
   }
 
-  requestPreparationTimingRender()
+  if (isBasePatternItem(ownerItem.itemType)) requestPreparationTimingRender()
   return true
 }

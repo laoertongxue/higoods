@@ -75,11 +75,72 @@ export interface PreparationUploadFileDescriptor {
 
 const imageUploadExtensions = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'heic'])
 const paperUploadExtensions = new Set([...imageUploadExtensions, 'pdf', 'dxf', 'dwg', 'plt', 'astm', 'aama'])
-const patternUploadExtensions = new Set([...imageUploadExtensions, 'ai', 'psd', 'pdf', 'cdr', 'eps'])
+const patternSourceExtensions = new Set(['ai', 'psd', 'pdf', 'cdr', 'eps'])
+
+const uploadMimeTypesByExtension: Record<string, Set<string>> = {
+  jpg: new Set(['image/jpeg']),
+  jpeg: new Set(['image/jpeg']),
+  png: new Set(['image/png']),
+  webp: new Set(['image/webp']),
+  gif: new Set(['image/gif']),
+  bmp: new Set(['image/bmp', 'image/x-ms-bmp']),
+  tif: new Set(['image/tiff']),
+  tiff: new Set(['image/tiff']),
+  heic: new Set(['image/heic', 'image/heif']),
+  pdf: new Set(['application/pdf']),
+  ai: new Set(['application/postscript', 'application/illustrator', 'application/vnd.adobe.illustrator']),
+  psd: new Set(['image/vnd.adobe.photoshop', 'application/x-photoshop']),
+  cdr: new Set(['application/cdr', 'application/coreldraw', 'application/vnd.corel-draw']),
+  eps: new Set(['application/postscript', 'application/eps']),
+  dxf: new Set(['application/dxf', 'application/x-dxf', 'image/vnd.dxf']),
+  dwg: new Set(['application/acad', 'application/x-acad', 'application/autocad_dwg', 'image/vnd.dwg']),
+  plt: new Set(['application/plt', 'application/vnd.hp-hpgl']),
+  astm: new Set(['application/octet-stream', 'text/plain']),
+  aama: new Set(['application/octet-stream', 'text/plain']),
+}
 
 function uploadFileExtension(file: PreparationUploadFileDescriptor): string {
   const fileName = (file.name || file.fileName || '').trim().toLowerCase()
   return fileName.includes('.') ? fileName.split('.').at(-1) ?? '' : ''
+}
+
+function uploadMimeMatchesExtension(file: PreparationUploadFileDescriptor): boolean {
+  const extension = uploadFileExtension(file)
+  const mimeType = (file.type || file.fileType || '').trim().toLowerCase()
+  return Boolean(extension && mimeType && uploadMimeTypesByExtension[extension]?.has(mimeType))
+}
+
+export function isPatternCompletionImageFile(file: PreparationUploadFileDescriptor): boolean {
+  return imageUploadExtensions.has(uploadFileExtension(file)) && uploadMimeMatchesExtension(file)
+}
+
+export function isPatternSourceFile(file: PreparationUploadFileDescriptor): boolean {
+  return patternSourceExtensions.has(uploadFileExtension(file)) && uploadMimeMatchesExtension(file)
+}
+
+function startsWithBytes(bytes: Uint8Array, expected: number[]): boolean {
+  return expected.every((value, index) => bytes[index] === value)
+}
+
+export async function hasValidPreparationUploadFileSignature(file: File): Promise<boolean> {
+  const extension = uploadFileExtension(file)
+  if (!imageUploadExtensions.has(extension) && extension !== 'pdf') return true
+  const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer())
+  if (extension === 'pdf') return startsWithBytes(bytes, [0x25, 0x50, 0x44, 0x46])
+  if (extension === 'jpg' || extension === 'jpeg') return startsWithBytes(bytes, [0xff, 0xd8, 0xff])
+  if (extension === 'png') return startsWithBytes(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  if (extension === 'gif') return startsWithBytes(bytes, [0x47, 0x49, 0x46, 0x38])
+  if (extension === 'webp') {
+    return startsWithBytes(bytes, [0x52, 0x49, 0x46, 0x46]) && startsWithBytes(bytes.slice(8), [0x57, 0x45, 0x42, 0x50])
+  }
+  if (extension === 'bmp') return startsWithBytes(bytes, [0x42, 0x4d])
+  if (extension === 'tif' || extension === 'tiff') {
+    return startsWithBytes(bytes, [0x49, 0x49, 0x2a, 0x00]) || startsWithBytes(bytes, [0x4d, 0x4d, 0x00, 0x2a])
+  }
+  if (extension === 'heic') {
+    return startsWithBytes(bytes.slice(4), [0x66, 0x74, 0x79, 0x70])
+  }
+  return false
 }
 
 export function isValidPreparationUploadFile(
@@ -87,13 +148,13 @@ export function isValidPreparationUploadFile(
   file: PreparationUploadFileDescriptor,
 ): boolean {
   const extension = uploadFileExtension(file)
-  const mimeType = (file.type || file.fileType || '').trim().toLowerCase()
-  const isImage = mimeType.startsWith('image/') || imageUploadExtensions.has(extension)
+  if (!uploadMimeMatchesExtension(file)) return false
+  const isImage = imageUploadExtensions.has(extension)
   if (itemType === '版衣制作' || itemType === '染色调色（纱线）' || itemType === '染色调色（面料）') {
     return isImage
   }
   if (itemType === '数码印/DTF/DTG花型') {
-    return isImage || patternUploadExtensions.has(extension)
+    return isPatternCompletionImageFile(file) || isPatternSourceFile(file)
   }
   if (
     itemType === '梭织基码纸样' ||
@@ -799,11 +860,32 @@ function createItems(recordId: string, productionOrderNo: string, seeds: Prepara
       seed.selectedByMerchandiser !== false &&
       seed.status === '已完成' &&
       Boolean(seed.actualFinishAt)
-    const completionFile = mockCompletionUploadFile(seed.itemType, seed.actualFinishAt)
+    const completionFiles = mockCompletionUploadFiles(seed.itemType, seed.actualFinishAt)
+    const patternUploadedAt = seed.actualFinishAt || seed.assignedAt || seed.plannedStartAt
+    const patternUploads = seed.itemType === '数码印/DTF/DTG花型' && patternUploadedAt
+      ? [
+          ...(seed.completionImageIds?.length ? [completionFiles[0]] : []),
+          ...(seed.patternFileIds?.length ? [completionFiles[1]] : []),
+        ].filter(Boolean).map((file, fileIndex) => ({
+          uploadId: `${itemId}-history-upload-${String(fileIndex + 1).padStart(2, '0')}`,
+          recordId,
+          itemId,
+          itemType: seed.itemType,
+          fileName: file.fileName,
+          fileType: file.fileType,
+          fileSize: 1024,
+          fileDataUrl: file.fileDataUrl,
+          uploadedBy: seed.ownerName,
+          uploadedAt: patternUploadedAt,
+          note: seed.evidenceSummary || '历史完成资料',
+        }))
+      : []
     const uploads = 'uploads' in seed
       ? seed.uploads ?? []
+      : patternUploads.length
+        ? patternUploads
       : shouldBackfillUpload
-        ? [{
+        ? completionFiles.slice(0, 1).map((completionFile) => ({
             uploadId: `${itemId}-history-upload-01`,
             recordId,
             itemId,
@@ -815,7 +897,7 @@ function createItems(recordId: string, productionOrderNo: string, seeds: Prepara
             uploadedBy: seed.ownerName,
             uploadedAt: seed.actualFinishAt,
             note: seed.evidenceSummary || '历史完成资料',
-          }]
+          }))
         : []
     const accessoryPurchaseOrderNos =
       seed.itemType === '辅料下单' && seed.status === '已完成' && Boolean(seed.actualFinishAt)
@@ -841,6 +923,12 @@ function createItems(recordId: string, productionOrderNo: string, seeds: Prepara
       overdueHours: 0,
       remark: '',
       ...seed,
+      completionImageIds: seed.itemType === '数码印/DTF/DTG花型'
+        ? uploads.filter(isPatternCompletionImageFile).map((upload) => upload.uploadId)
+        : seed.completionImageIds,
+      patternFileIds: seed.itemType === '数码印/DTF/DTG花型'
+        ? uploads.filter(isPatternSourceFile).map((upload) => upload.uploadId)
+        : seed.patternFileIds,
       accessoryPurchaseOrderNos,
       accessoryPurchaseOrderedAts,
       accessoryPurchaseUpdatedAt,
@@ -850,19 +938,22 @@ function createItems(recordId: string, productionOrderNo: string, seeds: Prepara
   })
 }
 
-function mockCompletionUploadFile(itemType: PreparationItemType, actualFinishAt: string): {
+function mockCompletionUploadFiles(itemType: PreparationItemType, actualFinishAt: string): Array<{
   fileName: string
   fileType: string
   fileDataUrl: string
-} {
+}> {
   const baseName = `${itemType}-${actualFinishAt.slice(0, 10)}`
   if (itemType === '版衣制作' || itemType.includes('染色调色')) {
-    return { fileName: `${baseName}.jpg`, fileType: 'image/jpeg', fileDataUrl: 'data:image/jpeg;base64,/9j/4AAQSkZJRg==' }
+    return [{ fileName: `${baseName}.jpg`, fileType: 'image/jpeg', fileDataUrl: 'data:image/jpeg;base64,/9j/4AAQSkZJRg==' }]
   }
   if (itemType === '数码印/DTF/DTG花型') {
-    return { fileName: `${baseName}.png`, fileType: 'image/png', fileDataUrl: 'data:image/png;base64,iVBORw0KGgo=' }
+    return [
+      { fileName: `${baseName}-完成图.png`, fileType: 'image/png', fileDataUrl: 'data:image/png;base64,iVBORw0KGgo=' },
+      { fileName: `${baseName}-源文件.ai`, fileType: 'application/postscript', fileDataUrl: 'data:application/postscript;base64,JSFQUy1BZG9iZQ==' },
+    ]
   }
-  return { fileName: `${baseName}.pdf`, fileType: 'application/pdf', fileDataUrl: 'data:application/pdf;base64,JVBERi0xLjQ=' }
+  return [{ fileName: `${baseName}.pdf`, fileType: 'application/pdf', fileDataUrl: 'data:application/pdf;base64,JVBERi0xLjQ=' }]
 }
 
 function record(seed: RecordSeed): ProductionPreparationRecord {
@@ -1533,6 +1624,13 @@ export function hasValidPreparationCompletionEvidence(
       item.dyeRequirement.pantoneCode &&
       item.dyeRequirement.maintainedBy &&
       item.dyeRequirement.maintainedAt === item.actualFinishAt,
+    )
+  }
+  if (item.itemType === '数码印/DTF/DTG花型') {
+    const uploads = item.uploads ?? []
+    return Boolean(
+      uploads.some((upload) => upload.uploadedBy && upload.uploadedAt && isPatternCompletionImageFile(upload)) &&
+      uploads.some((upload) => upload.uploadedBy && upload.uploadedAt && isPatternSourceFile(upload)),
     )
   }
   return Boolean(
