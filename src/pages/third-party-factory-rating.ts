@@ -569,13 +569,15 @@ function renderRatingDrawer(snapshot: RatingRow | undefined, query: RatingQuery)
 
 function renderColumnSettingsOverlay(query: RatingQuery, preferences: StandardListColumnPreferences): string {
   if (!query.columnSettings) return ''
+  const closeHref = escapeHtml(buildHref(query, { columnSettings: false, refreshKey: '' }))
+  const closeActionAttr = 'data-third-party-rating-action="close-column-settings"'
   return renderStandardListColumnSettings({
     title: '列设置',
     columns,
     preferences,
     eventPrefix: EVENT_PREFIX,
     maxFrozenWidth: MAX_FROZEN_WIDTH,
-  })
+  }).replaceAll(closeActionAttr, `data-nav="${closeHref}"`)
 }
 
 function renderRatingPagination(query: RatingQuery, paging: RatingPaging): string {
