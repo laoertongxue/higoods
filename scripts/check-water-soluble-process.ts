@@ -72,6 +72,7 @@ import {
   getDyeWorkOrderByTaskId,
   listDyeWorkOrders,
   planDyeVat,
+  assignDyeWorkOrderFactory,
   registerFormalProductionOrderDyeWorkOrder,
   resolveDyeWaterSolublePause,
   startDyeing,
@@ -1355,8 +1356,45 @@ function registerCombinedDyeOrder(suffix: string, qtyUnit = '码', plannedQty = 
 
 const combined = registerCombinedDyeOrder('MAIN')
 assert.equal(combined.requiresWaterSoluble, true, '正式生产单注册入口必须生成含水溶染色加工单')
+assert.equal(combined.formalProductionOrderSnapshot?.requiresWaterSoluble, true, '正式染色加工单快照必须记录水溶要求')
 assert.deepEqual(getDyeExecutionRoute(combined.dyeOrderId), ['SAMPLE', 'MATERIAL_READY', 'VAT_PLAN', 'WATER_SOLUBLE', 'DYE', 'DEHYDRATE', 'DRY', 'SET', 'ROLL', 'PACK'], '联合水溶染色必须保持单一执行路线')
 assert.equal(listPdaGenericProcessTasks().find((task) => task.taskId === combined.taskId)?.qtyDisplayUnit, '码', 'PDA 任务必须保留业务单位')
+assert.throws(
+  () => registerFormalProductionOrderDyeWorkOrder({
+    workOrderId: 'DYE-WATER-INVALID-FACTORY',
+    workOrderNo: 'RSJG-WATER-INVALID-FACTORY',
+    productionOrderId: 'PO-WATER-INVALID-FACTORY',
+    productionOrderNo: 'PO-WATER-INVALID-FACTORY',
+    orderedAt: '2026-07-15 13:00:00',
+    techPackVersionId: 'TP-WATER-INVALID',
+    techPackVersionLabel: '技术包 V1',
+    materialId: 'MAT-WATER-INVALID',
+    materialName: '无水溶能力染厂拦截面料',
+    targetColor: '深蓝',
+    plannedQty: 9,
+    qtyUnit: '码',
+    processCodes: ['DYE'],
+    processName: '水溶后染色',
+    factoryId: 'ID-F002',
+    factoryName: 'PT Prima Printing Center',
+    spuCode: 'SPU-WATER-INVALID',
+    spuName: '无水溶能力染厂拦截款',
+    requiredDeliveryDate: '2026-07-22 18:00:00',
+    requiresWaterSoluble: true,
+  }),
+  /水溶和染色能力/,
+  '正式含水溶染色单不得分配给只有染色、没有水溶能力的工厂',
+)
+assert.throws(
+  () => assignDyeWorkOrderFactory(combined.dyeOrderId, {
+    factoryId: 'ID-F002',
+    factoryName: 'PT Prima Printing Center',
+    assignedAt: '2026-07-15 14:00:00',
+    assignedBy: '计划员',
+  }),
+  /水溶和染色能力/,
+  '正式含水溶染色单改派也必须校验水溶 + 染色能力',
+)
 completeDyeMaterialReady(combined.dyeOrderId, { outputQty: combined.plannedQty, operatorName: '操作员' })
 planDyeVat(combined.dyeOrderId, { dyeVatNo: 'VAT-WATER-REGRESSION', operatorName: '主管' })
 assert.equal(startDyeWaterSolubleNode(combined.dyeOrderId, '操作员').ok, true, '完成染前准备后必须可开始水溶')

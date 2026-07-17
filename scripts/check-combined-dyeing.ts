@@ -400,8 +400,8 @@ function registerLifecycleWorkOrder(overrides: Partial<{
     qtyUnit: '米',
     processCodes: ['DYE'],
     processName: overrides.processName ?? '活性染色',
-    factoryId: overrides.factoryId ?? 'FAC-COMBINED-DYE',
-    factoryName: `染厂-${overrides.factoryId ?? 'FAC-COMBINED-DYE'}`,
+    factoryId: overrides.factoryId ?? 'F090',
+    factoryName: overrides.factoryId === 'ID-F002' ? 'PT Prima Printing Center' : '全能力测试工厂',
     spuCode: `SPU-COMBINED-${suffix}`,
     spuName: `合并染色款-${suffix}`,
     requiredDeliveryDate: '2026-07-25 18:00:00',
@@ -433,7 +433,7 @@ function checkCombinedDyeingLifecycle(): void {
   })
   assert(stockResult.ok && stockResult.order, '测试前置：真实备货染色加工单必须创建成功')
   assert.throws(() => createCombinedDyeingTask({ dyeWorkOrderIds: [baseA.dyeOrderId, stockResult.order!.dyeOrderId], createdBy: '计划员' }), /生产单来源/, 'STOCK 加工单必须拒绝')
-  const otherFactory = registerLifecycleWorkOrder({ factoryId: 'FAC-OTHER' })
+  const otherFactory = registerLifecycleWorkOrder({ factoryId: 'ID-F002' })
   const otherMaterial = registerLifecycleWorkOrder({ materialId: 'MAT-OTHER', materialName: '合并染色面料' })
   const otherColor = registerLifecycleWorkOrder({ targetColor: '黑色' })
   const otherProcess = registerLifecycleWorkOrder({ processName: '分散染色' })
@@ -473,8 +473,8 @@ function checkCombinedDyeingLifecycle(): void {
       requiredQty: 60,
       effectiveSatisfiedQtyBeforeTask: 0,
       qtyUnit: '米',
-      dyeFactoryId: 'FAC-COMBINED-DYE',
-      dyeFactoryName: '染厂-FAC-COMBINED-DYE',
+      dyeFactoryId: 'F090',
+      dyeFactoryName: '全能力测试工厂',
       materialId: 'MAT-COMBINED-001',
       rawMaterialSku: 'MAT-COMBINED-001',
       materialName: '合并染色面料',
