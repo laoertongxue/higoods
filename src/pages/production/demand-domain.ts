@@ -40,6 +40,10 @@ import {
   renderProductionObjectCodeButton,
   renderProductionOrderIdentityCell,
 } from '../../data/fcs/production-order-identity'
+import {
+  buildFormalProductionOrderProcessSnapshots,
+  ensureProcessWorkOrdersForFormalProductionOrder,
+} from '../../data/fcs/production-process-work-order-service.ts'
 
 const PRODUCTION_DEMAND_IDENTITY_COLUMN_TITLE = '需求单号 / ID商品采购单单号 / 售卖类型'
 
@@ -1106,7 +1110,7 @@ function createProductionOrdersForDemands(
   return created
 }
 
-type CreatedProductionOrderGroup = {
+export type CreatedProductionOrderGroup = {
   demands: ProductionDemand[]
   order: ProductionOrder
 }
@@ -1192,9 +1196,10 @@ function closeDemandGenerateFlow(): void {
   resetDemandGenerateForm()
 }
 
-function applyCreatedProductionOrderGroups(created: CreatedProductionOrderGroup[], now: string): void {
+export function applyCreatedProductionOrderGroups(created: CreatedProductionOrderGroup[], now: string): void {
   if (created.length === 0) return
 
+  const preparedSnapshots = created.map((item) => buildFormalProductionOrderProcessSnapshots(item.order))
   const orderIdByDemandId = new Map<string, string>()
   for (const item of created) {
     for (const demand of item.demands) {
@@ -1213,6 +1218,9 @@ function applyCreatedProductionOrderGroups(created: CreatedProductionOrderGroup[
       updatedAt: now,
     }
   })
+  for (const snapshots of preparedSnapshots) {
+    for (const snapshot of snapshots) ensureProcessWorkOrdersForFormalProductionOrder(snapshot)
+  }
 }
 
 function openCreatedProductionOrders(created: CreatedProductionOrderGroup[]): void {

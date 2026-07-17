@@ -53,6 +53,11 @@ import {
 } from '../data/fcs/pda-receive-scope.ts'
 import { acceptWoolWorkOrder } from '../data/fcs/wool-task-domain.ts'
 import {
+  assertDyeWorkOrderPdaAcceptanceAllowed,
+  recordDyeWorkOrderPdaAcceptance,
+} from '../data/fcs/dye-work-order-online-domain.ts'
+import { acceptPdaGenericProcessTask } from '../data/fcs/pda-task-mock-factory.ts'
+import {
   acceptRuntimeTaskAssignment,
   getRuntimeTaskById,
   rejectRuntimeTaskAssignment,
@@ -348,6 +353,8 @@ export function acceptPdaTaskWithRuntimeFallback(
   if (task.assignedFactoryId && task.assignedFactoryId !== factoryId) {
     throw new Error('当前登录工厂与任务归属不一致，不能接单')
   }
+  const acceptedGenericTask = acceptPdaGenericProcessTask(taskId, { acceptedAt, acceptedBy: by })
+  if (acceptedGenericTask) return acceptedGenericTask
   legacyAcceptanceOverrides.set(taskId, { acceptedAt, acceptedBy: by })
   return projectPdaTaskLegacyAcceptance(task)
 }
@@ -540,7 +547,7 @@ function getPendingAcceptTasks(selectedFactoryId: string): ProcessTask[] {
     selectedFactoryId,
   )
   if (!isPostFinishingDirectOnlyFactory(selectedFactoryId)) return tasks
-  return tasks.filter((task) => getMobileTaskProcessType(task) === 'POST_FINISHING')
+  return tasks.filter((task) => ['POST_FINISHING', 'DYE'].includes(getMobileTaskProcessType(task)))
 }
 
 function getFilteredPendingTasks(pendingAcceptTasks: ProcessTask[]): ProcessTask[] {
@@ -1470,7 +1477,11 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
     const factoryName = getFactoryName(factoryId)
     if (taskId && taskId === state.acceptDialogTaskId) {
       try {
-        acceptPdaTaskWithRuntimeFallback(taskId, factoryId, factoryName, state.acceptDialogAcceptedAt)
+        const runtime = getPdaRuntimeContext()
+        const acceptedAt = state.acceptDialogAcceptedAt
+        assertDyeWorkOrderPdaAcceptanceAllowed(taskId)
+        acceptPdaTaskWithRuntimeFallback(taskId, factoryId, factoryName, acceptedAt)
+        recordDyeWorkOrderPdaAcceptance(taskId, runtime?.userName || factoryName, acceptedAt)
         state.acceptDialogTaskId = ''
         state.acceptDialogAcceptedAt = ''
         showTaskReceiveToast('接单成功')

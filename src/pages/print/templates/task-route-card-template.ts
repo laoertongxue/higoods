@@ -12,6 +12,7 @@ import {
   type PrintField,
   type PrintSourceType,
 } from '../../../data/fcs/print-service.ts'
+import { buildDyeWorkOrderFlowCardPrintDocument } from './dye-work-order-flow-card-template.ts'
 
 type TaskRouteCardAdapterInput = PrintDocumentBuildInput | string
 
@@ -204,7 +205,7 @@ export function buildPrintingWorkOrderRouteCardPrintDocument(input: TaskRouteCar
 
 export function buildDyeingWorkOrderRouteCardPrintDocument(input: TaskRouteCardAdapterInput): PrintDocument {
   const resolvedInput = resolveTaskRouteCardInput(input, 'DYEING_WORK_ORDER')
-  return buildTaskRouteCardPrintDocumentForSource(resolvedInput, TASK_ROUTE_CARD_TEMPLATE_CODE_BY_SOURCE.DYEING_WORK_ORDER)
+  return buildDyeWorkOrderFlowCardPrintDocument(resolvedInput)
 }
 
 export function buildSpecialCraftTaskOrderRouteCardPrintDocument(input: TaskRouteCardAdapterInput): PrintDocument {

@@ -87,6 +87,7 @@ function checkPageSignals(): void {
   assert(detailPage.includes('linkHandoverRecordToOutboundRecord'), 'pda-handover-detail.ts 未接入交出到出库联动 helper')
   assert(detailPage.includes('syncReceiverWritebackToOutboundRecord'), 'pda-handover-detail.ts 未接入回写同步出库 helper')
   assert(detailPage.includes('syncQuantityObjectionToOutboundRecord'), 'pda-handover-detail.ts 未接入异议同步出库 helper')
+  assert(detailPage.includes('renderPdaHandoverSourceIdentity(head)'), 'pda-handover-detail.ts 未按来源联合展示生产单或备货物料')
 
   ;['接收方确认', '交出单', '交出记录'].forEach((term) => {
     assert(ledgerPage.includes(term), `progress-handover.ts 缺少台账口径：${term}`)

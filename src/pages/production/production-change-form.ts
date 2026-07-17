@@ -352,7 +352,7 @@ export function listCurrentMaterialOptionsForOrder(
   productionOrderId: string,
 ): Array<{ value: string; label: string }> {
   return (getProductionOrderChangeCurrentFacts(productionOrderId)?.materialFacts ?? [])
-    .filter((fact) => isCurrentFabricMaterial(fact.material))
+    .filter((fact) => isCurrentFabricMaterial(fact.material) && Boolean(fact.canonicalMaterialId?.trim()))
     .map((fact) => ({
       value: fact.id,
       label: `${fact.material} / ${fact.sourceDocument}`,

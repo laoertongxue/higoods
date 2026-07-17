@@ -5,6 +5,7 @@ import {
 } from './special-craft-task-orders.ts'
 import { applySpecialCraftHandoverDifferenceToFeiTickets } from './cutting/special-craft-fei-ticket-flow.ts'
 import { listPostFinishingWorkOrders, type PostFinishingWorkOrder } from './post-finishing-domain.ts'
+import type { ProcessWorkOrderSourceType } from './process-work-order-domain.ts'
 
 export type ProcessWarehouseCraftType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
 export type ProcessWarehouseRecordType = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
@@ -26,10 +27,13 @@ export interface ProcessWarehouseRecord {
   sourceWorkOrderNo: string
   sourceTaskId: string
   sourceTaskNo: string
-  sourceProductionOrderId: string
-  sourceProductionOrderNo: string
-  sourceDemandId: string
-  sourceDemandNo: string
+  sourceType?: ProcessWorkOrderSourceType
+  sourceProductionOrderId?: string
+  sourceProductionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
+  sourceDemandId?: string
+  sourceDemandNo?: string
   sourceFactoryId: string
   sourceFactoryName: string
   targetFactoryId: string
@@ -71,8 +75,11 @@ export interface ProcessHandoverRecord {
   sourceWorkOrderNo: string
   sourceTaskId: string
   sourceTaskNo: string
-  sourceProductionOrderId: string
-  sourceProductionOrderNo: string
+  sourceType?: ProcessWorkOrderSourceType
+  sourceProductionOrderId?: string
+  sourceProductionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   handoverFactoryId: string
   handoverFactoryName: string
   receiveFactoryId: string
@@ -104,8 +111,11 @@ export interface ProcessHandoverDifferenceRecord {
   warehouseRecordId: string
   sourceWorkOrderId: string
   sourceWorkOrderNo: string
-  sourceProductionOrderId: string
-  sourceProductionOrderNo: string
+  sourceType?: ProcessWorkOrderSourceType
+  sourceProductionOrderId?: string
+  sourceProductionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   craftType: ProcessWarehouseCraftType
   craftName: string
   objectType: ProcessWarehouseObjectType
@@ -305,10 +315,13 @@ function buildWarehouseRecord(
     sourceWorkOrderNo: payload.sourceWorkOrderNo,
     sourceTaskId: payload.sourceTaskId || '',
     sourceTaskNo: payload.sourceTaskNo || '',
-    sourceProductionOrderId: payload.sourceProductionOrderId || '',
-    sourceProductionOrderNo: payload.sourceProductionOrderNo || '',
-    sourceDemandId: payload.sourceDemandId || '',
-    sourceDemandNo: payload.sourceDemandNo || payload.sourceDemandId || '',
+    ...(payload.sourceType ? { sourceType: payload.sourceType } : {}),
+    ...(payload.sourceProductionOrderId ? { sourceProductionOrderId: payload.sourceProductionOrderId } : {}),
+    ...(payload.sourceProductionOrderNo ? { sourceProductionOrderNo: payload.sourceProductionOrderNo } : {}),
+    ...(payload.stockMaterialId ? { stockMaterialId: payload.stockMaterialId } : {}),
+    ...(payload.stockMaterialName ? { stockMaterialName: payload.stockMaterialName } : {}),
+    ...(payload.sourceDemandId ? { sourceDemandId: payload.sourceDemandId } : {}),
+    ...(payload.sourceDemandNo || payload.sourceDemandId ? { sourceDemandNo: payload.sourceDemandNo || payload.sourceDemandId } : {}),
     sourceFactoryId: payload.sourceFactoryId || payload.targetFactoryId || '',
     sourceFactoryName: payload.sourceFactoryName || payload.targetFactoryName || '',
     targetFactoryId: payload.targetFactoryId || payload.sourceFactoryId || '',
@@ -1285,8 +1298,11 @@ export function createProcessHandoverRecord(payload: ProcessHandoverRecordPayloa
     sourceWorkOrderNo: payload.sourceWorkOrderNo,
     sourceTaskId: payload.sourceTaskId || warehouse?.sourceTaskId || '',
     sourceTaskNo: payload.sourceTaskNo || warehouse?.sourceTaskNo || '',
-    sourceProductionOrderId: payload.sourceProductionOrderId || warehouse?.sourceProductionOrderId || '',
-    sourceProductionOrderNo: payload.sourceProductionOrderNo || warehouse?.sourceProductionOrderNo || '',
+    ...((payload.sourceType || warehouse?.sourceType) ? { sourceType: payload.sourceType || warehouse?.sourceType } : {}),
+    ...((payload.sourceProductionOrderId || warehouse?.sourceProductionOrderId) ? { sourceProductionOrderId: payload.sourceProductionOrderId || warehouse?.sourceProductionOrderId } : {}),
+    ...((payload.sourceProductionOrderNo || warehouse?.sourceProductionOrderNo) ? { sourceProductionOrderNo: payload.sourceProductionOrderNo || warehouse?.sourceProductionOrderNo } : {}),
+    ...((payload.stockMaterialId || warehouse?.stockMaterialId) ? { stockMaterialId: payload.stockMaterialId || warehouse?.stockMaterialId } : {}),
+    ...((payload.stockMaterialName || warehouse?.stockMaterialName) ? { stockMaterialName: payload.stockMaterialName || warehouse?.stockMaterialName } : {}),
     handoverFactoryId: payload.handoverFactoryId || warehouse?.sourceFactoryId || '',
     handoverFactoryName: payload.handoverFactoryName || warehouse?.sourceFactoryName || '',
     receiveFactoryId: payload.receiveFactoryId || warehouse?.targetFactoryId || '',
@@ -1334,8 +1350,11 @@ export function createProcessHandoverDifferenceRecord(payload: DifferenceRecordP
     warehouseRecordId: payload.warehouseRecordId,
     sourceWorkOrderId: payload.sourceWorkOrderId,
     sourceWorkOrderNo: payload.sourceWorkOrderNo,
-    sourceProductionOrderId: payload.sourceProductionOrderId || '',
-    sourceProductionOrderNo: payload.sourceProductionOrderNo || '',
+    ...(payload.sourceType ? { sourceType: payload.sourceType } : {}),
+    ...(payload.sourceProductionOrderId ? { sourceProductionOrderId: payload.sourceProductionOrderId } : {}),
+    ...(payload.sourceProductionOrderNo ? { sourceProductionOrderNo: payload.sourceProductionOrderNo } : {}),
+    ...(payload.stockMaterialId ? { stockMaterialId: payload.stockMaterialId } : {}),
+    ...(payload.stockMaterialName ? { stockMaterialName: payload.stockMaterialName } : {}),
     craftType: payload.craftType,
     craftName: payload.craftName,
     objectType: payload.objectType,

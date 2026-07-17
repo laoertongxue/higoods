@@ -50,7 +50,9 @@ export interface MobileExecutionTaskSourceInfo {
   workOrderNos: string[]
   sourceIds: string[]
   sourceNos: string[]
-  productionOrderNo: string
+  productionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   sourceTaskNo: string
   factoryId: string
   factoryName: string
@@ -172,7 +174,9 @@ function getPrintSourceInfo(task: ProcessTask): Partial<MobileExecutionTaskSourc
     printOrderNo: normalizeString(order.printOrderNo),
     sourceIds: uniqueStrings([order.printOrderId, (order as typeof order & { workOrderId?: string }).workOrderId]),
     sourceNos: uniqueStrings([order.printOrderNo, (order as typeof order & { workOrderNo?: string }).workOrderNo]),
-    productionOrderNo: normalizeString(order.productionOrderIds?.[0] || task.productionOrderId),
+    ...(order.sourceType === 'STOCK'
+      ? { stockMaterialId: order.stockMaterialId, stockMaterialName: order.stockMaterialName }
+      : { productionOrderNo: normalizeString(order.sourceProductionOrderNo || order.sourceProductionOrderId || task.productionOrderId) }),
     patternNo: normalizeString(order.patternNo),
     materialSku: normalizeString(order.materialSku),
   }
@@ -190,7 +194,9 @@ function getDyeSourceInfo(task: ProcessTask): Partial<MobileExecutionTaskSourceI
     dyeOrderNo: normalizeString(order.dyeOrderNo),
     sourceIds: uniqueStrings([order.dyeOrderId, (order as typeof order & { workOrderId?: string }).workOrderId]),
     sourceNos: uniqueStrings([order.dyeOrderNo, (order as typeof order & { workOrderNo?: string }).workOrderNo]),
-    productionOrderNo: normalizeString(order.productionOrderIds?.[0] || task.productionOrderId),
+    ...(order.sourceType === 'STOCK'
+      ? { stockMaterialId: order.stockMaterialId, stockMaterialName: order.stockMaterialName }
+      : { productionOrderNo: normalizeString(order.sourceProductionOrderNo || order.sourceProductionOrderId || task.productionOrderId) }),
     rawMaterialSku: normalizeString(order.rawMaterialSku),
     targetColor: normalizeString(order.targetColor),
     colorNo: normalizeString(order.colorNo),
@@ -386,7 +392,9 @@ function buildSourceInfo(task: ProcessTask): MobileExecutionTaskSourceInfo {
     workOrderNos: [],
     sourceIds: [],
     sourceNos: [],
-    productionOrderNo: normalizeString(taskLike.productionOrderNo || task.productionOrderId),
+    ...(task.sourceType === 'STOCK'
+      ? { stockMaterialId: task.stockMaterialId, stockMaterialName: task.stockMaterialName }
+      : { productionOrderNo: normalizeString(taskLike.productionOrderNo || task.productionOrderId) }),
     sourceTaskNo: normalizeString(taskLike.sourceTaskNo || task.rootTaskNo || task.taskNo || task.taskId),
     factoryId: factoryMeta.factoryId,
     factoryName: factoryMeta.factoryName,
@@ -550,7 +558,6 @@ export function getMobileExecutionTaskSourceInfo(task: ProcessTask | null | unde
       workOrderNos: [],
       sourceIds: [],
       sourceNos: [],
-      productionOrderNo: '',
       sourceTaskNo: '',
       factoryId: '',
       factoryName: '',

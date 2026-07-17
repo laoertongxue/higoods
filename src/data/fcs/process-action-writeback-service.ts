@@ -62,6 +62,11 @@ import {
   validateWaterSolublePdaActor,
   type WaterSolublePdaActor,
 } from './water-soluble-pda-actor.ts'
+import {
+  advanceDyeWorkOrderOnlineStatus,
+  assertDyeWorkOrderOnlineActionAllowed,
+  getDyeWorkOrderOnlineRecord,
+} from './dye-work-order-online-domain.ts'
 
 export type ProcessActionSourceChannel = 'Web 端' | '移动端'
 export type ProcessActionSourceType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
@@ -992,9 +997,25 @@ export function executeDyeAction(payload: ProcessActionPayload): Partial<Process
   } else if (actionCode === 'DYE_SCHEDULE_VAT') {
     planDyeVat(payload.sourceId, { dyeVatNo: String(fields.dyeVatNo || getDefaultF090DyeVatNo()), operatorName })
   } else if (actionCode === 'DYE_START_DYEING') {
+    const shouldAdvanceOnlineStart = payload.sourceChannel === '移动端'
+      && getDyeWorkOrderOnlineRecord(payload.sourceId).status !== '染色中'
+    if (shouldAdvanceOnlineStart) assertDyeWorkOrderOnlineActionAllowed(payload.sourceId, '开工')
     startDyeing(payload.sourceId, { dyeVatNo: String(fields.dyeVatNo || getDefaultF090DyeVatNo()), operatorName })
+    if (shouldAdvanceOnlineStart) {
+      advanceDyeWorkOrderOnlineStatus(payload.sourceId, {
+        action: '开工', operatorName, operatedAt: payload.operatedAt || '', source: 'PDA',
+      })
+    }
   } else if (actionCode === 'DYE_FINISH_DYEING') {
-    completeDyeing(payload.sourceId, { outputQty: qty, operatorName })
+    if (payload.sourceChannel === '移动端') assertDyeWorkOrderOnlineActionAllowed(payload.sourceId, '完工')
+    const node = completeDyeing(payload.sourceId, { outputQty: qty, operatorName })
+    if (payload.sourceChannel === '移动端') {
+      advanceDyeWorkOrderOnlineStatus(payload.sourceId, {
+        action: '完工', operatorName, operatedAt: payload.operatedAt || '', source: 'PDA',
+        completedQty: node.outputQty || 0,
+        lossQty: node.lossQty || 0,
+      })
+    }
   } else if (actionCode === 'DYE_FINISH_DEHYDRATION') {
     completeDyeNode(payload.sourceId, 'DEHYDRATE', { outputQty: qty, operatorName })
   } else if (actionCode === 'DYE_FINISH_DRYING') {
@@ -1006,12 +1027,18 @@ export function executeDyeAction(payload: ProcessActionPayload): Partial<Process
   } else if (actionCode === 'DYE_FINISH_PACKING') {
     completeDyeNode(payload.sourceId, 'PACK', { outputQty: qty, operatorName })
   } else if (actionCode === 'DYE_SUBMIT_HANDOVER') {
+    if (payload.sourceChannel === '移动端') assertDyeWorkOrderOnlineActionAllowed(payload.sourceId, '交出')
     const result = submitDyeHandover(payload.sourceId, {
       handoverQty: qty,
       handoverPerson: operatorName,
       handoverAt: payload.operatedAt,
       remark: payload.remark,
     })
+    if (payload.sourceChannel === '移动端') {
+      advanceDyeWorkOrderOnlineStatus(payload.sourceId, {
+        action: '交出', operatorName, operatedAt: payload.operatedAt || '', source: 'PDA', remark: payload.remark,
+      })
+    }
     return { affectedHandoverRecordId: result.recordIds[0] || '' }
   }
   return {}
@@ -1321,6 +1348,16 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
     actionCode: normalizeActionCode(payload.actionCode),
     operatorName: payload.operatorName || (payload.sourceChannel === '移动端' ? '移动端操作员' : 'Web 端操作员'),
     operatedAt: payload.operatedAt || nowText(),
+  }
+  if (canonicalPayload.sourceChannel === '移动端' && canonicalPayload.sourceType === 'DYE') {
+    const onlineAction = canonicalPayload.actionCode === 'DYE_START_DYEING'
+      ? getDyeWorkOrderOnlineRecord(canonicalPayload.sourceId).status === '染色中' ? null : '开工'
+      : canonicalPayload.actionCode === 'DYE_FINISH_DYEING'
+        ? '完工'
+        : canonicalPayload.actionCode === 'DYE_SUBMIT_HANDOVER'
+          ? '交出'
+          : null
+    if (onlineAction) assertDyeWorkOrderOnlineActionAllowed(canonicalPayload.sourceId, onlineAction)
   }
   const validation = validateProcessAction(canonicalPayload)
   if (!validation.ok || !validation.definition || !validation.snapshot) {

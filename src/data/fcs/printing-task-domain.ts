@@ -5,20 +5,39 @@ import {
   getHandoverOrderById,
   getPdaHandoverRecordsByHead,
   listHandoverOrdersByTaskId,
+  upsertPdaHandoverHeadMock,
+  upsertPdaHandoutRecordMock,
   writeBackHandoverRecord,
   type PdaHandoverHead,
   type PdaHandoverRecord,
 } from './pda-handover-events.ts'
-import { listPdaGenericProcessTasks, type PdaGenericTaskMock } from './pda-task-mock-factory.ts'
-import { type HandoverReceiverKind } from './process-tasks.ts'
+import {
+  listPdaGenericProcessTasks,
+  registerPdaGenericProcessTask,
+  type PdaGenericTaskMock,
+} from './pda-task-mock-factory.ts'
+import { type HandoverReceiverKind, type QtyUnit } from './process-tasks.ts'
+import type {
+  FormalProductionOrderProcessSnapshot,
+  FormalProductionOrderProcessSnapshotRecord,
+  ProcessWorkOrderAutoSyncRecord,
+  ProcessWorkOrderChangeImpact,
+  ProcessWorkOrderSourceType,
+} from './process-work-order-domain.ts'
+import {
+  deriveFormalProductionOrderMaterialFields,
+  normalizeFormalProductionOrderMaterialItems,
+} from './formal-production-order-material-items.ts'
 import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
+import { getFactoryMasterRecordById } from './factory-master-store.ts'
+import { getProcessWorkOrderStockMaterial, isValidProcessWorkOrderPlannedFinishAt } from './process-work-order-stock.ts'
+import { syncFactoryWarehouseHandoverSourceByTaskId } from './factory-internal-warehouse.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
 import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
 import { listActiveProcessCraftDefinitions, type ProcessCraftDefinition } from './process-craft-dict.ts'
 import {
-  buildDictionaryCraftMockDocumentNo,
   DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
   getDictionaryCraftMockSource,
 } from './production-artifact-generation.ts'
@@ -38,6 +57,9 @@ export type PrintWorkOrderStatus =
   | 'PARTIAL_HANDOVER'
   | 'FULL_HANDOVER'
   | 'HANDOVER_DIFFERENCE'
+  | 'WAIT_REVIEW'
+  | 'COMPLETED'
+  | 'REJECTED'
 
 export type PrintExecutionNodeCode = 'COLOR_TEST' | 'PRINT' | 'TRANSFER' | 'HANDOVER'
 export type PrintReceiptStatus = 'WAIT_RECEIVE' | 'PARTIAL_HANDOVER' | 'FULL_HANDOVER' | 'HANDOVER_DIFFERENCE'
@@ -46,8 +68,12 @@ export type PrintReviewStatus = PrintReceiptStatus
 export interface PrintWorkOrder {
   printOrderId: string
   printOrderNo: string
-  sourceType: 'PRODUCTION_ORDER'
-  sourceDemandIds: string[]
+  sourceType: ProcessWorkOrderSourceType
+  sourceProductionOrderId?: string
+  sourceProductionOrderNo?: string
+  productionOrderOrderedAt?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   productionOrderIds: string[]
   isFirstOrder: boolean
   artworkTaskId?: string
@@ -61,6 +87,7 @@ export interface PrintWorkOrder {
   isFabricPrinting?: boolean
   plannedQty: number
   qtyUnit: string
+  plannedFinishAt?: string
   qtyLabel?: string
   plannedRollCount?: number
   assignmentMode: '派单'
@@ -85,6 +112,9 @@ export interface PrintWorkOrder {
   createdAt: string
   updatedAt: string
   remark?: string
+  formalProductionOrderSnapshot?: FormalProductionOrderProcessSnapshotRecord
+  changeImpact?: ProcessWorkOrderChangeImpact[]
+  autoSyncHistory?: ProcessWorkOrderAutoSyncRecord[]
 }
 
 export interface PrintExecutionNodeRecord {
@@ -163,6 +193,9 @@ export const PRINT_WORK_ORDER_STATUS_LABEL: Record<PrintWorkOrderStatus, string>
   PARTIAL_HANDOVER: '部分交出',
   FULL_HANDOVER: '全部交出',
   HANDOVER_DIFFERENCE: '收货差异',
+  WAIT_REVIEW: '待审核',
+  COMPLETED: '已完成',
+  REJECTED: '已驳回',
 }
 
 export const PRINT_NODE_LABEL: Record<PrintExecutionNodeCode, string> = {
@@ -199,6 +232,7 @@ const PRINT_WORK_ORDER_IDS = {
 } as const
 
 const workOrderStore = new Map<string, MutablePrintWorkOrder>()
+const createdPrintOrderIds = new Set<string>()
 const nodeRecordStore = new Map<string, MutableNodeRecord[]>()
 const reviewRecordStore = new Map<string, MutableReviewRecord>()
 
@@ -232,14 +266,6 @@ function getGeneratedPrintCraft(index: number): { craftDefinition: ProcessCraftD
   }
 }
 
-function buildPrintDemandId(craftCode: string, productionOrderId: string, mockIndex: number): string {
-  return buildDictionaryCraftMockDocumentNo('YHXQ', craftCode, productionOrderId, mockIndex)
-}
-
-function buildPrintWorkOrderNo(craftCode: string, productionOrderId: string, mockIndex: number): string {
-  return buildDictionaryCraftMockDocumentNo('YHJG', craftCode, productionOrderId, mockIndex)
-}
-
 function getGeneratedPrintContext(index: number): GeneratedPrintContext | null {
   const generatedCraft = getGeneratedPrintCraft(index)
   if (!generatedCraft) return null
@@ -265,20 +291,43 @@ function getVisiblePrintWorkOrderIds(): Set<string> {
   return new Set(
     Array.from(workOrderStore.values())
       .sort((left, right) => left.printOrderNo.localeCompare(right.printOrderNo))
-      .slice(0, GENERATED_PRINT_CRAFTS.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION)
       .map((order) => order.printOrderId),
   )
 }
 
-function toGeneratedPrintWorkOrder(order: MutablePrintWorkOrder, index: number): MutablePrintWorkOrder {
+function buildGeneratedPrintWorkOrder(order: MutablePrintWorkOrder, index: number): MutablePrintWorkOrder {
+  if (createdPrintOrderIds.has(order.printOrderId)) return order
   const context = getGeneratedPrintContext(index)
-  if (!context) return order
+  if (!context) {
+    const sourceProductionOrderId = order.sourceProductionOrderId || order.productionOrderIds[0]
+    const sourceOrder = productionOrders.find((item) => item.productionOrderId === sourceProductionOrderId)
+    if (!sourceOrder) {
+      return {
+        ...order,
+        sourceType: 'STOCK',
+        sourceProductionOrderId: undefined,
+        sourceProductionOrderNo: undefined,
+        productionOrderOrderedAt: undefined,
+        productionOrderIds: [],
+        stockMaterialId: `STOCK-${order.printOrderId}`,
+        stockMaterialName: order.materialSku,
+        remark: `${order.remark || '印花加工'}；来源备货物料 ${order.materialSku}。`,
+      }
+    }
+    return {
+      ...order,
+      sourceProductionOrderId,
+      sourceProductionOrderNo: order.sourceProductionOrderNo || sourceOrder.productionOrderNo,
+      productionOrderOrderedAt: order.productionOrderOrderedAt || sourceOrder.createdAt,
+    }
+  }
   const { productionOrder, techPackSnapshot, craftDefinition, mockIndex, plannedQty, materialName, materialColor } = context
-  const demandId = buildPrintDemandId(craftDefinition.craftCode, productionOrder.productionOrderId, mockIndex)
   return {
     ...order,
-    printOrderNo: buildPrintWorkOrderNo(craftDefinition.craftCode, productionOrder.productionOrderId, mockIndex),
-    sourceDemandIds: [demandId],
+    sourceType: 'PRODUCTION_ORDER',
+    sourceProductionOrderId: productionOrder.productionOrderId,
+    sourceProductionOrderNo: productionOrder.productionOrderNo,
+    productionOrderOrderedAt: productionOrder.createdAt,
     productionOrderIds: [productionOrder.productionOrderId],
     isFirstOrder: mockIndex === 0,
     patternNo: techPackSnapshot.sourceTechPackVersionCode || techPackSnapshot.styleCode,
@@ -293,15 +342,83 @@ function toGeneratedPrintWorkOrder(order: MutablePrintWorkOrder, index: number):
   }
 }
 
+function syncSeedSourceToTaskAndHandovers(order: MutablePrintWorkOrder): void {
+  const task = getPrintingTaskById(order.taskId)
+  if (task) {
+    if (order.sourceType === 'STOCK') {
+      task.sourceType = 'STOCK'
+      task.stockMaterialId = order.stockMaterialId
+      task.stockMaterialName = order.stockMaterialName
+      task.productionOrderId = undefined
+      task.productionOrderNo = undefined
+      task.sourceProductionOrderId = undefined
+    } else {
+      task.sourceType = 'PRODUCTION_ORDER'
+      task.productionOrderId = order.sourceProductionOrderId
+      task.productionOrderNo = order.sourceProductionOrderNo
+      task.sourceProductionOrderId = order.sourceProductionOrderId
+      task.stockMaterialId = undefined
+      task.stockMaterialName = undefined
+    }
+    registerPdaGenericProcessTask(task)
+  }
+
+  listHandoverOrdersByTaskId(order.taskId).forEach((head) => {
+    const records = getPdaHandoverRecordsByHead(head.handoverId)
+    const sourceFields = order.sourceType === 'STOCK'
+      ? {
+          sourceType: 'STOCK' as const,
+          stockMaterialId: order.stockMaterialId,
+          stockMaterialName: order.stockMaterialName,
+          productionOrderId: undefined,
+          productionOrderNo: undefined,
+        }
+      : {
+          sourceType: 'PRODUCTION_ORDER' as const,
+          productionOrderId: order.sourceProductionOrderId,
+          productionOrderNo: order.sourceProductionOrderNo,
+          stockMaterialId: undefined,
+          stockMaterialName: undefined,
+        }
+    upsertPdaHandoverHeadMock({ ...head, ...sourceFields })
+    records.forEach((record) => {
+      upsertPdaHandoutRecordMock({ ...record, ...sourceFields })
+    })
+  })
+  syncFactoryWarehouseHandoverSourceByTaskId(order.taskId)
+}
+
+function normalizeSeedWorkOrderSources(): void {
+  Array.from(workOrderStore.values())
+    .sort((left, right) => left.printOrderNo.localeCompare(right.printOrderNo))
+    .forEach((order, index) => {
+      const normalized = buildGeneratedPrintWorkOrder(order, index)
+      workOrderStore.set(normalized.printOrderId, normalized)
+      syncSeedSourceToTaskAndHandovers(normalized)
+    })
+}
+
 function listGeneratedPrintWorkOrders(): MutablePrintWorkOrder[] {
   return Array.from(workOrderStore.values())
     .sort((left, right) => left.printOrderNo.localeCompare(right.printOrderNo))
-    .slice(0, GENERATED_PRINT_CRAFTS.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION)
-    .map((order, index) => toGeneratedPrintWorkOrder(order, index))
 }
 
 function cloneWorkOrder(order: MutablePrintWorkOrder): PrintWorkOrder {
-  return { ...order, sourceDemandIds: [...order.sourceDemandIds], productionOrderIds: [...order.productionOrderIds] }
+  return {
+    ...order,
+    productionOrderIds: [...order.productionOrderIds],
+    formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
+      ? {
+          ...order.formalProductionOrderSnapshot,
+          processCodes: [...order.formalProductionOrderSnapshot.processCodes],
+          materialItems: order.formalProductionOrderSnapshot.materialItems
+            ? order.formalProductionOrderSnapshot.materialItems.map((item) => ({ ...item }))
+            : undefined,
+        }
+      : undefined,
+    changeImpact: order.changeImpact ? structuredClone(order.changeImpact) : undefined,
+    autoSyncHistory: order.autoSyncHistory ? structuredClone(order.autoSyncHistory) : undefined,
+  }
 }
 
 function cloneNodeRecord(record: MutableNodeRecord): PrintExecutionNodeRecord {
@@ -335,6 +452,104 @@ function getPrintingTasks(): PdaGenericTaskMock[] {
 function getPrintingTaskById(taskId: string): PdaGenericTaskMock | undefined {
   return getPrintingTasks().find((task) => task.taskId === taskId)
 }
+
+function buildFreshPrintMobileTask(input: {
+  taskId: string
+  taskNo: string
+  sourceType?: ProcessWorkOrderSourceType
+  productionOrderId?: string
+  productionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
+  spuCode: string
+  spuName: string
+  requiredDeliveryDate: string
+  factoryId: string
+  factoryName: string
+  qty: number
+  qtyDisplayUnit: string
+  processName: string
+  createdAt: string
+}): PdaGenericTaskMock {
+  const hasFactory = Boolean(input.factoryId)
+  const sourceType: ProcessWorkOrderSourceType = input.sourceType === 'STOCK' ? 'STOCK' : 'PRODUCTION_ORDER'
+  const qtyUnit: QtyUnit = ['件', '片', '个', '套'].includes(input.qtyDisplayUnit)
+    ? 'PIECE'
+    : ['卷', '捆', '包', '打'].includes(input.qtyDisplayUnit)
+      ? 'BUNDLE'
+      : 'METER'
+  return {
+    taskId: input.taskId,
+    taskNo: input.taskNo,
+    sourceType,
+    ...(sourceType === 'STOCK'
+      ? { stockMaterialId: input.stockMaterialId, stockMaterialName: input.stockMaterialName }
+      : { productionOrderId: input.productionOrderId, productionOrderNo: input.productionOrderNo, sourceProductionOrderId: input.productionOrderId }),
+    spuCode: input.spuCode,
+    spuName: input.spuName,
+    requiredDeliveryDate: input.requiredDeliveryDate,
+    seq: 1,
+    processCode: 'PROC_PRINT',
+    processNameZh: input.processName,
+    stage: 'PREP',
+    qty: input.qty,
+    qtyUnit,
+    qtyDisplayUnit: input.qtyDisplayUnit,
+    assignmentMode: 'DIRECT',
+    assignmentStatus: hasFactory ? 'ASSIGNED' : 'UNASSIGNED',
+    ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['PRINTING'] },
+    assignedFactoryId: hasFactory ? input.factoryId : undefined,
+    assignedFactoryName: hasFactory ? input.factoryName : '待分配工厂',
+    qcPoints: [],
+    attachments: [],
+    status: 'NOT_STARTED',
+    acceptanceStatus: hasFactory ? 'ACCEPTED' : 'PENDING',
+    dispatchRemark: hasFactory ? '印花加工单已分配，待工厂接收。' : '正式生产单已生成加工单，待分配工厂。',
+    dispatchedAt: hasFactory ? input.createdAt : undefined,
+    dispatchedBy: hasFactory ? '平台自动生成' : undefined,
+    taskQrValue: buildTaskQrValue(input.taskId),
+    taskQrStatus: 'ACTIVE',
+    handoverStatus: 'NOT_CREATED',
+    receiverKind: 'WAREHOUSE',
+    receiverId: 'WH-TRANSFER',
+    receiverName: '中转区域',
+    stageCode: 'PREP',
+    stageName: '准备阶段',
+    processBusinessCode: 'PRINT',
+    processBusinessName: input.processName,
+    mockProcessKey: 'PRINTING',
+    mockOrigin: hasFactory ? 'EXEC_NOT_STARTED' : 'DIRECT_PENDING',
+    handoutStatus: 'PENDING',
+    createdAt: input.createdAt,
+    updatedAt: input.createdAt,
+    auditLogs: [],
+    mockReceiveSummary: hasFactory ? '印花加工单已分配，待工厂接收。' : '印花加工单待分配工厂。',
+    mockExecutionSummary: '按正式技术包印花工艺执行。',
+    mockHandoverSummary: '完成印花后统一交出。',
+  }
+}
+
+function ensurePrintingTaskClone(sourceTaskId: string, taskId: string, productionOrderId: string): void {
+  if (getPrintingTaskById(taskId)) return
+  const source = getPrintingTaskById(sourceTaskId)
+  if (!source) return
+  registerPdaGenericProcessTask({
+    ...source,
+    taskId,
+    taskNo: taskId,
+    taskQrValue: buildTaskQrValue(taskId),
+    productionOrderId,
+    productionOrderNo: productionOrderId,
+    tenderId: source.tenderId ? `${source.tenderId}-${taskId}` : undefined,
+    materialRequestNo: source.materialRequestNo ? `MR-PRINT-${taskId.split('-').at(-1)}` : undefined,
+    auditLogs: source.auditLogs.map((log, index) => ({
+      ...log,
+      id: `AL-${taskId}-${log.action}-${index + 1}`,
+    })),
+  })
+}
+
+ensurePrintingTaskClone('TASK-PRINT-000716', 'TASK-PRINT-000724', 'PO-20260329-079')
 
 function syncLinkedTaskState(
   taskId: string,
@@ -499,13 +714,16 @@ function addSeedWorkOrder(input: Omit<
   const task = getPrintingTaskById(input.taskId)
   const handoverOrder = input.handoverOrderId ? getHandoverOrderById(input.handoverOrderId) : getPrimaryHandoverOrder(input.taskId)
   if (task) {
+    const hasFactory = Boolean(input.printFactoryId)
     task.assignmentMode = 'DIRECT'
-    task.assignmentStatus = 'ASSIGNED'
-    task.acceptanceStatus = 'ACCEPTED'
+    task.assignmentStatus = hasFactory ? 'ASSIGNED' : 'UNASSIGNED'
+    task.acceptanceStatus = hasFactory ? 'ACCEPTED' : 'PENDING'
+    task.assignedFactoryId = hasFactory ? input.printFactoryId : undefined
+    task.assignedFactoryName = hasFactory ? input.printFactoryName : '待分配工厂'
     task.tenderId = undefined
     task.awardedAt = undefined
-    task.dispatchedBy = '平台派单'
-    task.dispatchRemark = '印花加工单派单后直接进入执行待加工'
+    task.dispatchedBy = hasFactory ? '平台派单' : undefined
+    task.dispatchRemark = hasFactory ? '印花加工单派单后直接进入执行待加工' : '正式生产单已生成加工单，待分配工厂。'
     task.dispatchPrice = input.dispatchPrice ?? 1200
     task.dispatchPriceCurrency = 'IDR'
     task.dispatchPriceUnit = 'Yard'
@@ -592,6 +810,11 @@ function seedWorkOrders(): void {
     startedAt: '2026-03-28 13:20:00',
     acceptanceStatus: 'ACCEPTED',
   })
+  syncLinkedTaskState('TASK-PRINT-000724', {
+    status: 'IN_PROGRESS',
+    startedAt: '2026-03-29 13:20:00',
+    acceptanceStatus: 'ACCEPTED',
+  })
   syncLinkedTaskState('TASK-PRINT-000712', {
     status: 'DONE',
     startedAt: '2026-03-28 08:50:00',
@@ -613,7 +836,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.WAIT_ARTWORK,
     printOrderNo: 'PH-20260328-001',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-001'],
     productionOrderIds: ['PO-20260328-071'],
     isFirstOrder: true,
     patternNo: 'PAT-HT-001',
@@ -642,7 +864,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.WAIT_COLOR_TEST,
     printOrderNo: 'PH-20260328-002',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-002'],
     productionOrderIds: ['PO-20260328-072'],
     isFirstOrder: false,
     patternNo: 'PAT-HT-018',
@@ -671,7 +892,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.WAIT_PRINT,
     printOrderNo: 'PH-20260328-003',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-003'],
     productionOrderIds: ['PO-20260328-073'],
     isFirstOrder: false,
     patternNo: 'PAT-HT-026',
@@ -700,7 +920,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.PRINTING,
     printOrderNo: 'PH-20260328-004',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-004'],
     productionOrderIds: ['PO-20260328-074'],
     isFirstOrder: true,
     patternNo: 'PAT-HT-032',
@@ -727,7 +946,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.WAIT_HANDOVER,
     printOrderNo: 'PH-20260328-005',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-005'],
     productionOrderIds: ['PO-20260328-075'],
     isFirstOrder: false,
     patternNo: 'PAT-HT-037',
@@ -754,7 +972,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.HANDOVER_WAIT_RECEIVE,
     printOrderNo: 'PH-20260328-006',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-006'],
     productionOrderIds: ['PO-20260328-076'],
     isFirstOrder: true,
     patternNo: 'PAT-HT-041',
@@ -781,7 +998,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.PARTIAL_HANDOVER,
     printOrderNo: 'PH-20260328-007',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-007'],
     productionOrderIds: ['PO-20260328-077'],
     isFirstOrder: false,
     patternNo: 'PAT-HT-045',
@@ -808,7 +1024,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.TRANSFERRING,
     printOrderNo: 'PH-20260329-009',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-009'],
     productionOrderIds: ['PO-20260329-079'],
     isFirstOrder: false,
     patternNo: 'PAT-HT-061',
@@ -823,8 +1038,8 @@ function seedWorkOrders(): void {
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'TRANSFERRING',
-    taskId: 'TASK-PRINT-000716',
-    taskNo: 'TASK-PRINT-000716',
+    taskId: 'TASK-PRINT-000724',
+    taskNo: 'TASK-PRINT-000724',
     createdAt: '2026-03-28 08:40:00',
     updatedAt: '2026-03-29 14:10:00',
     remark: '打印已完成，当前正在转印',
@@ -834,7 +1049,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.HANDOVER_DIFFERENCE,
     printOrderNo: 'PH-20260329-010',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-010'],
     productionOrderIds: ['PO-20260329-080'],
     isFirstOrder: true,
     patternNo: 'PAT-HT-066',
@@ -861,7 +1075,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.FULL_HANDOVER,
     printOrderNo: 'PH-20260329-008',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-008'],
     productionOrderIds: ['PO-20260329-078'],
     isFirstOrder: false,
     patternNo: 'PAT-HT-052',
@@ -888,7 +1101,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.WAIT_PRINT_EXTRA,
     printOrderNo: 'PH-20260329-011',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-011'],
     productionOrderIds: ['PO-20260329-081'],
     isFirstOrder: false,
     patternNo: 'PAT-HT-071',
@@ -914,7 +1126,6 @@ function seedWorkOrders(): void {
     printOrderId: PRINT_WORK_ORDER_IDS.PRINTING_EXTRA,
     printOrderNo: 'PH-20260329-012',
     sourceType: 'PRODUCTION_ORDER',
-    sourceDemandIds: ['PRD-PRINT-012'],
     productionOrderIds: ['PO-20260329-082'],
     isFirstOrder: true,
     patternNo: 'PAT-HT-073',
@@ -1190,7 +1401,7 @@ function seedNodeRecords(): void {
     {
       nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.TRANSFERRING, 'COLOR_TEST'),
       printOrderId: PRINT_WORK_ORDER_IDS.TRANSFERRING,
-      taskId: 'TASK-PRINT-000716',
+      taskId: 'TASK-PRINT-000724',
       nodeCode: 'COLOR_TEST',
       nodeName: PRINT_NODE_LABEL.COLOR_TEST,
       operatorUserId: 'USR-PRINT-15',
@@ -1203,7 +1414,7 @@ function seedNodeRecords(): void {
     {
       nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.TRANSFERRING, 'PRINT'),
       printOrderId: PRINT_WORK_ORDER_IDS.TRANSFERRING,
-      taskId: 'TASK-PRINT-000716',
+      taskId: 'TASK-PRINT-000724',
       nodeCode: 'PRINT',
       nodeName: PRINT_NODE_LABEL.PRINT,
       operatorUserId: 'USR-PRINT-16',
@@ -1220,7 +1431,7 @@ function seedNodeRecords(): void {
     {
       nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.TRANSFERRING, 'TRANSFER'),
       printOrderId: PRINT_WORK_ORDER_IDS.TRANSFERRING,
-      taskId: 'TASK-PRINT-000716',
+      taskId: 'TASK-PRINT-000724',
       nodeCode: 'TRANSFER',
       nodeName: PRINT_NODE_LABEL.TRANSFER,
       operatorUserId: 'USR-PRINT-17',
@@ -1413,6 +1624,7 @@ function seedDomain(): void {
   if (seeded) return
   seeded = true
   seedWorkOrders()
+  normalizeSeedWorkOrderSources()
   seedNodeRecords()
   seedReviewRecords()
 }
@@ -1421,11 +1633,11 @@ function syncOrderFromReview(order: MutablePrintWorkOrder, review?: MutableRevie
   if (!review) return false
 
   if (review.reviewStatus === 'FULL_HANDOVER') {
-    order.status = 'FULL_HANDOVER'
+    order.status = review.reviewedAt ? 'COMPLETED' : 'WAIT_REVIEW'
   } else if (review.reviewStatus === 'HANDOVER_DIFFERENCE') {
-    order.status = 'HANDOVER_DIFFERENCE'
+    order.status = review.reviewedAt && review.rejectReason ? 'REJECTED' : 'WAIT_REVIEW'
   } else if (review.reviewStatus === 'PARTIAL_HANDOVER') {
-    order.status = 'PARTIAL_HANDOVER'
+    order.status = 'WAIT_REVIEW'
   } else {
     order.status = 'HANDOVER_WAIT_RECEIVE'
   }
@@ -1584,14 +1796,388 @@ export function listPrintWorkOrders(): PrintWorkOrder[] {
 
 export function getPrintWorkOrderById(printOrderId: string): PrintWorkOrder | undefined {
   syncDerivedWorkflow()
+  const canonical = workOrderStore.get(printOrderId)
   const order = listGeneratedPrintWorkOrders().find((item) => item.printOrderId === printOrderId)
-  return order ? cloneWorkOrder(order) : undefined
+  return order && canonical
+    ? cloneWorkOrder({
+        ...order,
+        printOrderId: canonical.printOrderId,
+        printOrderNo: canonical.printOrderNo,
+        taskId: canonical.taskId,
+        taskNo: canonical.taskNo,
+      })
+    : undefined
 }
 
 export function getPrintWorkOrderByTaskId(taskId: string): PrintWorkOrder | undefined {
   syncDerivedWorkflow()
-  const order = listGeneratedPrintWorkOrders().find((item) => item.taskId === taskId)
-  return order ? cloneWorkOrder(order) : undefined
+  const canonical = Array.from(workOrderStore.values()).find((item) => item.taskId === taskId)
+  if (!canonical) return undefined
+  const order = listGeneratedPrintWorkOrders().find((item) => item.printOrderId === canonical.printOrderId)
+  return order
+    ? cloneWorkOrder({
+        ...order,
+        printOrderId: canonical.printOrderId,
+        printOrderNo: canonical.printOrderNo,
+        taskId: canonical.taskId,
+        taskNo: canonical.taskNo,
+      })
+    : undefined
+}
+
+export function registerFormalProductionOrderPrintWorkOrder(input: FormalProductionOrderProcessSnapshot & {
+  workOrderId: string
+  workOrderNo: string
+  processName: string
+}): PrintWorkOrder {
+  seedDomain()
+  const existing = Array.from(workOrderStore.values())
+    .find((order) => order.sourceProductionOrderId === input.productionOrderId)
+  if (existing) return cloneWorkOrder(existing)
+
+  const materialItems = normalizeFormalProductionOrderMaterialItems(input)
+  const materialFields = deriveFormalProductionOrderMaterialFields(materialItems)
+
+  const factoryId = input.factoryId || ''
+  const factoryName = input.factoryName || '待分配工厂'
+  registerPdaGenericProcessTask(buildFreshPrintMobileTask({
+    taskId: input.workOrderId,
+    taskNo: input.workOrderNo,
+    productionOrderId: input.productionOrderId,
+    productionOrderNo: input.productionOrderNo,
+    spuCode: input.spuCode,
+    spuName: input.spuName,
+    requiredDeliveryDate: input.requiredDeliveryDate,
+    factoryId,
+    factoryName,
+    qty: input.plannedQty,
+    qtyDisplayUnit: input.qtyUnit,
+    processName: input.processName,
+    createdAt: input.orderedAt,
+  }))
+  addSeedWorkOrder({
+    printOrderId: input.workOrderId,
+    printOrderNo: input.workOrderNo,
+    sourceType: 'PRODUCTION_ORDER',
+    sourceProductionOrderId: input.productionOrderId,
+    sourceProductionOrderNo: input.productionOrderNo,
+    productionOrderOrderedAt: input.orderedAt,
+    productionOrderIds: [input.productionOrderId],
+    isFirstOrder: false,
+    patternNo: input.techPackVersionId,
+    patternVersion: input.techPackVersionLabel,
+    materialSku: materialFields.materialId,
+    materialColor: input.targetColor,
+    objectType: '面料',
+    isPiecePrinting: false,
+    isFabricPrinting: true,
+    plannedQty: input.plannedQty,
+    qtyUnit: input.qtyUnit,
+    qtyLabel: '计划数量',
+    printFactoryId: factoryId,
+    printFactoryName: factoryName,
+    targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
+    targetTransferWarehouseName: '中转区域',
+    status: 'WAIT_ARTWORK',
+    taskId: input.workOrderId,
+    taskNo: input.workOrderNo,
+    createdAt: input.orderedAt,
+    updatedAt: input.orderedAt,
+    remark: `${input.processName}；来源正式生产单 ${input.productionOrderNo}；技术包 ${input.techPackVersionLabel}。`,
+    formalProductionOrderSnapshot: {
+      productionOrderId: input.productionOrderId,
+      productionOrderNo: input.productionOrderNo,
+      orderedAt: input.orderedAt,
+      techPackVersionId: input.techPackVersionId,
+      techPackVersionLabel: input.techPackVersionLabel,
+      materialId: materialFields.materialId,
+      materialName: materialFields.materialName,
+      materialItems,
+      targetColor: input.targetColor,
+      plannedQty: input.plannedQty,
+      qtyUnit: input.qtyUnit,
+      processCodes: [...input.processCodes],
+      processName: input.processName,
+      spuCode: input.spuCode,
+      spuName: input.spuName,
+      requiredDeliveryDate: input.requiredDeliveryDate,
+    },
+  })
+  createdPrintOrderIds.add(input.workOrderId)
+  return getPrintWorkOrderById(input.workOrderId)!
+}
+
+export const PRINT_PRODUCTION_CHANGE_NOT_EXECUTED_STATUSES: readonly PrintWorkOrderStatus[] = [
+  'WAIT_ARTWORK',
+  'WAIT_COLOR_TEST',
+  'WAIT_PRINT',
+]
+
+export interface PreparedPrintWorkOrderProductionChangeSync {
+  workOrderId?: string
+  outcome: 'NOT_FOUND' | 'UNCHANGED' | 'AUTO_SYNCED' | 'PROTECTED'
+  before?: FormalProductionOrderProcessSnapshotRecord
+  after?: FormalProductionOrderProcessSnapshotRecord
+  impact?: ProcessWorkOrderChangeImpact
+  commit: () => void
+  rollback: () => void
+}
+
+function toPrintSnapshotRecord(snapshot: FormalProductionOrderProcessSnapshot): FormalProductionOrderProcessSnapshotRecord {
+  const materialItems = normalizeFormalProductionOrderMaterialItems(snapshot)
+  const materialFields = deriveFormalProductionOrderMaterialFields(materialItems)
+  return {
+    productionOrderId: snapshot.productionOrderId,
+    productionOrderNo: snapshot.productionOrderNo,
+    orderedAt: snapshot.orderedAt,
+    techPackVersionId: snapshot.techPackVersionId,
+    techPackVersionLabel: snapshot.techPackVersionLabel,
+    materialId: materialFields.materialId,
+    materialName: materialFields.materialName,
+    materialItems,
+    targetColor: snapshot.targetColor,
+    plannedQty: snapshot.plannedQty,
+    qtyUnit: snapshot.qtyUnit,
+    processCodes: [...snapshot.processCodes],
+    processName: snapshot.printProcessName || '印花',
+    spuCode: snapshot.spuCode,
+    spuName: snapshot.spuName,
+    requiredDeliveryDate: snapshot.requiredDeliveryDate,
+  }
+}
+
+function hasActualPrintExecution(order: MutablePrintWorkOrder): boolean {
+  const hasNodeFact = (nodeRecordStore.get(order.printOrderId) ?? [])
+    .some((node) => Boolean(node.startedAt || node.finishedAt))
+  const review = reviewRecordStore.get(order.printOrderId)
+  const hasReviewFact = Boolean(review?.reviewedAt || review?.handoverRecordIds?.length || review?.submittedQty)
+  const hasHandoverFact = getPrintOrderHandoverRecords(order.printOrderId).length > 0
+  const isExplicitlyNotExecuted = PRINT_PRODUCTION_CHANGE_NOT_EXECUTED_STATUSES.includes(order.status)
+  return hasNodeFact || hasReviewFact || hasHandoverFact || !isExplicitlyNotExecuted
+}
+
+function toPrintPdaQtyUnit(qtyDisplayUnit: string): QtyUnit {
+  return ['件', '片', '个', '套'].includes(qtyDisplayUnit)
+    ? 'PIECE'
+    : ['卷', '捆', '包', '打'].includes(qtyDisplayUnit)
+      ? 'BUNDLE'
+      : 'METER'
+}
+
+export function prepareFormalProductionOrderPrintWorkOrderSync(
+  snapshot: FormalProductionOrderProcessSnapshot,
+  options: { changeRecordId: string; recordedAt: string },
+): PreparedPrintWorkOrderProductionChangeSync {
+  seedDomain()
+  const current = Array.from(workOrderStore.values()).find((order) => (
+    order.sourceType === 'PRODUCTION_ORDER' && order.sourceProductionOrderId === snapshot.productionOrderId
+  ))
+  if (!current) return { outcome: 'NOT_FOUND', commit: () => undefined, rollback: () => undefined }
+  const before = current.formalProductionOrderSnapshot
+  if (!before) throw new Error(`印花加工单 ${current.printOrderNo} 缺少正式生产单快照`)
+  const after = toPrintSnapshotRecord(snapshot)
+  const alreadyRecorded = [...(current.changeImpact ?? []), ...(current.autoSyncHistory ?? [])]
+    .some((item) => item.changeRecordId === options.changeRecordId)
+  if (alreadyRecorded || JSON.stringify(before) === JSON.stringify(after)) {
+    return {
+      workOrderId: current.printOrderId,
+      outcome: 'UNCHANGED',
+      before,
+      after,
+      commit: () => undefined,
+      rollback: () => undefined,
+    }
+  }
+  if (hasActualPrintExecution(current)) {
+    const impact: ProcessWorkOrderChangeImpact = {
+      changeRecordId: options.changeRecordId,
+      before: structuredClone(before),
+      after: structuredClone(after),
+      reason: '已执行',
+      recordedAt: options.recordedAt,
+      suggestedAction: '保留原执行快照，由计划员按实际进度处理数量、物料和交期影响。',
+    }
+    const next = cloneWorkOrder(current)
+    next.changeImpact = [...(current.changeImpact ?? []), structuredClone(impact)]
+    let committed = false
+    return {
+      workOrderId: current.printOrderId,
+      outcome: 'PROTECTED',
+      before,
+      after,
+      impact,
+      commit: () => {
+        if (committed) return
+        workOrderStore.set(current.printOrderId, cloneWorkOrder(next))
+        committed = true
+      },
+      rollback: () => {
+        if (!committed) return
+        workOrderStore.set(current.printOrderId, cloneWorkOrder(current))
+        committed = false
+      },
+    }
+  }
+
+  const next = cloneWorkOrder(current)
+  next.sourceProductionOrderNo = snapshot.productionOrderNo
+  next.productionOrderOrderedAt = snapshot.orderedAt
+  next.productionOrderIds = [snapshot.productionOrderId]
+  next.patternNo = snapshot.techPackVersionId
+  next.patternVersion = snapshot.techPackVersionLabel
+  next.materialSku = after.materialId
+  next.materialColor = snapshot.targetColor
+  next.plannedQty = snapshot.plannedQty
+  next.qtyUnit = snapshot.qtyUnit
+  if (snapshot.factoryId !== undefined) {
+    next.printFactoryId = snapshot.factoryId
+    next.printFactoryName = snapshot.factoryName || snapshot.factoryId || '待分配工厂'
+  }
+  next.formalProductionOrderSnapshot = structuredClone(after)
+  next.updatedAt = options.recordedAt
+  next.remark = `${after.processName}；来源正式生产单 ${snapshot.productionOrderNo}；技术包 ${snapshot.techPackVersionLabel}。`
+  next.autoSyncHistory = [...(current.autoSyncHistory ?? []), {
+    changeRecordId: options.changeRecordId,
+    before: structuredClone(before),
+    after: structuredClone(after),
+    syncedAt: options.recordedAt,
+  }]
+  const currentTask = getPrintingTaskById(current.taskId)
+  const nextTask = currentTask ? structuredClone(currentTask) : undefined
+  const beforeTask = currentTask ? structuredClone(currentTask) : undefined
+  if (nextTask) {
+    nextTask.productionOrderId = snapshot.productionOrderId
+    nextTask.productionOrderNo = snapshot.productionOrderNo
+    nextTask.sourceProductionOrderId = snapshot.productionOrderId
+    nextTask.spuCode = snapshot.spuCode
+    nextTask.spuName = snapshot.spuName
+    nextTask.requiredDeliveryDate = snapshot.requiredDeliveryDate
+    nextTask.qty = snapshot.plannedQty
+    nextTask.qtyUnit = toPrintPdaQtyUnit(snapshot.qtyUnit)
+    nextTask.qtyDisplayUnit = snapshot.qtyUnit
+    nextTask.processNameZh = after.processName
+    nextTask.processBusinessName = after.processName
+    nextTask.updatedAt = options.recordedAt
+  }
+  let committed = false
+  return {
+    workOrderId: current.printOrderId,
+    outcome: 'AUTO_SYNCED',
+    before,
+    after,
+    commit: () => {
+      if (committed) return
+      workOrderStore.set(current.printOrderId, cloneWorkOrder(next))
+      if (nextTask) registerPdaGenericProcessTask(nextTask)
+      committed = true
+    },
+    rollback: () => {
+      if (!committed) return
+      workOrderStore.set(current.printOrderId, cloneWorkOrder(current))
+      if (beforeTask) registerPdaGenericProcessTask(structuredClone(beforeTask))
+      committed = false
+    },
+  }
+}
+
+export function createPrintWorkOrderFromStock(input: {
+  stockMaterialId: string
+  stockMaterialName: string
+  materialSku: string
+  factoryId: string
+  plannedQty: number
+  qtyUnit: string
+  plannedFinishAt: string
+  processName: string
+  createdBy?: string
+}): { ok: boolean; message: string; order?: PrintWorkOrder } {
+  const stockMaterialId = input.stockMaterialId.trim()
+  const stockMaterial = getProcessWorkOrderStockMaterial(stockMaterialId)
+  const stockMaterialName = input.stockMaterialName.trim()
+  const materialSku = input.materialSku.trim()
+  const qtyUnit = input.qtyUnit.trim()
+  const plannedFinishAt = input.plannedFinishAt.trim()
+  const processName = input.processName.trim()
+  if (!stockMaterial) return { ok: false, message: '请选择仓库中存在的备货物料。' }
+  if (stockMaterial.factoryId !== input.factoryId) return { ok: false, message: '所选备货物料不属于当前印花工厂。' }
+  if (stockMaterial.processCode !== 'PRINT') return { ok: false, message: '所选备货物料不属于印花工序。' }
+  if (stockMaterial.status !== '已入待加工仓' || stockMaterial.differenceQty !== 0) {
+    return { ok: false, message: '所选备货物料尚未正常入待加工仓或存在待处理差异。' }
+  }
+  if (stockMaterial.stockMaterialName !== stockMaterialName || stockMaterial.materialSku !== materialSku) {
+    return { ok: false, message: '备货物料名称或编码与仓库库存不一致，请重新选择。' }
+  }
+  if (stockMaterial.qtyUnit !== qtyUnit) return { ok: false, message: '计划数量单位必须与仓库库存单位一致。' }
+  if (!Number.isFinite(input.plannedQty) || input.plannedQty <= 0 || !qtyUnit) {
+    return { ok: false, message: '计划数量和单位必须有效。' }
+  }
+  if (input.plannedQty > stockMaterial.availableQty) {
+    return { ok: false, message: `计划数量超过可用库存，当前最多可用 ${stockMaterial.availableQty} ${stockMaterial.qtyUnit}。` }
+  }
+  if (!isValidProcessWorkOrderPlannedFinishAt(plannedFinishAt)) return { ok: false, message: '请填写有效的计划完成时间。' }
+  if (!processName) return { ok: false, message: '请填写印花工艺。' }
+  const factory = getFactoryMasterRecordById(input.factoryId)
+  const canReceivePrint = factory?.status === 'active'
+    && factory.eligibility.allowDispatch
+    && factory.processAbilities.some((ability) =>
+      ability.processCode === 'PRINT'
+      && (ability.status ?? 'ACTIVE') === 'ACTIVE'
+      && ability.canReceiveTask !== false,
+    )
+  if (!factory || !canReceivePrint) return { ok: false, message: '所选工厂不可派单或缺少正式有效的印花能力。' }
+
+  seedDomain()
+  const sequence = workOrderStore.size + createdPrintOrderIds.size + 1
+  const printOrderId = `PRINT-STOCK-${String(sequence).padStart(4, '0')}`
+  const printOrderNo = `YHJG-STOCK-${String(sequence).padStart(4, '0')}`
+  const now = nowTimestamp()
+  registerPdaGenericProcessTask(buildFreshPrintMobileTask({
+    taskId: printOrderId,
+    taskNo: printOrderNo,
+    sourceType: 'STOCK',
+    stockMaterialId,
+    stockMaterialName,
+    spuCode: '',
+    spuName: stockMaterialName,
+    requiredDeliveryDate: plannedFinishAt,
+    factoryId: factory.id,
+    factoryName: factory.name,
+    qty: input.plannedQty,
+    qtyDisplayUnit: qtyUnit,
+    processName,
+    createdAt: now,
+  }))
+  addSeedWorkOrder({
+    printOrderId,
+    printOrderNo,
+    sourceType: 'STOCK',
+    stockMaterialId,
+    stockMaterialName,
+    productionOrderIds: [],
+    isFirstOrder: false,
+    patternNo: processName,
+    patternVersion: '备货创建',
+    materialSku,
+    objectType: '面料',
+    isPiecePrinting: false,
+    isFabricPrinting: true,
+    plannedQty: input.plannedQty,
+    qtyUnit,
+    plannedFinishAt,
+    qtyLabel: '计划数量',
+    printFactoryId: factory.id,
+    printFactoryName: factory.name,
+    targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
+    targetTransferWarehouseName: '中转区域',
+    status: 'WAIT_ARTWORK',
+    taskId: printOrderId,
+    taskNo: printOrderNo,
+    createdAt: now,
+    updatedAt: now,
+    remark: `${processName}；按备货创建；创建人：${input.createdBy || '业务人员'}；计划完成：${plannedFinishAt}`,
+  })
+  createdPrintOrderIds.add(printOrderId)
+  return { ok: true, message: '', order: getPrintWorkOrderById(printOrderId) }
 }
 
 export function listPrintExecutionNodeRecords(printOrderId?: string): PrintExecutionNodeRecord[] {
@@ -2001,8 +2587,8 @@ export function getPrintWorkOrderSummary(): PrintWorkOrderSummary {
     waitHandoverCount: orders.filter((order) => order.status === 'WAIT_HANDOVER').length,
     waitReceiveCount: orders.filter((order) => order.status === 'HANDOVER_WAIT_RECEIVE').length,
     partialHandoverCount: orders.filter((order) => order.status === 'PARTIAL_HANDOVER').length,
-    fullHandoverCount: orders.filter((order) => order.status === 'FULL_HANDOVER').length,
-    handoverDifferenceCount: orders.filter((order) => order.status === 'HANDOVER_DIFFERENCE').length,
+    fullHandoverCount: orders.filter((order) => order.status === 'FULL_HANDOVER' || order.status === 'COMPLETED').length,
+    handoverDifferenceCount: orders.filter((order) => order.status === 'HANDOVER_DIFFERENCE' || order.status === 'REJECTED').length,
     printCompletedQty: nodes
       .filter((node) => node.nodeCode === 'PRINT')
       .reduce((sum, node) => sum + (node.outputQty ?? 0), 0),

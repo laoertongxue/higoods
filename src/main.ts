@@ -1,6 +1,6 @@
 import './styles.css'
 import { hydrateRealQRCodes } from './components/real-qr'
-import { hydrateIcons, renderAppShell, renderSidebar } from './components/shell'
+import { hydrateIcons, isStandalonePrintPath, renderAppShell, renderSidebar } from './components/shell'
 import { handleProductionObjectOverviewEvent } from './components/production-object-overview'
 import { appStore } from './state/store'
 
@@ -1322,6 +1322,11 @@ function navigateWithImmediateSidebar(pathname: string): void {
   const currentPathname = appStore.getState().pathname
   if (isPdaPath(currentPathname) || isPdaPath(pathname)) {
     preloadPdaMainTabModule(pathname)
+    appStore.navigate(pathname)
+    return
+  }
+
+  if (isStandalonePrintPath(currentPathname) !== isStandalonePrintPath(pathname)) {
     appStore.navigate(pathname)
     return
   }
