@@ -19,6 +19,8 @@ import {
 } from '../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../components/ui/pagination.ts'
 import {
+  getThirdPartyFactoryDispatchPolicyLabel,
+  getThirdPartyFactorySettlementPolicyLabel,
   getThirdPartyFactoryTimingSummary,
   listThirdPartyFactoryPerformanceRecords,
   listThirdPartyFactoryRatingSnapshots,
@@ -370,18 +372,24 @@ const columns: readonly StandardListColumn<RatingRow>[] = [
     key: 'dispatch',
     title: '派单策略',
     width: 260,
-    render: (row) => `
-      <div class="inline-flex rounded-md border px-2 py-1 text-xs ${renderPolicyTone(row.dispatchPolicyLabel)}">${escapeHtml(row.dispatchPolicyLabel)}</div>
-      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(renderTrialLimit(row))}</div>
-    `,
+    render: (row) => {
+      const policyLabel = getThirdPartyFactoryDispatchPolicyLabel(row)
+      return `
+        <div class="inline-flex rounded-md border px-2 py-1 text-xs ${renderPolicyTone(policyLabel)}">${escapeHtml(policyLabel)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(renderTrialLimit(row))}</div>
+      `
+    },
   },
   {
     key: 'settlement',
     title: '结算策略',
     width: 220,
-    render: (row) => `
-      <div class="inline-flex rounded-md border px-2 py-1 text-xs ${renderPolicyTone(row.settlementPolicyLabel)}">${escapeHtml(row.settlementPolicyLabel)}</div>
-    `,
+    render: (row) => {
+      const policyLabel = getThirdPartyFactorySettlementPolicyLabel(row)
+      return `
+        <div class="inline-flex rounded-md border px-2 py-1 text-xs ${renderPolicyTone(policyLabel)}">${escapeHtml(policyLabel)}</div>
+      `
+    },
   },
   {
     key: 'reason',
@@ -434,17 +442,19 @@ function renderRatingScoreDetail(snapshot: FactoryRatingSnapshot): string {
 }
 
 function renderStrategyDetail(snapshot: FactoryRatingSnapshot): string {
+  const dispatchPolicyLabel = getThirdPartyFactoryDispatchPolicyLabel(snapshot)
+  const settlementPolicyLabel = getThirdPartyFactorySettlementPolicyLabel(snapshot)
   return `
     <section class="rounded-lg border bg-card p-4">
       <h3 class="font-semibold">派单 / 结算策略</h3>
       <div class="mt-3 grid gap-3 md:grid-cols-2">
         <div class="rounded-md border bg-background p-3">
           <div class="text-xs text-muted-foreground">派单策略</div>
-          <p class="mt-1 text-sm">${escapeHtml(snapshot.dispatchPolicyLabel)}</p>
+          <p class="mt-1 text-sm">${escapeHtml(dispatchPolicyLabel)}</p>
         </div>
         <div class="rounded-md border bg-background p-3">
           <div class="text-xs text-muted-foreground">结算策略</div>
-          <p class="mt-1 text-sm">${escapeHtml(snapshot.settlementPolicyLabel)}</p>
+          <p class="mt-1 text-sm">${escapeHtml(settlementPolicyLabel)}</p>
         </div>
       </div>
     </section>

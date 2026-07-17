@@ -610,3 +610,20 @@ export function evaluateThirdPartyFactorySettlementPolicy(factoryIdOrCode: strin
 export function isThirdPartyFactorySettlementBlocked(factoryIdOrCode: string): boolean {
   return !evaluateThirdPartyFactorySettlementPolicy(factoryIdOrCode).allowedToCreateNewStatement
 }
+
+export function getThirdPartyFactoryDispatchPolicyLabel(snapshot: FactoryRatingSnapshot): string {
+  if (snapshot.dispatchControl === 'BLOCKED') return '禁止派单，不允许在车缝分配中选择。'
+  if (snapshot.dispatchControl === 'TRIAL_ONLY') {
+    return `仅允许试产单，首单最多 ${snapshot.firstTrialLimitQty ?? 300} 件，完成交出后再判断转正。`
+  }
+  if (snapshot.dispatchControl === 'SUPERVISOR_DIRECT_ONLY') return '可主管指定派单，不参与竞价。'
+  if (snapshot.dispatchControl === 'WARN_CONFIRM') return '黄牌提示：可选，但建议只派小单和非急单。'
+  if (snapshot.dispatchControl === 'PRIORITY') return '优先派单，可承接大货和赶单。'
+  return '正常可选，适合常规单。'
+}
+
+export function getThirdPartyFactorySettlementPolicyLabel(snapshot: FactoryRatingSnapshot): string {
+  if (snapshot.settlementControl === 'BLOCK_NEW_STATEMENT') return '禁止发起新结算，历史账本仅保留查看。'
+  if (snapshot.dispatchControl === 'TRIAL_ONLY') return '不做黑名单结算拦截。'
+  return '可按账本发起结算。'
+}
