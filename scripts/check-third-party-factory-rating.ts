@@ -31,6 +31,7 @@ import {
   listThirdPartyFactoryPerformanceRecords,
   listThirdPartyFactoryRatingSnapshots,
   thirdPartyFactoryRatingSnapshots,
+  type FactoryRatingSnapshot,
 } from '../src/data/fcs/third-party-factory-rating.ts'
 import {
   SEWING_FACTORY_LIABILITY_REASONS,
@@ -514,6 +515,42 @@ function runWithDispatchRollback<T>(operation: () => T): T {
   return runSewingDispatchWorkbenchTransaction(operation, { rollbackOnSuccess: true })
 }
 
+function withTemporaryRatingSnapshot<T>(snapshot: FactoryRatingSnapshot, operation: () => T): T {
+  thirdPartyFactoryRatingSnapshots.push(snapshot)
+  try {
+    return operation()
+  } finally {
+    const index = thirdPartyFactoryRatingSnapshots.findIndex((item) =>
+      item.factoryId === snapshot.factoryId &&
+      item.factoryCode === snapshot.factoryCode &&
+      item.factoryName === snapshot.factoryName
+    )
+    if (index >= 0) thirdPartyFactoryRatingSnapshots.splice(index, 1)
+  }
+}
+
+function createTemporaryTrialDispatchSnapshot(sewingSeatCount: number): FactoryRatingSnapshot {
+  return {
+    ...trialSnapshot,
+    factoryId: 'ID-F001',
+    factoryCode: 'ID-FAC-0001',
+    factoryName: 'PT Sinar Garment Indonesia',
+    sewingSeatCount,
+    scaleLabel: sewingSeatCount >= 30 ? '大型工厂' : '小型工厂',
+    cooperationStatusLabel: '考核中',
+    currentGrade: 'A',
+    dispatchControl: 'TRIAL_ONLY',
+    settlementControl: 'ALLOW',
+    settlementBlocked: false,
+    allowedDocumentTypes: ['试产单'],
+    canJoinBidding: true,
+    requiresDispatchRiskConfirm: false,
+    assessmentDecision: '延长考核',
+    nextAllowedDocumentType: '试产单',
+    hasOpenTrialAssessment: false,
+  }
+}
+
 function assertDispatchBlockedMessage(message: string, detail: string): void {
   assert.ok(
     (message.includes('派单') || message.includes('车缝分配')) &&
@@ -542,6 +579,32 @@ const trialOpenDispatchResult = createSewingDispatchWorkbenchDraft({
 })
 assert.equal(trialOpenDispatchResult.ok, false, '未完成试产工厂不能绕过页面重复创建试产派单草稿')
 assert.ok(trialOpenDispatchResult.message.includes('已有未完成试产'), '未完成试产域层阻断原因必须透出')
+
+const trialAllowedWorkbenchRow = getAvailableDispatchRow('车缝分配工作台必须有齐套 SKU 用于验证无未完成试产时额度内允许派单')
+const trialAllowedWorkbenchResult = withTemporaryRatingSnapshot(createTemporaryTrialDispatchSnapshot(48), () =>
+  runWithDispatchRollback(() => createSewingDispatchWorkbenchDraft({
+    actionType: '直接派单',
+    rowIds: [trialAllowedWorkbenchRow.rowId],
+    factoryIdByRowId: { [trialAllowedWorkbenchRow.rowId]: 'ID-F001' },
+    policyOverrideByRowId: { [trialAllowedWorkbenchRow.rowId]: { documentTypeLabel: '试产单' as const, dispatchQty: 1, isUrgentOrder: false } },
+    mainFactoryIdByProductionOrderId: { [trialAllowedWorkbenchRow.productionOrderId]: 'ID-F001' },
+    by: '对抗式核查',
+  })),
+)
+assert.equal(trialAllowedWorkbenchResult.ok, true, '无未完成试产且真实数量在试产上限内时，工作台必须允许试产派单')
+
+const trialOverLimitWorkbenchRow = getAvailableDispatchRow('车缝分配工作台必须有齐套 SKU 用于验证低报数量不能绕过试产上限')
+const trialOverLimitWorkbenchResult = withTemporaryRatingSnapshot(createTemporaryTrialDispatchSnapshot(20), () =>
+  createSewingDispatchWorkbenchDraft({
+    actionType: '直接派单',
+    rowIds: [trialOverLimitWorkbenchRow.rowId],
+    factoryIdByRowId: { [trialOverLimitWorkbenchRow.rowId]: 'ID-F001' },
+    policyOverrideByRowId: { [trialOverLimitWorkbenchRow.rowId]: { documentTypeLabel: '试产单' as const, dispatchQty: 1, isUrgentOrder: false } },
+    by: '对抗式核查',
+  }),
+)
+assert.equal(trialOverLimitWorkbenchResult.ok, false, '工作台真实派单数量超过试产上限时不能通过 dispatchQty 低报绕过')
+assert.ok(trialOverLimitWorkbenchResult.message.includes('超过试产上限'), '低报数量绕过被拦截时必须明确试产上限原因')
 
 const bGradeWithoutConfirm = createSewingDispatchWorkbenchDraft({
   actionType: '直接派单',
@@ -709,29 +772,6 @@ const normalFactoryAwarded = runWithDispatchRollback(() => {
   return awarded.assignedFactoryId
 })
 assert.equal(normalFactoryAwarded, 'ID-F001', '非三方/非评级治理车缝工厂定标不得因为缺少三方评级快照失败')
-
-const trialAllowedRow = listSewingDispatchWorkbenchRows()
-  .find((item) =>
-    item.remainingQty > 0 &&
-    item.remainingQty <= (trialDispatchSnapshot.firstTrialLimitQty ?? 300) &&
-    item.completeKitQty >= item.remainingQty,
-  )
-if (trialAllowedRow) {
-  const trialAllowedResult = runWithDispatchRollback(() => createSewingDispatchWorkbenchDraft({
-    actionType: '直接派单',
-    rowIds: [trialAllowedRow.rowId],
-    factoryIdByRowId: { [trialAllowedRow.rowId]: trialDispatchSnapshot.factoryId },
-    policyOverrideByRowId: {
-      [trialAllowedRow.rowId]: {
-        documentTypeLabel: '试产单',
-        dispatchQty: trialAllowedRow.remainingQty,
-        isUrgentOrder: false,
-      },
-    },
-    by: '对抗式核查',
-  }))
-  assert.equal(trialAllowedResult.ok, true, '考核中工厂试产单额度内必须允许派单')
-}
 
 const bGradeConfirmedRow = getAvailableDispatchRow('车缝分配工作台必须有可验证黄牌确认派单的齐套 SKU 行')
 const bGradeConfirmed = runWithDispatchRollback(() => createSewingDispatchWorkbenchDraft({
