@@ -793,15 +793,62 @@ assert.ok(!sewingDispatchSource.includes("cooperationStatusLabel === '黑名单'
 assert.ok(!sewingDispatchSource.includes("cooperationStatusLabel === '考核中'"), '车缝分配页面不应继续用合作状态硬编码考核中阻断')
 
 const statementsSource = readRequiredSource(new URL('../src/pages/statements.ts', import.meta.url), '缺少对账单页面文件')
+const statementsBuildViewSource = sliceRequiredSource(
+  statementsSource,
+  'function renderBuildView',
+  'export function renderStatementsPage',
+  '对账单生成页渲染片段缺失',
+)
+const statementsGenerateSource = sliceRequiredSource(
+  statementsSource,
+  "if (action === 'generate')",
+  "if (action === 'save-build')",
+  '对账单生成动作片段缺失',
+)
+const statementsSaveBuildSource = sliceRequiredSource(
+  statementsSource,
+  "if (action === 'save-build')",
+  "if (action === 'confirm-draft')",
+  '对账单保存草稿动作片段缺失',
+)
 assert.ok(statementsSource.includes('evaluateThirdPartyFactorySettlementPolicy'), '对账单页面必须使用统一结算规则评估')
 assert.ok(statementsSource.includes('settlementPolicy.reason'), '对账单页面必须展示统一结算规则返回的阻断原因')
 assert.ok(statementsSource.includes('blacklistSettlementBlocked'), '对账单页面缺少黑名单结算阻断变量')
+assert.ok(statementsSource.includes('@page-pattern: dashboard'), '对账单页是复合工作台，必须声明非标准列表页模式')
+assert.ok(statementsBuildViewSource.includes('evaluateThirdPartyFactorySettlementPolicy'), '对账单生成页渲染必须使用统一结算规则评估')
+assert.ok(statementsBuildViewSource.includes('allowedToCreateNewStatement'), '对账单生成页渲染必须按 allowedToCreateNewStatement 判断阻断')
+assert.ok(statementsBuildViewSource.includes('settlementPolicy.reason'), '对账单生成页阻断提示必须展示统一规则原因')
+assert.ok(statementsGenerateSource.includes('evaluateThirdPartyFactorySettlementPolicy'), '对账单生成动作必须使用统一结算规则评估')
+assert.ok(statementsGenerateSource.includes('allowedToCreateNewStatement'), '对账单生成动作必须按 allowedToCreateNewStatement 阻断')
+assert.ok(statementsGenerateSource.includes('settlementPolicy.reason'), '对账单生成动作必须 toast 统一规则原因')
+assert.ok(statementsSaveBuildSource.includes('evaluateThirdPartyFactorySettlementPolicy'), '对账单保存草稿动作必须使用统一结算规则评估')
+assert.ok(statementsSaveBuildSource.includes('allowedToCreateNewStatement'), '对账单保存草稿动作必须按 allowedToCreateNewStatement 阻断')
+assert.ok(statementsSaveBuildSource.includes('settlementPolicy.reason'), '对账单保存草稿动作必须 toast 统一规则原因')
+assert.ok(!statementsSource.includes('isThirdPartyFactorySettlementBlocked'), '对账单页面不应继续消费结算布尔 helper')
 
 const settlementSeedSource = readRequiredSource(
   new URL('../src/data/fcs/store-domain-settlement-seeds.ts', import.meta.url),
   '缺少对账单域数据文件',
 )
 assert.ok(settlementSeedSource.includes('evaluateThirdPartyFactorySettlementPolicy'), '对账单域函数必须使用统一结算规则评估')
+const settlementCreateSource = sliceRequiredSource(
+  settlementSeedSource,
+  'export function createStatementFromEligibleLedgers',
+  'export function updateStatementDraftRemark',
+  '对账单直接创建域函数片段缺失',
+)
+const settlementSyncSource = sliceRequiredSource(
+  settlementSeedSource,
+  'export function syncStatementDraftFromBuild',
+  'export function buildStatementSettlementProfileSnapshot',
+  '对账单保存草稿域函数片段缺失',
+)
+assert.ok(settlementCreateSource.includes('evaluateThirdPartyFactorySettlementPolicy'), '对账单直接创建域函数必须使用统一结算规则评估')
+assert.ok(settlementCreateSource.includes('allowedToCreateNewStatement'), '对账单直接创建域函数必须按 allowedToCreateNewStatement 阻断')
+assert.ok(settlementCreateSource.includes('settlementPolicy.reason'), '对账单直接创建域函数必须返回统一规则原因')
+assert.ok(settlementSyncSource.includes('evaluateThirdPartyFactorySettlementPolicy'), '对账单保存草稿域函数必须使用统一结算规则评估')
+assert.ok(settlementSyncSource.includes('allowedToCreateNewStatement'), '对账单保存草稿域函数必须按 allowedToCreateNewStatement 阻断')
+assert.ok(settlementSyncSource.includes('settlementPolicy.reason'), '对账单保存草稿域函数必须返回统一规则原因')
 
 const routeRendererSource = readRequiredSource(
   new URL('../src/router/route-renderers-fcs.ts', import.meta.url),

@@ -617,7 +617,7 @@ export function getThirdPartyFactoryDispatchPolicyLabel(snapshot: FactoryRatingS
     return `仅允许试产单，首单最多 ${snapshot.firstTrialLimitQty ?? 300} 件，完成交出后再判断转正。`
   }
   if (snapshot.dispatchControl === 'SUPERVISOR_DIRECT_ONLY') return '可主管指定派单，不参与竞价。'
-  if (snapshot.dispatchControl === 'WARN_CONFIRM') return '黄牌提示：可选，但建议只派小单和非急单。'
+  if (snapshot.dispatchControl === 'WARN_CONFIRM') return '黄牌提示：派单前需确认交期余量和质量风险，建议只派小单和非急单。'
   if (snapshot.dispatchControl === 'PRIORITY') return '优先派单，可承接大货和赶单。'
   return '正常可选，适合常规单。'
 }
