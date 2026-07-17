@@ -493,6 +493,8 @@ for (const factory of thirdPartySewingFactories) {
 
 const blockedSnapshots = snapshots.filter((item) => item.settlementBlocked)
 assert.ok(blockedSnapshots.length > 0, '必须至少有一个结算拦截工厂样例')
+const trialSettlementAllowedScope = buildScopes.find((item) => item.settlementPartyId === 'ID-F001')
+assert.ok(trialSettlementAllowedScope, '必须有可临时挂接考核中评级的对账候选范围，用于验证不做黑名单结算拦截')
 const firstDispatchRow = listSewingDispatchWorkbenchRows()[0]
 assert.ok(firstDispatchRow, '车缝分配工作台必须有可演示的 SKU 行')
 const trialDispatchSnapshot = snapshots.find((item) => item.dispatchControl === 'TRIAL_ONLY')
@@ -849,6 +851,46 @@ for (const blockedSnapshot of blockedSnapshots) {
   assert.equal(blockedStatementPolicy.historyReadable, true, `${blockedSnapshot.factoryId} 历史账本必须可查看`)
   assert.equal(blockedStatementResult.message, blockedStatementPolicy.reason, `${blockedSnapshot.factoryId} 直接建单必须返回统一结算规则原因`)
 }
+
+withTemporaryRatingSnapshot(createTemporaryTrialDispatchSnapshot(48), () => {
+  const trialAllowedCandidates = listStatementBuildCandidates(
+    trialSettlementAllowedScope.settlementPartyId,
+    trialSettlementAllowedScope.settlementCycleId,
+  )
+  assert.ok(trialAllowedCandidates.length > 0, `${trialSettlementAllowedScope.settlementPartyId} 必须有待生成对账候选明细`)
+  const trialAllowedStatementId = `ST-CHECK-TRIAL-${trialSettlementAllowedScope.settlementPartyId}`
+  const trialAllowedStatementPolicy = evaluateThirdPartyFactorySettlementPolicy(trialSettlementAllowedScope.settlementPartyId)
+  assert.equal(
+    trialAllowedStatementPolicy.allowedToCreateNewStatement,
+    true,
+    `${trialSettlementAllowedScope.settlementPartyId} 考核中工厂不应被黑名单结算规则拦截`,
+  )
+  assert.equal(trialAllowedStatementPolicy.historyReadable, true, `${trialSettlementAllowedScope.settlementPartyId} 历史账本必须可查看`)
+  const trialAllowedStatementResult = createStatementFromEligibleLedgers({
+    statementId: trialAllowedStatementId,
+    settlementPartyType: trialSettlementAllowedScope.settlementPartyType,
+    settlementPartyId: trialSettlementAllowedScope.settlementPartyId,
+    settlementPartyLabel: trialSettlementAllowedScope.settlementPartyLabel,
+    settlementCycleId: trialSettlementAllowedScope.settlementCycleId,
+    settlementCycleLabel: trialSettlementAllowedScope.settlementCycleLabel,
+    settlementCycleStartAt: trialSettlementAllowedScope.settlementCycleStartAt,
+    settlementCycleEndAt: trialSettlementAllowedScope.settlementCycleEndAt,
+    settlementRangeStartAt: '2026-07-17',
+    settlementRangeEndAt: '2026-07-17',
+    plannedPrepaymentAt: trialSettlementAllowedScope.plannedPrepaymentAt,
+    itemSourceIds: trialAllowedCandidates.map((item) => item.sourceItemId),
+    itemBasisIds: trialAllowedCandidates.map((item) => item.basisId).filter(Boolean) as string[],
+    items: trialAllowedCandidates.map(toStatementDraftItemFromSource),
+    by: '对抗式核查',
+  })
+  assert.equal(
+    trialAllowedStatementResult.ok,
+    true,
+    `${trialSettlementAllowedScope.settlementPartyId} 考核中工厂应允许按账本创建对账单：${trialAllowedStatementResult.message ?? '无返回原因'}`,
+  )
+  const trialAllowedStatementIndex = statements.findIndex((item) => item.statementId === trialAllowedStatementId)
+  if (trialAllowedStatementIndex >= 0) statements.splice(trialAllowedStatementIndex, 1)
+})
 
 const source = readRequiredSource(
   new URL('../src/data/fcs/third-party-factory-rating.ts', import.meta.url),
