@@ -111,6 +111,7 @@ export function mergePreparationRuntimeRecords(
 ): ProductionPreparationRecord[] {
   return records.map((record) => {
     const confirmation = runtime.confirmedRecords[record.recordId]
+    if (!hasRuntimeChangesForRecord(record, runtime, confirmation)) return record
     const selection = resolveRuntimeSelection(confirmation)
     const workItemsConfirmedBy = confirmation?.confirmedBy ?? record.workItemsConfirmedBy
     const workItemsConfirmedAt = confirmation?.confirmedAt ?? record.workItemsConfirmedAt
@@ -177,6 +178,21 @@ export function mergePreparationRuntimeRecords(
       items,
     }
   })
+}
+
+function hasRuntimeChangesForRecord(
+  record: ProductionPreparationRecord,
+  runtime: PreparationRuntimeState,
+  confirmation?: ConfirmedPreparationRecord,
+): boolean {
+  if (confirmation) return true
+  const itemIds = new Set(record.items.map((item) => item.itemId))
+  return (
+    runtime.uploads.some((upload) => upload.recordId === record.recordId || itemIds.has(upload.itemId)) ||
+    runtime.downloads.some((download) => download.recordId === record.recordId || itemIds.has(download.itemId)) ||
+    Object.keys(runtime.dyeRequirements).some((itemId) => itemIds.has(itemId)) ||
+    Object.keys(runtime.accessoryPurchaseOrders).some((itemId) => itemIds.has(itemId))
+  )
 }
 
 function resolveRuntimeSelection(confirmation?: ConfirmedPreparationRecord): RuntimeSelection {
