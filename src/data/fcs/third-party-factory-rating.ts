@@ -1,3 +1,6 @@
+import { getFactoryCapacityProfileByFactoryId } from './factory-capacity-profile-mock.ts'
+import { listFactoryMasterRecords } from './factory-master-store.ts'
+
 export type FactoryRatingGrade = 'S' | 'A' | 'B' | 'C'
 export type FactoryScaleLabel = '大型工厂' | '小型工厂'
 export type FactoryCooperationStatusLabel = '考核中' | '正常合作' | '黑名单'
@@ -61,6 +64,7 @@ export interface FactoryRatingSnapshot {
   canJoinBidding: boolean
   requiresDispatchRiskConfirm: boolean
   smallOrderLimitQty?: number
+  sewingSeatSourceLabel?: '工厂档案 / 产能资料' | '评级快照'
 }
 
 export interface FactoryRatingPerformanceRecord {
@@ -469,8 +473,51 @@ export const thirdPartyFactoryPerformanceRecords: FactoryRatingPerformanceRecord
   },
 ]
 
+function toPositiveInteger(value: unknown): number | null {
+  const numericValue = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numericValue) || numericValue <= 0) return null
+  return Math.floor(numericValue)
+}
+
+export function resolveThirdPartyFactorySewingSeatCount(
+  factoryIdOrCode: string,
+  fallbackSeatCount?: number,
+): { seatCount: number; sourceLabel: FactoryRatingSnapshot['sewingSeatSourceLabel'] } {
+  const factory = listFactoryMasterRecords().find((item) => item.id === factoryIdOrCode || item.code === factoryIdOrCode)
+  const masterSeatCount = toPositiveInteger(factory?.sewingSeatCount)
+  if (masterSeatCount) {
+    return { seatCount: masterSeatCount, sourceLabel: '工厂档案 / 产能资料' }
+  }
+
+  if (factory) {
+    try {
+      const profile = getFactoryCapacityProfileByFactoryId(factory.id)
+      const profileSeatCount = toPositiveInteger(profile.sewingSeatCount)
+      if (profileSeatCount) {
+        return { seatCount: profileSeatCount, sourceLabel: '工厂档案 / 产能资料' }
+      }
+    } catch {
+      // 评级快照仍保留兜底，避免单个产能档案异常影响列表可见性。
+    }
+  }
+
+  return { seatCount: fallbackSeatCount ?? 0, sourceLabel: '评级快照' }
+}
+
+function syncRatingSnapshotFromFactoryMaster(snapshot: FactoryRatingSnapshot): FactoryRatingSnapshot {
+  const { seatCount, sourceLabel } = resolveThirdPartyFactorySewingSeatCount(snapshot.factoryId, snapshot.sewingSeatCount)
+  const scaleLabel: FactoryScaleLabel = seatCount >= 30 ? '大型工厂' : '小型工厂'
+  return {
+    ...snapshot,
+    sewingSeatCount: seatCount,
+    sewingSeatSourceLabel: sourceLabel,
+    scaleLabel,
+    firstTrialLimitQty: scaleLabel === '大型工厂' ? 1000 : 300,
+  }
+}
+
 export function listThirdPartyFactoryRatingSnapshots(): FactoryRatingSnapshot[] {
-  return thirdPartyFactoryRatingSnapshots.slice()
+  return thirdPartyFactoryRatingSnapshots.map(syncRatingSnapshotFromFactoryMaster)
 }
 
 function isSameFactoryKey(snapshot: Pick<FactoryRatingSnapshot, 'factoryId' | 'factoryCode'>, factoryIdOrCode: string): boolean {
@@ -478,7 +525,8 @@ function isSameFactoryKey(snapshot: Pick<FactoryRatingSnapshot, 'factoryId' | 'f
 }
 
 export function getThirdPartyFactoryRatingSnapshot(factoryIdOrCode: string): FactoryRatingSnapshot | undefined {
-  return thirdPartyFactoryRatingSnapshots.find((item) => isSameFactoryKey(item, factoryIdOrCode))
+  const snapshot = thirdPartyFactoryRatingSnapshots.find((item) => isSameFactoryKey(item, factoryIdOrCode))
+  return snapshot ? syncRatingSnapshotFromFactoryMaster(snapshot) : undefined
 }
 
 export function listThirdPartyFactoryPerformanceRecords(factoryIdOrCode?: string): FactoryRatingPerformanceRecord[] {

@@ -156,6 +156,7 @@ const DEFAULT_FORM_DATA: FactoryFormData = {
   factoryTier: 'CENTRAL',
   factoryType: 'CENTRAL_POD',
   parentFactoryId: undefined,
+  sewingSeatCount: undefined,
   pdaEnabled: true,
   pdaTenantId: '',
   eligibility: {
@@ -329,6 +330,7 @@ function createFormData(factory: Factory | null): FactoryFormData {
     factoryTier: factory.factoryTier,
     factoryType: factory.factoryType,
     parentFactoryId: factory.parentFactoryId,
+    sewingSeatCount: factory.sewingSeatCount,
     pdaEnabled: factory.pdaEnabled,
     pdaTenantId: factory.pdaTenantId ?? '',
     eligibility: { ...factory.eligibility },
@@ -338,6 +340,15 @@ function createFormData(factory: Factory | null): FactoryFormData {
 
 function getSelectedCraftCodes(processAbilities: FactoryProcessAbility[], processCode: string): string[] {
   return processAbilities.find((item) => item.processCode === processCode)?.craftCodes ?? []
+}
+
+function isThirdPartySewingProfile(data: Pick<FactoryFormData, 'factoryTier' | 'factoryType'>): boolean {
+  return data.factoryTier === 'THIRD_PARTY' && data.factoryType === 'THIRD_SEWING'
+}
+
+function normalizeSewingSeatCount(data: FactoryFormData): number | undefined {
+  if (!isThirdPartySewingProfile(data)) return undefined
+  return Number.isFinite(data.sewingSeatCount) && (data.sewingSeatCount ?? 0) > 0 ? Math.floor(data.sewingSeatCount ?? 0) : undefined
 }
 
 function getSelectedCapacityNodeCodes(
@@ -1011,7 +1022,14 @@ function renderFactoryTableRows(factories: Factory[]): string {
           <td class="px-3 py-3">
             <span class="inline-flex rounded border px-2 py-0.5 text-xs ${tierConfig.color}">${escapeHtml(tierConfig.label)}</span>
           </td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(typeLabel)}</td>
+          <td class="px-3 py-3 text-sm">
+            <div>${escapeHtml(typeLabel)}</div>
+            ${
+              factory.factoryTier === 'THIRD_PARTY' && factory.factoryType === 'THIRD_SEWING'
+                ? `<div class="text-xs text-muted-foreground">车缝车位 ${factory.sewingSeatCount ?? '-'} 个</div>`
+                : ''
+            }
+          </td>
           <td class="max-w-[140px] px-3 py-3 truncate text-sm text-muted-foreground" title="${escapeHtml(parent?.name ?? '-')}">
             ${escapeHtml(parent?.name ?? '-')}
           </td>
@@ -1474,6 +1492,7 @@ function renderFactoryDrawer(): string {
   const selectedParentName = draft.parentFactoryId
     ? state.factories.find((factory) => factory.id === draft.parentFactoryId)?.name ?? draft.parentFactoryId
     : ''
+  const showSewingSeatCountField = isThirdPartySewingProfile(draft)
 
   const sectionTitleClass = 'border-b pb-1 text-sm font-semibold text-foreground'
 
@@ -1567,6 +1586,16 @@ function renderFactoryDrawer(): string {
                   <p class="text-xs text-muted-foreground">类型用于分配开始条件与产能/绩效归类</p>
                 </label>
               </div>
+
+              ${
+                showSewingSeatCountField
+                  ? `<label class="space-y-1.5">
+                      <span class="text-sm">车缝车位数</span>
+                      <input type="number" min="1" step="1" data-factory-field="sewingSeatCount" value="${draft.sewingSeatCount ?? ''}" class="w-full rounded-md border px-3 py-2 text-sm" placeholder="请输入可用于车缝派单的车位数" />
+                      <p class="text-xs text-muted-foreground">用于三方工厂评级规模、首单上限和派单风控同步。</p>
+                    </label>`
+                  : ''
+              }
 
               <label class="space-y-1.5">
                 <span class="text-sm">上级工厂</span>
@@ -1907,9 +1936,11 @@ function updateTypeFilterByTier(): void {
 
 function upsertFactory(data: FactoryFormData, editingFactory: Factory | null): void {
   if (editingFactory) {
+    const sewingSeatCount = normalizeSewingSeatCount(data)
     const nextFactory: Factory = {
       ...editingFactory,
       ...data,
+      sewingSeatCount,
       processAbilities: data.processAbilities.map((item) => cloneProcessAbility(item)),
       taskAcceptanceConfig: cloneTaskAcceptanceConfig(data.taskAcceptanceConfig),
       updatedAt: new Date().toISOString().split('T')[0],
@@ -1925,6 +1956,7 @@ function upsertFactory(data: FactoryFormData, editingFactory: Factory | null): v
   }
 
   const today = new Date().toISOString().split('T')[0]
+  const sewingSeatCount = normalizeSewingSeatCount(data)
 
   const newFactory: Factory = {
     id: `f-${Date.now()}`,
@@ -1943,6 +1975,7 @@ function upsertFactory(data: FactoryFormData, editingFactory: Factory | null): v
     factoryTier: data.factoryTier,
     factoryType: data.factoryType,
     parentFactoryId: data.parentFactoryId,
+    sewingSeatCount,
     pdaEnabled: data.pdaEnabled,
     pdaTenantId: data.pdaTenantId,
     eligibility: data.eligibility,
@@ -1992,6 +2025,15 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
 
     if (field === 'factoryType') {
       setDraft((prev) => ({ ...prev, factoryType: formField.value as FactoryType }))
+      return true
+    }
+
+    if (field === 'sewingSeatCount') {
+      const value = Number(formField.value)
+      setDraft((prev) => ({
+        ...prev,
+        sewingSeatCount: Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined,
+      }))
       return true
     }
 

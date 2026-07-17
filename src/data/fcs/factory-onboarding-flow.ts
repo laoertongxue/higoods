@@ -1451,6 +1451,12 @@ function buildFactoryProcessAbilitiesFromOnboarding(application: FactoryOnboardi
   return [...grouped.values()]
 }
 
+function resolveOnboardingSewingSeatCount(application: FactoryOnboardingApplication, factoryType: FactoryType): number | undefined {
+  const hasSewingCapability = factoryType === 'THIRD_SEWING' || application.selectedCapabilities.some((item) => item.processCode === 'SEW')
+  if (!hasSewingCapability) return undefined
+  return application.effectiveWorkerCount > 0 ? application.effectiveWorkerCount : undefined
+}
+
 function getPassedSampleVerification(application: FactoryOnboardingApplication) {
   if (application.sampleVerificationId) {
     const verification = getSampleVerificationById(application.sampleVerificationId)
@@ -1498,6 +1504,7 @@ export function buildFactoryProfileFromOnboarding(application: FactoryOnboarding
   const factoryId = `FACTORY-ONBOARD-${digits}`
   const now = nowTimestamp()
   const factoryType = mapOnboardingFactoryType(application.primaryFactoryType)
+  const sewingSeatCount = resolveOnboardingSewingSeatCount(application, factoryType)
   const processAbilities = buildFactoryProcessAbilitiesFromOnboarding(application)
   const sampleVerification = getPassedSampleVerification(application)
   return {
@@ -1535,6 +1542,7 @@ export function buildFactoryProfileFromOnboarding(application: FactoryOnboarding
     identityFile: application.identityFile,
     machineTotalCount: application.machineTotalCount,
     effectiveWorkerCount: application.effectiveWorkerCount,
+    sewingSeatCount,
     availableStartDate: application.availableStartDate,
     selectedCapabilities: application.selectedCapabilities.map((item) => ({ ...item })),
     machines: application.machines.map((item) => ({ ...item })),

@@ -362,10 +362,15 @@ const columns: readonly StandardListColumn<RatingRow>[] = [
     title: '规模',
     width: 140,
     sortable: true,
-    render: (row) => `
-      <div>${escapeHtml(row.scaleLabel)}</div>
-      <div class="text-xs text-muted-foreground">${escapeHtml(row.sewingSeatCount)} 个车位</div>
-    `,
+    render: (row) => {
+      const sourceLabel = row.sewingSeatSourceLabel ?? '工厂档案 / 产能资料'
+      const sourceText = sourceLabel === '工厂档案 / 产能资料' ? '来源：工厂档案 / 产能资料' : `来源：${sourceLabel}`
+      return `
+        <div>${escapeHtml(row.scaleLabel)}</div>
+        <div class="text-xs text-muted-foreground">${escapeHtml(row.sewingSeatCount)} 个车位</div>
+        <div class="text-[11px] text-muted-foreground">${escapeHtml(sourceText)}</div>
+      `
+    },
     sortValue: (row) => row.sewingSeatCount,
   },
   {
