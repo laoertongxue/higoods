@@ -1,8 +1,10 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { readFileSync } from 'node:fs'
 import {
   derivePreparationItemProgress,
   productionPreparationRecords,
 } from '../src/data/fcs/production-preparation-timing'
+import { buildProductionPreparationCsvDataUri } from '../src/pages/production/preparation-timing'
 
 const ledgerRoute = '/fcs/production/preparation-timing'
 const statisticsRoute = '/fcs/production/preparation-timing-statistics'
@@ -62,6 +64,7 @@ async function waitForStableFilterScope(page: Page, selector: string): Promise<v
 
 interface ActionCompletionCondition {
   selector?: string
+  secondarySelector?: string
   textIncludes?: string
   attribute?: string
   attributeValue?: string
@@ -70,36 +73,61 @@ interface ActionCompletionCondition {
 }
 
 async function measureActionResponse(trigger: Locator, condition: ActionCompletionCondition): Promise<number> {
-  return trigger.evaluate(async (node, expected) => {
-    const startedAt = performance.now()
-    ;(node as HTMLElement).click()
-    await new Promise<void>((resolve, reject) => {
-      const timeout = window.setTimeout(() => reject(new Error(`动作响应未完成：${JSON.stringify(expected)}`)), 1500)
-      const isComplete = () => {
-        if (expected.urlIncludes && !window.location.href.includes(expected.urlIncludes)) return false
-        if (!expected.selector) return true
-        const target = document.querySelector(expected.selector)
-        if (expected.absent) return !target
-        if (!target) return false
-        if (expected.textIncludes && !target.textContent?.includes(expected.textIncludes)) return false
-        if (expected.attribute && target.getAttribute(expected.attribute) !== expected.attributeValue) return false
-        return true
-      }
-      const poll = () => {
-        if (isComplete()) {
-          window.clearTimeout(timeout)
-          resolve()
-          return
-        }
-        requestAnimationFrame(poll)
-      }
-      poll()
-    })
-    await Promise.resolve()
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+  const page = trigger.page()
+  await trigger.evaluate((node) => {
+    const measuredWindow = window as Window & { __higoodActionStartedAt?: number }
+    delete measuredWindow.__higoodActionStartedAt
+    const markStart = (event: Event) => {
+      if (event.target !== node && !(node as Element).contains(event.target as Node)) return
+      measuredWindow.__higoodActionStartedAt = performance.now()
+      document.removeEventListener('click', markStart, true)
+    }
+    document.addEventListener('click', markStart, true)
+  })
+  await trigger.click({ noWaitAfter: true })
+  await page.waitForFunction((expected) => {
+    if (expected.urlIncludes && !window.location.href.includes(expected.urlIncludes)) return false
+    if (expected.secondarySelector && !document.querySelector(expected.secondarySelector)) return false
+    if (!expected.selector) return true
+    const target = document.querySelector(expected.selector)
+    if (expected.absent) return !target
+    if (!target) return false
+    if (expected.textIncludes && !target.textContent?.includes(expected.textIncludes)) return false
+    if (expected.attribute && target.getAttribute(expected.attribute) !== expected.attributeValue) return false
+    return true
+  }, condition, { timeout: 1500, polling: 'raf' })
+  return page.evaluate(() => {
+    const startedAt = (window as Window & { __higoodActionStartedAt?: number }).__higoodActionStartedAt
+    if (startedAt == null) throw new Error('未捕获真实 click 事件起点')
     return performance.now() - startedAt
-  }, condition)
+  })
+}
+
+async function measureSelectResponse(trigger: Locator, value: string, condition: ActionCompletionCondition): Promise<number> {
+  const page = trigger.page()
+  await trigger.evaluate((node) => {
+    const measuredWindow = window as Window & { __higoodChangeStartedAt?: number }
+    delete measuredWindow.__higoodChangeStartedAt
+    const markStart = (event: Event) => {
+      if (event.target !== node) return
+      measuredWindow.__higoodChangeStartedAt = performance.now()
+      document.removeEventListener('change', markStart, true)
+    }
+    document.addEventListener('change', markStart, true)
+  })
+  await trigger.selectOption(value)
+  await page.waitForFunction((expected) => {
+    const target = expected.selector ? document.querySelector(expected.selector) : null
+    return (!expected.selector || (expected.absent ? !target : Boolean(target)))
+      && (!expected.secondarySelector || Boolean(document.querySelector(expected.secondarySelector)))
+      && (!expected.textIncludes || target?.textContent?.includes(expected.textIncludes))
+      && (!expected.attribute || target?.getAttribute(expected.attribute) === expected.attributeValue)
+  }, condition, { timeout: 1500, polling: 'raf' })
+  return page.evaluate(() => {
+    const startedAt = (window as Window & { __higoodChangeStartedAt?: number }).__higoodChangeStartedAt
+    if (startedAt == null) throw new Error('未捕获真实 change 事件起点')
+    return performance.now() - startedAt
+  })
 }
 
 function expectStatsWhitelist(urlValue: string): void {
@@ -155,6 +183,36 @@ async function exportedCsvRows(link: Locator): Promise<string[][]> {
   expect(href).toMatch(/^data:text\/csv/)
   return parseCsv(decodeCsvDataUri(href!))
 }
+
+test('CSV 导出中和公式注入前缀并保留标准转义', () => {
+  const dataUri = buildProductionPreparationCsvDataUri([
+    ['危险值', '普通值'],
+    ['=1+1', '含,逗号'],
+    ['+SUM(A1:A2)', '含"引号'],
+    ['-10', '多\n行'],
+    ['@cmd', '\tTAB'],
+  ])
+  expect(parseCsv(decodeCsvDataUri(dataUri))).toEqual([
+    ['危险值', '普通值'],
+    ["'=1+1", '含,逗号'],
+    ["'+SUM(A1:A2)", '含"引号'],
+    ["'-10", '多\n行'],
+    ["'@cmd", "'\tTAB"],
+  ])
+})
+
+test('专项 E2E 命令和 CI 只执行生产准备时效 spec', () => {
+  const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+    scripts: Record<string, string>
+  }
+  const command = packageJson.scripts['test:production-preparation-timing:e2e']
+  expect(command).toContain('PLAYWRIGHT_REUSE_EXISTING_SERVER=false')
+  expect(command).toContain('CUTTING_E2E_PORT=')
+  expect(command).toContain('tests/production-preparation-timing-filters.spec.ts')
+
+  const workflow = readFileSync(new URL('../.github/workflows/list-page-governance.yml', import.meta.url), 'utf8')
+  expect(workflow).toContain('npm run test:production-preparation-timing:e2e')
+})
 
 async function paginationTotal(page: Page, region: 'list' | 'stats'): Promise<number> {
   const text = await page.locator(`[data-prep-${region}-region="pagination"]`).innerText()
@@ -366,6 +424,7 @@ test('辅料采购单逐行保留下单时间且只更新被修改行', async ({
 })
 
 test('生产准备关键真实动作完成响应均小于 200ms', async ({ page }) => {
+  test.setTimeout(120_000)
   const responseTimes: Record<string, number> = {}
 
   await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
@@ -381,6 +440,15 @@ test('生产准备关键真实动作完成响应均小于 200ms', async ({ page 
   responseTimes.pagination = await measureActionResponse(
     page.locator('[data-production-preparation-ledger-action="next-page"]'),
     { selector: '[data-prep-list-region="pagination"]', textIncludes: '2 / 2' },
+  )
+  responseTimes.previousPage = await measureActionResponse(
+    page.locator('[data-production-preparation-ledger-action="prev-page"]'),
+    { selector: '[data-prep-list-region="pagination"]', textIncludes: '1 / 2' },
+  )
+  responseTimes.pageSize = await measureSelectResponse(
+    page.locator('[data-production-preparation-ledger-field="pageSize"]'),
+    '10',
+    { selector: '[data-prep-list-region="pagination"]', textIncludes: '1 / 1' },
   )
 
   await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
@@ -415,12 +483,134 @@ test('生产准备关键真实动作完成响应均小于 200ms', async ({ page 
   )
   responseTimes.dialogSubmit = await measureActionResponse(
     page.locator('[data-prep-accessory-order-form] button[type="submit"]'),
-    { selector: '[data-prep-accessory-order-form]', absent: true },
+    { selector: '[data-prep-accessory-order-form]', absent: true, secondarySelector: '[data-prep-filter-scope]' },
+  )
+
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  const activeRow = page.locator('tbody tr').filter({ hasText: 'PREP-202603-002' })
+  responseTimes.detailOpen = await measureActionResponse(
+    activeRow.getByRole('button', { name: '查看详情', exact: true }),
+    { selector: 'aside.fixed', textIncludes: 'PREP-202603-002' },
+  )
+  responseTimes.detailClose = await measureActionResponse(
+    page.locator('aside.fixed').getByRole('button', { name: '关闭', exact: true }),
+    { selector: 'aside.fixed', absent: true },
+  )
+
+  const pendingRow = page.locator('tbody tr').filter({ hasText: 'PREP-202603-001' })
+  responseTimes.confirmOpen = await measureActionResponse(
+    pendingRow.getByRole('button', { name: '确认工作项', exact: true }),
+    { selector: '[data-prep-confirm-items-form]' },
+  )
+  responseTimes.confirmSubmit = await measureActionResponse(
+    page.locator('[data-prep-confirm-items-form] button[type="submit"]'),
+    { selector: '[data-prep-confirm-items-form]', absent: true, secondarySelector: '[data-prep-filter-scope]' },
+  )
+
+  responseTimes.uploadOpen = await measureActionResponse(
+    page.locator('tbody tr').filter({ hasText: 'PREP-202603-002' }).getByRole('button', { name: '上传毛织基码纸样', exact: true }),
+    { selector: '[data-prep-operate-item-form]' },
+  )
+  await page.locator('[data-prep-operate-item-form] input[type="file"]').setInputFiles({
+    name: '性能验收.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('production preparation timing performance acceptance'),
+  })
+  responseTimes.uploadSubmit = await measureActionResponse(
+    page.locator('[data-prep-operate-item-form] button[type="submit"]'),
+    { selector: '[data-prep-operate-item-form]', absent: true, secondarySelector: '[data-prep-filter-scope]' },
+  )
+
+  responseTimes.uploadHistoryOpen = await measureActionResponse(
+    page.locator('tbody tr').filter({ hasText: 'PREP-202603-002' }).getByRole('button', { name: '上传毛织基码纸样', exact: true }),
+    { selector: '[data-prep-operate-item-form]', textIncludes: '性能验收.txt' },
+  )
+  responseTimes.download = await measureActionResponse(
+    page.locator('[data-prep-operate-item-form] [data-prep-action="download-upload"]').filter({ hasText: '下载' }).last(),
+    { selector: '[data-prep-operate-item-form]', textIncludes: '性能验收.txt｜当前用户｜' },
+  )
+  responseTimes.uploadClose = await measureActionResponse(
+    page.locator('[data-prep-operate-item-form]').getByRole('button', { name: '取消', exact: true }),
+    { selector: '[data-prep-operate-item-form]', absent: true, secondarySelector: '[data-prep-filter-scope]' },
+  )
+
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-04`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  responseTimes.dyeOpen = await measureActionResponse(
+    page.locator('tbody tr').filter({ hasText: 'PREP-202604-004' }).getByRole('button', { name: '确认面料染色要求', exact: true }),
+    { selector: '[data-prep-dye-requirement-form]' },
+  )
+  await page.locator('[data-prep-dye-requirement-form] input[name="pantoneCode"]').fill('19-4052 TCX')
+  await page.locator('[data-prep-dye-requirement-form] input[name="colorSampleName"]').fill('经典蓝')
+  await page.locator('[data-prep-dye-requirement-form] textarea[name="requirementText"]').fill('按潘通色卡确认纱线染色')
+  responseTimes.dyeSubmit = await measureActionResponse(
+    page.locator('[data-prep-dye-requirement-form] button[type="submit"]'),
+    { selector: '[data-prep-dye-requirement-form]', absent: true, secondarySelector: '[data-prep-filter-scope]' },
+  )
+
+  await checkFilterOption(filterGroup(page, 'recordStatus'), '进行中')
+  await page.locator('[data-prep-filter-scope]').getByRole('button', { name: '筛选', exact: true }).click()
+  await expect(page).toHaveURL(/recordStatus=/)
+  responseTimes.reset = await measureActionResponse(
+    page.locator('[data-prep-filter-scope]').getByRole('button', { name: '重置', exact: true }),
+    { selector: '[data-prep-list-region="pagination"]', textIncludes: '共 6 条' },
+  )
+
+  responseTimes.columnSettingsOpen = await measureActionResponse(
+    page.getByRole('button', { name: '列设置', exact: true }),
+    { selector: '[data-prep-list-region="column-settings"]', textIncludes: '准备台账列设置' },
+  )
+  responseTimes.columnVisibility = await measureActionResponse(
+    page.locator('[data-standard-list-column-key="outputs"] [data-production-preparation-ledger-action="toggle-column-visibility"]'),
+    { selector: 'th[data-column-key="outputs"]', absent: true },
   )
 
   for (const [action, responseMs] of Object.entries(responseTimes)) {
     expect(responseMs, `${action} 响应 ${responseMs.toFixed(1)}ms`).toBeLessThan(200)
   }
+})
+
+test('响应探针只在局部分页最终 DOM 可见后完成', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+
+  const result = await page.evaluate(() => new Promise<{ pagination: string; rowVisible: boolean }>((resolve, reject) => {
+    const next = document.querySelector<HTMLButtonElement>('[data-production-preparation-ledger-action="next-page"]')
+    if (!next) return reject(new Error('下一页按钮缺失'))
+    const clickEvent = new MouseEvent('click', { bubbles: true }) as MouseEvent & {
+      higoodResponseCompletionProbe?: () => void
+    }
+    const timeout = window.setTimeout(() => reject(new Error('响应探针未完成')), 1000)
+    clickEvent.higoodResponseCompletionProbe = () => {
+      window.clearTimeout(timeout)
+      resolve({
+        pagination: document.querySelector('[data-prep-list-region="pagination"]')?.textContent ?? '',
+        rowVisible: Boolean(Array.from(document.querySelectorAll('tbody tr')).some((row) => row.textContent?.includes('PREP-202603-006'))),
+      })
+    }
+    next.dispatchEvent(clickEvent)
+  }))
+
+  expect(result.pagination).toContain('2 / 2')
+  expect(result.rowVisible).toBe(true)
+})
+
+test('主事件入口在最终渲染之后才结束响应探针', () => {
+  const source = readFileSync(new URL('../src/main.ts', import.meta.url), 'utf8')
+  const clickHandler = source.slice(
+    source.indexOf("root.addEventListener('click'"),
+    source.indexOf("root.addEventListener('input'"),
+  )
+  const inputHandler = source.slice(
+    source.indexOf("root.addEventListener('input'"),
+    source.indexOf("root.addEventListener('compositionend'"),
+  )
+
+  expect(clickHandler.lastIndexOf('completeResponseProbe(event)'))
+    .toBeGreaterThan(clickHandler.lastIndexOf('await renderWithFocusRestore(focusSnapshot)'))
+  expect(inputHandler.lastIndexOf('completeResponseProbe(event)'))
+    .toBeGreaterThan(inputHandler.lastIndexOf('await renderWithFocusRestore(focusSnapshot)'))
 })
 
 test('准备台账标准列表局部分页、三态排序和列偏好可用', async ({ page }) => {

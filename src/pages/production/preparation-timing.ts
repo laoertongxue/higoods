@@ -442,8 +442,9 @@ function outputGeneratedAt(record: ProductionPreparationRecord): string {
 
 function escapeCsvValue(value: unknown): string {
   const text = value == null ? '' : String(value)
-  if (/[",\n\r]/.test(text)) return `"${text.replaceAll('"', '""')}"`
-  return text
+  const safeText = /^[=+\-@\t]/.test(text) ? `'${text}` : text
+  if (/[",\n\r]/.test(safeText)) return `"${safeText.replaceAll('"', '""')}"`
+  return safeText
 }
 
 export function buildProductionPreparationCsvDataUri(rows: string[][]): string {

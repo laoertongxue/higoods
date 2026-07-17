@@ -1787,50 +1787,53 @@ root.addEventListener('click', async (event) => {
     return
   }
 
-  const pageEventHandled = await dispatchPageEvent(target, event)
-  completeResponseProbe(event)
-  if (pageEventHandled) {
-    event.preventDefault()
-    if (skipPageRerender) {
+  try {
+    const pageEventHandled = await dispatchPageEvent(target, event)
+    if (pageEventHandled) {
+      event.preventDefault()
+      if (skipPageRerender) {
+        return
+      }
+      const nextPathname = appStore.getState().pathname
+      if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
+        await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
+        return
+      }
+      if (shouldUseProductionDemandOverlayRender(target, previousPathname, nextPathname)) {
+        await renderProductionDemandOverlayOnly(focusSnapshot)
+        return
+      }
+      if (shouldUseProductionOrdersOverlayRender(target, previousPathname, nextPathname)) {
+        await renderProductionOrdersOverlayOnly(focusSnapshot)
+        return
+      }
+      if (
+        target.closest<HTMLElement>('[data-fast-page-render]') ||
+        shouldUseTechPackScopedRender(target, previousPathname, nextPathname) ||
+        shouldUseProductionScopedRender(previousPathname, nextPathname)
+      ) {
+        await renderPageContentOnlyWithFocusRestore(focusSnapshot)
+      } else {
+        await renderWithFocusRestore(focusSnapshot)
+      }
       return
     }
-    const nextPathname = appStore.getState().pathname
-    if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
-      await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
-      return
-    }
-    if (shouldUseProductionDemandOverlayRender(target, previousPathname, nextPathname)) {
-      await renderProductionDemandOverlayOnly(focusSnapshot)
-      return
-    }
-    if (shouldUseProductionOrdersOverlayRender(target, previousPathname, nextPathname)) {
-      await renderProductionOrdersOverlayOnly(focusSnapshot)
-      return
-    }
-    if (
-      target.closest<HTMLElement>('[data-fast-page-render]') ||
-      shouldUseTechPackScopedRender(target, previousPathname, nextPathname) ||
-      shouldUseProductionScopedRender(previousPathname, nextPathname)
-    ) {
-      await renderPageContentOnlyWithFocusRestore(focusSnapshot)
-    } else {
-      await renderWithFocusRestore(focusSnapshot)
-    }
-    return
-  }
 
-  const navNode = target.closest<HTMLElement>('[data-nav]')
-  if (navNode?.dataset.nav) {
-    event.preventDefault()
-    navigateWithImmediateSidebar(navNode.dataset.nav)
-    return
-  }
+    const navNode = target.closest<HTMLElement>('[data-nav]')
+    if (navNode?.dataset.nav) {
+      event.preventDefault()
+      navigateWithImmediateSidebar(navNode.dataset.nav)
+      return
+    }
 
-  const actionNode = target.closest<HTMLElement>('[data-action]')
-  if (!actionNode) return
+    const actionNode = target.closest<HTMLElement>('[data-action]')
+    if (!actionNode) return
 
-  if (handleShellAction(actionNode)) {
-    event.preventDefault()
+    if (handleShellAction(actionNode)) {
+      event.preventDefault()
+    }
+  } finally {
+    completeResponseProbe(event)
   }
 })
 
@@ -1852,32 +1855,35 @@ root.addEventListener('input', async (event) => {
     return
   }
 
-  const pageEventHandled = await dispatchPageEvent(target, event)
-  completeResponseProbe(event)
-  if (pageEventHandled) {
-    if (shouldSkipInputRerender(target)) return
-    const nextPathname = appStore.getState().pathname
-    if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
-      await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
-      return
+  try {
+    const pageEventHandled = await dispatchPageEvent(target, event)
+    if (pageEventHandled) {
+      if (shouldSkipInputRerender(target)) return
+      const nextPathname = appStore.getState().pathname
+      if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
+        await renderProductionDemandConfirmOverlayOnly(focusSnapshot)
+        return
+      }
+      if (shouldUseProductionDemandOverlayRender(target, previousPathname, nextPathname)) {
+        await renderProductionDemandOverlayOnly(focusSnapshot)
+        return
+      }
+      if (shouldUseProductionOrdersOverlayRender(target, previousPathname, nextPathname)) {
+        await renderProductionOrdersOverlayOnly(focusSnapshot)
+        return
+      }
+      if (
+        target.closest<HTMLElement>('[data-fast-page-render]') ||
+        shouldUseTechPackScopedRender(target, previousPathname, nextPathname) ||
+        shouldUseProductionScopedRender(previousPathname, nextPathname)
+      ) {
+        await renderPageContentOnlyWithFocusRestore(focusSnapshot)
+      } else {
+        await renderWithFocusRestore(focusSnapshot)
+      }
     }
-    if (shouldUseProductionDemandOverlayRender(target, previousPathname, nextPathname)) {
-      await renderProductionDemandOverlayOnly(focusSnapshot)
-      return
-    }
-    if (shouldUseProductionOrdersOverlayRender(target, previousPathname, nextPathname)) {
-      await renderProductionOrdersOverlayOnly(focusSnapshot)
-      return
-    }
-    if (
-      target.closest<HTMLElement>('[data-fast-page-render]') ||
-      shouldUseTechPackScopedRender(target, previousPathname, nextPathname) ||
-      shouldUseProductionScopedRender(previousPathname, nextPathname)
-    ) {
-      await renderPageContentOnlyWithFocusRestore(focusSnapshot)
-    } else {
-      await renderWithFocusRestore(focusSnapshot)
-    }
+  } finally {
+    completeResponseProbe(event)
   }
 })
 
