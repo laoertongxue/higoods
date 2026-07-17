@@ -274,7 +274,6 @@ export const routes: RouteRegistry = {
     '/fcs/craft/workbench/risks': () => renderCraftWorkbenchOverviewPage(),
     '/fcs/craft/cutting': () =>
       renderRouteRedirect('/fcs/craft/cutting/production-progress', '正在跳转到生产单总览'),
-    '/fcs/craft/cutting/production-order-progress': () => renderCraftCuttingProductionProgressPage(),
     '/fcs/craft/cutting/production-progress': () => renderCraftCuttingProductionProgressPage(),
     '/fcs/craft/cutting/production-order-progress': () => renderCraftCuttingProductionOrderProgressPage(),
     '/fcs/craft/cutting/cut-orders': () => renderCraftCuttingCutOrdersPage(),
