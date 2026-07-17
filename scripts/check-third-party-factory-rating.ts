@@ -18,6 +18,7 @@ import {
 } from '../src/data/fcs/store-domain-statement-source-adapter.ts'
 import {
   createStatementFromEligibleLedgers,
+  initialStatementDrafts,
   listStatements,
 } from '../src/data/fcs/store-domain-settlement-seeds.ts'
 import { getSettlementEffectiveInfoByFactory } from '../src/data/fcs/settlement-change-requests.ts'
@@ -538,6 +539,11 @@ function withTemporaryRatingSnapshot<T>(snapshot: FactoryRatingSnapshot, operati
   }
 }
 
+function rollbackStatementDraft(statementId: string): void {
+  const index = initialStatementDrafts.findIndex((item) => item.statementId === statementId)
+  if (index >= 0) initialStatementDrafts.splice(index, 1)
+}
+
 function createTemporaryTrialDispatchSnapshot(sewingSeatCount: number): FactoryRatingSnapshot {
   return {
     ...trialSnapshot,
@@ -866,30 +872,32 @@ withTemporaryRatingSnapshot(createTemporaryTrialDispatchSnapshot(48), () => {
     `${trialSettlementAllowedScope.settlementPartyId} 考核中工厂不应被黑名单结算规则拦截`,
   )
   assert.equal(trialAllowedStatementPolicy.historyReadable, true, `${trialSettlementAllowedScope.settlementPartyId} 历史账本必须可查看`)
-  const trialAllowedStatementResult = createStatementFromEligibleLedgers({
-    statementId: trialAllowedStatementId,
-    settlementPartyType: trialSettlementAllowedScope.settlementPartyType,
-    settlementPartyId: trialSettlementAllowedScope.settlementPartyId,
-    settlementPartyLabel: trialSettlementAllowedScope.settlementPartyLabel,
-    settlementCycleId: trialSettlementAllowedScope.settlementCycleId,
-    settlementCycleLabel: trialSettlementAllowedScope.settlementCycleLabel,
-    settlementCycleStartAt: trialSettlementAllowedScope.settlementCycleStartAt,
-    settlementCycleEndAt: trialSettlementAllowedScope.settlementCycleEndAt,
-    settlementRangeStartAt: '2026-07-17',
-    settlementRangeEndAt: '2026-07-17',
-    plannedPrepaymentAt: trialSettlementAllowedScope.plannedPrepaymentAt,
-    itemSourceIds: trialAllowedCandidates.map((item) => item.sourceItemId),
-    itemBasisIds: trialAllowedCandidates.map((item) => item.basisId).filter(Boolean) as string[],
-    items: trialAllowedCandidates.map(toStatementDraftItemFromSource),
-    by: '对抗式核查',
-  })
-  assert.equal(
-    trialAllowedStatementResult.ok,
-    true,
-    `${trialSettlementAllowedScope.settlementPartyId} 考核中工厂应允许按账本创建对账单：${trialAllowedStatementResult.message ?? '无返回原因'}`,
-  )
-  const trialAllowedStatementIndex = statements.findIndex((item) => item.statementId === trialAllowedStatementId)
-  if (trialAllowedStatementIndex >= 0) statements.splice(trialAllowedStatementIndex, 1)
+  try {
+    const trialAllowedStatementResult = createStatementFromEligibleLedgers({
+      statementId: trialAllowedStatementId,
+      settlementPartyType: trialSettlementAllowedScope.settlementPartyType,
+      settlementPartyId: trialSettlementAllowedScope.settlementPartyId,
+      settlementPartyLabel: trialSettlementAllowedScope.settlementPartyLabel,
+      settlementCycleId: trialSettlementAllowedScope.settlementCycleId,
+      settlementCycleLabel: trialSettlementAllowedScope.settlementCycleLabel,
+      settlementCycleStartAt: trialSettlementAllowedScope.settlementCycleStartAt,
+      settlementCycleEndAt: trialSettlementAllowedScope.settlementCycleEndAt,
+      settlementRangeStartAt: '2026-07-17',
+      settlementRangeEndAt: '2026-07-17',
+      plannedPrepaymentAt: trialSettlementAllowedScope.plannedPrepaymentAt,
+      itemSourceIds: trialAllowedCandidates.map((item) => item.sourceItemId),
+      itemBasisIds: trialAllowedCandidates.map((item) => item.basisId).filter(Boolean) as string[],
+      items: trialAllowedCandidates.map(toStatementDraftItemFromSource),
+      by: '对抗式核查',
+    })
+    assert.equal(
+      trialAllowedStatementResult.ok,
+      true,
+      `${trialSettlementAllowedScope.settlementPartyId} 考核中工厂应允许按账本创建对账单：${trialAllowedStatementResult.message ?? '无返回原因'}`,
+    )
+  } finally {
+    rollbackStatementDraft(trialAllowedStatementId)
+  }
 })
 
 const source = readRequiredSource(
