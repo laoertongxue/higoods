@@ -1,4 +1,8 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import {
+  derivePreparationItemProgress,
+  productionPreparationRecords,
+} from '../src/data/fcs/production-preparation-timing'
 
 const ledgerRoute = '/fcs/production/preparation-timing'
 const statisticsRoute = '/fcs/production/preparation-timing-statistics'
@@ -239,7 +243,16 @@ test('不兼容旧 URL 保留两个已选值并显示空态', async ({ page }) =
   expect(new URL(page.url()).searchParams.getAll('ownerTeam')).toEqual(['染色团队'])
 })
 
-test('准备项进度多选提交后真实筛选同一准备项并重置页码', async ({ page }) => {
+test('准备项进度筛选排除目标项进度不匹配但其他项已完成的记录', async ({ page }) => {
+  const crossItemCounterexample = productionPreparationRecords.find((record) => record.recordNo === 'PREP-202603-002')
+  expect(crossItemCounterexample).toBeTruthy()
+  const targetItem = crossItemCounterexample!.items.find((item) => item.itemType === '版衣制作' && item.ownerTeam === '车板团队')
+  expect(targetItem).toBeTruthy()
+  expect(derivePreparationItemProgress(targetItem!, crossItemCounterexample!)).toBe('不满足开始条件')
+  expect(crossItemCounterexample!.items.some((item) =>
+    item.itemId !== targetItem!.itemId && derivePreparationItemProgress(item, crossItemCounterexample!) === '已完成',
+  )).toBe(true)
+
   await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03&page=2`)
   await waitForStableFilterScope(page, '[data-prep-filter-scope]')
   const itemType = filterGroup(page, 'itemType')
@@ -248,25 +261,23 @@ test('准备项进度多选提交后真实筛选同一准备项并重置页码',
 
   await checkFilterOption(itemType, '版衣制作')
   await checkFilterOption(ownerTeam, '车板团队')
-  await checkFilterOption(itemProgress, '不满足开始条件')
-  await checkFilterOption(itemProgress, '已完成')
-  await expect(itemProgress.locator('[data-prep-filter-summary]')).toContainText('准备项进度（2）')
+  await itemProgress.locator('[data-prep-filter-summary]').click()
+  await filterOption(itemProgress, '已完成').check()
+  await expect(itemProgress.locator('[data-prep-filter-summary]')).toContainText('准备项进度（1）')
 
   await page.locator('[data-prep-filter-scope]').getByRole('button', { name: '筛选', exact: true }).click()
-  await expect.poll(() => new URL(page.url()).searchParams.getAll('itemProgress')).toEqual(['不满足开始条件', '已完成'])
+  await expect.poll(() => new URL(page.url()).searchParams.getAll('itemProgress')).toEqual(['已完成'])
   expect(new URL(page.url()).searchParams.get('page')).toBe('1')
-  await expect(page.locator('[data-prep-list-region="pagination"]')).toContainText('共 5 条')
+  await expect(page.locator('[data-prep-list-region="pagination"]')).toContainText('共 3 条')
   await expect.poll(() => page.locator('tbody tr').evaluateAll((rows) => rows.map((row) => {
     const match = row.textContent?.match(/PREP-\d{6}-\d{3}/)
     return match?.[0] ?? ''
   }))).toEqual([
-    'PREP-202603-001',
-    'PREP-202603-002',
     'PREP-202603-004',
     'PREP-202603-005',
     'PREP-202603-006',
   ])
-  await expect(page.getByText('PREP-202603-003', { exact: false })).toHaveCount(0)
+  await expect(page.getByText('PREP-202603-002', { exact: false })).toHaveCount(0)
 })
 
 test('准备台账标准列表局部分页、三态排序和列偏好可用', async ({ page }) => {
@@ -546,6 +557,53 @@ test('统计 tab 分页和月份明细链接只传播白名单并保留合法重
   expectStatsWhitelist(page.url())
 })
 
+test('月度与明细 CSV 导出完整重复多选筛选结果而非当前页', async ({ page }) => {
+  await page.goto(`${statisticsRoute}?tab=monthly&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-stats-filter-scope]')
+  const itemType = filterGroup(page, 'itemType')
+  const ownerTeam = filterGroup(page, 'ownerTeam')
+  await checkFilterOption(itemType, '梭织基码纸样')
+  await checkFilterOption(itemType, '辅料下单')
+  await checkFilterOption(ownerTeam, '版师团队')
+  await checkFilterOption(ownerTeam, '采购团队')
+  await page.locator('[data-prep-stats-filter-scope]').getByRole('button', { name: '筛选', exact: true }).click()
+
+  await expect.poll(() => new URL(page.url()).searchParams.getAll('itemType')).toEqual(['梭织基码纸样', '辅料下单'])
+  await expect.poll(() => new URL(page.url()).searchParams.getAll('ownerTeam')).toEqual(['版师团队', '采购团队'])
+  const monthlyPageSize = page.locator('[data-production-preparation-stats-monthly-field="pageSize"]')
+  await monthlyPageSize.selectOption('5')
+  await expect(page.locator('[data-prep-stats-region="pagination"]')).toContainText('1 / 3')
+
+  const monthlyCsvRows = await exportedCsvRows(page.getByRole('link', { name: '导出月度统计', exact: true }))
+  expect(monthlyCsvRows).toHaveLength(12)
+  const nonZeroMonthlyRows = monthlyCsvRows.slice(1)
+    .filter((row) => Number(row[2]) > 0)
+    .map((row) => [row[1], row[2], row[6]])
+  expect(nonZeroMonthlyRows).toEqual([
+    ['梭织基码纸样', '2', '版师团队'],
+    ['辅料下单', '4', '采购团队'],
+  ])
+
+  await page.getByRole('button', { name: '明细统计', exact: true }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.get('tab')).toBe('detail')
+  await expect.poll(() => new URL(page.url()).searchParams.getAll('itemType')).toEqual(['梭织基码纸样', '辅料下单'])
+  const detailPageSize = page.locator('[data-production-preparation-stats-detail-field="pageSize"]')
+  await detailPageSize.selectOption('5')
+  await expect(page.locator('[data-prep-stats-region="pagination"]')).toContainText('1 / 2')
+  await expect(page.locator('tbody tr')).toHaveCount(5)
+
+  const detailCsvRows = await exportedCsvRows(page.getByRole('link', { name: '导出完成明细', exact: true }))
+  expect(detailCsvRows).toHaveLength(7)
+  expect(detailCsvRows.slice(1).map((row) => [row[1], row[8], row[10]])).toEqual([
+    ['PREP-202603-002', '梭织基码纸样', '版师团队'],
+    ['PREP-202603-002', '辅料下单', '采购团队'],
+    ['PREP-202603-004', '辅料下单', '采购团队'],
+    ['PREP-202603-005', '梭织基码纸样', '版师团队'],
+    ['PREP-202603-005', '辅料下单', '采购团队'],
+    ['PREP-202603-006', '辅料下单', '采购团队'],
+  ])
+})
+
 test('月度统计标准列表局部分页、三态排序和列偏好可用', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })
   await page.goto(`${statisticsRoute}?tab=monthly&month=2026-03`)
@@ -787,24 +845,45 @@ for (const viewport of [
       await expect(page.locator('h1').first()).not.toBeEmpty()
       await expect(page.locator('h1').first().locator('xpath=ancestor::*[@data-standard-list-table-section]')).toHaveCount(0)
       if (!route.includes('statistics')) {
-        const actionLayout = await page.locator('tbody tr').first().evaluate((row) => {
-          const cell = row.querySelector<HTMLElement>('td:last-child')
-          if (!cell) throw new Error('台账操作列缺失')
-          const cellBox = cell.getBoundingClientRect()
-          const buttons = Array.from(cell.querySelectorAll<HTMLElement>('button')).map((button) => button.getBoundingClientRect())
-          return {
-            stickyRight: getComputedStyle(cell).position === 'sticky' && getComputedStyle(cell).right === '0px',
-            insideViewport: cellBox.left >= 0 && cellBox.right <= window.innerWidth,
-            buttonsInsideCell: buttons.every((box) => box.left >= cellBox.left && box.right <= cellBox.right),
-            buttonsDoNotOverlap: buttons.every((box, index) => index === 0 || box.top >= buttons[index - 1].bottom || box.left >= buttons[index - 1].right),
+        const expectedRows = [
+          { recordNo: 'PREP-202603-001', requiredLabels: ['确认工作项'], minimumButtons: 1 },
+          { recordNo: 'PREP-202603-002', requiredLabels: ['查看详情', '上传毛织基码纸样'], minimumButtons: 2 },
+        ]
+        for (const expectedRow of expectedRows) {
+          const row = page.locator('tbody tr').filter({ hasText: expectedRow.recordNo })
+          await expect(row).toHaveCount(1)
+          await expect(page.locator('thead th[data-column-key="actions"]')).toHaveText('操作')
+          const actionCell = row.locator('td').last()
+          const buttons = actionCell.getByRole('button')
+          await expect.poll(() => buttons.count()).toBeGreaterThanOrEqual(expectedRow.minimumButtons)
+          for (const label of expectedRow.requiredLabels) {
+            await expect(buttons.filter({ hasText: label })).toBeVisible()
           }
-        })
-        expect(actionLayout).toEqual({
-          stickyRight: true,
-          insideViewport: true,
-          buttonsInsideCell: true,
-          buttonsDoNotOverlap: true,
-        })
+          const actionLayout = await actionCell.evaluate((cell) => {
+            const cellBox = cell.getBoundingClientRect()
+            const buttonElements = Array.from(cell.querySelectorAll<HTMLElement>('button'))
+            const buttonBoxes = buttonElements.map((button) => button.getBoundingClientRect())
+            return {
+              labels: buttonElements.map((button) => button.textContent?.trim() ?? ''),
+              nonZeroButtons: buttonBoxes.every((box) => box.width > 0 && box.height > 0),
+              visibleButtons: buttonElements.every((button) => getComputedStyle(button).visibility !== 'hidden'),
+              stickyRight: getComputedStyle(cell).position === 'sticky' && getComputedStyle(cell).right === '0px',
+              insideViewport: cellBox.left >= 0 && cellBox.right <= window.innerWidth,
+              buttonsInsideCell: buttonBoxes.every((box) => box.left >= cellBox.left && box.right <= cellBox.right),
+              buttonsDoNotOverlap: buttonBoxes.every((box, index) => index === 0 || box.top >= buttonBoxes[index - 1].bottom || box.left >= buttonBoxes[index - 1].right),
+            }
+          })
+          expect(actionLayout.labels.length).toBeGreaterThan(0)
+          expect(actionLayout.labels).toEqual(expect.arrayContaining(expectedRow.requiredLabels))
+          expect(actionLayout).toMatchObject({
+            nonZeroButtons: true,
+            visibleButtons: true,
+            stickyRight: true,
+            insideViewport: true,
+            buttonsInsideCell: true,
+            buttonsDoNotOverlap: true,
+          })
+        }
       }
     }
   })
