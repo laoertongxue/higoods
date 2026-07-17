@@ -2,6 +2,7 @@
 
 import { escapeHtml, formatDateTime } from '../../utils.ts'
 import { appStore } from '../../state/store.ts'
+import { hydrateIcons } from '../../components/shell.ts'
 import { renderMultiSelectFilter } from '../../components/ui/filter-bar.ts'
 import { renderSecondaryButton } from '../../components/ui/button.ts'
 import { renderStandardListPage } from '../../components/ui/list-page.ts'
@@ -112,6 +113,7 @@ interface LedgerListState {
   records: ProductionPreparationRecord[]
   month: string
   params: URLSearchParams
+  filterSignature: string
 }
 
 const ledgerListState: LedgerListState = {
@@ -128,11 +130,33 @@ const ledgerListState: LedgerListState = {
   records: [],
   month: DEFAULT_MONTH,
   params: new URLSearchParams(),
+  filterSignature: '',
 }
 
-function resetLedgerTransientState(): void {
+export function enterProductionPreparationTimingRoute(): void {
   ledgerListState.page = 1
   ledgerListState.sort = null
+  ledgerListState.columnSettingsOpen = false
+  ledgerListState.draggedColumnKey = ''
+  ledgerListState.filterSignature = ''
+}
+
+function getLedgerFilterSignature(params: URLSearchParams, month: string): string {
+  const signature = new URLSearchParams()
+  signature.set('month', month)
+  for (const key of LEDGER_FILTER_KEYS) {
+    for (const value of valuesOf(params, key)) signature.append(key, value)
+  }
+  return signature.toString()
+}
+
+function syncLedgerFilterContext(params: URLSearchParams, month: string): void {
+  const nextSignature = getLedgerFilterSignature(params, month)
+  if (ledgerListState.filterSignature && ledgerListState.filterSignature !== nextSignature) {
+    ledgerListState.page = 1
+    ledgerListState.sort = null
+  }
+  ledgerListState.filterSignature = nextSignature
 }
 
 const PREPARATION_ACTION_LABELS: Record<PreparationItemType, string> = {
@@ -1035,7 +1059,7 @@ function renderLedgerColumnSettings(): string {
 
 function renderLedgerTab(params: URLSearchParams, month: string): string {
   ensureLedgerPreferences()
-  resetLedgerTransientState()
+  syncLedgerFilterContext(params, month)
   const filter = parseFilter(params)
   const runtime = loadPreparationRuntimeState()
   const recordsWithRuntime = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)
@@ -2481,7 +2505,9 @@ function syncPreparationFilterDependencies(checkbox: HTMLInputElement): void {
 function setLedgerRegion(region: string, html: string): void {
   if (typeof document === 'undefined') return
   const element = document.querySelector<HTMLElement>(`[data-prep-list-region="${region}"]`)
-  if (element) element.innerHTML = html
+  if (!element) return
+  element.innerHTML = html
+  hydrateIcons(element)
 }
 
 function refreshLedgerTableAndPagination(): void {

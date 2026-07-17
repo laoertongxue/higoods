@@ -844,16 +844,23 @@ function ensureInitialPdaLoadingShell(state = appStore.getState()): void {
 }
 
 const supplementManagementRoutePath = '/fcs/craft/cutting/supplement-management'
+const productionPreparationTimingRoutePath = '/fcs/production/preparation-timing'
 let previousRenderedPagePathname = ''
 
 async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
   const isSupplementManagementEntry = normalizedPathname === supplementManagementRoutePath
     && previousRenderedPagePathname !== supplementManagementRoutePath
+  const isProductionPreparationTimingEntry = normalizedPathname === productionPreparationTimingRoutePath
+    && previousRenderedPagePathname !== productionPreparationTimingRoutePath
   previousRenderedPagePathname = normalizedPathname
-  if (!isSupplementManagementEntry) return
+  if (isSupplementManagementEntry) {
+    const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
+    supplementManagementPage.enterCraftCuttingSupplementManagementRoute()
+  }
+  if (!isProductionPreparationTimingEntry) return
 
-  const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
-  supplementManagementPage.enterCraftCuttingSupplementManagementRoute()
+  const productionPreparationTimingPage = await import('./pages/production/preparation-timing')
+  productionPreparationTimingPage.enterProductionPreparationTimingRoute()
 }
 
 async function renderCurrentPageContent(pathname: string): Promise<string> {

@@ -80,6 +80,20 @@ async function expectLedgerDefaults(page: Page): Promise<void> {
   await expect(page.locator('[data-production-preparation-ledger-action="prev-page"]')).toBeDisabled()
 }
 
+async function prepareSortedLedgerSecondPage(page: Page): Promise<void> {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  await ledgerSortButton(page).click()
+  await expect(page.locator('th[data-column-key="product"]')).toHaveAttribute('aria-sort', 'ascending')
+  await page.locator('[data-production-preparation-ledger-action="next-page"]').click()
+  await expect(page.locator('[data-prep-list-region="pagination"]')).toContainText(/2\s*\/\s*\d+/)
+}
+
+async function expectSortedLedgerSecondPage(page: Page): Promise<void> {
+  await expect(page.locator('[data-prep-list-region="pagination"]')).toContainText(/2\s*\/\s*\d+/)
+  await expect(page.locator('th[data-column-key="product"]')).toHaveAttribute('aria-sort', 'ascending')
+}
+
 async function navigateBySpaTab(page: Page, href: string, key: string): Promise<void> {
   await page.locator('[data-playwright-spa-nav]').evaluateAll((nodes) => nodes.forEach((node) => node.remove()))
   await page.locator('#app').evaluate((root, input) => {
@@ -294,6 +308,49 @@ test('准备台账 SPA 离开再进入后回到第一页且未排序', async ({ 
   await navigateBySpaTab(page, ledgerRoute, 'production-preparation-timing-test')
   await waitForStableFilterScope(page, '[data-prep-filter-scope]')
   await expectLedgerDefaults(page)
+})
+
+test('准备台账同路由打开并关闭详情后保留第二页和排序', async ({ page }) => {
+  await prepareSortedLedgerSecondPage(page)
+
+  await page.locator('tbody tr').first().getByRole('button', { name: '查看详情', exact: true }).click()
+  const detailDrawer = page.locator('aside.fixed.inset-y-0.right-0')
+  await expect(detailDrawer.getByRole('button', { name: '关闭', exact: true })).toBeVisible()
+  await expectSortedLedgerSecondPage(page)
+  await detailDrawer.getByRole('button', { name: '关闭', exact: true }).click()
+
+  await expect(detailDrawer).toHaveCount(0)
+  await expectSortedLedgerSecondPage(page)
+})
+
+test('准备台账同路由打开并关闭准备项操作弹窗后保留第二页和排序', async ({ page }) => {
+  await prepareSortedLedgerSecondPage(page)
+
+  const row = page.locator('tbody tr').first()
+  const operationButton = row.locator('button[data-nav*="action=operate-item"]').first()
+  await expect(operationButton).toBeVisible()
+  await operationButton.click()
+  await expect(page.getByRole('button', { name: '取消', exact: true })).toBeVisible()
+  await expectSortedLedgerSecondPage(page)
+  await page.getByRole('button', { name: '取消', exact: true }).click()
+
+  await expect(page.getByRole('button', { name: '取消', exact: true })).toHaveCount(0)
+  await expectSortedLedgerSecondPage(page)
+})
+
+test('准备台账列设置局部渲染后图标已 hydration 且 SPA 重进不自动打开', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await page.getByRole('button', { name: '列设置', exact: true }).click()
+
+  const settingsRegion = page.locator('[data-prep-list-region="column-settings"]')
+  await expect(settingsRegion.getByRole('heading', { name: '准备台账列设置', exact: true })).toBeVisible()
+  await expect(settingsRegion.locator('svg[data-lucide]').first()).toBeVisible()
+  await expect(settingsRegion.locator('i[data-lucide]')).toHaveCount(0)
+
+  await navigateBySpaTab(page, statisticsRoute, 'production-preparation-timing-statistics-column-settings-test')
+  await navigateBySpaTab(page, ledgerRoute, 'production-preparation-timing-column-settings-test')
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  await expect(page.getByRole('heading', { name: '准备台账列设置', exact: true })).toHaveCount(0)
 })
 
 test('准备台账筛选后回到第一页且排序重置', async ({ page }) => {
