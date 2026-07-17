@@ -32,5 +32,7 @@ jobs:
         run: npm run check:list-page-governance
       - name: Verify supplement management template
         run: npm run test:supplement-management-list-template:e2e
+      - name: Verify production preparation timing
+        run: npm run test:production-preparation-timing:e2e
       - name: Build
         run: npm run build

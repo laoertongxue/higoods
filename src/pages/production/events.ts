@@ -108,7 +108,10 @@ import {
 } from './preparation-timing'
 
 function isProductionPreparationTimingPath(): boolean {
-  return typeof window !== 'undefined' && window.location.pathname === '/fcs/production/preparation-timing'
+  return typeof window !== 'undefined' && (
+    window.location.pathname === '/fcs/production/preparation-timing' ||
+    window.location.pathname === '/fcs/production/preparation-timing-statistics'
+  )
 }
 
 function getDefaultTechPackChangeTargetVersionId(productionOrderId: string): string {
@@ -1304,8 +1307,8 @@ function updateProductionField(
   }
 }
 
-export function handleProductionEvent(target: HTMLElement): boolean {
-  if (isProductionPreparationTimingPath() && handleProductionPreparationTimingEvent(target)) return true
+export function handleProductionEvent(target: HTMLElement, event?: Event): boolean {
+  if (isProductionPreparationTimingPath() && handleProductionPreparationTimingEvent(target, event)) return true
 
   const fieldNode = target.closest<HTMLElement>('[data-prod-field]')
   if (
