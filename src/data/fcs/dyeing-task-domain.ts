@@ -2711,6 +2711,8 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
 
   const factoryId = input.factoryId || ''
   const factoryName = input.factoryName || '待分配工厂'
+  const factoryAssignmentError = getDyeFactoryAssignmentError(factoryId, input.requiresWaterSoluble === true)
+  if (factoryAssignmentError) throw new Error(factoryAssignmentError)
   registerPdaGenericProcessTask(buildFreshDyeMobileTask({
     taskId: input.workOrderId,
     taskNo: input.workOrderNo,
@@ -2777,6 +2779,7 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
       qtyUnit: input.qtyUnit,
       processCodes: [...input.processCodes],
       processName: input.processName,
+      requiresWaterSoluble: input.requiresWaterSoluble === true,
       spuCode: input.spuCode,
       spuName: input.spuName,
       requiredDeliveryDate: input.requiredDeliveryDate,
@@ -2793,6 +2796,8 @@ export function assignDyeWorkOrderFactory(
   const order = getMutableWorkOrder(dyeOrderId)
   const factoryId = input.factoryId.trim()
   const factoryName = input.factoryName.trim() || (factoryId ? factoryId : '待分配工厂')
+  const factoryAssignmentError = getDyeFactoryAssignmentError(factoryId, order.requiresWaterSoluble)
+  if (factoryAssignmentError) throw new Error(factoryAssignmentError)
   const changed = order.dyeFactoryId !== factoryId || order.dyeFactoryName !== factoryName
 
   order.dyeFactoryId = factoryId
@@ -2855,6 +2860,7 @@ function toDyeSnapshotRecord(snapshot: FormalProductionOrderProcessSnapshot): Fo
     qtyUnit: snapshot.qtyUnit,
     processCodes: [...snapshot.processCodes],
     processName: snapshot.dyeProcessName || '染色',
+    requiresWaterSoluble: snapshot.requiresWaterSoluble === true,
     spuCode: snapshot.spuCode,
     spuName: snapshot.spuName,
     requiredDeliveryDate: snapshot.requiredDeliveryDate,
@@ -3155,6 +3161,20 @@ function hasActiveFactoryProcessAbility(factoryId: string, processCode: 'WATER_S
   )
 }
 
+function getDyeFactoryAssignmentError(
+  factoryId: string,
+  requiresWaterSoluble: boolean,
+): string | null {
+  if (!factoryId.trim()) return null
+  if (!hasActiveFactoryProcessAbility(factoryId, 'DYE')) {
+    return '所选工厂不可派单或缺少正式有效的染色能力。'
+  }
+  if (requiresWaterSoluble && !hasActiveFactoryProcessAbility(factoryId, 'WATER_SOLUBLE')) {
+    return '需先水溶的染色加工单只能分配给同时具备水溶和染色能力的工厂。'
+  }
+  return null
+}
+
 export function createDyeWorkOrderFromStock(input: {
   stockMaterialId: string
   stockMaterialName: string
@@ -3192,9 +3212,8 @@ export function createDyeWorkOrderFromStock(input: {
   }
   if (!isValidProcessWorkOrderPlannedFinishAt(plannedFinishAt)) return { ok: false, message: '请填写有效的计划完成时间。' }
   if (!input.processName.trim()) return { ok: false, message: '请填写染色工艺。' }
-  if (!hasActiveFactoryProcessAbility(input.factoryId, 'DYE')) {
-    return { ok: false, message: '所选工厂不可派单或缺少正式有效的染色能力。' }
-  }
+  const factoryAssignmentError = getDyeFactoryAssignmentError(input.factoryId, false)
+  if (factoryAssignmentError) return { ok: false, message: factoryAssignmentError }
   const factory = getFactoryMasterRecordById(input.factoryId)!
   const sampleWaitType = input.sampleWaitType ?? 'NONE'
   const requiresSample = sampleWaitType !== 'NONE'
