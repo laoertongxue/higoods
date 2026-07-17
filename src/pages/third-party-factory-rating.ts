@@ -255,8 +255,8 @@ function renderFilters(query: RatingQuery): string {
       ${renderSelect('grade', query.grade, [['ALL', '全部评级'], ['S', 'S 级'], ['A', 'A 级'], ['B', 'B 级'], ['C', 'C 级']])}
       ${renderSelect('cooperationStatus', query.cooperationStatus, [['ALL', '全部合作状态'], ['正常合作', '正常合作'], ['考核中', '考核中'], ['黑名单', '黑名单']])}
       ${renderSelect('scale', query.scale, [['ALL', '全部规模'], ['大型工厂', '大型工厂'], ['小型工厂', '小型工厂']])}
-      ${renderSelect('dispatch', query.dispatch, [['ALL', '全部派单'], ['ALLOW', '允许派单'], ['LIMITED', '限制派单'], ['BLOCKED', '禁止派单']])}
-      ${renderSelect('settlement', query.settlement, [['ALL', '全部结算'], ['ALLOW', '允许结算'], ['BLOCKED', '禁止新结算']])}
+      ${renderSelect('dispatch', query.dispatch, [['ALL', '是否允许派单：全部'], ['ALLOW', '是否允许派单：允许'], ['LIMITED', '是否允许派单：限制'], ['BLOCKED', '是否允许派单：禁止']])}
+      ${renderSelect('settlement', query.settlement, [['ALL', '是否允许结算：全部'], ['ALLOW', '是否允许结算：允许'], ['BLOCKED', '是否允许结算：禁止新结算']])}
       <div class="flex shrink-0 gap-2">
         <button type="button" class="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground" data-nav-from-fields="[data-third-party-rating-filters]" data-nav-base="${PAGE_PATH}">筛选</button>
         <button type="button" class="h-9 rounded-md border px-4 text-sm hover:bg-muted" data-nav="${PAGE_PATH}">重置</button>
