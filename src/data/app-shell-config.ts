@@ -414,6 +414,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '裁床总览',
           icon: 'Scissors',
           children: [
+            { key: 'pfos-cutting-production-order-progress', title: '生产单进度', icon: 'GitBranch', href: '/fcs/craft/cutting/production-order-progress' },
             { key: 'pfos-cutting-production-progress', title: '生产单总览', icon: 'ListTodo', href: '/fcs/craft/cutting/production-progress' },
           ],
         },

@@ -2820,6 +2820,33 @@ function renderMainTable(rows: ProductionProgressRow[]): string {
   return renderProductionOrderTable(rows)
 }
 
+export function renderCraftCuttingProductionOrderProgressPage(): string {
+  const pathname = appStore.getState().pathname
+  const meta = getCanonicalCuttingMeta(pathname, 'production-progress')
+  const rows = getDisplayRows()
+  return `
+    <div class="space-y-3 p-4">
+      ${renderCuttingPageHeader({ ...meta, pageTitle: '生产单进度' }, { showAliasBadge: false })}
+      <section class="rounded-lg border bg-card p-3">
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+          <label class="space-y-2 xl:col-span-2"><span class="text-sm font-medium text-foreground">关键词</span><input value="${escapeHtml(state.filters.keyword)}" placeholder="支持生产单号 / 款号 / SPU" class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-progress-field="keyword" /></label>
+          <label class="space-y-2"><span class="text-sm font-medium text-foreground">生产单号</span><input value="${escapeHtml(state.filters.productionOrderNo)}" placeholder="PO-..." class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-progress-field="production-order" /></label>
+          ${renderFilterSelect('裁床主状态', 'stage', state.filters.currentStage, [{ value: 'ALL', label: '全部' }, { value: 'NOT_STARTED', label: '未开工' }, { value: 'STARTED', label: '已开工' }, ...Object.entries(stageMeta).map(([value, item]) => ({ value, label: item.label }))])}
+          ${renderFilterSelect('完成状态', 'completion', state.filters.completionState, [{ value: 'ALL', label: '全部' }, { value: 'IN_PROGRESS', label: '进行中' }, { value: 'COMPLETED', label: '已完成' }, { value: 'DATA_PENDING', label: '数据待补' }, { value: 'HAS_EXCEPTION', label: '有异常' }])}
+          ${renderFilterSelect('时间筛选', 'time-category', state.filters.timeCategory, [{ value: 'ALL', label: '全部时间点' }, ...Object.entries(timeCategoryMeta).map(([value, item]) => ({ value, label: item.label }))])}
+        </div>
+        <div class="mt-3 flex flex-wrap items-end gap-3">
+          <label class="space-y-2"><span class="text-sm font-medium text-foreground">开始时间</span><input type="date" value="${escapeHtml(state.filters.timeRangeFrom)}" class="h-10 rounded-md border bg-background px-3 text-sm" data-cutting-progress-field="time-from" /></label>
+          <label class="space-y-2"><span class="text-sm font-medium text-foreground">结束时间</span><input type="date" value="${escapeHtml(state.filters.timeRangeTo)}" class="h-10 rounded-md border bg-background px-3 text-sm" data-cutting-progress-field="time-to" /></label>
+          <button type="button" class="h-10 rounded-md border bg-background px-4 text-sm hover:bg-muted" data-cutting-progress-action="clear-filters">重置</button>
+        </div>
+      </section>
+      ${renderStatsCards(rows)}
+      ${renderMainTable(rows)}
+    </div>
+  `
+}
+
 function renderProductionProgressDetailPanel(row: ProductionProgressRow): string {
   const activeTab = getProductionProgressDetailActiveTab()
 

@@ -329,6 +329,10 @@ export const renderCraftCuttingProductionProgressPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/production-progress'),
   'renderCraftCuttingProductionProgressPage',
 )
+export const renderCraftCuttingProductionOrderProgressPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/production-progress'),
+  'renderCraftCuttingProductionOrderProgressPage',
+)
 export const renderCraftCuttingProductionProgressDetailPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/production-progress'),
   'renderCraftCuttingProductionProgressDetailPage',

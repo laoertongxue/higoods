@@ -99,6 +99,7 @@ import {
   renderCraftCuttingPickupManagementDetailPage,
   renderCraftCuttingPickupManagementPage,
   renderCraftCuttingProductionProgressPage,
+  renderCraftCuttingProductionOrderProgressPage,
   renderCraftCuttingProductionProgressDetailPage,
   renderPlaceholderPage,
   renderCraftCuttingMarkerCreatePage,
@@ -276,6 +277,7 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting': () =>
       renderRouteRedirect('/fcs/craft/cutting/production-progress', '正在跳转到生产单总览'),
     '/fcs/craft/cutting/production-progress': () => renderCraftCuttingProductionProgressPage(),
+    '/fcs/craft/cutting/production-order-progress': () => renderCraftCuttingProductionOrderProgressPage(),
     '/fcs/craft/cutting/cut-orders': () => renderCraftCuttingCutOrdersPage(),
     '/fcs/craft/cutting/cut-order-close': () => renderCraftCuttingCutOrderClosePage(),
     '/fcs/craft/cutting/pickup-management': () => renderCraftCuttingPickupManagementPage(),
