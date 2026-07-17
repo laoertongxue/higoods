@@ -686,18 +686,21 @@ export function evaluateThirdPartyFactoryDispatchPolicy(input: DispatchPolicyInp
   }
 
   if (snapshot.dispatchControl === 'TRIAL_ONLY') {
-    const firstTrialLimitQty = snapshot.firstTrialLimitQty ?? 300
-    if (input.dispatchQty > firstTrialLimitQty) {
+    const trialLimitQty = snapshot.nextTrialLimitQty ?? snapshot.firstTrialLimitQty ?? 300
+    if (snapshot.hasOpenTrialAssessment) {
+      return createDispatchDecision(false, 'BLOCK', '该工厂当前轮已有未完成试产单，不能重复派试产单。', ['已有未完成试产'], false, 70)
+    }
+    if (input.dispatchQty > trialLimitQty) {
       return createDispatchDecision(
         false,
         'BLOCK',
-        `本次派单数量 ${input.dispatchQty} 件超过首单上限 ${firstTrialLimitQty} 件。`,
-        ['超过首单上限'],
+        `本次派单数量 ${input.dispatchQty} 件超过试产上限 ${trialLimitQty} 件。`,
+        ['超过试产上限'],
         false,
         70,
       )
     }
-    return createDispatchDecision(true, 'ALLOW', '考核中工厂在首单试产额度内可以派单。', ['考核中', '试产额度内'], false, 70)
+    return createDispatchDecision(true, 'ALLOW', '考核中工厂在试产额度内可以派单。', ['考核中', '试产额度内'], false, 70)
   }
 
   if (snapshot.dispatchControl === 'SUPERVISOR_DIRECT_ONLY') {
@@ -758,7 +761,8 @@ export function isThirdPartyFactorySettlementBlocked(factoryIdOrCode: string): b
 export function getThirdPartyFactoryDispatchPolicyLabel(snapshot: FactoryRatingSnapshot): string {
   if (snapshot.dispatchControl === 'BLOCKED') return '禁止派单，不允许在车缝分配中选择。'
   if (snapshot.dispatchControl === 'TRIAL_ONLY') {
-    return `仅允许试产单，首单最多 ${snapshot.firstTrialLimitQty ?? 300} 件，完成交出后再判断转正。`
+    const trialLimitQty = snapshot.nextTrialLimitQty ?? snapshot.firstTrialLimitQty ?? 300
+    return `仅允许试产单，单次试产最多 ${trialLimitQty} 件，完成交出和质检后再判断结论。`
   }
   if (snapshot.dispatchControl === 'SUPERVISOR_DIRECT_ONLY') return '可主管指定派单，不参与竞价。'
   if (snapshot.dispatchControl === 'WARN_CONFIRM') return '黄牌提示：派单前需确认交期余量和质量风险，建议只派小单和非急单。'
