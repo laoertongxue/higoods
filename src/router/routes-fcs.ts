@@ -15,6 +15,7 @@ import {
   renderFactoryOnboardingPage,
   renderFactoryPerformancePage,
   renderFactoryProfilePage,
+  renderThirdPartyFactoryRatingPage,
   renderFactoryStatusPage,
   renderOverviewPage,
   renderTodosPage,
@@ -199,6 +200,7 @@ export const routes: RouteRegistry = {
   exactRoutes: {
     '/fcs/factories/onboarding': () => renderFactoryOnboardingPage(),
     '/fcs/factories/profile': () => renderFactoryProfilePage(),
+    '/fcs/factories/third-party-rating': () => renderThirdPartyFactoryRatingPage(),
     '/fcs/factories/capacity-profile': () => renderFactoryCapacityProfilePage(),
     '/fcs/factories/capability': () => renderCapabilityPage(),
     '/fcs/factories/status': () => renderFactoryStatusPage(),

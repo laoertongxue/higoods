@@ -35,6 +35,20 @@ export const KOL_GOTO_FACTORY_ID = 'KOL-GOTO-001'
 export const KOL_GOTO_FACTORY_CODE = 'KOL-GOTO'
 export const KOL_GOTO_FACTORY_NAME = 'kol goto'
 
+const thirdPartySewingSeatCountByFactoryId: Record<string, number> = {
+  'ID-F021': 48,
+  'ID-F022': 36,
+  'ID-F023': 18,
+  'ID-F024': 28,
+  'ID-F025': 16,
+  'ID-F026': 14,
+  'ID-F027': 22,
+  'ID-F028': 26,
+  'ID-F029': 34,
+  'ID-F030': 20,
+  [KOL_GOTO_FACTORY_ID]: 12,
+}
+
 export function formatFactoryDisplayName(factoryName?: string | null, factoryCodeOrId?: string | null): string {
   const normalizedName = factoryName?.trim() || ''
   const normalizedCode = factoryCodeOrId?.trim() || ''
@@ -212,6 +226,7 @@ const factoryPoolSourceRecords = indonesiaFactories.filter(isFactoryPoolOrganiza
 const generatedFactories: Factory[] = factoryPoolSourceRecords.map((factory, index) => {
   const factoryTier = mapTier(factory.tier)
   const factoryType = mapType(factory.tier, factory.type, index)
+  const sewingSeatCount = factoryType === 'THIRD_SEWING' ? thirdPartySewingSeatCountByFactoryId[factory.id] : undefined
   const processAbilities = adjustProcessAbilitiesForFactory(
     factory.id,
     buildProcessAbilities(factory.tags, factoryType),
@@ -234,6 +249,9 @@ const generatedFactories: Factory[] = factoryPoolSourceRecords.map((factory, ind
     factoryTier,
     factoryType,
     parentFactoryId: getDefaultParentId(factory.tier),
+    sewingSeatCount,
+    machineTotalCount: sewingSeatCount,
+    effectiveWorkerCount: sewingSeatCount,
     pdaEnabled: true,
     pdaTenantId: factory.id,
     eligibility: {
@@ -408,6 +426,9 @@ const kolGotoFactory: Factory = {
   factoryType: 'THIRD_SEWING',
   pdaEnabled: true,
   pdaTenantId: KOL_GOTO_FACTORY_ID,
+  sewingSeatCount: thirdPartySewingSeatCountByFactoryId[KOL_GOTO_FACTORY_ID],
+  machineTotalCount: thirdPartySewingSeatCountByFactoryId[KOL_GOTO_FACTORY_ID],
+  effectiveWorkerCount: thirdPartySewingSeatCountByFactoryId[KOL_GOTO_FACTORY_ID],
   eligibility: {
     allowDispatch: true,
     allowBid: false,

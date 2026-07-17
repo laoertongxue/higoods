@@ -10,7 +10,7 @@ import {
 import { deriveSettlementCycleFields, deriveTaskPricingFields } from './store-domain-statement-grain.ts'
 import type { MaterialStatementDraft } from './store-domain-dispatch-process.ts'
 import { settlementLinkedMockFactoryOutput } from './settlement-linked-mock-factory.ts'
-import { isThirdPartyFactorySettlementBlocked } from './third-party-factory-rating.ts'
+import { evaluateThirdPartyFactorySettlementPolicy } from './third-party-factory-rating.ts'
 import type {
   FeishuPaymentApproval,
   FactoryFeedbackStatus,
@@ -1253,8 +1253,9 @@ export function createStatementFromEligibleLedgers(input: {
   by: string
   at?: string
 }): { ok: boolean; message?: string; existingStatementId?: string; data?: StatementDraft } {
-  if (isThirdPartyFactorySettlementBlocked(input.settlementPartyId)) {
-    return { ok: false, message: '该工厂已拉黑，不能发起结算。请主管处理历史账款。' }
+  const settlementPolicy = evaluateThirdPartyFactorySettlementPolicy(input.settlementPartyId)
+  if (!settlementPolicy.allowedToCreateNewStatement) {
+    return { ok: false, message: settlementPolicy.reason }
   }
   const settlementObjectMode = input.settlementObjectMode ?? 'LEDGER'
   const existed =
@@ -1344,6 +1345,8 @@ export function syncStatementDraftFromBuild(input: {
   const statement = getStatementDraftById(input.statementId)
   if (!statement) return { ok: false, message: '未找到对应对账单' }
   if (statement.status !== 'DRAFT') return { ok: false, message: '当前仅草稿可继续编辑' }
+  const settlementPolicy = evaluateThirdPartyFactorySettlementPolicy(statement.settlementPartyId)
+  if (!settlementPolicy.allowedToCreateNewStatement) return { ok: false, message: settlementPolicy.reason }
   if (!input.items.length) return { ok: false, message: '当前周期暂无可纳入的对账明细行' }
 
   const timestamp = input.at ?? nowText()

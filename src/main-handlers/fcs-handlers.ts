@@ -25,6 +25,10 @@ import {
   isFactoryPerformanceDialogOpen,
 } from '../pages/factory-performance'
 import {
+  handleThirdPartyFactoryRatingEvent,
+  handleThirdPartyFactoryRatingSubmit,
+} from '../pages/third-party-factory-rating'
+import {
   handleSettlementEvent,
   handleSettlementSubmit,
   isSettlementDialogOpen,
@@ -268,6 +272,19 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   if (pathname.startsWith('/fcs/material-prep/other')) {
     return handleFcsOtherPrepEvent(target)
   }
+  if (
+    pathname.startsWith('/fcs/factories/third-party-rating')
+    && (
+      event?.type === 'dragend'
+      || target.closest([
+        '[data-third-party-rating-action]',
+        '[data-third-party-rating-field]',
+        '[data-standard-list-column-drag]',
+      ].join(', '))
+    )
+  ) {
+    return handleThirdPartyFactoryRatingEvent(target, event)
+  }
   if (pathname.startsWith('/fcs/factories/profile')) {
     return handleFactoryPageEvent(target)
   }
@@ -399,6 +416,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
 
 export function dispatchFcsPageSubmit(form: HTMLFormElement): boolean {
   return (
+    handleThirdPartyFactoryRatingSubmit(form) ||
     handleFactoryPageSubmit(form) ||
     handleCapabilitySubmit(form) ||
     handleSettlementSubmit(form) ||

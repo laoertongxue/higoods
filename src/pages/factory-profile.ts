@@ -43,12 +43,6 @@ import {
   setFactoryPdaUserRole,
   toggleFactoryPdaUserLock,
 } from '../data/fcs/store-domain-pda'
-import {
-  getThirdPartyFactoryRatingSnapshot,
-  getThirdPartyFactoryTimingSummary,
-  listThirdPartyFactoryPerformanceRecords,
-  type FactoryRatingSnapshot,
-} from '../data/fcs/third-party-factory-rating'
 import { escapeHtml } from '../utils'
 import { renderConfirmDialog } from '../components/ui/dialog'
 
@@ -162,6 +156,7 @@ const DEFAULT_FORM_DATA: FactoryFormData = {
   factoryTier: 'CENTRAL',
   factoryType: 'CENTRAL_POD',
   parentFactoryId: undefined,
+  sewingSeatCount: undefined,
   pdaEnabled: true,
   pdaTenantId: '',
   eligibility: {
@@ -217,127 +212,6 @@ function renderTestFactoryBadge(factory: Pick<Factory, 'isTestFactory'>): string
   return factory.isTestFactory
     ? '<span class="ml-2 inline-flex rounded border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] text-violet-700">测试工厂</span>'
     : ''
-}
-
-function getRatingTone(snapshot: FactoryRatingSnapshot): string {
-  if (snapshot.cooperationStatusLabel === '黑名单') return 'border-red-200 bg-red-50 text-red-700'
-  if (snapshot.currentGrade === 'B') return 'border-amber-200 bg-amber-50 text-amber-700'
-  return 'border-emerald-200 bg-emerald-50 text-emerald-700'
-}
-
-function getDelayDays(plannedAt: string, actualAt: string): number {
-  const planned = new Date(plannedAt).getTime()
-  const actual = new Date(actualAt).getTime()
-  if (!Number.isFinite(planned) || !Number.isFinite(actual) || actual <= planned) return 0
-  return Math.ceil((actual - planned) / 86_400_000)
-}
-
-function renderFactoryRatingPanel(factory: Factory): string {
-  const snapshot = getThirdPartyFactoryRatingSnapshot(factory.id)
-  if (!snapshot) return ''
-
-  const timing = getThirdPartyFactoryTimingSummary(factory.id)
-  const records = listThirdPartyFactoryPerformanceRecords(factory.id).slice(0, 5)
-  const metricItems = [
-    { label: '当前总分', value: `${snapshot.totalScore} 分` },
-    { label: '交期扣分', value: `${snapshot.deliveryDeductionScore} 分` },
-    { label: '质量扣分', value: `${snapshot.qualityDeductionScore} 分` },
-    { label: '人工扣分', value: `${snapshot.manualDeductionScore} 分` },
-  ]
-
-  return `
-    <section class="space-y-4 rounded-lg border bg-muted/20 p-4">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h4 class="text-sm font-semibold text-foreground">评级与派单风控</h4>
-          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(snapshot.recentRatingReason)}</p>
-        </div>
-        <span class="inline-flex rounded border px-2.5 py-1 text-xs font-medium ${getRatingTone(snapshot)}">
-          ${escapeHtml(snapshot.currentGrade)} 级 / ${escapeHtml(snapshot.cooperationStatusLabel)}
-        </span>
-      </div>
-
-      ${
-        snapshot.cooperationStatusLabel === '黑名单'
-          ? '<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">该工厂已拉黑，不能派单，不能发起结算。历史账款需主管处理。</div>'
-          : ''
-      }
-
-      <div class="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-        <div class="rounded-md border bg-background p-3">
-          <p class="text-xs text-muted-foreground">车位与规模</p>
-          <p class="mt-1 font-medium">${snapshot.sewingSeatCount} 个车位 / ${escapeHtml(snapshot.scaleLabel)}</p>
-        </div>
-        <div class="rounded-md border bg-background p-3">
-          <p class="text-xs text-muted-foreground">试单上限</p>
-          <p class="mt-1 font-medium">${snapshot.firstTrialLimitQty === null ? '未设置' : `${snapshot.firstTrialLimitQty} 件`}</p>
-        </div>
-        <div class="rounded-md border bg-background p-3">
-          <p class="text-xs text-muted-foreground">派单策略</p>
-          <p class="mt-1 text-sm">${escapeHtml(snapshot.dispatchPolicyLabel)}</p>
-        </div>
-        <div class="rounded-md border bg-background p-3">
-          <p class="text-xs text-muted-foreground">结算策略</p>
-          <p class="mt-1 text-sm">${escapeHtml(snapshot.settlementPolicyLabel)}</p>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
-        ${metricItems
-          .map(
-            (item) => `
-              <div class="rounded-md border bg-background p-3">
-                <p class="text-xs text-muted-foreground">${escapeHtml(item.label)}</p>
-                <p class="mt-1 text-lg font-semibold tabular-nums">${escapeHtml(item.value)}</p>
-              </div>
-            `,
-          )
-          .join('')}
-      </div>
-
-      <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-        ${escapeHtml(timing?.timingNote ?? '近 90 天仅用于生产时效查看，不代表新工厂考核期。')}
-        ${
-          timing
-            ? `${escapeHtml(timing.rangeLabel)}派单 ${timing.dispatchedOrderCount} 单，平均延期 ${timing.averageDelayDays} 天，准时率 ${escapeHtml(timing.onTimeRate)}，异常 ${timing.exceptionOrderCount} 单。`
-            : ''
-        }
-      </div>
-
-      <div class="overflow-x-auto rounded-md border bg-background">
-        <table class="w-full text-sm">
-          <thead class="border-b bg-muted/30 text-xs text-muted-foreground">
-            <tr>
-              <th class="px-3 py-2 text-left font-medium">生产单</th>
-              <th class="px-3 py-2 text-left font-medium">单据类型</th>
-              <th class="px-3 py-2 text-left font-medium">延期天数</th>
-              <th class="px-3 py-2 text-left font-medium">数量</th>
-              <th class="px-3 py-2 text-left font-medium">结果</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              records.length === 0
-                ? '<tr><td colspan="5" class="px-3 py-6 text-center text-sm text-muted-foreground">暂无履约记录</td></tr>'
-                : records
-                    .map(
-                      (record) => `
-                        <tr class="border-b last:border-0">
-                          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(record.productionOrderNo)}</td>
-                          <td class="px-3 py-2">${escapeHtml(record.documentTypeLabel)}</td>
-                          <td class="px-3 py-2 tabular-nums">${getDelayDays(record.plannedDeliveryAt, record.actualDeliveryAt)} 天</td>
-                          <td class="px-3 py-2 text-xs">发料 ${record.issuedQty} 件 / 合格 ${record.qualifiedQty} 件</td>
-                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(record.resultSummary)}</td>
-                        </tr>
-                      `,
-                    )
-                    .join('')
-            }
-          </tbody>
-        </table>
-      </div>
-    </section>
-  `
 }
 
 function mapInitialPdaRolesByFactory(): Record<string, FactoryPdaRole[]> {
@@ -456,6 +330,7 @@ function createFormData(factory: Factory | null): FactoryFormData {
     factoryTier: factory.factoryTier,
     factoryType: factory.factoryType,
     parentFactoryId: factory.parentFactoryId,
+    sewingSeatCount: factory.sewingSeatCount,
     pdaEnabled: factory.pdaEnabled,
     pdaTenantId: factory.pdaTenantId ?? '',
     eligibility: { ...factory.eligibility },
@@ -465,6 +340,15 @@ function createFormData(factory: Factory | null): FactoryFormData {
 
 function getSelectedCraftCodes(processAbilities: FactoryProcessAbility[], processCode: string): string[] {
   return processAbilities.find((item) => item.processCode === processCode)?.craftCodes ?? []
+}
+
+function isThirdPartySewingProfile(data: Pick<FactoryFormData, 'factoryTier' | 'factoryType'>): boolean {
+  return data.factoryTier === 'THIRD_PARTY' && data.factoryType === 'THIRD_SEWING'
+}
+
+function normalizeSewingSeatCount(data: FactoryFormData): number | undefined {
+  if (!isThirdPartySewingProfile(data)) return undefined
+  return Number.isFinite(data.sewingSeatCount) && (data.sewingSeatCount ?? 0) > 0 ? Math.floor(data.sewingSeatCount ?? 0) : undefined
 }
 
 function getSelectedCapacityNodeCodes(
@@ -1138,7 +1022,14 @@ function renderFactoryTableRows(factories: Factory[]): string {
           <td class="px-3 py-3">
             <span class="inline-flex rounded border px-2 py-0.5 text-xs ${tierConfig.color}">${escapeHtml(tierConfig.label)}</span>
           </td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(typeLabel)}</td>
+          <td class="px-3 py-3 text-sm">
+            <div>${escapeHtml(typeLabel)}</div>
+            ${
+              factory.factoryTier === 'THIRD_PARTY' && factory.factoryType === 'THIRD_SEWING'
+                ? `<div class="text-xs text-muted-foreground">车缝车位 ${factory.sewingSeatCount ?? '-'} 个</div>`
+                : ''
+            }
+          </td>
           <td class="max-w-[140px] px-3 py-3 truncate text-sm text-muted-foreground" title="${escapeHtml(parent?.name ?? '-')}">
             ${escapeHtml(parent?.name ?? '-')}
           </td>
@@ -1601,6 +1492,7 @@ function renderFactoryDrawer(): string {
   const selectedParentName = draft.parentFactoryId
     ? state.factories.find((factory) => factory.id === draft.parentFactoryId)?.name ?? draft.parentFactoryId
     : ''
+  const showSewingSeatCountField = isThirdPartySewingProfile(draft)
 
   const sectionTitleClass = 'border-b pb-1 text-sm font-semibold text-foreground'
 
@@ -1695,6 +1587,16 @@ function renderFactoryDrawer(): string {
                 </label>
               </div>
 
+              ${
+                showSewingSeatCountField
+                  ? `<label class="space-y-1.5">
+                      <span class="text-sm">车缝车位数</span>
+                      <input type="number" min="1" step="1" data-factory-field="sewingSeatCount" value="${draft.sewingSeatCount ?? ''}" class="w-full rounded-md border px-3 py-2 text-sm" placeholder="请输入可用于车缝派单的车位数" />
+                      <p class="text-xs text-muted-foreground">用于三方工厂评级规模、首单上限和派单风控同步。</p>
+                    </label>`
+                  : ''
+              }
+
               <label class="space-y-1.5">
                 <span class="text-sm">上级工厂</span>
                 <select data-factory-field="parentFactoryId" class="w-full rounded-md border px-3 py-2 text-sm">
@@ -1718,8 +1620,6 @@ function renderFactoryDrawer(): string {
                 }
               </label>
             </section>
-
-            ${editingFactory ? renderFactoryRatingPanel(editingFactory) : ''}
 
             <section class="space-y-4">
               <h4 class="${sectionTitleClass}">生产流程开始条件</h4>
@@ -2036,9 +1936,11 @@ function updateTypeFilterByTier(): void {
 
 function upsertFactory(data: FactoryFormData, editingFactory: Factory | null): void {
   if (editingFactory) {
+    const sewingSeatCount = normalizeSewingSeatCount(data)
     const nextFactory: Factory = {
       ...editingFactory,
       ...data,
+      sewingSeatCount,
       processAbilities: data.processAbilities.map((item) => cloneProcessAbility(item)),
       taskAcceptanceConfig: cloneTaskAcceptanceConfig(data.taskAcceptanceConfig),
       updatedAt: new Date().toISOString().split('T')[0],
@@ -2054,6 +1956,7 @@ function upsertFactory(data: FactoryFormData, editingFactory: Factory | null): v
   }
 
   const today = new Date().toISOString().split('T')[0]
+  const sewingSeatCount = normalizeSewingSeatCount(data)
 
   const newFactory: Factory = {
     id: `f-${Date.now()}`,
@@ -2072,6 +1975,7 @@ function upsertFactory(data: FactoryFormData, editingFactory: Factory | null): v
     factoryTier: data.factoryTier,
     factoryType: data.factoryType,
     parentFactoryId: data.parentFactoryId,
+    sewingSeatCount,
     pdaEnabled: data.pdaEnabled,
     pdaTenantId: data.pdaTenantId,
     eligibility: data.eligibility,
@@ -2121,6 +2025,15 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
 
     if (field === 'factoryType') {
       setDraft((prev) => ({ ...prev, factoryType: formField.value as FactoryType }))
+      return true
+    }
+
+    if (field === 'sewingSeatCount') {
+      const value = Number(formField.value)
+      setDraft((prev) => ({
+        ...prev,
+        sewingSeatCount: Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined,
+      }))
       return true
     }
 

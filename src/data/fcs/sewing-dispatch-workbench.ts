@@ -26,7 +26,12 @@ import {
   restoreSewingDeliverySlaSnapshotStore,
 } from './sewing-delivery-sla.ts'
 import { listFactoryMasterRecords } from './factory-master-store.ts'
-import { getThirdPartyFactoryRatingSnapshot } from './third-party-factory-rating.ts'
+import {
+  evaluateThirdPartyFactoryDispatchPolicy,
+  getThirdPartyFactoryRatingSnapshot,
+  type DispatchPolicyInput,
+  type FactoryRatingDocumentTypeLabel,
+} from './third-party-factory-rating.ts'
 import {
   listAvailableCutPieceInventoryForSewingDispatch,
 } from './cutting/sewing-dispatch.ts'
@@ -213,12 +218,21 @@ const auxiliaryCraftKeywords = ['绣花', '打条', '压褶', '打揽', '烫画'
 
 const sewingDispatchDrafts: SewingDispatchDraft[] = []
 
-export function runSewingDispatchWorkbenchTransaction<T>(operation: () => T): T {
+export function runSewingDispatchWorkbenchTransaction<T>(
+  operation: () => T,
+  options?: { rollbackOnSuccess?: boolean },
+): T {
   const runtimeState = captureRuntimeDirectDispatchState()
   const snapshotState = captureSewingDeliverySlaSnapshotStore()
   const draftState = structuredClone(sewingDispatchDrafts)
   try {
-    return operation()
+    const result = operation()
+    if (options?.rollbackOnSuccess) {
+      restoreRuntimeDirectDispatchState(runtimeState)
+      restoreSewingDeliverySlaSnapshotStore(snapshotState)
+      sewingDispatchDrafts.splice(0, sewingDispatchDrafts.length, ...draftState)
+    }
+    return result
   } catch (error) {
     restoreRuntimeDirectDispatchState(runtimeState)
     restoreSewingDeliverySlaSnapshotStore(snapshotState)
@@ -1025,10 +1039,101 @@ export function listSewingFactoryOptions(): Array<{ id: string; name: string }> 
     .map((factory) => ({ id: factory.id, name: factory.name }))
 }
 
+type SewingDispatchPolicyContextByFactoryId = Record<string, {
+  riskConfirmed?: boolean
+  supervisorAssigned?: boolean
+}>
+
+type SewingDispatchPolicyOverrideByRowId = Record<string, {
+  documentTypeLabel?: FactoryRatingDocumentTypeLabel
+  dispatchQty?: number
+  isUrgentOrder?: boolean
+}>
+
+function deriveDispatchDocumentType(order: ProductionOrder): FactoryRatingDocumentTypeLabel {
+  const saleType = order.demandSnapshot.saleType
+  return saleType.includes('样衣') || saleType.includes('样品') || saleType.includes('小单') ? '试产单' : '常规单'
+}
+
+function isUrgentProductionOrder(order: ProductionOrder): boolean {
+  return order.demandSnapshot.priority === 'URGENT'
+}
+
+function getPolicyInputForRow(
+  row: SewingDispatchWorkbenchRow,
+  actionType: '直接派单' | '发起竞价',
+  factoryId: string,
+  input: {
+    policyContextByFactoryId?: SewingDispatchPolicyContextByFactoryId
+    policyOverrideByRowId?: SewingDispatchPolicyOverrideByRowId
+  },
+  dispatchQty?: number,
+): DispatchPolicyInput {
+  const order = productionOrders.find((item) => item.productionOrderId === row.productionOrderId)
+  if (!order) throw new Error(`生产单 ${row.productionOrderNo} 不存在`)
+  const override = input.policyOverrideByRowId?.[row.rowId]
+  const context = input.policyContextByFactoryId?.[factoryId]
+  return {
+    factoryId,
+    actionType,
+    documentTypeLabel: override?.documentTypeLabel ?? deriveDispatchDocumentType(order),
+    dispatchQty: dispatchQty ?? row.remainingQty,
+    isUrgentOrder: override?.isUrgentOrder ?? isUrgentProductionOrder(order),
+    riskConfirmed: context?.riskConfirmed === true,
+    isSupervisorAssigned: context?.supervisorAssigned === true,
+  }
+}
+
+function getPolicyDispatchQtyForRow(row: SewingDispatchWorkbenchRow): number {
+  return row.remainingQty
+}
+
+function getTotalPolicyDispatchQty(rows: SewingDispatchWorkbenchRow[]): number {
+  return rows.reduce((total, row) => total + getPolicyDispatchQtyForRow(row), 0)
+}
+
+function getDirectDispatchQtyByFactoryId(
+  rows: SewingDispatchWorkbenchRow[],
+  factoryByRowId: Map<string, { id: string; name: string }>,
+): Map<string, number> {
+  const qtyByFactoryId = new Map<string, number>()
+  for (const row of rows) {
+    const factory = factoryByRowId.get(row.rowId)
+    if (!factory) continue
+    qtyByFactoryId.set(factory.id, (qtyByFactoryId.get(factory.id) ?? 0) + getPolicyDispatchQtyForRow(row))
+  }
+  return qtyByFactoryId
+}
+
+function isThirdPartyFactoryRatingGovernanceTarget(factoryId: string): boolean {
+  const snapshot = getThirdPartyFactoryRatingSnapshot(factoryId)
+  if (snapshot) return true
+  const factory = listFactoryMasterRecords().find((item) => item.id === factoryId)
+  if (!factory) return false
+  return factory.factoryTier === 'THIRD_PARTY' &&
+    (
+      factory.factoryType === 'THIRD_SEWING' ||
+      factory.processAbilities.some((ability) => ability.processCode === 'SEW')
+    )
+}
+
+function evaluateGovernedDispatchPolicy(input: DispatchPolicyInput): { ok: true } | { ok: false; message: string } {
+  if (!isThirdPartyFactoryRatingGovernanceTarget(input.factoryId)) return { ok: true }
+  if (!getThirdPartyFactoryRatingSnapshot(input.factoryId)) {
+    return { ok: false, message: '该三方车缝工厂缺少三方评级快照，不能派单。请先完成评级。' }
+  }
+  const decision = evaluateThirdPartyFactoryDispatchPolicy(input)
+  if (!decision.allowed) return { ok: false, message: decision.reason }
+  return { ok: true }
+}
+
 export function createSewingDispatchWorkbenchDraft(input: {
   actionType: '直接派单' | '发起竞价'
   rowIds: string[]
   factoryIdByRowId?: Record<string, string>
+  biddingFactoryIds?: string[]
+  policyContextByFactoryId?: SewingDispatchPolicyContextByFactoryId
+  policyOverrideByRowId?: SewingDispatchPolicyOverrideByRowId
   businessAssignedAt?: string
   operatedAt?: string
   mainFactoryIdByProductionOrderId?: Record<string, string>
@@ -1049,10 +1154,29 @@ export function createSewingDispatchWorkbenchDraft(input: {
       factoryByRowId.set(row.rowId, factory)
     }
   }
-  for (const factory of new Map([...factoryByRowId.values()].map((item) => [item.id, item])).values()) {
-    const rating = getThirdPartyFactoryRatingSnapshot(factory.id)
-    if (rating?.cooperationStatusLabel === '黑名单') return { ok: false, message: '该工厂已拉黑，不能派单。请更换工厂。' }
-    if (rating?.cooperationStatusLabel === '考核中') return { ok: false, message: '该工厂还在试用期，只能接试产单。' }
+  if (input.actionType === '直接派单') {
+    const dispatchQtyByFactoryId = getDirectDispatchQtyByFactoryId(rows, factoryByRowId)
+    for (const [rowId, factory] of factoryByRowId.entries()) {
+      const row = rows.find((item) => item.rowId === rowId)
+      if (!row) continue
+      const policyResult = evaluateGovernedDispatchPolicy(getPolicyInputForRow(
+        row,
+        input.actionType,
+        factory.id,
+        input,
+        dispatchQtyByFactoryId.get(factory.id),
+      ))
+      if (!policyResult.ok) return { ok: false, message: policyResult.message }
+    }
+  } else {
+    const biddingFactoryIds = input.biddingFactoryIds ?? []
+    const dispatchQty = getTotalPolicyDispatchQty(rows)
+    for (const factoryId of biddingFactoryIds) {
+      for (const row of rows) {
+        const policyResult = evaluateGovernedDispatchPolicy(getPolicyInputForRow(row, input.actionType, factoryId, input, dispatchQty))
+        if (!policyResult.ok) return { ok: false, message: policyResult.message }
+      }
+    }
   }
   const incompleteRow = rows.find((row) => row.remainingQty <= 0 || row.completeKitQty < row.remainingQty)
   if (incompleteRow) return { ok: false, message: `${incompleteRow.skuCode} 尚未全部齐套，不能拆分部分数量派单。` }

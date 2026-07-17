@@ -250,6 +250,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'factories-onboarding', title: '工厂入驻管理', icon: 'ClipboardCheck', href: '/fcs/factories/onboarding' },
             { key: 'factories-profile', title: '工厂档案', icon: 'Factory', href: '/fcs/factories/profile' },
+            { key: 'factories-third-party-rating', title: '三方工厂评级', icon: 'ShieldCheck', href: '/fcs/factories/third-party-rating' },
             { key: 'factories-capacity-profile', title: '工厂产能档案', icon: 'Gauge', href: '/fcs/factories/capacity-profile' },
             { key: 'factories-capability', title: '能力标签', icon: 'Tags', href: '/fcs/factories/capability' },
             { key: 'factories-settlement', title: '结算信息', icon: 'Receipt', href: '/fcs/factories/settlement' },
