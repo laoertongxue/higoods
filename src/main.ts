@@ -663,6 +663,10 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   }
 }
 
+function completeResponseProbe(event: Event): void {
+  ;(event as Event & { higoodResponseCompletionProbe?: () => void }).higoodResponseCompletionProbe?.()
+}
+
 async function dispatchPageSubmit(form: HTMLFormElement): Promise<boolean> {
   const pathname = appStore.getState().pathname
   if (pathname.startsWith('/fcs/factories/profile')) {
@@ -1783,7 +1787,9 @@ root.addEventListener('click', async (event) => {
     return
   }
 
-  if (await dispatchPageEvent(target, event)) {
+  const pageEventHandled = await dispatchPageEvent(target, event)
+  completeResponseProbe(event)
+  if (pageEventHandled) {
     event.preventDefault()
     if (skipPageRerender) {
       return
@@ -1846,7 +1852,9 @@ root.addEventListener('input', async (event) => {
     return
   }
 
-  if (await dispatchPageEvent(target, event)) {
+  const pageEventHandled = await dispatchPageEvent(target, event)
+  completeResponseProbe(event)
+  if (pageEventHandled) {
     if (shouldSkipInputRerender(target)) return
     const nextPathname = appStore.getState().pathname
     if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {

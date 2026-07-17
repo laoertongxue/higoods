@@ -634,9 +634,20 @@ test('台账无关点击和统计关键词输入不刷新列表且响应小于 2
     const observer = new MutationObserver((records) => { mutations += records.length })
     observer.observe(table, { childList: true, subtree: true, attributes: true })
     const startedAt = performance.now()
-    heading.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    const responseMs = performance.now() - startedAt
-    await new Promise((resolve) => setTimeout(resolve, 60))
+    const clickEvent = new MouseEvent('click', { bubbles: true }) as MouseEvent & {
+      higoodResponseCompletionProbe?: () => void
+    }
+    const responseMs = await new Promise<number>((resolve, reject) => {
+      const timeout = window.setTimeout(() => reject(new Error('台账点击异步事件链未完成')), 1000)
+      clickEvent.higoodResponseCompletionProbe = async () => {
+        await Promise.resolve()
+        await new Promise((nextTask) => setTimeout(nextTask, 0))
+        await new Promise<void>((nextFrame) => requestAnimationFrame(() => nextFrame()))
+        window.clearTimeout(timeout)
+        resolve(performance.now() - startedAt)
+      }
+      heading.dispatchEvent(clickEvent)
+    })
     observer.disconnect()
     return { mutations, responseMs }
   })
@@ -654,9 +665,20 @@ test('台账无关点击和统计关键词输入不刷新列表且响应小于 2
     observer.observe(table, { childList: true, subtree: true, attributes: true })
     keyword.value = '性能反例'
     const startedAt = performance.now()
-    keyword.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: '性能反例' }))
-    const responseMs = performance.now() - startedAt
-    await new Promise((resolve) => setTimeout(resolve, 60))
+    const inputEvent = new InputEvent('input', { bubbles: true, inputType: 'insertText', data: '性能反例' }) as InputEvent & {
+      higoodResponseCompletionProbe?: () => void
+    }
+    const responseMs = await new Promise<number>((resolve, reject) => {
+      const timeout = window.setTimeout(() => reject(new Error('统计输入异步事件链未完成')), 1000)
+      inputEvent.higoodResponseCompletionProbe = async () => {
+        await Promise.resolve()
+        await new Promise((nextTask) => setTimeout(nextTask, 0))
+        await new Promise<void>((nextFrame) => requestAnimationFrame(() => nextFrame()))
+        window.clearTimeout(timeout)
+        resolve(performance.now() - startedAt)
+      }
+      keyword.dispatchEvent(inputEvent)
+    })
     observer.disconnect()
     return { mutations, responseMs }
   })
