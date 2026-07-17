@@ -50,7 +50,6 @@ async function candidateValues(group: Locator): Promise<string[]> {
 
 async function waitForStableFilterScope(page: Page, selector: string): Promise<void> {
   await expect(page.locator(selector)).toBeVisible()
-  await page.waitForLoadState('networkidle')
   await expect.poll(async () => {
     const token = crypto.randomUUID()
     await page.locator(selector).evaluate((node, value) => {
@@ -59,6 +58,48 @@ async function waitForStableFilterScope(page: Page, selector: string): Promise<v
     await page.waitForTimeout(150)
     return page.locator(selector).getAttribute('data-playwright-stable-token')
   }).toMatch(/[0-9a-f-]{36}/)
+}
+
+interface ActionCompletionCondition {
+  selector?: string
+  textIncludes?: string
+  attribute?: string
+  attributeValue?: string
+  absent?: boolean
+  urlIncludes?: string
+}
+
+async function measureActionResponse(trigger: Locator, condition: ActionCompletionCondition): Promise<number> {
+  return trigger.evaluate(async (node, expected) => {
+    const startedAt = performance.now()
+    ;(node as HTMLElement).click()
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => reject(new Error(`动作响应未完成：${JSON.stringify(expected)}`)), 1500)
+      const isComplete = () => {
+        if (expected.urlIncludes && !window.location.href.includes(expected.urlIncludes)) return false
+        if (!expected.selector) return true
+        const target = document.querySelector(expected.selector)
+        if (expected.absent) return !target
+        if (!target) return false
+        if (expected.textIncludes && !target.textContent?.includes(expected.textIncludes)) return false
+        if (expected.attribute && target.getAttribute(expected.attribute) !== expected.attributeValue) return false
+        return true
+      }
+      const poll = () => {
+        if (isComplete()) {
+          window.clearTimeout(timeout)
+          resolve()
+          return
+        }
+        requestAnimationFrame(poll)
+      }
+      poll()
+    })
+    await Promise.resolve()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    return performance.now() - startedAt
+  }, condition)
 }
 
 function expectStatsWhitelist(urlValue: string): void {
@@ -278,6 +319,108 @@ test('准备项进度筛选排除目标项进度不匹配但其他项已完成�
     'PREP-202603-006',
   ])
   await expect(page.getByText('PREP-202603-002', { exact: false })).toHaveCount(0)
+})
+
+test('已完成辅料下单与正式产出在详情中保持同一业务口径', async ({ page }) => {
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03&recordId=prep-202603-005`)
+  const drawer = page.locator('aside').filter({ hasText: 'PREP-202603-005' })
+  await expect(drawer).toBeVisible()
+  await expect(drawer.getByText('证据缺失', { exact: true })).toHaveCount(0)
+  await expect(drawer.getByText(/仍需完成：.*辅料下单/)).toHaveCount(0)
+  await expect(drawer.getByText('待生成', { exact: true })).toHaveCount(0)
+  await expect(drawer.getByText('已生成', { exact: true }).first()).toBeVisible()
+  await expect(drawer.getByText('辅料采购单', { exact: true })).toBeVisible()
+})
+
+test('辅料采购单逐行保留下单时间且只更新被修改行', async ({ page }) => {
+  const operateRoute = `${ledgerRoute}?tab=ledger&month=2026-03&recordId=prep-202603-002&itemId=prep-202603-002-item-06&action=operate-item`
+  await page.goto(operateRoute)
+  const orderNos = page.locator('input[name="accessoryPurchaseOrderNo"]')
+  const orderedAts = page.locator('input[name="accessoryPurchaseOrderedAt"]')
+  await expect(orderNos).toHaveCount(2)
+  await expect(orderNos.nth(0)).toHaveValue('FPO-202603-002-A')
+  await expect(orderNos.nth(1)).toHaveValue('FPO-202603-002-B')
+  await expect(orderedAts.nth(0)).toHaveValue('2026-03-04T11:20')
+  await expect(orderedAts.nth(1)).toHaveValue('2026-03-05T16:10')
+
+  await page.getByRole('button', { name: '保存', exact: true }).click()
+  await expect(page.locator('[data-prep-accessory-order-form]')).toHaveCount(0)
+  await page.goto(operateRoute)
+  await expect(page.locator('input[name="accessoryPurchaseOrderedAt"]').nth(0)).toHaveValue('2026-03-04T11:20')
+  await expect(page.locator('input[name="accessoryPurchaseOrderedAt"]').nth(1)).toHaveValue('2026-03-05T16:10')
+
+  await page.locator('input[name="accessoryPurchaseOrderedAt"]').nth(0).fill('2026-03-06T09:45')
+  await page.getByRole('button', { name: '保存', exact: true }).click()
+  await expect(page.locator('[data-prep-accessory-order-form]')).toHaveCount(0)
+  await page.goto(operateRoute)
+  await expect(page.locator('input[name="accessoryPurchaseOrderedAt"]').nth(0)).toHaveValue('2026-03-06T09:45')
+  await expect(page.locator('input[name="accessoryPurchaseOrderedAt"]').nth(1)).toHaveValue('2026-03-05T16:10')
+  await expect(page.getByText(/当前完成时间：2026-03-06T09:45/)).toBeVisible()
+
+  const runtime = await page.evaluate(() => JSON.parse(localStorage.getItem('higood.production-preparation.runtime.v1') || '{}'))
+  expect(runtime.accessoryPurchaseOrders['prep-202603-002-item-06']).toMatchObject({
+    orderNos: ['FPO-202603-002-A', 'FPO-202603-002-B'],
+    orderedAts: ['2026-03-06T09:45', '2026-03-05T16:10'],
+    updatedAt: '2026-03-06T09:45',
+  })
+})
+
+test('生产准备关键真实动作完成响应均小于 200ms', async ({ page }) => {
+  const responseTimes: Record<string, number> = {}
+
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  await checkFilterOption(filterGroup(page, 'recordStatus'), '进行中')
+  responseTimes.filterSubmit = await measureActionResponse(
+    page.locator('[data-prep-filter-scope] [data-nav-from-fields]'),
+    { urlIncludes: 'recordStatus=%E8%BF%9B%E8%A1%8C%E4%B8%AD', selector: '[data-prep-list-region="pagination"]', textIncludes: '共 1 条' },
+  )
+
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  responseTimes.pagination = await measureActionResponse(
+    page.locator('[data-production-preparation-ledger-action="next-page"]'),
+    { selector: '[data-prep-list-region="pagination"]', textIncludes: '2 / 2' },
+  )
+
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  responseTimes.sort = await measureActionResponse(
+    ledgerSortButton(page),
+    { selector: 'th[data-column-key="product"]', attribute: 'aria-sort', attributeValue: 'ascending' },
+  )
+
+  await page.goto(`${statisticsRoute}?tab=monthly&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-stats-filter-scope]')
+  responseTimes.tab = await measureActionResponse(
+    page.getByRole('button', { name: '明细统计', exact: true }),
+    { urlIncludes: 'tab=detail', selector: '[data-prep-list-kind="detail"]' },
+  )
+  await waitForStableFilterScope(page, '[data-prep-stats-filter-scope]')
+
+  await page.goto(`${statisticsRoute}?tab=monthly&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-stats-filter-scope]')
+  responseTimes.monthDrill = await measureActionResponse(
+    page.locator('tbody button').filter({ hasText: '2026-03' }).first(),
+    { urlIncludes: 'tab=detail', selector: '[data-prep-list-kind="detail"]' },
+  )
+  await waitForStableFilterScope(page, '[data-prep-stats-filter-scope]')
+
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+  const completedRow = page.locator('tbody tr').filter({ hasText: 'PREP-202603-005' })
+  responseTimes.dialogOpen = await measureActionResponse(
+    completedRow.getByRole('button', { name: '登记辅料下单', exact: true }),
+    { selector: '[data-prep-accessory-order-form]' },
+  )
+  responseTimes.dialogSubmit = await measureActionResponse(
+    page.locator('[data-prep-accessory-order-form] button[type="submit"]'),
+    { selector: '[data-prep-accessory-order-form]', absent: true },
+  )
+
+  for (const [action, responseMs] of Object.entries(responseTimes)) {
+    expect(responseMs, `${action} 响应 ${responseMs.toFixed(1)}ms`).toBeLessThan(200)
+  }
 })
 
 test('准备台账标准列表局部分页、三态排序和列偏好可用', async ({ page }) => {

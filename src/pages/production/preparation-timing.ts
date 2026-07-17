@@ -40,6 +40,7 @@ import {
   flattenProductionPreparationItems,
   getProductionPreparationFilterOptions,
   getProductionPreparationRecord,
+  hasValidPreparationCompletionEvidence,
   preparationOwnerRoleRules,
   preparationItemOwnerTeamMap,
   preparationItemTypes,
@@ -401,17 +402,7 @@ function hasConfirmedWorkItems(record: ProductionPreparationRecord): boolean {
   return Boolean(record.workItemsConfirmedBy && record.workItemsConfirmedAt)
 }
 
-function hasUploadEvidence(upload: PreparationUploadRecord): boolean {
-  return Boolean(upload.fileName && upload.uploadedAt && upload.uploadedBy)
-}
-
-function hasCompletionEvidence(item: ProductionPreparationItem): boolean {
-  return Boolean(
-    item.status === '已完成' &&
-      item.actualFinishAt &&
-      item.uploads?.some(hasUploadEvidence),
-  )
-}
+const hasCompletionEvidence = hasValidPreparationCompletionEvidence
 
 function canOperateItem(item: ProductionPreparationItem, record: ProductionPreparationRecord): boolean {
   if (!item.dependsOnItemIds.length) return true
@@ -1392,7 +1383,7 @@ function renderItemCard(record: ProductionPreparationRecord, item: ProductionPre
       </div>
       ${
         item.status === '已完成' && !hasCompletionEvidence(item)
-          ? '<p class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">异常：已完成但缺少上传文件、上传人或上传时间，请补传完成凭证。</p>'
+          ? `<p class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${item.itemType === '辅料下单' ? '异常：已完成但采购单号或逐单下单时间不完整，请补充登记。' : '异常：已完成但缺少上传文件、上传人或上传时间，请补传完成凭证。'}</p>`
           : ''
       }
       <p class="mt-3 text-xs text-muted-foreground">${escapeHtml(item.evidenceSummary || item.remark || '暂无说明')}</p>
@@ -1413,6 +1404,7 @@ function renderItemCard(record: ProductionPreparationRecord, item: ProductionPre
 
 function renderAccessoryPurchaseOrderFields(item: ProductionPreparationItem): string {
   const orderNos = item.accessoryPurchaseOrderNos ?? []
+  const orderedAts = item.accessoryPurchaseOrderedAts ?? []
   return `
     <div class="mt-3 rounded-lg border bg-muted/30 p-3 text-xs">
       <div class="text-sm font-medium">面辅料采购单号</div>
@@ -1420,7 +1412,7 @@ function renderAccessoryPurchaseOrderFields(item: ProductionPreparationItem): st
         orderNos.length
           ? `
             <div class="mt-2 space-y-1">
-              ${orderNos.map((orderNo) => `<div>${escapeHtml(orderNo)}</div>`).join('')}
+              ${orderNos.map((orderNo, index) => `<div class="flex items-center justify-between gap-3"><span>${escapeHtml(orderNo)}</span><span class="text-muted-foreground">${escapeHtml(formatDateTime(orderedAts[index]))}</span></div>`).join('')}
             </div>
             <div class="mt-2 text-muted-foreground">完成时间：${escapeHtml(formatDateTime(item.accessoryPurchaseUpdatedAt ?? item.actualFinishAt))}</div>
           `
@@ -1720,6 +1712,7 @@ function renderAccessoryOrderDialog(
   if (!hasConfirmedWorkItems(record) || !isSelectedPreparationItem(item) || !canOperateItem(item, record)) return ''
   const closeHref = buildLedgerHrefFromParams(params, month)
   const orderNos = item.accessoryPurchaseOrderNos?.length ? item.accessoryPurchaseOrderNos : ['']
+  const orderedAts = item.accessoryPurchaseOrderedAts ?? []
   const completionAt = item.accessoryPurchaseUpdatedAt ?? item.actualFinishAt
   return `
     <div class="fixed inset-0 z-50">
@@ -1736,10 +1729,10 @@ function renderAccessoryOrderDialog(
               <button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-prep-action="add-accessory-order-row">新增单号</button>
             </div>
             <div class="space-y-2" data-prep-accessory-order-rows>
-              ${orderNos.map((orderNo) => `
+              ${orderNos.map((orderNo, index) => `
                 <div class="grid gap-2 md:grid-cols-[1fr_210px]" data-prep-accessory-order-row>
                   <input name="accessoryPurchaseOrderNo" value="${escapeHtml(orderNo)}" class="w-full rounded-md border px-3 py-2 text-sm" required placeholder="填写面辅料采购单号" />
-                  <input type="datetime-local" name="accessoryPurchaseOrderedAt" value="${escapeHtml(completionAt ?? currentIsoMinute())}" class="w-full rounded-md border px-3 py-2 text-sm" required />
+                  <input type="datetime-local" name="accessoryPurchaseOrderedAt" value="${escapeHtml(orderedAts[index] ?? (orderNo ? '' : currentIsoMinute()))}" class="w-full rounded-md border px-3 py-2 text-sm" required />
                 </div>
               `).join('')}
             </div>
@@ -2369,11 +2362,9 @@ export async function handleProductionPreparationTimingSubmit(form: HTMLFormElem
       .map((value) => String(value).trim())
     const orderedAts = formData.getAll('accessoryPurchaseOrderedAt')
       .map((value) => String(value).trim())
-    const orderRows = orderNos
-      .map((orderNo, index) => ({ orderNo, orderedAt: orderedAts[index] || currentIsoMinute() }))
-      .filter((row) => row.orderNo)
-    const completedAt = orderRows.map((row) => row.orderedAt).sort().at(-1) ?? currentIsoMinute()
-    if (!recordId || !itemId || !orderRows.length) return true
+    const orderRows = orderNos.map((orderNo, index) => ({ orderNo, orderedAt: orderedAts[index] ?? '' }))
+    if (!recordId || !itemId || !orderRows.length || orderRows.some((row) => !row.orderNo || !row.orderedAt)) return true
+    const completedAt = orderRows.map((row) => row.orderedAt).sort().at(-1)!
 
     const runtime = loadPreparationRuntimeState()
     const record = mergePreparationRuntimeRecords(productionPreparationRecords, runtime)

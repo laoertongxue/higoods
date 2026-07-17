@@ -251,7 +251,17 @@ export interface PreparationOutputBuildInput {
   outputPublishedAt: string
   workItemsConfirmedBy?: string
   workItemsConfirmedAt?: string
-  items: Array<Pick<ProductionPreparationItem, 'itemType' | 'selectedByMerchandiser' | 'status'>>
+  items: Array<Pick<
+    ProductionPreparationItem,
+    | 'itemType'
+    | 'selectedByMerchandiser'
+    | 'status'
+    | 'actualFinishAt'
+    | 'accessoryPurchaseOrderNos'
+    | 'accessoryPurchaseOrderedAts'
+    | 'accessoryPurchaseUpdatedAt'
+    | 'uploads'
+  >>
 }
 
 export interface ProductionPreparationFilter {
@@ -610,7 +620,7 @@ export function buildPreparationOutputs(input: PreparationOutputBuildInput): Pro
     !input.productionDemandNo ||
     !input.productionOrderNo ||
     !input.outputPublishedAt ||
-    selectedItems.some((item) => item.status !== '已完成')
+    selectedItems.some((item) => !hasValidPreparationCompletionEvidence(item))
   ) {
     return []
   }
@@ -759,6 +769,10 @@ function createItems(recordId: string, productionOrderNo: string, seeds: Prepara
       seed.itemType === '辅料下单' && seed.status === '已完成' && Boolean(seed.actualFinishAt)
         ? seed.accessoryPurchaseOrderNos ?? [`FPO-${recordId.slice(-3)}-01`]
         : seed.accessoryPurchaseOrderNos
+    const accessoryPurchaseOrderedAts =
+      seed.itemType === '辅料下单' && seed.status === '已完成' && Boolean(seed.actualFinishAt)
+        ? seed.accessoryPurchaseOrderedAts ?? accessoryPurchaseOrderNos?.map(() => seed.actualFinishAt)
+        : seed.accessoryPurchaseOrderedAts
     const accessoryPurchaseUpdatedAt =
       seed.itemType === '辅料下单' && seed.status === '已完成' && Boolean(seed.actualFinishAt)
         ? seed.accessoryPurchaseUpdatedAt ?? seed.actualFinishAt
@@ -776,6 +790,7 @@ function createItems(recordId: string, productionOrderNo: string, seeds: Prepara
       remark: '',
       ...seed,
       accessoryPurchaseOrderNos,
+      accessoryPurchaseOrderedAts,
       accessoryPurchaseUpdatedAt,
       uploads,
       downloads: seed.downloads ?? [],
@@ -786,6 +801,7 @@ function createItems(recordId: string, productionOrderNo: string, seeds: Prepara
 function record(seed: RecordSeed): ProductionPreparationRecord {
   const workItemsConfirmedBy = seed.workItemsConfirmedBy ?? seed.prepTypeConfirmedBy
   const workItemsConfirmedAt = seed.workItemsConfirmedAt ?? seed.prepTypeConfirmedAt
+  const items = createItems(seed.recordId, seed.productionOrderNo, seed.items)
   return {
     ...seed,
     largeGoodsThresholdQty: 300,
@@ -801,9 +817,9 @@ function record(seed: RecordSeed): ProductionPreparationRecord {
       outputPublishedAt: seed.outputPublishedAt,
       workItemsConfirmedBy,
       workItemsConfirmedAt,
-      items: seed.items,
+      items,
     }),
-    items: createItems(seed.recordId, seed.productionOrderNo, seed.items),
+    items,
   }
 }
 
@@ -1425,14 +1441,21 @@ function hasPatternUploadGap(item: ProductionPreparationItem): boolean {
 export function hasValidPreparationCompletionEvidence(
   item: Pick<
     ProductionPreparationItem,
-    'itemType' | 'status' | 'actualFinishAt' | 'accessoryPurchaseOrderNos' | 'accessoryPurchaseUpdatedAt' | 'uploads'
+    'itemType' | 'status' | 'actualFinishAt' | 'accessoryPurchaseOrderNos' | 'accessoryPurchaseOrderedAts' | 'accessoryPurchaseUpdatedAt' | 'uploads'
   >,
 ): boolean {
   if (item.status !== '已完成' || !item.actualFinishAt) return false
   if (item.itemType === '辅料下单') {
+    const orderNos = item.accessoryPurchaseOrderNos?.map((orderNo) => orderNo.trim()) ?? []
+    const orderedAts = item.accessoryPurchaseOrderedAts?.map((orderedAt) => orderedAt.trim()) ?? []
+    const latestOrderedAt = orderedAts.slice().sort().at(-1) ?? ''
     return Boolean(
-      item.accessoryPurchaseOrderNos?.some(Boolean) &&
+      orderNos.length > 0 &&
+        orderNos.every(Boolean) &&
+        orderedAts.length === orderNos.length &&
+        orderedAts.every(Boolean) &&
         item.accessoryPurchaseUpdatedAt &&
+        item.accessoryPurchaseUpdatedAt === latestOrderedAt &&
         item.accessoryPurchaseUpdatedAt === item.actualFinishAt,
     )
   }

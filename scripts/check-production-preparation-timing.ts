@@ -303,6 +303,29 @@ assert.deepEqual(
   [],
   '业务闭环反例：已选准备项未全部完成时不得生成正式产出',
 )
+assert.deepEqual(
+  buildPreparationOutputs({
+    recordNo: 'PREP-辅料证据反例-001',
+    productionDemandNo: 'PD-辅料证据反例-001',
+    productionOrderNo: 'PO-辅料证据反例-001',
+    outputReady: true,
+    outputPublishedAt: '2026-03-12T10:00:00',
+    workItemsConfirmedBy: '测试跟单',
+    workItemsConfirmedAt: '2026-03-10T10:00:00',
+    items: [{
+      itemType: '辅料下单',
+      selectedByMerchandiser: true,
+      status: '已完成',
+      actualFinishAt: '2026-03-12T09:00:00',
+      accessoryPurchaseOrderNos: ['FPO-反例-001'],
+      accessoryPurchaseOrderedAts: [],
+      accessoryPurchaseUpdatedAt: '2026-03-12T09:00:00',
+      uploads: [],
+    }],
+  }),
+  [],
+  '业务闭环反例：辅料下单缺逐单下单时间时不得生成正式产出',
+)
 
 type PreparationItem = (typeof productionPreparationRecords)[number]['items'][number]
 
@@ -541,9 +564,9 @@ assert.equal(runtimeOutputFixture.outputs.length, 0, 'PREP-202603-002 静态未 
 const runtimeOutputItems = runtimeOutputFixture.items.filter(
   (item) => item.selectedByMerchandiser !== false && item.status !== '无需',
 )
-const runtimeReadyUploads = runtimeOutputItems.map((item, index) =>
-  runtimeUploadFor(runtimeOutputFixture, item, index),
-)
+const runtimeReadyUploads = runtimeOutputItems
+  .filter((item) => item.itemType !== '辅料下单')
+  .map((item, index) => runtimeUploadFor(runtimeOutputFixture, item, index))
 const runtimeReadyRecord = mergePreparationRuntimeRecords(productionPreparationRecords, {
   ...EMPTY_PREPARATION_RUNTIME_STATE,
   uploads: runtimeReadyUploads,
@@ -1537,6 +1560,7 @@ const accessoryWithoutOrderItem = {
   status: '已完成' as const,
   actualFinishAt: '2026-03-02T11:00:00',
   accessoryPurchaseOrderNos: [],
+  accessoryPurchaseOrderedAts: [],
   accessoryPurchaseUpdatedAt: '',
 }
 assert.equal(
@@ -1548,10 +1572,32 @@ assert.equal(
   hasValidPreparationCompletionEvidence({
     ...accessoryWithoutOrderItem,
     accessoryPurchaseOrderNos: ['FPO-PROGRESS-001'],
+    accessoryPurchaseOrderedAts: [accessoryWithoutOrderItem.actualFinishAt],
     accessoryPurchaseUpdatedAt: accessoryWithoutOrderItem.actualFinishAt,
   }),
   true,
   '辅料下单的最后下单时间等于实际完成时间时必须算有效完成且不依赖上传',
+)
+assert.equal(
+  hasValidPreparationCompletionEvidence({
+    ...accessoryWithoutOrderItem,
+    accessoryPurchaseOrderNos: ['FPO-PROGRESS-001', 'FPO-PROGRESS-002'],
+    accessoryPurchaseOrderedAts: [accessoryWithoutOrderItem.actualFinishAt, ''],
+    accessoryPurchaseUpdatedAt: accessoryWithoutOrderItem.actualFinishAt,
+  }),
+  false,
+  '辅料下单任一采购单缺少真实下单时间时不得算有效完成',
+)
+assert.equal(
+  hasValidPreparationCompletionEvidence({
+    ...accessoryWithoutOrderItem,
+    actualFinishAt: '2026-03-03T16:10:00',
+    accessoryPurchaseOrderNos: ['FPO-PROGRESS-001', 'FPO-PROGRESS-002'],
+    accessoryPurchaseOrderedAts: ['2026-03-03T16:10:00', '2026-03-02T11:00:00'],
+    accessoryPurchaseUpdatedAt: '2026-03-03T16:10:00',
+  }),
+  true,
+  '辅料下单实际完成时间必须取全部采购单下单时间的最大值且不受行顺序影响',
 )
 assert.equal(
   derivePreparationItemProgress(progressFixtureItems[0], { ...progressFixtureRecord, workItemsConfirmedAt: '' }),
@@ -2280,6 +2326,19 @@ const accessoryOrderDetailHtml = await renderAt(
 assertHtmlIncludes(accessoryOrderDetailHtml, 'FPO-202603-002-A', '辅料下单详情必须展示第一个面辅料采购单号')
 assertHtmlIncludes(accessoryOrderDetailHtml, 'FPO-202603-002-B', '辅料下单详情必须展示多个面辅料采购单号')
 assertHtmlIncludes(accessoryOrderDetailHtml, '完成时间', '辅料下单详情必须展示完成时间')
+const accessoryOrderOperateHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-002&itemId=prep-202603-002-item-06&action=operate-item',
+)
+assertHtmlIncludes(accessoryOrderOperateHtml, 'value="2026-03-04T11:20:00"', '辅料下单弹窗必须回填第一张采购单原始下单时间')
+assertHtmlIncludes(accessoryOrderOperateHtml, 'value="2026-03-05T16:10:00"', '辅料下单弹窗必须回填第二张采购单原始下单时间')
+const completedAccessoryDetailHtml = await renderAt(
+  '/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-005',
+)
+const completedAccessoryDrawer = detailDrawerHtml(completedAccessoryDetailHtml, 'PREP-202603-005')
+assert.ok(!completedAccessoryDrawer.includes('证据缺失'), '已有采购单号和逐单下单时间的辅料下单不得显示证据缺失')
+assert.ok(!completedAccessoryDrawer.includes('仍需完成：辅料下单'), '已完成辅料下单不得继续列入仍需完成项')
+assert.ok(!completedAccessoryDrawer.includes('>待生成<'), '全部准备项完成且已有正式产出时不得显示待生成')
+assertHtmlIncludes(completedAccessoryDrawer, '>已生成<', '全部准备项完成且已有正式产出时必须显示已生成')
 const detailWithFiltersHtml = await renderAt(
   '/fcs/production/preparation-timing?tab=ledger&month=2026-04&recordStatus=进行中&recordId=prep-202604-001',
 )

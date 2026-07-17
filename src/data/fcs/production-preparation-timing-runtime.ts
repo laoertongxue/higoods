@@ -1,5 +1,6 @@
 import {
   buildPreparationOutputs,
+  hasValidPreparationCompletionEvidence,
   preparationTypeDefaultItems,
   type ExternalPreparationMaterial,
   type PreparationDownloadRecord,
@@ -310,25 +311,6 @@ function isSelectedPreparationItem(item: ProductionPreparationItem): boolean {
   return item.selectedByMerchandiser !== false && item.status !== '无需'
 }
 
-function hasUploadEvidence(upload: PreparationUploadRecord): boolean {
-  return Boolean(upload.fileName && upload.uploadedAt && upload.uploadedBy)
-}
-
-function hasCompletionEvidence(item: ProductionPreparationItem): boolean {
-  if (item.itemType === '辅料下单') {
-    return Boolean(
-      item.status === '已完成' &&
-        item.actualFinishAt &&
-        item.accessoryPurchaseOrderNos?.some(Boolean),
-    )
-  }
-  return Boolean(
-    item.status === '已完成' &&
-      item.actualFinishAt &&
-      item.uploads?.some(hasUploadEvidence),
-  )
-}
-
 function isRuntimeOutputReady(
   items: ProductionPreparationItem[],
   workItemsConfirmedBy: string,
@@ -336,7 +318,7 @@ function isRuntimeOutputReady(
 ): boolean {
   if (!(workItemsConfirmedBy && workItemsConfirmedAt)) return false
   const selectedItems = items.filter(isSelectedPreparationItem)
-  return selectedItems.length > 0 && selectedItems.every(hasCompletionEvidence)
+  return selectedItems.length > 0 && selectedItems.every(hasValidPreparationCompletionEvidence)
 }
 
 function latestCompletionEvidenceAt(items: ProductionPreparationItem[]): string {
@@ -344,7 +326,7 @@ function latestCompletionEvidenceAt(items: ProductionPreparationItem[]): string 
     .filter(isSelectedPreparationItem)
     .flatMap((item) => [
       item.actualFinishAt,
-      ...(item.uploads ?? []).filter(hasUploadEvidence).map((upload) => upload.uploadedAt),
+      ...(item.uploads ?? []).filter((upload) => upload.fileName && upload.uploadedAt && upload.uploadedBy).map((upload) => upload.uploadedAt),
     ])
     .filter(Boolean)
     .sort((left, right) => right.localeCompare(left))[0] ?? ''
@@ -366,8 +348,15 @@ function mergePreparationRuntimeItem(
     : item.selectedByMerchandiser
   if (!uploads.length && !downloads.length && !accessoryOrder && !selection.overridden && dyeRequirement === item.dyeRequirement) return item
   const lastUpload = uploads.slice().sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))[0]
-  const accessoryCompleted = Boolean(accessoryOrder?.orderNos.length)
-  const accessoryCompletedAt = accessoryOrder?.orderedAts?.filter(Boolean).sort().at(-1) ?? accessoryOrder?.updatedAt
+  const accessoryOrderNos = accessoryOrder?.orderNos.map((orderNo) => orderNo.trim()) ?? []
+  const accessoryOrderedAts = accessoryOrder?.orderedAts?.map((orderedAt) => orderedAt.trim()) ?? []
+  const accessoryCompleted = Boolean(
+    accessoryOrderNos.length > 0 &&
+      accessoryOrderNos.every(Boolean) &&
+      accessoryOrderedAts.length === accessoryOrderNos.length &&
+      accessoryOrderedAts.every(Boolean),
+  )
+  const accessoryCompletedAt = accessoryCompleted ? accessoryOrderedAts.slice().sort().at(-1) : undefined
   return {
     ...item,
     dyeRequirement,
@@ -377,7 +366,8 @@ function mergePreparationRuntimeItem(
     evidenceSummary: accessoryOrder
       ? `已登记 ${accessoryOrder.orderNos.length} 个面辅料采购单号`
       : lastUpload ? `最后上传：${lastUpload.fileName}` : item.evidenceSummary,
-    accessoryPurchaseOrderNos: accessoryOrder?.orderNos ?? item.accessoryPurchaseOrderNos,
+    accessoryPurchaseOrderNos: accessoryOrder ? accessoryOrderNos : item.accessoryPurchaseOrderNos,
+    accessoryPurchaseOrderedAts: accessoryOrder ? accessoryOrderedAts : item.accessoryPurchaseOrderedAts,
     accessoryPurchaseUpdatedAt: accessoryCompletedAt ?? item.accessoryPurchaseUpdatedAt,
     uploads: [...(item.uploads ?? []), ...uploads],
     downloads: [...(item.downloads ?? []), ...downloads],
