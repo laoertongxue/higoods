@@ -51,7 +51,7 @@ function renderOrdersTable(): string {
               objectType: 'PRINT_WORK_ORDER',
               objectId: order.printOrderNo,
               label: order.printOrderNo,
-              relatedProductionOrderNo: order.productionOrderIds[0],
+              relatedProductionOrderNo: order.sourceProductionOrderNo || order.sourceProductionOrderId,
               defaultTab: 'progress',
               highlightKey: `PRINT_WORK_ORDER:${order.printOrderNo}`,
               className: 'font-mono text-blue-600 hover:underline',

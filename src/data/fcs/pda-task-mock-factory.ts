@@ -43,7 +43,7 @@ export type PdaTaskMockOrigin =
   | 'AWARDED_REJECTED'
 
 export interface PdaGenericTaskMock extends ProcessTask {
-  productionOrderNo: string
+  productionOrderNo?: string
   spuCode: string
   spuName: string
   requiredDeliveryDate: string
@@ -1909,6 +1909,30 @@ export function registerPdaGenericProcessTask(task: PdaGenericTaskMock): void {
     return
   }
   PDA_GENERIC_PROCESS_TASKS.push(task)
+}
+
+export function acceptPdaGenericProcessTask(
+  taskId: string,
+  input: { acceptedAt: string; acceptedBy: string },
+): PdaGenericTaskMock | undefined {
+  const task = PDA_GENERIC_PROCESS_TASKS.find((item) => item.taskId === taskId)
+  if (!task) return undefined
+  task.acceptanceStatus = 'ACCEPTED'
+  task.acceptedAt = input.acceptedAt
+  task.acceptedBy = input.acceptedBy
+  task.updatedAt = input.acceptedAt
+  task.mockOrigin = task.status === 'NOT_STARTED' ? 'AWARDED_ACCEPTED_NOT_STARTED' : task.mockOrigin
+  task.auditLogs = [
+    ...task.auditLogs,
+    {
+      id: `AL-GENERIC-ACCEPT-${task.taskId}-${task.auditLogs.length + 1}`,
+      action: 'ACCEPT_TASK',
+      detail: 'PDA 确认接单',
+      at: input.acceptedAt,
+      by: input.acceptedBy,
+    },
+  ]
+  return task
 }
 
 export function listPdaGenericBiddingTenderMocks(): PdaMobileBiddingTenderMock[] {

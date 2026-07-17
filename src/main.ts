@@ -1,6 +1,6 @@
 import './styles.css'
 import { hydrateRealQRCodes } from './components/real-qr'
-import { hydrateIcons, renderAppShell, renderSidebar } from './components/shell'
+import { hydrateIcons, isStandalonePrintPath, renderAppShell, renderSidebar } from './components/shell'
 import { handleProductionObjectOverviewEvent } from './components/production-object-overview'
 import { appStore } from './state/store'
 
@@ -577,7 +577,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   }
   if (isProductionRoutePath(pathname)) {
     const productionEvents = await getProductionEventsModule()
-    return productionEvents.handleProductionEvent(eventTarget)
+    return productionEvents.handleProductionEvent(eventTarget, event)
   }
   if (pathname.startsWith('/fcs/progress/board')) {
     const progressBoardPage = await getProgressBoardPageModule()
@@ -844,16 +844,27 @@ function ensureInitialPdaLoadingShell(state = appStore.getState()): void {
 }
 
 const supplementManagementRoutePath = '/fcs/craft/cutting/supplement-management'
+const productionPreparationTimingRoutePath = '/fcs/production/preparation-timing'
+const productionPreparationTimingStatisticsRoutePath = '/fcs/production/preparation-timing-statistics'
 let previousRenderedPagePathname = ''
 
 async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
   const isSupplementManagementEntry = normalizedPathname === supplementManagementRoutePath
     && previousRenderedPagePathname !== supplementManagementRoutePath
+  const isProductionPreparationTimingEntry = normalizedPathname === productionPreparationTimingRoutePath
+    && previousRenderedPagePathname !== productionPreparationTimingRoutePath
+  const isProductionPreparationTimingStatisticsEntry = normalizedPathname === productionPreparationTimingStatisticsRoutePath
+    && previousRenderedPagePathname !== productionPreparationTimingStatisticsRoutePath
   previousRenderedPagePathname = normalizedPathname
-  if (!isSupplementManagementEntry) return
+  if (isSupplementManagementEntry) {
+    const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
+    supplementManagementPage.enterCraftCuttingSupplementManagementRoute()
+  }
+  if (!isProductionPreparationTimingEntry && !isProductionPreparationTimingStatisticsEntry) return
 
-  const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
-  supplementManagementPage.enterCraftCuttingSupplementManagementRoute()
+  const productionPreparationTimingPage = await import('./pages/production/preparation-timing')
+  if (isProductionPreparationTimingEntry) productionPreparationTimingPage.enterProductionPreparationTimingRoute()
+  if (isProductionPreparationTimingStatisticsEntry) productionPreparationTimingPage.enterProductionPreparationTimingStatisticsRoute()
 }
 
 async function renderCurrentPageContent(pathname: string): Promise<string> {
@@ -1315,6 +1326,11 @@ function navigateWithImmediateSidebar(pathname: string): void {
     return
   }
 
+  if (isStandalonePrintPath(currentPathname) !== isStandalonePrintPath(pathname)) {
+    appStore.navigate(pathname)
+    return
+  }
+
   markNextStoreRenderAsSidebarOnly()
   appStore.navigate(pathname)
   closeMobileSidebar()
@@ -1329,7 +1345,13 @@ function buildNavigationFromFields(node: HTMLElement): string | null {
 
   const params = new URLSearchParams()
   scope.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input[name], select[name], textarea[name]').forEach((field) => {
-    if (field instanceof HTMLInputElement && (field.type === 'checkbox' || field.type === 'radio') && !field.checked) return
+    if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+      if (!field.checked) return
+      const value = field.value.trim()
+      if (value) params.append(field.name, value)
+      return
+    }
+    if (field instanceof HTMLInputElement && field.type === 'radio' && !field.checked) return
     const value = field.value.trim()
     if (value) params.set(field.name, value)
   })
@@ -1694,6 +1716,7 @@ root.addEventListener('dragend', dispatchListColumnDragEvent)
 root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  const skipPageRerender = Boolean(target.closest<HTMLElement>('[data-skip-page-rerender="true"]'))
   const focusSnapshot = captureFocusSnapshot()
   const previousPathname = appStore.getState().pathname
 
@@ -1765,9 +1788,10 @@ root.addEventListener('click', async (event) => {
     return
   }
 
-  if (await dispatchPageEvent(target, event)) {
+  const pageEventHandled = await dispatchPageEvent(target, event)
+  if (pageEventHandled) {
     event.preventDefault()
-    if (target.closest<HTMLElement>('[data-skip-page-rerender="true"]')) {
+    if (skipPageRerender) {
       return
     }
     const nextPathname = appStore.getState().pathname
@@ -1828,7 +1852,8 @@ root.addEventListener('input', async (event) => {
     return
   }
 
-  if (await dispatchPageEvent(target, event)) {
+  const pageEventHandled = await dispatchPageEvent(target, event)
+  if (pageEventHandled) {
     if (shouldSkipInputRerender(target)) return
     const nextPathname = appStore.getState().pathname
     if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
@@ -1897,11 +1922,12 @@ root.addEventListener('compositionend', async (event) => {
 root.addEventListener('change', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  const skipChangeRerender = shouldSkipChangeRerender(target)
   const focusSnapshot = captureFocusSnapshot()
   const previousPathname = appStore.getState().pathname
 
   if (await dispatchPageEvent(target, event)) {
-    if (shouldSkipChangeRerender(target)) return
+    if (skipChangeRerender) return
     const nextPathname = appStore.getState().pathname
     if (shouldUseProductionDemandConfirmOverlayRender(target, previousPathname, nextPathname)) {
       await renderProductionDemandConfirmOverlayOnly(focusSnapshot)

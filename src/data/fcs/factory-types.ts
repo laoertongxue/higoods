@@ -143,6 +143,7 @@ export interface Factory {
   identityFile?: FactoryOnboardingIdentityFile | null
   machineTotalCount?: number
   effectiveWorkerCount?: number
+  sewingSeatCount?: number
   availableStartDate?: string
   selectedCapabilities?: FactoryOnboardingSelectedCapability[]
   machines?: FactoryOnboardingMachineAbility[]
@@ -176,6 +177,7 @@ export interface FactoryFormData {
   pdaTenantId?: string
   isTestFactory?: boolean
   testFactoryScope?: 'ALL_PROCESS_CRAFT'
+  sewingSeatCount?: number
   eligibility: FactoryEligibility
   taskAcceptanceConfig?: FactoryTaskAcceptanceConfig
 }
@@ -196,6 +198,7 @@ export interface FactoryCapacityProfile {
   sourceApplicationNo?: string
   effectiveWorkerCount: number
   machineTotalCount: number
+  sewingSeatCount?: number
   capabilityItems: Array<{
     processCode: string
     processName: string

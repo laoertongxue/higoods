@@ -4,6 +4,20 @@ import { createProductionChangeForm, state } from '../src/pages/production/conte
 import * as changeDomain from '../src/data/fcs/production-tech-pack-change-domain.ts'
 import { listMaterialArchives } from '../src/data/pcs-material-archive-repository.ts'
 import {
+  buildFormalProductionOrderProcessSnapshots,
+  ensureProcessWorkOrdersForFormalProductionOrder,
+  prepareSyncProcessWorkOrdersAfterProductionOrderChanges,
+  type FormalProductionOrderProcessSnapshot,
+} from '../src/data/fcs/production-process-work-order-service.ts'
+import { productionOrders } from '../src/data/fcs/production-orders.ts'
+import { getDyeWorkOrderById } from '../src/data/fcs/dyeing-task-domain.ts'
+import { getPrintWorkOrderById } from '../src/data/fcs/printing-task-domain.ts'
+import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
+import {
+  createCombinedDyeingTask,
+  getCombinedDyeingTaskById,
+} from '../src/data/fcs/combined-dyeing-domain.ts'
+import {
   adaptLegacyQuantityLinesForEdit,
   areMaterialSelectionsEquivalent,
   buildProductionChangeRecord,
@@ -27,8 +41,11 @@ import {
   createLegacyMaterialValue,
   normalizeMaterialReplacementAllocations,
   productionChangeResultLabels,
+  predictProductionChangeTechPackIdentity,
   quantityChangeRequiresNewFormalVersion,
   resolveFollowingOrderStateFromProgressFallback,
+  resolveProductionChangeMaterialIdentity,
+  resolveProductionChangeMaterialIdentityByCanonicalMaterialId,
   replaceProductionChangeRecordsForTesting,
   resetProductionChangeRecordsForTesting,
   saveProductionChangeRecord,
@@ -260,6 +277,127 @@ assert.ok(
   'hook 异常返回后必须释放锁',
 )
 assert.equal(executeProductionChange(executionPreview).status, 'DONE', 'hook 异常回滚后必须允许再次执行')
+
+const workflowSyncSnapshot: FormalProductionOrderProcessSnapshot = {
+  productionOrderId: 'PO-CHANGE-WORKFLOW-SYNC',
+  productionOrderNo: 'PO-CHANGE-WORKFLOW-SYNC',
+  orderedAt: '2026-07-16 11:00:00',
+  techPackVersionId: 'TP-CHANGE-SYNC-V1',
+  techPackVersionLabel: '技术包 V1',
+  materialId: 'MAT-CHANGE-SYNC-V1',
+  materialName: '变更同步前面料',
+  targetColor: '藏青',
+  plannedQty: 100,
+  qtyUnit: '米',
+  processCodes: ['DYE'],
+  dyeProcessName: '活性染色',
+  spuCode: 'SPU-CHANGE-SYNC',
+  spuName: '生产变更同步款',
+  requiredDeliveryDate: '2026-08-20',
+}
+const workflowSyncOrder = ensureProcessWorkOrdersForFormalProductionOrder(workflowSyncSnapshot)
+const workflowChangedSnapshot = { ...workflowSyncSnapshot, materialId: 'MAT-CHANGE-SYNC-V2', materialName: '变更同步后面料', plannedQty: 120 }
+const workflowSuccess = executeProductionChange(executionPreview, {
+  processWorkOrderSnapshots: [workflowChangedSnapshot],
+  changeRecordId: 'BG-WORKFLOW-SYNC-001',
+  persist: (result) => result,
+})
+assert.equal(workflowSuccess.status, 'DONE')
+assert.equal(getDyeWorkOrderById(workflowSyncOrder.dyeWorkOrderId!)?.materialId, 'MAT-CHANGE-SYNC-V2', '生产变更成功持久化后必须自动同步加工单')
+
+const workflowAtomicFirst: FormalProductionOrderProcessSnapshot = {
+  ...workflowSyncSnapshot,
+  productionOrderId: 'PO-CHANGE-WORKFLOW-ATOMIC-FIRST',
+  productionOrderNo: 'PO-CHANGE-WORKFLOW-ATOMIC-FIRST',
+}
+const workflowAtomicSecond: FormalProductionOrderProcessSnapshot = {
+  ...workflowSyncSnapshot,
+  productionOrderId: 'PO-CHANGE-WORKFLOW-ATOMIC-SECOND',
+  productionOrderNo: 'PO-CHANGE-WORKFLOW-ATOMIC-SECOND',
+}
+const workflowAtomicFirstOrder = ensureProcessWorkOrdersForFormalProductionOrder(workflowAtomicFirst)
+ensureProcessWorkOrdersForFormalProductionOrder(workflowAtomicSecond)
+let invalidBatchPersistCount = 0
+const invalidBatchExecution = executeProductionChange(executionPreview, {
+  processWorkOrderSnapshots: [
+    { ...workflowAtomicFirst, plannedQty: 160 },
+    { ...workflowAtomicSecond, materialId: '' },
+  ],
+  changeRecordId: 'BG-WORKFLOW-ATOMIC-INVALID',
+  persist: (result) => {
+    invalidBatchPersistCount += 1
+    return result
+  },
+})
+assert.equal(invalidBatchExecution.status, 'ROLLED_BACK', '任一加工快照准备失败必须整批回滚')
+assert.equal(invalidBatchPersistCount, 0, '加工快照批量准备失败时不得调用生产变更 persist')
+assert.equal(getDyeWorkOrderById(workflowAtomicFirstOrder.dyeWorkOrderId!)?.plannedQty, 100, '第二条准备失败不得改写第一张加工单')
+
+const preparedRollbackSnapshot: FormalProductionOrderProcessSnapshot = {
+  ...workflowSyncSnapshot,
+  productionOrderId: 'PO-CHANGE-WORKFLOW-PREPARED-ROLLBACK',
+  productionOrderNo: 'PO-CHANGE-WORKFLOW-PREPARED-ROLLBACK',
+  processCodes: ['DYE', 'PRINT'],
+}
+const preparedRollbackOrders = ensureProcessWorkOrdersForFormalProductionOrder(preparedRollbackSnapshot)
+const preparedRollbackTaskIds = [
+  getDyeWorkOrderById(preparedRollbackOrders.dyeWorkOrderId!)!.taskId,
+  getPrintWorkOrderById(preparedRollbackOrders.printWorkOrderId!)!.taskId,
+]
+const preparedRollbackBefore = {
+  dye: getDyeWorkOrderById(preparedRollbackOrders.dyeWorkOrderId!),
+  print: getPrintWorkOrderById(preparedRollbackOrders.printWorkOrderId!),
+  tasks: structuredClone(listPdaGenericProcessTasks().filter((task) => preparedRollbackTaskIds.includes(task.taskId))),
+}
+const preparedRollbackBatch = prepareSyncProcessWorkOrdersAfterProductionOrderChanges([{
+  ...preparedRollbackSnapshot,
+  plannedQty: 188,
+}], {
+  changeRecordId: 'BG-WORKFLOW-PREPARED-ROLLBACK-001',
+  recordedAt: '2026-07-16 15:25:00',
+})
+preparedRollbackBatch.commit()
+const preparedRollbackCommittedOnce = {
+  dye: getDyeWorkOrderById(preparedRollbackOrders.dyeWorkOrderId!),
+  print: getPrintWorkOrderById(preparedRollbackOrders.printWorkOrderId!),
+  tasks: structuredClone(listPdaGenericProcessTasks().filter((task) => preparedRollbackTaskIds.includes(task.taskId))),
+}
+preparedRollbackBatch.commit()
+assert.deepEqual({
+  dye: getDyeWorkOrderById(preparedRollbackOrders.dyeWorkOrderId!),
+  print: getPrintWorkOrderById(preparedRollbackOrders.printWorkOrderId!),
+  tasks: structuredClone(listPdaGenericProcessTasks().filter((task) => preparedRollbackTaskIds.includes(task.taskId))),
+}, preparedRollbackCommittedOnce, 'prepared batch 重复 commit 必须幂等')
+preparedRollbackBatch.rollback()
+preparedRollbackBatch.rollback()
+assert.deepEqual({
+  dye: getDyeWorkOrderById(preparedRollbackOrders.dyeWorkOrderId!),
+  print: getPrintWorkOrderById(preparedRollbackOrders.printWorkOrderId!),
+  tasks: structuredClone(listPdaGenericProcessTasks().filter((task) => preparedRollbackTaskIds.includes(task.taskId))),
+}, preparedRollbackBefore, 'prepared batch rollback 必须恢复染/印加工单和 PDA 任务，重复调用不得破坏旧状态')
+
+const noSyncBefore = getDyeWorkOrderById(workflowSyncOrder.dyeWorkOrderId!)!
+executeProductionChange(executionPreview, {
+  shouldFail: true,
+  processWorkOrderSnapshots: [{ ...workflowChangedSnapshot, plannedQty: 130 }],
+  changeRecordId: 'BG-WORKFLOW-SYNC-ROLLBACK',
+})
+assert.equal(getDyeWorkOrderById(workflowSyncOrder.dyeWorkOrderId!)?.plannedQty, noSyncBefore.plannedQty, 'shouldFail 回滚不得同步加工单')
+executeProductionChange(executionPreview, {
+  processWorkOrderSnapshots: [{ ...workflowChangedSnapshot, plannedQty: 140 }],
+  changeRecordId: 'BG-WORKFLOW-SYNC-PERSIST-ROLLBACK',
+  persist: () => ({ ...successfulExecution, status: 'ROLLED_BACK' }),
+})
+assert.equal(getDyeWorkOrderById(workflowSyncOrder.dyeWorkOrderId!)?.plannedQty, noSyncBefore.plannedQty, '持久化返回回滚不得同步加工单')
+const persistenceThrowExecution = executeProductionChange(executionPreview, {
+  processWorkOrderSnapshots: [{ ...workflowChangedSnapshot, plannedQty: 150 }],
+  changeRecordId: 'BG-WORKFLOW-SYNC-PERSIST-THROW',
+  persist: () => {
+    throw new Error('模拟生产变更持久化异常')
+  },
+})
+assert.equal(persistenceThrowExecution.status, 'ROLLED_BACK', '持久化抛错必须返回回滚结果')
+assert.equal(getDyeWorkOrderById(workflowSyncOrder.dyeWorkOrderId!)?.plannedQty, noSyncBefore.plannedQty, '持久化抛错不得提交已准备的加工单批次')
 
 ;[
   [
@@ -1341,16 +1479,629 @@ const executeProductionChangeForForm = requireFunction<(
   options?: {
     shouldFail?: boolean
     execute?: (preview: ProductionChangePreview) => ReturnType<typeof executeProductionChange>
+    beforeProcessWorkOrderPreparationCommit?: (index: number) => void
+    executedAt?: string | Date
   },
 ) => {
   executed: boolean
   step: typeof state.productionChangeFormStep
   error: string
 }>(eventExports, 'executeProductionChangeForForm')
+const buildPostChangeProcessWorkOrderSnapshotsForForm = requireFunction<(
+  form: typeof state.productionChangeForm,
+  preview: ProductionChangePreview,
+) => FormalProductionOrderProcessSnapshot[]>(eventExports, 'buildPostChangeProcessWorkOrderSnapshotsForForm')
 const handleProductionEvent = requireFunction<(target: HTMLElement) => boolean>(
   eventExports,
   'handleProductionEvent',
 )
+
+const createMaterialDraftForForm = (form: typeof state.productionChangeForm): ProductionChangeDraft => ({
+  productionOrderId: form.productionOrderId,
+  changeType: form.changeType,
+  reason: form.reason,
+  quantityLines: form.quantityLines,
+  materialReplacement: form.materialReplacement,
+  decisionValues: form.decisionValues,
+  affectedDocumentNos: listAffectedDocumentNosForOrder(form.productionOrderId),
+})
+
+const confirmMaterialExecutionForm = (form: typeof state.productionChangeForm): void => {
+  const previewSeed = buildProductionChangePreview(createMaterialDraftForForm(form))
+  form.decisionValues = Object.fromEntries(previewSeed.decisionItems.map((item) => [
+    item.id,
+    { value: item.options[0]!.value, reason: '按当前事实执行系统建议。' },
+  ]))
+  form.confirmedFactsFingerprint = buildProductionChangePreview(createMaterialDraftForForm(form)).factsFingerprint
+}
+
+const unmappedMaterialOrderId = 'PO-202604-0018'
+const unmappedMaterialFactId = 'MAT-PO-202604-0018-FAB-P02'
+const unmappedMaterialOptions = listCurrentMaterialOptionsForOrder(unmappedMaterialOrderId)
+assert.ok(
+  !unmappedMaterialOptions.some((option) => option.value === unmappedMaterialFactId),
+  '缺少稳定 canonical identity 的 FAB-P02 不得出现在原面料下拉中',
+)
+const forgedUnmappedMaterialForm = createInitializedProductionChangeForm(unmappedMaterialOrderId, 'MATERIAL_REPLACEMENT')
+forgedUnmappedMaterialForm.recordId = 'BG-UI-MATERIAL-UNMAPPED-001'
+forgedUnmappedMaterialForm.reason = '验证旧表单或伪造输入不能绕过稳定物料身份校验'
+forgedUnmappedMaterialForm.materialReplacement.originalMaterialId = unmappedMaterialFactId
+forgedUnmappedMaterialForm.materialReplacement.replacementMaterialId = listMaterialArchives('fabric')[0]!.materialId
+forgedUnmappedMaterialForm.materialReplacement.scope = 'CURRENT_ONLY'
+confirmMaterialExecutionForm(forgedUnmappedMaterialForm)
+const forgedUnmappedExecution = executeProductionChangeForForm(
+  forgedUnmappedMaterialForm,
+  { executedAt: '2026-07-16 15:20:00' },
+)
+assert.equal(forgedUnmappedExecution.executed, false, '缺少稳定物料映射时执行层必须阻断，不能返回 DONE')
+assert.match(
+  forgedUnmappedExecution.error,
+  /稳定物料身份|正式物料映射/,
+  '缺少稳定物料映射时必须给跟单明确中文错误',
+)
+assert.notEqual(forgedUnmappedMaterialForm.execution.status, 'DONE', '缺少稳定物料映射绝不能写入 DONE')
+
+const realMaterialOrderId = 'PO-202603-0004'
+const realMaterialBomItemId = 'tdv_demand_SPU_2024_010-bom-main'
+const sharedFabA01CanonicalMaterialId = 'material_business_fab_a01'
+const realCurrentMaterialOption = listCurrentMaterialOptionsForOrder(realMaterialOrderId)[0]
+assert(realCurrentMaterialOption, '真实 UI 编排检查需要当前面料选项')
+const realCurrentMaterialFact = changeDomain.getProductionOrderChangeCurrentFacts(realMaterialOrderId)
+  ?.materialFacts.find((fact) => fact.id === realCurrentMaterialOption.value)
+assert(realCurrentMaterialFact, '真实 UI 选项必须可回查当前物料事实')
+assert.notEqual(realCurrentMaterialOption.value, realMaterialBomItemId, 'UI 必须继续提交 fact.id，而不是伪装成 BOM ID')
+assert.deepEqual(
+  [realCurrentMaterialFact.sourceTechPackVersionId, realCurrentMaterialFact.sourceBomItemId, realCurrentMaterialFact.canonicalMaterialId, realCurrentMaterialFact.snapshotMaterialId],
+  ['tdv_demand_SPU_2024_010', realMaterialBomItemId, sharedFabA01CanonicalMaterialId, realMaterialBomItemId],
+  '当前单事实必须区分跨单 canonical 业务物料身份、单内 BOM 行和旧 snapshot material identity',
+)
+assert.deepEqual(resolveProductionChangeMaterialIdentity(realMaterialOrderId, realCurrentMaterialOption.value), {
+  factId: realCurrentMaterialFact.id,
+  sourceTechPackVersionId: 'tdv_demand_SPU_2024_010',
+  sourceBomItemId: realMaterialBomItemId,
+  canonicalMaterialId: sharedFabA01CanonicalMaterialId,
+  snapshotMaterialId: realMaterialBomItemId,
+}, '共享 resolver 必须把真实 UI fact.id 解析为结构化 BOM/canonical identity')
+const followingMaterialIdentityExpectations = [
+  {
+    productionOrderId: 'PO-202603-0101',
+    factId: 'MAT-PO-202603-0101-FAB-A01',
+    sourceTechPackVersionId: 'TDV-SPU-2024-010-v1-1',
+    sourceBomItemId: 'BOM-PO-202603-0101-FAB-A01',
+    canonicalMaterialId: sharedFabA01CanonicalMaterialId,
+    snapshotMaterialId: 'BOM-PO-202603-0101-FAB-A01',
+  },
+  {
+    productionOrderId: 'PO-202603-0102',
+    factId: 'MAT-PO-202603-0102-FAB-A01',
+    sourceTechPackVersionId: 'TDV-SPU-2024-010-v1-2',
+    sourceBomItemId: 'BOM-PO-202603-0102-FAB-A01',
+    canonicalMaterialId: sharedFabA01CanonicalMaterialId,
+    snapshotMaterialId: 'BOM-PO-202603-0102-FAB-A01',
+  },
+]
+followingMaterialIdentityExpectations.forEach(({ productionOrderId, ...expectedIdentity }) => {
+  assert.deepEqual(
+    resolveProductionChangeMaterialIdentityByCanonicalMaterialId(productionOrderId, sharedFabA01CanonicalMaterialId),
+    expectedIdentity,
+    `${productionOrderId} 必须按 canonicalMaterialId 精确反查自身版本、BOM 行和 fact.id`,
+  )
+})
+assert.equal(
+  resolveProductionChangeMaterialIdentityByCanonicalMaterialId('PO-202603-0007', sharedFabA01CanonicalMaterialId),
+  null,
+  '不同 canonicalMaterialId 的后续单不得按名称或数组顺序猜测为同一物料',
+)
+
+const realMaterialWorkOrder = ensureProcessWorkOrdersForFormalProductionOrder({
+  ...workflowSyncSnapshot,
+  productionOrderId: realMaterialOrderId,
+  productionOrderNo: realMaterialOrderId,
+  techPackVersionId: 'tdv_demand_SPU_2024_010',
+  techPackVersionLabel: '生产需求冻结快照',
+  materialId: realMaterialBomItemId,
+  materialName: '主面料 / Black 主面料',
+  materialItems: [{
+    sourceBomItemId: realMaterialBomItemId,
+    materialId: realMaterialBomItemId,
+    materialName: '主面料 / Black 主面料',
+  }],
+  processCodes: ['DYE'],
+})
+const realUiMaterialForm = createInitializedProductionChangeForm(realMaterialOrderId, 'MATERIAL_REPLACEMENT')
+const realReplacementArchive = listMaterialArchives('fabric')[0]!
+assert.notEqual(realReplacementArchive.materialId, realReplacementArchive.materialCode, '正式物料档案内部 ID 与实际物料编码必须明确区分')
+realUiMaterialForm.materialReplacement.originalMaterialId = realCurrentMaterialOption.value
+realUiMaterialForm.materialReplacement.replacementMaterialId = realReplacementArchive.materialId
+const realUiChangedSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(realUiMaterialForm, {
+  ...executionPreview,
+  result: 'PRODUCTION_PATCH',
+  affectedOrderIds: [realMaterialOrderId],
+})
+assert.deepEqual(realUiChangedSnapshots[0]?.materialItems, [{
+  sourceBomItemId: realMaterialBomItemId,
+  materialId: realReplacementArchive.materialCode,
+  materialName: realReplacementArchive.materialName,
+}], '真实 UI fact.id 必须只替换其映射的 BOM constituent，并保留 sourceBomItemId')
+assert.deepEqual(
+  [realUiChangedSnapshots[0]?.materialId, realUiChangedSnapshots[0]?.materialName],
+  [realReplacementArchive.materialCode, realReplacementArchive.materialName],
+  '生产变更替换后的加工快照必须继续使用正式物料编码这一 actual identity namespace',
+)
+
+const actualIdentityBuilderSourceOrder = productionOrders.find((order) => order.techPackSnapshot?.bomItems.length)
+assert(actualIdentityBuilderSourceOrder?.techPackSnapshot, '缺少正式 builder actual identity 回归所需生产单 fixture')
+const actualIdentityBomTemplate = actualIdentityBuilderSourceOrder.techPackSnapshot.bomItems[0]!
+const actualIdentityProcessTemplate = actualIdentityBuilderSourceOrder.techPackSnapshot.processEntries[0]!
+const actualIdentityBuilderSnapshot = {
+  ...buildFormalProductionOrderProcessSnapshots({
+    ...actualIdentityBuilderSourceOrder,
+    productionOrderId: 'PO-FORMAL-ACTUAL-IDENTITY-PARTNER',
+    productionOrderNo: 'PO-FORMAL-ACTUAL-IDENTITY-PARTNER',
+    techPackSnapshot: {
+      ...actualIdentityBuilderSourceOrder.techPackSnapshot,
+      sourceTechPackVersionId: 'TP-FORMAL-ACTUAL-IDENTITY-PARTNER',
+      sourceTechPackVersionLabel: '正式版 actual identity',
+      bomItems: [{
+        ...actualIdentityBomTemplate,
+        id: 'BOM-FORMAL-ACTUAL-IDENTITY-PARTNER',
+        materialCode: realReplacementArchive.materialCode,
+        unit: '米',
+      }],
+      processEntries: [{
+        ...actualIdentityProcessTemplate,
+        id: 'PROCESS-FORMAL-ACTUAL-IDENTITY-PARTNER',
+        processCode: 'DYE',
+        processName: 'actual identity 匹染',
+        linkedBomItemIds: ['BOM-FORMAL-ACTUAL-IDENTITY-PARTNER'],
+      }],
+    },
+  })[0]!,
+  factoryId: 'FACTORY-ACTUAL-IDENTITY',
+  factoryName: 'actual identity 染厂',
+  targetColor: 'actual identity 蓝',
+}
+assert.equal(actualIdentityBuilderSnapshot.materialId, realReplacementArchive.materialCode, '正式 builder 必须把 BOM materialCode 写入加工快照 actual identity')
+const actualIdentityReplacementSnapshot = {
+  ...realUiChangedSnapshots[0]!,
+  productionOrderId: 'PO-CHANGE-ACTUAL-IDENTITY-TARGET',
+  productionOrderNo: 'PO-CHANGE-ACTUAL-IDENTITY-TARGET',
+  factoryId: 'FACTORY-ACTUAL-IDENTITY',
+  factoryName: 'actual identity 染厂',
+  targetColor: 'actual identity 蓝',
+  dyeProcessName: 'actual identity 匹染',
+}
+const actualIdentityPartnerWorkOrder = ensureProcessWorkOrdersForFormalProductionOrder(actualIdentityBuilderSnapshot)
+const actualIdentityReplacementWorkOrder = ensureProcessWorkOrdersForFormalProductionOrder(actualIdentityReplacementSnapshot)
+assert.doesNotThrow(() => createCombinedDyeingTask({
+  dyeWorkOrderIds: [actualIdentityPartnerWorkOrder.dyeWorkOrderId!, actualIdentityReplacementWorkOrder.dyeWorkOrderId!],
+  createdBy: '生产变更 actual identity 检查人',
+  createdAt: '2026-07-16 11:30:00',
+}), '正式 builder 与生产变更 replacement 指向同一正式物料编码时必须允许合并染色')
+
+const uiQuantitySnapshot: FormalProductionOrderProcessSnapshot = {
+  ...workflowSyncSnapshot,
+  productionOrderId: 'PO-CHANGE-UI-QUANTITY',
+  productionOrderNo: 'PO-CHANGE-UI-QUANTITY',
+  plannedQty: 100,
+}
+const uiQuantityOrder = ensureProcessWorkOrdersForFormalProductionOrder(uiQuantitySnapshot)
+const uiQuantityForm = createProductionChangeForm()
+Object.assign(uiQuantityForm, {
+  recordId: 'BG-UI-QUANTITY-001',
+  productionOrderId: uiQuantitySnapshot.productionOrderId,
+  changeType: 'QUANTITY_CHANGE',
+  quantityLines: [{
+    id: 'UI-QTY-1', skuCode: 'SKU-UI', color: '蓝色', size: 'M', currentQty: 100, targetQty: 125,
+    isNew: false, coveredByCurrentVersion: true,
+  }],
+})
+const uiQuantityChangedSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(uiQuantityForm, {
+  ...executionPreview,
+  affectedOrderIds: [uiQuantitySnapshot.productionOrderId],
+})
+assert.equal(uiQuantityChangedSnapshots[0]?.plannedQty, 125, 'events 数量变更快照必须从当前加工单事实按确认数量更新计划数量')
+assert.equal(uiQuantityChangedSnapshots[0]?.productionOrderNo, uiQuantitySnapshot.productionOrderNo, 'events 快照必须保留正式生产单号')
+assert.equal(getDyeWorkOrderById(uiQuantityOrder.dyeWorkOrderId!)?.plannedQty, 100, 'events helper 只构造候选快照，不得提前写加工单')
+const uiQuantityIdentityBefore = getDyeWorkOrderById(uiQuantityOrder.dyeWorkOrderId!)!
+const uiQuantityExecution = executeProductionChange(executionPreview, {
+  processWorkOrderSnapshots: uiQuantityChangedSnapshots,
+  changeRecordId: uiQuantityForm.recordId,
+  processWorkOrderSyncRecordedAt: '2026-07-16 12:10:00',
+  persist: (result) => result,
+})
+assert.equal(uiQuantityExecution.status, 'DONE', 'events 同款 options 必须可提交数量变更加工快照')
+assert.deepEqual(
+  [getDyeWorkOrderById(uiQuantityOrder.dyeWorkOrderId!)?.dyeOrderId, getDyeWorkOrderById(uiQuantityOrder.dyeWorkOrderId!)?.dyeOrderNo],
+  [uiQuantityIdentityBefore.dyeOrderId, uiQuantityIdentityBefore.dyeOrderNo],
+  '数量变更同步后加工单 ID 和单号必须保持不变',
+)
+assert.equal(getDyeWorkOrderById(uiQuantityOrder.dyeWorkOrderId!)?.plannedQty, 125, '数量变更必须真实更新加工单计划数量')
+
+const scopedPrintSnapshot: FormalProductionOrderProcessSnapshot = {
+  ...workflowSyncSnapshot,
+  productionOrderId: realMaterialOrderId,
+  productionOrderNo: realMaterialOrderId,
+  techPackVersionId: 'tdv_demand_SPU_2024_010',
+  techPackVersionLabel: '生产需求冻结快照',
+  processCodes: ['PRINT'],
+  materialId: 'BOM-PO0004-PRINT-OTHER',
+  materialName: '不在本次替换范围的印花底布',
+  materialItems: [{
+    sourceBomItemId: 'BOM-PO0004-PRINT-OTHER',
+    materialId: 'BOM-PO0004-PRINT-OTHER',
+    materialName: '不在本次替换范围的印花底布',
+  }],
+}
+const scopedPrintOrder = ensureProcessWorkOrdersForFormalProductionOrder(scopedPrintSnapshot)
+const scopedPrintBefore = getPrintWorkOrderById(scopedPrintOrder.printWorkOrderId!)!
+const scopedChangedSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(realUiMaterialForm, {
+  ...executionPreview,
+  affectedOrderIds: [realMaterialOrderId],
+})
+assert.equal(
+  scopedChangedSnapshots.find((snapshot) => snapshot.processCodes[0] === 'DYE')?.materialId,
+  realReplacementArchive.materialCode,
+  '真实 fact.id 只应改写命中 sourceBomItemId 的染色加工单',
+)
+assert.equal(
+  scopedChangedSnapshots.find((snapshot) => snapshot.processCodes[0] === 'PRINT')?.materialId,
+  scopedPrintSnapshot.materialId,
+  '同生产单使用其他 BOM 物料的印花加工单必须保持原物料',
+)
+const scopedDyeIdentityBefore = getDyeWorkOrderById(realMaterialWorkOrder.dyeWorkOrderId!)!
+const scopedMaterialExecution = executeProductionChange(executionPreview, {
+  processWorkOrderSnapshots: scopedChangedSnapshots,
+  changeRecordId: 'BG-UI-MATERIAL-SCOPED-001',
+  persist: (result) => result,
+})
+assert.equal(scopedMaterialExecution.status, 'DONE')
+assert.deepEqual(
+  [getDyeWorkOrderById(realMaterialWorkOrder.dyeWorkOrderId!)?.dyeOrderId, getDyeWorkOrderById(realMaterialWorkOrder.dyeWorkOrderId!)?.dyeOrderNo],
+  [scopedDyeIdentityBefore.dyeOrderId, scopedDyeIdentityBefore.dyeOrderNo],
+  '物料变更同步后加工单 ID 和单号必须保持不变',
+)
+assert.deepEqual(getDyeWorkOrderById(realMaterialWorkOrder.dyeWorkOrderId!)?.formalProductionOrderSnapshot.materialItems, [{
+  sourceBomItemId: realMaterialBomItemId,
+  materialId: realReplacementArchive.materialCode,
+  materialName: realReplacementArchive.materialName,
+}], '持久化后的染色加工单必须保留 BOM 行身份并更新实际物料身份')
+assert.deepEqual(getPrintWorkOrderById(scopedPrintOrder.printWorkOrderId!), scopedPrintBefore, '未命中原物料的印花加工单 ID、单号、物料和快照必须全部不变')
+
+const unmatchedMaterialForm = structuredClone(realUiMaterialForm)
+unmatchedMaterialForm.recordId = 'BG-UI-MATERIAL-UNMATCHED-001'
+unmatchedMaterialForm.materialReplacement.originalMaterialId = 'FACT-NOT-MAPPED-BY-AFFECTED-ORDERS'
+assert.throws(
+  () => buildPostChangeProcessWorkOrderSnapshotsForForm(unmatchedMaterialForm, {
+    ...executionPreview,
+    affectedOrderIds: [realMaterialOrderId],
+  }),
+  /稳定正式物料映射/,
+  '伪造的原面料 fact ID 不得构造候选加工快照并假成功',
+)
+
+const aggregateMaterialOrderId = 'PO-202603-0007'
+const aggregateMaterialBomItemId = 'tdv_demand_SPU_2024_013-bom-main'
+const aggregateOtherBomItem = {
+  sourceBomItemId: 'BOM-PO0007-RIB-OTHER',
+  materialId: 'MAT-PO0007-RIB-OTHER',
+  materialName: '罗纹辅料',
+}
+ensureProcessWorkOrdersForFormalProductionOrder({
+  ...workflowSyncSnapshot,
+  productionOrderId: aggregateMaterialOrderId,
+  productionOrderNo: aggregateMaterialOrderId,
+  techPackVersionId: 'tdv_demand_SPU_2024_013',
+  techPackVersionLabel: '生产需求冻结快照',
+  processCodes: ['DYE'],
+  materialId: [aggregateMaterialBomItemId, aggregateOtherBomItem.materialId].sort().join('+'),
+  materialName: `主面料 / Burgundy 主面料、${aggregateOtherBomItem.materialName}`,
+  materialItems: [{
+    sourceBomItemId: aggregateMaterialBomItemId,
+    materialId: aggregateMaterialBomItemId,
+    materialName: '主面料 / Burgundy 主面料',
+  }, aggregateOtherBomItem],
+})
+const aggregateCurrentMaterialOption = listCurrentMaterialOptionsForOrder(aggregateMaterialOrderId)[0]!
+const aggregateMaterialForm = createInitializedProductionChangeForm(aggregateMaterialOrderId, 'MATERIAL_REPLACEMENT')
+aggregateMaterialForm.materialReplacement.originalMaterialId = aggregateCurrentMaterialOption.value
+aggregateMaterialForm.materialReplacement.replacementMaterialId = realReplacementArchive.materialId
+const aggregateChangedSnapshot = buildPostChangeProcessWorkOrderSnapshotsForForm(aggregateMaterialForm, {
+  ...executionPreview,
+  result: 'PRODUCTION_PATCH',
+  affectedOrderIds: [aggregateMaterialOrderId],
+})[0]!
+assert.deepEqual(aggregateChangedSnapshot.materialItems, [{
+  sourceBomItemId: aggregateMaterialBomItemId,
+  materialId: realReplacementArchive.materialCode,
+  materialName: realReplacementArchive.materialName,
+}, aggregateOtherBomItem], '聚合染色单只允许替换命中的 BOM constituent，其他 constituent 必须逐字段保持不变')
+assert.deepEqual(
+  [aggregateChangedSnapshot.materialId, aggregateChangedSnapshot.materialName],
+  [[realReplacementArchive.materialCode, aggregateOtherBomItem.materialId].sort().join('+'), `${realReplacementArchive.materialName}、${aggregateOtherBomItem.materialName}`],
+  '聚合 materialId 必须按实际物料身份去重排序，materialName 必须保留 materialItems 原有顺序',
+)
+const noWorkOrderMaterialOrderId = 'PO-202603-0102'
+const noWorkOrderFactsBefore = changeDomain.listProductionOrderChangeCurrentFacts()
+const noWorkOrderRelationBefore = changeDomain.getProductionOrderTechPackRelation(noWorkOrderMaterialOrderId)!
+const noWorkOrderForm = createInitializedProductionChangeForm(noWorkOrderMaterialOrderId, 'MATERIAL_REPLACEMENT')
+noWorkOrderForm.recordId = 'BG-UI-MATERIAL-NO-WORKORDER-001'
+noWorkOrderForm.reason = '验证没有加工单时仍同步当前事实和正式版本关系'
+noWorkOrderForm.materialReplacement.originalMaterialId = listCurrentMaterialOptionsForOrder(noWorkOrderMaterialOrderId)[0]!.value
+noWorkOrderForm.materialReplacement.replacementMaterialId = realReplacementArchive.materialId
+noWorkOrderForm.materialReplacement.scope = 'CURRENT_ONLY'
+confirmMaterialExecutionForm(noWorkOrderForm)
+const noWorkOrderPreview = buildProductionChangePreview(createMaterialDraftForForm(noWorkOrderForm))
+assert.deepEqual(
+  buildPostChangeProcessWorkOrderSnapshotsForForm(noWorkOrderForm, noWorkOrderPreview),
+  [],
+  'CURRENT_ONLY 无加工单场景不得伪造加工快照',
+)
+const noWorkOrderExecution = executeProductionChangeForForm(noWorkOrderForm, { executedAt: '2026-07-16 14:50:00' })
+assert.equal(noWorkOrderExecution.error, '')
+assert.equal(noWorkOrderForm.execution.status, 'DONE', 'CURRENT_ONLY 无加工单场景仍必须完成事实持久化')
+const noWorkOrderPersistedFacts = changeDomain.getProductionOrderChangeCurrentFacts(noWorkOrderMaterialOrderId)!
+const noWorkOrderPersistedFact = noWorkOrderPersistedFacts.materialFacts.find(
+  (fact) => fact.id === noWorkOrderForm.materialReplacement.originalMaterialId,
+)!
+const noWorkOrderPersistedRelation = changeDomain.getProductionOrderTechPackRelation(noWorkOrderMaterialOrderId)!
+assert.deepEqual(
+  [noWorkOrderPersistedFact.canonicalMaterialId, noWorkOrderPersistedFact.snapshotMaterialId, noWorkOrderPersistedFact.sourceTechPackVersionId],
+  [realReplacementArchive.materialCode, realReplacementArchive.materialCode, noWorkOrderPersistedRelation.currentTechPackVersionId],
+  '无加工单时 facts canonical/snapshot identity 与 relation 最终版本仍必须一致',
+)
+assert.ok(
+  noWorkOrderPersistedFacts.historyFacts.some((history) => history.changeOrderNo === noWorkOrderForm.recordId),
+  '无加工单时仍必须追加该生产单物料变更历史',
+)
+changeDomain.replaceProductionOrderChangeCurrentFacts(noWorkOrderFactsBefore)
+changeDomain.restoreProductionOrderTechPackRelationSnapshot(noWorkOrderRelationBefore)
+
+const followingWorkOrderSeeds = followingMaterialIdentityExpectations.map((identity, index) => {
+  const untouchedItem = {
+    sourceBomItemId: `BOM-${identity.productionOrderId}-UNTARGETED`,
+    materialId: `MAT-${identity.productionOrderId}-UNTARGETED`,
+    materialName: `后续单 ${index + 1} 非目标辅料`,
+  }
+  const targetItem = {
+    sourceBomItemId: identity.sourceBomItemId,
+    materialId: identity.snapshotMaterialId,
+    materialName: 'FAB-A01 弹力斜纹布',
+  }
+  const ensured = ensureProcessWorkOrdersForFormalProductionOrder({
+    ...workflowSyncSnapshot,
+    productionOrderId: identity.productionOrderId,
+    productionOrderNo: identity.productionOrderId,
+    techPackVersionId: identity.sourceTechPackVersionId,
+    techPackVersionLabel: `后续单正式版本 ${index + 1}`,
+    processCodes: ['DYE'],
+    materialId: `${targetItem.materialId}+${untouchedItem.materialId}`,
+    materialName: `${targetItem.materialName}、${untouchedItem.materialName}`,
+    materialItems: [targetItem, untouchedItem],
+  })
+  return { identity, untouchedItem, ensured }
+})
+const crossOrderMaterialForm = structuredClone(realUiMaterialForm)
+crossOrderMaterialForm.materialReplacement.scope = 'CURRENT_AND_FOLLOWING'
+crossOrderMaterialForm.materialReplacement.followingOrders = [
+  ...createFollowingOrderPlans(realMaterialOrderId),
+  {
+    productionOrderId: aggregateMaterialOrderId,
+    progressText: '测试无 matching canonical 的后续单',
+    started: false,
+    suggestedMode: 'FULL',
+    confirmedMode: 'FULL',
+    changeable: true,
+    affectedDocumentNos: [],
+  },
+]
+const crossOrderAffectedOrderIds = [
+  realMaterialOrderId,
+  ...followingMaterialIdentityExpectations.map((item) => item.productionOrderId),
+  aggregateMaterialOrderId,
+]
+const unmatchedFollowingBefore = getDyeWorkOrderById(
+  ensureProcessWorkOrdersForFormalProductionOrder({
+    ...aggregateChangedSnapshot,
+    materialItems: aggregateChangedSnapshot.materialItems!,
+  }).dyeWorkOrderId!,
+)!
+const crossOrderChangedSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(crossOrderMaterialForm, {
+  ...executionPreview,
+  result: 'VERSION_AND_PATCH',
+  affectedOrderIds: crossOrderAffectedOrderIds,
+})
+followingWorkOrderSeeds.forEach(({ identity, untouchedItem }) => {
+  const changed = crossOrderChangedSnapshots.find((snapshot) => snapshot.productionOrderId === identity.productionOrderId)!
+  assert.deepEqual(changed.materialItems, [{
+    sourceBomItemId: identity.sourceBomItemId,
+    materialId: realReplacementArchive.materialCode,
+    materialName: realReplacementArchive.materialName,
+  }, untouchedItem], `${identity.productionOrderId} 必须使用自身 target identity，只替换自己的 BOM constituent`)
+})
+assert.deepEqual(
+  crossOrderChangedSnapshots.find((snapshot) => snapshot.productionOrderId === aggregateMaterialOrderId)?.materialItems,
+  unmatchedFollowingBefore.formalProductionOrderSnapshot.materialItems,
+  '无 matching canonicalMaterialId 的后续单必须完整保持加工单物料构成',
+)
+const aggregateFactsBeforeMaterialPersist = changeDomain.listProductionOrderChangeCurrentFacts()
+changeDomain.applyProductionOrderMaterialFactReplacement({
+  productionOrderId: aggregateMaterialOrderId,
+  factId: aggregateCurrentMaterialOption.value,
+  replacementMaterial: realReplacementArchive,
+  resultingTechPackVersionId: aggregateChangedSnapshot.techPackVersionId,
+  changeRecordId: 'BG-UI-MATERIAL-FACT-PERSIST-001',
+})
+const aggregatePersistedMaterialFact = changeDomain.getProductionOrderChangeCurrentFacts(aggregateMaterialOrderId)!
+  .materialFacts.find((fact) => fact.id === aggregateCurrentMaterialOption.value)!
+assert.deepEqual(
+  [aggregatePersistedMaterialFact.sourceBomItemId, aggregatePersistedMaterialFact.canonicalMaterialId, aggregatePersistedMaterialFact.sourceTechPackVersionId],
+  [aggregateChangedSnapshot.materialItems![0]!.sourceBomItemId, aggregateChangedSnapshot.materialItems![0]!.materialId, aggregateChangedSnapshot.techPackVersionId],
+  'persist 后当前物料事实必须与 helper 产出的 BOM constituent 和正式版本完全一致',
+)
+const aggregatePersistedMaterialFactsOnce = changeDomain.getProductionOrderChangeCurrentFacts(aggregateMaterialOrderId)
+changeDomain.applyProductionOrderMaterialFactReplacement({
+  productionOrderId: aggregateMaterialOrderId,
+  factId: aggregateCurrentMaterialOption.value,
+  replacementMaterial: realReplacementArchive,
+  resultingTechPackVersionId: aggregateChangedSnapshot.techPackVersionId,
+  changeRecordId: 'BG-UI-MATERIAL-FACT-PERSIST-001',
+})
+assert.deepEqual(
+  changeDomain.getProductionOrderChangeCurrentFacts(aggregateMaterialOrderId),
+  aggregatePersistedMaterialFactsOnce,
+  '相同变更记录重复持久化物料事实必须幂等',
+)
+changeDomain.replaceProductionOrderChangeCurrentFacts(aggregateFactsBeforeMaterialPersist)
+
+const versionRelation = changeDomain.getProductionOrderTechPackRelation('PO-202603-0004')!
+const versionFactsBefore = changeDomain.listProductionOrderChangeCurrentFacts()
+const predictedVersionIdentity = predictProductionChangeTechPackIdentity({
+  result: 'VERSION_RELATION',
+  currentTechPackVersionId: versionRelation.currentTechPackVersionId,
+  currentTechPackVersionLabel: versionRelation.currentTechPackVersionNo,
+  latestPublishedTechPackVersionId: versionRelation.latestPublishedTechPackVersionId,
+  latestPublishedTechPackVersionLabel: versionRelation.latestPublishedTechPackVersionNo,
+})
+assert.deepEqual(predictedVersionIdentity, {
+  techPackVersionId: versionRelation.latestPublishedTechPackVersionId,
+  techPackVersionLabel: versionRelation.latestPublishedTechPackVersionNo,
+}, '版本关系结果必须稳定预测为当前关系中的最新正式版本')
+
+const versionWorkOrderSeed: FormalProductionOrderProcessSnapshot = {
+  ...workflowSyncSnapshot,
+  productionOrderId: versionRelation.productionOrderId,
+  productionOrderNo: versionRelation.productionOrderNo,
+  techPackVersionId: versionRelation.currentTechPackVersionId,
+  techPackVersionLabel: versionRelation.currentTechPackVersionNo,
+  processCodes: ['DYE'],
+}
+ensureProcessWorkOrdersForFormalProductionOrder(versionWorkOrderSeed)
+const versionForm = createProductionChangeForm()
+Object.assign(versionForm, {
+  recordId: 'BG-UI-VERSION-IDENTITY-001',
+  productionOrderId: versionRelation.productionOrderId,
+  changeType: 'QUANTITY_CHANGE',
+})
+const versionPreview: ProductionChangePreview = {
+  ...executionPreview,
+  result: 'VERSION_RELATION',
+  affectedOrderIds: [versionRelation.productionOrderId],
+}
+const versionSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(versionForm, versionPreview)
+assert.ok(versionSnapshots.length > 0, '版本身份检查需要正式加工单快照')
+assert.ok(versionSnapshots.every((snapshot) => (
+  snapshot.techPackVersionId === predictedVersionIdentity.techPackVersionId
+  && snapshot.techPackVersionLabel === predictedVersionIdentity.techPackVersionLabel
+)), '版本型变更的加工快照必须使用持久化目标正式版本 ID 和标签')
+changeDomain.applyProductionOrderChangeTechPackIdentity(
+  versionRelation.productionOrderId,
+  predictedVersionIdentity,
+  versionForm.recordId,
+  '2026-07-16 12:30:00',
+)
+const persistedVersionFacts = changeDomain.getProductionOrderChangeCurrentFacts(versionRelation.productionOrderId)!
+assert.deepEqual(
+  [persistedVersionFacts.currentTechPackVersionId, persistedVersionFacts.currentTechPackVersionLabel],
+  [versionSnapshots[0]!.techPackVersionId, versionSnapshots[0]!.techPackVersionLabel],
+  'helper 产出的技术包身份必须与 persist 后 current facts 完全一致',
+)
+const persistedRelationAfterFirstApply = changeDomain.getProductionOrderTechPackRelation(versionRelation.productionOrderId)
+changeDomain.applyProductionOrderChangeTechPackIdentity(
+  versionRelation.productionOrderId,
+  predictedVersionIdentity,
+  versionForm.recordId,
+  '2026-07-16 12:31:00',
+)
+assert.deepEqual(
+  changeDomain.getProductionOrderTechPackRelation(versionRelation.productionOrderId),
+  persistedRelationAfterFirstApply,
+  '相同 changeRecordId 重复应用正式版本身份必须幂等',
+)
+changeDomain.replaceProductionOrderChangeCurrentFacts(versionFactsBefore)
+changeDomain.restoreProductionOrderTechPackRelationSnapshot(versionRelation)
+
+const patchRelation = changeDomain.getProductionOrderTechPackRelation('PO-202603-0007')!
+const patchIdentity = predictProductionChangeTechPackIdentity({
+  result: 'PRODUCTION_PATCH',
+  currentTechPackVersionId: patchRelation.currentTechPackVersionId,
+  currentTechPackVersionLabel: patchRelation.currentTechPackVersionNo,
+  latestPublishedTechPackVersionId: patchRelation.latestPublishedTechPackVersionId,
+  latestPublishedTechPackVersionLabel: patchRelation.latestPublishedTechPackVersionNo,
+})
+assert.deepEqual(patchIdentity, {
+  techPackVersionId: patchRelation.currentTechPackVersionId,
+  techPackVersionLabel: patchRelation.currentTechPackVersionNo,
+}, '仅生产补丁必须保持原正式版本身份')
+
+const eventVersionFactsBefore = changeDomain.listProductionOrderChangeCurrentFacts()
+const eventVersionRelationBefore = structuredClone(patchRelation)
+ensureProcessWorkOrdersForFormalProductionOrder({
+  ...workflowSyncSnapshot,
+  productionOrderId: patchRelation.productionOrderId,
+  productionOrderNo: patchRelation.productionOrderNo,
+  techPackVersionId: patchRelation.currentTechPackVersionId,
+  techPackVersionLabel: patchRelation.currentTechPackVersionNo,
+  processCodes: ['DYE'],
+})
+const patchSnapshotForm = createProductionChangeForm()
+Object.assign(patchSnapshotForm, {
+  productionOrderId: patchRelation.productionOrderId,
+  changeType: 'QUANTITY_CHANGE',
+})
+const patchSnapshots = buildPostChangeProcessWorkOrderSnapshotsForForm(patchSnapshotForm, {
+  ...executionPreview,
+  result: 'PRODUCTION_PATCH',
+  affectedOrderIds: [patchRelation.productionOrderId],
+})
+assert.ok(patchSnapshots.length > 0)
+assert.ok(patchSnapshots.every((snapshot) => (
+  snapshot.techPackVersionId === 'tdv_demand_SPU_2024_013'
+  && snapshot.techPackVersionLabel === '生产需求冻结快照'
+)), 'PRODUCTION_PATCH 的 post-change 加工快照必须保持加工单当前正式版本 ID 和标签')
+const eventVersionForm = createInitializedProductionChangeForm(patchRelation.productionOrderId, 'QUANTITY_CHANGE')
+eventVersionForm.recordId = 'BG-UI-VERSION-PERSIST-001'
+eventVersionForm.reason = '新增正式版本未覆盖的需求明细。'
+eventVersionForm.quantityLines.push({
+  id: 'DQF-UI-VERSION-NEW',
+  skuCode: 'SKU-UI-VERSION-NEW',
+  color: '测试蓝',
+  size: 'M',
+  originalQty: 0,
+  currentQty: 0,
+  targetQty: 10,
+  unit: '件',
+  isNew: true,
+  coveredByCurrentVersion: false,
+})
+const eventVersionDraft: ProductionChangeDraft = {
+  productionOrderId: eventVersionForm.productionOrderId,
+  changeType: eventVersionForm.changeType,
+  reason: eventVersionForm.reason,
+  quantityLines: eventVersionForm.quantityLines,
+  materialReplacement: null,
+  decisionValues: {},
+  affectedDocumentNos: listAffectedDocumentNosForOrder(eventVersionForm.productionOrderId),
+}
+const eventVersionPreviewSeed = buildProductionChangePreview(eventVersionDraft)
+eventVersionForm.decisionValues = Object.fromEntries(eventVersionPreviewSeed.decisionItems.map((item) => [
+  item.id,
+  { value: item.options[0]!.value, reason: '按系统建议执行。' },
+]))
+eventVersionForm.confirmedFactsFingerprint = buildProductionChangePreview({
+  ...eventVersionDraft,
+  decisionValues: eventVersionForm.decisionValues,
+}).factsFingerprint
+const eventVersionExecution = executeProductionChangeForForm(eventVersionForm, { executedAt: '2026-07-16 12:40:00' })
+assert.equal(eventVersionExecution.error, '', '真实事件入口必须完成版本型生产变更')
+const eventVersionFactsAfter = changeDomain.getProductionOrderChangeCurrentFacts(patchRelation.productionOrderId)!
+assert.deepEqual(
+  [eventVersionFactsAfter.currentTechPackVersionId, eventVersionFactsAfter.currentTechPackVersionLabel],
+  [patchRelation.latestPublishedTechPackVersionId, patchRelation.latestPublishedTechPackVersionNo],
+  'events persist 必须应用 helper 同一份正式版本预测结果',
+)
+changeDomain.replaceProductionOrderChangeCurrentFacts(eventVersionFactsBefore)
+changeDomain.restoreProductionOrderTechPackRelationSnapshot(eventVersionRelationBefore)
 
 const initializedQuantityForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
 assert.equal(initializedQuantityForm.productionOrderId, quantityFactoryOrderId, '初始化必须保留所选生产单')
@@ -2962,6 +3713,261 @@ assert.ok(
   assert.ok(!source.includes('listProductionOrderChangeOrders('), '最终主列表不得依赖旧 listProductionOrderChangeOrders')
   assert.ok(!source.includes('getProductionOrderChangeOrder('), '最终详情不得依赖旧 getProductionOrderChangeOrder')
 })
+
+const persistedCrossOrderReplacement = listMaterialArchives('fabric').find(
+  (material) => material.materialId !== realReplacementArchive.materialId,
+)!
+const persistedCrossOrderForm = createInitializedProductionChangeForm(realMaterialOrderId, 'MATERIAL_REPLACEMENT')
+persistedCrossOrderForm.recordId = 'BG-UI-CROSS-ORDER-MATERIAL-001'
+persistedCrossOrderForm.reason = '验证当前及后续生产单逐单匹配 canonical 物料身份'
+persistedCrossOrderForm.materialReplacement.originalMaterialId = realCurrentMaterialOption.value
+persistedCrossOrderForm.materialReplacement.replacementMaterialId = persistedCrossOrderReplacement.materialId
+persistedCrossOrderForm.materialReplacement.scope = 'CURRENT_AND_FOLLOWING'
+persistedCrossOrderForm.materialReplacement.followingOrders = [
+  ...createFollowingOrderPlans(realMaterialOrderId),
+  {
+    productionOrderId: aggregateMaterialOrderId,
+    progressText: 'canonical 不匹配，不应改写',
+    started: false,
+    suggestedMode: 'FULL',
+    confirmedMode: 'FULL',
+    changeable: true,
+    affectedDocumentNos: [],
+  },
+]
+confirmMaterialExecutionForm(persistedCrossOrderForm)
+const unmatchedFollowingFactsBeforeExecution = changeDomain.getProductionOrderChangeCurrentFacts(aggregateMaterialOrderId)!
+const unmatchedFollowingRelationBeforeExecution = changeDomain.getProductionOrderTechPackRelation(aggregateMaterialOrderId)!
+const unmatchedFollowingWorkOrderBeforeExecution = getDyeWorkOrderById(
+  ensureProcessWorkOrdersForFormalProductionOrder(aggregateChangedSnapshot).dyeWorkOrderId!,
+)!
+const targetIdentityByOrderId = new Map([
+  [realMaterialOrderId, resolveProductionChangeMaterialIdentity(realMaterialOrderId, realCurrentMaterialOption.value)!],
+  ...followingMaterialIdentityExpectations.map((identity) => [
+    identity.productionOrderId,
+    resolveProductionChangeMaterialIdentityByCanonicalMaterialId(
+      identity.productionOrderId,
+      sharedFabA01CanonicalMaterialId,
+    )!,
+  ] as const),
+])
+const persistedCrossOrderExecution = executeProductionChangeForForm(
+  persistedCrossOrderForm,
+  { executedAt: '2026-07-16 15:00:00' },
+)
+assert.equal(persistedCrossOrderExecution.error, '', 'CURRENT_AND_FOLLOWING 真实事件入口必须可执行')
+assert.equal(persistedCrossOrderForm.execution.status, 'DONE', 'CURRENT_AND_FOLLOWING 必须整批完成')
+targetIdentityByOrderId.forEach((identity, productionOrderId) => {
+  const facts = changeDomain.getProductionOrderChangeCurrentFacts(productionOrderId)!
+  const fact = facts.materialFacts.find((item) => item.id === identity.factId)!
+  const relation = changeDomain.getProductionOrderTechPackRelation(productionOrderId)
+  const workOrder = productionOrderId === realMaterialOrderId
+    ? getDyeWorkOrderById(realMaterialWorkOrder.dyeWorkOrderId!)
+    : getDyeWorkOrderById(followingWorkOrderSeeds.find((item) => item.identity.productionOrderId === productionOrderId)!.ensured.dyeWorkOrderId!)
+  const snapshot = workOrder?.formalProductionOrderSnapshot
+  assert.equal(fact.canonicalMaterialId, persistedCrossOrderReplacement.materialCode, `${productionOrderId} 当前事实必须更新为正式物料编码这一 canonical material identity`)
+  assert.equal(fact.snapshotMaterialId, persistedCrossOrderReplacement.materialCode, `${productionOrderId} 当前事实快照必须更新为正式物料编码`)
+  assert.equal(
+    fact.material,
+    `${persistedCrossOrderReplacement.materialCode} ${persistedCrossOrderReplacement.materialName}`,
+    `${productionOrderId} 当前事实名称必须从正式替代物料快照结构化同步`,
+  )
+  assert.equal(fact.sourceBomItemId, identity.sourceBomItemId, `${productionOrderId} 必须保留自己的 sourceBomItemId`)
+  assert.ok(facts.historyFacts.some((history) => history.changeOrderNo === persistedCrossOrderForm.recordId), `${productionOrderId} 必须追加本次物料变更历史`)
+  assert(relation, `${productionOrderId} 必须存在正式版本关系`)
+  assert(snapshot, `${productionOrderId} 测试夹具必须存在正式加工快照`)
+  assert.equal(fact.sourceTechPackVersionId, snapshot.techPackVersionId, `${productionOrderId} facts 与加工单最终版本必须一致`)
+  assert.equal(relation.currentTechPackVersionId, snapshot.techPackVersionId, `${productionOrderId} relation 与加工单最终版本必须一致`)
+  assert.deepEqual(snapshot.materialItems?.find((item) => item.sourceBomItemId === identity.sourceBomItemId), {
+    sourceBomItemId: identity.sourceBomItemId,
+    materialId: persistedCrossOrderReplacement.materialCode,
+    materialName: persistedCrossOrderReplacement.materialName,
+  }, `${productionOrderId} 加工单只应更新自己的 target constituent`)
+})
+const currentOptionsAfterCrossOrderReplacement = listCurrentMaterialOptionsForOrder(realMaterialOrderId)
+assert.ok(
+  currentOptionsAfterCrossOrderReplacement.some((option) => (
+    option.value === realCurrentMaterialOption.value
+    && option.label.includes(`${persistedCrossOrderReplacement.materialCode} ${persistedCrossOrderReplacement.materialName}`)
+  )),
+  '真实 UI 下拉必须用替换后的正式物料编码和中文名称展示同一 fact ID',
+)
+assert.ok(
+  currentOptionsAfterCrossOrderReplacement.every((option) => !option.label.includes(realCurrentMaterialFact.material)),
+  '替换后的原面料下拉不得继续把旧名称冒充为当前事实',
+)
+assert.deepEqual(
+  changeDomain.getProductionOrderChangeCurrentFacts(aggregateMaterialOrderId),
+  unmatchedFollowingFactsBeforeExecution,
+  '无 matching canonical 的后续单 facts/history 必须 unchanged',
+)
+assert.deepEqual(
+  changeDomain.getProductionOrderTechPackRelation(aggregateMaterialOrderId),
+  unmatchedFollowingRelationBeforeExecution,
+  '无 matching canonical 的后续单 relation 必须 unchanged',
+)
+assert.deepEqual(
+  getDyeWorkOrderById(unmatchedFollowingWorkOrderBeforeExecution.dyeOrderId),
+  unmatchedFollowingWorkOrderBeforeExecution,
+  '无 matching canonical 的后续单 workorder snapshot 必须 unchanged',
+)
+
+const rollbackConflictRecordId = 'BG-UI-CROSS-ORDER-MATERIAL-ROLLBACK-001'
+const factsWithSecondOrderConflict = changeDomain.listProductionOrderChangeCurrentFacts()
+const secondOrderConflictFacts = factsWithSecondOrderConflict.find((facts) => facts.productionOrderId === 'PO-202603-0101')!
+secondOrderConflictFacts.historyFacts.unshift({
+  id: `HIS-PO-202603-0101-${rollbackConflictRecordId}`,
+  changeOrderNo: rollbackConflictRecordId,
+  result: '预置持久化冲突',
+  status: '已完成',
+  affectedScope: '用于验证第二单失败后的整批回滚',
+  lockStatus: '已释放',
+  note: '测试夹具显式预置同一变更记录号。',
+})
+changeDomain.replaceProductionOrderChangeCurrentFacts(factsWithSecondOrderConflict)
+const rollbackForm = createInitializedProductionChangeForm(realMaterialOrderId, 'MATERIAL_REPLACEMENT')
+rollbackForm.recordId = rollbackConflictRecordId
+rollbackForm.reason = '验证第二张生产单持久化失败后整批回滚'
+rollbackForm.materialReplacement.originalMaterialId = realCurrentMaterialOption.value
+rollbackForm.materialReplacement.replacementMaterialId = realReplacementArchive.materialId
+rollbackForm.materialReplacement.scope = 'CURRENT_AND_FOLLOWING'
+confirmMaterialExecutionForm(rollbackForm)
+const rollbackFactsBefore = changeDomain.listProductionOrderChangeCurrentFacts()
+const rollbackRelationsBefore = [realMaterialOrderId, 'PO-202603-0101', 'PO-202603-0102'].map(
+  (productionOrderId) => changeDomain.getProductionOrderTechPackRelation(productionOrderId),
+)
+const rollbackWorkOrdersBefore = [
+  getDyeWorkOrderById(realMaterialWorkOrder.dyeWorkOrderId!),
+  ...followingWorkOrderSeeds.map((item) => getDyeWorkOrderById(item.ensured.dyeWorkOrderId!)),
+]
+const rollbackExecution = executeProductionChangeForForm(rollbackForm, { executedAt: '2026-07-16 15:10:00' })
+assert.equal(rollbackExecution.error, '')
+assert.equal(rollbackForm.execution.status, 'ROLLED_BACK', '第二张生产单持久化冲突时必须整批回滚')
+assert.deepEqual(changeDomain.listProductionOrderChangeCurrentFacts(), rollbackFactsBefore, '整批回滚必须恢复所有 affected order facts/history')
+assert.deepEqual(
+  [realMaterialOrderId, 'PO-202603-0101', 'PO-202603-0102'].map(
+    (productionOrderId) => changeDomain.getProductionOrderTechPackRelation(productionOrderId),
+  ),
+  rollbackRelationsBefore,
+  '整批回滚必须恢复所有 affected order relation identities',
+)
+assert.deepEqual([
+  getDyeWorkOrderById(realMaterialWorkOrder.dyeWorkOrderId!),
+  ...followingWorkOrderSeeds.map((item) => getDyeWorkOrderById(item.ensured.dyeWorkOrderId!)),
+], rollbackWorkOrdersBefore, '持久化未 DONE 时不得提交任何 workorder snapshot')
+
+const atomicCurrentDyeSnapshot = getDyeWorkOrderById(realMaterialWorkOrder.dyeWorkOrderId!)!
+  .formalProductionOrderSnapshot
+prepareSyncProcessWorkOrdersAfterProductionOrderChanges([{
+  ...atomicCurrentDyeSnapshot,
+  plannedQty: Math.round(atomicCurrentDyeSnapshot.plannedQty * 1000) / 1000 + 0.001,
+  dyeProcessName: atomicCurrentDyeSnapshot.processName,
+  factoryId: 'FAC-ATOMIC-DYE-001',
+  factoryName: '事务回滚测试染厂',
+}], {
+  changeRecordId: 'BG-ATOMIC-COMBINED-FIXTURE-001',
+  recordedAt: '2026-07-16 15:15:00',
+}).commit()
+const atomicNormalizedDyeSnapshot = getDyeWorkOrderById(realMaterialWorkOrder.dyeWorkOrderId!)!
+  .formalProductionOrderSnapshot
+const atomicCombinedPartner = ensureProcessWorkOrdersForFormalProductionOrder({
+  ...atomicNormalizedDyeSnapshot,
+  productionOrderId: 'PO-ATOMIC-COMBINED-PARTNER',
+  productionOrderNo: 'PO-ATOMIC-COMBINED-PARTNER',
+  processCodes: ['DYE'],
+  dyeProcessName: atomicNormalizedDyeSnapshot.processName,
+  factoryId: 'FAC-ATOMIC-DYE-001',
+  factoryName: '事务回滚测试染厂',
+})
+const atomicCombinedTask = createCombinedDyeingTask({
+  dyeWorkOrderIds: [
+    realMaterialWorkOrder.dyeWorkOrderId!,
+    atomicCombinedPartner.dyeWorkOrderId!,
+  ],
+  createdBy: '事务回滚测试计划员',
+  createdAt: '2026-07-16 15:20:00',
+})
+const atomicCommitForm = createInitializedProductionChangeForm(realMaterialOrderId, 'MATERIAL_REPLACEMENT')
+atomicCommitForm.recordId = 'BG-UI-WORKORDER-COMMIT-ROLLBACK-001'
+atomicCommitForm.reason = '验证第二个加工单 prepared commit 异常后两侧全部回滚'
+atomicCommitForm.materialReplacement.originalMaterialId = realCurrentMaterialOption.value
+atomicCommitForm.materialReplacement.replacementMaterialId = realReplacementArchive.materialId
+atomicCommitForm.materialReplacement.scope = 'CURRENT_AND_FOLLOWING'
+confirmMaterialExecutionForm(atomicCommitForm)
+const atomicAffectedOrderIds = [realMaterialOrderId, 'PO-202603-0101', 'PO-202603-0102']
+const atomicDyeOrderIds = [
+  realMaterialWorkOrder.dyeWorkOrderId!,
+  ...followingWorkOrderSeeds.map((item) => item.ensured.dyeWorkOrderId!),
+]
+const atomicPrintOrderIds = [scopedPrintOrder.printWorkOrderId!]
+const atomicTaskIds = [
+  ...atomicDyeOrderIds.map((id) => getDyeWorkOrderById(id)!.taskId),
+  ...atomicPrintOrderIds.map((id) => getPrintWorkOrderById(id)!.taskId),
+]
+const atomicCommitBefore = {
+  facts: changeDomain.listProductionOrderChangeCurrentFacts(),
+  relations: atomicAffectedOrderIds.map((productionOrderId) => changeDomain.getProductionOrderTechPackRelation(productionOrderId)),
+  dyeWorkOrders: atomicDyeOrderIds.map((id) => getDyeWorkOrderById(id)),
+  printWorkOrders: atomicPrintOrderIds.map((id) => getPrintWorkOrderById(id)),
+  pdaTasks: structuredClone(listPdaGenericProcessTasks().filter((task) => atomicTaskIds.includes(task.taskId))),
+  combinedTask: getCombinedDyeingTaskById(atomicCombinedTask.taskId),
+}
+const atomicCommitAttempts: number[] = []
+const atomicCommitExecution = executeProductionChangeForForm(atomicCommitForm, {
+  executedAt: '2026-07-16 15:30:00',
+  beforeProcessWorkOrderPreparationCommit: (index) => {
+    atomicCommitAttempts.push(index)
+    if (index === 1) throw new Error('测试注入：第二个 prepared commit 失败')
+  },
+})
+assert.deepEqual(atomicCommitAttempts, [0, 1], '真实表单路径必须在第二个 prepared commit 前注入失败')
+assert.equal(atomicCommitExecution.error, '')
+assert.equal(atomicCommitForm.execution.status, 'ROLLED_BACK', '加工单提交阶段异常绝不能吞掉并返回 DONE')
+assert.deepEqual(changeDomain.listProductionOrderChangeCurrentFacts(), atomicCommitBefore.facts, 'commit 异常必须恢复 facts/history')
+assert.deepEqual(
+  atomicAffectedOrderIds.map((productionOrderId) => changeDomain.getProductionOrderTechPackRelation(productionOrderId)),
+  atomicCommitBefore.relations,
+  'commit 异常必须恢复正式版本关系',
+)
+assert.deepEqual(atomicDyeOrderIds.map((id) => getDyeWorkOrderById(id)), atomicCommitBefore.dyeWorkOrders, 'commit 异常必须恢复染色加工单')
+assert.deepEqual(atomicPrintOrderIds.map((id) => getPrintWorkOrderById(id)), atomicCommitBefore.printWorkOrders, 'commit 异常必须恢复印花加工单')
+assert.deepEqual(
+  structuredClone(listPdaGenericProcessTasks().filter((task) => atomicTaskIds.includes(task.taskId))),
+  atomicCommitBefore.pdaTasks,
+  'commit 异常必须恢复染/印 PDA 任务',
+)
+assert.deepEqual(getCombinedDyeingTaskById(atomicCombinedTask.taskId), atomicCommitBefore.combinedTask, 'commit 异常必须恢复合并染色 impact')
+assert.equal(getProductionChangeRecord(atomicCommitForm.recordId)?.status, 'ROLLED_BACK', '变更记录必须落为 ROLLED_BACK，不能残留 DONE')
+
+const persistedSnapshotProbeOrderId = 'PO-202603-0102'
+const persistedSnapshotProbeForm = createInitializedProductionChangeForm(persistedSnapshotProbeOrderId, 'MATERIAL_REPLACEMENT')
+persistedSnapshotProbeForm.recordId = 'BG-PERSISTED-MATERIAL-SNAPSHOT-PROBE'
+persistedSnapshotProbeForm.reason = '验证 facts 版本来自真实持久化加工快照而非预测 fallback'
+persistedSnapshotProbeForm.materialReplacement.originalMaterialId = listCurrentMaterialOptionsForOrder(persistedSnapshotProbeOrderId)[0]!.value
+persistedSnapshotProbeForm.materialReplacement.replacementMaterialId = realReplacementArchive.materialId
+persistedSnapshotProbeForm.materialReplacement.scope = 'CURRENT_ONLY'
+confirmMaterialExecutionForm(persistedSnapshotProbeForm)
+const persistedSnapshotProbeVersionId = 'TP-PERSISTED-MATERIAL-SNAPSHOT-PROBE'
+const persistedSnapshotProbeExecution = executeProductionChangeForForm(persistedSnapshotProbeForm, {
+  executedAt: '2026-07-16 15:30:00',
+  execute: (preview, executionOptions) => {
+    const persistedSnapshot = executionOptions.processWorkOrderSnapshots?.find(
+      (snapshot) => snapshot.productionOrderId === persistedSnapshotProbeOrderId,
+    )
+    assert(persistedSnapshot, 'persisted snapshot 探针必须命中真实加工快照')
+    persistedSnapshot.techPackVersionId = persistedSnapshotProbeVersionId
+    persistedSnapshot.techPackVersionLabel = '真实持久化加工快照探针版'
+    return executeProductionChange(preview, executionOptions)
+  },
+})
+assert.equal(persistedSnapshotProbeExecution.error, '', 'persisted snapshot 探针必须完成执行')
+const persistedSnapshotProbeFact = changeDomain.getProductionOrderChangeCurrentFacts(persistedSnapshotProbeOrderId)
+  ?.materialFacts.find((fact) => fact.id === persistedSnapshotProbeForm.materialReplacement.originalMaterialId)
+assert.equal(
+  persistedSnapshotProbeFact?.sourceTechPackVersionId,
+  persistedSnapshotProbeVersionId,
+  'facts 必须真实命中 actual material code 对应的 persisted snapshot，不能退回版本预测 fallback',
+)
 
 const persistedForm = createInitializedProductionChangeForm(quantityFactoryOrderId, 'QUANTITY_CHANGE')
 persistedForm.reason = '检查第四步最终记录保存'

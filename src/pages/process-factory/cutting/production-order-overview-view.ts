@@ -6,6 +6,8 @@ import type { ProductionOrderOverviewRow } from './production-order-overview-pro
 
 export interface ProductionOrderOverviewFilters {
   keyword: string
+  orderDateFrom: string
+  orderDateTo: string
   printingStatuses: string[]
   dyeingStatuses: string[]
   materialPrepStatuses: string[]
@@ -15,6 +17,7 @@ export interface ProductionOrderOverviewFilters {
 
 export interface ProductionOrderOverviewPageState {
   filters: ProductionOrderOverviewFilters
+  draftFilters: ProductionOrderOverviewFilters
   page: number
   pageSize: number
 }
@@ -35,25 +38,29 @@ export const PRODUCTION_ORDER_OVERVIEW_HEADERS = [
 ] as const
 
 export function createProductionOrderOverviewPageState(): ProductionOrderOverviewPageState {
-  return {
-    filters: {
+  const filters = {
       keyword: '',
+      orderDateFrom: '',
+      orderDateTo: '',
       printingStatuses: [],
       dyeingStatuses: [],
       materialPrepStatuses: [],
       acceptanceStatuses: [],
       pickupStatuses: [],
-    },
+  }
+  return {
+    filters: { ...filters },
+    draftFilters: { ...filters },
     page: 1,
     pageSize: 20,
   }
 }
 
 const MULTI_SELECT_CONFIG = {
-  printing: { key: 'printingStatuses', label: '印花状态', options: ['未开始', '进行中', '已完成', '无需印花', '—'] },
-  dyeing: { key: 'dyeingStatuses', label: '染色状态', options: ['未开始', '进行中', '已完成', '无需染色', '—'] },
-  materialPrep: { key: 'materialPrepStatuses', label: '配料状态', options: ['未配料', '部分配料', '配料完成', '—'] },
-  acceptance: { key: 'acceptanceStatuses', label: '接单状态', options: ['未接单', '已接单'] },
+  printing: { key: 'printingStatuses', label: '印花状态', options: ['未开始', '印花中', '印花完成', '无需印花'] },
+  dyeing: { key: 'dyeingStatuses', label: '染色状态', options: ['未开始', '染色中', '染色完成', '无需染色'] },
+  materialPrep: { key: 'materialPrepStatuses', label: '配料状态', options: ['未配料', '部分配料', '配料完成'] },
+  acceptance: { key: 'acceptanceStatuses', label: '接单状态', options: ['未接单', '已经接单'] },
   pickup: { key: 'pickupStatuses', label: '领取状态', options: ['未领取', '部分领取', '领取完成'] },
 } as const
 
@@ -70,6 +77,9 @@ function filterRows(rows: ProductionOrderOverviewRow[], filters: ProductionOrder
   const keyword = filters.keyword.trim().toLowerCase()
   return rows.filter((row) => {
     if (keyword && !row.keywordIndex.some((item) => item.toLowerCase().includes(keyword))) return false
+    const orderDate = row.orderDate.slice(0, 10)
+    if (filters.orderDateFrom && orderDate < filters.orderDateFrom) return false
+    if (filters.orderDateTo && orderDate > filters.orderDateTo) return false
     if (!includesSelected(filters.printingStatuses, [row.printingStatus])) return false
     if (!includesSelected(filters.dyeingStatuses, [row.dyeingStatus])) return false
     if (!includesSelected(filters.materialPrepStatuses, [row.materialPrepStatus])) return false
@@ -86,17 +96,17 @@ function getFactoryLines(row: ProductionOrderOverviewRow): ProductionOrderOvervi
     : [{
         factoryId: `UNASSIGNED-${row.productionOrderId}`,
         factoryName: '未派单',
-        factoryTypeLabel: '—',
+        factoryTypeLabel: '待分配',
         acceptanceLabel: '未接单',
         pickupLabel: '未领取',
       }]
 }
 
 function statusClass(status: string): string {
-  if (['已完成', '配料完成', '领取完成', '已接单', '已入仓', '发货完成', '唛架完成', '铺布完成', '裁剪完成'].includes(status)) {
+  if (['已完成', '印花完成', '染色完成', '配料完成', '已经拆解', '唛架完成', '铺布完成', '裁剪完成', '已入仓', '发货完成', '领取完成', '已接单', '已经接单'].includes(status)) {
     return 'bg-emerald-50 text-emerald-700'
   }
-  if (['进行中', '部分配料', '部分领取', '铺布中', '待交出'].includes(status) || status.includes('未完成')) {
+  if (['进行中', '印花中', '染色中', '部分配料', '部分领取', '铺布中', '待交出'].includes(status) || status.includes('未完成')) {
     return 'bg-amber-50 text-amber-700'
   }
   if (status.startsWith('无需')) return 'bg-slate-100 text-slate-600'
@@ -142,15 +152,12 @@ function renderStatus(row: ProductionOrderOverviewRow, status: string, key: Stat
 
 function renderProductionOrderCell(row: ProductionOrderOverviewRow): string {
   return `
-    <div class="space-y-2 text-xs leading-5">
-      <div>
-        <div class="font-semibold text-foreground">${escapeHtml(row.productionOrderNo)}</div>
-        <div class="text-muted-foreground">生成：${escapeHtml(row.productionOrderCreatedAt || '—')}</div>
-      </div>
-      <div class="border-t pt-2">
-        <div class="font-medium text-foreground">${escapeHtml(row.demandId || '—')}</div>
-        <div class="text-muted-foreground">创建：${escapeHtml(row.demandCreatedAt || '—')}</div>
-      </div>
+    <div class="space-y-1 text-xs leading-5">
+      <div class="font-semibold text-foreground">生产单号：${escapeHtml(row.productionOrderNo)}</div>
+      <div class="text-muted-foreground">生成时间：${escapeHtml(row.productionOrderCreatedAt || '暂无时间')}</div>
+      <div class="font-medium text-foreground">需求单号：${escapeHtml(row.demandId || '暂无需求单')}</div>
+      <div class="text-muted-foreground">创建时间：${escapeHtml(row.demandCreatedAt || '暂无时间')}</div>
+      <div class="text-muted-foreground">需求数量：${row.orderQty.toLocaleString('zh-CN')} 件</div>
     </div>
   `
 }
@@ -196,7 +203,7 @@ function renderShippingCell(row: ProductionOrderOverviewRow): string {
   return `
     <div class="space-y-2 text-xs leading-5">
       ${renderStatus(row, row.shippingStatus, 'shipping')}
-      <div class="text-muted-foreground">接收工厂：${escapeHtml(row.receiverFactoryNames.join('、') || '—')}</div>
+      <div class="text-muted-foreground">接收工厂：${escapeHtml(row.receiverFactoryNames.join('、') || '尚未指定')}</div>
     </div>
   `
 }
@@ -273,32 +280,40 @@ function renderTable(rows: ProductionOrderOverviewRow[], state: ProductionOrderO
 
 function renderFilters(state: ProductionOrderOverviewPageState): string {
   return renderStickyFilterShell(`
-    <div class="flex flex-wrap items-end gap-3">
-      <label class="min-w-[280px] flex-1 space-y-2">
+    <div class="cutting-overview-filter-row flex flex-wrap items-end gap-3">
+      <label class="cutting-overview-keyword-filter min-w-[280px] flex-1 space-y-2">
         <span class="text-sm font-medium text-foreground">关键词</span>
-        <div class="flex gap-2">
-          <input
-            type="text"
-            value="${escapeHtml(state.filters.keyword)}"
-            placeholder="生产单 / 需求单 / 款式 / 跟单 / 买手 / 工厂"
-            class="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-            data-cutting-overview-keyword
-            data-skip-page-rerender="true"
-          />
-        </div>
+        <input
+          type="text"
+          value="${escapeHtml(state.draftFilters.keyword)}"
+          placeholder="生产单 / 需求单 / 款式 / 跟单 / 买手 / 工厂"
+          class="h-10 min-w-0 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          data-cutting-overview-keyword
+          data-skip-page-rerender="true"
+        />
       </label>
+      <details class="cutting-overview-date-filter relative min-w-[250px]">
+        <summary class="list-none">
+          <span class="flex h-10 w-full cursor-pointer items-center rounded-md border bg-background px-3 text-sm text-muted-foreground shadow-sm">${escapeHtml(state.draftFilters.orderDateFrom && state.draftFilters.orderDateTo ? `${state.draftFilters.orderDateFrom} 至 ${state.draftFilters.orderDateTo}` : '下单日期：选择开始时间和结束时间')}</span>
+        </summary>
+        <div class="absolute left-0 top-12 z-50 flex min-w-[360px] items-end gap-3 rounded-lg border bg-card p-3 shadow-lg">
+          <label class="flex-1 space-y-1"><span class="block text-xs text-muted-foreground">开始</span><input type="date" value="${escapeHtml(state.draftFilters.orderDateFrom)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-overview-order-date="from" data-skip-page-rerender="true" /></label>
+          <label class="flex-1 space-y-1"><span class="block text-xs text-muted-foreground">结束</span><input type="date" value="${escapeHtml(state.draftFilters.orderDateTo)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-overview-order-date="to" data-skip-page-rerender="true" /></label>
+        </div>
+      </details>
       ${Object.entries(MULTI_SELECT_CONFIG).map(([field, config]) => renderMultiSelectFilter({
         label: config.label,
         field,
-        selectedValues: state.filters[config.key],
+        selectedValues: state.draftFilters[config.key],
         options: [...config.options],
         actionAttr: 'data-cutting-overview-filter',
         skipPageRerender: true,
       })).join('')}
-      <button type="button" class="h-10 rounded-md border bg-background px-4 text-sm hover:bg-muted" data-cutting-overview-action="apply-keyword" data-skip-page-rerender="true">查询</button>
-      <button type="button" class="h-10 rounded-md border bg-background px-3 text-sm hover:bg-muted" data-cutting-overview-action="clear-filters" data-skip-page-rerender="true">重置</button>
-    </div>
-  `, 'production-order-overview-filter-shell')
+      <div class="cutting-overview-filter-actions ml-auto flex min-w-0 items-end gap-2">
+        <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-cutting-overview-action="apply-filters" data-skip-page-rerender="true">查询</button>
+        <button type="button" class="h-10 rounded-md border bg-background px-4 text-sm hover:bg-muted" data-cutting-overview-action="clear-filters" data-skip-page-rerender="true">重置</button>
+      </div>
+  `, 'cutting-overview-filter-shell')
 }
 
 export function renderProductionOrderOverview(
@@ -314,7 +329,7 @@ function renderProductionOrderOverviewContent(
   state: ProductionOrderOverviewPageState,
 ): string {
   const filteredRows = filterRows(rows, state.filters)
-  return `${renderFilters(state)}<div class="mt-5" data-cutting-overview-results>${renderTable(filteredRows, state)}</div>`
+  return `${renderFilters(state)}<div class="mt-4" data-cutting-overview-results>${renderTable(filteredRows, state)}</div>`
 }
 
 function refreshProductionOrderOverview(target: Element, state: ProductionOrderOverviewPageState): void {
@@ -322,19 +337,30 @@ function refreshProductionOrderOverview(target: Element, state: ProductionOrderO
   if (!root) return
   window.setTimeout(() => {
     if (!root.isConnected) return
+    refreshProductionOrderOverviewControls(root, state)
+    const results = root.querySelector<HTMLElement>('[data-cutting-overview-results]')
+    if (results) results.innerHTML = renderTable(filterRows(latestOverviewRows, state.filters), state)
+  }, 0)
+}
+
+function refreshProductionOrderOverviewControls(target: Element, state: ProductionOrderOverviewPageState): void {
+  const root = target.closest<HTMLElement>('[data-cutting-overview-root]') ?? target
+  window.setTimeout(() => {
+    if (!root.isConnected) return
     Object.entries(MULTI_SELECT_CONFIG).forEach(([field, config]) => {
       const inputs = [...root.querySelectorAll<HTMLInputElement>(`input[data-cutting-overview-filter="${field}"]`)]
-      const selectedValues = new Set(state.filters[config.key])
+      const selectedValues = new Set(state.draftFilters[config.key])
       inputs.forEach((input) => {
         input.checked = selectedValues.has(input.value)
       })
       const summary = inputs[0]?.closest('details')?.querySelector('summary')
-      if (summary) summary.textContent = `${config.label}${selectedValues.size ? `（${selectedValues.size}）` : ''}`
+      const summaryLabel = summary?.querySelector('span')
+      if (summaryLabel) summaryLabel.textContent = `${config.label}${selectedValues.size ? `（${selectedValues.size}）` : ''}`
     })
     const keywordInput = root.querySelector<HTMLInputElement>('[data-cutting-overview-keyword]')
-    if (keywordInput && keywordInput.value !== state.filters.keyword) keywordInput.value = state.filters.keyword
-    const results = root.querySelector<HTMLElement>('[data-cutting-overview-results]')
-    if (results) results.innerHTML = renderTable(filterRows(latestOverviewRows, state.filters), state)
+    if (keywordInput && keywordInput.value !== state.draftFilters.keyword) keywordInput.value = state.draftFilters.keyword
+    root.querySelector<HTMLInputElement>('[data-cutting-overview-order-date="from"]')?.setAttribute('value', state.draftFilters.orderDateFrom)
+    root.querySelector<HTMLInputElement>('[data-cutting-overview-order-date="to"]')?.setAttribute('value', state.draftFilters.orderDateTo)
   }, 0)
 }
 
@@ -345,7 +371,15 @@ export function handleProductionOrderOverviewEvent(
 ): boolean {
   const keywordNode = target.closest<HTMLInputElement>('[data-cutting-overview-keyword]')
   if (keywordNode) {
-    state.filters.keyword = keywordNode.value
+    state.draftFilters.keyword = keywordNode.value
+    state.page = 1
+    return true
+  }
+
+  const orderDateNode = target.closest<HTMLInputElement>('[data-cutting-overview-order-date]')
+  if (orderDateNode) {
+    const key = orderDateNode.dataset.cuttingOverviewOrderDate === 'to' ? 'orderDateTo' : 'orderDateFrom'
+    state.draftFilters[key] = orderDateNode.value
     state.page = 1
     return true
   }
@@ -357,12 +391,12 @@ export function handleProductionOrderOverviewEvent(
     const config = field ? MULTI_SELECT_CONFIG[field] : undefined
     if (!config) return false
     const key = config.key as MultiSelectFilterKey
-    const current = new Set(state.filters[key])
+    const current = new Set(state.draftFilters[key])
     if (multiSelectNode.checked) current.add(multiSelectNode.value)
     else current.delete(multiSelectNode.value)
-    state.filters[key] = [...current]
+    state.draftFilters[key] = [...current]
     state.page = 1
-    refreshProductionOrderOverview(target, state)
+    refreshProductionOrderOverviewControls(target, state)
     return true
   }
 
@@ -382,7 +416,17 @@ export function handleProductionOrderOverviewEvent(
     refreshProductionOrderOverview(target, state)
     return true
   }
-  if (action === 'apply-keyword') {
+  if (action === 'apply-filters') {
+    state.filters = {
+      keyword: state.draftFilters.keyword,
+      orderDateFrom: state.draftFilters.orderDateFrom,
+      orderDateTo: state.draftFilters.orderDateTo,
+      printingStatuses: [...state.draftFilters.printingStatuses],
+      dyeingStatuses: [...state.draftFilters.dyeingStatuses],
+      materialPrepStatuses: [...state.draftFilters.materialPrepStatuses],
+      acceptanceStatuses: [...state.draftFilters.acceptanceStatuses],
+      pickupStatuses: [...state.draftFilters.pickupStatuses],
+    }
     refreshProductionOrderOverview(target, state)
     return true
   }

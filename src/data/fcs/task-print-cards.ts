@@ -100,7 +100,10 @@ export interface TaskDeliveryCardModel {
   deliverySequenceLabel: string
   taskId: string
   taskNo: string
-  productionOrderNo: string
+  sourceType: 'PRODUCTION_ORDER' | 'STOCK'
+  productionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   processName: string
   craftName: string
   upstreamFactoryName: string
@@ -136,7 +139,10 @@ export interface TaskRouteCardModel {
   taskId: string
   taskNo: string
   productionOrderId?: string
-  productionOrderNo: string
+  workOrderSourceType?: 'PRODUCTION_ORDER' | 'STOCK'
+  productionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   processName: string
   craftName: string
   factoryName: string
@@ -168,6 +174,9 @@ export interface TaskRouteCardPrintDoc {
   taskNo?: string
   productionOrderId?: string
   productionOrderNo?: string
+  workOrderSourceType?: 'PRODUCTION_ORDER' | 'STOCK'
+  stockMaterialId?: string
+  stockMaterialName?: string
   processName: string
   craftName?: string
   factoryName?: string
@@ -198,6 +207,9 @@ export interface TaskDeliveryCardPrintDoc {
   taskNo?: string
   productionOrderId?: string
   productionOrderNo?: string
+  sourceType: 'PRODUCTION_ORDER' | 'STOCK'
+  stockMaterialId?: string
+  stockMaterialName?: string
   processName: string
   craftName?: string
   sourceFactoryName: string
@@ -356,11 +368,11 @@ function resolveTaskSpecificImage(
 }
 
 function resolvePrintImage(input: {
-  productionOrderId: string
+  productionOrderId?: string
   processName: string
   craftName?: string
 }): TaskPrintImage {
-  const snapshot = safeBuildProductionSnapshot(input.productionOrderId)
+  const snapshot = input.productionOrderId ? safeBuildProductionSnapshot(input.productionOrderId) : null
   return (
     firstImage('商品图片', snapshot?.imageSnapshot.productImages, '商品主图')
     || firstImage('款图', snapshot?.imageSnapshot.styleImages, '款图')
@@ -497,7 +509,10 @@ export function buildTaskDeliveryCardByRecord(
       deliverySequenceLabel: `第 ${record.sequenceNo} 次交货`,
       taskId: head.taskId,
       taskNo: head.taskNo || head.taskId,
+      sourceType: head.sourceType === 'STOCK' ? 'STOCK' : 'PRODUCTION_ORDER',
       productionOrderNo: head.productionOrderNo,
+      stockMaterialId: head.stockMaterialId,
+      stockMaterialName: head.stockMaterialName,
       processName: head.processBusinessName || head.processName,
       craftName: head.craftName || head.taskTypeLabel || '待确认',
       upstreamFactoryName: head.sourceFactoryName,
@@ -568,7 +583,9 @@ function mapDeliveryCardToPrintDoc(card: TaskDeliveryCardModel, record?: PdaHand
     { label: '交货记录号', value: card.handoverRecordNo },
     { label: '第几次交货', value: card.deliverySequenceLabel },
     { label: '任务编号', value: card.taskNo },
-    { label: '生产单号', value: card.productionOrderNo },
+    card.sourceType === 'STOCK'
+      ? { label: '备货物料', value: card.stockMaterialName || card.stockMaterialId || '待确认' }
+      : { label: '生产单号', value: card.productionOrderNo || '待确认' },
     { label: '工序', value: card.processName },
     { label: '工艺', value: card.craftName },
     { label: '上游工厂', value: card.upstreamFactoryName },
@@ -591,6 +608,9 @@ function mapDeliveryCardToPrintDoc(card: TaskDeliveryCardModel, record?: PdaHand
     taskNo: card.taskNo,
     productionOrderId,
     productionOrderNo: card.productionOrderNo,
+    sourceType: card.sourceType,
+    stockMaterialId: card.stockMaterialId,
+    stockMaterialName: card.stockMaterialName,
     processName: card.processName,
     craftName: card.craftName,
     sourceFactoryName: card.upstreamFactoryName,
@@ -853,8 +873,11 @@ function buildRouteCardFromPrintWorkOrder(sourceId: string): TaskRouteCardBuildR
       sourceLabel: '印花加工单',
       taskId: order.taskId,
       taskNo: order.taskNo,
-      productionOrderId: order.productionOrderIds[0],
-      productionOrderNo: order.productionOrderIds[0] || '待确认',
+      productionOrderId: order.sourceProductionOrderId,
+      workOrderSourceType: order.sourceType,
+      productionOrderNo: order.sourceProductionOrderNo || order.sourceProductionOrderId,
+      stockMaterialId: order.stockMaterialId,
+      stockMaterialName: order.stockMaterialName,
       processName: '印花',
       craftName: order.patternNo,
       factoryName: order.printFactoryName,
@@ -863,12 +886,15 @@ function buildRouteCardFromPrintWorkOrder(sourceId: string): TaskRouteCardBuildR
       qtyUnit: order.qtyUnit,
       dueAt: order.updatedAt,
       qrValue: order.taskQrValue || buildTaskQrValue(order.taskId),
-      image: resolvePrintImage({ productionOrderId: order.productionOrderIds[0] || '', processName: '印花', craftName: order.patternNo }),
+      image: resolvePrintImage({ productionOrderId: order.sourceProductionOrderId, processName: '印花', craftName: order.patternNo }),
       summaryRemark: order.remark || '印花加工单生成',
       titleOverride: '印花任务流转卡',
       summaryRowsOverride: [
         { label: '印花单号', value: order.printOrderNo },
         { label: '印花任务号', value: order.taskNo },
+        order.sourceType === 'STOCK'
+          ? { label: '备货物料', value: order.stockMaterialName || order.stockMaterialId || '待确认' }
+          : { label: '生产单号', value: order.sourceProductionOrderNo || order.sourceProductionOrderId || '待确认' },
         { label: '花型号/版本', value: `${order.patternNo} / ${order.patternVersion}` },
         { label: '面料 SKU', value: order.materialSku },
         { label: '面料颜色', value: order.materialColor || '—' },
@@ -918,8 +944,11 @@ function buildRouteCardFromDyeWorkOrder(sourceId: string): TaskRouteCardBuildRes
       sourceLabel: '染色加工单',
       taskId: order.taskId,
       taskNo: order.taskNo,
-      productionOrderId: order.productionOrderIds?.[0],
-      productionOrderNo: order.productionOrderIds?.[0] || '待确认',
+      productionOrderId: order.sourceProductionOrderId,
+      workOrderSourceType: order.sourceType,
+      productionOrderNo: order.sourceProductionOrderNo || order.sourceProductionOrderId,
+      stockMaterialId: order.stockMaterialId,
+      stockMaterialName: order.stockMaterialName,
       processName: '染色',
       craftName: order.targetColor,
       factoryName: order.dyeFactoryName,
@@ -928,12 +957,15 @@ function buildRouteCardFromDyeWorkOrder(sourceId: string): TaskRouteCardBuildRes
       qtyUnit: order.qtyUnit,
       dueAt: order.updatedAt,
       qrValue: order.taskQrValue || buildTaskQrValue(order.taskId),
-      image: resolvePrintImage({ productionOrderId: order.productionOrderIds?.[0] || '', processName: '染色', craftName: order.targetColor }),
+      image: resolvePrintImage({ productionOrderId: order.sourceProductionOrderId, processName: '染色', craftName: order.targetColor }),
       summaryRemark: order.remark || order.waitingReason || '染色加工单生成',
       titleOverride: '染色任务流转卡',
       summaryRowsOverride: [
         { label: '染色单号', value: order.dyeOrderNo },
         { label: '染色任务号', value: order.taskNo },
+        order.sourceType === 'STOCK'
+          ? { label: '备货物料', value: order.stockMaterialName || order.stockMaterialId || '待确认' }
+          : { label: '生产单号', value: order.sourceProductionOrderNo || order.sourceProductionOrderId || '待确认' },
         { label: '首单/翻单', value: order.isFirstOrder ? '首单' : '翻单' },
         { label: '原料面料 SKU', value: order.rawMaterialSku },
         { label: '目标颜色', value: order.targetColor },
@@ -1381,6 +1413,9 @@ function mapRouteCardToPrintDoc(card: TaskRouteCardModel): TaskRouteCardPrintDoc
     taskNo: card.taskNo,
     productionOrderId,
     productionOrderNo: card.productionOrderNo,
+    workOrderSourceType: card.workOrderSourceType,
+    stockMaterialId: card.stockMaterialId,
+    stockMaterialName: card.stockMaterialName,
     processName: card.processName,
     craftName: card.craftName,
     factoryName: card.factoryName,

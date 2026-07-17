@@ -171,7 +171,7 @@ export function renderActionButton(input: {
     return `
       <a
         role="button"
-        class="inline-flex h-8 items-center justify-center rounded-md border px-3 text-xs ${toneClass} ${widthClass}"
+        class="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-md border px-3 text-xs ${toneClass} ${widthClass}"
         href="${escapedHref}"
         data-nav="${escapedHref}"
         ${attrs}

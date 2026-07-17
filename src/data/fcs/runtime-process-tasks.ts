@@ -45,8 +45,14 @@ import {
   type DispatchAcceptanceSlaResolution,
   type DispatchAcceptanceSlaRuleSource,
 } from './dispatch-acceptance-sla.ts'
-import { listBusinessFactoryMasterRecords } from './factory-master-store.ts'
+import { listBusinessFactoryMasterRecords, listFactoryMasterRecords } from './factory-master-store.ts'
 import type { Factory, FactoryProcessAbility } from './factory-types.ts'
+import {
+  evaluateThirdPartyFactoryDispatchPolicy,
+  getThirdPartyFactoryRatingSnapshot,
+  type DispatchPolicyDecision,
+  type FactoryRatingDocumentTypeLabel,
+} from './third-party-factory-rating.ts'
 import {
   captureSewingDeliverySlaSnapshotStore,
   classifySewingDeliverySla,
@@ -360,6 +366,8 @@ export interface RuntimeTaskTenderAwardInput {
   awardedAt: string
   awardedPrice: number
   by: string
+  riskConfirmed?: boolean
+  supervisorAssigned?: boolean
 }
 
 export interface PreparedRuntimeTaskTenderAward {
@@ -384,6 +392,8 @@ export interface RuntimeSewingTaskReassignmentInput {
   reason: string
   by: string
   mainFactoryId?: string
+  riskConfirmed?: boolean
+  supervisorAssigned?: boolean
 }
 
 export interface RuntimeSewingTaskReassignmentResult {
@@ -490,6 +500,63 @@ export function isRuntimeIndependentSewingTask(task: RuntimeSewingTaskLike): boo
     || task.acceptanceMode === 'CONTINUOUS_PROCESS'
   ) return false
   return task.processBusinessCode === 'SEW' || task.processCode === 'SEW' || task.processNameZh === '车缝'
+}
+
+function isThirdPartyFactoryRatingGovernanceTarget(factoryId: string): boolean {
+  const snapshot = getThirdPartyFactoryRatingSnapshot(factoryId)
+  if (snapshot) return true
+  const factory = listFactoryMasterRecords().find((item) => item.id === factoryId)
+  if (!factory) return false
+  return factory.factoryTier === 'THIRD_PARTY' &&
+    (
+      factory.factoryType === 'THIRD_SEWING' ||
+      factory.processAbilities.some((ability) => ability.processCode === 'SEW')
+    )
+}
+
+function deriveTenderAwardDocumentType(task: RuntimeProcessTask): FactoryRatingDocumentTypeLabel {
+  const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
+  const saleType = order?.demandSnapshot.saleType ?? ''
+  return saleType.includes('样衣') || saleType.includes('样品') || saleType.includes('小单') ? '试产单' : '常规单'
+}
+
+function isUrgentTenderAwardOrder(task: RuntimeProcessTask): boolean {
+  const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
+  return order?.demandSnapshot.priority === 'URGENT'
+}
+
+export function evaluateRuntimeTenderAwardDispatchPolicy(
+  input: RuntimeTaskTenderAwardInput,
+): DispatchPolicyDecision | null {
+  const task = getRuntimeTaskById(input.taskId)
+  if (!task || !isRuntimeSewingTask(task)) return null
+  if (!isThirdPartyFactoryRatingGovernanceTarget(input.factoryId)) return null
+  if (!getThirdPartyFactoryRatingSnapshot(input.factoryId)) {
+    return {
+      allowed: false,
+      severity: 'BLOCK',
+      reason: '该三方车缝工厂缺少三方评级快照，不能定标。请先完成评级。',
+      displayBadges: ['未评级', '禁止定标'],
+      requiresConfirm: false,
+      sortPriority: 0,
+    }
+  }
+  return evaluateThirdPartyFactoryDispatchPolicy({
+    factoryId: input.factoryId,
+    actionType: '发起竞价',
+    documentTypeLabel: deriveTenderAwardDocumentType(task),
+    dispatchQty: task.scopeQty,
+    isUrgentOrder: isUrgentTenderAwardOrder(task),
+    riskConfirmed: input.riskConfirmed === true,
+    isSupervisorAssigned: input.supervisorAssigned === true,
+  })
+}
+
+function assertTenderAwardRatingPolicy(input: RuntimeTaskTenderAwardInput, task: RuntimeProcessTask): void {
+  if (!isRuntimeSewingTask(task)) return
+  if (!isThirdPartyFactoryRatingGovernanceTarget(input.factoryId)) return
+  const decision = evaluateRuntimeTenderAwardDispatchPolicy(input)
+  if (!decision || !decision.allowed) throw new Error(decision?.reason ?? '该三方车缝工厂不能定标')
 }
 
 function getOrderSkuLines(productionOrderId: string): RuntimeTaskSkuLine[] {
@@ -2633,6 +2700,7 @@ export function prepareRuntimeTaskTenderAward(
   if (!Number.isFinite(input.awardedPrice) || input.awardedPrice <= 0) {
     throw new Error(`任务 ${input.taskId} 中标价格必须为正数`)
   }
+  assertTenderAwardRatingPolicy(input, task)
   return {
     input: { ...input },
     originalTask: task,
@@ -3214,6 +3282,21 @@ export function reassignRuntimeSewingTask(
   const confirmedReceivedQty = sumSewingDeliveryConfirmedReceiptQty(input.sourceTaskId, input.operatedAt)
   const remainingQty = Math.max(snapshot.assignedQty - confirmedReceivedQty, 0)
   if (remainingQty <= 0) return reject('原任务已全部实收，无剩余数量可改派')
+  if (isThirdPartyFactoryRatingGovernanceTarget(input.targetFactoryId)) {
+    if (!getThirdPartyFactoryRatingSnapshot(input.targetFactoryId)) {
+      return reject('该三方车缝工厂缺少三方评级快照，不能改派。请先完成评级。')
+    }
+    const decision = evaluateThirdPartyFactoryDispatchPolicy({
+      factoryId: input.targetFactoryId,
+      actionType: '直接派单',
+      documentTypeLabel: deriveTenderAwardDocumentType(source),
+      dispatchQty: remainingQty,
+      isUrgentOrder: isUrgentTenderAwardOrder(source),
+      riskConfirmed: input.riskConfirmed === true,
+      isSupervisorAssigned: input.supervisorAssigned === true,
+    })
+    if (!decision.allowed) return reject(decision.reason)
+  }
 
   const sequence = listSewingDeliverySlaSnapshotHistory(input.sourceTaskId).length + 1
   const assignmentId = `${input.sourceTaskId}-REASSIGN-${input.operatedAt.replace(/\D/g, '')}-${String(sequence).padStart(3, '0')}`

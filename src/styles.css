@@ -129,12 +129,40 @@
   padding-bottom: 0.25rem;
 }
 
-/* 生产单总览的下拉菜单需要越过单行横向滚动容器显示，避免打开后被裁掉。 */
-[data-cutting-filter-shell='true'].production-order-overview-filter-shell .cutting-filter-single-line {
+[data-cutting-filter-shell='true'].cutting-overview-filter-shell .cutting-filter-single-line {
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  overflow: visible;
+  padding-bottom: 0;
+}
+
+[data-cutting-filter-shell='true'].cutting-overview-filter-shell {
+  z-index: 50;
+  min-width: 0;
   overflow: visible;
 }
 
-[data-cutting-filter-shell='true'].production-order-overview-filter-shell details > div {
+[data-cutting-filter-shell='true'][data-cutting-filter-shell='true'].cutting-overview-filter-shell .cutting-overview-filter-row {
+  flex-wrap: wrap !important;
+  overflow: visible;
+  min-width: 0;
+  width: auto;
+  max-width: 100%;
+}
+
+[data-cutting-filter-shell='true'].cutting-overview-filter-shell .cutting-overview-filter-row > .cutting-overview-keyword-filter {
+  min-width: min(24rem, 100%);
+  flex: 1 1 24rem;
+}
+
+[data-cutting-filter-shell='true'].cutting-overview-filter-shell .cutting-overview-filter-row > .cutting-overview-filter-actions {
+  min-width: 0;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+[data-cutting-filter-shell='true'].cutting-overview-filter-shell details > div {
   z-index: 70;
 }
 

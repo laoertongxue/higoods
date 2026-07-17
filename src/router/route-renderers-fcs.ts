@@ -37,6 +37,10 @@ export const renderFactoryPerformancePage = createAsyncRenderer(
 )
 export const renderFactoryOnboardingPage = createAsyncRenderer(() => import('../pages/factory-onboarding'), 'renderFactoryOnboardingPage')
 export const renderFactoryProfilePage = createAsyncRenderer(() => import('../pages/factory-profile'), 'renderFactoryProfilePage')
+export const renderThirdPartyFactoryRatingPage = createAsyncRenderer(
+  () => import('../pages/third-party-factory-rating'),
+  'renderThirdPartyFactoryRatingPage',
+)
 export const renderFactoryStatusPage = createAsyncRenderer(() => import('../pages/factory-status'), 'renderFactoryStatusPage')
 export const renderOverviewPage = createAsyncRenderer(() => import('../pages/workbench'), 'renderOverviewPage')
 export const renderTodosPage = createAsyncRenderer(() => import('../pages/workbench'), 'renderTodosPage')
@@ -122,17 +126,9 @@ export const renderProcessWaterSolubleOrdersPage = createAsyncRenderer(
   () => import('../pages/process-water-soluble-orders'),
   'renderProcessWaterSolubleOrdersPage',
 )
-export const renderProcessDyeRequirementsPage = createAsyncRenderer(
-  () => import('../pages/process-dye-requirements'),
-  'renderProcessDyeRequirementsPage',
-)
 export const renderProcessPrintOrdersPage = createAsyncRenderer(
   () => import('../pages/process-print-orders'),
   'renderProcessPrintOrdersPage',
-)
-export const renderProcessPrintRequirementsPage = createAsyncRenderer(
-  () => import('../pages/process-print-requirements'),
-  'renderProcessPrintRequirementsPage',
 )
 export const renderMaterialIssuePage = createAsyncRenderer(
   () => import('../pages/material-issue'),
@@ -329,6 +325,10 @@ export const renderCraftCuttingProductionProgressPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/production-progress'),
   'renderCraftCuttingProductionProgressPage',
 )
+export const renderCraftCuttingProductionOrderProgressPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/production-progress'),
+  'renderCraftCuttingProductionOrderProgressPage',
+)
 export const renderCraftCuttingProductionProgressDetailPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/production-progress'),
   'renderCraftCuttingProductionProgressDetailPage',
@@ -482,13 +482,13 @@ export const renderCraftDyeingWorkOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/work-orders'),
   'renderCraftDyeingWorkOrdersPage',
 )
+export const renderCraftCombinedDyeingPage = createAsyncRenderer(
+  () => import('../pages/process-factory/dyeing/combined-dyeing'),
+  'renderCraftCombinedDyeingPage',
+)
 export const renderCraftDyeingWaterSolubleOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/water-soluble-orders'),
   'renderCraftDyeingWaterSolubleOrdersPage',
-)
-export const renderCraftDyeingWorkOrderDetailPage = createAsyncRenderer(
-  () => import('../pages/process-factory/dyeing/work-order-detail'),
-  'renderCraftDyeingWorkOrderDetailPage',
 )
 export const renderCraftDyeingWaitProcessWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/warehouse'),

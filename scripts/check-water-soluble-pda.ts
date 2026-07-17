@@ -10,13 +10,13 @@ import {
   completeDyeing,
   completeDyeSampleTest,
   completeDyeSampleWait,
-  createDyeWorkOrderFromDemands,
   executeDyeWaterSolublePdaAction,
   getDyeExecutionNodeRecord,
   getDyeWorkOrderById,
   listDyeVatOptions,
   listDyeWorkOrders,
   planDyeVat,
+  registerFormalProductionOrderDyeWorkOrder,
   startDyeMaterialReady,
   startDyeMaterialWait,
   startDyeNode,
@@ -62,6 +62,7 @@ import {
   executeMobileProcessAction,
   getProcessActionOperationRecordsByTask,
 } from '../src/data/fcs/process-action-writeback-service.ts'
+import { recordDyeWorkOrderPdaAcceptance, recordDyeWorkOrderPdaStart } from '../src/data/fcs/dye-work-order-online-domain.ts'
 import {
   assignWaterSolubleFactory,
   executeWaterSolublePdaAction,
@@ -74,7 +75,7 @@ import {
   resetWaterSolubleDomainForChecks,
 } from '../src/data/fcs/water-soluble-task-domain.ts'
 import type { ProcessTask } from '../src/data/fcs/process-tasks.ts'
-import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
+import { acceptPdaGenericProcessTask, listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
 import { appStore } from '../src/state/store.ts'
 
 const memoryStorage = new Map<string, string>()
@@ -138,7 +139,9 @@ async function main(): Promise<void> {
       assert.equal(matches.length, 1, `独立水溶加工单必须恰好映射一次：${waterOrder.waterOrderId}`)
       const unified = matches[0]
       assert.equal(unified.processType, 'WATER_SOLUBLE')
-      assert.deepEqual(unified.sourceDemandIds, waterOrder.sourceDemandIds)
+      assert.equal(unified.sourceType, 'PRODUCTION_ORDER')
+      assert.equal(unified.sourceProductionOrderId, waterOrder.productionOrderId)
+      assert.equal(unified.sourceProductionOrderNo, waterOrder.productionOrderNo)
       assert.deepEqual(unified.sourceArtifactIds, [waterOrder.sourceArtifactId])
       assert.deepEqual(unified.productionOrderIds, [waterOrder.productionOrderId])
       assert.equal(unified.workOrderNo, waterOrder.waterOrderNo)
@@ -948,6 +951,12 @@ async function main(): Promise<void> {
     assert(combined, '含水溶染色加工单必须仍可读取')
     const combinedGenericTask = listPdaGenericProcessTasks().find((task) => task.taskId === combined.taskId)
     assert(combinedGenericTask, '联合染色必须存在通用移动任务')
+    assert.equal(combinedGenericTask.acceptanceStatus, 'PENDING', '正式含水溶染色加工单必须先由 PDA 接单')
+    acceptPdaGenericProcessTask(combined.taskId, { acceptedAt: '2026-07-16 08:00:00', acceptedBy: operator.userName })
+    recordDyeWorkOrderPdaAcceptance(combined.taskId, operator.userName, '2026-07-16 08:00:00')
+    combinedGenericTask.status = 'IN_PROGRESS'
+    combinedGenericTask.startedAt = '2026-07-16 08:05:00'
+    recordDyeWorkOrderPdaStart(combined.taskId, operator.userName, '2026-07-16 08:05:00')
     combinedGenericTask.qtyDisplayUnit = '公斤'
     assert.equal(validateDyeStartPrerequisite(combined.dyeOrderId, 80).ok, false)
     if (combined.isFirstOrder && combined.sampleWaitType !== 'NONE') {
@@ -1277,25 +1286,28 @@ async function main(): Promise<void> {
     assert.equal(listHandoverOrdersByTaskId(combined.taskId).length, 1, '联合染色重复 ensure 不得重复创建')
 
     const prepareCombinedCompletionProbe = (suffix: string) => {
-      const created = createDyeWorkOrderFromDemands({
-        demands: [{
-          demandId: `DYE-${suffix}-DEMAND`,
-          sourceArtifactId: `DYE-${suffix}-ARTIFACT`,
-          sourceProductionOrderId: `PO-DYE-${suffix}`,
-          bomItemId: `BOM-DYE-${suffix}`,
-          materialCode: `MAT-DYE-${suffix}`,
-          materialName: `${suffix} 专项面料`,
-          requiredQty: 100,
-          unit: combined.qtyUnit,
-          requiresWaterSoluble: true,
-          processRoute: ['WATER_SOLUBLE', 'DYE'],
-        }],
+      const order = registerFormalProductionOrderDyeWorkOrder({
+        productionOrderId: `PO-DYE-${suffix}`,
+        productionOrderNo: `PO-DYE-${suffix}`,
+        orderedAt: '2026-07-15 08:00:00',
+        techPackVersionId: `TP-DYE-${suffix}`,
+        techPackVersionLabel: `${suffix} 技术包`,
+        materialId: `MAT-DYE-${suffix}`,
+        materialName: `${suffix} 专项面料`,
+        targetColor: combined.targetColor,
+        plannedQty: 100,
+        qtyUnit: combined.qtyUnit,
+        processCodes: ['DYE'],
         factoryId: combined.dyeFactoryId,
-        plannedFinishAt: '2026-07-20 18:00:00',
-        createdBy: `${suffix} 专项检查`,
+        factoryName: combined.dyeFactoryName,
+        spuCode: `SPU-${suffix}`,
+        spuName: `${suffix} 专项款`,
+        requiredDeliveryDate: '2026-07-20',
+        workOrderId: `DYE-${suffix}`,
+        workOrderNo: `RSJG-${suffix}`,
+        processName: '水溶 + 染色',
+        requiresWaterSoluble: true,
       })
-      assert.equal(created.ok, true, created.message)
-      const order = created.order
       assert(order, `必须创建 ${suffix} 含水溶染色单`)
       startDyeMaterialWait(order.dyeOrderId, operator.userName)
       completeDyeMaterialWait(order.dyeOrderId, operator.userName)

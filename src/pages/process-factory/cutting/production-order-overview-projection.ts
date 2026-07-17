@@ -26,6 +26,7 @@ interface OverviewProductionOrderSource {
     spuName: string
     buyerName: string
     merchandiserName: string
+    skuLines: Array<{ qty: number }>
   }
   techPackSnapshot: null | {
     styleCode: string
@@ -52,6 +53,48 @@ interface CuttingProgressOverviewSource {
   receiverFactoryNames: string[]
 }
 
+function normalizeProgressStatus(value: string | undefined): string {
+  return value || '未开始'
+}
+
+function enforceCuttingChainInvariant(source: CuttingProgressOverviewSource): CuttingProgressOverviewSource {
+  const cuttingCompleted = ['裁剪完成', '已完成'].includes(source.cuttingStatus)
+  const inboundCompleted = cuttingCompleted && source.inboundStatus === '已入仓'
+  return {
+    ...source,
+    inboundStatus: cuttingCompleted ? source.inboundStatus : '未入仓',
+    shippingStatus: inboundCompleted && source.shippingStatus === '发货完成' ? '发货完成' : '未发货',
+  }
+}
+
+const CUTTING_OVERVIEW_DEMO_STAGES: Record<string, Partial<CuttingProgressOverviewSource>> = {
+  'PO-202603-0004': {
+    markerStatus: '未排唛架', spreadingStatus: '未开始铺布', cuttingStatus: '未裁剪', inboundStatus: '未入仓', shippingStatus: '未发货',
+  },
+  'PO-202603-0002': {
+    markerStatus: '唛架完成', spreadingStatus: '铺布中', cuttingStatus: '未裁剪', inboundStatus: '未入仓', shippingStatus: '未发货',
+  },
+  'PO-202603-0003': {
+    markerStatus: '唛架完成', spreadingStatus: '铺布完成', cuttingStatus: '未裁剪', inboundStatus: '未入仓', shippingStatus: '未发货',
+  },
+  'PO-202603-0008': {
+    markerStatus: '唛架完成', spreadingStatus: '铺布完成', cuttingStatus: '裁剪完成', inboundStatus: '待交出', shippingStatus: '未发货',
+  },
+  'PO-202603-0014': {
+    markerStatus: '唛架完成', spreadingStatus: '铺布完成', cuttingStatus: '裁剪完成', inboundStatus: '已入仓', shippingStatus: '未发货',
+  },
+  'PO-202603-082': {
+    markerStatus: '唛架完成', spreadingStatus: '铺布完成', cuttingStatus: '裁剪完成', inboundStatus: '已入仓', shippingStatus: '发货完成',
+  },
+}
+
+const PRINT_DYE_DEMO_STATUSES: Record<string, { printing?: string; dyeing?: string }> = {
+  'PO-202603-0004': { printing: '印花完成' },
+  'PO-202603-0002': { printing: '印花中' },
+  'PO-202603-0003': { dyeing: '染色中' },
+  'PO-202603-0008': { dyeing: '染色完成' },
+}
+
 export interface ProductionOrderOverviewSources {
   productionOrders: OverviewProductionOrderSource[]
   productionDemands: Array<{ demandId: string; createdAt: string; imageUrl?: string }>
@@ -67,6 +110,8 @@ export interface ProductionOrderOverviewRow {
   productionOrderId: string
   productionOrderNo: string
   productionOrderCreatedAt: string
+  orderDate: string
+  orderQty: number
   demandId: string
   demandCreatedAt: string
   styleCode: string
@@ -91,7 +136,7 @@ export interface ProductionOrderOverviewRow {
 function normalizeFactoryType(value: string): FactoryProgressFact['factoryTypeLabel'] {
   if (value.includes('CENTRAL') || value.includes('中央')) return '中央工厂'
   if (value && value !== '—') return '第三方工厂'
-  return '—'
+  return '待分配'
 }
 
 function buildDefaultFactoryFacts(): Array<FactoryProgressFact & { productionOrderId: string }> {
@@ -115,7 +160,7 @@ function buildDefaultFactoryFacts(): Array<FactoryProgressFact & { productionOrd
       productionOrderId: record.productionOrderId,
       factoryId,
       factoryName,
-      factoryTypeLabel: factoryName === '未派单' ? '—' : normalizeFactoryType(record.cuttingTaskAssigneeType),
+      factoryTypeLabel: factoryName === '未派单' ? '待分配' : normalizeFactoryType(record.cuttingTaskAssigneeType),
       accepted: Boolean(factoryName !== '未派单' && !record.cuttingTaskAssignmentStatus.includes('未')),
       requiredQty,
       pickedQty: pickedQtyByOrderAndFactory.get(`${record.productionOrderId}::${factoryName}`) ?? 0,
@@ -153,6 +198,15 @@ function buildDefaultFactoryFacts(): Array<FactoryProgressFact & { productionOrd
       accepted: false,
       requiredQty: 800,
       pickedQty: 0,
+    },
+    {
+      productionOrderId: 'PO-202603-082',
+      factoryId: 'FACTORY-DEMO-POTATO',
+      factoryName: '土豆工厂',
+      factoryTypeLabel: '第三方工厂',
+      accepted: true,
+      requiredQty: 100,
+      pickedQty: 100,
     },
   )
   return facts
@@ -234,7 +288,9 @@ export function buildDefaultProductionOrderOverviewSources(): ProductionOrderOve
         shippingStatus: row.pieceCompletionSummary.label === '已完成' ? '发货完成' : '未发货',
       }),
       receiverFactoryNames: row.assignedFactoryName ? [row.assignedFactoryName] : [],
-    })),
+    }))
+      .map((row) => ({ ...row, ...CUTTING_OVERVIEW_DEMO_STAGES[row.productionOrderId] }))
+      .map(enforceCuttingChainInvariant),
     factoryFacts: buildDefaultFactoryFacts(),
   }
 }
@@ -249,8 +305,7 @@ function hasCuttingRequirement(order: OverviewProductionOrderSource, sources: Pr
 }
 
 function summarizeMaterialPrep(row: MaterialPrepOverviewSource | undefined): string {
-  if (!row) return '—'
-  if (row.totalConfirmedPrepQty <= 0) return '未配料'
+  if (!row || row.totalConfirmedPrepQty <= 0) return '未配料'
   if (row.totalConfirmedPrepQty >= row.totalRequiredQty) return '配料完成'
   return '部分配料'
 }
@@ -274,36 +329,50 @@ function buildRow(
   const factoryLines = buildFactoryLines(
     sources.factoryFacts.filter((fact) => fact.productionOrderId === order.productionOrderId),
   )
-  const styleCode = order.techPackSnapshot?.styleCode || order.demandSnapshot.spuCode || '—'
-  const styleName = order.techPackSnapshot?.styleName || order.demandSnapshot.spuName || '—'
+  const styleCode = order.techPackSnapshot?.styleCode || order.demandSnapshot.spuCode || '暂无款式编号'
+  const styleName = order.techPackSnapshot?.styleName || order.demandSnapshot.spuName || '暂无款式名称'
   const styleImageUrl = order.techPackSnapshot?.imageSnapshot.styleImages[0]
     || order.techPackSnapshot?.imageSnapshot.productImages?.[0]
     || demand?.imageUrl
     || '/placeholder.svg?height=80&width=80'
   const receiverFactoryNames = cutting?.receiverFactoryNames ?? []
+  const orderQty = order.demandSnapshot.skuLines.reduce((total, line) => total + Math.max(0, line.qty || 0), 0)
+
+  const cuttingStatuses = enforceCuttingChainInvariant({
+    productionOrderId: order.productionOrderId,
+    detailRecordId: cutting?.detailRecordId,
+    markerStatus: normalizeProgressStatus(cutting?.markerStatus),
+    spreadingStatus: normalizeProgressStatus(cutting?.spreadingStatus),
+    cuttingStatus: normalizeProgressStatus(cutting?.cuttingStatus),
+    inboundStatus: normalizeProgressStatus(cutting?.inboundStatus),
+    shippingStatus: normalizeProgressStatus(cutting?.shippingStatus),
+    receiverFactoryNames,
+  })
 
   return {
     id: cutting?.detailRecordId ?? order.productionOrderId,
     productionOrderId: order.productionOrderId,
     productionOrderNo: order.productionOrderNo,
     productionOrderCreatedAt: order.createdAt,
+    orderDate: demand?.createdAt ?? order.createdAt,
+    orderQty,
     demandId: order.demandId,
-    demandCreatedAt: demand?.createdAt ?? '—',
+    demandCreatedAt: demand?.createdAt ?? '暂无时间',
     styleCode,
     styleName,
     styleImageUrl,
-    buyerName: order.demandSnapshot.buyerName || '—',
-    merchandiserName: order.demandSnapshot.merchandiserName || '—',
-    printingStatus: summarizePrintStatus(printRequired, printingStatuses),
-    dyeingStatus: summarizeDyeStatus(dyeRequired, dyeingStatuses),
-    breakdownStatus: order.taskBreakdownSummary.isBrokenDown ? '已拆解' : '未拆解',
+    buyerName: order.demandSnapshot.buyerName || '待指定买手',
+    merchandiserName: order.demandSnapshot.merchandiserName || '待指定跟单',
+    printingStatus: PRINT_DYE_DEMO_STATUSES[order.productionOrderId]?.printing || summarizePrintStatus(printRequired, printingStatuses),
+    dyeingStatus: PRINT_DYE_DEMO_STATUSES[order.productionOrderId]?.dyeing || summarizeDyeStatus(dyeRequired, dyeingStatuses),
+    breakdownStatus: order.taskBreakdownSummary.isBrokenDown ? '已经拆解' : '未拆解',
     materialPrepStatus: summarizeMaterialPrep(prep),
     factoryLines,
-    markerStatus: cutting?.markerStatus ?? '—',
-    spreadingStatus: cutting?.spreadingStatus ?? '—',
-    cuttingStatus: cutting?.cuttingStatus ?? '—',
-    inboundStatus: cutting?.inboundStatus ?? '—',
-    shippingStatus: cutting?.shippingStatus ?? '—',
+    markerStatus: cuttingStatuses.markerStatus,
+    spreadingStatus: cuttingStatuses.spreadingStatus,
+    cuttingStatus: cuttingStatuses.cuttingStatus,
+    inboundStatus: cuttingStatuses.inboundStatus,
+    shippingStatus: cuttingStatuses.shippingStatus,
     receiverFactoryNames,
     keywordIndex: [
       order.productionOrderNo,

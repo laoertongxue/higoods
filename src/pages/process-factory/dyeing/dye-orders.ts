@@ -100,7 +100,7 @@ function renderFormulaDetail(selectedId: string): string {
             ${renderActionButton({
               label: '查看加工单',
               action: 'navigate',
-              attrs: { href: selected.dyeOrderId ? `${buildDyeingWorkOrderDetailLink(selected.dyeOrderId)}?tab=formula` : '' },
+              attrs: { href: selected.dyeOrderId ? buildDyeingWorkOrderDetailLink(selected.dyeOrderId) : '' },
               disabled: !selected.dyeOrderId,
             })}
           </div>

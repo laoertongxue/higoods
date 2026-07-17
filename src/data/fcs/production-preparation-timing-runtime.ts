@@ -1,5 +1,10 @@
 import {
+  isPatternCompletionImageFile,
+  isPatternSourceFile,
+  hasValidPreparationUploadFileSignature,
+  isValidPreparationUploadFile,
   buildPreparationOutputs,
+  hasValidPreparationCompletionEvidence,
   preparationTypeDefaultItems,
   type ExternalPreparationMaterial,
   type PreparationDownloadRecord,
@@ -14,6 +19,8 @@ import {
 } from './production-preparation-timing'
 
 export const PREPARATION_RUNTIME_STORAGE_KEY = 'higood.production-preparation.runtime.v1'
+
+let sessionRuntimeStateRaw: string | null = null
 
 interface ConfirmedPreparationRecord {
   confirmedBy: string
@@ -69,9 +76,22 @@ export function createLocalId(prefix: string): string {
 }
 
 export function loadPreparationRuntimeState(): PreparationRuntimeState {
+  let raw = sessionRuntimeStateRaw
+  if (raw) {
+    try {
+      window.localStorage.setItem(PREPARATION_RUNTIME_STORAGE_KEY, raw)
+      sessionRuntimeStateRaw = null
+    } catch {
+      // 存储仍不可用时继续使用当前会话最近一次成功序列化的状态。
+    }
+  }
   try {
-    const raw = window.localStorage.getItem(PREPARATION_RUNTIME_STORAGE_KEY)
-    if (!raw) return EMPTY_PREPARATION_RUNTIME_STATE
+    raw ??= window.localStorage.getItem(PREPARATION_RUNTIME_STORAGE_KEY)
+  } catch {
+    // 当前会话仍可读取最近一次已序列化的保存结果。
+  }
+  if (!raw) return EMPTY_PREPARATION_RUNTIME_STATE
+  try {
     const parsed = JSON.parse(raw) as Partial<PreparationRuntimeState>
     return {
       confirmedRecords: parsed.confirmedRecords ?? {},
@@ -87,7 +107,14 @@ export function loadPreparationRuntimeState(): PreparationRuntimeState {
 }
 
 export function savePreparationRuntimeState(state: PreparationRuntimeState): void {
-  window.localStorage.setItem(PREPARATION_RUNTIME_STORAGE_KEY, JSON.stringify(state))
+  const raw = JSON.stringify(state)
+  if (raw === undefined) throw new TypeError('生产准备运行态无法序列化')
+  try {
+    window.localStorage.setItem(PREPARATION_RUNTIME_STORAGE_KEY, raw)
+    sessionRuntimeStateRaw = null
+  } catch {
+    sessionRuntimeStateRaw = raw
+  }
 }
 
 export function mergePreparationRuntimeRecords(
@@ -96,6 +123,7 @@ export function mergePreparationRuntimeRecords(
 ): ProductionPreparationRecord[] {
   return records.map((record) => {
     const confirmation = runtime.confirmedRecords[record.recordId]
+    if (!hasRuntimeMergeChangesForRecord(record, runtime, confirmation)) return record
     const selection = resolveRuntimeSelection(confirmation)
     const workItemsConfirmedBy = confirmation?.confirmedBy ?? record.workItemsConfirmedBy
     const workItemsConfirmedAt = confirmation?.confirmedAt ?? record.workItemsConfirmedAt
@@ -111,23 +139,34 @@ export function mergePreparationRuntimeRecords(
       ? confirmation.overrideReason ?? ''
       : record.prepTypeOverrideReason
     const selectionOverridden = selection.overridden
-    const hasRuntimeUpload = runtime.uploads.some((upload) => upload.recordId === record.recordId)
+    const runtimeItemIds = new Set(items.map((item) => item.itemId))
+    const hasRuntimeUpload = runtime.uploads.some(
+      (upload) => upload.recordId === record.recordId && runtimeItemIds.has(upload.itemId),
+    )
     const hasRuntimeAccessoryOrder = items.some((item) => item.itemType === '辅料下单' && runtime.accessoryPurchaseOrders[item.itemId])
     const runtimeOutputReady = isRuntimeOutputReady(items, workItemsConfirmedBy, workItemsConfirmedAt)
-    const outputReady = selectionOverridden
-      ? runtimeOutputReady
-      : record.outputReady || ((hasRuntimeUpload || hasRuntimeAccessoryOrder) && runtimeOutputReady)
-    const productionDemandNo = selectionOverridden && outputReady
+    const outputReady = record.status === '已关闭'
+      ? record.outputReady
+      : selectionOverridden
+        ? runtimeOutputReady
+        : record.outputReady || ((hasRuntimeUpload || hasRuntimeAccessoryOrder) && runtimeOutputReady)
+    const productionDemandNo = record.status !== '已关闭' && selectionOverridden && outputReady
       ? record.productionDemandNo || runtimeProductionDemandNo(record.recordNo)
       : record.productionDemandNo
-    const productionOrderNo = selectionOverridden && outputReady
+    const productionOrderNo = record.status !== '已关闭' && selectionOverridden && outputReady
       ? record.productionOrderNo || runtimeProductionOrderNo(record.recordNo)
       : record.productionOrderNo
-    const outputPublishedAt = outputReady
-      ? record.outputPublishedAt || latestCompletionEvidenceAt(items)
-      : selectionOverridden ? '' : record.outputPublishedAt
+    const outputPublishedAt = record.status === '已关闭'
+      ? record.outputPublishedAt
+      : outputReady
+        ? record.outputPublishedAt || latestCompletionEvidenceAt(items)
+        : selectionOverridden ? '' : record.outputPublishedAt
+    const derivedRecordState = shouldDeriveRuntimeRecordState(record, runtime, confirmation)
+      ? deriveRuntimeRecordState(record, items, workItemsConfirmedBy, workItemsConfirmedAt)
+      : { status: record.status, currentBlockerText: record.currentBlockerText }
     return {
       ...record,
+      ...derivedRecordState,
       confirmedProductPrepType,
       prepTypeSource,
       prepTypeConfirmedBy: confirmation?.confirmedBy ?? record.prepTypeConfirmedBy,
@@ -142,19 +181,50 @@ export function mergePreparationRuntimeRecords(
       productionOrderNo,
       outputReady,
       outputPublishedAt,
-      outputs: buildPreparationOutputs({
-        recordNo: record.recordNo,
-        productionDemandNo,
-        productionOrderNo,
-        outputReady,
-        outputPublishedAt,
-        workItemsConfirmedBy,
-        workItemsConfirmedAt,
-        items,
-      }),
+      outputs: record.status === '已关闭'
+        ? record.outputs
+        : buildPreparationOutputs({
+            recordNo: record.recordNo,
+            productionDemandNo,
+            productionOrderNo,
+            outputReady,
+            outputPublishedAt,
+            workItemsConfirmedBy,
+            workItemsConfirmedAt,
+            items,
+          }),
       items,
     }
   })
+}
+
+function hasRuntimeMergeChangesForRecord(
+  record: ProductionPreparationRecord,
+  runtime: PreparationRuntimeState,
+  confirmation?: ConfirmedPreparationRecord,
+): boolean {
+  if (confirmation) return true
+  const itemIds = new Set(record.items.map((item) => item.itemId))
+  return (
+    runtime.uploads.some((upload) => upload.recordId === record.recordId && itemIds.has(upload.itemId)) ||
+    runtime.downloads.some((download) => download.recordId === record.recordId && itemIds.has(download.itemId)) ||
+    Object.keys(runtime.dyeRequirements).some((itemId) => itemIds.has(itemId)) ||
+    Object.keys(runtime.accessoryPurchaseOrders).some((itemId) => itemIds.has(itemId))
+  )
+}
+
+function shouldDeriveRuntimeRecordState(
+  record: ProductionPreparationRecord,
+  runtime: PreparationRuntimeState,
+  confirmation?: ConfirmedPreparationRecord,
+): boolean {
+  if (confirmation) return true
+  const itemIds = new Set(record.items.map((item) => item.itemId))
+  return (
+    runtime.uploads.some((upload) => upload.recordId === record.recordId && itemIds.has(upload.itemId)) ||
+    Object.keys(runtime.dyeRequirements).some((itemId) => itemIds.has(itemId)) ||
+    Object.keys(runtime.accessoryPurchaseOrders).some((itemId) => itemIds.has(itemId))
+  )
 }
 
 function resolveRuntimeSelection(confirmation?: ConfirmedPreparationRecord): RuntimeSelection {
@@ -310,23 +380,26 @@ function isSelectedPreparationItem(item: ProductionPreparationItem): boolean {
   return item.selectedByMerchandiser !== false && item.status !== '无需'
 }
 
-function hasUploadEvidence(upload: PreparationUploadRecord): boolean {
-  return Boolean(upload.fileName && upload.uploadedAt && upload.uploadedBy)
-}
-
-function hasCompletionEvidence(item: ProductionPreparationItem): boolean {
-  if (item.itemType === '辅料下单') {
-    return Boolean(
-      item.status === '已完成' &&
-        item.actualFinishAt &&
-        item.accessoryPurchaseOrderNos?.some(Boolean),
-    )
+function deriveRuntimeRecordState(
+  record: ProductionPreparationRecord,
+  items: ProductionPreparationItem[],
+  workItemsConfirmedBy: string,
+  workItemsConfirmedAt: string,
+): Pick<ProductionPreparationRecord, 'status' | 'currentBlockerText'> {
+  if (record.status === '已关闭') {
+    return { status: record.status, currentBlockerText: record.currentBlockerText }
   }
-  return Boolean(
-    item.status === '已完成' &&
-      item.actualFinishAt &&
-      item.uploads?.some(hasUploadEvidence),
-  )
+  if (!(workItemsConfirmedBy && workItemsConfirmedAt)) {
+    return { status: '未开始', currentBlockerText: '待跟单确认生产准备工作项' }
+  }
+  const selectedItems = items.filter(isSelectedPreparationItem)
+  if (selectedItems.length > 0 && selectedItems.every(hasValidPreparationCompletionEvidence)) {
+    return { status: '已完成', currentBlockerText: '全部已选准备项完成' }
+  }
+  if (selectedItems.some((item) => item.status === '已超时' || item.overdueHours > 0)) {
+    return { status: '部分超时', currentBlockerText: '存在超时准备项，仍有已选准备项未完成' }
+  }
+  return { status: '进行中', currentBlockerText: '已确认生产准备工作项，仍有已选准备项未完成' }
 }
 
 function isRuntimeOutputReady(
@@ -336,7 +409,7 @@ function isRuntimeOutputReady(
 ): boolean {
   if (!(workItemsConfirmedBy && workItemsConfirmedAt)) return false
   const selectedItems = items.filter(isSelectedPreparationItem)
-  return selectedItems.length > 0 && selectedItems.every(hasCompletionEvidence)
+  return selectedItems.length > 0 && selectedItems.every(hasValidPreparationCompletionEvidence)
 }
 
 function latestCompletionEvidenceAt(items: ProductionPreparationItem[]): string {
@@ -344,7 +417,14 @@ function latestCompletionEvidenceAt(items: ProductionPreparationItem[]): string 
     .filter(isSelectedPreparationItem)
     .flatMap((item) => [
       item.actualFinishAt,
-      ...(item.uploads ?? []).filter(hasUploadEvidence).map((upload) => upload.uploadedAt),
+      ...(item.uploads ?? [])
+        .filter((upload) =>
+          upload.fileName &&
+          upload.uploadedAt &&
+          upload.uploadedBy &&
+          isValidPreparationUploadFile(item.itemType, upload),
+        )
+        .map((upload) => upload.uploadedAt),
     ])
     .filter(Boolean)
     .sort((left, right) => right.localeCompare(left))[0] ?? ''
@@ -355,8 +435,12 @@ function mergePreparationRuntimeItem(
   runtime: PreparationRuntimeState,
   selection: RuntimeSelection,
 ): ProductionPreparationItem {
-  const uploads = runtime.uploads.filter((upload) => upload.itemId === item.itemId)
-  const downloads = runtime.downloads.filter((download) => download.itemId === item.itemId)
+  const uploads = runtime.uploads.filter(
+    (upload) => upload.recordId === item.recordId && upload.itemId === item.itemId,
+  )
+  const downloads = runtime.downloads.filter(
+    (download) => download.recordId === item.recordId && download.itemId === item.itemId,
+  )
   const dyeRequirement = runtime.dyeRequirements[item.itemId] ?? item.dyeRequirement
   const accessoryOrder = item.itemType === '辅料下单' ? runtime.accessoryPurchaseOrders[item.itemId] : undefined
   const selectedByMerchandiser = selection.overridden
@@ -365,19 +449,52 @@ function mergePreparationRuntimeItem(
       : item.requiredKind === '必做' || Boolean(selection.itemIds?.has(item.itemId))
     : item.selectedByMerchandiser
   if (!uploads.length && !downloads.length && !accessoryOrder && !selection.overridden && dyeRequirement === item.dyeRequirement) return item
-  const lastUpload = uploads.slice().sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))[0]
-  const accessoryCompleted = Boolean(accessoryOrder?.orderNos.length)
-  const accessoryCompletedAt = accessoryOrder?.orderedAts?.filter(Boolean).sort().at(-1) ?? accessoryOrder?.updatedAt
+  const lastUpload = uploads
+    .filter((upload) => isValidPreparationUploadFile(item.itemType, upload))
+    .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))[0]
+  const validUploads = uploads.filter((upload) => isValidPreparationUploadFile(item.itemType, upload))
+  const patternCompletionImageIds = item.itemType === '数码印/DTF/DTG花型'
+    ? validUploads.filter(isPatternCompletionImageFile).map((upload) => upload.uploadId)
+    : item.completionImageIds
+  const patternFileIds = item.itemType === '数码印/DTF/DTG花型'
+    ? validUploads.filter(isPatternSourceFile).map((upload) => upload.uploadId)
+    : item.patternFileIds
+  const patternCompleted = item.itemType === '数码印/DTF/DTG花型'
+    ? Boolean(patternCompletionImageIds?.length && patternFileIds?.length)
+    : false
+  const accessoryOrderNos = accessoryOrder?.orderNos.map((orderNo) => orderNo.trim()) ?? []
+  const accessoryOrderedAts = accessoryOrder?.orderedAts?.map((orderedAt) => orderedAt.trim()) ?? []
+  const accessoryCompleted = Boolean(
+    accessoryOrderNos.length > 0 &&
+      accessoryOrderNos.every(Boolean) &&
+      accessoryOrderedAts.length === accessoryOrderNos.length &&
+      accessoryOrderedAts.every(Boolean),
+  )
+  const accessoryCompletedAt = accessoryCompleted ? accessoryOrderedAts.slice().sort().at(-1) : undefined
+  const status = !selectedByMerchandiser
+    ? '无需'
+    : (item.itemType === '数码印/DTF/DTG花型' ? patternCompleted : Boolean(lastUpload)) || accessoryCompleted
+      ? '已完成'
+      : item.status === '无需' || item.status === '待判断'
+        ? '待开始'
+        : item.status
   return {
     ...item,
     dyeRequirement,
     selectedByMerchandiser,
-    status: !selectedByMerchandiser ? '无需' : lastUpload || accessoryCompleted ? '已完成' : item.status,
-    actualFinishAt: accessoryCompletedAt ?? lastUpload?.uploadedAt ?? item.actualFinishAt,
+    status,
+    actualFinishAt: accessoryCompletedAt ?? (item.itemType === '数码印/DTF/DTG花型'
+      ? patternCompleted ? lastUpload?.uploadedAt : item.actualFinishAt
+      : lastUpload?.uploadedAt) ?? item.actualFinishAt,
     evidenceSummary: accessoryOrder
       ? `已登记 ${accessoryOrder.orderNos.length} 个面辅料采购单号`
-      : lastUpload ? `最后上传：${lastUpload.fileName}` : item.evidenceSummary,
-    accessoryPurchaseOrderNos: accessoryOrder?.orderNos ?? item.accessoryPurchaseOrderNos,
+      : item.itemType === '数码印/DTF/DTG花型' && validUploads.length
+        ? `完成图 ${patternCompletionImageIds?.length ?? 0} 张，花型源文件 ${patternFileIds?.length ?? 0} 个`
+        : lastUpload ? `最后上传：${lastUpload.fileName}` : item.evidenceSummary,
+    completionImageIds: patternCompletionImageIds,
+    patternFileIds,
+    accessoryPurchaseOrderNos: accessoryOrder ? accessoryOrderNos : item.accessoryPurchaseOrderNos,
+    accessoryPurchaseOrderedAts: accessoryOrder ? accessoryOrderedAts : item.accessoryPurchaseOrderedAts,
     accessoryPurchaseUpdatedAt: accessoryCompletedAt ?? item.accessoryPurchaseUpdatedAt,
     uploads: [...(item.uploads ?? []), ...uploads],
     downloads: [...(item.downloads ?? []), ...downloads],
@@ -416,6 +533,13 @@ export async function buildUploadRecordsFromFiles(input: {
   uploadedBy: string
   note: string
 }): Promise<PreparationUploadRecord[]> {
+  const invalidFile = input.files.find((file) => !isValidPreparationUploadFile(input.itemType, file))
+  if (invalidFile) throw new Error(`${input.itemType} 不支持上传文件：${invalidFile.name}`)
+  for (const file of input.files) {
+    if (!await hasValidPreparationUploadFileSignature(file)) {
+      throw new Error(`${input.itemType} 文件内容与类型不匹配：${file.name}`)
+    }
+  }
   const uploadedAt = nowIsoMinute()
   const records: PreparationUploadRecord[] = []
   for (const file of input.files) {

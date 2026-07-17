@@ -6,10 +6,39 @@ import {
   type ProductionOrderChangeCurrentFacts,
 } from './production-tech-pack-change-domain.ts'
 import { productionOrders, type ProductionOrderStatus } from './production-orders.ts'
+import {
+  buildFormalProductionOrderProcessSnapshots,
+  prepareSyncProcessWorkOrdersAfterProductionOrderChanges,
+  type FormalProductionOrderProcessSnapshot,
+} from './production-process-work-order-service.ts'
 
 export type ProductionChangeType = 'QUANTITY_CHANGE' | 'MATERIAL_REPLACEMENT'
 
 export type ProductionChangeResult = 'PRODUCTION_PATCH' | 'VERSION_RELATION' | 'VERSION_AND_PATCH'
+
+export interface ProductionChangeTechPackIdentity {
+  techPackVersionId: string
+  techPackVersionLabel: string
+}
+
+export function predictProductionChangeTechPackIdentity(input: {
+  result: ProductionChangeResult
+  currentTechPackVersionId: string
+  currentTechPackVersionLabel: string
+  latestPublishedTechPackVersionId: string
+  latestPublishedTechPackVersionLabel: string
+}): ProductionChangeTechPackIdentity {
+  const usesLatestPublishedVersion = input.result === 'VERSION_RELATION' || input.result === 'VERSION_AND_PATCH'
+  return usesLatestPublishedVersion
+    ? {
+        techPackVersionId: input.latestPublishedTechPackVersionId,
+        techPackVersionLabel: input.latestPublishedTechPackVersionLabel,
+      }
+    : {
+        techPackVersionId: input.currentTechPackVersionId,
+        techPackVersionLabel: input.currentTechPackVersionLabel,
+      }
+}
 
 export type MaterialReplacementMode = 'REMAINING' | 'FULL'
 
@@ -71,6 +100,67 @@ export interface MaterialReplacementDraft {
     changeable?: boolean
     affectedDocumentNos?: string[]
   }>
+}
+
+export interface ProductionChangeMaterialIdentity {
+  factId: string
+  sourceTechPackVersionId: string
+  sourceBomItemId: string
+  canonicalMaterialId: string
+  snapshotMaterialId: string
+}
+
+function toProductionChangeMaterialIdentity(
+  fact: NonNullable<ReturnType<typeof getProductionOrderChangeCurrentFacts>>['materialFacts'][number] | undefined,
+): ProductionChangeMaterialIdentity | null {
+  if (
+    !fact?.sourceTechPackVersionId?.trim()
+    || !fact.sourceBomItemId?.trim()
+    || !fact.canonicalMaterialId?.trim()
+    || !fact.snapshotMaterialId?.trim()
+  ) return null
+  return {
+    factId: fact.id,
+    sourceTechPackVersionId: fact.sourceTechPackVersionId,
+    sourceBomItemId: fact.sourceBomItemId,
+    canonicalMaterialId: fact.canonicalMaterialId,
+    snapshotMaterialId: fact.snapshotMaterialId,
+  }
+}
+
+export function resolveProductionChangeMaterialIdentity(
+  productionOrderId: string,
+  materialFactId: string,
+): ProductionChangeMaterialIdentity | null {
+  return toProductionChangeMaterialIdentity(
+    getProductionOrderChangeCurrentFacts(productionOrderId)?.materialFacts
+      .find((item) => item.id === materialFactId),
+  )
+}
+
+export function resolveProductionChangeMaterialIdentityByCanonicalMaterialId(
+  productionOrderId: string,
+  canonicalMaterialId: string,
+): ProductionChangeMaterialIdentity | null {
+  const matches = getProductionOrderChangeCurrentFacts(productionOrderId)?.materialFacts
+    .filter((item) => item.canonicalMaterialId === canonicalMaterialId) ?? []
+  return matches.length === 1 ? toProductionChangeMaterialIdentity(matches[0]) : null
+}
+
+export function resolveProductionChangeMaterialIdentityTargets(
+  originProductionOrderId: string,
+  originMaterialFactId: string,
+  affectedOrderIds: string[],
+): Map<string, ProductionChangeMaterialIdentity> {
+  const origin = resolveProductionChangeMaterialIdentity(originProductionOrderId, originMaterialFactId)
+  if (!origin) return new Map()
+  return new Map(affectedOrderIds.flatMap((productionOrderId) => {
+    const target = resolveProductionChangeMaterialIdentityByCanonicalMaterialId(
+      productionOrderId,
+      origin.canonicalMaterialId,
+    )
+    return target ? [[productionOrderId, target] as const] : []
+  }))
 }
 
 type FollowingOrderPlan = MaterialReplacementDraft['followingOrders'][number]
@@ -376,7 +466,7 @@ export function createFollowingOrderPlans(
   ;(PRODUCTION_CHANGE_FOLLOWING_ORDER_SCENARIO_SEEDS[productionOrderId] ?? []).forEach((seed) => {
     const orderId = seed.productionOrderId.trim()
     const orderState = resolveFollowingOrderStateFromOrderStatus(seed.orderStatus)
-    if (!orderId || blockedOrderIds.has(orderId) || uniquePlans.has(orderId) || !orderState.changeable) return
+    if (!orderId || blockedOrderIds.has(orderId) || !orderState.changeable) return
     const suggestedMode: MaterialReplacementMode = orderState.started ? 'REMAINING' : 'FULL'
     uniquePlans.set(orderId, {
       productionOrderId: orderId,
@@ -572,6 +662,10 @@ export interface ProductionChangeExecutionOptions {
   onProgress?: (progress: number, result: ProductionChangeExecutionResult) => void
   onStep?: (step: ProductionChangeExecutionStep, result: ProductionChangeExecutionResult) => void
   persist?: (result: ProductionChangeExecutionResult) => ProductionChangeExecutionResult | void
+  processWorkOrderSnapshots?: FormalProductionOrderProcessSnapshot[] | (() => FormalProductionOrderProcessSnapshot[])
+  changeRecordId?: string
+  processWorkOrderSyncRecordedAt?: string
+  beforeProcessWorkOrderPreparationCommit?: (index: number) => void
 }
 
 export interface ProductionChangePreview {
@@ -673,6 +767,8 @@ export function executeProductionChange(
   }
   lockObjectIds.forEach((objectId) => activeProductionChangeLocks.add(objectId))
   let persistenceStarted = false
+  let persistedDone = false
+  let preparedWorkOrderBatch: ReturnType<typeof prepareSyncProcessWorkOrdersAfterProductionOrderChanges> | null = null
 
   try {
     const currentFingerprint = createProductionChangeScopeFingerprint(
@@ -717,10 +813,44 @@ export function executeProductionChange(
       options.onStep?.(step, result)
       options.onProgress?.(result.progress, result)
     })
+    preparedWorkOrderBatch = failed
+      ? null
+      : (() => {
+          try {
+            const snapshots = typeof options.processWorkOrderSnapshots === 'function'
+              ? options.processWorkOrderSnapshots()
+              : options.processWorkOrderSnapshots ?? preview.affectedOrderIds.flatMap((productionOrderId) => {
+                  const order = productionOrders.find((item) => item.productionOrderId === productionOrderId)
+                  return order ? buildFormalProductionOrderProcessSnapshots(order) : []
+                })
+            return prepareSyncProcessWorkOrdersAfterProductionOrderChanges(snapshots, {
+              changeRecordId: options.changeRecordId || `PRODUCTION-CHANGE:${preview.factsFingerprint}`,
+              recordedAt: options.processWorkOrderSyncRecordedAt,
+              beforeCommitPreparation: options.beforeProcessWorkOrderPreparationCommit,
+            })
+          } catch {
+            return null
+          }
+        })()
+    if (!failed && !preparedWorkOrderBatch) {
+      return createProductionChangeRolledBackResult(preview, lockObjectIds)
+    }
     persistenceStarted = true
-    return options.persist?.(result) ?? result
+    const persistedResult = options.persist?.(result) ?? result
+    if (persistedResult.status !== 'DONE') return persistedResult
+    persistedDone = true
+    preparedWorkOrderBatch?.commit()
+    return persistedResult
   } catch {
+    preparedWorkOrderBatch?.rollback()
     const rolledBackResult = createProductionChangeRolledBackResult(preview, lockObjectIds)
+    if (persistedDone) {
+      try {
+        return options.persist?.(rolledBackResult) ?? rolledBackResult
+      } catch {
+        return rolledBackResult
+      }
+    }
     if (!persistenceStarted) {
       persistenceStarted = true
       options.persist?.(rolledBackResult)

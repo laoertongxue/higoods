@@ -7,6 +7,7 @@ import {
 import {
   awardRuntimeTaskTender,
   captureRuntimeDirectDispatchState,
+  evaluateRuntimeTenderAwardDispatchPolicy,
   getRuntimeTaskById,
   listRuntimeProcessTasks,
   prepareRuntimeTaskTenderAward,
@@ -289,6 +290,8 @@ interface TendersPageState {
   viewTenderId: string | null
   viewAwardFactoryId: string
   viewAwardReason: string
+  viewAwardRiskConfirmedByFactoryId: Record<string, boolean>
+  viewAwardSupervisorAssignedByFactoryId: Record<string, boolean>
 }
 
 const state: TendersPageState = {
@@ -302,6 +305,8 @@ const state: TendersPageState = {
   viewTenderId: null,
   viewAwardFactoryId: '',
   viewAwardReason: '',
+  viewAwardRiskConfirmedByFactoryId: {},
+  viewAwardSupervisorAssignedByFactoryId: {},
 }
 
 function genTenderId(): string {
@@ -563,12 +568,16 @@ function openViewDrawer(tenderId: string, now = formatOperationLocalWallClock())
   state.viewTenderId = tenderId
   state.viewAwardFactoryId = award?.awardedFactoryId ?? ''
   state.viewAwardReason = award?.awardReason ?? ''
+  state.viewAwardRiskConfirmedByFactoryId = {}
+  state.viewAwardSupervisorAssignedByFactoryId = {}
 }
 
 function closeViewDrawer(): void {
   state.viewTenderId = null
   state.viewAwardFactoryId = ''
   state.viewAwardReason = ''
+  state.viewAwardRiskConfirmedByFactoryId = {}
+  state.viewAwardSupervisorAssignedByFactoryId = {}
 }
 
 function closeDialogs(): void {
@@ -641,6 +650,54 @@ export function awardRuntimeTenderTasks(input: RuntimeTenderBatchAwardInput): {
   }
 }
 
+function getTenderAwardPolicyDecision(
+  tender: TenderRow,
+  quote: FactoryQuoteEntry,
+  now = formatOperationLocalWallClock(),
+) {
+  if (!quote.hasQuoted || quote.quotePrice == null) return null
+  const taskIds = tender.taskIds?.length ? tender.taskIds : [tender.taskId]
+  const decisions = taskIds
+    .map((taskId) => evaluateRuntimeTenderAwardDispatchPolicy({
+      taskId,
+      factoryId: quote.factoryId,
+      factoryName: quote.factoryName,
+      awardedAt: now,
+      awardedPrice: quote.quotePrice as number,
+      by: '平台定标员',
+      riskConfirmed: state.viewAwardRiskConfirmedByFactoryId[quote.factoryId] === true,
+      supervisorAssigned: state.viewAwardSupervisorAssignedByFactoryId[quote.factoryId] === true,
+    }))
+    .filter((decision): decision is NonNullable<typeof decision> => decision !== null)
+  return decisions.find((decision) => decision.severity === 'BLOCK') ??
+    decisions.find((decision) => decision.requiresConfirm) ??
+    decisions[0] ??
+    null
+}
+
+function getTenderAwardPolicyTone(severity: 'ALLOW' | 'WARN' | 'BLOCK'): string {
+  if (severity === 'BLOCK') return 'border-red-200 bg-red-50 text-red-700'
+  if (severity === 'WARN') return 'border-amber-200 bg-amber-50 text-amber-800'
+  return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+}
+
+function renderTenderAwardPolicyControls(tender: TenderRow, quote: FactoryQuoteEntry): string {
+  const decision = getTenderAwardPolicyDecision(tender, quote)
+  if (!decision) return ''
+  const riskConfirm = decision.requiresConfirm && decision.reason.includes('黄牌')
+    ? `<label class="mt-1 flex items-center gap-1.5 text-[11px]"><input type="checkbox" ${state.viewAwardRiskConfirmedByFactoryId[quote.factoryId] ? 'checked' : ''} data-tender-field="view.awardRiskConfirmed" data-factory-id="${escapeHtml(quote.factoryId)}" />已确认黄牌风险</label>`
+    : ''
+  const supervisorConfirm = decision.requiresConfirm && decision.reason.includes('主管指定')
+    ? `<label class="mt-1 flex items-center gap-1.5 text-[11px]"><input type="checkbox" ${state.viewAwardSupervisorAssignedByFactoryId[quote.factoryId] ? 'checked' : ''} data-tender-field="view.awardSupervisorAssigned" data-factory-id="${escapeHtml(quote.factoryId)}" />主管已指定定标</label>`
+    : ''
+  return `
+    <span class="mt-1 inline-flex flex-col rounded border px-2 py-1 text-[11px] ${getTenderAwardPolicyTone(decision.severity)}">
+      <span>${escapeHtml(decision.reason)}</span>
+      ${riskConfirm}${supervisorConfirm}
+    </span>
+  `
+}
+
 function confirmAwardInView(now = formatOperationLocalWallClock()): void {
   const tender = getViewTender(now)
   if (!tender) return
@@ -659,6 +716,11 @@ function confirmAwardInView(now = formatOperationLocalWallClock()): void {
   const priceOutOfRange =
     selectedQuote.quotePrice < tender.minPrice || selectedQuote.quotePrice > tender.maxPrice
   if (priceOutOfRange && state.viewAwardReason.trim() === '') return
+  const selectedPolicyDecision = getTenderAwardPolicyDecision(tender, selectedQuote, now)
+  if (selectedPolicyDecision && !selectedPolicyDecision.allowed) {
+    showTenderToast(selectedPolicyDecision.reason)
+    return
+  }
 
   const taskIds = tender.taskIds?.length ? tender.taskIds : [tender.taskId]
   const awardResult = awardRuntimeTenderTasks({
@@ -668,6 +730,8 @@ function confirmAwardInView(now = formatOperationLocalWallClock()): void {
     awardedAt: now,
     awardedPrice: selectedQuote.quotePrice,
     by: '平台定标员',
+    riskConfirmed: state.viewAwardRiskConfirmedByFactoryId[selectedQuote.factoryId] === true,
+    supervisorAssigned: state.viewAwardSupervisorAssignedByFactoryId[selectedQuote.factoryId] === true,
     allowLegacyLocalOnly: tender.processNameZh !== '车缝',
   })
   if (!awardResult.ok) {
@@ -707,11 +771,13 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
   const priceOutOfRange =
     selectedPrice != null && (selectedPrice < tender.minPrice || selectedPrice > tender.maxPrice)
   const needReason = priceOutOfRange
+  const selectedPolicyDecision = selectedQuote ? getTenderAwardPolicyDecision(tender, selectedQuote) : null
   const canConfirm =
     effectiveStatus === 'AWAIT_AWARD' &&
     state.viewAwardFactoryId !== '' &&
     selectedPrice != null &&
-    (!needReason || state.viewAwardReason.trim() !== '')
+    (!needReason || state.viewAwardReason.trim() !== '') &&
+    selectedPolicyDecision?.allowed !== false
 
   const avgPrice =
     quotedCount > 0
@@ -964,7 +1030,7 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
                                     const isLow = (quote.quotePrice as number) < tender.minPrice
 
                                     return `
-                                      <button class="flex w-full items-start gap-2.5 px-3 py-2.5 text-left hover:bg-muted/30 ${isSelected ? 'bg-blue-50' : ''}" data-tender-action="select-award-factory" data-factory-id="${escapeHtml(quote.factoryId)}">
+                                      <div class="flex w-full cursor-pointer items-start gap-2.5 px-3 py-2.5 text-left hover:bg-muted/30 ${isSelected ? 'bg-blue-50' : ''}" data-tender-action="select-award-factory" data-factory-id="${escapeHtml(quote.factoryId)}">
                                         <span class="mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border ${isSelected ? 'border-blue-600' : 'border-muted-foreground/40'}">
                                           <span class="h-2 w-2 rounded-full ${isSelected ? 'bg-blue-600' : 'bg-transparent'}"></span>
                                         </span>
@@ -991,8 +1057,9 @@ function renderViewTenderSheet(tender: TenderRow | null): string {
                                                 : ''
                                             }
                                           </span>
+                                          ${renderTenderAwardPolicyControls(tender, quote)}
                                         </span>
-                                      </button>
+                                      </div>
                                     `
                                   })
                                   .join('')
@@ -1461,6 +1528,14 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement |
 
   if (field === 'view.awardReason') {
     state.viewAwardReason = node.value
+  }
+  if (field === 'view.awardRiskConfirmed' && node instanceof HTMLInputElement) {
+    const factoryId = node.dataset.factoryId
+    if (factoryId) state.viewAwardRiskConfirmedByFactoryId[factoryId] = node.checked
+  }
+  if (field === 'view.awardSupervisorAssigned' && node instanceof HTMLInputElement) {
+    const factoryId = node.dataset.factoryId
+    if (factoryId) state.viewAwardSupervisorAssignedByFactoryId[factoryId] = node.checked
   }
 }
 
