@@ -128,6 +128,12 @@ assert.ok(
   ),
   '必须有未完成试产考核记录用于验证重复派单阻断',
 )
+for (const status of ['WAIT_TRIAL_DISPATCH', 'TRIAL_DISPATCHED', 'WAIT_QC']) {
+  assert.ok(
+    trialAssessmentRecords.some((item) => item.status === status),
+    `必须有 ${status} 未完成试产样例用于验证页面和派单拦截`,
+  )
+}
 const waitingTrialDispatchRecord = trialAssessmentRecords.find((item) => item.status === 'WAIT_TRIAL_DISPATCH')
 assert.ok(
   waitingTrialDispatchRecord && hasOpenThirdPartyFactoryTrialAssessment(waitingTrialDispatchRecord.factoryId),
@@ -878,6 +884,7 @@ assert.ok(ratingPageSource.includes('latestTrialAutoDecision'), '三方工厂评
 assert.ok(ratingPageSource.includes('trialSummary'), '三方工厂评级页必须有试产单情况列')
 assert.ok(ratingPageSource.includes('isOpenTrialAssessment'), '三方工厂评级列表必须复用未完成试产状态判断')
 assert.ok(ratingPageSource.includes('getTrialAssessmentSortDefectRate'), '三方工厂评级试产结论排序必须把未完成试产作为空值处理')
+assert.ok(ratingPageSource.includes('sortValue: (row) => getTrialAssessmentSortDefectRate(row)'), '三方工厂评级试产结论列排序必须使用未质检空值排序 helper')
 assert.ok(ratingPageSource.includes('试产轮次'), '三方工厂评级列表必须展示试产轮次')
 assert.ok(ratingPageSource.includes('不良率'), '三方工厂评级列表必须展示不良率')
 assert.ok(ratingPageSource.includes("fcs.third-party-factory-rating.columns.v2"), '三方工厂评级新增列后必须升级列偏好版本，避免旧偏好隐藏试产列')
@@ -886,7 +893,46 @@ for (const requiredText of ['试产单情况', '试产结论', '试产轮次', '
   assert.ok(ratingPageHtml.includes(requiredText), `三方工厂评级列表渲染结果必须展示 ${requiredText}`)
 }
 assert.ok(ratingPageHtml.includes('待质检') || ratingPageHtml.includes('待派出'), '三方工厂评级列表必须区分未完成试产状态，不能显示为已完成质量结论')
-assert.ok(!ratingPageHtml.includes('WAIT_QC') && !ratingPageHtml.includes('TRIAL_DISPATCHED'), '三方工厂评级列表不得直接展示英文试产状态码')
+assert.ok(
+  !ratingPageHtml.includes('WAIT_QC') &&
+    !ratingPageHtml.includes('TRIAL_DISPATCHED') &&
+    !ratingPageHtml.includes('WAIT_TRIAL_DISPATCH'),
+  '三方工厂评级列表不得直接展示英文试产状态码',
+)
+
+function renderRatingPageWithSearch(search: string): string {
+  const target = globalThis as typeof globalThis & {
+    window?: { location: { search: string }; localStorage?: Storage }
+  }
+  const previousWindow = target.window
+  target.window = {
+    ...(previousWindow ?? {}),
+    location: { search },
+  }
+  try {
+    return renderThirdPartyFactoryRatingPage()
+  } finally {
+    if (previousWindow) {
+      target.window = previousWindow
+    } else {
+      delete target.window
+    }
+  }
+}
+
+for (const expectation of [
+  { status: 'WAIT_TRIAL_DISPATCH', label: '待派出' },
+  { status: 'TRIAL_DISPATCHED', label: '未交出' },
+  { status: 'WAIT_QC', label: '待质检' },
+]) {
+  const record = trialAssessmentRecords.find((item) => item.status === expectation.status)
+  assert.ok(record, `${expectation.status} 必须有试产记录`)
+  const html = renderRatingPageWithSearch(`?keyword=${encodeURIComponent(record.factoryCode)}`)
+  assert.ok(html.includes(expectation.label), `${record.factoryCode} ${expectation.status} 必须渲染为中文状态 ${expectation.label}`)
+  assert.ok(html.includes('不良率 未质检'), `${record.factoryCode} ${expectation.status} 不得显示为已质检不良率`)
+  assert.ok(!html.includes('0.0%'), `${record.factoryCode} ${expectation.status} 未质检状态不得显示 0.0% 不良率`)
+  assert.ok(!html.includes(expectation.status), `${record.factoryCode} ${expectation.status} 不得暴露英文状态码`)
+}
 assert.ok(ratingPageSource.includes('来源：工厂档案 / 产能资料'), '三方工厂评级页必须说明车位数来源于工厂档案/产能资料')
 assert.ok(ratingPageSource.includes('xl:grid-cols-[minmax(240px,1.6fr)_repeat(5,minmax(132px,1fr))_auto]'), '三方工厂评级筛选区桌面端必须保持单行布局')
 
