@@ -78,6 +78,15 @@ assert.ok(trialSnapshot, '缺少考核中工厂样例')
 assert.equal(trialSnapshot.dispatchControl, 'TRIAL_ONLY', '考核中工厂必须使用试产单派单规则')
 assert.deepEqual(trialSnapshot.allowedDocumentTypes, ['试产单'], '考核中工厂只允许试产单')
 assert.equal(trialSnapshot.canJoinBidding, true, '考核中工厂在试产额度内可以参与候选')
+
+const extendedTrialSnapshot = snapshots.find((item) => item.cooperationStatusLabel === '考核中' && item.assessmentDecision === '延长考核')
+assert.ok(extendedTrialSnapshot, '必须有延长考核期样例')
+assert.equal(extendedTrialSnapshot.dispatchControl, 'TRIAL_ONLY', '延长考核期仍必须使用试产单派单规则')
+assert.deepEqual(extendedTrialSnapshot.allowedDocumentTypes, ['试产单'], '延长考核期下一单仍只允许试产单')
+assert.equal(extendedTrialSnapshot.nextAllowedDocumentType, '试产单', '延长考核期下一单允许单据必须是试产单')
+assert.equal(extendedTrialSnapshot.nextTrialLimitQty, extendedTrialSnapshot.firstTrialLimitQty ?? 300, '延长考核期下一单上限必须沿用试产上限')
+assert.ok((extendedTrialSnapshot.assessmentRound ?? 0) >= 2, '延长考核期必须记录当前考核轮次')
+assert.ok(extendedTrialSnapshot.assessmentReason?.includes('延长'), '延长考核期必须记录延长原因')
 assert.equal(
   getThirdPartyFactoryDispatchPolicyLabel(trialSnapshot),
   `仅允许试产单，首单最多 ${trialSnapshot.firstTrialLimitQty ?? 300} 件，完成交出后再判断转正。`,
@@ -750,6 +759,12 @@ assert.ok(ratingPageSource.includes('replaceAll(closeActionAttr, `data-nav="${cl
 assert.ok(ratingPageSource.includes('getThirdPartyFactoryDispatchPolicyLabel'), '评级页派单策略必须由结构化规则派生')
 assert.ok(ratingPageSource.includes('getThirdPartyFactorySettlementPolicyLabel'), '评级页结算策略必须由结构化规则派生')
 assert.ok(!/\.(dispatchPolicyLabel|settlementPolicyLabel)\b/.test(ratingPageSource), '评级页不得直接展示自由文本派单/结算策略字段')
+assert.ok(ratingPageSource.includes('renderAssessmentDecisionDetail'), '评级详情必须展示考核结论区')
+assert.ok(ratingPageSource.includes('延长考核中'), '评级详情必须表达延长考核仍保持考核中')
+assert.ok(ratingPageSource.includes('assessmentDecision'), '评级详情必须读取考核结论字段')
+assert.ok(ratingPageSource.includes('assessmentRound'), '评级详情必须读取考核轮次字段')
+assert.ok(ratingPageSource.includes('nextAllowedDocumentType'), '评级详情必须读取下一单允许单据字段')
+assert.ok(ratingPageSource.includes('nextTrialLimitQty'), '评级详情必须读取延长考核下一单上限字段')
 
 const filterIndex = ratingPageSource.indexOf('data-third-party-rating-filters')
 const statsIndex = ratingPageSource.indexOf('data-third-party-rating-stats')

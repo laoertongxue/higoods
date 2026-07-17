@@ -13,6 +13,7 @@ export type DispatchControl =
   | 'BLOCKED'
 export type SettlementControl = 'ALLOW' | 'BLOCK_NEW_STATEMENT'
 export type FactoryRatingDocumentTypeLabel = '试产单' | '常规单'
+export type FactoryRatingAssessmentDecision = '转正' | '拉黑' | '延长考核'
 
 export interface DispatchPolicyInput {
   factoryId: string
@@ -64,6 +65,11 @@ export interface FactoryRatingSnapshot {
   canJoinBidding: boolean
   requiresDispatchRiskConfirm: boolean
   smallOrderLimitQty?: number
+  assessmentDecision?: FactoryRatingAssessmentDecision
+  assessmentRound?: number
+  assessmentReason?: string
+  nextAllowedDocumentType?: FactoryRatingDocumentTypeLabel
+  nextTrialLimitQty?: number | null
   sewingSeatSourceLabel?: '工厂档案 / 产能资料' | '评级快照'
 }
 
@@ -217,6 +223,11 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     allowedDocumentTypes: ['试产单'],
     canJoinBidding: true,
     requiresDispatchRiskConfirm: false,
+    assessmentDecision: '延长考核',
+    assessmentRound: 2,
+    assessmentReason: '首个试单质检可接受，但交出稳定性不足，延长到第二轮试产考核。',
+    nextAllowedDocumentType: '试产单',
+    nextTrialLimitQty: 300,
   },
   {
     factoryId: 'KOL-GOTO-001',
@@ -507,12 +518,14 @@ export function resolveThirdPartyFactorySewingSeatCount(
 function syncRatingSnapshotFromFactoryMaster(snapshot: FactoryRatingSnapshot): FactoryRatingSnapshot {
   const { seatCount, sourceLabel } = resolveThirdPartyFactorySewingSeatCount(snapshot.factoryId, snapshot.sewingSeatCount)
   const scaleLabel: FactoryScaleLabel = seatCount >= 30 ? '大型工厂' : '小型工厂'
+  const firstTrialLimitQty = scaleLabel === '大型工厂' ? 1000 : 300
   return {
     ...snapshot,
     sewingSeatCount: seatCount,
     sewingSeatSourceLabel: sourceLabel,
     scaleLabel,
-    firstTrialLimitQty: scaleLabel === '大型工厂' ? 1000 : 300,
+    firstTrialLimitQty,
+    nextTrialLimitQty: snapshot.assessmentDecision === '延长考核' ? firstTrialLimitQty : snapshot.nextTrialLimitQty,
   }
 }
 

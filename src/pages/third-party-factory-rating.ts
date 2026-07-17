@@ -446,6 +446,34 @@ function renderRatingScoreDetail(snapshot: FactoryRatingSnapshot): string {
   `
 }
 
+function renderAssessmentDecisionDetail(snapshot: FactoryRatingSnapshot): string {
+  if (!snapshot.assessmentDecision) return ''
+  const statusLabel = snapshot.assessmentDecision === '延长考核' ? '延长考核中' : snapshot.assessmentDecision
+  const nextAllowedDocumentType = snapshot.nextAllowedDocumentType ?? '试产单'
+  const nextTrialLimitQty = snapshot.nextTrialLimitQty ?? snapshot.firstTrialLimitQty ?? 300
+  const items = [
+    ['考核结论', statusLabel],
+    ['考核轮次', snapshot.assessmentRound ? `第 ${snapshot.assessmentRound} 轮` : '未记录'],
+    ['下一单允许单据', nextAllowedDocumentType],
+    ['下一单上限', `${nextTrialLimitQty} 件`],
+  ]
+
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <h3 class="font-semibold">考核结论</h3>
+      <div class="mt-3 grid gap-3 sm:grid-cols-4">
+        ${items.map(([label, value]) => `
+          <div class="rounded-md border bg-background p-3">
+            <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
+            <div class="mt-1 text-sm font-medium">${escapeHtml(value)}</div>
+          </div>
+        `).join('')}
+      </div>
+      <p class="mt-3 text-sm text-muted-foreground">${escapeHtml(snapshot.assessmentReason || '暂无考核原因')}</p>
+    </section>
+  `
+}
+
 function renderStrategyDetail(snapshot: FactoryRatingSnapshot): string {
   const dispatchPolicyLabel = getThirdPartyFactoryDispatchPolicyLabel(snapshot)
   const settlementPolicyLabel = getThirdPartyFactorySettlementPolicyLabel(snapshot)
@@ -563,6 +591,7 @@ function renderRatingDrawer(snapshot: RatingRow | undefined, query: RatingQuery)
         </header>
         <div class="space-y-4">
           ${renderRatingScoreDetail(snapshot)}
+          ${renderAssessmentDecisionDetail(snapshot)}
           ${renderStrategyDetail(snapshot)}
           ${renderTimingDetail(snapshot)}
           ${renderPerformanceRecords(records)}
