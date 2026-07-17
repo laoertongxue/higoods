@@ -883,6 +883,7 @@ const ratingPageHtml = renderThirdPartyFactoryRatingPage()
 for (const requiredText of ['试产单情况', '试产结论', '试产轮次', '不良率', '系统建议', '人工结论', '查看评级']) {
   assert.ok(ratingPageHtml.includes(requiredText), `三方工厂评级列表渲染结果必须展示 ${requiredText}`)
 }
+assert.ok(ratingPageHtml.includes('待质检') || ratingPageHtml.includes('待派出'), '三方工厂评级列表必须区分未完成试产状态，不能显示为已完成质量结论')
 assert.ok(!ratingPageHtml.includes('WAIT_QC') && !ratingPageHtml.includes('TRIAL_DISPATCHED'), '三方工厂评级列表不得直接展示英文试产状态码')
 assert.ok(ratingPageSource.includes('来源：工厂档案 / 产能资料'), '三方工厂评级页必须说明车位数来源于工厂档案/产能资料')
 assert.ok(ratingPageSource.includes('xl:grid-cols-[minmax(240px,1.6fr)_repeat(5,minmax(132px,1fr))_auto]'), '三方工厂评级筛选区桌面端必须保持单行布局')

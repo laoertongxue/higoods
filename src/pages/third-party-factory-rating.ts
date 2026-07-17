@@ -310,24 +310,41 @@ function formatPercent(value: number | undefined): string {
   return `${(value * 100).toFixed(1)}%`
 }
 
+function formatTrialTiming(row: FactoryRatingSnapshot): string {
+  if (row.latestTrialAssessmentStatus === 'WAIT_TRIAL_DISPATCH') return '待派出'
+  if (row.latestTrialAssessmentStatus === 'TRIAL_DISPATCHED') return '未交出'
+  if (row.latestTrialAssessmentStatus === 'WAIT_QC') return '待质检'
+  if (typeof row.latestTrialDelayDays !== 'number') return '未交出'
+  return row.latestTrialDelayDays > 0 ? `延期 ${row.latestTrialDelayDays} 天` : '准时'
+}
+
+function formatTrialDefectRate(row: FactoryRatingSnapshot): string {
+  if (
+    row.latestTrialAssessmentStatus === 'WAIT_TRIAL_DISPATCH' ||
+    row.latestTrialAssessmentStatus === 'TRIAL_DISPATCHED' ||
+    row.latestTrialAssessmentStatus === 'WAIT_QC'
+  ) {
+    return '未质检'
+  }
+  return formatPercent(row.latestTrialDefectRate)
+}
+
 function renderTrialSummary(row: FactoryRatingSnapshot): string {
   const roundText = row.assessmentRound ? `第 ${row.assessmentRound} 轮` : '未开始'
   const orderText = row.latestTrialOrderNo ?? '等待试产单'
-  const delayText = typeof row.latestTrialDelayDays === 'number'
-    ? row.latestTrialDelayDays > 0 ? `延期 ${row.latestTrialDelayDays} 天` : '准时'
-    : '未交出'
+  const delayText = formatTrialTiming(row)
   return `
     <div class="space-y-1">
       <div class="font-medium">试产轮次：${escapeHtml(roundText)} / ${escapeHtml(orderText)}</div>
       <div class="text-xs text-muted-foreground">生产单号：${escapeHtml(row.latestTrialProductionOrderNo ?? '未关联生产单')}</div>
-      <div class="text-xs text-muted-foreground">完成时效：${escapeHtml(delayText)}，不良率 ${escapeHtml(formatPercent(row.latestTrialDefectRate))}</div>
+      <div class="text-xs text-muted-foreground">完成时效：${escapeHtml(delayText)}，不良率 ${escapeHtml(formatTrialDefectRate(row))}</div>
     </div>
   `
 }
 
 function renderAssessmentResult(row: FactoryRatingSnapshot): string {
   const autoDecision = row.latestTrialAutoDecision ?? '未评级'
-  const manualDecision = row.latestTrialManualDecision ?? row.assessmentDecision ?? '未确认'
+  const manualDecision = row.latestTrialManualDecision ?? '未确认'
   return `
     <div class="space-y-1">
       <div class="text-sm">系统建议：${escapeHtml(autoDecision)}</div>
