@@ -1,5 +1,10 @@
 import { getFactoryCapacityProfileByFactoryId } from './factory-capacity-profile-mock.ts'
 import { listFactoryMasterRecords } from './factory-master-store.ts'
+import {
+  getLatestEffectiveThirdPartyFactoryTrialAssessmentRecord,
+  getLatestThirdPartyFactoryTrialAssessmentRecord,
+  hasOpenThirdPartyFactoryTrialAssessment,
+} from './third-party-factory-trial-assessment.ts'
 
 export type FactoryRatingGrade = 'S' | 'A' | 'B' | 'C'
 export type FactoryScaleLabel = '大型工厂' | '小型工厂'
@@ -71,6 +76,18 @@ export interface FactoryRatingSnapshot {
   nextAllowedDocumentType?: FactoryRatingDocumentTypeLabel
   nextTrialLimitQty?: number | null
   sewingSeatSourceLabel?: '工厂档案 / 产能资料' | '评级快照'
+  latestTrialAssessmentId?: string
+  latestTrialAssessmentStatus?: string
+  latestTrialOrderNo?: string
+  latestTrialProductionOrderNo?: string
+  latestTrialDispatchQty?: number
+  latestTrialDelayDays?: number
+  latestTrialQcOrderNo?: string
+  latestTrialDefectiveQty?: number
+  latestTrialDefectRate?: number
+  latestTrialAutoDecision?: FactoryRatingAssessmentDecision | null
+  latestTrialManualDecision?: FactoryRatingAssessmentDecision | null
+  hasOpenTrialAssessment?: boolean
 }
 
 export interface FactoryRatingPerformanceRecord {
@@ -519,13 +536,79 @@ function syncRatingSnapshotFromFactoryMaster(snapshot: FactoryRatingSnapshot): F
   const { seatCount, sourceLabel } = resolveThirdPartyFactorySewingSeatCount(snapshot.factoryId, snapshot.sewingSeatCount)
   const scaleLabel: FactoryScaleLabel = seatCount >= 30 ? '大型工厂' : '小型工厂'
   const firstTrialLimitQty = scaleLabel === '大型工厂' ? 1000 : 300
-  return {
+  const latestTrial = getLatestThirdPartyFactoryTrialAssessmentRecord(snapshot.factoryId)
+  const latestEffectiveTrial = getLatestEffectiveThirdPartyFactoryTrialAssessmentRecord(snapshot.factoryId)
+  const effectiveDecision = latestEffectiveTrial?.effectiveDecision ?? snapshot.assessmentDecision
+  const currentGrade = latestEffectiveTrial?.autoRatingGrade ?? snapshot.currentGrade
+
+  let cooperationStatusLabel = snapshot.cooperationStatusLabel
+  let dispatchControl = snapshot.dispatchControl
+  let settlementControl = snapshot.settlementControl
+
+  if (effectiveDecision === '拉黑') {
+    cooperationStatusLabel = '黑名单'
+    dispatchControl = 'BLOCKED'
+    settlementControl = 'BLOCK_NEW_STATEMENT'
+  } else if (effectiveDecision === '延长考核') {
+    cooperationStatusLabel = '考核中'
+    dispatchControl = 'TRIAL_ONLY'
+    settlementControl = 'ALLOW'
+  } else if (effectiveDecision === '转正') {
+    cooperationStatusLabel = '正常合作'
+    settlementControl = 'ALLOW'
+    dispatchControl =
+      snapshot.dispatchControl === 'SUPERVISOR_DIRECT_ONLY' || snapshot.dispatchControl === 'WARN_CONFIRM'
+        ? snapshot.dispatchControl
+        : latestEffectiveTrial?.autoRatingGrade === 'S'
+          ? 'PRIORITY'
+          : 'ALLOW'
+  }
+
+  const allowedDocumentTypes: FactoryRatingDocumentTypeLabel[] =
+    dispatchControl === 'BLOCKED'
+      ? []
+      : dispatchControl === 'TRIAL_ONLY'
+        ? ['试产单']
+        : ['试产单', '常规单']
+  const canJoinBidding =
+    dispatchControl === 'BLOCKED' || dispatchControl === 'SUPERVISOR_DIRECT_ONLY'
+      ? false
+      : snapshot.canJoinBidding
+
+  const syncedSnapshot: FactoryRatingSnapshot = {
     ...snapshot,
     sewingSeatCount: seatCount,
     sewingSeatSourceLabel: sourceLabel,
     scaleLabel,
+    cooperationStatusLabel,
+    currentGrade,
     firstTrialLimitQty,
-    nextTrialLimitQty: snapshot.assessmentDecision === '延长考核' ? firstTrialLimitQty : snapshot.nextTrialLimitQty,
+    settlementBlocked: settlementControl === 'BLOCK_NEW_STATEMENT',
+    dispatchControl,
+    settlementControl,
+    allowedDocumentTypes,
+    canJoinBidding,
+    assessmentDecision: effectiveDecision ?? snapshot.assessmentDecision,
+    assessmentRound: latestTrial?.assessmentRound ?? snapshot.assessmentRound,
+    nextAllowedDocumentType: effectiveDecision === '延长考核' ? '试产单' : snapshot.nextAllowedDocumentType,
+    nextTrialLimitQty: effectiveDecision === '延长考核' ? firstTrialLimitQty : snapshot.nextTrialLimitQty,
+    latestTrialAssessmentId: latestTrial?.assessmentId,
+    latestTrialAssessmentStatus: latestTrial?.status,
+    latestTrialOrderNo: latestTrial?.trialOrderNo,
+    latestTrialProductionOrderNo: latestTrial?.productionOrderNo,
+    latestTrialDispatchQty: latestTrial?.dispatchQty,
+    latestTrialDelayDays: latestTrial?.delayDays,
+    latestTrialQcOrderNo: latestTrial?.qcOrderNo,
+    latestTrialDefectiveQty: latestTrial?.defectiveQty,
+    latestTrialDefectRate: latestTrial?.defectRate,
+    latestTrialAutoDecision: latestTrial?.autoRatingDecision,
+    latestTrialManualDecision: latestTrial?.manualDecision,
+    hasOpenTrialAssessment: hasOpenThirdPartyFactoryTrialAssessment(snapshot.factoryId),
+  }
+  return {
+    ...syncedSnapshot,
+    dispatchPolicyLabel: getThirdPartyFactoryDispatchPolicyLabel(syncedSnapshot),
+    settlementPolicyLabel: getThirdPartyFactorySettlementPolicyLabel(syncedSnapshot),
   }
 }
 

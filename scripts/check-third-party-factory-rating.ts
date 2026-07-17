@@ -89,6 +89,15 @@ for (const snapshot of snapshots) {
   assert.ok(getLatestThirdPartyFactoryTrialAssessmentRecord(snapshot.factoryId), `${snapshot.factoryId} 必须能读取最新试产考核记录`)
 }
 
+for (const snapshot of snapshots) {
+  const latestRecord = getLatestThirdPartyFactoryTrialAssessmentRecord(snapshot.factoryId)
+  assert.ok(latestRecord, `${snapshot.factoryId} 评级快照必须能关联最新试产考核记录`)
+  assert.equal(snapshot.assessmentRound, latestRecord.assessmentRound, `${snapshot.factoryId} 当前考核轮次必须读取最新试产记录`)
+  assert.equal(snapshot.latestTrialOrderNo, latestRecord.trialOrderNo, `${snapshot.factoryId} 快照必须展示最新试产单号`)
+  assert.equal(snapshot.latestTrialProductionOrderNo, latestRecord.productionOrderNo, `${snapshot.factoryId} 快照必须展示最新试产生产单`)
+  assert.equal(snapshot.latestTrialDefectRate, latestRecord.defectRate, `${snapshot.factoryId} 快照必须展示最新试产不良率`)
+}
+
 for (const record of trialAssessmentRecords) {
   for (const item of record.factoryLiabilityDefectReasonItems) {
     assert.ok(
@@ -167,6 +176,13 @@ assert.equal(extendedTrialSnapshot.nextAllowedDocumentType, '试产单', '延长
 assert.equal(extendedTrialSnapshot.nextTrialLimitQty, extendedTrialSnapshot.firstTrialLimitQty ?? 300, '延长考核期下一单上限必须沿用试产上限')
 assert.ok((extendedTrialSnapshot.assessmentRound ?? 0) >= 2, '延长考核期必须记录当前考核轮次')
 assert.ok(extendedTrialSnapshot.assessmentReason?.includes('延长'), '延长考核期必须记录延长原因')
+
+const extendedLatest = snapshots.find((item) => item.assessmentDecision === '延长考核')
+assert.ok(extendedLatest, '必须有延长考核快照')
+assert.equal(extendedLatest.cooperationStatusLabel, '考核中', '延长考核快照必须保持考核中')
+assert.equal(extendedLatest.dispatchControl, 'TRIAL_ONLY', '延长考核快照必须保持试产派单控制')
+assert.equal(extendedLatest.settlementControl, 'ALLOW', '延长考核快照不能做黑名单结算拦截')
+
 assert.equal(
   getThirdPartyFactoryDispatchPolicyLabel(trialSnapshot),
   `仅允许试产单，首单最多 ${trialSnapshot.firstTrialLimitQty ?? 300} 件，完成交出后再判断转正。`,
@@ -224,8 +240,8 @@ const blacklistedSettlementDecision = evaluateThirdPartyFactorySettlementPolicy(
 assert.equal(blacklistedSettlementDecision.allowedToCreateNewStatement, false, '黑名单工厂结算评估必须阻断新建')
 assert.equal(blacklistedSettlementDecision.historyReadable, true, '黑名单工厂历史账本必须可读')
 
-const bGrade = snapshots.find((item) => item.currentGrade === 'B')
-assert.ok(bGrade, '缺少 B 级工厂')
+const bGrade = snapshots.find((item) => item.currentGrade === 'B' && item.dispatchControl === 'WARN_CONFIRM')
+assert.ok(bGrade, '缺少 B 级黄牌确认工厂')
 assert.equal(isThirdPartyFactorySettlementBlocked(bGrade.factoryId), false, 'B 级工厂不能禁止结算')
 assert.ok(getThirdPartyFactoryDispatchPolicyLabel(bGrade).includes('小单'), 'B 级工厂必须提示小单、简单单')
 
@@ -793,6 +809,10 @@ assert.ok(source.includes('近 90 天仅用于生产时效查看'), '缺少 90 �
 assert.ok(source.includes('resolveThirdPartyFactorySewingSeatCount'), '评级快照必须从工厂主档/产能资料解析车缝车位数')
 assert.ok(source.includes('getThirdPartyFactoryDispatchPolicyLabel'), '评级数据必须提供结构化派单策略文案生成函数')
 assert.ok(source.includes('getThirdPartyFactorySettlementPolicyLabel'), '评级数据必须提供结构化结算策略文案生成函数')
+assert.ok(source.includes('getLatestThirdPartyFactoryTrialAssessmentRecord'), '评级快照必须读取最新试产考核记录')
+assert.ok(source.includes('getLatestEffectiveThirdPartyFactoryTrialAssessmentRecord'), '评级快照必须读取最新已生效试产考核记录')
+assert.ok(source.includes('hasOpenThirdPartyFactoryTrialAssessment'), '评级快照必须读取未完成试产考核状态')
+assert.ok(source.includes('latestTrialOrderNo'), '评级快照必须提供最新试产单摘要字段')
 assert.ok(
   !source.includes("cooperationStatusLabel: 'TRIAL'") && !source.includes("cooperationStatusLabel: 'BLACKLISTED'"),
   '页面数据不应直接暴露英文合作状态码',
