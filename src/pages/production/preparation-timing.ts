@@ -527,6 +527,7 @@ function renderPreparationMultiSelect(config: {
     actionAttr: 'data-prep-filter-checkbox',
     skipPageRerender: true,
     inputName: config.field,
+    panelClass: 'relative mt-1 min-w-44 space-y-1 rounded-md border bg-popover p-2 shadow-md',
     containerAttributes: { 'data-prep-filter-group': config.field },
     summaryAttributes: {
       'data-prep-filter-summary': config.field,
@@ -601,8 +602,8 @@ function renderLedgerFilter(params: URLSearchParams, month: string): string {
           <span class="text-muted-foreground">关键词</span>
           <input name="keyword" value="${escapeHtml(valueOf(params, 'keyword'))}" placeholder="商品 / 生产单 / 准备项 / 跟单" class="h-9 rounded-md border bg-background px-3" />
         </label>
-        <button type="button" class="inline-flex h-9 shrink-0 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-prep-filter-scope]" data-nav-base="${PAGE_PATH}">筛选</button>
-        <button type="button" class="inline-flex h-9 shrink-0 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${PAGE_PATH}?tab=ledger&month=${escapeHtml(DEFAULT_MONTH)}&startDate=${escapeHtml(startDateOfMonth(DEFAULT_MONTH))}&endDate=${escapeHtml(endDateOfMonth(DEFAULT_MONTH))}">重置</button>
+        <button type="button" class="relative z-50 inline-flex h-9 shrink-0 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-prep-filter-scope]" data-nav-base="${PAGE_PATH}">筛选</button>
+        <button type="button" class="relative z-50 inline-flex h-9 shrink-0 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${PAGE_PATH}?tab=ledger&month=${escapeHtml(DEFAULT_MONTH)}&startDate=${escapeHtml(startDateOfMonth(DEFAULT_MONTH))}&endDate=${escapeHtml(endDateOfMonth(DEFAULT_MONTH))}">重置</button>
       </div>
     </section>
   `
@@ -1896,8 +1897,8 @@ function renderStatsFilter(params: URLSearchParams, month: string, activeTab: 'm
           <span class="text-muted-foreground">关键词</span>
           <input name="keyword" value="${escapeHtml(valueOf(params, 'keyword'))}" placeholder="商品 / 生产单 / 准备项 / 跟单" class="h-9 rounded-md border bg-background px-3" />
         </label>
-        <button type="button" class="inline-flex h-9 shrink-0 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-prep-stats-filter-scope]" data-nav-base="${STATS_PAGE_PATH}">筛选</button>
-        <button type="button" class="inline-flex h-9 shrink-0 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${STATS_PAGE_PATH}?tab=${escapeHtml(activeTab)}&month=${escapeHtml(DEFAULT_MONTH)}">重置</button>
+        <button type="button" class="relative z-50 inline-flex h-9 shrink-0 items-center rounded-md bg-blue-600 px-4 text-sm text-white hover:bg-blue-700" data-nav-from-fields="[data-prep-stats-filter-scope]" data-nav-base="${STATS_PAGE_PATH}">筛选</button>
+        <button type="button" class="relative z-50 inline-flex h-9 shrink-0 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${STATS_PAGE_PATH}?tab=${escapeHtml(activeTab)}&month=${escapeHtml(DEFAULT_MONTH)}">重置</button>
       </div>
     </section>
   `

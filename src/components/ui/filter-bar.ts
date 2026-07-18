@@ -79,11 +79,13 @@ export function renderMultiSelectFilter(config: {
   summaryAttributes?: HtmlAttributes
   inputAttributes?: HtmlAttributes
   optionAttributes?: (option: string) => HtmlAttributes
+  panelClass?: string
 }): string {
   const selected = new Set(config.selectedValues)
   const selectedCount = selected.size ? `（${selected.size}）` : ''
   const containerAttributes = renderHtmlAttributes(config.containerAttributes)
   const summaryAttributes = renderHtmlAttributes(config.summaryAttributes)
+  const panelClass = config.panelClass ?? 'absolute z-40 mt-1 min-w-44 space-y-1 rounded-md border bg-popover p-2 shadow-md'
 
   return `
     <details ${containerAttributes}class="relative">
@@ -91,7 +93,7 @@ export function renderMultiSelectFilter(config: {
         <span>${escapeHtml(config.label)}${selectedCount}</span>
         <i data-lucide="chevron-down" class="h-4 w-4 text-muted-foreground"></i>
       </summary>
-      <div class="absolute z-40 mt-1 min-w-44 space-y-1 rounded-md border bg-popover p-2 shadow-md">
+      <div class="${panelClass}">
         ${config.options
           .map((option) => {
             const optionAttributes = renderHtmlAttributes(config.optionAttributes?.(option))

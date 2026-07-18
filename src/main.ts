@@ -1355,6 +1355,9 @@ function buildNavigationFromFields(node: HTMLElement): string | null {
     const value = field.value.trim()
     if (value) params.set(field.name, value)
   })
+  scope.querySelectorAll<HTMLDetailsElement>('details[open]').forEach((details) => {
+    details.open = false
+  })
   if (node.dataset.navResetPage !== 'false') params.set('page', '1')
 
   const base = node.dataset.navBase || window.location.pathname
