@@ -118,6 +118,23 @@ function toIdSegment(value: string): string {
   return value.replace(/[^A-Za-z0-9_-]/g, '_')
 }
 
+function toStableNumericToken(value: string, size: number): string {
+  let hash = 2166136261
+  for (const character of value) {
+    hash ^= character.charCodeAt(0)
+    hash = Math.imul(hash, 16777619) >>> 0
+  }
+  return String(hash).padStart(size, '0').slice(-size)
+}
+
+function buildWaterOrderNo(productionOrderNo: string, productionOrderId: string, materialSequence: number): string {
+  const matched = productionOrderNo.trim().match(/^PO-(\d{6})-(\d+)$/i)
+  const productionToken = matched
+    ? `${matched[1]}${matched[2].padStart(3, '0').slice(-3)}`
+    : toStableNumericToken(`${productionOrderNo}::${productionOrderId}`, 9)
+  return `SRJG-${productionToken}-${String(materialSequence).padStart(3, '0')}`
+}
+
 type MaterialWaterSolubleTaskArtifact = GeneratedTaskArtifact & Required<Pick<GeneratedTaskArtifact,
   'bomItemId' | 'materialCode' | 'materialName' | 'plannedQty' | 'plannedUnit' | 'linkedBomItemIds'
 >>
@@ -137,22 +154,24 @@ function isMaterialWaterSolubleTaskArtifact(artifact: GeneratedTaskArtifact): ar
     && artifact.linkedBomItemIds[0] === artifact.bomItemId
 }
 
-function buildOrderFromArtifact(artifact: MaterialWaterSolubleTaskArtifact): WaterSolubleWorkOrder {
+function buildOrderFromArtifact(artifact: MaterialWaterSolubleTaskArtifact, materialSequence: number): WaterSolubleWorkOrder {
   const productionOrder = productionOrders.find((item) => item.productionOrderId === artifact.orderId)
+  const productionOrderNo = productionOrder?.productionOrderNo ?? artifact.orderId
   const bomItemId = artifact.bomItemId
   const generationKey = `${artifact.artifactId}::${bomItemId}`
   const idSegment = toIdSegment(generationKey)
   const taskId = `TASK-WATER-${idSegment}`
+  const waterOrderNo = buildWaterOrderNo(productionOrderNo, artifact.orderId, materialSequence)
 
   return {
     waterOrderId: `WATER-${idSegment}`,
-    waterOrderNo: `水溶单-${idSegment}`,
+    waterOrderNo,
     generationKey,
     sourceArtifactId: artifact.artifactId,
     sourceDemandIds: [],
     processCode: 'WATER_SOLUBLE',
     productionOrderId: artifact.orderId,
-    productionOrderNo: productionOrder?.productionOrderNo ?? artifact.orderId,
+    productionOrderNo,
     techPackVersionId: artifact.techPackId,
     bomItemId,
     materialCode: artifact.materialCode,
@@ -163,12 +182,23 @@ function buildOrderFromArtifact(artifact: MaterialWaterSolubleTaskArtifact): Wat
     qtyUnit: artifact.plannedUnit,
     status: 'WAIT_FACTORY_ASSIGNMENT',
     taskId,
-    taskNo: `水溶任务-${idSegment}`,
+    taskNo: waterOrderNo,
     taskQrValue: buildTaskQrValue(taskId),
     createdAt: INITIAL_TIME,
     updatedAt: INITIAL_TIME,
     actionLogs: [{ action: '生成水溶加工单', detail: `由物料级产物 ${artifact.artifactId} 生成`, at: INITIAL_TIME }],
   }
+}
+
+function buildOrdersFromCurrentArtifacts(): WaterSolubleWorkOrder[] {
+  const sequenceByProductionOrder = new Map<string, number>()
+  return listGeneratedProductionTaskArtifacts()
+    .filter(isMaterialWaterSolubleTaskArtifact)
+    .map((artifact) => {
+      const sequence = (sequenceByProductionOrder.get(artifact.orderId) ?? 0) + 1
+      sequenceByProductionOrder.set(artifact.orderId, sequence)
+      return buildOrderFromArtifact(artifact, sequence)
+    })
 }
 
 function canRefreshSourceFields(order: WaterSolubleWorkOrder): boolean {
@@ -215,10 +245,8 @@ function seedWaterSolubleDemoOrders(store: Map<string, WaterSolubleWorkOrder>): 
 
 function buildWaterSolubleOrderStore(seedDemo: boolean): Map<string, WaterSolubleWorkOrder> {
   const store = new Map<string, WaterSolubleWorkOrder>()
-  listGeneratedProductionTaskArtifacts()
-    .filter(isMaterialWaterSolubleTaskArtifact)
-    .forEach((artifact) => {
-      const order = buildOrderFromArtifact(artifact)
+  buildOrdersFromCurrentArtifacts()
+    .forEach((order) => {
       store.set(order.generationKey, order)
     })
   if (seedDemo) seedWaterSolubleDemoOrders(store)
@@ -232,10 +260,8 @@ export function syncWaterSolubleOrderStoreWithArtifacts(): void {
   }
   const current = orderStore ?? new Map<string, WaterSolubleWorkOrder>()
   const next = new Map<string, WaterSolubleWorkOrder>()
-  listGeneratedProductionTaskArtifacts()
-    .filter(isMaterialWaterSolubleTaskArtifact)
-    .forEach((artifact) => {
-      const generated = buildOrderFromArtifact(artifact)
+  buildOrdersFromCurrentArtifacts()
+    .forEach((generated) => {
       const existing = current.get(generated.generationKey)
       if (!existing) {
         next.set(generated.generationKey, generated)
