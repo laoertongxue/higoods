@@ -158,6 +158,7 @@ import {
 } from '../pages/process-factory/cutting/marker-plan'
 import {
   handleCraftCuttingMarkerSpreadingEvent,
+  handleCraftCuttingMarkerSpreadingSubmit,
   isCraftCuttingMarkerSpreadingDialogOpen,
 } from '../pages/process-factory/cutting/marker-spreading'
 import { handleCraftCuttingFeiTicketsEvent } from '../pages/process-factory/cutting/fei-tickets'
@@ -419,6 +420,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
 
 export function dispatchFcsPageSubmit(form: HTMLFormElement): boolean {
   return (
+    handleCraftCuttingMarkerSpreadingSubmit(form) ||
     handleThirdPartyFactoryRatingSubmit(form) ||
     handleFactoryPageSubmit(form) ||
     handleCapabilitySubmit(form) ||
