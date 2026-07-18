@@ -1,4 +1,5 @@
 import type { CuttingDomainSnapshot } from '../../../domain/fcs-cutting-runtime/index.ts'
+import { productionOrders } from '../../../data/fcs/production-orders.ts'
 import type {
   HighLowCuttingRow,
   HighLowPatternRow,
@@ -21,6 +22,7 @@ import {
   buildSpreadingPlanUnitDisplayLabel,
   createSpreadingDraftFromMarker,
   resolveSpreadingOrderStatusFromSession,
+  spreadingOrderStatusMeta,
 } from './marker-spreading-model.ts'
 import { buildMarkerSpreadingProjectionContext } from './execution-prep-projection-helpers.ts'
 import {
@@ -33,6 +35,13 @@ import {
   type MarkerPlanViewRow,
 } from './marker-plan-model.ts'
 import { markerPlanModeMeta, type MarkerSchemeBed } from './marker-plan-domain.ts'
+
+export interface SpreadingCreateExistingOrder {
+  spreadingOrderId: string
+  spreadingOrderNo: string
+  status: SpreadingOrder['status']
+  statusLabel: string
+}
 
 export interface SpreadingCreateSourceRow {
   markerId: string
@@ -50,6 +59,7 @@ export interface SpreadingCreateSourceRow {
   markerPlanId: string
   markerPlanNo: string
   productionOrderNos: string[]
+  productionDemandNos: string[]
   styleCode: string
   spuCode: string
   styleName: string
@@ -61,6 +71,13 @@ export interface SpreadingCreateSourceRow {
   plannedCutGarmentQtyFormula: string
   plannedSpreadLengthM: number
   plannedSpreadLengthFormula: string
+  sizePiecePerLayer: Record<string, number>
+  pieceQtyPerLayer: number
+  plannedLayerCount: number
+  styleImageUrl: string
+  businessSearchTerms: string[]
+  existingSpreadingOrder: SpreadingCreateExistingOrder | null
+  canCreate: boolean
   markerRecord: MarkerRecord
   spreadingContext: MarkerSpreadingContext
 }
@@ -88,6 +105,23 @@ export function buildSpreadingPlanUnitProjectionLabel(
 
 function buildQtyFormula(total: number, plannedLayers: number, totalPieces: number): string {
   return `${Math.max(Math.round(total), 0)} 件 = ${Math.max(Math.round(plannedLayers), 0)} 层 × ${Math.max(Math.round(totalPieces), 0)} 件/层`
+}
+
+const SPREADING_CREATE_STYLE_IMAGE_BY_SPU: Record<string, string> = {
+  'SPU-2024-005': '/jacket-sample.jpg',
+  'SPU-2024-009': '/tshirt-sample.jpg',
+  'SPU-2024-014': '/lace-dress-sample.jpg',
+}
+
+function resolveSpreadingCreateStyleImageUrl(spuCode: string): string {
+  return SPREADING_CREATE_STYLE_IMAGE_BY_SPU[spuCode] || '/tshirt-sample.jpg'
+}
+
+function resolveProductionDemandNos(productionOrderNos: string[]): string[] {
+  return Array.from(new Set(productionOrderNos.flatMap((productionOrderNo) => {
+    const order = productionOrders.find((item) => item.productionOrderId === productionOrderNo)
+    return order?.demandId ? [order.demandId] : []
+  })))
 }
 
 function distributeBedPlannedQtyByCoverage(bed: MarkerSchemeBed): number[] {
@@ -323,6 +357,7 @@ function buildSpreadingContextFromPlanContext(
 function buildCreateSourceRowsFromPlan(
   plan: MarkerPlanViewRow,
   context: MarkerPlanContextCandidate | null,
+  spreadingOrders: SpreadingOrder[],
 ): SpreadingCreateSourceRow[] {
   if (!context) return []
   const scheme = buildMarkerSchemeFromPlan(plan)
@@ -333,10 +368,16 @@ function buildCreateSourceRowsFromPlan(
       : `裁片单 ${context.cutOrderNos.join(' / ') || '待补'} / 生产单 ${context.productionOrderNos.join(' / ') || '待补'}`
 
   return scheme.beds
-    .filter((bed) => bed.readyForSpreading && !bed.lockedBySpreading)
+    .filter((bed) => bed.readyForSpreading)
     .map((bed) => {
       const markerRecord = buildMarkerRecordFromPlanBed(plan, context, bed)
       const plannedCutGarmentQty = Math.max(Number(bed.plannedLayerCount || 0) * Number(bed.markerPieceQtyPerLayer || 0), 0)
+      const existingOrder = spreadingOrders.find((order) =>
+        order.markerNumberId === bed.bedId ||
+        (order.markerPlanId === plan.id && order.bedNo === bed.bedNo),
+      ) || null
+      const productionDemandNos = resolveProductionDemandNos(plan.productionOrderNos)
+      const sizePiecePerLayer = { ...bed.sizePiecePerLayer }
       return {
         markerId: bed.bedId,
         markerNo: `${plan.markerNo}/${bed.bedNo}`,
@@ -353,6 +394,7 @@ function buildCreateSourceRowsFromPlan(
         markerPlanId: plan.id,
         markerPlanNo: plan.markerNo,
         productionOrderNos: [...plan.productionOrderNos],
+        productionDemandNos,
         styleCode: plan.styleCode,
         spuCode: plan.spuCode,
         styleName: plan.styleName,
@@ -364,6 +406,27 @@ function buildCreateSourceRowsFromPlan(
         plannedCutGarmentQtyFormula: buildQtyFormula(plannedCutGarmentQty, bed.plannedLayerCount, bed.markerPieceQtyPerLayer),
         plannedSpreadLengthM: bed.spreadTotalLength,
         plannedSpreadLengthFormula: `${Number(bed.spreadTotalLength || 0).toFixed(2)} 米 = ${bed.bedNo} 铺布总长度`,
+        sizePiecePerLayer,
+        pieceQtyPerLayer: Object.values(sizePiecePerLayer).reduce((sum, quantity) => sum + Math.max(Number(quantity || 0), 0), 0),
+        plannedLayerCount: Math.max(Number(bed.plannedLayerCount || 0), 0),
+        styleImageUrl: resolveSpreadingCreateStyleImageUrl(plan.spuCode),
+        businessSearchTerms: Array.from(new Set([
+          ...context.sourceCutOrderRows.flatMap((row) => row.keywordIndex),
+          ...context.cutOrderNos,
+          ...context.productionOrderNos,
+          ...productionDemandNos,
+          context.spuCode,
+          context.styleCode,
+        ].filter(Boolean))),
+        existingSpreadingOrder: existingOrder
+          ? {
+              spreadingOrderId: existingOrder.spreadingOrderId,
+              spreadingOrderNo: existingOrder.spreadingOrderNo,
+              status: existingOrder.status,
+              statusLabel: spreadingOrderStatusMeta[existingOrder.status].label,
+            }
+          : null,
+        canCreate: !existingOrder && bed.readyForSpreading && !bed.lockedBySpreading,
         markerRecord,
         spreadingContext,
       }
@@ -372,10 +435,15 @@ function buildCreateSourceRowsFromPlan(
 
 function buildSpreadingCreateSourceRows(
   planProjection: ReturnType<typeof buildMarkerPlanProjection>,
+  spreadingOrders: SpreadingOrder[],
 ): SpreadingCreateSourceRow[] {
   return planProjection.viewModel.plans
     .filter((plan) => plan.readyForSpreading && plan.status !== 'CANCELED')
-    .flatMap((plan) => buildCreateSourceRowsFromPlan(plan, findMarkerPlanContextForPlan(planProjection.viewModel.contexts, plan)))
+    .flatMap((plan) => buildCreateSourceRowsFromPlan(
+      plan,
+      findMarkerPlanContextForPlan(planProjection.viewModel.contexts, plan),
+      spreadingOrders,
+    ))
 }
 
 function findExistingSpreadingSession(
@@ -532,6 +600,31 @@ function buildConfirmedPlanSpreadingArtifacts(
         })
     })
 
+  planProjection.viewModel.plans
+    .filter((plan) => plan.status !== 'CANCELED')
+    .forEach((plan) => {
+      const context = findMarkerPlanContextForPlan(planProjection.viewModel.contexts, plan)
+      if (!context) return
+      const scheme = buildMarkerSchemeFromPlan(plan)
+      scheme.beds.filter((bed) => bed.readyForSpreading).forEach((bed, index) => {
+        const identity = buildSpreadingSessionIdentityForMarkerBed({
+          markerPlanId: plan.id,
+          markerPlanNo: plan.markerNo,
+          markerId: bed.bedId,
+          markerNo: bed.bedNo,
+          sourceSchemeId: plan.id,
+          sourceSchemeNo: plan.markerNo,
+          sourceBedId: bed.bedId,
+          sourceBedNo: bed.bedNo,
+        }, index)
+        const existingSession = findExistingSpreadingSession(baseStore, identity, plan, bed)
+        if (!existingSession) return
+        const order = buildSpreadingOrderFromPlanBed(plan, context, bed, existingSession, index)
+        const key = `${order.markerPlanId}::${order.markerNumberId}::${order.bedNo}`
+        if (!spreadingOrders.has(key)) spreadingOrders.set(key, order)
+      })
+    })
+
   const generatedSessionIds = new Set(generatedSessions.keys())
   return {
     store: {
@@ -582,6 +675,7 @@ export function buildMarkerSpreadingProjection(options: {
     options.store ??
     (context.snapshot.markerSpreadingState.store as unknown as MarkerSpreadingStore)
   const spreadingArtifacts = buildConfirmedPlanSpreadingArtifacts(markerPlanProjection, baseStore)
+  const spreadingOrders = spreadingArtifacts.spreadingOrders
   const store = spreadingArtifacts.store
   const viewModel = options.includeViewModel === false
     ? {
@@ -626,9 +720,9 @@ export function buildMarkerSpreadingProjection(options: {
     markerPlanSourcesById: Object.fromEntries(context.sources.markerPlanSources.map((batch) => [batch.markerPlanId, batch])),
     store,
     viewModel,
-    createSources: options.includeCreateSources === false ? [] : buildSpreadingCreateSourceRows(markerPlanProjection),
-    spreadingOrders: spreadingArtifacts.spreadingOrders,
-    spreadingOrdersByMarkerPlanId: groupSpreadingOrdersByMarkerPlanId(spreadingArtifacts.spreadingOrders),
-    spreadingOrdersByProductionOrderId: groupSpreadingOrdersByProductionOrderId(spreadingArtifacts.spreadingOrders),
+    createSources: options.includeCreateSources === false ? [] : buildSpreadingCreateSourceRows(markerPlanProjection, spreadingOrders),
+    spreadingOrders,
+    spreadingOrdersByMarkerPlanId: groupSpreadingOrdersByMarkerPlanId(spreadingOrders),
+    spreadingOrdersByProductionOrderId: groupSpreadingOrdersByProductionOrderId(spreadingOrders),
   }
 }

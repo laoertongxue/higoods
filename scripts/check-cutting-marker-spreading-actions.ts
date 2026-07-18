@@ -64,7 +64,7 @@ function main(): void {
     "label: '裁剪中'",
     "label: '裁剪完成'",
     "row.mainStageKey !== 'DONE' || row.cuttingStatusKey !== state.cuttingStatusFilter",
-    '<div class="text-muted-foreground">-</div>',
+    '裁剪状态：-',
   ].forEach((token) => {
     assert(pageSource.includes(token), `${pageFile} 缺少裁片状态筛选或展示规则：${token}`)
   })
