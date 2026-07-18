@@ -37,6 +37,7 @@ import { applyProcessRouteDraftAction } from '../src/pages/tech-pack/events.ts'
 import {
   WATER_SOLUBLE_STATUS_LABEL,
   assignWaterSolubleFactory,
+  buildWaterSolubleOrderNo,
   canAssignWaterSolubleFactory,
   completeWaterSoluble,
   getWaterSolubleCurrentAction,
@@ -963,6 +964,28 @@ productionArtifactGeneration.listGeneratedProductionTaskArtifacts()
     )
   })
 
+const stableWaterOrderNo = buildWaterSolubleOrderNo(
+  'PO-202603-0004',
+  'PRODUCTION-0004',
+  'TASKART-0004::BOM-WATER-01',
+)
+assert.match(stableWaterOrderNo, /^SRJG-\d{6}-\d+-[0-9A-Z]{13}$/, '水溶加工单号必须保留完整生产流水并使用稳定物料识别码')
+assert.notEqual(
+  stableWaterOrderNo,
+  buildWaterSolubleOrderNo('PO-202603-1004', 'PRODUCTION-1004', 'TASKART-0004::BOM-WATER-01'),
+  '生产单流水号超过三位时不得因截断产生加工单号碰撞',
+)
+assert.equal(
+  stableWaterOrderNo,
+  buildWaterSolubleOrderNo('PO-202603-0004', 'PRODUCTION-0004', 'TASKART-0004::BOM-WATER-01'),
+  '同一生产单和同一正式物料产物在冷启动后必须得到相同加工单号',
+)
+assert.notEqual(
+  stableWaterOrderNo,
+  buildWaterSolubleOrderNo('PO-202603-0004', 'PRODUCTION-0004', 'TASKART-0004::BOM-WATER-02'),
+  '同一生产单的不同独立水溶 BOM 行必须生成不同加工单号',
+)
+
 resetWaterSolubleDomainForChecks()
 const firstWaterOrders = listWaterSolubleWorkOrders()
 assert.equal(firstWaterOrders.length, generatedWaterTaskArtifacts.length, '每条有效 WATER_SOLUBLE TASK 产物必须投影且不得追加伪造加工单')
@@ -976,8 +999,8 @@ assert(
 assert(firstWaterOrders.every((item) => item.sourceDemandIds.length === 0), '水溶加工单不得生成或关联需求单')
 assert(firstWaterOrders.every((item) => item.processCode === 'WATER_SOLUBLE'), '水溶加工单必须只消费 WATER_SOLUBLE TASK 产物')
 assert(
-  firstWaterOrders.every((item) => /^SRJG-\d{9}-\d{3}$/.test(item.waterOrderNo)),
-  '水溶加工单必须使用 SRJG-年月生产序号-物料序号 的短业务编号',
+  firstWaterOrders.every((item) => /^SRJG-\d{6}-\d+-[0-9A-Z]{13}$/.test(item.waterOrderNo)),
+  '水溶加工单必须使用 SRJG-年月-完整生产流水-稳定物料识别码 的业务编号',
 )
 assert(
   firstWaterOrders.every((item) => !/(TASKART|tdv_|bom-|process-)/i.test(item.waterOrderNo)),
