@@ -583,7 +583,7 @@ function renderLedgerFilter(params: URLSearchParams, month: string): string {
     <section data-prep-filter-scope class="rounded-xl border bg-card p-3">
       <input type="hidden" name="tab" value="ledger" />
       <input type="hidden" name="month" value="${escapeHtml(month)}" />
-      <div class="flex flex-nowrap items-end gap-2 overflow-x-auto pb-1">
+      <div class="flex flex-wrap items-end gap-2 pb-1">
         <label class="flex min-w-[300px] flex-col gap-1 text-sm">
           <span class="text-muted-foreground">日期</span>
           <span class="flex items-center gap-1">
@@ -1883,7 +1883,7 @@ function renderStatsFilter(params: URLSearchParams, month: string, activeTab: 'm
   return `
     <section data-prep-stats-filter-scope class="rounded-xl border bg-card p-3">
       <input type="hidden" name="tab" value="${escapeHtml(activeTab)}" />
-      <div class="flex flex-nowrap items-end gap-2 overflow-x-auto pb-1">
+      <div class="flex flex-wrap items-end gap-2 pb-1">
         <label class="flex min-w-[150px] flex-col gap-1 text-sm">
           <span class="text-muted-foreground">月份</span>
           <input type="month" name="month" value="${escapeHtml(month)}" class="h-9 rounded-md border bg-background px-2" />

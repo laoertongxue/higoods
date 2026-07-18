@@ -1138,6 +1138,21 @@ test('月度统计支持准备项团队联动且不展示准备项进度', async
   expect(await candidateValues(itemType)).toEqual(['梭织基码纸样', '梭织齐码纸样'])
 })
 
+test('窄屏点击准备项进度可以展开可见选项', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
+
+  const group = filterGroup(page, 'itemProgress')
+  await group.locator('[data-prep-filter-summary]').click()
+  await expect(group).toHaveAttribute('open', '')
+  await expect(filterOption(group, '已完成')).toBeVisible()
+  await expect.poll(() => group.evaluate((details) => {
+    const toolbar = details.parentElement
+    return toolbar ? getComputedStyle(toolbar).overflowY : ''
+  })).toBe('visible')
+})
+
 test('统计四类多选保留重复参数且关键词保持单值', async ({ page }) => {
   await page.goto(`${statisticsRoute}?tab=monthly&month=2026-03`)
   await waitForStableFilterScope(page, '[data-prep-stats-filter-scope]')
