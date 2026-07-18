@@ -132,6 +132,11 @@ export function buildWaterSolubleGenerationKey(productionOrderId: string, bomIte
   return `${productionOrderId.trim()}::${bomItemId.trim()}`
 }
 
+export function buildWaterSolubleMaterialSequence(bomItemId: string): number {
+  const sequence = Number(toStableNumericToken(bomItemId.trim(), 6))
+  return sequence > 0 ? sequence : 1
+}
+
 export function buildWaterSolubleOrderNo(
   productionOrderNo: string,
   productionOrderId: string,
@@ -144,7 +149,7 @@ export function buildWaterSolubleOrderNo(
   const productionToken = matched
     ? `${matched[1]}${matched[2].padStart(3, '0')}`
     : toStableNumericToken(`${productionOrderNo}::${productionOrderId}`, 9)
-  return `SRJG-${productionToken}-${String(materialSequence).padStart(3, '0')}`
+  return `SRJG-${productionToken}-${String(materialSequence).padStart(6, '0')}`
 }
 
 type MaterialWaterSolubleTaskArtifact = GeneratedTaskArtifact & Required<Pick<GeneratedTaskArtifact,
@@ -205,27 +210,8 @@ function buildOrderFromArtifact(artifact: MaterialWaterSolubleTaskArtifact, mate
 function buildOrdersFromCurrentArtifacts(): WaterSolubleWorkOrder[] {
   const artifacts = listGeneratedProductionTaskArtifacts()
     .filter(isMaterialWaterSolubleTaskArtifact)
-  const materialSequenceByGenerationKey = new Map<string, number>()
-  const artifactsByProductionOrder = new Map<string, MaterialWaterSolubleTaskArtifact[]>()
-  artifacts.forEach((artifact) => {
-    const group = artifactsByProductionOrder.get(artifact.orderId) ?? []
-    group.push(artifact)
-    artifactsByProductionOrder.set(artifact.orderId, group)
-  })
-  artifactsByProductionOrder.forEach((group) => {
-    group
-      .sort((left, right) => left.bomItemId.localeCompare(right.bomItemId))
-      .forEach((artifact, index) => {
-        materialSequenceByGenerationKey.set(
-          buildWaterSolubleGenerationKey(artifact.orderId, artifact.bomItemId),
-          index + 1,
-        )
-      })
-  })
   const orders = artifacts.map((artifact) => {
-    const generationKey = buildWaterSolubleGenerationKey(artifact.orderId, artifact.bomItemId)
-    const materialSequence = materialSequenceByGenerationKey.get(generationKey)
-    if (!materialSequence) throw new Error(`水溶加工单缺少稳定物料序号：${generationKey}`)
+    const materialSequence = buildWaterSolubleMaterialSequence(artifact.bomItemId)
     return buildOrderFromArtifact(artifact, materialSequence)
   })
   const uniqueOrderNos = new Set<string>()
