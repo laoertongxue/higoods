@@ -37,6 +37,7 @@ import { applyProcessRouteDraftAction } from '../src/pages/tech-pack/events.ts'
 import {
   WATER_SOLUBLE_STATUS_LABEL,
   assignWaterSolubleFactory,
+  buildWaterSolubleGenerationKey,
   buildWaterSolubleOrderNo,
   canAssignWaterSolubleFactory,
   completeWaterSoluble,
@@ -967,23 +968,28 @@ productionArtifactGeneration.listGeneratedProductionTaskArtifacts()
 const stableWaterOrderNo = buildWaterSolubleOrderNo(
   'PO-202603-0004',
   'PRODUCTION-0004',
-  'TASKART-0004::BOM-WATER-01',
+  1,
 )
-assert.match(stableWaterOrderNo, /^SRJG-\d{6}-\d+-[0-9A-Z]{13}$/, '水溶加工单号必须保留完整生产流水并使用稳定物料识别码')
+assert.match(stableWaterOrderNo, /^SRJG-\d{9,}-\d{3,}$/, '水溶加工单号必须保留完整生产流水并使用至少三位物料序号')
 assert.notEqual(
   stableWaterOrderNo,
-  buildWaterSolubleOrderNo('PO-202603-1004', 'PRODUCTION-1004', 'TASKART-0004::BOM-WATER-01'),
+  buildWaterSolubleOrderNo('PO-202603-1004', 'PRODUCTION-1004', 1),
   '生产单流水号超过三位时不得因截断产生加工单号碰撞',
 )
 assert.equal(
   stableWaterOrderNo,
-  buildWaterSolubleOrderNo('PO-202603-0004', 'PRODUCTION-0004', 'TASKART-0004::BOM-WATER-01'),
+  buildWaterSolubleOrderNo('PO-202603-0004', 'PRODUCTION-0004', 1),
   '同一生产单和同一正式物料产物在冷启动后必须得到相同加工单号',
 )
 assert.notEqual(
   stableWaterOrderNo,
-  buildWaterSolubleOrderNo('PO-202603-0004', 'PRODUCTION-0004', 'TASKART-0004::BOM-WATER-02'),
+  buildWaterSolubleOrderNo('PO-202603-0004', 'PRODUCTION-0004', 2),
   '同一生产单的不同独立水溶 BOM 行必须生成不同加工单号',
+)
+assert.equal(
+  buildWaterSolubleGenerationKey('PRODUCTION-0004', 'BOM-WATER-01'),
+  buildWaterSolubleGenerationKey('PRODUCTION-0004', 'BOM-WATER-01'),
+  '正式技术包快照或产物版本替换时，同一生产单和 BOM 业务身份必须保持同一生成键',
 )
 
 resetWaterSolubleDomainForChecks()
@@ -999,14 +1005,18 @@ assert(
 assert(firstWaterOrders.every((item) => item.sourceDemandIds.length === 0), '水溶加工单不得生成或关联需求单')
 assert(firstWaterOrders.every((item) => item.processCode === 'WATER_SOLUBLE'), '水溶加工单必须只消费 WATER_SOLUBLE TASK 产物')
 assert(
-  firstWaterOrders.every((item) => /^SRJG-\d{6}-\d+-[0-9A-Z]{13}$/.test(item.waterOrderNo)),
-  '水溶加工单必须使用 SRJG-年月-完整生产流水-稳定物料识别码 的业务编号',
+  firstWaterOrders.every((item) => /^SRJG-\d{9,}-\d{3,}$/.test(item.waterOrderNo)),
+  '水溶加工单必须使用 SRJG-年月生产序号-物料序号 的短业务编号',
 )
 assert(
   firstWaterOrders.every((item) => !/(TASKART|tdv_|bom-|process-)/i.test(item.waterOrderNo)),
   '水溶加工单号不得暴露任务产物、技术包、工序或 BOM 内部标识',
 )
 assert.equal(new Set(firstWaterOrders.map((item) => item.waterOrderNo)).size, firstWaterOrders.length, '水溶加工单业务编号必须唯一')
+assert(
+  firstWaterOrders.every((item) => item.generationKey === buildWaterSolubleGenerationKey(item.productionOrderId, item.bomItemId)),
+  '水溶加工单生成键只能使用生产单和 BOM 业务身份，不得包含会随正式快照版本变化的产物 ID',
+)
 assert(firstWaterOrders.every((item) => item.taskNo === item.waterOrderNo), 'PDA 任务号必须复用平台水溶加工单号，不得生成平行编号')
 firstWaterOrders.forEach((order) => {
   const artifact = generatedWaterTaskArtifacts.find((item) => item.artifactId === order.sourceArtifactId)
