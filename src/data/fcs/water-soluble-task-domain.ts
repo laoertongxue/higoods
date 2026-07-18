@@ -118,25 +118,33 @@ function toIdSegment(value: string): string {
   return value.replace(/[^A-Za-z0-9_-]/g, '_')
 }
 
-function toStableBusinessToken(value: string): string {
+function toStableNumericToken(value: string, size: number): string {
   let hash = 14695981039346656037n
   for (const character of value) {
     hash ^= BigInt(character.charCodeAt(0))
     hash = BigInt.asUintN(64, hash * 1099511628211n)
   }
-  return hash.toString(36).toUpperCase().padStart(13, '0')
+  const modulus = 10n ** BigInt(size)
+  return (hash % modulus).toString().padStart(size, '0')
+}
+
+export function buildWaterSolubleGenerationKey(productionOrderId: string, bomItemId: string): string {
+  return `${productionOrderId.trim()}::${bomItemId.trim()}`
 }
 
 export function buildWaterSolubleOrderNo(
   productionOrderNo: string,
   productionOrderId: string,
-  generationKey: string,
+  materialSequence: number,
 ): string {
+  if (!Number.isInteger(materialSequence) || materialSequence < 1) {
+    throw new Error('水溶加工单物料序号必须为正整数')
+  }
   const matched = productionOrderNo.trim().match(/^PO-(\d{6})-(\d+)$/i)
   const productionToken = matched
-    ? `${matched[1]}-${matched[2]}`
-    : `X-${toStableBusinessToken(`${productionOrderNo}::${productionOrderId}`)}`
-  return `SRJG-${productionToken}-${toStableBusinessToken(generationKey)}`
+    ? `${matched[1]}${matched[2].padStart(3, '0')}`
+    : toStableNumericToken(`${productionOrderNo}::${productionOrderId}`, 9)
+  return `SRJG-${productionToken}-${String(materialSequence).padStart(3, '0')}`
 }
 
 type MaterialWaterSolubleTaskArtifact = GeneratedTaskArtifact & Required<Pick<GeneratedTaskArtifact,
@@ -158,14 +166,14 @@ function isMaterialWaterSolubleTaskArtifact(artifact: GeneratedTaskArtifact): ar
     && artifact.linkedBomItemIds[0] === artifact.bomItemId
 }
 
-function buildOrderFromArtifact(artifact: MaterialWaterSolubleTaskArtifact): WaterSolubleWorkOrder {
+function buildOrderFromArtifact(artifact: MaterialWaterSolubleTaskArtifact, materialSequence: number): WaterSolubleWorkOrder {
   const productionOrder = productionOrders.find((item) => item.productionOrderId === artifact.orderId)
   const productionOrderNo = productionOrder?.productionOrderNo ?? artifact.orderId
   const bomItemId = artifact.bomItemId
-  const generationKey = `${artifact.artifactId}::${bomItemId}`
+  const generationKey = buildWaterSolubleGenerationKey(artifact.orderId, bomItemId)
   const idSegment = toIdSegment(generationKey)
   const taskId = `TASK-WATER-${idSegment}`
-  const waterOrderNo = buildWaterSolubleOrderNo(productionOrderNo, artifact.orderId, generationKey)
+  const waterOrderNo = buildWaterSolubleOrderNo(productionOrderNo, artifact.orderId, materialSequence)
 
   return {
     waterOrderId: `WATER-${idSegment}`,
@@ -195,9 +203,31 @@ function buildOrderFromArtifact(artifact: MaterialWaterSolubleTaskArtifact): Wat
 }
 
 function buildOrdersFromCurrentArtifacts(): WaterSolubleWorkOrder[] {
-  const orders = listGeneratedProductionTaskArtifacts()
+  const artifacts = listGeneratedProductionTaskArtifacts()
     .filter(isMaterialWaterSolubleTaskArtifact)
-    .map(buildOrderFromArtifact)
+  const materialSequenceByGenerationKey = new Map<string, number>()
+  const artifactsByProductionOrder = new Map<string, MaterialWaterSolubleTaskArtifact[]>()
+  artifacts.forEach((artifact) => {
+    const group = artifactsByProductionOrder.get(artifact.orderId) ?? []
+    group.push(artifact)
+    artifactsByProductionOrder.set(artifact.orderId, group)
+  })
+  artifactsByProductionOrder.forEach((group) => {
+    group
+      .sort((left, right) => left.bomItemId.localeCompare(right.bomItemId))
+      .forEach((artifact, index) => {
+        materialSequenceByGenerationKey.set(
+          buildWaterSolubleGenerationKey(artifact.orderId, artifact.bomItemId),
+          index + 1,
+        )
+      })
+  })
+  const orders = artifacts.map((artifact) => {
+    const generationKey = buildWaterSolubleGenerationKey(artifact.orderId, artifact.bomItemId)
+    const materialSequence = materialSequenceByGenerationKey.get(generationKey)
+    if (!materialSequence) throw new Error(`水溶加工单缺少稳定物料序号：${generationKey}`)
+    return buildOrderFromArtifact(artifact, materialSequence)
+  })
   const uniqueOrderNos = new Set<string>()
   orders.forEach((order) => {
     if (uniqueOrderNos.has(order.waterOrderNo)) {
@@ -267,9 +297,18 @@ export function syncWaterSolubleOrderStoreWithArtifacts(): void {
   }
   const current = orderStore ?? new Map<string, WaterSolubleWorkOrder>()
   const next = new Map<string, WaterSolubleWorkOrder>()
+  const currentByBusinessIdentity = new Map<string, WaterSolubleWorkOrder>()
+  current.forEach((order) => {
+    const identity = buildWaterSolubleGenerationKey(order.productionOrderId, order.bomItemId)
+    if (currentByBusinessIdentity.has(identity)) {
+      throw new Error(`水溶加工单业务身份冲突：${identity}，请检查历史加工单`)
+    }
+    currentByBusinessIdentity.set(identity, order)
+  })
   buildOrdersFromCurrentArtifacts()
     .forEach((generated) => {
       const existing = current.get(generated.generationKey)
+        ?? currentByBusinessIdentity.get(generated.generationKey)
       if (!existing) {
         next.set(generated.generationKey, generated)
         return
@@ -277,6 +316,7 @@ export function syncWaterSolubleOrderStoreWithArtifacts(): void {
       if (canRefreshSourceFields(existing)) {
         next.set(generated.generationKey, {
           ...existing,
+          generationKey: generated.generationKey,
           sourceArtifactId: generated.sourceArtifactId,
           productionOrderId: generated.productionOrderId,
           productionOrderNo: generated.productionOrderNo,
@@ -290,7 +330,10 @@ export function syncWaterSolubleOrderStoreWithArtifacts(): void {
         })
         return
       }
-      next.set(generated.generationKey, existing)
+      next.set(generated.generationKey, {
+        ...existing,
+        generationKey: generated.generationKey,
+      })
     })
   orderStore = next
 }
