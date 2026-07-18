@@ -1,6 +1,50 @@
+import { getFactoryCapacityProfileByFactoryId } from './factory-capacity-profile-mock.ts'
+import { listFactoryMasterRecords } from './factory-master-store.ts'
+import {
+  getLatestEffectiveThirdPartyFactoryTrialAssessmentRecord,
+  getLatestThirdPartyFactoryTrialAssessmentRecord,
+  hasOpenThirdPartyFactoryTrialAssessment,
+} from './third-party-factory-trial-assessment.ts'
+
 export type FactoryRatingGrade = 'S' | 'A' | 'B' | 'C'
 export type FactoryScaleLabel = '大型工厂' | '小型工厂'
 export type FactoryCooperationStatusLabel = '考核中' | '正常合作' | '黑名单'
+export type DispatchControl =
+  | 'PRIORITY'
+  | 'ALLOW'
+  | 'WARN_CONFIRM'
+  | 'TRIAL_ONLY'
+  | 'SUPERVISOR_DIRECT_ONLY'
+  | 'BLOCKED'
+export type SettlementControl = 'ALLOW' | 'BLOCK_NEW_STATEMENT'
+export type FactoryRatingDocumentTypeLabel = '试产单' | '常规单'
+export type FactoryRatingAssessmentDecision = '转正' | '拉黑' | '延长考核'
+
+export interface DispatchPolicyInput {
+  factoryId: string
+  actionType: '直接派单' | '发起竞价'
+  documentTypeLabel: FactoryRatingDocumentTypeLabel
+  dispatchQty: number
+  isUrgentOrder: boolean
+  riskConfirmed: boolean
+  isSupervisorAssigned: boolean
+}
+
+export interface DispatchPolicyDecision {
+  allowed: boolean
+  severity: 'ALLOW' | 'WARN' | 'BLOCK'
+  reason: string
+  displayBadges: string[]
+  requiresConfirm: boolean
+  // 数值越大，候选展示时越靠前。
+  sortPriority: number
+}
+
+export interface SettlementPolicyDecision {
+  allowedToCreateNewStatement: boolean
+  historyReadable: boolean
+  reason: string
+}
 
 export interface FactoryRatingSnapshot {
   factoryId: string
@@ -20,6 +64,30 @@ export interface FactoryRatingSnapshot {
   settlementPolicyLabel: string
   recentRatingReason: string
   settlementBlocked: boolean
+  dispatchControl: DispatchControl
+  settlementControl: SettlementControl
+  allowedDocumentTypes: FactoryRatingDocumentTypeLabel[]
+  canJoinBidding: boolean
+  requiresDispatchRiskConfirm: boolean
+  smallOrderLimitQty?: number
+  assessmentDecision?: FactoryRatingAssessmentDecision
+  assessmentRound?: number
+  assessmentReason?: string
+  nextAllowedDocumentType?: FactoryRatingDocumentTypeLabel
+  nextTrialLimitQty?: number | null
+  sewingSeatSourceLabel?: '工厂档案 / 产能资料' | '评级快照'
+  latestTrialAssessmentId?: string
+  latestTrialAssessmentStatus?: string
+  latestTrialOrderNo?: string
+  latestTrialProductionOrderNo?: string
+  latestTrialDispatchQty?: number
+  latestTrialDelayDays?: number
+  latestTrialQcOrderNo?: string
+  latestTrialDefectiveQty?: number
+  latestTrialDefectRate?: number
+  latestTrialAutoDecision?: FactoryRatingAssessmentDecision | null
+  latestTrialManualDecision?: FactoryRatingAssessmentDecision | null
+  hasOpenTrialAssessment?: boolean
 }
 
 export interface FactoryRatingPerformanceRecord {
@@ -56,7 +124,7 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
   {
     factoryId: 'ID-F021',
     factoryCode: 'ID-FAC-0021',
-    factoryName: '雅加达顺达车缝厂',
+    factoryName: 'CV Micro Sewing Jakarta Pusat',
     factoryTypeLabel: '第三方车缝工厂',
     sewingSeatCount: 48,
     scaleLabel: '大型工厂',
@@ -71,11 +139,16 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     settlementPolicyLabel: '可按账本发起结算。',
     recentRatingReason: '近批次准时交付，质检仅有轻微返工。',
     settlementBlocked: false,
+    dispatchControl: 'PRIORITY',
+    settlementControl: 'ALLOW',
+    allowedDocumentTypes: ['试产单', '常规单'],
+    canJoinBidding: true,
+    requiresDispatchRiskConfirm: false,
   },
   {
     factoryId: 'ID-F022',
     factoryCode: 'ID-FAC-0022',
-    factoryName: '泗水安和车缝厂',
+    factoryName: 'CV Micro Sewing Bandung Utara',
     factoryTypeLabel: '第三方车缝工厂',
     sewingSeatCount: 36,
     scaleLabel: '大型工厂',
@@ -90,11 +163,16 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     settlementPolicyLabel: '可按账本发起结算。',
     recentRatingReason: '一次延期 1 天，质量稳定。',
     settlementBlocked: false,
+    dispatchControl: 'ALLOW',
+    settlementControl: 'ALLOW',
+    allowedDocumentTypes: ['试产单', '常规单'],
+    canJoinBidding: true,
+    requiresDispatchRiskConfirm: false,
   },
   {
     factoryId: 'ID-F023',
     factoryCode: 'ID-FAC-0023',
-    factoryName: '万隆明达小型车缝组',
+    factoryName: 'CV Micro Sewing Surabaya Barat',
     factoryTypeLabel: '第三方车缝工厂',
     sewingSeatCount: 18,
     scaleLabel: '小型工厂',
@@ -109,11 +187,16 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     settlementPolicyLabel: '禁止发起新结算，历史账本仅保留查看。',
     recentRatingReason: '工厂主档已列入黑名单，停止新派单和新结算。',
     settlementBlocked: true,
+    dispatchControl: 'BLOCKED',
+    settlementControl: 'BLOCK_NEW_STATEMENT',
+    allowedDocumentTypes: [],
+    canJoinBidding: false,
+    requiresDispatchRiskConfirm: false,
   },
   {
     factoryId: 'ID-F024',
     factoryCode: 'ID-FAC-0024',
-    factoryName: '勿加泗立成车缝厂',
+    factoryName: 'CV Micro Sewing Semarang Timur',
     factoryTypeLabel: '第三方车缝工厂',
     sewingSeatCount: 28,
     scaleLabel: '小型工厂',
@@ -128,11 +211,16 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     settlementPolicyLabel: '禁止发起新结算，历史账本仅保留查看。',
     recentRatingReason: '连续延期且后道质检归责瑕疵高，主管已判定停止合作。',
     settlementBlocked: true,
+    dispatchControl: 'BLOCKED',
+    settlementControl: 'BLOCK_NEW_STATEMENT',
+    allowedDocumentTypes: [],
+    canJoinBidding: false,
+    requiresDispatchRiskConfirm: false,
   },
   {
     factoryId: 'ID-F025',
     factoryCode: 'ID-FAC-0025',
-    factoryName: '登巴萨新协车缝组',
+    factoryName: 'CV Micro Sewing Tangerang Selatan',
     factoryTypeLabel: '第三方车缝工厂',
     sewingSeatCount: 16,
     scaleLabel: '小型工厂',
@@ -147,6 +235,16 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     settlementPolicyLabel: '不做黑名单结算拦截。',
     recentRatingReason: '首个试单质检可接受，仍需第二单验证稳定性。',
     settlementBlocked: false,
+    dispatchControl: 'TRIAL_ONLY',
+    settlementControl: 'ALLOW',
+    allowedDocumentTypes: ['试产单'],
+    canJoinBidding: true,
+    requiresDispatchRiskConfirm: false,
+    assessmentDecision: '延长考核',
+    assessmentRound: 2,
+    assessmentReason: '首个试单质检可接受，但交出稳定性不足，延长到第二轮试产考核。',
+    nextAllowedDocumentType: '试产单',
+    nextTrialLimitQty: 300,
   },
   {
     factoryId: 'KOL-GOTO-001',
@@ -166,6 +264,11 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     settlementPolicyLabel: '可按账本发起结算。',
     recentRatingReason: '小单响应快，适合指定款式和多工序小批量任务。',
     settlementBlocked: false,
+    dispatchControl: 'SUPERVISOR_DIRECT_ONLY',
+    settlementControl: 'ALLOW',
+    allowedDocumentTypes: ['试产单', '常规单'],
+    canJoinBidding: false,
+    requiresDispatchRiskConfirm: true,
   },
   {
     factoryId: 'ID-F026',
@@ -185,6 +288,11 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     settlementPolicyLabel: '禁止发起新结算，历史账本仅保留查看。',
     recentRatingReason: '当前主档已暂停合作，需主管复核后再恢复派单。',
     settlementBlocked: true,
+    dispatchControl: 'BLOCKED',
+    settlementControl: 'BLOCK_NEW_STATEMENT',
+    allowedDocumentTypes: [],
+    canJoinBidding: false,
+    requiresDispatchRiskConfirm: false,
   },
   {
     factoryId: 'ID-F027',
@@ -204,6 +312,11 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     settlementPolicyLabel: '可按账本发起结算。',
     recentRatingReason: '交期稳定，绣花配合能力可用于小批量组合任务。',
     settlementBlocked: false,
+    dispatchControl: 'ALLOW',
+    settlementControl: 'ALLOW',
+    allowedDocumentTypes: ['试产单', '常规单'],
+    canJoinBidding: true,
+    requiresDispatchRiskConfirm: false,
   },
   {
     factoryId: 'ID-F028',
@@ -223,6 +336,12 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     settlementPolicyLabel: '可按账本发起结算。',
     recentRatingReason: '后整衔接有波动，派单前需确认交期余量。',
     settlementBlocked: false,
+    dispatchControl: 'WARN_CONFIRM',
+    settlementControl: 'ALLOW',
+    allowedDocumentTypes: ['试产单', '常规单'],
+    canJoinBidding: true,
+    requiresDispatchRiskConfirm: true,
+    smallOrderLimitQty: 300,
   },
   {
     factoryId: 'ID-F029',
@@ -242,6 +361,11 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     settlementPolicyLabel: '可按账本发起结算。',
     recentRatingReason: '车位规模达大型工厂口径，近批次质量和交期稳定。',
     settlementBlocked: false,
+    dispatchControl: 'PRIORITY',
+    settlementControl: 'ALLOW',
+    allowedDocumentTypes: ['试产单', '常规单'],
+    canJoinBidding: true,
+    requiresDispatchRiskConfirm: false,
   },
   {
     factoryId: 'ID-F030',
@@ -261,6 +385,11 @@ export const thirdPartyFactoryRatingSnapshots: FactoryRatingSnapshot[] = [
     settlementPolicyLabel: '不做黑名单结算拦截。',
     recentRatingReason: '新纳入车缝协作池，需通过首单交出结果完成考核。',
     settlementBlocked: false,
+    dispatchControl: 'TRIAL_ONLY',
+    settlementControl: 'ALLOW',
+    allowedDocumentTypes: ['试产单'],
+    canJoinBidding: true,
+    requiresDispatchRiskConfirm: false,
   },
 ]
 
@@ -372,8 +501,119 @@ export const thirdPartyFactoryPerformanceRecords: FactoryRatingPerformanceRecord
   },
 ]
 
+function toPositiveInteger(value: unknown): number | null {
+  const numericValue = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numericValue) || numericValue <= 0) return null
+  return Math.floor(numericValue)
+}
+
+export function resolveThirdPartyFactorySewingSeatCount(
+  factoryIdOrCode: string,
+  fallbackSeatCount?: number,
+): { seatCount: number; sourceLabel: FactoryRatingSnapshot['sewingSeatSourceLabel'] } {
+  const factory = listFactoryMasterRecords().find((item) => item.id === factoryIdOrCode || item.code === factoryIdOrCode)
+  const masterSeatCount = toPositiveInteger(factory?.sewingSeatCount)
+  if (masterSeatCount) {
+    return { seatCount: masterSeatCount, sourceLabel: '工厂档案 / 产能资料' }
+  }
+
+  if (factory) {
+    try {
+      const profile = getFactoryCapacityProfileByFactoryId(factory.id)
+      const profileSeatCount = toPositiveInteger(profile.sewingSeatCount)
+      if (profileSeatCount) {
+        return { seatCount: profileSeatCount, sourceLabel: '工厂档案 / 产能资料' }
+      }
+    } catch {
+      // 评级快照仍保留兜底，避免单个产能档案异常影响列表可见性。
+    }
+  }
+
+  return { seatCount: fallbackSeatCount ?? 0, sourceLabel: '评级快照' }
+}
+
+function syncRatingSnapshotFromFactoryMaster(snapshot: FactoryRatingSnapshot): FactoryRatingSnapshot {
+  const { seatCount, sourceLabel } = resolveThirdPartyFactorySewingSeatCount(snapshot.factoryId, snapshot.sewingSeatCount)
+  const scaleLabel: FactoryScaleLabel = seatCount >= 30 ? '大型工厂' : '小型工厂'
+  const firstTrialLimitQty = scaleLabel === '大型工厂' ? 1000 : 300
+  const latestTrial = getLatestThirdPartyFactoryTrialAssessmentRecord(snapshot.factoryId)
+  const latestEffectiveTrial = getLatestEffectiveThirdPartyFactoryTrialAssessmentRecord(snapshot.factoryId)
+  const effectiveDecision = latestEffectiveTrial?.effectiveDecision ?? snapshot.assessmentDecision
+  const currentGrade = latestEffectiveTrial?.autoRatingGrade ?? snapshot.currentGrade
+
+  let cooperationStatusLabel = snapshot.cooperationStatusLabel
+  let dispatchControl = snapshot.dispatchControl
+  let settlementControl = snapshot.settlementControl
+
+  if (effectiveDecision === '拉黑') {
+    cooperationStatusLabel = '黑名单'
+    dispatchControl = 'BLOCKED'
+    settlementControl = 'BLOCK_NEW_STATEMENT'
+  } else if (effectiveDecision === '延长考核') {
+    cooperationStatusLabel = '考核中'
+    dispatchControl = 'TRIAL_ONLY'
+    settlementControl = 'ALLOW'
+  } else if (effectiveDecision === '转正') {
+    cooperationStatusLabel = '正常合作'
+    settlementControl = 'ALLOW'
+    dispatchControl =
+      snapshot.dispatchControl === 'SUPERVISOR_DIRECT_ONLY' || snapshot.dispatchControl === 'WARN_CONFIRM'
+        ? snapshot.dispatchControl
+        : latestEffectiveTrial?.autoRatingGrade === 'S'
+          ? 'PRIORITY'
+          : 'ALLOW'
+  }
+
+  const allowedDocumentTypes: FactoryRatingDocumentTypeLabel[] =
+    dispatchControl === 'BLOCKED'
+      ? []
+      : dispatchControl === 'TRIAL_ONLY'
+        ? ['试产单']
+        : ['试产单', '常规单']
+  const canJoinBidding =
+    dispatchControl === 'BLOCKED' || dispatchControl === 'SUPERVISOR_DIRECT_ONLY'
+      ? false
+      : snapshot.canJoinBidding
+
+  const syncedSnapshot: FactoryRatingSnapshot = {
+    ...snapshot,
+    sewingSeatCount: seatCount,
+    sewingSeatSourceLabel: sourceLabel,
+    scaleLabel,
+    cooperationStatusLabel,
+    currentGrade,
+    firstTrialLimitQty,
+    settlementBlocked: settlementControl === 'BLOCK_NEW_STATEMENT',
+    dispatchControl,
+    settlementControl,
+    allowedDocumentTypes,
+    canJoinBidding,
+    assessmentDecision: effectiveDecision ?? snapshot.assessmentDecision,
+    assessmentRound: latestTrial?.assessmentRound ?? snapshot.assessmentRound,
+    nextAllowedDocumentType: effectiveDecision === '延长考核' ? '试产单' : snapshot.nextAllowedDocumentType,
+    nextTrialLimitQty: effectiveDecision === '延长考核' ? firstTrialLimitQty : snapshot.nextTrialLimitQty,
+    latestTrialAssessmentId: latestTrial?.assessmentId,
+    latestTrialAssessmentStatus: latestTrial?.status,
+    latestTrialOrderNo: latestTrial?.trialOrderNo,
+    latestTrialProductionOrderNo: latestTrial?.productionOrderNo,
+    latestTrialDispatchQty: latestTrial?.dispatchQty,
+    latestTrialDelayDays: latestTrial?.delayDays,
+    latestTrialQcOrderNo: latestTrial?.qcOrderNo,
+    latestTrialDefectiveQty: latestTrial?.defectiveQty,
+    latestTrialDefectRate: latestTrial?.defectRate,
+    latestTrialAutoDecision: latestTrial?.autoRatingDecision,
+    latestTrialManualDecision: latestTrial?.manualDecision,
+    hasOpenTrialAssessment: hasOpenThirdPartyFactoryTrialAssessment(snapshot.factoryId),
+  }
+  return {
+    ...syncedSnapshot,
+    dispatchPolicyLabel: getThirdPartyFactoryDispatchPolicyLabel(syncedSnapshot),
+    settlementPolicyLabel: getThirdPartyFactorySettlementPolicyLabel(syncedSnapshot),
+  }
+}
+
 export function listThirdPartyFactoryRatingSnapshots(): FactoryRatingSnapshot[] {
-  return thirdPartyFactoryRatingSnapshots.slice()
+  return thirdPartyFactoryRatingSnapshots.map(syncRatingSnapshotFromFactoryMaster)
 }
 
 function isSameFactoryKey(snapshot: Pick<FactoryRatingSnapshot, 'factoryId' | 'factoryCode'>, factoryIdOrCode: string): boolean {
@@ -381,7 +621,8 @@ function isSameFactoryKey(snapshot: Pick<FactoryRatingSnapshot, 'factoryId' | 'f
 }
 
 export function getThirdPartyFactoryRatingSnapshot(factoryIdOrCode: string): FactoryRatingSnapshot | undefined {
-  return thirdPartyFactoryRatingSnapshots.find((item) => isSameFactoryKey(item, factoryIdOrCode))
+  const snapshot = thirdPartyFactoryRatingSnapshots.find((item) => isSameFactoryKey(item, factoryIdOrCode))
+  return snapshot ? syncRatingSnapshotFromFactoryMaster(snapshot) : undefined
 }
 
 export function listThirdPartyFactoryPerformanceRecords(factoryIdOrCode?: string): FactoryRatingPerformanceRecord[] {
@@ -396,6 +637,141 @@ export function getThirdPartyFactoryTimingSummary(factoryIdOrCode: string): Fact
   return thirdPartyFactoryTimingSummaries.find((item) => item.factoryId === resolvedFactoryId)
 }
 
+function createDispatchDecision(
+  allowed: boolean,
+  severity: DispatchPolicyDecision['severity'],
+  reason: string,
+  displayBadges: string[],
+  requiresConfirm: boolean,
+  sortPriority: number,
+): DispatchPolicyDecision {
+  return {
+    allowed,
+    severity,
+    reason,
+    displayBadges,
+    requiresConfirm,
+    sortPriority,
+  }
+}
+
+function createAllowDecision(snapshot: FactoryRatingSnapshot): DispatchPolicyDecision {
+  const priority = snapshot.dispatchControl === 'PRIORITY' ? 100 : 60
+  return createDispatchDecision(true, 'ALLOW', snapshot.dispatchPolicyLabel, [snapshot.currentGrade, '可派单'], false, priority)
+}
+
+export function evaluateThirdPartyFactoryDispatchPolicy(input: DispatchPolicyInput): DispatchPolicyDecision {
+  if (!Number.isFinite(input.dispatchQty) || input.dispatchQty <= 0) {
+    return createDispatchDecision(false, 'BLOCK', '派单数量必须是大于 0 的有效数字。', ['数量无效'], false, 0)
+  }
+
+  const snapshot = getThirdPartyFactoryRatingSnapshot(input.factoryId)
+  if (!snapshot) {
+    if (!input.riskConfirmed) {
+      return createDispatchDecision(false, 'WARN', '未找到三方工厂评级，需要主管人工确认后再派单。', ['未评级', '需确认'], true, 10)
+    }
+    return createDispatchDecision(true, 'ALLOW', '未找到三方工厂评级，已人工确认后继续派单。', ['未评级', '已确认'], false, 10)
+  }
+
+  if (snapshot.dispatchControl === 'BLOCKED') {
+    return createDispatchDecision(false, 'BLOCK', snapshot.dispatchPolicyLabel, ['禁止派单'], false, 0)
+  }
+
+  if (input.actionType === '发起竞价' && !snapshot.canJoinBidding) {
+    return createDispatchDecision(false, 'BLOCK', '该工厂不参与竞价，只能按指定规则处理。', ['不可竞价'], false, 50)
+  }
+
+  if (!snapshot.allowedDocumentTypes.includes(input.documentTypeLabel)) {
+    return createDispatchDecision(false, 'BLOCK', '该工厂还在考核中，只能接试产单。', ['仅试产单'], false, 70)
+  }
+
+  if (snapshot.dispatchControl === 'TRIAL_ONLY') {
+    const trialLimitQty = snapshot.nextTrialLimitQty ?? snapshot.firstTrialLimitQty ?? 300
+    if (snapshot.hasOpenTrialAssessment) {
+      return createDispatchDecision(false, 'BLOCK', '该工厂当前轮已有未完成试产单，不能重复派试产单。', ['已有未完成试产'], false, 70)
+    }
+    if (input.dispatchQty > trialLimitQty) {
+      return createDispatchDecision(
+        false,
+        'BLOCK',
+        `本次派单数量 ${input.dispatchQty} 件超过试产上限 ${trialLimitQty} 件。`,
+        ['超过试产上限'],
+        false,
+        70,
+      )
+    }
+    return createDispatchDecision(true, 'ALLOW', '考核中工厂在试产额度内可以派单。', ['考核中', '试产额度内'], false, 70)
+  }
+
+  if (snapshot.dispatchControl === 'SUPERVISOR_DIRECT_ONLY') {
+    if (input.actionType === '发起竞价') {
+      return createDispatchDecision(false, 'BLOCK', '主管指定工厂不参与竞价。', ['不可竞价'], false, 50)
+    }
+    if (!input.isSupervisorAssigned) {
+      return createDispatchDecision(false, 'WARN', '该工厂需要主管指定确认后才能直接派单。', ['主管指定', '需确认'], true, 50)
+    }
+    return createDispatchDecision(true, 'ALLOW', '主管已指定，可以直接派单。', ['主管指定'], false, 50)
+  }
+
+  if (snapshot.dispatchControl === 'WARN_CONFIRM') {
+    const smallOrderLimitQty = snapshot.smallOrderLimitQty
+    if (!input.riskConfirmed) {
+      return createDispatchDecision(
+        false,
+        'WARN',
+        `黄牌工厂建议只派 ${smallOrderLimitQty ?? 300} 件以内非急单，需要确认交期余量和质量风险。`,
+        ['黄牌提醒', '需确认'],
+        true,
+        40,
+      )
+    }
+    return createDispatchDecision(true, 'ALLOW', '黄牌风险已确认，可以派单。', ['黄牌已确认'], false, 40)
+  }
+
+  return createAllowDecision(snapshot)
+}
+
+export function evaluateThirdPartyFactorySettlementPolicy(factoryIdOrCode: string): SettlementPolicyDecision {
+  const snapshot = getThirdPartyFactoryRatingSnapshot(factoryIdOrCode)
+  if (!snapshot) {
+    return {
+      allowedToCreateNewStatement: true,
+      historyReadable: true,
+      reason: '未找到三方工厂评级，结算需按主档和账本继续人工核对。',
+    }
+  }
+  if (snapshot.settlementControl === 'BLOCK_NEW_STATEMENT') {
+    return {
+      allowedToCreateNewStatement: false,
+      historyReadable: true,
+      reason: snapshot.settlementPolicyLabel,
+    }
+  }
+  return {
+    allowedToCreateNewStatement: true,
+    historyReadable: true,
+    reason: snapshot.settlementPolicyLabel,
+  }
+}
+
 export function isThirdPartyFactorySettlementBlocked(factoryIdOrCode: string): boolean {
-  return getThirdPartyFactoryRatingSnapshot(factoryIdOrCode)?.settlementBlocked === true
+  return !evaluateThirdPartyFactorySettlementPolicy(factoryIdOrCode).allowedToCreateNewStatement
+}
+
+export function getThirdPartyFactoryDispatchPolicyLabel(snapshot: FactoryRatingSnapshot): string {
+  if (snapshot.dispatchControl === 'BLOCKED') return '禁止派单，不允许在车缝分配中选择。'
+  if (snapshot.dispatchControl === 'TRIAL_ONLY') {
+    const trialLimitQty = snapshot.nextTrialLimitQty ?? snapshot.firstTrialLimitQty ?? 300
+    return `仅允许试产单，单次试产最多 ${trialLimitQty} 件，完成交出和质检后再判断结论。`
+  }
+  if (snapshot.dispatchControl === 'SUPERVISOR_DIRECT_ONLY') return '可主管指定派单，不参与竞价。'
+  if (snapshot.dispatchControl === 'WARN_CONFIRM') return '黄牌提示：派单前需确认交期余量和质量风险，建议只派小单和非急单。'
+  if (snapshot.dispatchControl === 'PRIORITY') return '优先派单，可承接大货和赶单。'
+  return '正常可选，适合常规单。'
+}
+
+export function getThirdPartyFactorySettlementPolicyLabel(snapshot: FactoryRatingSnapshot): string {
+  if (snapshot.settlementControl === 'BLOCK_NEW_STATEMENT') return '禁止发起新结算，历史账本仅保留查看。'
+  if (snapshot.dispatchControl === 'TRIAL_ONLY') return '不做黑名单结算拦截。'
+  return '可按账本发起结算。'
 }

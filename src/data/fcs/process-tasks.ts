@@ -64,6 +64,8 @@ export type TaskHandoverStatus =
   | 'OBJECTION_PROCESSING'
   | 'CLOSED'
 
+export type ProcessTaskSourceType = 'PRODUCTION_ORDER' | 'STOCK'
+
 export interface TaskOutputValueSnapshot {
   outputValuePerUnit?: number
   outputValueUnit?: string
@@ -95,7 +97,11 @@ export type ExecProofFile = StartProofFile
 export interface ProcessTask {
   taskId: string
   taskNo?: string
-  productionOrderId: string
+  sourceType?: ProcessTaskSourceType
+  productionOrderId?: string
+  productionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   seq: number
   processCode: string
   processNameZh: string

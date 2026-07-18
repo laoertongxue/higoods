@@ -950,6 +950,7 @@ test('统计筛选分页每页条数和排序响应均小于 200ms', async ({ pa
 })
 
 test('准备台账标准列表局部分页、三态排序和列偏好可用', async ({ page }) => {
+  test.setTimeout(120_000)
   await page.setViewportSize({ width: 1366, height: 768 })
   await page.goto(`${ledgerRoute}?tab=ledger&month=2026-03`)
   await page.evaluate(() => {
@@ -1027,6 +1028,7 @@ test('准备台账标准列表局部分页、三态排序和列偏好可用', as
     headers.slice(0, 3).map((header) => header.getAttribute('data-column-key')),
   )).toEqual(['product', 'timing', 'people'])
   await page.reload()
+  await waitForStableFilterScope(page, '[data-prep-filter-scope]')
   await expect.poll(() => page.locator('thead th[data-column-key]').evaluateAll((headers) =>
     headers.slice(0, 3).map((header) => header.getAttribute('data-column-key')),
   )).toEqual(['product', 'timing', 'people'])

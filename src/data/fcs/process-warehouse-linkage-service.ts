@@ -39,6 +39,7 @@ import {
   validateSpecialCraftMobileTaskBinding,
 } from './process-mobile-task-binding.ts'
 import { mapCraftStatusToPlatformStatus } from './process-platform-status-adapter.ts'
+import type { ProcessWorkOrderSourceType } from './process-work-order-domain.ts'
 
 export interface ProcessWarehouseLinkageActionResult {
   success: boolean
@@ -91,10 +92,13 @@ interface WarehouseBaseContext {
   sourceWorkOrderNo: string
   sourceTaskId: string
   sourceTaskNo: string
-  sourceProductionOrderId: string
-  sourceProductionOrderNo: string
-  sourceDemandId: string
-  sourceDemandNo: string
+  sourceType?: ProcessWorkOrderSourceType
+  sourceProductionOrderId?: string
+  sourceProductionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
+  sourceDemandId?: string
+  sourceDemandNo?: string
   sourceFactoryId: string
   sourceFactoryName: string
   targetFactoryId: string
@@ -177,10 +181,10 @@ function resolvePrintContext(actionResult: ProcessWarehouseLinkageActionResult):
     sourceWorkOrderNo: order.printOrderNo,
     sourceTaskId: binding.actualTaskId || order.taskId,
     sourceTaskNo: binding.actualTaskNo || order.taskNo,
-    sourceProductionOrderId: order.productionOrderIds[0] || '',
-    sourceProductionOrderNo: order.productionOrderIds[0] || '',
-    sourceDemandId: order.sourceDemandIds[0] || '',
-    sourceDemandNo: order.sourceDemandIds[0] || '',
+    sourceType: order.sourceType,
+    ...(order.sourceType === 'STOCK'
+      ? { stockMaterialId: order.stockMaterialId, stockMaterialName: order.stockMaterialName }
+      : { sourceProductionOrderId: order.sourceProductionOrderId, sourceProductionOrderNo: order.sourceProductionOrderNo }),
     sourceFactoryId: order.printFactoryId,
     sourceFactoryName: order.printFactoryName,
     targetFactoryId: order.targetTransferWarehouseId || TEST_FACTORY_ID,
@@ -213,10 +217,10 @@ function resolveDyeContext(actionResult: ProcessWarehouseLinkageActionResult): W
     sourceWorkOrderNo: order.dyeOrderNo,
     sourceTaskId: binding.actualTaskId || order.taskId,
     sourceTaskNo: binding.actualTaskNo || order.taskNo,
-    sourceProductionOrderId: order.productionOrderIds[0] || '',
-    sourceProductionOrderNo: order.productionOrderIds[0] || '',
-    sourceDemandId: order.sourceDemandIds[0] || '',
-    sourceDemandNo: order.sourceDemandIds[0] || '',
+    sourceType: order.sourceType,
+    ...(order.sourceType === 'STOCK'
+      ? { stockMaterialId: order.stockMaterialId, stockMaterialName: order.stockMaterialName }
+      : { sourceProductionOrderId: order.sourceProductionOrderId, sourceProductionOrderNo: order.sourceProductionOrderNo }),
     sourceFactoryId: order.dyeFactoryId,
     sourceFactoryName: order.dyeFactoryName,
     targetFactoryId: order.targetTransferWarehouseId || TEST_FACTORY_ID,
@@ -488,8 +492,11 @@ function ensureHandoverRecord(
     sourceWorkOrderNo: context.sourceWorkOrderNo,
     sourceTaskId: context.sourceTaskId,
     sourceTaskNo: context.sourceTaskNo,
+    sourceType: context.sourceType,
     sourceProductionOrderId: context.sourceProductionOrderId,
     sourceProductionOrderNo: context.sourceProductionOrderNo,
+    stockMaterialId: context.stockMaterialId,
+    stockMaterialName: context.stockMaterialName,
     handoverFactoryId: context.sourceFactoryId,
     handoverFactoryName: context.sourceFactoryName,
     receiveFactoryId: context.targetFactoryId,

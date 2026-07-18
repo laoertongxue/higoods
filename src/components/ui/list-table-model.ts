@@ -5,6 +5,15 @@ export interface StandardListSortState {
   direction: StandardListSortDirection
 }
 
+export function resetStandardListEntryTransientStateOnRouteEntry(
+  state: { currentPage: number; sort: StandardListSortState | null },
+  hasMountedPageRoot: boolean,
+): void {
+  if (hasMountedPageRoot) return
+  state.currentPage = 1
+  state.sort = null
+}
+
 export interface StandardListColumnRule {
   key: string
   required?: boolean

@@ -345,6 +345,10 @@ export interface ProductionOrderDemandQuantityFact {
 
 export interface ProductionOrderMaterialFact {
   id: string
+  sourceTechPackVersionId?: string
+  sourceBomItemId?: string
+  canonicalMaterialId?: string
+  snapshotMaterialId?: string
   material: string
   requiredQty: string
   preparedQty: string
@@ -381,6 +385,8 @@ export interface ProductionOrderHistoryFact {
 
 export interface ProductionOrderChangeCurrentFacts {
   productionOrderId: string
+  currentTechPackVersionId?: string
+  currentTechPackVersionLabel?: string
   demandQuantityFacts: ProductionOrderDemandQuantityFact[]
   materialFacts: ProductionOrderMaterialFact[]
   documentFacts: ProductionOrderDocumentFact[]
@@ -1815,6 +1821,78 @@ let relations: ProductionOrderTechPackRelation[] = [
     restrictionSummary: ['已生成菲票', '已交出部分裁片'],
   },
   {
+    relationId: 'TPR-PO-202603-0101',
+    productionOrderId: 'PO-202603-0101',
+    productionOrderNo: 'PO-202603-0101',
+    spuId: 'STYLE-SPU-2024-010',
+    spuCode: 'SPU-2024-010',
+    styleName: 'Celana Jogger Pria',
+    colorCount: 3,
+    sizeCount: 5,
+    deliveryDate: '2026-04-25',
+    buyerName: '廖敏',
+    merchandiserName: '陈静',
+    currentTechPackVersionId: 'TDV-SPU-2024-010-v1-1',
+    currentTechPackVersionNo: '正式版 v1.1',
+    frozenSnapshotId: 'TPS-20260306-0101',
+    frozenAt: '2026-03-06 08:00',
+    frozenBy: '系统生成',
+    relationStatus: 'CURRENT',
+    latestPublishedTechPackVersionId: 'TDV-SPU-2024-010-v1-2',
+    latestPublishedTechPackVersionNo: '正式版 v1.2',
+    latestPublishedAt: '2026-03-18 14:30',
+    publishedVersionCount: 3,
+    hasNewerPublishedVersion: true,
+    activePatchCount: 0,
+    pendingPatchCount: 0,
+    historyPatchCount: 0,
+    latestChangeRecordId: '',
+    updatedAt: '2026-03-06 08:00',
+    diffSummary: [
+      { module: 'BOM', count: 1 },
+      { module: 'PATTERN', count: 0 },
+      { module: 'DESIGN', count: 0 },
+    ],
+    progressSummary: ['配料：已配 86%', '领料：已领 71%', '裁片：已开工 120 件', '车缝：未交出'],
+    restrictionSummary: ['已领旧料和部分裁片需保留追溯'],
+  },
+  {
+    relationId: 'TPR-PO-202603-0102',
+    productionOrderId: 'PO-202603-0102',
+    productionOrderNo: 'PO-202603-0102',
+    spuId: 'STYLE-SPU-2024-010',
+    spuCode: 'SPU-2024-010',
+    styleName: 'Celana Jogger Pria',
+    colorCount: 3,
+    sizeCount: 5,
+    deliveryDate: '2026-05-02',
+    buyerName: '廖敏',
+    merchandiserName: '陈静',
+    currentTechPackVersionId: 'TDV-SPU-2024-010-v1-2',
+    currentTechPackVersionNo: '正式版 v1.2',
+    frozenSnapshotId: 'TPS-20260308-0102',
+    frozenAt: '2026-03-08 09:00',
+    frozenBy: '系统生成',
+    relationStatus: 'CURRENT',
+    latestPublishedTechPackVersionId: 'TDV-SPU-2024-010-v1-2',
+    latestPublishedTechPackVersionNo: '正式版 v1.2',
+    latestPublishedAt: '2026-03-18 14:30',
+    publishedVersionCount: 3,
+    hasNewerPublishedVersion: false,
+    activePatchCount: 0,
+    pendingPatchCount: 0,
+    historyPatchCount: 0,
+    latestChangeRecordId: '',
+    updatedAt: '2026-03-08 09:00',
+    diffSummary: [
+      { module: 'BOM', count: 0 },
+      { module: 'PATTERN', count: 0 },
+      { module: 'DESIGN', count: 0 },
+    ],
+    progressSummary: ['配料：未开始', '领料：未开始', '裁片：未开始', '车缝：未交出'],
+    restrictionSummary: ['无限制项'],
+  },
+  {
     relationId: 'TPR-PO-202603-0005',
     productionOrderId: 'PO-202603-0005',
     productionOrderNo: 'PO-202603-0005',
@@ -2191,6 +2269,10 @@ export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[
     materialFacts: [
       {
         id: 'MAT-PO-202603-0004-FAB-A01',
+        sourceTechPackVersionId: 'tdv_demand_SPU_2024_010',
+        sourceBomItemId: 'tdv_demand_SPU_2024_010-bom-main',
+        canonicalMaterialId: 'material_business_fab_a01',
+        snapshotMaterialId: 'tdv_demand_SPU_2024_010-bom-main',
         material: 'FAB-A01 弹力斜纹布 / 黑色 / 280g',
         requiredQty: '1,380 米',
         preparedQty: '980 米',
@@ -2375,6 +2457,10 @@ export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[
     materialFacts: [
       {
         id: 'MAT-PO-202603-0007-FAB-C09',
+        sourceTechPackVersionId: 'tdv_demand_SPU_2024_013',
+        sourceBomItemId: 'tdv_demand_SPU_2024_013-bom-main',
+        canonicalMaterialId: 'material_business_fab_c09',
+        snapshotMaterialId: 'tdv_demand_SPU_2024_013-bom-main',
         material: 'FAB-C09 棉弹布 / 黑色 / 240g',
         requiredQty: '2,120 米',
         preparedQty: '2,120 米',
@@ -2453,6 +2539,10 @@ export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[
     materialFacts: [
       {
         id: 'MAT-PO-202603-0101-FAB-A01',
+        sourceTechPackVersionId: 'TDV-SPU-2024-010-v1-1',
+        sourceBomItemId: 'BOM-PO-202603-0101-FAB-A01',
+        canonicalMaterialId: 'material_business_fab_a01',
+        snapshotMaterialId: 'BOM-PO-202603-0101-FAB-A01',
         material: 'FAB-A01 弹力斜纹布 / 黑色 / 280g',
         requiredQty: '1,260 米',
         preparedQty: '1,080 米',
@@ -2513,6 +2603,10 @@ export let productionOrderChangeCurrentFacts: ProductionOrderChangeCurrentFacts[
     materialFacts: [
       {
         id: 'MAT-PO-202603-0102-FAB-A01',
+        sourceTechPackVersionId: 'TDV-SPU-2024-010-v1-2',
+        sourceBomItemId: 'BOM-PO-202603-0102-FAB-A01',
+        canonicalMaterialId: 'material_business_fab_a01',
+        snapshotMaterialId: 'BOM-PO-202603-0102-FAB-A01',
         material: 'FAB-A01 弹力斜纹布 / 黑色 / 280g',
         requiredQty: '1,010 米',
         preparedQty: '0 米',
@@ -3713,11 +3807,16 @@ export function getProductionProgressSnapshot(productionOrderId: string): Produc
 
 export function getProductionOrderChangeCurrentFacts(productionOrderId: string): ProductionOrderChangeCurrentFacts | null {
   const found = productionOrderChangeCurrentFacts.find((item) => item.productionOrderId === productionOrderId)
-  return found ? clone(found) : null
+  if (!found) return null
+  const copied = clone(found)
+  const relation = relations.find((item) => item.productionOrderId === productionOrderId)
+  copied.currentTechPackVersionId ??= relation?.currentTechPackVersionId
+  copied.currentTechPackVersionLabel ??= relation?.currentTechPackVersionNo
+  return copied
 }
 
 export function listProductionOrderChangeCurrentFacts(): ProductionOrderChangeCurrentFacts[] {
-  return clone(productionOrderChangeCurrentFacts)
+  return productionOrderChangeCurrentFacts.map((facts) => getProductionOrderChangeCurrentFacts(facts.productionOrderId)!)
 }
 
 export function replaceProductionOrderChangeCurrentFacts(
@@ -3798,15 +3897,114 @@ export function appendProductionOrderMaterialChangeHistory(
 ): void {
   const facts = productionOrderChangeCurrentFacts.find((item) => item.productionOrderId === productionOrderId)
   if (!facts) throw new Error('生产单当前事实不存在')
+  const normalizedChangeOrderNo = changeOrderNo.trim()
+  if (!normalizedChangeOrderNo) throw new Error('物料变更记录 ID 不能为空')
+  if (facts.historyFacts.some((history) => history.changeOrderNo === normalizedChangeOrderNo)) {
+    throw new Error(`生产单 ${productionOrderId} 已存在物料变更记录 ${normalizedChangeOrderNo}`)
+  }
   facts.historyFacts.unshift({
-    id: `HIS-${productionOrderId}-${changeOrderNo}`,
-    changeOrderNo,
+    id: `HIS-${productionOrderId}-${normalizedChangeOrderNo}`,
+    changeOrderNo: normalizedChangeOrderNo,
     result,
     status: '已完成',
     affectedScope,
     lockStatus: '已释放',
     note: `${occurredAt} 已按确认方案完成物料替换。`,
   })
+}
+
+export function applyProductionOrderMaterialFactReplacement(input: {
+  productionOrderId: string
+  factId: string
+  replacementMaterial: {
+    materialId: string
+    materialCode: string
+    materialName: string
+  }
+  resultingTechPackVersionId: string
+  changeRecordId: string
+}): ProductionOrderMaterialFact | null {
+  const facts = productionOrderChangeCurrentFacts.find(
+    (item) => item.productionOrderId === input.productionOrderId,
+  )
+  const fact = facts?.materialFacts.find((item) => item.id === input.factId)
+  if (
+    !fact
+    || !fact.sourceBomItemId?.trim()
+    || !fact.sourceTechPackVersionId?.trim()
+    || !fact.canonicalMaterialId?.trim()
+    || !fact.snapshotMaterialId?.trim()
+  ) {
+    return null
+  }
+  const replacementMaterialId = input.replacementMaterial.materialId.trim()
+  const replacementMaterialCode = input.replacementMaterial.materialCode.trim()
+  const replacementMaterialName = input.replacementMaterial.materialName.trim()
+  const resultingTechPackVersionId = input.resultingTechPackVersionId.trim()
+  const changeRecordId = input.changeRecordId.trim()
+  if (
+    !replacementMaterialId
+    || !replacementMaterialCode
+    || !replacementMaterialName
+    || !resultingTechPackVersionId
+    || !changeRecordId
+  ) {
+    throw new Error('物料替换后的正式物料编码、名称、技术包版本和变更记录不能为空')
+  }
+  fact.canonicalMaterialId = replacementMaterialCode
+  fact.snapshotMaterialId = replacementMaterialCode
+  fact.sourceTechPackVersionId = resultingTechPackVersionId
+  fact.material = `${replacementMaterialCode} ${replacementMaterialName}`
+  return clone(fact)
+}
+
+export function applyProductionOrderChangeTechPackIdentity(
+  productionOrderId: string,
+  identity: { techPackVersionId: string; techPackVersionLabel: string },
+  changeRecordId: string,
+  occurredAt: string,
+): { techPackVersionId: string; techPackVersionLabel: string } {
+  const relation = relations.find((item) => item.productionOrderId === productionOrderId)
+  const facts = productionOrderChangeCurrentFacts.find((item) => item.productionOrderId === productionOrderId)
+  if (!relation || !facts) throw new Error('生产单当前正式版本事实不存在')
+  const normalizedIdentity = {
+    techPackVersionId: identity.techPackVersionId.trim(),
+    techPackVersionLabel: identity.techPackVersionLabel.trim(),
+  }
+  if (!normalizedIdentity.techPackVersionId || !normalizedIdentity.techPackVersionLabel) {
+    throw new Error('生产单正式版本 ID 和标签不能为空')
+  }
+  const normalizedChangeRecordId = changeRecordId.trim()
+  if (!normalizedChangeRecordId) throw new Error('生产变更记录 ID 不能为空')
+  if (relation.latestChangeRecordId === normalizedChangeRecordId) {
+    facts.currentTechPackVersionId = relation.currentTechPackVersionId
+    facts.currentTechPackVersionLabel = relation.currentTechPackVersionNo
+    return {
+      techPackVersionId: relation.currentTechPackVersionId,
+      techPackVersionLabel: relation.currentTechPackVersionNo,
+    }
+  }
+  const versionChanged = relation.currentTechPackVersionId !== normalizedIdentity.techPackVersionId
+    || relation.currentTechPackVersionNo !== normalizedIdentity.techPackVersionLabel
+  relation.currentTechPackVersionId = normalizedIdentity.techPackVersionId
+  relation.currentTechPackVersionNo = normalizedIdentity.techPackVersionLabel
+  relation.latestChangeRecordId = normalizedChangeRecordId
+  relation.updatedAt = occurredAt
+  if (versionChanged) {
+    relation.relationStatus = 'CHANGED'
+    relation.hasNewerPublishedVersion = relation.latestPublishedTechPackVersionId !== normalizedIdentity.techPackVersionId
+  }
+  facts.currentTechPackVersionId = normalizedIdentity.techPackVersionId
+  facts.currentTechPackVersionLabel = normalizedIdentity.techPackVersionLabel
+  return clone(normalizedIdentity)
+}
+
+export function restoreProductionOrderTechPackRelationSnapshot(
+  snapshot: ProductionOrderTechPackRelation,
+): void {
+  const index = relations.findIndex((item) => item.productionOrderId === snapshot.productionOrderId)
+  if (index < 0) throw new Error('生产单技术包版本关系不存在')
+  relations[index] = clone(snapshot)
 }
 
 export function resetProductionOrderChangeCurrentFactsForTesting(): void {

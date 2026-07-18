@@ -2,9 +2,9 @@ import { PDA_MOCK_QUOTED_TENDERS } from './pda-mobile-mock.ts'
 import { canFactoryAccessSpecialCraftPdaTask } from './special-craft-pda-scope.ts'
 import { type ProcessTask } from './process-tasks.ts'
 
-export const PDA_RECEIVE_EXCLUDED_PROCESS_NAMES = ['印花', '染色'] as const
+export const PDA_RECEIVE_EXCLUDED_PROCESS_NAMES = ['印花'] as const
 
-const EXCLUDED_PROCESS_CODE_KEYWORDS = ['PRINT', 'DYE']
+const EXCLUDED_PROCESS_CODE_KEYWORDS = ['PRINT']
 
 export interface ReceiveScopedTenderLike {
   tenderId: string

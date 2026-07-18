@@ -9,8 +9,6 @@ const repoRoot = process.cwd()
 const DATA_CHECK_ROOTS = ['src/data/fcs']
 
 const TARGET_PAGES = [
-  'src/pages/process-print-requirements.ts',
-  'src/pages/process-dye-requirements.ts',
   'src/pages/process-print-orders.ts',
   'src/pages/process-dye-orders.ts',
   'src/pages/task-breakdown.ts',

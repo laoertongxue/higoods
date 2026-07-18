@@ -4,6 +4,7 @@ import { renderRealQrPlaceholder } from '../components/real-qr'
 import { renderPdaFrame } from './pda-shell'
 import {
   deriveHandoutObjectProfile,
+  getPdaHandoverSourceDisplay,
   getPdaCompletedHeads,
   getPdaHandoverRecordsByHead,
   getPdaHandoutHeads,
@@ -144,6 +145,11 @@ function getHandoverSourceTypeLabel(head: PdaHandoverHead): string {
   if (head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER') return '水溶加工单'
   if (head.sourceBusinessType === 'DYE_WORK_ORDER') return '染色加工单'
   return '工序任务'
+}
+
+function renderHandoverSourceField(head: PdaHandoverHead): string {
+  const source = getPdaHandoverSourceDisplay(head)
+  return `<div><span class="text-muted-foreground">${source.label}：</span>${escapeHtml(source.value)}</div>`
 }
 
 function scheduleSpecialCraftHandoverSeed(): void {
@@ -331,7 +337,7 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
 
           <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
             <div><span class="text-muted-foreground">任务编号：</span>${escapeHtml(head.taskNo)}</div>
-            <div><span class="text-muted-foreground">生产单号：</span>${escapeHtml(head.productionOrderNo)}</div>
+            ${renderHandoverSourceField(head)}
             <div class="col-span-2"><span class="text-muted-foreground">当前工序：</span>${escapeHtml(head.processName)}</div>
             ${selfReturnPickup ? `<div class="col-span-2"><span class="text-muted-foreground">自助回货单：</span>${escapeHtml(head.sourceDocNo || '—')}</div>` : ''}
           </div>
@@ -386,7 +392,7 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
           <div><span class="text-muted-foreground">任务编号：</span>${escapeHtml(head.taskNo)}</div>
           <div><span class="text-muted-foreground">交出单号：</span>${escapeHtml(head.handoverOrderNo || head.handoverId)}</div>
           <div><span class="text-muted-foreground">原始任务：</span>${escapeHtml(head.rootTaskNo || head.taskNo)}</div>
-          <div><span class="text-muted-foreground">生产单号：</span>${escapeHtml(head.productionOrderNo)}</div>
+          ${renderHandoverSourceField(head)}
           <div><span class="text-muted-foreground">当前工序：</span>${escapeHtml(head.processName)}</div>
           <div><span class="text-muted-foreground">状态：</span>${escapeHtml(orderStatusLabel)}</div>
           <div><span class="text-muted-foreground">交接范围：</span>${escapeHtml(head.scopeLabel || '整单')}</div>
@@ -459,7 +465,7 @@ function renderDoneHeadCard(head: PdaHandoverHead): string {
         <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
           <div><span class="text-muted-foreground">任务编号：</span>${escapeHtml(head.taskNo)}</div>
           <div><span class="text-muted-foreground">原始任务：</span>${escapeHtml(head.rootTaskNo || head.taskNo)}</div>
-          <div><span class="text-muted-foreground">生产单号：</span>${escapeHtml(head.productionOrderNo)}</div>
+          ${renderHandoverSourceField(head)}
           <div><span class="text-muted-foreground">当前工序：</span>${escapeHtml(head.processName)}</div>
           <div><span class="text-muted-foreground">完成时间：</span>${escapeHtml(head.completedByWarehouseAt || '—')}</div>
           <div><span class="text-muted-foreground">交接范围：</span>${escapeHtml(head.scopeLabel || '整单')}</div>

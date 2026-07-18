@@ -25,6 +25,10 @@ import {
   isFactoryPerformanceDialogOpen,
 } from '../pages/factory-performance'
 import {
+  handleThirdPartyFactoryRatingEvent,
+  handleThirdPartyFactoryRatingSubmit,
+} from '../pages/third-party-factory-rating'
+import {
   handleSettlementEvent,
   handleSettlementSubmit,
   isSettlementDialogOpen,
@@ -41,14 +45,6 @@ import {
   isProductionCraftDictDialogOpen,
 } from '../pages/production-craft-dict'
 import { handleTechPackEvent, isTechPackDialogOpen } from '../pages/tech-pack'
-import {
-  handleProcessDyeRequirementsEvent,
-  isProcessDyeRequirementsDialogOpen,
-} from '../pages/process-dye-requirements'
-import {
-  handleProcessPrintRequirementsEvent,
-  isProcessPrintRequirementsDialogOpen,
-} from '../pages/process-print-requirements'
 import {
   handleProcessDyeOrdersEvent,
   isProcessDyeOrdersDialogOpen,
@@ -199,7 +195,7 @@ import {
 } from '../pages/process-factory/cutting/warehouse-hub'
 import { handleCraftCuttingPickupManagementEvent } from '../pages/process-factory/cutting/pickup-management'
 import { handleCraftCuttingHandoverOrdersEvent } from '../pages/process-factory/cutting/handover-orders'
-import { handleCraftDyeingEvent } from '../pages/process-factory/dyeing/events'
+import { handleCraftCombinedDyeingEvent, handleCraftDyeingEvent } from '../pages/process-factory/dyeing/events'
 import {
   closeCraftDyeingWaterSolubleOverlay,
   handleCraftDyeingWaterSolubleOrdersEvent,
@@ -246,6 +242,9 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   if (pathname.startsWith('/fcs/craft/dyeing/water-soluble-orders')) {
     return handleCraftDyeingWaterSolubleOrdersEvent(target)
   }
+  if (pathname.startsWith('/fcs/craft/dyeing/combined-dyeing')) {
+    return handleCraftCombinedDyeingEvent(target, event)
+  }
   if (pathname.startsWith('/fcs/dispatch/acceptance-sla')) {
     return handleDispatchAcceptanceSlaEvent(target)
   }
@@ -272,6 +271,19 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   }
   if (pathname.startsWith('/fcs/material-prep/other')) {
     return handleFcsOtherPrepEvent(target)
+  }
+  if (
+    pathname.startsWith('/fcs/factories/third-party-rating')
+    && (
+      event?.type === 'dragend'
+      || target.closest([
+        '[data-third-party-rating-action]',
+        '[data-third-party-rating-field]',
+        '[data-standard-list-column-drag]',
+      ].join(', '))
+    )
+  ) {
+    return handleThirdPartyFactoryRatingEvent(target, event)
   }
   if (pathname.startsWith('/fcs/factories/profile')) {
     return handleFactoryPageEvent(target)
@@ -353,8 +365,6 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleProductionEvent(target) ||
     await handleProductionCraftDictEvent(target) ||
     await handleTechPackEvent(target) ||
-    await handleProcessDyeRequirementsEvent(target) ||
-    await handleProcessPrintRequirementsEvent(target) ||
     await handleProcessDyeOrdersEvent(target) ||
     await handleProcessPrintOrdersEvent(target) ||
     await handleMaterialIssueEvent(target) ||
@@ -406,6 +416,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
 
 export function dispatchFcsPageSubmit(form: HTMLFormElement): boolean {
   return (
+    handleThirdPartyFactoryRatingSubmit(form) ||
     handleFactoryPageSubmit(form) ||
     handleCapabilitySubmit(form) ||
     handleSettlementSubmit(form) ||
@@ -488,20 +499,6 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.breakdownAction = 'close-dialog'
     handleTaskBreakdownEvent(fakeButton)
-    return true
-  }
-
-  if (isProcessDyeRequirementsDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.dyeReqAction = 'close-all'
-    handleProcessDyeRequirementsEvent(fakeButton)
-    return true
-  }
-
-  if (isProcessPrintRequirementsDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.printReqAction = 'close-all'
-    handleProcessPrintRequirementsEvent(fakeButton)
     return true
   }
 

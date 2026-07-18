@@ -89,6 +89,7 @@ export type HandoverAction = 'PICKUP' | 'HANDOUT'
 export type HandoverStatus = 'PENDING' | 'CONFIRMED'
 export type HandoverPartyKind = 'WAREHOUSE' | 'FACTORY'
 export type HandoverReceiverKind = 'WAREHOUSE' | 'MANAGED_POST_FACTORY'
+export type PdaHandoverSourceType = 'PRODUCTION_ORDER' | 'STOCK'
 export type HandoverOrderStatus =
   | 'AUTO_CREATED'
   | 'OPEN'
@@ -355,7 +356,11 @@ export interface PdaHandoverHead {
   splitGroupId?: string
   splitFromTaskNo?: string
   isSplitResult?: boolean
-  productionOrderNo: string
+  sourceType?: PdaHandoverSourceType
+  productionOrderId?: string
+  productionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   processName: string
   sourceFactoryName: string
   sourceFactoryId?: string
@@ -420,6 +425,11 @@ export interface PdaHandoverRecord {
   handoverOrderId?: string
   taskId: string
   sourceTaskId?: string
+  sourceType?: PdaHandoverSourceType
+  productionOrderId?: string
+  productionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   sequenceNo: number
   handoutObjectType?: PdaHandoutObjectType
   objectType?: HandoverObjectType
@@ -478,6 +488,21 @@ export interface PdaHandoverRecord {
   feiTicketWritebackLines?: TransferBagFeiTicketWritebackLine[]
   writebackMode?: '按袋' | '按袋 + 菲票'
   combinedWritebackStatus?: '待收货确认' | '部分收货' | '已确认收货' | '差异' | '异议中'
+}
+
+export function getPdaHandoverSourceDisplay(
+  head: Pick<PdaHandoverHead, 'sourceType' | 'productionOrderId' | 'productionOrderNo' | 'stockMaterialId' | 'stockMaterialName'>,
+): { label: '生产单号' | '备货物料'; value: string } {
+  if (head.sourceType === 'STOCK') {
+    return {
+      label: '备货物料',
+      value: [head.stockMaterialName, head.stockMaterialId].filter(Boolean).join(' / ') || '—',
+    }
+  }
+  return {
+    label: '生产单号',
+    value: head.productionOrderNo || head.productionOrderId || '—',
+  }
 }
 
 export interface TransferBagWritebackLine {
@@ -738,7 +763,9 @@ function createRecordLines(record: Pick<
 
 function hydrateHandoverRecordDomain(
   record: PdaHandoverRecord,
-  head: Pick<PdaHandoverHead, 'handoverId' | 'handoverOrderId'>,
+  head: Pick<PdaHandoverHead,
+    'handoverId' | 'handoverOrderId' | 'sourceType' | 'productionOrderId' | 'productionOrderNo' | 'stockMaterialId' | 'stockMaterialName'
+  >,
 ): PdaHandoverRecord {
   const handoverOrderId = head.handoverOrderId || head.handoverId
   const submittedQty = resolveSubmittedQty(record)
@@ -751,6 +778,23 @@ function hydrateHandoverRecordDomain(
 
   return {
     ...record,
+    ...(head.sourceType === 'STOCK'
+      ? {
+          sourceType: 'STOCK' as const,
+          stockMaterialId: head.stockMaterialId,
+          stockMaterialName: head.stockMaterialName,
+          productionOrderId: undefined,
+          productionOrderNo: undefined,
+        }
+      : head.sourceType === 'PRODUCTION_ORDER'
+        ? {
+            sourceType: 'PRODUCTION_ORDER' as const,
+            productionOrderId: head.productionOrderId,
+            productionOrderNo: head.productionOrderNo,
+            stockMaterialId: undefined,
+            stockMaterialName: undefined,
+          }
+        : {}),
     handoverRecordId: record.handoverRecordId || record.recordId,
     handoverRecordNo: record.handoverRecordNo || buildHandoverRecordNo(record.recordId),
     handoverOrderId,
@@ -4281,10 +4325,18 @@ export function ensureHandoverOrderForStartedTask(taskId: string): {
 
   const receiver = resolveTaskReceiver(task)
   const handoverOrderId = `HO-${taskId.replace(/[^A-Za-z0-9]/g, '')}`
-  const productionOrderNo =
-    'productionOrderNo' in task && typeof task.productionOrderNo === 'string'
-      ? task.productionOrderNo
-      : task.productionOrderId
+  const sourceType: PdaHandoverSourceType = task.sourceType === 'STOCK' ? 'STOCK' : 'PRODUCTION_ORDER'
+  const sourceFields = sourceType === 'STOCK'
+    ? {
+        sourceType,
+        stockMaterialId: task.stockMaterialId,
+        stockMaterialName: task.stockMaterialName,
+      }
+    : {
+        sourceType,
+        productionOrderId: task.productionOrderId,
+        productionOrderNo: task.productionOrderNo || task.productionOrderId,
+      }
   const assignmentGranularityLabel = task.assignmentGranularity
     ? PROCESS_ASSIGNMENT_GRANULARITY_LABEL[task.assignmentGranularity]
     : undefined
@@ -4300,7 +4352,7 @@ export function ensureHandoverOrderForStartedTask(taskId: string): {
       sourceTaskId: task.taskId,
       taskNo: task.taskNo || task.taskId,
       sourceTaskNo: task.taskNo || task.taskId,
-      productionOrderNo,
+      ...sourceFields,
       processName: waterOrder ? '水溶' : task.processNameZh,
       sourceFactoryName: task.assignedFactoryName || '待分配工厂',
       sourceFactoryId: task.assignedFactoryId,

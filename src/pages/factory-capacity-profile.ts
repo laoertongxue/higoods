@@ -303,7 +303,14 @@ function renderCapacityTableRows(factories: Factory[]): string {
       return `
         <tr class="border-b last:border-0 hover:bg-muted/30" data-capacity-factory-id="${factory.id}">
           <td class="px-3 py-3 font-medium">${escapeHtml(factory.name)}${renderTestFactoryBadge(factory)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(factoryTypeConfig[factory.factoryType]?.label ?? factory.factoryType)}</td>
+          <td class="px-3 py-3 text-sm">
+            <div>${escapeHtml(factoryTypeConfig[factory.factoryType]?.label ?? factory.factoryType)}</div>
+            ${
+              factory.factoryTier === 'THIRD_PARTY' && factory.factoryType === 'THIRD_SEWING'
+                ? `<div class="text-xs text-muted-foreground">车缝车位 ${factory.sewingSeatCount ?? '-'} 个</div>`
+                : ''
+            }
+          </td>
           <td class="px-3 py-3">
             <span class="inline-flex rounded border px-2 py-0.5 text-xs ${statusConfig.color}">${escapeHtml(statusConfig.label)}</span>
           </td>
@@ -638,6 +645,7 @@ function renderTopReadonlyInfo(factory: Factory): string {
         ${renderFieldValue('产值 计算状态', profile.calculationStatus)}
         ${renderFieldValue('有效工人数量', `${profile.effectiveWorkerCount}`)}
         ${renderFieldValue('机器数量', `${profile.machineTotalCount}`)}
+        ${renderFieldValue('车缝车位数', profile.sewingSeatCount ? `${profile.sewingSeatCount} 个` : '—')}
         ${renderFieldValue('匹配工厂类型', getInferredFactoryTypeLabel(profile.factoryType))}
       </div>
       <div class="grid gap-3 md:grid-cols-2">

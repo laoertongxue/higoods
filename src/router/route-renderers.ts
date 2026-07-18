@@ -337,14 +337,6 @@ export const renderProductionCraftDictPage = createAsyncRenderer(
 )
 export const renderTechPackPage = createAsyncRenderer(() => import('../pages/tech-pack/core'), 'renderTechPackPage')
 export const renderTaskBreakdownPage = createAsyncRenderer(() => import('../pages/task-breakdown'), 'renderTaskBreakdownPage')
-export const renderProcessDyeRequirementsPage = createAsyncRenderer(
-  () => import('../pages/process-dye-requirements'),
-  'renderProcessDyeRequirementsPage',
-)
-export const renderProcessPrintRequirementsPage = createAsyncRenderer(
-  () => import('../pages/process-print-requirements'),
-  'renderProcessPrintRequirementsPage',
-)
 export const renderProcessDyeOrdersPage = createAsyncRenderer(
   () => import('../pages/process-dye-orders'),
   'renderProcessDyeOrdersPage',

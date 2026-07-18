@@ -1,3 +1,5 @@
+// @page-pattern: dashboard
+
 import { applyQualitySeedBootstrap } from '../data/fcs/store-domain-quality-bootstrap'
 import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
 import {
@@ -46,7 +48,7 @@ import {
   toStatementProductionOrderSnapshot,
 } from '../data/fcs/factory-settlement-reconciliation'
 import { listStatementEligiblePreSettlementLedgersByRange } from '../data/fcs/pre-settlement-ledger-repository'
-import { isThirdPartyFactorySettlementBlocked } from '../data/fcs/third-party-factory-rating'
+import { evaluateThirdPartyFactorySettlementPolicy } from '../data/fcs/third-party-factory-rating'
 import type {
   FactoryFeedbackStatus,
   StatementAppealRecord,
@@ -2904,7 +2906,8 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
   const projections = getBuildProductionOrderProjections()
   const effectiveCurrency = getEffectiveBuildCurrency()
   const displayCurrency = getBuildCurrencyDisplayText(effectiveCurrency)
-  const blacklistSettlementBlocked = isThirdPartyFactorySettlementBlocked(state.buildFactoryId)
+  const settlementPolicy = evaluateThirdPartyFactorySettlementPolicy(state.buildFactoryId)
+  const blacklistSettlementBlocked = !settlementPolicy.allowedToCreateNewStatement
   const duplicatedStatement =
     selectedScope == null || !isBuildRangeValid()
       ? null
@@ -2962,7 +2965,7 @@ function renderBuildView(scopes: StatementBuildScopeViewModel[]): string {
         scopes.length === 0
           ? `<p class="mt-6 py-8 text-center text-sm text-muted-foreground">当前暂无可新建对账单的工厂、时间段和结算对象范围</p>`
           : `
-            ${blacklistSettlementBlocked ? '<div class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">该工厂已拉黑，不能发起结算。请主管处理历史账款。历史账本仍可查看。</div>' : ''}
+            ${blacklistSettlementBlocked ? `<div class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(settlementPolicy.reason)}</div>` : ''}
             ${renderBuildTabNav()}
             ${tabContent}
           `
@@ -3261,8 +3264,9 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
       showStatementsToast('当前时间段存在多个币种，请拆分时间段或按币种分别生成', 'error')
       return true
     }
-    if (isThirdPartyFactorySettlementBlocked(state.buildFactoryId)) {
-      showStatementsToast('该工厂已拉黑，不能发起结算。请主管处理历史账款。', 'error')
+    const settlementPolicy = evaluateThirdPartyFactorySettlementPolicy(state.buildFactoryId)
+    if (!settlementPolicy.allowedToCreateNewStatement) {
+      showStatementsToast(settlementPolicy.reason, 'error')
       return true
     }
 
@@ -3288,8 +3292,9 @@ export function handleStatementsEvent(target: HTMLElement): boolean {
       showStatementsToast('当前草稿缺少工厂或时间段', 'error')
       return true
     }
-    if (isThirdPartyFactorySettlementBlocked(state.buildFactoryId)) {
-      showStatementsToast('该工厂已拉黑，不能发起结算。请主管处理历史账款。', 'error')
+    const settlementPolicy = evaluateThirdPartyFactorySettlementPolicy(state.buildFactoryId)
+    if (!settlementPolicy.allowedToCreateNewStatement) {
+      showStatementsToast(settlementPolicy.reason, 'error')
       return true
     }
 
