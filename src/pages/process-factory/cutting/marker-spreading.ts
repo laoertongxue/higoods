@@ -341,12 +341,14 @@ interface MarkerSpreadingPageState {
   imageFilter: BooleanFilter
   spreadingModeFilter: MarkerModeFilter
   spreadingCompletionSelection: string[]
+  createKeywordDraft: string
   selectedCreateMarkerId: string
   selectedCreateSourceSnapshot: SpreadingCreateSourceRow | null
   expandedCreateSchemeIds: string[]
   createPage: number
   createPageSize: number
   createStyleImagePreview: { imageUrl: string; label: string } | null
+  dismissedCreateBindingPromptMarkerId: string
   createExceptionBackfill: boolean
   createExceptionReason: string
   createScheduleMode: SpreadingCreateScheduleMode
@@ -509,12 +511,14 @@ const state: MarkerSpreadingPageState = {
   imageFilter: 'ALL',
   spreadingModeFilter: 'ALL',
   spreadingCompletionSelection: [],
+  createKeywordDraft: '',
   selectedCreateMarkerId: '',
   selectedCreateSourceSnapshot: null,
   expandedCreateSchemeIds: [],
   createPage: 1,
   createPageSize: 10,
   createStyleImagePreview: null,
+  dismissedCreateBindingPromptMarkerId: '',
   createExceptionBackfill: false,
   createExceptionReason: '',
   createScheduleMode: 'WHOLE_PLAN_ONE_TABLE',
@@ -2515,6 +2519,7 @@ function syncStateFromPath(): void {
   state.cuttingStatusFilter = 'ALL'
   state.sourceChannelFilter = 'ALL'
   state.spreadingCompletionSelection = []
+  state.createKeywordDraft = ''
   state.feedback = null
   state.importDecision = null
   state.spreadingEditTab = parseEditTabFromPath()
@@ -5506,17 +5511,18 @@ function groupSpreadingCreateRows(rows: SpreadingCreateSourceRow[]): SpreadingCr
 function formatCreateSizeRatio(row: SpreadingCreateSourceRow): string {
   const parts = Object.entries(row.sizePiecePerLayer)
     .filter(([, quantity]) => Number(quantity) > 0)
-    .map(([size, quantity]) => `${size} × ${formatQty(quantity)} 件/层`)
+    .map(([size, quantity]) => `${size} × ${formatQty(quantity)}`)
   return parts.join(' + ') || '待补尺码层配比'
 }
 
 function renderSpreadingCreateBusinessSearch(): string {
-  return renderSection('查询生产任务', renderStickyFilterShell(`
-    <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end" data-testid="cutting-spreading-create-business-search">
-      ${renderTextInput('生产业务查询', state.keyword, 'data-cutting-spreading-list-field="keyword"', '生产需求单 / 生产单 / SPU / 裁片单')}
+  return renderSection('查询生产任务', `
+    <form class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end" data-testid="cutting-spreading-create-business-search" data-cutting-spreading-create-search-form>
+      ${renderTextInput('生产业务查询', state.createKeywordDraft, 'data-cutting-spreading-create-search-field="keyword" data-skip-page-rerender="true"', '生产需求单 / 生产单 / SPU / 裁片单')}
+      <button type="submit" class="h-10 rounded-md bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700" data-cutting-marker-action="search-spreading-create">查询</button>
       <button type="button" class="h-10 rounded-md border px-3 text-sm hover:bg-muted" data-cutting-marker-action="clear-filters">重置</button>
-    </div>
-  `))
+    </form>
+  `)
 }
 
 function renderSpreadingCreateSchemeGroup(group: SpreadingCreateSchemeGroup): string {
@@ -5547,7 +5553,7 @@ function renderSpreadingCreateSchemeGroup(group: SpreadingCreateSchemeGroup): st
                 ? `<button type="button" class="rounded-md border px-3 py-1.5 text-xs ${selected ? 'border-blue-600 bg-blue-600 text-white' : 'hover:bg-muted'}" data-cutting-marker-action="select-spreading-create-marker" data-marker-id="${escapeHtml(markerId)}">${selected ? '已选中' : '选中'}</button>`
                 : '<button type="button" class="cursor-not-allowed rounded-md border px-3 py-1.5 text-xs text-muted-foreground opacity-60" disabled>已生成</button>'}</td>
               <td class="px-3 py-3 font-medium">${escapeHtml(row.sourceBedNo || row.markerNo || '待补')}</td>
-              <td class="px-3 py-3"><span data-testid="cutting-spreading-create-size-ratio">${escapeHtml(formatCreateSizeRatio(row))}</span><div class="mt-1 text-xs text-muted-foreground">合计 ${formatQty(row.pieceQtyPerLayer)} 件/层</div></td>
+              <td class="px-3 py-3"><span data-testid="cutting-spreading-create-size-ratio">${escapeHtml(formatCreateSizeRatio(row))}</span></td>
               <td class="px-3 py-3">${formatQty(row.plannedLayerCount)} 层</td>
               <td class="px-3 py-3">${formatQty(row.plannedCutGarmentQty)} 件</td>
               <td class="px-3 py-3">${formatLength(row.plannedSpreadLengthM)}</td>
@@ -5592,15 +5598,23 @@ function renderSpreadingCreateBindingPrompt(summary: BindingStripRequirementSumm
   if (!summary.lines.length) return ''
   return `
     <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900" data-testid="binding-strip-spreading-confirmation">
-      <div class="font-medium">该物料有捆条加工单，生成铺布单前需要二次确认。</div>
+      <div class="flex items-start justify-between gap-3">
+        <div class="font-medium">该物料有捆条加工单，生成铺布单前需要二次确认。</div>
+        <button type="button" class="shrink-0 rounded p-1 text-amber-700 hover:bg-amber-100" data-skip-page-rerender="true" data-cutting-marker-action="dismiss-spreading-binding-prompt" aria-label="关闭捆条提示"><i data-lucide="x" class="h-4 w-4" aria-hidden="true"></i></button>
+      </div>
       <div class="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-        ${summary.widthSummaries.map((item) => `
-          <div class="rounded-md border border-amber-200 bg-white/80 px-2 py-2 text-xs">
-            <div class="font-medium text-foreground">${escapeHtml(item.materialSku)} / ${escapeHtml(`${item.bindingWidthCm} cm`)}</div>
-            <div class="mt-1 text-muted-foreground">捆条总长度：${escapeHtml(formatLength(item.requiredLengthM))}</div>
-            <div class="mt-1 text-muted-foreground">捆条菲票：${escapeHtml(item.ticketNos.join(' / ') || '待打印')}</div>
-          </div>
-        `).join('')}
+        ${summary.widthSummaries.map((item) => {
+          const specifications = Array.from(new Set(summary.lines
+            .filter((line) => line.materialSku === item.materialSku && line.bindingWidthCm === item.bindingWidthCm)
+            .map((line) => `${line.bindingStripName || line.bindingStripNo} / ${line.bindingWidthCm} cm / ${line.cuttingMethod}`)))
+          return `
+            <div class="rounded-md border border-amber-200 bg-white/80 px-2 py-2 text-xs">
+              <div class="font-medium text-foreground">${escapeHtml(item.materialSku)} / ${escapeHtml(`${item.bindingWidthCm} cm`)}</div>
+              <div class="mt-1 text-muted-foreground">捆条总长度：${escapeHtml(formatLength(item.requiredLengthM))}</div>
+              <div class="mt-1 text-muted-foreground">捆条规格：${escapeHtml(specifications.join('；') || `${item.bindingWidthCm} cm`)}</div>
+            </div>
+          `
+        }).join('')}
       </div>
       <div class="mt-2 text-xs text-amber-800">铺布单不会分摊捆条加工长度；实际裁剪在捆条加工单中分批记录。</div>
     </div>
@@ -5633,7 +5647,7 @@ function renderSpreadingCreatePage(): string {
       ${renderSpreadingCreateBusinessSearch()}
       ${renderSpreadingCreateResults(createRows)}
       <section class="sticky bottom-0 z-20 rounded-xl border bg-card/95 p-4 shadow-lg backdrop-blur" data-testid="cutting-spreading-create-action-bar">
-        ${bindingSummary ? renderSpreadingCreateBindingPrompt(bindingSummary) : ''}
+        ${bindingSummary && state.dismissedCreateBindingPromptMarkerId !== state.selectedCreateMarkerId ? renderSpreadingCreateBindingPrompt(bindingSummary) : ''}
         <div class="flex flex-wrap items-center justify-between gap-3">
           <p class="text-sm text-muted-foreground">${selectedSource ? `将为 ${escapeHtml(selectedSource.sourceSchemeNo)} / ${escapeHtml(selectedSource.sourceBedNo || selectedSource.markerNo)} 生成 1 张铺布单` : '请选择一个未生成铺布单的唛架编号'}</p>
           <button type="button" class="rounded-md bg-blue-600 px-4 py-3 text-sm text-white ${canCreate ? 'hover:bg-blue-700' : 'cursor-not-allowed opacity-50'}" data-cutting-marker-action="confirm-spreading-create" ${canCreate ? '' : 'disabled'}>生成铺布单</button>
@@ -6672,6 +6686,23 @@ export function renderCraftCuttingSpreadingEditPage(): string {
   return renderPage()
 }
 
+function applySpreadingCreateBusinessSearch(keyword: string): void {
+  state.createKeywordDraft = keyword
+  state.keyword = keyword.trim()
+  state.createPage = 1
+  state.selectedCreateMarkerId = ''
+  state.selectedCreateSourceSnapshot = null
+  state.dismissedCreateBindingPromptMarkerId = ''
+  state.feedback = null
+}
+
+export function handleCraftCuttingMarkerSpreadingSubmit(form: HTMLFormElement): boolean {
+  if (!form.matches('[data-cutting-spreading-create-search-form]')) return false
+  const keywordInput = form.querySelector<HTMLInputElement>('[data-cutting-spreading-create-search-field="keyword"]')
+  applySpreadingCreateBusinessSearch(keywordInput?.value || state.createKeywordDraft)
+  return true
+}
+
 export function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: Event): boolean {
   const dragEvent = event as (DragEvent & {
     higoodStandardListColumnDrag?: true
@@ -6680,6 +6711,12 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: 
   if (event?.type === 'dragend') {
     if (!dragEvent?.higoodStandardListColumnDrag) return false
     state.draggedListColumnKey = ''
+    return true
+  }
+
+  const spreadingCreateSearchFieldNode = target.closest<HTMLElement>('[data-cutting-spreading-create-search-field]')
+  if (spreadingCreateSearchFieldNode) {
+    state.createKeywordDraft = (spreadingCreateSearchFieldNode as HTMLInputElement).value
     return true
   }
 
@@ -7306,6 +7343,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: 
   }
 
   if (action === 'clear-filters') {
+    state.createKeywordDraft = ''
     state.keyword = ''
     state.contextNoFilter = ''
     state.sessionNoFilter = ''
@@ -7326,6 +7364,12 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: 
     state.createPage = 1
     state.selectedCreateMarkerId = ''
     state.selectedCreateSourceSnapshot = null
+    state.dismissedCreateBindingPromptMarkerId = ''
+    return true
+  }
+
+  if (action === 'search-spreading-create') {
+    applySpreadingCreateBusinessSearch(state.createKeywordDraft)
     return true
   }
 
@@ -7362,7 +7406,9 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: 
       state.feedback = { tone: 'warning', message: '该唛架编号已生成铺布单或当前不可铺布，请重新选择。' }
       return true
     }
-    state.selectedCreateMarkerId = selectedSource.sourceBedId || selectedSource.markerId
+    const nextMarkerId = selectedSource.sourceBedId || selectedSource.markerId
+    if (state.selectedCreateMarkerId !== nextMarkerId) state.dismissedCreateBindingPromptMarkerId = ''
+    state.selectedCreateMarkerId = nextMarkerId
     state.selectedCreateSourceSnapshot = selectedSource ? { ...selectedSource } : null
     state.feedback = null
     window.history.replaceState(
@@ -7385,6 +7431,12 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: 
   if (action === 'close-spreading-style-image') {
     state.createStyleImagePreview = null
     document.querySelector<HTMLElement>('[data-cutting-spreading-create-image-host]')?.replaceChildren()
+    return true
+  }
+
+  if (action === 'dismiss-spreading-binding-prompt') {
+    state.dismissedCreateBindingPromptMarkerId = state.selectedCreateMarkerId
+    actionNode.closest<HTMLElement>('[data-testid="binding-strip-spreading-confirmation"]')?.remove()
     return true
   }
 
