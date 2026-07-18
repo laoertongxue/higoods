@@ -141,6 +141,7 @@
     "check:fcs-upstream-cutting-chain": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-upstream-cutting-chain.ts",
     "check:cutting-runtime-boundary": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-runtime-boundary.ts",
     "check:cutting-marker-spreading-actions": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-marker-spreading-actions.ts",
+    "check:cutting-spreading-create-single-step": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-spreading-create-single-step.ts",
     "check:cutting-runtime-no-legacy-warehouse": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-runtime-no-legacy-warehouse.ts",
     "check:cutting-platform-no-legacy-pickup": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-platform-no-legacy-pickup.ts",
     "check:cutting-warehouse-writeback-chain": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-warehouse-writeback-chain.ts",

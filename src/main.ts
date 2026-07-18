@@ -599,7 +599,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     pathname.startsWith('/fcs/craft/cutting/spreading-detail')
   ) {
     const markerSpreadingPage = await getCraftCuttingMarkerSpreadingPageModule()
-    return markerSpreadingPage.handleCraftCuttingMarkerSpreadingEvent(eventTarget)
+    return markerSpreadingPage.handleCraftCuttingMarkerSpreadingEvent(eventTarget, event)
   }
   if (pathname.startsWith('/fcs/craft/cutting/transfer-bags')) {
     const transferBagsPage = await getCraftCuttingTransferBagsPageModule()

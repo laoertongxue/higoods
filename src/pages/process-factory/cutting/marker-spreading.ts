@@ -1,5 +1,25 @@
+// @page-pattern: list
+
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderStandardListPage } from '../../../components/ui/list-page.ts'
+import {
+  clearListColumnPreferences,
+  loadListColumnPreferences,
+  normalizeListColumnPreferences,
+  paginateStandardListRows,
+  saveListColumnPreferences,
+  sortStandardListRows,
+  type StandardListColumnPreferences,
+  type StandardListColumnRule,
+  type StandardListSortState,
+} from '../../../components/ui/list-table-model.ts'
+import {
+  renderStandardListColumnSettings,
+  renderStandardListTable,
+  type StandardListColumn,
+} from '../../../components/ui/list-table.ts'
 import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
   renderProductionOrderIdentityCell,
@@ -192,7 +212,6 @@ const MOBILE_SOURCE_CHANNEL = 'PDA' as const
 const MOBILE_WRITEBACK_CHANNEL = 'PDA_WRITEBACK' as const
 
 type SpreadingSourceFilter = 'ALL' | 'PC' | typeof MOBILE_SOURCE_CHANNEL
-type SpreadingCreateStepKey = 'SELECT_MARKER' | 'CONFIRM_CREATE'
 type SpreadingCreateScheduleMode = 'BY_MARKER_NO' | 'WHOLE_PLAN_ONE_TABLE'
 interface SpreadingCreateAssignment {
   cuttingTableId: string
@@ -312,14 +331,22 @@ interface MarkerSpreadingPageState {
   materialReadinessFilter: SpreadingMaterialReadinessFilter
   cuttingStatusFilter: SpreadingCuttingStatusFilter
   sourceChannelFilter: SpreadingSourceFilter
+  listPage: number
+  listSort: StandardListSortState | null
+  listColumnPreferences: StandardListColumnPreferences
+  listColumnSettingsOpen: boolean
+  draggedListColumnKey: string
   spreadingEditTab: SpreadingEditTabKey
   adjustmentFilter: BooleanFilter
   imageFilter: BooleanFilter
   spreadingModeFilter: MarkerModeFilter
   spreadingCompletionSelection: string[]
-  createStep: SpreadingCreateStepKey
   selectedCreateMarkerId: string
   selectedCreateSourceSnapshot: SpreadingCreateSourceRow | null
+  expandedCreateSchemeIds: string[]
+  createPage: number
+  createPageSize: number
+  createStyleImagePreview: { imageUrl: string; label: string } | null
   createExceptionBackfill: boolean
   createExceptionReason: string
   createScheduleMode: SpreadingCreateScheduleMode
@@ -368,6 +395,27 @@ interface SupervisorSpreadingRow extends SpreadingListRow {
   cuttingStatusFormula: string
 }
 
+const SPREADING_LIST_PAGE_SIZES = [10, 20, 50]
+const SPREADING_LIST_STORAGE_KEY = 'higood:list-page:/fcs/craft/cutting/spreading-list'
+const SPREADING_LIST_MAX_FROZEN_WIDTH = 520
+const SPREADING_LIST_COLUMN_RULES: StandardListColumnRule[] = [
+  { key: 'session', required: true, freezeable: true },
+  { key: 'status', required: true, freezeable: true },
+  { key: 'source', required: true, freezeable: true },
+  { key: 'material' },
+  { key: 'plan' },
+  { key: 'actual' },
+  { key: 'difference' },
+  { key: 'pda' },
+  { key: 'actions', required: true, actionColumn: true },
+]
+const DEFAULT_SPREADING_LIST_COLUMN_PREFERENCES: StandardListColumnPreferences = {
+  order: SPREADING_LIST_COLUMN_RULES.map((column) => column.key),
+  visibleKeys: SPREADING_LIST_COLUMN_RULES.map((column) => column.key),
+  frozenKeys: [],
+  pageSize: 10,
+}
+
 interface SpreadingPageBaseData {
   rows: MarkerSpreadingProjection['rows']
   rowsById: MarkerSpreadingProjection['rowsById']
@@ -381,12 +429,30 @@ interface SpreadingPageBaseData {
 }
 
 let pageDataCacheVersion = 0
+let spreadingListPreferencesLoaded = false
 let pageBaseDataCache: {
   querySignature: string
   prefilterSignature: string
   version: number
   data: SpreadingPageBaseData
 } | null = null
+
+function ensureSpreadingListPreferences(): void {
+  if (spreadingListPreferencesLoaded || typeof window === 'undefined') return
+  spreadingListPreferencesLoaded = true
+  state.listColumnPreferences = loadListColumnPreferences(
+    window.localStorage,
+    SPREADING_LIST_STORAGE_KEY,
+    SPREADING_LIST_COLUMN_RULES,
+    DEFAULT_SPREADING_LIST_COLUMN_PREFERENCES,
+    SPREADING_LIST_PAGE_SIZES,
+  )
+}
+
+function persistSpreadingListPreferences(): void {
+  if (typeof window === 'undefined') return
+  saveListColumnPreferences(window.localStorage, SPREADING_LIST_STORAGE_KEY, state.listColumnPreferences)
+}
 
 function invalidateSpreadingPageDataCache(): void {
   pageDataCacheVersion += 1
@@ -429,14 +495,26 @@ const state: MarkerSpreadingPageState = {
   materialReadinessFilter: 'ALL',
   cuttingStatusFilter: 'ALL',
   sourceChannelFilter: 'ALL',
+  listPage: 1,
+  listSort: null,
+  listColumnPreferences: normalizeListColumnPreferences(
+    SPREADING_LIST_COLUMN_RULES,
+    DEFAULT_SPREADING_LIST_COLUMN_PREFERENCES,
+    SPREADING_LIST_PAGE_SIZES,
+  ),
+  listColumnSettingsOpen: false,
+  draggedListColumnKey: '',
   spreadingEditTab: 'summary',
   adjustmentFilter: 'ALL',
   imageFilter: 'ALL',
   spreadingModeFilter: 'ALL',
   spreadingCompletionSelection: [],
-  createStep: 'SELECT_MARKER',
   selectedCreateMarkerId: '',
   selectedCreateSourceSnapshot: null,
+  expandedCreateSchemeIds: [],
+  createPage: 1,
+  createPageSize: 10,
+  createStyleImagePreview: null,
   createExceptionBackfill: false,
   createExceptionReason: '',
   createScheduleMode: 'WHOLE_PLAN_ONE_TABLE',
@@ -491,6 +569,7 @@ function buildCreateOwnerLabel(accountId: string): string {
 function matchesSpreadingCreateSource(source: SpreadingCreateSourceRow): boolean {
   if (
     !matchesKeyword(state.keyword, [
+      ...source.businessSearchTerms,
       source.markerNo,
       source.sourceSchemeNo,
       source.sourceBedNo,
@@ -516,8 +595,10 @@ function matchesSpreadingCreateSource(source: SpreadingCreateSourceRow): boolean
 }
 
 function getSpreadingCreateSourceRows(): SpreadingCreateSourceRow[] {
+  const stored = readMarkerSpreadingPrototypeData().store
   return buildMarkerSpreadingProjection({
     prefilter: state.prefilter,
+    store: stored,
   }).createSources.filter(matchesSpreadingCreateSource)
 }
 
@@ -525,7 +606,6 @@ function getSelectedCreateSource(rows = getSpreadingCreateSourceRows()): Spreadi
   if (!state.selectedCreateMarkerId) return null
   const matched = rows.find((row) => row.markerId === state.selectedCreateMarkerId) ||
     rows.find((row) => row.sourceBedId === state.selectedCreateMarkerId) ||
-    rows.find((row) => row.sourceSchemeId === state.selectedCreateMarkerId) ||
     null
   if (matched) return matched
   const snapshot = state.selectedCreateSourceSnapshot
@@ -533,8 +613,7 @@ function getSelectedCreateSource(rows = getSpreadingCreateSourceRows()): Spreadi
     snapshot &&
     (
       snapshot.markerId === state.selectedCreateMarkerId ||
-      snapshot.sourceBedId === state.selectedCreateMarkerId ||
-      snapshot.sourceSchemeId === state.selectedCreateMarkerId
+      snapshot.sourceBedId === state.selectedCreateMarkerId
     )
   ) {
     return snapshot
@@ -542,12 +621,9 @@ function getSelectedCreateSource(rows = getSpreadingCreateSourceRows()): Spreadi
   return null
 }
 
-function getSelectedCreateSchemeSources(rows = getSpreadingCreateSourceRows()): SpreadingCreateSourceRow[] {
+function getSelectedCreateRows(rows = getSpreadingCreateSourceRows()): SpreadingCreateSourceRow[] {
   const selected = getSelectedCreateSource(rows)
-  if (!selected?.sourceSchemeId) return selected ? [selected] : []
-  return rows
-    .filter((row) => row.sourceSchemeId === selected.sourceSchemeId)
-    .sort((left, right) => left.sourceBedNo.localeCompare(right.sourceBedNo, 'zh-CN', { numeric: true }))
+  return selected ? [selected] : []
 }
 
 function getCreateAssignmentKey(source: SpreadingCreateSourceRow): string {
@@ -595,7 +671,7 @@ function syncCreateAssignmentsByCuttingTable(
   patch: Partial<Pick<SpreadingCreateAssignment, 'plannedStartAt' | 'plannedEndAt' | 'ownerAccountId'>>,
 ): void {
   if (!cuttingTableId) return
-  getSelectedCreateSchemeSources().forEach((row, index) => {
+  getSelectedCreateRows().forEach((row, index) => {
     const assignment = getCreateAssignment(row, index)
     if (assignment.cuttingTableId !== cuttingTableId) return
     if (patch.plannedStartAt !== undefined) assignment.plannedStartAt = patch.plannedStartAt
@@ -609,7 +685,7 @@ function getLatestCreateAssignmentForCuttingTable(
   excludeKey?: string,
 ): SpreadingCreateAssignment | null {
   if (!cuttingTableId) return null
-  const rows = getSelectedCreateSchemeSources()
+  const rows = getSelectedCreateRows()
   for (let index = rows.length - 1; index >= 0; index -= 1) {
     const row = rows[index]
     const key = getCreateAssignmentKey(row)
@@ -2455,11 +2531,9 @@ function syncStateFromPath(): void {
       const previousCreateCuttingTableId = state.createCuttingTableId
       const previousCreatePlannedStartAt = state.createPlannedStartAt
       const previousCreateNote = state.createNote
-      const step = getSearchParams().get('step')
-      state.createStep = step === 'confirm' ? 'CONFIRM_CREATE' : 'SELECT_MARKER'
       state.selectedCreateMarkerId = getSearchParams().get('bedId') || getSearchParams().get('markerId') || ''
       state.selectedCreateSourceSnapshot = null
-      state.createStep = state.selectedCreateMarkerId ? state.createStep : 'SELECT_MARKER'
+      state.createStyleImagePreview = null
       state.createExceptionBackfill = false
       state.createExceptionReason = ''
       const shouldPreserveCreateState = Boolean(previousSelectedCreateMarkerId && previousSelectedCreateMarkerId === state.selectedCreateMarkerId)
@@ -2925,21 +2999,6 @@ function renderListStats(pageData = getPageData()): string {
     `, '', 'data-testid="cutting-spreading-list-stats"')
 }
 
-function renderContextCell(contextLabel: string, cutOrderNos: string[], markerPlanNo: string): string {
-  return `
-    <div class="space-y-1">
-      <p class="text-xs font-medium text-foreground">${escapeHtml(contextLabel)}</p>
-      <p class="text-[11px] text-muted-foreground">裁片单 ${escapeHtml(String(cutOrderNos.length))} 个</p>
-      ${markerPlanNo ? `<p class="text-[11px] text-muted-foreground">唛架方案：${escapeHtml(markerPlanNo)}</p>` : ''}
-    </div>
-  `
-}
-
-function renderMarkerTable(rows: MarkerListRow[]): string {
-  void rows
-  return ''
-}
-
 function renderSpreadingListCuttingAction(row: SupervisorSpreadingRow): string {
   if (row.cuttingStatusKey === 'WAITING_CUTTING') {
     return `<button type="button" class="w-full truncate whitespace-nowrap rounded-md border border-violet-500 bg-violet-50 px-2.5 py-1.5 text-xs leading-5 text-violet-700 hover:bg-violet-100" data-cutting-marker-action="start-cutting" data-session-id="${escapeHtml(row.spreadingSessionId)}">裁剪</button>`
@@ -2950,166 +3009,88 @@ function renderSpreadingListCuttingAction(row: SupervisorSpreadingRow): string {
   return ''
 }
 
-function renderSpreadingListCuttingStatusCell(row: SupervisorSpreadingRow): string {
-  if (row.mainStageKey !== 'DONE') {
-    return `
-      <div class="min-w-0 space-y-1 text-xs leading-5">
-        <div class="text-[11px] text-muted-foreground xl:hidden">裁剪状态</div>
-        <div class="text-muted-foreground">-</div>
-      </div>
-    `
-  }
-
-  return `
-    <div class="min-w-0 space-y-1 text-xs leading-5">
-      <div class="text-[11px] text-muted-foreground xl:hidden">裁剪状态</div>
-      <div>${renderStatusBadge(row.cuttingStatusLabel, row.cuttingStatusClassName)}</div>
-      <div class="truncate text-muted-foreground" title="${escapeHtml(row.cuttingStatusFormula)}">${escapeHtml(row.cuttingStatusFormula)}</div>
-    </div>
-  `
-}
-
-const SPREADING_LIST_GRID_CLASS =
-  'xl:grid-cols-[minmax(0,0.9fr)_minmax(0,0.74fr)_minmax(0,0.95fr)_minmax(0,1.35fr)_minmax(0,0.86fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.78fr)_minmax(0,0.78fr)_minmax(0,0.84fr)]'
-
-function renderSpreadingTable(
-  rows: SupervisorSpreadingRow[],
-  projection: MarkerSpreadingProjection,
-  webSummariesBySessionId: Record<string, ReturnType<typeof resolveWebSpreadingSummary>> = {},
-): string {
-  if (!rows.length) {
-    return '<section class="rounded-lg border border-dashed bg-card px-4 py-6 text-center text-sm text-muted-foreground" data-cutting-spreading-main-card="true">当前筛选范围内暂无铺布记录。</section>'
-  }
-
-  return `
-    <section class="rounded-lg border bg-card" data-testid="cutting-spreading-list-table" data-cutting-spreading-main-card="true">
-      <div class="flex items-center justify-between gap-3 border-b px-4 py-3">
-        <div>
-          <h2 class="text-sm font-semibold">铺布单</h2>
-        </div>
-        <div class="text-xs text-muted-foreground">共 ${rows.length} 张铺布单</div>
-      </div>
-      <div class="hidden border-b bg-slate-50 px-4 py-3 text-left text-xs font-medium text-muted-foreground xl:grid ${SPREADING_LIST_GRID_CLASS} xl:gap-3">
-        <div>铺布单</div>
-        <div>裁剪状态</div>
-        <div>来源</div>
-        <div>面料</div>
-        <div>纸样</div>
-        <div>计划 / 物料状态</div>
-        <div>实际</div>
-        <div>差异</div>
-        <div>PDA 执行记录</div>
-        <div>操作</div>
-      </div>
-      <div class="divide-y">
-        ${rows
-          .map((row) => {
-            const summary = webSummariesBySessionId[row.spreadingSessionId] || resolveWebSpreadingSummary(row, projection)
-            const markerNos = row.session.sourceBedNo || row.session.markerNo || row.sourceMarkerLabel
-            const pattern = summary.order?.patternIdentity || null
-            const pda = summary.pda
-            const sourceSchemeLabel = row.session.sourceSchemeNo || row.markerPlanNo || '待关联唛架方案'
-            const productionOrders = summarizeListValues(row.productionOrderNos)
-            const patternName = pattern?.patternFileName || '纸样待补'
-            const patternVersion = pattern?.patternVersion || '待补'
-            const effectiveWidth = pattern?.effectiveWidthText || summary.order?.effectiveWidth || '待补'
-            return `
-              <article class="grid min-w-0 gap-3 px-4 py-4 text-left text-sm xl:grid ${SPREADING_LIST_GRID_CLASS}">
-                <div class="min-w-0 space-y-2">
-                  ${renderSingleLineText(row.sessionNo, 'font-semibold text-blue-600')}
-                  <div class="space-y-1">
-                    <div class="text-[11px] text-muted-foreground">铺布状态</div>
-                    <div class="flex flex-wrap gap-1">${renderStatusBadge(row.mainStageLabel, row.mainStageClassName)}</div>
-                  </div>
-                  <div class="truncate text-xs text-muted-foreground" title="${escapeHtml(markerNos || '待补')}">唛架编号 / 床次：${escapeHtml(markerNos || '待补')}</div>
-                  <div class="truncate text-xs text-muted-foreground" title="${escapeHtml(row.spreadingModeLabel || '待补')}">唛架模式：${escapeHtml(row.spreadingModeLabel || '待补')}</div>
-                </div>
-                ${renderSpreadingListCuttingStatusCell(row)}
-                <div class="min-w-0 space-y-1 text-xs leading-5">
-                  ${renderSingleLineText(sourceSchemeLabel, 'text-sm font-medium text-foreground')}
-                  <div class="truncate text-muted-foreground" title="${escapeHtml(productionOrders.title)}">生产单：${escapeHtml(productionOrders.label)}</div>
-                  <div class="text-muted-foreground">来源裁片单：${escapeHtml(`${formatQty(summary.order?.sourceCutOrderIds.length || row.cutOrderCount)} 张`)}</div>
-                </div>
-                <div class="min-w-0">
-                  ${renderMaterialIdentityBlock(
-                    summary.order?.materialIdentity || {
-                      materialSku: row.materialSkuSummary || '待补',
-                      materialLabel: '铺布面料',
-                      materialColor: row.colorSummary,
-                      materialAlias: row.materialAliasSummary,
-                      materialImageUrl: row.materialImageUrl,
-                    },
-                    { compact: true, imageSizeClass: 'h-9 w-9', showCategory: false },
-                  )}
-                </div>
-                <div class="min-w-0 space-y-1 text-xs leading-5">
-                  ${renderSingleLineText(patternName, 'font-medium text-foreground')}
-                  <div class="truncate text-muted-foreground" title="${escapeHtml(patternVersion)}">版本：${escapeHtml(patternVersion)}</div>
-                  <div class="truncate text-muted-foreground" title="${escapeHtml(effectiveWidth)}">有效幅宽：${escapeHtml(effectiveWidth)}</div>
-                </div>
-                <div class="min-w-0">
-                  ${renderCompactMetricLines([
-                    ['计划层数', `${formatQty(summary.plannedLayerCount)} 层`],
-                    ['计划用量', formatLength(summary.plannedUsage)],
-                    ['计划数量', `${formatQty(summary.plannedQty)} 件`],
-                  ])}
-                  <div class="mt-2">${renderMaterialReadinessInline(summary.materialReadiness)}</div>
-                </div>
-                <div class="min-w-0">
-                  ${renderCompactMetricLines([
-                    ['实铺层数', `${formatQty(summary.actualLayerCount)} 层`],
-                    ['实际用量', formatLength(summary.actualUsage)],
-                    ['实际裁剪数量', `${formatQty(summary.actualCutQty)} 件`],
-                  ])}
-                </div>
-                <div class="min-w-0">
-                  ${renderCompactMetricLines([
-                    ['层数差异', formatSignedNumber(summary.layerDiff, '层')],
-                    ['用量差异', formatSignedLength(summary.usageDiff)],
-                    ['数量差异', formatSignedNumber(summary.qtyDiff, '件')],
-                  ])}
-                  <div class="mt-2">${renderStatusBadge(summary.needsReview ? '有差异' : '无差异', summary.needsReview ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700')}</div>
-                </div>
-                <div class="min-w-0 space-y-1 text-xs leading-5">
-                  ${renderStatusBadge(pda.statusLabel, pda.statusClassName)}
-                  <div class="truncate text-muted-foreground" title="${escapeHtml(formatScheduleDateTime(pda.latestAt))}">最近同步：${escapeHtml(formatScheduleDateTime(pda.latestAt))}</div>
-                  <div class="truncate text-muted-foreground" title="${escapeHtml(pda.operatorName)}">操作人：${escapeHtml(pda.operatorName)}</div>
-                </div>
-                <div class="flex min-w-0 flex-col gap-1">
-                  <button type="button" class="w-full truncate whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看详情</button>
-                  <button type="button" class="w-full truncate whitespace-nowrap rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700 hover:bg-blue-100" data-cutting-marker-action="open-spreading-edit" data-session-id="${escapeHtml(row.spreadingSessionId)}">编辑铺布</button>
-                  <button type="button" class="w-full truncate whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看 PDA</button>
-                  ${renderSpreadingListCuttingAction(row)}
-                </div>
-              </article>
-            `
-          })
-          .join('')}
-      </div>
-    </section>
-  `
+function getSpreadingListColumns(): StandardListColumn<SupervisorSpreadingRow>[] {
+  const getSummary = (row: SupervisorSpreadingRow) =>
+    getPageBaseData().webSummariesBySessionId[row.spreadingSessionId] || resolveWebSpreadingSummary(row, getPageBaseData().projection)
+  return [
+    {
+      key: 'session', title: '铺布单', width: 190, required: true, freezeable: true, sortable: true,
+      sortValue: (row) => row.sessionNo,
+      render: (row) => `<div class="space-y-1">${renderSingleLineText(row.sessionNo, 'font-semibold text-blue-600')}<div class="text-xs text-muted-foreground">唛架编号：${escapeHtml(row.session.sourceBedNo || row.sourceMarkerLabel || '待补')}</div><div class="text-xs text-muted-foreground">${escapeHtml(row.spreadingModeLabel)}</div></div>`,
+    },
+    {
+      key: 'status', title: '状态', width: 160, required: true, freezeable: true, sortable: true,
+      sortValue: (row) => row.mainStageLabel,
+      render: (row) => `<div class="space-y-2">${renderStatusBadge(row.mainStageLabel, row.mainStageClassName)}${row.mainStageKey === 'DONE' ? renderStatusBadge(row.cuttingStatusLabel, row.cuttingStatusClassName) : '<div class="text-xs text-muted-foreground">裁剪状态：-</div>'}</div>`,
+    },
+    {
+      key: 'source', title: '生产来源', width: 240, required: true, freezeable: true, sortable: true,
+      sortValue: (row) => row.productionOrderNos.join(' '),
+      render: (row) => `<div class="space-y-1 text-xs"><div class="font-medium text-foreground">${escapeHtml(row.session.sourceSchemeNo || row.markerPlanNo || '待关联唛架方案')}</div><div class="text-muted-foreground">生产单：${escapeHtml(summarizeListValues(row.productionOrderNos).label)}</div><div class="text-muted-foreground">裁片单：${formatQty(row.cutOrderCount)} 张</div></div>`,
+    },
+    {
+      key: 'material', title: '面料', width: 260,
+      render: (row) => {
+        const summary = getSummary(row)
+        return renderMaterialIdentityBlock(summary.order?.materialIdentity || { materialSku: row.materialSkuSummary || '待补', materialLabel: '铺布面料', materialColor: row.colorSummary, materialAlias: row.materialAliasSummary, materialImageUrl: row.materialImageUrl }, { compact: true, imageSizeClass: 'h-9 w-9', showCategory: false })
+      },
+    },
+    {
+      key: 'plan', title: '计划', width: 180, sortable: true,
+      sortValue: (row) => row.plannedCutGarmentQty,
+      render: (row) => {
+        const summary = getSummary(row)
+        return `${renderCompactMetricLines([['计划层数', `${formatQty(summary.plannedLayerCount)} 层`], ['计划用量', formatLength(summary.plannedUsage)], ['计划数量', `${formatQty(summary.plannedQty)} 件`]])}<div class="mt-2">${renderMaterialReadinessInline(summary.materialReadiness)}</div>`
+      },
+    },
+    {
+      key: 'actual', title: '实际', width: 170, sortable: true,
+      sortValue: (row) => row.actualCutGarmentQty,
+      render: (row) => {
+        const summary = getSummary(row)
+        return renderCompactMetricLines([['实铺层数', `${formatQty(summary.actualLayerCount)} 层`], ['实际用量', formatLength(summary.actualUsage)], ['裁剪数量', `${formatQty(summary.actualCutQty)} 件`]])
+      },
+    },
+    {
+      key: 'difference', title: '差异', width: 170, sortable: true,
+      sortValue: (row) => Math.abs(getSummary(row).qtyDiff),
+      render: (row) => {
+        const summary = getSummary(row)
+        return `${renderCompactMetricLines([['层数', formatSignedNumber(summary.layerDiff, '层')], ['用量', formatSignedLength(summary.usageDiff)], ['数量', formatSignedNumber(summary.qtyDiff, '件')]])}<div class="mt-2">${renderStatusBadge(summary.needsReview ? '有差异' : '无差异', summary.needsReview ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700')}</div>`
+      },
+    },
+    {
+      key: 'pda', title: 'PDA 执行', width: 180,
+      render: (row) => {
+        const pda = getSummary(row).pda
+        return `<div class="space-y-1 text-xs">${renderStatusBadge(pda.statusLabel, pda.statusClassName)}<div class="text-muted-foreground">最近同步：${escapeHtml(formatScheduleDateTime(pda.latestAt))}</div><div class="text-muted-foreground">操作人：${escapeHtml(pda.operatorName)}</div></div>`
+      },
+    },
+    {
+      key: 'actions', title: '操作', width: 132, required: true, actionColumn: true,
+      render: (row) => `<div class="space-y-1"><button type="button" class="w-full rounded-md border px-2 py-1.5 text-xs hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看详情</button><button type="button" class="w-full rounded-md border border-blue-200 bg-blue-50 px-2 py-1.5 text-xs text-blue-700 hover:bg-blue-100" data-cutting-marker-action="open-spreading-edit" data-session-id="${escapeHtml(row.spreadingSessionId)}">编辑铺布</button>${renderSpreadingListCuttingAction(row)}</div>`,
+    },
+  ]
 }
 
 function renderSpreadingSupervisorListPage(): string {
-  const pathname = getCurrentPathname()
-  const meta = getCanonicalCuttingMeta(pathname, 'spreading-list')
+  ensureSpreadingListPreferences()
   const pageData = getPageData()
   const filteredRows = pageData.spreadingRows as SupervisorSpreadingRow[]
+  const columns = getSpreadingListColumns()
+  const sortedRows = sortStandardListRows(filteredRows, state.listSort, (row, key) => columns.find((column) => column.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sortedRows, state.listPage, state.listColumnPreferences.pageSize)
+  state.listPage = paging.currentPage
+  const primaryActions = renderHeaderActions(appendSummaryReturnAction([
+    '<button type="button" class="rounded-md bg-blue-600 px-3 py-3 text-sm text-white hover:bg-blue-700" data-cutting-marker-action="create-spreading">新增铺布单</button>',
+    '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="export-spreading-list">导出当前视图</button>',
+  ]))
+  const listActions = `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-spreading-list-action="open-column-settings">列设置</button>`
+  const tableHtml = `<div data-testid="cutting-spreading-list-table">${renderStandardListTable({ columns, rows: paging.rows, preferences: state.listColumnPreferences, sort: state.listSort, eventPrefix: 'cutting-spreading-list', emptyText: '当前筛选范围内暂无铺布记录。' })}</div>`
+  const paginationHtml = renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: 'cutting-spreading-list', fieldPrefix: 'cutting-spreading-list', pageSizeOptions: SPREADING_LIST_PAGE_SIZES })
+  const overlaysHtml = state.listColumnSettingsOpen ? renderStandardListColumnSettings({ title: '铺布单列设置', columns, preferences: state.listColumnPreferences, eventPrefix: 'cutting-spreading-list', maxFrozenWidth: SPREADING_LIST_MAX_FROZEN_WIDTH }) : ''
 
-  return `
-    <div class="space-y-4 p-4" data-testid="cutting-spreading-list-page">
-      ${renderCuttingPageHeader(meta, {
-        actionsHtml: renderHeaderActions(appendSummaryReturnAction([
-          '<button type="button" class="rounded-md bg-blue-600 px-3 py-3 text-sm text-white hover:bg-blue-700" data-cutting-marker-action="create-spreading">新增铺布单</button>',
-          '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="export-spreading-list">导出当前视图</button>',
-        ])),
-      })}
-      ${renderFeedbackBar()}
-      ${renderFilterArea()}
-      ${renderListStats(pageData)}
-      ${renderSpreadingTable(filteredRows, pageData.projection, pageData.webSummariesBySessionId)}
-    </div>
-  `
+  return `<div data-testid="cutting-spreading-list-page">${renderStandardListPage({ title: '铺布单', primaryActionsHtml: primaryActions, feedbackHtml: renderFeedbackBar(), filtersHtml: renderFilterArea(), statsHtml: renderListStats(pageData), listTitle: `铺布单（${filteredRows.length}）`, listActionsHtml: listActions, tableHtml, paginationHtml, overlaysHtml })}</div>`
 }
 
 function renderMarkerWarningSection(warningMessages: string[]): string {
@@ -5502,129 +5483,104 @@ function renderSpreadingEditPage(): string {
   `
 }
 
-function renderSpreadingCreateStepBar(): string {
-  const steps: Array<{ key: SpreadingCreateStepKey; label: string }> = [
-    { key: 'SELECT_MARKER', label: '步骤 1：选择可铺布唛架编号' },
-    { key: 'CONFIRM_CREATE', label: '步骤 2：确认铺布单' },
-  ]
-
-  return `
-    <section class="rounded-xl border bg-card p-3" data-testid="cutting-spreading-create-steps">
-      <div class="flex flex-wrap gap-2">
-        ${steps
-          .map((step, index) => {
-            const active = state.createStep === step.key
-            return `
-              <div class="inline-flex items-center gap-2 rounded-md border px-3 py-3 text-sm ${
-                active ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-border text-muted-foreground'
-              }">
-                <span class="inline-flex h-4.5 w-4.5 items-center justify-center rounded-full ${active ? 'bg-blue-600 text-white' : 'bg-muted text-foreground'} text-[11px] font-semibold">${index + 1}</span>
-                <span>${escapeHtml(step.label)}</span>
-              </div>
-            `
-          })
-          .join('')}
-      </div>
-    </section>
-  `
+interface SpreadingCreateSchemeGroup {
+  schemeId: string
+  schemeNo: string
+  rows: SpreadingCreateSourceRow[]
 }
 
-function renderSpreadingCreateSourceTable(rows: SpreadingCreateSourceRow[]): string {
-  if (!rows.length) {
-    return '<div class="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">当前没有可铺布的唛架编号，请先回到唛架方案补齐可铺布唛架编号。</div>'
-  }
-  const schemeRows = Array.from(
-    rows.reduce<Map<string, SpreadingCreateSourceRow[]>>((accumulator, row) => {
-      const key = row.sourceSchemeId || row.markerId
-      if (!accumulator.has(key)) accumulator.set(key, [])
-      accumulator.get(key)!.push(row)
-      return accumulator
-    }, new Map()).values(),
-  ).map((items) => {
-    const first = items[0]
-    return {
-      first,
-      rows: items,
-      totalQty: items.reduce((sum, item) => sum + Math.max(Number(item.plannedCutGarmentQty || 0), 0), 0),
-      bedNos: items.map((item) => item.sourceBedNo).filter(Boolean),
-    }
-  })
+function groupSpreadingCreateRows(rows: SpreadingCreateSourceRow[]): SpreadingCreateSchemeGroup[] {
+  return Array.from(rows.reduce<Map<string, SpreadingCreateSourceRow[]>>((groups, row) => {
+    const key = row.sourceSchemeId || row.sourceSchemeNo || row.markerId
+    const current = groups.get(key) || []
+    current.push(row)
+    groups.set(key, current)
+    return groups
+  }, new Map()).entries()).map(([schemeId, groupRows]) => ({
+    schemeId,
+    schemeNo: groupRows[0]?.sourceSchemeNo || '待补唛架方案',
+    rows: groupRows,
+  }))
+}
 
-  return `
-    <div class="overflow-auto" data-testid="cutting-spreading-create-source-table">
-      <table class="w-full min-w-[1080px] text-sm">
-        <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
-          <tr>
-            <th class="px-3 py-3">选中</th>
-            <th class="px-3 py-3">唛架方案</th>
-            <th class="px-3 py-3">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 裁片单</th>
-            <th class="px-3 py-3">款式 / SPU</th>
-            <th class="px-3 py-3">颜色</th>
-            <th class="px-3 py-3">唛架编号数量</th>
-            <th class="px-3 py-3">计划件数</th>
-            <th class="px-3 py-3">铺布物料状态</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${schemeRows
-            .map(({ first: row, rows: groupRows, totalQty, bedNos }) => {
-              const selected =
-                row.markerId === state.selectedCreateMarkerId ||
-                row.sourceBedId === state.selectedCreateMarkerId ||
-                row.sourceSchemeId === state.selectedCreateMarkerId
-              const readiness = resolveSpreadingMaterialReadiness({
-                sourceCutOrderIds: row.cutOrderIds,
-                sourceCutOrderNos: row.cutOrderNos,
-                plannedMaterialUsage: groupRows.reduce((sum, item) => sum + Math.max(Number(item.plannedSpreadLengthM || 0), 0), 0),
-                plannedMaterialUsageUnit: '米',
-              })
-              return `
-                <tr class="border-b align-top ${selected ? 'bg-blue-50/40' : ''}">
-                  <td class="px-3 py-3">
-                    <button
-                      type="button"
-                      class="rounded-md border px-3 py-1.5 text-xs ${selected ? 'border-blue-500 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
-                      data-cutting-marker-action="select-spreading-create-marker"
-                      data-marker-id="${escapeHtml(row.sourceSchemeId || row.markerId)}"
-                    >
-                      ${selected ? '已选中' : '选中'}
-                    </button>
-                  </td>
-                  <td class="px-3 py-3">
-                    <div class="font-medium text-foreground">${escapeHtml(row.sourceSchemeNo)}</div>
-                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(bedNos.slice(0, 4).join(' / ') || '待补唛架编号')}${bedNos.length > 4 ? ` 等 ${bedNos.length} 个` : ''}</div>
-                  </td>
-                  <td class="px-3 py-3">${renderProductionOrderIdentityCell(row.productionOrderNos.join(' / ') || row.cutOrderNos.join(' / ') || '待补')}</td>
-                  <td class="px-3 py-3">${escapeHtml(`${row.styleCode || '待补'} / ${row.spuCode || '待补'}`)}</td>
-                  <td class="px-3 py-3">${escapeHtml(row.colorSummary || '待补')}</td>
-                  <td class="px-3 py-3">${escapeHtml(`${formatQty(groupRows.length)} 个`)}</td>
-                  <td class="px-3 py-3">${escapeHtml(`${formatQty(totalQty)} 件`)}</td>
-                  <td class="px-3 py-3">${renderMaterialReadinessInline(readiness)}</td>
-                </tr>
-              `
-            })
-            .join('')}
-        </tbody>
-      </table>
+function formatCreateSizeRatio(row: SpreadingCreateSourceRow): string {
+  const parts = Object.entries(row.sizePiecePerLayer)
+    .filter(([, quantity]) => Number(quantity) > 0)
+    .map(([size, quantity]) => `${size} × ${formatQty(quantity)} 件/层`)
+  return parts.join(' + ') || '待补尺码层配比'
+}
+
+function renderSpreadingCreateBusinessSearch(): string {
+  return renderSection('查询生产任务', renderStickyFilterShell(`
+    <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end" data-testid="cutting-spreading-create-business-search">
+      ${renderTextInput('生产业务查询', state.keyword, 'data-cutting-spreading-list-field="keyword"', '生产需求单 / 生产单 / SPU / 裁片单')}
+      <button type="button" class="h-10 rounded-md border px-3 text-sm hover:bg-muted" data-cutting-marker-action="clear-filters">重置</button>
     </div>
+  `))
+}
+
+function renderSpreadingCreateSchemeGroup(group: SpreadingCreateSchemeGroup): string {
+  const first = group.rows[0]
+  const createdCount = group.rows.filter((row) => row.existingSpreadingOrder).length
+  return `
+    <article class="overflow-hidden rounded-xl border bg-card" data-testid="cutting-spreading-create-scheme-group" data-scheme-id="${escapeHtml(group.schemeId)}">
+      <header class="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/20 px-4 py-3">
+        <div class="flex min-w-0 items-center gap-3">
+          <button type="button" class="h-12 w-12 shrink-0 overflow-hidden rounded-md border bg-background" data-skip-page-rerender="true" data-cutting-marker-action="open-spreading-style-image" data-image-url="${escapeHtml(first.styleImageUrl)}" data-image-label="${escapeHtml(`${first.styleCode || first.spuCode} 款式图`)}" aria-label="查看${escapeHtml(first.styleCode || first.spuCode)}款式大图">
+            <img class="h-full w-full object-cover" src="${escapeHtml(first.styleImageUrl)}" alt="${escapeHtml(`${first.styleCode || first.spuCode} 缩略图`)}" />
+          </button>
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2"><strong>${escapeHtml(group.schemeNo)}</strong>${renderTag(`${group.rows.length} 个唛架编号`, 'bg-blue-50 text-blue-700 border border-blue-200')}${createdCount ? renderTag(`${createdCount} 个已生成`, 'bg-slate-100 text-slate-700 border border-slate-200') : ''}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${first.productionDemandNos.join(' / ') || '待补生产需求单'} · ${first.productionOrderNos.join(' / ') || '待补生产单'} · ${first.cutOrderNos.join(' / ') || '待补裁片单'} · ${first.styleCode || '待补款号'} / ${first.spuCode || '待补 SPU'} · ${first.colorSummary || '待补颜色'}`)}</div>
+          </div>
+        </div>
+      </header>
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[1080px] text-sm">
+          <thead class="bg-muted/40 text-left text-xs text-muted-foreground"><tr><th class="px-3 py-2">选择</th><th class="px-3 py-2">唛架编号</th><th class="px-3 py-2">尺码表（每层）</th><th class="px-3 py-2">层数</th><th class="px-3 py-2">计划件数</th><th class="px-3 py-2">计划铺布长度</th><th class="px-3 py-2">铺布单</th><th class="px-3 py-2">状态</th></tr></thead>
+          <tbody>${group.rows.map((row) => {
+            const markerId = row.sourceBedId || row.markerId
+            const selected = markerId === state.selectedCreateMarkerId || row.markerId === state.selectedCreateMarkerId
+            const existing = row.existingSpreadingOrder
+            return `<tr class="border-t align-top ${selected ? 'bg-blue-50/50' : ''}">
+              <td class="px-3 py-3">${row.canCreate
+                ? `<button type="button" class="rounded-md border px-3 py-1.5 text-xs ${selected ? 'border-blue-600 bg-blue-600 text-white' : 'hover:bg-muted'}" data-cutting-marker-action="select-spreading-create-marker" data-marker-id="${escapeHtml(markerId)}">${selected ? '已选中' : '选中'}</button>`
+                : '<button type="button" class="cursor-not-allowed rounded-md border px-3 py-1.5 text-xs text-muted-foreground opacity-60" disabled>已生成</button>'}</td>
+              <td class="px-3 py-3 font-medium">${escapeHtml(row.sourceBedNo || row.markerNo || '待补')}</td>
+              <td class="px-3 py-3"><span data-testid="cutting-spreading-create-size-ratio">${escapeHtml(formatCreateSizeRatio(row))}</span><div class="mt-1 text-xs text-muted-foreground">合计 ${formatQty(row.pieceQtyPerLayer)} 件/层</div></td>
+              <td class="px-3 py-3">${formatQty(row.plannedLayerCount)} 层</td>
+              <td class="px-3 py-3">${formatQty(row.plannedCutGarmentQty)} 件</td>
+              <td class="px-3 py-3">${formatLength(row.plannedSpreadLengthM)}</td>
+              <td class="px-3 py-3">${existing ? `<button type="button" class="text-blue-600 hover:underline" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(existing.spreadingOrderId)}">${escapeHtml(existing.spreadingOrderNo)}</button>` : '<span class="text-muted-foreground">未生成</span>'}</td>
+              <td class="px-3 py-3">${existing ? renderStatusBadge(existing.statusLabel, spreadingOrderStatusMeta[existing.status].className) : renderTag('可生成', 'bg-emerald-50 text-emerald-700 border border-emerald-200')}</td>
+            </tr>`
+          }).join('')}</tbody>
+        </table>
+      </div>
+    </article>
   `
 }
 
-function renderSpreadingCreateSelectStep(rows: SpreadingCreateSourceRow[]): string {
-  return renderSection(
-    '步骤 1：选择可铺布唛架编号',
-    `
-      ${renderStickyFilterShell(`
-        <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-          ${renderTextInput('搜索唛架编号', state.keyword, 'data-cutting-spreading-list-field="keyword"', '唛架方案 / 唛架编号 / 生产单 / 款号 / 颜色')}
-          <button type="button" class="h-10 rounded-md border px-3 text-sm hover:bg-muted" data-cutting-marker-action="clear-filters">重置</button>
-        </div>
-      `)}
-      <div class="mt-3">
-        ${renderSpreadingCreateSourceTable(rows)}
-      </div>
-    `,
-  )
+function renderSpreadingCreateResults(rows: SpreadingCreateSourceRow[]): string {
+  const groups = groupSpreadingCreateRows(rows)
+  const totalPages = Math.max(1, Math.ceil(groups.length / state.createPageSize))
+  state.createPage = Math.min(Math.max(state.createPage, 1), totalPages)
+  const fromIndex = (state.createPage - 1) * state.createPageSize
+  const visibleGroups = groups.slice(fromIndex, fromIndex + state.createPageSize)
+  return renderSection('选择唛架编号', `
+    <div class="space-y-3" data-cutting-spreading-create-results>
+      ${visibleGroups.length ? visibleGroups.map(renderSpreadingCreateSchemeGroup).join('') : '<div class="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">没有匹配的唛架方案或唛架编号，请调整生产业务查询条件。</div>'}
+    </div>
+    <div class="mt-3 overflow-hidden rounded-lg border" data-testid="cutting-spreading-create-pagination">
+      ${renderTablePagination({ total: groups.length, from: groups.length ? fromIndex + 1 : 0, to: Math.min(fromIndex + state.createPageSize, groups.length), currentPage: state.createPage, totalPages, pageSize: state.createPageSize, actionPrefix: 'cutting-spreading-create', fieldPrefix: 'cutting-spreading-create' })}
+    </div>
+  `)
+}
+
+function renderSpreadingCreateImagePreview(): string {
+  const preview = state.createStyleImagePreview
+  if (!preview) return ''
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" role="dialog" aria-modal="true" aria-label="款式大图"><div class="max-h-full max-w-4xl rounded-xl bg-card p-3 shadow-2xl"><div class="mb-3 flex items-center justify-between gap-4"><strong>${escapeHtml(preview.label)}</strong><button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-marker-action="close-spreading-style-image">关闭</button></div><img class="max-h-[75vh] max-w-full rounded-lg object-contain" src="${escapeHtml(preview.imageUrl)}" alt="${escapeHtml(preview.label)}" /></div></div>`
 }
 
 function getBindingSummaryForCreateRows(rows: SpreadingCreateSourceRow[]): BindingStripRequirementSummary {
@@ -5659,68 +5615,12 @@ function buildSpreadingCreateBindingConfirmText(summary: BindingStripRequirement
   ].join('\n')
 }
 
-function renderSpreadingCreateConfirmStep(): string {
-  const selectedSchemeRows = getSelectedCreateSchemeSources()
-  const totalQty = selectedSchemeRows.reduce((sum, row) => sum + Math.max(Number(row.plannedCutGarmentQty || 0), 0), 0)
-  const bindingSummary = getBindingSummaryForCreateRows(selectedSchemeRows)
-  return renderSection(
-      '步骤 2：确认铺布单',
-      `
-        <div class="rounded-lg border bg-muted/20 px-3 py-3 text-sm text-foreground">
-        将按已选唛架方案的 ${formatQty(selectedSchemeRows.length)} 个唛架编号生成 ${formatQty(selectedSchemeRows.length)} 张待铺布单。
-      </div>
-      ${renderSpreadingCreateBindingPrompt(bindingSummary)}
-      <div class="mt-3 overflow-auto rounded-lg border">
-        <table class="w-full min-w-[980px] text-sm">
-          <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
-            <tr>
-              <th class="px-3 py-3">预计铺布单</th>
-              <th class="px-3 py-3">唛架方案</th>
-              <th class="px-3 py-3">唛架编号</th>
-              <th class="px-3 py-3">状态</th>
-              <th class="px-3 py-3">铺布物料状态</th>
-              <th class="px-3 py-3">计划数量</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${selectedSchemeRows
-              .map((row, index) => {
-                const readiness = resolveSpreadingMaterialReadiness({
-                  sourceCutOrderIds: row.cutOrderIds,
-                  sourceCutOrderNos: row.cutOrderNos,
-                  plannedMaterialUsage: row.plannedSpreadLengthM,
-                  plannedMaterialUsageUnit: '米',
-                })
-                return `
-                  <tr class="border-b align-top">
-                    <td class="px-3 py-3 font-medium text-foreground">铺布单 ${index + 1}</td>
-                    <td class="px-3 py-3">${escapeHtml(row.sourceSchemeNo || '待补')}</td>
-                    <td class="px-3 py-3">${escapeHtml(row.sourceBedNo || row.markerNo || '待补')}</td>
-                    <td class="px-3 py-3">${renderTag('待铺布', 'bg-slate-100 text-slate-700 border border-slate-200')}</td>
-                    <td class="px-3 py-3">${renderMaterialReadinessInline(readiness)}</td>
-                    <td class="px-3 py-3">${escapeHtml(`${formatQty(row.plannedCutGarmentQty)} 件`)}</td>
-                  </tr>
-                `
-              })
-              .join('')}
-          </tbody>
-          <tfoot class="bg-muted/20 text-sm font-medium">
-            <tr>
-              <td class="px-3 py-3" colspan="5">合计</td>
-              <td class="px-3 py-3">${escapeHtml(`${formatQty(totalQty)} 件`)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    `,
-  )
-}
-
 function renderSpreadingCreatePage(): string {
   const meta = getCanonicalCuttingMeta(getCurrentPathname(), 'spreading-create')
   const createRows = getSpreadingCreateSourceRows()
   const selectedSource = getSelectedCreateSource(createRows)
-  const canProceed = Boolean(selectedSource) || state.createExceptionBackfill
+  const canCreate = Boolean(selectedSource?.canCreate)
+  const bindingSummary = selectedSource ? getBindingSummaryForCreateRows([selectedSource]) : null
 
   return `
     <div class="space-y-4 p-4" data-testid="cutting-spreading-create-page">
@@ -5730,26 +5630,16 @@ function renderSpreadingCreatePage(): string {
         ]),
       })}
       ${renderFeedbackBar()}
-      ${renderSpreadingCreateStepBar()}
-      ${
-        state.createStep === 'SELECT_MARKER'
-          ? renderSpreadingCreateSelectStep(createRows)
-          : renderSpreadingCreateConfirmStep()
-      }
-      <section class="rounded-xl border bg-card p-4">
-        <div class="flex flex-wrap justify-end gap-2">
-          ${
-            state.createStep !== 'SELECT_MARKER'
-              ? '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="prev-spreading-create-step">上一步</button>'
-              : ''
-          }
-          ${
-            state.createStep === 'SELECT_MARKER'
-              ? `<button type="button" class="rounded-md bg-blue-600 px-3 py-3 text-sm text-white ${canProceed ? 'hover:bg-blue-700' : 'cursor-not-allowed opacity-50'}" data-cutting-marker-action="next-spreading-create-step" ${canProceed ? '' : 'disabled'}>下一步</button>`
-              : '<button type="button" class="rounded-md bg-blue-600 px-3 py-3 text-sm text-white hover:bg-blue-700" data-cutting-marker-action="confirm-spreading-create">确认生成铺布单</button>'
-          }
+      ${renderSpreadingCreateBusinessSearch()}
+      ${renderSpreadingCreateResults(createRows)}
+      <section class="sticky bottom-0 z-20 rounded-xl border bg-card/95 p-4 shadow-lg backdrop-blur" data-testid="cutting-spreading-create-action-bar">
+        ${bindingSummary ? renderSpreadingCreateBindingPrompt(bindingSummary) : ''}
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="text-sm text-muted-foreground">${selectedSource ? `将为 ${escapeHtml(selectedSource.sourceSchemeNo)} / ${escapeHtml(selectedSource.sourceBedNo || selectedSource.markerNo)} 生成 1 张铺布单` : '请选择一个未生成铺布单的唛架编号'}</p>
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-3 text-sm text-white ${canCreate ? 'hover:bg-blue-700' : 'cursor-not-allowed opacity-50'}" data-cutting-marker-action="confirm-spreading-create" ${canCreate ? '' : 'disabled'}>生成铺布单</button>
         </div>
       </section>
+      <div data-cutting-spreading-create-image-host>${renderSpreadingCreateImagePreview()}</div>
     </div>
   `
 }
@@ -6346,41 +6236,37 @@ function buildCreateSessionsFromSelection(): SpreadingSession[] | null {
     return null
   }
 
-  const selectedRows = getSelectedCreateSchemeSources()
-  if (!selectedRows.length) {
-    state.feedback = { tone: 'warning', message: '当前唛架方案没有可生成铺布任务的唛架编号。' }
+  const source = getSelectedCreateSource()
+  if (!source?.canCreate) {
+    state.feedback = { tone: 'warning', message: '该唛架编号已生成铺布单或当前不可铺布，请重新选择。' }
     return null
   }
 
   const scheduleBatchId = `spreading-create-batch-${Date.now()}`
-  const drafts: SpreadingSession[] = []
+  if (!source.spreadingContext || !source.markerRecord) {
+    state.feedback = { tone: 'warning', message: `唛架编号 ${source.sourceBedNo || source.markerNo} 未识别到上下文，无法创建铺布。` }
+    return null
+  }
+  const identity = buildSpreadingSessionIdentityForMarkerBed(source, 0)
 
-  for (let rowIndex = 0; rowIndex < selectedRows.length; rowIndex += 1) {
-    const source = selectedRows[rowIndex]
-    if (!source.spreadingContext || !source.markerRecord) {
-      state.feedback = { tone: 'warning', message: `唛架编号 ${source.sourceBedNo || source.markerNo} 未识别到上下文，无法创建铺布。` }
-      return null
-    }
-    const identity = buildSpreadingSessionIdentityForMarkerBed(source, rowIndex)
-
-    const draft = createSpreadingDraftFromMarker(
-      source.markerRecord,
-      source.spreadingContext,
-      new Date(Date.now() + rowIndex),
-      {
-        baseSession: {
-          spreadingSessionId: identity.spreadingSessionId,
-          sessionNo: identity.sessionNo,
-          note: state.createNote || '铺布单已创建，待铺布。',
-          ownerAccountId: '',
-          ownerName: '',
-          isExceptionBackfill: false,
-          exceptionReason: '',
-        },
+  const draft = createSpreadingDraftFromMarker(
+    source.markerRecord,
+    source.spreadingContext,
+    new Date(),
+    {
+      baseSession: {
+        spreadingSessionId: identity.spreadingSessionId,
+        sessionNo: identity.sessionNo,
+        note: state.createNote || '铺布单已创建，待铺布。',
+        ownerAccountId: '',
+        ownerName: '',
+        isExceptionBackfill: false,
+        exceptionReason: '',
       },
-    )
-    const bedNo = source.sourceBedNo || source.markerNo || draft.sourceBedNo || draft.markerNo || ''
-    const bedId = source.sourceBedId || source.markerId || draft.sourceBedId || draft.sourceMarkerId || ''
+    },
+  )
+  const bedNo = source.sourceBedNo || source.markerNo || draft.sourceBedNo || draft.markerNo || ''
+  const bedId = source.sourceBedId || source.markerId || draft.sourceBedId || draft.sourceMarkerId || ''
 
     draft.status = 'DRAFT'
     draft.cuttingStatus = undefined
@@ -6398,7 +6284,7 @@ function buildCreateSessionsFromSelection(): SpreadingSession[] | null {
     draft.tableScheduleStatus = '未排程'
     draft.scheduleMode = 'BY_MARKER_NO'
     draft.scheduleBatchId = scheduleBatchId
-    draft.sequenceNoInScheme = rowIndex + 1
+    draft.sequenceNoInScheme = 1
     draft.sourceSchemeId = source.sourceSchemeId || draft.sourceSchemeId
     draft.sourceSchemeNo = source.sourceSchemeNo || draft.sourceSchemeNo
     draft.sourceBedId = bedId
@@ -6438,11 +6324,8 @@ function buildCreateSessionsFromSelection(): SpreadingSession[] | null {
       return null
     }
 
-    draft.operationLogs = buildSpreadingSessionOperationLogs(draft)
-    drafts.push(draft)
-  }
-
-  return drafts
+  draft.operationLogs = buildSpreadingSessionOperationLogs(draft)
+  return [draft]
 }
 
 function confirmSpreadingCreate(): boolean {
@@ -6789,12 +6672,84 @@ export function renderCraftCuttingSpreadingEditPage(): string {
   return renderPage()
 }
 
-export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean {
+export function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: Event): boolean {
+  const dragEvent = event as (DragEvent & {
+    higoodStandardListColumnDrag?: true
+    higoodStandardListColumnKey?: string
+  }) | undefined
+  if (event?.type === 'dragend') {
+    if (!dragEvent?.higoodStandardListColumnDrag) return false
+    state.draggedListColumnKey = ''
+    return true
+  }
+
+  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
+  if (
+    dragNode
+    && event
+    && dragEvent?.higoodStandardListColumnDrag
+    && ['dragstart', 'dragover', 'drop'].includes(event.type)
+  ) {
+    const columnKey = dragNode.dataset.cuttingSpreadingListColumnKey
+      || dragNode.dataset.dragSource
+      || dragNode.dataset.dropTarget
+      || ''
+    const columns = getSpreadingListColumns()
+    const column = columns.find((item) => item.key === columnKey && !item.actionColumn)
+    if (event.type === 'dragstart') {
+      state.draggedListColumnKey = column?.key || ''
+      return Boolean(column)
+    }
+
+    const sourceKey = dragEvent.higoodStandardListColumnKey || ''
+    const sourceColumn = columns.find((item) => item.key === sourceKey && !item.actionColumn)
+    const targetColumn = columns.find((item) => item.key === columnKey && !item.actionColumn)
+    if (
+      !sourceColumn
+      || !targetColumn
+      || state.draggedListColumnKey !== sourceColumn.key
+      || sourceColumn.key === targetColumn.key
+    ) {
+      if (event.type === 'drop') state.draggedListColumnKey = ''
+      return false
+    }
+    if (event.type === 'dragover') return true
+
+    state.draggedListColumnKey = ''
+    const order = state.listColumnPreferences.order.filter((key) => key !== sourceColumn.key)
+    const targetIndex = order.indexOf(targetColumn.key)
+    if (targetIndex < 0) return false
+    order.splice(targetIndex, 0, sourceColumn.key)
+    state.listColumnPreferences = normalizeListColumnPreferences(
+      SPREADING_LIST_COLUMN_RULES,
+      { ...state.listColumnPreferences, order },
+      SPREADING_LIST_PAGE_SIZES,
+    )
+    persistSpreadingListPreferences()
+    return true
+  }
+
   const spreadingListFieldNode = target.closest<HTMLElement>('[data-cutting-spreading-list-field]')
   if (spreadingListFieldNode) {
     const field = spreadingListFieldNode.dataset.cuttingSpreadingListField
     const value = (spreadingListFieldNode as HTMLInputElement | HTMLSelectElement).value
-    if (field === 'keyword') state.keyword = value
+    if (field === 'pageSize') {
+      state.listColumnPreferences = normalizeListColumnPreferences(
+        SPREADING_LIST_COLUMN_RULES,
+        { ...state.listColumnPreferences, pageSize: Number(value) || 10 },
+        SPREADING_LIST_PAGE_SIZES,
+      )
+      state.listPage = 1
+      persistSpreadingListPreferences()
+      return true
+    }
+    if (field === 'keyword') {
+      state.keyword = value
+      state.listPage = 1
+      state.createPage = 1
+      state.selectedCreateMarkerId = ''
+      state.selectedCreateSourceSnapshot = null
+    }
     if (field === 'context-no') state.contextNoFilter = value
     if (field === 'session-no') state.sessionNoFilter = value
     if (field === 'cut-order') state.cutOrderFilter = value
@@ -6810,6 +6765,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     if (field === 'material-readiness') state.materialReadinessFilter = value as SpreadingMaterialReadinessFilter
     if (field === 'cutting-status') state.cuttingStatusFilter = value as SpreadingCuttingStatusFilter
     if (field === 'source-channel') state.sourceChannelFilter = value as SpreadingSourceFilter
+    state.listPage = 1
     return true
   }
 
@@ -6817,6 +6773,11 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   if (spreadingCreateFieldNode) {
     const field = spreadingCreateFieldNode.dataset.cuttingSpreadingCreateField
     const value = (spreadingCreateFieldNode as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value
+    if (field === 'pageSize') {
+      state.createPageSize = Math.max(Number(value) || 10, 1)
+      state.createPage = 1
+      return true
+    }
     if (field === 'exception-backfill') {
       state.createExceptionBackfill = value === 'true'
       if (!state.createExceptionBackfill) state.createExceptionReason = ''
@@ -6828,28 +6789,28 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     }
     if (field === 'owner-account') {
       state.createOwnerAccountId = value
-      getSelectedCreateSchemeSources().forEach((row, index) => {
+      getSelectedCreateRows().forEach((row, index) => {
         getCreateAssignment(row, index).ownerAccountId = value
       })
       return true
     }
     if (field === 'schedule-mode') {
       state.createScheduleMode = value === 'WHOLE_PLAN_ONE_TABLE' ? 'WHOLE_PLAN_ONE_TABLE' : 'BY_MARKER_NO'
-      const selectedRows = getSelectedCreateSchemeSources()
+      const selectedRows = getSelectedCreateRows()
       state.createAssignments = {}
       ensureCreateAssignments(selectedRows)
       return true
     }
     if (field === 'cutting-table-id') {
       state.createCuttingTableId = value
-      getSelectedCreateSchemeSources().forEach((row, index) => {
+      getSelectedCreateRows().forEach((row, index) => {
         getCreateAssignment(row, index).cuttingTableId = value
       })
       return true
     }
     if (field === 'planned-start-at') {
       state.createPlannedStartAt = value
-      getSelectedCreateSchemeSources().forEach((row, index) => {
+      getSelectedCreateRows().forEach((row, index) => {
         const assignment = getCreateAssignment(row, index)
         assignment.plannedStartAt =
           state.createScheduleMode === 'WHOLE_PLAN_ONE_TABLE'
@@ -6871,7 +6832,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     const markerId = spreadingCreateAssignmentNode.dataset.markerId || ''
     if (!field || !markerId) return false
     const value = (spreadingCreateAssignmentNode as HTMLInputElement | HTMLSelectElement).value
-    const selectedRows = getSelectedCreateSchemeSources()
+    const selectedRows = getSelectedCreateRows()
     const rowIndex = selectedRows.findIndex((row) => getCreateAssignmentKey(row) === markerId)
     const row = selectedRows[rowIndex]
     if (!row) return false
@@ -7242,12 +7203,94 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     return true
   }
 
+  const listActionNode = target.closest<HTMLElement>('[data-cutting-spreading-list-action]')
+  if (listActionNode) {
+    const listAction = listActionNode.dataset.cuttingSpreadingListAction
+    const columnKey = listActionNode.dataset.columnKey || listActionNode.dataset.cuttingSpreadingListColumnKey || ''
+    if (listAction === 'prev-page' || listAction === 'next-page') {
+      state.listPage += listAction === 'prev-page' ? -1 : 1
+      return true
+    }
+    if (listAction === 'sort-column') {
+      const column = getSpreadingListColumns().find((item) => item.key === columnKey && item.sortable)
+      if (!column) return true
+      state.listSort = state.listSort?.key !== columnKey
+        ? { key: columnKey, direction: 'asc' }
+        : state.listSort.direction === 'asc'
+          ? { key: columnKey, direction: 'desc' }
+          : null
+      state.listPage = 1
+      return true
+    }
+    if (listAction === 'open-column-settings') {
+      state.listColumnSettingsOpen = true
+      return true
+    }
+    if (listAction === 'close-column-settings') {
+      state.listColumnSettingsOpen = false
+      return true
+    }
+    if (listAction === 'toggle-column-visibility') {
+      const rule = SPREADING_LIST_COLUMN_RULES.find((item) => item.key === columnKey)
+      if (!rule || rule.required || rule.actionColumn) return true
+      const visibleKeys = new Set(state.listColumnPreferences.visibleKeys)
+      const checked = (listActionNode as HTMLInputElement).checked
+      if (checked) visibleKeys.add(columnKey)
+      else visibleKeys.delete(columnKey)
+      state.listColumnPreferences = normalizeListColumnPreferences(
+        SPREADING_LIST_COLUMN_RULES,
+        { ...state.listColumnPreferences, visibleKeys: [...visibleKeys] },
+        SPREADING_LIST_PAGE_SIZES,
+      )
+      persistSpreadingListPreferences()
+      return true
+    }
+    if (listAction === 'toggle-column-freeze') {
+      const frozenKeys = new Set(state.listColumnPreferences.frozenKeys)
+      const checked = (listActionNode as HTMLInputElement).checked
+      if (checked) frozenKeys.add(columnKey)
+      else frozenKeys.delete(columnKey)
+      state.listColumnPreferences = normalizeListColumnPreferences(
+        SPREADING_LIST_COLUMN_RULES,
+        { ...state.listColumnPreferences, frozenKeys: [...frozenKeys] },
+        SPREADING_LIST_PAGE_SIZES,
+      )
+      persistSpreadingListPreferences()
+      return true
+    }
+    if (listAction === 'restore-column-settings') {
+      state.listColumnPreferences = normalizeListColumnPreferences(
+        SPREADING_LIST_COLUMN_RULES,
+        DEFAULT_SPREADING_LIST_COLUMN_PREFERENCES,
+        SPREADING_LIST_PAGE_SIZES,
+      )
+      state.listPage = 1
+      state.listSort = null
+      if (typeof window !== 'undefined') clearListColumnPreferences(window.localStorage, SPREADING_LIST_STORAGE_KEY)
+      return true
+    }
+  }
+
+  const createPaginationActionNode = target.closest<HTMLElement>('[data-cutting-spreading-create-action]')
+  if (createPaginationActionNode) {
+    const paginationAction = createPaginationActionNode.dataset.cuttingSpreadingCreateAction
+    const totalPages = Math.max(1, Math.ceil(groupSpreadingCreateRows(getSpreadingCreateSourceRows()).length / state.createPageSize))
+    if (paginationAction === 'prev-page') state.createPage = Math.max(1, state.createPage - 1)
+    if (paginationAction === 'next-page') state.createPage = Math.min(totalPages, state.createPage + 1)
+    return true
+  }
+
   const actionNode = target.closest<HTMLElement>('[data-cutting-marker-action]')
   const action = actionNode?.dataset.cuttingMarkerAction
   if (!action) return false
 
   if (action === 'close-overlay') {
     const currentPath = getCurrentPathname()
+    if (currentPath === getCanonicalCuttingPath('spreading-create') && state.createStyleImagePreview) {
+      state.createStyleImagePreview = null
+      document.querySelector<HTMLElement>('[data-cutting-spreading-create-image-host]')?.replaceChildren()
+      return true
+    }
     if (currentPath === getCanonicalCuttingPath('spreading-edit')) return closeSpreadingEditOverlay()
     return false
   }
@@ -7279,6 +7322,10 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     state.materialReadinessFilter = 'ALL'
     state.cuttingStatusFilter = 'ALL'
     state.sourceChannelFilter = 'ALL'
+    state.listPage = 1
+    state.createPage = 1
+    state.selectedCreateMarkerId = ''
+    state.selectedCreateSourceSnapshot = null
     return true
   }
 
@@ -7306,62 +7353,38 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
 
   if (action === 'select-spreading-create-marker') {
     const markerId = actionNode.dataset.markerId || ''
-    state.selectedCreateMarkerId = markerId
     const currentRows = getSpreadingCreateSourceRows()
     const selectedSource =
       currentRows.find((row) => row.markerId === markerId) ||
       currentRows.find((row) => row.sourceBedId === markerId) ||
-      currentRows.find((row) => row.sourceSchemeId === markerId) ||
       null
+    if (!selectedSource?.canCreate) {
+      state.feedback = { tone: 'warning', message: '该唛架编号已生成铺布单或当前不可铺布，请重新选择。' }
+      return true
+    }
+    state.selectedCreateMarkerId = selectedSource.sourceBedId || selectedSource.markerId
     state.selectedCreateSourceSnapshot = selectedSource ? { ...selectedSource } : null
     state.feedback = null
     window.history.replaceState(
       window.history.state,
       '',
-      buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-create'), { markerId }),
+      buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-create'), { markerId: state.selectedCreateMarkerId }),
     )
-    document
-      .querySelectorAll<HTMLElement>('[data-cutting-marker-action="select-spreading-create-marker"]')
-      .forEach((button) => {
-        const isSelected = button.dataset.markerId === markerId
-        button.textContent = isSelected ? '已选中' : '选中'
-        button.classList.toggle('bg-blue-600', isSelected)
-        button.classList.toggle('text-white', isSelected)
-      })
-    const nextButton = document.querySelector<HTMLButtonElement>('[data-cutting-marker-action="next-spreading-create-step"]')
-    if (nextButton) {
-      nextButton.disabled = false
-      nextButton.classList.remove('cursor-not-allowed', 'opacity-50')
-      nextButton.classList.add('hover:bg-blue-700')
-    }
     return true
   }
 
-  if (action === 'next-spreading-create-step') {
-    const source = getSelectedCreateSource()
-    if (!source) {
-      state.feedback = { tone: 'warning', message: '创建铺布需先选中一个可铺布的唛架编号。' }
-      return true
-    }
-    if (state.createStep === 'SELECT_MARKER') {
-      state.selectedCreateMarkerId = source.sourceSchemeId || source.markerId
-      state.selectedCreateSourceSnapshot = { ...source }
-      state.createStep = 'CONFIRM_CREATE'
-      appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-create'), { markerId: state.selectedCreateMarkerId, step: 'confirm' }))
-      return true
-    }
-    state.selectedCreateMarkerId = source.sourceSchemeId || source.markerId
-    state.selectedCreateSourceSnapshot = { ...source }
-    state.createStep = 'CONFIRM_CREATE'
-    appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-create'), { markerId: state.selectedCreateMarkerId, step: 'confirm' }))
+  if (action === 'open-spreading-style-image') {
+    const imageUrl = actionNode.dataset.imageUrl || ''
+    if (!imageUrl) return false
+    state.createStyleImagePreview = { imageUrl, label: actionNode.dataset.imageLabel || '款式大图' }
+    const host = document.querySelector<HTMLElement>('[data-cutting-spreading-create-image-host]')
+    if (host) host.innerHTML = renderSpreadingCreateImagePreview()
     return true
   }
 
-  if (action === 'prev-spreading-create-step') {
-    state.createStep = 'SELECT_MARKER'
-    appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-create'), {
-      markerId: state.selectedCreateMarkerId || undefined,
-    }))
+  if (action === 'close-spreading-style-image') {
+    state.createStyleImagePreview = null
+    document.querySelector<HTMLElement>('[data-cutting-spreading-create-image-host]')?.replaceChildren()
     return true
   }
 
