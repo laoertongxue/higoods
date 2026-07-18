@@ -239,6 +239,9 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   if (pathname.startsWith('/fcs/process/water-soluble-orders')) {
     return handleProcessWaterSolubleOrdersEvent(target)
   }
+  if (pathname.startsWith('/fcs/process/dye-orders')) {
+    return handleProcessDyeOrdersEvent(target)
+  }
   if (pathname.startsWith('/fcs/craft/dyeing/water-soluble-orders')) {
     return handleCraftDyeingWaterSolubleOrdersEvent(target)
   }

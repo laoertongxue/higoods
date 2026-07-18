@@ -975,6 +975,16 @@ assert(
 )
 assert(firstWaterOrders.every((item) => item.sourceDemandIds.length === 0), '水溶加工单不得生成或关联需求单')
 assert(firstWaterOrders.every((item) => item.processCode === 'WATER_SOLUBLE'), '水溶加工单必须只消费 WATER_SOLUBLE TASK 产物')
+assert(
+  firstWaterOrders.every((item) => /^SRJG-\d{9}-\d{3}$/.test(item.waterOrderNo)),
+  '水溶加工单必须使用 SRJG-年月生产序号-物料序号 的短业务编号',
+)
+assert(
+  firstWaterOrders.every((item) => !/(TASKART|tdv_|bom-|process-)/i.test(item.waterOrderNo)),
+  '水溶加工单号不得暴露任务产物、技术包、工序或 BOM 内部标识',
+)
+assert.equal(new Set(firstWaterOrders.map((item) => item.waterOrderNo)).size, firstWaterOrders.length, '水溶加工单业务编号必须唯一')
+assert(firstWaterOrders.every((item) => item.taskNo === item.waterOrderNo), 'PDA 任务号必须复用平台水溶加工单号，不得生成平行编号')
 firstWaterOrders.forEach((order) => {
   const artifact = generatedWaterTaskArtifacts.find((item) => item.artifactId === order.sourceArtifactId)
   assert(artifact, `加工单 ${order.waterOrderId} 缺少来源 WATER_SOLUBLE TASK 产物`)
