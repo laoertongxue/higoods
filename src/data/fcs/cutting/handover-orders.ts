@@ -734,17 +734,23 @@ export const handoverOrders: HandoverOrder[] = [
 // 静态演示交出单也走统一快照仓储，刷新后由 localStorage 恢复。
 handoverOrders.forEach((order) => {
   const snapshot = order.cutPieceReleaseSnapshot
-  if (snapshot) createCutPieceReleaseHandoverSnapshot({
-    snapshotId: snapshot.releaseTargetSnapshotId,
-    productionOrderId: snapshot.productionOrderId,
-    batchNo: snapshot.batchNo,
-    completeKitQtyByColorSize: snapshot.completeKitQtyByColorSize,
-    surplusPieces: snapshot.surplusPieces,
-    matrixVersion: snapshot.matrixVersion,
-    targetBasisVersion: snapshot.targetBasisVersion,
-    targetConfirmedAt: snapshot.targetConfirmedAt,
-    frozenSourceTips: snapshot.frozenSourceTips,
-  })
+  if (snapshot) {
+    try {
+      createCutPieceReleaseHandoverSnapshot({
+        snapshotId: snapshot.releaseTargetSnapshotId,
+        productionOrderId: snapshot.productionOrderId,
+        batchNo: snapshot.batchNo,
+        completeKitQtyByColorSize: snapshot.completeKitQtyByColorSize,
+        surplusPieces: snapshot.surplusPieces,
+        matrixVersion: snapshot.matrixVersion,
+        targetBasisVersion: snapshot.targetBasisVersion,
+        targetConfirmedAt: snapshot.targetConfirmedAt,
+        frozenSourceTips: snapshot.frozenSourceTips,
+      })
+    } catch {
+      // 历史快照冲突时保留持久化版本，页面只读历史，不覆盖业务证据。
+    }
+  }
 })
 
 export const handoverRecords: HandoverRecord[] = [
