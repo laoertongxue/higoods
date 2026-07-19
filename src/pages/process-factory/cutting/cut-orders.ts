@@ -81,11 +81,16 @@ import { updateCuttingOrderProgressWebStage } from '../../../data/fcs/cutting/or
 import {
   buildCutOrderCloseImpactItems,
   buildCutOrderLedgerSnapshotBeforeClose,
+  createNextCutOrderCloseRecordIdentity,
+  createNextCutOrderReopenRecordIdentity,
   cutOrderCloseReasonOptions,
   formatCutOrderCloseLedgerQty,
   listCutOrderCloseRecords,
+  listStoredCutOrderCloseRecords,
   listStoredCutOrderReopenRecords,
   resolveCutOrderCloseReasonText,
+  saveStoredCutOrderCloseRecords,
+  saveStoredCutOrderReopenRecords,
   upsertStoredCutOrderCloseRecord,
   upsertStoredCutOrderReopenRecord,
   type CutOrderCloseImpactItem,
@@ -254,7 +259,7 @@ function getViewModel(): CutOrderViewModel {
   const closeRecords = listCutOrderCloseRecords()
   const demoRows = releaseRecord.sourceStates.map((sourceState): CutOrderRow => {
     const frozen = sourceState.status === '已冻结'
-    const closeRecord = closeRecords.find((record) => record.cutOrderId === sourceState.cutOrderId || record.cutOrderNo === sourceState.cutOrderNo) ?? null
+    const closeRecord = closeRecords.filter((record) => record.cutOrderId === sourceState.cutOrderId || record.cutOrderNo === sourceState.cutOrderNo).at(-1) ?? null
     return {
       ...template,
       id: sourceState.cutOrderId,
@@ -408,9 +413,9 @@ function resolveReopenedCutOrderStage(row: CutOrderRow): string {
 }
 
 function buildCutOrderReopenRecord(row: CutOrderRow, reopenedAt: string): CutOrderReopenRecord {
+  const identity = createNextCutOrderReopenRecordIdentity(row.cutOrderId, row.cutOrderNo)
   return {
-    reopenRecordId: `reopen-${row.cutOrderId}`,
-    reopenRecordNo: `REOPEN-${row.cutOrderNo.replace(/^CUT-/, '')}`,
+    ...identity,
     cutOrderId: row.cutOrderId,
     cutOrderNo: row.cutOrderNo,
     productionOrderId: row.productionOrderId,
@@ -2709,12 +2714,19 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
     }
     const reopenedAt = nowText()
     const reopenRecord = buildCutOrderReopenRecord(row, reopenedAt)
+    const previousReopenRecords = listStoredCutOrderReopenRecords()
     upsertStoredCutOrderReopenRecord(reopenRecord)
-    updateCuttingOrderProgressWebStage(row.cutOrderId, {
-      cuttingStage: resolveReopenedCutOrderStage(row),
-      operatorName: reopenRecord.reopenedBy,
-      operatedAt: reopenRecord.reopenedAt,
-    })
+    try {
+      updateCuttingOrderProgressWebStage(row.cutOrderId, {
+        cuttingStage: resolveReopenedCutOrderStage(row),
+        operatorName: reopenRecord.reopenedBy,
+        operatedAt: reopenRecord.reopenedAt,
+      })
+    } catch (error) {
+      saveStoredCutOrderReopenRecords(previousReopenRecords)
+      state.closeDraft.feedback = { tone: 'warning', message: error instanceof Error ? error.message : '重新打开失败，未写入重开记录。' }
+      return true
+    }
     recordCutOrderReleaseStatusChange({
       eventId: reopenRecord.reopenRecordId,
       cutOrderId: row.cutOrderId,
@@ -2757,9 +2769,9 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
     const impactContext = buildCloseImpactContext(row)
     const closedAt = nowText()
     const closeReasonText = resolveCutOrderCloseReasonText(state.closeDraft.closeReasonCode)
+    const closeIdentity = createNextCutOrderCloseRecordIdentity(row.cutOrderId, row.cutOrderNo)
     const closeRecord: CutOrderCloseRecord = {
-      closeRecordId: `close-${row.cutOrderId}`,
-      closeRecordNo: `CLOSE-${row.cutOrderNo.replace(/^CUT-/, '')}`,
+      ...closeIdentity,
       cutOrderId: row.cutOrderId,
       cutOrderNo: row.cutOrderNo,
       productionOrderId: row.productionOrderId,
@@ -2771,7 +2783,7 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
       closedBy: state.closeDraft.closedBy.trim(),
       closeSourceType: actionNode.dataset.sourceDifferenceId ? '差异确认' : '人工关闭',
       sourceDifferenceId: actionNode.dataset.sourceDifferenceId || undefined,
-      linkedLedgerEventIds: [`ledger:${row.cutOrderId}:close:close-${row.cutOrderId}`],
+      linkedLedgerEventIds: [`ledger:${row.cutOrderId}:close:${closeIdentity.closeRecordId}`],
       ledgerSnapshotBeforeClose: impactContext.ledgerSnapshot,
       openImpactItems: impactContext.impactItems,
       remainingInventorySummary: impactContext.inventorySummary,
@@ -2780,16 +2792,23 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
       createdAt: closedAt,
       createdBy: state.closeDraft.closedBy.trim(),
     }
+    const previousCloseRecords = listStoredCutOrderCloseRecords()
     upsertStoredCutOrderCloseRecord(closeRecord)
-    updateCuttingOrderProgressWebStage(row.cutOrderId, {
-      cuttingStage: '已关闭',
-      operatorName: closeRecord.closedBy,
-      operatedAt: closeRecord.closedAt,
-      closeReasonCode: closeRecord.closeReasonCode,
-      closeReasonText: closeRecord.closeReasonText,
-      closeReason: closeRecord.closeDescription,
-      ledgerSnapshotBeforeClose: closeRecord.ledgerSnapshotBeforeClose,
-    })
+    try {
+      updateCuttingOrderProgressWebStage(row.cutOrderId, {
+        cuttingStage: '已关闭',
+        operatorName: closeRecord.closedBy,
+        operatedAt: closeRecord.closedAt,
+        closeReasonCode: closeRecord.closeReasonCode,
+        closeReasonText: closeRecord.closeReasonText,
+        closeReason: closeRecord.closeDescription,
+        ledgerSnapshotBeforeClose: closeRecord.ledgerSnapshotBeforeClose,
+      })
+    } catch (error) {
+      saveStoredCutOrderCloseRecords(previousCloseRecords)
+      state.closeDraft.feedback = { tone: 'warning', message: error instanceof Error ? error.message : '关闭失败，未写入关闭记录。' }
+      return true
+    }
     recordCutOrderReleaseStatusChange({
       eventId: closeRecord.closeRecordId,
       cutOrderId: row.cutOrderId,

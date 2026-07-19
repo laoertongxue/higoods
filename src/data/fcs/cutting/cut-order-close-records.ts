@@ -248,12 +248,31 @@ export function saveStoredCutOrderCloseRecords(
   storage.setItem(CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY, serializeCutOrderCloseRecordsStorage(records))
 }
 
-export function upsertStoredCutOrderCloseRecord(record: CutOrderCloseRecord): void {
-  const records = listStoredCutOrderCloseRecords()
+type CutOrderLifecycleStorage = Pick<Storage, 'getItem' | 'setItem'>
+
+function nextLifecycleSequence(records: Array<{ cutOrderId: string; cutOrderNo: string }>, cutOrderId: string, cutOrderNo: string): number {
+  return records.filter((record) => record.cutOrderId === cutOrderId || record.cutOrderNo === cutOrderNo).length + 1
+}
+
+export function createNextCutOrderCloseRecordIdentity(
+  cutOrderId: string,
+  cutOrderNo: string,
+  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+): Pick<CutOrderCloseRecord, 'closeRecordId' | 'closeRecordNo'> {
+  const sequence = nextLifecycleSequence(listStoredCutOrderCloseRecords(storage), cutOrderId, cutOrderNo)
+  const suffix = String(sequence).padStart(4, '0')
+  return { closeRecordId: `close:${cutOrderId}:cycle-${suffix}`, closeRecordNo: `CLOSE-${cutOrderNo.replace(/^CUT-?/, '')}-${suffix}` }
+}
+
+export function upsertStoredCutOrderCloseRecord(
+  record: CutOrderCloseRecord,
+  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+): void {
+  const records = listStoredCutOrderCloseRecords(storage)
   saveStoredCutOrderCloseRecords([
-    ...records.filter((item) => item.cutOrderId !== record.cutOrderId && item.cutOrderNo !== record.cutOrderNo),
+    ...records.filter((item) => item.closeRecordId !== record.closeRecordId),
     record,
-  ])
+  ], storage)
 }
 
 export function removeStoredCutOrderCloseRecord(cutOrderIdOrNo: string): boolean {
@@ -317,12 +336,25 @@ export function saveStoredCutOrderReopenRecords(
   storage.setItem(CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY, serializeCutOrderReopenRecordsStorage(records))
 }
 
-export function upsertStoredCutOrderReopenRecord(record: CutOrderReopenRecord): void {
-  const records = listStoredCutOrderReopenRecords()
+export function createNextCutOrderReopenRecordIdentity(
+  cutOrderId: string,
+  cutOrderNo: string,
+  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+): Pick<CutOrderReopenRecord, 'reopenRecordId' | 'reopenRecordNo'> {
+  const sequence = nextLifecycleSequence(listStoredCutOrderReopenRecords(storage), cutOrderId, cutOrderNo)
+  const suffix = String(sequence).padStart(4, '0')
+  return { reopenRecordId: `reopen:${cutOrderId}:cycle-${suffix}`, reopenRecordNo: `REOPEN-${cutOrderNo.replace(/^CUT-?/, '')}-${suffix}` }
+}
+
+export function upsertStoredCutOrderReopenRecord(
+  record: CutOrderReopenRecord,
+  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+): void {
+  const records = listStoredCutOrderReopenRecords(storage)
   saveStoredCutOrderReopenRecords([
-    ...records.filter((item) => item.cutOrderId !== record.cutOrderId && item.cutOrderNo !== record.cutOrderNo),
+    ...records.filter((item) => item.reopenRecordId !== record.reopenRecordId),
     record,
-  ])
+  ], storage)
 }
 
 export function removeStoredCutOrderReopenRecord(cutOrderIdOrNo: string): boolean {
@@ -337,7 +369,9 @@ export function removeStoredCutOrderReopenRecord(cutOrderIdOrNo: string): boolea
 
 export function buildCutOrderReopenRecordLookup(): Record<string, CutOrderReopenRecord> {
   const entries: Array<[string, CutOrderReopenRecord]> = []
-  listStoredCutOrderReopenRecords().forEach((record) => {
+  listStoredCutOrderReopenRecords()
+    .sort((left, right) => (left.reopenedAt || left.createdAt).localeCompare(right.reopenedAt || right.createdAt, 'zh-CN'))
+    .forEach((record) => {
     entries.push([record.cutOrderId, record])
     entries.push([record.cutOrderNo, record])
   })
@@ -435,19 +469,30 @@ export function listSystemCutOrderCloseRecords(): CutOrderCloseRecord[] {
 }
 
 export function listCutOrderCloseRecords(): CutOrderCloseRecord[] {
-  const byCutOrder = new Map<string, CutOrderCloseRecord>()
-  listSystemCutOrderCloseRecords().forEach((record) => {
-    byCutOrder.set(record.cutOrderId, record)
-  })
-  listStoredCutOrderCloseRecords().forEach((record) => {
-    byCutOrder.set(record.cutOrderId, record)
-  })
-  return Array.from(byCutOrder.values())
+  return [...listSystemCutOrderCloseRecords(), ...listStoredCutOrderCloseRecords()]
 }
 
 export function listActiveCutOrderCloseRecords(): CutOrderCloseRecord[] {
-  const reopenLookup = buildCutOrderReopenRecordLookup()
-  return listCutOrderCloseRecords().filter((record) => !isCloseRecordSuppressedByReopen(record, reopenLookup))
+  const closesByCutOrder = new Map<string, CutOrderCloseRecord[]>()
+  listCutOrderCloseRecords().forEach((record) => {
+    const records = closesByCutOrder.get(record.cutOrderId) ?? []
+    records.push(record)
+    closesByCutOrder.set(record.cutOrderId, records)
+  })
+  const reopensByCutOrder = new Map<string, CutOrderReopenRecord[]>()
+  listStoredCutOrderReopenRecords().forEach((record) => {
+    const records = reopensByCutOrder.get(record.cutOrderId) ?? []
+    records.push(record)
+    reopensByCutOrder.set(record.cutOrderId, records)
+  })
+  return [...closesByCutOrder.entries()].flatMap(([cutOrderId, closes]) => {
+    const reopens = reopensByCutOrder.get(cutOrderId) ?? []
+    const latestClose = closes.at(-1)!
+    if (closes.length > reopens.length) return [latestClose]
+    if (closes.length < reopens.length) return []
+    const latestReopen = reopens.at(-1)
+    return latestReopen && isCloseRecordSuppressedByReopen(latestClose, { [cutOrderId]: latestReopen }) ? [] : [latestClose]
+  })
 }
 
 export function buildCutOrderCloseRecordLookup(

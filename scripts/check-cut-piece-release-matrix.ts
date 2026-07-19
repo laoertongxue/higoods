@@ -26,6 +26,16 @@ import {
   recordSpreadingReleaseAdjustment,
   resetCutPieceReleasePrototypeStoreForTesting,
 } from '../src/data/fcs/cut-piece-release'
+import {
+  createNextCutOrderCloseRecordIdentity,
+  createNextCutOrderReopenRecordIdentity,
+  listStoredCutOrderCloseRecords,
+  listStoredCutOrderReopenRecords,
+  upsertStoredCutOrderCloseRecord,
+  upsertStoredCutOrderReopenRecord,
+  type CutOrderCloseRecord,
+  type CutOrderReopenRecord,
+} from '../src/data/fcs/cutting/cut-order-close-records'
 
 const productionOrderId = 'po-14671'
 
@@ -708,5 +718,33 @@ recordCutOrderReleaseStatusChange({ eventId: 'reopen-after-late', cutOrderId: 'c
 assert.equal(listLateCutPieceReleaseEvents(productionOrderId)[0].status, '待处理', '重新打开不能自动吸收既有迟到事实')
 assert.deepEqual(getCutPieceReleaseMatrix(productionOrderId)?.colorGroups[0].completeKitBySize, matrixBeforeLate?.colorGroups[0].completeKitBySize, '重新打开只恢复更新资格，不自动吸收迟到事实')
 assert.deepEqual(getCutPieceReleaseMatrix(productionOrderId)?.colorGroups[0].materialRows.map((row) => row.cells.map((cell) => cell.availableGarmentQty)), matrixBeforeLate?.colorGroups[0].materialRows.map((row) => row.cells.map((cell) => cell.availableGarmentQty)), '重新打开不能把既有迟到事实加入物料可做数')
+
+class MemoryStorage {
+  private values = new Map<string, string>()
+  getItem(key: string): string | null { return this.values.get(key) ?? null }
+  setItem(key: string, value: string): void { this.values.set(key, value) }
+}
+const lifecycleStorage = new MemoryStorage()
+const closeIdentity1 = createNextCutOrderCloseRecordIdentity('cut-cycle', 'CUT-CYCLE', lifecycleStorage)
+const closeBase = {
+  cutOrderId: 'cut-cycle', cutOrderNo: 'CUT-CYCLE', productionOrderId, productionOrderNo: 'PO14671', closeReasonCode: 'OTHER' as const,
+  closeReasonText: '其他原因', closeDescription: '第一轮关闭', closedAt: '2026-06-07 08:00:00', closedBy: '主管', closeSourceType: '人工关闭' as const,
+  linkedLedgerEventIds: [], ledgerSnapshotBeforeClose: { requiredMaterialQty: 0, transferWarehouseAllocatedQty: 0, cuttingClaimedQty: 0, spreadingConsumedQty: 0, availableQty: 0, unit: '米' },
+  openImpactItems: [], remainingInventorySummary: '0 片', pendingSpecialCraftSummary: '0 片', pendingHandoverSummary: '0 条', createdAt: '2026-06-07 08:00:00', createdBy: '主管',
+}
+upsertStoredCutOrderCloseRecord({ ...closeBase, ...closeIdentity1 } as CutOrderCloseRecord, lifecycleStorage)
+upsertStoredCutOrderCloseRecord({ ...closeBase, ...closeIdentity1 } as CutOrderCloseRecord, lifecycleStorage)
+assert.equal(listStoredCutOrderCloseRecords(lifecycleStorage).length, 1, '同一关闭业务记录重放必须幂等')
+const reopenIdentity1 = createNextCutOrderReopenRecordIdentity('cut-cycle', 'CUT-CYCLE', lifecycleStorage)
+const reopenBase = { cutOrderId: 'cut-cycle', cutOrderNo: 'CUT-CYCLE', productionOrderId, productionOrderNo: 'PO14671', reopenedAt: '2026-06-07 09:00:00', reopenedBy: '主管', reopenReason: '第一轮重开', previousCloseRecordNo: closeIdentity1.closeRecordNo, createdAt: '2026-06-07 09:00:00', createdBy: '主管' }
+upsertStoredCutOrderReopenRecord({ ...reopenBase, ...reopenIdentity1 } as CutOrderReopenRecord, lifecycleStorage)
+const closeIdentity2 = createNextCutOrderCloseRecordIdentity('cut-cycle', 'CUT-CYCLE', lifecycleStorage)
+assert.notEqual(closeIdentity2.closeRecordId, closeIdentity1.closeRecordId, '第二轮关闭必须生成新的业务记录 ID')
+upsertStoredCutOrderCloseRecord({ ...closeBase, ...closeIdentity2, closeDescription: '第二轮关闭', closedAt: '2026-06-07 10:00:00', createdAt: '2026-06-07 10:00:00' } as CutOrderCloseRecord, lifecycleStorage)
+const reopenIdentity2 = createNextCutOrderReopenRecordIdentity('cut-cycle', 'CUT-CYCLE', lifecycleStorage)
+assert.notEqual(reopenIdentity2.reopenRecordId, reopenIdentity1.reopenRecordId, '第二轮重开必须生成新的业务记录 ID')
+upsertStoredCutOrderReopenRecord({ ...reopenBase, ...reopenIdentity2, reopenedAt: '2026-06-07 11:00:00', createdAt: '2026-06-07 11:00:00', previousCloseRecordNo: closeIdentity2.closeRecordNo } as CutOrderReopenRecord, lifecycleStorage)
+assert.equal(listStoredCutOrderCloseRecords(lifecycleStorage).length, 2, '关闭历史必须保留两轮记录')
+assert.equal(listStoredCutOrderReopenRecords(lifecycleStorage).length, 2, '重开历史必须保留两轮记录')
 
 console.log('cut piece release matrix check passed')
