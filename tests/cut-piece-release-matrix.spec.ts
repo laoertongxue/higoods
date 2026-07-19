@@ -121,6 +121,45 @@ test('保存存在缺口的目标后可携带不可变快照进入补料管理',
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/supplement-management\?mode=create&releaseSnapshotId=cpr-target-po-14671-v1$/)
 })
 
+test('已保存快照只匹配当前未修改目标，返回修改后旧补料入口立即失效', async ({ page }) => {
+  await selectBlackTarget(page)
+  await page.getByRole('button', { name: '确认目标' }).click()
+  await page.getByRole('button', { name: '保存目标' }).click()
+  await expect(page.getByRole('button', { name: '去补料管理' })).toBeVisible()
+
+  await page.getByRole('button', { name: '返回修改' }).click()
+  await page.locator('[data-testid="candidate-Black-M-A"]').click()
+  await expect(page.getByRole('button', { name: '去补料管理' })).toHaveCount(0)
+  await page.getByRole('button', { name: '确认目标' }).click()
+  await expect(page.getByRole('button', { name: '去补料管理' })).toHaveCount(0)
+  await page.getByRole('button', { name: '保存目标' }).click()
+  await expect(page.getByText('该裁片矩阵版本的目标确认内容冲突。')).toBeVisible()
+  await expect(page.getByRole('button', { name: '去补料管理' })).toHaveCount(0)
+
+  await page.evaluate(async () => {
+    const repository = await import('/src/data/fcs/cut-piece-release.ts')
+    repository.recordCutOrderReleaseStatusChange({
+      eventId: 'e2e-new-target-version',
+      cutOrderId: 'cut-14671-b',
+      cutOrderNo: 'CUT14671-B',
+      status: '持续更新',
+      occurredAt: '2026-06-03 17:10:00',
+      operator: '裁床主管 Dewi',
+      reason: '形成新矩阵版本后保存新目标',
+    })
+  })
+  await page.getByRole('button', { name: '查看矩阵' }).click()
+  await page.getByRole('button', { name: '选择目标' }).click()
+  await page.locator('[data-testid="candidate-Black-M-A"]').click()
+  await page.locator('[data-testid="candidate-Black-L-B"]').click()
+  await page.locator('[data-testid="candidate-Black-XL-A"]').click()
+  await page.getByRole('button', { name: '确认目标' }).click()
+  await page.getByRole('button', { name: '保存目标' }).click()
+  await expect(page.getByRole('button', { name: '去补料管理' })).toBeVisible()
+  await page.getByRole('button', { name: '去补料管理' }).click()
+  await expect(page).toHaveURL(/releaseSnapshotId=cpr-target-po-14671-v3$/)
+})
+
 test('保存无缺口目标时不显示去补料管理主操作', async ({ page }) => {
   await page.getByRole('button', { name: '选择目标' }).click()
   await page.getByRole('button', { name: '确认目标' }).click()

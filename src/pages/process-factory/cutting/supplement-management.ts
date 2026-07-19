@@ -222,6 +222,7 @@ interface SupplementManagementState {
   pendingConfirmDraft: SupplementDraft | null
   releaseSnapshotDraft: SupplementDraft | null
   releaseSnapshotError: string
+  creationSourceKey: string
   records: SupplementRecord[]
   feedback: SupplementFeedback | null
   page: number
@@ -266,6 +267,7 @@ const state: SupplementManagementState = {
   pendingConfirmDraft: null,
   releaseSnapshotDraft: null,
   releaseSnapshotError: '',
+  creationSourceKey: '',
   records: [],
   feedback: null,
   page: 1,
@@ -322,13 +324,13 @@ function getSupplementLocationPath(): string {
 
 function getReleaseSnapshotIdFromLocation(): string {
   const query = getSupplementLocationPath().split('?')[1] ?? ''
-  const value = new URLSearchParams(query).get('releaseSnapshotId') || ''
-  if (!value) return ''
-  try {
-    return decodeURIComponent(value)
-  } catch {
-    return value
-  }
+  return parseReleaseSnapshotIdFromSearch(query)
+}
+
+export function parseReleaseSnapshotIdFromSearch(search: string): string {
+  return new URLSearchParams(search).getAll('releaseSnapshotId')
+    .map((value) => value.trim())
+    .find(Boolean) || ''
 }
 
 function isClosedRecord(record: CuttingOrderProgressRecord): boolean {
@@ -842,6 +844,26 @@ function buildCandidates(): SupplementCandidate[] {
   ])
 }
 
+interface ReleaseSnapshotPointIdentity {
+  garmentColor: string
+  size: string
+  materialId: string
+  partId: string
+}
+
+export function buildReleaseSnapshotPointKeys(points: ReleaseSnapshotPointIdentity[]): string[] {
+  return points.map((point) => JSON.stringify([
+    point.garmentColor,
+    point.size,
+    point.materialId,
+    point.partId,
+  ]))
+}
+
+function makeReleaseSnapshotPointKey(point: ReleaseSnapshotPointIdentity): string {
+  return buildReleaseSnapshotPointKeys([point])[0]
+}
+
 function displayReleaseMaterialName(materialId: string, materialName: string): string {
   const seededNames: Record<string, string> = {
     A: '面料 A · 净色',
@@ -877,7 +899,7 @@ function buildReleaseSnapshotMaterialRef(shortage: SupplementPartShortage): Supp
     latestActionText: '来自裁片放行目标快照',
   }
   return {
-    materialPatternMappingId: `release:${shortage.materialId}:${shortage.partId}`,
+    materialPatternMappingId: `release:${makeReleaseSnapshotPointKey(shortage)}`,
     techPackVersionId: '放行目标快照',
     materialSku: materialLine.materialSku,
     materialName,
@@ -899,7 +921,7 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
   const shortages = buildSupplementPartShortages(snapshot.matrixSnapshot, snapshot.targetPreview)
   const lines: SupplementLine[] = shortages.map((shortage) => {
     const materialRef = buildReleaseSnapshotMaterialRef(shortage)
-    const key = [shortage.garmentColor, shortage.size, shortage.materialId, shortage.partId].join('::')
+    const key = makeReleaseSnapshotPointKey(shortage)
     const availableGarmentQty = Math.max(shortage.targetQty - shortage.supplementGarmentQty, 0)
     const basis: SupplementAbAnalysisRow = {
       key,
@@ -980,6 +1002,13 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
 
 function prepareReleaseSnapshotCreateState(): void {
   const snapshotId = getReleaseSnapshotIdFromLocation()
+  const nextCreationSourceKey = snapshotId ? `release:${JSON.stringify(snapshotId)}` : 'manual'
+  if (state.creationSourceKey !== nextCreationSourceKey) {
+    clearSupplementCreateState()
+    state.activeRecordId = ''
+    state.columnSettingsOpen = false
+    state.creationSourceKey = nextCreationSourceKey
+  }
   if (!snapshotId) {
     state.releaseSnapshotDraft = null
     state.releaseSnapshotError = ''
@@ -1289,7 +1318,7 @@ function renderReleaseSnapshotTrace(draft: SupplementDraft): string {
 
 function renderReleaseSnapshotCreatePage(draft: SupplementDraft): string {
   const rows = draft.lines.map((line) => `
-    <tr class="border-t align-top" data-release-snapshot-shortage-row>
+    <tr class="border-t align-top" data-release-snapshot-shortage-row data-release-snapshot-point-key="${escapeHtml(line.key)}">
       <td class="px-3 py-3 font-medium">${escapeHtml(line.color)}</td>
       <td class="px-3 py-3 font-medium">${escapeHtml(line.size)}</td>
       <td class="px-3 py-3">${escapeHtml(line.basis.shortageMaterial.materialName)}</td>
@@ -1794,6 +1823,10 @@ function ensureSupplementListPreferences(): void {
 export function enterCraftCuttingSupplementManagementRoute(): void {
   state.page = 1
   state.sort = null
+  clearSupplementCreateState()
+  state.activeRecordId = ''
+  state.columnSettingsOpen = false
+  state.creationSourceKey = ''
 }
 
 function saveSupplementListPreferences(): void {

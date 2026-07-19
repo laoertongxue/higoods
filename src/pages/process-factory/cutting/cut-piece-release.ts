@@ -58,6 +58,13 @@ interface CutPieceReleaseActiveCell {
   materialId: string
 }
 
+interface SavedTargetSnapshotMetadata {
+  snapshotId: string
+  matrixVersion: number
+  colorSizeTargets: Record<string, number>
+  hasShortage: boolean
+}
+
 interface CutPieceReleasePageState {
   keywordDraft: string
   keyword: string
@@ -74,8 +81,7 @@ interface CutPieceReleasePageState {
   targetDraft: Record<string, number>
   currentMatrixVersion: number | null
   targetBasisVersion: number | null
-  savedTargetSnapshotId: string | null
-  savedTargetHasShortage: boolean
+  savedTargetSnapshot: SavedTargetSnapshotMetadata | null
   activeCell: CutPieceReleaseActiveCell | null
   historyOpen: boolean
   historyPage: number
@@ -124,8 +130,7 @@ const state: CutPieceReleasePageState = {
   targetDraft: {},
   currentMatrixVersion: null,
   targetBasisVersion: null,
-  savedTargetSnapshotId: null,
-  savedTargetHasShortage: false,
+  savedTargetSnapshot: null,
   activeCell: null,
   historyOpen: false,
   historyPage: 1,
@@ -151,8 +156,7 @@ function resetTransientPageState(): void {
   state.targetDraft = {}
   state.currentMatrixVersion = null
   state.targetBasisVersion = null
-  state.savedTargetSnapshotId = null
-  state.savedTargetHasShortage = false
+  state.savedTargetSnapshot = null
   state.activeCell = null
   state.historyOpen = false
   state.historyPage = 1
@@ -646,6 +650,22 @@ function initializeTargetDraft(record: CutPieceReleaseRecord): void {
   ])))
 }
 
+function areTargetSelectionsEqual(left: Record<string, number>, right: Record<string, number>): boolean {
+  const leftEntries = Object.entries(left)
+  return leftEntries.length === Object.keys(right).length
+    && leftEntries.every(([key, value]) => right[key] === value)
+}
+
+function canUseSavedTargetSnapshot(record: CutPieceReleaseRecord): boolean {
+  const saved = state.savedTargetSnapshot
+  if (!saved || !saved.hasShortage || state.targetMode !== '确认') return false
+  if (state.targetBasisVersion !== saved.matrixVersion) return false
+  if (!areTargetSelectionsEqual(state.targetDraft, saved.colorSizeTargets)) return false
+  return !listCutPieceReleaseMatrixVersions(record.productionOrderId).some((version) => (
+    version.version > saved.matrixVersion && version.eventType !== '目标确认'
+  ))
+}
+
 function renderTargetSummary(record: CutPieceReleaseRecord): string {
   if (state.targetMode !== '确认') return ''
   const differences = getTargetDifferences(record)
@@ -668,7 +688,7 @@ function renderTargetSummary(record: CutPieceReleaseRecord): string {
       </div>
       <div class="mt-4 flex justify-end gap-2">
         <button type="button" class="rounded-md border bg-white px-4 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="back-target-edit">返回修改</button>
-        ${state.savedTargetSnapshotId && state.savedTargetHasShortage
+        ${canUseSavedTargetSnapshot(record)
           ? '<button type="button" class="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700" data-skip-page-rerender="true" data-cut-piece-release-action="go-supplement">去补料管理</button>'
           : ''}
         <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-skip-page-rerender="true" data-cut-piece-release-action="save-target">保存目标</button>
@@ -993,8 +1013,7 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     state.targetDraft = {}
     state.currentMatrixVersion = null
     state.targetBasisVersion = null
-    state.savedTargetSnapshotId = null
-    state.savedTargetHasShortage = false
+    state.savedTargetSnapshot = null
     state.activeCell = null
     state.historyOpen = false
     state.historyPage = 1
@@ -1020,8 +1039,7 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     if (!record) return true
     initializeTargetDraft(record)
     state.targetMode = '编辑'
-    state.savedTargetSnapshotId = null
-    state.savedTargetHasShortage = false
+    state.savedTargetSnapshot = null
     state.feedback = null
     refreshFeedback()
     refreshMatrix()
@@ -1033,6 +1051,7 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     const quantity = Number(actionNode.dataset.targetCandidateQuantity)
     if (!garmentColor || !size || !Number.isFinite(quantity)) return true
     state.targetDraft[releaseTargetKey(garmentColor, size)] = quantity
+    state.savedTargetSnapshot = null
     refreshMatrix()
     return true
   }
@@ -1052,6 +1071,7 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
   }
   if (action === 'back-target-edit') {
     state.targetMode = '编辑'
+    state.savedTargetSnapshot = null
     refreshMatrix()
     return true
   }
@@ -1065,6 +1085,7 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
       && version.eventType !== '目标确认'
     ))
     if (hasNewBusinessFact) {
+      state.savedTargetSnapshot = null
       state.feedback = { tone: 'warning', message: '当前裁片矩阵版本已变化，请刷新后重新确认目标。' }
       refreshFeedback()
       refreshList()
@@ -1079,11 +1100,17 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     })
     if (result.snapshot) {
       state.targetBasisVersion = result.snapshot.matrixVersion
-      state.savedTargetSnapshotId = result.snapshot.snapshotId
-      state.savedTargetHasShortage = buildSupplementPartShortages(
-        result.snapshot.matrixSnapshot,
-        result.snapshot.targetPreview,
-      ).length > 0
+      state.savedTargetSnapshot = {
+        snapshotId: result.snapshot.snapshotId,
+        matrixVersion: result.snapshot.matrixVersion,
+        colorSizeTargets: { ...result.snapshot.targetPreview.colorSizeTargets },
+        hasShortage: buildSupplementPartShortages(
+          result.snapshot.matrixSnapshot,
+          result.snapshot.targetPreview,
+        ).length > 0,
+      }
+    } else {
+      state.savedTargetSnapshot = null
     }
     state.currentMatrixVersion = listCutPieceReleaseMatrixVersions(record.productionOrderId).at(-1)?.version
       ?? state.currentMatrixVersion
@@ -1101,8 +1128,9 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     return true
   }
   if (action === 'go-supplement') {
-    if (!state.savedTargetSnapshotId || !state.savedTargetHasShortage) return true
-    appStore.navigate(`/fcs/craft/cutting/supplement-management?mode=create&releaseSnapshotId=${encodeURIComponent(state.savedTargetSnapshotId)}`)
+    const record = getActiveRecord()
+    if (!record || !canUseSavedTargetSnapshot(record) || !state.savedTargetSnapshot) return true
+    appStore.navigate(`/fcs/craft/cutting/supplement-management?mode=create&releaseSnapshotId=${encodeURIComponent(state.savedTargetSnapshot.snapshotId)}`)
     return true
   }
   if (action === 'open-cell') {
