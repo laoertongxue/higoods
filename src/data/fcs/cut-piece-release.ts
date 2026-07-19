@@ -57,7 +57,53 @@ export interface CutPieceReleaseRecord {
   frozenCutOrderCount: number
   shortageCellCount: number
   latestUpdateAt: string
+  lateEventCount: number
+  sourceStates: CutPieceReleaseSourceState[]
   matrix: CutPieceReleaseMatrix
+}
+
+export interface CutPieceReleaseSourceState {
+  cutOrderId: string
+  cutOrderNo: string
+  status: '已冻结' | '持续更新'
+  changedAt: string
+  operator: string
+  reason: string
+  materialIds: string[]
+}
+
+export interface CutOrderReleaseImpactCell {
+  garmentColor: string
+  size: string
+  materialId: string
+  materialName: string
+  availableGarmentQty: number | null
+}
+
+export interface CutOrderReleaseImpactSummary {
+  cutOrderId: string
+  cutOrderNo: string
+  affectedCells: CutOrderReleaseImpactCell[]
+  activeSpreadingOrderNos: string[]
+}
+
+export interface LateCutPieceReleaseFactSummary {
+  garmentColor: string
+  size: string
+  materialId: string
+  actualPieceQty: number
+}
+
+export interface LateCutPieceReleaseEvent {
+  eventId: string
+  productionOrderId: string
+  cutOrderId: string
+  cutOrderNo: string
+  spreadingOrderNo: string
+  arrivedAt: string
+  reason: string
+  facts: LateCutPieceReleaseFactSummary[]
+  status: '待处理' | '已处理'
 }
 
 export interface CutPieceReleaseSummary {
@@ -149,11 +195,14 @@ interface ReleaseRepositoryItem {
   versions: CutPieceReleaseMatrixVersion[]
   latestSnapshotId: string | null
   latestUpdateAt: string
+  sourceStates: CutPieceReleaseSourceState[]
+  activeSpreadingOrderNosByCutOrder: Record<string, string[]>
 }
 
 const deterministicConfirmedAt = '2026-06-03 16:00:00'
 const targetSnapshots = new Map<string, CutPieceReleaseTargetSnapshot>()
 const releaseRepository = new Map<string, ReleaseRepositoryItem>()
+const lateEvents = new Map<string, LateCutPieceReleaseEvent>()
 
 function clone<T>(value: T): T {
   return structuredClone(value)
@@ -279,6 +328,8 @@ function buildReleaseRecord(item: ReleaseRepositoryItem): CutPieceReleaseRecord 
     frozenCutOrderCount,
     shortageCellCount: preview?.differences.filter((item) => item.status === '需补').length ?? 0,
     latestUpdateAt: item.latestUpdateAt,
+    lateEventCount: listLateCutPieceReleaseEvents(item.input.productionOrderId).filter((event) => event.status === '待处理').length,
+    sourceStates: clone(item.sourceStates),
     matrix: clone(item.currentMatrix),
   }
 }
@@ -294,6 +345,8 @@ function addRepositoryItem(input: BuildReleaseMatrixInput, spuName: string, sour
     versions: [],
     latestSnapshotId: null,
     latestUpdateAt: initialEvent.occurredAt,
+    sourceStates: [],
+    activeSpreadingOrderNosByCutOrder: {},
   }
   appendMatrixEvent(item.eventState, initialEvent)
   addVersion(item, initialEvent)
@@ -345,6 +398,12 @@ function bootstrapRepository(): void {
     occurredAt: '2026-06-03 14:00:00',
     operator: '铺布操作员 阿迪',
   })
+  const item = releaseRepository.get(productionOrderId)!
+  item.sourceStates = [
+    { cutOrderId: 'cut-14671-main', cutOrderNo: 'CUT14671-A', status: '持续更新', changedAt: '2026-06-03 14:00:00', operator: '铺布操作员 阿迪', reason: '铺布完成后持续更新', materialIds: ['A', 'C', 'D'] },
+    { cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '已冻结', changedAt: '2026-06-03 14:00:00', operator: '裁床主管 王敏', reason: '已关闭，数据已冻结', materialIds: ['B'] },
+  ]
+  item.activeSpreadingOrderNosByCutOrder = { 'cut-14671-main': ['PB-14671-A-进行中'], 'cut-14671-b': [] }
 }
 
 bootstrapRepository()
@@ -352,7 +411,72 @@ bootstrapRepository()
 export function resetCutPieceReleasePrototypeStoreForTesting(): void {
   releaseRepository.clear()
   targetSnapshots.clear()
+  lateEvents.clear()
   bootstrapRepository()
+}
+
+function resolveCutOrderSource(item: ReleaseRepositoryItem, cutOrderId: string, cutOrderNo = ''): { cutOrderId: string; cutOrderNo: string } | null {
+  if (cutOrderId && cutOrderNo) {
+    const exactFact = item.input.facts.find((fact) => fact.cutOrderId === cutOrderId && fact.cutOrderNo === cutOrderNo)
+    if (exactFact) return { cutOrderId: exactFact.cutOrderId || '', cutOrderNo: exactFact.cutOrderNo || '' }
+    return null
+  }
+  const directFact = item.input.facts.find((fact) => (
+    (cutOrderId && fact.cutOrderId === cutOrderId) || (cutOrderNo && fact.cutOrderNo === cutOrderNo)
+  ))
+  if (directFact) return { cutOrderId: directFact.cutOrderId || '', cutOrderNo: directFact.cutOrderNo || '' }
+  return null
+}
+
+export function getCutOrderReleaseImpactSummary(cutOrderId: string): CutOrderReleaseImpactSummary | null {
+  const sourceKey = cutOrderId.trim()
+  if (!sourceKey) return null
+  for (const item of releaseRepository.values()) {
+    const source = resolveCutOrderSource(item, sourceKey, '') ?? resolveCutOrderSource(item, '', sourceKey)
+    if (!source) continue
+    const affectedMaterialIds = new Set(item.input.facts.filter((fact) => fact.cutOrderId === source.cutOrderId).map((fact) => fact.materialId))
+    const affectedCells = item.currentMatrix.colorGroups.flatMap((group) => group.materialRows
+      .filter((row) => affectedMaterialIds.has(row.materialId))
+      .flatMap((row) => row.cells.map((cell) => ({
+        garmentColor: group.garmentColor,
+        size: cell.size,
+        materialId: row.materialId,
+        materialName: row.materialName,
+        availableGarmentQty: cell.availableGarmentQty,
+      }))))
+      .sort((left, right) => left.garmentColor.localeCompare(right.garmentColor, 'zh-CN') || left.size.localeCompare(right.size, 'zh-CN') || left.materialId.localeCompare(right.materialId, 'zh-CN'))
+    return clone({
+      cutOrderId: source.cutOrderId,
+      cutOrderNo: source.cutOrderNo,
+      affectedCells,
+      activeSpreadingOrderNos: item.activeSpreadingOrderNosByCutOrder[source.cutOrderId] ?? [],
+    })
+  }
+  return null
+}
+
+export function recordLateCutPieceReleaseEvent(input: Omit<LateCutPieceReleaseEvent, 'status'>): void {
+  const eventId = input.eventId.trim()
+  const item = releaseRepository.get(input.productionOrderId)
+  if (!eventId || !item || lateEvents.has(eventId)) return
+  const source = resolveCutOrderSource(item, input.cutOrderId.trim(), input.cutOrderNo.trim())
+  const sourceState = source ? item.sourceStates.find((state) => state.cutOrderId === source.cutOrderId) : null
+  if (!source || sourceState?.status !== '已冻结' || !input.spreadingOrderNo.trim() || !input.arrivedAt.trim()) return
+  lateEvents.set(eventId, clone({
+    ...input,
+    eventId,
+    cutOrderId: source.cutOrderId,
+    cutOrderNo: source.cutOrderNo,
+    spreadingOrderNo: input.spreadingOrderNo.trim(),
+    status: '待处理',
+  }))
+}
+
+export function listLateCutPieceReleaseEvents(productionOrderId: string): LateCutPieceReleaseEvent[] {
+  return [...lateEvents.values()]
+    .filter((event) => event.productionOrderId === productionOrderId)
+    .sort((left, right) => right.arrivedAt.localeCompare(left.arrivedAt, 'zh-CN'))
+    .map(clone)
 }
 
 export function listCutPieceReleaseRecords(): CutPieceReleaseRecord[] {
@@ -435,14 +559,13 @@ export function recordCutOrderReleaseStatusChange(input: CutOrderReleaseStatusCh
   const cutOrderId = input.cutOrderId.trim()
   const cutOrderNo = input.cutOrderNo.trim()
   if (!eventId || (!cutOrderId && !cutOrderNo)) return
-  const item = [...releaseRepository.values()].find((candidate) => candidate.input.facts.some((fact) => (
-    cutOrderId ? fact.cutOrderId === cutOrderId : fact.cutOrderNo === cutOrderNo
-  )))
+  const item = [...releaseRepository.values()].find((candidate) => resolveCutOrderSource(candidate, cutOrderId, cutOrderNo))
   if (!item) return
+  const source = resolveCutOrderSource(item, cutOrderId, cutOrderNo)!
   const matchedFacts = item.input.facts.filter((fact) => (
-    cutOrderId ? fact.cutOrderId === cutOrderId : fact.cutOrderNo === cutOrderNo
+    fact.cutOrderId === source.cutOrderId
   ))
-  if (cutOrderId && cutOrderNo && matchedFacts.some((fact) => fact.cutOrderNo !== cutOrderNo)) return
+  if (cutOrderId && cutOrderNo && source.cutOrderId === cutOrderId && matchedFacts.some((fact) => fact.cutOrderNo !== cutOrderNo)) return
   const matchesInput = (fact: CutPieceFact) => matchedFacts.includes(fact)
   const event: MatrixEvent = {
     eventId,
@@ -463,6 +586,18 @@ export function recordCutOrderReleaseStatusChange(input: CutOrderReleaseStatusCh
     item.input.facts.forEach((fact) => {
       if (matchesInput(fact)) fact.sourceStatus = input.status
     })
+    const existingState = item.sourceStates.find((state) => state.cutOrderId === source.cutOrderId)
+    const nextState: CutPieceReleaseSourceState = {
+      cutOrderId: source.cutOrderId,
+      cutOrderNo: source.cutOrderNo,
+      status: input.status,
+      changedAt: input.occurredAt,
+      operator: input.operator,
+      reason: input.reason,
+      materialIds: [...new Set(matchedFacts.map((fact) => fact.materialId))],
+    }
+    if (existingState) Object.assign(existingState, nextState)
+    else item.sourceStates.push(nextState)
   })
 }
 

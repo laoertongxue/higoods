@@ -40,6 +40,7 @@ import {
   type CutOrderFilters,
   type CutOrderPrefilter,
   type CutOrderRow,
+  type CutOrderViewModel,
 } from './cut-orders-model.ts'
 import { buildMarkerSpreadingCountsByCutOrder } from './marker-spreading-utils.ts'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
@@ -95,6 +96,11 @@ import {
 import { cuttingMaterialLedgerEventTypeLabels } from '../../../data/fcs/cutting/material-ledger.ts'
 import { listSpreadingDifferences } from '../../../data/fcs/cutting/spreading-differences.ts'
 import { buildBindingProcessOrders } from './binding-strip-orders.ts'
+import {
+  getCutOrderReleaseImpactSummary,
+  getCutPieceReleaseRecord,
+  recordCutOrderReleaseStatusChange,
+} from '../../../data/fcs/cut-piece-release.ts'
 
 type FilterField =
   | 'keyword'
@@ -240,8 +246,44 @@ function getMarkerPlanSourceLedger(): MarkerPlanSourceRecord[] {
   return getProjection().sources.markerPlanSources
 }
 
-function getViewModel() {
-  return getProjection().viewModel
+function getViewModel(): CutOrderViewModel {
+  const base = getProjection().viewModel
+  const template = base.rows.find((row) => row.cutOrderNo === 'CUT-260306-101-05') ?? base.rows[0]
+  const releaseRecord = getCutPieceReleaseRecord('cpr-po-14671')
+  if (!template || !releaseRecord) return base
+  const closeRecords = listCutOrderCloseRecords()
+  const demoRows = releaseRecord.sourceStates.map((sourceState): CutOrderRow => {
+    const frozen = sourceState.status === '已冻结'
+    const closeRecord = closeRecords.find((record) => record.cutOrderId === sourceState.cutOrderId || record.cutOrderNo === sourceState.cutOrderNo) ?? null
+    return {
+      ...template,
+      id: sourceState.cutOrderId,
+      cutOrderId: sourceState.cutOrderId,
+      cutOrderNo: sourceState.cutOrderNo,
+      cutOrderSourceLabel: '裁片放行矩阵联动演示',
+      productionOrderId: releaseRecord.productionOrderId,
+      productionOrderNo: releaseRecord.productionOrderNo,
+      spuCode: releaseRecord.spuCode,
+      styleName: releaseRecord.spuName,
+      materialName: sourceState.materialIds.map((materialId) => `物料 ${materialId}`).join('、'),
+      currentStage: {
+        ...template.currentStage,
+        key: frozen ? 'CLOSED' : 'STARTED',
+        label: frozen ? '已关闭' : '已开工',
+        className: frozen ? cutOrderStageMeta.CLOSED.className : cutOrderStageMeta.STARTED.className,
+        description: frozen ? sourceState.reason : '裁片单持续更新，可继续接收合法铺布完成事实。',
+      },
+      currentStageLabel: frozen ? '已关闭' : '已开工',
+      closeReason: frozen ? sourceState.reason : '',
+      closeReasonText: frozen ? sourceState.reason : '',
+      closedAt: frozen ? sourceState.changedAt : '',
+      closedBy: frozen ? sourceState.operator : '',
+      closeRecord,
+      keywordIndex: [...template.keywordIndex, sourceState.cutOrderId, sourceState.cutOrderNo, releaseRecord.productionOrderNo],
+    }
+  })
+  const rows = [...base.rows, ...demoRows]
+  return { rows, rowsById: { ...base.rowsById, ...Object.fromEntries(demoRows.map((row) => [row.id, row])) } }
 }
 
 function parsePrefilterFromPath(): CutOrderPrefilter | null {
@@ -920,6 +962,8 @@ function renderCutOrderClosePage(): string {
   const params = getCurrentSearchParams()
   const sourceDifferenceId = params.get('sourceDifferenceId') || ''
   const impactContext = buildCloseImpactContext(row)
+  const releaseImpact = getCutOrderReleaseImpactSummary(row.cutOrderNo)
+  const activeReleaseSpreadings = releaseImpact?.activeSpreadingOrderNos ?? []
   const alreadyClosed = row.currentStage.key === 'CLOSED'
   const closeRecord = row.closeRecord
   const sourceText = sourceDifferenceId ? `差异确认 ${sourceDifferenceId}` : '人工关闭'
@@ -946,6 +990,17 @@ function renderCutOrderClosePage(): string {
           ${renderInfoCard('关闭来源', sourceText)}
         </div>
       </section>
+
+      ${releaseImpact ? `
+        <section class="rounded-lg border ${activeReleaseSpreadings.length ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-slate-50'} p-4" data-testid="cut-order-release-impact">
+          <h3 class="text-sm font-semibold">放行矩阵影响</h3>
+          <p class="mt-1 text-xs text-muted-foreground">关闭后保留最后有效数量，以下单元格标记为“已冻结，不再更新”。</p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            ${releaseImpact.affectedCells.map((cell) => `<span class="rounded-md border bg-white px-2.5 py-1.5 text-xs">${escapeHtml(cell.garmentColor)} / ${escapeHtml(cell.size)} / ${escapeHtml(cell.materialName)}：${cell.availableGarmentQty ?? '待计算'} 件</span>`).join('')}
+          </div>
+          ${activeReleaseSpreadings.length ? `<div class="mt-3 rounded-md border border-rose-300 bg-white px-3 py-2 text-sm font-medium text-rose-700" data-testid="cut-order-active-spreading-block">请先处理进行中的铺布单：${escapeHtml(activeReleaseSpreadings.join('、'))}</div>` : ''}
+        </section>
+      ` : ''}
 
       ${
         alreadyClosed
@@ -985,7 +1040,7 @@ function renderCutOrderClosePage(): string {
                 </label>
               </div>
               <div class="mt-3 flex flex-wrap gap-2">
-                <button type="button" class="rounded-md bg-zinc-900 px-4 py-2 text-sm text-white hover:bg-zinc-700" data-cutting-piece-action="submit-close-cut-order" data-record-id="${escapeHtml(row.id)}" data-source-difference-id="${escapeHtml(sourceDifferenceId)}">确认关闭裁片单</button>
+                <button type="button" class="rounded-md bg-zinc-900 px-4 py-2 text-sm text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50" ${activeReleaseSpreadings.length ? 'disabled aria-disabled="true"' : ''} data-cutting-piece-action="submit-close-cut-order" data-record-id="${escapeHtml(row.id)}" data-source-difference-id="${escapeHtml(sourceDifferenceId)}">确认关闭裁片单</button>
                 <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('cut-orders'), { cutOrderId: row.cutOrderId, cutOrderNo: row.cutOrderNo }))}">取消</button>
               </div>
             </section>
@@ -2660,6 +2715,15 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
       operatorName: reopenRecord.reopenedBy,
       operatedAt: reopenRecord.reopenedAt,
     })
+    recordCutOrderReleaseStatusChange({
+      eventId: reopenRecord.reopenRecordId,
+      cutOrderId: row.cutOrderId,
+      cutOrderNo: row.cutOrderNo,
+      status: '持续更新',
+      occurredAt: reopenRecord.reopenedAt,
+      operator: reopenRecord.reopenedBy,
+      reason: '重新打开裁片单，恢复持续更新',
+    })
     const message = '已重新打开裁片单，可继续针对该裁片单补料、唛架和铺布。'
     setFeedback('success', message)
     state.closeDraft.feedback = { tone: 'success', message }
@@ -2671,6 +2735,11 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
     if (!row) return false
     if (row.currentStage.key === 'CLOSED') {
       state.closeDraft.feedback = { tone: 'warning', message: '该裁片单已经关闭，不能重复关闭。' }
+      return true
+    }
+    const releaseImpact = getCutOrderReleaseImpactSummary(row.cutOrderNo)
+    if (releaseImpact?.activeSpreadingOrderNos.length) {
+      state.closeDraft.feedback = { tone: 'warning', message: `请先处理进行中的铺布单：${releaseImpact.activeSpreadingOrderNos.join('、')}` }
       return true
     }
     if (!state.closeDraft.closeReasonCode) {
@@ -2720,6 +2789,15 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
       closeReasonText: closeRecord.closeReasonText,
       closeReason: closeRecord.closeDescription,
       ledgerSnapshotBeforeClose: closeRecord.ledgerSnapshotBeforeClose,
+    })
+    recordCutOrderReleaseStatusChange({
+      eventId: closeRecord.closeRecordId,
+      cutOrderId: row.cutOrderId,
+      cutOrderNo: row.cutOrderNo,
+      status: '已冻结',
+      occurredAt: closeRecord.closedAt,
+      operator: closeRecord.closedBy,
+      reason: `${closeRecord.closeReasonText}，数据已冻结`,
     })
     state.closeDraft.feedback = {
       tone: 'success',

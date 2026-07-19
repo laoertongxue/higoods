@@ -27,6 +27,7 @@ import {
 import {
   confirmCutPieceReleaseTarget,
   getCutPieceReleaseRecord,
+  listLateCutPieceReleaseEvents,
   listCutPieceReleaseMatrixVersions,
   listCutPieceReleaseRecords,
   type CutPieceReleaseRecord,
@@ -618,6 +619,7 @@ function renderColorMatrix(record: CutPieceReleaseRecord, group: ReleaseColorGro
             </tr>
             ${group.materialRows.map((row) => {
               const frozen = row.cells.length > 0 && row.cells.every((cell) => cell.sourceStatus === '已冻结')
+              const sourceState = frozen ? record.sourceStates.find((item) => item.status === '已冻结' && item.materialIds.includes(row.materialId)) : null
               return `
                 <tr>
                   <th class="border-b border-r px-3 py-3 text-left font-medium">${escapeHtml(displayMaterialName(row.materialId, row.materialName))}</th>
@@ -625,7 +627,10 @@ function renderColorMatrix(record: CutPieceReleaseRecord, group: ReleaseColorGro
                     const cell = row.cells.find((item) => item.size === size)!
                     return renderMatrixCell(record, group, row.materialId, size, cell, differenceByCell.get(`${group.garmentColor}::${size}::${row.materialId}`))
                   }).join('')}
-                  <td class="border-b px-3 py-2 text-xs ${frozen ? 'bg-slate-100 font-medium text-slate-700' : 'text-emerald-700'}">${frozen ? '已冻结，不再更新' : '持续更新'}</td>
+                  <td class="border-b px-3 py-2 text-xs ${frozen ? 'bg-slate-100 font-medium text-slate-700' : 'text-emerald-700'}">
+                    <span class="block">${frozen ? escapeHtml(sourceState?.reason || '已冻结，不再更新') : '持续更新'}</span>
+                    ${sourceState ? `<span class="mt-1 block font-normal text-slate-500">${escapeHtml(sourceState.cutOrderNo)} · ${escapeHtml(formatDateTime(sourceState.changedAt))}</span>` : ''}
+                  </td>
                 </tr>
               `
             }).join('')}
@@ -716,6 +721,7 @@ function renderMatrixPanel(): string {
               : ''}
         </div>
       </header>
+      ${record.lateEventCount > 0 ? `<button type="button" class="w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-left text-sm font-medium text-amber-800 hover:bg-amber-100" data-skip-page-rerender="true" data-cut-piece-release-action="open-history" data-testid="cut-piece-release-late-events-alert">关闭后收到 ${record.lateEventCount} 条待处理铺布数据</button>` : ''}
       ${record.matrix.colorGroups.map((group) => renderColorMatrix(record, group)).join('')}
       ${renderTargetSummary(record)}
     </section>
@@ -761,6 +767,7 @@ function renderHistoryDrawer(record: CutPieceReleaseRecord): string {
   state.historyPage = Math.min(Math.max(1, state.historyPage), totalPages)
   const rows = versions.slice((state.historyPage - 1) * pageSize, state.historyPage * pageSize)
   const sourceText = (version: CutPieceReleaseMatrixVersion) => [version.cutOrderNo, version.spreadingOrderNo].filter(Boolean).join(' / ')
+  const lateEvents = listLateCutPieceReleaseEvents(record.productionOrderId)
   return `
     <div class="fixed inset-0 z-50" data-testid="cut-piece-release-history-drawer">
       <button type="button" class="absolute inset-0 w-full bg-black/45" aria-label="点击空白处返回" data-skip-page-rerender="true" data-cut-piece-release-action="close-history"></button>
@@ -770,6 +777,19 @@ function renderHistoryDrawer(record: CutPieceReleaseRecord): string {
           <button type="button" class="rounded-md border px-3 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="close-history" data-cut-piece-release-overlay-initial-focus>关闭更新历史</button>
         </header>
         <div class="space-y-3 p-5">
+          ${lateEvents.length ? `
+            <section class="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-4" data-testid="cut-piece-release-late-events-list">
+              <h3 class="font-semibold text-amber-900">关闭后待处理铺布数据</h3>
+              ${lateEvents.map((event) => `
+                <article class="rounded-md border border-amber-200 bg-white p-3 text-sm">
+                  <div class="font-medium">${escapeHtml(event.spreadingOrderNo)} · ${escapeHtml(event.cutOrderNo)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">收到时间：${escapeHtml(formatDateTime(event.arrivedAt))}</div>
+                  <div class="mt-1 text-amber-800">未计入原因：${escapeHtml(event.reason)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">${event.facts.map((fact) => `${escapeHtml(fact.garmentColor)} / ${escapeHtml(fact.size)} / ${escapeHtml(fact.materialId)}：${formatQuantity(fact.actualPieceQty)} 片`).join('；')}</div>
+                </article>
+              `).join('')}
+            </section>
+          ` : ''}
           ${rows.map((version) => `
             <article class="rounded-lg border p-4">
               <div class="flex items-center justify-between gap-3"><strong>V${version.version} · ${escapeHtml(version.eventType)}</strong><span class="text-xs text-muted-foreground">${escapeHtml(formatDateTime(version.occurredAt))}</span></div>

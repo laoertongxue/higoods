@@ -13,13 +13,16 @@ import {
 } from '../src/data/fcs/cut-piece-release-domain'
 import {
   confirmCutPieceReleaseTarget,
+  getCutOrderReleaseImpactSummary,
   getCutPieceReleaseMatrix,
   getCutPieceReleaseRecord,
   getCutPieceReleaseTargetSnapshot,
   getCutPieceReleaseSummaryForProductionOrder,
   listCutPieceReleaseMatrixVersions,
   listCutPieceReleaseRecords,
+  listLateCutPieceReleaseEvents,
   recordCutOrderReleaseStatusChange,
+  recordLateCutPieceReleaseEvent,
   recordSpreadingReleaseAdjustment,
   resetCutPieceReleasePrototypeStoreForTesting,
 } from '../src/data/fcs/cut-piece-release'
@@ -28,6 +31,10 @@ const productionOrderId = 'po-14671'
 
 const cutPieceReleasePageSource = readFileSync(
   resolve(process.cwd(), 'src/pages/process-factory/cutting/cut-piece-release.ts'),
+  'utf8',
+)
+const cutOrdersPageSource = readFileSync(
+  resolve(process.cwd(), 'src/pages/process-factory/cutting/cut-orders.ts'),
   'utf8',
 )
 const fcsHandlersSource = readFileSync(
@@ -43,6 +50,10 @@ assert.match(
   /higood:list-page:\/fcs\/craft\/cutting\/cut-piece-release/,
   '裁片放行管理必须使用路由级列表偏好存储键',
 )
+assert.match(cutOrdersPageSource, /getCutOrderReleaseImpactSummary\(row\.cutOrderNo\)/, '关闭页必须读取放行仓储影响摘要')
+assert.match(cutOrdersPageSource, /activeSpreadingOrderNos\.length/, '关闭页必须按进行中铺布单阻断关闭')
+assert.match(cutOrdersPageSource, /eventId: reopenRecord\.reopenRecordId[\s\S]*status: '持续更新'/, '重开成功后必须用现有重开记录稳定 ID 恢复放行来源')
+assert.match(cutOrdersPageSource, /eventId: closeRecord\.closeRecordId[\s\S]*status: '已冻结'/, '关闭成功后必须用现有关闭记录稳定 ID 冻结放行来源')
 assert.match(
   cutPieceReleasePageSource,
   /data-cut-piece-release-action="open-matrix"/,
@@ -650,5 +661,52 @@ const adjustmentAuditVersion = listCutPieceReleaseMatrixVersions(productionOrder
 assert.deepEqual([adjustmentAuditVersion.reason, adjustmentAuditVersion.spreadingOrderNo], ['审计冲销原因', 'ASYSA26060310'])
 adjustmentAuditVersion.matrixSnapshot.colorGroups[0].materialRows[0].cells[0].partCalculations[0].sourceFactIds.push('tamper')
 assert.equal(listCutPieceReleaseMatrixVersions(productionOrderId).at(-1)!.matrixSnapshot.colorGroups[0].materialRows[0].cells[0].partCalculations[0].sourceFactIds.includes('tamper'), false, '审计版本读取仍必须深拷贝')
+
+resetCutPieceReleasePrototypeStoreForTesting()
+const releaseImpact = getCutOrderReleaseImpactSummary('cut-14671-b')
+assert.equal(releaseImpact?.cutOrderNo, 'CUT14671-B')
+assert.deepEqual(releaseImpact?.affectedCells.map((cell) => [cell.garmentColor, cell.size, cell.materialId, cell.availableGarmentQty]), [
+  ['Black', 'L', 'B', 350],
+  ['Black', 'M', 'B', 200],
+  ['Black', 'XL', 'B', 500],
+])
+assert.deepEqual(releaseImpact?.activeSpreadingOrderNos, [], '冻结前影响摘要须明确返回进行中铺布单')
+
+recordCutOrderReleaseStatusChange({ eventId: 'complete-b-release', cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '持续更新', occurredAt: '2026-06-06 08:00:00', operator: '裁床主管 王敏', reason: '完成前恢复' })
+const versionBeforeComplete = listCutPieceReleaseMatrixVersions(productionOrderId).length
+recordCutOrderReleaseStatusChange({ eventId: 'complete-b-release-freeze', cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '已冻结', occurredAt: '2026-06-06 09:00:00', operator: '裁床主管 王敏', reason: '已完成，数据已冻结' })
+assert.equal(listCutPieceReleaseMatrixVersions(productionOrderId).length, versionBeforeComplete + 1)
+assert.equal(getCutPieceReleaseRecord('cpr-po-14671')?.sourceStates.find((state) => state.cutOrderId === 'cut-14671-b')?.reason, '已完成，数据已冻结')
+
+const versionBeforeLate = listCutPieceReleaseMatrixVersions(productionOrderId).length
+const matrixBeforeLate = getCutPieceReleaseMatrix(productionOrderId)
+recordLateCutPieceReleaseEvent({
+  eventId: 'late-spread-b-1',
+  productionOrderId,
+  cutOrderId: 'cut-14671-b',
+  cutOrderNo: 'CUT14671-B',
+  spreadingOrderNo: 'PB-LATE-14671-01',
+  arrivedAt: '2026-06-06 10:00:00',
+  reason: '裁片单已关闭，铺布完成数据未计入当前矩阵',
+  facts: [{ garmentColor: 'Black', size: 'M', materialId: 'B', actualPieceQty: 20 }],
+})
+recordLateCutPieceReleaseEvent({
+  eventId: ' late-spread-b-1 ',
+  productionOrderId,
+  cutOrderId: 'cut-14671-b',
+  cutOrderNo: 'CUT14671-B',
+  spreadingOrderNo: 'PB-LATE-14671-01',
+  arrivedAt: '2026-06-06 10:00:00',
+  reason: '重复送达',
+  facts: [{ garmentColor: 'Black', size: 'M', materialId: 'B', actualPieceQty: 20 }],
+})
+assert.equal(listLateCutPieceReleaseEvents(productionOrderId).length, 1, '迟到铺布事件必须按稳定 eventId 幂等')
+assert.equal(listCutPieceReleaseMatrixVersions(productionOrderId).length, versionBeforeLate, '迟到铺布不能生成有效矩阵版本')
+assert.deepEqual(getCutPieceReleaseMatrix(productionOrderId), matrixBeforeLate, '迟到铺布不能改变当前数量')
+assert.equal(getCutPieceReleaseRecord('cpr-po-14671')?.lateEventCount, 1)
+recordCutOrderReleaseStatusChange({ eventId: 'reopen-after-late', cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '持续更新', occurredAt: '2026-06-06 11:00:00', operator: '裁床主管 王敏', reason: '重新打开，恢复持续更新' })
+assert.equal(listLateCutPieceReleaseEvents(productionOrderId)[0].status, '待处理', '重新打开不能自动吸收既有迟到事实')
+assert.deepEqual(getCutPieceReleaseMatrix(productionOrderId)?.colorGroups[0].completeKitBySize, matrixBeforeLate?.colorGroups[0].completeKitBySize, '重新打开只恢复更新资格，不自动吸收迟到事实')
+assert.deepEqual(getCutPieceReleaseMatrix(productionOrderId)?.colorGroups[0].materialRows.map((row) => row.cells.map((cell) => cell.availableGarmentQty)), matrixBeforeLate?.colorGroups[0].materialRows.map((row) => row.cells.map((cell) => cell.availableGarmentQty)), '重新打开不能把既有迟到事实加入物料可做数')
 
 console.log('cut piece release matrix check passed')
