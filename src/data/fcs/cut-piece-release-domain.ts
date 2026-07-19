@@ -67,6 +67,7 @@ export interface CutPieceReleaseMatrix {
   productionOrderId: string
   productionOrderNo: string
   spuCode: string
+  calculationStatus: MatrixCalculationStatus
   targetStatus: MatrixTargetStatus
   colorGroups: ReleaseColorGroup[]
 }
@@ -118,11 +119,33 @@ function createStableColorSizes(input: BuildReleaseMatrixInput, facts: CutPieceF
     colors.set(garmentColor, sizes)
   }
 
+  input.requirements.forEach((requirement) => {
+    if (requirement.garmentColor && requirement.size) append(requirement.garmentColor, requirement.size)
+  })
   Object.entries(input.planQtyByColorSize).forEach(([garmentColor, planQtyBySize]) => {
     Object.keys(planQtyBySize).forEach((size) => append(garmentColor, size))
   })
   facts.forEach((fact) => append(fact.garmentColor, fact.size))
   return [...colors.entries()].map(([garmentColor, sizes]) => ({ garmentColor, sizes }))
+}
+
+function colorSizeKey(garmentColor: string, size: string): string {
+  return [garmentColor, size].join('\u0000')
+}
+
+function isRequirementStructureValid(requirements: CutPieceRequirement[]): boolean {
+  const requiredRequirements = requirements.filter((requirement) => requirement.required !== false)
+  return requiredRequirements.length > 0 && requiredRequirements.every((requirement) => Boolean(requirement.materialId) && Boolean(requirement.partId))
+}
+
+function hasPositiveNetFacts(facts: CutPieceFact[]): boolean {
+  const netByPart = new Map<string, number>()
+  facts.forEach((fact) => {
+    const key = [fact.garmentColor, fact.size, fact.materialId, fact.partId].join('\u0000')
+    const qty = Number.isFinite(fact.actualPieceQty) ? Math.max(0, fact.actualPieceQty) : 0
+    netByPart.set(key, (netByPart.get(key) ?? 0) + (fact.direction === '反向' ? -qty : qty))
+  })
+  return [...netByPart.values()].some((qty) => qty > 0)
 }
 
 function resolveSourceStatus(facts: CutPieceFact[]): ReleaseSourceStatus {
@@ -154,13 +177,20 @@ function calculatePart(requirement: CutPieceRequirement, facts: CutPieceFact[], 
 
 export function buildReleaseMatrix(input: BuildReleaseMatrixInput): CutPieceReleaseMatrix {
   const effectiveFacts = selectLatestFacts(input)
-  const noEffectiveFacts = effectiveFacts.length === 0
+  const noEffectivePositiveFacts = !hasPositiveNetFacts(effectiveFacts)
   const materialRequirements = new Map<string, CutPieceRequirement[]>()
   input.requirements.filter((requirement) => requirement.required !== false).forEach((requirement) => {
     const entries = materialRequirements.get(requirement.materialId) ?? []
     entries.push(requirement)
     materialRequirements.set(requirement.materialId, entries)
   })
+  const structureValid = isRequirementStructureValid(input.requirements)
+  const unmappedColorSizeKeys = new Set(effectiveFacts.filter((fact) => !input.requirements.some((requirement) => (
+    requirement.required !== false
+    && requirement.materialId === fact.materialId
+    && requirement.partId === fact.partId
+    && isSameRequirementScope(requirement, fact.garmentColor, fact.size)
+  ))).map((fact) => colorSizeKey(fact.garmentColor, fact.size)))
 
   const colorGroups = createStableColorSizes(input, effectiveFacts).map(({ garmentColor, sizes }) => {
     const materialRows: ReleaseMaterialRow[] = [...materialRequirements.entries()].map(([materialId, materialRequirementsForId]) => ({
@@ -169,15 +199,17 @@ export function buildReleaseMatrix(input: BuildReleaseMatrixInput): CutPieceRele
       cells: sizes.map((size): ReleaseMatrixCell => {
         const scopedRequirements = materialRequirementsForId.filter((requirement) => isSameRequirementScope(requirement, garmentColor, size))
         const cellFacts = effectiveFacts.filter((fact) => fact.garmentColor === garmentColor && fact.size === size && fact.materialId === materialId)
-        const partCalculations = scopedRequirements.map((requirement) => calculatePart(requirement, cellFacts, noEffectiveFacts))
-        const calculationStatus = partCalculations.some((part) => part.calculationStatus === '数据不完整')
+        const partCalculations = scopedRequirements.map((requirement) => calculatePart(requirement, cellFacts, noEffectivePositiveFacts))
+        const calculationStatus: MatrixCalculationStatus = scopedRequirements.length === 0 || unmappedColorSizeKeys.has(colorSizeKey(garmentColor, size))
+          ? '数据不完整'
+          : partCalculations.some((part) => part.calculationStatus === '数据不完整')
           ? '数据不完整'
           : partCalculations.some((part) => part.calculationStatus === '暂无有效裁片')
             ? '暂无有效裁片'
             : '可计算'
         return {
           size,
-          availableGarmentQty: calculationStatus === '可计算'
+          availableGarmentQty: calculationStatus === '可计算' && partCalculations.length > 0
             ? Math.min(...partCalculations.map((part) => part.availableGarmentQty ?? 0))
             : null,
           calculationStatus,
@@ -187,8 +219,10 @@ export function buildReleaseMatrix(input: BuildReleaseMatrixInput): CutPieceRele
       }),
     }))
     const completeKitBySize = Object.fromEntries(sizes.map((size) => {
-      const cells = materialRows.map((row) => row.cells.find((cell) => cell.size === size)!)
-      const calculationStatus = cells.some((cell) => cell.calculationStatus === '数据不完整')
+      const cells = materialRows.map((row) => row.cells.find((cell) => cell.size === size)!).filter((cell) => cell.partCalculations.length > 0)
+      const calculationStatus: MatrixCalculationStatus = cells.length === 0 || unmappedColorSizeKeys.has(colorSizeKey(garmentColor, size))
+        ? '数据不完整'
+        : cells.some((cell) => cell.calculationStatus === '数据不完整')
         ? '数据不完整'
         : cells.some((cell) => cell.calculationStatus === '暂无有效裁片')
           ? '暂无有效裁片'
@@ -204,10 +238,22 @@ export function buildReleaseMatrix(input: BuildReleaseMatrixInput): CutPieceRele
     }
   })
 
+  const calculationStatus: MatrixCalculationStatus = !structureValid || colorGroups.length === 0 || unmappedColorSizeKeys.size > 0
+    ? '数据不完整'
+    : noEffectivePositiveFacts
+      ? '暂无有效裁片'
+      : colorGroups.some((group) => (
+        Object.values(group.completeKitBySize).some((qty) => qty === null)
+        || group.materialRows.some((row) => row.cells.some((cell) => cell.calculationStatus === '数据不完整'))
+      ))
+        ? '数据不完整'
+        : '可计算'
+
   return {
     productionOrderId: input.productionOrderId,
     productionOrderNo: input.productionOrderNo,
     spuCode: input.spuCode,
+    calculationStatus,
     targetStatus: '待确认',
     colorGroups,
   }

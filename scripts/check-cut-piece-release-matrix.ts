@@ -90,5 +90,84 @@ const noFacts = buildReleaseMatrix({
   facts: [],
 })
 assert.equal(noFacts.colorGroups[0].materialRows[0].cells[0].calculationStatus, '暂无有效裁片')
+assert.equal(noFacts.calculationStatus, '暂无有效裁片')
+
+const sourceEventCompositeKey = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Black: { M: 240 } },
+  requirements,
+  facts: [
+    fact({ factId: 'same-event-a', sourceEventId: 'same-event', materialId: 'A', partId: 'front', actualPieceQty: 220 }),
+    fact({ factId: 'same-event-a-replay', sourceEventId: 'same-event', materialId: 'A', partId: 'front', actualPieceQty: 220 }),
+    fact({ factId: 'same-event-b', sourceEventId: 'same-event', materialId: 'B', partId: 'body', actualPieceQty: 200 }),
+    fact({ factId: 'same-event-c', sourceEventId: 'same-event', materialId: 'C', partId: 'collar', actualPieceQty: 208 }),
+    fact({ factId: 'same-event-d', sourceEventId: 'same-event', materialId: 'D', partId: 'cuff', actualPieceQty: 200 }),
+    fact({ factId: 'same-event-back', sourceEventId: 'same-event', materialId: 'A', partId: 'back', actualPieceQty: 220 }),
+  ],
+})
+assert.deepEqual(sourceEventCompositeKey.colorGroups[0].materialRows.map((row) => row.cells[0].availableGarmentQty), [220, 200, 208, 200])
+
+const requirementOrder = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Blue: { L: 10 } },
+  requirements: [
+    { materialId: 'R2', materialName: 'Red 第二物料', partId: 'red-2', partName: 'Red 第二部位', piecesPerGarment: 1, garmentColor: 'Red', size: 'S' },
+    { materialId: 'R1', materialName: 'Red 第一物料', partId: 'red-1', partName: 'Red 第一部位', piecesPerGarment: 1, garmentColor: 'Red', size: 'M' },
+    { materialId: 'B1', materialName: 'Black 物料', partId: 'black-1', partName: 'Black 部位', piecesPerGarment: 1, garmentColor: 'Black', size: 'M' },
+  ],
+  facts: [],
+})
+assert.deepEqual(requirementOrder.colorGroups.map((group) => group.garmentColor), ['Red', 'Black', 'Blue'])
+assert.deepEqual(requirementOrder.colorGroups[0].sizes, ['S', 'M'])
+assert.deepEqual(requirementOrder.colorGroups[0].materialRows.map((row) => row.materialId), ['R2', 'R1', 'B1'])
+
+const emptyRequiredMatrix = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Black: { M: 240 } },
+  requirements: [],
+  facts: blackFacts,
+})
+assert.equal(emptyRequiredMatrix.colorGroups[0].completeKitBySize.M, null)
+assert.equal(emptyRequiredMatrix.calculationStatus, '数据不完整')
+
+const unmappedFact = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Black: { M: 240 } },
+  requirements,
+  facts: [...blackFacts, fact({ factId: 'unmapped', sourceEventId: 'unmapped', materialId: 'X', partId: 'unknown', actualPieceQty: 10 })],
+})
+assert.equal(unmappedFact.colorGroups[0].materialRows[0].cells[0].calculationStatus, '数据不完整')
+assert.equal(unmappedFact.calculationStatus, '数据不完整')
+
+const netCannotBeNegative = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Black: { M: 240 } },
+  requirements,
+  facts: [...blackFacts, fact({ factId: 'reverse-over', sourceEventId: 'reverse-over', materialId: 'A', partId: 'front', actualPieceQty: 300, direction: '反向' })],
+})
+assert.equal(netCannotBeNegative.colorGroups[0].materialRows[0].cells[0].partCalculations[0].actualPieceQty, 0)
+assert.equal(netCannotBeNegative.colorGroups[0].materialRows[0].cells[0].availableGarmentQty, 0)
+
+for (const piecesPerGarment of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+  const invalidPieces = buildReleaseMatrix({
+    productionOrderId,
+    productionOrderNo: 'PO14671',
+    spuCode: 'ASYSA26060310',
+    planQtyByColorSize: { Black: { M: 240 } },
+    requirements: [{ materialId: 'invalid', materialName: '无效用量', partId: 'invalid', partName: '无效部位', piecesPerGarment }],
+    facts: [fact({ factId: `invalid-${piecesPerGarment}`, sourceEventId: `invalid-${piecesPerGarment}`, materialId: 'invalid', partId: 'invalid', actualPieceQty: 10 })],
+  })
+  assert.equal(invalidPieces.colorGroups[0].materialRows[0].cells[0].calculationStatus, '数据不完整')
+}
 
 console.log('cut piece release matrix check passed')
