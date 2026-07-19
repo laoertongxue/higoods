@@ -245,6 +245,73 @@ export interface HandoverOrder {
   createdBy: string
   updatedAt: string
   remark?: string
+  /** 裁片放行矩阵在交接时的不可变快照；最低应回只取交接时实际齐套。 */
+  cutPieceReleaseSnapshot?: CutPieceReleaseHandoverSnapshot
+}
+
+export interface CutPieceReleaseHandoverSnapshot {
+  releaseTargetSnapshotId: string
+  productionOrderId: string
+  batchNo: string
+  completeKitQtyByColorSize: Record<string, number>
+  minimumReturnQtyByColorSize: Record<string, number>
+  surplusPieces: Array<{
+    garmentColor: string
+    size: string
+    materialId: string
+    partId: string
+    pieceQty: number
+    sourceCutOrderNos: string[]
+    sourceSpreadingOrderNos: string[]
+  }>
+  matrixVersion?: number
+  targetBasisVersion?: number
+  targetConfirmedAt?: string
+  frozenSourceTips?: string[]
+}
+
+export type CutPieceReleaseHandoverSnapshotInput = Omit<CutPieceReleaseHandoverSnapshot, 'releaseTargetSnapshotId' | 'minimumReturnQtyByColorSize'> & {
+  snapshotId: string
+}
+
+/**
+ * 交接创建时固定“最低应回”口径。目标数量只做业务目标引用，绝不能覆盖实际齐套或把多余裁片加回最低应回。
+ */
+export function buildCutPieceReleaseHandoverSnapshot(input: CutPieceReleaseHandoverSnapshotInput): CutPieceReleaseHandoverSnapshot {
+  const completeKit = Object.fromEntries(Object.entries(input.completeKitQtyByColorSize).map(([key, value]) => [key, Math.max(0, Number(value) || 0)]))
+  return {
+    releaseTargetSnapshotId: input.snapshotId,
+    productionOrderId: input.productionOrderId,
+    batchNo: input.batchNo,
+    completeKitQtyByColorSize: { ...completeKit },
+    minimumReturnQtyByColorSize: { ...completeKit },
+    surplusPieces: input.surplusPieces.map((item) => ({
+      ...item,
+      pieceQty: Math.max(0, Number(item.pieceQty) || 0),
+      sourceCutOrderNos: [...item.sourceCutOrderNos],
+      sourceSpreadingOrderNos: [...item.sourceSpreadingOrderNos],
+    })),
+    ...(input.matrixVersion === undefined ? {} : { matrixVersion: input.matrixVersion }),
+    ...(input.targetBasisVersion === undefined ? {} : { targetBasisVersion: input.targetBasisVersion }),
+    ...(input.targetConfirmedAt === undefined ? {} : { targetConfirmedAt: input.targetConfirmedAt }),
+    ...(input.frozenSourceTips === undefined ? {} : { frozenSourceTips: [...input.frozenSourceTips] }),
+  }
+}
+
+const cutPieceReleaseHandoverSnapshots = new Map<string, CutPieceReleaseHandoverSnapshot>()
+
+/** 交接快照按快照号幂等写入，刷新页面仍可从本地原型仓储恢复。 */
+export function createCutPieceReleaseHandoverSnapshot(input: CutPieceReleaseHandoverSnapshotInput): CutPieceReleaseHandoverSnapshot {
+  const existing = cutPieceReleaseHandoverSnapshots.get(input.snapshotId)
+  if (existing) return structuredClone(existing)
+  const snapshot = buildCutPieceReleaseHandoverSnapshot(input)
+  cutPieceReleaseHandoverSnapshots.set(input.snapshotId, structuredClone(snapshot))
+  return structuredClone(snapshot)
+}
+
+export function getCutPieceReleaseHandoverSnapshot(snapshotId: string): CutPieceReleaseHandoverSnapshot | null {
+  const snapshot = cutPieceReleaseHandoverSnapshots.get(snapshotId)
+  return snapshot ? structuredClone(snapshot) : null
 }
 
 export interface HandoverOrderProjection {
@@ -526,6 +593,20 @@ export const handoverOrders: HandoverOrder[] = [
     createdBy: '仓库主管',
     updatedAt: '2026-04-24 16:20',
     remark: '车缝厂分批接收，齐套和缺口按交出后结果展示。',
+    cutPieceReleaseSnapshot: buildCutPieceReleaseHandoverSnapshot({
+      snapshotId: 'cpr-target-po14671-v1',
+      productionOrderId: 'po-14671',
+      batchNo: 'JCD-260324-001',
+      completeKitQtyByColorSize: { 'Black::M': 200, 'Black::L': 350, 'Black::XL': 500 },
+      surplusPieces: [{
+        garmentColor: 'Black', size: 'M', materialId: 'A', partId: 'front', pieceQty: 24,
+        sourceCutOrderNos: ['CUT-01'], sourceSpreadingOrderNos: ['PB-01'],
+      }],
+      matrixVersion: 1,
+      targetBasisVersion: 1,
+      targetConfirmedAt: '2026-06-03 16:00:00',
+      frozenSourceTips: ['裁片单 CUT-01 已冻结，快照保留冻结时最后有效贡献。'],
+    }),
   },
   {
     handoverOrderId: 'HO-CUT-AUX-260324-001',

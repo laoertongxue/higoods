@@ -47,8 +47,28 @@ import {
   cuttingOrderProgressRecords,
   updateCuttingOrderProgressWebStage,
 } from '../src/data/fcs/cutting/order-progress'
+import { buildCutPieceReleaseHandoverSnapshot, createCutPieceReleaseHandoverSnapshot } from '../src/data/fcs/cutting/handover-orders'
 
 const productionOrderId = 'po-14671'
+
+const handoverSnapshot = buildCutPieceReleaseHandoverSnapshot({
+  snapshotId: 'target-po14671-v12',
+  productionOrderId,
+  batchNo: 'HO-PO14671-01',
+  completeKitQtyByColorSize: { 'Black::M': 200, 'Black::L': 350, 'Black::XL': 500 },
+  surplusPieces: [{ garmentColor: 'Black', size: 'M', materialId: 'A', partId: 'front', pieceQty: 24, sourceCutOrderNos: ['CUT-01'], sourceSpreadingOrderNos: ['PB-01'] }],
+})
+assert.deepEqual(handoverSnapshot.minimumReturnQtyByColorSize, { 'Black::M': 200, 'Black::L': 350, 'Black::XL': 500 })
+assert.equal(handoverSnapshot.surplusPieces[0].pieceQty, 24)
+assert.notEqual(handoverSnapshot.minimumReturnQtyByColorSize['Black::M'], 224, '多余裁片不得加回最低应回')
+assert.deepEqual(createCutPieceReleaseHandoverSnapshot({
+  snapshotId: 'target-po14671-v12', productionOrderId, batchNo: 'HO-PO14671-01',
+  completeKitQtyByColorSize: { 'Black::M': 200, 'Black::L': 350, 'Black::XL': 500 }, surplusPieces: [],
+}).minimumReturnQtyByColorSize, { 'Black::M': 200, 'Black::L': 350, 'Black::XL': 500 })
+assert.deepEqual(createCutPieceReleaseHandoverSnapshot({
+  snapshotId: 'target-po14671-v12', productionOrderId, batchNo: 'HO-PO14671-01',
+  completeKitQtyByColorSize: { 'Black::M': 999 }, surplusPieces: [],
+}).minimumReturnQtyByColorSize, { 'Black::M': 200, 'Black::L': 350, 'Black::XL': 500 }, '同一快照重复创建必须幂等返回首次内容')
 
 const cutPieceReleasePageSource = readFileSync(
   resolve(process.cwd(), 'src/pages/process-factory/cutting/cut-piece-release.ts'),
@@ -62,6 +82,8 @@ const fcsHandlersSource = readFileSync(
   resolve(process.cwd(), 'src/main-handlers/fcs-handlers.ts'),
   'utf8',
 )
+const handoverPageSource = readFileSync(resolve(process.cwd(), 'src/pages/process-factory/cutting/handover-orders.ts'), 'utf8')
+const sewingDispatchSource = readFileSync(resolve(process.cwd(), 'src/pages/sewing-dispatch-workbench.ts'), 'utf8')
 assert.match(cutPieceReleasePageSource, /\/\/ @page-pattern: list/, '裁片放行管理必须声明标准列表页模式')
 assert.match(cutPieceReleasePageSource, /renderStandardListPage/, '裁片放行管理必须使用标准列表页骨架')
 assert.match(cutPieceReleasePageSource, /renderStandardListTable/, '裁片放行管理必须使用标准列表表格')
@@ -71,6 +93,11 @@ assert.match(
   /higood:list-page:\/fcs\/craft\/cutting\/cut-piece-release/,
   '裁片放行管理必须使用路由级列表偏好存储键',
 )
+assert.match(handoverPageSource, /裁片放行依据/, '交接详情必须展示裁片放行依据')
+assert.match(handoverPageSource, /最低应回数量/, '交接详情必须展示最低应回数量')
+assert.match(handoverPageSource, /多余裁片/, '交接详情必须展示多余裁片')
+assert.match(sewingDispatchSource, /当前齐套/, '车缝摘要必须使用当前齐套事实')
+assert.doesNotMatch(sewingDispatchSource, /function renderCutPieceReleaseSummary[\s\S]{0,1800}renderBadge\(summary\.decision/, '车缝摘要不得继续显示旧通用决策徽标')
 assert.match(cutOrderReleaseIntegrationSource, /getCutOrderReleaseImpactSummary\(context\.cutOrderNo\)/, '关闭页必须读取放行仓储影响摘要')
 assert.match(cutOrderReleaseIntegrationSource, /activeSpreadingOrderNos\.length/, '关闭页必须按进行中铺布单阻断关闭')
 assert.match(cutOrderReleaseIntegrationSource, /eventId: write\.record\.reopenRecordId[\s\S]*status: '持续更新'/, '重开成功后必须用已写入重开记录的稳定 ID 恢复放行来源')

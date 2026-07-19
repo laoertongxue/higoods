@@ -117,6 +117,13 @@ export interface CutPieceReleaseSummary {
   riskNote: string
   judgedBy: string
   judgedAt: string
+  matrixStatus: CutPieceReleaseMatrix['calculationStatus']
+  targetStatus: MatrixTargetStatus
+  currentCompleteKitQtyByColorSize: Record<string, number | null>
+  targetQtyByColorSize: Record<string, number>
+  shortageCellCount: number
+  latestMatrixVersion: number
+  latestUpdatedAt: string
 }
 
 export interface SaveCutPieceReleaseDecisionInput {
@@ -694,8 +701,12 @@ export function recordSpreadingReleaseAdjustment(input: SpreadingReleaseAdjustme
 }
 
 export function getCutPieceReleaseSummaryForProductionOrder(productionOrderId: string): CutPieceReleaseSummary | null {
-  const record = listCutPieceReleaseRecords().find((item) => item.productionOrderId === productionOrderId)
-  if (!record) return null
+  const item = releaseRepository.get(productionOrderId)
+  const record = listCutPieceReleaseRecords().find((candidate) => candidate.productionOrderId === productionOrderId)
+  if (!record || !item) return null
+  const currentCompleteKitQtyByColorSize = Object.fromEntries(item.currentMatrix.colorGroups.flatMap((group) => group.sizes.map((size) => [targetKey(group.garmentColor, size), group.completeKitBySize[size]])))
+  const targetSnapshot = getTargetSnapshot(item)
+  const targetQtyByColorSize = targetSnapshot?.targetPreview.colorSizeTargets ? { ...targetSnapshot.targetPreview.colorSizeTargets } : {}
   return {
     recordId: record.recordId,
     recordNo: record.recordNo,
@@ -707,6 +718,13 @@ export function getCutPieceReleaseSummaryForProductionOrder(productionOrderId: s
     riskNote: record.riskNote,
     judgedBy: record.judgedBy,
     judgedAt: record.judgedAt,
+    matrixStatus: item.currentMatrix.calculationStatus,
+    targetStatus: item.targetStatus,
+    currentCompleteKitQtyByColorSize,
+    targetQtyByColorSize,
+    shortageCellCount: targetPreviewForCurrentMatrix(item)?.differences.filter((difference) => difference.status === '需补').length ?? 0,
+    latestMatrixVersion: item.versions[item.versions.length - 1]?.version ?? 0,
+    latestUpdatedAt: item.latestUpdateAt,
   }
 }
 

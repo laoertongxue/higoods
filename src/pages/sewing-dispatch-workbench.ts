@@ -320,13 +320,6 @@ function renderDispatchPolicyFeedback(row: SewingDispatchWorkbenchRow, factoryId
   return `<div class="mt-1 rounded-md border px-2 py-1 text-xs ${tone}">${escapeHtml(decision.reason)}${riskConfirm}${supervisorConfirm}</div>`
 }
 
-function getCutPieceReleaseBadgeClass(decision: CutPieceReleaseSummary['decision']): string {
-  if (decision === '可以做') return 'border-green-200 bg-green-50 text-green-700'
-  if (decision === '部分可以做') return 'border-blue-200 bg-blue-50 text-blue-700'
-  if (decision === '暂时不能做') return 'border-rose-200 bg-rose-50 text-rose-700'
-  return 'border-amber-200 bg-amber-50 text-amber-700'
-}
-
 function getTaskCutPieceReleaseSummary(task: SewingDispatchWorkbenchTask): CutPieceReleaseSummary | null {
   return getCutPieceReleaseSummaryForProductionOrder(task.productionOrderId)
 }
@@ -698,10 +691,11 @@ function renderCutPieceReleaseSummary(task: SewingDispatchWorkbenchTask): string
   }
   return `
     <div class="space-y-1 text-xs">
-      ${renderBadge(summary.decision, getCutPieceReleaseBadgeClass(summary.decision))}
-      <div class="font-medium">可做 ${formatQty(summary.releaseQty)} 件</div>
-      <div class="max-w-[220px] leading-5 text-muted-foreground">${escapeHtml(summary.reason)}</div>
-      <div class="text-muted-foreground">${escapeHtml(summary.judgedBy || '待确认')} ${summary.judgedAt ? `· ${escapeHtml(summary.judgedAt.slice(0, 16))}` : ''}</div>
+      ${renderBadge('当前齐套', summary.matrixStatus === '可计算' ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700')}
+      <div class="font-medium">当前齐套 ${formatQty(Object.values(summary.currentCompleteKitQtyByColorSize).reduce((sum, qty) => sum + (qty ?? 0), 0))} 件</div>
+      <div class="max-w-[240px] leading-5 text-muted-foreground">按当前裁片矩阵计算；目标数量仅作业务确认，不代表最低回货承诺。</div>
+      <div class="text-muted-foreground">矩阵 V${summary.latestMatrixVersion} · ${escapeHtml(summary.latestUpdatedAt.slice(0, 16))}</div>
+      ${summary.targetStatus === '目标后数据已变化' ? '<div class="text-amber-700">目标后数据已变化，请重新确认。</div>' : ''}
     </div>
   `
 }

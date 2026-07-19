@@ -296,6 +296,23 @@ test('关闭后迟到铺布仅进入待处理异常且不改变矩阵数量', as
   await expect(lateList).toContainText('未计入原因')
 })
 
+test('裁片交接显示最低应回与多余裁片，车缝摘要只显示当前齐套', async ({ page }) => {
+  await page.goto('/fcs/craft/cutting/handover-orders/HO-CUT-SEW-260324-001')
+  await expect(page.getByRole('heading', { name: /交出单详情 JCD-260324-001/ })).toBeVisible({ timeout: 30_000 })
+  const snapshot = page.locator('[data-testid="cut-piece-release-handover-snapshot"]')
+  await expect(snapshot).toContainText('裁片放行依据')
+  await expect(snapshot).toContainText('最低应回数量')
+  await expect(snapshot).toContainText('Black / M')
+  await expect(snapshot).toContainText('200 件')
+  await expect(snapshot).toContainText('多余裁片')
+  await expect(snapshot).toContainText('多 24 片')
+  await page.goto('/fcs/dispatch/sewing')
+  await expect(page.getByText('车缝任务齐套列表')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('当前齐套').first()).toBeVisible()
+  await expect(page.getByText('可以做', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('部分可以做', { exact: true })).toHaveCount(0)
+})
+
 for (const viewport of [{ width: 1366, height: 768 }, { width: 1280, height: 720 }]) {
   test(`矩阵在 ${viewport.width}×${viewport.height} 内部横向滚动且局部交互稳定`, async ({ page }) => {
     await expect(page.getByRole('button', { name: '选择目标' })).toBeVisible()
