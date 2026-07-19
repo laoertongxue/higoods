@@ -30,6 +30,10 @@ const cutPieceReleasePageSource = readFileSync(
   resolve(process.cwd(), 'src/pages/process-factory/cutting/cut-piece-release.ts'),
   'utf8',
 )
+const fcsHandlersSource = readFileSync(
+  resolve(process.cwd(), 'src/main-handlers/fcs-handlers.ts'),
+  'utf8',
+)
 assert.match(cutPieceReleasePageSource, /\/\/ @page-pattern: list/, '裁片放行管理必须声明标准列表页模式')
 assert.match(cutPieceReleasePageSource, /renderStandardListPage/, '裁片放行管理必须使用标准列表页骨架')
 assert.match(cutPieceReleasePageSource, /renderStandardListTable/, '裁片放行管理必须使用标准列表表格')
@@ -43,6 +47,16 @@ assert.match(
   cutPieceReleasePageSource,
   /data-cut-piece-release-action="open-matrix"/,
   '裁片放行管理必须提供打开生产单矩阵的操作入口',
+)
+assert.equal(
+  fcsHandlersSource.match(/handleCraftCuttingCutPieceReleaseEvent\(target, event\)/g)?.length,
+  1,
+  '裁片放行处理器只能由专属路由分支显式消费事件，禁止在通用 FCS OR 链重复调用',
+)
+assert.match(
+  fcsHandlersSource,
+  /handleCraftCuttingCutPieceReleaseEvent\(fakeButton\)/,
+  'Escape 关闭裁片放行浮层必须保留直接调用',
 )
 
 const requirements: CutPieceRequirement[] = [
