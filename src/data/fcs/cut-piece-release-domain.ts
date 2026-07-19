@@ -12,7 +12,6 @@ export interface CutPieceRequirement {
   piecesPerGarment?: number
   garmentColor?: string
   size?: string
-  required?: boolean
 }
 
 export interface CutPieceFact {
@@ -125,7 +124,24 @@ function createStableColorSizes(input: BuildReleaseMatrixInput, facts: CutPieceF
   Object.entries(input.planQtyByColorSize).forEach(([garmentColor, planQtyBySize]) => {
     Object.keys(planQtyBySize).forEach((size) => append(garmentColor, size))
   })
-  facts.forEach((fact) => append(fact.garmentColor, fact.size))
+  const factOnlySizesByColor = new Map<string, Set<string>>()
+  facts.forEach((fact) => {
+    const sizes = factOnlySizesByColor.get(fact.garmentColor) ?? new Set<string>()
+    sizes.add(fact.size)
+    factOnlySizesByColor.set(fact.garmentColor, sizes)
+  })
+  const compareText = (left: string, right: string) => left.localeCompare(right, 'zh-CN')
+  const factOnlyColors = [...factOnlySizesByColor.keys()].filter((garmentColor) => !colors.has(garmentColor)).sort(compareText)
+  factOnlyColors.forEach((garmentColor) => {
+    const factOnlySizes = Array.from(factOnlySizesByColor.get(garmentColor) ?? []).sort(compareText)
+    factOnlySizes.forEach((size) => append(garmentColor, size))
+  })
+  const knownColors = [...colors.keys()]
+  knownColors.forEach((garmentColor) => {
+    const knownSizes = colors.get(garmentColor)!
+    const additionalFactOnlySizes = Array.from(factOnlySizesByColor.get(garmentColor) ?? []).filter((size) => !knownSizes.includes(size)).sort(compareText)
+    additionalFactOnlySizes.forEach((size) => append(garmentColor, size))
+  })
   return [...colors.entries()].map(([garmentColor, sizes]) => ({ garmentColor, sizes }))
 }
 
@@ -134,8 +150,11 @@ function colorSizeKey(garmentColor: string, size: string): string {
 }
 
 function isRequirementStructureValid(requirements: CutPieceRequirement[]): boolean {
-  const requiredRequirements = requirements.filter((requirement) => requirement.required !== false)
-  return requiredRequirements.length > 0 && requiredRequirements.every((requirement) => Boolean(requirement.materialId) && Boolean(requirement.partId))
+  return requirements.length > 0 && requirements.every((requirement) => Boolean(requirement.materialId) && Boolean(requirement.partId))
+}
+
+function toSafeNonNegativeQuantity(value: number): number {
+  return Number.isFinite(value) && value >= 0 ? value : 0
 }
 
 function hasPositiveNetFacts(facts: CutPieceFact[]): boolean {
@@ -154,23 +173,26 @@ function resolveSourceStatus(facts: CutPieceFact[]): ReleaseSourceStatus {
 
 function calculatePart(requirement: CutPieceRequirement, facts: CutPieceFact[], noEffectiveFacts: boolean): ReleasePartCalculation {
   const partFacts = facts.filter((fact) => fact.materialId === requirement.materialId && fact.partId === requirement.partId)
-  const actualPieceQty = Math.max(0, partFacts.reduce((total, fact) => {
-    const qty = Number.isFinite(fact.actualPieceQty) ? Math.max(0, fact.actualPieceQty) : 0
+  const rawPieceQty = partFacts.reduce((total, fact) => {
+    const qty = toSafeNonNegativeQuantity(fact.actualPieceQty)
     return total + (fact.direction === '反向' ? -qty : qty)
-  }, 0))
-  const calculationStatus = !requirement.partId || !isUsablePiecesPerGarment(requirement.piecesPerGarment)
+  }, 0)
+  const actualPieceQty = Number.isFinite(rawPieceQty) ? Math.max(0, rawPieceQty) : 0
+  const piecesPerGarment = isUsablePiecesPerGarment(requirement.piecesPerGarment) ? requirement.piecesPerGarment : undefined
+  const availableGarmentQty = piecesPerGarment ? Math.floor(actualPieceQty / piecesPerGarment) : null
+  const hasInvalidQuantity = partFacts.some((fact) => !Number.isFinite(fact.actualPieceQty)) || !Number.isFinite(rawPieceQty) || (availableGarmentQty !== null && !Number.isFinite(availableGarmentQty))
+  const calculationStatus = !requirement.partId || !piecesPerGarment || hasInvalidQuantity
     ? '数据不完整'
     : noEffectiveFacts
       ? '暂无有效裁片'
       : '可计算'
-  const piecesPerGarment = isUsablePiecesPerGarment(requirement.piecesPerGarment) ? requirement.piecesPerGarment : undefined
 
   return {
     partId: requirement.partId,
     partName: requirement.partName,
     piecesPerGarment: requirement.piecesPerGarment,
     actualPieceQty,
-    availableGarmentQty: piecesPerGarment ? Math.floor(actualPieceQty / piecesPerGarment) : null,
+    availableGarmentQty: calculationStatus === '可计算' ? availableGarmentQty : null,
     calculationStatus,
   }
 }
@@ -179,15 +201,14 @@ export function buildReleaseMatrix(input: BuildReleaseMatrixInput): CutPieceRele
   const effectiveFacts = selectLatestFacts(input)
   const noEffectivePositiveFacts = !hasPositiveNetFacts(effectiveFacts)
   const materialRequirements = new Map<string, CutPieceRequirement[]>()
-  input.requirements.filter((requirement) => requirement.required !== false).forEach((requirement) => {
+  input.requirements.forEach((requirement) => {
     const entries = materialRequirements.get(requirement.materialId) ?? []
     entries.push(requirement)
     materialRequirements.set(requirement.materialId, entries)
   })
   const structureValid = isRequirementStructureValid(input.requirements)
   const unmappedColorSizeKeys = new Set(effectiveFacts.filter((fact) => !input.requirements.some((requirement) => (
-    requirement.required !== false
-    && requirement.materialId === fact.materialId
+    requirement.materialId === fact.materialId
     && requirement.partId === fact.partId
     && isSameRequirementScope(requirement, fact.garmentColor, fact.size)
   ))).map((fact) => colorSizeKey(fact.garmentColor, fact.size)))
@@ -234,7 +255,7 @@ export function buildReleaseMatrix(input: BuildReleaseMatrixInput): CutPieceRele
     return {
       garmentColor,
       sizes,
-      planQtyBySize: { ...(input.planQtyByColorSize[garmentColor] ?? {}) },
+      planQtyBySize: Object.fromEntries(Object.entries(input.planQtyByColorSize[garmentColor] ?? {}).map(([size, qty]) => [size, toSafeNonNegativeQuantity(qty)])),
       materialRows,
       completeKitBySize,
     }

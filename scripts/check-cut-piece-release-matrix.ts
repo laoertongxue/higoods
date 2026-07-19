@@ -255,4 +255,71 @@ assert.equal(mixedCells[1].availableGarmentQty, 10)
 assert.equal(mixedIncompleteMaterial.colorGroups[0].completeKitBySize.M, null)
 assert.equal(mixedIncompleteMaterial.calculationStatus, '数据不完整')
 
+function assertAllNumbersFinite(value: unknown): void {
+  if (typeof value === 'number') {
+    assert.equal(Number.isFinite(value), true, `输出出现非有限数：${value}`)
+  } else if (Array.isArray(value)) {
+    value.forEach(assertAllNumbersFinite)
+  } else if (value && typeof value === 'object') {
+    Object.values(value).forEach(assertAllNumbersFinite)
+  }
+}
+
+const overflowFacts = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Black: { M: 10 } },
+  requirements: [{ materialId: 'A', materialName: '溢出物料', partId: 'part', partName: '部位', piecesPerGarment: 1 }],
+  facts: [
+    fact({ factId: 'max-1', sourceEventId: 'max-1', materialId: 'A', partId: 'part', actualPieceQty: Number.MAX_VALUE }),
+    fact({ factId: 'max-2', sourceEventId: 'max-2', materialId: 'A', partId: 'part', actualPieceQty: Number.MAX_VALUE }),
+  ],
+})
+assert.equal(overflowFacts.colorGroups[0].materialRows[0].cells[0].partCalculations[0].calculationStatus, '数据不完整')
+assert.equal(overflowFacts.colorGroups[0].materialRows[0].cells[0].calculationStatus, '数据不完整')
+assert.equal(overflowFacts.calculationStatus, '数据不完整')
+assertAllNumbersFinite(overflowFacts)
+
+const overflowDivision = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Black: { M: 10 } },
+  requirements: [{ materialId: 'A', materialName: '极小用量', partId: 'part', partName: '部位', piecesPerGarment: Number.MIN_VALUE }],
+  facts: [fact({ factId: 'min-divisor', sourceEventId: 'min-divisor', materialId: 'A', partId: 'part', actualPieceQty: Number.MAX_VALUE })],
+})
+assert.equal(overflowDivision.colorGroups[0].materialRows[0].cells[0].calculationStatus, '数据不完整')
+assertAllNumbersFinite(overflowDivision)
+
+const unsafePlan = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Black: { S: Number.NaN, M: Number.POSITIVE_INFINITY, L: -1 } },
+  requirements: [{ materialId: 'A', materialName: '安全计划', partId: 'part', partName: '部位', piecesPerGarment: 1 }],
+  facts: [],
+})
+assert.deepEqual(unsafePlan.colorGroups[0].planQtyBySize, { S: 0, M: 0, L: 0 })
+assertAllNumbersFinite(unsafePlan)
+
+const factOnlyOrderingInput: CutPieceFact[] = [
+  fact({ factId: 'fact-only-red-s', sourceEventId: 'fact-only-red-s', garmentColor: '红', size: 'S', materialId: 'A', partId: 'part', actualPieceQty: 1 }),
+  fact({ factId: 'fact-only-blue-m', sourceEventId: 'fact-only-blue-m', garmentColor: '蓝', size: 'M', materialId: 'A', partId: 'part', actualPieceQty: 1 }),
+  fact({ factId: 'fact-only-red-l', sourceEventId: 'fact-only-red-l', garmentColor: '红', size: 'L', materialId: 'A', partId: 'part', actualPieceQty: 1 }),
+]
+const factOnlyMatrix = (facts: CutPieceFact[]) => buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: {},
+  requirements: [{ materialId: 'A', materialName: '事实排序物料', partId: 'part', partName: '部位', piecesPerGarment: 1 }],
+  facts,
+})
+const factOnlyForward = factOnlyMatrix(factOnlyOrderingInput)
+const factOnlyReverse = factOnlyMatrix([...factOnlyOrderingInput].reverse())
+assert.deepEqual(factOnlyForward.colorGroups.map((group) => [group.garmentColor, group.sizes]), factOnlyReverse.colorGroups.map((group) => [group.garmentColor, group.sizes]))
+assert.deepEqual(factOnlyForward.colorGroups.map((group) => group.garmentColor), ['红', '蓝'].sort((left, right) => left.localeCompare(right, 'zh-CN')))
+assert.deepEqual(factOnlyForward.colorGroups.find((group) => group.garmentColor === '红')?.sizes, ['S', 'L'].sort((left, right) => left.localeCompare(right, 'zh-CN')))
+
 console.log('cut piece release matrix check passed')
