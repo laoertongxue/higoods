@@ -26,6 +26,7 @@ export interface CutOrderCloseImpactItem {
 }
 
 export interface CutOrderCloseRecord {
+  operationKey?: string
   closeRecordId: string
   closeRecordNo: string
   cutOrderId: string
@@ -50,6 +51,7 @@ export interface CutOrderCloseRecord {
 }
 
 export interface CutOrderReopenRecord {
+  operationKey?: string
   reopenRecordId: string
   reopenRecordNo: string
   cutOrderId: string
@@ -167,6 +169,7 @@ function normalizeCloseRecord(item: unknown): CutOrderCloseRecord | null {
   const ledgerSnapshot = buildCutOrderLedgerSnapshotBeforeClose(null)
   const snapshot = raw.ledgerSnapshotBeforeClose || ledgerSnapshot
   return {
+    operationKey: raw.operationKey ? String(raw.operationKey) : undefined,
     closeRecordId: String(raw.closeRecordId),
     closeRecordNo: String(raw.closeRecordNo || raw.closeRecordId),
     cutOrderId: String(raw.cutOrderId),
@@ -290,14 +293,32 @@ function createLifecycleNonce(): string {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
 }
 
+function hashLifecycleOperationKey(operationKey: string): string {
+  let hash = 2166136261
+  for (const character of operationKey) {
+    hash ^= character.charCodeAt(0)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0).toString(36).padStart(7, '0')
+}
+
+export function createCutOrderLifecycleOperationKey(
+  action: 'close' | 'reopen',
+  cutOrderId: string,
+  priorLifecycleRecordId = 'none',
+): string {
+  return `${action}:${cutOrderId.trim()}:${priorLifecycleRecordId.trim() || 'none'}`
+}
+
 export function createNextCutOrderCloseRecordIdentity(
   cutOrderId: string,
   cutOrderNo: string,
   storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+  operationKey = '',
 ): Pick<CutOrderCloseRecord, 'closeRecordId' | 'closeRecordNo'> {
   const sequence = nextLifecycleSequence(listStoredCutOrderCloseRecords(storage), cutOrderId, cutOrderNo, 'closeRecordId', 'closeRecordNo')
   const suffix = String(sequence).padStart(4, '0')
-  const nonce = createLifecycleNonce()
+  const nonce = operationKey ? hashLifecycleOperationKey(operationKey) : createLifecycleNonce()
   return { closeRecordId: `close:${cutOrderId}:cycle-${suffix}-${nonce}`, closeRecordNo: `CLOSE-${cutOrderNo.replace(/^CUT-?/, '')}-${suffix}-${nonce}` }
 }
 
@@ -305,14 +326,25 @@ export function upsertStoredCutOrderCloseRecord(
   record: CutOrderCloseRecord,
   storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
 ): CutOrderLifecycleWriteResult<CutOrderCloseRecord> {
-  const records = listStoredCutOrderCloseRecords(storage)
-  const existing = records.find((item) => item.closeRecordId === record.closeRecordId)
-  if (existing) {
-    const idempotent = sameLifecycleRecord(existing, record)
-    return { ok: idempotent, record: existing, idempotent, conflict: !idempotent }
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const records = listStoredCutOrderCloseRecords(storage)
+    const existingOperation = record.operationKey
+      ? records.find((item) => item.operationKey === record.operationKey)
+      : undefined
+    if (existingOperation) return { ok: true, record: existingOperation, idempotent: true, conflict: false }
+    const existing = records.find((item) => item.closeRecordId === record.closeRecordId)
+    if (existing) {
+      const idempotent = sameLifecycleRecord(existing, record)
+      return { ok: idempotent, record: existing, idempotent, conflict: !idempotent }
+    }
+    saveStoredCutOrderCloseRecords([...records, record], storage)
+    const verified = listStoredCutOrderCloseRecords(storage)
+    const stored = record.operationKey
+      ? verified.find((item) => item.operationKey === record.operationKey)
+      : verified.find((item) => item.closeRecordId === record.closeRecordId)
+    if (stored) return { ok: true, record: stored, idempotent: stored.closeRecordId !== record.closeRecordId, conflict: false }
   }
-  saveStoredCutOrderCloseRecords([...records, record], storage)
-  return { ok: true, record, idempotent: false, conflict: false }
+  return { ok: false, record, idempotent: false, conflict: true }
 }
 
 export function removeStoredCutOrderCloseRecord(
@@ -332,6 +364,7 @@ function normalizeReopenRecord(item: unknown): CutOrderReopenRecord | null {
   const raw = item as Partial<CutOrderReopenRecord> | null
   if (!raw?.cutOrderId || !raw.cutOrderNo || !raw.reopenRecordId) return null
   return {
+    operationKey: raw.operationKey ? String(raw.operationKey) : undefined,
     reopenRecordId: String(raw.reopenRecordId),
     reopenRecordNo: String(raw.reopenRecordNo || raw.reopenRecordId),
     cutOrderId: String(raw.cutOrderId),
@@ -383,10 +416,11 @@ export function createNextCutOrderReopenRecordIdentity(
   cutOrderId: string,
   cutOrderNo: string,
   storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+  operationKey = '',
 ): Pick<CutOrderReopenRecord, 'reopenRecordId' | 'reopenRecordNo'> {
   const sequence = nextLifecycleSequence(listStoredCutOrderReopenRecords(storage), cutOrderId, cutOrderNo, 'reopenRecordId', 'reopenRecordNo')
   const suffix = String(sequence).padStart(4, '0')
-  const nonce = createLifecycleNonce()
+  const nonce = operationKey ? hashLifecycleOperationKey(operationKey) : createLifecycleNonce()
   return { reopenRecordId: `reopen:${cutOrderId}:cycle-${suffix}-${nonce}`, reopenRecordNo: `REOPEN-${cutOrderNo.replace(/^CUT-?/, '')}-${suffix}-${nonce}` }
 }
 
@@ -394,14 +428,25 @@ export function upsertStoredCutOrderReopenRecord(
   record: CutOrderReopenRecord,
   storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
 ): CutOrderLifecycleWriteResult<CutOrderReopenRecord> {
-  const records = listStoredCutOrderReopenRecords(storage)
-  const existing = records.find((item) => item.reopenRecordId === record.reopenRecordId)
-  if (existing) {
-    const idempotent = sameLifecycleRecord(existing, record)
-    return { ok: idempotent, record: existing, idempotent, conflict: !idempotent }
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const records = listStoredCutOrderReopenRecords(storage)
+    const existingOperation = record.operationKey
+      ? records.find((item) => item.operationKey === record.operationKey)
+      : undefined
+    if (existingOperation) return { ok: true, record: existingOperation, idempotent: true, conflict: false }
+    const existing = records.find((item) => item.reopenRecordId === record.reopenRecordId)
+    if (existing) {
+      const idempotent = sameLifecycleRecord(existing, record)
+      return { ok: idempotent, record: existing, idempotent, conflict: !idempotent }
+    }
+    saveStoredCutOrderReopenRecords([...records, record], storage)
+    const verified = listStoredCutOrderReopenRecords(storage)
+    const stored = record.operationKey
+      ? verified.find((item) => item.operationKey === record.operationKey)
+      : verified.find((item) => item.reopenRecordId === record.reopenRecordId)
+    if (stored) return { ok: true, record: stored, idempotent: stored.reopenRecordId !== record.reopenRecordId, conflict: false }
   }
-  saveStoredCutOrderReopenRecords([...records, record], storage)
-  return { ok: true, record, idempotent: false, conflict: false }
+  return { ok: false, record, idempotent: false, conflict: true }
 }
 
 export function removeStoredCutOrderReopenRecord(

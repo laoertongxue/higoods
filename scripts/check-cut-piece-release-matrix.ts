@@ -50,8 +50,8 @@ const cutPieceReleasePageSource = readFileSync(
   resolve(process.cwd(), 'src/pages/process-factory/cutting/cut-piece-release.ts'),
   'utf8',
 )
-const cutOrdersPageSource = readFileSync(
-  resolve(process.cwd(), 'src/pages/process-factory/cutting/cut-orders.ts'),
+const cutOrderReleaseIntegrationSource = readFileSync(
+  resolve(process.cwd(), 'src/pages/process-factory/cutting/cut-order-release-integration.ts'),
   'utf8',
 )
 const fcsHandlersSource = readFileSync(
@@ -67,10 +67,10 @@ assert.match(
   /higood:list-page:\/fcs\/craft\/cutting\/cut-piece-release/,
   '裁片放行管理必须使用路由级列表偏好存储键',
 )
-assert.match(cutOrdersPageSource, /getCutOrderReleaseImpactSummary\(row\.cutOrderNo\)/, '关闭页必须读取放行仓储影响摘要')
-assert.match(cutOrdersPageSource, /activeSpreadingOrderNos\.length/, '关闭页必须按进行中铺布单阻断关闭')
-assert.match(cutOrdersPageSource, /eventId: reopenRecord\.reopenRecordId[\s\S]*status: '持续更新'/, '重开成功后必须用现有重开记录稳定 ID 恢复放行来源')
-assert.match(cutOrdersPageSource, /eventId: closeRecord\.closeRecordId[\s\S]*status: '已冻结'/, '关闭成功后必须用现有关闭记录稳定 ID 冻结放行来源')
+assert.match(cutOrderReleaseIntegrationSource, /getCutOrderReleaseImpactSummary\(context\.cutOrderNo\)/, '关闭页必须读取放行仓储影响摘要')
+assert.match(cutOrderReleaseIntegrationSource, /activeSpreadingOrderNos\.length/, '关闭页必须按进行中铺布单阻断关闭')
+assert.match(cutOrderReleaseIntegrationSource, /eventId: write\.record\.reopenRecordId[\s\S]*status: '持续更新'/, '重开成功后必须用已写入重开记录的稳定 ID 恢复放行来源')
+assert.match(cutOrderReleaseIntegrationSource, /eventId: write\.record\.closeRecordId[\s\S]*status: '已冻结'/, '关闭成功后必须用已写入关闭记录的稳定 ID 冻结放行来源')
 assert.match(
   cutPieceReleasePageSource,
   /data-cut-piece-release-action="open-matrix"/,
@@ -755,6 +755,32 @@ assert.notEqual(reopenIdentity2.reopenRecordId, reopenIdentity1.reopenRecordId, 
 upsertStoredCutOrderReopenRecord({ ...reopenBase, ...reopenIdentity2, reopenedAt: '2026-06-07 11:00:00', createdAt: '2026-06-07 11:00:00', previousCloseRecordNo: closeIdentity2.closeRecordNo } as CutOrderReopenRecord, lifecycleStorage)
 assert.equal(listStoredCutOrderCloseRecords(lifecycleStorage).length, 2, '关闭历史必须保留两轮记录')
 assert.equal(listStoredCutOrderReopenRecords(lifecycleStorage).length, 2, '重开历史必须保留两轮记录')
+
+const crossTabStorage = new MemoryStorage()
+const sameOperationA = {
+  ...closeBase,
+  operationKey: 'close:cut-cross-tab:prior:reopen-0001',
+  cutOrderId: 'cut-cross-tab',
+  cutOrderNo: 'CUT-CROSS-TAB',
+  closeRecordId: 'close:cut-cross-tab:cycle-0001-tab-a',
+  closeRecordNo: 'CLOSE-CROSS-TAB-0001-A',
+} as CutOrderCloseRecord
+const sameOperationB = {
+  ...sameOperationA,
+  closeRecordId: 'close:cut-cross-tab:cycle-0001-tab-b',
+  closeRecordNo: 'CLOSE-CROSS-TAB-0001-B',
+  closedAt: '2026-06-07 08:00:01',
+  createdAt: '2026-06-07 08:00:01',
+} as CutOrderCloseRecord
+const firstCrossTabWrite = upsertStoredCutOrderCloseRecord(sameOperationA, crossTabStorage)
+const secondCrossTabWrite = upsertStoredCutOrderCloseRecord(sameOperationB, crossTabStorage)
+assert.equal(firstCrossTabWrite.ok, true)
+assert.equal(secondCrossTabWrite.idempotent, true, '两个 Tab 从同一前置状态关闭必须按 operationKey 收敛')
+assert.equal(secondCrossTabWrite.record.closeRecordId, sameOperationA.closeRecordId, '同 operationKey 必须 first wins')
+assert.equal(listStoredCutOrderCloseRecords(crossTabStorage).length, 1, '同 operationKey 不能生成两条关闭记录')
+const nextOperation = { ...sameOperationB, operationKey: 'close:cut-cross-tab:prior:reopen-0002', closeRecordId: 'close:cut-cross-tab:cycle-0002-tab-b', closeRecordNo: 'CLOSE-CROSS-TAB-0002-B' } as CutOrderCloseRecord
+assert.equal(upsertStoredCutOrderCloseRecord(nextOperation, crossTabStorage).ok, true)
+assert.deepEqual(new Set(listStoredCutOrderCloseRecords(crossTabStorage).map((record) => record.operationKey)), new Set([sameOperationA.operationKey, nextOperation.operationKey]), '不同业务周期交错写入必须全部保留')
 
 const releaseDemoProgress = cuttingOrderProgressRecords.find((record) =>
   record.materialLines.some((line) => line.cutOrderId === 'cut-14671-b' && line.cutOrderNo === 'CUT14671-B'),

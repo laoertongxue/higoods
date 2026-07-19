@@ -422,7 +422,7 @@ export interface CuttingOrderProgressSnapshot {
 }
 
 function cloneProgressRecord(record: CuttingOrderProgressRecord): CuttingOrderProgressRecord {
-  return JSON.parse(JSON.stringify(record)) as CuttingOrderProgressRecord
+  return structuredClone(record)
 }
 
 export function createCuttingOrderProgressSnapshot(cutOrderId: string): CuttingOrderProgressSnapshot | null {

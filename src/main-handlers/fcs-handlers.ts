@@ -167,6 +167,7 @@ import {
   handleCraftCuttingCutOrdersEvent,
   isCraftCuttingCutOrdersDialogOpen,
 } from '../pages/process-factory/cutting/cut-orders'
+import { handleCutOrderReleaseIntegrationEvent } from '../pages/process-factory/cutting/cut-order-release-integration'
 import {
   handleCraftCuttingSpecialProcessesEvent,
   isCraftCuttingSpecialProcessesDialogOpen,
@@ -368,6 +369,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     handleSpecialCraftTaskOrdersEvent(target) ||
     handleSpecialCraftWarehouseEvent(target) ||
     await handleSpecialCraftWorkOrderDetailEvent(target) ||
+    await handleCutOrderReleaseIntegrationEvent(target) ||
     await handleCraftCuttingCutOrdersEvent(target) ||
     await handleFactoryOnboardingEvent(target) ||
     await handleFactoryPageEvent(target) ||
