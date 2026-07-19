@@ -48,6 +48,13 @@ assert.match(
   /data-cut-piece-release-action="open-matrix"/,
   '裁片放行管理必须提供打开生产单矩阵的操作入口',
 )
+assert.match(cutPieceReleasePageSource, /data-testid="cut-piece-release-color-matrix"/, '必须展示颜色物料尺码矩阵')
+assert.match(cutPieceReleasePageSource, /data-testid="cell-\$\{escapeHtml\(group\.garmentColor\)\}-\$\{escapeHtml\(size\)\}-\$\{escapeHtml\(materialId\)\}"/, '矩阵单元格必须提供稳定测试与交互标识')
+assert.match(cutPieceReleasePageSource, /data-testid="candidate-\$\{escapeHtml\(group\.garmentColor\)\}-\$\{escapeHtml\(size\)\}-\$\{escapeHtml\(materialId\)\}"/, '目标候选必须提供稳定标识')
+assert.match(cutPieceReleasePageSource, /confirmCutPieceReleaseTarget\(/, '保存目标必须调用公开仓储 API')
+assert.match(cutPieceReleasePageSource, /data-testid="cut-piece-release-cell-drawer"/, '裁片部位计算必须在单元格抽屉展示')
+assert.match(cutPieceReleasePageSource, /data-testid="cut-piece-release-history-drawer"/, '矩阵历史必须在分页抽屉展示')
+assert.doesNotMatch(cutPieceReleasePageSource, /input[^>]+type="number"/, '目标选择禁止任意数字输入')
 assert.equal(
   fcsHandlersSource.match(/handleCraftCuttingCutPieceReleaseEvent\(target, event\)/g)?.length,
   1,
