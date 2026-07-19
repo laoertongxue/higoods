@@ -211,6 +211,7 @@ interface ReleaseRepositoryItem {
   latestUpdateAt: string
   sourceStates: CutPieceReleaseSourceState[]
   activeSpreadingOrderNosByCutOrder: Record<string, string[]>
+  spreadingAdjustmentKeys: Set<string>
 }
 
 const deterministicConfirmedAt = '2026-06-03 16:00:00'
@@ -361,6 +362,7 @@ function addRepositoryItem(input: BuildReleaseMatrixInput, spuName: string, sour
     latestUpdateAt: initialEvent.occurredAt,
     sourceStates: [],
     activeSpreadingOrderNosByCutOrder: {},
+    spreadingAdjustmentKeys: new Set<string>(),
   }
   appendMatrixEvent(item.eventState, initialEvent)
   addVersion(item, initialEvent)
@@ -666,6 +668,9 @@ export function recordSpreadingReleaseAdjustment(input: SpreadingReleaseAdjustme
   if (input.direction !== -1) return { status: 'rejected', reason: '铺布冲销只能使用反向冲销口径。' }
   if (!input.adjustmentEventId.trim() || !input.spreadingOrderNo.trim()) return { status: 'rejected', reason: '冲销事件 ID 和原铺布单号不能为空。' }
   if (!input.operator.trim() || !input.reason.trim() || !input.occurredAt.trim()) return { status: 'rejected', reason: '铺布冲销必须填写原因、操作人和时间。' }
+  if (item.eventState.events.some((event) => event.eventId === input.adjustmentEventId)) return { status: 'idempotent', reason: '该铺布冲销事件已经处理。' }
+  const sourceKey = `${input.productionOrderId}::${input.spreadingOrderNo.trim()}`
+  if (item.spreadingAdjustmentKeys.has(sourceKey)) return { status: 'rejected', reason: `铺布单 ${input.spreadingOrderNo} 已存在冲销记录，不能使用新的冲销事件重复作废。` }
   const referencedFacts = item.input.facts.filter((fact) => fact.spreadingOrderNo === input.spreadingOrderNo && fact.direction === '正向')
   if (!referencedFacts.length) {
     const existing = item.eventState.events.find((event) => event.eventId === input.adjustmentEventId)
@@ -694,6 +699,7 @@ export function recordSpreadingReleaseAdjustment(input: SpreadingReleaseAdjustme
       direction: '反向' as const,
       occurredAt: input.occurredAt,
     })))
+    item.spreadingAdjustmentKeys.add(sourceKey)
   })
   return applied
     ? { status: 'applied', reason: `已对铺布单 ${input.spreadingOrderNo} 产生反向冲销，放行矩阵排除对应有效裁片贡献。` }

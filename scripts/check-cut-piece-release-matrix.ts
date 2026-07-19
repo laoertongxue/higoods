@@ -63,12 +63,16 @@ assert.equal(handoverSnapshot.surplusPieces[0].pieceQty, 24)
 assert.notEqual(handoverSnapshot.minimumReturnQtyByColorSize['Black::M'], 224, '多余裁片不得加回最低应回')
 assert.deepEqual(createCutPieceReleaseHandoverSnapshot({
   snapshotId: 'target-po14671-v12', productionOrderId, batchNo: 'HO-PO14671-01',
-  completeKitQtyByColorSize: { 'Black::M': 200, 'Black::L': 350, 'Black::XL': 500 }, surplusPieces: [],
+  completeKitQtyByColorSize: { 'Black::M': 200, 'Black::L': 350, 'Black::XL': 500 }, surplusPieces: [{ garmentColor: 'Black', size: 'M', materialId: 'A', partId: 'front', pieceQty: 24, sourceCutOrderNos: ['CUT-01'], sourceSpreadingOrderNos: ['PB-01'] }],
 }).minimumReturnQtyByColorSize, { 'Black::M': 200, 'Black::L': 350, 'Black::XL': 500 })
-assert.deepEqual(createCutPieceReleaseHandoverSnapshot({
+assert.throws(() => createCutPieceReleaseHandoverSnapshot({
   snapshotId: 'target-po14671-v12', productionOrderId, batchNo: 'HO-PO14671-01',
   completeKitQtyByColorSize: { 'Black::M': 999 }, surplusPieces: [],
-}).minimumReturnQtyByColorSize, { 'Black::M': 200, 'Black::L': 350, 'Black::XL': 500 }, '同一快照重复创建必须幂等返回首次内容')
+}), /内容冲突/, '同快照号不同内容必须拒绝覆盖')
+assert.deepEqual(createCutPieceReleaseHandoverSnapshot({
+  snapshotId: 'target-po14671-v12', productionOrderId, batchNo: 'HO-PO14671-01',
+  completeKitQtyByColorSize: { 'Black::M': 200, 'Black::L': 350, 'Black::XL': 500 }, surplusPieces: [{ garmentColor: 'Black', size: 'M', materialId: 'A', partId: 'front', pieceQty: 24, sourceCutOrderNos: ['CUT-01'], sourceSpreadingOrderNos: ['PB-01'] }],
+}).minimumReturnQtyByColorSize, { 'Black::M': 200, 'Black::L': 350, 'Black::XL': 500 }, '同一快照号相同内容必须幂等返回')
 assert.equal(getCutPieceReleaseHandoverSnapshot('cpr-target-po14671-v1')?.productionOrderId, 'po-14671', '静态交出单快照必须注册到统一仓储 API')
 
 const cutPieceReleasePageSource = readFileSync(
@@ -186,6 +190,15 @@ assert.deepEqual(
 assert.equal(black.materialRows[0].cells[0].partCalculations[0].availableGarmentQty, 220)
 assert.equal(black.materialRows[0].cells[0].partCalculations[1].availableGarmentQty, 220)
 assert.equal(black.completeKitBySize.M, 200, '当前齐套必须取所有必需物料的最小值')
+
+const crossColorFactsMatrix = buildReleaseMatrix({
+  productionOrderId, productionOrderNo: 'PO14671', spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Black: { M: 240 }, White: { M: 100 } }, requirements,
+  facts: blackFacts,
+})
+const whiteCell = crossColorFactsMatrix.colorGroups.find((group) => group.garmentColor === 'White')?.materialRows[0]?.cells[0]
+assert.equal(whiteCell?.calculationStatus, '暂无有效裁片', '局部无事实的颜色尺码必须显示暂无有效裁片')
+assert.equal(whiteCell?.availableGarmentQty, null, '局部无事实不得伪造零候选')
 
 const reversed = buildReleaseMatrix({
   productionOrderId,
@@ -642,6 +655,7 @@ assert.ok(adjustedBPartSourceFactIds.some((factId) => factId.includes('adjust:re
 recordSpreadingReleaseAdjustment({ adjustmentEventId: 'reverse-spread-14671', spreadingOrderNo: 'ASYSA26060310', productionOrderId, direction: -1, occurredAt: '2026-06-04 11:00:00', operator: '阿迪', reason: '铺布冲销' })
 assert.equal(listCutPieceReleaseMatrixVersions(productionOrderId).length, afterAdjustmentVersions.length, '重复冲销事件不得新增版本')
 assert.deepEqual(getCutPieceReleaseMatrix(productionOrderId)!.colorGroups[0].materialRows.find((row) => row.materialId === 'B')!.cells.find((cell) => cell.size === 'M')!.partCalculations[0].sourceFactIds, adjustedBPartSourceFactIds, '重复冲销不得重复追加来源事实')
+assert.equal(recordSpreadingReleaseAdjustment({ adjustmentEventId: 'reverse-spread-14671-duplicate-source', spreadingOrderNo: 'ASYSA26060310', productionOrderId, direction: -1, occurredAt: '2026-06-04 11:05:00', operator: '阿迪', reason: '重复铺布冲销' }).status, 'rejected', '同生产单同铺布单不同事件不得重复冲销')
 assert.ok(getCutPieceReleaseMatrix(productionOrderId), '冲销不能删除原有生产单矩阵事实')
 const mutableVersion = listCutPieceReleaseMatrixVersions(productionOrderId)[0]
 mutableVersion.matrixSnapshot.colorGroups[0].materialRows[0].cells[0].partCalculations[0].actualPieceQty = 999

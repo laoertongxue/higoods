@@ -304,10 +304,22 @@ function readHandoverSnapshotStorage(): Array<[string, CutPieceReleaseHandoverSn
   try {
     const raw = globalThis.localStorage?.getItem(CUT_PIECE_RELEASE_HANDOVER_SNAPSHOT_STORAGE_KEY)
     const parsed = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? parsed : []
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((entry): entry is [string, CutPieceReleaseHandoverSnapshot] => Array.isArray(entry) && typeof entry[0] === 'string' && isValidHandoverSnapshot(entry[1]))
   } catch {
     return []
   }
+}
+
+function isValidHandoverSnapshot(value: unknown): value is CutPieceReleaseHandoverSnapshot {
+  if (!value || typeof value !== 'object') return false
+  const snapshot = value as Partial<CutPieceReleaseHandoverSnapshot>
+  return typeof snapshot.releaseTargetSnapshotId === 'string'
+    && typeof snapshot.productionOrderId === 'string'
+    && typeof snapshot.batchNo === 'string'
+    && Boolean(snapshot.completeKitQtyByColorSize && typeof snapshot.completeKitQtyByColorSize === 'object')
+    && Boolean(snapshot.minimumReturnQtyByColorSize && typeof snapshot.minimumReturnQtyByColorSize === 'object')
+    && Array.isArray(snapshot.surplusPieces)
 }
 
 function persistHandoverSnapshotStorage(): void {
@@ -323,8 +335,11 @@ const cutPieceReleaseHandoverSnapshots = new Map<string, CutPieceReleaseHandover
 /** 交接快照按快照号幂等写入，刷新页面仍可从本地原型仓储恢复。 */
 export function createCutPieceReleaseHandoverSnapshot(input: CutPieceReleaseHandoverSnapshotInput): CutPieceReleaseHandoverSnapshot {
   const existing = cutPieceReleaseHandoverSnapshots.get(input.snapshotId)
-  if (existing) return structuredClone(existing)
   const snapshot = buildCutPieceReleaseHandoverSnapshot(input)
+  if (existing) {
+    if (JSON.stringify(existing) !== JSON.stringify(snapshot)) throw new Error(`交接快照 ${input.snapshotId} 已存在且内容冲突，禁止覆盖历史快照。`)
+    return structuredClone(existing)
+  }
   cutPieceReleaseHandoverSnapshots.set(input.snapshotId, structuredClone(snapshot))
   persistHandoverSnapshotStorage()
   return structuredClone(snapshot)

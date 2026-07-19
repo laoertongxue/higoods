@@ -220,7 +220,7 @@ function resolveSourceStatus(facts: CutPieceFact[]): ReleaseSourceStatus {
   return facts.length > 0 && facts.every((fact) => fact.sourceStatus === '已冻结') ? '已冻结' : '持续更新'
 }
 
-function calculatePart(requirement: CutPieceRequirement, facts: CutPieceFact[], noEffectiveFacts: boolean): ReleasePartCalculation {
+function calculatePart(requirement: CutPieceRequirement, facts: CutPieceFact[]): ReleasePartCalculation {
   const partFacts = facts.filter((fact) => fact.materialId === requirement.materialId && fact.partId === requirement.partId)
   const rawPieceQty = partFacts.reduce((total, fact) => {
     const qty = toSafeNonNegativeQuantity(fact.actualPieceQty)
@@ -232,7 +232,7 @@ function calculatePart(requirement: CutPieceRequirement, facts: CutPieceFact[], 
   const hasInvalidQuantity = partFacts.some((fact) => !Number.isFinite(fact.actualPieceQty)) || !Number.isFinite(rawPieceQty) || (availableGarmentQty !== null && !Number.isFinite(availableGarmentQty))
   const calculationStatus = !requirement.partId || !piecesPerGarment || hasInvalidQuantity
     ? '数据不完整'
-    : noEffectiveFacts
+    : partFacts.length === 0
       ? '暂无有效裁片'
       : '可计算'
 
@@ -272,7 +272,7 @@ export function buildReleaseMatrix(input: BuildReleaseMatrixInput): CutPieceRele
       cells: sizes.map((size): ReleaseMatrixCell => {
         const scopedRequirements = materialRequirementsForId.filter((requirement) => isSameRequirementScope(requirement, garmentColor, size))
         const cellFacts = effectiveFacts.filter((fact) => fact.garmentColor === garmentColor && fact.size === size && fact.materialId === materialId)
-        const partCalculations = scopedRequirements.map((requirement) => calculatePart(requirement, cellFacts, noEffectiveFacts))
+        const partCalculations = scopedRequirements.map((requirement) => calculatePart(requirement, cellFacts))
         const calculationStatus: MatrixCalculationStatus = scopedRequirements.length === 0 || unmappedColorSizeKeys.has(colorSizeKey(garmentColor, size))
           ? '数据不完整'
           : partCalculations.some((part) => part.calculationStatus === '数据不完整')
