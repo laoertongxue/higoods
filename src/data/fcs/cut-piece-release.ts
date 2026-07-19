@@ -438,7 +438,6 @@ export function recordCutOrderReleaseStatusChange(input: CutOrderReleaseStatusCh
   const item = [...releaseRepository.values()].find((candidate) => candidate.input.facts.some(matchesInput))
   if (!item) return
   const matchedFacts = item.input.facts.filter(matchesInput)
-  if (item.eventState.events.some((event) => event.eventId === input.eventId) || matchedFacts.every((fact) => fact.sourceStatus === input.status)) return
   const event: MatrixEvent = {
     eventId: input.eventId,
     eventType: input.status === '已冻结' ? '裁片单冻结' : '裁片单恢复',
@@ -448,6 +447,11 @@ export function recordCutOrderReleaseStatusChange(input: CutOrderReleaseStatusCh
     reason: input.reason,
     cutOrderId: input.cutOrderId || undefined,
     cutOrderNo: input.cutOrderNo || undefined,
+  }
+  if (item.eventState.events.some((storedEvent) => storedEvent.eventId === input.eventId)) return
+  if (matchedFacts.every((fact) => fact.sourceStatus === input.status)) {
+    appendMatrixEvent(item.eventState, event)
+    return
   }
   appendRepositoryEvent(item, event, () => {
     item.input.facts.forEach((fact) => {
