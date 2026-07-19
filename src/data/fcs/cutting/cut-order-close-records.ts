@@ -9,8 +9,10 @@ export const CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY = 'cuttingCutOrderClose
 export const CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY = 'cuttingCutOrderReopenRecords'
 const CUTTING_CUT_ORDER_CLOSE_RECORD_KEY_PREFIX = `${CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY}:record:`
 const CUTTING_CUT_ORDER_CLOSE_DELETED_KEY_PREFIX = `${CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY}:deleted:`
+const CUTTING_CUT_ORDER_CLOSE_RESERVATION_KEY_PREFIX = `${CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY}:reservation:`
 const CUTTING_CUT_ORDER_REOPEN_RECORD_KEY_PREFIX = `${CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY}:record:`
 const CUTTING_CUT_ORDER_REOPEN_DELETED_KEY_PREFIX = `${CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY}:deleted:`
+const CUTTING_CUT_ORDER_REOPEN_RESERVATION_KEY_PREFIX = `${CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY}:reservation:`
 
 export type CutOrderLifecycleStorage = Pick<Storage, 'getItem' | 'setItem'> & Partial<Pick<Storage, 'removeItem' | 'key' | 'length'>>
 
@@ -318,6 +320,81 @@ export interface CutOrderLifecycleWriteResult<T> {
   record: T
   idempotent: boolean
   conflict: boolean
+  rollbackHandle: CutOrderLifecycleRollbackHandle | null
+}
+
+export interface CutOrderLifecycleRollbackHandle {
+  kind: 'close' | 'reopen'
+  recordId: string
+  reservationToken: string
+  mayDeleteIfLast: boolean
+}
+
+const fallbackReservations = new WeakMap<object, Map<string, Map<string, CutOrderLifecycleRollbackHandle>>>()
+
+function supportsLifecycleJournal(storage: CutOrderLifecycleStorage | null): storage is CutOrderLifecycleStorage & Required<Pick<Storage, 'removeItem' | 'key' | 'length'>> {
+  return Boolean(storage && typeof storage.removeItem === 'function' && typeof storage.key === 'function' && typeof storage.length === 'number')
+}
+
+function lifecycleReservationPrefix(kind: 'close' | 'reopen', recordId: string): string {
+  const prefix = kind === 'close' ? CUTTING_CUT_ORDER_CLOSE_RESERVATION_KEY_PREFIX : CUTTING_CUT_ORDER_REOPEN_RESERVATION_KEY_PREFIX
+  return `${prefix}${encodeURIComponent(recordId)}:`
+}
+
+function listLifecycleReservations(
+  storage: CutOrderLifecycleStorage,
+  kind: 'close' | 'reopen',
+  recordId: string,
+): CutOrderLifecycleRollbackHandle[] {
+  const scope = `${kind}:${recordId}`
+  if (!supportsLifecycleJournal(storage)) {
+    return [...(fallbackReservations.get(storage)?.get(scope)?.values() || [])]
+  }
+  return listStorageKeys(storage, lifecycleReservationPrefix(kind, recordId))
+    .map((key) => parseJournalRecord(storage.getItem(key), (value) => {
+      const item = value as Partial<CutOrderLifecycleRollbackHandle> | null
+      return item?.recordId === recordId && item.reservationToken
+        ? { kind, recordId, reservationToken: String(item.reservationToken), mayDeleteIfLast: Boolean(item.mayDeleteIfLast) }
+        : null
+    }))
+    .filter((handle): handle is CutOrderLifecycleRollbackHandle => handle !== null)
+}
+
+function registerLifecycleReservation(
+  storage: CutOrderLifecycleStorage,
+  kind: 'close' | 'reopen',
+  recordId: string,
+  created: boolean,
+): CutOrderLifecycleRollbackHandle {
+  const existing = listLifecycleReservations(storage, kind, recordId)
+  const handle: CutOrderLifecycleRollbackHandle = {
+    kind,
+    recordId,
+    reservationToken: createLifecycleNonce(),
+    mayDeleteIfLast: created || existing.some((item) => item.mayDeleteIfLast),
+  }
+  if (supportsLifecycleJournal(storage)) {
+    storage.setItem(`${lifecycleReservationPrefix(kind, recordId)}${handle.reservationToken}`, JSON.stringify(handle))
+  } else {
+    const scopes = fallbackReservations.get(storage) || new Map<string, Map<string, CutOrderLifecycleRollbackHandle>>()
+    const reservations = scopes.get(`${kind}:${recordId}`) || new Map<string, CutOrderLifecycleRollbackHandle>()
+    reservations.set(handle.reservationToken, handle)
+    scopes.set(`${kind}:${recordId}`, reservations)
+    fallbackReservations.set(storage, scopes)
+  }
+  return handle
+}
+
+function releaseLifecycleReservation(
+  storage: CutOrderLifecycleStorage,
+  handle: CutOrderLifecycleRollbackHandle,
+): CutOrderLifecycleRollbackHandle[] {
+  if (supportsLifecycleJournal(storage)) {
+    storage.removeItem(`${lifecycleReservationPrefix(handle.kind, handle.recordId)}${handle.reservationToken}`)
+  } else {
+    fallbackReservations.get(storage)?.get(`${handle.kind}:${handle.recordId}`)?.delete(handle.reservationToken)
+  }
+  return listLifecycleReservations(storage, handle.kind, handle.recordId)
 }
 
 function stableValue(value: unknown): unknown {
@@ -391,26 +468,56 @@ export function upsertStoredCutOrderCloseRecord(
     const existingOperation = record.operationKey
       ? records.find((item) => item.operationKey === record.operationKey)
       : undefined
-    if (existingOperation) return { ok: true, record: existingOperation, idempotent: true, conflict: false }
+    if (existingOperation) return {
+      ok: true,
+      record: existingOperation,
+      idempotent: true,
+      conflict: false,
+      rollbackHandle: storage ? registerLifecycleReservation(storage, 'close', existingOperation.closeRecordId, false) : null,
+    }
     const existing = records.find((item) => item.closeRecordId === record.closeRecordId)
     if (existing) {
       const idempotent = sameLifecycleRecord(existing, record)
-      return { ok: idempotent, record: existing, idempotent, conflict: !idempotent }
+      return {
+        ok: idempotent,
+        record: existing,
+        idempotent,
+        conflict: !idempotent,
+        rollbackHandle: idempotent && storage ? registerLifecycleReservation(storage, 'close', existing.closeRecordId, false) : null,
+      }
     }
-    if (!storage) return { ok: false, record, idempotent: false, conflict: true }
-    const deletedKey = closeDeletedStorageKey(record.closeRecordId)
-    if (typeof storage.removeItem === 'function') storage.removeItem(deletedKey)
-    else storage.setItem(deletedKey, '')
-    storage.setItem(closeRecordStorageKey(record.closeRecordId), JSON.stringify(record))
-    saveStoredCutOrderCloseRecords(listStoredCutOrderCloseRecords(storage), storage)
-    saveStoredCutOrderCloseRecords(listStoredCutOrderCloseRecords(storage), storage)
+    if (!storage) return { ok: false, record, idempotent: false, conflict: true, rollbackHandle: null }
+    if (supportsLifecycleJournal(storage)) {
+      storage.removeItem(closeDeletedStorageKey(record.closeRecordId))
+      storage.setItem(closeRecordStorageKey(record.closeRecordId), JSON.stringify(record))
+      saveStoredCutOrderCloseRecords(listStoredCutOrderCloseRecords(storage), storage)
+      saveStoredCutOrderCloseRecords(listStoredCutOrderCloseRecords(storage), storage)
+    } else {
+      saveStoredCutOrderCloseRecords([...records, record], storage)
+    }
     const verified = listStoredCutOrderCloseRecords(storage)
     const stored = record.operationKey
       ? verified.find((item) => item.operationKey === record.operationKey)
       : verified.find((item) => item.closeRecordId === record.closeRecordId)
-    if (stored) return { ok: true, record: stored, idempotent: stored.closeRecordId !== record.closeRecordId, conflict: false }
+    if (stored) return {
+      ok: true,
+      record: stored,
+      idempotent: stored.closeRecordId !== record.closeRecordId,
+      conflict: false,
+      rollbackHandle: registerLifecycleReservation(storage, 'close', stored.closeRecordId, stored.closeRecordId === record.closeRecordId),
+    }
   }
-  return { ok: false, record, idempotent: false, conflict: true }
+  return { ok: false, record, idempotent: false, conflict: true, rollbackHandle: null }
+}
+
+export function rollbackStoredCutOrderCloseRecordWrite(
+  handle: CutOrderLifecycleRollbackHandle,
+  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+): boolean {
+  if (!storage || handle.kind !== 'close') return false
+  const remaining = releaseLifecycleReservation(storage, handle)
+  if (remaining.length || !handle.mayDeleteIfLast) return false
+  return removeStoredCutOrderCloseRecord(handle.recordId, storage)
 }
 
 export function removeStoredCutOrderCloseRecord(
@@ -539,26 +646,56 @@ export function upsertStoredCutOrderReopenRecord(
     const existingOperation = record.operationKey
       ? records.find((item) => item.operationKey === record.operationKey)
       : undefined
-    if (existingOperation) return { ok: true, record: existingOperation, idempotent: true, conflict: false }
+    if (existingOperation) return {
+      ok: true,
+      record: existingOperation,
+      idempotent: true,
+      conflict: false,
+      rollbackHandle: storage ? registerLifecycleReservation(storage, 'reopen', existingOperation.reopenRecordId, false) : null,
+    }
     const existing = records.find((item) => item.reopenRecordId === record.reopenRecordId)
     if (existing) {
       const idempotent = sameLifecycleRecord(existing, record)
-      return { ok: idempotent, record: existing, idempotent, conflict: !idempotent }
+      return {
+        ok: idempotent,
+        record: existing,
+        idempotent,
+        conflict: !idempotent,
+        rollbackHandle: idempotent && storage ? registerLifecycleReservation(storage, 'reopen', existing.reopenRecordId, false) : null,
+      }
     }
-    if (!storage) return { ok: false, record, idempotent: false, conflict: true }
-    const deletedKey = reopenDeletedStorageKey(record.reopenRecordId)
-    if (typeof storage.removeItem === 'function') storage.removeItem(deletedKey)
-    else storage.setItem(deletedKey, '')
-    storage.setItem(reopenRecordStorageKey(record.reopenRecordId), JSON.stringify(record))
-    saveStoredCutOrderReopenRecords(listStoredCutOrderReopenRecords(storage), storage)
-    saveStoredCutOrderReopenRecords(listStoredCutOrderReopenRecords(storage), storage)
+    if (!storage) return { ok: false, record, idempotent: false, conflict: true, rollbackHandle: null }
+    if (supportsLifecycleJournal(storage)) {
+      storage.removeItem(reopenDeletedStorageKey(record.reopenRecordId))
+      storage.setItem(reopenRecordStorageKey(record.reopenRecordId), JSON.stringify(record))
+      saveStoredCutOrderReopenRecords(listStoredCutOrderReopenRecords(storage), storage)
+      saveStoredCutOrderReopenRecords(listStoredCutOrderReopenRecords(storage), storage)
+    } else {
+      saveStoredCutOrderReopenRecords([...records, record], storage)
+    }
     const verified = listStoredCutOrderReopenRecords(storage)
     const stored = record.operationKey
       ? verified.find((item) => item.operationKey === record.operationKey)
       : verified.find((item) => item.reopenRecordId === record.reopenRecordId)
-    if (stored) return { ok: true, record: stored, idempotent: stored.reopenRecordId !== record.reopenRecordId, conflict: false }
+    if (stored) return {
+      ok: true,
+      record: stored,
+      idempotent: stored.reopenRecordId !== record.reopenRecordId,
+      conflict: false,
+      rollbackHandle: registerLifecycleReservation(storage, 'reopen', stored.reopenRecordId, stored.reopenRecordId === record.reopenRecordId),
+    }
   }
-  return { ok: false, record, idempotent: false, conflict: true }
+  return { ok: false, record, idempotent: false, conflict: true, rollbackHandle: null }
+}
+
+export function rollbackStoredCutOrderReopenRecordWrite(
+  handle: CutOrderLifecycleRollbackHandle,
+  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+): boolean {
+  if (!storage || handle.kind !== 'reopen') return false
+  const remaining = releaseLifecycleReservation(storage, handle)
+  if (remaining.length || !handle.mayDeleteIfLast) return false
+  return removeStoredCutOrderReopenRecord(handle.recordId, storage)
 }
 
 export function removeStoredCutOrderReopenRecord(

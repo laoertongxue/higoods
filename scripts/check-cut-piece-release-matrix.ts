@@ -35,6 +35,8 @@ import {
   listStoredCutOrderReopenRecords,
   removeStoredCutOrderCloseRecord,
   removeStoredCutOrderReopenRecord,
+  rollbackStoredCutOrderCloseRecordWrite,
+  rollbackStoredCutOrderReopenRecordWrite,
   resolveActiveCutOrderCloseRecords,
   upsertStoredCutOrderCloseRecord,
   upsertStoredCutOrderReopenRecord,
@@ -753,6 +755,12 @@ class InterleavingStorage extends MemoryStorage {
     super.setItem(key, value)
   }
 }
+
+class MinimalStorage {
+  private values = new Map<string, string>()
+  getItem(key: string): string | null { return this.values.get(key) ?? null }
+  setItem(key: string, value: string): void { this.values.set(key, value) }
+}
 const lifecycleStorage = new MemoryStorage()
 const closeIdentity1 = createNextCutOrderCloseRecordIdentity('cut-cycle', 'CUT-CYCLE', lifecycleStorage)
 const closeBase = {
@@ -801,6 +809,33 @@ assert.equal(listStoredCutOrderCloseRecords(crossTabStorage).length, 1, '同 ope
 const nextOperation = { ...sameOperationB, operationKey: 'close:cut-cross-tab:prior:reopen-0002', closeRecordId: 'close:cut-cross-tab:cycle-0002-tab-b', closeRecordNo: 'CLOSE-CROSS-TAB-0002-B' } as CutOrderCloseRecord
 assert.equal(upsertStoredCutOrderCloseRecord(nextOperation, crossTabStorage).ok, true)
 assert.deepEqual(new Set(listStoredCutOrderCloseRecords(crossTabStorage).map((record) => record.operationKey)), new Set([sameOperationA.operationKey, nextOperation.operationKey]), '不同业务周期交错写入必须全部保留')
+
+const minimalStorage = new MinimalStorage()
+const minimalCloseWrite = upsertStoredCutOrderCloseRecord({ ...sameOperationA, operationKey: 'close:minimal:prior:none', cutOrderId: 'cut-minimal', cutOrderNo: 'CUT-MINIMAL', closeRecordId: 'close:cut-minimal:cycle-0001', closeRecordNo: 'CLOSE-MINIMAL-0001' }, minimalStorage)
+assert.equal(minimalCloseWrite.ok, true, '仅 getItem/setItem 的降级存储也必须支持单线程关闭写入')
+assert.equal(listStoredCutOrderCloseRecords(minimalStorage).length, 1, '降级存储关闭写入后必须可读')
+const minimalReopenWrite = upsertStoredCutOrderReopenRecord({ ...reopenBase, operationKey: 'reopen:minimal:prior:close-1', cutOrderId: 'cut-minimal', cutOrderNo: 'CUT-MINIMAL', reopenRecordId: 'reopen:cut-minimal:cycle-0001', reopenRecordNo: 'REOPEN-MINIMAL-0001' }, minimalStorage)
+assert.equal(minimalReopenWrite.ok, true, '仅 getItem/setItem 的降级存储也必须支持单线程重开写入')
+assert.equal(listStoredCutOrderReopenRecords(minimalStorage).length, 1, '降级存储重开写入后必须可读')
+
+const sharedOperationStorage = new MemoryStorage()
+const sharedOperationA = upsertStoredCutOrderCloseRecord(sameOperationA, sharedOperationStorage)
+const sharedOperationB = upsertStoredCutOrderCloseRecord(sameOperationB, sharedOperationStorage)
+assert.equal(sharedOperationA.ok, true)
+assert.equal(sharedOperationB.idempotent, true)
+assert.ok((sharedOperationA as typeof sharedOperationA & { rollbackHandle?: unknown }).rollbackHandle, '创建者必须获得本上下文专属的可撤销句柄')
+assert.ok((sharedOperationB as typeof sharedOperationB & { rollbackHandle?: unknown }).rollbackHandle, '幂等观察者也必须登记独立 reservation，防止创建者回滚共享记录')
+assert.equal(rollbackStoredCutOrderCloseRecordWrite(sharedOperationA.rollbackHandle!, sharedOperationStorage), false, 'A 回滚不得删除 B 已幂等成功持有的共享关闭记录')
+assert.equal(listStoredCutOrderCloseRecords(sharedOperationStorage).length, 1, 'A append、B idempotent、A rollback 后共享关闭记录必须保留')
+
+const sharedReopenStorage = new MemoryStorage()
+const sharedReopenRecordA = { ...reopenBase, operationKey: 'reopen:cut-shared:prior:close-1', cutOrderId: 'cut-shared', cutOrderNo: 'CUT-SHARED', reopenRecordId: 'reopen:cut-shared:cycle-0001', reopenRecordNo: 'REOPEN-SHARED-0001' } as CutOrderReopenRecord
+const sharedReopenRecordB = { ...sharedReopenRecordA } as CutOrderReopenRecord
+const sharedReopenA = upsertStoredCutOrderReopenRecord(sharedReopenRecordA, sharedReopenStorage)
+const sharedReopenB = upsertStoredCutOrderReopenRecord(sharedReopenRecordB, sharedReopenStorage)
+assert.equal(sharedReopenB.idempotent, true)
+assert.equal(rollbackStoredCutOrderReopenRecordWrite(sharedReopenA.rollbackHandle!, sharedReopenStorage), false, 'A 回滚不得删除 B 已幂等成功持有的共享重开记录')
+assert.equal(listStoredCutOrderReopenRecords(sharedReopenStorage).length, 1, 'A append、B idempotent、A rollback 后共享重开记录必须保留')
 
 const interleavedAppendStorage = new InterleavingStorage()
 const concurrentCloseA = { ...sameOperationA, operationKey: 'close:cut-concurrent-a:prior:none', cutOrderId: 'cut-concurrent-a', cutOrderNo: 'CUT-CONCURRENT-A', closeRecordId: 'close:cut-concurrent-a:cycle-0001-a', closeRecordNo: 'CLOSE-CONCURRENT-A-0001' } as CutOrderCloseRecord

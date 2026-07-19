@@ -23,14 +23,15 @@ import {
   cutOrderCloseReasonOptions,
   listStoredCutOrderCloseRecords,
   listStoredCutOrderReopenRecords,
-  removeStoredCutOrderCloseRecord,
-  removeStoredCutOrderReopenRecord,
+  rollbackStoredCutOrderCloseRecordWrite,
+  rollbackStoredCutOrderReopenRecordWrite,
   resolveActiveCutOrderCloseRecords,
   resolveCutOrderCloseReasonText,
   upsertStoredCutOrderCloseRecord,
   upsertStoredCutOrderReopenRecord,
   type CutOrderCloseReasonCode,
   type CutOrderCloseRecord,
+  type CutOrderLifecycleRollbackHandle,
   type CutOrderReopenRecord,
 } from '../../../data/fcs/cutting/cut-order-close-records.ts'
 import {
@@ -261,16 +262,16 @@ async function reopen(actionNode: HTMLElement): Promise<boolean> {
   }
   const progressSnapshot = createCuttingOrderProgressSnapshot(context.cutOrderId)
   const releaseSnapshot = createCutOrderReleaseWriteSnapshot(context.cutOrderId, context.cutOrderNo)
-  let insertedId = ''
+  let rollbackHandle: CutOrderLifecycleRollbackHandle | null = null
   try {
     const write = upsertStoredCutOrderReopenRecord(record)
     if (!write.ok) throw new Error('重开记录写入冲突，请重试。')
-    if (!write.idempotent) insertedId = write.record.reopenRecordId
+    rollbackHandle = write.rollbackHandle
     if (!updateCuttingOrderProgressWebStage(context.cutOrderId, { cuttingStage: '已开工', operatorName: record.reopenedBy, operatedAt: occurredAt })) throw new Error('阶段投影不存在，重新打开失败')
     acceptRelease(releaseWriter({ eventId: write.record.reopenRecordId, cutOrderId: context.cutOrderId, cutOrderNo: context.cutOrderNo, status: '持续更新', occurredAt, operator: record.reopenedBy, reason: '重新打开裁片单，恢复持续更新' }))
     draft.feedback = { tone: 'success', message: '已重新打开裁片单，可继续针对该裁片单补料、唛架和铺布。' }
   } catch (error) {
-    if (insertedId) removeStoredCutOrderReopenRecord(insertedId)
+    if (rollbackHandle) rollbackStoredCutOrderReopenRecordWrite(rollbackHandle)
     restoreCuttingOrderProgressSnapshot(progressSnapshot)
     restoreCutOrderReleaseWriteSnapshot(releaseSnapshot)
     draft.feedback = { tone: 'warning', message: error instanceof Error ? error.message : '重新打开失败。' }
@@ -324,16 +325,16 @@ async function close(actionNode: HTMLElement): Promise<boolean> {
   }
   const progressSnapshot = createCuttingOrderProgressSnapshot(context.cutOrderId)
   const releaseSnapshot = createCutOrderReleaseWriteSnapshot(context.cutOrderId, context.cutOrderNo)
-  let insertedId = ''
+  let rollbackHandle: CutOrderLifecycleRollbackHandle | null = null
   try {
     const write = upsertStoredCutOrderCloseRecord(record)
     if (!write.ok) throw new Error('关闭记录写入冲突，请重试。')
-    if (!write.idempotent) insertedId = write.record.closeRecordId
+    rollbackHandle = write.rollbackHandle
     if (!updateCuttingOrderProgressWebStage(context.cutOrderId, { cuttingStage: '已关闭', operatorName: record.closedBy, operatedAt: occurredAt, closeReasonCode: record.closeReasonCode, closeReasonText: record.closeReasonText, closeReason: record.closeDescription, ledgerSnapshotBeforeClose: ledgerSnapshot })) throw new Error('阶段投影不存在，关闭失败')
     acceptRelease(releaseWriter({ eventId: write.record.closeRecordId, cutOrderId: context.cutOrderId, cutOrderNo: context.cutOrderNo, status: '已冻结', occurredAt, operator: record.closedBy, reason: `${record.closeReasonText}，数据已冻结` }))
     draft.feedback = { tone: 'success', message: '已关闭裁片单并保留历史记录；关闭原因、历史菲票、库存和交出记录仍可追溯。' }
   } catch (error) {
-    if (insertedId) removeStoredCutOrderCloseRecord(insertedId)
+    if (rollbackHandle) rollbackStoredCutOrderCloseRecordWrite(rollbackHandle)
     restoreCuttingOrderProgressSnapshot(progressSnapshot)
     restoreCutOrderReleaseWriteSnapshot(releaseSnapshot)
     draft.feedback = { tone: 'warning', message: error instanceof Error ? error.message : '关闭失败。' }
