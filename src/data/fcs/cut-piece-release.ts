@@ -183,6 +183,13 @@ export interface SpreadingReleaseAdjustmentInput {
   occurredAt: string
   operator: string
   reason: string
+  sourceCutOrderIds?: string[]
+  sourceCutOrderNos?: string[]
+}
+
+export interface SpreadingReleaseAdjustmentResult {
+  status: 'applied' | 'idempotent' | 'rejected' | 'not-applicable'
+  reason: string
 }
 
 interface ReleaseRepositoryItem {
@@ -646,9 +653,21 @@ export function recordCutOrderReleaseStatusChange(input: CutOrderReleaseStatusCh
     : { status: 'rejected', reason: '放行状态事件写入失败。' }
 }
 
-export function recordSpreadingReleaseAdjustment(input: SpreadingReleaseAdjustmentInput): void {
+export function recordSpreadingReleaseAdjustment(input: SpreadingReleaseAdjustmentInput): SpreadingReleaseAdjustmentResult {
   const item = releaseRepository.get(input.productionOrderId)
-  if (!item) return
+  if (!item) return { status: 'not-applicable', reason: '当前生产单未关联裁片放行矩阵。' }
+  if (input.direction !== -1) return { status: 'rejected', reason: '铺布冲销只能使用反向冲销口径。' }
+  if (!input.adjustmentEventId.trim() || !input.spreadingOrderNo.trim()) return { status: 'rejected', reason: '冲销事件 ID 和原铺布单号不能为空。' }
+  if (!input.operator.trim() || !input.reason.trim() || !input.occurredAt.trim()) return { status: 'rejected', reason: '铺布冲销必须填写原因、操作人和时间。' }
+  const referencedFacts = item.input.facts.filter((fact) => fact.spreadingOrderNo === input.spreadingOrderNo && fact.direction === '正向')
+  if (!referencedFacts.length) {
+    const existing = item.eventState.events.find((event) => event.eventId === input.adjustmentEventId)
+    return existing ? { status: 'idempotent', reason: '该铺布冲销事件已经处理。' } : { status: 'not-applicable', reason: '原铺布单没有可冲销的有效裁片事实。' }
+  }
+  const declaredCutOrders = new Set([...(input.sourceCutOrderIds || []), ...(input.sourceCutOrderNos || [])].map((value) => value.trim()).filter(Boolean))
+  if (declaredCutOrders.size && referencedFacts.some((fact) => !declaredCutOrders.has(fact.cutOrderId || '') && !declaredCutOrders.has(fact.cutOrderNo || ''))) {
+    return { status: 'rejected', reason: '冲销来源裁片单引用与原铺布事实不一致。' }
+  }
   const event: MatrixEvent = {
     eventId: input.adjustmentEventId,
     eventType: '铺布冲销',
@@ -658,9 +677,10 @@ export function recordSpreadingReleaseAdjustment(input: SpreadingReleaseAdjustme
     reason: input.reason,
     spreadingOrderNo: input.spreadingOrderNo,
   }
-  appendRepositoryEvent(item, event, () => {
-    const originalFacts = item.input.facts.filter((fact) => fact.spreadingOrderNo === input.spreadingOrderNo && fact.direction === '正向')
-    item.input.facts.push(...originalFacts.map((fact) => ({
+  const existingEvent = item.eventState.events.find((candidate) => candidate.eventId === event.eventId)
+  if (existingEvent) return { status: 'idempotent', reason: '该铺布冲销事件已经处理。' }
+  const applied = appendRepositoryEvent(item, event, () => {
+    item.input.facts.push(...referencedFacts.map((fact) => ({
       ...fact,
       factId: `${fact.factId}:adjust:${input.adjustmentEventId}`,
       sourceEventId: `${fact.sourceEventId}:adjust:${input.adjustmentEventId}`,
@@ -668,6 +688,9 @@ export function recordSpreadingReleaseAdjustment(input: SpreadingReleaseAdjustme
       occurredAt: input.occurredAt,
     })))
   })
+  return applied
+    ? { status: 'applied', reason: `已对铺布单 ${input.spreadingOrderNo} 产生反向冲销，放行矩阵排除对应有效裁片贡献。` }
+    : { status: 'rejected', reason: '铺布冲销事件写入失败。' }
 }
 
 export function getCutPieceReleaseSummaryForProductionOrder(productionOrderId: string): CutPieceReleaseSummary | null {

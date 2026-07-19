@@ -618,6 +618,10 @@ export interface SpreadingSession {
   rolls: SpreadingRollRecord[]
   operators: SpreadingOperatorRecord[]
   operationLogs?: SpreadingOperationLog[]
+  voidedAt?: string
+  voidedBy?: string
+  voidReason?: string
+  voidEventId?: string
 }
 
 export interface SpreadingMarkerBedIdentitySource {
@@ -951,6 +955,7 @@ export const spreadingOrderStatusMeta: Record<SpreadingOrderStatusKey, { label: 
 
 export function resolveSpreadingOrderStatusFromSession(session: SpreadingSession | null | undefined): SpreadingOrderStatusKey {
   if (!session) return 'WAITING_SPREADING'
+  if (session.voidedAt) return 'CANCELED'
   if (session.status === 'IN_PROGRESS') return 'SPREADING'
   if (session.status === 'DONE') {
     if (session.cuttingStatus === 'CUTTING_DONE') return 'CUT_DONE'
