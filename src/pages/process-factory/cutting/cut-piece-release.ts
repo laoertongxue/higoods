@@ -71,10 +71,12 @@ interface CutPieceReleasePageState {
   activeColor: string | null
   targetMode: TargetMode
   targetDraft: Record<string, number>
-  activeMatrixVersion: number | null
+  currentMatrixVersion: number | null
+  targetBasisVersion: number | null
   activeCell: CutPieceReleaseActiveCell | null
   historyOpen: boolean
   historyPage: number
+  overlayReturnTestId: string | null
   feedback: CutPieceReleaseFeedback | null
 }
 
@@ -117,14 +119,56 @@ const state: CutPieceReleasePageState = {
   activeColor: null,
   targetMode: '查看',
   targetDraft: {},
-  activeMatrixVersion: null,
+  currentMatrixVersion: null,
+  targetBasisVersion: null,
   activeCell: null,
   historyOpen: false,
   historyPage: 1,
+  overlayReturnTestId: null,
   feedback: null,
 }
 
 let listPreferencesLoaded = false
+let scopedEscapeListenerInstalled = false
+
+function resetTransientPageState(): void {
+  state.keywordDraft = ''
+  state.keyword = ''
+  state.matrixStatus = '全部'
+  state.targetStatus = '全部'
+  state.page = 1
+  state.sort = null
+  state.columnSettingsOpen = false
+  state.draggedColumnKey = ''
+  state.activeRecordId = null
+  state.activeColor = null
+  state.targetMode = '查看'
+  state.targetDraft = {}
+  state.currentMatrixVersion = null
+  state.targetBasisVersion = null
+  state.activeCell = null
+  state.historyOpen = false
+  state.historyPage = 1
+  state.overlayReturnTestId = null
+  state.feedback = null
+}
+
+function ensureScopedEscapeListener(): void {
+  if (scopedEscapeListenerInstalled || typeof document === 'undefined') return
+  scopedEscapeListenerInstalled = true
+  document.addEventListener('keydown', (event) => {
+    if (
+      event.key !== 'Escape'
+      || !document.querySelector('[data-cut-piece-release-page]')
+      || !isCraftCuttingCutPieceReleaseDialogOpen()
+    ) return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.cutPieceReleaseAction = 'close-overlay'
+    handleCraftCuttingCutPieceReleaseEvent(fakeButton)
+  }, { capture: true })
+}
 
 function getListStorage(): Storage | null {
   try {
@@ -613,7 +657,7 @@ function renderTargetSummary(record: CutPieceReleaseRecord): string {
         <span class="font-medium text-rose-600">需补 ${counts.shortage} 个物料点</span>
         <span class="font-medium text-yellow-800">刚好 ${counts.exact} 个物料点</span>
         <span class="font-medium text-emerald-600">多余 ${counts.surplus} 个物料点</span>
-        <span class="font-medium text-slate-700">当前矩阵版本 V${state.activeMatrixVersion ?? 0}</span>
+        <span class="font-medium text-slate-700">目标依据版本 V${state.targetBasisVersion ?? 0}</span>
       </div>
       <div class="mt-4 flex justify-end gap-2">
         <button type="button" class="rounded-md border bg-white px-4 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="back-target-edit">返回修改</button>
@@ -631,10 +675,10 @@ function renderMatrixPanel(): string {
       <header class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 class="text-lg font-semibold">${escapeHtml(record.productionOrderNo)} 裁片放行矩阵</h2>
-          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.spuCode)} · ${escapeHtml(record.spuName)} · 当前版本 V${state.activeMatrixVersion ?? 0}</p>
+          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.spuCode)} · ${escapeHtml(record.spuName)} · 当前版本 V${state.currentMatrixVersion ?? 0}</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cut-piece-release-action="open-history">查看更新历史</button>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cut-piece-release-action="open-history" data-testid="cut-piece-release-open-history">查看更新历史</button>
           ${state.targetMode === '查看'
             ? '<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-skip-page-rerender="true" data-cut-piece-release-action="start-target">选择目标</button>'
             : state.targetMode === '编辑'
@@ -660,10 +704,10 @@ function renderCellDrawer(record: CutPieceReleaseRecord): string {
   return `
     <div class="fixed inset-0 z-50" data-testid="cut-piece-release-cell-drawer">
       <button type="button" class="absolute inset-0 w-full bg-black/45" aria-label="点击空白处返回" data-skip-page-rerender="true" data-cut-piece-release-action="close-cell"></button>
-      <aside class="absolute inset-y-0 right-0 w-full max-w-[560px] overflow-y-auto border-l bg-background shadow-2xl">
+      <aside class="absolute inset-y-0 right-0 w-full max-w-[560px] overflow-y-auto border-l bg-background shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="cut-piece-release-cell-drawer-title">
         <header class="sticky top-0 flex items-center justify-between border-b bg-background px-5 py-4">
-          <div><h2 class="text-lg font-semibold">裁片部位计算</h2><p class="text-sm text-muted-foreground">${escapeHtml(`${group.garmentColor} / ${state.activeCell.size} / ${displayMaterialName(row.materialId, row.materialName)}`)}</p></div>
-          <button type="button" class="rounded-md border px-3 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="close-cell">关闭部位详情</button>
+          <div><h2 class="text-lg font-semibold" id="cut-piece-release-cell-drawer-title">裁片部位计算</h2><p class="text-sm text-muted-foreground">${escapeHtml(`${group.garmentColor} / ${state.activeCell.size} / ${displayMaterialName(row.materialId, row.materialName)}`)}</p></div>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="close-cell" data-cut-piece-release-overlay-initial-focus>关闭部位详情</button>
         </header>
         <div class="space-y-3 p-5">
           ${cell.partCalculations.map((part) => `
@@ -690,10 +734,10 @@ function renderHistoryDrawer(record: CutPieceReleaseRecord): string {
   return `
     <div class="fixed inset-0 z-50" data-testid="cut-piece-release-history-drawer">
       <button type="button" class="absolute inset-0 w-full bg-black/45" aria-label="点击空白处返回" data-skip-page-rerender="true" data-cut-piece-release-action="close-history"></button>
-      <aside class="absolute inset-y-0 right-0 w-full max-w-[720px] overflow-y-auto border-l bg-background shadow-2xl">
+      <aside class="absolute inset-y-0 right-0 w-full max-w-[720px] overflow-y-auto border-l bg-background shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="cut-piece-release-history-drawer-title">
         <header class="sticky top-0 flex items-center justify-between border-b bg-background px-5 py-4">
-          <div><h2 class="text-lg font-semibold">矩阵更新历史</h2><p class="text-sm text-muted-foreground">${escapeHtml(record.productionOrderNo)} · 所有事件均保留版本快照</p></div>
-          <button type="button" class="rounded-md border px-3 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="close-history">关闭更新历史</button>
+          <div><h2 class="text-lg font-semibold" id="cut-piece-release-history-drawer-title">矩阵更新历史</h2><p class="text-sm text-muted-foreground">${escapeHtml(record.productionOrderNo)} · 所有事件均保留版本快照</p></div>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="close-history" data-cut-piece-release-overlay-initial-focus>关闭更新历史</button>
         </header>
         <div class="space-y-3 p-5">
           ${rows.map((version) => `
@@ -771,17 +815,34 @@ function refreshOverlay(): void {
   setReleaseRegion('overlay', renderListOverlay())
 }
 
+function focusOverlayInitialControl(): void {
+  queueMicrotask(() => {
+    document.querySelector<HTMLElement>('[data-cut-piece-release-overlay-initial-focus]')?.focus()
+  })
+}
+
+function restoreOverlayTriggerFocus(testId: string | null): void {
+  if (!testId) return
+  queueMicrotask(() => {
+    const trigger = [...document.querySelectorAll<HTMLElement>('[data-testid]')]
+      .find((element) => element.dataset.testid === testId)
+    const fallback = document.querySelector<HTMLElement>('[data-cut-piece-release-action="open-matrix"]')
+    const focusTarget = trigger ?? fallback
+    focusTarget?.focus()
+  })
+}
+
 function refreshMatrix(): void {
   setReleaseRegion('matrix', renderMatrixPanel())
 }
 
 export function renderCraftCuttingCutPieceReleasePage(): string {
+  ensureScopedEscapeListener()
   ensureListPreferences()
   const hasMountedPageRoot = typeof document !== 'undefined'
     && Boolean(document.querySelector('[data-cut-piece-release-page]'))
   if (!hasMountedPageRoot) {
-    state.page = 1
-    state.sort = null
+    resetTransientPageState()
   }
   const view = getListView()
   const columnSettingsButton = withSkipPageRerender(renderSecondaryButton(
@@ -920,15 +981,18 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     state.activeColor = null
     state.targetMode = '查看'
     state.targetDraft = {}
-    state.activeMatrixVersion = null
+    state.currentMatrixVersion = null
+    state.targetBasisVersion = null
     state.activeCell = null
     state.historyOpen = false
     state.historyPage = 1
     const record = getActiveRecord()
     state.activeColor = record?.matrix.colorGroups[0]?.garmentColor ?? null
-    state.activeMatrixVersion = record
+    const latestVersion = record
       ? listCutPieceReleaseMatrixVersions(record.productionOrderId).at(-1)?.version ?? null
       : null
+    state.currentMatrixVersion = latestVersion
+    state.targetBasisVersion = latestVersion
     const productionOrderNo = listCutPieceReleaseRecords()
       .find((record) => record.recordId === state.activeRecordId)?.productionOrderNo
     state.feedback = {
@@ -979,13 +1043,29 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
   }
   if (action === 'save-target') {
     const record = getActiveRecord()
-    if (!record || state.activeMatrixVersion === null) return true
+    if (!record || state.targetBasisVersion === null) return true
+    const versionsBeforeSave = listCutPieceReleaseMatrixVersions(record.productionOrderId)
+    state.currentMatrixVersion = versionsBeforeSave.at(-1)?.version ?? state.currentMatrixVersion
+    const hasNewBusinessFact = versionsBeforeSave.some((version) => (
+      version.version > state.targetBasisVersion!
+      && version.eventType !== '目标确认'
+    ))
+    if (hasNewBusinessFact) {
+      state.feedback = { tone: 'warning', message: '当前裁片矩阵版本已变化，请刷新后重新确认目标。' }
+      refreshFeedback()
+      refreshList()
+      refreshMatrix()
+      return true
+    }
     const result = confirmCutPieceReleaseTarget({
       productionOrderId: record.productionOrderId,
-      matrixVersion: state.activeMatrixVersion,
+      matrixVersion: state.targetBasisVersion,
       colorSizeTargets: { ...state.targetDraft },
       confirmedBy: '裁床文员 Siti',
     })
+    if (result.snapshot) state.targetBasisVersion = result.snapshot.matrixVersion
+    state.currentMatrixVersion = listCutPieceReleaseMatrixVersions(record.productionOrderId).at(-1)?.version
+      ?? state.currentMatrixVersion
     state.feedback = result.ok
       ? {
           tone: 'success',
@@ -1000,28 +1080,40 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     return true
   }
   if (action === 'open-cell') {
+    state.overlayReturnTestId = actionNode.dataset.testid || null
+    state.historyOpen = false
     state.activeCell = {
       garmentColor: actionNode.dataset.cellColor || '',
       size: actionNode.dataset.cellSize || '',
       materialId: actionNode.dataset.cellMaterialId || '',
     }
     refreshOverlay()
+    focusOverlayInitialControl()
     return true
   }
   if (action === 'close-cell') {
+    const returnTestId = state.overlayReturnTestId
     state.activeCell = null
+    state.overlayReturnTestId = null
     refreshOverlay()
+    restoreOverlayTriggerFocus(returnTestId)
     return true
   }
   if (action === 'open-history') {
+    state.overlayReturnTestId = actionNode.dataset.testid || null
+    state.activeCell = null
     state.historyOpen = true
     state.historyPage = 1
     refreshOverlay()
+    focusOverlayInitialControl()
     return true
   }
   if (action === 'close-history') {
+    const returnTestId = state.overlayReturnTestId
     state.historyOpen = false
+    state.overlayReturnTestId = null
     refreshOverlay()
+    restoreOverlayTriggerFocus(returnTestId)
     return true
   }
   if (action === 'history-prev' || action === 'history-next') {
@@ -1035,10 +1127,13 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     return true
   }
   if (action === 'close-column-settings' || action === 'close-overlay') {
+    const returnTestId = state.overlayReturnTestId
     state.columnSettingsOpen = false
     state.activeCell = null
     state.historyOpen = false
+    state.overlayReturnTestId = null
     refreshOverlay()
+    restoreOverlayTriggerFocus(returnTestId)
     return true
   }
   if (action === 'toggle-column-visibility') {

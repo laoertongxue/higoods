@@ -52,8 +52,14 @@ assert.match(cutPieceReleasePageSource, /data-testid="cut-piece-release-color-ma
 assert.match(cutPieceReleasePageSource, /data-testid="cell-\$\{escapeHtml\(group\.garmentColor\)\}-\$\{escapeHtml\(size\)\}-\$\{escapeHtml\(materialId\)\}"/, '矩阵单元格必须提供稳定测试与交互标识')
 assert.match(cutPieceReleasePageSource, /data-testid="candidate-\$\{escapeHtml\(group\.garmentColor\)\}-\$\{escapeHtml\(size\)\}-\$\{escapeHtml\(materialId\)\}"/, '目标候选必须提供稳定标识')
 assert.match(cutPieceReleasePageSource, /confirmCutPieceReleaseTarget\(/, '保存目标必须调用公开仓储 API')
+assert.match(cutPieceReleasePageSource, /currentMatrixVersion/, '页面必须单独维护公开仓储当前矩阵版本')
+assert.match(cutPieceReleasePageSource, /targetBasisVersion/, '页面必须单独维护目标依据版本')
+assert.match(cutPieceReleasePageSource, /目标依据版本 V/, '目标确认摘要必须明确展示目标依据版本')
+assert.match(cutPieceReleasePageSource, /resetTransientPageState\(\)/, 'SPA 重新进入页面必须重置瞬态操作状态')
 assert.match(cutPieceReleasePageSource, /data-testid="cut-piece-release-cell-drawer"/, '裁片部位计算必须在单元格抽屉展示')
 assert.match(cutPieceReleasePageSource, /data-testid="cut-piece-release-history-drawer"/, '矩阵历史必须在分页抽屉展示')
+assert.match(cutPieceReleasePageSource, /role="dialog" aria-modal="true" aria-labelledby="cut-piece-release-cell-drawer-title"/, '部位抽屉必须提供对话框语义')
+assert.match(cutPieceReleasePageSource, /role="dialog" aria-modal="true" aria-labelledby="cut-piece-release-history-drawer-title"/, '历史抽屉必须提供对话框语义')
 assert.doesNotMatch(cutPieceReleasePageSource, /input[^>]+type="number"/, '目标选择禁止任意数字输入')
 assert.equal(
   fcsHandlersSource.match(/handleCraftCuttingCutPieceReleaseEvent\(target, event\)/g)?.length,
