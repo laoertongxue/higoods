@@ -7,6 +7,12 @@ import type { CuttingOrderProgressRecord } from './types.ts'
 
 export const CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY = 'cuttingCutOrderCloseRecords'
 export const CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY = 'cuttingCutOrderReopenRecords'
+const CUTTING_CUT_ORDER_CLOSE_RECORD_KEY_PREFIX = `${CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY}:record:`
+const CUTTING_CUT_ORDER_CLOSE_DELETED_KEY_PREFIX = `${CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY}:deleted:`
+const CUTTING_CUT_ORDER_REOPEN_RECORD_KEY_PREFIX = `${CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY}:record:`
+const CUTTING_CUT_ORDER_REOPEN_DELETED_KEY_PREFIX = `${CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY}:deleted:`
+
+export type CutOrderLifecycleStorage = Pick<Storage, 'getItem' | 'setItem'> & Partial<Pick<Storage, 'removeItem' | 'key' | 'length'>>
 
 export type CutOrderCloseReasonCode = NonNullable<CuttingOrderProgressRecord['closeReasonCode']>
 export type CutOrderCloseSourceType = '差异确认' | '人工关闭' | '生产单取消' | '款式取消' | '其他来源'
@@ -236,11 +242,67 @@ export function serializeCutOrderCloseRecordsStorage(records: CutOrderCloseRecor
   return JSON.stringify(records)
 }
 
+function listStorageKeys(storage: CutOrderLifecycleStorage | null, prefix: string): string[] {
+  if (!storage || typeof storage.key !== 'function' || typeof storage.length !== 'number') return []
+  const keys: string[] = []
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index)
+    if (key?.startsWith(prefix)) keys.push(key)
+  }
+  return keys.sort((left, right) => left.localeCompare(right, 'zh-CN'))
+}
+
+function closeRecordStorageKey(recordId: string): string {
+  return `${CUTTING_CUT_ORDER_CLOSE_RECORD_KEY_PREFIX}${encodeURIComponent(recordId)}`
+}
+
+function closeDeletedStorageKey(recordId: string): string {
+  return `${CUTTING_CUT_ORDER_CLOSE_DELETED_KEY_PREFIX}${encodeURIComponent(recordId)}`
+}
+
+function parseJournalRecord<T>(raw: string | null, normalize: (value: unknown) => T | null): T | null {
+  if (!raw) return null
+  try {
+    return normalize(JSON.parse(raw))
+  } catch {
+    return null
+  }
+}
+
+function listJournalCloseRecords(storage: CutOrderLifecycleStorage | null): CutOrderCloseRecord[] {
+  return listStorageKeys(storage, CUTTING_CUT_ORDER_CLOSE_RECORD_KEY_PREFIX)
+    .map((key) => parseJournalRecord(storage?.getItem(key) || null, normalizeCloseRecord))
+    .filter((record): record is CutOrderCloseRecord => record !== null)
+}
+
+function listDeletedCloseRecordIds(storage: CutOrderLifecycleStorage | null): Set<string> {
+  return new Set(listStorageKeys(storage, CUTTING_CUT_ORDER_CLOSE_DELETED_KEY_PREFIX)
+    .map((key) => storage?.getItem(key) || '')
+    .filter(Boolean))
+}
+
+function mergeCloseRecords(records: CutOrderCloseRecord[], deletedIds: Set<string>): CutOrderCloseRecord[] {
+  const byId = new Map<string, CutOrderCloseRecord>()
+  records.forEach((record) => {
+    if (!deletedIds.has(record.closeRecordId)) byId.set(record.closeRecordId, record)
+  })
+  const operationKeys = new Set<string>()
+  return [...byId.values()].filter((record) => {
+    if (!record.operationKey) return true
+    if (operationKeys.has(record.operationKey)) return false
+    operationKeys.add(record.operationKey)
+    return true
+  })
+}
+
 export function listStoredCutOrderCloseRecords(
-  storage: Pick<Storage, 'getItem'> | null = typeof localStorage === 'undefined' ? null : localStorage,
+  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
 ): CutOrderCloseRecord[] {
   if (!storage || typeof storage.getItem !== 'function') return []
-  return deserializeCutOrderCloseRecordsStorage(storage.getItem(CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY))
+  return mergeCloseRecords([
+    ...deserializeCutOrderCloseRecordsStorage(storage.getItem(CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY)),
+    ...listJournalCloseRecords(storage),
+  ], listDeletedCloseRecordIds(storage))
 }
 
 export function saveStoredCutOrderCloseRecords(
@@ -250,8 +312,6 @@ export function saveStoredCutOrderCloseRecords(
   if (!storage || typeof storage.setItem !== 'function') return
   storage.setItem(CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY, serializeCutOrderCloseRecordsStorage(records))
 }
-
-export type CutOrderLifecycleStorage = Pick<Storage, 'getItem' | 'setItem'>
 
 export interface CutOrderLifecycleWriteResult<T> {
   ok: boolean
@@ -337,7 +397,13 @@ export function upsertStoredCutOrderCloseRecord(
       const idempotent = sameLifecycleRecord(existing, record)
       return { ok: idempotent, record: existing, idempotent, conflict: !idempotent }
     }
-    saveStoredCutOrderCloseRecords([...records, record], storage)
+    if (!storage) return { ok: false, record, idempotent: false, conflict: true }
+    const deletedKey = closeDeletedStorageKey(record.closeRecordId)
+    if (typeof storage.removeItem === 'function') storage.removeItem(deletedKey)
+    else storage.setItem(deletedKey, '')
+    storage.setItem(closeRecordStorageKey(record.closeRecordId), JSON.stringify(record))
+    saveStoredCutOrderCloseRecords(listStoredCutOrderCloseRecords(storage), storage)
+    saveStoredCutOrderCloseRecords(listStoredCutOrderCloseRecords(storage), storage)
     const verified = listStoredCutOrderCloseRecords(storage)
     const stored = record.operationKey
       ? verified.find((item) => item.operationKey === record.operationKey)
@@ -353,10 +419,13 @@ export function removeStoredCutOrderCloseRecord(
 ): boolean {
   const key = closeRecordId.trim()
   if (!key) return false
+  if (!storage) return false
   const records = listStoredCutOrderCloseRecords(storage)
-  const nextRecords = records.filter((item) => item.closeRecordId !== key)
-  if (nextRecords.length === records.length) return false
-  saveStoredCutOrderCloseRecords(nextRecords, storage)
+  if (!records.some((item) => item.closeRecordId === key)) return false
+  storage.setItem(closeDeletedStorageKey(key), key)
+  storage.removeItem?.(closeRecordStorageKey(key))
+  saveStoredCutOrderCloseRecords(listStoredCutOrderCloseRecords(storage), storage)
+  saveStoredCutOrderCloseRecords(listStoredCutOrderCloseRecords(storage), storage)
   return true
 }
 
@@ -397,11 +466,48 @@ export function serializeCutOrderReopenRecordsStorage(records: CutOrderReopenRec
   return JSON.stringify(records)
 }
 
+function reopenRecordStorageKey(recordId: string): string {
+  return `${CUTTING_CUT_ORDER_REOPEN_RECORD_KEY_PREFIX}${encodeURIComponent(recordId)}`
+}
+
+function reopenDeletedStorageKey(recordId: string): string {
+  return `${CUTTING_CUT_ORDER_REOPEN_DELETED_KEY_PREFIX}${encodeURIComponent(recordId)}`
+}
+
+function listJournalReopenRecords(storage: CutOrderLifecycleStorage | null): CutOrderReopenRecord[] {
+  return listStorageKeys(storage, CUTTING_CUT_ORDER_REOPEN_RECORD_KEY_PREFIX)
+    .map((key) => parseJournalRecord(storage?.getItem(key) || null, normalizeReopenRecord))
+    .filter((record): record is CutOrderReopenRecord => record !== null)
+}
+
+function listDeletedReopenRecordIds(storage: CutOrderLifecycleStorage | null): Set<string> {
+  return new Set(listStorageKeys(storage, CUTTING_CUT_ORDER_REOPEN_DELETED_KEY_PREFIX)
+    .map((key) => storage?.getItem(key) || '')
+    .filter(Boolean))
+}
+
+function mergeReopenRecords(records: CutOrderReopenRecord[], deletedIds: Set<string>): CutOrderReopenRecord[] {
+  const byId = new Map<string, CutOrderReopenRecord>()
+  records.forEach((record) => {
+    if (!deletedIds.has(record.reopenRecordId)) byId.set(record.reopenRecordId, record)
+  })
+  const operationKeys = new Set<string>()
+  return [...byId.values()].filter((record) => {
+    if (!record.operationKey) return true
+    if (operationKeys.has(record.operationKey)) return false
+    operationKeys.add(record.operationKey)
+    return true
+  })
+}
+
 export function listStoredCutOrderReopenRecords(
-  storage: Pick<Storage, 'getItem'> | null = typeof localStorage === 'undefined' ? null : localStorage,
+  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
 ): CutOrderReopenRecord[] {
   if (!storage || typeof storage.getItem !== 'function') return []
-  return deserializeCutOrderReopenRecordsStorage(storage.getItem(CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY))
+  return mergeReopenRecords([
+    ...deserializeCutOrderReopenRecordsStorage(storage.getItem(CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY)),
+    ...listJournalReopenRecords(storage),
+  ], listDeletedReopenRecordIds(storage))
 }
 
 export function saveStoredCutOrderReopenRecords(
@@ -439,7 +545,13 @@ export function upsertStoredCutOrderReopenRecord(
       const idempotent = sameLifecycleRecord(existing, record)
       return { ok: idempotent, record: existing, idempotent, conflict: !idempotent }
     }
-    saveStoredCutOrderReopenRecords([...records, record], storage)
+    if (!storage) return { ok: false, record, idempotent: false, conflict: true }
+    const deletedKey = reopenDeletedStorageKey(record.reopenRecordId)
+    if (typeof storage.removeItem === 'function') storage.removeItem(deletedKey)
+    else storage.setItem(deletedKey, '')
+    storage.setItem(reopenRecordStorageKey(record.reopenRecordId), JSON.stringify(record))
+    saveStoredCutOrderReopenRecords(listStoredCutOrderReopenRecords(storage), storage)
+    saveStoredCutOrderReopenRecords(listStoredCutOrderReopenRecords(storage), storage)
     const verified = listStoredCutOrderReopenRecords(storage)
     const stored = record.operationKey
       ? verified.find((item) => item.operationKey === record.operationKey)
@@ -455,10 +567,13 @@ export function removeStoredCutOrderReopenRecord(
 ): boolean {
   const key = reopenRecordId.trim()
   if (!key) return false
+  if (!storage) return false
   const records = listStoredCutOrderReopenRecords(storage)
-  const nextRecords = records.filter((item) => item.reopenRecordId !== key)
-  if (nextRecords.length === records.length) return false
-  saveStoredCutOrderReopenRecords(nextRecords, storage)
+  if (!records.some((item) => item.reopenRecordId === key)) return false
+  storage.setItem(reopenDeletedStorageKey(key), key)
+  storage.removeItem?.(reopenRecordStorageKey(key))
+  saveStoredCutOrderReopenRecords(listStoredCutOrderReopenRecords(storage), storage)
+  saveStoredCutOrderReopenRecords(listStoredCutOrderReopenRecords(storage), storage)
   return true
 }
 

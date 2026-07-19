@@ -27,6 +27,8 @@ import {
   resetCutPieceReleasePrototypeStoreForTesting,
 } from '../src/data/fcs/cut-piece-release'
 import {
+  CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY,
+  CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY,
   createNextCutOrderCloseRecordIdentity,
   createNextCutOrderReopenRecordIdentity,
   listStoredCutOrderCloseRecords,
@@ -729,9 +731,27 @@ assert.deepEqual(getCutPieceReleaseMatrix(productionOrderId)?.colorGroups[0].com
 assert.deepEqual(getCutPieceReleaseMatrix(productionOrderId)?.colorGroups[0].materialRows.map((row) => row.cells.map((cell) => cell.availableGarmentQty)), matrixBeforeLate?.colorGroups[0].materialRows.map((row) => row.cells.map((cell) => cell.availableGarmentQty)), '重新打开不能把既有迟到事实加入物料可做数')
 
 class MemoryStorage {
-  private values = new Map<string, string>()
+  protected values = new Map<string, string>()
   getItem(key: string): string | null { return this.values.get(key) ?? null }
   setItem(key: string, value: string): void { this.values.set(key, value) }
+  removeItem(key: string): void { this.values.delete(key) }
+  get length(): number { return this.values.size }
+  key(index: number): string | null { return [...this.values.keys()][index] ?? null }
+}
+
+class InterleavingStorage extends MemoryStorage {
+  private nextSetHook: { key: string; callback: () => void } | null = null
+  beforeNextSet(key: string, callback: () => void): void {
+    this.nextSetHook = { key, callback }
+  }
+  override setItem(key: string, value: string): void {
+    const hook = this.nextSetHook
+    if (hook?.key === key) {
+      this.nextSetHook = null
+      hook.callback()
+    }
+    super.setItem(key, value)
+  }
 }
 const lifecycleStorage = new MemoryStorage()
 const closeIdentity1 = createNextCutOrderCloseRecordIdentity('cut-cycle', 'CUT-CYCLE', lifecycleStorage)
@@ -781,6 +801,53 @@ assert.equal(listStoredCutOrderCloseRecords(crossTabStorage).length, 1, '同 ope
 const nextOperation = { ...sameOperationB, operationKey: 'close:cut-cross-tab:prior:reopen-0002', closeRecordId: 'close:cut-cross-tab:cycle-0002-tab-b', closeRecordNo: 'CLOSE-CROSS-TAB-0002-B' } as CutOrderCloseRecord
 assert.equal(upsertStoredCutOrderCloseRecord(nextOperation, crossTabStorage).ok, true)
 assert.deepEqual(new Set(listStoredCutOrderCloseRecords(crossTabStorage).map((record) => record.operationKey)), new Set([sameOperationA.operationKey, nextOperation.operationKey]), '不同业务周期交错写入必须全部保留')
+
+const interleavedAppendStorage = new InterleavingStorage()
+const concurrentCloseA = { ...sameOperationA, operationKey: 'close:cut-concurrent-a:prior:none', cutOrderId: 'cut-concurrent-a', cutOrderNo: 'CUT-CONCURRENT-A', closeRecordId: 'close:cut-concurrent-a:cycle-0001-a', closeRecordNo: 'CLOSE-CONCURRENT-A-0001' } as CutOrderCloseRecord
+const concurrentCloseB = { ...sameOperationA, operationKey: 'close:cut-concurrent-b:prior:none', cutOrderId: 'cut-concurrent-b', cutOrderNo: 'CUT-CONCURRENT-B', closeRecordId: 'close:cut-concurrent-b:cycle-0001-b', closeRecordNo: 'CLOSE-CONCURRENT-B-0001' } as CutOrderCloseRecord
+interleavedAppendStorage.beforeNextSet(CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY, () => {
+  assert.equal(upsertStoredCutOrderCloseRecord(concurrentCloseB, interleavedAppendStorage).ok, true)
+})
+assert.equal(upsertStoredCutOrderCloseRecord(concurrentCloseA, interleavedAppendStorage).ok, true)
+assert.deepEqual(
+  new Set(listStoredCutOrderCloseRecords(interleavedAppendStorage).map((record) => record.closeRecordId)),
+  new Set([concurrentCloseA.closeRecordId, concurrentCloseB.closeRecordId]),
+  '关闭记录 A 保存期间另一页签已完成 B 写入时，A 不得覆盖 B',
+)
+
+const concurrentCloseC = { ...sameOperationA, operationKey: 'close:cut-concurrent-c:prior:none', cutOrderId: 'cut-concurrent-c', cutOrderNo: 'CUT-CONCURRENT-C', closeRecordId: 'close:cut-concurrent-c:cycle-0001-c', closeRecordNo: 'CLOSE-CONCURRENT-C-0001' } as CutOrderCloseRecord
+interleavedAppendStorage.beforeNextSet(CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY, () => {
+  assert.equal(upsertStoredCutOrderCloseRecord(concurrentCloseC, interleavedAppendStorage).ok, true)
+})
+assert.equal(removeStoredCutOrderCloseRecord(concurrentCloseA.closeRecordId, interleavedAppendStorage), true)
+assert.deepEqual(
+  new Set(listStoredCutOrderCloseRecords(interleavedAppendStorage).map((record) => record.closeRecordId)),
+  new Set([concurrentCloseB.closeRecordId, concurrentCloseC.closeRecordId]),
+  '精确回滚 A 期间另一页签追加 C 时，只能删 A，必须保留 B 和 C',
+)
+
+const interleavedReopenStorage = new InterleavingStorage()
+const concurrentReopenA = { ...reopenBase, operationKey: 'reopen:cut-concurrent-a:prior:close-a', cutOrderId: 'cut-concurrent-a', cutOrderNo: 'CUT-CONCURRENT-A', reopenRecordId: 'reopen:cut-concurrent-a:cycle-0001-a', reopenRecordNo: 'REOPEN-CONCURRENT-A-0001' } as CutOrderReopenRecord
+const concurrentReopenB = { ...reopenBase, operationKey: 'reopen:cut-concurrent-b:prior:close-b', cutOrderId: 'cut-concurrent-b', cutOrderNo: 'CUT-CONCURRENT-B', reopenRecordId: 'reopen:cut-concurrent-b:cycle-0001-b', reopenRecordNo: 'REOPEN-CONCURRENT-B-0001' } as CutOrderReopenRecord
+interleavedReopenStorage.beforeNextSet(CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY, () => {
+  assert.equal(upsertStoredCutOrderReopenRecord(concurrentReopenB, interleavedReopenStorage).ok, true)
+})
+assert.equal(upsertStoredCutOrderReopenRecord(concurrentReopenA, interleavedReopenStorage).ok, true)
+assert.deepEqual(
+  new Set(listStoredCutOrderReopenRecords(interleavedReopenStorage).map((record) => record.reopenRecordId)),
+  new Set([concurrentReopenA.reopenRecordId, concurrentReopenB.reopenRecordId]),
+  '重开记录不同裁片单跨页签交错追加必须全部保留',
+)
+const concurrentReopenC = { ...reopenBase, operationKey: 'reopen:cut-concurrent-c:prior:close-c', cutOrderId: 'cut-concurrent-c', cutOrderNo: 'CUT-CONCURRENT-C', reopenRecordId: 'reopen:cut-concurrent-c:cycle-0001-c', reopenRecordNo: 'REOPEN-CONCURRENT-C-0001' } as CutOrderReopenRecord
+interleavedReopenStorage.beforeNextSet(CUTTING_CUT_ORDER_REOPEN_RECORDS_STORAGE_KEY, () => {
+  assert.equal(upsertStoredCutOrderReopenRecord(concurrentReopenC, interleavedReopenStorage).ok, true)
+})
+assert.equal(removeStoredCutOrderReopenRecord(concurrentReopenA.reopenRecordId, interleavedReopenStorage), true)
+assert.deepEqual(
+  new Set(listStoredCutOrderReopenRecords(interleavedReopenStorage).map((record) => record.reopenRecordId)),
+  new Set([concurrentReopenB.reopenRecordId, concurrentReopenC.reopenRecordId]),
+  '重开回滚只能删除目标 ID，不得覆盖同时追加的其他裁片单记录',
+)
 
 const releaseDemoProgress = cuttingOrderProgressRecords.find((record) =>
   record.materialLines.some((line) => line.cutOrderId === 'cut-14671-b' && line.cutOrderNo === 'CUT14671-B'),
