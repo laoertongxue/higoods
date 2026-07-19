@@ -298,7 +298,27 @@ export function buildCutPieceReleaseHandoverSnapshot(input: CutPieceReleaseHando
   }
 }
 
-const cutPieceReleaseHandoverSnapshots = new Map<string, CutPieceReleaseHandoverSnapshot>()
+const CUT_PIECE_RELEASE_HANDOVER_SNAPSHOT_STORAGE_KEY = 'cutPieceReleaseHandoverSnapshots'
+
+function readHandoverSnapshotStorage(): Array<[string, CutPieceReleaseHandoverSnapshot]> {
+  try {
+    const raw = globalThis.localStorage?.getItem(CUT_PIECE_RELEASE_HANDOVER_SNAPSHOT_STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function persistHandoverSnapshotStorage(): void {
+  try {
+    globalThis.localStorage?.setItem(CUT_PIECE_RELEASE_HANDOVER_SNAPSHOT_STORAGE_KEY, JSON.stringify(Array.from(cutPieceReleaseHandoverSnapshots.entries())))
+  } catch {
+    // 原型运行环境可能禁用 localStorage；内存仓储仍保证当前页面幂等。
+  }
+}
+
+const cutPieceReleaseHandoverSnapshots = new Map<string, CutPieceReleaseHandoverSnapshot>(readHandoverSnapshotStorage())
 
 /** 交接快照按快照号幂等写入，刷新页面仍可从本地原型仓储恢复。 */
 export function createCutPieceReleaseHandoverSnapshot(input: CutPieceReleaseHandoverSnapshotInput): CutPieceReleaseHandoverSnapshot {
@@ -306,11 +326,20 @@ export function createCutPieceReleaseHandoverSnapshot(input: CutPieceReleaseHand
   if (existing) return structuredClone(existing)
   const snapshot = buildCutPieceReleaseHandoverSnapshot(input)
   cutPieceReleaseHandoverSnapshots.set(input.snapshotId, structuredClone(snapshot))
+  persistHandoverSnapshotStorage()
   return structuredClone(snapshot)
 }
 
 export function getCutPieceReleaseHandoverSnapshot(snapshotId: string): CutPieceReleaseHandoverSnapshot | null {
-  const snapshot = cutPieceReleaseHandoverSnapshots.get(snapshotId)
+  let snapshot = cutPieceReleaseHandoverSnapshots.get(snapshotId)
+  if (!snapshot) {
+    const staticOrder = handoverOrders.find((order) => order.cutPieceReleaseSnapshot?.releaseTargetSnapshotId === snapshotId)
+    if (staticOrder?.cutPieceReleaseSnapshot) {
+      snapshot = structuredClone(staticOrder.cutPieceReleaseSnapshot)
+      cutPieceReleaseHandoverSnapshots.set(snapshotId, snapshot)
+      persistHandoverSnapshotStorage()
+    }
+  }
   return snapshot ? structuredClone(snapshot) : null
 }
 
@@ -686,6 +715,22 @@ export const handoverOrders: HandoverOrder[] = [
     updatedAt: '2026-04-24 10:45',
   },
 ]
+
+// 静态演示交出单也走统一快照仓储，刷新后由 localStorage 恢复。
+handoverOrders.forEach((order) => {
+  const snapshot = order.cutPieceReleaseSnapshot
+  if (snapshot) createCutPieceReleaseHandoverSnapshot({
+    snapshotId: snapshot.releaseTargetSnapshotId,
+    productionOrderId: snapshot.productionOrderId,
+    batchNo: snapshot.batchNo,
+    completeKitQtyByColorSize: snapshot.completeKitQtyByColorSize,
+    surplusPieces: snapshot.surplusPieces,
+    matrixVersion: snapshot.matrixVersion,
+    targetBasisVersion: snapshot.targetBasisVersion,
+    targetConfirmedAt: snapshot.targetConfirmedAt,
+    frozenSourceTips: snapshot.frozenSourceTips,
+  })
+})
 
 export const handoverRecords: HandoverRecord[] = [
   {

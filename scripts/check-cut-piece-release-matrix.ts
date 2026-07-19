@@ -47,7 +47,7 @@ import {
   cuttingOrderProgressRecords,
   updateCuttingOrderProgressWebStage,
 } from '../src/data/fcs/cutting/order-progress'
-import { buildCutPieceReleaseHandoverSnapshot, createCutPieceReleaseHandoverSnapshot } from '../src/data/fcs/cutting/handover-orders'
+import { buildCutPieceReleaseHandoverSnapshot, createCutPieceReleaseHandoverSnapshot, getCutPieceReleaseHandoverSnapshot } from '../src/data/fcs/cutting/handover-orders'
 
 const productionOrderId = 'po-14671'
 
@@ -69,6 +69,7 @@ assert.deepEqual(createCutPieceReleaseHandoverSnapshot({
   snapshotId: 'target-po14671-v12', productionOrderId, batchNo: 'HO-PO14671-01',
   completeKitQtyByColorSize: { 'Black::M': 999 }, surplusPieces: [],
 }).minimumReturnQtyByColorSize, { 'Black::M': 200, 'Black::L': 350, 'Black::XL': 500 }, '同一快照重复创建必须幂等返回首次内容')
+assert.equal(getCutPieceReleaseHandoverSnapshot('cpr-target-po14671-v1')?.productionOrderId, 'po-14671', '静态交出单快照必须注册到统一仓储 API')
 
 const cutPieceReleasePageSource = readFileSync(
   resolve(process.cwd(), 'src/pages/process-factory/cutting/cut-piece-release.ts'),
@@ -97,6 +98,8 @@ assert.match(handoverPageSource, /裁片放行依据/, '交接详情必须展示
 assert.match(handoverPageSource, /最低应回数量/, '交接详情必须展示最低应回数量')
 assert.match(handoverPageSource, /多余裁片/, '交接详情必须展示多余裁片')
 assert.match(sewingDispatchSource, /当前齐套/, '车缝摘要必须使用当前齐套事实')
+assert.match(sewingDispatchSource, /renderCutPieceReleaseSummary\(task\)/, '车缝任务列表必须真实接入裁片放行摘要')
+assert.doesNotMatch(sewingDispatchSource, /releaseSummary\?\.decision|summary\.decision|summary\.releaseQty|summary\.riskNote/, '车缝页面不得访问已移除的旧放行字段')
 assert.doesNotMatch(sewingDispatchSource, /function renderCutPieceReleaseSummary[\s\S]{0,1800}renderBadge\(summary\.decision/, '车缝摘要不得继续显示旧通用决策徽标')
 assert.match(cutOrderReleaseIntegrationSource, /getCutOrderReleaseImpactSummary\(context\.cutOrderNo\)/, '关闭页必须读取放行仓储影响摘要')
 assert.match(cutOrderReleaseIntegrationSource, /activeSpreadingOrderNos\.length/, '关闭页必须按进行中铺布单阻断关闭')
