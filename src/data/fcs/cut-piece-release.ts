@@ -89,6 +89,10 @@ export interface CutPieceReleaseMatrixVersion {
   eventType: MatrixEventType
   occurredAt: string
   operator: string
+  reason?: string
+  cutOrderId?: string
+  cutOrderNo?: string
+  spreadingOrderNo?: string
   matrixSnapshot: CutPieceReleaseMatrix
 }
 
@@ -116,6 +120,7 @@ export interface ConfirmReleaseTargetResult {
 }
 
 export interface CutOrderReleaseStatusChangeInput {
+  eventId: string
   cutOrderId: string
   cutOrderNo: string
   status: '已冻结' | '持续更新'
@@ -151,7 +156,7 @@ const targetSnapshots = new Map<string, CutPieceReleaseTargetSnapshot>()
 const releaseRepository = new Map<string, ReleaseRepositoryItem>()
 
 function clone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T
+  return structuredClone(value)
 }
 
 function safeQuantity(value: number | null | undefined): number {
@@ -183,6 +188,10 @@ function addVersion(item: ReleaseRepositoryItem, event: MatrixEvent): void {
     eventType: event.eventType,
     occurredAt: event.occurredAt,
     operator: event.operator,
+    reason: event.reason,
+    cutOrderId: event.cutOrderId,
+    cutOrderNo: event.cutOrderNo,
+    spreadingOrderNo: event.spreadingOrderNo,
     matrixSnapshot,
   })
   item.latestUpdateAt = event.occurredAt
@@ -340,6 +349,12 @@ function bootstrapRepository(): void {
 
 bootstrapRepository()
 
+export function resetCutPieceReleasePrototypeStoreForTesting(): void {
+  releaseRepository.clear()
+  targetSnapshots.clear()
+  bootstrapRepository()
+}
+
 export function listCutPieceReleaseRecords(): CutPieceReleaseRecord[] {
   return [...releaseRepository.values()].map((item) => clone(buildReleaseRecord(item)))
 }
@@ -361,10 +376,22 @@ export function listCutPieceReleaseMatrixVersions(productionOrderId: string): Cu
 export function confirmCutPieceReleaseTarget(input: ConfirmReleaseTargetInput): ConfirmReleaseTargetResult {
   const item = releaseRepository.get(input.productionOrderId)
   if (!item) return { ok: false, message: '未找到生产单裁片矩阵。', snapshot: null }
-  const currentVersion = item.versions.at(-1)?.version ?? 0
-  if (input.matrixVersion !== currentVersion) return { ok: false, message: '当前裁片矩阵版本已变化，请刷新后重新确认目标。', snapshot: null }
   const confirmedBy = input.confirmedBy.trim()
   if (!confirmedBy) return { ok: false, message: '请填写目标确认人。', snapshot: null }
+  const existingSnapshot = [...targetSnapshots.values()].find((snapshot) => (
+    snapshot.productionOrderId === input.productionOrderId && snapshot.matrixVersion === input.matrixVersion
+  ))
+  if (existingSnapshot) {
+    const existingTargets = existingSnapshot.targetPreview.colorSizeTargets
+    const sameTargets = Object.keys(existingTargets).length === Object.keys(input.colorSizeTargets).length
+      && Object.entries(existingTargets).every(([key, value]) => input.colorSizeTargets[key] === value)
+    if (sameTargets && existingSnapshot.confirmedBy === confirmedBy) {
+      return { ok: true, message: '裁片目标已确认，返回原目标快照。', snapshot: clone(existingSnapshot) }
+    }
+    return { ok: false, message: '该裁片矩阵版本的目标确认内容冲突。', snapshot: null }
+  }
+  const currentVersion = item.versions.at(-1)?.version ?? 0
+  if (input.matrixVersion !== currentVersion) return { ok: false, message: '当前裁片矩阵版本已变化，请刷新后重新确认目标。', snapshot: null }
   try {
     const expectedKeys = item.currentMatrix.colorGroups.flatMap((group) => group.sizes.map((size) => targetKey(group.garmentColor, size)))
     if (expectedKeys.length === 0 || expectedKeys.some((key) => !(key in input.colorSizeTargets)) || Object.keys(input.colorSizeTargets).some((key) => !expectedKeys.includes(key))) {
@@ -404,18 +431,27 @@ export function getCutPieceReleaseTargetSnapshot(snapshotId: string): CutPieceRe
 }
 
 export function recordCutOrderReleaseStatusChange(input: CutOrderReleaseStatusChangeInput): void {
-  const item = [...releaseRepository.values()].find((candidate) => candidate.input.facts.some((fact) => fact.cutOrderId === input.cutOrderId || fact.cutOrderNo === input.cutOrderNo))
+  const matchesInput = (fact: CutPieceFact) => (
+    (Boolean(input.cutOrderId) && fact.cutOrderId === input.cutOrderId)
+    || (Boolean(input.cutOrderNo) && fact.cutOrderNo === input.cutOrderNo)
+  )
+  const item = [...releaseRepository.values()].find((candidate) => candidate.input.facts.some(matchesInput))
   if (!item) return
+  const matchedFacts = item.input.facts.filter(matchesInput)
+  if (item.eventState.events.some((event) => event.eventId === input.eventId) || matchedFacts.every((fact) => fact.sourceStatus === input.status)) return
   const event: MatrixEvent = {
-    eventId: `cut-order:${input.cutOrderId}:${input.status}:${input.occurredAt}:${input.operator}`,
+    eventId: input.eventId,
     eventType: input.status === '已冻结' ? '裁片单冻结' : '裁片单恢复',
     productionOrderId: item.input.productionOrderId,
     occurredAt: input.occurredAt,
     operator: input.operator,
+    reason: input.reason,
+    cutOrderId: input.cutOrderId || undefined,
+    cutOrderNo: input.cutOrderNo || undefined,
   }
   appendRepositoryEvent(item, event, () => {
     item.input.facts.forEach((fact) => {
-      if (fact.cutOrderId === input.cutOrderId || fact.cutOrderNo === input.cutOrderNo) fact.sourceStatus = input.status
+      if (matchesInput(fact)) fact.sourceStatus = input.status
     })
   })
 }
@@ -429,6 +465,8 @@ export function recordSpreadingReleaseAdjustment(input: SpreadingReleaseAdjustme
     productionOrderId: input.productionOrderId,
     occurredAt: input.occurredAt,
     operator: input.operator,
+    reason: input.reason,
+    spreadingOrderNo: input.spreadingOrderNo,
   }
   appendRepositoryEvent(item, event, () => {
     const originalFacts = item.input.facts.filter((fact) => fact.spreadingOrderNo === input.spreadingOrderNo && fact.direction === '正向')

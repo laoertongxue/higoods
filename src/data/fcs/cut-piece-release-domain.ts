@@ -121,6 +121,10 @@ export interface MatrixEvent {
   productionOrderId: string
   occurredAt: string
   operator: string
+  reason?: string
+  cutOrderId?: string
+  cutOrderNo?: string
+  spreadingOrderNo?: string
 }
 
 export interface MatrixEventState {
