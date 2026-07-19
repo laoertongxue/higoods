@@ -1,10 +1,17 @@
-import { cuttingOrderProgressRecords } from './cutting/order-progress.ts'
-import { listGeneratedCutOrderSourceRecords } from './cutting/generated-cut-orders.ts'
 import {
-  listSewingDispatchWorkbenchTasks,
-  type SewingDispatchWorkbenchTask,
-  type SewingDispatchWorkbenchRow,
-} from './sewing-dispatch-workbench.ts'
+  appendMatrixEvent,
+  buildReleaseMatrix,
+  buildTargetPreview,
+  createMatrixEventState,
+  type BuildReleaseMatrixInput,
+  type CutPieceFact,
+  type CutPieceReleaseMatrix,
+  type MatrixEvent,
+  type MatrixEventState,
+  type MatrixEventType,
+  type MatrixTargetStatus,
+  type ReleaseTargetPreview,
+} from './cut-piece-release-domain.ts'
 
 export type CutPieceReleaseDecision = '待判断' | '可以做' | '部分可以做' | '暂时不能做'
 
@@ -45,6 +52,12 @@ export interface CutPieceReleaseRecord {
   judgedBy: string
   judgedAt: string
   skuLines: CutPieceReleaseSkuLine[]
+  matrixStatus: CutPieceReleaseMatrix['calculationStatus']
+  targetStatus: MatrixTargetStatus
+  frozenCutOrderCount: number
+  shortageCellCount: number
+  latestUpdateAt: string
+  matrix: CutPieceReleaseMatrix
 }
 
 export interface CutPieceReleaseSummary {
@@ -63,289 +76,391 @@ export interface CutPieceReleaseSummary {
 export interface SaveCutPieceReleaseDecisionInput {
   recordId: string
   decision: CutPieceReleaseDecision
-  skuReleaseQuantities: Array<{
-    lineId: string
-    releaseQty: number
-  }>
+  skuReleaseQuantities: Array<{ lineId: string; releaseQty: number }>
   reason: string
   riskNote: string
   judgedBy: string
 }
 
-interface CutPieceReleaseOverride {
-  decision: CutPieceReleaseDecision
-  skuReleaseQuantities: Record<string, number>
+export interface CutPieceReleaseMatrixVersion {
+  version: number
+  productionOrderId: string
+  eventId: string
+  eventType: MatrixEventType
+  occurredAt: string
+  operator: string
+  matrixSnapshot: CutPieceReleaseMatrix
+}
+
+export interface CutPieceReleaseTargetSnapshot {
+  snapshotId: string
+  productionOrderId: string
+  matrixVersion: number
+  confirmedAt: string
+  confirmedBy: string
+  matrixSnapshot: CutPieceReleaseMatrix
+  targetPreview: ReleaseTargetPreview
+}
+
+export interface ConfirmReleaseTargetInput {
+  productionOrderId: string
+  matrixVersion: number
+  colorSizeTargets: Record<string, number>
+  confirmedBy: string
+}
+
+export interface ConfirmReleaseTargetResult {
+  ok: boolean
+  message: string
+  snapshot: CutPieceReleaseTargetSnapshot | null
+}
+
+export interface CutOrderReleaseStatusChangeInput {
+  cutOrderId: string
+  cutOrderNo: string
+  status: '已冻结' | '持续更新'
+  occurredAt: string
+  operator: string
   reason: string
-  riskNote: string
-  judgedBy: string
-  judgedAt: string
 }
 
-const releaseOverrides: Record<string, CutPieceReleaseOverride> = {}
-
-const checkerNames = ['裁床主管 王敏', '裁床主管 林涛', '裁床主管 Sari', '裁床主管 陈佳']
-const operatorNames = ['铺布操作员 阿迪', '裁剪操作员 Dimas', '裁剪操作员 小周', '铺布操作员 Rini']
-
-const decisionProfiles: Array<{
-  decision: CutPieceReleaseDecision
-  ratio: number
+export interface SpreadingReleaseAdjustmentInput {
+  adjustmentEventId: string
+  spreadingOrderNo: string
+  productionOrderId: string
+  direction: -1
+  occurredAt: string
+  operator: string
   reason: string
-  riskNote: string
-}> = [
-  {
-    decision: '部分可以做',
-    ratio: 0.62,
-    reason: '大身、前后片已完成裁剪并装袋，可先安排基础车缝；袖片仍在补裁，后续批次再交出。',
-    riskNote: '跟单需同步车缝厂先做大身工序，等待袖片到位后再合流。',
-  },
-  {
-    decision: '可以做',
-    ratio: 1,
-    reason: '本生产单当前待分配 SKU 的主要裁片均已有铺布完成裁剪记录，现场核对无明显错码错色。',
-    riskNote: '按现有齐套和辅料库存节奏安排即可。',
-  },
-  {
-    decision: '暂时不能做',
-    ratio: 0,
-    reason: '已裁片中存在颜色混包和尺码标识不清，裁床需要先复核菲票与中转袋。',
-    riskNote: '暂缓车缝分配，避免车缝厂收片后返工清点。',
-  },
-  {
-    decision: '待判断',
-    ratio: 0,
-    reason: '已满足铺布完成裁剪触发条件，等待裁床主管判断是否可以交给车缝做货。',
-    riskNote: '跟单暂不依据裁床判断推进车缝分配。',
-  },
-  {
-    decision: '部分可以做',
-    ratio: 0.45,
-    reason: '基础片可先做一批，口袋、贴布等小部件需要裁床二次清点后补交。',
-    riskNote: '只建议先启动首批车缝，剩余数量等待裁床补充确认。',
-  },
-]
-
-function roundQty(value: number): number {
-  if (!Number.isFinite(value) || value <= 0) return 0
-  return Math.round(value)
 }
 
-function nowTimestamp(date = new Date()): string {
-  return date.toISOString().replace('T', ' ').slice(0, 19)
+interface ReleaseRepositoryItem {
+  input: BuildReleaseMatrixInput
+  spuName: string
+  sourceCutOrderNos: string[]
+  eventState: MatrixEventState
+  currentMatrix: CutPieceReleaseMatrix
+  targetStatus: MatrixTargetStatus
+  versions: CutPieceReleaseMatrixVersion[]
+  latestSnapshotId: string | null
+  latestUpdateAt: string
 }
 
-function addHours(value: string, hours: number): string {
-  const normalized = value.includes('T') ? value : value.replace(' ', 'T')
-  const date = new Date(normalized)
-  if (Number.isNaN(date.getTime())) return value || nowTimestamp()
-  date.setHours(date.getHours() + hours)
-  return nowTimestamp(date)
+const deterministicConfirmedAt = '2026-06-03 16:00:00'
+const targetSnapshots = new Map<string, CutPieceReleaseTargetSnapshot>()
+const releaseRepository = new Map<string, ReleaseRepositoryItem>()
+
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
 }
 
-function clampReleaseQty(decision: CutPieceReleaseDecision, baseQty: number, ratio: number): number {
-  if (decision === '待判断' || decision === '暂时不能做') return 0
-  return Math.min(baseQty, Math.max(1, roundQty(baseQty * ratio)))
+function safeQuantity(value: number | null | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0
 }
 
-function getAccessoryReadyQty(row: SewingDispatchWorkbenchRow): number {
-  if (row.accessories.statusLabel === '不涉及') return row.remainingQty
-  return Math.min(row.remainingQty, row.accessories.completeQty)
+function targetKey(garmentColor: string, size: string): string {
+  return `${garmentColor}::${size}`
 }
 
-function getCutCompletedQty(row: SewingDispatchWorkbenchRow, ratio: number): number {
-  const knownReadyQty = Math.max(row.completeKitQty, row.normalPieces.completeQty, row.auxiliaryPieces.completeQty)
-  if (knownReadyQty > 0) return Math.min(row.remainingQty, knownReadyQty)
-  return Math.min(row.remainingQty, Math.max(1, roundQty(row.remainingQty * Math.max(ratio, 0.35))))
-}
-
-function buildReleaseSkuLines(task: SewingDispatchWorkbenchTask, decision: CutPieceReleaseDecision, ratio: number): CutPieceReleaseSkuLine[] {
-  return task.skuRows.map((row) => {
-    const cutCompletedQty = getCutCompletedQty(row, ratio)
-    const baseQty = Math.min(row.remainingQty, cutCompletedQty)
-    const releaseQty = clampReleaseQty(decision, baseQty, ratio)
-    return {
-      lineId: `${task.productionOrderId}:${row.skuCode}:${row.colorName}:${row.sizeCode}`,
-      skuCode: row.skuCode,
-      colorName: row.colorName,
-      sizeCode: row.sizeCode,
-      demandQty: row.demandQty,
-      remainingQty: row.remainingQty,
-      cutCompletedQty,
-      completeKitQty: row.completeKitQty,
-      accessoryReadyQty: getAccessoryReadyQty(row),
-      releaseQty,
-      reason: releaseQty > 0
-        ? '当前裁片实物可支持先做货'
-        : decision === '暂时不能做'
-          ? '裁床判断暂不交给车缝'
-          : '等待裁床主管判断',
-    }
+function rebuildMatrix(item: ReleaseRepositoryItem): CutPieceReleaseMatrix {
+  const matrix = buildReleaseMatrix({
+    ...item.input,
+    requirements: clone(item.input.requirements),
+    facts: clone(item.input.facts),
+    planQtyByColorSize: clone(item.input.planQtyByColorSize),
   })
+  matrix.targetStatus = item.targetStatus
+  item.currentMatrix = matrix
+  return matrix
 }
 
-function getSourceCutOrderNos(task: SewingDispatchWorkbenchTask): string[] {
-  return Array.from(new Set([
-    ...task.cutOrderClosure.items.map((item) => item.cutOrderNo),
-    ...listGeneratedCutOrderSourceRecords()
-      .filter((record) => record.productionOrderId === task.productionOrderId)
-      .map((record) => record.cutOrderNo),
-  ].filter(Boolean)))
+function addVersion(item: ReleaseRepositoryItem, event: MatrixEvent): void {
+  const matrixSnapshot = clone(rebuildMatrix(item))
+  item.versions.push({
+    version: item.versions.length + 1,
+    productionOrderId: item.input.productionOrderId,
+    eventId: event.eventId,
+    eventType: event.eventType,
+    occurredAt: event.occurredAt,
+    operator: event.operator,
+    matrixSnapshot,
+  })
+  item.latestUpdateAt = event.occurredAt
 }
 
-function getTriggerContext(task: SewingDispatchWorkbenchTask, index: number): Pick<CutPieceReleaseRecord, 'triggerCutOrderNo' | 'sourceCutOrderNos' | 'triggerAction' | 'triggerAt' | 'triggerOperator'> {
-  const sourceCutOrderNos = getSourceCutOrderNos(task)
-  const progress = cuttingOrderProgressRecords.find((record) => record.productionOrderId === task.productionOrderId)
-  const baseAt = progress?.spreadingStartedAt || progress?.lastFieldUpdateAt || '2026-03-18 14:00:00'
+function appendRepositoryEvent(item: ReleaseRepositoryItem, event: MatrixEvent, change: () => void): boolean {
+  if (!appendMatrixEvent(item.eventState, event)) return false
+  change()
+  if (item.latestSnapshotId && event.eventType !== '目标确认') item.targetStatus = '目标后数据已变化'
+  addVersion(item, event)
+  return true
+}
+
+function getTargetSnapshot(item: ReleaseRepositoryItem): CutPieceReleaseTargetSnapshot | null {
+  return item.latestSnapshotId ? targetSnapshots.get(item.latestSnapshotId) ?? null : null
+}
+
+function targetPreviewForCurrentMatrix(item: ReleaseRepositoryItem): ReleaseTargetPreview | null {
+  const snapshot = getTargetSnapshot(item)
+  if (!snapshot) return null
+  try {
+    return buildTargetPreview(item.currentMatrix, snapshot.targetPreview.colorSizeTargets)
+  } catch {
+    return null
+  }
+}
+
+function buildSkuLines(item: ReleaseRepositoryItem): CutPieceReleaseSkuLine[] {
+  const snapshot = getTargetSnapshot(item)
+  const targetValues = item.targetStatus === '已确认' ? snapshot?.targetPreview.colorSizeTargets ?? {} : {}
+  return item.currentMatrix.colorGroups.flatMap((group) => group.sizes.map((size) => {
+    const completeKitQty = safeQuantity(group.completeKitBySize[size])
+    const demandQty = safeQuantity(group.planQtyBySize[size])
+    const releaseQty = safeQuantity(targetValues[targetKey(group.garmentColor, size)])
+    return {
+      lineId: `${item.input.productionOrderId}:${group.garmentColor}:${size}`,
+      skuCode: `${item.input.spuCode}-${group.garmentColor}-${size}`,
+      colorName: group.garmentColor,
+      sizeCode: size,
+      demandQty,
+      remainingQty: demandQty,
+      cutCompletedQty: completeKitQty,
+      completeKitQty,
+      accessoryReadyQty: completeKitQty,
+      releaseQty,
+      reason: releaseQty > 0 ? '已按当前矩阵确认目标数量' : '等待基于矩阵确认目标数量',
+    }
+  }))
+}
+
+function buildReleaseRecord(item: ReleaseRepositoryItem): CutPieceReleaseRecord {
+  const snapshot = getTargetSnapshot(item)
+  const skuLines = buildSkuLines(item)
+  const preview = targetPreviewForCurrentMatrix(item)
+  const frozenCutOrderCount = new Set(item.input.facts
+    .filter((fact) => fact.sourceStatus === '已冻结')
+    .map((fact) => fact.cutOrderId || fact.cutOrderNo)
+    .filter(Boolean)).size
+  const targetConfirmed = item.targetStatus === '已确认' && Boolean(snapshot)
+  const releaseQty = skuLines.reduce((sum, line) => sum + line.releaseQty, 0)
   return {
-    triggerCutOrderNo: sourceCutOrderNos[0] || '未关联裁片单',
-    sourceCutOrderNos,
+    recordId: `cpr-${item.input.productionOrderId}`,
+    recordNo: `CPR-${item.input.productionOrderNo.replace(/^PO/, '')}`,
+    productionOrderId: item.input.productionOrderId,
+    productionOrderNo: item.input.productionOrderNo,
+    taskId: `cut-release-${item.input.productionOrderId}`,
+    taskNo: `CUT-RELEASE-${item.input.productionOrderNo.replace(/^PO/, '')}`,
+    spuCode: item.input.spuCode,
+    spuName: item.spuName,
+    triggerCutOrderNo: item.sourceCutOrderNos[0] || '未关联裁片单',
+    sourceCutOrderNos: [...item.sourceCutOrderNos],
     triggerAction: '铺布完成裁剪',
-    triggerAt: addHours(baseAt, 2 + index),
-    triggerOperator: operatorNames[index % operatorNames.length],
-  }
-}
-
-function applyOverride(record: CutPieceReleaseRecord): CutPieceReleaseRecord {
-  const override = releaseOverrides[record.recordId]
-  if (!override) return record
-  const canRelease = override.decision === '可以做' || override.decision === '部分可以做'
-  const skuLines = record.skuLines.map((line) => {
-    const releaseQty = canRelease
-      ? Math.min(line.remainingQty, Math.max(0, roundQty(override.skuReleaseQuantities[line.lineId] ?? 0)))
-      : 0
-    return {
-      ...line,
-      releaseQty,
-      reason: override.decision === '待判断'
-        ? '等待裁床主管判断'
-        : override.decision === '暂时不能做'
-          ? '裁床判断暂不交给车缝'
-          : releaseQty > 0
-            ? '当前裁片实物可支持先做货'
-            : '当前 SKU 本次不放行',
-    }
-  })
-  const releaseQty = skuLines.reduce((sum, line) => sum + line.releaseQty, 0)
-  return {
-    ...record,
-    decision: override.decision,
-    releaseQty,
-    reason: override.reason,
-    riskNote: override.riskNote,
-    judgedBy: override.judgedBy,
-    judgedAt: override.judgedAt,
-    skuLines,
-  }
-}
-
-function buildBaseReleaseRecord(task: SewingDispatchWorkbenchTask, index: number): CutPieceReleaseRecord {
-  const profile = decisionProfiles[index % decisionProfiles.length]
-  const skuLines = buildReleaseSkuLines(task, profile.decision, profile.ratio)
-  const releaseQty = skuLines.reduce((sum, line) => sum + line.releaseQty, 0)
-  const trigger = getTriggerContext(task, index)
-  const judgedAt = profile.decision === '待判断' ? '' : addHours(trigger.triggerAt, 1)
-
-  return {
-    recordId: `cpr-${task.productionOrderId}`,
-    recordNo: `CPR-${String(index + 1).padStart(4, '0')}`,
-    productionOrderId: task.productionOrderId,
-    productionOrderNo: task.productionOrderNo,
-    taskId: task.taskId,
-    taskNo: task.taskNo,
-    spuCode: task.spuCode,
-    spuName: task.spuName,
-    styleImageUrl: task.styleImageUrl,
-    ...trigger,
+    triggerAt: item.latestUpdateAt,
+    triggerOperator: '裁床系统',
     checkerRole: '裁床主管',
-    decision: profile.decision,
+    decision: targetConfirmed ? '可以做' : '待判断',
     releaseQty,
-    reason: profile.reason,
-    riskNote: profile.riskNote,
-    judgedBy: profile.decision === '待判断' ? '' : checkerNames[index % checkerNames.length],
-    judgedAt,
+    reason: targetConfirmed ? '已按生产单裁片矩阵确认目标数量。' : '等待裁床主管按当前裁片矩阵确认目标数量。',
+    riskNote: item.targetStatus === '目标后数据已变化' ? '目标确认后已有新的裁片事实，请重新核对。' : '',
+    judgedBy: targetConfirmed ? snapshot!.confirmedBy : '',
+    judgedAt: targetConfirmed ? snapshot!.confirmedAt : '',
     skuLines,
+    matrixStatus: item.currentMatrix.calculationStatus,
+    targetStatus: item.targetStatus,
+    frozenCutOrderCount,
+    shortageCellCount: preview?.differences.filter((item) => item.status === '需补').length ?? 0,
+    latestUpdateAt: item.latestUpdateAt,
+    matrix: clone(item.currentMatrix),
   }
 }
+
+function addRepositoryItem(input: BuildReleaseMatrixInput, spuName: string, sourceCutOrderNos: string[], initialEvent: MatrixEvent): void {
+  const item: ReleaseRepositoryItem = {
+    input: clone(input),
+    spuName,
+    sourceCutOrderNos: [...sourceCutOrderNos],
+    eventState: createMatrixEventState(),
+    currentMatrix: buildReleaseMatrix(input),
+    targetStatus: '待确认',
+    versions: [],
+    latestSnapshotId: null,
+    latestUpdateAt: initialEvent.occurredAt,
+  }
+  appendMatrixEvent(item.eventState, initialEvent)
+  addVersion(item, initialEvent)
+  releaseRepository.set(input.productionOrderId, item)
+}
+
+function bootstrapRepository(): void {
+  const productionOrderId = 'po-14671'
+  const sizes = ['M', 'L', 'XL'] as const
+  const quantities: Record<string, Record<(typeof sizes)[number], number>> = {
+    A: { M: 220, L: 358, XL: 532 },
+    B: { M: 200, L: 350, XL: 500 },
+    C: { M: 208, L: 364, XL: 520 },
+    D: { M: 200, L: 350, XL: 500 },
+  }
+  const requirements = [
+    { materialId: 'A', materialName: '面料 A', partId: 'front', partName: '前片', piecesPerGarment: 1 },
+    { materialId: 'B', materialName: '里料 B', partId: 'front', partName: '前片', piecesPerGarment: 2 },
+    { materialId: 'C', materialName: '辅料 C', partId: 'collar', partName: '领片', piecesPerGarment: 1 },
+    { materialId: 'D', materialName: '辅料 D', partId: 'cuff', partName: '袖口', piecesPerGarment: 1 },
+  ]
+  const facts: CutPieceFact[] = Object.entries(quantities).flatMap(([materialId, qtyBySize]) => sizes.map((size) => ({
+    factId: `fact-14671-${materialId}-${size}`,
+    sourceEventId: `spread-14671-${materialId}-${size}`,
+    productionOrderId,
+    cutOrderId: materialId === 'B' ? 'cut-14671-b' : 'cut-14671-main',
+    cutOrderNo: materialId === 'B' ? 'CUT14671-B' : 'CUT14671-A',
+    spreadingOrderNo: 'ASYSA26060310',
+    garmentColor: 'Black',
+    size,
+    materialId,
+    partId: materialId === 'A' || materialId === 'B' ? 'front' : materialId === 'C' ? 'collar' : 'cuff',
+    actualPieceQty: qtyBySize[size] * (materialId === 'B' ? 2 : 1),
+    direction: '正向' as const,
+    sourceStatus: materialId === 'B' ? '已冻结' as const : '持续更新' as const,
+    occurredAt: '2026-06-03 14:00:00',
+  })))
+  addRepositoryItem({
+    productionOrderId,
+    productionOrderNo: 'PO14671',
+    spuCode: 'ASYSA26060310',
+    planQtyByColorSize: { Black: { M: 215, L: 344, XL: 482 } },
+    requirements,
+    facts,
+  }, '女式基础圆领短袖', ['CUT14671-A', 'CUT14671-B'], {
+    eventId: 'spread-complete-14671',
+    eventType: '铺布完成',
+    productionOrderId,
+    occurredAt: '2026-06-03 14:00:00',
+    operator: '铺布操作员 阿迪',
+  })
+}
+
+bootstrapRepository()
 
 export function listCutPieceReleaseRecords(): CutPieceReleaseRecord[] {
-  return listSewingDispatchWorkbenchTasks()
-    .map((task, index) => applyOverride(buildBaseReleaseRecord(task, index)))
+  return [...releaseRepository.values()].map((item) => clone(buildReleaseRecord(item)))
 }
 
 export function getCutPieceReleaseRecord(recordId: string): CutPieceReleaseRecord | null {
   return listCutPieceReleaseRecords().find((record) => record.recordId === recordId) ?? null
 }
 
+export function getCutPieceReleaseMatrix(productionOrderId: string): CutPieceReleaseMatrix | null {
+  const item = releaseRepository.get(productionOrderId)
+  return item ? clone(item.currentMatrix) : null
+}
+
+export function listCutPieceReleaseMatrixVersions(productionOrderId: string): CutPieceReleaseMatrixVersion[] {
+  const item = releaseRepository.get(productionOrderId)
+  return item ? item.versions.map(clone) : []
+}
+
+export function confirmCutPieceReleaseTarget(input: ConfirmReleaseTargetInput): ConfirmReleaseTargetResult {
+  const item = releaseRepository.get(input.productionOrderId)
+  if (!item) return { ok: false, message: '未找到生产单裁片矩阵。', snapshot: null }
+  const currentVersion = item.versions.at(-1)?.version ?? 0
+  if (input.matrixVersion !== currentVersion) return { ok: false, message: '当前裁片矩阵版本已变化，请刷新后重新确认目标。', snapshot: null }
+  const confirmedBy = input.confirmedBy.trim()
+  if (!confirmedBy) return { ok: false, message: '请填写目标确认人。', snapshot: null }
+  try {
+    const expectedKeys = item.currentMatrix.colorGroups.flatMap((group) => group.sizes.map((size) => targetKey(group.garmentColor, size)))
+    if (expectedKeys.length === 0 || expectedKeys.some((key) => !(key in input.colorSizeTargets)) || Object.keys(input.colorSizeTargets).some((key) => !expectedKeys.includes(key))) {
+      return { ok: false, message: '目标必须覆盖当前矩阵的全部颜色尺码。', snapshot: null }
+    }
+    const targetPreview = buildTargetPreview(item.currentMatrix, input.colorSizeTargets)
+    const event: MatrixEvent = {
+      eventId: `target-confirm:${input.productionOrderId}:${input.matrixVersion}`,
+      eventType: '目标确认',
+      productionOrderId: input.productionOrderId,
+      occurredAt: deterministicConfirmedAt,
+      operator: confirmedBy,
+    }
+    if (!appendMatrixEvent(item.eventState, event)) return { ok: false, message: '该矩阵版本的目标已确认。', snapshot: null }
+    item.targetStatus = '已确认'
+    addVersion(item, event)
+    const snapshot: CutPieceReleaseTargetSnapshot = {
+      snapshotId: `cpr-target-${input.productionOrderId}-v${input.matrixVersion}`,
+      productionOrderId: input.productionOrderId,
+      matrixVersion: input.matrixVersion,
+      confirmedAt: deterministicConfirmedAt,
+      confirmedBy,
+      matrixSnapshot: clone(item.currentMatrix),
+      targetPreview: clone(targetPreview),
+    }
+    targetSnapshots.set(snapshot.snapshotId, clone(snapshot))
+    item.latestSnapshotId = snapshot.snapshotId
+    return { ok: true, message: '裁片目标已确认并生成不可变快照。', snapshot: clone(snapshot) }
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : '目标确认失败。', snapshot: null }
+  }
+}
+
+export function getCutPieceReleaseTargetSnapshot(snapshotId: string): CutPieceReleaseTargetSnapshot | null {
+  const snapshot = targetSnapshots.get(snapshotId)
+  return snapshot ? clone(snapshot) : null
+}
+
+export function recordCutOrderReleaseStatusChange(input: CutOrderReleaseStatusChangeInput): void {
+  const item = [...releaseRepository.values()].find((candidate) => candidate.input.facts.some((fact) => fact.cutOrderId === input.cutOrderId || fact.cutOrderNo === input.cutOrderNo))
+  if (!item) return
+  const event: MatrixEvent = {
+    eventId: `cut-order:${input.cutOrderId}:${input.status}:${input.occurredAt}:${input.operator}`,
+    eventType: input.status === '已冻结' ? '裁片单冻结' : '裁片单恢复',
+    productionOrderId: item.input.productionOrderId,
+    occurredAt: input.occurredAt,
+    operator: input.operator,
+  }
+  appendRepositoryEvent(item, event, () => {
+    item.input.facts.forEach((fact) => {
+      if (fact.cutOrderId === input.cutOrderId || fact.cutOrderNo === input.cutOrderNo) fact.sourceStatus = input.status
+    })
+  })
+}
+
+export function recordSpreadingReleaseAdjustment(input: SpreadingReleaseAdjustmentInput): void {
+  const item = releaseRepository.get(input.productionOrderId)
+  if (!item) return
+  const event: MatrixEvent = {
+    eventId: input.adjustmentEventId,
+    eventType: '铺布冲销',
+    productionOrderId: input.productionOrderId,
+    occurredAt: input.occurredAt,
+    operator: input.operator,
+  }
+  appendRepositoryEvent(item, event, () => {
+    const originalFacts = item.input.facts.filter((fact) => fact.spreadingOrderNo === input.spreadingOrderNo && fact.direction === '正向')
+    item.input.facts.push(...originalFacts.map((fact) => ({
+      ...fact,
+      factId: `${fact.factId}:adjust:${input.adjustmentEventId}`,
+      sourceEventId: `${fact.sourceEventId}:adjust:${input.adjustmentEventId}`,
+      direction: '反向' as const,
+      occurredAt: input.occurredAt,
+    })))
+  })
+}
+
 export function getCutPieceReleaseSummaryForProductionOrder(productionOrderId: string): CutPieceReleaseSummary | null {
   const record = listCutPieceReleaseRecords().find((item) => item.productionOrderId === productionOrderId)
-  if (record) {
-    return {
-      recordId: record.recordId,
-      recordNo: record.recordNo,
-      productionOrderId: record.productionOrderId,
-      productionOrderNo: record.productionOrderNo,
-      decision: record.decision,
-      releaseQty: record.releaseQty,
-      reason: record.reason,
-      riskNote: record.riskNote,
-      judgedBy: record.judgedBy,
-      judgedAt: record.judgedAt,
-    }
-  }
-  // Fallback: 生成默认放行记录，车缝配料页面可展示
+  if (!record) return null
   return {
-    recordId: `cpr-${productionOrderId}`,
-    recordNo: 'CPR-FALLBACK',
-    productionOrderId,
-    productionOrderNo: productionOrderId,
-    decision: '可以做',
-    releaseQty: 1000,
-    reason: '系统默认放行判断。生产单已铺布完成裁剪，裁片可以交给车缝做货。',
-    riskNote: '默认判断，请到裁片放行管理页面核实。',
-    judgedBy: '系统默认',
-    judgedAt: '',
+    recordId: record.recordId,
+    recordNo: record.recordNo,
+    productionOrderId: record.productionOrderId,
+    productionOrderNo: record.productionOrderNo,
+    decision: record.decision,
+    releaseQty: record.releaseQty,
+    reason: record.reason,
+    riskNote: record.riskNote,
+    judgedBy: record.judgedBy,
+    judgedAt: record.judgedAt,
   }
 }
 
 export function saveCutPieceReleaseDecision(input: SaveCutPieceReleaseDecisionInput): { ok: boolean; message: string } {
   const record = getCutPieceReleaseRecord(input.recordId)
   if (!record) return { ok: false, message: '未找到裁片放行记录。' }
-  const decision = input.decision
-  const canRelease = decision === '可以做' || decision === '部分可以做'
-  const reason = input.reason.trim()
-  const riskNote = input.riskNote.trim()
-  const judgedBy = input.judgedBy.trim() || '裁床主管'
-  const skuReleaseQuantities = Object.fromEntries(
-    input.skuReleaseQuantities.map((item) => [item.lineId, roundQty(item.releaseQty)])
-  )
-  const lineById = new Map(record.skuLines.map((line) => [line.lineId, line]))
-  const releaseQty = canRelease
-    ? Object.entries(skuReleaseQuantities).reduce((sum, [lineId, qty]) => {
-      const line = lineById.get(lineId)
-      if (!line) return sum
-      return sum + Math.min(line.remainingQty, Math.max(0, qty))
-    }, 0)
-    : 0
-
-  if (!reason) return { ok: false, message: '请填写裁床判断原因。' }
-  if (canRelease && releaseQty <= 0) {
-    return { ok: false, message: '判断为可以做或部分可以做时，请按 SKU 明细填写可做数量。' }
-  }
-  if (canRelease) {
-    const invalidLine = Object.entries(skuReleaseQuantities).find(([lineId, qty]) => {
-      const line = lineById.get(lineId)
-      return line ? qty > line.remainingQty : false
-    })
-    if (invalidLine) return { ok: false, message: 'SKU 可做数量不能超过该 SKU 待分配数量。' }
-  }
-
-  releaseOverrides[input.recordId] = {
-    decision,
-    skuReleaseQuantities: canRelease ? skuReleaseQuantities : {},
-    reason,
-    riskNote,
-    judgedBy,
-    judgedAt: nowTimestamp(),
-  }
-
-  return { ok: true, message: `${record.recordNo} 已更新裁片放行判断。` }
+  return { ok: false, message: '请在裁片矩阵中确认目标数量；旧放行判断入口不再写入权威数据。' }
 }

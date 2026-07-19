@@ -1,6 +1,25 @@
 import assert from 'node:assert/strict'
 
-import { buildReleaseMatrix, type CutPieceFact, type CutPieceRequirement } from '../src/data/fcs/cut-piece-release-domain'
+import {
+  appendMatrixEvent,
+  buildReleaseMatrix,
+  buildSupplementPartShortages,
+  buildTargetPreview,
+  createMatrixEventState,
+  type CutPieceFact,
+  type CutPieceRequirement,
+} from '../src/data/fcs/cut-piece-release-domain'
+import {
+  confirmCutPieceReleaseTarget,
+  getCutPieceReleaseMatrix,
+  getCutPieceReleaseRecord,
+  getCutPieceReleaseTargetSnapshot,
+  getCutPieceReleaseSummaryForProductionOrder,
+  listCutPieceReleaseMatrixVersions,
+  listCutPieceReleaseRecords,
+  recordCutOrderReleaseStatusChange,
+  recordSpreadingReleaseAdjustment,
+} from '../src/data/fcs/cut-piece-release'
 
 const productionOrderId = 'po-14671'
 
@@ -322,5 +341,122 @@ const factOnlyReverse = factOnlyMatrix([...factOnlyOrderingInput].reverse())
 assert.deepEqual(factOnlyForward.colorGroups.map((group) => [group.garmentColor, group.sizes]), factOnlyReverse.colorGroups.map((group) => [group.garmentColor, group.sizes]))
 assert.deepEqual(factOnlyForward.colorGroups.map((group) => group.garmentColor), ['红', '蓝'].sort((left, right) => left.localeCompare(right, 'zh-CN')))
 assert.deepEqual(factOnlyForward.colorGroups.find((group) => group.garmentColor === '红')?.sizes, ['S', 'L'].sort((left, right) => left.localeCompare(right, 'zh-CN')))
+
+const blackThreeSizeRequirements: CutPieceRequirement[] = [
+  { materialId: 'A', materialName: '面料 A', partId: 'front', partName: '前片', piecesPerGarment: 1 },
+  { materialId: 'B', materialName: '里料 B', partId: 'front', partName: '前片', piecesPerGarment: 2 },
+  { materialId: 'C', materialName: '辅料 C', partId: 'collar', partName: '领片', piecesPerGarment: 1 },
+  { materialId: 'D', materialName: '辅料 D', partId: 'cuff', partName: '袖口', piecesPerGarment: 1 },
+]
+const blackThreeSizeQty: Record<string, Record<string, number>> = {
+  A: { M: 220, L: 358, XL: 532 },
+  B: { M: 200, L: 350, XL: 500 },
+  C: { M: 208, L: 364, XL: 520 },
+  D: { M: 200, L: 350, XL: 500 },
+}
+const blackThreeSizeMatrix = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Black: { M: 215, L: 344, XL: 482 } },
+  requirements: blackThreeSizeRequirements,
+  facts: Object.entries(blackThreeSizeQty).flatMap(([materialId, qtyBySize]) => Object.entries(qtyBySize).map(([size, actualGarmentQty]) => fact({
+    factId: `black-${materialId}-${size}`,
+    sourceEventId: `spread-${materialId}-${size}`,
+    materialId,
+    partId: materialId === 'B' ? 'front' : materialId === 'A' ? 'front' : materialId === 'C' ? 'collar' : 'cuff',
+    size,
+    actualPieceQty: materialId === 'B' ? actualGarmentQty * 2 : actualGarmentQty,
+  }))),
+})
+const blackTargetPreview = buildTargetPreview(blackThreeSizeMatrix, {
+  'Black::M': 208,
+  'Black::L': 350,
+  'Black::XL': 520,
+})
+assert.deepEqual(blackTargetPreview.colorSizeTargets, { 'Black::M': 208, 'Black::L': 350, 'Black::XL': 520 })
+assert.deepEqual(
+  blackTargetPreview.differences.map((item) => [item.size, item.materialId, item.differenceQty, item.status]),
+  [
+    ['M', 'A', 12, '多余'], ['M', 'B', -8, '需补'], ['M', 'C', 0, '刚好'], ['M', 'D', -8, '需补'],
+    ['L', 'A', 8, '多余'], ['L', 'B', 0, '刚好'], ['L', 'C', 14, '多余'], ['L', 'D', 0, '刚好'],
+    ['XL', 'A', 12, '多余'], ['XL', 'B', -20, '需补'], ['XL', 'C', 0, '刚好'], ['XL', 'D', -20, '需补'],
+  ],
+)
+const blackPartShortages = buildSupplementPartShortages(blackThreeSizeMatrix, blackTargetPreview)
+assert.deepEqual(
+  blackPartShortages.filter((item) => item.materialId === 'B' && item.size === 'M').map((item) => [item.partId, item.actualMissingPieceQty, item.supplementGarmentQty]),
+  [['front', 16, 8]],
+)
+assert.throws(() => buildTargetPreview(blackThreeSizeMatrix, { 'Black::M': 215 }), /候选/)
+
+const matrixEvents = createMatrixEventState()
+const mutableEvent = { eventId: 'spread-done-1', eventType: '铺布完成' as const, productionOrderId, occurredAt: '2026-06-03 10:00:00', operator: '阿迪' }
+assert.equal(appendMatrixEvent(matrixEvents, mutableEvent), true)
+mutableEvent.operator = '被修改'
+assert.equal(matrixEvents.events[0].operator, '阿迪')
+assert.equal(appendMatrixEvent(matrixEvents, { ...mutableEvent, operator: '阿迪' }), false)
+assert.equal(matrixEvents.events.length, 1)
+assertAllNumbersFinite(blackTargetPreview)
+assertAllNumbersFinite(blackPartShortages)
+
+const repositoryRecord = listCutPieceReleaseRecords().find((item) => item.productionOrderNo === 'PO14671')
+assert.ok(repositoryRecord, 'PO14671 必须由矩阵仓储提供放行记录')
+if (!repositoryRecord) throw new Error('PO14671 裁片放行记录缺失')
+assert.equal(repositoryRecord.matrix.colorGroups[0].completeKitBySize.M, 200)
+assert.equal(repositoryRecord.matrix.colorGroups[0].completeKitBySize.L, 350)
+assert.equal(repositoryRecord.matrix.colorGroups[0].completeKitBySize.XL, 500)
+assert.equal(repositoryRecord.frozenCutOrderCount, 1, 'B 的来源裁片单应为冻结来源')
+assert.equal(getCutPieceReleaseRecord(repositoryRecord.recordId)?.productionOrderId, repositoryRecord.productionOrderId)
+assert.equal(getCutPieceReleaseSummaryForProductionOrder(repositoryRecord.productionOrderId)?.recordId, repositoryRecord.recordId)
+
+const initialVersion = listCutPieceReleaseMatrixVersions(productionOrderId).at(-1)!
+const invalidTarget = confirmCutPieceReleaseTarget({
+  productionOrderId,
+  matrixVersion: initialVersion.version,
+  colorSizeTargets: { 'Black::M': 215, 'Black::L': 350, 'Black::XL': 520 },
+  confirmedBy: '裁床主管 王敏',
+})
+assert.equal(invalidTarget.ok, false, '计划数不是目标候选时必须拒绝')
+const confirmedTarget = confirmCutPieceReleaseTarget({
+  productionOrderId,
+  matrixVersion: initialVersion.version,
+  colorSizeTargets: { 'Black::M': 208, 'Black::L': 350, 'Black::XL': 520 },
+  confirmedBy: '裁床主管 王敏',
+})
+assert.equal(confirmedTarget.ok, true)
+assert.ok(confirmedTarget.snapshot)
+assert.equal(confirmedTarget.snapshot?.targetPreview.colorSizeTargets['Black::L'], 350, '重复候选只保存一个 L 目标值')
+assert.equal(confirmedTarget.snapshot?.targetPreview.differences.filter((item) => item.size === 'L' && item.status === '刚好').length, 2)
+const snapshotId = confirmedTarget.snapshot!.snapshotId
+const queriedSnapshot = getCutPieceReleaseTargetSnapshot(snapshotId)!
+queriedSnapshot.matrixSnapshot.colorGroups[0].completeKitBySize.M = 999
+assert.equal(getCutPieceReleaseTargetSnapshot(snapshotId)?.matrixSnapshot.colorGroups[0].completeKitBySize.M, 200, '查询结果不得泄漏仓储快照引用')
+assert.equal(confirmCutPieceReleaseTarget({
+  productionOrderId,
+  matrixVersion: initialVersion.version,
+  colorSizeTargets: { 'Black::M': 208, 'Black::L': 350, 'Black::XL': 520 },
+  confirmedBy: '裁床主管 王敏',
+}).ok, false, '过期矩阵版本不得确认目标')
+
+recordCutOrderReleaseStatusChange({ cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '持续更新', occurredAt: '2026-06-04 09:00:00', operator: '裁床主管 王敏', reason: '复核恢复' })
+const afterRestoreVersions = listCutPieceReleaseMatrixVersions(productionOrderId)
+assert.equal(afterRestoreVersions.length, initialVersion.version + 2, '目标确认与恢复都应形成版本事件')
+assert.equal(getCutPieceReleaseRecord(repositoryRecord.recordId)?.targetStatus, '目标后数据已变化')
+assert.equal(getCutPieceReleaseTargetSnapshot(snapshotId)?.matrixSnapshot.colorGroups[0].completeKitBySize.M, 200, '新版本不得改写旧快照')
+recordCutOrderReleaseStatusChange({ cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '持续更新', occurredAt: '2026-06-04 09:00:00', operator: '裁床主管 王敏', reason: '复核恢复' })
+assert.equal(listCutPieceReleaseMatrixVersions(productionOrderId).length, afterRestoreVersions.length, '重复恢复事件不得新增版本')
+recordCutOrderReleaseStatusChange({ cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '已冻结', occurredAt: '2026-06-04 10:00:00', operator: '裁床主管 王敏', reason: '再次冻结' })
+recordSpreadingReleaseAdjustment({ adjustmentEventId: 'reverse-spread-14671', spreadingOrderNo: 'ASYSA26060310', productionOrderId, direction: -1, occurredAt: '2026-06-04 11:00:00', operator: '阿迪', reason: '铺布冲销' })
+const afterAdjustmentVersions = listCutPieceReleaseMatrixVersions(productionOrderId)
+assert.equal(afterAdjustmentVersions.length, afterRestoreVersions.length + 2, '关闭、恢复、冲销各只形成一次版本')
+recordSpreadingReleaseAdjustment({ adjustmentEventId: 'reverse-spread-14671', spreadingOrderNo: 'ASYSA26060310', productionOrderId, direction: -1, occurredAt: '2026-06-04 11:00:00', operator: '阿迪', reason: '铺布冲销' })
+assert.equal(listCutPieceReleaseMatrixVersions(productionOrderId).length, afterAdjustmentVersions.length, '重复冲销事件不得新增版本')
+assert.ok(getCutPieceReleaseMatrix(productionOrderId), '冲销不能删除原有生产单矩阵事实')
+const mutableVersion = listCutPieceReleaseMatrixVersions(productionOrderId)[0]
+mutableVersion.matrixSnapshot.colorGroups[0].completeKitBySize.M = 999
+assert.equal(listCutPieceReleaseMatrixVersions(productionOrderId)[0].matrixSnapshot.colorGroups[0].completeKitBySize.M, 200, '版本查询不得泄漏仓储引用')
+assertAllNumbersFinite(listCutPieceReleaseRecords())
+assertAllNumbersFinite(listCutPieceReleaseMatrixVersions(productionOrderId))
 
 console.log('cut piece release matrix check passed')

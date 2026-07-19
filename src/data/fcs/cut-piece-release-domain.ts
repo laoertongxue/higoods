@@ -80,6 +80,52 @@ export interface BuildReleaseMatrixInput {
   facts: CutPieceFact[]
 }
 
+export type TargetDifferenceStatus = '需补' | '刚好' | '多余'
+
+export interface ReleaseTargetDifference {
+  garmentColor: string
+  size: string
+  materialId: string
+  materialName: string
+  availableGarmentQty: number
+  targetQty: number
+  differenceQty: number
+  status: TargetDifferenceStatus
+}
+
+export interface ReleaseTargetPreview {
+  colorSizeTargets: Record<string, number>
+  differences: ReleaseTargetDifference[]
+}
+
+export interface SupplementPartShortage {
+  garmentColor: string
+  size: string
+  materialId: string
+  materialName: string
+  partId: string
+  partName: string
+  targetQty: number
+  actualPieceQty: number
+  piecesPerGarment: number
+  actualMissingPieceQty: number
+  supplementGarmentQty: number
+}
+
+export type MatrixEventType = '铺布完成' | '裁片单冻结' | '裁片单恢复' | '铺布冲销' | '目标确认'
+
+export interface MatrixEvent {
+  eventId: string
+  eventType: MatrixEventType
+  productionOrderId: string
+  occurredAt: string
+  operator: string
+}
+
+export interface MatrixEventState {
+  events: MatrixEvent[]
+}
+
 function isUsablePiecesPerGarment(value: number | undefined): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
 }
@@ -155,6 +201,14 @@ function isRequirementStructureValid(requirements: CutPieceRequirement[]): boole
 
 function toSafeNonNegativeQuantity(value: number): number {
   return Number.isFinite(value) && value >= 0 ? value : 0
+}
+
+function targetKey(garmentColor: string, size: string): string {
+  return `${garmentColor}::${size}`
+}
+
+function isSafeTargetQuantity(value: number): boolean {
+  return Number.isFinite(value) && value >= 0
 }
 
 function hasPositiveNetFacts(facts: CutPieceFact[]): boolean {
@@ -282,4 +336,85 @@ export function buildReleaseMatrix(input: BuildReleaseMatrixInput): CutPieceRele
     targetStatus: '待确认',
     colorGroups,
   }
+}
+
+export function buildTargetPreview(matrix: CutPieceReleaseMatrix, targets: Record<string, number>): ReleaseTargetPreview {
+  const colorSizeTargets: Record<string, number> = {}
+  const differences: ReleaseTargetDifference[] = []
+
+  Object.entries(targets).forEach(([key, targetQty]) => {
+    if (!isSafeTargetQuantity(targetQty)) throw new Error(`目标数量非法：${key}`)
+    const [garmentColor, size, extra] = key.split('::')
+    if (!garmentColor || !size || extra !== undefined) throw new Error(`目标键格式非法：${key}`)
+    const group = matrix.colorGroups.find((item) => item.garmentColor === garmentColor)
+    const candidateCells: Array<{ row: ReleaseMaterialRow; cell: ReleaseMatrixCell }> = []
+    group?.materialRows.forEach((row) => {
+      const cell = row.cells.find((item) => item.size === size)
+      if (
+        cell
+        && cell.calculationStatus === '可计算'
+        && typeof cell.availableGarmentQty === 'number'
+        && Number.isFinite(cell.availableGarmentQty)
+        && cell.availableGarmentQty >= 0
+      ) candidateCells.push({ row, cell })
+    })
+    if (!candidateCells.some((item) => item.cell.availableGarmentQty === targetQty)) {
+      throw new Error(`目标数量不是同色同码物料的候选齐套值：${key}`)
+    }
+    colorSizeTargets[targetKey(garmentColor, size)] = targetQty
+    candidateCells.forEach(({ row, cell }) => {
+      const availableGarmentQty = cell.availableGarmentQty!
+      const differenceQty = availableGarmentQty - targetQty
+      differences.push({
+        garmentColor,
+        size,
+        materialId: row.materialId,
+        materialName: row.materialName,
+        availableGarmentQty,
+        targetQty,
+        differenceQty,
+        status: differenceQty < 0 ? '需补' : differenceQty > 0 ? '多余' : '刚好',
+      })
+    })
+  })
+
+  return { colorSizeTargets, differences }
+}
+
+export function buildSupplementPartShortages(matrix: CutPieceReleaseMatrix, preview: ReleaseTargetPreview): SupplementPartShortage[] {
+  return preview.differences.flatMap((difference) => {
+    if (difference.status !== '需补') return []
+    const group = matrix.colorGroups.find((item) => item.garmentColor === difference.garmentColor)
+    const row = group?.materialRows.find((item) => item.materialId === difference.materialId)
+    const cell = row?.cells.find((item) => item.size === difference.size)
+    if (!row || !cell) return []
+    return cell.partCalculations.flatMap((part): SupplementPartShortage[] => {
+      const requiredPieceQty = difference.targetQty * part.piecesPerGarment
+      const actualMissingPieceQty = Math.max(requiredPieceQty - part.actualPieceQty, 0)
+      if (!Number.isFinite(actualMissingPieceQty) || actualMissingPieceQty <= 0 || !isUsablePiecesPerGarment(part.piecesPerGarment)) return []
+      return [{
+        garmentColor: difference.garmentColor,
+        size: difference.size,
+        materialId: row.materialId,
+        materialName: row.materialName,
+        partId: part.partId,
+        partName: part.partName,
+        targetQty: difference.targetQty,
+        actualPieceQty: part.actualPieceQty,
+        piecesPerGarment: part.piecesPerGarment,
+        actualMissingPieceQty,
+        supplementGarmentQty: Math.ceil(actualMissingPieceQty / part.piecesPerGarment),
+      }]
+    })
+  })
+}
+
+export function createMatrixEventState(): MatrixEventState {
+  return { events: [] }
+}
+
+export function appendMatrixEvent(state: MatrixEventState, event: MatrixEvent): boolean {
+  if (state.events.some((item) => item.eventId === event.eventId)) return false
+  state.events.push({ ...event })
+  return true
 }
