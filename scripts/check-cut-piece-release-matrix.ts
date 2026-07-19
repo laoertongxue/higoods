@@ -565,6 +565,23 @@ recordCutOrderReleaseStatusChange({ eventId: 'freeze-main-by-no', cutOrderId: ''
 assert.equal(listCutPieceReleaseMatrixVersions(productionOrderId).length, noIdSourceVersionCount + 2, '空裁片单 ID 时不同可靠单号和外部事件 ID 不得碰撞')
 
 resetCutPieceReleasePrototypeStoreForTesting()
+recordCutOrderReleaseStatusChange({ eventId: 'restore-b-for-mismatch', cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '持续更新', occurredAt: '2026-06-05 12:30:00', operator: '裁床主管 王敏', reason: '恢复 B 以校验冲突定位' })
+const mismatchVersionCount = listCutPieceReleaseMatrixVersions(productionOrderId).length
+recordCutOrderReleaseStatusChange({ eventId: 'id-no-mismatch', cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-A', status: '已冻结', occurredAt: '2026-06-05 12:31:00', operator: '裁床主管 王敏', reason: 'ID 与单号不一致' })
+const matrixAfterMismatch = getCutPieceReleaseMatrix(productionOrderId)!
+assert.equal(listCutPieceReleaseMatrixVersions(productionOrderId).length, mismatchVersionCount, 'ID 与单号不一致不得生成版本')
+assert.deepEqual(matrixAfterMismatch.colorGroups[0].materialRows.find((row) => row.materialId === 'B')!.cells.map((cell) => cell.sourceStatus), ['持续更新', '持续更新', '持续更新'], 'ID 与单号不一致不得更新 B')
+assert.deepEqual(matrixAfterMismatch.colorGroups[0].materialRows.find((row) => row.materialId === 'A')!.cells.map((cell) => cell.sourceStatus), ['持续更新', '持续更新', '持续更新'], 'ID 与单号不一致不得误更新 A')
+recordCutOrderReleaseStatusChange({ eventId: '', cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '已冻结', occurredAt: '2026-06-05 12:32:00', operator: '裁床主管 王敏', reason: '空事件 ID' })
+recordCutOrderReleaseStatusChange({ eventId: '   ', cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '已冻结', occurredAt: '2026-06-05 12:32:00', operator: '裁床主管 王敏', reason: '空白事件 ID' })
+assert.equal(listCutPieceReleaseMatrixVersions(productionOrderId).length, mismatchVersionCount, '空或纯空白 eventId 不得改变版本')
+recordCutOrderReleaseStatusChange({ eventId: ' normalized-freeze-b ', cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '已冻结', occurredAt: '2026-06-05 12:33:00', operator: '裁床主管 王敏', reason: '合法冻结' })
+assert.equal(listCutPieceReleaseMatrixVersions(productionOrderId).length, mismatchVersionCount + 1, '合法事件仍必须工作')
+recordCutOrderReleaseStatusChange({ eventId: 'restore-b-after-normalized', cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '持续更新', occurredAt: '2026-06-05 12:34:00', operator: '裁床主管 王敏', reason: '恢复 B' })
+recordCutOrderReleaseStatusChange({ eventId: 'normalized-freeze-b', cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '已冻结', occurredAt: '2026-06-05 12:33:00', operator: '裁床主管 王敏', reason: '合法冻结' })
+assert.deepEqual(getCutPieceReleaseMatrix(productionOrderId)!.colorGroups[0].materialRows.find((row) => row.materialId === 'B')!.cells.map((cell) => cell.sourceStatus), ['持续更新', '持续更新', '持续更新'], 'trim 后相同 eventId 必须去重')
+
+resetCutPieceReleasePrototypeStoreForTesting()
 const confirmRetryVersion = listCutPieceReleaseMatrixVersions(productionOrderId).at(-1)!.version
 const confirmRetryInput = { productionOrderId, matrixVersion: confirmRetryVersion, colorSizeTargets: { 'Black::M': 208, 'Black::L': 350, 'Black::XL': 520 }, confirmedBy: '裁床主管 王敏' }
 const firstConfirmedTarget = confirmCutPieceReleaseTarget(confirmRetryInput)

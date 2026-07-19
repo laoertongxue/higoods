@@ -431,24 +431,30 @@ export function getCutPieceReleaseTargetSnapshot(snapshotId: string): CutPieceRe
 }
 
 export function recordCutOrderReleaseStatusChange(input: CutOrderReleaseStatusChangeInput): void {
-  const matchesInput = (fact: CutPieceFact) => (
-    (Boolean(input.cutOrderId) && fact.cutOrderId === input.cutOrderId)
-    || (Boolean(input.cutOrderNo) && fact.cutOrderNo === input.cutOrderNo)
-  )
-  const item = [...releaseRepository.values()].find((candidate) => candidate.input.facts.some(matchesInput))
+  const eventId = input.eventId.trim()
+  const cutOrderId = input.cutOrderId.trim()
+  const cutOrderNo = input.cutOrderNo.trim()
+  if (!eventId || (!cutOrderId && !cutOrderNo)) return
+  const item = [...releaseRepository.values()].find((candidate) => candidate.input.facts.some((fact) => (
+    cutOrderId ? fact.cutOrderId === cutOrderId : fact.cutOrderNo === cutOrderNo
+  )))
   if (!item) return
-  const matchedFacts = item.input.facts.filter(matchesInput)
+  const matchedFacts = item.input.facts.filter((fact) => (
+    cutOrderId ? fact.cutOrderId === cutOrderId : fact.cutOrderNo === cutOrderNo
+  ))
+  if (cutOrderId && cutOrderNo && matchedFacts.some((fact) => fact.cutOrderNo !== cutOrderNo)) return
+  const matchesInput = (fact: CutPieceFact) => matchedFacts.includes(fact)
   const event: MatrixEvent = {
-    eventId: input.eventId,
+    eventId,
     eventType: input.status === '已冻结' ? '裁片单冻结' : '裁片单恢复',
     productionOrderId: item.input.productionOrderId,
     occurredAt: input.occurredAt,
     operator: input.operator,
     reason: input.reason,
-    cutOrderId: input.cutOrderId || undefined,
-    cutOrderNo: input.cutOrderNo || undefined,
+    cutOrderId: cutOrderId || undefined,
+    cutOrderNo: cutOrderNo || undefined,
   }
-  if (item.eventState.events.some((storedEvent) => storedEvent.eventId === input.eventId)) return
+  if (item.eventState.events.some((storedEvent) => storedEvent.eventId === eventId)) return
   if (matchedFacts.every((fact) => fact.sourceStatus === input.status)) {
     appendMatrixEvent(item.eventState, event)
     return
