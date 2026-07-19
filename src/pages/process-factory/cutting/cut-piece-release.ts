@@ -1,500 +1,691 @@
-import { escapeHtml, formatDateTime } from '../../../utils.ts'
+// @page-pattern: list
+
+import { renderSecondaryButton } from '../../../components/ui/button.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
 import {
-  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
+  clearListColumnPreferences,
+  loadListColumnPreferences,
+  normalizeListColumnPreferences,
+  paginateStandardListRows,
+  saveListColumnPreferences,
+  sortStandardListRows,
+  type StandardListColumnPreferences,
+  type StandardListColumnRule,
+  type StandardListPageSlice,
+  type StandardListSortState,
+} from '../../../components/ui/list-table-model.ts'
+import {
+  renderStandardListColumnSettings,
+  renderStandardListTable,
+  type StandardListColumn,
+} from '../../../components/ui/list-table.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import {
   renderProductionOrderIdentityCell,
 } from '../../../data/fcs/production-order-identity.ts'
 import {
-  getCutPieceReleaseRecord,
   listCutPieceReleaseRecords,
-  saveCutPieceReleaseDecision,
-  type CutPieceReleaseDecision,
   type CutPieceReleaseRecord,
-  type CutPieceReleaseSkuLine,
 } from '../../../data/fcs/cut-piece-release.ts'
-import { renderCompactKpiGroup } from './layout.helpers.ts'
+import type {
+  MatrixCalculationStatus,
+  MatrixTargetStatus,
+} from '../../../data/fcs/cut-piece-release-domain.ts'
+import { escapeHtml, formatDateTime } from '../../../utils.ts'
 
-type DecisionFilter = '全部' | CutPieceReleaseDecision
+type MatrixStatusFilter = '全部' | MatrixCalculationStatus
+type TargetStatusFilter = '全部' | MatrixTargetStatus
+type TargetMode = '查看' | '编辑'
+
+interface CutPieceReleaseFeedback {
+  tone: 'success' | 'warning'
+  message: string
+}
+
+interface CutPieceReleaseActiveCell {
+  garmentColor: string
+  size: string
+  materialId: string
+}
 
 interface CutPieceReleasePageState {
+  keywordDraft: string
   keyword: string
-  decisionFilter: DecisionFilter
+  matrixStatus: MatrixStatusFilter
+  targetStatus: TargetStatusFilter
+  page: number
+  sort: StandardListSortState | null
+  columnPreferences: StandardListColumnPreferences
+  columnSettingsOpen: boolean
+  draggedColumnKey: string
   activeRecordId: string | null
-  activeDecisionByRecord: Record<string, CutPieceReleaseDecision>
-  feedbackMessage: string
-  feedbackTone: 'success' | 'warning'
+  activeColor: string | null
+  targetMode: TargetMode
+  targetDraft: Record<string, number>
+  activeCell: CutPieceReleaseActiveCell | null
+  historyOpen: boolean
+  feedback: CutPieceReleaseFeedback | null
+}
+
+const listPageSizes = [10, 20, 50]
+const listStorageKey = 'higood:list-page:/fcs/craft/cutting/cut-piece-release'
+const listMaxFrozenWidth = 520
+const listColumnRules: StandardListColumnRule[] = [
+  { key: 'productionOrder', required: true, freezeable: true },
+  { key: 'spu', freezeable: true },
+  { key: 'colorSize' },
+  { key: 'matrixStatus', required: true, freezeable: true },
+  { key: 'targetStatus', freezeable: true },
+  { key: 'shortage' },
+  { key: 'frozenCutOrders' },
+  { key: 'latestUpdate', freezeable: true },
+  { key: 'actions', required: true, actionColumn: true },
+]
+const defaultListColumnPreferences: StandardListColumnPreferences = {
+  order: listColumnRules.map((column) => column.key),
+  visibleKeys: listColumnRules.map((column) => column.key),
+  frozenKeys: [],
+  pageSize: 10,
 }
 
 const state: CutPieceReleasePageState = {
+  keywordDraft: '',
   keyword: '',
-  decisionFilter: '全部',
+  matrixStatus: '全部',
+  targetStatus: '全部',
+  page: 1,
+  sort: null,
+  columnPreferences: normalizeListColumnPreferences(
+    listColumnRules,
+    defaultListColumnPreferences,
+    listPageSizes,
+  ),
+  columnSettingsOpen: false,
+  draggedColumnKey: '',
   activeRecordId: null,
-  activeDecisionByRecord: {},
-  feedbackMessage: '',
-  feedbackTone: 'success',
+  activeColor: null,
+  targetMode: '查看',
+  targetDraft: {},
+  activeCell: null,
+  historyOpen: false,
+  feedback: null,
 }
 
-const decisionOptions: CutPieceReleaseDecision[] = ['待判断', '可以做', '部分可以做', '暂时不能做']
+let listPreferencesLoaded = false
 
-function formatQty(value: number): string {
-  return Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 })
+function getListStorage(): Storage | null {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage
+  } catch {
+    return null
+  }
 }
 
-function renderDecisionBadge(decision: CutPieceReleaseDecision): string {
-  const className = decision === '可以做'
-    ? 'border-green-200 bg-green-50 text-green-700'
-    : decision === '部分可以做'
-      ? 'border-blue-200 bg-blue-50 text-blue-700'
-      : decision === '暂时不能做'
-        ? 'border-rose-200 bg-rose-50 text-rose-700'
-        : 'border-amber-200 bg-amber-50 text-amber-700'
-  return `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(decision)}</span>`
+function normalizeListPreferences(
+  raw: Partial<StandardListColumnPreferences> | null | undefined,
+): StandardListColumnPreferences {
+  const normalized = normalizeListColumnPreferences(listColumnRules, raw, listPageSizes)
+  const columnsByKey = new Map(listColumns.map((column) => [column.key, column]))
+  const visibleKeys = new Set(normalized.visibleKeys)
+  const requestedFrozenKeys = new Set(normalized.frozenKeys)
+  const frozenColumns = normalized.order
+    .map((key) => columnsByKey.get(key))
+    .filter((column): column is StandardListColumn<CutPieceReleaseRecord> => Boolean(
+      column
+      && !column.actionColumn
+      && column.freezeable
+      && visibleKeys.has(column.key)
+      && requestedFrozenKeys.has(column.key),
+    ))
+  let frozenWidth = frozenColumns.reduce(
+    (sum, column) => sum + Math.max(column.width, column.minWidth ?? 0),
+    0,
+  )
+  while (frozenWidth > listMaxFrozenWidth && frozenColumns.length > 0) {
+    const removed = frozenColumns.pop()
+    if (removed) frozenWidth -= Math.max(removed.width, removed.minWidth ?? 0)
+  }
+  return { ...normalized, frozenKeys: frozenColumns.map((column) => column.key) }
 }
 
-function renderImage(url: string | undefined, alt: string): string {
-  if (!url) return '<div class="flex h-14 w-14 items-center justify-center rounded-md border bg-muted text-[10px] text-muted-foreground">暂无</div>'
-  return `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" class="h-14 w-14 rounded-md border object-cover" />`
+function ensureListPreferences(): void {
+  if (listPreferencesLoaded) return
+  listPreferencesLoaded = true
+  const storage = getListStorage()
+  const loaded = storage
+    ? loadListColumnPreferences(
+        storage,
+        listStorageKey,
+        listColumnRules,
+        defaultListColumnPreferences,
+        listPageSizes,
+      )
+    : defaultListColumnPreferences
+  state.columnPreferences = normalizeListPreferences(loaded)
+  if (storage) saveListColumnPreferences(storage, listStorageKey, state.columnPreferences)
+}
+
+function saveListPreferences(): void {
+  const storage = getListStorage()
+  if (storage) saveListColumnPreferences(storage, listStorageKey, state.columnPreferences)
+}
+
+function formatQuantity(value: number): string {
+  return Math.max(0, Math.round(value)).toLocaleString('zh-CN')
+}
+
+function renderStatusBadge(status: MatrixCalculationStatus): string {
+  const className = status === '可计算'
+    ? 'bg-emerald-50 text-emerald-700'
+    : status === '数据不完整'
+      ? 'bg-amber-50 text-amber-700'
+      : 'bg-slate-100 text-slate-600'
+  return `<span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${className}">${escapeHtml(status)}</span>`
+}
+
+function renderTargetStatusBadge(status: MatrixTargetStatus): string {
+  const className = status === '已确认'
+    ? 'bg-emerald-50 text-emerald-700'
+    : status === '目标后数据已变化'
+      ? 'bg-amber-50 text-amber-700'
+      : 'bg-blue-50 text-blue-700'
+  return `<span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${className}">${escapeHtml(status)}</span>`
+}
+
+function renderColorSizeSummary(record: CutPieceReleaseRecord): string {
+  return record.matrix.colorGroups.map((group) => {
+    const sizes = group.sizes.map((size) => {
+      const completeKitQty = group.completeKitBySize[size]
+      const quantity = completeKitQty === null ? '待计算' : `${formatQuantity(completeKitQty)} 件`
+      return `${size} ${quantity}`
+    }).join(' / ')
+    return `<div><span class="font-medium">${escapeHtml(group.garmentColor)}</span><div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(sizes)}</div></div>`
+  }).join('') || '<span class="text-muted-foreground">暂无颜色尺码</span>'
+}
+
+const listColumns: readonly StandardListColumn<CutPieceReleaseRecord>[] = [
+  {
+    key: 'productionOrder',
+    title: '生产单',
+    width: 190,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    render: (record) => `
+      <div class="font-semibold">${renderProductionOrderIdentityCell(record.productionOrderNo)}</div>
+      <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.recordNo)}</div>
+    `,
+    sortValue: (record) => record.productionOrderNo,
+  },
+  {
+    key: 'spu',
+    title: 'SPU/款式',
+    width: 220,
+    freezeable: true,
+    sortable: true,
+    render: (record) => `
+      <div class="font-medium">${escapeHtml(record.spuCode)}</div>
+      <div class="mt-1 truncate text-xs text-muted-foreground">${escapeHtml(record.spuName)}</div>
+    `,
+    sortValue: (record) => record.spuCode,
+  },
+  {
+    key: 'colorSize',
+    title: '颜色/尺码',
+    width: 270,
+    render: renderColorSizeSummary,
+  },
+  {
+    key: 'matrixStatus',
+    title: '矩阵状态',
+    width: 120,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    render: (record) => renderStatusBadge(record.matrixStatus),
+    sortValue: (record) => record.matrixStatus,
+  },
+  {
+    key: 'targetStatus',
+    title: '目标状态',
+    width: 150,
+    freezeable: true,
+    sortable: true,
+    render: (record) => renderTargetStatusBadge(record.targetStatus),
+    sortValue: (record) => record.targetStatus,
+  },
+  {
+    key: 'shortage',
+    title: '补料缺口',
+    width: 130,
+    align: 'right',
+    sortable: true,
+    render: (record) => record.shortageCellCount > 0
+      ? `<span class="font-semibold tabular-nums text-rose-700">${formatQuantity(record.shortageCellCount)} 个点</span>`
+      : '<span class="tabular-nums text-muted-foreground">0 个点</span>',
+    sortValue: (record) => record.shortageCellCount,
+  },
+  {
+    key: 'frozenCutOrders',
+    title: '冻结裁片单',
+    width: 130,
+    align: 'right',
+    sortable: true,
+    render: (record) => `<span class="font-medium tabular-nums ${record.frozenCutOrderCount > 0 ? 'text-slate-700' : ''}">${formatQuantity(record.frozenCutOrderCount)} 张</span>`,
+    sortValue: (record) => record.frozenCutOrderCount,
+  },
+  {
+    key: 'latestUpdate',
+    title: '最近更新',
+    width: 180,
+    freezeable: true,
+    sortable: true,
+    render: (record) => `<span class="text-xs">${escapeHtml(formatDateTime(record.latestUpdateAt))}</span>`,
+    sortValue: (record) => record.latestUpdateAt,
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 120,
+    required: true,
+    actionColumn: true,
+    align: 'right',
+    render: (record) => `
+      <button
+        type="button"
+        class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
+        data-cut-piece-release-action="open-matrix"
+        data-record-id="${escapeHtml(record.recordId)}"
+        data-production-order-id="${escapeHtml(record.productionOrderId)}"
+      >打开矩阵</button>
+    `,
+  },
+]
+
+interface CutPieceReleaseListView {
+  filtered: CutPieceReleaseRecord[]
+  paging: StandardListPageSlice<CutPieceReleaseRecord>
 }
 
 function getFilteredRecords(): CutPieceReleaseRecord[] {
   const keyword = state.keyword.trim().toLowerCase()
   return listCutPieceReleaseRecords().filter((record) => {
-    if (state.decisionFilter !== '全部' && record.decision !== state.decisionFilter) return false
+    if (state.matrixStatus !== '全部' && record.matrixStatus !== state.matrixStatus) return false
+    if (state.targetStatus !== '全部' && record.targetStatus !== state.targetStatus) return false
     if (!keyword) return true
-    const text = [
-      record.recordNo,
+    const searchable = [
       record.productionOrderNo,
-      record.taskNo,
+      record.recordNo,
       record.spuCode,
       record.spuName,
       record.sourceCutOrderNos.join(' '),
-      record.skuLines.map((line) => `${line.skuCode} ${line.colorName} ${line.sizeCode}`).join(' '),
+      record.matrix.colorGroups.map((group) => `${group.garmentColor} ${group.sizes.join(' ')}`).join(' '),
     ].join(' ').toLowerCase()
-    return text.includes(keyword)
+    return searchable.includes(keyword)
   })
 }
 
-function renderMetricCard(label: string, value: string, hint: string, tone = 'text-foreground'): string {
-  return `
-    <div class="inline-flex min-h-10 max-w-full items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm shadow-sm">
-      <span class="shrink-0 text-muted-foreground">${escapeHtml(label)}：</span>
-      <span class="min-w-0 truncate font-semibold tabular-nums ${tone}">${escapeHtml(value)}</span>
-      <span class="min-w-0 truncate text-[11px] text-muted-foreground">${escapeHtml(hint)}</span>
-    </div>
-  `
+function getListView(): CutPieceReleaseListView {
+  const filtered = getFilteredRecords()
+  const sorted = sortStandardListRows(filtered, state.sort, (record, key) =>
+    listColumns.find((column) => column.key === key)?.sortValue?.(record),
+  )
+  const paging = paginateStandardListRows(sorted, state.page, state.columnPreferences.pageSize)
+  state.page = paging.currentPage
+  return { filtered, paging }
+}
+
+function withSkipPageRerender(html: string): string {
+  return html
+    .replaceAll('data-cut-piece-release-action=', 'data-skip-page-rerender="true" data-cut-piece-release-action=')
+    .replaceAll('data-cut-piece-release-field=', 'data-skip-page-rerender="true" data-cut-piece-release-field=')
 }
 
 function renderFilters(): string {
+  const matrixStatuses: MatrixStatusFilter[] = ['全部', '可计算', '数据不完整', '暂无有效裁片']
+  const targetStatuses: TargetStatusFilter[] = ['全部', '待确认', '已确认', '目标后数据已变化']
   return `
-    <section class="rounded-lg border bg-card p-4">
-      <div class="grid gap-3 md:grid-cols-[minmax(280px,1fr)_200px_auto_auto] md:items-end">
+    <section class="rounded-lg border bg-card p-3">
+      <div class="grid gap-3 md:grid-cols-[minmax(260px,1fr)_180px_190px_auto_auto] md:items-end">
         <label class="space-y-1">
-          <span class="text-sm font-medium">搜索</span>
-          <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cut-piece-release-field="keyword" data-skip-page-rerender="true" value="${escapeHtml(state.keyword)}" placeholder="生产单 / 车缝任务 / SPU / SKU / 裁片单" />
+          <span class="text-xs font-medium">生产单 / SPU / 颜色尺码 / 裁片单</span>
+          <input
+            type="search"
+            class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+            value="${escapeHtml(state.keywordDraft)}"
+            placeholder="输入关键词"
+            data-skip-page-rerender="true"
+            data-cut-piece-release-field="keywordDraft"
+            data-cut-piece-release-action="field-change"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();this.closest('[data-standard-list-filters]').querySelector('[data-cut-piece-release-action=query]').click()}"
+          >
         </label>
         <label class="space-y-1">
-          <span class="text-sm font-medium">裁床判断</span>
-          <select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cut-piece-release-field="decisionFilter">
-            ${(['全部', ...decisionOptions] as DecisionFilter[]).map((item) => `<option value="${escapeHtml(item)}" ${state.decisionFilter === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
+          <span class="text-xs font-medium">矩阵状态</span>
+          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-skip-page-rerender="true" data-cut-piece-release-field="matrixStatus" data-cut-piece-release-action="field-change">
+            ${matrixStatuses.map((item) => `<option value="${escapeHtml(item)}" ${state.matrixStatus === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
           </select>
         </label>
-        <button class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-cut-piece-release-action="query">查询</button>
-        <button class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-cut-piece-release-action="reset">重置</button>
+        <label class="space-y-1">
+          <span class="text-xs font-medium">目标状态</span>
+          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-skip-page-rerender="true" data-cut-piece-release-field="targetStatus" data-cut-piece-release-action="field-change">
+            ${targetStatuses.map((item) => `<option value="${escapeHtml(item)}" ${state.targetStatus === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
+          </select>
+        </label>
+        <button type="button" class="h-9 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-cut-piece-release-action="query">查询</button>
+        <button type="button" class="h-9 rounded-md border px-4 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cut-piece-release-action="reset">重置</button>
       </div>
     </section>
   `
 }
 
-function renderTriggerInfo(record: CutPieceReleaseRecord): string {
-  return `
-    <div class="space-y-1 text-xs text-muted-foreground">
-      <div>触发动作：<span class="text-foreground">${escapeHtml(record.triggerAction)}</span></div>
-      <div>触发裁片单：<span class="font-mono text-foreground">${escapeHtml(record.triggerCutOrderNo)}</span></div>
-      <div>裁剪操作人：${escapeHtml(record.triggerOperator)}</div>
-      <div>触发时间：${escapeHtml(formatDateTime(record.triggerAt))}</div>
-    </div>
-  `
+function renderFeedback(): string {
+  if (!state.feedback) return ''
+  const className = state.feedback.tone === 'success'
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    : 'border-amber-200 bg-amber-50 text-amber-700'
+  return `<div class="rounded-md border px-3 py-2 text-sm ${className}">${escapeHtml(state.feedback.message)}</div>`
 }
 
-function renderRecordRow(record: CutPieceReleaseRecord): string {
-  const skuScope = record.skuLines
-    .slice(0, 3)
-    .map((line) => `${line.colorName}/${line.sizeCode}`)
-    .join('、')
-  return `
-    <tr class="border-b last:border-b-0 align-top">
-      <td class="px-3 py-4">
-        <div class="font-medium">${escapeHtml(record.recordNo)}</div>
-        <div class="mt-1">${renderProductionOrderIdentityCell(record.productionOrderNo)}</div>
-        <div class="mt-2">${renderDecisionBadge(record.decision)}</div>
-      </td>
-      <td class="px-3 py-4">
-        <div class="flex gap-3">
-          ${renderImage(record.styleImageUrl, record.spuCode)}
-          <div class="min-w-0">
-            <div class="font-medium">${escapeHtml(record.spuCode)}</div>
-            <div class="mt-0.5 max-w-[220px] text-xs text-muted-foreground">${escapeHtml(record.spuName)}</div>
-            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.taskNo)}</div>
-          </div>
-        </div>
-      </td>
-      <td class="px-3 py-4">${renderTriggerInfo(record)}</td>
-      <td class="px-3 py-4 text-xs">
-        <div>${record.skuLines.length} 个 SKU / 颜色 / 尺码</div>
-        <div class="mt-1 text-muted-foreground">${escapeHtml(skuScope || '暂无 SKU 范围')}</div>
-        <div class="mt-1 text-muted-foreground">来源裁片单：${escapeHtml(record.sourceCutOrderNos.join('、') || '未关联')}</div>
-      </td>
-      <td class="px-3 py-4">
-        <div class="text-xl font-semibold tabular-nums">${formatQty(record.releaseQty)} <span class="text-xs font-normal text-muted-foreground">件</span></div>
-        <div class="mt-1 text-xs text-muted-foreground">${record.decision === '待判断' ? '等待裁床主管判断' : '裁床本次判断可做数量'}</div>
-      </td>
-      <td class="px-3 py-4 text-xs">
-        <div class="max-w-[260px] leading-5">${escapeHtml(record.reason)}</div>
-        ${record.riskNote ? `<div class="mt-1 max-w-[260px] text-amber-700">${escapeHtml(record.riskNote)}</div>` : ''}
-      </td>
-      <td class="px-3 py-4 text-xs">
-        <div>${escapeHtml(record.judgedBy || '待裁床主管确认')}</div>
-        <div class="mt-1 text-muted-foreground">${escapeHtml(record.judgedAt ? formatDateTime(record.judgedAt) : '未确认')}</div>
-      </td>
-      <td class="px-3 py-4">
-        <button class="h-8 rounded-md border px-3 text-xs hover:bg-muted" data-cut-piece-release-action="open-detail" data-record-id="${escapeHtml(record.recordId)}">查看 / 确认</button>
-      </td>
-    </tr>
-  `
+function renderListStats(records: CutPieceReleaseRecord[]): string {
+  return renderStandardListStats([
+    { label: '生产单', value: `${records.length} 张` },
+    { label: '矩阵可计算', value: `${records.filter((record) => record.matrixStatus === '可计算').length} 张` },
+    { label: '目标待确认', value: `${records.filter((record) => record.targetStatus !== '已确认').length} 张` },
+    { label: '存在补料缺口', value: `${records.filter((record) => record.shortageCellCount > 0).length} 张` },
+  ])
 }
 
-function renderRecordTable(records: CutPieceReleaseRecord[]): string {
-  return `
-    <section class="rounded-lg border bg-card">
-      <div class="border-b px-4 py-3">
-        <h2 class="text-base font-semibold">裁片放行判断列表</h2>
-        <p class="mt-0.5 text-xs text-muted-foreground">生产单下任一裁片单出现“铺布完成裁剪”后进入本列表，由裁床主管判断能不能交给车缝做货。</p>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[1380px] text-sm">
-          <thead>
-            <tr class="border-b bg-muted/40 text-xs text-muted-foreground">
-              <th class="px-3 py-3 text-left font-medium">放行单 / ${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
-              <th class="px-3 py-3 text-left font-medium">款式 / 车缝任务</th>
-              <th class="px-3 py-3 text-left font-medium">触发裁剪事实</th>
-              <th class="px-3 py-3 text-left font-medium">SKU 范围</th>
-              <th class="px-3 py-3 text-left font-medium">可做数量</th>
-              <th class="px-3 py-3 text-left font-medium">判断原因 / 风险</th>
-              <th class="px-3 py-3 text-left font-medium">确认人 / 时间</th>
-              <th class="px-3 py-3 text-left font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${records.length === 0 ? '<tr><td colspan="8" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选范围暂无裁片放行记录。</td></tr>' : records.map(renderRecordRow).join('')}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  `
+function renderListTable(paging: StandardListPageSlice<CutPieceReleaseRecord>): string {
+  return withSkipPageRerender(renderStandardListTable({
+    columns: listColumns,
+    rows: paging.rows,
+    preferences: state.columnPreferences,
+    sort: state.sort,
+    eventPrefix: 'cut-piece-release',
+    emptyText: '当前筛选范围暂无裁片放行生产单。',
+  }))
 }
 
-function renderSkuLineRow(line: CutPieceReleaseSkuLine): string {
-  return `
-    <tr class="border-b last:border-b-0">
-      <td class="px-3 py-3">
-        <div class="font-medium">${escapeHtml(line.skuCode)}</div>
-        <div class="text-xs text-muted-foreground">${escapeHtml(line.colorName)} / ${escapeHtml(line.sizeCode)}</div>
-      </td>
-      <td class="px-3 py-3 text-xs">
-        <div>需求 ${formatQty(line.demandQty)} 件</div>
-        <div>待分配 ${formatQty(line.remainingQty)} 件</div>
-      </td>
-      <td class="px-3 py-3">${formatQty(line.cutCompletedQty)} 件</td>
-      <td class="px-3 py-3 text-xs">
-        <div>齐套 ${formatQty(line.completeKitQty)} 件</div>
-        <div class="mt-1 text-muted-foreground">用于判断当前 SKU 裁片成熟度</div>
-      </td>
-    </tr>
-  `
+function renderListPagination(paging: StandardListPageSlice<CutPieceReleaseRecord>): string {
+  return withSkipPageRerender(renderTablePagination({
+    total: paging.total,
+    from: paging.from,
+    to: paging.to,
+    currentPage: paging.currentPage,
+    totalPages: paging.totalPages,
+    pageSize: paging.pageSize,
+    actionPrefix: 'cut-piece-release',
+    fieldPrefix: 'cut-piece-release',
+    pageSizeOptions: listPageSizes,
+  }))
 }
 
-function shouldEditReleaseQty(decision: CutPieceReleaseDecision): boolean {
-  return decision === '可以做' || decision === '部分可以做'
+function renderListOverlay(): string {
+  if (!state.columnSettingsOpen) return ''
+  return withSkipPageRerender(renderStandardListColumnSettings({
+    title: '列设置',
+    columns: listColumns,
+    preferences: state.columnPreferences,
+    eventPrefix: 'cut-piece-release',
+    maxFrozenWidth: listMaxFrozenWidth,
+  }))
 }
 
-function renderSkuReleaseQtyEditor(record: CutPieceReleaseRecord): string {
-  return `
-    <div class="space-y-2 md:col-span-2">
-      <div>
-        <div class="text-sm font-medium">可做数量</div>
-        <div class="mt-1 text-xs text-muted-foreground">按生产单 SKU 明细填写本次可以交给车缝做货的数量，合计后形成本次可做数量。</div>
-      </div>
-      <div class="overflow-x-auto rounded-md border">
-        <table class="w-full min-w-[760px] text-sm">
-          <thead>
-            <tr class="border-b bg-muted/30 text-xs text-muted-foreground">
-              <th class="px-3 py-2 text-left">SKU / 颜色 / 尺码</th>
-              <th class="px-3 py-2 text-left">需求 / 待分配</th>
-              <th class="px-3 py-2 text-left">已裁数量</th>
-              <th class="px-3 py-2 text-left">齐套数量</th>
-              <th class="px-3 py-2 text-left">本次可做数量</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${record.skuLines.map((line) => `
-              <tr class="border-b last:border-b-0">
-                <td class="px-3 py-3">
-                  <div class="font-medium">${escapeHtml(line.skuCode)}</div>
-                  <div class="text-xs text-muted-foreground">${escapeHtml(line.colorName)} / ${escapeHtml(line.sizeCode)}</div>
-                </td>
-                <td class="px-3 py-3 text-xs">
-                  <div>需求 ${formatQty(line.demandQty)} 件</div>
-                  <div>待分配 ${formatQty(line.remainingQty)} 件</div>
-                </td>
-                <td class="px-3 py-3">${formatQty(line.cutCompletedQty)} 件</td>
-                <td class="px-3 py-3">${formatQty(line.completeKitQty)} 件</td>
-                <td class="px-3 py-3">
-                  <input
-                    class="h-9 w-32 rounded-md border bg-background px-3 text-sm tabular-nums"
-                    type="number"
-                    min="0"
-                    max="${line.remainingQty}"
-                    value="${escapeHtml(String(line.releaseQty))}"
-                    data-cut-piece-release-sku-qty="${escapeHtml(line.lineId)}"
-                    data-skip-page-rerender="true"
-                  />
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `
+function setListRegion(region: string, html: string): void {
+  if (typeof document === 'undefined') return
+  const element = document.querySelector<HTMLElement>(`[data-cut-piece-release-region="${region}"]`)
+  if (element) element.innerHTML = html
 }
 
-function renderDetailDrawer(record: CutPieceReleaseRecord | null): string {
-  if (!record) return ''
-  const maxReleaseQty = record.skuLines.reduce((sum, line) => sum + line.remainingQty, 0)
-  const activeDecision = state.activeDecisionByRecord[record.recordId] || record.decision
-  return `
-    <div class="fixed inset-0 z-50">
-      <button class="absolute inset-0 bg-black/40" data-cut-piece-release-action="close-overlay" aria-label="关闭"></button>
-      <aside class="absolute right-0 top-0 flex h-full w-[min(1080px,100vw)] flex-col overflow-hidden border-l bg-background shadow-xl">
-        <header class="flex items-start justify-between gap-3 border-b px-5 py-4">
-          <div>
-            <h3 class="text-lg font-semibold">裁片放行确认</h3>
-            <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)} · ${escapeHtml(record.productionOrderNo)} · ${escapeHtml(record.spuCode)}</p>
-          </div>
-          <button class="rounded-md p-1 hover:bg-muted" data-cut-piece-release-action="close-overlay"><i data-lucide="x" class="h-4 w-4"></i></button>
-        </header>
-        <div class="min-h-0 flex-1 overflow-auto p-5">
-          <div class="grid gap-3 sm:grid-cols-4">
-            ${renderMetricCard('当前裁床判断', record.decision, '由裁床主管确认', record.decision === '暂时不能做' ? 'text-rose-700' : record.decision === '待判断' ? 'text-amber-700' : 'text-green-700')}
-            ${renderMetricCard('本次可做数量', `${formatQty(record.releaseQty)} 件`, `最多参考待分配 ${formatQty(maxReleaseQty)} 件`, 'text-blue-700')}
-            ${renderMetricCard('SKU 范围', `${record.skuLines.length}`, '颜色 / 尺码维度')}
-            ${renderMetricCard('来源裁片单', `${record.sourceCutOrderNos.length}`, record.triggerCutOrderNo)}
-          </div>
+function refreshFeedback(): void {
+  setListRegion('feedback', renderFeedback())
+}
 
-          <section class="mt-4 rounded-lg border">
-            <div class="border-b bg-muted/30 px-4 py-3">
-              <div class="font-medium">裁剪事实</div>
-              <div class="mt-1 text-xs text-muted-foreground">铺布/裁剪操作人员只记录事实，不在这里判断能不能做货。</div>
-            </div>
-            <div class="grid gap-3 p-4 text-sm md:grid-cols-2">
-              <div class="rounded-md border bg-background p-3">
-                <div class="text-xs text-muted-foreground">触发动作</div>
-                <div class="mt-1 font-medium">${escapeHtml(record.triggerAction)}</div>
-                <div class="mt-2 text-xs text-muted-foreground">时间：${escapeHtml(formatDateTime(record.triggerAt))} · 操作人：${escapeHtml(record.triggerOperator)}</div>
-              </div>
-              <div class="rounded-md border bg-background p-3">
-                <div class="text-xs text-muted-foreground">来源裁片单</div>
-                <div class="mt-1 font-medium">${escapeHtml(record.sourceCutOrderNos.join('、') || '未关联')}</div>
-                <div class="mt-2 text-xs text-muted-foreground">触发裁片单：${escapeHtml(record.triggerCutOrderNo)}</div>
-              </div>
-            </div>
-          </section>
+function refreshFilters(): void {
+  setListRegion('filters', renderFilters())
+}
 
-          <section class="mt-4 rounded-lg border">
-            <div class="border-b bg-muted/30 px-4 py-3">
-              <div class="font-medium">SKU 辅助信息</div>
-              <div class="mt-1 text-xs text-muted-foreground">齐套信息用于辅助判断当前 SKU 裁片成熟度，不替代裁床主管的裁片放行判断。</div>
-            </div>
-            <div class="overflow-x-auto">
-              <table class="w-full min-w-[680px] text-sm">
-                <thead>
-                  <tr class="border-b text-xs text-muted-foreground">
-                    <th class="px-3 py-2 text-left">SKU / 颜色 / 尺码</th>
-                    <th class="px-3 py-2 text-left">需求 / 待分配</th>
-                    <th class="px-3 py-2 text-left">已裁数量</th>
-                    <th class="px-3 py-2 text-left">齐套数量</th>
-                  </tr>
-                </thead>
-                <tbody>${record.skuLines.map(renderSkuLineRow).join('')}</tbody>
-              </table>
-            </div>
-          </section>
+function refreshList(): void {
+  const view = getListView()
+  setListRegion('stats', renderListStats(view.filtered))
+  setListRegion('table', renderListTable(view.paging))
+  setListRegion('pagination', renderListPagination(view.paging))
+}
 
-          <section class="mt-4 rounded-lg border">
-            <div class="border-b bg-muted/30 px-4 py-3">
-              <div class="font-medium">裁床主管确认</div>
-              <div class="mt-1 text-xs text-muted-foreground">确认的是“当前已裁片能不能交给车缝做货”，不是裁片齐套结论。</div>
-            </div>
-            <div class="grid gap-3 p-4 md:grid-cols-2">
-              <label class="space-y-1">
-                <span class="text-sm font-medium">裁床判断</span>
-                <select id="cut-piece-release-decision" class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cut-piece-release-field="activeDecision" data-record-id="${escapeHtml(record.recordId)}">
-                  ${decisionOptions.map((item) => `<option value="${escapeHtml(item)}" ${activeDecision === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
-                </select>
-              </label>
-              <div class="space-y-1">
-                <span class="text-sm font-medium">数量填写</span>
-                <div class="flex min-h-10 items-center rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground">
-                  ${shouldEditReleaseQty(activeDecision) ? `按下方 ${record.skuLines.length} 个 SKU 明细填写，最多待分配 ${formatQty(maxReleaseQty)} 件` : '当前判断不填写可做数量'}
-                </div>
-              </div>
-              ${shouldEditReleaseQty(activeDecision) ? renderSkuReleaseQtyEditor(record) : ''}
-              <label class="space-y-1 md:col-span-2">
-                <span class="text-sm font-medium">判断原因</span>
-                <textarea id="cut-piece-release-reason" class="min-h-[92px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="说明为什么可以做、部分可以做或暂时不能做">${escapeHtml(record.reason)}</textarea>
-              </label>
-              <label class="space-y-1 md:col-span-2">
-                <span class="text-sm font-medium">风险说明</span>
-                <textarea id="cut-piece-release-risk" class="min-h-[76px] w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="如需要跟单注意车缝节奏、混包、错码等风险">${escapeHtml(record.riskNote)}</textarea>
-              </label>
-              <label class="space-y-1">
-                <span class="text-sm font-medium">确认人</span>
-                <input id="cut-piece-release-judge-by" class="h-10 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(record.judgedBy || '裁床主管')}" />
-              </label>
-              <div class="flex items-end justify-end gap-2">
-                <button class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-cut-piece-release-action="close-overlay">取消</button>
-                <button class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-cut-piece-release-action="save-decision" data-record-id="${escapeHtml(record.recordId)}">确认判断</button>
-              </div>
-            </div>
-          </section>
-        </div>
-      </aside>
-    </div>
-  `
+function refreshTableAndPagination(): void {
+  const view = getListView()
+  setListRegion('table', renderListTable(view.paging))
+  setListRegion('pagination', renderListPagination(view.paging))
+}
+
+function refreshTable(): void {
+  setListRegion('table', renderListTable(getListView().paging))
+}
+
+function refreshOverlay(): void {
+  setListRegion('overlay', renderListOverlay())
 }
 
 export function renderCraftCuttingCutPieceReleasePage(): string {
-  const records = getFilteredRecords()
-  const activeRecord = state.activeRecordId ? getCutPieceReleaseRecord(state.activeRecordId) : null
-  const releaseQtyTotal = records.reduce((sum, record) => sum + record.releaseQty, 0)
-  const readyCount = records.filter((record) => record.decision === '可以做' || record.decision === '部分可以做').length
-  const pendingCount = records.filter((record) => record.decision === '待判断').length
-  const blockedCount = records.filter((record) => record.decision === '暂时不能做').length
-
-  return `
-    <div class="space-y-4">
-      <header class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 class="text-2xl font-bold">裁片放行管理</h1>
-          <p class="mt-0.5 text-sm text-muted-foreground">铺布完成裁剪后，由裁床主管判断当前已裁片能不能交给车缝做货，并给出可做数量、原因、确认人和确认时间。</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <button class="h-9 rounded-md border px-3 text-sm hover:bg-muted" data-nav="/fcs/dispatch/sewing">车缝分配工作台</button>
-          <button class="h-9 rounded-md border px-3 text-sm hover:bg-muted" data-nav="/fcs/craft/cutting/summary">裁剪结果核查</button>
-        </div>
-      </header>
-
-      <section class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-        判断触发条件是生产单下任一裁片单出现“铺布完成裁剪”。本页不要求裁片齐套，也不要求辅助工艺或特种工艺全部回仓；齐套和辅料库存继续在车缝分配工作台作为参考。
-      </section>
-
-      ${state.feedbackMessage ? `<section class="rounded-lg border px-4 py-3 text-sm ${state.feedbackTone === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700'}">${escapeHtml(state.feedbackMessage)}</section>` : ''}
-      ${renderFilters()}
-      ${renderCompactKpiGroup(`
-        ${renderMetricCard('放行记录', `${records.length}`, '当前筛选范围')}
-        ${renderMetricCard('可以/部分可以做', `${readyCount}`, '裁床已允许车缝启动', 'text-green-700')}
-        ${renderMetricCard('待判断', `${pendingCount}`, '等待裁床主管确认', 'text-amber-700')}
-        ${renderMetricCard('暂时不能做', `${blockedCount}`, '需先处理裁片风险', 'text-rose-700')}
-        ${renderMetricCard('可做数量合计', `${formatQty(releaseQtyTotal)} 件`, '当前筛选范围', 'text-blue-700')}
-      `)}
-      ${renderRecordTable(records)}
-      ${renderDetailDrawer(activeRecord)}
-    </div>
-  `
+  ensureListPreferences()
+  const hasMountedPageRoot = typeof document !== 'undefined'
+    && Boolean(document.querySelector('[data-cut-piece-release-page]'))
+  if (!hasMountedPageRoot) {
+    state.page = 1
+    state.sort = null
+  }
+  const view = getListView()
+  const columnSettingsButton = withSkipPageRerender(renderSecondaryButton(
+    '列设置',
+    { prefix: 'cut-piece-release', action: 'open-column-settings' },
+    'columns-3',
+  ))
+  return renderStandardListPage({
+    title: '裁片放行管理',
+    feedbackHtml: `<div data-cut-piece-release-region="feedback">${renderFeedback()}</div>`,
+    filtersHtml: `<div data-cut-piece-release-region="filters">${renderFilters()}</div>`,
+    statsHtml: `<div data-cut-piece-release-region="stats">${renderListStats(view.filtered)}</div>`,
+    listTitle: '生产单裁片矩阵',
+    listActionsHtml: columnSettingsButton,
+    tableHtml: `<div data-cut-piece-release-region="table">${renderListTable(view.paging)}</div>`,
+    paginationHtml: `<div data-cut-piece-release-region="pagination">${renderListPagination(view.paging)}</div>`,
+    overlaysHtml: `<div data-cut-piece-release-region="overlay">${renderListOverlay()}</div>`,
+    className: 'max-w-full overflow-x-hidden',
+  }).replace('data-standard-list-page', 'data-standard-list-page data-cut-piece-release-page')
 }
 
-function readInputValue(id: string): string {
-  const node = document.getElementById(id)
-  if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement) {
-    return node.value
+function handleFieldChange(node: HTMLInputElement | HTMLSelectElement): boolean {
+  const field = node.dataset.cutPieceReleaseField
+  if (field === 'keywordDraft') {
+    state.keywordDraft = node.value
+    return true
   }
-  return ''
+  if (field === 'matrixStatus') {
+    state.matrixStatus = node.value as MatrixStatusFilter
+    state.page = 1
+    refreshList()
+    return true
+  }
+  if (field === 'targetStatus') {
+    state.targetStatus = node.value as TargetStatusFilter
+    state.page = 1
+    refreshList()
+    return true
+  }
+  if (field === 'pageSize') {
+    const pageSize = Number(node.value)
+    if (listPageSizes.includes(pageSize)) {
+      state.columnPreferences = normalizeListPreferences({ ...state.columnPreferences, pageSize })
+      state.page = 1
+      saveListPreferences()
+      refreshTableAndPagination()
+    }
+    return true
+  }
+  return false
 }
 
-function updateField(field: string, node: HTMLInputElement | HTMLSelectElement): void {
-  if (field === 'keyword') {
-    state.keyword = node.value
-    return
-  }
-  if (field === 'decisionFilter') {
-    state.decisionFilter = node.value as DecisionFilter
-    return
-  }
-  if (field === 'activeDecision') {
-    const recordId = node.dataset.recordId || state.activeRecordId
-    if (recordId) state.activeDecisionByRecord[recordId] = node.value as CutPieceReleaseDecision
-  }
-}
-
-function readSkuReleaseQuantities(): Array<{ lineId: string; releaseQty: number }> {
-  return Array.from(document.querySelectorAll<HTMLInputElement>('[data-cut-piece-release-sku-qty]')).map((node) => ({
-    lineId: node.dataset.cutPieceReleaseSkuQty || '',
-    releaseQty: Number(node.value),
-  })).filter((item) => item.lineId)
-}
-
-export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement): boolean {
-  const fieldNode = target.closest<HTMLElement>('[data-cut-piece-release-field]')
-  if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLSelectElement) {
-    const field = fieldNode.dataset.cutPieceReleaseField
-    if (!field) return true
-    updateField(field, fieldNode)
+export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, event?: Event): boolean {
+  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
+  const currentEvent = event ?? (typeof window === 'undefined' ? undefined : window.event)
+  const dragEvent = currentEvent as (DragEvent & { higoodStandardListColumnKey?: string }) | undefined
+  if (dragNode && dragEvent && ['dragstart', 'dragover', 'drop', 'dragend'].includes(dragEvent.type)) {
+    const columnKey = dragNode.dataset.cutPieceReleaseColumnKey || dragNode.dataset.dragSource || dragNode.dataset.dropTarget || ''
+    if (dragEvent.type === 'dragstart') {
+      state.draggedColumnKey = columnKey
+      return Boolean(columnKey)
+    }
+    if (dragEvent.type === 'dragend') {
+      state.draggedColumnKey = ''
+      return true
+    }
+    const sourceKey = dragEvent.higoodStandardListColumnKey || state.draggedColumnKey
+    if (!sourceKey || !columnKey || sourceKey === columnKey) return false
+    if (dragEvent.type === 'dragover') {
+      dragEvent.preventDefault()
+      return true
+    }
+    dragEvent.preventDefault()
+    state.draggedColumnKey = ''
+    const order = state.columnPreferences.order.filter((key) => key !== sourceKey)
+    const targetIndex = order.indexOf(columnKey)
+    if (targetIndex < 0) return false
+    order.splice(targetIndex, 0, sourceKey)
+    state.columnPreferences = normalizeListPreferences({ ...state.columnPreferences, order })
+    saveListPreferences()
+    refreshTable()
+    refreshOverlay()
     return true
   }
 
+  const fieldNode = target.closest<HTMLInputElement | HTMLSelectElement>('[data-cut-piece-release-field]')
+  if (fieldNode && handleFieldChange(fieldNode)) return true
+
   const actionNode = target.closest<HTMLElement>('[data-cut-piece-release-action]')
-  if (!actionNode) return false
-  const action = actionNode.dataset.cutPieceReleaseAction
-  if (!action) return false
+  const action = actionNode?.dataset.cutPieceReleaseAction
+  if (!actionNode || !action) return false
+  if (action === 'field-change') return true
 
   if (action === 'query') {
+    state.keyword = state.keywordDraft
+    state.page = 1
+    state.feedback = null
+    refreshFeedback()
+    refreshList()
     return true
   }
   if (action === 'reset') {
+    state.keywordDraft = ''
     state.keyword = ''
-    state.decisionFilter = '全部'
-    state.feedbackMessage = ''
+    state.matrixStatus = '全部'
+    state.targetStatus = '全部'
+    state.page = 1
+    state.feedback = null
+    refreshFeedback()
+    refreshFilters()
+    refreshList()
     return true
   }
-  if (action === 'open-detail') {
+  if (action === 'prev-page' || action === 'next-page') {
+    state.page += action === 'prev-page' ? -1 : 1
+    refreshTableAndPagination()
+    return true
+  }
+  if (action === 'sort-column') {
+    const columnKey = actionNode.dataset.columnKey || ''
+    const column = listColumns.find((item) => item.key === columnKey && item.sortable)
+    if (!column) return true
+    state.sort = state.sort?.key !== columnKey
+      ? { key: columnKey, direction: 'asc' }
+      : state.sort.direction === 'asc'
+        ? { key: columnKey, direction: 'desc' }
+        : null
+    state.page = 1
+    refreshTableAndPagination()
+    return true
+  }
+  if (action === 'open-matrix') {
     state.activeRecordId = actionNode.dataset.recordId || null
-    state.feedbackMessage = ''
-    const record = state.activeRecordId ? getCutPieceReleaseRecord(state.activeRecordId) : null
-    if (record) state.activeDecisionByRecord[record.recordId] = record.decision
+    state.activeColor = null
+    state.targetMode = '查看'
+    state.targetDraft = {}
+    state.activeCell = null
+    state.historyOpen = false
+    const productionOrderNo = listCutPieceReleaseRecords()
+      .find((record) => record.recordId === state.activeRecordId)?.productionOrderNo
+    state.feedback = {
+      tone: 'success',
+      message: productionOrderNo ? `已选中生产单 ${productionOrderNo} 的裁片矩阵。` : '已选中裁片矩阵。',
+    }
+    refreshFeedback()
     return true
   }
-  if (action === 'close-overlay') {
-    state.activeRecordId = null
+  if (action === 'open-column-settings') {
+    state.columnSettingsOpen = true
+    refreshOverlay()
     return true
   }
-  if (action === 'save-decision') {
-    const recordId = actionNode.dataset.recordId || state.activeRecordId || ''
-    const result = saveCutPieceReleaseDecision({
-      recordId,
-      decision: readInputValue('cut-piece-release-decision') as CutPieceReleaseDecision,
-      skuReleaseQuantities: readSkuReleaseQuantities(),
-      reason: readInputValue('cut-piece-release-reason'),
-      riskNote: readInputValue('cut-piece-release-risk'),
-      judgedBy: readInputValue('cut-piece-release-judge-by'),
+  if (action === 'close-column-settings' || action === 'close-overlay') {
+    state.columnSettingsOpen = false
+    refreshOverlay()
+    return true
+  }
+  if (action === 'toggle-column-visibility') {
+    const columnKey = actionNode.dataset.cutPieceReleaseColumnKey || actionNode.dataset.columnKey || ''
+    const rule = listColumnRules.find((item) => item.key === columnKey)
+    if (!rule || rule.required || rule.actionColumn || !(actionNode instanceof HTMLInputElement)) return true
+    const visibleKeys = new Set(state.columnPreferences.visibleKeys)
+    const frozenKeys = new Set(state.columnPreferences.frozenKeys)
+    if (actionNode.checked) visibleKeys.add(columnKey)
+    else {
+      visibleKeys.delete(columnKey)
+      frozenKeys.delete(columnKey)
+    }
+    state.columnPreferences = normalizeListPreferences({
+      ...state.columnPreferences,
+      visibleKeys: [...visibleKeys],
+      frozenKeys: [...frozenKeys],
     })
-    state.feedbackMessage = result.message
-    state.feedbackTone = result.ok ? 'success' : 'warning'
-    if (result.ok) state.activeRecordId = null
+    if (!visibleKeys.has(columnKey) && state.sort?.key === columnKey) state.sort = null
+    saveListPreferences()
+    refreshTable()
+    refreshOverlay()
     return true
   }
-
+  if (action === 'toggle-column-freeze') {
+    const columnKey = actionNode.dataset.cutPieceReleaseColumnKey || actionNode.dataset.columnKey || ''
+    const column = listColumns.find((item) => item.key === columnKey)
+    if (!column?.freezeable || column.actionColumn || !(actionNode instanceof HTMLInputElement)) return true
+    const frozenKeys = new Set(state.columnPreferences.frozenKeys)
+    if (actionNode.checked) frozenKeys.add(columnKey)
+    else frozenKeys.delete(columnKey)
+    const nextPreferences = normalizeListPreferences({ ...state.columnPreferences, frozenKeys: [...frozenKeys] })
+    state.feedback = actionNode.checked && !nextPreferences.frozenKeys.includes(columnKey)
+      ? { tone: 'warning', message: `冻结列总宽度不能超过 ${listMaxFrozenWidth}px，请先取消其他冻结列。` }
+      : null
+    state.columnPreferences = nextPreferences
+    saveListPreferences()
+    refreshFeedback()
+    refreshTable()
+    refreshOverlay()
+    return true
+  }
+  if (action === 'restore-column-settings') {
+    state.columnPreferences = normalizeListPreferences(defaultListColumnPreferences)
+    state.page = 1
+    state.sort = null
+    state.feedback = null
+    const storage = getListStorage()
+    if (storage) clearListColumnPreferences(storage, listStorageKey)
+    refreshFeedback()
+    refreshTableAndPagination()
+    refreshOverlay()
+    return true
+  }
   return false
 }
 
 export function isCraftCuttingCutPieceReleaseDialogOpen(): boolean {
-  return state.activeRecordId !== null
+  return state.columnSettingsOpen
 }

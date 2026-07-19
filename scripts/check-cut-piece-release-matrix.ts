@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import {
   appendMatrixEvent,
@@ -23,6 +25,25 @@ import {
 } from '../src/data/fcs/cut-piece-release'
 
 const productionOrderId = 'po-14671'
+
+const cutPieceReleasePageSource = readFileSync(
+  resolve(process.cwd(), 'src/pages/process-factory/cutting/cut-piece-release.ts'),
+  'utf8',
+)
+assert.match(cutPieceReleasePageSource, /\/\/ @page-pattern: list/, '裁片放行管理必须声明标准列表页模式')
+assert.match(cutPieceReleasePageSource, /renderStandardListPage/, '裁片放行管理必须使用标准列表页骨架')
+assert.match(cutPieceReleasePageSource, /renderStandardListTable/, '裁片放行管理必须使用标准列表表格')
+assert.match(cutPieceReleasePageSource, /renderTablePagination/, '裁片放行管理必须使用标准表格分页')
+assert.match(
+  cutPieceReleasePageSource,
+  /higood:list-page:\/fcs\/craft\/cutting\/cut-piece-release/,
+  '裁片放行管理必须使用路由级列表偏好存储键',
+)
+assert.match(
+  cutPieceReleasePageSource,
+  /data-cut-piece-release-action="open-matrix"/,
+  '裁片放行管理必须提供打开生产单矩阵的操作入口',
+)
 
 const requirements: CutPieceRequirement[] = [
   { materialId: 'A', materialName: '面料 A', partId: 'front', partName: '前片', piecesPerGarment: 1 },
