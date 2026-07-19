@@ -508,14 +508,28 @@ const beforeAdjustmentVersions = listCutPieceReleaseMatrixVersions(productionOrd
 const beforeAdjustmentBCells = getCutPieceReleaseMatrix(productionOrderId)!.colorGroups[0].materialRows.find((row) => row.materialId === 'B')!.cells
 assert.deepEqual(beforeAdjustmentBCells.map((cell) => cell.availableGarmentQty), [200, 350, 500])
 assert.deepEqual(beforeAdjustmentVersions.at(-1)!.matrixSnapshot.colorGroups[0].materialRows.find((row) => row.materialId === 'B')!.cells.map((cell) => cell.availableGarmentQty), [200, 350, 500], '冲销前版本必须保留 B 原正向数量')
+const oldVersionNumber = beforeAdjustmentVersions.at(-1)!.version
+const oldBPartSourceFactIds = beforeAdjustmentBCells.find((cell) => cell.size === 'M')!.partCalculations[0].sourceFactIds
+assert.equal(oldBPartSourceFactIds.length, 1, '冲销前 B/M 应只有原正向来源事实')
 recordSpreadingReleaseAdjustment({ adjustmentEventId: 'reverse-spread-14671', spreadingOrderNo: 'ASYSA26060310', productionOrderId, direction: -1, occurredAt: '2026-06-04 11:00:00', operator: '阿迪', reason: '铺布冲销' })
 const afterAdjustmentVersions = listCutPieceReleaseMatrixVersions(productionOrderId)
 assert.equal(afterAdjustmentVersions.length, afterRestoreVersions.length + 2, '关闭、恢复、冲销各只形成一次版本')
 const adjustedMatrix = getCutPieceReleaseMatrix(productionOrderId)!
-assert.deepEqual(adjustedMatrix.colorGroups[0].materialRows.find((row) => row.materialId === 'B')!.cells.map((cell) => cell.availableGarmentQty), [0, 0, 0], '整单冲销必须将 B 三尺码按原事实反向冲减')
+const adjustedBCells = adjustedMatrix.colorGroups[0].materialRows.find((row) => row.materialId === 'B')!.cells
+assert.equal(adjustedMatrix.calculationStatus, '可计算', '净额归零仍是可计算矩阵')
+assert.deepEqual(adjustedBCells.map((cell) => [cell.size, cell.calculationStatus, cell.availableGarmentQty]), [['M', '可计算', 0], ['L', '可计算', 0], ['XL', '可计算', 0]], '整单冲销必须将 B 三尺码按原事实反向冲减为可计算的零')
+assert.deepEqual(adjustedBCells.find((cell) => cell.size === 'M')!.partCalculations.map((part) => [part.calculationStatus, part.availableGarmentQty]), [['可计算', 0]], 'B/M 部位冲销后也必须是可计算的零')
 assert.deepEqual(adjustedMatrix.colorGroups[0].completeKitBySize, { M: 0, L: 0, XL: 0 }, '冲销后当前齐套必须重算')
+const persistedOldVersion = listCutPieceReleaseMatrixVersions(productionOrderId).find((item) => item.version === oldVersionNumber)!
+assert.deepEqual(persistedOldVersion.matrixSnapshot.colorGroups[0].materialRows.find((row) => row.materialId === 'B')!.cells.map((cell) => cell.availableGarmentQty), [200, 350, 500], '冲销后重新读取旧版本仍须保留 B 原数量')
+assert.deepEqual(persistedOldVersion.matrixSnapshot.colorGroups[0].completeKitBySize, { M: 200, L: 350, XL: 500 }, '冲销后重新读取旧版本仍须保留原齐套数量')
+const adjustedBPartSourceFactIds = adjustedBCells.find((cell) => cell.size === 'M')!.partCalculations[0].sourceFactIds
+assert.ok(oldBPartSourceFactIds.every((factId) => adjustedBPartSourceFactIds.includes(factId)), '冲销不能删除原正向来源事实')
+assert.equal(adjustedBPartSourceFactIds.length, oldBPartSourceFactIds.length + 1, '冲销应追加一条反向来源事实')
+assert.ok(adjustedBPartSourceFactIds.some((factId) => factId.includes('adjust:reverse-spread-14671')), '冲销来源必须包含调整事实标识')
 recordSpreadingReleaseAdjustment({ adjustmentEventId: 'reverse-spread-14671', spreadingOrderNo: 'ASYSA26060310', productionOrderId, direction: -1, occurredAt: '2026-06-04 11:00:00', operator: '阿迪', reason: '铺布冲销' })
 assert.equal(listCutPieceReleaseMatrixVersions(productionOrderId).length, afterAdjustmentVersions.length, '重复冲销事件不得新增版本')
+assert.deepEqual(getCutPieceReleaseMatrix(productionOrderId)!.colorGroups[0].materialRows.find((row) => row.materialId === 'B')!.cells.find((cell) => cell.size === 'M')!.partCalculations[0].sourceFactIds, adjustedBPartSourceFactIds, '重复冲销不得重复追加来源事实')
 assert.ok(getCutPieceReleaseMatrix(productionOrderId), '冲销不能删除原有生产单矩阵事实')
 const mutableVersion = listCutPieceReleaseMatrixVersions(productionOrderId)[0]
 mutableVersion.matrixSnapshot.colorGroups[0].materialRows[0].cells[0].partCalculations[0].actualPieceQty = 999
