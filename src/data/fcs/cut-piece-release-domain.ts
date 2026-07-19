@@ -34,7 +34,7 @@ export interface CutPieceFact {
 export interface ReleasePartCalculation {
   partId: string
   partName: string
-  piecesPerGarment?: number
+  piecesPerGarment: number
   actualPieceQty: number
   availableGarmentQty: number | null
   calculationStatus: MatrixCalculationStatus
@@ -190,7 +190,7 @@ function calculatePart(requirement: CutPieceRequirement, facts: CutPieceFact[], 
   return {
     partId: requirement.partId,
     partName: requirement.partName,
-    piecesPerGarment: requirement.piecesPerGarment,
+    piecesPerGarment: piecesPerGarment ?? 0,
     actualPieceQty,
     availableGarmentQty: calculationStatus === '可计算' ? availableGarmentQty : null,
     calculationStatus,

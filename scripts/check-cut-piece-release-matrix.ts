@@ -158,7 +158,7 @@ const netCannotBeNegative = buildReleaseMatrix({
 assert.equal(netCannotBeNegative.colorGroups[0].materialRows[0].cells[0].partCalculations[0].actualPieceQty, 0)
 assert.equal(netCannotBeNegative.colorGroups[0].materialRows[0].cells[0].availableGarmentQty, 0)
 
-for (const piecesPerGarment of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+for (const piecesPerGarment of [undefined, 0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
   const invalidPieces = buildReleaseMatrix({
     productionOrderId,
     productionOrderNo: 'PO14671',
@@ -168,6 +168,7 @@ for (const piecesPerGarment of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
     facts: [fact({ factId: `invalid-${piecesPerGarment}`, sourceEventId: `invalid-${piecesPerGarment}`, materialId: 'invalid', partId: 'invalid', actualPieceQty: 10 })],
   })
   assert.equal(invalidPieces.colorGroups[0].materialRows[0].cells[0].calculationStatus, '数据不完整')
+  assertAllNumbersFinite(invalidPieces)
 }
 
 const missingPiecesWithoutFacts = buildReleaseMatrix({
