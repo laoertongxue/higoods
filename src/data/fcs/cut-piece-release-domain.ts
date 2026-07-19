@@ -193,7 +193,9 @@ export function buildReleaseMatrix(input: BuildReleaseMatrixInput): CutPieceRele
   ))).map((fact) => colorSizeKey(fact.garmentColor, fact.size)))
 
   const colorGroups = createStableColorSizes(input, effectiveFacts).map(({ garmentColor, sizes }) => {
-    const materialRows: ReleaseMaterialRow[] = [...materialRequirements.entries()].map(([materialId, materialRequirementsForId]) => ({
+    const materialRows: ReleaseMaterialRow[] = [...materialRequirements.entries()]
+      .filter(([, materialRequirementsForId]) => materialRequirementsForId.some((requirement) => !requirement.garmentColor || requirement.garmentColor === garmentColor))
+      .map(([materialId, materialRequirementsForId]) => ({
       materialId,
       materialName: materialRequirementsForId[0].materialName,
       cells: sizes.map((size): ReleaseMatrixCell => {
@@ -217,7 +219,7 @@ export function buildReleaseMatrix(input: BuildReleaseMatrixInput): CutPieceRele
           sourceStatus: resolveSourceStatus(cellFacts),
         }
       }),
-    }))
+      }))
     const completeKitBySize = Object.fromEntries(sizes.map((size) => {
       const cells = materialRows.map((row) => row.cells.find((cell) => cell.size === size)!).filter((cell) => cell.partCalculations.length > 0)
       const calculationStatus: MatrixCalculationStatus = cells.length === 0 || unmappedColorSizeKeys.has(colorSizeKey(garmentColor, size))
@@ -238,16 +240,18 @@ export function buildReleaseMatrix(input: BuildReleaseMatrixInput): CutPieceRele
     }
   })
 
-  const calculationStatus: MatrixCalculationStatus = !structureValid || colorGroups.length === 0 || unmappedColorSizeKeys.size > 0
+  const hasIncompleteMatrix = colorGroups.some((group) => (
+    group.materialRows.length === 0
+    || group.sizes.some((size) => {
+      const requiredCells = group.materialRows.map((row) => row.cells.find((cell) => cell.size === size)!).filter((cell) => cell.partCalculations.length > 0)
+      return requiredCells.length === 0 || requiredCells.some((cell) => cell.calculationStatus === '数据不完整')
+    })
+  ))
+  const calculationStatus: MatrixCalculationStatus = !structureValid || colorGroups.length === 0 || unmappedColorSizeKeys.size > 0 || hasIncompleteMatrix
     ? '数据不完整'
     : noEffectivePositiveFacts
       ? '暂无有效裁片'
-      : colorGroups.some((group) => (
-        Object.values(group.completeKitBySize).some((qty) => qty === null)
-        || group.materialRows.some((row) => row.cells.some((cell) => cell.calculationStatus === '数据不完整'))
-      ))
-        ? '数据不完整'
-        : '可计算'
+      : '可计算'
 
   return {
     productionOrderId: input.productionOrderId,

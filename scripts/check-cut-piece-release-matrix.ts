@@ -123,7 +123,7 @@ const requirementOrder = buildReleaseMatrix({
 })
 assert.deepEqual(requirementOrder.colorGroups.map((group) => group.garmentColor), ['Red', 'Black', 'Blue'])
 assert.deepEqual(requirementOrder.colorGroups[0].sizes, ['S', 'M'])
-assert.deepEqual(requirementOrder.colorGroups[0].materialRows.map((row) => row.materialId), ['R2', 'R1', 'B1'])
+assert.deepEqual(requirementOrder.colorGroups[0].materialRows.map((row) => row.materialId), ['R2', 'R1'])
 
 const emptyRequiredMatrix = buildReleaseMatrix({
   productionOrderId,
@@ -169,5 +169,71 @@ for (const piecesPerGarment of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
   })
   assert.equal(invalidPieces.colorGroups[0].materialRows[0].cells[0].calculationStatus, '数据不完整')
 }
+
+const missingPiecesWithoutFacts = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Black: { M: 240 } },
+  requirements: [{ materialId: 'missing', materialName: '缺失用量', partId: 'missing', partName: '缺失部位' }],
+  facts: [],
+})
+assert.equal(missingPiecesWithoutFacts.colorGroups[0].materialRows[0].cells[0].calculationStatus, '数据不完整')
+assert.equal(missingPiecesWithoutFacts.calculationStatus, '数据不完整')
+
+const colorScopedRequirements: CutPieceRequirement[] = [
+  { materialId: 'A', materialName: 'Red 专属物料', partId: 'red-part', partName: 'Red 部位', piecesPerGarment: 1, garmentColor: 'Red', size: 'M' },
+  { materialId: 'B', materialName: 'Black 专属物料', partId: 'black-part', partName: 'Black 部位', piecesPerGarment: 1, garmentColor: 'Black', size: 'M' },
+]
+const colorScopedMatrix = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Red: { M: 10 }, Black: { M: 10 } },
+  requirements: colorScopedRequirements,
+  facts: [
+    fact({ factId: 'red-a', sourceEventId: 'red-a', garmentColor: 'Red', materialId: 'A', partId: 'red-part', actualPieceQty: 10 }),
+    fact({ factId: 'black-b', sourceEventId: 'black-b', garmentColor: 'Black', materialId: 'B', partId: 'black-part', actualPieceQty: 10 }),
+  ],
+})
+assert.deepEqual(colorScopedMatrix.colorGroups.map((group) => group.garmentColor), ['Red', 'Black'])
+assert.deepEqual(colorScopedMatrix.colorGroups[0].materialRows.map((row) => row.materialId), ['A'])
+assert.deepEqual(colorScopedMatrix.colorGroups[1].materialRows.map((row) => row.materialId), ['B'])
+assert.deepEqual(colorScopedMatrix.colorGroups.map((group) => group.completeKitBySize.M), [10, 10])
+assert.equal(colorScopedMatrix.calculationStatus, '可计算')
+
+const compositeDimensions = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Black: { M: 30, L: 30 }, Red: { M: 30 } },
+  requirements: [{ materialId: 'A', materialName: '物料 A', partId: 'part', partName: '部位', piecesPerGarment: 1 }],
+  facts: [
+    fact({ factId: 'same-black-m', sourceEventId: 'same', garmentColor: 'Black', size: 'M', materialId: 'A', partId: 'part', actualPieceQty: 10 }),
+    fact({ factId: 'same-black-m-replay', sourceEventId: 'same', garmentColor: 'Black', size: 'M', materialId: 'A', partId: 'part', actualPieceQty: 10 }),
+    fact({ factId: 'same-black-l', sourceEventId: 'same', garmentColor: 'Black', size: 'L', materialId: 'A', partId: 'part', actualPieceQty: 11 }),
+    fact({ factId: 'same-red-m', sourceEventId: 'same', garmentColor: 'Red', size: 'M', materialId: 'A', partId: 'part', actualPieceQty: 12 }),
+    fact({ factId: 'same-reverse', sourceEventId: 'same', garmentColor: 'Black', size: 'M', materialId: 'A', partId: 'part', actualPieceQty: 3, direction: '反向' }),
+    fact({ factId: 'same-reverse-replay', sourceEventId: 'same', garmentColor: 'Black', size: 'M', materialId: 'A', partId: 'part', actualPieceQty: 3, direction: '反向' }),
+  ],
+})
+assert.deepEqual(compositeDimensions.colorGroups[0].materialRows[0].cells.map((cell) => cell.availableGarmentQty), [7, 11])
+assert.equal(compositeDimensions.colorGroups[1].materialRows[0].cells[0].availableGarmentQty, 12)
+
+const emptyPartScope = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Red: { S: 10, M: 10 }, Black: { M: 10 } },
+  requirements: [{ materialId: 'A', materialName: '只适用 S', partId: 'a', partName: 'A 部位', piecesPerGarment: 1, garmentColor: 'Red', size: 'S' }],
+  facts: [fact({ factId: 'red-s', sourceEventId: 'red-s', garmentColor: 'Red', size: 'S', materialId: 'A', partId: 'a', actualPieceQty: 10 })],
+})
+const redMEmptyPart = emptyPartScope.colorGroups[0].materialRows[0].cells[1]
+assert.equal(redMEmptyPart.calculationStatus, '数据不完整')
+assert.equal(redMEmptyPart.availableGarmentQty, null)
+assert.equal(emptyPartScope.colorGroups[0].completeKitBySize.M, null)
+assert.equal(emptyPartScope.colorGroups[1].materialRows.length, 0)
+assert.equal(emptyPartScope.colorGroups[1].completeKitBySize.M, null)
+assert.equal(emptyPartScope.calculationStatus, '数据不完整')
 
 console.log('cut piece release matrix check passed')
