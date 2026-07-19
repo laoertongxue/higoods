@@ -248,10 +248,46 @@ export function saveStoredCutOrderCloseRecords(
   storage.setItem(CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY, serializeCutOrderCloseRecordsStorage(records))
 }
 
-type CutOrderLifecycleStorage = Pick<Storage, 'getItem' | 'setItem'>
+export type CutOrderLifecycleStorage = Pick<Storage, 'getItem' | 'setItem'>
 
-function nextLifecycleSequence(records: Array<{ cutOrderId: string; cutOrderNo: string }>, cutOrderId: string, cutOrderNo: string): number {
-  return records.filter((record) => record.cutOrderId === cutOrderId || record.cutOrderNo === cutOrderNo).length + 1
+export interface CutOrderLifecycleWriteResult<T> {
+  ok: boolean
+  record: T
+  idempotent: boolean
+  conflict: boolean
+}
+
+function stableValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableValue)
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, stableValue(item)]))
+  }
+  return value
+}
+
+function sameLifecycleRecord(left: unknown, right: unknown): boolean {
+  return JSON.stringify(stableValue(left)) === JSON.stringify(stableValue(right))
+}
+
+function parseLifecycleCycle(...values: string[]): number {
+  for (const value of values) {
+    const explicit = value.match(/cycle[-:]?(\d+)/i)
+    if (explicit) return Number(explicit[1]) || 0
+    const legacySuffix = value.match(/-(\d{4,})(?:[-:][a-z0-9-]+)?$/i)
+    if (legacySuffix) return Number(legacySuffix[1]) || 0
+  }
+  return 0
+}
+
+function nextLifecycleSequence(records: Array<{ cutOrderId: string; cutOrderNo: string } & Record<string, unknown>>, cutOrderId: string, cutOrderNo: string, idKey: string, noKey: string): number {
+  return records
+    .filter((record) => record.cutOrderId === cutOrderId || record.cutOrderNo === cutOrderNo)
+    .reduce((max, record) => Math.max(max, parseLifecycleCycle(String(record[idKey] || ''), String(record[noKey] || ''))), 0) + 1
+}
+
+function createLifecycleNonce(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID().replaceAll('-', '').slice(0, 12)
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
 }
 
 export function createNextCutOrderCloseRecordIdentity(
@@ -259,29 +295,36 @@ export function createNextCutOrderCloseRecordIdentity(
   cutOrderNo: string,
   storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
 ): Pick<CutOrderCloseRecord, 'closeRecordId' | 'closeRecordNo'> {
-  const sequence = nextLifecycleSequence(listStoredCutOrderCloseRecords(storage), cutOrderId, cutOrderNo)
+  const sequence = nextLifecycleSequence(listStoredCutOrderCloseRecords(storage), cutOrderId, cutOrderNo, 'closeRecordId', 'closeRecordNo')
   const suffix = String(sequence).padStart(4, '0')
-  return { closeRecordId: `close:${cutOrderId}:cycle-${suffix}`, closeRecordNo: `CLOSE-${cutOrderNo.replace(/^CUT-?/, '')}-${suffix}` }
+  const nonce = createLifecycleNonce()
+  return { closeRecordId: `close:${cutOrderId}:cycle-${suffix}-${nonce}`, closeRecordNo: `CLOSE-${cutOrderNo.replace(/^CUT-?/, '')}-${suffix}-${nonce}` }
 }
 
 export function upsertStoredCutOrderCloseRecord(
   record: CutOrderCloseRecord,
   storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
-): void {
+): CutOrderLifecycleWriteResult<CutOrderCloseRecord> {
   const records = listStoredCutOrderCloseRecords(storage)
-  saveStoredCutOrderCloseRecords([
-    ...records.filter((item) => item.closeRecordId !== record.closeRecordId),
-    record,
-  ], storage)
+  const existing = records.find((item) => item.closeRecordId === record.closeRecordId)
+  if (existing) {
+    const idempotent = sameLifecycleRecord(existing, record)
+    return { ok: idempotent, record: existing, idempotent, conflict: !idempotent }
+  }
+  saveStoredCutOrderCloseRecords([...records, record], storage)
+  return { ok: true, record, idempotent: false, conflict: false }
 }
 
-export function removeStoredCutOrderCloseRecord(cutOrderIdOrNo: string): boolean {
-  const key = cutOrderIdOrNo.trim()
+export function removeStoredCutOrderCloseRecord(
+  closeRecordId: string,
+  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+): boolean {
+  const key = closeRecordId.trim()
   if (!key) return false
-  const records = listStoredCutOrderCloseRecords()
-  const nextRecords = records.filter((item) => item.cutOrderId !== key && item.cutOrderNo !== key)
+  const records = listStoredCutOrderCloseRecords(storage)
+  const nextRecords = records.filter((item) => item.closeRecordId !== key)
   if (nextRecords.length === records.length) return false
-  saveStoredCutOrderCloseRecords(nextRecords)
+  saveStoredCutOrderCloseRecords(nextRecords, storage)
   return true
 }
 
@@ -341,36 +384,46 @@ export function createNextCutOrderReopenRecordIdentity(
   cutOrderNo: string,
   storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
 ): Pick<CutOrderReopenRecord, 'reopenRecordId' | 'reopenRecordNo'> {
-  const sequence = nextLifecycleSequence(listStoredCutOrderReopenRecords(storage), cutOrderId, cutOrderNo)
+  const sequence = nextLifecycleSequence(listStoredCutOrderReopenRecords(storage), cutOrderId, cutOrderNo, 'reopenRecordId', 'reopenRecordNo')
   const suffix = String(sequence).padStart(4, '0')
-  return { reopenRecordId: `reopen:${cutOrderId}:cycle-${suffix}`, reopenRecordNo: `REOPEN-${cutOrderNo.replace(/^CUT-?/, '')}-${suffix}` }
+  const nonce = createLifecycleNonce()
+  return { reopenRecordId: `reopen:${cutOrderId}:cycle-${suffix}-${nonce}`, reopenRecordNo: `REOPEN-${cutOrderNo.replace(/^CUT-?/, '')}-${suffix}-${nonce}` }
 }
 
 export function upsertStoredCutOrderReopenRecord(
   record: CutOrderReopenRecord,
   storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
-): void {
+): CutOrderLifecycleWriteResult<CutOrderReopenRecord> {
   const records = listStoredCutOrderReopenRecords(storage)
-  saveStoredCutOrderReopenRecords([
-    ...records.filter((item) => item.reopenRecordId !== record.reopenRecordId),
-    record,
-  ], storage)
+  const existing = records.find((item) => item.reopenRecordId === record.reopenRecordId)
+  if (existing) {
+    const idempotent = sameLifecycleRecord(existing, record)
+    return { ok: idempotent, record: existing, idempotent, conflict: !idempotent }
+  }
+  saveStoredCutOrderReopenRecords([...records, record], storage)
+  return { ok: true, record, idempotent: false, conflict: false }
 }
 
-export function removeStoredCutOrderReopenRecord(cutOrderIdOrNo: string): boolean {
-  const key = cutOrderIdOrNo.trim()
+export function removeStoredCutOrderReopenRecord(
+  reopenRecordId: string,
+  storage: CutOrderLifecycleStorage | null = typeof localStorage === 'undefined' ? null : localStorage,
+): boolean {
+  const key = reopenRecordId.trim()
   if (!key) return false
-  const records = listStoredCutOrderReopenRecords()
-  const nextRecords = records.filter((item) => item.cutOrderId !== key && item.cutOrderNo !== key)
+  const records = listStoredCutOrderReopenRecords(storage)
+  const nextRecords = records.filter((item) => item.reopenRecordId !== key)
   if (nextRecords.length === records.length) return false
-  saveStoredCutOrderReopenRecords(nextRecords)
+  saveStoredCutOrderReopenRecords(nextRecords, storage)
   return true
 }
 
 export function buildCutOrderReopenRecordLookup(): Record<string, CutOrderReopenRecord> {
   const entries: Array<[string, CutOrderReopenRecord]> = []
   listStoredCutOrderReopenRecords()
-    .sort((left, right) => (left.reopenedAt || left.createdAt).localeCompare(right.reopenedAt || right.createdAt, 'zh-CN'))
+    .sort((left, right) => compareLifecycleEvents(
+      { occurredAt: left.reopenedAt || left.createdAt, cycle: parseLifecycleCycle(left.reopenRecordId, left.reopenRecordNo), recordId: left.reopenRecordId },
+      { occurredAt: right.reopenedAt || right.createdAt, cycle: parseLifecycleCycle(right.reopenRecordId, right.reopenRecordNo), recordId: right.reopenRecordId },
+    ))
     .forEach((record) => {
     entries.push([record.cutOrderId, record])
     entries.push([record.cutOrderNo, record])
@@ -378,11 +431,13 @@ export function buildCutOrderReopenRecordLookup(): Record<string, CutOrderReopen
   return Object.fromEntries(entries)
 }
 
-function isCloseRecordSuppressedByReopen(record: CutOrderCloseRecord, reopenLookup: Record<string, CutOrderReopenRecord>): boolean {
-  const reopenRecord = reopenLookup[record.cutOrderId] || reopenLookup[record.cutOrderNo]
-  if (!reopenRecord) return false
-  if (!record.closedAt || !reopenRecord.reopenedAt) return true
-  return reopenRecord.reopenedAt.localeCompare(record.closedAt, 'zh-CN') >= 0
+function compareLifecycleEvents(
+  left: { occurredAt: string; cycle: number; recordId: string },
+  right: { occurredAt: string; cycle: number; recordId: string },
+): number {
+  return left.occurredAt.localeCompare(right.occurredAt, 'zh-CN')
+    || left.cycle - right.cycle
+    || left.recordId.localeCompare(right.recordId, 'zh-CN')
 }
 
 function buildSeedCloseRecord(input: {
@@ -472,27 +527,35 @@ export function listCutOrderCloseRecords(): CutOrderCloseRecord[] {
   return [...listSystemCutOrderCloseRecords(), ...listStoredCutOrderCloseRecords()]
 }
 
+export function resolveActiveCutOrderCloseRecords(
+  closeRecords: CutOrderCloseRecord[],
+  reopenRecords: CutOrderReopenRecord[],
+): CutOrderCloseRecord[] {
+  const byCutOrder = new Map<string, Array<{
+    kind: 'close' | 'reopen'
+    occurredAt: string
+    cycle: number
+    recordId: string
+    closeRecord?: CutOrderCloseRecord
+  }>>()
+  closeRecords.forEach((record) => {
+    const events = byCutOrder.get(record.cutOrderId) ?? []
+    events.push({ kind: 'close', occurredAt: record.closedAt || record.createdAt, cycle: parseLifecycleCycle(record.closeRecordId, record.closeRecordNo), recordId: record.closeRecordId, closeRecord: record })
+    byCutOrder.set(record.cutOrderId, events)
+  })
+  reopenRecords.forEach((record) => {
+    const events = byCutOrder.get(record.cutOrderId) ?? []
+    events.push({ kind: 'reopen', occurredAt: record.reopenedAt || record.createdAt, cycle: parseLifecycleCycle(record.reopenRecordId, record.reopenRecordNo), recordId: record.reopenRecordId })
+    byCutOrder.set(record.cutOrderId, events)
+  })
+  return [...byCutOrder.values()].flatMap((events) => {
+    const latest = [...events].sort(compareLifecycleEvents).at(-1)
+    return latest?.kind === 'close' && latest.closeRecord ? [latest.closeRecord] : []
+  })
+}
+
 export function listActiveCutOrderCloseRecords(): CutOrderCloseRecord[] {
-  const closesByCutOrder = new Map<string, CutOrderCloseRecord[]>()
-  listCutOrderCloseRecords().forEach((record) => {
-    const records = closesByCutOrder.get(record.cutOrderId) ?? []
-    records.push(record)
-    closesByCutOrder.set(record.cutOrderId, records)
-  })
-  const reopensByCutOrder = new Map<string, CutOrderReopenRecord[]>()
-  listStoredCutOrderReopenRecords().forEach((record) => {
-    const records = reopensByCutOrder.get(record.cutOrderId) ?? []
-    records.push(record)
-    reopensByCutOrder.set(record.cutOrderId, records)
-  })
-  return [...closesByCutOrder.entries()].flatMap(([cutOrderId, closes]) => {
-    const reopens = reopensByCutOrder.get(cutOrderId) ?? []
-    const latestClose = closes.at(-1)!
-    if (closes.length > reopens.length) return [latestClose]
-    if (closes.length < reopens.length) return []
-    const latestReopen = reopens.at(-1)
-    return latestReopen && isCloseRecordSuppressedByReopen(latestClose, { [cutOrderId]: latestReopen }) ? [] : [latestClose]
-  })
+  return resolveActiveCutOrderCloseRecords(listCutOrderCloseRecords(), listStoredCutOrderReopenRecords())
 }
 
 export function buildCutOrderCloseRecordLookup(

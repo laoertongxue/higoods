@@ -8,6 +8,12 @@ async function navigateSpa(page: Page, path: string): Promise<void> {
     const { appStore } = await import('/src/state/store.ts')
     appStore.navigate(nextPath)
   }, path)
+  await page.waitForFunction((nextPath) => `${window.location.pathname}${window.location.search}` === nextPath, path)
+  if (path.startsWith('/fcs/craft/cutting/cut-order-close')) {
+    await page.waitForSelector('[data-testid="cut-order-close-page"]')
+  } else if (path.startsWith('/fcs/craft/cutting/cut-piece-release')) {
+    await page.waitForSelector('[data-cut-piece-release-page]')
+  }
 }
 
 async function versionAndStatus(page: Page): Promise<{ version: number; status: string }> {
@@ -25,12 +31,18 @@ async function waitForState(page: Page, version: number, status: string): Promis
   await expect.poll(() => versionAndStatus(page), { timeout: 15_000 }).toEqual({ version, status })
 }
 
-async function removeReleaseDemoProgressProjection(page: Page): Promise<void> {
-  await page.evaluate(async () => {
+async function removeReleaseDemoProgressProjection(page: Page): Promise<unknown> {
+  return page.evaluate(async () => {
     const progress = await import('/src/data/fcs/cutting/order-progress.ts')
-    const index = progress.cuttingOrderProgressRecords.findIndex((record) => record.materialLines.some((line) => line.cutOrderId === 'cut-14671-b'))
-    if (index >= 0) progress.cuttingOrderProgressRecords.splice(index, 1)
+    return progress.removeCuttingOrderProgressProjectionForTesting('cut-14671-b')
   })
+}
+
+async function restoreReleaseDemoProgressProjection(page: Page, snapshot: unknown): Promise<void> {
+  await page.evaluate(async (value) => {
+    const progress = await import('/src/data/fcs/cutting/order-progress.ts')
+    progress.restoreCuttingOrderProgressSnapshotForTesting(value)
+  }, snapshot)
 }
 
 async function releaseDemoProgressStage(page: Page): Promise<{ stage: string; closedAt: string }> {
@@ -67,6 +79,34 @@ async function closeFromPage(page: Page, expectedVersion: number, description: s
   await page.locator('[data-cutting-piece-close-field="closeDescription"]').fill(description)
   await page.getByRole('button', { name: '确认关闭裁片单' }).click()
   await waitForState(page, expectedVersion, '已冻结')
+}
+
+async function measureCloseLifecycleClick(page: Page, buttonName: string, feedbackText: string, stageText: string): Promise<{ elapsed: number; scrollBefore: number; scrollAfter: number; focusBefore: string; focusAfter: string }> {
+  return page.evaluate(({ buttonName, feedbackText, stageText }) => new Promise((resolve) => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>('button')].find((item) => item.textContent?.trim() === buttonName)
+    if (!button) throw new Error(`未找到按钮：${buttonName}`)
+    const stableFocus = document.querySelector<HTMLElement>('[data-cut-order-close-stable-focus="true"]')
+    stableFocus?.focus()
+    const focusBefore = (document.activeElement as HTMLElement | null)?.dataset.cutOrderCloseStableFocus || ''
+    const scrollBefore = window.scrollY
+    const startedAt = performance.now()
+    const finish = () => {
+      const feedback = document.querySelector<HTMLElement>('[data-cut-order-close-region="feedback"]')?.textContent || ''
+      const stage = document.querySelector<HTMLElement>('[data-cut-order-close-region="stage"]')?.textContent || ''
+      if (!feedback.includes(feedbackText) || !stage.includes(stageText)) return false
+      observer.disconnect()
+      resolve({ elapsed: performance.now() - startedAt, scrollBefore, scrollAfter: window.scrollY, focusBefore, focusAfter: (document.activeElement as HTMLElement | null)?.dataset.cutOrderCloseStableFocus || '' })
+      return true
+    }
+    const observer = new MutationObserver(finish)
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+    button.click()
+    if (finish()) return
+    window.setTimeout(() => {
+      observer.disconnect()
+      resolve({ elapsed: Number.POSITIVE_INFINITY, scrollBefore, scrollAfter: window.scrollY, focusBefore, focusAfter: (document.activeElement as HTMLElement | null)?.dataset.cutOrderCloseStableFocus || '' })
+    }, 2_000)
+  }), { buttonName, feedbackText, stageText })
 }
 
 test('真实 SPA 两轮关闭重开保留多周期账本、版本与迟到事实', async ({ page }) => {
@@ -160,9 +200,11 @@ test('重新打开时阶段投影不存在必须回滚账本且不改变放行�
     const repository = await import('/src/data/fcs/cut-piece-release.ts')
     repository.resetCutPieceReleasePrototypeStoreForTesting()
   })
-  await removeReleaseDemoProgressProjection(page)
+  const progressSnapshot = await removeReleaseDemoProgressProjection(page)
 
-  await page.getByRole('button', { name: '重新打开裁片单' }).click()
+  const reopenButton = page.getByRole('button', { name: '重新打开裁片单' })
+  expect(await reopenButton.getAttribute('data-action-token')).toBeTruthy()
+  await reopenButton.click()
 
   const audit = await page.evaluate(async () => {
     const lifecycle = await import('/src/data/fcs/cutting/cut-order-close-records.ts')
@@ -175,7 +217,8 @@ test('重新打开时阶段投影不存在必须回滚账本且不改变放行�
     }
   })
   expect(audit).toEqual({ reopenCount: 0, version: 1, status: '已冻结' })
-  await expect(page.getByTestId('cut-order-close-feedback')).toContainText('阶段投影不存在，重新打开失败', { timeout: 20_000 })
+  await expect(page.getByText('阶段投影不存在，重新打开失败', { exact: true })).toBeVisible()
+  await restoreReleaseDemoProgressProjection(page, progressSnapshot)
 })
 
 test('关闭时阶段投影不存在必须回滚账本且不改变放行矩阵', async ({ page }) => {
@@ -190,10 +233,13 @@ test('关闭时阶段投影不存在必须回滚账本且不改变放行矩阵',
       eventId: 'prepare-missing-progress-close', cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '持续更新',
       occurredAt: '2026-06-07 09:00:00', operator: '测试员', reason: '准备关闭失败测试',
     })
+    const progress = await import('/src/data/fcs/cutting/order-progress.ts')
+    progress.updateCuttingOrderProgressWebStage('cut-14671-b', { cuttingStage: '已开工', operatedAt: '2026-06-07 09:00:00' })
   })
-  await removeReleaseDemoProgressProjection(page)
   await navigateSpa(page, releasePath)
   await navigateSpa(page, closePath)
+  await expect(page.locator('[data-cutting-piece-close-field="closeDescription"]')).toBeVisible()
+  const progressSnapshot = await removeReleaseDemoProgressProjection(page)
   await page.locator('[data-cutting-piece-close-field="closeDescription"]').fill('投影不存在时不得关闭')
   await page.getByRole('button', { name: '确认关闭裁片单' }).click()
 
@@ -208,5 +254,135 @@ test('关闭时阶段投影不存在必须回滚账本且不改变放行矩阵',
     }
   })
   expect(audit).toEqual({ closeCount: 0, version: 2, status: '持续更新' })
-  await expect(page.getByTestId('cut-order-close-feedback')).toContainText('阶段投影不存在，关闭失败')
+  await expect(page.getByText('阶段投影不存在，关闭失败', { exact: true })).toBeVisible()
+  await restoreReleaseDemoProgressProjection(page, progressSnapshot)
+})
+
+test('关闭与重开在预热后局部刷新反馈和阶段均小于 200ms', async ({ page }) => {
+  await page.goto(closePath, { waitUntil: 'load' })
+  await expect(page.getByRole('heading', { name: '关闭裁片单：CUT14671-B' })).toBeVisible({ timeout: 30_000 })
+  await page.waitForFunction(() => document.readyState === 'complete' && Boolean(document.querySelector('[data-testid="cut-order-close-page"]')))
+  await page.evaluate(async () => {
+    localStorage.removeItem('cuttingCutOrderCloseRecords')
+    localStorage.removeItem('cuttingCutOrderReopenRecords')
+    const repository = await import('/src/data/fcs/cut-piece-release.ts')
+    repository.resetCutPieceReleasePrototypeStoreForTesting()
+    await import('/src/pages/process-factory/cutting/cut-orders.ts')
+    await import('/src/main-handlers/fcs-handlers.ts')
+    window.scrollTo(0, 480)
+  })
+
+  const reopenPerformance = await measureCloseLifecycleClick(page, '重新打开裁片单', '已重新打开裁片单', '已开工')
+  console.info(`cut-order reopen local refresh: ${reopenPerformance.elapsed.toFixed(2)}ms`)
+  expect(reopenPerformance.elapsed).toBeLessThan(200)
+  expect(Math.abs(reopenPerformance.scrollAfter - reopenPerformance.scrollBefore)).toBeLessThanOrEqual(1)
+  expect(reopenPerformance.focusAfter).toBe(reopenPerformance.focusBefore)
+
+  await page.locator('[data-cutting-piece-close-field="closeDescription"]').fill('性能测试关闭')
+  const closePerformance = await measureCloseLifecycleClick(page, '确认关闭裁片单', '已关闭裁片单并保留历史记录', '已关闭')
+  console.info(`cut-order close local refresh: ${closePerformance.elapsed.toFixed(2)}ms`)
+  expect(closePerformance.elapsed).toBeLessThan(200)
+  expect(Math.abs(closePerformance.scrollAfter - closePerformance.scrollBefore)).toBeLessThanOrEqual(1)
+  expect(closePerformance.focusAfter).toBe(closePerformance.focusBefore)
+})
+
+test('关闭动作快速重复点击只写入一条关闭记录和一个矩阵版本', async ({ page }) => {
+  await page.goto(closePath, { waitUntil: 'domcontentloaded' })
+  await expect(page.getByRole('heading', { name: '关闭裁片单：CUT14671-B' })).toBeVisible({ timeout: 30_000 })
+  await page.evaluate(async () => {
+    localStorage.removeItem('cuttingCutOrderCloseRecords')
+    localStorage.removeItem('cuttingCutOrderReopenRecords')
+    const repository = await import('/src/data/fcs/cut-piece-release.ts')
+    repository.resetCutPieceReleasePrototypeStoreForTesting()
+  })
+  await page.getByRole('button', { name: '重新打开裁片单' }).click()
+  await waitForState(page, 2, '持续更新')
+  await page.locator('[data-cutting-piece-close-field="closeDescription"]').fill('快速重复点击关闭')
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>('button')].find((item) => item.textContent?.trim() === '确认关闭裁片单')!
+    button.click()
+    button.click()
+  })
+  const readAudit = () => page.evaluate(async () => {
+    const lifecycle = await import('/src/data/fcs/cutting/cut-order-close-records.ts')
+    const repository = await import('/src/data/fcs/cut-piece-release.ts')
+    return {
+      closeCount: lifecycle.listStoredCutOrderCloseRecords().length,
+      version: repository.listCutPieceReleaseMatrixVersions('po-14671').at(-1)!.version,
+      status: repository.getCutPieceReleaseRecord('cpr-po-14671')!.sourceStates.find((state) => state.cutOrderId === 'cut-14671-b')!.status,
+    }
+  })
+  await expect.poll(async () => (await readAudit()).closeCount).toBe(1)
+  const audit = await readAudit()
+  console.info(`double-close audit: ${JSON.stringify(audit)}`)
+  expect(audit.closeCount).toBe(1)
+  expect(audit.status).toBe('已冻结')
+  expect(audit.version).toBe(3)
+})
+
+test('阶段成功后放行写入拒绝或抛错必须完整回滚阶段、账本和矩阵', async ({ page }) => {
+  await page.goto(closePath, { waitUntil: 'domcontentloaded' })
+  await expect(page.getByRole('heading', { name: '关闭裁片单：CUT14671-B' })).toBeVisible({ timeout: 30_000 })
+  const before = await page.evaluate(async () => {
+    localStorage.removeItem('cuttingCutOrderCloseRecords')
+    localStorage.removeItem('cuttingCutOrderReopenRecords')
+    const repository = await import('/src/data/fcs/cut-piece-release.ts')
+    const progress = await import('/src/data/fcs/cutting/order-progress.ts')
+    const pageModule = await import('/src/pages/process-factory/cutting/cut-orders.ts')
+    repository.resetCutPieceReleasePrototypeStoreForTesting()
+    repository.recordCutOrderReleaseStatusChange({
+      eventId: 'prepare-release-writer-fault', cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '持续更新',
+      occurredAt: '2026-06-10 08:00:00', operator: '测试员', reason: '准备跨写回滚测试',
+    })
+    progress.updateCuttingOrderProgressWebStage('cut-14671-b', { cuttingStage: '已开工', operatedAt: '2026-06-10 08:00:00' })
+    pageModule.setCutOrderReleaseStatusWriterForTesting(() => ({ status: 'rejected', reason: '故障注入：拒绝放行写入' }))
+    return {
+      progress: progress.createCuttingOrderProgressSnapshot('cut-14671-b'),
+      version: repository.listCutPieceReleaseMatrixVersions('po-14671').at(-1)!.version,
+      status: repository.getCutPieceReleaseRecord('cpr-po-14671')!.sourceStates.find((state) => state.cutOrderId === 'cut-14671-b')!.status,
+    }
+  })
+  await navigateSpa(page, releasePath)
+  await navigateSpa(page, closePath)
+  await page.locator('[data-cutting-piece-close-field="closeDescription"]').fill('放行拒绝回滚')
+  await page.getByRole('button', { name: '确认关闭裁片单' }).click()
+
+  const rejectedAudit = await page.evaluate(async () => {
+    const repository = await import('/src/data/fcs/cut-piece-release.ts')
+    const lifecycle = await import('/src/data/fcs/cutting/cut-order-close-records.ts')
+    const progress = await import('/src/data/fcs/cutting/order-progress.ts')
+    return {
+      progress: progress.createCuttingOrderProgressSnapshot('cut-14671-b'),
+      closeCount: lifecycle.listStoredCutOrderCloseRecords().length,
+      version: repository.listCutPieceReleaseMatrixVersions('po-14671').at(-1)!.version,
+      status: repository.getCutPieceReleaseRecord('cpr-po-14671')!.sourceStates.find((state) => state.cutOrderId === 'cut-14671-b')!.status,
+    }
+  })
+  expect(rejectedAudit).toEqual({ progress: before.progress, closeCount: 0, version: before.version, status: before.status })
+  await expect(page.getByTestId('cut-order-close-feedback')).toContainText('故障注入：拒绝放行写入')
+
+  await page.evaluate(async () => {
+    const pageModule = await import('/src/pages/process-factory/cutting/cut-orders.ts')
+    const repository = await import('/src/data/fcs/cut-piece-release.ts')
+    pageModule.setCutOrderReleaseStatusWriterForTesting((input) => {
+      repository.recordCutOrderReleaseStatusChange(input)
+      throw new Error('故障注入：放行写入异常')
+    })
+  })
+  await page.locator('[data-cutting-piece-close-field="closeDescription"]').fill('放行异常回滚')
+  await page.getByRole('button', { name: '确认关闭裁片单' }).click()
+  const thrownAudit = await page.evaluate(async () => {
+    const repository = await import('/src/data/fcs/cut-piece-release.ts')
+    const lifecycle = await import('/src/data/fcs/cutting/cut-order-close-records.ts')
+    const progress = await import('/src/data/fcs/cutting/order-progress.ts')
+    const pageModule = await import('/src/pages/process-factory/cutting/cut-orders.ts')
+    pageModule.setCutOrderReleaseStatusWriterForTesting(null)
+    return {
+      progress: progress.createCuttingOrderProgressSnapshot('cut-14671-b'), closeCount: lifecycle.listStoredCutOrderCloseRecords().length,
+      version: repository.listCutPieceReleaseMatrixVersions('po-14671').at(-1)!.version,
+      status: repository.getCutPieceReleaseRecord('cpr-po-14671')!.sourceStates.find((state) => state.cutOrderId === 'cut-14671-b')!.status,
+    }
+  })
+  expect(thrownAudit).toEqual({ progress: before.progress, closeCount: 0, version: before.version, status: before.status })
+  await expect(page.getByTestId('cut-order-close-feedback')).toContainText('故障注入：放行写入异常')
 })

@@ -554,18 +554,48 @@ export function getCutPieceReleaseTargetSnapshot(snapshotId: string): CutPieceRe
   return snapshot ? clone(snapshot) : null
 }
 
-export function recordCutOrderReleaseStatusChange(input: CutOrderReleaseStatusChangeInput): void {
+export interface CutOrderReleaseWriteResult {
+  status: 'applied' | 'idempotent' | 'not-applicable' | 'rejected'
+  reason: string
+}
+
+export interface CutOrderReleaseWriteSnapshot {
+  productionOrderId: string
+  item: ReleaseRepositoryItem
+}
+
+export function createCutOrderReleaseWriteSnapshot(cutOrderId: string, cutOrderNo = ''): CutOrderReleaseWriteSnapshot | null {
+  const item = [...releaseRepository.values()].find((candidate) => resolveCutOrderSource(candidate, cutOrderId.trim(), cutOrderNo.trim()))
+  return item ? { productionOrderId: item.input.productionOrderId, item: clone(item) } : null
+}
+
+export function restoreCutOrderReleaseWriteSnapshot(snapshot: CutOrderReleaseWriteSnapshot | null): boolean {
+  if (!snapshot?.productionOrderId || !snapshot.item) return false
+  releaseRepository.set(snapshot.productionOrderId, clone(snapshot.item))
+  return true
+}
+
+export function recordCutOrderReleaseStatusChange(input: CutOrderReleaseStatusChangeInput): CutOrderReleaseWriteResult {
   const eventId = input.eventId.trim()
   const cutOrderId = input.cutOrderId.trim()
   const cutOrderNo = input.cutOrderNo.trim()
-  if (!eventId || (!cutOrderId && !cutOrderNo)) return
-  const item = [...releaseRepository.values()].find((candidate) => resolveCutOrderSource(candidate, cutOrderId, cutOrderNo))
-  if (!item) return
+  if (!eventId) return { status: 'rejected', reason: '放行状态事件 ID 不能为空。' }
+  if (!cutOrderId && !cutOrderNo) return { status: 'rejected', reason: '裁片单 ID 和单号不能同时为空。' }
+  const repositoryItems = [...releaseRepository.values()]
+  const item = repositoryItems.find((candidate) => resolveCutOrderSource(candidate, cutOrderId, cutOrderNo))
+  if (!item && cutOrderId && cutOrderNo) {
+    const idSource = repositoryItems.map((candidate) => resolveCutOrderSource(candidate, cutOrderId, '')).find(Boolean)
+    const noSource = repositoryItems.map((candidate) => resolveCutOrderSource(candidate, '', cutOrderNo)).find(Boolean)
+    if (idSource || noSource) return { status: 'rejected', reason: '裁片单 ID 与单号不属于同一放行来源。' }
+  }
+  if (!item) return { status: 'not-applicable', reason: '当前裁片单未关联裁片放行矩阵。' }
   const source = resolveCutOrderSource(item, cutOrderId, cutOrderNo)!
   const matchedFacts = item.input.facts.filter((fact) => (
     fact.cutOrderId === source.cutOrderId
   ))
-  if (cutOrderId && cutOrderNo && source.cutOrderId === cutOrderId && matchedFacts.some((fact) => fact.cutOrderNo !== cutOrderNo)) return
+  if (cutOrderId && cutOrderNo && source.cutOrderId === cutOrderId && matchedFacts.some((fact) => fact.cutOrderNo !== cutOrderNo)) {
+    return { status: 'rejected', reason: '裁片单 ID 与单号不属于同一放行来源。' }
+  }
   const matchesInput = (fact: CutPieceFact) => matchedFacts.includes(fact)
   const event: MatrixEvent = {
     eventId,
@@ -577,12 +607,24 @@ export function recordCutOrderReleaseStatusChange(input: CutOrderReleaseStatusCh
     cutOrderId: cutOrderId || undefined,
     cutOrderNo: cutOrderNo || undefined,
   }
-  if (item.eventState.events.some((storedEvent) => storedEvent.eventId === eventId)) return
+  const storedEvent = item.eventState.events.find((candidate) => candidate.eventId === eventId)
+  if (storedEvent) {
+    const sameEvent = storedEvent.eventType === event.eventType
+      && storedEvent.productionOrderId === event.productionOrderId
+      && (storedEvent.cutOrderId || '') === (event.cutOrderId || '')
+      && (storedEvent.cutOrderNo || '') === (event.cutOrderNo || '')
+      && storedEvent.occurredAt === event.occurredAt
+      && storedEvent.operator === event.operator
+      && (storedEvent.reason || '') === (event.reason || '')
+    return sameEvent
+      ? { status: 'idempotent', reason: '该放行状态事件已经处理。' }
+      : { status: 'rejected', reason: '事件 ID 已存在，但业务内容不一致。' }
+  }
   if (matchedFacts.every((fact) => fact.sourceStatus === input.status)) {
     appendMatrixEvent(item.eventState, event)
-    return
+    return { status: 'idempotent', reason: '裁片单放行状态未变化，已记录幂等事件。' }
   }
-  appendRepositoryEvent(item, event, () => {
+  const applied = appendRepositoryEvent(item, event, () => {
     item.input.facts.forEach((fact) => {
       if (matchesInput(fact)) fact.sourceStatus = input.status
     })
@@ -599,6 +641,9 @@ export function recordCutOrderReleaseStatusChange(input: CutOrderReleaseStatusCh
     if (existingState) Object.assign(existingState, nextState)
     else item.sourceStates.push(nextState)
   })
+  return applied
+    ? { status: 'applied', reason: '裁片单放行状态已更新。' }
+    : { status: 'rejected', reason: '放行状态事件写入失败。' }
 }
 
 export function recordSpreadingReleaseAdjustment(input: SpreadingReleaseAdjustmentInput): void {

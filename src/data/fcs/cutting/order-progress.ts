@@ -416,6 +416,40 @@ export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = [
   ...releaseLifecycleProgressRecords,
 ]
 
+export interface CuttingOrderProgressSnapshot {
+  index: number
+  record: CuttingOrderProgressRecord
+}
+
+function cloneProgressRecord(record: CuttingOrderProgressRecord): CuttingOrderProgressRecord {
+  return JSON.parse(JSON.stringify(record)) as CuttingOrderProgressRecord
+}
+
+export function createCuttingOrderProgressSnapshot(cutOrderId: string): CuttingOrderProgressSnapshot | null {
+  const index = cuttingOrderProgressRecords.findIndex((record) => record.materialLines.some((line) =>
+    line.cutOrderId === cutOrderId || line.cutOrderNo === cutOrderId || line.cutPieceOrderNo === cutOrderId,
+  ))
+  return index < 0 ? null : { index, record: cloneProgressRecord(cuttingOrderProgressRecords[index]) }
+}
+
+export function restoreCuttingOrderProgressSnapshot(snapshot: CuttingOrderProgressSnapshot | null): boolean {
+  if (!snapshot?.record || !Number.isInteger(snapshot.index) || snapshot.index < 0) return false
+  const currentIndex = cuttingOrderProgressRecords.findIndex((record) => record.id === snapshot.record.id)
+  if (currentIndex >= 0) cuttingOrderProgressRecords[currentIndex] = cloneProgressRecord(snapshot.record)
+  else cuttingOrderProgressRecords.splice(Math.min(snapshot.index, cuttingOrderProgressRecords.length), 0, cloneProgressRecord(snapshot.record))
+  return true
+}
+
+export function removeCuttingOrderProgressProjectionForTesting(cutOrderId: string): CuttingOrderProgressSnapshot | null {
+  const snapshot = createCuttingOrderProgressSnapshot(cutOrderId)
+  if (snapshot) cuttingOrderProgressRecords.splice(snapshot.index, 1)
+  return snapshot
+}
+
+export function restoreCuttingOrderProgressSnapshotForTesting(snapshot: unknown): boolean {
+  return restoreCuttingOrderProgressSnapshot(snapshot as CuttingOrderProgressSnapshot | null)
+}
+
 export function updateCuttingOrderProgressWebStage(
   cutOrderId: string,
   payload: {
