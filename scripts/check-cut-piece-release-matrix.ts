@@ -36,6 +36,10 @@ import {
   type CutOrderCloseRecord,
   type CutOrderReopenRecord,
 } from '../src/data/fcs/cutting/cut-order-close-records'
+import {
+  cuttingOrderProgressRecords,
+  updateCuttingOrderProgressWebStage,
+} from '../src/data/fcs/cutting/order-progress'
 
 const productionOrderId = 'po-14671'
 
@@ -746,5 +750,25 @@ assert.notEqual(reopenIdentity2.reopenRecordId, reopenIdentity1.reopenRecordId, 
 upsertStoredCutOrderReopenRecord({ ...reopenBase, ...reopenIdentity2, reopenedAt: '2026-06-07 11:00:00', createdAt: '2026-06-07 11:00:00', previousCloseRecordNo: closeIdentity2.closeRecordNo } as CutOrderReopenRecord, lifecycleStorage)
 assert.equal(listStoredCutOrderCloseRecords(lifecycleStorage).length, 2, '关闭历史必须保留两轮记录')
 assert.equal(listStoredCutOrderReopenRecords(lifecycleStorage).length, 2, '重开历史必须保留两轮记录')
+
+const releaseDemoProgress = cuttingOrderProgressRecords.find((record) =>
+  record.materialLines.some((line) => line.cutOrderId === 'cut-14671-b' && line.cutOrderNo === 'CUT14671-B'),
+)
+assert.ok(releaseDemoProgress, 'PO14671 的裁片单 B 必须存在同 ID 阶段投影')
+assert.equal(releaseDemoProgress.productionOrderId, 'po-14671', '阶段投影必须归属同一生产单 ID')
+assert.equal(releaseDemoProgress.productionOrderNo, 'PO14671', '阶段投影必须归属同一生产单号')
+assert.equal(releaseDemoProgress.spuCode, 'ASYSA26060310', '阶段投影必须归属同一款式')
+const releaseDemoProgressA = cuttingOrderProgressRecords.find((record) =>
+  record.materialLines.some((line) => line.cutOrderId === 'cut-14671-a' && line.cutOrderNo === 'CUT14671-A'),
+)
+assert.ok(releaseDemoProgressA, '存在进行中铺布的裁片单 A 也必须使用同一真实 ID 阶段投影')
+assert.ok(getCutPieceReleaseRecord('cpr-po-14671')?.sourceStates.some((state) => state.cutOrderId === 'cut-14671-a' && state.cutOrderNo === 'CUT14671-A'), '裁片单 A 的放行来源与阶段投影必须使用同一 ID')
+assert.ok(updateCuttingOrderProgressWebStage('cut-14671-b', { cuttingStage: '已关闭', operatedAt: '2026-06-07 12:00:00' }), '存在同 ID 投影时关闭必须返回成功记录')
+assert.equal(releaseDemoProgress.cuttingStage, '已关闭', '关闭必须实际更新阶段投影')
+assert.ok(updateCuttingOrderProgressWebStage('cut-14671-b', { cuttingStage: '已开工', operatedAt: '2026-06-07 13:00:00' }), '存在同 ID 投影时重开必须返回成功记录')
+assert.equal(releaseDemoProgress.cuttingStage, '已开工', '重开必须实际恢复阶段投影')
+assert.equal(releaseDemoProgress.closedAt, '', '重开后阶段投影不得保留关闭时间')
+assert.equal(releaseDemoProgress.closeReason, '', '重开后阶段投影不得继续表现为已关闭')
+assert.equal(updateCuttingOrderProgressWebStage('cut-not-found', { cuttingStage: '已关闭' }), undefined, '不存在的裁片单 ID 必须明确返回空值')
 
 console.log('cut piece release matrix check passed')

@@ -628,7 +628,8 @@ function renderColorMatrix(record: CutPieceReleaseRecord, group: ReleaseColorGro
                     return renderMatrixCell(record, group, row.materialId, size, cell, differenceByCell.get(`${group.garmentColor}::${size}::${row.materialId}`))
                   }).join('')}
                   <td class="border-b px-3 py-2 text-xs ${frozen ? 'bg-slate-100 font-medium text-slate-700' : 'text-emerald-700'}">
-                    <span class="block">${frozen ? escapeHtml(sourceState?.reason || '已冻结，不再更新') : '持续更新'}</span>
+                    <span class="block">${frozen ? '已冻结，不再更新' : '持续更新'}</span>
+                    ${sourceState?.reason ? `<span class="mt-1 block font-normal text-slate-600">${escapeHtml(sourceState.reason)}</span>` : ''}
                     ${sourceState ? `<span class="mt-1 block font-normal text-slate-500">${escapeHtml(sourceState.cutOrderNo)} · ${escapeHtml(formatDateTime(sourceState.changedAt))}</span>` : ''}
                   </td>
                 </tr>

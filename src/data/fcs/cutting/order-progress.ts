@@ -357,7 +357,54 @@ function buildProjectedRecord(
 const generatedCutOrders = listGeneratedCutOrderSourceRecords()
 const formalCuttingProductionOrders = listCuttingProductionOrdersWithFormalTechPack()
 
-export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = formalCuttingProductionOrders
+function buildReleaseLifecycleMaterialLine(cutOrderId: string, cutOrderNo: string, materialLabel: string): CuttingMaterialLine {
+  return {
+    cutOrderId,
+    cutOrderNo,
+    cutPieceOrderNo: cutOrderNo,
+    materialSku: `RELEASE-${cutOrderNo}`,
+    materialType: 'SOLID',
+    materialLabel,
+    reviewStatus: 'APPROVED',
+    configStatus: 'CONFIGURED',
+    receiveStatus: 'RECEIVED',
+    configuredRollCount: 0,
+    configuredLength: 0,
+    receivedRollCount: 0,
+    receivedLength: 0,
+    printSlipStatus: 'NOT_PRINTED',
+    qrStatus: 'GENERATED',
+    issueFlags: [],
+    latestActionText: '仅承接裁片单关闭与重开阶段，不保存裁片矩阵数量。',
+  }
+}
+
+const releaseLifecycleProgressRecords: CuttingOrderProgressRecord[] = [
+  {
+    id: 'cutting-op:po-14671:cut-14671-a',
+    productionOrderId: 'po-14671', productionOrderNo: 'PO14671', actualOrderDate: '2026-06-03', purchaseDate: '2026-06-03', orderQty: 0,
+    plannedShipDate: '', spuCode: 'ASYSA26060310', techPackSpuCode: 'ASYSA26060310', styleCode: 'ASYSA26060310', styleName: '女式基础圆领短袖',
+    urgencyLevel: 'B', cuttingTaskNo: 'CUT-TASK-PO14671', assignedFactoryName: TEST_FACTORY_NAME, cuttingStage: '已开工',
+    demandCreatedAt: '2026-06-03 08:00', productionOrderCreatedAt: '2026-06-03 08:30', cuttingTaskAssignedAt: '2026-06-03 09:00', cuttingTaskAcceptedAt: '2026-06-03 09:30',
+    markerPlanCreatedAt: '2026-06-03 10:00', spreadingStartedAt: '2026-06-03 11:00', completedAt: '', spuImageUrl: '/shirt-sample.jpg', riskFlags: [],
+    lastPickupScanAt: '2026-06-03 09:30', lastFieldUpdateAt: '2026-06-03 14:00:00', lastOperatorName: '铺布操作员 阿迪', hasSpreadingRecord: true, hasInboundRecord: false,
+    materialLines: [buildReleaseLifecycleMaterialLine('cut-14671-a', 'CUT14671-A', '物料 A、C、D')],
+  },
+  {
+    id: 'cutting-op:po-14671:cut-14671-b',
+    productionOrderId: 'po-14671', productionOrderNo: 'PO14671', actualOrderDate: '2026-06-03', purchaseDate: '2026-06-03', orderQty: 0,
+    plannedShipDate: '', spuCode: 'ASYSA26060310', techPackSpuCode: 'ASYSA26060310', styleCode: 'ASYSA26060310', styleName: '女式基础圆领短袖',
+    urgencyLevel: 'B', cuttingTaskNo: 'CUT-TASK-PO14671', assignedFactoryName: TEST_FACTORY_NAME, cuttingStage: '已关闭',
+    demandCreatedAt: '2026-06-03 08:00', productionOrderCreatedAt: '2026-06-03 08:30', cuttingTaskAssignedAt: '2026-06-03 09:00', cuttingTaskAcceptedAt: '2026-06-03 09:30',
+    markerPlanCreatedAt: '2026-06-03 10:00', spreadingStartedAt: '2026-06-03 11:00', completedAt: '', spuImageUrl: '/shirt-sample.jpg',
+    closeReasonCode: 'OTHER', closeReasonText: '其他原因', closedAt: '2026-06-03 14:00:00', closedBy: '裁床主管 王敏', closeReason: '已关闭，数据已冻结', riskFlags: [],
+    lastPickupScanAt: '2026-06-03 09:30', lastFieldUpdateAt: '2026-06-03 14:00:00', lastOperatorName: '裁床主管 王敏', hasSpreadingRecord: true, hasInboundRecord: false,
+    materialLines: [buildReleaseLifecycleMaterialLine('cut-14671-b', 'CUT14671-B', '物料 B')],
+  },
+]
+
+export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = [
+  ...formalCuttingProductionOrders
   .map((order, orderIndex) => {
     const generatedCutOrderRecords = generatedCutOrders.filter(
       (item) => item.productionOrderId === order.productionOrderId,
@@ -365,7 +412,9 @@ export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = formalC
     if (generatedCutOrderRecords.length === 0) return null
     return buildProjectedRecord(order, generatedCutOrderRecords, orderIndex)
   })
-  .filter((record): record is CuttingOrderProgressRecord => record !== null)
+  .filter((record): record is CuttingOrderProgressRecord => record !== null),
+  ...releaseLifecycleProgressRecords,
+]
 
 export function updateCuttingOrderProgressWebStage(
   cutOrderId: string,
@@ -389,6 +438,7 @@ export function updateCuttingOrderProgressWebStage(
   )
   if (!record) return undefined
 
+  const wasClosed = record.cuttingStage === '已关闭'
   record.cuttingStage = payload.cuttingStage
   if (payload.cuttingStage === '已关闭') {
     record.closedAt = payload.operatedAt?.trim() || record.lastFieldUpdateAt
@@ -397,6 +447,13 @@ export function updateCuttingOrderProgressWebStage(
     record.closeReasonText = payload.closeReasonText || record.closeReasonText || '强行完结'
     record.closeReason = payload.closeReason || record.closeReason || '现场确认不再继续排唛架铺布裁剪。'
     record.ledgerSnapshotBeforeClose = payload.ledgerSnapshotBeforeClose || record.ledgerSnapshotBeforeClose
+  } else if (wasClosed) {
+    record.closedAt = ''
+    record.closedBy = ''
+    record.closeReasonCode = undefined
+    record.closeReasonText = ''
+    record.closeReason = ''
+    record.ledgerSnapshotBeforeClose = undefined
   }
   record.lastOperatorName = payload.operatorName?.trim() || record.lastOperatorName
   record.lastFieldUpdateAt = payload.operatedAt?.trim() || record.lastFieldUpdateAt

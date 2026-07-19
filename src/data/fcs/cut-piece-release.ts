@@ -372,7 +372,7 @@ function bootstrapRepository(): void {
     factId: `fact-14671-${materialId}-${size}`,
     sourceEventId: `spread-14671-${materialId}-${size}`,
     productionOrderId,
-    cutOrderId: materialId === 'B' ? 'cut-14671-b' : 'cut-14671-main',
+    cutOrderId: materialId === 'B' ? 'cut-14671-b' : 'cut-14671-a',
     cutOrderNo: materialId === 'B' ? 'CUT14671-B' : 'CUT14671-A',
     spreadingOrderNo: 'ASYSA26060310',
     garmentColor: 'Black',
@@ -400,10 +400,10 @@ function bootstrapRepository(): void {
   })
   const item = releaseRepository.get(productionOrderId)!
   item.sourceStates = [
-    { cutOrderId: 'cut-14671-main', cutOrderNo: 'CUT14671-A', status: '持续更新', changedAt: '2026-06-03 14:00:00', operator: '铺布操作员 阿迪', reason: '铺布完成后持续更新', materialIds: ['A', 'C', 'D'] },
+    { cutOrderId: 'cut-14671-a', cutOrderNo: 'CUT14671-A', status: '持续更新', changedAt: '2026-06-03 14:00:00', operator: '铺布操作员 阿迪', reason: '铺布完成后持续更新', materialIds: ['A', 'C', 'D'] },
     { cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '已冻结', changedAt: '2026-06-03 14:00:00', operator: '裁床主管 王敏', reason: '已关闭，数据已冻结', materialIds: ['B'] },
   ]
-  item.activeSpreadingOrderNosByCutOrder = { 'cut-14671-main': ['PB-14671-A-进行中'], 'cut-14671-b': [] }
+  item.activeSpreadingOrderNosByCutOrder = { 'cut-14671-a': ['PB-14671-A-进行中'], 'cut-14671-b': [] }
 }
 
 bootstrapRepository()

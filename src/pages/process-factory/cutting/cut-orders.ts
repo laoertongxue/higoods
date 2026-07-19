@@ -848,7 +848,7 @@ function renderCloseFeedbackBar(): string {
     feedback.tone === 'success'
       ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
       : 'border-amber-200 bg-amber-50 text-amber-700'
-  return `<section class="rounded-lg border px-4 py-3 text-sm ${className}">${escapeHtml(feedback.message)}</section>`
+  return `<section class="rounded-lg border px-4 py-3 text-sm ${className}" data-testid="cut-order-close-feedback">${escapeHtml(feedback.message)}</section>`
 }
 
 function buildCloseImpactContext(row: CutOrderRow): {
@@ -2717,11 +2717,12 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
     const previousReopenRecords = listStoredCutOrderReopenRecords()
     upsertStoredCutOrderReopenRecord(reopenRecord)
     try {
-      updateCuttingOrderProgressWebStage(row.cutOrderId, {
+      const updatedProgress = updateCuttingOrderProgressWebStage(row.cutOrderId, {
         cuttingStage: resolveReopenedCutOrderStage(row),
         operatorName: reopenRecord.reopenedBy,
         operatedAt: reopenRecord.reopenedAt,
       })
+      if (!updatedProgress) throw new Error('阶段投影不存在，重新打开失败')
     } catch (error) {
       saveStoredCutOrderReopenRecords(previousReopenRecords)
       state.closeDraft.feedback = { tone: 'warning', message: error instanceof Error ? error.message : '重新打开失败，未写入重开记录。' }
@@ -2795,7 +2796,7 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
     const previousCloseRecords = listStoredCutOrderCloseRecords()
     upsertStoredCutOrderCloseRecord(closeRecord)
     try {
-      updateCuttingOrderProgressWebStage(row.cutOrderId, {
+      const updatedProgress = updateCuttingOrderProgressWebStage(row.cutOrderId, {
         cuttingStage: '已关闭',
         operatorName: closeRecord.closedBy,
         operatedAt: closeRecord.closedAt,
@@ -2804,6 +2805,7 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
         closeReason: closeRecord.closeDescription,
         ledgerSnapshotBeforeClose: closeRecord.ledgerSnapshotBeforeClose,
       })
+      if (!updatedProgress) throw new Error('阶段投影不存在，关闭失败')
     } catch (error) {
       saveStoredCutOrderCloseRecords(previousCloseRecords)
       state.closeDraft.feedback = { tone: 'warning', message: error instanceof Error ? error.message : '关闭失败，未写入关闭记录。' }
