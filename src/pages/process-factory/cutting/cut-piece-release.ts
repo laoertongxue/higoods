@@ -20,6 +20,7 @@ import {
   type StandardListColumn,
 } from '../../../components/ui/list-table.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
 import {
   renderProductionOrderIdentityCell,
 } from '../../../data/fcs/production-order-identity.ts'
@@ -435,7 +436,10 @@ function renderListOverlay(): string {
 function setListRegion(region: string, html: string): void {
   if (typeof document === 'undefined') return
   const element = document.querySelector<HTMLElement>(`[data-cut-piece-release-region="${region}"]`)
-  if (element) element.innerHTML = html
+  if (element) {
+    element.innerHTML = html
+    hydrateIcons(element)
+  }
 }
 
 function refreshFeedback(): void {
@@ -528,8 +532,7 @@ function handleFieldChange(node: HTMLInputElement | HTMLSelectElement): boolean 
 
 export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, event?: Event): boolean {
   const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
-  const currentEvent = event ?? (typeof window === 'undefined' ? undefined : window.event)
-  const dragEvent = currentEvent as (DragEvent & { higoodStandardListColumnKey?: string }) | undefined
+  const dragEvent = event as (DragEvent & { higoodStandardListColumnKey?: string }) | undefined
   if (dragNode && dragEvent && ['dragstart', 'dragover', 'drop', 'dragend'].includes(dragEvent.type)) {
     const columnKey = dragNode.dataset.cutPieceReleaseColumnKey || dragNode.dataset.dragSource || dragNode.dataset.dropTarget || ''
     if (dragEvent.type === 'dragstart') {
