@@ -35,6 +35,109 @@ async function openList(page: Page): Promise<void> {
   await waitForList(page)
 }
 
+async function openReleaseSnapshotCreate(page: Page): Promise<string> {
+  await page.goto('/fcs/craft/cutting/cut-piece-release')
+  await page.getByRole('button', { name: '查看矩阵' }).click()
+  await page.getByRole('button', { name: '选择目标' }).click()
+  await page.locator('[data-testid="candidate-Black-M-C"]').click()
+  await page.locator('[data-testid="candidate-Black-L-B"]').click()
+  await page.locator('[data-testid="candidate-Black-XL-C"]').click()
+  await page.getByRole('button', { name: '确认目标' }).click()
+  await page.getByRole('button', { name: '保存目标' }).click()
+  await page.getByRole('button', { name: '去补料管理' }).click()
+  const url = new URL(page.url())
+  const snapshotId = url.searchParams.get('releaseSnapshotId') || ''
+  expect(snapshotId).not.toBe('')
+  return snapshotId
+}
+
+test('放行目标快照直接预填多物料多部位缺口且不进入A/B分析', async ({ page }) => {
+  await openReleaseSnapshotCreate(page)
+
+  await expect(page.getByText('来源：裁片放行目标快照')).toBeVisible()
+  await expect(page.getByText('生产单 PO14671')).toBeVisible()
+  await expect(page.getByText('目标依据矩阵版本 V1')).toBeVisible()
+  await expect(page.getByText('2026-06-03 16:00:00')).toBeVisible()
+  const rows = page.locator('[data-release-snapshot-shortage-row]')
+  await expect(rows).toHaveCount(4)
+  const bm = rows.filter({ hasText: 'Black' }).filter({ hasText: 'M' }).filter({ hasText: '面料 B · 白色条' })
+  await expect(bm).toContainText('前片')
+  await expect(bm).toContainText('实际缺片 16 片')
+  await expect(bm).toContainText('建议补料 8 件')
+  const dxl = rows.filter({ hasText: 'XL' }).filter({ hasText: '面料 D · 灰色条' })
+  await expect(dxl).toContainText('袖口')
+  await expect(dxl).toContainText('实际缺片 20 片')
+  await expect(dxl).toContainText('建议补料 20 件')
+  await expect(page.getByText('A/B 基准分析')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /生产单 \d+/ })).toHaveCount(0)
+})
+
+test('独立新增补料仍只提供按生产单和按裁片单两种人工入口', async ({ page }) => {
+  await page.goto(`${route}?mode=create`)
+  await expect(page.getByRole('button', { name: /按生产单选择/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /按裁片单选择/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /裁片放行目标快照/ })).toHaveCount(0)
+
+  await page.getByRole('button', { name: /按裁片单选择/ }).click()
+  await expect(page.getByText('裁片单搜索')).toBeVisible()
+  await page.getByRole('button', { name: /按生产单选择/ }).click()
+  await expect(page.getByText('生产单搜索')).toBeVisible()
+})
+
+test('无效放行快照给出中文错误并可返回独立创建', async ({ page }) => {
+  await page.goto(`${route}?mode=create&releaseSnapshotId=${encodeURIComponent('missing/snapshot')}`)
+  await expect(page.getByText('未找到裁片放行目标快照，可能已失效。')).toBeVisible()
+  await page.getByRole('button', { name: '返回独立创建' }).click()
+  await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/supplement-management\?mode=create$/)
+  await expect(page.getByRole('button', { name: /按生产单选择/ })).toBeVisible()
+})
+
+test('快照补料确认后冻结来源与数量且创建补料不改变放行矩阵', async ({ page }) => {
+  const snapshotId = await openReleaseSnapshotCreate(page)
+  const before = await page.evaluate(async () => {
+    const repository = await import('/src/data/fcs/cut-piece-release.ts')
+    return {
+      matrix: repository.getCutPieceReleaseMatrix('po-14671'),
+      versions: repository.listCutPieceReleaseMatrixVersions('po-14671'),
+    }
+  })
+
+  await page.locator('[data-supplement-reason]').selectOption('尺码齐套不足')
+  await page.locator('[data-supplement-reason-detail]').fill('按已确认放行目标补齐裁片。')
+  await page.getByRole('button', { name: '提交补料' }).click()
+  await page.getByRole('button', { name: '确认生成补料单' }).click()
+
+  await expect(page.getByRole('heading', { name: '补料单详情' })).toBeVisible()
+  await expect(page.getByText(`快照编号 ${snapshotId}`)).toBeVisible()
+  await expect(page.getByText('目标依据矩阵版本 V1')).toBeVisible()
+  await expect(page.getByText('目标确认时间 2026-06-03 16:00:00')).toBeVisible()
+  await expect(page.getByText('实际缺片 16 片')).toBeVisible()
+
+  const afterCreate = await page.evaluate(async () => {
+    const repository = await import('/src/data/fcs/cut-piece-release.ts')
+    return {
+      matrix: repository.getCutPieceReleaseMatrix('po-14671'),
+      versions: repository.listCutPieceReleaseMatrixVersions('po-14671'),
+    }
+  })
+  expect(afterCreate).toEqual(before)
+
+  await page.evaluate(async () => {
+    const repository = await import('/src/data/fcs/cut-piece-release.ts')
+    repository.recordCutOrderReleaseStatusChange({
+      eventId: 'supplement-snapshot-freeze-check',
+      cutOrderId: 'cut-14671-b',
+      cutOrderNo: 'CUT14671-B',
+      status: '持续更新',
+      occurredAt: '2026-06-03 17:00:00',
+      operator: '裁床主管 Dewi',
+      reason: '验证补料记录不随矩阵变化',
+    })
+  })
+  await expect(page.getByText('目标依据矩阵版本 V1')).toBeVisible()
+  await expect(page.getByText('实际缺片 16 片')).toBeVisible()
+})
+
 async function rememberStableRegions(page: Page): Promise<void> {
   await page.evaluate(() => {
     const main = document.querySelector('main')

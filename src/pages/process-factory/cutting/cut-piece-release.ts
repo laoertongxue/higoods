@@ -39,7 +39,8 @@ import type {
   ReleaseMatrixCell,
   ReleaseTargetDifference,
 } from '../../../data/fcs/cut-piece-release-domain.ts'
-import { buildTargetPreview } from '../../../data/fcs/cut-piece-release-domain.ts'
+import { buildSupplementPartShortages, buildTargetPreview } from '../../../data/fcs/cut-piece-release-domain.ts'
+import { appStore } from '../../../state/store.ts'
 import { escapeHtml, formatDateTime } from '../../../utils.ts'
 
 type MatrixStatusFilter = '全部' | MatrixCalculationStatus
@@ -73,6 +74,8 @@ interface CutPieceReleasePageState {
   targetDraft: Record<string, number>
   currentMatrixVersion: number | null
   targetBasisVersion: number | null
+  savedTargetSnapshotId: string | null
+  savedTargetHasShortage: boolean
   activeCell: CutPieceReleaseActiveCell | null
   historyOpen: boolean
   historyPage: number
@@ -121,6 +124,8 @@ const state: CutPieceReleasePageState = {
   targetDraft: {},
   currentMatrixVersion: null,
   targetBasisVersion: null,
+  savedTargetSnapshotId: null,
+  savedTargetHasShortage: false,
   activeCell: null,
   historyOpen: false,
   historyPage: 1,
@@ -146,6 +151,8 @@ function resetTransientPageState(): void {
   state.targetDraft = {}
   state.currentMatrixVersion = null
   state.targetBasisVersion = null
+  state.savedTargetSnapshotId = null
+  state.savedTargetHasShortage = false
   state.activeCell = null
   state.historyOpen = false
   state.historyPage = 1
@@ -661,6 +668,9 @@ function renderTargetSummary(record: CutPieceReleaseRecord): string {
       </div>
       <div class="mt-4 flex justify-end gap-2">
         <button type="button" class="rounded-md border bg-white px-4 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="back-target-edit">返回修改</button>
+        ${state.savedTargetSnapshotId && state.savedTargetHasShortage
+          ? '<button type="button" class="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700" data-skip-page-rerender="true" data-cut-piece-release-action="go-supplement">去补料管理</button>'
+          : ''}
         <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-skip-page-rerender="true" data-cut-piece-release-action="save-target">保存目标</button>
       </div>
     </section>
@@ -983,6 +993,8 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     state.targetDraft = {}
     state.currentMatrixVersion = null
     state.targetBasisVersion = null
+    state.savedTargetSnapshotId = null
+    state.savedTargetHasShortage = false
     state.activeCell = null
     state.historyOpen = false
     state.historyPage = 1
@@ -1008,6 +1020,8 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     if (!record) return true
     initializeTargetDraft(record)
     state.targetMode = '编辑'
+    state.savedTargetSnapshotId = null
+    state.savedTargetHasShortage = false
     state.feedback = null
     refreshFeedback()
     refreshMatrix()
@@ -1063,7 +1077,14 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
       colorSizeTargets: { ...state.targetDraft },
       confirmedBy: '裁床文员 Siti',
     })
-    if (result.snapshot) state.targetBasisVersion = result.snapshot.matrixVersion
+    if (result.snapshot) {
+      state.targetBasisVersion = result.snapshot.matrixVersion
+      state.savedTargetSnapshotId = result.snapshot.snapshotId
+      state.savedTargetHasShortage = buildSupplementPartShortages(
+        result.snapshot.matrixSnapshot,
+        result.snapshot.targetPreview,
+      ).length > 0
+    }
     state.currentMatrixVersion = listCutPieceReleaseMatrixVersions(record.productionOrderId).at(-1)?.version
       ?? state.currentMatrixVersion
     state.feedback = result.ok
@@ -1077,6 +1098,11 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     refreshFeedback()
     refreshList()
     refreshMatrix()
+    return true
+  }
+  if (action === 'go-supplement') {
+    if (!state.savedTargetSnapshotId || !state.savedTargetHasShortage) return true
+    appStore.navigate(`/fcs/craft/cutting/supplement-management?mode=create&releaseSnapshotId=${encodeURIComponent(state.savedTargetSnapshotId)}`)
     return true
   }
   if (action === 'open-cell') {

@@ -110,6 +110,25 @@ test('确认摘要保存目标并呈现幂等、冲突和版本变化反馈', as
   await expectPageRootStable(page)
 })
 
+test('保存存在缺口的目标后可携带不可变快照进入补料管理', async ({ page }) => {
+  await selectBlackTarget(page)
+  await page.getByRole('button', { name: '确认目标' }).click()
+  await page.getByRole('button', { name: '保存目标' }).click()
+
+  const supplementButton = page.getByRole('button', { name: '去补料管理' })
+  await expect(supplementButton).toBeVisible()
+  await supplementButton.click()
+  await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/supplement-management\?mode=create&releaseSnapshotId=cpr-target-po-14671-v1$/)
+})
+
+test('保存无缺口目标时不显示去补料管理主操作', async ({ page }) => {
+  await page.getByRole('button', { name: '选择目标' }).click()
+  await page.getByRole('button', { name: '确认目标' }).click()
+  await page.getByRole('button', { name: '保存目标' }).click()
+
+  await expect(page.getByRole('button', { name: '去补料管理' })).toHaveCount(0)
+})
+
 test('目标保存为V2后上游形成V3会阻断旧依据重试', async ({ page }) => {
   await selectBlackTarget(page)
   await page.getByRole('button', { name: '确认目标' }).click()
