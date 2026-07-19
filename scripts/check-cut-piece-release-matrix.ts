@@ -236,4 +236,23 @@ assert.equal(emptyPartScope.colorGroups[1].materialRows.length, 0)
 assert.equal(emptyPartScope.colorGroups[1].completeKitBySize.M, null)
 assert.equal(emptyPartScope.calculationStatus, '数据不完整')
 
+const mixedIncompleteMaterial = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Black: { M: 10 } },
+  requirements: [
+    { materialId: 'A', materialName: '部位无效的物料', partId: '', partName: '缺失部位', piecesPerGarment: 1 },
+    { materialId: 'B', materialName: '完整物料', partId: 'body', partName: '衣身', piecesPerGarment: 1 },
+  ],
+  facts: [fact({ factId: 'mixed-b', sourceEventId: 'mixed-b', materialId: 'B', partId: 'body', actualPieceQty: 10 })],
+})
+const mixedCells = mixedIncompleteMaterial.colorGroups[0].materialRows.map((row) => row.cells[0])
+assert.equal(mixedCells[0].calculationStatus, '数据不完整')
+assert.equal(mixedCells[0].availableGarmentQty, null)
+assert.equal(mixedCells[1].calculationStatus, '可计算')
+assert.equal(mixedCells[1].availableGarmentQty, 10)
+assert.equal(mixedIncompleteMaterial.colorGroups[0].completeKitBySize.M, null)
+assert.equal(mixedIncompleteMaterial.calculationStatus, '数据不完整')
+
 console.log('cut piece release matrix check passed')

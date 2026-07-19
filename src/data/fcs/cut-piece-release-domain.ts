@@ -158,7 +158,7 @@ function calculatePart(requirement: CutPieceRequirement, facts: CutPieceFact[], 
     const qty = Number.isFinite(fact.actualPieceQty) ? Math.max(0, fact.actualPieceQty) : 0
     return total + (fact.direction === '反向' ? -qty : qty)
   }, 0))
-  const calculationStatus = !isUsablePiecesPerGarment(requirement.piecesPerGarment)
+  const calculationStatus = !requirement.partId || !isUsablePiecesPerGarment(requirement.piecesPerGarment)
     ? '数据不完整'
     : noEffectiveFacts
       ? '暂无有效裁片'
