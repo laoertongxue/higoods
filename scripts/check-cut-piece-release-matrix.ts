@@ -587,6 +587,19 @@ assert.deepEqual(Object.fromEntries(repositoryRecord.matrix.colorGroups.map((gro
   Red: { M: 170, L: 250, XL: 320 },
 }, '四颜色计划数量只作参考并保持设计口径')
 assert.deepEqual(bootstrapVersions.map((version) => version.eventType), ['铺布完成', '铺布完成', '铺布完成', '铺布完成', '铺布完成', '铺布完成', '铺布完成', '裁片单冻结', '铺布完成', '目标确认'], '十版本事件顺序必须稳定')
+const sortedSourceCutOrderNos = (versionIndex: number) => [...(bootstrapVersions[versionIndex].sourceCutOrderNos ?? [])].sort()
+assert.deepEqual(sortedSourceCutOrderNos(0), ['CUT14671-A', 'CUT14671-B'], 'V1 必须同时记录 Black 主裁片单与物料 B 来源')
+assert.deepEqual(sortedSourceCutOrderNos(1), ['CUT14671-B', 'CUT14671-WHITE-01'], 'V2 必须同时记录 White 主裁片单与物料 B 来源')
+assert.deepEqual(sortedSourceCutOrderNos(2), ['CUT14671-B', 'CUT14671-NAVY-01'], 'V3 必须同时记录 Navy 主裁片单与物料 B 来源')
+assert.deepEqual(sortedSourceCutOrderNos(3), ['CUT14671-B', 'CUT14671-RED-01'], 'V4 必须同时记录 Red 主裁片单与物料 B 来源')
+assert.deepEqual([4, 5, 6, 8].map((index) => sortedSourceCutOrderNos(index)), [
+  ['CUT14671-BLACK-02'],
+  ['CUT14671-NAVY-02'],
+  ['CUT14671-WHITE-02'],
+  ['CUT14671-RED-02'],
+], 'V5-V7 与 V9 只能记录当次实际来源裁片单')
+assert.deepEqual(sortedSourceCutOrderNos(7), ['CUT14671-B'], 'V8 冻结版本必须记录 CUT14671-B')
+assert.deepEqual(sortedSourceCutOrderNos(9), [], 'V10 目标确认没有新增裁片事实来源')
 const spreadingBootstrapVersions = bootstrapVersions.filter((version) => version.eventType === '铺布完成')
 for (const field of ['eventId', 'cutOrderId', 'cutOrderNo', 'spreadingOrderNo', 'occurredAt', 'operator', 'reason'] as const) {
   assert.equal(new Set(spreadingBootstrapVersions.map((version) => version[field])).size, 8, `八次铺布事件的 ${field} 必须各不相同`)
@@ -784,6 +797,10 @@ adjustmentAuditVersion.matrixSnapshot.colorGroups[0].materialRows[0].cells[0].pa
 assert.equal(listCutPieceReleaseMatrixVersions(productionOrderId).at(-1)!.matrixSnapshot.colorGroups[0].materialRows[0].cells[0].partCalculations[0].sourceFactIds.includes('tamper'), false, '审计版本读取仍必须深拷贝')
 
 resetCutPieceReleasePrototypeStoreForTesting()
+const whiteReleaseImpact = getCutOrderReleaseImpactSummary('cut-14671-white-01')
+assert.equal(whiteReleaseImpact?.affectedCells.length, 9, 'White 首次裁片单只能影响 A/C/D 三物料 × M/L/XL 共 9 格')
+assert.ok(whiteReleaseImpact?.affectedCells.every((cell) => cell.garmentColor === 'White'), 'White 首次裁片单不得扩大到其他颜色')
+assert.deepEqual([...new Set(whiteReleaseImpact?.affectedCells.map((cell) => cell.materialId))].sort(), ['A', 'C', 'D'], 'White 首次裁片单只影响 A/C/D')
 const releaseImpact = getCutOrderReleaseImpactSummary('cut-14671-b')
 assert.equal(releaseImpact?.cutOrderNo, 'CUT14671-B')
 assert.deepEqual(releaseImpact?.affectedCells.map((cell) => [cell.garmentColor, cell.size, cell.materialId, cell.availableGarmentQty]), [

@@ -145,6 +145,7 @@ export interface CutPieceReleaseMatrixVersion {
   reason?: string
   cutOrderId?: string
   cutOrderNo?: string
+  sourceCutOrderNos: string[]
   spreadingOrderNo?: string
   matrixSnapshot: CutPieceReleaseMatrix
 }
@@ -245,6 +246,11 @@ function rebuildMatrix(item: ReleaseRepositoryItem): CutPieceReleaseMatrix {
 
 function addVersion(item: ReleaseRepositoryItem, event: MatrixEvent): void {
   const matrixSnapshot = clone(rebuildMatrix(item))
+  const sourceCutOrderNos = [...new Set(item.input.facts
+    .filter((fact) => fact.sourceEventId === event.eventId)
+    .map((fact) => fact.cutOrderNo)
+    .filter((cutOrderNo): cutOrderNo is string => Boolean(cutOrderNo)))]
+  if (!sourceCutOrderNos.length && event.cutOrderNo) sourceCutOrderNos.push(event.cutOrderNo)
   item.versions.push({
     version: item.versions.length + 1,
     productionOrderId: item.input.productionOrderId,
@@ -255,6 +261,7 @@ function addVersion(item: ReleaseRepositoryItem, event: MatrixEvent): void {
     reason: event.reason,
     cutOrderId: event.cutOrderId,
     cutOrderNo: event.cutOrderNo,
+    sourceCutOrderNos,
     spreadingOrderNo: event.spreadingOrderNo,
     matrixSnapshot,
   })
@@ -535,16 +542,19 @@ export function getCutOrderReleaseImpactSummary(cutOrderId: string): CutOrderRel
   for (const item of releaseRepository.values()) {
     const source = resolveCutOrderSource(item, sourceKey, '') ?? resolveCutOrderSource(item, '', sourceKey)
     if (!source) continue
-    const affectedMaterialIds = new Set(item.input.facts.filter((fact) => fact.cutOrderId === source.cutOrderId).map((fact) => fact.materialId))
+    const affectedCellKeys = new Set(item.input.facts
+      .filter((fact) => fact.cutOrderId === source.cutOrderId)
+      .map((fact) => [fact.garmentColor, fact.size, fact.materialId].join('\u0000')))
     const affectedCells = item.currentMatrix.colorGroups.flatMap((group) => group.materialRows
-      .filter((row) => affectedMaterialIds.has(row.materialId))
-      .flatMap((row) => row.cells.map((cell) => ({
-        garmentColor: group.garmentColor,
-        size: cell.size,
-        materialId: row.materialId,
-        materialName: row.materialName,
-        availableGarmentQty: cell.availableGarmentQty,
-      }))))
+      .flatMap((row) => row.cells
+        .filter((cell) => affectedCellKeys.has([group.garmentColor, cell.size, row.materialId].join('\u0000')))
+        .map((cell) => ({
+          garmentColor: group.garmentColor,
+          size: cell.size,
+          materialId: row.materialId,
+          materialName: row.materialName,
+          availableGarmentQty: cell.availableGarmentQty,
+        }))))
       .sort((left, right) => left.garmentColor.localeCompare(right.garmentColor, 'zh-CN') || left.size.localeCompare(right.size, 'zh-CN') || left.materialId.localeCompare(right.materialId, 'zh-CN'))
     return clone({
       cutOrderId: source.cutOrderId,
