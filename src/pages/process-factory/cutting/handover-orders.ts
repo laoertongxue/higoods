@@ -279,6 +279,7 @@ function renderOrderDetail(order: HandoverOrder, records: HandoverRecord[], reco
                 ${renderCompactKpiCard('最新缺口', `${formatNumber(order.shortageAfterLatestRecord)} 片`, '交出后计算结果', order.shortageAfterLatestRecord ? 'text-amber-600' : 'text-slate-700')}
               </div>
             </section>
+            ${order.cutPieceReleaseSnapshot ? renderCutPieceReleaseHandoverSnapshot(order.cutPieceReleaseSnapshot) : ''}
           `
       }
       <section class="rounded-lg border bg-card p-4">
@@ -291,6 +292,39 @@ function renderOrderDetail(order: HandoverOrder, records: HandoverRecord[], reco
         </div>
       </section>
     </main>
+  `
+}
+
+function renderCutPieceReleaseHandoverSnapshot(snapshot: NonNullable<HandoverOrder['cutPieceReleaseSnapshot']>): string {
+  const rows = Object.entries(snapshot.minimumReturnQtyByColorSize)
+  const surplus = snapshot.surplusPieces
+  return `
+    <section class="rounded-lg border border-blue-200 bg-blue-50/40 p-4" data-testid="cut-piece-release-handover-snapshot">
+      <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 class="text-base font-semibold text-blue-950">裁片放行依据</h2>
+          <p class="mt-1 text-xs text-blue-900/70">交接时固定的当前齐套快照；最低应回不含目标差额，也不承诺多余裁片可做数量。</p>
+        </div>
+        <div class="text-right text-xs text-blue-900/70">快照：${escapeHtml(snapshot.releaseTargetSnapshotId)}${snapshot.matrixVersion ? ` / 矩阵 V${snapshot.matrixVersion}` : ''}</div>
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-2">
+        <article class="rounded-md border border-blue-200 bg-white px-3 py-3">
+          <div class="text-xs text-muted-foreground">最低应回数量（交接时实际齐套）</div>
+          <div class="mt-2 grid gap-1 text-sm">
+            ${rows.map(([key, qty]) => `<div class="flex items-center justify-between"><span>${escapeHtml(key.replace('::', ' / '))}</span><strong class="tabular-nums">${formatNumber(qty)} 件</strong></div>`).join('')}
+          </div>
+          <div class="mt-2 text-xs text-amber-700">车缝厂至少应回以上齐套数量；目标数量和余片不计入最低应回。</div>
+        </article>
+        <article class="rounded-md border border-amber-200 bg-amber-50 px-3 py-3">
+          <div class="text-xs text-muted-foreground">多余裁片（仅记录，不纳入承诺）</div>
+          <div class="mt-2 space-y-1 text-sm">
+            ${surplus.length ? surplus.map((item) => `<div class="flex items-center justify-between gap-2"><span>${escapeHtml(`${item.garmentColor} / ${item.size} / ${item.materialId} / ${item.partId}`)}</span><strong class="tabular-nums text-amber-800">多 ${formatNumber(item.pieceQty)} 片</strong></div>`).join('') : '<div class="text-muted-foreground">暂无多余裁片记录。</div>'}
+          </div>
+          <div class="mt-2 text-xs text-muted-foreground">车缝厂可灵活使用，但系统不将其换算为可回货数量。</div>
+        </article>
+      </div>
+      ${snapshot.frozenSourceTips?.length ? `<div class="mt-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700">${snapshot.frozenSourceTips.map((tip) => escapeHtml(tip)).join('；')}</div>` : ''}
+    </section>
   `
 }
 

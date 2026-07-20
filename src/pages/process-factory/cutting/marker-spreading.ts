@@ -2,6 +2,8 @@
 
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { recordSpreadingReleaseAdjustment } from '../../../data/fcs/cut-piece-release.ts'
+import { buildSpreadingVoidImpact } from '../../../data/fcs/cutting/marker-plan-void-domain.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderStandardListPage } from '../../../components/ui/list-page.ts'
 import {
@@ -3095,7 +3097,7 @@ function renderSpreadingSupervisorListPage(): string {
   const paginationHtml = renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: 'cutting-spreading-list', fieldPrefix: 'cutting-spreading-list', pageSizeOptions: SPREADING_LIST_PAGE_SIZES })
   const overlaysHtml = state.listColumnSettingsOpen ? renderStandardListColumnSettings({ title: '铺布单列设置', columns, preferences: state.listColumnPreferences, eventPrefix: 'cutting-spreading-list', maxFrozenWidth: SPREADING_LIST_MAX_FROZEN_WIDTH }) : ''
 
-  return `<div data-testid="cutting-spreading-list-page">${renderStandardListPage({ title: '铺布单', primaryActionsHtml: primaryActions, feedbackHtml: renderFeedbackBar(), filtersHtml: renderFilterArea(), statsHtml: renderListStats(pageData), listTitle: `铺布单（${filteredRows.length}）`, listActionsHtml: listActions, tableHtml, paginationHtml, overlaysHtml })}</div>`
+  return `<div data-testid="cutting-spreading-list-page">${renderStandardListPage({ title: '铺布列表', primaryActionsHtml: primaryActions, feedbackHtml: renderFeedbackBar(), filtersHtml: renderFilterArea(), statsHtml: renderListStats(pageData), listTitle: `铺布单（${filteredRows.length}）`, listActionsHtml: listActions, tableHtml, paginationHtml, overlaysHtml })}</div>`
 }
 
 function renderMarkerWarningSection(warningMessages: string[]): string {
@@ -4549,10 +4551,12 @@ function renderSpreadingDetailPage(): string {
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderHeaderActions(appendSummaryReturnAction([
           '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-list" data-tab="spreadings">返回铺布单</button>',
-          `<button type="button" class="rounded-md border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-700 hover:bg-blue-100" data-cutting-marker-action="open-spreading-edit" data-session-id="${escapeHtml(session.spreadingSessionId)}">编辑铺布</button>`,
+          `<button type="button" title="编辑铺布" aria-label="去编辑，编辑铺布" class="rounded-md border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-700 hover:bg-blue-100" data-cutting-marker-action="open-spreading-edit" data-session-id="${escapeHtml(session.spreadingSessionId)}">去编辑</button>`,
+          `${session.voidedAt ? '<span class="rounded-md border border-slate-300 bg-slate-100 px-3 py-3 text-sm text-slate-600">已作废铺布</span>' : `<button type="button" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-700 hover:bg-rose-100" data-skip-page-rerender="true" data-cutting-marker-action="void-spreading" data-session-id="${escapeHtml(session.spreadingSessionId)}">作废铺布</button>`}`,
           `${row.markerPlanNo ? `<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-linked-marker-plan" data-session-id="${escapeHtml(row.spreadingSessionId)}">去来源唛架方案</button>` : ''}`,
         ])),
       })}
+      <div class="sr-only" aria-live="polite" data-spreading-void-feedback></div>
       <section class="rounded-xl border bg-card p-4">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -4611,9 +4615,10 @@ function renderSpreadingDetailPage(): string {
       ${renderSection('实际信息', `
         ${renderInfoGrid([
           { label: '实铺层数', value: `${formatQty(webSummary.actualLayerCount)} 层`, formula: buildLayerSumFormula(webSummary.actualLayerCount, session.rolls.map((roll) => roll.layerCount)) },
-          { label: '实际铺布长度', value: formatLength(webSummary.actualUsage), formula: buildSumFormula(webSummary.actualUsage, session.rolls.map((roll) => roll.actualLength), 2) },
+          { label: '总实际铺布长度（m）', value: formatLength(webSummary.actualUsage), formula: buildSumFormula(webSummary.actualUsage, session.rolls.map((roll) => roll.actualLength), 2) },
+          { label: '总净可用长度（m）', value: formatLength(rollSummary.totalCalculatedUsableLength), formula: buildSumFormula(rollSummary.totalCalculatedUsableLength, session.rolls.map((roll) => computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)), 2) },
           { label: '实际用量', value: formatLength(webSummary.actualUsage) },
-          { label: '实际裁剪数量', value: `${formatQty(webSummary.actualCutQty)} 件` },
+          { label: '实际裁剪成衣件数（件）', value: `${formatQty(webSummary.actualCutQty)} 件` },
           { label: '布头长度', value: formatLength(rollSummary.totalHeadLength) },
           { label: '布尾长度', value: formatLength(rollSummary.totalTailLength) },
         ])}
@@ -4733,6 +4738,11 @@ function renderSpreadingDetailPage(): string {
             formula:
               varianceSummary?.spreadUsableLengthFormula ||
               buildSumFormula(rollSummary.totalCalculatedUsableLength, session.rolls.map((roll) => computeUsableLength(roll.actualLength, roll.headLength, roll.tailLength, roll.layerCount)), 2),
+          },
+          {
+            label: '总实际铺布长度（m）',
+            value: formatLength(rollSummary.totalActualLength),
+            formula: buildSumFormula(rollSummary.totalActualLength, session.rolls.map((roll) => roll.actualLength), 2),
           },
           {
             label: '裁床已领长度（m）',
@@ -5473,6 +5483,7 @@ function renderSpreadingEditPage(): string {
   const headerActions = renderHeaderActions([
     '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-list">返回列表</button>',
     '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="save-spreading">保存草稿</button>',
+    `${draft.voidedAt ? '<span class="rounded-md border border-slate-300 bg-slate-100 px-3 py-3 text-sm text-slate-600">已作废铺布</span>' : '<button type="button" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-700 hover:bg-rose-100" data-skip-page-rerender="true" data-cutting-marker-action="void-spreading">作废铺布</button>'}`,
     '',
     '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="complete-spreading">完成铺布</button>',
   ])
@@ -5481,6 +5492,7 @@ function renderSpreadingEditPage(): string {
     <div class="space-y-4 p-4" data-testid="cutting-spreading-edit-page">
       ${renderCuttingPageHeader(meta, { actionsHtml: headerActions })}
       ${renderFeedbackBar()}
+      <div class="sr-only" aria-live="polite" data-spreading-void-feedback></div>
       ${renderTopInfo()}
       ${renderSpreadingEditTabNav(state.spreadingEditTab)}
       ${content}
@@ -6388,6 +6400,90 @@ function saveCurrentSpreading(goDetail: boolean, successMessage?: string): boole
   if (goDetail) {
     appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-detail'), buildContextPayloadFromSession(saved)))
   }
+  return true
+}
+
+function voidCurrentSpreading(sessionId?: string): boolean {
+  const draft = state.spreadingDraft || (sessionId ? getStoredSpreadingSession(sessionId) : null)
+  if (!draft) return false
+  if (draft.voidedAt) {
+    state.feedback = { tone: 'success', message: `铺布单 ${draft.sessionNo || draft.spreadingSessionId} 已作废，本次重复操作按幂等处理，未重复写入日志或数量。` }
+    return true
+  }
+  if (draft.cuttingStatus === 'CUTTING_DONE') {
+    state.feedback = { tone: 'warning', message: '裁剪已经完成，不能直接作废铺布；请由主管处理后续反向冲销。' }
+    return true
+  }
+  if (draft.status === 'IN_PROGRESS' || (hasSpreadingActualExecution(draft) && draft.status !== 'DONE')) {
+    state.feedback = { tone: 'warning', message: '铺布正在执行或已有现场实际记录，不能直接作废；请先停止现场执行并核对实际裁片数量。' }
+    return true
+  }
+  const reason = window.prompt('请输入作废铺布原因。作废后保留原铺布单和裁片事实引用。', '铺布数据录入错误，重新铺布')
+  if (!String(reason || '').trim()) {
+    state.feedback = { tone: 'warning', message: '作废铺布必须填写原因。' }
+    return true
+  }
+  const occurredAt = formatDateTimeLocal()
+  const eventId = `spreading-void-${draft.spreadingSessionId}-${Date.now()}`
+  const data = readMarkerSpreadingPrototypeData()
+  const productionOrderId = draft.cutOrderIds
+    .map((cutOrderId) => data.rowsById[cutOrderId]?.productionOrderId)
+    .find(Boolean) || ''
+  if (!productionOrderId) {
+    state.feedback = { tone: 'warning', message: '来源生产单缺失，无法核对裁片放行矩阵，已阻断作废铺布。' }
+    return true
+  }
+  const adjustment = recordSpreadingReleaseAdjustment({
+    adjustmentEventId: eventId,
+    spreadingOrderNo: draft.sessionNo || draft.spreadingSessionId,
+    productionOrderId,
+    direction: -1,
+    occurredAt,
+    operator: '裁床主管',
+    reason: String(reason).trim(),
+    sourceCutOrderIds: draft.cutOrderIds,
+    sourceCutOrderNos: draft.cutOrderNos || [],
+  })
+  const noEffectiveCutFacts = adjustment.status === 'not-applicable' && adjustment.reason.includes('没有可冲销')
+  if (adjustment.status !== 'applied' && !noEffectiveCutFacts) {
+    state.feedback = { tone: 'warning', message: adjustment.reason }
+    const feedbackHost = document.querySelector<HTMLElement>('[data-spreading-void-feedback]')
+    if (feedbackHost) feedbackHost.textContent = adjustment.reason
+    return true
+  }
+  const operationLog = createSpreadingOperationLog({
+    logId: eventId,
+    occurredAt,
+    operatorName: '裁床主管',
+    statusType: '铺布状态',
+    actionLabel: '作废铺布',
+    fromStatusLabel: deriveSpreadingStatus(draft.status).label,
+    toStatusLabel: '已作废',
+    remark: `原因：${String(reason).trim()}；来源生产单：${productionOrderId}；来源裁片单：${(draft.cutOrderNos || []).join('、') || '未关联'}；原铺布 session：${draft.spreadingSessionId}；实际裁剪成衣：${draft.actualCutGarmentQty || draft.theoreticalCutGarmentQty || 0} 件；放行矩阵引用：${draft.markerPlanNo || draft.markerPlanId || '未关联'}；${noEffectiveCutFacts ? '无有效裁片事实，未产生数量回滚' : '已产生反向冲销'}`,
+  })
+  const nextSession: SpreadingSession = {
+    ...draft,
+    voidedAt: occurredAt,
+    voidedBy: '裁床主管',
+    voidReason: String(reason).trim(),
+    voidEventId: eventId,
+    note: `${draft.note || ''}${draft.note ? '；' : ''}已作废：${String(reason).trim()}`,
+    updatedAt: occurredAt,
+    updatedFromPdaAt: occurredAt,
+    operationLogs: [...(draft.operationLogs || []).filter((log) => log.logId !== eventId), operationLog],
+  }
+  persistMarkerSpreadingStore(upsertSpreadingSession(nextSession, data.store))
+  state.spreadingDraft = cloneSpreadingSession(nextSession)
+  state.feedback = { tone: 'success', message: noEffectiveCutFacts
+    ? `已作废铺布单 ${draft.sessionNo || draft.spreadingSessionId}；当前尚未形成有效裁片事实，未产生数量回滚。`
+    : `已作废铺布单 ${draft.sessionNo || draft.spreadingSessionId}；${buildSpreadingVoidImpact({ spreadingOrderNo: draft.sessionNo || draft.spreadingSessionId, sourceCutOrderNos: draft.cutOrderNos || [], plannedGarmentQty: draft.theoreticalCutGarmentQty || 0, actualGarmentQty: draft.actualCutGarmentQty || draft.theoreticalCutGarmentQty || 0, quantityPolicy: '按反向冲销' })}` }
+  document.querySelectorAll<HTMLElement>('[data-cutting-marker-action="void-spreading"]').forEach((button) => {
+    button.textContent = '已作废铺布'
+    button.setAttribute('disabled', 'true')
+    button.classList.add('opacity-60')
+  })
+  const feedbackHost = document.querySelector<HTMLElement>('[data-spreading-void-feedback]')
+  if (feedbackHost) feedbackHost.textContent = state.feedback.message
   return true
 }
 
@@ -7453,6 +7549,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: 
 
   if (action === 'open-spreading-detail') return navigateToSpreadingPage('detail', actionNode.dataset.sessionId)
   if (action === 'open-spreading-edit') return navigateToSpreadingPage('edit', actionNode.dataset.sessionId)
+  if (action === 'void-spreading') return voidCurrentSpreading(actionNode.dataset.sessionId)
   if (action === 'start-spreading-session') {
     const controls = actionNode.closest<HTMLElement>('[data-spreading-start-controls="true"]')
     const cuttingTableId = controls?.querySelector<HTMLSelectElement>('[data-cutting-spreading-start-field="cuttingTableId"]')?.value || ''

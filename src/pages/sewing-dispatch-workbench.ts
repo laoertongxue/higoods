@@ -320,13 +320,6 @@ function renderDispatchPolicyFeedback(row: SewingDispatchWorkbenchRow, factoryId
   return `<div class="mt-1 rounded-md border px-2 py-1 text-xs ${tone}">${escapeHtml(decision.reason)}${riskConfirm}${supervisorConfirm}</div>`
 }
 
-function getCutPieceReleaseBadgeClass(decision: CutPieceReleaseSummary['decision']): string {
-  if (decision === '可以做') return 'border-green-200 bg-green-50 text-green-700'
-  if (decision === '部分可以做') return 'border-blue-200 bg-blue-50 text-blue-700'
-  if (decision === '暂时不能做') return 'border-rose-200 bg-rose-50 text-rose-700'
-  return 'border-amber-200 bg-amber-50 text-amber-700'
-}
-
 function getTaskCutPieceReleaseSummary(task: SewingDispatchWorkbenchTask): CutPieceReleaseSummary | null {
   return getCutPieceReleaseSummaryForProductionOrder(task.productionOrderId)
 }
@@ -698,12 +691,17 @@ function renderCutPieceReleaseSummary(task: SewingDispatchWorkbenchTask): string
   }
   return `
     <div class="space-y-1 text-xs">
-      ${renderBadge(summary.decision, getCutPieceReleaseBadgeClass(summary.decision))}
-      <div class="font-medium">可做 ${formatQty(summary.releaseQty)} 件</div>
-      <div class="max-w-[220px] leading-5 text-muted-foreground">${escapeHtml(summary.reason)}</div>
-      <div class="text-muted-foreground">${escapeHtml(summary.judgedBy || '待确认')} ${summary.judgedAt ? `· ${escapeHtml(summary.judgedAt.slice(0, 16))}` : ''}</div>
+      ${renderBadge('当前齐套', summary.matrixStatus === '可计算' ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700')}
+      <div class="font-medium">当前齐套 ${formatQty(sumCurrentCompleteKit(summary))} 件</div>
+      <div class="max-w-[240px] leading-5 text-muted-foreground">按当前裁片矩阵计算；目标数量仅作业务确认，不代表最低回货承诺。</div>
+      <div class="text-muted-foreground">矩阵 V${summary.latestMatrixVersion} · ${escapeHtml(summary.latestUpdatedAt.slice(0, 16))}</div>
+      ${summary.targetStatus === '目标后数据已变化' ? '<div class="text-amber-700">目标后数据已变化，请重新确认。</div>' : ''}
     </div>
   `
+}
+
+function sumCurrentCompleteKit(summary: CutPieceReleaseSummary): number {
+  return Object.values(summary.currentCompleteKitQtyByColorSize).reduce<number>((sum, qty) => sum + (typeof qty === 'number' ? qty : 0), 0)
 }
 
 function renderCutOrderClosure(task: SewingDispatchWorkbenchTask): string {
@@ -832,7 +830,7 @@ function renderTaskRow(task: SewingDispatchWorkbenchTask): string {
           </div>
         </div>
       </td>
-      <td class="px-3 py-4 align-top"><div class="font-medium">${task.skuRows.length} 个 SKU</div><div class="mt-1 text-xs text-muted-foreground">任务 ${formatQty(task.remainingQty)} 件</div></td>
+      <td class="px-3 py-4 align-top"><div class="font-medium">${task.skuRows.length} 个 SKU</div><div class="mt-1 text-xs text-muted-foreground">任务 ${formatQty(task.remainingQty)} 件</div><div class="mt-2">${renderCutPieceReleaseSummary(task)}</div></td>
       <td class="px-3 py-4 align-top"><div class="font-medium ${allocatableRows.length ? 'text-green-700' : 'text-amber-700'}">${allocatableRows.length ? `${allocatableRows.length} 个 SKU 可分配` : '暂无可整量分配 SKU'}</div><div class="mt-1 text-xs text-muted-foreground">${formatQty(allocatableQty)} 件</div></td>
       <td class="max-w-[260px] px-3 py-4 align-top"><div class="text-xs leading-5 ${allocatableRows.length === task.skuRows.length ? 'text-green-700' : 'text-amber-700'}">${escapeHtml(blockingReason)}</div></td>
       <td class="px-3 py-4 align-top"><div>${renderBadge(task.assignmentStatusLabel, 'border-slate-200 bg-slate-50 text-slate-700')}</div><div class="mt-2 text-xs text-muted-foreground">尚未确定承接工厂</div></td>
@@ -879,7 +877,7 @@ function renderDetailDrawer(task: SewingDispatchWorkbenchTask | undefined): stri
         <div class="min-h-0 flex-1 overflow-auto p-5">
           <div class="grid gap-3 sm:grid-cols-5">
             ${renderMetricCard('完整齐套数量', `${formatQty(task.completeKitQty)} 件`, `${task.completeSkuCount}/${task.skuCount} 个 SKU 已齐套`, task.kitStatus === '已齐套' ? 'text-green-700' : 'text-amber-700')}
-            ${renderMetricCard('裁床判断', releaseSummary?.decision || '待判断', releaseSummary ? `可做 ${formatQty(releaseSummary.releaseQty)} 件` : '尚未形成裁片放行判断', releaseSummary?.decision === '暂时不能做' ? 'text-rose-700' : releaseSummary?.decision === '待判断' ? 'text-amber-700' : 'text-blue-700')}
+            ${releaseSummary ? renderMetricCard('裁床判断', '当前齐套', `当前齐套 ${formatQty(sumCurrentCompleteKit(releaseSummary))} 件 · 矩阵 V${releaseSummary.latestMatrixVersion}`, releaseSummary.matrixStatus === '可计算' ? 'text-green-700' : 'text-amber-700') : renderMetricCard('裁床判断', '待判断', '尚未形成裁片放行判断', 'text-amber-700')}
             ${renderMetricCard('待分配数量', `${formatQty(task.remainingQty)} 件`, task.mainFactoryStatusLabel)}
             ${renderMetricCard('裁片单闭环', `${task.cutOrderClosure.closedCount}/${task.cutOrderClosure.totalCount}`, task.cutOrderClosure.statusLabel)}
             ${renderMetricCard('缺口类型', task.gapTypes.length ? task.gapTypes.join('、') : '无', '仅展示事实，由跟单判断分配节奏')}
@@ -1246,12 +1244,12 @@ function renderDispatchCutPieceReleaseNotice(rows: SewingDispatchWorkbenchRow[],
             <div class="rounded-md border bg-background px-3 py-2 text-xs">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="font-medium">${escapeHtml(task.productionOrderNo)} · ${escapeHtml(task.taskNo)}</span>
-                ${renderBadge(summary.decision, getCutPieceReleaseBadgeClass(summary.decision))}
-                <span class="text-blue-700">可做 ${formatQty(summary.releaseQty)} 件</span>
+                ${renderBadge('当前齐套', summary.matrixStatus === '可计算' ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700')}
+                <span class="text-blue-700">当前齐套 ${formatQty(sumCurrentCompleteKit(summary))} 件</span>
               </div>
-              <div class="mt-1 leading-5 text-muted-foreground">${escapeHtml(summary.reason)}</div>
-              ${summary.riskNote ? `<div class="mt-1 text-amber-700">${escapeHtml(summary.riskNote)}</div>` : ''}
-              <div class="mt-1 text-muted-foreground">确认：${escapeHtml(summary.judgedBy || '待确认')} ${summary.judgedAt ? `· ${escapeHtml(summary.judgedAt.slice(0, 16))}` : ''}</div>
+              <div class="mt-1 leading-5 text-muted-foreground">当前齐套来自裁片放行矩阵，目标数量不代表最低回货承诺。</div>
+              ${summary.targetStatus === '目标后数据已变化' ? '<div class="mt-1 text-amber-700">目标后数据已变化，请重新确认。</div>' : ''}
+              <div class="mt-1 text-muted-foreground">矩阵 V${summary.latestMatrixVersion} · ${escapeHtml(summary.latestUpdatedAt.slice(0, 16))}</div>
             </div>
           `
         }).join('')}

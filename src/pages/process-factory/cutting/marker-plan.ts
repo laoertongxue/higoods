@@ -1,4 +1,8 @@
+// @page-pattern: list
 import { renderDrawer as uiDrawer } from '../../../components/ui/index.ts'
+import { renderStandardListPage } from '../../../components/ui/list-page.ts'
+import { renderStandardListTable } from '../../../components/ui/list-table.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
@@ -61,6 +65,7 @@ import {
   type MarkerSchemeDemandRow,
 } from './marker-plan-domain.ts'
 import { renderMaterialIdentityBlock } from './material-identity.ts'
+import { assessMarkerPlanVoid } from '../../../data/fcs/cutting/marker-plan-void-domain.ts'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
 import {
   renderCompactKpiCard,
@@ -4810,8 +4815,14 @@ function cancelDraftPlan(): boolean {
   const isConfirmedPlan = state.draftPlan.confirmationStatus === '已确认'
   const spreadingOrders = getSpreadingOrdersForMarkerPlan(state.draftPlan.id)
   const activeSpreadingOrders = spreadingOrders.filter((order) => order.status !== 'CANCELED')
-  if (isConfirmedPlan && activeSpreadingOrders.length) {
-    setFeedback('warning', `当前方案已生成 ${activeSpreadingOrders.length} 张铺布单，需先作废或删除未开始铺布单；已进入执行中的铺布单不允许作废方案。`)
+  const voidAssessment = assessMarkerPlanVoid({
+    status: state.draftPlan.status,
+    hasSpreadingReference: spreadingOrders.length > 0,
+    activeSpreadingCount: activeSpreadingOrders.length,
+    hasStartedSpreading: activeSpreadingOrders.some((order) => order.status !== 'WAITING_SPREADING'),
+  })
+  if (isConfirmedPlan && !voidAssessment.allowed) {
+    setFeedback('warning', voidAssessment.messages.join('；'))
     return true
   }
   const voidReason = isConfirmedPlan
@@ -4836,7 +4847,7 @@ function cancelDraftPlan(): boolean {
         id: `log-${state.draftPlan.id}-void-${Date.now()}`,
         action: isConfirmedPlan ? '作废方案' : '删除草稿',
         detail: isConfirmedPlan
-          ? `作废原因：${String(voidReason || '').trim()}`
+          ? `作废原因：${String(voidReason || '').trim()}；来源生产单：${state.draftPlan.productionOrderNos.join('、') || '未关联'}；来源裁片单：${state.draftPlan.cutOrderNos.join('、') || '未关联'}；历史铺布引用：${spreadingOrders.length ? `${spreadingOrders.length} 张，保留追溯` : '无'}`
           : '取消未确认草稿。',
         at: now,
         by: '计划员-陈静',
@@ -4848,7 +4859,9 @@ function cancelDraftPlan(): boolean {
   const nextPlan = context ? hydrateMarkerPlan(canceledPlan, context) : canceledPlan
   upsertStoredPlan(nextPlan)
   state.draftPlan = nextPlan
-  setFeedback('success', isConfirmedPlan ? `已作废唛架方案 ${nextPlan.markerNo}。` : `已删除草稿 ${nextPlan.markerNo}。`)
+  setFeedback('success', isConfirmedPlan
+    ? `已作废唛架方案 ${nextPlan.markerNo}；历史铺布/裁片引用保留，后续不可再选择该方案铺布。`
+    : `已删除草稿 ${nextPlan.markerNo}。`)
   return true
 }
 

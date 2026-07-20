@@ -16,6 +16,15 @@ import type { TechPackBomItemSnapshot } from '../../../data/fcs/production-tech-
 import type { TechnicalColorMaterialMappingLine } from '../../../data/pcs-technical-data-version-types.ts'
 import { buildProductionPieceTruth } from '../../../domain/fcs-cutting-piece-truth/index.ts'
 import { appStore } from '../../../state/store.ts'
+import {
+  getCutPieceReleaseTargetSnapshot,
+  listCutPieceReleaseRecords,
+  type CutPieceReleaseTargetSnapshot,
+} from '../../../data/fcs/cut-piece-release.ts'
+import {
+  buildSupplementPartShortages,
+  type SupplementPartShortage,
+} from '../../../data/fcs/cut-piece-release-domain.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderSecondaryButton } from '../../../components/ui/button.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
@@ -37,7 +46,8 @@ import {
   type StandardListColumn,
 } from '../../../components/ui/list-table.ts'
 
-type SupplementSourceType = 'production-order' | 'cut-order'
+type SupplementManualSourceType = 'production-order' | 'cut-order'
+type SupplementSourceType = SupplementManualSourceType | 'release-snapshot'
 type SupplementFilterSourceType = 'ALL' | SupplementSourceType
 type SupplementRecordStatus = '已确认'
 type SupplementProcessKind = '印花' | '染色'
@@ -51,7 +61,7 @@ interface SupplementFilters {
 }
 
 interface SupplementSourcePickerState {
-  sourceType: SupplementSourceType
+  sourceType: SupplementManualSourceType
   keyword: string
   selectedCandidateId: string
 }
@@ -140,11 +150,13 @@ interface SupplementLine extends SupplementSizeColorRow {
   basis: SupplementAbAnalysisRow
   isManualAdjusted: boolean
   adjustReason: string
+  actualMissingPieceQty?: number
+  piecesPerGarment?: number
 }
 
 interface SupplementCandidate {
   id: string
-  sourceType: SupplementSourceType
+  sourceType: SupplementManualSourceType
   record: CuttingOrderProgressRecord
   sourceNo: string
   sourceTitle: string
@@ -169,6 +181,9 @@ interface SupplementDraft {
   reasonDetail: string
   lines: SupplementLine[]
   materialDemands: SupplementMaterialDemand[]
+  releaseSnapshotId?: string
+  releaseMatrixVersion?: number
+  releaseTargetConfirmedAt?: string
 }
 
 interface SupplementRecord {
@@ -205,6 +220,9 @@ interface SupplementManagementState {
   activeCandidateId: string
   activeRecordId: string
   pendingConfirmDraft: SupplementDraft | null
+  releaseSnapshotDraft: SupplementDraft | null
+  releaseSnapshotError: string
+  creationSourceKey: string
   records: SupplementRecord[]
   feedback: SupplementFeedback | null
   page: number
@@ -247,6 +265,9 @@ const state: SupplementManagementState = {
   activeCandidateId: '',
   activeRecordId: '',
   pendingConfirmDraft: null,
+  releaseSnapshotDraft: null,
+  releaseSnapshotError: '',
+  creationSourceKey: '',
   records: [],
   feedback: null,
   page: 1,
@@ -266,6 +287,7 @@ let supplementListPreferencesLoaded = false
 const sourceTypeLabels: Record<SupplementSourceType, string> = {
   'production-order': '生产单',
   'cut-order': '裁片单',
+  'release-snapshot': '裁片放行目标快照',
 }
 
 const supplementManagementPath = '/fcs/craft/cutting/supplement-management'
@@ -287,12 +309,28 @@ function normalizeText(value: unknown): string {
 }
 
 function isSupplementCreateMode(): boolean {
-  const storePath = appStore.getState().pathname || ''
-  const browserPath =
-    typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : ''
-  const currentPath = storePath.includes('?') ? storePath : browserPath
+  const currentPath = getSupplementLocationPath()
   const query = currentPath.split('?')[1] ?? ''
   return new URLSearchParams(query).get('mode') === 'create'
+}
+
+function getSupplementLocationPath(): string {
+  const browserPath = typeof window !== 'undefined'
+    ? `${window.location.pathname}${window.location.search}`
+    : ''
+  if (browserPath.startsWith(supplementManagementPath)) return browserPath
+  return appStore.getState().pathname || ''
+}
+
+function getReleaseSnapshotIdFromLocation(): string {
+  const query = getSupplementLocationPath().split('?')[1] ?? ''
+  return parseReleaseSnapshotIdFromSearch(query)
+}
+
+export function parseReleaseSnapshotIdFromSearch(search: string): string {
+  return new URLSearchParams(search).getAll('releaseSnapshotId')
+    .map((value) => value.trim())
+    .find(Boolean) || ''
 }
 
 function isClosedRecord(record: CuttingOrderProgressRecord): boolean {
@@ -311,7 +349,7 @@ function makeSizeColorKey(row: Pick<CuttingSkuRequirementLine, 'skuCode' | 'colo
   return [row.skuCode, row.color, row.size].map((item) => normalizeText(item)).join('::')
 }
 
-function makeCandidateId(sourceType: SupplementSourceType, record: CuttingOrderProgressRecord, cutOrderNo = ''): string {
+function makeCandidateId(sourceType: SupplementManualSourceType, record: CuttingOrderProgressRecord, cutOrderNo = ''): string {
   return `${sourceType}:${record.id}:${cutOrderNo}`
 }
 
@@ -684,7 +722,7 @@ function buildAbAnalysisRows(
 
 function buildBaseSkuRows(
   record: CuttingOrderProgressRecord,
-  sourceType: SupplementSourceType,
+  sourceType: SupplementManualSourceType,
   materialLines: CuttingMaterialLine[],
 ): CuttingSkuRequirementLine[] {
   if (sourceType === 'production-order') {
@@ -707,7 +745,7 @@ function buildBaseSkuRows(
 
 function buildSizeColorRows(
   record: CuttingOrderProgressRecord,
-  sourceType: SupplementSourceType,
+  sourceType: SupplementManualSourceType,
   materialLines: CuttingMaterialLine[],
 ): SupplementSizeColorRow[] {
   const cutOrderNos = new Set(materialLines.map(getCutOrderNo).filter(Boolean))
@@ -806,6 +844,187 @@ function buildCandidates(): SupplementCandidate[] {
   ])
 }
 
+interface ReleaseSnapshotPointIdentity {
+  garmentColor: string
+  size: string
+  materialId: string
+  partId: string
+}
+
+export function buildReleaseSnapshotPointKeys(points: ReleaseSnapshotPointIdentity[]): string[] {
+  return points.map((point) => JSON.stringify([
+    point.garmentColor,
+    point.size,
+    point.materialId,
+    point.partId,
+  ]))
+}
+
+function makeReleaseSnapshotPointKey(point: ReleaseSnapshotPointIdentity): string {
+  return buildReleaseSnapshotPointKeys([point])[0]
+}
+
+function displayReleaseMaterialName(materialId: string, materialName: string): string {
+  const seededNames: Record<string, string> = {
+    A: '面料 A · 净色',
+    B: '面料 B · 白色条',
+    C: '面料 C · 兰色条',
+    D: '面料 D · 灰色条',
+  }
+  return seededNames[materialId] || materialName
+}
+
+function buildReleaseSnapshotMaterialRef(shortage: SupplementPartShortage): SupplementMaterialPatternRef {
+  const materialName = displayReleaseMaterialName(shortage.materialId, shortage.materialName)
+  const materialRole: SupplementMaterialRole = ['A', 'B', 'C'].includes(shortage.materialId)
+    ? (`面料${shortage.materialId}` as SupplementMaterialRole)
+    : shortage.materialId === 'D' ? '辅料' : '未识别'
+  const materialLine: CuttingMaterialLine = {
+    cutPieceOrderNo: '',
+    materialSku: `RELEASE-${shortage.materialId}`,
+    materialType: 'SOLID',
+    materialLabel: materialName,
+    materialAlias: shortage.materialId,
+    materialCategory: materialRole === '辅料' ? '辅料' : '面料',
+    reviewStatus: 'APPROVED',
+    configStatus: 'CONFIGURED',
+    receiveStatus: 'RECEIVED',
+    configuredRollCount: 0,
+    configuredLength: 0,
+    receivedRollCount: 0,
+    receivedLength: 0,
+    printSlipStatus: 'PRINTED',
+    qrStatus: 'GENERATED',
+    issueFlags: [],
+    latestActionText: '来自裁片放行目标快照',
+  }
+  return {
+    materialPatternMappingId: `release:${makeReleaseSnapshotPointKey(shortage)}`,
+    techPackVersionId: '放行目标快照',
+    materialSku: materialLine.materialSku,
+    materialName,
+    materialImageUrl: getMaterialImageUrl(materialLine),
+    materialTypeLabel: materialRole === '辅料' ? '辅料裁片' : '面料裁片',
+    materialAlias: shortage.materialId,
+    materialRole,
+    roleSource: '物料行继承别名',
+    roleConfirmStatus: '已确认',
+    patternId: shortage.partId,
+    patternName: shortage.partName,
+    cutOrderNo: '',
+    line: materialLine,
+  }
+}
+
+function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): SupplementDraft {
+  const releaseRecord = listCutPieceReleaseRecords().find((record) => record.productionOrderId === snapshot.productionOrderId)
+  const shortages = buildSupplementPartShortages(snapshot.matrixSnapshot, snapshot.targetPreview)
+  const lines: SupplementLine[] = shortages.map((shortage) => {
+    const materialRef = buildReleaseSnapshotMaterialRef(shortage)
+    const key = makeReleaseSnapshotPointKey(shortage)
+    const availableGarmentQty = Math.max(shortage.targetQty - shortage.supplementGarmentQty, 0)
+    const basis: SupplementAbAnalysisRow = {
+      key,
+      skuCode: `${snapshot.matrixSnapshot.spuCode}-${shortage.garmentColor}-${shortage.size}`,
+      color: shortage.garmentColor,
+      size: shortage.size,
+      plannedQty: shortage.targetQty,
+      benchmarkMaterial: materialRef,
+      shortageMaterial: materialRef,
+      benchmarkCutQty: shortage.targetQty,
+      currentRoleCutQty: availableGarmentQty,
+      differenceQty: -shortage.supplementGarmentQty,
+      shortageQty: shortage.supplementGarmentQty,
+      existingSupplementQty: 0,
+      suggestedSupplementQty: shortage.supplementGarmentQty,
+      relatedCutOrderNos: [],
+      roleConfirmStatus: '已确认',
+    }
+    return {
+      key,
+      skuCode: basis.skuCode,
+      color: shortage.garmentColor,
+      size: shortage.size,
+      plannedQty: basis.plannedQty,
+      actualCutPieces: shortage.actualPieceQty,
+      inboundPieces: 0,
+      completeSetQty: availableGarmentQty,
+      inboundSetQty: 0,
+      shortageQty: shortage.supplementGarmentQty,
+      existingSupplementQty: 0,
+      suggestedSupplementQty: shortage.supplementGarmentQty,
+      relatedCutOrderNos: [],
+      supplementQty: shortage.supplementGarmentQty,
+      basis,
+      isManualAdjusted: false,
+      adjustReason: '',
+      actualMissingPieceQty: shortage.actualMissingPieceQty,
+      piecesPerGarment: shortage.piecesPerGarment,
+    }
+  })
+  const materialDemands = lines.map((line) => ({
+    key: line.basis.shortageMaterial.materialPatternMappingId,
+    materialPatternMappingId: line.basis.shortageMaterial.materialPatternMappingId,
+    techPackVersionId: '放行目标快照',
+    materialSku: line.basis.shortageMaterial.materialSku,
+    materialName: line.basis.shortageMaterial.materialName,
+    materialTypeLabel: line.basis.shortageMaterial.materialTypeLabel,
+    materialImageUrl: line.basis.shortageMaterial.materialImageUrl,
+    materialAlias: line.basis.shortageMaterial.materialAlias,
+    materialRole: line.basis.shortageMaterial.materialRole,
+    roleSource: line.basis.shortageMaterial.roleSource,
+    roleConfirmStatus: line.basis.shortageMaterial.roleConfirmStatus,
+    patternId: line.basis.shortageMaterial.patternId,
+    patternName: line.basis.shortageMaterial.patternName,
+    requiredQty: line.actualMissingPieceQty || 0,
+    unit: '片',
+    printRequired: false,
+    dyeRequired: false,
+    processNote: '按裁片放行目标快照中的实际缺片数量预填',
+  }))
+  return structuredClone({
+    candidateId: `release-snapshot:${snapshot.snapshotId}`,
+    sourceType: 'release-snapshot',
+    sourceNo: snapshot.matrixSnapshot.productionOrderNo,
+    productionOrderId: snapshot.productionOrderId,
+    productionOrderNo: snapshot.matrixSnapshot.productionOrderNo,
+    styleName: releaseRecord?.spuName || snapshot.matrixSnapshot.spuCode,
+    spuCode: snapshot.matrixSnapshot.spuCode,
+    reason: '',
+    reasonDetail: '',
+    lines,
+    materialDemands,
+    releaseSnapshotId: snapshot.snapshotId,
+    releaseMatrixVersion: snapshot.matrixVersion,
+    releaseTargetConfirmedAt: snapshot.confirmedAt,
+  })
+}
+
+function prepareReleaseSnapshotCreateState(): void {
+  const snapshotId = getReleaseSnapshotIdFromLocation()
+  const nextCreationSourceKey = snapshotId ? `release:${JSON.stringify(snapshotId)}` : 'manual'
+  if (state.creationSourceKey !== nextCreationSourceKey) {
+    clearSupplementCreateState()
+    state.activeRecordId = ''
+    state.columnSettingsOpen = false
+    state.creationSourceKey = nextCreationSourceKey
+  }
+  if (!snapshotId) {
+    state.releaseSnapshotDraft = null
+    state.releaseSnapshotError = ''
+    return
+  }
+  if (state.releaseSnapshotDraft?.releaseSnapshotId === snapshotId) return
+  const snapshot = getCutPieceReleaseTargetSnapshot(snapshotId)
+  if (!snapshot) {
+    state.releaseSnapshotDraft = null
+    state.releaseSnapshotError = '未找到裁片放行目标快照，可能已失效。'
+    return
+  }
+  state.releaseSnapshotDraft = buildReleaseSnapshotDraft(snapshot)
+  state.releaseSnapshotError = ''
+}
+
 function getFilteredRecords(): SupplementRecord[] {
   const keyword = state.filters.keyword.trim().toLowerCase()
   return state.records
@@ -839,7 +1058,7 @@ function getSourcePickerCandidates(): SupplementCandidate[] {
         item.record.productionOrderNo,
         item.record.spuCode,
         item.record.styleName,
-        item.materialLines.map((line) => [getCutOrderNo(line), line.materialSku, line.materialName].join(' ')).join(' '),
+        item.materialLines.map((line) => [getCutOrderNo(line), line.materialSku, getMaterialName(line)].join(' ')).join(' '),
       ].join(' ').toLowerCase().includes(keyword)
     })
     .sort((left, right) => right.abAnalysisRows.length - left.abAnalysisRows.length)
@@ -941,6 +1160,7 @@ function renderFilterControls(): string {
             <option value="ALL"${state.filters.sourceType === 'ALL' ? ' selected' : ''}>全部</option>
             <option value="production-order"${state.filters.sourceType === 'production-order' ? ' selected' : ''}>生产单</option>
             <option value="cut-order"${state.filters.sourceType === 'cut-order' ? ' selected' : ''}>裁片单</option>
+            <option value="release-snapshot"${state.filters.sourceType === 'release-snapshot' ? ' selected' : ''}>裁片放行目标快照</option>
           </select>
         </label>
         <label class="space-y-1 text-sm">
@@ -1036,13 +1256,13 @@ function renderSourcePickerPage(): string {
             class="rounded-md px-4 py-2 font-medium ${selectedSourceType === 'production-order' ? 'bg-background text-blue-700 shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
             data-cutting-supplement-action="set-source-picker-type"
             data-source-type="production-order"
-          >生产单 ${formatInteger(productionOrderCount)}</button>
+          >按生产单选择 ${formatInteger(productionOrderCount)}</button>
           <button
             type="button"
             class="rounded-md px-4 py-2 font-medium ${selectedSourceType === 'cut-order' ? 'bg-background text-blue-700 shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
             data-cutting-supplement-action="set-source-picker-type"
             data-source-type="cut-order"
-          >裁片单 ${formatInteger(cutOrderCount)}</button>
+          >按裁片单选择 ${formatInteger(cutOrderCount)}</button>
         </div>
         <div class="grid gap-3 md:grid-cols-[minmax(260px,1fr)_auto_auto] md:items-end">
           <label class="space-y-1 text-sm">
@@ -1078,6 +1298,86 @@ function renderSourcePickerPage(): string {
           data-cutting-supplement-action="source-picker-next"
         >下一步</button>
       </div>
+    </section>
+  `
+}
+
+function renderReleaseSnapshotTrace(draft: SupplementDraft): string {
+  if (!draft.releaseSnapshotId) return ''
+  return `
+    <section class="rounded-lg border border-blue-200 bg-blue-50 p-4" data-release-snapshot-trace>
+      <div class="font-semibold text-blue-900">来源：裁片放行目标快照</div>
+      <div class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-blue-900">
+        <span>快照编号 ${escapeHtml(draft.releaseSnapshotId)}</span>
+        <span>目标依据矩阵版本 V${formatInteger(draft.releaseMatrixVersion || 0)}</span>
+        <span>目标确认时间 ${escapeHtml(draft.releaseTargetConfirmedAt || '未记录')}</span>
+      </div>
+    </section>
+  `
+}
+
+function renderReleaseSnapshotCreatePage(draft: SupplementDraft): string {
+  const rows = draft.lines.map((line) => `
+    <tr class="border-t align-top" data-release-snapshot-shortage-row data-release-snapshot-point-key="${escapeHtml(line.key)}">
+      <td class="px-3 py-3 font-medium">${escapeHtml(line.color)}</td>
+      <td class="px-3 py-3 font-medium">${escapeHtml(line.size)}</td>
+      <td class="px-3 py-3">${escapeHtml(line.basis.shortageMaterial.materialName)}</td>
+      <td class="px-3 py-3">${escapeHtml(line.basis.shortageMaterial.patternName)}</td>
+      <td class="px-3 py-3 tabular-nums">目标 ${formatInteger(line.basis.benchmarkCutQty)} 件</td>
+      <td class="px-3 py-3 font-semibold text-rose-600 tabular-nums">实际缺片 ${formatInteger(line.actualMissingPieceQty || 0)} 片</td>
+      <td class="px-3 py-3 font-semibold tabular-nums">建议补料 ${formatInteger(line.supplementQty)} 件</td>
+    </tr>
+  `).join('')
+  return `
+    <div class="space-y-4" data-supplement-draft-dialog data-release-snapshot-create>
+      ${renderReleaseSnapshotTrace(draft)}
+      <section class="rounded-lg border bg-card">
+        <div class="border-b px-5 py-4">
+          <h2 class="text-lg font-semibold">按放行目标快照新增补料</h2>
+          <p class="mt-1 text-sm text-muted-foreground">生产单 ${escapeHtml(draft.productionOrderNo)} · ${escapeHtml(draft.spuCode)} · ${escapeHtml(draft.styleName)}</p>
+        </div>
+        <div class="space-y-4 p-5">
+          ${draft.lines.length ? `
+            <div class="overflow-auto rounded-lg border">
+              <table class="min-w-[980px] text-left text-sm">
+                <thead class="bg-muted/50 text-xs text-muted-foreground"><tr>
+                  <th class="px-3 py-2 font-medium">颜色</th><th class="px-3 py-2 font-medium">尺码</th>
+                  <th class="px-3 py-2 font-medium">物料</th><th class="px-3 py-2 font-medium">纸样/部位</th>
+                  <th class="px-3 py-2 font-medium">目标数量</th><th class="px-3 py-2 font-medium">实际缺片</th>
+                  <th class="px-3 py-2 font-medium">建议补料</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+            <section class="grid gap-3 md:grid-cols-2">
+              <label class="space-y-1 text-sm"><span class="text-muted-foreground">补料原因</span>
+                <select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-supplement-reason>
+                  <option value="">请选择</option><option value="尺码齐套不足">尺码齐套不足</option>
+                  <option value="裁片损耗">裁片损耗</option><option value="验片不良">验片不良</option>
+                </select>
+              </label>
+              <label class="space-y-1 text-sm"><span class="text-muted-foreground">补料说明</span>
+                <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-supplement-reason-detail placeholder="说明本次补料原因" />
+              </label>
+            </section>
+            <div class="hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" data-supplement-draft-error></div>
+          ` : '<div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-5 text-sm text-emerald-800">该目标快照没有裁片缺口，无需补料。</div>'}
+        </div>
+        <div class="flex justify-end gap-2 border-t px-5 py-4">
+          <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cutting-supplement-action="return-independent-create">返回独立创建</button>
+          ${draft.lines.length ? '<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-cutting-supplement-action="submit-release-snapshot-draft">提交补料</button>' : ''}
+        </div>
+      </section>
+    </div>
+  `
+}
+
+function renderReleaseSnapshotError(): string {
+  return `
+    <section class="rounded-lg border border-amber-200 bg-amber-50 p-5" data-release-snapshot-error>
+      <h2 class="font-semibold text-amber-900">无法读取放行目标快照</h2>
+      <p class="mt-2 text-sm text-amber-800">${escapeHtml(state.releaseSnapshotError)}</p>
+      <button type="button" class="mt-4 rounded-md border border-amber-300 bg-white px-4 py-2 text-sm" data-cutting-supplement-action="return-independent-create">返回独立创建</button>
     </section>
   `
 }
@@ -1285,6 +1585,7 @@ function renderSupplementBasisTable(lines: SupplementLine[]): string {
             <th class="px-3 py-2 font-medium">计划数量（件）</th>
             <th class="px-3 py-2 font-medium">实裁数据（件）</th>
             <th class="px-3 py-2 font-medium">已发起</th>
+            <th class="px-3 py-2 font-medium">实际缺片</th>
             <th class="px-3 py-2 font-medium">本次补料件数</th>
           </tr>
         </thead>
@@ -1299,6 +1600,7 @@ function renderSupplementBasisTable(lines: SupplementLine[]): string {
               <td class="px-3 py-3 font-medium tabular-nums">${formatInteger(line.plannedQty)} 件</td>
               <td class="px-3 py-3 font-medium tabular-nums">${formatInteger(line.basis.currentRoleCutQty)} 件</td>
               <td class="px-3 py-3 tabular-nums">${formatInteger(line.existingSupplementQty)} 件</td>
+              <td class="px-3 py-3 font-medium tabular-nums">${line.actualMissingPieceQty === undefined ? '—' : `实际缺片 ${formatInteger(line.actualMissingPieceQty)} 片`}</td>
               <td class="px-3 py-3 font-semibold tabular-nums">${formatInteger(line.supplementQty)} 件</td>
             </tr>
           `).join('')}
@@ -1318,6 +1620,7 @@ function renderConfirmDialog(draft: SupplementDraft | null): string {
           <p class="mt-1 text-sm text-muted-foreground">确认后才会生成补料单；需要印花或染色的物料会挂到生产单 ${escapeHtml(draft.productionOrderNo)} 下。</p>
         </div>
         <div class="max-h-[72vh] space-y-4 overflow-y-auto p-5">
+          ${renderReleaseSnapshotTrace(draft)}
           <section class="rounded-lg border p-4">
             <div class="grid gap-3 md:grid-cols-4">
               <div><div class="text-xs text-muted-foreground">发起对象</div><div class="mt-1 font-semibold">${escapeHtml(sourceTypeLabels[draft.sourceType])} ${escapeHtml(draft.sourceNo)}</div></div>
@@ -1520,6 +1823,10 @@ function ensureSupplementListPreferences(): void {
 export function enterCraftCuttingSupplementManagementRoute(): void {
   state.page = 1
   state.sort = null
+  clearSupplementCreateState()
+  state.activeRecordId = ''
+  state.columnSettingsOpen = false
+  state.creationSourceKey = ''
 }
 
 function saveSupplementListPreferences(): void {
@@ -1755,6 +2062,7 @@ function renderSupplementDetailDialog(record: SupplementRecord | undefined): str
           <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-supplement-action="close-detail">关闭</button>
         </div>
         <div class="flex-1 space-y-4 overflow-y-auto p-5">
+          ${renderReleaseSnapshotTrace(record.draft)}
           <section class="rounded-lg border p-4">
             <div class="flex flex-col gap-4 md:flex-row">
               <div class="w-full md:w-36">
@@ -1926,7 +2234,7 @@ function buildSupplementRecordFromDraft(
     status: options.status,
     createdAt: options.createdAt,
     createdBy: options.createdBy,
-    draft,
+    draft: structuredClone(draft),
     printDemandNos,
     dyeDemandNos,
   }
@@ -2061,7 +2369,7 @@ function setFiltersFromDom(): void {
   const sourceType = document.querySelector<HTMLSelectElement>('[data-cutting-supplement-field="sourceType"]')?.value
   const keyword = document.querySelector<HTMLInputElement>('[data-cutting-supplement-field="keyword"]')?.value
   state.filters = {
-    sourceType: sourceType === 'production-order' || sourceType === 'cut-order' ? sourceType : 'ALL',
+    sourceType: sourceType === 'production-order' || sourceType === 'cut-order' || sourceType === 'release-snapshot' ? sourceType : 'ALL',
     keyword: normalizeText(keyword),
   }
 }
@@ -2080,6 +2388,8 @@ function clearSupplementCreateState(): void {
     selectedCandidateId: '',
   }
   state.pendingConfirmDraft = null
+  state.releaseSnapshotDraft = null
+  state.releaseSnapshotError = ''
 }
 
 export function isCraftCuttingSupplementManagementDialogOpen(): boolean {
@@ -2158,7 +2468,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   const field = fieldNode?.dataset.cuttingSupplementField
   if (field === 'pageSize') {
     if (event?.type !== 'change') return false
-    const pageSize = Number(fieldNode.value)
+    const pageSize = Number(fieldNode!.value)
     if (supplementListPageSizes.includes(pageSize)) {
       state.columnPreferences = normalizeSupplementListPreferences({
         ...state.columnPreferences,
@@ -2421,6 +2731,13 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     return true
   }
 
+  if (action === 'return-independent-create') {
+    clearSupplementCreateState()
+    state.feedback = null
+    appStore.navigate(supplementCreatePath)
+    return true
+  }
+
   if (action === 'submit-draft') {
     const candidateId = actionNode.dataset.candidateId || state.activeCandidateId
     const candidate = getCandidateById(candidateId)
@@ -2429,6 +2746,26 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     const draft = buildDraftFromDialog(candidate, container)
     if (!draft) return false
     state.pendingConfirmDraft = draft
+    state.feedback = null
+    return true
+  }
+
+
+  if (action === 'submit-release-snapshot-draft') {
+    const container = actionNode.closest<HTMLElement>('[data-supplement-draft-dialog]')
+    const baseDraft = state.releaseSnapshotDraft
+    if (!container || !baseDraft || !baseDraft.releaseSnapshotId) return false
+    const reason = normalizeText(container.querySelector<HTMLSelectElement>('[data-supplement-reason]')?.value)
+    const reasonDetail = normalizeText(container.querySelector<HTMLInputElement>('[data-supplement-reason-detail]')?.value)
+    if (!reason) {
+      showDraftError(container, '补料原因必须选择。')
+      return true
+    }
+    if (!reasonDetail) {
+      showDraftError(container, '补料说明必须填写。')
+      return true
+    }
+    state.pendingConfirmDraft = structuredClone({ ...baseDraft, reason, reasonDetail })
     state.feedback = null
     return true
   }
@@ -2497,6 +2834,7 @@ export function renderCraftCuttingSupplementManagementPage(): string {
 
 export function renderCraftCuttingSupplementCreatePage(): string {
   ensureMockSupplementOrders()
+  prepareReleaseSnapshotCreateState()
   let activeCandidate = state.activeCandidateId ? getCandidateById(state.activeCandidateId) : undefined
   if (state.activeCandidateId && !activeCandidate) {
     state.activeCandidateId = ''
@@ -2515,7 +2853,11 @@ export function renderCraftCuttingSupplementCreatePage(): string {
         <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cutting-supplement-action="cancel-create">返回补料列表</button>
       </div>
       ${renderFeedback()}
-      ${activeCandidate ? renderDraftPage(activeCandidate) : renderSourcePickerPage()}
+      ${state.releaseSnapshotError
+        ? renderReleaseSnapshotError()
+        : state.releaseSnapshotDraft
+          ? renderReleaseSnapshotCreatePage(state.releaseSnapshotDraft)
+          : activeCandidate ? renderDraftPage(activeCandidate) : renderSourcePickerPage()}
       ${renderConfirmDialog(state.pendingConfirmDraft)}
     </div>
   `

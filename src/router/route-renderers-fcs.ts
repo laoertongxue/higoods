@@ -302,7 +302,7 @@ export const renderCraftCuttingFeiTicketNumberingSummaryPage = createAsyncRender
   'renderCraftCuttingFeiTicketNumberingSummaryPage',
 )
 export const renderCraftCuttingCutOrdersPage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/cut-orders'),
+  () => import('../pages/process-factory/cutting/cut-order-release-integration'),
   'renderCraftCuttingCutOrdersPage',
 )
 export const renderCraftCuttingCutOrderDetailPage = createAsyncRenderer(
@@ -310,7 +310,7 @@ export const renderCraftCuttingCutOrderDetailPage = createAsyncRenderer(
   'renderCraftCuttingCutOrderDetailPage',
 )
 export const renderCraftCuttingCutOrderClosePage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/cut-orders'),
+  () => import('../pages/process-factory/cutting/cut-order-release-integration'),
   'renderCraftCuttingCutOrderClosePage',
 )
 export const renderCraftCuttingPickupManagementPage = createAsyncRenderer(
