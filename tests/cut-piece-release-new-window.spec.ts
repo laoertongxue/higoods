@@ -12,6 +12,11 @@ test('查看矩阵在新窗口打开可刷新进入的矩阵详细页', async ({
   await expect(popup).not.toBe(page)
   await expect(popup).toHaveURL(/\/fcs\/craft\/cutting\/cut-piece-release\?productionOrderId=po-14671&productionOrderNo=PO14671$/)
   await expect(popup.locator('[data-cut-piece-release-detail-page]')).toBeVisible()
+  const detailHeader = popup.locator('[data-cut-piece-release-detail-header]')
+  await expect(detailHeader).toBeVisible()
+  await expect(detailHeader.getByRole('link', { name: '返回裁片放行管理' })).toBeVisible()
+  await expect(popup.getByRole('heading', { level: 1, name: '裁片放行矩阵详情' })).toBeVisible()
+  await expect(detailHeader).toContainText('PO14671 · ASYSA26060310 · 女式基础圆领短袖')
   await expect(popup.locator('[data-testid="cut-piece-release-color-matrix"]')).toHaveCount(4)
   await expect(popup.locator('[data-testid="cut-piece-release-color-matrix"]').first()).toBeVisible()
   await expect(popup.getByRole('heading', { name: 'PO14671 裁片放行矩阵' })).toBeVisible()
@@ -20,7 +25,13 @@ test('查看矩阵在新窗口打开可刷新进入的矩阵详细页', async ({
 
   await popup.reload({ waitUntil: 'domcontentloaded' })
   await expect(popup.locator('[data-cut-piece-release-detail-page]')).toBeVisible()
+  await expect(popup.locator('[data-cut-piece-release-detail-header]')).toBeVisible()
+  await expect(popup.getByRole('heading', { level: 1, name: '裁片放行矩阵详情' })).toBeVisible()
   await expect(popup.getByRole('heading', { name: 'PO14671 裁片放行矩阵' })).toBeVisible()
+
+  await popup.getByRole('link', { name: '返回裁片放行管理' }).click()
+  await expect(popup).toHaveURL(/\/fcs\/craft\/cutting\/cut-piece-release$/)
+  await expect(popup.getByRole('heading', { level: 1, name: '裁片放行管理' })).toBeVisible()
 })
 
 test('关闭带瞬态的矩阵窗口后可从原列表重新打开干净详情', async ({ page }) => {
