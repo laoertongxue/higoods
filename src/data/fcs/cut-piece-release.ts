@@ -688,7 +688,7 @@ export function calculateCutPieceReleaseHistoryDifference(
   const currentMaterials = collectMaterialPoints(current)
   const previousMaterials = collectMaterialPoints(previous)
   const changed = <T extends CompleteKitPoint>(before: T | undefined, after: T | undefined) => {
-    if (!before && after?.quantity === null) return false
+    if (!previous && !before && after?.quantity === null) return false
     return Boolean(before) !== Boolean(after) || before?.quantity !== after?.quantity
   }
   const values = <T extends CompleteKitPoint>(before: T | undefined, after: T | undefined) => {

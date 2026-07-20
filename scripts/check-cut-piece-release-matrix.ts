@@ -293,6 +293,25 @@ const removedMaterialA = removedMaterialDifference.materialChanges.find((item) =
 assert.deepEqual(removedMaterialA?.after, { exists: false, quantity: null }, '当前版缺失的物料点必须保留已移除语义')
 assert.equal(removedMaterialA?.delta, null, '已移除不得冒充降至 0')
 
+const newWhiteNullMatrix = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { White: { M: 100 } },
+  requirements,
+  facts: [],
+})
+const addedNullStructureDifference = calculateCutPieceReleaseHistoryDifference(
+  historyVersion(2, newWhiteNullMatrix),
+  historyVersion(1, { ...newWhiteNullMatrix, colorGroups: [] }),
+)
+assert.deepEqual(addedNullStructureDifference.affectedColors, ['White'], '真实旧版本后新增待计算结构必须计入受影响颜色')
+assert.equal(addedNullStructureDifference.completeKitChanges.length, 1, '新增 White/M 待计算齐套点必须形成历史变化')
+assert.equal(addedNullStructureDifference.materialChanges.length, 4, '新增 White/M 的四个待计算物料点必须形成历史变化')
+assert.deepEqual(addedNullStructureDifference.completeKitChanges[0].after, { exists: true, quantity: null })
+assert.equal(addedNullStructureDifference.completeKitChanges[0].delta, null, '新增待计算结构不得伪造数量增量')
+assert.ok(addedNullStructureDifference.materialChanges.every((change) => change.after.exists && change.after.quantity === null && change.delta === null))
+
 const sourceEventCompositeKey = buildReleaseMatrix({
   productionOrderId,
   productionOrderNo: 'PO14671',
