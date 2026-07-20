@@ -26,8 +26,16 @@ test('四颜色矩阵的十版历史可追溯且卡片交互只刷新抽屉', as
   await expect(savedTargetSummary).toContainText('多余 16 个物料点')
   await expect(savedTargetSummary).toContainText('目标依据版本 V9')
   await expect(savedTargetSummary).toContainText('目标已保存')
-  await expect(page.getByRole('button', { name: '选择目标' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '选择目标', exact: true })).toHaveCount(0)
   await expect(savedTargetSummary.getByRole('button', { name: '保存目标' })).toHaveCount(0)
+  await expect(savedTargetSummary.getByRole('button', { name: '返回修改' })).toHaveCount(0)
+  const restartTargetButton = savedTargetSummary.getByRole('button', { name: '重新选择目标' })
+  await expect(restartTargetButton).toBeVisible()
+  await restartTargetButton.click()
+  await expect(page.getByRole('button', { name: '确认目标' })).toBeVisible()
+  await page.getByRole('button', { name: '确认目标' }).click()
+  await expect(page.getByTestId('cut-piece-release-target-summary')).toContainText('目标依据版本 V10')
+  await expect(page.getByTestId('cut-piece-release-target-summary').getByRole('button', { name: '保存目标' })).toBeVisible()
 
   await page.evaluate(() => {
     const detail = document.querySelector<HTMLElement>('[data-cut-piece-release-detail-page]')
@@ -120,4 +128,47 @@ test('四颜色矩阵的十版历史可追溯且卡片交互只刷新抽屉', as
   await expect(drawerAside).toHaveAttribute('data-stable-aside-reference', 'aside')
   expect(await drawerAside.evaluate((node) => node.scrollTop)).toBe(pageChangeScrollBefore)
   await expect(historyContent).toBeFocused()
+})
+
+test('目标后业务版本使旧快照失效但保留历史目标', async ({ page }) => {
+  await page.goto('/fcs/craft/cutting/cut-piece-release?productionOrderId=po-14671&productionOrderNo=PO14671', { waitUntil: 'domcontentloaded' })
+  await expect(page.locator('[data-cut-piece-release-detail-page]')).toBeVisible()
+
+  try {
+    const status = await page.evaluate(async () => {
+      const repository = await import('/src/data/fcs/cut-piece-release.ts')
+      const result = repository.recordCutOrderReleaseStatusChange({
+        eventId: 'e2e-target-snapshot-invalidated',
+        cutOrderId: 'cut-14671-b',
+        cutOrderNo: 'CUT14671-B',
+        status: '持续更新',
+        occurredAt: '2026-06-04 08:30:00',
+        operator: '裁床主管 Dewi',
+        reason: '目标确认后恢复裁片单更新',
+      })
+      const host = document.querySelector<HTMLElement>('[data-cut-piece-release-detail-page]')?.parentElement
+      if (!host) throw new Error('未找到页面内容容器')
+      host.innerHTML = ''
+      const pageModule = await import('/src/pages/process-factory/cutting/cut-piece-release.ts')
+      host.innerHTML = pageModule.renderCraftCuttingCutPieceReleasePage()
+      return result.status
+    })
+    expect(status).toBe('applied')
+
+    await expect(page.getByTestId('cut-piece-release-target-summary')).toHaveCount(0)
+    await expect(page.getByText('目标已保存')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '重新确认目标' })).toBeVisible()
+
+    await page.getByTestId('cut-piece-release-open-history').click()
+    const v10 = page.getByTestId('cut-piece-release-history-drawer').locator('[data-cut-piece-release-history-version="10"]')
+    await v10.getByRole('button', { name: '展开详情' }).click()
+    await expect(v10).toContainText('已确认目标（12 个颜色尺码）')
+    await expect(v10).toContainText('Black / M：208 件')
+    await expect(v10).toContainText('Red / XL：320 件')
+  } finally {
+    await page.evaluate(async () => {
+      const repository = await import('/src/data/fcs/cut-piece-release.ts')
+      repository.resetCutPieceReleasePrototypeStoreForTesting()
+    })
+  }
 })

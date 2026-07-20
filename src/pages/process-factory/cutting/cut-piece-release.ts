@@ -195,10 +195,18 @@ function initializeMatrixDetailFromQuery(): void {
   if (!record) return
   state.activeRecordId = record.recordId
   state.activeColor = record.matrix.colorGroups[0]?.garmentColor ?? null
-  const latestVersion = listCutPieceReleaseMatrixVersions(record.productionOrderId).at(-1)?.version ?? null
+  const versions = listCutPieceReleaseMatrixVersions(record.productionOrderId)
+  const latestVersion = versions.at(-1)?.version ?? null
   const savedSnapshot = listCutPieceReleaseTargetSnapshots(record.productionOrderId).at(-1) ?? null
+  const savedSnapshotIsCurrent = Boolean(
+    savedSnapshot
+    && record.targetStatus === '已确认'
+    && !versions.some((version) => (
+      version.version > savedSnapshot.matrixVersion && version.eventType !== '目标确认'
+    )),
+  )
   state.currentMatrixVersion = latestVersion
-  if (savedSnapshot) {
+  if (savedSnapshot && savedSnapshotIsCurrent) {
     const colorSizeTargets = { ...savedSnapshot.targetPreview.colorSizeTargets }
     state.targetMode = '确认'
     state.targetDraft = colorSizeTargets
@@ -247,6 +255,12 @@ function ensureScopedHistoryListener(): void {
     'history-prev',
     'history-next',
     'toggle-history-version',
+    'start-target',
+    'select-target',
+    'confirm-target',
+    'back-target-edit',
+    'save-target',
+    'go-supplement',
   ])
   document.addEventListener('click', (event) => {
     const target = event.target instanceof HTMLElement ? event.target : null
@@ -775,7 +789,9 @@ function renderTargetSummary(record: CutPieceReleaseRecord): string {
         <span class="font-medium text-slate-700">目标依据版本 V${state.targetBasisVersion ?? 0}</span>
       </div>
       <div class="mt-4 flex justify-end gap-2">
-        <button type="button" class="rounded-md border bg-white px-4 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="back-target-edit">返回修改</button>
+        ${savedTargetUnchanged
+          ? '<button type="button" class="rounded-md border bg-white px-4 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="start-target">重新选择目标</button>'
+          : '<button type="button" class="rounded-md border bg-white px-4 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="back-target-edit">返回修改</button>'}
         ${canUseSavedTargetSnapshot(record)
           ? '<button type="button" class="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700" data-skip-page-rerender="true" data-cut-piece-release-action="go-supplement">去补料管理</button>'
           : ''}
@@ -800,7 +816,7 @@ function renderMatrixPanel(): string {
         <div class="flex flex-wrap gap-2">
           <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cut-piece-release-action="open-history" data-testid="cut-piece-release-open-history">查看更新历史</button>
           ${state.targetMode === '查看'
-            ? '<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-skip-page-rerender="true" data-cut-piece-release-action="start-target">选择目标</button>'
+            ? `<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-skip-page-rerender="true" data-cut-piece-release-action="start-target">${record.targetStatus === '目标后数据已变化' ? '重新确认目标' : '选择目标'}</button>`
             : state.targetMode === '编辑'
               ? '<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-skip-page-rerender="true" data-cut-piece-release-action="confirm-target">确认目标</button>'
               : ''}
@@ -1253,8 +1269,11 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
   if (action === 'start-target') {
     const record = getActiveRecord()
     if (!record) return true
+    const latestVersion = listCutPieceReleaseMatrixVersions(record.productionOrderId).at(-1)?.version ?? null
     initializeTargetDraft(record)
     state.targetMode = '编辑'
+    state.currentMatrixVersion = latestVersion
+    state.targetBasisVersion = latestVersion
     state.savedTargetSnapshot = null
     state.feedback = null
     refreshFeedback()
