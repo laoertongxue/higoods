@@ -214,7 +214,7 @@ interface ReleaseRepositoryItem {
   spreadingAdjustmentKeys: Set<string>
 }
 
-const deterministicConfirmedAt = '2026-06-03 16:00:00'
+const deterministicConfirmedAt = '2026-06-03 17:00:00'
 const targetSnapshots = new Map<string, CutPieceReleaseTargetSnapshot>()
 const releaseRepository = new Map<string, ReleaseRepositoryItem>()
 const lateEvents = new Map<string, LateCutPieceReleaseEvent>()
@@ -372,11 +372,19 @@ function addRepositoryItem(input: BuildReleaseMatrixInput, spuName: string, sour
 function bootstrapRepository(): void {
   const productionOrderId = 'po-14671'
   const sizes = ['M', 'L', 'XL'] as const
-  const quantities: Record<string, Record<(typeof sizes)[number], number>> = {
-    A: { M: 220, L: 358, XL: 532 },
-    B: { M: 200, L: 350, XL: 500 },
-    C: { M: 208, L: 364, XL: 520 },
-    D: { M: 200, L: 350, XL: 500 },
+  type Size = (typeof sizes)[number]
+  type SizeQuantities = Record<Size, number>
+  type BatchQuantities = Partial<Record<'A' | 'B' | 'C' | 'D', SizeQuantities>>
+  interface BootstrapSpreadingEvent {
+    eventId: string
+    garmentColor: 'Black' | 'White' | 'Navy' | 'Red'
+    cutOrderId: string
+    cutOrderNo: string
+    spreadingOrderNo: string
+    occurredAt: string
+    operator: string
+    reason: string
+    quantities: BatchQuantities
   }
   const requirements = [
     { materialId: 'A', materialName: '面料 A', partId: 'front', partName: '前片', piecesPerGarment: 1 },
@@ -384,42 +392,119 @@ function bootstrapRepository(): void {
     { materialId: 'C', materialName: '辅料 C', partId: 'collar', partName: '领片', piecesPerGarment: 1 },
     { materialId: 'D', materialName: '辅料 D', partId: 'cuff', partName: '袖口', piecesPerGarment: 1 },
   ]
-  const facts: CutPieceFact[] = Object.entries(quantities).flatMap(([materialId, qtyBySize]) => sizes.map((size) => ({
-    factId: `fact-14671-${materialId}-${size}`,
-    sourceEventId: `spread-14671-${materialId}-${size}`,
+  const spreadingEvents: BootstrapSpreadingEvent[] = [
+    {
+      eventId: 'spread-14671-black-01', garmentColor: 'Black', cutOrderId: 'cut-14671-a', cutOrderNo: 'CUT14671-A', spreadingOrderNo: 'PB-14671-BLACK-01',
+      occurredAt: '2026-06-03 08:00:00', operator: '铺布操作员 Adi', reason: 'Black 首次铺布完成裁剪，形成首版候选矩阵。',
+      quantities: { A: { M: 120, L: 200, XL: 280 }, B: { M: 200, L: 350, XL: 500 }, C: { M: 120, L: 200, XL: 280 }, D: { M: 120, L: 200, XL: 280 } },
+    },
+    {
+      eventId: 'spread-14671-white-01', garmentColor: 'White', cutOrderId: 'cut-14671-white-01', cutOrderNo: 'CUT14671-WHITE-01', spreadingOrderNo: 'PB-14671-WHITE-01',
+      occurredAt: '2026-06-03 09:00:00', operator: '铺布操作员 Budi', reason: 'White 首次铺布完成裁剪，开始累计 White 裁片事实。',
+      quantities: { A: { M: 100, L: 150, XL: 180 }, B: { M: 180, L: 270, XL: 330 }, C: { M: 100, L: 150, XL: 180 }, D: { M: 100, L: 150, XL: 180 } },
+    },
+    {
+      eventId: 'spread-14671-navy-01', garmentColor: 'Navy', cutOrderId: 'cut-14671-navy-01', cutOrderNo: 'CUT14671-NAVY-01', spreadingOrderNo: 'PB-14671-NAVY-01',
+      occurredAt: '2026-06-03 10:00:00', operator: '铺布操作员 Rina', reason: 'Navy 首次铺布完成裁剪，开始累计 Navy 裁片事实。',
+      quantities: { A: { M: 90, L: 140, XL: 180 }, B: { M: 175, L: 265, XL: 345 }, C: { M: 90, L: 140, XL: 180 }, D: { M: 90, L: 140, XL: 180 } },
+    },
+    {
+      eventId: 'spread-14671-red-01', garmentColor: 'Red', cutOrderId: 'cut-14671-red-01', cutOrderNo: 'CUT14671-RED-01', spreadingOrderNo: 'PB-14671-RED-01',
+      occurredAt: '2026-06-03 11:00:00', operator: '铺布操作员 Dimas', reason: 'Red 首次铺布完成裁剪，先登记物料 B 最后有效数量。',
+      quantities: { A: { M: 80, L: 120, XL: 150 }, B: { M: 150, L: 235, XL: 300 }, C: { M: 80, L: 120, XL: 150 }, D: { M: 80, L: 120, XL: 150 } },
+    },
+    {
+      eventId: 'spread-14671-black-02', garmentColor: 'Black', cutOrderId: 'cut-14671-black-02', cutOrderNo: 'CUT14671-BLACK-02', spreadingOrderNo: 'PB-14671-BLACK-02',
+      occurredAt: '2026-06-03 12:00:00', operator: '铺布操作员 Joko', reason: 'Black 第二次铺布完成裁剪，累计至当前 Black 数量。',
+      quantities: { A: { M: 100, L: 158, XL: 252 }, C: { M: 88, L: 164, XL: 240 }, D: { M: 80, L: 150, XL: 220 } },
+    },
+    {
+      eventId: 'spread-14671-navy-02', garmentColor: 'Navy', cutOrderId: 'cut-14671-navy-02', cutOrderNo: 'CUT14671-NAVY-02', spreadingOrderNo: 'PB-14671-NAVY-02',
+      occurredAt: '2026-06-03 13:00:00', operator: '铺布操作员 Ayu', reason: 'Navy 第二次铺布完成裁剪，累计至当前 Navy 数量。',
+      quantities: { A: { M: 80, L: 120, XL: 160 }, C: { M: 90, L: 130, XL: 170 }, D: { M: 85, L: 125, XL: 165 } },
+    },
+    {
+      eventId: 'spread-14671-white-02', garmentColor: 'White', cutOrderId: 'cut-14671-white-02', cutOrderNo: 'CUT14671-WHITE-02', spreadingOrderNo: 'PB-14671-WHITE-02',
+      occurredAt: '2026-06-03 14:00:00', operator: '铺布操作员 Wawan', reason: 'White 第二次铺布完成裁剪，累计至当前 White 数量。',
+      quantities: { A: { M: 90, L: 130, XL: 160 }, C: { M: 85, L: 140, XL: 170 }, D: { M: 80, L: 125, XL: 155 } },
+    },
+    {
+      eventId: 'spread-14671-red-02', garmentColor: 'Red', cutOrderId: 'cut-14671-red-02', cutOrderNo: 'CUT14671-RED-02', spreadingOrderNo: 'PB-14671-RED-02',
+      occurredAt: '2026-06-03 16:00:00', operator: '铺布操作员 Lestari', reason: 'Red 第二次铺布完成裁剪，累计至当前 Red 数量。',
+      quantities: { A: { M: 80, L: 120, XL: 165 }, C: { M: 85, L: 130, XL: 170 }, D: { M: 75, L: 118, XL: 155 } },
+    },
+  ]
+  const createFacts = (event: BootstrapSpreadingEvent): CutPieceFact[] => Object.entries(event.quantities).flatMap(([materialId, qtyBySize]) => sizes.map((size) => ({
+    factId: `${event.eventId}-${materialId}-${size}`,
+    sourceEventId: event.eventId,
     productionOrderId,
-    cutOrderId: materialId === 'B' ? 'cut-14671-b' : 'cut-14671-a',
-    cutOrderNo: materialId === 'B' ? 'CUT14671-B' : 'CUT14671-A',
-    spreadingOrderNo: 'ASYSA26060310',
-    garmentColor: 'Black',
+    cutOrderId: materialId === 'B' ? 'cut-14671-b' : event.cutOrderId,
+    cutOrderNo: materialId === 'B' ? 'CUT14671-B' : event.cutOrderNo,
+    spreadingOrderNo: event.spreadingOrderNo,
+    garmentColor: event.garmentColor,
     size,
     materialId,
     partId: materialId === 'A' || materialId === 'B' ? 'front' : materialId === 'C' ? 'collar' : 'cuff',
-    actualPieceQty: qtyBySize[size] * (materialId === 'B' ? 2 : 1),
+    actualPieceQty: qtyBySize![size] * (materialId === 'B' ? 2 : 1),
     direction: '正向' as const,
-    sourceStatus: materialId === 'B' ? '已冻结' as const : '持续更新' as const,
-    occurredAt: '2026-06-03 14:00:00',
+    sourceStatus: '持续更新' as const,
+    occurredAt: event.occurredAt,
   })))
+  const toMatrixEvent = (event: BootstrapSpreadingEvent): MatrixEvent => ({
+    eventId: event.eventId,
+    eventType: '铺布完成',
+    productionOrderId,
+    occurredAt: event.occurredAt,
+    operator: event.operator,
+    reason: event.reason,
+    cutOrderId: event.cutOrderId,
+    cutOrderNo: event.cutOrderNo,
+    spreadingOrderNo: event.spreadingOrderNo,
+  })
+  const firstEvent = spreadingEvents[0]
   addRepositoryItem({
     productionOrderId,
     productionOrderNo: 'PO14671',
     spuCode: 'ASYSA26060310',
-    planQtyByColorSize: { Black: { M: 215, L: 344, XL: 482 } },
+    planQtyByColorSize: {
+      Black: { M: 215, L: 344, XL: 482 },
+      White: { M: 190, L: 280, XL: 340 },
+      Navy: { M: 180, L: 270, XL: 350 },
+      Red: { M: 170, L: 250, XL: 320 },
+    },
     requirements,
-    facts,
-  }, '女式基础圆领短袖', ['CUT14671-A', 'CUT14671-B'], {
-    eventId: 'spread-complete-14671',
-    eventType: '铺布完成',
-    productionOrderId,
-    occurredAt: '2026-06-03 14:00:00',
-    operator: '铺布操作员 阿迪',
-  })
+    facts: createFacts(firstEvent),
+  }, '女式基础圆领短袖', ['CUT14671-A', 'CUT14671-B', ...spreadingEvents.slice(1).map((event) => event.cutOrderNo)], toMatrixEvent(firstEvent))
   const item = releaseRepository.get(productionOrderId)!
   item.sourceStates = [
-    { cutOrderId: 'cut-14671-a', cutOrderNo: 'CUT14671-A', status: '持续更新', changedAt: '2026-06-03 14:00:00', operator: '铺布操作员 阿迪', reason: '铺布完成后持续更新', materialIds: ['A', 'C', 'D'] },
-    { cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '已冻结', changedAt: '2026-06-03 14:00:00', operator: '裁床主管 王敏', reason: '已关闭，数据已冻结', materialIds: ['B'] },
+    ...spreadingEvents.map((event) => ({ cutOrderId: event.cutOrderId, cutOrderNo: event.cutOrderNo, status: '持续更新' as const, changedAt: event.occurredAt, operator: event.operator, reason: event.reason, materialIds: ['A', 'C', 'D'] })),
+    { cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '持续更新', changedAt: firstEvent.occurredAt, operator: firstEvent.operator, reason: '物料 B 按四颜色首次铺布事实持续累计。', materialIds: ['B'] },
   ]
+  spreadingEvents.slice(1, 7).forEach((event) => appendRepositoryEvent(item, toMatrixEvent(event), () => item.input.facts.push(...createFacts(event))))
+  recordCutOrderReleaseStatusChange({
+    eventId: 'freeze-cut-14671-b',
+    cutOrderId: 'cut-14671-b',
+    cutOrderNo: 'CUT14671-B',
+    status: '已冻结',
+    occurredAt: '2026-06-03 15:00:00',
+    operator: '裁床主管 王敏',
+    reason: 'CUT14671-B 裁片单完成并冻结，物料 B 最后有效数量继续参与矩阵且不再更新。',
+  })
+  const redSecondEvent = spreadingEvents[7]
+  appendRepositoryEvent(item, toMatrixEvent(redSecondEvent), () => item.input.facts.push(...createFacts(redSecondEvent)))
   item.activeSpreadingOrderNosByCutOrder = { 'cut-14671-a': ['PB-14671-A-进行中'], 'cut-14671-b': [] }
+  const confirmed = confirmCutPieceReleaseTarget({
+    productionOrderId,
+    matrixVersion: 9,
+    colorSizeTargets: {
+      'Black::M': 208, 'Black::L': 350, 'Black::XL': 520,
+      'White::M': 185, 'White::L': 280, 'White::XL': 340,
+      'Navy::M': 170, 'Navy::L': 260, 'Navy::XL': 340,
+      'Red::M': 165, 'Red::L': 250, 'Red::XL': 320,
+    },
+    confirmedBy: '裁床文员 Siti',
+  })
+  if (!confirmed.ok) throw new Error(`初始化 PO14671 目标快照失败：${confirmed.message}`)
 }
 
 bootstrapRepository()
