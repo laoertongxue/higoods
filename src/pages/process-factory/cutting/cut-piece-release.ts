@@ -832,6 +832,17 @@ function renderMatrixPanel(): string {
   `
 }
 
+function renderMatrixDetailHeader(record: CutPieceReleaseRecord): string {
+  const backHref = '/fcs/craft/cutting/cut-piece-release'
+  return `
+    <header data-cut-piece-release-detail-header>
+      <a href="${backHref}" data-nav="${backHref}" class="text-sm text-blue-700 hover:underline">返回裁片放行管理</a>
+      <h1 class="mt-2 text-2xl font-semibold text-foreground">裁片放行矩阵详情</h1>
+      <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.productionOrderNo)} · ${escapeHtml(record.spuCode)} · ${escapeHtml(record.spuName)}</p>
+    </header>
+  `
+}
+
 function renderCellDrawer(record: CutPieceReleaseRecord): string {
   if (!state.activeCell) return ''
   const group = record.matrix.colorGroups.find((item) => item.garmentColor === state.activeCell!.garmentColor)
@@ -1115,9 +1126,11 @@ export function renderCraftCuttingCutPieceReleasePage(): string {
     resetTransientPageState()
     initializeMatrixDetailFromQuery()
   }
-  if (isMatrixDetailWindow() && getActiveRecord()) {
+  const detailRecord = isMatrixDetailWindow() ? getActiveRecord() : null
+  if (detailRecord) {
     return `
       <section class="mx-auto max-w-[1440px] space-y-4 p-6" data-cut-piece-release-page data-cut-piece-release-detail-page>
+        ${renderMatrixDetailHeader(detailRecord)}
         <div data-cut-piece-release-region="feedback">${renderFeedback()}</div>
         <div data-cut-piece-release-region="matrix">${renderMatrixPanel()}</div>
         <div data-cut-piece-release-region="overlay">${renderBusinessOverlays()}</div>
