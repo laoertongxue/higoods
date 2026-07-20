@@ -165,6 +165,35 @@ function resetTransientPageState(): void {
   state.feedback = null
 }
 
+function getMatrixDetailQuery(): { productionOrderId: string; productionOrderNo: string } | null {
+  if (typeof window === 'undefined') return null
+  const params = new URLSearchParams(window.location.search)
+  const productionOrderId = params.get('productionOrderId')?.trim() ?? ''
+  const productionOrderNo = params.get('productionOrderNo')?.trim() ?? ''
+  return productionOrderId || productionOrderNo ? { productionOrderId, productionOrderNo } : null
+}
+
+function isMatrixDetailWindow(): boolean {
+  return Boolean(getMatrixDetailQuery())
+}
+
+function initializeMatrixDetailFromQuery(): void {
+  const query = getMatrixDetailQuery()
+  if (!query) return
+  const record = listCutPieceReleaseRecords().find((candidate) => (
+    (query.productionOrderId && candidate.productionOrderId === query.productionOrderId)
+    || (query.productionOrderNo && candidate.productionOrderNo === query.productionOrderNo)
+  ))
+  if (!record) return
+  state.activeRecordId = record.recordId
+  state.activeColor = record.matrix.colorGroups[0]?.garmentColor ?? null
+  state.targetMode = '查看'
+  const latestVersion = listCutPieceReleaseMatrixVersions(record.productionOrderId).at(-1)?.version ?? null
+  state.currentMatrixVersion = latestVersion
+  state.targetBasisVersion = latestVersion
+  state.feedback = null
+}
+
 function ensureScopedEscapeListener(): void {
   if (scopedEscapeListenerInstalled || typeof document === 'undefined') return
   scopedEscapeListenerInstalled = true
@@ -360,14 +389,14 @@ const listColumns: readonly StandardListColumn<CutPieceReleaseRecord>[] = [
     actionColumn: true,
     align: 'right',
     render: (record) => `
-      <button
-        type="button"
+      <a
+        href="${escapeHtml(`/fcs/craft/cutting/cut-piece-release?productionOrderId=${encodeURIComponent(record.productionOrderId)}&productionOrderNo=${encodeURIComponent(record.productionOrderNo)}`)}"
+        target="_blank"
+        rel="noopener noreferrer"
+        role="button"
         class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
-        data-cut-piece-release-action="open-matrix"
-        data-record-id="${escapeHtml(record.recordId)}"
-        data-production-order-id="${escapeHtml(record.productionOrderId)}"
         aria-label="打开矩阵，查看矩阵"
-      >查看矩阵</button>
+      >查看矩阵</a>
     `,
   },
 ]
@@ -894,6 +923,16 @@ export function renderCraftCuttingCutPieceReleasePage(): string {
     && Boolean(document.querySelector('[data-cut-piece-release-page]'))
   if (!hasMountedPageRoot) {
     resetTransientPageState()
+    initializeMatrixDetailFromQuery()
+  }
+  if (isMatrixDetailWindow() && getActiveRecord()) {
+    return `
+      <section class="mx-auto max-w-[1440px] space-y-4 p-6" data-cut-piece-release-page data-cut-piece-release-detail-page>
+        <div data-cut-piece-release-region="feedback">${renderFeedback()}</div>
+        <div data-cut-piece-release-region="matrix">${renderMatrixPanel()}</div>
+        <div data-cut-piece-release-region="overlay">${renderBusinessOverlays()}</div>
+      </section>
+    `
   }
   const view = getListView()
   const columnSettingsButton = withSkipPageRerender(renderSecondaryButton(
@@ -1028,31 +1067,18 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     return true
   }
   if (action === 'open-matrix') {
-    state.activeRecordId = actionNode.dataset.recordId || null
-    state.activeColor = null
-    state.targetMode = '查看'
-    state.targetDraft = {}
-    state.currentMatrixVersion = null
-    state.targetBasisVersion = null
-    state.savedTargetSnapshot = null
-    state.activeCell = null
-    state.historyOpen = false
-    state.historyPage = 1
-    const record = getActiveRecord()
-    state.activeColor = record?.matrix.colorGroups[0]?.garmentColor ?? null
-    const latestVersion = record
-      ? listCutPieceReleaseMatrixVersions(record.productionOrderId).at(-1)?.version ?? null
-      : null
-    state.currentMatrixVersion = latestVersion
-    state.targetBasisVersion = latestVersion
-    const productionOrderNo = listCutPieceReleaseRecords()
-      .find((record) => record.recordId === state.activeRecordId)?.productionOrderNo
-    state.feedback = {
-      tone: 'success',
-      message: productionOrderNo ? `已选中生产单 ${productionOrderNo} 的裁片矩阵。` : '已选中裁片矩阵。',
+    const record = listCutPieceReleaseRecords().find((candidate) => candidate.recordId === actionNode.dataset.recordId)
+    if (!record || typeof window === 'undefined') return true
+    const params = new URLSearchParams({
+      productionOrderId: record.productionOrderId,
+      productionOrderNo: record.productionOrderNo,
+    })
+    const detailUrl = `${window.location.pathname}?${params.toString()}`
+    const popup = window.open(detailUrl, '_blank', 'noopener,noreferrer')
+    if (!popup) {
+      state.feedback = { tone: 'warning', message: '浏览器阻止了新窗口，请允许弹出窗口后重试。' }
+      refreshFeedback()
     }
-    refreshFeedback()
-    refreshMatrix()
     return true
   }
   if (action === 'start-target') {
