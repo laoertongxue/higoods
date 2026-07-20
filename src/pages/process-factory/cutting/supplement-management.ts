@@ -1014,11 +1014,15 @@ function prepareReleaseSnapshotCreateState(): void {
     state.releaseSnapshotError = ''
     return
   }
-  if (state.releaseSnapshotDraft?.releaseSnapshotId === snapshotId) return
   const snapshot = getCurrentCutPieceReleaseTargetSnapshot(snapshotId)
   if (!snapshot) {
     state.releaseSnapshotDraft = null
+    if (state.pendingConfirmDraft?.releaseSnapshotId === snapshotId) state.pendingConfirmDraft = null
     state.releaseSnapshotError = '目标依据已过期，请回裁片放行重新确认。'
+    return
+  }
+  if (state.releaseSnapshotDraft?.releaseSnapshotId === snapshotId) {
+    state.releaseSnapshotError = ''
     return
   }
   state.releaseSnapshotDraft = buildReleaseSnapshotDraft(snapshot)
