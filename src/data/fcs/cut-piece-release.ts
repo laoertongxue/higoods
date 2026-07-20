@@ -174,6 +174,11 @@ export interface CutPieceReleaseHistoryDifference {
   materialChanges: CutPieceReleaseHistoryMaterialChange[]
 }
 
+export interface CutPieceReleaseFactSourceSummary {
+  cutOrderNos: string[]
+  spreadingOrderNos: string[]
+}
+
 export interface CutPieceReleaseTargetSnapshot {
   snapshotId: string
   productionOrderId: string
@@ -628,6 +633,20 @@ export function getCutPieceReleaseMatrix(productionOrderId: string): CutPieceRel
   return item ? clone(item.currentMatrix) : null
 }
 
+export function getCutPieceReleaseFactSourceSummary(
+  productionOrderId: string,
+  sourceFactIds: string[],
+): CutPieceReleaseFactSourceSummary {
+  const item = releaseRepository.get(productionOrderId)
+  if (!item) return { cutOrderNos: [], spreadingOrderNos: [] }
+  const requestedFactIds = new Set(sourceFactIds)
+  const facts = item.input.facts.filter((fact) => requestedFactIds.has(fact.factId))
+  return {
+    cutOrderNos: [...new Set(facts.map((fact) => fact.cutOrderNo).filter(Boolean))],
+    spreadingOrderNos: [...new Set(facts.map((fact) => fact.spreadingOrderNo).filter(Boolean))],
+  }
+}
+
 export function listCutPieceReleaseMatrixVersions(productionOrderId: string): CutPieceReleaseMatrixVersion[] {
   const item = releaseRepository.get(productionOrderId)
   return item ? item.versions.map(clone) : []
@@ -668,9 +687,10 @@ export function calculateCutPieceReleaseHistoryDifference(
   const previousCompleteKit = collectCompleteKitPoints(previous)
   const currentMaterials = collectMaterialPoints(current)
   const previousMaterials = collectMaterialPoints(previous)
-  const changed = <T extends CompleteKitPoint>(before: T | undefined, after: T | undefined) => (
-    Boolean(before) !== Boolean(after) || before?.quantity !== after?.quantity
-  )
+  const changed = <T extends CompleteKitPoint>(before: T | undefined, after: T | undefined) => {
+    if (!before && after?.quantity === null) return false
+    return Boolean(before) !== Boolean(after) || before?.quantity !== after?.quantity
+  }
   const values = <T extends CompleteKitPoint>(before: T | undefined, after: T | undefined) => {
     const beforeValue: CutPieceReleaseHistoryQuantityValue = {
       exists: Boolean(before),

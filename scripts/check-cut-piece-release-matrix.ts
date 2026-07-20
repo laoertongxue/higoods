@@ -15,6 +15,7 @@ import {
   confirmCutPieceReleaseTarget,
   calculateCutPieceReleaseHistoryDifference,
   getCutOrderReleaseImpactSummary,
+  getCutPieceReleaseFactSourceSummary,
   getCurrentCutPieceReleaseTargetSnapshot,
   getCutPieceReleaseMatrix,
   getCutPieceReleaseRecord,
@@ -657,6 +658,20 @@ assert.deepEqual(Object.fromEntries(repositoryRecord.matrix.colorGroups.map((gro
   Red: { M: 170, L: 250, XL: 320 },
 }, '四颜色计划数量只作参考并保持设计口径')
 assert.deepEqual(bootstrapVersions.map((version) => version.eventType), ['铺布完成', '铺布完成', '铺布完成', '铺布完成', '铺布完成', '铺布完成', '铺布完成', '裁片单冻结', '铺布完成', '目标确认'], '十版本事件顺序必须稳定')
+const bootstrapDifferences = bootstrapVersions.slice(0, 4).map((version, index) => (
+  calculateCutPieceReleaseHistoryDifference(version, bootstrapVersions[index - 1])
+))
+assert.deepEqual(bootstrapDifferences.map((difference) => difference.affectedColors), [
+  ['Black'],
+  ['White'],
+  ['Navy'],
+  ['Red'],
+], 'V1-V4 必须只把当次形成可计算数量的颜色计为业务变化，计划维度 null 占位不算变化')
+assert.deepEqual(
+  [bootstrapDifferences[0].completeKitChanges.length, bootstrapDifferences[0].materialChanges.length],
+  [3, 12],
+  'V1 只能包含 Black 的 3 个尺码点和 12 个物料点',
+)
 const sortedSourceCutOrderNos = (versionIndex: number) => [...(bootstrapVersions[versionIndex].sourceCutOrderNos ?? [])].sort()
 assert.deepEqual(sortedSourceCutOrderNos(0), ['CUT14671-A', 'CUT14671-B'], 'V1 必须同时记录 Black 主裁片单与物料 B 来源')
 assert.deepEqual(sortedSourceCutOrderNos(1), ['CUT14671-B', 'CUT14671-WHITE-01'], 'V2 必须同时记录 White 主裁片单与物料 B 来源')
@@ -715,6 +730,27 @@ assert.equal(getCutPieceReleaseRecord(repositoryRecord.recordId)!.matrix.colorGr
 const mutableMatrix = getCutPieceReleaseMatrix(productionOrderId)!
 mutableMatrix.colorGroups[0].materialRows[0].cells[0].partCalculations[0].actualPieceQty = 999
 assert.equal(getCutPieceReleaseMatrix(productionOrderId)!.colorGroups[0].materialRows[0].cells[0].partCalculations[0].actualPieceQty, 220, '矩阵 API 不得泄漏嵌套矩阵引用')
+
+const factSourcesFor = (garmentColor: string, size: string, materialId: string) => {
+  const group = repositoryRecord.matrix.colorGroups.find((item) => item.garmentColor === garmentColor)!
+  const cell = group.materialRows.find((item) => item.materialId === materialId)!.cells.find((item) => item.size === size)!
+  return getCutPieceReleaseFactSourceSummary(productionOrderId, cell.partCalculations[0].sourceFactIds)
+}
+const blackASources = factSourcesFor('Black', 'M', 'A')
+assert.deepEqual(blackASources.cutOrderNos, ['CUT14671-A', 'CUT14671-BLACK-02'], 'Black A 必须按事实解析首次与二次裁片单')
+assert.deepEqual(blackASources.spreadingOrderNos, ['PB-14671-BLACK-01', 'PB-14671-BLACK-02'])
+const whiteASources = factSourcesFor('White', 'M', 'A')
+assert.deepEqual(whiteASources.cutOrderNos, ['CUT14671-WHITE-01', 'CUT14671-WHITE-02'], 'White A 必须只解析自己的两次裁片事实')
+assert.deepEqual(whiteASources.spreadingOrderNos, ['PB-14671-WHITE-01', 'PB-14671-WHITE-02'])
+assert.ok(!whiteASources.cutOrderNos.includes('CUT14671-A'), 'White A 不得回退到记录级首个裁片单')
+assert.deepEqual(factSourcesFor('White', 'M', 'B').cutOrderNos, ['CUT14671-B'], '任一 B 部位必须解析到真实冻结来源裁片单')
+blackASources.cutOrderNos.push('篡改')
+blackASources.spreadingOrderNos.push('篡改')
+assert.deepEqual(factSourcesFor('Black', 'M', 'A'), {
+  cutOrderNos: ['CUT14671-A', 'CUT14671-BLACK-02'],
+  spreadingOrderNos: ['PB-14671-BLACK-01', 'PB-14671-BLACK-02'],
+}, '事实来源摘要每次读取必须返回隔离的新数组')
+assert.deepEqual(getCutPieceReleaseFactSourceSummary(productionOrderId, ['unknown-fact-id']), { cutOrderNos: [], spreadingOrderNos: [] }, '未知事实 ID 必须忽略')
 
 const initialVersion = listCutPieceReleaseMatrixVersions(productionOrderId).at(-1)!
 const invalidTarget = confirmCutPieceReleaseTarget({
@@ -791,6 +827,10 @@ const adjustedBPartSourceFactIds = adjustedBCells.find((cell) => cell.size === '
 assert.ok(oldBPartSourceFactIds.every((factId) => adjustedBPartSourceFactIds.includes(factId)), '冲销不能删除原正向来源事实')
 assert.equal(adjustedBPartSourceFactIds.length, oldBPartSourceFactIds.length + 1, '冲销应追加一条反向来源事实')
 assert.ok(adjustedBPartSourceFactIds.some((factId) => factId.includes('adjust:reverse-spread-14671')), '冲销来源必须包含调整事实标识')
+assert.deepEqual(getCutPieceReleaseFactSourceSummary(productionOrderId, adjustedBPartSourceFactIds), {
+  cutOrderNos: ['CUT14671-B'],
+  spreadingOrderNos: ['PB-14671-BLACK-01'],
+}, '反向冲销事实必须继续解析到真实原裁片单与铺布单')
 recordSpreadingReleaseAdjustment({ adjustmentEventId: 'reverse-spread-14671', spreadingOrderNo: 'PB-14671-BLACK-01', productionOrderId, direction: -1, occurredAt: '2026-06-04 11:00:00', operator: '阿迪', reason: '铺布冲销' })
 assert.equal(listCutPieceReleaseMatrixVersions(productionOrderId).length, afterAdjustmentVersions.length, '重复冲销事件不得新增版本')
 assert.deepEqual(getCutPieceReleaseMatrix(productionOrderId)!.colorGroups[0].materialRows.find((row) => row.materialId === 'B')!.cells.find((cell) => cell.size === 'M')!.partCalculations[0].sourceFactIds, adjustedBPartSourceFactIds, '重复冲销不得重复追加来源事实')

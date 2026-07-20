@@ -29,6 +29,21 @@ test('四颜色矩阵的十版历史可追溯且卡片交互只刷新抽屉', as
   await expect(page.getByRole('button', { name: '选择目标', exact: true })).toHaveCount(0)
   await expect(savedTargetSummary.getByRole('button', { name: '保存目标' })).toHaveCount(0)
   await expect(savedTargetSummary.getByRole('button', { name: '返回修改' })).toHaveCount(0)
+  const assertPartSources = async (cellTestId: string, expectedCutOrders: string[], expectedSpreadingOrders: string[], excludedCutOrder?: string) => {
+    const cell = page.getByTestId(cellTestId)
+    await cell.focus()
+    await cell.press('Enter')
+    const partDrawer = page.getByTestId('cut-piece-release-cell-drawer')
+    await expect(partDrawer).toBeVisible()
+    for (const cutOrder of expectedCutOrders) await expect(partDrawer).toContainText(cutOrder)
+    for (const spreadingOrder of expectedSpreadingOrders) await expect(partDrawer).toContainText(spreadingOrder)
+    if (excludedCutOrder) await expect(partDrawer).not.toContainText(excludedCutOrder)
+    await partDrawer.getByRole('button', { name: '关闭部位详情' }).click()
+  }
+  await assertPartSources('cell-White-M-A', ['CUT14671-WHITE-01', 'CUT14671-WHITE-02'], ['PB-14671-WHITE-01', 'PB-14671-WHITE-02'], 'CUT14671-A')
+  await assertPartSources('cell-Black-M-A', ['CUT14671-A', 'CUT14671-BLACK-02'], ['PB-14671-BLACK-01', 'PB-14671-BLACK-02'])
+  await assertPartSources('cell-Black-M-B', ['CUT14671-B'], ['PB-14671-BLACK-01'])
+
   const restartTargetButton = savedTargetSummary.getByRole('button', { name: '重新选择目标' })
   await expect(restartTargetButton).toBeVisible()
   await restartTargetButton.click()
@@ -121,6 +136,16 @@ test('四颜色矩阵的十版历史可追溯且卡片交互只刷新抽屉', as
   }
   const v1 = drawer.locator('[data-cut-piece-release-history-version="1"]')
   await expect(v1).toContainText('来源裁片单：CUT14671-A、CUT14671-B')
+  await expect(v1).toContainText('受影响颜色：Black')
+  await expect(v1).toContainText('受影响尺码：3 个')
+  await expect(v1).toContainText('变化物料点：12 个')
+  await expect(v1).not.toContainText('受影响颜色：White')
+  await expect(v1).not.toContainText('受影响颜色：Navy')
+  await expect(v1).not.toContainText('受影响颜色：Red')
+  for (const [version, color] of [[2, 'White'], [3, 'Navy'], [4, 'Red']] as const) {
+    const card = drawer.locator(`[data-cut-piece-release-history-version="${version}"]`)
+    await expect(card).toContainText(`受影响颜色：${color}`)
+  }
   await expect(detailPage).toHaveAttribute('data-history-stable-reference', 'detail-root')
   await expect(matrixPanel).toHaveAttribute('data-history-stable-reference', 'matrix-panel')
   expect(await page.evaluate(() => window.scrollY)).toBe(pageScrollBefore)
@@ -128,6 +153,13 @@ test('四颜色矩阵的十版历史可追溯且卡片交互只刷新抽屉', as
   await expect(drawerAside).toHaveAttribute('data-stable-aside-reference', 'aside')
   expect(await drawerAside.evaluate((node) => node.scrollTop)).toBe(pageChangeScrollBefore)
   await expect(historyContent).toBeFocused()
+  await v1.getByRole('button', { name: '展开详情' }).click()
+  await expect(v1.getByRole('button', { name: '收起详情' })).toBeVisible()
+  await expect(v1).not.toContainText('White /')
+  await expect(v1).not.toContainText('Navy /')
+  await expect(v1).not.toContainText('Red /')
+  await v1.getByRole('button', { name: '收起详情' }).click()
+  await expect(v1.getByRole('button', { name: '展开详情' })).toBeVisible()
 })
 
 test('目标后业务版本使旧快照失效但保留历史目标', async ({ page }) => {

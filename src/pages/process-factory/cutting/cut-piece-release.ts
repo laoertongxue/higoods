@@ -27,6 +27,7 @@ import {
 import {
   calculateCutPieceReleaseHistoryDifference,
   confirmCutPieceReleaseTarget,
+  getCutPieceReleaseFactSourceSummary,
   getCutPieceReleaseRecord,
   listLateCutPieceReleaseEvents,
   listCutPieceReleaseMatrixVersions,
@@ -250,6 +251,8 @@ function ensureScopedHistoryListener(): void {
   if (scopedHistoryListenerInstalled || typeof document === 'undefined') return
   scopedHistoryListenerInstalled = true
   const historyActions = new Set([
+    'open-cell',
+    'close-cell',
     'open-history',
     'close-history',
     'history-prev',
@@ -835,9 +838,6 @@ function renderCellDrawer(record: CutPieceReleaseRecord): string {
   const row = group?.materialRows.find((item) => item.materialId === state.activeCell!.materialId)
   const cell = row?.cells.find((item) => item.size === state.activeCell!.size)
   if (!group || !row || !cell) return ''
-  const sourceCutOrderNo = cell.sourceStatus === '已冻结'
-    ? record.sourceCutOrderNos.find((item) => item.endsWith('-B')) ?? record.sourceCutOrderNos[0]
-    : record.sourceCutOrderNos[0]
   return `
     <div class="fixed inset-0 z-50" data-testid="cut-piece-release-cell-drawer">
       <button type="button" class="absolute inset-0 w-full bg-black/45" aria-label="点击空白处返回" data-skip-page-rerender="true" data-cut-piece-release-action="close-cell"></button>
@@ -847,13 +847,18 @@ function renderCellDrawer(record: CutPieceReleaseRecord): string {
           <button type="button" class="rounded-md border px-3 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="close-cell" data-cut-piece-release-overlay-initial-focus>关闭部位详情</button>
         </header>
         <div class="space-y-3 p-5">
-          ${cell.partCalculations.map((part) => `
-            <article class="rounded-lg border p-4">
-              <div class="font-medium">${escapeHtml(part.partName)}</div>
-              <div class="mt-2 text-base font-semibold tabular-nums">${formatQuantity(part.actualPieceQty)} 片 ÷ ${formatQuantity(part.piecesPerGarment)} 片/件 = ${part.availableGarmentQty === null ? '待计算' : `${formatQuantity(part.availableGarmentQty)} 件`}</div>
-              <div class="mt-2 text-xs text-muted-foreground">来源裁片单：${escapeHtml(sourceCutOrderNo ?? '未关联')} · 事实 ${escapeHtml(part.sourceFactIds.join('、'))}</div>
-            </article>
-          `).join('')}
+          ${cell.partCalculations.map((part) => {
+            const sources = getCutPieceReleaseFactSourceSummary(record.productionOrderId, part.sourceFactIds)
+            return `
+              <article class="rounded-lg border p-4">
+                <div class="font-medium">${escapeHtml(part.partName)}</div>
+                <div class="mt-2 text-base font-semibold tabular-nums">${formatQuantity(part.actualPieceQty)} 片 ÷ ${formatQuantity(part.piecesPerGarment)} 片/件 = ${part.availableGarmentQty === null ? '待计算' : `${formatQuantity(part.availableGarmentQty)} 件`}</div>
+                <div class="mt-2 text-xs text-muted-foreground">来源裁片单：${escapeHtml(sources.cutOrderNos.join('、') || '未关联')}</div>
+                <div class="mt-1 text-xs text-muted-foreground">来源铺布单：${escapeHtml(sources.spreadingOrderNos.join('、') || '未关联')}</div>
+                <div class="mt-1 text-xs text-muted-foreground">事实：${escapeHtml(part.sourceFactIds.join('、') || '未关联')}</div>
+              </article>
+            `
+          }).join('')}
         </div>
       </aside>
     </div>
