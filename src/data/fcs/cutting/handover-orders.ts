@@ -245,6 +245,117 @@ export interface HandoverOrder {
   createdBy: string
   updatedAt: string
   remark?: string
+  /** 裁片放行矩阵在交接时的不可变快照；最低应回只取交接时实际齐套。 */
+  cutPieceReleaseSnapshot?: CutPieceReleaseHandoverSnapshot
+}
+
+export interface CutPieceReleaseHandoverSnapshot {
+  releaseTargetSnapshotId: string
+  productionOrderId: string
+  batchNo: string
+  completeKitQtyByColorSize: Record<string, number>
+  minimumReturnQtyByColorSize: Record<string, number>
+  surplusPieces: Array<{
+    garmentColor: string
+    size: string
+    materialId: string
+    partId: string
+    pieceQty: number
+    sourceCutOrderNos: string[]
+    sourceSpreadingOrderNos: string[]
+  }>
+  matrixVersion?: number
+  targetBasisVersion?: number
+  targetConfirmedAt?: string
+  frozenSourceTips?: string[]
+}
+
+export type CutPieceReleaseHandoverSnapshotInput = Omit<CutPieceReleaseHandoverSnapshot, 'releaseTargetSnapshotId' | 'minimumReturnQtyByColorSize'> & {
+  snapshotId: string
+}
+
+/**
+ * 交接创建时固定“最低应回”口径。目标数量只做业务目标引用，绝不能覆盖实际齐套或把多余裁片加回最低应回。
+ */
+export function buildCutPieceReleaseHandoverSnapshot(input: CutPieceReleaseHandoverSnapshotInput): CutPieceReleaseHandoverSnapshot {
+  const completeKit = Object.fromEntries(Object.entries(input.completeKitQtyByColorSize).map(([key, value]) => [key, Math.max(0, Number(value) || 0)]))
+  return {
+    releaseTargetSnapshotId: input.snapshotId,
+    productionOrderId: input.productionOrderId,
+    batchNo: input.batchNo,
+    completeKitQtyByColorSize: { ...completeKit },
+    minimumReturnQtyByColorSize: { ...completeKit },
+    surplusPieces: input.surplusPieces.map((item) => ({
+      ...item,
+      pieceQty: Math.max(0, Number(item.pieceQty) || 0),
+      sourceCutOrderNos: [...item.sourceCutOrderNos],
+      sourceSpreadingOrderNos: [...item.sourceSpreadingOrderNos],
+    })),
+    ...(input.matrixVersion === undefined ? {} : { matrixVersion: input.matrixVersion }),
+    ...(input.targetBasisVersion === undefined ? {} : { targetBasisVersion: input.targetBasisVersion }),
+    ...(input.targetConfirmedAt === undefined ? {} : { targetConfirmedAt: input.targetConfirmedAt }),
+    ...(input.frozenSourceTips === undefined ? {} : { frozenSourceTips: [...input.frozenSourceTips] }),
+  }
+}
+
+const CUT_PIECE_RELEASE_HANDOVER_SNAPSHOT_STORAGE_KEY = 'cutPieceReleaseHandoverSnapshots'
+
+function readHandoverSnapshotStorage(): Array<[string, CutPieceReleaseHandoverSnapshot]> {
+  try {
+    const raw = globalThis.localStorage?.getItem(CUT_PIECE_RELEASE_HANDOVER_SNAPSHOT_STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((entry): entry is [string, CutPieceReleaseHandoverSnapshot] => Array.isArray(entry) && typeof entry[0] === 'string' && isValidHandoverSnapshot(entry[1]))
+  } catch {
+    return []
+  }
+}
+
+function isValidHandoverSnapshot(value: unknown): value is CutPieceReleaseHandoverSnapshot {
+  if (!value || typeof value !== 'object') return false
+  const snapshot = value as Partial<CutPieceReleaseHandoverSnapshot>
+  return typeof snapshot.releaseTargetSnapshotId === 'string'
+    && typeof snapshot.productionOrderId === 'string'
+    && typeof snapshot.batchNo === 'string'
+    && Boolean(snapshot.completeKitQtyByColorSize && typeof snapshot.completeKitQtyByColorSize === 'object')
+    && Boolean(snapshot.minimumReturnQtyByColorSize && typeof snapshot.minimumReturnQtyByColorSize === 'object')
+    && Array.isArray(snapshot.surplusPieces)
+}
+
+function persistHandoverSnapshotStorage(): void {
+  try {
+    globalThis.localStorage?.setItem(CUT_PIECE_RELEASE_HANDOVER_SNAPSHOT_STORAGE_KEY, JSON.stringify(Array.from(cutPieceReleaseHandoverSnapshots.entries())))
+  } catch {
+    // 原型运行环境可能禁用 localStorage；内存仓储仍保证当前页面幂等。
+  }
+}
+
+const cutPieceReleaseHandoverSnapshots = new Map<string, CutPieceReleaseHandoverSnapshot>(readHandoverSnapshotStorage())
+
+/** 交接快照按快照号幂等写入，刷新页面仍可从本地原型仓储恢复。 */
+export function createCutPieceReleaseHandoverSnapshot(input: CutPieceReleaseHandoverSnapshotInput): CutPieceReleaseHandoverSnapshot {
+  const existing = cutPieceReleaseHandoverSnapshots.get(input.snapshotId)
+  const snapshot = buildCutPieceReleaseHandoverSnapshot(input)
+  if (existing) {
+    if (JSON.stringify(existing) !== JSON.stringify(snapshot)) throw new Error(`交接快照 ${input.snapshotId} 已存在且内容冲突，禁止覆盖历史快照。`)
+    return structuredClone(existing)
+  }
+  cutPieceReleaseHandoverSnapshots.set(input.snapshotId, structuredClone(snapshot))
+  persistHandoverSnapshotStorage()
+  return structuredClone(snapshot)
+}
+
+export function getCutPieceReleaseHandoverSnapshot(snapshotId: string): CutPieceReleaseHandoverSnapshot | null {
+  let snapshot = cutPieceReleaseHandoverSnapshots.get(snapshotId)
+  if (!snapshot) {
+    const staticOrder = handoverOrders.find((order) => order.cutPieceReleaseSnapshot?.releaseTargetSnapshotId === snapshotId)
+    if (staticOrder?.cutPieceReleaseSnapshot) {
+      snapshot = structuredClone(staticOrder.cutPieceReleaseSnapshot)
+      cutPieceReleaseHandoverSnapshots.set(snapshotId, snapshot)
+      persistHandoverSnapshotStorage()
+    }
+  }
+  return snapshot ? structuredClone(snapshot) : null
 }
 
 export interface HandoverOrderProjection {
@@ -526,6 +637,20 @@ export const handoverOrders: HandoverOrder[] = [
     createdBy: '仓库主管',
     updatedAt: '2026-04-24 16:20',
     remark: '车缝厂分批接收，齐套和缺口按交出后结果展示。',
+    cutPieceReleaseSnapshot: buildCutPieceReleaseHandoverSnapshot({
+      snapshotId: 'cpr-target-po14671-v1',
+      productionOrderId: 'po-14671',
+      batchNo: 'JCD-260324-001',
+      completeKitQtyByColorSize: { 'Black::M': 200, 'Black::L': 350, 'Black::XL': 500 },
+      surplusPieces: [{
+        garmentColor: 'Black', size: 'M', materialId: 'A', partId: 'front', pieceQty: 24,
+        sourceCutOrderNos: ['CUT-01'], sourceSpreadingOrderNos: ['PB-01'],
+      }],
+      matrixVersion: 1,
+      targetBasisVersion: 1,
+      targetConfirmedAt: '2026-06-03 16:00:00',
+      frozenSourceTips: ['裁片单 CUT-01 已冻结，快照保留冻结时最后有效贡献。'],
+    }),
   },
   {
     handoverOrderId: 'HO-CUT-AUX-260324-001',
@@ -605,6 +730,28 @@ export const handoverOrders: HandoverOrder[] = [
     updatedAt: '2026-04-24 10:45',
   },
 ]
+
+// 静态演示交出单也走统一快照仓储，刷新后由 localStorage 恢复。
+handoverOrders.forEach((order) => {
+  const snapshot = order.cutPieceReleaseSnapshot
+  if (snapshot) {
+    try {
+      createCutPieceReleaseHandoverSnapshot({
+        snapshotId: snapshot.releaseTargetSnapshotId,
+        productionOrderId: snapshot.productionOrderId,
+        batchNo: snapshot.batchNo,
+        completeKitQtyByColorSize: snapshot.completeKitQtyByColorSize,
+        surplusPieces: snapshot.surplusPieces,
+        matrixVersion: snapshot.matrixVersion,
+        targetBasisVersion: snapshot.targetBasisVersion,
+        targetConfirmedAt: snapshot.targetConfirmedAt,
+        frozenSourceTips: snapshot.frozenSourceTips,
+      })
+    } catch {
+      // 历史快照冲突时保留持久化版本，页面只读历史，不覆盖业务证据。
+    }
+  }
+})
 
 export const handoverRecords: HandoverRecord[] = [
   {

@@ -167,6 +167,7 @@ import {
   handleCraftCuttingCutOrdersEvent,
   isCraftCuttingCutOrdersDialogOpen,
 } from '../pages/process-factory/cutting/cut-orders'
+import { handleCutOrderReleaseIntegrationEvent } from '../pages/process-factory/cutting/cut-order-release-integration'
 import {
   handleCraftCuttingSpecialProcessesEvent,
   isCraftCuttingSpecialProcessesDialogOpen,
@@ -237,6 +238,7 @@ import { closeProductionObjectOverlays } from '../components/production-object-o
 export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
   const isSupplementManagementRoute = pathname.startsWith('/fcs/craft/cutting/supplement-management')
+  const isCutPieceReleaseRoute = pathname.startsWith('/fcs/craft/cutting/cut-piece-release')
   if (pathname.startsWith('/fcs/process/water-soluble-orders')) {
     return handleProcessWaterSolubleOrdersEvent(target)
   }
@@ -304,8 +306,18 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   ) {
     return handleCraftCuttingSupplementManagementEvent(target, event)
   }
-  if (target.closest('[data-cut-piece-release-action]')) {
-    return handleCraftCuttingCutPieceReleaseEvent(target)
+  if (
+    isCutPieceReleaseRoute
+    && (
+      event?.type === 'dragend'
+      || target.closest([
+        '[data-cut-piece-release-action]',
+        '[data-cut-piece-release-field]',
+        '[data-standard-list-column-drag]',
+      ].join(', '))
+    )
+  ) {
+    return handleCraftCuttingCutPieceReleaseEvent(target, event)
   }
 
   const isPostFinishingRoute =
@@ -357,6 +369,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     handleSpecialCraftTaskOrdersEvent(target) ||
     handleSpecialCraftWarehouseEvent(target) ||
     await handleSpecialCraftWorkOrderDetailEvent(target) ||
+    await handleCutOrderReleaseIntegrationEvent(target) ||
     await handleCraftCuttingCutOrdersEvent(target) ||
     await handleFactoryOnboardingEvent(target) ||
     await handleFactoryPageEvent(target) ||
@@ -408,7 +421,6 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleCraftCuttingTransferBagsEvent(target) ||
     await handleCraftCuttingSpecialProcessesEvent(target) ||
     await handleCraftCuttingSummaryEvent(target) ||
-    await handleCraftCuttingCutPieceReleaseEvent(target) ||
     (isSupplementManagementRoute && await handleCraftCuttingSupplementManagementEvent(target, event)) ||
     await handleCraftCuttingDailyProductionReportEvent(target) ||
     await handleCraftCuttingAbMaterialStatisticsEvent(target) ||
