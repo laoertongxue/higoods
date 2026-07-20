@@ -246,8 +246,9 @@ function rebuildMatrix(item: ReleaseRepositoryItem): CutPieceReleaseMatrix {
 
 function addVersion(item: ReleaseRepositoryItem, event: MatrixEvent): void {
   const matrixSnapshot = clone(rebuildMatrix(item))
+  const adjustmentEventSuffix = `:adjust:${event.eventId}`
   const sourceCutOrderNos = [...new Set(item.input.facts
-    .filter((fact) => fact.sourceEventId === event.eventId)
+    .filter((fact) => fact.sourceEventId === event.eventId || fact.sourceEventId.endsWith(adjustmentEventSuffix))
     .map((fact) => fact.cutOrderNo)
     .filter((cutOrderNo): cutOrderNo is string => Boolean(cutOrderNo)))]
   if (!sourceCutOrderNos.length && event.cutOrderNo) sourceCutOrderNos.push(event.cutOrderNo)

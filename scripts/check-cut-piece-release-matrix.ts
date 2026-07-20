@@ -705,6 +705,9 @@ assert.equal(oldBPartSourceFactIds.length, 1, '冲销前 B/M 应只有原正向�
 recordSpreadingReleaseAdjustment({ adjustmentEventId: 'reverse-spread-14671', spreadingOrderNo: 'PB-14671-BLACK-01', productionOrderId, direction: -1, occurredAt: '2026-06-04 11:00:00', operator: '阿迪', reason: '铺布冲销' })
 const afterAdjustmentVersions = listCutPieceReleaseMatrixVersions(productionOrderId)
 assert.equal(afterAdjustmentVersions.length, afterRestoreVersions.length + 2, '关闭、恢复、冲销各只形成一次版本')
+const adjustmentSourceCutOrderNos = afterAdjustmentVersions.at(-1)!.sourceCutOrderNos
+assert.deepEqual([...adjustmentSourceCutOrderNos].sort(), ['CUT14671-A', 'CUT14671-B'], '冲销版本必须保留原铺布事实的实际裁片单来源')
+assert.equal(adjustmentSourceCutOrderNos.length, new Set(adjustmentSourceCutOrderNos).size, '冲销版本的裁片单来源不得重复')
 const adjustedMatrix = getCutPieceReleaseMatrix(productionOrderId)!
 const adjustedBCells = adjustedMatrix.colorGroups[0].materialRows.find((row) => row.materialId === 'B')!.cells
 assert.equal(adjustedMatrix.calculationStatus, '可计算', '净额归零仍是可计算矩阵')
