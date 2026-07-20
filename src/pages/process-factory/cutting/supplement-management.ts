@@ -17,7 +17,7 @@ import type { TechnicalColorMaterialMappingLine } from '../../../data/pcs-techni
 import { buildProductionPieceTruth } from '../../../domain/fcs-cutting-piece-truth/index.ts'
 import { appStore } from '../../../state/store.ts'
 import {
-  getCutPieceReleaseTargetSnapshot,
+  getCurrentCutPieceReleaseTargetSnapshot,
   listCutPieceReleaseRecords,
   type CutPieceReleaseTargetSnapshot,
 } from '../../../data/fcs/cut-piece-release.ts'
@@ -1000,6 +1000,15 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
   })
 }
 
+function getCurrentReleaseSnapshotOrInvalidate(snapshotId: string): CutPieceReleaseTargetSnapshot | null {
+  const snapshot = getCurrentCutPieceReleaseTargetSnapshot(snapshotId)
+  if (snapshot) return snapshot
+  if (state.releaseSnapshotDraft?.releaseSnapshotId === snapshotId) state.releaseSnapshotDraft = null
+  if (state.pendingConfirmDraft?.releaseSnapshotId === snapshotId) state.pendingConfirmDraft = null
+  state.releaseSnapshotError = '目标依据已过期，请回裁片放行重新确认。'
+  return null
+}
+
 function prepareReleaseSnapshotCreateState(): void {
   const snapshotId = getReleaseSnapshotIdFromLocation()
   const nextCreationSourceKey = snapshotId ? `release:${JSON.stringify(snapshotId)}` : 'manual'
@@ -1014,11 +1023,10 @@ function prepareReleaseSnapshotCreateState(): void {
     state.releaseSnapshotError = ''
     return
   }
-  if (state.releaseSnapshotDraft?.releaseSnapshotId === snapshotId) return
-  const snapshot = getCutPieceReleaseTargetSnapshot(snapshotId)
-  if (!snapshot) {
-    state.releaseSnapshotDraft = null
-    state.releaseSnapshotError = '未找到裁片放行目标快照，可能已失效。'
+  const snapshot = getCurrentReleaseSnapshotOrInvalidate(snapshotId)
+  if (!snapshot) return
+  if (state.releaseSnapshotDraft?.releaseSnapshotId === snapshotId) {
+    state.releaseSnapshotError = ''
     return
   }
   state.releaseSnapshotDraft = buildReleaseSnapshotDraft(snapshot)
@@ -2755,6 +2763,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     const container = actionNode.closest<HTMLElement>('[data-supplement-draft-dialog]')
     const baseDraft = state.releaseSnapshotDraft
     if (!container || !baseDraft || !baseDraft.releaseSnapshotId) return false
+    if (!getCurrentReleaseSnapshotOrInvalidate(baseDraft.releaseSnapshotId)) return true
     const reason = normalizeText(container.querySelector<HTMLSelectElement>('[data-supplement-reason]')?.value)
     const reasonDetail = normalizeText(container.querySelector<HTMLInputElement>('[data-supplement-reason-detail]')?.value)
     if (!reason) {
@@ -2778,6 +2787,10 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
 
   if (action === 'confirm-supplement') {
     if (!state.pendingConfirmDraft) return false
+    if (
+      state.pendingConfirmDraft.releaseSnapshotId
+      && !getCurrentReleaseSnapshotOrInvalidate(state.pendingConfirmDraft.releaseSnapshotId)
+    ) return true
     const record = buildSupplementRecord(state.pendingConfirmDraft)
     state.records = [record, ...state.records]
     state.page = 1

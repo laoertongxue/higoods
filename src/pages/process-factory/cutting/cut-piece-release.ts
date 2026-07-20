@@ -25,12 +25,17 @@ import {
   renderProductionOrderIdentityCell,
 } from '../../../data/fcs/production-order-identity.ts'
 import {
+  calculateCutPieceReleaseHistoryDifference,
   confirmCutPieceReleaseTarget,
+  getCutPieceReleaseFactSourceSummary,
   getCutPieceReleaseRecord,
   listLateCutPieceReleaseEvents,
   listCutPieceReleaseMatrixVersions,
   listCutPieceReleaseRecords,
+  listCutPieceReleaseTargetSnapshots,
   type CutPieceReleaseRecord,
+  type CutPieceReleaseHistoryDifference,
+  type CutPieceReleaseHistoryQuantityValue,
   type CutPieceReleaseMatrixVersion,
 } from '../../../data/fcs/cut-piece-release.ts'
 import type {
@@ -86,6 +91,7 @@ interface CutPieceReleasePageState {
   activeCell: CutPieceReleaseActiveCell | null
   historyOpen: boolean
   historyPage: number
+  expandedHistoryVersion: number | null
   overlayReturnTestId: string | null
   feedback: CutPieceReleaseFeedback | null
 }
@@ -135,12 +141,14 @@ const state: CutPieceReleasePageState = {
   activeCell: null,
   historyOpen: false,
   historyPage: 1,
+  expandedHistoryVersion: null,
   overlayReturnTestId: null,
   feedback: null,
 }
 
 let listPreferencesLoaded = false
 let scopedEscapeListenerInstalled = false
+let scopedHistoryListenerInstalled = false
 
 function resetTransientPageState(): void {
   state.keywordDraft = ''
@@ -161,7 +169,64 @@ function resetTransientPageState(): void {
   state.activeCell = null
   state.historyOpen = false
   state.historyPage = 1
+  state.expandedHistoryVersion = null
   state.overlayReturnTestId = null
+  state.feedback = null
+}
+
+function getMatrixDetailQuery(): { productionOrderId: string; productionOrderNo: string } | null {
+  if (typeof window === 'undefined') return null
+  const params = new URLSearchParams(window.location.search)
+  const productionOrderId = params.get('productionOrderId')?.trim() ?? ''
+  const productionOrderNo = params.get('productionOrderNo')?.trim() ?? ''
+  return productionOrderId || productionOrderNo ? { productionOrderId, productionOrderNo } : null
+}
+
+function isMatrixDetailWindow(): boolean {
+  return Boolean(getMatrixDetailQuery())
+}
+
+function initializeMatrixDetailFromQuery(): void {
+  const query = getMatrixDetailQuery()
+  if (!query) return
+  const record = listCutPieceReleaseRecords().find((candidate) => (
+    (query.productionOrderId && candidate.productionOrderId === query.productionOrderId)
+    || (query.productionOrderNo && candidate.productionOrderNo === query.productionOrderNo)
+  ))
+  if (!record) return
+  state.activeRecordId = record.recordId
+  state.activeColor = record.matrix.colorGroups[0]?.garmentColor ?? null
+  const versions = listCutPieceReleaseMatrixVersions(record.productionOrderId)
+  const latestVersion = versions.at(-1)?.version ?? null
+  const savedSnapshot = listCutPieceReleaseTargetSnapshots(record.productionOrderId).at(-1) ?? null
+  const savedSnapshotIsCurrent = Boolean(
+    savedSnapshot
+    && record.targetStatus === '已确认'
+    && !versions.some((version) => (
+      version.version > savedSnapshot.matrixVersion && version.eventType !== '目标确认'
+    )),
+  )
+  state.currentMatrixVersion = latestVersion
+  if (savedSnapshot && savedSnapshotIsCurrent) {
+    const colorSizeTargets = { ...savedSnapshot.targetPreview.colorSizeTargets }
+    state.targetMode = '确认'
+    state.targetDraft = colorSizeTargets
+    state.targetBasisVersion = savedSnapshot.matrixVersion
+    state.savedTargetSnapshot = {
+      snapshotId: savedSnapshot.snapshotId,
+      matrixVersion: savedSnapshot.matrixVersion,
+      colorSizeTargets: { ...colorSizeTargets },
+      hasShortage: buildSupplementPartShortages(
+        savedSnapshot.matrixSnapshot,
+        savedSnapshot.targetPreview,
+      ).length > 0,
+    }
+  } else {
+    state.targetMode = '查看'
+    state.targetDraft = {}
+    state.targetBasisVersion = latestVersion
+    state.savedTargetSnapshot = null
+  }
   state.feedback = null
 }
 
@@ -179,6 +244,35 @@ function ensureScopedEscapeListener(): void {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.cutPieceReleaseAction = 'close-overlay'
     handleCraftCuttingCutPieceReleaseEvent(fakeButton)
+  }, { capture: true })
+}
+
+function ensureScopedHistoryListener(): void {
+  if (scopedHistoryListenerInstalled || typeof document === 'undefined') return
+  scopedHistoryListenerInstalled = true
+  const historyActions = new Set([
+    'open-cell',
+    'close-cell',
+    'open-history',
+    'close-history',
+    'history-prev',
+    'history-next',
+    'toggle-history-version',
+    'start-target',
+    'select-target',
+    'confirm-target',
+    'back-target-edit',
+    'save-target',
+    'go-supplement',
+  ])
+  document.addEventListener('click', (event) => {
+    const target = event.target instanceof HTMLElement ? event.target : null
+    const actionNode = target?.closest<HTMLElement>('[data-cut-piece-release-action]')
+    const action = actionNode?.dataset.cutPieceReleaseAction || ''
+    if (!actionNode || !historyActions.has(action) || !document.querySelector('[data-cut-piece-release-page]')) return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    handleCraftCuttingCutPieceReleaseEvent(actionNode, event)
   }, { capture: true })
 }
 
@@ -360,14 +454,14 @@ const listColumns: readonly StandardListColumn<CutPieceReleaseRecord>[] = [
     actionColumn: true,
     align: 'right',
     render: (record) => `
-      <button
-        type="button"
+      <a
+        href="${escapeHtml(`/fcs/craft/cutting/cut-piece-release?productionOrderId=${encodeURIComponent(record.productionOrderId)}&productionOrderNo=${encodeURIComponent(record.productionOrderNo)}`)}"
+        target="_blank"
+        rel="noopener noreferrer"
+        role="button"
         class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
-        data-cut-piece-release-action="open-matrix"
-        data-record-id="${escapeHtml(record.recordId)}"
-        data-production-order-id="${escapeHtml(record.productionOrderId)}"
         aria-label="打开矩阵，查看矩阵"
-      >查看矩阵</button>
+      >查看矩阵</a>
     `,
   },
 ]
@@ -675,6 +769,11 @@ function canUseSavedTargetSnapshot(record: CutPieceReleaseRecord): boolean {
 function renderTargetSummary(record: CutPieceReleaseRecord): string {
   if (state.targetMode !== '确认') return ''
   const differences = getTargetDifferences(record)
+  const savedTargetUnchanged = Boolean(
+    state.savedTargetSnapshot
+    && state.targetBasisVersion === state.savedTargetSnapshot.matrixVersion
+    && areTargetSelectionsEqual(state.targetDraft, state.savedTargetSnapshot.colorSizeTargets),
+  )
   const counts = {
     shortage: differences.filter((item) => item.status === '需补').length,
     exact: differences.filter((item) => item.status === '刚好').length,
@@ -682,7 +781,7 @@ function renderTargetSummary(record: CutPieceReleaseRecord): string {
   }
   return `
     <section class="rounded-lg border border-blue-200 bg-blue-50 p-4" data-testid="cut-piece-release-target-summary">
-      <h3 class="font-semibold">确认目标</h3>
+      <h3 class="font-semibold">${savedTargetUnchanged ? '已确认目标' : '确认目标'}</h3>
       <div class="mt-2 grid gap-2 text-sm sm:grid-cols-3">
         ${record.matrix.colorGroups.flatMap((group) => group.sizes.map((size) => `<div class="rounded bg-white px-3 py-2">${escapeHtml(group.garmentColor)} / ${escapeHtml(size)}：<strong>${formatQuantity(state.targetDraft[releaseTargetKey(group.garmentColor, size)] ?? 0)} 件</strong></div>`)).join('')}
       </div>
@@ -693,11 +792,15 @@ function renderTargetSummary(record: CutPieceReleaseRecord): string {
         <span class="font-medium text-slate-700">目标依据版本 V${state.targetBasisVersion ?? 0}</span>
       </div>
       <div class="mt-4 flex justify-end gap-2">
-        <button type="button" class="rounded-md border bg-white px-4 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="back-target-edit">返回修改</button>
+        ${savedTargetUnchanged
+          ? '<button type="button" class="rounded-md border bg-white px-4 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="start-target">重新选择目标</button>'
+          : '<button type="button" class="rounded-md border bg-white px-4 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="back-target-edit">返回修改</button>'}
         ${canUseSavedTargetSnapshot(record)
           ? '<button type="button" class="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700" data-skip-page-rerender="true" data-cut-piece-release-action="go-supplement">去补料管理</button>'
           : ''}
-        <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-skip-page-rerender="true" data-cut-piece-release-action="save-target">保存目标</button>
+        ${savedTargetUnchanged
+          ? '<span class="inline-flex items-center rounded-md bg-emerald-100 px-4 py-2 text-sm font-medium text-emerald-800" aria-disabled="true">目标已保存</span>'
+          : '<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-skip-page-rerender="true" data-cut-piece-release-action="save-target">保存目标</button>'}
       </div>
     </section>
   `
@@ -716,7 +819,7 @@ function renderMatrixPanel(): string {
         <div class="flex flex-wrap gap-2">
           <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cut-piece-release-action="open-history" data-testid="cut-piece-release-open-history">查看更新历史</button>
           ${state.targetMode === '查看'
-            ? '<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-skip-page-rerender="true" data-cut-piece-release-action="start-target">选择目标</button>'
+            ? `<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-skip-page-rerender="true" data-cut-piece-release-action="start-target">${record.targetStatus === '目标后数据已变化' ? '重新确认目标' : '选择目标'}</button>`
             : state.targetMode === '编辑'
               ? '<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-skip-page-rerender="true" data-cut-piece-release-action="confirm-target">确认目标</button>'
               : ''}
@@ -735,9 +838,6 @@ function renderCellDrawer(record: CutPieceReleaseRecord): string {
   const row = group?.materialRows.find((item) => item.materialId === state.activeCell!.materialId)
   const cell = row?.cells.find((item) => item.size === state.activeCell!.size)
   if (!group || !row || !cell) return ''
-  const sourceCutOrderNo = cell.sourceStatus === '已冻结'
-    ? record.sourceCutOrderNos.find((item) => item.endsWith('-B')) ?? record.sourceCutOrderNos[0]
-    : record.sourceCutOrderNos[0]
   return `
     <div class="fixed inset-0 z-50" data-testid="cut-piece-release-cell-drawer">
       <button type="button" class="absolute inset-0 w-full bg-black/45" aria-label="点击空白处返回" data-skip-page-rerender="true" data-cut-piece-release-action="close-cell"></button>
@@ -747,37 +847,102 @@ function renderCellDrawer(record: CutPieceReleaseRecord): string {
           <button type="button" class="rounded-md border px-3 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="close-cell" data-cut-piece-release-overlay-initial-focus>关闭部位详情</button>
         </header>
         <div class="space-y-3 p-5">
-          ${cell.partCalculations.map((part) => `
-            <article class="rounded-lg border p-4">
-              <div class="font-medium">${escapeHtml(part.partName)}</div>
-              <div class="mt-2 text-base font-semibold tabular-nums">${formatQuantity(part.actualPieceQty)} 片 ÷ ${formatQuantity(part.piecesPerGarment)} 片/件 = ${part.availableGarmentQty === null ? '待计算' : `${formatQuantity(part.availableGarmentQty)} 件`}</div>
-              <div class="mt-2 text-xs text-muted-foreground">来源裁片单：${escapeHtml(sourceCutOrderNo ?? '未关联')} · 事实 ${escapeHtml(part.sourceFactIds.join('、'))}</div>
-            </article>
-          `).join('')}
+          ${cell.partCalculations.map((part) => {
+            const sources = getCutPieceReleaseFactSourceSummary(record.productionOrderId, part.sourceFactIds)
+            return `
+              <article class="rounded-lg border p-4">
+                <div class="font-medium">${escapeHtml(part.partName)}</div>
+                <div class="mt-2 text-base font-semibold tabular-nums">${formatQuantity(part.actualPieceQty)} 片 ÷ ${formatQuantity(part.piecesPerGarment)} 片/件 = ${part.availableGarmentQty === null ? '待计算' : `${formatQuantity(part.availableGarmentQty)} 件`}</div>
+                <div class="mt-2 text-xs text-muted-foreground">来源裁片单：${escapeHtml(sources.cutOrderNos.join('、') || '未关联')}</div>
+                <div class="mt-1 text-xs text-muted-foreground">来源铺布单：${escapeHtml(sources.spreadingOrderNos.join('、') || '未关联')}</div>
+                <div class="mt-1 text-xs text-muted-foreground">事实：${escapeHtml(part.sourceFactIds.join('、') || '未关联')}</div>
+              </article>
+            `
+          }).join('')}
         </div>
       </aside>
     </div>
   `
 }
 
-function renderHistoryDrawer(record: CutPieceReleaseRecord): string {
-  if (!state.historyOpen) return ''
-  const versions = listCutPieceReleaseMatrixVersions(record.productionOrderId).slice().reverse()
+function formatHistoryDelta(delta: number): string {
+  return `${delta >= 0 ? '+' : '-'}${formatQuantity(Math.abs(delta))} 件`
+}
+
+function formatHistoryQuantityValue(value: CutPieceReleaseHistoryQuantityValue, after: boolean): string {
+  if (!value.exists) return after ? '已移除' : '0 件'
+  return value.quantity === null ? '待计算' : `${formatQuantity(value.quantity)} 件`
+}
+
+function formatHistoryChange(
+  before: CutPieceReleaseHistoryQuantityValue,
+  after: CutPieceReleaseHistoryQuantityValue,
+  delta: number | null,
+): string {
+  const suffix = delta === null ? '状态变化' : formatHistoryDelta(delta)
+  return `${formatHistoryQuantityValue(before, false)} → ${formatHistoryQuantityValue(after, true)}（${suffix}）`
+}
+
+function renderHistoryExpandedDetails(
+  record: CutPieceReleaseRecord,
+  version: CutPieceReleaseMatrixVersion,
+  difference: CutPieceReleaseHistoryDifference,
+): string {
+  const targetSnapshot = version.eventType === '目标确认'
+    ? listCutPieceReleaseTargetSnapshots(record.productionOrderId).find((snapshot) => (
+        snapshot.matrixVersion === version.version - 1
+      )) ?? null
+    : null
+  const targetLines = targetSnapshot ? targetSnapshot.matrixSnapshot.colorGroups.flatMap((group) => group.sizes.map((size) => ({
+    garmentColor: group.garmentColor,
+    size,
+    quantity: targetSnapshot.targetPreview.colorSizeTargets[releaseTargetKey(group.garmentColor, size)],
+  }))) : []
+  const targetCounts = targetSnapshot ? {
+    shortage: targetSnapshot.targetPreview.differences.filter((item) => item.status === '需补').length,
+    exact: targetSnapshot.targetPreview.differences.filter((item) => item.status === '刚好').length,
+    surplus: targetSnapshot.targetPreview.differences.filter((item) => item.status === '多余').length,
+  } : null
+  return `
+    <div class="mt-3 space-y-3 border-t pt-3" id="cut-piece-release-history-details-${version.version}" data-cut-piece-release-history-details>
+      ${difference.completeKitChanges.length ? `
+        <section>
+          <h4 class="text-sm font-semibold">颜色尺码齐套变化</h4>
+          <div class="mt-2 grid gap-2 sm:grid-cols-2">
+            ${difference.completeKitChanges.map((change) => `<div class="rounded-md bg-slate-50 px-3 py-2 text-sm">${escapeHtml(change.garmentColor)} / ${escapeHtml(change.size)}：${formatHistoryChange(change.before, change.after, change.delta)}</div>`).join('')}
+          </div>
+        </section>
+      ` : '<p class="text-sm text-muted-foreground">本事件没有改变齐套数量。</p>'}
+      ${difference.materialChanges.length ? `
+        <section>
+          <h4 class="text-sm font-semibold">变化物料点</h4>
+          <div class="mt-2 grid gap-2 sm:grid-cols-2">
+            ${difference.materialChanges.map((change) => `<div class="rounded-md border px-3 py-2 text-sm">${escapeHtml(change.garmentColor)} / ${escapeHtml(change.size)} / 物料 ${escapeHtml(change.materialId)}：${formatHistoryChange(change.before, change.after, change.delta)}</div>`).join('')}
+          </div>
+        </section>
+      ` : ''}
+      ${version.eventType === '裁片单冻结' ? '<div class="rounded-md bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700">已冻结，不再更新；最后有效数量继续参与计算</div>' : ''}
+      ${targetCounts ? `
+        <section class="rounded-md border border-blue-200 bg-blue-50 p-3">
+          <h4 class="text-sm font-semibold">已确认目标（${targetLines.length} 个颜色尺码）</h4>
+          <div class="mt-2 grid gap-2 sm:grid-cols-3">${targetLines.map((line) => `<div class="rounded bg-white px-2.5 py-2 text-sm">${escapeHtml(line.garmentColor)} / ${escapeHtml(line.size)}：${formatQuantity(line.quantity)} 件</div>`).join('')}</div>
+          <div class="mt-3 flex flex-wrap gap-3 text-sm"><span class="font-medium text-rose-700">需补 ${targetCounts.shortage} 个物料点</span><span class="font-medium text-amber-700">刚好 ${targetCounts.exact} 个物料点</span><span class="font-medium text-emerald-700">多余 ${targetCounts.surplus} 个物料点</span></div>
+        </section>
+      ` : ''}
+    </div>
+  `
+}
+
+function renderHistoryContent(record: CutPieceReleaseRecord): string {
+  const chronologicalVersions = listCutPieceReleaseMatrixVersions(record.productionOrderId)
+  const versions = chronologicalVersions.slice().reverse()
   const pageSize = 5
   const totalPages = Math.max(1, Math.ceil(versions.length / pageSize))
   state.historyPage = Math.min(Math.max(1, state.historyPage), totalPages)
   const rows = versions.slice((state.historyPage - 1) * pageSize, state.historyPage * pageSize)
-  const sourceText = (version: CutPieceReleaseMatrixVersion) => [version.cutOrderNo, version.spreadingOrderNo].filter(Boolean).join(' / ')
   const lateEvents = listLateCutPieceReleaseEvents(record.productionOrderId)
   return `
-    <div class="fixed inset-0 z-50" data-testid="cut-piece-release-history-drawer">
-      <button type="button" class="absolute inset-0 w-full bg-black/45" aria-label="点击空白处返回" data-skip-page-rerender="true" data-cut-piece-release-action="close-history"></button>
-      <aside class="absolute inset-y-0 right-0 w-full max-w-[720px] overflow-y-auto border-l bg-background shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="cut-piece-release-history-drawer-title">
-        <header class="sticky top-0 flex items-center justify-between border-b bg-background px-5 py-4">
-          <div><h2 class="text-lg font-semibold" id="cut-piece-release-history-drawer-title">矩阵更新历史</h2><p class="text-sm text-muted-foreground">${escapeHtml(record.productionOrderNo)} · 所有事件均保留版本快照</p></div>
-          <button type="button" class="rounded-md border px-3 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="close-history" data-cut-piece-release-overlay-initial-focus>关闭更新历史</button>
-        </header>
-        <div class="space-y-3 p-5">
+    <div class="space-y-3 p-5">
           ${lateEvents.length ? `
             <section class="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-4" data-testid="cut-piece-release-late-events-list">
               <h3 class="font-semibold text-amber-900">关闭后待处理铺布数据</h3>
@@ -791,14 +956,34 @@ function renderHistoryDrawer(record: CutPieceReleaseRecord): string {
               `).join('')}
             </section>
           ` : ''}
-          ${rows.map((version) => `
-            <article class="rounded-lg border p-4">
-              <div class="flex items-center justify-between gap-3"><strong>V${version.version} · ${escapeHtml(version.eventType)}</strong><span class="text-xs text-muted-foreground">${escapeHtml(formatDateTime(version.occurredAt))}</span></div>
-              <div class="mt-2 text-sm">操作人：${escapeHtml(version.operator)}</div>
-              ${version.reason ? `<div class="mt-1 text-sm text-muted-foreground">原因：${escapeHtml(version.reason)}</div>` : ''}
-              ${sourceText(version) ? `<div class="mt-1 text-sm text-muted-foreground">来源：${escapeHtml(sourceText(version))}</div>` : ''}
-            </article>
-          `).join('') || '<div class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">暂无更新历史</div>'}
+          ${rows.map((version) => {
+            const previous = chronologicalVersions.find((item) => item.version === version.version - 1)
+            const difference = calculateCutPieceReleaseHistoryDifference(version, previous)
+            const expanded = state.expandedHistoryVersion === version.version
+            const cutOrderNos = version.sourceCutOrderNos.length
+              ? version.sourceCutOrderNos
+              : version.cutOrderNo ? [version.cutOrderNo] : []
+            const completeKitSummary = difference.completeKitChanges.map((change) => `${change.size} ${formatHistoryQuantityValue(change.before, false)} → ${formatHistoryQuantityValue(change.after, true)}`).join('；')
+            return `
+              <article class="rounded-lg border p-4" data-cut-piece-release-history-version="${version.version}">
+                <div class="flex flex-wrap items-center justify-between gap-3"><strong>V${version.version} · ${escapeHtml(version.eventType)}</strong><span class="text-xs text-muted-foreground">${escapeHtml(formatDateTime(version.occurredAt))}</span></div>
+                <div class="mt-2 text-sm">操作人：${escapeHtml(version.operator)}</div>
+                ${cutOrderNos.length ? `<div class="mt-1 text-sm text-muted-foreground">来源裁片单：${escapeHtml(cutOrderNos.join('、'))}</div>` : ''}
+                ${version.spreadingOrderNo ? `<div class="mt-1 text-sm text-muted-foreground">铺布单：${escapeHtml(version.spreadingOrderNo)}</div>` : ''}
+                ${version.reason ? `<div class="mt-1 text-sm text-muted-foreground">原因：${escapeHtml(version.reason)}</div>` : ''}
+                <div class="mt-2 rounded-md bg-slate-50 px-3 py-2 text-sm">
+                  <div>受影响颜色：${difference.affectedColors.length ? escapeHtml(difference.affectedColors.join('、')) : '无数量变化'}</div>
+                  <div class="mt-1">受影响尺码：${difference.completeKitChanges.length} 个</div>
+                  <div class="mt-1">齐套变化：${completeKitSummary || '无数量变化'}</div>
+                  <div class="mt-1">变化物料点：${difference.materialChanges.length} 个</div>
+                </div>
+                <div class="mt-3 flex justify-end">
+                  <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" aria-expanded="${expanded}" aria-controls="cut-piece-release-history-details-${version.version}" data-skip-page-rerender="true" data-cut-piece-release-action="toggle-history-version" data-history-version="${version.version}">${expanded ? '收起详情' : '展开详情'}</button>
+                </div>
+                ${expanded ? renderHistoryExpandedDetails(record, version, difference) : ''}
+              </article>
+            `
+          }).join('') || '<div class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">暂无更新历史</div>'}
           <footer class="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm">
             <span>第 ${state.historyPage} / ${totalPages} 页 · 每页 ${pageSize} 条 · 共 ${versions.length} 条</span>
             <div class="flex gap-2">
@@ -806,7 +991,21 @@ function renderHistoryDrawer(record: CutPieceReleaseRecord): string {
               <button type="button" class="rounded border px-3 py-1.5 disabled:opacity-40" ${state.historyPage >= totalPages ? 'disabled' : ''} data-skip-page-rerender="true" data-cut-piece-release-action="history-next">下一页</button>
             </div>
           </footer>
-        </div>
+    </div>
+  `
+}
+
+function renderHistoryDrawer(record: CutPieceReleaseRecord): string {
+  if (!state.historyOpen) return ''
+  return `
+    <div class="fixed inset-0 z-50" data-testid="cut-piece-release-history-drawer">
+      <button type="button" class="absolute inset-0 w-full bg-black/45" aria-label="点击空白处返回" data-skip-page-rerender="true" data-cut-piece-release-action="close-history"></button>
+      <aside class="absolute inset-y-0 right-0 w-full max-w-[720px] overflow-y-auto border-l bg-background shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="cut-piece-release-history-drawer-title">
+        <header class="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-5 py-4">
+          <div><h2 class="text-lg font-semibold" id="cut-piece-release-history-drawer-title">矩阵更新历史</h2><p class="text-sm text-muted-foreground">${escapeHtml(record.productionOrderNo)} · 所有事件均保留版本快照</p></div>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="close-history" data-cut-piece-release-overlay-initial-focus>关闭更新历史</button>
+        </header>
+        <div tabindex="-1" data-cut-piece-release-history-content>${renderHistoryContent(record)}</div>
       </aside>
     </div>
   `
@@ -866,6 +1065,25 @@ function refreshOverlay(): void {
   setReleaseRegion('overlay', renderListOverlay())
 }
 
+function refreshHistoryContent(focusAction: string, historyVersion?: number): void {
+  if (typeof document === 'undefined') return
+  const record = getActiveRecord()
+  const content = document.querySelector<HTMLElement>('[data-cut-piece-release-history-content]')
+  const aside = content?.closest<HTMLElement>('aside')
+  if (!record || !content || !aside) return
+  const scrollTop = aside.scrollTop
+  content.innerHTML = renderHistoryContent(record)
+  hydrateIcons(content)
+  aside.scrollTop = scrollTop
+  queueMicrotask(() => {
+    const versionSelector = historyVersion === undefined ? '' : `[data-history-version="${historyVersion}"]`
+    const preferred = content.querySelector<HTMLElement>(`[data-cut-piece-release-action="${focusAction}"]${versionSelector}`)
+    const focusTarget = preferred && !preferred.hasAttribute('disabled') ? preferred : content
+    focusTarget.focus({ preventScroll: true })
+    aside.scrollTop = scrollTop
+  })
+}
+
 function focusOverlayInitialControl(): void {
   queueMicrotask(() => {
     document.querySelector<HTMLElement>('[data-cut-piece-release-overlay-initial-focus]')?.focus()
@@ -889,11 +1107,22 @@ function refreshMatrix(): void {
 
 export function renderCraftCuttingCutPieceReleasePage(): string {
   ensureScopedEscapeListener()
+  ensureScopedHistoryListener()
   ensureListPreferences()
   const hasMountedPageRoot = typeof document !== 'undefined'
     && Boolean(document.querySelector('[data-cut-piece-release-page]'))
   if (!hasMountedPageRoot) {
     resetTransientPageState()
+    initializeMatrixDetailFromQuery()
+  }
+  if (isMatrixDetailWindow() && getActiveRecord()) {
+    return `
+      <section class="mx-auto max-w-[1440px] space-y-4 p-6" data-cut-piece-release-page data-cut-piece-release-detail-page>
+        <div data-cut-piece-release-region="feedback">${renderFeedback()}</div>
+        <div data-cut-piece-release-region="matrix">${renderMatrixPanel()}</div>
+        <div data-cut-piece-release-region="overlay">${renderBusinessOverlays()}</div>
+      </section>
+    `
   }
   const view = getListView()
   const columnSettingsButton = withSkipPageRerender(renderSecondaryButton(
@@ -1028,38 +1257,28 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     return true
   }
   if (action === 'open-matrix') {
-    state.activeRecordId = actionNode.dataset.recordId || null
-    state.activeColor = null
-    state.targetMode = '查看'
-    state.targetDraft = {}
-    state.currentMatrixVersion = null
-    state.targetBasisVersion = null
-    state.savedTargetSnapshot = null
-    state.activeCell = null
-    state.historyOpen = false
-    state.historyPage = 1
-    const record = getActiveRecord()
-    state.activeColor = record?.matrix.colorGroups[0]?.garmentColor ?? null
-    const latestVersion = record
-      ? listCutPieceReleaseMatrixVersions(record.productionOrderId).at(-1)?.version ?? null
-      : null
-    state.currentMatrixVersion = latestVersion
-    state.targetBasisVersion = latestVersion
-    const productionOrderNo = listCutPieceReleaseRecords()
-      .find((record) => record.recordId === state.activeRecordId)?.productionOrderNo
-    state.feedback = {
-      tone: 'success',
-      message: productionOrderNo ? `已选中生产单 ${productionOrderNo} 的裁片矩阵。` : '已选中裁片矩阵。',
+    const record = listCutPieceReleaseRecords().find((candidate) => candidate.recordId === actionNode.dataset.recordId)
+    if (!record || typeof window === 'undefined') return true
+    const params = new URLSearchParams({
+      productionOrderId: record.productionOrderId,
+      productionOrderNo: record.productionOrderNo,
+    })
+    const detailUrl = `${window.location.pathname}?${params.toString()}`
+    const popup = window.open(detailUrl, '_blank', 'noopener,noreferrer')
+    if (!popup) {
+      state.feedback = { tone: 'warning', message: '浏览器阻止了新窗口，请允许弹出窗口后重试。' }
+      refreshFeedback()
     }
-    refreshFeedback()
-    refreshMatrix()
     return true
   }
   if (action === 'start-target') {
     const record = getActiveRecord()
     if (!record) return true
+    const latestVersion = listCutPieceReleaseMatrixVersions(record.productionOrderId).at(-1)?.version ?? null
     initializeTargetDraft(record)
     state.targetMode = '编辑'
+    state.currentMatrixVersion = latestVersion
+    state.targetBasisVersion = latestVersion
     state.savedTargetSnapshot = null
     state.feedback = null
     refreshFeedback()
@@ -1157,6 +1376,7 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
   if (action === 'open-cell') {
     state.overlayReturnTestId = actionNode.dataset.testid || null
     state.historyOpen = false
+    state.expandedHistoryVersion = null
     state.activeCell = {
       garmentColor: actionNode.dataset.cellColor || '',
       size: actionNode.dataset.cellSize || '',
@@ -1179,6 +1399,7 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     state.activeCell = null
     state.historyOpen = true
     state.historyPage = 1
+    state.expandedHistoryVersion = null
     refreshOverlay()
     focusOverlayInitialControl()
     return true
@@ -1186,6 +1407,7 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
   if (action === 'close-history') {
     const returnTestId = state.overlayReturnTestId
     state.historyOpen = false
+    state.expandedHistoryVersion = null
     state.overlayReturnTestId = null
     refreshOverlay()
     restoreOverlayTriggerFocus(returnTestId)
@@ -1193,7 +1415,15 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
   }
   if (action === 'history-prev' || action === 'history-next') {
     state.historyPage += action === 'history-prev' ? -1 : 1
-    refreshOverlay()
+    state.expandedHistoryVersion = null
+    refreshHistoryContent(action)
+    return true
+  }
+  if (action === 'toggle-history-version') {
+    const version = Number(actionNode.dataset.historyVersion)
+    if (!Number.isInteger(version)) return true
+    state.expandedHistoryVersion = state.expandedHistoryVersion === version ? null : version
+    refreshHistoryContent(action, version)
     return true
   }
   if (action === 'open-column-settings') {
@@ -1206,6 +1436,7 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     state.columnSettingsOpen = false
     state.activeCell = null
     state.historyOpen = false
+    state.expandedHistoryVersion = null
     state.overlayReturnTestId = null
     refreshOverlay()
     restoreOverlayTriggerFocus(returnTestId)
