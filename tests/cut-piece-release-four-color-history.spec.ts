@@ -24,6 +24,14 @@ test('四颜色矩阵的十版历史可追溯且卡片交互只刷新抽屉', as
   await page.getByTestId('cut-piece-release-open-history').click()
   const drawer = page.getByTestId('cut-piece-release-history-drawer')
   await expect(drawer).toBeVisible()
+  const drawerAside = drawer.locator('aside')
+  const historyContent = drawer.locator('[data-cut-piece-release-history-content]')
+  await drawer.evaluate((node) => { node.setAttribute('data-stable-drawer-reference', 'drawer') })
+  await drawerAside.evaluate((node) => {
+    node.setAttribute('data-stable-aside-reference', 'aside')
+    node.scrollTop = 120
+  })
+  const drawerScrollBefore = await drawerAside.evaluate((node) => node.scrollTop)
   await expect(drawer).toContainText('第 1 / 2 页 · 每页 5 条 · 共 10 条')
   await expect(drawer).toContainText('V10 · 目标确认')
   await expect(drawer).toContainText('V9 · 铺布完成')
@@ -39,6 +47,9 @@ test('四颜色矩阵的十版历史可追溯且卡片交互只刷新抽屉', as
 
   await v9.getByRole('button', { name: '展开详情' }).click()
   await expect(v9.getByRole('button', { name: '收起详情' })).toBeVisible()
+  await expect(v9.getByRole('button', { name: '收起详情' })).toBeFocused()
+  await expect(v9.getByRole('button', { name: '收起详情' })).toHaveAttribute('aria-controls', 'cut-piece-release-history-details-9')
+  await expect(v9.locator('#cut-piece-release-history-details-9')).toBeVisible()
   for (const summary of [
     'Red / M：80 件 → 150 件（+70 件）',
     'Red / L：120 件 → 235 件（+115 件）',
@@ -58,6 +69,9 @@ test('四颜色矩阵的十版历史可追溯且卡片交互只刷新抽屉', as
   await expect(detailPage).toHaveAttribute('data-history-stable-reference', 'detail-root')
   await expect(matrixPanel).toHaveAttribute('data-history-stable-reference', 'matrix-panel')
   expect(await page.evaluate(() => window.scrollY)).toBe(pageScrollBefore)
+  await expect(drawer).toHaveAttribute('data-stable-drawer-reference', 'drawer')
+  await expect(drawerAside).toHaveAttribute('data-stable-aside-reference', 'aside')
+  expect(await drawerAside.evaluate((node) => node.scrollTop)).toBe(drawerScrollBefore)
 
   const v10 = drawer.locator('[data-cut-piece-release-history-version="10"]')
   await v10.getByRole('button', { name: '展开详情' }).click()
@@ -73,7 +87,9 @@ test('四颜色矩阵的十版历史可追溯且卡片交互只刷新抽屉', as
   await expect(v8).toContainText('已冻结，不再更新；最后有效数量继续参与计算')
   await expect(v8).toContainText('变化物料点：0 个')
 
-  await drawer.getByRole('button', { name: '下一页' }).click()
+  await drawerAside.evaluate((node) => { node.scrollTop = 160 })
+  const pageChangeScrollBefore = await drawerAside.evaluate((node) => node.scrollTop)
+  await drawer.getByRole('button', { name: '下一页' }).evaluate((button: HTMLButtonElement) => button.click())
   await expect(drawer).toContainText('第 2 / 2 页 · 每页 5 条 · 共 10 条')
   for (const version of [5, 4, 3, 2, 1]) {
     await expect(drawer.locator(`[data-cut-piece-release-history-version="${version}"]`)).toBeVisible()
@@ -83,4 +99,8 @@ test('四颜色矩阵的十版历史可追溯且卡片交互只刷新抽屉', as
   await expect(detailPage).toHaveAttribute('data-history-stable-reference', 'detail-root')
   await expect(matrixPanel).toHaveAttribute('data-history-stable-reference', 'matrix-panel')
   expect(await page.evaluate(() => window.scrollY)).toBe(pageScrollBefore)
+  await expect(drawer).toHaveAttribute('data-stable-drawer-reference', 'drawer')
+  await expect(drawerAside).toHaveAttribute('data-stable-aside-reference', 'aside')
+  expect(await drawerAside.evaluate((node) => node.scrollTop)).toBe(pageChangeScrollBefore)
+  await expect(historyContent).toBeFocused()
 })

@@ -150,6 +150,30 @@ export interface CutPieceReleaseMatrixVersion {
   matrixSnapshot: CutPieceReleaseMatrix
 }
 
+export interface CutPieceReleaseHistoryQuantityValue {
+  exists: boolean
+  quantity: number | null
+}
+
+export interface CutPieceReleaseHistoryQuantityChange {
+  garmentColor: string
+  size: string
+  before: CutPieceReleaseHistoryQuantityValue
+  after: CutPieceReleaseHistoryQuantityValue
+  delta: number | null
+}
+
+export interface CutPieceReleaseHistoryMaterialChange extends CutPieceReleaseHistoryQuantityChange {
+  materialId: string
+  materialName: string
+}
+
+export interface CutPieceReleaseHistoryDifference {
+  affectedColors: string[]
+  completeKitChanges: CutPieceReleaseHistoryQuantityChange[]
+  materialChanges: CutPieceReleaseHistoryMaterialChange[]
+}
+
 export interface CutPieceReleaseTargetSnapshot {
   snapshotId: string
   productionOrderId: string
@@ -609,6 +633,86 @@ export function listCutPieceReleaseMatrixVersions(productionOrderId: string): Cu
   return item ? item.versions.map(clone) : []
 }
 
+export function calculateCutPieceReleaseHistoryDifference(
+  current: CutPieceReleaseMatrixVersion,
+  previous?: CutPieceReleaseMatrixVersion,
+): CutPieceReleaseHistoryDifference {
+  interface CompleteKitPoint {
+    garmentColor: string
+    size: string
+    quantity: number | null
+  }
+  interface MaterialPoint extends CompleteKitPoint {
+    materialId: string
+    materialName: string
+  }
+  const collectCompleteKitPoints = (version?: CutPieceReleaseMatrixVersion) => new Map(
+    version?.matrixSnapshot.colorGroups.flatMap((group) => group.sizes.map((size) => [
+      `${group.garmentColor}::${size}`,
+      { garmentColor: group.garmentColor, size, quantity: group.completeKitBySize[size] ?? null },
+    ] as const)) ?? [],
+  )
+  const collectMaterialPoints = (version?: CutPieceReleaseMatrixVersion) => new Map(
+    version?.matrixSnapshot.colorGroups.flatMap((group) => group.materialRows.flatMap((row) => row.cells.map((cell) => [
+      `${group.garmentColor}::${cell.size}::${row.materialId}`,
+      {
+        garmentColor: group.garmentColor,
+        size: cell.size,
+        materialId: row.materialId,
+        materialName: row.materialName,
+        quantity: cell.availableGarmentQty,
+      },
+    ] as const))) ?? [],
+  )
+  const currentCompleteKit = collectCompleteKitPoints(current)
+  const previousCompleteKit = collectCompleteKitPoints(previous)
+  const currentMaterials = collectMaterialPoints(current)
+  const previousMaterials = collectMaterialPoints(previous)
+  const changed = <T extends CompleteKitPoint>(before: T | undefined, after: T | undefined) => (
+    Boolean(before) !== Boolean(after) || before?.quantity !== after?.quantity
+  )
+  const values = <T extends CompleteKitPoint>(before: T | undefined, after: T | undefined) => {
+    const beforeValue: CutPieceReleaseHistoryQuantityValue = {
+      exists: Boolean(before),
+      quantity: before?.quantity ?? null,
+    }
+    const afterValue: CutPieceReleaseHistoryQuantityValue = {
+      exists: Boolean(after),
+      quantity: after?.quantity ?? null,
+    }
+    const delta = typeof after?.quantity === 'number'
+      && (typeof before?.quantity === 'number' || !before)
+      ? after.quantity - (before?.quantity ?? 0)
+      : null
+    return { before: beforeValue, after: afterValue, delta }
+  }
+  const completeKitChanges = [...new Set([...previousCompleteKit.keys(), ...currentCompleteKit.keys()])].flatMap((key) => {
+    const before = previousCompleteKit.get(key)
+    const after = currentCompleteKit.get(key)
+    if (!changed(before, after)) return []
+    const point = after ?? before!
+    return [{ garmentColor: point.garmentColor, size: point.size, ...values(before, after) }]
+  })
+  const materialChanges = [...new Set([...previousMaterials.keys(), ...currentMaterials.keys()])].flatMap((key) => {
+    const before = previousMaterials.get(key)
+    const after = currentMaterials.get(key)
+    if (!changed(before, after)) return []
+    const point = after ?? before!
+    return [{
+      garmentColor: point.garmentColor,
+      size: point.size,
+      materialId: point.materialId,
+      materialName: point.materialName,
+      ...values(before, after),
+    }]
+  })
+  return {
+    affectedColors: [...new Set([...completeKitChanges, ...materialChanges].map((item) => item.garmentColor))],
+    completeKitChanges,
+    materialChanges,
+  }
+}
+
 export function confirmCutPieceReleaseTarget(input: ConfirmReleaseTargetInput): ConfirmReleaseTargetResult {
   const item = releaseRepository.get(input.productionOrderId)
   if (!item) return { ok: false, message: '未找到生产单裁片矩阵。', snapshot: null }
@@ -664,6 +768,17 @@ export function confirmCutPieceReleaseTarget(input: ConfirmReleaseTargetInput): 
 export function getCutPieceReleaseTargetSnapshot(snapshotId: string): CutPieceReleaseTargetSnapshot | null {
   const snapshot = targetSnapshots.get(snapshotId)
   return snapshot ? clone(snapshot) : null
+}
+
+export function listCutPieceReleaseTargetSnapshots(productionOrderId: string): CutPieceReleaseTargetSnapshot[] {
+  return [...targetSnapshots.values()]
+    .filter((snapshot) => snapshot.productionOrderId === productionOrderId)
+    .sort((left, right) => (
+      left.confirmedAt.localeCompare(right.confirmedAt)
+      || left.matrixVersion - right.matrixVersion
+      || left.snapshotId.localeCompare(right.snapshotId)
+    ))
+    .map(clone)
 }
 
 export interface CutOrderReleaseWriteResult {

@@ -13,6 +13,7 @@ import {
 } from '../src/data/fcs/cut-piece-release-domain.ts'
 import {
   confirmCutPieceReleaseTarget,
+  calculateCutPieceReleaseHistoryDifference,
   getCutOrderReleaseImpactSummary,
   getCutPieceReleaseMatrix,
   getCutPieceReleaseRecord,
@@ -20,11 +21,13 @@ import {
   getCutPieceReleaseSummaryForProductionOrder,
   listCutPieceReleaseMatrixVersions,
   listCutPieceReleaseRecords,
+  listCutPieceReleaseTargetSnapshots,
   listLateCutPieceReleaseEvents,
   recordCutOrderReleaseStatusChange,
   recordLateCutPieceReleaseEvent,
   recordSpreadingReleaseAdjustment,
   resetCutPieceReleasePrototypeStoreForTesting,
+  type CutPieceReleaseMatrixVersion,
 } from '../src/data/fcs/cut-piece-release.ts'
 import {
   CUTTING_CUT_ORDER_CLOSE_RECORDS_STORAGE_KEY,
@@ -50,6 +53,17 @@ import {
 import { buildCutPieceReleaseHandoverSnapshot, createCutPieceReleaseHandoverSnapshot, getCutPieceReleaseHandoverSnapshot } from '../src/data/fcs/cutting/handover-orders.ts'
 
 const productionOrderId = 'po-14671'
+
+const targetSnapshotsForHistory = listCutPieceReleaseTargetSnapshots(productionOrderId)
+assert.equal(targetSnapshotsForHistory.length, 1, 'PO14671 必须能按生产单读取目标确认不可变快照')
+assert.equal(targetSnapshotsForHistory[0].matrixVersion, 9, 'V10 目标确认事件必须关联依据版本 V9')
+assert.equal(targetSnapshotsForHistory[0].targetPreview.colorSizeTargets['Black::M'], 208)
+targetSnapshotsForHistory[0].targetPreview.colorSizeTargets['Black::M'] = 999
+assert.equal(
+  listCutPieceReleaseTargetSnapshots(productionOrderId)[0].targetPreview.colorSizeTargets['Black::M'],
+  208,
+  '历史目标快照查询必须返回深拷贝',
+)
 
 const handoverSnapshot = buildCutPieceReleaseHandoverSnapshot({
   snapshotId: 'target-po14671-v12',
@@ -234,6 +248,48 @@ const noFacts = buildReleaseMatrix({
 })
 assert.equal(noFacts.colorGroups[0].materialRows[0].cells[0].calculationStatus, '暂无有效裁片')
 assert.equal(noFacts.calculationStatus, '暂无有效裁片')
+
+const zeroFacts = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Black: { M: 240 } },
+  requirements,
+  facts: blackFacts.map((item) => ({ ...item, actualPieceQty: 0 })),
+})
+const withoutMaterialA = buildReleaseMatrix({
+  productionOrderId,
+  productionOrderNo: 'PO14671',
+  spuCode: 'ASYSA26060310',
+  planQtyByColorSize: { Black: { M: 240 } },
+  requirements: requirements.filter((item) => item.materialId !== 'A'),
+  facts: blackFacts.filter((item) => item.materialId !== 'A'),
+})
+const historyVersion = (version: number, matrixSnapshot: typeof matrix): CutPieceReleaseMatrixVersion => ({
+  version,
+  productionOrderId,
+  eventId: `history-${version}`,
+  eventType: '铺布完成',
+  occurredAt: `2026-06-03 ${10 + version}:00:00`,
+  operator: '测试员',
+  sourceCutOrderNos: [],
+  matrixSnapshot,
+})
+const nullToZeroDifference = calculateCutPieceReleaseHistoryDifference(
+  historyVersion(2, zeroFacts),
+  historyVersion(1, noFacts),
+)
+const nullToZeroMaterialA = nullToZeroDifference.materialChanges.find((item) => item.materialId === 'A')
+assert.deepEqual(nullToZeroMaterialA?.before, { exists: true, quantity: null }, '真实 null 必须保留为待计算')
+assert.deepEqual(nullToZeroMaterialA?.after, { exists: true, quantity: 0 }, '真实 0 必须保留为 0 件')
+assert.equal(nullToZeroMaterialA?.delta, null, 'null 到 0 是状态变化，不得伪造数量增量')
+const removedMaterialDifference = calculateCutPieceReleaseHistoryDifference(
+  historyVersion(3, withoutMaterialA),
+  historyVersion(2, matrix),
+)
+const removedMaterialA = removedMaterialDifference.materialChanges.find((item) => item.materialId === 'A')
+assert.deepEqual(removedMaterialA?.after, { exists: false, quantity: null }, '当前版缺失的物料点必须保留已移除语义')
+assert.equal(removedMaterialA?.delta, null, '已移除不得冒充降至 0')
 
 const sourceEventCompositeKey = buildReleaseMatrix({
   productionOrderId,

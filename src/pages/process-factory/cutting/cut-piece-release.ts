@@ -25,12 +25,16 @@ import {
   renderProductionOrderIdentityCell,
 } from '../../../data/fcs/production-order-identity.ts'
 import {
+  calculateCutPieceReleaseHistoryDifference,
   confirmCutPieceReleaseTarget,
   getCutPieceReleaseRecord,
   listLateCutPieceReleaseEvents,
   listCutPieceReleaseMatrixVersions,
   listCutPieceReleaseRecords,
+  listCutPieceReleaseTargetSnapshots,
   type CutPieceReleaseRecord,
+  type CutPieceReleaseHistoryDifference,
+  type CutPieceReleaseHistoryQuantityValue,
   type CutPieceReleaseMatrixVersion,
 } from '../../../data/fcs/cut-piece-release.ts'
 import type {
@@ -648,7 +652,7 @@ function renderColorMatrix(record: CutPieceReleaseRecord, group: ReleaseColorGro
     item,
   ]))
   return `
-    <section class="space-y-3" data-testid="${group === record.matrix.colorGroups[0] ? 'cut-piece-release-color-matrix' : `cut-piece-release-color-matrix-${escapeHtml(group.garmentColor)}`}">
+    <section class="space-y-3" data-testid="cut-piece-release-color-matrix">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 class="text-base font-semibold">${escapeHtml(group.garmentColor)}</h3>
@@ -814,109 +818,51 @@ function renderCellDrawer(record: CutPieceReleaseRecord): string {
   `
 }
 
-interface HistoryQuantityChange {
-  garmentColor: string
-  size: string
-  before: number
-  after: number
-  delta: number
-}
-
-interface HistoryMaterialChange extends HistoryQuantityChange {
-  materialId: string
-  materialName: string
-}
-
-interface HistoryVersionDifference {
-  affectedColors: string[]
-  completeKitChanges: HistoryQuantityChange[]
-  materialChanges: HistoryMaterialChange[]
-}
-
-function historyQuantity(value: number | null | undefined): number {
-  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, value) : 0
-}
-
-function calculateHistoryVersionDifference(
-  current: CutPieceReleaseMatrixVersion,
-  previous: CutPieceReleaseMatrixVersion | undefined,
-): HistoryVersionDifference {
-  const completeKitPoints = new Map<string, Omit<HistoryQuantityChange, 'before' | 'after' | 'delta'>>()
-  const materialPoints = new Map<string, Omit<HistoryMaterialChange, 'before' | 'after' | 'delta'>>()
-  const completeKitQuantities = (version: CutPieceReleaseMatrixVersion | undefined) => {
-    const values = new Map<string, number>()
-    version?.matrixSnapshot.colorGroups.forEach((group) => group.sizes.forEach((size) => {
-      const key = `${group.garmentColor}::${size}`
-      completeKitPoints.set(key, { garmentColor: group.garmentColor, size })
-      values.set(key, historyQuantity(group.completeKitBySize[size]))
-    }))
-    return values
-  }
-  const materialQuantities = (version: CutPieceReleaseMatrixVersion | undefined) => {
-    const values = new Map<string, number>()
-    version?.matrixSnapshot.colorGroups.forEach((group) => group.materialRows.forEach((row) => row.cells.forEach((cell) => {
-      const key = `${group.garmentColor}::${cell.size}::${row.materialId}`
-      materialPoints.set(key, {
-        garmentColor: group.garmentColor,
-        size: cell.size,
-        materialId: row.materialId,
-        materialName: row.materialName,
-      })
-      values.set(key, historyQuantity(cell.availableGarmentQty))
-    })))
-    return values
-  }
-  const currentCompleteKit = completeKitQuantities(current)
-  const previousCompleteKit = completeKitQuantities(previous)
-  const currentMaterials = materialQuantities(current)
-  const previousMaterials = materialQuantities(previous)
-  const completeKitChanges = [...completeKitPoints].flatMap(([key, point]) => {
-    const before = previousCompleteKit.get(key) ?? 0
-    const after = currentCompleteKit.get(key) ?? 0
-    return before === after ? [] : [{ ...point, before, after, delta: after - before }]
-  })
-  const materialChanges = [...materialPoints].flatMap(([key, point]) => {
-    const before = previousMaterials.get(key) ?? 0
-    const after = currentMaterials.get(key) ?? 0
-    return before === after ? [] : [{ ...point, before, after, delta: after - before }]
-  })
-  return {
-    affectedColors: [...new Set([...completeKitChanges, ...materialChanges].map((item) => item.garmentColor))],
-    completeKitChanges,
-    materialChanges,
-  }
-}
-
 function formatHistoryDelta(delta: number): string {
   return `${delta >= 0 ? '+' : '-'}${formatQuantity(Math.abs(delta))} 件`
+}
+
+function formatHistoryQuantityValue(value: CutPieceReleaseHistoryQuantityValue, after: boolean): string {
+  if (!value.exists) return after ? '已移除' : '0 件'
+  return value.quantity === null ? '待计算' : `${formatQuantity(value.quantity)} 件`
+}
+
+function formatHistoryChange(
+  before: CutPieceReleaseHistoryQuantityValue,
+  after: CutPieceReleaseHistoryQuantityValue,
+  delta: number | null,
+): string {
+  const suffix = delta === null ? '状态变化' : formatHistoryDelta(delta)
+  return `${formatHistoryQuantityValue(before, false)} → ${formatHistoryQuantityValue(after, true)}（${suffix}）`
 }
 
 function renderHistoryExpandedDetails(
   record: CutPieceReleaseRecord,
   version: CutPieceReleaseMatrixVersion,
-  difference: HistoryVersionDifference,
+  difference: CutPieceReleaseHistoryDifference,
 ): string {
-  const targetLines = version.eventType === '目标确认'
-    ? record.skuLines.filter((line) => line.releaseQty > 0)
-    : []
-  const targetPreview = targetLines.length
-    ? buildTargetPreview(version.matrixSnapshot, Object.fromEntries(targetLines.map((line) => [
-        releaseTargetKey(line.colorName, line.sizeCode),
-        line.releaseQty,
-      ])))
+  const targetSnapshot = version.eventType === '目标确认'
+    ? listCutPieceReleaseTargetSnapshots(record.productionOrderId).find((snapshot) => (
+        snapshot.matrixVersion === version.version - 1
+      )) ?? null
     : null
-  const targetCounts = targetPreview ? {
-    shortage: targetPreview.differences.filter((item) => item.status === '需补').length,
-    exact: targetPreview.differences.filter((item) => item.status === '刚好').length,
-    surplus: targetPreview.differences.filter((item) => item.status === '多余').length,
+  const targetLines = targetSnapshot ? targetSnapshot.matrixSnapshot.colorGroups.flatMap((group) => group.sizes.map((size) => ({
+    garmentColor: group.garmentColor,
+    size,
+    quantity: targetSnapshot.targetPreview.colorSizeTargets[releaseTargetKey(group.garmentColor, size)],
+  }))) : []
+  const targetCounts = targetSnapshot ? {
+    shortage: targetSnapshot.targetPreview.differences.filter((item) => item.status === '需补').length,
+    exact: targetSnapshot.targetPreview.differences.filter((item) => item.status === '刚好').length,
+    surplus: targetSnapshot.targetPreview.differences.filter((item) => item.status === '多余').length,
   } : null
   return `
-    <div class="mt-3 space-y-3 border-t pt-3" data-cut-piece-release-history-details>
+    <div class="mt-3 space-y-3 border-t pt-3" id="cut-piece-release-history-details-${version.version}" data-cut-piece-release-history-details>
       ${difference.completeKitChanges.length ? `
         <section>
           <h4 class="text-sm font-semibold">颜色尺码齐套变化</h4>
           <div class="mt-2 grid gap-2 sm:grid-cols-2">
-            ${difference.completeKitChanges.map((change) => `<div class="rounded-md bg-slate-50 px-3 py-2 text-sm">${escapeHtml(change.garmentColor)} / ${escapeHtml(change.size)}：${formatQuantity(change.before)} 件 → ${formatQuantity(change.after)} 件（${formatHistoryDelta(change.delta)}）</div>`).join('')}
+            ${difference.completeKitChanges.map((change) => `<div class="rounded-md bg-slate-50 px-3 py-2 text-sm">${escapeHtml(change.garmentColor)} / ${escapeHtml(change.size)}：${formatHistoryChange(change.before, change.after, change.delta)}</div>`).join('')}
           </div>
         </section>
       ` : '<p class="text-sm text-muted-foreground">本事件没有改变齐套数量。</p>'}
@@ -924,7 +870,7 @@ function renderHistoryExpandedDetails(
         <section>
           <h4 class="text-sm font-semibold">变化物料点</h4>
           <div class="mt-2 grid gap-2 sm:grid-cols-2">
-            ${difference.materialChanges.map((change) => `<div class="rounded-md border px-3 py-2 text-sm">${escapeHtml(change.garmentColor)} / ${escapeHtml(change.size)} / 物料 ${escapeHtml(change.materialId)}：${formatQuantity(change.before)} 件 → ${formatQuantity(change.after)} 件（${formatHistoryDelta(change.delta)}）</div>`).join('')}
+            ${difference.materialChanges.map((change) => `<div class="rounded-md border px-3 py-2 text-sm">${escapeHtml(change.garmentColor)} / ${escapeHtml(change.size)} / 物料 ${escapeHtml(change.materialId)}：${formatHistoryChange(change.before, change.after, change.delta)}</div>`).join('')}
           </div>
         </section>
       ` : ''}
@@ -932,7 +878,7 @@ function renderHistoryExpandedDetails(
       ${targetCounts ? `
         <section class="rounded-md border border-blue-200 bg-blue-50 p-3">
           <h4 class="text-sm font-semibold">已确认目标（${targetLines.length} 个颜色尺码）</h4>
-          <div class="mt-2 grid gap-2 sm:grid-cols-3">${targetLines.map((line) => `<div class="rounded bg-white px-2.5 py-2 text-sm">${escapeHtml(line.colorName)} / ${escapeHtml(line.sizeCode)}：${formatQuantity(line.releaseQty)} 件</div>`).join('')}</div>
+          <div class="mt-2 grid gap-2 sm:grid-cols-3">${targetLines.map((line) => `<div class="rounded bg-white px-2.5 py-2 text-sm">${escapeHtml(line.garmentColor)} / ${escapeHtml(line.size)}：${formatQuantity(line.quantity)} 件</div>`).join('')}</div>
           <div class="mt-3 flex flex-wrap gap-3 text-sm"><span class="font-medium text-rose-700">需补 ${targetCounts.shortage} 个物料点</span><span class="font-medium text-amber-700">刚好 ${targetCounts.exact} 个物料点</span><span class="font-medium text-emerald-700">多余 ${targetCounts.surplus} 个物料点</span></div>
         </section>
       ` : ''}
@@ -940,8 +886,7 @@ function renderHistoryExpandedDetails(
   `
 }
 
-function renderHistoryDrawer(record: CutPieceReleaseRecord): string {
-  if (!state.historyOpen) return ''
+function renderHistoryContent(record: CutPieceReleaseRecord): string {
   const chronologicalVersions = listCutPieceReleaseMatrixVersions(record.productionOrderId)
   const versions = chronologicalVersions.slice().reverse()
   const pageSize = 5
@@ -950,14 +895,7 @@ function renderHistoryDrawer(record: CutPieceReleaseRecord): string {
   const rows = versions.slice((state.historyPage - 1) * pageSize, state.historyPage * pageSize)
   const lateEvents = listLateCutPieceReleaseEvents(record.productionOrderId)
   return `
-    <div class="fixed inset-0 z-50" data-testid="cut-piece-release-history-drawer">
-      <button type="button" class="absolute inset-0 w-full bg-black/45" aria-label="点击空白处返回" data-skip-page-rerender="true" data-cut-piece-release-action="close-history"></button>
-      <aside class="absolute inset-y-0 right-0 w-full max-w-[720px] overflow-y-auto border-l bg-background shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="cut-piece-release-history-drawer-title">
-        <header class="sticky top-0 flex items-center justify-between border-b bg-background px-5 py-4">
-          <div><h2 class="text-lg font-semibold" id="cut-piece-release-history-drawer-title">矩阵更新历史</h2><p class="text-sm text-muted-foreground">${escapeHtml(record.productionOrderNo)} · 所有事件均保留版本快照</p></div>
-          <button type="button" class="rounded-md border px-3 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="close-history" data-cut-piece-release-overlay-initial-focus>关闭更新历史</button>
-        </header>
-        <div class="space-y-3 p-5">
+    <div class="space-y-3 p-5">
           ${lateEvents.length ? `
             <section class="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-4" data-testid="cut-piece-release-late-events-list">
               <h3 class="font-semibold text-amber-900">关闭后待处理铺布数据</h3>
@@ -973,12 +911,12 @@ function renderHistoryDrawer(record: CutPieceReleaseRecord): string {
           ` : ''}
           ${rows.map((version) => {
             const previous = chronologicalVersions.find((item) => item.version === version.version - 1)
-            const difference = calculateHistoryVersionDifference(version, previous)
+            const difference = calculateCutPieceReleaseHistoryDifference(version, previous)
             const expanded = state.expandedHistoryVersion === version.version
             const cutOrderNos = version.sourceCutOrderNos.length
               ? version.sourceCutOrderNos
               : version.cutOrderNo ? [version.cutOrderNo] : []
-            const completeKitSummary = difference.completeKitChanges.map((change) => `${change.size} ${formatQuantity(change.before)} 件 → ${formatQuantity(change.after)} 件`).join('；')
+            const completeKitSummary = difference.completeKitChanges.map((change) => `${change.size} ${formatHistoryQuantityValue(change.before, false)} → ${formatHistoryQuantityValue(change.after, true)}`).join('；')
             return `
               <article class="rounded-lg border p-4" data-cut-piece-release-history-version="${version.version}">
                 <div class="flex flex-wrap items-center justify-between gap-3"><strong>V${version.version} · ${escapeHtml(version.eventType)}</strong><span class="text-xs text-muted-foreground">${escapeHtml(formatDateTime(version.occurredAt))}</span></div>
@@ -993,7 +931,7 @@ function renderHistoryDrawer(record: CutPieceReleaseRecord): string {
                   <div class="mt-1">变化物料点：${difference.materialChanges.length} 个</div>
                 </div>
                 <div class="mt-3 flex justify-end">
-                  <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" aria-expanded="${expanded}" data-skip-page-rerender="true" data-cut-piece-release-action="toggle-history-version" data-history-version="${version.version}">${expanded ? '收起详情' : '展开详情'}</button>
+                  <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" aria-expanded="${expanded}" aria-controls="cut-piece-release-history-details-${version.version}" data-skip-page-rerender="true" data-cut-piece-release-action="toggle-history-version" data-history-version="${version.version}">${expanded ? '收起详情' : '展开详情'}</button>
                 </div>
                 ${expanded ? renderHistoryExpandedDetails(record, version, difference) : ''}
               </article>
@@ -1006,7 +944,21 @@ function renderHistoryDrawer(record: CutPieceReleaseRecord): string {
               <button type="button" class="rounded border px-3 py-1.5 disabled:opacity-40" ${state.historyPage >= totalPages ? 'disabled' : ''} data-skip-page-rerender="true" data-cut-piece-release-action="history-next">下一页</button>
             </div>
           </footer>
-        </div>
+    </div>
+  `
+}
+
+function renderHistoryDrawer(record: CutPieceReleaseRecord): string {
+  if (!state.historyOpen) return ''
+  return `
+    <div class="fixed inset-0 z-50" data-testid="cut-piece-release-history-drawer">
+      <button type="button" class="absolute inset-0 w-full bg-black/45" aria-label="点击空白处返回" data-skip-page-rerender="true" data-cut-piece-release-action="close-history"></button>
+      <aside class="absolute inset-y-0 right-0 w-full max-w-[720px] overflow-y-auto border-l bg-background shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="cut-piece-release-history-drawer-title">
+        <header class="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-5 py-4">
+          <div><h2 class="text-lg font-semibold" id="cut-piece-release-history-drawer-title">矩阵更新历史</h2><p class="text-sm text-muted-foreground">${escapeHtml(record.productionOrderNo)} · 所有事件均保留版本快照</p></div>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm" data-skip-page-rerender="true" data-cut-piece-release-action="close-history" data-cut-piece-release-overlay-initial-focus>关闭更新历史</button>
+        </header>
+        <div tabindex="-1" data-cut-piece-release-history-content>${renderHistoryContent(record)}</div>
       </aside>
     </div>
   `
@@ -1064,6 +1016,25 @@ function refreshTable(): void {
 
 function refreshOverlay(): void {
   setReleaseRegion('overlay', renderListOverlay())
+}
+
+function refreshHistoryContent(focusAction: string, historyVersion?: number): void {
+  if (typeof document === 'undefined') return
+  const record = getActiveRecord()
+  const content = document.querySelector<HTMLElement>('[data-cut-piece-release-history-content]')
+  const aside = content?.closest<HTMLElement>('aside')
+  if (!record || !content || !aside) return
+  const scrollTop = aside.scrollTop
+  content.innerHTML = renderHistoryContent(record)
+  hydrateIcons(content)
+  aside.scrollTop = scrollTop
+  queueMicrotask(() => {
+    const versionSelector = historyVersion === undefined ? '' : `[data-history-version="${historyVersion}"]`
+    const preferred = content.querySelector<HTMLElement>(`[data-cut-piece-release-action="${focusAction}"]${versionSelector}`)
+    const focusTarget = preferred && !preferred.hasAttribute('disabled') ? preferred : content
+    focusTarget.focus({ preventScroll: true })
+    aside.scrollTop = scrollTop
+  })
 }
 
 function focusOverlayInitialControl(): void {
@@ -1395,14 +1366,14 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
   if (action === 'history-prev' || action === 'history-next') {
     state.historyPage += action === 'history-prev' ? -1 : 1
     state.expandedHistoryVersion = null
-    refreshOverlay()
+    refreshHistoryContent(action)
     return true
   }
   if (action === 'toggle-history-version') {
     const version = Number(actionNode.dataset.historyVersion)
     if (!Number.isInteger(version)) return true
     state.expandedHistoryVersion = state.expandedHistoryVersion === version ? null : version
-    refreshOverlay()
+    refreshHistoryContent(action, version)
     return true
   }
   if (action === 'open-column-settings') {
