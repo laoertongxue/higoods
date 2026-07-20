@@ -195,10 +195,29 @@ function initializeMatrixDetailFromQuery(): void {
   if (!record) return
   state.activeRecordId = record.recordId
   state.activeColor = record.matrix.colorGroups[0]?.garmentColor ?? null
-  state.targetMode = '查看'
   const latestVersion = listCutPieceReleaseMatrixVersions(record.productionOrderId).at(-1)?.version ?? null
+  const savedSnapshot = listCutPieceReleaseTargetSnapshots(record.productionOrderId).at(-1) ?? null
   state.currentMatrixVersion = latestVersion
-  state.targetBasisVersion = latestVersion
+  if (savedSnapshot) {
+    const colorSizeTargets = { ...savedSnapshot.targetPreview.colorSizeTargets }
+    state.targetMode = '确认'
+    state.targetDraft = colorSizeTargets
+    state.targetBasisVersion = savedSnapshot.matrixVersion
+    state.savedTargetSnapshot = {
+      snapshotId: savedSnapshot.snapshotId,
+      matrixVersion: savedSnapshot.matrixVersion,
+      colorSizeTargets: { ...colorSizeTargets },
+      hasShortage: buildSupplementPartShortages(
+        savedSnapshot.matrixSnapshot,
+        savedSnapshot.targetPreview,
+      ).length > 0,
+    }
+  } else {
+    state.targetMode = '查看'
+    state.targetDraft = {}
+    state.targetBasisVersion = latestVersion
+    state.savedTargetSnapshot = null
+  }
   state.feedback = null
 }
 
@@ -733,6 +752,11 @@ function canUseSavedTargetSnapshot(record: CutPieceReleaseRecord): boolean {
 function renderTargetSummary(record: CutPieceReleaseRecord): string {
   if (state.targetMode !== '确认') return ''
   const differences = getTargetDifferences(record)
+  const savedTargetUnchanged = Boolean(
+    state.savedTargetSnapshot
+    && state.targetBasisVersion === state.savedTargetSnapshot.matrixVersion
+    && areTargetSelectionsEqual(state.targetDraft, state.savedTargetSnapshot.colorSizeTargets),
+  )
   const counts = {
     shortage: differences.filter((item) => item.status === '需补').length,
     exact: differences.filter((item) => item.status === '刚好').length,
@@ -740,7 +764,7 @@ function renderTargetSummary(record: CutPieceReleaseRecord): string {
   }
   return `
     <section class="rounded-lg border border-blue-200 bg-blue-50 p-4" data-testid="cut-piece-release-target-summary">
-      <h3 class="font-semibold">确认目标</h3>
+      <h3 class="font-semibold">${savedTargetUnchanged ? '已确认目标' : '确认目标'}</h3>
       <div class="mt-2 grid gap-2 text-sm sm:grid-cols-3">
         ${record.matrix.colorGroups.flatMap((group) => group.sizes.map((size) => `<div class="rounded bg-white px-3 py-2">${escapeHtml(group.garmentColor)} / ${escapeHtml(size)}：<strong>${formatQuantity(state.targetDraft[releaseTargetKey(group.garmentColor, size)] ?? 0)} 件</strong></div>`)).join('')}
       </div>
@@ -755,7 +779,9 @@ function renderTargetSummary(record: CutPieceReleaseRecord): string {
         ${canUseSavedTargetSnapshot(record)
           ? '<button type="button" class="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700" data-skip-page-rerender="true" data-cut-piece-release-action="go-supplement">去补料管理</button>'
           : ''}
-        <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-skip-page-rerender="true" data-cut-piece-release-action="save-target">保存目标</button>
+        ${savedTargetUnchanged
+          ? '<span class="inline-flex items-center rounded-md bg-emerald-100 px-4 py-2 text-sm font-medium text-emerald-800" aria-disabled="true">目标已保存</span>'
+          : '<button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-skip-page-rerender="true" data-cut-piece-release-action="save-target">保存目标</button>'}
       </div>
     </section>
   `

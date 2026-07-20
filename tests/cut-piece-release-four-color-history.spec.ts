@@ -11,6 +11,23 @@ test('四颜色矩阵的十版历史可追溯且卡片交互只刷新抽屉', as
   for (const color of ['Black', 'White', 'Navy', 'Red']) {
     await expect(matrixPanel.getByRole('heading', { name: color, exact: true })).toBeVisible()
   }
+  const savedTargetSummary = page.getByTestId('cut-piece-release-target-summary')
+  await expect(savedTargetSummary).toBeVisible()
+  for (const target of [
+    'Black / M：208 件', 'Black / L：350 件', 'Black / XL：520 件',
+    'White / M：185 件', 'White / L：280 件', 'White / XL：340 件',
+    'Navy / M：170 件', 'Navy / L：260 件', 'Navy / XL：340 件',
+    'Red / M：165 件', 'Red / L：250 件', 'Red / XL：320 件',
+  ]) {
+    await expect(savedTargetSummary).toContainText(target)
+  }
+  await expect(savedTargetSummary).toContainText('需补 19 个物料点')
+  await expect(savedTargetSummary).toContainText('刚好 13 个物料点')
+  await expect(savedTargetSummary).toContainText('多余 16 个物料点')
+  await expect(savedTargetSummary).toContainText('目标依据版本 V9')
+  await expect(savedTargetSummary).toContainText('目标已保存')
+  await expect(page.getByRole('button', { name: '选择目标' })).toHaveCount(0)
+  await expect(savedTargetSummary.getByRole('button', { name: '保存目标' })).toHaveCount(0)
 
   await page.evaluate(() => {
     const detail = document.querySelector<HTMLElement>('[data-cut-piece-release-detail-page]')
