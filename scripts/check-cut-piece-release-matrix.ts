@@ -15,6 +15,7 @@ import {
   confirmCutPieceReleaseTarget,
   calculateCutPieceReleaseHistoryDifference,
   getCutOrderReleaseImpactSummary,
+  getCurrentCutPieceReleaseTargetSnapshot,
   getCutPieceReleaseMatrix,
   getCutPieceReleaseRecord,
   getCutPieceReleaseTargetSnapshot,
@@ -617,6 +618,19 @@ assertAllNumbersFinite(blackTargetPreview)
 assertAllNumbersFinite(blackPartShortages)
 
 resetCutPieceReleasePrototypeStoreForTesting()
+const currentBootstrapSnapshot = getCurrentCutPieceReleaseTargetSnapshot('cpr-target-po-14671-v9')
+assert.ok(currentBootstrapSnapshot, '初始已确认目标快照必须可作为当前补料依据读取')
+currentBootstrapSnapshot.matrixSnapshot.colorGroups[0].materialRows[0].cells[0].partCalculations[0].actualPieceQty = 999
+assert.equal(
+  getCurrentCutPieceReleaseTargetSnapshot('cpr-target-po-14671-v9')?.matrixSnapshot.colorGroups[0].materialRows[0].cells[0].partCalculations[0].actualPieceQty,
+  220,
+  '当前有效目标快照查询必须返回深拷贝',
+)
+recordCutOrderReleaseStatusChange({ eventId: 'stale-target-restore-b', cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '持续更新', occurredAt: '2026-06-04 07:00:00', operator: '裁床主管 王敏', reason: '目标确认后恢复裁片单' })
+assert.equal(getCurrentCutPieceReleaseTargetSnapshot('cpr-target-po-14671-v9'), null, '目标确认后产生业务版本时旧快照不得再作为补料依据')
+assert.ok(getCutPieceReleaseTargetSnapshot('cpr-target-po-14671-v9'), '目标过期后历史快照仍必须保留用于审计')
+resetCutPieceReleasePrototypeStoreForTesting()
+assert.ok(getCurrentCutPieceReleaseTargetSnapshot('cpr-target-po-14671-v9'), '重置原型仓储后初始已确认快照必须恢复为当前有效依据')
 const repositoryRecord = listCutPieceReleaseRecords().find((item) => item.productionOrderNo === 'PO14671')
 assert.ok(repositoryRecord, 'PO14671 必须由矩阵仓储提供放行记录')
 if (!repositoryRecord) throw new Error('PO14671 裁片放行记录缺失')

@@ -770,6 +770,17 @@ export function getCutPieceReleaseTargetSnapshot(snapshotId: string): CutPieceRe
   return snapshot ? clone(snapshot) : null
 }
 
+export function getCurrentCutPieceReleaseTargetSnapshot(snapshotId: string): CutPieceReleaseTargetSnapshot | null {
+  const snapshot = targetSnapshots.get(snapshotId)
+  if (!snapshot) return null
+  const item = releaseRepository.get(snapshot.productionOrderId)
+  if (!item || item.latestSnapshotId !== snapshotId || item.targetStatus !== '已确认') return null
+  const hasLaterBusinessVersion = item.versions.some((version) => (
+    version.version > snapshot.matrixVersion && version.eventType !== '目标确认'
+  ))
+  return hasLaterBusinessVersion ? null : clone(snapshot)
+}
+
 export function listCutPieceReleaseTargetSnapshots(productionOrderId: string): CutPieceReleaseTargetSnapshot[] {
   return [...targetSnapshots.values()]
     .filter((snapshot) => snapshot.productionOrderId === productionOrderId)

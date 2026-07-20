@@ -17,7 +17,7 @@ import type { TechnicalColorMaterialMappingLine } from '../../../data/pcs-techni
 import { buildProductionPieceTruth } from '../../../domain/fcs-cutting-piece-truth/index.ts'
 import { appStore } from '../../../state/store.ts'
 import {
-  getCutPieceReleaseTargetSnapshot,
+  getCurrentCutPieceReleaseTargetSnapshot,
   listCutPieceReleaseRecords,
   type CutPieceReleaseTargetSnapshot,
 } from '../../../data/fcs/cut-piece-release.ts'
@@ -1015,10 +1015,10 @@ function prepareReleaseSnapshotCreateState(): void {
     return
   }
   if (state.releaseSnapshotDraft?.releaseSnapshotId === snapshotId) return
-  const snapshot = getCutPieceReleaseTargetSnapshot(snapshotId)
+  const snapshot = getCurrentCutPieceReleaseTargetSnapshot(snapshotId)
   if (!snapshot) {
     state.releaseSnapshotDraft = null
-    state.releaseSnapshotError = '未找到裁片放行目标快照，可能已失效。'
+    state.releaseSnapshotError = '目标依据已过期，请回裁片放行重新确认。'
     return
   }
   state.releaseSnapshotDraft = buildReleaseSnapshotDraft(snapshot)
