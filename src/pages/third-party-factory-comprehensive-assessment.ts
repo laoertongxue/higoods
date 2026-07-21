@@ -307,10 +307,10 @@ export function validateThirdPartyFactoryComprehensiveAssessmentInput(
   if (!input.categoryAbilities.some((category) => WOMENSWEAR_CATEGORY_OPTIONS.includes(category as WomenswearCategory))) {
     errors.categoryAbilities = '至少选择 1 个品类能力'
   }
-  if (!/^\d+$/.test(input.machineCount)) errors.machineCount = '机器台数须为非负整数'
-  if (!/^\d+$/.test(input.workerCount)) errors.workerCount = '工人人数须为非负整数'
-  if (!/^\d+(?:\.\d{1,2})?$/.test(input.monthlyOutputValueTenThousandIdr)) {
-    errors.monthlyOutputValueTenThousandIdr = '月产值须为非负数，最多保留 2 位小数'
+  if (!/^[1-9]\d*$/.test(input.machineCount)) errors.machineCount = '机器台数必须为正整数'
+  if (!/^[1-9]\d*$/.test(input.workerCount)) errors.workerCount = '工人人数必须为正整数'
+  if (!/^\d+(?:\.\d{1,2})?$/.test(input.monthlyOutputValueTenThousandIdr) || Number(input.monthlyOutputValueTenThousandIdr) <= 0) {
+    errors.monthlyOutputValueTenThousandIdr = '月产值必须大于 0，最多保留 2 位小数'
   }
   if (!['S', 'A', 'B', 'C'].includes(input.grade)) errors.grade = '请选择综合评级'
   return errors
@@ -338,7 +338,7 @@ function renderNumberEditorField(
     prefix: EVENT_PREFIX,
     field,
     className: 'border-sky-200 bg-sky-50/40 pr-28',
-  }).replace('<input type="number"', `<input type="number" min="0" step="${step}"`)
+  }).replace('<input type="number"', `<input type="number" min="${step === '1' ? '1' : '0.01'}" step="${step}"`)
   return renderFormField({ label, required: true, hint: `人工填写 · ${suffix}` }, `
     <div class="relative">${input}<span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-sky-700">${escapeHtml(suffix)}</span></div>
   `)
@@ -386,13 +386,13 @@ function renderAssessmentEditor(factoryId: string, errors: AssessmentEditorError
       <section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">品控</h3><p class="mt-1 text-xs text-emerald-700">系统计算，只读；沿用质检业务数据口径。</p><div class="mt-3 grid grid-cols-3 gap-3">${renderReadonlyRate('不良品率', row.quality.defectiveRate, '质检业务数据')}${renderReadonlyRate('瑕疵率', row.quality.defectRate, '质检业务数据')}${renderReadonlyRate('返工率', row.quality.reworkRate, '质检业务数据')}</div></section>
       <section class="rounded-lg border border-sky-200 bg-sky-50/30 p-4">${renderFormField({ label: '独立综合评级', required: true, hint: '人工填写 · 与三方工厂初评评级独立维护' }, gradeSelect)}</section>
     </div>`
-  return renderFormDrawer({
+  return `<form data-third-party-comprehensive-assessment-editor-form>${renderFormDrawer({
     title: '编辑综合评定',
     subtitle: `${row.factoryName}（${row.factoryCode}）`,
     closeAction: { prefix: EVENT_PREFIX, action: 'close-editor' },
     submitAction: { prefix: EVENT_PREFIX, action: 'save-editor', label: '保存评定' },
     width: 'lg',
-  }, content)
+  }, content)}</form>`
 }
 
 const columns: readonly StandardListColumn<ThirdPartyFactoryComprehensiveAssessment>[] = [
@@ -528,9 +528,9 @@ function refreshAssessmentOverlaysLocally(query: ComprehensiveAssessmentQuery, e
   return true
 }
 
-function readEditorInput(): AssessmentEditorInput | null {
+function readEditorInput(root: ParentNode = document): AssessmentEditorInput | null {
   if (typeof document === 'undefined') return null
-  const editor = document.querySelector<HTMLElement>('[data-third-party-comprehensive-assessment-editor]')
+  const editor = root.querySelector<HTMLElement>('[data-third-party-comprehensive-assessment-editor]')
   if (!editor) return null
   const read = (field: string) => editor.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="${field}"]`)?.value ?? ''
   return {
@@ -580,6 +580,44 @@ function showAssessmentSavedToast(factoryName: string): void {
   const container = document.querySelector<HTMLElement>('[data-toast-container]')
   if (!container) return
   container.innerHTML = renderSuccessToast('评定已保存', `${factoryName} 的人工评定已更新`)
+}
+
+function saveAssessmentEditor(form: HTMLFormElement): void {
+  if (!editorState) return
+  const input = readEditorInput(form)
+  if (!input) return
+  const errors = validateThirdPartyFactoryComprehensiveAssessmentInput(input)
+  const errorSurface = form.querySelector<HTMLElement>('[data-assessment-form-errors]')
+  if (Object.keys(errors).length > 0) {
+    if (errorSurface) errorSurface.innerHTML = renderEditorErrors(errors).replace(/^<div data-assessment-form-errors>|<\/div>$/g, '')
+    return
+  }
+  const factoryId = editorState.factoryId
+  try {
+    const saved = updateThirdPartyFactoryManualAssessment(factoryId, {
+      categoryAbilities: input.categoryAbilities as WomenswearCategory[],
+      machineCount: Number(input.machineCount),
+      workerCount: Number(input.workerCount),
+      monthlyOutputValueTenThousandIdr: Number(input.monthlyOutputValueTenThousandIdr),
+      grade: input.grade as ComprehensiveAssessmentGrade,
+      updatedBy: '当前登录用户',
+      updatedAt: new Date().toISOString(),
+    })
+    editorState = null
+    const query = readQuery()
+    refreshAssessmentOverlaysLocally(query)
+    refreshSavedAssessmentLocally(query, factoryId)
+    showAssessmentSavedToast(saved.factoryName)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '保存失败，请稍后重试'
+    if (errorSurface) errorSurface.innerHTML = renderEditorErrors({ grade: message }).replace(/^<div data-assessment-form-errors>|<\/div>$/g, '')
+  }
+}
+
+export function handleThirdPartyFactoryComprehensiveAssessmentSubmit(form: HTMLFormElement): boolean {
+  if (!form.matches('[data-third-party-comprehensive-assessment-editor-form]')) return false
+  saveAssessmentEditor(form)
+  return true
 }
 
 function refreshColumnSettingsLocally(query: ComprehensiveAssessmentQuery): boolean {
@@ -730,34 +768,8 @@ export function handleThirdPartyFactoryComprehensiveAssessmentEvent(target: HTML
   }
   if (action === 'save-editor') {
     event?.preventDefault()
-    if (!editorState) return true
-    const input = readEditorInput()
-    if (!input) return true
-    const errors = validateThirdPartyFactoryComprehensiveAssessmentInput(input)
-    const errorSurface = typeof document === 'undefined' ? null : document.querySelector<HTMLElement>('[data-assessment-form-errors]')
-    if (Object.keys(errors).length > 0) {
-      if (errorSurface) errorSurface.innerHTML = renderEditorErrors(errors).replace(/^<div data-assessment-form-errors>|<\/div>$/g, '')
-      return true
-    }
-    const factoryId = editorState.factoryId
-    try {
-      const saved = updateThirdPartyFactoryManualAssessment(factoryId, {
-        categoryAbilities: input.categoryAbilities as WomenswearCategory[],
-        machineCount: Number(input.machineCount),
-        workerCount: Number(input.workerCount),
-        monthlyOutputValueTenThousandIdr: Number(input.monthlyOutputValueTenThousandIdr),
-        grade: input.grade as ComprehensiveAssessmentGrade,
-        updatedBy: '当前登录用户',
-        updatedAt: new Date().toISOString(),
-      })
-      editorState = null
-      refreshAssessmentOverlaysLocally(query)
-      refreshSavedAssessmentLocally(query, factoryId)
-      showAssessmentSavedToast(saved.factoryName)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '保存失败，请稍后重试'
-      if (errorSurface) errorSurface.innerHTML = renderEditorErrors({ grade: message }).replace(/^<div data-assessment-form-errors>|<\/div>$/g, '')
-    }
+    const form = actionNode.closest<HTMLFormElement>('[data-third-party-comprehensive-assessment-editor-form]')
+    if (form) handleThirdPartyFactoryComprehensiveAssessmentSubmit(form)
     return true
   }
   if (action === 'sort-column') {

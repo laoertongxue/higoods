@@ -230,14 +230,14 @@ function normalizeCategoryAbilities(value: unknown): WomenswearCategory[] | unde
   return value.length === 0 || normalized.length > 0 ? normalized : undefined
 }
 
-function normalizeNonNegativeIntegerOrNull(value: unknown): number | null | undefined {
+function normalizePositiveIntegerOrNull(value: unknown): number | null | undefined {
   if (value === null) return null
-  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined
 }
 
-function normalizeNonNegativeNumberOrNull(value: unknown): number | null | undefined {
+function normalizePositiveNumberOrNull(value: unknown): number | null | undefined {
   if (value === null) return null
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined
 }
 
 function normalizeGrade(value: unknown): ComprehensiveAssessmentGrade | null | undefined {
@@ -289,9 +289,9 @@ function normalizeStoredManualAssessments(value: unknown): ManualAssessmentSnaps
     if (!snapshot) continue
     const next = cloneManual(snapshot)
     const categoryAbilities = normalizeCategoryAbilities(raw.categoryAbilities)
-    const machineCount = normalizeNonNegativeIntegerOrNull(raw.machineCount)
-    const workerCount = normalizeNonNegativeIntegerOrNull(raw.workerCount)
-    const monthlyOutputValueTenThousandIdr = normalizeNonNegativeNumberOrNull(raw.monthlyOutputValueTenThousandIdr)
+    const machineCount = normalizePositiveIntegerOrNull(raw.machineCount)
+    const workerCount = normalizePositiveIntegerOrNull(raw.workerCount)
+    const monthlyOutputValueTenThousandIdr = normalizePositiveNumberOrNull(raw.monthlyOutputValueTenThousandIdr)
     const grade = normalizeGrade(raw.grade)
     const updatedBy = normalizeStringOrNull(raw.updatedBy)
     const updatedAt = normalizeStringOrNull(raw.updatedAt)
@@ -380,9 +380,27 @@ export function getThirdPartyFactoryComprehensiveAssessment(factoryId: string): 
 
 export type ManualAssessmentUpdate = Partial<Omit<ManualAssessmentSnapshot, 'factoryId'>>
 
+function validateManualAssessmentUpdate(update: ManualAssessmentUpdate): void {
+  if (update.categoryAbilities !== undefined && (
+    update.categoryAbilities.length === 0 ||
+    update.categoryAbilities.some((category) => !WOMENSWEAR_CATEGORY_OPTIONS.includes(category))
+  )) throw new Error('品类能力至少选择 1 项且必须来自业务字典')
+  for (const [label, value] of [['机器台数', update.machineCount], ['工人人数', update.workerCount]] as const) {
+    if (value !== undefined && value !== null && (!Number.isInteger(value) || value <= 0)) throw new Error(`${label}必须为大于 0 的正整数`)
+  }
+  const output = update.monthlyOutputValueTenThousandIdr
+  if (output !== undefined && output !== null && (
+    !Number.isFinite(output) || output <= 0 || Math.abs(output * 100 - Math.round(output * 100)) > 1e-8
+  )) throw new Error('月产值必须大于 0 且最多保留 2 位小数')
+  if (update.grade !== undefined && update.grade !== null && !['S', 'A', 'B', 'C'].includes(update.grade)) {
+    throw new Error('综合评级必须为 S、A、B、C 之一')
+  }
+}
+
 export function updateThirdPartyFactoryManualAssessment(factoryId: string, update: ManualAssessmentUpdate): ThirdPartyFactoryComprehensiveAssessment {
   const factory = listFactoryMasterRecords().find((item) => item.id === factoryId && isThirdPartySewingFactory(item))
   if (!factory) throw new Error('未找到三方车缝工厂主档')
+  validateManualAssessmentUpdate(update)
   const current = getManualAssessment(factoryId)
   const next: ManualAssessmentSnapshot = {
     factoryId,

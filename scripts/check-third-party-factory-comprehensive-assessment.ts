@@ -145,13 +145,13 @@ assert.ok(storage.getItem(THIRD_PARTY_COMPREHENSIVE_ASSESSMENT_STORAGE_KEY), '�
 const reloadedModule = await loadAssessmentModule()
 const reloadedTarget = reloadedModule.getThirdPartyFactoryComprehensiveAssessment(updateTarget.factoryId)!
 assert.equal(reloadedTarget.grade, 'A', '重新加载模块后必须从浏览器存储恢复合法人工快照')
-reloadedModule.updateThirdPartyFactoryManualAssessment(updateTarget.factoryId, {
-  machineCount: 0, workerCount: 0, monthlyOutputValueTenThousandIdr: 0,
-})
-const zeroReloadedTarget = (await loadAssessmentModule()).getThirdPartyFactoryComprehensiveAssessment(updateTarget.factoryId)!
-assert.equal(zeroReloadedTarget.machineCount, 0, '零机器台数必须能在模块重载后恢复')
-assert.equal(zeroReloadedTarget.workerCount, 0, '零工人人数必须能在模块重载后恢复')
-assert.equal(zeroReloadedTarget.monthlyOutputValueTenThousandIdr, 0, '零月产值必须能在模块重载后恢复')
+assert.throws(
+  () => reloadedModule.updateThirdPartyFactoryManualAssessment(updateTarget.factoryId, {
+    machineCount: 0, workerCount: 0, monthlyOutputValueTenThousandIdr: 0,
+  }),
+  /大于 0/,
+  '数据层必须拒绝零机器、零工人和零月产值',
+)
 
 const mutableResult = reloadedModule.listThirdPartyFactoryComprehensiveAssessments()
 const originalCategories = [...mutableResult[0].categoryAbilities]
@@ -250,6 +250,7 @@ const {
   filterThirdPartyFactoryComprehensiveAssessments,
   getThirdPartyFactoryComprehensiveAssessmentDefaultColumnPreferences,
   handleThirdPartyFactoryComprehensiveAssessmentEvent,
+  handleThirdPartyFactoryComprehensiveAssessmentSubmit,
   renderThirdPartyFactoryComprehensiveAssessmentPage,
   validateThirdPartyFactoryComprehensiveAssessmentInput,
 } = assessmentPageModule
@@ -260,20 +261,25 @@ assert.deepEqual(
   }),
   {
     categoryAbilities: '至少选择 1 个品类能力',
-    machineCount: '机器台数须为非负整数',
-    workerCount: '工人人数须为非负整数',
-    monthlyOutputValueTenThousandIdr: '月产值须为非负数，最多保留 2 位小数',
+    machineCount: '机器台数必须为正整数',
+    workerCount: '工人人数必须为正整数',
+    monthlyOutputValueTenThousandIdr: '月产值必须大于 0，最多保留 2 位小数',
     grade: '请选择综合评级',
   },
   '编辑表单必须同时阻断品类、产能和评级的非法输入',
 )
 assert.deepEqual(
   validateThirdPartyFactoryComprehensiveAssessmentInput({
-    categoryAbilities: ['衬衫'], machineCount: '0', workerCount: '0', monthlyOutputValueTenThousandIdr: '0.25', grade: 'S',
+    categoryAbilities: ['衬衫'], machineCount: '0', workerCount: '0', monthlyOutputValueTenThousandIdr: '0', grade: 'S',
   }),
-  {},
-  '非负整数、零值和两位小数月产值必须允许保存',
+  {
+    machineCount: '机器台数必须为正整数',
+    workerCount: '工人人数必须为正整数',
+    monthlyOutputValueTenThousandIdr: '月产值必须大于 0，最多保留 2 位小数',
+  },
+  '机器和工人人数为零时必须阻断保存',
 )
+assert.equal(typeof handleThirdPartyFactoryComprehensiveAssessmentSubmit, 'function', '页面必须导出编辑表单 submit 入口')
 
 const completeCategoryQuery = {
   keyword: '',
@@ -507,6 +513,9 @@ async function assertRealDomColumnSettingsInteractions(): Promise<void> {
       document.addEventListener('input', (event) => {
         if (event.target instanceof HTMLElement) assessment.handleThirdPartyFactoryComprehensiveAssessmentEvent(event.target, event)
       })
+      document.addEventListener('submit', (event) => {
+        if (event.target instanceof HTMLFormElement && assessment.handleThirdPartyFactoryComprehensiveAssessmentSubmit(event.target)) event.preventDefault()
+      })
       Object.assign(window, { __assessmentMount: mount })
     })
 
@@ -530,6 +539,23 @@ async function assertRealDomColumnSettingsInteractions(): Promise<void> {
       assert.ok(result.rootStable, '局部列设置操作不得替换页面根节点')
       assert.ok(result.sentinelStable, '局部列设置操作不得替换外部哨兵节点')
     })
+
+    await mount('')
+    await page.locator('[data-third-party-comprehensive-assessment-action="open-editor"][data-factory-id="ID-F023"]').click()
+    await page.locator('[data-third-party-comprehensive-assessment-field="categoryAbilities"]').first().check()
+    await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('0')
+    await page.locator('[data-third-party-comprehensive-assessment-field="workerCount"]').fill('0')
+    await page.locator('[data-third-party-comprehensive-assessment-field="monthlyOutputValueTenThousandIdr"]').fill('0')
+    await page.locator('[data-third-party-comprehensive-assessment-action="save-editor"]').click()
+    assert.ok((await page.locator('[data-assessment-form-errors]').innerText()).includes('机器台数必须为正整数'), '短回归必须验证零机器台数被拒绝')
+    await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('12')
+    await page.locator('[data-third-party-comprehensive-assessment-field="workerCount"]').fill('24')
+    await page.locator('[data-third-party-comprehensive-assessment-field="monthlyOutputValueTenThousandIdr"]').fill('25.50')
+    await page.locator('[data-third-party-comprehensive-assessment-field="grade"]').selectOption('A')
+    await page.locator('[data-third-party-comprehensive-assessment-editor-form]').evaluate((form) => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+    assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 0, '短回归必须验证合法 submit 完成局部保存')
+    assert.ok((await page.locator('[data-assessment-factory-id="ID-F023"]').locator('xpath=ancestor::tr').innerText()).includes('25.5 万印尼盾／月'), '合法 submit 后必须局部刷新工厂行')
+    console.log('综合评定编辑短 Chromium 回归通过：零值拦截、submit 局部保存')
 
     await mount('?columnSettings=1')
     const closeControls = page.locator('button[data-third-party-comprehensive-assessment-action="close-column-settings"]')
@@ -599,15 +625,16 @@ async function assertRealDomColumnSettingsInteractions(): Promise<void> {
     }
 
     await page.locator('[data-third-party-comprehensive-assessment-field="categoryAbilities"]').first().check()
-    await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('-1')
-    await page.locator('[data-third-party-comprehensive-assessment-field="workerCount"]').fill('1.5')
-    await page.locator('[data-third-party-comprehensive-assessment-field="monthlyOutputValueTenThousandIdr"]').fill('1.234')
-    await page.locator('[data-third-party-comprehensive-assessment-field="grade"]').selectOption('')
-    await page.locator('[data-third-party-comprehensive-assessment-action="save-editor"]').click()
-    assert.ok((await page.locator('[data-assessment-form-errors]').innerText()).includes('机器台数须为非负整数'), '非法输入必须在抽屉内给出明确改法')
-
     await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('0')
     await page.locator('[data-third-party-comprehensive-assessment-field="workerCount"]').fill('0')
+    await page.locator('[data-third-party-comprehensive-assessment-field="monthlyOutputValueTenThousandIdr"]').fill('0')
+    await page.locator('[data-third-party-comprehensive-assessment-field="grade"]').selectOption('')
+    await page.locator('[data-third-party-comprehensive-assessment-action="save-editor"]').click()
+    assert.ok((await page.locator('[data-assessment-form-errors]').innerText()).includes('机器台数必须为正整数'), '非法输入必须在抽屉内给出明确改法')
+    assert.ok((await page.locator('[data-assessment-form-errors]').innerText()).includes('月产值必须大于 0'), '零月产值必须在抽屉内被阻断')
+
+    await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('12')
+    await page.locator('[data-third-party-comprehensive-assessment-field="workerCount"]').fill('24')
     await page.locator('[data-third-party-comprehensive-assessment-field="monthlyOutputValueTenThousandIdr"]').fill('0.25')
     await page.locator('[data-third-party-comprehensive-assessment-field="grade"]').selectOption('A')
     const rootBeforeSave = await page.locator('[data-third-party-comprehensive-assessment-page]').evaluate((node) => {
@@ -615,13 +642,13 @@ async function assertRealDomColumnSettingsInteractions(): Promise<void> {
       return true
     })
     assert.ok(rootBeforeSave)
-    await page.locator('[data-third-party-comprehensive-assessment-action="save-editor"]').click()
+    await page.locator('[data-third-party-comprehensive-assessment-editor-form]').evaluate((form) => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
     assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 0, '保存成功后必须关闭编辑抽屉')
     assert.equal(await page.evaluate(() => document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __assessmentRootBeforeSave: Element }).__assessmentRootBeforeSave), true, '保存不得整页重绘')
     assert.equal(`${await page.evaluate(() => location.pathname)}${await page.evaluate(() => location.search)}`, editorBefore.path, '保存不得跳转路由')
     assert.ok((await page.locator('[data-toast-container]').innerText()).includes('评定已保存'), '保存成功必须给出反馈')
     const savedRowText = await page.locator('[data-assessment-factory-id="ID-F023"]').locator('xpath=ancestor::tr').innerText()
-    assert.ok(savedRowText.includes('0 台') && savedRowText.includes('0 人') && savedRowText.includes('0.25 万印尼盾／月') && savedRowText.includes('A 级'), '保存后必须局部刷新当前工厂行')
+    assert.ok(savedRowText.includes('12 台') && savedRowText.includes('24 人') && savedRowText.includes('0.25 万印尼盾／月') && savedRowText.includes('A 级'), '合法 submit 后必须局部刷新当前工厂行')
     assert.ok(savedRowText.includes('当前登录用户'), '保存后必须记录并展示最后更新人')
 
     await editButton.click()
