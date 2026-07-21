@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict'
-import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
+import {
+  listFactoryMasterRecords,
+  removeFactoryMasterRecord,
+  upsertFactoryMasterRecord,
+} from '../src/data/fcs/factory-master-store.ts'
 
 class MemoryStorage {
   private readonly values = new Map<string, string>()
@@ -163,5 +167,41 @@ assert.equal(
   beforeStorageFailure.grade,
   '存储写入失败后内存快照必须保持不变',
 )
+
+const temporaryFactoryId = 'ID-F099'
+const storageBeforeTemporaryFactory = storage.getItem(THIRD_PARTY_COMPREHENSIVE_ASSESSMENT_STORAGE_KEY)
+const temporaryMasterSource = masterFactories[0]
+try {
+  upsertFactoryMasterRecord({
+    ...temporaryMasterSource,
+    id: temporaryFactoryId,
+    code: 'ID-FAC-0099',
+    name: '综合评定重载回归工厂',
+    isTestFactory: true,
+    processAbilities: temporaryMasterSource.processAbilities.map((ability) => ({ ...ability, craftCodes: [...ability.craftCodes] })),
+  })
+  const temporaryFactoryModule = await loadAssessmentModule()
+  assert.ok(
+    temporaryFactoryModule.listThirdPartyFactoryComprehensiveAssessments().some((item) => item.factoryId === temporaryFactoryId),
+    '新增真实三方车缝主档即使不在固定 seed 也必须进入综合评定列表',
+  )
+  temporaryFactoryModule.updateThirdPartyFactoryManualAssessment(temporaryFactoryId, {
+    categoryAbilities: ['衬衫'], machineCount: 10, workerCount: 20, monthlyOutputValueTenThousandIdr: 30,
+    grade: 'A', updatedBy: '重载回归', updatedAt: '2026-07-21T09:00:00.000Z',
+  })
+  const temporaryFactoryReloadedModule = await loadAssessmentModule()
+  assert.equal(
+    temporaryFactoryReloadedModule.getThirdPartyFactoryComprehensiveAssessment(temporaryFactoryId)?.grade,
+    'A',
+    '不在固定 seed 的真实三方车缝厂更新后必须在模块重载时恢复',
+  )
+} finally {
+  removeFactoryMasterRecord(temporaryFactoryId)
+  if (storageBeforeTemporaryFactory === null) {
+    storage.setItem(THIRD_PARTY_COMPREHENSIVE_ASSESSMENT_STORAGE_KEY, '')
+  } else {
+    storage.setItem(THIRD_PARTY_COMPREHENSIVE_ASSESSMENT_STORAGE_KEY, storageBeforeTemporaryFactory)
+  }
+}
 
 console.log('第三方车缝厂综合评定数据检查通过')

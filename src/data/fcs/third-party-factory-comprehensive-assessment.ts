@@ -258,20 +258,36 @@ function getBrowserStorage(): Storage | null {
   }
 }
 
-function createManualAssessmentSeedByFactoryId(): Map<string, ManualAssessmentSnapshot> {
-  return new Map(manualAssessmentSeed.map((item) => [item.factoryId, cloneManual(item)]))
+function createCurrentMasterManualAssessmentsByFactoryId(): Map<string, ManualAssessmentSnapshot> {
+  const snapshots = new Map(
+    listFactoryMasterRecords()
+      .filter(isThirdPartySewingFactory)
+      .map((factory) => [factory.id, {
+        factoryId: factory.id,
+        categoryAbilities: [],
+        machineCount: null,
+        workerCount: null,
+        monthlyOutputValueTenThousandIdr: null,
+        grade: null,
+        updatedBy: null,
+        updatedAt: null,
+      } satisfies ManualAssessmentSnapshot]),
+  )
+  for (const seed of manualAssessmentSeed) {
+    if (snapshots.has(seed.factoryId)) snapshots.set(seed.factoryId, cloneManual(seed))
+  }
+  return snapshots
 }
 
 function normalizeStoredManualAssessments(value: unknown): ManualAssessmentSnapshot[] {
-  const seedByFactoryId = createManualAssessmentSeedByFactoryId()
-  const thirdPartyFactoryIds = new Set(listFactoryMasterRecords().filter(isThirdPartySewingFactory).map((item) => item.id))
-  if (!Array.isArray(value)) return [...seedByFactoryId.values()].map(cloneManual)
+  const snapshotByFactoryId = createCurrentMasterManualAssessmentsByFactoryId()
+  if (!Array.isArray(value)) return [...snapshotByFactoryId.values()].map(cloneManual)
 
   for (const raw of value) {
-    if (!isRecord(raw) || typeof raw.factoryId !== 'string' || !thirdPartyFactoryIds.has(raw.factoryId)) continue
-    const seed = seedByFactoryId.get(raw.factoryId)
-    if (!seed) continue
-    const next = cloneManual(seed)
+    if (!isRecord(raw) || typeof raw.factoryId !== 'string') continue
+    const snapshot = snapshotByFactoryId.get(raw.factoryId)
+    if (!snapshot) continue
+    const next = cloneManual(snapshot)
     const categoryAbilities = normalizeCategoryAbilities(raw.categoryAbilities)
     const machineCount = normalizePositiveIntegerOrNull(raw.machineCount)
     const workerCount = normalizePositiveIntegerOrNull(raw.workerCount)
@@ -286,20 +302,20 @@ function normalizeStoredManualAssessments(value: unknown): ManualAssessmentSnaps
     if (grade !== undefined) next.grade = grade
     if (updatedBy !== undefined) next.updatedBy = updatedBy
     if (updatedAt !== undefined) next.updatedAt = updatedAt
-    seedByFactoryId.set(raw.factoryId, next)
+    snapshotByFactoryId.set(raw.factoryId, next)
   }
-  return [...seedByFactoryId.values()].map(cloneManual)
+  return [...snapshotByFactoryId.values()].map(cloneManual)
 }
 
 function loadManualAssessments(): ManualAssessmentSnapshot[] {
   const storage = getBrowserStorage()
-  if (!storage) return manualAssessmentSeed.map(cloneManual)
+  if (!storage) return normalizeStoredManualAssessments([])
   try {
     const raw = storage.getItem(THIRD_PARTY_COMPREHENSIVE_ASSESSMENT_STORAGE_KEY)
-    if (!raw) return manualAssessmentSeed.map(cloneManual)
+    if (!raw) return normalizeStoredManualAssessments([])
     return normalizeStoredManualAssessments(JSON.parse(raw))
   } catch {
-    return manualAssessmentSeed.map(cloneManual)
+    return normalizeStoredManualAssessments([])
   }
 }
 
