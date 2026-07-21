@@ -51,8 +51,8 @@ export interface ManualAssessmentSnapshot {
   workerCount: number | null
   monthlyOutputValueTenThousandIdr: number | null
   grade: ComprehensiveAssessmentGrade | null
-  updatedBy: string
-  updatedAt: string
+  updatedBy: string | null
+  updatedAt: string | null
 }
 
 export interface AssessmentCompletion {
@@ -218,6 +218,37 @@ function cloneManual(record: ManualAssessmentSnapshot): ManualAssessmentSnapshot
   return { ...record, categoryAbilities: [...record.categoryAbilities] }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function normalizeCategoryAbilities(value: unknown): WomenswearCategory[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const normalized = [...new Set(value.filter((item): item is WomenswearCategory =>
+    typeof item === 'string' && WOMENSWEAR_CATEGORY_OPTIONS.includes(item as WomenswearCategory),
+  ))]
+  return value.length === 0 || normalized.length > 0 ? normalized : undefined
+}
+
+function normalizePositiveIntegerOrNull(value: unknown): number | null | undefined {
+  if (value === null) return null
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined
+}
+
+function normalizePositiveNumberOrNull(value: unknown): number | null | undefined {
+  if (value === null) return null
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined
+}
+
+function normalizeGrade(value: unknown): ComprehensiveAssessmentGrade | null | undefined {
+  if (value === null) return null
+  return value === 'S' || value === 'A' || value === 'B' || value === 'C' ? value : undefined
+}
+
+function normalizeStringOrNull(value: unknown): string | null | undefined {
+  return value === null || typeof value === 'string' ? value : undefined
+}
+
 function getBrowserStorage(): Storage | null {
   if (typeof window === 'undefined') return null
   try {
@@ -227,23 +258,59 @@ function getBrowserStorage(): Storage | null {
   }
 }
 
+function createManualAssessmentSeedByFactoryId(): Map<string, ManualAssessmentSnapshot> {
+  return new Map(manualAssessmentSeed.map((item) => [item.factoryId, cloneManual(item)]))
+}
+
+function normalizeStoredManualAssessments(value: unknown): ManualAssessmentSnapshot[] {
+  const seedByFactoryId = createManualAssessmentSeedByFactoryId()
+  const thirdPartyFactoryIds = new Set(listFactoryMasterRecords().filter(isThirdPartySewingFactory).map((item) => item.id))
+  if (!Array.isArray(value)) return [...seedByFactoryId.values()].map(cloneManual)
+
+  for (const raw of value) {
+    if (!isRecord(raw) || typeof raw.factoryId !== 'string' || !thirdPartyFactoryIds.has(raw.factoryId)) continue
+    const seed = seedByFactoryId.get(raw.factoryId)
+    if (!seed) continue
+    const next = cloneManual(seed)
+    const categoryAbilities = normalizeCategoryAbilities(raw.categoryAbilities)
+    const machineCount = normalizePositiveIntegerOrNull(raw.machineCount)
+    const workerCount = normalizePositiveIntegerOrNull(raw.workerCount)
+    const monthlyOutputValueTenThousandIdr = normalizePositiveNumberOrNull(raw.monthlyOutputValueTenThousandIdr)
+    const grade = normalizeGrade(raw.grade)
+    const updatedBy = normalizeStringOrNull(raw.updatedBy)
+    const updatedAt = normalizeStringOrNull(raw.updatedAt)
+    if (categoryAbilities !== undefined) next.categoryAbilities = categoryAbilities
+    if (machineCount !== undefined) next.machineCount = machineCount
+    if (workerCount !== undefined) next.workerCount = workerCount
+    if (monthlyOutputValueTenThousandIdr !== undefined) next.monthlyOutputValueTenThousandIdr = monthlyOutputValueTenThousandIdr
+    if (grade !== undefined) next.grade = grade
+    if (updatedBy !== undefined) next.updatedBy = updatedBy
+    if (updatedAt !== undefined) next.updatedAt = updatedAt
+    seedByFactoryId.set(raw.factoryId, next)
+  }
+  return [...seedByFactoryId.values()].map(cloneManual)
+}
+
 function loadManualAssessments(): ManualAssessmentSnapshot[] {
   const storage = getBrowserStorage()
   if (!storage) return manualAssessmentSeed.map(cloneManual)
   try {
     const raw = storage.getItem(THIRD_PARTY_COMPREHENSIVE_ASSESSMENT_STORAGE_KEY)
     if (!raw) return manualAssessmentSeed.map(cloneManual)
-    const parsed = JSON.parse(raw) as ManualAssessmentSnapshot[]
-    return Array.isArray(parsed) ? parsed.map(cloneManual) : manualAssessmentSeed.map(cloneManual)
+    return normalizeStoredManualAssessments(JSON.parse(raw))
   } catch {
     return manualAssessmentSeed.map(cloneManual)
   }
 }
 
-function saveManualAssessments(records: ManualAssessmentSnapshot[]): void {
+function persistManualAssessments(records: ManualAssessmentSnapshot[]): void {
   const storage = getBrowserStorage()
   if (!storage) return
-  storage.setItem(THIRD_PARTY_COMPREHENSIVE_ASSESSMENT_STORAGE_KEY, JSON.stringify(records))
+  try {
+    storage.setItem(THIRD_PARTY_COMPREHENSIVE_ASSESSMENT_STORAGE_KEY, JSON.stringify(records))
+  } catch {
+    throw new Error('保存失败，请稍后重试')
+  }
 }
 
 let manualAssessments = loadManualAssessments()
@@ -261,7 +328,7 @@ function getManualAssessment(factoryId: string): ManualAssessmentSnapshot {
   const existing = manualAssessments.find((item) => item.factoryId === factoryId)
   return existing ? cloneManual(existing) : {
     factoryId, categoryAbilities: [], machineCount: null, workerCount: null, monthlyOutputValueTenThousandIdr: null,
-    grade: null, updatedBy: '待补充', updatedAt: '',
+    grade: null, updatedBy: null, updatedAt: null,
   }
 }
 
@@ -308,12 +375,14 @@ export function updateThirdPartyFactoryManualAssessment(factoryId: string, updat
     workerCount: update.workerCount === undefined ? current.workerCount : update.workerCount,
     monthlyOutputValueTenThousandIdr: update.monthlyOutputValueTenThousandIdr === undefined ? current.monthlyOutputValueTenThousandIdr : update.monthlyOutputValueTenThousandIdr,
     grade: update.grade === undefined ? current.grade : update.grade,
-    updatedBy: update.updatedBy ?? current.updatedBy,
-    updatedAt: update.updatedAt ?? current.updatedAt,
+    updatedBy: update.updatedBy === undefined ? current.updatedBy : update.updatedBy,
+    updatedAt: update.updatedAt === undefined ? current.updatedAt : update.updatedAt,
   }
-  const index = manualAssessments.findIndex((item) => item.factoryId === factoryId)
-  if (index >= 0) manualAssessments[index] = next
-  else manualAssessments.push(next)
-  saveManualAssessments(manualAssessments)
+  const nextManualAssessments = manualAssessments.map(cloneManual)
+  const index = nextManualAssessments.findIndex((item) => item.factoryId === factoryId)
+  if (index >= 0) nextManualAssessments[index] = next
+  else nextManualAssessments.push(next)
+  persistManualAssessments(nextManualAssessments)
+  manualAssessments = nextManualAssessments
   return buildAssessment(factory)
 }

@@ -1,6 +1,27 @@
 import assert from 'node:assert/strict'
 import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
-import {
+
+class MemoryStorage {
+  private readonly values = new Map<string, string>()
+  throwOnSet = false
+
+  getItem(key: string): string | null {
+    return this.values.get(key) ?? null
+  }
+
+  setItem(key: string, value: string): void {
+    if (this.throwOnSet) throw new Error('quota exceeded')
+    this.values.set(key, value)
+  }
+}
+
+const storage = new MemoryStorage()
+;(globalThis as typeof globalThis & { window?: { localStorage: MemoryStorage } }).window = { localStorage: storage }
+const assessmentModuleUrl = new URL('../src/data/fcs/third-party-factory-comprehensive-assessment.ts', import.meta.url).href
+let moduleLoadCount = 0
+const loadAssessmentModule = () => import(`${assessmentModuleUrl}?storage-check=${moduleLoadCount++}`)
+const assessmentModule = await loadAssessmentModule()
+const {
   WOMENSWEAR_CATEGORY_OPTIONS,
   calculateFactoryQualityMetrics,
   calculateFactoryTimelinessMetrics,
@@ -8,7 +29,8 @@ import {
   getThirdPartyFactoryComprehensiveAssessment,
   listThirdPartyFactoryComprehensiveAssessments,
   updateThirdPartyFactoryManualAssessment,
-} from '../src/data/fcs/third-party-factory-comprehensive-assessment.ts'
+  THIRD_PARTY_COMPREHENSIVE_ASSESSMENT_STORAGE_KEY,
+} = assessmentModule
 
 assert.deepEqual(WOMENSWEAR_CATEGORY_OPTIONS, [
   '衬衫', 'T 恤', '马甲', '背心', '连衣裙', '休闲连体裤', '西装连体裤', '休闲套装', '西装套装', '裤子', '半裙',
@@ -94,5 +116,52 @@ const updateResult = updateThirdPartyFactoryManualAssessment(updateTarget.factor
 assert.equal(updateResult.grade, 'A', '更新 API 必须保存人工评级')
 assert.deepEqual(updateResult.timeliness, before.timeliness, '更新 API 不得覆盖系统时效事实')
 assert.deepEqual(updateResult.quality, before.quality, '更新 API 不得覆盖系统品控事实')
+
+assert.ok(storage.getItem(THIRD_PARTY_COMPREHENSIVE_ASSESSMENT_STORAGE_KEY), '合法人工更新必须写入浏览器存储')
+const reloadedModule = await loadAssessmentModule()
+const reloadedTarget = reloadedModule.getThirdPartyFactoryComprehensiveAssessment(updateTarget.factoryId)!
+assert.equal(reloadedTarget.grade, 'A', '重新加载模块后必须从浏览器存储恢复合法人工快照')
+
+const mutableResult = reloadedModule.listThirdPartyFactoryComprehensiveAssessments()
+const originalCategories = [...mutableResult[0].categoryAbilities]
+mutableResult[0].categoryAbilities.push('西装套装')
+mutableResult[0].timeliness.deliveryOnTimeRate = 0
+mutableResult[0].fieldSources.grade = '被调用方篡改'
+const freshResult = reloadedModule.getThirdPartyFactoryComprehensiveAssessment(mutableResult[0].factoryId)!
+assert.deepEqual(freshResult.categoryAbilities, originalCategories, '返回数组中的品类必须是克隆，不得反写内部状态')
+assert.notEqual(freshResult.fieldSources.grade, '被调用方篡改', '返回对象中的来源说明必须是克隆')
+
+storage.setItem(THIRD_PARTY_COMPREHENSIVE_ASSESSMENT_STORAGE_KEY, JSON.stringify([
+  {
+    factoryId: 'ID-F021', categoryAbilities: ['衬衫', '非法品类', '衬衫'], machineCount: -1, workerCount: 99,
+    monthlyOutputValueTenThousandIdr: -2, grade: 'X', updatedBy: 123, updatedAt: null,
+  },
+  { factoryId: 'UNKNOWN-FACTORY', categoryAbilities: ['衬衫'], machineCount: 1, workerCount: 1, monthlyOutputValueTenThousandIdr: 1, grade: 'S', updatedBy: '错误身份', updatedAt: '2026-07-21' },
+]))
+const dirtyReloadedModule = await loadAssessmentModule()
+const normalized = dirtyReloadedModule.getThirdPartyFactoryComprehensiveAssessment('ID-F021')!
+assert.deepEqual(normalized.categoryAbilities, ['衬衫'], '存储品类必须过滤字典外值并去重')
+assert.equal(normalized.machineCount, 42, '负机器数不得覆盖 seed')
+assert.equal(normalized.workerCount, 99, '有效人工字段必须按工厂 ID 合并到 seed')
+assert.equal(normalized.monthlyOutputValueTenThousandIdr, 420, '非正月产值不得覆盖 seed')
+assert.equal(normalized.grade, 'A', '非法评级不得覆盖 seed')
+assert.equal(normalized.updatedBy, '陈慧', '非字符串更新人不得覆盖 seed')
+assert.equal(normalized.updatedAt, null, 'null 更新日期必须可被安全恢复')
+assert.equal(dirtyReloadedModule.getThirdPartyFactoryComprehensiveAssessment('UNKNOWN-FACTORY'), undefined, '未知工厂 ID 必须忽略')
+assert.equal(dirtyReloadedModule.getThirdPartyFactoryComprehensiveAssessment('KOL-GOTO-001')!.grade, 'S', '脏数组不得覆盖其他种子快照')
+
+const beforeStorageFailure = dirtyReloadedModule.getThirdPartyFactoryComprehensiveAssessment('ID-F021')!
+storage.throwOnSet = true
+assert.throws(
+  () => dirtyReloadedModule.updateThirdPartyFactoryManualAssessment('ID-F021', { grade: 'C' }),
+  /保存失败/,
+  '浏览器存储写入失败必须明确抛错',
+)
+storage.throwOnSet = false
+assert.equal(
+  dirtyReloadedModule.getThirdPartyFactoryComprehensiveAssessment('ID-F021')!.grade,
+  beforeStorageFailure.grade,
+  '存储写入失败后内存快照必须保持不变',
+)
 
 console.log('第三方车缝厂综合评定数据检查通过')
