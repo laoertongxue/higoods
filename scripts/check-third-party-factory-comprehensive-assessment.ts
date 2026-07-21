@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
+import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
+import { createServer } from 'node:net'
 import {
   listFactoryMasterRecords,
   removeFactoryMasterRecord,
@@ -25,7 +27,6 @@ class MemoryStorage {
 }
 
 const storage = new MemoryStorage()
-let historyWrites = 0
 ;(globalThis as typeof globalThis & {
   window?: {
     localStorage: MemoryStorage
@@ -36,8 +37,8 @@ let historyWrites = 0
   localStorage: storage,
   location: { pathname: '/fcs/factories/third-party-comprehensive-assessment', search: '' },
   history: {
-    pushState: () => { historyWrites += 1 },
-    replaceState: () => { historyWrites += 1 },
+    pushState: () => undefined,
+    replaceState: () => undefined,
   },
 }
 const assessmentModuleUrl = new URL('../src/data/fcs/third-party-factory-comprehensive-assessment.ts', import.meta.url).href
@@ -238,7 +239,6 @@ assert.ok(assessmentPageSource.includes('data-completion-filter'), '筛选区必
 
 const assessmentPageModuleUrl = new URL('../src/pages/third-party-factory-comprehensive-assessment.ts', import.meta.url).href
 const assessmentPageModule = await import(`${assessmentPageModuleUrl}?page-check=1`)
-const { appStore } = await import('../src/state/store.ts')
 const {
   filterThirdPartyFactoryComprehensiveAssessments,
   getThirdPartyFactoryComprehensiveAssessmentDefaultColumnPreferences,
@@ -342,6 +342,16 @@ for (const englishStatus of ['PENDING', 'DONE', 'IN_PROGRESS', 'COMPLETE', 'INCO
   assert.ok(!assessmentPageHtml.includes(`>${englishStatus}<`), `页面不得直接展示英文状态码：${englishStatus}`)
 }
 
+;(globalThis as typeof globalThis & { window?: { location?: { pathname: string, search: string } } }).window!.location = {
+  pathname: '/fcs/factories/third-party-comprehensive-assessment',
+  search: '?columnSettings=1',
+}
+const overlayPageHtml = renderThirdPartyFactoryComprehensiveAssessmentPage()
+const closeAction = 'data-third-party-comprehensive-assessment-action="close-column-settings"'
+const closeButtons = overlayPageHtml.match(new RegExp(`<button[^>]*${closeAction}[^>]*>`, 'g')) ?? []
+assert.equal(closeButtons.length, 2, '真实列设置抽屉的右上关闭和底部关闭必须保留局部关闭动作')
+assert.ok(closeButtons.every((button) => !button.includes('data-nav=')), '列设置关闭不得被替换为全局导航')
+
 const EVENT_PREFIX = 'third-party-comprehensive-assessment'
 const COLUMN_STORAGE_KEY = 'fcs.third-party-comprehensive-assessment.columns.v1'
 const createEvent = (type: string, extra: Record<string, unknown> = {}) => ({
@@ -410,48 +420,145 @@ assert.ok(categoryUrlHtml.includes('value="衬衫" checked') && categoryUrlHtml.
 assert.ok(categoryUrlHtml.includes('categories=%E8%A1%AC%E8%A1%AB') && categoryUrlHtml.includes('categories=%E8%A3%A4%E5%AD%90'), '多个品类必须稳定编码到列表导航')
 
 storage.removeItem(COLUMN_STORAGE_KEY)
-const localTable = {
-  innerHTML: '<table>原始表格</table>',
-  scrollLeft: 137,
-  querySelectorAll: () => [],
+
+async function getFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer()
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address()
+      server.close((error) => error ? reject(error) : resolve(typeof address === 'object' && address ? address.port : 0))
+    })
+  })
 }
-const localOverlay = {
-  innerHTML: '',
-  querySelectorAll: () => [],
+
+async function waitForVite(url: string): Promise<void> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    try {
+      const response = await fetch(url)
+      if (response.ok) return
+    } catch (error) {
+      lastError = error
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw lastError ?? new Error('Vite 未在预期时间内启动')
 }
-const localPageRoot = {
-  innerHTML: '<div id="外部哨兵">保留</div>',
-  querySelector: (selector: string) => selector === '[data-third-party-comprehensive-assessment-table]'
-    ? localTable
-    : selector === '[data-third-party-comprehensive-assessment-overlays]'
-      ? localOverlay
-      : null,
+
+async function assertRealDomColumnSettingsInteractions(): Promise<void> {
+  const { chromium } = await import('@playwright/test')
+  const port = await getFreePort()
+  const baseUrl = `http://127.0.0.1:${port}`
+  const vite = spawn('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(port)], {
+    cwd: process.cwd(),
+    stdio: 'ignore',
+  })
+  const browser = await chromium.launch({ headless: true })
+
+  try {
+    await waitForVite(baseUrl)
+    const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
+    await page.goto(baseUrl, { waitUntil: 'networkidle' })
+    await page.evaluate(async () => {
+      const assessment = await import('/src/pages/third-party-factory-comprehensive-assessment.ts')
+      const path = '/fcs/factories/third-party-comprehensive-assessment'
+      const mount = (search: string) => {
+        window.localStorage.clear()
+        window.history.replaceState({}, '', `${path}${search}`)
+        document.body.innerHTML = `<div id="external-sentinel">保留</div>${assessment.renderThirdPartyFactoryComprehensiveAssessmentPage()}`
+      }
+      document.addEventListener('click', (event) => {
+        if (event.target instanceof HTMLElement) assessment.handleThirdPartyFactoryComprehensiveAssessmentEvent(event.target, event)
+      })
+      document.addEventListener('change', (event) => {
+        if (event.target instanceof HTMLElement) assessment.handleThirdPartyFactoryComprehensiveAssessmentEvent(event.target, event)
+      })
+      Object.assign(window, { __assessmentMount: mount })
+    })
+
+    const mount = async (search: string) => page.evaluate((nextSearch) => {
+      ;(window as unknown as { __assessmentMount: (value: string) => void }).__assessmentMount(nextSearch)
+    }, search)
+    const snapshotStableNodes = async () => page.evaluate(() => {
+      const root = document.querySelector('[data-third-party-comprehensive-assessment-page]')
+      const sentinel = document.querySelector('#external-sentinel')
+      Object.assign(window, { __assessmentRoot: root, __assessmentSentinel: sentinel })
+      return { path: `${location.pathname}${location.search}`, historyLength: history.length }
+    })
+    const assertStableNodes = async (expectedPath: string, expectedHistoryLength: number) => page.evaluate(({ path, historyLength }) => ({
+      path: `${location.pathname}${location.search}`,
+      historyLength: history.length,
+      rootStable: document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __assessmentRoot: Element }).__assessmentRoot,
+      sentinelStable: document.querySelector('#external-sentinel') === (window as unknown as { __assessmentSentinel: Element }).__assessmentSentinel,
+    }), { path: expectedPath, historyLength: expectedHistoryLength }).then((result) => {
+      assert.equal(result.path, expectedPath, '局部列设置操作不得改变当前路径')
+      assert.equal(result.historyLength, expectedHistoryLength, '局部列设置操作不得新增浏览器历史')
+      assert.ok(result.rootStable, '局部列设置操作不得替换页面根节点')
+      assert.ok(result.sentinelStable, '局部列设置操作不得替换外部哨兵节点')
+    })
+
+    await mount('?columnSettings=1')
+    const closeControls = page.locator('button[data-third-party-comprehensive-assessment-action="close-column-settings"]')
+    assert.equal(await closeControls.count(), 2, '真实 DOM 中的右上关闭与底部关闭必须都保留局部动作')
+    assert.equal(await closeControls.evaluateAll((nodes) => nodes.some((node) => node.hasAttribute('data-nav'))), false, '真实关闭控件不得携带全局 data-nav')
+    const firstCloseBefore = await snapshotStableNodes()
+    await closeControls.nth(0).click()
+    assert.equal(await page.locator('[data-third-party-comprehensive-assessment-overlays]').innerHTML(), '', '右上关闭必须只清空真实 overlay')
+    await assertStableNodes(firstCloseBefore.path, firstCloseBefore.historyLength)
+
+    await mount('?columnSettings=1')
+    const secondCloseBefore = await snapshotStableNodes()
+    await page.locator('[data-third-party-comprehensive-assessment-action="close-column-settings"]').nth(1).click()
+    assert.equal(await page.locator('[data-third-party-comprehensive-assessment-overlays]').innerHTML(), '', '底部关闭必须只清空真实 overlay')
+    await assertStableNodes(secondCloseBefore.path, secondCloseBefore.historyLength)
+
+    await mount('?columnSettings=1')
+    const scrollBeforeToggle = await page.evaluate(() => {
+      const scroll = document.querySelector<HTMLElement>('[data-assessment-table-surface] [data-standard-list-scroll]')
+      if (!scroll) return { hasScroll: false, hasTable: false, scrollLeft: 0 }
+      scroll.style.width = '320px'
+      scroll.style.overflowX = 'scroll'
+      const table = scroll.querySelector('table')
+      if (!table) return { hasScroll: true, hasTable: false, scrollLeft: 0 }
+      table.style.minWidth = '2400px'
+      scroll.scrollLeft = 137
+      const root = document.querySelector('[data-third-party-comprehensive-assessment-page]')
+      Object.assign(window, { __assessmentRoot: root })
+      return { hasScroll: true, hasTable: true, scrollLeft: scroll.scrollLeft }
+    })
+    assert.ok(scrollBeforeToggle.hasScroll, '真实表格必须包含内部横向滚动节点')
+    assert.ok(scrollBeforeToggle.hasTable, '真实横向滚动节点必须承载标准列表表格')
+    assert.equal(scrollBeforeToggle.scrollLeft, 137, '真实内部横向滚动节点必须可设置滚动位置')
+    await page.locator('[data-third-party-comprehensive-assessment-action="toggle-column-visibility"][data-third-party-comprehensive-assessment-column-key="machineCount"]').click()
+    assert.equal(await page.evaluate(() => document.querySelector<HTMLElement>('[data-assessment-table-surface] [data-standard-list-scroll]')?.scrollLeft), scrollBeforeToggle.scrollLeft, '切列后必须恢复真实内部横向滚动位置')
+    assert.equal(await page.evaluate(() => document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __assessmentRoot: Element }).__assessmentRoot), true, '切列不得整页重绘')
+
+    await mount('?pageSize=20&columnSettings=1')
+    const restoreBefore = await snapshotStableNodes()
+    await page.locator('[data-third-party-comprehensive-assessment-action="restore-column-settings"]').click()
+    const restoreState = await page.evaluate(() => ({
+      pageSize: (document.querySelector<HTMLSelectElement>('[data-third-party-comprehensive-assessment-field="pageSize"]')?.value),
+      rowCount: document.querySelectorAll('[data-assessment-table-surface] tbody tr').length,
+      pagination: document.querySelector('[data-assessment-pagination-surface]')?.textContent,
+      hasPageSize: new URL(location.href).searchParams.has('pageSize'),
+      historyLength: history.length,
+      rootStable: document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __assessmentRoot: Element }).__assessmentRoot,
+      sentinelStable: document.querySelector('#external-sentinel') === (window as unknown as { __assessmentSentinel: Element }).__assessmentSentinel,
+    }))
+    assert.equal(restoreState.pageSize, '10', '恢复默认必须让真实每页条数控件回到 10')
+    assert.equal(restoreState.rowCount, 10, '恢复默认必须让真实表格回到 10 行口径')
+    assert.ok(restoreState.pagination?.includes('10 条/页'), '恢复默认必须刷新真实分页显示')
+    assert.equal(restoreState.hasPageSize, false, '恢复默认必须清理 URL 中的 pageSize 覆盖')
+    assert.equal(restoreState.historyLength, restoreBefore.historyLength, '恢复默认必须使用 replace 语义而非新增历史')
+    assert.ok(restoreState.rootStable && restoreState.sentinelStable, '恢复默认不得整页 root 重绘或丢失外部节点')
+  } finally {
+    await browser.close()
+    vite.kill('SIGTERM')
+  }
 }
-;(globalThis as typeof globalThis & {
-  document?: { querySelector: (selector: string) => unknown }
-}).document = {
-  querySelector: (selector: string) => selector === '[data-third-party-comprehensive-assessment-page]'
-    ? localPageRoot
-    : null,
-}
-;(globalThis as typeof globalThis & { window?: { location?: { pathname: string, search: string } } }).window!.location = {
-  pathname: '/fcs/factories/third-party-comprehensive-assessment',
-  search: '',
-}
-const historyBeforeLocalSettings = historyWrites
-const pathnameBeforeLocalSettings = appStore.getState().pathname
-const pageRootBeforeLocalSettings = localPageRoot.innerHTML
-assert.equal(handleThirdPartyFactoryComprehensiveAssessmentEvent(createActionTarget('open-column-settings'), createEvent('click') as unknown as Event), true, '打开列设置必须被处理')
-assert.equal(historyWrites, historyBeforeLocalSettings, '打开列设置不得写入浏览器历史')
-assert.equal(appStore.getState().pathname, pathnameBeforeLocalSettings, '打开列设置不得改变应用路由状态')
-assert.equal(localPageRoot.innerHTML, pageRootBeforeLocalSettings, '打开列设置不得替换页面根节点')
-assert.ok(localOverlay.innerHTML.includes('列设置'), '打开列设置必须仅更新 overlay 容器')
-assert.equal(handleThirdPartyFactoryComprehensiveAssessmentEvent(createActionTarget('toggle-column-visibility', 'machineCount'), createEvent('change') as unknown as Event), true, '列显示局部更新必须被处理')
-assert.ok(localTable.innerHTML.includes('data-standard-list-scroll'), '列显示切换必须仅更新表格容器')
-assert.equal(localTable.scrollLeft, 137, '列设置局部更新必须保持表格横向滚动位置')
-assert.equal(localPageRoot.innerHTML, pageRootBeforeLocalSettings, '列显示切换不得替换外部哨兵节点')
-assert.equal(handleThirdPartyFactoryComprehensiveAssessmentEvent(createActionTarget('close-column-settings'), createEvent('click') as unknown as Event), true, '关闭列设置必须被处理')
-assert.equal(localOverlay.innerHTML, '', '关闭列设置必须仅清空 overlay 容器')
+
+await assertRealDomColumnSettingsInteractions()
 
 assert.equal(handleThirdPartyFactoryComprehensiveAssessmentEvent(createActionTarget('toggle-column-freeze', 'factory'), createEvent('change') as unknown as Event), true, '取消默认工厂冻结必须被处理')
 assert.equal(handleThirdPartyFactoryComprehensiveAssessmentEvent(createActionTarget('toggle-column-freeze', 'machineCount'), createEvent('change') as unknown as Event), true, '普通列冻结必须被处理')

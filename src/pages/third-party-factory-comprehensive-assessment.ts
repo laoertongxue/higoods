@@ -345,10 +345,7 @@ function renderColumnSettingsOverlay(query: ComprehensiveAssessmentQuery, prefer
   if (!query.columnSettings) return ''
   return renderStandardListColumnSettings({
     title: '列设置', columns, preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: MAX_FROZEN_WIDTH,
-  }).replaceAll(
-    `data-${EVENT_PREFIX}-action="close-column-settings"`,
-    `data-nav="${escapeHtml(buildHref(query, { columnSettings: false }))}"`,
-  )
+  })
 }
 
 function getAssessmentTableState(query: ComprehensiveAssessmentQuery): {
@@ -383,6 +380,14 @@ function navigateAssessmentList(href: string): void {
   appStore.navigate(href)
 }
 
+function replaceAssessmentUrl(query: ComprehensiveAssessmentQuery): void {
+  if (typeof window === 'undefined') return
+  const href = buildHref(query, {})
+  if (`${window.location.pathname}${window.location.search}` !== href) {
+    window.history.replaceState({}, '', href)
+  }
+}
+
 function hydrateInsertedIcons(root: ParentNode): void {
   void import('../components/shell.ts')
     .then(({ hydrateIcons }) => hydrateIcons(root))
@@ -392,16 +397,24 @@ function hydrateInsertedIcons(root: ParentNode): void {
 function refreshColumnSettingsLocally(query: ComprehensiveAssessmentQuery): boolean {
   if (typeof document === 'undefined') return false
   const root = document.querySelector<HTMLElement>('[data-third-party-comprehensive-assessment-page]')
-  const table = root?.querySelector<HTMLElement>('[data-third-party-comprehensive-assessment-table]')
+  const table = root?.querySelector<HTMLElement>('[data-assessment-table-surface]')
+  const pagination = root?.querySelector<HTMLElement>('[data-assessment-pagination-surface]')
   const overlays = root?.querySelector<HTMLElement>('[data-third-party-comprehensive-assessment-overlays]')
-  if (!table || !overlays) return false
+  if (!table || !pagination || !overlays) return false
 
-  const scrollLeft = table.scrollLeft
+  const scrollLeft = table.querySelector<HTMLElement>('[data-standard-list-scroll]')?.scrollLeft ?? 0
   const preferences = getColumnPreferences()
   table.innerHTML = renderAssessmentTable(query, preferences)
-  table.scrollLeft = scrollLeft
+  const nextScroll = table.querySelector<HTMLElement>('[data-standard-list-scroll]')
+  if (nextScroll) {
+    const maxScrollLeft = Math.max(0, nextScroll.scrollWidth - nextScroll.clientWidth)
+    nextScroll.scrollLeft = Math.max(0, Math.min(scrollLeft, maxScrollLeft))
+  }
+  const { paging } = getAssessmentTableState(query)
+  pagination.innerHTML = renderPagination(query, paging)
   overlays.innerHTML = renderColumnSettingsOverlay(query, preferences)
   hydrateInsertedIcons(table)
+  hydrateInsertedIcons(pagination)
   hydrateInsertedIcons(overlays)
   return true
 }
@@ -521,7 +534,9 @@ export function handleThirdPartyFactoryComprehensiveAssessmentEvent(target: HTML
     event?.preventDefault()
     const storage = getListStorage()
     if (storage) clearListColumnPreferences(storage, COLUMN_STORAGE_KEY)
-    refreshColumnSettingsLocally({ ...query, columnSettings: true })
+    const resetQuery = { ...query, page: 1, pageSize: defaultColumnPreferences.pageSize, columnSettings: true }
+    replaceAssessmentUrl(resetQuery)
+    refreshColumnSettingsLocally(resetQuery)
     return true
   }
   if (action === 'toggle-column-visibility') {
@@ -578,8 +593,8 @@ export function renderThirdPartyFactoryComprehensiveAssessmentPage(): string {
     statsHtml: renderStats(filteredRows),
     listTitle: '综合评定列表',
     listActionsHtml: `<button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-${EVENT_PREFIX}-action="open-column-settings">列设置</button>`,
-    tableHtml: `<div data-third-party-comprehensive-assessment-table>${renderAssessmentTable(query, preferences)}</div>`,
-    paginationHtml: renderPagination(query, paging),
+    tableHtml: `<div data-third-party-comprehensive-assessment-table data-assessment-table-surface>${renderAssessmentTable(query, preferences)}</div>`,
+    paginationHtml: `<div data-assessment-pagination-surface>${renderPagination(query, paging)}</div>`,
     overlaysHtml: `<div data-third-party-comprehensive-assessment-overlays>${renderColumnSettingsOverlay(query, preferences)}</div>`,
   })}</div>`
 }
