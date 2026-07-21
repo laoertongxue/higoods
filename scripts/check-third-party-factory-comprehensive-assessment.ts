@@ -533,6 +533,23 @@ async function waitForVite(url: string): Promise<void> {
   throw lastError ?? new Error('Vite 未在预期时间内启动')
 }
 
+async function stopChildProcess(child: ReturnType<typeof spawn>): Promise<void> {
+  if (child.exitCode !== null || child.signalCode !== null) return
+  const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()))
+  child.kill('SIGTERM')
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const stopped = await Promise.race([
+    exited.then(() => true),
+    new Promise<boolean>((resolve) => {
+      timer = setTimeout(() => resolve(false), 2_000)
+    }),
+  ])
+  if (timer) clearTimeout(timer)
+  if (stopped) return
+  child.kill('SIGKILL')
+  await exited
+}
+
 async function assertRealDomColumnSettingsInteractions(): Promise<void> {
   const { chromium } = await import('@playwright/test')
   const port = await getFreePort()
@@ -541,16 +558,26 @@ async function assertRealDomColumnSettingsInteractions(): Promise<void> {
     cwd: process.cwd(),
     stdio: 'ignore',
   })
-  const browser = await chromium.launch({ headless: true })
+  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined
+  const forceBrowserRegressionFailure = process.env.HIGOOD_ASSESSMENT_FORCE_BROWSER_FAILURE === '1'
 
   try {
+    browser = await chromium.launch({ headless: true })
+    const activeBrowser = browser
     await waitForVite(baseUrl)
+    let releaseDirectDomRegression: (() => void) | undefined
+    const realAppReady = new Promise<void>((resolve) => {
+      releaseDirectDomRegression = resolve
+    })
     const realAppRegression = (async () => {
-      const appPage = await browser.newPage({ viewport: { width: 1280, height: 720 } })
+      const appContext = await activeBrowser.newContext({ viewport: { width: 1280, height: 720 } })
       try {
+        const appPage = await appContext.newPage()
+        if (forceBrowserRegressionFailure) throw new Error('故意失败探针：真实应用回归')
         await appPage.addInitScript(() => window.localStorage.clear())
         await appPage.goto(`${baseUrl}${comprehensivePath}`, { waitUntil: 'domcontentloaded' })
         await appPage.locator('[data-third-party-comprehensive-assessment-page]').waitFor()
+        releaseDirectDomRegression?.()
         assert.equal(await appPage.locator('[data-third-party-comprehensive-assessment-page]').count(), 1, '独立路由必须通过真实应用外壳渲染综合评定页面')
         assert.equal((await appPage.locator('main h1').textContent())?.trim(), '三方车缝厂综合评定', '真实路由 H1 textContent 必须精确使用菜单业务名称')
 
@@ -590,210 +617,227 @@ async function assertRealDomColumnSettingsInteractions(): Promise<void> {
         assert.equal(await appPage.locator('[data-third-party-comprehensive-assessment-page]').count(), 1, '筛选后独立路由仍必须可达')
         console.log('综合评定真实应用回归通过：路由、菜单激活、编辑 submit 与筛选表单')
       } finally {
-        await appPage.close()
+        releaseDirectDomRegression?.()
+        await appContext.close()
       }
     })()
-    const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
-    const mainModuleRoute = '**/src/main.ts'
-    await page.route(mainModuleRoute, (route) => route.fulfill({
-      status: 200,
-      contentType: 'application/javascript',
-      body: "import '/src/styles.css'",
-    }))
-    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' })
-    await page.evaluate(async () => {
-      const assessment = await import('/src/pages/third-party-factory-comprehensive-assessment.ts')
-      const path = '/fcs/factories/third-party-comprehensive-assessment'
-      const mount = (search: string) => {
-        window.localStorage.clear()
-        window.history.replaceState({}, '', `${path}${search}`)
-        document.body.innerHTML = `<div id="external-sentinel">保留</div>${assessment.renderThirdPartyFactoryComprehensiveAssessmentPage()}`
+    const directDomRegression = (async () => {
+      const directContext = await activeBrowser.newContext({ viewport: { width: 1280, height: 720 } })
+      try {
+        const page = await directContext.newPage()
+        if (forceBrowserRegressionFailure) throw new Error('故意失败探针：直挂页回归')
+        const mainModuleRoute = '**/src/main.ts'
+        await page.route(mainModuleRoute, (route) => route.fulfill({
+          status: 200,
+          contentType: 'application/javascript',
+          body: "import '/src/styles.css'",
+        }))
+        await page.goto(baseUrl, { waitUntil: 'domcontentloaded' })
+        await page.evaluate(async () => {
+          const assessment = await import('/src/pages/third-party-factory-comprehensive-assessment.ts')
+          const path = '/fcs/factories/third-party-comprehensive-assessment'
+          const mount = (search: string) => {
+            window.localStorage.clear()
+            window.history.replaceState({}, '', `${path}${search}`)
+            document.body.innerHTML = `<div id="external-sentinel">保留</div>${assessment.renderThirdPartyFactoryComprehensiveAssessmentPage()}`
+          }
+          document.addEventListener('click', (event) => {
+            if (event.target instanceof HTMLElement) assessment.handleThirdPartyFactoryComprehensiveAssessmentEvent(event.target, event)
+          })
+          document.addEventListener('change', (event) => {
+            if (event.target instanceof HTMLElement) assessment.handleThirdPartyFactoryComprehensiveAssessmentEvent(event.target, event)
+          })
+          document.addEventListener('input', (event) => {
+            if (event.target instanceof HTMLElement) assessment.handleThirdPartyFactoryComprehensiveAssessmentEvent(event.target, event)
+          })
+          document.addEventListener('submit', (event) => {
+            if (event.target instanceof HTMLFormElement && assessment.handleThirdPartyFactoryComprehensiveAssessmentSubmit(event.target)) event.preventDefault()
+          })
+          Object.assign(window, { __assessmentMount: mount })
+        })
+            await realAppReady
+
+        const mount = async (search: string) => page.evaluate((nextSearch) => {
+          ;(window as unknown as { __assessmentMount: (value: string) => void }).__assessmentMount(nextSearch)
+        }, search)
+        const snapshotStableNodes = async () => page.evaluate(() => {
+          const root = document.querySelector('[data-third-party-comprehensive-assessment-page]')
+          const sentinel = document.querySelector('#external-sentinel')
+          Object.assign(window, { __assessmentRoot: root, __assessmentSentinel: sentinel })
+          return { path: `${location.pathname}${location.search}`, historyLength: history.length }
+        })
+        const assertStableNodes = async (expectedPath: string, expectedHistoryLength: number) => page.evaluate(({ path, historyLength }) => ({
+          path: `${location.pathname}${location.search}`,
+          historyLength: history.length,
+          rootStable: document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __assessmentRoot: Element }).__assessmentRoot,
+          sentinelStable: document.querySelector('#external-sentinel') === (window as unknown as { __assessmentSentinel: Element }).__assessmentSentinel,
+        }), { path: expectedPath, historyLength: expectedHistoryLength }).then((result) => {
+          assert.equal(result.path, expectedPath, '局部列设置操作不得改变当前路径')
+          assert.equal(result.historyLength, expectedHistoryLength, '局部列设置操作不得新增浏览器历史')
+          assert.ok(result.rootStable, '局部列设置操作不得替换页面根节点')
+          assert.ok(result.sentinelStable, '局部列设置操作不得替换外部哨兵节点')
+        })
+
+        await mount('')
+        await page.locator('[data-third-party-comprehensive-assessment-action="open-editor"][data-factory-id="ID-F023"]').click()
+        await page.locator('[data-third-party-comprehensive-assessment-field="categoryAbilities"]').first().check()
+        await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('0')
+        await page.locator('[data-third-party-comprehensive-assessment-field="workerCount"]').fill('0')
+        await page.locator('[data-third-party-comprehensive-assessment-field="monthlyOutputValueTenThousandIdr"]').fill('0')
+        await page.locator('[data-third-party-comprehensive-assessment-action="save-editor"]').click()
+        assert.ok((await page.locator('[data-assessment-form-errors]').innerText()).includes('机器台数必须为正整数'), '短回归必须验证零机器台数被拒绝')
+        await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('12')
+        await page.locator('[data-third-party-comprehensive-assessment-field="workerCount"]').fill('24')
+        await page.locator('[data-third-party-comprehensive-assessment-field="monthlyOutputValueTenThousandIdr"]').fill('25.50')
+        await page.locator('[data-third-party-comprehensive-assessment-field="grade"]').selectOption('A')
+        await page.locator('[data-third-party-comprehensive-assessment-editor-form]').evaluate((form) => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+        assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 0, '短回归必须验证合法 submit 完成局部保存')
+        assert.ok((await page.locator('[data-assessment-factory-id="ID-F023"]').locator('xpath=ancestor::tr').innerText()).includes('25.5 万印尼盾／月'), '合法 submit 后必须局部刷新工厂行')
+        const stableRoot = await page.locator('[data-third-party-comprehensive-assessment-page]').evaluate((node) => {
+          Object.assign(window, { __assessmentToastRoot: node })
+          return true
+        })
+        assert.ok(stableRoot)
+        const firstToastId = await page.locator('[data-toast-container] [data-toast]').getAttribute('data-toast')
+        assert.ok(firstToastId, '保存成功必须展示可识别 Toast')
+        await page.waitForTimeout(500)
+        await page.locator('[data-third-party-comprehensive-assessment-action="open-editor"][data-factory-id="ID-F023"]').click()
+        assert.equal(await page.locator('[data-toast-container] [data-toast]').count(), 0, '再次打开编辑抽屉时必须移除可能遮挡按钮的旧 Toast')
+        await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('13')
+        page.once('dialog', (dialog) => dialog.accept())
+        await page.locator('[data-third-party-comprehensive-assessment-action="close-editor"]').last().click()
+        assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 0, '普通点击取消必须能完成未保存确认并关闭抽屉')
+        await page.locator('[data-third-party-comprehensive-assessment-action="open-editor"][data-factory-id="ID-F023"]').click()
+        await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('13')
+        await page.locator('[data-third-party-comprehensive-assessment-editor-form]').evaluate((form) => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+        const secondToastId = await page.locator('[data-toast-container] [data-toast]').getAttribute('data-toast')
+        assert.ok(secondToastId && secondToastId !== firstToastId, '再次保存必须生成新的 Toast')
+        await page.waitForTimeout(1100)
+        assert.equal(await page.locator(`[data-toast="${secondToastId}"]`).count(), 1, '旧 Toast 的 timeout 不得误删新 Toast')
+        await page.waitForTimeout(600)
+        assert.equal(await page.locator(`[data-toast="${secondToastId}"]`).count(), 0, '新 Toast 到期后必须自动移除')
+        assert.equal(await page.evaluate(() => document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __assessmentToastRoot: Element }).__assessmentToastRoot), true, 'Toast 清理和抽屉操作不得整页重绘')
+        console.log('综合评定编辑短 Chromium 回归通过：零值拦截、submit 局部保存、Toast 不遮挡与定时清理')
+
+        await mount('?columnSettings=1')
+        const closeControls = page.locator('button[data-third-party-comprehensive-assessment-action="close-column-settings"]')
+        assert.equal(await closeControls.count(), 2, '真实 DOM 中的右上关闭与底部关闭必须都保留局部动作')
+        assert.equal(await closeControls.evaluateAll((nodes) => nodes.some((node) => node.hasAttribute('data-nav'))), false, '真实关闭控件不得携带全局 data-nav')
+        const firstCloseBefore = await snapshotStableNodes()
+        await closeControls.nth(0).click()
+        assert.equal(await page.locator('[data-third-party-comprehensive-assessment-overlays]').innerHTML(), '', '右上关闭必须只清空真实 overlay')
+        await assertStableNodes(firstCloseBefore.path, firstCloseBefore.historyLength)
+
+        await mount('?columnSettings=1')
+        const secondCloseBefore = await snapshotStableNodes()
+        await page.locator('[data-third-party-comprehensive-assessment-action="close-column-settings"]').nth(1).click()
+        assert.equal(await page.locator('[data-third-party-comprehensive-assessment-overlays]').innerHTML(), '', '底部关闭必须只清空真实 overlay')
+        await assertStableNodes(secondCloseBefore.path, secondCloseBefore.historyLength)
+
+        await mount('?columnSettings=1')
+        const scrollBeforeToggle = await page.evaluate(() => {
+          const scroll = document.querySelector<HTMLElement>('[data-assessment-table-surface] [data-standard-list-scroll]')
+          if (!scroll) return { hasScroll: false, hasTable: false, scrollLeft: 0 }
+          scroll.style.width = '320px'
+          scroll.style.overflowX = 'scroll'
+          const table = scroll.querySelector('table')
+          if (!table) return { hasScroll: true, hasTable: false, scrollLeft: 0 }
+          table.style.minWidth = '2400px'
+          scroll.scrollLeft = 137
+          const root = document.querySelector('[data-third-party-comprehensive-assessment-page]')
+          Object.assign(window, { __assessmentRoot: root })
+          return { hasScroll: true, hasTable: true, scrollLeft: scroll.scrollLeft }
+        })
+        assert.ok(scrollBeforeToggle.hasScroll, '真实表格必须包含内部横向滚动节点')
+        assert.ok(scrollBeforeToggle.hasTable, '真实横向滚动节点必须承载标准列表表格')
+        assert.equal(scrollBeforeToggle.scrollLeft, 137, '真实内部横向滚动节点必须可设置滚动位置')
+        await page.locator('[data-third-party-comprehensive-assessment-action="toggle-column-visibility"][data-third-party-comprehensive-assessment-column-key="machineCount"]').click()
+        assert.equal(await page.evaluate(() => document.querySelector<HTMLElement>('[data-assessment-table-surface] [data-standard-list-scroll]')?.scrollLeft), scrollBeforeToggle.scrollLeft, '切列后必须恢复真实内部横向滚动位置')
+        assert.equal(await page.evaluate(() => document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __assessmentRoot: Element }).__assessmentRoot), true, '切列不得整页重绘')
+
+        await mount('?pageSize=20&columnSettings=1')
+        const restoreBefore = await snapshotStableNodes()
+        await page.locator('[data-third-party-comprehensive-assessment-action="restore-column-settings"]').click()
+        const restoreState = await page.evaluate(() => ({
+          pageSize: (document.querySelector<HTMLSelectElement>('[data-third-party-comprehensive-assessment-field="pageSize"]')?.value),
+          rowCount: document.querySelectorAll('[data-assessment-table-surface] tbody tr').length,
+          pagination: document.querySelector('[data-assessment-pagination-surface]')?.textContent,
+          hasPageSize: new URL(location.href).searchParams.has('pageSize'),
+          historyLength: history.length,
+          rootStable: document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __assessmentRoot: Element }).__assessmentRoot,
+          sentinelStable: document.querySelector('#external-sentinel') === (window as unknown as { __assessmentSentinel: Element }).__assessmentSentinel,
+        }))
+        assert.equal(restoreState.pageSize, '10', '恢复默认必须让真实每页条数控件回到 10')
+        assert.equal(restoreState.rowCount, 10, '恢复默认必须让真实表格回到 10 行口径')
+        assert.ok(restoreState.pagination?.includes('10 条/页'), '恢复默认必须刷新真实分页显示')
+        assert.equal(restoreState.hasPageSize, false, '恢复默认必须清理 URL 中的 pageSize 覆盖')
+        assert.equal(restoreState.historyLength, restoreBefore.historyLength, '恢复默认必须使用 replace 语义而非新增历史')
+        assert.ok(restoreState.rootStable && restoreState.sentinelStable, '恢复默认不得整页 root 重绘或丢失外部节点')
+
+        await mount('')
+        const editorBefore = await snapshotStableNodes()
+        const editButton = page.locator('[data-third-party-comprehensive-assessment-action="open-editor"][data-factory-id="ID-F023"]')
+        await editButton.click()
+        assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 1, '编辑评定必须打开局部抽屉')
+        assert.equal(await page.locator('[data-third-party-comprehensive-assessment-field="categoryAbilities"]').count(), 11, '品类能力必须完整展示业务定义的 11 个一级品类')
+        await assertStableNodes(editorBefore.path, editorBefore.historyLength)
+        const editorText = await page.locator('[data-third-party-comprehensive-assessment-editor]').innerText()
+        for (const text of ['工艺能力', '工厂档案', '时效', '系统计算', '品控', '质检业务数据', '人工填写']) {
+          assert.ok(editorText.includes(text), `编辑抽屉必须清楚展示只读来源：${text}`)
+        }
+
+        await page.locator('[data-third-party-comprehensive-assessment-field="categoryAbilities"]').first().check()
+        await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('0')
+        await page.locator('[data-third-party-comprehensive-assessment-field="workerCount"]').fill('0')
+        await page.locator('[data-third-party-comprehensive-assessment-field="monthlyOutputValueTenThousandIdr"]').fill('0')
+        await page.locator('[data-third-party-comprehensive-assessment-field="grade"]').selectOption('')
+        await page.locator('[data-third-party-comprehensive-assessment-action="save-editor"]').click()
+        assert.ok((await page.locator('[data-assessment-form-errors]').innerText()).includes('机器台数必须为正整数'), '非法输入必须在抽屉内给出明确改法')
+        assert.ok((await page.locator('[data-assessment-form-errors]').innerText()).includes('月产值必须大于 0'), '零月产值必须在抽屉内被阻断')
+
+        await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('12')
+        await page.locator('[data-third-party-comprehensive-assessment-field="workerCount"]').fill('24')
+        await page.locator('[data-third-party-comprehensive-assessment-field="monthlyOutputValueTenThousandIdr"]').fill('0.25')
+        await page.locator('[data-third-party-comprehensive-assessment-field="grade"]').selectOption('A')
+        const rootBeforeSave = await page.locator('[data-third-party-comprehensive-assessment-page]').evaluate((node) => {
+          Object.assign(window, { __assessmentRootBeforeSave: node })
+          return true
+        })
+        assert.ok(rootBeforeSave)
+        await page.locator('[data-third-party-comprehensive-assessment-editor-form]').evaluate((form) => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+        assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 0, '保存成功后必须关闭编辑抽屉')
+        assert.equal(await page.evaluate(() => document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __assessmentRootBeforeSave: Element }).__assessmentRootBeforeSave), true, '保存不得整页重绘')
+        assert.equal(`${await page.evaluate(() => location.pathname)}${await page.evaluate(() => location.search)}`, editorBefore.path, '保存不得跳转路由')
+        assert.ok((await page.locator('[data-toast-container]').innerText()).includes('评定已保存'), '保存成功必须给出反馈')
+        const savedRowText = await page.locator('[data-assessment-factory-id="ID-F023"]').locator('xpath=ancestor::tr').innerText()
+        assert.ok(savedRowText.includes('12 台') && savedRowText.includes('24 人') && savedRowText.includes('0.25 万印尼盾／月') && savedRowText.includes('A 级'), '合法 submit 后必须局部刷新当前工厂行')
+        assert.ok(savedRowText.includes('当前登录用户'), '保存后必须记录并展示最后更新人')
+
+        await editButton.click()
+        await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('1')
+        page.once('dialog', (dialog) => dialog.dismiss())
+        await page.locator('[data-third-party-comprehensive-assessment-action="close-editor"]').last().click()
+        assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 1, '有未保存变更且取消确认时必须保留抽屉')
+        page.once('dialog', (dialog) => dialog.accept())
+        await page.locator('[data-third-party-comprehensive-assessment-action="close-editor"]').last().click()
+        assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 0, '确认放弃未保存变更后必须关闭抽屉')
+
+        await page.unroute(mainModuleRoute)
+      } finally {
+        await directContext.close()
       }
-      document.addEventListener('click', (event) => {
-        if (event.target instanceof HTMLElement) assessment.handleThirdPartyFactoryComprehensiveAssessmentEvent(event.target, event)
-      })
-      document.addEventListener('change', (event) => {
-        if (event.target instanceof HTMLElement) assessment.handleThirdPartyFactoryComprehensiveAssessmentEvent(event.target, event)
-      })
-      document.addEventListener('input', (event) => {
-        if (event.target instanceof HTMLElement) assessment.handleThirdPartyFactoryComprehensiveAssessmentEvent(event.target, event)
-      })
-      document.addEventListener('submit', (event) => {
-        if (event.target instanceof HTMLFormElement && assessment.handleThirdPartyFactoryComprehensiveAssessmentSubmit(event.target)) event.preventDefault()
-      })
-      Object.assign(window, { __assessmentMount: mount })
-    })
-
-    const mount = async (search: string) => page.evaluate((nextSearch) => {
-      ;(window as unknown as { __assessmentMount: (value: string) => void }).__assessmentMount(nextSearch)
-    }, search)
-    const snapshotStableNodes = async () => page.evaluate(() => {
-      const root = document.querySelector('[data-third-party-comprehensive-assessment-page]')
-      const sentinel = document.querySelector('#external-sentinel')
-      Object.assign(window, { __assessmentRoot: root, __assessmentSentinel: sentinel })
-      return { path: `${location.pathname}${location.search}`, historyLength: history.length }
-    })
-    const assertStableNodes = async (expectedPath: string, expectedHistoryLength: number) => page.evaluate(({ path, historyLength }) => ({
-      path: `${location.pathname}${location.search}`,
-      historyLength: history.length,
-      rootStable: document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __assessmentRoot: Element }).__assessmentRoot,
-      sentinelStable: document.querySelector('#external-sentinel') === (window as unknown as { __assessmentSentinel: Element }).__assessmentSentinel,
-    }), { path: expectedPath, historyLength: expectedHistoryLength }).then((result) => {
-      assert.equal(result.path, expectedPath, '局部列设置操作不得改变当前路径')
-      assert.equal(result.historyLength, expectedHistoryLength, '局部列设置操作不得新增浏览器历史')
-      assert.ok(result.rootStable, '局部列设置操作不得替换页面根节点')
-      assert.ok(result.sentinelStable, '局部列设置操作不得替换外部哨兵节点')
-    })
-
-    await mount('')
-    await page.locator('[data-third-party-comprehensive-assessment-action="open-editor"][data-factory-id="ID-F023"]').click()
-    await page.locator('[data-third-party-comprehensive-assessment-field="categoryAbilities"]').first().check()
-    await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('0')
-    await page.locator('[data-third-party-comprehensive-assessment-field="workerCount"]').fill('0')
-    await page.locator('[data-third-party-comprehensive-assessment-field="monthlyOutputValueTenThousandIdr"]').fill('0')
-    await page.locator('[data-third-party-comprehensive-assessment-action="save-editor"]').click()
-    assert.ok((await page.locator('[data-assessment-form-errors]').innerText()).includes('机器台数必须为正整数'), '短回归必须验证零机器台数被拒绝')
-    await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('12')
-    await page.locator('[data-third-party-comprehensive-assessment-field="workerCount"]').fill('24')
-    await page.locator('[data-third-party-comprehensive-assessment-field="monthlyOutputValueTenThousandIdr"]').fill('25.50')
-    await page.locator('[data-third-party-comprehensive-assessment-field="grade"]').selectOption('A')
-    await page.locator('[data-third-party-comprehensive-assessment-editor-form]').evaluate((form) => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
-    assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 0, '短回归必须验证合法 submit 完成局部保存')
-    assert.ok((await page.locator('[data-assessment-factory-id="ID-F023"]').locator('xpath=ancestor::tr').innerText()).includes('25.5 万印尼盾／月'), '合法 submit 后必须局部刷新工厂行')
-    const stableRoot = await page.locator('[data-third-party-comprehensive-assessment-page]').evaluate((node) => {
-      Object.assign(window, { __assessmentToastRoot: node })
-      return true
-    })
-    assert.ok(stableRoot)
-    const firstToastId = await page.locator('[data-toast-container] [data-toast]').getAttribute('data-toast')
-    assert.ok(firstToastId, '保存成功必须展示可识别 Toast')
-    await page.waitForTimeout(500)
-    await page.locator('[data-third-party-comprehensive-assessment-action="open-editor"][data-factory-id="ID-F023"]').click()
-    assert.equal(await page.locator('[data-toast-container] [data-toast]').count(), 0, '再次打开编辑抽屉时必须移除可能遮挡按钮的旧 Toast')
-    await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('13')
-    page.once('dialog', (dialog) => dialog.accept())
-    await page.locator('[data-third-party-comprehensive-assessment-action="close-editor"]').last().click()
-    assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 0, '普通点击取消必须能完成未保存确认并关闭抽屉')
-    await page.locator('[data-third-party-comprehensive-assessment-action="open-editor"][data-factory-id="ID-F023"]').click()
-    await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('13')
-    await page.locator('[data-third-party-comprehensive-assessment-editor-form]').evaluate((form) => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
-    const secondToastId = await page.locator('[data-toast-container] [data-toast]').getAttribute('data-toast')
-    assert.ok(secondToastId && secondToastId !== firstToastId, '再次保存必须生成新的 Toast')
-    await page.waitForTimeout(1100)
-    assert.equal(await page.locator(`[data-toast="${secondToastId}"]`).count(), 1, '旧 Toast 的 timeout 不得误删新 Toast')
-    await page.waitForTimeout(600)
-    assert.equal(await page.locator(`[data-toast="${secondToastId}"]`).count(), 0, '新 Toast 到期后必须自动移除')
-    assert.equal(await page.evaluate(() => document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __assessmentToastRoot: Element }).__assessmentToastRoot), true, 'Toast 清理和抽屉操作不得整页重绘')
-    console.log('综合评定编辑短 Chromium 回归通过：零值拦截、submit 局部保存、Toast 不遮挡与定时清理')
-
-    await mount('?columnSettings=1')
-    const closeControls = page.locator('button[data-third-party-comprehensive-assessment-action="close-column-settings"]')
-    assert.equal(await closeControls.count(), 2, '真实 DOM 中的右上关闭与底部关闭必须都保留局部动作')
-    assert.equal(await closeControls.evaluateAll((nodes) => nodes.some((node) => node.hasAttribute('data-nav'))), false, '真实关闭控件不得携带全局 data-nav')
-    const firstCloseBefore = await snapshotStableNodes()
-    await closeControls.nth(0).click()
-    assert.equal(await page.locator('[data-third-party-comprehensive-assessment-overlays]').innerHTML(), '', '右上关闭必须只清空真实 overlay')
-    await assertStableNodes(firstCloseBefore.path, firstCloseBefore.historyLength)
-
-    await mount('?columnSettings=1')
-    const secondCloseBefore = await snapshotStableNodes()
-    await page.locator('[data-third-party-comprehensive-assessment-action="close-column-settings"]').nth(1).click()
-    assert.equal(await page.locator('[data-third-party-comprehensive-assessment-overlays]').innerHTML(), '', '底部关闭必须只清空真实 overlay')
-    await assertStableNodes(secondCloseBefore.path, secondCloseBefore.historyLength)
-
-    await mount('?columnSettings=1')
-    const scrollBeforeToggle = await page.evaluate(() => {
-      const scroll = document.querySelector<HTMLElement>('[data-assessment-table-surface] [data-standard-list-scroll]')
-      if (!scroll) return { hasScroll: false, hasTable: false, scrollLeft: 0 }
-      scroll.style.width = '320px'
-      scroll.style.overflowX = 'scroll'
-      const table = scroll.querySelector('table')
-      if (!table) return { hasScroll: true, hasTable: false, scrollLeft: 0 }
-      table.style.minWidth = '2400px'
-      scroll.scrollLeft = 137
-      const root = document.querySelector('[data-third-party-comprehensive-assessment-page]')
-      Object.assign(window, { __assessmentRoot: root })
-      return { hasScroll: true, hasTable: true, scrollLeft: scroll.scrollLeft }
-    })
-    assert.ok(scrollBeforeToggle.hasScroll, '真实表格必须包含内部横向滚动节点')
-    assert.ok(scrollBeforeToggle.hasTable, '真实横向滚动节点必须承载标准列表表格')
-    assert.equal(scrollBeforeToggle.scrollLeft, 137, '真实内部横向滚动节点必须可设置滚动位置')
-    await page.locator('[data-third-party-comprehensive-assessment-action="toggle-column-visibility"][data-third-party-comprehensive-assessment-column-key="machineCount"]').click()
-    assert.equal(await page.evaluate(() => document.querySelector<HTMLElement>('[data-assessment-table-surface] [data-standard-list-scroll]')?.scrollLeft), scrollBeforeToggle.scrollLeft, '切列后必须恢复真实内部横向滚动位置')
-    assert.equal(await page.evaluate(() => document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __assessmentRoot: Element }).__assessmentRoot), true, '切列不得整页重绘')
-
-    await mount('?pageSize=20&columnSettings=1')
-    const restoreBefore = await snapshotStableNodes()
-    await page.locator('[data-third-party-comprehensive-assessment-action="restore-column-settings"]').click()
-    const restoreState = await page.evaluate(() => ({
-      pageSize: (document.querySelector<HTMLSelectElement>('[data-third-party-comprehensive-assessment-field="pageSize"]')?.value),
-      rowCount: document.querySelectorAll('[data-assessment-table-surface] tbody tr').length,
-      pagination: document.querySelector('[data-assessment-pagination-surface]')?.textContent,
-      hasPageSize: new URL(location.href).searchParams.has('pageSize'),
-      historyLength: history.length,
-      rootStable: document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __assessmentRoot: Element }).__assessmentRoot,
-      sentinelStable: document.querySelector('#external-sentinel') === (window as unknown as { __assessmentSentinel: Element }).__assessmentSentinel,
-    }))
-    assert.equal(restoreState.pageSize, '10', '恢复默认必须让真实每页条数控件回到 10')
-    assert.equal(restoreState.rowCount, 10, '恢复默认必须让真实表格回到 10 行口径')
-    assert.ok(restoreState.pagination?.includes('10 条/页'), '恢复默认必须刷新真实分页显示')
-    assert.equal(restoreState.hasPageSize, false, '恢复默认必须清理 URL 中的 pageSize 覆盖')
-    assert.equal(restoreState.historyLength, restoreBefore.historyLength, '恢复默认必须使用 replace 语义而非新增历史')
-    assert.ok(restoreState.rootStable && restoreState.sentinelStable, '恢复默认不得整页 root 重绘或丢失外部节点')
-
-    await mount('')
-    const editorBefore = await snapshotStableNodes()
-    const editButton = page.locator('[data-third-party-comprehensive-assessment-action="open-editor"][data-factory-id="ID-F023"]')
-    await editButton.click()
-    assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 1, '编辑评定必须打开局部抽屉')
-    assert.equal(await page.locator('[data-third-party-comprehensive-assessment-field="categoryAbilities"]').count(), 11, '品类能力必须完整展示业务定义的 11 个一级品类')
-    await assertStableNodes(editorBefore.path, editorBefore.historyLength)
-    const editorText = await page.locator('[data-third-party-comprehensive-assessment-editor]').innerText()
-    for (const text of ['工艺能力', '工厂档案', '时效', '系统计算', '品控', '质检业务数据', '人工填写']) {
-      assert.ok(editorText.includes(text), `编辑抽屉必须清楚展示只读来源：${text}`)
-    }
-
-    await page.locator('[data-third-party-comprehensive-assessment-field="categoryAbilities"]').first().check()
-    await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('0')
-    await page.locator('[data-third-party-comprehensive-assessment-field="workerCount"]').fill('0')
-    await page.locator('[data-third-party-comprehensive-assessment-field="monthlyOutputValueTenThousandIdr"]').fill('0')
-    await page.locator('[data-third-party-comprehensive-assessment-field="grade"]').selectOption('')
-    await page.locator('[data-third-party-comprehensive-assessment-action="save-editor"]').click()
-    assert.ok((await page.locator('[data-assessment-form-errors]').innerText()).includes('机器台数必须为正整数'), '非法输入必须在抽屉内给出明确改法')
-    assert.ok((await page.locator('[data-assessment-form-errors]').innerText()).includes('月产值必须大于 0'), '零月产值必须在抽屉内被阻断')
-
-    await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('12')
-    await page.locator('[data-third-party-comprehensive-assessment-field="workerCount"]').fill('24')
-    await page.locator('[data-third-party-comprehensive-assessment-field="monthlyOutputValueTenThousandIdr"]').fill('0.25')
-    await page.locator('[data-third-party-comprehensive-assessment-field="grade"]').selectOption('A')
-    const rootBeforeSave = await page.locator('[data-third-party-comprehensive-assessment-page]').evaluate((node) => {
-      Object.assign(window, { __assessmentRootBeforeSave: node })
-      return true
-    })
-    assert.ok(rootBeforeSave)
-    await page.locator('[data-third-party-comprehensive-assessment-editor-form]').evaluate((form) => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
-    assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 0, '保存成功后必须关闭编辑抽屉')
-    assert.equal(await page.evaluate(() => document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __assessmentRootBeforeSave: Element }).__assessmentRootBeforeSave), true, '保存不得整页重绘')
-    assert.equal(`${await page.evaluate(() => location.pathname)}${await page.evaluate(() => location.search)}`, editorBefore.path, '保存不得跳转路由')
-    assert.ok((await page.locator('[data-toast-container]').innerText()).includes('评定已保存'), '保存成功必须给出反馈')
-    const savedRowText = await page.locator('[data-assessment-factory-id="ID-F023"]').locator('xpath=ancestor::tr').innerText()
-    assert.ok(savedRowText.includes('12 台') && savedRowText.includes('24 人') && savedRowText.includes('0.25 万印尼盾／月') && savedRowText.includes('A 级'), '合法 submit 后必须局部刷新当前工厂行')
-    assert.ok(savedRowText.includes('当前登录用户'), '保存后必须记录并展示最后更新人')
-
-    await editButton.click()
-    await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('1')
-    page.once('dialog', (dialog) => dialog.dismiss())
-    await page.locator('[data-third-party-comprehensive-assessment-action="close-editor"]').last().click()
-    assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 1, '有未保存变更且取消确认时必须保留抽屉')
-    page.once('dialog', (dialog) => dialog.accept())
-    await page.locator('[data-third-party-comprehensive-assessment-action="close-editor"]').last().click()
-    assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 0, '确认放弃未保存变更后必须关闭抽屉')
-
-    await page.unroute(mainModuleRoute)
-    await realAppRegression
+    })()
+    const regressionResults = await Promise.allSettled([directDomRegression, realAppRegression])
+    const failedRegression = regressionResults.find((result): result is PromiseRejectedResult => result.status === 'rejected')
+    if (failedRegression) throw failedRegression.reason
   } finally {
-    await browser.close()
-    vite.kill('SIGTERM')
+    const openContextCount = browser?.contexts().length ?? 0
+    await browser?.close()
+    await stopChildProcess(vite)
+    if (forceBrowserRegressionFailure) {
+      assert.equal(openContextCount, 0, '故意失败后必须先关闭两个独立 BrowserContext')
+      console.error('故意失败探针已确认：BrowserContext、browser 与 Vite 均已清理')
+    }
   }
 }
 
