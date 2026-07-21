@@ -18,14 +18,23 @@ class MemoryStorage {
     if (this.throwOnSet) throw new Error('quota exceeded')
     this.values.set(key, value)
   }
+
+  removeItem(key: string): void {
+    this.values.delete(key)
+  }
 }
 
 const storage = new MemoryStorage()
 ;(globalThis as typeof globalThis & {
-  window?: { localStorage: MemoryStorage, location: { pathname: string, search: string } }
+  window?: {
+    localStorage: MemoryStorage
+    location: { pathname: string, search: string }
+    history: { pushState: (state: unknown, title: string, url?: string | URL | null) => void, replaceState: (state: unknown, title: string, url?: string | URL | null) => void }
+  }
 }).window = {
   localStorage: storage,
   location: { pathname: '/fcs/factories/third-party-comprehensive-assessment', search: '' },
+  history: { pushState: () => undefined, replaceState: () => undefined },
 }
 const assessmentModuleUrl = new URL('../src/data/fcs/third-party-factory-comprehensive-assessment.ts', import.meta.url).href
 let moduleLoadCount = 0
@@ -228,6 +237,7 @@ const assessmentPageModule = await import(`${assessmentPageModuleUrl}?page-check
 const {
   filterThirdPartyFactoryComprehensiveAssessments,
   getThirdPartyFactoryComprehensiveAssessmentDefaultColumnPreferences,
+  handleThirdPartyFactoryComprehensiveAssessmentEvent,
   renderThirdPartyFactoryComprehensiveAssessmentPage,
 } = assessmentPageModule
 
@@ -264,6 +274,25 @@ assert.ok(
   allCategoriesRows.every((item) => item.categoryAbilities.some((category) => completeCategoryQuery.categories.includes(category))),
   '多个品类筛选不得误实现为组内 AND',
 )
+const keywordRows = filterThirdPartyFactoryComprehensiveAssessments(assessments, {
+  ...completeCategoryQuery,
+  keyword: assessments[0].factoryCode,
+  categories: [], ability: 'ALL', capacity: 'ALL', timeliness: 'ALL', quality: 'ALL', rating: 'ALL',
+})
+assert.deepEqual(keywordRows.map((item) => item.factoryId), [assessments[0].factoryId], '关键字必须匹配工厂编码')
+const gradeRows = filterThirdPartyFactoryComprehensiveAssessments(assessments, {
+  ...completeCategoryQuery,
+  categories: [], grade: 'B', ability: 'ALL', capacity: 'ALL', timeliness: 'ALL', quality: 'ALL', rating: 'ALL',
+})
+assert.ok(gradeRows.length > 0 && gradeRows.every((item) => item.grade === 'B'), '综合评级筛选必须仅返回目标评级')
+for (const dimension of ['ability', 'capacity', 'timeliness', 'quality', 'rating'] as const) {
+  const incompleteRows = filterThirdPartyFactoryComprehensiveAssessments(assessments, {
+    ...completeCategoryQuery,
+    categories: [], grade: 'ALL', ability: 'ALL', capacity: 'ALL', timeliness: 'ALL', quality: 'ALL', rating: 'ALL',
+    [dimension]: 'INCOMPLETE',
+  })
+  assert.ok(incompleteRows.length > 0 && incompleteRows.every((item) => !item.completion[dimension === 'rating' ? 'grade' : dimension]), `${dimension} 待完善筛选必须只返回该维度未完善工厂`)
+}
 
 const defaultColumnPreferences = getThirdPartyFactoryComprehensiveAssessmentDefaultColumnPreferences()
 assert.deepEqual(
@@ -295,5 +324,61 @@ for (const dimension of ['ability', 'capacity', 'timeliness', 'quality', 'rating
 for (const englishStatus of ['PENDING', 'DONE', 'IN_PROGRESS', 'COMPLETE', 'INCOMPLETE']) {
   assert.ok(!assessmentPageHtml.includes(`>${englishStatus}<`), `页面不得直接展示英文状态码：${englishStatus}`)
 }
+
+const EVENT_PREFIX = 'third-party-comprehensive-assessment'
+const COLUMN_STORAGE_KEY = 'fcs.third-party-comprehensive-assessment.columns.v1'
+const createEvent = (type: string, extra: Record<string, unknown> = {}) => ({
+  type,
+  defaultPrevented: false,
+  preventDefault() { this.defaultPrevented = true },
+  ...extra,
+})
+const createFieldTarget = (field: string, value: string) => ({
+  closest: (selector: string) => selector === `[data-${EVENT_PREFIX}-field]`
+    ? { dataset: { thirdPartyComprehensiveAssessmentField: field }, value }
+    : null,
+}) as unknown as HTMLElement
+const createActionTarget = (action: string, columnKey?: string) => ({
+  closest: (selector: string) => selector === `[data-${EVENT_PREFIX}-action]`
+    ? { getAttribute: () => action, dataset: { thirdPartyComprehensiveAssessmentColumnKey: columnKey, columnKey } }
+    : null,
+}) as unknown as HTMLElement
+const createDragTarget = (columnKey: string) => ({
+  closest: (selector: string) => selector === '[data-standard-list-column-drag]'
+    ? { dataset: { dragSource: columnKey, dropTarget: columnKey } }
+    : null,
+}) as unknown as HTMLElement
+const readStoredColumns = () => JSON.parse(storage.getItem(COLUMN_STORAGE_KEY) ?? 'null') as {
+  order: string[], visibleKeys: string[], frozenKeys: string[], pageSize: number
+}
+
+const pageSizeEvent = createEvent('change')
+assert.equal(handleThirdPartyFactoryComprehensiveAssessmentEvent(createFieldTarget('pageSize', '20'), pageSizeEvent as unknown as Event), true, '每页条数切换必须由页面事件处理')
+assert.equal(readStoredColumns().pageSize, 20, '每页条数必须持久化')
+
+const visibilityEvent = createEvent('change')
+assert.equal(handleThirdPartyFactoryComprehensiveAssessmentEvent(createActionTarget('toggle-column-visibility', 'machineCount'), visibilityEvent as unknown as Event), true, '普通列显示切换必须被处理')
+assert.ok(!readStoredColumns().visibleKeys.includes('machineCount'), '普通列隐藏必须持久化')
+assert.equal(handleThirdPartyFactoryComprehensiveAssessmentEvent(createActionTarget('toggle-column-visibility', 'factory'), createEvent('change') as unknown as Event), true, '必需列显示操作必须安全返回')
+assert.ok(readStoredColumns().visibleKeys.includes('factory'), '必需列不得被隐藏')
+assert.equal(handleThirdPartyFactoryComprehensiveAssessmentEvent(createActionTarget('toggle-column-visibility', 'actions'), createEvent('change') as unknown as Event), true, '操作列显示操作必须安全返回')
+assert.ok(readStoredColumns().visibleKeys.includes('actions'), '操作列不得被隐藏')
+
+assert.equal(handleThirdPartyFactoryComprehensiveAssessmentEvent(createActionTarget('toggle-column-freeze', 'factory'), createEvent('change') as unknown as Event), true, '冻结列切换必须被处理')
+assert.ok(!readStoredColumns().frozenKeys.includes('factory'), '取消冻结必须持久化')
+assert.equal(handleThirdPartyFactoryComprehensiveAssessmentEvent(createActionTarget('toggle-column-freeze', 'factory'), createEvent('change') as unknown as Event), true, '恢复冻结必须被处理')
+assert.ok(readStoredColumns().frozenKeys.includes('factory'), '冻结列必须持久化')
+
+const dragStartEvent = createEvent('dragstart', { dataTransfer: { setData: () => undefined, effectAllowed: '' } })
+assert.equal(handleThirdPartyFactoryComprehensiveAssessmentEvent(createDragTarget('machineCount'), dragStartEvent as unknown as Event), true, '列拖拽开始必须被处理')
+const dragDropEvent = createEvent('drop', { higoodStandardListColumnKey: 'machineCount', dataTransfer: { getData: () => 'machineCount' } })
+assert.equal(handleThirdPartyFactoryComprehensiveAssessmentEvent(createDragTarget('workerCount'), dragDropEvent as unknown as Event), true, '合法列拖拽必须被处理')
+assert.ok(readStoredColumns().order.indexOf('machineCount') < readStoredColumns().order.indexOf('workerCount'), '列拖拽顺序必须持久化')
+const orderBeforeInvalidDrag = [...readStoredColumns().order]
+assert.equal(handleThirdPartyFactoryComprehensiveAssessmentEvent(createDragTarget('actions'), createEvent('drop', { higoodStandardListColumnKey: 'machineCount' }) as unknown as Event), false, '操作列不得作为拖拽目标')
+assert.deepEqual(readStoredColumns().order, orderBeforeInvalidDrag, '非法拖拽不得污染列顺序')
+
+assert.equal(handleThirdPartyFactoryComprehensiveAssessmentEvent(createActionTarget('restore-column-settings'), createEvent('click') as unknown as Event), true, '恢复默认必须被处理')
+assert.equal(storage.getItem(COLUMN_STORAGE_KEY), null, '恢复默认必须清除列偏好')
 
 console.log('第三方车缝厂综合评定页面检查通过')

@@ -50,7 +50,10 @@ export interface ComprehensiveAssessmentQuery {
   sortKey: string
   sortDirection: StandardListSortDirection | ''
   columnSettings: boolean
+  refreshKey: string
 }
+
+let draggedColumnKey = ''
 
 const columnRules = [
   { key: 'factory', required: true, freezeable: true },
@@ -140,6 +143,7 @@ function readQuery(): ComprehensiveAssessmentQuery {
     sortKey: params.get('sortKey') ?? '',
     sortDirection: sortDirection === 'asc' || sortDirection === 'desc' ? sortDirection : '',
     columnSettings: params.get('columnSettings') === '1',
+    refreshKey: params.get('refreshKey') ?? '',
   }
 }
 
@@ -195,6 +199,7 @@ function buildHref(query: ComprehensiveAssessmentQuery, patch: Partial<Comprehen
     params.set('sortDirection', next.sortDirection)
   }
   if (next.columnSettings) params.set('columnSettings', '1')
+  if (next.refreshKey) params.set('refreshKey', next.refreshKey)
   const search = params.toString()
   return search ? `${PAGE_PATH}?${search}` : PAGE_PATH
 }
@@ -355,28 +360,175 @@ function nextSortPatch(query: ComprehensiveAssessmentQuery, columnKey: string): 
   return { sortKey: '', sortDirection: '', page: 1 }
 }
 
+function navigateAssessmentList(href: string): void {
+  appStore.navigate(href)
+}
+
+function refreshColumnSettings(
+  query: ComprehensiveAssessmentQuery,
+  patch: Partial<ComprehensiveAssessmentQuery> = {},
+): void {
+  navigateAssessmentList(buildHref(query, {
+    ...patch,
+    columnSettings: patch.columnSettings ?? true,
+    refreshKey: String(Date.now()),
+  }))
+}
+
+function getActionColumnKey(actionNode: HTMLElement): string {
+  return actionNode.dataset.thirdPartyComprehensiveAssessmentColumnKey || actionNode.dataset.columnKey || ''
+}
+
+function getDragColumnKey(dragNode: HTMLElement): string {
+  return dragNode.dataset.thirdPartyComprehensiveAssessmentColumnKey
+    || dragNode.dataset.dragSource
+    || dragNode.dataset.dropTarget
+    || ''
+}
+
+function getDraggableColumn(columnKey: string): StandardListColumn<ThirdPartyFactoryComprehensiveAssessment> | undefined {
+  return columns.find((column) => column.key === columnKey && !column.actionColumn)
+}
+
+function canFreezeColumn(
+  preferences: StandardListColumnPreferences,
+  column: StandardListColumn<ThirdPartyFactoryComprehensiveAssessment>,
+): boolean {
+  if (!column.freezeable || column.actionColumn) return false
+  if (preferences.frozenKeys.includes(column.key)) return true
+  const currentFrozenWidth = columns.reduce((total, item) =>
+    total + (preferences.frozenKeys.includes(item.key) && !item.actionColumn ? item.width : 0), 0)
+  return currentFrozenWidth + column.width <= MAX_FROZEN_WIDTH
+}
+
 export function handleThirdPartyFactoryComprehensiveAssessmentEvent(target: HTMLElement, event?: Event): boolean {
+  const dragEvent = event as (DragEvent & {
+    higoodStandardListColumnDrag?: true
+    higoodStandardListColumnKey?: string
+  }) | undefined
+
+  if (event?.type === 'dragend') {
+    if (!draggedColumnKey && !dragEvent?.higoodStandardListColumnDrag) return false
+    draggedColumnKey = ''
+    return true
+  }
+
+  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
+  if (dragNode && event && ['dragstart', 'dragover', 'drop'].includes(event.type)) {
+    const columnKey = getDragColumnKey(dragNode)
+    const column = getDraggableColumn(columnKey)
+
+    if (event.type === 'dragstart') {
+      draggedColumnKey = column?.key || ''
+      if (!column) return false
+      dragEvent?.dataTransfer?.setData('application/x-higood-list-column-key', column.key)
+      if (dragEvent?.dataTransfer) dragEvent.dataTransfer.effectAllowed = 'move'
+      return true
+    }
+
+    const sourceKey = dragEvent?.higoodStandardListColumnKey
+      || dragEvent?.dataTransfer?.getData('application/x-higood-list-column-key')
+      || draggedColumnKey
+    const sourceColumn = getDraggableColumn(sourceKey)
+    const targetColumn = getDraggableColumn(columnKey)
+    if (
+      !sourceColumn ||
+      !targetColumn ||
+      (draggedColumnKey !== '' && draggedColumnKey !== sourceColumn.key) ||
+      sourceColumn.key === targetColumn.key
+    ) {
+      if (event.type === 'drop') draggedColumnKey = ''
+      return false
+    }
+
+    if (event.type === 'dragover') {
+      event.preventDefault()
+      if (dragEvent?.dataTransfer) dragEvent.dataTransfer.dropEffect = 'move'
+      return true
+    }
+
+    draggedColumnKey = ''
+    event.preventDefault()
+    const preferences = getColumnPreferences()
+    const order = preferences.order.filter((key) => key !== sourceColumn.key)
+    const targetIndex = order.indexOf(targetColumn.key)
+    if (targetIndex < 0) return false
+    order.splice(targetIndex, 0, sourceColumn.key)
+    saveColumnPreferences(normalizeColumnPreferences({ ...preferences, order }))
+    refreshColumnSettings(readQuery())
+    return true
+  }
+
+  const query = readQuery()
+  const fieldNode = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (fieldNode?.dataset.thirdPartyComprehensiveAssessmentField === 'pageSize') {
+    if (event?.type !== 'change') return false
+    const pageSize = Number(fieldNode.value)
+    if (!PAGE_SIZE_OPTIONS.includes(pageSize)) return true
+    saveColumnPreferences(normalizeColumnPreferences({ ...getColumnPreferences(), pageSize }))
+    event.preventDefault()
+    navigateAssessmentList(buildHref(query, { page: 1, pageSize, refreshKey: '' }))
+    return true
+  }
+
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
   const action = actionNode?.getAttribute(`data-${EVENT_PREFIX}-action`)
   if (!actionNode || !action) return false
-  const query = readQuery()
   if (action === 'sort-column') {
     const columnKey = actionNode.dataset.columnKey ?? ''
     if (!columns.some((column) => column.key === columnKey && column.sortable)) return true
     event?.preventDefault()
-    appStore.navigate(buildHref(query, nextSortPatch(query, columnKey)))
+    navigateAssessmentList(buildHref(query, { ...nextSortPatch(query, columnKey), refreshKey: '' }))
     return true
   }
   if (action === 'open-column-settings' || action === 'close-column-settings') {
     event?.preventDefault()
-    appStore.navigate(buildHref(query, { columnSettings: action === 'open-column-settings' }))
+    navigateAssessmentList(buildHref(query, { columnSettings: action === 'open-column-settings', refreshKey: '' }))
     return true
   }
   if (action === 'restore-column-settings') {
     event?.preventDefault()
     const storage = getListStorage()
     if (storage) clearListColumnPreferences(storage, COLUMN_STORAGE_KEY)
-    appStore.navigate(buildHref(query, { page: 1, pageSize: 10, columnSettings: true }))
+    navigateAssessmentList(buildHref(query, { page: 1, pageSize: 10, columnSettings: true, refreshKey: String(Date.now()) }))
+    return true
+  }
+  if (action === 'toggle-column-visibility') {
+    if (event?.type !== 'change') return false
+    const columnKey = getActionColumnKey(actionNode)
+    const rule = columnRules.find((column) => column.key === columnKey)
+    if (!rule || rule.required || rule.actionColumn) return true
+    const preferences = getColumnPreferences()
+    const visibleKeys = new Set(preferences.visibleKeys)
+    const frozenKeys = new Set(preferences.frozenKeys)
+    if (visibleKeys.has(columnKey)) {
+      visibleKeys.delete(columnKey)
+      frozenKeys.delete(columnKey)
+    } else {
+      visibleKeys.add(columnKey)
+    }
+    saveColumnPreferences(normalizeColumnPreferences({
+      ...preferences,
+      visibleKeys: [...visibleKeys],
+      frozenKeys: [...frozenKeys],
+    }))
+    event.preventDefault()
+    refreshColumnSettings(query, visibleKeys.has(columnKey) || query.sortKey !== columnKey
+      ? {}
+      : { sortKey: '', sortDirection: '', page: 1 })
+    return true
+  }
+  if (action === 'toggle-column-freeze') {
+    if (event?.type !== 'change') return false
+    const column = columns.find((item) => item.key === getActionColumnKey(actionNode))
+    if (!column || !canFreezeColumn(getColumnPreferences(), column)) return true
+    const preferences = getColumnPreferences()
+    const frozenKeys = new Set(preferences.frozenKeys)
+    if (frozenKeys.has(column.key)) frozenKeys.delete(column.key)
+    else frozenKeys.add(column.key)
+    saveColumnPreferences(normalizeColumnPreferences({ ...preferences, frozenKeys: [...frozenKeys] }))
+    event.preventDefault()
+    refreshColumnSettings(query)
     return true
   }
   return false
