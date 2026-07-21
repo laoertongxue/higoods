@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { existsSync, readFileSync } from 'node:fs'
 import {
   listFactoryMasterRecords,
   removeFactoryMasterRecord,
@@ -20,7 +21,12 @@ class MemoryStorage {
 }
 
 const storage = new MemoryStorage()
-;(globalThis as typeof globalThis & { window?: { localStorage: MemoryStorage } }).window = { localStorage: storage }
+;(globalThis as typeof globalThis & {
+  window?: { localStorage: MemoryStorage, location: { pathname: string, search: string } }
+}).window = {
+  localStorage: storage,
+  location: { pathname: '/fcs/factories/third-party-comprehensive-assessment', search: '' },
+}
 const assessmentModuleUrl = new URL('../src/data/fcs/third-party-factory-comprehensive-assessment.ts', import.meta.url).href
 let moduleLoadCount = 0
 const loadAssessmentModule = () => import(`${assessmentModuleUrl}?storage-check=${moduleLoadCount++}`)
@@ -205,3 +211,89 @@ try {
 }
 
 console.log('第三方车缝厂综合评定数据检查通过')
+
+const pagePath = new URL('../src/pages/third-party-factory-comprehensive-assessment.ts', import.meta.url)
+assert.ok(existsSync(pagePath), '缺少第三方车缝厂综合评定列表页')
+
+const assessmentPageSource = readFileSync(pagePath, 'utf8')
+assert.ok(assessmentPageSource.startsWith('// @page-pattern: list'), '综合评定列表页必须声明列表页模式')
+for (const componentName of ['renderStandardListPage', 'renderStandardListStats', 'renderStandardListTable', 'renderTablePagination']) {
+  assert.ok(assessmentPageSource.includes(componentName), `综合评定列表页必须复用 ${componentName}`)
+}
+assert.ok(assessmentPageSource.includes("fcs.third-party-comprehensive-assessment.columns.v1"), '综合评定列偏好必须按页面路径独立持久化')
+assert.ok(assessmentPageSource.includes('data-completion-filter'), '筛选区必须声明完成状态检查标记')
+
+const assessmentPageModuleUrl = new URL('../src/pages/third-party-factory-comprehensive-assessment.ts', import.meta.url).href
+const assessmentPageModule = await import(`${assessmentPageModuleUrl}?page-check=1`)
+const {
+  filterThirdPartyFactoryComprehensiveAssessments,
+  getThirdPartyFactoryComprehensiveAssessmentDefaultColumnPreferences,
+  renderThirdPartyFactoryComprehensiveAssessmentPage,
+} = assessmentPageModule
+
+const completeCategoryQuery = {
+  keyword: '',
+  categories: ['衬衫', '裤子'],
+  grade: 'ALL',
+  ability: 'COMPLETE',
+  capacity: 'COMPLETE',
+  timeliness: 'COMPLETE',
+  quality: 'COMPLETE',
+  rating: 'COMPLETE',
+  page: 1,
+  pageSize: 10,
+  editFactoryId: '',
+  sortKey: '',
+  sortDirection: '',
+  columnSettings: false,
+}
+const completeCategoryRows = filterThirdPartyFactoryComprehensiveAssessments(assessments, completeCategoryQuery)
+assert.ok(completeCategoryRows.length > 0, '五维完成且品类命中的组合筛选必须返回样例')
+assert.ok(
+  completeCategoryRows.every((item) =>
+    item.completion.ability && item.completion.capacity && item.completion.timeliness && item.completion.quality && item.completion.grade &&
+    item.categoryAbilities.some((category) => completeCategoryQuery.categories.includes(category)),
+  ),
+  '五个完成状态筛选必须组间 AND，品类必须组内 OR',
+)
+const allCategoriesRows = filterThirdPartyFactoryComprehensiveAssessments(assessments, {
+  ...completeCategoryQuery,
+  ability: 'ALL', capacity: 'ALL', timeliness: 'ALL', quality: 'ALL', rating: 'ALL',
+})
+assert.ok(
+  allCategoriesRows.every((item) => item.categoryAbilities.some((category) => completeCategoryQuery.categories.includes(category))),
+  '多个品类筛选不得误实现为组内 AND',
+)
+
+const defaultColumnPreferences = getThirdPartyFactoryComprehensiveAssessmentDefaultColumnPreferences()
+assert.deepEqual(
+  new Set(defaultColumnPreferences.visibleKeys),
+  new Set(['factory', 'craftAbility', 'categoryAbility', 'machineCount', 'workerCount', 'monthlyOutputValue', 'deliveryCompleted', 'return30', 'return70', 'return100', 'defectiveRate', 'defectRate', 'reworkRate', 'grade', 'actions']),
+  '综合评定默认必须展示全部固定列',
+)
+
+;(globalThis as typeof globalThis & { window?: { location?: { pathname: string, search: string } } }).window!.location = {
+  pathname: '/fcs/factories/third-party-comprehensive-assessment',
+  search: '',
+}
+const assessmentPageHtml = renderThirdPartyFactoryComprehensiveAssessmentPage()
+for (const text of [
+  '第三方车缝厂综合评定', '全部工厂', '评定已完善', '待完善', '评级分布',
+  '工艺能力', '品类能力', '机器数', '工人数', '月产值',
+  '交期完成', '回货 30%', '回货 70%', '回货 100%',
+  '不良率', '工厂责任瑕疵率', '返工率', '综合评级', '编辑评定',
+  '系统获取', '人工填写', '工厂档案', '时效业务数据', '质检业务数据', '待完善', '暂无业务数据',
+]) {
+  assert.ok(assessmentPageHtml.includes(text), `综合评定页面缺少：${text}`)
+}
+assert.ok(assessmentPageHtml.includes('data-standard-list-header-group="ability"'), '能力分组表头必须存在')
+assert.ok(assessmentPageHtml.includes('data-nav="/fcs/factories/third-party-comprehensive-assessment?editFactoryId='), '编辑评定必须使用稳定导航参数')
+assert.ok(assessmentPageHtml.includes('10 条/页') && assessmentPageHtml.includes('>1 /'), '列表必须渲染分页信息')
+for (const dimension of ['ability', 'capacity', 'timeliness', 'quality', 'rating']) {
+  assert.ok(assessmentPageHtml.includes(`data-completion-filter="${dimension}"`), `筛选区必须标记${dimension}完成状态`)
+}
+for (const englishStatus of ['PENDING', 'DONE', 'IN_PROGRESS', 'COMPLETE', 'INCOMPLETE']) {
+  assert.ok(!assessmentPageHtml.includes(`>${englishStatus}<`), `页面不得直接展示英文状态码：${englishStatus}`)
+}
+
+console.log('第三方车缝厂综合评定页面检查通过')
