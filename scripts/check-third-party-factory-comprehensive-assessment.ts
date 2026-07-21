@@ -691,16 +691,42 @@ async function assertRealDomColumnSettingsInteractions(): Promise<void> {
         await page.locator('[data-third-party-comprehensive-assessment-field="workerCount"]').fill('24')
         await page.locator('[data-third-party-comprehensive-assessment-field="monthlyOutputValueTenThousandIdr"]').fill('25.50')
         await page.locator('[data-third-party-comprehensive-assessment-field="grade"]').selectOption('A')
-        await page.locator('[data-third-party-comprehensive-assessment-editor-form]').evaluate((form) => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
-        assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 0, '短回归必须验证合法 submit 完成局部保存')
-        assert.ok((await page.locator('[data-assessment-factory-id="ID-F023"]').locator('xpath=ancestor::tr').innerText()).includes('25.5 万印尼盾／月'), '合法 submit 后必须局部刷新工厂行')
         const stableRoot = await page.locator('[data-third-party-comprehensive-assessment-page]').evaluate((node) => {
           Object.assign(window, { __assessmentToastRoot: node })
           return true
         })
         assert.ok(stableRoot)
-        const firstToastId = await page.locator('[data-toast-container] [data-toast]').getAttribute('data-toast')
+        const submitEditorAndSnapshot = async () => page.locator('[data-third-party-comprehensive-assessment-editor-form]').evaluate((form) => {
+          form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+          const toast = document.querySelector<HTMLElement>('[data-toast-container] [data-toast]')
+          const row = document.querySelector<HTMLElement>('[data-assessment-factory-id="ID-F023"]')?.closest<HTMLTableRowElement>('tr')
+          const storedRows = JSON.parse(window.localStorage.getItem('fcs_third_party_comprehensive_assessment_v1') ?? '[]') as Array<{
+            factoryId?: string
+            machineCount?: number
+            workerCount?: number
+            monthlyOutputValueTenThousandIdr?: number
+            grade?: string
+          }>
+          return {
+            toastId: toast?.dataset.toast ?? '',
+            editorCount: document.querySelectorAll('[data-third-party-comprehensive-assessment-editor]').length,
+            rowText: row?.innerText ?? '',
+            formErrors: document.querySelector<HTMLElement>('[data-assessment-form-errors]')?.innerText.trim() ?? '',
+            stored: storedRows.find((item) => item.factoryId === 'ID-F023') ?? null,
+          }
+        })
+        const firstSave = await submitEditorAndSnapshot()
+        const firstToastId = firstSave.toastId
         assert.ok(firstToastId, '保存成功必须展示可识别 Toast')
+        assert.equal(firstSave.editorCount, 0, '短回归必须验证合法 submit 完成局部保存')
+        assert.ok(firstSave.rowText.includes('25.5 万印尼盾／月'), '合法 submit 后必须局部刷新工厂行')
+        assert.equal(firstSave.formErrors, '', '合法 submit 后不得残留表单错误')
+        assert.deepEqual(firstSave.stored && {
+          machineCount: firstSave.stored.machineCount,
+          workerCount: firstSave.stored.workerCount,
+          monthlyOutputValueTenThousandIdr: firstSave.stored.monthlyOutputValueTenThousandIdr,
+          grade: firstSave.stored.grade,
+        }, { machineCount: 12, workerCount: 24, monthlyOutputValueTenThousandIdr: 25.5, grade: 'A' }, '合法 submit 必须同步持久化人工评定')
         await page.waitForTimeout(500)
         await page.locator('[data-third-party-comprehensive-assessment-action="open-editor"][data-factory-id="ID-F023"]').click()
         assert.equal(await page.locator('[data-toast-container] [data-toast]').count(), 0, '再次打开编辑抽屉时必须移除可能遮挡按钮的旧 Toast')
@@ -710,13 +736,30 @@ async function assertRealDomColumnSettingsInteractions(): Promise<void> {
         assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 0, '普通点击取消必须能完成未保存确认并关闭抽屉')
         await page.locator('[data-third-party-comprehensive-assessment-action="open-editor"][data-factory-id="ID-F023"]').click()
         await page.locator('[data-third-party-comprehensive-assessment-field="machineCount"]').fill('13')
-        await page.locator('[data-third-party-comprehensive-assessment-editor-form]').evaluate((form) => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
-        const secondToastId = await page.locator('[data-toast-container] [data-toast]').getAttribute('data-toast')
+        const secondSave = await submitEditorAndSnapshot()
+        const secondToastId = secondSave.toastId
         assert.ok(secondToastId && secondToastId !== firstToastId, '再次保存必须生成新的 Toast')
+        assert.equal(secondSave.editorCount, 0, '再次保存必须关闭编辑抽屉')
+        assert.ok(secondSave.rowText.includes('13 台'), '再次保存必须立即刷新目标工厂行')
+        assert.equal(secondSave.formErrors, '', '再次合法保存不得残留表单错误')
+        assert.equal(secondSave.stored?.machineCount, 13, '再次保存必须同步更新本地持久化快照')
         await page.waitForTimeout(1100)
         assert.equal(await page.locator(`[data-toast="${secondToastId}"]`).count(), 1, '旧 Toast 的 timeout 不得误删新 Toast')
         await page.waitForTimeout(600)
-        assert.equal(await page.locator(`[data-toast="${secondToastId}"]`).count(), 0, '新 Toast 到期后必须自动移除')
+        const expiredToastState = await page.evaluate((toastId) => {
+          const storedRows = JSON.parse(window.localStorage.getItem('fcs_third_party_comprehensive_assessment_v1') ?? '[]') as Array<{
+            factoryId?: string
+            machineCount?: number
+          }>
+          return {
+            toastCount: document.querySelectorAll(`[data-toast="${CSS.escape(toastId)}"]`).length,
+            rowText: document.querySelector<HTMLElement>('[data-assessment-factory-id="ID-F023"]')?.closest<HTMLTableRowElement>('tr')?.innerText ?? '',
+            storedMachineCount: storedRows.find((item) => item.factoryId === 'ID-F023')?.machineCount,
+          }
+        }, secondToastId)
+        assert.equal(expiredToastState.toastCount, 0, '新 Toast 到期后必须自动移除')
+        assert.ok(expiredToastState.rowText.includes('13 台'), 'Toast 到期后不得回滚已刷新的工厂行')
+        assert.equal(expiredToastState.storedMachineCount, 13, 'Toast 到期后不得丢失已持久化的评定数据')
         assert.equal(await page.evaluate(() => document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __assessmentToastRoot: Element }).__assessmentToastRoot), true, 'Toast 清理和抽屉操作不得整页重绘')
         console.log('综合评定编辑短 Chromium 回归通过：零值拦截、submit 局部保存、Toast 不遮挡与定时清理')
 
