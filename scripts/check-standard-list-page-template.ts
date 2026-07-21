@@ -690,6 +690,15 @@ assert(
 )
 assert(groupedHeaderTableHtml.includes('colspan="2"'), '分组表头必须按组内可见列数输出 colspan')
 assert(groupedHeaderTableHtml.includes('能力'), '分组表头必须输出分组标题')
+const groupedHeaderRow = groupedHeaderTableHtml.match(/<thead[^>]*>\s*<tr>([\s\S]*?)<\/tr>/)?.[1]
+assert(groupedHeaderRow, '分组表头必须位于 thead 第一行')
+const groupedHeaderCellKeys = [...groupedHeaderRow.matchAll(/data-standard-list-header-group="([^"]+)"/g)]
+  .map((match) => match[1])
+assert.deepEqual(
+  groupedHeaderCellKeys,
+  ['column-factory', 'ability', 'column-actions'],
+  '分组表头必须按当前可见列顺序补齐未分组列',
+)
 
 const collapsedGroupedHeaderTableHtml = renderStandardListTable({
   columns: groupedHeaderColumns,
@@ -709,6 +718,15 @@ const collapsedGroupedHeaderTableHtml = renderStandardListTable({
 assert(
   collapsedGroupedHeaderTableHtml.includes('colspan="1"'),
   '隐藏组内列后，分组表头 colspan 必须按当前可见列收缩',
+)
+const collapsedGroupedHeaderRow = collapsedGroupedHeaderTableHtml.match(/<thead[^>]*>\s*<tr>([\s\S]*?)<\/tr>/)?.[1]
+assert(collapsedGroupedHeaderRow, '隐藏列后仍必须保留分组表头行')
+const collapsedGroupedHeaderCellKeys = [...collapsedGroupedHeaderRow.matchAll(/data-standard-list-header-group="([^"]+)"/g)]
+  .map((match) => match[1])
+assert.deepEqual(
+  collapsedGroupedHeaderCellKeys,
+  ['column-factory', 'ability', 'column-actions'],
+  '隐藏列后分组表头必须保持当前可见列顺序',
 )
 
 const descendingListTableHtml = renderStandardListTable({

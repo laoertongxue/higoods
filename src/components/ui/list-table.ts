@@ -167,11 +167,43 @@ function renderHeaderGroups<T>(
 ): string {
   if (!headerGroups?.length) return ''
 
-  const visibleColumnKeys = new Set(columns.map((column) => column.key))
-  const cells = headerGroups.map((group) => {
-    const columnCount = group.columnKeys.filter((key) => visibleColumnKeys.has(key)).length
-    if (columnCount === 0) return ''
+  type ResolvedHeaderGroup = {
+    id: string
+    key: string
+    title: string
+    toneClass?: string
+  }
+  type HeaderGroupCell = ResolvedHeaderGroup & { columnCount: number }
 
+  const groupedColumns = new Map<string, ResolvedHeaderGroup>()
+  headerGroups.forEach((group, groupIndex) => {
+    const resolvedGroup: ResolvedHeaderGroup = {
+      id: `group-${groupIndex}`,
+      key: group.key,
+      title: group.title,
+      toneClass: group.toneClass,
+    }
+    group.columnKeys.forEach((columnKey) => {
+      if (!groupedColumns.has(columnKey)) groupedColumns.set(columnKey, resolvedGroup)
+    })
+  })
+
+  const cells: HeaderGroupCell[] = []
+  columns.forEach((column) => {
+    const group = groupedColumns.get(column.key) ?? {
+      id: `column-${column.key}`,
+      key: `column-${column.key}`,
+      title: column.title,
+    }
+    const previous = cells.at(-1)
+    if (previous?.id === group.id) {
+      previous.columnCount += 1
+      return
+    }
+    cells.push({ ...group, columnCount: 1 })
+  })
+
+  const headers = cells.map((group) => {
     const classes = [
       'h-8 border-b px-3 text-center text-xs font-medium text-muted-foreground align-middle whitespace-nowrap',
       group.toneClass ?? '',
@@ -180,13 +212,13 @@ function renderHeaderGroups<T>(
     return `
       <th
         class="${classes}"
-        colspan="${columnCount}"
+        colspan="${group.columnCount}"
         data-standard-list-header-group="${escapeHtml(group.key)}"
       >${escapeHtml(group.title)}</th>
     `
   }).join('')
 
-  return cells ? `<tr>${cells}</tr>` : ''
+  return headers ? `<tr>${headers}</tr>` : ''
 }
 
 export function renderStandardListTable<T>(config: StandardListTableConfig<T>): string {
