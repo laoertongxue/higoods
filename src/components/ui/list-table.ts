@@ -21,6 +21,13 @@ export interface StandardListColumn<T> {
   sortValue?: (row: T) => unknown
 }
 
+export interface StandardListHeaderGroup {
+  key: string
+  title: string
+  columnKeys: readonly string[]
+  toneClass?: string
+}
+
 export interface StandardListTableConfig<T> {
   columns: readonly StandardListColumn<T>[]
   rows: readonly T[]
@@ -28,6 +35,7 @@ export interface StandardListTableConfig<T> {
   sort: StandardListSortState | null
   eventPrefix: string
   emptyText?: string
+  headerGroups?: readonly StandardListHeaderGroup[]
 }
 
 export interface StandardListColumnSettingsConfig<T> {
@@ -153,6 +161,34 @@ function renderSortHeader<T>(
   `
 }
 
+function renderHeaderGroups<T>(
+  headerGroups: readonly StandardListHeaderGroup[] | undefined,
+  columns: readonly StandardListColumn<T>[],
+): string {
+  if (!headerGroups?.length) return ''
+
+  const visibleColumnKeys = new Set(columns.map((column) => column.key))
+  const cells = headerGroups.map((group) => {
+    const columnCount = group.columnKeys.filter((key) => visibleColumnKeys.has(key)).length
+    if (columnCount === 0) return ''
+
+    const classes = [
+      'h-8 border-b px-3 text-center text-xs font-medium text-muted-foreground align-middle whitespace-nowrap',
+      group.toneClass ?? '',
+    ].filter(Boolean).join(' ')
+
+    return `
+      <th
+        class="${classes}"
+        colspan="${columnCount}"
+        data-standard-list-header-group="${escapeHtml(group.key)}"
+      >${escapeHtml(group.title)}</th>
+    `
+  }).join('')
+
+  return cells ? `<tr>${cells}</tr>` : ''
+}
+
 export function renderStandardListTable<T>(config: StandardListTableConfig<T>): string {
   const columns = visibleTableColumns(config.columns, config.preferences)
   const frozenKeys = new Set(config.preferences.frozenKeys)
@@ -166,6 +202,7 @@ export function renderStandardListTable<T>(config: StandardListTableConfig<T>): 
   }
   const lastFrozenKey = [...leftOffsets.keys()].at(-1)
   const minWidth = columns.reduce((sum, column) => sum + columnWidth(column), 0)
+  const headerGroups = renderHeaderGroups(config.headerGroups, columns)
 
   const headers = columns.map((column) => {
     const left = leftOffsets.get(column.key)
@@ -227,6 +264,7 @@ export function renderStandardListTable<T>(config: StandardListTableConfig<T>): 
     <div class="max-w-full overflow-x-auto" data-standard-list-scroll>
       <table class="w-full table-fixed border-collapse" style="min-width: ${minWidth}px">
         <thead class="border-b bg-muted/50">
+          ${headerGroups}
           <tr>${headers}</tr>
         </thead>
         <tbody>${body}</tbody>

@@ -641,6 +641,76 @@ assert(
   '操作列必须排在普通列最后',
 )
 
+const groupedHeaderColumns: StandardListColumn<DemoRow>[] = [
+  {
+    key: 'factory',
+    title: '工厂',
+    width: 140,
+    render: () => '雅加达工厂',
+  },
+  {
+    key: 'craft',
+    title: '工艺',
+    width: 120,
+    render: () => '车缝',
+  },
+  {
+    key: 'category',
+    title: '类别',
+    width: 120,
+    render: () => '成衣',
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 100,
+    required: true,
+    actionColumn: true,
+    render: () => '<button type="button">查看</button>',
+  },
+]
+const groupedHeaderTableHtml = renderStandardListTable({
+  columns: groupedHeaderColumns,
+  rows: [{ recordNo: 'BL-007', qty: 10 }],
+  preferences: {
+    order: ['factory', 'craft', 'category', 'actions'],
+    visibleKeys: ['factory', 'craft', 'category', 'actions'],
+    frozenKeys: [],
+    pageSize: 10,
+  },
+  sort: null,
+  eventPrefix: 'demo-list',
+  headerGroups: [
+    { key: 'ability', title: '能力', columnKeys: ['craft', 'category'] },
+  ],
+})
+assert(
+  groupedHeaderTableHtml.includes('data-standard-list-header-group="ability"'),
+  '分组表头必须输出稳定标记',
+)
+assert(groupedHeaderTableHtml.includes('colspan="2"'), '分组表头必须按组内可见列数输出 colspan')
+assert(groupedHeaderTableHtml.includes('能力'), '分组表头必须输出分组标题')
+
+const collapsedGroupedHeaderTableHtml = renderStandardListTable({
+  columns: groupedHeaderColumns,
+  rows: [{ recordNo: 'BL-008', qty: 11 }],
+  preferences: {
+    order: ['factory', 'craft', 'category', 'actions'],
+    visibleKeys: ['factory', 'craft', 'actions'],
+    frozenKeys: [],
+    pageSize: 10,
+  },
+  sort: null,
+  eventPrefix: 'demo-list',
+  headerGroups: [
+    { key: 'ability', title: '能力', columnKeys: ['craft', 'category'] },
+  ],
+})
+assert(
+  collapsedGroupedHeaderTableHtml.includes('colspan="1"'),
+  '隐藏组内列后，分组表头 colspan 必须按当前可见列收缩',
+)
+
 const descendingListTableHtml = renderStandardListTable({
   columns: standardListColumns,
   rows: [{ recordNo: 'BL-006', qty: 6 }],
