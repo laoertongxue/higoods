@@ -887,7 +887,7 @@ export function renderThirdPartyFactoryComprehensiveAssessmentPage(): string {
   const { filteredRows, paging } = getAssessmentTableState(query)
   const preferences = getColumnPreferences()
   return `<div data-third-party-comprehensive-assessment-page data-skip-page-rerender="true">${renderStandardListPage({
-    title: '第三方车缝厂综合评定',
+    title: '三方车缝厂综合评定',
     primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2 text-xs"><span class="text-muted-foreground">来源图例</span>${renderSource('系统获取', 'system')}${renderSource('人工填写', 'manual')}</div>`,
     filtersHtml: renderFilters(query),
     statsHtml: `<div data-assessment-stats-surface>${renderStats(filteredRows)}</div>`,

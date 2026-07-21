@@ -395,8 +395,10 @@ assert.deepEqual(
   search: '',
 }
 const assessmentPageHtml = renderThirdPartyFactoryComprehensiveAssessmentPage()
+const assessmentH1Match = assessmentPageHtml.match(/<h1[^>]*>([^<]*)<\/h1>/)
+assert.equal(assessmentH1Match?.[1]?.trim(), '三方车缝厂综合评定', '页面 H1 textContent 必须精确使用菜单业务名称')
 for (const text of [
-  '第三方车缝厂综合评定', '全部工厂', '评定已完善', '待完善', '评级分布',
+  '三方车缝厂综合评定', '全部工厂', '评定已完善', '待完善', '评级分布',
   '工艺能力', '品类能力', '机器数', '工人数', '月产值',
   '交期完成', '回货 30%', '回货 70%', '回货 100%',
   '不良率', '工厂责任瑕疵率', '返工率', '综合评级', '编辑评定',
@@ -543,8 +545,62 @@ async function assertRealDomColumnSettingsInteractions(): Promise<void> {
 
   try {
     await waitForVite(baseUrl)
+    const realAppRegression = (async () => {
+      const appPage = await browser.newPage({ viewport: { width: 1280, height: 720 } })
+      try {
+        await appPage.addInitScript(() => window.localStorage.clear())
+        await appPage.goto(`${baseUrl}${comprehensivePath}`, { waitUntil: 'domcontentloaded' })
+        await appPage.locator('[data-third-party-comprehensive-assessment-page]').waitFor()
+        assert.equal(await appPage.locator('[data-third-party-comprehensive-assessment-page]').count(), 1, '独立路由必须通过真实应用外壳渲染综合评定页面')
+        assert.equal((await appPage.locator('main h1').textContent())?.trim(), '三方车缝厂综合评定', '真实路由 H1 textContent 必须精确使用菜单业务名称')
+
+        const ratingMenu = appPage.locator('button[data-tab-href="/fcs/factories/third-party-rating"]')
+        const comprehensiveMenu = appPage.locator(`button[data-tab-href="${comprehensivePath}"]`)
+        const capacityMenu = appPage.locator('button[data-tab-href="/fcs/factories/capacity-profile"]')
+        assert.equal(await ratingMenu.count(), 1, '现有三方工厂评级菜单必须继续保留')
+        assert.equal(await comprehensiveMenu.count(), 1, '工厂池管理必须展示独立综合评定菜单')
+        assert.equal(await capacityMenu.count(), 1, '工厂产能档案菜单必须继续保留')
+        assert.ok((await comprehensiveMenu.getAttribute('class'))?.includes('bg-blue-50'), '进入综合评定路由后对应二级菜单必须激活')
+        const realMenuOrder = await appPage.locator('button[data-tab-href]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-tab-href')))
+        assert.ok(
+          realMenuOrder.indexOf('/fcs/factories/third-party-rating') < realMenuOrder.indexOf(comprehensivePath)
+          && realMenuOrder.indexOf(comprehensivePath) < realMenuOrder.indexOf('/fcs/factories/capacity-profile'),
+          '真实菜单顺序必须为三方工厂评级、综合评定、工厂产能档案',
+        )
+
+        const routedEditButton = appPage.locator('[data-third-party-comprehensive-assessment-action="open-editor"][data-factory-id="ID-F024"]')
+        await appPage.locator('[data-third-party-comprehensive-assessment-page]').evaluate((node) => Object.assign(window, { __routedAssessmentRoot: node }))
+        await routedEditButton.click()
+        await appPage.locator('[data-third-party-comprehensive-assessment-editor]').waitFor()
+        assert.equal(await appPage.locator('[data-third-party-comprehensive-assessment-editor]').count(), 1, '真实应用 click 分发必须打开编辑抽屉')
+        assert.equal(await appPage.evaluate(() => document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __routedAssessmentRoot: Element }).__routedAssessmentRoot), true, '真实应用打开抽屉不得整页重绘')
+        await appPage.locator('[data-third-party-comprehensive-assessment-field="monthlyOutputValueTenThousandIdr"]').fill('181.25')
+        await appPage.locator('[data-third-party-comprehensive-assessment-editor-form]').evaluate((form) => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+        await appPage.locator('[data-third-party-comprehensive-assessment-editor]').waitFor({ state: 'detached' })
+        assert.equal(await appPage.locator('[data-third-party-comprehensive-assessment-editor]').count(), 0, '真实应用 submit 分发必须只触发一次保存并关闭抽屉')
+        assert.equal(await appPage.evaluate(() => document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __routedAssessmentRoot: Element }).__routedAssessmentRoot), true, '真实应用保存不得触发全局整页重绘')
+        const routedSavedRow = await appPage.locator('[data-assessment-factory-id="ID-F024"]').locator('xpath=ancestor::tr').innerText()
+        assert.ok(routedSavedRow.includes('181.25 万印尼盾／月'), '真实应用 submit 后必须局部刷新当前工厂行')
+
+        await appPage.locator('select[name="ability"]').selectOption('INCOMPLETE')
+        await appPage.locator('[data-third-party-comprehensive-assessment-filters] button[type="submit"]').click()
+        await appPage.waitForFunction(() => new URL(location.href).searchParams.get('ability') === 'INCOMPLETE')
+        await appPage.locator('[data-third-party-comprehensive-assessment-page]').waitFor()
+        assert.equal(new URL(appPage.url()).searchParams.get('ability'), 'INCOMPLETE', '真实筛选表单必须保留原生 GET 语义，且不被编辑 submit 分发拦截')
+        assert.equal(await appPage.locator('[data-third-party-comprehensive-assessment-page]').count(), 1, '筛选后独立路由仍必须可达')
+        console.log('综合评定真实应用回归通过：路由、菜单激活、编辑 submit 与筛选表单')
+      } finally {
+        await appPage.close()
+      }
+    })()
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
-    await page.goto(baseUrl, { waitUntil: 'networkidle' })
+    const mainModuleRoute = '**/src/main.ts'
+    await page.route(mainModuleRoute, (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: "import '/src/styles.css'",
+    }))
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' })
     await page.evaluate(async () => {
       const assessment = await import('/src/pages/third-party-factory-comprehensive-assessment.ts')
       const path = '/fcs/factories/third-party-comprehensive-assessment'
@@ -733,48 +789,8 @@ async function assertRealDomColumnSettingsInteractions(): Promise<void> {
     await page.locator('[data-third-party-comprehensive-assessment-action="close-editor"]').last().click()
     assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 0, '确认放弃未保存变更后必须关闭抽屉')
 
-    await page.goto(`${baseUrl}${comprehensivePath}`, { waitUntil: 'networkidle' })
-    await page.evaluate(() => window.localStorage.clear())
-    await page.reload({ waitUntil: 'networkidle' })
-    await page.locator('[data-third-party-comprehensive-assessment-page]').waitFor()
-    assert.equal(await page.locator('[data-third-party-comprehensive-assessment-page]').count(), 1, '独立路由必须通过真实应用外壳渲染综合评定页面')
-    assert.ok((await page.locator('main').innerText()).includes('三方车缝厂综合评定'), '真实路由必须展示正确页面标题')
-
-    const ratingMenu = page.locator('button[data-tab-href="/fcs/factories/third-party-rating"]')
-    const comprehensiveMenu = page.locator(`button[data-tab-href="${comprehensivePath}"]`)
-    const capacityMenu = page.locator('button[data-tab-href="/fcs/factories/capacity-profile"]')
-    assert.equal(await ratingMenu.count(), 1, '现有三方工厂评级菜单必须继续保留')
-    assert.equal(await comprehensiveMenu.count(), 1, '工厂池管理必须展示独立综合评定菜单')
-    assert.equal(await capacityMenu.count(), 1, '工厂产能档案菜单必须继续保留')
-    assert.ok((await comprehensiveMenu.getAttribute('class'))?.includes('bg-blue-50'), '进入综合评定路由后对应二级菜单必须激活')
-    const realMenuOrder = await page.locator('button[data-tab-href]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-tab-href')))
-    assert.ok(
-      realMenuOrder.indexOf('/fcs/factories/third-party-rating') < realMenuOrder.indexOf(comprehensivePath)
-      && realMenuOrder.indexOf(comprehensivePath) < realMenuOrder.indexOf('/fcs/factories/capacity-profile'),
-      '真实菜单顺序必须为三方工厂评级、综合评定、工厂产能档案',
-    )
-
-    const routedEditButton = page.locator('[data-third-party-comprehensive-assessment-action="open-editor"][data-factory-id="ID-F024"]')
-    await page.locator('[data-third-party-comprehensive-assessment-page]').evaluate((node) => Object.assign(window, { __routedAssessmentRoot: node }))
-    await routedEditButton.click()
-    await page.locator('[data-third-party-comprehensive-assessment-editor]').waitFor()
-    assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 1, '真实应用 click 分发必须打开编辑抽屉')
-    assert.equal(await page.evaluate(() => document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __routedAssessmentRoot: Element }).__routedAssessmentRoot), true, '真实应用打开抽屉不得整页重绘')
-    await page.locator('[data-third-party-comprehensive-assessment-field="monthlyOutputValueTenThousandIdr"]').fill('181.25')
-    await page.locator('[data-third-party-comprehensive-assessment-editor-form]').evaluate((form) => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
-    await page.locator('[data-third-party-comprehensive-assessment-editor]').waitFor({ state: 'detached' })
-    assert.equal(await page.locator('[data-third-party-comprehensive-assessment-editor]').count(), 0, '真实应用 submit 分发必须只触发一次保存并关闭抽屉')
-    assert.equal(await page.evaluate(() => document.querySelector('[data-third-party-comprehensive-assessment-page]') === (window as unknown as { __routedAssessmentRoot: Element }).__routedAssessmentRoot), true, '真实应用保存不得触发全局整页重绘')
-    const routedSavedRow = await page.locator('[data-assessment-factory-id="ID-F024"]').locator('xpath=ancestor::tr').innerText()
-    assert.ok(routedSavedRow.includes('181.25 万印尼盾／月'), '真实应用 submit 后必须局部刷新当前工厂行')
-
-    await page.locator('select[name="ability"]').selectOption('INCOMPLETE')
-    await page.locator('[data-third-party-comprehensive-assessment-filters] button[type="submit"]').click()
-    await page.waitForLoadState('networkidle')
-    await page.locator('[data-third-party-comprehensive-assessment-page]').waitFor()
-    assert.equal(new URL(page.url()).searchParams.get('ability'), 'INCOMPLETE', '真实筛选表单必须保留原生 GET 语义，且不被编辑 submit 分发拦截')
-    assert.equal(await page.locator('[data-third-party-comprehensive-assessment-page]').count(), 1, '筛选后独立路由仍必须可达')
-    console.log('综合评定真实应用回归通过：路由、菜单激活、编辑 submit 与筛选表单')
+    await page.unroute(mainModuleRoute)
+    await realAppRegression
   } finally {
     await browser.close()
     vite.kill('SIGTERM')
@@ -793,3 +809,5 @@ assert.equal(handleThirdPartyFactoryComprehensiveAssessmentEvent(createActionTar
 assert.ok(!readStoredColumns().frozenKeys.includes('machineCount') && readStoredColumns().frozenKeys.includes('workerCount'), '取消冻结必须只恢复目标列')
 
 console.log('第三方车缝厂综合评定页面检查通过')
+console.log('三方车缝厂综合评定专项检查全部通过，正常退出')
+process.exitCode = 0
