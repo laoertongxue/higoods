@@ -1,0 +1,98 @@
+import assert from 'node:assert/strict'
+import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
+import {
+  WOMENSWEAR_CATEGORY_OPTIONS,
+  calculateFactoryQualityMetrics,
+  calculateFactoryTimelinessMetrics,
+  getAssessmentCompletion,
+  getThirdPartyFactoryComprehensiveAssessment,
+  listThirdPartyFactoryComprehensiveAssessments,
+  updateThirdPartyFactoryManualAssessment,
+} from '../src/data/fcs/third-party-factory-comprehensive-assessment.ts'
+
+assert.deepEqual(WOMENSWEAR_CATEGORY_OPTIONS, [
+  '衬衫', 'T 恤', '马甲', '背心', '连衣裙', '休闲连体裤', '西装连体裤', '休闲套装', '西装套装', '裤子', '半裙',
+], '女装品类字典必须精确匹配综合评定口径')
+
+const masterFactories = listFactoryMasterRecords().filter(
+  (factory) => factory.factoryTier === 'THIRD_PARTY' &&
+    (factory.factoryType === 'THIRD_SEWING' || factory.processAbilities.some((ability) => ability.processCode === 'SEW')),
+)
+const assessments = listThirdPartyFactoryComprehensiveAssessments()
+assert.deepEqual(
+  new Set(assessments.map((item) => item.factoryId)),
+  new Set(masterFactories.map((item) => item.id)),
+  '综合评定必须覆盖且只覆盖工厂主档中的三方车缝工厂',
+)
+for (const master of masterFactories) {
+  const assessment = getThirdPartyFactoryComprehensiveAssessment(master.id)
+  assert.ok(assessment, `${master.id} 必须可按真实主档 ID 查询`)
+  assert.equal(assessment.factoryCode, master.code, `${master.id} 工厂编码必须来自主档`)
+  assert.equal(assessment.factoryName, master.name, `${master.id} 工厂名称必须来自主档`)
+  assert.ok(assessment.fieldSources.factoryName.includes('工厂主档'), `${master.id} 必须标识主档来源`)
+  assert.ok(assessment.fieldSources.timeliness.includes('系统'), `${master.id} 时效必须标识系统事实来源`)
+  assert.ok(assessment.fieldSources.quality.includes('系统'), `${master.id} 品控必须标识系统事实来源`)
+}
+
+const quality = calculateFactoryQualityMetrics([
+  { factoryId: 'quality-case', inspectedQty: 100, reworkQty: 4, factoryLiabilityDefectQty: 2 },
+  { factoryId: 'quality-case', inspectedQty: 100, reworkQty: 6, factoryLiabilityDefectQty: 8 },
+])
+assert.deepEqual(quality, { defectiveRate: 0.1, defectRate: 0.05, reworkRate: 0.05 }, '品控必须先汇总数量再计算四位小数比例')
+assert.deepEqual(
+  calculateFactoryQualityMetrics([{ factoryId: 'empty-quality', inspectedQty: 0, reworkQty: 3, factoryLiabilityDefectQty: 2 }]),
+  { defectiveRate: null, defectRate: null, reworkRate: null },
+  '零质检不得伪造成零不良率',
+)
+
+const acceptedAt = '2026-07-01T00:00:00.000Z'
+const onTimeTimeliness = calculateFactoryTimelinessMetrics([{
+  factoryId: 'timeliness-case', allocatedQty: 100, acceptedAt, taskKind: 'INDEPENDENT_SEWING', submittedQty: 100,
+  submittedReachedAt: '2026-07-05T00:00:00.000Z',
+  receiptMilestones: { 30: '2026-07-05T00:00:00.000Z', 70: '2026-07-09T00:00:00.000Z', 100: '2026-07-10T00:00:00.000Z' },
+}], new Date('2026-07-20T00:00:00.000Z'))
+assert.deepEqual(onTimeTimeliness, {
+  deliveryOnTimeRate: 1, receipt30OnTimeRate: 1, receipt70OnTimeRate: 1, receipt100OnTimeRate: 1,
+}, '独立车缝按节点完成时必须全部准时')
+assert.deepEqual(
+  calculateFactoryTimelinessMetrics([{
+    factoryId: 'future-case', allocatedQty: 100, acceptedAt, taskKind: 'INDEPENDENT_SEWING', submittedQty: 0,
+    submittedReachedAt: null, receiptMilestones: { 30: null, 70: null, 100: null },
+  }], new Date('2026-07-03T00:00:00.000Z')),
+  { deliveryOnTimeRate: null, receipt30OnTimeRate: null, receipt70OnTimeRate: null, receipt100OnTimeRate: null },
+  '未到截止且未达标的节点不得进入时效分母或伪造零值',
+)
+
+const complete = getAssessmentCompletion({
+  categoryAbilities: ['衬衫'], processAbilities: ['车缝'], machineCount: 1, workerCount: 1,
+  monthlyOutputValueTenThousandIdr: 1, grade: 'S', timeliness: onTimeTimeliness, quality,
+})
+assert.deepEqual(complete, { ability: true, capacity: true, timeliness: true, quality: true, grade: true, incompleteCount: 0 }, '完整评定必须全部完成')
+assert.equal(
+  getAssessmentCompletion({ ...complete, categoryAbilities: [], processAbilities: ['车缝'], machineCount: 1, workerCount: 1, monthlyOutputValueTenThousandIdr: 1, grade: null, timeliness: onTimeTimeliness, quality }).incompleteCount,
+  2,
+  '缺品类和评级必须各计为一个未完成维度',
+)
+
+assert.ok(assessments.some((item) => item.completion.incompleteCount === 0 && item.grade === 'S'), '必须有完整 S 级样例')
+assert.ok(assessments.some((item) => item.completion.incompleteCount === 0 && item.grade === 'A'), '必须有完整 A 级样例')
+assert.ok(assessments.some((item) => !item.completion.capacity), '必须有产能缺失样例')
+assert.ok(assessments.some((item) => !item.completion.ability && item.categoryAbilities.length === 0), '必须有品类缺失样例')
+assert.ok(assessments.some((item) => !item.completion.timeliness), '必须有无时效数据样例')
+assert.ok(assessments.some((item) => !item.completion.quality), '必须有无质检数据样例')
+assert.ok(assessments.some((item) => item.timeliness.deliveryOnTimeRate === 0 && item.quality.defectiveRate !== null && item.quality.defectiveRate <= 0.03), '必须有时效差品控好样例')
+assert.ok(assessments.some((item) => item.timeliness.deliveryOnTimeRate === 1 && item.quality.defectiveRate !== null && item.quality.defectiveRate >= 0.1), '必须有品控差时效好样例')
+assert.ok(assessments.some((item) => item.grade === null), '必须有评级缺失样例')
+assert.ok(assessments.every((item) => item.processAbilities.length > 0), '当前全部真实三方车缝主档均有工艺能力，综合评定不得伪造工艺缺失')
+
+const updateTarget = assessments[0]
+const before = getThirdPartyFactoryComprehensiveAssessment(updateTarget.factoryId)!
+const updateResult = updateThirdPartyFactoryManualAssessment(updateTarget.factoryId, {
+  categoryAbilities: ['衬衫', 'T 恤'], machineCount: 21, workerCount: 42,
+  monthlyOutputValueTenThousandIdr: 88, grade: 'A', updatedBy: '综合评定核查', updatedAt: '2026-07-21T08:00:00.000Z',
+})
+assert.equal(updateResult.grade, 'A', '更新 API 必须保存人工评级')
+assert.deepEqual(updateResult.timeliness, before.timeliness, '更新 API 不得覆盖系统时效事实')
+assert.deepEqual(updateResult.quality, before.quality, '更新 API 不得覆盖系统品控事实')
+
+console.log('第三方车缝厂综合评定数据检查通过')
