@@ -164,6 +164,8 @@ function renderSortHeader<T>(
 function renderHeaderGroups<T>(
   headerGroups: readonly StandardListHeaderGroup[] | undefined,
   columns: readonly StandardListColumn<T>[],
+  leftOffsets: ReadonlyMap<string, number>,
+  lastFrozenKey: string | undefined,
 ): string {
   if (!headerGroups?.length) return ''
 
@@ -173,7 +175,12 @@ function renderHeaderGroups<T>(
     title: string
     toneClass?: string
   }
-  type HeaderGroupCell = ResolvedHeaderGroup & { columnCount: number }
+  type HeaderGroupCell = ResolvedHeaderGroup & {
+    columnCount: number
+    region: 'regular' | 'frozen' | 'action'
+    left?: number
+    endsFrozenBoundary: boolean
+  }
 
   const groupedColumns = new Map<string, ResolvedHeaderGroup>()
   headerGroups.forEach((group, groupIndex) => {
@@ -190,22 +197,37 @@ function renderHeaderGroups<T>(
 
   const cells: HeaderGroupCell[] = []
   columns.forEach((column) => {
+    const left = leftOffsets.get(column.key)
+    const region = column.actionColumn ? 'action' : left !== undefined ? 'frozen' : 'regular'
     const group = groupedColumns.get(column.key) ?? {
       id: `column-${column.key}`,
       key: `column-${column.key}`,
       title: column.title,
     }
     const previous = cells.at(-1)
-    if (previous?.id === group.id) {
+    if (previous?.id === group.id && previous.region === region) {
       previous.columnCount += 1
+      previous.endsFrozenBoundary ||= column.key === lastFrozenKey
       return
     }
-    cells.push({ ...group, columnCount: 1 })
+    cells.push({
+      ...group,
+      columnCount: 1,
+      region,
+      left,
+      endsFrozenBoundary: column.key === lastFrozenKey,
+    })
   })
 
   const headers = cells.map((group) => {
     const classes = [
       'h-8 border-b px-3 text-center text-xs font-medium text-muted-foreground align-middle whitespace-nowrap',
+      group.region === 'action'
+        ? frozenClass({ actionColumn: true }, 0, true)
+        : group.region === 'frozen'
+          ? frozenClass({ actionColumn: false }, group.left ?? 0, true)
+          : '',
+      group.endsFrozenBoundary ? 'shadow-[6px_0_8px_-8px_rgba(15,23,42,0.75)]' : '',
       group.toneClass ?? '',
     ].filter(Boolean).join(' ')
 
@@ -213,6 +235,8 @@ function renderHeaderGroups<T>(
       <th
         class="${classes}"
         colspan="${group.columnCount}"
+        scope="colgroup"
+        style="${group.region === 'frozen' ? `left: ${group.left ?? 0}px;` : ''}"
         data-standard-list-header-group="${escapeHtml(group.key)}"
       >${escapeHtml(group.title)}</th>
     `
@@ -234,7 +258,11 @@ export function renderStandardListTable<T>(config: StandardListTableConfig<T>): 
   }
   const lastFrozenKey = [...leftOffsets.keys()].at(-1)
   const minWidth = columns.reduce((sum, column) => sum + columnWidth(column), 0)
-  const headerGroups = renderHeaderGroups(config.headerGroups, columns)
+  const headerGroups = renderHeaderGroups(config.headerGroups, columns, leftOffsets, lastFrozenKey)
+  const colgroup = columns.map((column) => {
+    const width = columnWidth(column)
+    return `<col width="${width}" style="width: ${width}px; min-width: ${width}px; max-width: ${width}px" data-standard-list-column-width="${escapeHtml(column.key)}">`
+  }).join('')
 
   const headers = columns.map((column) => {
     const left = leftOffsets.get(column.key)
@@ -295,6 +323,7 @@ export function renderStandardListTable<T>(config: StandardListTableConfig<T>): 
   return `
     <div class="max-w-full overflow-x-auto" data-standard-list-scroll>
       <table class="w-full table-fixed border-collapse" style="min-width: ${minWidth}px">
+        <colgroup>${colgroup}</colgroup>
         <thead class="border-b bg-muted/50">
           ${headerGroups}
           <tr>${headers}</tr>

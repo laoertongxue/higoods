@@ -1465,6 +1465,90 @@ async function findFreeLoopbackPort(): Promise<number> {
   })
 }
 
+async function checkGroupedHeadersInChromium(): Promise<void> {
+  const fixtureColumns = groupedHeaderColumns.map((column) =>
+    column.key === 'factory' ? { ...column, freezeable: true } : column,
+  )
+  const fixturePreferences: StandardListColumnPreferences = {
+    order: ['factory', 'craft', 'category', 'actions'],
+    visibleKeys: ['factory', 'craft', 'category', 'actions'],
+    frozenKeys: ['factory'],
+    pageSize: 10,
+  }
+  const groupedFixture = renderStandardListTable({
+    columns: fixtureColumns,
+    rows: [{ recordNo: 'BL-009', qty: 12 }],
+    preferences: fixturePreferences,
+    sort: null,
+    eventPrefix: 'demo-list',
+    headerGroups: [{ key: 'ability', title: '能力', columnKeys: ['craft', 'category'] }],
+  })
+  const ungroupedFixture = renderStandardListTable({
+    columns: standardListColumns,
+    rows: [{ recordNo: 'BL-010', qty: 13 }],
+    preferences: standardListPreferences,
+    sort: null,
+    eventPrefix: 'demo-list',
+  })
+  const browser = await chromium.launch({ headless: true })
+  const page = await browser.newPage({ viewport: { width: 800, height: 600 } })
+
+  try {
+    await page.setContent(`
+      <style>
+        [data-layout-fixture] { width: 240px; margin-bottom: 24px; }
+        [data-standard-list-scroll] { width: 240px; overflow-x: auto; }
+        .w-full { width: 100%; }
+        .table-fixed { table-layout: fixed; }
+        .sticky { position: sticky; }
+        .left-0 { left: 0; }
+        .right-0 { right: 0; }
+        .bg-background { background: white; }
+      </style>
+      <section data-layout-fixture="grouped">${groupedFixture}</section>
+      <section data-layout-fixture="ungrouped">${ungroupedFixture}</section>
+    `)
+    const metrics = await page.evaluate(() => {
+      const rect = (element: Element | null) => {
+        if (!element) throw new Error('缺少布局检查元素')
+        const { left, right, width } = element.getBoundingClientRect()
+        return { left, right, width }
+      }
+      const grouped = document.querySelector('[data-layout-fixture="grouped"]')!
+      const ungrouped = document.querySelector('[data-layout-fixture="ungrouped"]')!
+      const groupedScroll = grouped.querySelector<HTMLElement>('[data-standard-list-scroll]')!
+      const groupedWidths = ['factory', 'craft', 'category', 'actions'].map((key) =>
+        rect(grouped.querySelector(`[data-column-key="${key}"]`)),
+      )
+      const ungroupedWidths = ['recordNo', 'qty', 'actions'].map((key) =>
+        rect(ungrouped.querySelector(`[data-column-key="${key}"]`)),
+      )
+
+      groupedScroll.scrollLeft = 180
+      return {
+        groupedWidths,
+        ungroupedWidths,
+        groupedFactory: rect(grouped.querySelector('[data-standard-list-header-group="column-factory"]')),
+        groupedAction: rect(grouped.querySelector('[data-standard-list-header-group="column-actions"]')),
+        columnFactory: rect(grouped.querySelector('[data-column-key="factory"]')),
+        columnAction: rect(grouped.querySelector('[data-column-key="actions"]')),
+      }
+    })
+    const expectedGroupedWidths = [140, 120, 120, 100]
+    metrics.groupedWidths.forEach((rect, index) => {
+      assert(Math.abs(rect.width - expectedGroupedWidths[index]) < 1, '分组表头存在时列宽必须保持声明值')
+    })
+    const expectedUngroupedWidths = [150, 120, 100]
+    metrics.ungroupedWidths.forEach((rect, index) => {
+      assert(Math.abs(rect.width - expectedUngroupedWidths[index]) < 1, '未传分组表头时列宽必须保持既有声明值')
+    })
+    assert(Math.abs(metrics.groupedFactory.left - metrics.columnFactory.left) < 1, '冻结分组表头必须与下层工厂列对齐')
+    assert(Math.abs(metrics.groupedAction.right - metrics.columnAction.right) < 1, '操作分组表头必须与下层操作列对齐')
+  } finally {
+    await browser.close()
+  }
+}
+
 async function checkSupplementColumnDragInChromium(): Promise<void> {
   const browserPort = await findFreeLoopbackPort()
   assert(browserPort > 0, '真实 Chromium 检查必须预先分配可用端口，禁止把 port: 0 交给 Vite')
@@ -1622,6 +1706,7 @@ async function checkSupplementColumnDragInChromium(): Promise<void> {
   }
 }
 
+await checkGroupedHeadersInChromium()
 await checkSupplementColumnDragInChromium()
 
 console.log('standard list page template check passed')
