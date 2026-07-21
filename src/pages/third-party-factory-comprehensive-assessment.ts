@@ -18,11 +18,17 @@ import {
   type StandardListSortState,
 } from '../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../components/ui/pagination.ts'
+import { renderFormDrawer } from '../components/ui/drawer.ts'
+import { renderCheckbox, renderFormField, renderInput, renderSelect as renderFormSelect } from '../components/ui/form.ts'
+import { renderSuccessToast, renderToastContainer } from '../components/ui/toast.ts'
 import {
   WOMENSWEAR_CATEGORY_OPTIONS,
+  getThirdPartyFactoryComprehensiveAssessment,
   listThirdPartyFactoryComprehensiveAssessments,
+  updateThirdPartyFactoryManualAssessment,
   type ComprehensiveAssessmentGrade,
   type ThirdPartyFactoryComprehensiveAssessment,
+  type WomenswearCategory,
 } from '../data/fcs/third-party-factory-comprehensive-assessment.ts'
 import { appStore } from '../state/store.ts'
 import { escapeHtml } from '../utils.ts'
@@ -53,6 +59,23 @@ export interface ComprehensiveAssessmentQuery {
 }
 
 let draggedColumnKey = ''
+
+interface AssessmentEditorState {
+  factoryId: string
+  dirty: boolean
+}
+
+export interface AssessmentEditorInput {
+  categoryAbilities: readonly string[]
+  machineCount: string
+  workerCount: string
+  monthlyOutputValueTenThousandIdr: string
+  grade: string
+}
+
+type AssessmentEditorErrors = Partial<Record<keyof AssessmentEditorInput, string>>
+
+let editorState: AssessmentEditorState | null = null
 
 const columnRules = [
   { key: 'factory', required: true, freezeable: true },
@@ -277,11 +300,106 @@ function formatUpdatedAt(value: string | null): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
+export function validateThirdPartyFactoryComprehensiveAssessmentInput(
+  input: AssessmentEditorInput,
+): AssessmentEditorErrors {
+  const errors: AssessmentEditorErrors = {}
+  if (!input.categoryAbilities.some((category) => WOMENSWEAR_CATEGORY_OPTIONS.includes(category as WomenswearCategory))) {
+    errors.categoryAbilities = '至少选择 1 个品类能力'
+  }
+  if (!/^\d+$/.test(input.machineCount)) errors.machineCount = '机器台数须为非负整数'
+  if (!/^\d+$/.test(input.workerCount)) errors.workerCount = '工人人数须为非负整数'
+  if (!/^\d+(?:\.\d{1,2})?$/.test(input.monthlyOutputValueTenThousandIdr)) {
+    errors.monthlyOutputValueTenThousandIdr = '月产值须为非负数，最多保留 2 位小数'
+  }
+  if (!['S', 'A', 'B', 'C'].includes(input.grade)) errors.grade = '请选择综合评级'
+  return errors
+}
+
+function renderEditorErrors(errors: AssessmentEditorErrors): string {
+  const messages = Object.values(errors)
+  return `<div data-assessment-form-errors>${messages.length > 0
+    ? `<div class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"><p class="font-medium">请修正后再保存</p><ul class="mt-1 list-disc space-y-0.5 pl-5">${messages.map((message) => `<li>${escapeHtml(message)}</li>`).join('')}</ul></div>`
+    : ''}</div>`
+}
+
+function renderNumberEditorField(
+  label: string,
+  field: 'machineCount' | 'workerCount' | 'monthlyOutputValueTenThousandIdr',
+  value: number | null,
+  suffix: string,
+  step: string,
+): string {
+  const input = renderInput({
+    name: field,
+    value: value === null ? '' : String(value),
+    type: 'number',
+    required: true,
+    prefix: EVENT_PREFIX,
+    field,
+    className: 'border-sky-200 bg-sky-50/40 pr-28',
+  }).replace('<input type="number"', `<input type="number" min="0" step="${step}"`)
+  return renderFormField({ label, required: true, hint: `人工填写 · ${suffix}` }, `
+    <div class="relative">${input}<span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-sky-700">${escapeHtml(suffix)}</span></div>
+  `)
+}
+
+function renderReadonlyRate(label: string, value: number | null, source: string): string {
+  return `<div class="rounded-md border border-emerald-200 bg-emerald-50/50 px-3 py-2">
+    <div class="text-xs text-emerald-700">${escapeHtml(label)}</div>
+    <div class="mt-1 font-medium tabular-nums">${value === null ? '暂无业务数据' : `${(value * 100).toFixed(1)}%`}</div>
+    <div class="mt-1 text-[11px] text-emerald-700">${escapeHtml(source)}</div>
+  </div>`
+}
+
+function renderAssessmentEditor(factoryId: string, errors: AssessmentEditorErrors = {}): string {
+  const row = getThirdPartyFactoryComprehensiveAssessment(factoryId)
+  if (!row) return ''
+  const categories = WOMENSWEAR_CATEGORY_OPTIONS.map((category) => renderCheckbox({
+    id: `assessment-category-${WOMENSWEAR_CATEGORY_OPTIONS.indexOf(category)}`,
+    name: 'categoryAbilities',
+    checked: row.categoryAbilities.includes(category),
+    label: category,
+    prefix: EVENT_PREFIX,
+    field: 'categoryAbilities',
+  }).replace('type="checkbox"', `type="checkbox" value="${escapeHtml(category)}"`)).join('')
+  const gradeSelect = renderFormSelect({
+    name: 'grade',
+    value: row.grade ?? '',
+    options: ['S', 'A', 'B', 'C'].map((grade) => ({ value: grade, label: `${grade} 级` })),
+    placeholder: '请选择综合评级',
+    required: true,
+    prefix: EVENT_PREFIX,
+    field: 'grade',
+    className: 'border-sky-200 bg-sky-50/40',
+  }).replace('value="" disabled', 'value=""')
+  const content = `
+    <div data-third-party-comprehensive-assessment-editor class="space-y-5">
+      ${renderEditorErrors(errors)}
+      <section class="rounded-lg border p-4">
+        <div class="flex items-start justify-between gap-3"><div><h3 class="text-sm font-semibold">能力</h3><p class="mt-1 text-xs text-muted-foreground">工艺能力只读，品类能力由业务人员维护。</p></div><div class="flex gap-1">${renderSource('工厂档案', 'system')}${renderSource('人工填写', 'manual')}</div></div>
+        <div class="mt-3 rounded-md border border-emerald-200 bg-emerald-50/50 px-3 py-2"><div class="text-xs text-emerald-700">工艺能力 · 工厂档案</div><div class="mt-1 text-sm font-medium">${escapeHtml(row.processAbilities.join('、') || '暂无')}</div><div class="mt-1 text-[11px] text-emerald-700">系统数据，只读</div></div>
+        <div class="mt-3 rounded-md border border-sky-200 bg-sky-50/30 p-3"><div class="text-sm font-medium text-sky-800">品类能力 <span class="text-rose-500">*</span></div><div class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">${categories}</div><p class="mt-2 text-xs text-sky-700">人工填写 · 至少选择 1 项</p></div>
+      </section>
+      <section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">产能</h3><p class="mt-1 text-xs text-sky-700">以下字段均为人工填写。</p><div class="mt-3 grid gap-4 sm:grid-cols-2">${renderNumberEditorField('机器台数', 'machineCount', row.machineCount, '台', '1')}${renderNumberEditorField('工人人数', 'workerCount', row.workerCount, '人', '1')}<div class="sm:col-span-2">${renderNumberEditorField('月产值', 'monthlyOutputValueTenThousandIdr', row.monthlyOutputValueTenThousandIdr, '万印尼盾／月', '0.01')}</div></div></section>
+      <section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">时效</h3><p class="mt-1 text-xs text-emerald-700">系统计算，只读；沿用生产交付与回货节点口径。</p><div class="mt-3 grid grid-cols-2 gap-3">${renderReadonlyRate('交付完成', row.timeliness.deliveryOnTimeRate, '时效业务数据')}${renderReadonlyRate('30% 回货', row.timeliness.receipt30OnTimeRate, '时效业务数据')}${renderReadonlyRate('70% 回货', row.timeliness.receipt70OnTimeRate, '时效业务数据')}${renderReadonlyRate('100% 回货', row.timeliness.receipt100OnTimeRate, '时效业务数据')}</div></section>
+      <section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">品控</h3><p class="mt-1 text-xs text-emerald-700">系统计算，只读；沿用质检业务数据口径。</p><div class="mt-3 grid grid-cols-3 gap-3">${renderReadonlyRate('不良品率', row.quality.defectiveRate, '质检业务数据')}${renderReadonlyRate('瑕疵率', row.quality.defectRate, '质检业务数据')}${renderReadonlyRate('返工率', row.quality.reworkRate, '质检业务数据')}</div></section>
+      <section class="rounded-lg border border-sky-200 bg-sky-50/30 p-4">${renderFormField({ label: '独立综合评级', required: true, hint: '人工填写 · 与三方工厂初评评级独立维护' }, gradeSelect)}</section>
+    </div>`
+  return renderFormDrawer({
+    title: '编辑综合评定',
+    subtitle: `${row.factoryName}（${row.factoryCode}）`,
+    closeAction: { prefix: EVENT_PREFIX, action: 'close-editor' },
+    submitAction: { prefix: EVENT_PREFIX, action: 'save-editor', label: '保存评定' },
+    width: 'lg',
+  }, content)
+}
+
 const columns: readonly StandardListColumn<ThirdPartyFactoryComprehensiveAssessment>[] = [
   {
     key: 'factory', title: '工厂', width: 248, minWidth: 248, required: true, freezeable: true, sortable: true,
     render: (row) => `
-      <div class="space-y-1">
+      <div class="space-y-1" data-assessment-factory-id="${escapeHtml(row.factoryId)}">
         <div class="font-medium">${escapeHtml(row.factoryName)}</div>
         <div class="font-mono text-xs text-muted-foreground">${escapeHtml(row.factoryCode)}</div>
         <div class="text-xs ${row.completion.incompleteCount === 0 ? 'text-emerald-700' : 'text-amber-700'}">${row.completion.incompleteCount === 0 ? '评定已完善' : `待完善 ${row.completion.incompleteCount} 项`}</div>
@@ -303,7 +421,7 @@ const columns: readonly StandardListColumn<ThirdPartyFactoryComprehensiveAssessm
   { key: 'defectRate', title: '工厂责任瑕疵率', width: 146, freezeable: true, align: 'right', sortable: true, render: (row) => renderQualityRate(row.quality.defectRate), sortValue: (row) => row.quality.defectRate },
   { key: 'reworkRate', title: '返工率', width: 112, freezeable: true, align: 'right', sortable: true, render: (row) => renderQualityRate(row.quality.reworkRate), sortValue: (row) => row.quality.reworkRate },
   { key: 'grade', title: '综合评级', width: 116, required: true, freezeable: true, sortable: true, render: renderGrade, sortValue: (row) => row.grade },
-  { key: 'actions', title: '操作', width: 108, required: true, actionColumn: true, render: (row) => `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildHref(readQuery(), { editFactoryId: row.factoryId }))}">编辑评定</button>` },
+  { key: 'actions', title: '操作', width: 108, required: true, actionColumn: true, render: (row) => `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-${EVENT_PREFIX}-action="open-editor" data-factory-id="${escapeHtml(row.factoryId)}">编辑评定</button>` },
 ]
 
 const headerGroups = [
@@ -346,6 +464,11 @@ function renderColumnSettingsOverlay(query: ComprehensiveAssessmentQuery, prefer
   return renderStandardListColumnSettings({
     title: '列设置', columns, preferences, eventPrefix: EVENT_PREFIX, maxFrozenWidth: MAX_FROZEN_WIDTH,
   })
+}
+
+function renderAssessmentOverlays(query: ComprehensiveAssessmentQuery, preferences: StandardListColumnPreferences): string {
+  if (editorState) return renderAssessmentEditor(editorState.factoryId)
+  return renderColumnSettingsOverlay(query, preferences)
 }
 
 function getAssessmentTableState(query: ComprehensiveAssessmentQuery): {
@@ -392,6 +515,71 @@ function hydrateInsertedIcons(root: ParentNode): void {
   void import('../components/shell.ts')
     .then(({ hydrateIcons }) => hydrateIcons(root))
     .catch(() => undefined)
+}
+
+function refreshAssessmentOverlaysLocally(query: ComprehensiveAssessmentQuery, errors: AssessmentEditorErrors = {}): boolean {
+  if (typeof document === 'undefined') return false
+  const overlays = document.querySelector<HTMLElement>('[data-third-party-comprehensive-assessment-overlays]')
+  if (!overlays) return false
+  overlays.innerHTML = editorState
+    ? renderAssessmentEditor(editorState.factoryId, errors)
+    : renderColumnSettingsOverlay(query, getColumnPreferences())
+  if (overlays.innerHTML) hydrateInsertedIcons(overlays)
+  return true
+}
+
+function readEditorInput(): AssessmentEditorInput | null {
+  if (typeof document === 'undefined') return null
+  const editor = document.querySelector<HTMLElement>('[data-third-party-comprehensive-assessment-editor]')
+  if (!editor) return null
+  const read = (field: string) => editor.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="${field}"]`)?.value ?? ''
+  return {
+    categoryAbilities: [...editor.querySelectorAll<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="categoryAbilities"]:checked`)].map((item) => item.value),
+    machineCount: read('machineCount').trim(),
+    workerCount: read('workerCount').trim(),
+    monthlyOutputValueTenThousandIdr: read('monthlyOutputValueTenThousandIdr').trim(),
+    grade: read('grade'),
+  }
+}
+
+function refreshSavedAssessmentLocally(query: ComprehensiveAssessmentQuery, factoryId: string): boolean {
+  if (typeof document === 'undefined') return false
+  const root = document.querySelector<HTMLElement>('[data-third-party-comprehensive-assessment-page]')
+  const stats = root?.querySelector<HTMLElement>('[data-assessment-stats-surface]')
+  const table = root?.querySelector<HTMLElement>('[data-assessment-table-surface]')
+  const pagination = root?.querySelector<HTMLElement>('[data-assessment-pagination-surface]')
+  if (!stats || !table || !pagination) return false
+
+  const { filteredRows, paging } = getAssessmentTableState(query)
+  stats.innerHTML = renderStats(filteredRows)
+  pagination.innerHTML = renderPagination(query, paging)
+
+  const currentIds = [...table.querySelectorAll<HTMLElement>('[data-assessment-factory-id]')].map((node) => node.dataset.assessmentFactoryId ?? '')
+  const nextIds = paging.rows.map((row) => row.factoryId)
+  const currentRow = table.querySelector<HTMLElement>(`[data-assessment-factory-id="${CSS.escape(factoryId)}"]`)?.closest<HTMLTableRowElement>('tr')
+  const nextRow = paging.rows.find((row) => row.factoryId === factoryId)
+  if (currentRow && nextRow && currentIds.join('|') === nextIds.join('|')) {
+    const visibleColumnKeys = [...table.querySelectorAll<HTMLElement>('thead tr:last-child th[data-column-key]')]
+      .map((header) => header.dataset.columnKey ?? '')
+    ;[...currentRow.cells].forEach((cell, index) => {
+      const column = columns.find((item) => item.key === visibleColumnKeys[index])
+      if (column) cell.innerHTML = column.render(nextRow, 0)
+    })
+  } else {
+    const scroll = table.querySelector<HTMLElement>('[data-standard-list-scroll]')
+    const scrollLeft = scroll?.scrollLeft ?? 0
+    table.innerHTML = renderAssessmentTable(query, getColumnPreferences())
+    const nextScroll = table.querySelector<HTMLElement>('[data-standard-list-scroll]')
+    if (nextScroll) nextScroll.scrollLeft = Math.min(scrollLeft, Math.max(0, nextScroll.scrollWidth - nextScroll.clientWidth))
+  }
+  return true
+}
+
+function showAssessmentSavedToast(factoryName: string): void {
+  if (typeof document === 'undefined') return
+  const container = document.querySelector<HTMLElement>('[data-toast-container]')
+  if (!container) return
+  container.innerHTML = renderSuccessToast('评定已保存', `${factoryName} 的人工评定已更新`)
 }
 
 function refreshColumnSettingsLocally(query: ComprehensiveAssessmentQuery): boolean {
@@ -505,6 +693,13 @@ export function handleThirdPartyFactoryComprehensiveAssessmentEvent(target: HTML
 
   const query = readQuery()
   const fieldNode = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
+  if (fieldNode && fieldNode.dataset.thirdPartyComprehensiveAssessmentField !== 'pageSize' && editorState) {
+    if (event?.type !== 'input' && event?.type !== 'change') return false
+    editorState.dirty = true
+    const errors = typeof document === 'undefined' ? null : document.querySelector<HTMLElement>('[data-assessment-form-errors]')
+    if (errors) errors.innerHTML = ''
+    return true
+  }
   if (fieldNode?.dataset.thirdPartyComprehensiveAssessmentField === 'pageSize') {
     if (event?.type !== 'change') return false
     const pageSize = Number(fieldNode.value)
@@ -518,6 +713,53 @@ export function handleThirdPartyFactoryComprehensiveAssessmentEvent(target: HTML
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
   const action = actionNode?.getAttribute(`data-${EVENT_PREFIX}-action`)
   if (!actionNode || !action) return false
+  if (action === 'open-editor') {
+    const factoryId = actionNode.dataset.factoryId ?? ''
+    if (!getThirdPartyFactoryComprehensiveAssessment(factoryId)) return true
+    event?.preventDefault()
+    editorState = { factoryId, dirty: false }
+    refreshAssessmentOverlaysLocally(query)
+    return true
+  }
+  if (action === 'close-editor') {
+    event?.preventDefault()
+    if (editorState?.dirty && typeof window !== 'undefined' && !window.confirm('当前评定尚未保存，确认放弃修改吗？')) return true
+    editorState = null
+    refreshAssessmentOverlaysLocally(query)
+    return true
+  }
+  if (action === 'save-editor') {
+    event?.preventDefault()
+    if (!editorState) return true
+    const input = readEditorInput()
+    if (!input) return true
+    const errors = validateThirdPartyFactoryComprehensiveAssessmentInput(input)
+    const errorSurface = typeof document === 'undefined' ? null : document.querySelector<HTMLElement>('[data-assessment-form-errors]')
+    if (Object.keys(errors).length > 0) {
+      if (errorSurface) errorSurface.innerHTML = renderEditorErrors(errors).replace(/^<div data-assessment-form-errors>|<\/div>$/g, '')
+      return true
+    }
+    const factoryId = editorState.factoryId
+    try {
+      const saved = updateThirdPartyFactoryManualAssessment(factoryId, {
+        categoryAbilities: input.categoryAbilities as WomenswearCategory[],
+        machineCount: Number(input.machineCount),
+        workerCount: Number(input.workerCount),
+        monthlyOutputValueTenThousandIdr: Number(input.monthlyOutputValueTenThousandIdr),
+        grade: input.grade as ComprehensiveAssessmentGrade,
+        updatedBy: '当前登录用户',
+        updatedAt: new Date().toISOString(),
+      })
+      editorState = null
+      refreshAssessmentOverlaysLocally(query)
+      refreshSavedAssessmentLocally(query, factoryId)
+      showAssessmentSavedToast(saved.factoryName)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '保存失败，请稍后重试'
+      if (errorSurface) errorSurface.innerHTML = renderEditorErrors({ grade: message }).replace(/^<div data-assessment-form-errors>|<\/div>$/g, '')
+    }
+    return true
+  }
   if (action === 'sort-column') {
     const columnKey = actionNode.dataset.columnKey ?? ''
     if (!columns.some((column) => column.key === columnKey && column.sortable)) return true
@@ -584,17 +826,20 @@ export function handleThirdPartyFactoryComprehensiveAssessmentEvent(target: HTML
 
 export function renderThirdPartyFactoryComprehensiveAssessmentPage(): string {
   const query = readQuery()
+  if (!editorState && query.editFactoryId && getThirdPartyFactoryComprehensiveAssessment(query.editFactoryId)) {
+    editorState = { factoryId: query.editFactoryId, dirty: false }
+  }
   const { filteredRows, paging } = getAssessmentTableState(query)
   const preferences = getColumnPreferences()
   return `<div data-third-party-comprehensive-assessment-page>${renderStandardListPage({
     title: '第三方车缝厂综合评定',
     primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2 text-xs"><span class="text-muted-foreground">来源图例</span>${renderSource('系统获取', 'system')}${renderSource('人工填写', 'manual')}</div>`,
     filtersHtml: renderFilters(query),
-    statsHtml: renderStats(filteredRows),
+    statsHtml: `<div data-assessment-stats-surface>${renderStats(filteredRows)}</div>`,
     listTitle: '综合评定列表',
     listActionsHtml: `<button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-${EVENT_PREFIX}-action="open-column-settings">列设置</button>`,
     tableHtml: `<div data-third-party-comprehensive-assessment-table data-assessment-table-surface>${renderAssessmentTable(query, preferences)}</div>`,
     paginationHtml: `<div data-assessment-pagination-surface>${renderPagination(query, paging)}</div>`,
-    overlaysHtml: `<div data-third-party-comprehensive-assessment-overlays>${renderColumnSettingsOverlay(query, preferences)}</div>`,
-  })}</div>`
+    overlaysHtml: `<div data-third-party-comprehensive-assessment-overlays>${renderAssessmentOverlays(query, preferences)}</div>`,
+  })}${renderToastContainer()}</div>`
 }

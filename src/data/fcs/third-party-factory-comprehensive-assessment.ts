@@ -230,14 +230,14 @@ function normalizeCategoryAbilities(value: unknown): WomenswearCategory[] | unde
   return value.length === 0 || normalized.length > 0 ? normalized : undefined
 }
 
-function normalizePositiveIntegerOrNull(value: unknown): number | null | undefined {
+function normalizeNonNegativeIntegerOrNull(value: unknown): number | null | undefined {
   if (value === null) return null
-  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined
 }
 
-function normalizePositiveNumberOrNull(value: unknown): number | null | undefined {
+function normalizeNonNegativeNumberOrNull(value: unknown): number | null | undefined {
   if (value === null) return null
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
 }
 
 function normalizeGrade(value: unknown): ComprehensiveAssessmentGrade | null | undefined {
@@ -289,9 +289,9 @@ function normalizeStoredManualAssessments(value: unknown): ManualAssessmentSnaps
     if (!snapshot) continue
     const next = cloneManual(snapshot)
     const categoryAbilities = normalizeCategoryAbilities(raw.categoryAbilities)
-    const machineCount = normalizePositiveIntegerOrNull(raw.machineCount)
-    const workerCount = normalizePositiveIntegerOrNull(raw.workerCount)
-    const monthlyOutputValueTenThousandIdr = normalizePositiveNumberOrNull(raw.monthlyOutputValueTenThousandIdr)
+    const machineCount = normalizeNonNegativeIntegerOrNull(raw.machineCount)
+    const workerCount = normalizeNonNegativeIntegerOrNull(raw.workerCount)
+    const monthlyOutputValueTenThousandIdr = normalizeNonNegativeNumberOrNull(raw.monthlyOutputValueTenThousandIdr)
     const grade = normalizeGrade(raw.grade)
     const updatedBy = normalizeStringOrNull(raw.updatedBy)
     const updatedAt = normalizeStringOrNull(raw.updatedAt)
