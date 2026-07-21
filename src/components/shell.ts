@@ -81,8 +81,9 @@ function renderTopBar(state: AppState): string {
 
 function renderMenuItem(item: MenuItem, state: AppState, collapsed: boolean): string {
   const hasChildren = (item.children?.length ?? 0) > 0
-  const isActive = item.href === state.pathname
-  const childActive = item.children?.some((child) => child.href === state.pathname) ?? false
+  const activePathname = state.pathname.split('#')[0].split('?')[0] || '/'
+  const isActive = item.href === activePathname
+  const childActive = item.children?.some((child) => child.href === activePathname) ?? false
   const expanded = childActive || (state.expandedItems[item.key] ?? false)
 
   const baseButtonClass = toClassName(
@@ -123,7 +124,7 @@ function renderMenuItem(item: MenuItem, state: AppState, collapsed: boolean): st
                   const childClass = toClassName(
                     'flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors',
                     'hover:bg-accent hover:text-accent-foreground',
-                    child.href === state.pathname && 'bg-blue-50 text-blue-600',
+                    child.href === activePathname && 'bg-blue-50 text-blue-600',
                   )
 
                   return `

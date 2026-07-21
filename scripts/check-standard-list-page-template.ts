@@ -641,6 +641,94 @@ assert(
   '操作列必须排在普通列最后',
 )
 
+const groupedHeaderColumns: StandardListColumn<DemoRow>[] = [
+  {
+    key: 'factory',
+    title: '工厂',
+    width: 140,
+    render: () => '雅加达工厂',
+  },
+  {
+    key: 'craft',
+    title: '工艺',
+    width: 120,
+    render: () => '车缝',
+  },
+  {
+    key: 'category',
+    title: '类别',
+    width: 120,
+    render: () => '成衣',
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 100,
+    required: true,
+    actionColumn: true,
+    render: () => '<button type="button">查看</button>',
+  },
+]
+const groupedHeaderTableHtml = renderStandardListTable({
+  columns: groupedHeaderColumns,
+  rows: [{ recordNo: 'BL-007', qty: 10 }],
+  preferences: {
+    order: ['factory', 'craft', 'category', 'actions'],
+    visibleKeys: ['factory', 'craft', 'category', 'actions'],
+    frozenKeys: [],
+    pageSize: 10,
+  },
+  sort: null,
+  eventPrefix: 'demo-list',
+  headerGroups: [
+    { key: 'ability', title: '能力', columnKeys: ['craft', 'category'] },
+  ],
+})
+assert(
+  groupedHeaderTableHtml.includes('data-standard-list-header-group="ability"'),
+  '分组表头必须输出稳定标记',
+)
+assert(groupedHeaderTableHtml.includes('colspan="2"'), '分组表头必须按组内可见列数输出 colspan')
+assert(groupedHeaderTableHtml.includes('能力'), '分组表头必须输出分组标题')
+const groupedHeaderRow = groupedHeaderTableHtml.match(/<thead[^>]*>\s*<tr>([\s\S]*?)<\/tr>/)?.[1]
+assert(groupedHeaderRow, '分组表头必须位于 thead 第一行')
+const groupedHeaderCellKeys = [...groupedHeaderRow.matchAll(/data-standard-list-header-group="([^"]+)"/g)]
+  .map((match) => match[1])
+assert.deepEqual(
+  groupedHeaderCellKeys,
+  ['column-factory', 'ability', 'column-actions'],
+  '分组表头必须按当前可见列顺序补齐未分组列',
+)
+
+const collapsedGroupedHeaderTableHtml = renderStandardListTable({
+  columns: groupedHeaderColumns,
+  rows: [{ recordNo: 'BL-008', qty: 11 }],
+  preferences: {
+    order: ['factory', 'craft', 'category', 'actions'],
+    visibleKeys: ['factory', 'craft', 'actions'],
+    frozenKeys: [],
+    pageSize: 10,
+  },
+  sort: null,
+  eventPrefix: 'demo-list',
+  headerGroups: [
+    { key: 'ability', title: '能力', columnKeys: ['craft', 'category'] },
+  ],
+})
+assert(
+  collapsedGroupedHeaderTableHtml.includes('colspan="1"'),
+  '隐藏组内列后，分组表头 colspan 必须按当前可见列收缩',
+)
+const collapsedGroupedHeaderRow = collapsedGroupedHeaderTableHtml.match(/<thead[^>]*>\s*<tr>([\s\S]*?)<\/tr>/)?.[1]
+assert(collapsedGroupedHeaderRow, '隐藏列后仍必须保留分组表头行')
+const collapsedGroupedHeaderCellKeys = [...collapsedGroupedHeaderRow.matchAll(/data-standard-list-header-group="([^"]+)"/g)]
+  .map((match) => match[1])
+assert.deepEqual(
+  collapsedGroupedHeaderCellKeys,
+  ['column-factory', 'ability', 'column-actions'],
+  '隐藏列后分组表头必须保持当前可见列顺序',
+)
+
 const descendingListTableHtml = renderStandardListTable({
   columns: standardListColumns,
   rows: [{ recordNo: 'BL-006', qty: 6 }],
@@ -1377,6 +1465,90 @@ async function findFreeLoopbackPort(): Promise<number> {
   })
 }
 
+async function checkGroupedHeadersInChromium(): Promise<void> {
+  const fixtureColumns = groupedHeaderColumns.map((column) =>
+    column.key === 'factory' ? { ...column, freezeable: true } : column,
+  )
+  const fixturePreferences: StandardListColumnPreferences = {
+    order: ['factory', 'craft', 'category', 'actions'],
+    visibleKeys: ['factory', 'craft', 'category', 'actions'],
+    frozenKeys: ['factory'],
+    pageSize: 10,
+  }
+  const groupedFixture = renderStandardListTable({
+    columns: fixtureColumns,
+    rows: [{ recordNo: 'BL-009', qty: 12 }],
+    preferences: fixturePreferences,
+    sort: null,
+    eventPrefix: 'demo-list',
+    headerGroups: [{ key: 'ability', title: '能力', columnKeys: ['craft', 'category'] }],
+  })
+  const ungroupedFixture = renderStandardListTable({
+    columns: standardListColumns,
+    rows: [{ recordNo: 'BL-010', qty: 13 }],
+    preferences: standardListPreferences,
+    sort: null,
+    eventPrefix: 'demo-list',
+  })
+  const browser = await chromium.launch({ headless: true })
+  const page = await browser.newPage({ viewport: { width: 800, height: 600 } })
+
+  try {
+    await page.setContent(`
+      <style>
+        [data-layout-fixture] { width: 240px; margin-bottom: 24px; }
+        [data-standard-list-scroll] { width: 240px; overflow-x: auto; }
+        .w-full { width: 100%; }
+        .table-fixed { table-layout: fixed; }
+        .sticky { position: sticky; }
+        .left-0 { left: 0; }
+        .right-0 { right: 0; }
+        .bg-background { background: white; }
+      </style>
+      <section data-layout-fixture="grouped">${groupedFixture}</section>
+      <section data-layout-fixture="ungrouped">${ungroupedFixture}</section>
+    `)
+    const metrics = await page.evaluate(() => {
+      const rect = (element: Element | null) => {
+        if (!element) throw new Error('缺少布局检查元素')
+        const { left, right, width } = element.getBoundingClientRect()
+        return { left, right, width }
+      }
+      const grouped = document.querySelector('[data-layout-fixture="grouped"]')!
+      const ungrouped = document.querySelector('[data-layout-fixture="ungrouped"]')!
+      const groupedScroll = grouped.querySelector<HTMLElement>('[data-standard-list-scroll]')!
+      const groupedWidths = ['factory', 'craft', 'category', 'actions'].map((key) =>
+        rect(grouped.querySelector(`[data-column-key="${key}"]`)),
+      )
+      const ungroupedWidths = ['recordNo', 'qty', 'actions'].map((key) =>
+        rect(ungrouped.querySelector(`[data-column-key="${key}"]`)),
+      )
+
+      groupedScroll.scrollLeft = 180
+      return {
+        groupedWidths,
+        ungroupedWidths,
+        groupedFactory: rect(grouped.querySelector('[data-standard-list-header-group="column-factory"]')),
+        groupedAction: rect(grouped.querySelector('[data-standard-list-header-group="column-actions"]')),
+        columnFactory: rect(grouped.querySelector('[data-column-key="factory"]')),
+        columnAction: rect(grouped.querySelector('[data-column-key="actions"]')),
+      }
+    })
+    const expectedGroupedWidths = [140, 120, 120, 100]
+    metrics.groupedWidths.forEach((rect, index) => {
+      assert(Math.abs(rect.width - expectedGroupedWidths[index]) < 1, '分组表头存在时列宽必须保持声明值')
+    })
+    const expectedUngroupedWidths = [150, 120, 100]
+    metrics.ungroupedWidths.forEach((rect, index) => {
+      assert(Math.abs(rect.width - expectedUngroupedWidths[index]) < 1, '未传分组表头时列宽必须保持既有声明值')
+    })
+    assert(Math.abs(metrics.groupedFactory.left - metrics.columnFactory.left) < 1, '冻结分组表头必须与下层工厂列对齐')
+    assert(Math.abs(metrics.groupedAction.right - metrics.columnAction.right) < 1, '操作分组表头必须与下层操作列对齐')
+  } finally {
+    await browser.close()
+  }
+}
+
 async function checkSupplementColumnDragInChromium(): Promise<void> {
   const browserPort = await findFreeLoopbackPort()
   assert(browserPort > 0, '真实 Chromium 检查必须预先分配可用端口，禁止把 port: 0 交给 Vite')
@@ -1534,6 +1706,7 @@ async function checkSupplementColumnDragInChromium(): Promise<void> {
   }
 }
 
+await checkGroupedHeadersInChromium()
 await checkSupplementColumnDragInChromium()
 
 console.log('standard list page template check passed')

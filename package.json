@@ -14,6 +14,7 @@
     "check:production-preparation-timing": "tsx scripts/check-production-preparation-timing.ts",
     "check:third-party-cutting-task-boundaries": "tsx scripts/check-third-party-cutting-task-boundaries.ts",
     "check:third-party-factory-rating": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-third-party-factory-rating.ts",
+    "check:third-party-comprehensive-assessment": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-third-party-factory-comprehensive-assessment.ts",
     "check:prototype-design-governance": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-prototype-design-governance.ts",
     "check:list-page-governance:static": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-list-page-governance.ts",
     "check:list-page-governance": "npm run check:list-page-governance:static && npm run check:standard-list-page-template && npm run check:prototype-design-governance -- --all",
