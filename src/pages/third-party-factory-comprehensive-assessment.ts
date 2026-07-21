@@ -50,26 +50,25 @@ export interface ComprehensiveAssessmentQuery {
   sortKey: string
   sortDirection: StandardListSortDirection | ''
   columnSettings: boolean
-  refreshKey: string
 }
 
 let draggedColumnKey = ''
 
 const columnRules = [
   { key: 'factory', required: true, freezeable: true },
-  { key: 'craftAbility' },
-  { key: 'categoryAbility' },
-  { key: 'machineCount' },
-  { key: 'workerCount' },
-  { key: 'monthlyOutputValue' },
-  { key: 'deliveryCompleted' },
-  { key: 'return30' },
-  { key: 'return70' },
-  { key: 'return100' },
-  { key: 'defectiveRate' },
-  { key: 'defectRate' },
-  { key: 'reworkRate' },
-  { key: 'grade', required: true },
+  { key: 'craftAbility', freezeable: true },
+  { key: 'categoryAbility', freezeable: true },
+  { key: 'machineCount', freezeable: true },
+  { key: 'workerCount', freezeable: true },
+  { key: 'monthlyOutputValue', freezeable: true },
+  { key: 'deliveryCompleted', freezeable: true },
+  { key: 'return30', freezeable: true },
+  { key: 'return70', freezeable: true },
+  { key: 'return100', freezeable: true },
+  { key: 'defectiveRate', freezeable: true },
+  { key: 'defectRate', freezeable: true },
+  { key: 'reworkRate', freezeable: true },
+  { key: 'grade', required: true, freezeable: true },
   { key: 'actions', required: true, actionColumn: true },
 ]
 
@@ -143,7 +142,6 @@ function readQuery(): ComprehensiveAssessmentQuery {
     sortKey: params.get('sortKey') ?? '',
     sortDirection: sortDirection === 'asc' || sortDirection === 'desc' ? sortDirection : '',
     columnSettings: params.get('columnSettings') === '1',
-    refreshKey: params.get('refreshKey') ?? '',
   }
 }
 
@@ -199,7 +197,6 @@ function buildHref(query: ComprehensiveAssessmentQuery, patch: Partial<Comprehen
     params.set('sortDirection', next.sortDirection)
   }
   if (next.columnSettings) params.set('columnSettings', '1')
-  if (next.refreshKey) params.set('refreshKey', next.refreshKey)
   const search = params.toString()
   return search ? `${PAGE_PATH}?${search}` : PAGE_PATH
 }
@@ -293,19 +290,19 @@ const columns: readonly StandardListColumn<ThirdPartyFactoryComprehensiveAssessm
       </div>`,
     sortValue: (row) => row.factoryName,
   },
-  { key: 'craftAbility', title: '工艺能力', width: 150, sortable: true, render: (row) => `<div class="text-sm">${escapeHtml(row.processAbilities.join('、') || '—')}</div>${renderSource('工厂档案', 'system')}`, sortValue: (row) => row.processAbilities.join('、') },
-  { key: 'categoryAbility', title: '品类能力', width: 180, sortable: true, render: (row) => renderManualValue(row.categoryAbilities.join('、') || null), sortValue: (row) => row.categoryAbilities.join('、') },
-  { key: 'machineCount', title: '机器数', width: 110, align: 'right', sortable: true, render: (row) => renderManualValue(row.machineCount, ' 台'), sortValue: (row) => row.machineCount },
-  { key: 'workerCount', title: '工人数', width: 110, align: 'right', sortable: true, render: (row) => renderManualValue(row.workerCount, ' 人'), sortValue: (row) => row.workerCount },
-  { key: 'monthlyOutputValue', title: '月产值', width: 160, align: 'right', sortable: true, render: (row) => renderManualValue(row.monthlyOutputValueTenThousandIdr, ' 万印尼盾／月'), sortValue: (row) => row.monthlyOutputValueTenThousandIdr },
-  { key: 'deliveryCompleted', title: '交期完成', width: 126, align: 'right', sortable: true, render: (row) => renderSystemRate(row.timeliness.deliveryOnTimeRate), sortValue: (row) => row.timeliness.deliveryOnTimeRate },
-  { key: 'return30', title: '回货 30%', width: 118, align: 'right', sortable: true, render: (row) => renderSystemRate(row.timeliness.receipt30OnTimeRate), sortValue: (row) => row.timeliness.receipt30OnTimeRate },
-  { key: 'return70', title: '回货 70%', width: 118, align: 'right', sortable: true, render: (row) => renderSystemRate(row.timeliness.receipt70OnTimeRate), sortValue: (row) => row.timeliness.receipt70OnTimeRate },
-  { key: 'return100', title: '回货 100%', width: 122, align: 'right', sortable: true, render: (row) => renderSystemRate(row.timeliness.receipt100OnTimeRate), sortValue: (row) => row.timeliness.receipt100OnTimeRate },
-  { key: 'defectiveRate', title: '不良率', width: 112, align: 'right', sortable: true, render: (row) => renderQualityRate(row.quality.defectiveRate), sortValue: (row) => row.quality.defectiveRate },
-  { key: 'defectRate', title: '工厂责任瑕疵率', width: 146, align: 'right', sortable: true, render: (row) => renderQualityRate(row.quality.defectRate), sortValue: (row) => row.quality.defectRate },
-  { key: 'reworkRate', title: '返工率', width: 112, align: 'right', sortable: true, render: (row) => renderQualityRate(row.quality.reworkRate), sortValue: (row) => row.quality.reworkRate },
-  { key: 'grade', title: '综合评级', width: 116, required: true, sortable: true, render: renderGrade, sortValue: (row) => row.grade },
+  { key: 'craftAbility', title: '工艺能力', width: 150, freezeable: true, sortable: true, render: (row) => `<div class="text-sm">${escapeHtml(row.processAbilities.join('、') || '—')}</div>${renderSource('工厂档案', 'system')}`, sortValue: (row) => row.processAbilities.join('、') },
+  { key: 'categoryAbility', title: '品类能力', width: 180, freezeable: true, sortable: true, render: (row) => renderManualValue(row.categoryAbilities.join('、') || null), sortValue: (row) => row.categoryAbilities.join('、') },
+  { key: 'machineCount', title: '机器数', width: 110, freezeable: true, align: 'right', sortable: true, render: (row) => renderManualValue(row.machineCount, ' 台'), sortValue: (row) => row.machineCount },
+  { key: 'workerCount', title: '工人数', width: 110, freezeable: true, align: 'right', sortable: true, render: (row) => renderManualValue(row.workerCount, ' 人'), sortValue: (row) => row.workerCount },
+  { key: 'monthlyOutputValue', title: '月产值', width: 160, freezeable: true, align: 'right', sortable: true, render: (row) => renderManualValue(row.monthlyOutputValueTenThousandIdr, ' 万印尼盾／月'), sortValue: (row) => row.monthlyOutputValueTenThousandIdr },
+  { key: 'deliveryCompleted', title: '交期完成', width: 126, freezeable: true, align: 'right', sortable: true, render: (row) => renderSystemRate(row.timeliness.deliveryOnTimeRate), sortValue: (row) => row.timeliness.deliveryOnTimeRate },
+  { key: 'return30', title: '回货 30%', width: 118, freezeable: true, align: 'right', sortable: true, render: (row) => renderSystemRate(row.timeliness.receipt30OnTimeRate), sortValue: (row) => row.timeliness.receipt30OnTimeRate },
+  { key: 'return70', title: '回货 70%', width: 118, freezeable: true, align: 'right', sortable: true, render: (row) => renderSystemRate(row.timeliness.receipt70OnTimeRate), sortValue: (row) => row.timeliness.receipt70OnTimeRate },
+  { key: 'return100', title: '回货 100%', width: 122, freezeable: true, align: 'right', sortable: true, render: (row) => renderSystemRate(row.timeliness.receipt100OnTimeRate), sortValue: (row) => row.timeliness.receipt100OnTimeRate },
+  { key: 'defectiveRate', title: '不良率', width: 112, freezeable: true, align: 'right', sortable: true, render: (row) => renderQualityRate(row.quality.defectiveRate), sortValue: (row) => row.quality.defectiveRate },
+  { key: 'defectRate', title: '工厂责任瑕疵率', width: 146, freezeable: true, align: 'right', sortable: true, render: (row) => renderQualityRate(row.quality.defectRate), sortValue: (row) => row.quality.defectRate },
+  { key: 'reworkRate', title: '返工率', width: 112, freezeable: true, align: 'right', sortable: true, render: (row) => renderQualityRate(row.quality.reworkRate), sortValue: (row) => row.quality.reworkRate },
+  { key: 'grade', title: '综合评级', width: 116, required: true, freezeable: true, sortable: true, render: renderGrade, sortValue: (row) => row.grade },
   { key: 'actions', title: '操作', width: 108, required: true, actionColumn: true, render: (row) => `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildHref(readQuery(), { editFactoryId: row.factoryId }))}">编辑评定</button>` },
 ]
 
@@ -354,6 +351,28 @@ function renderColumnSettingsOverlay(query: ComprehensiveAssessmentQuery, prefer
   )
 }
 
+function getAssessmentTableState(query: ComprehensiveAssessmentQuery): {
+  filteredRows: ThirdPartyFactoryComprehensiveAssessment[]
+  paging: ReturnType<typeof paginateStandardListRows<ThirdPartyFactoryComprehensiveAssessment>>
+} {
+  const filteredRows = filterThirdPartyFactoryComprehensiveAssessments(listThirdPartyFactoryComprehensiveAssessments(), query)
+  const sortedRows = sortStandardListRows(filteredRows, getSortState(query), getSortValue)
+  return { filteredRows, paging: paginateStandardListRows(sortedRows, query.page, query.pageSize) }
+}
+
+function renderAssessmentTable(query: ComprehensiveAssessmentQuery, preferences: StandardListColumnPreferences): string {
+  const { paging } = getAssessmentTableState(query)
+  return renderStandardListTable({
+    columns,
+    rows: paging.rows,
+    preferences,
+    sort: getSortState(query),
+    eventPrefix: EVENT_PREFIX,
+    headerGroups,
+    emptyText: '暂无符合条件的三方车缝工厂',
+  })
+}
+
 function nextSortPatch(query: ComprehensiveAssessmentQuery, columnKey: string): Partial<ComprehensiveAssessmentQuery> {
   if (query.sortKey !== columnKey || !query.sortDirection) return { sortKey: columnKey, sortDirection: 'asc', page: 1 }
   if (query.sortDirection === 'asc') return { sortKey: columnKey, sortDirection: 'desc', page: 1 }
@@ -364,15 +383,27 @@ function navigateAssessmentList(href: string): void {
   appStore.navigate(href)
 }
 
-function refreshColumnSettings(
-  query: ComprehensiveAssessmentQuery,
-  patch: Partial<ComprehensiveAssessmentQuery> = {},
-): void {
-  navigateAssessmentList(buildHref(query, {
-    ...patch,
-    columnSettings: patch.columnSettings ?? true,
-    refreshKey: String(Date.now()),
-  }))
+function hydrateInsertedIcons(root: ParentNode): void {
+  void import('../components/shell.ts')
+    .then(({ hydrateIcons }) => hydrateIcons(root))
+    .catch(() => undefined)
+}
+
+function refreshColumnSettingsLocally(query: ComprehensiveAssessmentQuery): boolean {
+  if (typeof document === 'undefined') return false
+  const root = document.querySelector<HTMLElement>('[data-third-party-comprehensive-assessment-page]')
+  const table = root?.querySelector<HTMLElement>('[data-third-party-comprehensive-assessment-table]')
+  const overlays = root?.querySelector<HTMLElement>('[data-third-party-comprehensive-assessment-overlays]')
+  if (!table || !overlays) return false
+
+  const scrollLeft = table.scrollLeft
+  const preferences = getColumnPreferences()
+  table.innerHTML = renderAssessmentTable(query, preferences)
+  table.scrollLeft = scrollLeft
+  overlays.innerHTML = renderColumnSettingsOverlay(query, preferences)
+  hydrateInsertedIcons(table)
+  hydrateInsertedIcons(overlays)
+  return true
 }
 
 function getActionColumnKey(actionNode: HTMLElement): string {
@@ -455,7 +486,7 @@ export function handleThirdPartyFactoryComprehensiveAssessmentEvent(target: HTML
     if (targetIndex < 0) return false
     order.splice(targetIndex, 0, sourceColumn.key)
     saveColumnPreferences(normalizeColumnPreferences({ ...preferences, order }))
-    refreshColumnSettings(readQuery())
+    refreshColumnSettingsLocally({ ...readQuery(), columnSettings: true })
     return true
   }
 
@@ -467,7 +498,7 @@ export function handleThirdPartyFactoryComprehensiveAssessmentEvent(target: HTML
     if (!PAGE_SIZE_OPTIONS.includes(pageSize)) return true
     saveColumnPreferences(normalizeColumnPreferences({ ...getColumnPreferences(), pageSize }))
     event.preventDefault()
-    navigateAssessmentList(buildHref(query, { page: 1, pageSize, refreshKey: '' }))
+    navigateAssessmentList(buildHref(query, { page: 1, pageSize }))
     return true
   }
 
@@ -478,19 +509,19 @@ export function handleThirdPartyFactoryComprehensiveAssessmentEvent(target: HTML
     const columnKey = actionNode.dataset.columnKey ?? ''
     if (!columns.some((column) => column.key === columnKey && column.sortable)) return true
     event?.preventDefault()
-    navigateAssessmentList(buildHref(query, { ...nextSortPatch(query, columnKey), refreshKey: '' }))
+    navigateAssessmentList(buildHref(query, nextSortPatch(query, columnKey)))
     return true
   }
   if (action === 'open-column-settings' || action === 'close-column-settings') {
     event?.preventDefault()
-    navigateAssessmentList(buildHref(query, { columnSettings: action === 'open-column-settings', refreshKey: '' }))
+    refreshColumnSettingsLocally({ ...query, columnSettings: action === 'open-column-settings' })
     return true
   }
   if (action === 'restore-column-settings') {
     event?.preventDefault()
     const storage = getListStorage()
     if (storage) clearListColumnPreferences(storage, COLUMN_STORAGE_KEY)
-    navigateAssessmentList(buildHref(query, { page: 1, pageSize: 10, columnSettings: true, refreshKey: String(Date.now()) }))
+    refreshColumnSettingsLocally({ ...query, columnSettings: true })
     return true
   }
   if (action === 'toggle-column-visibility') {
@@ -513,9 +544,11 @@ export function handleThirdPartyFactoryComprehensiveAssessmentEvent(target: HTML
       frozenKeys: [...frozenKeys],
     }))
     event.preventDefault()
-    refreshColumnSettings(query, visibleKeys.has(columnKey) || query.sortKey !== columnKey
-      ? {}
-      : { sortKey: '', sortDirection: '', page: 1 })
+    refreshColumnSettingsLocally({
+      ...query,
+      columnSettings: true,
+      ...(visibleKeys.has(columnKey) || query.sortKey !== columnKey ? {} : { sortKey: '', sortDirection: '', page: 1 }),
+    })
     return true
   }
   if (action === 'toggle-column-freeze') {
@@ -528,7 +561,7 @@ export function handleThirdPartyFactoryComprehensiveAssessmentEvent(target: HTML
     else frozenKeys.add(column.key)
     saveColumnPreferences(normalizeColumnPreferences({ ...preferences, frozenKeys: [...frozenKeys] }))
     event.preventDefault()
-    refreshColumnSettings(query)
+    refreshColumnSettingsLocally({ ...query, columnSettings: true })
     return true
   }
   return false
@@ -536,19 +569,17 @@ export function handleThirdPartyFactoryComprehensiveAssessmentEvent(target: HTML
 
 export function renderThirdPartyFactoryComprehensiveAssessmentPage(): string {
   const query = readQuery()
-  const filteredRows = filterThirdPartyFactoryComprehensiveAssessments(listThirdPartyFactoryComprehensiveAssessments(), query)
-  const sortedRows = sortStandardListRows(filteredRows, getSortState(query), getSortValue)
-  const paging = paginateStandardListRows(sortedRows, query.page, query.pageSize)
+  const { filteredRows, paging } = getAssessmentTableState(query)
   const preferences = getColumnPreferences()
-  return renderStandardListPage({
+  return `<div data-third-party-comprehensive-assessment-page>${renderStandardListPage({
     title: '第三方车缝厂综合评定',
     primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2 text-xs"><span class="text-muted-foreground">来源图例</span>${renderSource('系统获取', 'system')}${renderSource('人工填写', 'manual')}</div>`,
     filtersHtml: renderFilters(query),
     statsHtml: renderStats(filteredRows),
     listTitle: '综合评定列表',
     listActionsHtml: `<button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-${EVENT_PREFIX}-action="open-column-settings">列设置</button>`,
-    tableHtml: renderStandardListTable({ columns, rows: paging.rows, preferences, sort: getSortState(query), eventPrefix: EVENT_PREFIX, headerGroups, emptyText: '暂无符合条件的三方车缝工厂' }),
+    tableHtml: `<div data-third-party-comprehensive-assessment-table>${renderAssessmentTable(query, preferences)}</div>`,
     paginationHtml: renderPagination(query, paging),
-    overlaysHtml: renderColumnSettingsOverlay(query, preferences),
-  })
+    overlaysHtml: `<div data-third-party-comprehensive-assessment-overlays>${renderColumnSettingsOverlay(query, preferences)}</div>`,
+  })}</div>`
 }
