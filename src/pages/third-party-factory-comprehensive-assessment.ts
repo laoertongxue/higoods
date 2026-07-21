@@ -244,9 +244,9 @@ function renderFilters(query: ComprehensiveAssessmentQuery): string {
     <form action="${PAGE_PATH}" method="get" class="space-y-3 rounded-lg border bg-card p-4" data-third-party-comprehensive-assessment-filters>
       <input type="hidden" name="page" value="1">
       <input type="hidden" name="pageSize" value="${query.pageSize}">
-      <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-[minmax(230px,1.3fr)_minmax(230px,1.5fr)_repeat(6,minmax(120px,1fr))_auto]">
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <input name="keyword" value="${escapeHtml(query.keyword)}" class="h-9 min-w-0 rounded-md border bg-background px-3 text-sm" placeholder="工厂名称 / 编码" data-third-party-comprehensive-assessment-field="keyword">
-        <div class="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1 rounded-md border bg-background px-3 text-xs">
+        <div class="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1 rounded-md border bg-background px-3 text-xs xl:col-span-3">
           <span class="text-muted-foreground">品类能力</span>
           ${WOMENSWEAR_CATEGORY_OPTIONS.map((category) => `<label class="inline-flex items-center gap-1"><input type="checkbox" name="categories" value="${escapeHtml(category)}" ${query.categories.includes(category) ? 'checked' : ''}>${escapeHtml(category)}</label>`).join('')}
         </div>

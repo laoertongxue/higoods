@@ -615,6 +615,7 @@ async function assertRealDomColumnSettingsInteractions(): Promise<void> {
         await appPage.locator('[data-third-party-comprehensive-assessment-page]').waitFor()
         assert.equal(new URL(appPage.url()).searchParams.get('ability'), 'INCOMPLETE', '真实筛选表单必须保留原生 GET 语义，且不被编辑 submit 分发拦截')
         assert.equal(await appPage.locator('[data-third-party-comprehensive-assessment-page]').count(), 1, '筛选后独立路由仍必须可达')
+        assert.ok((await appPage.locator(`button[data-tab-href="${comprehensivePath}"]`).getAttribute('class'))?.includes('bg-blue-50'), '筛选携带查询参数后综合评定二级菜单必须继续保持激活')
         console.log('综合评定真实应用回归通过：路由、菜单激活、编辑 submit 与筛选表单')
       } finally {
         releaseDirectDomRegression?.()
