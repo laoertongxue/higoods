@@ -20,7 +20,7 @@ import {
 import { renderTablePagination } from '../components/ui/pagination.ts'
 import { renderFormDrawer } from '../components/ui/drawer.ts'
 import { renderCheckbox, renderFormField, renderInput, renderSelect as renderFormSelect } from '../components/ui/form.ts'
-import { renderSuccessToast, renderToastContainer } from '../components/ui/toast.ts'
+import { renderToast, renderToastContainer } from '../components/ui/toast.ts'
 import {
   WOMENSWEAR_CATEGORY_OPTIONS,
   getThirdPartyFactoryComprehensiveAssessment,
@@ -76,6 +76,8 @@ export interface AssessmentEditorInput {
 type AssessmentEditorErrors = Partial<Record<keyof AssessmentEditorInput, string>>
 
 let editorState: AssessmentEditorState | null = null
+let assessmentToastGeneration = 0
+const ASSESSMENT_TOAST_DURATION = 1500
 
 const columnRules = [
   { key: 'factory', required: true, freezeable: true },
@@ -579,7 +581,27 @@ function showAssessmentSavedToast(factoryName: string): void {
   if (typeof document === 'undefined') return
   const container = document.querySelector<HTMLElement>('[data-toast-container]')
   if (!container) return
-  container.innerHTML = renderSuccessToast('评定已保存', `${factoryName} 的人工评定已更新`)
+  const generation = ++assessmentToastGeneration
+  const toastId = `assessment-toast-${generation}`
+  container.innerHTML = renderToast({
+    title: '评定已保存',
+    description: `${factoryName} 的人工评定已更新`,
+    variant: 'success',
+    duration: ASSESSMENT_TOAST_DURATION,
+  }, toastId)
+  window.setTimeout(() => {
+    if (generation !== assessmentToastGeneration) return
+    container.querySelector<HTMLElement>(`[data-toast="${toastId}"]`)?.remove()
+  }, ASSESSMENT_TOAST_DURATION)
+}
+
+function dismissAssessmentToast(toastId?: string): void {
+  if (typeof document === 'undefined') return
+  const container = document.querySelector<HTMLElement>('[data-toast-container]')
+  if (!container) return
+  if (toastId) container.querySelector<HTMLElement>(`[data-toast="${CSS.escape(toastId)}"]`)?.remove()
+  else container.innerHTML = ''
+  assessmentToastGeneration += 1
 }
 
 function saveAssessmentEditor(form: HTMLFormElement): void {
@@ -677,6 +699,13 @@ export function handleThirdPartyFactoryComprehensiveAssessmentEvent(target: HTML
     higoodStandardListColumnKey?: string
   }) | undefined
 
+  const toastClose = target.closest<HTMLElement>('[data-toast-close]')
+  if (toastClose) {
+    event?.preventDefault()
+    dismissAssessmentToast(toastClose.dataset.toastClose)
+    return true
+  }
+
   if (event?.type === 'dragend') {
     if (!draggedColumnKey && !dragEvent?.higoodStandardListColumnDrag) return false
     draggedColumnKey = ''
@@ -755,6 +784,7 @@ export function handleThirdPartyFactoryComprehensiveAssessmentEvent(target: HTML
     const factoryId = actionNode.dataset.factoryId ?? ''
     if (!getThirdPartyFactoryComprehensiveAssessment(factoryId)) return true
     event?.preventDefault()
+    dismissAssessmentToast()
     editorState = { factoryId, dirty: false }
     refreshAssessmentOverlaysLocally(query)
     return true
