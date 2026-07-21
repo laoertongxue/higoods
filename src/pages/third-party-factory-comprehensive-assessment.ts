@@ -388,7 +388,7 @@ function renderAssessmentEditor(factoryId: string, errors: AssessmentEditorError
       <section class="rounded-lg border p-4"><h3 class="text-sm font-semibold">品控</h3><p class="mt-1 text-xs text-emerald-700">系统计算，只读；沿用质检业务数据口径。</p><div class="mt-3 grid grid-cols-3 gap-3">${renderReadonlyRate('不良品率', row.quality.defectiveRate, '质检业务数据')}${renderReadonlyRate('瑕疵率', row.quality.defectRate, '质检业务数据')}${renderReadonlyRate('返工率', row.quality.reworkRate, '质检业务数据')}</div></section>
       <section class="rounded-lg border border-sky-200 bg-sky-50/30 p-4">${renderFormField({ label: '独立综合评级', required: true, hint: '人工填写 · 与三方工厂初评评级独立维护' }, gradeSelect)}</section>
     </div>`
-  return `<form data-third-party-comprehensive-assessment-editor-form>${renderFormDrawer({
+  return `<form data-third-party-comprehensive-assessment-editor-form data-skip-page-rerender="true">${renderFormDrawer({
     title: '编辑综合评定',
     subtitle: `${row.factoryName}（${row.factoryCode}）`,
     closeAction: { prefix: EVENT_PREFIX, action: 'close-editor' },
@@ -637,9 +637,22 @@ function saveAssessmentEditor(form: HTMLFormElement): void {
 }
 
 export function handleThirdPartyFactoryComprehensiveAssessmentSubmit(form: HTMLFormElement): boolean {
-  if (!form.matches('[data-third-party-comprehensive-assessment-editor-form]')) return false
-  saveAssessmentEditor(form)
-  return true
+  if (form.matches('[data-third-party-comprehensive-assessment-editor-form]')) {
+    saveAssessmentEditor(form)
+    return true
+  }
+  if (form.matches('[data-third-party-comprehensive-assessment-filters]')) {
+    const params = new URLSearchParams()
+    new FormData(form).forEach((value, key) => {
+      if (typeof value !== 'string' || !value.trim()) return
+      if (key === 'categories') params.append(key, value)
+      else params.set(key, value)
+    })
+    const search = params.toString()
+    navigateAssessmentList(search ? `${PAGE_PATH}?${search}` : PAGE_PATH)
+    return true
+  }
+  return false
 }
 
 function refreshColumnSettingsLocally(query: ComprehensiveAssessmentQuery): boolean {
@@ -873,7 +886,7 @@ export function renderThirdPartyFactoryComprehensiveAssessmentPage(): string {
   }
   const { filteredRows, paging } = getAssessmentTableState(query)
   const preferences = getColumnPreferences()
-  return `<div data-third-party-comprehensive-assessment-page>${renderStandardListPage({
+  return `<div data-third-party-comprehensive-assessment-page data-skip-page-rerender="true">${renderStandardListPage({
     title: '第三方车缝厂综合评定',
     primaryActionsHtml: `<div class="flex flex-wrap items-center gap-2 text-xs"><span class="text-muted-foreground">来源图例</span>${renderSource('系统获取', 'system')}${renderSource('人工填写', 'manual')}</div>`,
     filtersHtml: renderFilters(query),

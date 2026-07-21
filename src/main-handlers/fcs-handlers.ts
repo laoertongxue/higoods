@@ -29,6 +29,10 @@ import {
   handleThirdPartyFactoryRatingSubmit,
 } from '../pages/third-party-factory-rating'
 import {
+  handleThirdPartyFactoryComprehensiveAssessmentEvent,
+  handleThirdPartyFactoryComprehensiveAssessmentSubmit,
+} from '../pages/third-party-factory-comprehensive-assessment'
+import {
   handleSettlementEvent,
   handleSettlementSubmit,
   isSettlementDialogOpen,
@@ -291,6 +295,19 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   ) {
     return handleThirdPartyFactoryRatingEvent(target, event)
   }
+  if (
+    pathname.startsWith('/fcs/factories/third-party-comprehensive-assessment')
+    && (
+      event?.type === 'dragend'
+      || target.closest([
+        '[data-third-party-comprehensive-assessment-action]',
+        '[data-third-party-comprehensive-assessment-field]',
+        '[data-standard-list-column-drag]',
+      ].join(', '))
+    )
+  ) {
+    return handleThirdPartyFactoryComprehensiveAssessmentEvent(target, event)
+  }
   if (pathname.startsWith('/fcs/factories/profile')) {
     return handleFactoryPageEvent(target)
   }
@@ -431,6 +448,18 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
 }
 
 export function dispatchFcsPageSubmit(form: HTMLFormElement): boolean {
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
+  if (
+    pathname.startsWith('/fcs/factories/third-party-comprehensive-assessment')
+    && form.matches([
+      '[data-third-party-comprehensive-assessment-filters]',
+      '[data-third-party-comprehensive-assessment-editor-form]',
+    ].join(', '))
+  ) {
+    handleThirdPartyFactoryComprehensiveAssessmentSubmit(form)
+    // 页面入口已负责局部刷新或路由导航；false 用于阻止 main.ts 再触发一次整页渲染。
+    return false
+  }
   return (
     handleCraftCuttingMarkerSpreadingSubmit(form) ||
     handleThirdPartyFactoryRatingSubmit(form) ||
