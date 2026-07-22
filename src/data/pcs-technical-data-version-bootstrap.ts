@@ -519,7 +519,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         patternMakerInfoStatus: '已解析',
         maintainerStepStatus: '已完成',
         selectedSizeCodes: Array.from(new Set(demand.skuLines.map((line) => line.size))),
-        linkedBomItemId: bomItemId,
+        linkedBomItemId: scenario === 'GARMENT_HEAT_TRANSFER' ? '' : bomItemId,
         sourcePatternPackageId: patternPackageId,
         sourcePatternPackageName: isWoolScenario ? `${demand.spuCode} 毛织纸样` : `${demand.spuCode} 正式纸样`,
         widthCm: isWoolScenario ? 120 : 150,
@@ -615,7 +615,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         lossRate: scenario === 'GARMENT_HEAT_TRANSFER' ? 0 : isWoolScenario ? 0.05 : 0.03,
         supplier: '生产需求单指定',
         applicableSkuCodes: [...allSkuCodes],
-        linkedPatternIds: [patternId],
+        linkedPatternIds: scenario === 'GARMENT_HEAT_TRANSFER' ? [] : [patternId],
         usageProcessCodes: mainUsageProcessCodes,
       },
       ...(demand.spuCode === 'SPU-2024-005'
@@ -671,7 +671,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         : []),
     ],
     qualityRules: [],
-    colorMaterialMappings: colors.map((color, index) => ({
+    colorMaterialMappings: scenario === 'GARMENT_HEAT_TRANSFER' ? [] : colors.map((color, index) => ({
       id: `${seed.technicalVersionId}-mapping-${index + 1}`,
       spuCode: demand.spuCode,
       colorCode: color,

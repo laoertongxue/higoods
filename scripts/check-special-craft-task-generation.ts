@@ -158,6 +158,23 @@ const garmentOrder = productionOrders.find((order) =>
 assert(garmentOrder, '缺少可验证成衣烫画旧快照迁移的生产单')
 const garmentSnapshot = getProductionOrderTechPackSnapshot(garmentOrder.productionOrderId)
 assert(garmentSnapshot, '成衣烫画生产单缺少技术包快照')
+const formalGarmentEntry = garmentSnapshot.processEntries.find(
+  (entry) => entry.craftName === '烫画' && entry.selectedTargetObject === '成衣',
+)
+const formalGarmentBom = garmentSnapshot.bomItems.find(
+  (item) => item.type === '成衣' && formalGarmentEntry?.linkedBomItemIds?.includes(item.id),
+)
+assert(formalGarmentBom, '正式成衣烫画快照缺少关联成衣 BOM')
+assert.equal(formalGarmentBom.unit, '件', '成衣 BOM 单位必须为件')
+assert.equal(formalGarmentBom.unitConsumption, 1, '成衣 BOM 单位用量必须为 1')
+assert.equal(formalGarmentBom.lossRate, 0, '成衣 BOM 损耗率必须为 0')
+assert.deepEqual(formalGarmentBom.linkedPatternIds ?? [], [], '成衣 BOM 不得关联纸样')
+assert(
+  !garmentSnapshot.colorMaterialMappings.some((mapping) =>
+    mapping.lines.some((line) => line.bomItemId === formalGarmentBom.id),
+  ),
+  '成衣 BOM 不得生成面料专属的颜色物料纸样关联',
+)
 const legacyGarmentSnapshot = JSON.parse(JSON.stringify(garmentSnapshot)) as typeof garmentSnapshot
 const legacyGarmentEntry = legacyGarmentSnapshot.processEntries.find((entry) => entry.craftName === '烫画')
 assert(legacyGarmentEntry, '成衣烫画技术包快照缺少烫画工艺')
@@ -334,6 +351,50 @@ expectedPlanQtyByCraft.forEach((expectedPlanQty, craftName) => {
   assert.equal(task.planQty, expectedPlanQtyFromSnapshot, `${craftName} 加工单汇总数量不得被纸样关联层翻倍`)
 })
 
+const mixedPatternSnapshot = JSON.parse(JSON.stringify(packageMemberSnapshot)) as typeof packageMemberSnapshot
+const orphanAssociation = JSON.parse(JSON.stringify(materialAssociationPattern)) as typeof materialAssociationPattern
+const orphanPieceRow = orphanAssociation.pieceRows?.find(
+  (row) => (row.specialCrafts ?? []).some((craft) => craft.craftName === '烫画'),
+)
+assert(orphanPieceRow, '混合快照回归用例缺少烫画裁片')
+orphanAssociation.id = 'PATTERN-ASSOCIATION-WITHOUT-PACKAGE'
+orphanAssociation.patternFileId = orphanAssociation.id
+orphanAssociation.sourcePatternPackageId = 'PATTERN-PACKAGE-NOT-IN-SNAPSHOT'
+orphanAssociation.patternFileName = '独有物料关联纸样'
+orphanAssociation.pieceRows = [{
+  ...orphanPieceRow,
+  id: 'PIECE-ROW-ORPHAN-HEAT-TRANSFER',
+}]
+mixedPatternSnapshot.patternFiles.push(orphanAssociation)
+const mixedPatternResult = buildSpecialCraftTaskDemandLinesFromProductionOrder({
+  productionOrder: packageMemberOrder,
+  techPackSnapshot: mixedPatternSnapshot,
+})
+assert(
+  mixedPatternResult.demandLines.some((line) => line.pieceRowId === 'PIECE-ROW-ORPHAN-HEAT-TRANSFER'),
+  '有物理纸样时不得删除无对应纸样包的合法独有关联工艺',
+)
+
+const multiPhysicalPatternSnapshot = JSON.parse(JSON.stringify(packageMemberSnapshot)) as typeof packageMemberSnapshot
+const secondPhysicalPattern = JSON.parse(JSON.stringify(physicalPattern)) as typeof physicalPattern
+secondPhysicalPattern.id = 'PATTERN-PACKAGE-SECOND-PHYSICAL'
+secondPhysicalPattern.patternFileId = secondPhysicalPattern.id
+secondPhysicalPattern.patternFileName = '第二个独立物理纸样包'
+multiPhysicalPatternSnapshot.patternFiles.push(secondPhysicalPattern)
+const multiPhysicalPatternResult = buildSpecialCraftTaskDemandLinesFromProductionOrder({
+  productionOrder: packageMemberOrder,
+  techPackSnapshot: multiPhysicalPatternSnapshot,
+})
+const multiPhysicalHeatLines = multiPhysicalPatternResult.demandLines.filter(
+  (line) => line.craftName === '烫画' && line.targetObject === '已裁部位',
+)
+assert.equal(multiPhysicalHeatLines.length, 8, '两个独立物理纸样包应分别产生裁片明细')
+assert.equal(
+  new Set(multiPhysicalHeatLines.map((line) => line.demandLineId)).size,
+  multiPhysicalHeatLines.length,
+  '不同物理纸样包的相同裁片与 SKU 必须生成唯一明细 ID',
+)
+
 const missingGarmentBomSnapshot = JSON.parse(JSON.stringify(dualTargetSnapshot)) as typeof dualTargetSnapshot
 missingGarmentBomSnapshot.bomItems = missingGarmentBomSnapshot.bomItems.filter((item) => item.id !== garmentBomId)
 const missingGarmentBomResult = generateSpecialCraftTaskOrdersFromProductionOrder({
@@ -343,6 +404,53 @@ const missingGarmentBomResult = generateSpecialCraftTaskOrdersFromProductionOrde
 assert(
   missingGarmentBomResult.errors.some((error) => error.errorType === '成衣BOM缺失' && error.blocking),
   '成衣辅助工艺缺少关联成衣 BOM 时必须阻断生成',
+)
+
+const emptyApplicableSkuSnapshot = JSON.parse(JSON.stringify(dualTargetSnapshot)) as typeof dualTargetSnapshot
+const emptyApplicableSkuBom = emptyApplicableSkuSnapshot.bomItems.find((item) => item.id === garmentBomId)
+assert(emptyApplicableSkuBom, '成衣 BOM 空适用 SKU 回归用例缺少 BOM')
+emptyApplicableSkuBom.applicableSkuCodes = []
+const emptyApplicableSkuResult = buildSpecialCraftTaskDemandLinesFromProductionOrder({
+  productionOrder: dualTargetOrder,
+  techPackSnapshot: emptyApplicableSkuSnapshot,
+})
+assert(
+  emptyApplicableSkuResult.errors.some((error) => error.errorType === '成衣BOM适用SKU缺失' && error.blocking),
+  '成衣 BOM 适用 SKU 为空时必须按统一错误模型阻断',
+)
+
+const unmatchedApplicableSkuSnapshot = JSON.parse(JSON.stringify(dualTargetSnapshot)) as typeof dualTargetSnapshot
+const unmatchedApplicableSkuBom = unmatchedApplicableSkuSnapshot.bomItems.find((item) => item.id === garmentBomId)
+assert(unmatchedApplicableSkuBom, '成衣 BOM 无生产数量匹配回归用例缺少 BOM')
+unmatchedApplicableSkuBom.applicableSkuCodes = ['SKU-NOT-IN-PRODUCTION-ORDER']
+const unmatchedApplicableSkuResult = buildSpecialCraftTaskDemandLinesFromProductionOrder({
+  productionOrder: dualTargetOrder,
+  techPackSnapshot: unmatchedApplicableSkuSnapshot,
+})
+assert(
+  unmatchedApplicableSkuResult.errors.some((error) => error.errorType === '成衣BOM适用SKU无生产数量' && error.blocking),
+  '成衣 BOM 适用 SKU 全部无生产数量匹配时必须阻断',
+)
+
+const duplicateSkuOrder = JSON.parse(JSON.stringify(dualTargetOrder)) as typeof dualTargetOrder
+const duplicateSkuLine = duplicateSkuOrder.demandSnapshot.skuLines.find((line) => line.skuCode === applicableSku.skuCode)
+assert(duplicateSkuLine, '重复 SKU 回归用例缺少生产 SKU')
+duplicateSkuOrder.demandSnapshot.skuLines.push({ ...duplicateSkuLine })
+const duplicateSkuResult = buildSpecialCraftTaskDemandLinesFromProductionOrder({
+  productionOrder: duplicateSkuOrder,
+  techPackSnapshot: dualTargetSnapshot,
+})
+assert(
+  duplicateSkuResult.errors.some((error) => error.errorType === '生产SKU重复' && error.blocking),
+  '生产单同一 SKU 重复时必须阻断，不得重复累计数量',
+)
+const duplicateSkuGarmentLines = duplicateSkuResult.demandLines.filter(
+  (line) => line.targetObject === '成衣' && line.colorName === duplicateSkuLine.color && line.sizeCode === duplicateSkuLine.size,
+)
+assert.equal(
+  new Set(duplicateSkuGarmentLines.map((line) => line.demandLineId)).size,
+  duplicateSkuGarmentLines.length,
+  '重复 SKU 不得产生重复成衣明细 ID',
 )
 
 const firstResult = generateSpecialCraftTaskOrdersFromProductionOrder({
