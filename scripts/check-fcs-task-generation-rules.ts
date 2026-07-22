@@ -284,6 +284,8 @@ async function main(): Promise<void> {
   assertIncludes(ruleDomainSource, 'resolveRuleFactoryIds', '规则必须从工厂档案承接配置解析候选工厂')
   assertIncludes(productionContextSource, 'recordTaskGenerationPreview', '确认拆解必须写入任务生成运行时事实')
   assertIncludes(productionContextSource, 'independentWorkOrderCount', '生产单摘要必须记录独立加工单数量')
+  assertIncludes(processTasksSource, 'buildTaskGenerationUnits', '任务生成兼容层必须只读取任务单元规划')
+  assertNotIncludes(processTasksSource, 'buildTaskGenerationPreview(orderId, [])', '任务生成兼容层不得以空加工单集合占位')
   assertIncludes(rulesPageSource, 'preview.independentWorkOrders', '规则模拟页必须展示真实独立加工单')
   assertIncludes(rulesPageSource, '独立加工单', '规则模拟页不得使用旧需求对象语义')
   assertIncludes(pdaTodoSource, 'pdaStepTemplateCode === \'SIMPLE_FIVE_STEP\'', 'PDA 待办必须识别简化 5 步任务')
@@ -324,6 +326,15 @@ async function main(): Promise<void> {
     && Boolean(order.sourceProductionOrderId)
   ))
   assert(independentProcessWorkOrder, '缺少可回溯生产单的印花或染色加工单 fixture')
+  const rulesPageHtml = renderPageExportWithTsx(
+    'src/pages/production/task-generation-rules.ts',
+    'renderProductionTaskGenerationRulesPage',
+  )
+  assertIncludes(
+    rulesPageHtml,
+    independentProcessWorkOrder.workOrderNo,
+    '规则模拟页 HTML 必须展示真实独立加工单号',
+  )
   assert.throws(
     () => ruleDomain.buildTaskGenerationPreview(independentProcessWorkOrder.sourceProductionOrderId),
     /真实加工单集合/,

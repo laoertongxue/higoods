@@ -11,7 +11,8 @@ import {
   type GeneratedTaskArtifact,
 } from './production-artifact-generation.ts'
 import {
-  buildTaskGenerationPreview,
+  buildTaskGenerationUnits,
+  matchProductionTaskGenerationRule,
   type CoveredProcessScope,
   type FactoryAcceptanceMode,
   type GeneratedTaskUnitPreview,
@@ -895,10 +896,10 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
   }
 
   for (const [orderId, orderArtifacts] of artifactsByOrder.entries()) {
-    // ProcessTask 兼容层只从 TASK 产物生成任务，不创建或展示印花/染色加工单；
-    // 这里显式传入空集，避免依赖模块加载副作用。
-    const preview = buildTaskGenerationPreview(orderId, [])
-    const emissionPlans = buildGeneratedTaskEmissionPlans(orderId, orderArtifacts, preview.generatedUnits)
+    const generatedUnits = buildTaskGenerationUnits(orderId)
+    const matchedRule = matchProductionTaskGenerationRule(orderId)
+    const productionOrder = productionOrders.find((order) => order.productionOrderId === orderId)
+    const emissionPlans = buildGeneratedTaskEmissionPlans(orderId, orderArtifacts, generatedUnits)
     const currentOrderTasks: ProcessTask[] = []
 
     emissionPlans.forEach(({ artifact, unit, unitSourceArtifacts, taskId, seq }) => {
@@ -1023,15 +1024,15 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         taskCategoryZh: unit?.taskName || artifact.taskTypeLabel,
         taskUnitType,
         acceptanceMode: resolveTaskUnitAcceptanceMode(taskUnitType),
-        generationRuleId: preview.matchedRuleId,
-        generationRuleName: preview.matchedRuleName,
+        generationRuleId: matchedRule?.ruleId,
+        generationRuleName: matchedRule?.ruleName,
         coveredProcesses,
         isMergedTaskUnit: isMerged,
         allowAutoDispatch: unit?.allowAutoDispatch ?? true,
         pdaStepTemplateCode: isMerged ? 'SIMPLE_FIVE_STEP' : 'DEFAULT_PROCESS_TASK',
         handoverReceiverKind: unit?.handoverReceiverKind,
         handoverReceiverName: unit?.handoverReceiverName,
-        saleTypeSnapshot: preview.saleType,
+        saleTypeSnapshot: productionOrder?.demandSnapshot.saleType || '',
         sourceEntryId: artifact.sourceEntryId,
         sourceEntryType: artifact.sourceEntryType,
         stageCode: artifact.stageCode,
@@ -1086,7 +1087,7 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
           {
             id: `GAL-${taskId}-001`,
             action: 'GENERATE',
-            detail: `按${preview.matchedRuleName || '默认按工序生成规则'}生成${processName}，覆盖工序：${coveredProcesses.map((item) => item.processName).join('、')}`,
+            detail: `按${matchedRule?.ruleName || '默认按工序生成规则'}生成${processName}，覆盖工序：${coveredProcesses.map((item) => item.processName).join('、')}`,
             at: GENERATED_TASK_CREATED_AT,
             by: '系统',
           },

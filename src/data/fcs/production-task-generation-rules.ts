@@ -384,6 +384,35 @@ function resolveMergeProcessCodes(rule: ProductionTaskGenerationRule, order: Pro
   return new Set(continuousRule.coveredProcessCodes)
 }
 
+// 任务兼容层只需要由 TASK 产物生成的任务单元，不读取或展示独立加工单事实。
+// 独立加工单必须通过 buildTaskGenerationPreview 的显式输入提供给上层页面。
+export function buildTaskGenerationUnits(orderId: string): GeneratedTaskUnitPreview[] {
+  const order = productionOrders.find((item) => item.productionOrderId === orderId)
+  if (!order) return []
+
+  const matchedRule = matchProductionTaskGenerationRule(orderId)
+  if (!matchedRule) return []
+
+  const taskArtifacts = listGeneratedProductionTaskArtifacts().filter((artifact) => artifact.orderId === orderId)
+  const independentSet = new Set(matchedRule.independentProcessCodes)
+  const mergeProcessSet = resolveMergeProcessCodes(matchedRule, order)
+  const standaloneTaskArtifacts = taskArtifacts.filter(isStandaloneWaterSolubleTaskArtifact)
+  const mergeCandidates = taskArtifacts.filter((artifact) =>
+    !isStandaloneWaterSolubleTaskArtifact(artifact)
+    && !independentSet.has(artifact.processCode)
+    && (!mergeProcessSet || mergeProcessSet.has(artifact.processCode)),
+  )
+
+  return matchedRule.remainingProcessStrategy === 'GENERATE_BY_PROCESS'
+    ? buildDefaultUnits(order, taskArtifacts, matchedRule)
+    : [
+        ...(mergeCandidates.length > 0
+          ? [buildUnitFromArtifacts({ order, rule: matchedRule, taskArtifacts: mergeCandidates, index: 1 })]
+          : []),
+        ...buildDefaultUnits(order, standaloneTaskArtifacts, matchedRule, mergeCandidates.length > 0 ? 1 : 0),
+      ]
+}
+
 export function buildTaskGenerationPreview(
   orderId: string,
   processWorkOrders: ProcessWorkOrder[],
@@ -404,7 +433,6 @@ export function buildTaskGenerationPreview(
     }
   }
 
-  const taskArtifacts = listGeneratedProductionTaskArtifacts().filter((artifact) => artifact.orderId === orderId)
   const independentWorkOrders = toIndependentWorkOrders(orderId, requireProcessWorkOrders(processWorkOrders))
   const matchedRule = matchProductionTaskGenerationRule(orderId)
   if (!matchedRule) {
@@ -421,23 +449,7 @@ export function buildTaskGenerationPreview(
       warnings: [],
     }
   }
-  const independentSet = new Set(matchedRule.independentProcessCodes)
-  const mergeProcessSet = resolveMergeProcessCodes(matchedRule, order)
-  const standaloneTaskArtifacts = taskArtifacts.filter(isStandaloneWaterSolubleTaskArtifact)
-  const mergeCandidates = taskArtifacts.filter((artifact) =>
-    !isStandaloneWaterSolubleTaskArtifact(artifact)
-    && !independentSet.has(artifact.processCode)
-    && (!mergeProcessSet || mergeProcessSet.has(artifact.processCode)),
-  )
-  const generatedUnits =
-    matchedRule.remainingProcessStrategy === 'GENERATE_BY_PROCESS'
-      ? buildDefaultUnits(order, taskArtifacts, matchedRule)
-      : [
-          ...(mergeCandidates.length > 0
-            ? [buildUnitFromArtifacts({ order, rule: matchedRule, taskArtifacts: mergeCandidates, index: 1 })]
-            : []),
-          ...buildDefaultUnits(order, standaloneTaskArtifacts, matchedRule, mergeCandidates.length > 0 ? 1 : 0),
-        ]
+  const generatedUnits = buildTaskGenerationUnits(orderId)
   const status: TaskGenerationPreviewStatus =
     generatedUnits.length > 0 || independentWorkOrders.length > 0
       ? 'READY'

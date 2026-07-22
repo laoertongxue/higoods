@@ -253,9 +253,17 @@ function renderRuleLogDialog(rule: ProductionTaskGenerationRule): string {
 }
 
 function renderPreviewSample(): string {
-  const sampleOrder = productionOrders.find((order) => order.demandSnapshot.saleType.includes('KOL'))
+  const processWorkOrders = listProcessWorkOrders()
+  const sampleWorkOrder = processWorkOrders.find((workOrder) =>
+    (workOrder.processType === 'PRINT' || workOrder.processType === 'DYE')
+    && Boolean(workOrder.sourceProductionOrderId || workOrder.productionOrderIds.length),
+  )
+  const sampleOrder = productionOrders.find((order) =>
+    order.productionOrderId === sampleWorkOrder?.sourceProductionOrderId
+    || sampleWorkOrder?.productionOrderIds.includes(order.productionOrderId),
+  ) ?? productionOrders.find((order) => order.demandSnapshot.saleType.includes('KOL'))
   if (!sampleOrder) return ''
-  const preview = buildTaskGenerationPreview(sampleOrder.productionOrderId, listProcessWorkOrders())
+  const preview = buildTaskGenerationPreview(sampleOrder.productionOrderId, processWorkOrders)
   return `
     <dialog id="task-generation-rule-preview" class="m-0 ml-auto h-screen max-h-none w-[min(860px,100vw)] border-l bg-background p-0 shadow-2xl backdrop:bg-black/35">
       <div class="flex h-full flex-col">
