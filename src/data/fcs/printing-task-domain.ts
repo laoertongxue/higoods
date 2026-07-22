@@ -14,6 +14,7 @@ import {
 import {
   listPdaGenericProcessTasks,
   registerPdaGenericProcessTask,
+  unregisterPdaGenericProcessTask,
   type PdaGenericTaskMock,
 } from './pda-task-mock-factory.ts'
 import { type HandoverReceiverKind, type QtyUnit } from './process-tasks.ts'
@@ -34,7 +35,10 @@ import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import { selectPrimaryProductionMaterialBomItem } from './production-material-bom.ts'
 import { getProcessWorkOrderStockMaterial, isValidProcessWorkOrderPlannedFinishAt } from './process-work-order-stock.ts'
-import { ensureProcessWorkOrders } from './process-work-order-generation-service.ts'
+import {
+  ensureProcessWorkOrders,
+  registerProcessWorkOrderGenerationRegistrar,
+} from './process-work-order-generation-registry.ts'
 import { syncFactoryWarehouseHandoverSourceByTaskId } from './factory-internal-warehouse.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
@@ -388,7 +392,7 @@ function syncSeedSourceToTaskAndHandovers(order: MutablePrintWorkOrder): void {
     const sourceFields = order.sourceType === 'STOCK'
       ? {
           sourceType: 'STOCK' as const,
-          sourceSnapshot: order.sourceSnapshot ? { ...order.sourceSnapshot } : undefined,
+          sourceSnapshot: order.sourceSnapshot ? structuredClone(order.sourceSnapshot) : undefined,
           stockMaterialId: order.stockMaterialId,
           stockMaterialName: order.stockMaterialName,
           productionOrderId: undefined,
@@ -396,7 +400,7 @@ function syncSeedSourceToTaskAndHandovers(order: MutablePrintWorkOrder): void {
         }
       : {
           sourceType: order.sourceType,
-          sourceSnapshot: order.sourceSnapshot ? { ...order.sourceSnapshot } : undefined,
+          sourceSnapshot: order.sourceSnapshot ? structuredClone(order.sourceSnapshot) : undefined,
           productionOrderId: order.sourceProductionOrderId,
           productionOrderNo: order.sourceProductionOrderNo,
           stockMaterialId: undefined,
@@ -428,7 +432,7 @@ function listGeneratedPrintWorkOrders(): MutablePrintWorkOrder[] {
 function cloneWorkOrder(order: MutablePrintWorkOrder): PrintWorkOrder {
   return {
     ...order,
-    sourceSnapshot: order.sourceSnapshot ? { ...order.sourceSnapshot } : undefined,
+    sourceSnapshot: order.sourceSnapshot ? structuredClone(order.sourceSnapshot) : undefined,
     productionOrderIds: [...order.productionOrderIds],
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
       ? {
@@ -506,7 +510,7 @@ function buildFreshPrintMobileTask(input: {
     taskId: input.taskId,
     taskNo: input.taskNo,
     sourceType,
-    sourceSnapshot: input.sourceSnapshot ? { ...input.sourceSnapshot } : undefined,
+    sourceSnapshot: input.sourceSnapshot ? structuredClone(input.sourceSnapshot) : undefined,
     ...(sourceType === 'STOCK'
       ? { stockMaterialId: input.stockMaterialId, stockMaterialName: input.stockMaterialName }
       : { productionOrderId: input.productionOrderId, productionOrderNo: input.productionOrderNo, sourceProductionOrderId: input.productionOrderId }),
@@ -1866,7 +1870,8 @@ export function registerFormalProductionOrderPrintWorkOrder(input: FormalProduct
     productionOrderNo: input.productionOrderNo,
     techPackVersionId: input.techPackVersionId,
     techPackVersionLabel: input.techPackVersionLabel,
-    bomItemId: input.materialItems?.map((item) => item.sourceBomItemId).join('+') || input.materialId,
+    bomItemId: input.materialItems?.[0]?.sourceBomItemId || input.materialId,
+    bomItemIds: input.materialItems?.map((item) => item.sourceBomItemId) || [input.materialId],
   }
   const existing = Array.from(workOrderStore.values())
     .find((order) => input.sourceKey
@@ -1883,7 +1888,7 @@ export function registerFormalProductionOrderPrintWorkOrder(input: FormalProduct
     taskId: input.workOrderId,
     taskNo: input.workOrderNo,
     sourceType: sourceSnapshot.sourceType,
-    sourceSnapshot,
+    sourceSnapshot: { ...sourceSnapshot, bomItemIds: sourceSnapshot.bomItemIds ? [...sourceSnapshot.bomItemIds] : undefined },
     productionOrderId: input.productionOrderId,
     productionOrderNo: input.productionOrderNo,
     stockMaterialId: sourceSnapshot.stockMaterialId,
@@ -1958,6 +1963,39 @@ export function registerFormalProductionOrderPrintWorkOrder(input: FormalProduct
   createdPrintOrderIds.add(input.workOrderId)
   return getPrintWorkOrderById(input.workOrderId)!
 }
+
+registerProcessWorkOrderGenerationRegistrar({
+  processCode: 'PRINT',
+  findBySourceKey: (sourceKey) => {
+    seedDomain()
+    return Array.from(workOrderStore.values()).find((order) => order.sourceKey === sourceKey)?.printOrderId
+  },
+  issueIdentity: (orderedAt) => {
+    seedDomain()
+    const occupiedIds = new Set(Array.from(workOrderStore.values()).map((order) => order.printOrderId))
+    const occupiedNos = new Set(Array.from(workOrderStore.values()).map((order) => order.printOrderNo))
+    const datePart = orderedAt.replace(/\D/g, '').slice(0, 8) || '00000000'
+    for (let sequence = 1; sequence <= 999999; sequence += 1) {
+      const padded = String(sequence).padStart(6, '0')
+      const workOrderId = `PWO-PRINT-AUTO-${padded}`
+      const workOrderNo = `PH-${datePart}-${padded}`
+      if (!occupiedIds.has(workOrderId) && !occupiedNos.has(workOrderNo)) return { workOrderId, workOrderNo }
+    }
+    throw new Error('印花加工单编号已耗尽')
+  },
+  prepare: (input) => {
+    normalizeFormalProductionOrderMaterialItems(input)
+    return {
+      workOrderId: input.workOrderId,
+      commit: () => { registerFormalProductionOrderPrintWorkOrder(input) },
+      rollback: () => {
+        workOrderStore.delete(input.workOrderId)
+        createdPrintOrderIds.delete(input.workOrderId)
+        unregisterPdaGenericProcessTask(input.workOrderId)
+      },
+    }
+  },
+})
 
 export const PRINT_PRODUCTION_CHANGE_NOT_EXECUTED_STATUSES: readonly PrintWorkOrderStatus[] = [
   'WAIT_ARTWORK',

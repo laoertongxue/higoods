@@ -14,6 +14,10 @@ import {
   getPdaHandoverRecordsByHead,
   listPdaHandoverHeads,
 } from './pda-handover-events.ts'
+import type {
+  ProcessWorkOrderSourceSnapshot,
+  ProcessWorkOrderSourceType,
+} from './process-work-order-domain.ts'
 
 export type FactoryInternalWarehouseKind = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
 export type FactoryWarehouseLocationStatus = 'AVAILABLE' | 'STOPPED'
@@ -129,8 +133,12 @@ export interface FactoryWaitProcessStockItem extends FactoryWarehouseBaseItem {
   sourceObjectName: string
   taskId?: string
   taskNo?: string
+  sourceType?: ProcessWorkOrderSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
   productionOrderId?: string
   productionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   expectedQty: number
   receivedQty: number
   availableQty?: number
@@ -148,7 +156,8 @@ export interface FactoryWaitProcessStockItem extends FactoryWarehouseBaseItem {
 export interface FactoryWaitHandoverStockItem extends FactoryWarehouseBaseItem {
   taskId?: string
   taskNo?: string
-  sourceType?: 'PRODUCTION_ORDER' | 'STOCK'
+  sourceType?: ProcessWorkOrderSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
   productionOrderId?: string
   productionOrderNo?: string
   stockMaterialId?: string
@@ -187,6 +196,12 @@ export interface FactoryWarehouseInboundRecord {
   sourceObjectName: string
   taskId?: string
   taskNo?: string
+  sourceType?: ProcessWorkOrderSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
+  productionOrderId?: string
+  productionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   itemKind: FactoryWarehouseItemKind
   itemName: string
   materialSku?: string
@@ -226,7 +241,8 @@ export interface FactoryWarehouseOutboundRecord {
   craftName?: string
   sourceTaskId?: string
   sourceTaskNo?: string
-  sourceType?: 'PRODUCTION_ORDER' | 'STOCK'
+  sourceType?: ProcessWorkOrderSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
   productionOrderId?: string
   productionOrderNo?: string
   stockMaterialId?: string
@@ -1079,6 +1095,12 @@ function buildInboundRecordFromPickupRecordInput(input: {
     sourceObjectName: head.sourceFactoryName || '上游仓库',
     taskId: head.taskId,
     taskNo: head.taskNo,
+    sourceType: head.sourceType,
+    sourceSnapshot: head.sourceSnapshot ? structuredClone(head.sourceSnapshot) : undefined,
+    productionOrderId: head.productionOrderId,
+    productionOrderNo: head.productionOrderNo,
+    stockMaterialId: head.stockMaterialId,
+    stockMaterialName: head.stockMaterialName,
     itemKind: deriveFactoryItemKind({
       lineMaterialName: record.materialName,
       partName: record.pieceName,
@@ -1164,6 +1186,16 @@ function buildInboundRecordFromHandoverReceiveInput(input: {
     sourceObjectName: head.sourceFactoryName,
     taskId: head.taskId,
     taskNo: head.taskNo,
+    sourceType: head.sourceType || record.sourceType,
+    sourceSnapshot: head.sourceSnapshot
+      ? structuredClone(head.sourceSnapshot)
+      : record.sourceSnapshot
+        ? structuredClone(record.sourceSnapshot)
+        : undefined,
+    productionOrderId: head.productionOrderId || record.productionOrderId,
+    productionOrderNo: head.productionOrderNo || record.productionOrderNo,
+    stockMaterialId: head.stockMaterialId || record.stockMaterialId,
+    stockMaterialName: head.stockMaterialName || record.stockMaterialName,
     itemKind: deriveFactoryItemKind({
       partName: derivePartNameFromRecord(record),
       handoutObjectType: record.objectType,
@@ -1250,8 +1282,12 @@ function buildWaitProcessStockItemFromInbound(
     sourceObjectName: record.sourceObjectName,
     taskId: record.taskId,
     taskNo: record.taskNo,
-    productionOrderId: record.taskId,
-    productionOrderNo: record.taskNo,
+    sourceType: record.sourceType,
+    sourceSnapshot: record.sourceSnapshot ? structuredClone(record.sourceSnapshot) : undefined,
+    productionOrderId: record.productionOrderId,
+    productionOrderNo: record.productionOrderNo,
+    stockMaterialId: record.stockMaterialId,
+    stockMaterialName: record.stockMaterialName,
     itemKind: record.itemKind,
     itemName: record.itemName,
     materialSku: record.materialSku,
@@ -1296,15 +1332,17 @@ function buildOutboundRecordFromHandoverRecordInput(input: {
   const sourceFields = sourceType === 'STOCK'
     ? {
         sourceType: 'STOCK' as const,
+        sourceSnapshot: head.sourceSnapshot ? structuredClone(head.sourceSnapshot) : record.sourceSnapshot ? structuredClone(record.sourceSnapshot) : undefined,
         stockMaterialId: head.stockMaterialId || record.stockMaterialId,
         stockMaterialName: head.stockMaterialName || record.stockMaterialName,
         productionOrderId: undefined,
         productionOrderNo: undefined,
       }
     : {
-        sourceType: 'PRODUCTION_ORDER' as const,
-        productionOrderId: head.productionOrderId,
-        productionOrderNo: head.productionOrderNo,
+        sourceType: sourceType || 'PRODUCTION_ORDER' as const,
+        sourceSnapshot: head.sourceSnapshot ? structuredClone(head.sourceSnapshot) : record.sourceSnapshot ? structuredClone(record.sourceSnapshot) : undefined,
+        productionOrderId: head.productionOrderId || record.productionOrderId,
+        productionOrderNo: head.productionOrderNo || record.productionOrderNo,
         stockMaterialId: undefined,
         stockMaterialName: undefined,
       }
@@ -1380,6 +1418,7 @@ function buildWaitHandoverStockItemFromOutbound(
     taskId: record.sourceTaskId,
     taskNo: record.sourceTaskNo,
     sourceType: record.sourceType,
+    sourceSnapshot: record.sourceSnapshot ? structuredClone(record.sourceSnapshot) : undefined,
     productionOrderId: record.productionOrderId,
     productionOrderNo: record.productionOrderNo,
     stockMaterialId: record.stockMaterialId,
@@ -1417,6 +1456,12 @@ function buildWaitHandoverStockItemFromOutbound(
   }
 }
 
+export function buildFactoryWaitHandoverStockItemFromOutbound(
+  record: FactoryWarehouseOutboundRecord,
+): FactoryWaitHandoverStockItem {
+  return buildWaitHandoverStockItemFromOutbound(record)
+}
+
 function buildPendingWaitHandoverStockItem(input: {
   warehouse: FactoryInternalWarehouse
   factory: Factory
@@ -1430,13 +1475,15 @@ function buildPendingWaitHandoverStockItem(input: {
   const sourceFields = head.sourceType === 'STOCK'
     ? {
         sourceType: 'STOCK' as const,
+        sourceSnapshot: head.sourceSnapshot ? structuredClone(head.sourceSnapshot) : undefined,
         stockMaterialId: head.stockMaterialId,
         stockMaterialName: head.stockMaterialName,
         productionOrderId: undefined,
         productionOrderNo: undefined,
       }
     : {
-        sourceType: 'PRODUCTION_ORDER' as const,
+        sourceType: head.sourceType || 'PRODUCTION_ORDER' as const,
+        sourceSnapshot: head.sourceSnapshot ? structuredClone(head.sourceSnapshot) : undefined,
         productionOrderId: head.productionOrderId,
         productionOrderNo: head.productionOrderNo,
         stockMaterialId: undefined,

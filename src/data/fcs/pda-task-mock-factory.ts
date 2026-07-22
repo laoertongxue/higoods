@@ -1911,6 +1911,11 @@ export function registerPdaGenericProcessTask(task: PdaGenericTaskMock): void {
   PDA_GENERIC_PROCESS_TASKS.push(task)
 }
 
+export function unregisterPdaGenericProcessTask(taskId: string): void {
+  const index = PDA_GENERIC_PROCESS_TASKS.findIndex((item) => item.taskId === taskId)
+  if (index >= 0) PDA_GENERIC_PROCESS_TASKS.splice(index, 1)
+}
+
 export function acceptPdaGenericProcessTask(
   taskId: string,
   input: { acceptedAt: string; acceptedBy: string },

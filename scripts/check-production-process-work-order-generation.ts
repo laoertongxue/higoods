@@ -38,6 +38,7 @@ import {
 import {
   buildProcessWorkOrderSourceKey,
   ensureProcessWorkOrders,
+  setProcessWorkOrderGenerationCommitFailureForTest,
   type ProcessWorkOrderGenerationInput,
 } from '../src/data/fcs/process-work-order-generation-service.ts'
 import { deriveFormalProductionOrderProcessSnapshots } from '../src/data/fcs/production-process-snapshot-derivation.ts'
@@ -1131,6 +1132,7 @@ const supplementSource: ProcessWorkOrderGenerationInput = {
     techPackVersionId: 'TPV-SUP-001',
     techPackVersionLabel: '正式版 V1',
     bomItemId: 'BOM-SUP-001',
+    bomItemIds: ['BOM-SUP-001'],
     supplementRecordId: 'SUP-RECORD-001',
     supplementRecordNo: 'BL-20260722-001',
     originalCutOrderId: 'CUT-ORDER-001',
@@ -1317,6 +1319,7 @@ for (const requiredGroup of requiredIdentityFields) {
       } else {
         ;(invalidInput.source as unknown as Record<string, unknown>)[field] = invalidValue
       }
+      if (field === 'bomItemId') delete (invalidInput.source as unknown as Record<string, unknown>).bomItemIds
       assert.throws(
         () => buildProcessWorkOrderSourceKey(invalidInput, 'DYE'),
         undefined,
@@ -1329,6 +1332,13 @@ for (const requiredGroup of requiredIdentityFields) {
       )
     }
   }
+}
+for (const invalidBomItemIds of [[], ['   ']] as const) {
+  const invalidInput = structuredClone(productionCollisionSource) as ProcessWorkOrderGenerationInput
+  invalidInput.source.bomItemId = undefined
+  invalidInput.source.bomItemIds = [...invalidBomItemIds]
+  assert.throws(() => buildProcessWorkOrderSourceKey(invalidInput, 'DYE'), /BOM 行 ID/, '多 BOM 身份为空时不得生成幂等键')
+  assert.throws(() => ensureProcessWorkOrders(invalidInput), /BOM 行 ID/, '多 BOM 身份为空时不得生成加工单')
 }
 for (const invalidOrderedAt of [undefined, '   '] as const) {
   const blankOrderedAtInput = { ...stockCollisionSource, orderedAt: invalidOrderedAt } as unknown as ProcessWorkOrderGenerationInput
@@ -1362,5 +1372,46 @@ assert(
   listProcessWorkOrders().every((order) => Boolean(order.sourceSnapshot?.sourceType)),
   '印花、染色、水溶统一映射必须全部携带非空来源快照',
 )
+
+const multiBomLeft: ProcessWorkOrderGenerationInput = {
+  ...productionCollisionSource,
+  source: {
+    ...productionCollisionSource.source,
+    productionOrderId: 'PO-MULTI-BOM-LEFT',
+    productionOrderNo: 'PO-MULTI-BOM-LEFT',
+    bomItemId: undefined,
+    bomItemIds: ['A+B', 'C'],
+  },
+}
+const multiBomRight: ProcessWorkOrderGenerationInput = {
+  ...multiBomLeft,
+  source: { ...multiBomLeft.source, bomItemIds: ['A', 'B+C'] },
+}
+const multiBomReordered: ProcessWorkOrderGenerationInput = {
+  ...multiBomLeft,
+  source: { ...multiBomLeft.source, bomItemIds: ['C', 'A+B', 'C'] },
+}
+assert.notEqual(buildProcessWorkOrderSourceKey(multiBomLeft, 'DYE'), buildProcessWorkOrderSourceKey(multiBomRight, 'DYE'), '多 BOM 字段组合不得因 + 字符碰撞')
+assert.equal(buildProcessWorkOrderSourceKey(multiBomLeft, 'DYE'), buildProcessWorkOrderSourceKey(multiBomReordered, 'DYE'), '多 BOM 身份重排或重复不得改变幂等键')
+
+const atomicInput: ProcessWorkOrderGenerationInput = {
+  ...supplementSource,
+  source: {
+    ...supplementSource.source,
+    supplementRecordId: 'SUP-ATOMIC-001',
+    supplementRecordNo: 'SUP-ATOMIC-001',
+  },
+}
+const atomicCountBefore = listProcessWorkOrders().length
+setProcessWorkOrderGenerationCommitFailureForTest('PRINT')
+assert.throws(() => ensureProcessWorkOrders(atomicInput), /模拟印花加工单提交失败/, '印花提交故障必须向调用方失败')
+setProcessWorkOrderGenerationCommitFailureForTest(null)
+assert.equal(listProcessWorkOrders().length, atomicCountBefore, '印花提交失败后不得残留染色或印花加工单')
+assert(
+  !listPdaGenericProcessTasks().some((task) => task.sourceSnapshot?.supplementRecordId === 'SUP-ATOMIC-001'),
+  '印花提交失败后不得残留染色或印花 PDA 任务',
+)
+const atomicRetry = ensureProcessWorkOrders(atomicInput)
+assert(atomicRetry.dyeWorkOrderId && atomicRetry.printWorkOrderId, '原子回滚后必须可重试同时生成两张加工单')
 
 console.log('生产单自动生成加工单检查通过')

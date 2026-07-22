@@ -3,11 +3,20 @@ import assert from 'node:assert/strict'
 import { createDyeWorkOrderFromStock, listDyeWorkOrders } from '../src/data/fcs/dyeing-task-domain.ts'
 import { createPrintWorkOrderFromStock, listPrintWorkOrders } from '../src/data/fcs/printing-task-domain.ts'
 import { listPdaGenericProcessTasks, registerPdaGenericProcessTask } from '../src/data/fcs/pda-task-mock-factory.ts'
-import { listHandoverOrdersByTaskId } from '../src/data/fcs/pda-handover-events.ts'
+import { getPdaHandoverRecordsByHead, listHandoverOrdersByTaskId } from '../src/data/fcs/pda-handover-events.ts'
 import { submitDyeHandover, submitPrintHandover } from '../src/data/fcs/process-execution-writeback.ts'
 import { renderPdaHandoverDetailPage } from '../src/pages/pda-handover-detail.ts'
 import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 import { listProcessWorkOrderStockMaterials } from '../src/data/fcs/process-work-order-stock.ts'
+import { ensureProcessWorkOrders } from '../src/data/fcs/process-work-order-generation-service.ts'
+import {
+  buildInboundRecordFromHandoverReceive,
+  buildOutboundRecordFromHandoverRecord,
+  buildFactoryWaitHandoverStockItemFromOutbound,
+  buildFactoryWaitProcessStockItemFromInboundRecord,
+  findFactoryInternalWarehouseByFactoryAndKind,
+} from '../src/data/fcs/factory-internal-warehouse.ts'
+import { mockFactories } from '../src/data/fcs/factory-mock-data.ts'
 
 function markTaskStarted(taskId: string): void {
   const task = listPdaGenericProcessTasks().find((item) => item.taskId === taskId)
@@ -108,5 +117,69 @@ const productionDye = dyeOrders.find((order) => order.sourceType === 'PRODUCTION
 markTaskStarted(productionDye.taskId)
 submitDyeHandover(productionDye.taskId, { submittedQty: productionDye.plannedQty })
 assertProductionDetail(renderTaskHandoverDetail(productionDye.taskId), productionDye.sourceProductionOrderNo!, '生产单染色')
+
+const supplementSource = {
+  sourceType: 'CUT_PIECE_SUPPLEMENT' as const,
+  productionOrderId: 'PO-PDA-SUP-001',
+  productionOrderNo: 'PO-PDA-SUP-001',
+  techPackVersionId: 'TPV-PDA-SUP-001',
+  techPackVersionLabel: '正式版 V1',
+  bomItemId: 'BOM-PDA-SUP-001',
+  bomItemIds: ['BOM-PDA-SUP-001'],
+  supplementRecordId: 'SUP-PDA-001',
+  supplementRecordNo: 'BL-PDA-001',
+  originalCutOrderId: 'CUT-PDA-001',
+  originalCutOrderNo: 'CP-PDA-001',
+}
+const supplementDye = ensureProcessWorkOrders({
+  source: supplementSource,
+  processCodes: ['DYE'],
+  orderedAt: '2026-07-23 10:00:00',
+  materialId: 'MAT-PDA-SUP-001',
+  materialName: '补料针织布',
+  materialItems: [{ sourceBomItemId: 'BOM-PDA-SUP-001', materialId: 'MAT-PDA-SUP-001', materialName: '补料针织布' }],
+  targetColor: '黑色',
+  plannedQty: 12,
+  qtyUnit: '米',
+  dyeProcessName: '匹染',
+  factoryId: dyeFactoryId,
+  factoryName: '全能力测试工厂',
+  spuCode: 'SPU-PDA-SUP-001',
+  spuName: '补料追溯测试款',
+  requiredDeliveryDate: '2026-07-31',
+})
+assert(supplementDye.dyeWorkOrderId, '补料染色加工单创建失败')
+markTaskStarted(supplementDye.dyeWorkOrderId)
+submitDyeHandover(supplementDye.dyeWorkOrderId, { submittedQty: 12 })
+const supplementHead = listHandoverOrdersByTaskId(supplementDye.dyeWorkOrderId)[0]
+assert.equal(supplementHead?.sourceType, 'CUT_PIECE_SUPPLEMENT')
+assert.equal(supplementHead?.productionOrderNo, supplementSource.productionOrderNo)
+assert.deepEqual(supplementHead?.sourceSnapshot, supplementSource, '补料交出单必须完整保留补料、原裁片单和生产单来源')
+const supplementHtml = renderTaskHandoverDetail(supplementDye.dyeWorkOrderId)
+assert.match(supplementHtml, /补料单/)
+assert.match(supplementHtml, /BL-PDA-001/)
+assert.match(supplementHtml, /CP-PDA-001/)
+const supplementRecord = getPdaHandoverRecordsByHead(supplementHead!.handoverId)[0]!
+const supplementFactory = mockFactories.find((factory) => factory.id === dyeFactoryId)!
+const supplementWarehouse = findFactoryInternalWarehouseByFactoryAndKind(dyeFactoryId, 'WAIT_HANDOVER')!
+const supplementOutbound = buildOutboundRecordFromHandoverRecord(supplementHead!, supplementRecord, supplementFactory, supplementWarehouse)
+assert.equal(supplementOutbound?.sourceType, 'CUT_PIECE_SUPPLEMENT')
+assert.equal(supplementOutbound?.productionOrderNo, supplementSource.productionOrderNo)
+assert.deepEqual(supplementOutbound?.sourceSnapshot, supplementSource, '补料出库记录必须完整保留来源快照')
+const supplementWaitHandover = buildFactoryWaitHandoverStockItemFromOutbound(supplementOutbound)
+assert.equal(supplementWaitHandover?.sourceType, 'CUT_PIECE_SUPPLEMENT')
+assert.deepEqual(supplementWaitHandover?.sourceSnapshot, supplementSource, '补料待交出库存必须完整保留来源快照')
+const supplementWaitProcessWarehouse = findFactoryInternalWarehouseByFactoryAndKind(dyeFactoryId, 'WAIT_PROCESS')!
+const supplementInbound = buildInboundRecordFromHandoverReceive(
+  supplementHead!,
+  supplementRecord,
+  supplementFactory,
+  supplementWaitProcessWarehouse,
+)
+assert.equal(supplementInbound.sourceType, 'CUT_PIECE_SUPPLEMENT')
+assert.deepEqual(supplementInbound.sourceSnapshot, supplementSource, '补料入库记录必须完整保留来源快照')
+const supplementWaitProcess = buildFactoryWaitProcessStockItemFromInboundRecord(supplementInbound)
+assert.equal(supplementWaitProcess.sourceType, 'CUT_PIECE_SUPPLEMENT')
+assert.deepEqual(supplementWaitProcess.sourceSnapshot, supplementSource, '补料待加工库存必须完整保留来源快照')
 
 console.log('check:pda-handover-detail-source passed')

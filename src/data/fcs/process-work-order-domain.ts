@@ -50,6 +50,7 @@ export interface ProcessWorkOrderSourceSnapshot {
   techPackVersionId?: string
   techPackVersionLabel?: string
   bomItemId?: string
+  bomItemIds?: string[]
   supplementRecordId?: string
   supplementRecordNo?: string
   originalCutOrderId?: string
@@ -206,7 +207,9 @@ export interface ProcessWorkOrder {
 }
 
 function cloneSourceSnapshot(sourceSnapshot: ProcessWorkOrderSourceSnapshot): ProcessWorkOrderSourceSnapshot {
-  return { ...sourceSnapshot }
+  return sourceSnapshot.bomItemIds
+    ? { ...sourceSnapshot, bomItemIds: [...sourceSnapshot.bomItemIds] }
+    : { ...sourceSnapshot }
 }
 
 function deriveLegacySourceSnapshot(input: {
@@ -231,6 +234,7 @@ function deriveLegacySourceSnapshot(input: {
     techPackVersionId: input.formalProductionOrderSnapshot?.techPackVersionId,
     techPackVersionLabel: input.formalProductionOrderSnapshot?.techPackVersionLabel,
     bomItemId: input.formalProductionOrderSnapshot?.materialItems?.[0]?.sourceBomItemId,
+    bomItemIds: input.formalProductionOrderSnapshot?.materialItems?.map((item) => item.sourceBomItemId),
   }
 }
 

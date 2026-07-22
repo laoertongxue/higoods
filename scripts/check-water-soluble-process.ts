@@ -897,7 +897,7 @@ generatedWaterTaskArtifacts.forEach((artifact) => {
   assert.deepEqual(artifact.linkedBomItemIds, [artifact.bomItemId], `水溶产物 ${artifact.artifactId} 必须精确关联当前 BOM 行`)
 })
 productionArtifactGeneration.listGeneratedProductionTaskArtifacts()
-  .filter((artifact) => artifact.artifactId.startsWith('DICT-') && artifact.processCode !== 'WATER_SOLUBLE' && artifact.linkedBomItemIds)
+  .filter((artifact) => artifact.artifactId.startsWith('DICT-') && artifact.processCode !== 'WATER_SOLUBLE')
   .forEach((artifact) => {
     const mockIndexMatch = artifact.sourceEntryId.match(/-(\d{2})-/)
     assert(mockIndexMatch, `字典覆盖产物 ${artifact.artifactId} 缺少稳定 mockIndex`)

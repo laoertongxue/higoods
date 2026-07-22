@@ -793,7 +793,7 @@ function hydrateHandoverRecordDomain(
     ...(head.sourceType === 'STOCK'
       ? {
           sourceType: 'STOCK' as const,
-          sourceSnapshot: head.sourceSnapshot ? { ...head.sourceSnapshot } : undefined,
+          sourceSnapshot: head.sourceSnapshot ? structuredClone(head.sourceSnapshot) : undefined,
           stockMaterialId: head.stockMaterialId,
           stockMaterialName: head.stockMaterialName,
           productionOrderId: undefined,
@@ -802,7 +802,7 @@ function hydrateHandoverRecordDomain(
       : head.sourceType === 'PRODUCTION_ORDER' || head.sourceType === 'CUT_PIECE_SUPPLEMENT'
         ? {
             sourceType: head.sourceType,
-            sourceSnapshot: head.sourceSnapshot ? { ...head.sourceSnapshot } : undefined,
+            sourceSnapshot: head.sourceSnapshot ? structuredClone(head.sourceSnapshot) : undefined,
             productionOrderId: head.productionOrderId,
             productionOrderNo: head.productionOrderNo,
             stockMaterialId: undefined,
@@ -3514,7 +3514,12 @@ function getHandoutRecordsForHeadInternal(head: PdaHandoverHead): PdaHandoverRec
         : []
 
   const appended = handoutRecordAdditions.get(head.handoverId) ?? []
-  const merged = [...baseRecords, ...appended].map((record) => ({ ...record, ...(handoutRecordOverrides.get(record.recordId) ?? {}) }))
+  const recordsById = new Map<string, PdaHandoverRecord>()
+  ;[...baseRecords, ...appended].forEach((record) => recordsById.set(record.recordId, record))
+  const merged = Array.from(recordsById.values()).map((record) => ({
+    ...record,
+    ...(handoutRecordOverrides.get(record.recordId) ?? {}),
+  }))
 
   return merged
     .sort((a, b) => b.sequenceNo - a.sequenceNo)
@@ -3678,7 +3683,7 @@ function recomputeHeadsInternal(): PdaHandoverHead[] {
       : refreshHandoutHeadSummary(cloneHead(head)),
   )
 
-  return [
+  const heads = [
     ...pickupHeads,
     ...handoutHeads,
     ...postFinishingPickupHeads,
@@ -3687,6 +3692,9 @@ function recomputeHeadsInternal(): PdaHandoverHead[] {
     ...mockHeads,
     ...addedHeads,
   ]
+  const headsById = new Map<string, PdaHandoverHead>()
+  heads.forEach((head) => headsById.set(head.handoverId, head))
+  return Array.from(headsById.values())
 }
 
 function buildHeadsInternal(): PdaHandoverHead[] {
@@ -4343,13 +4351,13 @@ export function ensureHandoverOrderForStartedTask(taskId: string): {
   const sourceFields = sourceType === 'STOCK'
     ? {
         sourceType,
-        sourceSnapshot: task.sourceSnapshot ? { ...task.sourceSnapshot } : undefined,
+        sourceSnapshot: task.sourceSnapshot ? structuredClone(task.sourceSnapshot) : undefined,
         stockMaterialId: task.stockMaterialId,
         stockMaterialName: task.stockMaterialName,
       }
     : {
         sourceType,
-        sourceSnapshot: task.sourceSnapshot ? { ...task.sourceSnapshot } : undefined,
+        sourceSnapshot: task.sourceSnapshot ? structuredClone(task.sourceSnapshot) : undefined,
         productionOrderId: task.productionOrderId,
         productionOrderNo: task.productionOrderNo || task.productionOrderId,
       }

@@ -103,7 +103,7 @@ export function ensureProcessWorkOrdersForFormalProductionOrder(
       productionOrderNo: snapshot.productionOrderNo,
       techPackVersionId: snapshot.techPackVersionId,
       techPackVersionLabel: snapshot.techPackVersionLabel,
-      bomItemId: materialItems.map((item) => item.sourceBomItemId).join('+'),
+      bomItemIds: materialItems.map((item) => item.sourceBomItemId),
     },
     processCodes: [...snapshot.processCodes],
     orderedAt: snapshot.orderedAt,

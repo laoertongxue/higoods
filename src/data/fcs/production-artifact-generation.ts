@@ -293,8 +293,8 @@ function buildDictionaryCoverageBase(
   const stageDefinition = getProcessStageByCode(definition.stageCode)
   const materialBomItems = selectProductionMaterialBomItems(source.snapshot.bomItems)
   const linkedBomItem = definition.processCode === 'WATER_SOLUBLE'
-    ? materialBomItems[mockIndex % materialBomItems.length]
-    : materialBomItems[0]
+    ? materialBomItems[mockIndex % materialBomItems.length] || source.snapshot.bomItems[0]
+    : materialBomItems[0] || source.snapshot.bomItems[0]
   if (definition.processCode === 'WATER_SOLUBLE') {
     if (
       !linkedBomItem?.id

@@ -861,13 +861,20 @@ const pdaExecDetailSource = read('src/pages/pda-exec-detail.ts')
 const factoryInternalWarehouseSource = read('src/data/fcs/factory-internal-warehouse.ts')
 const processWorkOrderDomainSource = read('src/data/fcs/process-work-order-domain.ts')
 const processWorkOrderGenerationSource = read('src/data/fcs/process-work-order-generation-service.ts')
+const processWorkOrderGenerationKeySource = read('src/data/fcs/process-work-order-generation-key.ts')
+const printingTaskDomainSource = read('src/data/fcs/printing-task-domain.ts')
+const dyeingTaskDomainSource = read('src/data/fcs/dyeing-task-domain.ts')
 assert(processWorkOrderDomainSource.includes("'PRODUCTION_ORDER' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT'"), '印染加工单必须支持生产单、备货和裁片补料三种来源')
 assert(processWorkOrderDomainSource.includes('sourceSnapshot: ProcessWorkOrderSourceSnapshot'), '统一加工单必须强制携带来源快照')
 for (const sourceKeyField of ['sourceType', 'processCode', 'productionOrderId', 'stockMaterialId', 'supplementRecordId']) {
-  assert(processWorkOrderGenerationSource.includes(`['${sourceKeyField}',`), `统一创建服务幂等键缺少命名字段 ${sourceKeyField}`)
+  assert(processWorkOrderGenerationKeySource.includes(`['${sourceKeyField}',`), `统一创建服务幂等键缺少命名字段 ${sourceKeyField}`)
 }
-assert(processWorkOrderGenerationSource.includes('JSON.stringify(keyFields)'), '统一创建服务幂等键必须使用无歧义稳定序列化')
-assert(!processWorkOrderGenerationSource.includes(".join('|')"), '统一创建服务幂等键不得继续使用可碰撞的分隔符拼接')
+assert(processWorkOrderGenerationKeySource.includes('JSON.stringify(keyFields)'), '统一创建服务幂等键必须使用无歧义稳定序列化')
+assert(!processWorkOrderGenerationKeySource.includes(".join('|')"), '统一创建服务幂等键不得继续使用可碰撞的分隔符拼接')
+assert(!printingTaskDomainSource.includes("from './process-work-order-generation-service.ts'"), '印花领域不得反向依赖加工单编排服务')
+assert(!dyeingTaskDomainSource.includes("from './process-work-order-generation-service.ts'"), '染色领域不得反向依赖加工单编排服务')
+assert(factoryInternalWarehouseSource.includes('ProcessWorkOrderSourceType'), '工厂内部仓来源类型必须复用三来源统一类型')
+assert(factoryInternalWarehouseSource.includes('sourceSnapshot?: ProcessWorkOrderSourceSnapshot'), '工厂内部仓记录必须保留完整来源快照')
 for (const forbidden of ['prerequisiteWorkOrderId', 'lockedByDyeWorkOrderId', 'unlockStatus']) {
   assert(!processWorkOrderDomainSource.includes(forbidden), `印染加工单不得引入运行时互锁字段 ${forbidden}`)
 }

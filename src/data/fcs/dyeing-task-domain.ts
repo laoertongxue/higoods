@@ -9,7 +9,7 @@ import {
   type PdaHandoverHead,
   type PdaHandoverRecord,
 } from './pda-handover-events.ts'
-import { listPdaGenericProcessTasks, registerPdaGenericProcessTask, type PdaGenericTaskMock } from './pda-task-mock-factory.ts'
+import { listPdaGenericProcessTasks, registerPdaGenericProcessTask, unregisterPdaGenericProcessTask, type PdaGenericTaskMock } from './pda-task-mock-factory.ts'
 import { type HandoverReceiverKind, type QtyUnit } from './process-tasks.ts'
 import type {
   FormalProductionOrderProcessSnapshot,
@@ -28,7 +28,10 @@ import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import { selectPrimaryProductionMaterialBomItem } from './production-material-bom.ts'
 import { getProcessWorkOrderStockMaterial, isValidProcessWorkOrderPlannedFinishAt } from './process-work-order-stock.ts'
-import { ensureProcessWorkOrders } from './process-work-order-generation-service.ts'
+import {
+  ensureProcessWorkOrders,
+  registerProcessWorkOrderGenerationRegistrar,
+} from './process-work-order-generation-registry.ts'
 import { registerCreatedDyeWorkOrderReader } from './dyeing-created-work-order-registry.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
@@ -563,7 +566,7 @@ function cloneWorkOrder(order: MutableDyeWorkOrder): DyeWorkOrder {
     : undefined
   return {
     ...order,
-    sourceSnapshot: order.sourceSnapshot ? { ...order.sourceSnapshot } : undefined,
+    sourceSnapshot: order.sourceSnapshot ? structuredClone(order.sourceSnapshot) : undefined,
     sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
     productionOrderIds: order.productionOrderIds ? [...order.productionOrderIds] : undefined,
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
@@ -1106,9 +1109,10 @@ function addSeedWorkOrder(input: Omit<
     task.mockOrigin = task.acceptanceStatus === 'PENDING' ? 'DIRECT_PENDING' : 'DIRECT_ASSIGNED_EXECUTION'
     task.mockReceiveSummary = task.acceptanceStatus === 'PENDING' ? '染色加工单已分配，待工厂接单。' : '染色加工单已接单。'
     task.sourceType = input.sourceType
-    task.productionOrderId = input.sourceType === 'PRODUCTION_ORDER' ? input.sourceProductionOrderId || input.productionOrderIds?.[0] : undefined
-    task.productionOrderNo = input.sourceType === 'PRODUCTION_ORDER' ? input.sourceProductionOrderNo : undefined
+    task.productionOrderId = input.sourceType !== 'STOCK' ? input.sourceProductionOrderId || input.productionOrderIds?.[0] : undefined
+    task.productionOrderNo = input.sourceType !== 'STOCK' ? input.sourceProductionOrderNo : undefined
     task.sourceProductionOrderId = task.productionOrderId
+    task.sourceSnapshot = input.sourceSnapshot ? structuredClone(input.sourceSnapshot) : undefined
     task.stockMaterialId = input.sourceType === 'STOCK' ? input.stockMaterialId : undefined
     task.stockMaterialName = input.sourceType === 'STOCK' ? input.stockMaterialName : undefined
   }
@@ -2371,7 +2375,7 @@ function buildFreshDyeMobileTask(input: {
     taskId: input.taskId,
     taskNo: input.taskNo || input.taskId,
     sourceType,
-    sourceSnapshot: input.sourceSnapshot ? { ...input.sourceSnapshot } : undefined,
+    sourceSnapshot: input.sourceSnapshot ? structuredClone(input.sourceSnapshot) : undefined,
     ...(sourceType === 'STOCK'
       ? { stockMaterialId: input.stockMaterialId, stockMaterialName: input.stockMaterialName }
       : {
@@ -2775,7 +2779,8 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
     productionOrderNo: input.productionOrderNo,
     techPackVersionId: input.techPackVersionId,
     techPackVersionLabel: input.techPackVersionLabel,
-    bomItemId: input.materialItems?.map((item) => item.sourceBomItemId).join('+') || input.materialId,
+    bomItemId: input.materialItems?.[0]?.sourceBomItemId || input.materialId,
+    bomItemIds: input.materialItems?.map((item) => item.sourceBomItemId) || [input.materialId],
   }
   const existing = Array.from(workOrderStore.values())
     .find((order) => input.sourceKey
@@ -2794,7 +2799,7 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
     taskId: input.workOrderId,
     taskNo: input.workOrderNo,
     sourceType: sourceSnapshot.sourceType,
-    sourceSnapshot,
+    sourceSnapshot: { ...sourceSnapshot, bomItemIds: sourceSnapshot.bomItemIds ? [...sourceSnapshot.bomItemIds] : undefined },
     productionOrderId: input.productionOrderId,
     productionOrderNo: input.productionOrderNo,
     stockMaterialId: sourceSnapshot.stockMaterialId,
@@ -2879,6 +2884,41 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
   createdDyeOrderIds.add(input.workOrderId)
   return getDyeWorkOrderById(input.workOrderId)!
 }
+
+registerProcessWorkOrderGenerationRegistrar({
+  processCode: 'DYE',
+  findBySourceKey: (sourceKey) => {
+    seedDomain()
+    return Array.from(workOrderStore.values()).find((order) => order.sourceKey === sourceKey)?.dyeOrderId
+  },
+  issueIdentity: (orderedAt) => {
+    seedDomain()
+    const occupiedIds = new Set(Array.from(workOrderStore.values()).map((order) => order.dyeOrderId))
+    const occupiedNos = new Set(Array.from(workOrderStore.values()).map((order) => order.dyeOrderNo))
+    const datePart = orderedAt.replace(/\D/g, '').slice(0, 8) || '00000000'
+    for (let sequence = 1; sequence <= 999999; sequence += 1) {
+      const padded = String(sequence).padStart(6, '0')
+      const workOrderId = `DWO-AUTO-${padded}`
+      const workOrderNo = `DY-${datePart}-${padded}`
+      if (!occupiedIds.has(workOrderId) && !occupiedNos.has(workOrderNo)) return { workOrderId, workOrderNo }
+    }
+    throw new Error('染色加工单编号已耗尽')
+  },
+  prepare: (input) => {
+    normalizeFormalProductionOrderMaterialItems(input)
+    const factoryAssignmentError = getDyeFactoryAssignmentError(input.factoryId || '', input.requiresWaterSoluble === true)
+    if (factoryAssignmentError) throw new Error(factoryAssignmentError)
+    return {
+      workOrderId: input.workOrderId,
+      commit: () => { registerFormalProductionOrderDyeWorkOrder(input) },
+      rollback: () => {
+        workOrderStore.delete(input.workOrderId)
+        createdDyeOrderIds.delete(input.workOrderId)
+        unregisterPdaGenericProcessTask(input.workOrderId)
+      },
+    }
+  },
+})
 
 export function assignDyeWorkOrderFactory(
   dyeOrderId: string,

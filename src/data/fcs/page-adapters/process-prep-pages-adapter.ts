@@ -510,7 +510,7 @@ function cloneDemands(input: PrepRequirementDemandFact[]): PrepRequirementDemand
 function cloneOrders(input: PrepProcessOrderFact[]): PrepProcessOrderFact[] {
   return input.map((item) => ({
     ...item,
-    sourceSnapshot: item.sourceSnapshot ? { ...item.sourceSnapshot } : undefined,
+    sourceSnapshot: item.sourceSnapshot ? structuredClone(item.sourceSnapshot) : undefined,
     stockMaterial: item.stockMaterial ? { ...item.stockMaterial } : undefined,
     materialReceipt: { ...item.materialReceipt },
     batches: item.batches.map((batch) => ({ ...batch })),
@@ -553,7 +553,7 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
     workOrderId: order.workOrderId,
     processType: order.processType,
     sourceType: order.sourceType,
-    sourceSnapshot: { ...order.sourceSnapshot },
+    sourceSnapshot: structuredClone(order.sourceSnapshot),
     sourceProductionOrderId: order.sourceProductionOrderId,
     sourceProductionOrderNo: order.sourceProductionOrderNo,
     productionOrderOrderedAt: order.productionOrderOrderedAt,
