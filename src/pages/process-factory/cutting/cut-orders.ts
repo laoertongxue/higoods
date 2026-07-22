@@ -1,6 +1,7 @@
 // @page-pattern: list
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
 import { renderSecondaryButton } from '../../../components/ui/button.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
 import {
@@ -1316,7 +1317,9 @@ function renderCutOrderListOverlay(): string {
 function setCutOrderRegion(region: string, html: string): void {
   if (typeof document === 'undefined') return
   const element = document.querySelector<HTMLElement>(`[data-cutting-piece-region="${region}"]`)
-  if (element) element.innerHTML = html
+  if (!element) return
+  element.innerHTML = html
+  hydrateIcons(element)
 }
 
 function refreshCutOrderFeedback(): void {

@@ -8,6 +8,22 @@ async function openList(page: Page): Promise<void> {
   await expect(page.locator('[data-standard-list-page]')).toBeVisible({ timeout: 30_000 })
 }
 
+async function expectVisibleIconsHydrated(page: Page, selector: string, requireIcon = false): Promise<void> {
+  const result = await page.locator(selector).evaluate((root) => {
+    const visibleIcons = [...root.querySelectorAll<HTMLElement>('[data-lucide]')].filter((icon) => {
+      const style = getComputedStyle(icon)
+      const rect = icon.getBoundingClientRect()
+      return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0
+    })
+    return {
+      count: visibleIcons.length,
+      unhydrated: visibleIcons.filter((icon) => icon.tagName.toLowerCase() !== 'svg' || !icon.classList.contains('lucide')).length,
+    }
+  })
+  if (requireIcon) expect(result.count).toBeGreaterThan(0)
+  expect(result.unhydrated).toBe(0)
+}
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript((key) => {
     const marker = '__cutOrderListAcceptanceReset'
@@ -39,6 +55,7 @@ test('排序、分页和列偏好只局部刷新且按规则持久化', async ({
   await expect(page.getByRole('button', { name: '下一页' })).toBeEnabled()
   await page.getByRole('button', { name: '下一页' }).click()
   await expect(page.getByText(/2 \/ \d+/)).toBeVisible()
+  await expectVisibleIconsHydrated(page, '[data-cutting-piece-region="pagination"]')
 
   const cutOrderHeader = page.locator('th[data-column-key="cutOrder"]')
   await expect(cutOrderHeader).toHaveAttribute('aria-sort', 'none')
@@ -58,8 +75,10 @@ test('排序、分页和列偏好只局部刷新且按规则持久化', async ({
 
   await page.getByRole('button', { name: '列设置' }).click()
   const settings = page.getByRole('heading', { name: '列设置' }).locator('xpath=ancestor::div[contains(@class,"fixed")]')
+  await expectVisibleIconsHydrated(page, '[data-cutting-piece-region="overlay"]', true)
   const materialSetting = settings.locator('[data-cutting-piece-column-key="material"]')
   await materialSetting.getByLabel('显示').uncheck()
+  await expectVisibleIconsHydrated(page, '[data-cutting-piece-region="overlay"]', true)
   await settings.locator('[data-cutting-piece-column-key="date"]').getByLabel('冻结').check()
   await settings.locator('[data-standard-list-column-drag][data-cutting-piece-column-key="risk"]').dragTo(
     settings.locator('[data-standard-list-column-drag][data-cutting-piece-column-key="boundary"]'),
