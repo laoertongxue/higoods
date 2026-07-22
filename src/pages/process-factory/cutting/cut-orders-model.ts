@@ -18,6 +18,7 @@ import {
   listSupplementOrdersByCutOrder,
   type SupplementOrderStatus,
 } from '../../../data/fcs/cutting/supplement-order-registry.ts'
+import { stableCutOrderSupplementFixtures } from '../../../data/fcs/cutting/cut-order-supplement-fixture.ts'
 import {
   buildMaterialLedgerProjectionMap,
   type MaterialLedgerProjection,
@@ -671,10 +672,18 @@ export function buildCutOrderViewModel(
 
   const generatedSources = listGeneratedCutOrderSourceRecords()
   const generatedKeys = new Set(generatedSources.flatMap((source) => [source.cutOrderId, source.cutOrderNo]))
+  const stableSupplementTarget = stableCutOrderSupplementFixtures[0]
   const legacySources = records.flatMap((record) => record.materialLines.flatMap((line): GeneratedCutOrderSourceRecord[] => {
     const cutOrderId = line.cutOrderId || ''
     const cutOrderNo = line.cutOrderNo || line.cutPieceOrderNo
-    if (!cutOrderId || !cutOrderNo || generatedKeys.has(cutOrderId) || generatedKeys.has(cutOrderNo)) return []
+    if (
+      !cutOrderId
+      || !cutOrderNo
+      || cutOrderId !== stableSupplementTarget.cutOrderId
+      || cutOrderNo !== stableSupplementTarget.cutOrderNo
+      || generatedKeys.has(cutOrderId)
+      || generatedKeys.has(cutOrderNo)
+    ) return []
     generatedKeys.add(cutOrderId)
     generatedKeys.add(cutOrderNo)
     const taskLink = resolveCuttingTaskLink(record)
@@ -688,9 +697,9 @@ export function buildCutOrderViewModel(
     }
     const patternIdentity = line.patternIdentity || {
       patternFileId: '',
-      patternFileName: '历史裁片单纸样待补',
-      patternVersion: '待补',
-      patternKind: '历史裁片单',
+      patternFileName: '未提供',
+      patternVersion: '未提供',
+      patternKind: '未提供',
       effectiveWidthValue: 0,
       effectiveWidthUnit: '厘米',
       piecePartCodes: [],
@@ -727,13 +736,13 @@ export function buildCutOrderViewModel(
       colorScope: uniqueStrings([line.color, ...((line.skuScopeLines || []).map((item) => item.color))]),
       skuScopeLines: (line.skuScopeLines || record.skuRequirementLines || []).map((item) => ({ ...item })),
       pieceRows: [],
-      pieceSummary: patternIdentity.piecePartNames.join('、') || '待补裁片部位',
+      pieceSummary: patternIdentity.piecePartNames.join('、') || '未提供',
       cutOrderSourceType: 'INDEPENDENT_CUTTING_TASK',
-      cutOrderSourceLabel: '历史裁片单',
+      cutOrderSourceLabel: '未提供',
       cutReturnMode: 'RETURN_TO_OWN_CUTTING_WAREHOUSE',
-      cutReturnModeLabel: '回我方裁片仓',
-      internalCraftOrderPolicy: 'GENERATE_AFTER_RETURN',
-      internalCraftOrderPolicyLabel: '回货后生成后续工艺单',
+      cutReturnModeLabel: '未提供',
+      internalCraftOrderPolicy: 'DO_NOT_GENERATE',
+      internalCraftOrderPolicyLabel: '未提供',
     }]
   }))
 

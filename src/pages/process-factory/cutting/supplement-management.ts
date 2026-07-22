@@ -33,6 +33,10 @@ import {
   type SupplementOrderLifecycle,
   type SupplementOrderStatus,
 } from '../../../data/fcs/cutting/supplement-order-registry.ts'
+import {
+  ensureStableCutOrderSupplementOrders,
+  stableCutOrderSupplementFixtures,
+} from '../../../data/fcs/cutting/cut-order-supplement-fixture.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderSecondaryButton } from '../../../components/ui/button.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
@@ -2416,6 +2420,7 @@ function buildMockDraft(
 }
 
 function ensureMockSupplementOrders(): void {
+  ensureStableCutOrderSupplementOrders()
   if (mockSupplementOrdersSeeded) return
   mockSupplementOrdersSeeded = true
   if (state.records.length) return
@@ -2436,45 +2441,47 @@ function ensureMockSupplementOrders(): void {
   const stableSnapshot = getCurrentCutPieceReleaseTargetSnapshot('cpr-target-po-14671-v9')
   const stableSnapshotDraft = stableSnapshot ? buildReleaseSnapshotDraft(stableSnapshot) : null
   if (stableCutOrderCandidate) {
-    for (let sequence = 1; sequence <= 3; sequence += 1) {
+    stableCutOrderSupplementFixtures.forEach((fixture) => {
       const stableBaseDraft = stableSnapshotDraft || buildMockDraft(
         candidates[0],
-        sequence === 1 ? '验片破损' : '尺码齐套不足',
-        `CUT14671-B 第 ${sequence} 次补料演示记录。`,
+        fixture.reason,
+        fixture.reasonDetail,
       )
       const stableDraft = stableBaseDraft ? structuredClone({
         ...stableBaseDraft,
         candidateId: stableCutOrderCandidate.id,
         sourceType: 'cut-order' as const,
-        sourceNo: stableCutOrderCandidate.sourceNo,
+        sourceNo: fixture.cutOrderNo,
         productionOrderId: stableCutOrderCandidate.record.productionOrderId,
-        productionOrderNo: stableCutOrderCandidate.record.productionOrderNo,
+        productionOrderNo: fixture.productionOrderNo,
         styleName: stableCutOrderCandidate.record.styleName,
         spuCode: stableCutOrderCandidate.record.spuCode,
-        reason: sequence === 1 ? '验片破损' : '尺码齐套不足',
-        reasonDetail: `CUT14671-B 第 ${sequence} 次补料演示记录。`,
+        reason: fixture.reason,
+        reasonDetail: fixture.reasonDetail,
         releaseSnapshotId: undefined,
         releaseMatrixVersion: undefined,
         releaseTargetConfirmedAt: undefined,
       }) : null
-      if (!stableDraft) continue
-      const lines = stableDraft.lines.map((line, lineIndex) => ({
-        ...line,
-        supplementQty: line.supplementQty + sequence + lineIndex,
-      }))
+      if (!stableDraft) return
+      const lines = fixture.lines.map((fact, lineIndex) => ({
+        ...stableDraft.lines[lineIndex],
+        color: fact.color,
+        size: fact.size,
+        supplementQty: fact.supplementQty,
+      })).filter((line) => Boolean(line.key))
       records.push(buildSupplementRecordFromDraft({
         ...stableDraft,
         lines,
         materialDemands: buildMaterialDemands(stableCutOrderCandidate, lines),
       }, {
-        sequence,
-        id: `supplement-cut14671-b-${String(sequence).padStart(3, '0')}`,
-        recordNo: `SUP-CUT14671-B-${String(sequence).padStart(3, '0')}`,
-        createdAt: `2026-07-22 ${String(9 + sequence).padStart(2, '0')}:00`,
-        createdBy: '裁床主管 王敏',
-        initialStatus: sequence === 1 ? '已完成' : '未完成',
+        sequence: fixture.sequenceNo,
+        id: fixture.id,
+        recordNo: fixture.recordNo,
+        createdAt: fixture.createdAt,
+        createdBy: fixture.createdBy,
+        initialStatus: fixture.initialStatus,
       }))
-    }
+    })
   }
 
   for (let index = 0; index < 12; index += 1) {

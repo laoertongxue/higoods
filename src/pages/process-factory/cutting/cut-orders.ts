@@ -115,9 +115,9 @@ import {
   completeSupplementOrder,
   getSupplementOrder,
   listSupplementOrdersByCutOrder,
-  registerSupplementOrder,
   type SupplementOrderLifecycle,
 } from '../../../data/fcs/cutting/supplement-order-registry.ts'
+import { ensureStableCutOrderSupplementOrders } from '../../../data/fcs/cutting/cut-order-supplement-fixture.ts'
 
 type FilterField =
   | 'keyword'
@@ -208,6 +208,9 @@ const defaultCutOrderListColumnPreferences: StandardListColumnPreferences = {
 }
 let cutOrderListPreferencesLoaded = false
 let cutOrderListLocalEventsBound = false
+let renderedCutOrderPaginationHtml = ''
+let supplementReturnFocus: HTMLElement | null = null
+let supplementReturnFocusIdentity: Record<string, string> | null = null
 
 const state: CutOrdersPageState = {
   filters: { ...initialFilters },
@@ -236,25 +239,6 @@ const state: CutOrdersPageState = {
 }
 
 const consumedWebActionKeys = new Set<string>()
-
-function ensureStableCutOrderSupplementOrders(): void {
-  const seeds = [
-    { id: 'supplement-cut14671-b-001', recordNo: 'SUP-CUT14671-B-001', reason: '验片破损', totalQty: 393, lineSummary: 'Black/M/9件；Black/M/10件', createdAt: '2026-07-22 10:00' },
-    { id: 'supplement-cut14671-b-002', recordNo: 'SUP-CUT14671-B-002', reason: '尺码齐套不足', totalQty: 412, lineSummary: 'Black/M/10件；Black/M/11件', createdAt: '2026-07-22 11:00' },
-    { id: 'supplement-cut14671-b-003', recordNo: 'SUP-CUT14671-B-003', reason: '尺码齐套不足', totalQty: 431, lineSummary: 'Black/M/11件；Black/M/12件', createdAt: '2026-07-22 12:00' },
-  ]
-  seeds.forEach((seed) => registerSupplementOrder({
-    ...seed,
-    cutOrderId: 'cut-14671-b',
-    cutOrderNo: 'CUT14671-B',
-    productionOrderNo: 'PO14671',
-    createdBy: '裁床主管 王敏',
-  }))
-  const first = getSupplementOrder(seeds[0].id)
-  if (first?.status === '未完成') {
-    completeSupplementOrder({ id: first.id, completedAt: first.createdAt, completedBy: first.createdBy })
-  }
-}
 
 function getCurrentQueryString(): string {
   const pathname = appStore.getState().pathname
@@ -1450,25 +1434,52 @@ function setCutOrderRegion(region: string, html: string): void {
   if (!element) return
   element.innerHTML = html
   hydrateIcons(element)
-  bindCutOrderSupplementInteractions(element)
 }
 
-function bindCutOrderSupplementInteractions(scope: ParentNode = document): void {
-  const actions = new Set([
-    'open-supplement-detail', 'open-complete-supplement', 'select-incomplete-supplement',
-    'request-complete-supplement', 'cancel-complete-supplement', 'confirm-complete-supplement',
-    'complete-selected-supplement', 'close-supplement-overlay',
-  ])
-  scope.querySelectorAll<HTMLElement>('[data-cutting-piece-action]').forEach((node) => {
-    if (!actions.has(node.dataset.cuttingPieceAction || '') || node.dataset.supplementInteractionBound === 'true') return
-    node.dataset.supplementInteractionBound = 'true'
-    node.addEventListener('click', (event) => {
-      if (!handleCraftCuttingCutOrdersEvent(node, event)) return
-      event.preventDefault()
-      event.stopPropagation()
-      event.stopImmediatePropagation()
-    })
+function refreshCutOrderPagination(paging: StandardListPageSlice<CutOrderRow>): void {
+  const html = renderCutOrderPagination(paging)
+  if (renderedCutOrderPaginationHtml === html) return
+  renderedCutOrderPaginationHtml = html
+  setCutOrderRegion('pagination', html)
+}
+
+function focusTopSupplementOverlay(): void {
+  if (typeof window === 'undefined') return
+  window.requestAnimationFrame(() => {
+    const overlay = getTopSupplementOverlay()
+    overlay?.querySelector<HTMLElement>('button:not([disabled]), input:not([disabled])')?.focus()
   })
+}
+
+function getTopSupplementOverlay(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('[data-cutting-piece-supplement-confirm]')
+    || document.querySelector<HTMLElement>('[data-cutting-piece-supplement-detail]')
+    || document.querySelector<HTMLElement>('[data-cutting-piece-supplement-picker]')
+}
+
+function restoreSupplementTriggerFocus(): void {
+  const originalTarget = supplementReturnFocus
+  const identity = supplementReturnFocusIdentity
+  supplementReturnFocus = null
+  supplementReturnFocusIdentity = null
+  if (typeof window === 'undefined') return
+  window.requestAnimationFrame(() => {
+    const target = originalTarget?.isConnected
+      ? originalTarget
+      : [...document.querySelectorAll<HTMLElement>('[data-cutting-piece-action]')].find((candidate) =>
+          identity && Object.entries(identity).every(([key, value]) => candidate.dataset[key] === value),
+        )
+    target?.focus()
+  })
+}
+
+function rememberSupplementTrigger(actionNode: HTMLElement): void {
+  supplementReturnFocus = actionNode
+  supplementReturnFocusIdentity = Object.fromEntries(
+    ['cuttingPieceAction', 'supplementId', 'recordId', 'cutOrderId']
+      .filter((key) => actionNode.dataset[key])
+      .map((key) => [key, actionNode.dataset[key] || '']),
+  )
 }
 
 function refreshCutOrderFeedback(): void {
@@ -1484,13 +1495,13 @@ function refreshCutOrderList(): void {
   setCutOrderRegion('stats', buildStatsCards(view.filtered))
   setCutOrderRegion('filter-state', renderFilterStateBar())
   setCutOrderRegion('table', renderCutOrderStandardTable(view.paging))
-  setCutOrderRegion('pagination', renderCutOrderPagination(view.paging))
+  refreshCutOrderPagination(view.paging)
 }
 
 function refreshCutOrderTableAndPagination(): void {
   const view = getCutOrderListView()
   setCutOrderRegion('table', renderCutOrderStandardTable(view.paging))
-  setCutOrderRegion('pagination', renderCutOrderPagination(view.paging))
+  refreshCutOrderPagination(view.paging)
 }
 
 function refreshCutOrderTable(): void {
@@ -1506,6 +1517,7 @@ function refreshSupplementLinkage(): void {
   const view = getCutOrderListView()
   setCutOrderRegion('stats', buildStatsCards(view.filtered))
   setCutOrderRegion('table', renderCutOrderStandardTable(view.paging))
+  refreshCutOrderPagination(view.paging)
   refreshCutOrderOverlay()
   const nextScroll = document.querySelector<HTMLElement>('[data-standard-list-scroll]')
   if (nextScroll) nextScroll.scrollLeft = scrollLeft
@@ -1515,13 +1527,34 @@ function ensureCutOrderListLocalEvents(): void {
   if (cutOrderListLocalEventsBound || typeof document === 'undefined' || typeof window === 'undefined') return
   cutOrderListLocalEventsBound = true
   document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape') return
     if (!document.querySelector('[data-cutting-piece-list-root]')) return
+    const topOverlay = getTopSupplementOverlay()
+    if (event.key === 'Tab' && topOverlay) {
+      const focusable = [...topOverlay.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+      if (!focusable.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        last.focus()
+        event.preventDefault()
+        event.stopImmediatePropagation()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        first.focus()
+        event.preventDefault()
+        event.stopImmediatePropagation()
+      }
+      return
+    }
+    if (event.key !== 'Escape') return
     if (state.confirmationSupplementId) state.confirmationSupplementId = null
-    else if (state.activeSupplementId) state.activeSupplementId = null
+    else if (state.activeSupplementId) {
+      state.activeSupplementId = null
+      restoreSupplementTriggerFocus()
+    }
     else if (state.pendingCompleteCutOrderId) {
       state.pendingCompleteCutOrderId = null
       state.selectedIncompleteSupplementId = null
+      restoreSupplementTriggerFocus()
     } else if (state.columnSettingsOpen) state.columnSettingsOpen = false
     else return
     refreshCutOrderOverlay()
@@ -2791,7 +2824,6 @@ function renderPage(): string {
   ensureStableCutOrderSupplementOrders()
   ensureCutOrderListPreferences()
   ensureCutOrderListLocalEvents()
-  if (typeof window !== 'undefined') window.setTimeout(() => bindCutOrderSupplementInteractions(), 0)
   if (typeof document !== 'undefined' && !document.querySelector('[data-standard-list-page][data-cutting-piece-list-root]')) {
     state.page = 1
     state.sort = null
@@ -2806,6 +2838,7 @@ function renderPage(): string {
   const viewModel = getViewModel()
   syncStateFromPath(viewModel)
   const view = getCutOrderListView(viewModel)
+  renderedCutOrderPaginationHtml = renderCutOrderPagination(view.paging)
   const columnSettingsButton = withSkipPageRerender(renderSecondaryButton(
     '列设置',
     { prefix: 'cutting-piece', action: 'open-column-settings' },
@@ -2824,7 +2857,7 @@ function renderPage(): string {
     listTitle: '裁片单列表',
     listActionsHtml: columnSettingsButton,
     tableHtml: `<div data-cutting-piece-region="table">${renderCutOrderStandardTable(view.paging)}</div>`,
-    paginationHtml: `<div data-cutting-piece-region="pagination">${renderCutOrderPagination(view.paging)}</div>`,
+    paginationHtml: `<div data-cutting-piece-region="pagination">${renderedCutOrderPaginationHtml}</div>`,
     overlaysHtml: `<div data-cutting-piece-region="overlay">${renderCutOrderListOverlay()}</div>`,
     className: 'max-w-full overflow-x-hidden',
   }).replace('data-standard-list-page', 'data-standard-list-page data-cutting-piece-list-root data-testid="cutting-cut-orders-page"')
@@ -3054,7 +3087,9 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
     state.selectedIncompleteSupplementId = null
     state.confirmationSupplementId = null
     state.supplementFeedback = null
+    rememberSupplementTrigger(actionNode)
     refreshCutOrderOverlay()
+    focusTopSupplementOverlay()
     return true
   }
 
@@ -3073,7 +3108,9 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
     state.activeSupplementId = null
     state.confirmationSupplementId = null
     state.supplementFeedback = null
+    rememberSupplementTrigger(actionNode)
     refreshCutOrderOverlay()
+    focusTopSupplementOverlay()
     return true
   }
 
@@ -3101,12 +3138,14 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
     }
     state.confirmationSupplementId = supplementId
     refreshCutOrderOverlay()
+    focusTopSupplementOverlay()
     return true
   }
 
   if (action === 'cancel-complete-supplement') {
     state.confirmationSupplementId = null
     refreshCutOrderOverlay()
+    focusTopSupplementOverlay()
     return true
   }
 
@@ -3144,6 +3183,7 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
     }
     state.supplementFeedback = null
     refreshCutOrderOverlay()
+    restoreSupplementTriggerFocus()
     return true
   }
 
