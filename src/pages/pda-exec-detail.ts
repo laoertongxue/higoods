@@ -175,7 +175,7 @@ import {
   listPdaMobileExecutionTasks,
 } from '../data/fcs/process-mobile-task-binding.ts'
 import { canFactoryAccessSpecialCraftPdaTask } from '../data/fcs/special-craft-pda-scope.ts'
-import { getPdaSession } from '../data/fcs/store-domain-pda.ts'
+import { findFactoryPdaRoleById, getPdaSession } from '../data/fcs/store-domain-pda.ts'
 import {
   getSewingDeliverySlaView,
   type SewingDeliverySlaView,
@@ -2405,6 +2405,7 @@ function getSpecialCraftPdaAllowedActions(input: {
   objectLabel: string
   requiresFeiTicket: boolean
   bindingCount: number
+  canGarmentWarehouseOutbound?: boolean
 }): Array<{ action: string; label: string; primary?: boolean }> {
   const currentStatus = input.workOrderStatus || input.status
   const actions: Array<{ action: string; label: string; primary?: boolean }> = []
@@ -2414,7 +2415,9 @@ function getSpecialCraftPdaAllowedActions(input: {
   }
   if (['WAITING', 'TODO', '待接收', '待领料'].includes(currentStatus)) {
     if (input.objectLabel === '成衣' && currentStatus === '待领料') {
-      actions.push({ action: 'special-garment-warehouse-outbound', label: '成衣仓逐 SKU 出库', primary: true })
+      if (input.canGarmentWarehouseOutbound) {
+        actions.push({ action: 'special-garment-warehouse-outbound', label: '成衣仓逐 SKU 出库', primary: true })
+      }
       return actions
     }
     actions.push({ action: 'special-receive-cut-pieces', label: `确认接收${input.objectLabel}`, primary: true })
@@ -2444,6 +2447,20 @@ function getSpecialCraftPdaAllowedActions(input: {
     actions.push({ action: 'special-report-difference', label: '上报差异' })
   }
   return actions
+}
+
+function canCurrentPdaSessionExecuteGarmentWarehouseOutbound(task: ProcessTask): boolean {
+  const session = getPdaSession()
+  if (!session) return false
+  const factory = getFactoryMasterRecordById(session.factoryId)
+  const role = findFactoryPdaRoleById(session.roleId, session.factoryId)
+  const bindings = getSpecialCraftExecBindings(task)
+  const workOrder = getSpecialCraftWorkOrderForPdaTask(task, bindings)
+  return factory?.factoryType === 'CENTRAL_GARMENT'
+    && role?.status === 'ACTIVE'
+    && role.permissionKeys.includes('HANDOUT_CREATE')
+    && workOrder?.targetObject === '成衣'
+    && workOrder.status === '待领料'
 }
 
 function buildSpecialCraftGarmentSkuDraftKey(workOrderId: string, status: string, skuCode: string): string {
@@ -2489,19 +2506,21 @@ function getSpecialCraftGarmentSkuDrafts(workOrderId: string, status: string) {
       return {
         ...line,
         draftKey: buildSpecialCraftGarmentSkuDraftKey(workOrderId, status, line.skuCode),
-        expectedQty: inboundBySkuCode.has(line.skuCode) ? receivedQty : shippedQty,
+        expectedQty: shippedQty,
         warehouseReceivedQty: receivedQty,
         warehouseAvailableQty: availableBySkuCode.get(line.skuCode) ?? receivedQty,
+        hasWarehouseReceipt: inboundBySkuCode.has(line.skuCode),
+        receiptDifferenceQty: shippedQty - receivedQty,
       }
     }),
     drafts: detailState.specialCraftSkuDrafts,
   }
 }
 
-function renderSpecialCraftGarmentSkuExecution(workOrderId: string, status: string): string {
+function renderSpecialCraftGarmentSkuExecution(workOrderId: string, status: string, canGarmentWarehouseOutbound: boolean): string {
   const { lines, drafts } = getSpecialCraftGarmentSkuDrafts(workOrderId, status)
   if (!lines.length) return '<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">暂无成衣 SKU 明细</div>'
-  const canOutbound = status === '待领料'
+  const canOutbound = status === '待领料' && canGarmentWarehouseOutbound
   const canReceive = status === '成衣仓已出库待收货'
   const canFinish = status === '加工中'
   return `
@@ -2516,6 +2535,7 @@ function renderSpecialCraftGarmentSkuExecution(workOrderId: string, status: stri
               <span>计划：${line.planPieceQty} 件</span>
               <span>应收：${line.expectedQty} 件</span>
               <span>已收：${line.warehouseReceivedQty} 件</span>
+              ${line.hasWarehouseReceipt ? `<span>差异：${line.receiptDifferenceQty} 件</span>` : ''}
               <span>可加工：${line.warehouseAvailableQty} 件</span>
               ${canOutbound ? `<label>实出：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${line.planPieceQty}" step="1" data-pda-execd-sku-field="outboundQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.outboundQty)}" /></label>` : ''}
               ${canReceive ? `<label>本次实收：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${line.expectedQty}" step="1" data-pda-execd-sku-field="receivedQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.receivedQty)}" /></label>` : ''}
@@ -2603,15 +2623,17 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
   const differenceSummary = differenceRecords.length
     ? differenceRecords.map((record) => `${record.differenceRecordNo}：差异${objectMeta.objectLabel}数量${record.diffObjectQty}${record.qtyUnit}`).join('；')
     : '暂无差异记录'
+  const canGarmentWarehouseOutbound = canCurrentPdaSessionExecuteGarmentWarehouseOutbound(task)
   const allowedActions = getSpecialCraftPdaAllowedActions({
     status,
     workOrderStatus: workOrder?.status,
     objectLabel: objectMeta.objectLabel,
     requiresFeiTicket: objectMeta.requiresFeiTicket,
     bindingCount: bindings.length,
+    canGarmentWarehouseOutbound,
   })
   const garmentSkuExecution = objectMeta.objectType === '成衣' && workOrderId
-    ? renderSpecialCraftGarmentSkuExecution(workOrderId, workOrder?.status || status)
+    ? renderSpecialCraftGarmentSkuExecution(workOrderId, workOrder?.status || status, canGarmentWarehouseOutbound)
     : ''
 
   return `
@@ -3600,7 +3622,8 @@ export function renderPdaExecDetailPage(taskId: string): string {
     return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
   }
 
-  const currentFactoryId = getPdaSession()?.factoryId || task.assignedFactoryId || TEST_FACTORY_ID
+  const currentPdaSession = getPdaSession()
+  const currentFactoryId = currentPdaSession?.factoryId || task.assignedFactoryId || TEST_FACTORY_ID
 
   syncDialogStateWithQuery(task)
 
@@ -3613,14 +3636,26 @@ export function renderPdaExecDetailPage(taskId: string): string {
   )
 
   let mobileTaskAccess = getMobileTaskAccessResult(task, currentFactoryId)
-  if (!canFactoryAccessSpecialCraftPdaTask(currentFactoryId, task)) {
+  const canExecuteGarmentWarehouseOutbound = canCurrentPdaSessionExecuteGarmentWarehouseOutbound(task)
+  if (canExecuteGarmentWarehouseOutbound) {
+    mobileTaskAccess = {
+      ...mobileTaskAccess,
+      canOpenMobileExecution: true,
+      canExecuteInMobile: true,
+      reasonLabel: '成衣仓账号可执行逐 SKU 出库',
+      suggestedAction: '',
+    }
+  } else if (
+    getMobileTaskProcessType(task) === 'SPECIAL_CRAFT'
+    && (!currentPdaSession || !canFactoryAccessSpecialCraftPdaTask(currentFactoryId, task))
+  ) {
     mobileTaskAccess = {
       ...mobileTaskAccess,
       canOpenMobileExecution: false,
       canExecuteInMobile: false,
       reasonCode: 'TASK_NOT_VISIBLE_IN_MOBILE_LIST',
-      reasonLabel: '当前工厂无该特殊工艺加工权限',
-      suggestedAction: '请切换到对应辅助工艺或特种工艺工厂账号后查看',
+      reasonLabel: currentPdaSession ? '当前工厂无该特殊工艺加工权限' : '请先登录工厂端移动应用',
+      suggestedAction: currentPdaSession ? '请切换到对应辅助工艺或特种工艺工厂账号后查看' : '登录后再执行任务',
     }
   }
   const dyeOrderForStart = getDyeWorkOrderByTaskId(task.taskId)
@@ -5644,13 +5679,18 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     if (!taskId) return true
     try {
       const actionTask = getTaskFactById(taskId)
-      const actionFactoryId = getPdaSession()?.factoryId || actionTask?.assignedFactoryId || TEST_FACTORY_ID
-      const actionAccess = actionTask ? getMobileTaskAccessResult(actionTask, actionFactoryId) : null
-      if (
-        !actionTask
-        || !canFactoryAccessSpecialCraftPdaTask(actionFactoryId, actionTask)
-        || !actionAccess?.canExecuteInMobile
-      ) {
+      const actionSession = getPdaSession()
+      const actionFactoryId = actionSession?.factoryId || ''
+      const actionAccess = actionTask && actionFactoryId ? getMobileTaskAccessResult(actionTask, actionFactoryId) : null
+      const canExecuteCurrentAction = action === 'special-garment-warehouse-outbound'
+        ? Boolean(actionTask && canCurrentPdaSessionExecuteGarmentWarehouseOutbound(actionTask))
+        : Boolean(
+            actionSession
+            && actionTask
+            && canFactoryAccessSpecialCraftPdaTask(actionFactoryId, actionTask)
+            && actionAccess?.canExecuteInMobile,
+          )
+      if (!canExecuteCurrentAction) {
         throw new Error('当前账号无权执行该特殊工艺加工单。')
       }
       if (action === 'special-bind-fei-ticket') {

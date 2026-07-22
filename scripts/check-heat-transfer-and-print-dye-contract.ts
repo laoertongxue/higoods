@@ -52,7 +52,7 @@ import {
 } from '../src/pages/process-factory/special-craft/task-orders.ts'
 import { renderSpecialCraftWorkOrderDetailPage } from '../src/pages/process-factory/special-craft/work-order-detail.ts'
 import { handlePdaExecDetailEvent, renderPdaExecDetailPage } from '../src/pages/pda-exec-detail.ts'
-import { canFactoryAccessSpecialCraftPdaTask } from '../src/data/fcs/special-craft-pda-scope.ts'
+import { renderPdaExecPage } from '../src/pages/pda-exec.ts'
 import { clearPdaSession, createPdaSessionFromUser, listAllFactoryPdaUsers, setPdaSession } from '../src/data/fcs/store-domain-pda.ts'
 import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 
@@ -216,12 +216,6 @@ assert.deepEqual(getSpecialCraftTaskWorkOrderLinesByWorkOrderId(garmentDirect.wo
 assert.equal(listFactoryWarehouseInboundRecords().length, inboundCountBeforeInvalidReceipt, '收货联动失败不得新增入库记录')
 assert.equal(listFactoryWaitProcessStockItems().length, waitProcessCountBeforeInvalidReceipt, '收货联动失败不得新增待加工库存')
 
-const directPdaBeforeOutbound = renderPdaExecDetailPage(garmentDirectMobileTask.taskId)
-assert(directPdaBeforeOutbound.includes('待出库'), '成衣仓未出库时 PDA 必须明确显示待出库')
-assert(directPdaBeforeOutbound.includes('data-pda-execd-action="special-garment-warehouse-outbound"'), 'PDA 必须提供可达的成衣仓出库按钮')
-assert(!directPdaBeforeOutbound.includes('data-pda-execd-action="special-receive-cut-pieces"'), '成衣仓未出库时 PDA 不得开放辅助工艺收货')
-assert(directPdaBeforeOutbound.includes('data-pda-execd-sku-field="outboundQty"'), 'PDA 成衣仓出库必须逐 SKU 输入实出整数')
-
 class ContractHtmlInputElement {
   dataset: Record<string, string>
   value: string
@@ -246,13 +240,6 @@ const buildPdaActionTarget = (action: string, taskId: string) => ({
     ? { dataset: { pdaExecdAction: action, taskId } }
     : null,
 }) as unknown as HTMLElement
-const runtimeFactoryIds = new Set(listFactoryMasterRecords().map((factory) => factory.id))
-const unauthorizedPdaUser = listAllFactoryPdaUsers().find((user) =>
-  user.status === 'ACTIVE'
-  && runtimeFactoryIds.has(user.factoryId)
-  && !canFactoryAccessSpecialCraftPdaTask(user.factoryId, garmentDirectMobileTask),
-)
-assert(unauthorizedPdaUser, '契约样例必须存在无权查看当前直喷任务的 PDA 账号')
 const pdaSessionStorageValues = new Map<string, string>()
 Object.defineProperty(globalThis, 'localStorage', {
   configurable: true,
@@ -262,14 +249,52 @@ Object.defineProperty(globalThis, 'localStorage', {
     removeItem: (key: string) => pdaSessionStorageValues.delete(key),
   },
 })
-setPdaSession(createPdaSessionFromUser(unauthorizedPdaUser))
-const directPdaWithoutPermission = renderPdaExecDetailPage(garmentDirectMobileTask.taskId)
-assert(!directPdaWithoutPermission.includes('data-pda-execd-action="special-garment-warehouse-outbound"'), '无权限账号不得看到成衣仓出库按钮')
-const outboundCountBeforeUnauthorizedAction = listFactoryWarehouseOutboundRecords().length
-handlePdaExecDetailEvent(buildPdaActionTarget('special-garment-warehouse-outbound', garmentDirectMobileTask.taskId))
-assert.equal(getSpecialCraftTaskWorkOrderById(garmentDirect.workOrderId)?.status, '待领料', '无权限账号直接触发 handler 也不得推进加工单')
-assert.equal(listFactoryWarehouseOutboundRecords().length, outboundCountBeforeUnauthorizedAction, '无权限账号不得写入成衣仓出库记录')
+const factoryById = new Map(listFactoryMasterRecords().map((factory) => [factory.id, factory]))
+const garmentWarehousePdaUser = listAllFactoryPdaUsers().find((user) =>
+  user.status === 'ACTIVE'
+  && user.roleId === 'ROLE_ADMIN'
+  && factoryById.get(user.factoryId)?.factoryType === 'CENTRAL_GARMENT',
+)
+const directAuxiliaryPdaUser = listAllFactoryPdaUsers().find((user) =>
+  user.status === 'ACTIVE' && user.factoryId === garmentDirect.factoryId,
+)
+const heatAuxiliaryPdaUser = listAllFactoryPdaUsers().find((user) =>
+  user.status === 'ACTIVE' && user.factoryId === garmentHeat.factoryId,
+)
+assert(garmentWarehousePdaUser, '必须复用真实成衣厂 PDA 管理员作为成衣仓出库身份')
+assert(directAuxiliaryPdaUser, '必须存在直喷辅助工艺厂 PDA 账号')
+assert(heatAuxiliaryPdaUser, '必须存在烫画辅助工艺厂 PDA 账号')
+
 clearPdaSession()
+const directPdaWithoutSession = renderPdaExecDetailPage(garmentDirectMobileTask.taskId)
+assert(!directPdaWithoutSession.includes('data-pda-execd-action="special-garment-warehouse-outbound"'), '无登录会话不得看到成衣仓出库按钮')
+const outboundCountBeforeDeniedActions = listFactoryWarehouseOutboundRecords()
+  .filter((record) => record.sourceTaskId === garmentDirect.workOrderId).length
+handlePdaExecDetailEvent(buildPdaActionTarget('special-garment-warehouse-outbound', garmentDirectMobileTask.taskId))
+assert.equal(getSpecialCraftTaskWorkOrderById(garmentDirect.workOrderId)?.status, '待领料', '无登录会话直接触发 handler 不得推进加工单')
+
+setPdaSession(createPdaSessionFromUser(directAuxiliaryPdaUser))
+const directPdaAsAuxiliaryFactory = renderPdaExecDetailPage(garmentDirectMobileTask.taskId)
+assert(!directPdaAsAuxiliaryFactory.includes('data-pda-execd-action="special-garment-warehouse-outbound"'), '辅助工艺厂账号不得看到成衣仓出库按钮')
+handlePdaExecDetailEvent(buildPdaActionTarget('special-garment-warehouse-outbound', garmentDirectMobileTask.taskId))
+assert.equal(getSpecialCraftTaskWorkOrderById(garmentDirect.workOrderId)?.status, '待领料', '辅助工艺厂账号不得执行成衣仓出库')
+assert.equal(
+  listFactoryWarehouseOutboundRecords().filter((record) => record.sourceTaskId === garmentDirect.workOrderId).length,
+  outboundCountBeforeDeniedActions,
+  '无会话或错厂账号不得写入当前加工单成衣仓出库记录',
+)
+
+setPdaSession(createPdaSessionFromUser(garmentWarehousePdaUser))
+const garmentWarehouseTaskListHtml = renderPdaExecPage()
+assert(
+  garmentWarehouseTaskListHtml.includes(garmentDirectMobileTask.taskNo || garmentDirectMobileTask.taskId),
+  '成衣仓账号必须可从 PDA 执行任务列表进入待出库加工单',
+)
+const directPdaAsGarmentWarehouse = renderPdaExecDetailPage(garmentDirectMobileTask.taskId)
+assert(directPdaAsGarmentWarehouse.includes('待出库'), '成衣仓账号必须看到待出库状态')
+assert(directPdaAsGarmentWarehouse.includes('data-pda-execd-action="special-garment-warehouse-outbound"'), '成衣仓账号必须看到逐 SKU 出库按钮')
+assert(!directPdaAsGarmentWarehouse.includes('data-pda-execd-action="special-receive-cut-pieces"'), '成衣仓账号不得执行辅助工艺收货')
+assert(directPdaAsGarmentWarehouse.includes('data-pda-execd-sku-field="outboundQty"'), '成衣仓出库必须逐 SKU 输入实出整数')
 assert.equal(
   handlePdaExecDetailEvent(buildPdaActionTarget('special-garment-warehouse-outbound', garmentDirectMobileTask.taskId)),
   true,
@@ -289,6 +314,7 @@ assert.equal(
 const directOutboundCount = listFactoryWarehouseOutboundRecords().length
 handlePdaExecDetailEvent(buildPdaActionTarget('special-garment-warehouse-outbound', garmentDirectMobileTask.taskId))
 assert.equal(listFactoryWarehouseOutboundRecords().length, directOutboundCount, 'PDA 重复出库必须由统一动作状态校验拒绝')
+setPdaSession(createPdaSessionFromUser(directAuxiliaryPdaUser))
 renderPdaExecDetailPage(garmentDirectMobileTask.taskId)
 const directSameSkuDraftKey = `${garmentDirect.workOrderId}::成衣仓已出库待收货::${garmentDirectSkuLines[0].skuCode}`
 for (const [field, value] of [['receivedQty', '499'], ['completedQty', '497'], ['scrapQty', '1'], ['damageQty', '1']] as const) {
@@ -333,6 +359,7 @@ assert.equal(
   '成衣仓出库后仍应处于辅助工艺待收货，不得提前进入待加工仓',
 )
 
+setPdaSession(createPdaSessionFromUser(heatAuxiliaryPdaUser))
 const garmentPdaAfterPartialOutbound = renderPdaExecDetailPage(garmentMobileTask.taskId)
 const partialSkuCode = garmentSkuLines[0].skuCode
 const partialSkuCard = garmentPdaAfterPartialOutbound.match(new RegExp(`data-special-craft-garment-sku="${partialSkuCode}"[\\s\\S]*?</section>`))?.[0] || ''
@@ -341,6 +368,7 @@ assert(partialSkuCard.includes('data-pda-execd-sku-field="receivedQty"'), '部�
 assert(partialSkuCard.includes('max="498"'), 'PDA 默认实收不得允许超过真实实出 498')
 assert(partialSkuCard.includes('value="498"'), 'PDA 部分出库后的默认实收必须为真实实出 498')
 
+setPdaSession(createPdaSessionFromUser(directAuxiliaryPdaUser))
 const directPdaAfterHeatPartialOutbound = renderPdaExecDetailPage(garmentDirectMobileTask.taskId)
 const directSameSkuCard = directPdaAfterHeatPartialOutbound.match(new RegExp(`data-special-craft-garment-sku="${partialSkuCode}"[\\s\\S]*?</section>`))?.[0] || ''
 const getSkuFieldValue = (card: string, field: string) => card.match(new RegExp(`data-pda-execd-sku-field="${field}"[^>]*value="([^"]*)"`))?.[1]
@@ -355,15 +383,25 @@ assert.equal(getSkuFieldValue(partialSkuCard, 'scrapQty'), '0', '烫画报废草
 assert.equal(getSkuFieldValue(partialSkuCard, 'damageQty'), '0', '烫画货损草稿不得串用直喷加工单')
 
 const auxReceivedQtyBySkuCode = Object.fromEntries(
-  garmentSkuLines.map((line) => [line.skuCode, garmentOutboundQtyBySkuCode[line.skuCode]]),
+  garmentSkuLines.map((line, index) => [line.skuCode, garmentOutboundQtyBySkuCode[line.skuCode] - (index === 0 ? 2 : 0)]),
 )
 const receivedGarmentQty = Object.values(auxReceivedQtyBySkuCode).reduce((sum, qty) => sum + qty, 0)
+const heatPartialReceiptDraftKey = `${garmentHeat.workOrderId}::成衣仓已出库待收货::${partialSkuCode}`
+handlePdaExecDetailEvent(new ContractHtmlInputElement(heatPartialReceiptDraftKey, 'receivedQty', '496') as unknown as HTMLElement)
+setPdaSession(createPdaSessionFromUser(heatAuxiliaryPdaUser))
 assert.equal(
   handlePdaExecDetailEvent(buildPdaActionTarget('special-receive-cut-pieces', garmentMobileTask.taskId)),
   true,
   '部分出库后 PDA 默认逐 SKU 实收必须可直接提交成功',
 )
 assert.equal(getSpecialCraftTaskWorkOrderById(garmentHeat.workOrderId)?.status, '已入待加工仓', 'PDA 实收必须走统一动作推进状态')
+const garmentPdaAfterReceipt = renderPdaExecDetailPage(garmentMobileTask.taskId)
+const receivedPartialSkuCard = garmentPdaAfterReceipt.match(new RegExp(`data-special-craft-garment-sku="${partialSkuCode}"[\\s\\S]*?</section>`))?.[0] || ''
+assert(receivedPartialSkuCard.includes('应收：498 件'), '收货后应收仍必须来自成衣仓实出 498')
+assert(receivedPartialSkuCard.includes('已收：496 件'), '收货后已收必须来自辅助工艺实际入库 496')
+assert(receivedPartialSkuCard.includes('差异：2 件'), '收货后必须按实出与实收显示差异 2')
+assert(receivedPartialSkuCard.includes('可加工：496 件'), '可加工必须来自辅助工艺待加工库存 496')
+assert(!receivedPartialSkuCard.includes('data-pda-execd-sku-field="receivedQty"'), '已收货后不得继续展示可提交的实收输入')
 const receivedWaitProcess = getWarehouseRecordsByWorkOrderId(garmentHeat.workOrderId)
   .find((item) => item.recordType === 'WAIT_PROCESS')
 assert(receivedWaitProcess, '辅助工艺确认收货后必须生成待加工仓')

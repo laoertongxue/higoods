@@ -26,7 +26,7 @@ import {
   listSpecialCraftTaskOrders,
   listSpecialCraftTaskWorkOrders,
 } from './special-craft-task-orders.ts'
-import { canFactoryAccessSpecialCraftPdaTask } from './special-craft-pda-scope.ts'
+import { canFactoryAccessSpecialCraftPdaTask, isGarmentWarehouseOutboundPdaTaskForFactory } from './special-craft-pda-scope.ts'
 import { getWaterSolubleWorkOrderByTaskId } from './water-soluble-task-domain.ts'
 
 export type MobileExecutionTaskStatusTab = 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'
@@ -533,7 +533,7 @@ export function getMobileTaskTabKey(task: ProcessTask | null | undefined): Mobil
 }
 
 export function isMobileTaskVisibleForFactory(task: ProcessTask | null | undefined, currentFactoryId = TEST_FACTORY_ID): boolean {
-  return isTaskVisibleInMobileExecutionList(task, currentFactoryId)
+  return (isTaskVisibleInMobileExecutionList(task, currentFactoryId) || isGarmentWarehouseOutboundPdaTaskForFactory(currentFactoryId, task))
     && canFactoryAccessSpecialCraftPdaTask(currentFactoryId, task)
 }
 
