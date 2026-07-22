@@ -283,7 +283,7 @@ async function main(): Promise<void> {
   assertIncludes(ruleDomainSource, 'DEFAULT_PROCESS_STEPS', '规则预览必须区分默认工序步骤与简化 5 步')
   assertIncludes(ruleDomainSource, 'resolveRuleFactoryIds', '规则必须从工厂档案承接配置解析候选工厂')
   assertIncludes(productionContextSource, 'recordTaskGenerationPreview', '确认拆解必须写入任务生成运行时事实')
-  assertIncludes(productionContextSource, 'independentRequirementCount', '生产单摘要必须区分独立需求对象数量')
+  assertIncludes(productionContextSource, 'independentWorkOrderCount', '生产单摘要必须记录独立加工单数量')
   assertIncludes(pdaTodoSource, 'pdaStepTemplateCode === \'SIMPLE_FIVE_STEP\'', 'PDA 待办必须识别简化 5 步任务')
   assertIncludes(pdaReceiveSource, 'pdaStepTemplateCode === \'SIMPLE_FIVE_STEP\'', 'PDA 接单必须识别简化 5 步任务')
   assertIncludes(pdaExecSource, 'pdaStepTemplateCode === \'SIMPLE_FIVE_STEP\'', 'PDA 执行列表必须识别简化 5 步任务')
@@ -308,10 +308,31 @@ async function main(): Promise<void> {
   const pdaHandoverDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/pda-handover-events.ts')).href)
   const pdaStoreDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/store-domain-pda.ts')).href)
   const productionOrdersDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/production-orders.ts')).href)
+  const processWorkOrderDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/process-work-order-domain.ts')).href)
   assert.equal(typeof ruleDomain.buildTaskGenerationPreview, 'function', '缺少 buildTaskGenerationPreview')
   assert.equal(typeof ruleDomain.buildBatchTaskGenerationPreview, 'function', '缺少 buildBatchTaskGenerationPreview')
   assert.equal(typeof ruleDomain.listProductionTaskGenerationRules, 'function', '缺少 listProductionTaskGenerationRules')
   assert.equal(typeof ruleDomain.listProductionTaskGenerationRuleLogs, 'function', '缺少 listProductionTaskGenerationRuleLogs')
+
+  const independentProcessWorkOrder = processWorkOrderDomain.listProcessWorkOrders().find((order: {
+    processType: string
+    sourceProductionOrderId?: string
+  }) => (
+    (order.processType === 'PRINT' || order.processType === 'DYE')
+    && Boolean(order.sourceProductionOrderId)
+  ))
+  assert(independentProcessWorkOrder, '缺少可回溯生产单的印花或染色加工单 fixture')
+  const independentPreview = ruleDomain.buildTaskGenerationPreview(independentProcessWorkOrder.sourceProductionOrderId)
+  assert(
+    Array.isArray(independentPreview.independentWorkOrders),
+    '任务生成预览必须公开独立加工单集合',
+  )
+  assert(
+    independentPreview.independentWorkOrders.some((workOrder: { workOrderNo: string }) =>
+      workOrder.workOrderNo === independentProcessWorkOrder.workOrderNo,
+    ),
+    '任务生成预览必须读取真实印花或染色加工单',
+  )
 
   const rules = ruleDomain.listProductionTaskGenerationRules()
   assert.equal(rules.length, 1, '生产单任务生成规则当前只允许保留 1 条')
@@ -830,7 +851,7 @@ async function main(): Promise<void> {
     status: string
     taskBreakdownSummary?: {
       isBrokenDown?: boolean
-      independentRequirementCount?: number
+      independentWorkOrderCount?: number
       coveredProcessNames?: string[]
     }
   }>) {
@@ -838,7 +859,7 @@ async function main(): Promise<void> {
       task.productionOrderId === order.productionOrderId
     )
     if (!order.taskBreakdownSummary?.isBrokenDown) continue
-    if (orderTasks.length === 0 && (order.taskBreakdownSummary.independentRequirementCount ?? 0) === 0) {
+    if (orderTasks.length === 0 && (order.taskBreakdownSummary.independentWorkOrderCount ?? 0) === 0) {
       taskSummaryCoverageIssues.push(`${order.productionOrderId}:已拆解但缺少任务事实`)
       continue
     }

@@ -378,7 +378,6 @@ export interface TaskGenerationRuntimeRecord {
   productionOrderId: string
   preview: ProductionTaskGenerationPreview
   taskIds: string[]
-  independentRequirementCount: number
   independentWorkOrderCount: number
   recordedAt: string
 }
@@ -1264,8 +1263,7 @@ export function recordTaskGenerationPreview(preview: ProductionTaskGenerationPre
       productionOrderId: preview.productionOrderId,
       preview,
       taskIds: existingTasks.map((task) => task.taskId),
-      independentRequirementCount: preview.independentDemandObjects.length,
-      independentWorkOrderCount: 0,
+      independentWorkOrderCount: preview.independentWorkOrders.length,
       recordedAt: GENERATED_TASK_CREATED_AT,
     }
     taskGenerationRuntimeRecords.set(preview.productionOrderId, record)
@@ -1278,8 +1276,7 @@ export function recordTaskGenerationPreview(preview: ProductionTaskGenerationPre
     productionOrderId: preview.productionOrderId,
     preview,
     taskIds: tasks.map((task) => task.taskId),
-    independentRequirementCount: preview.independentDemandObjects.length,
-    independentWorkOrderCount: 0,
+    independentWorkOrderCount: preview.independentWorkOrders.length,
     recordedAt: GENERATED_TASK_CREATED_AT,
   }
   taskGenerationRuntimeRecords.set(preview.productionOrderId, record)
@@ -1299,7 +1296,7 @@ export function listTaskGenerationRuntimeRecords(): TaskGenerationRuntimeRecord[
         independentProcessCodes: [...unit.independentProcessCodes],
         pdaSteps: [...unit.pdaSteps],
       })),
-      independentDemandObjects: record.preview.independentDemandObjects.map((item) => ({
+      independentWorkOrders: record.preview.independentWorkOrders.map((item) => ({
         ...item,
         sourceArtifactIds: [...item.sourceArtifactIds],
       })),

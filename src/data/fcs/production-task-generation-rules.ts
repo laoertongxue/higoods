@@ -4,6 +4,7 @@ import {
   listGeneratedProductionTaskArtifacts,
   type GeneratedTaskArtifact,
 } from './production-artifact-generation.ts'
+import { listRegisteredProcessWorkOrders } from './process-work-order-reader-registry.ts'
 import type { ProcessWorkOrder } from './process-work-order-domain.ts'
 import { KOL_GOTO_FACTORY_ID } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-master-store.ts'
@@ -109,10 +110,12 @@ export interface ProductionTaskGenerationPreview {
   status: TaskGenerationPreviewStatus
   statusReason: string
   generatedUnits: GeneratedTaskUnitPreview[]
-  independentDemandObjects: Array<{
-    objectType: 'PRINT_WORK_ORDER' | 'DYE_WORK_ORDER'
-    objectName: string
+  independentWorkOrders: Array<{
+    workOrderId: string
+    workOrderNo: string
     processCode: 'PRINT' | 'DYE'
+    factoryName: string
+    statusLabel: string
     sourceArtifactIds: string[]
   }>
   blockedReasons: string[]
@@ -283,19 +286,21 @@ export function matchProductionTaskGenerationRule(orderId: string): ProductionTa
     .find((rule) => isRuleCandidate(rule, order))
 }
 
-function toIndependentDemandObjects(
+function toIndependentWorkOrders(
   orderId: string,
-  workOrders: ProcessWorkOrder[] = [],
-): ProductionTaskGenerationPreview['independentDemandObjects'] {
+  workOrders: ProcessWorkOrder[] = listRegisteredProcessWorkOrders(),
+): ProductionTaskGenerationPreview['independentWorkOrders'] {
   return workOrders
     .filter((workOrder) =>
       (workOrder.processType === 'PRINT' || workOrder.processType === 'DYE')
       && (workOrder.sourceProductionOrderId === orderId || workOrder.productionOrderIds.includes(orderId)),
     )
     .map((workOrder) => ({
-      objectType: workOrder.processType === 'PRINT' ? 'PRINT_WORK_ORDER' as const : 'DYE_WORK_ORDER' as const,
-      objectName: workOrder.workOrderNo,
+      workOrderId: workOrder.workOrderId,
+      workOrderNo: workOrder.workOrderNo,
       processCode: workOrder.processType as 'PRINT' | 'DYE',
+      factoryName: workOrder.factoryName,
+      statusLabel: workOrder.statusLabel,
       sourceArtifactIds: workOrder.sourceArtifactIds?.length ? [...workOrder.sourceArtifactIds] : [workOrder.workOrderId],
     }))
 }
@@ -384,14 +389,14 @@ export function buildTaskGenerationPreview(orderId: string): ProductionTaskGener
       status: 'BLOCKED',
       statusReason: '未找到生产单',
       generatedUnits: [],
-      independentDemandObjects: [],
+      independentWorkOrders: [],
       blockedReasons: ['未找到生产单'],
       warnings: [],
     }
   }
 
   const taskArtifacts = listGeneratedProductionTaskArtifacts().filter((artifact) => artifact.orderId === orderId)
-  const independentDemandObjects = toIndependentDemandObjects(orderId)
+  const independentWorkOrders = toIndependentWorkOrders(orderId)
   const matchedRule = matchProductionTaskGenerationRule(orderId)
   if (!matchedRule) {
     return {
@@ -402,7 +407,7 @@ export function buildTaskGenerationPreview(orderId: string): ProductionTaskGener
       status: 'BLOCKED',
       statusReason: '未命中当前规则',
       generatedUnits: [],
-      independentDemandObjects,
+      independentWorkOrders,
       blockedReasons: ['当前只配置 KOL样衣、KOL样品小单整单规则'],
       warnings: [],
     }
@@ -425,7 +430,7 @@ export function buildTaskGenerationPreview(orderId: string): ProductionTaskGener
           ...buildDefaultUnits(order, standaloneTaskArtifacts, matchedRule, mergeCandidates.length > 0 ? 1 : 0),
         ]
   const status: TaskGenerationPreviewStatus =
-    generatedUnits.length > 0 || independentDemandObjects.length > 0
+    generatedUnits.length > 0 || independentWorkOrders.length > 0
       ? 'READY'
       : 'BLOCKED'
 
@@ -439,9 +444,9 @@ export function buildTaskGenerationPreview(orderId: string): ProductionTaskGener
     status,
     statusReason: status === 'BLOCKED' ? '没有可生成的任务单元' : '可生成',
     generatedUnits,
-    independentDemandObjects,
+    independentWorkOrders,
     blockedReasons: status === 'BLOCKED' ? ['没有可合并或独立生成的任务对象'] : [],
-    warnings: independentDemandObjects.length === 0 ? ['当前生产单没有独立印花/染色加工单'] : [],
+    warnings: independentWorkOrders.length === 0 ? ['当前生产单没有独立印花/染色加工单'] : [],
   }
 }
 

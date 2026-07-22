@@ -34,7 +34,6 @@ import { listActiveProcessCraftDefinitions, type ProcessCraftDefinition } from '
 import {
   DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
   getDictionaryCraftMockSource,
-  listGeneratedProductionDemandArtifacts,
 } from './production-artifact-generation.ts'
 import {
   validateWaterSolublePdaActor,
@@ -2397,19 +2396,48 @@ function buildFreshDyeMobileTask(input: {
 }
 
 function seedPersistentWaterSolubleDyeWorkOrder(): void {
-  const artifact = listGeneratedProductionDemandArtifacts()
-    .find((item) => item.processCode === 'DYE' && item.requiresWaterSoluble && item.orderId === 'PO-202603-081')
-  if (!artifact || workOrderStore.has('DYE-WATER-PO-202603-081')) return
+  const productionOrder = productionOrders.find((order) => order.productionOrderId === 'PO-202603-081')
+  const techPackSnapshot = productionOrder ? getProductionOrderTechPackSnapshot(productionOrder.productionOrderId) : undefined
+  const dyeEntries = techPackSnapshot?.processEntries.filter((entry) => entry.processCode === 'DYE') ?? []
+  const linkedBomItemIds = [...new Set(dyeEntries.flatMap((entry) => entry.linkedBomItemIds ?? []))]
+  const bomItems = linkedBomItemIds
+    .map((bomItemId) => techPackSnapshot?.bomItems.find((item) => item.id === bomItemId))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+  const requiresWaterSoluble = bomItems.length > 0 && bomItems.every((item) => item.waterSolubleRequirement === '是')
+  if (!productionOrder || !techPackSnapshot || !requiresWaterSoluble || workOrderStore.has('DYE-WATER-PO-202603-081')) return
+
+  const units = [...new Set(bomItems.map((item) => item.unit?.trim()).filter((unit): unit is string => Boolean(unit)))]
+  if (units.length !== 1) return
+  const productionQty = productionOrder.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
+  const plannedQty = Math.round(bomItems.reduce(
+    (sum, item) => sum + productionQty * item.unitConsumption * (1 + item.lossRate),
+    0,
+  ) * 1_000_000) / 1_000_000
+  const materialItems = bomItems.map((item) => ({
+    sourceBomItemId: item.id,
+    materialId: item.materialCode || item.id,
+    materialName: `${item.name}${item.spec ? ` / ${item.spec}` : ''}`,
+  }))
+  const materialFields = deriveFormalProductionOrderMaterialFields(materialItems)
+  const targetColor = [...new Set(bomItems.map((item) => item.colorLabel).filter((color): color is string => Boolean(color)))].join('、')
+    || productionOrder.demandSnapshot.skuLines[0]?.color
+    || '按技术包配色'
+  const processName = [...new Set(dyeEntries.map((entry) => entry.processName).filter(Boolean))].join('、') || '染色'
 
   const taskId = 'TASK-DYE-WATER-PO-202603-081'
   const createdAt = '2026-03-26 09:00:00'
   registerPdaGenericProcessTask(buildFreshDyeMobileTask({
     taskId,
-    productionOrderId: artifact.orderId,
+    productionOrderId: productionOrder.productionOrderId,
+    productionOrderNo: productionOrder.productionOrderNo,
+    spuCode: productionOrder.demandSnapshot.spuCode,
+    spuName: productionOrder.demandSnapshot.spuName,
+    requiredDeliveryDate: productionOrder.demandSnapshot.requiredDeliveryDate,
     factoryId: TEST_FACTORY_ID,
     factoryName: TEST_FACTORY_NAME,
-    qty: artifact.plannedQty,
-    qtyDisplayUnit: artifact.plannedUnit || '米',
+    qty: plannedQty,
+    qtyDisplayUnit: units[0],
+    processName,
     createdAt,
     dispatchedBy: '平台派单',
     receiveSummary: '染色加工单已派单，需先完成水溶。',
@@ -2420,22 +2448,25 @@ function seedPersistentWaterSolubleDyeWorkOrder(): void {
     dyeOrderId: 'DYE-WATER-PO-202603-081',
     dyeOrderNo: 'RSJG-WATER-202603081',
     sourceType: 'PRODUCTION_ORDER',
-    sourceProductionOrderId: artifact.orderId,
-    sourceProductionOrderNo: productionOrders.find((order) => order.productionOrderId === artifact.orderId)?.productionOrderNo || artifact.orderId,
+    sourceProductionOrderId: productionOrder.productionOrderId,
+    sourceProductionOrderNo: productionOrder.productionOrderNo,
     productionOrderOrderedAt: createdAt,
-    sourceArtifactIds: [artifact.artifactId],
-    productionOrderIds: [artifact.orderId],
+    productionOrderIds: [productionOrder.productionOrderId],
     isFirstOrder: false,
     sampleWaitType: 'NONE',
     sampleStatus: 'NOT_REQUIRED',
-    rawMaterialSku: `${artifact.materialCode || ''} ${artifact.materialName || '水溶染色物料'}`.trim(),
-    targetColor: '按生产需求目标色执行',
-    plannedQty: artifact.plannedQty,
-    qtyUnit: artifact.plannedUnit || '米',
+    rawMaterialSku: materialFields.materialId,
+    composition: materialFields.materialName,
+    materialId: materialFields.materialId,
+    dyeProcessCode: 'DYE',
+    dyeProcessName: processName,
+    targetColor,
+    plannedQty,
+    qtyUnit: units[0],
     requiresWaterSoluble: true,
-    waterSolublePlannedQty: artifact.plannedQty,
+    waterSolublePlannedQty: plannedQty,
     waterSolubleCompletedQty: 0,
-    waterSolubleQtyUnit: artifact.plannedUnit || '米',
+    waterSolubleQtyUnit: units[0],
     dyeFactoryId: TEST_FACTORY_ID,
     dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
@@ -2446,6 +2477,25 @@ function seedPersistentWaterSolubleDyeWorkOrder(): void {
     createdAt,
     updatedAt: createdAt,
     remark: '正式技术包 BOM 触发：同一染厂连续完成水溶与染色。',
+    formalProductionOrderSnapshot: {
+      productionOrderId: productionOrder.productionOrderId,
+      productionOrderNo: productionOrder.productionOrderNo,
+      orderedAt: productionOrder.createdAt,
+      techPackVersionId: techPackSnapshot.sourceTechPackVersionId,
+      techPackVersionLabel: techPackSnapshot.sourceTechPackVersionLabel || techPackSnapshot.versionLabel,
+      materialId: materialFields.materialId,
+      materialName: materialFields.materialName,
+      materialItems,
+      targetColor,
+      plannedQty,
+      qtyUnit: units[0],
+      processCodes: ['DYE'],
+      processName,
+      requiresWaterSoluble: true,
+      spuCode: productionOrder.demandSnapshot.spuCode,
+      spuName: productionOrder.demandSnapshot.spuName,
+      requiredDeliveryDate: productionOrder.demandSnapshot.requiredDeliveryDate || '',
+    },
   })
   createdDyeOrderIds.add('DYE-WATER-PO-202603-081')
 }

@@ -1050,7 +1050,6 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
         generatedTaskUnitCount: preview.generatedUnits.length,
         singleProcessTaskCount: preview.generatedUnits.filter((unit) => unit.taskUnitType === 'SINGLE_PROCESS_TASK').length,
         independentWorkOrderTaskCount: runtimeRecord.independentWorkOrderCount,
-        independentRequirementCount: runtimeRecord.independentRequirementCount,
         independentWorkOrderCount: runtimeRecord.independentWorkOrderCount,
         combinedProcessTaskCount: preview.generatedUnits.filter((unit) => unit.taskUnitType === 'COMBINED_PROCESS_TASK').length,
         wholeOrderTaskCount: preview.generatedUnits.filter((unit) => unit.taskUnitType === 'WHOLE_ORDER_TASK').length,
@@ -1062,7 +1061,7 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
         {
           id: nextLocalEntityId('LOG'),
           action: 'TASK_BREAKDOWN',
-          detail: `按${preview.matchedRuleName || '默认规则'}确认拆解任务，生成 ${preview.generatedUnits.length} 条任务单元、${preview.independentDemandObjects.length} 个独立需求对象`,
+          detail: `按${preview.matchedRuleName || '默认规则'}确认拆解任务，生成 ${preview.generatedUnits.length} 条任务单元、关联 ${preview.independentWorkOrders.length} 张独立加工单`,
           at: now,
           by: currentUser.name,
         },

@@ -120,7 +120,6 @@ export interface TaskBreakdownSummary {
   generatedTaskUnitCount?: number
   singleProcessTaskCount?: number
   independentWorkOrderTaskCount?: number
-  independentRequirementCount?: number
   independentWorkOrderCount?: number
   combinedProcessTaskCount?: number
   wholeOrderTaskCount?: number
@@ -799,7 +798,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 2,
       singleProcessTaskCount: 1,
       independentWorkOrderTaskCount: 0,
-      independentRequirementCount: 1,
       independentWorkOrderCount: 0,
       combinedProcessTaskCount: 0,
       wholeOrderTaskCount: 1,
@@ -1069,7 +1067,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 1,
       singleProcessTaskCount: 0,
       independentWorkOrderTaskCount: 0,
-      independentRequirementCount: 0,
       independentWorkOrderCount: 0,
       combinedProcessTaskCount: 0,
       wholeOrderTaskCount: 1,
@@ -1131,7 +1128,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 6,
       singleProcessTaskCount: 6,
       independentWorkOrderTaskCount: 0,
-      independentRequirementCount: 6,
       independentWorkOrderCount: 0,
       combinedProcessTaskCount: 0,
       wholeOrderTaskCount: 0,
@@ -1164,7 +1160,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 1,
       singleProcessTaskCount: 0,
       independentWorkOrderTaskCount: 0,
-      independentRequirementCount: 0,
       independentWorkOrderCount: 0,
       combinedProcessTaskCount: 1,
       wholeOrderTaskCount: 0,
@@ -1197,7 +1192,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 1,
       singleProcessTaskCount: 0,
       independentWorkOrderTaskCount: 0,
-      independentRequirementCount: 1,
       independentWorkOrderCount: 0,
       combinedProcessTaskCount: 0,
       wholeOrderTaskCount: 1,
@@ -1265,7 +1259,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 6,
       singleProcessTaskCount: 6,
       independentWorkOrderTaskCount: 0,
-      independentRequirementCount: 6,
       independentWorkOrderCount: 0,
       combinedProcessTaskCount: 0,
       wholeOrderTaskCount: 0,
@@ -1301,7 +1294,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 2,
       singleProcessTaskCount: 1,
       independentWorkOrderTaskCount: 0,
-      independentRequirementCount: 1,
       independentWorkOrderCount: 0,
       combinedProcessTaskCount: 0,
       wholeOrderTaskCount: 1,
@@ -1437,7 +1429,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 1,
       singleProcessTaskCount: 0,
       independentWorkOrderTaskCount: 0,
-      independentRequirementCount: 0,
       independentWorkOrderCount: 0,
       combinedProcessTaskCount: 0,
       wholeOrderTaskCount: 1,

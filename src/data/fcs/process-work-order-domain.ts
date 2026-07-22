@@ -38,6 +38,7 @@ import {
   getQuantityLabel,
 } from './process-quantity-labels.ts'
 import { cloneFormalProductionOrderMaterialItems } from './formal-production-order-material-items.ts'
+import { registerProcessWorkOrderReader } from './process-work-order-reader-registry.ts'
 
 export type ProcessWorkOrderType = 'PRINT' | 'DYE' | 'WATER_SOLUBLE'
 export type ProcessWorkOrderStatus = PrintWorkOrderStatus | DyeWorkOrderStatus | WaterSolubleWorkOrderStatus
@@ -419,6 +420,9 @@ export function listProcessWorkOrders(processType?: ProcessWorkOrderType): Proce
   return [...printOrders, ...dyeOrders, ...waterSolubleOrders]
     .sort((left, right) => left.workOrderNo.localeCompare(right.workOrderNo))
 }
+
+// 仅注册读取器，避免任务生成规则反向静态导入本领域而形成模块初始化环。
+registerProcessWorkOrderReader(listProcessWorkOrders)
 
 export function getProcessWorkOrderById(workOrderId: string): ProcessWorkOrder | undefined {
   const printOrder = getPrintWorkOrderById(workOrderId)

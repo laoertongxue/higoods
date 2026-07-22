@@ -75,7 +75,7 @@ function withDefaultTaskAcceptanceConfig(factory: Factory): Factory {
           handoverReceiverKind: 'WAREHOUSE',
           handoverReceiverName: '仓库',
           pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
-          remark: 'KOL 样衣和样品小单整单承接；印花、染色保持独立需求链路。',
+          remark: 'KOL 样衣和样品小单整单承接；印花、染色保持独立加工单链路。',
         },
       },
     }

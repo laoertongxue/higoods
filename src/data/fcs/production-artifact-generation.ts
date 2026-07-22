@@ -720,7 +720,10 @@ function generateBomDrivenPrepArtifactsForEntry(
     if (!bomItem) return []
 
     const requiresWaterSoluble = bomItem.waterSolubleRequirement === '是'
-    if (!requiresWaterSoluble) return []
+    const requiresDye = bomItem.dyeRequirement && bomItem.dyeRequirement !== '无'
+    // 同一面料同时需要水溶和染色时，由一张染色加工单在同一染厂连续执行；
+    // 这里只保留仅水溶场景的独立现场任务。
+    if (!requiresWaterSoluble || requiresDye) return []
     if (!bomItem.unit?.trim()) {
       throw new Error(`BOM ${bomItem.id}（${bomItem.materialCode || bomItem.name || bomItem.id}）产物生成失败：BOM 数量单位不能为空`)
     }
