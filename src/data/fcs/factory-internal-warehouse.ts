@@ -706,6 +706,7 @@ export function recordGarmentReadyToHandoverAtAuxiliaryFactory(input: {
   productionOrderId: string
   productionOrderNo: string
   totalCompletedQty: number
+  completedQtyBySkuCode: Record<string, number>
   receiverKind: FactoryWarehouseReceiverKind
   receiverName: string
 }): FactoryWaitHandoverStockItem[] {
@@ -723,10 +724,21 @@ export function recordGarmentReadyToHandoverAtAuxiliaryFactory(input: {
   if (input.totalCompletedQty > receivedQtyTotal) {
     throw new Error('成衣完工件数不能超过辅助工艺实际收货件数。')
   }
-  let remainingQty = input.totalCompletedQty
+  const skuCodes = sourceStocks.map((item) => item.materialSku || '').sort()
+  const actualSkuCodes = Object.keys(input.completedQtyBySkuCode).sort()
+  if (skuCodes.length !== actualSkuCodes.length || skuCodes.some((skuCode, index) => skuCode !== actualSkuCodes[index])) {
+    throw new Error('成衣完工数量必须覆盖待加工仓全部 SKU。')
+  }
+  const invalidStock = sourceStocks.find((source) => {
+    const qty = input.completedQtyBySkuCode[source.materialSku || '']
+    return !Number.isInteger(qty) || Number(qty) < 0 || Number(qty) > source.receivedQty
+  })
+  if (invalidStock) throw new Error(`SKU ${invalidStock.materialSku || '未知'} 完工件数无效。`)
+  if (Object.values(input.completedQtyBySkuCode).reduce((sum, qty) => sum + qty, 0) !== input.totalCompletedQty) {
+    throw new Error('逐 SKU 完工合计与本次完工总件数不一致。')
+  }
   return sourceStocks.map((source, index) => {
-    const waitHandoverQty = Math.min(Math.trunc(source.receivedQty), remainingQty)
-    remainingQty -= waitHandoverQty
+    const waitHandoverQty = Number(input.completedQtyBySkuCode[source.materialSku || ''])
     const position = pickWarehouseLocation(warehouse, `${input.sourceWorkOrderId}-${source.materialSku}`, '已入库')
     return upsertFactoryWaitHandoverStockItem({
       stockItemId: `AUX-WHS-${input.sourceWorkOrderId}-${source.materialSku}`,

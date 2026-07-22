@@ -12,7 +12,7 @@ import {
   type PostFinishingWorkOrder,
 } from './post-finishing-domain.ts'
 import {
-  listFactoryWarehouseInboundRecords,
+  listFactoryWaitHandoverStockItems,
   recordAuxiliaryGarmentReceiptToPostFactory,
 } from './factory-internal-warehouse.ts'
 import type { ProcessWorkOrderSourceType } from './process-work-order-domain.ts'
@@ -1408,6 +1408,7 @@ export function writeBackProcessHandoverRecord(
   handoverRecordId: string,
   payload: {
     receiveObjectQty: number
+    receivedQtyBySkuCode?: Record<string, number>
     receivePerson: string
     receiveAt?: string
     evidenceUrls?: string[]
@@ -1416,6 +1417,28 @@ export function writeBackProcessHandoverRecord(
 ): ProcessHandoverRecord | undefined {
   const handover = processHandoverRecords.find((record) => record.handoverRecordId === handoverRecordId)
   if (!handover) return undefined
+  const isAuxiliaryGarmentToPost = handover.craftType === 'SPECIAL_CRAFT'
+    && handover.objectType === '成衣'
+    && handover.receiveFactoryName === '我方后道工厂'
+  const postSourceSkuStocks = isAuxiliaryGarmentToPost
+    ? listFactoryWaitHandoverStockItems().filter((stock) => stock.taskId === handover.sourceWorkOrderId && stock.itemKind === '成衣')
+    : []
+  if (isAuxiliaryGarmentToPost) {
+    if (handover.receiveAt) throw new Error('该成衣交出记录已完成后道收货，不能重复收货。')
+    if (!payload.receivedQtyBySkuCode) throw new Error('后道成衣收货必须逐 SKU 确认实收件数。')
+    const expectedSkuCodes = postSourceSkuStocks.map((stock) => stock.materialSku || '').sort()
+    const actualSkuCodes = Object.keys(payload.receivedQtyBySkuCode).sort()
+    if (!expectedSkuCodes.length || expectedSkuCodes.length !== actualSkuCodes.length || expectedSkuCodes.some((skuCode, index) => skuCode !== actualSkuCodes[index])) {
+      throw new Error('后道逐 SKU 实收必须覆盖本次交出的全部 SKU，且不得包含其他 SKU。')
+    }
+    const invalidStock = postSourceSkuStocks.find((stock) => {
+      const qty = payload.receivedQtyBySkuCode?.[stock.materialSku || '']
+      return !Number.isInteger(qty) || Number(qty) < 0 || Number(qty) > stock.waitHandoverQty
+    })
+    if (invalidStock) throw new Error(`SKU ${invalidStock.materialSku || '未知'} 实收件数必须为 0 到 ${invalidStock.waitHandoverQty} 的整数。`)
+    const skuReceivedTotal = Object.values(payload.receivedQtyBySkuCode).reduce((sum, qty) => sum + qty, 0)
+    if (skuReceivedTotal !== payload.receiveObjectQty) throw new Error('后道逐 SKU 实收合计与本次实收总件数不一致。')
+  }
   const receiveAt = payload.receiveAt || nowText()
   handover.receiveObjectQty = roundQty(payload.receiveObjectQty)
   handover.diffObjectQty = roundQty(handover.receiveObjectQty - handover.handoverObjectQty)
@@ -1484,30 +1507,18 @@ export function writeBackProcessHandoverRecord(
       })
     }
   }
-  if (
-    handover.craftType === 'SPECIAL_CRAFT'
-    && handover.objectType === '成衣'
-    && handover.receiveFactoryName === '我方后道工厂'
-  ) {
+  if (isAuxiliaryGarmentToPost) {
     const workOrderLines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(handover.sourceWorkOrderId)
-    const auxiliaryReceipts = listFactoryWarehouseInboundRecords().filter((record) =>
-      record.taskId === handover.sourceWorkOrderId
-      && record.itemKind === '成衣'
-      && record.sourceObjectName === '成衣仓',
-    )
-    let remainingReceivedQty = Math.trunc(handover.receiveObjectQty)
     const postSkuLines = workOrderLines.map((line) => {
-      const auxiliaryReceivedQty = auxiliaryReceipts
-        .filter((record) => record.materialSku === line.skuCode)
-        .reduce((sum, record) => sum + record.receivedQty, 0)
-      const receivedQty = Math.min(Math.trunc(auxiliaryReceivedQty), remainingReceivedQty)
-      remainingReceivedQty -= receivedQty
+      const sourceStock = postSourceSkuStocks.find((stock) => stock.materialSku === line.skuCode)
+      const plannedQty = sourceStock?.waitHandoverQty || 0
+      const receivedQty = Number(payload.receivedQtyBySkuCode?.[line.skuCode] || 0)
       return {
         skuId: line.skuCode,
         skuCode: line.skuCode,
         colorName: line.colorName,
         sizeName: line.sizeCode,
-        plannedQty: Math.trunc(auxiliaryReceivedQty),
+        plannedQty,
         receivedQty,
       }
     })
@@ -1542,14 +1553,7 @@ export function writeBackProcessHandoverRecord(
       sourceFactoryName: handover.handoverFactoryName,
       receiverName: handover.receivePerson,
       receivedAt: handover.receiveAt,
-      skuLines: postSkuLines.length > 0 ? postSkuLines : [{
-        skuId: `${handover.sourceWorkOrderId}-GARMENT`,
-        skuCode: `${handover.sourceWorkOrderNo}-成衣`,
-        colorName: '多颜色',
-        sizeName: '多尺码',
-        plannedQty: handover.handoverObjectQty,
-        receivedQty: handover.receiveObjectQty,
-      }],
+      skuLines: postSkuLines,
     })
   }
   return cloneHandoverRecord(handover)

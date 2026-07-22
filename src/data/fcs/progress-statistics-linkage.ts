@@ -1254,6 +1254,7 @@ export function buildCuttingProgressSnapshot(order: ProductionOrder): CuttingPro
 
 const emptyStatusDistribution = (): Record<SpecialCraftTaskStatus, number> => ({
   待领料: 0,
+  成衣仓已出库待收货: 0,
   已入待加工仓: 0,
   加工中: 0,
   已完成: 0,

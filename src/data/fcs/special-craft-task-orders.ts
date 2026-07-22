@@ -45,6 +45,7 @@ import { shouldGenerateInternalCraftOrderForProductionOrder } from './task-gener
 
 export type SpecialCraftTaskStatus =
   | '待领料'
+  | '成衣仓已出库待收货'
   | '已入待加工仓'
   | '加工中'
   | '已完成'
@@ -127,6 +128,10 @@ export interface SpecialCraftTaskWorkOrderLine {
   pieceCountPerGarment: number
   orderQty: number
   planPieceQty: number
+  receivedQty: number
+  completedQty: number
+  scrapQty: number
+  damageQty: number
   currentQty: number
   feiTicketNos: string[]
   sourceBomItemId?: string
@@ -1890,6 +1895,10 @@ function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
           pieceCountPerGarment: line.pieceCountPerGarment,
           orderQty: line.orderQty,
           planPieceQty: line.planPieceQty,
+          receivedQty: 0,
+          completedQty: 0,
+          scrapQty: 0,
+          damageQty: 0,
           currentQty: 0,
           feiTicketNos: [...line.feiTicketNos],
           sourceBomItemId: line.sourceBomItemId,
@@ -2051,11 +2060,14 @@ export function confirmSpecialCraftWorkOrderReceiptBySku(input: {
 }): SpecialCraftTaskWorkOrder | undefined {
   const lines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(input.workOrderId)
   if (!lines.length) return undefined
+  const invalidLine = lines.find((line) => {
+    const receivedQty = input.receivedQtyBySkuCode[line.skuCode]
+    return !Number.isInteger(receivedQty) || receivedQty < 0 || receivedQty > line.planPieceQty
+  })
+  if (invalidLine) throw new Error(`SKU ${invalidLine.skuCode} 实收件数无效。`)
   lines.forEach((line) => {
     const receivedQty = input.receivedQtyBySkuCode[line.skuCode]
-    if (!Number.isInteger(receivedQty) || receivedQty < 0 || receivedQty > line.planPieceQty) {
-      throw new Error(`SKU ${line.skuCode} 实收件数无效。`)
-    }
+    line.receivedQty = receivedQty
     line.currentQty = receivedQty
   })
   const totalReceivedQty = lines.reduce((sum, line) => sum + line.currentQty, 0)
@@ -2066,6 +2078,60 @@ export function confirmSpecialCraftWorkOrderReceiptBySku(input: {
     receivedQty: totalReceivedQty,
     currentQty: totalReceivedQty,
     remark: `按 ${lines.length} 个 SKU 确认实收 ${totalReceivedQty} 件`,
+  })
+}
+
+export function confirmSpecialCraftWorkOrderCompletionBySku(input: {
+  workOrderId: string
+  completedQtyBySkuCode: Record<string, number>
+  scrapQtyBySkuCode: Record<string, number>
+  damageQtyBySkuCode: Record<string, number>
+  operatorName: string
+  operatedAt: string
+}): SpecialCraftTaskWorkOrder | undefined {
+  const lines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(input.workOrderId)
+  if (!lines.length) return undefined
+  const expectedSkuCodes = lines.map((line) => line.skuCode).sort()
+  const hasExactSkuSet = (qtyBySkuCode: Record<string, number>) => {
+    const actualSkuCodes = Object.keys(qtyBySkuCode).sort()
+    return actualSkuCodes.length === expectedSkuCodes.length
+      && actualSkuCodes.every((skuCode, index) => skuCode === expectedSkuCodes[index])
+  }
+  if (
+    !hasExactSkuSet(input.completedQtyBySkuCode)
+    || !hasExactSkuSet(input.scrapQtyBySkuCode)
+    || !hasExactSkuSet(input.damageQtyBySkuCode)
+  ) {
+    throw new Error('逐 SKU 完工必须覆盖全部 SKU，且不得包含其他 SKU。')
+  }
+  const invalidLine = lines.find((line) => {
+    const completedQty = input.completedQtyBySkuCode[line.skuCode]
+    const scrapQty = input.scrapQtyBySkuCode[line.skuCode]
+    const damageQty = input.damageQtyBySkuCode[line.skuCode]
+    return !Number.isInteger(completedQty) || completedQty < 0
+      || !Number.isInteger(scrapQty) || scrapQty < 0
+      || !Number.isInteger(damageQty) || damageQty < 0
+      || completedQty + scrapQty + damageQty !== line.receivedQty
+  })
+  if (invalidLine) throw new Error(`SKU ${invalidLine.skuCode} 的完工、报废和货损件数必须为整数，且合计等于已收件数。`)
+  lines.forEach((line) => {
+    line.completedQty = input.completedQtyBySkuCode[line.skuCode]
+    line.scrapQty = input.scrapQtyBySkuCode[line.skuCode]
+    line.damageQty = input.damageQtyBySkuCode[line.skuCode]
+    line.currentQty = line.completedQty
+  })
+  const completedQty = lines.reduce((sum, line) => sum + line.completedQty, 0)
+  const scrapQty = lines.reduce((sum, line) => sum + line.scrapQty, 0)
+  const damageQty = lines.reduce((sum, line) => sum + line.damageQty, 0)
+  return updateSpecialCraftTaskWorkOrderWebStatus(input.workOrderId, {
+    status: '待交出',
+    operatorName: input.operatorName,
+    operatedAt: input.operatedAt,
+    currentQty: completedQty,
+    waitReturnQty: completedQty,
+    scrapQty,
+    damageQty,
+    remark: `按 ${lines.length} 个 SKU 确认完工 ${completedQty} 件，报废 ${scrapQty} 件，货损 ${damageQty} 件`,
   })
 }
 

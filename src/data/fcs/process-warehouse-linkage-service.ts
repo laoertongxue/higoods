@@ -9,7 +9,6 @@ import {
   listSpreadingResultGeneratedFeiTicketsByCutOrderId,
 } from './cutting/generated-fei-tickets.ts'
 import {
-  confirmSpecialCraftWorkOrderReceiptBySku,
   getSpecialCraftTaskWorkOrderLinesByWorkOrderId,
   getSpecialCraftTaskWorkOrderById,
 } from './special-craft-task-orders.ts'
@@ -781,12 +780,6 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
           receivedAt: actionResult.operatedAt || new Date().toISOString().replace('T', ' ').slice(0, 19),
         })
       })
-      confirmSpecialCraftWorkOrderReceiptBySku({
-        workOrderId: context.sourceWorkOrderId,
-        receivedQtyBySkuCode: actionResult.skuQtyBySkuCode,
-        receiverName: actionResult.operatorName || '辅助工艺仓管员',
-        receivedAt: actionResult.operatedAt || new Date().toISOString().replace('T', ' ').slice(0, 19),
-      })
     }
     const waitProcessContext: WarehouseBaseContext = {
       ...context,
@@ -828,6 +821,9 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
     warehouseLocation: `${context.craftName}待交出仓-B01`,
   }
   if (context.objectType === '成衣' && actionResult.actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS') {
+    if (!actionResult.skuQtyBySkuCode) {
+      return mergeResult(base, { success: false, message: '成衣完工必须逐 SKU 确认完工件数' })
+    }
     recordGarmentReadyToHandoverAtAuxiliaryFactory({
       sourceWorkOrderId: context.sourceWorkOrderId,
       sourceWorkOrderNo: context.sourceWorkOrderNo,
@@ -836,6 +832,7 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
       productionOrderId: context.sourceProductionOrderId || '',
       productionOrderNo: context.sourceProductionOrderNo || '',
       totalCompletedQty: context.objectQty,
+      completedQtyBySkuCode: actionResult.skuQtyBySkuCode,
       receiverKind: context.downstreamFactoryName === '我方后道工厂' ? '后道工厂' : '裁床厂',
       receiverName: context.downstreamFactoryName,
     })

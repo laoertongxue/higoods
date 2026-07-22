@@ -1,3 +1,4 @@
+// @page-pattern: detail
 import {
   buildSpecialCraftTaskDetailPath,
   buildSpecialCraftWorkOrderDetailPath,
@@ -5,6 +6,7 @@ import {
 } from '../../../data/fcs/special-craft-operations.ts'
 import { buildHandoverDifferenceRequestPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
+  executeProcessWebAction,
   getUnifiedOperationRecordsForProcessWorkOrder,
   type ProcessWebAction,
   type ProcessWebOperationRecord,
@@ -25,6 +27,7 @@ import {
   getHandoverRecordsByWorkOrderId,
   getWarehouseRecordsByWorkOrderId,
   handleProcessHandoverDifference,
+  writeBackProcessHandoverRecord,
 } from '../../../data/fcs/process-warehouse-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { appStore } from '../../../state/store.ts'
@@ -67,9 +70,18 @@ const fastSpecialCraftActionDefs: Array<{
   affectsDifference?: boolean
 }> = [
   {
+    actionCode: 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
+    actionLabel: '成衣仓出库' as ProcessWebAction['actionLabel'],
+    fromStatuses: ['待领料'],
+    toStatus: '成衣仓已出库待收货',
+    requiredFields: ['出库人', '出库时间', '逐 SKU 实出件数'],
+    optionalFields: ['备注'],
+    writebackHandler: 'confirmGarmentWarehouseOutbound',
+  },
+  {
     actionCode: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
     actionLabel: '确认接收裁片',
-    fromStatuses: ['待接收', '待领料', '已入待加工仓'],
+    fromStatuses: ['待接收', '待领料', '成衣仓已出库待收货'],
     toStatus: '已入待加工仓',
     requiredFields: ['接收人', '接收时间', '接收裁片数量', '关联菲票'],
     optionalFields: ['备注'],
@@ -122,8 +134,13 @@ const fastSpecialCraftActionDefs: Array<{
   },
 ]
 
-function getFastSpecialCraftWebActions(status: string): ProcessWebAction[] {
-  const matched = fastSpecialCraftActionDefs.filter((action) => action.fromStatuses.includes(status))
+function getFastSpecialCraftWebActions(status: string, objectType: string): ProcessWebAction[] {
+  const matched = fastSpecialCraftActionDefs.filter((action) => {
+    if (!action.fromStatuses.includes(status)) return false
+    if (action.actionCode === 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND') return objectType === '成衣'
+    if (objectType === '成衣' && status === '待领料' && action.actionCode === 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES') return false
+    return true
+  })
   const defs = matched.length ? matched : [fastSpecialCraftActionDefs[0]]
   return defs.map((action) => ({
     actionCode: action.actionCode,
@@ -281,6 +298,18 @@ function renderWebActionPanel(
                   const requiredFields = localizeSpecialCraftActionFields(action.requiredFields, objectMeta)
                   const optionalFields = localizeSpecialCraftActionFields(action.optionalFields, objectMeta)
                   const confirmText = localizeSpecialCraftActionText(action.confirmText, objectMeta)
+                  if (action.actionCode === 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND') {
+                    return `
+                      <button
+                        type="button"
+                        class="inline-flex items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+                        data-special-craft-web-action="confirm-garment-warehouse-outbound"
+                        data-source-id="${escapeHtml(workOrderId)}"
+                        data-testid="garment-warehouse-outbound-button"
+                      >成衣仓逐 SKU 出库确认</button>
+                      <p class="text-xs text-muted-foreground">逐 SKU 实出件数必须完整确认，提交后等待辅助工艺收货。</p>
+                    `
+                  }
                   return `
                     <button
                       type="button"
@@ -425,7 +454,7 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
   const warehouseRecords = getWarehouseRecordsByWorkOrderId(workOrder.workOrderId)
   const handoverRecords = getHandoverRecordsByWorkOrderId(workOrder.workOrderId)
   const unifiedDifferenceRecords = getDifferenceRecordsByWorkOrderId(workOrder.workOrderId)
-  const availableActions = getFastSpecialCraftWebActions(workOrder.status)
+  const availableActions = getFastSpecialCraftWebActions(workOrder.status, objectMeta.objectType)
   const webOperationRecords = activeTab === 'events'
     ? getUnifiedOperationRecordsForProcessWorkOrder(
         'SPECIAL_CRAFT_WORK_ORDER',
@@ -552,6 +581,11 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
           <td class="px-3 py-3">${escapeHtml(record.handoverPerson)}</td>
           <td class="px-3 py-3">${escapeHtml(record.handoverAt)}</td>
           <td class="px-3 py-3">${renderStatusBadge(record.status)}</td>
+          <td class="px-3 py-3">
+            ${objectMeta.objectType === '成衣' && record.receiveFactoryName === '我方后道工厂' && !record.receiveAt
+              ? `<button type="button" class="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700" data-special-craft-web-action="confirm-post-garment-receipt" data-source-id="${escapeHtml(workOrder.workOrderId)}" data-handover-record-id="${escapeHtml(record.handoverRecordId)}">后道逐 SKU 实收确认</button>`
+              : '—'}
+          </td>
         </tr>
       `,
     )
@@ -627,7 +661,7 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
     handover: renderSection(
       '交出记录',
       waitHandoverRows || unifiedHandoverRows
-        ? `${waitHandoverRows ? renderTable(['待交出仓记录', '当前动作', `待交出${objectMeta.objectLabel}数量`, `已交出${objectMeta.objectLabel}数量`, '关联菲票', '状态', '备注'], waitHandoverRows, 'min-w-[1080px]') : ''}${unifiedHandoverRows ? `<div class="mt-4">${renderTable(['交出记录号', '待交出仓', `交出${objectMeta.objectLabel}数量`, `实收${objectMeta.objectLabel}数量`, `差异${objectMeta.objectLabel}数量`, '关联菲票', '交出人', '交出时间', '状态'], unifiedHandoverRows, 'min-w-[1280px]')}</div>` : ''}`
+        ? `${waitHandoverRows ? renderTable(['待交出仓记录', '当前动作', `待交出${objectMeta.objectLabel}数量`, `已交出${objectMeta.objectLabel}数量`, '关联菲票', '状态', '备注'], waitHandoverRows, 'min-w-[1080px]') : ''}${unifiedHandoverRows ? `<div class="mt-4">${renderTable(['交出记录号', '待交出仓', `交出${objectMeta.objectLabel}数量`, `实收${objectMeta.objectLabel}数量`, `差异${objectMeta.objectLabel}数量`, '关联菲票', '交出人', '交出时间', '状态', '操作'], unifiedHandoverRows, 'min-w-[1360px]')}</div>` : ''}`
         : renderEmptyState('暂无交出记录'),
     ),
     events: renderWebOperationRecords(webOperationRecords),
@@ -707,6 +741,84 @@ export function handleSpecialCraftWorkOrderDetailEvent(target: HTMLElement): boo
 
   const actionNode = target.closest<HTMLElement>('[data-special-craft-web-action]')
   if (!actionNode) return false
+  if (actionNode.dataset.specialCraftWebAction === 'confirm-post-garment-receipt') {
+    const sourceId = actionNode.dataset.sourceId || ''
+    const handoverRecordId = actionNode.dataset.handoverRecordId || ''
+    const handover = getHandoverRecordsByWorkOrderId(sourceId).find((record) => record.handoverRecordId === handoverRecordId)
+    const lines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(sourceId)
+    if (!handover || !lines.length) {
+      showSpecialCraftToast('未找到待收货的成衣 SKU 明细')
+      return true
+    }
+    const receivedQtyBySkuCode: Record<string, number> = {}
+    for (const line of lines) {
+      const expectedQty = line.completedQty
+      const value = window.prompt(`SKU ${line.skuCode} 应收 ${expectedQty} 件，请确认实收`, String(expectedQty))
+      if (value === null) return true
+      const qty = Number(value)
+      if (!Number.isInteger(qty) || qty < 0 || qty > expectedQty) {
+        showSpecialCraftToast(`SKU ${line.skuCode} 实收必须为 0 到 ${expectedQty} 的整数`)
+        return true
+      }
+      receivedQtyBySkuCode[line.skuCode] = qty
+    }
+    try {
+      writeBackProcessHandoverRecord(handoverRecordId, {
+        receiveObjectQty: Object.values(receivedQtyBySkuCode).reduce((sum, qty) => sum + qty, 0),
+        receivedQtyBySkuCode,
+        receivePerson: '后道收货员',
+        receiveAt: '2026-07-22 15:30:00',
+        remark: '后道 Web 端逐 SKU 实收确认',
+      })
+      showSpecialCraftToast('后道逐 SKU 实收已确认')
+      const current = appStore.getState().pathname || '/'
+      appStore.navigate(current, { historyMode: 'replace' })
+    } catch (error) {
+      showSpecialCraftToast(error instanceof Error ? error.message : '后道收货失败')
+    }
+    return true
+  }
+  if (actionNode.dataset.specialCraftWebAction === 'confirm-garment-warehouse-outbound') {
+    const sourceId = actionNode.dataset.sourceId || ''
+    const workOrder = getSpecialCraftTaskWorkOrderById(sourceId)
+    const lines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(sourceId)
+    if (!workOrder || !lines.length) {
+      showSpecialCraftToast('未找到成衣加工单 SKU 明细')
+      return true
+    }
+    const skuQtyBySkuCode: Record<string, number> = {}
+    for (const line of lines) {
+      const value = window.prompt(`SKU ${line.skuCode} 实出件数`, String(line.planPieceQty))
+      if (value === null) return true
+      const qty = Number(value)
+      if (!Number.isInteger(qty) || qty < 0 || qty > line.planPieceQty) {
+        showSpecialCraftToast(`SKU ${line.skuCode} 实出件数必须为 0 到 ${line.planPieceQty} 的整数`)
+        return true
+      }
+      skuQtyBySkuCode[line.skuCode] = qty
+    }
+    try {
+      const objectQty = Object.values(skuQtyBySkuCode).reduce((sum, qty) => sum + qty, 0)
+      const result = executeProcessWebAction({
+        sourceType: 'SPECIAL_CRAFT_WORK_ORDER',
+        sourceId,
+        actionCode: 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
+        operatorName: '成衣仓管员',
+        operatedAt: '2026-07-22 09:30:00',
+        objectType: '成衣',
+        objectQty,
+        qtyUnit: '件',
+        skuQtyBySkuCode,
+        remark: '成衣仓 Web 端逐 SKU 出库确认',
+      })
+      showSpecialCraftToast(result.message)
+      const current = appStore.getState().pathname || '/'
+      appStore.navigate(current, { historyMode: 'replace' })
+    } catch (error) {
+      showSpecialCraftToast(error instanceof Error ? error.message : '成衣仓出库失败')
+    }
+    return true
+  }
   if (actionNode.dataset.specialCraftWebAction === 'open-web-status-action-dialog') {
     openProcessWebStatusActionDialog({
       actionNode,

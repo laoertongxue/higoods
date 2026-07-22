@@ -2903,6 +2903,18 @@ export function receiveAuxiliaryCraftGarmentsAtPostFinishing(input: {
     receivedQty: number
   }>
 }): PostFinishingReceiptRecord {
+  if (!input.skuLines.length) throw new Error('后道成衣收货必须包含逐 SKU 实收明细。')
+  const skuCodes = input.skuLines.map((line) => line.skuCode)
+  if (new Set(skuCodes).size !== skuCodes.length) throw new Error('后道成衣收货 SKU 不得重复。')
+  const invalidLine = input.skuLines.find((line) => (
+    !line.skuCode
+    || !Number.isInteger(line.plannedQty)
+    || line.plannedQty < 0
+    || !Number.isInteger(line.receivedQty)
+    || line.receivedQty < 0
+    || line.receivedQty > line.plannedQty
+  ))
+  if (invalidLine) throw new Error(`SKU ${invalidLine.skuCode || '未知'} 的应收和实收件数必须为整数，且实收不能超过应收。`)
   const contextId = `POST-SRC-AUX-${input.handoverRecordId}`
   const existed = receiptRecords.find((record) => record.sourceContextId === contextId)
   if (existed) return cloneReceipt(existed)
