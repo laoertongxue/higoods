@@ -776,8 +776,12 @@ function alignSnapshotWithDemandSkuLines(
         lines: template.lines.map((line, lineIndex) => ({
           ...line,
           id: `${snapshot.snapshotId}-mapping-${colorIndex + 1}-${normalizeText(line.pieceId) || lineIndex + 1}`,
-          materialCode: materialInfo.code,
-          materialName: materialInfo.name,
+          materialCode: normalizeText(line.bomItemId) === fallbackBomItemId
+            ? materialInfo.code
+            : line.materialCode,
+          materialName: normalizeText(line.bomItemId) === fallbackBomItemId
+            ? materialInfo.name
+            : line.materialName,
           applicableSkuCodes: skuCodesForColor,
         })),
       } satisfies TechnicalColorMaterialMapping

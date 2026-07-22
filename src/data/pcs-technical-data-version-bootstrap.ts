@@ -700,7 +700,8 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
       colorName: color,
       status: 'CONFIRMED',
       generatedMode: 'AUTO',
-      lines: pieceRows.map((piece) => ({
+      lines: [
+        ...pieceRows.map((piece) => ({
         id: `${seed.technicalVersionId}-mapping-${index + 1}-${piece.id}`,
         bomItemId,
         materialCode: resolveColorMaterialInfo(color, index).code,
@@ -714,7 +715,25 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         unit: '米',
         applicableSkuCodes: demand.skuLines.filter((line) => line.color === color).map((line) => line.skuCode),
         sourceMode: 'AUTO',
-      })),
+        })),
+        ...(demand.spuCode === 'SPU-2024-010' && pieceRows[0]
+          ? [{
+              id: `${seed.technicalVersionId}-mapping-${index + 1}-supplement-secondary`,
+              bomItemId: `${seed.technicalVersionId}-bom-supplement-secondary`,
+              materialCode: 'MAT-SUPPLEMENT-SECONDARY-010',
+              materialName: '拼接面料',
+              materialType: '面料',
+              patternId,
+              patternName: `${demand.spuCode} 正式纸样`,
+              pieceId: pieceRows[0].id,
+              pieceName: pieceRows[0].name,
+              pieceCountPerUnit: pieceRows[0].count,
+              unit: '米',
+              applicableSkuCodes: demand.skuLines.filter((line) => line.color === color).map((line) => line.skuCode),
+              sourceMode: 'AUTO' as const,
+            }]
+          : []),
+      ],
     })),
     patternDesigns: [],
     attachments: [],

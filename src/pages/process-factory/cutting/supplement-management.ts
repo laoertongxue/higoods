@@ -14,7 +14,7 @@ import type {
 import { getProductionOrderTechPackSnapshot } from '../../../data/fcs/production-order-tech-pack-runtime.ts'
 import type { TechPackBomItemSnapshot } from '../../../data/fcs/production-tech-pack-snapshot-types.ts'
 import {
-  ensureProcessWorkOrderBatch,
+  prepareProcessWorkOrderBatch,
   resolveUniqueSupplementBomItem,
   type ProcessWorkOrderGenerationInput,
 } from '../../../data/fcs/process-work-order-generation-service.ts'
@@ -214,6 +214,8 @@ export interface SupplementProcessWorkOrderRef {
 export interface SupplementRecord {
   id: string
   recordNo: string
+  confirmationKey: string
+  requestFingerprint: string
   status: SupplementRecordStatus
   createdAt: string
   createdBy: string
@@ -2277,6 +2279,26 @@ function buildSupplementConfirmationIdentity(draft: SupplementDraft): string {
   })
 }
 
+function canonicalizeSupplementRequest(value: unknown): unknown {
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number' && !Number.isFinite(value)) return `__${String(value)}__`
+  if (Array.isArray(value)) return value.map(canonicalizeSupplementRequest)
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => key !== 'confirmationIdentity')
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, nested]) => [key, canonicalizeSupplementRequest(nested)]))
+  }
+  return value
+}
+
+function buildSupplementRequestFingerprint(draft: SupplementDraft): string {
+  const canonicalDraft = structuredClone(draft)
+  canonicalDraft.lines.sort((left, right) => left.key.localeCompare(right.key))
+  canonicalDraft.materialDemands.sort((left, right) => left.key.localeCompare(right.key))
+  return JSON.stringify(canonicalizeSupplementRequest(canonicalDraft))
+}
+
 function buildSupplementRecordIdentity(draft: SupplementDraft): { id: string; recordNo: string } {
   const token = hashSupplementIdentity(buildSupplementConfirmationIdentity(draft))
   return { id: `supplement-confirmed-${token}`, recordNo: `SUP-${token}` }
@@ -2288,6 +2310,7 @@ function resolveSupplementOriginalCutOrder(
 ): {
   originalCutOrderId: string
   originalCutOrderNo: string
+  materialLine: CuttingMaterialLine
 } | null {
   const originalCutOrderId = demand.originalCutOrderId.trim()
   const originalCutOrderNo = demand.originalCutOrderNo.trim()
@@ -2296,13 +2319,24 @@ function resolveSupplementOriginalCutOrder(
   const materialLine = productionRecord?.materialLines.find((line) => (
     getCutOrderId(line) === originalCutOrderId && getCutOrderNo(line) === originalCutOrderNo
   ))
-  if (materialLine) return { originalCutOrderId, originalCutOrderNo }
+  if (materialLine) return { originalCutOrderId, originalCutOrderNo, materialLine: structuredClone(materialLine) }
 
   const releaseRecord = listCutPieceReleaseRecords().find((record) => record.productionOrderId === draft.productionOrderId)
   const releaseSource = releaseRecord?.sourceStates.find((source) => (
     source.cutOrderId === originalCutOrderId && source.cutOrderNo === originalCutOrderNo
   ))
-  return releaseSource ? { originalCutOrderId, originalCutOrderNo } : null
+  if (!releaseSource) return null
+  const draftLine = draft.lines.find((line) => (
+    getCutOrderId(line.basis.shortageMaterial.line) === originalCutOrderId
+    && getCutOrderNo(line.basis.shortageMaterial.line) === originalCutOrderNo
+  ))?.basis.shortageMaterial.line
+  return draftLine ? { originalCutOrderId, originalCutOrderNo, materialLine: structuredClone(draftLine) } : null
+}
+
+let supplementRecordSaveFailureForTest = false
+
+export function setSupplementRecordSaveFailureForTest(shouldFail: boolean): void {
+  supplementRecordSaveFailureForTest = shouldFail
 }
 
 function saveConfirmedSupplementRecord(input: {
@@ -2310,13 +2344,18 @@ function saveConfirmedSupplementRecord(input: {
   draft: SupplementDraft
   createdBy: string
   processWorkOrderRefs: SupplementProcessWorkOrderRef[]
+  confirmationKey: string
+  requestFingerprint: string
 }): SupplementRecord {
+  if (supplementRecordSaveFailureForTest) throw new Error('模拟补料记录保存失败')
   const confirmedDraft = {
     ...input.draft,
     confirmationIdentity: buildSupplementConfirmationIdentity(input.draft),
   }
   const record: SupplementRecord = {
     ...input.identity,
+    confirmationKey: input.confirmationKey,
+    requestFingerprint: input.requestFingerprint,
     status: '已确认',
     createdAt: nowText(),
     createdBy: input.createdBy.trim() || '系统',
@@ -2332,9 +2371,22 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
   createdBy: string,
 ): { ok: true; record: SupplementRecord } | { ok: false; message: string } {
   ensureMockSupplementOrders()
+  const confirmationKey = buildSupplementConfirmationIdentity(draft)
+  const requestFingerprint = buildSupplementRequestFingerprint(draft)
   const identity = buildSupplementRecordIdentity(draft)
-  const existing = state.records.find((record) => record.id === identity.id)
-  if (existing) return { ok: true, record: structuredClone(existing) }
+  const existingByConfirmationKey = state.records.find((record) => record.confirmationKey === confirmationKey)
+  if (existingByConfirmationKey) {
+    if (existingByConfirmationKey.requestFingerprint !== requestFingerprint) {
+      return { ok: false, message: '同一确认键对应的补料请求已发生变化，请使用新的确认键。' }
+    }
+    return { ok: true, record: structuredClone(existingByConfirmationKey) }
+  }
+  const idCollision = state.records.find((record) => record.id === identity.id)
+  if (idCollision) return { ok: false, message: '补料确认键发生编号冲突，不得复用其他补料记录。' }
+  if (!draft.lines.length) return { ok: false, message: '补料单至少需要一条补料明细。' }
+  if (draft.lines.some((line) => !Number.isFinite(line.supplementQty) || line.supplementQty <= 0 || !Number.isInteger(line.supplementQty))) {
+    return { ok: false, message: '每条裁片补料数量必须是大于 0 的有限整数。' }
+  }
   if (!draft.materialDemands.length) {
     return { ok: false, message: '补料单至少需要一条可追溯到原裁片单和冻结 BOM 的补料物料。' }
   }
@@ -2347,8 +2399,38 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
   const matchedDemands: Array<{
     demand: SupplementMaterialDemand
     bomItem: TechPackBomItemSnapshot
-    originalCutOrder: { originalCutOrderId: string; originalCutOrderNo: string }
+    originalCutOrder: { originalCutOrderId: string; originalCutOrderNo: string; materialLine: CuttingMaterialLine }
   }> = []
+  const demandsByMapping = new Map<string, SupplementMaterialDemand>()
+  for (const demand of draft.materialDemands) {
+    const mappingId = demand.materialPatternMappingId.trim()
+    if (!mappingId || demandsByMapping.has(mappingId)) {
+      return { ok: false, message: '补料物料与明细的关联必须唯一。' }
+    }
+    demandsByMapping.set(mappingId, demand)
+  }
+  const coveredMappings = new Set<string>()
+  for (const line of draft.lines) {
+    const shortage = line.basis.shortageMaterial
+    const mappingId = shortage.materialPatternMappingId.trim()
+    const demand = demandsByMapping.get(mappingId)
+    if (!demand) return { ok: false, message: '每条补料明细必须由且仅由一条物料记录覆盖。' }
+    coveredMappings.add(mappingId)
+    if (shortage.materialSku.trim() !== demand.materialSku.trim() || shortage.materialName.trim() !== demand.materialName.trim()) {
+      return { ok: false, message: `补料明细与物料记录的物料编码或名称不一致：${demand.materialName}` }
+    }
+    const lineBomItemId = shortage.bomItem?.id || shortage.mappingLine?.bomItemId || ''
+    if (!lineBomItemId || lineBomItemId !== demand.sourceBomItemId.trim()) {
+      return { ok: false, message: `补料明细 ${line.key} 与冻结 BOM 行不一致。` }
+    }
+    if (getCutOrderId(shortage.line) !== demand.originalCutOrderId.trim()
+      || getCutOrderNo(shortage.line) !== demand.originalCutOrderNo.trim()) {
+      return { ok: false, message: `补料明细 ${line.key} 与原裁片单不一致。` }
+    }
+  }
+  if (coveredMappings.size !== demandsByMapping.size) {
+    return { ok: false, message: '每条补料物料都必须至少覆盖一条补料明细。' }
+  }
   for (const demand of draft.materialDemands) {
     const matched = resolveUniqueSupplementBomItem({
       bomItems: snapshot.bomItems,
@@ -2367,6 +2449,22 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
     if (!originalCutOrder) {
       return { ok: false, message: `补料物料 ${demand.materialName} 缺少属于生产单 ${draft.productionOrderNo} 的原裁片单，不能确认补料。` }
     }
+    if (draft.sourceType === 'cut-order' && draft.sourceNo.trim() !== originalCutOrder.originalCutOrderNo) {
+      return { ok: false, message: '补料来源裁片单与物料记录的原裁片单不一致。' }
+    }
+    const demandLine = draft.lines.find((line) => line.basis.shortageMaterial.materialPatternMappingId.trim() === demand.materialPatternMappingId.trim())!
+    const expectedCutMaterialSku = demandLine.basis.shortageMaterial.line.materialIdentity?.materialSku
+      || demandLine.basis.shortageMaterial.line.materialSku
+    const actualCutMaterialSku = originalCutOrder.materialLine.materialIdentity?.materialSku
+      || originalCutOrder.materialLine.materialSku
+    if (expectedCutMaterialSku.trim() !== actualCutMaterialSku.trim()) {
+      return { ok: false, message: `原裁片单的物料 ${actualCutMaterialSku} 与当前补料 BOM 物料不一致。` }
+    }
+    const actualCutMaterialName = originalCutOrder.materialLine.materialIdentity?.materialName
+      || originalCutOrder.materialLine.materialLabel
+    if (demand.materialName.trim() !== actualCutMaterialName.trim()) {
+      return { ok: false, message: `原裁片单的物料名称 ${actualCutMaterialName} 与当前补料物料不一致。` }
+    }
     matchedDemands.push({ demand, bomItem: matched.bomItem, originalCutOrder })
   }
 
@@ -2374,7 +2472,7 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
     bomItem: TechPackBomItemSnapshot
     demands: SupplementMaterialDemand[]
     processCodes: Array<'DYE' | 'PRINT'>
-    originalCutOrder: { originalCutOrderId: string; originalCutOrderNo: string }
+    originalCutOrder: { originalCutOrderId: string; originalCutOrderNo: string; materialLine: CuttingMaterialLine }
   }>()
   for (const { demand, bomItem, originalCutOrder } of matchedDemands) {
     const processCodes = (['DYE', 'PRINT'] as const).filter((processCode) =>
@@ -2449,7 +2547,8 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
 
   try {
     const processWorkOrderRefs: SupplementProcessWorkOrderRef[] = []
-    const ensuredBatch = ensureProcessWorkOrderBatch(generationInputs)
+    const transaction = prepareProcessWorkOrderBatch(generationInputs)
+    const ensuredBatch = transaction.commit()
     generationInputs.forEach((input, inputIndex) => {
       const ensured = ensuredBatch[inputIndex]
       const ids = [
@@ -2471,9 +2570,26 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
         })
       })
     })
-    return {
-      ok: true,
-      record: saveConfirmedSupplementRecord({ identity, draft, createdBy, processWorkOrderRefs }),
+    try {
+      return {
+        ok: true,
+        record: saveConfirmedSupplementRecord({
+          identity,
+          draft,
+          createdBy,
+          processWorkOrderRefs,
+          confirmationKey,
+          requestFingerprint,
+        }),
+      }
+    } catch (error) {
+      try {
+        transaction.rollback()
+      } catch (rollbackError) {
+        const original = error instanceof Error ? error : new Error(String(error))
+        throw new AggregateError([original, rollbackError], `${original.message}；回滚加工单失败`, { cause: original })
+      }
+      throw error
     }
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : '补料印染加工单生成失败，请重试。' }

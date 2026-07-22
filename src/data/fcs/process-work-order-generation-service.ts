@@ -3,8 +3,12 @@ import { registerPrintProcessWorkOrderGenerationRegistrar } from './printing-tas
 import {
   ensureProcessWorkOrders as ensureRegisteredProcessWorkOrders,
   ensureProcessWorkOrderBatch as ensureRegisteredProcessWorkOrderBatch,
+  prepareProcessWorkOrderBatch as prepareRegisteredProcessWorkOrderBatch,
   setProcessWorkOrderGenerationCommitFailureForTest,
+  setProcessWorkOrderGenerationPrepareFailureForTest,
+  setProcessWorkOrderGenerationRollbackFailureForTest,
   type EnsuredProcessWorkOrders,
+  type PreparedProcessWorkOrderBatch,
 } from './process-work-order-generation-registry.ts'
 import type { ProcessWorkOrderGenerationInput } from './process-work-order-generation-key.ts'
 import type { TechPackBomItemSnapshot } from './production-tech-pack-snapshot-types.ts'
@@ -13,7 +17,13 @@ export {
   buildProcessWorkOrderSourceKey,
   type ProcessWorkOrderGenerationInput,
 } from './process-work-order-generation-key.ts'
-export { setProcessWorkOrderGenerationCommitFailureForTest, type EnsuredProcessWorkOrders }
+export {
+  setProcessWorkOrderGenerationCommitFailureForTest,
+  setProcessWorkOrderGenerationPrepareFailureForTest,
+  setProcessWorkOrderGenerationRollbackFailureForTest,
+  type EnsuredProcessWorkOrders,
+  type PreparedProcessWorkOrderBatch,
+}
 
 export function bootstrapProcessWorkOrderGeneration(): void {
   registerDyeProcessWorkOrderGenerationRegistrar()
@@ -30,6 +40,13 @@ export function ensureProcessWorkOrderBatch(
 ): EnsuredProcessWorkOrders[] {
   bootstrapProcessWorkOrderGeneration()
   return ensureRegisteredProcessWorkOrderBatch(inputs)
+}
+
+export function prepareProcessWorkOrderBatch(
+  inputs: ProcessWorkOrderGenerationInput[],
+): PreparedProcessWorkOrderBatch {
+  bootstrapProcessWorkOrderGeneration()
+  return prepareRegisteredProcessWorkOrderBatch(inputs)
 }
 
 export function resolveUniqueSupplementBomItem(input: {
@@ -54,5 +71,12 @@ export function resolveUniqueSupplementBomItem(input: {
       message: `补料物料 ${input.materialSku || input.materialName || '未命名物料'} 无法唯一匹配冻结技术包 BOM，请先确认物料关系。`,
     }
   }
-  return { ok: true, bomItem: structuredClone(candidates[0]) }
+  const bomItem = candidates[0]
+  if (!Number.isFinite(bomItem.unitConsumption) || bomItem.unitConsumption <= 0) {
+    return { ok: false, message: `冻结技术包 BOM ${bomItem.id} 的单耗必须是大于 0 的有限数。` }
+  }
+  if (!Number.isFinite(bomItem.lossRate) || bomItem.lossRate < 0 || bomItem.lossRate > 100) {
+    return { ok: false, message: `冻结技术包 BOM ${bomItem.id} 的损耗率必须在 0% 至 100% 之间。` }
+  }
+  return { ok: true, bomItem: structuredClone(bomItem) }
 }
