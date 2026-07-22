@@ -413,6 +413,62 @@ secondaryLine.basis.shortageMaterial.mappingLine = undefined
 multiBomDraft.materialDemands.push(secondaryDemand)
 multiBomDraft.lines.push(secondaryLine)
 
+const sameCutMultiMaterialDraft = structuredClone(multiBomDraft)
+sameCutMultiMaterialDraft.confirmationIdentity = 'task8-same-cut-multi-material'
+const primaryDemandForSameCut = sameCutMultiMaterialDraft.materialDemands[0]
+const secondaryDemandForSameCut = sameCutMultiMaterialDraft.materialDemands[1]
+const primaryDraftLineForSameCut = sameCutMultiMaterialDraft.lines.find((line) => (
+  line.basis.shortageMaterial.materialPatternMappingId === primaryDemandForSameCut.materialPatternMappingId
+))
+const secondaryDraftLineForSameCut = sameCutMultiMaterialDraft.lines.find((line) => (
+  line.basis.shortageMaterial.materialPatternMappingId === secondaryDemandForSameCut.materialPatternMappingId
+))
+assert(primaryDraftLineForSameCut && secondaryDraftLineForSameCut, '同一裁片单多物料检查必须找到两个 mapping 的明细')
+const primaryLineForSameCut = primaryDraftLineForSameCut.basis.shortageMaterial.line
+const secondaryLineForSameCut = secondaryDraftLineForSameCut.basis.shortageMaterial.line
+const sameCutSecondaryMaterialLine = structuredClone(secondaryLineForSameCut)
+sameCutSecondaryMaterialLine.cutOrderId = primaryDemandForSameCut.originalCutOrderId
+sameCutSecondaryMaterialLine.cutOrderNo = primaryDemandForSameCut.originalCutOrderNo
+sameCutSecondaryMaterialLine.cutPieceOrderNo = primaryLineForSameCut.cutPieceOrderNo
+secondaryDemandForSameCut.originalCutOrderId = primaryDemandForSameCut.originalCutOrderId
+secondaryDemandForSameCut.originalCutOrderNo = primaryDemandForSameCut.originalCutOrderNo
+secondaryDraftLineForSameCut.basis.shortageMaterial.line = structuredClone(sameCutSecondaryMaterialLine)
+secondaryDraftLineForSameCut.basis.shortageMaterial.cutOrderNo = primaryDemandForSameCut.originalCutOrderNo
+assert.equal(secondaryDraftLineForSameCut.basis.shortageMaterial.line.cutOrderId, secondaryDemandForSameCut.originalCutOrderId)
+assert.equal(secondaryDraftLineForSameCut.basis.shortageMaterial.line.cutOrderNo, secondaryDemandForSameCut.originalCutOrderNo)
+const sameCutProductionRecord = cuttingOrderProgressRecords.find((record) => record.productionOrderId === sameCutMultiMaterialDraft.productionOrderId)
+assert(sameCutProductionRecord, '缺少同一裁片单多物料检查的生产记录')
+sameCutProductionRecord.materialLines.push(sameCutSecondaryMaterialLine)
+const sameCutMultiMaterialResult = confirmSupplementAndGenerateProcessWorkOrders(sameCutMultiMaterialDraft, '测试人员')
+sameCutProductionRecord.materialLines.pop()
+assert.equal(
+  sameCutMultiMaterialResult.ok,
+  true,
+  `同一裁片单内多物料时必须按当前 demand 的稳定物料身份解析，不得回退第一条明细：${sameCutMultiMaterialResult.ok ? '' : sameCutMultiMaterialResult.message}`,
+)
+if (sameCutMultiMaterialResult.ok) {
+  assert.deepEqual(
+    sameCutMultiMaterialResult.record.processWorkOrderRefs.map((item) => `${item.materialSku}:${item.processType}`),
+    [
+      `${primaryDemandForSameCut.materialSku}:DYE`,
+      `${primaryDemandForSameCut.materialSku}:PRINT`,
+      `${secondaryDemandForSameCut.materialSku}:DYE`,
+      `${secondaryDemandForSameCut.materialSku}:PRINT`,
+    ],
+  )
+}
+
+const ambiguousSameCutDraft = structuredClone(sameCutMultiMaterialDraft)
+ambiguousSameCutDraft.confirmationIdentity = 'task8-same-cut-ambiguous-material'
+sameCutProductionRecord.materialLines.push(
+  structuredClone(sameCutSecondaryMaterialLine),
+  structuredClone(sameCutSecondaryMaterialLine),
+)
+const ambiguousSameCutResult = confirmSupplementAndGenerateProcessWorkOrders(ambiguousSameCutDraft, '测试人员')
+sameCutProductionRecord.materialLines.splice(-2, 2)
+assert.equal(ambiguousSameCutResult.ok, false, '同一裁片单内当前物料身份匹配多条时必须拒绝')
+if (!ambiguousSameCutResult.ok) assert.match(ambiguousSameCutResult.message, /唯一|多条|明细/)
+
 const atomicCountsBefore = {
   records: listSupplementRecords().length,
   workOrders: listProcessWorkOrders().length,

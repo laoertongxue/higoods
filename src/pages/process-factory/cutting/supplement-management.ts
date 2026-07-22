@@ -2304,33 +2304,111 @@ function buildSupplementRecordIdentity(draft: SupplementDraft): { id: string; re
   return { id: `supplement-confirmed-${token}`, recordNo: `SUP-${token}` }
 }
 
-function resolveSupplementOriginalCutOrder(
-  draft: SupplementDraft,
-  demand: SupplementMaterialDemand,
-): {
+interface ResolvedSupplementOriginalCutOrder {
   originalCutOrderId: string
   originalCutOrderNo: string
   materialLine: CuttingMaterialLine
-} | null {
+}
+
+type ResolveSupplementOriginalCutOrderResult =
+  | { ok: true; value: ResolvedSupplementOriginalCutOrder }
+  | { ok: false; message: string }
+
+function resolveSupplementOriginalCutOrder(
+  draft: SupplementDraft,
+  demand: SupplementMaterialDemand,
+): ResolveSupplementOriginalCutOrderResult {
   const originalCutOrderId = demand.originalCutOrderId.trim()
   const originalCutOrderNo = demand.originalCutOrderNo.trim()
-  if (!originalCutOrderId || !originalCutOrderNo) return null
-  const productionRecord = cuttingOrderProgressRecords.find((record) => record.productionOrderId === draft.productionOrderId)
-  const materialLine = productionRecord?.materialLines.find((line) => (
-    getCutOrderId(line) === originalCutOrderId && getCutOrderNo(line) === originalCutOrderNo
+  if (!originalCutOrderId || !originalCutOrderNo) {
+    return { ok: false, message: `补料物料 ${demand.materialName} 缺少原裁片单标识。` }
+  }
+  const containerLines = cuttingOrderProgressRecords
+    .filter((record) => record.productionOrderId === draft.productionOrderId)
+    .flatMap((record) => record.materialLines)
+    .filter((line) => (
+      getCutOrderId(line) === originalCutOrderId && getCutOrderNo(line) === originalCutOrderNo
+    ))
+  const demandLines = draft.lines.filter((line) => (
+    line.basis.shortageMaterial.materialPatternMappingId.trim() === demand.materialPatternMappingId.trim()
   ))
-  if (materialLine) return { originalCutOrderId, originalCutOrderNo, materialLine: structuredClone(materialLine) }
+  const expectedMaterialSkus = new Set(demandLines.map((line) => (
+    line.basis.shortageMaterial.line.materialIdentity?.materialSku
+      || line.basis.shortageMaterial.line.materialSku
+  ).trim()).filter(Boolean))
+  const expectedMaterialNames = new Set(demandLines.map((line) => line.basis.shortageMaterial.materialName.trim()).filter(Boolean))
+  const materialMatches = containerLines.filter((line) => {
+    const materialSku = (line.materialIdentity?.materialSku || line.materialSku).trim()
+    const materialName = (line.materialIdentity?.materialName || line.materialLabel).trim()
+    return expectedMaterialSkus.has(materialSku)
+      && expectedMaterialNames.has(materialName)
+      && materialSku === demand.materialSku.trim()
+      && materialName === demand.materialName.trim()
+  })
+  if (materialMatches.length === 1) {
+    return {
+      ok: true,
+      value: {
+        originalCutOrderId,
+        originalCutOrderNo,
+        materialLine: structuredClone(materialMatches[0]),
+      },
+    }
+  }
+  if (draft.sourceType === 'release-snapshot') {
+    const releaseMaterialIds = new Set(demandLines.flatMap((line) => {
+      const bomItem = line.basis.shortageMaterial.bomItem
+      const materialCode = bomItem?.materialCode?.trim() || ''
+      return [
+        materialCode,
+        materialCode.replace(/^RELEASE-/i, ''),
+        bomItem?.id?.split('-').at(-1)?.trim() || '',
+      ].filter(Boolean)
+    }))
+    const releaseSources = listCutPieceReleaseRecords()
+      .filter((record) => record.productionOrderId === draft.productionOrderId)
+      .flatMap((record) => record.sourceStates)
+      .filter((source) => (
+        source.cutOrderId === originalCutOrderId
+        && source.cutOrderNo === originalCutOrderNo
+        && source.materialIds.some((materialId) => releaseMaterialIds.has(materialId.trim()))
+      ))
+    const uniqueDemandMaterialLines = [...new Map(demandLines.map((line) => {
+      const materialLine = line.basis.shortageMaterial.line
+      const materialSku = (materialLine.materialIdentity?.materialSku || materialLine.materialSku).trim()
+      const materialName = (materialLine.materialIdentity?.materialName || materialLine.materialLabel).trim()
+      return [`${materialSku}\u0000${materialName}`, materialLine] as const
+    })).values()].filter((line) => (
+      (line.materialIdentity?.materialSku || line.materialSku).trim() === demand.materialSku.trim()
+      && (line.materialIdentity?.materialName || line.materialLabel).trim() === demand.materialName.trim()
+    ))
+    if (releaseSources.length === 1 && uniqueDemandMaterialLines.length === 1) {
+      return {
+        ok: true,
+        value: {
+          originalCutOrderId,
+          originalCutOrderNo,
+          materialLine: structuredClone(uniqueDemandMaterialLines[0]),
+        },
+      }
+    }
+    return {
+      ok: false,
+      message: releaseSources.length > 1 || uniqueDemandMaterialLines.length > 1
+        ? `原裁片单 ${originalCutOrderNo} 内存在多条与物料 ${demand.materialSku} / ${demand.materialName} 一致的放行明细，无法唯一解析。`
+        : `原裁片单 ${originalCutOrderNo} 内未找到与物料 ${demand.materialSku} / ${demand.materialName} 一致的放行明细。`,
+    }
+  }
+  if (containerLines.length > 0) {
+    return {
+      ok: false,
+      message: materialMatches.length === 0
+        ? `原裁片单 ${originalCutOrderNo} 内未找到与物料 ${demand.materialSku} / ${demand.materialName} 一致的明细。`
+        : `原裁片单 ${originalCutOrderNo} 内存在多条与物料 ${demand.materialSku} / ${demand.materialName} 一致的明细，无法唯一解析。`,
+    }
+  }
 
-  const releaseRecord = listCutPieceReleaseRecords().find((record) => record.productionOrderId === draft.productionOrderId)
-  const releaseSource = releaseRecord?.sourceStates.find((source) => (
-    source.cutOrderId === originalCutOrderId && source.cutOrderNo === originalCutOrderNo
-  ))
-  if (!releaseSource) return null
-  const draftLine = draft.lines.find((line) => (
-    getCutOrderId(line.basis.shortageMaterial.line) === originalCutOrderId
-    && getCutOrderNo(line.basis.shortageMaterial.line) === originalCutOrderNo
-  ))?.basis.shortageMaterial.line
-  return draftLine ? { originalCutOrderId, originalCutOrderNo, materialLine: structuredClone(draftLine) } : null
+  return { ok: false, message: `补料物料 ${demand.materialName} 缺少属于当前生产单的原裁片单。` }
 }
 
 let supplementRecordSaveFailureForTest = false
@@ -2425,7 +2503,10 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
     }
     if (getCutOrderId(shortage.line) !== demand.originalCutOrderId.trim()
       || getCutOrderNo(shortage.line) !== demand.originalCutOrderNo.trim()) {
-      return { ok: false, message: `补料明细 ${line.key} 与原裁片单不一致。` }
+      return {
+        ok: false,
+        message: `补料明细 ${line.key} 的原裁片单 ${getCutOrderId(shortage.line)} / ${getCutOrderNo(shortage.line)} 与物料记录 ${demand.originalCutOrderId.trim()} / ${demand.originalCutOrderNo.trim()} 不一致。`,
+      }
     }
   }
   if (coveredMappings.size !== demandsByMapping.size) {
@@ -2445,10 +2526,9 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
     if (demand.techPackVersionId && demand.techPackVersionId !== snapshot.sourceTechPackVersionId) {
       return { ok: false, message: `补料物料 ${demand.materialName} 不是生产单冻结技术包版本中的物料。` }
     }
-    const originalCutOrder = resolveSupplementOriginalCutOrder(draft, demand)
-    if (!originalCutOrder) {
-      return { ok: false, message: `补料物料 ${demand.materialName} 缺少属于生产单 ${draft.productionOrderNo} 的原裁片单，不能确认补料。` }
-    }
+    const resolvedOriginalCutOrder = resolveSupplementOriginalCutOrder(draft, demand)
+    if (!resolvedOriginalCutOrder.ok) return resolvedOriginalCutOrder
+    const originalCutOrder = resolvedOriginalCutOrder.value
     if (draft.sourceType === 'cut-order' && draft.sourceNo.trim() !== originalCutOrder.originalCutOrderNo) {
       return { ok: false, message: '补料来源裁片单与物料记录的原裁片单不一致。' }
     }
