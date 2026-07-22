@@ -61,7 +61,6 @@ interface SupplementFilters {
 }
 
 interface SupplementSourcePickerState {
-  sourceType: SupplementManualSourceType
   keyword: string
   selectedCandidateId: string
 }
@@ -258,7 +257,6 @@ const state: SupplementManagementState = {
     keyword: '',
   },
   sourcePicker: {
-    sourceType: 'production-order',
     keyword: '',
     selectedCandidateId: '',
   },
@@ -785,27 +783,6 @@ function buildSizeColorRows(
   })
 }
 
-function buildProductionCandidate(record: CuttingOrderProgressRecord): SupplementCandidate {
-  const materialLines = record.materialLines
-  const sizeColorRows = buildSizeColorRows(record, 'production-order', materialLines)
-  const materialPatternRefs = buildMaterialPatternRefs(record, materialLines)
-  const canInitiate = !isClosedRecord(record)
-  return {
-    id: makeCandidateId('production-order', record),
-    sourceType: 'production-order',
-    record,
-    sourceNo: record.productionOrderNo,
-    sourceTitle: `生产单 ${record.productionOrderNo}`,
-    sourceSubtitle: `关联裁片单 ${new Set(record.materialLines.map(getCutOrderNo).filter(Boolean)).size} 张`,
-    materialLines,
-    materialPatternRefs,
-    sizeColorRows,
-    abAnalysisRows: buildAbAnalysisRows(record, materialPatternRefs, sizeColorRows),
-    canInitiate,
-    blockedReason: canInitiate ? '' : '生产单下裁片链路已关闭，不能新增补料。',
-  }
-}
-
 function buildCutOrderCandidates(record: CuttingOrderProgressRecord): SupplementCandidate[] {
   const grouped = new Map<string, CuttingMaterialLine[]>()
   record.materialLines.forEach((line) => {
@@ -838,10 +815,7 @@ function buildCutOrderCandidates(record: CuttingOrderProgressRecord): Supplement
 }
 
 function buildCandidates(): SupplementCandidate[] {
-  return cuttingOrderProgressRecords.flatMap((record) => [
-    buildProductionCandidate(record),
-    ...buildCutOrderCandidates(record),
-  ])
+  return cuttingOrderProgressRecords.flatMap((record) => buildCutOrderCandidates(record))
 }
 
 interface ReleaseSnapshotPointIdentity {
@@ -1055,18 +1029,13 @@ function getFilteredRecords(): SupplementRecord[] {
 function getSourcePickerCandidates(): SupplementCandidate[] {
   const keyword = state.sourcePicker.keyword.trim().toLowerCase()
   return buildCandidates()
-    .filter((item) => item.canInitiate)
-    .filter((item) => item.sourceType === state.sourcePicker.sourceType)
     .filter((item) => {
       if (!keyword) return true
       return [
         item.sourceNo,
-        item.sourceTitle,
-        item.sourceSubtitle,
         item.record.productionOrderNo,
-        item.record.spuCode,
         item.record.styleName,
-        item.materialLines.map((line) => [getCutOrderNo(line), line.materialSku, getMaterialName(line)].join(' ')).join(' '),
+        item.record.spuCode,
       ].join(' ').toLowerCase().includes(keyword)
     })
     .sort((left, right) => right.abAnalysisRows.length - left.abAnalysisRows.length)
@@ -1187,18 +1156,8 @@ function renderFilters(): string {
 }
 
 function renderSourcePickerPage(): string {
-  const allCandidates = buildCandidates().filter((item) => item.canInitiate)
-  const productionOrderCount = allCandidates.filter((item) => item.sourceType === 'production-order').length
-  const cutOrderCount = allCandidates.filter((item) => item.sourceType === 'cut-order').length
   const candidates = getSourcePickerCandidates()
   const selectedCandidate = candidates.find((candidate) => candidate.id === state.sourcePicker.selectedCandidateId)
-  const selectedSourceType = state.sourcePicker.sourceType
-  const sourceLabel = sourceTypeLabels[selectedSourceType]
-  const sourceColumnLabel = selectedSourceType === 'production-order' ? '生产单' : '裁片单'
-  const relatedColumnLabel = selectedSourceType === 'production-order' ? '关联裁片单' : '所属生产单'
-  const keywordPlaceholder = selectedSourceType === 'production-order'
-    ? '搜索生产单号、款式、SPU、关联裁片单'
-    : '搜索裁片单号、生产单号、款式、SPU'
   const rows = candidates.map((candidate) => {
     const summary = summarizeCandidate(candidate)
     const spuImageUrl = getSpuImageUrl(candidate.record)
@@ -1208,17 +1167,16 @@ function renderSourcePickerPage(): string {
     const materialImages = candidate.materialLines.slice(0, 4).map((line) => `
       <img class="h-8 w-8 rounded border object-cover" src="${escapeHtml(getMaterialImageUrl(line))}" alt="${escapeHtml(line.materialSku)}" />
     `).join('')
-    const relatedText = selectedSourceType === 'production-order'
-      ? Array.from(new Set(candidate.materialLines.map(getCutOrderNo).filter(Boolean))).slice(0, 4).join('、') || '未关联'
-      : candidate.record.productionOrderNo
     return `
       <tr class="border-t align-top ${isSelected ? 'bg-blue-50/40' : ''}">
         <td class="w-12 px-4 py-4">
           <input
             class="h-4 w-4 rounded border"
-            type="checkbox"
+            type="radio"
+            name="supplement-cut-order-candidate"
             aria-label="选择${escapeHtml(candidate.sourceTitle)}"
             ${isSelected ? 'checked' : ''}
+            ${candidate.canInitiate ? '' : 'disabled'}
             data-cutting-supplement-action="toggle-source-candidate"
             data-candidate-id="${escapeHtml(candidate.id)}"
           />
@@ -1226,6 +1184,7 @@ function renderSourcePickerPage(): string {
         <td class="px-4 py-4">
           <div class="font-semibold">${escapeHtml(candidate.sourceTitle)}</div>
           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(candidate.sourceSubtitle)}</div>
+          ${candidate.blockedReason ? `<div class="mt-2 text-xs font-medium text-red-600">${escapeHtml(candidate.blockedReason)}</div>` : ''}
         </td>
         <td class="px-4 py-4">
           <div class="flex items-start gap-3">
@@ -1244,7 +1203,7 @@ function renderSourcePickerPage(): string {
           <div>建议补料：<span class="font-medium tabular-nums">${formatInteger(suggestedSupplementQty)}</span> 件</div>
         </td>
         <td class="px-4 py-4 text-sm">
-          <div>${escapeHtml(relatedText)}</div>
+          <div>${escapeHtml(candidate.record.productionOrderNo)}</div>
           <div class="mt-1 text-xs text-muted-foreground">物料 ${formatInteger(candidate.materialLines.length)} 行</div>
         </td>
       </tr>
@@ -1254,28 +1213,13 @@ function renderSourcePickerPage(): string {
   return `
     <section class="rounded-lg border bg-card">
       <div class="border-b px-5 py-4">
-        <h2 class="text-lg font-semibold">选择补料对象</h2>
-        <p class="mt-1 text-sm text-muted-foreground">先选择生产单或裁片单，搜索并勾选一条记录后进入下一步填写补料明细。</p>
+        <h2 class="text-lg font-semibold">选择裁片单</h2>
       </div>
       <div class="space-y-4 border-b px-5 py-4">
-        <div class="inline-flex rounded-lg border bg-muted/30 p-1 text-sm">
-          <button
-            type="button"
-            class="rounded-md px-4 py-2 font-medium ${selectedSourceType === 'production-order' ? 'bg-background text-blue-700 shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
-            data-cutting-supplement-action="set-source-picker-type"
-            data-source-type="production-order"
-          >按生产单选择 ${formatInteger(productionOrderCount)}</button>
-          <button
-            type="button"
-            class="rounded-md px-4 py-2 font-medium ${selectedSourceType === 'cut-order' ? 'bg-background text-blue-700 shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
-            data-cutting-supplement-action="set-source-picker-type"
-            data-source-type="cut-order"
-          >按裁片单选择 ${formatInteger(cutOrderCount)}</button>
-        </div>
         <div class="grid gap-3 md:grid-cols-[minmax(260px,1fr)_auto_auto] md:items-end">
           <label class="space-y-1 text-sm">
-            <span class="text-muted-foreground">${sourceLabel}搜索</span>
-            <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-supplement-field="sourcePickerKeyword" value="${escapeHtml(state.sourcePicker.keyword)}" placeholder="${escapeHtml(keywordPlaceholder)}" />
+            <span class="text-muted-foreground">裁片单搜索</span>
+            <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-supplement-field="sourcePickerKeyword" value="${escapeHtml(state.sourcePicker.keyword)}" placeholder="搜索裁片单号、生产单号、款式、SPU" />
           </label>
           <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-cutting-supplement-action="apply-source-picker-search">搜索</button>
           <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-cutting-supplement-action="reset-source-picker-search">重置</button>
@@ -1286,18 +1230,18 @@ function renderSourcePickerPage(): string {
           <thead class="bg-muted/50 text-xs text-muted-foreground">
             <tr>
               <th class="w-12 px-4 py-3 font-medium">选择</th>
-              <th class="px-4 py-3 font-medium">${sourceColumnLabel}</th>
+              <th class="px-4 py-3 font-medium">裁片单</th>
               <th class="px-4 py-3 font-medium">款式/SPU</th>
               <th class="px-4 py-3 font-medium">补料参考数据</th>
-              <th class="px-4 py-3 font-medium">${relatedColumnLabel}</th>
+              <th class="px-4 py-3 font-medium">所属生产单</th>
             </tr>
           </thead>
-          <tbody>${rows || `<tr><td class="px-4 py-8 text-center text-muted-foreground" colspan="5">暂无可新增补料的${sourceLabel}。</td></tr>`}</tbody>
+          <tbody>${rows || '<tr><td class="px-4 py-8 text-center text-muted-foreground" colspan="5">暂无裁片单。</td></tr>'}</tbody>
         </table>
       </div>
       <div class="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4">
         <div class="text-sm text-muted-foreground">
-          ${selectedCandidate ? `已选择：${escapeHtml(selectedCandidate.sourceTitle)} / ${escapeHtml(selectedCandidate.record.styleName)}` : `请选择一条${sourceLabel}后进入下一步。`}
+          ${selectedCandidate ? `已选择：${escapeHtml(selectedCandidate.sourceTitle)} / ${escapeHtml(selectedCandidate.record.styleName)}` : '请选择一张可新增补料的裁片单后进入下一步。'}
         </div>
         <button
           type="button"
@@ -2391,7 +2335,6 @@ function setSourcePickerKeywordFromDom(): void {
 function clearSupplementCreateState(): void {
   state.activeCandidateId = ''
   state.sourcePicker = {
-    sourceType: 'production-order',
     keyword: '',
     selectedCandidateId: '',
   }
@@ -2628,16 +2571,6 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     return true
   }
 
-  if (action === 'set-source-picker-type') {
-    const sourceType = actionNode.dataset.sourceType
-    if (sourceType === 'production-order' || sourceType === 'cut-order') {
-      state.sourcePicker.sourceType = sourceType
-      state.sourcePicker.selectedCandidateId = ''
-      state.feedback = null
-    }
-    return true
-  }
-
   if (action === 'apply-source-picker-search') {
     setSourcePickerKeywordFromDom()
     state.feedback = null
@@ -2654,7 +2587,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   if (action === 'toggle-source-candidate') {
     const candidateId = actionNode.dataset.candidateId || ''
     const candidate = getCandidateById(candidateId)
-    if (!candidate || !candidate.canInitiate || candidate.sourceType !== state.sourcePicker.sourceType) {
+    if (!candidate || !candidate.canInitiate) {
       state.sourcePicker.selectedCandidateId = ''
       state.feedback = { tone: 'warning', message: candidate?.blockedReason || '当前对象不能新增补料。' }
       return true
@@ -2861,7 +2794,6 @@ export function renderCraftCuttingSupplementCreatePage(): string {
         <div>
           <div class="text-sm text-muted-foreground">工艺工厂运营系统 / 裁床厂管理 / 裁后处理 / 补料管理 / 新增补料</div>
           <h1 class="mt-2 text-2xl font-semibold tracking-tight">新增补料</h1>
-          <p class="mt-1 text-sm text-muted-foreground">按生产单或裁片单发起补料，并按成衣颜色、尺码、面料别名、物料信息和纸样信息填写本次补料件数。</p>
         </div>
         <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cutting-supplement-action="cancel-create">返回补料列表</button>
       </div>
