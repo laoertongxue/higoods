@@ -295,8 +295,19 @@ export function validateGarmentTechniqueBomLinks(
 
 export function removeGarmentBomReverseReferences<
   M extends { lines: Array<{ bomItemId?: string }> },
-  P extends { linkedBomItemId?: string },
->(bomItemId: string, colorMaterialMappings: M[], patternItems: P[]): {
+  P extends {
+    linkedBomItemId?: string
+    linkedMaterialId?: string
+    linkedMaterialName?: string
+    linkedMaterialSku?: string
+    linkedMaterialAlias?: string
+  },
+>(
+  bomItemId: string,
+  colorMaterialMappings: M[],
+  patternItems: P[],
+  previousMaterial?: { materialName?: string; materialCode?: string },
+): {
   colorMaterialMappings: M[]
   patternItems: P[]
 } {
@@ -305,9 +316,25 @@ export function removeGarmentBomReverseReferences<
       ...mapping,
       lines: mapping.lines.filter((line) => line.bomItemId !== bomItemId),
     })),
-    patternItems: patternItems.map((pattern) => pattern.linkedBomItemId === bomItemId
-      ? { ...pattern, linkedBomItemId: undefined }
-      : pattern),
+    patternItems: patternItems.map((pattern) => {
+      const linkedByBomId = pattern.linkedBomItemId === bomItemId
+      const linkedByMaterialId = pattern.linkedMaterialId === bomItemId
+      const linkedByMaterialName = Boolean(previousMaterial?.materialName)
+        && pattern.linkedMaterialName === previousMaterial?.materialName
+      const linkedByMaterialSku = Boolean(previousMaterial?.materialCode)
+        && pattern.linkedMaterialSku === previousMaterial?.materialCode
+      if (!linkedByBomId && !linkedByMaterialId && !linkedByMaterialName && !linkedByMaterialSku) return pattern
+      return {
+        ...pattern,
+        linkedBomItemId: linkedByBomId ? undefined : pattern.linkedBomItemId,
+        linkedMaterialId: undefined,
+        linkedMaterialName: undefined,
+        linkedMaterialSku: undefined,
+        linkedMaterialAlias: linkedByMaterialId || linkedByMaterialName || linkedByMaterialSku
+          ? undefined
+          : pattern.linkedMaterialAlias,
+      }
+    }),
   }
 }
 

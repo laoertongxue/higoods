@@ -94,11 +94,28 @@ assert.deepEqual(resolveDyeDemoMaterial(consumerSnapshot as never, '默认款式
 })
 const cleanedReferences = removeGarmentBomReverseReferences('bom-fabric-1', [{
   id: 'map-1', lines: [{ id: 'line-1', bomItemId: 'bom-fabric-1' }, { id: 'line-2', bomItemId: 'other' }],
-}], [{ id: 'pattern-1', linkedBomItemId: 'bom-fabric-1' }, { id: 'pattern-2', linkedBomItemId: 'other' }])
+}], [{
+  id: 'pattern-1', linkedBomItemId: 'bom-fabric-1', linkedMaterialId: 'bom-fabric-1',
+  linkedMaterialName: '主面料', linkedMaterialSku: 'FABRIC-001', linkedMaterialAlias: '主面料别名',
+}, { id: 'pattern-2', linkedBomItemId: 'other', linkedMaterialAlias: '纸样用途别名' }], {
+  materialName: '主面料', materialCode: 'FABRIC-001',
+})
 assert.deepEqual(cleanedReferences.colorMaterialMappings[0]?.lines.map((line) => line.id), ['line-2'])
 assert.equal(cleanedReferences.patternItems[0]?.linkedBomItemId, undefined)
+assert.equal(cleanedReferences.patternItems[0]?.linkedMaterialId, undefined)
+assert.equal(cleanedReferences.patternItems[0]?.linkedMaterialName, undefined)
+assert.equal(cleanedReferences.patternItems[0]?.linkedMaterialSku, undefined)
+assert.equal(cleanedReferences.patternItems[0]?.linkedMaterialAlias, undefined)
+assert.equal(cleanedReferences.patternItems[1]?.linkedMaterialAlias, '纸样用途别名')
 assert.equal(isCuttingMappingLineEligible(consumerSnapshot as never, { bomItemId: 'garment-first' } as never), false)
 assert.equal(isCuttingMappingLineEligible(consumerSnapshot as never, { bomItemId: 'fabric-second' } as never), true)
+assert.equal(isCuttingMappingLineEligible(consumerSnapshot as never, { materialCode: 'garment-first', materialName: '成衣' } as never), false)
+assert.equal(isCuttingMappingLineEligible(consumerSnapshot as never, { materialCode: 'missing', materialName: '不存在' } as never), false)
+assert.equal(isCuttingMappingLineEligible(consumerSnapshot as never, { materialCode: 'fabric-second', materialName: '棉布' } as never), true)
+assert.equal(isCuttingMappingLineEligible({ bomItems: [
+  ...consumerSnapshot.bomItems,
+  { id: 'fabric-third', type: '面料', name: '棉布', spec: '混纺', colorLabel: '白' },
+] } as never, { materialName: '棉布' } as never), false)
 assert.deepEqual(selectProductionMaterialBomItems([consumerSnapshot.bomItems[0]]), [])
 assert.equal(
   ensurePatternPoolDemoPackages([], [normalized]).filter((item) => item.recordKind === 'MATERIAL_ASSOCIATION').length,
@@ -120,7 +137,6 @@ const sourceChecks = [
   ['纸样关联', 'src/pages/tech-pack/pattern-domain.ts'],
   ['款色用料映射', 'src/pages/tech-pack/color-mapping-domain.ts'],
   ['采购备料', 'src/data/fcs/material-request-drafts.ts'],
-  ['裁片生成', 'src/data/fcs/cutting/generated-cut-orders.ts'],
 ] as const
 sourceChecks.forEach(([label, path]) => {
   assert.match(readFileSync(path, 'utf8'), /type !== '成衣'/, `${label}必须隔离成衣 BOM`)

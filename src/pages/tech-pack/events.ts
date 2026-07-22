@@ -4004,12 +4004,14 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     }
 
     if (state.editBomItemId) {
+      const previousBomItem = state.bomItems.find((item) => item.id === state.editBomItemId)
       state.bomItems = state.bomItems.map((item) => (item.id === state.editBomItemId ? nextBom : item))
       if (nextBom.type === '成衣') {
         const cleanedReferences = removeGarmentBomReverseReferences(
           state.editBomItemId,
           state.colorMaterialMappings,
           state.patternItems,
+          previousBomItem,
         )
         state.colorMaterialMappings = cleanedReferences.colorMaterialMappings
         state.patternItems = cleanedReferences.patternItems
