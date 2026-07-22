@@ -863,9 +863,11 @@ const processWorkOrderDomainSource = read('src/data/fcs/process-work-order-domai
 const processWorkOrderGenerationSource = read('src/data/fcs/process-work-order-generation-service.ts')
 assert(processWorkOrderDomainSource.includes("'PRODUCTION_ORDER' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT'"), '印染加工单必须支持生产单、备货和裁片补料三种来源')
 assert(processWorkOrderDomainSource.includes('sourceSnapshot: ProcessWorkOrderSourceSnapshot'), '统一加工单必须强制携带来源快照')
-for (const sourceKeyField of ['productionOrderId', 'stockMaterialId', 'supplementRecordId']) {
-  assert(processWorkOrderGenerationSource.includes(`input.source.${sourceKeyField}`), `统一创建服务幂等键缺少来源字段 ${sourceKeyField}`)
+for (const sourceKeyField of ['sourceType', 'processCode', 'productionOrderId', 'stockMaterialId', 'supplementRecordId']) {
+  assert(processWorkOrderGenerationSource.includes(`['${sourceKeyField}',`), `统一创建服务幂等键缺少命名字段 ${sourceKeyField}`)
 }
+assert(processWorkOrderGenerationSource.includes('JSON.stringify(keyFields)'), '统一创建服务幂等键必须使用无歧义稳定序列化')
+assert(!processWorkOrderGenerationSource.includes(".join('|')"), '统一创建服务幂等键不得继续使用可碰撞的分隔符拼接')
 for (const forbidden of ['prerequisiteWorkOrderId', 'lockedByDyeWorkOrderId', 'unlockStatus']) {
   assert(!processWorkOrderDomainSource.includes(forbidden), `印染加工单不得引入运行时互锁字段 ${forbidden}`)
 }

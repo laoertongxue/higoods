@@ -36,6 +36,7 @@ import {
   type FormalProductionOrderProcessSnapshot,
 } from '../src/data/fcs/production-process-work-order-service.ts'
 import {
+  buildProcessWorkOrderSourceKey,
   ensureProcessWorkOrders,
   type ProcessWorkOrderGenerationInput,
 } from '../src/data/fcs/process-work-order-generation-service.ts'
@@ -1153,6 +1154,195 @@ const supplementSource: ProcessWorkOrderGenerationInput = {
   spuName: '补料测试款',
   requiredDeliveryDate: '2026-07-30',
 }
+
+const stockCollisionSource: ProcessWorkOrderGenerationInput = {
+  ...supplementSource,
+  source: {
+    sourceType: 'STOCK',
+    stockMaterialId: 'A',
+    stockMaterialName: '碰撞测试备货物料',
+  },
+  processCodes: ['DYE'],
+  orderedAt: 'B|C|D',
+}
+const productionCollisionSource: ProcessWorkOrderGenerationInput = {
+  ...supplementSource,
+  source: {
+    sourceType: 'PRODUCTION_ORDER',
+    productionOrderId: 'A',
+    productionOrderNo: 'PO-COLLISION-001',
+    techPackVersionId: 'B',
+    techPackVersionLabel: '碰撞测试版',
+    bomItemId: 'C|D',
+  },
+  processCodes: ['DYE'],
+}
+const supplementCollisionSource: ProcessWorkOrderGenerationInput = {
+  ...supplementSource,
+  source: {
+    sourceType: 'CUT_PIECE_SUPPLEMENT',
+    productionOrderId: 'PO-COLLISION-SUP',
+    productionOrderNo: 'PO-COLLISION-SUP',
+    techPackVersionId: 'C',
+    techPackVersionLabel: '碰撞测试版',
+    bomItemId: 'D',
+    supplementRecordId: 'A',
+    supplementRecordNo: 'SUP-COLLISION-001',
+    originalCutOrderId: 'B',
+    originalCutOrderNo: 'CUT-COLLISION-001',
+  },
+  processCodes: ['DYE'],
+}
+const crossSourceKeys = [stockCollisionSource, productionCollisionSource, supplementCollisionSource]
+  .map((input) => buildProcessWorkOrderSourceKey(input, 'DYE'))
+const legacyCollisionKeys = [
+  [stockCollisionSource.source.stockMaterialId, stockCollisionSource.orderedAt, 'DYE'].join('|'),
+  [productionCollisionSource.source.productionOrderId, productionCollisionSource.source.techPackVersionId, productionCollisionSource.source.bomItemId, 'DYE'].join('|'),
+  [supplementCollisionSource.source.supplementRecordId, supplementCollisionSource.source.originalCutOrderId, supplementCollisionSource.source.techPackVersionId, supplementCollisionSource.source.bomItemId, 'DYE'].join('|'),
+]
+assert.equal(new Set(legacyCollisionKeys).size, 1, '测试夹具必须复现旧分隔符键在三种来源间的真实碰撞')
+assert.equal(
+  new Set(crossSourceKeys).size,
+  3,
+  '生产单、备货、补料三种来源即使身份值重合，也必须产生相互隔离的幂等键',
+)
+assert(crossSourceKeys.every((key) => key && !key.includes('undefined')), '有效来源不得生成空键或包含 undefined 的键')
+
+const productionPipeLeft: ProcessWorkOrderGenerationInput = {
+  ...productionCollisionSource,
+  source: {
+    ...productionCollisionSource.source,
+    productionOrderId: 'AA|BB',
+    techPackVersionId: 'CC',
+    bomItemId: 'DD',
+  },
+}
+const productionPipeRight: ProcessWorkOrderGenerationInput = {
+  ...productionCollisionSource,
+  source: {
+    ...productionCollisionSource.source,
+    productionOrderId: 'AA',
+    techPackVersionId: 'BB|CC',
+    bomItemId: 'DD',
+  },
+}
+assert.notEqual(
+  buildProcessWorkOrderSourceKey(productionPipeLeft, 'DYE'),
+  buildProcessWorkOrderSourceKey(productionPipeRight, 'DYE'),
+  '身份字段含分隔符时，不同字段组合不得碰撞',
+)
+assert.notEqual(
+  buildProcessWorkOrderSourceKey(productionCollisionSource, 'DYE'),
+  buildProcessWorkOrderSourceKey({
+    ...supplementSource,
+    source: {
+      ...supplementSource.source,
+      productionOrderId: productionCollisionSource.source.productionOrderId,
+      techPackVersionId: productionCollisionSource.source.techPackVersionId,
+      bomItemId: productionCollisionSource.source.bomItemId,
+    },
+  }, 'DYE'),
+  '生产单与补料来源共享部分生产身份字段时，幂等键仍必须按来源隔离',
+)
+assert.notEqual(
+  buildProcessWorkOrderSourceKey(productionCollisionSource, 'DYE'),
+  buildProcessWorkOrderSourceKey(productionCollisionSource, 'PRINT'),
+  '染色与印花加工单必须使用相互隔离的幂等键',
+)
+
+const whitespaceProductionSource: ProcessWorkOrderGenerationInput = {
+  ...productionCollisionSource,
+  source: {
+    sourceType: 'PRODUCTION_ORDER',
+    productionOrderId: '  A  ',
+    productionOrderNo: '  PO-COLLISION-001  ',
+    techPackVersionId: '  B  ',
+    techPackVersionLabel: '  碰撞测试版  ',
+    bomItemId: '  C|D  ',
+  },
+}
+assert.equal(
+  buildProcessWorkOrderSourceKey(whitespaceProductionSource, 'DYE'),
+  buildProcessWorkOrderSourceKey(productionCollisionSource, 'DYE'),
+  '来源身份字段首尾空白必须归一化后参与幂等',
+)
+assert.equal(
+  buildProcessWorkOrderSourceKey({
+    ...stockCollisionSource,
+    source: {
+      sourceType: 'STOCK',
+      stockMaterialId: '  A  ',
+      stockMaterialName: '  碰撞测试备货物料  ',
+    },
+    orderedAt: '  B|C|D  ',
+  }, 'DYE'),
+  buildProcessWorkOrderSourceKey(stockCollisionSource, 'DYE'),
+  '备货身份与创建时间首尾空白必须归一化后参与幂等',
+)
+
+const requiredIdentityFields = [
+  {
+    name: '生产单来源',
+    input: productionCollisionSource,
+    fields: ['productionOrderId', 'productionOrderNo', 'techPackVersionId', 'techPackVersionLabel', 'bomItemId'],
+  },
+  {
+    name: '备货来源',
+    input: stockCollisionSource,
+    fields: ['stockMaterialId', 'stockMaterialName'],
+  },
+  {
+    name: '补料来源',
+    input: supplementSource,
+    fields: [
+      'productionOrderId',
+      'productionOrderNo',
+      'techPackVersionId',
+      'techPackVersionLabel',
+      'bomItemId',
+      'supplementRecordId',
+      'supplementRecordNo',
+      'originalCutOrderId',
+      'originalCutOrderNo',
+    ],
+  },
+] as const
+const orderCountBeforeInvalidSources = listProcessWorkOrders().length
+for (const requiredGroup of requiredIdentityFields) {
+  for (const field of requiredGroup.fields) {
+    for (const invalidValue of [undefined, '   '] as const) {
+      const invalidInput = structuredClone(requiredGroup.input) as ProcessWorkOrderGenerationInput
+      if (invalidValue === undefined) {
+        delete (invalidInput.source as unknown as Record<string, unknown>)[field]
+      } else {
+        ;(invalidInput.source as unknown as Record<string, unknown>)[field] = invalidValue
+      }
+      assert.throws(
+        () => buildProcessWorkOrderSourceKey(invalidInput, 'DYE'),
+        undefined,
+        `${requiredGroup.name}缺少或留空 ${field} 时不得生成幂等键`,
+      )
+      assert.throws(
+        () => ensureProcessWorkOrders(invalidInput),
+        undefined,
+        `${requiredGroup.name}缺少或留空 ${field} 时必须拒绝生成加工单`,
+      )
+    }
+  }
+}
+for (const invalidOrderedAt of [undefined, '   '] as const) {
+  const blankOrderedAtInput = { ...stockCollisionSource, orderedAt: invalidOrderedAt } as unknown as ProcessWorkOrderGenerationInput
+  assert.throws(() => buildProcessWorkOrderSourceKey(blankOrderedAtInput, 'DYE'), undefined, '备货来源缺少创建时间时不得生成幂等键')
+  assert.throws(() => ensureProcessWorkOrders(blankOrderedAtInput), undefined, '备货来源缺少创建时间时必须拒绝生成加工单')
+}
+assert.equal(listProcessWorkOrders().length, orderCountBeforeInvalidSources, '非法来源不得产生任何加工单')
+
+const firstCollisionStockResult = ensureProcessWorkOrders(stockCollisionSource)
+const secondCollisionStockResult = ensureProcessWorkOrders(stockCollisionSource)
+const firstCollisionProductionResult = ensureProcessWorkOrders(productionCollisionSource)
+assert.equal(secondCollisionStockResult.dyeWorkOrderId, firstCollisionStockResult.dyeWorkOrderId, '同一备货来源重复调用必须幂等')
+assert.notEqual(firstCollisionProductionResult.dyeWorkOrderId, firstCollisionStockResult.dyeWorkOrderId, '跨来源旧键碰撞场景必须生成各自独立的加工单')
+
 const firstSupplementResult = ensureProcessWorkOrders(supplementSource)
 const secondSupplementResult = ensureProcessWorkOrders(supplementSource)
 assert(firstSupplementResult.dyeWorkOrderId, '补料来源必须生成染色加工单')
