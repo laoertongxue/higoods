@@ -380,7 +380,7 @@ interface TaskSeedContext {
   materialSku?: string
   unit: string
   itemName: string
-  itemKind: '裁片' | '面料' | '成衣半成品'
+  itemKind: '裁片' | '面料' | '成衣'
   planQty: number
   receivedQty: number
   completedQty: number
@@ -517,12 +517,12 @@ function pickWarehousePosition(
 }
 
 function getTaskUnit(targetObject: SpecialCraftTargetObject): string {
-  if (targetObject === '成衣半成品') return '件'
+  if (targetObject === '成衣') return '件'
   return '片'
 }
 
-function getTaskItemKind(targetObject: SpecialCraftTargetObject): '裁片' | '面料' | '成衣半成品' {
-  if (targetObject === '成衣半成品') return '成衣半成品'
+function getTaskItemKind(targetObject: SpecialCraftTargetObject): '裁片' | '面料' | '成衣' {
+  if (targetObject === '成衣') return '成衣'
   return '裁片'
 }
 
@@ -530,8 +530,8 @@ function getTaskItemName(operation: SpecialCraftOperationDefinition, targetObjec
   if (targetObject === '完整面料' || targetObject === '面料') {
     return `${operation.operationName}面料批次`
   }
-  if (targetObject === '成衣半成品') {
-    return `${operation.operationName}半成品工单`
+  if (targetObject === '成衣') {
+    return `${operation.operationName}成衣工单`
   }
   return `${partName || '裁片'}${operation.operationName}任务`
 }
@@ -635,7 +635,7 @@ function buildLinkedDemoTaskSeed(input: {
   const sourceTaskNo = `TASK-${taskOrderNo}`
   const status = LINKED_DEMO_STATUSES[variantIndex % LINKED_DEMO_STATUSES.length]
   const abnormalStatus = LINKED_DEMO_ABNORMALS[variantIndex % LINKED_DEMO_ABNORMALS.length]
-  const pieceCountPerGarment = operation.targetObject === '成衣半成品' ? 1 : patternContext.pieceCountPerGarment
+  const pieceCountPerGarment = operation.targetObject === '成衣' ? 1 : patternContext.pieceCountPerGarment
   const planQty = roundQty(orderLine.qty * pieceCountPerGarment)
   const receivedQty = status === '待领料' ? 0 : roundQty(planQty - (abnormalStatus === '无异常' ? 0 : Math.max(1, Math.round(planQty * 0.01))))
   const completedQty = ['已完成', '待交出', '已交出', '已回写', '差异', '异议中'].includes(status)
@@ -651,10 +651,10 @@ function buildLinkedDemoTaskSeed(input: {
     taskOrderId,
     productionOrderId: order.productionOrderId,
     productionOrderNo: order.productionOrderNo,
-    patternFileId: targetObject === '成衣半成品' ? `GARMENT-${operation.operationId}` : patternContext.patternFileId,
-    patternFileName: targetObject === '成衣半成品' ? '成衣半成品' : patternContext.patternFileName,
-    pieceRowId: targetObject === '成衣半成品' ? `GARMENT-${operation.operationId}` : patternContext.pieceRowId,
-    partName: targetObject === '成衣半成品' ? '成衣半成品' : patternContext.partName,
+    patternFileId: targetObject === '成衣' ? `GARMENT-${operation.operationId}` : patternContext.patternFileId,
+    patternFileName: targetObject === '成衣' ? '成衣' : patternContext.patternFileName,
+    pieceRowId: targetObject === '成衣' ? `GARMENT-${operation.operationId}` : patternContext.pieceRowId,
+    partName: targetObject === '成衣' ? '成衣' : patternContext.partName,
     colorName: orderLine.color,
     colorCode: orderLine.color,
     sizeCode: orderLine.size,
@@ -672,7 +672,7 @@ function buildLinkedDemoTaskSeed(input: {
     craftName: operation.craftName,
     targetObject,
     unit: getTaskUnit(targetObject),
-    feiTicketNos: targetObject === '成衣半成品' ? [] : [`FT-${order.productionOrderNo.replace(/^PO-/, '')}-${String(variantIndex + 1).padStart(2, '0')}`],
+    feiTicketNos: targetObject === '成衣' ? [] : [`FT-${order.productionOrderNo.replace(/^PO-/, '')}-${String(variantIndex + 1).padStart(2, '0')}`],
     bundleWidthCm: patternContext.bundleWidthCm,
     bundleLengthCm: patternContext.bundleLengthCm,
     remark: `来源生产单 ${order.productionOrderNo} / 技术包 ${snapshot.sourceTechPackVersionLabel || snapshot.versionLabel}`,
@@ -708,7 +708,7 @@ function buildLinkedDemoTaskSeed(input: {
     fabricColor: orderLine.color,
     sizeCode: orderLine.size,
     feiTicketNos: [...demandLine.feiTicketNos],
-    transferBagNos: targetObject === '成衣半成品' ? [] : [`TB-${order.productionOrderNo.replace(/^PO-/, '')}-${String(variantIndex + 1).padStart(2, '0')}`],
+    transferBagNos: targetObject === '成衣' ? [] : [`TB-${order.productionOrderNo.replace(/^PO-/, '')}-${String(variantIndex + 1).padStart(2, '0')}`],
     fabricRollNos: [],
     materialSku: orderLine.skuCode,
     unit: getTaskUnit(targetObject),
@@ -725,10 +725,10 @@ function buildLinkedDemoTaskSeed(input: {
     dueAt: order.demandSnapshot.requiredDeliveryDate || order.updatedAt,
     receiverName: getReceiverName(operation),
     receiverKind: getReceiverKind(operation),
-    sourceAction: targetObject === '成衣半成品' ? '交出接收' : '领料确认',
-    sourceRecordType: targetObject === '成衣半成品' ? 'HANDOVER_RECEIVE' : 'MATERIAL_PICKUP',
-    sourceRecordNo: `${targetObject === '成衣半成品' ? 'JS' : 'LL'}-${taskOrderNo}`,
-    sourceObjectName: targetObject === '成衣半成品' ? '上游工厂交出' : '裁床待交出仓',
+    sourceAction: targetObject === '成衣' ? '交出接收' : '领料确认',
+    sourceRecordType: targetObject === '成衣' ? 'HANDOVER_RECEIVE' : 'MATERIAL_PICKUP',
+    sourceRecordNo: `${targetObject === '成衣' ? 'JS' : 'LL'}-${taskOrderNo}`,
+    sourceObjectName: targetObject === '成衣' ? '成衣仓出库' : '裁床待交出仓',
     handoverOrderId: `SC-HO-${seedKey}`,
     handoverOrderNo: `SC-HDO-${taskOrderNo}`,
     handoverRecordId: `SC-HR-${seedKey}`,
@@ -1470,15 +1470,15 @@ function getSpecialTypeWarehouseProfile(taskOrder: SpecialCraftTaskOrder): {
       sourceObjectName: '辅料仓',
     }
   }
-  if (taskOrder.targetObject === '成衣半成品') {
+  if (taskOrder.targetObject === '成衣') {
     return {
-      itemKind: '成衣半成品',
-      itemName: `${taskOrder.craftName}半成品`,
+      itemKind: '成衣',
+      itemName: `${taskOrder.craftName}成衣`,
       unit: taskOrder.unit || '件',
       materialSku: taskOrder.materialSku,
       receiverKind: operation?.mustReturnToCuttingFactory ? '裁床厂' : '中转仓',
       receiverName: operation?.mustReturnToCuttingFactory ? '裁床待交出仓' : '中转仓',
-      sourceObjectName: '上游工厂交出',
+      sourceObjectName: '成衣仓出库',
     }
   }
   return {
@@ -1524,7 +1524,7 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         craftName: taskOrder.craftName,
         sourceRecordId: `SPC-SRC-${taskOrder.taskOrderId}`,
         sourceRecordNo: `LL-${taskOrder.taskOrderNo}`,
-        sourceRecordType: profile.itemKind === '成衣半成品' ? 'HANDOVER_RECEIVE' : 'MATERIAL_PICKUP',
+        sourceRecordType: profile.itemKind === '成衣' ? 'HANDOVER_RECEIVE' : 'MATERIAL_PICKUP',
         sourceObjectName: profile.sourceObjectName,
         taskId: taskOrder.sourceTaskId,
         taskNo: taskOrder.sourceTaskNo,

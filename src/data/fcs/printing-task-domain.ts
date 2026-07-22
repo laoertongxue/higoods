@@ -239,7 +239,7 @@ const reviewRecordStore = new Map<string, MutableReviewRecord>()
 let seeded = false
 
 const GENERATED_PRINT_CRAFTS = listActiveProcessCraftDefinitions()
-  .filter((definition) => definition.processCode === 'PRINT' && definition.defaultDocType === 'DEMAND')
+  .filter((definition) => definition.processCode === 'PRINT' && definition.defaultDocType === 'TASK')
 
 interface GeneratedPrintContext {
   productionOrder: ProductionOrder

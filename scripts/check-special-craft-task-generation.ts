@@ -13,6 +13,7 @@ import {
   listGeneratedProductionTaskArtifacts,
 } from '../src/data/fcs/production-artifact-generation.ts'
 import { listActiveProcessCraftDefinitions } from '../src/data/fcs/process-craft-dict.ts'
+import { resolveTechPackProcessEntryRule } from '../src/data/fcs/tech-packs.ts'
 import { buildProductionConfirmationSnapshot } from '../src/data/fcs/production-confirmation.ts'
 import {
   buildSpecialCraftOperationSlug,
@@ -124,7 +125,7 @@ const hasPieceSpecialCraftConfig = snapshot.patternFiles.some((row) =>
   row.pieceRows.some((piece) => (piece.specialCrafts ?? []).length > 0),
 )
 const hasGarmentSpecialCraftConfig = snapshot.processEntries.some((entry) =>
-  entry.processCode === 'SPECIAL_CRAFT' && Boolean(entry.craftCode) && entry.selectedTargetObject === '成衣半成品',
+  entry.processCode === 'SPECIAL_CRAFT' && Boolean(entry.craftCode) && entry.selectedTargetObject === '成衣',
 )
 assert(
   hasPieceSpecialCraftConfig || hasGarmentSpecialCraftConfig,
@@ -146,7 +147,34 @@ assert(demandBuildResult.demandLines.every((line) => line.planPieceQty === line.
 assert(demandBuildResult.demandLines.every((line) => line.patternFileId.trim().length > 0 && line.patternFileName.trim().length > 0), '任务明细必须包含来源纸样')
 assert(demandBuildResult.demandLines.every((line) => line.pieceRowId.trim().length > 0), '任务明细必须包含来源裁片明细')
 assert(demandBuildResult.demandLines.every((line) => Array.isArray(line.feiTicketNos) && line.feiTicketNos.length === 0), '任务生成时菲票字段必须允许为空')
-assert(demandBuildResult.demandLines.every((line) => line.targetObject === '已裁部位' || line.targetObject === '完整面料' || line.targetObject === '裁片' || line.targetObject === '面料' || line.targetObject === '成衣半成品'), '任务明细必须承接技术包选择的作用对象')
+assert(demandBuildResult.demandLines.every((line) => line.targetObject === '已裁部位' || line.targetObject === '完整面料' || line.targetObject === '裁片' || line.targetObject === '面料' || line.targetObject === '成衣'), '任务明细必须承接技术包选择的作用对象')
+
+const garmentOrder = productionOrders.find((order) =>
+  getProductionOrderTechPackSnapshot(order.productionOrderId)?.processEntries.some(
+    (entry) => entry.craftName === '烫画' && entry.selectedTargetObject === '成衣',
+  ),
+)
+assert(garmentOrder, '缺少可验证成衣烫画旧快照迁移的生产单')
+const garmentSnapshot = getProductionOrderTechPackSnapshot(garmentOrder.productionOrderId)
+assert(garmentSnapshot, '成衣烫画生产单缺少技术包快照')
+const legacyGarmentSnapshot = JSON.parse(JSON.stringify(garmentSnapshot)) as typeof garmentSnapshot
+const legacyGarmentEntry = legacyGarmentSnapshot.processEntries.find((entry) => entry.craftName === '烫画')
+assert(legacyGarmentEntry, '成衣烫画技术包快照缺少烫画工艺')
+;(legacyGarmentEntry as unknown as { selectedTargetObject: string }).selectedTargetObject = '成衣半成品'
+;(legacyGarmentEntry as unknown as { supportedTargetObjectLabels: string[] }).supportedTargetObjectLabels = ['已裁部位', '成衣半成品']
+const migratedGarmentDemand = buildSpecialCraftTaskDemandLinesFromProductionOrder({
+  productionOrder: garmentOrder,
+  techPackSnapshot: legacyGarmentSnapshot,
+})
+assert(migratedGarmentDemand.demandLines.length > 0, '旧快照的成衣烫画仍必须能生成任务明细')
+assert(migratedGarmentDemand.demandLines.every((line) => line.targetObject === '成衣'), '旧快照作用对象必须迁移为成衣')
+assert(migratedGarmentDemand.demandLines.every((line) => line.unit === '件'), '成衣烫画明细单位必须为件')
+assert(!JSON.stringify(migratedGarmentDemand.demandLines).includes('成衣半成品'), '旧快照迁移后不得继续输出旧标签')
+
+const resolvedGarmentEntry = resolveTechPackProcessEntryRule(legacyGarmentEntry)
+assert.equal(resolvedGarmentEntry.selectedTargetObject, '成衣', '新保存工艺作用对象必须为成衣')
+assert.deepEqual(resolvedGarmentEntry.supportedTargetObjectLabels, ['已裁部位', '成衣'], '新保存支持对象不得写回旧标签')
+assert(!JSON.stringify(resolvedGarmentEntry).includes('成衣半成品'), '规范化工艺不得包含旧标签')
 
 const firstResult = generateSpecialCraftTaskOrdersFromProductionOrder({
   productionOrder: sampleOrder,

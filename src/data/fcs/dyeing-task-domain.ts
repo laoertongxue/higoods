@@ -370,7 +370,7 @@ const formulaStore = new Map<string, MutableDyeFormulaRecord>()
 let seeded = false
 
 const GENERATED_DYE_CRAFTS = listActiveProcessCraftDefinitions()
-  .filter((definition) => definition.processCode === 'DYE' && definition.defaultDocType === 'DEMAND')
+  .filter((definition) => definition.processCode === 'DYE' && definition.defaultDocType === 'TASK')
 
 interface GeneratedDyeContext {
   productionOrder: ProductionOrder

@@ -500,11 +500,11 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
   techPackSnapshot.processEntries
     .filter((entry) => entry.processCode === 'SPECIAL_CRAFT')
     .filter((entry) => Boolean(entry.craftCode))
-    .filter((entry) => normalizeSpecialCraftTargetObjectLabel(entry.selectedTargetObject) === '成衣半成品')
+    .filter((entry) => normalizeSpecialCraftTargetObjectLabel(entry.selectedTargetObject) === '成衣')
     .forEach((entry) => {
       const craftCode = normalizeText(entry.craftCode)
       const entryId = normalizeText(entry.id) || craftCode
-      const partName = '成衣半成品'
+      const partName = '成衣'
       const patternFileId = `GARMENT-${entryId}`
       const pieceRowId = `GARMENT-${entryId}`
       const reference = validateSpecialCraftReference(
@@ -536,7 +536,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
           productionOrderId: productionOrder.productionOrderId,
           productionOrderNo,
           patternFileId,
-          patternFileName: '成衣半成品',
+          patternFileName: '成衣',
           pieceRowId,
           partName,
           colorName: orderLine.color,
@@ -557,7 +557,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
           targetObject: selectedTargetObject,
           unit: getDemandLineUnit(selectedTargetObject),
           feiTicketNos: [],
-          remark: entry.remark || '纯色 T-shirt 成衣半成品烫画，按 SKU 件数执行。',
+          remark: entry.remark || '纯色 T-shirt 成衣烫画，按 SKU 件数执行。',
         }
         errors.push(...validateSpecialCraftDemandLine(demandLine))
         demandLines.push(demandLine)

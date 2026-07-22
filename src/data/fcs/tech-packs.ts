@@ -899,7 +899,9 @@ export function resolveTechPackProcessEntryRule(entry: TechPackProcessEntry): Te
     : undefined
   const supportedTargetObjectLabels = craftDef?.isSpecialCraft
     ? (entry.supportedTargetObjectLabels?.length
-        ? [...entry.supportedTargetObjectLabels]
+        ? entry.supportedTargetObjectLabels
+            .map((label) => normalizeSpecialCraftTargetObjectLabel(label))
+            .filter((label): label is TechPackSpecialCraftTargetObject => Boolean(label))
         : getSpecialCraftSupportedTargetObjectLabels(supportedTargetObjects ?? []))
     : undefined
   const selectedTargetObject = craftDef?.isSpecialCraft

@@ -18,8 +18,6 @@ export type SpecialCraftTargetObject =
   | SpecialCraftTargetObjectLabel
   | '裁片'
   | '面料'
-  | '成衣'
-  | '成衣半成品'
 
 export interface SpecialCraftOperationDefinition {
   operationId: string

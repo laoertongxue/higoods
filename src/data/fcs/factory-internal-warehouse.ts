@@ -23,7 +23,7 @@ export type FactoryWarehouseSourceObjectKind =
   | '特殊工艺厂'
   | '后道工厂'
   | '上游工厂仓'
-export type FactoryWarehouseItemKind = '面料' | '辅料' | '裁片' | '成衣半成品' | '其他半成品'
+export type FactoryWarehouseItemKind = '面料' | '辅料' | '裁片' | '成衣' | '成衣半成品' | '其他半成品'
 export type FactoryWaitProcessStockStatus = '待领料' | '已入待加工仓' | '差异待处理'
 export type FactoryWaitHandoverStockStatus = '待交出' | '已交出' | '已回写' | '差异' | '异议中'
 export type FactoryInboundRecordStatus = '待确认' | '已入库' | '差异待处理' | '已作废'

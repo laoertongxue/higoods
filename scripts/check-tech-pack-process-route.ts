@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import {
   approveTechPackReview,
@@ -26,6 +27,7 @@ import {
 } from '../src/data/tech-pack-process-route.ts'
 import {
   applyProcessRouteDraftAction,
+  hasInvalidDyePrintOrder,
   type ProcessRouteDraftState,
 } from '../src/pages/tech-pack/events.ts'
 import { syncPreparationProcessesFromBom } from '../src/pages/tech-pack/bom-process-linkage.ts'
@@ -267,6 +269,70 @@ assert.equal(
   confirmedInvalidDyePrint.processRouteStatus,
   'UNCONFIRMED',
   '同一 BOM 物料先印花后染色时不得确认路线',
+)
+let confirmDyePrintOrderWarning = ''
+applyProcessRouteDraftAction(
+  invalidDyePrintDraft,
+  { type: 'confirm' },
+  '测试人员',
+  '2026-07-22 10:01:30',
+  (message) => {
+    confirmDyePrintOrderWarning = message
+  },
+)
+assert.equal(
+  confirmDyePrintOrderWarning,
+  '同一物料必须先染色、后印花，请调整工艺顺序',
+  '确认先印后染路线时必须给出指定提示',
+)
+
+const reversedWithoutBom = {
+  ...invalidDyePrintDraft,
+  techniques: invalidDyePrintDraft.techniques.map((item) => ({ ...item, linkedBomItemIds: [] })),
+}
+assert.equal(hasInvalidDyePrintOrder(reversedWithoutBom.techniques), false, '无 BOM 关联的印染工序不应阻断')
+assert.equal(
+  applyProcessRouteDraftAction(reversedWithoutBom, { type: 'confirm' }).processRouteStatus,
+  'CONFIRMED',
+  '无 BOM 关联的反向工序仍应允许确认',
+)
+
+const reversedDifferentBom = {
+  ...invalidDyePrintDraft,
+  techniques: [
+    { ...invalidDyePrintDraft.techniques[0], linkedBomItemIds: ['bom-print-only'] },
+    { ...invalidDyePrintDraft.techniques[1], linkedBomItemIds: ['bom-dye-only'] },
+  ],
+}
+assert.equal(hasInvalidDyePrintOrder(reversedDifferentBom.techniques), false, '不同 BOM 物料的印染顺序不应相互阻断')
+
+const parallelDyePrint = {
+  ...dyePrintDraft,
+  techniques: dyePrintDraft.techniques.map((item, index) => ({
+    ...item,
+    routeStepNo: 1,
+    routeLaneNo: index + 1,
+    routeParallelGroupId: 'parallel-dye-print',
+  })),
+}
+assert.equal(hasInvalidDyePrintOrder(parallelDyePrint.techniques), true, '同一 BOM 的染色和印花不得并行')
+
+const multipleDyePrint = {
+  ...dyePrintDraft,
+  techniques: [
+    { ...buildCheckTechnique('dye-a', 1), processCode: 'DYE', linkedBomItemIds: ['bom-a'] },
+    { ...buildCheckTechnique('print-a', 2), processCode: 'PRINT', linkedBomItemIds: ['bom-a'] },
+    { ...buildCheckTechnique('print-b', 3), processCode: 'PRINT', linkedBomItemIds: ['bom-b'] },
+    { ...buildCheckTechnique('dye-b', 4), processCode: 'DYE', linkedBomItemIds: ['bom-b'] },
+  ],
+}
+assert.equal(hasInvalidDyePrintOrder(multipleDyePrint.techniques), true, '多染多印中任一共享 BOM 反序都必须阻断')
+
+const techPackEventsSource = readFileSync(new URL('../src/pages/tech-pack/events.ts', import.meta.url), 'utf8')
+assert.match(
+  techPackEventsSource,
+  /hasInvalidDyePrintOrder\(nextTechniques\)/,
+  '保存编辑入口必须复用同一先染后印守卫',
 )
 const generatedDyePrint = syncPreparationProcessesFromBom([], [
   {
