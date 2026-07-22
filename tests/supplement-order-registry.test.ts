@@ -8,6 +8,7 @@ import {
   registerSupplementOrder,
   resetSupplementOrderRegistryForTesting,
   type RegisterSupplementOrderInput,
+  type SupplementOrderLifecycle,
 } from '../src/data/fcs/cutting/supplement-order-registry.ts'
 
 afterEach(() => {
@@ -124,9 +125,88 @@ test('同一 ID 重复注册保持幂等且不占用新的补料次数', () => {
     recordNo: 'BL20260722002',
   }))
 
-  assert.strictEqual(replay, original)
+  assert.deepEqual(replay, original)
   assert.equal(replay.reason, '裁片破损需补裁')
   assert.equal(replay.totalQty, 12)
   assert.equal(next.sequenceNo, 2)
   assert.equal(listSupplementOrdersByCutOrder('cut-order-1').length, 2)
+})
+
+test('篡改注册返回值不会污染内部记录', () => {
+  const registered = registerSupplementOrder(buildInput()) as SupplementOrderLifecycle
+  registered.cutOrderNo = 'CP-MUTATED'
+  registered.status = '已完成'
+
+  const stored = getSupplementOrder('supplement-1')
+  assert.equal(stored?.cutOrderNo, 'CP67942')
+  assert.equal(stored?.status, '未完成')
+})
+
+test('篡改单条查询返回值不会污染内部记录', () => {
+  registerSupplementOrder(buildInput())
+  const queried = getSupplementOrder('supplement-1') as SupplementOrderLifecycle
+  queried.reason = '被篡改的原因'
+  queried.totalQty = 999
+
+  const stored = getSupplementOrder('supplement-1')
+  assert.equal(stored?.reason, '裁片破损需补裁')
+  assert.equal(stored?.totalQty, 12)
+})
+
+test('篡改列表查询返回值不会污染内部记录', () => {
+  registerSupplementOrder(buildInput())
+  const listed = listSupplementOrdersByCutOrder('cut-order-1')[0] as SupplementOrderLifecycle
+  listed.recordNo = 'BL-MUTATED'
+  listed.productionOrderNo = 'PO-MUTATED'
+
+  const stored = getSupplementOrder('supplement-1')
+  assert.equal(stored?.recordNo, 'BL20260722001')
+  assert.equal(stored?.productionOrderNo, 'PO15089')
+})
+
+test('篡改完成返回值不会污染内部完成事实', () => {
+  registerSupplementOrder(buildInput())
+  const completed = completeSupplementOrder({
+    id: 'supplement-1',
+    completedAt: '2026-07-22 10:30:00',
+    completedBy: '李主管',
+  }) as SupplementOrderLifecycle
+  completed.status = '未完成'
+  completed.completedAt = '2099-01-01 00:00:00'
+  completed.completedBy = '被篡改的人'
+
+  const stored = getSupplementOrder('supplement-1')
+  assert.equal(stored?.status, '已完成')
+  assert.equal(stored?.completedAt, '2026-07-22 10:30:00')
+  assert.equal(stored?.completedBy, '李主管')
+})
+
+test('同一 ID 不能跨裁片单重放', () => {
+  registerSupplementOrder(buildInput())
+
+  assert.throws(
+    () => registerSupplementOrder(buildInput({
+      cutOrderId: 'cut-order-2',
+      cutOrderNo: 'CP67943',
+    })),
+    { message: '补料单标识冲突，不能登记到不同业务对象。' },
+  )
+})
+
+test('同一 ID 使用不同补料单号时拒绝重放', () => {
+  registerSupplementOrder(buildInput())
+
+  assert.throws(
+    () => registerSupplementOrder(buildInput({ recordNo: 'BL20260722999' })),
+    { message: '补料单标识冲突，不能登记到不同业务对象。' },
+  )
+})
+
+test('同一 ID 使用不同生产单号时拒绝重放', () => {
+  registerSupplementOrder(buildInput())
+
+  assert.throws(
+    () => registerSupplementOrder(buildInput({ productionOrderNo: 'PO99999' })),
+    { message: '补料单标识冲突，不能登记到不同业务对象。' },
+  )
 })
