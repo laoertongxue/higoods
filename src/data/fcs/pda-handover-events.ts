@@ -31,9 +31,10 @@ import {
   handoutRecordVersionHistory,
   installCompleteHandoutReaders,
 } from './pda-handover-handout-registry.ts'
-import type {
-  ProcessWorkOrderSourceSnapshot,
-  ProcessWorkOrderSourceType,
+import {
+  PROCESS_WORK_ORDER_SOURCE_LABEL,
+  type ProcessWorkOrderSourceSnapshot,
+  type ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
 
 const getRuntimeTaskById = (taskId: string): RuntimeProcessTask | null =>
@@ -508,13 +509,19 @@ export function getPdaHandoverSourceDisplay(
   if (head.sourceType === 'CUT_PIECE_SUPPLEMENT') {
     return {
       label: '补料单',
-      value: [head.sourceSnapshot?.supplementRecordNo, head.sourceSnapshot?.originalCutOrderNo].filter(Boolean).join(' / ') || '—',
+      value: head.sourceSnapshot?.supplementRecordNo || '—',
     }
   }
   return {
     label: '生产单号',
     value: head.productionOrderNo || head.productionOrderId || '—',
   }
+}
+
+export function getPdaHandoverSourceTypeLabel(
+  head: Pick<PdaHandoverHead, 'sourceType'>,
+): string {
+  return PROCESS_WORK_ORDER_SOURCE_LABEL[head.sourceType || 'PRODUCTION_ORDER']
 }
 
 export interface TransferBagWritebackLine {

@@ -36,13 +36,22 @@ import { listPdaGenericProcessTasks, registerPdaGenericProcessTask } from '../sr
 import { submitDyeHandover } from '../src/data/fcs/process-execution-writeback.ts'
 import { applyDyeWarehouseLinkageAfterAction } from '../src/data/fcs/process-warehouse-linkage-service.ts'
 import { getProcessWarehouseRecordById, listProcessHandoverRecords } from '../src/data/fcs/process-warehouse-domain.ts'
-import { getPdaHandoverSourceDisplay, listHandoverOrdersByTaskId } from '../src/data/fcs/pda-handover-events.ts'
+import { ensureHandoverOrderForStartedTask, getPdaHandoverSourceDisplay, listHandoverOrdersByTaskId } from '../src/data/fcs/pda-handover-events.ts'
 import { listFactoryWaitProcessStockItems, upsertFactoryWaitProcessStockItem } from '../src/data/fcs/factory-internal-warehouse.ts'
 import { buildTaskDeliveryCardPrintDocByRecordId, buildTaskRouteCardPrintDoc } from '../src/data/fcs/task-print-cards.ts'
+import { getProcessWorkOrderById } from '../src/data/fcs/process-work-order-domain.ts'
 import {
   filterDyeWorkOrderOnlineRows,
   listDyeWorkOrderOnlineRows,
 } from '../src/data/fcs/dye-work-order-online-view.ts'
+import {
+  confirmSupplementAndGenerateProcessWorkOrders,
+  listSupplementRecords,
+} from '../src/pages/process-factory/cutting/supplement-management.ts'
+import { renderProcessDyeOrdersPage } from '../src/pages/process-dye-orders.ts'
+import { renderCraftDyeingWorkOrdersPage } from '../src/pages/process-factory/dyeing/work-orders.ts'
+import { renderCraftDyeingWorkOrderDetailPage } from '../src/pages/process-factory/dyeing/work-order-detail.ts'
+import { renderPdaHandoverDetailPage } from '../src/pages/pda-handover-detail.ts'
 
 const repoRoot = process.cwd()
 const dyePages = [
@@ -157,15 +166,55 @@ function main(): void {
       stockMaterialId: task.stockMaterialId,
       stockMaterialName: task.stockMaterialName,
     }))
-  const orders = listDyeWorkOrders()
-  const dyeingOrdersHtml = `${processWorkOrderDomainSource}\n${workOrdersSource}`
-  for (const sourceLabel of ['生产单自动生成', '备货手动创建', '裁片补料生成']) {
-    assertIncludes(dyeingOrdersHtml, sourceLabel, '染色加工单来源筛选')
+  let orders = listDyeWorkOrders()
+  const supplementSeed = listSupplementRecords().find((record) =>
+    record.draft.sourceType === 'cut-order'
+    && record.draft.materialDemands.some((item) => item.printRequired && item.dyeRequired),
+  )
+  assert(supplementSeed, '缺少真实印染补料场景')
+  const supplementDraft = structuredClone(supplementSeed.draft)
+  supplementDraft.confirmationIdentity = 'task9-dye-source-display'
+  const supplementResult = confirmSupplementAndGenerateProcessWorkOrders(supplementDraft, '任务9来源检查')
+  assert.equal(supplementResult.ok, true, '真实补料确认必须成功')
+  if (!supplementResult.ok) throw new Error(supplementResult.message)
+  orders = listDyeWorkOrders()
+  const supplementDyeRef = supplementResult.record.processWorkOrderRefs.find((item) => item.processType === 'DYE')
+  assert(supplementDyeRef, '真实补料必须生成染色加工单')
+  const productionDyeOrder = listDyeWorkOrders().find((order) => order.sourceType === 'PRODUCTION_ORDER')
+  assert(productionDyeOrder, '缺少生产单来源染色加工单')
+  const supplementPlatformHtml = renderProcessDyeOrdersPage({ sourceType: 'CUT_PIECE_SUPPLEMENT', selectedWorkOrderId: supplementDyeRef.workOrderId })
+  assert(supplementPlatformHtml.includes(supplementDyeRef.workOrderNo), '平台染色页未展示真实补料加工单')
+  assert(!supplementPlatformHtml.includes(productionDyeOrder.dyeOrderNo), '平台染色来源筛选混入生产单来源')
+  const supplementFactoryHtml = renderCraftDyeingWorkOrdersPage({ sourceType: 'CUT_PIECE_SUPPLEMENT' })
+  assert(supplementFactoryHtml.includes(supplementDyeRef.workOrderNo), '工厂染色列表未展示真实补料加工单')
+  assert(!supplementFactoryHtml.includes(productionDyeOrder.dyeOrderNo), '工厂染色来源筛选混入生产单来源')
+  const supplementDyeDetail = renderCraftDyeingWorkOrderDetailPage(supplementDyeRef.workOrderId)
+  const supplementDyeOrder = getProcessWorkOrderById(supplementDyeRef.workOrderId)
+  assert(supplementDyeOrder, '未找到真实补料染色加工单')
+  for (const expected of [
+    '裁片补料生成',
+    supplementResult.record.recordNo,
+    supplementDraft.sourceNo,
+    supplementDraft.productionOrderNo,
+    supplementDyeOrder.sourceSnapshot.techPackVersionLabel,
+  ]) {
+    assert(Boolean(expected) && supplementDyeDetail.includes(String(expected)), `真实补料染色详情缺少：${expected || '空值'}`)
+    assert(Boolean(expected) && supplementPlatformHtml.includes(String(expected)), `平台补料染色详情缺少：${expected || '空值'}`)
   }
-  assertIncludes(workOrdersSource, 'PROCESS_WORK_ORDER_SOURCE_LABEL', '染色加工单列表统一来源标签')
-  assertIncludes(workOrdersSource, 'data-dye-work-orders-field="sourceType"', '染色加工单来源筛选')
-  assertIncludes(taskPrintCardsSource, 'PROCESS_WORK_ORDER_SOURCE_LABEL[input.sourceType]', '染色任务卡与打印统一来源标签')
-  assertIncludes(processPrepAdapterSource, 'PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType]', '染色页面适配器统一来源标签')
+  const supplementRouteCard = buildTaskRouteCardPrintDoc({ sourceType: 'DYEING_WORK_ORDER', sourceId: supplementDyeRef.workOrderId })
+  assert(supplementRouteCard.summaryRows.some((row) => row.label === '加工单来源' && row.value === '裁片补料生成'), '补料染色流转卡来源错误')
+  assert(supplementRouteCard.summaryRows.some((row) => row.label === '补料单' && row.value === supplementResult.record.recordNo), '补料染色流转卡缺少补料单')
+  const supplementDyeTask = listPdaGenericProcessTasks().find((task) => task.taskId === supplementDyeOrder.taskId)
+  assert(supplementDyeTask, '补料染色加工单缺少 PDA 任务')
+  registerPdaGenericProcessTask({ ...supplementDyeTask, status: 'IN_PROGRESS', startedAt: '2026-07-23 09:00:00' })
+  const supplementHandover = ensureHandoverOrderForStartedTask(supplementDyeTask.taskId)
+  const supplementPdaHtml = renderPdaHandoverDetailPage(supplementHandover.handoverOrderId)
+  assert(supplementPdaHtml.includes('裁片补料生成') && supplementPdaHtml.includes('补料单'), '补料染色 PDA 必须显示统一来源与对象')
+  assert(supplementPdaHtml.includes(supplementResult.record.recordNo), '补料染色 PDA 缺少补料单号')
+  const productionPlatformHtml = renderProcessDyeOrdersPage({ sourceType: 'PRODUCTION_ORDER' })
+  const productionFactoryHtml = renderCraftDyeingWorkOrdersPage({ sourceType: 'PRODUCTION_ORDER' })
+  assert(productionPlatformHtml.includes(productionDyeOrder.dyeOrderNo) && productionFactoryHtml.includes(productionDyeOrder.dyeOrderNo), '生产单来源染色筛选未命中真实加工单')
+  assert(!productionPlatformHtml.includes(supplementDyeRef.workOrderNo) && !productionFactoryHtml.includes(supplementDyeRef.workOrderNo), '生产单来源染色筛选混入补料加工单')
   const onlineRows = listDyeWorkOrderOnlineRows()
   const sourceFilterRows = [
     { ...onlineRows[0]!, dyeOrderId: 'SOURCE-PRODUCTION', sourceType: 'PRODUCTION_ORDER' as const },
@@ -176,23 +225,6 @@ function main(): void {
     const filteredBySource = filterDyeWorkOrderOnlineRows(sourceFilterRows, { sourceType })
     assert.equal(filteredBySource.length, 1, `染色加工单来源筛选 ${sourceType} 必须精确命中一项`)
     assert.equal(filteredBySource[0]?.sourceType, sourceType, `染色加工单来源筛选 ${sourceType} 不得混入其他来源`)
-  }
-  const supplementDyeDetailHtml = `${processWorkOrderDomainSource}\n${workOrderDetailSource}`
-  for (const expected of [
-    '裁片补料生成',
-    '补料单',
-    '原始裁片单',
-    '所属生产单',
-    '技术包版本',
-    'BOM 物料',
-    'sourceSnapshot.supplementRecordNo',
-    'sourceSnapshot.originalCutOrderNo',
-    'sourceSnapshot.productionOrderNo',
-    'sourceSnapshot.techPackVersionLabel',
-    'order.materialSku',
-    'order.materialName',
-  ]) {
-    assert(expected && supplementDyeDetailHtml.includes(expected), `补料染色加工单详情缺少：${expected || '空值'}`)
   }
   const runtimeDyeLockTerms = [
     makeText(['前置染色', '未完成']),
@@ -215,17 +247,6 @@ function main(): void {
   assert(orders.every((order) => order.receiverName === '中转区域' || order.receiverName === '仓库'), '接收方必须是中转区域或仓库')
   assert(orders.every((order) => !order.targetTransferWarehouseName.includes('裁床仓') && !order.targetTransferWarehouseName.includes('裁片仓')), '染色完成后不能直接进入裁床仓')
   assert(orders.some((order) => Boolean(order.handoverOrderId)), '开工后的染色任务必须有交出单')
-  orders.forEach((order) => {
-    if (order.sourceType === 'PRODUCTION_ORDER') {
-      assert(Boolean(order.sourceProductionOrderId), `${order.dyeOrderNo} 生产单来源必须有唯一 sourceProductionOrderId`)
-      assert(!order.stockMaterialId, `${order.dyeOrderNo} 生产单来源不得携带 stockMaterialId`)
-      return
-    }
-    assert(order.sourceType === 'STOCK', `${order.dyeOrderNo} 来源类型只能是生产单或备货`)
-    assert(Boolean(order.stockMaterialId), `${order.dyeOrderNo} 备货来源必须有 stockMaterialId`)
-    assert(!order.sourceProductionOrderId, `${order.dyeOrderNo} 备货来源不得伪造 sourceProductionOrderId`)
-  })
-
   const combinedDemoA = getDyeWorkOrderById('DYE-COMBINED-DEMO-001')!
   const combinedDemoB = getDyeWorkOrderById('DYE-COMBINED-DEMO-002')!
   const noHistoryOrder = orders.find((order) => order.sourceType === 'PRODUCTION_ORDER' && order.formalProductionOrderSnapshot && !order.combinedDyeing)!
@@ -367,10 +388,10 @@ function main(): void {
     stockItemId: 'WPS-DYE-WORKFLOW-QUALIFIED',
     sourceRecordId: 'INB-DYE-WORKFLOW-QUALIFIED',
     sourceRecordNo: 'RK-DYE-WORKFLOW-QUALIFIED',
-    factoryId: orders[0]!.dyeFactoryId,
-    factoryName: orders[0]!.dyeFactoryName,
-    warehouseId: `FIW-${orders[0]!.dyeFactoryId}-WAIT_PROCESS`,
-    warehouseName: `${orders[0]!.dyeFactoryName} · 待加工仓`,
+    factoryId: productionDyeOrder.dyeFactoryId,
+    factoryName: productionDyeOrder.dyeFactoryName,
+    warehouseId: `FIW-${productionDyeOrder.dyeFactoryId}-WAIT_PROCESS`,
+    warehouseName: `${productionDyeOrder.dyeFactoryName} · 待加工仓`,
     processCode: 'DYE',
     processName: '染色',
     itemName: '染色流程合格备货面料',
@@ -385,17 +406,22 @@ function main(): void {
     stockMaterialId: realStock.stockItemId,
     stockMaterialName: realStock.itemName,
     materialSku: realStock.materialSku!,
-    factoryId: orders[0]!.dyeFactoryId,
+    factoryId: productionDyeOrder.dyeFactoryId,
     plannedQty: 80,
     qtyUnit: realStock.unit,
     plannedFinishAt: '2026-07-31 18:00',
     processName: '常规染色',
     targetColor: '海军蓝',
   })
-  assert(stockCreated.ok && stockCreated.order, '备货必须可以直接创建染色加工单')
+  assert(stockCreated.ok && stockCreated.order, `备货必须可以直接创建染色加工单：${stockCreated.message}`)
   assert.equal(stockCreated.order.sourceType, 'STOCK', '备货染色加工单来源必须是 STOCK')
   assert.equal(stockCreated.order.stockMaterialId, realStock.stockItemId, '备货染色加工单必须保留 stockMaterialId')
   assert(!stockCreated.order.sourceProductionOrderId, '备货染色加工单不得伪造生产单')
+  const stockPlatformHtml = renderProcessDyeOrdersPage({ sourceType: 'STOCK', selectedWorkOrderId: stockCreated.order.dyeOrderId })
+  const stockFactoryHtml = renderCraftDyeingWorkOrdersPage({ sourceType: 'STOCK' })
+  assert(stockPlatformHtml.includes(stockCreated.order.dyeOrderNo) && stockFactoryHtml.includes(stockCreated.order.dyeOrderNo), '备货来源染色筛选未命中真实加工单')
+  assert(!stockPlatformHtml.includes(supplementDyeRef.workOrderNo) && !stockFactoryHtml.includes(supplementDyeRef.workOrderNo), '备货来源染色筛选混入补料加工单')
+  assert(stockPlatformHtml.includes('备货手动创建') && !stockPlatformHtml.includes('所属生产单：</span>-'), '平台备货染色详情不得展示空生产单')
   assert.equal(buildDyeWorkOrderCombinedDyeingView(stockCreated.order), undefined, '备货加工单不得显示生产单合并染色投影')
   const stockRouteCard = buildTaskRouteCardPrintDoc({ sourceType: 'DYEING_WORK_ORDER', sourceId: stockCreated.order.dyeOrderId })
   assert.equal(stockRouteCard.workOrderSourceType, 'STOCK', '备货任务流转卡必须保留备货来源类型')
@@ -443,6 +469,8 @@ function main(): void {
   assert.equal(stockPdaHead?.productionOrderId, undefined, '备货染色 PDA 交出单不得写生产单 ID')
   assert.equal(stockPdaHead?.productionOrderNo, undefined, '备货染色 PDA 交出单不得写生产单号')
   assert.deepEqual(getPdaHandoverSourceDisplay(stockPdaHead!), { label: '备货物料', value: `${realStock.itemName} / ${realStock.stockItemId}` }, '备货染色 PDA 页面必须展示备货物料')
+  const stockPdaHtml = renderPdaHandoverDetailPage(stockPdaHead!.handoverId)
+  assert(stockPdaHtml.includes('备货手动创建') && stockPdaHtml.includes('备货物料'), '备货染色 PDA 必须显示统一来源与对象')
   assert.equal(stockSubmit.handoverRecord.sourceType, 'STOCK', '备货染色 PDA 交出记录来源必须是 STOCK')
   assert.equal(stockSubmit.handoverRecord.stockMaterialId, realStock.stockItemId, '备货染色 PDA 交出记录必须保留 stockMaterialId')
   assert.equal(stockSubmit.handoverRecord.stockMaterialName, realStock.itemName, '备货染色 PDA 交出记录必须保留 stockMaterialName')
@@ -480,6 +508,8 @@ function main(): void {
   assert.equal(productionPdaHead?.productionOrderNo, productionOrder.sourceProductionOrderNo, '生产单染色 PDA 交出单必须保留生产单号')
   assert.equal(productionPdaHead?.stockMaterialId, undefined, '生产单染色 PDA 交出单不得携带备货来源')
   assert.deepEqual(getPdaHandoverSourceDisplay(productionPdaHead!), { label: '生产单号', value: productionOrder.sourceProductionOrderNo }, '生产单染色 PDA 页面必须展示生产单号')
+  const productionPdaHtml = renderPdaHandoverDetailPage(productionPdaHead!.handoverId)
+  assert(productionPdaHtml.includes('生产单自动生成') && productionPdaHtml.includes('生产单号'), '生产单染色 PDA 必须显示统一来源与对象')
   assert.equal(productionSubmit.handoverRecord.productionOrderId, productionOrder.sourceProductionOrderId, '生产单染色 PDA 交出记录必须保留生产单 ID')
   assert.equal(productionSubmit.handoverRecord.productionOrderNo, productionOrder.sourceProductionOrderNo, '生产单染色 PDA 交出记录必须保留生产单号')
   assert.equal(productionSubmit.handoverRecord.stockMaterialId, undefined, '生产单染色 PDA 交出记录不得携带备货来源')

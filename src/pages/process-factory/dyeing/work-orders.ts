@@ -261,10 +261,12 @@ function filteredRows(allRows: DyeWorkOrderOnlineRow[]): DyeWorkOrderOnlineRow[]
   return filterDyeWorkOrderOnlineRows(allRows, state.filters)
 }
 
-function renderWorkspace(): string {
+function renderWorkspace(sourceOverride?: '' | ProcessWorkOrderSourceType): string {
   ensurePreferencesLoaded()
   const allRows = listDyeWorkOrderOnlineRows()
-  const rows = filteredRows(allRows)
+  const rows = sourceOverride === undefined
+    ? filteredRows(allRows)
+    : filterDyeWorkOrderOnlineRows(allRows, { ...state.filters, sourceType: sourceOverride })
   const sorted = sortStandardListRows(rows, state.sort, (row, key) => columns.find((column) => column.key === key)?.sortValue?.(row))
   const paging = paginateStandardListRows(sorted, state.currentPage, state.preferences.pageSize)
   state.currentPage = paging.currentPage
@@ -288,11 +290,11 @@ function renderWorkspace(): string {
   })
 }
 
-export function renderCraftDyeingWorkOrdersPage(): string {
+export function renderCraftDyeingWorkOrdersPage(options: { sourceType?: '' | ProcessWorkOrderSourceType } = {}): string {
   resetStandardListEntryTransientStateOnRouteEntry(state, Boolean(rootElement()))
   syncOverlayFromLocation()
   installColumnDragEvents()
-  return `<div data-dye-work-orders-root data-skip-page-rerender="true"><div data-dye-work-orders-workspace>${renderWorkspace()}</div><div data-dye-work-orders-overlay>${state.overlay ? renderDyeWorkOrderOverlay(state.overlay) : ''}</div></div>`
+  return `<div data-dye-work-orders-root data-skip-page-rerender="true"><div data-dye-work-orders-workspace>${renderWorkspace(options.sourceType)}</div><div data-dye-work-orders-overlay>${state.overlay ? renderDyeWorkOrderOverlay(state.overlay) : ''}</div></div>`
 }
 
 function syncOverlayFromLocation(): void {
