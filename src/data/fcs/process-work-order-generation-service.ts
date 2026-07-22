@@ -2,6 +2,7 @@ import { registerDyeProcessWorkOrderGenerationRegistrar } from './dyeing-task-do
 import { registerPrintProcessWorkOrderGenerationRegistrar } from './printing-task-domain.ts'
 import {
   ensureProcessWorkOrders as ensureRegisteredProcessWorkOrders,
+  ensureProcessWorkOrderBatch as ensureRegisteredProcessWorkOrderBatch,
   setProcessWorkOrderGenerationCommitFailureForTest,
   type EnsuredProcessWorkOrders,
 } from './process-work-order-generation-registry.ts'
@@ -22,6 +23,13 @@ export function bootstrapProcessWorkOrderGeneration(): void {
 export function ensureProcessWorkOrders(input: ProcessWorkOrderGenerationInput): EnsuredProcessWorkOrders {
   bootstrapProcessWorkOrderGeneration()
   return ensureRegisteredProcessWorkOrders(input)
+}
+
+export function ensureProcessWorkOrderBatch(
+  inputs: ProcessWorkOrderGenerationInput[],
+): EnsuredProcessWorkOrders[] {
+  bootstrapProcessWorkOrderGeneration()
+  return ensureRegisteredProcessWorkOrderBatch(inputs)
 }
 
 export function resolveUniqueSupplementBomItem(input: {

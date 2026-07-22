@@ -1965,7 +1965,7 @@ export function registerPrintProcessWorkOrderGenerationRegistrar(): void {
       seedDomain()
       return Array.from(workOrderStore.values()).find((order) => order.sourceKey === sourceKey)?.printOrderId
     },
-    issueIdentity: (orderedAt) => {
+    issueIdentity: (orderedAt, reserved) => {
       seedDomain()
       const occupiedIds = new Set(Array.from(workOrderStore.values()).map((order) => order.printOrderId))
       const occupiedNos = new Set(Array.from(workOrderStore.values()).map((order) => order.printOrderNo))
@@ -1974,7 +1974,12 @@ export function registerPrintProcessWorkOrderGenerationRegistrar(): void {
         const padded = String(sequence).padStart(6, '0')
         const workOrderId = `PWO-PRINT-AUTO-${padded}`
         const workOrderNo = `PH-${datePart}-${padded}`
-        if (!occupiedIds.has(workOrderId) && !occupiedNos.has(workOrderNo)) return { workOrderId, workOrderNo }
+        if (
+          !occupiedIds.has(workOrderId)
+          && !occupiedNos.has(workOrderNo)
+          && !reserved.workOrderIds.has(workOrderId)
+          && !reserved.workOrderNos.has(workOrderNo)
+        ) return { workOrderId, workOrderNo }
       }
       throw new Error('印花加工单编号已耗尽')
     },

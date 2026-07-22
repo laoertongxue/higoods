@@ -14,7 +14,7 @@ import type {
 import { getProductionOrderTechPackSnapshot } from '../../../data/fcs/production-order-tech-pack-runtime.ts'
 import type { TechPackBomItemSnapshot } from '../../../data/fcs/production-tech-pack-snapshot-types.ts'
 import {
-  ensureProcessWorkOrders,
+  ensureProcessWorkOrderBatch,
   resolveUniqueSupplementBomItem,
   type ProcessWorkOrderGenerationInput,
 } from '../../../data/fcs/process-work-order-generation-service.ts'
@@ -117,6 +117,8 @@ interface SupplementMaterialDemand {
   printRequired: boolean
   dyeRequired: boolean
   processNote: string
+  originalCutOrderId: string
+  originalCutOrderNo: string
 }
 
 interface SupplementMaterialPatternRef {
@@ -233,6 +235,10 @@ interface SupplementProcessLink {
   createdAt: string
   linkedProductionOrderNo: string
   processNote: string
+  sourceLabel: '裁片补料生成'
+  supplementRecordNo: string
+  originalCutOrderNo: string
+  techPackVersionLabel: string
 }
 
 interface SupplementManagementState {
@@ -895,13 +901,22 @@ function displayReleaseMaterialName(materialId: string, materialName: string): s
   return seededNames[materialId] || materialName
 }
 
-function buildReleaseSnapshotMaterialRef(shortage: SupplementPartShortage): SupplementMaterialPatternRef {
+function buildReleaseSnapshotMaterialRef(
+  shortage: SupplementPartShortage,
+  input: {
+    techPackVersionId: string
+    bomItem?: TechPackBomItemSnapshot
+    originalCutOrderId: string
+    originalCutOrderNo: string
+  },
+): SupplementMaterialPatternRef {
   const materialName = displayReleaseMaterialName(shortage.materialId, shortage.materialName)
   const materialRole: SupplementMaterialRole = ['A', 'B', 'C'].includes(shortage.materialId)
     ? (`面料${shortage.materialId}` as SupplementMaterialRole)
     : shortage.materialId === 'D' ? '辅料' : '未识别'
   const materialLine: CuttingMaterialLine = {
-    cutPieceOrderNo: '',
+    cutOrderId: input.originalCutOrderId,
+    cutPieceOrderNo: input.originalCutOrderNo,
     materialSku: `RELEASE-${shortage.materialId}`,
     materialType: 'SOLID',
     materialLabel: materialName,
@@ -921,7 +936,7 @@ function buildReleaseSnapshotMaterialRef(shortage: SupplementPartShortage): Supp
   }
   return {
     materialPatternMappingId: `release:${makeReleaseSnapshotPointKey(shortage)}`,
-    techPackVersionId: '放行目标快照',
+    techPackVersionId: input.techPackVersionId,
     materialSku: materialLine.materialSku,
     materialName,
     materialImageUrl: getMaterialImageUrl(materialLine),
@@ -932,16 +947,26 @@ function buildReleaseSnapshotMaterialRef(shortage: SupplementPartShortage): Supp
     roleConfirmStatus: '已确认',
     patternId: shortage.partId,
     patternName: shortage.partName,
-    cutOrderNo: '',
+    cutOrderNo: input.originalCutOrderNo,
     line: materialLine,
+    bomItem: input.bomItem,
   }
 }
 
 function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): SupplementDraft {
   const releaseRecord = listCutPieceReleaseRecords().find((record) => record.productionOrderId === snapshot.productionOrderId)
+  const frozenTechPack = getProductionOrderTechPackSnapshot(snapshot.productionOrderId)
+  const techPackVersionId = frozenTechPack?.sourceTechPackVersionId || ''
   const shortages = buildSupplementPartShortages(snapshot.matrixSnapshot, snapshot.targetPreview)
   const lines: SupplementLine[] = shortages.map((shortage) => {
-    const materialRef = buildReleaseSnapshotMaterialRef(shortage)
+    const originalCutOrder = releaseRecord?.sourceStates.find((state) => state.materialIds.includes(shortage.materialId))
+    const bomItem = frozenTechPack?.bomItems.find((item) => item.materialCode === `RELEASE-${shortage.materialId}`)
+    const materialRef = buildReleaseSnapshotMaterialRef(shortage, {
+      techPackVersionId,
+      bomItem,
+      originalCutOrderId: originalCutOrder?.cutOrderId || '',
+      originalCutOrderNo: originalCutOrder?.cutOrderNo || '',
+    })
     const key = makeReleaseSnapshotPointKey(shortage)
     const availableGarmentQty = Math.max(shortage.targetQty - shortage.supplementGarmentQty, 0)
     const basis: SupplementAbAnalysisRow = {
@@ -986,8 +1011,8 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
   const materialDemands = lines.map((line) => ({
     key: line.basis.shortageMaterial.materialPatternMappingId,
     materialPatternMappingId: line.basis.shortageMaterial.materialPatternMappingId,
-    sourceBomItemId: '',
-    techPackVersionId: '放行目标快照',
+    sourceBomItemId: line.basis.shortageMaterial.bomItem?.id || '',
+    techPackVersionId,
     materialSku: line.basis.shortageMaterial.materialSku,
     materialName: line.basis.shortageMaterial.materialName,
     materialTypeLabel: line.basis.shortageMaterial.materialTypeLabel,
@@ -1003,6 +1028,8 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
     printRequired: false,
     dyeRequired: false,
     processNote: '按裁片放行目标快照中的实际缺片数量预填',
+    originalCutOrderId: line.basis.shortageMaterial.line.cutOrderId || '',
+    originalCutOrderNo: line.basis.shortageMaterial.cutOrderNo,
   }))
   return structuredClone({
     candidateId: `release-snapshot:${snapshot.snapshotId}`,
@@ -1150,9 +1177,11 @@ function buildMaterialDemands(_candidate: SupplementCandidate, selectedLines: Su
       printRequired: Boolean(current?.printRequired || printRequired),
       dyeRequired: Boolean(current?.dyeRequired || dyeRequired),
       processNote: [
-        printRequired ? `印花：${normalizeText(bomItem?.printRequirement) || '按技术资料生成印花需求'}` : '',
-        dyeRequired ? `染色：${normalizeText(bomItem?.dyeRequirement) || '按技术资料生成染色需求'}` : '',
+        printRequired ? `印花：${normalizeText(bomItem?.printRequirement) || '按技术资料生成印花加工单'}` : '',
+        dyeRequired ? `染色：${normalizeText(bomItem?.dyeRequirement) || '按技术资料生成染色加工单'}` : '',
       ].filter(Boolean).join('；') || '无需印花染色',
+      originalCutOrderId: current?.originalCutOrderId || getCutOrderId(materialLine),
+      originalCutOrderNo: current?.originalCutOrderNo || getCutOrderNo(materialLine),
     })
   })
 
@@ -1588,8 +1617,8 @@ function renderDemandTable(demands: SupplementMaterialDemand[]): string {
               <td class="px-3 py-2 font-semibold tabular-nums">${formatDecimal(item.requiredQty)} ${escapeHtml(item.unit)}</td>
               <td class="px-3 py-2">
                 <div class="flex flex-wrap gap-1">
-                  ${item.printRequired ? '<span class="rounded-full bg-violet-50 px-2 py-1 text-xs text-violet-700">生成印花需求</span>' : ''}
-                  ${item.dyeRequired ? '<span class="rounded-full bg-sky-50 px-2 py-1 text-xs text-sky-700">生成染色需求</span>' : ''}
+                  ${item.printRequired ? '<span class="rounded-full bg-violet-50 px-2 py-1 text-xs text-violet-700">生成印花加工单</span>' : ''}
+                  ${item.dyeRequired ? '<span class="rounded-full bg-sky-50 px-2 py-1 text-xs text-sky-700">生成染色加工单</span>' : ''}
                   ${!item.printRequired && !item.dyeRequired ? '<span class="rounded-full bg-zinc-100 px-2 py-1 text-xs text-zinc-600">无需印染</span>' : ''}
                 </div>
                 <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.processNote)}</div>
@@ -1983,6 +2012,10 @@ function buildSupplementProcessLinks(record: SupplementRecord): SupplementProces
       createdAt: workOrder.createdAt,
       linkedProductionOrderNo: record.draft.productionOrderNo,
       processNote: demand?.processNote || `${ref.processType === 'PRINT' ? '印花' : '染色'}加工`,
+      sourceLabel: '裁片补料生成',
+      supplementRecordNo: workOrder.sourceSnapshot.supplementRecordNo || record.recordNo,
+      originalCutOrderNo: workOrder.sourceSnapshot.originalCutOrderNo || '',
+      techPackVersionLabel: workOrder.sourceSnapshot.techPackVersionLabel || '',
     }]
   })
 }
@@ -2016,6 +2049,9 @@ function renderProcessLinksTable(record: SupplementRecord): string {
               <td class="px-3 py-3">
                 <a class="font-semibold text-blue-600 hover:underline" data-nav="${escapeHtml(link.kind === '印花' ? buildPrintingWorkOrderDetailLink(link.workOrderId) : buildDyeingWorkOrderDetailLink(link.workOrderId))}">${escapeHtml(link.workOrderNo)}</a>
                 <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(link.workOrderStatus)}</div>
+                <div class="mt-1 text-xs font-medium text-blue-700">来源：${escapeHtml(link.sourceLabel)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">补料单 ${escapeHtml(link.supplementRecordNo)} · 原裁片单 ${escapeHtml(link.originalCutOrderNo)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">生产单 ${escapeHtml(link.linkedProductionOrderNo)} · 技术包版本 ${escapeHtml(link.techPackVersionLabel)}</div>
               </td>
               <td class="px-3 py-3">
                 <div class="flex items-center gap-3">
@@ -2093,7 +2129,7 @@ function renderSupplementDetailDialog(record: SupplementRecord | undefined): str
           </section>
 
           <section>
-            <h3 class="mb-2 font-semibold">系统反算物料需求</h3>
+            <h3 class="mb-2 font-semibold">系统反算补料物料</h3>
             ${renderDemandTable(record.draft.materialDemands)}
           </section>
 
@@ -2246,18 +2282,27 @@ function buildSupplementRecordIdentity(draft: SupplementDraft): { id: string; re
   return { id: `supplement-confirmed-${token}`, recordNo: `SUP-${token}` }
 }
 
-function resolveSupplementOriginalCutOrder(draft: SupplementDraft): {
+function resolveSupplementOriginalCutOrder(
+  draft: SupplementDraft,
+  demand: SupplementMaterialDemand,
+): {
   originalCutOrderId: string
   originalCutOrderNo: string
 } | null {
-  if (draft.sourceType !== 'cut-order') return null
+  const originalCutOrderId = demand.originalCutOrderId.trim()
+  const originalCutOrderNo = demand.originalCutOrderNo.trim()
+  if (!originalCutOrderId || !originalCutOrderNo) return null
   const productionRecord = cuttingOrderProgressRecords.find((record) => record.productionOrderId === draft.productionOrderId)
-  const materialLine = productionRecord?.materialLines.find((line) => getCutOrderNo(line) === draft.sourceNo)
-  if (!materialLine) return null
-  return {
-    originalCutOrderId: getCutOrderId(materialLine),
-    originalCutOrderNo: getCutOrderNo(materialLine),
-  }
+  const materialLine = productionRecord?.materialLines.find((line) => (
+    getCutOrderId(line) === originalCutOrderId && getCutOrderNo(line) === originalCutOrderNo
+  ))
+  if (materialLine) return { originalCutOrderId, originalCutOrderNo }
+
+  const releaseRecord = listCutPieceReleaseRecords().find((record) => record.productionOrderId === draft.productionOrderId)
+  const releaseSource = releaseRecord?.sourceStates.find((source) => (
+    source.cutOrderId === originalCutOrderId && source.cutOrderNo === originalCutOrderNo
+  ))
+  return releaseSource ? { originalCutOrderId, originalCutOrderNo } : null
 }
 
 function saveConfirmedSupplementRecord(input: {
@@ -2290,22 +2335,20 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
   const identity = buildSupplementRecordIdentity(draft)
   const existing = state.records.find((record) => record.id === identity.id)
   if (existing) return { ok: true, record: structuredClone(existing) }
+  if (!draft.materialDemands.length) {
+    return { ok: false, message: '补料单至少需要一条可追溯到原裁片单和冻结 BOM 的补料物料。' }
+  }
 
   const snapshot = getProductionOrderTechPackSnapshot(draft.productionOrderId)
   if (!snapshot || !snapshot.sourceTechPackVersionId.trim()) {
-    if (
-      draft.sourceType === 'release-snapshot'
-      && draft.materialDemands.every((demand) => !demand.printRequired && !demand.dyeRequired)
-    ) {
-      return {
-        ok: true,
-        record: saveConfirmedSupplementRecord({ identity, draft, createdBy, processWorkOrderRefs: [] }),
-      }
-    }
     return { ok: false, message: `生产单 ${draft.productionOrderNo || draft.productionOrderId} 缺少冻结技术包版本，不能确认补料。` }
   }
 
-  const matchedDemands: Array<{ demand: SupplementMaterialDemand; bomItem: TechPackBomItemSnapshot }> = []
+  const matchedDemands: Array<{
+    demand: SupplementMaterialDemand
+    bomItem: TechPackBomItemSnapshot
+    originalCutOrder: { originalCutOrderId: string; originalCutOrderNo: string }
+  }> = []
   for (const demand of draft.materialDemands) {
     const matched = resolveUniqueSupplementBomItem({
       bomItems: snapshot.bomItems,
@@ -2320,29 +2363,35 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
     if (demand.techPackVersionId && demand.techPackVersionId !== snapshot.sourceTechPackVersionId) {
       return { ok: false, message: `补料物料 ${demand.materialName} 不是生产单冻结技术包版本中的物料。` }
     }
-    matchedDemands.push({ demand, bomItem: matched.bomItem })
+    const originalCutOrder = resolveSupplementOriginalCutOrder(draft, demand)
+    if (!originalCutOrder) {
+      return { ok: false, message: `补料物料 ${demand.materialName} 缺少属于生产单 ${draft.productionOrderNo} 的原裁片单，不能确认补料。` }
+    }
+    matchedDemands.push({ demand, bomItem: matched.bomItem, originalCutOrder })
   }
 
   const processGroups = new Map<string, {
     bomItem: TechPackBomItemSnapshot
     demands: SupplementMaterialDemand[]
     processCodes: Array<'DYE' | 'PRINT'>
+    originalCutOrder: { originalCutOrderId: string; originalCutOrderNo: string }
   }>()
-  matchedDemands.forEach(({ demand, bomItem }) => {
+  for (const { demand, bomItem, originalCutOrder } of matchedDemands) {
     const processCodes = (['DYE', 'PRINT'] as const).filter((processCode) =>
       processCode === 'DYE'
         ? hasProcessRequirement(bomItem.dyeRequirement)
         : hasProcessRequirement(bomItem.printRequirement),
     )
-    if (!processCodes.length) return
+    if (!processCodes.length) continue
     const existingGroup = processGroups.get(bomItem.id)
-    if (existingGroup) existingGroup.demands.push(demand)
-    else processGroups.set(bomItem.id, { bomItem, demands: [demand], processCodes })
-  })
-
-  const originalCutOrder = resolveSupplementOriginalCutOrder(draft)
-  if (processGroups.size > 0 && !originalCutOrder) {
-    return { ok: false, message: '需要生成印染加工单的补料必须明确关联一个原始裁片单。' }
+    if (existingGroup) {
+      if (existingGroup.originalCutOrder.originalCutOrderId !== originalCutOrder.originalCutOrderId) {
+        return { ok: false, message: `同一冻结 BOM ${bomItem.id} 关联了多个原裁片单，请拆分补料后再确认。` }
+      }
+      existingGroup.demands.push(demand)
+    } else {
+      processGroups.set(bomItem.id, { bomItem, demands: [demand], processCodes, originalCutOrder })
+    }
   }
 
   const generationInputs: ProcessWorkOrderGenerationInput[] = []
@@ -2373,8 +2422,8 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
         bomItemId: group.bomItem.id,
         supplementRecordId: identity.id,
         supplementRecordNo: identity.recordNo,
-        originalCutOrderId: originalCutOrder!.originalCutOrderId,
-        originalCutOrderNo: originalCutOrder!.originalCutOrderNo,
+        originalCutOrderId: group.originalCutOrder.originalCutOrderId,
+        originalCutOrderNo: group.originalCutOrder.originalCutOrderNo,
       },
       processCodes: group.processCodes,
       orderedAt: nowText(),
@@ -2400,8 +2449,9 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
 
   try {
     const processWorkOrderRefs: SupplementProcessWorkOrderRef[] = []
-    generationInputs.forEach((input) => {
-      const ensured = ensureProcessWorkOrders(input)
+    const ensuredBatch = ensureProcessWorkOrderBatch(generationInputs)
+    generationInputs.forEach((input, inputIndex) => {
+      const ensured = ensuredBatch[inputIndex]
       const ids = [
         ensured.dyeWorkOrderId ? { processType: 'DYE' as const, id: ensured.dyeWorkOrderId } : null,
         ensured.printWorkOrderId ? { processType: 'PRINT' as const, id: ensured.printWorkOrderId } : null,

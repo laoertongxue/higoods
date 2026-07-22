@@ -526,6 +526,18 @@ test('默认分页、三态排序及临时状态刷新后回到默认', async ({
   await expect(rows).toHaveCount(10)
   await expect(page.getByText('1 / 2', { exact: true })).toBeVisible()
   const defaultFirstRecord = (await rows.first().locator('td').first().innerText()).trim()
+  await rows.first().getByRole('button', { name: '查看详情' }).click()
+  const detail = page.locator('[data-cutting-supplement-region="overlay"]')
+  await expect(detail.getByRole('heading', { name: '补料单详情' })).toBeVisible()
+  await expect(detail.getByText('来源：裁片补料生成').first()).toBeVisible()
+  await expect(detail.getByText(/补料单 SUP-.*原裁片单 CUT-/).first()).toBeVisible()
+  await expect(detail.getByText(/生产单 PO-.*技术包版本 v/i).first()).toBeVisible()
+  const processLinks = detail.locator('a[data-nav]')
+  await expect(processLinks).toHaveCount(2)
+  const processRoutes = await processLinks.evaluateAll((links) => links.map((link) => link.getAttribute('data-nav') || ''))
+  expect(processRoutes.some((route) => /^\/fcs\/craft\/printing\/work-orders\//.test(route))).toBe(true)
+  expect(processRoutes.some((route) => /^\/fcs\/craft\/dyeing\/work-orders\?dyeOrderId=/.test(route))).toBe(true)
+  await detail.getByRole('button', { name: '关闭' }).click()
   const secondPageFirstRecord = await page.evaluate(async () => {
     const supplement = await import('/src/pages/process-factory/cutting/supplement-management.ts')
     return supplement.listSupplementRecords()[10]?.recordNo || ''

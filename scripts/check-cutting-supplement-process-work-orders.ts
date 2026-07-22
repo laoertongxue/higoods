@@ -1,11 +1,23 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   confirmSupplementAndGenerateProcessWorkOrders,
   listSupplementRecords,
 } from '../src/pages/process-factory/cutting/supplement-management.ts'
 import { getProcessWorkOrderById, listProcessWorkOrders } from '../src/data/fcs/process-work-order-domain.ts'
+import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
 import { getProductionOrderTechPackSnapshot } from '../src/data/fcs/production-order-tech-pack-runtime.ts'
-import { resolveUniqueSupplementBomItem } from '../src/data/fcs/process-work-order-generation-service.ts'
+import {
+  resolveUniqueSupplementBomItem,
+  setProcessWorkOrderGenerationCommitFailureForTest,
+} from '../src/data/fcs/process-work-order-generation-service.ts'
+
+const supplementSource = readFileSync(
+  new URL('../src/pages/process-factory/cutting/supplement-management.ts', import.meta.url),
+  'utf8',
+)
+assert.doesNotMatch(supplementSource, /印花需求|染色需求|生成[^'"<\n]{0,12}需求/, '补料模块不得残留印花、染色需求单旧词')
+assert.match(supplementSource, /裁片补料生成/, '补料加工单详情必须明确显示“裁片补料生成”')
 
 const initialRecords = listSupplementRecords()
 assert(initialRecords.length > 0, '缺少补料检查数据')
@@ -59,6 +71,11 @@ if (result.ok) {
     assert.equal(workOrder.sourceSnapshot.techPackVersionId, fixtureDraft.materialDemands[0].techPackVersionId)
     assert(workOrder.sourceSnapshot.bomItemId, '补料加工单必须保存 BOM 行')
     assert.equal(workOrder.plannedQty, ref.plannedQty)
+    assert.equal(workOrder.sourceSnapshot.sourceType, 'CUT_PIECE_SUPPLEMENT')
+    assert(workOrder.sourceSnapshot.supplementRecordNo, '加工单必须保留补料单号')
+    assert(workOrder.sourceSnapshot.originalCutOrderNo, '加工单必须保留原裁片单号')
+    assert(workOrder.sourceSnapshot.productionOrderNo, '加工单必须保留生产单号')
+    assert(workOrder.sourceSnapshot.techPackVersionLabel, '加工单必须保留冻结技术包版本')
   }
 }
 
@@ -80,6 +97,19 @@ noProcessDraft.confirmationIdentity = 'task8-no-process-confirmation'
 const noProcessResult = confirmSupplementAndGenerateProcessWorkOrders(noProcessDraft, '测试人员')
 assert.equal(noProcessResult.ok, true)
 if (noProcessResult.ok) assert.deepEqual(noProcessResult.record.processWorkOrderRefs, [])
+
+const noProcessMissingSnapshotDraft = structuredClone(noProcessDraft)
+noProcessMissingSnapshotDraft.confirmationIdentity = 'task8-no-process-missing-snapshot'
+noProcessMissingSnapshotDraft.productionOrderId = 'PO-NO-FROZEN-TECH-PACK-NO-PROCESS'
+const noProcessMissingSnapshotResult = confirmSupplementAndGenerateProcessWorkOrders(noProcessMissingSnapshotDraft, '测试人员')
+assert.equal(noProcessMissingSnapshotResult.ok, false, '即使无需印染加工单，缺少冻结技术包也不得确认补料')
+if (!noProcessMissingSnapshotResult.ok) assert.match(noProcessMissingSnapshotResult.message, /冻结技术包/)
+
+const emptyMaterialDraft = structuredClone(noProcessDraft)
+emptyMaterialDraft.confirmationIdentity = 'task8-empty-material'
+emptyMaterialDraft.materialDemands = []
+const emptyMaterialResult = confirmSupplementAndGenerateProcessWorkOrders(emptyMaterialDraft, '测试人员')
+assert.equal(emptyMaterialResult.ok, false, '没有补料物料时不得绕过原裁片、冻结版本和唯一 BOM 链路')
 
 const recordsBeforeInvalid = listSupplementRecords().length
 const workOrdersBeforeInvalid = listProcessWorkOrders().length
@@ -111,4 +141,54 @@ const ambiguous = resolveUniqueSupplementBomItem({
 })
 assert.equal(ambiguous.ok, false, '多条 BOM 匹配必须明确失败')
 
-console.log('PASS: 裁片补料确认生成真实印染加工单，唯一 BOM、幂等与失败原子性符合预期')
+const multiBomSnapshot = getProductionOrderTechPackSnapshot(fixtureDraft.productionOrderId)
+assert(multiBomSnapshot, '缺少多 BOM 原子性检查所需冻结技术包')
+const secondaryBom = multiBomSnapshot.bomItems.find((item) => item.id.endsWith('-bom-supplement-secondary'))
+assert(secondaryBom, '冻结技术包必须提供第二条印花、染色 BOM 检查行')
+assert(secondaryBom.materialCode, '第二条 BOM 必须提供物料编码')
+const multiBomDraft = structuredClone(fixtureDraft)
+multiBomDraft.confirmationIdentity = 'task8-multi-bom-atomic-failure'
+const secondaryDemand = structuredClone(multiBomDraft.materialDemands[0])
+secondaryDemand.key = `${secondaryDemand.key}:secondary`
+secondaryDemand.materialPatternMappingId = `${secondaryDemand.materialPatternMappingId}:secondary`
+secondaryDemand.sourceBomItemId = secondaryBom.id
+secondaryDemand.materialSku = secondaryBom.materialCode
+secondaryDemand.materialName = secondaryBom.name
+const secondaryLine = structuredClone(multiBomDraft.lines[0])
+secondaryLine.key = `${secondaryLine.key}:secondary`
+secondaryLine.basis.key = `${secondaryLine.basis.key}:secondary`
+secondaryLine.basis.shortageMaterial.materialPatternMappingId = secondaryDemand.materialPatternMappingId
+secondaryLine.basis.shortageMaterial.materialSku = secondaryDemand.materialSku
+secondaryLine.basis.shortageMaterial.materialName = secondaryDemand.materialName
+multiBomDraft.materialDemands.push(secondaryDemand)
+multiBomDraft.lines.push(secondaryLine)
+
+const atomicCountsBefore = {
+  records: listSupplementRecords().length,
+  workOrders: listProcessWorkOrders().length,
+  pdaTasks: listPdaGenericProcessTasks().length,
+}
+setProcessWorkOrderGenerationCommitFailureForTest('PRINT', 2)
+const multiBomFailed = confirmSupplementAndGenerateProcessWorkOrders(multiBomDraft, '测试人员')
+setProcessWorkOrderGenerationCommitFailureForTest(null)
+assert.equal(multiBomFailed.ok, false, '第二个 BOM 的印花加工单提交失败时，整批确认必须失败')
+assert.equal(listSupplementRecords().length, atomicCountsBefore.records, '整批失败不得保存补料记录')
+assert.equal(listProcessWorkOrders().length, atomicCountsBefore.workOrders, '整批失败不得残留任何加工单或幂等写入')
+assert.equal(listPdaGenericProcessTasks().length, atomicCountsBefore.pdaTasks, '整批失败不得残留任何 PDA 任务')
+
+const multiBomRetried = confirmSupplementAndGenerateProcessWorkOrders(multiBomDraft, '测试人员')
+assert.equal(multiBomRetried.ok, true, '整批回滚后必须可以使用同一确认标识重试')
+if (multiBomRetried.ok) {
+  assert.deepEqual(
+    multiBomRetried.record.processWorkOrderRefs.map((item) => `${item.materialSku}:${item.processType}`),
+    [
+      `${multiBomDraft.materialDemands[0].materialSku}:DYE`,
+      `${multiBomDraft.materialDemands[0].materialSku}:PRINT`,
+      `${secondaryDemand.materialSku}:DYE`,
+      `${secondaryDemand.materialSku}:PRINT`,
+    ],
+    '多 BOM 加工单引用必须按 BOM 输入顺序、同 BOM 先染色后印花稳定排序',
+  )
+}
+
+console.log('PASS: 裁片补料确认生成真实印染加工单，冻结追溯、多 BOM 原子回滚与详情事实符合预期')

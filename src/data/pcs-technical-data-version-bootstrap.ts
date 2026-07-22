@@ -637,6 +637,25 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             usageProcessCodes: ['SPECIAL_CRAFT'],
           }]
         : []),
+      ...(demand.spuCode === 'SPU-2024-010'
+        ? [{
+            id: `${seed.technicalVersionId}-bom-supplement-secondary`,
+            type: '面料',
+            name: '拼接面料',
+            spec: `${colors.join(' / ') || '默认色'} 拼接面料`,
+            colorLabel: colors.join(' / '),
+            materialCode: 'MAT-SUPPLEMENT-SECONDARY-010',
+            unit: '米',
+            printRequirement: '数码印花',
+            dyeRequirement: '匹染',
+            unitConsumption: 0.8,
+            lossRate: 0.02,
+            supplier: '生产需求单指定',
+            applicableSkuCodes: [...allSkuCodes],
+            linkedPatternIds: [patternId],
+            usageProcessCodes: ['CUT_PANEL', 'SEW'],
+          }]
+        : []),
       ...(isWaterSolubleDyeDemo
         ? [{
             id: waterSolubleOnlyBomItemId,

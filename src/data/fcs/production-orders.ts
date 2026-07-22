@@ -1442,7 +1442,71 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
   },
 ]
 
-export const productionOrders: ProductionOrder[] = productionOrderSeeds.map((seed) => buildProductionOrderFromSeed(seed))
+function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): ProductionOrder {
+  const baseSnapshot = cloneProductionOrderTechPackSnapshot(base.techPackSnapshot)
+  if (!baseSnapshot) throw new Error('PO14671 补料检查生产单缺少技术包模板')
+  const demandSnapshot: DemandSnapshot = {
+    ...structuredClone(base.demandSnapshot),
+    demandId: 'DEM-PO14671-SUPPLEMENT',
+    spuCode: 'ASYSA26060310',
+    spuName: '女式基础圆领短袖',
+  }
+  return {
+    ...structuredClone(base),
+    productionOrderId: 'po-14671',
+    productionOrderNo: 'PO14671',
+    demandId: demandSnapshot.demandId,
+    sourceDemandIds: [demandSnapshot.demandId],
+    legacyOrderNo: 'PO14671',
+    selectedTechPackVersionId: 'tdv-po-14671-v1',
+    demandSnapshot,
+    sourceDemandSnapshots: [structuredClone(demandSnapshot)],
+    techPackSnapshot: {
+      ...baseSnapshot,
+      snapshotId: 'snapshot-po-14671-v1',
+      productionOrderId: 'po-14671',
+      productionOrderNo: 'PO14671',
+      styleId: 'STYLE-ASYSA26060310',
+      styleCode: 'ASYSA26060310',
+      styleName: '女式基础圆领短袖',
+      versionLabel: 'V1.0',
+      sourceTechPackVersionId: 'tdv-po-14671-v1',
+      sourceTechPackVersionCode: 'TDV-PO14671-V1',
+      sourceTechPackVersionLabel: 'V1.0',
+      bomItems: [
+        ['A', '面料 A · 净色', '面料'],
+        ['B', '面料 B · 白色条', '面料'],
+        ['C', '面料 C · 兰色条', '面料'],
+        ['D', '面料 D · 灰色条', '辅料'],
+      ].map(([materialCode, name, type]) => ({
+        id: `tdv-po-14671-v1-bom-${materialCode}`,
+        type,
+        name,
+        materialCode: `RELEASE-${materialCode}`,
+        spec: `${name} / 放行目标补料`,
+        colorLabel: '按成衣颜色',
+        unit: '件',
+        unitConsumption: 1,
+        lossRate: 0,
+        supplier: '生产单冻结技术包',
+        applicableSkuCodes: [],
+        linkedPatternIds: [],
+        usageProcessCodes: ['CUT_PANEL'],
+      })),
+    },
+    auditLogs: [
+      createAuditLog('LOG-PO14671-SUPPLEMENT', 'CREATE', '裁片放行与补料演示生产单已生成并冻结技术包 V1.0', '2026-06-03 07:30:00', '系统'),
+    ],
+    createdAt: '2026-06-03 07:30:00',
+    updatedAt: '2026-06-03 07:30:00',
+  }
+}
+
+const seededProductionOrders = productionOrderSeeds.map((seed) => buildProductionOrderFromSeed(seed))
+export const productionOrders: ProductionOrder[] = [
+  ...seededProductionOrders,
+  buildReleaseTargetSupplementProductionOrder(seededProductionOrders[1]),
+]
 
 export const productionOrderStatusConfig: Record<ProductionOrderStatus, { label: string; color: string }> = {
   DRAFT: { label: '草稿', color: 'bg-gray-100 text-gray-700' },

@@ -2886,7 +2886,7 @@ export function registerDyeProcessWorkOrderGenerationRegistrar(): void {
       seedDomain()
       return Array.from(workOrderStore.values()).find((order) => order.sourceKey === sourceKey)?.dyeOrderId
     },
-    issueIdentity: (orderedAt) => {
+    issueIdentity: (orderedAt, reserved) => {
       seedDomain()
       const occupiedIds = new Set(Array.from(workOrderStore.values()).map((order) => order.dyeOrderId))
       const occupiedNos = new Set(Array.from(workOrderStore.values()).map((order) => order.dyeOrderNo))
@@ -2895,7 +2895,12 @@ export function registerDyeProcessWorkOrderGenerationRegistrar(): void {
         const padded = String(sequence).padStart(6, '0')
         const workOrderId = `DWO-AUTO-${padded}`
         const workOrderNo = `DY-${datePart}-${padded}`
-        if (!occupiedIds.has(workOrderId) && !occupiedNos.has(workOrderNo)) return { workOrderId, workOrderNo }
+        if (
+          !occupiedIds.has(workOrderId)
+          && !occupiedNos.has(workOrderNo)
+          && !reserved.workOrderIds.has(workOrderId)
+          && !reserved.workOrderNos.has(workOrderNo)
+        ) return { workOrderId, workOrderNo }
       }
       throw new Error('染色加工单编号已耗尽')
     },
