@@ -97,7 +97,10 @@ const cleanedReferences = removeGarmentBomReverseReferences('bom-fabric-1', [{
 }], [{
   id: 'pattern-1', linkedBomItemId: 'bom-fabric-1', linkedMaterialId: 'bom-fabric-1',
   linkedMaterialName: '主面料', linkedMaterialSku: 'FABRIC-001', linkedMaterialAlias: '主面料别名',
-}, { id: 'pattern-2', linkedBomItemId: 'other', linkedMaterialAlias: '纸样用途别名' }], {
+}, { id: 'pattern-2', linkedBomItemId: 'other', linkedMaterialAlias: '纸样用途别名' }, {
+  id: 'pattern-3', linkedBomItemId: 'other-bom', linkedMaterialId: 'other-bom',
+  linkedMaterialName: '主面料', linkedMaterialSku: 'FABRIC-001', linkedMaterialAlias: '其他 BOM 别名',
+}], {
   materialName: '主面料', materialCode: 'FABRIC-001',
 })
 assert.deepEqual(cleanedReferences.colorMaterialMappings[0]?.lines.map((line) => line.id), ['line-2'])
@@ -107,6 +110,10 @@ assert.equal(cleanedReferences.patternItems[0]?.linkedMaterialName, undefined)
 assert.equal(cleanedReferences.patternItems[0]?.linkedMaterialSku, undefined)
 assert.equal(cleanedReferences.patternItems[0]?.linkedMaterialAlias, undefined)
 assert.equal(cleanedReferences.patternItems[1]?.linkedMaterialAlias, '纸样用途别名')
+assert.deepEqual(cleanedReferences.patternItems[2], {
+  id: 'pattern-3', linkedBomItemId: 'other-bom', linkedMaterialId: 'other-bom',
+  linkedMaterialName: '主面料', linkedMaterialSku: 'FABRIC-001', linkedMaterialAlias: '其他 BOM 别名',
+})
 assert.equal(isCuttingMappingLineEligible(consumerSnapshot as never, { bomItemId: 'garment-first' } as never), false)
 assert.equal(isCuttingMappingLineEligible(consumerSnapshot as never, { bomItemId: 'fabric-second' } as never), true)
 assert.equal(isCuttingMappingLineEligible(consumerSnapshot as never, { materialCode: 'garment-first', materialName: '成衣' } as never), false)

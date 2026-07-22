@@ -319,20 +319,24 @@ export function removeGarmentBomReverseReferences<
     patternItems: patternItems.map((pattern) => {
       const linkedByBomId = pattern.linkedBomItemId === bomItemId
       const linkedByMaterialId = pattern.linkedMaterialId === bomItemId
-      const linkedByMaterialName = Boolean(previousMaterial?.materialName)
+      const hasExplicitId = Boolean(pattern.linkedBomItemId || pattern.linkedMaterialId)
+      const linkedByMaterialName = !hasExplicitId
+        && Boolean(previousMaterial?.materialName)
         && pattern.linkedMaterialName === previousMaterial?.materialName
-      const linkedByMaterialSku = Boolean(previousMaterial?.materialCode)
+      const linkedByMaterialSku = !hasExplicitId
+        && Boolean(previousMaterial?.materialCode)
         && pattern.linkedMaterialSku === previousMaterial?.materialCode
-      if (!linkedByBomId && !linkedByMaterialId && !linkedByMaterialName && !linkedByMaterialSku) return pattern
+      const isTargetMaterial = hasExplicitId
+        ? linkedByBomId || linkedByMaterialId
+        : linkedByMaterialName || linkedByMaterialSku
+      if (!isTargetMaterial) return pattern
       return {
         ...pattern,
         linkedBomItemId: linkedByBomId ? undefined : pattern.linkedBomItemId,
         linkedMaterialId: undefined,
         linkedMaterialName: undefined,
         linkedMaterialSku: undefined,
-        linkedMaterialAlias: linkedByMaterialId || linkedByMaterialName || linkedByMaterialSku
-          ? undefined
-          : pattern.linkedMaterialAlias,
+        linkedMaterialAlias: undefined,
       }
     }),
   }
