@@ -23,15 +23,16 @@
 | 任务清晰度 | 通过 | 准备完成后直接展示印花/染色加工单，避免先理解已取消对象。 |
 | 信息架构与导航 | 通过 | 两类加工单继续指向既有加工单入口，未新增菜单层级。 |
 | 文案 | 通过 | 技术包变更和派单时效统一使用“加工单”。 |
-| 数量与状态 | 通过 | 未改数量、单位或现场状态口径。 |
+| 数量与状态 | 通过 | 联合水溶样例改为与正式加工单生成共用 BOM/工艺快照派生：计划数量按生产数量 × BOM 单耗 ×（1 + 损耗率）计算，单位、技术包版本、物料构成、工艺和水溶标记均取正式快照。 |
 | 协作关系 | 通过 | 总览关联单据保留技术包、中转袋、加工单和回货批次，保持上下游追溯。 |
 | 异常与追溯 | 通过 | 未删除加工单、回货批次或既有异常信息。 |
 | 现场设备可用性 | 不适用 | 本次未修改员工执行端页面、扫码或设备交互。 |
 
 ## 4. 回归验证
 
-- 通过：`check:fcs-task-generation-rules`、`check:process-work-order-unification`、`check:water-soluble-process`、`check:water-soluble-pda`、`check:dye-work-order-online-alignment`、`check:production-preparation-timing`、`check:printing-workflow`、`check:dyeing-workflow`。
-- 本次补充通过：任务预览以显式 `ProcessWorkOrder[]` 输入读取真实加工单；生产单拆解弹层与规则模拟页均展示独立加工单号、工艺、工厂和状态。规则模拟页优先选择已关联印花/染色加工单的生产单，并将该生产单置于下拉候选首位且选中，避免选择框与标题、表格不一致；任务兼容层只读取任务单元规划，不依赖模块导入副作用或空加工单占位。
+- 通过：`check:fcs-task-generation-rules`、`check:process-work-order-unification`、`check:water-soluble-process`、`check:water-soluble-pda`、`check:dye-work-order-online-alignment`、`check:production-preparation-timing`、`check:printing-workflow`、`check:dyeing-workflow`。共享快照回归覆盖 `materialItems`、计划数量、数量单位、技术包版本、工艺、水溶标记及无效 BOM 的明确失败。
+- 本次补充通过：任务预览以显式 `ProcessWorkOrder[]` 输入读取真实加工单；生产单拆解弹层与规则模拟页均展示独立加工单号、工艺、工厂和状态。规则模拟页只选择关联一张明确真实加工单的 KOL 生产单，并将该生产单置于下拉候选首位且选中，避免选择框与标题、表格不一致；任务兼容层只读取任务单元规划，不依赖模块导入副作用或空加工单占位。
+- 已知基线例外：`check:production-process-work-order-generation` 仍在既有 `FACTORY-DYE-SAME-001` 缺少正式有效染色能力时失败；本次未修改该无关工厂能力数据。
 - 已知基线例外：`check:production-object-overview` 仍因既有印花加工单 `PH-20260328-007` 缺少生产单回溯失败；本次未放宽该检查，也未改动该无关加工单数据。
 
 ## 5. 问题标签

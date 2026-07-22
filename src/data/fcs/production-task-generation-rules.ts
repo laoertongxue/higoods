@@ -115,7 +115,6 @@ export interface ProductionTaskGenerationPreview {
     processCode: 'PRINT' | 'DYE'
     factoryName: string
     statusLabel: string
-    sourceArtifactIds: string[]
   }>
   blockedReasons: string[]
   warnings: string[]
@@ -300,7 +299,6 @@ function toIndependentWorkOrders(
       processCode: workOrder.processType as 'PRINT' | 'DYE',
       factoryName: workOrder.factoryName,
       statusLabel: workOrder.statusLabel,
-      sourceArtifactIds: workOrder.sourceArtifactIds?.length ? [...workOrder.sourceArtifactIds] : [workOrder.workOrderId],
     }))
 }
 

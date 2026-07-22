@@ -35,6 +35,7 @@ import {
   syncProcessWorkOrdersAfterProductionOrderChange,
   type FormalProductionOrderProcessSnapshot,
 } from '../src/data/fcs/production-process-work-order-service.ts'
+import { deriveFormalProductionOrderProcessSnapshots } from '../src/data/fcs/production-process-snapshot-derivation.ts'
 
 const baseSnapshot = {
   orderedAt: '2026-07-15 18:30:00',
@@ -190,6 +191,25 @@ const waterSolubleDyeOrder: ProductionOrder = {
 }
 const waterSolubleDyeSnapshot = buildFormalProductionOrderProcessSnapshots(waterSolubleDyeOrder)[0]
 assert.equal(waterSolubleDyeSnapshot?.requiresWaterSoluble, true, '正式生产单染色快照必须从工艺绑定 BOM 的水溶语义推导联合水溶')
+assert.deepEqual(
+  deriveFormalProductionOrderProcessSnapshots(waterSolubleDyeOrder).map((snapshot) => ({
+    materialItems: snapshot.materialItems,
+    plannedQty: snapshot.plannedQty,
+    qtyUnit: snapshot.qtyUnit,
+    techPackVersionId: snapshot.techPackVersionId,
+    processCodes: snapshot.processCodes,
+    requiresWaterSoluble: snapshot.requiresWaterSoluble,
+  })),
+  [{
+    materialItems: [{ sourceBomItemId: dyeBom.id, materialId: dyeBom.materialCode, materialName: '染色针织布 / 180g' }],
+    plannedQty: 55,
+    qtyUnit: '米',
+    techPackVersionId: 'TPV-ROUTE-001',
+    processCodes: ['DYE'],
+    requiresWaterSoluble: true,
+  }],
+  '联合水溶 seed 与正式生成必须共享 BOM 物料、数量、版本、工艺和水溶快照派生',
+)
 const waterSolubleDyeResult = ensureProcessWorkOrdersForFormalProductionOrder(waterSolubleDyeSnapshot!)
 const waterSolubleDyeWorkOrder = getDyeWorkOrderById(waterSolubleDyeResult.dyeWorkOrderId!)
 assert.equal(waterSolubleDyeWorkOrder?.requiresWaterSoluble, true, '正式生产单统一确保入口必须把水溶语义传给染色加工单')
@@ -244,6 +264,25 @@ assert.deepEqual(aggregatedDyeSnapshots[0]?.materialItems, [
   { sourceBomItemId: secondDyeBom.id, materialId: secondDyeBom.materialCode, materialName: '染色罗纹布 / 2x2 罗纹' },
 ], '同一 DYE 聚合多个 BOM 时必须保留 constituent，禁止只留下拼接字符串')
 assert.equal(aggregatedDyeSnapshots[0]?.requiresWaterSoluble, false, '全部染色 BOM 均不需水溶时必须生成普通染色快照')
+assert.throws(
+  () => deriveFormalProductionOrderProcessSnapshots({
+    ...routeOrder,
+    productionOrderId: 'PO-AUTO-SHARED-INVALID-BOM',
+    productionOrderNo: 'PO-AUTO-SHARED-INVALID-BOM',
+    techPackSnapshot: {
+      ...routeOrder.techPackSnapshot,
+      processEntries: [{
+        ...processTemplate,
+        id: 'PROCESS-SHARED-INVALID-BOM',
+        processCode: 'DYE',
+        processName: '无效 BOM 染色',
+        linkedBomItemIds: ['BOM-SHARED-NOT-FOUND'],
+      }],
+    },
+  }),
+  /绑定了不存在的 BOM：BOM-SHARED-NOT-FOUND/,
+  '共享快照派生遇到无效 BOM 必须明确失败，不能静默丢弃',
+)
 
 const sameActualMaterialOrders = ['A', 'B'].map((suffix) => ({
   ...routeOrder,
@@ -1056,6 +1095,7 @@ for (const orderId of [printOnlyFirst.printWorkOrderId!, combinedFirst.printWork
 }
 
 const demandDomainSource = readFileSync(new URL('../src/pages/production/demand-domain.ts', import.meta.url), 'utf8')
+const dyeingTaskDomainSource = readFileSync(new URL('../src/data/fcs/dyeing-task-domain.ts', import.meta.url), 'utf8')
 assert(
   demandDomainSource.includes("from '../../data/fcs/production-process-work-order-service.ts'"),
   '生产需求领域必须接入正式生产单自动生成加工单服务',
@@ -1069,6 +1109,10 @@ assert(writeOrdersAt >= 0 && ensureOrdersAt > writeOrdersAt, '必须先写入生
 assert(
   applyCreatedSource.includes('buildFormalProductionOrderProcessSnapshots(item.order)'),
   '生产单写入后必须通过已验证的纯转换函数生成各工艺快照',
+)
+assert(
+  dyeingTaskDomainSource.includes('deriveFormalProductionOrderProcessSnapshots'),
+  '固定联合水溶染色 seed 必须复用正式 BOM/工艺快照派生函数',
 )
 
 console.log('生产单自动生成加工单检查通过')

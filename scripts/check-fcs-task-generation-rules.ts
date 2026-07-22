@@ -318,42 +318,53 @@ async function main(): Promise<void> {
   assert.equal(typeof ruleDomain.listProductionTaskGenerationRules, 'function', '缺少 listProductionTaskGenerationRules')
   assert.equal(typeof ruleDomain.listProductionTaskGenerationRuleLogs, 'function', '缺少 listProductionTaskGenerationRuleLogs')
 
-  const independentProcessWorkOrder = processWorkOrderDomain.listProcessWorkOrders().find((order: {
+  const previewProductionOrderId = 'PO-202603-0005'
+  const expectedPreviewWorkOrderNos = ['PH-20260328-001']
+  const previewProcessWorkOrders = processWorkOrderDomain.listProcessWorkOrders().filter((order: {
     processType: string
     sourceProductionOrderId?: string
+    productionOrderIds: string[]
   }) => (
     (order.processType === 'PRINT' || order.processType === 'DYE')
-    && Boolean(order.sourceProductionOrderId)
+    && (order.sourceProductionOrderId === previewProductionOrderId || order.productionOrderIds.includes(previewProductionOrderId))
   ))
-  assert(independentProcessWorkOrder, '缺少可回溯生产单的印花或染色加工单 fixture')
+  assert.deepEqual(
+    previewProcessWorkOrders.map((order: { workOrderNo: string }) => order.workOrderNo),
+    expectedPreviewWorkOrderNos,
+    '规则模拟页样例生产单必须只关联一张明确的真实加工单，不能使用重复 Mock',
+  )
   const rulesPageHtml = renderPageExportWithTsx(
     'src/pages/production/task-generation-rules.ts',
     'renderProductionTaskGenerationRulesPage',
   )
-  assertIncludes(
-    rulesPageHtml,
-    independentProcessWorkOrder.workOrderNo,
-    '规则模拟页 HTML 必须展示真实独立加工单号',
+  assertIncludes(rulesPageHtml, '<option selected>PO-202603-0005</option>', '规则模拟页下拉必须选中单加工单样例生产单')
+  assert.deepEqual(
+    [...rulesPageHtml.matchAll(/PH-20260328-001/g)].map((match) => match[0]),
+    expectedPreviewWorkOrderNos,
+    '规则模拟页 HTML 必须只展示预期的一张真实独立加工单',
   )
-  assertIncludes(rulesPageHtml, '<option selected>PO-202603-081</option>', '规则模拟页下拉必须展示并选中当前样例生产单')
   assert.throws(
-    () => ruleDomain.buildTaskGenerationPreview(independentProcessWorkOrder.sourceProductionOrderId),
+    () => ruleDomain.buildTaskGenerationPreview(previewProductionOrderId),
     /真实加工单集合/,
     '任务生成预览不得在未传入加工单事实时静默返回空集合',
   )
   const independentPreview = ruleDomain.buildTaskGenerationPreview(
-    independentProcessWorkOrder.sourceProductionOrderId,
+    previewProductionOrderId,
     processWorkOrderDomain.listProcessWorkOrders(),
   )
   assert(
     Array.isArray(independentPreview.independentWorkOrders),
     '任务生成预览必须公开独立加工单集合',
   )
-  assert(
-    independentPreview.independentWorkOrders.some((workOrder: { workOrderNo: string }) =>
-      workOrder.workOrderNo === independentProcessWorkOrder.workOrderNo,
-    ),
-    '任务生成预览必须读取真实印花或染色加工单',
+  assert.deepEqual(
+    independentPreview.independentWorkOrders.map((workOrder: { workOrderNo: string }) => workOrder.workOrderNo),
+    expectedPreviewWorkOrderNos,
+    '任务生成预览必须精确读取单加工单样例的真实加工单集合',
+  )
+  assert.equal(independentPreview.independentWorkOrders.length, 1, '单加工单样例不得渲染额外加工单')
+  assert.ok(
+    independentPreview.independentWorkOrders.every((workOrder: { sourceArtifactIds?: string[] }) => workOrder.sourceArtifactIds === undefined),
+    '独立加工单不得把 workOrderId 冒充来源产物 ID',
   )
 
   const rules = ruleDomain.listProductionTaskGenerationRules()

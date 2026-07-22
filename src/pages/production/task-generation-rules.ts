@@ -254,14 +254,13 @@ function renderRuleLogDialog(rule: ProductionTaskGenerationRule): string {
 
 function renderPreviewSample(): string {
   const processWorkOrders = listProcessWorkOrders()
-  const sampleWorkOrder = processWorkOrders.find((workOrder) =>
-    (workOrder.processType === 'PRINT' || workOrder.processType === 'DYE')
-    && Boolean(workOrder.sourceProductionOrderId || workOrder.productionOrderIds.length),
-  )
-  const sampleOrder = productionOrders.find((order) =>
-    order.productionOrderId === sampleWorkOrder?.sourceProductionOrderId
-    || sampleWorkOrder?.productionOrderIds.includes(order.productionOrderId),
-  ) ?? productionOrders.find((order) => order.demandSnapshot.saleType.includes('KOL'))
+  const sampleOrder = productionOrders.find((order) => {
+    if (!order.demandSnapshot.saleType.includes('KOL')) return false
+    return processWorkOrders.filter((workOrder) => (
+      (workOrder.processType === 'PRINT' || workOrder.processType === 'DYE')
+      && (workOrder.sourceProductionOrderId === order.productionOrderId || workOrder.productionOrderIds.includes(order.productionOrderId))
+    )).length === 1
+  })
   if (!sampleOrder) return ''
   const preview = buildTaskGenerationPreview(sampleOrder.productionOrderId, processWorkOrders)
   const visibleOrders = [

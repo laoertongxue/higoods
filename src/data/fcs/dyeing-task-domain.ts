@@ -29,6 +29,7 @@ import { getProcessWorkOrderStockMaterial, isValidProcessWorkOrderPlannedFinishA
 import { registerCreatedDyeWorkOrderReader } from './dyeing-created-work-order-registry.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
+import { deriveFormalProductionOrderProcessSnapshots } from './production-process-snapshot-derivation.ts'
 import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
 import { listActiveProcessCraftDefinitions, type ProcessCraftDefinition } from './process-craft-dict.ts'
 import {
@@ -2398,31 +2399,13 @@ function buildFreshDyeMobileTask(input: {
 function seedPersistentWaterSolubleDyeWorkOrder(): void {
   const productionOrder = productionOrders.find((order) => order.productionOrderId === 'PO-202603-081')
   const techPackSnapshot = productionOrder ? getProductionOrderTechPackSnapshot(productionOrder.productionOrderId) : undefined
-  const dyeEntries = techPackSnapshot?.processEntries.filter((entry) => entry.processCode === 'DYE') ?? []
-  const linkedBomItemIds = [...new Set(dyeEntries.flatMap((entry) => entry.linkedBomItemIds ?? []))]
-  const bomItems = linkedBomItemIds
-    .map((bomItemId) => techPackSnapshot?.bomItems.find((item) => item.id === bomItemId))
-    .filter((item): item is NonNullable<typeof item> => Boolean(item))
-  const requiresWaterSoluble = bomItems.length > 0 && bomItems.every((item) => item.waterSolubleRequirement === '是')
-  if (!productionOrder || !techPackSnapshot || !requiresWaterSoluble || workOrderStore.has('DYE-WATER-PO-202603-081')) return
-
-  const units = [...new Set(bomItems.map((item) => item.unit?.trim()).filter((unit): unit is string => Boolean(unit)))]
-  if (units.length !== 1) return
-  const productionQty = productionOrder.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
-  const plannedQty = Math.round(bomItems.reduce(
-    (sum, item) => sum + productionQty * item.unitConsumption * (1 + item.lossRate),
-    0,
-  ) * 1_000_000) / 1_000_000
-  const materialItems = bomItems.map((item) => ({
-    sourceBomItemId: item.id,
-    materialId: item.materialCode || item.id,
-    materialName: `${item.name}${item.spec ? ` / ${item.spec}` : ''}`,
-  }))
-  const materialFields = deriveFormalProductionOrderMaterialFields(materialItems)
-  const targetColor = [...new Set(bomItems.map((item) => item.colorLabel).filter((color): color is string => Boolean(color)))].join('、')
-    || productionOrder.demandSnapshot.skuLines[0]?.color
-    || '按技术包配色'
-  const processName = [...new Set(dyeEntries.map((entry) => entry.processName).filter(Boolean))].join('、') || '染色'
+  if (!productionOrder || !techPackSnapshot || workOrderStore.has('DYE-WATER-PO-202603-081')) return
+  const dyeSnapshot = deriveFormalProductionOrderProcessSnapshots({
+    ...productionOrder,
+    techPackSnapshot,
+  }).find((snapshot) => snapshot.processCodes.includes('DYE'))
+  if (!dyeSnapshot?.requiresWaterSoluble) return
+  const processName = dyeSnapshot.dyeProcessName || '染色'
 
   const taskId = 'TASK-DYE-WATER-PO-202603-081'
   const createdAt = '2026-03-26 09:00:00'
@@ -2435,8 +2418,8 @@ function seedPersistentWaterSolubleDyeWorkOrder(): void {
     requiredDeliveryDate: productionOrder.demandSnapshot.requiredDeliveryDate,
     factoryId: TEST_FACTORY_ID,
     factoryName: TEST_FACTORY_NAME,
-    qty: plannedQty,
-    qtyDisplayUnit: units[0],
+    qty: dyeSnapshot.plannedQty,
+    qtyDisplayUnit: dyeSnapshot.qtyUnit,
     processName,
     createdAt,
     dispatchedBy: '平台派单',
@@ -2455,18 +2438,18 @@ function seedPersistentWaterSolubleDyeWorkOrder(): void {
     isFirstOrder: false,
     sampleWaitType: 'NONE',
     sampleStatus: 'NOT_REQUIRED',
-    rawMaterialSku: materialFields.materialId,
-    composition: materialFields.materialName,
-    materialId: materialFields.materialId,
+    rawMaterialSku: dyeSnapshot.materialId,
+    composition: dyeSnapshot.materialName,
+    materialId: dyeSnapshot.materialId,
     dyeProcessCode: 'DYE',
     dyeProcessName: processName,
-    targetColor,
-    plannedQty,
-    qtyUnit: units[0],
+    targetColor: dyeSnapshot.targetColor,
+    plannedQty: dyeSnapshot.plannedQty,
+    qtyUnit: dyeSnapshot.qtyUnit,
     requiresWaterSoluble: true,
-    waterSolublePlannedQty: plannedQty,
+    waterSolublePlannedQty: dyeSnapshot.plannedQty,
     waterSolubleCompletedQty: 0,
-    waterSolubleQtyUnit: units[0],
+    waterSolubleQtyUnit: dyeSnapshot.qtyUnit,
     dyeFactoryId: TEST_FACTORY_ID,
     dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
@@ -2481,15 +2464,15 @@ function seedPersistentWaterSolubleDyeWorkOrder(): void {
       productionOrderId: productionOrder.productionOrderId,
       productionOrderNo: productionOrder.productionOrderNo,
       orderedAt: productionOrder.createdAt,
-      techPackVersionId: techPackSnapshot.sourceTechPackVersionId,
-      techPackVersionLabel: techPackSnapshot.sourceTechPackVersionLabel || techPackSnapshot.versionLabel,
-      materialId: materialFields.materialId,
-      materialName: materialFields.materialName,
-      materialItems,
-      targetColor,
-      plannedQty,
-      qtyUnit: units[0],
-      processCodes: ['DYE'],
+      techPackVersionId: dyeSnapshot.techPackVersionId,
+      techPackVersionLabel: dyeSnapshot.techPackVersionLabel,
+      materialId: dyeSnapshot.materialId,
+      materialName: dyeSnapshot.materialName,
+      materialItems: dyeSnapshot.materialItems,
+      targetColor: dyeSnapshot.targetColor,
+      plannedQty: dyeSnapshot.plannedQty,
+      qtyUnit: dyeSnapshot.qtyUnit,
+      processCodes: dyeSnapshot.processCodes,
       processName,
       requiresWaterSoluble: true,
       spuCode: productionOrder.demandSnapshot.spuCode,

@@ -823,7 +823,7 @@ const runtimeLatestUploadAt = runtimeReadyUploads
   .sort((left, right) => right.localeCompare(left))[0]
 assert.equal(runtimeReadyRecord.outputPublishedAt, runtimeLatestUploadAt, 'runtime ready 产出时间必须取最晚完成证据')
 assert.ok((runtimeReadyRecord.outputs?.length ?? 0) > 0, 'runtime 证据齐全后必须生成产出对象')
-for (const outputType of ['染色加工单', '辅料采购单'] as const) {
+for (const outputType of ['正式版本技术包', '生产需求单', '生产单', '染色加工单', '辅料采购单'] as const) {
   assert.ok(
     runtimeReadyRecord.outputs?.some((output) => output.outputType === outputType),
     `runtime 证据齐全后产出缺少「${outputType}」`,
