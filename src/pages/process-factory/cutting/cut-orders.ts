@@ -111,6 +111,13 @@ import {
 import { cuttingMaterialLedgerEventTypeLabels } from '../../../data/fcs/cutting/material-ledger.ts'
 import { listSpreadingDifferences } from '../../../data/fcs/cutting/spreading-differences.ts'
 import { buildBindingProcessOrders } from './binding-strip-orders.ts'
+import {
+  completeSupplementOrder,
+  getSupplementOrder,
+  listSupplementOrdersByCutOrder,
+  registerSupplementOrder,
+  type SupplementOrderLifecycle,
+} from '../../../data/fcs/cutting/supplement-order-registry.ts'
 
 type FilterField =
   | 'keyword'
@@ -121,6 +128,8 @@ type FilterField =
   | 'inBatch'
   | 'hasAvailableBalance'
   | 'hasCloseReason'
+  | 'hasSupplement'
+  | 'supplementCompletion'
 type CloseField = 'closeReasonCode' | 'closeDescription' | 'closedBy'
 
 const FIELD_TO_FILTER_KEY: Record<FilterField, keyof CutOrderFilters> = {
@@ -132,6 +141,8 @@ const FIELD_TO_FILTER_KEY: Record<FilterField, keyof CutOrderFilters> = {
   inBatch: 'inBatch',
   hasAvailableBalance: 'hasAvailableBalance',
   hasCloseReason: 'hasCloseReason',
+  hasSupplement: 'hasSupplement',
+  supplementCompletion: 'supplementCompletion',
 }
 
 const initialFilters: CutOrderFilters = {
@@ -143,12 +154,18 @@ const initialFilters: CutOrderFilters = {
   inBatch: 'ALL',
   hasAvailableBalance: 'ALL',
   hasCloseReason: 'ALL',
+  hasSupplement: 'ALL',
+  supplementCompletion: 'ALL',
   riskOnly: false,
 }
 
 interface CutOrdersPageState {
   filters: CutOrderFilters
   activeOrderId: string | null
+  activeSupplementId: string | null
+  pendingCompleteCutOrderId: string | null
+  selectedIncompleteSupplementId: string | null
+  confirmationSupplementId: string | null
   page: number
   sort: StandardListSortState | null
   columnPreferences: StandardListColumnPreferences
@@ -194,6 +211,10 @@ let cutOrderListLocalEventsBound = false
 const state: CutOrdersPageState = {
   filters: { ...initialFilters },
   activeOrderId: null,
+  activeSupplementId: null,
+  pendingCompleteCutOrderId: null,
+  selectedIncompleteSupplementId: null,
+  confirmationSupplementId: null,
   page: 1,
   sort: null,
   columnPreferences: defaultCutOrderListColumnPreferences,
@@ -213,6 +234,25 @@ const state: CutOrdersPageState = {
 }
 
 const consumedWebActionKeys = new Set<string>()
+
+function ensureStableCutOrderSupplementOrders(): void {
+  const seeds = [
+    { id: 'supplement-cut14671-b-001', recordNo: 'SUP-CUT14671-B-001', reason: '验片破损', totalQty: 393, lineSummary: 'Black/M/9件；Black/M/10件', createdAt: '2026-07-22 10:00' },
+    { id: 'supplement-cut14671-b-002', recordNo: 'SUP-CUT14671-B-002', reason: '尺码齐套不足', totalQty: 412, lineSummary: 'Black/M/10件；Black/M/11件', createdAt: '2026-07-22 11:00' },
+    { id: 'supplement-cut14671-b-003', recordNo: 'SUP-CUT14671-B-003', reason: '尺码齐套不足', totalQty: 431, lineSummary: 'Black/M/11件；Black/M/12件', createdAt: '2026-07-22 12:00' },
+  ]
+  seeds.forEach((seed) => registerSupplementOrder({
+    ...seed,
+    cutOrderId: 'cut-14671-b',
+    cutOrderNo: 'CUT14671-B',
+    productionOrderNo: 'PO14671',
+    createdBy: '裁床主管 王敏',
+  }))
+  const first = getSupplementOrder(seeds[0].id)
+  if (first?.status === '未完成') {
+    completeSupplementOrder({ id: first.id, completedAt: first.createdAt, completedBy: first.createdBy })
+  }
+}
 
 function getCurrentQueryString(): string {
   const pathname = appStore.getState().pathname
@@ -546,6 +586,7 @@ function renderFilterSelect(
   field: FilterField,
   value: string,
   options: Array<{ value: string; label: string }>,
+  disabled = false,
 ): string {
   return `
     <label class="space-y-2">
@@ -553,6 +594,7 @@ function renderFilterSelect(
       <select
         class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
         data-cutting-piece-field="${field}"
+        ${disabled ? 'disabled' : ''}
       >
         ${options
           .map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
@@ -591,6 +633,10 @@ function getFilterLabels(): string[] {
   if (state.filters.hasAvailableBalance === 'NO') labels.push('可用余额：等于 0')
   if (state.filters.hasCloseReason === 'YES') labels.push('关闭原因：已填写')
   if (state.filters.hasCloseReason === 'NO') labels.push('关闭原因：未填写')
+  if (state.filters.hasSupplement === 'YES') labels.push('是否有补料：有补料')
+  if (state.filters.hasSupplement === 'NO') labels.push('是否有补料：无补料')
+  if (state.filters.supplementCompletion === 'HAS_INCOMPLETE') labels.push('补料是否完成：有未完成')
+  if (state.filters.supplementCompletion === 'ALL_COMPLETED') labels.push('补料是否完成：全部已完成')
   if (state.filters.riskOnly) labels.push('仅看异常项')
 
   return labels
@@ -694,6 +740,16 @@ function renderFilterArea(): string {
           { value: 'YES', label: '已填写关闭原因' },
           { value: 'NO', label: '未填写关闭原因' },
         ])}
+        ${renderFilterSelect('是否有补料', 'hasSupplement', state.filters.hasSupplement, [
+          { value: 'ALL', label: '全部' },
+          { value: 'YES', label: '有补料' },
+          { value: 'NO', label: '无补料' },
+        ])}
+        ${renderFilterSelect('补料是否完成', 'supplementCompletion', state.filters.supplementCompletion, [
+          { value: 'ALL', label: '全部' },
+          { value: 'HAS_INCOMPLETE', label: '有未完成' },
+          { value: 'ALL_COMPLETED', label: '全部已完成' },
+        ], state.filters.hasSupplement === 'NO')}
       </div>
     </div>
   `)
@@ -728,6 +784,26 @@ function renderBatchSummary(row: CutOrderRow): string {
   `
 }
 
+function getSupplementOrders(row: CutOrderRow): ReadonlyArray<SupplementOrderLifecycle> {
+  return listSupplementOrdersByCutOrder(row.cutOrderId)
+}
+
+function renderSupplementTags(row: CutOrderRow): string {
+  const orders = getSupplementOrders(row)
+  if (!orders.length) return ''
+  return `
+    <div class="flex flex-wrap gap-1 pt-1" aria-label="${escapeHtml(`${row.cutOrderNo} 关联补料单`)}">
+      ${orders.map((order) => {
+        const label = `补 · 第 ${order.sequenceNo} 次 · ${order.status}`
+        const className = order.status === '已完成'
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+          : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+        return `<button type="button" class="rounded-full border px-2 py-1 text-[11px] font-medium ${className}" aria-label="${escapeHtml(label)}" data-cutting-piece-action="open-supplement-detail" data-supplement-id="${escapeHtml(order.id)}">${escapeHtml(label)}</button>`
+      }).join('')}
+    </div>
+  `
+}
+
 function renderProductionStyleCell(row: CutOrderRow): string {
   return `
     <div class="space-y-1">
@@ -737,6 +813,7 @@ function renderProductionStyleCell(row: CutOrderRow): string {
       <div class="text-sm font-medium text-foreground">${escapeHtml(row.styleCode || row.spuCode || '待补')}</div>
       <p class="text-xs text-muted-foreground">${escapeHtml(row.styleName || row.spuCode || '款式待补')}</p>
       <span class="${row.urgencyClassName} inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium">${escapeHtml(row.urgencyLabel)}</span>
+      ${renderSupplementTags(row)}
     </div>
   `
 }
@@ -1171,9 +1248,11 @@ const cutOrderListColumns: StandardListColumn<CutOrderRow>[] = [
     render: (row) => {
       const canEnterExecution = isCutOrderInExecutionStage(row)
       const canEnterFeiTickets = isPrintableSourceRow(row)
+      const hasIncompleteSupplement = getSupplementOrders(row).some((order) => order.status === '未完成')
       return `
         <div class="flex flex-col items-end gap-1.5" data-standard-list-action-column>
           <button type="button" class="text-xs text-blue-600 hover:underline" data-nav="${escapeHtml(buildCutOrderDetailPath(row.id))}">查看详情</button>
+          ${hasIncompleteSupplement ? `<button type="button" class="text-xs font-medium text-amber-700 hover:underline" data-skip-page-rerender="true" data-cutting-piece-action="open-complete-supplement" data-record-id="${escapeHtml(row.id)}" data-cut-order-id="${escapeHtml(row.cutOrderId)}">完成补料</button>` : ''}
           <button type="button" class="text-xs text-blue-600 hover:underline" data-skip-page-rerender="true" data-cutting-piece-action="print-task-route-card" data-record-id="${escapeHtml(row.id)}">打印任务流转卡</button>
           <button type="button" class="text-xs text-blue-600 hover:underline" data-skip-page-rerender="true" data-cutting-piece-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
           ${canEnterExecution ? `<button type="button" class="text-xs text-blue-600 hover:underline" data-skip-page-rerender="true" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
@@ -1288,7 +1367,62 @@ function renderCutOrderPagination(paging: StandardListPageSlice<CutOrderRow>): s
   }))
 }
 
+function renderSupplementDetail(order: SupplementOrderLifecycle): string {
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-cutting-piece-supplement-detail>
+      <section class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-background shadow-xl" role="dialog" aria-modal="true" aria-labelledby="cut-order-supplement-detail-title">
+        <header class="flex items-center justify-between border-b px-5 py-4">
+          <h2 id="cut-order-supplement-detail-title" class="text-lg font-semibold">补料单详情</h2>
+          <button type="button" class="rounded-md border px-3 py-1.5 text-sm" data-cutting-piece-action="close-supplement-overlay">关闭</button>
+        </header>
+        <div class="grid gap-4 p-5 sm:grid-cols-2">
+          ${[
+            ['补料单号', order.recordNo], ['裁片单', order.cutOrderNo], ['生产单', order.productionOrderNo],
+            ['补料次数', `第 ${order.sequenceNo} 次`], ['状态', order.status], ['原因', order.reason],
+            ['明细摘要', order.lineSummary], ['总补料数量', `${order.totalQty} 件`],
+            ['创建人', order.createdBy], ['创建时间', order.createdAt],
+          ].map(([label, value]) => `<div><div class="text-xs text-muted-foreground">${escapeHtml(label)}</div><div class="mt-1 font-medium">${escapeHtml(value)}</div></div>`).join('')}
+          <div class="sm:col-span-2"><div class="text-xs text-muted-foreground">完成信息</div><div class="mt-1 font-medium">${order.status === '已完成' ? `${escapeHtml(order.completedBy)} · ${escapeHtml(order.completedAt)}` : '尚未完成'}</div></div>
+        </div>
+        ${order.status === '未完成' ? `<footer class="flex justify-end border-t px-5 py-4"><button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-cutting-piece-action="request-complete-supplement" data-supplement-id="${escapeHtml(order.id)}">完成该补料单</button></footer>` : ''}
+      </section>
+    </div>
+  `
+}
+
+function renderSupplementConfirmation(order: SupplementOrderLifecycle): string {
+  return `
+    <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-4" data-cutting-piece-supplement-confirm>
+      <section class="w-full max-w-lg rounded-xl bg-background shadow-xl" role="alertdialog" aria-modal="true" aria-labelledby="cut-order-supplement-confirm-title">
+        <header class="border-b px-5 py-4"><h2 id="cut-order-supplement-confirm-title" class="text-lg font-semibold">确认完成补料</h2></header>
+        <div class="space-y-2 p-5 text-sm"><p>确认完成当前补料单：</p><p class="font-semibold">${escapeHtml(order.recordNo)} · 第 ${order.sequenceNo} 次 · ${escapeHtml(order.cutOrderNo)}</p><p class="text-muted-foreground">本次只完成这一张补料单，不改变裁片单主状态，也不影响其他补料单。</p></div>
+        <footer class="flex justify-end gap-2 border-t px-5 py-4"><button type="button" class="rounded-md border px-4 py-2 text-sm" data-cutting-piece-action="cancel-complete-supplement">取消</button><button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-cutting-piece-action="confirm-complete-supplement" data-supplement-id="${escapeHtml(order.id)}">确认完成</button></footer>
+      </section>
+    </div>
+  `
+}
+
+function renderSupplementPicker(cutOrderId: string): string {
+  const incompleteOrders = listSupplementOrdersByCutOrder(cutOrderId).filter((order) => order.status === '未完成')
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-cutting-piece-supplement-picker>
+      <section class="w-full max-w-xl rounded-xl bg-background shadow-xl" role="dialog" aria-modal="true" aria-labelledby="cut-order-supplement-picker-title">
+        <header class="flex items-center justify-between border-b px-5 py-4"><h2 id="cut-order-supplement-picker-title" class="text-lg font-semibold">完成补料</h2><button type="button" class="rounded-md border px-3 py-1.5 text-sm" data-cutting-piece-action="close-supplement-overlay">关闭</button></header>
+        <div class="space-y-3 p-5">${incompleteOrders.map((order) => {
+          const label = `第 ${order.sequenceNo} 次 · ${order.recordNo} · ${order.totalQty} 件 · ${order.lineSummary}`
+          return `<label class="flex cursor-pointer gap-3 rounded-lg border p-3"><input type="radio" name="incomplete-supplement" value="${escapeHtml(order.id)}" aria-label="${escapeHtml(label)}" data-cutting-piece-action="select-incomplete-supplement" data-supplement-id="${escapeHtml(order.id)}" ${state.selectedIncompleteSupplementId === order.id ? 'checked' : ''}/><span class="text-sm">${escapeHtml(label)}</span></label>`
+        }).join('')}</div>
+        <footer class="flex justify-end gap-2 border-t px-5 py-4"><button type="button" class="rounded-md border px-4 py-2 text-sm" data-cutting-piece-action="close-supplement-overlay">取消</button><button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50" data-cutting-piece-action="complete-selected-supplement" ${state.selectedIncompleteSupplementId ? '' : 'disabled'}>确认完成</button></footer>
+      </section>
+    </div>
+  `
+}
+
 function renderCutOrderListOverlay(): string {
+  const activeSupplement = state.activeSupplementId ? getSupplementOrder(state.activeSupplementId) : undefined
+  const confirmation = state.confirmationSupplementId ? getSupplementOrder(state.confirmationSupplementId) : undefined
+  if (activeSupplement) return `${renderSupplementDetail(activeSupplement)}${confirmation ? renderSupplementConfirmation(confirmation) : ''}`
+  if (state.pendingCompleteCutOrderId) return renderSupplementPicker(state.pendingCompleteCutOrderId)
   if (!state.columnSettingsOpen) return ''
   return withSkipPageRerender(renderStandardListColumnSettings({
     title: '列设置',
@@ -1305,6 +1439,25 @@ function setCutOrderRegion(region: string, html: string): void {
   if (!element) return
   element.innerHTML = html
   hydrateIcons(element)
+  bindCutOrderSupplementInteractions(element)
+}
+
+function bindCutOrderSupplementInteractions(scope: ParentNode = document): void {
+  const actions = new Set([
+    'open-supplement-detail', 'open-complete-supplement', 'select-incomplete-supplement',
+    'request-complete-supplement', 'cancel-complete-supplement', 'confirm-complete-supplement',
+    'complete-selected-supplement', 'close-supplement-overlay',
+  ])
+  scope.querySelectorAll<HTMLElement>('[data-cutting-piece-action]').forEach((node) => {
+    if (!actions.has(node.dataset.cuttingPieceAction || '') || node.dataset.supplementInteractionBound === 'true') return
+    node.dataset.supplementInteractionBound = 'true'
+    node.addEventListener('click', (event) => {
+      if (!handleCraftCuttingCutOrdersEvent(node, event)) return
+      event.preventDefault()
+      event.stopPropagation()
+      event.stopImmediatePropagation()
+    })
+  })
 }
 
 function refreshCutOrderFeedback(): void {
@@ -1337,13 +1490,28 @@ function refreshCutOrderOverlay(): void {
   setCutOrderRegion('overlay', renderCutOrderListOverlay())
 }
 
+function refreshSupplementLinkage(): void {
+  const scrollLeft = document.querySelector<HTMLElement>('[data-standard-list-scroll]')?.scrollLeft || 0
+  refreshCutOrderList()
+  refreshCutOrderFeedback()
+  refreshCutOrderOverlay()
+  const nextScroll = document.querySelector<HTMLElement>('[data-standard-list-scroll]')
+  if (nextScroll) nextScroll.scrollLeft = scrollLeft
+}
+
 function ensureCutOrderListLocalEvents(): void {
-  if (cutOrderListLocalEventsBound || typeof document === 'undefined') return
+  if (cutOrderListLocalEventsBound || typeof document === 'undefined' || typeof window === 'undefined') return
   cutOrderListLocalEventsBound = true
   document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape' || !state.columnSettingsOpen) return
+    if (event.key !== 'Escape') return
     if (!document.querySelector('[data-cutting-piece-list-root]')) return
-    state.columnSettingsOpen = false
+    if (state.confirmationSupplementId) state.confirmationSupplementId = null
+    else if (state.activeSupplementId) state.activeSupplementId = null
+    else if (state.pendingCompleteCutOrderId) {
+      state.pendingCompleteCutOrderId = null
+      state.selectedIncompleteSupplementId = null
+    } else if (state.columnSettingsOpen) state.columnSettingsOpen = false
+    else return
     refreshCutOrderOverlay()
     event.preventDefault()
     event.stopImmediatePropagation()
@@ -2608,12 +2776,18 @@ function renderCutOrderDetailPanelV2(row: CutOrderRow, viewModel = getViewModel(
 }
 
 function renderPage(): string {
+  ensureStableCutOrderSupplementOrders()
   ensureCutOrderListPreferences()
   ensureCutOrderListLocalEvents()
+  if (typeof window !== 'undefined') window.setTimeout(() => bindCutOrderSupplementInteractions(), 0)
   if (typeof document !== 'undefined' && !document.querySelector('[data-standard-list-page][data-cutting-piece-list-root]')) {
     state.page = 1
     state.sort = null
     state.columnSettingsOpen = false
+    state.activeSupplementId = null
+    state.pendingCompleteCutOrderId = null
+    state.selectedIncompleteSupplementId = null
+    state.confirmationSupplementId = null
   }
   applyWebActionFromUrl()
   const viewModel = getViewModel()
@@ -2800,11 +2974,14 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
 
     const filterKey = FIELD_TO_FILTER_KEY[field]
     const input = fieldNode as HTMLInputElement | HTMLSelectElement
+    if (state.filters[filterKey] === input.value) return true
     state.filters = {
       ...state.filters,
       [filterKey]: input.value,
+      ...(field === 'hasSupplement' && input.value === 'NO' ? { supplementCompletion: 'ALL' as const } : {}),
     }
     resetPagination()
+    if (field === 'hasSupplement') refreshCutOrderFilters()
     refreshCutOrderList()
     return true
   }
@@ -2849,6 +3026,102 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
   if (action === 'clear-feedback') {
     clearFeedback()
     refreshCutOrderFeedback()
+    return true
+  }
+
+  if (action === 'open-supplement-detail') {
+    const supplementId = actionNode.dataset.supplementId || ''
+    if (!getSupplementOrder(supplementId)) {
+      setFeedback('warning', '未找到对应补料单，请刷新后重试。')
+      refreshCutOrderFeedback()
+      return true
+    }
+    state.activeSupplementId = supplementId
+    state.pendingCompleteCutOrderId = null
+    state.selectedIncompleteSupplementId = null
+    state.confirmationSupplementId = null
+    refreshCutOrderOverlay()
+    return true
+  }
+
+  if (action === 'open-complete-supplement') {
+    const row = actionNode.dataset.recordId ? getViewModel().rowsById[actionNode.dataset.recordId] : null
+    const cutOrderId = actionNode.dataset.cutOrderId || row?.cutOrderId || ''
+    if (!cutOrderId) return false
+    const incomplete = listSupplementOrdersByCutOrder(cutOrderId).filter((order) => order.status === '未完成')
+    if (!incomplete.length) {
+      setFeedback('warning', '该裁片单没有未完成补料单。')
+      refreshCutOrderFeedback()
+      return true
+    }
+    state.pendingCompleteCutOrderId = cutOrderId
+    state.selectedIncompleteSupplementId = null
+    state.activeSupplementId = null
+    state.confirmationSupplementId = null
+    refreshCutOrderOverlay()
+    return true
+  }
+
+  if (action === 'select-incomplete-supplement') {
+    if (event?.type !== 'change' && event?.type !== 'click') return false
+    const supplementId = actionNode.dataset.supplementId || ''
+    const order = getSupplementOrder(supplementId)
+    if (!order || order.status !== '未完成' || order.cutOrderId !== state.pendingCompleteCutOrderId) return true
+    state.selectedIncompleteSupplementId = supplementId
+    refreshCutOrderOverlay()
+    return true
+  }
+
+  if (action === 'request-complete-supplement') {
+    const supplementId = actionNode.dataset.supplementId || ''
+    const order = getSupplementOrder(supplementId)
+    if (!order || order.status !== '未完成') {
+      setFeedback('warning', order ? '该补料单已完成，无需重复操作。' : '未找到对应补料单，请刷新后重试。')
+      state.confirmationSupplementId = null
+      refreshSupplementLinkage()
+      return true
+    }
+    state.confirmationSupplementId = supplementId
+    refreshCutOrderOverlay()
+    return true
+  }
+
+  if (action === 'cancel-complete-supplement') {
+    state.confirmationSupplementId = null
+    refreshCutOrderOverlay()
+    return true
+  }
+
+  if (action === 'confirm-complete-supplement' || action === 'complete-selected-supplement') {
+    const supplementId = action === 'confirm-complete-supplement'
+      ? state.confirmationSupplementId || actionNode.dataset.supplementId || ''
+      : state.selectedIncompleteSupplementId || ''
+    try {
+      const completed = completeSupplementOrder({
+        id: supplementId,
+        completedAt: '2026-07-22 14:30',
+        completedBy: '裁床主管 王敏',
+      })
+      setFeedback('success', `已完成补料单 ${completed.recordNo}，裁片单主状态保持不变。`)
+    } catch (error) {
+      setFeedback('warning', error instanceof Error ? error.message : '完成补料单失败，请刷新后重试。')
+    } finally {
+      state.confirmationSupplementId = null
+      state.selectedIncompleteSupplementId = null
+      if (action === 'complete-selected-supplement') state.pendingCompleteCutOrderId = null
+    }
+    refreshSupplementLinkage()
+    return true
+  }
+
+  if (action === 'close-supplement-overlay') {
+    if (state.confirmationSupplementId) state.confirmationSupplementId = null
+    else if (state.activeSupplementId) state.activeSupplementId = null
+    else {
+      state.pendingCompleteCutOrderId = null
+      state.selectedIncompleteSupplementId = null
+    }
+    refreshCutOrderOverlay()
     return true
   }
 
@@ -3154,5 +3427,9 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
 }
 
 export function isCraftCuttingCutOrdersDialogOpen(): boolean {
-  return state.columnSettingsOpen || state.activeOrderId !== null
+  return state.columnSettingsOpen
+    || state.activeOrderId !== null
+    || state.activeSupplementId !== null
+    || state.pendingCompleteCutOrderId !== null
+    || state.confirmationSupplementId !== null
 }

@@ -13,6 +13,11 @@ import type {
   CuttingTaskAssigneeType,
   CuttingTaskExecutionRoute,
 } from '../../../data/fcs/cutting/cutting-task-routing.ts'
+import { resolveCuttingTaskLink } from '../../../data/fcs/cutting/cutting-task-routing.ts'
+import {
+  listSupplementOrdersByCutOrder,
+  type SupplementOrderStatus,
+} from '../../../data/fcs/cutting/supplement-order-registry.ts'
 import {
   buildMaterialLedgerProjectionMap,
   type MaterialLedgerProjection,
@@ -181,6 +186,8 @@ export interface CutOrderFilters {
   inBatch: 'ALL' | 'IN_MARKER_PLAN' | 'NOT_IN_MARKER_PLAN'
   hasAvailableBalance: 'ALL' | 'YES' | 'NO'
   hasCloseReason: 'ALL' | 'YES' | 'NO'
+  hasSupplement: 'ALL' | 'YES' | 'NO'
+  supplementCompletion: 'ALL' | 'HAS_INCOMPLETE' | 'ALL_COMPLETED'
   riskOnly: boolean
 }
 
@@ -662,7 +669,75 @@ export function buildCutOrderViewModel(
     })
   })
 
-  const rows = listGeneratedCutOrderSourceRecords()
+  const generatedSources = listGeneratedCutOrderSourceRecords()
+  const generatedKeys = new Set(generatedSources.flatMap((source) => [source.cutOrderId, source.cutOrderNo]))
+  const legacySources = records.flatMap((record) => record.materialLines.flatMap((line): GeneratedCutOrderSourceRecord[] => {
+    const cutOrderId = line.cutOrderId || ''
+    const cutOrderNo = line.cutOrderNo || line.cutPieceOrderNo
+    if (!cutOrderId || !cutOrderNo || generatedKeys.has(cutOrderId) || generatedKeys.has(cutOrderNo)) return []
+    generatedKeys.add(cutOrderId)
+    generatedKeys.add(cutOrderNo)
+    const taskLink = resolveCuttingTaskLink(record)
+    const materialIdentity = line.materialIdentity || {
+      materialSku: line.materialSku,
+      materialName: line.materialLabel,
+      materialColor: line.color || '待补',
+      materialAlias: line.materialAlias || line.materialLabel,
+      materialImageUrl: line.materialImageUrl || '',
+      materialUnit: '米',
+    }
+    const patternIdentity = line.patternIdentity || {
+      patternFileId: '',
+      patternFileName: '历史裁片单纸样待补',
+      patternVersion: '待补',
+      patternKind: '历史裁片单',
+      effectiveWidthValue: 0,
+      effectiveWidthUnit: '厘米',
+      piecePartCodes: [],
+      piecePartNames: [],
+    }
+    return [{
+      cutOrderId,
+      cutOrderNo,
+      generationKey: `progress:${record.productionOrderId}:${cutOrderId}`,
+      productionOrderId: record.productionOrderId,
+      productionOrderNo: record.productionOrderNo,
+      ...taskLink,
+      spuCode: record.spuCode,
+      styleId: record.styleCode,
+      styleCode: record.styleCode,
+      styleName: record.styleName,
+      techPackVersionId: '',
+      techPackVersionLabel: '待补',
+      materialSku: line.materialSku,
+      materialName: materialIdentity.materialName,
+      materialColor: materialIdentity.materialColor,
+      materialType: line.materialType,
+      materialLabel: line.materialLabel,
+      materialCategory: line.materialCategory || materialCategoryLabel(line.materialType),
+      materialAlias: materialIdentity.materialAlias,
+      materialImageUrl: materialIdentity.materialImageUrl,
+      materialUnit: materialIdentity.materialUnit,
+      materialIdentity,
+      patternIdentity,
+      markerPlanId: line.markerPlanId || '',
+      markerPlanNo: line.markerPlanNo || '',
+      requiredQty: record.orderQty,
+      sourceTechPackSpuCode: record.techPackSpuCode || record.spuCode,
+      colorScope: uniqueStrings([line.color, ...((line.skuScopeLines || []).map((item) => item.color))]),
+      skuScopeLines: (line.skuScopeLines || record.skuRequirementLines || []).map((item) => ({ ...item })),
+      pieceRows: [],
+      pieceSummary: patternIdentity.piecePartNames.join('、') || '待补裁片部位',
+      cutOrderSourceType: 'INDEPENDENT_CUTTING_TASK',
+      cutOrderSourceLabel: '历史裁片单',
+      cutReturnMode: 'RETURN_TO_OWN_CUTTING_WAREHOUSE',
+      cutReturnModeLabel: '回我方裁片仓',
+      internalCraftOrderPolicy: 'GENERATE_AFTER_RETURN',
+      internalCraftOrderPolicyLabel: '回货后生成后续工艺单',
+    }]
+  }))
+
+  const rows = [...generatedSources, ...legacySources]
     .map((source) => {
       const record = recordMap.get(source.productionOrderId)
       if (!record) return null
@@ -718,6 +793,20 @@ function applyPrefilter(rows: CutOrderRow[], prefilter: CutOrderPrefilter | null
   })
 }
 
+export function matchesSupplementFilters(
+  statuses: ReadonlyArray<SupplementOrderStatus>,
+  filters: Pick<CutOrderFilters, 'hasSupplement' | 'supplementCompletion'>,
+): boolean {
+  const hasSupplement = statuses.length > 0
+  if (filters.hasSupplement === 'YES' && !hasSupplement) return false
+  if (filters.hasSupplement === 'NO' && hasSupplement) return false
+  if (filters.supplementCompletion === 'HAS_INCOMPLETE') return statuses.includes('未完成')
+  if (filters.supplementCompletion === 'ALL_COMPLETED') {
+    return hasSupplement && statuses.every((status) => status === '已完成')
+  }
+  return true
+}
+
 export function filterCutOrderRows(
   rows: CutOrderRow[],
   filters: CutOrderFilters,
@@ -743,6 +832,8 @@ export function filterCutOrderRows(
     if (filters.hasAvailableBalance === 'NO' && row.materialQuantityLedger.availableQty > 0) return false
     if (filters.hasCloseReason === 'YES' && !row.closeReason) return false
     if (filters.hasCloseReason === 'NO' && row.closeReason) return false
+    const supplementStatuses = listSupplementOrdersByCutOrder(row.cutOrderId).map((order) => order.status)
+    if (!matchesSupplementFilters(supplementStatuses, filters)) return false
     if (filters.riskOnly && row.riskTags.length === 0) return false
     return true
   })

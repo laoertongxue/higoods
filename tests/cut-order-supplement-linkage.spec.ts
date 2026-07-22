@@ -8,6 +8,17 @@ async function openList(page: Page): Promise<void> {
   await expect(page.locator('[data-standard-list-page]')).toBeVisible({ timeout: 30_000 })
 }
 
+function cutOrderRow(page: Page, cutOrderNo: string) {
+  return page.locator('[data-standard-list-table] tbody tr').filter({ hasText: cutOrderNo })
+}
+
+async function findCutOrderRow(page: Page, cutOrderNo: string) {
+  await page.locator('[data-cutting-piece-field="keyword"]').fill(cutOrderNo)
+  const row = cutOrderRow(page, cutOrderNo)
+  await expect(row).toHaveCount(1)
+  return row
+}
+
 async function expectVisibleIconsHydrated(page: Page, selector: string, requireIcon = false): Promise<void> {
   const result = await page.locator(selector).evaluate((root) => {
     const visibleIcons = [...root.querySelectorAll<HTMLElement>('[data-lucide]')].filter((icon) => {
@@ -181,4 +192,125 @@ test('现有筛选与详情入口迁移后仍可演示', async ({ page }) => {
   await rows.first().getByRole('button', { name: '查看详情' }).click()
   await expect(page.locator('[data-testid="cut-order-detail-page"]')).toBeVisible()
   await expect(page.getByText('裁片单详情', { exact: true })).toBeVisible()
+})
+
+test('冷启动直达裁片单可逐张查看并完成关联补料单', async ({ page }) => {
+  await openList(page)
+  const row = await findCutOrderRow(page, 'CUT14671-B')
+  await expect(row.getByRole('button', { name: '补 · 第 1 次 · 已完成', exact: true })).toBeVisible()
+  await expect(row.getByRole('button', { name: '补 · 第 2 次 · 未完成', exact: true })).toBeVisible()
+  await expect(row.getByRole('button', { name: '补 · 第 3 次 · 未完成', exact: true })).toBeVisible()
+  await expect(row.getByText(/补\s*×\s*3/)).toHaveCount(0)
+
+  const main = page.locator('main')
+  await main.evaluate((node) => {
+    ;(window as typeof window & { __supplementCutOrderMain?: Element }).__supplementCutOrderMain = node
+  })
+  const mainStageBefore = await row.locator('td').nth(7).innerText()
+  await row.getByRole('button', { name: '补 · 第 2 次 · 未完成', exact: true }).click()
+  const detail = page.locator('[data-cutting-piece-supplement-detail]')
+  await expect(detail.getByRole('heading', { name: '补料单详情' })).toBeVisible()
+  await expect(detail).toContainText('SUP-CUT14671-B-002')
+  await expect(detail).toContainText('CUT14671-B')
+  await expect(detail).toContainText('PO14671')
+  await expect(detail).toContainText('第 2 次')
+  await expect(detail.getByText('未完成', { exact: true })).toBeVisible()
+  await expect(detail).toContainText('尺码齐套不足')
+  await expect(detail).toContainText('明细摘要')
+  await expect(detail).toContainText('总补料数量')
+  await expect(detail).toContainText('裁床主管 王敏')
+  await expect(detail).toContainText('尚未完成')
+  await detail.getByRole('button', { name: '完成该补料单' }).click()
+
+  const confirm = page.locator('[data-cutting-piece-supplement-confirm]')
+  await expect(confirm).toContainText('SUP-CUT14671-B-002')
+  const responseMs = await page.evaluate(() => new Promise<number>((resolve, reject) => {
+    const table = document.querySelector('[data-cutting-piece-region="table"]')
+    const button = document.querySelector<HTMLButtonElement>('[data-cutting-piece-action="confirm-complete-supplement"]')
+    if (!table || !button) return reject(new Error('缺少裁片单补料完成验收节点'))
+    const startedAt = performance.now()
+    const observer = new MutationObserver(() => {
+      if (!table.textContent?.includes('补 · 第 2 次 · 已完成')) return
+      observer.disconnect()
+      resolve(performance.now() - startedAt)
+    })
+    observer.observe(table, { childList: true, subtree: true })
+    button.click()
+  }))
+  console.log(`裁片单详情完成补料局部响应：${responseMs.toFixed(1)}ms`)
+  expect(responseMs).toBeLessThan(200)
+  await expect(row.getByRole('button', { name: '补 · 第 2 次 · 已完成', exact: true })).toBeVisible()
+  await expect(row.getByRole('button', { name: '补 · 第 3 次 · 未完成', exact: true })).toBeVisible()
+  await expect(row.locator('td').nth(7)).toHaveText(mainStageBefore)
+  expect(await page.evaluate(() => document.querySelector('main') === (
+    window as typeof window & { __supplementCutOrderMain?: Element }
+  ).__supplementCutOrderMain)).toBe(true)
+
+  await page.locator('[data-cutting-piece-supplement-detail]').getByRole('button', { name: '关闭' }).click()
+  await row.getByRole('button', { name: '补 · 第 1 次 · 已完成', exact: true }).click()
+  await expect(page.locator('[data-cutting-piece-supplement-detail]').getByRole('button', { name: '完成该补料单' })).toHaveCount(0)
+})
+
+test('操作栏一次只完成一张未完成补料且全部完成后动作消失', async ({ page }) => {
+  await openList(page)
+  const row = await findCutOrderRow(page, 'CUT14671-B')
+  const scroll = page.locator('[data-standard-list-scroll]')
+  await scroll.evaluate((node) => { node.scrollLeft = 180 })
+  await row.getByRole('button', { name: '完成补料', exact: true }).click()
+  const dialog = page.locator('[data-cutting-piece-supplement-picker]')
+  await expect(dialog.getByRole('heading', { name: '完成补料' })).toBeVisible()
+  await expect(dialog.getByRole('radio')).toHaveCount(2)
+  await expect(dialog).not.toContainText('SUP-CUT14671-B-001')
+  const submit = dialog.getByRole('button', { name: '确认完成' })
+  await expect(submit).toBeDisabled()
+  const second = dialog.getByRole('radio', { name: /第 2 次.*SUP-CUT14671-B-002/ })
+  await second.click()
+  await second.click({ force: true })
+  await expect(second).toBeChecked()
+  await expect(submit).toBeEnabled()
+  await submit.click()
+  await expect(row.getByRole('button', { name: '补 · 第 2 次 · 已完成', exact: true })).toBeVisible()
+  await expect(row.getByRole('button', { name: '补 · 第 3 次 · 未完成', exact: true })).toBeVisible()
+  expect(await scroll.evaluate((node) => node.scrollLeft)).toBe(180)
+
+  await row.getByRole('button', { name: '完成补料', exact: true }).click()
+  await expect(page.locator('[data-cutting-piece-supplement-picker]').getByRole('radio')).toHaveCount(1)
+  await page.locator('[data-cutting-piece-supplement-picker]').getByRole('radio').check()
+  await page.locator('[data-cutting-piece-supplement-picker]').getByRole('button', { name: '确认完成' }).click()
+  await expect(row.getByRole('button', { name: '补 · 第 3 次 · 已完成', exact: true })).toBeVisible()
+  await expect(row.getByRole('button', { name: '完成补料', exact: true })).toHaveCount(0)
+})
+
+test('补料存在性和完成状态筛选遵守无补料边界并局部刷新', async ({ page }) => {
+  await openList(page)
+  await page.locator('main').evaluate((node) => {
+    ;(window as typeof window & { __supplementFilterMain?: Element }).__supplementFilterMain = node
+  })
+  const hasSupplement = page.locator('[data-cutting-piece-field="hasSupplement"]')
+  const completion = page.locator('[data-cutting-piece-field="supplementCompletion"]')
+  await expect(hasSupplement.locator('option')).toHaveText(['全部', '有补料', '无补料'])
+  await expect(completion.locator('option')).toHaveText(['全部', '有未完成', '全部已完成'])
+
+  await page.locator('[data-cutting-piece-field="keyword"]').fill('CUT14671-B')
+  await completion.selectOption('HAS_INCOMPLETE')
+  await expect(cutOrderRow(page, 'CUT14671-B')).toHaveCount(1)
+  const incompleteRows = page.locator('[data-standard-list-table] tbody tr')
+  expect(await incompleteRows.count()).toBeGreaterThan(0)
+  for (const row of await incompleteRows.all()) await expect(row).toContainText('未完成')
+  await expect(page.getByText(/1 \/ \d+/)).toBeVisible()
+
+  await hasSupplement.selectOption('NO')
+  await expect(completion).toHaveValue('ALL')
+  await expect(completion).toBeDisabled()
+  await expect(cutOrderRow(page, 'CUT14671-B')).toHaveCount(0)
+  for (const row of await page.locator('[data-standard-list-table] tbody tr').all()) {
+    await expect(row.getByRole('button', { name: /^补 ·/ })).toHaveCount(0)
+  }
+
+  await hasSupplement.selectOption('YES')
+  await expect(completion).toBeEnabled()
+  await expect(cutOrderRow(page, 'CUT14671-B')).toHaveCount(1)
+  expect(await page.evaluate(() => document.querySelector('main') === (
+    window as typeof window & { __supplementFilterMain?: Element }
+  ).__supplementFilterMain)).toBe(true)
 })
