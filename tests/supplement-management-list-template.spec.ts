@@ -183,6 +183,79 @@ test('独立新增补料直接选择裁片单且不再提供双入口', async ({
   await expect(page.getByRole('button', { name: /按生产单选择|按裁片单选择/ })).toHaveCount(0)
   await expect(page.getByText('按生产单或裁片单发起补料')).toHaveCount(0)
 
+  await page.evaluate(() => {
+    const main = document.querySelector('main')
+    const keywordInput = document.querySelector('[data-cutting-supplement-field="sourcePickerKeyword"]')
+    const sourcePicker = keywordInput?.closest('section')
+    if (!main || !keywordInput || !sourcePicker) throw new Error('缺少裁片单选择器局部刷新验收区域')
+    window.scrollTo(0, 180)
+    ;(window as typeof window & {
+      __supplementSourcePickerAcceptance?: {
+        main: Element
+        sourcePicker: Element
+        keywordInput: Element
+        scrollY: number
+      }
+    }).__supplementSourcePickerAcceptance = {
+      main,
+      sourcePicker,
+      keywordInput,
+      scrollY: window.scrollY,
+    }
+  })
+  const sourcePickerStability = () => page.evaluate(() => {
+    const state = (window as typeof window & {
+      __supplementSourcePickerAcceptance?: {
+        main: Element
+        sourcePicker: Element
+        keywordInput: Element
+        scrollY: number
+      }
+    }).__supplementSourcePickerAcceptance
+    if (!state) throw new Error('缺少裁片单选择器局部刷新验收状态')
+    const keywordInput = document.querySelector('[data-cutting-supplement-field="sourcePickerKeyword"]')
+    return {
+      mainSame: document.querySelector('main') === state.main,
+      sourcePickerSame: keywordInput?.closest('section') === state.sourcePicker,
+      keywordInputSame: keywordInput === state.keywordInput,
+      scrollSame: window.scrollY === state.scrollY,
+    }
+  })
+  const stableSourcePickerResult = {
+    mainSame: true,
+    sourcePickerSame: true,
+    keywordInputSame: true,
+    scrollSame: true,
+  }
+
+  const candidateRadios = page.locator('[data-cutting-supplement-action="toggle-source-candidate"]')
+  await expect(candidateRadios).toHaveCount(12)
+  await expect(page.getByText('共 23 条，当前 1-12', { exact: true })).toBeVisible()
+  await expect(page.locator('[data-cutting-supplement-field="sourcePickerPageSize"]')).toHaveValue('12')
+  await expect(page.getByText('1 / 2', { exact: true })).toBeVisible()
+  const firstPageCandidateIds = await candidateRadios.evaluateAll((radios) =>
+    radios.map((radio) => radio.getAttribute('data-candidate-id')),
+  )
+  const nextPageResponseMs = await page.evaluate(() => {
+    const nextPageButton = document.querySelector<HTMLButtonElement>('[data-cutting-supplement-action="source-picker-next-page"]')
+    if (!nextPageButton) throw new Error('缺少裁片单候选下一页按钮')
+    const startedAt = performance.now()
+    nextPageButton.click()
+    return performance.now() - startedAt
+  })
+  expect(nextPageResponseMs).toBeLessThan(200)
+  await expect(candidateRadios).toHaveCount(11)
+  await expect(page.getByText('共 23 条，当前 13-23', { exact: true })).toBeVisible()
+  await expect(page.getByText('2 / 2', { exact: true })).toBeVisible()
+  expect(await sourcePickerStability()).toEqual(stableSourcePickerResult)
+  const secondPageCandidateIds = await candidateRadios.evaluateAll((radios) =>
+    radios.map((radio) => radio.getAttribute('data-candidate-id')),
+  )
+  expect(new Set([...firstPageCandidateIds, ...secondPageCandidateIds]).size).toBe(23)
+  await page.getByRole('button', { name: '上一页' }).click()
+  await expect(page.getByText('1 / 2', { exact: true })).toBeVisible()
+  expect(await sourcePickerStability()).toEqual(stableSourcePickerResult)
+
   const keywordInput = page.locator('[data-cutting-supplement-field="sourcePickerKeyword"]')
   const searchButton = page.getByRole('button', { name: '搜索', exact: true })
   const availableCandidate = page.getByRole('radio', { name: '选择裁片单 CUT14671-A' })
@@ -196,9 +269,11 @@ test('独立新增补料直接选择裁片单且不再提供双入口', async ({
   for (const searchCase of searchCases) {
     await test.step(`按${searchCase.field}搜索裁片单候选`, async () => {
       await keywordInput.fill(searchCase.keyword)
+      expect(await sourcePickerStability()).toEqual(stableSourcePickerResult)
       await searchButton.click()
       await expect(availableCandidate).toBeVisible()
       await expect(availableCandidate.locator('xpath=ancestor::tr')).toContainText(searchCase.keyword)
+      expect(await sourcePickerStability()).toEqual(stableSourcePickerResult)
     })
   }
 
@@ -208,6 +283,11 @@ test('独立新增补料直接选择裁片单且不再提供双入口', async ({
   await expect(availableRow.locator('td').nth(4).getByText('PO14671', { exact: true })).toBeVisible()
   await expect(availableRow.locator('td').nth(4).locator('input, select, button')).toHaveCount(0)
   await expect(page.getByRole('radio', { name: /选择生产单/ })).toHaveCount(0)
+
+  await page.getByRole('button', { name: '重置', exact: true }).click()
+  await expect(keywordInput).toHaveValue('')
+  await expect(page.getByText('共 23 条，当前 1-12', { exact: true })).toBeVisible()
+  expect(await sourcePickerStability()).toEqual(stableSourcePickerResult)
 
   await keywordInput.fill('CUT14671-B')
   await searchButton.click()
@@ -221,6 +301,10 @@ test('独立新增补料直接选择裁片单且不再提供双入口', async ({
   await searchButton.click()
   await availableCandidate.check()
   await expect(availableCandidate).toBeChecked()
+  expect(await sourcePickerStability()).toEqual(stableSourcePickerResult)
+  await availableCandidate.click()
+  await expect(availableCandidate).toBeChecked()
+  expect(await sourcePickerStability()).toEqual(stableSourcePickerResult)
   await page.getByRole('button', { name: '下一步' }).click()
   await expect(page.getByRole('heading', { name: '填写补料信息' })).toBeVisible()
   await expect(page.getByText('裁片单 CUT14671-A / PO14671 / 女式基础圆领短袖')).toBeVisible()

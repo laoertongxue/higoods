@@ -47,6 +47,7 @@ import {
 } from '../../../components/ui/list-table.ts'
 
 type SupplementManualSourceType = 'production-order' | 'cut-order'
+type SupplementCandidateSourceType = 'cut-order'
 type SupplementSourceType = SupplementManualSourceType | 'release-snapshot'
 type SupplementFilterSourceType = 'ALL' | SupplementSourceType
 type SupplementRecordStatus = '已确认'
@@ -63,6 +64,8 @@ interface SupplementFilters {
 interface SupplementSourcePickerState {
   keyword: string
   selectedCandidateId: string
+  currentPage: number
+  pageSize: number
 }
 
 interface SupplementFeedback {
@@ -155,7 +158,7 @@ interface SupplementLine extends SupplementSizeColorRow {
 
 interface SupplementCandidate {
   id: string
-  sourceType: SupplementManualSourceType
+  sourceType: SupplementCandidateSourceType
   record: CuttingOrderProgressRecord
   sourceNo: string
   sourceTitle: string
@@ -259,6 +262,8 @@ const state: SupplementManagementState = {
   sourcePicker: {
     keyword: '',
     selectedCandidateId: '',
+    currentPage: 1,
+    pageSize: 12,
   },
   activeCandidateId: '',
   activeRecordId: '',
@@ -290,6 +295,7 @@ const sourceTypeLabels: Record<SupplementSourceType, string> = {
 
 const supplementManagementPath = '/fcs/craft/cutting/supplement-management'
 const supplementCreatePath = `${supplementManagementPath}?mode=create`
+const sourcePickerPageSizes = [12, 24] as const
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 
@@ -347,7 +353,7 @@ function makeSizeColorKey(row: Pick<CuttingSkuRequirementLine, 'skuCode' | 'colo
   return [row.skuCode, row.color, row.size].map((item) => normalizeText(item)).join('::')
 }
 
-function makeCandidateId(sourceType: SupplementManualSourceType, record: CuttingOrderProgressRecord, cutOrderNo = ''): string {
+function makeCandidateId(sourceType: SupplementCandidateSourceType, record: CuttingOrderProgressRecord, cutOrderNo = ''): string {
   return `${sourceType}:${record.id}:${cutOrderNo}`
 }
 
@@ -720,13 +726,8 @@ function buildAbAnalysisRows(
 
 function buildBaseSkuRows(
   record: CuttingOrderProgressRecord,
-  sourceType: SupplementManualSourceType,
   materialLines: CuttingMaterialLine[],
 ): CuttingSkuRequirementLine[] {
-  if (sourceType === 'production-order') {
-    return (record.skuRequirementLines || []).map((line) => ({ ...line }))
-  }
-
   const grouped = new Map<string, CuttingSkuRequirementLine>()
   materialLines.flatMap((line) => line.skuScopeLines || []).forEach((line) => {
     const key = makeSizeColorKey(line)
@@ -743,13 +744,12 @@ function buildBaseSkuRows(
 
 function buildSizeColorRows(
   record: CuttingOrderProgressRecord,
-  sourceType: SupplementManualSourceType,
   materialLines: CuttingMaterialLine[],
 ): SupplementSizeColorRow[] {
   const cutOrderNos = new Set(materialLines.map(getCutOrderNo).filter(Boolean))
   const truth = buildProductionPieceTruth(record)
-  const truthRows = truth.gapRows.filter((row) => sourceType === 'production-order' || cutOrderNos.has(row.cutOrderNo))
-  return buildBaseSkuRows(record, sourceType, materialLines).map((line) => {
+  const truthRows = truth.gapRows.filter((row) => cutOrderNos.has(row.cutOrderNo))
+  return buildBaseSkuRows(record, materialLines).map((line) => {
     const relatedTruthRows = truthRows.filter(
       (row) => row.skuCode === line.skuCode && row.color === line.color && row.size === line.size,
     )
@@ -795,7 +795,7 @@ function buildCutOrderCandidates(record: CuttingOrderProgressRecord): Supplement
 
   return Array.from(grouped.entries()).map(([cutOrderNo, materialLines]) => {
     const canInitiate = !isClosedRecord(record)
-    const sizeColorRows = buildSizeColorRows(record, 'cut-order', materialLines)
+    const sizeColorRows = buildSizeColorRows(record, materialLines)
     const materialPatternRefs = buildMaterialPatternRefs(record, materialLines)
     return {
       id: makeCandidateId('cut-order', record, cutOrderNo),
@@ -1039,7 +1039,34 @@ function getSourcePickerCandidates(): SupplementCandidate[] {
       ].join(' ').toLowerCase().includes(keyword)
     })
     .sort((left, right) => right.abAnalysisRows.length - left.abAnalysisRows.length)
-    .slice(0, 12)
+}
+
+function getSourcePickerPaging(): StandardListPageSlice<SupplementCandidate> {
+  const paging = paginateStandardListRows(
+    getSourcePickerCandidates(),
+    state.sourcePicker.currentPage,
+    state.sourcePicker.pageSize,
+  )
+  state.sourcePicker.currentPage = paging.currentPage
+  return paging
+}
+
+function renderSourcePickerPagination(paging: StandardListPageSlice<SupplementCandidate>): string {
+  const html = renderTablePagination({
+    total: paging.total,
+    from: paging.from,
+    to: paging.to,
+    currentPage: paging.currentPage,
+    totalPages: paging.totalPages,
+    pageSize: paging.pageSize,
+    actionPrefix: 'cutting-supplement-source-picker',
+    fieldPrefix: 'cutting-supplement-source-picker',
+    pageSizeOptions: sourcePickerPageSizes,
+  })
+    .replaceAll('data-cutting-supplement-source-picker-action="prev-page"', 'data-cutting-supplement-action="source-picker-prev-page"')
+    .replaceAll('data-cutting-supplement-source-picker-action="next-page"', 'data-cutting-supplement-action="source-picker-next-page"')
+    .replaceAll('data-cutting-supplement-source-picker-field="pageSize"', 'data-cutting-supplement-field="sourcePickerPageSize"')
+  return withSkipPageRerender(html)
 }
 
 function summarizeCandidate(candidate: SupplementCandidate): {
@@ -1155,9 +1182,12 @@ function renderFilters(): string {
   return `<div data-cutting-supplement-region="filters">${renderFilterControls()}</div>`
 }
 
-function renderSourcePickerPage(): string {
-  const candidates = getSourcePickerCandidates()
-  const selectedCandidate = candidates.find((candidate) => candidate.id === state.sourcePicker.selectedCandidateId)
+function renderSourcePickerResults(): string {
+  const paging = getSourcePickerPaging()
+  const candidates = paging.rows
+  const selectedCandidate = getSourcePickerCandidates().find(
+    (candidate) => candidate.id === state.sourcePicker.selectedCandidateId && candidate.canInitiate,
+  )
   const rows = candidates.map((candidate) => {
     const summary = summarizeCandidate(candidate)
     const spuImageUrl = getSpuImageUrl(candidate.record)
@@ -1177,6 +1207,7 @@ function renderSourcePickerPage(): string {
             aria-label="选择${escapeHtml(candidate.sourceTitle)}"
             ${isSelected ? 'checked' : ''}
             ${candidate.canInitiate ? '' : 'disabled'}
+            data-skip-page-rerender="true"
             data-cutting-supplement-action="toggle-source-candidate"
             data-candidate-id="${escapeHtml(candidate.id)}"
           />
@@ -1211,20 +1242,6 @@ function renderSourcePickerPage(): string {
   }).join('')
 
   return `
-    <section class="rounded-lg border bg-card">
-      <div class="border-b px-5 py-4">
-        <h2 class="text-lg font-semibold">选择裁片单</h2>
-      </div>
-      <div class="space-y-4 border-b px-5 py-4">
-        <div class="grid gap-3 md:grid-cols-[minmax(260px,1fr)_auto_auto] md:items-end">
-          <label class="space-y-1 text-sm">
-            <span class="text-muted-foreground">裁片单搜索</span>
-            <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-supplement-field="sourcePickerKeyword" value="${escapeHtml(state.sourcePicker.keyword)}" placeholder="搜索裁片单号、生产单号、款式、SPU" />
-          </label>
-          <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-cutting-supplement-action="apply-source-picker-search">搜索</button>
-          <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-cutting-supplement-action="reset-source-picker-search">重置</button>
-        </div>
-      </div>
       <div class="overflow-x-auto">
         <table class="min-w-full text-left text-sm">
           <thead class="bg-muted/50 text-xs text-muted-foreground">
@@ -1239,6 +1256,7 @@ function renderSourcePickerPage(): string {
           <tbody>${rows || '<tr><td class="px-4 py-8 text-center text-muted-foreground" colspan="5">暂无裁片单。</td></tr>'}</tbody>
         </table>
       </div>
+      ${renderSourcePickerPagination(paging)}
       <div class="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4">
         <div class="text-sm text-muted-foreground">
           ${selectedCandidate ? `已选择：${escapeHtml(selectedCandidate.sourceTitle)} / ${escapeHtml(selectedCandidate.record.styleName)}` : '请选择一张可新增补料的裁片单后进入下一步。'}
@@ -1250,6 +1268,26 @@ function renderSourcePickerPage(): string {
           data-cutting-supplement-action="source-picker-next"
         >下一步</button>
       </div>
+  `
+}
+
+function renderSourcePickerPage(): string {
+  return `
+    <section class="rounded-lg border bg-card" data-cutting-supplement-source-picker>
+      <div class="border-b px-5 py-4">
+        <h2 class="text-lg font-semibold">选择裁片单</h2>
+      </div>
+      <div class="space-y-4 border-b px-5 py-4">
+        <div class="grid gap-3 md:grid-cols-[minmax(260px,1fr)_auto_auto] md:items-end">
+          <label class="space-y-1 text-sm">
+            <span class="text-muted-foreground">裁片单搜索</span>
+            <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-skip-page-rerender="true" data-cutting-supplement-field="sourcePickerKeyword" value="${escapeHtml(state.sourcePicker.keyword)}" placeholder="搜索裁片单号、生产单号、款式、SPU" />
+          </label>
+          <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-cutting-supplement-action="apply-source-picker-search">搜索</button>
+          <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-supplement-action="reset-source-picker-search">重置</button>
+        </div>
+      </div>
+      <div data-cutting-supplement-region="source-picker-results">${renderSourcePickerResults()}</div>
     </section>
   `
 }
@@ -1883,6 +1921,10 @@ function refreshSupplementOverlay(): void {
   setSupplementRegion('overlay', renderListOverlay())
 }
 
+function refreshSourcePickerResults(): void {
+  setSupplementRegion('source-picker-results', renderSourcePickerResults())
+}
+
 function buildSupplementProcessLinks(record: SupplementRecord): SupplementProcessLink[] {
   let printIndex = 0
   let dyeIndex = 0
@@ -2330,6 +2372,7 @@ function setSourcePickerKeywordFromDom(): void {
   const keyword = document.querySelector<HTMLInputElement>('[data-cutting-supplement-field="sourcePickerKeyword"]')?.value
   state.sourcePicker.keyword = normalizeText(keyword)
   state.sourcePicker.selectedCandidateId = ''
+  state.sourcePicker.currentPage = 1
 }
 
 function clearSupplementCreateState(): void {
@@ -2337,6 +2380,8 @@ function clearSupplementCreateState(): void {
   state.sourcePicker = {
     keyword: '',
     selectedCandidateId: '',
+    currentPage: 1,
+    pageSize: 12,
   }
   state.pendingConfirmDraft = null
   state.releaseSnapshotDraft = null
@@ -2428,6 +2473,17 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
       state.page = 1
       saveSupplementListPreferences()
       refreshSupplementTableAndPagination()
+    }
+    return true
+  }
+
+  if (field === 'sourcePickerPageSize') {
+    if (event?.type !== 'change') return false
+    const pageSize = Number(fieldNode!.value)
+    if (sourcePickerPageSizes.includes(pageSize as (typeof sourcePickerPageSizes)[number])) {
+      state.sourcePicker.pageSize = pageSize
+      state.sourcePicker.currentPage = 1
+      refreshSourcePickerResults()
     }
     return true
   }
@@ -2572,28 +2628,49 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   }
 
   if (action === 'apply-source-picker-search') {
+    if (event?.type !== 'click') return false
     setSourcePickerKeywordFromDom()
     state.feedback = null
+    refreshSupplementFeedback()
+    refreshSourcePickerResults()
     return true
   }
 
   if (action === 'reset-source-picker-search') {
+    if (event?.type !== 'click') return false
     state.sourcePicker.keyword = ''
     state.sourcePicker.selectedCandidateId = ''
+    state.sourcePicker.currentPage = 1
     state.feedback = null
+    const keywordInput = document.querySelector<HTMLInputElement>('[data-cutting-supplement-field="sourcePickerKeyword"]')
+    if (keywordInput) keywordInput.value = ''
+    refreshSupplementFeedback()
+    refreshSourcePickerResults()
+    return true
+  }
+
+  if (action === 'source-picker-prev-page' || action === 'source-picker-next-page') {
+    if (event?.type !== 'click') return false
+    state.sourcePicker.currentPage += action === 'source-picker-prev-page' ? -1 : 1
+    refreshSourcePickerResults()
     return true
   }
 
   if (action === 'toggle-source-candidate') {
+    if (event?.type !== 'change') return false
     const candidateId = actionNode.dataset.candidateId || ''
     const candidate = getCandidateById(candidateId)
     if (!candidate || !candidate.canInitiate) {
       state.sourcePicker.selectedCandidateId = ''
       state.feedback = { tone: 'warning', message: candidate?.blockedReason || '当前对象不能新增补料。' }
+      refreshSupplementFeedback()
+      refreshSourcePickerResults()
       return true
     }
-    state.sourcePicker.selectedCandidateId = state.sourcePicker.selectedCandidateId === candidateId ? '' : candidateId
+    state.sourcePicker.selectedCandidateId = candidateId
     state.feedback = null
+    refreshSupplementFeedback()
+    refreshSourcePickerResults()
     return true
   }
 
