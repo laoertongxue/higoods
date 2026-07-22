@@ -440,6 +440,63 @@ assert(
   '成衣 BOM 适用 SKU 全部无生产数量匹配时必须阻断',
 )
 
+const anotherApplicableSku = dualTargetOrder.demandSnapshot.skuLines.find(
+  (line) => line.skuCode !== applicableSku.skuCode,
+)
+assert(anotherApplicableSku, '成衣 BOM 混合适用 SKU 回归用例缺少第二个生产 SKU')
+
+function assertMixedGarmentApplicableSkuRejected(input: {
+  invalidSkuCode: string
+  productionOrder: typeof dualTargetOrder
+  message: string
+}): void {
+  const mixedSnapshot = JSON.parse(JSON.stringify(dualTargetSnapshot)) as typeof dualTargetSnapshot
+  const mixedGarmentBom = mixedSnapshot.bomItems.find((item) => item.id === garmentBomId)
+  assert(mixedGarmentBom, `${input.message}回归用例缺少成衣 BOM`)
+  mixedGarmentBom.applicableSkuCodes = [applicableSku.skuCode, input.invalidSkuCode]
+  const result = buildSpecialCraftTaskDemandLinesFromProductionOrder({
+    productionOrder: input.productionOrder,
+    techPackSnapshot: mixedSnapshot,
+  })
+  assert(
+    result.errors.some((error) =>
+      error.errorType === '成衣BOM适用SKU无生产数量'
+      && error.blocking
+      && error.errorMessage.includes(input.invalidSkuCode),
+    ),
+    `${input.message}时必须指出具体异常 SKU 并整体阻断`,
+  )
+  assert.equal(
+    result.demandLines.filter((line) => line.targetObject === '成衣').length,
+    0,
+    `${input.message}时不得保留部分有效成衣明细`,
+  )
+}
+
+assertMixedGarmentApplicableSkuRejected({
+  invalidSkuCode: 'SKU-MISSING-WITH-VALID',
+  productionOrder: dualTargetOrder,
+  message: '成衣 BOM 混合有效与不存在 SKU',
+})
+
+for (const [qtyLabel, invalidQty] of [
+  ['0 数量', 0],
+  ['负数量', -1],
+  ['非有限数量', Number.NaN],
+] as const) {
+  const invalidQtyOrder = JSON.parse(JSON.stringify(dualTargetOrder)) as typeof dualTargetOrder
+  const invalidQtySkuLine = invalidQtyOrder.demandSnapshot.skuLines.find(
+    (line) => line.skuCode === anotherApplicableSku.skuCode,
+  )
+  assert(invalidQtySkuLine, `${qtyLabel}回归用例缺少生产 SKU`)
+  invalidQtySkuLine.qty = invalidQty
+  assertMixedGarmentApplicableSkuRejected({
+    invalidSkuCode: invalidQtySkuLine.skuCode,
+    productionOrder: invalidQtyOrder,
+    message: `成衣 BOM 混合有效与${qtyLabel} SKU`,
+  })
+}
+
 const duplicateSkuOrder = JSON.parse(JSON.stringify(dualTargetOrder)) as typeof dualTargetOrder
 const duplicateSkuLine = duplicateSkuOrder.demandSnapshot.skuLines.find((line) => line.skuCode === applicableSku.skuCode)
 assert(duplicateSkuLine, '重复 SKU 回归用例缺少生产 SKU')

@@ -369,7 +369,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
 
   const qtyMatrix = getUniqueQtyMatrixLines(productionOrder)
   const productionSkuLines = qtyMatrix.lines
-  const skuMatrixBySku = new Map(productionSkuLines.map((line) => [line.skuCode, line] as const))
+  const skuMatrixBySku = new Map(productionSkuLines.map((line) => [normalizeText(line.skuCode), line] as const))
   qtyMatrix.duplicateSkuCodes.forEach((skuCode) => {
     errors.push(buildBlockingError({
       productionOrderId: productionOrder.productionOrderId,
@@ -477,7 +477,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
 
           const candidateOrderLines = (allocation.skuCodes && allocation.skuCodes.length > 0
             ? allocation.skuCodes
-                .map((skuCode) => skuMatrixBySku.get(skuCode))
+                .map((skuCode) => skuMatrixBySku.get(normalizeText(skuCode)))
                 .filter((line): line is QtyMatrixLine => Boolean(line))
             : productionSkuLines.filter((line) => line.color === allocation.colorName))
             .filter((line) =>
@@ -599,10 +599,12 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
         }))
         return
       }
-      const matchedOrderLines = productionSkuLines
-        .filter((orderLine) => applicableSkuCodes.has(orderLine.skuCode))
-        .filter((orderLine) => Number.isFinite(Number(orderLine.qty)) && Number(orderLine.qty) > 0)
-      if (matchedOrderLines.length === 0) {
+      const invalidApplicableSkuCodes = [...applicableSkuCodes].filter((skuCode) => {
+        const orderLine = skuMatrixBySku.get(skuCode)
+        const orderQty = Number(orderLine?.qty)
+        return !orderLine || !Number.isFinite(orderQty) || orderQty <= 0
+      })
+      if (invalidApplicableSkuCodes.length > 0) {
         errors.push(buildBlockingError({
           productionOrderId: productionOrder.productionOrderId,
           productionOrderNo,
@@ -611,11 +613,14 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
           partName,
           operationName: operation.operationName,
           errorType: '成衣BOM适用SKU无生产数量',
-          errorMessage: `${operation.operationName}成衣 BOM 适用 SKU 未匹配到有效生产数量`,
+          errorMessage: `${operation.operationName}成衣 BOM 适用 SKU ${invalidApplicableSkuCodes.join('、')} 未匹配到唯一有效生产数量`,
           blocking: true,
         }))
         return
       }
+      const matchedOrderLines = [...applicableSkuCodes]
+        .map((skuCode) => skuMatrixBySku.get(skuCode))
+        .filter((orderLine): orderLine is QtyMatrixLine => Boolean(orderLine))
       matchedOrderLines
         .forEach((orderLine) => {
           const orderQty = Number(orderLine.qty)
