@@ -977,13 +977,11 @@ function resolveReleaseSnapshotSourceState(
   materialId: string,
   materialSourceStates: CutPieceReleaseSourceState[],
 ): CutPieceReleaseSourceState {
-  const earliestChangedAt = materialSourceStates
-    .map((source) => source.changedAt)
-    .sort((left, right) => left.localeCompare(right))[0]
-  const earliestSourceStates = materialSourceStates.filter((source) => source.changedAt === earliestChangedAt)
   const sourceGroups = new Map<string, CutPieceReleaseSourceState[]>()
-  for (const source of earliestSourceStates) {
-    const identity = source.cutOrderId || source.cutOrderNo
+  for (const source of materialSourceStates) {
+    const identity = source.cutOrderId
+      ? JSON.stringify([source.cutOrderId, source.cutOrderNo])
+      : JSON.stringify(['cut-order-no', source.cutOrderNo])
     const group = sourceGroups.get(identity) || []
     group.push(source)
     sourceGroups.set(identity, group)
@@ -997,7 +995,17 @@ function resolveReleaseSnapshotSourceState(
       left.changedAt.localeCompare(right.changedAt)
       || left.cutOrderId.localeCompare(right.cutOrderId)
       || left.cutOrderNo.localeCompare(right.cutOrderNo)
+      || left.status.localeCompare(right.status)
+      || left.operator.localeCompare(right.operator)
+      || left.reason.localeCompare(right.reason)
     ))[0]
+}
+
+export function resolveReleaseSnapshotSourceStateForTest(
+  materialId: string,
+  materialSourceStates: CutPieceReleaseSourceState[],
+): CutPieceReleaseSourceState {
+  return structuredClone(resolveReleaseSnapshotSourceState(materialId, materialSourceStates))
 }
 
 function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): SupplementDraft {
