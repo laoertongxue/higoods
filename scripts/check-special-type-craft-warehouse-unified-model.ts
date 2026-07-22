@@ -40,12 +40,31 @@ const outboundRecords = listFactoryWarehouseOutboundRecords().filter(
   (item) => specialFactoryIds.has(item.factoryId) && Boolean(item.craftName && specialCraftNames.has(item.craftName)),
 )
 const nodeRows = [...specialFactoryIds].flatMap((factoryId) => listFactoryWarehouseNodeRows(factoryId))
+const currentWarehouseOutputs = [
+  ...waitProcessItems,
+  ...waitHandoverItems,
+  ...inboundRecords,
+  ...outboundRecords,
+  ...nodeRows,
+]
 
 assert.ok(waitProcessItems.length > 0, '特种工艺待加工仓库存缺失')
 assert.ok(waitHandoverItems.length > 0, '特种工艺待交出仓库存缺失')
 assert.ok(inboundRecords.length > 0, '特种工艺接收入仓记录缺失')
 assert.ok(outboundRecords.length > 0, '特种工艺交出记录缺失')
 assert.ok(nodeRows.length > 0, '特种工艺库区库位 mock 数据缺失')
+assert.ok(
+  !JSON.stringify(currentWarehouseOutputs).includes('成衣半成品'),
+  '当前仓储投影不得输出旧标签“成衣半成品”',
+)
+assert.ok(
+  !src('src/data/fcs/factory-internal-warehouse.ts').includes("| '成衣半成品'"),
+  '仓储正式物料类型不得继续暴露旧标签“成衣半成品”',
+)
+assert.ok(
+  !src('src/pages/pda-handover-detail.ts').includes("? '成衣半成品'"),
+  'PDA 交接当前写入不得继续输出旧标签“成衣半成品”',
+)
 
 assert.ok(
   [...waitProcessItems, ...waitHandoverItems].some((item) => item.itemName === '定长橡筋' && item.itemKind === '辅料' && item.unit === '条'),

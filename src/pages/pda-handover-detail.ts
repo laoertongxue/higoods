@@ -2642,7 +2642,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
                 : detailState.newRecordObjectType === 'CUT_PIECE'
                   ? '裁片'
                   : detailState.newRecordObjectType === 'SEMI_FINISHED_GARMENT'
-                    ? '成衣半成品'
+                    ? '成衣'
                     : '其他半成品',
             itemName: created.handoutItemLabel || created.materialName || head.processName,
             materialSku: created.materialCode || created.skuCode,
@@ -2829,7 +2829,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
                     : updated.handoutObjectType === 'CUT_PIECE'
                       ? '裁片'
                       : updated.handoutObjectType === 'SEMI_FINISHED_GARMENT'
-                        ? '成衣半成品'
+                        ? '成衣'
                         : '其他半成品',
                 itemName: updated.handoutItemLabel || updated.materialName || linkedHead.processName,
                 materialSku: updated.materialCode || updated.skuCode,

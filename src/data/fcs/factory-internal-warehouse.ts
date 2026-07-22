@@ -23,7 +23,7 @@ export type FactoryWarehouseSourceObjectKind =
   | '特殊工艺厂'
   | '后道工厂'
   | '上游工厂仓'
-export type FactoryWarehouseItemKind = '面料' | '辅料' | '裁片' | '成衣' | '成衣半成品' | '其他半成品'
+export type FactoryWarehouseItemKind = '面料' | '辅料' | '裁片' | '成衣' | '其他半成品'
 export type FactoryWaitProcessStockStatus = '待领料' | '已入待加工仓' | '差异待处理'
 export type FactoryWaitHandoverStockStatus = '待交出' | '已交出' | '已回写' | '差异' | '异议中'
 export type FactoryInboundRecordStatus = '待确认' | '已入库' | '差异待处理' | '已作废'
@@ -673,9 +673,9 @@ function deriveFactoryItemKind(input: {
   handoutObjectType?: string
 }): FactoryWarehouseItemKind {
   if (input.handoutObjectType === 'CUT_PIECE' || input.partName) return '裁片'
-  if (input.handoutObjectType === 'SEMI_FINISHED_GARMENT') return '成衣半成品'
+  if (input.handoutObjectType === 'SEMI_FINISHED_GARMENT') return '成衣'
   if (input.handoutObjectType === 'FABRIC') return '面料'
-  if (input.processCode === 'POST_FINISHING') return '成衣半成品'
+  if (input.processCode === 'POST_FINISHING') return '成衣'
   const materialName = input.lineMaterialName || ''
   if (materialName.includes('面料') || materialName.includes('布')) return '面料'
   if (materialName.includes('辅')) return '辅料'
