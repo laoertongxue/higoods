@@ -222,27 +222,48 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 1280, height: 720
   test(`${viewport.width}×${viewport.height} 下宽表仅容器横向滚动且操作列可见`, async ({ page }) => {
     await page.setViewportSize(viewport)
     await openList(page)
-    const metrics = await page.evaluate(() => {
+    const beforeScroll = await page.evaluate(() => {
       const scroll = document.querySelector<HTMLElement>('[data-standard-list-scroll]')!
       const action = document.querySelector<HTMLElement>('[data-standard-list-action-column]')!
+      const ordinary = [...document.querySelectorAll<HTMLElement>('th[data-column-key]')]
+        .find((header) => getComputedStyle(header).position !== 'sticky')!
+      ;(window as typeof window & { __acceptanceOrdinaryColumn?: HTMLElement }).__acceptanceOrdinaryColumn = ordinary
       return {
         bodyOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         mainOverflow: document.querySelector('main')!.scrollWidth - document.querySelector('main')!.clientWidth,
         tableOverflows: scroll.scrollWidth > scroll.clientWidth,
         actionLeft: action.getBoundingClientRect().left,
         actionRight: action.getBoundingClientRect().right,
+        ordinaryLeft: ordinary.getBoundingClientRect().left,
+        scrollRight: scroll.getBoundingClientRect().right,
         viewportWidth: window.innerWidth,
       }
     })
-    expect(metrics.bodyOverflow).toBeLessThanOrEqual(1)
-    expect(metrics.mainOverflow).toBeLessThanOrEqual(1)
-    expect(metrics.tableOverflows).toBe(true)
-    expect(metrics.actionLeft).toBeGreaterThanOrEqual(0)
-    expect(metrics.actionRight).toBeLessThanOrEqual(metrics.viewportWidth)
+    expect(beforeScroll.bodyOverflow).toBeLessThanOrEqual(1)
+    expect(beforeScroll.mainOverflow).toBeLessThanOrEqual(1)
+    expect(beforeScroll.tableOverflows).toBe(true)
+    expect(beforeScroll.actionLeft).toBeGreaterThanOrEqual(0)
+    expect(beforeScroll.actionRight).toBeLessThanOrEqual(beforeScroll.viewportWidth)
+    expect(Math.abs(beforeScroll.actionRight - beforeScroll.scrollRight)).toBeLessThanOrEqual(16)
 
-    await page.locator('[data-standard-list-scroll]').evaluate((node) => {
+    const afterScroll = await page.locator('[data-standard-list-scroll]').evaluate(async (node) => {
       node.scrollLeft = node.scrollWidth
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+      const action = document.querySelector<HTMLElement>('[data-standard-list-action-column]')!
+      const ordinary = (window as typeof window & { __acceptanceOrdinaryColumn?: HTMLElement }).__acceptanceOrdinaryColumn!
+      return {
+        actionLeft: action.getBoundingClientRect().left,
+        actionRight: action.getBoundingClientRect().right,
+        ordinaryLeft: ordinary.getBoundingClientRect().left,
+        scrollLeft: node.scrollLeft,
+        scrollRight: node.getBoundingClientRect().right,
+      }
     })
+    expect(afterScroll.scrollLeft).toBeGreaterThan(0)
+    expect(Math.abs(afterScroll.actionLeft - beforeScroll.actionLeft)).toBeLessThanOrEqual(2)
+    expect(Math.abs(afterScroll.actionRight - beforeScroll.actionRight)).toBeLessThanOrEqual(2)
+    expect(Math.abs(afterScroll.actionRight - afterScroll.scrollRight)).toBeLessThanOrEqual(16)
+    expect(Math.abs(afterScroll.ordinaryLeft - beforeScroll.ordinaryLeft)).toBeGreaterThan(100)
     await expect(page.locator('[data-standard-list-action-column]').first()).toBeVisible()
   })
 }
