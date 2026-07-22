@@ -185,6 +185,9 @@ export interface SpecialCraftTaskGenerationError {
     | '特殊工艺字典缺失'
     | '作用对象缺失'
     | '成衣BOM缺失'
+    | '生产SKU重复'
+    | '成衣BOM适用SKU缺失'
+    | '成衣BOM适用SKU无生产数量'
   errorMessage: string
   blocking: boolean
 }

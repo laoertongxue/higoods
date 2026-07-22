@@ -24,6 +24,7 @@ import {
   getSpecialCraftTaskOrderById,
   getSpecialCraftTasksByProductionOrder,
   listSpecialCraftTaskOrders,
+  type SpecialCraftTaskGenerationError,
 } from '../src/data/fcs/special-craft-task-orders.ts'
 import {
   buildSpecialCraftTaskDemandLinesFromProductionOrder,
@@ -55,6 +56,13 @@ function buildToken(...parts: string[]): string {
 function assertContains(source: string, token: string, message: string): void {
   assert(source.includes(token), message)
 }
+
+const validatedGenerationErrorTypes: SpecialCraftTaskGenerationError['errorType'][] = [
+  '生产SKU重复',
+  '成衣BOM适用SKU缺失',
+  '成衣BOM适用SKU无生产数量',
+]
+assert.equal(new Set(validatedGenerationErrorTypes).size, 3, '新增生成阻断错误必须纳入统一错误类型契约')
 
 function assertNotContains(source: string, token: string, message: string): void {
   assert(!source.includes(token), message)
