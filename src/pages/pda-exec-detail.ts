@@ -2463,6 +2463,20 @@ function canCurrentPdaSessionExecuteGarmentWarehouseOutbound(task: ProcessTask):
     && workOrder.status === '待领料'
 }
 
+function getCurrentPdaProcessActionAudit() {
+  const session = getPdaSession()
+  if (!session) throw new Error('当前账号未登录，不能执行移动端动作。')
+  const role = findFactoryPdaRoleById(session.roleId, session.factoryId)
+  if (!role || role.status !== 'ACTIVE') throw new Error('当前账号角色不可用，不能执行移动端动作。')
+  return {
+    operatorName: session.userName,
+    operatorUserId: session.userId,
+    operatorFactoryId: session.factoryId,
+    operatorRoleId: session.roleId,
+    operatorRoleName: role.roleName,
+  }
+}
+
 function buildSpecialCraftGarmentSkuDraftKey(workOrderId: string, status: string, skuCode: string): string {
   return `${workOrderId}::${status}::${skuCode}`
 }
@@ -5693,13 +5707,14 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       if (!canExecuteCurrentAction) {
         throw new Error('当前账号无权执行该特殊工艺加工单。')
       }
+      const actionAudit = getCurrentPdaProcessActionAudit()
       if (action === 'special-bind-fei-ticket') {
         const feiTicketNo = window.prompt('请输入绑定菲票号')?.trim() || ''
         if (!feiTicketNo) {
           showPdaExecDetailToast('请填写菲票号')
           return true
         }
-        bindSpecialCraftFeiTicket(taskId, { feiTicketNo, operatorName: '现场操作员', operatedAt: nowTimestamp() })
+        bindSpecialCraftFeiTicket(taskId, { feiTicketNo, operatorName: actionAudit.operatorName, operatedAt: nowTimestamp() })
         showPdaExecDetailToast('菲票已绑定，Web 端绑定菲票已同步')
         return true
       }
@@ -5730,7 +5745,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           sourceId,
           taskId,
           actionCode: 'SPECIAL_CRAFT_REPORT_DIFFERENCE',
-          operatorName: '现场操作员',
+          ...actionAudit,
           operatedAt: nowTimestamp(),
           objectType: objectMeta.objectType,
           objectQty: scrapQty + damageQty,
@@ -5794,7 +5809,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         sourceId,
         taskId,
         actionCode: actionCodeMap[action] || 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
-        operatorName: '现场操作员',
+        ...actionAudit,
         operatedAt: nowTimestamp(),
         objectType: objectMeta.objectType,
         objectQty: skuActionQty ?? (action === 'special-finish-process' ? finishQty || baseQty : baseQty),
@@ -6249,12 +6264,13 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         const sourceBinding = objectMeta.requiresFeiTicket ? specialBindings[0] : undefined
         const sourceId = specialWorkOrder?.workOrderId || ''
         if (sourceId) {
+          const actionAudit = getCurrentPdaProcessActionAudit()
           executeMobileProcessAction({
             sourceType: 'SPECIAL_CRAFT',
             sourceId,
             taskId,
             actionCode: 'SPECIAL_CRAFT_START_PROCESS',
-            operatorName: '现场操作员',
+            ...actionAudit,
             operatedAt: startTime,
             objectType: objectMeta.objectType,
             objectQty: getSpecialCraftPdaBaseQty(task, specialWorkOrder, sourceBinding, objectMeta) || 1,
@@ -6431,12 +6447,13 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         ? Object.fromEntries(garmentSkuDraft.lines.map((line) => [line.skuCode, Number(garmentSkuDraft.drafts[line.draftKey].damageQty)]))
         : undefined
       const garmentCompletedQty = skuQtyBySkuCode ? Object.values(skuQtyBySkuCode).reduce((sum, qty) => sum + qty, 0) : undefined
+      const actionAudit = getCurrentPdaProcessActionAudit()
       executeMobileProcessAction({
         sourceType: 'SPECIAL_CRAFT',
         sourceId: specialCraftWorkOrder.workOrderId,
         taskId,
         actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
-        operatorName: '现场操作员',
+        ...actionAudit,
         operatedAt: nowTimestamp(),
         objectType: objectMeta.objectType,
         objectQty: garmentCompletedQty ?? Math.max(baseQty - scrapQty - damageQty, 0),

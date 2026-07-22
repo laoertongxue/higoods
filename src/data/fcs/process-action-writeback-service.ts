@@ -60,7 +60,10 @@ import {
   getProcessQtyUnit,
   getQuantityLabel,
 } from './process-quantity-labels.ts'
-import { applyWarehouseLinkageAfterAction } from './process-warehouse-linkage-service.ts'
+import {
+  applyWarehouseLinkageAfterAction,
+  validateWarehouseLinkageBeforeAction,
+} from './process-warehouse-linkage-service.ts'
 import {
   validateWaterSolublePdaActor,
   type WaterSolublePdaActor,
@@ -82,6 +85,10 @@ export interface ProcessActionPayload {
   actionCode: string
   actionLabel?: string
   operatorName?: string
+  operatorUserId?: string
+  operatorFactoryId?: string
+  operatorRoleId?: string
+  operatorRoleName?: string
   operatedAt?: string
   objectType?: string
   objectQty?: number
@@ -129,6 +136,10 @@ export interface ProcessActionOperationRecord {
   previousStatus: string
   nextStatus: string
   operatorName: string
+  operatorUserId: string
+  operatorFactoryId: string
+  operatorRoleId: string
+  operatorRoleName: string
   operatedAt: string
   objectType: string
   objectQty: number
@@ -1235,34 +1246,6 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
     }
   }
 
-  if (definition.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER') {
-    const handover = createProcessHandoverRecord({
-      craftType: 'SPECIAL_CRAFT',
-      craftName: workOrder.operationName,
-      sourceWorkOrderId: workOrder.workOrderId,
-      sourceWorkOrderNo: workOrder.workOrderNo,
-      sourceTaskId: binding.actualTaskId,
-      sourceTaskNo: binding.actualTaskNo,
-      sourceProductionOrderId: workOrder.productionOrderId,
-      sourceProductionOrderNo: workOrder.productionOrderNo,
-      handoverFactoryId: workOrder.factoryId,
-      handoverFactoryName: workOrder.factoryName,
-      receiveFactoryId: workOrder.factoryId,
-      receiveFactoryName: workOrder.factoryName,
-      receiveWarehouseName: '特殊工艺交出仓',
-      objectType: objectMeta.objectType,
-      handoverObjectQty: qty,
-      receiveObjectQty: 0,
-      diffObjectQty: 0,
-      qtyUnit: objectMeta.qtyUnit,
-      handoverPerson: payload.operatorName || '操作员',
-      handoverAt: payload.operatedAt,
-      relatedFeiTicketIds: [...workOrder.feiTicketNos],
-      remark: payload.remark || `${payload.sourceChannel}发起特殊工艺交出`,
-    })
-    return { affectedHandoverRecordId: handover.handoverRecordId, updatedWorkOrderId: updated?.workOrderId || workOrder.workOrderId }
-  }
-
   return { updatedWorkOrderId: updated?.workOrderId || workOrder.workOrderId }
 }
 
@@ -1400,6 +1383,10 @@ export function createProcessActionOperationRecord(
     previousStatus: previousStatus || snapshot?.label || '',
     nextStatus: nextStatus || definition?.toStatus || '',
     operatorName: payload.operatorName || (payload.sourceChannel === '移动端' ? '移动端操作员' : 'Web 端操作员'),
+    operatorUserId: payload.operatorUserId || '',
+    operatorFactoryId: payload.operatorFactoryId || '',
+    operatorRoleId: payload.operatorRoleId || '',
+    operatorRoleName: payload.operatorRoleName || '',
     operatedAt: payload.operatedAt || nowText(),
     objectType: getActionObjectType(payload.sourceType, payload),
     objectQty: Number.isFinite(payload.objectQty) ? Number(payload.objectQty) : snapshot?.qty || 0,
@@ -1478,6 +1465,28 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
             ? executeSpecialCraftAction(hydratedPayload)
             : executePostFinishingAction(hydratedPayload)
   )
+  const warehousePreflight = validateWarehouseLinkageBeforeAction({
+    success: true,
+    sourceChannel: hydratedPayload.sourceChannel,
+    sourceType: hydratedPayload.sourceType,
+    sourceId: hydratedPayload.sourceId,
+    taskId: hydratedPayload.taskId || snapshot.taskId,
+    actionCode: definition.actionCode,
+    actionLabel: definition.actionLabel,
+    previousStatus: snapshot.label,
+    nextStatus: definition.toStatus,
+    objectType: hydratedPayload.objectType,
+    objectQty: hydratedPayload.objectQty,
+    qtyUnit: hydratedPayload.qtyUnit,
+    operatorName: hydratedPayload.operatorName,
+    operatorUserId: hydratedPayload.operatorUserId,
+    operatorFactoryId: hydratedPayload.operatorFactoryId,
+    operatorRoleId: hydratedPayload.operatorRoleId,
+    operatorRoleName: hydratedPayload.operatorRoleName,
+    operatedAt: hydratedPayload.operatedAt,
+    skuQtyBySkuCode: hydratedPayload.skuQtyBySkuCode,
+  })
+  if (!warehousePreflight.success) throw new Error(warehousePreflight.message)
   let partial: Partial<ProcessActionWritebackResult> = {}
   if (!warehouseFirstAction) partial = runAction()
   const actualNextStatus = partial.nextStatus || definition.toStatus
@@ -1511,6 +1520,10 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
     objectQty: hydratedPayload.objectQty,
     qtyUnit: hydratedPayload.qtyUnit,
     operatorName: hydratedPayload.operatorName,
+    operatorUserId: hydratedPayload.operatorUserId,
+    operatorFactoryId: hydratedPayload.operatorFactoryId,
+    operatorRoleId: hydratedPayload.operatorRoleId,
+    operatorRoleName: hydratedPayload.operatorRoleName,
     operatedAt: hydratedPayload.operatedAt,
     skuQtyBySkuCode: hydratedPayload.skuQtyBySkuCode,
   }) : undefined
@@ -1524,6 +1537,10 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
       objectQty: hydratedPayload.objectQty,
       qtyUnit: hydratedPayload.qtyUnit,
       operatorName: hydratedPayload.operatorName,
+      operatorUserId: hydratedPayload.operatorUserId,
+      operatorFactoryId: hydratedPayload.operatorFactoryId,
+      operatorRoleId: hydratedPayload.operatorRoleId,
+      operatorRoleName: hydratedPayload.operatorRoleName,
       operatedAt: hydratedPayload.operatedAt,
       skuQtyBySkuCode: hydratedPayload.skuQtyBySkuCode,
     })

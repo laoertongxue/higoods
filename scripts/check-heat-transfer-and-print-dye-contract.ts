@@ -31,6 +31,7 @@ import {
   listFactoryWaitProcessStockItems,
   listFactoryWarehouseInboundRecords,
   listFactoryWarehouseOutboundRecords,
+  upsertFactoryWaitProcessStockItem,
 } from '../src/data/fcs/factory-internal-warehouse.ts'
 import {
   listPostFinishingReceiptRecords,
@@ -55,6 +56,12 @@ import { handlePdaExecDetailEvent, renderPdaExecDetailPage } from '../src/pages/
 import { renderPdaExecPage } from '../src/pages/pda-exec.ts'
 import { clearPdaSession, createPdaSessionFromUser, listAllFactoryPdaUsers, setPdaSession } from '../src/data/fcs/store-domain-pda.ts'
 import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
+import { DEDICATED_POST_FACTORY_ID, DEDICATED_POST_FACTORY_NAME } from '../src/data/fcs/factory-mock-data.ts'
+import {
+  ContractHtmlInputElement,
+  buildPdaExecActionTarget,
+  installPdaContractRuntime,
+} from './helpers/pda-contract-runtime.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
@@ -216,39 +223,8 @@ assert.deepEqual(getSpecialCraftTaskWorkOrderLinesByWorkOrderId(garmentDirect.wo
 assert.equal(listFactoryWarehouseInboundRecords().length, inboundCountBeforeInvalidReceipt, '收货联动失败不得新增入库记录')
 assert.equal(listFactoryWaitProcessStockItems().length, waitProcessCountBeforeInvalidReceipt, '收货联动失败不得新增待加工库存')
 
-class ContractHtmlInputElement {
-  dataset: Record<string, string>
-  value: string
-
-  constructor(draftKey = '', field = '', value = '') {
-    this.dataset = { draftKey, pdaExecdSkuField: field }
-    this.value = value
-  }
-
-  closest(selector: string) {
-    return selector === '[data-pda-execd-sku-field]' ? this : null
-  }
-}
-Object.defineProperty(globalThis, 'HTMLInputElement', { configurable: true, value: ContractHtmlInputElement })
-for (const constructorName of ['HTMLSelectElement', 'HTMLTextAreaElement'] as const) {
-  if (!(globalThis as Record<string, unknown>)[constructorName]) {
-    ;(globalThis as Record<string, unknown>)[constructorName] = class {}
-  }
-}
-const buildPdaActionTarget = (action: string, taskId: string) => ({
-  closest: (selector: string) => selector === '[data-pda-execd-action]'
-    ? { dataset: { pdaExecdAction: action, taskId } }
-    : null,
-}) as unknown as HTMLElement
-const pdaSessionStorageValues = new Map<string, string>()
-Object.defineProperty(globalThis, 'localStorage', {
-  configurable: true,
-  value: {
-    getItem: (key: string) => pdaSessionStorageValues.get(key) ?? null,
-    setItem: (key: string, value: string) => pdaSessionStorageValues.set(key, value),
-    removeItem: (key: string) => pdaSessionStorageValues.delete(key),
-  },
-})
+installPdaContractRuntime()
+const buildPdaActionTarget = buildPdaExecActionTarget
 const factoryById = new Map(listFactoryMasterRecords().map((factory) => [factory.id, factory]))
 const garmentWarehousePdaUser = listAllFactoryPdaUsers().find((user) =>
   user.status === 'ACTIVE'
@@ -306,10 +282,26 @@ assert.equal(
   'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
   'PDA 成衣仓出库必须写入统一公开动作记录',
 )
+const garmentWarehouseAudit = getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentDirect.workOrderId).at(0)
+assert.equal(garmentWarehouseAudit?.operatorName, garmentWarehousePdaUser.name, 'PDA 动作审计姓名必须来自登录会话')
+assert.equal(garmentWarehouseAudit?.operatorUserId, garmentWarehousePdaUser.userId, 'PDA 动作审计账号必须来自登录会话')
+assert.equal(garmentWarehouseAudit?.operatorFactoryId, garmentWarehousePdaUser.factoryId, 'PDA 动作审计工厂必须来自登录会话')
+assert.equal(garmentWarehouseAudit?.operatorRoleId, garmentWarehousePdaUser.roleId, 'PDA 动作审计角色必须来自登录会话')
 assert.equal(
   listFactoryWarehouseOutboundRecords().filter((record) => record.sourceTaskId === garmentDirect.workOrderId).length,
   garmentDirectSkuLines.length,
   'PDA 成衣仓出库必须逐 SKU 写入真实出库记录',
+)
+assert(
+  listFactoryWarehouseOutboundRecords()
+    .filter((record) => record.sourceTaskId === garmentDirect.workOrderId)
+    .every((record) => (
+      record.factoryId === 'ID-F001'
+      && record.operatorUserId === garmentWarehousePdaUser.userId
+      && record.operatorFactoryId === garmentWarehousePdaUser.factoryId
+      && record.operatorRoleId === garmentWarehousePdaUser.roleId
+    )),
+  '成衣仓逐 SKU 出库事实必须使用真实成衣仓主体及登录审计主体',
 )
 const directOutboundCount = listFactoryWarehouseOutboundRecords().length
 handlePdaExecDetailEvent(buildPdaActionTarget('special-garment-warehouse-outbound', garmentDirectMobileTask.taskId))
@@ -421,6 +413,12 @@ assert.equal(auxiliaryInboundRecords.reduce((sum, record) => sum + record.receiv
 assert.equal(auxiliaryWaitStock.reduce((sum, stock) => sum + stock.receivedQty, 0), receivedGarmentQty)
 assert(auxiliaryInboundRecords.every((record) => Number.isInteger(record.receivedQty)), '辅助工艺逐 SKU 实收必须为整数件')
 assert(auxiliaryInboundRecords.every((record) => record.factoryId === garmentHeat.factoryId && record.sourceObjectName === '成衣仓'))
+assert(auxiliaryInboundRecords.every((record) => (
+  record.receiverName === heatAuxiliaryPdaUser.name
+  && record.operatorUserId === heatAuxiliaryPdaUser.userId
+  && record.operatorFactoryId === heatAuxiliaryPdaUser.factoryId
+  && record.operatorRoleId === heatAuxiliaryPdaUser.roleId
+)), '辅助工艺 PDA 收货记录必须使用登录会话审计主体')
 const receivedWorkOrder = listSpecialCraftTaskWorkOrders().find((item) => item.workOrderId === garmentHeat.workOrderId)
 assert(receivedWorkOrder)
 assert.equal(receivedWorkOrder.receivedQty, receivedGarmentQty)
@@ -486,6 +484,37 @@ assert.throws(() => executeProcessAction({
 assert.equal(getSpecialCraftTaskWorkOrderById(garmentHeat.workOrderId)?.status, '加工中', '逐 SKU 完工校验失败不得污染加工单状态')
 assert(getSpecialCraftTaskWorkOrderLinesByWorkOrderId(garmentHeat.workOrderId).every((line) => line.completedQty === 0), '逐 SKU 完工校验失败不得污染行完工事实')
 assert.equal(getWarehouseRecordsByWorkOrderId(garmentHeat.workOrderId).find((item) => item.recordType === 'WAIT_HANDOVER'), undefined, '逐 SKU 完工校验失败不得生成待交出仓')
+
+const atomicitySourceStock = listFactoryWaitProcessStockItems()
+  .find((stock) => stock.taskId === garmentHeat.workOrderId && stock.itemKind === '成衣')
+assert(atomicitySourceStock, '缺少用于完工原子性测试的成衣待加工库存')
+const workOrderBeforeWarehouseFailure = structuredClone(getSpecialCraftTaskWorkOrderById(garmentHeat.workOrderId))
+const skuLinesBeforeWarehouseFailure = structuredClone(getSpecialCraftTaskWorkOrderLinesByWorkOrderId(garmentHeat.workOrderId))
+const warehouseFactsBeforeWarehouseFailure = structuredClone(getWarehouseRecordsByWorkOrderId(garmentHeat.workOrderId))
+const operationLogsBeforeWarehouseFailure = structuredClone(getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentHeat.workOrderId))
+upsertFactoryWaitProcessStockItem({
+  ...atomicitySourceStock,
+  receivedQty: Math.max(atomicitySourceStock.receivedQty - 2, 0),
+})
+assert.throws(() => executeProcessAction({
+  sourceChannel: '移动端',
+  sourceType: 'SPECIAL_CRAFT',
+  sourceId: garmentHeat.workOrderId,
+  taskId: garmentHeat.taskOrderId,
+  actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
+  objectType: '成衣',
+  objectQty: completedGarmentQty,
+  qtyUnit: '件',
+  skuQtyBySkuCode: skuCompletedQtyBySkuCode,
+  skuScrapQtyBySkuCode,
+  skuDamageQtyBySkuCode,
+}), /超过辅助工艺实际收货|完工件数无效/, '仓事实不足时必须拒绝超实收完工')
+assert.deepEqual(getSpecialCraftTaskWorkOrderById(garmentHeat.workOrderId), workOrderBeforeWarehouseFailure, '仓联动失败不得污染加工单')
+assert.deepEqual(getSpecialCraftTaskWorkOrderLinesByWorkOrderId(garmentHeat.workOrderId), skuLinesBeforeWarehouseFailure, '仓联动失败不得污染 SKU 行')
+assert.deepEqual(getWarehouseRecordsByWorkOrderId(garmentHeat.workOrderId), warehouseFactsBeforeWarehouseFailure, '仓联动失败不得污染统一仓事实')
+assert.deepEqual(getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentHeat.workOrderId), operationLogsBeforeWarehouseFailure, '仓联动失败不得污染操作日志')
+upsertFactoryWaitProcessStockItem(atomicitySourceStock)
+
 const finishResult = executeProcessAction({
   sourceChannel: '移动端',
   sourceType: 'SPECIAL_CRAFT',
@@ -509,14 +538,15 @@ const garmentWaitHandover = getWarehouseRecordsByWorkOrderId(garmentHeat.workOrd
   .find((item) => item.recordType === 'WAIT_HANDOVER')
 assert(garmentWaitHandover, '成衣加工完成后缺少辅助工艺待交出仓记录')
 assert.equal(garmentWaitHandover.objectType, '成衣')
-assert.equal(garmentWaitHandover.targetFactoryName, '我方后道工厂', '成衣待交出仓接收方必须为我方后道工厂')
+assert.equal(garmentWaitHandover.targetFactoryId, DEDICATED_POST_FACTORY_ID, '成衣待交出仓必须指向真实后道主体')
+assert.equal(garmentWaitHandover.targetFactoryName, DEDICATED_POST_FACTORY_NAME, '成衣待交出仓接收方必须使用真实后道主体名称')
 assert.equal(garmentWaitHandover.relatedFeiTicketIds.length, 0, '成衣待交出仓不得关联菲票')
 const garmentWaitHandoverStock = listFactoryWaitHandoverStockItems()
   .filter((stock) => stock.taskId === garmentHeat.workOrderId && stock.itemKind === '成衣')
 assert.equal(garmentWaitHandoverStock.length, garmentSkuLines.length, '成衣加工完成后必须按 SKU 进入现有待交出库存')
 assert.equal(garmentWaitHandoverStock.reduce((sum, stock) => sum + stock.waitHandoverQty, 0), completedGarmentQty)
 assert(garmentWaitHandoverStock.every((stock) => Number.isInteger(stock.waitHandoverQty)))
-assert(garmentWaitHandoverStock.every((stock) => stock.receiverName === '我方后道工厂' && !stock.feiTicketNo))
+assert(garmentWaitHandoverStock.every((stock) => stock.receiverName === DEDICATED_POST_FACTORY_NAME && !stock.feiTicketNo))
 
 const submitResult = applySpecialCraftWarehouseLinkageAfterAction({
   success: true,
@@ -535,7 +565,8 @@ assert(submitResult.createdHandoverRecordId, '成衣必须从辅助工艺待交�
 const garmentHandover = getHandoverRecordsByWorkOrderId(garmentHeat.workOrderId)
   .find((item) => item.handoverRecordId === submitResult.createdHandoverRecordId)
 assert(garmentHandover, '缺少成衣交往我方后道工厂的交出记录')
-assert.equal(garmentHandover.receiveFactoryName, '我方后道工厂')
+assert.equal(garmentHandover.receiveFactoryId, DEDICATED_POST_FACTORY_ID)
+assert.equal(garmentHandover.receiveFactoryName, DEDICATED_POST_FACTORY_NAME)
 assert.equal(garmentHandover.objectType, '成衣')
 assert.equal(garmentHandover.qtyUnit, '件')
 assert.equal(garmentHandover.relatedFeiTicketIds.length, 0, '成衣交出不得关联菲票')
@@ -827,9 +858,10 @@ const rendererSource = read('src/router/route-renderers-fcs.ts')
 const taskOrdersSource = read('src/pages/process-factory/special-craft/task-orders.ts')
 const workOrderDetailSource = read('src/pages/process-factory/special-craft/work-order-detail.ts')
 const pdaExecDetailSource = read('src/pages/pda-exec-detail.ts')
-const pdaWaitProcessSource = read('src/pages/pda-warehouse-wait-process.ts')
-const pdaWaitHandoverSource = read('src/pages/pda-warehouse-wait-handover.ts')
 const factoryInternalWarehouseSource = read('src/data/fcs/factory-internal-warehouse.ts')
+assert(!factoryInternalWarehouseSource.includes('pickupFallbackFactories'), '领料入库不得以任意非车缝工厂兜底主体')
+assert(!factoryInternalWarehouseSource.includes('fallbackType?: FactoryType'), '工厂名称解析不得按工厂类型兜底主体')
+assert(!factoryInternalWarehouseSource.includes('factory.factoryType === fallbackType'), '工厂名称解析缺少精确主体时必须失败关闭')
 assert(routeSource.includes('buildSpecialCraftTaskOrdersPath(operation)'), '动态路由必须按 operation 生成独立列表入口')
 assert(rendererSource.includes('renderSpecialCraftTaskOrdersPage'), '动态路由缺少公共加工单列表渲染器')
 assert(taskOrdersSource.includes('buildSpecialCraftTaskListStorageKey'), '筛选持久化键必须按 operation slug 独立')
@@ -846,13 +878,5 @@ assert(!garmentHandoverProjectionSource.includes('remainingQty'), '成衣逐 SKU
 for (const label of ['应收', '已收', '可加工', '完工', '报废', '货损']) {
   assert(pdaExecDetailSource.includes(label), `PDA 成衣加工逐 SKU 首屏缺少${label}字段`)
 }
-assert(pdaWaitProcessSource.includes("row.itemKind === '成衣'"), 'PDA 待加工仓必须按成衣对象收口首屏字段')
-assert(pdaWaitProcessSource.includes('来源仓：'), 'PDA 成衣待加工仓必须显示成衣仓来源')
-assert(pdaWaitProcessSource.includes('renderGarmentWaitProcessCard'), 'PDA 成衣待加工仓必须使用独立 SKU 级卡片')
-assert(pdaWaitProcessSource.includes('SKU：') && pdaWaitProcessSource.includes('当前仓：') && pdaWaitProcessSource.includes('下一动作：加工领料'), 'PDA 成衣待加工仓首屏字段不完整')
-assert(pdaWaitHandoverSource.includes("row.itemKind === '成衣'"), 'PDA 待交出仓必须按成衣对象收口首屏字段')
-assert(pdaWaitHandoverSource.includes('下一站：'), 'PDA 成衣待交出仓必须明确下一站为我方后道工厂')
-assert(pdaWaitHandoverSource.includes('renderGarmentWaitHandoverCard'), 'PDA 成衣待交出仓必须使用独立 SKU 级卡片')
-assert(pdaWaitHandoverSource.includes('SKU：') && pdaWaitHandoverSource.includes('当前仓：') && pdaWaitHandoverSource.includes('下一动作：交出确认'), 'PDA 成衣待交出仓首屏字段不完整')
 
 console.log('[check-heat-transfer-and-print-dye-contract] 独立烫画与直喷加工单契约通过')

@@ -4,6 +4,7 @@ import {
   updateWaitHandoverStockLocation,
 } from '../data/fcs/factory-internal-warehouse.ts'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
+import { executeSpecialCraftWaitHandoverSubmit } from '../data/fcs/special-craft-pda-warehouse-actions.ts'
 import { OWN_WOOL_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
 import {
   listAuxiliaryCraftTaskOrders,
@@ -209,6 +210,7 @@ function getAuxiliaryWaitHandoverRows(ignoreStatus = false): FactoryWaitHandover
   ensureCraftWarehouseMockData()
   return listFactoryWaitHandoverStockItems()
     .filter((item) => item.factoryId === runtime.factoryId && Boolean(item.craftName))
+    .filter((item) => (state.status === '已交出' ? true : item.status !== '已交出'))
     .filter((item) => (ignoreStatus || state.status === '全部' ? true : item.status === state.status))
 }
 
@@ -234,7 +236,7 @@ function renderGarmentWaitHandoverCard(row: FactoryWaitHandoverStockItem): strin
       </div>
       <div class="mt-4 flex gap-2">
         <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-fast-page-render data-pda-warehouse-action="open-wait-handover-detail" data-stock-item-id="${escapeAttr(row.stockItemId)}">查看</button>
-        <button type="button" class="rounded-full bg-primary px-3 py-1.5 text-xs text-primary-foreground" data-nav="/fcs/pda/warehouse/wait-handover?action=handover-confirm">交出确认</button>
+        <button type="button" class="rounded-full bg-primary px-3 py-1.5 text-xs text-primary-foreground" data-pda-warehouse-action="special-craft-wait-handover-submit" data-stock-item-id="${escapeAttr(row.stockItemId)}" data-work-order-id="${escapeAttr(row.taskId || '')}" data-sku-code="${escapeAttr(row.materialSku || '')}">交出确认</button>
       </div>
     </article>
   `
@@ -1521,6 +1523,14 @@ export function renderPdaWarehouseWaitHandoverPage(): string {
 export function handlePdaWarehouseWaitHandoverEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
   const action = actionNode?.dataset.pdaWarehouseAction
+  if (action === 'special-craft-wait-handover-submit') {
+    executeSpecialCraftWaitHandoverSubmit({
+      stockItemId: actionNode.dataset.stockItemId || '',
+      workOrderId: actionNode.dataset.workOrderId || '',
+      skuCode: actionNode.dataset.skuCode || '',
+    })
+    return true
+  }
   if (action === 'confirm-wool-finish-inbound') {
     const qty = Number(state.woolFinishQty)
     if (!state.woolFinishOrderId) {

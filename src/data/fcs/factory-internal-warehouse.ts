@@ -1,6 +1,10 @@
 import type { Factory, FactoryType } from './factory-types.ts'
 import { factoryTypeConfig } from './factory-types.ts'
-import { mockFactories } from './factory-mock-data.ts'
+import {
+  DEDICATED_POST_FACTORY_ID,
+  DEDICATED_POST_FACTORY_NAME,
+  mockFactories,
+} from './factory-mock-data.ts'
 import { getProcessDefinitionByCode } from './process-craft-dict.ts'
 import type { WarehouseIssueLine, WarehouseIssueOrder } from './warehouse-material-execution.ts'
 import { listWarehouseIssueOrders } from './warehouse-material-execution.ts'
@@ -25,7 +29,7 @@ export type FactoryWarehouseSourceObjectKind =
   | '后道工厂'
   | '上游工厂仓'
 export type FactoryWarehouseItemKind = '面料' | '辅料' | '裁片' | '成衣' | '其他半成品'
-export type FactoryWaitProcessStockStatus = '待领料' | '已入待加工仓' | '差异待处理'
+export type FactoryWaitProcessStockStatus = '待领料' | '已入待加工仓' | '差异待处理' | '已领用'
 export type FactoryWaitHandoverStockStatus = '待交出' | '已交出' | '已回写' | '差异' | '异议中'
 export type FactoryInboundRecordStatus = '待确认' | '已入库' | '差异待处理' | '已作废'
 export type FactoryOutboundRecordStatus = '已出库' | '已回写' | '差异' | '异议中' | '已作废'
@@ -110,6 +114,10 @@ interface FactoryWarehouseBaseItem {
   locationText: string
   abnormalReason?: string
   photoList: string[]
+  operatorUserId?: string
+  operatorFactoryId?: string
+  operatorRoleId?: string
+  operatorRoleName?: string
   remark?: string
 }
 
@@ -125,8 +133,14 @@ export interface FactoryWaitProcessStockItem extends FactoryWarehouseBaseItem {
   productionOrderNo?: string
   expectedQty: number
   receivedQty: number
+  availableQty?: number
+  issuedQty?: number
   differenceQty: number
   receiverName: string
+  operatorUserId?: string
+  operatorFactoryId?: string
+  operatorRoleId?: string
+  operatorRoleName?: string
   receivedAt: string
   status: FactoryWaitProcessStockStatus
 }
@@ -238,6 +252,10 @@ export interface FactoryWarehouseOutboundRecord {
   differenceQty?: number
   unit: string
   operatorName: string
+  operatorUserId?: string
+  operatorFactoryId?: string
+  operatorRoleId?: string
+  operatorRoleName?: string
   outboundAt: string
   status: FactoryOutboundRecordStatus
   abnormalReason?: string
@@ -560,8 +578,7 @@ export function recordAuxiliaryGarmentReceiptToPostFactory(input: {
   receivedAt: string
   remark?: string
 }): { inboundRecord: FactoryWarehouseInboundRecord; waitProcessStockItem: FactoryWaitProcessStockItem } {
-  const factory = resolveFactoryByName('我方后道工厂', 'SATELLITE_FINISHING')
-    || mockFactories.find((item) => isNonSewingFactory(item))
+  const factory = mockFactories.find((item) => item.id === DEDICATED_POST_FACTORY_ID)
   if (!factory) throw new Error('未找到我方后道工厂，不能保存成衣收货。')
   const warehouse = findWarehouseByFactoryAndKindInternal(factory.id, 'WAIT_PROCESS')
   if (!warehouse) throw new Error('未找到我方后道工厂待加工仓，不能保存成衣收货。')
@@ -575,7 +592,7 @@ export function recordAuxiliaryGarmentReceiptToPostFactory(input: {
     warehouseId: warehouse.warehouseId,
     warehouseName: warehouse.warehouseName,
     factoryId: factory.id,
-    factoryName: '我方后道工厂',
+    factoryName: DEDICATED_POST_FACTORY_NAME,
     factoryKind: factory.factoryType,
     processCode: 'POST_FINISHING',
     processName: '后道',
@@ -635,6 +652,10 @@ export function recordGarmentReceiptAtAuxiliaryFactory(input: {
   receivedQty: number
   receiverName: string
   receivedAt: string
+  operatorUserId?: string
+  operatorFactoryId?: string
+  operatorRoleId?: string
+  operatorRoleName?: string
 }): { inboundRecord: FactoryWarehouseInboundRecord; waitProcessStockItem: FactoryWaitProcessStockItem } {
   const factory = mockFactories.find((item) => item.id === input.targetFactoryId)
   if (!factory) throw new Error(`未找到辅助工艺工厂：${input.targetFactoryName}`)
@@ -673,6 +694,10 @@ export function recordGarmentReceiptAtAuxiliaryFactory(input: {
     differenceQty,
     unit: '件',
     receiverName: input.receiverName,
+    operatorUserId: input.operatorUserId,
+    operatorFactoryId: input.operatorFactoryId,
+    operatorRoleId: input.operatorRoleId,
+    operatorRoleName: input.operatorRoleName,
     receivedAt: input.receivedAt,
     areaName: area?.areaName || areaName,
     shelfNo: shelf?.shelfNo || '',
@@ -709,34 +734,17 @@ export function recordGarmentReadyToHandoverAtAuxiliaryFactory(input: {
   completedQtyBySkuCode: Record<string, number>
   receiverKind: FactoryWarehouseReceiverKind
   receiverName: string
+  operatorUserId?: string
+  operatorFactoryId?: string
+  operatorRoleId?: string
+  operatorRoleName?: string
 }): FactoryWaitHandoverStockItem[] {
-  if (!Number.isInteger(input.totalCompletedQty) || input.totalCompletedQty < 0) {
-    throw new Error('成衣完工件数必须为非负整数。')
-  }
-  const factory = mockFactories.find((item) => item.id === input.targetFactoryId)
-  if (!factory) throw new Error(`未找到辅助工艺工厂：${input.targetFactoryName}`)
-  const warehouse = findWarehouseByFactoryAndKindInternal(factory.id, 'WAIT_HANDOVER')
-  if (!warehouse) throw new Error(`未找到${input.targetFactoryName}待交出仓`)
+  validateGarmentReadyToHandoverAtAuxiliaryFactory(input)
+  const factory = mockFactories.find((item) => item.id === input.targetFactoryId)!
+  const warehouse = findWarehouseByFactoryAndKindInternal(factory.id, 'WAIT_HANDOVER')!
   const sourceStocks = listFactoryWaitProcessStockItems()
     .filter((item) => item.taskId === input.sourceWorkOrderId && item.itemKind === '成衣')
     .sort((left, right) => (left.materialSku || '').localeCompare(right.materialSku || ''))
-  const receivedQtyTotal = sourceStocks.reduce((sum, item) => sum + Math.trunc(item.receivedQty), 0)
-  if (input.totalCompletedQty > receivedQtyTotal) {
-    throw new Error('成衣完工件数不能超过辅助工艺实际收货件数。')
-  }
-  const skuCodes = sourceStocks.map((item) => item.materialSku || '').sort()
-  const actualSkuCodes = Object.keys(input.completedQtyBySkuCode).sort()
-  if (skuCodes.length !== actualSkuCodes.length || skuCodes.some((skuCode, index) => skuCode !== actualSkuCodes[index])) {
-    throw new Error('成衣完工数量必须覆盖待加工仓全部 SKU。')
-  }
-  const invalidStock = sourceStocks.find((source) => {
-    const qty = input.completedQtyBySkuCode[source.materialSku || '']
-    return !Number.isInteger(qty) || Number(qty) < 0 || Number(qty) > source.receivedQty
-  })
-  if (invalidStock) throw new Error(`SKU ${invalidStock.materialSku || '未知'} 完工件数无效。`)
-  if (Object.values(input.completedQtyBySkuCode).reduce((sum, qty) => sum + qty, 0) !== input.totalCompletedQty) {
-    throw new Error('逐 SKU 完工合计与本次完工总件数不一致。')
-  }
   return sourceStocks.map((source, index) => {
     const waitHandoverQty = Number(input.completedQtyBySkuCode[source.materialSku || ''])
     const position = pickWarehouseLocation(warehouse, `${input.sourceWorkOrderId}-${source.materialSku}`, '已入库')
@@ -775,9 +783,49 @@ export function recordGarmentReadyToHandoverAtAuxiliaryFactory(input: {
       locationText: position.locationText,
       status: '待交出',
       photoList: [],
+      operatorUserId: input.operatorUserId,
+      operatorFactoryId: input.operatorFactoryId,
+      operatorRoleId: input.operatorRoleId,
+      operatorRoleName: input.operatorRoleName,
       remark: `第 ${index + 1} 个 SKU 完工进入待交出仓`,
     })
   })
+}
+
+export function validateGarmentReadyToHandoverAtAuxiliaryFactory(input: {
+  sourceWorkOrderId: string
+  targetFactoryId: string
+  targetFactoryName: string
+  totalCompletedQty: number
+  completedQtyBySkuCode: Record<string, number>
+}): void {
+  if (!Number.isInteger(input.totalCompletedQty) || input.totalCompletedQty < 0) {
+    throw new Error('成衣完工件数必须为非负整数。')
+  }
+  const factory = mockFactories.find((item) => item.id === input.targetFactoryId)
+  if (!factory) throw new Error(`未找到辅助工艺工厂：${input.targetFactoryName}`)
+  const warehouse = findWarehouseByFactoryAndKindInternal(factory.id, 'WAIT_HANDOVER')
+  if (!warehouse) throw new Error(`未找到${input.targetFactoryName}待交出仓`)
+  const sourceStocks = listFactoryWaitProcessStockItems()
+    .filter((item) => item.taskId === input.sourceWorkOrderId && item.itemKind === '成衣')
+    .sort((left, right) => (left.materialSku || '').localeCompare(right.materialSku || ''))
+  const receivedQtyTotal = sourceStocks.reduce((sum, item) => sum + Math.trunc(item.receivedQty), 0)
+  if (input.totalCompletedQty > receivedQtyTotal) {
+    throw new Error('成衣完工件数不能超过辅助工艺实际收货件数。')
+  }
+  const skuCodes = sourceStocks.map((item) => item.materialSku || '').sort()
+  const actualSkuCodes = Object.keys(input.completedQtyBySkuCode).sort()
+  if (skuCodes.length !== actualSkuCodes.length || skuCodes.some((skuCode, index) => skuCode !== actualSkuCodes[index])) {
+    throw new Error('成衣完工数量必须覆盖待加工仓全部 SKU。')
+  }
+  const invalidStock = sourceStocks.find((source) => {
+    const qty = input.completedQtyBySkuCode[source.materialSku || '']
+    return !Number.isInteger(qty) || Number(qty) < 0 || Number(qty) > source.receivedQty
+  })
+  if (invalidStock) throw new Error(`SKU ${invalidStock.materialSku || '未知'} 完工件数无效。`)
+  if (Object.values(input.completedQtyBySkuCode).reduce((sum, qty) => sum + qty, 0) !== input.totalCompletedQty) {
+    throw new Error('逐 SKU 完工合计与本次完工总件数不一致。')
+  }
 }
 
 const ONBOARDING_CUTTING_FACTORIES = [
@@ -872,18 +920,12 @@ function resolveWaitHandoverStatus(record: FactoryWarehouseOutboundRecord): Fact
   return '已交出'
 }
 
-function resolveFactoryByName(factoryName: string | undefined, fallbackType?: FactoryType): Factory | undefined {
-  if (factoryName) {
-    const exact = mockFactories.find((factory) => factory.name === factoryName)
-    if (exact) return exact
+function resolveFactoryByName(factoryName: string | undefined): Factory | undefined {
+  if (!factoryName) return undefined
+  if (factoryName === '我方后道工厂' || factoryName === DEDICATED_POST_FACTORY_NAME) {
+    return mockFactories.find((factory) => factory.id === DEDICATED_POST_FACTORY_ID)
   }
-  if (factoryName?.includes('后道')) {
-    return mockFactories.find((factory) => factory.factoryType === 'SATELLITE_FINISHING')
-  }
-  if (fallbackType) {
-    return mockFactories.find((factory) => factory.factoryType === fallbackType)
-  }
-  return undefined
+  return mockFactories.find((factory) => factory.name === factoryName)
 }
 
 function normalizeWarehouseReceiverKind(head: PdaHandoverHead): FactoryWarehouseReceiverKind {
@@ -1653,11 +1695,8 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
   })
 
   const inboundRecords: FactoryWarehouseInboundRecord[] = []
-  const pickupFallbackFactories = mockFactories.filter((factory) => isNonSewingFactory(factory))
-  listWarehouseIssueOrders().forEach((doc, docIndex) => {
-    const targetFactory =
-      (doc.targetFactoryId ? factoryMap.get(doc.targetFactoryId) : undefined)
-      || pickupFallbackFactories[docIndex % pickupFallbackFactories.length]
+  listWarehouseIssueOrders().forEach((doc) => {
+    const targetFactory = doc.targetFactoryId ? factoryMap.get(doc.targetFactoryId) : undefined
     if (!targetFactory || !isNonSewingFactory(targetFactory)) return
     const warehouse = waitProcessWarehouseMap.get(targetFactory.id)
     if (!warehouse) return
@@ -1683,7 +1722,7 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
   listPdaHandoverHeads()
     .filter((head) => head.headType === 'HANDOUT')
     .forEach((head) => {
-      const receivingFactory = resolveFactoryByName(head.receiverName || head.targetName, head.targetName.includes('后道') ? 'SATELLITE_FINISHING' : undefined)
+      const receivingFactory = resolveFactoryByName(head.receiverName || head.targetName)
       if (!receivingFactory || !isNonSewingFactory(receivingFactory)) return
       const warehouse = waitProcessWarehouseMap.get(receivingFactory.id)
       if (!warehouse) return
@@ -1862,10 +1901,7 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
   listPdaHandoverHeads()
     .filter((head) => head.headType === 'HANDOUT')
     .forEach((head) => {
-      const sourceFactory = resolveFactoryByName(
-        head.sourceFactoryName,
-        head.processBusinessCode === 'POST_FINISHING' ? 'SATELLITE_FINISHING' : undefined,
-      )
+      const sourceFactory = resolveFactoryByName(head.sourceFactoryName)
       if (!sourceFactory || !isNonSewingFactory(sourceFactory)) return
       const warehouse = waitHandoverWarehouseMap.get(sourceFactory.id)
       if (!warehouse) return
@@ -2727,10 +2763,7 @@ export function syncFactoryWarehouseHandoverSourceByTaskId(taskId: string): void
   listPdaHandoverHeads()
     .filter((head) => head.headType === 'HANDOUT' && head.taskId === taskId)
     .forEach((head) => {
-      const sourceFactory = resolveFactoryByName(
-        head.sourceFactoryName,
-        head.processBusinessCode === 'POST_FINISHING' ? 'SATELLITE_FINISHING' : undefined,
-      )
+      const sourceFactory = resolveFactoryByName(head.sourceFactoryName)
       if (!sourceFactory || !isNonSewingFactory(sourceFactory)) return
       const warehouse = store.warehouses.find(
         (item) => item.factoryId === sourceFactory.id && item.warehouseKind === 'WAIT_HANDOVER',
@@ -2804,11 +2837,13 @@ export function upsertFactoryWaitHandoverStockItem(
   item: FactoryWaitHandoverStockItem,
 ): FactoryWaitHandoverStockItem {
   const store = ensureFactoryInternalWarehouseStore()
-  const index = store.waitHandoverStockItems.findIndex(
-    (stockItem) =>
-      stockItem.stockItemId === item.stockItemId
-      || (!!item.handoverRecordId && stockItem.handoverRecordId === item.handoverRecordId),
-  )
+  let index = store.waitHandoverStockItems.findIndex((stockItem) => stockItem.stockItemId === item.stockItemId)
+  if (index < 0 && item.handoverRecordId) {
+    index = store.waitHandoverStockItems.findIndex((stockItem) => (
+      stockItem.handoverRecordId === item.handoverRecordId
+      && (stockItem.materialSku || '') === (item.materialSku || '')
+    ))
+  }
   const nextItem = cloneValue(item)
   if (index >= 0) {
     store.waitHandoverStockItems[index] = nextItem

@@ -74,6 +74,7 @@ import {
   resolveWarehouseInboundRecordRoute,
 } from './pda-warehouse-shared'
 import { getSpecialCraftFeiTicketSummary } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
+import { executeSpecialCraftWaitProcessIssue } from '../data/fcs/special-craft-pda-warehouse-actions.ts'
 
 type WaitProcessFilter = '全部' | '待领料' | '已入待加工仓' | '差异待处理'
 
@@ -243,6 +244,7 @@ function getAuxiliaryWaitProcessRows(ignoreStatus = false): FactoryWaitProcessSt
   ensureCraftWarehouseMockData()
   return listFactoryWaitProcessStockItems()
     .filter((item) => item.factoryId === runtime.factoryId && Boolean(item.craftName))
+    .filter((item) => item.status !== '已领用')
     .filter((item) => (ignoreStatus || state.status === '全部' ? true : item.status === state.status))
 }
 
@@ -268,7 +270,7 @@ function renderGarmentWaitProcessCard(row: FactoryWaitProcessStockItem): string 
       </div>
       <div class="mt-4 flex gap-2">
         <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-fast-page-render data-pda-warehouse-action="open-wait-process-detail" data-stock-item-id="${escapeAttr(row.stockItemId)}">查看</button>
-        <button type="button" class="rounded-full bg-primary px-3 py-1.5 text-xs text-primary-foreground" data-nav="/fcs/pda/warehouse/wait-process?action=issue">加工领料</button>
+        <button type="button" class="rounded-full bg-primary px-3 py-1.5 text-xs text-primary-foreground" data-pda-warehouse-action="special-craft-wait-process-issue" data-stock-item-id="${escapeAttr(row.stockItemId)}" data-work-order-id="${escapeAttr(row.taskId || '')}" data-sku-code="${escapeAttr(row.materialSku || '')}">加工领料</button>
       </div>
     </article>
   `
@@ -2167,6 +2169,14 @@ export function renderPdaWarehouseWaitProcessPage(): string {
 export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
   const action = actionNode?.dataset.pdaWarehouseAction
+  if (action === 'special-craft-wait-process-issue') {
+    executeSpecialCraftWaitProcessIssue({
+      stockItemId: actionNode.dataset.stockItemId || '',
+      workOrderId: actionNode.dataset.workOrderId || '',
+      skuCode: actionNode.dataset.skuCode || '',
+    })
+    return true
+  }
   if (action === 'cutting-wp-pickup') {
     const sourceNo = actionNode?.dataset.sourceNo
     const prepRecordId = actionNode?.dataset.prepRecordId

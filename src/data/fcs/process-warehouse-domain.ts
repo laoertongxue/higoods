@@ -16,6 +16,7 @@ import {
   recordAuxiliaryGarmentReceiptToPostFactory,
 } from './factory-internal-warehouse.ts'
 import type { ProcessWorkOrderSourceType } from './process-work-order-domain.ts'
+import { DEDICATED_POST_FACTORY_ID, DEDICATED_POST_FACTORY_NAME } from './factory-mock-data.ts'
 
 export type ProcessWarehouseCraftType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
 export type ProcessWarehouseRecordType = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
@@ -103,6 +104,10 @@ export interface ProcessHandoverRecord {
   packageQty: number
   packageUnit: string
   handoverPerson: string
+  operatorUserId: string
+  operatorFactoryId: string
+  operatorRoleId: string
+  operatorRoleName: string
   handoverAt: string
   receivePerson: string
   receiveAt: string
@@ -742,8 +747,8 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
         buildWarehouseRecord(
           {
             ...common,
-            targetFactoryId: flow.receiverKind === '后道工厂' ? 'MANAGED-POST-FACTORY' : taskOrder.factoryId,
-            targetFactoryName: flow.receiverName,
+            targetFactoryId: flow.receiverKind === '后道工厂' ? DEDICATED_POST_FACTORY_ID : taskOrder.factoryId,
+            targetFactoryName: flow.receiverKind === '后道工厂' ? DEDICATED_POST_FACTORY_NAME : flow.receiverName,
             targetWarehouseName: location.targetWarehouseName,
             warehouseLocation: location.warehouseLocation,
             availableObjectQty: taskOrder.waitHandoverQty || taskOrder.completedQty,
@@ -1332,6 +1337,10 @@ export function createProcessHandoverRecord(payload: ProcessHandoverRecordPayloa
     packageQty: payload.packageQty || 1,
     packageUnit: payload.packageUnit || (payload.objectType === '面料' ? '卷' : payload.objectType === '裁片' ? '包' : '箱'),
     handoverPerson: payload.handoverPerson || '工厂操作员',
+    operatorUserId: payload.operatorUserId || '',
+    operatorFactoryId: payload.operatorFactoryId || '',
+    operatorRoleId: payload.operatorRoleId || '',
+    operatorRoleName: payload.operatorRoleName || '',
     handoverAt,
     receivePerson: payload.receivePerson || '',
     receiveAt: payload.receiveAt || '',
@@ -1419,7 +1428,7 @@ export function writeBackProcessHandoverRecord(
   if (!handover) return undefined
   const isAuxiliaryGarmentToPost = handover.craftType === 'SPECIAL_CRAFT'
     && handover.objectType === '成衣'
-    && handover.receiveFactoryName === '我方后道工厂'
+    && handover.receiveFactoryId === DEDICATED_POST_FACTORY_ID
   const postSourceSkuStocks = isAuxiliaryGarmentToPost
     ? listFactoryWaitHandoverStockItems().filter((stock) => stock.taskId === handover.sourceWorkOrderId && stock.itemKind === '成衣')
     : []
