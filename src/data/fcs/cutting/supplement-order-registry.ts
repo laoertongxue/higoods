@@ -1,39 +1,41 @@
 export type SupplementOrderStatus = '未完成' | '已完成'
 
 export interface SupplementOrderLifecycle {
-  id: string
-  recordNo: string
-  cutOrderId: string
-  cutOrderNo: string
-  productionOrderNo: string
-  sequenceNo: number
-  status: SupplementOrderStatus
-  reason: string
-  totalQty: number
-  lineSummary: string
-  createdAt: string
-  createdBy: string
-  completedAt: string
-  completedBy: string
+  readonly id: string
+  readonly recordNo: string
+  readonly cutOrderId: string
+  readonly cutOrderNo: string
+  readonly productionOrderNo: string
+  readonly sequenceNo: number
+  readonly status: SupplementOrderStatus
+  readonly reason: string
+  readonly totalQty: number
+  readonly lineSummary: string
+  readonly createdAt: string
+  readonly createdBy: string
+  readonly completedAt: string
+  readonly completedBy: string
 }
 
-export type ReadonlySupplementOrderLifecycle = Readonly<SupplementOrderLifecycle>
+type MutableSupplementOrderLifecycle = {
+  -readonly [Key in keyof SupplementOrderLifecycle]: SupplementOrderLifecycle[Key]
+}
 
 export type RegisterSupplementOrderInput = Omit<
   SupplementOrderLifecycle,
   'sequenceNo' | 'status' | 'completedAt' | 'completedBy'
 >
 
-const supplementOrders = new Map<string, SupplementOrderLifecycle>()
+const supplementOrders = new Map<string, MutableSupplementOrderLifecycle>()
 
 function cloneSupplementOrder(
   order: SupplementOrderLifecycle,
-): ReadonlySupplementOrderLifecycle {
+): SupplementOrderLifecycle {
   return { ...order }
 }
 
 function hasSameBusinessIdentity(
-  existing: SupplementOrderLifecycle,
+  existing: MutableSupplementOrderLifecycle,
   input: RegisterSupplementOrderInput,
 ): boolean {
   return existing.id === input.id
@@ -45,21 +47,21 @@ function hasSameBusinessIdentity(
 
 export function listSupplementOrdersByCutOrder(
   cutOrderId: string,
-): ReadonlyArray<ReadonlySupplementOrderLifecycle> {
+): ReadonlyArray<SupplementOrderLifecycle> {
   return [...supplementOrders.values()]
     .filter((order) => order.cutOrderId === cutOrderId)
     .sort((left, right) => left.sequenceNo - right.sequenceNo)
     .map(cloneSupplementOrder)
 }
 
-export function getSupplementOrder(id: string): ReadonlySupplementOrderLifecycle | undefined {
+export function getSupplementOrder(id: string): SupplementOrderLifecycle | undefined {
   const order = supplementOrders.get(id)
   return order ? cloneSupplementOrder(order) : undefined
 }
 
 export function registerSupplementOrder(
   input: RegisterSupplementOrderInput,
-): ReadonlySupplementOrderLifecycle {
+): SupplementOrderLifecycle {
   const existing = supplementOrders.get(input.id)
   if (existing) {
     if (!hasSameBusinessIdentity(existing, input)) {
@@ -68,7 +70,7 @@ export function registerSupplementOrder(
     return cloneSupplementOrder(existing)
   }
 
-  const order: SupplementOrderLifecycle = {
+  const order: MutableSupplementOrderLifecycle = {
     ...input,
     sequenceNo: listSupplementOrdersByCutOrder(input.cutOrderId).length + 1,
     status: '未完成',
@@ -83,7 +85,7 @@ export function completeSupplementOrder(input: {
   id: string
   completedAt: string
   completedBy: string
-}): ReadonlySupplementOrderLifecycle {
+}): SupplementOrderLifecycle {
   const existing = supplementOrders.get(input.id)
   if (!existing) {
     throw new Error('未找到对应补料单，请刷新后重试。')
@@ -92,7 +94,7 @@ export function completeSupplementOrder(input: {
     throw new Error('该补料单已完成，无需重复操作。')
   }
 
-  const completed: SupplementOrderLifecycle = {
+  const completed: MutableSupplementOrderLifecycle = {
     ...existing,
     status: '已完成',
     completedAt: input.completedAt,

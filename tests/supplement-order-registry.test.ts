@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { afterEach, test } from 'node:test'
 
 import {
@@ -10,6 +11,14 @@ import {
   type RegisterSupplementOrderInput,
   type SupplementOrderLifecycle,
 } from '../src/data/fcs/cutting/supplement-order-registry.ts'
+
+type MutableLifecycleForAttack = {
+  -readonly [Key in keyof SupplementOrderLifecycle]: SupplementOrderLifecycle[Key]
+}
+
+function asMutableAttackTarget(value: unknown): MutableLifecycleForAttack {
+  return value as MutableLifecycleForAttack
+}
 
 afterEach(() => {
   resetSupplementOrderRegistryForTesting()
@@ -132,8 +141,20 @@ test('同一 ID 重复注册保持幂等且不占用新的补料次数', () => {
   assert.equal(listSupplementOrdersByCutOrder('cut-order-1').length, 2)
 })
 
+test('公开边界只导出一个补料生命周期类型', () => {
+  const source = readFileSync(
+    new URL('../src/data/fcs/cutting/supplement-order-registry.ts', import.meta.url),
+    'utf8',
+  )
+  const lifecycleTypeExports = source.match(
+    /^export (?:interface|type) (?:Readonly)?SupplementOrderLifecycle\b/gm,
+  ) || []
+
+  assert.equal(lifecycleTypeExports.length, 1)
+})
+
 test('篡改注册返回值不会污染内部记录', () => {
-  const registered = registerSupplementOrder(buildInput()) as SupplementOrderLifecycle
+  const registered = asMutableAttackTarget(registerSupplementOrder(buildInput()))
   registered.cutOrderNo = 'CP-MUTATED'
   registered.status = '已完成'
 
@@ -144,7 +165,7 @@ test('篡改注册返回值不会污染内部记录', () => {
 
 test('篡改单条查询返回值不会污染内部记录', () => {
   registerSupplementOrder(buildInput())
-  const queried = getSupplementOrder('supplement-1') as SupplementOrderLifecycle
+  const queried = asMutableAttackTarget(getSupplementOrder('supplement-1'))
   queried.reason = '被篡改的原因'
   queried.totalQty = 999
 
@@ -155,7 +176,7 @@ test('篡改单条查询返回值不会污染内部记录', () => {
 
 test('篡改列表查询返回值不会污染内部记录', () => {
   registerSupplementOrder(buildInput())
-  const listed = listSupplementOrdersByCutOrder('cut-order-1')[0] as SupplementOrderLifecycle
+  const listed = asMutableAttackTarget(listSupplementOrdersByCutOrder('cut-order-1')[0])
   listed.recordNo = 'BL-MUTATED'
   listed.productionOrderNo = 'PO-MUTATED'
 
@@ -170,10 +191,11 @@ test('篡改完成返回值不会污染内部完成事实', () => {
     id: 'supplement-1',
     completedAt: '2026-07-22 10:30:00',
     completedBy: '李主管',
-  }) as SupplementOrderLifecycle
-  completed.status = '未完成'
-  completed.completedAt = '2099-01-01 00:00:00'
-  completed.completedBy = '被篡改的人'
+  })
+  const attackedCompleted = asMutableAttackTarget(completed)
+  attackedCompleted.status = '未完成'
+  attackedCompleted.completedAt = '2099-01-01 00:00:00'
+  attackedCompleted.completedBy = '被篡改的人'
 
   const stored = getSupplementOrder('supplement-1')
   assert.equal(stored?.status, '已完成')
@@ -187,8 +209,16 @@ test('同一 ID 不能跨裁片单重放', () => {
   assert.throws(
     () => registerSupplementOrder(buildInput({
       cutOrderId: 'cut-order-2',
-      cutOrderNo: 'CP67943',
     })),
+    { message: '补料单标识冲突，不能登记到不同业务对象。' },
+  )
+})
+
+test('同一 ID 使用不同裁片单号时拒绝重放', () => {
+  registerSupplementOrder(buildInput())
+
+  assert.throws(
+    () => registerSupplementOrder(buildInput({ cutOrderNo: 'CP67943' })),
     { message: '补料单标识冲突，不能登记到不同业务对象。' },
   )
 })
