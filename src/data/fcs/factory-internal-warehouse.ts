@@ -540,6 +540,85 @@ export function buildDefaultFactoryInternalWarehouses(factories: Factory[] = moc
     })
 }
 
+export function recordAuxiliaryGarmentReceiptToPostFactory(input: {
+  handoverRecordId: string
+  handoverRecordNo: string
+  sourceFactoryId: string
+  sourceFactoryName: string
+  sourceTaskId: string
+  sourceTaskNo: string
+  productionOrderId?: string
+  productionOrderNo?: string
+  itemName: string
+  materialSku?: string
+  expectedQty: number
+  receivedQty: number
+  differenceQty: number
+  unit: '件'
+  receiverName: string
+  receivedAt: string
+  remark?: string
+}): { inboundRecord: FactoryWarehouseInboundRecord; waitProcessStockItem: FactoryWaitProcessStockItem } {
+  const factory = resolveFactoryByName('我方后道工厂', 'SATELLITE_FINISHING')
+    || mockFactories.find((item) => isNonSewingFactory(item))
+  if (!factory) throw new Error('未找到我方后道工厂，不能保存成衣收货。')
+  const warehouse = findWarehouseByFactoryAndKindInternal(factory.id, 'WAIT_PROCESS')
+  if (!warehouse) throw new Error('未找到我方后道工厂待加工仓，不能保存成衣收货。')
+  const areaName = input.differenceQty === 0 ? 'A区' : '异常区'
+  const area = warehouse.areaList.find((item) => item.areaName === areaName) || warehouse.areaList[0]
+  const shelf = area?.shelfList[0]
+  const location = shelf?.locationList[0]
+  const inboundRecord: FactoryWarehouseInboundRecord = {
+    inboundRecordId: `POST-INB-${input.handoverRecordId}`,
+    inboundRecordNo: `RK-${input.handoverRecordNo}`,
+    warehouseId: warehouse.warehouseId,
+    warehouseName: warehouse.warehouseName,
+    factoryId: factory.id,
+    factoryName: '我方后道工厂',
+    factoryKind: factory.factoryType,
+    processCode: 'POST_FINISHING',
+    processName: '后道',
+    sourceRecordId: input.handoverRecordId,
+    sourceRecordNo: input.handoverRecordNo,
+    sourceRecordType: 'HANDOVER_RECEIVE',
+    sourceObjectName: input.sourceFactoryName,
+    taskId: input.sourceTaskId,
+    taskNo: input.sourceTaskNo,
+    itemKind: '成衣',
+    itemName: input.itemName,
+    materialSku: input.materialSku,
+    expectedQty: input.expectedQty,
+    receivedQty: input.receivedQty,
+    differenceQty: input.differenceQty,
+    unit: input.unit,
+    receiverName: input.receiverName,
+    receivedAt: input.receivedAt,
+    areaName: area?.areaName || areaName,
+    shelfNo: shelf?.shelfNo || '',
+    locationNo: location?.locationNo || '',
+    status: input.differenceQty === 0 ? '已入库' : '差异待处理',
+    abnormalReason: input.differenceQty === 0 ? undefined : '数量不符',
+    photoList: [],
+    generatedStockItemId: `POST-WPS-${input.handoverRecordId}`,
+    remark: input.remark || '辅助工艺成衣交出后由我方后道工厂确认收货',
+  }
+  upsertFactoryWarehouseInboundRecord(inboundRecord)
+  const waitProcessStockItem = upsertFactoryWaitProcessStockItem({
+    ...buildFactoryWaitProcessStockItemFromInboundRecord(inboundRecord),
+    stockItemId: `POST-WPS-${input.handoverRecordId}`,
+    productionOrderId: input.productionOrderId,
+    productionOrderNo: input.productionOrderNo,
+    taskId: input.sourceTaskId,
+    taskNo: input.sourceTaskNo,
+    status: input.differenceQty === 0 ? '已入待加工仓' : '差异待处理',
+    remark: input.remark || '进入既有后道待加工仓',
+  })
+  return {
+    inboundRecord: cloneValue(inboundRecord),
+    waitProcessStockItem,
+  }
+}
+
 const ONBOARDING_CUTTING_FACTORIES = [
   { factoryId: 'FACTORY-ONBOARD-0034', factoryName: '定向裁演示工厂34', seedNo: '034' },
   { factoryId: 'FACTORY-ONBOARD-0035', factoryName: '定位裁演示工厂35', seedNo: '035' },

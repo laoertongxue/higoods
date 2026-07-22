@@ -150,10 +150,11 @@ function getCurrentDetailTab(): SpecialCraftDetailTab {
   return specialCraftDetailTabs.some((item) => item.key === tab) ? (tab as SpecialCraftDetailTab) : 'base'
 }
 
-function renderDetailTabs(baseHref: string, activeTab: SpecialCraftDetailTab): string {
+function renderDetailTabs(baseHref: string, activeTab: SpecialCraftDetailTab, showFeiTab = true): string {
   return `
     <nav class="inline-flex flex-wrap gap-1 rounded-md bg-muted p-1">
       ${specialCraftDetailTabs
+        .filter((item) => showFeiTab || item.key !== 'fei')
         .map((item) => {
           const active = item.key === activeTab
           return `
@@ -393,12 +394,14 @@ function applyDifferenceActionFromUrl(): void {
 
 export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, workOrderId: string): string {
   applyDifferenceActionFromUrl()
-  const activeTab = getCurrentDetailTab()
+  const requestedTab = getCurrentDetailTab()
   const operation = getSpecialCraftOperationBySlug(operationSlug)
   const workOrder = getSpecialCraftTaskWorkOrderById(decodeURIComponent(workOrderId))
   if (!operation || !workOrder || workOrder.operationId !== operation.operationId) {
     return renderEmptyState('未找到对应加工单。')
   }
+  const objectMeta = resolveWorkOrderObjectMeta(workOrder)
+  const activeTab = requestedTab === 'fei' && objectMeta.objectType !== '裁片' ? 'base' : requestedTab
   const factoryGuard = resolveSpecialCraftFactoryContextGuard(operation)
   if (factoryGuard.blocked) {
     return renderSpecialCraftFactoryContextBlockedLayout({
@@ -430,7 +433,6 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
         workOrder.taskOrderId,
       )
     : []
-  const objectMeta = resolveWorkOrderObjectMeta(workOrder)
   const totalOriginalQty = workOrder.planQty
   const totalCurrentQty = workOrder.currentQty
   const totalScrapQty = workOrder.scrapQty
@@ -449,7 +451,15 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
     { label: `累计货损${objectMeta.objectLabel}数量`, value: `${formatQty(totalDamageQty)} ${objectMeta.qtyUnit}` },
     { label: `已回仓${objectMeta.objectLabel}数量`, value: `${formatQty(totalReturnedQty)} ${objectMeta.qtyUnit}` },
     { label: '当前状态', value: renderStatusBadge(workOrder.status) },
-    { label: '绑定菲票数量', value: escapeHtml(workOrder.feiTicketNos.join('、') || objectMeta.feiTicketText) },
+    ...(objectMeta.objectType === '裁片'
+      ? [{ label: '绑定菲票数量', value: escapeHtml(workOrder.feiTicketNos.join('、') || objectMeta.feiTicketText) }]
+      : []),
+    ...(objectMeta.objectType === '成衣'
+      ? [
+          { label: '上游来源', value: '成衣仓' },
+          { label: '下游去向', value: '我方后道工厂' },
+        ]
+      : []),
     { label: '统一仓记录', value: escapeHtml(warehouseRecords.map((record) => record.warehouseRecordNo).join('、') || '暂无') },
     { label: '统一交出记录', value: escapeHtml(handoverRecords.map((record) => record.handoverRecordNo).join('、') || '暂无') },
   ])
@@ -651,7 +661,7 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
     </section>
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
       <main class="min-w-0 space-y-4">
-        ${renderDetailTabs(detailHref, activeTab)}
+        ${renderDetailTabs(detailHref, activeTab, objectMeta.objectType === '裁片')}
         ${sections[activeTab]}
       </main>
       <aside class="space-y-4 xl:sticky xl:top-4 xl:self-start">

@@ -25,16 +25,61 @@ export interface SpecialCraftFlowRule {
   mustReturnToCuttingFactory: boolean
 }
 
+export interface AuxiliaryWarehouseFlowContext {
+  objectType: '裁片' | '面料' | '成衣'
+  itemKind: '裁片' | '面料' | '成衣'
+  qtyUnit: '片' | '米' | '件'
+  sourceObjectName: '裁床待交出仓' | '面辅料仓' | '成衣仓'
+  receiverKind: '裁床厂' | '中转仓' | '后道工厂'
+  receiverName: '裁床待交出仓' | '公司中转仓' | '我方后道工厂'
+  receiverWarehouseName: '裁床待交出仓' | '公司中转仓' | '后道待加工仓'
+}
+
+export function resolveAuxiliaryWarehouseFlow(
+  targetObject: SpecialCraftTargetObject,
+): AuxiliaryWarehouseFlowContext {
+  if (targetObject === '成衣') {
+    return {
+      objectType: '成衣',
+      itemKind: '成衣',
+      qtyUnit: '件',
+      sourceObjectName: '成衣仓',
+      receiverKind: '后道工厂',
+      receiverName: '我方后道工厂',
+      receiverWarehouseName: '后道待加工仓',
+    }
+  }
+  if (targetObject === '完整面料' || targetObject === '面料') {
+    return {
+      objectType: '面料',
+      itemKind: '面料',
+      qtyUnit: '米',
+      sourceObjectName: '面辅料仓',
+      receiverKind: '中转仓',
+      receiverName: '公司中转仓',
+      receiverWarehouseName: '公司中转仓',
+    }
+  }
+  return {
+    objectType: '裁片',
+    itemKind: '裁片',
+    qtyUnit: '片',
+    sourceObjectName: '裁床待交出仓',
+    receiverKind: '裁床厂',
+    receiverName: '裁床待交出仓',
+    receiverWarehouseName: '裁床待交出仓',
+  }
+}
+
 export function getSpecialCraftFlowRule(
   targetObject: SpecialCraftTargetObject,
 ): SpecialCraftFlowRule {
-  if (targetObject === '成衣') {
-    return { unit: '件', requiresFeiTicketScan: false, mustReturnToCuttingFactory: false }
+  const flow = resolveAuxiliaryWarehouseFlow(targetObject)
+  return {
+    unit: flow.qtyUnit,
+    requiresFeiTicketScan: flow.objectType === '裁片',
+    mustReturnToCuttingFactory: flow.receiverKind === '裁床厂',
   }
-  if (targetObject === '完整面料' || targetObject === '面料') {
-    return { unit: '米', requiresFeiTicketScan: false, mustReturnToCuttingFactory: false }
-  }
-  return { unit: '片', requiresFeiTicketScan: true, mustReturnToCuttingFactory: true }
 }
 
 export interface SpecialCraftOperationDefinition {

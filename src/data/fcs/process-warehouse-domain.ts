@@ -1,10 +1,17 @@
 import {
+  getSpecialCraftTaskWorkOrderLinesByWorkOrderId,
   getSpecialCraftTaskWorkOrdersByTaskOrderId,
   listSpecialCraftTaskOrders,
   type SpecialCraftTaskOrder,
 } from './special-craft-task-orders.ts'
+import { resolveAuxiliaryWarehouseFlow } from './special-craft-operations.ts'
 import { applySpecialCraftHandoverDifferenceToFeiTickets } from './cutting/special-craft-fei-ticket-flow.ts'
-import { listPostFinishingWorkOrders, type PostFinishingWorkOrder } from './post-finishing-domain.ts'
+import {
+  listPostFinishingWorkOrders,
+  receiveAuxiliaryCraftGarmentsAtPostFinishing,
+  type PostFinishingWorkOrder,
+} from './post-finishing-domain.ts'
+import { recordAuxiliaryGarmentReceiptToPostFactory } from './factory-internal-warehouse.ts'
 import type { ProcessWorkOrderSourceType } from './process-work-order-domain.ts'
 
 export type ProcessWarehouseCraftType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
@@ -673,6 +680,7 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
     }
   }
   taskOrders.forEach((taskOrder) => {
+    const flow = resolveAuxiliaryWarehouseFlow(taskOrder.targetObject)
     const workOrder = getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrder.taskOrderId)[0]
     const sourceWorkOrderId = workOrder?.workOrderId || taskOrder.taskOrderId
     const sourceWorkOrderNo = workOrder?.workOrderNo || taskOrder.taskOrderNo
@@ -696,12 +704,12 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
       materialSku: taskOrder.materialSku || '',
       materialName: taskOrder.partName || taskOrder.operationName,
       batchNo: taskOrder.transferBagNos[0] || '',
-      objectType: '裁片',
+      objectType: flow.objectType,
       plannedObjectQty: taskOrder.planQty,
       receivedObjectQty: taskOrder.receivedQty,
       availableObjectQty: taskOrder.currentQty || taskOrder.completedQty || taskOrder.receivedQty || taskOrder.planQty,
-      qtyUnit: taskOrder.unit || '片',
-      relatedFeiTicketIds: taskOrder.feiTicketNos,
+      qtyUnit: flow.qtyUnit,
+      relatedFeiTicketIds: flow.objectType === '裁片' ? taskOrder.feiTicketNos : [],
       inboundAt: taskOrder.createdAt,
       updatedAt: taskOrder.updatedAt || taskOrder.createdAt,
     }
@@ -728,6 +736,8 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
         buildWarehouseRecord(
           {
             ...common,
+            targetFactoryId: flow.receiverKind === '后道工厂' ? 'MANAGED-POST-FACTORY' : taskOrder.factoryId,
+            targetFactoryName: flow.receiverName,
             targetWarehouseName: location.targetWarehouseName,
             warehouseLocation: location.warehouseLocation,
             availableObjectQty: taskOrder.waitHandoverQty || taskOrder.completedQty,
@@ -1467,6 +1477,67 @@ export function writeBackProcessHandoverRecord(
         reason: payload.remark || '特殊工艺交出收货确认差异',
       })
     }
+  }
+  if (
+    handover.craftType === 'SPECIAL_CRAFT'
+    && handover.objectType === '成衣'
+    && handover.receiveFactoryName === '我方后道工厂'
+  ) {
+    recordAuxiliaryGarmentReceiptToPostFactory({
+      handoverRecordId: handover.handoverRecordId,
+      handoverRecordNo: handover.handoverRecordNo,
+      sourceFactoryId: handover.handoverFactoryId,
+      sourceFactoryName: handover.handoverFactoryName,
+      sourceTaskId: handover.sourceTaskId,
+      sourceTaskNo: handover.sourceTaskNo,
+      productionOrderId: handover.sourceProductionOrderId,
+      productionOrderNo: handover.sourceProductionOrderNo,
+      itemName: `${handover.craftName}完成成衣`,
+      expectedQty: handover.handoverObjectQty,
+      receivedQty: handover.receiveObjectQty,
+      differenceQty: handover.diffObjectQty,
+      unit: '件',
+      receiverName: handover.receivePerson,
+      receivedAt: handover.receiveAt,
+      remark: handover.remark,
+    })
+    const workOrderLines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(handover.sourceWorkOrderId)
+    const plannedTotal = workOrderLines.reduce((sum, line) => sum + line.planPieceQty, 0) || handover.handoverObjectQty
+    let allocatedReceivedQty = 0
+    const postSkuLines = workOrderLines.map((line, index) => {
+      const isLast = index === workOrderLines.length - 1
+      const receivedQty = isLast
+        ? roundQty(Math.max(handover.receiveObjectQty - allocatedReceivedQty, 0))
+        : roundQty(handover.receiveObjectQty * line.planPieceQty / plannedTotal)
+      allocatedReceivedQty = roundQty(allocatedReceivedQty + receivedQty)
+      return {
+        skuId: line.demandLineId,
+        skuCode: line.demandLineId,
+        colorName: line.colorName,
+        sizeName: line.sizeCode,
+        plannedQty: line.planPieceQty,
+        receivedQty,
+      }
+    })
+    receiveAuxiliaryCraftGarmentsAtPostFinishing({
+      handoverRecordId: handover.handoverRecordId,
+      productionOrderId: handover.sourceProductionOrderId || handover.sourceProductionOrderNo || '',
+      productionOrderNo: handover.sourceProductionOrderNo || handover.sourceProductionOrderId || '',
+      sourceTaskId: handover.sourceTaskId,
+      sourceTaskNo: handover.sourceTaskNo,
+      sourceFactoryId: handover.handoverFactoryId,
+      sourceFactoryName: handover.handoverFactoryName,
+      receiverName: handover.receivePerson,
+      receivedAt: handover.receiveAt,
+      skuLines: postSkuLines.length > 0 ? postSkuLines : [{
+        skuId: `${handover.sourceWorkOrderId}-GARMENT`,
+        skuCode: `${handover.sourceWorkOrderNo}-成衣`,
+        colorName: '多颜色',
+        sizeName: '多尺码',
+        plannedQty: handover.handoverObjectQty,
+        receivedQty: handover.receiveObjectQty,
+      }],
+    })
   }
   return cloneHandoverRecord(handover)
 }

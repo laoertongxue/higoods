@@ -11,6 +11,7 @@ import {
 import {
   getSpecialCraftTaskWorkOrderById,
 } from './special-craft-task-orders.ts'
+import { resolveAuxiliaryWarehouseFlow } from './special-craft-operations.ts'
 import {
   getPostFinishingWorkOrderById,
 } from './post-finishing-domain.ts'
@@ -104,6 +105,7 @@ interface WarehouseBaseContext {
   targetFactoryId: string
   targetFactoryName: string
   targetWarehouseName: string
+  receiveWarehouseName?: string
   warehouseLocation: string
   skuSummary: string
   materialSku: string
@@ -356,13 +358,7 @@ function resolveSpecialCraftContext(actionResult: ProcessWarehouseLinkageActionR
   const objectQty = roundQty(actionResult.objectQty || workOrder.currentQty || workOrder.planQty)
   const transferBagNos = [...(workOrder.transferBagNos || [])]
   const feiTicketNos = [...(workOrder.feiTicketNos || [])]
-  const targetObject = String(workOrder.targetObject || '')
-  const objectType: ProcessWarehouseObjectType = targetObject.includes('成衣')
-    ? '成衣'
-    : targetObject.includes('面料')
-      ? '面料'
-      : '裁片'
-  const qtyUnit = objectType === '成衣' ? '件' : objectType === '面料' ? '米' : '片'
+  const flow = resolveAuxiliaryWarehouseFlow(workOrder.targetObject)
   return {
     craftType: 'SPECIAL_CRAFT',
     craftName: workOrder.operationName,
@@ -376,21 +372,22 @@ function resolveSpecialCraftContext(actionResult: ProcessWarehouseLinkageActionR
     sourceDemandNo: workOrder.taskOrderNo,
     sourceFactoryId: workOrder.factoryId,
     sourceFactoryName: workOrder.factoryName,
-    targetFactoryId: workOrder.factoryId,
-    targetFactoryName: workOrder.factoryName,
+    targetFactoryId: flow.receiverKind === '后道工厂' ? 'MANAGED-POST-FACTORY' : workOrder.factoryId,
+    targetFactoryName: flow.receiverName,
     targetWarehouseName: `${workOrder.operationName}待交出仓`,
+    receiveWarehouseName: flow.receiverWarehouseName,
     warehouseLocation: `${workOrder.operationName}-A01`,
     skuSummary: [workOrder.partName, workOrder.fabricColor, workOrder.sizeCode].filter(Boolean).join(' / ') || workOrder.operationName,
     materialSku: workOrder.materialSku || '',
     materialName: workOrder.partName || workOrder.operationName,
     batchNo: transferBagNos[0] || '',
-    objectType,
+    objectType: flow.objectType,
     plannedObjectQty: roundQty(workOrder.planQty),
     objectQty,
-    qtyUnit,
+    qtyUnit: flow.qtyUnit,
     packageQty: Math.max(feiTicketNos.length, 1),
     packageUnit: '包',
-    relatedFeiTicketIds: feiTicketNos,
+    relatedFeiTicketIds: flow.objectType === '裁片' ? feiTicketNos : [],
   }
 }
 
@@ -501,7 +498,7 @@ function ensureHandoverRecord(
     handoverFactoryName: context.sourceFactoryName,
     receiveFactoryId: context.targetFactoryId,
     receiveFactoryName: context.targetFactoryName,
-    receiveWarehouseName: context.targetWarehouseName,
+    receiveWarehouseName: context.receiveWarehouseName || context.targetWarehouseName,
     objectType: context.objectType,
     handoverObjectQty: context.objectQty,
     receiveObjectQty: 0,

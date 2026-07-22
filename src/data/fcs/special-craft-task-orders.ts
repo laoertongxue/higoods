@@ -35,6 +35,7 @@ import {
   getSpecialCraftOperationById,
   getSpecialCraftOperationBySlug as getOperationBySlug,
   listEnabledSpecialCraftOperationDefinitions,
+  resolveAuxiliaryWarehouseFlow,
 } from './special-craft-operations.ts'
 import {
   generateSpecialCraftTaskOrdersForAllProductionOrders,
@@ -531,8 +532,7 @@ function getTaskUnit(targetObject: SpecialCraftTargetObject): string {
 }
 
 function getTaskItemKind(targetObject: SpecialCraftTargetObject): '裁片' | '面料' | '成衣' {
-  if (targetObject === '成衣') return '成衣'
-  return '裁片'
+  return resolveAuxiliaryWarehouseFlow(targetObject).itemKind
 }
 
 function getTaskItemName(operation: SpecialCraftOperationDefinition, targetObject: SpecialCraftTargetObject, partName?: string): string {
@@ -546,14 +546,11 @@ function getTaskItemName(operation: SpecialCraftOperationDefinition, targetObjec
 }
 
 function getReceiverKind(targetObject: SpecialCraftTargetObject): FactoryWaitHandoverStockItem['receiverKind'] {
-  return getSpecialCraftFlowRule(targetObject).mustReturnToCuttingFactory ? '裁床厂' : '中转仓'
+  return resolveAuxiliaryWarehouseFlow(targetObject).receiverKind
 }
 
 function getReceiverName(targetObject: SpecialCraftTargetObject): string {
-  if (getReceiverKind(targetObject) === '裁床厂') {
-    return TEST_FACTORY_NAME
-  }
-  return '公司中转仓'
+  return resolveAuxiliaryWarehouseFlow(targetObject).receiverName
 }
 
 function resolveProductionOrderVersion(order: ProductionOrder): string {
@@ -737,7 +734,7 @@ function buildLinkedDemoTaskSeed(input: {
     sourceAction: targetObject === '成衣' ? '交出接收' : '领料确认',
     sourceRecordType: targetObject === '成衣' ? 'HANDOVER_RECEIVE' : 'MATERIAL_PICKUP',
     sourceRecordNo: `${targetObject === '成衣' ? 'JS' : 'LL'}-${taskOrderNo}`,
-    sourceObjectName: targetObject === '成衣' ? '成衣仓出库' : '裁床待交出仓',
+    sourceObjectName: resolveAuxiliaryWarehouseFlow(targetObject).sourceObjectName,
     handoverOrderId: `SC-HO-${seedKey}`,
     handoverOrderNo: `SC-HDO-${taskOrderNo}`,
     handoverRecordId: `SC-HR-${seedKey}`,
@@ -1479,26 +1476,26 @@ function getSpecialTypeWarehouseProfile(taskOrder: SpecialCraftTaskOrder): {
     }
   }
   if (taskOrder.targetObject === '成衣') {
-    const flowRule = getSpecialCraftFlowRule('成衣')
+    const flow = resolveAuxiliaryWarehouseFlow('成衣')
     return {
-      itemKind: '成衣',
+      itemKind: flow.itemKind,
       itemName: `${taskOrder.craftName}成衣`,
-      unit: taskOrder.unit || '件',
+      unit: taskOrder.unit || flow.qtyUnit,
       materialSku: taskOrder.materialSku,
-      receiverKind: flowRule.mustReturnToCuttingFactory ? '裁床厂' : '中转仓',
-      receiverName: flowRule.mustReturnToCuttingFactory ? '裁床待交出仓' : '中转仓',
-      sourceObjectName: '成衣仓出库',
+      receiverKind: flow.receiverKind,
+      receiverName: flow.receiverName,
+      sourceObjectName: flow.sourceObjectName,
     }
   }
-  const flowRule = getSpecialCraftFlowRule('已裁部位')
+  const flow = resolveAuxiliaryWarehouseFlow('已裁部位')
   return {
-    itemKind: '裁片',
+    itemKind: flow.itemKind,
     itemName: `${taskOrder.partName || '裁片'}${taskOrder.craftName}`,
-    unit: taskOrder.unit || '片',
+    unit: taskOrder.unit || flow.qtyUnit,
     materialSku: taskOrder.materialSku,
-    receiverKind: flowRule.mustReturnToCuttingFactory ? '裁床厂' : '中转仓',
-    receiverName: flowRule.mustReturnToCuttingFactory ? '裁床待交出仓' : '中转仓',
-    sourceObjectName: '裁床待交出仓',
+    receiverKind: flow.receiverKind,
+    receiverName: flow.receiverName,
+    sourceObjectName: flow.sourceObjectName,
   }
 }
 

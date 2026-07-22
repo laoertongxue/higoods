@@ -452,7 +452,9 @@ function renderAuxiliaryWaitProcessPage(): string {
       <section class="space-y-3">
         ${
           rows.length > 0
-            ? rows.map((row) => `
+            ? rows.map((row) => {
+              const isGarment = row.itemKind === '成衣'
+              return `
               <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0 flex-1">
@@ -464,20 +466,24 @@ function renderAuxiliaryWaitProcessPage(): string {
                 <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
                   <div>库存对象：${escapeHtml(row.itemName)} / ${escapeHtml(row.materialSku || row.partName || '-')}</div>
                   <div>生产单：${escapeHtml(row.productionOrderNo || '-')}</div>
-                  <div>菲票 / 中转袋：${escapeHtml(row.feiTicketNo || '-')} / ${escapeHtml(row.transferBagNo || '-')}</div>
+                  ${isGarment
+                    ? `<div>来源仓：${escapeHtml(row.sourceObjectName || '成衣仓')}</div>`
+                    : `<div>菲票 / 中转袋：${escapeHtml(row.feiTicketNo || '-')} / ${escapeHtml(row.transferBagNo || '-')}</div>`}
                   <div>应收 / 实收：${row.expectedQty} / ${row.receivedQty} ${escapeHtml(row.unit)}</div>
                   <div>差异：${escapeHtml(buildWarehouseDifferenceText(row.differenceQty))}</div>
                   <div>库区 / 货架 / 库位：${escapeHtml(row.areaName)} / ${escapeHtml(row.shelfNo)} / ${escapeHtml(row.locationNo)}</div>
-                  <div>接收时间：${escapeHtml(formatWarehouseDateTime(row.receivedAt))}</div>
+                  ${isGarment ? '' : `<div>接收时间：${escapeHtml(formatWarehouseDateTime(row.receivedAt))}</div>`}
                 </div>
                 <div class="mt-4 flex flex-wrap gap-2">
                   <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-wait-process-detail" data-stock-item-id="${escapeAttr(row.stockItemId)}">查看</button>
-                  <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="/fcs/pda/warehouse/wait-process?action=issue">加工领料</button>
-                  <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="/fcs/pda/warehouse/wait-process?action=return">回收入仓</button>
-                  <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-wait-process-location" data-stock-item-id="${escapeAttr(row.stockItemId)}">调整位置</button>
+                  <button type="button" class="rounded-full ${isGarment ? 'bg-primary text-primary-foreground' : 'border'} px-3 py-1.5 text-xs" data-nav="/fcs/pda/warehouse/wait-process?action=issue">加工领料</button>
+                  ${isGarment ? '' : `
+                    <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="/fcs/pda/warehouse/wait-process?action=return">回收入仓</button>
+                    <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-wait-process-location" data-stock-item-id="${escapeAttr(row.stockItemId)}">调整位置</button>
+                  `}
                 </div>
               </article>
-            `).join('')
+            `}).join('')
             : renderMobilePageEmptyState(`暂无${runtimeLabel}待加工仓记录`, '接收入仓后会形成待加工仓库存。')
         }
       </section>
