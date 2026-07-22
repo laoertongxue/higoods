@@ -31,7 +31,7 @@
 ## 4. 回归验证
 
 - 通过：`check:fcs-task-generation-rules`、`check:process-work-order-unification`、`check:water-soluble-process`、`check:water-soluble-pda`、`check:dye-work-order-online-alignment`、`check:production-preparation-timing`、`check:printing-workflow`、`check:dyeing-workflow`。
-- 本次补充通过：任务预览以显式 `ProcessWorkOrder[]` 输入读取真实加工单；生产单拆解弹层与规则模拟页均展示独立加工单号、工艺、工厂和状态。规则模拟页优先选择已关联印花/染色加工单的生产单；任务兼容层只读取任务单元规划，不依赖模块导入副作用或空加工单占位。
+- 本次补充通过：任务预览以显式 `ProcessWorkOrder[]` 输入读取真实加工单；生产单拆解弹层与规则模拟页均展示独立加工单号、工艺、工厂和状态。规则模拟页优先选择已关联印花/染色加工单的生产单，并将该生产单置于下拉候选首位且选中，避免选择框与标题、表格不一致；任务兼容层只读取任务单元规划，不依赖模块导入副作用或空加工单占位。
 - 已知基线例外：`check:production-object-overview` 仍因既有印花加工单 `PH-20260328-007` 缺少生产单回溯失败；本次未放宽该检查，也未改动该无关加工单数据。
 
 ## 5. 问题标签

@@ -264,6 +264,10 @@ function renderPreviewSample(): string {
   ) ?? productionOrders.find((order) => order.demandSnapshot.saleType.includes('KOL'))
   if (!sampleOrder) return ''
   const preview = buildTaskGenerationPreview(sampleOrder.productionOrderId, processWorkOrders)
+  const visibleOrders = [
+    sampleOrder,
+    ...productionOrders.filter((order) => order.productionOrderId !== sampleOrder.productionOrderId),
+  ].slice(0, 8)
   return `
     <dialog id="task-generation-rule-preview" class="m-0 ml-auto h-screen max-h-none w-[min(860px,100vw)] border-l bg-background p-0 shadow-2xl backdrop:bg-black/35">
       <div class="flex h-full flex-col">
@@ -282,7 +286,7 @@ function renderPreviewSample(): string {
             <label class="space-y-1">
               <span class="text-xs text-muted-foreground">选择生产单</span>
               <select class="h-9 w-full rounded-md border bg-background px-3 text-sm">
-                ${productionOrders.slice(0, 8).map((order) => `<option ${order.productionOrderId === sampleOrder.productionOrderId ? 'selected' : ''}>${escapeHtml(order.productionOrderNo || order.productionOrderId)}</option>`).join('')}
+          ${visibleOrders.map((order) => `<option ${order.productionOrderId === sampleOrder.productionOrderId ? 'selected' : ''}>${escapeHtml(order.productionOrderNo || order.productionOrderId)}</option>`).join('')}
               </select>
             </label>
             <div class="rounded-md border bg-muted/10 px-3 py-2">

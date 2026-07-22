@@ -335,6 +335,7 @@ async function main(): Promise<void> {
     independentProcessWorkOrder.workOrderNo,
     '规则模拟页 HTML 必须展示真实独立加工单号',
   )
+  assertIncludes(rulesPageHtml, '<option selected>PO-202603-081</option>', '规则模拟页下拉必须展示并选中当前样例生产单')
   assert.throws(
     () => ruleDomain.buildTaskGenerationPreview(independentProcessWorkOrder.sourceProductionOrderId),
     /真实加工单集合/,
