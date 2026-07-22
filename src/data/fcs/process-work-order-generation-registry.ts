@@ -60,9 +60,7 @@ export function setProcessWorkOrderGenerationCommitFailureForTest(processCode: G
 export function ensureProcessWorkOrders(input: ProcessWorkOrderGenerationInput): EnsuredProcessWorkOrders {
   const normalized = normalizeProcessWorkOrderGenerationInput(input)
   const processCodes = new Set(normalized.processCodes)
-  const sourceSnapshot = normalized.source.bomItemIds
-    ? { ...normalized.source, bomItemIds: [...normalized.source.bomItemIds] }
-    : { ...normalized.source }
+  const sourceSnapshot = structuredClone(normalized.source)
   const common = {
     productionOrderId: sourceSnapshot.productionOrderId || '',
     productionOrderNo: sourceSnapshot.productionOrderNo || '',
@@ -71,7 +69,7 @@ export function ensureProcessWorkOrders(input: ProcessWorkOrderGenerationInput):
     techPackVersionLabel: sourceSnapshot.techPackVersionLabel || (sourceSnapshot.sourceType === 'STOCK' ? '备货创建' : ''),
     materialId: normalized.materialId,
     materialName: normalized.materialName,
-    materialItems: normalized.materialItems.map((item) => ({ ...item })),
+    materialItems: structuredClone(normalized.materialItems),
     targetColor: normalized.targetColor,
     plannedQty: normalized.plannedQty,
     qtyUnit: normalized.qtyUnit,

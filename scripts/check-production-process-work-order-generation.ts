@@ -1368,6 +1368,19 @@ for (const order of [supplementDyeOrder, supplementPrintOrder]) {
   assert(!('locked' in (order || {})), '加工单不得保存运行时锁定字段')
   assert(!('unlockStatus' in (order || {})), '加工单不得保存解锁字段')
 }
+const dyeFirstRead = getDyeWorkOrderById(firstSupplementResult.dyeWorkOrderId)!
+const printFirstRead = getPrintWorkOrderById(firstSupplementResult.printWorkOrderId)!
+dyeFirstRead.sourceSnapshot!.bomItemIds!.push('BOM-MUTATED-OUTSIDE')
+dyeFirstRead.formalProductionOrderSnapshot!.materialItems![0]!.materialName = '外部篡改染色物料'
+printFirstRead.sourceSnapshot!.bomItemIds!.push('BOM-MUTATED-OUTSIDE')
+printFirstRead.formalProductionOrderSnapshot!.materialItems![0]!.materialName = '外部篡改印花物料'
+const dyeSecondRead = getDyeWorkOrderById(firstSupplementResult.dyeWorkOrderId)!
+const printSecondRead = getPrintWorkOrderById(firstSupplementResult.printWorkOrderId)!
+assert(!dyeSecondRead.sourceSnapshot?.bomItemIds?.includes('BOM-MUTATED-OUTSIDE'), '染色加工单读取出口不得泄漏 BOM 数组引用')
+assert.notEqual(dyeSecondRead.formalProductionOrderSnapshot?.materialItems?.[0]?.materialName, '外部篡改染色物料', '染色加工单读取出口不得泄漏物料快照引用')
+assert(!printSecondRead.sourceSnapshot?.bomItemIds?.includes('BOM-MUTATED-OUTSIDE'), '印花加工单读取出口不得泄漏 BOM 数组引用')
+assert.notEqual(printSecondRead.formalProductionOrderSnapshot?.materialItems?.[0]?.materialName, '外部篡改印花物料', '印花加工单读取出口不得泄漏物料快照引用')
+assert.deepEqual(ensureProcessWorkOrders(supplementSource), firstSupplementResult, '外部修改首次读取结果后内部幂等身份不得变化')
 assert(
   listProcessWorkOrders().every((order) => Boolean(order.sourceSnapshot?.sourceType)),
   '印花、染色、水溶统一映射必须全部携带非空来源快照',

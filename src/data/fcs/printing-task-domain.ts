@@ -370,7 +370,7 @@ function syncSeedSourceToTaskAndHandovers(order: MutablePrintWorkOrder): void {
   const task = getPrintingTaskById(order.taskId)
   if (task) {
     task.sourceType = order.sourceType
-    task.sourceSnapshot = order.sourceSnapshot ? { ...order.sourceSnapshot } : undefined
+    task.sourceSnapshot = order.sourceSnapshot ? structuredClone(order.sourceSnapshot) : undefined
     if (order.sourceType === 'STOCK') {
       task.stockMaterialId = order.stockMaterialId
       task.stockMaterialName = order.stockMaterialName
@@ -435,13 +435,7 @@ function cloneWorkOrder(order: MutablePrintWorkOrder): PrintWorkOrder {
     sourceSnapshot: order.sourceSnapshot ? structuredClone(order.sourceSnapshot) : undefined,
     productionOrderIds: [...order.productionOrderIds],
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
-      ? {
-          ...order.formalProductionOrderSnapshot,
-          processCodes: [...order.formalProductionOrderSnapshot.processCodes],
-          materialItems: order.formalProductionOrderSnapshot.materialItems
-            ? order.formalProductionOrderSnapshot.materialItems.map((item) => ({ ...item }))
-            : undefined,
-        }
+      ? structuredClone(order.formalProductionOrderSnapshot)
       : undefined,
     changeImpact: order.changeImpact ? structuredClone(order.changeImpact) : undefined,
     autoSyncHistory: order.autoSyncHistory ? structuredClone(order.autoSyncHistory) : undefined,
@@ -1888,7 +1882,7 @@ export function registerFormalProductionOrderPrintWorkOrder(input: FormalProduct
     taskId: input.workOrderId,
     taskNo: input.workOrderNo,
     sourceType: sourceSnapshot.sourceType,
-    sourceSnapshot: { ...sourceSnapshot, bomItemIds: sourceSnapshot.bomItemIds ? [...sourceSnapshot.bomItemIds] : undefined },
+    sourceSnapshot: structuredClone(sourceSnapshot),
     productionOrderId: input.productionOrderId,
     productionOrderNo: input.productionOrderNo,
     stockMaterialId: sourceSnapshot.stockMaterialId,
@@ -1964,38 +1958,40 @@ export function registerFormalProductionOrderPrintWorkOrder(input: FormalProduct
   return getPrintWorkOrderById(input.workOrderId)!
 }
 
-registerProcessWorkOrderGenerationRegistrar({
-  processCode: 'PRINT',
-  findBySourceKey: (sourceKey) => {
-    seedDomain()
-    return Array.from(workOrderStore.values()).find((order) => order.sourceKey === sourceKey)?.printOrderId
-  },
-  issueIdentity: (orderedAt) => {
-    seedDomain()
-    const occupiedIds = new Set(Array.from(workOrderStore.values()).map((order) => order.printOrderId))
-    const occupiedNos = new Set(Array.from(workOrderStore.values()).map((order) => order.printOrderNo))
-    const datePart = orderedAt.replace(/\D/g, '').slice(0, 8) || '00000000'
-    for (let sequence = 1; sequence <= 999999; sequence += 1) {
-      const padded = String(sequence).padStart(6, '0')
-      const workOrderId = `PWO-PRINT-AUTO-${padded}`
-      const workOrderNo = `PH-${datePart}-${padded}`
-      if (!occupiedIds.has(workOrderId) && !occupiedNos.has(workOrderNo)) return { workOrderId, workOrderNo }
-    }
-    throw new Error('印花加工单编号已耗尽')
-  },
-  prepare: (input) => {
-    normalizeFormalProductionOrderMaterialItems(input)
-    return {
-      workOrderId: input.workOrderId,
-      commit: () => { registerFormalProductionOrderPrintWorkOrder(input) },
-      rollback: () => {
-        workOrderStore.delete(input.workOrderId)
-        createdPrintOrderIds.delete(input.workOrderId)
-        unregisterPdaGenericProcessTask(input.workOrderId)
-      },
-    }
-  },
-})
+export function registerPrintProcessWorkOrderGenerationRegistrar(): void {
+  registerProcessWorkOrderGenerationRegistrar({
+    processCode: 'PRINT',
+    findBySourceKey: (sourceKey) => {
+      seedDomain()
+      return Array.from(workOrderStore.values()).find((order) => order.sourceKey === sourceKey)?.printOrderId
+    },
+    issueIdentity: (orderedAt) => {
+      seedDomain()
+      const occupiedIds = new Set(Array.from(workOrderStore.values()).map((order) => order.printOrderId))
+      const occupiedNos = new Set(Array.from(workOrderStore.values()).map((order) => order.printOrderNo))
+      const datePart = orderedAt.replace(/\D/g, '').slice(0, 8) || '00000000'
+      for (let sequence = 1; sequence <= 999999; sequence += 1) {
+        const padded = String(sequence).padStart(6, '0')
+        const workOrderId = `PWO-PRINT-AUTO-${padded}`
+        const workOrderNo = `PH-${datePart}-${padded}`
+        if (!occupiedIds.has(workOrderId) && !occupiedNos.has(workOrderNo)) return { workOrderId, workOrderNo }
+      }
+      throw new Error('印花加工单编号已耗尽')
+    },
+    prepare: (input) => {
+      normalizeFormalProductionOrderMaterialItems(input)
+      return {
+        workOrderId: input.workOrderId,
+        commit: () => { registerFormalProductionOrderPrintWorkOrder(input) },
+        rollback: () => {
+          workOrderStore.delete(input.workOrderId)
+          createdPrintOrderIds.delete(input.workOrderId)
+          unregisterPdaGenericProcessTask(input.workOrderId)
+        },
+      }
+    },
+  })
+}
 
 export const PRINT_PRODUCTION_CHANGE_NOT_EXECUTED_STATUSES: readonly PrintWorkOrderStatus[] = [
   'WAIT_ARTWORK',
@@ -2217,6 +2213,7 @@ export function createPrintWorkOrderFromStock(input: {
   if (!factory || !canReceivePrint) return { ok: false, message: '所选工厂不可派单或缺少正式有效的印花能力。' }
 
   const now = nowTimestamp()
+  registerPrintProcessWorkOrderGenerationRegistrar()
   const result = ensureProcessWorkOrders({
     source: { sourceType: 'STOCK', stockMaterialId, stockMaterialName },
     processCodes: ['PRINT'],

@@ -67,6 +67,7 @@
     "check:task-card-entry-and-route-closure": "tsx scripts/check-task-card-entry-and-route-closure.ts",
     "check:process-work-order-unification": "tsx scripts/check-process-work-order-unification.ts",
     "check:production-process-work-order-generation": "tsx scripts/check-production-process-work-order-generation.ts",
+    "check:process-work-order-generation-service-isolated": "tsx scripts/check-process-work-order-generation-service-isolated.ts",
     "check:tech-pack-pattern-and-images": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-tech-pack-pattern-and-images.ts",
     "check:pda-task-receive-scope": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-task-receive-scope.ts",
     "check:pda-receive-mock-deadline-status": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pda-receive-mock-deadline-status.ts",

@@ -541,7 +541,7 @@ function normalizeSeedWorkOrderSources(): void {
     const task = getDyeingTaskById(normalized.taskId)
     if (!task) return
     task.sourceType = normalized.sourceType
-    task.sourceSnapshot = normalized.sourceSnapshot ? { ...normalized.sourceSnapshot } : undefined
+    task.sourceSnapshot = normalized.sourceSnapshot ? structuredClone(normalized.sourceSnapshot) : undefined
     task.productionOrderId = normalized.sourceProductionOrderId
     task.productionOrderNo = normalized.sourceProductionOrderNo
     task.sourceProductionOrderId = normalized.sourceProductionOrderId
@@ -570,13 +570,7 @@ function cloneWorkOrder(order: MutableDyeWorkOrder): DyeWorkOrder {
     sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
     productionOrderIds: order.productionOrderIds ? [...order.productionOrderIds] : undefined,
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
-      ? {
-          ...order.formalProductionOrderSnapshot,
-          processCodes: [...order.formalProductionOrderSnapshot.processCodes],
-          materialItems: order.formalProductionOrderSnapshot.materialItems
-            ? order.formalProductionOrderSnapshot.materialItems.map((item) => ({ ...item }))
-            : undefined,
-        }
+      ? structuredClone(order.formalProductionOrderSnapshot)
       : undefined,
     changeImpact: order.changeImpact ? structuredClone(order.changeImpact) : undefined,
     autoSyncHistory: order.autoSyncHistory ? structuredClone(order.autoSyncHistory) : undefined,
@@ -2799,7 +2793,7 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
     taskId: input.workOrderId,
     taskNo: input.workOrderNo,
     sourceType: sourceSnapshot.sourceType,
-    sourceSnapshot: { ...sourceSnapshot, bomItemIds: sourceSnapshot.bomItemIds ? [...sourceSnapshot.bomItemIds] : undefined },
+    sourceSnapshot: structuredClone(sourceSnapshot),
     productionOrderId: input.productionOrderId,
     productionOrderNo: input.productionOrderNo,
     stockMaterialId: sourceSnapshot.stockMaterialId,
@@ -2885,40 +2879,42 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
   return getDyeWorkOrderById(input.workOrderId)!
 }
 
-registerProcessWorkOrderGenerationRegistrar({
-  processCode: 'DYE',
-  findBySourceKey: (sourceKey) => {
-    seedDomain()
-    return Array.from(workOrderStore.values()).find((order) => order.sourceKey === sourceKey)?.dyeOrderId
-  },
-  issueIdentity: (orderedAt) => {
-    seedDomain()
-    const occupiedIds = new Set(Array.from(workOrderStore.values()).map((order) => order.dyeOrderId))
-    const occupiedNos = new Set(Array.from(workOrderStore.values()).map((order) => order.dyeOrderNo))
-    const datePart = orderedAt.replace(/\D/g, '').slice(0, 8) || '00000000'
-    for (let sequence = 1; sequence <= 999999; sequence += 1) {
-      const padded = String(sequence).padStart(6, '0')
-      const workOrderId = `DWO-AUTO-${padded}`
-      const workOrderNo = `DY-${datePart}-${padded}`
-      if (!occupiedIds.has(workOrderId) && !occupiedNos.has(workOrderNo)) return { workOrderId, workOrderNo }
-    }
-    throw new Error('染色加工单编号已耗尽')
-  },
-  prepare: (input) => {
-    normalizeFormalProductionOrderMaterialItems(input)
-    const factoryAssignmentError = getDyeFactoryAssignmentError(input.factoryId || '', input.requiresWaterSoluble === true)
-    if (factoryAssignmentError) throw new Error(factoryAssignmentError)
-    return {
-      workOrderId: input.workOrderId,
-      commit: () => { registerFormalProductionOrderDyeWorkOrder(input) },
-      rollback: () => {
-        workOrderStore.delete(input.workOrderId)
-        createdDyeOrderIds.delete(input.workOrderId)
-        unregisterPdaGenericProcessTask(input.workOrderId)
-      },
-    }
-  },
-})
+export function registerDyeProcessWorkOrderGenerationRegistrar(): void {
+  registerProcessWorkOrderGenerationRegistrar({
+    processCode: 'DYE',
+    findBySourceKey: (sourceKey) => {
+      seedDomain()
+      return Array.from(workOrderStore.values()).find((order) => order.sourceKey === sourceKey)?.dyeOrderId
+    },
+    issueIdentity: (orderedAt) => {
+      seedDomain()
+      const occupiedIds = new Set(Array.from(workOrderStore.values()).map((order) => order.dyeOrderId))
+      const occupiedNos = new Set(Array.from(workOrderStore.values()).map((order) => order.dyeOrderNo))
+      const datePart = orderedAt.replace(/\D/g, '').slice(0, 8) || '00000000'
+      for (let sequence = 1; sequence <= 999999; sequence += 1) {
+        const padded = String(sequence).padStart(6, '0')
+        const workOrderId = `DWO-AUTO-${padded}`
+        const workOrderNo = `DY-${datePart}-${padded}`
+        if (!occupiedIds.has(workOrderId) && !occupiedNos.has(workOrderNo)) return { workOrderId, workOrderNo }
+      }
+      throw new Error('染色加工单编号已耗尽')
+    },
+    prepare: (input) => {
+      normalizeFormalProductionOrderMaterialItems(input)
+      const factoryAssignmentError = getDyeFactoryAssignmentError(input.factoryId || '', input.requiresWaterSoluble === true)
+      if (factoryAssignmentError) throw new Error(factoryAssignmentError)
+      return {
+        workOrderId: input.workOrderId,
+        commit: () => { registerFormalProductionOrderDyeWorkOrder(input) },
+        rollback: () => {
+          workOrderStore.delete(input.workOrderId)
+          createdDyeOrderIds.delete(input.workOrderId)
+          unregisterPdaGenericProcessTask(input.workOrderId)
+        },
+      }
+    },
+  })
+}
 
 export function assignDyeWorkOrderFactory(
   dyeOrderId: string,
@@ -3349,6 +3345,7 @@ export function createDyeWorkOrderFromStock(input: {
   const sampleWaitType = input.sampleWaitType ?? 'NONE'
   const plannedQty = input.plannedQty
   const now = nowTimestamp()
+  registerDyeProcessWorkOrderGenerationRegistrar()
   const result = ensureProcessWorkOrders({
     source: { sourceType: 'STOCK', stockMaterialId, stockMaterialName },
     processCodes: ['DYE'],

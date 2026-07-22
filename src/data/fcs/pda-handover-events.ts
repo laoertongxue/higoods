@@ -2670,37 +2670,16 @@ function cloneCutPieceLines(lines: PdaCutPieceHandoutLine[] | undefined): PdaCut
   return lines?.map((line) => ({ ...line }))
 }
 
-function cloneCuttingHandoverSummary(
-  summary: PdaCuttingHandoverRecordSummary | undefined,
-): PdaCuttingHandoverRecordSummary | undefined {
-  if (!summary) return undefined
-  return {
-    ...summary,
-    gapLines: summary.gapLines.map((line) => ({ ...line })),
-  }
-}
-
 function cloneHead(head: PdaHandoverHead): PdaHandoverHead {
-  return { ...head }
+  return structuredClone(head)
 }
 
 function clonePickupRecord(record: PdaPickupRecord): PdaPickupRecord {
-  return {
-    ...record,
-    objectionProofFiles: cloneProofFiles(record.objectionProofFiles ?? []),
-  }
+  return structuredClone(record)
 }
 
 function cloneRecord(record: PdaHandoverRecord): PdaHandoverRecord {
-  return {
-    ...record,
-    cutPieceLines: cloneCutPieceLines(record.cutPieceLines),
-    cuttingHandoverSummary: cloneCuttingHandoverSummary(record.cuttingHandoverSummary),
-    recordLines: record.recordLines?.map((line) => ({ ...line })),
-    factoryProofFiles: cloneProofFiles(record.factoryProofFiles),
-    receiverProofFiles: cloneProofFiles(record.receiverProofFiles ?? []),
-    objectionProofFiles: cloneProofFiles(record.objectionProofFiles ?? []),
-  }
+  return structuredClone(record)
 }
 
 export function capturePdaHandoverState(): PdaHandoverStateSnapshot {
