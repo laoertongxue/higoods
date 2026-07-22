@@ -31,6 +31,7 @@
 ## 4. 回归验证
 
 - 通过：`check:fcs-task-generation-rules`、`check:process-work-order-unification`、`check:water-soluble-process`、`check:water-soluble-pda`、`check:dye-work-order-online-alignment`、`check:production-preparation-timing`、`check:printing-workflow`、`check:dyeing-workflow`。
+- 本次补充通过：任务预览以显式 `ProcessWorkOrder[]` 输入读取真实加工单；生产单拆解弹层与规则模拟页均展示独立加工单号、工艺、工厂和状态，不依赖模块导入副作用。
 - 已知基线例外：`check:production-object-overview` 仍因既有印花加工单 `PH-20260328-007` 缺少生产单回溯失败；本次未放宽该检查，也未改动该无关加工单数据。
 
 ## 5. 问题标签

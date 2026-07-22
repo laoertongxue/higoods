@@ -94,6 +94,7 @@ import {
   buildBatchTaskGenerationPreview,
   type ProductionTaskGenerationPreview,
 } from '../../data/fcs/production-task-generation-rules.ts'
+import { listProcessWorkOrders } from '../../data/fcs/process-work-order-domain.ts'
 import {
   createEmptyMaterialReplacementDraft,
   type MaterialReplacementDraft,
@@ -977,7 +978,7 @@ function getOrderTaskBreakdownDisabledReason(order: ProductionOrder): string {
 }
 
 function openTaskGenerationPreview(orderIds: string[]): number {
-  const previews = buildBatchTaskGenerationPreview(orderIds)
+  const previews = buildBatchTaskGenerationPreview(orderIds, listProcessWorkOrders())
   const visiblePreviews = previews.filter((preview) => preview.status !== 'BLOCKED' || preview.blockedReasons.length > 0)
   if (visiblePreviews.length === 0) return 0
   state.taskGenerationPreview = {
@@ -999,7 +1000,7 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
   const now = toTimestamp()
   let changedCount = 0
   const previewByOrderId = new Map(
-    buildBatchTaskGenerationPreview([...targetIds]).map((preview) => [preview.productionOrderId, preview]),
+    buildBatchTaskGenerationPreview([...targetIds], listProcessWorkOrders()).map((preview) => [preview.productionOrderId, preview]),
   )
 
   state.orders = state.orders.map((order) => {

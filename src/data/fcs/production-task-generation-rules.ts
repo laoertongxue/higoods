@@ -4,7 +4,6 @@ import {
   listGeneratedProductionTaskArtifacts,
   type GeneratedTaskArtifact,
 } from './production-artifact-generation.ts'
-import { listRegisteredProcessWorkOrders } from './process-work-order-reader-registry.ts'
 import type { ProcessWorkOrder } from './process-work-order-domain.ts'
 import { KOL_GOTO_FACTORY_ID } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-master-store.ts'
@@ -288,7 +287,7 @@ export function matchProductionTaskGenerationRule(orderId: string): ProductionTa
 
 function toIndependentWorkOrders(
   orderId: string,
-  workOrders: ProcessWorkOrder[] = listRegisteredProcessWorkOrders(),
+  workOrders: ProcessWorkOrder[],
 ): ProductionTaskGenerationPreview['independentWorkOrders'] {
   return workOrders
     .filter((workOrder) =>
@@ -303,6 +302,13 @@ function toIndependentWorkOrders(
       statusLabel: workOrder.statusLabel,
       sourceArtifactIds: workOrder.sourceArtifactIds?.length ? [...workOrder.sourceArtifactIds] : [workOrder.workOrderId],
     }))
+}
+
+function requireProcessWorkOrders(workOrders: ProcessWorkOrder[] | undefined): ProcessWorkOrder[] {
+  if (!Array.isArray(workOrders)) {
+    throw new Error('任务生成预览必须传入真实加工单集合')
+  }
+  return workOrders
 }
 
 function buildUnitFromArtifacts(input: {
@@ -378,7 +384,10 @@ function resolveMergeProcessCodes(rule: ProductionTaskGenerationRule, order: Pro
   return new Set(continuousRule.coveredProcessCodes)
 }
 
-export function buildTaskGenerationPreview(orderId: string): ProductionTaskGenerationPreview {
+export function buildTaskGenerationPreview(
+  orderId: string,
+  processWorkOrders: ProcessWorkOrder[],
+): ProductionTaskGenerationPreview {
   const order = productionOrders.find((item) => item.productionOrderId === orderId)
   if (!order) {
     return {
@@ -396,7 +405,7 @@ export function buildTaskGenerationPreview(orderId: string): ProductionTaskGener
   }
 
   const taskArtifacts = listGeneratedProductionTaskArtifacts().filter((artifact) => artifact.orderId === orderId)
-  const independentWorkOrders = toIndependentWorkOrders(orderId)
+  const independentWorkOrders = toIndependentWorkOrders(orderId, requireProcessWorkOrders(processWorkOrders))
   const matchedRule = matchProductionTaskGenerationRule(orderId)
   if (!matchedRule) {
     return {
@@ -450,12 +459,19 @@ export function buildTaskGenerationPreview(orderId: string): ProductionTaskGener
   }
 }
 
-export function buildBatchTaskGenerationPreview(orderIds: string[]): ProductionTaskGenerationPreview[] {
-  return orderIds.map((orderId) => buildTaskGenerationPreview(orderId))
+export function buildBatchTaskGenerationPreview(
+  orderIds: string[],
+  processWorkOrders: ProcessWorkOrder[],
+): ProductionTaskGenerationPreview[] {
+  const resolvedWorkOrders = requireProcessWorkOrders(processWorkOrders)
+  return orderIds.map((orderId) => buildTaskGenerationPreview(orderId, resolvedWorkOrders))
 }
 
-export function findDemoWholeOrderTaskGenerationPreview(): ProductionTaskGenerationPreview | null {
+export function findDemoWholeOrderTaskGenerationPreview(
+  processWorkOrders: ProcessWorkOrder[],
+): ProductionTaskGenerationPreview | null {
+  const resolvedWorkOrders = requireProcessWorkOrders(processWorkOrders)
   return productionOrders
-    .map((order) => buildTaskGenerationPreview(order.productionOrderId))
+    .map((order) => buildTaskGenerationPreview(order.productionOrderId, resolvedWorkOrders))
     .find((preview) => preview.generatedUnits.some((unit) => unit.taskUnitType === 'WHOLE_ORDER_TASK')) ?? null
 }

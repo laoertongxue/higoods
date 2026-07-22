@@ -284,6 +284,8 @@ async function main(): Promise<void> {
   assertIncludes(ruleDomainSource, 'resolveRuleFactoryIds', '规则必须从工厂档案承接配置解析候选工厂')
   assertIncludes(productionContextSource, 'recordTaskGenerationPreview', '确认拆解必须写入任务生成运行时事实')
   assertIncludes(productionContextSource, 'independentWorkOrderCount', '生产单摘要必须记录独立加工单数量')
+  assertIncludes(rulesPageSource, 'preview.independentWorkOrders', '规则模拟页必须展示真实独立加工单')
+  assertIncludes(rulesPageSource, '独立加工单', '规则模拟页不得使用旧需求对象语义')
   assertIncludes(pdaTodoSource, 'pdaStepTemplateCode === \'SIMPLE_FIVE_STEP\'', 'PDA 待办必须识别简化 5 步任务')
   assertIncludes(pdaReceiveSource, 'pdaStepTemplateCode === \'SIMPLE_FIVE_STEP\'', 'PDA 接单必须识别简化 5 步任务')
   assertIncludes(pdaExecSource, 'pdaStepTemplateCode === \'SIMPLE_FIVE_STEP\'', 'PDA 执行列表必须识别简化 5 步任务')
@@ -322,7 +324,15 @@ async function main(): Promise<void> {
     && Boolean(order.sourceProductionOrderId)
   ))
   assert(independentProcessWorkOrder, '缺少可回溯生产单的印花或染色加工单 fixture')
-  const independentPreview = ruleDomain.buildTaskGenerationPreview(independentProcessWorkOrder.sourceProductionOrderId)
+  assert.throws(
+    () => ruleDomain.buildTaskGenerationPreview(independentProcessWorkOrder.sourceProductionOrderId),
+    /真实加工单集合/,
+    '任务生成预览不得在未传入加工单事实时静默返回空集合',
+  )
+  const independentPreview = ruleDomain.buildTaskGenerationPreview(
+    independentProcessWorkOrder.sourceProductionOrderId,
+    processWorkOrderDomain.listProcessWorkOrders(),
+  )
   assert(
     Array.isArray(independentPreview.independentWorkOrders),
     '任务生成预览必须公开独立加工单集合',
@@ -403,10 +413,10 @@ async function main(): Promise<void> {
     assert(Array.isArray(logs) && logs.length > 0, `规则 ${rule.ruleId} 必须有日志`)
   }
 
-  const previews = ruleDomain.buildBatchTaskGenerationPreview([])
+  const previews = ruleDomain.buildBatchTaskGenerationPreview([], processWorkOrderDomain.listProcessWorkOrders())
   assert(Array.isArray(previews), 'buildBatchTaskGenerationPreview 必须返回数组')
 
-  const kolPreview = ruleDomain.findDemoWholeOrderTaskGenerationPreview?.() ?? null
+  const kolPreview = ruleDomain.findDemoWholeOrderTaskGenerationPreview?.(processWorkOrderDomain.listProcessWorkOrders()) ?? null
   assert(kolPreview, '缺少可验收的 KOL 整单预览样例')
   assert(
     kolPreview.generatedUnits.some((unit: { taskUnitType: string; allowAutoDispatch: boolean }) =>
@@ -423,6 +433,7 @@ async function main(): Promise<void> {
 
   const allPreviews = ruleDomain.buildBatchTaskGenerationPreview(
     productionOrdersDomain.productionOrders.map((order: { productionOrderId: string }) => order.productionOrderId),
+    processWorkOrderDomain.listProcessWorkOrders(),
   )
   assert(
     allPreviews.every((preview: { generatedUnits: Array<{ taskUnitType: string }> }) =>

@@ -895,7 +895,9 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
   }
 
   for (const [orderId, orderArtifacts] of artifactsByOrder.entries()) {
-    const preview = buildTaskGenerationPreview(orderId)
+    // ProcessTask 兼容层只从 TASK 产物生成任务，不创建或展示印花/染色加工单；
+    // 这里显式传入空集，避免依赖模块加载副作用。
+    const preview = buildTaskGenerationPreview(orderId, [])
     const emissionPlans = buildGeneratedTaskEmissionPlans(orderId, orderArtifacts, preview.generatedUnits)
     const currentOrderTasks: ProcessTask[] = []
 
