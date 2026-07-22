@@ -1,6 +1,26 @@
-// cut-orders 是 canonical 页面文件。
+// @page-pattern: list
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { renderSecondaryButton } from '../../../components/ui/button.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import {
+  renderStandardListColumnSettings,
+  renderStandardListTable,
+  type StandardListColumn,
+} from '../../../components/ui/list-table.ts'
+import {
+  clearListColumnPreferences,
+  loadListColumnPreferences,
+  normalizeListColumnPreferences,
+  paginateStandardListRows,
+  saveListColumnPreferences,
+  sortStandardListRows,
+  type StandardListColumnPreferences,
+  type StandardListColumnRule,
+  type StandardListPageSlice,
+  type StandardListSortState,
+} from '../../../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import {
   buildCuttingOrderQrLabelPrintLink,
   buildTaskDetailLink,
@@ -46,13 +66,8 @@ import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, r
 import { getClaimDisputeStatusLabel } from '../../../helpers/fcs-claim-dispute.ts'
 import { getLatestClaimDisputeByCutOrderNo } from '../../../state/fcs-claim-dispute-store.ts'
 import {
-  paginateItems,
-  renderCompactKpiCard,
-  renderCompactKpiGroup,
   renderStickyFilterShell,
-  renderStickyTableScroller,
   renderWorkbenchFilterChip,
-  renderWorkbenchPagination,
   renderWorkbenchStateBar,
 } from './layout.helpers.ts'
 import { renderMaterialIdentityBlock } from './material-identity.ts'
@@ -134,7 +149,10 @@ interface CutOrdersPageState {
   filters: CutOrderFilters
   activeOrderId: string | null
   page: number
-  pageSize: number
+  sort: StandardListSortState | null
+  columnPreferences: StandardListColumnPreferences
+  columnSettingsOpen: boolean
+  draggedColumnKey: string
   querySignature: string
   prefilter: CutOrderPrefilter | null
   drillContext: CuttingDrillContext | null
@@ -148,11 +166,38 @@ interface CutOrdersPageState {
   }
 }
 
+const cutOrderListStorageKey = 'higood:list-page:/fcs/craft/cutting/cut-orders'
+const cutOrderListPageSizes = [10, 20, 50]
+const cutOrderListMaxFrozenWidth = 620
+const cutOrderListColumnRules: StandardListColumnRule[] = [
+  { key: 'cutOrder', required: true, freezeable: true },
+  { key: 'boundary', freezeable: true },
+  { key: 'product', required: true, freezeable: true },
+  { key: 'material', freezeable: true },
+  { key: 'pattern', freezeable: true },
+  { key: 'quantity', freezeable: true },
+  { key: 'date', freezeable: true },
+  { key: 'status', freezeable: true },
+  { key: 'risk', freezeable: true },
+  { key: 'actions', required: true, actionColumn: true },
+]
+const defaultCutOrderListColumnPreferences: StandardListColumnPreferences = {
+  order: cutOrderListColumnRules.map((column) => column.key),
+  visibleKeys: cutOrderListColumnRules.map((column) => column.key),
+  frozenKeys: ['cutOrder'],
+  pageSize: 10,
+}
+let cutOrderListPreferencesLoaded = false
+let cutOrderListLocalEventsBound = false
+
 const state: CutOrdersPageState = {
   filters: { ...initialFilters },
   activeOrderId: null,
   page: 1,
-  pageSize: 20,
+  sort: null,
+  columnPreferences: defaultCutOrderListColumnPreferences,
+  columnSettingsOpen: false,
+  draggedColumnKey: '',
   querySignature: '',
   prefilter: null,
   drillContext: null,
@@ -165,16 +210,6 @@ const state: CutOrdersPageState = {
     feedback: null,
   },
 }
-
-const cutOrderDemoScenarioNos = new Set([
-  // 只保留裁片单页面需要演示的关键业务场景，避免大量重复 mock 干扰阅读。
-  'CUT-260308-081-01', // 未开工：无配料、无领料、无唛架
-  'CUT-260306-101-05', // 已开工未排唛架：只有配料 / 领料 / 入仓记录
-  'CUT-260306-101-01', // 已排唛架：有唛架、铺布和后续记录
-  'CUT-260306-101-02', // 历史唛架后仍有可用余额
-  'CUT-260307-102-01', // 已裁剪：有菲票和差异记录
-  'CUT-260306-101-04', // 已关闭：有关闭原因和影响项
-])
 
 const consumedWebActionKeys = new Set<string>()
 
@@ -286,10 +321,7 @@ function syncStateFromPath(viewModel = getViewModel()): void {
 }
 
 function getDisplayRows(viewModel = getViewModel()): CutOrderRow[] {
-  const sourceRows = state.prefilter
-    ? viewModel.rows
-    : viewModel.rows.filter((row) => cutOrderDemoScenarioNos.has(row.cutOrderNo))
-  return filterCutOrderRows(sourceRows.length ? sourceRows : viewModel.rows, state.filters, state.prefilter)
+  return filterCutOrderRows(viewModel.rows, state.filters, state.prefilter)
 }
 
 function getActiveRow(viewModel = getViewModel()): CutOrderRow | null {
@@ -482,13 +514,13 @@ function buildCutOrderQrSummary(row: CutOrderRow): {
 
 function buildStatsCards(rows: CutOrderRow[]): string {
   const stats = buildCutOrderStats(rows)
-  return renderCompactKpiGroup(`
-      ${renderCompactKpiCard('裁片单总数', stats.totalCount, '当前筛选范围', 'text-slate-900')}
-      ${renderCompactKpiCard('唛架方案占用数', stats.inBatchCount, '草稿或有效唛架方案占用记录', 'text-violet-600')}
-      ${renderCompactKpiCard('有可用余额数', stats.availableBalanceCount, '裁床可用面料余额大于 0', 'text-blue-600')}
-      ${renderCompactKpiCard('已关闭数', stats.closedCount, '已填写关闭原因', 'text-zinc-600')}
-      ${renderCompactKpiCard('未产生领料记录数', stats.noClaimRecordCount, '裁床尚未形成领料数量账', 'text-amber-600')}
-  `)
+  return renderStandardListStats([
+    { label: '裁片单总数', value: stats.totalCount },
+    { label: '唛架方案占用数', value: stats.inBatchCount },
+    { label: '有可用余额数', value: stats.availableBalanceCount },
+    { label: '已关闭数', value: stats.closedCount },
+    { label: '未产生领料记录数', value: stats.noClaimRecordCount },
+  ])
 }
 
 function setFeedback(tone: 'warning' | 'success', message: string): void {
@@ -1043,120 +1075,306 @@ function renderEmptyTableState(): string {
   `
 }
 
-function renderTable(rows: CutOrderRow[]): string {
-  const pagination = paginateItems(rows, state.page, state.pageSize)
-
-  return `
-    <section class="rounded-lg border bg-card" data-testid="cutting-cut-orders-main-table">
-      <div class="flex items-center justify-between border-b px-4 py-3">
-        <div>
-          <h2 class="text-sm font-semibold">裁片单</h2>
-        </div>
-        <div class="text-xs text-muted-foreground">共 ${pagination.total} 条裁片单</div>
+const cutOrderListColumns: StandardListColumn<CutOrderRow>[] = [
+  {
+    key: 'cutOrder',
+    title: '裁片单',
+    width: 230,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    sortValue: (row) => row.cutOrderNo,
+    render: (row) => `
+      <div class="space-y-1">
+        ${renderProductionObjectCodeButton({
+          objectType: 'CUT_ORDER',
+          objectId: row.cutOrderNo,
+          label: row.cutOrderNo,
+          relatedProductionOrderNo: row.productionOrderNo,
+          defaultTab: 'progress',
+          highlightKey: `CUT_ORDER:${row.cutOrderNo}`,
+          className: 'font-mono text-blue-600 hover:underline',
+        })}
+        <p class="text-xs text-muted-foreground">裁片任务：${escapeHtml(row.cuttingTaskNo || '待补')}</p>
+        <p class="text-xs text-muted-foreground">执行去向：${escapeHtml(row.executionRouteLabel || '待分配承接方')}</p>
       </div>
-      ${renderStickyTableScroller(
-        `
-          <table class="w-full min-w-[1360px] text-sm">
-            <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
-              <tr>
-                <th class="px-4 py-3 text-left font-medium">裁片单</th>
-                <th class="px-4 py-3 text-left font-medium">任务边界</th>
-                <th class="px-4 py-3 text-left font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 款式</th>
-                <th class="px-4 py-3 text-left font-medium">面料</th>
-                <th class="px-4 py-3 text-left font-medium">纸样</th>
-                <th class="px-4 py-3 text-left font-medium">数量账</th>
-                <th class="px-4 py-3 text-left font-medium">日期</th>
-                <th class="px-4 py-3 text-left font-medium">主状态 / 判断</th>
-                <th class="px-4 py-3 text-left font-medium">风险</th>
-                <th class="px-4 py-3 text-left font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y">
-              ${
-                pagination.items.length
-                  ? pagination.items
-                      .map((row) => {
-                        const highlighted = state.activeOrderId === row.id
-                        const canEnterExecution = isCutOrderInExecutionStage(row)
-                        const canEnterFeiTickets = isPrintableSourceRow(row)
-                        return `
-                          <tr class="${highlighted ? 'bg-blue-50/60' : 'hover:bg-muted/20'}">
-                            <td class="px-4 py-3 align-top">
-                              ${renderProductionObjectCodeButton({
-                                objectType: 'CUT_ORDER',
-                                objectId: row.cutOrderNo,
-                                label: row.cutOrderNo,
-                                relatedProductionOrderNo: row.productionOrderNo,
-                                defaultTab: 'progress',
-                                highlightKey: `CUT_ORDER:${row.cutOrderNo}`,
-                                className: 'font-mono text-blue-600 hover:underline',
-                              })}
-                              <button type="button" class="ml-2 rounded border px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted" data-nav="${escapeHtml(buildCutOrderDetailPath(row.id))}">详情</button>
-                              <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.relationSummary)}</p>
-                              <p class="mt-1 text-xs text-muted-foreground">裁片任务：${escapeHtml(row.cuttingTaskNo || '待补')}</p>
-                              <p class="mt-1 text-xs text-muted-foreground">执行去向：${escapeHtml(row.executionRouteLabel || '待分配承接方')}</p>
-                            </td>
-                            <td class="px-4 py-3 align-top">${renderTaskBoundaryCell(row)}</td>
-                            <td class="px-4 py-3 align-top">${renderProductionStyleCell(row)}</td>
-                            <td class="px-4 py-3 align-top">
-                              <div class="max-w-[34rem]">
-                                ${renderMaterialCell(row)}
-                              </div>
-                            </td>
-                            <td class="px-4 py-3 align-top">${renderPatternCell(row)}</td>
-                            <td class="px-4 py-3 align-top">${renderQuantityCell(row)}</td>
-                            <td class="px-4 py-3 align-top">
-                              <div class="space-y-1 text-xs text-muted-foreground">
-                                ${row.dateInfoLines
-                                  .map((line) => `<p>${escapeHtml(line.label)}：${escapeHtml(line.value)}</p>`)
-                                  .join('')}
-                              </div>
-                            </td>
-                            <td class="px-4 py-3 align-top">
-                              ${renderStatusCell(row)}
-                            </td>
-                            <td class="px-4 py-3 align-top">
-                              <div class="space-y-1">
-                                ${renderRiskTags(row.riskTags)}
-                              </div>
-                            </td>
-                            <td class="px-4 py-3 align-top">
-                              <div class="flex flex-wrap gap-2">
-                                <button type="button" class="text-xs text-blue-600 hover:underline" data-nav="${escapeHtml(buildCutOrderDetailPath(row.id))}">查看详情</button>
-                                <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="print-task-route-card" data-record-id="${escapeHtml(row.id)}">打印任务流转卡</button>
-                                <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
-                                ${canEnterExecution ? `<button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
-                                ${
-                                  row.currentStage.key !== 'CLOSED'
-                                    ? `<button type="button" class="text-xs text-zinc-700 hover:underline" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">关闭裁片单</button>`
-                                    : `
-                                      <button type="button" class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100" data-cutting-piece-action="reopen-cut-order" data-record-id="${escapeHtml(row.id)}">重新打开</button>
-                                      <button type="button" class="text-xs text-zinc-600 hover:underline" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">查看关闭记录</button>
-                                    `
-                                }
-                                ${canEnterFeiTickets ? `<button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
-                              </div>
-                            </td>
-                          </tr>
-                        `
-                      })
-                      .join('')
-                  : renderEmptyTableState()
-              }
-            </tbody>
-          </table>
-        `,
-      )}
-      ${renderWorkbenchPagination({
-        page: pagination.page,
-        pageSize: pagination.pageSize,
-        total: pagination.total,
-        actionAttr: 'data-cutting-piece-action',
-        pageAction: 'set-page',
-        pageSizeAttr: 'data-cutting-piece-page-size',
-      })}
-    </section>
-  `
+    `,
+  },
+  {
+    key: 'boundary',
+    title: '任务边界',
+    width: 250,
+    freezeable: true,
+    render: renderTaskBoundaryCell,
+  },
+  {
+    key: 'product',
+    title: `${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 款式`,
+    width: 260,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    sortValue: (row) => `${row.productionOrderNo}-${row.styleCode || row.spuCode}`,
+    render: renderProductionStyleCell,
+  },
+  {
+    key: 'material',
+    title: '面料',
+    width: 360,
+    freezeable: true,
+    sortable: true,
+    sortValue: (row) => row.materialSku,
+    render: renderMaterialCell,
+  },
+  {
+    key: 'pattern',
+    title: '纸样',
+    width: 280,
+    freezeable: true,
+    sortable: true,
+    sortValue: (row) => `${row.patternFileName}-${row.patternVersion}`,
+    render: renderPatternCell,
+  },
+  {
+    key: 'quantity',
+    title: '数量账',
+    width: 260,
+    freezeable: true,
+    sortable: true,
+    sortValue: (row) => row.orderQty,
+    render: renderQuantityCell,
+  },
+  {
+    key: 'date',
+    title: '日期',
+    width: 180,
+    freezeable: true,
+    sortable: true,
+    sortValue: (row) => row.plannedShipDate || row.actualOrderDate || row.purchaseDate,
+    render: (row) => `
+      <div class="space-y-1 text-xs text-muted-foreground">
+        ${row.dateInfoLines.map((line) => `<p>${escapeHtml(line.label)}：${escapeHtml(line.value)}</p>`).join('')}
+      </div>
+    `,
+  },
+  {
+    key: 'status',
+    title: '主状态 / 判断',
+    width: 230,
+    freezeable: true,
+    sortable: true,
+    sortValue: (row) => row.currentStageLabel,
+    render: renderStatusCell,
+  },
+  {
+    key: 'risk',
+    title: '风险',
+    width: 180,
+    freezeable: true,
+    sortable: true,
+    sortValue: (row) => row.riskTags.length,
+    render: (row) => renderRiskTags(row.riskTags),
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 160,
+    required: true,
+    actionColumn: true,
+    align: 'right',
+    render: (row) => {
+      const canEnterExecution = isCutOrderInExecutionStage(row)
+      const canEnterFeiTickets = isPrintableSourceRow(row)
+      return `
+        <div class="flex flex-col items-end gap-1.5" data-standard-list-action-column>
+          <button type="button" class="text-xs text-blue-600 hover:underline" data-nav="${escapeHtml(buildCutOrderDetailPath(row.id))}">查看详情</button>
+          <button type="button" class="text-xs text-blue-600 hover:underline" data-skip-page-rerender="true" data-cutting-piece-action="print-task-route-card" data-record-id="${escapeHtml(row.id)}">打印任务流转卡</button>
+          <button type="button" class="text-xs text-blue-600 hover:underline" data-skip-page-rerender="true" data-cutting-piece-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
+          ${canEnterExecution ? `<button type="button" class="text-xs text-blue-600 hover:underline" data-skip-page-rerender="true" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
+          ${canEnterFeiTickets ? `<button type="button" class="text-xs text-blue-600 hover:underline" data-skip-page-rerender="true" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
+          ${row.currentStage.key === 'CLOSED'
+            ? `
+              <button type="button" class="text-xs font-medium text-emerald-700 hover:underline" data-skip-page-rerender="true" data-cutting-piece-action="reopen-cut-order" data-record-id="${escapeHtml(row.id)}">重新打开</button>
+              <button type="button" class="text-xs text-zinc-600 hover:underline" data-skip-page-rerender="true" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">查看关闭记录</button>
+            `
+            : `<button type="button" class="text-xs text-zinc-700 hover:underline" data-skip-page-rerender="true" data-cutting-piece-action="go-close-cut-order" data-record-id="${escapeHtml(row.id)}">关闭裁片单</button>`}
+        </div>
+      `
+    },
+  },
+]
+
+function normalizeCutOrderListPreferences(
+  raw: Partial<StandardListColumnPreferences> | null | undefined,
+): StandardListColumnPreferences {
+  const normalized = normalizeListColumnPreferences(
+    cutOrderListColumnRules,
+    raw,
+    cutOrderListPageSizes,
+  )
+  const columnsByKey = new Map(cutOrderListColumns.map((column) => [column.key, column]))
+  const visibleKeys = new Set(normalized.visibleKeys)
+  const requestedFrozenKeys = new Set(normalized.frozenKeys)
+  const frozenColumns = normalized.order
+    .map((key) => columnsByKey.get(key))
+    .filter((column): column is StandardListColumn<CutOrderRow> => Boolean(
+      column && !column.actionColumn && column.freezeable && visibleKeys.has(column.key) && requestedFrozenKeys.has(column.key),
+    ))
+  let frozenWidth = frozenColumns.reduce((sum, column) => sum + Math.max(column.width, column.minWidth ?? 0), 0)
+  while (frozenWidth > cutOrderListMaxFrozenWidth && frozenColumns.length > 0) {
+    const removed = frozenColumns.pop()
+    if (removed) frozenWidth -= Math.max(removed.width, removed.minWidth ?? 0)
+  }
+  return { ...normalized, frozenKeys: frozenColumns.map((column) => column.key) }
+}
+
+function getCutOrderListStorage(): Storage | null {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage
+  } catch {
+    return null
+  }
+}
+
+function ensureCutOrderListPreferences(): void {
+  if (cutOrderListPreferencesLoaded) return
+  cutOrderListPreferencesLoaded = true
+  const storage = getCutOrderListStorage()
+  state.columnPreferences = normalizeCutOrderListPreferences(storage
+    ? loadListColumnPreferences(
+        storage,
+        cutOrderListStorageKey,
+        cutOrderListColumnRules,
+        defaultCutOrderListColumnPreferences,
+        cutOrderListPageSizes,
+      )
+    : defaultCutOrderListColumnPreferences)
+}
+
+function saveCutOrderListPreferences(): void {
+  const storage = getCutOrderListStorage()
+  if (storage) saveListColumnPreferences(storage, cutOrderListStorageKey, state.columnPreferences)
+}
+
+interface CutOrderListView {
+  filtered: CutOrderRow[]
+  paging: StandardListPageSlice<CutOrderRow>
+}
+
+function getCutOrderListView(viewModel = getViewModel()): CutOrderListView {
+  const filtered = getDisplayRows(viewModel)
+  const sorted = sortStandardListRows(filtered, state.sort, (row, key) =>
+    cutOrderListColumns.find((column) => column.key === key)?.sortValue?.(row),
+  )
+  const paging = paginateStandardListRows(sorted, state.page, state.columnPreferences.pageSize)
+  state.page = paging.currentPage
+  return { filtered, paging }
+}
+
+function withSkipPageRerender(html: string): string {
+  return html
+    .replaceAll('data-cutting-piece-action=', 'data-skip-page-rerender="true" data-cutting-piece-action=')
+    .replaceAll('data-cutting-piece-field=', 'data-skip-page-rerender="true" data-cutting-piece-field=')
+}
+
+function renderCutOrderStandardTable(paging: StandardListPageSlice<CutOrderRow>): string {
+  return `<div data-standard-list-table>${withSkipPageRerender(renderStandardListTable({
+    columns: cutOrderListColumns,
+    rows: paging.rows,
+    preferences: state.columnPreferences,
+    sort: state.sort,
+    eventPrefix: 'cutting-piece',
+    emptyText: '当前条件下暂无裁片单，请调整筛选条件或清除预筛后重试。',
+  }))}</div>`
+}
+
+function renderCutOrderPagination(paging: StandardListPageSlice<CutOrderRow>): string {
+  return withSkipPageRerender(renderTablePagination({
+    total: paging.total,
+    from: paging.from,
+    to: paging.to,
+    currentPage: paging.currentPage,
+    totalPages: paging.totalPages,
+    pageSize: paging.pageSize,
+    actionPrefix: 'cutting-piece',
+    fieldPrefix: 'cutting-piece',
+    pageSizeOptions: cutOrderListPageSizes,
+  }))
+}
+
+function renderCutOrderListOverlay(): string {
+  if (!state.columnSettingsOpen) return ''
+  return withSkipPageRerender(renderStandardListColumnSettings({
+    title: '列设置',
+    columns: cutOrderListColumns,
+    preferences: state.columnPreferences,
+    eventPrefix: 'cutting-piece',
+    maxFrozenWidth: cutOrderListMaxFrozenWidth,
+  }))
+}
+
+function setCutOrderRegion(region: string, html: string): void {
+  if (typeof document === 'undefined') return
+  const element = document.querySelector<HTMLElement>(`[data-cutting-piece-region="${region}"]`)
+  if (element) element.innerHTML = html
+}
+
+function refreshCutOrderFeedback(): void {
+  setCutOrderRegion('feedback', renderFeedbackBar())
+}
+
+function refreshCutOrderFilters(): void {
+  setCutOrderRegion('filters', withSkipPageRerender(renderFilterArea()))
+}
+
+function refreshCutOrderList(): void {
+  const view = getCutOrderListView()
+  setCutOrderRegion('stats', buildStatsCards(view.filtered))
+  setCutOrderRegion('filter-state', renderFilterStateBar())
+  setCutOrderRegion('table', renderCutOrderStandardTable(view.paging))
+  setCutOrderRegion('pagination', renderCutOrderPagination(view.paging))
+}
+
+function refreshCutOrderTableAndPagination(): void {
+  const view = getCutOrderListView()
+  setCutOrderRegion('table', renderCutOrderStandardTable(view.paging))
+  setCutOrderRegion('pagination', renderCutOrderPagination(view.paging))
+}
+
+function refreshCutOrderTable(): void {
+  setCutOrderRegion('table', renderCutOrderStandardTable(getCutOrderListView().paging))
+}
+
+function refreshCutOrderOverlay(): void {
+  setCutOrderRegion('overlay', renderCutOrderListOverlay())
+}
+
+function ensureCutOrderListLocalEvents(): void {
+  if (cutOrderListLocalEventsBound || typeof document === 'undefined') return
+  cutOrderListLocalEventsBound = true
+  const handleLocalEvent = (event: Event) => {
+    const target = event.target instanceof Element ? event.target : null
+    if (!target?.closest('[data-cutting-piece-list-root]')) return
+    if (!target.closest('[data-cutting-piece-action], [data-cutting-piece-field], [data-standard-list-column-drag]')) return
+
+    if (event instanceof DragEvent) {
+      const internalEvent = event as DragEvent & {
+        higoodStandardListColumnDrag?: true
+        higoodStandardListColumnKey?: string
+      }
+      internalEvent.higoodStandardListColumnDrag = true
+      internalEvent.higoodStandardListColumnKey = event.type === 'dragstart'
+        ? target.closest<HTMLElement>('[data-standard-list-column-drag]')?.dataset.dragSource
+        : state.draggedColumnKey
+    }
+
+    if (!handleCraftCuttingCutOrdersEvent(target, event)) return
+    if (event.type === 'click' || event.type === 'dragover' || event.type === 'drop') event.preventDefault()
+    event.stopImmediatePropagation()
+  }
+  ;['click', 'input', 'change', 'dragstart', 'dragover', 'drop', 'dragend'].forEach((eventName) => {
+    document.addEventListener(eventName, handleLocalEvent, true)
+  })
 }
 
 function renderInfoGrid(
@@ -2394,26 +2612,39 @@ function renderCutOrderDetailPanelV2(row: CutOrderRow, viewModel = getViewModel(
 }
 
 function renderPage(): string {
+  ensureCutOrderListPreferences()
+  ensureCutOrderListLocalEvents()
+  if (typeof document !== 'undefined' && !document.querySelector('[data-standard-list-page][data-cutting-piece-list-root]')) {
+    state.page = 1
+    state.sort = null
+    state.columnSettingsOpen = false
+  }
   applyWebActionFromUrl()
   const viewModel = getViewModel()
   syncStateFromPath(viewModel)
-  const rows = getDisplayRows(viewModel)
-  const pathname = appStore.getState().pathname
-  const meta = getCanonicalCuttingMeta(pathname, 'cut-orders')
+  const view = getCutOrderListView(viewModel)
+  const columnSettingsButton = withSkipPageRerender(renderSecondaryButton(
+    '列设置',
+    { prefix: 'cutting-piece', action: 'open-column-settings' },
+    'columns-3',
+  ))
 
-  return `
-    <div class="space-y-3 p-4" data-testid="cutting-cut-orders-page">
-      ${renderCuttingPageHeader(meta, {
-        showAliasBadge: isCuttingAliasPath(pathname),
-      })}
-      ${renderFeedbackBar()}
+  return renderStandardListPage({
+    title: '裁片单',
+    feedbackHtml: `<div data-cutting-piece-region="feedback">${renderFeedbackBar()}</div>`,
+    filtersHtml: withSkipPageRerender(`
       ${renderPrefilterBar()}
-      ${renderFilterArea()}
-      ${buildStatsCards(rows)}
-      ${renderFilterStateBar()}
-      ${renderTable(rows)}
-    </div>
-  `
+      <div data-cutting-piece-region="filters">${renderFilterArea()}</div>
+      <div data-cutting-piece-region="filter-state">${renderFilterStateBar()}</div>
+    `),
+    statsHtml: `<div data-cutting-piece-region="stats">${buildStatsCards(view.filtered)}</div>`,
+    listTitle: '裁片单列表',
+    listActionsHtml: columnSettingsButton,
+    tableHtml: `<div data-cutting-piece-region="table">${renderCutOrderStandardTable(view.paging)}</div>`,
+    paginationHtml: `<div data-cutting-piece-region="pagination">${renderCutOrderPagination(view.paging)}</div>`,
+    overlaysHtml: `<div data-cutting-piece-region="overlay">${renderCutOrderListOverlay()}</div>`,
+    className: 'max-w-full overflow-x-hidden',
+  }).replace('data-standard-list-page', 'data-standard-list-page data-cutting-piece-list-root data-testid="cutting-cut-orders-page"')
 }
 
 function navigateToRecordTarget(
@@ -2493,19 +2724,79 @@ export function renderCraftCuttingCutOrderClosePage(): string {
   return renderCutOrderClosePage()
 }
 
-export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
-  const pageSizeNode = target.closest<HTMLElement>('[data-cutting-piece-page-size]')
-  if (pageSizeNode) {
-    const input = pageSizeNode as HTMLSelectElement
-    state.pageSize = Number(input.value) || 20
-    state.page = 1
+export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?: Event): boolean {
+  const event = suppliedEvent ?? (typeof window !== 'undefined' ? window.event : undefined)
+  const dragEvent = event as (DragEvent & {
+    higoodStandardListColumnDrag?: true
+    higoodStandardListColumnKey?: string
+  }) | undefined
+  if (event?.type === 'dragend') {
+    if (!dragEvent?.higoodStandardListColumnDrag) return false
+    state.draggedColumnKey = ''
+    return true
+  }
+
+  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
+  if (
+    dragNode
+    && event
+    && dragEvent?.higoodStandardListColumnDrag
+    && ['dragstart', 'dragover', 'drop'].includes(event.type)
+  ) {
+    const columnKey = dragNode.dataset.cuttingPieceColumnKey
+      || dragNode.dataset.dragSource
+      || dragNode.dataset.dropTarget
+      || ''
+    const column = cutOrderListColumns.find((item) => item.key === columnKey && !item.actionColumn)
+    if (event.type === 'dragstart') {
+      state.draggedColumnKey = column?.key || ''
+      if (!column) return false
+      dragEvent.dataTransfer?.setData('application/x-higood-list-column-key', column.key)
+      if (dragEvent.dataTransfer) dragEvent.dataTransfer.effectAllowed = 'move'
+      return true
+    }
+
+    const sourceKey = dragEvent.higoodStandardListColumnKey || ''
+    const sourceColumn = cutOrderListColumns.find((item) => item.key === sourceKey && !item.actionColumn)
+    const targetColumn = cutOrderListColumns.find((item) => item.key === columnKey && !item.actionColumn)
+    if (!sourceColumn || !targetColumn || state.draggedColumnKey !== sourceColumn.key || sourceColumn.key === targetColumn.key) {
+      if (event.type === 'drop') state.draggedColumnKey = ''
+      return false
+    }
+    if (event.type === 'dragover') {
+      event.preventDefault()
+      if (dragEvent.dataTransfer) dragEvent.dataTransfer.dropEffect = 'move'
+      return true
+    }
+
+    state.draggedColumnKey = ''
+    event.preventDefault()
+    const order = state.columnPreferences.order.filter((key) => key !== sourceColumn.key)
+    const targetIndex = order.indexOf(targetColumn.key)
+    if (targetIndex < 0) return false
+    order.splice(targetIndex, 0, sourceColumn.key)
+    state.columnPreferences = normalizeCutOrderListPreferences({ ...state.columnPreferences, order })
+    saveCutOrderListPreferences()
+    refreshCutOrderTable()
+    refreshCutOrderOverlay()
     return true
   }
 
   const fieldNode = target.closest<HTMLElement>('[data-cutting-piece-field]')
   if (fieldNode) {
-    const field = fieldNode.dataset.cuttingPieceField as FilterField | undefined
+    const field = fieldNode.dataset.cuttingPieceField as FilterField | 'pageSize' | undefined
     if (!field) return false
+
+    if (field === 'pageSize') {
+      const pageSize = Number((fieldNode as HTMLSelectElement).value)
+      if (cutOrderListPageSizes.includes(pageSize)) {
+        state.columnPreferences = normalizeCutOrderListPreferences({ ...state.columnPreferences, pageSize })
+        state.page = 1
+        saveCutOrderListPreferences()
+        refreshCutOrderTableAndPagination()
+      }
+      return true
+    }
 
     const filterKey = FIELD_TO_FILTER_KEY[field]
     const input = fieldNode as HTMLInputElement | HTMLSelectElement
@@ -2514,6 +2805,7 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
       [filterKey]: input.value,
     }
     resetPagination()
+    refreshCutOrderList()
     return true
   }
 
@@ -2541,12 +2833,110 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
       riskOnly: !state.filters.riskOnly,
     }
     resetPagination()
+    refreshCutOrderFilters()
+    refreshCutOrderList()
     return true
   }
 
   if (action === 'clear-filters') {
     state.filters = { ...initialFilters }
     resetPagination()
+    refreshCutOrderFilters()
+    refreshCutOrderList()
+    return true
+  }
+
+  if (action === 'clear-feedback') {
+    clearFeedback()
+    refreshCutOrderFeedback()
+    return true
+  }
+
+  if (action === 'prev-page' || action === 'next-page') {
+    state.page += action === 'prev-page' ? -1 : 1
+    refreshCutOrderTableAndPagination()
+    return true
+  }
+
+  if (action === 'sort-column') {
+    const columnKey = actionNode.dataset.columnKey || ''
+    const column = cutOrderListColumns.find((item) => item.key === columnKey && item.sortable)
+    if (!column) return true
+    state.sort = state.sort?.key !== columnKey
+      ? { key: columnKey, direction: 'asc' }
+      : state.sort.direction === 'asc'
+        ? { key: columnKey, direction: 'desc' }
+        : null
+    state.page = 1
+    refreshCutOrderTableAndPagination()
+    return true
+  }
+
+  if (action === 'open-column-settings') {
+    state.columnSettingsOpen = true
+    refreshCutOrderOverlay()
+    return true
+  }
+
+  if (action === 'close-column-settings') {
+    state.columnSettingsOpen = false
+    refreshCutOrderOverlay()
+    return true
+  }
+
+  if (action === 'toggle-column-visibility') {
+    if (event?.type !== 'change') return false
+    const columnKey = actionNode.dataset.cuttingPieceColumnKey || actionNode.dataset.columnKey || ''
+    const rule = cutOrderListColumnRules.find((item) => item.key === columnKey)
+    if (!rule || rule.required || rule.actionColumn) return true
+    const visibleKeys = new Set(state.columnPreferences.visibleKeys)
+    const frozenKeys = new Set(state.columnPreferences.frozenKeys)
+    if (visibleKeys.has(columnKey)) {
+      visibleKeys.delete(columnKey)
+      frozenKeys.delete(columnKey)
+    } else {
+      visibleKeys.add(columnKey)
+    }
+    state.columnPreferences = normalizeCutOrderListPreferences({
+      ...state.columnPreferences,
+      visibleKeys: [...visibleKeys],
+      frozenKeys: [...frozenKeys],
+    })
+    if (!visibleKeys.has(columnKey) && state.sort?.key === columnKey) state.sort = null
+    saveCutOrderListPreferences()
+    refreshCutOrderTable()
+    refreshCutOrderOverlay()
+    return true
+  }
+
+  if (action === 'toggle-column-freeze') {
+    if (event?.type !== 'change') return false
+    const columnKey = actionNode.dataset.cuttingPieceColumnKey || actionNode.dataset.columnKey || ''
+    const column = cutOrderListColumns.find((item) => item.key === columnKey)
+    if (!column?.freezeable || column.actionColumn) return true
+    const frozenKeys = new Set(state.columnPreferences.frozenKeys)
+    if (frozenKeys.has(columnKey)) frozenKeys.delete(columnKey)
+    else frozenKeys.add(columnKey)
+    state.columnPreferences = normalizeCutOrderListPreferences({
+      ...state.columnPreferences,
+      frozenKeys: [...frozenKeys],
+    })
+    saveCutOrderListPreferences()
+    refreshCutOrderTable()
+    refreshCutOrderOverlay()
+    return true
+  }
+
+  if (action === 'restore-column-settings' || action === 'reset-column-settings') {
+    state.columnPreferences = normalizeCutOrderListPreferences(defaultCutOrderListColumnPreferences)
+    state.page = 1
+    state.sort = null
+    state.feedback = null
+    const storage = getCutOrderListStorage()
+    if (storage) clearListColumnPreferences(storage, cutOrderListStorageKey)
+    refreshCutOrderFeedback()
+    refreshCutOrderTableAndPagination()
+    refreshCutOrderOverlay()
     return true
   }
 
@@ -2663,6 +3053,8 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
     const message = '已重新打开裁片单，可继续针对该裁片单补料、唛架和铺布。'
     setFeedback('success', message)
     state.closeDraft.feedback = { tone: 'success', message }
+    refreshCutOrderFeedback()
+    refreshCutOrderList()
     return true
   }
 
@@ -2735,11 +3127,6 @@ export function handleCraftCuttingCutOrdersEvent(target: Element): boolean {
       return true
     }
     return navigateToRecordTarget(actionNode.dataset.recordId, 'markerPlanSources')
-  }
-
-  if (action === 'clear-feedback') {
-    clearFeedback()
-    return true
   }
 
   if (action === 'go-same-production-orders') {
