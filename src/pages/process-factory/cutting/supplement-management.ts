@@ -977,19 +977,67 @@ function resolveReleaseSnapshotSourceState(
   materialId: string,
   materialSourceStates: CutPieceReleaseSourceState[],
 ): CutPieceReleaseSourceState {
-  const sourceGroups = new Map<string, CutPieceReleaseSourceState[]>()
-  for (const source of materialSourceStates) {
-    const identity = source.cutOrderId
-      ? JSON.stringify([source.cutOrderId, source.cutOrderNo])
-      : JSON.stringify(['cut-order-no', source.cutOrderNo])
-    const group = sourceGroups.get(identity) || []
-    group.push(source)
-    sourceGroups.set(identity, group)
+  const sources = materialSourceStates.map((source) => ({
+    ...source,
+    cutOrderId: source.cutOrderId.trim(),
+    cutOrderNo: source.cutOrderNo.trim(),
+  }))
+  if (sources.some((source) => !source.cutOrderId && !source.cutOrderNo)) {
+    throw new Error(`放行快照物料 ${materialId} 存在无法识别的原裁片单来源，裁片单 ID 和编号均为空，不能确认补料。`)
+  }
+
+  const parents = sources.map((_, index) => index)
+  const findRoot = (index: number): number => {
+    let root = index
+    while (parents[root] !== root) root = parents[root]
+    while (parents[index] !== index) {
+      const next = parents[index]
+      parents[index] = root
+      index = next
+    }
+    return root
+  }
+  const union = (left: number, right: number): void => {
+    const leftRoot = findRoot(left)
+    const rightRoot = findRoot(right)
+    if (leftRoot !== rightRoot) parents[rightRoot] = leftRoot
+  }
+  for (let left = 0; left < sources.length; left += 1) {
+    for (let right = left + 1; right < sources.length; right += 1) {
+      const sameId = Boolean(sources[left].cutOrderId && sources[left].cutOrderId === sources[right].cutOrderId)
+      const sameNo = Boolean(sources[left].cutOrderNo && sources[left].cutOrderNo === sources[right].cutOrderNo)
+      if (sameId || sameNo) union(left, right)
+    }
+  }
+
+  const sourceGroups = new Map<number, CutPieceReleaseSourceState[]>()
+  sources.forEach((source, index) => {
+    const root = findRoot(index)
+    sourceGroups.set(root, [...(sourceGroups.get(root) || []), source])
+  })
+  for (const group of sourceGroups.values()) {
+    const nosById = new Map<string, Set<string>>()
+    const idsByNo = new Map<string, Set<string>>()
+    for (const source of group) {
+      if (source.cutOrderId && source.cutOrderNo) {
+        nosById.set(source.cutOrderId, new Set([...(nosById.get(source.cutOrderId) || []), source.cutOrderNo]))
+        idsByNo.set(source.cutOrderNo, new Set([...(idsByNo.get(source.cutOrderNo) || []), source.cutOrderId]))
+      }
+    }
+    if ([...nosById.values()].some((values) => values.size > 1)) {
+      throw new Error(`放行快照物料 ${materialId} 的原裁片单来源身份冲突：同一裁片单 ID 对应多个编号，不能确认补料。`)
+    }
+    if ([...idsByNo.values()].some((values) => values.size > 1)) {
+      throw new Error(`放行快照物料 ${materialId} 的原裁片单来源身份冲突：同一裁片单编号对应多个 ID，不能确认补料。`)
+    }
   }
   if (sourceGroups.size !== 1) {
     throw new Error(`放行快照物料 ${materialId} 必须唯一对应一条原裁片单来源，当前匹配 ${sourceGroups.size} 条，不能确认补料。`)
   }
-  return [...sourceGroups.values()][0]
+  const group = [...sourceGroups.values()][0]
+  const resolvedCutOrderId = group.find((source) => source.cutOrderId)?.cutOrderId || ''
+  const resolvedCutOrderNo = group.find((source) => source.cutOrderNo)?.cutOrderNo || ''
+  const earliest = group
     .slice()
     .sort((left, right) => (
       left.changedAt.localeCompare(right.changedAt)
@@ -999,6 +1047,7 @@ function resolveReleaseSnapshotSourceState(
       || left.operator.localeCompare(right.operator)
       || left.reason.localeCompare(right.reason)
     ))[0]
+  return { ...earliest, cutOrderId: resolvedCutOrderId, cutOrderNo: resolvedCutOrderNo }
 }
 
 export function resolveReleaseSnapshotSourceStateForTest(
