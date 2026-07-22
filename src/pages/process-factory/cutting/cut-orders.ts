@@ -325,11 +325,6 @@ function getDisplayRows(viewModel = getViewModel()): CutOrderRow[] {
   return filterCutOrderRows(viewModel.rows, state.filters, state.prefilter)
 }
 
-function getActiveRow(viewModel = getViewModel()): CutOrderRow | null {
-  if (!state.activeOrderId) return null
-  return viewModel.rowsById[state.activeOrderId] ?? null
-}
-
 function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
 }
@@ -1066,16 +1061,6 @@ function renderStatusCell(row: CutOrderRow): string {
   `
 }
 
-function renderEmptyTableState(): string {
-  return `
-    <tr>
-      <td colspan="10" class="px-4 py-16 text-center text-sm text-muted-foreground">
-        当前条件下暂无裁片单，请调整筛选条件或清除预筛后重试。
-      </td>
-    </tr>
-  `
-}
-
 const cutOrderListColumns: StandardListColumn<CutOrderRow>[] = [
   {
     key: 'cutOrder',
@@ -1355,6 +1340,14 @@ function refreshCutOrderOverlay(): void {
 function ensureCutOrderListLocalEvents(): void {
   if (cutOrderListLocalEventsBound || typeof document === 'undefined') return
   cutOrderListLocalEventsBound = true
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !state.columnSettingsOpen) return
+    if (!document.querySelector('[data-cutting-piece-list-root]')) return
+    state.columnSettingsOpen = false
+    refreshCutOrderOverlay()
+    event.preventDefault()
+    event.stopImmediatePropagation()
+  }, true)
   const handleLocalEvent = (event: Event) => {
     const target = event.target instanceof Element ? event.target : null
     if (!target?.closest('[data-cutting-piece-list-root]')) return
@@ -2632,7 +2625,7 @@ function renderPage(): string {
     'columns-3',
   ))
 
-  return renderStandardListPage({
+  const pageHtml = renderStandardListPage({
     title: '裁片单',
     feedbackHtml: `<div data-cutting-piece-region="feedback">${renderFeedbackBar()}</div>`,
     filtersHtml: withSkipPageRerender(`
@@ -2648,6 +2641,10 @@ function renderPage(): string {
     overlaysHtml: `<div data-cutting-piece-region="overlay">${renderCutOrderListOverlay()}</div>`,
     className: 'max-w-full overflow-x-hidden',
   }).replace('data-standard-list-page', 'data-standard-list-page data-cutting-piece-list-root data-testid="cutting-cut-orders-page"')
+
+  const rootEnd = pageHtml.lastIndexOf('</section>')
+  if (rootEnd < 0) return pageHtml
+  return `${pageHtml.slice(0, rootEnd)}<div data-cutting-piece-stable-body-host></div>${pageHtml.slice(rootEnd)}`
 }
 
 function navigateToRecordTarget(
@@ -2952,12 +2949,6 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
     return true
   }
 
-  if (action === 'open-detail') {
-    const recordId = actionNode.dataset.recordId
-    if (recordId) appStore.navigate(`/fcs/craft/cutting/cut-orders/${encodeURIComponent(recordId)}`)
-    return true
-  }
-
   if (action === 'print-task-route-card') {
     const recordId = actionNode.dataset.recordId
     const row = recordId ? getViewModel().rowsById[recordId] : null
@@ -2995,12 +2986,12 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
   }
 
   if (action === 'close-overlay') {
+    if (state.columnSettingsOpen) {
+      state.columnSettingsOpen = false
+      refreshCutOrderOverlay()
+      return true
+    }
     state.activeOrderId = null
-    return true
-  }
-
-  if (action === 'set-page') {
-    state.page = Number(actionNode.dataset.page) || 1
     return true
   }
 
@@ -3163,5 +3154,5 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
 }
 
 export function isCraftCuttingCutOrdersDialogOpen(): boolean {
-  return state.activeOrderId !== null
+  return state.columnSettingsOpen || state.activeOrderId !== null
 }

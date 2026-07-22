@@ -106,6 +106,41 @@ test('排序、分页和列偏好只局部刷新且按规则持久化', async ({
   await expect(page.getByText(/1 \/ \d+/)).toBeVisible()
 })
 
+test('放行联动区块不受列设置局部刷新影响且 Escape 只关闭最上层弹层', async ({ page }) => {
+  await page.goto(`${route}?cutOrderNo=CUT14671-B`)
+  await expect(page.locator('[data-standard-list-page]')).toBeVisible({ timeout: 30_000 })
+
+  const linkage = page.locator('[data-testid="cut-order-release-linked-orders"]')
+  await expect(linkage).toBeVisible()
+  await expect(page.locator('[data-cutting-piece-region="overlay"] [data-testid="cut-order-release-linked-orders"]')).toHaveCount(0)
+  const linkageText = await linkage.innerText()
+  await expect(page.getByText('预筛：裁片单 CUT14671-B')).toBeVisible()
+  await page.locator('main').evaluate((node) => {
+    ;(window as typeof window & { __cutOrderLayerMain?: Element }).__cutOrderLayerMain = node
+  })
+
+  await page.getByRole('button', { name: '列设置' }).click()
+  let settings = page.getByRole('heading', { name: '列设置' }).locator('xpath=ancestor::div[contains(@class,"fixed")]')
+  await settings.locator('[data-cutting-piece-column-key="material"]').getByLabel('显示').uncheck()
+  await expect(linkage).toBeVisible()
+  expect(await linkage.innerText()).toBe(linkageText)
+  await settings.getByRole('button', { name: '关闭' }).click()
+  await expect(linkage).toBeVisible()
+  expect(await linkage.innerText()).toBe(linkageText)
+
+  await page.getByRole('button', { name: '列设置' }).click()
+  settings = page.getByRole('heading', { name: '列设置' }).locator('xpath=ancestor::div[contains(@class,"fixed")]')
+  await expect(settings).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(settings).toHaveCount(0)
+  await expect(page.getByText('预筛：裁片单 CUT14671-B')).toBeVisible()
+  await expect(linkage).toBeVisible()
+  expect(await linkage.innerText()).toBe(linkageText)
+  expect(await page.evaluate(() => document.querySelector('main') === (
+    window as typeof window & { __cutOrderLayerMain?: Element }
+  ).__cutOrderLayerMain)).toBe(true)
+})
+
 for (const viewport of [{ width: 1366, height: 768 }, { width: 1280, height: 720 }]) {
   test(`${viewport.width}×${viewport.height} 下宽表仅容器横向滚动且操作列可见`, async ({ page }) => {
     await page.setViewportSize(viewport)
