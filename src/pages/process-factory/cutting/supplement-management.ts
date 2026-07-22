@@ -233,6 +233,7 @@ interface SupplementManagementState {
   activeRecordId: string
   pendingCompleteRecordId: string
   pendingConfirmDraft: SupplementDraft | null
+  releaseSnapshotContext: CutPieceReleaseTargetSnapshot | null
   releaseSnapshotDraft: SupplementDraft | null
   releaseSnapshotError: string
   creationSourceKey: string
@@ -280,6 +281,7 @@ const state: SupplementManagementState = {
   activeRecordId: '',
   pendingCompleteRecordId: '',
   pendingConfirmDraft: null,
+  releaseSnapshotContext: null,
   releaseSnapshotDraft: null,
   releaseSnapshotError: '',
   creationSourceKey: '',
@@ -860,7 +862,7 @@ function displayReleaseMaterialName(materialId: string, materialName: string): s
   return seededNames[materialId] || materialName
 }
 
-function buildReleaseSnapshotMaterialRef(shortage: SupplementPartShortage): SupplementMaterialPatternRef {
+function buildReleaseSnapshotMaterialRef(shortage: SupplementPartShortage, cutOrderNo: string): SupplementMaterialPatternRef {
   const materialName = displayReleaseMaterialName(shortage.materialId, shortage.materialName)
   const materialRole: SupplementMaterialRole = ['A', 'B', 'C'].includes(shortage.materialId)
     ? (`面料${shortage.materialId}` as SupplementMaterialRole)
@@ -897,16 +899,18 @@ function buildReleaseSnapshotMaterialRef(shortage: SupplementPartShortage): Supp
     roleConfirmStatus: '已确认',
     patternId: shortage.partId,
     patternName: shortage.partName,
-    cutOrderNo: '',
+    cutOrderNo,
     line: materialLine,
   }
 }
 
-function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): SupplementDraft {
-  const releaseRecord = listCutPieceReleaseRecords().find((record) => record.productionOrderId === snapshot.productionOrderId)
+function buildReleaseSnapshotDraft(
+  snapshot: CutPieceReleaseTargetSnapshot,
+  candidate: SupplementCandidate,
+): SupplementDraft {
   const shortages = buildSupplementPartShortages(snapshot.matrixSnapshot, snapshot.targetPreview)
   const lines: SupplementLine[] = shortages.map((shortage) => {
-    const materialRef = buildReleaseSnapshotMaterialRef(shortage)
+    const materialRef = buildReleaseSnapshotMaterialRef(shortage, candidate.sourceNo)
     const key = makeReleaseSnapshotPointKey(shortage)
     const availableGarmentQty = Math.max(shortage.targetQty - shortage.supplementGarmentQty, 0)
     const basis: SupplementAbAnalysisRow = {
@@ -969,13 +973,13 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
     processNote: '按裁片放行目标快照中的实际缺片数量预填',
   }))
   return structuredClone({
-    candidateId: `release-snapshot:${snapshot.snapshotId}`,
-    sourceType: 'release-snapshot',
-    sourceNo: snapshot.matrixSnapshot.productionOrderNo,
-    productionOrderId: snapshot.productionOrderId,
-    productionOrderNo: snapshot.matrixSnapshot.productionOrderNo,
-    styleName: releaseRecord?.spuName || snapshot.matrixSnapshot.spuCode,
-    spuCode: snapshot.matrixSnapshot.spuCode,
+    candidateId: candidate.id,
+    sourceType: candidate.sourceType,
+    sourceNo: candidate.sourceNo,
+    productionOrderId: candidate.record.productionOrderId,
+    productionOrderNo: candidate.record.productionOrderNo,
+    styleName: candidate.record.styleName,
+    spuCode: candidate.record.spuCode,
     reason: '',
     reasonDetail: '',
     lines,
@@ -989,10 +993,23 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
 function getCurrentReleaseSnapshotOrInvalidate(snapshotId: string): CutPieceReleaseTargetSnapshot | null {
   const snapshot = getCurrentCutPieceReleaseTargetSnapshot(snapshotId)
   if (snapshot) return snapshot
+  state.releaseSnapshotContext = null
   if (state.releaseSnapshotDraft?.releaseSnapshotId === snapshotId) state.releaseSnapshotDraft = null
   if (state.pendingConfirmDraft?.releaseSnapshotId === snapshotId) state.pendingConfirmDraft = null
+  state.activeCandidateId = ''
+  state.sourcePicker.selectedCandidateId = ''
   state.releaseSnapshotError = '目标依据已过期，请回裁片放行重新确认。'
   return null
+}
+
+function getReleaseSnapshotCandidates(snapshot: CutPieceReleaseTargetSnapshot): SupplementCandidate[] {
+  const releaseRecord = listCutPieceReleaseRecords().find((record) => record.productionOrderId === snapshot.productionOrderId)
+  const sourceCutOrderNos = new Set(releaseRecord?.sourceCutOrderNos || [])
+  if (!sourceCutOrderNos.size) return []
+  return buildCandidates().filter((candidate) =>
+    candidate.record.productionOrderId === snapshot.productionOrderId
+    && sourceCutOrderNos.has(candidate.sourceNo),
+  )
 }
 
 function prepareReleaseSnapshotCreateState(): void {
@@ -1005,17 +1022,22 @@ function prepareReleaseSnapshotCreateState(): void {
     state.creationSourceKey = nextCreationSourceKey
   }
   if (!snapshotId) {
+    state.releaseSnapshotContext = null
     state.releaseSnapshotDraft = null
     state.releaseSnapshotError = ''
     return
   }
   const snapshot = getCurrentReleaseSnapshotOrInvalidate(snapshotId)
   if (!snapshot) return
-  if (state.releaseSnapshotDraft?.releaseSnapshotId === snapshotId) {
+  if (state.releaseSnapshotContext?.snapshotId === snapshotId) {
     state.releaseSnapshotError = ''
     return
   }
-  state.releaseSnapshotDraft = buildReleaseSnapshotDraft(snapshot)
+  state.releaseSnapshotContext = snapshot
+  state.releaseSnapshotDraft = null
+  state.sourcePicker.keyword = ''
+  state.sourcePicker.selectedCandidateId = ''
+  state.sourcePicker.currentPage = 1
   state.releaseSnapshotError = ''
 }
 
@@ -1040,7 +1062,13 @@ function getFilteredRecords(): SupplementRecord[] {
 
 function getSourcePickerCandidates(): SupplementCandidate[] {
   const keyword = state.sourcePicker.keyword.trim().toLowerCase()
-  return buildCandidates()
+  const snapshotId = getReleaseSnapshotIdFromLocation()
+  const candidates = state.releaseSnapshotContext
+    ? getReleaseSnapshotCandidates(state.releaseSnapshotContext)
+    : snapshotId && state.releaseSnapshotError
+      ? []
+      : buildCandidates()
+  return candidates
     .filter((item) => {
       if (!keyword) return true
       return [
@@ -1285,6 +1313,7 @@ function renderSourcePickerResults(): string {
 
 function renderSourcePickerPage(): string {
   return `
+    ${renderReleaseSnapshotPickerContext()}
     <section class="rounded-lg border bg-card" data-cutting-supplement-source-picker>
       <div class="border-b px-5 py-4">
         <h2 class="text-lg font-semibold">选择裁片单</h2>
@@ -1300,6 +1329,30 @@ function renderSourcePickerPage(): string {
         </div>
       </div>
       <div data-cutting-supplement-region="source-picker-results">${renderSourcePickerResults()}</div>
+    </section>
+  `
+}
+
+function renderReleaseSnapshotPickerContext(): string {
+  if (state.releaseSnapshotError) return renderReleaseSnapshotError()
+  const snapshot = state.releaseSnapshotContext
+  if (!snapshot) return ''
+  const candidates = getReleaseSnapshotCandidates(snapshot)
+  const availableCount = candidates.filter((candidate) => candidate.canInitiate).length
+  const guidance = candidates.length === 0
+    ? '未匹配到真实裁片单，不能新增补料。请回裁片放行核对来源裁片单。'
+    : availableCount === 0
+      ? '关联裁片单均已关闭或不可用，不能新增补料。请回裁片放行核对。'
+      : `已匹配 ${formatInteger(candidates.length)} 张裁片单，请选择一张可新增补料的裁片单。`
+  return `
+    <section class="rounded-lg border border-blue-200 bg-blue-50 p-4" data-release-snapshot-picker-context>
+      <div class="font-semibold text-blue-900">来源：裁片放行目标快照</div>
+      <div class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-blue-900">
+        <span>生产单 ${escapeHtml(snapshot.matrixSnapshot.productionOrderNo)}</span>
+        <span>快照编号 ${escapeHtml(snapshot.snapshotId)}</span>
+        <span>目标依据矩阵版本 V${formatInteger(snapshot.matrixVersion)}</span>
+      </div>
+      <p class="mt-2 text-sm text-blue-900">${escapeHtml(guidance)}</p>
     </section>
   `
 }
@@ -1335,8 +1388,8 @@ function renderReleaseSnapshotCreatePage(draft: SupplementDraft): string {
       ${renderReleaseSnapshotTrace(draft)}
       <section class="rounded-lg border bg-card">
         <div class="border-b px-5 py-4">
-          <h2 class="text-lg font-semibold">按放行目标快照新增补料</h2>
-          <p class="mt-1 text-sm text-muted-foreground">生产单 ${escapeHtml(draft.productionOrderNo)} · ${escapeHtml(draft.spuCode)} · ${escapeHtml(draft.styleName)}</p>
+          <h2 class="text-lg font-semibold">填写补料信息</h2>
+          <p class="mt-1 text-sm text-muted-foreground">裁片单 ${escapeHtml(draft.sourceNo)} / ${escapeHtml(draft.productionOrderNo)} / ${escapeHtml(draft.styleName)}</p>
         </div>
         <div class="space-y-4 p-5">
           ${draft.lines.length ? `
@@ -1379,6 +1432,7 @@ function renderReleaseSnapshotError(): string {
     <section class="rounded-lg border border-amber-200 bg-amber-50 p-5" data-release-snapshot-error>
       <h2 class="font-semibold text-amber-900">无法读取放行目标快照</h2>
       <p class="mt-2 text-sm text-amber-800">${escapeHtml(state.releaseSnapshotError)}</p>
+      <p class="mt-1 text-sm text-amber-800">当前不能新增补料，请重新确认目标，或返回独立创建后选择真实裁片单。</p>
       <button type="button" class="mt-4 rounded-md border border-amber-300 bg-white px-4 py-2 text-sm" data-cutting-supplement-action="return-independent-create">返回独立创建</button>
     </section>
   `
@@ -2443,11 +2497,13 @@ export function ensureSupplementManagementFixedRecords(): void {
   const records: SupplementRecord[] = []
 
   const stableSnapshot = getCurrentCutPieceReleaseTargetSnapshot('cpr-target-po-14671-v9')
-  const stableSnapshotDraft = stableSnapshot ? buildReleaseSnapshotDraft(stableSnapshot) : null
   fixedSupplementOrderFixtures.forEach((fixture) => {
     const candidate = buildCandidates().find((item) => item.sourceNo === fixture.cutOrderNo)
     if (!candidate) return
-    const baseDraft = fixture.cutOrderNo === 'CUT14671-B' && stableSnapshotDraft
+    const stableSnapshotDraft = fixture.cutOrderNo === 'CUT14671-B' && stableSnapshot
+      ? buildReleaseSnapshotDraft(stableSnapshot, candidate)
+      : null
+    const baseDraft = stableSnapshotDraft
       ? stableSnapshotDraft
       : buildMockDraft(candidate, fixture.reason, fixture.reasonDetail)
     if (!baseDraft?.lines.length) return
@@ -2530,6 +2586,7 @@ function clearSupplementCreateState(): void {
     pageSize: 12,
   }
   state.pendingConfirmDraft = null
+  state.releaseSnapshotContext = null
   state.releaseSnapshotDraft = null
   state.releaseSnapshotError = ''
 }
@@ -2854,6 +2911,11 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     state.activeCandidateId = candidateId
     state.activeRecordId = ''
     state.pendingConfirmDraft = null
+    if (state.releaseSnapshotContext) {
+      const snapshot = getCurrentReleaseSnapshotOrInvalidate(state.releaseSnapshotContext.snapshotId)
+      if (!snapshot) return true
+      state.releaseSnapshotDraft = buildReleaseSnapshotDraft(snapshot, candidate)
+    }
     state.feedback = null
     return true
   }
@@ -2957,6 +3019,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
 
   if (action === 'back-to-source-picker') {
     state.activeCandidateId = ''
+    state.releaseSnapshotDraft = null
     state.feedback = null
     return true
   }
@@ -3010,7 +3073,9 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   }
 
   if (action === 'return-draft') {
-    state.activeCandidateId = state.pendingConfirmDraft?.candidateId || state.activeCandidateId
+    const pendingDraft = state.pendingConfirmDraft
+    state.activeCandidateId = pendingDraft?.candidateId || state.activeCandidateId
+    if (pendingDraft?.releaseSnapshotId) state.releaseSnapshotDraft = structuredClone(pendingDraft)
     state.pendingConfirmDraft = null
     return true
   }
@@ -3094,11 +3159,9 @@ export function renderCraftCuttingSupplementCreatePage(): string {
         <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cutting-supplement-action="cancel-create">返回补料列表</button>
       </div>
       ${renderFeedback()}
-      ${state.releaseSnapshotError
-        ? renderReleaseSnapshotError()
-        : state.releaseSnapshotDraft
-          ? renderReleaseSnapshotCreatePage(state.releaseSnapshotDraft)
-          : activeCandidate ? renderDraftPage(activeCandidate) : renderSourcePickerPage()}
+      ${state.releaseSnapshotDraft
+        ? renderReleaseSnapshotCreatePage(state.releaseSnapshotDraft)
+        : activeCandidate ? renderDraftPage(activeCandidate) : renderSourcePickerPage()}
       ${renderConfirmDialog(state.pendingConfirmDraft)}
     </div>
   `
