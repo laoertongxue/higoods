@@ -84,6 +84,7 @@ export interface ProcessActionPayload {
   objectQty?: number
   qtyUnit?: string
   qtyLabel?: string
+  skuQtyBySkuCode?: Record<string, number>
   formData?: Record<string, string | number | boolean | undefined>
   remark?: string
   evidenceUrls?: string[]
@@ -742,7 +743,7 @@ export function getProcessActionStatusSnapshot(sourceType: ProcessActionSourceTy
   return {
     status: workOrder.status,
     label: workOrder.status,
-    qty: workOrder.currentQty || workOrder.planQty,
+    qty: workOrder.currentQty ?? workOrder.receivedQty ?? 0,
     unit: objectMeta.qtyUnit,
     taskId: binding.actualTaskId,
     workOrderNo: workOrder.workOrderNo,
@@ -1096,15 +1097,28 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
   if (!definition) throw new Error('特殊工艺动作未注册')
   const workOrder = getSpecialCraftTaskWorkOrderById(payload.sourceId)
   if (!workOrder) throw new Error('特殊工艺加工单不存在')
-  const qty = Number(payload.objectQty || workOrder.currentQty || workOrder.planQty || 0)
   const binding = validateSpecialCraftMobileTaskBinding(payload.sourceId)
   const nextStatus = definition.toStatus as SpecialCraftTaskStatus
   const objectMeta = resolveSpecialCraftObjectMeta(workOrder.targetObject)
+  if (
+    definition.actionCode === 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES'
+    && objectMeta.objectType === '成衣'
+    && !payload.skuQtyBySkuCode
+  ) {
+    throw new Error('成衣收货必须逐 SKU 确认实收件数。')
+  }
+  const skuReceivedQty = payload.skuQtyBySkuCode
+    ? Object.values(payload.skuQtyBySkuCode).reduce((sum, value) => sum + Number(value || 0), 0)
+    : undefined
+  if (skuReceivedQty !== undefined && payload.objectQty !== undefined && skuReceivedQty !== payload.objectQty) {
+    throw new Error('逐 SKU 实收合计与本次实收件数不一致。')
+  }
+  const qty = Number(skuReceivedQty ?? payload.objectQty ?? workOrder.currentQty ?? workOrder.receivedQty ?? 0)
   const updated = updateSpecialCraftTaskWorkOrderWebStatus(payload.sourceId, {
     status: nextStatus,
     operatorName: payload.operatorName,
     operatedAt: payload.operatedAt,
-    currentQty: definition.actionCode === 'SPECIAL_CRAFT_REPORT_DIFFERENCE' ? Math.max((workOrder.currentQty || workOrder.planQty) - qty, 0) : undefined,
+    currentQty: definition.actionCode === 'SPECIAL_CRAFT_REPORT_DIFFERENCE' ? Math.max((workOrder.currentQty ?? workOrder.receivedQty ?? 0) - qty, 0) : undefined,
     receivedQty: definition.actionCode === 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES' ? qty : undefined,
     waitReturnQty: definition.actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS' ? qty : undefined,
     returnedQty: definition.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? qty : undefined,
@@ -1422,6 +1436,9 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
     objectType: hydratedPayload.objectType,
     objectQty: hydratedPayload.objectQty,
     qtyUnit: hydratedPayload.qtyUnit,
+    operatorName: hydratedPayload.operatorName,
+    operatedAt: hydratedPayload.operatedAt,
+    skuQtyBySkuCode: hydratedPayload.skuQtyBySkuCode,
   })
   const linkedPartial: Partial<ProcessActionWritebackResult> = {
     ...partial,

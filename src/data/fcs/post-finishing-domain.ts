@@ -2763,7 +2763,10 @@ export function listPostFinishingReceiptRecords(): PostFinishingReceiptRecord[] 
 
 export function listPostFinishingTasks(): PostFinishingTaskView[] {
   return productionOrders
-    .filter((order) => POST_FINISHING_TASK_MOCK_ORDER_NOS.has(order.productionOrderNo))
+    .filter((order) =>
+      POST_FINISHING_TASK_MOCK_ORDER_NOS.has(order.productionOrderNo)
+      || receiptRecords.some((receipt) => receipt.productionOrderNo === order.productionOrderNo),
+    )
     .map(buildPostFinishingTaskView)
 }
 

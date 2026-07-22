@@ -31,7 +31,7 @@ export interface AuxiliaryWarehouseFlowContext {
   qtyUnit: '片' | '米' | '件'
   sourceObjectName: '裁床待交出仓' | '面辅料仓' | '成衣仓'
   receiverKind: '裁床厂' | '中转仓' | '后道工厂'
-  receiverName: '裁床待交出仓' | '公司中转仓' | '我方后道工厂'
+  receiverName: '裁床工厂' | '公司中转仓' | '我方后道工厂'
   receiverWarehouseName: '裁床待交出仓' | '公司中转仓' | '后道待加工仓'
 }
 
@@ -66,7 +66,7 @@ export function resolveAuxiliaryWarehouseFlow(
     qtyUnit: '片',
     sourceObjectName: '裁床待交出仓',
     receiverKind: '裁床厂',
-    receiverName: '裁床待交出仓',
+    receiverName: '裁床工厂',
     receiverWarehouseName: '裁床待交出仓',
   }
 }

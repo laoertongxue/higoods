@@ -11,7 +11,10 @@ import {
   receiveAuxiliaryCraftGarmentsAtPostFinishing,
   type PostFinishingWorkOrder,
 } from './post-finishing-domain.ts'
-import { recordAuxiliaryGarmentReceiptToPostFactory } from './factory-internal-warehouse.ts'
+import {
+  listFactoryWarehouseInboundRecords,
+  recordAuxiliaryGarmentReceiptToPostFactory,
+} from './factory-internal-warehouse.ts'
 import type { ProcessWorkOrderSourceType } from './process-work-order-domain.ts'
 
 export type ProcessWarehouseCraftType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
@@ -707,13 +710,16 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
       objectType: flow.objectType,
       plannedObjectQty: taskOrder.planQty,
       receivedObjectQty: taskOrder.receivedQty,
-      availableObjectQty: taskOrder.currentQty || taskOrder.completedQty || taskOrder.receivedQty || taskOrder.planQty,
+      availableObjectQty: taskOrder.currentQty ?? taskOrder.completedQty ?? taskOrder.receivedQty,
       qtyUnit: flow.qtyUnit,
       relatedFeiTicketIds: flow.objectType === '裁片' ? taskOrder.feiTicketNos : [],
       inboundAt: taskOrder.createdAt,
       updatedAt: taskOrder.updatedAt || taskOrder.createdAt,
     }
-    if (taskOrder.status === '待领料' || taskOrder.status === '已入待加工仓' || taskOrder.status === '加工中') {
+    if (
+      ['待领料', '已入待加工仓', '加工中'].includes(taskOrder.status)
+      && (flow.objectType !== '成衣' || taskOrder.receivedQty > 0)
+    ) {
       const location = resolveLocation(taskOrder.operationName, 'WAIT_PROCESS', taskOrder.taskOrderNo)
       records.push(
         buildWarehouseRecord(
@@ -1483,48 +1489,55 @@ export function writeBackProcessHandoverRecord(
     && handover.objectType === '成衣'
     && handover.receiveFactoryName === '我方后道工厂'
   ) {
-    recordAuxiliaryGarmentReceiptToPostFactory({
-      handoverRecordId: handover.handoverRecordId,
-      handoverRecordNo: handover.handoverRecordNo,
-      sourceFactoryId: handover.handoverFactoryId,
-      sourceFactoryName: handover.handoverFactoryName,
-      sourceTaskId: handover.sourceTaskId,
-      sourceTaskNo: handover.sourceTaskNo,
-      productionOrderId: handover.sourceProductionOrderId,
-      productionOrderNo: handover.sourceProductionOrderNo,
-      itemName: `${handover.craftName}完成成衣`,
-      expectedQty: handover.handoverObjectQty,
-      receivedQty: handover.receiveObjectQty,
-      differenceQty: handover.diffObjectQty,
-      unit: '件',
-      receiverName: handover.receivePerson,
-      receivedAt: handover.receiveAt,
-      remark: handover.remark,
-    })
     const workOrderLines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(handover.sourceWorkOrderId)
-    const plannedTotal = workOrderLines.reduce((sum, line) => sum + line.planPieceQty, 0) || handover.handoverObjectQty
-    let allocatedReceivedQty = 0
-    const postSkuLines = workOrderLines.map((line, index) => {
-      const isLast = index === workOrderLines.length - 1
-      const receivedQty = isLast
-        ? roundQty(Math.max(handover.receiveObjectQty - allocatedReceivedQty, 0))
-        : roundQty(handover.receiveObjectQty * line.planPieceQty / plannedTotal)
-      allocatedReceivedQty = roundQty(allocatedReceivedQty + receivedQty)
+    const auxiliaryReceipts = listFactoryWarehouseInboundRecords().filter((record) =>
+      record.taskId === handover.sourceWorkOrderId
+      && record.itemKind === '成衣'
+      && record.sourceObjectName === '成衣仓',
+    )
+    let remainingReceivedQty = Math.trunc(handover.receiveObjectQty)
+    const postSkuLines = workOrderLines.map((line) => {
+      const auxiliaryReceivedQty = auxiliaryReceipts
+        .filter((record) => record.materialSku === line.skuCode)
+        .reduce((sum, record) => sum + record.receivedQty, 0)
+      const receivedQty = Math.min(Math.trunc(auxiliaryReceivedQty), remainingReceivedQty)
+      remainingReceivedQty -= receivedQty
       return {
-        skuId: line.demandLineId,
-        skuCode: line.demandLineId,
+        skuId: line.skuCode,
+        skuCode: line.skuCode,
         colorName: line.colorName,
         sizeName: line.sizeCode,
-        plannedQty: line.planPieceQty,
+        plannedQty: Math.trunc(auxiliaryReceivedQty),
         receivedQty,
       }
+    })
+    postSkuLines.forEach((line) => {
+      recordAuxiliaryGarmentReceiptToPostFactory({
+        handoverRecordId: `${handover.handoverRecordId}-${line.skuCode}`,
+        handoverRecordNo: handover.handoverRecordNo,
+        sourceFactoryId: handover.handoverFactoryId,
+        sourceFactoryName: handover.handoverFactoryName,
+        sourceTaskId: handover.sourceWorkOrderId,
+        sourceTaskNo: handover.sourceWorkOrderNo,
+        productionOrderId: handover.sourceProductionOrderId,
+        productionOrderNo: handover.sourceProductionOrderNo,
+        itemName: `${handover.craftName}完成成衣`,
+        materialSku: line.skuCode,
+        expectedQty: line.plannedQty,
+        receivedQty: line.receivedQty,
+        differenceQty: line.receivedQty - line.plannedQty,
+        unit: '件',
+        receiverName: handover.receivePerson,
+        receivedAt: handover.receiveAt,
+        remark: handover.remark,
+      })
     })
     receiveAuxiliaryCraftGarmentsAtPostFinishing({
       handoverRecordId: handover.handoverRecordId,
       productionOrderId: handover.sourceProductionOrderId || handover.sourceProductionOrderNo || '',
       productionOrderNo: handover.sourceProductionOrderNo || handover.sourceProductionOrderId || '',
-      sourceTaskId: handover.sourceTaskId,
-      sourceTaskNo: handover.sourceTaskNo,
+      sourceTaskId: handover.sourceWorkOrderId,
+      sourceTaskNo: handover.sourceWorkOrderNo,
       sourceFactoryId: handover.handoverFactoryId,
       sourceFactoryName: handover.handoverFactoryName,
       receiverName: handover.receivePerson,

@@ -81,6 +81,7 @@ export type SpecialCraftTaskExecutionStatus =
 
 export interface SpecialCraftTaskDemandLine {
   demandLineId: string
+  skuCode: string
   taskOrderId: string
   productionOrderId: string
   productionOrderNo: string
@@ -118,6 +119,7 @@ export interface SpecialCraftTaskWorkOrderLine {
   workOrderId: string
   taskOrderId: string
   demandLineId: string
+  skuCode: string
   partName: string
   colorName: string
   colorCode: string
@@ -1099,7 +1101,7 @@ function buildNodeRecords(seed: TaskSeedContext, artifacts: WarehouseArtifacts):
         actionName: '开工',
         beforeStatus: '已入待加工仓',
         afterStatus: '加工中',
-        qty: seed.receivedQty || seed.planQty,
+        qty: seed.receivedQty,
         unit: seed.unit,
         operatorName: `${seed.factory.contact}组长`,
         operatedAt: formatDay(0),
@@ -1515,7 +1517,7 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         taskOrder.status === '差异' || taskOrder.abnormalStatus === '数量差异' ? '异常区' : 'A区',
         index + 1,
       )
-      const receivedQty = roundQty(taskOrder.receivedQty || taskOrder.planQty)
+      const receivedQty = roundQty(taskOrder.receivedQty)
       const differenceQty = roundQty(receivedQty - taskOrder.planQty)
       const inboundRecord = upsertFactoryWarehouseInboundRecord({
         inboundRecordId: `SC-INB-${taskOrder.taskOrderId}`,
@@ -1600,9 +1602,9 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         feiTicketNo: taskOrder.feiTicketNos[0],
         transferBagNo: taskOrder.transferBagNos[0],
         fabricRollNo: taskOrder.fabricRollNos[0],
-        completedQty: roundQty(taskOrder.completedQty || taskOrder.planQty),
+        completedQty: roundQty(taskOrder.completedQty),
         lossQty: roundQty(taskOrder.lossQty),
-        waitHandoverQty: roundQty(taskOrder.waitHandoverQty || taskOrder.completedQty || taskOrder.planQty),
+        waitHandoverQty: roundQty(taskOrder.waitHandoverQty || taskOrder.completedQty),
         unit: profile.unit,
         receiverKind: profile.receiverKind,
         receiverName: profile.receiverName,
@@ -1625,7 +1627,7 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         taskOrder.status === '差异' || taskOrder.status === '异议中' ? '异常区' : '待确认区',
         index + 5,
       )
-      const outboundQty = roundQty(taskOrder.waitHandoverQty || taskOrder.completedQty || taskOrder.planQty)
+      const outboundQty = roundQty(taskOrder.waitHandoverQty || taskOrder.completedQty)
       const receiverWrittenQty =
         taskOrder.status === '已回写'
           ? outboundQty
@@ -1786,6 +1788,7 @@ function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
       : [
           {
             demandLineId: `${taskOrder.taskOrderId}-LINE-01`,
+            skuCode: taskOrder.materialSku || `${taskOrder.productionOrderNo}-${taskOrder.sizeCode || '均码'}`,
             taskOrderId: taskOrder.taskOrderId,
             productionOrderId: taskOrder.productionOrderId,
             productionOrderNo: taskOrder.productionOrderNo,
@@ -1879,6 +1882,7 @@ function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
           workOrderId,
           taskOrderId: taskOrder.taskOrderId,
           demandLineId: line.demandLineId,
+          skuCode: line.skuCode,
           partName: line.partName,
           colorName: line.colorName,
           colorCode: line.colorCode,
@@ -2037,6 +2041,32 @@ export function getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrderId: string):
 
 export function getSpecialCraftTaskWorkOrderLinesByWorkOrderId(workOrderId: string): SpecialCraftTaskWorkOrderLine[] {
   return ensureStore().workOrderLines.filter((line) => line.workOrderId === workOrderId)
+}
+
+export function confirmSpecialCraftWorkOrderReceiptBySku(input: {
+  workOrderId: string
+  receivedQtyBySkuCode: Record<string, number>
+  receiverName: string
+  receivedAt: string
+}): SpecialCraftTaskWorkOrder | undefined {
+  const lines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(input.workOrderId)
+  if (!lines.length) return undefined
+  lines.forEach((line) => {
+    const receivedQty = input.receivedQtyBySkuCode[line.skuCode]
+    if (!Number.isInteger(receivedQty) || receivedQty < 0 || receivedQty > line.planPieceQty) {
+      throw new Error(`SKU ${line.skuCode} 实收件数无效。`)
+    }
+    line.currentQty = receivedQty
+  })
+  const totalReceivedQty = lines.reduce((sum, line) => sum + line.currentQty, 0)
+  return updateSpecialCraftTaskWorkOrderWebStatus(input.workOrderId, {
+    status: '已入待加工仓',
+    operatorName: input.receiverName,
+    operatedAt: input.receivedAt,
+    receivedQty: totalReceivedQty,
+    currentQty: totalReceivedQty,
+    remark: `按 ${lines.length} 个 SKU 确认实收 ${totalReceivedQty} 件`,
+  })
 }
 
 export function getSpecialCraftTaskWorkOrderById(workOrderId: string): SpecialCraftTaskWorkOrder | undefined {

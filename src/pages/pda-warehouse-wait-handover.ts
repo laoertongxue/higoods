@@ -216,6 +216,30 @@ function getAuxiliaryWaitHandoverAction(value?: string | null): AuxiliaryWaitHan
   return value === 'finish-inbound' || value === 'handover-confirm' ? value : null
 }
 
+function renderGarmentWaitHandoverCard(row: FactoryWaitHandoverStockItem): string {
+  return `
+    <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm" data-garment-sku-card="wait-handover">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-semibold text-foreground">${escapeHtml(row.productionOrderNo || '-')}</div>
+          <div class="mt-1 text-xs text-muted-foreground">SKU：${escapeHtml(row.materialSku || '-')} · ${escapeHtml(row.fabricColor || '-')} / ${escapeHtml(row.sizeCode || '-')}</div>
+        </div>
+        ${renderStatusPill(row.status)}
+      </div>
+      <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
+        <div>待交出件数：${row.waitHandoverQty} 件</div>
+        <div>当前仓：${escapeHtml(row.warehouseName)} · ${escapeHtml(row.locationText)}</div>
+        <div>下一站：${escapeHtml(row.receiverName || '我方后道工厂')}</div>
+        <div>下一动作：交出确认</div>
+      </div>
+      <div class="mt-4 flex gap-2">
+        <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-fast-page-render data-pda-warehouse-action="open-wait-handover-detail" data-stock-item-id="${escapeAttr(row.stockItemId)}">查看</button>
+        <button type="button" class="rounded-full bg-primary px-3 py-1.5 text-xs text-primary-foreground" data-nav="/fcs/pda/warehouse/wait-handover?action=handover-confirm">交出确认</button>
+      </div>
+    </article>
+  `
+}
+
 function getAuxiliaryWaitHandoverSample(): FactoryWaitHandoverStockItem | undefined {
   return getAuxiliaryWaitHandoverRows(true)[0]
 }
@@ -580,6 +604,7 @@ function renderAuxiliaryWaitHandoverPage(): string {
           rows.length > 0
             ? rows.map((row) => {
               const isGarment = row.itemKind === '成衣'
+              if (isGarment) return renderGarmentWaitHandoverCard(row)
               return `
               <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
                 <div class="flex items-start justify-between gap-3">
@@ -953,6 +978,30 @@ function openLocationEditor(stockItemId: string): void {
 function renderDetailDrawer(): string {
   const row = getRows().find((item) => item.stockItemId === state.detailId)
   if (!row) return ''
+  if (row.itemKind === '成衣') {
+    return `
+      <div class="fixed inset-0 z-[120]">
+        <button type="button" class="absolute inset-0 bg-black/40" data-fast-page-render data-pda-warehouse-action="close-wait-handover-detail"></button>
+        <section class="absolute inset-x-0 bottom-[72px] rounded-t-3xl border bg-background px-4 py-4 shadow-2xl">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="text-base font-semibold text-foreground">成衣 SKU 待交出详情</h2>
+            <button type="button" class="rounded-full border px-3 py-1 text-xs" data-fast-page-render data-pda-warehouse-action="close-wait-handover-detail">关闭</button>
+          </div>
+          <div class="mt-4 rounded-2xl border bg-card px-4 py-4 shadow-sm">
+            ${renderCompactFieldList([
+              { label: '生产单', value: row.productionOrderNo || '-' },
+              { label: 'SKU', value: row.materialSku || '-' },
+              { label: '颜色 / 尺码', value: `${row.fabricColor || '-'} / ${row.sizeCode || '-'}` },
+              { label: '待交出', value: `${row.waitHandoverQty} 件` },
+              { label: '当前仓', value: `${row.warehouseName} · ${row.locationText}` },
+              { label: '下一站', value: row.receiverName || '我方后道工厂' },
+              { label: '下一动作', value: '交出确认' },
+            ])}
+          </div>
+        </section>
+      </div>
+    `
+  }
   const specialCraftSummary = row.feiTicketNo ? getSpecialCraftFeiTicketSummary(row.feiTicketNo) : null
   const outboundRoute = resolveWarehouseOutboundRecordRoute(row.handoverRecordId)
   return `

@@ -498,6 +498,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
             }
             const demandLine: SpecialCraftTaskDemandLine = {
               demandLineId: `SCDL-${stableHash([productionOrder.productionOrderId, patternFileId, pieceRow.id, operation.operationId, selectedTargetObject, orderLine.skuCode].join('|'))}`,
+              skuCode: orderLine.skuCode,
               taskOrderId: '',
               productionOrderId: productionOrder.productionOrderId,
               productionOrderNo,
@@ -627,6 +628,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
           if (!Number.isFinite(orderQty) || orderQty <= 0) return
           const demandLine: SpecialCraftTaskDemandLine = {
             demandLineId: `SCDL-${stableHash([productionOrder.productionOrderId, entryId, operation.operationId, selectedTargetObject, orderLine.skuCode].join('|'))}`,
+            skuCode: orderLine.skuCode,
             taskOrderId: '',
             productionOrderId: productionOrder.productionOrderId,
             productionOrderNo,

@@ -16,6 +16,7 @@ export type FactoryWarehouseLocationStatus = 'AVAILABLE' | 'STOPPED'
 export type FactoryWarehouseSourceRecordType = 'MATERIAL_PICKUP' | 'HANDOVER_RECEIVE' | 'TRANSFER_RECEIVE' | 'STOCKTAKE_ADJUSTMENT'
 export type FactoryWarehouseSourceObjectKind =
   | '面辅料仓'
+  | '成衣仓'
   | '中转仓'
   | '裁床厂'
   | '印花厂'
@@ -617,6 +618,154 @@ export function recordAuxiliaryGarmentReceiptToPostFactory(input: {
     inboundRecord: cloneValue(inboundRecord),
     waitProcessStockItem,
   }
+}
+
+export function recordGarmentReceiptAtAuxiliaryFactory(input: {
+  outboundRecord: FactoryWarehouseOutboundRecord
+  targetFactoryId: string
+  targetFactoryName: string
+  sourceTaskId: string
+  sourceTaskNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  processCode: string
+  processName: string
+  craftCode: string
+  craftName: string
+  receivedQty: number
+  receiverName: string
+  receivedAt: string
+}): { inboundRecord: FactoryWarehouseInboundRecord; waitProcessStockItem: FactoryWaitProcessStockItem } {
+  const factory = mockFactories.find((item) => item.id === input.targetFactoryId)
+  if (!factory) throw new Error(`未找到辅助工艺工厂：${input.targetFactoryName}`)
+  const warehouse = findWarehouseByFactoryAndKindInternal(factory.id, 'WAIT_PROCESS')
+  if (!warehouse) throw new Error(`未找到${input.targetFactoryName}待加工仓`)
+  const differenceQty = input.receivedQty - input.outboundRecord.outboundQty
+  const areaName = differenceQty === 0 ? 'A区' : '异常区'
+  const area = warehouse.areaList.find((item) => item.areaName === areaName) || warehouse.areaList[0]
+  const shelf = area?.shelfList[0]
+  const location = shelf?.locationList[0]
+  const inboundRecord: FactoryWarehouseInboundRecord = {
+    inboundRecordId: `AUX-INB-${input.outboundRecord.outboundRecordId}`,
+    inboundRecordNo: `RK-${input.outboundRecord.outboundRecordNo}`,
+    warehouseId: warehouse.warehouseId,
+    warehouseName: warehouse.warehouseName,
+    factoryId: factory.id,
+    factoryName: factory.name,
+    factoryKind: factory.factoryType,
+    processCode: input.processCode,
+    processName: input.processName,
+    craftCode: input.craftCode,
+    craftName: input.craftName,
+    sourceRecordId: input.outboundRecord.outboundRecordId,
+    sourceRecordNo: input.outboundRecord.outboundRecordNo,
+    sourceRecordType: 'HANDOVER_RECEIVE',
+    sourceObjectName: '成衣仓',
+    taskId: input.sourceTaskId,
+    taskNo: input.sourceTaskNo,
+    itemKind: '成衣',
+    itemName: input.outboundRecord.itemName,
+    materialSku: input.outboundRecord.materialSku,
+    fabricColor: input.outboundRecord.fabricColor,
+    sizeCode: input.outboundRecord.sizeCode,
+    expectedQty: input.outboundRecord.outboundQty,
+    receivedQty: input.receivedQty,
+    differenceQty,
+    unit: '件',
+    receiverName: input.receiverName,
+    receivedAt: input.receivedAt,
+    areaName: area?.areaName || areaName,
+    shelfNo: shelf?.shelfNo || '',
+    locationNo: location?.locationNo || '',
+    status: differenceQty === 0 ? '已入库' : '差异待处理',
+    abnormalReason: differenceQty === 0 ? undefined : '数量不符',
+    photoList: [],
+    generatedStockItemId: `AUX-WPS-${input.outboundRecord.outboundRecordId}`,
+    remark: '成衣仓逐 SKU 出库后由辅助工艺确认收货',
+  }
+  upsertFactoryWarehouseInboundRecord(inboundRecord)
+  const waitProcessStockItem = upsertFactoryWaitProcessStockItem({
+    ...buildFactoryWaitProcessStockItemFromInboundRecord(inboundRecord),
+    stockItemId: `AUX-WPS-${input.outboundRecord.outboundRecordId}`,
+    sourceObjectKind: '成衣仓',
+    taskId: input.sourceTaskId,
+    taskNo: input.sourceTaskNo,
+    productionOrderId: input.productionOrderId,
+    productionOrderNo: input.productionOrderNo,
+    status: differenceQty === 0 ? '已入待加工仓' : '差异待处理',
+    remark: '辅助工艺按 SKU 实收进入待加工仓',
+  })
+  return { inboundRecord: cloneValue(inboundRecord), waitProcessStockItem }
+}
+
+export function recordGarmentReadyToHandoverAtAuxiliaryFactory(input: {
+  sourceWorkOrderId: string
+  sourceWorkOrderNo: string
+  targetFactoryId: string
+  targetFactoryName: string
+  productionOrderId: string
+  productionOrderNo: string
+  totalCompletedQty: number
+  receiverKind: FactoryWarehouseReceiverKind
+  receiverName: string
+}): FactoryWaitHandoverStockItem[] {
+  if (!Number.isInteger(input.totalCompletedQty) || input.totalCompletedQty < 0) {
+    throw new Error('成衣完工件数必须为非负整数。')
+  }
+  const factory = mockFactories.find((item) => item.id === input.targetFactoryId)
+  if (!factory) throw new Error(`未找到辅助工艺工厂：${input.targetFactoryName}`)
+  const warehouse = findWarehouseByFactoryAndKindInternal(factory.id, 'WAIT_HANDOVER')
+  if (!warehouse) throw new Error(`未找到${input.targetFactoryName}待交出仓`)
+  const sourceStocks = listFactoryWaitProcessStockItems()
+    .filter((item) => item.taskId === input.sourceWorkOrderId && item.itemKind === '成衣')
+    .sort((left, right) => (left.materialSku || '').localeCompare(right.materialSku || ''))
+  const receivedQtyTotal = sourceStocks.reduce((sum, item) => sum + Math.trunc(item.receivedQty), 0)
+  if (input.totalCompletedQty > receivedQtyTotal) {
+    throw new Error('成衣完工件数不能超过辅助工艺实际收货件数。')
+  }
+  let remainingQty = input.totalCompletedQty
+  return sourceStocks.map((source, index) => {
+    const waitHandoverQty = Math.min(Math.trunc(source.receivedQty), remainingQty)
+    remainingQty -= waitHandoverQty
+    const position = pickWarehouseLocation(warehouse, `${input.sourceWorkOrderId}-${source.materialSku}`, '已入库')
+    return upsertFactoryWaitHandoverStockItem({
+      stockItemId: `AUX-WHS-${input.sourceWorkOrderId}-${source.materialSku}`,
+      warehouseId: warehouse.warehouseId,
+      factoryId: factory.id,
+      factoryName: factory.name,
+      factoryKind: factory.factoryType,
+      warehouseName: warehouse.warehouseName,
+      processCode: source.processCode,
+      processName: source.processName,
+      craftCode: source.craftCode,
+      craftName: source.craftName,
+      taskId: input.sourceWorkOrderId,
+      taskNo: input.sourceWorkOrderNo,
+      sourceType: 'PRODUCTION_ORDER',
+      productionOrderId: input.productionOrderId,
+      productionOrderNo: input.productionOrderNo,
+      itemKind: '成衣',
+      itemName: source.itemName,
+      materialSku: source.materialSku,
+      fabricColor: source.fabricColor,
+      sizeCode: source.sizeCode,
+      completedQty: waitHandoverQty,
+      lossQty: 0,
+      waitHandoverQty,
+      unit: '件',
+      receiverKind: input.receiverKind,
+      receiverName: input.receiverName,
+      handoverOrderId: `AUX-HO-${input.sourceWorkOrderId}`,
+      handoverOrderNo: `JCD-${input.sourceWorkOrderNo}`,
+      areaName: position.areaName,
+      shelfNo: position.shelfNo,
+      locationNo: position.locationNo,
+      locationText: position.locationText,
+      status: '待交出',
+      photoList: [],
+      remark: `第 ${index + 1} 个 SKU 完工进入待交出仓`,
+    })
+  })
 }
 
 const ONBOARDING_CUTTING_FACTORIES = [

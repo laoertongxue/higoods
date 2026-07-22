@@ -9,9 +9,17 @@ import {
   listSpreadingResultGeneratedFeiTicketsByCutOrderId,
 } from './cutting/generated-fei-tickets.ts'
 import {
+  confirmSpecialCraftWorkOrderReceiptBySku,
+  getSpecialCraftTaskWorkOrderLinesByWorkOrderId,
   getSpecialCraftTaskWorkOrderById,
 } from './special-craft-task-orders.ts'
 import { resolveAuxiliaryWarehouseFlow } from './special-craft-operations.ts'
+import {
+  listFactoryWarehouseOutboundRecords,
+  recordGarmentReceiptAtAuxiliaryFactory,
+  recordGarmentReadyToHandoverAtAuxiliaryFactory,
+  upsertFactoryWarehouseOutboundRecord,
+} from './factory-internal-warehouse.ts'
 import {
   getPostFinishingWorkOrderById,
 } from './post-finishing-domain.ts'
@@ -61,6 +69,9 @@ export interface ProcessWarehouseLinkageActionResult {
   affectedDifferenceRecordId?: string
   platformStatusAfter?: string
   message?: string
+  operatorName?: string
+  operatedAt?: string
+  skuQtyBySkuCode?: Record<string, number>
 }
 
 export interface ProcessWarehouseLinkageResult {
@@ -118,6 +129,16 @@ interface WarehouseBaseContext {
   packageQty: number
   packageUnit: string
   relatedFeiTicketIds: string[]
+}
+
+interface SpecialCraftWarehouseContext extends WarehouseBaseContext {
+  upstreamWarehouseId: string
+  upstreamWarehouseName: string
+  currentFactoryId: string
+  currentFactoryName: string
+  downstreamFactoryId: string
+  downstreamFactoryName: string
+  downstreamWarehouseName: string
 }
 
 function emptyLinkageResult(actionResult: ProcessWarehouseLinkageActionResult, message = '当前动作不需要仓交出联动'): ProcessWarehouseLinkageResult {
@@ -351,11 +372,11 @@ function resolveCuttingContext(actionResult: ProcessWarehouseLinkageActionResult
   }
 }
 
-function resolveSpecialCraftContext(actionResult: ProcessWarehouseLinkageActionResult): WarehouseBaseContext | null {
+function resolveSpecialCraftContext(actionResult: ProcessWarehouseLinkageActionResult): SpecialCraftWarehouseContext | null {
   const workOrder = getSpecialCraftTaskWorkOrderById(actionResult.sourceId)
   if (!workOrder) return null
   const binding = validateSpecialCraftMobileTaskBinding(workOrder.workOrderId)
-  const objectQty = roundQty(actionResult.objectQty || workOrder.currentQty || workOrder.planQty)
+  const objectQty = roundQty(actionResult.objectQty ?? workOrder.currentQty ?? workOrder.receivedQty)
   const transferBagNos = [...(workOrder.transferBagNos || [])]
   const feiTicketNos = [...(workOrder.feiTicketNos || [])]
   const flow = resolveAuxiliaryWarehouseFlow(workOrder.targetObject)
@@ -372,7 +393,11 @@ function resolveSpecialCraftContext(actionResult: ProcessWarehouseLinkageActionR
     sourceDemandNo: workOrder.taskOrderNo,
     sourceFactoryId: workOrder.factoryId,
     sourceFactoryName: workOrder.factoryName,
-    targetFactoryId: flow.receiverKind === '后道工厂' ? 'MANAGED-POST-FACTORY' : workOrder.factoryId,
+    targetFactoryId: flow.receiverKind === '后道工厂'
+      ? 'MANAGED-POST-FACTORY'
+      : flow.receiverKind === '裁床厂'
+        ? 'CUTTING-FACTORY'
+        : 'TRANSFER-WAREHOUSE',
     targetFactoryName: flow.receiverName,
     targetWarehouseName: `${workOrder.operationName}待交出仓`,
     receiveWarehouseName: flow.receiverWarehouseName,
@@ -388,6 +413,17 @@ function resolveSpecialCraftContext(actionResult: ProcessWarehouseLinkageActionR
     packageQty: Math.max(feiTicketNos.length, 1),
     packageUnit: '包',
     relatedFeiTicketIds: flow.objectType === '裁片' ? feiTicketNos : [],
+    upstreamWarehouseId: flow.objectType === '成衣' ? 'GARMENT-WAREHOUSE' : 'CUTTING-WAIT-HANDOVER-WAREHOUSE',
+    upstreamWarehouseName: flow.sourceObjectName,
+    currentFactoryId: workOrder.factoryId,
+    currentFactoryName: workOrder.factoryName,
+    downstreamFactoryId: flow.receiverKind === '后道工厂'
+      ? 'MANAGED-POST-FACTORY'
+      : flow.receiverKind === '裁床厂'
+        ? 'CUTTING-FACTORY'
+        : 'TRANSFER-WAREHOUSE',
+    downstreamFactoryName: flow.receiverName,
+    downstreamWarehouseName: flow.receiverWarehouseName,
   }
 }
 
@@ -635,13 +671,140 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
   const context = resolveSpecialCraftContext(actionResult)
   const base = emptyLinkageResult(actionResult)
   if (!context) return mergeResult(base, { success: false, message: '未找到特殊工艺单，不能执行仓联动' })
+  if (actionResult.actionCode === 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND') {
+    if (context.objectType !== '成衣') {
+      return mergeResult(base, { success: false, message: '仅成衣作用对象可从成衣仓出库' })
+    }
+    const workOrder = getSpecialCraftTaskWorkOrderById(context.sourceWorkOrderId)
+    const skuLines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(context.sourceWorkOrderId)
+    if (!workOrder || !skuLines.length || !actionResult.skuQtyBySkuCode) {
+      return mergeResult(base, { success: false, message: '请逐 SKU 确认成衣仓实出件数' })
+    }
+    const invalidLine = skuLines.find((line) => {
+      const qty = actionResult.skuQtyBySkuCode?.[line.skuCode]
+      return !Number.isInteger(qty) || Number(qty) < 0 || Number(qty) > line.planPieceQty
+    })
+    if (invalidLine) {
+      return mergeResult(base, { success: false, message: `SKU ${invalidLine.skuCode} 实出件数无效` })
+    }
+    const totalOutboundQty = skuLines.reduce(
+      (sum, line) => sum + Number(actionResult.skuQtyBySkuCode?.[line.skuCode] || 0),
+      0,
+    )
+    if (totalOutboundQty !== actionResult.objectQty) {
+      return mergeResult(base, { success: false, message: '逐 SKU 实出合计必须等于本次出库总件数' })
+    }
+    skuLines.forEach((line, index) => {
+      const outboundQty = Number(actionResult.skuQtyBySkuCode?.[line.skuCode] || 0)
+      upsertFactoryWarehouseOutboundRecord({
+        outboundRecordId: `GARMENT-OUT-${workOrder.workOrderId}-${line.skuCode}`,
+        outboundRecordNo: `CK-${workOrder.workOrderNo}-${String(index + 1).padStart(2, '0')}`,
+        warehouseId: 'GARMENT-WAREHOUSE',
+        warehouseName: '成衣仓',
+        factoryId: 'GARMENT-WAREHOUSE',
+        factoryName: '成衣仓',
+        factoryKind: 'CENTRAL_GARMENT',
+        processCode: workOrder.processCode,
+        processName: workOrder.processName,
+        craftCode: workOrder.craftCode,
+        craftName: workOrder.craftName,
+        sourceTaskId: workOrder.workOrderId,
+        sourceTaskNo: workOrder.workOrderNo,
+        sourceType: 'PRODUCTION_ORDER',
+        productionOrderId: workOrder.productionOrderId,
+        productionOrderNo: workOrder.productionOrderNo,
+        receiverKind: '特殊工艺厂',
+        receiverName: workOrder.factoryName,
+        itemKind: '成衣',
+        itemName: `${workOrder.craftName}成衣`,
+        materialSku: line.skuCode,
+        fabricColor: line.colorName,
+        sizeCode: line.sizeCode,
+        outboundQty,
+        unit: '件',
+        operatorName: actionResult.operatorName || '成衣仓管员',
+        outboundAt: actionResult.operatedAt || new Date().toISOString().replace('T', ' ').slice(0, 19),
+        status: '已出库',
+        photoList: [],
+        remark: `成衣仓按 SKU 交往${workOrder.factoryName}`,
+      })
+    })
+    return mergeResult(base, { message: `成衣仓已按 ${skuLines.length} 个 SKU 出库，等待辅助工艺确认收货` })
+  }
   if (actionResult.actionCode === 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES') {
-    const waitProcess = ensureWaitProcessWarehouseRecord(context, actionResult, `待${context.craftName}`)
+    if (
+      context.objectType === '成衣'
+      && !listFactoryWarehouseOutboundRecords().some((record) =>
+        record.sourceTaskId === context.sourceWorkOrderId
+        && record.warehouseName === '成衣仓'
+        && record.status !== '已作废',
+      )
+    ) {
+      return mergeResult(base, { success: false, message: '成衣仓尚未出库，不能确认收货' })
+    }
+    if (context.objectType === '成衣') {
+      const outboundRecords = listFactoryWarehouseOutboundRecords().filter((record) =>
+        record.sourceTaskId === context.sourceWorkOrderId
+        && record.warehouseName === '成衣仓'
+        && record.status !== '已作废',
+      )
+      if (!actionResult.skuQtyBySkuCode) {
+        return mergeResult(base, { success: false, message: '请逐 SKU 确认辅助工艺实收件数' })
+      }
+      const invalidRecord = outboundRecords.find((record) => {
+        const skuCode = record.materialSku || ''
+        const qty = actionResult.skuQtyBySkuCode?.[skuCode]
+        return !Number.isInteger(qty) || Number(qty) < 0 || Number(qty) > record.outboundQty
+      })
+      if (invalidRecord) {
+        return mergeResult(base, { success: false, message: `SKU ${invalidRecord.materialSku || '未知'} 实收件数无效` })
+      }
+      const receivedQty = outboundRecords.reduce((sum, record) => sum + Number(actionResult.skuQtyBySkuCode?.[record.materialSku || ''] || 0), 0)
+      if (receivedQty !== actionResult.objectQty) {
+        return mergeResult(base, { success: false, message: '逐 SKU 实收合计与本次实收件数不一致' })
+      }
+      outboundRecords.forEach((record) => {
+        recordGarmentReceiptAtAuxiliaryFactory({
+          outboundRecord: record,
+          targetFactoryId: context.currentFactoryId,
+          targetFactoryName: context.currentFactoryName,
+          sourceTaskId: context.sourceWorkOrderId,
+          sourceTaskNo: context.sourceWorkOrderNo,
+          productionOrderId: context.sourceProductionOrderId || '',
+          productionOrderNo: context.sourceProductionOrderNo || '',
+          processCode: getSpecialCraftTaskWorkOrderById(context.sourceWorkOrderId)?.processCode || 'SPECIAL_CRAFT',
+          processName: getSpecialCraftTaskWorkOrderById(context.sourceWorkOrderId)?.processName || context.craftName,
+          craftCode: getSpecialCraftTaskWorkOrderById(context.sourceWorkOrderId)?.craftCode || context.craftName,
+          craftName: context.craftName,
+          receivedQty: Number(actionResult.skuQtyBySkuCode?.[record.materialSku || ''] || 0),
+          receiverName: actionResult.operatorName || '辅助工艺仓管员',
+          receivedAt: actionResult.operatedAt || new Date().toISOString().replace('T', ' ').slice(0, 19),
+        })
+      })
+      confirmSpecialCraftWorkOrderReceiptBySku({
+        workOrderId: context.sourceWorkOrderId,
+        receivedQtyBySkuCode: actionResult.skuQtyBySkuCode,
+        receiverName: actionResult.operatorName || '辅助工艺仓管员',
+        receivedAt: actionResult.operatedAt || new Date().toISOString().replace('T', ' ').slice(0, 19),
+      })
+    }
+    const waitProcessContext: WarehouseBaseContext = {
+      ...context,
+      sourceFactoryId: context.upstreamWarehouseId,
+      sourceFactoryName: context.upstreamWarehouseName,
+      targetFactoryId: context.currentFactoryId,
+      targetFactoryName: context.currentFactoryName,
+      targetWarehouseName: `${context.craftName}待加工仓`,
+      warehouseLocation: `${context.craftName}待加工仓-A01`,
+    }
+    const waitProcess = ensureWaitProcessWarehouseRecord(waitProcessContext, actionResult, `待${context.craftName}`)
     return mergeResult(base, {
       createdWaitProcessWarehouseRecordId: waitProcess.warehouseRecordId,
       updatedWaitProcessWarehouseRecordId: waitProcess.warehouseRecordId,
       updatedFeiTicketIds: context.relatedFeiTicketIds,
-      message: `${context.targetWarehouseName}已联动并关联菲票`,
+      message: context.objectType === '成衣'
+        ? `${context.currentFactoryName}已按 SKU 确认成衣收货`
+        : `${context.currentFactoryName}待加工仓已联动并关联菲票`,
     })
   }
   if (actionResult.actionCode === 'SPECIAL_CRAFT_REPORT_DIFFERENCE') {
@@ -654,7 +817,30 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
     })
   }
   if (!['SPECIAL_CRAFT_FINISH_PROCESS', 'SPECIAL_CRAFT_SUBMIT_HANDOVER'].includes(actionResult.actionCode)) return base
-  const waitHandover = ensureWaitHandoverWarehouseRecord(context, actionResult)
+  const waitHandoverContext: WarehouseBaseContext = {
+    ...context,
+    sourceFactoryId: context.currentFactoryId,
+    sourceFactoryName: context.currentFactoryName,
+    targetFactoryId: context.downstreamFactoryId,
+    targetFactoryName: context.downstreamFactoryName,
+    receiveWarehouseName: context.downstreamWarehouseName,
+    targetWarehouseName: `${context.craftName}待交出仓`,
+    warehouseLocation: `${context.craftName}待交出仓-B01`,
+  }
+  if (context.objectType === '成衣' && actionResult.actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS') {
+    recordGarmentReadyToHandoverAtAuxiliaryFactory({
+      sourceWorkOrderId: context.sourceWorkOrderId,
+      sourceWorkOrderNo: context.sourceWorkOrderNo,
+      targetFactoryId: context.currentFactoryId,
+      targetFactoryName: context.currentFactoryName,
+      productionOrderId: context.sourceProductionOrderId || '',
+      productionOrderNo: context.sourceProductionOrderNo || '',
+      totalCompletedQty: context.objectQty,
+      receiverKind: context.downstreamFactoryName === '我方后道工厂' ? '后道工厂' : '裁床厂',
+      receiverName: context.downstreamFactoryName,
+    })
+  }
+  const waitHandover = ensureWaitHandoverWarehouseRecord(waitHandoverContext, actionResult)
   let result = mergeResult(base, {
     createdWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
     updatedWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
@@ -662,11 +848,13 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
     message: `${context.targetWarehouseName}已联动`,
   })
   if (actionResult.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER') {
-    const handover = ensureHandoverRecord(context, actionResult, waitHandover.warehouseRecordId)
+    const handover = ensureHandoverRecord(waitHandoverContext, actionResult, waitHandover.warehouseRecordId)
     result = mergeResult(result, {
       createdHandoverRecordId: handover.handoverRecordId,
       updatedHandoverRecordId: handover.handoverRecordId,
-      message: '特殊工艺交出记录已联动并关联菲票',
+      message: context.objectType === '成衣'
+        ? `成衣已交往${context.downstreamFactoryName}`
+        : '特殊工艺交出记录已联动并关联裁片菲票',
     })
   }
   return result
