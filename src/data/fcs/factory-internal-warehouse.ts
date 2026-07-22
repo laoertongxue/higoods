@@ -666,15 +666,20 @@ function resolveSourceObjectKindFromHead(head: PdaHandoverHead): FactoryWarehous
   return '上游工厂仓'
 }
 
-function deriveFactoryItemKind(input: {
+export function deriveFactoryItemKind(input: {
   lineMaterialName?: string
   partName?: string
   processCode?: string
   handoutObjectType?: string
 }): FactoryWarehouseItemKind {
-  if (input.handoutObjectType === 'CUT_PIECE' || input.partName) return '裁片'
-  if (input.handoutObjectType === 'SEMI_FINISHED_GARMENT') return '成衣'
+  if (
+    input.handoutObjectType === 'GARMENT'
+    || input.handoutObjectType === 'SEMI_FINISHED_GARMENT'
+    || input.handoutObjectType === 'FINISHED_GARMENT'
+  ) return '成衣'
+  if (input.handoutObjectType === 'CUT_PIECE') return '裁片'
   if (input.handoutObjectType === 'FABRIC') return '面料'
+  if (input.partName) return '裁片'
   if (input.processCode === 'POST_FINISHING') return '成衣'
   const materialName = input.lineMaterialName || ''
   if (materialName.includes('面料') || materialName.includes('布')) return '面料'
