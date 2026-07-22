@@ -169,10 +169,17 @@ export function renderSpecialCraftPageLayout(input: {
   content: string
   actionsHtml?: string
 }): string {
-  const { title, description, content, actionsHtml } = input
+  const { operation, title, description, content, actionsHtml } = input
 
   return `
     <div class="space-y-4">
+      <nav aria-label="面包屑" class="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+        <span>${escapeHtml(operation.managementDomainName)}</span>
+        <span aria-hidden="true">/</span>
+        <span>${escapeHtml(operation.operationName)}</span>
+        <span aria-hidden="true">/</span>
+        <span class="text-foreground">${escapeHtml(title)}</span>
+      </nav>
       <header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div class="space-y-1">
           <h1 class="text-2xl font-semibold text-foreground">${escapeHtml(title)}</h1>

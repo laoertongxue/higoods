@@ -1,4 +1,5 @@
 import {
+  buildSpecialCraftOperationSlug,
   buildSpecialCraftTaskDetailPath,
   buildSpecialCraftPreferredWarehousePath,
   getSpecialCraftOperationBySlug,
@@ -57,6 +58,60 @@ const initialTaskListState: SpecialCraftTaskListState = {
 
 const taskListStateByOperation = new Map<string, SpecialCraftTaskListState>()
 
+type PersistedSpecialCraftTaskListState = Omit<SpecialCraftTaskListState, 'page'>
+
+export function buildSpecialCraftTaskListStorageKey(operationSlug: string): string {
+  return `fcs:special-craft:task-orders:${operationSlug}:filters`
+}
+
+function getTaskListStorageKey(operationId: string): string {
+  return buildSpecialCraftTaskListStorageKey(buildSpecialCraftOperationSlug(operationId))
+}
+
+function getBrowserStorage(): Storage | null {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage
+  } catch {
+    return null
+  }
+}
+
+function readPersistedTaskListState(storageKey: string): PersistedSpecialCraftTaskListState | null {
+  try {
+    const source = getBrowserStorage()?.getItem(storageKey)
+    if (!source) return null
+    const parsed = JSON.parse(source) as Partial<PersistedSpecialCraftTaskListState>
+    return {
+      keyword: typeof parsed.keyword === 'string' ? parsed.keyword : initialTaskListState.keyword,
+      factoryId: typeof parsed.factoryId === 'string' ? parsed.factoryId : initialTaskListState.factoryId,
+      status: typeof parsed.status === 'string' ? parsed.status : initialTaskListState.status,
+      abnormalStatus: typeof parsed.abnormalStatus === 'string' ? parsed.abnormalStatus : initialTaskListState.abnormalStatus,
+      timeRange: TASK_TIME_RANGE_OPTIONS.some((item) => item.value === parsed.timeRange)
+        ? parsed.timeRange as TaskTimeRange
+        : initialTaskListState.timeRange,
+      pageSize: [10, 20, 50].includes(Number(parsed.pageSize)) ? Number(parsed.pageSize) : initialTaskListState.pageSize,
+    }
+  } catch {
+    return null
+  }
+}
+
+function persistTaskListState(storageKey: string, state: SpecialCraftTaskListState): void {
+  const persisted: PersistedSpecialCraftTaskListState = {
+    keyword: state.keyword,
+    factoryId: state.factoryId,
+    status: state.status,
+    abnormalStatus: state.abnormalStatus,
+    timeRange: state.timeRange,
+    pageSize: state.pageSize,
+  }
+  try {
+    getBrowserStorage()?.setItem(storageKey, JSON.stringify(persisted))
+  } catch {
+    // 原型在无 localStorage 的脚本检查环境中仍可使用内存状态。
+  }
+}
+
 const TASK_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: '全部', label: '全部' },
   { value: '待领料', label: '待领料' },
@@ -90,16 +145,24 @@ const TASK_TIME_RANGE_OPTIONS: Array<{ value: TaskTimeRange; label: string }> = 
 ]
 
 function getTaskListState(operationId: string): SpecialCraftTaskListState {
-  const current = taskListStateByOperation.get(operationId)
+  const storageKey = getTaskListStorageKey(operationId)
+  const current = taskListStateByOperation.get(storageKey)
   if (current) return current
-  const next = { ...initialTaskListState }
-  taskListStateByOperation.set(operationId, next)
+  const next = {
+    ...initialTaskListState,
+    ...readPersistedTaskListState(storageKey),
+    page: 1,
+  }
+  taskListStateByOperation.set(storageKey, next)
   return next
 }
 
 function setTaskListState(operationId: string, patch: Partial<SpecialCraftTaskListState>): void {
+  const storageKey = getTaskListStorageKey(operationId)
   const current = getTaskListState(operationId)
-  taskListStateByOperation.set(operationId, { ...current, ...patch })
+  const next = { ...current, ...patch }
+  taskListStateByOperation.set(storageKey, next)
+  persistTaskListState(storageKey, next)
 }
 
 function renderMissingOperation(): string {
@@ -470,7 +533,7 @@ export function handleSpecialCraftTaskOrdersEvent(target: Element): boolean {
     return true
   }
   if (action === 'clear-filters') {
-    taskListStateByOperation.set(operationId, { ...initialTaskListState })
+    setTaskListState(operationId, { ...initialTaskListState })
     return true
   }
   if (action === 'set-page') {
