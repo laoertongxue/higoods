@@ -219,6 +219,8 @@ function getAuxiliaryWaitHandoverAction(value?: string | null): AuxiliaryWaitHan
 }
 
 function renderGarmentWaitHandoverCard(row: FactoryWaitHandoverStockItem): string {
+  const taskRows = listFactoryWaitHandoverStockItems().filter((item) => item.taskId === row.taskId && item.itemKind === '成衣')
+  const handedOverSkuCount = taskRows.filter((item) => item.status === '已交出').length
   return `
     <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm" data-garment-sku-card="wait-handover">
       <div class="flex items-start justify-between gap-3">
@@ -232,6 +234,7 @@ function renderGarmentWaitHandoverCard(row: FactoryWaitHandoverStockItem): strin
         <div>待交出件数：${row.waitHandoverQty} 件</div>
         <div>当前仓：${escapeHtml(row.warehouseName)} · ${escapeHtml(row.locationText)}</div>
         <div>下一站：${escapeHtml(row.receiverName || '我方后道工厂')}</div>
+        <div>本单交出进度：${handedOverSkuCount} / ${taskRows.length} SKU</div>
         <div>下一动作：交出确认</div>
       </div>
       <div class="mt-4 flex gap-2">

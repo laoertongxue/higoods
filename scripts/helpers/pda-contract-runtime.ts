@@ -14,6 +14,39 @@ export class ContractHtmlInputElement {
 
 export function installPdaContractRuntime() {
   const storageValues = new Map<string, string>()
+  const visibleMessages: string[] = []
+  const elementsById = new Map<string, ContractDomElement>()
+  class ContractDomElement {
+    id = ''
+    className = ''
+    style: Record<string, string> = {}
+    children: ContractDomElement[] = []
+    private content = ''
+
+    set textContent(value: string) {
+      this.content = value
+      if (value) visibleMessages.push(value)
+    }
+
+    get textContent(): string {
+      return this.content
+    }
+
+    get childElementCount(): number {
+      return this.children.length
+    }
+
+    appendChild(child: ContractDomElement): ContractDomElement {
+      this.children.push(child)
+      if (child.id) elementsById.set(child.id, child)
+      return child
+    }
+
+    remove(): void {
+      if (this.id) elementsById.delete(this.id)
+    }
+  }
+  const body = new ContractDomElement()
   Object.defineProperty(globalThis, 'HTMLInputElement', { configurable: true, value: ContractHtmlInputElement })
   for (const constructorName of ['HTMLSelectElement', 'HTMLTextAreaElement'] as const) {
     if (!(globalThis as Record<string, unknown>)[constructorName]) {
@@ -29,9 +62,31 @@ export function installPdaContractRuntime() {
       clear: () => storageValues.clear(),
     },
   })
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      body,
+      createElement: () => new ContractDomElement(),
+      getElementById: (id: string) => elementsById.get(id) ?? null,
+    },
+  })
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      location: { pathname: '/fcs/pda/warehouse/wait-process', search: '', href: '' },
+      requestAnimationFrame: (callback: () => void) => callback(),
+      setTimeout: () => 0,
+    },
+  })
   return {
-    reset: () => storageValues.clear(),
+    reset: () => {
+      storageValues.clear()
+      visibleMessages.length = 0
+      elementsById.clear()
+      body.children.length = 0
+    },
     storageValues,
+    visibleMessages,
   }
 }
 

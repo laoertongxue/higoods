@@ -253,6 +253,8 @@ function getAuxiliaryWaitProcessAction(value?: string | null): AuxiliaryWaitProc
 }
 
 function renderGarmentWaitProcessCard(row: FactoryWaitProcessStockItem): string {
+  const taskRows = listFactoryWaitProcessStockItems().filter((item) => item.taskId === row.taskId && item.itemKind === '成衣')
+  const issuedSkuCount = taskRows.filter((item) => item.status === '已领用').length
   return `
     <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm" data-garment-sku-card="wait-process">
       <div class="flex items-start justify-between gap-3">
@@ -266,6 +268,7 @@ function renderGarmentWaitProcessCard(row: FactoryWaitProcessStockItem): string 
         <div>来源仓：${escapeHtml(row.sourceObjectName || '成衣仓')}</div>
         <div>应收 / 实收件数：${row.expectedQty} / ${row.receivedQty} 件</div>
         <div>当前仓：${escapeHtml(row.warehouseName)} · ${escapeHtml(row.locationText)}</div>
+        <div>本单领用进度：${issuedSkuCount} / ${taskRows.length} SKU</div>
         <div>下一动作：加工领料</div>
       </div>
       <div class="mt-4 flex gap-2">
