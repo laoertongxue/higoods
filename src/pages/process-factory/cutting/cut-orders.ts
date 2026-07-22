@@ -117,7 +117,9 @@ import {
   listSupplementOrdersByCutOrder,
   type SupplementOrderLifecycle,
 } from '../../../data/fcs/cutting/supplement-order-registry.ts'
-import { ensureStableCutOrderSupplementOrders } from '../../../data/fcs/cutting/cut-order-supplement-fixture.ts'
+import { ensureFixedSupplementOrderFixturesRegistered } from '../../../data/fcs/cutting/cut-order-supplement-fixture.ts'
+
+ensureFixedSupplementOrderFixturesRegistered()
 
 type FilterField =
   | 'keyword'
@@ -1358,19 +1360,39 @@ function renderCutOrderPagination(paging: StandardListPageSlice<CutOrderRow>): s
 function renderSupplementDetail(order: SupplementOrderLifecycle): string {
   return `
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-cutting-piece-supplement-detail>
-      <section class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-background shadow-xl" role="dialog" aria-modal="true" aria-labelledby="cut-order-supplement-detail-title">
+      <section class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-background shadow-xl" role="dialog" aria-modal="true" aria-labelledby="cut-order-supplement-detail-title">
         <header class="flex items-center justify-between border-b px-5 py-4">
           <h2 id="cut-order-supplement-detail-title" class="text-lg font-semibold">补料单详情</h2>
           <button type="button" class="rounded-md border px-3 py-1.5 text-sm" data-cutting-piece-action="close-supplement-overlay">关闭</button>
         </header>
-        <div class="grid gap-4 p-5 sm:grid-cols-2">
+        <div class="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+          <div class="grid gap-4 sm:grid-cols-2">
           ${[
             ['补料单号', order.recordNo], ['裁片单', order.cutOrderNo], ['生产单', order.productionOrderNo],
             ['补料次数', `第 ${order.sequenceNo} 次`], ['状态', order.status], ['原因', order.reason],
-            ['明细摘要', order.lineSummary], ['总补料数量', `${order.totalQty} 件`],
+            ['原因说明', order.reasonDetail], ['明细摘要', order.lineSummary], ['总补料数量', `${order.totalQty} 件`],
             ['创建人', order.createdBy], ['创建时间', order.createdAt],
           ].map(([label, value]) => `<div><div class="text-xs text-muted-foreground">${escapeHtml(label)}</div><div class="mt-1 font-medium">${escapeHtml(value)}</div></div>`).join('')}
           <div class="sm:col-span-2"><div class="text-xs text-muted-foreground">完成信息</div><div class="mt-1 font-medium">${order.status === '已完成' ? `${escapeHtml(order.completedBy)} · ${escapeHtml(order.completedAt)}` : '尚未完成'}</div></div>
+          </div>
+          <section>
+            <h3 class="text-sm font-semibold">完整补料明细</h3>
+            <div class="mt-2 max-h-64 overflow-auto rounded-lg border">
+              <table class="w-full min-w-[520px] text-left text-sm">
+                <thead class="sticky top-0 bg-muted/95 text-xs text-muted-foreground"><tr><th class="px-3 py-2">颜色</th><th class="px-3 py-2">尺码</th><th class="px-3 py-2 text-right">本次补料数量</th></tr></thead>
+                <tbody>${order.lines.map((line) => `<tr class="border-t"><td class="px-3 py-2">${escapeHtml(line.color)}</td><td class="px-3 py-2">${escapeHtml(line.size)}</td><td class="px-3 py-2 text-right tabular-nums">${escapeHtml(`${line.supplementQty} 件`)}</td></tr>`).join('')}</tbody>
+              </table>
+            </div>
+          </section>
+          <section>
+            <h3 class="text-sm font-semibold">物料需求</h3>
+            <div class="mt-2 max-h-64 overflow-auto rounded-lg border">
+              <table class="w-full min-w-[640px] text-left text-sm">
+                <thead class="sticky top-0 bg-muted/95 text-xs text-muted-foreground"><tr><th class="px-3 py-2">物料 SKU</th><th class="px-3 py-2">物料</th><th class="px-3 py-2 text-right">需求数量</th></tr></thead>
+                <tbody>${order.materialDemands.map((demand) => `<tr class="border-t"><td class="px-3 py-2 font-mono">${escapeHtml(demand.materialSku)}</td><td class="px-3 py-2">${escapeHtml(demand.materialName)}</td><td class="px-3 py-2 text-right tabular-nums">${escapeHtml(`${demand.requiredQty} ${demand.unit}`)}</td></tr>`).join('')}</tbody>
+              </table>
+            </div>
+          </section>
         </div>
         ${order.status === '未完成' ? `<footer class="flex justify-end border-t px-5 py-4"><button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-cutting-piece-action="request-complete-supplement" data-supplement-id="${escapeHtml(order.id)}">完成该补料单</button></footer>` : ''}
       </section>
@@ -1383,7 +1405,7 @@ function renderSupplementConfirmation(order: SupplementOrderLifecycle): string {
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-4" data-cutting-piece-supplement-confirm>
       <section class="w-full max-w-lg rounded-xl bg-background shadow-xl" role="alertdialog" aria-modal="true" aria-labelledby="cut-order-supplement-confirm-title">
         <header class="border-b px-5 py-4"><h2 id="cut-order-supplement-confirm-title" class="text-lg font-semibold">确认完成补料</h2></header>
-        <div class="space-y-2 p-5 text-sm"><p>确认完成当前补料单：</p><p class="font-semibold">${escapeHtml(order.recordNo)} · 第 ${order.sequenceNo} 次 · ${escapeHtml(order.cutOrderNo)}</p><p class="text-muted-foreground">本次只完成这一张补料单，不改变裁片单主状态，也不影响其他补料单。</p></div>
+        <div class="space-y-2 p-5 text-sm"><p>确认完成当前补料单：</p><p class="font-semibold">${escapeHtml(order.recordNo)} · 第 ${order.sequenceNo} 次 · ${escapeHtml(order.cutOrderNo)} · 总补料数量 ${escapeHtml(`${order.totalQty} 件`)}</p><p class="text-muted-foreground">本次只完成这一张补料单，不改变裁片单主状态，也不影响其他补料单。</p></div>
         <footer class="flex justify-end gap-2 border-t px-5 py-4"><button type="button" class="rounded-md border px-4 py-2 text-sm" data-cutting-piece-action="cancel-complete-supplement">取消</button><button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white" data-cutting-piece-action="confirm-complete-supplement" data-supplement-id="${escapeHtml(order.id)}">确认完成</button></footer>
       </section>
     </div>
@@ -1394,11 +1416,11 @@ function renderSupplementPicker(cutOrderId: string): string {
   const incompleteOrders = listSupplementOrdersByCutOrder(cutOrderId).filter((order) => order.status === '未完成')
   return `
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" data-cutting-piece-supplement-picker>
-      <section class="w-full max-w-xl rounded-xl bg-background shadow-xl" role="dialog" aria-modal="true" aria-labelledby="cut-order-supplement-picker-title">
+      <section class="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-background shadow-xl" role="dialog" aria-modal="true" aria-labelledby="cut-order-supplement-picker-title">
         <header class="flex items-center justify-between border-b px-5 py-4"><h2 id="cut-order-supplement-picker-title" class="text-lg font-semibold">完成补料</h2><button type="button" class="rounded-md border px-3 py-1.5 text-sm" data-cutting-piece-action="close-supplement-overlay">关闭</button></header>
-        <div class="space-y-3 p-5">${incompleteOrders.map((order) => {
-          const label = `第 ${order.sequenceNo} 次 · ${order.recordNo} · ${order.totalQty} 件 · ${order.lineSummary}`
-          return `<label class="flex cursor-pointer gap-3 rounded-lg border p-3"><input type="radio" name="incomplete-supplement" value="${escapeHtml(order.id)}" aria-label="${escapeHtml(label)}" data-cutting-piece-action="select-incomplete-supplement" data-supplement-id="${escapeHtml(order.id)}" ${state.selectedIncompleteSupplementId === order.id ? 'checked' : ''}/><span class="text-sm">${escapeHtml(label)}</span></label>`
+        <div class="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">${incompleteOrders.map((order) => {
+          const label = `第 ${order.sequenceNo} 次 · ${order.recordNo} · ${order.createdAt} · ${order.reason} · ${order.lineSummary} · ${order.totalQty} 件`
+          return `<label class="flex cursor-pointer gap-3 rounded-lg border p-3"><input class="mt-1" type="radio" name="incomplete-supplement" value="${escapeHtml(order.id)}" aria-label="${escapeHtml(label)}" data-cutting-piece-action="select-incomplete-supplement" data-supplement-id="${escapeHtml(order.id)}" ${state.selectedIncompleteSupplementId === order.id ? 'checked' : ''}/><span class="min-w-0 space-y-1 text-sm"><span class="block font-semibold">${escapeHtml(order.recordNo)} · 第 ${order.sequenceNo} 次</span><span class="block text-muted-foreground">创建时间：${escapeHtml(order.createdAt)} · 补料原因：${escapeHtml(order.reason)}</span><span class="block break-words">明细摘要：${escapeHtml(order.lineSummary)}</span><span class="block font-medium">总补料数量：${escapeHtml(`${order.totalQty} 件`)}</span></span></label>`
         }).join('')}</div>
         <footer class="flex justify-end gap-2 border-t px-5 py-4"><button type="button" class="rounded-md border px-4 py-2 text-sm" data-cutting-piece-action="close-supplement-overlay">取消</button><button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50" data-cutting-piece-action="complete-selected-supplement" ${state.selectedIncompleteSupplementId ? '' : 'disabled'}>确认完成</button></footer>
       </section>
@@ -2881,7 +2903,6 @@ function renderCutOrderDetailPanelV2(row: CutOrderRow, viewModel = getViewModel(
 }
 
 function renderPage(): string {
-  ensureStableCutOrderSupplementOrders()
   ensureCutOrderListPreferences()
   ensureCutOrderListLocalEvents()
   if (typeof document !== 'undefined' && !document.querySelector('[data-standard-list-page][data-cutting-piece-list-root]')) {

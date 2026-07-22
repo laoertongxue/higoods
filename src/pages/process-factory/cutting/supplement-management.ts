@@ -34,8 +34,8 @@ import {
   type SupplementOrderStatus,
 } from '../../../data/fcs/cutting/supplement-order-registry.ts'
 import {
-  ensureStableCutOrderSupplementOrders,
-  stableCutOrderSupplementFixtures,
+  fixedSupplementOrderFixtures,
+  ensureFixedSupplementOrderFixturesRegistered,
 } from '../../../data/fcs/cutting/cut-order-supplement-fixture.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderSecondaryButton } from '../../../components/ui/button.ts'
@@ -1845,6 +1845,7 @@ function ensureSupplementListPreferences(): void {
 }
 
 export function enterCraftCuttingSupplementManagementRoute(): void {
+  ensureSupplementManagementFixedRecords()
   state.page = 1
   state.sort = null
   clearSupplementCreateState()
@@ -2340,11 +2341,23 @@ function registerSupplementRecordLifecycle(record: SupplementRecord): void {
     cutOrderNo,
     productionOrderNo: record.draft.productionOrderNo,
     reason: record.draft.reason,
+    reasonDetail: record.draft.reasonDetail,
     totalQty: getSupplementTotalQty(record),
     lineSummary: record.draft.lines
       .slice(0, 2)
       .map((line) => `${line.color}/${line.size}/${formatInteger(line.supplementQty)}件`)
       .join('；'),
+    lines: record.draft.lines.map((line) => ({
+      color: line.color,
+      size: line.size,
+      supplementQty: line.supplementQty,
+    })),
+    materialDemands: record.draft.materialDemands.map((demand) => ({
+      materialSku: demand.materialSku,
+      materialName: demand.materialName,
+      requiredQty: demand.requiredQty,
+      unit: demand.unit,
+    })),
     createdAt: record.createdAt,
     createdBy: record.createdBy,
   })
@@ -2419,86 +2432,43 @@ function buildMockDraft(
   }
 }
 
-function ensureMockSupplementOrders(): void {
-  ensureStableCutOrderSupplementOrders()
+export function ensureSupplementManagementFixedRecords(): void {
+  ensureFixedSupplementOrderFixturesRegistered()
   if (mockSupplementOrdersSeeded) return
   mockSupplementOrdersSeeded = true
   if (state.records.length) return
 
   const candidates = buildCandidates().filter((candidate) => candidate.canInitiate && candidate.abAnalysisRows.length > 0)
   if (!candidates.length) return
-  const reasons = ['裁片损耗', '尺码齐套不足', '验片破损', '裁剪差异']
-  const details = [
-    '验片后发现左前片有破损，需要按裁片单新增补料。',
-    '生产单部分尺码齐套不足，需要补齐后续车缝用料。',
-    '现场复核发现裁片损坏，按实际缺口补齐。',
-    '裁剪数量与计划存在差异，主管确认后发起补料。',
-  ]
-  const creators = ['裁床主管 周敏', '裁床组长 林洁', '验片主管 陈玲', '裁床主管 王海']
   const records: SupplementRecord[] = []
 
-  const stableCutOrderCandidate = buildCandidates().find((candidate) => candidate.sourceNo === 'CUT14671-B')
   const stableSnapshot = getCurrentCutPieceReleaseTargetSnapshot('cpr-target-po-14671-v9')
   const stableSnapshotDraft = stableSnapshot ? buildReleaseSnapshotDraft(stableSnapshot) : null
-  if (stableCutOrderCandidate) {
-    stableCutOrderSupplementFixtures.forEach((fixture) => {
-      const stableBaseDraft = stableSnapshotDraft || buildMockDraft(
-        candidates[0],
-        fixture.reason,
-        fixture.reasonDetail,
-      )
-      const stableDraft = stableBaseDraft ? structuredClone({
-        ...stableBaseDraft,
-        candidateId: stableCutOrderCandidate.id,
-        sourceType: 'cut-order' as const,
-        sourceNo: fixture.cutOrderNo,
-        productionOrderId: stableCutOrderCandidate.record.productionOrderId,
-        productionOrderNo: fixture.productionOrderNo,
-        styleName: stableCutOrderCandidate.record.styleName,
-        spuCode: stableCutOrderCandidate.record.spuCode,
-        reason: fixture.reason,
-        reasonDetail: fixture.reasonDetail,
-        releaseSnapshotId: undefined,
-        releaseMatrixVersion: undefined,
-        releaseTargetConfirmedAt: undefined,
-      }) : null
-      if (!stableDraft) return
-      const lines = fixture.lines.map((fact, lineIndex) => ({
-        ...stableDraft.lines[lineIndex],
-        color: fact.color,
-        size: fact.size,
-        supplementQty: fact.supplementQty,
-      })).filter((line) => Boolean(line.key))
-      records.push(buildSupplementRecordFromDraft({
-        ...stableDraft,
-        lines,
-        materialDemands: buildMaterialDemands(stableCutOrderCandidate, lines),
-      }, {
-        sequence: fixture.sequenceNo,
-        id: fixture.id,
-        recordNo: fixture.recordNo,
-        createdAt: fixture.createdAt,
-        createdBy: fixture.createdBy,
-        initialStatus: fixture.initialStatus,
-      }))
-    })
-  }
-
-  for (let index = 0; index < 12; index += 1) {
-    const candidate = index === 1 ? candidates[0] : candidates[index % candidates.length]
-    const draft = buildMockDraft(
-      candidate,
-      reasons[index % reasons.length],
-      details[index % details.length],
-      index % 3 === 1 ? 'print-dye' : 'none',
-    )
-    if (!draft) continue
-    const lines = draft.lines.map((line, lineIndex) => ({
-      ...line,
-      supplementQty: line.supplementQty + (index % 4) + lineIndex,
+  fixedSupplementOrderFixtures.forEach((fixture) => {
+    const candidate = buildCandidates().find((item) => item.sourceNo === fixture.cutOrderNo)
+    if (!candidate) return
+    const baseDraft = fixture.cutOrderNo === 'CUT14671-B' && stableSnapshotDraft
+      ? stableSnapshotDraft
+      : buildMockDraft(candidate, fixture.reason, fixture.reasonDetail)
+    if (!baseDraft?.lines.length) return
+    const lines = fixture.lines.map((fact, lineIndex) => ({
+      ...baseDraft.lines[lineIndex % baseDraft.lines.length],
+      key: `${baseDraft.lines[lineIndex % baseDraft.lines.length].key}:fixed:${lineIndex}`,
+      color: fact.color,
+      size: fact.size,
+      supplementQty: fact.supplementQty,
     }))
-    const materialDemands = buildMaterialDemands(candidate, lines)
-    if (index % 3 === 1 && materialDemands[0]) {
+    const calculatedDemands = buildMaterialDemands(candidate, lines)
+    if (!calculatedDemands.length) return
+    const materialDemands = fixture.materialDemands.map((fact, demandIndex) => ({
+      ...calculatedDemands[demandIndex % calculatedDemands.length],
+      materialSku: fact.materialSku,
+      materialName: fact.materialName,
+      requiredQty: fact.requiredQty,
+      unit: fact.unit,
+    }))
+    const fixedIndex = Number(fixture.recordNo.match(/-(\d{3})$/)?.[1] || 0) - 1
+    if (!fixture.recordNo.startsWith('SUP-CUT14671-B') && fixedIndex % 3 === 1 && materialDemands[0]) {
       materialDemands[0] = {
         ...materialDemands[0],
         printRequired: true,
@@ -2506,18 +2476,31 @@ function ensureMockSupplementOrders(): void {
         processNote: '补料面料需先补印花，再按生产单颜色要求补染色。',
       }
     }
-    const variedDraft: SupplementDraft = {
-      ...draft,
+    records.push(buildSupplementRecordFromDraft({
+      ...baseDraft,
+      candidateId: candidate.id,
+      sourceType: 'cut-order',
+      sourceNo: fixture.cutOrderNo,
+      productionOrderId: candidate.record.productionOrderId,
+      productionOrderNo: fixture.productionOrderNo,
+      styleName: candidate.record.styleName,
+      spuCode: candidate.record.spuCode,
+      reason: fixture.reason,
+      reasonDetail: fixture.reasonDetail,
       lines,
       materialDemands,
-    }
-    records.push(buildSupplementRecordFromDraft(variedDraft, {
-      sequence: index + 1,
-      createdAt: `2026-03-${String(25 - Math.floor(index / 4)).padStart(2, '0')} ${String(16 - (index % 4)).padStart(2, '0')}:${String((index * 7) % 60).padStart(2, '0')}`,
-      createdBy: creators[index % creators.length],
-      initialStatus: index % 3 === 0 ? '已完成' : '未完成',
+      releaseSnapshotId: undefined,
+      releaseMatrixVersion: undefined,
+      releaseTargetConfirmedAt: undefined,
+    }, {
+      sequence: fixture.sequenceNo,
+      id: fixture.id,
+      recordNo: fixture.recordNo,
+      createdAt: fixture.createdAt,
+      createdBy: fixture.createdBy,
+      initialStatus: fixture.initialStatus,
     }))
-  }
+  })
 
   state.records = records
 }
@@ -3062,7 +3045,6 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
 }
 
 export function renderCraftCuttingSupplementManagementPage(): string {
-  ensureMockSupplementOrders()
   ensureSupplementListPreferences()
   if (isSupplementCreateMode()) {
     return renderCraftCuttingSupplementCreatePage()
@@ -3094,7 +3076,6 @@ export function renderCraftCuttingSupplementManagementPage(): string {
 }
 
 export function renderCraftCuttingSupplementCreatePage(): string {
-  ensureMockSupplementOrders()
   prepareReleaseSnapshotCreateState()
   let activeCandidate = state.activeCandidateId ? getCandidateById(state.activeCandidateId) : undefined
   if (state.activeCandidateId && !activeCandidate) {
@@ -3122,3 +3103,5 @@ export function renderCraftCuttingSupplementCreatePage(): string {
     </div>
   `
 }
+
+ensureSupplementManagementFixedRecords()

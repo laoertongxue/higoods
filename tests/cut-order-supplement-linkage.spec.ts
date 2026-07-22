@@ -30,7 +30,14 @@ const stableSupplementFacts = [
 async function readStableRegistry(page: Page) {
   return page.evaluate(async () => {
     const registry = await import('/src/data/fcs/cutting/supplement-order-registry.ts')
-    return registry.listSupplementOrdersByCutOrder('cut-14671-b')
+    return registry.listSupplementOrdersByCutOrder('cut-14671-b').map(({ reasonDetail: _reasonDetail, lines: _lines, materialDemands: _materialDemands, ...summary }) => summary)
+  })
+}
+
+async function readAllRegistry(page: Page) {
+  return page.evaluate(async () => {
+    const registry = await import('/src/data/fcs/cutting/supplement-order-registry.ts')
+    return registry.listSupplementOrders()
   })
 }
 
@@ -108,6 +115,37 @@ test('先访问任一页面都登记同一组 CUT14671-B 补料事实', async ({
   await expect(supplementFirst.getByRole('heading', { name: '裁片单', exact: true })).toBeVisible({ timeout: 30_000 })
   expect(await readStableRegistry(supplementFirst)).toEqual(stableSupplementFacts)
   await supplementFirst.close()
+})
+
+test('两种访问顺序都初始化同一组 15 条完整补料事实且重复访问不增长', async ({ browser }) => {
+  test.setTimeout(120_000)
+  const readByOrder = async (firstRoute: string, secondRoute: string) => {
+    const page = await browser.newPage()
+    await page.goto(firstRoute)
+    await expect(page.locator('[data-standard-list-page]')).toBeVisible({ timeout: 30_000 })
+    const first = await readAllRegistry(page)
+    await page.goto(secondRoute)
+    await expect(page.locator('[data-standard-list-page]')).toBeVisible({ timeout: 30_000 })
+    const second = await readAllRegistry(page)
+    await page.goto(firstRoute)
+    await expect(page.locator('[data-standard-list-page]')).toBeVisible({ timeout: 30_000 })
+    const repeated = await readAllRegistry(page)
+    await page.close()
+    return { first, second, repeated }
+  }
+
+  const cutFirst = await readByOrder(route, '/fcs/craft/cutting/supplement-management')
+  const supplementFirst = await readByOrder('/fcs/craft/cutting/supplement-management', route)
+  for (const snapshot of [cutFirst.first, cutFirst.second, cutFirst.repeated, supplementFirst.first, supplementFirst.second, supplementFirst.repeated]) {
+    expect(snapshot).toHaveLength(15)
+    expect(new Set(snapshot.map((item) => item.cutOrderId)).size).toBeGreaterThan(1)
+    expect(snapshot.every((item) => item.reasonDetail && item.lines.length && item.materialDemands.length)).toBe(true)
+  }
+  expect(cutFirst.first).toEqual(cutFirst.second)
+  expect(cutFirst.second).toEqual(cutFirst.repeated)
+  expect(supplementFirst.first).toEqual(supplementFirst.second)
+  expect(supplementFirst.second).toEqual(supplementFirst.repeated)
+  expect(cutFirst.first).toEqual(supplementFirst.first)
 })
 
 test('裁片单使用标准列表根、标准表格、固定操作列和明确分页口径', async ({ page }) => {
@@ -350,6 +388,13 @@ test('冷启动直达裁片单可逐张查看并完成关联补料单', async ({
   await expect(detail).toContainText('第 2 次')
   await expect(detail.getByText('未完成', { exact: true })).toBeVisible()
   await expect(detail).toContainText('尺码齐套不足')
+  await expect(detail).toContainText('CUT14671-B 第 2 次补料演示记录。')
+  await expect(detail).toContainText('Black')
+  await expect(detail).toContainText('M')
+  await expect(detail).toContainText('10 件')
+  await expect(detail).toContainText('RELEASE-B')
+  await expect(detail).toContainText('面料 B · 白色条')
+  await expect(detail).toContainText('4.2 yard')
   await expect(detail).toContainText('明细摘要')
   await expect(detail).toContainText('总补料数量')
   await expect(detail).toContainText('裁床主管 王敏')
@@ -358,6 +403,9 @@ test('冷启动直达裁片单可逐张查看并完成关联补料单', async ({
 
   const confirm = page.locator('[data-cutting-piece-supplement-confirm]')
   await expect(confirm).toContainText('SUP-CUT14671-B-002')
+  await expect(confirm).toContainText('第 2 次')
+  await expect(confirm).toContainText('CUT14671-B')
+  await expect(confirm).toContainText('412 件')
   await page.evaluate(() => {
     const regionNames = ['filters', 'filter-state', 'pagination', 'feedback'] as const
     const win = window as typeof window & {
@@ -396,6 +444,10 @@ test('冷启动直达裁片单可逐张查看并完成关联补料单', async ({
   expect(responseMs).toBeLessThan(200)
   await expect(row.getByRole('button', { name: '补 · 第 2 次 · 已完成', exact: true })).toBeVisible()
   await expect(row.getByRole('button', { name: '补 · 第 3 次 · 未完成', exact: true })).toBeVisible()
+  await expect(detail).toContainText('CUT14671-B 第 2 次补料演示记录。')
+  await expect(detail).toContainText('Black')
+  await expect(detail).toContainText('RELEASE-B')
+  await expect(detail).toContainText('412 件')
   await expect(row.locator('td').nth(statusColumnIndex)).toHaveText(mainStageBefore)
   expect(await page.evaluate(() => document.querySelector('main') === (
     window as typeof window & { __supplementCutOrderMain?: Element }
@@ -628,6 +680,13 @@ test('操作栏一次只完成一张未完成补料且全部完成后动作消�
   await expect(dialog.getByRole('heading', { name: '完成补料' })).toBeVisible()
   await expect(dialog.getByRole('radio')).toHaveCount(2)
   await expect(dialog).not.toContainText('SUP-CUT14671-B-001')
+  const secondOption = dialog.getByRole('radio', { name: /第 2 次.*SUP-CUT14671-B-002/ }).locator('xpath=ancestor::label')
+  await expect(secondOption).toContainText('SUP-CUT14671-B-002')
+  await expect(secondOption).toContainText('第 2 次')
+  await expect(secondOption).toContainText('2026-07-22 11:00')
+  await expect(secondOption).toContainText('尺码齐套不足')
+  await expect(secondOption).toContainText('Black/M/10件；Black/M/11件')
+  await expect(secondOption).toContainText('412 件')
   const submit = dialog.getByRole('button', { name: '确认完成' })
   await expect(submit).toBeDisabled()
   const second = dialog.getByRole('radio', { name: /第 2 次.*SUP-CUT14671-B-002/ })
@@ -726,11 +785,16 @@ test('操作栏一次只完成一张未完成补料且全部完成后动作消�
 test('补料完成导致跨页 clamp 时表格分页同步且滚动稳定', async ({ page }) => {
   await openList(page)
   const seeded = await page.evaluate(async () => {
-    const [{ buildCutOrderViewModel }, { cuttingOrderProgressRecords }, registry] = await Promise.all([
+    const [{ buildCutOrderViewModel }, { cuttingOrderProgressRecords }, registry, fixtureRepository] = await Promise.all([
       import('/src/pages/process-factory/cutting/cut-orders-model.ts'),
       import('/src/data/fcs/cutting/order-progress.ts'),
       import('/src/data/fcs/cutting/supplement-order-registry.ts'),
+      import('/src/data/fcs/cutting/cut-order-supplement-fixture.ts'),
     ])
+    registry.resetSupplementOrderRegistryForTesting()
+    fixtureRepository.stableCutOrderSupplementFixtures.slice(1).forEach(({ sequenceNo: _sequenceNo, initialStatus: _initialStatus, ...fixture }) => {
+      registry.registerSupplementOrder(fixture)
+    })
     const rows = buildCutOrderViewModel(cuttingOrderProgressRecords).rows
     const candidates = [...new Map(rows
       .filter((row) => row.cutOrderNo.localeCompare('CUT14671-B', 'zh-CN') < 0)
@@ -742,8 +806,11 @@ test('补料完成导致跨页 clamp 时表格分页同步且滚动稳定', asyn
       cutOrderNo: row.cutOrderNo,
       productionOrderNo: row.productionOrderNo,
       reason: '分页联动验收',
+      reasonDetail: '用于验证完成末页补料后分页回退。',
       totalQty: 1,
       lineSummary: '验收补料 1 件',
+      lines: [{ color: '验收色', size: 'M', supplementQty: 1 }],
+      materialDemands: [{ materialSku: 'MAT-PAGE-001', materialName: '分页验收面料', requiredQty: 1, unit: '米' }],
       createdAt: '2026-07-22 13:00',
       createdBy: '测试主管',
     }))

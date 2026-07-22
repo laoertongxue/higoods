@@ -5,12 +5,17 @@ import { afterEach, test } from 'node:test'
 import {
   completeSupplementOrder,
   getSupplementOrder,
+  listSupplementOrders,
   listSupplementOrdersByCutOrder,
   registerSupplementOrder,
   resetSupplementOrderRegistryForTesting,
   type RegisterSupplementOrderInput,
   type SupplementOrderLifecycle,
 } from '../src/data/fcs/cutting/supplement-order-registry.ts'
+import {
+  fixedSupplementOrderFixtures,
+  ensureFixedSupplementOrderFixturesRegistered,
+} from '../src/data/fcs/cutting/cut-order-supplement-fixture.ts'
 
 type MutableLifecycleForAttack = {
   -readonly [Key in keyof SupplementOrderLifecycle]: SupplementOrderLifecycle[Key]
@@ -34,13 +39,72 @@ function buildInput(
     cutOrderNo: 'CP67942',
     productionOrderNo: 'PO15089',
     reason: '裁片破损需补裁',
+    reasonDetail: '验片发现黑色 M 码前片破损，需要按实际缺口补裁。',
     totalQty: 12,
     lineSummary: '黑色 / M：12 片',
+    lines: [{ color: '黑色', size: 'M', supplementQty: 12 }],
+    materialDemands: [{ materialSku: 'MAT-BLK-001', materialName: '黑色弹力斜纹布', requiredQty: 18.6, unit: '米' }],
     createdAt: '2026-07-22 09:00:00',
     createdBy: '王师傅',
     ...overrides,
   }
 }
+
+test('固定补料 fixture 一次幂等初始化全部 15 条且每张裁片单序号稳定', () => {
+  ensureFixedSupplementOrderFixturesRegistered()
+  ensureFixedSupplementOrderFixturesRegistered()
+
+  assert.equal(fixedSupplementOrderFixtures.length, 15)
+  const grouped = Map.groupBy(fixedSupplementOrderFixtures, (item) => item.cutOrderId)
+  grouped.forEach((fixtures, cutOrderId) => {
+    assert.deepEqual(
+      listSupplementOrdersByCutOrder(cutOrderId).map((item) => item.sequenceNo),
+      fixtures.map((item) => item.sequenceNo),
+    )
+  })
+  assert.equal(
+    fixedSupplementOrderFixtures
+      .map((fixture) => getSupplementOrder(fixture.id))
+      .filter(Boolean).length,
+    15,
+  )
+  assert.deepEqual(
+    listSupplementOrders().map((item) => item.id),
+    fixedSupplementOrderFixtures.map((item) => item.id),
+  )
+})
+
+test('全量列表返回值的嵌套详情也不能反向污染 registry', () => {
+  ensureFixedSupplementOrderFixturesRegistered()
+  const listed = listSupplementOrders()
+  const target = listed[1]
+  ;(target.lines as Array<{ color: string; size: string; supplementQty: number }>)[0].size = '被篡改尺码'
+  ;(target.materialDemands as Array<{ materialSku: string; materialName: string; requiredQty: number; unit: string }>)[0].requiredQty = 999
+
+  assert.notEqual(getSupplementOrder(target.id)?.lines[0].size, '被篡改尺码')
+  assert.notEqual(getSupplementOrder(target.id)?.materialDemands[0].requiredQty, 999)
+})
+
+test('嵌套详情登记、读取和完成后保持完整，深层篡改不污染 registry', () => {
+  const registered = registerSupplementOrder(buildInput())
+  assert.equal(registered.reasonDetail, '验片发现黑色 M 码前片破损，需要按实际缺口补裁。')
+  assert.deepEqual(registered.lines, [{ color: '黑色', size: 'M', supplementQty: 12 }])
+  assert.deepEqual(registered.materialDemands, [{ materialSku: 'MAT-BLK-001', materialName: '黑色弹力斜纹布', requiredQty: 18.6, unit: '米' }])
+
+  ;(registered.lines as Array<{ color: string; size: string; supplementQty: number }>)[0].supplementQty = 999
+  ;(registered.materialDemands as Array<{ materialSku: string; materialName: string; requiredQty: number; unit: string }>)[0].materialName = '被篡改物料'
+
+  const completed = completeSupplementOrder({
+    id: 'supplement-1',
+    completedAt: '2026-07-22 10:30:00',
+    completedBy: '李主管',
+  })
+  assert.deepEqual(completed.lines, [{ color: '黑色', size: 'M', supplementQty: 12 }])
+  assert.deepEqual(completed.materialDemands, [{ materialSku: 'MAT-BLK-001', materialName: '黑色弹力斜纹布', requiredQty: 18.6, unit: '米' }])
+
+  ;(completed.lines as Array<{ color: string; size: string; supplementQty: number }>)[0].color = '被篡改颜色'
+  assert.deepEqual(getSupplementOrder('supplement-1')?.lines, [{ color: '黑色', size: 'M', supplementQty: 12 }])
+})
 
 test('同一裁片单的补料次数递增，并按次数升序返回', () => {
   const firstRegistered = registerSupplementOrder(buildInput({

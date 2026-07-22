@@ -1,5 +1,18 @@
 export type SupplementOrderStatus = '未完成' | '已完成'
 
+export interface SupplementOrderLineFact {
+  readonly color: string
+  readonly size: string
+  readonly supplementQty: number
+}
+
+export interface SupplementOrderMaterialDemandFact {
+  readonly materialSku: string
+  readonly materialName: string
+  readonly requiredQty: number
+  readonly unit: string
+}
+
 export interface SupplementOrderLifecycle {
   readonly id: string
   readonly recordNo: string
@@ -9,8 +22,11 @@ export interface SupplementOrderLifecycle {
   readonly sequenceNo: number
   readonly status: SupplementOrderStatus
   readonly reason: string
+  readonly reasonDetail: string
   readonly totalQty: number
   readonly lineSummary: string
+  readonly lines: ReadonlyArray<SupplementOrderLineFact>
+  readonly materialDemands: ReadonlyArray<SupplementOrderMaterialDemandFact>
   readonly createdAt: string
   readonly createdBy: string
   readonly completedAt: string
@@ -31,7 +47,11 @@ const supplementOrders = new Map<string, MutableSupplementOrderLifecycle>()
 function cloneSupplementOrder(
   order: SupplementOrderLifecycle,
 ): SupplementOrderLifecycle {
-  return { ...order }
+  return {
+    ...order,
+    lines: order.lines.map((line) => ({ ...line })),
+    materialDemands: order.materialDemands.map((demand) => ({ ...demand })),
+  }
 }
 
 function hasSameBusinessIdentity(
@@ -52,6 +72,10 @@ export function listSupplementOrdersByCutOrder(
     .filter((order) => order.cutOrderId === cutOrderId)
     .sort((left, right) => left.sequenceNo - right.sequenceNo)
     .map(cloneSupplementOrder)
+}
+
+export function listSupplementOrders(): ReadonlyArray<SupplementOrderLifecycle> {
+  return [...supplementOrders.values()].map(cloneSupplementOrder)
 }
 
 export function getSupplementOrder(id: string): SupplementOrderLifecycle | undefined {
