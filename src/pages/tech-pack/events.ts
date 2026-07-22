@@ -103,6 +103,7 @@ import {
   syncProcessCostRows,
   syncTechPackToStore,
   partitionBomItemsByType,
+  removeGarmentBomReverseReferences,
   validateGarmentTechniqueBomLinks,
   validateGarmentBomItem,
   toTimestamp,
@@ -4004,6 +4005,15 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
 
     if (state.editBomItemId) {
       state.bomItems = state.bomItems.map((item) => (item.id === state.editBomItemId ? nextBom : item))
+      if (nextBom.type === '成衣') {
+        const cleanedReferences = removeGarmentBomReverseReferences(
+          state.editBomItemId,
+          state.colorMaterialMappings,
+          state.patternItems,
+        )
+        state.colorMaterialMappings = cleanedReferences.colorMaterialMappings
+        state.patternItems = cleanedReferences.patternItems
+      }
     } else {
       state.bomItems = [...state.bomItems, nextBom]
     }

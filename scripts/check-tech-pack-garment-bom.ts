@@ -5,11 +5,13 @@ import {
   partitionBomItemsByType,
   ensurePatternPoolDemoPackages,
   validateGarmentTechniqueBomLinks,
+  removeGarmentBomReverseReferences,
   validateGarmentBomItem,
   type BomItemRow,
 } from '../src/pages/tech-pack/context.ts'
 import { validateTechPackForPublish, type TechPack } from '../src/data/fcs/tech-packs.ts'
-import { selectProductionMaterialBomItems } from '../src/data/fcs/production-artifact-generation.ts'
+import { selectProductionMaterialBomItems } from '../src/data/fcs/production-material-bom.ts'
+import { isCuttingMappingLineEligible } from '../src/data/fcs/cutting/generated-cut-orders.ts'
 import { resolvePrintDemoMaterial } from '../src/data/fcs/printing-task-domain.ts'
 import { resolveDyeDemoMaterial } from '../src/data/fcs/dyeing-task-domain.ts'
 
@@ -90,6 +92,19 @@ assert.deepEqual(resolvePrintDemoMaterial(consumerSnapshot as never, '默认款�
 assert.deepEqual(resolveDyeDemoMaterial(consumerSnapshot as never, '默认款式', '默认色'), {
   materialName: '棉布 / 100% 棉', materialId: 'fabric-second', composition: '100% 棉', targetColor: '米白',
 })
+const cleanedReferences = removeGarmentBomReverseReferences('bom-fabric-1', [{
+  id: 'map-1', lines: [{ id: 'line-1', bomItemId: 'bom-fabric-1' }, { id: 'line-2', bomItemId: 'other' }],
+}], [{ id: 'pattern-1', linkedBomItemId: 'bom-fabric-1' }, { id: 'pattern-2', linkedBomItemId: 'other' }])
+assert.deepEqual(cleanedReferences.colorMaterialMappings[0]?.lines.map((line) => line.id), ['line-2'])
+assert.equal(cleanedReferences.patternItems[0]?.linkedBomItemId, undefined)
+assert.equal(isCuttingMappingLineEligible(consumerSnapshot as never, { bomItemId: 'garment-first' } as never), false)
+assert.equal(isCuttingMappingLineEligible(consumerSnapshot as never, { bomItemId: 'fabric-second' } as never), true)
+assert.deepEqual(selectProductionMaterialBomItems([consumerSnapshot.bomItems[0]]), [])
+assert.equal(
+  ensurePatternPoolDemoPackages([], [normalized]).filter((item) => item.recordKind === 'MATERIAL_ASSOCIATION').length,
+  0,
+  '仅成衣 BOM 时不得生成纸样物料关联',
+)
 
 const bomDomainSource = readFileSync('src/pages/tech-pack/bom-domain.ts', 'utf8')
 assert.match(bomDomainSource, /'包装材料', '成衣', '其他'/)

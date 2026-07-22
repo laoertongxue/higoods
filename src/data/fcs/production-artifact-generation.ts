@@ -37,8 +37,6 @@ import type {
 } from './production-tech-pack-snapshot-types.ts'
 import { selectProductionMaterialBomItems } from './production-material-bom.ts'
 
-export { selectProductionMaterialBomItems } from './production-material-bom.ts'
-
 type TechPackProcessEntry = TechnicalProcessEntry
 type TechPackProcessEntryType = TechnicalProcessEntry['entryType']
 

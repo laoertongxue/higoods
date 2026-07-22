@@ -125,6 +125,15 @@ function findBomItem(techPack: ProductionOrderTechPackSnapshot, line: TechnicalC
   return null
 }
 
+export function isCuttingMappingLineEligible(
+  techPack: Pick<ProductionOrderTechPackSnapshot, 'bomItems'>,
+  line: Pick<TechnicalColorMaterialMappingLine, 'bomItemId'>,
+): boolean {
+  if (!line.bomItemId) return true
+  const referencedBomItem = techPack.bomItems.find((item) => item.id === line.bomItemId)
+  return referencedBomItem?.type !== '成衣'
+}
+
 function resolveMaterialSku(techPack: ProductionOrderTechPackSnapshot, line: TechnicalColorMaterialMappingLine, bomItem: TechnicalBomItem | null): string {
   return normalizeText(line.materialCode) || normalizeText(bomItem?.id) || normalizeText(line.materialName)
 }
@@ -397,6 +406,7 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRe
 
     for (const colorMapping of colorMappings) {
       for (const mappingLine of colorMapping.lines) {
+        if (!isCuttingMappingLineEligible(techPack, mappingLine)) continue
         const applicableSkuCodes = mappingLine.applicableSkuCodes || []
         if (applicableSkuCodes.length > 0 && !applicableSkuCodes.includes(skuLine.skuCode)) continue
 

@@ -293,6 +293,24 @@ export function validateGarmentTechniqueBomLinks(
     : '成衣辅助工艺必须关联至少一条成衣 BOM，且不能保留非成衣 BOM 关联'
 }
 
+export function removeGarmentBomReverseReferences<
+  M extends { lines: Array<{ bomItemId?: string }> },
+  P extends { linkedBomItemId?: string },
+>(bomItemId: string, colorMaterialMappings: M[], patternItems: P[]): {
+  colorMaterialMappings: M[]
+  patternItems: P[]
+} {
+  return {
+    colorMaterialMappings: colorMaterialMappings.map((mapping) => ({
+      ...mapping,
+      lines: mapping.lines.filter((line) => line.bomItemId !== bomItemId),
+    })),
+    patternItems: patternItems.map((pattern) => pattern.linkedBomItemId === bomItemId
+      ? { ...pattern, linkedBomItemId: undefined }
+      : pattern),
+  }
+}
+
 type BomPatternDesignReferenceInput = {
   frontPatternDesignId?: string
   frontPatternDesignIds?: string[]
@@ -1596,7 +1614,7 @@ export function ensurePatternPoolDemoPackages(
   ]
 
   const fabricBomItems = bomItems.filter((item) => item.type !== '成衣')
-  const associationItems = [
+  const associationItems = fabricBomItems.length === 0 ? [] : [
     createMaterialPatternDemoAssociation(packageItems[0], fabricBomItems[0], 0),
     createMaterialPatternDemoAssociation(packageItems[1], fabricBomItems[0], 1),
     createMaterialPatternDemoAssociation(packageItems[2], fabricBomItems[1] ?? fabricBomItems[0], 2),
