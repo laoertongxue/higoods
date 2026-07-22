@@ -166,6 +166,7 @@ interface CutOrdersPageState {
   pendingCompleteCutOrderId: string | null
   selectedIncompleteSupplementId: string | null
   confirmationSupplementId: string | null
+  supplementFeedback: { tone: 'warning' | 'success'; message: string } | null
   page: number
   sort: StandardListSortState | null
   columnPreferences: StandardListColumnPreferences
@@ -215,6 +216,7 @@ const state: CutOrdersPageState = {
   pendingCompleteCutOrderId: null,
   selectedIncompleteSupplementId: null,
   confirmationSupplementId: null,
+  supplementFeedback: null,
   page: 1,
   sort: null,
   columnPreferences: defaultCutOrderListColumnPreferences,
@@ -1418,19 +1420,28 @@ function renderSupplementPicker(cutOrderId: string): string {
   `
 }
 
+function renderSupplementFeedback(): string {
+  if (!state.supplementFeedback) return ''
+  const className = state.supplementFeedback.tone === 'success'
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    : 'border-amber-200 bg-amber-50 text-amber-700'
+  return `<div class="fixed right-5 top-5 z-[70] max-w-md rounded-lg border px-4 py-3 text-sm shadow-lg ${className}" role="status" data-cutting-piece-supplement-feedback>${escapeHtml(state.supplementFeedback.message)}</div>`
+}
+
 function renderCutOrderListOverlay(): string {
   const activeSupplement = state.activeSupplementId ? getSupplementOrder(state.activeSupplementId) : undefined
   const confirmation = state.confirmationSupplementId ? getSupplementOrder(state.confirmationSupplementId) : undefined
-  if (activeSupplement) return `${renderSupplementDetail(activeSupplement)}${confirmation ? renderSupplementConfirmation(confirmation) : ''}`
-  if (state.pendingCompleteCutOrderId) return renderSupplementPicker(state.pendingCompleteCutOrderId)
-  if (!state.columnSettingsOpen) return ''
-  return withSkipPageRerender(renderStandardListColumnSettings({
+  const feedback = renderSupplementFeedback()
+  if (activeSupplement) return `${renderSupplementDetail(activeSupplement)}${confirmation ? renderSupplementConfirmation(confirmation) : ''}${feedback}`
+  if (state.pendingCompleteCutOrderId) return `${renderSupplementPicker(state.pendingCompleteCutOrderId)}${feedback}`
+  if (!state.columnSettingsOpen) return feedback
+  return `${withSkipPageRerender(renderStandardListColumnSettings({
     title: '列设置',
     columns: cutOrderListColumns,
     preferences: state.columnPreferences,
     eventPrefix: 'cutting-piece',
     maxFrozenWidth: cutOrderListMaxFrozenWidth,
-  }))
+  }))}${feedback}`
 }
 
 function setCutOrderRegion(region: string, html: string): void {
@@ -1492,8 +1503,9 @@ function refreshCutOrderOverlay(): void {
 
 function refreshSupplementLinkage(): void {
   const scrollLeft = document.querySelector<HTMLElement>('[data-standard-list-scroll]')?.scrollLeft || 0
-  refreshCutOrderList()
-  refreshCutOrderFeedback()
+  const view = getCutOrderListView()
+  setCutOrderRegion('stats', buildStatsCards(view.filtered))
+  setCutOrderRegion('table', renderCutOrderStandardTable(view.paging))
   refreshCutOrderOverlay()
   const nextScroll = document.querySelector<HTMLElement>('[data-standard-list-scroll]')
   if (nextScroll) nextScroll.scrollLeft = scrollLeft
@@ -2788,6 +2800,7 @@ function renderPage(): string {
     state.pendingCompleteCutOrderId = null
     state.selectedIncompleteSupplementId = null
     state.confirmationSupplementId = null
+    state.supplementFeedback = null
   }
   applyWebActionFromUrl()
   const viewModel = getViewModel()
@@ -3032,14 +3045,15 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
   if (action === 'open-supplement-detail') {
     const supplementId = actionNode.dataset.supplementId || ''
     if (!getSupplementOrder(supplementId)) {
-      setFeedback('warning', '未找到对应补料单，请刷新后重试。')
-      refreshCutOrderFeedback()
+      state.supplementFeedback = { tone: 'warning', message: '未找到对应补料单，请刷新后重试。' }
+      refreshCutOrderOverlay()
       return true
     }
     state.activeSupplementId = supplementId
     state.pendingCompleteCutOrderId = null
     state.selectedIncompleteSupplementId = null
     state.confirmationSupplementId = null
+    state.supplementFeedback = null
     refreshCutOrderOverlay()
     return true
   }
@@ -3050,14 +3064,15 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
     if (!cutOrderId) return false
     const incomplete = listSupplementOrdersByCutOrder(cutOrderId).filter((order) => order.status === '未完成')
     if (!incomplete.length) {
-      setFeedback('warning', '该裁片单没有未完成补料单。')
-      refreshCutOrderFeedback()
+      state.supplementFeedback = { tone: 'warning', message: '该裁片单没有未完成补料单。' }
+      refreshCutOrderOverlay()
       return true
     }
     state.pendingCompleteCutOrderId = cutOrderId
     state.selectedIncompleteSupplementId = null
     state.activeSupplementId = null
     state.confirmationSupplementId = null
+    state.supplementFeedback = null
     refreshCutOrderOverlay()
     return true
   }
@@ -3076,7 +3091,10 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
     const supplementId = actionNode.dataset.supplementId || ''
     const order = getSupplementOrder(supplementId)
     if (!order || order.status !== '未完成') {
-      setFeedback('warning', order ? '该补料单已完成，无需重复操作。' : '未找到对应补料单，请刷新后重试。')
+      state.supplementFeedback = {
+        tone: 'warning',
+        message: order ? '该补料单已完成，无需重复操作。' : '未找到对应补料单，请刷新后重试。',
+      }
       state.confirmationSupplementId = null
       refreshSupplementLinkage()
       return true
@@ -3102,9 +3120,12 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
         completedAt: '2026-07-22 14:30',
         completedBy: '裁床主管 王敏',
       })
-      setFeedback('success', `已完成补料单 ${completed.recordNo}，裁片单主状态保持不变。`)
+      state.supplementFeedback = { tone: 'success', message: `已完成补料单 ${completed.recordNo}，裁片单主状态保持不变。` }
     } catch (error) {
-      setFeedback('warning', error instanceof Error ? error.message : '完成补料单失败，请刷新后重试。')
+      state.supplementFeedback = {
+        tone: 'warning',
+        message: error instanceof Error ? error.message : '完成补料单失败，请刷新后重试。',
+      }
     } finally {
       state.confirmationSupplementId = null
       state.selectedIncompleteSupplementId = null
@@ -3121,6 +3142,7 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
       state.pendingCompleteCutOrderId = null
       state.selectedIncompleteSupplementId = null
     }
+    state.supplementFeedback = null
     refreshCutOrderOverlay()
     return true
   }
