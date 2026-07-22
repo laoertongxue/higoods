@@ -1489,7 +1489,8 @@ function restoreSupplementTriggerFocusWithFallback(completedSupplementId: string
         )
     const completedTag = [...document.querySelectorAll<HTMLElement>('[data-supplement-id]')]
       .find((candidate) => candidate.dataset.supplementId === completedSupplementId)
-    ;(exactTarget || completedTag)?.focus()
+    const completionFilter = document.querySelector<HTMLElement>('[data-cutting-piece-field="supplementCompletion"]')
+    ;(exactTarget || completedTag || completionFilter)?.focus()
   })
 }
 
