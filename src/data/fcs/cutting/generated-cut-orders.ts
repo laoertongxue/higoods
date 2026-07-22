@@ -113,12 +113,13 @@ function toMaterialCategory(materialType: CuttingMaterialType): string {
 }
 
 function findBomItem(techPack: ProductionOrderTechPackSnapshot, line: TechnicalColorMaterialMappingLine): TechPackBomItemSnapshot | null {
+  const materialBomItems = techPack.bomItems.filter((item) => item.type !== '成衣')
   if (line.bomItemId) {
-    const byId = techPack.bomItems.find((item) => item.id === line.bomItemId)
+    const byId = materialBomItems.find((item) => item.id === line.bomItemId)
     if (byId) return byId
   }
   if (line.materialName) {
-    const byName = techPack.bomItems.find((item) => normalizeText(item.name) === normalizeText(line.materialName))
+    const byName = materialBomItems.find((item) => normalizeText(item.name) === normalizeText(line.materialName))
     if (byName) return byName
   }
   return null

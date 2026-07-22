@@ -11,6 +11,8 @@ import {
 import { normalizeBomRequirement } from './bom-process-linkage.ts'
 import { buildPatternSignature, checkDuplicatePattern } from './pattern-duplicate-check.ts'
 import { renderPieceInstanceSpecialCraftDialog } from './pattern-domain.ts'
+import { renderBomFormDialog } from './bom-domain.ts'
+import { renderAddTechniqueDialog } from './process-domain.ts'
 import {
   publishTechnicalDataVersion,
   saveTechnicalDataVersionRecordMeta,
@@ -75,6 +77,7 @@ import {
   getSkuOptionsForCurrentSpu,
   normalizePatternPieceRows,
   normalizePatternBindingStrips,
+  normalizeGarmentBomItem,
   normalizeTechniqueRoutes,
   generatePieceInstancesFromColorQuantities,
   summarizePieceInstances,
@@ -99,6 +102,7 @@ import {
   syncMaterialCostRows,
   syncProcessCostRows,
   syncTechPackToStore,
+  validateGarmentBomItem,
   toTimestamp,
   touchMappingAsManual,
   updateColorMapping,
@@ -115,6 +119,20 @@ import type {
 } from './context.ts'
 
 const PATTERN_IMAGE_PREVIEW_MODAL_ID = 'tech-pack-pattern-image-preview-modal'
+
+function refreshBomFormDialogDom(): void {
+  if (typeof document === 'undefined') return
+  const dialog = document.querySelector<HTMLElement>('[data-testid="tech-pack-bom-form-dialog"]')
+  const html = renderBomFormDialog()
+  if (dialog && html) dialog.outerHTML = html
+}
+
+function refreshTechniqueFormDialogDom(): void {
+  if (typeof document === 'undefined') return
+  const dialog = document.querySelector<HTMLElement>('[data-testid="tech-pack-technique-form-dialog"]')
+  const html = renderAddTechniqueDialog()
+  if (dialog && html) dialog.outerHTML = html
+}
 
 function openProductionChangeEvaluationFromPublishedVersion(
   record: ReturnType<typeof publishTechnicalDataVersion>,
@@ -2213,7 +2231,38 @@ function handleTechPackField(
   }
 
   if (field === 'new-bom-type') {
-    state.newBomItem.type = value
+    state.newBomItem.type = value as BomItemRow['type']
+    if (state.newBomItem.type === '成衣') {
+      const normalized = normalizeGarmentBomItem({
+        ...state.newBomItem,
+        id: state.editBomItemId || 'bom-garment-draft',
+        usage: Number.parseFloat(state.newBomItem.usage) || 0,
+        lossRate: Number.parseFloat(state.newBomItem.lossRate) || 0,
+      })
+      state.newBomItem = {
+        ...state.newBomItem,
+        type: normalized.type,
+        materialCode: normalized.materialCode,
+        materialName: normalized.materialName,
+        spec: normalized.spec,
+        unit: normalized.unit,
+        patternPieces: normalized.patternPieces,
+        linkedPatternIds: normalized.linkedPatternIds,
+        usage: String(normalized.usage),
+        lossRate: String(normalized.lossRate),
+        printRequirement: normalized.printRequirement,
+        waterSolubleRequirement: normalized.waterSolubleRequirement,
+        dyeRequirement: normalized.dyeRequirement,
+        shrinkRequirement: normalized.shrinkRequirement,
+        washRequirement: normalized.washRequirement,
+        printSideMode: normalized.printSideMode,
+        frontPatternDesignId: normalized.frontPatternDesignId,
+        frontPatternDesignIds: normalized.frontPatternDesignIds,
+        insidePatternDesignId: normalized.insidePatternDesignId,
+        insidePatternDesignIds: normalized.insidePatternDesignIds,
+      }
+    }
+    refreshBomFormDialogDom()
     return true
   }
   if (field === 'new-bom-color-label') {
@@ -2226,6 +2275,10 @@ function handleTechPackField(
   }
   if (field === 'new-bom-material-name') {
     state.newBomItem.materialName = value
+    return true
+  }
+  if (field === 'new-bom-remark') {
+    state.newBomItem.remark = value
     return true
   }
   if (field === 'new-bom-spec') {
@@ -2292,8 +2345,15 @@ function handleTechPackField(
   }
   if (field === 'new-bom-apply-all-sku') {
     if (checked) {
-      state.newBomItem.applicableSkuCodes = []
+      const skuOptions = getSkuOptionsForCurrentSpu()
+      state.newBomItem.applicableSkuCodes = state.newBomItem.type === '成衣'
+        ? skuOptions.map((item) => item.skuCode)
+        : []
       state.newBomItem.colorLabel = '全部SKU（当前未区分颜色）'
+    } else if (state.newBomItem.type === '成衣') {
+      const skuOptions = getSkuOptionsForCurrentSpu()
+      state.newBomItem.applicableSkuCodes = skuOptions.length > 0 ? [skuOptions[0].skuCode] : []
+      state.newBomItem.colorLabel = skuOptions[0]?.color || ''
     } else if (state.newBomItem.applicableSkuCodes.length === 0) {
       const skuOptions = getSkuOptionsForCurrentSpu()
       if (skuOptions.length > 0) {
@@ -2303,6 +2363,7 @@ function handleTechPackField(
         }
       }
     }
+    refreshBomFormDialogDom()
     return true
   }
   if (field === 'new-bom-sku') {
@@ -2317,6 +2378,7 @@ function handleTechPackField(
         (code) => code !== skuCode,
       )
     }
+    refreshBomFormDialogDom()
     return true
   }
   if (field === 'new-bom-usage-process') {
@@ -2390,10 +2452,12 @@ function handleTechPackField(
       ...state.newTechnique,
       craftCode: value,
       selectedTargetObject,
+      linkedBomItemIds: [],
       packagingRequired: craft?.craftName === '整件毛织' ? state.newTechnique.packagingRequired : false,
       outputValue: craft ? String(craft.referenceOutputValueValue) : state.newTechnique.outputValue,
       outputValueUnit: craft ? craft.referenceOutputValueUnitLabel : state.newTechnique.outputValueUnit,
     }
+    refreshTechniqueFormDialogDom()
     return true
   }
   if (field === 'new-technique-packaging-required') {
@@ -2402,6 +2466,19 @@ function handleTechPackField(
   }
   if (field === 'new-technique-target-object') {
     state.newTechnique.selectedTargetObject = value as TechPackSpecialCraftTargetObject
+    if (state.newTechnique.selectedTargetObject !== '成衣') state.newTechnique.linkedBomItemIds = []
+    refreshTechniqueFormDialogDom()
+    return true
+  }
+  if (field === 'new-technique-garment-bom') {
+    const bomId = node.dataset.bomId
+    if (!bomId) return true
+    const garmentBomIds = new Set(state.bomItems.filter((item) => item.type === '成衣').map((item) => item.id))
+    if (!garmentBomIds.has(bomId)) return true
+    const nextIds = new Set(state.newTechnique.linkedBomItemIds)
+    if (checked) nextIds.add(bomId)
+    else nextIds.delete(bomId)
+    state.newTechnique.linkedBomItemIds = Array.from(nextIds)
     return true
   }
   if (field === 'new-technique-rule-source') {
@@ -2448,6 +2525,7 @@ function handleTechPackField(
   if (field === 'bom-print') {
     const bomId = node.dataset.bomId
     if (!bomId) return true
+    if (state.bomItems.some((item) => item.id === bomId && item.type === '成衣')) return true
     state.bomItems = state.bomItems.map((item) =>
       item.id === bomId
         ? {
@@ -2471,6 +2549,7 @@ function handleTechPackField(
   if (field === 'bom-dye') {
     const bomId = node.dataset.bomId
     if (!bomId) return true
+    if (state.bomItems.some((item) => item.id === bomId && item.type === '成衣')) return true
     state.bomItems = state.bomItems.map((item) =>
       item.id === bomId ? { ...item, dyeRequirement: value } : item,
     )
@@ -2481,6 +2560,7 @@ function handleTechPackField(
     const bomId = node.dataset.bomId
     if (!bomId) return true
     const current = state.bomItems.find((item) => item.id === bomId)
+    if (current?.type === '成衣') return true
     const nextRequirement = normalizeBomRequirement(value)
     if (current && findBomItemMissingUnitForWaterSoluble([{ ...current, waterSolubleRequirement: nextRequirement }])) {
       window.alert('该物料缺少单位，不能勾选水溶。请先补充物料单位。')
@@ -2496,6 +2576,7 @@ function handleTechPackField(
   if (field === 'bom-shrink') {
     const bomId = node.dataset.bomId
     if (!bomId) return true
+    if (state.bomItems.some((item) => item.id === bomId && item.type === '成衣')) return true
     state.bomItems = state.bomItems.map((item) =>
       item.id === bomId ? { ...item, shrinkRequirement: normalizeBomRequirement(value) } : item,
     )
@@ -2505,6 +2586,7 @@ function handleTechPackField(
   if (field === 'bom-wash') {
     const bomId = node.dataset.bomId
     if (!bomId) return true
+    if (state.bomItems.some((item) => item.id === bomId && item.type === '成衣')) return true
     state.bomItems = state.bomItems.map((item) =>
       item.id === bomId ? { ...item, washRequirement: normalizeBomRequirement(value) } : item,
     )
@@ -3811,6 +3893,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       frontPatternDesignIds: getBomPatternDesignIds(bom, 'FRONT'),
       insidePatternDesignId: getPrimaryBomPatternDesignId(bom, 'INSIDE'),
       insidePatternDesignIds: getBomPatternDesignIds(bom, 'INSIDE'),
+      remark: bom.remark || '',
     }
     state.addBomDialogOpen = true
     return true
@@ -3853,7 +3936,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       : null
     const linkedPatternIds = editingBom ? [...editingBom.linkedPatternIds] : []
     const patternPieces = editingBom ? [...editingBom.patternPieces] : []
-    const nextBom: BomItemRow = {
+    const nextBom = normalizeGarmentBomItem({
       id: state.editBomItemId || `bom-${Date.now()}`,
       type: state.newBomItem.type,
       colorLabel: (() => {
@@ -3908,6 +3991,13 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         state.newBomItem.printRequirement === '无'
           ? []
           : insidePatternDesignIds,
+      remark: state.newBomItem.remark,
+    } satisfies BomItemRow)
+
+    const garmentValidationMessage = validateGarmentBomItem(nextBom)
+    if (garmentValidationMessage) {
+      window.alert(garmentValidationMessage)
+      return true
     }
 
     if (state.editBomItemId) {
@@ -4089,6 +4179,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       baselineProcessCode: target.entryType === 'PROCESS_BASELINE' ? target.processCode : '',
       craftCode: target.entryType === 'CRAFT' ? target.craftCode : '',
       selectedTargetObject: target.selectedTargetObject || '',
+      linkedBomItemIds: target.selectedTargetObject === '成衣' ? [...(target.linkedBomItemIds ?? [])] : [],
       packagingRequired: Boolean(target.packagingRequired),
       ruleSource: target.ruleSource,
       assignmentGranularity: target.assignmentGranularity,
@@ -4180,6 +4271,10 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const effectiveMeta = immutablePrepMeta ?? selectedMeta
 
     if (effectiveMeta.isSpecialCraft) {
+      if (effectiveMeta.selectedTargetObject === '成衣' && state.newTechnique.linkedBomItemIds.length === 0) {
+        window.alert('成衣辅助工艺必须关联至少一条成衣 BOM')
+        return true
+      }
       const duplicate = state.techniques.some((item) =>
         item.id !== state.editTechniqueId
         && item.entryType === 'CRAFT'
@@ -4240,7 +4335,9 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       requiresFeiTicket: effectiveMeta.requiresFeiTicket,
       packagingRequired: effectiveMeta.packagingRequired,
       materialIssueMode: effectiveMeta.materialIssueMode,
-      linkedBomItemIds: effectiveMeta.linkedBomItemIds ? [...effectiveMeta.linkedBomItemIds] : undefined,
+      linkedBomItemIds: effectiveMeta.selectedTargetObject === '成衣'
+        ? [...state.newTechnique.linkedBomItemIds]
+        : effectiveMeta.linkedBomItemIds ? [...effectiveMeta.linkedBomItemIds] : undefined,
       linkedPatternIds: effectiveMeta.linkedPatternIds ? [...effectiveMeta.linkedPatternIds] : undefined,
       supportedTargetObjects: effectiveMeta.supportedTargetObjects ? [...effectiveMeta.supportedTargetObjects] : undefined,
       supportedTargetObjectLabels: effectiveMeta.supportedTargetObjectLabels ? [...effectiveMeta.supportedTargetObjectLabels] : undefined,

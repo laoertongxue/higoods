@@ -710,7 +710,9 @@ function generateBomDrivenPrepArtifactsForEntry(
   if (entry.processCode !== 'WATER_SOLUBLE') return []
 
   const linkedBomItemIds = [...new Set(entry.linkedBomItemIds ?? [])]
-  const bomItemById = new Map(snapshot.bomItems.map((item) => [item.id, item]))
+  const bomItemById = new Map(
+    snapshot.bomItems.filter((item) => item.type !== '成衣').map((item) => [item.id, item]),
+  )
   const context = resolveEntryContext(order.productionOrderId, entry, entryIndex)
   context.orderQty = order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
   context.techPackId = snapshot.sourceTechPackVersionId

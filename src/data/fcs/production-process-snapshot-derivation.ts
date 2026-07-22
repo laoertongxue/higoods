@@ -41,6 +41,9 @@ export function deriveFormalProductionOrderProcessSnapshots(
     const bomItems = linkedBomItemIds.map((bomItemId) => {
       const bomItem = techPackSnapshot.bomItems.find((item) => item.id === bomItemId)
       if (!bomItem) throw new Error(`生产单 ${order.productionOrderNo} 的${processLabel}工艺绑定了不存在的 BOM：${bomItemId}`)
+      if (bomItem.type === '成衣') {
+        throw new Error(`生产单 ${order.productionOrderNo} 的${processLabel}工艺不能绑定成衣 BOM：${bomItemId}`)
+      }
       return bomItem
     })
     const missingMaterialCodeItem = bomItems.find((item) => !item.materialCode?.trim())

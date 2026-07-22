@@ -126,12 +126,15 @@ function resolveMaterialCandidates(
   processCode: string,
   orderSkuCodes: string[],
 ): MaterialCandidate[] {
-  const filteredByProcess = bomItems.filter((item) => {
+  const eligibleBomItems = ['CUT', 'CUTTING', 'DYE', 'PRINT', 'WATER_SOLUBLE'].includes(processCode)
+    ? bomItems.filter((item) => item.type !== '成衣')
+    : bomItems
+  const filteredByProcess = eligibleBomItems.filter((item) => {
     if (!item.usageProcessCodes || item.usageProcessCodes.length === 0) return true
     return item.usageProcessCodes.includes(processCode)
   })
 
-  const scopedBomItems = filteredByProcess.length > 0 ? filteredByProcess : bomItems
+  const scopedBomItems = filteredByProcess.length > 0 ? filteredByProcess : eligibleBomItems
 
   const rows = scopedBomItems.map((item) => {
     const applicableSkuCodes =

@@ -215,7 +215,7 @@ type CraftOption = {
 
 type BomItemRow = {
   id: string
-  type: string
+  type: '面料' | '辅料' | '包装材料' | '成衣' | '其他'
   colorLabel: string
   materialCode: string
   materialName: string
@@ -237,6 +237,48 @@ type BomItemRow = {
   frontPatternDesignIds: string[]
   insidePatternDesignId: string
   insidePatternDesignIds: string[]
+  remark?: string
+}
+
+export function normalizeGarmentBomItem(item: BomItemRow): BomItemRow {
+  if (item.type !== '成衣') return item
+  return {
+    ...item,
+    materialName: '成衣',
+    materialCode: '',
+    spec: '',
+    unit: '件',
+    patternPieces: [],
+    linkedPatternIds: [],
+    usage: 1,
+    lossRate: 0,
+    printRequirement: '无',
+    waterSolubleRequirement: '否',
+    dyeRequirement: '无',
+    shrinkRequirement: '否',
+    washRequirement: '否',
+    printSideMode: '',
+    frontPatternDesignId: '',
+    frontPatternDesignIds: [],
+    insidePatternDesignId: '',
+    insidePatternDesignIds: [],
+    remark: item.remark || '',
+  }
+}
+
+export function validateGarmentBomItem(item: BomItemRow): string {
+  if (item.type !== '成衣') return ''
+  return item.applicableSkuCodes.length > 0 ? '' : '成衣 BOM 必须选择至少一个适用 SKU'
+}
+
+export function partitionBomItemsByType<T extends Pick<BomItemRow, 'type'>>(bomItems: T[]): {
+  materialBomItems: T[]
+  garmentBomItems: T[]
+} {
+  return {
+    materialBomItems: bomItems.filter((item) => item.type !== '成衣'),
+    garmentBomItems: bomItems.filter((item) => item.type === '成衣'),
+  }
 }
 
 type BomPatternDesignReferenceInput = {
@@ -719,6 +761,7 @@ function createEmptyBomFormState(): TechPackPageState['newBomItem'] {
     frontPatternDesignIds: [],
     insidePatternDesignId: '',
     insidePatternDesignIds: [],
+    remark: '',
   }
 }
 
@@ -1825,7 +1868,7 @@ interface TechPackPageState {
   patternTemplateSearchKeyword: string
   newPattern: PatternFormState
   newBomItem: {
-    type: string
+    type: BomItemRow['type']
     colorLabel: string
     materialCode: string
     materialName: string
@@ -1847,6 +1890,7 @@ interface TechPackPageState {
     frontPatternDesignIds: string[]
     insidePatternDesignId: string
     insidePatternDesignIds: string[]
+    remark: string
   }
   newTechnique: {
     stageCode: '' | 'PREP' | 'PROD' | 'POST'
@@ -1855,6 +1899,7 @@ interface TechPackPageState {
     baselineProcessCode: string
     craftCode: string
     selectedTargetObject: TechPackSpecialCraftTargetObject | ''
+    linkedBomItemIds: string[]
     packagingRequired: boolean
     ruleSource: TechPackRuleSource
     assignmentGranularity: TechPackAssignmentGranularity
@@ -1965,6 +2010,7 @@ const state: TechPackPageState = {
     baselineProcessCode: '',
     craftCode: '',
     selectedTargetObject: '',
+    linkedBomItemIds: [],
     packagingRequired: false,
     ruleSource: 'INHERIT_PROCESS',
     assignmentGranularity: 'ORDER',
@@ -2308,11 +2354,13 @@ function isBomDrivenPrepTechnique(
 }
 
 function hasPrintDemand(bomItems: BomItemRow[]): boolean {
-  return bomItems.some((item) => (item.printRequirement || '无') !== '无')
+  return partitionBomItemsByType(bomItems).materialBomItems
+    .some((item) => (item.printRequirement || '无') !== '无')
 }
 
 function hasDyeDemand(bomItems: BomItemRow[]): boolean {
-  return bomItems.some((item) => (item.dyeRequirement || '无') !== '无')
+  return partitionBomItemsByType(bomItems).materialBomItems
+    .some((item) => (item.dyeRequirement || '无') !== '无')
 }
 
 function syncBomDrivenPrepTechniques(
@@ -2787,7 +2835,7 @@ function buildBomColorOptions(
     })
   }
 
-  bomItems.forEach((item) => {
+  partitionBomItemsByType(bomItems).materialBomItems.forEach((item) => {
     const explicitColorName = String(item.colorLabel || '').trim()
     const applicableSkuCodes =
       item.applicableSkuCodes.length > 0 ? item.applicableSkuCodes : skuOptions.map((sku) => sku.skuCode)
@@ -4285,9 +4333,9 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
     const namesFromLinkedBom = patternNamesByLinkedBom.get(item.id) ?? []
     const patternPieces = dedupeStrings([...namesFromLinkedIds, ...namesFromLinkedBom])
 
-    return {
+    return normalizeGarmentBomItem({
       id: item.id || `bom-${index + 1}`,
-      type: item.type,
+      type: item.type as BomItemRow['type'],
       colorLabel: item.colorLabel || '',
       materialCode: item.materialCode || item.id || `MAT-${index + 1}`,
       materialName: item.name,
@@ -4309,7 +4357,8 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       frontPatternDesignIds: getBomPatternDesignIds(item, 'FRONT'),
       insidePatternDesignId: getPrimaryBomPatternDesignId(item, 'INSIDE'),
       insidePatternDesignIds: getBomPatternDesignIds(item, 'INSIDE'),
-    }
+      remark: item.remark || '',
+    })
   })
 }
 
@@ -4556,7 +4605,7 @@ function buildTechniquesFromTechPack(
 function buildMaterialCostRows(bomItems: BomItemRow[], techPack: TechPack): MaterialCostRow[] {
   const costByBomItemId = new Map((techPack.materialCostItems ?? []).map((item) => [item.bomItemId, item]))
 
-  return bomItems.map((item) => ({
+  return partitionBomItemsByType(bomItems).materialBomItems.map((item) => ({
     id: item.id,
     materialName: item.materialName,
     spec: item.spec,
@@ -4601,7 +4650,7 @@ function buildCustomCostRows(techPack: TechPack): CustomCostRow[] {
 function syncMaterialCostRows(): void {
   const currentById = new Map(state.materialCostRows.map((row) => [row.id, row]))
 
-  state.materialCostRows = state.bomItems.map((item) => {
+  state.materialCostRows = partitionBomItemsByType(state.bomItems).materialBomItems.map((item) => {
     const current = currentById.get(item.id)
     if (!current) {
       return {
@@ -4987,15 +5036,18 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
           item.usageProcessCodes.length > 0
             ? dedupeStrings([...item.usageProcessCodes])
             : undefined,
+        remark: item.remark || undefined,
       }
     }),
-    materialCostItems: state.materialCostRows.map((row) => ({
-      id: `MC-${row.id}`,
-      bomItemId: row.id,
-      price: Number.parseFloat(row.price) || 0,
-      currency: row.currency,
-      unit: row.unit,
-    })),
+    materialCostItems: state.materialCostRows
+      .filter((row) => state.bomItems.some((item) => item.id === row.id && item.type !== '成衣'))
+      .map((row) => ({
+        id: `MC-${row.id}`,
+        bomItemId: row.id,
+        price: Number.parseFloat(row.price) || 0,
+        currency: row.currency,
+        unit: row.unit,
+      })),
     processCostItems: state.processCostRows.map((row) => ({
       id: `PC-${row.id}`,
       processId: row.id,
@@ -5221,6 +5273,8 @@ function resetTechniqueForm(): void {
     baselineProcessCode: '',
     craftCode: '',
     selectedTargetObject: '',
+    linkedBomItemIds: [],
+    packagingRequired: false,
     ruleSource: 'INHERIT_PROCESS',
     assignmentGranularity: 'ORDER',
     detailSplitMode: 'COMPOSITE',

@@ -10,6 +10,7 @@ import {
   isBomDrivenPrepTechnique,
   isPrepStage,
   isTechPackModuleReadOnly,
+  partitionBomItemsByType,
   stageCodeToName,
   stageOptions,
   state,
@@ -384,10 +385,13 @@ function renderProcessRouteBatchTable(): string {
 }
 
 function renderProcessRouteRelations(): string {
-  const bomById = new Map(state.bomItems.map((item) => [item.id, item]))
+  const { materialBomItems, garmentBomItems } = partitionBomItemsByType(state.bomItems)
+  const materialBomById = new Map(materialBomItems.map((item) => [item.id, item]))
+  const garmentBomById = new Map(garmentBomItems.map((item) => [item.id, item]))
   const patternById = new Map(state.patternItems.map((item) => [item.id, item]))
   const rows = state.techniques.flatMap((item) => {
     const itemRows: Array<{ process: string; source: string; detail: string }> = []
+    const bomById = item.selectedTargetObject === '成衣' ? garmentBomById : materialBomById
     const bomNames = (item.linkedBomItemIds ?? [])
       .map((id) => {
         const bom = bomById.get(id)
@@ -408,7 +412,7 @@ function renderProcessRouteRelations(): string {
     if (item.isSpecialCraft || item.selectedTargetObject || item.targetObjectName) {
       itemRows.push({
         process: item.technique,
-        source: '裁片部位工艺',
+        source: item.selectedTargetObject === '成衣' ? '成衣辅助工艺' : '裁片部位工艺',
         detail: item.selectedTargetObject || item.targetObjectName || '按工序对象承接',
       })
     }
@@ -524,6 +528,7 @@ export function renderAddTechniqueDialog(): string {
   )
   const selectedCraft = availableCraftOptions.find((item) => item.craftCode === state.newTechnique.craftCode) ?? null
   const targetOptions = selectedCraft?.isSpecialCraft ? selectedCraft.supportedTargetObjectLabels ?? [] : []
+  const garmentBomItems = partitionBomItemsByType(state.bomItems).garmentBomItems
   const isWoolCraft = selectedCraft?.processCode === 'WOOL'
   const isWholeWool = selectedCraft?.craftName === '整件毛织'
   const woolDownstream = selectedCraft?.craftName === '部位毛织' ? '裁床待交出仓' : '后道工厂'
@@ -534,7 +539,7 @@ export function renderAddTechniqueDialog(): string {
       : '暂无平台参考'
 
   return `
-    <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
+    <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true" data-testid="tech-pack-technique-form-dialog">
       <section class="w-full max-w-lg rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">${isEdit ? '编辑工序配置' : '新增工序配置'}</h3>
@@ -589,6 +594,31 @@ export function renderAddTechniqueDialog(): string {
                         </select>`
                   }
                 </label>
+              `
+              : ''
+          }
+
+          ${
+            selectedCraft?.isSpecialCraft && state.newTechnique.selectedTargetObject === '成衣'
+              ? `
+                <div class="space-y-2">
+                  <span class="text-sm">关联成衣 BOM <span class="text-red-500">*</span></span>
+                  ${
+                    garmentBomItems.length === 0
+                      ? '<div class="rounded-md border border-dashed px-3 py-2 text-sm text-amber-700">请先在物料清单新增成衣 BOM</div>'
+                      : `<div class="space-y-2 rounded-md border p-3">
+                          ${garmentBomItems.map((item) => `
+                            <label class="flex items-start gap-2 text-sm">
+                              <input type="checkbox" class="mt-0.5" data-tech-field="new-technique-garment-bom" data-bom-id="${escapeHtml(item.id)}" ${state.newTechnique.linkedBomItemIds.includes(item.id) ? 'checked' : ''} />
+                              <span>
+                                <span class="block font-medium">${escapeHtml(item.materialName)}</span>
+                                <span class="text-xs text-muted-foreground">适用 ${item.applicableSkuCodes.length} 个 SKU</span>
+                              </span>
+                            </label>
+                          `).join('')}
+                        </div>`
+                  }
+                </div>
               `
               : ''
           }

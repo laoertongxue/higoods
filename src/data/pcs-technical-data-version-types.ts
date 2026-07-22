@@ -379,9 +379,11 @@ export interface TechnicalSizeRow {
   tolerance: number
 }
 
+export type TechnicalBomItemType = '面料' | '辅料' | '包装材料' | '成衣' | '其他'
+
 export interface TechnicalBomItem {
   id: string
-  type: string
+  type: TechnicalBomItemType
   name: string
   spec: string
   materialCode?: string
@@ -403,6 +405,7 @@ export interface TechnicalBomItem {
   applicableSkuCodes?: string[]
   linkedPatternIds?: string[]
   usageProcessCodes?: string[]
+  remark?: string
 }
 
 export interface TechnicalColorMaterialMappingLine {
