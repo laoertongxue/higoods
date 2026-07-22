@@ -10,6 +10,7 @@ import {
 } from './process-craft-dict.ts'
 import {
   getDefaultSpecialCraftTargetObject,
+  getSpecialCraftFlowRule,
   getSpecialCraftOperationByCraftCode,
   isSpecialCraftTargetObjectSupported,
   listEnabledAuxiliaryCraftOperationDefinitions,
@@ -173,9 +174,9 @@ function resolveSelectedTargetObject(
 }
 
 function getDemandLineUnit(targetObject: SpecialCraftTargetObject): string {
-  if (targetObject === '已裁部位' || targetObject === '裁片') return '片'
-  if (targetObject === '完整面料' || targetObject === '面料') return '米'
-  return '件'
+  if (targetObject === '裁片') return getSpecialCraftFlowRule('已裁部位').unit
+  if (targetObject === '面料') return getSpecialCraftFlowRule('完整面料').unit
+  return getSpecialCraftFlowRule(targetObject).unit
 }
 
 function validateSpecialCraftReference(
@@ -415,6 +416,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
         const operation = reference.operation
         if (!operation || !operationIdSet.has(operation.operationId)) return
         const selectedTargetObject = reference.selectedTargetObject || operation.targetObject
+        if (selectedTargetObject === '成衣') return
 
         colorAllocations.forEach((allocation) => {
           const pieceCountPerGarment = Number(allocation.pieceCount)
@@ -505,8 +507,8 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
       const craftCode = normalizeText(entry.craftCode)
       const entryId = normalizeText(entry.id) || craftCode
       const partName = '成衣'
-      const patternFileId = `GARMENT-${entryId}`
-      const pieceRowId = `GARMENT-${entryId}`
+      const patternFileId = ''
+      const pieceRowId = ''
       const reference = validateSpecialCraftReference(
         productionOrder,
         techPackSnapshot,
@@ -527,41 +529,64 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
       if (!operation || !operationIdSet.has(operation.operationId)) return
       const selectedTargetObject = reference.selectedTargetObject || operation.targetObject
 
-      productionOrder.demandSnapshot.skuLines.forEach((orderLine) => {
-        const orderQty = Number(orderLine.qty)
-        if (!Number.isFinite(orderQty) || orderQty <= 0) return
-        const demandLine: SpecialCraftTaskDemandLine = {
-          demandLineId: `SCDL-${stableHash([productionOrder.productionOrderId, entryId, operation.operationId, selectedTargetObject, orderLine.skuCode].join('|'))}`,
-          taskOrderId: '',
+      const linkedBomItemIds = new Set(entry.linkedBomItemIds ?? [])
+      const garmentBom = techPackSnapshot.bomItems.find(
+        (item) => item.type === '成衣' && linkedBomItemIds.has(item.id),
+      )
+      if (!garmentBom) {
+        errors.push(buildBlockingError({
           productionOrderId: productionOrder.productionOrderId,
           productionOrderNo,
-          patternFileId,
-          patternFileName: '成衣',
-          pieceRowId,
+          patternFileId: '',
+          pieceRowId: '',
           partName,
-          colorName: orderLine.color,
-          colorCode: orderLine.color,
-          sizeCode: orderLine.size,
-          pieceCountPerGarment: 1,
-          orderQty,
-          planPieceQty: orderQty,
-          specialCraftKey: `${operation.managementDomain}:${operation.processCode}:${operation.craftCode}:${selectedTargetObject}`,
-          operationId: operation.operationId,
           operationName: operation.operationName,
-          managementDomain: operation.managementDomain,
-          managementDomainName: operation.managementDomainName,
-          processCode: operation.processCode,
-          processName: operation.processName,
-          craftCode: operation.craftCode,
-          craftName: operation.craftName,
-          targetObject: selectedTargetObject,
-          unit: getDemandLineUnit(selectedTargetObject),
-          feiTicketNos: [],
-          remark: entry.remark || '纯色 T-shirt 成衣烫画，按 SKU 件数执行。',
-        }
-        errors.push(...validateSpecialCraftDemandLine(demandLine))
-        demandLines.push(demandLine)
-      })
+          errorType: '成衣BOM缺失',
+          errorMessage: `${operation.operationName}成衣加工缺少成衣 BOM`,
+          blocking: true,
+        }))
+        return
+      }
+
+      const applicableSkuCodes = new Set(garmentBom.applicableSkuCodes ?? [])
+      productionOrder.demandSnapshot.skuLines
+        .filter((orderLine) => applicableSkuCodes.has(orderLine.skuCode))
+        .forEach((orderLine) => {
+          const orderQty = Number(orderLine.qty)
+          if (!Number.isFinite(orderQty) || orderQty <= 0) return
+          const demandLine: SpecialCraftTaskDemandLine = {
+            demandLineId: `SCDL-${stableHash([productionOrder.productionOrderId, entryId, operation.operationId, selectedTargetObject, orderLine.skuCode].join('|'))}`,
+            taskOrderId: '',
+            productionOrderId: productionOrder.productionOrderId,
+            productionOrderNo,
+            patternFileId,
+            patternFileName: '',
+            pieceRowId,
+            partName,
+            colorName: orderLine.color,
+            colorCode: orderLine.color,
+            sizeCode: orderLine.size,
+            pieceCountPerGarment: 1,
+            orderQty,
+            planPieceQty: orderQty,
+            specialCraftKey: `${operation.managementDomain}:${operation.processCode}:${operation.craftCode}:${selectedTargetObject}`,
+            operationId: operation.operationId,
+            operationName: operation.operationName,
+            managementDomain: operation.managementDomain,
+            managementDomainName: operation.managementDomainName,
+            processCode: operation.processCode,
+            processName: operation.processName,
+            craftCode: operation.craftCode,
+            craftName: operation.craftName,
+            targetObject: selectedTargetObject,
+            unit: getDemandLineUnit(selectedTargetObject),
+            feiTicketNos: [],
+            sourceBomItemId: garmentBom.id,
+            remark: entry.remark || `${operation.operationName}成衣加工，按成衣 BOM 适用 SKU 件数执行。`,
+          }
+          errors.push(...validateSpecialCraftDemandLine(demandLine))
+          demandLines.push(demandLine)
+        })
     })
 
   return {
@@ -654,8 +679,8 @@ function mergeDemandLinesIntoTaskOrder(input: {
 }): SpecialCraftTaskOrder {
   const { order, snapshot, operation, demandLines, generationBatchId, generationKey, taskIndex, existingTask } = input
   const planQty = demandLines.reduce((sum, line) => sum + line.planPieceQty, 0)
-  const sourcePieceRowIds = unique(demandLines.map((line) => line.pieceRowId))
-  const sourcePatternFileIds = unique(demandLines.map((line) => line.patternFileId))
+  const sourcePieceRowIds = unique(demandLines.map((line) => line.pieceRowId).filter(Boolean))
+  const sourcePatternFileIds = unique(demandLines.map((line) => line.patternFileId).filter(Boolean))
   const sourceSpecialCraftKeys = unique(demandLines.map((line) => line.specialCraftKey))
   const partName = summarizeSingleValue(demandLines.map((line) => line.partName), `${sourcePieceRowIds.length}个部位`)
   const fabricColor = summarizeSingleValue(demandLines.map((line) => line.colorName), '多颜色')

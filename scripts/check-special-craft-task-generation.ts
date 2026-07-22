@@ -144,8 +144,8 @@ assert(demandBuildResult.demandLines.every((line) => line.sizeCode.trim().length
 assert(demandBuildResult.demandLines.every((line) => Number(line.pieceCountPerGarment) > 0), '任务明细必须包含每件片数')
 assert(demandBuildResult.demandLines.every((line) => Number(line.orderQty) > 0), '任务明细必须包含生产数量')
 assert(demandBuildResult.demandLines.every((line) => line.planPieceQty === line.pieceCountPerGarment * line.orderQty), '计划片数必须等于每件片数乘生产数量')
-assert(demandBuildResult.demandLines.every((line) => line.patternFileId.trim().length > 0 && line.patternFileName.trim().length > 0), '任务明细必须包含来源纸样')
-assert(demandBuildResult.demandLines.every((line) => line.pieceRowId.trim().length > 0), '任务明细必须包含来源裁片明细')
+assert(demandBuildResult.demandLines.every((line) => line.targetObject === '成衣' || (line.patternFileId.trim().length > 0 && line.patternFileName.trim().length > 0)), '裁片任务明细必须包含来源纸样')
+assert(demandBuildResult.demandLines.every((line) => line.targetObject === '成衣' || line.pieceRowId.trim().length > 0), '裁片任务明细必须包含来源裁片明细')
 assert(demandBuildResult.demandLines.every((line) => Array.isArray(line.feiTicketNos) && line.feiTicketNos.length === 0), '任务生成时菲票字段必须允许为空')
 assert(demandBuildResult.demandLines.every((line) => line.targetObject === '已裁部位' || line.targetObject === '完整面料' || line.targetObject === '裁片' || line.targetObject === '面料' || line.targetObject === '成衣'), '任务明细必须承接技术包选择的作用对象')
 
@@ -160,8 +160,23 @@ assert(garmentSnapshot, '成衣烫画生产单缺少技术包快照')
 const legacyGarmentSnapshot = JSON.parse(JSON.stringify(garmentSnapshot)) as typeof garmentSnapshot
 const legacyGarmentEntry = legacyGarmentSnapshot.processEntries.find((entry) => entry.craftName === '烫画')
 assert(legacyGarmentEntry, '成衣烫画技术包快照缺少烫画工艺')
+const legacySourceBom = legacyGarmentSnapshot.bomItems[0]
+const legacyApplicableSku = garmentOrder.demandSnapshot.skuLines[0]
+assert(legacySourceBom && legacyApplicableSku, '成衣烫画旧快照迁移用例缺少 BOM 或生产 SKU')
+const legacyGarmentBomId = 'BOM-LEGACY-GARMENT'
+legacyGarmentSnapshot.bomItems.push({
+  ...legacySourceBom,
+  id: legacyGarmentBomId,
+  type: '成衣',
+  name: '成衣',
+  unit: '件',
+  unitConsumption: 1,
+  lossRate: 0,
+  applicableSkuCodes: [legacyApplicableSku.skuCode],
+})
 ;(legacyGarmentEntry as unknown as { selectedTargetObject: string }).selectedTargetObject = '成衣半成品'
 ;(legacyGarmentEntry as unknown as { supportedTargetObjectLabels: string[] }).supportedTargetObjectLabels = ['已裁部位', '成衣半成品']
+legacyGarmentEntry.linkedBomItemIds = [legacyGarmentBomId]
 const migratedGarmentDemand = buildSpecialCraftTaskDemandLinesFromProductionOrder({
   productionOrder: garmentOrder,
   techPackSnapshot: legacyGarmentSnapshot,
@@ -175,6 +190,101 @@ const resolvedGarmentEntry = resolveTechPackProcessEntryRule(legacyGarmentEntry)
 assert.equal(resolvedGarmentEntry.selectedTargetObject, '成衣', '新保存工艺作用对象必须为成衣')
 assert.deepEqual(resolvedGarmentEntry.supportedTargetObjectLabels, ['已裁部位', '成衣'], '新保存支持对象不得写回旧标签')
 assert(!JSON.stringify(resolvedGarmentEntry).includes('成衣半成品'), '规范化工艺不得包含旧标签')
+
+const directPrintDefinition = listActiveProcessCraftDefinitions().find((definition) => definition.craftName === '直喷')
+const heatTransferDefinition = listActiveProcessCraftDefinitions().find((definition) => definition.craftName === '烫画')
+assert(directPrintDefinition && heatTransferDefinition, '双对象生成用例缺少直喷或烫画字典')
+const dualTargetSnapshot = JSON.parse(JSON.stringify(snapshot)) as typeof snapshot
+const dualTargetOrder = JSON.parse(JSON.stringify(sampleOrder)) as typeof sampleOrder
+const applicableSku = dualTargetOrder.demandSnapshot.skuLines[0]
+assert(applicableSku, '双对象生成用例缺少生产 SKU 数量')
+const sourceBom = dualTargetSnapshot.bomItems[0]
+assert(sourceBom, '双对象生成用例缺少可复制的 BOM 行')
+const garmentBomId = 'BOM-DUAL-TARGET-GARMENT'
+dualTargetSnapshot.bomItems.push({
+  ...sourceBom,
+  id: garmentBomId,
+  type: '成衣',
+  name: '成衣',
+  unit: '件',
+  unitConsumption: 1,
+  lossRate: 0,
+  applicableSkuCodes: [applicableSku.skuCode],
+})
+dualTargetSnapshot.processEntries = dualTargetSnapshot.processEntries
+  .filter((entry) => entry.craftName !== '直喷' && entry.craftName !== '烫画')
+  .concat([
+    {
+      ...legacyGarmentEntry,
+      id: 'ENTRY-DUAL-HEAT-TRANSFER-GARMENT',
+      craftCode: heatTransferDefinition.craftCode,
+      craftName: '烫画',
+      selectedTargetObject: '成衣',
+      linkedBomItemIds: [garmentBomId],
+    },
+    {
+      ...legacyGarmentEntry,
+      id: 'ENTRY-DUAL-DIRECT-PRINT-GARMENT',
+      craftCode: directPrintDefinition.craftCode,
+      craftName: '直喷',
+      selectedTargetObject: '成衣',
+      linkedBomItemIds: [garmentBomId],
+    },
+  ])
+const dualTargetPiece = dualTargetSnapshot.patternFiles
+  .flatMap((patternFile) => patternFile.pieceRows)
+  .find((pieceRow) => pieceRow.name && (pieceRow.colorAllocations ?? []).some((allocation) => allocation.pieceCount > 0))
+assert(dualTargetPiece, '双对象生成用例缺少真实纸样裁片和颜色片数')
+dualTargetPiece.specialCrafts = [
+  {
+    processCode: 'SPECIAL_CRAFT',
+    processName: '辅助工艺',
+    craftCode: heatTransferDefinition.craftCode,
+    craftName: '烫画',
+    displayName: '烫画',
+    selectedTargetObject: '已裁部位',
+    supportedTargetObjects: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'],
+    supportedTargetObjectLabels: ['已裁部位', '成衣'],
+  },
+  {
+    processCode: 'SPECIAL_CRAFT',
+    processName: '辅助工艺',
+    craftCode: directPrintDefinition.craftCode,
+    craftName: '直喷',
+    displayName: '直喷',
+    selectedTargetObject: '已裁部位',
+    supportedTargetObjects: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'],
+    supportedTargetObjectLabels: ['已裁部位', '成衣'],
+  },
+]
+const dualTargetResult = generateSpecialCraftTaskOrdersFromProductionOrder({
+  productionOrder: dualTargetOrder,
+  techPackSnapshot: dualTargetSnapshot,
+})
+assert.equal(dualTargetResult.errors.length, 0, '直喷和烫画双对象快照不应产生阻塞错误')
+for (const craftName of ['直喷', '烫画'] as const) {
+  const craftTasks = dualTargetResult.taskOrders.filter((task) => task.craftName === craftName)
+  const cutPiece = craftTasks.find((task) => task.targetObject === '已裁部位')
+  const garment = craftTasks.find((task) => task.targetObject === '成衣')
+  assert(cutPiece && garment, `${craftName} 必须分别生成裁片和成衣任务`)
+  assert.equal(cutPiece.unit, '片')
+  assert(cutPiece.demandLines?.every((line) => Boolean(line.patternFileId && line.pieceRowId)), `${craftName} 裁片明细必须保留真实纸样和部位`)
+  assert.equal(garment.unit, '件')
+  assert.equal(garment.planQty, applicableSku.qty, `${craftName} 成衣数量只能取成衣 BOM 适用 SKU`)
+  assert(garment.demandLines?.every((line) => line.sourceBomItemId === garmentBomId), `${craftName} 成衣明细必须保存来源 BOM 行`)
+  assert(garment.demandLines?.every((line) => line.patternFileId === '' && line.pieceRowId === ''), `${craftName} 成衣明细不得伪造纸样或裁片占位`)
+  assert.deepEqual(garment.feiTicketNos, [], `${craftName} 成衣任务不得关联菲票`)
+}
+const missingGarmentBomSnapshot = JSON.parse(JSON.stringify(dualTargetSnapshot)) as typeof dualTargetSnapshot
+missingGarmentBomSnapshot.bomItems = missingGarmentBomSnapshot.bomItems.filter((item) => item.id !== garmentBomId)
+const missingGarmentBomResult = generateSpecialCraftTaskOrdersFromProductionOrder({
+  productionOrder: dualTargetOrder,
+  techPackSnapshot: missingGarmentBomSnapshot,
+})
+assert(
+  missingGarmentBomResult.errors.some((error) => error.errorType === '成衣BOM缺失' && error.blocking),
+  '成衣辅助工艺缺少关联成衣 BOM 时必须阻断生成',
+)
 
 const firstResult = generateSpecialCraftTaskOrdersFromProductionOrder({
   productionOrder: sampleOrder,
@@ -227,6 +337,17 @@ const storeTasks = getSpecialCraftTasksByProductionOrder(sampleOrder.productionO
 assert(storeTasks.length === firstResult.taskOrders.length, '特殊工艺加工单数据源必须读取自动产出任务')
 const allStoreTasks = listSpecialCraftTaskOrders()
 assert(allStoreTasks.length > 0, '特殊工艺加工单数据源必须存在生产单自动产出任务')
+for (const craftName of ['直喷', '烫画'] as const) {
+  const craftOrders = allStoreTasks.filter((order) => order.craftName === craftName)
+  const cutPiece = craftOrders.find((order) => order.targetObject === '已裁部位')
+  const garment = craftOrders.find((order) => order.targetObject === '成衣')
+  assert(cutPiece, `${craftName} 必须生成裁片部位加工单`)
+  assert(garment, `${craftName} 必须生成成衣加工单`)
+  assert.equal(cutPiece.unit, '片', `${craftName} 裁片部位加工单单位必须为片`)
+  assert(cutPiece.feiTicketNos.length > 0, `${craftName} 裁片部位加工单必须关联菲票`)
+  assert.equal(garment.unit, '件', `${craftName} 成衣加工单单位必须为件`)
+  assert.deepEqual(garment.feiTicketNos, [], `${craftName} 成衣加工单不得关联菲票`)
+}
 assert.equal(new Set(allStoreTasks.map((task) => task.taskOrderId)).size, allStoreTasks.length, '特殊工艺加工单 taskOrderId 必须唯一')
 assert.equal(new Set(allStoreTasks.map((task) => task.taskOrderNo)).size, allStoreTasks.length, '特殊工艺加工单 taskOrderNo 必须唯一')
 assert.equal(new Set(allStoreTasks.map((task) => task.generationKey)).size, allStoreTasks.length, '特殊工艺加工单 generationKey 必须唯一')

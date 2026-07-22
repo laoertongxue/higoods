@@ -19,6 +19,24 @@ export type SpecialCraftTargetObject =
   | '裁片'
   | '面料'
 
+export interface SpecialCraftFlowRule {
+  unit: '片' | '米' | '件'
+  requiresFeiTicketScan: boolean
+  mustReturnToCuttingFactory: boolean
+}
+
+export function getSpecialCraftFlowRule(
+  targetObject: SpecialCraftTargetObjectLabel,
+): SpecialCraftFlowRule {
+  if (targetObject === '成衣') {
+    return { unit: '件', requiresFeiTicketScan: false, mustReturnToCuttingFactory: false }
+  }
+  if (targetObject === '完整面料') {
+    return { unit: '米', requiresFeiTicketScan: false, mustReturnToCuttingFactory: false }
+  }
+  return { unit: '片', requiresFeiTicketScan: true, mustReturnToCuttingFactory: true }
+}
+
 export interface SpecialCraftOperationDefinition {
   operationId: string
   craftCode: string

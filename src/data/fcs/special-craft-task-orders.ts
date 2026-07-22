@@ -31,6 +31,7 @@ import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-sna
 import type { SpecialCraftOperationDefinition, SpecialCraftTargetObject } from './special-craft-operations.ts'
 import {
   buildSpecialCraftOperationSlug,
+  getSpecialCraftFlowRule,
   getSpecialCraftOperationById,
   getSpecialCraftOperationBySlug as getOperationBySlug,
   listEnabledSpecialCraftOperationDefinitions,
@@ -104,6 +105,7 @@ export interface SpecialCraftTaskDemandLine {
   targetObject: SpecialCraftTargetObject
   unit: string
   feiTicketNos: string[]
+  sourceBomItemId?: string
   bundleWidthCm?: number
   bundleLengthCm?: number
   stripCount?: number
@@ -124,6 +126,7 @@ export interface SpecialCraftTaskWorkOrderLine {
   planPieceQty: number
   currentQty: number
   feiTicketNos: string[]
+  sourceBomItemId?: string
   bundleWidthCm?: number
   bundleLengthCm?: number
   stripCount?: number
@@ -181,6 +184,7 @@ export interface SpecialCraftTaskGenerationError {
     | '特殊工艺未启用'
     | '特殊工艺字典缺失'
     | '作用对象缺失'
+    | '成衣BOM缺失'
   errorMessage: string
   blocking: boolean
 }
@@ -517,8 +521,9 @@ function pickWarehousePosition(
 }
 
 function getTaskUnit(targetObject: SpecialCraftTargetObject): string {
-  if (targetObject === '成衣') return '件'
-  return '片'
+  if (targetObject === '裁片') return getSpecialCraftFlowRule('已裁部位').unit
+  if (targetObject === '面料') return getSpecialCraftFlowRule('完整面料').unit
+  return getSpecialCraftFlowRule(targetObject).unit
 }
 
 function getTaskItemKind(targetObject: SpecialCraftTargetObject): '裁片' | '面料' | '成衣' {
@@ -536,12 +541,17 @@ function getTaskItemName(operation: SpecialCraftOperationDefinition, targetObjec
   return `${partName || '裁片'}${operation.operationName}任务`
 }
 
-function getReceiverKind(operation: SpecialCraftOperationDefinition): FactoryWaitHandoverStockItem['receiverKind'] {
-  return operation.mustReturnToCuttingFactory ? '裁床厂' : '中转仓'
+function getReceiverKind(targetObject: SpecialCraftTargetObject): FactoryWaitHandoverStockItem['receiverKind'] {
+  const normalizedTargetObject = targetObject === '裁片'
+    ? '已裁部位'
+    : targetObject === '面料'
+      ? '完整面料'
+      : targetObject
+  return getSpecialCraftFlowRule(normalizedTargetObject).mustReturnToCuttingFactory ? '裁床厂' : '中转仓'
 }
 
-function getReceiverName(operation: SpecialCraftOperationDefinition): string {
-  if (operation.mustReturnToCuttingFactory) {
+function getReceiverName(targetObject: SpecialCraftTargetObject): string {
+  if (getReceiverKind(targetObject) === '裁床厂') {
     return TEST_FACTORY_NAME
   }
   return '公司中转仓'
@@ -620,6 +630,7 @@ function buildLinkedDemoTaskSeed(input: {
   operationIndex: number
   variantIndex: number
   context: { order: ProductionOrder; snapshot: ProductionOrderTechPackSnapshot }
+  targetObject?: SpecialCraftTargetObject
 }): TaskSeedContext {
   const { operation, operationIndex, variantIndex, context } = input
   const { order, snapshot } = context
@@ -635,7 +646,8 @@ function buildLinkedDemoTaskSeed(input: {
   const sourceTaskNo = `TASK-${taskOrderNo}`
   const status = LINKED_DEMO_STATUSES[variantIndex % LINKED_DEMO_STATUSES.length]
   const abnormalStatus = LINKED_DEMO_ABNORMALS[variantIndex % LINKED_DEMO_ABNORMALS.length]
-  const pieceCountPerGarment = operation.targetObject === '成衣' ? 1 : patternContext.pieceCountPerGarment
+  const targetObject = input.targetObject ?? operation.targetObject
+  const pieceCountPerGarment = targetObject === '成衣' ? 1 : patternContext.pieceCountPerGarment
   const planQty = roundQty(orderLine.qty * pieceCountPerGarment)
   const receivedQty = status === '待领料' ? 0 : roundQty(planQty - (abnormalStatus === '无异常' ? 0 : Math.max(1, Math.round(planQty * 0.01))))
   const completedQty = ['已完成', '待交出', '已交出', '已回写', '差异', '异议中'].includes(status)
@@ -645,15 +657,14 @@ function buildLinkedDemoTaskSeed(input: {
       : 0
   const lossQty = roundQty(Math.max(receivedQty - completedQty, 0))
   const waitHandoverQty = ['待交出', '已交出', '已回写', '差异', '异议中'].includes(status) ? completedQty : 0
-  const targetObject = operation.targetObject
   const demandLine: SpecialCraftTaskDemandLine = {
     demandLineId: `${taskOrderId}-LINE-01`,
     taskOrderId,
     productionOrderId: order.productionOrderId,
     productionOrderNo: order.productionOrderNo,
-    patternFileId: targetObject === '成衣' ? `GARMENT-${operation.operationId}` : patternContext.patternFileId,
-    patternFileName: targetObject === '成衣' ? '成衣' : patternContext.patternFileName,
-    pieceRowId: targetObject === '成衣' ? `GARMENT-${operation.operationId}` : patternContext.pieceRowId,
+    patternFileId: targetObject === '成衣' ? '' : patternContext.patternFileId,
+    patternFileName: targetObject === '成衣' ? '' : patternContext.patternFileName,
+    pieceRowId: targetObject === '成衣' ? '' : patternContext.pieceRowId,
     partName: targetObject === '成衣' ? '成衣' : patternContext.partName,
     colorName: orderLine.color,
     colorCode: orderLine.color,
@@ -699,8 +710,8 @@ function buildLinkedDemoTaskSeed(input: {
     executionStatus: mapTaskStatusToExecutionStatus(status),
     executionStatusLabel: status,
     demandLines: [demandLine],
-    sourcePieceRowIds: [demandLine.pieceRowId],
-    sourcePatternFileIds: [demandLine.patternFileId],
+    sourcePieceRowIds: demandLine.pieceRowId ? [demandLine.pieceRowId] : [],
+    sourcePatternFileIds: demandLine.patternFileId ? [demandLine.patternFileId] : [],
     sourceSpecialCraftKeys: [demandLine.specialCraftKey],
     factory,
     targetObject,
@@ -723,8 +734,8 @@ function buildLinkedDemoTaskSeed(input: {
     abnormalStatus,
     createdAt: order.updatedAt || order.createdAt,
     dueAt: order.demandSnapshot.requiredDeliveryDate || order.updatedAt,
-    receiverName: getReceiverName(operation),
-    receiverKind: getReceiverKind(operation),
+    receiverName: getReceiverName(targetObject),
+    receiverKind: getReceiverKind(targetObject),
     sourceAction: targetObject === '成衣' ? '交出接收' : '领料确认',
     sourceRecordType: targetObject === '成衣' ? 'HANDOVER_RECEIVE' : 'MATERIAL_PICKUP',
     sourceRecordNo: `${targetObject === '成衣' ? 'JS' : 'LL'}-${taskOrderNo}`,
@@ -1430,11 +1441,17 @@ function buildLinkedSupplementTaskOrders(
 
       const variantIndex = existingForOperation.length
         + supplements.filter((taskOrder) => taskOrder.operationId === operation.operationId).length
+      const supportsCutPieceAndGarment = operation.supportedTargetObjectLabels.includes('已裁部位')
+        && operation.supportedTargetObjectLabels.includes('成衣')
+      const targetObject = supportsCutPieceAndGarment
+        ? (variantIndex % 2 === 0 ? '已裁部位' : '成衣')
+        : operation.targetObject
       const seed = buildLinkedDemoTaskSeed({
         operation,
         operationIndex,
         variantIndex,
         context,
+        targetObject,
       })
       const inboundArtifacts = buildInboundArtifacts(seed, operationIndex + variantIndex + 1)
       const outboundArtifacts = buildOutboundArtifacts(seed, operationIndex + variantIndex + 3)
@@ -1457,7 +1474,6 @@ function getSpecialTypeWarehouseProfile(taskOrder: SpecialCraftTaskOrder): {
   receiverName: string
   sourceObjectName: string
 } {
-  const operation = getSpecialCraftOperationById(taskOrder.operationId)
   const isElastic = taskOrder.craftName.includes('橡筋')
   if (isElastic) {
     return {
@@ -1471,23 +1487,25 @@ function getSpecialTypeWarehouseProfile(taskOrder: SpecialCraftTaskOrder): {
     }
   }
   if (taskOrder.targetObject === '成衣') {
+    const flowRule = getSpecialCraftFlowRule('成衣')
     return {
       itemKind: '成衣',
       itemName: `${taskOrder.craftName}成衣`,
       unit: taskOrder.unit || '件',
       materialSku: taskOrder.materialSku,
-      receiverKind: operation?.mustReturnToCuttingFactory ? '裁床厂' : '中转仓',
-      receiverName: operation?.mustReturnToCuttingFactory ? '裁床待交出仓' : '中转仓',
+      receiverKind: flowRule.mustReturnToCuttingFactory ? '裁床厂' : '中转仓',
+      receiverName: flowRule.mustReturnToCuttingFactory ? '裁床待交出仓' : '中转仓',
       sourceObjectName: '成衣仓出库',
     }
   }
+  const flowRule = getSpecialCraftFlowRule('已裁部位')
   return {
     itemKind: '裁片',
     itemName: `${taskOrder.partName || '裁片'}${taskOrder.craftName}`,
     unit: taskOrder.unit || '片',
     materialSku: taskOrder.materialSku,
-    receiverKind: operation?.mustReturnToCuttingFactory ? '裁床厂' : '中转仓',
-    receiverName: operation?.mustReturnToCuttingFactory ? '裁床待交出仓' : '中转仓',
+    receiverKind: flowRule.mustReturnToCuttingFactory ? '裁床厂' : '中转仓',
+    receiverName: flowRule.mustReturnToCuttingFactory ? '裁床待交出仓' : '中转仓',
     sourceObjectName: '裁床待交出仓',
   }
 }
@@ -1850,7 +1868,9 @@ function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
         lineIds,
         createdAt: taskOrder.createdAt,
         updatedAt: taskOrder.updatedAt || taskOrder.createdAt,
-        remark: '按裁片部位拆分的工艺加工单',
+        remark: taskOrder.targetObject === '成衣'
+          ? '按成衣 BOM 适用 SKU 汇总的工艺加工单'
+          : '按裁片部位拆分的工艺加工单',
       }
       workOrders.push(workOrder)
       taskWorkOrderIds.set(taskOrder.taskOrderId, [...(taskWorkOrderIds.get(taskOrder.taskOrderId) || []), workOrderId])
@@ -1870,6 +1890,7 @@ function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
           planPieceQty: line.planPieceQty,
           currentQty: 0,
           feiTicketNos: [...line.feiTicketNos],
+          sourceBomItemId: line.sourceBomItemId,
           bundleWidthCm: line.bundleWidthCm,
           bundleLengthCm: line.bundleLengthCm,
           stripCount: line.stripCount,
