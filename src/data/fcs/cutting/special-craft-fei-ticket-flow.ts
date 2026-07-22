@@ -29,6 +29,7 @@ import {
 } from '../special-craft-task-orders.ts'
 import type { SpecialCraftOperationDefinition } from '../special-craft-operations.ts'
 import {
+  getSpecialCraftFlowRule,
   getSpecialCraftOperationById,
   listEnabledSpecialCraftOperationDefinitions,
 } from '../special-craft-operations.ts'
@@ -894,7 +895,7 @@ export function buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets(input?
 
     const matchedLines = candidateLines.filter(({ line }) => {
       const operation = operationById.get(line.operationId)
-      if (!operation || !operation.requiresFeiTicketScan) return false
+      if (!operation || !getSpecialCraftFlowRule(line.targetObject).requiresFeiTicketScan) return false
       if (!ticketSecondaryCrafts.has(normalizeText(operation.operationName))) return false
       return true
     })
@@ -978,7 +979,7 @@ export function buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets(input?
   taskOrders.forEach((taskOrder) => {
     ;(taskOrder.demandLines || []).forEach((line) => {
       const operation = operationById.get(line.operationId)
-      if (!operation || !operation.requiresFeiTicketScan) return
+      if (!operation || !getSpecialCraftFlowRule(line.targetObject).requiresFeiTicketScan) return
       const targetFactory = resolveBindingTargetFactory(taskOrder, operation)
       const ticketNos = [...new Set(line.feiTicketNos || [])]
       ticketNos.forEach((feiTicketNo) => {

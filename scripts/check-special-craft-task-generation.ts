@@ -30,6 +30,7 @@ import {
   generateSpecialCraftTaskOrdersFromProductionOrder,
 } from '../src/data/fcs/special-craft-task-generation.ts'
 import { shouldGenerateInternalCraftOrderForProductionOrder } from '../src/data/fcs/task-generation-boundaries.ts'
+import { buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets } from '../src/data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import { listDyeWorkOrders } from '../src/data/fcs/dyeing-task-domain.ts'
 import { listPrepProcessOrders } from '../src/data/fcs/page-adapters/process-prep-pages-adapter.ts'
 import { listPrintWorkOrders } from '../src/data/fcs/printing-task-domain.ts'
@@ -344,10 +345,45 @@ for (const craftName of ['直喷', '烫画'] as const) {
   assert(cutPiece, `${craftName} 必须生成裁片部位加工单`)
   assert(garment, `${craftName} 必须生成成衣加工单`)
   assert.equal(cutPiece.unit, '片', `${craftName} 裁片部位加工单单位必须为片`)
-  assert(cutPiece.feiTicketNos.length > 0, `${craftName} 裁片部位加工单必须关联菲票`)
   assert.equal(garment.unit, '件', `${craftName} 成衣加工单单位必须为件`)
   assert.deepEqual(garment.feiTicketNos, [], `${craftName} 成衣加工单不得关联菲票`)
 }
+const feiTicketBindingResult = buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets({
+  specialCraftTaskOrders: allStoreTasks,
+})
+for (const craftName of ['直喷', '烫画'] as const) {
+  const cutPieceTaskIds = new Set(
+    allStoreTasks
+      .filter((task) => task.craftName === craftName && task.targetObject === '已裁部位')
+      .map((task) => task.taskOrderId),
+  )
+  const garmentTaskIds = new Set(
+    allStoreTasks
+      .filter((task) => task.craftName === craftName && task.targetObject === '成衣')
+      .map((task) => task.taskOrderId),
+  )
+  const cutPieceBindings = feiTicketBindingResult.bindings.filter((binding) => cutPieceTaskIds.has(binding.taskOrderId))
+  const garmentBindings = feiTicketBindingResult.bindings.filter((binding) => garmentTaskIds.has(binding.taskOrderId))
+  assert(cutPieceBindings.length > 0, `${craftName} 裁片部位任务必须绑定真实菲票`)
+  assert(cutPieceBindings.every((binding) => Boolean(binding.feiTicketId && binding.feiTicketNo && binding.cuttingOrderId)), `${craftName} 裁片部位任务菲票必须可回溯裁片单`)
+  assert.equal(garmentBindings.length, 0, `${craftName} 成衣任务不得进入菲票绑定`)
+}
+allStoreTasks
+  .filter((task) => (task.craftName === '直喷' || task.craftName === '烫画') && task.targetObject === '成衣')
+  .forEach((task) => {
+    const taskSnapshot = getProductionOrderTechPackSnapshot(task.productionOrderId)
+    const taskOrder = productionOrders.find((order) => order.productionOrderId === task.productionOrderId)
+    assert(taskSnapshot && taskOrder, `${task.taskOrderNo} 必须关联生产单冻结技术包`)
+    task.demandLines?.forEach((line) => {
+      assert(line.sourceBomItemId, `${task.taskOrderNo} 成衣明细必须保存来源 BOM`)
+      const garmentBom = taskSnapshot.bomItems.find((item) => item.id === line.sourceBomItemId && item.type === '成衣')
+      assert(garmentBom, `${task.taskOrderNo} 来源 BOM 必须是冻结快照中的成衣 BOM`)
+      const skuLine = taskOrder.demandSnapshot.skuLines.find(
+        (sku) => sku.color === line.colorName && sku.size === line.sizeCode,
+      )
+      assert(skuLine && garmentBom.applicableSkuCodes?.includes(skuLine.skuCode), `${task.taskOrderNo} 只能生成成衣 BOM 适用 SKU`)
+    })
+  })
 assert.equal(new Set(allStoreTasks.map((task) => task.taskOrderId)).size, allStoreTasks.length, '特殊工艺加工单 taskOrderId 必须唯一')
 assert.equal(new Set(allStoreTasks.map((task) => task.taskOrderNo)).size, allStoreTasks.length, '特殊工艺加工单 taskOrderNo 必须唯一')
 assert.equal(new Set(allStoreTasks.map((task) => task.generationKey)).size, allStoreTasks.length, '特殊工艺加工单 generationKey 必须唯一')

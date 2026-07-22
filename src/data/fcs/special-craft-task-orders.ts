@@ -521,8 +521,6 @@ function pickWarehousePosition(
 }
 
 function getTaskUnit(targetObject: SpecialCraftTargetObject): string {
-  if (targetObject === '裁片') return getSpecialCraftFlowRule('已裁部位').unit
-  if (targetObject === '面料') return getSpecialCraftFlowRule('完整面料').unit
   return getSpecialCraftFlowRule(targetObject).unit
 }
 
@@ -542,12 +540,7 @@ function getTaskItemName(operation: SpecialCraftOperationDefinition, targetObjec
 }
 
 function getReceiverKind(targetObject: SpecialCraftTargetObject): FactoryWaitHandoverStockItem['receiverKind'] {
-  const normalizedTargetObject = targetObject === '裁片'
-    ? '已裁部位'
-    : targetObject === '面料'
-      ? '完整面料'
-      : targetObject
-  return getSpecialCraftFlowRule(normalizedTargetObject).mustReturnToCuttingFactory ? '裁床厂' : '中转仓'
+  return getSpecialCraftFlowRule(targetObject).mustReturnToCuttingFactory ? '裁床厂' : '中转仓'
 }
 
 function getReceiverName(targetObject: SpecialCraftTargetObject): string {
@@ -630,7 +623,6 @@ function buildLinkedDemoTaskSeed(input: {
   operationIndex: number
   variantIndex: number
   context: { order: ProductionOrder; snapshot: ProductionOrderTechPackSnapshot }
-  targetObject?: SpecialCraftTargetObject
 }): TaskSeedContext {
   const { operation, operationIndex, variantIndex, context } = input
   const { order, snapshot } = context
@@ -646,7 +638,7 @@ function buildLinkedDemoTaskSeed(input: {
   const sourceTaskNo = `TASK-${taskOrderNo}`
   const status = LINKED_DEMO_STATUSES[variantIndex % LINKED_DEMO_STATUSES.length]
   const abnormalStatus = LINKED_DEMO_ABNORMALS[variantIndex % LINKED_DEMO_ABNORMALS.length]
-  const targetObject = input.targetObject ?? operation.targetObject
+  const targetObject = operation.targetObject
   const pieceCountPerGarment = targetObject === '成衣' ? 1 : patternContext.pieceCountPerGarment
   const planQty = roundQty(orderLine.qty * pieceCountPerGarment)
   const receivedQty = status === '待领料' ? 0 : roundQty(planQty - (abnormalStatus === '无异常' ? 0 : Math.max(1, Math.round(planQty * 0.01))))
@@ -1427,11 +1419,11 @@ function buildLinkedSupplementTaskOrders(
 
   const supplements: SpecialCraftTaskOrder[] = []
   operations.forEach((operation, operationIndex) => {
+    if (operation.operationName === '直喷' || operation.operationName === '烫画') return
     const existingForOperation = existingTaskOrders
       .filter((taskOrder) => taskOrder.operationId === operation.operationId)
     const existingKeys = new Set(existingForOperation.map((taskOrder) => `${taskOrder.productionOrderId}::${taskOrder.operationId}`))
     let candidateCursor = operationIndex * MIN_TASK_ORDER_COUNT_PER_OPERATION
-
     while (existingForOperation.length + supplements.filter((taskOrder) => taskOrder.operationId === operation.operationId).length < MIN_TASK_ORDER_COUNT_PER_OPERATION) {
       const context = candidateContexts[candidateCursor % candidateContexts.length]
       candidateCursor += 1
@@ -1441,17 +1433,11 @@ function buildLinkedSupplementTaskOrders(
 
       const variantIndex = existingForOperation.length
         + supplements.filter((taskOrder) => taskOrder.operationId === operation.operationId).length
-      const supportsCutPieceAndGarment = operation.supportedTargetObjectLabels.includes('已裁部位')
-        && operation.supportedTargetObjectLabels.includes('成衣')
-      const targetObject = supportsCutPieceAndGarment
-        ? (variantIndex % 2 === 0 ? '已裁部位' : '成衣')
-        : operation.targetObject
       const seed = buildLinkedDemoTaskSeed({
         operation,
         operationIndex,
         variantIndex,
         context,
-        targetObject,
       })
       const inboundArtifacts = buildInboundArtifacts(seed, operationIndex + variantIndex + 1)
       const outboundArtifacts = buildOutboundArtifacts(seed, operationIndex + variantIndex + 3)

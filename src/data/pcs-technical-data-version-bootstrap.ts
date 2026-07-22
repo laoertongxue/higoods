@@ -53,7 +53,8 @@ function buildDemoDesignPreviewDataUrl(fileName: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
-function buildSpecialCraftConfig(craftCode: string, craftName: string, selectedTargetObject = '裁片部位') {
+function buildSpecialCraftConfig(craftCode: string, craftName: string, selectedTargetObject = '已裁部位') {
+  const supportsGarment = craftName === '直喷' || craftName === '烫画'
   return {
     processCode: 'SPECIAL_CRAFT',
     processName: '特殊工艺',
@@ -61,8 +62,8 @@ function buildSpecialCraftConfig(craftCode: string, craftName: string, selectedT
     craftName,
     displayName: craftName,
     selectedTargetObject,
-    supportedTargetObjects: ['CUT_PIECE', 'CUT_PIECE_PART'],
-    supportedTargetObjectLabels: ['裁片部位'],
+    supportedTargetObjects: supportsGarment ? ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'] : ['CUT_PIECE'],
+    supportedTargetObjectLabels: supportsGarment ? ['已裁部位', '成衣'] : ['已裁部位'],
   }
 }
 
@@ -72,6 +73,9 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
   const allSkuCodes = demand.skuLines.map((line) => line.skuCode)
   const colors = Array.from(new Set(demand.skuLines.map((line) => line.color)))
   const bomItemId = `${seed.technicalVersionId}-bom-main`
+  const garmentBomItemId = scenario === 'GARMENT_HEAT_TRANSFER'
+    ? bomItemId
+    : `${seed.technicalVersionId}-bom-garment`
   const patternPackageId = `${seed.technicalVersionId}-pattern-package-main`
   const patternId = `${seed.technicalVersionId}-pattern-main`
   const buildPieceRows = (pieces: Array<{
@@ -116,6 +120,10 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         buildSpecialCraftConfig('CRAFT_3000001', '绣花'),
         buildSpecialCraftConfig('CRAFT_000008', '打揽'),
       ],
+    },
+    'SPU-2024-010': {
+      后片: [buildSpecialCraftConfig('CRAFT_008192', '烫画')],
+      袖片: [buildSpecialCraftConfig('CRAFT_016384', '直喷')],
     },
     'SPU-2024-014': {
       后片: [
@@ -179,9 +187,9 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
   const patternMaterialType = isWoolScenario ? 'WOOL' : 'WOVEN'
   const patternMaterialTypeLabel = isWoolScenario ? '毛织纸样' : '布料纸样'
   const patternFileName = isWoolScenario ? `${demand.spuCode}-毛织工艺单.pdf` : `${demand.spuCode}-正式纸样.dxf`
-  const mainBomType = scenario === 'GARMENT_HEAT_TRANSFER' ? '半成品' : isWoolScenario ? '纱线' : '面料'
+  const mainBomType = scenario === 'GARMENT_HEAT_TRANSFER' ? '成衣' : isWoolScenario ? '纱线' : '面料'
   const mainBomName = scenario === 'GARMENT_HEAT_TRANSFER'
-    ? '纯色 T-shirt 半成品'
+    ? '纯色 T-shirt 成衣'
     : isWoolScenario
       ? '毛织用纱线'
       : '主面料'
@@ -282,7 +290,34 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
               outputValuePerUnit: 0.7,
               outputValueUnit: '产值/件',
               difficulty: 'MEDIUM' as const,
-              remark: '在纯色 T-shirt 半成品上烫画，按 SKU 件数生成特殊工艺任务。',
+              remark: '在纯色 T-shirt 成衣上烫画，按成衣 BOM 适用 SKU 件数生成特殊工艺任务。',
+            },
+            {
+              id: `${seed.technicalVersionId}-process-direct-print`,
+              entryType: 'CRAFT' as const,
+              stageCode: 'PROD' as const,
+              stageName: '生产执行',
+              processCode: 'SPECIAL_CRAFT',
+              processName: '特殊工艺',
+              craftCode: 'CRAFT_016384',
+              craftName: '直喷',
+              assignmentGranularity: 'SKU' as const,
+              ruleSource: 'OVERRIDE_CRAFT',
+              detailSplitMode: 'COMPOSITE',
+              detailSplitDimensions: ['GARMENT_SKU'],
+              defaultDocType: 'TASK' as const,
+              taskTypeMode: 'CRAFT' as const,
+              isSpecialCraft: true,
+              selectedTargetObject: '成衣' as const,
+              targetObject: 'GARMENT_SEMI' as const,
+              targetObjectName: '成衣' as const,
+              supportedTargetObjects: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'] as const,
+              supportedTargetObjectLabels: ['已裁部位', '成衣'] as const,
+              linkedBomItemIds: [bomItemId],
+              outputValuePerUnit: 0.8,
+              outputValueUnit: '产值/件',
+              difficulty: 'MEDIUM' as const,
+              remark: '在纯色 T-shirt 成衣上直喷，按成衣 BOM 适用 SKU 件数生成特殊工艺任务。',
             },
           ]
         : [
@@ -347,6 +382,38 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
           remark: '水溶完成后由同一染色厂继续染色，中间不交出。',
         },
       ]
+      : []
+  const internalGarmentPrintProcessEntries = demand.spuCode === 'SPU-2024-005'
+    ? [
+        { craftCode: 'CRAFT_008192', craftName: '烫画', outputValuePerUnit: 0.7 },
+        { craftCode: 'CRAFT_016384', craftName: '直喷', outputValuePerUnit: 0.8 },
+      ].map((craft) => ({
+        id: `${seed.technicalVersionId}-process-${craft.craftCode.toLowerCase()}`,
+        entryType: 'CRAFT' as const,
+        stageCode: 'PROD' as const,
+        stageName: '生产执行',
+        processCode: 'SPECIAL_CRAFT',
+        processName: '特殊工艺',
+        craftCode: craft.craftCode,
+        craftName: craft.craftName,
+        assignmentGranularity: 'SKU' as const,
+        ruleSource: 'OVERRIDE_CRAFT',
+        detailSplitMode: 'COMPOSITE',
+        detailSplitDimensions: ['GARMENT_SKU'],
+        defaultDocType: 'TASK' as const,
+        taskTypeMode: 'CRAFT' as const,
+        isSpecialCraft: true,
+        selectedTargetObject: '成衣' as const,
+        targetObject: 'GARMENT_SEMI' as const,
+        targetObjectName: '成衣' as const,
+        supportedTargetObjects: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'] as const,
+        supportedTargetObjectLabels: ['已裁部位', '成衣'] as const,
+        linkedBomItemIds: [garmentBomItemId],
+        outputValuePerUnit: craft.outputValuePerUnit,
+        outputValueUnit: '产值/件',
+        difficulty: 'MEDIUM' as const,
+        remark: `在成衣上${craft.craftName}，按成衣 BOM 适用 SKU 件数生成特殊工艺任务。`,
+      }))
     : []
 
   const resolveColorMaterialInfo = (color: string, index: number) => {
@@ -522,9 +589,9 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
       : scenario === 'PART_WOOL'
         ? '部位毛织技术包，生产单生成部位毛织加工单和毛织菲票，完成后交裁床待交出仓。'
         : scenario === 'GARMENT_HEAT_TRANSFER'
-          ? '纯色 T-shirt 成衣烫画技术包，按成衣生成特殊工艺任务。'
+          ? '纯色 T-shirt 成衣烫画、直喷技术包，按成衣 BOM 适用 SKU 生成特殊工艺任务。'
           : '来源生产需求单当前生效技术包。',
-    processEntries: [...processEntries, ...waterSolubleDyeProcessEntries],
+    processEntries: [...processEntries, ...internalGarmentPrintProcessEntries, ...waterSolubleDyeProcessEntries],
     processRouteStatus: 'CONFIRMED',
     processRouteConfirmedBy: '系统初始化',
     processRouteConfirmedAt: demand.updatedAt,
@@ -543,13 +610,30 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             ? `${colors.join(' / ') || '默认色'} 纱线，染厂/面料仓送料到厂`
             : `${colors.join(' / ') || '默认色'} 主面料`,
         colorLabel: colors.join(' / '),
+        unit: scenario === 'GARMENT_HEAT_TRANSFER' ? '件' : undefined,
         unitConsumption: scenario === 'GARMENT_HEAT_TRANSFER' ? 1 : isWoolScenario ? 0.48 : 1.2,
-        lossRate: isWoolScenario ? 0.05 : 0.03,
+        lossRate: scenario === 'GARMENT_HEAT_TRANSFER' ? 0 : isWoolScenario ? 0.05 : 0.03,
         supplier: '生产需求单指定',
         applicableSkuCodes: [...allSkuCodes],
         linkedPatternIds: [patternId],
         usageProcessCodes: mainUsageProcessCodes,
       },
+      ...(demand.spuCode === 'SPU-2024-005'
+        ? [{
+            id: garmentBomItemId,
+            type: '成衣',
+            name: '成衣',
+            spec: `${colors.join(' / ') || '默认色'} 成衣`,
+            colorLabel: colors.join(' / '),
+            unit: '件',
+            unitConsumption: 1,
+            lossRate: 0,
+            supplier: '成衣仓',
+            applicableSkuCodes: [...allSkuCodes],
+            linkedPatternIds: [],
+            usageProcessCodes: ['SPECIAL_CRAFT'],
+          }]
+        : []),
       ...(isWaterSolubleDyeDemo
         ? [{
             id: waterSolubleOnlyBomItemId,
@@ -599,7 +683,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         bomItemId,
         materialCode: resolveColorMaterialInfo(color, index).code,
         materialName: resolveColorMaterialInfo(color, index).name,
-        materialType: scenario === 'GARMENT_HEAT_TRANSFER' ? '半成品' : isWoolScenario ? '其他' : '面料',
+        materialType: scenario === 'GARMENT_HEAT_TRANSFER' ? '成衣' : isWoolScenario ? '其他' : '面料',
         patternId,
         patternName: isWoolScenario ? `${demand.spuCode} 毛织纸样` : `${demand.spuCode} 正式纸样`,
         pieceId: piece.id,

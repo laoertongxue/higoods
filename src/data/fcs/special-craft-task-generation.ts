@@ -174,8 +174,6 @@ function resolveSelectedTargetObject(
 }
 
 function getDemandLineUnit(targetObject: SpecialCraftTargetObject): string {
-  if (targetObject === '裁片') return getSpecialCraftFlowRule('已裁部位').unit
-  if (targetObject === '面料') return getSpecialCraftFlowRule('完整面料').unit
   return getSpecialCraftFlowRule(targetObject).unit
 }
 

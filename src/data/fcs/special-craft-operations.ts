@@ -26,12 +26,12 @@ export interface SpecialCraftFlowRule {
 }
 
 export function getSpecialCraftFlowRule(
-  targetObject: SpecialCraftTargetObjectLabel,
+  targetObject: SpecialCraftTargetObject,
 ): SpecialCraftFlowRule {
   if (targetObject === '成衣') {
     return { unit: '件', requiresFeiTicketScan: false, mustReturnToCuttingFactory: false }
   }
-  if (targetObject === '完整面料') {
+  if (targetObject === '完整面料' || targetObject === '面料') {
     return { unit: '米', requiresFeiTicketScan: false, mustReturnToCuttingFactory: false }
   }
   return { unit: '片', requiresFeiTicketScan: true, mustReturnToCuttingFactory: true }
