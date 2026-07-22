@@ -36,6 +36,10 @@ import {
 } from './factory-mock-data.ts'
 import type { DispatchAcceptanceSlaRuleSource } from './dispatch-acceptance-sla.ts'
 import { productionOrders, type ProductionOrderStatus } from './production-orders.ts'
+import type {
+  ProcessWorkOrderSourceSnapshot,
+  ProcessWorkOrderSourceType,
+} from './process-work-order-domain.ts'
 
 export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BIDDING' | 'AWARDED'
 export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELLED'
@@ -65,7 +69,7 @@ export type TaskHandoverStatus =
   | 'OBJECTION_PROCESSING'
   | 'CLOSED'
 
-export type ProcessTaskSourceType = 'PRODUCTION_ORDER' | 'STOCK'
+export type ProcessTaskSourceType = ProcessWorkOrderSourceType
 
 export interface TaskOutputValueSnapshot {
   outputValuePerUnit?: number
@@ -99,6 +103,7 @@ export interface ProcessTask {
   taskId: string
   taskNo?: string
   sourceType?: ProcessTaskSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
   productionOrderId?: string
   productionOrderNo?: string
   stockMaterialId?: string

@@ -713,6 +713,9 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
   const context = resolveSpecialCraftContext(actionResult)
   const base = emptyLinkageResult(actionResult)
   if (!context) return mergeResult(base, { success: false, message: '未找到特殊工艺单，不能执行仓联动' })
+  if (!context.sourceProductionOrderId || !context.sourceProductionOrderNo) {
+    return mergeResult(base, { success: false, message: '特殊工艺单缺少来源生产单，不能执行仓联动' })
+  }
   if (actionResult.actionCode === 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND') {
     if (context.objectType !== '成衣') {
       return mergeResult(base, { success: false, message: '仅成衣作用对象可从成衣仓出库' })
@@ -816,8 +819,8 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
           targetFactoryName: context.currentFactoryName,
           sourceTaskId: context.sourceWorkOrderId,
           sourceTaskNo: context.sourceWorkOrderNo,
-          productionOrderId: context.sourceProductionOrderId || '',
-          productionOrderNo: context.sourceProductionOrderNo || '',
+          productionOrderId: context.sourceProductionOrderId!,
+          productionOrderNo: context.sourceProductionOrderNo!,
           processCode: getSpecialCraftTaskWorkOrderById(context.sourceWorkOrderId)?.processCode || 'SPECIAL_CRAFT',
           processName: getSpecialCraftTaskWorkOrderById(context.sourceWorkOrderId)?.processName || context.craftName,
           craftCode: getSpecialCraftTaskWorkOrderById(context.sourceWorkOrderId)?.craftCode || context.craftName,
@@ -880,8 +883,8 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
       sourceWorkOrderNo: context.sourceWorkOrderNo,
       targetFactoryId: context.currentFactoryId,
       targetFactoryName: context.currentFactoryName,
-      productionOrderId: context.sourceProductionOrderId || '',
-      productionOrderNo: context.sourceProductionOrderNo || '',
+      productionOrderId: context.sourceProductionOrderId,
+      productionOrderNo: context.sourceProductionOrderNo,
       totalCompletedQty: context.objectQty,
       completedQtyBySkuCode: actionResult.skuQtyBySkuCode,
       receiverKind: context.downstreamFactoryId === DEDICATED_POST_FACTORY_ID ? '后道工厂' : '裁床厂',

@@ -109,9 +109,9 @@ assert(printProcess, '工序字典缺少 PRINT 印花定义')
 assert(waterProcess, '工序字典缺少 WATER_SOLUBLE 水溶定义')
 assert(dyeProcess, '工序字典缺少 DYE 染色定义')
 assert.equal(waterProcess.stageCode, 'PREP', '水溶必须属于准备阶段')
-assert.equal(waterProcess.sort, 15, '水溶排序必须固定为 15')
-assert(printProcess.sort < waterProcess.sort, '水溶排序必须晚于印花')
+assert.equal(waterProcess.sort, 10, '水溶排序必须固定为 10')
 assert(waterProcess.sort < dyeProcess.sort, '水溶排序必须早于染色')
+assert(dyeProcess.sort < printProcess.sort, '同一物料路线必须保持先染色后印花')
 assert.equal(waterProcess.processRole, 'EXTERNAL_TASK', '水溶必须是对外任务')
 assert.equal(waterProcess.generatesExternalTask, true, '水溶必须生成对外任务')
 assert.equal(waterProcess.requiresTaskQr, true, '水溶必须生成任务二维码')
@@ -748,7 +748,8 @@ const craftDyeArtifacts = generateWithProcessEntries([{
   entryType: 'CRAFT',
   linkedBomItemIds: ['ONLY-DYE'],
 }])
-assert.equal(craftDyeArtifacts.filter((item) => item.processCode === 'DYE').length, 0, 'CRAFT DYE 不得生成 BOM 染色需求')
+assert.equal(craftDyeArtifacts.filter((item) => item.processCode === 'DYE' && item.artifactType === 'DEMAND').length, 0, 'CRAFT DYE 不得生成中间需求产物')
+assert.equal(craftDyeArtifacts.filter((item) => item.processCode === 'DYE' && item.artifactType === 'TASK').length, 1, 'CRAFT DYE 必须生成真实加工任务')
 
 const nonPrepDyeArtifacts = generateWithProcessEntries([{
   ...dyeArtifactEntry,
@@ -896,7 +897,7 @@ generatedWaterTaskArtifacts.forEach((artifact) => {
   assert.deepEqual(artifact.linkedBomItemIds, [artifact.bomItemId], `水溶产物 ${artifact.artifactId} 必须精确关联当前 BOM 行`)
 })
 productionArtifactGeneration.listGeneratedProductionTaskArtifacts()
-  .filter((artifact) => artifact.artifactId.startsWith('DICT-') && artifact.processCode !== 'WATER_SOLUBLE')
+  .filter((artifact) => artifact.artifactId.startsWith('DICT-') && artifact.processCode !== 'WATER_SOLUBLE' && artifact.linkedBomItemIds)
   .forEach((artifact) => {
     const mockIndexMatch = artifact.sourceEntryId.match(/-(\d{2})-/)
     assert(mockIndexMatch, `字典覆盖产物 ${artifact.artifactId} 缺少稳定 mockIndex`)

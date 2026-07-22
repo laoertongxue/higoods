@@ -22,6 +22,7 @@ import type {
   FormalProductionOrderProcessSnapshotRecord,
   ProcessWorkOrderAutoSyncRecord,
   ProcessWorkOrderChangeImpact,
+  ProcessWorkOrderSourceSnapshot,
   ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
 import {
@@ -33,6 +34,7 @@ import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import { selectPrimaryProductionMaterialBomItem } from './production-material-bom.ts'
 import { getProcessWorkOrderStockMaterial, isValidProcessWorkOrderPlannedFinishAt } from './process-work-order-stock.ts'
+import { ensureProcessWorkOrders } from './process-work-order-generation-service.ts'
 import { syncFactoryWarehouseHandoverSourceByTaskId } from './factory-internal-warehouse.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
@@ -70,6 +72,8 @@ export interface PrintWorkOrder {
   printOrderId: string
   printOrderNo: string
   sourceType: ProcessWorkOrderSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
+  sourceKey?: string
   sourceProductionOrderId?: string
   sourceProductionOrderNo?: string
   productionOrderOrderedAt?: string
@@ -361,15 +365,15 @@ function buildGeneratedPrintWorkOrder(order: MutablePrintWorkOrder, index: numbe
 function syncSeedSourceToTaskAndHandovers(order: MutablePrintWorkOrder): void {
   const task = getPrintingTaskById(order.taskId)
   if (task) {
+    task.sourceType = order.sourceType
+    task.sourceSnapshot = order.sourceSnapshot ? { ...order.sourceSnapshot } : undefined
     if (order.sourceType === 'STOCK') {
-      task.sourceType = 'STOCK'
       task.stockMaterialId = order.stockMaterialId
       task.stockMaterialName = order.stockMaterialName
       task.productionOrderId = undefined
       task.productionOrderNo = undefined
       task.sourceProductionOrderId = undefined
     } else {
-      task.sourceType = 'PRODUCTION_ORDER'
       task.productionOrderId = order.sourceProductionOrderId
       task.productionOrderNo = order.sourceProductionOrderNo
       task.sourceProductionOrderId = order.sourceProductionOrderId
@@ -384,13 +388,15 @@ function syncSeedSourceToTaskAndHandovers(order: MutablePrintWorkOrder): void {
     const sourceFields = order.sourceType === 'STOCK'
       ? {
           sourceType: 'STOCK' as const,
+          sourceSnapshot: order.sourceSnapshot ? { ...order.sourceSnapshot } : undefined,
           stockMaterialId: order.stockMaterialId,
           stockMaterialName: order.stockMaterialName,
           productionOrderId: undefined,
           productionOrderNo: undefined,
         }
       : {
-          sourceType: 'PRODUCTION_ORDER' as const,
+          sourceType: order.sourceType,
+          sourceSnapshot: order.sourceSnapshot ? { ...order.sourceSnapshot } : undefined,
           productionOrderId: order.sourceProductionOrderId,
           productionOrderNo: order.sourceProductionOrderNo,
           stockMaterialId: undefined,
@@ -422,6 +428,7 @@ function listGeneratedPrintWorkOrders(): MutablePrintWorkOrder[] {
 function cloneWorkOrder(order: MutablePrintWorkOrder): PrintWorkOrder {
   return {
     ...order,
+    sourceSnapshot: order.sourceSnapshot ? { ...order.sourceSnapshot } : undefined,
     productionOrderIds: [...order.productionOrderIds],
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
       ? {
@@ -473,6 +480,7 @@ function buildFreshPrintMobileTask(input: {
   taskId: string
   taskNo: string
   sourceType?: ProcessWorkOrderSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
   productionOrderId?: string
   productionOrderNo?: string
   stockMaterialId?: string
@@ -488,7 +496,7 @@ function buildFreshPrintMobileTask(input: {
   createdAt: string
 }): PdaGenericTaskMock {
   const hasFactory = Boolean(input.factoryId)
-  const sourceType: ProcessWorkOrderSourceType = input.sourceType === 'STOCK' ? 'STOCK' : 'PRODUCTION_ORDER'
+  const sourceType: ProcessWorkOrderSourceType = input.sourceType || 'PRODUCTION_ORDER'
   const qtyUnit: QtyUnit = ['件', '片', '个', '套'].includes(input.qtyDisplayUnit)
     ? 'PIECE'
     : ['卷', '捆', '包', '打'].includes(input.qtyDisplayUnit)
@@ -498,6 +506,7 @@ function buildFreshPrintMobileTask(input: {
     taskId: input.taskId,
     taskNo: input.taskNo,
     sourceType,
+    sourceSnapshot: input.sourceSnapshot ? { ...input.sourceSnapshot } : undefined,
     ...(sourceType === 'STOCK'
       ? { stockMaterialId: input.stockMaterialId, stockMaterialName: input.stockMaterialName }
       : { productionOrderId: input.productionOrderId, productionOrderNo: input.productionOrderNo, sourceProductionOrderId: input.productionOrderId }),
@@ -1845,10 +1854,24 @@ export function registerFormalProductionOrderPrintWorkOrder(input: FormalProduct
   workOrderId: string
   workOrderNo: string
   processName: string
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
+  sourceKey?: string
+  plannedFinishAt?: string
+  createdBy?: string
 }): PrintWorkOrder {
   seedDomain()
+  const sourceSnapshot: ProcessWorkOrderSourceSnapshot = input.sourceSnapshot || {
+    sourceType: 'PRODUCTION_ORDER',
+    productionOrderId: input.productionOrderId,
+    productionOrderNo: input.productionOrderNo,
+    techPackVersionId: input.techPackVersionId,
+    techPackVersionLabel: input.techPackVersionLabel,
+    bomItemId: input.materialItems?.map((item) => item.sourceBomItemId).join('+') || input.materialId,
+  }
   const existing = Array.from(workOrderStore.values())
-    .find((order) => order.sourceProductionOrderId === input.productionOrderId)
+    .find((order) => input.sourceKey
+      ? order.sourceKey === input.sourceKey
+      : order.sourceProductionOrderId === input.productionOrderId)
   if (existing) return cloneWorkOrder(existing)
 
   const materialItems = normalizeFormalProductionOrderMaterialItems(input)
@@ -1859,8 +1882,12 @@ export function registerFormalProductionOrderPrintWorkOrder(input: FormalProduct
   registerPdaGenericProcessTask(buildFreshPrintMobileTask({
     taskId: input.workOrderId,
     taskNo: input.workOrderNo,
+    sourceType: sourceSnapshot.sourceType,
+    sourceSnapshot,
     productionOrderId: input.productionOrderId,
     productionOrderNo: input.productionOrderNo,
+    stockMaterialId: sourceSnapshot.stockMaterialId,
+    stockMaterialName: sourceSnapshot.stockMaterialName,
     spuCode: input.spuCode,
     spuName: input.spuName,
     requiredDeliveryDate: input.requiredDeliveryDate,
@@ -1874,14 +1901,18 @@ export function registerFormalProductionOrderPrintWorkOrder(input: FormalProduct
   addSeedWorkOrder({
     printOrderId: input.workOrderId,
     printOrderNo: input.workOrderNo,
-    sourceType: 'PRODUCTION_ORDER',
-    sourceProductionOrderId: input.productionOrderId,
-    sourceProductionOrderNo: input.productionOrderNo,
+    sourceType: sourceSnapshot.sourceType,
+    sourceSnapshot,
+    sourceKey: input.sourceKey,
+    sourceProductionOrderId: sourceSnapshot.productionOrderId,
+    sourceProductionOrderNo: sourceSnapshot.productionOrderNo,
     productionOrderOrderedAt: input.orderedAt,
-    productionOrderIds: [input.productionOrderId],
+    stockMaterialId: sourceSnapshot.stockMaterialId,
+    stockMaterialName: sourceSnapshot.stockMaterialName,
+    productionOrderIds: sourceSnapshot.productionOrderId ? [sourceSnapshot.productionOrderId] : [],
     isFirstOrder: false,
-    patternNo: input.techPackVersionId,
-    patternVersion: input.techPackVersionLabel,
+    patternNo: sourceSnapshot.sourceType === 'STOCK' ? input.processName : input.techPackVersionId,
+    patternVersion: sourceSnapshot.sourceType === 'STOCK' ? '备货创建' : input.techPackVersionLabel,
     materialSku: materialFields.materialId,
     materialColor: input.targetColor,
     objectType: '面料',
@@ -1889,6 +1920,7 @@ export function registerFormalProductionOrderPrintWorkOrder(input: FormalProduct
     isFabricPrinting: true,
     plannedQty: input.plannedQty,
     qtyUnit: input.qtyUnit,
+    plannedFinishAt: input.plannedFinishAt,
     qtyLabel: '计划数量',
     printFactoryId: factoryId,
     printFactoryName: factoryName,
@@ -1899,8 +1931,12 @@ export function registerFormalProductionOrderPrintWorkOrder(input: FormalProduct
     taskNo: input.workOrderNo,
     createdAt: input.orderedAt,
     updatedAt: input.orderedAt,
-    remark: `${input.processName}；来源正式生产单 ${input.productionOrderNo}；技术包 ${input.techPackVersionLabel}。`,
-    formalProductionOrderSnapshot: {
+    remark: sourceSnapshot.sourceType === 'STOCK'
+      ? `${input.processName}；按备货创建；创建人：${input.createdBy || '业务人员'}；计划完成：${input.plannedFinishAt || input.requiredDeliveryDate}`
+      : sourceSnapshot.sourceType === 'CUT_PIECE_SUPPLEMENT'
+        ? `${input.processName}；来源补料单 ${sourceSnapshot.supplementRecordNo}；原裁片单 ${sourceSnapshot.originalCutOrderNo}。`
+        : `${input.processName}；来源正式生产单 ${input.productionOrderNo}；技术包 ${input.techPackVersionLabel}。`,
+    formalProductionOrderSnapshot: sourceSnapshot.sourceType === 'STOCK' ? undefined : {
       productionOrderId: input.productionOrderId,
       productionOrderNo: input.productionOrderNo,
       orderedAt: input.orderedAt,
@@ -2142,58 +2178,27 @@ export function createPrintWorkOrderFromStock(input: {
     )
   if (!factory || !canReceivePrint) return { ok: false, message: '所选工厂不可派单或缺少正式有效的印花能力。' }
 
-  seedDomain()
-  const sequence = workOrderStore.size + createdPrintOrderIds.size + 1
-  const printOrderId = `PRINT-STOCK-${String(sequence).padStart(4, '0')}`
-  const printOrderNo = `YHJG-STOCK-${String(sequence).padStart(4, '0')}`
   const now = nowTimestamp()
-  registerPdaGenericProcessTask(buildFreshPrintMobileTask({
-    taskId: printOrderId,
-    taskNo: printOrderNo,
-    sourceType: 'STOCK',
-    stockMaterialId,
-    stockMaterialName,
+  const result = ensureProcessWorkOrders({
+    source: { sourceType: 'STOCK', stockMaterialId, stockMaterialName },
+    processCodes: ['PRINT'],
+    orderedAt: now,
+    materialId: materialSku,
+    materialName: stockMaterialName,
+    materialItems: [{ sourceBomItemId: stockMaterialId, materialId: materialSku, materialName: stockMaterialName }],
+    targetColor: '按印花工艺执行',
+    plannedQty: input.plannedQty,
+    qtyUnit,
+    printProcessName: processName,
+    factoryId: factory.id,
+    factoryName: factory.name,
     spuCode: '',
     spuName: stockMaterialName,
     requiredDeliveryDate: plannedFinishAt,
-    factoryId: factory.id,
-    factoryName: factory.name,
-    qty: input.plannedQty,
-    qtyDisplayUnit: qtyUnit,
-    processName,
-    createdAt: now,
-  }))
-  addSeedWorkOrder({
-    printOrderId,
-    printOrderNo,
-    sourceType: 'STOCK',
-    stockMaterialId,
-    stockMaterialName,
-    productionOrderIds: [],
-    isFirstOrder: false,
-    patternNo: processName,
-    patternVersion: '备货创建',
-    materialSku,
-    objectType: '面料',
-    isPiecePrinting: false,
-    isFabricPrinting: true,
-    plannedQty: input.plannedQty,
-    qtyUnit,
     plannedFinishAt,
-    qtyLabel: '计划数量',
-    printFactoryId: factory.id,
-    printFactoryName: factory.name,
-    targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
-    status: 'WAIT_ARTWORK',
-    taskId: printOrderId,
-    taskNo: printOrderNo,
-    createdAt: now,
-    updatedAt: now,
-    remark: `${processName}；按备货创建；创建人：${input.createdBy || '业务人员'}；计划完成：${plannedFinishAt}`,
+    createdBy: input.createdBy,
   })
-  createdPrintOrderIds.add(printOrderId)
-  return { ok: true, message: '', order: getPrintWorkOrderById(printOrderId) }
+  return { ok: true, message: '', order: getPrintWorkOrderById(result.printWorkOrderId!) }
 }
 
 export function listPrintExecutionNodeRecords(printOrderId?: string): PrintExecutionNodeRecord[] {

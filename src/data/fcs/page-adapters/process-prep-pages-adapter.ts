@@ -7,6 +7,8 @@ import { productionOrders } from '../production-orders.ts'
 import {
   listProcessWorkOrders,
   type ProcessWorkOrder,
+  type ProcessWorkOrderSourceSnapshot,
+  type ProcessWorkOrderSourceType,
 } from '../process-work-order-domain.ts'
 import {
   validateDyeWorkOrderMobileTaskBinding,
@@ -25,7 +27,7 @@ import { selectPrimaryProductionMaterialBomItem } from '../production-material-b
 
 type PrepProcessCode = 'PRINT' | 'DYE'
 type PrepUnit = string
-type CreateModeZh = '生产单自动生成' | '按备货创建'
+type CreateModeZh = '生产单自动生成' | '按备货创建' | '补料确认生成'
 type DemandStatusZh = '待满足' | '部分满足' | '已满足' | '已完成交接'
 type OrderStatusZh = PlatformProcessStatus
 type LegacyOrderStatusZh = '待接收来料' | '待开工' | '加工中' | '部分交出' | '全部交出' | '已关闭'
@@ -132,7 +134,8 @@ export interface PrepProcessOrderFact {
   workOrderId?: string
   sourceArtifactIds?: string[]
   processType?: PrepProcessCode
-  sourceType: 'PRODUCTION_ORDER' | 'STOCK'
+  sourceType: ProcessWorkOrderSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
   sourceProductionOrderId?: string
   sourceProductionOrderNo?: string
   productionOrderOrderedAt?: string
@@ -507,6 +510,7 @@ function cloneDemands(input: PrepRequirementDemandFact[]): PrepRequirementDemand
 function cloneOrders(input: PrepProcessOrderFact[]): PrepProcessOrderFact[] {
   return input.map((item) => ({
     ...item,
+    sourceSnapshot: item.sourceSnapshot ? { ...item.sourceSnapshot } : undefined,
     stockMaterial: item.stockMaterial ? { ...item.stockMaterial } : undefined,
     materialReceipt: { ...item.materialReceipt },
     batches: item.batches.map((batch) => ({ ...batch })),
@@ -549,6 +553,7 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
     workOrderId: order.workOrderId,
     processType: order.processType,
     sourceType: order.sourceType,
+    sourceSnapshot: { ...order.sourceSnapshot },
     sourceProductionOrderId: order.sourceProductionOrderId,
     sourceProductionOrderNo: order.sourceProductionOrderNo,
     productionOrderOrderedAt: order.productionOrderOrderedAt,
@@ -595,7 +600,11 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
     detailLink: platformResultView?.detailLink,
     craftDetailLink: platformResultView?.craftDetailLink,
     mobileTaskLink: platformResultView?.mobileTaskLink,
-    createMode: order.sourceType === 'STOCK' ? '按备货创建' : '生产单自动生成',
+    createMode: order.sourceType === 'STOCK'
+      ? '按备货创建'
+      : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
+        ? '补料确认生成'
+        : '生产单自动生成',
     factoryName: order.factoryName,
     plannedFeedQty: order.plannedQty,
     completedObjectQty: platformResultView?.completedObjectQty,
@@ -613,7 +622,9 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
     plannedFinishAt: order.plannedFinishAt || order.formalProductionOrderSnapshot?.requiredDeliveryDate || order.updatedAt,
     sourceSummary: order.sourceType === 'STOCK'
       ? `按备货创建：${order.stockMaterialName || order.materialName}`
-      : `生产单 ${order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'} 自动生成`,
+      : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
+        ? `补料单 ${order.sourceSnapshot.supplementRecordNo || '-'} / 原裁片单 ${order.sourceSnapshot.originalCutOrderNo || '-'}`
+        : `生产单 ${order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'} 自动生成`,
     note: `${order.processType === 'PRINT' ? '印花' : '染色'}加工单统一来源：平台视图与工艺工厂 Web 视图使用同一个加工单号。`,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
@@ -652,7 +663,9 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
               batchNo,
               sourceLabel: order.sourceType === 'STOCK'
                 ? (order.stockMaterialName || order.materialName)
-                : (order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'),
+                : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
+                  ? (order.sourceSnapshot.supplementRecordNo || order.sourceSnapshot.supplementRecordId || '-')
+                  : (order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'),
               fulfilledQty: satisfiedQty,
               linkedAt: order.handoverRecords[0]?.receiverWrittenAt || order.updatedAt,
             },

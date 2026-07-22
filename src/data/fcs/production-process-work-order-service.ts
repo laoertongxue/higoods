@@ -3,10 +3,7 @@ import {
   registerFormalProductionOrderDyeWorkOrder,
 } from './dyeing-task-domain.ts'
 import {
-  issueProcessWorkOrderIdentity,
-  listProcessWorkOrders,
   type FormalProductionOrderProcessSnapshot,
-  type ProcessWorkOrderType,
 } from './process-work-order-domain.ts'
 import {
   prepareFormalProductionOrderPrintWorkOrderSync,
@@ -19,13 +16,14 @@ import {
 } from './formal-production-order-material-items.ts'
 import { deriveFormalProductionOrderProcessSnapshots } from './production-process-snapshot-derivation.ts'
 import type { ProductionOrder } from './production-orders.ts'
+import {
+  ensureProcessWorkOrders,
+  type EnsuredProcessWorkOrders,
+} from './process-work-order-generation-service.ts'
 
 export type { FormalProductionOrderProcessSnapshot } from './process-work-order-domain.ts'
 
-export interface EnsuredProductionProcessWorkOrders {
-  dyeWorkOrderId?: string
-  printWorkOrderId?: string
-}
+export type EnsuredProductionProcessWorkOrders = EnsuredProcessWorkOrders
 
 export interface ProductionOrderChangeWorkOrderSyncOptions {
   changeRecordId?: string
@@ -43,15 +41,6 @@ export interface PreparedProductionOrderChangeWorkOrderSyncBatch {
   result: ProductionOrderChangeWorkOrderSyncResult
   commit: () => void
   rollback: () => void
-}
-
-function findExistingWorkOrderId(
-  productionOrderId: string,
-  processType: Extract<ProcessWorkOrderType, 'DYE' | 'PRINT'>,
-): string | undefined {
-  return listProcessWorkOrders(processType)
-    .find((order) => order.sourceProductionOrderId === productionOrderId)
-    ?.workOrderId
 }
 
 export function validateFormalProductionOrderProcessSnapshot(
@@ -107,71 +96,32 @@ export function ensureProcessWorkOrdersForFormalProductionOrder(
   validateFormalProductionOrderProcessSnapshot(snapshot)
   const materialItems = normalizeFormalProductionOrderMaterialItems(snapshot)
   const materialFields = deriveFormalProductionOrderMaterialFields(materialItems)
-  const processCodes = new Set(snapshot.processCodes)
-  const result: EnsuredProductionProcessWorkOrders = {}
-
-  if (processCodes.has('DYE')) {
-    const existingId = findExistingWorkOrderId(snapshot.productionOrderId, 'DYE')
-    if (existingId) {
-      result.dyeWorkOrderId = existingId
-    } else {
-      const identity = issueProcessWorkOrderIdentity('DYE', snapshot.orderedAt)
-      result.dyeWorkOrderId = registerFormalProductionOrderDyeWorkOrder({
-        ...identity,
-        productionOrderId: snapshot.productionOrderId,
-        productionOrderNo: snapshot.productionOrderNo,
-        orderedAt: snapshot.orderedAt,
-        techPackVersionId: snapshot.techPackVersionId,
-        techPackVersionLabel: snapshot.techPackVersionLabel,
-        materialId: materialFields.materialId,
-        materialName: materialFields.materialName,
-        materialItems,
-        targetColor: snapshot.targetColor,
-        plannedQty: snapshot.plannedQty,
-        qtyUnit: snapshot.qtyUnit,
-        processCodes: [...snapshot.processCodes],
-        processName: snapshot.dyeProcessName || '染色',
-        factoryId: snapshot.factoryId,
-        factoryName: snapshot.factoryId ? (snapshot.factoryName || snapshot.factoryId) : undefined,
-        spuCode: snapshot.spuCode,
-        spuName: snapshot.spuName,
-        requiredDeliveryDate: snapshot.requiredDeliveryDate,
-        requiresWaterSoluble: snapshot.requiresWaterSoluble === true,
-      }).dyeOrderId
-    }
-  }
-
-  if (processCodes.has('PRINT')) {
-    const existingId = findExistingWorkOrderId(snapshot.productionOrderId, 'PRINT')
-    if (existingId) {
-      result.printWorkOrderId = existingId
-    } else {
-      const identity = issueProcessWorkOrderIdentity('PRINT', snapshot.orderedAt)
-      result.printWorkOrderId = registerFormalProductionOrderPrintWorkOrder({
-        ...identity,
-        productionOrderId: snapshot.productionOrderId,
-        productionOrderNo: snapshot.productionOrderNo,
-        orderedAt: snapshot.orderedAt,
-        techPackVersionId: snapshot.techPackVersionId,
-        techPackVersionLabel: snapshot.techPackVersionLabel,
-        materialId: materialFields.materialId,
-        materialName: materialFields.materialName,
-        materialItems,
-        targetColor: snapshot.targetColor,
-        plannedQty: snapshot.plannedQty,
-        qtyUnit: snapshot.qtyUnit,
-        processCodes: [...snapshot.processCodes],
-        processName: snapshot.printProcessName || '印花',
-        factoryId: snapshot.factoryId,
-        factoryName: snapshot.factoryId ? (snapshot.factoryName || snapshot.factoryId) : undefined,
-        spuCode: snapshot.spuCode,
-        spuName: snapshot.spuName,
-        requiredDeliveryDate: snapshot.requiredDeliveryDate,
-      }).printOrderId
-    }
-  }
-
-  return result
+  return ensureProcessWorkOrders({
+    source: {
+      sourceType: 'PRODUCTION_ORDER',
+      productionOrderId: snapshot.productionOrderId,
+      productionOrderNo: snapshot.productionOrderNo,
+      techPackVersionId: snapshot.techPackVersionId,
+      techPackVersionLabel: snapshot.techPackVersionLabel,
+      bomItemId: materialItems.map((item) => item.sourceBomItemId).join('+'),
+    },
+    processCodes: [...snapshot.processCodes],
+    orderedAt: snapshot.orderedAt,
+    materialId: materialFields.materialId,
+    materialName: materialFields.materialName,
+    materialItems,
+    targetColor: snapshot.targetColor,
+    plannedQty: snapshot.plannedQty,
+    qtyUnit: snapshot.qtyUnit,
+    dyeProcessName: snapshot.dyeProcessName,
+    printProcessName: snapshot.printProcessName,
+    requiresWaterSoluble: snapshot.requiresWaterSoluble === true,
+    factoryId: snapshot.factoryId,
+    factoryName: snapshot.factoryId ? (snapshot.factoryName || snapshot.factoryId) : undefined,
+    spuCode: snapshot.spuCode,
+    spuName: snapshot.spuName,
+    requiredDeliveryDate: snapshot.requiredDeliveryDate,
+  })
 }
 
 function createDefaultChangeRecordId(snapshot: FormalProductionOrderProcessSnapshot): string {

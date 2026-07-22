@@ -41,7 +41,22 @@ import { cloneFormalProductionOrderMaterialItems } from './formal-production-ord
 
 export type ProcessWorkOrderType = 'PRINT' | 'DYE' | 'WATER_SOLUBLE'
 export type ProcessWorkOrderStatus = PrintWorkOrderStatus | DyeWorkOrderStatus | WaterSolubleWorkOrderStatus
-export type ProcessWorkOrderSourceType = 'PRODUCTION_ORDER' | 'STOCK'
+export type ProcessWorkOrderSourceType = 'PRODUCTION_ORDER' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT'
+
+export interface ProcessWorkOrderSourceSnapshot {
+  sourceType: ProcessWorkOrderSourceType
+  productionOrderId?: string
+  productionOrderNo?: string
+  techPackVersionId?: string
+  techPackVersionLabel?: string
+  bomItemId?: string
+  supplementRecordId?: string
+  supplementRecordNo?: string
+  originalCutOrderId?: string
+  originalCutOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
+}
 
 export type FormalProductionProcessCode = 'DYE' | 'PRINT'
 
@@ -104,6 +119,8 @@ export interface ProcessWorkOrder {
   workOrderNo: string
   processType: ProcessWorkOrderType
   sourceType: ProcessWorkOrderSourceType
+  sourceSnapshot: ProcessWorkOrderSourceSnapshot
+  sourceKey?: string
   sourceProductionOrderId?: string
   sourceProductionOrderNo?: string
   productionOrderOrderedAt?: string
@@ -188,12 +205,48 @@ export interface ProcessWorkOrder {
   updatedAt: string
 }
 
+function cloneSourceSnapshot(sourceSnapshot: ProcessWorkOrderSourceSnapshot): ProcessWorkOrderSourceSnapshot {
+  return { ...sourceSnapshot }
+}
+
+function deriveLegacySourceSnapshot(input: {
+  sourceType: ProcessWorkOrderSourceType
+  sourceProductionOrderId?: string
+  sourceProductionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
+  formalProductionOrderSnapshot?: FormalProductionOrderProcessSnapshotRecord
+}): ProcessWorkOrderSourceSnapshot {
+  if (input.sourceType === 'STOCK') {
+    return {
+      sourceType: 'STOCK',
+      stockMaterialId: input.stockMaterialId,
+      stockMaterialName: input.stockMaterialName,
+    }
+  }
+  return {
+    sourceType: input.sourceType,
+    productionOrderId: input.sourceProductionOrderId,
+    productionOrderNo: input.sourceProductionOrderNo,
+    techPackVersionId: input.formalProductionOrderSnapshot?.techPackVersionId,
+    techPackVersionLabel: input.formalProductionOrderSnapshot?.techPackVersionLabel,
+    bomItemId: input.formalProductionOrderSnapshot?.materialItems?.[0]?.sourceBomItemId,
+  }
+}
+
 function mapWaterSolubleWorkOrder(order: WaterSolubleWorkOrder): ProcessWorkOrder {
   return {
     workOrderId: order.waterOrderId,
     workOrderNo: order.waterOrderNo,
     processType: 'WATER_SOLUBLE',
     sourceType: 'PRODUCTION_ORDER',
+    sourceSnapshot: {
+      sourceType: 'PRODUCTION_ORDER',
+      productionOrderId: order.productionOrderId,
+      productionOrderNo: order.productionOrderNo,
+      techPackVersionId: order.techPackVersionId,
+      bomItemId: order.bomItemId,
+    },
     sourceProductionOrderId: order.productionOrderId,
     sourceProductionOrderNo: order.productionOrderNo,
     productionOrderOrderedAt: order.createdAt,
@@ -264,6 +317,8 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
     workOrderNo,
     processType: 'PRINT',
     sourceType: order.sourceType,
+    sourceSnapshot: cloneSourceSnapshot(order.sourceSnapshot || deriveLegacySourceSnapshot(order)),
+    sourceKey: order.sourceKey,
     sourceProductionOrderId: order.sourceProductionOrderId,
     sourceProductionOrderNo: order.sourceProductionOrderNo,
     productionOrderOrderedAt: order.productionOrderOrderedAt,
@@ -343,6 +398,8 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
     workOrderNo,
     processType: 'DYE',
     sourceType: order.sourceType,
+    sourceSnapshot: cloneSourceSnapshot(order.sourceSnapshot || deriveLegacySourceSnapshot(order)),
+    sourceKey: order.sourceKey,
     sourceProductionOrderId: order.sourceProductionOrderId,
     sourceProductionOrderNo: order.sourceProductionOrderNo,
     productionOrderOrderedAt: order.productionOrderOrderedAt,

@@ -37,6 +37,10 @@ import {
   type ProductionConfirmationSnapshot,
 } from './production-confirmation.ts'
 import { buildTaskQrValue } from './task-qr.ts'
+import type {
+  ProcessWorkOrderSourceSnapshot,
+  ProcessWorkOrderSourceType,
+} from './process-work-order-domain.ts'
 import {
   getRuntimeTaskById,
   listRuntimeExecutionTasksByOrder,
@@ -100,7 +104,8 @@ export interface TaskDeliveryCardModel {
   deliverySequenceLabel: string
   taskId: string
   taskNo: string
-  sourceType: 'PRODUCTION_ORDER' | 'STOCK'
+  sourceType: ProcessWorkOrderSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
   productionOrderNo?: string
   stockMaterialId?: string
   stockMaterialName?: string
@@ -139,7 +144,7 @@ export interface TaskRouteCardModel {
   taskId: string
   taskNo: string
   productionOrderId?: string
-  workOrderSourceType?: 'PRODUCTION_ORDER' | 'STOCK'
+  workOrderSourceType?: ProcessWorkOrderSourceType
   productionOrderNo?: string
   stockMaterialId?: string
   stockMaterialName?: string
@@ -174,7 +179,7 @@ export interface TaskRouteCardPrintDoc {
   taskNo?: string
   productionOrderId?: string
   productionOrderNo?: string
-  workOrderSourceType?: 'PRODUCTION_ORDER' | 'STOCK'
+  workOrderSourceType?: ProcessWorkOrderSourceType
   stockMaterialId?: string
   stockMaterialName?: string
   processName: string
@@ -207,7 +212,8 @@ export interface TaskDeliveryCardPrintDoc {
   taskNo?: string
   productionOrderId?: string
   productionOrderNo?: string
-  sourceType: 'PRODUCTION_ORDER' | 'STOCK'
+  sourceType: ProcessWorkOrderSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
   stockMaterialId?: string
   stockMaterialName?: string
   processName: string
@@ -509,7 +515,8 @@ export function buildTaskDeliveryCardByRecord(
       deliverySequenceLabel: `第 ${record.sequenceNo} 次交货`,
       taskId: head.taskId,
       taskNo: head.taskNo || head.taskId,
-      sourceType: head.sourceType === 'STOCK' ? 'STOCK' : 'PRODUCTION_ORDER',
+      sourceType: head.sourceType || 'PRODUCTION_ORDER',
+      sourceSnapshot: head.sourceSnapshot ? { ...head.sourceSnapshot } : undefined,
       productionOrderNo: head.productionOrderNo,
       stockMaterialId: head.stockMaterialId,
       stockMaterialName: head.stockMaterialName,
@@ -585,7 +592,9 @@ function mapDeliveryCardToPrintDoc(card: TaskDeliveryCardModel, record?: PdaHand
     { label: '任务编号', value: card.taskNo },
     card.sourceType === 'STOCK'
       ? { label: '备货物料', value: card.stockMaterialName || card.stockMaterialId || '待确认' }
-      : { label: '生产单号', value: card.productionOrderNo || '待确认' },
+      : card.sourceType === 'CUT_PIECE_SUPPLEMENT'
+        ? { label: '补料单', value: card.sourceSnapshot?.supplementRecordNo || '待确认' }
+        : { label: '生产单号', value: card.productionOrderNo || '待确认' },
     { label: '工序', value: card.processName },
     { label: '工艺', value: card.craftName },
     { label: '上游工厂', value: card.upstreamFactoryName },
@@ -609,6 +618,7 @@ function mapDeliveryCardToPrintDoc(card: TaskDeliveryCardModel, record?: PdaHand
     productionOrderId,
     productionOrderNo: card.productionOrderNo,
     sourceType: card.sourceType,
+    sourceSnapshot: card.sourceSnapshot ? { ...card.sourceSnapshot } : undefined,
     stockMaterialId: card.stockMaterialId,
     stockMaterialName: card.stockMaterialName,
     processName: card.processName,
@@ -894,7 +904,9 @@ function buildRouteCardFromPrintWorkOrder(sourceId: string): TaskRouteCardBuildR
         { label: '印花任务号', value: order.taskNo },
         order.sourceType === 'STOCK'
           ? { label: '备货物料', value: order.stockMaterialName || order.stockMaterialId || '待确认' }
-          : { label: '生产单号', value: order.sourceProductionOrderNo || order.sourceProductionOrderId || '待确认' },
+          : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
+            ? { label: '补料单', value: order.sourceSnapshot?.supplementRecordNo || '待确认' }
+            : { label: '生产单号', value: order.sourceProductionOrderNo || order.sourceProductionOrderId || '待确认' },
         { label: '花型号/版本', value: `${order.patternNo} / ${order.patternVersion}` },
         { label: '面料 SKU', value: order.materialSku },
         { label: '面料颜色', value: order.materialColor || '—' },
@@ -965,7 +977,9 @@ function buildRouteCardFromDyeWorkOrder(sourceId: string): TaskRouteCardBuildRes
         { label: '染色任务号', value: order.taskNo },
         order.sourceType === 'STOCK'
           ? { label: '备货物料', value: order.stockMaterialName || order.stockMaterialId || '待确认' }
-          : { label: '生产单号', value: order.sourceProductionOrderNo || order.sourceProductionOrderId || '待确认' },
+          : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
+            ? { label: '补料单', value: order.sourceSnapshot?.supplementRecordNo || '待确认' }
+            : { label: '生产单号', value: order.sourceProductionOrderNo || order.sourceProductionOrderId || '待确认' },
         { label: '首单/翻单', value: order.isFirstOrder ? '首单' : '翻单' },
         { label: '原料面料 SKU', value: order.rawMaterialSku },
         { label: '目标颜色', value: order.targetColor },

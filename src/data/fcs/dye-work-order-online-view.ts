@@ -8,6 +8,7 @@ import {
   getDyeWorkOrderOnlineRecord,
   type DyeWorkOrderOnlineStatus,
 } from './dye-work-order-online-domain.ts'
+import type { ProcessWorkOrderSourceType } from './process-work-order-domain.ts'
 
 export type DyeWorkOrderKeywordField =
   | 'all'
@@ -89,7 +90,7 @@ export interface DyeWorkOrderOnlineRow {
   headVatOrRedye: string
   handoverOrderNo: string
   batchNo: string
-  sourceType: 'PRODUCTION_ORDER' | 'STOCK'
+  sourceType: ProcessWorkOrderSourceType
   remark: string
 }
 
@@ -197,8 +198,16 @@ function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
     productionOrderNo: order.sourceProductionOrderNo || '',
     productCode,
     productImageUrl: presentation.productImageUrl || '',
-    purchaseOrderNo: presentation.purchaseOrderNo || (order.sourceType === 'STOCK' ? '备货创建' : '—'),
-    purchaseType: presentation.purchaseType || (order.sourceType === 'STOCK' ? '备货' : '—'),
+    purchaseOrderNo: presentation.purchaseOrderNo || (order.sourceType === 'STOCK'
+      ? '备货创建'
+      : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
+        ? (order.sourceSnapshot?.supplementRecordNo || '补料创建')
+        : '—'),
+    purchaseType: presentation.purchaseType || (order.sourceType === 'STOCK'
+      ? '备货'
+      : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
+        ? '补料'
+        : '—'),
     salesType: presentation.salesType || '—',
     receiverInventoryQty: 0,
     gtgInventoryQty: 0,

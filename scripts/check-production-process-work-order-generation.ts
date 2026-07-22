@@ -35,6 +35,10 @@ import {
   syncProcessWorkOrdersAfterProductionOrderChange,
   type FormalProductionOrderProcessSnapshot,
 } from '../src/data/fcs/production-process-work-order-service.ts'
+import {
+  ensureProcessWorkOrders,
+  type ProcessWorkOrderGenerationInput,
+} from '../src/data/fcs/process-work-order-generation-service.ts'
 import { deriveFormalProductionOrderProcessSnapshots } from '../src/data/fcs/production-process-snapshot-derivation.ts'
 
 const baseSnapshot = {
@@ -57,8 +61,8 @@ const dyeOnly: FormalProductionOrderProcessSnapshot = {
   productionOrderNo: 'PO-AUTO-DYE-001',
   processCodes: ['DYE'],
   dyeProcessName: '成衣染色',
-  factoryId: 'FACTORY-DYE-001',
-  factoryName: '雅加达染色一厂',
+  factoryId: 'F090',
+  factoryName: '全能力测试工厂',
 }
 const printOnly: FormalProductionOrderProcessSnapshot = {
   ...baseSnapshot,
@@ -67,8 +71,8 @@ const printOnly: FormalProductionOrderProcessSnapshot = {
   targetColor: '米白底蓝花',
   processCodes: ['PRINT'],
   printProcessName: '数码印花',
-  factoryId: 'FACTORY-PRINT-001',
-  factoryName: '万隆印花一厂',
+  factoryId: 'F090',
+  factoryName: '全能力测试工厂',
 }
 const dyeAndPrint: FormalProductionOrderProcessSnapshot = {
   ...baseSnapshot,
@@ -89,6 +93,7 @@ const bomTemplate = sourceOrder.techPackSnapshot.bomItems[0]
 const processTemplate = sourceOrder.techPackSnapshot.processEntries[0]
 const dyeBom = {
   ...bomTemplate,
+  type: '面料' as const,
   id: 'BOM-DYE-001',
   materialCode: 'MAT-DYE-001',
   name: '染色针织布',
@@ -100,6 +105,7 @@ const dyeBom = {
 }
 const printBom = {
   ...bomTemplate,
+  type: '面料' as const,
   id: 'BOM-PRINT-001',
   materialCode: 'MAT-PRINT-001',
   name: '印花裁片',
@@ -302,8 +308,8 @@ const sameActualMaterialOrders = ['A', 'B'].map((suffix) => ({
 }))
 const sameActualMaterialSnapshots = sameActualMaterialOrders.map((order) => ({
   ...buildFormalProductionOrderProcessSnapshots(order)[0]!,
-  factoryId: 'FACTORY-DYE-SAME-001',
-  factoryName: '同一染厂',
+  factoryId: 'F090',
+  factoryName: '全能力测试工厂',
   targetColor: '同一蓝',
 }))
 assert.deepEqual(
@@ -337,8 +343,8 @@ const differentActualMaterialSnapshot = {
       }],
     },
   })[0]!,
-  factoryId: 'FACTORY-DYE-SAME-001',
-  factoryName: '同一染厂',
+  factoryId: 'F090',
+  factoryName: '全能力测试工厂',
   targetColor: '同一蓝',
 }
 const differentActualMaterialWorkOrder = ensureProcessWorkOrdersForFormalProductionOrder(differentActualMaterialSnapshot).dyeWorkOrderId!
@@ -1036,6 +1042,7 @@ function assertGeneratedOrder(
     qtyUnit: source.qtyUnit,
     processCodes: source.processCodes,
     processName: processType === 'DYE' ? source.dyeProcessName : source.printProcessName,
+    ...(processType === 'DYE' ? { requiresWaterSoluble: source.requiresWaterSoluble === true } : {}),
     spuCode: source.spuCode,
     spuName: source.spuName,
     requiredDeliveryDate: source.requiredDeliveryDate,
@@ -1113,6 +1120,57 @@ assert(
 assert(
   dyeingTaskDomainSource.includes('deriveFormalProductionOrderProcessSnapshots'),
   '固定联合水溶染色 seed 必须复用正式 BOM/工艺快照派生函数',
+)
+
+const supplementSource: ProcessWorkOrderGenerationInput = {
+  source: {
+    sourceType: 'CUT_PIECE_SUPPLEMENT',
+    productionOrderId: 'PO-SUP-001',
+    productionOrderNo: 'PO-SUP-001',
+    techPackVersionId: 'TPV-SUP-001',
+    techPackVersionLabel: '正式版 V1',
+    bomItemId: 'BOM-SUP-001',
+    supplementRecordId: 'SUP-RECORD-001',
+    supplementRecordNo: 'BL-20260722-001',
+    originalCutOrderId: 'CUT-ORDER-001',
+    originalCutOrderNo: 'CP-20260722-001',
+  },
+  processCodes: ['DYE', 'PRINT'],
+  orderedAt: '2026-07-22 10:00:00',
+  materialId: 'MAT-SUP-001',
+  materialName: '补料针织布',
+  materialItems: [{
+    sourceBomItemId: 'BOM-SUP-001',
+    materialId: 'MAT-SUP-001',
+    materialName: '补料针织布',
+  }],
+  targetColor: '黑色',
+  plannedQty: 12,
+  qtyUnit: '米',
+  dyeProcessName: '匹染',
+  printProcessName: '数码印花',
+  spuCode: 'SPU-SUP-001',
+  spuName: '补料测试款',
+  requiredDeliveryDate: '2026-07-30',
+}
+const firstSupplementResult = ensureProcessWorkOrders(supplementSource)
+const secondSupplementResult = ensureProcessWorkOrders(supplementSource)
+assert(firstSupplementResult.dyeWorkOrderId, '补料来源必须生成染色加工单')
+assert(firstSupplementResult.printWorkOrderId, '补料来源必须生成印花加工单')
+assert.equal(secondSupplementResult.dyeWorkOrderId, firstSupplementResult.dyeWorkOrderId, '重复确认补料不得重复生成染色加工单')
+assert.equal(secondSupplementResult.printWorkOrderId, firstSupplementResult.printWorkOrderId, '重复确认补料不得重复生成印花加工单')
+const supplementDyeOrder = getProcessWorkOrderById(firstSupplementResult.dyeWorkOrderId)
+const supplementPrintOrder = getProcessWorkOrderById(firstSupplementResult.printWorkOrderId)
+for (const order of [supplementDyeOrder, supplementPrintOrder]) {
+  assert.equal(order?.sourceType, 'CUT_PIECE_SUPPLEMENT')
+  assert.deepEqual(order?.sourceSnapshot, supplementSource.source, '统一加工单必须完整保留补料来源快照')
+  assert(!('prerequisiteWorkOrderId' in (order || {})), '加工单不得保存前置加工单字段')
+  assert(!('locked' in (order || {})), '加工单不得保存运行时锁定字段')
+  assert(!('unlockStatus' in (order || {})), '加工单不得保存解锁字段')
+}
+assert(
+  listProcessWorkOrders().every((order) => Boolean(order.sourceSnapshot?.sourceType)),
+  '印花、染色、水溶统一映射必须全部携带非空来源快照',
 )
 
 console.log('生产单自动生成加工单检查通过')

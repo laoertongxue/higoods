@@ -16,6 +16,7 @@ import type {
   FormalProductionOrderProcessSnapshotRecord,
   ProcessWorkOrderAutoSyncRecord,
   ProcessWorkOrderChangeImpact,
+  ProcessWorkOrderSourceSnapshot,
   ProcessWorkOrderSourceType,
 } from './process-work-order-domain.ts'
 import {
@@ -27,6 +28,7 @@ import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import { selectPrimaryProductionMaterialBomItem } from './production-material-bom.ts'
 import { getProcessWorkOrderStockMaterial, isValidProcessWorkOrderPlannedFinishAt } from './process-work-order-stock.ts'
+import { ensureProcessWorkOrders } from './process-work-order-generation-service.ts'
 import { registerCreatedDyeWorkOrderReader } from './dyeing-created-work-order-registry.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
@@ -96,6 +98,8 @@ export interface DyeWorkOrder {
   dyeOrderId: string
   dyeOrderNo: string
   sourceType: ProcessWorkOrderSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
+  sourceKey?: string
   isReplenishment?: boolean
   sourceProductionOrderId?: string
   sourceProductionOrderNo?: string
@@ -534,6 +538,7 @@ function normalizeSeedWorkOrderSources(): void {
     const task = getDyeingTaskById(normalized.taskId)
     if (!task) return
     task.sourceType = normalized.sourceType
+    task.sourceSnapshot = normalized.sourceSnapshot ? { ...normalized.sourceSnapshot } : undefined
     task.productionOrderId = normalized.sourceProductionOrderId
     task.productionOrderNo = normalized.sourceProductionOrderNo
     task.sourceProductionOrderId = normalized.sourceProductionOrderId
@@ -558,6 +563,7 @@ function cloneWorkOrder(order: MutableDyeWorkOrder): DyeWorkOrder {
     : undefined
   return {
     ...order,
+    sourceSnapshot: order.sourceSnapshot ? { ...order.sourceSnapshot } : undefined,
     sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
     productionOrderIds: order.productionOrderIds ? [...order.productionOrderIds] : undefined,
     formalProductionOrderSnapshot: order.formalProductionOrderSnapshot
@@ -2332,6 +2338,7 @@ function buildFreshDyeMobileTask(input: {
   taskId: string
   taskNo?: string
   sourceType?: ProcessWorkOrderSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
   productionOrderId?: string
   productionOrderNo?: string
   stockMaterialId?: string
@@ -2350,7 +2357,7 @@ function buildFreshDyeMobileTask(input: {
   executionSummary: string
   handoverSummary: string
 }): PdaGenericTaskMock {
-  const sourceType: ProcessWorkOrderSourceType = input.sourceType === 'STOCK' ? 'STOCK' : 'PRODUCTION_ORDER'
+  const sourceType: ProcessWorkOrderSourceType = input.sourceType || 'PRODUCTION_ORDER'
   const sourceOrder = input.productionOrderId
     ? productionOrders.find((order) => order.productionOrderId === input.productionOrderId)
     : undefined
@@ -2364,6 +2371,7 @@ function buildFreshDyeMobileTask(input: {
     taskId: input.taskId,
     taskNo: input.taskNo || input.taskId,
     sourceType,
+    sourceSnapshot: input.sourceSnapshot ? { ...input.sourceSnapshot } : undefined,
     ...(sourceType === 'STOCK'
       ? { stockMaterialId: input.stockMaterialId, stockMaterialName: input.stockMaterialName }
       : {
@@ -2754,10 +2762,25 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
   workOrderNo: string
   processName: string
   requiresWaterSoluble?: boolean
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
+  sourceKey?: string
+  plannedFinishAt?: string
+  createdBy?: string
+  sampleWaitType?: SampleWaitType
 }): DyeWorkOrder {
   seedDomain()
+  const sourceSnapshot: ProcessWorkOrderSourceSnapshot = input.sourceSnapshot || {
+    sourceType: 'PRODUCTION_ORDER',
+    productionOrderId: input.productionOrderId,
+    productionOrderNo: input.productionOrderNo,
+    techPackVersionId: input.techPackVersionId,
+    techPackVersionLabel: input.techPackVersionLabel,
+    bomItemId: input.materialItems?.map((item) => item.sourceBomItemId).join('+') || input.materialId,
+  }
   const existing = Array.from(workOrderStore.values())
-    .find((order) => order.sourceProductionOrderId === input.productionOrderId)
+    .find((order) => input.sourceKey
+      ? order.sourceKey === input.sourceKey
+      : order.sourceProductionOrderId === input.productionOrderId)
   if (existing) return cloneWorkOrder(existing)
 
   const materialItems = normalizeFormalProductionOrderMaterialItems(input)
@@ -2770,8 +2793,12 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
   registerPdaGenericProcessTask(buildFreshDyeMobileTask({
     taskId: input.workOrderId,
     taskNo: input.workOrderNo,
+    sourceType: sourceSnapshot.sourceType,
+    sourceSnapshot,
     productionOrderId: input.productionOrderId,
     productionOrderNo: input.productionOrderNo,
+    stockMaterialId: sourceSnapshot.stockMaterialId,
+    stockMaterialName: sourceSnapshot.stockMaterialName,
     spuCode: input.spuCode,
     spuName: input.spuName,
     requiredDeliveryDate: input.requiredDeliveryDate,
@@ -2789,14 +2816,19 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
   addSeedWorkOrder({
     dyeOrderId: input.workOrderId,
     dyeOrderNo: input.workOrderNo,
-    sourceType: 'PRODUCTION_ORDER',
-    sourceProductionOrderId: input.productionOrderId,
-    sourceProductionOrderNo: input.productionOrderNo,
+    sourceType: sourceSnapshot.sourceType,
+    sourceSnapshot,
+    sourceKey: input.sourceKey,
+    sourceProductionOrderId: sourceSnapshot.productionOrderId,
+    sourceProductionOrderNo: sourceSnapshot.productionOrderNo,
     productionOrderOrderedAt: input.orderedAt,
-    productionOrderIds: [input.productionOrderId],
-    isFirstOrder: false,
-    sampleWaitType: 'NONE',
-    sampleStatus: 'NOT_REQUIRED',
+    stockMaterialId: sourceSnapshot.stockMaterialId,
+    stockMaterialName: sourceSnapshot.stockMaterialName,
+    productionOrderIds: sourceSnapshot.productionOrderId ? [sourceSnapshot.productionOrderId] : [],
+    isFirstOrder: (input.sampleWaitType ?? 'NONE') !== 'NONE',
+    sampleWaitType: input.sampleWaitType ?? 'NONE',
+    sampleStatus: (input.sampleWaitType ?? 'NONE') === 'NONE' ? 'NOT_REQUIRED' : 'WAITING',
+    sampleWaitStartedAt: (input.sampleWaitType ?? 'NONE') === 'NONE' ? undefined : input.orderedAt,
     rawMaterialSku: materialFields.materialId,
     composition: materialFields.materialName,
     targetColor: input.targetColor,
@@ -2805,6 +2837,7 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
     dyeProcessName: input.processName,
     plannedQty: input.plannedQty,
     qtyUnit: input.qtyUnit,
+    plannedFinishAt: input.plannedFinishAt,
     requiresWaterSoluble: input.requiresWaterSoluble === true,
     waterSolublePlannedQty: input.requiresWaterSoluble ? input.plannedQty : undefined,
     waterSolubleCompletedQty: input.requiresWaterSoluble ? 0 : undefined,
@@ -2813,13 +2846,17 @@ export function registerFormalProductionOrderDyeWorkOrder(input: FormalProductio
     dyeFactoryName: factoryName,
     targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
     targetTransferWarehouseName: '中转区域',
-    status: 'WAIT_MATERIAL',
+    status: (input.sampleWaitType ?? 'NONE') === 'NONE' ? 'WAIT_MATERIAL' : 'WAIT_SAMPLE',
     taskId: input.workOrderId,
     taskNo: input.workOrderNo,
     createdAt: input.orderedAt,
     updatedAt: input.orderedAt,
-    remark: `${input.processName}；来源正式生产单 ${input.productionOrderNo}；技术包 ${input.techPackVersionLabel}。`,
-    formalProductionOrderSnapshot: {
+    remark: sourceSnapshot.sourceType === 'STOCK'
+      ? `${input.processName}；按备货创建；创建人：${input.createdBy || '业务人员'}；计划完成：${input.plannedFinishAt || input.requiredDeliveryDate}`
+      : sourceSnapshot.sourceType === 'CUT_PIECE_SUPPLEMENT'
+        ? `${input.processName}；来源补料单 ${sourceSnapshot.supplementRecordNo}；原裁片单 ${sourceSnapshot.originalCutOrderNo}。`
+        : `${input.processName}；来源正式生产单 ${input.productionOrderNo}；技术包 ${input.techPackVersionLabel}。`,
+    formalProductionOrderSnapshot: sourceSnapshot.sourceType === 'STOCK' ? undefined : {
       productionOrderId: input.productionOrderId,
       productionOrderNo: input.productionOrderNo,
       orderedAt: input.orderedAt,
@@ -3270,62 +3307,30 @@ export function createDyeWorkOrderFromStock(input: {
   if (factoryAssignmentError) return { ok: false, message: factoryAssignmentError }
   const factory = getFactoryMasterRecordById(input.factoryId)!
   const sampleWaitType = input.sampleWaitType ?? 'NONE'
-  const requiresSample = sampleWaitType !== 'NONE'
   const plannedQty = input.plannedQty
-  const sequence = workOrderStore.size + createdDyeOrderIds.size + 1
-  const dyeOrderId = `DYE-CREATED-${String(sequence).padStart(4, '0')}`
-  const dyeOrderNo = `RSJG-CREATED-${String(sequence).padStart(4, '0')}`
-  const taskId = `TASK-${dyeOrderId}`
   const now = nowTimestamp()
-  registerPdaGenericProcessTask(buildFreshDyeMobileTask({
-    taskId,
-    sourceType: 'STOCK',
-    stockMaterialId,
-    stockMaterialName,
-    spuName: stockMaterialName,
-    factoryId: factory.id,
-    factoryName: factory.name,
-    qty: plannedQty,
-    qtyDisplayUnit: normalizedUnit,
-    createdAt: now,
-    dispatchedBy: input.createdBy || '业务人员',
-    processName: input.processName.trim(),
-    receiveSummary: '备货染色加工单已派单。',
-    executionSummary: `按${input.processName.trim()}执行。`,
-    handoverSummary: '完成全部后处理后统一交出。',
-  }))
-  addSeedWorkOrder({
-    dyeOrderId,
-    dyeOrderNo,
-    sourceType: 'STOCK',
-    stockMaterialId,
-    stockMaterialName,
-    productionOrderIds: [],
-    isFirstOrder: requiresSample,
-    sampleWaitType,
-    sampleStatus: requiresSample ? 'WAITING' : 'NOT_REQUIRED',
-    sampleWaitStartedAt: requiresSample ? now : undefined,
-    rawMaterialSku: materialSku,
+  const result = ensureProcessWorkOrders({
+    source: { sourceType: 'STOCK', stockMaterialId, stockMaterialName },
+    processCodes: ['DYE'],
+    orderedAt: now,
+    materialId: materialSku,
+    materialName: stockMaterialName,
+    materialItems: [{ sourceBomItemId: stockMaterialId, materialId: materialSku, materialName: stockMaterialName }],
     targetColor: input.targetColor.trim() || '按工艺要求执行',
-    dyeProcessCode: 'DYE',
-    dyeProcessName: input.processName.trim(),
     plannedQty,
     qtyUnit: normalizedUnit,
-    plannedFinishAt,
+    dyeProcessName: input.processName.trim(),
     requiresWaterSoluble: false,
-    dyeFactoryId: factory.id,
-    dyeFactoryName: factory.name,
-    targetTransferWarehouseId: 'WAREHOUSE-TRANSFER',
-    targetTransferWarehouseName: '中转区域',
-    status: requiresSample ? 'WAIT_SAMPLE' : 'WAIT_MATERIAL',
-    taskId,
-    taskNo: taskId,
-    createdAt: now,
-    updatedAt: now,
-    remark: `${input.processName.trim()}；按备货创建；创建人：${input.createdBy || '业务人员'}；计划完成：${plannedFinishAt}`,
+    factoryId: factory.id,
+    factoryName: factory.name,
+    spuCode: '',
+    spuName: stockMaterialName,
+    requiredDeliveryDate: plannedFinishAt,
+    plannedFinishAt,
+    createdBy: input.createdBy,
+    dyeSampleWaitType: sampleWaitType,
   })
-  createdDyeOrderIds.add(dyeOrderId)
-  return { ok: true, message: '', order: getDyeWorkOrderById(dyeOrderId) }
+  return { ok: true, message: '', order: getDyeWorkOrderById(result.dyeWorkOrderId!) }
 }
 
 export function validateDyeStartPrerequisite(

@@ -859,6 +859,16 @@ const taskOrdersSource = read('src/pages/process-factory/special-craft/task-orde
 const workOrderDetailSource = read('src/pages/process-factory/special-craft/work-order-detail.ts')
 const pdaExecDetailSource = read('src/pages/pda-exec-detail.ts')
 const factoryInternalWarehouseSource = read('src/data/fcs/factory-internal-warehouse.ts')
+const processWorkOrderDomainSource = read('src/data/fcs/process-work-order-domain.ts')
+const processWorkOrderGenerationSource = read('src/data/fcs/process-work-order-generation-service.ts')
+assert(processWorkOrderDomainSource.includes("'PRODUCTION_ORDER' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT'"), '印染加工单必须支持生产单、备货和裁片补料三种来源')
+assert(processWorkOrderDomainSource.includes('sourceSnapshot: ProcessWorkOrderSourceSnapshot'), '统一加工单必须强制携带来源快照')
+for (const sourceKeyField of ['productionOrderId', 'stockMaterialId', 'supplementRecordId']) {
+  assert(processWorkOrderGenerationSource.includes(`input.source.${sourceKeyField}`), `统一创建服务幂等键缺少来源字段 ${sourceKeyField}`)
+}
+for (const forbidden of ['prerequisiteWorkOrderId', 'lockedByDyeWorkOrderId', 'unlockStatus']) {
+  assert(!processWorkOrderDomainSource.includes(forbidden), `印染加工单不得引入运行时互锁字段 ${forbidden}`)
+}
 assert(!factoryInternalWarehouseSource.includes('pickupFallbackFactories'), '领料入库不得以任意非车缝工厂兜底主体')
 assert(!factoryInternalWarehouseSource.includes('fallbackType?: FactoryType'), '工厂名称解析不得按工厂类型兜底主体')
 assert(!factoryInternalWarehouseSource.includes('factory.factoryType === fallbackType'), '工厂名称解析缺少精确主体时必须失败关闭')
