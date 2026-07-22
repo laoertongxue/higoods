@@ -227,13 +227,17 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 1280, height: 720
       const action = document.querySelector<HTMLElement>('[data-standard-list-action-column]')!
       return {
         bodyOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        mainOverflow: document.querySelector('main')!.scrollWidth - document.querySelector('main')!.clientWidth,
         tableOverflows: scroll.scrollWidth > scroll.clientWidth,
+        actionLeft: action.getBoundingClientRect().left,
         actionRight: action.getBoundingClientRect().right,
         viewportWidth: window.innerWidth,
       }
     })
     expect(metrics.bodyOverflow).toBeLessThanOrEqual(1)
+    expect(metrics.mainOverflow).toBeLessThanOrEqual(1)
     expect(metrics.tableOverflows).toBe(true)
+    expect(metrics.actionLeft).toBeGreaterThanOrEqual(0)
     expect(metrics.actionRight).toBeLessThanOrEqual(metrics.viewportWidth)
 
     await page.locator('[data-standard-list-scroll]').evaluate((node) => {
@@ -577,9 +581,17 @@ test('同一 SPA 会话完成补料后跨页面共享状态且序号不增长', 
 })
 
 test('操作栏一次只完成一张未完成补料且全部完成后动作消失', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
   await openList(page)
   const row = await findCutOrderRow(page, 'CUT14671-B')
   await page.locator('[data-cutting-piece-field="supplementCompletion"]').selectOption('HAS_INCOMPLETE')
+  await page.evaluate(() => {
+    const win = window as typeof window & { __supplementActionStableRegions?: Record<string, Element | null> }
+    win.__supplementActionStableRegions = Object.fromEntries(['main', 'filters', 'pagination'].map((name) => [
+      name,
+      name === 'main' ? document.querySelector('main') : document.querySelector(`[data-cutting-piece-region="${name}"]`),
+    ]))
+  })
   const pagination = page.locator('[data-cutting-piece-region="pagination"]')
   await pagination.evaluate((node) => {
     const win = window as typeof window & { __supplementFilteredPagination?: Element; __supplementPaginationMutations?: number }
@@ -590,6 +602,8 @@ test('操作栏一次只完成一张未完成补料且全部完成后动作消�
   })
   const scroll = page.locator('[data-standard-list-scroll]')
   await scroll.evaluate((node) => { node.scrollLeft = 180 })
+  await page.evaluate(() => window.scrollTo(0, Math.min(120, document.documentElement.scrollHeight - window.innerHeight)))
+  const windowScrollY = await page.evaluate(() => window.scrollY)
   await row.getByRole('button', { name: '完成补料', exact: true }).click()
   const dialog = page.locator('[data-cutting-piece-supplement-picker]')
   await expect(dialog.getByRole('heading', { name: '完成补料' })).toBeVisible()
@@ -602,9 +616,57 @@ test('操作栏一次只完成一张未完成补料且全部完成后动作消�
   await second.click({ force: true })
   await expect(second).toBeChecked()
   await expect(submit).toBeEnabled()
-  await submit.click()
+  const completionEvidence = await page.evaluate(() => new Promise<{
+    elapsed: number
+    tableMutations: number
+    statsMutations: number
+  }>((resolve, reject) => {
+    const button = document.querySelector<HTMLButtonElement>('[data-cutting-piece-supplement-picker] [data-cutting-piece-action="complete-selected-supplement"]')
+    const table = document.querySelector('[data-cutting-piece-region="table"]')
+    const stats = document.querySelector('[data-cutting-piece-region="stats"]')
+    if (!button || !table || !stats) return reject(new Error('缺少操作栏补料完成验收节点'))
+    const startedAt = performance.now()
+    let tableMutations = 0
+    let statsMutations = 0
+    const finishIfUpdated = () => {
+      const tableText = table.textContent || ''
+      if (tableMutations === 0 || statsMutations === 0) return
+      if (!tableText.includes('补 · 第 2 次 · 已完成') || !tableText.includes('补 · 第 3 次 · 未完成')) return
+      tableObserver.disconnect()
+      statsObserver.disconnect()
+      resolve({ elapsed: performance.now() - startedAt, tableMutations, statsMutations })
+    }
+    const tableObserver = new MutationObserver((records) => {
+      tableMutations += records.length
+      finishIfUpdated()
+    })
+    const statsObserver = new MutationObserver((records) => {
+      statsMutations += records.length
+      finishIfUpdated()
+    })
+    tableObserver.observe(table, { childList: true, subtree: true, characterData: true })
+    statsObserver.observe(stats, { childList: true, subtree: true, characterData: true })
+    button.click()
+    window.setTimeout(() => {
+      tableObserver.disconnect()
+      statsObserver.disconnect()
+      reject(new Error('操作栏补料完成后标签、行或统计未在 200ms 内同步更新'))
+    }, 200)
+  }))
+  console.log(`裁片单操作栏完成补料局部响应：${completionEvidence.elapsed.toFixed(1)}ms`)
+  expect(completionEvidence.elapsed).toBeLessThan(200)
+  expect(completionEvidence.tableMutations).toBeGreaterThan(0)
+  expect(completionEvidence.statsMutations).toBeGreaterThan(0)
   await expect(row.getByRole('button', { name: '补 · 第 2 次 · 已完成', exact: true })).toBeVisible()
   await expect(row.getByRole('button', { name: '补 · 第 3 次 · 未完成', exact: true })).toBeVisible()
+  expect(await page.evaluate(() => {
+    const win = window as typeof window & { __supplementActionStableRegions?: Record<string, Element | null> }
+    return Object.fromEntries(Object.entries(win.__supplementActionStableRegions || {}).map(([name, node]) => [
+      name,
+      node === (name === 'main' ? document.querySelector('main') : document.querySelector(`[data-cutting-piece-region="${name}"]`)),
+    ]))
+  })).toEqual({ main: true, filters: true, pagination: true })
+  expect(await page.evaluate(() => window.scrollY)).toBe(windowScrollY)
   expect(await scroll.evaluate((node) => node.scrollLeft)).toBe(180)
 
   await row.getByRole('button', { name: '完成补料', exact: true }).click()
