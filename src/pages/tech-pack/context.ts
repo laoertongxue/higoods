@@ -1643,7 +1643,7 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     ruleSource: 'INHERIT_PROCESS',
     detailSplitMode: 'COMPOSITE',
     detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
-    defaultDocType: 'DEMAND',
+    defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
     triggerSource: 'BOM上存在印花要求',
@@ -2529,7 +2529,7 @@ function getSelectedDraftMeta():
     isSpecialCraft: craft.isSpecialCraft,
     selectedTargetObject,
     targetObject: craft.isSpecialCraft ? undefined : craft.processCode === 'WOOL' && craft.craftName === '整件毛织' ? 'GARMENT_SEMI' : craft.processCode === 'WOOL' ? 'CUT_PIECE_PART' : undefined,
-    targetObjectName: craft.isSpecialCraft ? undefined : craft.processCode === 'WOOL' && craft.craftName === '整件毛织' ? '成衣半成品' : craft.processCode === 'WOOL' ? '裁片部位' : undefined,
+    targetObjectName: craft.isSpecialCraft ? undefined : craft.processCode === 'WOOL' && craft.craftName === '整件毛织' ? '成衣' : craft.processCode === 'WOOL' ? '裁片部位' : undefined,
     ...getWoolEntryMeta(craft.craftName),
     supportedTargetObjects: craft.supportedTargetObjects ? [...craft.supportedTargetObjects] : undefined,
     supportedTargetObjectLabels: craft.supportedTargetObjectLabels ? [...craft.supportedTargetObjectLabels] : undefined,
@@ -4332,7 +4332,9 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
     ruleSource: normalizedEntry.ruleSource ?? 'INHERIT_PROCESS',
     detailSplitMode: normalizedEntry.detailSplitMode ?? 'COMPOSITE',
     detailSplitDimensions: [...(normalizedEntry.detailSplitDimensions ?? [])],
-    defaultDocType: normalizedEntry.defaultDocType,
+    defaultDocType: normalizedEntry.processCode === 'PRINT' || normalizedEntry.processCode === 'DYE'
+      ? 'TASK'
+      : normalizedEntry.defaultDocType,
     taskTypeMode: normalizedEntry.taskTypeMode,
     isSpecialCraft: normalizedEntry.isSpecialCraft,
     selectedTargetObject: normalizeSpecialCraftTargetObjectLabel(normalizedEntry.selectedTargetObject) || undefined,
@@ -4340,10 +4342,14 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
       ? [...normalizedEntry.supportedTargetObjects]
       : undefined,
     supportedTargetObjectLabels: normalizedEntry.supportedTargetObjectLabels
-      ? [...normalizedEntry.supportedTargetObjectLabels]
+      ? normalizedEntry.supportedTargetObjectLabels
+          .map((label) => normalizeSpecialCraftTargetObjectLabel(label))
+          .filter((label): label is TechPackSpecialCraftTargetObject => Boolean(label))
       : undefined,
     targetObject: normalizedEntry.targetObject,
-    targetObjectName: normalizedEntry.targetObjectName,
+    targetObjectName: normalizedEntry.targetObjectName === '成衣半成品'
+      ? '成衣'
+      : normalizedEntry.targetObjectName,
     woolTaskType: normalizedEntry.woolTaskType,
     downstreamTarget: normalizedEntry.downstreamTarget,
     requiresFeiTicket: normalizedEntry.requiresFeiTicket,

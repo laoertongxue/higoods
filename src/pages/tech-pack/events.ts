@@ -434,7 +434,13 @@ function saveProcessRouteDraft(nextDraft: ProcessRouteDraftState): void {
 
 function applyProcessRouteActionToState(action: ProcessRouteDraftAction): void {
   const currentDraft = getProcessRouteDraftFromState()
-  const nextDraft = applyProcessRouteDraftAction(currentDraft, action)
+  const nextDraft = applyProcessRouteDraftAction(
+    currentDraft,
+    action,
+    currentUser.name,
+    toTimestamp(),
+    (message) => window.alert(message),
+  )
   if (getProcessRouteDraftSignature(nextDraft) === getProcessRouteDraftSignature(currentDraft)) return
   saveProcessRouteDraft(nextDraft)
 }
@@ -444,6 +450,7 @@ function buildUnconfirmedRouteDraft(
   groups: TechniqueRouteGroup[],
   operatorName: string,
   updatedAt: string,
+  onInvalidDyePrintOrder: (message: string) => void,
 ): ProcessRouteDraftState {
   const techniques = normalizeTechniqueRoutes(flattenTechniqueRouteGroups(groups, operatorName, updatedAt))
   const waterSoluble = techniques.find((item) => item.processCode === 'WATER_SOLUBLE')
@@ -451,6 +458,10 @@ function buildUnconfirmedRouteDraft(
   const dyeBomItemIds = new Set(dye?.linkedBomItemIds ?? [])
   const sharesBomItem = (waterSoluble?.linkedBomItemIds ?? []).some((id) => dyeBomItemIds.has(id))
   if (waterSoluble && dye && sharesBomItem && waterSoluble.routeStepNo >= dye.routeStepNo) {
+    return normalizeRouteDraft(input)
+  }
+  if (hasInvalidDyePrintOrder(techniques)) {
+    onInvalidDyePrintOrder(INVALID_DYE_PRINT_ORDER_MESSAGE)
     return normalizeRouteDraft(input)
   }
   return {
@@ -471,14 +482,33 @@ function normalizeRouteDraft(input: ProcessRouteDraftState): ProcessRouteDraftSt
   }
 }
 
+const INVALID_DYE_PRINT_ORDER_MESSAGE = '同一物料必须先染色、后印花，请调整工艺顺序'
+
+export function hasInvalidDyePrintOrder(techniques: TechniqueItem[]): boolean {
+  const dyeEntries = techniques.filter((item) => item.processCode === 'DYE')
+  const printEntries = techniques.filter((item) => item.processCode === 'PRINT')
+  return dyeEntries.some((dye) => {
+    const dyeBomIds = new Set(dye.linkedBomItemIds ?? [])
+    return printEntries.some((print) =>
+      (print.linkedBomItemIds ?? []).some((id) => dyeBomIds.has(id))
+      && print.routeStepNo <= dye.routeStepNo,
+    )
+  })
+}
+
 export function applyProcessRouteDraftAction(
   input: ProcessRouteDraftState,
   action: ProcessRouteDraftAction,
   operatorName = currentUser.name,
   operatedAt = toTimestamp(),
+  onInvalidDyePrintOrder: (message: string) => void = () => undefined,
 ): ProcessRouteDraftState {
   if (action.type === 'confirm') {
     if (input.techniques.length === 0) return normalizeRouteDraft(input)
+    if (hasInvalidDyePrintOrder(input.techniques)) {
+      onInvalidDyePrintOrder(INVALID_DYE_PRINT_ORDER_MESSAGE)
+      return normalizeRouteDraft(input)
+    }
     return {
       ...input,
       techniques: normalizeTechniqueRoutes(input.techniques).map((item) => ({
@@ -503,21 +533,21 @@ export function applyProcessRouteDraftAction(
     if (targetIndex < 0 || targetIndex >= groups.length) return normalizeRouteDraft(input)
     const nextGroups = [...groups]
     ;[nextGroups[index], nextGroups[targetIndex]] = [nextGroups[targetIndex], nextGroups[index]]
-    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt)
+    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt, onInvalidDyePrintOrder)
   }
 
   if (action.type === 'make-parallel-previous') {
     if (index === 0) return normalizeRouteDraft(input)
     const nextGroups = [...groups]
     nextGroups.splice(index - 1, 2, { items: [...groups[index - 1].items, ...groups[index].items] })
-    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt)
+    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt, onInvalidDyePrintOrder)
   }
 
   if (action.type === 'make-parallel-next') {
     if (index >= groups.length - 1) return normalizeRouteDraft(input)
     const nextGroups = [...groups]
     nextGroups.splice(index, 2, { items: [...groups[index].items, ...groups[index + 1].items] })
-    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt)
+    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt, onInvalidDyePrintOrder)
   }
 
   if (action.type === 'remove-from-parallel') {
@@ -532,7 +562,7 @@ export function applyProcessRouteDraftAction(
       { items: group.items.filter((item) => item.id !== action.techniqueId) },
       { items: [removed] },
     )
-    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt)
+    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt, onInvalidDyePrintOrder)
   }
 
   const group = groups[index]
@@ -550,7 +580,7 @@ export function applyProcessRouteDraftAction(
       routeUpdatedAt: operatedAt,
     })),
   }
-  return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt)
+  return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt, onInvalidDyePrintOrder)
 }
 
 function moveTechniqueRoute(techId: string, direction: 'up' | 'down'): void {
@@ -4223,13 +4253,16 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       ...routeFields,
     }
 
-    if (state.editTechniqueId) {
-      state.techniques = state.techniques.map((item) =>
-        item.id === state.editTechniqueId ? nextItem : item,
-      )
-    } else {
-      state.techniques = [...state.techniques, nextItem]
+    const nextTechniques = state.editTechniqueId
+      ? state.techniques.map((item) =>
+          item.id === state.editTechniqueId ? nextItem : item,
+        )
+      : [...state.techniques, nextItem]
+    if (hasInvalidDyePrintOrder(nextTechniques)) {
+      window.alert(INVALID_DYE_PRINT_ORDER_MESSAGE)
+      return true
     }
+    state.techniques = nextTechniques
 
     syncProcessCostRows()
     markProcessRouteUnconfirmed()

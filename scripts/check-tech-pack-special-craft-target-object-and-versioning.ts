@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
+  getProcessDefinitionByCode,
   getSpecialCraftSupportedTargetObjectLabels,
   listSelectableSpecialCraftDefinitions,
   type SpecialCraftTargetObjectLabel,
@@ -23,7 +24,7 @@ import {
 } from '../src/data/fcs/tech-packs.ts'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
-const allowedTargetLabels: SpecialCraftTargetObjectLabel[] = ['已裁部位', '完整面料']
+const allowedTargetLabels: SpecialCraftTargetObjectLabel[] = ['已裁部位', '完整面料', '成衣']
 
 function read(relativePath: string): string {
   return readFileSync(resolve(repoRoot, relativePath), 'utf8')
@@ -132,6 +133,15 @@ selectableSpecialCrafts.forEach((craft) => {
     `${craft.craftName} 出现不允许的作用对象`,
   )
 })
+const expectedGarmentCraftTargets: SpecialCraftTargetObjectLabel[] = ['已裁部位', '成衣']
+const heatTransfer = selectableSpecialCrafts.find((item) => item.craftName === '烫画')
+const directPrint = selectableSpecialCrafts.find((item) => item.craftName === '直喷')
+assert(heatTransfer, '工序工艺字典缺少烫画')
+assert(directPrint, '工序工艺字典缺少直喷')
+assert.deepEqual(heatTransfer.supportedTargetObjectLabels, expectedGarmentCraftTargets)
+assert.deepEqual(directPrint.supportedTargetObjectLabels, expectedGarmentCraftTargets)
+assert.equal(getProcessDefinitionByCode('PRINT')?.defaultDocType, 'TASK', '印花默认产物必须是任务单')
+assert.equal(getProcessDefinitionByCode('DYE')?.defaultDocType, 'TASK', '染色默认产物必须是任务单')
 assert.deepEqual(
   getSpecialCraftSupportedTargetObjectLabels(selectableSpecialCrafts.find((item) => item.craftName === '捆条')?.supportedTargetObjects ?? []),
   ['已裁部位'],

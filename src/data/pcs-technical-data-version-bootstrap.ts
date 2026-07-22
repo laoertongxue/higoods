@@ -273,11 +273,11 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
               defaultDocType: 'TASK' as const,
               taskTypeMode: 'CRAFT' as const,
               isSpecialCraft: true,
-              selectedTargetObject: '成衣半成品' as const,
+              selectedTargetObject: '成衣' as const,
               targetObject: 'GARMENT_SEMI' as const,
-              targetObjectName: '成衣半成品' as const,
+              targetObjectName: '成衣' as const,
               supportedTargetObjects: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'] as const,
-              supportedTargetObjectLabels: ['已裁部位', '成衣半成品'] as const,
+              supportedTargetObjectLabels: ['已裁部位', '成衣'] as const,
               linkedBomItemIds: [bomItemId],
               outputValuePerUnit: 0.7,
               outputValueUnit: '产值/件',
@@ -340,7 +340,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
           processCode: 'DYE',
           processName: '染色',
           assignmentGranularity: 'ORDER' as const,
-          defaultDocType: 'DEMAND' as const,
+          defaultDocType: 'TASK' as const,
           taskTypeMode: 'PROCESS' as const,
           isSpecialCraft: false,
           linkedBomItemIds: [waterSolubleDyeBomItemId],
@@ -522,7 +522,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
       : scenario === 'PART_WOOL'
         ? '部位毛织技术包，生产单生成部位毛织加工单和毛织菲票，完成后交裁床待交出仓。'
         : scenario === 'GARMENT_HEAT_TRANSFER'
-          ? '纯色 T-shirt 半成品烫画技术包，按成衣半成品生成特殊工艺任务。'
+          ? '纯色 T-shirt 成衣烫画技术包，按成衣生成特殊工艺任务。'
           : '来源生产需求单当前生效技术包。',
     processEntries: [...processEntries, ...waterSolubleDyeProcessEntries],
     processRouteStatus: 'CONFIRMED',

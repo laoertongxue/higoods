@@ -18,6 +18,7 @@ export type SpecialCraftTargetObject =
   | SpecialCraftTargetObjectLabel
   | '裁片'
   | '面料'
+  | '成衣'
   | '成衣半成品'
 
 export interface SpecialCraftOperationDefinition {
@@ -90,7 +91,7 @@ const auxiliaryCraftOperationSeedByName: Record<string, SpecialCraftOperationSee
     defaultTargetObject: 'SEMI_FINISHED_GARMENT',
     requiresFeiTicketScan: false,
     mustReturnToCuttingFactory: false,
-    remark: '按成衣半成品烫画辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
+    remark: '按成衣烫画辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
   },
   直喷: {
     operationId: 'AUX-OP-DIRECT-PRINT',
@@ -343,7 +344,7 @@ export function listVisibleSpecialCraftOperationsForFactoryType(factoryType: Fac
 export function getDefaultSpecialCraftTargetObject(
   operation: Pick<SpecialCraftOperationDefinition, 'defaultTargetObject' | 'targetObject'>,
 ): SpecialCraftTargetObjectLabel {
-  if (operation.defaultTargetObject === '已裁部位' || operation.defaultTargetObject === '完整面料') {
+  if (operation.defaultTargetObject === '已裁部位' || operation.defaultTargetObject === '完整面料' || operation.defaultTargetObject === '成衣') {
     return operation.defaultTargetObject
   }
   return operation.targetObject === '面料' || operation.targetObject === '完整面料'
@@ -355,7 +356,7 @@ export function isSpecialCraftTargetObjectSupported(
   operation: Pick<SpecialCraftOperationDefinition, 'supportedTargetObjectLabels'>,
   selectedTargetObject: string | undefined,
 ): selectedTargetObject is SpecialCraftTargetObjectLabel {
-  return selectedTargetObject === '已裁部位' || selectedTargetObject === '完整面料' || selectedTargetObject === '成衣半成品'
+  return selectedTargetObject === '已裁部位' || selectedTargetObject === '完整面料' || selectedTargetObject === '成衣'
     ? operation.supportedTargetObjectLabels.includes(selectedTargetObject)
     : false
 }
