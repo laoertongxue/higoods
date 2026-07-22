@@ -20,6 +20,10 @@ test.beforeEach(async ({ page }) => {
 })
 
 test.afterEach(async ({ page }) => {
+  await page.evaluate(async () => {
+    const pageModule = await import('/src/pages/process-factory/cutting/supplement-management.ts')
+    pageModule.setReleaseSnapshotDraftFixtureForTest(null)
+  }).catch(() => undefined)
   expect(browserErrors.get(page) ?? []).toEqual([])
 })
 
@@ -42,6 +46,138 @@ async function openReleaseSnapshotCreate(page: Page): Promise<string> {
   expect(snapshotId).not.toBe('')
   return snapshotId
 }
+
+type ReleaseSnapshotFixtureKind = 'source-empty' | 'source-history' | 'source-ambiguous' | 'bom-empty' | 'bom-ambiguous'
+
+async function openReleaseSnapshotCandidateFixture(page: Page, kind: ReleaseSnapshotFixtureKind): Promise<{
+  before: { records: number; workOrders: number; pdaTasks: number }
+  selectedCutOrderNo: string
+}> {
+  await page.goto(`${route}?mode=create`)
+  return page.evaluate(async ({ fixtureKind, routePath }) => {
+    const pageModule = await import('/src/pages/process-factory/cutting/supplement-management.ts')
+    const releaseRepository = await import('/src/data/fcs/cut-piece-release.ts')
+    const techPackRuntime = await import('/src/data/fcs/production-order-tech-pack-runtime.ts')
+    const workOrderDomain = await import('/src/data/fcs/process-work-order-domain.ts')
+    const pdaTasks = await import('/src/data/fcs/pda-task-mock-factory.ts')
+    const { appStore } = await import('/src/state/store.ts')
+    const snapshot = releaseRepository.getCurrentCutPieceReleaseTargetSnapshot('cpr-target-po-14671-v9')
+    const frozenTechPack = techPackRuntime.getProductionOrderTechPackSnapshot('po-14671')
+    if (!snapshot || !frozenTechPack) throw new Error('缺少放行快照候选测试基线')
+    const releaseRecords = releaseRepository.listCutPieceReleaseRecords()
+      .filter((record) => record.productionOrderId === 'po-14671')
+    const baseSource = releaseRecords.flatMap((record) => record.sourceStates)
+      .find((source) => source.materialIds.includes('B'))
+    const baseBom = frozenTechPack.bomItems.find((item) => item.materialCode === 'RELEASE-B')
+    if (!baseSource || !baseBom) throw new Error('缺少物料 B 候选测试基线')
+
+    if (fixtureKind === 'source-empty') {
+      for (const record of releaseRecords) {
+        record.sourceStates = record.sourceStates.map((source) => ({
+          ...source,
+          materialIds: source.materialIds.filter((materialId) => materialId !== 'B'),
+        }))
+      }
+    } else if (fixtureKind === 'source-history') {
+      releaseRecords[0].sourceStates.push({
+        ...baseSource,
+        status: '持续更新',
+        changedAt: '2026-06-03 14:00:00',
+        reason: '同一裁片来源的更早历史状态',
+      })
+    } else if (fixtureKind === 'source-ambiguous') {
+      releaseRecords[0].sourceStates.push({
+        ...baseSource,
+        cutOrderId: 'cut-14671-b-other',
+        cutOrderNo: 'CUT14671-B-OTHER',
+        changedAt: baseSource.changedAt,
+        reason: '另一条原裁片来源',
+      })
+    } else if (fixtureKind === 'bom-empty') {
+      frozenTechPack.bomItems = frozenTechPack.bomItems.filter((item) => item.materialCode !== 'RELEASE-B')
+    } else {
+      frozenTechPack.bomItems.push({ ...baseBom, id: `${baseBom.id}-duplicate` })
+    }
+
+    pageModule.setReleaseSnapshotDraftFixtureForTest({ releaseRecords, frozenTechPack })
+    const before = {
+      records: pageModule.listSupplementRecords().length,
+      workOrders: workOrderDomain.listProcessWorkOrders().length,
+      pdaTasks: pdaTasks.listPdaGenericProcessTasks().length,
+    }
+    const draft = fixtureKind === 'source-history'
+      ? pageModule.buildReleaseSnapshotDraftForTest(snapshot)
+      : null
+    appStore.navigate(`${routePath}?mode=create&releaseSnapshotId=cpr-target-po-14671-v9&candidateFixture=${fixtureKind}`)
+    return {
+      before,
+      selectedCutOrderNo: draft?.materialDemands.find((item) => item.materialSku === 'RELEASE-B')?.originalCutOrderNo || '',
+    }
+  }, { fixtureKind: kind, routePath: route })
+}
+
+async function expectCandidateFixtureBlocked(
+  page: Page,
+  expectedMessage: string,
+  before: { records: number; workOrders: number; pdaTasks: number },
+): Promise<void> {
+  await expect(page.getByText(expectedMessage)).toBeVisible()
+  await expect(page.locator('[data-release-snapshot-create]')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '提交补料' })).toHaveCount(0)
+  const after = await page.evaluate(async () => {
+    const pageModule = await import('/src/pages/process-factory/cutting/supplement-management.ts')
+    const workOrderDomain = await import('/src/data/fcs/process-work-order-domain.ts')
+    const pdaTasks = await import('/src/data/fcs/pda-task-mock-factory.ts')
+    const counts = {
+      records: pageModule.listSupplementRecords().length,
+      workOrders: workOrderDomain.listProcessWorkOrders().length,
+      pdaTasks: pdaTasks.listPdaGenericProcessTasks().length,
+    }
+    pageModule.setReleaseSnapshotDraftFixtureForTest(null)
+    return counts
+  })
+  expect(after).toEqual(before)
+}
+
+test('放行快照候选：物料没有原裁片来源时阻断预填且不产生下游数据', async ({ page }) => {
+  const { before } = await openReleaseSnapshotCandidateFixture(page, 'source-empty')
+  await expectCandidateFixtureBlocked(page, '放行快照物料 B 必须唯一对应一条原裁片单来源，当前匹配 0 条，不能确认补料。', before)
+})
+
+test('放行快照候选：同一原裁片来源的多条历史状态按最早状态稳定解析', async ({ page }) => {
+  const { before, selectedCutOrderNo } = await openReleaseSnapshotCandidateFixture(page, 'source-history')
+  expect(selectedCutOrderNo).toBe('CUT14671-B')
+  await expect(page.locator('[data-release-snapshot-shortage-row]')).toHaveCount(19)
+  await expect(page.getByRole('button', { name: '提交补料' })).toBeVisible()
+  const after = await page.evaluate(async () => {
+    const pageModule = await import('/src/pages/process-factory/cutting/supplement-management.ts')
+    const workOrderDomain = await import('/src/data/fcs/process-work-order-domain.ts')
+    const pdaTasks = await import('/src/data/fcs/pda-task-mock-factory.ts')
+    const counts = {
+      records: pageModule.listSupplementRecords().length,
+      workOrders: workOrderDomain.listProcessWorkOrders().length,
+      pdaTasks: pdaTasks.listPdaGenericProcessTasks().length,
+    }
+    pageModule.setReleaseSnapshotDraftFixtureForTest(null)
+    return counts
+  })
+  expect(after).toEqual(before)
+})
+
+test('放行快照候选：两个不同原裁片来源时歧义阻断且不产生下游数据', async ({ page }) => {
+  const { before } = await openReleaseSnapshotCandidateFixture(page, 'source-ambiguous')
+  await expectCandidateFixtureBlocked(page, '放行快照物料 B 必须唯一对应一条原裁片单来源，当前匹配 2 条，不能确认补料。', before)
+})
+
+test('放行快照候选：物料没有冻结 BOM 时阻断预填且不产生下游数据', async ({ page }) => {
+  const { before } = await openReleaseSnapshotCandidateFixture(page, 'bom-empty')
+  await expectCandidateFixtureBlocked(page, '放行快照物料 B 必须唯一对应一条冻结 BOM，当前匹配 0 条，不能确认补料。', before)
+})
+
+test('放行快照候选：同物料存在两条冻结 BOM 时歧义阻断且不产生下游数据', async ({ page }) => {
+  const { before } = await openReleaseSnapshotCandidateFixture(page, 'bom-ambiguous')
+  await expectCandidateFixtureBlocked(page, '放行快照物料 B 必须唯一对应一条冻结 BOM，当前匹配 2 条，不能确认补料。', before)
+})
 
 test('放行目标快照直接预填多物料多部位缺口且不进入A/B分析', async ({ page }) => {
   await openReleaseSnapshotCreate(page)

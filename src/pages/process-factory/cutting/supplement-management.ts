@@ -12,7 +12,10 @@ import type {
   CuttingSkuRequirementLine,
 } from '../../../data/fcs/cutting/types.ts'
 import { getProductionOrderTechPackSnapshot } from '../../../data/fcs/production-order-tech-pack-runtime.ts'
-import type { TechPackBomItemSnapshot } from '../../../data/fcs/production-tech-pack-snapshot-types.ts'
+import type {
+  ProductionOrderTechPackSnapshot,
+  TechPackBomItemSnapshot,
+} from '../../../data/fcs/production-tech-pack-snapshot-types.ts'
 import {
   prepareProcessWorkOrderBatch,
   resolveUniqueSupplementBomItem,
@@ -29,6 +32,8 @@ import { appStore } from '../../../state/store.ts'
 import {
   getCurrentCutPieceReleaseTargetSnapshot,
   listCutPieceReleaseRecords,
+  type CutPieceReleaseRecord,
+  type CutPieceReleaseSourceState,
   type CutPieceReleaseTargetSnapshot,
 } from '../../../data/fcs/cut-piece-release.ts'
 import {
@@ -312,6 +317,19 @@ const state: SupplementManagementState = {
 
 let mockSupplementOrdersSeeded = false
 let supplementListPreferencesLoaded = false
+
+interface ReleaseSnapshotDraftFixture {
+  releaseRecords: CutPieceReleaseRecord[]
+  frozenTechPack: ProductionOrderTechPackSnapshot
+}
+
+let releaseSnapshotDraftFixtureForTest: ReleaseSnapshotDraftFixture | null = null
+
+export function setReleaseSnapshotDraftFixtureForTest(fixture: ReleaseSnapshotDraftFixture | null): void {
+  releaseSnapshotDraftFixtureForTest = fixture ? structuredClone(fixture) : null
+  state.releaseSnapshotDraft = null
+  state.releaseSnapshotError = ''
+}
 
 const sourceTypeLabels: Record<SupplementSourceType, string> = {
   'production-order': '生产单',
@@ -955,27 +973,49 @@ function buildReleaseSnapshotMaterialRef(
   }
 }
 
+function resolveReleaseSnapshotSourceState(
+  materialId: string,
+  materialSourceStates: CutPieceReleaseSourceState[],
+): CutPieceReleaseSourceState {
+  const earliestChangedAt = materialSourceStates
+    .map((source) => source.changedAt)
+    .sort((left, right) => left.localeCompare(right))[0]
+  const earliestSourceStates = materialSourceStates.filter((source) => source.changedAt === earliestChangedAt)
+  const sourceGroups = new Map<string, CutPieceReleaseSourceState[]>()
+  for (const source of earliestSourceStates) {
+    const identity = source.cutOrderId || source.cutOrderNo
+    const group = sourceGroups.get(identity) || []
+    group.push(source)
+    sourceGroups.set(identity, group)
+  }
+  if (sourceGroups.size !== 1) {
+    throw new Error(`放行快照物料 ${materialId} 必须唯一对应一条原裁片单来源，当前匹配 ${sourceGroups.size} 条，不能确认补料。`)
+  }
+  return [...sourceGroups.values()][0]
+    .slice()
+    .sort((left, right) => (
+      left.changedAt.localeCompare(right.changedAt)
+      || left.cutOrderId.localeCompare(right.cutOrderId)
+      || left.cutOrderNo.localeCompare(right.cutOrderNo)
+    ))[0]
+}
+
 function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): SupplementDraft {
-  const releaseRecords = listCutPieceReleaseRecords().filter((record) => record.productionOrderId === snapshot.productionOrderId)
-  const frozenTechPack = getProductionOrderTechPackSnapshot(snapshot.productionOrderId)
+  const fixture = releaseSnapshotDraftFixtureForTest
+  const releaseRecords = (fixture?.releaseRecords || listCutPieceReleaseRecords())
+    .filter((record) => record.productionOrderId === snapshot.productionOrderId)
+  const frozenTechPack = fixture?.frozenTechPack || getProductionOrderTechPackSnapshot(snapshot.productionOrderId)
   const techPackVersionId = frozenTechPack?.sourceTechPackVersionId || ''
   const shortages = buildSupplementPartShortages(snapshot.matrixSnapshot, snapshot.targetPreview)
   const lines: SupplementLine[] = shortages.map((shortage) => {
     const materialSourceStates = releaseRecords
       .flatMap((record) => record.sourceStates)
       .filter((source) => source.materialIds.includes(shortage.materialId))
-    const earliestChangedAt = materialSourceStates
-      .map((source) => source.changedAt)
-      .sort((left, right) => left.localeCompare(right))[0]
-    const sourceStateCandidates = materialSourceStates.filter((source) => source.changedAt === earliestChangedAt)
-    if (sourceStateCandidates.length !== 1) {
-      throw new Error(`放行快照物料 ${shortage.materialId} 必须唯一对应一条原裁片单来源，当前匹配 ${sourceStateCandidates.length} 条，不能确认补料。`)
-    }
+    const originalCutOrder = resolveReleaseSnapshotSourceState(shortage.materialId, materialSourceStates)
     const bomCandidates = frozenTechPack?.bomItems.filter((item) => item.materialCode === `RELEASE-${shortage.materialId}`) || []
     if (bomCandidates.length !== 1) {
       throw new Error(`放行快照物料 ${shortage.materialId} 必须唯一对应一条冻结 BOM，当前匹配 ${bomCandidates.length} 条，不能确认补料。`)
     }
-    const originalCutOrder = sourceStateCandidates[0]
     const bomItem = bomCandidates[0]
     const materialRef = buildReleaseSnapshotMaterialRef(shortage, {
       techPackVersionId,
@@ -1063,6 +1103,10 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
     releaseMatrixVersion: snapshot.matrixVersion,
     releaseTargetConfirmedAt: snapshot.confirmedAt,
   })
+}
+
+export function buildReleaseSnapshotDraftForTest(snapshot: CutPieceReleaseTargetSnapshot): SupplementDraft {
+  return buildReleaseSnapshotDraft(snapshot)
 }
 
 function getCurrentReleaseSnapshotOrInvalidate(snapshotId: string): CutPieceReleaseTargetSnapshot | null {
