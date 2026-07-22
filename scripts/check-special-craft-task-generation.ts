@@ -276,6 +276,64 @@ for (const craftName of ['直喷', '烫画'] as const) {
   assert(garment.demandLines?.every((line) => line.patternFileId === '' && line.pieceRowId === ''), `${craftName} 成衣明细不得伪造纸样或裁片占位`)
   assert.deepEqual(garment.feiTicketNos, [], `${craftName} 成衣任务不得关联菲票`)
 }
+
+const packageMemberOrder = productionOrders.find((order) => order.demandSnapshot.spuCode === 'SPU-2024-010')
+assert(packageMemberOrder, '缺少纸样包与物料关联重复回归用例')
+const packageMemberSnapshot = getProductionOrderTechPackSnapshot(packageMemberOrder.productionOrderId)
+assert(packageMemberSnapshot, 'SPU-2024-010 缺少冻结技术包快照')
+const physicalPattern = packageMemberSnapshot.patternFiles.find((pattern) => pattern.recordKind === 'PACKAGE')
+const materialAssociationPattern = packageMemberSnapshot.patternFiles.find(
+  (pattern) => pattern.recordKind === 'MATERIAL_ASSOCIATION' && pattern.sourcePatternPackageId === physicalPattern?.patternFileId,
+)
+assert(physicalPattern && materialAssociationPattern, '回归用例必须同时包含纸样包和其物料关联记录')
+assert(
+  physicalPattern.pieceRows?.some((row) => materialAssociationPattern.pieceRows?.some((memberRow) => memberRow.id === row.id)),
+  '纸样包与物料关联记录必须携带相同 pieceRowId 才能验证重复边界',
+)
+const packageMemberResult = generateSpecialCraftTaskOrdersFromProductionOrder({
+  productionOrder: packageMemberOrder,
+  techPackSnapshot: packageMemberSnapshot,
+})
+const expectedPlanQtyByCraft = new Map([
+  ['烫画', 3500],
+  ['直喷', 7000],
+])
+expectedPlanQtyByCraft.forEach((expectedPlanQty, craftName) => {
+  const task = packageMemberResult.taskOrders.find(
+    (item) => item.craftName === craftName && item.targetObject === '已裁部位',
+  )
+  assert(task, `${craftName} 缺少纸样包裁片任务`)
+  const identities = (task.demandLines ?? []).map((line) => {
+    const sku = packageMemberOrder.demandSnapshot.skuLines.find(
+      (skuLine) => skuLine.color === line.colorName && skuLine.size === line.sizeCode,
+    )
+    assert(sku, `${craftName} 任务明细无法回溯生产 SKU`)
+    return [line.pieceRowId, sku.skuCode, line.operationId, line.targetObject].join('::')
+  })
+  assert.equal(new Set(identities).size, identities.length, `${craftName} 同一任务不得重复计入同一裁片与 SKU`)
+  const expectedPlanQtyFromSnapshot = (physicalPattern.pieceRows ?? [])
+    .filter((row) => (row.specialCrafts ?? []).some((craft) => craft.craftName === craftName))
+    .reduce((rowTotal, row) => rowTotal + (row.colorAllocations ?? []).reduce((allocationTotal, allocation) => {
+      const applicableSkuLines = allocation.skuCodes?.length
+        ? allocation.skuCodes.flatMap((skuCode) => {
+            const skuLine = packageMemberOrder.demandSnapshot.skuLines.find((line) => line.skuCode === skuCode)
+            return skuLine ? [skuLine] : []
+          })
+        : packageMemberOrder.demandSnapshot.skuLines.filter((line) => line.color === allocation.colorName)
+      return allocationTotal + applicableSkuLines.reduce(
+        (skuTotal, skuLine) => skuTotal + skuLine.qty * allocation.pieceCount,
+        0,
+      )
+    }, 0), 0)
+  assert.equal(expectedPlanQtyFromSnapshot, expectedPlanQty, `${craftName} 回归用例的 SKU 数量乘每件片数基线有误`)
+  assert.equal(
+    (task.demandLines ?? []).reduce((sum, line) => sum + line.planPieceQty, 0),
+    expectedPlanQtyFromSnapshot,
+    `${craftName} 计划数量必须等于生产 SKU 数量乘每件片数且不重复`,
+  )
+  assert.equal(task.planQty, expectedPlanQtyFromSnapshot, `${craftName} 加工单汇总数量不得被纸样关联层翻倍`)
+})
+
 const missingGarmentBomSnapshot = JSON.parse(JSON.stringify(dualTargetSnapshot)) as typeof dualTargetSnapshot
 missingGarmentBomSnapshot.bomItems = missingGarmentBomSnapshot.bomItems.filter((item) => item.id !== garmentBomId)
 const missingGarmentBomResult = generateSpecialCraftTaskOrdersFromProductionOrder({

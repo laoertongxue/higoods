@@ -3,7 +3,10 @@ import {
   getProductionOrderTechPackSnapshot,
 } from './production-order-tech-pack-runtime.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
-import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
+import type {
+  ProductionOrderTechPackSnapshot,
+  TechPackPatternFileSnapshot,
+} from './production-tech-pack-snapshot-types.ts'
 import {
   getProcessCraftByCode,
   normalizeSpecialCraftTargetObjectLabel,
@@ -325,6 +328,11 @@ export function validateSpecialCraftDemandLine(
   return errors
 }
 
+function listPhysicalPatternFiles(patternFiles: TechPackPatternFileSnapshot[]): TechPackPatternFileSnapshot[] {
+  const physicalPatternFiles = patternFiles.filter((patternFile) => patternFile.recordKind !== 'MATERIAL_ASSOCIATION')
+  return physicalPatternFiles.length > 0 ? physicalPatternFiles : patternFiles
+}
+
 export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
   productionOrder: ProductionOrder
   techPackSnapshot?: ProductionOrderTechPackSnapshot | null
@@ -347,7 +355,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
   const skuMatrixBySku = getQtyMatrixBySku(productionOrder)
   const skuMatrixByColorSize = getQtyMatrixByColorSize(productionOrder)
 
-  techPackSnapshot.patternFiles.forEach((patternFile) => {
+  listPhysicalPatternFiles(techPackSnapshot.patternFiles).forEach((patternFile) => {
     const patternFileId = patternFile.patternFileId || patternFile.id
     const patternFileName = patternFile.patternFileName || patternFile.fileName || patternFileId
     const pieceRows = patternFile.pieceRows ?? []
