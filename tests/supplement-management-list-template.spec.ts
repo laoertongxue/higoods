@@ -37,6 +37,9 @@ async function openList(page: Page): Promise<void> {
 
 test('补料详情可完成当前补料单', async ({ page }) => {
   await openList(page)
+  await page.evaluate(() => {
+    ;(window as typeof window & { __supplementCompletionMain?: Element | null }).__supplementCompletionMain = document.querySelector('main')
+  })
 
   const targetRecordNo = 'SUP-CUT14671-B-002'
   const siblingRecordNo = 'SUP-CUT14671-B-003'
@@ -51,6 +54,8 @@ test('补料详情可完成当前补料单', async ({ page }) => {
   await targetRow.getByRole('button', { name: '查看详情' }).click()
   const detail = page.getByRole('heading', { name: '补料单详情' }).locator('xpath=ancestor::div[contains(@class,"fixed")]')
   await expect(detail.getByText('未完成', { exact: true })).toBeVisible()
+  await expect(detail.getByText('第 2 次补料', { exact: true })).toBeVisible()
+  await expect(detail.getByText('尚未完成', { exact: true })).toBeVisible()
   await expect(detail.getByRole('button', { name: '完成该补料单' })).toBeVisible()
   await expect(detail.getByRole('button', { name: /撤销|重新打开|部分完成/ })).toHaveCount(0)
 
@@ -60,6 +65,12 @@ test('补料详情可完成当前补料单', async ({ page }) => {
   await expect(confirm).toContainText('第 2 次')
   await expect(confirm).toContainText('CUT14671-B')
   await expect(confirm.getByText(/总补料数量\s*\d+\s*件/)).toBeVisible()
+  await confirm.getByRole('button', { name: '取消' }).click()
+  await expect(detail.getByText('未完成', { exact: true })).toBeVisible()
+  await expect(detail.getByText('尚未完成', { exact: true })).toBeVisible()
+
+  await detail.getByRole('button', { name: '完成该补料单' }).click()
+  await expect(page.getByRole('heading', { name: '确认完成补料' })).toBeVisible()
 
   const responseMs = await page.evaluate(() => new Promise<number>((resolve, reject) => {
     const overlay = document.querySelector('[data-cutting-supplement-region="overlay"]')
@@ -76,16 +87,26 @@ test('补料详情可完成当前补料单', async ({ page }) => {
         resolve(performance.now() - startedAt)
       })
       observer.observe(overlay, { childList: true, subtree: true })
-      button.click()
+      void import('/src/pages/process-factory/cutting/supplement-management.ts').then((pageModule) => {
+        pageModule.handleCraftCuttingSupplementManagementEvent(button)
+        pageModule.handleCraftCuttingSupplementManagementEvent(button)
+      })
     })
   }))
   expect(responseMs).toBeLessThan(200)
   console.log(`确认完成单张补料单实际 DOM 响应：${responseMs.toFixed(1)}ms`)
 
   await expect(detail.getByText('已完成', { exact: true })).toBeVisible()
+  const completionTrace = detail.locator('[data-supplement-completion-trace]')
+  await expect(completionTrace.getByText('裁床主管 王敏', { exact: true })).toBeVisible()
+  await expect(completionTrace.getByText('2026-07-22 14:30', { exact: true })).toBeVisible()
   await expect(detail.getByRole('button', { name: '完成该补料单' })).toHaveCount(0)
   await expect(targetRow).toContainText('已完成')
   await expect(siblingRow).toContainText('未完成')
+  await expect(page.getByText('该补料单已完成。', { exact: true })).toBeVisible()
+  expect(await page.evaluate(() => document.querySelector('main') === (
+    window as typeof window & { __supplementCompletionMain?: Element | null }
+  ).__supplementCompletionMain)).toBe(true)
 
   await detail.getByRole('button', { name: '关闭' }).click()
   const completedRow = tableRows.filter({ hasText: completedRecordNo })
@@ -95,6 +116,65 @@ test('补料详情可完成当前补料单', async ({ page }) => {
   await expect(completedDetail.getByText('已完成', { exact: true })).toBeVisible()
   await expect(completedDetail.getByRole('button', { name: '完成该补料单' })).toHaveCount(0)
   await expect(completedDetail.getByRole('button', { name: /撤销|重新打开|部分完成/ })).toHaveCount(0)
+})
+
+test('已生成补料无论未完成或已完成都计入候选已发起数量', async ({ page }) => {
+  await openList(page)
+  const initialLifecycle = await page.evaluate(async () => {
+    const registry = await import('/src/data/fcs/cutting/supplement-order-registry.ts')
+    return [
+      registry.getSupplementOrder('supplement-030004-001'),
+      registry.getSupplementOrder('supplement-030004-002'),
+    ].map((item) => item?.status)
+  })
+  expect(initialLifecycle).toEqual(['已完成', '未完成'])
+
+  const openCandidate = async () => {
+    await page.goto(`${route}?mode=create`)
+    await page.locator('[data-cutting-supplement-field="sourcePickerKeyword"]').fill('CUT-260302-004-01')
+    await page.getByRole('button', { name: '搜索', exact: true }).click()
+    await page.getByRole('radio', { name: '选择裁片单 CUT-260302-004-01' }).check()
+    await page.getByRole('button', { name: '下一步' }).click()
+    await expect(page.getByRole('heading', { name: '填写补料信息' })).toBeVisible()
+  }
+  const readAccounting = () => page.evaluate(() => {
+    const chip = [...document.querySelectorAll('span')].find((item) => item.textContent?.trim() === '已发起：')?.parentElement
+    const rows = [...document.querySelectorAll<HTMLInputElement>('[data-supplement-basis-qty-input]')]
+    return {
+      initiatedQty: Number(chip?.querySelector('.font-semibold')?.textContent?.replaceAll(',', '') || 0),
+      suggestedRows: rows.map((input) => ({ value: Number(input.value), max: Number(input.max) })),
+    }
+  })
+
+  await openCandidate()
+  const beforeCompletion = await readAccounting()
+  expect(beforeCompletion.initiatedQty).toBeGreaterThan(0)
+  expect(beforeCompletion.suggestedRows.some((row) => row.value < row.max)).toBe(true)
+
+  await page.evaluate(async () => {
+    const registry = await import('/src/data/fcs/cutting/supplement-order-registry.ts')
+    registry.completeSupplementOrder({
+      id: 'supplement-030004-002',
+      completedAt: '2026-07-22 14:35',
+      completedBy: '裁床主管 王敏',
+    })
+  })
+  await openCandidate()
+  expect(await readAccounting()).toEqual(beforeCompletion)
+})
+
+test('生命周期登记缺失时显示数据异常且禁止完成', async ({ page }) => {
+  await openList(page)
+  await page.evaluate(async () => {
+    const registry = await import('/src/data/fcs/cutting/supplement-order-registry.ts')
+    registry.resetSupplementOrderRegistryForTesting()
+  })
+  const targetRow = page.locator('[data-standard-list-table-section] tbody tr').filter({ hasText: 'SUP-CUT14671-B-002' })
+  await targetRow.getByRole('button', { name: '查看详情' }).click()
+  const detail = page.getByRole('heading', { name: '补料单详情' }).locator('xpath=ancestor::div[contains(@class,"fixed")]')
+  await expect(detail.getByText('补料生命周期数据异常，请刷新后重试。', { exact: true })).toBeVisible()
+  await expect(detail.locator('[data-supplement-lifecycle-status="missing"]')).toHaveText('—')
+  await expect(detail.getByRole('button', { name: '完成该补料单' })).toHaveCount(0)
 })
 
 async function openReleaseSnapshotCreate(page: Page): Promise<string> {

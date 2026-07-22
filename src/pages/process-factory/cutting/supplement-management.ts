@@ -30,6 +30,7 @@ import {
   getSupplementOrder,
   listSupplementOrdersByCutOrder,
   registerSupplementOrder,
+  type SupplementOrderLifecycle,
   type SupplementOrderStatus,
 } from '../../../data/fcs/cutting/supplement-order-registry.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
@@ -653,7 +654,7 @@ function getMaterialRefActualGarmentQty(ref: SupplementMaterialPatternRef, row: 
 
 function getExistingSupplementQtyForBasis(record: CuttingOrderProgressRecord, row: Pick<SupplementAbAnalysisRow, 'skuCode' | 'color' | 'size' | 'shortageMaterial'>): number {
   return state.records
-    .filter((item) => item.status === '已确认')
+    .filter((item) => Boolean(getSupplementRecordLifecycle(item)))
     .filter((item) => item.draft.productionOrderId === record.productionOrderId)
     .flatMap((item) => item.draft.lines)
     .filter((line) =>
@@ -667,7 +668,7 @@ function getExistingSupplementQtyForBasis(record: CuttingOrderProgressRecord, ro
 
 function getExistingSupplementQty(record: CuttingOrderProgressRecord, row: Pick<SupplementSizeColorRow, 'skuCode' | 'color' | 'size'>): number {
   return state.records
-    .filter((item) => item.status === '已确认')
+    .filter((item) => Boolean(getSupplementRecordLifecycle(item)))
     .filter((item) => item.draft.productionOrderId === record.productionOrderId)
     .flatMap((item) => item.draft.lines)
     .filter((line) => line.skuCode === row.skuCode && line.color === row.color && line.size === row.size)
@@ -1656,8 +1657,8 @@ function getSupplementTotalQty(record: SupplementRecord): number {
   return record.draft.lines.reduce((sum, line) => sum + Number(line.supplementQty || 0), 0)
 }
 
-function getSupplementRecordStatus(record: SupplementRecord): SupplementOrderStatus {
-  return getSupplementOrder(record.id)?.status || '未完成'
+function getSupplementRecordLifecycle(record: SupplementRecord): SupplementOrderLifecycle | undefined {
+  return getSupplementOrder(record.id)
 }
 
 function renderSupplementStatusBadge(status: SupplementOrderStatus): string {
@@ -1665,6 +1666,17 @@ function renderSupplementStatusBadge(status: SupplementOrderStatus): string {
     ? 'bg-emerald-50 text-emerald-700'
     : 'bg-amber-50 text-amber-700'
   return `<span class="rounded-full ${className} px-2.5 py-1 text-xs font-medium">${escapeHtml(status)}</span>`
+}
+
+function renderSupplementRecordStatus(record: SupplementRecord): string {
+  const lifecycle = getSupplementRecordLifecycle(record)
+  if (lifecycle) return renderSupplementStatusBadge(lifecycle.status)
+  return `
+    <div class="space-y-1 text-left">
+      <span data-supplement-lifecycle-status="missing">—</span>
+      <div class="text-xs text-amber-700">生命周期数据异常</div>
+    </div>
+  `
 }
 
 const supplementListColumns: StandardListColumn<SupplementRecord>[] = [
@@ -1739,7 +1751,7 @@ const supplementListColumns: StandardListColumn<SupplementRecord>[] = [
     title: '状态',
     width: 110,
     freezeable: true,
-    render: (record) => renderSupplementStatusBadge(getSupplementRecordStatus(record)),
+    render: renderSupplementRecordStatus,
   },
   {
     key: 'created',
@@ -1862,8 +1874,8 @@ function withSkipPageRerender(html: string): string {
 function renderListStats(records: SupplementRecord[]): string {
   return renderStandardListStats([
     { label: '补料单', value: records.length },
-    { label: '未完成', value: records.filter((record) => getSupplementRecordStatus(record) === '未完成').length },
-    { label: '已完成', value: records.filter((record) => getSupplementRecordStatus(record) === '已完成').length },
+    { label: '未完成', value: records.filter((record) => getSupplementRecordLifecycle(record)?.status === '未完成').length },
+    { label: '已完成', value: records.filter((record) => getSupplementRecordLifecycle(record)?.status === '已完成').length },
   ])
 }
 
@@ -2062,8 +2074,7 @@ function renderProcessLinksTable(record: SupplementRecord): string {
 function renderSupplementDetailDialog(record: SupplementRecord | undefined): string {
   if (!record) return ''
   const totalQty = record.draft.lines.reduce((sum, line) => sum + line.supplementQty, 0)
-  const lifecycle = getSupplementOrder(record.id)
-  const status = lifecycle?.status || '未完成'
+  const lifecycle = getSupplementRecordLifecycle(record)
   const processLinks = buildSupplementProcessLinks(record)
   const sourceRecord = getCandidateById(record.draft.candidateId)?.record
   const spuImageUrl = sourceRecord ? getSpuImageUrl(sourceRecord) : '/pants-sample.jpg'
@@ -2079,6 +2090,11 @@ function renderSupplementDetailDialog(record: SupplementRecord | undefined): str
           <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-supplement-action="close-detail">关闭</button>
         </div>
         <div class="flex-1 space-y-4 overflow-y-auto p-5">
+          ${lifecycle ? '' : `
+            <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              补料生命周期数据异常，请刷新后重试。
+            </div>
+          `}
           ${renderReleaseSnapshotTrace(record.draft)}
           <section class="rounded-lg border p-4">
             <div class="flex flex-col gap-4 md:flex-row">
@@ -2088,7 +2104,8 @@ function renderSupplementDetailDialog(record: SupplementRecord | undefined): str
               </div>
               <div class="grid flex-1 gap-4 md:grid-cols-4">
                 <div><div class="text-xs text-muted-foreground">补料单号</div><div class="mt-1 font-semibold">${escapeHtml(record.recordNo)}</div></div>
-                <div><div class="text-xs text-muted-foreground">状态</div><div class="mt-1">${renderSupplementStatusBadge(status)}</div></div>
+                <div><div class="text-xs text-muted-foreground">状态</div><div class="mt-1">${renderSupplementRecordStatus(record)}</div></div>
+                <div><div class="text-xs text-muted-foreground">补料次数</div><div class="mt-1 font-semibold">${lifecycle ? `第 ${formatInteger(lifecycle.sequenceNo)} 次补料` : '—'}</div></div>
                 <div><div class="text-xs text-muted-foreground">补料对象</div><div class="mt-1 font-semibold">${escapeHtml(sourceTypeLabels[record.draft.sourceType])} ${escapeHtml(record.draft.sourceNo)}</div></div>
                 <div><div class="text-xs text-muted-foreground">补料数量</div><div class="mt-1 font-semibold tabular-nums">${formatInteger(totalQty)} 件</div></div>
                 <div><div class="text-xs text-muted-foreground">生产单</div><div class="mt-1 font-semibold">${escapeHtml(record.draft.productionOrderNo)}</div></div>
@@ -2096,6 +2113,14 @@ function renderSupplementDetailDialog(record: SupplementRecord | undefined): str
                 <div><div class="text-xs text-muted-foreground">款式</div><div class="mt-1 font-semibold">${escapeHtml(record.draft.styleName)}</div></div>
                 <div><div class="text-xs text-muted-foreground">发起人</div><div class="mt-1 font-semibold">${escapeHtml(record.createdBy)}</div></div>
                 <div><div class="text-xs text-muted-foreground">创建时间</div><div class="mt-1 font-semibold">${escapeHtml(record.createdAt)}</div></div>
+                <div data-supplement-completion-trace>
+                  <div class="text-xs text-muted-foreground">完成情况</div>
+                  ${lifecycle?.status === '已完成'
+                    ? `<div class="mt-1 font-semibold">${escapeHtml(lifecycle.completedBy)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(lifecycle.completedAt)}</div>`
+                    : lifecycle
+                      ? '<div class="mt-1 font-semibold">尚未完成</div>'
+                      : '<div class="mt-1 font-semibold">—</div>'}
+                </div>
               </div>
             </div>
             <div class="mt-4 rounded-md bg-muted/40 px-3 py-2 text-sm">
@@ -2122,7 +2147,7 @@ function renderSupplementDetailDialog(record: SupplementRecord | undefined): str
             ${renderProcessLinksTable(record)}
           </section>
         </div>
-        ${status === '未完成' ? `
+        ${lifecycle?.status === '未完成' ? `
           <div class="flex justify-end border-t px-5 py-4">
             <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-cutting-supplement-action="request-complete-record" data-record-id="${escapeHtml(record.id)}">完成该补料单</button>
           </div>
@@ -2133,7 +2158,7 @@ function renderSupplementDetailDialog(record: SupplementRecord | undefined): str
 }
 
 function renderCompleteSupplementDialog(record: SupplementRecord): string {
-  const registered = getSupplementOrder(record.id)
+  const registered = getSupplementRecordLifecycle(record)
   const lifecycle = registered
     ? listSupplementOrdersByCutOrder(registered.cutOrderId).find((order) => order.id === record.id) || registered
     : undefined
@@ -2153,7 +2178,7 @@ function renderCompleteSupplementDialog(record: SupplementRecord): string {
         </div>
         <div class="flex justify-end gap-2 border-t px-5 py-4">
           <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-supplement-action="cancel-complete-record">取消</button>
-          <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-cutting-supplement-action="confirm-complete-record">确认完成</button>
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-cutting-supplement-action="confirm-complete-record" data-record-id="${escapeHtml(record.id)}">确认完成</button>
         </div>
       </div>
     </div>
@@ -2290,7 +2315,7 @@ function buildSupplementRecordFromDraft(
     dyeDemandNos,
   }
   registerSupplementRecordLifecycle(record)
-  if (options.initialStatus === '已完成' && getSupplementRecordStatus(record) === '未完成') {
+  if (options.initialStatus === '已完成' && getSupplementRecordLifecycle(record)?.status === '未完成') {
     completeSupplementOrder({
       id: record.id,
       completedAt: options.createdAt,
@@ -2453,7 +2478,7 @@ function ensureMockSupplementOrders(): void {
   }
 
   for (let index = 0; index < 12; index += 1) {
-    const candidate = candidates[index % candidates.length]
+    const candidate = index === 1 ? candidates[0] : candidates[index % candidates.length]
     const draft = buildMockDraft(
       candidate,
       reasons[index % reasons.length],
@@ -2872,7 +2897,24 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   if (action === 'request-complete-record') {
     const recordId = actionNode.dataset.recordId || state.activeRecordId
     const record = getRecordById(recordId)
-    if (!record || getSupplementRecordStatus(record) === '已完成') return true
+    if (!record) {
+      state.feedback = { tone: 'warning', message: '未找到对应的补料单，请刷新后重试。' }
+      refreshSupplementFeedback()
+      return true
+    }
+    const lifecycle = getSupplementRecordLifecycle(record)
+    if (!lifecycle) {
+      state.feedback = { tone: 'warning', message: '补料生命周期数据异常，请刷新后重试。' }
+      refreshSupplementFeedback()
+      refreshSupplementOverlay()
+      return true
+    }
+    if (lifecycle.status === '已完成') {
+      state.feedback = { tone: 'warning', message: '该补料单已完成。' }
+      refreshSupplementFeedback()
+      refreshSupplementOverlay()
+      return true
+    }
     state.activeRecordId = record.id
     state.pendingCompleteRecordId = record.id
     refreshSupplementOverlay()
@@ -2886,25 +2928,41 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   }
 
   if (action === 'confirm-complete-record') {
-    const record = getRecordById(state.pendingCompleteRecordId)
-    if (!record) {
-      state.pendingCompleteRecordId = ''
-      refreshSupplementOverlay()
-      return true
-    }
-    if (getSupplementRecordStatus(record) === '未完成') {
+    const recordId = state.pendingCompleteRecordId || actionNode.dataset.recordId || ''
+    const record = getRecordById(recordId)
+    try {
+      if (!record) {
+        state.feedback = { tone: 'warning', message: '未找到对应的补料单，请刷新后重试。' }
+        return true
+      }
+      const lifecycle = getSupplementRecordLifecycle(record)
+      if (!lifecycle) {
+        state.feedback = { tone: 'warning', message: '补料生命周期数据异常，请刷新后重试。' }
+        return true
+      }
+      if (lifecycle.status === '已完成') {
+        state.feedback = { tone: 'warning', message: '该补料单已完成。' }
+        return true
+      }
       completeSupplementOrder({
         id: record.id,
         completedAt: '2026-07-22 14:30',
         completedBy: '裁床主管 王敏',
       })
+      state.feedback = { tone: 'success', message: `补料单 ${record.recordNo} 已完成。` }
+      return true
+    } catch (error) {
+      const currentLifecycle = record ? getSupplementRecordLifecycle(record) : undefined
+      state.feedback = currentLifecycle?.status === '已完成'
+        ? { tone: 'warning', message: '该补料单已完成。' }
+        : { tone: 'warning', message: `完成补料失败：${error instanceof Error ? error.message : '请刷新后重试。'}` }
+      return true
+    } finally {
+      state.pendingCompleteRecordId = ''
+      refreshSupplementFeedback()
+      refreshSupplementList()
+      refreshSupplementOverlay()
     }
-    state.pendingCompleteRecordId = ''
-    state.feedback = { tone: 'success', message: `补料单 ${record.recordNo} 已完成。` }
-    refreshSupplementFeedback()
-    refreshSupplementList()
-    refreshSupplementOverlay()
-    return true
   }
 
   if (action === 'back-to-source-picker') {
