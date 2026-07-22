@@ -469,7 +469,7 @@ const presetConfigs: DispatchAcceptanceSlaConfig[] = [
     defaultAcceptTimeoutHours: 4,
     updatedBy: '生产计划主管',
     updatedAt: '2026-06-09 09:20:00',
-    remark: '印花需求单派出后，常规工厂需在半天内确认接单。',
+    remark: '印花加工单派出后，常规工厂需在半天内确认接单。',
     factoryOverrides: [
       {
         overrideId: 'DAS-PRINT-SCREEN-FULL',

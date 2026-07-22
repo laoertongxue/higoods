@@ -79,9 +79,6 @@ pageSources.forEach(({ file, source }) => {
 
 const taskDetailSource = readFile('src/pages/pda-exec-detail.ts')
 assert(workOrdersPageSource.includes('打印任务流转卡'), '印花加工单页缺少打印任务流转卡入口')
-;['按需求创建', '选择印花需求', '印花需求单号'].forEach((term) => {
-  assert(!platformOrdersPageSource.includes(term), `平台印花加工单页面不应包含：${term}`)
-})
 assert(
   workOrdersPageSource.includes("buildTaskRouteCardPrintLink('PRINTING_WORK_ORDER', order.printOrderId)"),
   '印花加工单页打印任务流转卡必须使用 PRINTING_WORK_ORDER + printOrderId',

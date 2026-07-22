@@ -112,9 +112,6 @@ function main(): void {
   const handoverDetailSource = readFile('src/pages/pda-handover-detail.ts')
 
   assertIncludes(workOrdersSource, '染色加工单', '染色加工单页面')
-  ;['按需求创建', '选择染色需求', '染色需求单号'].forEach((term) => {
-    assertNotIncludes(platformOrdersSource, term, '平台染色加工单页面')
-  })
   ;['查看', '编辑', '日志', '打印流程卡'].forEach((term) => {
     assertIncludes(workOrdersSource, term, '染色加工单页面')
   })

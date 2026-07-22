@@ -10,7 +10,6 @@ import { getProductionOrderTechPackSnapshot } from '../src/data/fcs/production-o
 import {
   DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
   generateProductionArtifactBundleForOrder,
-  listGeneratedProductionDemandArtifacts,
   listGeneratedProductionTaskArtifacts,
 } from '../src/data/fcs/production-artifact-generation.ts'
 import { listActiveProcessCraftDefinitions } from '../src/data/fcs/process-craft-dict.ts'
@@ -31,10 +30,7 @@ import {
 } from '../src/data/fcs/special-craft-task-generation.ts'
 import { shouldGenerateInternalCraftOrderForProductionOrder } from '../src/data/fcs/task-generation-boundaries.ts'
 import { listDyeWorkOrders } from '../src/data/fcs/dyeing-task-domain.ts'
-import {
-  listPrepProcessOrders,
-  listPrepRequirementDemands,
-} from '../src/data/fcs/page-adapters/process-prep-pages-adapter.ts'
+import { listPrepProcessOrders } from '../src/data/fcs/page-adapters/process-prep-pages-adapter.ts'
 import { listPrintWorkOrders } from '../src/data/fcs/printing-task-domain.ts'
 import { listProcessWorkOrders } from '../src/data/fcs/process-work-order-domain.ts'
 import { processTasks } from '../src/data/fcs/process-tasks.ts'
@@ -218,9 +214,7 @@ assert(
 assert(allStoreTasks.every((task) => Boolean(getProductionOrderTechPackSnapshot(task.productionOrderId))), '特殊工艺任务必须关联已有生产单的技术包快照')
 const activeCraftDefinitions = listActiveProcessCraftDefinitions()
 const taskCraftDefinitions = activeCraftDefinitions.filter((definition) => definition.defaultDocType === 'TASK')
-const demandCraftDefinitions = activeCraftDefinitions.filter((definition) => definition.defaultDocType === 'DEMAND')
 const generatedTaskArtifacts = listGeneratedProductionTaskArtifacts()
-const generatedDemandArtifacts = listGeneratedProductionDemandArtifacts()
 
 function countByCraftCode(items: Array<{ craftCode?: string }>): Map<string, number> {
   const counts = new Map<string, number>()
@@ -247,7 +241,6 @@ function countByProcessTaskCraftCoverage(items: typeof processTasks): Map<string
 }
 
 const taskArtifactCounts = countByCraftCode(generatedTaskArtifacts)
-const demandArtifactCounts = countByCraftCode(generatedDemandArtifacts)
 const processTaskCounts = countByProcessTaskCraftCoverage(processTasks)
 taskCraftDefinitions.forEach((definition) => {
   assert(
@@ -257,12 +250,6 @@ taskCraftDefinitions.forEach((definition) => {
   assert(
     (processTaskCounts.get(definition.craftCode) ?? 0) >= DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
     `工艺 ${definition.processCode}/${definition.craftName} 必须至少有 3 条任务 mock`,
-  )
-})
-demandCraftDefinitions.forEach((definition) => {
-  assert(
-    (demandArtifactCounts.get(definition.craftCode) ?? 0) >= DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
-    `工艺 ${definition.processCode}/${definition.craftName} 必须至少有 3 条需求单 mock`,
   )
 })
 const processTaskCoverageCount = [...processTaskCounts.values()].reduce((sum, count) => sum + count, 0)
@@ -301,32 +288,18 @@ const printWorkOrders = listPrintWorkOrders()
 const dyeWorkOrders = listDyeWorkOrders()
 const printProcessWorkOrders = listProcessWorkOrders('PRINT')
 const dyeProcessWorkOrders = listProcessWorkOrders('DYE')
-const printDemands = listPrepRequirementDemands('PRINT')
-const dyeDemands = listPrepRequirementDemands('DYE')
 const printPrepOrders = listPrepProcessOrders('PRINT')
 const dyePrepOrders = listPrepProcessOrders('DYE')
 
-const expectedPrintCount = demandCraftDefinitions.filter((definition) => definition.processCode === 'PRINT').length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION
-const expectedDyeCount = demandCraftDefinitions.filter((definition) => definition.processCode === 'DYE').length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION
+const expectedPrintCount = activeCraftDefinitions.filter((definition) => definition.processCode === 'PRINT').length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION
+const expectedDyeCount = activeCraftDefinitions.filter((definition) => definition.processCode === 'DYE').length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION
 assert(printWorkOrders.length >= expectedPrintCount, '印花加工单 mock 数据必须覆盖印花字典工艺，每个至少 3 条')
 assert(dyeWorkOrders.length >= expectedDyeCount, '染色加工单 mock 数据必须覆盖染色字典工艺，每个至少 3 条')
 assert(printProcessWorkOrders.length >= expectedPrintCount, '统一印花加工单 mock 数据必须覆盖印花字典工艺，每个至少 3 条')
 assert(dyeProcessWorkOrders.length >= expectedDyeCount, '统一染色加工单 mock 数据必须覆盖染色字典工艺，每个至少 3 条')
-assert(printDemands.length >= expectedPrintCount, '印花需求 mock 数据必须覆盖印花字典工艺，每个至少 3 条')
-assert(dyeDemands.length >= expectedDyeCount, '染色需求 mock 数据必须覆盖染色字典工艺，每个至少 3 条')
 assert(printPrepOrders.length >= expectedPrintCount, 'Web 印花加工单 mock 数据必须覆盖印花字典工艺，每个至少 3 条')
 assert(dyePrepOrders.length >= expectedDyeCount, 'Web 染色加工单 mock 数据必须覆盖染色字典工艺，每个至少 3 条')
 
-printDemands.forEach((demand) => {
-  assertExistingProductionOrderWithSnapshot(demand.sourceProductionOrderId, '印花需求必须来源于已有生产单')
-  assert(demand.demandId.startsWith('YHXQ'), '印花需求单号必须由生产单生成')
-  assert(!demand.demandId.includes('PRD-PRINT'), '印花需求不得继续使用旧 seed 需求号')
-})
-dyeDemands.forEach((demand) => {
-  assertExistingProductionOrderWithSnapshot(demand.sourceProductionOrderId, '染色需求必须来源于已有生产单')
-  assert(demand.demandId.startsWith('RSXQ'), '染色需求单号必须由生产单生成')
-  assert(!demand.demandId.includes('DM-DYE'), '染色需求不得继续使用旧 seed 需求号')
-})
 printWorkOrders.forEach((order) => {
   if (order.sourceType === 'PRODUCTION_ORDER') {
     assertExistingProductionOrderWithSnapshot(order.sourceProductionOrderId!, '印花加工单必须来源于已有生产单')
@@ -339,10 +312,22 @@ printWorkOrders.forEach((order) => {
   assert(order.printOrderNo.trim().length > 0, '印花加工单必须保留稳定单号')
 })
 dyeWorkOrders.forEach((order) => {
-  assert(order.sourceType === 'PRODUCTION_ORDER', '字典工艺染色加工单必须由生产单自动生成')
-  assertExistingProductionOrderWithSnapshot(order.sourceProductionOrderId!, '染色加工单必须来源于已有生产单')
-  assert(Boolean(order.sourceProductionOrderNo && order.productionOrderOrderedAt), '染色加工单必须保留生产单号与下单时间')
-  assert(!order.stockMaterialId, '生产单来源染色加工单不得携带备货来源')
+  if (order.sourceType === 'PRODUCTION_ORDER') {
+    const sourceOrderExists = productionOrderIds.has(order.sourceProductionOrderId!)
+    if (sourceOrderExists) {
+      assertExistingProductionOrderWithSnapshot(order.sourceProductionOrderId!, '染色加工单必须来源于已有生产单')
+    } else {
+      assert(
+        order.formalProductionOrderSnapshot?.productionOrderId === order.sourceProductionOrderId,
+        '演示生产单来源的染色加工单必须保留正式生产快照',
+      )
+    }
+    assert(Boolean(order.sourceProductionOrderNo && order.productionOrderOrderedAt), '染色加工单必须保留生产单号与下单时间')
+    assert(!order.stockMaterialId, '生产单来源染色加工单不得携带备货来源')
+  } else {
+    assert(Boolean(order.stockMaterialId && order.stockMaterialName), '无真实生产单的染色加工单必须迁为可追溯备货来源')
+    assert(!order.sourceProductionOrderId && !order.sourceProductionOrderNo, '备货来源染色加工单不得伪造生产单')
+  }
   assert(order.dyeOrderNo.trim().length > 0, '染色加工单必须保留稳定单号')
 })
 

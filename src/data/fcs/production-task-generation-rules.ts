@@ -1,11 +1,10 @@
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import type { ProductionSaleType } from './production-demands.ts'
 import {
-  listGeneratedProductionDemandArtifacts,
   listGeneratedProductionTaskArtifacts,
-  type GeneratedProductionArtifact,
   type GeneratedTaskArtifact,
 } from './production-artifact-generation.ts'
+import type { ProcessWorkOrder } from './process-work-order-domain.ts'
 import { KOL_GOTO_FACTORY_ID } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-master-store.ts'
 
@@ -111,7 +110,7 @@ export interface ProductionTaskGenerationPreview {
   statusReason: string
   generatedUnits: GeneratedTaskUnitPreview[]
   independentDemandObjects: Array<{
-    objectType: 'PRINT_REQUIREMENT' | 'DYE_REQUIREMENT'
+    objectType: 'PRINT_WORK_ORDER' | 'DYE_WORK_ORDER'
     objectName: string
     processCode: 'PRINT' | 'DYE'
     sourceArtifactIds: string[]
@@ -284,14 +283,20 @@ export function matchProductionTaskGenerationRule(orderId: string): ProductionTa
     .find((rule) => isRuleCandidate(rule, order))
 }
 
-function toIndependentDemandObjects(artifacts: GeneratedProductionArtifact[]): ProductionTaskGenerationPreview['independentDemandObjects'] {
-  return artifacts
-    .filter((artifact) => artifact.artifactType === 'DEMAND' && (artifact.processCode === 'PRINT' || artifact.processCode === 'DYE'))
-    .map((artifact) => ({
-      objectType: artifact.processCode === 'PRINT' ? 'PRINT_REQUIREMENT' as const : 'DYE_REQUIREMENT' as const,
-      objectName: artifact.processCode === 'PRINT' ? '印花需求单' : '染色需求单',
-      processCode: artifact.processCode as 'PRINT' | 'DYE',
-      sourceArtifactIds: [artifact.artifactId],
+function toIndependentDemandObjects(
+  orderId: string,
+  workOrders: ProcessWorkOrder[] = [],
+): ProductionTaskGenerationPreview['independentDemandObjects'] {
+  return workOrders
+    .filter((workOrder) =>
+      (workOrder.processType === 'PRINT' || workOrder.processType === 'DYE')
+      && (workOrder.sourceProductionOrderId === orderId || workOrder.productionOrderIds.includes(orderId)),
+    )
+    .map((workOrder) => ({
+      objectType: workOrder.processType === 'PRINT' ? 'PRINT_WORK_ORDER' as const : 'DYE_WORK_ORDER' as const,
+      objectName: workOrder.workOrderNo,
+      processCode: workOrder.processType as 'PRINT' | 'DYE',
+      sourceArtifactIds: workOrder.sourceArtifactIds?.length ? [...workOrder.sourceArtifactIds] : [workOrder.workOrderId],
     }))
 }
 
@@ -386,11 +391,7 @@ export function buildTaskGenerationPreview(orderId: string): ProductionTaskGener
   }
 
   const taskArtifacts = listGeneratedProductionTaskArtifacts().filter((artifact) => artifact.orderId === orderId)
-  const artifacts: GeneratedProductionArtifact[] = [
-    ...listGeneratedProductionDemandArtifacts().filter((artifact) => artifact.orderId === orderId),
-    ...taskArtifacts,
-  ]
-  const independentDemandObjects = toIndependentDemandObjects(artifacts)
+  const independentDemandObjects = toIndependentDemandObjects(orderId)
   const matchedRule = matchProductionTaskGenerationRule(orderId)
   if (!matchedRule) {
     return {
@@ -440,7 +441,7 @@ export function buildTaskGenerationPreview(orderId: string): ProductionTaskGener
     generatedUnits,
     independentDemandObjects,
     blockedReasons: status === 'BLOCKED' ? ['没有可合并或独立生成的任务对象'] : [],
-    warnings: independentDemandObjects.length === 0 ? ['当前生产单没有独立印花/染色需求'] : [],
+    warnings: independentDemandObjects.length === 0 ? ['当前生产单没有独立印花/染色加工单'] : [],
   }
 }
 

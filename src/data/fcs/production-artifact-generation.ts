@@ -168,11 +168,6 @@ const DOC_TYPE_LABEL: Record<ProcessDocType, string> = {
   TASK: '任务单',
 }
 
-const DEMAND_TYPE_LABEL_BY_PROCESS_CODE: Record<string, string> = {
-  PRINT: '印花需求单',
-  DYE: '染色需求单',
-}
-
 export const DICTIONARY_CRAFT_MOCKS_PER_DEFINITION = 3
 const DICTIONARY_COVERAGE_BLOCKED_ORDER_STATUSES = new Set(['DRAFT', 'READY_FOR_BREAKDOWN'])
 
@@ -405,7 +400,11 @@ function buildDictionaryCoverageTaskArtifact(
 function listDictionaryCoverageDemandArtifacts(): GeneratedDemandArtifact[] {
   return listActiveProcessCraftDefinitions()
     .flatMap((definition, craftIndex) => {
-      if (definition.defaultDocType !== 'DEMAND') return []
+      if (
+        definition.defaultDocType !== 'DEMAND'
+        || definition.processCode === 'PRINT'
+        || definition.processCode === 'DYE'
+      ) return []
       return Array.from({ length: DICTIONARY_CRAFT_MOCKS_PER_DEFINITION }, (_, mockIndex) =>
         buildDictionaryCoverageDemandArtifact(definition, craftIndex, mockIndex),
       )
@@ -558,7 +557,7 @@ function buildSortKey(context: ResolvedEntryContext): string {
 }
 
 function toDemandArtifact(context: ResolvedEntryContext): GeneratedDemandArtifact {
-  const demandTypeLabel = DEMAND_TYPE_LABEL_BY_PROCESS_CODE[context.processCode] ?? `${context.processName}需求单`
+  const demandTypeLabel = `${context.processName}需求单`
   return {
     artifactId: `DEMART-${context.orderId}-${toArtifactKeySegment(context.sourceEntryId)}`,
     artifactType: 'DEMAND',
@@ -708,7 +707,7 @@ function generateBomDrivenPrepArtifactsForEntry(
   input: GenerateBomDrivenPrepArtifactsForEntryInput,
 ): GeneratedProductionArtifact[] {
   const { order, snapshot, entry, entryIndex } = input
-  if (entry.processCode !== 'WATER_SOLUBLE' && entry.processCode !== 'DYE') return []
+  if (entry.processCode !== 'WATER_SOLUBLE') return []
 
   const linkedBomItemIds = [...new Set(entry.linkedBomItemIds ?? [])]
   const bomItemById = new Map(snapshot.bomItems.map((item) => [item.id, item]))
@@ -721,10 +720,7 @@ function generateBomDrivenPrepArtifactsForEntry(
     if (!bomItem) return []
 
     const requiresWaterSoluble = bomItem.waterSolubleRequirement === '是'
-    const dyeRequirement = bomItem.dyeRequirement?.trim()
-    const requiresDye = Boolean(dyeRequirement && dyeRequirement !== '无')
-    if (entry.processCode === 'WATER_SOLUBLE' && (!requiresWaterSoluble || requiresDye)) return []
-    if (entry.processCode === 'DYE' && !requiresDye) return []
+    if (!requiresWaterSoluble) return []
     if (!bomItem.unit?.trim()) {
       throw new Error(`BOM ${bomItem.id}（${bomItem.materialCode || bomItem.name || bomItem.id}）产物生成失败：BOM 数量单位不能为空`)
     }
@@ -749,40 +745,19 @@ function generateBomDrivenPrepArtifactsForEntry(
     ].map(toUnambiguousArtifactIdentitySegment).join('-')
     const bomSortSuffix = toArtifactKeySegment(bomItem.id)
 
-    if (entry.processCode === 'WATER_SOLUBLE') {
-      return [{
-        ...toTaskArtifact(context),
-        ...materialFields,
-        artifactId: `TASKART-${artifactKey}`,
-        defaultDocType: 'TASK',
-        docTypeLabel: DOC_TYPE_LABEL.TASK,
-        taskTypeCode: 'WATER_SOLUBLE',
-        taskTypeLabel: '水溶',
-        taskScope: 'EXTERNAL_TASK',
-        generationSortKey: `${buildGenerationSortKey(context)}-${bomSortSuffix}`,
-        sortKey: `${buildSortKey(context)}-${bomSortSuffix}`,
-      }]
-    }
-
     return [{
-      ...toDemandArtifact(context),
+      ...toTaskArtifact(context),
       ...materialFields,
-      artifactId: `DEMART-${artifactKey}`,
-      requiresWaterSoluble,
-      processRoute: requiresWaterSoluble ? ['WATER_SOLUBLE', 'DYE'] : ['DYE'],
+      artifactId: `TASKART-${artifactKey}`,
+      defaultDocType: 'TASK',
+      docTypeLabel: DOC_TYPE_LABEL.TASK,
+      taskTypeCode: 'WATER_SOLUBLE',
+      taskTypeLabel: '水溶',
+      taskScope: 'EXTERNAL_TASK',
       generationSortKey: `${buildGenerationSortKey(context)}-${bomSortSuffix}`,
       sortKey: `${buildSortKey(context)}-${bomSortSuffix}`,
     }]
   })
-}
-
-function shouldGenerateDemand(entry: TechPackProcessEntry, context: ResolvedEntryContext): boolean {
-  return (
-    entry.entryType === 'PROCESS_BASELINE' &&
-    context.stageCode === 'PREP' &&
-    context.defaultDocType === 'DEMAND' &&
-    (context.processCode === 'PRINT' || context.processCode === 'DYE')
-  )
 }
 
 function shouldGenerateWaterSolubleTask(
@@ -962,18 +937,6 @@ export function generateProductionArtifactsForOrder(orderId: string): GeneratedP
       if (shouldGenerateWaterSolubleTask(entry, context)) {
         artifacts.push(...generateBomDrivenPrepArtifactsForEntry({ order, snapshot, entry, entryIndex: index }))
       }
-      return
-    }
-
-    if (entry.processCode === 'DYE' && entry.linkedBomItemIds?.length) {
-      if (shouldGenerateDemand(entry, context) && context.isActive) {
-        artifacts.push(...generateBomDrivenPrepArtifactsForEntry({ order, snapshot, entry, entryIndex: index }))
-      }
-      return
-    }
-
-    if (shouldGenerateDemand(entry, context)) {
-      artifacts.push(toDemandArtifact(context))
       return
     }
 
