@@ -36,7 +36,7 @@ import {
 type TaskTimeRange = 'TODAY' | '7D' | '30D' | 'ALL'
 type TaskFilterField = 'keyword' | 'factoryId' | 'status' | 'abnormalStatus' | 'timeRange'
 
-interface SpecialCraftTaskListState {
+export interface SpecialCraftTaskListState {
   keyword: string
   factoryId: string
   status: string
@@ -60,6 +60,11 @@ const taskListStateByOperation = new Map<string, SpecialCraftTaskListState>()
 
 type PersistedSpecialCraftTaskListState = Omit<SpecialCraftTaskListState, 'page'>
 
+export interface SpecialCraftTaskListPreferenceStorage {
+  getItem(key: string): string | null
+  setItem(key: string, value: string): void
+}
+
 export function buildSpecialCraftTaskListStorageKey(operationSlug: string): string {
   return `fcs:special-craft:task-orders:${operationSlug}:filters`
 }
@@ -68,7 +73,7 @@ function getTaskListStorageKey(operationId: string): string {
   return buildSpecialCraftTaskListStorageKey(buildSpecialCraftOperationSlug(operationId))
 }
 
-function getBrowserStorage(): Storage | null {
+function getBrowserStorage(): SpecialCraftTaskListPreferenceStorage | null {
   try {
     return typeof window === 'undefined' ? null : window.localStorage
   } catch {
@@ -76,27 +81,12 @@ function getBrowserStorage(): Storage | null {
   }
 }
 
-function readPersistedTaskListState(storageKey: string): PersistedSpecialCraftTaskListState | null {
-  try {
-    const source = getBrowserStorage()?.getItem(storageKey)
-    if (!source) return null
-    const parsed = JSON.parse(source) as Partial<PersistedSpecialCraftTaskListState>
-    return {
-      keyword: typeof parsed.keyword === 'string' ? parsed.keyword : initialTaskListState.keyword,
-      factoryId: typeof parsed.factoryId === 'string' ? parsed.factoryId : initialTaskListState.factoryId,
-      status: typeof parsed.status === 'string' ? parsed.status : initialTaskListState.status,
-      abnormalStatus: typeof parsed.abnormalStatus === 'string' ? parsed.abnormalStatus : initialTaskListState.abnormalStatus,
-      timeRange: TASK_TIME_RANGE_OPTIONS.some((item) => item.value === parsed.timeRange)
-        ? parsed.timeRange as TaskTimeRange
-        : initialTaskListState.timeRange,
-      pageSize: [10, 20, 50].includes(Number(parsed.pageSize)) ? Number(parsed.pageSize) : initialTaskListState.pageSize,
-    }
-  } catch {
-    return null
-  }
-}
-
-function persistTaskListState(storageKey: string, state: SpecialCraftTaskListState): void {
+export function writeSpecialCraftTaskListPreference(
+  storage: SpecialCraftTaskListPreferenceStorage | null,
+  operationSlug: string,
+  state: SpecialCraftTaskListState,
+): void {
+  if (!storage) return
   const persisted: PersistedSpecialCraftTaskListState = {
     keyword: state.keyword,
     factoryId: state.factoryId,
@@ -106,7 +96,7 @@ function persistTaskListState(storageKey: string, state: SpecialCraftTaskListSta
     pageSize: state.pageSize,
   }
   try {
-    getBrowserStorage()?.setItem(storageKey, JSON.stringify(persisted))
+    storage.setItem(buildSpecialCraftTaskListStorageKey(operationSlug), JSON.stringify(persisted))
   } catch {
     // 原型在无 localStorage 的脚本检查环境中仍可使用内存状态。
   }
@@ -144,15 +134,66 @@ const TASK_TIME_RANGE_OPTIONS: Array<{ value: TaskTimeRange; label: string }> = 
   { value: 'ALL', label: '全部时间' },
 ]
 
+function normalizeAllSelection(value: unknown): string | null {
+  if (value === '' || value === 'ALL' || value === '全部') return '全部'
+  return typeof value === 'string' ? value : null
+}
+
+export function readSpecialCraftTaskListPreference(
+  storage: SpecialCraftTaskListPreferenceStorage | null,
+  operationSlug: string,
+  availableFactoryIds: readonly string[],
+): SpecialCraftTaskListState {
+  let parsed: Partial<PersistedSpecialCraftTaskListState> = {}
+  try {
+    const source = storage?.getItem(buildSpecialCraftTaskListStorageKey(operationSlug))
+    const value = source ? JSON.parse(source) as unknown : null
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      parsed = value as Partial<PersistedSpecialCraftTaskListState>
+    }
+  } catch {
+    parsed = {}
+  }
+
+  const normalizedFactoryId = normalizeAllSelection(parsed.factoryId)
+  const normalizedStatus = normalizeAllSelection(parsed.status)
+  const normalizedAbnormalStatus = normalizeAllSelection(parsed.abnormalStatus)
+  return {
+    keyword: typeof parsed.keyword === 'string' ? parsed.keyword : initialTaskListState.keyword,
+    factoryId: normalizedFactoryId === '全部' || (normalizedFactoryId && availableFactoryIds.includes(normalizedFactoryId))
+      ? normalizedFactoryId
+      : initialTaskListState.factoryId,
+    status: normalizedStatus && TASK_STATUS_OPTIONS.some((item) => item.value === normalizedStatus)
+      ? normalizedStatus
+      : initialTaskListState.status,
+    abnormalStatus: normalizedAbnormalStatus && TASK_ABNORMAL_OPTIONS.some((item) => item.value === normalizedAbnormalStatus)
+      ? normalizedAbnormalStatus
+      : initialTaskListState.abnormalStatus,
+    timeRange: TASK_TIME_RANGE_OPTIONS.some((item) => item.value === parsed.timeRange)
+      ? parsed.timeRange as TaskTimeRange
+      : initialTaskListState.timeRange,
+    page: 1,
+    pageSize: [10, 20, 50].includes(Number(parsed.pageSize)) ? Number(parsed.pageSize) : initialTaskListState.pageSize,
+  }
+}
+
+function listAvailableFactoryIds(operationId: string): string[] {
+  return [...new Set(
+    getSpecialCraftTaskOrders(operationId, { timeRange: 'ALL' })
+      .map((item) => item.factoryId)
+      .filter(Boolean),
+  )]
+}
+
 function getTaskListState(operationId: string): SpecialCraftTaskListState {
   const storageKey = getTaskListStorageKey(operationId)
   const current = taskListStateByOperation.get(storageKey)
   if (current) return current
-  const next = {
-    ...initialTaskListState,
-    ...readPersistedTaskListState(storageKey),
-    page: 1,
-  }
+  const next = readSpecialCraftTaskListPreference(
+    getBrowserStorage(),
+    buildSpecialCraftOperationSlug(operationId),
+    listAvailableFactoryIds(operationId),
+  )
   taskListStateByOperation.set(storageKey, next)
   return next
 }
@@ -162,7 +203,7 @@ function setTaskListState(operationId: string, patch: Partial<SpecialCraftTaskLi
   const current = getTaskListState(operationId)
   const next = { ...current, ...patch }
   taskListStateByOperation.set(storageKey, next)
-  persistTaskListState(storageKey, next)
+  writeSpecialCraftTaskListPreference(getBrowserStorage(), buildSpecialCraftOperationSlug(operationId), next)
 }
 
 function renderMissingOperation(): string {
@@ -173,6 +214,8 @@ function renderMissingOperation(): string {
       craftName: '特殊工艺',
       processCode: 'SPECIAL_CRAFT',
       processName: '特殊工艺',
+      managementDomain: 'SPECIAL_CRAFT_FACTORY',
+      managementDomainName: '特种工艺工厂管理',
       operationName: '特殊工艺',
       supportedTargetObjects: [],
       supportedTargetObjectLabels: [],

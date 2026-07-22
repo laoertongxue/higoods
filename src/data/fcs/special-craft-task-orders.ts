@@ -133,8 +133,10 @@ export interface SpecialCraftTaskWorkOrderLine {
   remark?: string
 }
 
+export type SpecialCraftWorkOrderBusinessType = 'HEAT_TRANSFER' | 'DIRECT_PRINT' | 'OTHER_SPECIAL_CRAFT'
+
 export interface SpecialCraftTaskWorkOrder {
-  businessType: 'HEAT_TRANSFER' | 'DIRECT_PRINT' | 'OTHER_SPECIAL_CRAFT'
+  businessType: SpecialCraftWorkOrderBusinessType
   workOrderId: string
   workOrderNo: string
   taskOrderId: string
@@ -1763,11 +1765,11 @@ function buildWorkOrderId(taskOrder: SpecialCraftTaskOrder, partName: string, in
   return `${taskOrder.taskOrderId}-WO-${String(index + 1).padStart(3, '0')}-${partName}`.replace(/[^A-Za-z0-9-]/g, '')
 }
 
-function getSpecialCraftWorkOrderBusinessType(
-  craftName: string,
-): SpecialCraftTaskWorkOrder['businessType'] {
-  if (craftName === '烫画') return 'HEAT_TRANSFER'
-  if (craftName === '直喷') return 'DIRECT_PRINT'
+export function getSpecialCraftWorkOrderBusinessType(
+  operationId: string,
+): SpecialCraftWorkOrderBusinessType {
+  if (operationId === 'AUX-OP-HEAT-TRANSFER') return 'HEAT_TRANSFER'
+  if (operationId === 'AUX-OP-DIRECT-PRINT') return 'DIRECT_PRINT'
   return 'OTHER_SPECIAL_CRAFT'
 }
 
@@ -1836,7 +1838,7 @@ function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
         : 0
 
       const workOrder: SpecialCraftTaskWorkOrder = {
-        businessType: getSpecialCraftWorkOrderBusinessType(taskOrder.craftName),
+        businessType: getSpecialCraftWorkOrderBusinessType(taskOrder.operationId),
         workOrderId,
         workOrderNo: `${taskOrder.taskOrderNo}-部位${String(groupIndex + 1).padStart(2, '0')}`,
         taskOrderId: taskOrder.taskOrderId,
