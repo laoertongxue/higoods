@@ -281,6 +281,18 @@ export function partitionBomItemsByType<T extends Pick<BomItemRow, 'type'>>(bomI
   }
 }
 
+export function validateGarmentTechniqueBomLinks(
+  selectedTargetObject: string,
+  linkedBomItemIds: string[],
+  bomItems: Array<Pick<BomItemRow, 'id' | 'type'>>,
+): string {
+  if (selectedTargetObject !== '成衣') return ''
+  const garmentBomIds = new Set(bomItems.filter((item) => item.type === '成衣').map((item) => item.id))
+  return linkedBomItemIds.length > 0 && linkedBomItemIds.every((id) => garmentBomIds.has(id))
+    ? ''
+    : '成衣辅助工艺必须关联至少一条成衣 BOM，且不能保留非成衣 BOM 关联'
+}
+
 type BomPatternDesignReferenceInput = {
   frontPatternDesignId?: string
   frontPatternDesignIds?: string[]
@@ -1533,7 +1545,7 @@ function createMaterialPatternDemoAssociation(
   }
 }
 
-function ensurePatternPoolDemoPackages(
+export function ensurePatternPoolDemoPackages(
   items: PatternItem[],
   bomItems: Array<{ id: string; name?: string; materialName?: string; materialCode?: string; spec?: string; type?: string }>,
 ): PatternItem[] {
@@ -1583,12 +1595,12 @@ function ensurePatternPoolDemoPackages(
     }),
   ]
 
-  const fabricBomItems = bomItems.filter((item) => String(item.type || '').includes('面料'))
+  const fabricBomItems = bomItems.filter((item) => item.type !== '成衣')
   const associationItems = [
-    createMaterialPatternDemoAssociation(packageItems[0], fabricBomItems[0] ?? bomItems[0], 0),
-    createMaterialPatternDemoAssociation(packageItems[1], fabricBomItems[0] ?? bomItems[0], 1),
-    createMaterialPatternDemoAssociation(packageItems[2], fabricBomItems[1] ?? bomItems[1] ?? bomItems[0], 2),
-    createMaterialPatternDemoAssociation(packageItems[3], fabricBomItems[1] ?? bomItems[1] ?? bomItems[0], 3),
+    createMaterialPatternDemoAssociation(packageItems[0], fabricBomItems[0], 0),
+    createMaterialPatternDemoAssociation(packageItems[1], fabricBomItems[0], 1),
+    createMaterialPatternDemoAssociation(packageItems[2], fabricBomItems[1] ?? fabricBomItems[0], 2),
+    createMaterialPatternDemoAssociation(packageItems[3], fabricBomItems[1] ?? fabricBomItems[0], 3),
   ]
 
   return [...packageItems, ...associationItems]
@@ -3528,7 +3540,8 @@ function isComplexColorMappingScenario(colorCount: number): boolean {
   const hasPieceSkuRestriction = state.patternItems.some((pattern) =>
     pattern.pieceRows.some((piece) => piece.applicableSkuCodes.length > 0),
   )
-  const hasBomSkuRestriction = state.bomItems.some((item) => item.applicableSkuCodes.length > 0)
+  const hasBomSkuRestriction = partitionBomItemsByType(state.bomItems).materialBomItems
+    .some((item) => item.applicableSkuCodes.length > 0)
   return hasPieceSkuRestriction || hasBomSkuRestriction
 }
 
@@ -3540,7 +3553,7 @@ function buildAutoMappingLinesForColor(
   const skuCodesOfColor = getSkuCodesByColor(colorName)
   const skuCodeSet = new Set(skuCodesOfColor)
 
-  return state.bomItems.flatMap((bomItem) => {
+  return partitionBomItemsByType(state.bomItems).materialBomItems.flatMap((bomItem) => {
     const matchedSkuCodes =
       bomItem.applicableSkuCodes.length === 0
         ? skuCodesOfColor
@@ -4040,6 +4053,7 @@ function inheritPatternPackageTechnicalFields(items: PatternItem[]): PatternItem
 }
 
 function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
+  const materialBomItems = techPack.bomItems.filter((item) => item.type !== '成衣')
   if (techPack.patternFiles.length === 0) {
     return inheritPatternPackageTechnicalFields(ensurePatternPoolDemoPackages(
       ensurePatternStatusDemoCoverage(DEFAULT_PATTERN_ITEMS.map((item) => ({
@@ -4072,16 +4086,16 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
           candidatePartNames: [...(row.candidatePartNames ?? [])],
           rawTextLabels: [...(row.rawTextLabels ?? [])],
         })),
-      })), techPack.bomItems),
-      techPack.bomItems,
+      })), materialBomItems),
+      materialBomItems,
     ))
   }
 
   return inheritPatternPackageTechnicalFields(ensurePatternPoolDemoPackages(ensurePatternStatusDemoCoverage(techPack.patternFiles.map((item, index) => {
     const patternId = item.id || `PAT-${index + 1}`
     const linkedBom =
-      techPack.bomItems.find((bom) => bom.id === item.linkedBomItemId)
-      || techPack.bomItems[index % Math.max(techPack.bomItems.length, 1)]
+      materialBomItems.find((bom) => bom.id === item.linkedBomItemId)
+      || materialBomItems[index % Math.max(materialBomItems.length, 1)]
       || null
     const normalizedRows = normalizePatternPieceRows(
       (item.pieceRows ?? []).map((row) => ({
@@ -4300,7 +4314,7 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
       sourcePatternPackageId: item.sourcePatternPackageId,
       sourcePatternPackageName: item.sourcePatternPackageName,
     }
-  }), techPack.bomItems), techPack.bomItems))
+  }), materialBomItems), materialBomItems))
 }
 
 function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {

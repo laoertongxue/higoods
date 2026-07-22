@@ -3,10 +3,13 @@ import { readFileSync } from 'node:fs'
 import {
   normalizeGarmentBomItem,
   partitionBomItemsByType,
+  ensurePatternPoolDemoPackages,
+  validateGarmentTechniqueBomLinks,
   validateGarmentBomItem,
   type BomItemRow,
 } from '../src/pages/tech-pack/context.ts'
 import { validateTechPackForPublish, type TechPack } from '../src/data/fcs/tech-packs.ts'
+import { selectProductionMaterialBomItems } from '../src/data/fcs/production-artifact-generation.ts'
 
 const garmentSeed = {
   id: 'bom-garment-1',
@@ -59,6 +62,20 @@ assert.equal(normalizeGarmentBomItem(fabric), fabric, '非成衣 BOM 不应被�
 const partitioned = partitionBomItemsByType([fabric, normalized])
 assert.deepEqual(partitioned.materialBomItems.map((item) => item.id), ['bom-fabric-1'])
 assert.deepEqual(partitioned.garmentBomItems.map((item) => item.id), ['bom-garment-1'])
+const patternAssociations = ensurePatternPoolDemoPackages([], [normalized, fabric])
+  .filter((item) => item.recordKind === 'MATERIAL_ASSOCIATION')
+assert(patternAssociations.length > 0)
+assert(patternAssociations.every((item) => item.linkedBomItemId === 'bom-fabric-1'), '纸样兜底不得关联排在首位的成衣 BOM')
+assert.match(validateGarmentTechniqueBomLinks('成衣', ['bom-fabric-1'], [fabric, normalized]), /成衣 BOM/)
+assert.equal(validateGarmentTechniqueBomLinks('成衣', ['bom-garment-1'], [fabric, normalized]), '')
+assert.deepEqual(
+  selectProductionMaterialBomItems([
+    { id: 'garment-first', type: '成衣' },
+    { id: 'fabric-second', type: '面料' },
+  ]).map((item) => item.id),
+  ['fabric-second'],
+  '生产制品的水溶、印花和染色演示上下文不得把首条成衣当作物料',
+)
 
 const bomDomainSource = readFileSync('src/pages/tech-pack/bom-domain.ts', 'utf8')
 assert.match(bomDomainSource, /'包装材料', '成衣', '其他'/)
@@ -101,5 +118,30 @@ const publishErrors = validateTechPackForPublish({
   }],
 } as unknown as TechPack)
 assert(publishErrors.some((message) => message.includes('成衣 BOM') && message.includes('SKU')))
+
+const invalidGarmentCraftErrors = validateTechPackForPublish({
+  patternFiles: [],
+  bomItems: [{
+    id: 'bom-garment-valid', type: '成衣', name: '成衣', spec: '', unit: '件',
+    unitConsumption: 1, lossRate: 0, supplier: '-', applicableSkuCodes: ['SKU-1'],
+  }],
+  processEntries: [{
+    id: 'craft-heat-transfer', entryType: 'CRAFT', stageCode: 'PROD', stageName: '生产',
+    processCode: 'AUX', processName: '辅助工艺', craftCode: 'HEAT_TRANSFER', craftName: '烫画',
+    isSpecialCraft: true, selectedTargetObject: '成衣', linkedBomItemIds: ['bom-fabric-invalid'],
+  }],
+} as unknown as TechPack)
+assert(invalidGarmentCraftErrors.some((message) => message.includes('成衣辅助工艺') && message.includes('成衣 BOM')))
+
+const eventsSource = readFileSync('src/pages/tech-pack/events.ts', 'utf8')
+const releaseValidationIndex = eventsSource.indexOf('const validation = validateTechPackForPublish(state.techPack)')
+const officialPublishIndex = eventsSource.indexOf('if (state.currentTechnicalVersionId)', eventsSource.indexOf('function performRelease'))
+assert(releaseValidationIndex > 0 && releaseValidationIndex < officialPublishIndex, '正式版本发布前也必须执行技术包发布校验')
+assert.doesNotMatch(eventsSource, /linkedBomItemIds: target\.selectedTargetObject === '成衣' \? \[\.\.\.\(target\.linkedBomItemIds/)
+assert.match(eventsSource, /validateGarmentTechniqueBomLinks/)
+
+const contextSource = readFileSync('src/pages/tech-pack/context.ts', 'utf8')
+assert.doesNotMatch(contextSource, /fabricBomItems\[0\] \?\? bomItems\[0\]/)
+assert.match(contextSource, /partitionBomItemsByType\(state\.bomItems\)\.materialBomItems\.flatMap/)
 
 console.log('check-tech-pack-garment-bom: PASS')

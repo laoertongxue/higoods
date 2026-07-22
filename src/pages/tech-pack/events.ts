@@ -102,6 +102,8 @@ import {
   syncMaterialCostRows,
   syncProcessCostRows,
   syncTechPackToStore,
+  partitionBomItemsByType,
+  validateGarmentTechniqueBomLinks,
   validateGarmentBomItem,
   toTimestamp,
   touchMappingAsManual,
@@ -2933,6 +2935,12 @@ function handleTechPackField(
 function performRelease(): void {
   if (!state.techPack) return
   syncTechPackToStore()
+  const validation = validateTechPackForPublish(state.techPack)
+  if (validation.length > 0) {
+    state.compatibilityMessage = validation[0] || '请检查技术包'
+    state.releaseDialogOpen = false
+    return
+  }
   if (state.currentTechnicalVersionId) {
     try {
       const record = publishTechnicalDataVersion(state.currentTechnicalVersionId, currentUser.name)
@@ -2947,12 +2955,6 @@ function performRelease(): void {
     } catch (error) {
       state.compatibilityMessage = error instanceof Error ? error.message : '发布技术包版本失败'
     }
-    state.releaseDialogOpen = false
-    return
-  }
-  const validation = validateTechPackForPublish(state.techPack)
-  if (validation.length > 0) {
-    state.compatibilityMessage = validation[0] || '请检查技术包'
     state.releaseDialogOpen = false
     return
   }
@@ -4172,6 +4174,11 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     if (!target) return true
     if (!canEditTechnique(target)) return true
     state.editTechniqueId = target.id
+    const garmentBomIds = new Set(partitionBomItemsByType(state.bomItems).garmentBomItems.map((item) => item.id))
+    const validGarmentBomLinks = (target.linkedBomItemIds ?? []).filter((id) => garmentBomIds.has(id))
+    if (target.selectedTargetObject === '成衣' && validGarmentBomLinks.length !== (target.linkedBomItemIds ?? []).length) {
+      state.compatibilityMessage = '已移除该成衣工艺中失效或非成衣 BOM 的历史关联，请重新确认后保存'
+    }
     state.newTechnique = {
       stageCode: target.stageCode,
       processCode: target.processCode,
@@ -4179,7 +4186,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       baselineProcessCode: target.entryType === 'PROCESS_BASELINE' ? target.processCode : '',
       craftCode: target.entryType === 'CRAFT' ? target.craftCode : '',
       selectedTargetObject: target.selectedTargetObject || '',
-      linkedBomItemIds: target.selectedTargetObject === '成衣' ? [...(target.linkedBomItemIds ?? [])] : [],
+      linkedBomItemIds: target.selectedTargetObject === '成衣' ? validGarmentBomLinks : [],
       packagingRequired: Boolean(target.packagingRequired),
       ruleSource: target.ruleSource,
       assignmentGranularity: target.assignmentGranularity,
@@ -4271,8 +4278,13 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const effectiveMeta = immutablePrepMeta ?? selectedMeta
 
     if (effectiveMeta.isSpecialCraft) {
-      if (effectiveMeta.selectedTargetObject === '成衣' && state.newTechnique.linkedBomItemIds.length === 0) {
-        window.alert('成衣辅助工艺必须关联至少一条成衣 BOM')
+      const garmentLinkError = validateGarmentTechniqueBomLinks(
+        effectiveMeta.selectedTargetObject,
+        state.newTechnique.linkedBomItemIds,
+        state.bomItems,
+      )
+      if (garmentLinkError) {
+        window.alert(garmentLinkError)
         return true
       }
       const duplicate = state.techniques.some((item) =>

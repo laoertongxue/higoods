@@ -171,6 +171,10 @@ const DOC_TYPE_LABEL: Record<ProcessDocType, string> = {
 export const DICTIONARY_CRAFT_MOCKS_PER_DEFINITION = 3
 const DICTIONARY_COVERAGE_BLOCKED_ORDER_STATUSES = new Set(['DRAFT', 'READY_FOR_BREAKDOWN'])
 
+export function selectProductionMaterialBomItems<T extends { type?: string }>(bomItems: T[]): T[] {
+  return bomItems.filter((item) => item.type !== '成衣')
+}
+
 function toArtifactKeySegment(entryId: string): string {
   return entryId.replace(/[^A-Za-z0-9_-]/g, '_')
 }
@@ -290,9 +294,10 @@ function buildDictionaryCoverageBase(
   if (!source) return null
   const processDefinition = getProcessDefinitionByCode(definition.processCode)
   const stageDefinition = getProcessStageByCode(definition.stageCode)
+  const materialBomItems = selectProductionMaterialBomItems(source.snapshot.bomItems)
   const linkedBomItem = definition.processCode === 'WATER_SOLUBLE'
-    ? source.snapshot.bomItems[mockIndex % source.snapshot.bomItems.length]
-    : source.snapshot.bomItems[0]
+    ? materialBomItems[mockIndex % materialBomItems.length]
+    : materialBomItems[0]
   if (definition.processCode === 'WATER_SOLUBLE') {
     if (
       !linkedBomItem?.id
@@ -711,7 +716,7 @@ function generateBomDrivenPrepArtifactsForEntry(
 
   const linkedBomItemIds = [...new Set(entry.linkedBomItemIds ?? [])]
   const bomItemById = new Map(
-    snapshot.bomItems.filter((item) => item.type !== '成衣').map((item) => [item.id, item]),
+    selectProductionMaterialBomItems(snapshot.bomItems).map((item) => [item.id, item]),
   )
   const context = resolveEntryContext(order.productionOrderId, entry, entryIndex)
   context.orderQty = order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
