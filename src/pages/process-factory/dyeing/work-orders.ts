@@ -39,6 +39,10 @@ import {
   type DyeWorkOrderOnlineStatus,
   type DyeWorkOrderPfosEditInput,
 } from '../../../data/fcs/dye-work-order-online-domain.ts'
+import {
+  PROCESS_WORK_ORDER_SOURCE_LABEL,
+  type ProcessWorkOrderSourceType,
+} from '../../../data/fcs/process-work-order-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   readDyeWorkOrderEditInput,
@@ -130,6 +134,7 @@ const columns: StandardListColumn<DyeWorkOrderOnlineRow>[] = [
       <label class="flex items-center gap-2"><input type="checkbox" ${state.selectedIds.has(row.dyeOrderId) ? 'checked' : ''} data-dye-work-orders-action="toggle-selection" data-id="${escapeHtml(row.dyeOrderId)}"><span class="font-mono font-medium text-blue-700" data-work-order-no="${escapeHtml(row.workOrderNo)}">${escapeHtml(row.workOrderNo)}</span></label>
       <div class="text-xs text-muted-foreground">任务单号：${escapeHtml(row.taskNo)}</div>
       <div class="text-xs text-muted-foreground">生产单号：${escapeHtml(row.productionOrderNo || '—')}</div>
+      <div class="text-xs text-muted-foreground">来源：${escapeHtml(row.sourceLabel)}</div>
       <div class="flex flex-wrap gap-1">${renderBadge(row.status, statusTone(row.status))}${row.isReplenishment ? renderBadge('补料', 'warning') : ''}${row.isOverdue ? renderBadge('超期未完结', 'danger') : ''}</div>
     </div>`,
   },
@@ -204,6 +209,14 @@ function selectField(label: string, field: string, options: string[], current: s
   return `<label class="${className}"><span class="mb-1 block text-xs text-muted-foreground">${escapeHtml(label)}</span><select class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" data-dye-work-orders-field="${escapeHtml(field)}">${options.map((value) => option(value, current)).join('')}</select></label>`
 }
 
+function sourceTypeSelectField(current: '' | ProcessWorkOrderSourceType): string {
+  const options: Array<['' | ProcessWorkOrderSourceType, string]> = [
+    ['', '全部来源'],
+    ...Object.entries(PROCESS_WORK_ORDER_SOURCE_LABEL) as Array<[ProcessWorkOrderSourceType, string]>,
+  ]
+  return `<label class="min-w-[10rem]"><span class="mb-1 block text-xs text-muted-foreground">加工单来源</span><select class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" data-dye-work-orders-field="sourceType">${options.map(([value, label]) => `<option value="${escapeHtml(value)}" ${value === current ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label>`
+}
+
 function textField(label: string, field: string, value: string, placeholder = ''): string {
   return `<label class="min-w-[8rem] flex-1"><span class="mb-1 block text-xs text-muted-foreground">${escapeHtml(label)}</span>${renderInput({ value, placeholder, prefix: EVENT_PREFIX, field })}</label>`
 }
@@ -223,6 +236,7 @@ function renderFilters(rows: DyeWorkOrderOnlineRow[]): string {
       ${selectField('生产工厂', 'factoryName', uniqueValues(rows, (row) => row.factoryName), filters.factoryName)}
       ${selectField('染色工艺', 'processName', uniqueValues(rows, (row) => row.processName), filters.processName)}
       ${selectField('面料接收人', 'receiverName', uniqueValues(rows, (row) => row.receiverName), filters.receiverName)}
+      ${sourceTypeSelectField(filters.sourceType)}
     </div>
     <div class="flex flex-wrap items-end gap-3">
       ${selectField('是否纱线', 'yarn', ['全部', '是', '否'], filters.yarn, 'min-w-[7rem]')}
@@ -379,6 +393,7 @@ function readFilters(root: HTMLElement): DyeWorkOrderOnlineFilters {
     factoryName: readField(root, 'factoryName'),
     processName: readField(root, 'processName'),
     receiverName: readField(root, 'receiverName'),
+    sourceType: readField(root, 'sourceType') as DyeWorkOrderOnlineFilters['sourceType'],
     yarn: readField(root, 'yarn') as DyeWorkOrderOnlineFilters['yarn'],
     replenishment: readField(root, 'replenishment') as DyeWorkOrderOnlineFilters['replenishment'],
     gtgInStock: readField(root, 'gtgInStock') as DyeWorkOrderOnlineFilters['gtgInStock'],

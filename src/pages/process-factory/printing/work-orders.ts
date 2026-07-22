@@ -9,9 +9,13 @@ import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts
 import { getStartPrerequisiteByTaskId } from '../../../data/fcs/pda-start-link.ts'
 import { renderProductionObjectCodeButton } from '../../../data/fcs/production-order-identity.ts'
 import {
+  PROCESS_WORK_ORDER_SOURCE_LABEL,
+} from '../../../data/fcs/process-work-order-domain.ts'
+import {
   formatPrintProcessQty,
   getPrintQuantityLabel,
   getPrintPrinterSummary,
+  getPrintingWorkOrderSourceOptions,
   renderActionButton,
   renderMetricCard,
   renderPageHeader,
@@ -45,7 +49,7 @@ function renderOrdersTable(): string {
       const startPrerequisite = getStartPrerequisiteByTaskId(order.taskId)
 
       return `
-        <tr class="border-b align-top last:border-b-0">
+        <tr class="border-b align-top last:border-b-0" data-printing-work-order-row data-source-type="${escapeHtml(order.sourceType)}">
           <td class="px-3 py-3">
             <div class="font-mono text-xs font-medium">${renderProductionObjectCodeButton({
               objectType: 'PRINT_WORK_ORDER',
@@ -61,6 +65,7 @@ function renderOrdersTable(): string {
           <td class="px-3 py-3">
             <div class="text-sm font-medium">${escapeHtml(order.taskNo)}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.materialSku)}${order.materialColor ? ` / ${escapeHtml(order.materialColor)}` : ''}</div>
+            <div class="mt-1 text-xs text-muted-foreground">来源：${escapeHtml(PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType])}</div>
           </td>
           <td class="px-3 py-3 text-sm">${escapeHtml(order.patternNo)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(order.materialSku)}</td>
@@ -137,11 +142,17 @@ function renderOrdersTable(): string {
   )
 }
 
+function renderSourceFilter(): string {
+  const options = getPrintingWorkOrderSourceOptions()
+  return `<label class="block max-w-xs"><span class="mb-1 block text-xs text-muted-foreground">加工单来源</span><select class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" data-printing-source-filter>${options.map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join('')}</select></label>`
+}
+
 export function renderCraftPrintingWorkOrdersPage(): string {
   return `
-    <div class="space-y-4 p-4">
+    <div class="space-y-4 p-4" data-printing-work-orders-root>
       ${renderPageHeader('印花加工单', '')}
       ${renderSummaryCards()}
+      ${renderSourceFilter()}
       ${renderOrdersTable()}
     </div>
   `

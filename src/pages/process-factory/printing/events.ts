@@ -56,6 +56,16 @@ function refreshCurrentPrintingPage(): void {
 }
 
 export function handleCraftPrintingEvent(target: HTMLElement): boolean {
+  const sourceFilter = target.closest<HTMLSelectElement>('[data-printing-source-filter]')
+  if (sourceFilter) {
+    const sourceType = sourceFilter.value
+    const root = sourceFilter.closest<HTMLElement>('[data-printing-work-orders-root]') || document
+    root.querySelectorAll<HTMLElement>('[data-printing-work-order-row]').forEach((row) => {
+      row.hidden = Boolean(sourceType && row.dataset.sourceType !== sourceType)
+    })
+    return true
+  }
+
   const dialogHandled = handleProcessWebStatusActionDialogEvent(target, {
     toast: showPrintingToast,
     refresh: refreshCurrentPrintingPage,

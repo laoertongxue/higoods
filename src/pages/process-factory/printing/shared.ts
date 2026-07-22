@@ -13,8 +13,19 @@ import {
   formatProcessQuantityWithUnit,
   type ProcessQuantityContext,
 } from '../../../data/fcs/process-quantity-labels.ts'
+import {
+  PROCESS_WORK_ORDER_SOURCE_LABEL,
+  type ProcessWorkOrderSourceType,
+} from '../../../data/fcs/process-work-order-domain.ts'
 
 type BadgeTone = 'muted' | 'info' | 'warning' | 'success' | 'danger'
+
+export function getPrintingWorkOrderSourceOptions(): Array<['' | ProcessWorkOrderSourceType, string]> {
+  return [
+    ['', '全部来源'],
+    ...Object.entries(PROCESS_WORK_ORDER_SOURCE_LABEL) as Array<[ProcessWorkOrderSourceType, string]>,
+  ]
+}
 
 export function getPrintingSearchParams(): URLSearchParams {
   const pathname = appStore.getState().pathname || ''

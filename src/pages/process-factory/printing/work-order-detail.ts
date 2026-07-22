@@ -19,7 +19,12 @@ import {
 } from '../../../data/fcs/process-web-status-actions.ts'
 import { getPlatformStatusForProcessWorkOrder } from '../../../data/fcs/process-platform-status-adapter.ts'
 import { getStartPrerequisiteByTaskId } from '../../../data/fcs/pda-start-link.ts'
-import { getProcessWorkOrderById, getProcessWorkOrderByNo } from '../../../data/fcs/process-work-order-domain.ts'
+import {
+  PROCESS_WORK_ORDER_SOURCE_LABEL,
+  getProcessWorkOrderById,
+  getProcessWorkOrderByNo,
+  type ProcessWorkOrder,
+} from '../../../data/fcs/process-work-order-domain.ts'
 import {
   getDifferenceRecordsByWorkOrderId,
   getHandoverRecordsByWorkOrderId,
@@ -50,6 +55,26 @@ const printDetailTabs: Array<{ key: PrintDetailTab; label: string }> = [
   { key: 'progress', label: '执行进度' },
   { key: 'exception', label: '异常与结算' },
 ]
+
+function renderSourceFields(order: ProcessWorkOrder): string {
+  const rows = [renderField('来源类型', PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType])]
+  if (order.sourceType === 'STOCK') {
+    rows.push(renderField('备货物料', order.stockMaterialName || order.stockMaterialId || order.materialName))
+    return rows.join('')
+  }
+  if (order.sourceType === 'CUT_PIECE_SUPPLEMENT') {
+    rows.push(
+      renderField('补料单', order.sourceSnapshot.supplementRecordNo || '-'),
+      renderField('原始裁片单', order.sourceSnapshot.originalCutOrderNo || '-'),
+    )
+  }
+  rows.push(
+    renderField('所属生产单', order.sourceSnapshot.productionOrderNo || order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'),
+    renderField('技术包版本', order.sourceSnapshot.techPackVersionLabel || '-'),
+    renderField('BOM 物料', `${order.materialSku} / ${order.materialName}`),
+  )
+  return rows.join('')
+}
 
 const consumedWebActionKeys = new Set<string>()
 
@@ -407,10 +432,7 @@ export function renderCraftPrintingWorkOrderDetailPage(printOrderId: string): st
       `
         <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-3">
           ${renderField('加工单号', order.workOrderNo)}
-          ${renderField('来源类型', order.sourceType === 'STOCK' ? '按备货创建' : '生产单自动生成')}
-          ${renderField('来源对象', order.sourceType === 'STOCK'
-            ? (order.stockMaterialName || order.stockMaterialId || '-')
-            : (order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'))}
+          ${renderSourceFields(order)}
           ${renderField('工厂', formatFactoryDisplayName(order.factoryName, order.factoryId))}
           ${renderField('分配方式', order.assignmentMode || '派单')}
           ${renderField('派单价格', order.dispatchPriceDisplay || '1200 IDR/Yard')}

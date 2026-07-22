@@ -43,6 +43,12 @@ export type ProcessWorkOrderType = 'PRINT' | 'DYE' | 'WATER_SOLUBLE'
 export type ProcessWorkOrderStatus = PrintWorkOrderStatus | DyeWorkOrderStatus | WaterSolubleWorkOrderStatus
 export type ProcessWorkOrderSourceType = 'PRODUCTION_ORDER' | 'STOCK' | 'CUT_PIECE_SUPPLEMENT'
 
+export const PROCESS_WORK_ORDER_SOURCE_LABEL: Record<ProcessWorkOrderSourceType, string> = {
+  PRODUCTION_ORDER: '生产单自动生成',
+  STOCK: '备货手动创建',
+  CUT_PIECE_SUPPLEMENT: '裁片补料生成',
+}
+
 export interface ProcessWorkOrderSourceSnapshot {
   sourceType: ProcessWorkOrderSourceType
   productionOrderId?: string

@@ -39,6 +39,10 @@ import { getProcessWarehouseRecordById, listProcessHandoverRecords } from '../sr
 import { getPdaHandoverSourceDisplay, listHandoverOrdersByTaskId } from '../src/data/fcs/pda-handover-events.ts'
 import { listFactoryWaitProcessStockItems, upsertFactoryWaitProcessStockItem } from '../src/data/fcs/factory-internal-warehouse.ts'
 import { buildTaskDeliveryCardPrintDocByRecordId, buildTaskRouteCardPrintDoc } from '../src/data/fcs/task-print-cards.ts'
+import {
+  filterDyeWorkOrderOnlineRows,
+  listDyeWorkOrderOnlineRows,
+} from '../src/data/fcs/dye-work-order-online-view.ts'
 
 const repoRoot = process.cwd()
 const dyePages = [
@@ -101,6 +105,10 @@ function main(): void {
   }
 
   const workOrdersSource = readFile('src/pages/process-factory/dyeing/work-orders.ts')
+  const workOrderDetailSource = readFile('src/pages/process-factory/dyeing/work-order-detail.ts')
+  const processWorkOrderDomainSource = readFile('src/data/fcs/process-work-order-domain.ts')
+  const taskPrintCardsSource = readFile('src/data/fcs/task-print-cards.ts')
+  const processPrepAdapterSource = readFile('src/data/fcs/page-adapters/process-prep-pages-adapter.ts')
   const platformOrdersSource = readFile('src/pages/process-dye-orders.ts')
   const appShellSource = readFile('src/data/app-shell-config.ts')
   const warehouseSource = readFile('src/pages/process-factory/dyeing/warehouse.ts')
@@ -150,6 +158,51 @@ function main(): void {
       stockMaterialName: task.stockMaterialName,
     }))
   const orders = listDyeWorkOrders()
+  const dyeingOrdersHtml = `${processWorkOrderDomainSource}\n${workOrdersSource}`
+  for (const sourceLabel of ['生产单自动生成', '备货手动创建', '裁片补料生成']) {
+    assertIncludes(dyeingOrdersHtml, sourceLabel, '染色加工单来源筛选')
+  }
+  assertIncludes(workOrdersSource, 'PROCESS_WORK_ORDER_SOURCE_LABEL', '染色加工单列表统一来源标签')
+  assertIncludes(workOrdersSource, 'data-dye-work-orders-field="sourceType"', '染色加工单来源筛选')
+  assertIncludes(taskPrintCardsSource, 'PROCESS_WORK_ORDER_SOURCE_LABEL[input.sourceType]', '染色任务卡与打印统一来源标签')
+  assertIncludes(processPrepAdapterSource, 'PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType]', '染色页面适配器统一来源标签')
+  const onlineRows = listDyeWorkOrderOnlineRows()
+  const sourceFilterRows = [
+    { ...onlineRows[0]!, dyeOrderId: 'SOURCE-PRODUCTION', sourceType: 'PRODUCTION_ORDER' as const },
+    { ...onlineRows[0]!, dyeOrderId: 'SOURCE-STOCK', sourceType: 'STOCK' as const },
+    { ...onlineRows[0]!, dyeOrderId: 'SOURCE-SUPPLEMENT', sourceType: 'CUT_PIECE_SUPPLEMENT' as const },
+  ]
+  for (const sourceType of ['PRODUCTION_ORDER', 'STOCK', 'CUT_PIECE_SUPPLEMENT'] as const) {
+    const filteredBySource = filterDyeWorkOrderOnlineRows(sourceFilterRows, { sourceType })
+    assert.equal(filteredBySource.length, 1, `染色加工单来源筛选 ${sourceType} 必须精确命中一项`)
+    assert.equal(filteredBySource[0]?.sourceType, sourceType, `染色加工单来源筛选 ${sourceType} 不得混入其他来源`)
+  }
+  const supplementDyeDetailHtml = `${processWorkOrderDomainSource}\n${workOrderDetailSource}`
+  for (const expected of [
+    '裁片补料生成',
+    '补料单',
+    '原始裁片单',
+    '所属生产单',
+    '技术包版本',
+    'BOM 物料',
+    'sourceSnapshot.supplementRecordNo',
+    'sourceSnapshot.originalCutOrderNo',
+    'sourceSnapshot.productionOrderNo',
+    'sourceSnapshot.techPackVersionLabel',
+    'order.materialSku',
+    'order.materialName',
+  ]) {
+    assert(expected && supplementDyeDetailHtml.includes(expected), `补料染色加工单详情缺少：${expected || '空值'}`)
+  }
+  const runtimeDyeLockTerms = [
+    makeText(['前置染色', '未完成']),
+    makeText(['前置染色', '加工单']),
+    makeText(['染色完成后', '自动解锁印花']),
+    makeText(['解锁', '印花']),
+  ]
+  for (const disallowed of runtimeDyeLockTerms) {
+    assert(![workOrdersSource, workOrderDetailSource, taskPrintCardsSource, processPrepAdapterSource].some((source) => source.includes(disallowed)), `染色展示层不得包含运行时锁定逻辑：${disallowed}`)
+  }
   const taskSourcesBeforeRepeatedQueries = sourceIdentitySnapshot()
   listDyeWorkOrders()
   getDyeWorkOrderByTaskId(orders[0]!.taskId)
@@ -347,6 +400,7 @@ function main(): void {
   const stockRouteCard = buildTaskRouteCardPrintDoc({ sourceType: 'DYEING_WORK_ORDER', sourceId: stockCreated.order.dyeOrderId })
   assert.equal(stockRouteCard.workOrderSourceType, 'STOCK', '备货任务流转卡必须保留备货来源类型')
   assert.equal(stockRouteCard.stockMaterialId, realStock.stockItemId, '备货任务流转卡必须保留备货物料 ID')
+  assert(stockRouteCard.summaryRows.some((row) => row.label === '加工单来源' && row.value === '备货手动创建'), '备货染色任务流转卡必须展示统一来源标签')
   assert(stockRouteCard.summaryRows.some((row) => row.label === '备货物料' && row.value === realStock.itemName), '备货任务流转卡必须展示备货物料，不得展示空生产单号')
   assert(!stockRouteCard.summaryRows.some((row) => row.value === '按备货创建'), '备货任务流转卡不得使用“按备货创建”占位生产单号')
   const stockTask = listPdaGenericProcessTasks().find((task) => task.taskId === stockCreated.order!.taskId)

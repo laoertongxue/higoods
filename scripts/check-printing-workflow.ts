@@ -31,6 +31,7 @@ import {
   listFactoryWaitHandoverStockItems,
 } from '../src/data/fcs/factory-internal-warehouse.ts'
 import { listProcessWorkOrderStockMaterials } from '../src/data/fcs/process-work-order-stock.ts'
+import { buildTaskRouteCardPrintDoc } from '../src/data/fcs/task-print-cards.ts'
 
 function fail(message: string): never {
   throw new Error(`[check-printing-workflow] ${message}`)
@@ -56,6 +57,11 @@ const pageFiles = [
 const pageSources = pageFiles.map((file) => ({ file, source: readFile(file) }))
 const appShellSource = readFile('src/data/app-shell-config.ts')
 const workOrdersPageSource = readFile('src/pages/process-factory/printing/work-orders.ts')
+const workOrderDetailPageSource = readFile('src/pages/process-factory/printing/work-order-detail.ts')
+const processWorkOrderDomainSource = readFile('src/data/fcs/process-work-order-domain.ts')
+const taskPrintCardsSource = readFile('src/data/fcs/task-print-cards.ts')
+const processPrepAdapterSource = readFile('src/data/fcs/page-adapters/process-prep-pages-adapter.ts')
+const printingEventsSource = readFile('src/pages/process-factory/printing/events.ts')
 const platformOrdersPageSource = readFile('src/pages/process-print-orders.ts')
 const warehousePageSource = readFile('src/pages/process-factory/printing/warehouse.ts')
 const routesSource = readFile('src/router/routes-fcs.ts')
@@ -131,6 +137,42 @@ const tasks = listPdaGenericProcessTasks()
 assert(orders.length > 0, '未生成印花加工单数据')
 assert(orders.some((order) => getPrintWorkOrderStatusLabel(order.status) === '待送货'), '印花状态缺少待送货')
 assert(!hasDirectTransferToReviewTransition(), '仍存在转印完成直达审核的链路')
+
+const printingOrdersHtml = `${processWorkOrderDomainSource}\n${workOrdersPageSource}`
+for (const sourceLabel of ['生产单自动生成', '备货手动创建', '裁片补料生成']) {
+  assert(printingOrdersHtml.includes(sourceLabel), `印花加工单来源筛选缺少：${sourceLabel}`)
+}
+assert(workOrdersPageSource.includes('PROCESS_WORK_ORDER_SOURCE_LABEL'), '印花加工单列表必须读取统一来源标签映射')
+assert(workOrdersPageSource.includes('data-printing-source-filter'), '印花加工单列表缺少来源筛选')
+assert(printingEventsSource.includes('row.hidden = Boolean(sourceType && row.dataset.sourceType !== sourceType)'), '印花来源筛选必须局部更新列表行')
+assert(taskPrintCardsSource.includes('PROCESS_WORK_ORDER_SOURCE_LABEL[input.sourceType]'), '任务卡与打印必须读取统一来源标签映射')
+assert(processPrepAdapterSource.includes('PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType]'), '页面适配器必须读取统一来源标签映射')
+const supplementPrintDetailHtml = `${processWorkOrderDomainSource}\n${workOrderDetailPageSource}`
+for (const expected of [
+  '裁片补料生成',
+  '补料单',
+  '原始裁片单',
+  '所属生产单',
+  '技术包版本',
+  'BOM 物料',
+  'sourceSnapshot.supplementRecordNo',
+  'sourceSnapshot.originalCutOrderNo',
+  'sourceSnapshot.productionOrderNo',
+  'sourceSnapshot.techPackVersionLabel',
+  'order.materialSku',
+  'order.materialName',
+]) {
+  assert(expected && supplementPrintDetailHtml.includes(expected), `补料印花加工单详情缺少：${expected || '空值'}`)
+}
+const runtimeDyeLockTerms = [
+  ['前置染色', '未完成'].join(''),
+  ['前置染色', '加工单'].join(''),
+  ['染色完成后', '自动解锁印花'].join(''),
+  ['解锁', '印花'].join(''),
+]
+for (const disallowed of runtimeDyeLockTerms) {
+  assert(![workOrdersPageSource, workOrderDetailPageSource, taskPrintCardsSource, processPrepAdapterSource].some((source) => source.includes(disallowed)), `印花展示层不得包含运行时锁定逻辑：${disallowed}`)
+}
 
 orders.forEach((order) => {
   if (order.sourceType === 'PRODUCTION_ORDER') {
@@ -241,6 +283,9 @@ const builderWarehouse = builderFactory
 assert(Boolean(builderFactory && builderWarehouse), '缺少厂内待交出仓 builder 检查所需工厂和仓库')
 
 const stockBuilderOrder = migratedStockOrders.find((order) => order.printOrderNo === 'PH-20260328-007')!
+const stockRouteCard = buildTaskRouteCardPrintDoc({ sourceType: 'PRINTING_WORK_ORDER', sourceId: stockBuilderOrder.printOrderId })
+assert(stockRouteCard.summaryRows.some((row) => row.label === '加工单来源' && row.value === '备货手动创建'), '备货印花任务流转卡必须展示统一来源标签')
+assert(!stockRouteCard.summaryRows.some((row) => row.label === '所属生产单'), '备货印花任务流转卡不得展示空生产单')
 const stockBuilderHead = listHandoverOrdersByTaskId(stockBuilderOrder.taskId)[0]!
 const stockBuilderRecord = getPdaHandoverRecordsByHead(stockBuilderHead.handoverId)[0]!
 const stockOutbound = buildOutboundRecordFromHandoverRecord(stockBuilderHead, stockBuilderRecord, builderFactory!, builderWarehouse!)

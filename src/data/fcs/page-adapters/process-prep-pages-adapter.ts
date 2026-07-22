@@ -5,6 +5,7 @@ import {
 } from '../production-artifact-generation.ts'
 import { productionOrders } from '../production-orders.ts'
 import {
+  PROCESS_WORK_ORDER_SOURCE_LABEL,
   listProcessWorkOrders,
   type ProcessWorkOrder,
   type ProcessWorkOrderSourceSnapshot,
@@ -183,6 +184,7 @@ export interface PrepProcessOrderFact {
   mobileTaskLink?: string
   status: OrderStatusZh
   createMode: CreateModeZh
+  sourceLabel: string
   factoryName: string
   plannedFeedQty: number
   requiresWaterSoluble?: boolean
@@ -423,6 +425,7 @@ function buildFacts(processCode: PrepProcessCode): {
       platformActionHint: '跟进加工单执行与交出收货',
       platformOwnerHint: '平台 / 工艺工厂',
       createMode,
+      sourceLabel: PROCESS_WORK_ORDER_SOURCE_LABEL.PRODUCTION_ORDER,
       factoryName: meta.factoryNames[index % meta.factoryNames.length],
       plannedFeedQty: orderQty,
       unit: artifactUnit,
@@ -605,6 +608,7 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
       : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
         ? '补料确认生成'
         : '生产单自动生成',
+    sourceLabel: PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType],
     factoryName: order.factoryName,
     plannedFeedQty: order.plannedQty,
     completedObjectQty: platformResultView?.completedObjectQty,
@@ -621,10 +625,10 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
     diffQtyLabel: getQuantityLabel({ ...quantityContext, qtyPurpose: '差异' }),
     plannedFinishAt: order.plannedFinishAt || order.formalProductionOrderSnapshot?.requiredDeliveryDate || order.updatedAt,
     sourceSummary: order.sourceType === 'STOCK'
-      ? `按备货创建：${order.stockMaterialName || order.materialName}`
+      ? `${PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType]}：${order.stockMaterialName || order.materialName}`
       : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
-        ? `补料单 ${order.sourceSnapshot.supplementRecordNo || '-'} / 原裁片单 ${order.sourceSnapshot.originalCutOrderNo || '-'}`
-        : `生产单 ${order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'} 自动生成`,
+        ? `${PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType]}：补料单 ${order.sourceSnapshot.supplementRecordNo || '-'} / 原裁片单 ${order.sourceSnapshot.originalCutOrderNo || '-'}`
+        : `${PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType]}：生产单 ${order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'}`,
     note: `${order.processType === 'PRINT' ? '印花' : '染色'}加工单统一来源：平台视图与工艺工厂 Web 视图使用同一个加工单号。`,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
