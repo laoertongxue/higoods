@@ -96,6 +96,8 @@ export function registerSupplementOrder(
 
   const order: MutableSupplementOrderLifecycle = {
     ...input,
+    lines: input.lines.map((line) => ({ ...line })),
+    materialDemands: input.materialDemands.map((demand) => ({ ...demand })),
     sequenceNo: listSupplementOrdersByCutOrder(input.cutOrderId).length + 1,
     status: '未完成',
     completedAt: '',
