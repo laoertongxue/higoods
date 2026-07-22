@@ -4,6 +4,7 @@ import {
   confirmSupplementAndGenerateProcessWorkOrders,
   listSupplementRecords,
   setSupplementRecordSaveFailureForTest,
+  setSupplementWorkOrderLookupFailureForTest,
 } from '../src/pages/process-factory/cutting/supplement-management.ts'
 import { cuttingOrderProgressRecords } from '../src/data/fcs/cutting/order-progress.ts'
 import { getProcessWorkOrderById, listProcessWorkOrders } from '../src/data/fcs/process-work-order-domain.ts'
@@ -267,6 +268,21 @@ assert.equal(listSupplementRecords().length, saveFailureCounts.records)
 assert.equal(listProcessWorkOrders().length, saveFailureCounts.workOrders)
 assert.equal(listPdaGenericProcessTasks().length, saveFailureCounts.pdaTasks)
 assert.equal(confirmSupplementAndGenerateProcessWorkOrders(saveFailureDraft, '测试人员').ok, true, '记录保存失败回滚后必须可以使用同一确认键重试')
+
+const lookupFailureDraft = structuredClone(fixtureDraft)
+lookupFailureDraft.confirmationIdentity = 'task8-work-order-lookup-rollback'
+const lookupFailureCounts = {
+  records: listSupplementRecords().length,
+  workOrders: listProcessWorkOrders().length,
+  pdaTasks: listPdaGenericProcessTasks().length,
+}
+setSupplementWorkOrderLookupFailureForTest(true)
+const lookupFailureResult = confirmSupplementAndGenerateProcessWorkOrders(lookupFailureDraft, '测试人员')
+assert.equal(lookupFailureResult.ok, false, '提交成功后加工单引用解析失败时必须整批回滚')
+assert.equal(listSupplementRecords().length, lookupFailureCounts.records)
+assert.equal(listProcessWorkOrders().length, lookupFailureCounts.workOrders)
+assert.equal(listPdaGenericProcessTasks().length, lookupFailureCounts.pdaTasks)
+assert.equal(confirmSupplementAndGenerateProcessWorkOrders(lookupFailureDraft, '测试人员').ok, true, '引用解析失败回滚后必须可使用同一确认键重试')
 
 function buildTransactionInput(seed: string, processCodes: Array<'DYE' | 'PRINT'> = ['DYE', 'PRINT']): ProcessWorkOrderGenerationInput {
   return {

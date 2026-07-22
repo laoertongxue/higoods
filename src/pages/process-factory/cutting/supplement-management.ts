@@ -956,13 +956,23 @@ function buildReleaseSnapshotMaterialRef(
 }
 
 function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): SupplementDraft {
-  const releaseRecord = listCutPieceReleaseRecords().find((record) => record.productionOrderId === snapshot.productionOrderId)
+  const releaseRecords = listCutPieceReleaseRecords().filter((record) => record.productionOrderId === snapshot.productionOrderId)
   const frozenTechPack = getProductionOrderTechPackSnapshot(snapshot.productionOrderId)
   const techPackVersionId = frozenTechPack?.sourceTechPackVersionId || ''
   const shortages = buildSupplementPartShortages(snapshot.matrixSnapshot, snapshot.targetPreview)
   const lines: SupplementLine[] = shortages.map((shortage) => {
-    const originalCutOrder = releaseRecord?.sourceStates.find((state) => state.materialIds.includes(shortage.materialId))
-    const bomItem = frozenTechPack?.bomItems.find((item) => item.materialCode === `RELEASE-${shortage.materialId}`)
+    const sourceStateCandidates = releaseRecords
+      .flatMap((record) => record.sourceStates)
+      .filter((source) => source.materialIds.includes(shortage.materialId))
+    if (sourceStateCandidates.length !== 1) {
+      throw new Error(`放行快照物料 ${shortage.materialId} 必须唯一对应一条原裁片单来源，当前匹配 ${sourceStateCandidates.length} 条，不能确认补料。`)
+    }
+    const bomCandidates = frozenTechPack?.bomItems.filter((item) => item.materialCode === `RELEASE-${shortage.materialId}`) || []
+    if (bomCandidates.length !== 1) {
+      throw new Error(`放行快照物料 ${shortage.materialId} 必须唯一对应一条冻结 BOM，当前匹配 ${bomCandidates.length} 条，不能确认补料。`)
+    }
+    const originalCutOrder = sourceStateCandidates[0]
+    const bomItem = bomCandidates[0]
     const materialRef = buildReleaseSnapshotMaterialRef(shortage, {
       techPackVersionId,
       bomItem,
@@ -1039,7 +1049,7 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
     sourceNo: snapshot.matrixSnapshot.productionOrderNo,
     productionOrderId: snapshot.productionOrderId,
     productionOrderNo: snapshot.matrixSnapshot.productionOrderNo,
-    styleName: releaseRecord?.spuName || snapshot.matrixSnapshot.spuCode,
+    styleName: releaseRecords[0]?.spuName || snapshot.matrixSnapshot.spuCode,
     spuCode: snapshot.matrixSnapshot.spuCode,
     reason: '',
     reasonDetail: '',
@@ -1080,8 +1090,13 @@ function prepareReleaseSnapshotCreateState(): void {
     state.releaseSnapshotError = ''
     return
   }
-  state.releaseSnapshotDraft = buildReleaseSnapshotDraft(snapshot)
-  state.releaseSnapshotError = ''
+  try {
+    state.releaseSnapshotDraft = buildReleaseSnapshotDraft(snapshot)
+    state.releaseSnapshotError = ''
+  } catch (error) {
+    state.releaseSnapshotDraft = null
+    state.releaseSnapshotError = error instanceof Error ? error.message : '放行快照物料关系无法唯一解析，不能确认补料。'
+  }
 }
 
 function getFilteredRecords(): SupplementRecord[] {
@@ -2412,9 +2427,22 @@ function resolveSupplementOriginalCutOrder(
 }
 
 let supplementRecordSaveFailureForTest = false
+let supplementWorkOrderLookupFailureForTest = false
 
 export function setSupplementRecordSaveFailureForTest(shouldFail: boolean): void {
   supplementRecordSaveFailureForTest = shouldFail
+}
+
+export function setSupplementWorkOrderLookupFailureForTest(shouldFail: boolean): void {
+  supplementWorkOrderLookupFailureForTest = shouldFail
+}
+
+function resolveSupplementGeneratedWorkOrder(workOrderId: string) {
+  if (supplementWorkOrderLookupFailureForTest) {
+    supplementWorkOrderLookupFailureForTest = false
+    return undefined
+  }
+  return getProcessWorkOrderById(workOrderId)
 }
 
 function saveConfirmedSupplementRecord(input: {
@@ -2625,9 +2653,10 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
     })
   }
 
+  let transaction: ReturnType<typeof prepareProcessWorkOrderBatch> | null = null
   try {
     const processWorkOrderRefs: SupplementProcessWorkOrderRef[] = []
-    const transaction = prepareProcessWorkOrderBatch(generationInputs)
+    transaction = prepareProcessWorkOrderBatch(generationInputs)
     const ensuredBatch = transaction.commit()
     generationInputs.forEach((input, inputIndex) => {
       const ensured = ensuredBatch[inputIndex]
@@ -2636,7 +2665,7 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
         ensured.printWorkOrderId ? { processType: 'PRINT' as const, id: ensured.printWorkOrderId } : null,
       ].filter((item): item is { processType: 'DYE' | 'PRINT'; id: string } => Boolean(item))
       ids.forEach(({ processType, id }) => {
-        const workOrder = getProcessWorkOrderById(id)
+        const workOrder = resolveSupplementGeneratedWorkOrder(id)
         if (!workOrder) throw new Error(`生成的${processType === 'DYE' ? '染色' : '印花'}加工单无法读取`)
         processWorkOrderRefs.push({
           processType,
@@ -2650,28 +2679,27 @@ export function confirmSupplementAndGenerateProcessWorkOrders(
         })
       })
     })
-    try {
-      return {
-        ok: true,
-        record: saveConfirmedSupplementRecord({
-          identity,
-          draft,
-          createdBy,
-          processWorkOrderRefs,
-          confirmationKey,
-          requestFingerprint,
-        }),
-      }
-    } catch (error) {
+    return {
+      ok: true,
+      record: saveConfirmedSupplementRecord({
+        identity,
+        draft,
+        createdBy,
+        processWorkOrderRefs,
+        confirmationKey,
+        requestFingerprint,
+      }),
+    }
+  } catch (error) {
+    if (transaction) {
       try {
         transaction.rollback()
       } catch (rollbackError) {
         const original = error instanceof Error ? error : new Error(String(error))
-        throw new AggregateError([original, rollbackError], `${original.message}；回滚加工单失败`, { cause: original })
+        const aggregate = new AggregateError([original, rollbackError], `${original.message}；回滚加工单失败`, { cause: original })
+        return { ok: false, message: aggregate.message }
       }
-      throw error
     }
-  } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : '补料印染加工单生成失败，请重试。' }
   }
 }
