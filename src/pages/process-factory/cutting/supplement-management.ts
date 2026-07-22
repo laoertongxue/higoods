@@ -961,9 +961,13 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
   const techPackVersionId = frozenTechPack?.sourceTechPackVersionId || ''
   const shortages = buildSupplementPartShortages(snapshot.matrixSnapshot, snapshot.targetPreview)
   const lines: SupplementLine[] = shortages.map((shortage) => {
-    const sourceStateCandidates = releaseRecords
+    const materialSourceStates = releaseRecords
       .flatMap((record) => record.sourceStates)
       .filter((source) => source.materialIds.includes(shortage.materialId))
+    const earliestChangedAt = materialSourceStates
+      .map((source) => source.changedAt)
+      .sort((left, right) => left.localeCompare(right))[0]
+    const sourceStateCandidates = materialSourceStates.filter((source) => source.changedAt === earliestChangedAt)
     if (sourceStateCandidates.length !== 1) {
       throw new Error(`放行快照物料 ${shortage.materialId} 必须唯一对应一条原裁片单来源，当前匹配 ${sourceStateCandidates.length} 条，不能确认补料。`)
     }
