@@ -182,6 +182,49 @@ test('独立新增补料直接选择裁片单且不再提供双入口', async ({
   await expect(page.getByText('裁片单搜索')).toBeVisible()
   await expect(page.getByRole('button', { name: /按生产单选择|按裁片单选择/ })).toHaveCount(0)
   await expect(page.getByText('按生产单或裁片单发起补料')).toHaveCount(0)
+
+  const keywordInput = page.locator('[data-cutting-supplement-field="sourcePickerKeyword"]')
+  const searchButton = page.getByRole('button', { name: '搜索', exact: true })
+  const availableCandidate = page.getByRole('radio', { name: '选择裁片单 CUT14671-A' })
+  const searchCases = [
+    { field: '裁片单号', keyword: 'CUT14671-A' },
+    { field: '生产单号', keyword: 'PO14671' },
+    { field: '款式名称', keyword: '女式基础圆领短袖' },
+    { field: 'SPU', keyword: 'ASYSA26060310' },
+  ]
+
+  for (const searchCase of searchCases) {
+    await test.step(`按${searchCase.field}搜索裁片单候选`, async () => {
+      await keywordInput.fill(searchCase.keyword)
+      await searchButton.click()
+      await expect(availableCandidate).toBeVisible()
+      await expect(availableCandidate.locator('xpath=ancestor::tr')).toContainText(searchCase.keyword)
+    })
+  }
+
+  const availableRow = availableCandidate.locator('xpath=ancestor::tr')
+  await expect(page.getByRole('columnheader', { name: '裁片单' })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: '所属生产单' })).toBeVisible()
+  await expect(availableRow.locator('td').nth(4).getByText('PO14671', { exact: true })).toBeVisible()
+  await expect(availableRow.locator('td').nth(4).locator('input, select, button')).toHaveCount(0)
+  await expect(page.getByRole('radio', { name: /选择生产单/ })).toHaveCount(0)
+
+  await keywordInput.fill('CUT14671-B')
+  await searchButton.click()
+  const closedCandidate = page.getByRole('radio', { name: '选择裁片单 CUT14671-B' })
+  const closedRow = closedCandidate.locator('xpath=ancestor::tr')
+  await expect(closedCandidate).toBeDisabled()
+  await expect(closedRow).toContainText('裁片单已关闭，不能新增补料。')
+  await expect(page.getByRole('button', { name: '下一步' })).toBeDisabled()
+
+  await keywordInput.fill('CUT14671-A')
+  await searchButton.click()
+  await availableCandidate.check()
+  await expect(availableCandidate).toBeChecked()
+  await page.getByRole('button', { name: '下一步' }).click()
+  await expect(page.getByRole('heading', { name: '填写补料信息' })).toBeVisible()
+  await expect(page.getByText('裁片单 CUT14671-A / PO14671 / 女式基础圆领短袖')).toBeVisible()
+  await expect(page.getByText('补料明细与本次补料件数')).toBeVisible()
 })
 
 test('无效放行快照给出中文错误并可返回独立创建', async ({ page }) => {
