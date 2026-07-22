@@ -13,6 +13,16 @@ import type {
 } from '../../../data/fcs/cutting/types.ts'
 import { getProductionOrderTechPackSnapshot } from '../../../data/fcs/production-order-tech-pack-runtime.ts'
 import type { TechPackBomItemSnapshot } from '../../../data/fcs/production-tech-pack-snapshot-types.ts'
+import {
+  ensureProcessWorkOrders,
+  resolveUniqueSupplementBomItem,
+  type ProcessWorkOrderGenerationInput,
+} from '../../../data/fcs/process-work-order-generation-service.ts'
+import { getProcessWorkOrderById } from '../../../data/fcs/process-work-order-domain.ts'
+import {
+  buildDyeingWorkOrderDetailLink,
+  buildPrintingWorkOrderDetailLink,
+} from '../../../data/fcs/fcs-route-links.ts'
 import type { TechnicalColorMaterialMappingLine } from '../../../data/pcs-technical-data-version-types.ts'
 import { buildProductionPieceTruth } from '../../../domain/fcs-cutting-piece-truth/index.ts'
 import { appStore } from '../../../state/store.ts'
@@ -90,6 +100,7 @@ interface SupplementSizeColorRow {
 interface SupplementMaterialDemand {
   key: string
   materialPatternMappingId: string
+  sourceBomItemId: string
   techPackVersionId: string
   materialSku: string
   materialName: string
@@ -169,7 +180,7 @@ interface SupplementCandidate {
   blockedReason: string
 }
 
-interface SupplementDraft {
+export interface SupplementDraft {
   candidateId: string
   sourceType: SupplementSourceType
   sourceNo: string
@@ -181,32 +192,42 @@ interface SupplementDraft {
   reasonDetail: string
   lines: SupplementLine[]
   materialDemands: SupplementMaterialDemand[]
+  confirmationIdentity?: string
   releaseSnapshotId?: string
   releaseMatrixVersion?: number
   releaseTargetConfirmedAt?: string
 }
 
-interface SupplementRecord {
+export interface SupplementProcessWorkOrderRef {
+  processType: 'PRINT' | 'DYE'
+  sourceType: 'CUT_PIECE_SUPPLEMENT'
+  workOrderId: string
+  workOrderNo: string
+  materialSku: string
+  materialName: string
+  plannedQty: number
+  unit: string
+}
+
+export interface SupplementRecord {
   id: string
   recordNo: string
   status: SupplementRecordStatus
   createdAt: string
   createdBy: string
   draft: SupplementDraft
-  printDemandNos: string[]
-  dyeDemandNos: string[]
+  processWorkOrderRefs: SupplementProcessWorkOrderRef[]
 }
 
 interface SupplementProcessLink {
   kind: SupplementProcessKind
-  demandNo: string
+  workOrderId: string
   workOrderNo: string
   materialSku: string
   materialName: string
   materialImageUrl: string
   requiredQty: number
   unit: string
-  demandStatus: string
   workOrderStatus: string
   factoryName: string
   createdAt: string
@@ -965,6 +986,7 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
   const materialDemands = lines.map((line) => ({
     key: line.basis.shortageMaterial.materialPatternMappingId,
     materialPatternMappingId: line.basis.shortageMaterial.materialPatternMappingId,
+    sourceBomItemId: '',
     techPackVersionId: '放行目标快照',
     materialSku: line.basis.shortageMaterial.materialSku,
     materialName: line.basis.shortageMaterial.materialName,
@@ -1111,6 +1133,7 @@ function buildMaterialDemands(_candidate: SupplementCandidate, selectedLines: Su
     grouped.set(key, {
       key,
       materialPatternMappingId: ref.materialPatternMappingId,
+      sourceBomItemId: bomItem?.id || ref.mappingLine?.bomItemId || '',
       techPackVersionId: ref.techPackVersionId,
       materialSku: ref.materialSku,
       materialName: ref.materialName,
@@ -1730,9 +1753,9 @@ const supplementListColumns: StandardListColumn<SupplementRecord>[] = [
   },
   {
     key: 'processDemand',
-    title: '印染需求',
+    title: '印染加工单',
     width: 240,
-    render: (record) => `<span class="text-xs">${escapeHtml([...record.printDemandNos, ...record.dyeDemandNos].join('、') || '无')}</span>`,
+    render: (record) => `<span class="text-xs">${escapeHtml(record.processWorkOrderRefs.map((item) => item.workOrderNo).join('、') || '无需生成印染加工单')}</span>`,
   },
   {
     key: 'status',
@@ -1940,59 +1963,34 @@ function refreshSupplementOverlay(): void {
 }
 
 function buildSupplementProcessLinks(record: SupplementRecord): SupplementProcessLink[] {
-  let printIndex = 0
-  let dyeIndex = 0
-
-  return record.draft.materialDemands.flatMap((item) => {
-    const links: SupplementProcessLink[] = []
-    if (item.printRequired) {
-      const demandNo = record.printDemandNos[printIndex] || `PR-${record.recordNo}-${String(printIndex + 1).padStart(2, '0')}`
-      printIndex += 1
-      links.push({
-        kind: '印花',
-        demandNo,
-        workOrderNo: demandNo.replace(/^PR-/, 'PWO-'),
-        materialSku: item.materialSku,
-        materialName: item.materialName,
-        materialImageUrl: item.materialImageUrl,
-        requiredQty: item.requiredQty,
-        unit: item.unit,
-        demandStatus: '已生成',
-        workOrderStatus: '待排产',
-        factoryName: '绍兴云彩印花厂',
-        createdAt: record.createdAt,
-        linkedProductionOrderNo: record.draft.productionOrderNo,
-        processNote: item.processNote,
-      })
-    }
-    if (item.dyeRequired) {
-      const demandNo = record.dyeDemandNos[dyeIndex] || `DY-${record.recordNo}-${String(dyeIndex + 1).padStart(2, '0')}`
-      dyeIndex += 1
-      links.push({
-        kind: '染色',
-        demandNo,
-        workOrderNo: demandNo.replace(/^DY-/, 'DWO-'),
-        materialSku: item.materialSku,
-        materialName: item.materialName,
-        materialImageUrl: item.materialImageUrl,
-        requiredQty: item.requiredQty,
-        unit: item.unit,
-        demandStatus: '已生成',
-        workOrderStatus: '加工中',
-        factoryName: '杭州恒源染整厂',
-        createdAt: record.createdAt,
-        linkedProductionOrderNo: record.draft.productionOrderNo,
-        processNote: item.processNote,
-      })
-    }
-    return links
+  return record.processWorkOrderRefs.flatMap((ref) => {
+    const workOrder = getProcessWorkOrderById(ref.workOrderId)
+    if (!workOrder) return []
+    const demand = record.draft.materialDemands.find((item) =>
+      item.materialSku === ref.materialSku || item.materialName === ref.materialName,
+    )
+    return [{
+      kind: ref.processType === 'PRINT' ? '印花' : '染色',
+      workOrderId: ref.workOrderId,
+      workOrderNo: ref.workOrderNo,
+      materialSku: ref.materialSku,
+      materialName: ref.materialName,
+      materialImageUrl: demand?.materialImageUrl || '/materials/fabric-main.jpg',
+      requiredQty: ref.plannedQty,
+      unit: ref.unit,
+      workOrderStatus: workOrder.statusLabel,
+      factoryName: workOrder.factoryName,
+      createdAt: workOrder.createdAt,
+      linkedProductionOrderNo: record.draft.productionOrderNo,
+      processNote: demand?.processNote || `${ref.processType === 'PRINT' ? '印花' : '染色'}加工`,
+    }]
   })
 }
 
 function renderProcessLinksTable(record: SupplementRecord): string {
   const links = buildSupplementProcessLinks(record)
   if (!links.length) {
-    return '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">本补料单的物料无需印花、染色。</div>'
+    return '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">无需生成印染加工单</div>'
   }
 
   return `
@@ -2001,7 +1999,6 @@ function renderProcessLinksTable(record: SupplementRecord): string {
         <thead class="bg-muted/50 text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-2 font-medium">工艺</th>
-            <th class="px-3 py-2 font-medium">需求单</th>
             <th class="px-3 py-2 font-medium">加工单</th>
             <th class="px-3 py-2 font-medium">物料</th>
             <th class="px-3 py-2 font-medium">数量</th>
@@ -2017,11 +2014,7 @@ function renderProcessLinksTable(record: SupplementRecord): string {
                 <span class="rounded-full ${link.kind === '印花' ? 'bg-violet-50 text-violet-700' : 'bg-sky-50 text-sky-700'} px-2.5 py-1 text-xs font-medium">${escapeHtml(link.kind)}</span>
               </td>
               <td class="px-3 py-3">
-                <div class="font-semibold">${escapeHtml(link.demandNo)}</div>
-                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(link.demandStatus)}</div>
-              </td>
-              <td class="px-3 py-3">
-                <div class="font-semibold">${escapeHtml(link.workOrderNo)}</div>
+                <a class="font-semibold text-blue-600 hover:underline" data-nav="${escapeHtml(link.kind === '印花' ? buildPrintingWorkOrderDetailLink(link.workOrderId) : buildDyeingWorkOrderDetailLink(link.workOrderId))}">${escapeHtml(link.workOrderNo)}</a>
                 <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(link.workOrderStatus)}</div>
               </td>
               <td class="px-3 py-3">
@@ -2036,12 +2029,11 @@ function renderProcessLinksTable(record: SupplementRecord): string {
               </td>
               <td class="px-3 py-3 font-semibold tabular-nums">${formatDecimal(link.requiredQty)} ${escapeHtml(link.unit)}</td>
               <td class="px-3 py-3">
-                <div class="text-xs">需求：${escapeHtml(link.demandStatus)}</div>
-                <div class="mt-1 text-xs">加工：${escapeHtml(link.workOrderStatus)}</div>
+                <div class="text-xs">${escapeHtml(link.workOrderStatus)}</div>
               </td>
               <td class="px-3 py-3">${escapeHtml(link.factoryName)}</td>
               <td class="px-3 py-3">
-                ${renderProductionOrderIdentityCell({ productionOrderNo: link.linkedProductionOrderNo, demandNo: link.demandNo })}
+                ${renderProductionOrderIdentityCell({ productionOrderNo: link.linkedProductionOrderNo })}
                 <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(link.createdAt)}</div>
               </td>
             </tr>
@@ -2107,8 +2099,8 @@ function renderSupplementDetailDialog(record: SupplementRecord | undefined): str
 
           <section>
             <div class="mb-2 flex items-center justify-between">
-              <h3 class="font-semibold">印花 / 染色需求单与加工单</h3>
-              <span class="text-xs text-muted-foreground">共 ${formatInteger(processLinks.length)} 条印染链路</span>
+              <h3 class="font-semibold">印花 / 染色加工单</h3>
+              <span class="text-xs text-muted-foreground">共 ${formatInteger(processLinks.length)} 张加工单</span>
             </div>
             ${renderProcessLinksTable(record)}
           </section>
@@ -2218,50 +2210,235 @@ function nowText(): string {
   return '2026-03-25 16:20'
 }
 
-function buildSupplementRecordFromDraft(
-  draft: SupplementDraft,
-  options: {
-    sequence: number
-    status: SupplementRecordStatus
-    createdAt: string
-    createdBy: string
-  },
-): SupplementRecord {
-  const serial = String(options.sequence).padStart(3, '0')
-  const processSeed = draft.productionOrderNo.replace(/\D/g, '').slice(-6) || '260325'
-  const printDemandNos = draft.materialDemands
-    .filter((item) => item.printRequired)
-    .map((_, index) => `PR-SUP-${processSeed}-${String(index + 1).padStart(2, '0')}`)
-  const dyeDemandNos = draft.materialDemands
-    .filter((item) => item.dyeRequired)
-    .map((_, index) => `DY-SUP-${processSeed}-${String(index + 1).padStart(2, '0')}`)
+function roundProcessQty(value: number): number {
+  return Math.round(value * 1_000_000) / 1_000_000
+}
 
+function hashSupplementIdentity(value: string): string {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0).toString(36).toUpperCase().padStart(7, '0')
+}
+
+function buildSupplementConfirmationIdentity(draft: SupplementDraft): string {
+  if (draft.confirmationIdentity?.trim()) return draft.confirmationIdentity.trim()
+  return JSON.stringify({
+    candidateId: draft.candidateId,
+    sourceType: draft.sourceType,
+    sourceNo: draft.sourceNo,
+    productionOrderId: draft.productionOrderId,
+    releaseSnapshotId: draft.releaseSnapshotId || '',
+    reason: draft.reason,
+    reasonDetail: draft.reasonDetail,
+    lines: draft.lines.map((line) => ({
+      key: line.key,
+      supplementQty: line.supplementQty,
+      materialPatternMappingId: line.basis.shortageMaterial.materialPatternMappingId,
+    })),
+  })
+}
+
+function buildSupplementRecordIdentity(draft: SupplementDraft): { id: string; recordNo: string } {
+  const token = hashSupplementIdentity(buildSupplementConfirmationIdentity(draft))
+  return { id: `supplement-confirmed-${token}`, recordNo: `SUP-${token}` }
+}
+
+function resolveSupplementOriginalCutOrder(draft: SupplementDraft): {
+  originalCutOrderId: string
+  originalCutOrderNo: string
+} | null {
+  if (draft.sourceType !== 'cut-order') return null
+  const productionRecord = cuttingOrderProgressRecords.find((record) => record.productionOrderId === draft.productionOrderId)
+  const materialLine = productionRecord?.materialLines.find((line) => getCutOrderNo(line) === draft.sourceNo)
+  if (!materialLine) return null
   return {
-    id: `supplement-${processSeed}-${serial}`,
-    recordNo: `SUP-${processSeed}-${serial}`,
-    status: options.status,
-    createdAt: options.createdAt,
-    createdBy: options.createdBy,
-    draft: structuredClone(draft),
-    printDemandNos,
-    dyeDemandNos,
+    originalCutOrderId: getCutOrderId(materialLine),
+    originalCutOrderNo: getCutOrderNo(materialLine),
   }
 }
 
-function buildSupplementRecord(draft: SupplementDraft): SupplementRecord {
-  return buildSupplementRecordFromDraft(draft, {
-    sequence: state.records.length + 1,
+function saveConfirmedSupplementRecord(input: {
+  identity: { id: string; recordNo: string }
+  draft: SupplementDraft
+  createdBy: string
+  processWorkOrderRefs: SupplementProcessWorkOrderRef[]
+}): SupplementRecord {
+  const confirmedDraft = {
+    ...input.draft,
+    confirmationIdentity: buildSupplementConfirmationIdentity(input.draft),
+  }
+  const record: SupplementRecord = {
+    ...input.identity,
     status: '已确认',
     createdAt: nowText(),
-    createdBy: '裁床主管 周敏',
+    createdBy: input.createdBy.trim() || '系统',
+    draft: structuredClone(confirmedDraft),
+    processWorkOrderRefs: structuredClone(input.processWorkOrderRefs),
+  }
+  state.records = [record, ...state.records]
+  return structuredClone(record)
+}
+
+export function confirmSupplementAndGenerateProcessWorkOrders(
+  draft: SupplementDraft,
+  createdBy: string,
+): { ok: true; record: SupplementRecord } | { ok: false; message: string } {
+  ensureMockSupplementOrders()
+  const identity = buildSupplementRecordIdentity(draft)
+  const existing = state.records.find((record) => record.id === identity.id)
+  if (existing) return { ok: true, record: structuredClone(existing) }
+
+  const snapshot = getProductionOrderTechPackSnapshot(draft.productionOrderId)
+  if (!snapshot || !snapshot.sourceTechPackVersionId.trim()) {
+    if (
+      draft.sourceType === 'release-snapshot'
+      && draft.materialDemands.every((demand) => !demand.printRequired && !demand.dyeRequired)
+    ) {
+      return {
+        ok: true,
+        record: saveConfirmedSupplementRecord({ identity, draft, createdBy, processWorkOrderRefs: [] }),
+      }
+    }
+    return { ok: false, message: `生产单 ${draft.productionOrderNo || draft.productionOrderId} 缺少冻结技术包版本，不能确认补料。` }
+  }
+
+  const matchedDemands: Array<{ demand: SupplementMaterialDemand; bomItem: TechPackBomItemSnapshot }> = []
+  for (const demand of draft.materialDemands) {
+    const matched = resolveUniqueSupplementBomItem({
+      bomItems: snapshot.bomItems,
+      sourceBomItemId: demand.sourceBomItemId,
+      materialSku: demand.materialSku,
+      materialName: demand.materialName,
+    })
+    if (!matched.ok) return matched
+    if (matched.bomItem.type === '成衣') {
+      return { ok: false, message: `补料物料 ${demand.materialName} 匹配到成衣 BOM，不能生成裁片补料印染加工单。` }
+    }
+    if (demand.techPackVersionId && demand.techPackVersionId !== snapshot.sourceTechPackVersionId) {
+      return { ok: false, message: `补料物料 ${demand.materialName} 不是生产单冻结技术包版本中的物料。` }
+    }
+    matchedDemands.push({ demand, bomItem: matched.bomItem })
+  }
+
+  const processGroups = new Map<string, {
+    bomItem: TechPackBomItemSnapshot
+    demands: SupplementMaterialDemand[]
+    processCodes: Array<'DYE' | 'PRINT'>
+  }>()
+  matchedDemands.forEach(({ demand, bomItem }) => {
+    const processCodes = (['DYE', 'PRINT'] as const).filter((processCode) =>
+      processCode === 'DYE'
+        ? hasProcessRequirement(bomItem.dyeRequirement)
+        : hasProcessRequirement(bomItem.printRequirement),
+    )
+    if (!processCodes.length) return
+    const existingGroup = processGroups.get(bomItem.id)
+    if (existingGroup) existingGroup.demands.push(demand)
+    else processGroups.set(bomItem.id, { bomItem, demands: [demand], processCodes })
   })
+
+  const originalCutOrder = resolveSupplementOriginalCutOrder(draft)
+  if (processGroups.size > 0 && !originalCutOrder) {
+    return { ok: false, message: '需要生成印染加工单的补料必须明确关联一个原始裁片单。' }
+  }
+
+  const generationInputs: ProcessWorkOrderGenerationInput[] = []
+  for (const group of processGroups.values()) {
+    const bomUnit = group.bomItem.unit?.trim() || ''
+    const representativeDemand = group.demands[0]
+    const materialCode = representativeDemand.materialSku.trim()
+    if (!bomUnit || !materialCode) {
+      return { ok: false, message: `冻结技术包 BOM ${group.bomItem.id} 缺少单位或补料物料编码，不能生成印染加工单。` }
+    }
+    const demandIds = new Set(group.demands.map((demand) => demand.materialPatternMappingId))
+    const supplementQty = draft.lines
+      .filter((line) => demandIds.has(line.basis.shortageMaterial.materialPatternMappingId))
+      .reduce((sum, line) => sum + Number(line.supplementQty || 0), 0)
+    const plannedQty = roundProcessQty(
+      supplementQty * group.bomItem.unitConsumption * (1 + normalizeLossRate(group.bomItem.lossRate)),
+    )
+    if (!Number.isFinite(plannedQty) || plannedQty <= 0) {
+      return { ok: false, message: `补料物料 ${group.bomItem.name} 的加工数量无效，请核对补料数量和 BOM 用量。` }
+    }
+    generationInputs.push({
+      source: {
+        sourceType: 'CUT_PIECE_SUPPLEMENT',
+        productionOrderId: draft.productionOrderId,
+        productionOrderNo: draft.productionOrderNo,
+        techPackVersionId: snapshot.sourceTechPackVersionId,
+        techPackVersionLabel: snapshot.sourceTechPackVersionLabel || snapshot.versionLabel,
+        bomItemId: group.bomItem.id,
+        supplementRecordId: identity.id,
+        supplementRecordNo: identity.recordNo,
+        originalCutOrderId: originalCutOrder!.originalCutOrderId,
+        originalCutOrderNo: originalCutOrder!.originalCutOrderNo,
+      },
+      processCodes: group.processCodes,
+      orderedAt: nowText(),
+      materialId: materialCode,
+      materialName: representativeDemand.materialName,
+      materialItems: [{
+        sourceBomItemId: group.bomItem.id,
+        materialId: materialCode,
+        materialName: representativeDemand.materialName,
+      }],
+      targetColor: [...new Set(draft.lines.map((line) => line.color).filter(Boolean))].join('、') || group.bomItem.colorLabel || '按技术包配色',
+      plannedQty,
+      qtyUnit: bomUnit,
+      dyeProcessName: group.bomItem.dyeRequirement || '染色',
+      printProcessName: group.bomItem.printRequirement || '印花',
+      requiresWaterSoluble: group.bomItem.waterSolubleRequirement === '是',
+      spuCode: draft.spuCode,
+      spuName: draft.styleName,
+      requiredDeliveryDate: '',
+      createdBy,
+    })
+  }
+
+  try {
+    const processWorkOrderRefs: SupplementProcessWorkOrderRef[] = []
+    generationInputs.forEach((input) => {
+      const ensured = ensureProcessWorkOrders(input)
+      const ids = [
+        ensured.dyeWorkOrderId ? { processType: 'DYE' as const, id: ensured.dyeWorkOrderId } : null,
+        ensured.printWorkOrderId ? { processType: 'PRINT' as const, id: ensured.printWorkOrderId } : null,
+      ].filter((item): item is { processType: 'DYE' | 'PRINT'; id: string } => Boolean(item))
+      ids.forEach(({ processType, id }) => {
+        const workOrder = getProcessWorkOrderById(id)
+        if (!workOrder) throw new Error(`生成的${processType === 'DYE' ? '染色' : '印花'}加工单无法读取`)
+        processWorkOrderRefs.push({
+          processType,
+          sourceType: 'CUT_PIECE_SUPPLEMENT',
+          workOrderId: workOrder.workOrderId,
+          workOrderNo: workOrder.workOrderNo,
+          materialSku: workOrder.materialSku,
+          materialName: workOrder.materialName,
+          plannedQty: workOrder.plannedQty,
+          unit: workOrder.plannedUnit,
+        })
+      })
+    })
+    return {
+      ok: true,
+      record: saveConfirmedSupplementRecord({ identity, draft, createdBy, processWorkOrderRefs }),
+    }
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : '补料印染加工单生成失败，请重试。' }
+  }
+}
+
+export function listSupplementRecords(): SupplementRecord[] {
+  ensureMockSupplementOrders()
+  return structuredClone(state.records)
 }
 
 function buildMockDraft(
   candidate: SupplementCandidate,
   reason: string,
   reasonDetail: string,
-  processProfile: 'none' | 'print-dye' = 'none',
 ): SupplementDraft | null {
   const lines = candidate.abAnalysisRows
     .filter((basis) => basis.suggestedSupplementQty > 0 || basis.shortageQty > 0)
@@ -2294,14 +2471,6 @@ function buildMockDraft(
 
   const materialDemands = buildMaterialDemands(candidate, lines)
   if (!materialDemands.length) return null
-  if (processProfile === 'print-dye') {
-    materialDemands[0] = {
-      ...materialDemands[0],
-      printRequired: true,
-      dyeRequired: true,
-      processNote: '补料面料需先补印花，再按生产单颜色要求补染色。',
-    }
-  }
 
   return {
     candidateId: candidate.id,
@@ -2335,13 +2504,12 @@ function ensureMockSupplementOrders(): void {
   const creators = ['裁床主管 周敏', '裁床组长 林洁', '验片主管 陈玲', '裁床主管 王海']
   const records: SupplementRecord[] = []
 
-  for (let index = 0; index < 12; index += 1) {
+  for (let index = 0; index < candidates.length * 2 && records.length < 12; index += 1) {
     const candidate = candidates[index % candidates.length]
     const draft = buildMockDraft(
       candidate,
       reasons[index % reasons.length],
       details[index % details.length],
-      index % 3 === 1 ? 'print-dye' : 'none',
     )
     if (!draft) continue
     const lines = draft.lines.map((line, lineIndex) => ({
@@ -2349,25 +2517,18 @@ function ensureMockSupplementOrders(): void {
       supplementQty: line.supplementQty + (index % 4) + lineIndex,
     }))
     const materialDemands = buildMaterialDemands(candidate, lines)
-    if (index % 3 === 1 && materialDemands[0]) {
-      materialDemands[0] = {
-        ...materialDemands[0],
-        printRequired: true,
-        dyeRequired: true,
-        processNote: '补料面料需先补印花，再按生产单颜色要求补染色。',
-      }
-    }
     const variedDraft: SupplementDraft = {
       ...draft,
       lines,
       materialDemands,
+      confirmationIdentity: `mock-supplement-${index + 1}`,
     }
-    records.push(buildSupplementRecordFromDraft(variedDraft, {
-      sequence: index + 1,
-      status: '已确认',
+    const confirmed = confirmSupplementAndGenerateProcessWorkOrders(variedDraft, creators[index % creators.length])
+    if (!confirmed.ok) continue
+    records.push({
+      ...confirmed.record,
       createdAt: `2026-03-${String(25 - Math.floor(index / 4)).padStart(2, '0')} ${String(16 - (index % 4)).padStart(2, '0')}:${String((index * 7) % 60).padStart(2, '0')}`,
-      createdBy: creators[index % creators.length],
-    }))
+    })
   }
 
   state.records = records
@@ -2791,8 +2952,13 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
       state.pendingConfirmDraft.releaseSnapshotId
       && !getCurrentReleaseSnapshotOrInvalidate(state.pendingConfirmDraft.releaseSnapshotId)
     ) return true
-    const record = buildSupplementRecord(state.pendingConfirmDraft)
-    state.records = [record, ...state.records]
+    const result = confirmSupplementAndGenerateProcessWorkOrders(state.pendingConfirmDraft, '裁床主管 周敏')
+    if (!result.ok) {
+      state.feedback = { tone: 'warning', message: result.message }
+      refreshSupplementFeedback()
+      return true
+    }
+    const record = result.record
     state.page = 1
     state.pendingConfirmDraft = null
     state.activeCandidateId = ''

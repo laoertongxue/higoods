@@ -610,7 +610,10 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             ? `${colors.join(' / ') || '默认色'} 纱线，染厂/面料仓送料到厂`
             : `${colors.join(' / ') || '默认色'} 主面料`,
         colorLabel: colors.join(' / '),
-        unit: scenario === 'GARMENT_HEAT_TRANSFER' ? '件' : undefined,
+        unit: scenario === 'GARMENT_HEAT_TRANSFER' ? '件' : demand.spuCode === 'SPU-2024-010' ? '米' : undefined,
+        ...(demand.spuCode === 'SPU-2024-010'
+          ? { printRequirement: '数码印花', dyeRequirement: '匹染' }
+          : {}),
         unitConsumption: scenario === 'GARMENT_HEAT_TRANSFER' ? 1 : isWoolScenario ? 0.48 : 1.2,
         lossRate: scenario === 'GARMENT_HEAT_TRANSFER' ? 0 : isWoolScenario ? 0.05 : 0.03,
         supplier: '生产需求单指定',

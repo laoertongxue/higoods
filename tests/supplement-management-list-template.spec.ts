@@ -526,6 +526,11 @@ test('默认分页、三态排序及临时状态刷新后回到默认', async ({
   await expect(rows).toHaveCount(10)
   await expect(page.getByText('1 / 2', { exact: true })).toBeVisible()
   const defaultFirstRecord = (await rows.first().locator('td').first().innerText()).trim()
+  const secondPageFirstRecord = await page.evaluate(async () => {
+    const supplement = await import('/src/pages/process-factory/cutting/supplement-management.ts')
+    return supplement.listSupplementRecords()[10]?.recordNo || ''
+  })
+  expect(secondPageFirstRecord).not.toBe('')
 
   const firstClickDuration = await page.evaluate((targetRecordNo) => new Promise<number>((resolve, reject) => {
     const table = document.querySelector('[data-cutting-supplement-region="table"]')
@@ -544,7 +549,7 @@ test('默认分页、三态排序及临时状态刷新后回到默认', async ({
       observer.observe(table, { childList: true, subtree: true })
       next.click()
     })
-  }), 'SUP-030002-011')
+  }), secondPageFirstRecord)
   expect(firstClickDuration).toBeLessThan(200)
   console.log(`首次下一页实际 DOM 响应：${firstClickDuration.toFixed(1)}ms`)
   await expect(rows).toHaveCount(2)
