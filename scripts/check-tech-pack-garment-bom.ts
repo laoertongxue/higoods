@@ -100,9 +100,10 @@ const cleanedReferences = removeGarmentBomReverseReferences('bom-fabric-1', [{
 }, { id: 'pattern-2', linkedBomItemId: 'other', linkedMaterialAlias: '纸样用途别名' }, {
   id: 'pattern-3', linkedBomItemId: 'other-bom', linkedMaterialId: 'other-bom',
   linkedMaterialName: '主面料', linkedMaterialSku: 'FABRIC-001', linkedMaterialAlias: '其他 BOM 别名',
-}], {
-  materialName: '主面料', materialCode: 'FABRIC-001',
-})
+}], [
+  { id: 'bom-fabric-1', materialName: '主面料', materialCode: 'FABRIC-001' },
+  { id: 'other-bom', materialName: '其他面料', materialCode: 'OTHER-001' },
+])
 assert.deepEqual(cleanedReferences.colorMaterialMappings[0]?.lines.map((line) => line.id), ['line-2'])
 assert.equal(cleanedReferences.patternItems[0]?.linkedBomItemId, undefined)
 assert.equal(cleanedReferences.patternItems[0]?.linkedMaterialId, undefined)
@@ -114,6 +115,27 @@ assert.deepEqual(cleanedReferences.patternItems[2], {
   id: 'pattern-3', linkedBomItemId: 'other-bom', linkedMaterialId: 'other-bom',
   linkedMaterialName: '主面料', linkedMaterialSku: 'FABRIC-001', linkedMaterialAlias: '其他 BOM 别名',
 })
+const conflictReferences = removeGarmentBomReverseReferences('target', [], [
+  { id: 'conflict-a', linkedBomItemId: 'other', linkedMaterialId: 'target', linkedMaterialName: '目标面料' },
+  { id: 'conflict-b', linkedBomItemId: 'target', linkedMaterialId: 'other', linkedMaterialName: '目标面料' },
+  { id: 'ambiguous-code', linkedMaterialSku: 'SAME', linkedMaterialAlias: '保留编码歧义' },
+  { id: 'ambiguous-name', linkedMaterialName: '同名面料', linkedMaterialAlias: '保留名称歧义' },
+  { id: 'unique-target', linkedMaterialSku: 'TARGET-ONLY', linkedMaterialName: '目标面料', linkedMaterialAlias: '应清' },
+], [
+  { id: 'target', materialName: '同名面料', materialCode: 'SAME' },
+  { id: 'other', materialName: '同名面料', materialCode: 'SAME' },
+  { id: 'target-unique-alias', materialName: '目标面料', materialCode: 'TARGET-ONLY' },
+])
+assert.equal(conflictReferences.patternItems[0]?.linkedMaterialId, 'target')
+assert.equal(conflictReferences.patternItems[1]?.linkedBomItemId, 'target')
+assert.equal(conflictReferences.patternItems[2]?.linkedMaterialAlias, '保留编码歧义')
+assert.equal(conflictReferences.patternItems[3]?.linkedMaterialAlias, '保留名称歧义')
+assert.equal(conflictReferences.patternItems[4]?.linkedMaterialSku, 'TARGET-ONLY', '文本唯一匹配到其他 BOM 时不能误清目标')
+assert.deepEqual(conflictReferences.conflicts.sort(), ['ambiguous-code', 'ambiguous-name', 'conflict-a', 'conflict-b'])
+const uniqueTargetReference = removeGarmentBomReverseReferences('target', [], [
+  { id: 'unique-target', linkedMaterialSku: 'TARGET-ONLY', linkedMaterialAlias: '应清' },
+], [{ id: 'target', materialName: '目标面料', materialCode: 'TARGET-ONLY' }])
+assert.equal(uniqueTargetReference.patternItems[0]?.linkedMaterialSku, undefined)
 assert.equal(isCuttingMappingLineEligible(consumerSnapshot as never, { bomItemId: 'garment-first' } as never), false)
 assert.equal(isCuttingMappingLineEligible(consumerSnapshot as never, { bomItemId: 'fabric-second' } as never), true)
 assert.equal(isCuttingMappingLineEligible(consumerSnapshot as never, { materialCode: 'garment-first', materialName: '成衣' } as never), false)

@@ -4004,17 +4004,20 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     }
 
     if (state.editBomItemId) {
-      const previousBomItem = state.bomItems.find((item) => item.id === state.editBomItemId)
+      const previousBomItems = state.bomItems
       state.bomItems = state.bomItems.map((item) => (item.id === state.editBomItemId ? nextBom : item))
       if (nextBom.type === '成衣') {
         const cleanedReferences = removeGarmentBomReverseReferences(
           state.editBomItemId,
           state.colorMaterialMappings,
           state.patternItems,
-          previousBomItem,
+          previousBomItems,
         )
         state.colorMaterialMappings = cleanedReferences.colorMaterialMappings
         state.patternItems = cleanedReferences.patternItems
+        if (cleanedReferences.conflicts.length > 0) {
+          state.compatibilityMessage = `有 ${cleanedReferences.conflicts.length} 条纸样物料身份冲突，系统已保留原关联，请人工确认`
+        }
       }
     } else {
       state.bomItems = [...state.bomItems, nextBom]

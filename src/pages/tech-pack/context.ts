@@ -306,39 +306,53 @@ export function removeGarmentBomReverseReferences<
   bomItemId: string,
   colorMaterialMappings: M[],
   patternItems: P[],
-  previousMaterial?: { materialName?: string; materialCode?: string },
+  previousBomItems: Array<{ id: string; materialName?: string; materialCode?: string }>,
 ): {
   colorMaterialMappings: M[]
   patternItems: P[]
+  conflicts: string[]
 } {
+  const conflicts: string[] = []
+  const targetMaterial = previousBomItems.find((item) => item.id === bomItemId)
+  const normalizeIdentity = (value?: string) => String(value || '').trim().toLowerCase()
   return {
     colorMaterialMappings: colorMaterialMappings.map((mapping) => ({
       ...mapping,
       lines: mapping.lines.filter((line) => line.bomItemId !== bomItemId),
     })),
     patternItems: patternItems.map((pattern) => {
-      const linkedByBomId = pattern.linkedBomItemId === bomItemId
-      const linkedByMaterialId = pattern.linkedMaterialId === bomItemId
-      const hasExplicitId = Boolean(pattern.linkedBomItemId || pattern.linkedMaterialId)
-      const linkedByMaterialName = !hasExplicitId
-        && Boolean(previousMaterial?.materialName)
-        && pattern.linkedMaterialName === previousMaterial?.materialName
-      const linkedByMaterialSku = !hasExplicitId
-        && Boolean(previousMaterial?.materialCode)
-        && pattern.linkedMaterialSku === previousMaterial?.materialCode
-      const isTargetMaterial = hasExplicitId
-        ? linkedByBomId || linkedByMaterialId
-        : linkedByMaterialName || linkedByMaterialSku
+      const explicitIds = [pattern.linkedBomItemId, pattern.linkedMaterialId].filter(Boolean) as string[]
+      let isTargetMaterial = explicitIds.length > 0 && explicitIds.every((id) => id === bomItemId)
+      if (explicitIds.some((id) => id === bomItemId) && !isTargetMaterial) {
+        conflicts.push(String((pattern as { id?: string }).id || '未命名纸样'))
+      }
+      if (explicitIds.length === 0) {
+        const materialSku = normalizeIdentity(pattern.linkedMaterialSku)
+        const materialName = normalizeIdentity(pattern.linkedMaterialName)
+        const codeMatches = materialSku
+          ? previousBomItems.filter((item) => normalizeIdentity(item.materialCode) === materialSku)
+          : []
+        const candidates = codeMatches.length > 0
+          ? codeMatches
+          : materialName
+            ? previousBomItems.filter((item) => normalizeIdentity(item.materialName) === materialName)
+            : []
+        isTargetMaterial = candidates.length === 1 && candidates[0]?.id === bomItemId
+        if (candidates.length > 1 && candidates.some((item) => item.id === bomItemId)) {
+          conflicts.push(String((pattern as { id?: string }).id || '未命名纸样'))
+        }
+      }
       if (!isTargetMaterial) return pattern
       return {
         ...pattern,
-        linkedBomItemId: linkedByBomId ? undefined : pattern.linkedBomItemId,
+        linkedBomItemId: undefined,
         linkedMaterialId: undefined,
         linkedMaterialName: undefined,
         linkedMaterialSku: undefined,
         linkedMaterialAlias: undefined,
       }
     }),
+    conflicts,
   }
 }
 
