@@ -67,15 +67,16 @@
 | `npx playwright test tests/supplement-management-list-template.spec.ts --workers=1` | 24 项通过，0 失败；详情完成实际 DOM 响应 124.0ms；1366×768、1280×720 均无页面横向溢出 |
 | `npx playwright test tests/cut-order-supplement-linkage.spec.ts --workers=1` | 24 项通过，0 失败；详情完成 17.2ms，操作栏完成 16.0ms；两档分辨率均无页面/主体横向溢出，操作列固定可见，宽表仅容器横滚 |
 | `npx playwright test tests/cut-order-supplement-linkage.spec.ts --workers=1 --grep '宽表仅容器横向滚动且操作列可见'` | 2 项通过，0 失败；1366×768、1280×720 下操作列横滚前后 `x/right` 偏差不超过 2px，普通非固定列横移超过 100px，且 `scrollLeft > 0` |
+| `npx playwright test tests/cut-order-supplement-linkage.spec.ts --workers=1 --grep '操作栏一次只完成一张未完成补料'` | 1 项通过，0 失败；局部响应 16.1ms；测试夹具构造 `maxScroll=1200px` 的真实纵向滚动，完成前后 `scrollY=160px`，表格 `scrollLeft=180` 保持 |
 | `npm run check:list-page-governance` | 通过；扫描 319 个页面、基线 29；标准列表模板检查通过 |
 | `npm run check:prototype-design-governance` | 通过；staged 范围无原型变更 |
 | `npm run check:prototype-design-governance -- --all` | 通过；all 范围无原型变更 |
 | `npm run check:third-party-cutting-task-boundaries` | 通过 |
 | `npm run build` | 通过；Vite 转换 2246 个模块并完成产物构建 |
-| `git diff --check 1b4889ee..HEAD` | 通过；最终验收强化提交区间无空白错误 |
+| `git diff --check 3100cdb8..HEAD` | 通过；真实滚动位置验收提交区间无空白错误 |
 | `codegraph sync` / `codegraph status` | 最终提交后同步完成；索引 up to date，无 pending 文件 |
 
-浏览器验收还覆盖：两页路由可达；无空白页、死链、英文状态或明显遮挡；标签详情、单选完成、列设置、Escape、焦点恢复、筛选结果、跨页共享和冷启动幂等均与业务规则一致。操作栏完成从确认点击起由 `MutationObserver` 等待标签、所在行和统计区完成更新，低于 200ms；`main`、筛选区和分页区根对象保持，页面纵向滚动与表格横向滚动保持。宽表滚到最大横向距离后，操作列位置保持、普通列发生横移，证明操作列使用真实 sticky 固定而非仅在终点偶然可见。分页内容因筛选模型变化时允许在稳定分页根内局部更新。
+浏览器验收还覆盖：两页路由可达；无空白页、死链、英文状态或明显遮挡；标签详情、单选完成、列设置、Escape、焦点恢复、筛选结果、跨页共享和冷启动幂等均与业务规则一致。操作栏完成从确认点击起由 `MutationObserver` 等待标签、所在行和统计区完成更新，低于 200ms；`main`、筛选区和分页区根对象保持，表格横向滚动保持。自然页面在 1280×720 下没有纵向滚动空间，因此测试通过临时 spacer 夹具构造真实可滚动页面，先证明 `maxScroll > 0` 且 `scrollY > 0`，再验证完成前后纵向位置保持；夹具不进入生产 DOM 源码并在用例结束时移除。宽表滚到最大横向距离后，操作列位置保持、普通列发生横移，证明操作列使用真实 sticky 固定而非仅在终点偶然可见。分页内容因筛选模型变化时允许在稳定分页根内局部更新。
 
 ## 7. 最终结论
 
