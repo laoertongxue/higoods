@@ -31,6 +31,7 @@ import {
 import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
+import { selectPrimaryProductionMaterialBomItem } from './production-material-bom.ts'
 import { getProcessWorkOrderStockMaterial, isValidProcessWorkOrderPlannedFinishAt } from './process-work-order-stock.ts'
 import { syncFactoryWarehouseHandoverSourceByTaskId } from './factory-internal-warehouse.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
@@ -251,6 +252,18 @@ interface GeneratedPrintContext {
   materialColor?: string
 }
 
+export function resolvePrintDemoMaterial(
+  techPackSnapshot: Pick<ProductionOrderTechPackSnapshot, 'bomItems'>,
+  fallbackMaterialName: string,
+  fallbackColor?: string,
+): { materialName: string; materialColor?: string } {
+  const bomItem = selectPrimaryProductionMaterialBomItem(techPackSnapshot.bomItems)
+  return {
+    materialName: bomItem ? `${bomItem.name}${bomItem.spec ? ` / ${bomItem.spec}` : ''}` : fallbackMaterialName,
+    materialColor: bomItem?.colorLabel || fallbackColor,
+  }
+}
+
 function getProductionOrderQty(order: ProductionOrder): number {
   const skuQty = order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
   return Math.max(1, Math.round(skuQty || 1))
@@ -275,15 +288,18 @@ function getGeneratedPrintContext(index: number): GeneratedPrintContext | null {
   if (!productionOrder) return null
   const techPackSnapshot = getProductionOrderTechPackSnapshot(productionOrder.productionOrderId)
   if (!techPackSnapshot) return null
-  const bomItem = techPackSnapshot.bomItems[0]
+  const material = resolvePrintDemoMaterial(
+    techPackSnapshot,
+    productionOrder.demandSnapshot.spuName,
+    productionOrder.demandSnapshot.skuLines[0]?.color,
+  )
   return {
     productionOrder,
     techPackSnapshot,
     craftDefinition: generatedCraft.craftDefinition,
     mockIndex: generatedCraft.mockIndex,
     plannedQty: getProductionOrderQty(productionOrder),
-    materialName: bomItem ? `${bomItem.name}${bomItem.spec ? ` / ${bomItem.spec}` : ''}` : productionOrder.demandSnapshot.spuName,
-    materialColor: bomItem?.colorLabel || productionOrder.demandSnapshot.skuLines[0]?.color,
+    ...material,
   }
 }
 

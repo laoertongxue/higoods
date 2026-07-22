@@ -10,6 +10,8 @@ import {
 } from '../src/pages/tech-pack/context.ts'
 import { validateTechPackForPublish, type TechPack } from '../src/data/fcs/tech-packs.ts'
 import { selectProductionMaterialBomItems } from '../src/data/fcs/production-artifact-generation.ts'
+import { resolvePrintDemoMaterial } from '../src/data/fcs/printing-task-domain.ts'
+import { resolveDyeDemoMaterial } from '../src/data/fcs/dyeing-task-domain.ts'
 
 const garmentSeed = {
   id: 'bom-garment-1',
@@ -76,6 +78,18 @@ assert.deepEqual(
   ['fabric-second'],
   '生产制品的水溶、印花和染色演示上下文不得把首条成衣当作物料',
 )
+const consumerSnapshot = {
+  bomItems: [
+    { id: 'garment-first', type: '成衣', name: '成衣', spec: '', colorLabel: '黑色' },
+    { id: 'fabric-second', type: '面料', name: '棉布', spec: '100% 棉', colorLabel: '米白' },
+  ],
+}
+assert.deepEqual(resolvePrintDemoMaterial(consumerSnapshot as never, '默认款式', '默认色'), {
+  materialName: '棉布 / 100% 棉', materialColor: '米白',
+})
+assert.deepEqual(resolveDyeDemoMaterial(consumerSnapshot as never, '默认款式', '默认色'), {
+  materialName: '棉布 / 100% 棉', materialId: 'fabric-second', composition: '100% 棉', targetColor: '米白',
+})
 
 const bomDomainSource = readFileSync('src/pages/tech-pack/bom-domain.ts', 'utf8')
 assert.match(bomDomainSource, /'包装材料', '成衣', '其他'/)

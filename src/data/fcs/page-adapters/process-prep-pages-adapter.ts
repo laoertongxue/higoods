@@ -21,6 +21,7 @@ import {
 import { getPlatformProcessResultView } from '../platform-process-result-view.ts'
 import { getQuantityLabel, type ProcessObjectType } from '../process-quantity-labels.ts'
 import { TEST_FACTORY_NAME } from '../factory-mock-data.ts'
+import { selectPrimaryProductionMaterialBomItem } from '../production-material-bom.ts'
 
 type PrepProcessCode = 'PRINT' | 'DYE'
 type PrepUnit = string
@@ -669,7 +670,9 @@ function toDemandFactFromProcessOrder(
   const meta = META_BY_PROCESS[processCode]
   const productionOrder = productionOrders.find((order) => order.productionOrderId === orderFact.sourceProductionOrderId)
   const techPackSnapshot = productionOrder?.techPackSnapshot ?? null
-  const sourceBomItem = techPackSnapshot?.bomItems[0]
+  const sourceBomItem = techPackSnapshot
+    ? selectPrimaryProductionMaterialBomItem(techPackSnapshot.bomItems)
+    : undefined
   const materialCode = sourceBomItem?.id || `${processCode}-${orderFact.workOrderId || orderFact.orderNo}`
   const materialName = sourceBomItem
     ? `${sourceBomItem.name}${sourceBomItem.spec ? ` / ${sourceBomItem.spec}` : ''}`

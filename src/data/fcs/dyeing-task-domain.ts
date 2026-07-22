@@ -25,6 +25,7 @@ import {
 import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
+import { selectPrimaryProductionMaterialBomItem } from './production-material-bom.ts'
 import { getProcessWorkOrderStockMaterial, isValidProcessWorkOrderPlannedFinishAt } from './process-work-order-stock.ts'
 import { registerCreatedDyeWorkOrderReader } from './dyeing-created-work-order-registry.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
@@ -380,7 +381,22 @@ interface GeneratedDyeContext {
   plannedQty: number
   materialName: string
   materialId: string
+  composition: string
   targetColor: string
+}
+
+export function resolveDyeDemoMaterial(
+  techPackSnapshot: Pick<ProductionOrderTechPackSnapshot, 'bomItems'>,
+  fallbackMaterialName: string,
+  fallbackColor?: string,
+): { materialName: string; materialId: string; composition: string; targetColor: string } {
+  const bomItem = selectPrimaryProductionMaterialBomItem(techPackSnapshot.bomItems)
+  return {
+    materialName: bomItem ? `${bomItem.name}${bomItem.spec ? ` / ${bomItem.spec}` : ''}` : fallbackMaterialName,
+    materialId: bomItem?.id || '',
+    composition: bomItem?.spec || '',
+    targetColor: bomItem?.colorLabel || fallbackColor || '按技术包配色',
+  }
 }
 
 function getProductionOrderQty(order: ProductionOrder): number {
@@ -407,16 +423,21 @@ function getGeneratedDyeContext(index: number): GeneratedDyeContext | null {
   if (!productionOrder) return null
   const techPackSnapshot = getProductionOrderTechPackSnapshot(productionOrder.productionOrderId)
   if (!techPackSnapshot) return null
-  const bomItem = techPackSnapshot.bomItems[0]
+  const material = resolveDyeDemoMaterial(
+    techPackSnapshot,
+    productionOrder.demandSnapshot.spuName,
+    productionOrder.demandSnapshot.skuLines[0]?.color,
+  )
   return {
     productionOrder,
     techPackSnapshot,
     craftDefinition: generatedCraft.craftDefinition,
     mockIndex: generatedCraft.mockIndex,
     plannedQty: Math.max(1, Math.round(getProductionOrderQty(productionOrder) * 1.12)),
-    materialName: bomItem ? `${bomItem.name}${bomItem.spec ? ` / ${bomItem.spec}` : ''}` : productionOrder.demandSnapshot.spuName,
-    materialId: bomItem?.id || `DYE-MATERIAL-${productionOrder.productionOrderId}`,
-    targetColor: bomItem?.colorLabel || productionOrder.demandSnapshot.skuLines[0]?.color || '按技术包配色',
+    materialName: material.materialName,
+    materialId: material.materialId || `DYE-MATERIAL-${productionOrder.productionOrderId}`,
+    composition: material.composition,
+    targetColor: material.targetColor,
   }
 }
 
@@ -466,7 +487,7 @@ function buildGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): 
       productionOrderOrderedAt: order.productionOrderOrderedAt || sourceOrder?.createdAt || order.createdAt,
     }
   }
-  const { productionOrder, techPackSnapshot, craftDefinition, mockIndex, plannedQty, materialName, materialId, targetColor } = context
+  const { productionOrder, techPackSnapshot, craftDefinition, mockIndex, plannedQty, materialName, materialId, composition, targetColor } = context
   return {
     ...order,
     sourceType: 'PRODUCTION_ORDER',
@@ -477,7 +498,7 @@ function buildGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): 
     isFirstOrder: mockIndex === 0,
     rawMaterialSku: materialName,
     materialId,
-    composition: techPackSnapshot.bomItems[0]?.spec || order.composition,
+    composition: composition || order.composition,
     targetColor,
     dyeProcessCode: 'DYE',
     dyeProcessName: craftDefinition.craftName,

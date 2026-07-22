@@ -35,6 +35,9 @@ import type {
   ProductionOrderTechPackSnapshot,
   TechPackBomItemSnapshot,
 } from './production-tech-pack-snapshot-types.ts'
+import { selectProductionMaterialBomItems } from './production-material-bom.ts'
+
+export { selectProductionMaterialBomItems } from './production-material-bom.ts'
 
 type TechPackProcessEntry = TechnicalProcessEntry
 type TechPackProcessEntryType = TechnicalProcessEntry['entryType']
@@ -170,10 +173,6 @@ const DOC_TYPE_LABEL: Record<ProcessDocType, string> = {
 
 export const DICTIONARY_CRAFT_MOCKS_PER_DEFINITION = 3
 const DICTIONARY_COVERAGE_BLOCKED_ORDER_STATUSES = new Set(['DRAFT', 'READY_FOR_BREAKDOWN'])
-
-export function selectProductionMaterialBomItems<T extends { type?: string }>(bomItems: T[]): T[] {
-  return bomItems.filter((item) => item.type !== '成衣')
-}
 
 function toArtifactKeySegment(entryId: string): string {
   return entryId.replace(/[^A-Za-z0-9_-]/g, '_')
