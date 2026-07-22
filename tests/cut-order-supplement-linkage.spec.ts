@@ -277,6 +277,20 @@ test('历史补料投影只新增 CUT14671-B 且不臆造任务边界', async ({
   await expect(boundaryCell).toContainText(/未提供|—/)
 })
 
+test('历史裁片单数量未知时不展示为真实零值', async ({ page }) => {
+  await page.goto(`${route}?cutOrderNo=CUT14671-B`)
+  await expect(page.locator('[data-standard-list-page]')).toBeVisible({ timeout: 30_000 })
+  const row = cutOrderRow(page, 'CUT14671-B')
+  const headers = await page.locator('[data-standard-list-table] thead th').allTextContents()
+  const patternCell = row.locator('td').nth(headers.findIndex((header) => header.includes('纸样')))
+  const quantityCell = row.locator('td').nth(headers.findIndex((header) => header.includes('数量账')))
+  await expect(patternCell).toContainText('有效幅宽：未提供')
+  await expect(quantityCell).toContainText('未提供')
+  await expect(row).not.toContainText('0厘米')
+  await expect(row).not.toContainText('0 件')
+  await expect(row).not.toContainText('需求用量：0 米')
+})
+
 test('冷启动直达裁片单可逐张查看并完成关联补料单', async ({ page }) => {
   await page.goto(`${route}?cutOrderNo=CUT14671-B`)
   await expect(page.locator('[data-standard-list-page]')).toBeVisible({ timeout: 30_000 })
@@ -415,6 +429,63 @@ test('补料弹层初始聚焦、Tab 圈定并在关闭后恢复触发点', asyn
   await expect(detail.getByRole('button', { name: '关闭' })).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(trigger).toBeFocused()
+})
+
+test('详情确认层取消或 Escape 后焦点返回详情完成按钮', async ({ page }) => {
+  await page.goto(`${route}?cutOrderNo=CUT14671-B`)
+  await expect(page.locator('[data-standard-list-page]')).toBeVisible({ timeout: 30_000 })
+  await cutOrderRow(page, 'CUT14671-B').getByRole('button', { name: '补 · 第 2 次 · 未完成', exact: true }).click()
+  const detail = page.locator('[data-cutting-piece-supplement-detail]')
+  const requestComplete = detail.getByRole('button', { name: '完成该补料单' })
+
+  await requestComplete.click()
+  await page.keyboard.press('Escape')
+  await expect(requestComplete).toBeFocused()
+
+  await requestComplete.click()
+  await page.locator('[data-cutting-piece-supplement-confirm]').getByRole('button', { name: '取消' }).click()
+  await expect(requestComplete).toBeFocused()
+})
+
+test('详情确认完成后焦点保留在已更新的详情内', async ({ page }) => {
+  await page.goto(`${route}?cutOrderNo=CUT14671-B`)
+  await expect(page.locator('[data-standard-list-page]')).toBeVisible({ timeout: 30_000 })
+  await cutOrderRow(page, 'CUT14671-B').getByRole('button', { name: '补 · 第 2 次 · 未完成', exact: true }).click()
+  const detail = page.locator('[data-cutting-piece-supplement-detail]')
+  await detail.getByRole('button', { name: '完成该补料单' }).click()
+  await page.locator('[data-cutting-piece-supplement-confirm]').getByRole('button', { name: '确认完成' }).click()
+  await expect(detail.getByRole('button', { name: '关闭' })).toBeFocused()
+  await expect(page.locator('body')).not.toBeFocused()
+})
+
+test('操作栏补料选择层取消、完成及末单完成均有可靠焦点返回', async ({ page }) => {
+  await page.goto(`${route}?cutOrderNo=CUT14671-B`)
+  await expect(page.locator('[data-standard-list-page]')).toBeVisible({ timeout: 30_000 })
+  const row = cutOrderRow(page, 'CUT14671-B')
+  let trigger = row.getByRole('button', { name: '完成补料', exact: true })
+
+  await trigger.click()
+  await page.keyboard.press('Escape')
+  await expect(trigger).toBeFocused()
+
+  await trigger.click()
+  await page.locator('[data-cutting-piece-supplement-picker]').getByRole('button', { name: '取消' }).click()
+  await expect(trigger).toBeFocused()
+
+  await trigger.click()
+  let picker = page.locator('[data-cutting-piece-supplement-picker]')
+  await picker.getByRole('radio', { name: /第 2 次/ }).check()
+  await picker.getByRole('button', { name: '确认完成' }).click()
+  trigger = row.getByRole('button', { name: '完成补料', exact: true })
+  await expect(trigger).toBeFocused()
+
+  await trigger.click()
+  picker = page.locator('[data-cutting-piece-supplement-picker]')
+  await picker.getByRole('radio', { name: /第 3 次/ }).check()
+  await picker.getByRole('button', { name: '确认完成' }).click()
+  await expect(trigger).toHaveCount(0)
+  await expect(row.getByRole('button', { name: '补 · 第 3 次 · 已完成', exact: true })).toBeFocused()
+  await expect(page.locator('body')).not.toBeFocused()
 })
 
 test('同值 change 不吞补料点击且单一事件通道只打开一次', async ({ page }) => {

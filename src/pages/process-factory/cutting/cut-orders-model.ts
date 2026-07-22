@@ -130,6 +130,7 @@ export interface CutOrderRow {
   patternKind: string
   effectiveWidthText: string
   piecePartNames: string[]
+  quantityDataAvailable: boolean
   orderQty: number
   pieceCountText: string
   plannedQty: number
@@ -498,6 +499,7 @@ function createRow(
   )
   const batchSummary = summarizeMarkerPlanSourceParticipation(source.cutOrderId, ledger)
   const materialQuantityLedger = buildCutOrderMaterialQuantityLedger(source, options.materialLedgerProjectionMap)
+  const quantityDataAvailable = !source.generationKey.startsWith('progress:')
   const currentStage = deriveCutOrderStage(effectiveRecord, line, options.startState)
   const materialPrepStatus = buildPrepSummary(line)
   const materialClaimStatus = buildClaimSummary(line)
@@ -557,10 +559,13 @@ function createRow(
     patternFileName: patternIdentity.patternFileName,
     patternVersion: patternIdentity.patternVersion,
     patternKind: patternIdentity.patternKind,
-    effectiveWidthText: `${patternIdentity.effectiveWidthValue}${patternIdentity.effectiveWidthUnit}`,
+    effectiveWidthText: quantityDataAvailable
+      ? `${patternIdentity.effectiveWidthValue}${patternIdentity.effectiveWidthUnit}`
+      : '未提供',
     piecePartNames: [...patternIdentity.piecePartNames],
+    quantityDataAvailable,
     orderQty: effectiveRecord.orderQty,
-    pieceCountText: formatQty(effectiveRecord.orderQty),
+    pieceCountText: quantityDataAvailable ? formatQty(effectiveRecord.orderQty) : '未提供',
     plannedQty: source.requiredQty,
     receivedQty: line.receivedLength,
     materialQuantityLedger,
@@ -837,6 +842,7 @@ export function filterCutOrderRows(
     if (filters.currentStage !== 'ALL' && row.currentStage.key !== filters.currentStage) return false
     if (filters.inBatch === 'IN_MARKER_PLAN' && !row.activeMarkerPlanNo) return false
     if (filters.inBatch === 'NOT_IN_MARKER_PLAN' && row.activeMarkerPlanNo) return false
+    if (filters.hasAvailableBalance !== 'ALL' && !row.quantityDataAvailable) return false
     if (filters.hasAvailableBalance === 'YES' && row.materialQuantityLedger.availableQty <= 0) return false
     if (filters.hasAvailableBalance === 'NO' && row.materialQuantityLedger.availableQty > 0) return false
     if (filters.hasCloseReason === 'YES' && !row.closeReason) return false
@@ -852,9 +858,9 @@ export function buildCutOrderStats(rows: CutOrderRow[]): CutOrderStats {
   return {
     totalCount: rows.length,
     inBatchCount: rows.filter((row) => row.activeMarkerPlanNo).length,
-    availableBalanceCount: rows.filter((row) => row.materialQuantityLedger.availableQty > 0).length,
+    availableBalanceCount: rows.filter((row) => row.quantityDataAvailable && row.materialQuantityLedger.availableQty > 0).length,
     closedCount: rows.filter((row) => row.currentStage.key === 'CLOSED').length,
-    noClaimRecordCount: rows.filter((row) => row.materialQuantityLedger.cuttingClaimedQty <= 0).length,
+    noClaimRecordCount: rows.filter((row) => row.quantityDataAvailable && row.materialQuantityLedger.cuttingClaimedQty <= 0).length,
   }
 }
 

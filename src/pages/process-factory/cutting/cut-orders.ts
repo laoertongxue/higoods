@@ -211,6 +211,8 @@ let cutOrderListLocalEventsBound = false
 let renderedCutOrderPaginationHtml = ''
 let supplementReturnFocus: HTMLElement | null = null
 let supplementReturnFocusIdentity: Record<string, string> | null = null
+let confirmationReturnFocus: HTMLElement | null = null
+let confirmationReturnFocusIdentity: Record<string, string> | null = null
 
 const state: CutOrdersPageState = {
   filters: { ...initialFilters },
@@ -392,7 +394,7 @@ function renderMaterialLedgerGrid(row: CutOrderRow): string {
           ([label, value]) => `
             <div class="rounded-md border bg-muted/10 px-3 py-2">
               <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
-              <div class="mt-1 text-sm font-semibold tabular-nums text-foreground">${escapeHtml(formatMaterialLedgerQty(value, ledger.unit))}</div>
+              <div class="mt-1 text-sm font-semibold tabular-nums text-foreground">${escapeHtml(row.quantityDataAvailable ? formatMaterialLedgerQty(value, ledger.unit) : '未提供')}</div>
             </div>
           `,
         )
@@ -830,14 +832,14 @@ function renderQuantityCell(row: CutOrderRow): string {
   const ledger = row.materialQuantityLedger
   return `
     <div class="space-y-1.5 text-xs">
-      <div class="text-sm font-medium text-foreground">${escapeHtml(row.pieceCountText)} 件</div>
+      <div class="text-sm font-medium text-foreground">${escapeHtml(row.quantityDataAvailable ? `${row.pieceCountText} 件` : '未提供')}</div>
       <div class="text-muted-foreground">需求成衣件数</div>
       <div class="pt-1 leading-5 text-muted-foreground">
-        <div>需求用量：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.requiredMaterialQty, ledger.unit))}</span></div>
-        <div>中转仓已配数量：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.transferWarehouseAllocatedQty, ledger.unit))}</span></div>
-        <div>裁床已领数量：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.cuttingClaimedQty, ledger.unit))}</span></div>
-        <div>已消耗数量：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.spreadingConsumedQty, ledger.unit))}</span></div>
-        <div>可用余额：<span class="font-medium text-foreground">${escapeHtml(formatMaterialLedgerQty(ledger.availableQty, ledger.unit))}</span></div>
+        <div>需求用量：<span class="font-medium text-foreground">${escapeHtml(row.quantityDataAvailable ? formatMaterialLedgerQty(ledger.requiredMaterialQty, ledger.unit) : '未提供')}</span></div>
+        <div>中转仓已配数量：<span class="font-medium text-foreground">${escapeHtml(row.quantityDataAvailable ? formatMaterialLedgerQty(ledger.transferWarehouseAllocatedQty, ledger.unit) : '未提供')}</span></div>
+        <div>裁床已领数量：<span class="font-medium text-foreground">${escapeHtml(row.quantityDataAvailable ? formatMaterialLedgerQty(ledger.cuttingClaimedQty, ledger.unit) : '未提供')}</span></div>
+        <div>已消耗数量：<span class="font-medium text-foreground">${escapeHtml(row.quantityDataAvailable ? formatMaterialLedgerQty(ledger.spreadingConsumedQty, ledger.unit) : '未提供')}</span></div>
+        <div>可用余额：<span class="font-medium text-foreground">${escapeHtml(row.quantityDataAvailable ? formatMaterialLedgerQty(ledger.availableQty, ledger.unit) : '未提供')}</span></div>
       </div>
     </div>
   `
@@ -1190,7 +1192,7 @@ const cutOrderListColumns: StandardListColumn<CutOrderRow>[] = [
     width: 260,
     freezeable: true,
     sortable: true,
-    sortValue: (row) => row.orderQty,
+    sortValue: (row) => row.quantityDataAvailable ? row.orderQty : null,
     render: renderQuantityCell,
   },
   {
@@ -1473,6 +1475,24 @@ function restoreSupplementTriggerFocus(): void {
   })
 }
 
+function restoreSupplementTriggerFocusWithFallback(completedSupplementId: string): void {
+  const originalTarget = supplementReturnFocus
+  const identity = supplementReturnFocusIdentity
+  supplementReturnFocus = null
+  supplementReturnFocusIdentity = null
+  if (typeof window === 'undefined') return
+  window.requestAnimationFrame(() => {
+    const exactTarget = originalTarget?.isConnected
+      ? originalTarget
+      : [...document.querySelectorAll<HTMLElement>('[data-cutting-piece-action]')].find((candidate) =>
+          identity && Object.entries(identity).every(([key, value]) => candidate.dataset[key] === value),
+        )
+    const completedTag = [...document.querySelectorAll<HTMLElement>('[data-supplement-id]')]
+      .find((candidate) => candidate.dataset.supplementId === completedSupplementId)
+    ;(exactTarget || completedTag)?.focus()
+  })
+}
+
 function rememberSupplementTrigger(actionNode: HTMLElement): void {
   supplementReturnFocus = actionNode
   supplementReturnFocusIdentity = Object.fromEntries(
@@ -1480,6 +1500,40 @@ function rememberSupplementTrigger(actionNode: HTMLElement): void {
       .filter((key) => actionNode.dataset[key])
       .map((key) => [key, actionNode.dataset[key] || '']),
   )
+}
+
+function rememberConfirmationTrigger(actionNode: HTMLElement): void {
+  confirmationReturnFocus = actionNode
+  confirmationReturnFocusIdentity = Object.fromEntries(
+    ['cuttingPieceAction', 'supplementId']
+      .filter((key) => actionNode.dataset[key])
+      .map((key) => [key, actionNode.dataset[key] || '']),
+  )
+}
+
+function restoreConfirmationTriggerFocus(): void {
+  const originalTarget = confirmationReturnFocus
+  const identity = confirmationReturnFocusIdentity
+  confirmationReturnFocus = null
+  confirmationReturnFocusIdentity = null
+  if (typeof window === 'undefined') return
+  window.requestAnimationFrame(() => {
+    const target = originalTarget?.isConnected
+      ? originalTarget
+      : [...document.querySelectorAll<HTMLElement>('[data-cutting-piece-action]')].find((candidate) =>
+          identity && Object.entries(identity).every(([key, value]) => candidate.dataset[key] === value),
+        )
+    target?.focus()
+  })
+}
+
+function focusSupplementDetailFallback(): void {
+  confirmationReturnFocus = null
+  confirmationReturnFocusIdentity = null
+  if (typeof window === 'undefined') return
+  window.requestAnimationFrame(() => {
+    document.querySelector<HTMLElement>('[data-cutting-piece-supplement-detail] button:not([disabled])')?.focus()
+  })
 }
 
 function refreshCutOrderFeedback(): void {
@@ -1546,7 +1600,11 @@ function ensureCutOrderListLocalEvents(): void {
       return
     }
     if (event.key !== 'Escape') return
-    if (state.confirmationSupplementId) state.confirmationSupplementId = null
+    let restoreConfirmationFocus = false
+    if (state.confirmationSupplementId) {
+      state.confirmationSupplementId = null
+      restoreConfirmationFocus = true
+    }
     else if (state.activeSupplementId) {
       state.activeSupplementId = null
       restoreSupplementTriggerFocus()
@@ -1558,6 +1616,7 @@ function ensureCutOrderListLocalEvents(): void {
     } else if (state.columnSettingsOpen) state.columnSettingsOpen = false
     else return
     refreshCutOrderOverlay()
+    if (restoreConfirmationFocus) restoreConfirmationTriggerFocus()
     event.preventDefault()
     event.stopImmediatePropagation()
   }, true)
@@ -1844,8 +1903,8 @@ function renderCutOrderDetailPanel(row: CutOrderRow, viewModel = getViewModel())
               { label: '纸样版本', value: row.patternVersion },
               { label: '有效幅宽', value: row.effectiveWidthText },
               { label: '部位集合', value: row.piecePartNames.join('、') },
-              { label: '需求成衣件数（件）', value: `${formatCount(row.orderQty)} 件` },
-              { label: '计划裁片数量（片）', value: `${formatCount(row.orderQty)} 片` },
+              { label: '需求成衣件数（件）', value: row.quantityDataAvailable ? `${formatCount(row.orderQty)} 件` : '未提供' },
+              { label: '计划裁片数量（片）', value: row.quantityDataAvailable ? `${formatCount(row.orderQty)} 片` : '未提供' },
               { label: '采购日期', value: formatDate(row.purchaseDate) },
               { label: '实际下单日期', value: formatDate(row.actualOrderDate) },
               { label: '计划发货日期', value: formatDate(row.plannedShipDate) },
@@ -2395,7 +2454,7 @@ function renderCutOrderOverviewTab(view: ReturnType<typeof buildCutOrderDetailVi
             { label: '承接方', value: row.cuttingTaskAssigneeFactoryName || '待分配' },
             { label: '执行去向', value: row.executionRouteLabel || '待分配承接方', tone: row.executionRoute === 'OWN_CUTTING' ? 'strong' : undefined },
             { label: '主状态', value: row.currentStageLabel, tone: 'strong' },
-            { label: '可用余额', value: formatMaterialLedgerQty(row.availableQty, row.availableUnit || row.materialUnit), tone: 'strong' },
+            { label: '可用余额', value: row.quantityDataAvailable ? formatMaterialLedgerQty(row.availableQty, row.availableUnit || row.materialUnit) : '未提供', tone: 'strong' },
             { label: '当前唛架方案', value: row.activeMarkerPlanNo || row.latestMarkerPlanNo || '无' },
           ])}
         </div>
@@ -2800,9 +2859,9 @@ function renderCutOrderDetailPanelV2(row: CutOrderRow, viewModel = getViewModel(
             ${row.closeReason ? `<p class="mt-1 text-sm text-amber-700">关闭原因：${escapeHtml(row.closeReasonText || row.closeReason)}</p>` : ''}
           </div>
           <div class="grid gap-2 text-right text-xs text-muted-foreground sm:grid-cols-3 sm:text-left">
-            <div class="rounded-lg border px-3 py-2"><div>裁床已领</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(formatMaterialLedgerQty(row.claimedQty, row.availableUnit))}</div></div>
-            <div class="rounded-lg border px-3 py-2"><div>已消耗</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(formatMaterialLedgerQty(row.consumedQty, row.availableUnit))}</div></div>
-            <div class="rounded-lg border px-3 py-2"><div>可用余额</div><div class="mt-1 text-sm font-semibold text-blue-600">${escapeHtml(formatMaterialLedgerQty(row.availableQty, row.availableUnit))}</div></div>
+            <div class="rounded-lg border px-3 py-2"><div>裁床已领</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(row.quantityDataAvailable ? formatMaterialLedgerQty(row.claimedQty, row.availableUnit) : '未提供')}</div></div>
+            <div class="rounded-lg border px-3 py-2"><div>已消耗</div><div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(row.quantityDataAvailable ? formatMaterialLedgerQty(row.consumedQty, row.availableUnit) : '未提供')}</div></div>
+            <div class="rounded-lg border px-3 py-2"><div>可用余额</div><div class="mt-1 text-sm font-semibold text-blue-600">${escapeHtml(row.quantityDataAvailable ? formatMaterialLedgerQty(row.availableQty, row.availableUnit) : '未提供')}</div></div>
           </div>
         </div>
         <div class="mt-4 flex flex-wrap gap-2">
@@ -3136,6 +3195,7 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
       refreshSupplementLinkage()
       return true
     }
+    rememberConfirmationTrigger(actionNode)
     state.confirmationSupplementId = supplementId
     refreshCutOrderOverlay()
     focusTopSupplementOverlay()
@@ -3145,7 +3205,7 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
   if (action === 'cancel-complete-supplement') {
     state.confirmationSupplementId = null
     refreshCutOrderOverlay()
-    focusTopSupplementOverlay()
+    restoreConfirmationTriggerFocus()
     return true
   }
 
@@ -3153,12 +3213,14 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
     const supplementId = action === 'confirm-complete-supplement'
       ? state.confirmationSupplementId || actionNode.dataset.supplementId || ''
       : state.selectedIncompleteSupplementId || ''
+    let completedSupplementId = ''
     try {
       const completed = completeSupplementOrder({
         id: supplementId,
         completedAt: '2026-07-22 14:30',
         completedBy: '裁床主管 王敏',
       })
+      completedSupplementId = completed.id
       state.supplementFeedback = { tone: 'success', message: `已完成补料单 ${completed.recordNo}，裁片单主状态保持不变。` }
     } catch (error) {
       state.supplementFeedback = {
@@ -3171,6 +3233,8 @@ export function handleCraftCuttingCutOrdersEvent(target: Element, suppliedEvent?
       if (action === 'complete-selected-supplement') state.pendingCompleteCutOrderId = null
     }
     refreshSupplementLinkage()
+    if (action === 'confirm-complete-supplement') focusSupplementDetailFallback()
+    else restoreSupplementTriggerFocusWithFallback(completedSupplementId)
     return true
   }
 
