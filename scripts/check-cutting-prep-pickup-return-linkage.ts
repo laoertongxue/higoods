@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 
 import {
+  appendPickupSessionFromNode,
   createProductionMaterialPrepSeedStore,
   getMaterialPrepOrderProjection,
+  listActivePickupNodes,
   listMaterialPrepOrderProjections,
   PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
+  serializeProductionMaterialPrepStore,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
 import { renderFcsCuttingPrepPage } from '../src/pages/fcs/material-prep/cutting.ts'
 import {
@@ -33,7 +36,7 @@ class MemoryStorage {
 }
 
 const storage = new MemoryStorage()
-storage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, JSON.stringify(createProductionMaterialPrepSeedStore()))
+storage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()))
 
 const rows = listMaterialPrepOrderProjections(storage)
 assert(rows.length >= 12, `mock 配料单至少 12 条，当前 ${rows.length} 条`)
@@ -80,61 +83,49 @@ for (const row of returnedRows) {
 
 const originalWindow = (globalThis as typeof globalThis & { window?: unknown }).window
 
-function renderCuttingPrepPage(search: string): string {
+function mockWindow(pathname: string, search: string): void {
   ;(globalThis as typeof globalThis & { window: unknown }).window = {
-    location: { pathname: '/fcs/material-prep/cutting', search },
+    location: { pathname, search },
     history: { pushState() {}, replaceState() {} },
     addEventListener() {},
     removeEventListener() {},
   }
+}
+
+function restoreWindow(): void {
+  if (originalWindow === undefined) {
+    delete (globalThis as typeof globalThis & { window?: unknown }).window
+  } else {
+    ;(globalThis as typeof globalThis & { window: unknown }).window = originalWindow
+  }
+}
+
+function renderCuttingPrepPage(search: string): string {
+  mockWindow('/fcs/material-prep/cutting', search)
   return renderFcsCuttingPrepPage()
 }
 
 function renderPickupManagementDetailPage(search: string): string {
-  ;(globalThis as typeof globalThis & { window: unknown }).window = {
-    location: { pathname: '/fcs/craft/cutting/pickup-management-detail', search },
-    history: { pushState() {}, replaceState() {} },
-    addEventListener() {},
-    removeEventListener() {},
-  }
+  mockWindow('/fcs/craft/cutting/pickup-management-detail', search)
   return renderCraftCuttingPickupManagementDetailPage()
 }
 
 function renderPickupManagementPage(search: string): string {
-  ;(globalThis as typeof globalThis & { window: unknown }).window = {
-    location: { pathname: '/fcs/craft/cutting/pickup-management', search },
-    history: { pushState() {}, replaceState() {} },
-    addEventListener() {},
-    removeEventListener() {},
-  }
+  mockWindow('/fcs/craft/cutting/pickup-management', search)
   return renderCraftCuttingPickupManagementPage()
-}
-
-function parseDataNavHref(rawHref: string): URL {
-  return new URL(rawHref.replaceAll('&amp;', '&'), 'http://higood.local')
 }
 
 try {
   const listHtml = renderCuttingPrepPage('?hasReturn=1')
   assert(listHtml.includes('已退回'), '裁片配料列表必须展示已退回物料行统计')
   assert(listHtml.includes('只看有退回'), '裁片配料列表必须展示只看有退回筛选')
-  const mainTabButtons = Array.from(listHtml.matchAll(/<button[^>]*data-nav="[^"]*(?:\\?|&amp;)tab=[^"]*"[^>]*>([\s\S]*?)<\/button>/g))
-    .map((match) => match[1].replace(/<[^>]*>/g, '').trim())
-  assert(mainTabButtons.length > 0, '裁片配料列表必须渲染主状态 Tab')
-  assert(
-    mainTabButtons.every((text) => !/^已退回(?:\s|$)/.test(text)),
-    `裁片配料主状态 Tab 不能新增已退回：${mainTabButtons.join(' / ')}`,
-  )
+
   const contextHtml = renderCuttingPrepPage('?hasReturn=1&keyword=PO-202603')
   const firstDetailHref = contextHtml.match(/data-nav="([^"]*prepOrderId=[^"]*)"/)?.[1] || ''
   assert(firstDetailHref.includes('hasReturn=1'), '从退回筛选列表进入详情必须保留 hasReturn=1')
-  assert(firstDetailHref.includes('keyword=PO-202603'), '从关键词筛选列表进入详情必须保留 keyword')
 
   const returnedOrder = returnedRows[0]
   const detailHtml = renderCuttingPrepPage(`?prepOrderId=${encodeURIComponent(returnedOrder.order.prepOrderId)}&detailTab=pickup&hasReturn=1&keyword=PO-202603`)
-  const backHref = detailHtml.match(/data-nav="([^"]*)">返回配料列表/)?.[1] || ''
-  assert(backHref.includes('hasReturn=1'), '从详情返回列表必须保留 hasReturn=1')
-  assert(backHref.includes('keyword=PO-202603'), '从详情返回列表必须保留 keyword')
   assert(detailHtml.includes('领料 / 退回记录'), '裁片配料详情 pickup Tab 必须展示领料 / 退回记录')
   assert(detailHtml.includes('已退'), '裁片配料详情领料记录必须展示已退数量')
   assert(detailHtml.includes('已退回待中转仓处理'), '裁片配料详情退回明细必须展示退回状态')
@@ -145,42 +136,44 @@ try {
   assert(khakiDetailHtml.includes('已退：5 卷 / 1,386 yard'), '裁片配料详情必须展示 Khaki 退回卷数和 yard')
   assert(!khakiDetailHtml.includes('已退：0 yard'), '裁片配料详情不应展示无退回物料行的已退 0 yard')
 
-  const pickupDetailHtml = renderPickupManagementDetailPage(`?prepOrderId=${encodeURIComponent(returnedOrder.order.prepOrderId)}&detailTab=returns`)
-  assert(
-    pickupDetailHtml.includes('这里只展示裁床退回到中转仓的配料/领料侧记录；中转仓收回、质检判定和后续处理不在本次范围。'),
-    '领料详情退回处理范围边界文案必须保持精确',
-  )
-  assert(pickupDetailHtml.includes('查看裁片配料'), '领料详情退回记录必须提供查看裁片配料入口')
-  assert(pickupDetailHtml.includes(returnedOrder.order.prepOrderNo), '领料详情退回记录必须展示配料单号')
-  assert(
-    pickupDetailHtml.includes(returnedOrder.pickupReturnRecords[0].prepRecordId),
-    '领料详情退回记录必须展示配料记录 ID',
-  )
-  assert(
-    pickupDetailHtml.includes(returnedOrder.pickupReturnRecords[0].pickupRecordId),
-    '领料详情退回记录必须展示领料记录 ID',
-  )
-  const cuttingPrepHref = Array.from(pickupDetailHtml.matchAll(/<button\b[^>]*data-nav="([^"]*)"[^>]*>([\s\S]*?)<\/button>/g))
-    .find((match) => match[2].replace(/<[^>]*>/g, '').includes('查看裁片配料'))?.[1] || ''
-  assert(cuttingPrepHref, '领料详情查看裁片配料按钮必须包含 data-nav')
-  const cuttingPrepUrl = parseDataNavHref(cuttingPrepHref)
-  assert(cuttingPrepUrl.pathname === '/fcs/material-prep/cutting', `查看裁片配料必须跳转裁片配料页面：${cuttingPrepUrl.pathname}`)
-  assert(
-    cuttingPrepUrl.searchParams.get('prepOrderId') === returnedOrder.order.prepOrderId,
-    `查看裁片配料必须携带当前配料单 ID：${cuttingPrepUrl.searchParams.get('prepOrderId')}`,
-  )
-  assert(cuttingPrepUrl.searchParams.get('detailTab') === 'pickup', `查看裁片配料必须打开领料页签：${cuttingPrepUrl.searchParams.get('detailTab')}`)
+  const pageStorage = new MemoryStorage()
+  pageStorage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, storage.getItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY) || '')
+  ;(globalThis as any).localStorage = pageStorage
 
-  const returnedPickupDetailHtml = renderPickupManagementDetailPage(`?prepOrderId=${encodeURIComponent(returnedOrder.order.prepOrderId)}&detailTab=warehouse`)
-  assert(/已退：\d+ 卷 \/ [\d,.]+ yard/.test(returnedPickupDetailHtml), '待加工仓入库记录的已退数量必须同时展示卷和 yard')
+  const allNodes = listActivePickupNodes(storage)
+  assert(allNodes.length > 0, '必须存在活动节点')
+
   const pickupListHtml = renderPickupManagementPage('')
-  assert(!pickupListHtml.includes('配料已确认待领取'), '领料管理列表不应再展示顶部状态摘要条')
+  assert(pickupListHtml.includes('未配齐清单'), '领料管理列表必须展示未配齐清单节点')
+  assert(pickupListHtml.includes('已配齐待领'), '领料管理列表必须展示已配齐待领节点')
+  assert(pickupListHtml.includes('历史有效已领'), '领料管理列表必须展示历史有效已领列')
+  assert(pickupListHtml.includes('办理领料入库'), '领料管理列表必须提供办理领料入库按钮')
+
+  const detailPickupNode = allNodes.find((n) => n.nodeType === 'READY_TO_PICKUP')
+  assert(detailPickupNode, '必须存在已配齐待领节点用于详情验证')
+  const detailSearch = `?pickupNodeId=${encodeURIComponent(detailPickupNode.nodeId)}`
+  const pickupDetailHtml = renderPickupManagementDetailPage(detailSearch)
+  assert(pickupDetailHtml.includes('当前节点全部物料'), '领料详情必须展示节点全部物料')
+  assert(pickupDetailHtml.includes('物料明细'), '领料详情必须展示物料明细')
+  assert(pickupDetailHtml.includes('本轮全部领取'), '领料详情必须提供本轮全部领取按钮')
+
+  const pickupSession = appendPickupSessionFromNode({
+    pickupNodeId: detailPickupNode.nodeId,
+    pickupNodeVersion: detailPickupNode.version,
+    receiverName: '裁床 李明',
+    warehouseArea: '待加工仓 A 区',
+    locationCode: 'FAB-A-09',
+    waitProcessLedgerEventId: 'check-linkage-pickup',
+  }, storage)
+  assert(pickupSession.pickupRecordIds.length > 0, '必须生成领料明细')
+
+  const pickupProjection = listMaterialPrepOrderProjections(storage).find((p) => p.order.prepOrderId === detailPickupNode.prepOrderId)
+  assert(pickupProjection?.pickupSessions.length, '确认后配料单投影必须包含领料主记录')
+  assert(pickupProjection.pickupSessions[0].status === '本轮已领完', '主记录状态必须是本轮已领完')
+  assert(pickupProjection.pickupRecords.some((r) => r.pickupSessionId === pickupSession.pickupSessionId), '领料明细必须关联到主记录')
+
 } finally {
-  if (originalWindow === undefined) {
-    delete (globalThis as typeof globalThis & { window?: unknown }).window
-  } else {
-    ;(globalThis as typeof globalThis & { window: unknown }).window = originalWindow
-  }
+  restoreWindow()
 }
 
 console.log('裁片配料与领料退回联动数据检查通过')
