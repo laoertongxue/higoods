@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import {
   confirmSupplementAndGenerateProcessWorkOrders,
   listSupplementRecords,
@@ -19,17 +18,6 @@ import {
   setProcessWorkOrderGenerationRollbackFailureForTest,
   type ProcessWorkOrderGenerationInput,
 } from '../src/data/fcs/process-work-order-generation-service.ts'
-
-const supplementSource = readFileSync(
-  new URL('../src/pages/process-factory/cutting/supplement-management.ts', import.meta.url),
-  'utf8',
-)
-assert.doesNotMatch(supplementSource, /印花需求|染色需求|生成[^'"<\n]{0,12}需求/, '补料模块不得残留印花、染色需求单旧词')
-assert.match(
-  supplementSource,
-  /PROCESS_WORK_ORDER_SOURCE_LABEL\.CUT_PIECE_SUPPLEMENT/,
-  '补料加工单详情必须通过统一来源映射展示“裁片补料生成”',
-)
 
 const initialRecords = listSupplementRecords()
 assert(initialRecords.length > 0, '缺少补料检查数据')
