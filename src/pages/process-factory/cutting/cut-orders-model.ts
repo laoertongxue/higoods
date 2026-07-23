@@ -18,7 +18,6 @@ import {
   listSupplementOrdersByCutOrder,
   type SupplementOrderStatus,
 } from '../../../data/fcs/cutting/supplement-order-registry.ts'
-import { stableCutOrderSupplementFixtures } from '../../../data/fcs/cutting/cut-order-supplement-fixture.ts'
 import {
   buildMaterialLedgerProjectionMap,
   type MaterialLedgerProjection,
@@ -656,6 +655,7 @@ export function buildCutOrderViewModel(
   options: {
     progressRows?: ProductionProgressRow[]
     markerPlanOccupancy?: MarkerPlanOccupancyLookup
+    supplementLinkedCutOrderIds?: ReadonlySet<string>
   } = {},
 ): CutOrderViewModel {
   const startStateLookup = buildCutOrderStartStateLookup()
@@ -667,25 +667,28 @@ export function buildCutOrderViewModel(
     (options.progressRows ?? buildProductionProgressRows(records)).map((row) => [row.productionOrderId, row] as const),
   )
   const recordMap = new Map(records.map((record) => [record.productionOrderId, record] as const))
+  const recordByCutOrderKey = new Map<string, CuttingOrderProgressRecord>()
   const lineMap = new Map<string, CuttingMaterialLine>()
   records.forEach((record) => {
     record.materialLines.forEach((line) => {
-      const key = line.cutOrderId || line.cutOrderNo || line.cutPieceOrderNo
-      if (key) lineMap.set(key, line)
+      const keys = uniqueStrings([line.cutOrderId, line.cutOrderNo, line.cutPieceOrderNo])
+      keys.forEach((key) => {
+        lineMap.set(key, line)
+        recordByCutOrderKey.set(key, record)
+      })
     })
   })
 
   const generatedSources = listGeneratedCutOrderSourceRecords()
   const generatedKeys = new Set(generatedSources.flatMap((source) => [source.cutOrderId, source.cutOrderNo]))
-  const stableSupplementTarget = stableCutOrderSupplementFixtures[0]
+  const supplementLinkedCutOrderIds = options.supplementLinkedCutOrderIds ?? new Set<string>()
   const legacySources = records.flatMap((record) => record.materialLines.flatMap((line): GeneratedCutOrderSourceRecord[] => {
     const cutOrderId = line.cutOrderId || ''
     const cutOrderNo = line.cutOrderNo || line.cutPieceOrderNo
     if (
       !cutOrderId
       || !cutOrderNo
-      || cutOrderId !== stableSupplementTarget.cutOrderId
-      || cutOrderNo !== stableSupplementTarget.cutOrderNo
+      || (!supplementLinkedCutOrderIds.has(cutOrderId) && !supplementLinkedCutOrderIds.has(cutOrderNo))
       || generatedKeys.has(cutOrderId)
       || generatedKeys.has(cutOrderNo)
     ) return []
@@ -753,7 +756,9 @@ export function buildCutOrderViewModel(
 
   const rows = [...generatedSources, ...legacySources]
     .map((source) => {
-      const record = recordMap.get(source.productionOrderId)
+      const record = recordByCutOrderKey.get(source.cutOrderId)
+        || recordByCutOrderKey.get(source.cutOrderNo)
+        || recordMap.get(source.productionOrderId)
       if (!record) return null
       const line = lineMap.get(source.cutOrderId) || buildProgressLineFallback(source)
       return createRow(source, record, line, progressRowMap.get(source.productionOrderId), ledger, {

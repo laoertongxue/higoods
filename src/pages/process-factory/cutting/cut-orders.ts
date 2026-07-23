@@ -54,6 +54,7 @@ import {
 } from './fei-qr-model.ts'
 import {
   buildCutOrderStats,
+  buildCutOrderViewModel,
   filterCutOrderRows,
   findCutOrderByPrefilter,
   formatCutOrderCurrency,
@@ -114,6 +115,7 @@ import { buildBindingProcessOrders } from './binding-strip-orders.ts'
 import {
   completeSupplementOrder,
   getSupplementOrder,
+  listSupplementOrders,
   listSupplementOrdersByCutOrder,
   type SupplementOrderLifecycle,
 } from '../../../data/fcs/cutting/supplement-order-registry.ts'
@@ -299,7 +301,19 @@ function resetPagination(): void {
 }
 
 function getProjection() {
-  return buildCutOrdersProjection()
+  const projection = buildCutOrdersProjection()
+  const supplementLinkedCutOrderIds = new Set(
+    listSupplementOrders().flatMap((order) => [order.cutOrderId, order.cutOrderNo]),
+  )
+  const viewModel = buildCutOrderViewModel(
+    projection.snapshot.progressRecords,
+    projection.sources.markerPlanSources,
+    {
+      progressRows: projection.sources.productionRows,
+      supplementLinkedCutOrderIds,
+    },
+  )
+  return { ...projection, viewModel }
 }
 
 function getMarkerPlanSourceLedger(): MarkerPlanSourceRecord[] {

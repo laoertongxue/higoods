@@ -86,6 +86,134 @@ test('补料筛选纯规则覆盖空、全完成、混合和矛盾组合', () =>
   expect(matches(['已完成'], 'NO', 'ALL_COMPLETED')).toBe(false)
 })
 
+test('主投影只补入 registry 已关联且存在真实进度候选的裁片单', async ({ page }) => {
+  await page.goto(route)
+  const projection = await page.evaluate(async () => {
+    const [{ buildCutOrderViewModel }, { cuttingOrderProgressRecords }, registry] = await Promise.all([
+      import('/src/pages/process-factory/cutting/cut-orders-model.ts'),
+      import('/src/data/fcs/cutting/order-progress.ts'),
+      import('/src/data/fcs/cutting/supplement-order-registry.ts'),
+    ])
+    registry.resetSupplementOrderRegistryForTesting()
+    const sourceRecord = cuttingOrderProgressRecords.find((record) => record.materialLines.some((line) => line.cutOrderId === 'cut-14671-a'))
+    if (!sourceRecord) throw new Error('缺少动态投影验收所需的真实进度候选')
+    const dynamicRecord = structuredClone(sourceRecord)
+    dynamicRecord.id = 'cutting-op:po-dynamic-projection:cut-dynamic-projection'
+    dynamicRecord.productionOrderId = 'po-dynamic-projection'
+    dynamicRecord.productionOrderNo = 'PO-DYNAMIC-PROJECTION'
+    dynamicRecord.materialLines.forEach((line) => {
+      line.cutOrderId = 'cut-dynamic-projection'
+      line.cutOrderNo = 'CUT-DYNAMIC-PROJECTION'
+      line.cutPieceOrderNo = 'CUT-DYNAMIC-PROJECTION'
+    })
+    registry.registerSupplementOrder({
+      id: 'supplement-dynamic-projection',
+      recordNo: 'SUP-DYNAMIC-PROJECTION',
+      cutOrderId: 'cut-dynamic-projection',
+      cutOrderNo: 'CUT-DYNAMIC-PROJECTION',
+      productionOrderNo: 'PO-DYNAMIC-PROJECTION',
+      reason: '验收动态投影',
+      reasonDetail: '只允许补入有真实进度候选的关联裁片单。',
+      totalQty: 2,
+      lineSummary: 'Black/M/2件',
+      lines: [{ color: 'Black', size: 'M', supplementQty: 2 }],
+      materialDemands: [{ materialSku: 'RELEASE-A', materialName: '面料 A · 净色', requiredQty: 0.84, unit: 'yard' }],
+      createdAt: '2026-07-23 09:00',
+      createdBy: '裁床主管 王敏',
+    })
+    registry.registerSupplementOrder({
+      id: 'supplement-unknown-cut-order',
+      recordNo: 'SUP-UNKNOWN-CUT-ORDER',
+      cutOrderId: 'cut-not-in-progress',
+      cutOrderNo: 'CUT-NOT-IN-PROGRESS',
+      productionOrderNo: 'PO-NOT-IN-PROGRESS',
+      reason: '验收未知对象',
+      reasonDetail: '没有真实进度候选时不得臆造裁片单。',
+      totalQty: 1,
+      lineSummary: '验收色/M/1件',
+      lines: [{ color: '验收色', size: 'M', supplementQty: 1 }],
+      materialDemands: [{ materialSku: 'MAT-UNKNOWN', materialName: '未知面料', requiredQty: 1, unit: '米' }],
+      createdAt: '2026-07-23 09:01',
+      createdBy: '测试主管',
+    })
+    const linkedCutOrderIds = new Set(registry.listSupplementOrders().map((order) => order.cutOrderId))
+    const rows = buildCutOrderViewModel([...cuttingOrderProgressRecords, dynamicRecord], [], {
+      supplementLinkedCutOrderIds: linkedCutOrderIds,
+    }).rows
+    return rows.map((row) => ({
+      cutOrderId: row.cutOrderId,
+      cutOrderNo: row.cutOrderNo,
+      quantityDataAvailable: row.quantityDataAvailable,
+      pieceCountText: row.pieceCountText,
+      plannedShipDate: row.plannedShipDate,
+      currentStage: row.currentStage.label,
+    }))
+  })
+
+  expect(projection.filter((row) => row.cutOrderId === 'cut-dynamic-projection')).toEqual([{
+    cutOrderId: 'cut-dynamic-projection',
+    cutOrderNo: 'CUT-DYNAMIC-PROJECTION',
+    quantityDataAvailable: false,
+    pieceCountText: '未提供',
+    plannedShipDate: '',
+    currentStage: '已开工',
+  }])
+  expect(projection.some((row) => row.cutOrderId === 'cut-not-in-progress')).toBe(false)
+  expect(projection.some((row) => row.cutOrderId === 'cut-14671-b')).toBe(false)
+})
+
+test('无补料事实时不把真实进度候选扩大为裁片单主投影', async ({ page }) => {
+  await page.goto(route)
+  const cutOrderNos = await page.evaluate(async () => {
+    const [{ buildCutOrderViewModel }, { cuttingOrderProgressRecords }] = await Promise.all([
+      import('/src/pages/process-factory/cutting/cut-orders-model.ts'),
+      import('/src/data/fcs/cutting/order-progress.ts'),
+    ])
+    const rows = buildCutOrderViewModel(cuttingOrderProgressRecords, [], {
+      supplementLinkedCutOrderIds: new Set<string>(),
+    }).rows
+    return rows.map((row) => row.cutOrderNo)
+  })
+
+  expect(cutOrderNos).not.toContain('CUT14671-A')
+  expect(cutOrderNos).not.toContain('CUT14671-B')
+})
+
+test('放行快照创建真实补料后同一 SPA 的裁片单行与详情读取同一事实', async ({ page }) => {
+  test.setTimeout(120_000)
+  await page.goto('/fcs/craft/cutting/supplement-management?mode=create&releaseSnapshotId=cpr-target-po-14671-v9')
+  const candidate = page.getByRole('radio', { name: '选择裁片单 CUT14671-A' })
+  await expect(candidate).toBeEnabled()
+  await candidate.check()
+  await page.getByRole('button', { name: '下一步' }).click()
+  await page.locator('[data-supplement-reason]').selectOption('尺码齐套不足')
+  await page.locator('[data-supplement-reason-detail]').fill('动态投影验收：真实补料归属 CUT14671-A。')
+  await page.getByRole('button', { name: '提交补料' }).click()
+  await page.getByRole('button', { name: '确认生成补料单' }).click()
+  await expect(page.getByRole('heading', { name: '补料单详情' })).toBeVisible()
+  const created = await page.evaluate(async () => {
+    const registry = await import('/src/data/fcs/cutting/supplement-order-registry.ts')
+    const order = registry.listSupplementOrders().find((item) => item.reasonDetail === '动态投影验收：真实补料归属 CUT14671-A。')
+    if (!order) throw new Error('未找到刚创建的真实补料单')
+    return { id: order.id, recordNo: order.recordNo, totalQty: order.totalQty, reason: order.reason }
+  })
+
+  await page.getByLabel('补料单详情').getByRole('button', { name: '关闭', exact: true }).click()
+  await page.getByRole('button', { name: '裁前准备', exact: true }).click()
+  await page.getByRole('complementary').getByRole('button', { name: '裁片单', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '裁片单', exact: true })).toBeVisible({ timeout: 30_000 })
+  const row = await findCutOrderRow(page, 'CUT14671-A')
+  const tag = row.locator(`[data-supplement-id="${created.id}"]`)
+  await expect(tag).toBeVisible()
+  await expect(tag).toHaveAccessibleName(/补 · 第 \d+ 次 · 未完成/)
+  await tag.click()
+  const detail = page.locator('[data-cutting-piece-supplement-detail]')
+  await expect(detail).toContainText(created.recordNo)
+  await expect(detail).toContainText('CUT14671-A')
+  await expect(detail).toContainText(created.reason)
+  await expect(detail).toContainText(`${created.totalQty} 件`)
+})
+
 test('CUT14671-B 稳定补料定义只允许存在于一个共享 fixture', () => {
   const cutOrdersSource = readFileSync('src/pages/process-factory/cutting/cut-orders.ts', 'utf8')
   const supplementSource = readFileSync('src/pages/process-factory/cutting/supplement-management.ts', 'utf8')
