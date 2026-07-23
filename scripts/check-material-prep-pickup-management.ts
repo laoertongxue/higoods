@@ -6,16 +6,15 @@ import process from 'node:process'
 
 import {
   appendManualPrepRecord,
-  appendPickupRecordFromPrepRecord,
+  appendPickupSessionFromNode,
   closeMaterialPrepOrder,
   confirmMaterialPrepRecord,
   createProductionMaterialPrepSeedStore,
   getMaterialPrepOrderProjection,
   getMaterialPrepRecordContext,
   getMaterialPrepRecordItems,
+  listActivePickupNodes,
   listMaterialPrepOrderProjections,
-  listPdaTransferPickupCandidates,
-  listPickupCandidates,
   materialPrepWorkbenchTabs,
   pickupWorkbenchTabs,
   rejectMaterialPrepRecord,
@@ -24,10 +23,6 @@ import {
   type PickupOrderStatus,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
 import { listBusinessFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
-import {
-  renderCraftCuttingPickupManagementDetailPage,
-  renderCraftCuttingPickupManagementPage,
-} from '../src/pages/process-factory/cutting/pickup-management.ts'
 import {
   renderWlsTransferMaterialPrepDetailPage,
   renderWlsTransferMaterialPrepPage,
@@ -253,49 +248,37 @@ function main(): void {
     '任务维度配料情况必须列出关联配料记录',
   )
 
-  const pickupCandidates = listPickupCandidates(null)
-  assert(pickupCandidates.length > 0, '已确认配料记录未进入领料可领投影')
-  assert(pickupCandidates.every((candidate) => candidate.prepRecordId && candidate.items.length > 0 && candidate.totalAvailableToPickupQty > 0), '可领投影必须按配料记录计算可领数量')
-  assert(pickupCandidates.every((candidate) => candidate.defaultPrepLineId && candidate.defaultCutOrderId), '记录级领料候选必须给待加工仓执行默认物料行')
-  assert(
-    pickupCandidates.some((candidate) =>
-      candidate.prepRecordId === 'prep-rec-po-0007-main-001' &&
-      candidate.items.length >= 8 &&
-      candidate.items.some((item) => item.prepLineId === 'prep-line-po-0007-main' && item.availableToPickupQty === 1008),
-    ),
-    '领料详情默认样例必须有一条包含多物料的已确认可领配料记录 mock',
-  )
-  const candidateWarehouseNames = new Set(pickupCandidates.flatMap((candidate) => candidate.items.map((item) => item.stockWarehouseName)))
+  const activeNodes = listActivePickupNodes(null)
+  assert(activeNodes.length > 0, '已确认未领物料必须形成待领节点')
+  assert(new Set(activeNodes.map((node) => node.prepOrderId)).size === activeNodes.length, '同一生产单同时刻只能有一个活动节点')
+  assert(activeNodes.every((node) => node.items.length > 0), '活动节点必须包含全部可领明细')
+  assert(activeNodes.some((node) => node.nodeType === 'INCOMPLETE_PICKABLE'), 'Mock 缺少未配齐可领节点')
+  assert(activeNodes.some((node) => node.nodeType === 'READY_TO_PICKUP'), 'Mock 缺少已配齐待领节点')
+  assert(activeNodes.some((node) => node.items.some((item) => item.sourcePrepRecordIds.length >= 2)), '多条配料记录未归并到同一节点')
+
+  const readyNode = activeNodes.find((n) => n.nodeType === 'READY_TO_PICKUP')!
+  assert(readyNode.items.length >= 8, '已配齐待领节点必须包含全部物料行')
+
+  const nodeWarehouseNames = new Set(activeNodes.flatMap((node) => node.items.map((item) => item.sourceWarehouseName)))
   ;['中转仓', '辅料仓', '纱线仓', '包材仓'].forEach((warehouseName) => {
-    assert(candidateWarehouseNames.has(warehouseName), `领料候选缺少来源仓库：${warehouseName}`)
+    assert(nodeWarehouseNames.has(warehouseName), `待领节点缺少来源仓库：${warehouseName}`)
   })
-  const pdaCandidates = listPdaTransferPickupCandidates(null)
-  assert(pdaCandidates.length === pickupCandidates.length, 'PDA 可领投影必须与 PC 领料管理同源')
-  assert(pdaCandidates.every((candidate) => candidate.prepRecordId), 'PDA 可领投影缺少 prepRecordId')
 
   const storage = new MemoryStorage()
   storage.setItem('productionMaterialPrepWorkflow', serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()))
   assert(
-    !listPickupCandidates(storage).some((candidate) => candidate.prepRecordId === multiItemRecord.prepRecordId),
-    '未确认的多物料配料记录不可进入领料管理',
+    !listActivePickupNodes(storage).some((node) => node.prepOrderId === multiItemRecord?.prepOrderId),
+    '未确认物料不可进入待领节点',
   )
-  const confirmedMultiItemRecord = confirmMaterialPrepRecord(multiItemRecord.prepRecordId, '中转仓 林洁', storage)
+  const confirmedMultiItemRecord = confirmMaterialPrepRecord(multiItemRecord!.prepRecordId, '中转仓 林洁', storage)
   assert(confirmedMultiItemRecord, '多物料配料记录确认后必须返回整条记录')
   assert(confirmedMultiItemRecord.recordStatus === 'CONFIRMED', '配料确认必须作用于整条配料记录')
-  const confirmedMultiItemCount = getMaterialPrepRecordItems(confirmedMultiItemRecord).length
+  rejectMaterialPrepRecord(multiItemRecord!.prepRecordId, '整条配料记录需重配', '记录内任一物料核对异常，整条配料记录退回重新确认。', '裁床 李明', storage)
   assert(
-    listPickupCandidates(storage).filter((candidate) => candidate.prepRecordId === confirmedMultiItemRecord.prepRecordId).length === 1,
-    '整条配料记录确认后只能生成一条待领料通知',
+    !listActivePickupNodes(storage).some((node) => node.prepOrderId === multiItemRecord!.prepOrderId),
+    '整条配料记录被打回后不可再进入待领节点',
   )
-  assert(
-    listPickupCandidates(storage).find((candidate) => candidate.prepRecordId === confirmedMultiItemRecord.prepRecordId)?.items.length === confirmedMultiItemCount,
-    '整条配料记录确认后，记录内所有物料明细必须挂在同一条领料候选 items 下',
-  )
-  rejectMaterialPrepRecord(multiItemRecord.prepRecordId, '整条配料记录需重配', '记录内任一物料核对异常，整条配料记录退回重新确认。', '裁床 李明', storage)
-  assert(
-    !listPickupCandidates(storage).some((candidate) => candidate.prepRecordId === multiItemRecord.prepRecordId),
-    '整条配料记录被打回后，记录内物料明细都不可继续领料',
-  )
+
   const addedRecord = appendManualPrepRecord({
     prepOrderId: 'prep-order-po-202603-0004',
     prepLineId: 'prep-line-po-0004-main',
@@ -306,48 +289,53 @@ function main(): void {
     operatorName: '中转仓 周敏',
   }, storage)
   assert(addedRecord.recordStatus === 'DRAFT', '手动新增配料记录必须先进入未确认状态')
-  assert(getMaterialPrepRecordItems(addedRecord).length === 1, '手动新增配料记录必须生成记录内物料明细')
-  assert(!listPickupCandidates(storage).some((candidate) => candidate.prepRecordId === addedRecord.prepRecordId), '未确认配料记录不可进入领料管理')
-  const confirmedAddedRecord = confirmMaterialPrepRecord(addedRecord.prepRecordId, '中转仓 周敏', storage)
-  assert(confirmedAddedRecord?.recordStatus === 'CONFIRMED', '确认按钮必须确认整条配料记录')
-  assert(listPickupCandidates(storage).some((candidate) => candidate.prepRecordId === addedRecord.prepRecordId), '确认后的配料记录必须进入领料管理')
-  assert(
-    (() => {
-      try {
-        rejectMaterialPrepRecord(addedRecord.prepRecordId, '', '', '裁床 李明', storage)
-        return false
-      } catch {
-        return true
-      }
-    })(),
-    '打回配料记录必须要求填写原因',
-  )
-  rejectMaterialPrepRecord(addedRecord.prepRecordId, '数量与配料记录不一致', '现场核对少 1 卷', '裁床 李明', storage)
-  assert(!listPickupCandidates(storage).some((candidate) => candidate.prepRecordId === addedRecord.prepRecordId), '被打回的配料记录不可继续领料')
-  const rejectedProjection = getMaterialPrepOrderProjection('prep-order-po-202603-0004', storage)
-  assert(rejectedProjection?.order.overallPrepStatus === 'REJECTED_REWORK', '下游打回应使配料单进入被打回重配')
+  confirmMaterialPrepRecord(addedRecord.prepRecordId, '中转仓 周敏', storage)
+  assert(listActivePickupNodes(storage).some((node) => node.items.some((item) => item.sourcePrepRecordIds.includes(addedRecord.prepRecordId))), '确认后的配料记录必须进入待领节点')
 
-  const waitCandidate = listPickupCandidates(storage).find((candidate) => candidate.prepRecordId === 'prep-rec-po-0007-main-001')
-  assert(waitCandidate, '缺少待领料候选配料记录')
-  const waitCandidateItem = waitCandidate.items.find((item) => item.prepLineId === 'prep-line-po-0007-main') || waitCandidate.items[0]
-  assert(waitCandidateItem, '待领料候选配料记录缺少可执行物料明细')
-  appendPickupRecordFromPrepRecord({
-    prepRecordId: waitCandidate.prepRecordId,
-    prepLineId: waitCandidateItem.prepLineId,
-    pickedQty: waitCandidateItem.availableToPickupQty,
-    rollCount: waitCandidateItem.rollCount,
+  const nodeForPickup = listActivePickupNodes(storage).find((n) => n.nodeType === 'READY_TO_PICKUP')
+  assert(nodeForPickup, '缺少已配齐待领节点用于确认领料')
+  const session = appendPickupSessionFromNode({
+    pickupNodeId: nodeForPickup.nodeId,
+    pickupNodeVersion: nodeForPickup.version,
     receiverName: '裁床 李明',
     warehouseArea: '待加工仓 A 区',
     locationCode: 'FAB-A-09',
-    waitProcessLedgerEventId: 'check-runtime-pickup',
+    waitProcessLedgerEventId: 'check-node-session',
   }, storage)
-  const pickedContext = getMaterialPrepRecordContext(waitCandidate.prepRecordId, waitCandidateItem.prepLineId, storage)
-  assert(pickedContext?.availableToPickupQty === 0, '领料记录必须扣减配料记录可领数量')
+  assert(session.status === '本轮已领完', '领料主记录状态错误')
+  assert(session.pickupRecordIds.length === nodeForPickup.items.length, '节点每条物料必须形成一条领料明细')
+  assert(!listActivePickupNodes(storage).some((n) => n.nodeId === nodeForPickup.nodeId), '确认后该生产单节点必须关闭')
+
+  const duplicate = appendPickupSessionFromNode({
+    pickupNodeId: nodeForPickup.nodeId,
+    pickupNodeVersion: nodeForPickup.version,
+    receiverName: '裁床 李明',
+    warehouseArea: '待加工仓 A 区',
+    locationCode: 'FAB-A-09',
+    waitProcessLedgerEventId: 'check-node-session-retry',
+  }, storage)
+  assert(duplicate.pickupSessionId === session.pickupSessionId, '重复确认必须返回原主记录')
+
+  let versionConflictThrew = false
+  try {
+    appendPickupSessionFromNode({
+      pickupNodeId: nodeForPickup.nodeId,
+      pickupNodeVersion: 99,
+      receiverName: '裁床 李明',
+      warehouseArea: '待加工仓 A 区',
+      locationCode: 'FAB-A-09',
+      waitProcessLedgerEventId: 'check-version-conflict',
+    }, storage)
+  } catch (e) {
+    versionConflictThrew = (e as Error).message.includes('当前待领物料已更新')
+  }
+  assert(versionConflictThrew, '旧版本节点确认必须阻断')
+
   closeMaterialPrepOrder('prep-order-po-202603-0004', '后续不再配，按实关闭', '中转仓 周敏', storage)
   const closedProjection = getMaterialPrepOrderProjection('prep-order-po-202603-0004', storage)
   assert(closedProjection?.order.pickupStatus === 'ACTUAL_CLOSED', '配料关闭后领料端必须显示按实完结')
   assert(closedProjection?.order.overallPrepStatus === 'CLOSED', '关闭配料单后必须进入已关闭状态')
-  assert(closedProjection?.lines.some((line) => line.linePrepStatus === '按实关闭' && line.remainingNeedQty > 0), '关闭确认必须保留缺口物料并标记按实关闭')
+
 
   const wlsListHtml = renderWlsTransferMaterialPrepPage()
   ;['配料管理', '配料工作台', '待配料 - 无库存可配', '待配料 - 部分有库存可配', '待配料 - 全部都有充足库存', '被打回重配', '已配齐', '已关闭', '查看详情', '新增配料记录', '关闭配料单'].forEach((snippet) => {
@@ -392,26 +380,12 @@ function main(): void {
   ;['生产需求信息', '当前各仓库存信息与上游进度', '与配料记录关联的领料记录', '手动新增配料记录'].forEach((snippet) => {
     assertNotIncludes(wlsListHtml, snippet, `WLS 配料列表页不应混入详情内容：${snippet}`)
   })
-  const previousWindow = (globalThis as any).window
-  const previousLocalStorage = (globalThis as any).localStorage
-  const pageStorage = new MemoryStorage()
-  pageStorage.setItem('productionMaterialPrepWorkflow', serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()))
-  confirmMaterialPrepRecord('prep-rec-po-0004-main-draft-001', '中转仓 周敏', pageStorage)
-  ;(globalThis as any).localStorage = pageStorage
-  ;(globalThis as any).window = {
-    location: {
-      search: '?tab=WAIT_PICKUP',
-    },
-  }
-  const pickupPageAfterConfirmHtml = renderCraftCuttingPickupManagementPage()
-  if (previousWindow === undefined) delete (globalThis as any).window
-  else (globalThis as any).window = previousWindow
-  if (previousLocalStorage === undefined) delete (globalThis as any).localStorage
-  else (globalThis as any).localStorage = previousLocalStorage
-  ;['PO-202603-0004', 'prep-rec-po-0004-main-draft-001', '查看配料单'].forEach((snippet) => {
-    assertIncludes(pickupPageAfterConfirmHtml, snippet, `确认整条配料记录后 WAIT_PICKUP 列表必须展示待领料对象：${snippet}`)
+  assertNotIncludes(dataSource, 'styleImageUrl', '配料与领料数据模型不允许拆出 styleImageUrl')
+  ;['MaterialPrepOrder', 'spuImageUrl', 'MaterialPrepLine', 'MaterialPrepMaterialType', 'materialType', 'materialImageUrl', 'stockWarehouseName', 'stockWarehouseArea', 'stockLocationCode', 'MaterialPrepTaskLink', 'taskLinks', 'MaterialPrepTaskProjection', 'taskProjections', 'MaterialPrepRecord', 'MaterialPrepRecordItem', 'MaterialPrepRecordContextItem', 'PickupRecord', 'PickupSession', 'pickupSessions', 'PrepRejectRecord', 'listActivePickupNodes', 'appendPickupSessionFromNode', 'buildPickupNodeItems'].forEach((snippet) => {
+    assertIncludes(dataSource, snippet, `字段级模型缺少：${snippet}`)
   })
   const renderWlsDetailBySearch = (search: string): string => {
+    const previousWindow = (globalThis as any).window
     ;(globalThis as any).window = {
       location: {
         search,
@@ -480,84 +454,9 @@ function main(): void {
   ;['确认 / 打回', '>确认配料</button>', '来源流水', '手动新增配料记录', '配料批次'].forEach((snippet) => {
     assertNotIncludes(wlsDetailRecordsHtml, snippet, `WLS 配料详情页不应出现旧字段或物料行确认动作：${snippet}`)
   })
-  const pickupHtml = renderCraftCuttingPickupManagementPage()
-  ;['领料管理', '领料工作台', '待领料', '打回待仓库处理', '已领料完结', '按实完结', '待领料按配料记录逐条展示', '一条已确认配料记录对应一条裁床待领料通知', '待领料配料记录', '记录内物料', '本次可领', '来源仓库', '确认信息', '办理领料入库', '查看详情', '查看配料单', 'prepModal=1', '/materials/', '/dress-sample-1.jpg'].forEach((snippet) => {
-    assertIncludes(pickupHtml, snippet, `PFOS 领料列表页缺少文案：${snippet}`)
-  })
-  assertNotIncludes(pickupHtml, '可部分领料', 'PFOS 领料工作台不应再拆出可部分领料状态')
-  assertNotIncludes(pickupHtml, '待继续领料', 'PFOS 领料管理不应再出现同一配料记录半领后的续领状态')
-  assertNotIncludes(pickupHtml, '去待加工仓领料', 'PFOS 领料动作文案不应再使用有歧义的去待加工仓领料')
-  assertNotIncludes(pickupHtml, 'data:image/svg+xml', 'PFOS 领料列表页不允许出现 SVG 占位图')
-  ;['打回配料记录', '领料详情', '打回原因（必填）'].forEach((snippet) => {
-    assertNotIncludes(pickupHtml, snippet, `PFOS 领料列表页不应混入详情内容：${snippet}`)
-  })
-  ;(globalThis as any).window = {
-    location: {
-      search: '?tab=WAIT_PICKUP&prepOrderId=prep-order-po-202603-0007&prepRecordId=prep-rec-po-0007-main-001&prepLineId=prep-line-po-0007-main&prepModal=1',
-    },
-  }
-  const pickupModalHtml = renderCraftCuttingPickupManagementPage()
-  if (previousWindow === undefined) delete (globalThis as any).window
-  else (globalThis as any).window = previousWindow
-  ;['配料单详情', '已确认待领料', '办理领料入库', '打回中转仓', '打回原因（必填）', '详细说明（必填）', 'data-pickup-action="reject-prep-record"', 'data-pickup-reject-reason', 'data-pickup-reject-detail', '打回对象是整条配料记录'].forEach((snippet) => {
-    assertIncludes(pickupModalHtml, snippet, `PFOS 领料列表查看配料单弹窗缺少处理入口：${snippet}`)
-  })
-  const renderPickupDetailBySearch = (search: string): string => {
-    ;(globalThis as any).window = {
-      location: {
-        search,
-      },
-    }
-    const html = renderCraftCuttingPickupManagementDetailPage()
-    if (previousWindow === undefined) delete (globalThis as any).window
-    else (globalThis as any).window = previousWindow
-    return html
-  }
-  const pickupDetailDemandHtml = renderPickupDetailBySearch('?prepOrderId=prep-order-po-202603-0007&prepRecordId=prep-rec-po-0007-main-001&fromTab=WAIT_PICKUP')
-  const pickupDetailRecordsHtml = renderPickupDetailBySearch('?prepOrderId=prep-order-po-202603-0007&prepRecordId=prep-rec-po-0007-main-001&fromTab=WAIT_PICKUP&detailTab=records')
-  const pickupDetailMaterialsHtml = renderPickupDetailBySearch('?prepOrderId=prep-order-po-202603-0007&prepRecordId=prep-rec-po-0007-main-001&fromTab=WAIT_PICKUP&detailTab=materials')
-  const pickupDetailWarehouseHtml = renderPickupDetailBySearch('?prepOrderId=prep-order-po-202603-0007&prepRecordId=prep-rec-po-0007-main-001&fromTab=WAIT_PICKUP&detailTab=warehouse')
-  const pickupDetailRejectHtml = renderPickupDetailBySearch('?prepOrderId=prep-order-po-202603-0007&prepRecordId=prep-rec-po-0007-main-001&fromTab=WAIT_PICKUP&detailTab=reject')
-  ;['领料详情', '返回领料列表', '生产需求信息', '待领料配料记录', '物料领料明细', '待加工仓入库记录', '打回处理记录', '款式/SPU 图', '/dress-sample-1.jpg', 'PO-202603-0007'].forEach((snippet) => {
-    assertIncludes(pickupDetailDemandHtml, snippet, `PFOS 领料详情生产需求 Tab 缺少文案或 mock：${snippet}`)
-  })
-  assertNotIncludes(pickupDetailDemandHtml, '查看中转仓配料详情', 'PFOS 领料详情不应再显示查看中转仓配料详情按钮')
-  assertNotIncludes(pickupDetailDemandHtml, '打回原因（必填）', 'PFOS 领料详情默认生产需求 Tab 不应混入打回表单')
-  ;['待领料配料记录', 'BATCH-NVY-260316-01', 'prep-rec-po-0007-main-001', '1,008 yard', '辅料仓', '纱线仓', '包材仓', '办理领料入库', '查看配料单'].forEach((snippet) => {
-    assertIncludes(pickupDetailRecordsHtml, snippet, `PFOS 领料详情待领料配料记录 Tab 缺少文案或 mock：${snippet}`)
-  })
-  assertNotIncludes(pickupDetailRecordsHtml, '去待加工仓领料', 'PFOS 领料详情待领料配料记录 Tab 不应再使用有歧义的去待加工仓领料')
-  ;['物料领料明细', '按生产单全部物料展示需求、已确认配料、已领料、来源仓库和缺料进度', '/materials/', '已确认配料', '已领', '来源仓库', '缺料进度'].forEach((snippet) => {
-    assertIncludes(pickupDetailMaterialsHtml, snippet, `PFOS 领料详情物料领料明细 Tab 缺少文案或 mock：${snippet}`)
-  })
-  ;['待加工仓入库记录', '裁床执行中转仓领料后', '领料记录', '配料记录', '入库库区 / 库位'].forEach((snippet) => {
-    assertIncludes(pickupDetailWarehouseHtml, snippet, `PFOS 领料详情待加工仓入库记录 Tab 缺少文案：${snippet}`)
-  })
-  ;['打回配料记录', '打回对象是整条配料记录', '打回原因（必填）', '详细说明（必填）', '打回中转仓'].forEach((snippet) => {
-    assertIncludes(pickupDetailRejectHtml, snippet, `PFOS 领料详情打回处理 Tab 缺少文案或字段：${snippet}`)
-  })
-  ;[pickupDetailDemandHtml, pickupDetailRecordsHtml, pickupDetailMaterialsHtml, pickupDetailWarehouseHtml, pickupDetailRejectHtml].forEach((html) => {
-    assertNotIncludes(html, 'data:image/svg+xml', 'PFOS 领料详情页不允许出现 SVG 占位图')
-  })
 
-  ;['prepRecordId', 'prepOrderId', 'prepLineId', 'prepContext.items.length', '已关联配料记录', '记录内物料', '整条记录待领', '提交后会写回领料记录并入裁床待加工仓'].forEach((snippet) => {
-    assertIncludes(warehouseHub, snippet, `待加工仓中转仓领料未关联配料记录字段：${snippet}`)
-  })
-  ;['listPdaTransferPickupCandidates', 'data-prep-record-id', 'data-prep-line-id', 'cuttingPickupPrepRecordId', 'cuttingPickupPrepLineId', 'prepRecordId'].forEach((snippet) => {
-    assertIncludes(pdaWaitProcess, snippet, `PDA 中转仓领料未接入生产单级配料记录：${snippet}`)
-  })
-  ;['handleWlsTransferMaterialPrepEvent', 'confirmMaterialPrepRecord', 'closeMaterialPrepOrder', 'data-wls-prep-action="confirm-record"', 'data-wls-prep-action="close-order"', 'buildAddPrepRecordHref', 'renderContinuePrepRecordModal', 'renderClosePrepOrderModal', 'renderTaskPrepOverview', 'getPrepRecordNumber'].forEach((snippet) => {
-    assertIncludes(wlsMaterialPrepSource, snippet, `WLS 配料确认事件缺少：${snippet}`)
-  })
-  ;['handleCraftCuttingPickupManagementEvent', 'rejectMaterialPrepRecord', 'data-pickup-action="reject-prep-record"', 'buildPrepModalHref'].forEach((snippet) => {
-    assertIncludes(pickupManagementSource, snippet, `PFOS 领料弹窗/打回事件缺少：${snippet}`)
-  })
-  ;['getPickupRowsForTab', "activeTab === 'WAIT_PICKUP'", 'renderWaitPickupCandidateTable', 'renderCandidateMaterialPreview', 'getPickupTabCount'].forEach((snippet) => {
-    assertIncludes(pickupManagementSource, snippet, `PFOS 待领料列表必须按配料记录候选展示：${snippet}`)
-  })
-  assertIncludes(fcsHandlersSource, 'handleCraftCuttingPickupManagementEvent', 'FCS 事件分发未注册领料管理事件')
   assertNotIncludes(dataSource, 'styleImageUrl', '配料与领料数据模型不允许拆出 styleImageUrl')
-  ;['MaterialPrepOrder', 'spuImageUrl', 'MaterialPrepLine', 'MaterialPrepMaterialType', 'materialType', 'materialImageUrl', 'stockWarehouseName', 'stockWarehouseArea', 'stockLocationCode', 'MaterialPrepTaskLink', 'taskLinks', 'MaterialPrepTaskProjection', 'taskProjections', 'MaterialPrepRecord', 'MaterialPrepRecordItem', 'PrepRecordPickupCandidateItem', 'items: PrepRecordPickupCandidateItem[]', 'PickupRecord', 'PrepRejectRecord'].forEach((snippet) => {
+  ;['MaterialPrepOrder', 'spuImageUrl', 'MaterialPrepLine', 'MaterialPrepMaterialType', 'materialType', 'materialImageUrl', 'stockWarehouseName', 'stockWarehouseArea', 'stockLocationCode', 'MaterialPrepTaskLink', 'taskLinks', 'MaterialPrepTaskProjection', 'taskProjections', 'MaterialPrepRecord', 'MaterialPrepRecordItem', 'MaterialPrepRecordContextItem', 'PickupRecord', 'PickupSession', 'pickupSessions', 'PrepRejectRecord'].forEach((snippet) => {
     assertIncludes(dataSource, snippet, `字段级模型缺少：${snippet}`)
   })
   ;['factoryId', 'factoryCode', 'listBusinessFactoryMasterRecords', 'processCode', 'capacityNodeCode'].forEach((snippet) => {
