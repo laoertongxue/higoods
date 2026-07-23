@@ -89,6 +89,7 @@ export interface PickupSession {
   warehouseSyncStatus: '已回写' | '回写异常待重试'
   warehouseSyncMessage?: string
   idempotencyKey?: string
+  migrationEvidence?: '按累计领料逐行齐套推导' | '旧事实不足，保守按未配齐'
 }
 
 export interface PickupNodeSnapshotState {

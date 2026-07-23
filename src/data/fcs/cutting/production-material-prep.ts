@@ -2496,7 +2496,11 @@ function nowText(date = new Date()): string {
 }
 
 export function createProductionMaterialPrepSeedStore(): ProductionMaterialPrepWorkflowStore {
-  const pickup = migratePickupSessions(cloneRecord(seedPickupRecords), [])
+  const pickup = migratePickupSessions(
+    cloneRecord(seedPickupRecords),
+    [],
+    cloneRecord(seedPickupReturnRecords),
+  )
   return {
     prepRecords: cloneRecord(seedPrepRecords).map(normalizePrepRecordQuantities),
     pickupRecords: pickup.pickupRecords,
@@ -2562,11 +2566,13 @@ function normalizePrepRecordQuantities(record: MaterialPrepRecord): MaterialPrep
 function migratePickupSessions(
   pickupRecords: PickupRecord[],
   existingSessions: PickupSession[],
+  pickupReturnRecords: MaterialPickupReturnRecord[],
 ): { pickupRecords: PickupRecord[]; pickupSessions: PickupSession[] } {
   const records = pickupRecords.map((record) => ({ ...record }))
   const sessions = existingSessions.map((session) => ({ ...session, pickupRecordIds: [...session.pickupRecordIds] }))
   const coveredRecordIds = new Set(sessions.flatMap((session) => session.pickupRecordIds))
   const groups = new Map<string, PickupRecord[]>()
+  const migratedSessionIds = new Set<string>()
 
   for (const record of records) {
     if (Number(record.pickedQty || 0) <= 0 || coveredRecordIds.has(record.pickupRecordId)) continue
@@ -2643,9 +2649,50 @@ function migratePickupSessions(
       warehouseSyncStatus: '已回写',
     }
     sessions.push(session)
+    migratedSessionIds.add(session.pickupSessionId)
     for (const record of group) {
       record.pickupSessionId = pickupSessionId
       record.pickupNodeId = pickupNodeId
+    }
+  }
+
+  const recordsById = new Map(records.map((record) => [record.pickupRecordId, record]))
+  const sessionsByOrder = groupByKey(sessions, (session) => session.prepOrderId)
+  for (const [prepOrderId, orderSessions] of sessionsByOrder) {
+    const seedOrder = materialPrepSeedOrders.find((order) => order.prepOrderId === prepOrderId)
+    const orderedSessions = [...orderSessions].sort((left, right) =>
+      left.pickedAt.localeCompare(right.pickedAt)
+      || left.pickupNodeId.localeCompare(right.pickupNodeId)
+      || left.pickupSessionId.localeCompare(right.pickupSessionId)
+    )
+    const cumulativeRecordIds = new Set<string>()
+    for (const session of orderedSessions) {
+      session.pickupRecordIds.forEach((recordId) => cumulativeRecordIds.add(recordId))
+      if (!migratedSessionIds.has(session.pickupSessionId)) continue
+      const hasUncertainReturnTime = pickupReturnRecords.some((record) =>
+        cumulativeRecordIds.has(record.pickupRecordId) && !record.returnedAt
+      )
+      if (!seedOrder || hasUncertainReturnTime) {
+        session.nodeType = 'INCOMPLETE_PICKABLE'
+        session.migrationEvidence = '旧事实不足，保守按未配齐'
+        continue
+      }
+      const complete = seedOrder.lines.every((line) => {
+        const grossPickedQty = Array.from(cumulativeRecordIds)
+          .map((recordId) => recordsById.get(recordId))
+          .filter((record): record is PickupRecord => Boolean(record) && record.prepLineId === line.prepLineId)
+          .reduce((sum, record) => sum + Number(record.pickedQty || 0), 0)
+        const returnedQty = pickupReturnRecords
+          .filter((record) =>
+            cumulativeRecordIds.has(record.pickupRecordId)
+            && record.prepLineId === line.prepLineId
+            && record.returnedAt <= session.pickedAt
+          )
+          .reduce((sum, record) => sum + Number(record.returnQty || 0), 0)
+        return roundQty(Math.max(grossPickedQty - returnedQty, 0)) >= line.requiredQty
+      })
+      session.nodeType = complete ? 'READY_TO_PICKUP' : 'INCOMPLETE_PICKABLE'
+      session.migrationEvidence = '按累计领料逐行齐套推导'
     }
   }
 
@@ -2669,16 +2716,18 @@ export function deserializeProductionMaterialPrepStore(raw: string | null): Prod
     const pickupRecords = Array.isArray(parsed.pickupRecords)
       ? mergeMissingSeedRecords(parsed.pickupRecords, seedPickupRecords, (record) => record.pickupRecordId)
       : cloneRecord(seedPickupRecords)
+    const pickupReturnRecords = Array.isArray(parsed.pickupReturnRecords)
+      ? mergeMissingSeedRecords(parsed.pickupReturnRecords, seedPickupReturnRecords, (record) => record.returnRecordId)
+      : cloneRecord(seedPickupReturnRecords)
     const migratedPickup = migratePickupSessions(
       pickupRecords,
       Array.isArray(parsed.pickupSessions) ? cloneRecord(parsed.pickupSessions) : [],
+      pickupReturnRecords,
     )
     return {
       prepRecords,
       pickupRecords: migratedPickup.pickupRecords,
-      pickupReturnRecords: Array.isArray(parsed.pickupReturnRecords)
-        ? mergeMissingSeedRecords(parsed.pickupReturnRecords, seedPickupReturnRecords, (record) => record.returnRecordId)
-        : cloneRecord(seedPickupReturnRecords),
+      pickupReturnRecords,
       rejectRecords: Array.isArray(parsed.rejectRecords)
         ? mergeMissingSeedRecords(parsed.rejectRecords, seedRejectRecords, (record) => record.rejectId)
         : cloneRecord(seedRejectRecords),
@@ -4382,7 +4431,39 @@ export function appendPickupReturnRecord(
   if (!pickupRecord) {
     throw new Error(`领料记录不存在：${input.pickupRecordId}`)
   }
-  if (pickupRecord.prepRecordId !== input.prepRecordId || pickupRecord.prepLineId !== input.prepLineId) {
+  const normalizedRollCount = Math.max(Math.round(input.rollCount || 1), 1)
+  if (pickupRecord.sourceAllocations?.length) {
+    const sourceAllocations = pickupRecord.sourceAllocations.filter((allocation) =>
+      allocation.prepRecordId === input.prepRecordId
+      && allocation.prepLineId === input.prepLineId
+    )
+    if (!sourceAllocations.length) {
+      throw new Error('退回物料行不属于该领料记录的来源分摊')
+    }
+    const sourcePickedQty = roundQty(
+      sourceAllocations.reduce((sum, allocation) => sum + Number(allocation.pickedQty || 0), 0),
+    )
+    const sourcePickedRollCount = sourceAllocations
+      .reduce((sum, allocation) => sum + Math.max(Math.round(Number(allocation.rollCount || 0)), 0), 0)
+    const sourceReturnRecords = context.projection.pickupReturnRecords.filter((record) =>
+      record.pickupRecordId === pickupRecord.pickupRecordId
+      && record.prepRecordId === input.prepRecordId
+      && record.prepLineId === input.prepLineId
+    )
+    const sourceReturnedQty = roundQty(
+      sourceReturnRecords.reduce((sum, record) => sum + Number(record.returnQty || 0), 0),
+    )
+    const sourceReturnedRollCount = sourceReturnRecords
+      .reduce((sum, record) => sum + Math.max(Math.round(Number(record.rollCount || 0)), 0), 0)
+    const sourceAvailableQty = roundQty(Math.max(sourcePickedQty - sourceReturnedQty, 0))
+    const sourceAvailableRollCount = Math.max(sourcePickedRollCount - sourceReturnedRollCount, 0)
+    if (returnQty > sourceAvailableQty) {
+      throw new Error(`退回数量不能超过该来源可退数量 ${sourceAvailableQty} ${context.line.unit}`)
+    }
+    if (normalizedRollCount > sourceAvailableRollCount) {
+      throw new Error(`退回卷件数不能超过该来源可退卷件数 ${sourceAvailableRollCount}`)
+    }
+  } else if (pickupRecord.prepRecordId !== input.prepRecordId || pickupRecord.prepLineId !== input.prepLineId) {
     throw new Error('退回物料行与领料记录不一致')
   }
   const waitProcessAvailableQty = roundQty(Number(pickupRecord.waitProcessAvailableQty ?? pickupRecord.pickedQty ?? 0))
@@ -4400,7 +4481,7 @@ export function appendPickupReturnRecord(
     prepLineId: input.prepLineId,
     productionOrderId: pickupRecord.productionOrderId,
     returnQty,
-    rollCount: Math.max(Math.round(input.rollCount || 1), 1),
+    rollCount: normalizedRollCount,
     unit: context.line.unit,
     reason: input.reason,
     remark: input.remark,
