@@ -4296,6 +4296,7 @@ export function appendPickupSessionFromNode(
     locationCode: string
     waitProcessLedgerEventId: string
     idempotencyKey?: string
+    warehouseSyncDeferred?: boolean
   },
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): PickupSession {
@@ -4377,8 +4378,10 @@ export function appendPickupSessionFromNode(
     toWarehouseArea: input.warehouseArea,
     toLocationCode: input.locationCode,
     status: '本轮已领完',
-    warehouseSyncStatus: '已回写',
+    warehouseSyncStatus: input.warehouseSyncDeferred ? '回写异常待重试' : '已回写',
+    warehouseSyncMessage: input.warehouseSyncDeferred ? '领料事实已保存，待写入裁床待加工仓流水。' : undefined,
     idempotencyKey: input.idempotencyKey,
+    pickupNodeSnapshot: cloneRecord(node),
   }
 
   store.pickupSessions = [session, ...store.pickupSessions]
@@ -4386,6 +4389,15 @@ export function appendPickupSessionFromNode(
   persistProductionMaterialPrepStore(store, storage)
 
   return cloneRecord(session)
+}
+
+export function getPickupSessionByNodeId(
+  pickupNodeId: string,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): PickupSession | null {
+  const session = hydrateProductionMaterialPrepStore(storage).pickupSessions
+    .find((item) => item.pickupNodeId === pickupNodeId)
+  return session ? cloneRecord(session) : null
 }
 
 export function recordPickupSessionWarehouseSyncResult(

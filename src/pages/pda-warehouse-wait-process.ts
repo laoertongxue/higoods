@@ -37,11 +37,13 @@ import {
 } from '../data/fcs/cutting/material-ledger.ts'
 import {
   appendPickupSessionFromNode,
+  getPickupSessionByNodeId,
   getMaterialPrepRecordContext,
+  listMaterialPrepOrderProjections,
   listActivePickupNodes,
   recordPickupSessionWarehouseSyncResult,
 } from '../data/fcs/cutting/production-material-prep.ts'
-import type { PickupNodeProjection } from '../data/fcs/cutting/pickup-node-domain.ts'
+import type { PickupNodeProjection, PickupSession } from '../data/fcs/cutting/pickup-node-domain.ts'
 import { buildMarkerSpreadingProjection } from './process-factory/cutting/marker-spreading-projection.ts'
 import type { SpreadingOrder } from './process-factory/cutting/marker-spreading-model.ts'
 import {
@@ -750,7 +752,7 @@ function renderCuttingPendingPickupList(rows: MaterialLedgerProjection[]): strin
 
 function getCuttingWaitProcessActions() {
   return [
-    { key: 'pickup', action: 'cutting-wp-pickup', title: '中转仓领料', desc: '按裁片任务领回物料，并确认入库库区库位。' },
+    { key: 'pickup', action: 'cutting-wp-pickup', title: '中转仓领料', desc: '按生产单待领节点核对全部实物，并确认入库库区库位。' },
     { key: 'issue', action: 'cutting-wp-issue', title: '加工领料', desc: '扫铺布单，从指定库区库位领走面料。' },
     { key: 'return', action: 'cutting-wp-return', title: '回收入仓', desc: '铺布剩余面料扫码回收，写回库区库位。' },
   ]
@@ -856,6 +858,66 @@ function buildPickupUnitSummaries(node: PickupNodeProjection): Array<{ unit: str
     summaries.set(item.unit, summary)
   }
   return Array.from(summaries.values())
+}
+
+function syncCuttingPickupSessionRuntimeFacts(session: PickupSession): void {
+  const nodeSnapshot = session.pickupNodeSnapshot
+  if (!nodeSnapshot) throw new Error('领料节点快照缺失，无法补写待加工仓流水。')
+  let pickupRecordIndex = 0
+  for (const item of nodeSnapshot.items) {
+    const runtimeUnit = (
+      ['yard', '片', '件', '条', '粒', '卷', '公斤'].includes(item.unit) ? item.unit : '件'
+    ) as CuttingRuntimeQtyUnit
+    const pickupRecordId = session.pickupRecordIds[pickupRecordIndex] || ''
+    pickupRecordIndex += 1
+    appendCuttingRuntimeEvent({
+      eventType: '中转仓领料',
+      operatorName: session.receiverName,
+      operatorRole: 'PDA 仓管',
+      occurredAt: session.pickedAt,
+      refs: {
+        cutOrderNo: nodeSnapshot.productionOrderNo,
+        productionOrderNo: nodeSnapshot.productionOrderNo,
+        handoverRecordId: `${session.pickupSessionId}:${item.prepLineId}`,
+      },
+      material: {
+        materialSku: item.materialSku,
+        materialName: item.materialName,
+        materialColor: item.color,
+        materialAlias: item.materialName,
+        unit: runtimeUnit,
+      },
+      inventoryEffect: {
+        inventoryScope: '裁床待加工仓',
+        direction: 'IN',
+        qty: item.currentAvailableQty,
+        unit: runtimeUnit,
+        rollCount: item.rollCount,
+        toWarehouseArea: session.toWarehouseArea,
+        toLocationCode: session.toLocationCode,
+      },
+      payload: {
+        pickupSessionId: session.pickupSessionId,
+        pickupSessionNo: session.pickupSessionNo,
+        pickupNodeId: session.pickupNodeId,
+        pickupNodeVersion: session.pickupNodeVersion,
+        pickupRecordId,
+        pickupRecordIds: session.pickupRecordIds,
+        prepOrderId: nodeSnapshot.prepOrderId,
+        prepLineId: item.prepLineId,
+        materialSku: item.materialSku,
+        pickupQty: item.currentAvailableQty,
+        unit: runtimeUnit,
+        rollCount: item.rollCount,
+        sourceLocations: item.sourceLocations,
+        warehouseArea: session.toWarehouseArea,
+        locationCode: session.toLocationCode,
+        pickupBy: session.receiverName,
+        pickupAt: session.pickedAt,
+        warehouseSyncStatus: '已回写',
+      },
+    })
+  }
 }
 
 function renderCuttingPickupDraftPage(): string {
@@ -1166,6 +1228,8 @@ function renderCuttingWaitProcessEventResult(event: CuttingRuntimeEvent): string
   const qty = getCuttingRuntimeEventQty(event)
   const rollCount = getCuttingRuntimeEventRollCount(event)
   const payload = runtimeRecord(event.payload)
+  const pickupSession = getPickupSessionByNodeId(runtimeString(payload.pickupNodeId))
+  const warehouseSyncStatus = pickupSession?.warehouseSyncStatus || runtimeString(payload.warehouseSyncStatus)
   const unit = event.inventoryEffect?.unit || runtimeString(payload.unit) || 'yard'
   const locationLine = `库区库位：${getCuttingRuntimeEventLocationLabel(event)}`
   return `
@@ -1173,8 +1237,8 @@ function renderCuttingWaitProcessEventResult(event: CuttingRuntimeEvent): string
       <div class="text-sm font-semibold text-foreground">${escapeHtml(getCuttingRuntimeEventSourceText(event))}</div>
       <div>数量：${escapeHtml(`${qty} ${unit} / ${rollCount} 卷`)}</div>
       <div>${escapeHtml(locationLine)}</div>
-      <div>同步状态：${escapeHtml(event.eventStatus)} · ${escapeHtml(event.occurredAt)}</div>
-      ${runtimeString(payload.warehouseSyncStatus) === '回写异常待重试' ? `
+      <div>同步状态：${escapeHtml(warehouseSyncStatus || event.eventStatus)} · ${escapeHtml(event.occurredAt)}</div>
+      ${warehouseSyncStatus === '回写异常待重试' ? `
         <button type="button" class="mt-2 rounded-full border border-amber-300 px-3 py-1.5 text-xs text-amber-700" data-pda-warehouse-action="retry-cutting-pickup-sync" data-pickup-session-id="${escapeAttr(runtimeString(payload.pickupSessionId))}">重试仓储回写</button>
       ` : ''}
     </div>
@@ -1278,15 +1342,30 @@ function renderCuttingPickupTaskPage(rows: MaterialLedgerProjection[]): string {
   if (state.cuttingPickupSourceNo) {
     return `
       <div class="space-y-4 px-4 pb-5 pt-4">
-        ${renderCuttingWaitProcessSubpageHeader('中转仓领料', '确认按裁片任务从中转仓领回的数量、卷数和库区库位。')}
+        ${renderCuttingWaitProcessSubpageHeader('中转仓领料', '只读核对生产单当前待领节点的全部实物，选择库位后一次性确认全部领取。')}
         ${renderCuttingPickupDraftPage()}
       </div>
     `
   }
+  const failedSessions = listMaterialPrepOrderProjections()
+    .flatMap((projection) => projection.pickupSessions)
+    .filter((session) => session.warehouseSyncStatus === '回写异常待重试')
   return `
     <div class="space-y-4 px-4 pb-5 pt-4">
-      ${renderCuttingWaitProcessSubpageHeader('中转仓领料', '中转仓按裁片任务配料后，裁床仓管在这里确认领料数量、卷数和入库位置。')}
+      ${renderCuttingWaitProcessSubpageHeader('中转仓领料', '中转仓确认配料后，裁床仓管按生产单待领节点核对并一次性领取全部实物。')}
       ${renderCuttingPendingPickupList(rows)}
+      ${failedSessions.length ? `
+        <section class="space-y-2">
+          <div class="text-sm font-semibold text-amber-700">领料已完成，待补写入仓流水</div>
+          ${failedSessions.map((session) => `
+            <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs">
+              <div class="font-medium">${escapeHtml(session.pickupSessionNo)}</div>
+              <div class="mt-1 text-amber-700">${escapeHtml(session.warehouseSyncMessage || '回写异常待重试')}</div>
+              <button type="button" class="mt-2 rounded-full border border-amber-300 px-3 py-1.5" data-pda-warehouse-action="retry-cutting-pickup-sync" data-pickup-session-id="${escapeAttr(session.pickupSessionId)}">重试仓储回写</button>
+            </div>
+          `).join('')}
+        </section>
+      ` : ''}
       ${renderCuttingWaitProcessActionResult('pickup', rows)}
       ${renderCuttingWaitProcessNextActions('pickup')}
     </div>
@@ -2154,84 +2233,42 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     const pickupNodeVersion = Number(state.cuttingPickupNodeVersion)
     const warehouseArea = state.cuttingPickupWarehouseArea || '面料 A 区'
     const locationCode = state.cuttingPickupLocationCode || 'FAB-A-01'
+    let session = getPickupSessionByNodeId(pickupNodeId)
     try {
-      const node = listActivePickupNodes().find((item) => item.nodeId === pickupNodeId)
-      if (!node || node.version !== pickupNodeVersion) {
-        window.alert('当前待领物料已更新，请重新核对全部物料后再确认领料。')
-        clearCuttingPickupDraft()
-        return true
-      }
-      const nodeSnapshot = structuredClone(node)
-      cuttingPickupNodeSnapshot = nodeSnapshot
-      const idempotencyKey = `pda-pickup:${pickupNodeId}:v${pickupNodeVersion}`
-      const session = appendPickupSessionFromNode({
-        pickupNodeId,
-        pickupNodeVersion,
-        receiverName: '裁床仓管',
-        warehouseArea,
-        locationCode,
-        waitProcessLedgerEventId: idempotencyKey,
-        idempotencyKey,
-      })
-      const occurredAt = getCuttingRuntimeNowText()
-      let pickupRecordIndex = 0
-      for (const item of nodeSnapshot.items) {
-        const runtimeUnit = (
-          ['yard', '片', '件', '条', '粒', '卷', '公斤'].includes(item.unit) ? item.unit : '件'
-        ) as CuttingRuntimeQtyUnit
-        const pickupRecordId = session.pickupRecordIds[pickupRecordIndex] || ''
-        pickupRecordIndex += 1
-        appendCuttingRuntimeEvent({
-          eventType: '中转仓领料',
-          operatorName: '裁床仓管',
-          operatorRole: 'PDA 仓管',
-          occurredAt,
-          refs: {
-            cutOrderNo: nodeSnapshot.productionOrderNo,
-            productionOrderNo: nodeSnapshot.productionOrderNo,
-            handoverRecordId: `${session.pickupSessionId}:${item.prepLineId}`,
-          },
-          material: {
-            materialSku: item.materialSku,
-            materialName: item.materialName,
-            materialColor: item.color,
-            materialAlias: item.materialName,
-            unit: runtimeUnit,
-          },
-          inventoryEffect: {
-            inventoryScope: '裁床待加工仓',
-            direction: 'IN',
-            qty: item.currentAvailableQty,
-            unit: runtimeUnit,
-            rollCount: item.rollCount,
-            toWarehouseArea: warehouseArea,
-            toLocationCode: locationCode,
-          },
-          payload: {
-            pickupSessionId: session.pickupSessionId,
-            pickupSessionNo: session.pickupSessionNo,
-            pickupNodeId,
-            pickupNodeVersion,
-            pickupRecordId,
-            pickupRecordIds: session.pickupRecordIds,
-            prepOrderId: nodeSnapshot.prepOrderId,
-            prepLineId: item.prepLineId,
-            materialSku: item.materialSku,
-            pickupQty: item.currentAvailableQty,
-            unit: runtimeUnit,
-            rollCount: item.rollCount,
-            sourceLocations: item.sourceLocations,
-            warehouseArea,
-            locationCode,
-            pickupBy: '裁床仓管',
-            pickupAt: occurredAt,
-            warehouseSyncStatus: session.warehouseSyncStatus,
-          },
+      if (!session) {
+        const node = listActivePickupNodes().find((item) => item.nodeId === pickupNodeId)
+        if (!node || node.version !== pickupNodeVersion) {
+          window.alert('当前待领物料已更新，请重新核对全部物料后再确认领料。')
+          clearCuttingPickupDraft()
+          return true
+        }
+        const nodeSnapshot = structuredClone(node)
+        cuttingPickupNodeSnapshot = nodeSnapshot
+        const idempotencyKey = `pda-pickup:${pickupNodeId}:v${pickupNodeVersion}`
+        session = appendPickupSessionFromNode({
+          pickupNodeId,
+          pickupNodeVersion,
+          receiverName: '裁床仓管',
+          warehouseArea,
+          locationCode,
+          waitProcessLedgerEventId: idempotencyKey,
+          idempotencyKey,
+          warehouseSyncDeferred: true,
         })
       }
+      syncCuttingPickupSessionRuntimeFacts(session)
+      recordPickupSessionWarehouseSyncResult(session.pickupSessionId, { status: '已回写' })
       window.history.replaceState({}, '', '/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup')
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : '领料失败')
+      if (session) {
+        recordPickupSessionWarehouseSyncResult(session.pickupSessionId, {
+          status: '回写异常待重试',
+          message: e instanceof Error ? e.message : '待加工仓流水写入失败',
+        })
+      }
+      window.alert(e instanceof Error ? `领料已保存，待加工仓流水写入失败：${e.message}` : '领料已保存，待加工仓流水写入失败')
+      window.history.replaceState({}, '', '/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup')
+      clearCuttingPickupDraft()
       return true
     }
     clearCuttingPickupDraft()
@@ -2240,7 +2277,19 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
   if (action === 'retry-cutting-pickup-sync') {
     const pickupSessionId = actionNode?.dataset.pickupSessionId || ''
     if (!pickupSessionId) return true
-    recordPickupSessionWarehouseSyncResult(pickupSessionId, { status: '已回写' })
+    const session = listMaterialPrepOrderProjections()
+      .flatMap((projection) => projection.pickupSessions)
+      .find((item) => item.pickupSessionId === pickupSessionId)
+    if (!session) return true
+    try {
+      syncCuttingPickupSessionRuntimeFacts(session)
+      recordPickupSessionWarehouseSyncResult(pickupSessionId, { status: '已回写' })
+    } catch (error) {
+      recordPickupSessionWarehouseSyncResult(pickupSessionId, {
+        status: '回写异常待重试',
+        message: error instanceof Error ? error.message : '待加工仓流水写入失败',
+      })
+    }
     return true
   }
   if (action === 'cutting-wp-issue') {

@@ -90,6 +90,7 @@ export interface PickupSession {
   warehouseSyncMessage?: string
   idempotencyKey?: string
   migrationEvidence?: '按累计领料逐行齐套推导' | '旧事实不足，保守按未配齐'
+  pickupNodeSnapshot?: PickupNodeProjection
 }
 
 export interface PickupNodeSnapshotState {

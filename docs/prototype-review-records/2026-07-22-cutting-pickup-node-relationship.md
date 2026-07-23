@@ -34,6 +34,7 @@
 | 部分领取 | 不可编辑数量，只允许领走全部节点物料 | ✅ |
 | 仓储清位失败 | 标记主记录 `warehouseSyncStatus: '回写异常待重试'` | ✅ |
 | 仓储回写重试 | PC 已领记录与 PDA 结果均提供重试入口；只改同步状态，不重复生成 Session/Detail | ✅ |
+| 回写中途失败 | Session、N 条 Detail 与节点快照先持久化；重试使用稳定事件 ID 补齐缺失流水，已写流水幂等覆盖 | ✅ |
 | 打回原因空 | 阻断并要求必填 | ✅ |
 | 旧数据缺少领料主记录 | 按已有主记录 ID 或稳定业务组合迁移，节点序号接续历史 | ✅ |
 | 历史领料节点类型 | 按每轮完成后的累计逐物料行齐套结果推导；事实不足时保守标记未配齐并保留判定依据 | ✅ |
@@ -55,6 +56,9 @@
 - ✅ 非待领页不出现“办理领料入库”
 - ✅ 当前节点与历史节点详情均可达，展示节点版本、领料主记录、N 条明细和全部来源货位
 - ✅ Tab、筛选、分页和仓储同步重试仅局部刷新对应区域
+- ✅ 列设置支持列显隐、普通列冻结、列顺序拖拽和恢复默认；列偏好与 10/20/50 每页条数按路由持久化
+- ✅ 排序保持未排序、升序、降序三态，当前排序和页码不持久化
+- ✅ 真实浏览器逐页签测量业务 DOM 完成时间小于 200ms，且标准列表页根节点未替换
 
 ### 2.2 中文状态
 
@@ -111,6 +115,10 @@
 22. PDA 深链携节点版本，旧版本阻断并要求重新核对 → ✅
 23. 确认主按钮不可编辑数量，一次领取当前节点全部物料 → ✅
 24. 全部来源货位和当前卷件数在 PC 详情与 PDA 核对页逐项展示 → ✅
+25. 标准列表列显示、顺序、冻结和每页条数真实可操作并持久化 → ✅
+26. Tab、排序、分页、列设置使用局部刷新，页面根节点保持且响应小于 200ms → ✅
+27. Session 与 Detail 先落事实，仓储流水失败可从 PDA 重试且不重复主记录、明细或流水 → ✅
+28. 节点已关闭后重复提交仍按节点幂等返回原 Session，不被活动节点校验误阻断 → ✅
 
 ## 6. 检查命令结果
 
@@ -122,7 +130,10 @@
 - `npm run check:cutting-prep-pickup-return-linkage` → 通过
 - `npm run check:cutting-pickup-important-regressions` → 通过
 - `npm run check:cutting-pickup-ui-closure` → 通过
-- 真实浏览器 1280×720 四页签切换、非待领页无领料动作、PC→PDA 深链、混合单位逐项入仓 → 通过
+- `npm run check:pda-pickup-flow` → 通过
+- `npm run check:cutting-pickup-node-e2e` → 7 / 7 通过；覆盖四页签事实与局部响应、PC→PDA 深链、列设置全能力、混合单位 1 Session + N Detail、重复提交幂等、回写失败恢复及 1366×768 / 1280×720 无页面横向溢出
+- `npm run check:list-page-governance` → 通过
+- `npm run check:prototype-design-governance -- --all` → 通过
 - `npm run check:cutting-material-return` → 通过
 - `npm run check:material-prep-detail-summary-cleanup` → 通过
 - `npm run build` → 通过

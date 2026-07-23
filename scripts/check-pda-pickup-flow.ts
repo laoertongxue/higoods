@@ -1,110 +1,48 @@
+import fs from 'node:fs'
 import {
-  confirmPdaPickupRecordReceived,
-  getPdaPickupRecordsByHead,
-  findPdaPickupRecord,
-  listPdaHandoverHeads,
-  markPdaPickupRecordWarehouseHanded,
-} from '../src/data/fcs/pda-handover-events.ts'
-import { getProgressExceptionById } from '../src/data/fcs/store-domain-progress.ts'
-import {
-  createPdaPickupDisputeCase,
-  updatePdaPickupDisputePlatformHandling,
-} from '../src/helpers/fcs-pda-pickup-dispute.ts'
+  appendPickupSessionFromNode,
+  createProductionMaterialPrepSeedStore,
+  getPickupSessionByNodeId,
+  listActivePickupNodes,
+  PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
+  serializeProductionMaterialPrepStore,
+} from '../src/data/fcs/cutting/production-material-prep.ts'
 
-function assert(condition: unknown, message: string): void {
-  if (!condition) {
-    throw new Error(message)
-  }
+class MemoryStorage {
+  private values = new Map<string, string>()
+  getItem(key: string): string | null { return this.values.get(key) ?? null }
+  setItem(key: string, value: string): void { this.values.set(key, value) }
 }
 
-function nowTimestamp(date: Date = new Date()): string {
-  return date.toISOString().replace('T', ' ').slice(0, 19)
+function assert(condition: unknown, message: string): asserts condition {
+  if (!condition) throw new Error(message)
 }
 
-function checkWarehouseHandedDoesNotEqualReceived(): void {
-  const recordId = 'PKH-MOCK-SEW-400-001'
-  const before = findPdaPickupRecord(recordId)
-  assert(before, `未找到记录 ${recordId}`)
-  assert(before?.status === 'PENDING_WAREHOUSE_DISPATCH', `${recordId} 初始状态应为待仓库发出`)
+const pdaSource = fs.readFileSync('src/pages/pda-warehouse-wait-process.ts', 'utf8')
+assert(pdaSource.includes('syncCuttingPickupSessionRuntimeFacts'), 'PDA 必须按 Session 快照补写待加工仓流水')
+assert(pdaSource.includes('warehouseSyncDeferred: true'), 'PDA 必须先保存 Session/Detail，再完成 runtime 同步')
+assert(pdaSource.includes('getPickupSessionByNodeId(pickupNodeId)'), 'PDA 重复确认必须优先返回历史 Session')
+assert(pdaSource.includes('retry-cutting-pickup-sync'), 'PDA 必须提供仓储回写重试')
+assert(!pdaSource.includes('确认按裁片任务从中转仓领回的数量'), 'PDA 不得再使用裁片任务和可编辑数量口径')
 
-  const updated = markPdaPickupRecordWarehouseHanded(recordId, {
-    warehouseHandedQty: before.qtyExpected,
-    warehouseHandedAt: '2026-03-28 12:00:00',
-    warehouseHandedBy: '脚本校验员',
-  })
-
-  assert(updated, `${recordId} 仓库扫码交付后未更新`)
-  assert(updated?.status === 'PENDING_FACTORY_CONFIRM', `${recordId} 仓库交付后应进入待工厂确认`)
-  assert(updated?.status !== 'RECEIVED', `${recordId} 仓库交付后不应直接变成已确认领料`)
+const storage = new MemoryStorage()
+storage.setItem(PRODUCTION_MATERIAL_PREP_STORAGE_KEY, serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()))
+const node = listActivePickupNodes(storage)[0]
+assert(node, '种子必须存在待领节点')
+const input = {
+  pickupNodeId: node.nodeId,
+  pickupNodeVersion: node.version,
+  receiverName: 'PDA 校验员',
+  warehouseArea: '待加工仓 A 区',
+  locationCode: 'FAB-A-01',
+  waitProcessLedgerEventId: `pda-check:${node.nodeId}`,
+  idempotencyKey: `pda-check:${node.nodeId}:v${node.version}`,
+  warehouseSyncDeferred: true,
 }
+const first = appendPickupSessionFromNode(input, storage)
+const duplicate = appendPickupSessionFromNode({ ...input, pickupNodeVersion: 0 }, storage)
+assert(first.pickupSessionId === duplicate.pickupSessionId, '节点关闭且旧版本重复提交必须幂等返回原 Session')
+assert(first.pickupRecordIds.length === node.items.length, '一次确认必须生成 N 条物料明细')
+assert(getPickupSessionByNodeId(node.nodeId, storage)?.pickupSessionId === first.pickupSessionId, '必须可按节点找回 Session 用于弱网恢复')
 
-function checkFactoryConfirmFlow(): void {
-  const recordId = 'PKH-MOCK-SEW-400-003'
-  const before = findPdaPickupRecord(recordId)
-  assert(before, `未找到记录 ${recordId}`)
-  assert(before?.status === 'PENDING_FACTORY_CONFIRM', `${recordId} 初始状态应为待工厂确认`)
-
-  const updated = confirmPdaPickupRecordReceived(recordId, {
-    factoryConfirmedQty: before.warehouseHandedQty ?? before.qtyExpected,
-    factoryConfirmedAt: nowTimestamp(new Date('2026-03-28T13:00:00+08:00')),
-  })
-
-  assert(updated, `${recordId} 工厂确认领料失败`)
-  assert(updated?.status === 'RECEIVED', `${recordId} 工厂确认后应变成已确认领料`)
-  assert(typeof updated?.factoryConfirmedQty === 'number', `${recordId} 工厂确认数量未写入`)
-}
-
-function checkPickupDisputeFlow(): void {
-  const disputeCandidate = listPdaHandoverHeads()
-    .filter((head) => head.headType === 'PICKUP')
-    .flatMap((head) => getPdaPickupRecordsByHead(head.handoverId))
-    .find((record) => record.status === 'PENDING_FACTORY_CONFIRM' && record.recordId !== 'PKH-MOCK-SEW-400-003')
-
-  assert(disputeCandidate, '未找到可用于校验领料数量异议的待工厂确认记录')
-  const recordId = disputeCandidate.recordId
-  const disputeCreated = createPdaPickupDisputeCase(recordId, {
-    factoryReportedQty: 15,
-    objectionReason: '工厂实收少于仓库扫码交付数量',
-    objectionRemark: '现场复点少 3 件，外包装完好。',
-    objectionProofFiles: [
-      {
-        id: 'pf-check-001',
-        type: 'IMAGE',
-        name: '少件复点.jpg',
-        uploadedAt: '2026-03-28 14:20:00',
-      },
-    ],
-  })
-
-  assert(disputeCreated.record, `${recordId} 发起数量差异失败：${disputeCreated.issues.join('；')}`)
-  assert(disputeCreated.exceptionCase, `${recordId} 发起数量差异后未生成异常单`)
-  assert(disputeCreated.record?.status === 'OBJECTION_REPORTED', `${recordId} 发起数量差异后状态不正确`)
-  assert(Boolean(disputeCreated.record?.exceptionCaseId), `${recordId} 发起数量差异后未绑定 exceptionCaseId`)
-
-  const exceptionCase = getProgressExceptionById(disputeCreated.exceptionCase!.caseId)
-  assert(exceptionCase, '数量差异对应异常单不存在')
-  assert(exceptionCase?.sourceModule === 'PDA_PICKUP_DISPUTE', '数量差异异常单 sourceModule 错误')
-  assert(exceptionCase?.subCategoryKey === 'MATERIAL_PICKUP_QTY_DIFF', '数量差异异常单二级分类错误')
-
-  const resolved = updatePdaPickupDisputePlatformHandling(disputeCreated.exceptionCase!.caseId, {
-    status: 'RESOLVED',
-    handledBy: '平台运营',
-    handledAt: '2026-03-28 15:10:00',
-    finalResolvedQty: 16,
-    handleNote: '平台核对仓库扫码和现场复点后，最终确认本次交付 16 件。',
-  })
-
-  assert(resolved.record, '平台裁定后未回写领料记录')
-  assert(resolved.record?.status === 'OBJECTION_RESOLVED', '平台裁定后领料记录状态未变成已处理')
-  assert(resolved.record?.finalResolvedQty === 16, '平台最终确认数量未回写')
-  assert(resolved.record?.resolvedRemark?.includes('最终确认本次交付 16 件'), '平台处理说明未回写')
-}
-
-function main(): void {
-  checkWarehouseHandedDoesNotEqualReceived()
-  checkFactoryConfirmFlow()
-  checkPickupDisputeFlow()
-  console.log('check:pda-pickup-flow passed')
-}
-
-main()
+console.log('check:pda-pickup-flow passed')
