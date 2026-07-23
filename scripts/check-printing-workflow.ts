@@ -34,7 +34,10 @@ import {
 import { listProcessWorkOrderStockMaterials } from '../src/data/fcs/process-work-order-stock.ts'
 import { buildTaskRouteCardPrintDoc } from '../src/data/fcs/task-print-cards.ts'
 import { getProcessWorkOrderById } from '../src/data/fcs/process-work-order-domain.ts'
-import { groupProcessWorkOrderPlannedQuantities } from '../src/data/fcs/process-statistics-domain.ts'
+import {
+  assertProcessQuantityDimensions,
+  groupProcessWorkOrderPlannedQuantities,
+} from '../src/data/fcs/process-statistics-domain.ts'
 import {
   confirmSupplementAndGenerateProcessWorkOrders,
   listSupplementRecords,
@@ -156,6 +159,13 @@ try {
   blankQuantityGroupError = error instanceof Error ? error.message : String(error)
 }
 assert(blankQuantityGroupError.includes('对象') && blankQuantityGroupError.includes('单位'), '空对象或单位必须拒绝并提供可追踪错误信息')
+let blankFactoryMetricError = ''
+try {
+  assertProcessQuantityDimensions('', '', '工厂统计')
+} catch (error) {
+  blankFactoryMetricError = error instanceof Error ? error.message : String(error)
+}
+assert(blankFactoryMetricError.includes('工厂统计') && blankFactoryMetricError.includes('对象') && blankFactoryMetricError.includes('单位'), '工厂统计必须复用严格对象和单位校验')
 
 const dashboardSource = readFile('src/pages/process-factory/printing/dashboards.ts')
 assert(dashboardSource.includes('待送货'), '大屏缺少待送货模块')

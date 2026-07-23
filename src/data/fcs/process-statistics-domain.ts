@@ -57,6 +57,19 @@ export interface ProcessWorkOrderPlannedQuantityGroup {
   plannedQty: number
 }
 
+export function assertProcessQuantityDimensions(
+  objectType: string | undefined,
+  qtyUnit: string | undefined,
+  context: string,
+): { objectType: ProcessWarehouseObjectType; qtyUnit: string } {
+  const normalizedObjectType = objectType?.trim()
+  const normalizedQtyUnit = qtyUnit?.trim()
+  if (!normalizedObjectType || !normalizedQtyUnit) {
+    throw new Error(`${context}缺少${!normalizedObjectType ? '对象' : ''}${!normalizedObjectType && !normalizedQtyUnit ? '和' : ''}${!normalizedQtyUnit ? '单位' : ''}`)
+  }
+  return { objectType: normalizedObjectType as ProcessWarehouseObjectType, qtyUnit: normalizedQtyUnit }
+}
+
 interface BaseExecutionStatistics {
   workOrderCount: number
   statusCounts: Record<string, number>
@@ -98,11 +111,7 @@ export function groupProcessWorkOrderPlannedQuantities(
 ): ProcessWorkOrderPlannedQuantityGroup[] {
   const groups = new Map<string, ProcessWorkOrderPlannedQuantityGroup>()
   orders.forEach((order, index) => {
-    const objectType = order.objectType?.trim()
-    const plannedUnit = order.plannedUnit?.trim()
-    if (!objectType || !plannedUnit) {
-      throw new Error(`加工计划数量分组第 ${index + 1} 条缺少${!objectType ? '对象' : ''}${!objectType && !plannedUnit ? '和' : ''}${!plannedUnit ? '单位' : ''}`)
-    }
+    const { objectType, qtyUnit: plannedUnit } = assertProcessQuantityDimensions(order.objectType, order.plannedUnit, `加工计划数量分组第 ${index + 1} 条`)
     const key = `${objectType}\u0000${plannedUnit}`
     const current = groups.get(key)
     if (current) {
@@ -333,9 +342,9 @@ function createFactoryMetricRow(factoryId: string, factoryName: string, objectTy
 function buildFactoryRows(orders: ProcessWorkOrder[], handovers: ProcessHandoverRecord[], differences: ProcessHandoverDifferenceRecord[]): FactoryMetricRow[] {
   const rows = new Map<string, FactoryMetricRow>()
   orders.forEach((order) => {
-    const objectType = order.objectType as ProcessWarehouseObjectType
-    const key = factoryMetricKey(order.factoryId, objectType, order.plannedUnit)
-    const existing = rows.get(key) || createFactoryMetricRow(order.factoryId, order.factoryName, objectType, order.plannedUnit)
+    const { objectType, qtyUnit } = assertProcessQuantityDimensions(order.objectType, order.plannedUnit, `工厂统计加工单 ${order.workOrderNo}`)
+    const key = factoryMetricKey(order.factoryId, objectType, qtyUnit)
+    const existing = rows.get(key) || createFactoryMetricRow(order.factoryId, order.factoryName, objectType, qtyUnit)
     existing.workOrderCount += 1
     existing.plannedQty += order.plannedQty
     order.executionNodes.forEach((node) => {
@@ -344,16 +353,18 @@ function buildFactoryRows(orders: ProcessWorkOrder[], handovers: ProcessHandover
     rows.set(key, existing)
   })
   handovers.forEach((record) => {
-    const key = factoryMetricKey(record.handoverFactoryId, record.objectType, record.qtyUnit)
-    const existing = rows.get(key) || createFactoryMetricRow(record.handoverFactoryId, record.handoverFactoryName, record.objectType, record.qtyUnit)
+    const { objectType, qtyUnit } = assertProcessQuantityDimensions(record.objectType, record.qtyUnit, `工厂统计交出记录 ${record.handoverRecordNo}`)
+    const key = factoryMetricKey(record.handoverFactoryId, objectType, qtyUnit)
+    const existing = rows.get(key) || createFactoryMetricRow(record.handoverFactoryId, record.handoverFactoryName, objectType, qtyUnit)
     existing.handoverQty += record.handoverObjectQty
     rows.set(key, existing)
   })
   differences.forEach((record) => {
     const order = orders.find((item) => item.workOrderId === record.sourceWorkOrderId)
     const factoryId = order?.factoryId || record.sourceWorkOrderId
-    const key = factoryMetricKey(factoryId, record.objectType, record.qtyUnit)
-    const existing = rows.get(key) || createFactoryMetricRow(factoryId, order?.factoryName || record.craftName, record.objectType, record.qtyUnit)
+    const { objectType, qtyUnit } = assertProcessQuantityDimensions(record.objectType, record.qtyUnit, `工厂统计差异记录 ${record.differenceRecordNo}`)
+    const key = factoryMetricKey(factoryId, objectType, qtyUnit)
+    const existing = rows.get(key) || createFactoryMetricRow(factoryId, order?.factoryName || record.craftName, objectType, qtyUnit)
     existing.diffQty += Math.abs(record.diffObjectQty)
     rows.set(key, existing)
   })

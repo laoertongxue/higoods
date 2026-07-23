@@ -46,7 +46,8 @@ test('烫画成衣从成衣仓出库，经辅助待交出仓交我方后道', ()
       .map((line) => [line.skuCode, line.planPieceQty]),
   )
   const totalQty = Object.values(skuQtyBySkuCode).reduce((sum, qty) => sum + qty, 0)
-  expect(totalQty).toBeGreaterThan(0)
+  expect(Object.keys(skuQtyBySkuCode)).toHaveLength(4)
+  expect(totalQty).toBe(2500)
   const action = (actionCode: string, extra: Record<string, unknown> = {}) => executeMobileProcessAction({
     sourceType: 'SPECIAL_CRAFT',
     sourceId: HEAT_TRANSFER_GARMENT_WORK_ORDER,
