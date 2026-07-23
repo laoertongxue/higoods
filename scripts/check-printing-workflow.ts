@@ -144,6 +144,18 @@ assert(
   ]),
   '加工计划数量必须按面料/裁片/成衣及其单位分组，禁止跨对象或跨单位相加',
 )
+const sameObjectDifferentUnitGroups = groupProcessWorkOrderPlannedQuantities([
+  { objectType: '面料', plannedUnit: '米', plannedQty: 120 },
+  { objectType: '面料', plannedUnit: 'Yard', plannedQty: 100 },
+])
+assert(sameObjectDifferentUnitGroups.length === 2, '同一对象的不同单位必须分组，禁止相加')
+let blankQuantityGroupError = ''
+try {
+  groupProcessWorkOrderPlannedQuantities([{ objectType: '', plannedUnit: '', plannedQty: 1 }])
+} catch (error) {
+  blankQuantityGroupError = error instanceof Error ? error.message : String(error)
+}
+assert(blankQuantityGroupError.includes('对象') && blankQuantityGroupError.includes('单位'), '空对象或单位必须拒绝并提供可追踪错误信息')
 
 const dashboardSource = readFile('src/pages/process-factory/printing/dashboards.ts')
 assert(dashboardSource.includes('待送货'), '大屏缺少待送货模块')

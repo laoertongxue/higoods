@@ -44,10 +44,11 @@ function renderDistribution(): string {
       <tr class="border-b last:border-b-0">
         <td class="px-3 py-3 text-sm">${escapeHtml(formatFactoryDisplayName(row.factoryName, row.factoryId))}</td>
         <td class="px-3 py-3 text-sm">${row.workOrderCount}</td>
-        <td class="px-3 py-3 text-sm">${row.plannedQty} 米</td>
-        <td class="px-3 py-3 text-sm">${row.doneQty} 米</td>
-        <td class="px-3 py-3 text-sm">${row.handoverQty} 米</td>
-        <td class="px-3 py-3 text-sm">${row.diffQty} 米</td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(row.objectType)} / ${escapeHtml(row.qtyUnit)}</td>
+        <td class="px-3 py-3 text-sm">${row.plannedQty} ${escapeHtml(row.qtyUnit)}</td>
+        <td class="px-3 py-3 text-sm">${row.doneQty} ${escapeHtml(row.qtyUnit)}</td>
+        <td class="px-3 py-3 text-sm">${row.handoverQty} ${escapeHtml(row.qtyUnit)}</td>
+        <td class="px-3 py-3 text-sm">${row.diffQty} ${escapeHtml(row.qtyUnit)}</td>
         <td class="px-3 py-3 text-sm">${row.completionRate}%</td>
       </tr>
     `)
@@ -64,6 +65,7 @@ function renderDistribution(): string {
               <thead class="bg-slate-50 text-xs text-muted-foreground">
                 <tr>
                   <th class="px-3 py-2 font-medium">工厂</th>
+                  <th class="px-3 py-2 font-medium">作用对象 / 单位</th>
                   <th class="px-3 py-2 font-medium">加工单数</th>
                   <th class="px-3 py-2 font-medium">加工计划数量（按工单单位）</th>
                   <th class="px-3 py-2 font-medium">执行完成面料米数 / 裁片数量</th>

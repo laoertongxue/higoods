@@ -1,4 +1,20 @@
 import { expect, test, type Page } from '@playwright/test'
+import { executeMobileProcessAction } from '../src/data/fcs/process-action-writeback-service.ts'
+import {
+  listProcessHandoverRecords,
+  writeBackProcessHandoverRecord,
+} from '../src/data/fcs/process-warehouse-domain.ts'
+import {
+  getSpecialCraftTaskWorkOrderById,
+  getSpecialCraftTaskWorkOrderLinesByWorkOrderId,
+} from '../src/data/fcs/special-craft-task-orders.ts'
+import {
+  listFactoryWaitHandoverStockItems,
+  listFactoryWaitProcessStockItems,
+  listFactoryWarehouseOutboundRecords,
+} from '../src/data/fcs/factory-internal-warehouse.ts'
+
+const HEAT_TRANSFER_GARMENT_WORK_ORDER = 'AUX-TASK-PO2026030002-SFER-2ab9e9-03-WO-001-'
 
 async function navigateInApp(page: Page, path: string) {
   await page.evaluate((nextPath) => {
@@ -13,13 +29,67 @@ async function confirmActionDialog(page: Page, actionName: string) {
 }
 
 test('烫画和直喷均使用当前辅助工艺入口与真实加工单', async ({ page }) => {
-  await page.goto('/fcs/process-factory/special-craft/aux-op-heat-transfer/work-orders/AUX-TASK-PO2026030002-SFER-2ab9e9-03-WO-001-')
+  await page.goto(`/fcs/process-factory/special-craft/aux-op-heat-transfer/work-orders/${HEAT_TRANSFER_GARMENT_WORK_ORDER}`)
   await expect(page.getByRole('heading', { name: '加工单详情' })).toBeVisible()
   await expect(page.locator('body')).toContainText('烫画')
 
   await page.goto('/fcs/process-factory/special-craft/aux-op-direct-print/work-orders/AUX-TASK-PO2026030002-RINT-34bb1b-04-WO-001-')
   await expect(page.getByRole('heading', { name: '加工单详情' })).toBeVisible()
   await expect(page.locator('body')).toContainText('直喷')
+})
+
+test('烫画成衣从成衣仓出库，经辅助待交出仓交我方后道', () => {
+  const workOrder = getSpecialCraftTaskWorkOrderById(HEAT_TRANSFER_GARMENT_WORK_ORDER)
+  expect(workOrder?.targetObject).toBe('成衣')
+  const skuQtyBySkuCode = Object.fromEntries(
+    getSpecialCraftTaskWorkOrderLinesByWorkOrderId(HEAT_TRANSFER_GARMENT_WORK_ORDER)
+      .map((line) => [line.skuCode, line.planPieceQty]),
+  )
+  const totalQty = Object.values(skuQtyBySkuCode).reduce((sum, qty) => sum + qty, 0)
+  expect(totalQty).toBeGreaterThan(0)
+  const action = (actionCode: string, extra: Record<string, unknown> = {}) => executeMobileProcessAction({
+    sourceType: 'SPECIAL_CRAFT',
+    sourceId: HEAT_TRANSFER_GARMENT_WORK_ORDER,
+    taskId: workOrder?.taskOrderId,
+    actionCode,
+    operatorName: '成衣仓与烫画联调员',
+    operatorUserId: 'E2E-AUX-OPERATOR',
+    operatorFactoryId: actionCode === 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND' ? 'ID-F001' : 'FAC-AUX-HEAT-TRANSFER',
+    operatorRoleId: 'ROLE_OPERATOR',
+    operatorRoleName: '操作员',
+    operatedAt: '2026-07-23 10:00:00',
+    objectType: '成衣',
+    objectQty: totalQty,
+    qtyUnit: '件',
+    skuQtyBySkuCode,
+    ...extra,
+  })
+
+  action('SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND')
+  expect(listFactoryWarehouseOutboundRecords().filter((record) => record.sourceTaskId === HEAT_TRANSFER_GARMENT_WORK_ORDER && record.itemKind === '成衣')
+    .reduce((sum, record) => sum + record.outboundQty, 0)).toBe(totalQty)
+  action('SPECIAL_CRAFT_RECEIVE_CUT_PIECES')
+  expect(listFactoryWaitProcessStockItems().filter((item) => item.taskId === HEAT_TRANSFER_GARMENT_WORK_ORDER && item.itemKind === '成衣')
+    .reduce((sum, item) => sum + item.receivedQty, 0)).toBe(totalQty)
+  action('SPECIAL_CRAFT_START_PROCESS')
+  action('SPECIAL_CRAFT_FINISH_PROCESS', {
+    skuScrapQtyBySkuCode: Object.fromEntries(Object.keys(skuQtyBySkuCode).map((skuCode) => [skuCode, 0])),
+    skuDamageQtyBySkuCode: Object.fromEntries(Object.keys(skuQtyBySkuCode).map((skuCode) => [skuCode, 0])),
+  })
+  expect(listFactoryWaitHandoverStockItems().filter((item) => item.taskId === HEAT_TRANSFER_GARMENT_WORK_ORDER && item.itemKind === '成衣')
+    .reduce((sum, item) => sum + item.waitHandoverQty, 0)).toBe(totalQty)
+  const handoverResult = action('SPECIAL_CRAFT_SUBMIT_HANDOVER')
+  const handover = listProcessHandoverRecords().find((record) => record.handoverRecordId === handoverResult.affectedHandoverRecordId)
+  expect(handover?.receiveFactoryName).toBe('HiGood 后道工厂')
+  expect(handover?.handoverObjectQty).toBe(totalQty)
+  const received = writeBackProcessHandoverRecord(handoverResult.affectedHandoverRecordId, {
+    receiveObjectQty: totalQty,
+    receivedQtyBySkuCode: skuQtyBySkuCode,
+    receivePerson: '我方后道收货员',
+    receiveAt: '2026-07-23 11:00:00',
+  })
+  expect(received?.receiveObjectQty).toBe(totalQty)
+  expect(received?.status).toBe('全部交出')
 })
 
 test('印花 Web 完成转印后进入待交出仓', async ({ page }) => {

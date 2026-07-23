@@ -41,6 +41,8 @@ export interface StatusCountRow {
 export interface FactoryMetricRow {
   factoryId: string
   factoryName: string
+  objectType: ProcessWarehouseObjectType
+  qtyUnit: string
   workOrderCount: number
   plannedQty: number
   doneQty: number
@@ -95,15 +97,19 @@ export function groupProcessWorkOrderPlannedQuantities(
   orders: Array<Pick<ProcessWorkOrder, 'objectType' | 'plannedUnit' | 'plannedQty'>>,
 ): ProcessWorkOrderPlannedQuantityGroup[] {
   const groups = new Map<string, ProcessWorkOrderPlannedQuantityGroup>()
-  orders.forEach((order) => {
-    const objectType = order.objectType || '未分类对象'
-    const key = `${objectType}\u0000${order.plannedUnit}`
+  orders.forEach((order, index) => {
+    const objectType = order.objectType?.trim()
+    const plannedUnit = order.plannedUnit?.trim()
+    if (!objectType || !plannedUnit) {
+      throw new Error(`加工计划数量分组第 ${index + 1} 条缺少${!objectType ? '对象' : ''}${!objectType && !plannedUnit ? '和' : ''}${!plannedUnit ? '单位' : ''}`)
+    }
+    const key = `${objectType}\u0000${plannedUnit}`
     const current = groups.get(key)
     if (current) {
       current.plannedQty = round(current.plannedQty + order.plannedQty)
       return
     }
-    groups.set(key, { objectType, plannedUnit: order.plannedUnit, plannedQty: round(order.plannedQty) })
+    groups.set(key, { objectType, plannedUnit, plannedQty: round(order.plannedQty) })
   })
   return [...groups.values()]
 }
@@ -316,55 +322,40 @@ function statusRows(counts: Record<string, number>): StatusCountRow[] {
   return Object.entries(counts).map(([label, count]) => ({ label, count }))
 }
 
+function factoryMetricKey(factoryId: string, objectType: ProcessWarehouseObjectType, qtyUnit: string): string {
+  return `${factoryId}\u0000${objectType}\u0000${qtyUnit}`
+}
+
+function createFactoryMetricRow(factoryId: string, factoryName: string, objectType: ProcessWarehouseObjectType, qtyUnit: string): FactoryMetricRow {
+  return { factoryId, factoryName, objectType, qtyUnit, workOrderCount: 0, plannedQty: 0, doneQty: 0, handoverQty: 0, diffQty: 0, completionRate: 0 }
+}
+
 function buildFactoryRows(orders: ProcessWorkOrder[], handovers: ProcessHandoverRecord[], differences: ProcessHandoverDifferenceRecord[]): FactoryMetricRow[] {
   const rows = new Map<string, FactoryMetricRow>()
   orders.forEach((order) => {
-    const existing = rows.get(order.factoryId) || {
-      factoryId: order.factoryId,
-      factoryName: order.factoryName,
-      workOrderCount: 0,
-      plannedQty: 0,
-      doneQty: 0,
-      handoverQty: 0,
-      diffQty: 0,
-      completionRate: 0,
-    }
+    const objectType = order.objectType as ProcessWarehouseObjectType
+    const key = factoryMetricKey(order.factoryId, objectType, order.plannedUnit)
+    const existing = rows.get(key) || createFactoryMetricRow(order.factoryId, order.factoryName, objectType, order.plannedUnit)
     existing.workOrderCount += 1
     existing.plannedQty += order.plannedQty
     order.executionNodes.forEach((node) => {
       existing.doneQty += getNodeQty(node)
     })
-    rows.set(order.factoryId, existing)
+    rows.set(key, existing)
   })
   handovers.forEach((record) => {
-    const existing = rows.get(record.handoverFactoryId) || {
-      factoryId: record.handoverFactoryId,
-      factoryName: record.handoverFactoryName,
-      workOrderCount: 0,
-      plannedQty: 0,
-      doneQty: 0,
-      handoverQty: 0,
-      diffQty: 0,
-      completionRate: 0,
-    }
+    const key = factoryMetricKey(record.handoverFactoryId, record.objectType, record.qtyUnit)
+    const existing = rows.get(key) || createFactoryMetricRow(record.handoverFactoryId, record.handoverFactoryName, record.objectType, record.qtyUnit)
     existing.handoverQty += record.handoverObjectQty
-    rows.set(record.handoverFactoryId, existing)
+    rows.set(key, existing)
   })
   differences.forEach((record) => {
     const order = orders.find((item) => item.workOrderId === record.sourceWorkOrderId)
     const factoryId = order?.factoryId || record.sourceWorkOrderId
-    const existing = rows.get(factoryId) || {
-      factoryId,
-      factoryName: order?.factoryName || record.craftName,
-      workOrderCount: 0,
-      plannedQty: 0,
-      doneQty: 0,
-      handoverQty: 0,
-      diffQty: 0,
-      completionRate: 0,
-    }
+    const key = factoryMetricKey(factoryId, record.objectType, record.qtyUnit)
+    const existing = rows.get(key) || createFactoryMetricRow(factoryId, order?.factoryName || record.craftName, record.objectType, record.qtyUnit)
     existing.diffQty += Math.abs(record.diffObjectQty)
-    rows.set(factoryId, existing)
+    rows.set(key, existing)
   })
   return Array.from(rows.values()).map((row) => ({
     ...row,

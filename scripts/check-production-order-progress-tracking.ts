@@ -6,6 +6,7 @@ import {
   renderProductionOrderProgressTrackingPage,
 } from '../src/pages/production-order-progress-tracking.ts'
 import { listProcessWorkOrders } from '../src/data/fcs/process-work-order-domain.ts'
+import fs from 'node:fs'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -22,6 +23,9 @@ async function renderAt(pathname: string): Promise<string> {
 
 async function main(): Promise<void> {
   const currentProductionOrderNo = 'PO-202603-0004'
+  const progressSource = fs.readFileSync(new URL('../src/pages/production-order-progress-tracking.ts', import.meta.url), 'utf8')
+  assert(progressSource.includes('item.sourceSnapshot?.sourceType || item.sourceType'), '生产单工单过滤必须优先读取冻结来源类型')
+  assert(progressSource.includes('item.sourceSnapshot?.productionOrderNo || item.sourceProductionOrderNo'), '生产单工单过滤必须优先读取冻结来源生产单号')
   const fcsMenus = menusBySystem.fcs ?? []
   const progressGroup = fcsMenus
     .flatMap((group) => group.items)

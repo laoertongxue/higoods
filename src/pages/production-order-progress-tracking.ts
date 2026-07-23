@@ -372,18 +372,21 @@ function toTrackingStatus(order: ProcessWorkOrder): NodeStatus {
 
 function getProcessWorkOrderNodes(order: ProductionOrderTrackingRecord): WorkOrderNode[] {
   return listProcessWorkOrders()
-    .filter((item) =>
-      (item.processType === 'PRINT' || item.processType === 'DYE')
-      && item.sourceType === 'PRODUCTION_ORDER'
-      && (item.sourceProductionOrderNo === order.no || item.sourceProductionOrderId === order.productionOrderId),
-    )
+    .filter((item) => {
+      const sourceType = item.sourceSnapshot?.sourceType || item.sourceType
+      const sourceProductionOrderNo = item.sourceSnapshot?.productionOrderNo || item.sourceProductionOrderNo
+      const sourceProductionOrderId = item.sourceSnapshot?.productionOrderId || item.sourceProductionOrderId
+      return (item.processType === 'PRINT' || item.processType === 'DYE')
+        && sourceType === 'PRODUCTION_ORDER'
+        && (sourceProductionOrderNo === order.no || sourceProductionOrderId === order.productionOrderId)
+    })
     .map((item) => ({
       id: item.workOrderId,
       lane: item.processType === 'PRINT' ? '印花加工单' : '染色加工单',
       label: item.workOrderNo,
       subLabel: `${formatNumber(item.plannedQty)} ${item.plannedUnit}`,
       status: toTrackingStatus(item),
-      sourceObject: item.sourceProductionOrderNo || item.sourceProductionOrderId || order.no,
+      sourceObject: item.sourceSnapshot?.productionOrderNo || item.sourceSnapshot?.productionOrderId || item.sourceProductionOrderNo || item.sourceProductionOrderId || order.no,
       factoryName: item.factoryName,
       plannedQty: item.plannedQty,
       plannedUnit: item.plannedUnit,
