@@ -6,6 +6,7 @@ import {
   materialPrepWorkbenchTabs,
   pickupStatusLabelMap,
   classifyPrepLineType,
+  getMaterialPrepRecordUnitSummaries,
 } from '../../../data/fcs/cutting/production-material-prep.ts'
 
 import type {
@@ -63,6 +64,15 @@ export function renderPrepRecordStatusBadge(status: MaterialPrepRecordStatus): s
 export function formatQty(value: number): string {
   if (!Number.isFinite(value) || value <= 0) return '0'
   return value.toLocaleString('zh-CN')
+}
+
+export function formatMaterialPrepRecordByUnit(record: MaterialPrepRecord): string {
+  const summaries = record.unitSummaries?.length
+    ? record.unitSummaries
+    : getMaterialPrepRecordUnitSummaries(record)
+  return summaries
+    .map((summary) => `${summary.rollCount} 卷件 / ${formatUnitQty(summary.preparedQty, summary.unit)}`)
+    .join('；') || '暂无数量'
 }
 
 function formatUnitQty(value: number, unit: string): string {

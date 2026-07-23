@@ -28,6 +28,7 @@ import {
 } from './store-domain-progress.ts'
 import {
   classifyPrepLineType,
+  getMaterialPrepRecordUnitSummaries,
   listMaterialPrepOrderProjections,
   materialPrepRecordStatusLabelMap,
   materialPrepStatusLabelMap,
@@ -985,6 +986,12 @@ function formatQty(value: number | undefined, unit: string): string {
   return `${Number(value || 0).toLocaleString('zh-CN')}${unit}`
 }
 
+function formatPrepRecordQty(record: Parameters<typeof getMaterialPrepRecordUnitSummaries>[0]): string {
+  return getMaterialPrepRecordUnitSummaries(record)
+    .map((summary) => formatQty(summary.preparedQty, summary.unit))
+    .join('；') || '0'
+}
+
 function normalizeMaterialSku(value: string | undefined | null): string {
   return (value || '').trim().toUpperCase()
 }
@@ -1656,7 +1663,7 @@ function buildRuntimeRelatedDocuments(order: ProductionOrder): RelatedDocument[]
         ownerRole: '仓库',
         routePath: `${routePath}&detailTab=records`,
         updatedAt: record.confirmedAt || record.preparedAt,
-        quantityText: `${line?.materialName || '物料'} ${formatQty(record.preparedQty, line?.unit || '件')}`,
+        quantityText: `${line?.materialName || '物料'} ${formatPrepRecordQty(record)}`,
       })
     }
 
@@ -2633,7 +2640,7 @@ function buildMaterialPrepIndexes(): ProductionObjectSearchIndex[] {
         sourceDomain: 'WMS',
         docGroup: '面辅料',
         routePath: `${routePath}&detailTab=records`,
-        quantityText: formatQty(record.preparedQty, line?.unit || '件'),
+        quantityText: formatPrepRecordQty(record),
         updatedAt: record.confirmedAt || record.preparedAt,
         defaultTab: getDefaultTabForObjectType('MATERIAL_PREP_RECORD'),
         highlightKey: makeHighlightKey('MATERIAL_PREP_RECORD', record.prepRecordId),

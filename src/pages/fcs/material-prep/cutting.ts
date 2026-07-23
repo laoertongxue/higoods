@@ -34,6 +34,7 @@ import {
   renderMaterialPickupRecordCodeButton,
   formatMaterialPrepPickupByUnit,
   formatMaterialPrepProgressByUnit,
+  formatMaterialPrepRecordByUnit,
   formatMaterialPrepUnitMetric,
 } from './shared.ts'
 import { escapeHtml } from '../../../utils.ts'
@@ -895,7 +896,7 @@ function renderPrepRecords(
                   </div>
                   <div class="mt-1 text-xs text-muted-foreground">批次号：${escapeHtml(record.batchNo)} / ${escapeHtml(record.preparedAt)} / ${escapeHtml(record.operatorName)}</div>
                   <div class="mt-1 text-xs text-muted-foreground">
-                    合计：${formatRollQty(record.preparedQty, record.rollCount)} / ${escapeHtml(record.warehouseArea)} / ${escapeHtml(record.locationCode)}
+                    合计：${escapeHtml(formatMaterialPrepRecordByUnit(record))} / ${escapeHtml(record.warehouseArea)} / ${escapeHtml(record.locationCode)}
                   </div>
                   ${record.stagingArea ? `<div class="mt-0.5 text-xs text-muted-foreground">暂存区：${escapeHtml(record.stagingArea)}</div>` : ''}
                   ${record.rejectReason ? `<div class="mt-1 text-xs text-rose-600">打回原因：${escapeHtml(record.rejectReason)}</div>` : ''}

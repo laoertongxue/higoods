@@ -28,6 +28,7 @@ import {
 import {
   formatMaterialPrepPickupByUnit,
   formatMaterialPrepProgressByUnit,
+  formatMaterialPrepRecordByUnit,
   formatMaterialPrepUnitMetric,
   renderMaterialPrepOrderCodeButton,
   renderMaterialPrepRecordCodeButton,
@@ -299,7 +300,7 @@ function renderPrepRecordStatusRow(record: MaterialPrepRecord): string {
             ${renderBadge(statusLabel, record.recordStatus === 'CONFIRMED' ? 'success' : record.recordStatus === 'REJECTED' ? 'danger' : record.recordStatus === 'STAGED' ? 'warning' : record.recordStatus === 'PICKED' ? 'info' : 'neutral')}
           </div>
           <div class="mt-1 text-xs text-muted-foreground">
-            ${formatQty(record.preparedQty)} / ${record.rollCount} 卷 / ${escapeHtml(record.warehouseArea)} / ${escapeHtml(record.locationCode)}
+            ${escapeHtml(formatMaterialPrepRecordByUnit(record))} / ${escapeHtml(record.warehouseArea)} / ${escapeHtml(record.locationCode)}
           </div>
           <div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(record.operatorName)} / ${escapeHtml(record.preparedAt)}</div>
           ${record.stagingArea ? `<div class="mt-0.5 text-xs text-muted-foreground">暂存区：${escapeHtml(record.stagingArea)}</div>` : ''}

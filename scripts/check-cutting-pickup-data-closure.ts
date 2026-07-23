@@ -82,8 +82,11 @@ assert(mergedNode.nodeId === initialNode.nodeId, '未领取前后续物料必须
 assert(mergedNode.sequence === initialNode.sequence, '未领取前节点序号不得变化')
 assert(mergedNode.version === initialNode.version + 1, '节点物料事实变化后版本必须严格递增')
 assert(mergedNode.locationPolicy === 'KEEP_CURRENT_LOCATION', '未领取前归并物料必须保留当前承载位置')
-assert(mergedNode.updatedAt === added.confirmedAt, '节点更新时间必须来自最新确认业务记录')
 const mergedItem = mergedNode.items.find((item) => item.prepLineId === initialItem.prepLineId)
+assert(
+  mergedNode.updatedAt === added.confirmedAt,
+  `节点更新时间必须来自最新确认业务记录：节点 ${mergedNode.updatedAt} / 配料确认 ${added.confirmedAt}`,
+)
 assert(mergedItem?.sourcePrepRecordIds.includes(added.prepRecordId), '节点必须保留当前可领物料的来源配料记录')
 const sourceLocations = (mergedItem as typeof mergedItem & {
   sourceLocations?: Array<{ sourceLocationCode: string; currentAvailableQty: number; rollCount: number }>

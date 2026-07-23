@@ -166,6 +166,7 @@
     "check:cutting-pickup-node-domain": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-pickup-node-domain.ts",
     "check:cutting-pickup-data-closure": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-pickup-data-closure.ts",
     "check:material-prep-unit-summary-consumers": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-material-prep-unit-summary-consumers.ts",
+    "check:cutting-pickup-important-regressions": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-pickup-important-regressions.ts",
     "check:cutting-pickup-node-e2e": "playwright test tests/cutting-pickup-node-flow.spec.ts",
     "check:cutting-prep-pickup-return-linkage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-prep-pickup-return-linkage.ts",
     "check:cutting-ab-material-statistics": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-ab-material-statistics.ts",

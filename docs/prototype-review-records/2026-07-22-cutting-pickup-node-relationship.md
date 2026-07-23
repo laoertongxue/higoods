@@ -33,6 +33,8 @@
 | 部分领取 | 不可编辑数量，只允许领走全部节点物料 | ✅ |
 | 仓储清位失败 | 标记主记录 `warehouseSyncStatus: '回写异常待重试'` | ✅ |
 | 打回原因空 | 阻断并要求必填 | ✅ |
+| 旧数据缺少领料主记录 | 按已有主记录 ID 或稳定业务组合迁移，节点序号接续历史 | ✅ |
+| 多来源领料后退回 | 按领料来源分摊和退回事实恢复原货位、数量及卷件数 | ✅ |
 
 ## 2. UI 与交互检查
 
@@ -88,6 +90,9 @@
 9. 数量不可编辑 → ✅
 10. 不同计量单位不跨单位求和 → ✅（需求、已配、已领、已退、可领、缺口均按 `yard`、`条` 等单位分组展示）
 11. 生产单配料状态不依赖无量纲合计 → ✅（逐物料行判断是否全部配齐）
+12. 旧存储领料明细可迁移为稳定、幂等的历史领料主记录 → ✅
+13. 多来源退回按原来源货位恢复，不再按行级 FIFO 反推 → ✅
+14. 配料记录与暂存记录按单位汇总，多单位旧总量不参与业务展示 → ✅
 
 ## 6. 检查命令结果
 
@@ -97,4 +102,7 @@
 - `npm run check:material-prep-pickup-management` → 通过
 - `npm run check:cutting-pickup-data-closure` → 通过
 - `npm run check:cutting-prep-pickup-return-linkage` → 通过
+- `npm run check:cutting-pickup-important-regressions` → 通过
+- `npm run check:cutting-material-return` → 通过
+- `npm run check:material-prep-detail-summary-cleanup` → 通过
 - `npm run build` → 通过
