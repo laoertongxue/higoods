@@ -28,6 +28,17 @@ export interface PickupNodeSourceLocation {
   sourcePrepRecordIds: string[]
 }
 
+export interface PickupNodeSourceAllocation {
+  prepRecordId: string
+  prepLineId: string
+  currentAvailableQty: number
+  rollCount: number
+  unit: string
+  sourceWarehouseName: string
+  sourceWarehouseArea: string
+  sourceLocationCode: string
+}
+
 export interface PickupNodeItem {
   nodeItemId: string
   prepLineId: string
@@ -47,6 +58,7 @@ export interface PickupNodeItem {
   sourceWarehouseArea: string
   sourceLocationCode: string
   sourceLocations: PickupNodeSourceLocation[]
+  sourceAllocations: PickupNodeSourceAllocation[]
 }
 
 export interface PickupNodeProjection extends PickupNodeIdentity {

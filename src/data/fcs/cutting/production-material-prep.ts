@@ -9,6 +9,7 @@ import {
   type PickupNodeProjection,
   type PickupNodeItem,
   type PickupNodeSnapshotState,
+  type PickupNodeSourceAllocation,
   type PickupNodeSourceLocation,
   type PickupSession,
 } from './pickup-node-domain.ts'
@@ -257,6 +258,18 @@ export interface PickupRecord {
   pickupSessionId?: string
   pickupNodeId?: string
   sourcePrepRecordIds?: string[]
+  sourceAllocations?: PickupRecordSourceAllocation[]
+}
+
+export interface PickupRecordSourceAllocation {
+  prepRecordId: string
+  prepLineId: string
+  pickedQty: number
+  rollCount: number
+  unit: string
+  sourceWarehouseName: string
+  sourceWarehouseArea: string
+  sourceLocationCode: string
 }
 
 export type MaterialPickupReturnReason =
@@ -2684,8 +2697,22 @@ function getLineRecords(store: ProductionMaterialPrepWorkflowStore, prepLineId: 
 function getRecordPickupQty(pickupRecords: PickupRecord[], prepRecordId: string): number {
   return roundQty(
     pickupRecords
-      .filter((record) => record.prepRecordId === prepRecordId)
-      .reduce((sum, record) => sum + Number(record.pickedQty || 0), 0),
+      .reduce((sum, record) => {
+        if (record.sourceAllocations?.length) {
+          const allocatedQty = record.sourceAllocations
+            .filter((allocation) => allocation.prepRecordId === prepRecordId)
+            .reduce((allocationSum, allocation) => allocationSum + allocation.pickedQty, 0)
+          const returnedQty = record.prepRecordId === prepRecordId
+            ? Math.min(Number(record.returnQty || 0), allocatedQty)
+            : 0
+          return sum + Math.max(allocatedQty - returnedQty, 0)
+        }
+        return sum + (
+          record.prepRecordId === prepRecordId
+            ? Math.max(Number(record.pickedQty || 0) - Number(record.returnQty || 0), 0)
+            : 0
+        )
+      }, 0),
   )
 }
 
@@ -2700,8 +2727,25 @@ function getLinePickupQty(pickupRecords: PickupRecord[], prepLineId: string): nu
 function getRecordItemPickupQty(pickupRecords: PickupRecord[], prepRecordId: string, prepLineId: string): number {
   return roundQty(
     pickupRecords
-      .filter((record) => record.prepRecordId === prepRecordId && record.prepLineId === prepLineId)
-      .reduce((sum, record) => sum + Number(record.pickedQty || 0), 0),
+      .reduce((sum, record) => {
+        if (record.sourceAllocations?.length) {
+          const allocatedQty = record.sourceAllocations
+            .filter((allocation) =>
+              allocation.prepRecordId === prepRecordId &&
+              allocation.prepLineId === prepLineId
+            )
+            .reduce((allocationSum, allocation) => allocationSum + allocation.pickedQty, 0)
+          const returnedQty = record.prepRecordId === prepRecordId
+            ? Math.min(Number(record.returnQty || 0), allocatedQty)
+            : 0
+          return sum + Math.max(allocatedQty - returnedQty, 0)
+        }
+        return sum + (
+          record.prepRecordId === prepRecordId && record.prepLineId === prepLineId
+            ? Math.max(Number(record.pickedQty || 0) - Number(record.returnQty || 0), 0)
+            : 0
+        )
+      }, 0),
   )
 }
 
@@ -2853,7 +2897,10 @@ export function derivePickupStatus(
   for (const record of pickupRecords) {
     linePickupQty.set(
       record.prepLineId,
-      roundQty((linePickupQty.get(record.prepLineId) || 0) + Number(record.pickedQty || 0)),
+      roundQty(
+        (linePickupQty.get(record.prepLineId) || 0) +
+        Math.max(Number(record.pickedQty || 0) - Number(record.returnQty || 0), 0),
+      ),
     )
   }
   const hasDemand = lines.some((line) => line.requiredQty > 0)
@@ -3680,6 +3727,7 @@ function buildPickupNodeItems(
       const effectivePickedQty = roundQty(Math.max(line.pickedQty - line.returnedQty, 0))
       let pickedQtyToAllocate = effectivePickedQty
       const sourceLocationsByKey = new Map<string, PickupNodeSourceLocation>()
+      const sourceAllocations: PickupNodeSourceAllocation[] = []
 
       for (const batch of batches) {
         const allocatedPickedQty = Math.min(pickedQtyToAllocate, batch.preparedQty)
@@ -3692,6 +3740,16 @@ function buildPickupNodeItems(
               batch.rollCount,
               Math.max(Math.ceil(batch.rollCount * currentAvailableQty / Math.max(batch.preparedQty, 1)), 1),
             )
+        sourceAllocations.push({
+          prepRecordId: batch.prepRecordId,
+          prepLineId: line.prepLineId,
+          currentAvailableQty,
+          rollCount,
+          unit: line.unit,
+          sourceWarehouseName: batch.sourceWarehouseName,
+          sourceWarehouseArea: batch.sourceWarehouseArea,
+          sourceLocationCode: batch.sourceLocationCode,
+        })
         const locationKey = [
           batch.sourceWarehouseName,
           batch.sourceWarehouseArea,
@@ -3746,6 +3804,7 @@ function buildPickupNodeItems(
         sourceWarehouseArea: primaryLocation?.sourceWarehouseArea || line.stockWarehouseArea,
         sourceLocationCode: primaryLocation?.sourceLocationCode || line.stockLocationCode,
         sourceLocations,
+        sourceAllocations,
       }
     })
     .filter((item) => item.currentAvailableQty > 0)
@@ -3769,6 +3828,7 @@ function buildPickupNodeFingerprint(nodeType: PickupNodeProjection['nodeType'], 
         `${left.sourceWarehouseName}|${left.sourceWarehouseArea}|${left.sourceLocationCode}`
           .localeCompare(`${right.sourceWarehouseName}|${right.sourceWarehouseArea}|${right.sourceLocationCode}`)
       ),
+      sourceAllocations: item.sourceAllocations.map((allocation) => ({ ...allocation })),
     })),
   })
 }
@@ -3885,12 +3945,14 @@ export function appendPickupSessionFromNode(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): PickupSession {
   let store = hydrateProductionMaterialPrepStore(storage)
+  const existing = store.pickupSessions.find((session) => session.pickupNodeId === input.pickupNodeId)
+  if (existing) return cloneRecord(existing)
   const idempotentSession = input.idempotencyKey
     ? store.pickupSessions.find((session) => session.idempotencyKey === input.idempotencyKey)
     : null
-  if (idempotentSession) return cloneRecord(idempotentSession)
-  const existing = store.pickupSessions.find((s) => s.pickupNodeId === input.pickupNodeId)
-  if (existing) return cloneRecord(existing)
+  if (idempotentSession) {
+    throw new Error(`幂等键已用于其他待领节点：${idempotentSession.pickupNodeId}`)
+  }
 
   const nodes = listActivePickupNodes(storage)
   const node = nodes.find((n) => n.nodeId === input.pickupNodeId)
@@ -3933,6 +3995,16 @@ export function appendPickupSessionFromNode(
       pickupSessionId,
       pickupNodeId: node.nodeId,
       sourcePrepRecordIds: [...item.sourcePrepRecordIds],
+      sourceAllocations: item.sourceAllocations.map((allocation) => ({
+        prepRecordId: allocation.prepRecordId,
+        prepLineId: allocation.prepLineId,
+        pickedQty: allocation.currentAvailableQty,
+        rollCount: allocation.rollCount,
+        unit: allocation.unit,
+        sourceWarehouseName: allocation.sourceWarehouseName,
+        sourceWarehouseArea: allocation.sourceWarehouseArea,
+        sourceLocationCode: allocation.sourceLocationCode,
+      })),
     })
   }
 

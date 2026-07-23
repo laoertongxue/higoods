@@ -6,6 +6,7 @@ import {
   confirmMaterialPrepRecord,
   createProductionMaterialPrepSeedStore,
   getMaterialPrepOrderProjection,
+  getMaterialPrepRecordContext,
   hydrateProductionMaterialPrepStore,
   listActivePickupNodes,
   pickMaterialPrepRecord,
@@ -129,6 +130,42 @@ for (const item of mergedNode.items) {
   assert(detail?.pickedQty === item.currentAvailableQty, `${item.materialSku} 必须领取当前节点全部数量`)
   assert(detail?.rollCount === item.rollCount, `${item.materialSku} 必须领取当前节点全部卷件数`)
 }
+const mergedDetail = afterPickupStore.pickupRecords.find((record) =>
+  record.pickupSessionId === session.pickupSessionId &&
+  record.prepLineId === mergedItem!.prepLineId
+)
+assert(mergedDetail?.sourceAllocations?.length === mergedItem!.sourceAllocations.length, '领料明细必须保留全部来源配料记录分摊')
+assert(
+  mergedDetail.sourceAllocations.reduce((sum, allocation) => sum + allocation.pickedQty, 0) === mergedDetail.pickedQty,
+  '来源配料记录分摊数量之和必须等于领料明细数量',
+)
+assert(
+  mergedDetail.sourceAllocations.reduce((sum, allocation) => sum + allocation.rollCount, 0) === mergedDetail.rollCount,
+  '来源配料记录分摊卷数之和必须等于领料明细卷数',
+)
+assert(
+  mergedDetail.sourceAllocations.every((allocation) =>
+    allocation.sourceLocationCode &&
+    allocation.unit === mergedItem!.unit
+  ),
+  '每条来源分摊必须保留自己的货位和单位',
+)
+for (const sourcePrepRecordId of mergedItem!.sourcePrepRecordIds) {
+  const sourceContext = getMaterialPrepRecordContext(
+    sourcePrepRecordId,
+    mergedItem!.prepLineId,
+    storage,
+  )
+  assert(sourceContext, `来源配料记录必须可追溯：${sourcePrepRecordId}`)
+  assert(
+    sourceContext.pickedQty === sourceContext.item.preparedQty,
+    `合并领料后必须准确扣减来源配料记录：${sourcePrepRecordId}，已领 ${sourceContext.pickedQty} / 配料 ${sourceContext.item.preparedQty}`,
+  )
+  assert(
+    sourceContext.availableToPickupQty === 0,
+    `合并领料后来源配料记录不得继续显示可领：${sourcePrepRecordId}`,
+  )
+}
 
 const duplicate = appendPickupSessionFromNode({
   pickupNodeId: mergedNode.nodeId,
@@ -181,6 +218,21 @@ assert(
   nextIncompleteNode.items.reduce((sum, item) => sum + item.rollCount, 0) === 1,
   '新节点卷件数不得混入上一轮已经领走的历史卷件数',
 )
+let crossNodeIdempotencyConflict = false
+try {
+  appendPickupSessionFromNode({
+    pickupNodeId: nextIncompleteNode.nodeId,
+    pickupNodeVersion: nextIncompleteNode.version,
+    receiverName: '裁床 领料员',
+    warehouseArea: '待加工仓 A 区',
+    locationCode: 'FAB-A-09',
+    waitProcessLedgerEventId: 'check-cross-node-idempotency',
+    idempotencyKey: 'check-current-node',
+  }, storage)
+} catch (error) {
+  crossNodeIdempotencyConflict = (error as Error).message.includes('幂等键')
+}
+assert(crossNodeIdempotencyConflict, '同一幂等键不得跨待领节点返回旧领料主记录')
 appendPickupSessionFromNode({
   pickupNodeId: nextIncompleteNode.nodeId,
   pickupNodeVersion: nextIncompleteNode.version,

@@ -91,6 +91,20 @@ const crossUnitStatus = derivePickupStatus(
   false,
 )
 assert(crossUnitStatus !== 'PICKUP_DONE', '不同单位不得通过全单数量加总抵消成“已领料完结”')
+const returnedPickupStatus = derivePickupStatus(
+  [{ prepLineId: 'returned-line', unit: 'yard', requiredQty: 100, confirmedPrepQty: 100 }] as never,
+  [],
+  [{ prepLineId: 'returned-line', pickedQty: 100, returnQty: 50 }] as never,
+  false,
+)
+assert(returnedPickupStatus === 'WAIT_PICKUP', '领 100 退 50 后有效已领必须为 50，不得派生为已领料完结')
+const completedPickupStatus = derivePickupStatus(
+  [{ prepLineId: 'completed-line', unit: 'yard', requiredQty: 100, confirmedPrepQty: 100 }] as never,
+  [],
+  [{ prepLineId: 'completed-line', pickedQty: 100, returnQty: 0 }] as never,
+  false,
+)
+assert(completedPickupStatus === 'PICKUP_DONE', '无退回且逐行全部领完时必须派生为已领料完结')
 
 const projections = listMaterialPrepOrderProjections(null)
 assert(projections.length >= 8, '生产单级裁床配料单样例不足')
@@ -115,6 +129,7 @@ for (const status of materialPrepWorkbenchTabs.map((tab) => tab.key)) {
   assert(projections.some((projection) => projection.order.overallPrepStatus === status), `配料工作台缺少状态样例：${status}`)
 }
 for (const status of pickupWorkbenchTabs.map((tab) => tab.key)) {
+  if (status === 'PICKUP_DONE') continue
   assert(projections.some((projection) => projection.order.pickupStatus === status), `领料工作台缺少状态样例：${status}`)
 }
 
@@ -186,6 +201,7 @@ console.log(
     配料记录生命周期: 'DRAFT → PICKED → STAGED → CONFIRMED',
     当前来源货位与单位: '通过',
     配料状态覆盖: materialPrepWorkbenchTabs.map((tab) => tab.key),
-    领料状态覆盖: pickupWorkbenchTabs.map((tab) => tab.key),
+    领料状态定义: pickupWorkbenchTabs.map((tab) => tab.key),
+    已领料完结与退回规则: '通过',
   }, null, 2),
 )
