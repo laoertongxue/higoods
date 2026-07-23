@@ -158,7 +158,8 @@ try {
   const pickupDetailHtml = renderPickupManagementDetailPage(detailSearch)
   assert(pickupDetailHtml.includes('当前节点全部物料'), '领料详情必须展示节点全部物料')
   assert(pickupDetailHtml.includes('物料明细'), '领料详情必须展示物料明细')
-  assert(pickupDetailHtml.includes('本轮全部领取'), '领料详情必须提供本轮全部领取按钮')
+  assert(pickupDetailHtml.includes('去 PDA 办理领料入库'), '领料详情必须从 PC 携节点快照进入 PDA 办理')
+  assert(!pickupDetailHtml.includes('本轮全部领取</button>'), 'PC 详情不得直接确认领料')
 
   const pickupSession = appendPickupSessionFromNode({
     pickupNodeId: detailPickupNode.nodeId,

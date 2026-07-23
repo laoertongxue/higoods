@@ -9,7 +9,7 @@ export type CuttingRuntimeEventSource = 'PDA' | 'WEB' | 'MOCK' | 'WMS'
 export type CuttingRuntimeEventStatus = '已记录' | '已同步' | '同步失败' | '已取消'
 export type CuttingRuntimeInventoryScope = '裁床待加工仓' | '裁床待交出仓'
 export type CuttingRuntimeInventoryDirection = 'IN' | 'OUT' | 'ADJUST'
-export type CuttingRuntimeQtyUnit = 'yard' | '片' | '件'
+export type CuttingRuntimeQtyUnit = 'yard' | '片' | '件' | '条' | '粒' | '卷' | '公斤'
 
 export type CuttingRuntimeEventType =
   | '中转仓配料完成通知'
@@ -465,7 +465,9 @@ function normalizePattern(raw: unknown): RuntimePatternSnapshot | undefined {
 function normalizeUnit(value: unknown, fallback: CuttingRuntimeQtyUnit): CuttingRuntimeQtyUnit {
   const text = toString(value)
   if (text === '米') return 'yard'
-  return text === 'yard' || text === '片' || text === '件' ? text : fallback
+  return text === 'yard' || text === '片' || text === '件' || text === '条' || text === '粒' || text === '卷' || text === '公斤'
+    ? text
+    : fallback
 }
 
 function normalizeInventoryEffect(raw: unknown): RuntimeInventoryEffect | undefined {

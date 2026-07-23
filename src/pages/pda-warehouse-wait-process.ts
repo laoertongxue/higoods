@@ -39,7 +39,9 @@ import {
   appendPickupSessionFromNode,
   getMaterialPrepRecordContext,
   listActivePickupNodes,
+  recordPickupSessionWarehouseSyncResult,
 } from '../data/fcs/cutting/production-material-prep.ts'
+import type { PickupNodeProjection } from '../data/fcs/cutting/pickup-node-domain.ts'
 import { buildMarkerSpreadingProjection } from './process-factory/cutting/marker-spreading-projection.ts'
 import type { SpreadingOrder } from './process-factory/cutting/marker-spreading-model.ts'
 import {
@@ -185,6 +187,8 @@ const state: WaitProcessState = {
   postFinishingConfirmQty: '',
   postFinishingConfirmRemark: '',
 }
+
+let cuttingPickupNodeSnapshot: PickupNodeProjection | null = null
 
 const FILTERS: Array<{ value: WaitProcessFilter; label: string }> = [
   { value: '全部', label: '全部' },
@@ -822,6 +826,7 @@ function openCuttingPickupDraft(pickupNodeId: string, pickupNodeVersion: string)
   state.cuttingPickupSourceNo = node.productionOrderNo
   state.cuttingPickupWarehouseArea = receiveLocation?.area || '面料 A 区'
   state.cuttingPickupLocationCode = receiveLocation?.locations[0] || 'FAB-A-01'
+  cuttingPickupNodeSnapshot = structuredClone(node)
 }
 
 function clearCuttingPickupDraft(): void {
@@ -830,6 +835,7 @@ function clearCuttingPickupDraft(): void {
   state.cuttingPickupNodeVersion = ''
   state.cuttingPickupWarehouseArea = ''
   state.cuttingPickupLocationCode = ''
+  cuttingPickupNodeSnapshot = null
 }
 
 function getCuttingPickupLocationOptions() {
@@ -841,6 +847,17 @@ function getCuttingPickupLocationOptions() {
   }
 }
 
+function buildPickupUnitSummaries(node: PickupNodeProjection): Array<{ unit: string; qty: number; rollCount: number }> {
+  const summaries = new Map<string, { unit: string; qty: number; rollCount: number }>()
+  for (const item of node.items) {
+    const summary = summaries.get(item.unit) || { unit: item.unit, qty: 0, rollCount: 0 }
+    summary.qty += item.currentAvailableQty
+    summary.rollCount += item.rollCount
+    summaries.set(item.unit, summary)
+  }
+  return Array.from(summaries.values())
+}
+
 function renderCuttingPickupDraftPage(): string {
   const nodes = listActivePickupNodes()
   const node = nodes.find((n) => n.nodeId === state.cuttingPickupNodeId)
@@ -848,7 +865,7 @@ function renderCuttingPickupDraftPage(): string {
     return `<div class="rounded-xl bg-muted/60 px-4 py-8 text-center text-sm text-muted-foreground">当前节点已不存在，请返回重新选择。</div>`
   }
   const options = getCuttingPickupLocationOptions()
-  const totalQty = node.items.reduce((sum, item) => sum + item.currentAvailableQty, 0)
+  const unitSummaries = buildPickupUnitSummaries(node)
   return `
     <section class="space-y-4">
       <div class="rounded-2xl border bg-card px-4 py-4 text-sm shadow-sm">
@@ -860,7 +877,8 @@ function renderCuttingPickupDraftPage(): string {
         <div class="mt-1 text-xs text-muted-foreground">配料单 ${escapeHtml(node.prepOrderNo)}</div>
         <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
           <div>物料：${node.itemCount} 项</div>
-          <div>可领合计：${formatCuttingWaitProcessQty(totalQty, 'yard')}</div>
+          <div>节点版本：V${node.version}</div>
+          <div class="col-span-2">本次可领：${unitSummaries.map((summary) => `${formatCuttingWaitProcessQty(summary.qty, summary.unit)} / ${summary.rollCount} 卷件`).join('；')}</div>
         </div>
       </div>
 
@@ -874,7 +892,9 @@ function renderCuttingPickupDraftPage(): string {
               <div>规格：${escapeHtml(item.spec)}</div>
               <div>需求：${formatCuttingWaitProcessQty(item.requiredQty, item.unit)}</div>
               <div>本次可领：<span class="font-medium text-foreground">${formatCuttingWaitProcessQty(item.currentAvailableQty, item.unit)}</span></div>
-              <div class="col-span-2">来源：${escapeHtml(item.sourceWarehouseName)} / ${escapeHtml(item.sourceWarehouseArea)} / ${escapeHtml(item.sourceLocationCode)}</div>
+              <div class="col-span-2 space-y-1">来源：${item.sourceLocations.map((location) => `
+                <div>${escapeHtml(location.sourceWarehouseName)} / ${escapeHtml(location.sourceWarehouseArea)} / ${escapeHtml(location.sourceLocationCode)} / ${formatCuttingWaitProcessQty(location.currentAvailableQty, location.unit)} / ${location.rollCount} 卷件</div>
+              `).join('')}</div>
             </div>
           </div>
         `).join('')}
@@ -1154,6 +1174,9 @@ function renderCuttingWaitProcessEventResult(event: CuttingRuntimeEvent): string
       <div>数量：${escapeHtml(`${qty} ${unit} / ${rollCount} 卷`)}</div>
       <div>${escapeHtml(locationLine)}</div>
       <div>同步状态：${escapeHtml(event.eventStatus)} · ${escapeHtml(event.occurredAt)}</div>
+      ${runtimeString(payload.warehouseSyncStatus) === '回写异常待重试' ? `
+        <button type="button" class="mt-2 rounded-full border border-amber-300 px-3 py-1.5 text-xs text-amber-700" data-pda-warehouse-action="retry-cutting-pickup-sync" data-pickup-session-id="${escapeAttr(runtimeString(payload.pickupSessionId))}">重试仓储回写</button>
+      ` : ''}
     </div>
   `
 }
@@ -1335,6 +1358,15 @@ function renderCuttingWaitProcessPage(): string {
   const activeAction = params.get('action')
   const activeView = params.get('view')
   const rows = listMaterialLedgerProjections()
+  const deepLinkedPickupNodeId = params.get('pickupNodeId') || ''
+  const deepLinkedPickupNodeVersion = params.get('version') || ''
+  if (
+    activeAction === 'pickup'
+    && deepLinkedPickupNodeId
+    && state.cuttingPickupNodeId !== deepLinkedPickupNodeId
+  ) {
+    openCuttingPickupDraft(deepLinkedPickupNodeId, deepLinkedPickupNodeVersion)
+  }
   if (activeView === 'pickup' || activeAction === 'pickup') {
     return renderPdaFrame(renderCuttingPickupTaskPage(rows), 'warehouse', { headerTitle: '中转仓领料', disableTodoAutoOpen: true })
   }
@@ -2123,55 +2155,92 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     const warehouseArea = state.cuttingPickupWarehouseArea || '面料 A 区'
     const locationCode = state.cuttingPickupLocationCode || 'FAB-A-01'
     try {
+      const node = listActivePickupNodes().find((item) => item.nodeId === pickupNodeId)
+      if (!node || node.version !== pickupNodeVersion) {
+        window.alert('当前待领物料已更新，请重新核对全部物料后再确认领料。')
+        clearCuttingPickupDraft()
+        return true
+      }
+      const nodeSnapshot = structuredClone(node)
+      cuttingPickupNodeSnapshot = nodeSnapshot
+      const idempotencyKey = `pda-pickup:${pickupNodeId}:v${pickupNodeVersion}`
       const session = appendPickupSessionFromNode({
         pickupNodeId,
         pickupNodeVersion,
         receiverName: '裁床仓管',
         warehouseArea,
         locationCode,
-        waitProcessLedgerEventId: `pda-pickup:${pickupNodeId}:${Date.now()}`,
+        waitProcessLedgerEventId: idempotencyKey,
+        idempotencyKey,
       })
       const occurredAt = getCuttingRuntimeNowText()
-      const nodes = listActivePickupNodes()
-      const node = nodes.find((n) => n.nodeId === pickupNodeId)
-      const totalQty = node ? node.items.reduce((sum, item) => sum + item.currentAvailableQty, 0) : 0
-      const totalRoll = node ? node.items.reduce((sum, item) => sum + item.rollCount, 0) : 1
-      const firstItem = node?.items[0]
-      appendCuttingRuntimeEvent({
-        eventType: '中转仓领料',
-        operatorName: '裁床仓管',
-        operatorRole: 'PDA 仓管',
-        occurredAt,
-        refs: { cutOrderNo: node?.productionOrderNo || pickupNodeId, productionOrderNo: node?.productionOrderNo || '', materialType: firstItem?.materialType || '面料' },
-        material: { materialSku: firstItem?.materialSku || '', materialName: firstItem?.materialName || '', materialColor: firstItem?.color || '', unit: 'yard' },
-        pattern: {},
-        inventoryEffect: {
-          inventoryScope: '裁床待加工仓',
-          direction: 'IN',
-          qty: totalQty,
-          unit: 'yard',
-          rollCount: totalRoll,
-          toWarehouseArea: warehouseArea,
-          toLocationCode: locationCode,
-        },
-        payload: {
-          pickupSessionId: session.pickupSessionId,
-          pickupSessionNo: session.pickupSessionNo,
-          pickupNodeId,
-          pickupNodeVersion,
-          pickupRecordIds: session.pickupRecordIds,
-          warehouseArea,
-          locationCode,
-          pickupBy: '裁床仓管',
-          pickupAt: occurredAt,
-          warehouseSyncStatus: session.warehouseSyncStatus,
-        },
-      })
+      let pickupRecordIndex = 0
+      for (const item of nodeSnapshot.items) {
+        const runtimeUnit = (
+          ['yard', '片', '件', '条', '粒', '卷', '公斤'].includes(item.unit) ? item.unit : '件'
+        ) as CuttingRuntimeQtyUnit
+        const pickupRecordId = session.pickupRecordIds[pickupRecordIndex] || ''
+        pickupRecordIndex += 1
+        appendCuttingRuntimeEvent({
+          eventType: '中转仓领料',
+          operatorName: '裁床仓管',
+          operatorRole: 'PDA 仓管',
+          occurredAt,
+          refs: {
+            cutOrderNo: nodeSnapshot.productionOrderNo,
+            productionOrderNo: nodeSnapshot.productionOrderNo,
+            handoverRecordId: `${session.pickupSessionId}:${item.prepLineId}`,
+          },
+          material: {
+            materialSku: item.materialSku,
+            materialName: item.materialName,
+            materialColor: item.color,
+            materialAlias: item.materialName,
+            unit: runtimeUnit,
+          },
+          inventoryEffect: {
+            inventoryScope: '裁床待加工仓',
+            direction: 'IN',
+            qty: item.currentAvailableQty,
+            unit: runtimeUnit,
+            rollCount: item.rollCount,
+            toWarehouseArea: warehouseArea,
+            toLocationCode: locationCode,
+          },
+          payload: {
+            pickupSessionId: session.pickupSessionId,
+            pickupSessionNo: session.pickupSessionNo,
+            pickupNodeId,
+            pickupNodeVersion,
+            pickupRecordId,
+            pickupRecordIds: session.pickupRecordIds,
+            prepOrderId: nodeSnapshot.prepOrderId,
+            prepLineId: item.prepLineId,
+            materialSku: item.materialSku,
+            pickupQty: item.currentAvailableQty,
+            unit: runtimeUnit,
+            rollCount: item.rollCount,
+            sourceLocations: item.sourceLocations,
+            warehouseArea,
+            locationCode,
+            pickupBy: '裁床仓管',
+            pickupAt: occurredAt,
+            warehouseSyncStatus: session.warehouseSyncStatus,
+          },
+        })
+      }
+      window.history.replaceState({}, '', '/fcs/pda/warehouse/wait-process?scope=cutting&action=pickup')
     } catch (e) {
       window.alert(e instanceof Error ? e.message : '领料失败')
       return true
     }
     clearCuttingPickupDraft()
+    return true
+  }
+  if (action === 'retry-cutting-pickup-sync') {
+    const pickupSessionId = actionNode?.dataset.pickupSessionId || ''
+    if (!pickupSessionId) return true
+    recordPickupSessionWarehouseSyncResult(pickupSessionId, { status: '已回写' })
     return true
   }
   if (action === 'cutting-wp-issue') {
