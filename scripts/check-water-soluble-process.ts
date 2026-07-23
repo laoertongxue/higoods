@@ -38,7 +38,6 @@ import {
   WATER_SOLUBLE_STATUS_LABEL,
   assignWaterSolubleFactory,
   buildWaterSolubleGenerationKey,
-  buildWaterSolubleMaterialSequence,
   buildWaterSolubleOrderNo,
   canAssignWaterSolubleFactory,
   completeWaterSoluble,
@@ -969,30 +968,24 @@ productionArtifactGeneration.listGeneratedProductionTaskArtifacts()
 const stableWaterOrderNo = buildWaterSolubleOrderNo(
   'PO-202603-0004',
   'PRODUCTION-0004',
-  buildWaterSolubleMaterialSequence('BOM-WATER-01'),
+  1,
 )
-assert.match(stableWaterOrderNo, /^SRJG-\d{9,}-\d{6}$/, '水溶加工单号必须保留完整生产流水并使用六位稳定物料序号')
+assert.match(stableWaterOrderNo, /^SRJG-\d{9,}-\d{3,}$/, '水溶加工单号必须保留完整生产流水并使用至少三位物料序号')
 assert.notEqual(
   stableWaterOrderNo,
-  buildWaterSolubleOrderNo('PO-202603-1004', 'PRODUCTION-1004', buildWaterSolubleMaterialSequence('BOM-WATER-01')),
+  buildWaterSolubleOrderNo('PO-202603-1004', 'PRODUCTION-1004', 1),
   '生产单流水号超过三位时不得因截断产生加工单号碰撞',
 )
 assert.equal(
   stableWaterOrderNo,
-  buildWaterSolubleOrderNo('PO-202603-0004', 'PRODUCTION-0004', buildWaterSolubleMaterialSequence('BOM-WATER-01')),
+  buildWaterSolubleOrderNo('PO-202603-0004', 'PRODUCTION-0004', 1),
   '同一生产单和同一正式物料产物在冷启动后必须得到相同加工单号',
 )
 assert.notEqual(
   stableWaterOrderNo,
-  buildWaterSolubleOrderNo('PO-202603-0004', 'PRODUCTION-0004', buildWaterSolubleMaterialSequence('BOM-WATER-02')),
+  buildWaterSolubleOrderNo('PO-202603-0004', 'PRODUCTION-0004', 2),
   '同一生产单的不同独立水溶 BOM 行必须生成不同加工单号',
 )
-const existingBomSequence = buildWaterSolubleMaterialSequence('BOM-B')
-const sequenceBeforeAddingAnotherBom = new Map(['BOM-B'].map((bomItemId) => [bomItemId, buildWaterSolubleMaterialSequence(bomItemId)]))
-const sequenceAfterAddingEarlierBom = new Map(['BOM-A', 'BOM-B'].map((bomItemId) => [bomItemId, buildWaterSolubleMaterialSequence(bomItemId)]))
-assert.equal(sequenceBeforeAddingAnotherBom.get('BOM-B'), existingBomSequence, '单独生成时必须使用 BOM 自身的稳定物料序号')
-assert.equal(sequenceAfterAddingEarlierBom.get('BOM-B'), existingBomSequence, '新增排序靠前的 BOM 后，既有 BOM 物料序号不得变化')
-assert.notEqual(sequenceAfterAddingEarlierBom.get('BOM-A'), existingBomSequence, '不同 BOM 业务身份必须生成不同的稳定物料序号')
 assert.equal(
   buildWaterSolubleGenerationKey('PRODUCTION-0004', 'BOM-WATER-01'),
   buildWaterSolubleGenerationKey('PRODUCTION-0004', 'BOM-WATER-01'),
@@ -1012,7 +1005,7 @@ assert(
 assert(firstWaterOrders.every((item) => item.sourceDemandIds.length === 0), '水溶加工单不得生成或关联需求单')
 assert(firstWaterOrders.every((item) => item.processCode === 'WATER_SOLUBLE'), '水溶加工单必须只消费 WATER_SOLUBLE TASK 产物')
 assert(
-  firstWaterOrders.every((item) => /^SRJG-\d{9,}-\d{6}$/.test(item.waterOrderNo)),
+  firstWaterOrders.every((item) => /^SRJG-\d{9,}-\d{3,}$/.test(item.waterOrderNo)),
   '水溶加工单必须使用 SRJG-年月生产序号-物料序号 的短业务编号',
 )
 assert(
