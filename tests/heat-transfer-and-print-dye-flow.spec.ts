@@ -32,7 +32,9 @@ test('成衣烫画按件加工、无需菲票并交往我方后道工厂', async
 test('补料详情只展示真实印花和染色加工单及补料来源', async ({ page }) => {
   await page.goto('/fcs/craft/cutting/supplement-management')
   await expect(page.getByRole('heading', { name: '补料管理' })).toBeVisible()
-  await page.getByRole('button', { name: '查看详情', exact: true }).first().click()
+  const supplementRow = page.locator('tbody tr').filter({ hasText: 'SUP-02SPEU6' })
+  await expect(supplementRow).toHaveCount(1)
+  await supplementRow.getByRole('button', { name: '查看详情', exact: true }).click()
 
   await expect(page.getByRole('heading', { name: '补料单详情' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '印花 / 染色加工单' })).toBeVisible()
