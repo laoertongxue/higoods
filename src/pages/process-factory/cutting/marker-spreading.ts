@@ -7719,6 +7719,10 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: 
   return false
 }
 
+export function handleCraftCuttingMarkerSpreadingSubmit(_form: HTMLFormElement): boolean {
+  return false
+}
+
 export function isCraftCuttingMarkerSpreadingDialogOpen(): boolean {
   const pathname = getCurrentPathname()
   return pathname === getCanonicalCuttingPath('spreading-edit') || pathname === getCanonicalCuttingPath('spreading-create')
