@@ -22,6 +22,7 @@ interface ProgressSet {
 
 interface ProductionOrderTrackingRecord {
   no: string
+  productionOrderId: string
   demandNo: string
   scheduleNo: string
   materialRequestNo: string
@@ -132,7 +133,8 @@ const TAB_ITEMS: Array<{ key: TrackingTab; label: string }> = [
 
 const orders: ProductionOrderTrackingRecord[] = [
   {
-    no: 'SO-PRD-202606-0018',
+    no: 'PO-202603-0004',
+    productionOrderId: 'PO-202603-0004',
     demandNo: 'SO-REQ-202606-0012',
     scheduleNo: 'SO-SCH-202606-0018',
     materialRequestNo: 'PM-240618-08',
@@ -170,6 +172,7 @@ const orders: ProductionOrderTrackingRecord[] = [
   },
   {
     no: 'SO-PRD-202606-0017',
+    productionOrderId: 'SO-PRD-202606-0017',
     demandNo: 'SO-REQ-202606-0011',
     scheduleNo: 'SO-SCH-202606-0017',
     materialRequestNo: 'PM-240617-03',
@@ -206,6 +209,7 @@ const orders: ProductionOrderTrackingRecord[] = [
   },
   {
     no: 'SO-PRD-202606-0016',
+    productionOrderId: 'SO-PRD-202606-0016',
     demandNo: 'SO-REQ-202606-0010',
     scheduleNo: 'SO-SCH-202606-0016',
     materialRequestNo: 'PM-240616-09',
@@ -239,6 +243,7 @@ const orders: ProductionOrderTrackingRecord[] = [
   },
   {
     no: 'SO-PRD-202606-0015',
+    productionOrderId: 'SO-PRD-202606-0015',
     demandNo: 'SO-REQ-202606-0009',
     scheduleNo: 'SO-SCH-202606-0015',
     materialRequestNo: 'PM-240615-02',
@@ -365,24 +370,28 @@ function toTrackingStatus(order: ProcessWorkOrder): NodeStatus {
   return '进行中'
 }
 
-function getProcessWorkOrderNodes(): WorkOrderNode[] {
+function getProcessWorkOrderNodes(order: ProductionOrderTrackingRecord): WorkOrderNode[] {
   return listProcessWorkOrders()
-    .filter((item) => item.processType === 'PRINT' || item.processType === 'DYE')
+    .filter((item) =>
+      (item.processType === 'PRINT' || item.processType === 'DYE')
+      && item.sourceType === 'PRODUCTION_ORDER'
+      && (item.sourceProductionOrderNo === order.no || item.sourceProductionOrderId === order.productionOrderId),
+    )
     .map((item) => ({
       id: item.workOrderId,
       lane: item.processType === 'PRINT' ? '印花加工单' : '染色加工单',
       label: item.workOrderNo,
       subLabel: `${formatNumber(item.plannedQty)} ${item.plannedUnit}`,
       status: toTrackingStatus(item),
-      sourceObject: item.sourceProductionOrderNo || item.sourceSnapshot.supplementRecordNo || item.stockMaterialName || '备货物料',
+      sourceObject: item.sourceProductionOrderNo || item.sourceProductionOrderId || order.no,
       factoryName: item.factoryName,
       plannedQty: item.plannedQty,
       plannedUnit: item.plannedUnit,
     }))
 }
 
-function getWorkOrderNodes(): WorkOrderNode[] {
-  return [...getProcessWorkOrderNodes(), ...staticWorkOrderNodes]
+function getWorkOrderNodes(order: ProductionOrderTrackingRecord): WorkOrderNode[] {
+  return [...getProcessWorkOrderNodes(order), ...staticWorkOrderNodes]
 }
 
 function formatNumber(value: number): string {
@@ -1240,7 +1249,7 @@ function renderQuantityTab(order: ProductionOrderTrackingRecord, selectedNode?: 
 }
 
 function renderWorkordersTab(order: ProductionOrderTrackingRecord, selectedNode?: string): string {
-  const workOrderNodes = getWorkOrderNodes()
+  const workOrderNodes = getWorkOrderNodes(order)
   const selectedId = selectedNode ?? getSelectedNode('PWO-PRINT-004')
   const selected = workOrderNodes.find((node) => node.id === selectedId) ?? workOrderNodes[0]
   const lanes = ['印花加工单', '染色加工单', '物料配料', '裁片单', '特殊工艺', '车缝', '后道复检交出']
@@ -1344,7 +1353,7 @@ function renderWorkordersTab(order: ProductionOrderTrackingRecord, selectedNode?
       </section>
       <section class="rounded-lg border bg-card p-4">
         <h2 class="text-base font-semibold">工单对象列表（真实印花 / 染色加工单）</h2>
-        ${renderLedgerTable(['工单类型', '工单编号', '来源对象', '当前节点', '计划 / 实际时间', '数量', '状态', '当前责任方', '操作'], getProcessWorkOrderNodes().map((node) => [
+        ${renderLedgerTable(['工单类型', '工单编号', '来源对象', '当前节点', '计划 / 实际时间', '数量', '状态', '当前责任方', '操作'], getProcessWorkOrderNodes(order).map((node) => [
           node.lane,
           node.label,
           node.sourceObject || '—',

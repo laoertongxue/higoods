@@ -49,6 +49,12 @@ export interface FactoryMetricRow {
   completionRate: number
 }
 
+export interface ProcessWorkOrderPlannedQuantityGroup {
+  objectType: string
+  plannedUnit: string
+  plannedQty: number
+}
+
 interface BaseExecutionStatistics {
   workOrderCount: number
   statusCounts: Record<string, number>
@@ -72,7 +78,7 @@ interface BaseExecutionStatistics {
 }
 
 export interface PrintingExecutionStatistics extends BaseExecutionStatistics {
-  plannedPrintFabricMeters: number
+  plannedQuantityGroups: ProcessWorkOrderPlannedQuantityGroup[]
   printCompletedFabricMeters: number
   transferCompletedFabricMeters: number
   waitProcessFabricMeters: number
@@ -83,6 +89,23 @@ export interface PrintingExecutionStatistics extends BaseExecutionStatistics {
   usedMaterialMeters: number
   printAverageHours: number
   transferAverageHours: number
+}
+
+export function groupProcessWorkOrderPlannedQuantities(
+  orders: Array<Pick<ProcessWorkOrder, 'objectType' | 'plannedUnit' | 'plannedQty'>>,
+): ProcessWorkOrderPlannedQuantityGroup[] {
+  const groups = new Map<string, ProcessWorkOrderPlannedQuantityGroup>()
+  orders.forEach((order) => {
+    const objectType = order.objectType || '未分类对象'
+    const key = `${objectType}\u0000${order.plannedUnit}`
+    const current = groups.get(key)
+    if (current) {
+      current.plannedQty = round(current.plannedQty + order.plannedQty)
+      return
+    }
+    groups.set(key, { objectType, plannedUnit: order.plannedUnit, plannedQty: round(order.plannedQty) })
+  })
+  return [...groups.values()]
 }
 
 export interface DyeingExecutionStatistics extends BaseExecutionStatistics {
@@ -410,7 +433,7 @@ export function getPrintingExecutionStatistics(filter: ProcessStatisticsFilter =
   const base = buildBaseStatistics(orders, records)
   return {
     ...base,
-    plannedPrintFabricMeters: round(orders.reduce((sum, order) => sum + order.plannedQty, 0)),
+    plannedQuantityGroups: groupProcessWorkOrderPlannedQuantities(orders),
     printCompletedFabricMeters: nodeQty(orders, ['打印']),
     transferCompletedFabricMeters: nodeQty(orders, ['转印'], ['actualCompletedQty', 'outputQty']),
     waitProcessFabricMeters: sumWarehouseQty(records.waitProcess, '面料', 'availableObjectQty'),

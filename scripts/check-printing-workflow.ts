@@ -34,6 +34,7 @@ import {
 import { listProcessWorkOrderStockMaterials } from '../src/data/fcs/process-work-order-stock.ts'
 import { buildTaskRouteCardPrintDoc } from '../src/data/fcs/task-print-cards.ts'
 import { getProcessWorkOrderById } from '../src/data/fcs/process-work-order-domain.ts'
+import { groupProcessWorkOrderPlannedQuantities } from '../src/data/fcs/process-statistics-domain.ts'
 import {
   confirmSupplementAndGenerateProcessWorkOrders,
   listSupplementRecords,
@@ -127,6 +128,22 @@ assert(statisticsSource.includes('待回写'), '统计页缺少待回写指标')
 assert(statisticsSource.includes('待审核'), '统计页缺少待审核指标')
 assert(!statisticsSource.includes('需求单印花数量'), '统计页不得保留需求单印花数量口径')
 assert(statisticsSource.includes('加工计划数量'), '统计页必须展示真实加工计划数量口径')
+assert(statisticsSource.includes('plannedQuantityGroups'), '统计页必须按作用对象和单位展示加工计划数量')
+assert(!statisticsSource.includes('plannedPrintFabricMeters'), '统计页不得将不同作用对象和单位汇总为固定米数')
+
+const plannedQuantityGroups = groupProcessWorkOrderPlannedQuantities([
+  { objectType: '面料', plannedUnit: '米', plannedQty: 120 },
+  { objectType: '裁片', plannedUnit: '片', plannedQty: 80 },
+  { objectType: '成衣', plannedUnit: '件', plannedQty: 30 },
+])
+assert(
+  JSON.stringify(plannedQuantityGroups) === JSON.stringify([
+    { objectType: '面料', plannedUnit: '米', plannedQty: 120 },
+    { objectType: '裁片', plannedUnit: '片', plannedQty: 80 },
+    { objectType: '成衣', plannedUnit: '件', plannedQty: 30 },
+  ]),
+  '加工计划数量必须按面料/裁片/成衣及其单位分组，禁止跨对象或跨单位相加',
+)
 
 const dashboardSource = readFile('src/pages/process-factory/printing/dashboards.ts')
 assert(dashboardSource.includes('待送货'), '大屏缺少待送货模块')

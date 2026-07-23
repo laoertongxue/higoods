@@ -3,7 +3,8 @@ import { expect, test } from '@playwright/test'
 test('印花统计读取统一执行、仓和交出数据', async ({ page }) => {
   await page.goto('/fcs/craft/printing/statistics')
   await expect(page.getByRole('heading', { name: '印花统计' })).toBeVisible()
-  await expect(page.getByText('计划印花面料米数').first()).toBeVisible()
+  await expect(page.getByText('加工计划数量（面料）').first()).toBeVisible()
+  await expect(page.getByText('加工计划数量（裁片）').first()).toBeVisible()
   await expect(page.getByText('打印完成面料米数').first()).toBeVisible()
   await expect(page.getByText('转印完成面料米数').first()).toBeVisible()
   await expect(page.getByText('差异面料米数').first()).toBeVisible()

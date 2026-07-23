@@ -5,6 +5,7 @@ import {
   handleProductionOrderProgressEvent,
   renderProductionOrderProgressTrackingPage,
 } from '../src/pages/production-order-progress-tracking.ts'
+import { listProcessWorkOrders } from '../src/data/fcs/process-work-order-domain.ts'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -20,6 +21,7 @@ async function renderAt(pathname: string): Promise<string> {
 }
 
 async function main(): Promise<void> {
+  const currentProductionOrderNo = 'PO-202603-0004'
   const fcsMenus = menusBySystem.fcs ?? []
   const progressGroup = fcsMenus
     .flatMap((group) => group.items)
@@ -66,7 +68,7 @@ async function main(): Promise<void> {
     '关键时间',
     '异常与提醒',
     '关联',
-    'SO-PRD-202606-0018',
+    currentProductionOrderNo,
     'data-production-order-progress-action="toggle-row"',
     'data-production-order-progress-action="open-modal"',
     'data-skip-page-rerender="true"',
@@ -79,7 +81,7 @@ async function main(): Promise<void> {
     '导出当前页',
   ].forEach((text) => assert(!listHtml.includes(text), `列表页不应再展示红框操作入口「${text}」`))
 
-  const overviewHtml = await renderAt('/fcs/progress/production-orders/detail?po=SO-PRD-202606-0018&tab=overview')
+  const overviewHtml = await renderAt(`/fcs/progress/production-orders/detail?po=${currentProductionOrderNo}&tab=overview`)
   ;[
     '生产单进度追踪',
     '交付倒计时',
@@ -100,7 +102,7 @@ async function main(): Promise<void> {
     'data-skip-page-rerender="true"',
   ].forEach((text) => assertIncludes(overviewHtml, text, '概览页'))
 
-  const timelineHtml = await renderAt('/fcs/progress/production-orders/detail?po=SO-PRD-202606-0018&tab=timeline')
+  const timelineHtml = await renderAt(`/fcs/progress/production-orders/detail?po=${currentProductionOrderNo}&tab=timeline`)
   ;[
     '时间追踪',
     '生产时间轴（计划 vs 实际）',
@@ -113,7 +115,7 @@ async function main(): Promise<void> {
     'data-tab="timeline"',
   ].forEach((text) => assertIncludes(timelineHtml, text, '时间追踪页'))
 
-  const quantityHtml = await renderAt('/fcs/progress/production-orders/detail?po=SO-PRD-202606-0018&tab=quantity')
+  const quantityHtml = await renderAt(`/fcs/progress/production-orders/detail?po=${currentProductionOrderNo}&tab=quantity`)
   ;[
     '数量流转',
     '数量流转全景图',
@@ -127,7 +129,7 @@ async function main(): Promise<void> {
     'data-tab="quantity"',
   ].forEach((text) => assertIncludes(quantityHtml, text, '数量流转页'))
 
-  const workordersHtml = await renderAt('/fcs/progress/production-orders/detail?po=SO-PRD-202606-0018&tab=workorders')
+  const workordersHtml = await renderAt(`/fcs/progress/production-orders/detail?po=${currentProductionOrderNo}&tab=workorders`)
   ;[
     '工单与分支',
     '分支拓扑视图',
@@ -144,8 +146,23 @@ async function main(): Promise<void> {
   ;['印花需求', '染色需求', '印染需求', '印花需求单', '染色需求单'].forEach((text) => {
     assert(!workordersHtml.includes(text), `工单与分支页不得保留旧需求单表达「${text}」`)
   })
+  const currentProcessOrders = listProcessWorkOrders().filter((item) =>
+    (item.processType === 'PRINT' || item.processType === 'DYE')
+    && item.sourceType === 'PRODUCTION_ORDER'
+    && (item.sourceProductionOrderNo === currentProductionOrderNo || item.sourceProductionOrderId === currentProductionOrderNo),
+  )
+  assert(currentProcessOrders.length > 0, '验收数据必须存在当前生产单来源的印染加工单')
+  const currentProcessOrderIds = new Set(currentProcessOrders.map((item) => item.workOrderId))
+  currentProcessOrders.forEach((item) => {
+    assertIncludes(workordersHtml, item.workOrderNo, '工单与分支页必须展示当前生产单关联的真实印染加工单')
+  })
+  listProcessWorkOrders()
+    .filter((item) => (item.processType === 'PRINT' || item.processType === 'DYE') && !currentProcessOrderIds.has(item.workOrderId))
+    .forEach((item) => {
+      assert(!workordersHtml.includes(item.workOrderNo), `工单与分支页不得混入非当前生产单加工单「${item.workOrderNo}」`)
+    })
 
-  const handoverHtml = await renderAt('/fcs/progress/production-orders/detail?po=SO-PRD-202606-0018&tab=handover')
+  const handoverHtml = await renderAt(`/fcs/progress/production-orders/detail?po=${currentProductionOrderNo}&tab=handover`)
   ;[
     '交接与质检',
     '交接事件时间线',
@@ -158,7 +175,7 @@ async function main(): Promise<void> {
     'data-tab="handover"',
   ].forEach((text) => assertIncludes(handoverHtml, text, '交接与质检页'))
 
-  const settlementHtml = await renderAt('/fcs/progress/production-orders/detail?po=SO-PRD-202606-0018&tab=settlement')
+  const settlementHtml = await renderAt(`/fcs/progress/production-orders/detail?po=${currentProductionOrderNo}&tab=settlement`)
   ;[
     '结算与复盘',
     '预计结算金额',
@@ -173,7 +190,7 @@ async function main(): Promise<void> {
   ].forEach((text) => assertIncludes(settlementHtml, text, '结算与复盘页'))
 
   assert(typeof handleProductionOrderProgressEvent === 'function', '缺少生产单进度跟踪局部事件处理器')
-  assert(!overviewHtml.includes('data-nav="/fcs/progress/production-orders/detail?po=SO-PRD-202606-0018&tab=timeline"'), '详情页 Tab 不应使用路由跳转做轻交互')
+  assert(!overviewHtml.includes(`data-nav="/fcs/progress/production-orders/detail?po=${currentProductionOrderNo}&tab=timeline"`), '详情页 Tab 不应使用路由跳转做轻交互')
   ;[
     '导出进度跟踪',
     '更多操作',
