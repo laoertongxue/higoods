@@ -113,7 +113,7 @@
     "check:production-craft-dict-page": "tsx scripts/check-production-craft-dict-page.ts",
     "check:factory-capacity-profile": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-capacity-profile.ts",
     "check:capacity-equipment-linkage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-capacity-equipment-linkage.ts",
-    "check:printing-workflow": "tsx scripts/check-printing-workflow.ts && tsx scripts/check-platform-process-order-events.ts PRINT",
+    "check:printing-workflow": "tsx scripts/check-printing-workflow.ts && tsx scripts/check-task9-process-order-list-architecture.ts && tsx scripts/check-platform-process-order-events.ts PRINT",
     "check:dyeing-workflow": "tsx scripts/check-dyeing-workflow.ts && tsx scripts/check-platform-process-order-events.ts DYE",
     "check:dye-work-order-online-alignment": "tsx scripts/check-dye-work-order-online-alignment.ts",
     "check:combined-dyeing": "tsx scripts/check-combined-dyeing.ts && tsx scripts/check-dye-list-reentry.ts",

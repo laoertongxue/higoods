@@ -20,7 +20,6 @@ import {
 import { getPlatformStatusForProcessWorkOrder } from '../../../data/fcs/process-platform-status-adapter.ts'
 import { getStartPrerequisiteByTaskId } from '../../../data/fcs/pda-start-link.ts'
 import {
-  PROCESS_WORK_ORDER_SOURCE_LABEL,
   getProcessWorkOrderById,
   getProcessWorkOrderByNo,
   type ProcessWorkOrder,
@@ -43,6 +42,7 @@ import {
   renderPageHeader,
   renderSection,
 } from './shared'
+import { getProcessWorkOrderSourceDetailRows } from '../../process-work-orders/process-work-order-source-view.ts'
 
 type PrintDetailTab = 'base' | 'pattern' | 'execution' | 'handover' | 'review' | 'progress' | 'exception'
 
@@ -57,23 +57,7 @@ const printDetailTabs: Array<{ key: PrintDetailTab; label: string }> = [
 ]
 
 function renderSourceFields(order: ProcessWorkOrder): string {
-  const rows = [renderField('来源类型', PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType])]
-  if (order.sourceType === 'STOCK') {
-    rows.push(renderField('备货物料', order.stockMaterialName || order.stockMaterialId || order.materialName))
-    return rows.join('')
-  }
-  if (order.sourceType === 'CUT_PIECE_SUPPLEMENT') {
-    rows.push(
-      renderField('补料单', order.sourceSnapshot.supplementRecordNo || '-'),
-      renderField('原始裁片单', order.sourceSnapshot.originalCutOrderNo || '-'),
-    )
-  }
-  rows.push(
-    renderField('所属生产单', order.sourceSnapshot.productionOrderNo || order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'),
-    renderField('技术包版本', order.sourceSnapshot.techPackVersionLabel || '-'),
-    renderField('BOM 物料', `${order.materialSku} / ${order.materialName}`),
-  )
-  return rows.join('')
+  return getProcessWorkOrderSourceDetailRows(order).map((row) => renderField(row.label, row.value)).join('')
 }
 
 const consumedWebActionKeys = new Set<string>()

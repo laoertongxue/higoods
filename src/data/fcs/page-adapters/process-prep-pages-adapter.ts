@@ -28,7 +28,7 @@ import { selectPrimaryProductionMaterialBomItem } from '../production-material-b
 
 type PrepProcessCode = 'PRINT' | 'DYE'
 type PrepUnit = string
-type CreateModeZh = '生产单自动生成' | '按备货创建' | '补料确认生成'
+type CreateModeZh = (typeof PROCESS_WORK_ORDER_SOURCE_LABEL)['PRODUCTION_ORDER'] | '按备货创建' | '补料确认生成'
 type DemandStatusZh = '待满足' | '部分满足' | '已满足' | '已完成交接'
 type OrderStatusZh = PlatformProcessStatus
 type LegacyOrderStatusZh = '待接收来料' | '待开工' | '加工中' | '部分交出' | '全部交出' | '已关闭'
@@ -342,7 +342,7 @@ function buildFacts(processCode: PrepProcessCode): {
     const satisfiedQty = clampInt(orderQty * ratio)
     const handoverCompleted = ratio >= 1 && index % 2 === 0
     const orderStatus = calcOrderStatus(orderQty, satisfiedQty, index)
-    const createMode: CreateModeZh = '生产单自动生成'
+    const createMode: CreateModeZh = PROCESS_WORK_ORDER_SOURCE_LABEL.PRODUCTION_ORDER
     const artifactUnit = artifact.plannedUnit || meta.unit
 
     const orderNo = buildProductionDemandBusinessId(meta.orderPrefix, artifact)
@@ -609,7 +609,7 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
       ? '按备货创建'
       : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
         ? '补料确认生成'
-        : '生产单自动生成',
+        : PROCESS_WORK_ORDER_SOURCE_LABEL.PRODUCTION_ORDER,
     sourceLabel: PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType],
     factoryName: order.factoryName,
     plannedFeedQty: order.plannedQty,

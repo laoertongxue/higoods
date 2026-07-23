@@ -21,7 +21,7 @@ import {
   resolveUniqueSupplementBomItem,
   type ProcessWorkOrderGenerationInput,
 } from '../../../data/fcs/process-work-order-generation-service.ts'
-import { getProcessWorkOrderById } from '../../../data/fcs/process-work-order-domain.ts'
+import { PROCESS_WORK_ORDER_SOURCE_LABEL, getProcessWorkOrderById } from '../../../data/fcs/process-work-order-domain.ts'
 import {
   buildDyeingWorkOrderDetailLink,
   buildPrintingWorkOrderDetailLink,
@@ -242,7 +242,7 @@ interface SupplementProcessLink {
   createdAt: string
   linkedProductionOrderNo: string
   processNote: string
-  sourceLabel: '裁片补料生成'
+  sourceLabel: PROCESS_WORK_ORDER_SOURCE_LABEL.CUT_PIECE_SUPPLEMENT
   supplementRecordNo: string
   originalCutOrderNo: string
   techPackVersionLabel: string
@@ -2134,7 +2134,7 @@ function buildSupplementProcessLinks(record: SupplementRecord): SupplementProces
       createdAt: workOrder.createdAt,
       linkedProductionOrderNo: record.draft.productionOrderNo,
       processNote: demand?.processNote || `${ref.processType === 'PRINT' ? '印花' : '染色'}加工`,
-      sourceLabel: '裁片补料生成',
+      sourceLabel: PROCESS_WORK_ORDER_SOURCE_LABEL.CUT_PIECE_SUPPLEMENT,
       supplementRecordNo: workOrder.sourceSnapshot.supplementRecordNo || record.recordNo,
       originalCutOrderNo: workOrder.sourceSnapshot.originalCutOrderNo || '',
       techPackVersionLabel: workOrder.sourceSnapshot.techPackVersionLabel || '',
