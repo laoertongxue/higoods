@@ -38,6 +38,12 @@ test('补料详情只展示真实印花和染色加工单及补料来源', async
 
   await expect(page.getByRole('heading', { name: '补料单详情' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '印花 / 染色加工单' })).toBeVisible()
+  const printingWorkOrderLink = page.locator('a[data-nav]', { hasText: 'PH-20260325-000001' })
+  const dyeingWorkOrderLink = page.locator('a[data-nav]', { hasText: 'DY-20260325-000001' })
+  await expect(printingWorkOrderLink).toHaveCount(1)
+  await expect(printingWorkOrderLink).toHaveAttribute('data-nav', /^\/fcs\/craft\/printing\/work-orders\//)
+  await expect(dyeingWorkOrderLink).toHaveCount(1)
+  await expect(dyeingWorkOrderLink).toHaveAttribute('data-nav', /^\/fcs\/craft\/dyeing\/work-orders\?dyeOrderId=/)
   await expect(page.getByText('来源：裁片补料生成', { exact: true }).first()).toBeVisible()
   await expect(page.locator('body')).not.toContainText('印花需求单')
   await expect(page.locator('body')).not.toContainText('染色需求单')
