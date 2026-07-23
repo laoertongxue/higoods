@@ -120,7 +120,7 @@ assertIncludes(adapterSource, 'listProcessWorkOrders', '平台加工单 adapter'
 assertIncludes(adapterSource, 'mapUnifiedWorkOrderToPrepOrder', '平台加工单 adapter')
 for (const file of stockSourceBoundaryFiles) {
   const source = read(file)
-  ;["sourceProductionOrderId || ''", "productionOrderId: ''", "productionOrderNo: ''", "sourceDemandId: ''", "sourceDemandNo: ''"].forEach((token) => {
+  ;["sourceProductionOrderId || ''", "productionOrderId: ''", "productionOrderNo: ''"].forEach((token) => {
     assertNotIncludes(source, token, `${file} 备货来源边界`)
   })
 }

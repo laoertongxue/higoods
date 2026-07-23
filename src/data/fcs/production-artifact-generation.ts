@@ -199,39 +199,6 @@ export function buildDictionaryCraftMockDocumentNo(
   return `${prefix}${toMockToken(craftCode, 7)}${toMockToken(orderId, 8)}${String(mockIndex + 1).padStart(2, '0')}`
 }
 
-const STABLE_DEMAND_SEQUENCE_BY_ARTIFACT_ID: Readonly<Record<string, string>> = {
-  'DEMART-13_PO-202603-081-17_TPS-PO-202603-081-25_tdv_demand_SPU_TSHIRT_081-37_tdv_demand_SPU_TSHIRT_081-process-dye-47_tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye': '01',
-  'DEMART-13_PO-202603-087-17_TPS-PO-202603-087-25_tdv_demand_SPU_TSHIRT_081-37_tdv_demand_SPU_TSHIRT_081-process-dye-47_tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye': '07',
-  'DEMART-13_PO-202603-088-17_TPS-PO-202603-088-25_tdv_demand_SPU_TSHIRT_081-37_tdv_demand_SPU_TSHIRT_081-process-dye-47_tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye': '08',
-}
-
-function buildStableDemandIdentityToken(artifact: ProductionDemandArtifact): string {
-  const preservedSequence = STABLE_DEMAND_SEQUENCE_BY_ARTIFACT_ID[artifact.artifactId]
-  if (preservedSequence) return preservedSequence
-  let hash = 14695981039346656037n
-  for (const character of artifact.artifactId) {
-    hash ^= BigInt(character.charCodeAt(0))
-    hash = BigInt.asUintN(64, hash * 1099511628211n)
-  }
-  return hash.toString(10).padStart(20, '0')
-}
-
-export function buildProductionDemandBusinessId(
-  prefix: string,
-  artifact: ProductionDemandArtifact,
-): string {
-  if (artifact.craftCode) {
-    const matched = artifact.sourceEntryId.match(/DICT-MOCK-[A-Z_0-9]+-(\d{2})-/)
-    if (matched) {
-      const mockSequence = Number.parseInt(matched[1], 10)
-      if (Number.isFinite(mockSequence) && mockSequence > 0) {
-        return buildDictionaryCraftMockDocumentNo(prefix, artifact.craftCode, artifact.orderId, mockSequence - 1)
-      }
-    }
-  }
-  return `${prefix}${toMockToken(artifact.orderId, 8)}${buildStableDemandIdentityToken(artifact)}`
-}
-
 function listTechPackSourceOrders() {
   return productionOrders
     .map((order) => ({
@@ -404,8 +371,6 @@ function listDictionaryCoverageDemandArtifacts(): GeneratedDemandArtifact[] {
     .flatMap((definition, craftIndex) => {
       if (
         definition.defaultDocType !== 'DEMAND'
-        || definition.processCode === 'PRINT'
-        || definition.processCode === 'DYE'
       ) return []
       return Array.from({ length: DICTIONARY_CRAFT_MOCKS_PER_DEFINITION }, (_, mockIndex) =>
         buildDictionaryCoverageDemandArtifact(definition, craftIndex, mockIndex),

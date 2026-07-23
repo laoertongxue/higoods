@@ -428,7 +428,6 @@ const stockWarehouseRecord = getProcessWarehouseRecordById(stockWarehouseLinkage
 assert(stockWarehouseRecord?.sourceType === 'STOCK', '备货印花仓记录来源必须是 STOCK')
 assert(stockWarehouseRecord?.stockMaterialId === realStock.stockMaterialId, '备货印花仓记录必须保留 stockMaterialId')
 assert(stockWarehouseRecord?.sourceProductionOrderId === undefined, '备货印花仓记录不得保留空生产单 ID')
-assert(stockWarehouseRecord?.sourceDemandId === undefined, '备货印花仓记录不得保留空需求 ID')
 const stockSubmit = submitPrintHandover(stockCreated.order.taskId, { submittedQty: stockCreated.order.plannedQty })
 const stockPdaHead = listHandoverOrdersByTaskId(stockCreated.order.taskId)[0]
 assert(stockPdaHead?.sourceType === 'STOCK', '备货印花 PDA 交出单来源必须是 STOCK')

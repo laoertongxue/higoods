@@ -459,7 +459,6 @@ function main(): void {
   assert.equal(stockWarehouseRecord?.sourceType, 'STOCK', '备货染色仓记录来源必须是 STOCK')
   assert.equal(stockWarehouseRecord?.stockMaterialId, realStock.stockItemId, '备货染色仓记录必须保留 stockMaterialId')
   assert.equal(stockWarehouseRecord?.sourceProductionOrderId, undefined, '备货染色仓记录不得保留空生产单 ID')
-  assert.equal(stockWarehouseRecord?.sourceDemandId, undefined, '备货染色仓记录不得保留空需求 ID')
   const stockSubmit = submitDyeHandover(stockCreated.order.taskId, { submittedQty: stockCreated.order.plannedQty })
   const stockDeliveryCard = buildTaskDeliveryCardPrintDocByRecordId(stockSubmit.handoverRecord.handoverRecordId || stockSubmit.handoverRecord.recordId)
   assert.equal(stockDeliveryCard.sourceType, 'STOCK', '备货任务交货卡必须保留备货来源类型')

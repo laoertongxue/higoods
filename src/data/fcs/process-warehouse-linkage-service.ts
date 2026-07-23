@@ -147,8 +147,6 @@ interface WarehouseBaseContext {
   sourceProductionOrderNo?: string
   stockMaterialId?: string
   stockMaterialName?: string
-  sourceDemandId?: string
-  sourceDemandNo?: string
   sourceFactoryId: string
   sourceFactoryName: string
   targetFactoryId: string
@@ -347,8 +345,6 @@ function resolveCuttingContextFromGeneratedOrder(
     sourceTaskNo: binding.actualTaskNo,
     sourceProductionOrderId: order.productionOrderId,
     sourceProductionOrderNo: order.productionOrderNo,
-    sourceDemandId: actionResult.sourceId,
-    sourceDemandNo: order.cutOrderNo,
     sourceFactoryId: TEST_FACTORY_ID,
     sourceFactoryName: TEST_FACTORY_NAME,
     targetFactoryId: TEST_FACTORY_ID,
@@ -388,8 +384,6 @@ function resolveCuttingContext(actionResult: ProcessWarehouseLinkageActionResult
     sourceTaskNo: binding.actualTaskNo,
     sourceProductionOrderId: order.productionOrderId,
     sourceProductionOrderNo: order.productionOrderNo,
-    sourceDemandId: actionResult.sourceId,
-    sourceDemandNo: order.cutOrderNo || order.cutPieceOrderNo,
     sourceFactoryId: TEST_FACTORY_ID,
     sourceFactoryName: TEST_FACTORY_NAME,
     targetFactoryId: TEST_FACTORY_ID,
@@ -427,8 +421,6 @@ function resolveSpecialCraftContext(actionResult: ProcessWarehouseLinkageActionR
     sourceTaskNo: binding.actualTaskNo || workOrder.taskOrderNo,
     sourceProductionOrderId: workOrder.productionOrderId,
     sourceProductionOrderNo: workOrder.productionOrderNo,
-    sourceDemandId: workOrder.taskOrderId,
-    sourceDemandNo: workOrder.taskOrderNo,
     sourceFactoryId: workOrder.factoryId,
     sourceFactoryName: workOrder.factoryName,
     targetFactoryId: flow.receiverKind === '后道工厂'
@@ -479,8 +471,6 @@ function resolvePostFinishingContext(actionResult: ProcessWarehouseLinkageAction
     sourceTaskNo: binding.actualTaskNo || order.postOrderNo,
     sourceProductionOrderId: order.sourceProductionOrderId,
     sourceProductionOrderNo: order.sourceProductionOrderNo,
-    sourceDemandId: order.sourceSewingTaskId,
-    sourceDemandNo: order.sourceSewingTaskNo,
     sourceFactoryId: order.managedPostFactoryId,
     sourceFactoryName: order.managedPostFactoryName,
     targetFactoryId: order.currentFactoryId || TEST_FACTORY_ID,
