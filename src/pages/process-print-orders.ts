@@ -166,7 +166,9 @@ function renderSourceDetail(order: PrepProcessOrderFact): string {
   }
   rows.push(`<div><span class="text-muted-foreground">所属生产单：</span>${escapeHtml(order.sourceSnapshot?.productionOrderNo || order.sourceProductionOrderNo || '-')}</div>`)
   rows.push(`<div><span class="text-muted-foreground">技术包版本：</span>${escapeHtml(order.sourceSnapshot?.techPackVersionLabel || '-')}</div>`)
-  rows.push(`<div><span class="text-muted-foreground">BOM 物料：</span>${escapeHtml(order.sourceSnapshot?.bomItemId || '-')}</div>`)
+  rows.push(`<div><span class="text-muted-foreground">物料编码：</span>${escapeHtml(order.materialSku || '-')}</div>`)
+  rows.push(`<div><span class="text-muted-foreground">物料名称：</span>${escapeHtml(order.materialName || '-')}</div>`)
+  if (order.sourceSnapshot?.bomItemId) rows.push(`<div><span class="text-muted-foreground">BOM 行标识：</span>${escapeHtml(order.sourceSnapshot.bomItemId)}</div>`)
   return rows.join('')
 }
 
@@ -255,20 +257,89 @@ function ensureListPreferences(): void {
   state.preferences = typeof window === 'undefined' ? defaults : loadListColumnPreferences(window.localStorage, LIST_PREFERENCE_KEY, listColumnRules, defaults, PAGE_SIZE_OPTIONS)
 }
 
+function getListView(sourceOverride?: SourceFilter) {
+  const filtered = getFilteredOrders(sourceOverride)
+  const sorted = sortStandardListRows(filtered, state.sort, (row, key) => listColumns.find((column) => column.key === key)?.sortValue?.(row))
+  const paging = paginateStandardListRows(sorted, state.page, state.preferences.pageSize)
+  state.page = paging.currentPage
+  return {
+    tableHtml: renderStandardListTable({ columns: listColumns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: LIST_EVENT_PREFIX, emptyText: '暂无加工单' }),
+    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: LIST_EVENT_PREFIX, fieldPrefix: LIST_EVENT_PREFIX, pageSizeOptions: PAGE_SIZE_OPTIONS })
+      .replace('<select ', '<select data-skip-page-rerender="true" '),
+  }
+}
+
+function renderColumnSettings(): string {
+  return state.showColumnSettings
+    ? renderStandardListColumnSettings({ title: '印花加工单列设置', columns: listColumns, preferences: state.preferences, eventPrefix: LIST_EVENT_PREFIX, maxFrozenWidth: 520 })
+    : ''
+}
+
+function hydrateInsertedIcons(root: ParentNode): void {
+  void import('../components/shell.ts').then(({ hydrateIcons }) => hydrateIcons(root)).catch(() => undefined)
+}
+
+function refreshListLocally(options: { table?: boolean; pagination?: boolean; overlays?: boolean } = {}): boolean {
+  if (typeof document === 'undefined') return false
+  const root = document.querySelector<HTMLElement>('[data-process-print-orders-root]')
+  if (!root) return false
+  const refreshTable = options.table !== false
+  const refreshPagination = options.pagination !== false
+  const view = refreshTable || refreshPagination ? getListView() : null
+  const table = root.querySelector<HTMLElement>('[data-process-print-orders-table-surface]')
+  const pagination = root.querySelector<HTMLElement>('[data-process-print-orders-pagination-surface]')
+  const overlays = root.querySelector<HTMLElement>('[data-process-print-orders-overlays]')
+  const scrollLeft = table?.querySelector<HTMLElement>('[data-standard-list-scroll]')?.scrollLeft ?? 0
+  if (refreshTable && table && view) {
+    table.innerHTML = view.tableHtml
+    const nextScroll = table.querySelector<HTMLElement>('[data-standard-list-scroll]')
+    if (nextScroll) nextScroll.scrollLeft = Math.min(scrollLeft, Math.max(0, nextScroll.scrollWidth - nextScroll.clientWidth))
+    hydrateInsertedIcons(table)
+  }
+  if (refreshPagination && pagination && view) {
+    pagination.innerHTML = view.paginationHtml
+    hydrateInsertedIcons(pagination)
+  }
+  if (options.overlays && overlays) {
+    overlays.innerHTML = renderColumnSettings()
+    hydrateInsertedIcons(overlays)
+  }
+  return true
+}
+
+function refreshDetailLocally(): void {
+  if (typeof document === 'undefined') return
+  const node = document.querySelector<HTMLElement>('[data-process-print-orders-detail]')
+  if (!node) return
+  node.innerHTML = renderDetail()
+  hydrateInsertedIcons(node)
+}
+
+function refreshCreateLocally(): void {
+  if (typeof document === 'undefined') return
+  const node = document.querySelector<HTMLElement>('[data-process-print-orders-create]')
+  if (!node) return
+  node.innerHTML = renderCreate()
+  hydrateInsertedIcons(node)
+}
+
+function refreshFeedbackLocally(): void {
+  if (typeof document === 'undefined') return
+  const node = document.querySelector<HTMLElement>('[data-process-print-orders-feedback]')
+  if (node) node.innerHTML = state.notice ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">${escapeHtml(state.notice)}</div>` : ''
+}
+
 export function renderProcessPrintOrdersPage(options: { sourceType?: SourceFilter; selectedWorkOrderId?: string | null } = {}): string {
   resetStandardListEntryTransientStateOnRouteEntry(state, typeof document !== 'undefined' && Boolean(document.querySelector('[data-process-print-orders-root]')))
   installListColumnDragEvents()
   ensureListPreferences()
-  const filtered = getFilteredOrders(options.sourceType)
-  const sorted = sortStandardListRows(filtered, state.sort, (row, key) => listColumns.find((column) => column.key === key)?.sortValue?.(row))
-  const paging = paginateStandardListRows(sorted, state.page, state.preferences.pageSize)
-  state.page = paging.currentPage
+  const view = getListView(options.sourceType)
   const statusOptions = listPlatformStatusOptions()
   const sourceFilter = options.sourceType ?? state.sourceFilter
   return `<div data-process-print-orders-root data-skip-page-rerender="true">${renderStandardListPage({
     title: '印花加工单',
     primaryActionsHtml: '<button class="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" data-print-order-action="create-new">按备货创建</button>',
-    feedbackHtml: state.notice ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">${escapeHtml(state.notice)}</div>` : '',
+    feedbackHtml: `<div data-process-print-orders-feedback>${state.notice ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">${escapeHtml(state.notice)}</div>` : ''}</div>`,
     filtersHtml: `<section class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-4">
         <input class="h-10 rounded-md border bg-background px-3 text-sm md:col-span-2" placeholder="加工单号 / 生产单号 / 备货物料 / 工厂" value="${escapeHtml(state.keyword)}" data-print-order-field="keyword" />
         <select class="h-10 rounded-md border bg-background px-3 text-sm" data-print-order-field="statusFilter"><option>全部</option>${statusOptions.map((status) => `<option ${state.statusFilter === status ? 'selected' : ''}>${status}</option>`).join('')}</select>
@@ -276,12 +347,12 @@ export function renderProcessPrintOrdersPage(options: { sourceType?: SourceFilte
       </section>`,
     listTitle: '印花加工单',
     listActionsHtml: renderSecondaryButton('列设置', { prefix: LIST_EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2'),
-    tableHtml: renderStandardListTable({ columns: listColumns, rows: paging.rows, preferences: state.preferences, sort: state.sort, eventPrefix: LIST_EVENT_PREFIX, emptyText: '暂无加工单' }),
-    paginationHtml: renderTablePagination({ total: paging.total, from: paging.from, to: paging.to, currentPage: paging.currentPage, totalPages: paging.totalPages, pageSize: paging.pageSize, actionPrefix: LIST_EVENT_PREFIX, fieldPrefix: LIST_EVENT_PREFIX, pageSizeOptions: PAGE_SIZE_OPTIONS }),
-    overlaysHtml: state.showColumnSettings ? renderStandardListColumnSettings({ title: '印花加工单列设置', columns: listColumns, preferences: state.preferences, eventPrefix: LIST_EVENT_PREFIX, maxFrozenWidth: 520 }) : '',
+    tableHtml: `<div data-process-print-orders-table-surface>${view.tableHtml}</div>`,
+    paginationHtml: `<div data-process-print-orders-pagination-surface>${view.paginationHtml}</div>`,
+    overlaysHtml: `<div data-process-print-orders-overlays>${renderColumnSettings()}</div>`,
   })}
-    ${renderDetail(options.selectedWorkOrderId === undefined ? state.selectedWorkOrderId : options.selectedWorkOrderId)}
-    ${renderCreate()}
+    <div data-process-print-orders-detail>${renderDetail(options.selectedWorkOrderId === undefined ? state.selectedWorkOrderId : options.selectedWorkOrderId)}</div>
+    <div data-process-print-orders-create>${renderCreate()}</div>
   </div>`
 }
 
@@ -308,6 +379,7 @@ function installListColumnDragEvents(): void {
     order.splice(targetIndex, 0, sourceKey)
     state.preferences = normalizeListColumnPreferences(listColumnRules, { ...state.preferences, order: [...order, 'actions'] }, PAGE_SIZE_OPTIONS)
     if (typeof window !== 'undefined') saveListColumnPreferences(window.localStorage, LIST_PREFERENCE_KEY, state.preferences)
+    refreshListLocally({ pagination: false, overlays: true })
   })
 }
 
@@ -373,6 +445,7 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
     if (field.dataset.printOrderField === 'statusFilter') state.statusFilter = field.value as typeof state.statusFilter
     if (field.dataset.printOrderField === 'sourceFilter') state.sourceFilter = field.value as SourceFilter
     state.page = 1
+    refreshListLocally()
     return true
   }
   const actionNode = target.closest<HTMLElement>('[data-print-order-action]')
@@ -382,6 +455,7 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
     state.preferences = { ...state.preferences, pageSize: PAGE_SIZE_OPTIONS.includes(pageSize) ? pageSize : 10 }
     state.page = 1
     if (typeof window !== 'undefined') saveListColumnPreferences(window.localStorage, LIST_PREFERENCE_KEY, state.preferences)
+    refreshListLocally()
     return true
   }
   const listAction = target.closest<HTMLElement>('[data-print-order-list-action]')
@@ -389,8 +463,16 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
     const action = listAction.dataset.printOrderListAction || ''
     if (action === 'prev-page' || action === 'next-page') state.page = Math.max(1, state.page + (action === 'next-page' ? 1 : -1))
     if (action === 'sort-column') { const key = listAction.dataset.columnKey || ''; state.sort = state.sort?.key !== key ? { key, direction: 'asc' } : state.sort.direction === 'asc' ? { key, direction: 'desc' } : null; state.page = 1 }
-    if (action === 'open-column-settings') state.showColumnSettings = true
-    if (action === 'close-column-settings') state.showColumnSettings = false
+    if (action === 'open-column-settings') {
+      state.showColumnSettings = true
+      refreshListLocally({ table: false, pagination: false, overlays: true })
+      return true
+    }
+    if (action === 'close-column-settings') {
+      state.showColumnSettings = false
+      refreshListLocally({ table: false, pagination: false, overlays: true })
+      return true
+    }
     if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
       const key = listAction.dataset.printOrderListColumnKey || listAction.closest<HTMLElement>('[data-print-order-list-column-key]')?.dataset.printOrderListColumnKey || ''
       const column = listColumns.find((item) => item.key === key)
@@ -406,6 +488,7 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
       }
     }
     if (action === 'restore-column-settings') { if (typeof window !== 'undefined') clearListColumnPreferences(window.localStorage, LIST_PREFERENCE_KEY); state.preferences = defaultListPreferences(); state.sort = null; state.page = 1 }
+    refreshListLocally({ overlays: state.showColumnSettings })
     return true
   }
   if (!actionNode) return Boolean(listField)
@@ -415,14 +498,14 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
     if (workOrderId) appStore.navigate(`/fcs/craft/printing/work-orders/${encodeURIComponent(workOrderId)}`)
     return true
   }
-  if (action === 'open-detail') state.selectedWorkOrderId = actionNode.dataset.workOrderId || null
-  if (action === 'close-detail') state.selectedWorkOrderId = null
-  if (action === 'create-new') { state.createOpen = true; state.notice = null; state.formError = null }
-  if (action === 'close-create') { state.createOpen = false; state.form = defaultForm(); state.formError = null }
-  if (action === 'submit-create') submitCreate()
-  if (action === 'page-prev') state.page = Math.max(1, state.page - 1)
-  if (action === 'page-next') state.page += 1
-  if (action === 'close-all') { state.selectedWorkOrderId = null; state.createOpen = false; state.formError = null }
+  if (action === 'open-detail') { state.selectedWorkOrderId = actionNode.dataset.workOrderId || null; refreshDetailLocally() }
+  if (action === 'close-detail') { state.selectedWorkOrderId = null; refreshDetailLocally() }
+  if (action === 'create-new') { state.createOpen = true; state.notice = null; state.formError = null; refreshCreateLocally(); refreshFeedbackLocally() }
+  if (action === 'close-create') { state.createOpen = false; state.form = defaultForm(); state.formError = null; refreshCreateLocally() }
+  if (action === 'submit-create') { submitCreate(); refreshCreateLocally(); refreshFeedbackLocally(); refreshListLocally() }
+  if (action === 'page-prev') { state.page = Math.max(1, state.page - 1); refreshListLocally() }
+  if (action === 'page-next') { state.page += 1; refreshListLocally() }
+  if (action === 'close-all') { state.selectedWorkOrderId = null; state.createOpen = false; state.formError = null; refreshDetailLocally(); refreshCreateLocally() }
   return true
 }
 

@@ -181,6 +181,9 @@ for (const expected of [
   assert(Boolean(expected) && supplementPrintDetail.includes(String(expected)), `真实补料印花详情缺少：${expected || '空值'}`)
   assert(Boolean(expected) && supplementPlatformHtml.includes(String(expected)), `平台补料印花详情缺少：${expected || '空值'}`)
 }
+assert(supplementPlatformHtml.includes(`物料编码：</span>${supplementPrintOrder.materialSku}`), '平台补料印花详情必须展示冻结物料编码')
+assert(supplementPlatformHtml.includes(`物料名称：</span>${supplementPrintOrder.materialName}`), '平台补料印花详情必须展示冻结物料名称')
+assert(supplementPlatformHtml.includes(`BOM 行标识：</span>${supplementPrintOrder.sourceSnapshot.bomItemId}`), '平台补料印花详情必须将 BOM 行标识独立展示')
 const supplementRouteCard = buildTaskRouteCardPrintDoc({ sourceType: 'PRINTING_WORK_ORDER', sourceId: supplementPrintRef.workOrderId })
 assert(supplementRouteCard.summaryRows.some((row) => row.label === '加工单来源' && row.value === '裁片补料生成'), '补料印花流转卡来源错误')
 assert(supplementRouteCard.summaryRows.some((row) => row.label === '补料单' && row.value === supplementResult.record.recordNo), '补料印花流转卡缺少补料单')

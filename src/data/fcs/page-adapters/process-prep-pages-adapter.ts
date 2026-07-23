@@ -206,6 +206,8 @@ export interface PrepProcessOrderFact {
   diffQtyLabel?: string
   plannedFinishAt: string
   sourceSummary: string
+  materialSku: string
+  materialName: string
   note: string
   createdAt: string
   updatedAt: string
@@ -629,6 +631,8 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
       : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
         ? `${PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType]}：补料单 ${order.sourceSnapshot.supplementRecordNo || '-'} / 原裁片单 ${order.sourceSnapshot.originalCutOrderNo || '-'}`
         : `${PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType]}：生产单 ${order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'}`,
+    materialSku: order.materialSku,
+    materialName: order.materialName,
     note: `${order.processType === 'PRINT' ? '印花' : '染色'}加工单统一来源：平台视图与工艺工厂 Web 视图使用同一个加工单号。`,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,

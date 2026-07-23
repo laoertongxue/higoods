@@ -197,10 +197,13 @@ function main(): void {
     supplementDraft.sourceNo,
     supplementDraft.productionOrderNo,
     supplementDyeOrder.sourceSnapshot.techPackVersionLabel,
-  ]) {
+]) {
     assert(Boolean(expected) && supplementDyeDetail.includes(String(expected)), `真实补料染色详情缺少：${expected || '空值'}`)
     assert(Boolean(expected) && supplementPlatformHtml.includes(String(expected)), `平台补料染色详情缺少：${expected || '空值'}`)
   }
+  assert(supplementPlatformHtml.includes(`物料编码：</span>${supplementDyeOrder.materialSku}`), '平台补料染色详情必须展示冻结物料编码')
+  assert(supplementPlatformHtml.includes(`物料名称：</span>${supplementDyeOrder.materialName}`), '平台补料染色详情必须展示冻结物料名称')
+  assert(supplementPlatformHtml.includes(`BOM 行标识：</span>${supplementDyeOrder.sourceSnapshot.bomItemId}`), '平台补料染色详情必须将 BOM 行标识独立展示')
   const supplementRouteCard = buildTaskRouteCardPrintDoc({ sourceType: 'DYEING_WORK_ORDER', sourceId: supplementDyeRef.workOrderId })
   assert(supplementRouteCard.summaryRows.some((row) => row.label === '加工单来源' && row.value === '裁片补料生成'), '补料染色流转卡来源错误')
   assert(supplementRouteCard.summaryRows.some((row) => row.label === '补料单' && row.value === supplementResult.record.recordNo), '补料染色流转卡缺少补料单')
