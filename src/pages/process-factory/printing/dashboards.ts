@@ -4,6 +4,7 @@ import { getPrintingDashboardMetrics } from '../../../data/fcs/process-statistic
 import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import {
   formatPrintQty,
+  getPrintQuantityLabel,
   getPrintPrinterSummary,
   renderMetricCard,
   renderPageHeader,
@@ -64,7 +65,7 @@ function renderDistribution(): string {
                 <tr>
                   <th class="px-3 py-2 font-medium">工厂</th>
                   <th class="px-3 py-2 font-medium">加工单数</th>
-                  <th class="px-3 py-2 font-medium">需求单印花数量</th>
+                  <th class="px-3 py-2 font-medium">加工计划数量（按工单单位）</th>
                   <th class="px-3 py-2 font-medium">执行完成面料米数 / 裁片数量</th>
                   <th class="px-3 py-2 font-medium">已交出面料米数 / 裁片数量</th>
                   <th class="px-3 py-2 font-medium">差异面料米数 / 裁片数量</th>
@@ -103,7 +104,7 @@ function renderBoardList(): string {
           <td class="px-3 py-3">${renderWorkOrderStatusBadge(order.status)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(formatFactoryDisplayName(order.printFactoryName, order.printFactoryId))}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(printer.printerNo)}</td>
-          <td class="px-3 py-3 text-sm">${formatPrintQty(order.plannedQty, order.qtyUnit)}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(getPrintQuantityLabel(order))}：${formatPrintQty(order.plannedQty, order.qtyUnit)}</td>
           <td class="px-3 py-3 text-sm">${formatPrintQty(printer.outputQty, order.qtyUnit)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(pendingText)}</td>
         </tr>
@@ -123,7 +124,7 @@ function renderBoardList(): string {
               <th class="px-3 py-2 font-medium">当前状态</th>
               <th class="px-3 py-2 font-medium">工厂</th>
               <th class="px-3 py-2 font-medium">打印机</th>
-              <th class="px-3 py-2 font-medium">需求单印花数量</th>
+              <th class="px-3 py-2 font-medium">加工计划数量（对象 / 单位）</th>
               <th class="px-3 py-2 font-medium">打印完成面料米数 / 裁片数量</th>
               <th class="px-3 py-2 font-medium">待处理</th>
             </tr>

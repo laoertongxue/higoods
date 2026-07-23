@@ -133,14 +133,17 @@ async function main(): Promise<void> {
     '分支拓扑视图',
     '分支详情',
     '工单对象列表',
-    '印花需求',
-    '染色需求',
-    '印染配料',
+    '印花加工单',
+    '染色加工单',
+    '物料配料',
     '裁片单',
     '特殊工艺',
     '后道复检交出',
     'data-tab="workorders"',
   ].forEach((text) => assertIncludes(workordersHtml, text, '工单与分支页'))
+  ;['印花需求', '染色需求', '印染需求', '印花需求单', '染色需求单'].forEach((text) => {
+    assert(!workordersHtml.includes(text), `工单与分支页不得保留旧需求单表达「${text}」`)
+  })
 
   const handoverHtml = await renderAt('/fcs/progress/production-orders/detail?po=SO-PRD-202606-0018&tab=handover')
   ;[

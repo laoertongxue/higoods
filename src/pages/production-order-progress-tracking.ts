@@ -6,6 +6,7 @@ import {
   renderProductionObjectCodeButton,
   renderProductionOrderIdentityCell,
 } from '../data/fcs/production-order-identity'
+import { listProcessWorkOrders, type ProcessWorkOrder } from '../data/fcs/process-work-order-domain'
 
 type TrackingTab = 'overview' | 'timeline' | 'quantity' | 'workorders' | 'handover' | 'settlement'
 type RiskLevel = '高风险' | '中风险' | '低风险' | '无'
@@ -100,6 +101,10 @@ interface WorkOrderNode {
   label: string
   subLabel: string
   status: NodeStatus
+  sourceObject?: string
+  factoryName?: string
+  plannedQty?: number
+  plannedUnit?: string
 }
 
 interface HandoverEvent {
@@ -271,8 +276,8 @@ const overviewNodes: StageNode[] = [
   { id: 'PR-202606-01', label: '生产需求', date: '06-05', qty: '8,600件', status: '已完成', lane: '主线', col: 1, detail: '生产需求已确认，尺码结构已确认。' },
   { id: 'TB-240618-V2', label: '技术包 V2', date: '06-06', status: '已完成', lane: '主线', col: 2, detail: '技术包完成，补货版型与工艺要求已下发。' },
   { id: 'SO-PRD-0018', label: '生产单创建', date: '06-06', qty: '8,600件', status: '已完成', lane: '主线', col: 3, span: 2, detail: '生产单已生成，进入多泳道任务拆分。' },
-  { id: 'PF-240618-01', label: '印花需求', date: '06-07', qty: '8,600件', status: '进行中', lane: '印花链路', col: 4, detail: '印花需求已拆分，存在回仓延迟。' },
-  { id: 'DY-240618-01', label: '染色需求', date: '06-10', qty: '4,200件', status: '进行中', lane: '染色链路', col: 4, detail: '染色首批已完成，二批待同步。' },
+  { id: 'PWO-PRINT-004', label: '印花加工单', date: '06-07', qty: '2,200片', status: '进行中', lane: '印花链路', col: 4, detail: '真实印花加工单存在回仓延迟。' },
+  { id: 'DWO-005', label: '染色加工单', date: '06-10', qty: '4,032米', status: '进行中', lane: '染色链路', col: 4, detail: '真实染色加工单首批已完成，二批待同步。' },
   { id: 'M-240618-01', label: '配料批次 1', date: '06-07', qty: '5,000件', status: '已完成', lane: '物料链路', col: 6, detail: '主料、辅料首批已齐套。' },
   { id: 'L-240618-02', label: '领料批次 2', date: '06-11', qty: '3,800件', status: '已完成', lane: '物料链路', col: 7, detail: '第二批领料完成，等待车缝接收。' },
   { id: 'CT-240618-03', label: '裁片单', date: '06-11', qty: '3,800件', status: '进行中', lane: '裁床链路', col: 8, detail: '当前主卡点：裁床完成但交出滞后，需催办 2 个批次。' },
@@ -303,7 +308,7 @@ const timelineItems: TimelineItem[] = [
 
 const quantityFlow: FlowNode[] = [
   { id: 'demand', label: '生产需求', plan: 8600, actual: 8600, diff: 0, rate: '100.00%', status: '合格' },
-  { id: 'print-dye', label: '印花 / 染色需求', plan: 8600, actual: 8600, diff: 0, rate: '100.00%', status: '合格' },
+  { id: 'print-dye', label: '印花 / 染色加工单', plan: 8600, actual: 8600, diff: 0, rate: '100.00%', status: '合格' },
   { id: 'material', label: '印染配料批次', plan: 8600, actual: 8500, diff: -100, rate: '98.84%', status: '风险' },
   { id: 'cutting', label: '裁片单', plan: 8600, actual: 8420, diff: -180, rate: '97.91%', status: '风险' },
   { id: 'spreading-a', label: '铺布批次 A', plan: 4300, actual: 4230, diff: -70, rate: '97.96%', status: '风险' },
@@ -312,14 +317,9 @@ const quantityFlow: FlowNode[] = [
   { id: 'recheck', label: '后道复检交出', plan: 8360, actual: 8160, diff: -200, rate: '94.88%', status: '风险' },
 ]
 
-const workOrderNodes: WorkOrderNode[] = [
-  { id: 'PF-240618-01', lane: '印花需求', label: 'PF-240618-01', subLabel: '1,800 件', status: '已完成' },
-  { id: 'PF-240618-02', lane: '印花需求', label: 'PF-240618-02', subLabel: '1,400 件', status: '进行中' },
-  { id: 'PF-240618-03', lane: '印花需求', label: 'PF-240618-03', subLabel: '1,600 件', status: '待审核' },
-  { id: 'DY-240618-01', lane: '染色需求', label: 'DY-240618-01', subLabel: '4,200 米', status: '进行中' },
-  { id: 'DY-240618-02', lane: '染色需求', label: 'DY-240618-02', subLabel: '4,000 米', status: '相回仓' },
-  { id: 'BP-240618-01', lane: '印染配料', label: 'BP-240618-01', subLabel: '批次 1', status: '已完成' },
-  { id: 'BP-240618-02', lane: '印染配料', label: 'BP-240618-02', subLabel: '批次 2', status: '进行中' },
+const staticWorkOrderNodes: WorkOrderNode[] = [
+  { id: 'BP-240618-01', lane: '物料配料', label: 'BP-240618-01', subLabel: '批次 1', status: '已完成' },
+  { id: 'BP-240618-02', lane: '物料配料', label: 'BP-240618-02', subLabel: '批次 2', status: '进行中' },
   { id: 'MK-240618-B', lane: '裁片单', label: 'MK-240618-B', subLabel: '唛架方案 B', status: '进行中' },
   { id: 'MS-240618-B1', lane: '裁片单', label: 'MS-240618-B1', subLabel: '铺布 第1次', status: '待审核' },
   { id: 'CC-240618-C', lane: '裁片单', label: 'CC-240618-C', subLabel: '裁剪 第1次', status: '进行中' },
@@ -354,6 +354,35 @@ const statusClassMap: Record<NodeStatus, string> = {
   部分接收: 'border-orange-200 bg-orange-50 text-orange-700',
   差异异议: 'border-red-200 bg-red-50 text-red-700',
   合格: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+}
+
+function toTrackingStatus(order: ProcessWorkOrder): NodeStatus {
+  if (order.statusLabel === '已完成') return '已完成'
+  if (order.statusLabel.includes('待审核')) return '待审核'
+  if (order.statusLabel.includes('驳回') || order.statusLabel.includes('异常')) return '异常'
+  if (order.statusLabel.includes('交出') || order.statusLabel.includes('回仓')) return '相回仓'
+  if (order.statusLabel.includes('待')) return '待处理'
+  return '进行中'
+}
+
+function getProcessWorkOrderNodes(): WorkOrderNode[] {
+  return listProcessWorkOrders()
+    .filter((item) => item.processType === 'PRINT' || item.processType === 'DYE')
+    .map((item) => ({
+      id: item.workOrderId,
+      lane: item.processType === 'PRINT' ? '印花加工单' : '染色加工单',
+      label: item.workOrderNo,
+      subLabel: `${formatNumber(item.plannedQty)} ${item.plannedUnit}`,
+      status: toTrackingStatus(item),
+      sourceObject: item.sourceProductionOrderNo || item.sourceSnapshot.supplementRecordNo || item.stockMaterialName || '备货物料',
+      factoryName: item.factoryName,
+      plannedQty: item.plannedQty,
+      plannedUnit: item.plannedUnit,
+    }))
+}
+
+function getWorkOrderNodes(): WorkOrderNode[] {
+  return [...getProcessWorkOrderNodes(), ...staticWorkOrderNodes]
 }
 
 function formatNumber(value: number): string {
@@ -881,7 +910,7 @@ function renderSmallStat(label: string, value: string, hint: string, tone = 'tex
 function renderOverviewMatrix(order: ProductionOrderTrackingRecord, selectedNode?: string): string {
   const selectedId = selectedNode ?? getSelectedNode('CT-240618-03')
   const selected = overviewNodes.find((node) => node.id === selectedId) ?? overviewNodes[7]
-  const stages = ['生产需求', '技术包', '生产单创建', '印花需求', '染色需求', '印染配料', '裁片单', '唛架方案', '铺布', '裁剪/菲票', '特殊工艺', '车缝', '后道复检交出']
+  const stages = ['生产需求', '技术包', '生产单创建', '印花加工单', '染色加工单', '物料配料', '裁片单', '唛架方案', '铺布', '裁剪/菲票', '特殊工艺', '车缝', '后道复检交出']
   const lanes = ['主线', '印花链路', '染色链路', '物料链路', '裁床链路', '车缝链路', '后道链路']
   return `
     <section class="grid grid-cols-[minmax(0,1fr)_300px] gap-4">
@@ -1211,9 +1240,10 @@ function renderQuantityTab(order: ProductionOrderTrackingRecord, selectedNode?: 
 }
 
 function renderWorkordersTab(order: ProductionOrderTrackingRecord, selectedNode?: string): string {
-  const selectedId = selectedNode ?? getSelectedNode('PF-240618-02')
-  const selected = workOrderNodes.find((node) => node.id === selectedId) ?? workOrderNodes[1]
-  const lanes = ['印花需求', '染色需求', '印染配料', '裁片单', '特殊工艺', '车缝', '后道复检交出']
+  const workOrderNodes = getWorkOrderNodes()
+  const selectedId = selectedNode ?? getSelectedNode('PWO-PRINT-004')
+  const selected = workOrderNodes.find((node) => node.id === selectedId) ?? workOrderNodes[0]
+  const lanes = ['印花加工单', '染色加工单', '物料配料', '裁片单', '特殊工艺', '车缝', '后道复检交出']
   return `
     <div class="space-y-4">
       <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
@@ -1287,17 +1317,17 @@ function renderWorkordersTab(order: ProductionOrderTrackingRecord, selectedNode?
               ${renderStatusBadge(selected.status)}
             </div>
             <dl class="space-y-2 text-slate-600">
-              <div class="flex justify-between"><dt>来源对象</dt><dd class="font-medium text-slate-900">${escapeHtml(selected.lane)}需求</dd></div>
-              <div class="flex justify-between"><dt>上游节点</dt><dd class="font-medium text-slate-900">印花需求 PF-240618-02</dd></div>
-              <div class="flex justify-between"><dt>下游节点</dt><dd class="font-medium text-slate-900">印染配料 BP-240618-02</dd></div>
-              <div class="flex justify-between"><dt>数量 / 单位</dt><dd class="font-medium text-slate-900">1,400 件</dd></div>
+              <div class="flex justify-between"><dt>来源对象</dt><dd class="font-medium text-slate-900">${escapeHtml(selected.sourceObject || '生产单关联工单')}</dd></div>
+              <div class="flex justify-between"><dt>上游节点</dt><dd class="font-medium text-slate-900">生产单 / 补料单 / 备货物料</dd></div>
+              <div class="flex justify-between"><dt>下游节点</dt><dd class="font-medium text-slate-900">${escapeHtml(selected.lane)}执行</dd></div>
+              <div class="flex justify-between"><dt>数量 / 单位</dt><dd class="font-medium text-slate-900">${escapeHtml(selected.subLabel)}</dd></div>
               <div class="flex justify-between"><dt>计划时间</dt><dd class="font-medium text-slate-900">06-16 08:00 ~ 06-18 18:00</dd></div>
               <div class="flex justify-between"><dt>实际时间</dt><dd class="font-medium text-slate-900">06-16 09:12 ~ 进行中</dd></div>
-              <div class="flex justify-between"><dt>当前责任方</dt><dd class="font-medium text-slate-900">苏州印花厂（王建国）</dd></div>
+              <div class="flex justify-between"><dt>当前责任方</dt><dd class="font-medium text-slate-900">${escapeHtml(selected.factoryName || '当前执行工厂')}</dd></div>
             </dl>
             <div>
               <p class="font-semibold text-slate-900">相关附件</p>
-              <div class="mt-2 rounded-lg border border-slate-200 px-3 py-2 text-blue-600">PF-240618-02_生产派工单.pdf</div>
+              <div class="mt-2 rounded-lg border border-slate-200 px-3 py-2 text-blue-600">${escapeHtml(selected.label)}_加工单.pdf</div>
             </div>
             <div>
               <p class="font-semibold text-slate-900">相关记录</p>
@@ -1313,13 +1343,18 @@ function renderWorkordersTab(order: ProductionOrderTrackingRecord, selectedNode?
         </aside>
       </section>
       <section class="rounded-lg border bg-card p-4">
-        <h2 class="text-base font-semibold">工单对象列表（共 78 条）</h2>
-        ${renderLedgerTable(['工单类型', '工单编号', '来源对象', '当前节点', '计划 / 实际时间', '数量', '状态', '当前责任方', '操作'], [
-          ['印花工单', 'PF-240618-02', '印花需求 PF-240618-02', '印花生产', '06-16 08:00 ~ 06-18 18:00 / 06-16 09:12 ~ 进行中', '1,400 件', '生产中', '苏州印花厂（王建国）', '查看 | 转派 | 更多'],
-          ['染色工单', 'DY-240618-02', '染色需求 DY-240618-02', '染色生产', '06-15 08:00 ~ 06-18 18:00 / 06-15 09:20 ~ 进行中', '4,000 米', '相回仓', '苏州染仓（李小涵）', '查看 | 转派 | 更多'],
-          ['印染配料', 'BP-240618-02', '印染需求 BP-240618-02', '配料生产', '06-14 08:30 ~ 06-16 18:30 / 06-14 09:05 ~ 进行中', '1 批次', '生产中', '苏州印染配料厂（陈勇）', '查看 | 转派 | 更多'],
-          ['铺布工单', 'MS-240618-B1', '唛架方案 MK-240618-B', '铺布 第1次', '06-13 08:00 ~ 06-13 18:00 / 06-13 08:22 ~ 进行中', '1,100 件', '待审核', '苏州铺布车间（周丽）', '查看 | 转派 | 更多'],
-        ])}
+        <h2 class="text-base font-semibold">工单对象列表（真实印花 / 染色加工单）</h2>
+        ${renderLedgerTable(['工单类型', '工单编号', '来源对象', '当前节点', '计划 / 实际时间', '数量', '状态', '当前责任方', '操作'], getProcessWorkOrderNodes().map((node) => [
+          node.lane,
+          node.label,
+          node.sourceObject || '—',
+          node.lane.replace('加工单', '执行'),
+          '以加工单实际节点为准',
+          node.subLabel,
+          node.status,
+          node.factoryName || '—',
+          '查看',
+        ]))}
       </section>
     </div>
   `

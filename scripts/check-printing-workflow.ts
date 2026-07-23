@@ -125,11 +125,18 @@ assert(statisticsSource.includes('打印速度'), '统计页缺少打印速度')
 assert(statisticsSource.includes('待送货'), '统计页缺少待送货指标')
 assert(statisticsSource.includes('待回写'), '统计页缺少待回写指标')
 assert(statisticsSource.includes('待审核'), '统计页缺少待审核指标')
+assert(!statisticsSource.includes('需求单印花数量'), '统计页不得保留需求单印花数量口径')
+assert(statisticsSource.includes('加工计划数量'), '统计页必须展示真实加工计划数量口径')
 
 const dashboardSource = readFile('src/pages/process-factory/printing/dashboards.ts')
 assert(dashboardSource.includes('待送货'), '大屏缺少待送货模块')
 assert(dashboardSource.includes('待回写'), '大屏缺少待回写模块')
 assert(dashboardSource.includes('待审核'), '大屏缺少待审核模块')
+assert(!dashboardSource.includes('需求单印花数量'), '大屏不得保留需求单印花数量口径')
+assert(dashboardSource.includes('加工计划数量'), '大屏必须展示真实加工计划数量口径')
+
+assert(!workOrderDetailPageSource.includes('需求单印花数量'), '印花加工单详情不得保留需求单印花数量口径')
+assert(workOrderDetailPageSource.includes('加工计划数量'), '印花加工单详情必须展示真实加工计划数量口径')
 
 const reviewSource = readFile('src/pages/process-factory/printing/pending-review.ts')
 assert(reviewSource.includes('接收方'), '审核页缺少接收方字段')

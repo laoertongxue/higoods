@@ -7,6 +7,7 @@ import { getPrintingExecutionStatistics } from '../../../data/fcs/process-statis
 import { TEST_FACTORY_ID } from '../../../data/fcs/factory-mock-data.ts'
 import {
   formatPrintQty,
+  getPrintQuantityLabel,
   getPrintPrinterSummary,
   getPrintTransferSummary,
   renderActionButton,
@@ -24,6 +25,8 @@ import {
 
 function renderTopMetrics(): string {
   const statistics = getPrintingExecutionStatistics()
+  const plannedOrder = listPrintWorkOrders()[0]
+  const plannedQuantityLabel = plannedOrder ? getPrintQuantityLabel(plannedOrder) : '加工计划数量'
   return `
     <section class="grid gap-3 md:grid-cols-4 xl:grid-cols-6">
       ${renderMetricCard('印花加工单总数', String(statistics.workOrderCount), '统一加工单')}
@@ -37,7 +40,7 @@ function renderTopMetrics(): string {
       ${renderMetricCard('待审核印花加工单数', String(statistics.waitReviewCount), '接收方回写后待平台审核')}
       ${renderMetricCard('全部交出印花加工单数', String(statistics.statusCounts['全部交出'] || 0), '仓库确认全部收货')}
       ${renderMetricCard('收货差异印花加工单数', String(statistics.statusCounts['收货差异'] || 0), '仓库确认存在差异')}
-      ${renderMetricCard('需求单印花数量', `${statistics.plannedPrintFabricMeters} 米`, '统一加工单计划')}
+      ${renderMetricCard('加工计划数量', `${statistics.plannedPrintFabricMeters} 米`, `统一加工单计划；示例对象：${plannedQuantityLabel}`)}
       ${renderMetricCard('待印花面料米数 / 裁片数量', `${statistics.waitProcessFabricMeters} 米`, '统一待加工仓')}
       ${renderMetricCard('打印完成面料米数 / 裁片数量', `${statistics.printCompletedFabricMeters} 米`, '执行节点')}
       ${renderMetricCard('转印完成面料米数 / 裁片数量', `${statistics.transferCompletedFabricMeters} 米`, '执行节点')}
