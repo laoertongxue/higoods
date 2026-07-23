@@ -333,3 +333,97 @@ export function renderWebActionPanel(
     </div>
   `
 }
+
+export function renderGarmentSkuConfirmDialog(
+  taskOrderId: string,
+  actionCode: string,
+  title: string,
+  demandLines: Array<{ colorName: string; sizeCode: string; planPieceQty: number; skuCode: string }>,
+  defaultQtyField: 'planPieceQty',
+): string {
+  const skuRows = new Map<string, { colorName: string; sizeCode: string; planQty: number; defaultQty: number }>()
+  demandLines.forEach((line) => {
+    const key = `${line.colorName}::${line.sizeCode}`
+    const existing = skuRows.get(key)
+    if (existing) {
+      existing.planQty += line.planPieceQty
+      existing.defaultQty += Number(line[defaultQtyField]) || 0
+    } else {
+      skuRows.set(key, {
+        colorName: line.colorName,
+        sizeCode: line.sizeCode,
+        planQty: line.planPieceQty,
+        defaultQty: Number(line[defaultQtyField]) || 0,
+      })
+    }
+  })
+
+  const tbody = [...skuRows.entries()].map(([key, row]) => {
+    const safeKey = key.replace(/[^A-Za-z0-9]/g, '-')
+    return `<tr>
+      <td class="px-3 py-2 text-sm">${escapeHtml(row.colorName)}</td>
+      <td class="px-3 py-2 text-sm">${escapeHtml(row.sizeCode)}</td>
+      <td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(row.planQty)}</td>
+      <td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="sku-qty-${safeKey}" value="${row.defaultQty}" min="0" max="${row.planQty}" /></td>
+    </tr>`
+  }).join('')
+
+  return `
+    <div id="special-craft-garment-sku-dialog" class="fixed inset-0 z-[150] flex items-center justify-center bg-black/40">
+      <div class="w-full max-w-lg rounded-lg border bg-card p-6 shadow-xl">
+        <h3 class="mb-4 text-base font-semibold">${escapeHtml(title)}</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-muted text-muted-foreground">
+              <tr><th class="px-3 py-2 text-left text-xs font-medium">颜色</th><th class="px-3 py-2 text-left text-xs font-medium">尺码</th><th class="px-3 py-2 text-right text-xs font-medium">计划件数</th><th class="px-3 py-2 text-right text-xs font-medium">实收件数</th></tr>
+            </thead>
+            <tbody>${tbody}</tbody>
+          </table>
+        </div>
+        <div class="mt-4 flex justify-end gap-2">
+          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" onclick="document.getElementById('special-craft-garment-sku-dialog')?.remove()">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700" data-special-craft-sku-confirm="submit" data-task-id="${escapeHtml(taskOrderId)}" data-action-code="${escapeHtml(actionCode)}">确认接收</button>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+export function renderCutPieceFeiTicketConfirmDialog(
+  taskOrderId: string,
+  actionCode: string,
+  title: string,
+  feiTicketGroups: Array<{ feiTicketNo: string; partName: string; colorName: string; sizeCode: string; planQty: number; defaultQty: number }>,
+): string {
+  const tbody = feiTicketGroups.map((group) => {
+    const safeKey = group.feiTicketNo.replace(/[^A-Za-z0-9]/g, '-')
+    return `<tr>
+      <td class="px-3 py-2 font-mono text-xs">${escapeHtml(group.feiTicketNo)}</td>
+      <td class="px-3 py-2 text-sm">${escapeHtml(group.partName)}</td>
+      <td class="px-3 py-2 text-sm">${escapeHtml(group.colorName)}</td>
+      <td class="px-3 py-2 text-sm">${escapeHtml(group.sizeCode)}</td>
+      <td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(group.planQty)}</td>
+      <td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="fei-qty-${safeKey}" value="${group.defaultQty}" min="0" max="${group.planQty}" /></td>
+    </tr>`
+  }).join('')
+
+  return `
+    <div id="special-craft-fei-ticket-dialog" class="fixed inset-0 z-[150] flex items-center justify-center bg-black/40">
+      <div class="w-full max-w-2xl rounded-lg border bg-card p-6 shadow-xl">
+        <h3 class="mb-4 text-base font-semibold">${escapeHtml(title)}</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-muted text-muted-foreground">
+              <tr><th class="px-3 py-2 text-left text-xs font-medium">菲票号</th><th class="px-3 py-2 text-left text-xs font-medium">部位</th><th class="px-3 py-2 text-left text-xs font-medium">颜色</th><th class="px-3 py-2 text-left text-xs font-medium">尺码</th><th class="px-3 py-2 text-right text-xs font-medium">计划数量</th><th class="px-3 py-2 text-right text-xs font-medium">实收数量</th></tr>
+            </thead>
+            <tbody>${tbody}</tbody>
+          </table>
+        </div>
+        <div class="mt-4 flex justify-end gap-2">
+          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" onclick="document.getElementById('special-craft-fei-ticket-dialog')?.remove()">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700" data-special-craft-fei-confirm="submit" data-task-id="${escapeHtml(taskOrderId)}" data-action-code="${escapeHtml(actionCode)}">确认接收</button>
+        </div>
+      </div>
+    </div>
+  `
+}
