@@ -243,6 +243,9 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
   const isSupplementManagementRoute = pathname.startsWith('/fcs/craft/cutting/supplement-management')
   const isCutPieceReleaseRoute = pathname.startsWith('/fcs/craft/cutting/cut-piece-release')
+  if (pathname.startsWith('/fcs/craft/cutting/pickup-management')) {
+    return handleCraftCuttingPickupManagementEvent(target, event)
+  }
   if (pathname.startsWith('/fcs/process/water-soluble-orders')) {
     return handleProcessWaterSolubleOrdersEvent(target)
   }
@@ -435,7 +438,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleCraftCuttingFeiTicketNumberingEvent(target) ||
     await handleCraftCuttingWaitProcessEvent(target) ||
     await handleCraftCuttingWaitHandoverEvent(target) ||
-    await handleCraftCuttingPickupManagementEvent(target) ||
+    await handleCraftCuttingPickupManagementEvent(target, event) ||
     await handleCraftCuttingHandoverOrdersEvent(target) ||
     await handleCraftCuttingSampleWarehouseEvent(target) ||
     await handleCraftCuttingTransferBagsEvent(target) ||

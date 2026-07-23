@@ -29,6 +29,7 @@ import {
 } from '../../../data/fcs/cutting/material-ledger.ts'
 import {
   getMaterialPrepRecordContext,
+  type MaterialPrepUnitSummary,
 } from '../../../data/fcs/cutting/production-material-prep.ts'
 import { renderRealQrPlaceholder } from '../../../components/real-qr.ts'
 import {
@@ -122,6 +123,14 @@ function estimateMaterialRollCount(quantity: number): number {
 
 function formatMaterialQtyWithRolls(quantity: number, unit = 'yard'): string {
   return `${formatLength(quantity, unit)} / ${estimateMaterialRollCount(quantity)} 卷`
+}
+
+function formatAvailableToPickupByUnit(summaries: MaterialPrepUnitSummary[]): string {
+  const positive = summaries.filter((summary) => summary.availableToPickupQty > 0)
+  const visible = positive.length > 0 ? positive : summaries.slice(0, 1)
+  return visible
+    .map((summary) => `${formatNumber(summary.availableToPickupQty)} ${summary.unit}`)
+    .join('；') || '0'
 }
 
 function getWaitProcessFilters(): WaitProcessFilterState {
@@ -1296,7 +1305,7 @@ function renderWaitProcessWarehouseActionDialog(items: WaitProcessInventoryItem[
           <div>
             <h2 class="text-base font-semibold">${escapeHtml(current.title)}</h2>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(current.eventText)}</div>
-            ${prepContext ? `<div class="mt-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">已关联配料记录：${escapeHtml(prepContext.record.prepRecordId)} / 记录内物料 ${prepContext.items.length} 项 / 当前执行物料：${escapeHtml(prepContext.line.materialSku)} / 整条记录待领 ${escapeHtml(String(prepContext.totalAvailableToPickupQty))}。提交后会写回领料记录并入裁床待加工仓。</div>` : ''}
+            ${prepContext ? `<div class="mt-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">已关联配料记录：${escapeHtml(prepContext.record.prepRecordId)} / 记录内物料 ${prepContext.items.length} 项 / 当前执行物料：${escapeHtml(prepContext.line.materialSku)} / 整条记录待领 ${escapeHtml(formatAvailableToPickupByUnit(prepContext.availableToPickupUnitSummaries))}。提交后会写回领料记录并入裁床待加工仓。</div>` : ''}
           </div>
           <span class="shrink-0 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">${escapeHtml(current.badge)}</span>
         </header>

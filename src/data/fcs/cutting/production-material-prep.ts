@@ -8,6 +8,9 @@ import {
   type PickupCoverageLine,
   type PickupNodeProjection,
   type PickupNodeItem,
+  type PickupNodeSnapshotState,
+  type PickupNodeSourceAllocation,
+  type PickupNodeSourceLocation,
   type PickupSession,
 } from './pickup-node-domain.ts'
 import type { Factory, FactoryPostCapacityNodeCode, FactoryType } from '../factory-types.ts'
@@ -210,7 +213,7 @@ export interface MaterialPrepRecord {
   prepOrderId: string
   prepLineId: string
   batchNo: string
-  preparedQty: number
+  preparedQty: number | null
   rollCount: number
   warehouseArea: string
   locationCode: string
@@ -225,11 +228,18 @@ export interface MaterialPrepRecord {
   sourceStockEventId: string
   remark: string
   items?: MaterialPrepRecordItem[]
+  unitSummaries?: MaterialPrepRecordUnitSummary[]
   pickedAt?: string
   pickedBy?: string
   stagedAt?: string
   stagedBy?: string
   stagingArea?: string
+}
+
+export interface MaterialPrepRecordUnitSummary {
+  unit: string
+  preparedQty: number
+  rollCount: number
 }
 
 export interface PickupRecord {
@@ -255,6 +265,39 @@ export interface PickupRecord {
   pickupSessionId?: string
   pickupNodeId?: string
   sourcePrepRecordIds?: string[]
+  sourceAllocations?: PickupRecordSourceAllocation[]
+}
+
+export interface PickupRecordSourceAllocation {
+  prepRecordId: string
+  prepLineId: string
+  pickedQty: number
+  rollCount: number
+  unit: string
+  sourceWarehouseName: string
+  sourceWarehouseArea: string
+  sourceLocationCode: string
+}
+
+export interface EffectivePickupRecordSourceAllocation extends PickupRecordSourceAllocation {
+  returnedQty: number
+  effectivePickedQty: number
+}
+
+export function allocatePickupReturnAcrossSources(
+  allocations: PickupRecordSourceAllocation[],
+  returnQty: number,
+): EffectivePickupRecordSourceAllocation[] {
+  let remainingReturnQty = roundQty(Math.max(Number(returnQty || 0), 0))
+  return allocations.map((allocation) => {
+    const allocatedReturnQty = roundQty(Math.min(remainingReturnQty, Math.max(allocation.pickedQty, 0)))
+    remainingReturnQty = roundQty(Math.max(remainingReturnQty - allocatedReturnQty, 0))
+    return {
+      ...allocation,
+      returnedQty: allocatedReturnQty,
+      effectivePickedQty: roundQty(Math.max(allocation.pickedQty - allocatedReturnQty, 0)),
+    }
+  })
 }
 
 export type MaterialPickupReturnReason =
@@ -308,7 +351,8 @@ export interface MaterialPrepStagingRecord {
   stagedAt: string
   stagedBy: string
   itemCount: number
-  totalPreparedQty: number
+  totalPreparedQty: number | null
+  unitSummaries?: MaterialPrepRecordUnitSummary[]
   warehouseNames: MaterialStockWarehouseName[]
   status: '暂存中' | '已确认' | '已打回'
 }
@@ -317,6 +361,7 @@ export interface ProductionMaterialPrepWorkflowStore {
   prepRecords: MaterialPrepRecord[]
   pickupRecords: PickupRecord[]
   pickupSessions: PickupSession[]
+  pickupNodeSnapshots: PickupNodeSnapshotState[]
   pickupReturnRecords: MaterialPickupReturnRecord[]
   rejectRecords: PrepRejectRecord[]
   stagingRecords: MaterialPrepStagingRecord[]
@@ -386,12 +431,13 @@ export interface MaterialPrepOrderProjection {
   pickupReturnRecords: MaterialPickupReturnRecord[]
   rejectRecords: PrepRejectRecord[]
   stagingRecords: MaterialPrepStagingRecord[]
-  totalRequiredQty: number
-  totalConfirmedPrepQty: number
-  totalPickedQty: number
-  totalReturnedQty: number
-  totalAvailableToPickupQty: number
-  totalShortageQty: number
+  unitSummaries: MaterialPrepUnitSummary[]
+  totalRequiredQty: number | null
+  totalConfirmedPrepQty: number | null
+  totalPickedQty: number | null
+  totalReturnedQty: number | null
+  totalAvailableToPickupQty: number | null
+  totalShortageQty: number | null
   lineCount: number
   returnedLineCount: number
   readyLineCount: number
@@ -404,6 +450,17 @@ export interface MaterialPrepOrderProjection {
   earliestExpectedAvailableAt: string
   latestOperatorName: string
   latestOperatedAt: string
+}
+
+export interface MaterialPrepUnitSummary {
+  unit: string
+  requiredQty: number
+  confirmedPrepQty: number
+  grossPickedQty: number
+  returnedQty: number
+  effectivePickedQty: number
+  availableToPickupQty: number
+  shortageQty: number
 }
 
 export interface MaterialPrepTaskMaterialPrepRecord {
@@ -1355,7 +1412,7 @@ function buildCategoryDemoSeedOrder(input: {
         materialSku: `${input.spu}-bom-${categoryCode}-main`,
         materialName: `${input.color} ${categoryName}主面料`,
         materialType: '面料',
-        materialImageUrl: input.category === '染色配料' ? '/materials/fabric-main.jpg' : '/materials/fabric-contrast.jpg',
+        materialImageUrl: input.category === '染色配料' ? '/materials/fabric-dye.jpg' : '/materials/fabric-print.jpg',
         color: input.color,
         spec: '150cm / 主面料',
         unit: 'yard',
@@ -2362,20 +2419,20 @@ const seedPickupReturnRecords: MaterialPickupReturnRecord[] = [
     returnStatus: '已退回待中转仓处理',
   },
   {
-    returnRecordId: 'pickup-return-seed-po-0001-main-001',
-    pickupRecordId: 'pickup-rec-po-0001-main-001',
-    prepRecordId: 'prep-rec-po-0001-main-001',
-    prepOrderId: 'prep-order-po-202603-0001',
-    prepLineId: 'prep-line-po-0001-main',
-    productionOrderId: 'PO-202603-0001',
-    returnQty: 180,
+    returnRecordId: 'pickup-return-seed-po-0006-main-001',
+    pickupRecordId: 'pickup-rec-po-0006-main-001',
+    prepRecordId: 'prep-rec-po-0006-main-001',
+    prepOrderId: 'prep-order-po-202603-0006',
+    prepLineId: 'prep-line-po-0006-main',
+    productionOrderId: 'PO-202603-0006',
+    returnQty: 50,
     rollCount: 1,
     unit: 'yard',
     reason: '规格 / 克重不符',
-    remark: '首卷克重复核不符，退回后待加工仓仍有可用余量。',
+    remark: '按实关闭前复核发现一卷规格不符，退回中转仓后按有效已领数量关闭。',
     imageNames: [],
     returnedBy: '裁床 王强',
-    returnedAt: '2026-03-15 17:05',
+    returnedAt: '2026-03-16 12:20',
     returnStatus: '已退回待中转仓处理',
   },
 ]
@@ -2439,10 +2496,16 @@ function nowText(date = new Date()): string {
 }
 
 export function createProductionMaterialPrepSeedStore(): ProductionMaterialPrepWorkflowStore {
+  const pickup = migratePickupSessions(
+    cloneRecord(seedPickupRecords),
+    [],
+    cloneRecord(seedPickupReturnRecords),
+  )
   return {
-    prepRecords: cloneRecord(seedPrepRecords),
-    pickupRecords: cloneRecord(seedPickupRecords),
-    pickupSessions: [],
+    prepRecords: cloneRecord(seedPrepRecords).map(normalizePrepRecordQuantities),
+    pickupRecords: pickup.pickupRecords,
+    pickupSessions: pickup.pickupSessions,
+    pickupNodeSnapshots: [],
     pickupReturnRecords: cloneRecord(seedPickupReturnRecords),
     rejectRecords: cloneRecord(seedRejectRecords),
     stagingRecords: [],
@@ -2454,31 +2517,237 @@ export function serializeProductionMaterialPrepStore(store: ProductionMaterialPr
   return JSON.stringify(store)
 }
 
+function stableTextHash(value: string): string {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0).toString(36)
+}
+
+function getLegacyPickupBusinessEventKey(record: PickupRecord): string {
+  const lineSuffix = `:${record.prepLineId}`
+  return record.waitProcessLedgerEventId.endsWith(lineSuffix)
+    ? record.waitProcessLedgerEventId.slice(0, -lineSuffix.length)
+    : record.waitProcessLedgerEventId
+}
+
+function getPrepLineUnit(prepOrderId: string, prepLineId: string): string {
+  return materialPrepSeedOrders
+    .find((order) => order.prepOrderId === prepOrderId)
+    ?.lines.find((line) => line.prepLineId === prepLineId)
+    ?.unit || '件'
+}
+
+export function getMaterialPrepRecordUnitSummaries(
+  record: MaterialPrepRecord,
+): MaterialPrepRecordUnitSummary[] {
+  const summaries = new Map<string, MaterialPrepRecordUnitSummary>()
+  for (const item of getMaterialPrepRecordItems(record)) {
+    const unit = getPrepLineUnit(record.prepOrderId, item.prepLineId)
+    const current = summaries.get(unit) || { unit, preparedQty: 0, rollCount: 0 }
+    current.preparedQty = roundQty(current.preparedQty + Number(item.preparedQty || 0))
+    current.rollCount += Math.max(Math.round(Number(item.rollCount || 0)), 0)
+    summaries.set(unit, current)
+  }
+  return Array.from(summaries.values())
+}
+
+function normalizePrepRecordQuantities(record: MaterialPrepRecord): MaterialPrepRecord {
+  const unitSummaries = getMaterialPrepRecordUnitSummaries(record)
+  return {
+    ...record,
+    preparedQty: unitSummaries.length === 1 ? unitSummaries[0].preparedQty : null,
+    unitSummaries,
+  }
+}
+
+function migratePickupSessions(
+  pickupRecords: PickupRecord[],
+  existingSessions: PickupSession[],
+  pickupReturnRecords: MaterialPickupReturnRecord[],
+): { pickupRecords: PickupRecord[]; pickupSessions: PickupSession[] } {
+  const records = pickupRecords.map((record) => ({ ...record }))
+  const sessions = existingSessions.map((session) => ({ ...session, pickupRecordIds: [...session.pickupRecordIds] }))
+  const coveredRecordIds = new Set(sessions.flatMap((session) => session.pickupRecordIds))
+  const groups = new Map<string, PickupRecord[]>()
+  const migratedSessionIds = new Set<string>()
+
+  for (const record of records) {
+    if (Number(record.pickedQty || 0) <= 0 || coveredRecordIds.has(record.pickupRecordId)) continue
+    const businessKey = record.pickupSessionId
+      ? `session:${record.pickupSessionId}`
+      : [
+          'legacy',
+          record.prepOrderId,
+          record.pickedAt,
+          record.receiverName,
+          record.warehouseArea,
+          record.locationCode,
+          getLegacyPickupBusinessEventKey(record),
+        ].join('|')
+    const current = groups.get(businessKey) || []
+    current.push(record)
+    groups.set(businessKey, current)
+  }
+
+  const orderedGroups = Array.from(groups.entries()).sort((left, right) => {
+    const leftRecord = left[1][0]
+    const rightRecord = right[1][0]
+    return leftRecord.pickedAt.localeCompare(rightRecord.pickedAt)
+      || leftRecord.prepOrderId.localeCompare(rightRecord.prepOrderId)
+      || left[0].localeCompare(right[0])
+  })
+  const nextSequenceByOrder = new Map<string, number>()
+  for (const session of sessions) {
+    const parsedSequence = Number(session.pickupNodeId.match(/:(\d+)$/)?.[1] || 0)
+    nextSequenceByOrder.set(
+      session.prepOrderId,
+      Math.max(nextSequenceByOrder.get(session.prepOrderId) || 0, parsedSequence),
+    )
+  }
+
+  for (const [businessKey, group] of orderedGroups) {
+    const first = group[0]
+    const existingSessionId = first.pickupSessionId
+    const sessionAlreadyCreated = existingSessionId
+      ? sessions.find((session) => session.pickupSessionId === existingSessionId)
+      : null
+    if (sessionAlreadyCreated) {
+      for (const record of group) {
+        if (!sessionAlreadyCreated.pickupRecordIds.includes(record.pickupRecordId)) {
+          sessionAlreadyCreated.pickupRecordIds.push(record.pickupRecordId)
+        }
+        record.pickupNodeId = record.pickupNodeId || sessionAlreadyCreated.pickupNodeId
+      }
+      continue
+    }
+
+    const sequence = (nextSequenceByOrder.get(first.prepOrderId) || 0) + 1
+    nextSequenceByOrder.set(first.prepOrderId, sequence)
+    const stableKey = `${businessKey}|${group.map((record) => record.pickupRecordId).sort().join('|')}`
+    const pickupNodeId = first.pickupNodeId || `pickup-node:${first.prepOrderId}:${sequence}`
+    const pickupSessionId = existingSessionId || `pickup-session:migrated:${stableTextHash(stableKey)}`
+    const productionOrderNo = materialPrepSeedOrders
+      .find((order) => order.prepOrderId === first.prepOrderId)
+      ?.productionOrderNo || first.productionOrderId
+    const session: PickupSession = {
+      pickupSessionId,
+      pickupSessionNo: `领料-${productionOrderNo}-${String(sequence).padStart(2, '0')}`,
+      pickupNodeId,
+      pickupNodeVersion: 1,
+      prepOrderId: first.prepOrderId,
+      productionOrderId: first.productionOrderId,
+      nodeType: 'INCOMPLETE_PICKABLE',
+      pickupRecordIds: group.map((record) => record.pickupRecordId).sort(),
+      receiverName: first.receiverName,
+      pickedAt: first.pickedAt,
+      toWarehouseArea: first.warehouseArea,
+      toLocationCode: first.locationCode,
+      status: '本轮已领完',
+      warehouseSyncStatus: '已回写',
+    }
+    sessions.push(session)
+    migratedSessionIds.add(session.pickupSessionId)
+    for (const record of group) {
+      record.pickupSessionId = pickupSessionId
+      record.pickupNodeId = pickupNodeId
+    }
+  }
+
+  const recordsById = new Map(records.map((record) => [record.pickupRecordId, record]))
+  const sessionsByOrder = groupByKey(sessions, (session) => session.prepOrderId)
+  for (const [prepOrderId, orderSessions] of sessionsByOrder) {
+    const seedOrder = materialPrepSeedOrders.find((order) => order.prepOrderId === prepOrderId)
+    const orderedSessions = [...orderSessions].sort((left, right) =>
+      left.pickedAt.localeCompare(right.pickedAt)
+      || left.pickupNodeId.localeCompare(right.pickupNodeId)
+      || left.pickupSessionId.localeCompare(right.pickupSessionId)
+    )
+    const cumulativeRecordIds = new Set<string>()
+    for (const session of orderedSessions) {
+      session.pickupRecordIds.forEach((recordId) => cumulativeRecordIds.add(recordId))
+      if (!migratedSessionIds.has(session.pickupSessionId)) continue
+      const hasUncertainReturnTime = pickupReturnRecords.some((record) =>
+        cumulativeRecordIds.has(record.pickupRecordId) && !record.returnedAt
+      )
+      if (!seedOrder || hasUncertainReturnTime) {
+        session.nodeType = 'INCOMPLETE_PICKABLE'
+        session.migrationEvidence = '旧事实不足，保守按未配齐'
+        continue
+      }
+      const complete = seedOrder.lines.every((line) => {
+        const grossPickedQty = Array.from(cumulativeRecordIds)
+          .map((recordId) => recordsById.get(recordId))
+          .filter((record): record is PickupRecord => Boolean(record) && record.prepLineId === line.prepLineId)
+          .reduce((sum, record) => sum + Number(record.pickedQty || 0), 0)
+        const returnedQty = pickupReturnRecords
+          .filter((record) =>
+            cumulativeRecordIds.has(record.pickupRecordId)
+            && record.prepLineId === line.prepLineId
+            && record.returnedAt <= session.pickedAt
+          )
+          .reduce((sum, record) => sum + Number(record.returnQty || 0), 0)
+        return roundQty(Math.max(grossPickedQty - returnedQty, 0)) >= line.requiredQty
+      })
+      session.nodeType = complete ? 'READY_TO_PICKUP' : 'INCOMPLETE_PICKABLE'
+      session.migrationEvidence = '按累计领料逐行齐套推导'
+    }
+  }
+
+  return {
+    pickupRecords: records,
+    pickupSessions: sessions.sort((left, right) =>
+      right.pickedAt.localeCompare(left.pickedAt) || left.pickupSessionId.localeCompare(right.pickupSessionId)
+    ),
+  }
+}
+
 export function deserializeProductionMaterialPrepStore(raw: string | null): ProductionMaterialPrepWorkflowStore {
   if (!raw) return createProductionMaterialPrepSeedStore()
   try {
     const parsed = JSON.parse(raw) as Partial<ProductionMaterialPrepWorkflowStore>
-    return {
-      prepRecords: Array.isArray(parsed.prepRecords)
+    const prepRecords = (
+      Array.isArray(parsed.prepRecords)
         ? mergeMissingSeedRecords(parsed.prepRecords, seedPrepRecords, (record) => record.prepRecordId)
-        : cloneRecord(seedPrepRecords),
-      pickupRecords: Array.isArray(parsed.pickupRecords)
-        ? mergeMissingSeedRecords(parsed.pickupRecords, seedPickupRecords, (record) => record.pickupRecordId)
-        : cloneRecord(seedPickupRecords),
-      pickupReturnRecords: Array.isArray(parsed.pickupReturnRecords)
-        ? mergeMissingSeedRecords(parsed.pickupReturnRecords, seedPickupReturnRecords, (record) => record.returnRecordId)
-        : cloneRecord(seedPickupReturnRecords),
+        : cloneRecord(seedPrepRecords)
+    ).map(normalizePrepRecordQuantities)
+    const pickupRecords = Array.isArray(parsed.pickupRecords)
+      ? mergeMissingSeedRecords(parsed.pickupRecords, seedPickupRecords, (record) => record.pickupRecordId)
+      : cloneRecord(seedPickupRecords)
+    const pickupReturnRecords = Array.isArray(parsed.pickupReturnRecords)
+      ? mergeMissingSeedRecords(parsed.pickupReturnRecords, seedPickupReturnRecords, (record) => record.returnRecordId)
+      : cloneRecord(seedPickupReturnRecords)
+    const migratedPickup = migratePickupSessions(
+      pickupRecords,
+      Array.isArray(parsed.pickupSessions) ? cloneRecord(parsed.pickupSessions) : [],
+      pickupReturnRecords,
+    )
+    return {
+      prepRecords,
+      pickupRecords: migratedPickup.pickupRecords,
+      pickupReturnRecords,
       rejectRecords: Array.isArray(parsed.rejectRecords)
         ? mergeMissingSeedRecords(parsed.rejectRecords, seedRejectRecords, (record) => record.rejectId)
         : cloneRecord(seedRejectRecords),
       stagingRecords: Array.isArray(parsed.stagingRecords)
-        ? cloneRecord(parsed.stagingRecords)
+        ? cloneRecord(parsed.stagingRecords).map((stagingRecord) => {
+            const prepRecord = prepRecords.find((record) => record.prepRecordId === stagingRecord.prepRecordId)
+            const unitSummaries = prepRecord ? getMaterialPrepRecordUnitSummaries(prepRecord) : (stagingRecord.unitSummaries || [])
+            return {
+              ...stagingRecord,
+              totalPreparedQty: unitSummaries.length === 1 ? unitSummaries[0].preparedQty : null,
+              unitSummaries,
+            }
+          })
         : [],
       closedOrders: Array.isArray(parsed.closedOrders)
         ? mergeMissingSeedRecords(parsed.closedOrders, seedClosedOrders, (record) => record.prepOrderId)
         : cloneRecord(seedClosedOrders),
-      pickupSessions: Array.isArray(parsed.pickupSessions)
-        ? cloneRecord(parsed.pickupSessions)
+      pickupSessions: migratedPickup.pickupSessions,
+      pickupNodeSnapshots: Array.isArray(parsed.pickupNodeSnapshots)
+        ? cloneRecord(parsed.pickupNodeSnapshots)
         : [],
     }
   } catch {
@@ -2563,7 +2832,7 @@ export function getMaterialPrepRecordItems(record: MaterialPrepRecord): Material
   return explicitItems.map((item, index) => ({
     prepRecordItemId: item.prepRecordItemId || `${record.prepRecordId}:item:${index + 1}`,
     prepLineId: item.prepLineId || record.prepLineId,
-    preparedQty: roundQty(item.preparedQty),
+    preparedQty: roundQty(Number(item.preparedQty || 0)),
     rollCount: Math.max(Math.round(item.rollCount || 1), 1),
     stockWarehouseName: item.stockWarehouseName,
     stockWarehouseArea: item.stockWarehouseArea || item.warehouseArea || record.warehouseArea,
@@ -2576,8 +2845,9 @@ export function getMaterialPrepRecordItems(record: MaterialPrepRecord): Material
   }))
 }
 
-function getRecordTotalPreparedQty(record: MaterialPrepRecord): number {
-  return roundQty(getMaterialPrepRecordItems(record).reduce((sum, item) => sum + Number(item.preparedQty || 0), 0))
+function getRecordTotalPreparedQty(record: MaterialPrepRecord): number | null {
+  const summaries = getMaterialPrepRecordUnitSummaries(record)
+  return summaries.length === 1 ? summaries[0].preparedQty : null
 }
 
 function getRecordWarehouseNames(record: MaterialPrepRecord): MaterialStockWarehouseName[] {
@@ -2654,6 +2924,7 @@ function appendPrepConfirmedRuntimeEvent(
       prepLineId: firstItem?.prepLineId || record.prepLineId,
       batchNo: record.batchNo,
       preparedQty: getRecordTotalPreparedQty(record),
+      preparedUnitSummaries: getMaterialPrepRecordUnitSummaries(record),
       rollCount: record.rollCount,
       warehouseArea: record.stagingArea || record.warehouseArea,
       locationCode: record.locationCode,
@@ -2677,8 +2948,22 @@ function getLineRecords(store: ProductionMaterialPrepWorkflowStore, prepLineId: 
 function getRecordPickupQty(pickupRecords: PickupRecord[], prepRecordId: string): number {
   return roundQty(
     pickupRecords
-      .filter((record) => record.prepRecordId === prepRecordId)
-      .reduce((sum, record) => sum + Number(record.pickedQty || 0), 0),
+      .reduce((sum, record) => {
+        if (record.sourceAllocations?.length) {
+          const effectiveAllocations = allocatePickupReturnAcrossSources(
+            record.sourceAllocations,
+            Number(record.returnQty || 0),
+          )
+          return sum + effectiveAllocations
+            .filter((allocation) => allocation.prepRecordId === prepRecordId)
+            .reduce((allocationSum, allocation) => allocationSum + allocation.effectivePickedQty, 0)
+        }
+        return sum + (
+          record.prepRecordId === prepRecordId
+            ? Math.max(Number(record.pickedQty || 0) - Number(record.returnQty || 0), 0)
+            : 0
+        )
+      }, 0),
   )
 }
 
@@ -2693,8 +2978,25 @@ function getLinePickupQty(pickupRecords: PickupRecord[], prepLineId: string): nu
 function getRecordItemPickupQty(pickupRecords: PickupRecord[], prepRecordId: string, prepLineId: string): number {
   return roundQty(
     pickupRecords
-      .filter((record) => record.prepRecordId === prepRecordId && record.prepLineId === prepLineId)
-      .reduce((sum, record) => sum + Number(record.pickedQty || 0), 0),
+      .reduce((sum, record) => {
+        if (record.sourceAllocations?.length) {
+          const effectiveAllocations = allocatePickupReturnAcrossSources(
+            record.sourceAllocations,
+            Number(record.returnQty || 0),
+          )
+          return sum + effectiveAllocations
+            .filter((allocation) =>
+              allocation.prepRecordId === prepRecordId &&
+              allocation.prepLineId === prepLineId
+            )
+            .reduce((allocationSum, allocation) => allocationSum + allocation.effectivePickedQty, 0)
+        }
+        return sum + (
+          record.prepRecordId === prepRecordId && record.prepLineId === prepLineId
+            ? Math.max(Number(record.pickedQty || 0) - Number(record.returnQty || 0), 0)
+            : 0
+        )
+      }, 0),
   )
 }
 
@@ -2834,7 +3136,7 @@ function deriveOrderPrepStatus(
   return 'NEED_PREP_NO_STOCK'
 }
 
-function derivePickupStatus(
+export function derivePickupStatus(
   lines: MaterialPrepLine[],
   prepRecords: MaterialPrepRecord[],
   pickupRecords: PickupRecord[],
@@ -2842,12 +3144,27 @@ function derivePickupStatus(
 ): PickupOrderStatus {
   if (closed) return 'ACTUAL_CLOSED'
   if (prepRecords.some((record) => record.recordStatus === 'REJECTED')) return 'REJECTED_WAIT_WLS'
-  const confirmedQty = lines.reduce((sum, line) => sum + line.confirmedPrepQty, 0)
-  const pickedQty = pickupRecords.reduce((sum, record) => sum + Number(record.pickedQty || 0), 0)
-  const requiredQty = lines.reduce((sum, line) => sum + line.requiredQty, 0)
-  const availableToPickup = Math.max(confirmedQty - pickedQty, 0)
-  if (requiredQty > 0 && confirmedQty >= requiredQty && pickedQty >= confirmedQty) return 'PICKUP_DONE'
-  if (availableToPickup > 0) return 'WAIT_PICKUP'
+  const linePickupQty = new Map<string, number>()
+  for (const record of pickupRecords) {
+    linePickupQty.set(
+      record.prepLineId,
+      roundQty(
+        (linePickupQty.get(record.prepLineId) || 0) +
+        Math.max(Number(record.pickedQty || 0) - Number(record.returnQty || 0), 0),
+      ),
+    )
+  }
+  const hasDemand = lines.some((line) => line.requiredQty > 0)
+  const allRequiredPreparedAndPicked = hasDemand && lines.every((line) => {
+    const pickedQty = linePickupQty.get(line.prepLineId) || 0
+    return line.confirmedPrepQty >= line.requiredQty && pickedQty >= line.confirmedPrepQty
+  })
+  if (allRequiredPreparedAndPicked) return 'PICKUP_DONE'
+  const hasAvailableToPickup = lines.some((line) => {
+    const pickedQty = linePickupQty.get(line.prepLineId) || 0
+    return line.confirmedPrepQty > pickedQty
+  })
+  if (hasAvailableToPickup) return 'WAIT_PICKUP'
   return 'NOT_PICKABLE'
 }
 
@@ -2959,12 +3276,38 @@ function buildOrderProjection(
   const overallPrepStatus = deriveOrderPrepStatus(lines, prepRecords, Boolean(closed))
   const pickupStatus = derivePickupStatus(lines, prepRecords, pickupRecords, Boolean(closed))
   const { demandQty } = seedOrder
-  const totalRequiredQty = roundQty(lines.reduce((sum, line) => sum + line.requiredQty, 0))
-  const totalConfirmedPrepQty = roundQty(lines.reduce((sum, line) => sum + line.confirmedPrepQty, 0))
-  const totalPickedQty = roundQty(lines.reduce((sum, line) => sum + line.pickedQty, 0))
-  const totalReturnedQty = roundQty(pickupRecords.reduce((sum, record) => sum + Number(record.returnQty || 0), 0))
-  const totalAvailableToPickupQty = roundQty(Math.max(totalConfirmedPrepQty - totalPickedQty, 0))
-  const totalShortageQty = roundQty(lines.reduce((sum, line) => sum + line.shortageQty, 0))
+  const unitSummaryMap = new Map<string, MaterialPrepUnitSummary>()
+  for (const line of lines) {
+    const summary = unitSummaryMap.get(line.unit) ?? {
+      unit: line.unit,
+      requiredQty: 0,
+      confirmedPrepQty: 0,
+      grossPickedQty: 0,
+      returnedQty: 0,
+      effectivePickedQty: 0,
+      availableToPickupQty: 0,
+      shortageQty: 0,
+    }
+    summary.requiredQty = roundQty(summary.requiredQty + line.requiredQty)
+    summary.confirmedPrepQty = roundQty(summary.confirmedPrepQty + line.confirmedPrepQty)
+    summary.grossPickedQty = roundQty(summary.grossPickedQty + line.pickedQty)
+    summary.returnedQty = roundQty(summary.returnedQty + line.returnedQty)
+    summary.effectivePickedQty = roundQty(summary.effectivePickedQty + Math.max(line.pickedQty - line.returnedQty, 0))
+    summary.availableToPickupQty = roundQty(
+      summary.availableToPickupQty +
+      Math.max(line.confirmedPrepQty - Math.max(line.pickedQty - line.returnedQty, 0), 0),
+    )
+    summary.shortageQty = roundQty(summary.shortageQty + line.shortageQty)
+    unitSummaryMap.set(line.unit, summary)
+  }
+  const unitSummaries = Array.from(unitSummaryMap.values())
+  const singleUnitSummary = unitSummaries.length === 1 ? unitSummaries[0] : null
+  const totalRequiredQty = singleUnitSummary?.requiredQty ?? null
+  const totalConfirmedPrepQty = singleUnitSummary?.confirmedPrepQty ?? null
+  const totalPickedQty = singleUnitSummary?.grossPickedQty ?? null
+  const totalReturnedQty = singleUnitSummary?.returnedQty ?? null
+  const totalAvailableToPickupQty = singleUnitSummary?.availableToPickupQty ?? null
+  const totalShortageQty = singleUnitSummary?.shortageQty ?? null
   const latestOperatedAt = latestText([
     ...prepRecords.map((record) => record.rejectedAt || record.confirmedAt || record.preparedAt),
     ...pickupRecords.map((record) => record.pickedAt),
@@ -3013,6 +3356,7 @@ function buildOrderProjection(
     pickupReturnRecords,
     rejectRecords,
     stagingRecords,
+    unitSummaries,
     totalRequiredQty,
     totalConfirmedPrepQty,
     totalPickedQty,
@@ -3288,7 +3632,8 @@ export function getMaterialPrepRecordContext(
   ledgerRow: MaterialLedgerProjection | null
   pickedQty: number
   availableToPickupQty: number
-  totalAvailableToPickupQty: number
+  availableToPickupUnitSummaries: Array<{ unit: string; availableToPickupQty: number }>
+  totalAvailableToPickupQty: number | null
   warehouseNames: MaterialStockWarehouseName[]
 } | null {
   const prepLineId = typeof prepLineIdOrStorage === 'string' ? prepLineIdOrStorage : ''
@@ -3306,7 +3651,20 @@ export function getMaterialPrepRecordContext(
     const line = projection.lines.find((item) => item.prepLineId === recordItem.prepLineId)
     if (!line) return null
     const pickedQty = getRecordItemPickupQty(projection.pickupRecords, record.prepRecordId, recordItem.prepLineId)
-    const totalAvailableToPickupQty = roundQty(candidateItems.reduce((sum, item) => sum + item.availableToPickupQty, 0))
+    const availableToPickupByUnit = new Map<string, number>()
+    candidateItems.forEach((item) => {
+      availableToPickupByUnit.set(
+        item.unit,
+        roundQty((availableToPickupByUnit.get(item.unit) || 0) + item.availableToPickupQty),
+      )
+    })
+    const availableToPickupUnitSummaries = Array.from(availableToPickupByUnit, ([unit, availableToPickupQty]) => ({
+      unit,
+      availableToPickupQty,
+    }))
+    const totalAvailableToPickupQty = availableToPickupUnitSummaries.length === 1
+      ? availableToPickupUnitSummaries[0].availableToPickupQty
+      : null
     return {
       projection,
       record,
@@ -3316,6 +3674,7 @@ export function getMaterialPrepRecordContext(
       ledgerRow: getMaterialLedgerProjectionByCutOrder(line.cutOrderId),
       pickedQty,
       availableToPickupQty: roundQty(Math.max(record.recordStatus === 'CONFIRMED' ? recordItem.preparedQty - pickedQty : 0, 0)),
+      availableToPickupUnitSummaries,
       totalAvailableToPickupQty,
       warehouseNames: Array.from(new Set(candidateItems.map((item) => item.stockWarehouseName))),
     }
@@ -3381,7 +3740,7 @@ export function appendManualPrepRecord(
   const stockWarehouseName = line?.stockWarehouseName || getMaterialStockWarehouseName(line?.materialType || '面料')
   const stockWarehouseArea = line?.stockWarehouseArea || getMaterialStockWarehouseArea(line?.materialType || '面料')
   const stockLocationCode = line?.stockLocationCode || getMaterialStockLocationCode(line?.materialType || '面料')
-  const record: MaterialPrepRecord = {
+  const record = normalizePrepRecordQuantities({
     prepRecordId: `prep-rec:${input.prepLineId}:${occurredAt.replace(/[^0-9]/g, '')}`,
     prepOrderId: input.prepOrderId,
     prepLineId: input.prepLineId,
@@ -3416,7 +3775,7 @@ export function appendManualPrepRecord(
         remark: input.remark || '手动新增配料记录明细，随配料记录一起确认。',
       },
     ],
-  }
+  })
   store.prepRecords = [record, ...store.prepRecords]
   persistProductionMaterialPrepStore(store, storage)
   return cloneRecord(record)
@@ -3453,7 +3812,7 @@ export function appendAutoPrepRecordForOrder(
     sourceStockEventId: `ledger:${line.prepOrderId}:${line.materialSku}:auto-prep:${compactTime}`,
     remark: '按当前可配库存自动生成配料明细，随整条配料记录确认。',
   }))
-  const record: MaterialPrepRecord = {
+  const record = normalizePrepRecordQuantities({
     prepRecordId: `prep-rec:${prepOrderId}:${compactTime}`,
     prepOrderId,
     prepLineId: firstLine.prepLineId,
@@ -3473,7 +3832,7 @@ export function appendAutoPrepRecordForOrder(
     sourceStockEventId: '',
     remark: '按当前可配库存生成配料记录，等待仓库拣货。',
     items,
-  }
+  })
   store.prepRecords = [record, ...store.prepRecords]
   persistProductionMaterialPrepStore(store, storage)
   return cloneRecord(record)
@@ -3540,6 +3899,7 @@ export function stageMaterialPrepRecord(
     stagedBy: operatorName,
     itemCount: items.length,
     totalPreparedQty: getRecordTotalPreparedQty(record),
+    unitSummaries: getMaterialPrepRecordUnitSummaries(record),
     warehouseNames: getRecordWarehouseNames(record),
     status: '暂存中',
   }
@@ -3617,29 +3977,170 @@ function buildPickupNodeItems(
   projection: MaterialPrepOrderProjection,
   confirmedRecords: MaterialPrepRecord[],
 ): PickupNodeItem[] {
-  const items: PickupNodeItem[] = []
+  type ConfirmedBatch = {
+    prepRecordId: string
+    preparedAt: string
+    preparedQty: number
+    rollCount: number
+    currentAvailableQty: number
+    currentAvailableRollCount: number
+    sourceWarehouseName: string
+    sourceWarehouseArea: string
+    sourceLocationCode: string
+  }
+  const batchesByLine = new Map<string, ConfirmedBatch[]>()
+
   for (const record of confirmedRecords) {
-    for (const [itemIndex, recordItem] of getMaterialPrepRecordItems(record).entries()) {
+    for (const recordItem of getMaterialPrepRecordItems(record)) {
       const line = projection.lines.find((l) => l.prepLineId === recordItem.prepLineId)
       if (!line) continue
-      const relatedPickupRecords = projection.pickupRecords.filter((pickup) =>
-        pickup.prepRecordId === record.prepRecordId && pickup.prepLineId === recordItem.prepLineId
+      const batches = batchesByLine.get(recordItem.prepLineId) ?? []
+      batches.push({
+        prepRecordId: record.prepRecordId,
+        preparedAt: record.confirmedAt || record.preparedAt,
+        preparedQty: roundQty(Number(recordItem.preparedQty || 0)),
+        rollCount: Math.max(Math.round(Number(recordItem.rollCount || 0)), 0),
+        currentAvailableQty: roundQty(Number(recordItem.preparedQty || 0)),
+        currentAvailableRollCount: Math.max(Math.round(Number(recordItem.rollCount || 0)), 0),
+        sourceWarehouseName: recordItem.stockWarehouseName || line.stockWarehouseName,
+        sourceWarehouseArea: recordItem.warehouseArea || record.stagingArea || record.warehouseArea ||
+          recordItem.stockWarehouseArea || line.stockWarehouseArea,
+        sourceLocationCode: recordItem.locationCode || record.locationCode ||
+          recordItem.stockLocationCode || line.stockLocationCode,
+      })
+      batchesByLine.set(recordItem.prepLineId, batches)
+    }
+  }
+
+  if (!batchesByLine.size) return []
+
+  for (const [prepLineId, batches] of batchesByLine) {
+    batches.sort((left, right) =>
+      left.preparedAt.localeCompare(right.preparedAt)
+      || left.prepRecordId.localeCompare(right.prepRecordId)
+    )
+    const batchByRecordId = new Map(batches.map((batch) => [batch.prepRecordId, batch]))
+    const linePickupRecords = projection.pickupRecords
+      .filter((record) => record.prepLineId === prepLineId && Number(record.pickedQty || 0) > 0)
+      .sort((left, right) => left.pickedAt.localeCompare(right.pickedAt) || left.pickupRecordId.localeCompare(right.pickupRecordId))
+
+    for (const pickupRecord of linePickupRecords) {
+      const returnRecords = projection.pickupReturnRecords
+        .filter((record) => record.pickupRecordId === pickupRecord.pickupRecordId)
+      if (pickupRecord.sourceAllocations?.length) {
+        for (const allocation of pickupRecord.sourceAllocations) {
+          const batch = batchByRecordId.get(allocation.prepRecordId)
+          if (!batch) continue
+          batch.currentAvailableQty = roundQty(Math.max(batch.currentAvailableQty - allocation.pickedQty, 0))
+          batch.currentAvailableRollCount = Math.max(batch.currentAvailableRollCount - Math.max(Math.round(allocation.rollCount || 0), 0), 0)
+        }
+        for (const returnRecord of returnRecords) {
+          const matchingAllocation = pickupRecord.sourceAllocations.find((allocation) =>
+            allocation.prepRecordId === returnRecord.prepRecordId &&
+            allocation.prepLineId === returnRecord.prepLineId
+          )
+          const fallbackAllocation = pickupRecord.sourceAllocations[0]
+          const allocation = matchingAllocation || fallbackAllocation
+          const batch = allocation ? batchByRecordId.get(allocation.prepRecordId) : undefined
+          if (!batch) continue
+          batch.currentAvailableQty = roundQty(Math.min(batch.preparedQty, batch.currentAvailableQty + Number(returnRecord.returnQty || 0)))
+          batch.currentAvailableRollCount = Math.min(
+            batch.rollCount,
+            batch.currentAvailableRollCount + Math.max(Math.round(Number(returnRecord.rollCount || 0)), 0),
+          )
+        }
+        continue
+      }
+
+      let remainingPickedQty = roundQty(Number(pickupRecord.pickedQty || 0))
+      let remainingPickedRollCount = Math.max(Math.round(Number(pickupRecord.rollCount || 0)), 0)
+      for (const batch of batches) {
+        if (remainingPickedQty <= 0) break
+        const allocatedQty = Math.min(remainingPickedQty, batch.currentAvailableQty)
+        if (allocatedQty <= 0) continue
+        batch.currentAvailableQty = roundQty(batch.currentAvailableQty - allocatedQty)
+        remainingPickedQty = roundQty(remainingPickedQty - allocatedQty)
+        const allocatedRollCount = Math.min(remainingPickedRollCount, batch.currentAvailableRollCount)
+        batch.currentAvailableRollCount -= allocatedRollCount
+        remainingPickedRollCount -= allocatedRollCount
+      }
+      for (const returnRecord of returnRecords) {
+        const batch = batchByRecordId.get(returnRecord.prepRecordId) || batches[0]
+        if (!batch) continue
+        batch.currentAvailableQty = roundQty(Math.min(batch.preparedQty, batch.currentAvailableQty + Number(returnRecord.returnQty || 0)))
+        batch.currentAvailableRollCount = Math.min(
+          batch.rollCount,
+          batch.currentAvailableRollCount + Math.max(Math.round(Number(returnRecord.rollCount || 0)), 0),
+        )
+      }
+    }
+  }
+
+  return projection.lines
+    .filter((line) => batchesByLine.has(line.prepLineId))
+    .map((line) => {
+      const batches = [...(batchesByLine.get(line.prepLineId) ?? [])]
+        .sort((left, right) =>
+          left.preparedAt.localeCompare(right.preparedAt) ||
+          left.prepRecordId.localeCompare(right.prepRecordId)
+        )
+      const effectivePickedQty = roundQty(Math.max(line.pickedQty - line.returnedQty, 0))
+      const sourceLocationsByKey = new Map<string, PickupNodeSourceLocation>()
+      const sourceAllocations: PickupNodeSourceAllocation[] = []
+
+      for (const batch of batches) {
+        const currentAvailableQty = batch.currentAvailableQty
+        if (currentAvailableQty <= 0) continue
+        const rollCount = batch.currentAvailableRollCount
+        sourceAllocations.push({
+          prepRecordId: batch.prepRecordId,
+          prepLineId: line.prepLineId,
+          currentAvailableQty,
+          rollCount,
+          unit: line.unit,
+          sourceWarehouseName: batch.sourceWarehouseName,
+          sourceWarehouseArea: batch.sourceWarehouseArea,
+          sourceLocationCode: batch.sourceLocationCode,
+        })
+        const locationKey = [
+          batch.sourceWarehouseName,
+          batch.sourceWarehouseArea,
+          batch.sourceLocationCode,
+          line.unit,
+        ].join('|')
+        const existingLocation = sourceLocationsByKey.get(locationKey)
+        if (existingLocation) {
+          existingLocation.currentAvailableQty = roundQty(existingLocation.currentAvailableQty + currentAvailableQty)
+          existingLocation.rollCount += rollCount
+          if (!existingLocation.sourcePrepRecordIds.includes(batch.prepRecordId)) {
+            existingLocation.sourcePrepRecordIds.push(batch.prepRecordId)
+          }
+        } else {
+          sourceLocationsByKey.set(locationKey, {
+            sourceWarehouseName: batch.sourceWarehouseName,
+            sourceWarehouseArea: batch.sourceWarehouseArea,
+            sourceLocationCode: batch.sourceLocationCode,
+            currentAvailableQty,
+            rollCount,
+            unit: line.unit,
+            sourcePrepRecordIds: [batch.prepRecordId],
+          })
+        }
+      }
+
+      const sourceLocations = Array.from(sourceLocationsByKey.values())
+      const currentAvailableQty = roundQty(
+        sourceLocations.reduce((sum, location) => sum + location.currentAvailableQty, 0),
       )
-      const effectivePickedQty = roundQty(relatedPickupRecords.reduce(
-        (sum, pickup) => sum + Math.max(Number(pickup.pickedQty || 0) - Number(pickup.returnQty || 0), 0),
-        0,
+      const rollCount = sourceLocations.reduce((sum, location) => sum + location.rollCount, 0)
+      const sourcePrepRecordIds = Array.from(new Set(
+        sourceLocations.flatMap((location) => location.sourcePrepRecordIds),
       ))
-      const lineEffectivePickedQty = roundQty(Math.max(line.pickedQty - line.returnedQty, 0))
-      const pickedRollCount = relatedPickupRecords.reduce((sum, pickup) => sum + Number(pickup.rollCount || 0), 0)
-      const returnedRollCount = projection.pickupReturnRecords
-        .filter((returned) => returned.prepRecordId === record.prepRecordId && returned.prepLineId === recordItem.prepLineId)
-        .reduce((sum, returned) => sum + Number(returned.rollCount || 0), 0)
-      const currentAvailableQty = roundQty(Math.max(recordItem.preparedQty - effectivePickedQty, 0))
-      if (currentAvailableQty <= 0) continue
-      items.push({
-        nodeItemId: `node-item:${projection.order.prepOrderId}:${record.prepRecordId}:${recordItem.prepLineId}:${itemIndex + 1}`,
-        prepLineId: recordItem.prepLineId,
-        sourcePrepRecordIds: [record.prepRecordId],
+      const primaryLocation = sourceLocations[0]
+      return {
+        nodeItemId: `node-item:${projection.order.prepOrderId}:${line.prepLineId}`,
+        prepLineId: line.prepLineId,
+        sourcePrepRecordIds,
         materialSku: line.materialSku,
         materialName: line.materialName,
         materialType: line.materialType,
@@ -3648,38 +4149,40 @@ function buildPickupNodeItems(
         spec: line.spec,
         unit: line.unit,
         requiredQty: line.requiredQty,
-        lineEffectivePickedQty,
         effectivePickedQty,
         currentAvailableQty,
-        rollCount: Math.max(recordItem.rollCount - pickedRollCount + returnedRollCount, 1),
-        sourceWarehouseName: '中转仓',
-        sourceWarehouseArea: recordItem.warehouseArea || record.warehouseArea,
-        sourceLocationCode: recordItem.locationCode || record.locationCode,
-      })
-    }
-  }
-  return items
+        rollCount,
+        sourceWarehouseName: primaryLocation?.sourceWarehouseName || line.stockWarehouseName,
+        sourceWarehouseArea: primaryLocation?.sourceWarehouseArea || line.stockWarehouseArea,
+        sourceLocationCode: primaryLocation?.sourceLocationCode || line.stockLocationCode,
+        sourceLocations,
+        sourceAllocations,
+      }
+    })
+    .filter((item) => item.currentAvailableQty > 0)
 }
 
-function derivePickupNodeVersion(items: PickupNodeItem[]): number {
-  const signature = items
-    .map((item) => [
-      item.nodeItemId,
-      item.sourcePrepRecordIds.join(','),
-      item.currentAvailableQty,
-      item.rollCount,
-      item.sourceWarehouseName,
-      item.sourceWarehouseArea,
-      item.sourceLocationCode,
-    ].join('|'))
-    .sort()
-    .join('||')
-  let hash = 2166136261
-  for (let index = 0; index < signature.length; index += 1) {
-    hash ^= signature.charCodeAt(index)
-    hash = Math.imul(hash, 16777619)
-  }
-  return (hash >>> 0) || 1
+function buildPickupNodeFingerprint(nodeType: PickupNodeProjection['nodeType'], items: PickupNodeItem[]): string {
+  return JSON.stringify({
+    nodeType,
+    items: items.map((item) => ({
+      prepLineId: item.prepLineId,
+      unit: item.unit,
+      requiredQty: item.requiredQty,
+      effectivePickedQty: item.effectivePickedQty,
+      currentAvailableQty: item.currentAvailableQty,
+      rollCount: item.rollCount,
+      sourcePrepRecordIds: [...item.sourcePrepRecordIds].sort(),
+      sourceLocations: item.sourceLocations.map((location) => ({
+        ...location,
+        sourcePrepRecordIds: [...location.sourcePrepRecordIds].sort(),
+      })).sort((left, right) =>
+        `${left.sourceWarehouseName}|${left.sourceWarehouseArea}|${left.sourceLocationCode}`
+          .localeCompare(`${right.sourceWarehouseName}|${right.sourceWarehouseArea}|${right.sourceLocationCode}`)
+      ),
+      sourceAllocations: item.sourceAllocations.map((allocation) => ({ ...allocation })),
+    })),
+  })
 }
 
 export function listActivePickupNodes(
@@ -3694,46 +4197,94 @@ export function listActivePickupNodes(
     else sessionsByPrepOrder.set(session.prepOrderId, [session])
   }
 
-  return projections.flatMap((projection) => {
+  let snapshotChanged = false
+  const nodes = projections.flatMap((projection) => {
     if (projection.order.isClosed) return []
     const pickupSessions = sessionsByPrepOrder.get(projection.order.prepOrderId) ?? []
-    const completedCount = pickupSessions.length
-    const sequence = completedCount + 1
+    const latestCompletedSequence = pickupSessions.reduce((maxSequence, session) => {
+      const nodeSequence = Number(session.pickupNodeId.match(/:(\d+)$/)?.[1] || 0)
+      return Math.max(maxSequence, nodeSequence)
+    }, 0)
+    const sequence = Math.max(pickupSessions.length, latestCompletedSequence) + 1
     const confirmedRecords = projection.prepRecords.filter((r) => r.recordStatus === 'CONFIRMED')
     const items = buildPickupNodeItems(projection, confirmedRecords)
     if (!items.length) return []
 
     const coverageLines: PickupCoverageLine[] = projection.lines.map((line) => {
-      const lineItems = items.filter((i) => i.prepLineId === line.prepLineId)
-      const currentAvailableQty = roundQty(lineItems.reduce((sum, item) => sum + item.currentAvailableQty, 0))
+      const nodeItem = items.find((i) => i.prepLineId === line.prepLineId)
+      const currentAvailableQty = nodeItem?.currentAvailableQty ?? 0
+      const nodeEffectivePicked = nodeItem?.effectivePickedQty ?? 0
       const lineEffectivePicked = roundQty(Math.max(line.pickedQty - line.returnedQty, 0))
+      const effectivePickedQty = nodeEffectivePicked || lineEffectivePicked
       return {
         key: `${line.materialSku}:${line.color}:${line.spec}:${line.unit}`,
         unit: line.unit,
         requiredQty: line.requiredQty,
-        effectivePickedQty: lineEffectivePicked,
+        effectivePickedQty,
         currentAvailableQty,
       }
     })
 
     const nodeType = derivePickupNodeType(coverageLines)
+    const nodeId = `pickup-node:${projection.order.prepOrderId}:${sequence}`
+    const fingerprint = buildPickupNodeFingerprint(nodeType, items)
+    const sourcePrepRecordIds = new Set(items.flatMap((item) => item.sourcePrepRecordIds))
+    const latestMaterialAt = projection.prepRecords
+      .filter((record) =>
+        sourcePrepRecordIds.has(record.prepRecordId) ||
+        Boolean(record.rejectedAt)
+      )
+      .map((record) => record.confirmedAt || record.rejectedAt || record.preparedAt)
+      .filter(Boolean)
+      .sort()
+      .at(-1) || ''
+    const latestReturnAt = projection.pickupReturnRecords
+      .map((record) => record.returnedAt)
+      .filter(Boolean)
+      .sort()
+      .at(-1) || ''
+    const businessUpdatedAt = [latestMaterialAt, latestReturnAt].filter(Boolean).sort().at(-1) || ''
+    let snapshot = store.pickupNodeSnapshots.find((item) => item.nodeId === nodeId)
+    if (!snapshot) {
+      snapshot = {
+        nodeId,
+        prepOrderId: projection.order.prepOrderId,
+        sequence,
+        version: 1,
+        fingerprint,
+        updatedAt: businessUpdatedAt,
+      }
+      store.pickupNodeSnapshots.push(snapshot)
+      snapshotChanged = true
+    } else if (snapshot.fingerprint !== fingerprint) {
+      snapshot.version += 1
+      snapshot.fingerprint = fingerprint
+      snapshot.updatedAt = businessUpdatedAt
+      snapshotChanged = true
+    }
 
     return [{
-      nodeId: `pickup-node:${projection.order.prepOrderId}:${sequence}`,
-      version: derivePickupNodeVersion(items),
+      nodeId,
+      version: snapshot.version,
       nodeType,
       status: 'OPEN',
-      locationPolicy: nodeType === 'READY_TO_PICKUP' ? 'DIRECT_READY_AREA' : 'ASSIGN_INCOMPLETE_LOCATION',
+      locationPolicy: snapshot.version > 1
+        ? 'KEEP_CURRENT_LOCATION'
+        : nodeType === 'READY_TO_PICKUP'
+          ? 'DIRECT_READY_AREA'
+          : 'ASSIGN_INCOMPLETE_LOCATION',
       prepOrderId: projection.order.prepOrderId,
       prepOrderNo: projection.order.prepOrderNo,
       productionOrderId: projection.order.productionOrderId,
       productionOrderNo: projection.order.productionOrderNo,
       sequence,
-      updatedAt: nowText(),
+      updatedAt: snapshot.updatedAt,
       itemCount: items.length,
       items,
     }]
   })
+  if (snapshotChanged) persistProductionMaterialPrepStore(store, storage)
+  return nodes
 }
 
 export function appendPickupSessionFromNode(
@@ -3744,12 +4295,20 @@ export function appendPickupSessionFromNode(
     warehouseArea: string
     locationCode: string
     waitProcessLedgerEventId: string
+    idempotencyKey?: string
+    warehouseSyncDeferred?: boolean
   },
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): PickupSession {
-  const store = hydrateProductionMaterialPrepStore(storage)
-  const existing = store.pickupSessions.find((s) => s.pickupNodeId === input.pickupNodeId)
+  let store = hydrateProductionMaterialPrepStore(storage)
+  const existing = store.pickupSessions.find((session) => session.pickupNodeId === input.pickupNodeId)
   if (existing) return cloneRecord(existing)
+  const idempotentSession = input.idempotencyKey
+    ? store.pickupSessions.find((session) => session.idempotencyKey === input.idempotencyKey)
+    : null
+  if (idempotentSession) {
+    throw new Error(`幂等键已用于其他待领节点：${idempotentSession.pickupNodeId}`)
+  }
 
   const nodes = listActivePickupNodes(storage)
   const node = nodes.find((n) => n.nodeId === input.pickupNodeId)
@@ -3758,6 +4317,9 @@ export function appendPickupSessionFromNode(
   if (node.version !== input.pickupNodeVersion) {
     throw new Error('当前待领物料已更新，请重新核对全部物料后再确认领料。')
   }
+  // listActivePickupNodes 会在物料事实变化时持久化节点快照；提交前重新读取，
+  // 避免随后保存领料事实时用旧 Store 覆盖刚刚递增的节点版本。
+  store = hydrateProductionMaterialPrepStore(storage)
 
   const occurredAt = nowText()
   const pickupSessionId = `pickup-session:${node.nodeId}`
@@ -3789,6 +4351,16 @@ export function appendPickupSessionFromNode(
       pickupSessionId,
       pickupNodeId: node.nodeId,
       sourcePrepRecordIds: [...item.sourcePrepRecordIds],
+      sourceAllocations: item.sourceAllocations.map((allocation) => ({
+        prepRecordId: allocation.prepRecordId,
+        prepLineId: allocation.prepLineId,
+        pickedQty: allocation.currentAvailableQty,
+        rollCount: allocation.rollCount,
+        unit: allocation.unit,
+        sourceWarehouseName: allocation.sourceWarehouseName,
+        sourceWarehouseArea: allocation.sourceWarehouseArea,
+        sourceLocationCode: allocation.sourceLocationCode,
+      })),
     })
   }
 
@@ -3806,7 +4378,10 @@ export function appendPickupSessionFromNode(
     toWarehouseArea: input.warehouseArea,
     toLocationCode: input.locationCode,
     status: '本轮已领完',
-    warehouseSyncStatus: '已回写',
+    warehouseSyncStatus: input.warehouseSyncDeferred ? '回写异常待重试' : '已回写',
+    warehouseSyncMessage: input.warehouseSyncDeferred ? '领料事实已保存，待写入裁床待加工仓流水。' : undefined,
+    idempotencyKey: input.idempotencyKey,
+    pickupNodeSnapshot: cloneRecord(node),
   }
 
   store.pickupSessions = [session, ...store.pickupSessions]
@@ -3814,6 +4389,15 @@ export function appendPickupSessionFromNode(
   persistProductionMaterialPrepStore(store, storage)
 
   return cloneRecord(session)
+}
+
+export function getPickupSessionByNodeId(
+  pickupNodeId: string,
+  storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+): PickupSession | null {
+  const session = hydrateProductionMaterialPrepStore(storage).pickupSessions
+    .find((item) => item.pickupNodeId === pickupNodeId)
+  return session ? cloneRecord(session) : null
 }
 
 export function recordPickupSessionWarehouseSyncResult(
@@ -3859,7 +4443,39 @@ export function appendPickupReturnRecord(
   if (!pickupRecord) {
     throw new Error(`领料记录不存在：${input.pickupRecordId}`)
   }
-  if (pickupRecord.prepRecordId !== input.prepRecordId || pickupRecord.prepLineId !== input.prepLineId) {
+  const normalizedRollCount = Math.max(Math.round(input.rollCount || 1), 1)
+  if (pickupRecord.sourceAllocations?.length) {
+    const sourceAllocations = pickupRecord.sourceAllocations.filter((allocation) =>
+      allocation.prepRecordId === input.prepRecordId
+      && allocation.prepLineId === input.prepLineId
+    )
+    if (!sourceAllocations.length) {
+      throw new Error('退回物料行不属于该领料记录的来源分摊')
+    }
+    const sourcePickedQty = roundQty(
+      sourceAllocations.reduce((sum, allocation) => sum + Number(allocation.pickedQty || 0), 0),
+    )
+    const sourcePickedRollCount = sourceAllocations
+      .reduce((sum, allocation) => sum + Math.max(Math.round(Number(allocation.rollCount || 0)), 0), 0)
+    const sourceReturnRecords = context.projection.pickupReturnRecords.filter((record) =>
+      record.pickupRecordId === pickupRecord.pickupRecordId
+      && record.prepRecordId === input.prepRecordId
+      && record.prepLineId === input.prepLineId
+    )
+    const sourceReturnedQty = roundQty(
+      sourceReturnRecords.reduce((sum, record) => sum + Number(record.returnQty || 0), 0),
+    )
+    const sourceReturnedRollCount = sourceReturnRecords
+      .reduce((sum, record) => sum + Math.max(Math.round(Number(record.rollCount || 0)), 0), 0)
+    const sourceAvailableQty = roundQty(Math.max(sourcePickedQty - sourceReturnedQty, 0))
+    const sourceAvailableRollCount = Math.max(sourcePickedRollCount - sourceReturnedRollCount, 0)
+    if (returnQty > sourceAvailableQty) {
+      throw new Error(`退回数量不能超过该来源可退数量 ${sourceAvailableQty} ${context.line.unit}`)
+    }
+    if (normalizedRollCount > sourceAvailableRollCount) {
+      throw new Error(`退回卷件数不能超过该来源可退卷件数 ${sourceAvailableRollCount}`)
+    }
+  } else if (pickupRecord.prepRecordId !== input.prepRecordId || pickupRecord.prepLineId !== input.prepLineId) {
     throw new Error('退回物料行与领料记录不一致')
   }
   const waitProcessAvailableQty = roundQty(Number(pickupRecord.waitProcessAvailableQty ?? pickupRecord.pickedQty ?? 0))
@@ -3877,7 +4493,7 @@ export function appendPickupReturnRecord(
     prepLineId: input.prepLineId,
     productionOrderId: pickupRecord.productionOrderId,
     returnQty,
-    rollCount: Math.max(Math.round(input.rollCount || 1), 1),
+    rollCount: normalizedRollCount,
     unit: context.line.unit,
     reason: input.reason,
     remark: input.remark,

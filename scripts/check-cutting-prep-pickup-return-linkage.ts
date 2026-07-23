@@ -61,7 +61,10 @@ for (const row of returnedRows) {
   const projection = getMaterialPrepOrderProjection(row.order.prepOrderId, storage)
   assert(projection, `配料单投影必须可按 ID 读取：${row.order.prepOrderId}`)
   assert(projection.returnedLineCount > 0, `配料单必须统计已退回物料行：${row.order.prepOrderNo}`)
-  assert(projection.totalReturnedQty > 0, `配料单必须统计已退数量：${row.order.prepOrderNo}`)
+  assert(
+    projection.unitSummaries.some((summary) => summary.returnedQty > 0),
+    `配料单必须按单位统计已退数量：${row.order.prepOrderNo}`,
+  )
   for (const returnRecord of row.pickupReturnRecords) {
     const pickupRecord = row.pickupRecords.find((record) => record.pickupRecordId === returnRecord.pickupRecordId)
     assert(pickupRecord, `退回记录必须能找到对应领料记录：${returnRecord.returnRecordId}`)
@@ -71,14 +74,14 @@ for (const row of returnedRows) {
     assert(returnRecord.productionOrderId === pickupRecord.productionOrderId, `退回记录生产单归属必须一致：${returnRecord.returnRecordId}`)
   }
   const latestReturnRecord = projection.pickupReturnRecords.find((record) => record.returnedAt === projection.latestOperatedAt)
-  assert(
-    latestReturnRecord,
-    `最近操作必须能取到退回时间：${row.order.prepOrderNo}`,
-  )
-  assert(
-    projection.latestOperatorName === latestReturnRecord.returnedBy,
-    `最近操作人必须取到退回人：${row.order.prepOrderNo}`,
-  )
+  if (latestReturnRecord) {
+    assert(
+      projection.latestOperatorName === latestReturnRecord.returnedBy,
+      `退回是最近操作时必须取到退回人：${row.order.prepOrderNo}`,
+    )
+  } else {
+    assert(projection.order.isClosed, `退回后仅允许关闭配料单成为更晚操作：${row.order.prepOrderNo}`)
+  }
 }
 
 const originalWindow = (globalThis as typeof globalThis & { window?: unknown }).window
@@ -155,7 +158,8 @@ try {
   const pickupDetailHtml = renderPickupManagementDetailPage(detailSearch)
   assert(pickupDetailHtml.includes('当前节点全部物料'), '领料详情必须展示节点全部物料')
   assert(pickupDetailHtml.includes('物料明细'), '领料详情必须展示物料明细')
-  assert(pickupDetailHtml.includes('本轮全部领取'), '领料详情必须提供本轮全部领取按钮')
+  assert(pickupDetailHtml.includes('去 PDA 办理领料入库'), '领料详情必须从 PC 携节点快照进入 PDA 办理')
+  assert(!pickupDetailHtml.includes('本轮全部领取</button>'), 'PC 详情不得直接确认领料')
 
   const pickupSession = appendPickupSessionFromNode({
     pickupNodeId: detailPickupNode.nodeId,

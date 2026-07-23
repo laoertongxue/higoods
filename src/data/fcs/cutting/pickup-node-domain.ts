@@ -19,6 +19,27 @@ export interface PickupNodeIdentity {
   locationPolicy: PickupNodeLocationPolicy
 }
 
+export interface PickupNodeSourceLocation {
+  sourceWarehouseName: string
+  sourceWarehouseArea: string
+  sourceLocationCode: string
+  currentAvailableQty: number
+  rollCount: number
+  unit: string
+  sourcePrepRecordIds: string[]
+}
+
+export interface PickupNodeSourceAllocation {
+  prepRecordId: string
+  prepLineId: string
+  currentAvailableQty: number
+  rollCount: number
+  unit: string
+  sourceWarehouseName: string
+  sourceWarehouseArea: string
+  sourceLocationCode: string
+}
+
 export interface PickupNodeItem {
   nodeItemId: string
   prepLineId: string
@@ -37,6 +58,8 @@ export interface PickupNodeItem {
   sourceWarehouseName: string
   sourceWarehouseArea: string
   sourceLocationCode: string
+  sourceLocations: PickupNodeSourceLocation[]
+  sourceAllocations: PickupNodeSourceAllocation[]
 }
 
 export interface PickupNodeProjection extends PickupNodeIdentity {
@@ -66,6 +89,18 @@ export interface PickupSession {
   status: '本轮已领完'
   warehouseSyncStatus: '已回写' | '回写异常待重试'
   warehouseSyncMessage?: string
+  idempotencyKey?: string
+  migrationEvidence?: '按累计领料逐行齐套推导' | '旧事实不足，保守按未配齐'
+  pickupNodeSnapshot?: PickupNodeProjection
+}
+
+export interface PickupNodeSnapshotState {
+  nodeId: string
+  prepOrderId: string
+  sequence: number
+  version: number
+  fingerprint: string
+  updatedAt: string
 }
 
 export function derivePickupNodeType(lines: PickupCoverageLine[]): PickupNodeType {

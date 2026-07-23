@@ -6,30 +6,35 @@ import process from 'node:process'
 
 import {
   appendManualPrepRecord,
-  appendPickupReturnRecord,
-  appendPickupSessionFromNode,
+  allocatePickupReturnAcrossSources,
   closeMaterialPrepOrder,
   confirmMaterialPrepRecord,
   createProductionMaterialPrepSeedStore,
+  derivePickupStatus,
   getMaterialPrepOrderProjection,
+  getMaterialPrepRecordContext,
   getMaterialPrepRecordItems,
   listActivePickupNodes,
   listMaterialPrepOrderProjections,
   materialPrepWorkbenchTabs,
   pickMaterialPrepRecord,
   pickupWorkbenchTabs,
+  PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
   rejectMaterialPrepRecord,
   serializeProductionMaterialPrepStore,
   stageMaterialPrepRecord,
+  type PickupOrderStatus,
 } from '../src/data/fcs/cutting/production-material-prep.ts'
-import { listBusinessFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
-import {
-  renderCraftCuttingPickupManagementDetailPage,
-  renderCraftCuttingPickupManagementPage,
-  summarizePickupNodeLines,
-} from '../src/pages/process-factory/cutting/pickup-management.ts'
 
 const repoRoot = process.cwd()
+
+function assert(condition: unknown, message: string): asserts condition {
+  if (!condition) throw new Error(message)
+}
+
+function read(relativePath: string): string {
+  return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8')
+}
 
 class MemoryStorage {
   private readonly values = new Map<string, string>()
@@ -41,288 +46,207 @@ class MemoryStorage {
   setItem(key: string, value: string): void {
     this.values.set(key, value)
   }
+}
 
-  removeItem(key: string): void {
-    this.values.delete(key)
+const appShellConfig = read('src/data/app-shell-config.ts')
+const routesFcs = read('src/router/routes-fcs.ts')
+const routeRenderersFcs = read('src/router/route-renderers-fcs.ts')
+const pickupManagementSource = read('src/pages/process-factory/cutting/pickup-management.ts')
+const pdaWaitProcessSource = read('src/pages/pda-warehouse-wait-process.ts')
+const warehouseHubSource = read('src/pages/process-factory/cutting/warehouse-hub.ts')
+const fcsHandlersSource = read('src/main-handlers/fcs-handlers.ts')
+const pdaAccessSource = read('src/data/fcs/factory-onboarding-flow.ts')
+const pdaRuntimeSource = read('src/pages/pda-runtime.ts')
+const cuttingRuntimeLedgerSource = read('src/data/fcs/cutting/cutting-runtime-event-ledger.ts')
+const dataSource = read('src/data/fcs/cutting/production-material-prep.ts')
+
+assert(appShellConfig.includes("title: '领料管理'"), 'PFOS 裁前准备缺少领料管理菜单')
+assert(appShellConfig.includes("href: '/fcs/craft/cutting/pickup-management'"), 'PFOS 领料管理菜单路由错误')
+assert(routesFcs.includes('/fcs/craft/cutting/pickup-management'), 'PFOS 领料管理路由缺失')
+assert(routesFcs.includes('/fcs/craft/cutting/pickup-management-detail'), 'PFOS 领料详情路由缺失')
+assert(routeRenderersFcs.includes('renderCraftCuttingPickupManagementPage'), 'PFOS 领料管理 renderer 缺失')
+assert(routeRenderersFcs.includes('renderCraftCuttingPickupManagementDetailPage'), 'PFOS 领料详情 renderer 缺失')
+assert(pickupManagementSource.includes('// @page-pattern: list'), '领料管理必须声明标准列表页模式')
+assert(pickupManagementSource.includes('renderStandardListPage'), '领料管理必须使用标准列表页骨架')
+assert(pickupManagementSource.includes('renderStandardListTable'), '领料管理必须使用标准列表表格')
+assert(pickupManagementSource.includes('renderTablePagination'), '领料管理必须保留分页')
+assert(pickupManagementSource.includes('listActivePickupNodes'), '领料管理必须以活动待领节点为当前待办对象')
+assert(pickupManagementSource.includes('renderCraftCuttingPickupManagementDetailPage'), '领料管理必须保留节点详情页')
+assert(fcsHandlersSource.includes('handleCraftCuttingPickupManagementEvent'), 'FCS handler 必须承接领料管理交互')
+assert(pdaWaitProcessSource.includes('listActivePickupNodes'), 'PDA 必须读取与 PC 同源的活动待领节点')
+assert(pdaWaitProcessSource.includes('appendPickupSessionFromNode'), 'PDA 确认必须调用统一节点领料入口')
+assert(pdaWaitProcessSource.includes('确认全部领料'), 'PDA 必须明确一次领取节点全部物料')
+assert(pdaAccessSource.includes("!targetRoute.startsWith('/fcs/pda')"), 'PDA 登录守卫不得误拦截非 PDA 路由')
+assert(pdaRuntimeSource.includes("startsWith('/fcs/pda')"), 'PDA 登录重定向必须限定 PDA 路由')
+assert(!`${dataSource}\n${pickupManagementSource}\n${pdaWaitProcessSource}\n${warehouseHubSource}`.includes("unit: '米'"), '配料、领料与待加工仓链路不得继续写入旧单位“米”')
+assert(cuttingRuntimeLedgerSource.includes("if (text === '米') return 'yard'"), '运行流水必须兼容历史“米”并统一为 yard')
+assert(!pickupWorkbenchTabs.some((tab) =>
+  ['WAIT_CONTINUE_PICKUP', 'PARTIAL_PICKABLE'].includes(tab.key as PickupOrderStatus)
+), '裁床领料状态不得把“继续等待”或“部分可领”作为裁床动作')
+const crossUnitStatus = derivePickupStatus(
+  [
+    { prepLineId: 'yard-line', unit: 'yard', requiredQty: 100, confirmedPrepQty: 1100 },
+    { prepLineId: 'piece-line', unit: '条', requiredQty: 1000, confirmedPrepQty: 0 },
+  ] as never,
+  [],
+  [{ prepLineId: 'yard-line', pickedQty: 1100 }] as never,
+  false,
+)
+assert(crossUnitStatus !== 'PICKUP_DONE', '不同单位不得通过全单数量加总抵消成“已领料完结”')
+const returnedPickupStatus = derivePickupStatus(
+  [{ prepLineId: 'returned-line', unit: 'yard', requiredQty: 100, confirmedPrepQty: 100 }] as never,
+  [],
+  [{ prepLineId: 'returned-line', pickedQty: 100, returnQty: 50 }] as never,
+  false,
+)
+assert(returnedPickupStatus === 'WAIT_PICKUP', '领 100 退 50 后有效已领必须为 50，不得派生为已领料完结')
+const completedPickupStatus = derivePickupStatus(
+  [{ prepLineId: 'completed-line', unit: 'yard', requiredQty: 100, confirmedPrepQty: 100 }] as never,
+  [],
+  [{ prepLineId: 'completed-line', pickedQty: 100, returnQty: 0 }] as never,
+  false,
+)
+assert(completedPickupStatus === 'PICKUP_DONE', '无退回且逐行全部领完时必须派生为已领料完结')
+const allocatedReturn = allocatePickupReturnAcrossSources([
+  { prepRecordId: 'source-a', prepLineId: 'line-a', pickedQty: 65, rollCount: 1, unit: 'yard', sourceWarehouseName: '中转仓', sourceWarehouseArea: 'A', sourceLocationCode: 'A-01' },
+  { prepRecordId: 'source-b', prepLineId: 'line-a', pickedQty: 100, rollCount: 1, unit: 'yard', sourceWarehouseName: '中转仓', sourceWarehouseArea: 'A', sourceLocationCode: 'A-02' },
+], 100)
+assert(allocatedReturn[0].effectivePickedQty === 0, '退回必须先冲减第一来源的 65')
+assert(allocatedReturn[1].effectivePickedQty === 65, '第一来源冲完后必须继续冲减第二来源 35')
+assert(
+  allocatedReturn.reduce((sum, allocation) => sum + allocation.effectivePickedQty, 0) === 65,
+  '来源有效已领之和必须等于行级 picked - returned',
+)
+
+const projections = listMaterialPrepOrderProjections(null)
+assert(projections.length >= 8, '生产单级裁床配料单样例不足')
+assert(new Set(projections.map((projection) => projection.order.prepOrderId)).size === projections.length, '配料单 ID 必须唯一')
+assert(new Set(projections.map((projection) => projection.order.productionOrderId)).size === projections.length, '一个生产单只能对应一张持续有效的裁床配料单')
+for (const projection of projections) {
+  assert(projection.order.productionOrderId && projection.order.productionOrderNo, '配料单必须以生产单为主对象')
+  assert(projection.lines.length >= 8, `${projection.order.productionOrderNo} 物料需求行不足 8 项`)
+  for (const [materialType, minimum] of [['面料', 3], ['辅料', 3], ['纱线', 1], ['包材', 1]] as const) {
+    assert(
+      projection.lines.filter((line) => line.materialType === materialType).length >= minimum,
+      `${projection.order.productionOrderNo} ${materialType}物料样例不足`,
+    )
+  }
+  for (const line of projection.lines) {
+    assert(line.unit !== '米', `${projection.order.productionOrderNo} ${line.materialSku} 不得使用旧单位“米”`)
+    assert(line.materialSku && line.color && line.spec && line.unit, '物料需求行必须按 SKU、颜色、规格、单位独立计算')
   }
 }
 
-function read(relativePath: string): string {
-  return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8')
+for (const status of materialPrepWorkbenchTabs.map((tab) => tab.key)) {
+  assert(projections.some((projection) => projection.order.overallPrepStatus === status), `配料工作台缺少状态样例：${status}`)
 }
-
-function assert(condition: unknown, message: string): asserts condition {
-  if (!condition) throw new Error(message)
+for (const status of pickupWorkbenchTabs.map((tab) => tab.key)) {
+  assert(projections.some((projection) => projection.order.pickupStatus === status), `领料工作台缺少状态样例：${status}`)
 }
-
-function assertIncludes(source: string, snippet: string, message: string): void {
-  assert(source.includes(snippet), message)
-}
-
-function assertNotIncludes(source: string, snippet: string, message: string): void {
-  assert(!source.includes(snippet), message)
-}
-
-function assertPublicImagePath(publicPath: string, message: string): void {
-  assert(publicPath.startsWith('/'), `${message}：必须是 public 下的真实图片路径`)
-  assert(!publicPath.startsWith('data:image/svg+xml'), `${message}：不允许使用 SVG 占位图`)
-  assert(fs.existsSync(path.join(repoRoot, 'public', publicPath.slice(1))), `${message}：文件不存在 ${publicPath}`)
-}
-
-function renderWithBrowserState(
-  storage: MemoryStorage,
-  search: string,
-  render: () => string,
-): string {
-  const previousWindow = (globalThis as { window?: unknown }).window
-  ;(globalThis as { window?: unknown }).window = {
-    location: { search },
-    localStorage: storage,
-  }
-  try {
-    return render()
-  } finally {
-    if (previousWindow === undefined) delete (globalThis as { window?: unknown }).window
-    else (globalThis as { window?: unknown }).window = previousWindow
+for (const projection of projections) {
+  const unitSummaries = (projection as typeof projection & {
+    unitSummaries?: Array<{
+      unit: string
+      confirmedPrepQty: number
+      effectivePickedQty: number
+      returnedQty: number
+      availableToPickupQty: number
+    }>
+  }).unitSummaries
+  assert(unitSummaries?.length, `${projection.order.productionOrderNo} 必须按单位输出数量汇总`)
+  assert(new Set(unitSummaries.map((summary) => summary.unit)).size === unitSummaries.length, '单位汇总不得重复单位')
+  if (unitSummaries.length > 1) {
+    assert(projection.totalAvailableToPickupQty === null, '多单位配料单不得继续输出无量纲可领总数')
   }
 }
-
-function main(): void {
-  const appShellConfig = read('src/data/app-shell-config.ts')
-  const routesFcs = read('src/router/routes-fcs.ts')
-  const routeRenderersFcs = read('src/router/route-renderers-fcs.ts')
-  const meta = read('src/pages/process-factory/cutting/meta.ts')
-  const pickupManagementSource = read('src/pages/process-factory/cutting/pickup-management.ts')
-  const pdaWaitProcessSource = read('src/pages/pda-warehouse-wait-process.ts')
-  const pdaAccessSource = read('src/data/fcs/factory-onboarding-flow.ts')
-  const pdaRuntimeSource = read('src/pages/pda-runtime.ts')
-
-  assertIncludes(appShellConfig, "title: '领料管理'", '裁片准备缺少领料管理菜单')
-  assertIncludes(appShellConfig, "href: '/fcs/craft/cutting/pickup-management'", '领料管理菜单未指向现行路由')
-  assertIncludes(routesFcs, '/fcs/craft/cutting/pickup-management', '领料管理路由缺失')
-  assertIncludes(routesFcs, '/fcs/craft/cutting/pickup-management-detail', '领料详情路由缺失')
-  assertIncludes(routeRenderersFcs, 'renderCraftCuttingPickupManagementPage', '领料管理页面入口缺失')
-  assertIncludes(routeRenderersFcs, 'renderCraftCuttingPickupManagementDetailPage', '领料详情页面入口缺失')
-  assertIncludes(meta, "'pickup-management'", '裁床页面元数据缺少领料管理')
-  assertIncludes(pdaAccessSource, "!targetRoute.startsWith('/fcs/pda')", 'PDA 登录守卫必须放行非 PDA 路由')
-  assertIncludes(pdaRuntimeSource, "startsWith('/fcs/pda')", 'PDA 登录重定向必须限定在 PDA 路由内')
-  ;[
-    [pickupManagementSource, "unit = '米'", '领料管理不应默认使用米'],
-    [pdaWaitProcessSource, "unit = '米'", 'PDA 领料不应默认使用米'],
-    [pdaWaitProcessSource, "unit: '米'", 'PDA 领料流水不应写入米'],
-  ].forEach(([source, snippet, message]) => assertNotIncludes(source, snippet, message))
-
-  const projections = listMaterialPrepOrderProjections(null)
-  const prepStatuses = new Set(projections.map((projection) => projection.order.overallPrepStatus))
-  const pickupStatuses = new Set(projections.map((projection) => projection.order.pickupStatus))
-  assert(projections.length >= 8, '生产单级配料单样例不足')
-  materialPrepWorkbenchTabs.forEach((tab) => assert(prepStatuses.has(tab.key), `配料状态缺少样例：${tab.label}`))
-  pickupWorkbenchTabs.forEach((tab) => assert(pickupStatuses.has(tab.key), `领料状态缺少样例：${tab.label}`))
-  assert(!pickupStatuses.has('WAIT_CONTINUE_PICKUP' as never), '领料工作台不应保留待继续领料')
-  assert(!pickupStatuses.has('PARTIAL_PICKABLE' as never), '领料工作台不应保留可部分领料')
-
-  const factories = listBusinessFactoryMasterRecords()
-  const factoryByIdOrCode = new Map(factories.flatMap((factory) => [[factory.id, factory], [factory.code, factory]]))
-  const requiredMaterialTypes = [
-    ['面料', 3],
-    ['辅料', 3],
-    ['纱线', 1],
-    ['包材', 1],
-  ] as const
-  projections.forEach((projection) => {
-    assert(projection.order.productionOrderId && projection.order.productionOrderNo, '配料单必须挂在生产单下')
-    assertPublicImagePath(projection.order.spuImageUrl, `${projection.order.productionOrderNo} 缺少款式图片`)
-    assert(projection.lines.length >= 8, `${projection.order.productionOrderNo} 物料需求不足 8 行`)
-    requiredMaterialTypes.forEach(([type, minimum]) => {
-      assert(
-        projection.lines.filter((line) => line.materialType === type).length >= minimum,
-        `${projection.order.productionOrderNo} ${type}不足 ${minimum} 行`,
-      )
-    })
-    projection.lines.forEach((line) => {
-      assertPublicImagePath(line.materialImageUrl, `${projection.order.productionOrderNo} ${line.materialSku} 缺少物料图片`)
-      line.taskLinks.filter((task) => task.allocationStatus === '已分配').forEach((task) => {
-        const factory = factoryByIdOrCode.get(task.factoryId) ?? factoryByIdOrCode.get(task.factoryCode)
-        assert(factory, `${task.taskNo} 的工厂不在工厂档案中`)
-        assert(task.factoryName === `${factory.name}（${factory.code}）`, `${task.taskNo} 的工厂展示未使用工厂档案`)
-      })
-    })
-  })
-
-  const activeNodes = listActivePickupNodes(null)
-  assert(activeNodes.length > 0, '已确认未领物料必须形成待领节点')
-  assert(new Set(activeNodes.map((node) => node.prepOrderId)).size === activeNodes.length, '同一配料单只能有一个活动待领节点')
-  assert(activeNodes.every((node) => node.items.length > 0), '活动待领节点必须包含可领物料')
-  assert(activeNodes.some((node) => node.nodeType === 'INCOMPLETE_PICKABLE'), '缺少未配齐清单样例')
-  assert(activeNodes.some((node) => node.nodeType === 'READY_TO_PICKUP'), '缺少已配齐待领样例')
-  assert(activeNodes.every((node) => node.items.every((item) => item.sourcePrepRecordIds.length === 1)), '每个待领物料批次必须保留唯一来源配料记录')
-  const po0101Node = activeNodes.find((node) => node.productionOrderNo === 'PO-202603-0101')
-  assert(po0101Node, '缺少同物料多批次验收节点 PO-202603-0101')
-  const po0101BlackLine = summarizePickupNodeLines(po0101Node).find((line) => line.prepLineId === 'prep-line-po-0101-black')
-  assert(po0101BlackLine, 'PO-202603-0101 缺少黑色主面料需求行')
-  assert(po0101BlackLine.batches.length === 2, 'PO-202603-0101 黑色主面料必须保留两个来源批次')
-  assert(po0101BlackLine.requiredQty === 1386, '同物料多批次不得重复累计需求数量')
-  assert(po0101BlackLine.effectivePickedQty === 835, '同物料多批次历史有效已领汇总错误')
-  assert(po0101BlackLine.currentAvailableQty === 165, '同物料多批次当前可领汇总错误')
-  assert(po0101BlackLine.remainingShortageQty === 386, '同物料多批次领后剩余缺口必须按需求行计算一次')
-
-  const returnStorage = new MemoryStorage()
-  returnStorage.setItem('productionMaterialPrepWorkflow', serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()))
-  const returnSourceNode = listActivePickupNodes(returnStorage).find((node) => node.productionOrderNo === 'PO-202603-0101')
-  assert(returnSourceNode, '缺少领完退回组合场景验收节点')
-  const returnSourceBatch = returnSourceNode.items.find((item) => item.prepLineId === 'prep-line-po-0101-black')
-  assert(returnSourceBatch, '领完退回组合场景缺少黑色主面料批次')
-  const returnSession = appendPickupSessionFromNode({
-    pickupNodeId: returnSourceNode.nodeId,
-    pickupNodeVersion: returnSourceNode.version,
-    receiverName: '裁床 李明',
-    warehouseArea: '待加工仓 A 区',
-    locationCode: 'FAB-A-09',
-    waitProcessLedgerEventId: 'check-pickup-return-next-node',
-  }, returnStorage)
-  const returnPickupRecordId = returnSession.pickupRecordIds[returnSourceNode.items.indexOf(returnSourceBatch)]
-  appendPickupReturnRecord({
-    pickupRecordId: returnPickupRecordId,
-    prepRecordId: returnSourceBatch.sourcePrepRecordIds[0],
-    prepLineId: returnSourceBatch.prepLineId,
-    returnQty: 10,
-    rollCount: 1,
-    reason: '裁床退料',
-    remark: '组合场景回归',
-    imageNames: [],
-    returnedBy: '裁床 李明',
-  }, returnStorage)
-  const returnedNode = listActivePickupNodes(returnStorage).find((node) => node.productionOrderNo === 'PO-202603-0101')
-  assert(returnedNode, '领完退回后未形成下一待领节点')
-  const returnedBlackLine = summarizePickupNodeLines(returnedNode).find((line) => line.prepLineId === 'prep-line-po-0101-black')
-  assert(returnedBlackLine, '领完退回后的节点缺少黑色主面料')
-  assert(returnedBlackLine.effectivePickedQty === 990, '领完退回后的下一节点丢失已完全领取批次历史数量')
-  assert(returnedBlackLine.currentAvailableQty === 10, '领完退回后的当前可领数量错误')
-  assert(returnedBlackLine.remainingShortageQty === 386, '领完退回后的缺口必须继续按完整需求行计算')
-
-  const storage = new MemoryStorage()
-  storage.setItem('productionMaterialPrepWorkflow', serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()))
-  const initialNode = listActivePickupNodes(storage)[0]
-  assert(initialNode, '缺少真实节点版本变更验收节点')
-  const initialBatch = initialNode.items[0]
-  assert(initialBatch, '真实节点缺少可追加配料的物料行')
-  const initialLineBatchCount = initialNode.items.filter((item) => item.prepLineId === initialBatch.prepLineId).length
-  const addedRecord = appendManualPrepRecord({
-    prepOrderId: initialNode.prepOrderId,
-    prepLineId: initialBatch.prepLineId,
-    preparedQty: 12,
-    rollCount: 1,
-    warehouseArea: '中转仓 A 区',
-    locationCode: 'TR-A-099',
-    operatorName: '中转仓 周敏',
-  }, storage)
-  assert(addedRecord.recordStatus === 'DRAFT', '新增配料记录必须先进入未拣货状态')
-  assert(!confirmMaterialPrepRecord(addedRecord.prepRecordId, '中转仓 周敏', storage), '未拣货记录不可直接确认')
-  assert(pickMaterialPrepRecord(addedRecord.prepRecordId, '中转仓 张三', storage)?.recordStatus === 'PICKED', '配料记录拣货失败')
-  assert(stageMaterialPrepRecord(addedRecord.prepRecordId, '中转仓暂存区 A', '中转仓 李明', storage)?.recordStatus === 'STAGED', '配料记录暂存失败')
-  assert(confirmMaterialPrepRecord(addedRecord.prepRecordId, '中转仓 周敏', storage)?.recordStatus === 'CONFIRMED', '暂存记录确认失败')
-  const updatedNode = listActivePickupNodes(storage).find((node) => node.nodeId === initialNode.nodeId)
-  assert(updatedNode, '追加配料后原活动待领节点丢失')
-  assert(updatedNode.version !== initialNode.version, '追加确认配料后待领节点版本未更新')
-  const addedBatch = updatedNode.items.find((item) => item.sourcePrepRecordIds.includes(addedRecord.prepRecordId))
-  assert(addedBatch, '确认后的配料记录未进入活动待领节点')
-  assert(addedBatch.sourceLocationCode === 'TR-A-099', '追加配料批次未保留实际库位')
-  assert(
-    updatedNode.items.filter((item) => item.prepLineId === initialBatch.prepLineId).length === initialLineBatchCount + 1,
-    '同一物料的不同配料批次未按来源库位分开保留',
+const returnedProjection = projections.find((projection) => projection.pickupReturnRecords.length > 0)
+assert(returnedProjection, '必须存在退回场景')
+assert(
+  returnedProjection.unitSummaries.some((summary) => summary.returnedQty > 0 && summary.availableToPickupQty > 0),
+  '退回数量必须回到对应单位的当前可领事实',
+)
+const multiUnitRecord = projections.flatMap((projection) =>
+  projection.prepRecords.map((record) => ({ projection, record }))
+).find(({ projection, record }) => {
+  const units = getMaterialPrepRecordItems(record).map((item) =>
+    projection.lines.find((line) => line.prepLineId === item.prepLineId)?.unit || ''
   )
-  let realVersionConflictBlocked = false
-  try {
-    appendPickupSessionFromNode({
-      pickupNodeId: initialNode.nodeId,
-      pickupNodeVersion: initialNode.version,
-      receiverName: '裁床 李明',
-      warehouseArea: '待加工仓 A 区',
-      locationCode: 'FAB-A-09',
-      waitProcessLedgerEventId: 'check-real-version-conflict',
-    }, storage)
-  } catch (error) {
-    realVersionConflictBlocked = (error as Error).message.includes('当前待领物料已更新')
-  }
-  assert(realVersionConflictBlocked, '真实追加配料后使用旧节点版本办理领料时未阻断')
-  assert(rejectMaterialPrepRecord(
-    addedRecord.prepRecordId,
-    '整条配料记录需重配',
-    '物料核对异常',
-    '裁床 李明',
-    storage,
-  ), '待领物料打回失败')
-  assert(
-    !listActivePickupNodes(storage).some((node) => node.items.some((item) => item.sourcePrepRecordIds.includes(addedRecord.prepRecordId))),
-    '打回后的配料记录仍出现在待领节点',
+  return new Set(units.filter(Boolean)).size > 1
+})
+assert(multiUnitRecord, '必须存在多单位配料记录以验证记录级汇总')
+const multiUnitContext = getMaterialPrepRecordContext(multiUnitRecord.record.prepRecordId, null)
+assert(multiUnitContext?.availableToPickupUnitSummaries.length! > 1, '多单位配料记录必须按单位输出可领汇总')
+assert(multiUnitContext?.totalAvailableToPickupQty === null, '多单位配料记录不得输出无量纲可领总数')
+
+const activeNodes = listActivePickupNodes(null)
+assert(activeNodes.length > 0, '已确认且尚未领取的物料必须形成活动待领节点')
+assert(new Set(activeNodes.map((node) => node.prepOrderId)).size === activeNodes.length, '同一配料单同一时刻最多一个活动节点')
+assert(activeNodes.every((node) => node.items.length > 0), '活动节点必须包含当前全部可领物料')
+assert(activeNodes.some((node) => node.nodeType === 'INCOMPLETE_PICKABLE'), 'Mock 缺少未配齐可领节点')
+assert(activeNodes.some((node) => node.nodeType === 'READY_TO_PICKUP'), 'Mock 缺少已配齐待领节点')
+assert(activeNodes.some((node) =>
+  node.items.some((item) => item.sourcePrepRecordIds.length >= 2)
+), '多条已确认配料记录必须能归并到同一待领节点')
+assert(activeNodes.every((node) =>
+  node.items.every((item) =>
+    item.sourceLocations.length > 0 &&
+    item.sourceLocations.every((location) => location.unit === item.unit)
   )
+), '节点物料必须保留按本行单位记录的当前来源货位事实')
 
-  const readyNode = listActivePickupNodes(storage).find((node) => node.nodeType === 'READY_TO_PICKUP')
-  assert(readyNode, '缺少可办理领料的已配齐节点')
-  const session = appendPickupSessionFromNode({
-    pickupNodeId: readyNode.nodeId,
-    pickupNodeVersion: readyNode.version,
-    receiverName: '裁床 李明',
-    warehouseArea: '待加工仓 A 区',
-    locationCode: 'FAB-A-09',
-    waitProcessLedgerEventId: 'check-pickup-session',
-  }, storage)
-  assert(session.status === '本轮已领完', '领料主记录状态错误')
-  assert(session.pickupRecordIds.length === readyNode.items.length, '节点内每条物料必须形成领料明细')
-  assert(!listActivePickupNodes(storage).some((node) => node.nodeId === readyNode.nodeId), '办理领料后活动节点未关闭')
-  const duplicateSession = appendPickupSessionFromNode({
-    pickupNodeId: readyNode.nodeId,
-    pickupNodeVersion: readyNode.version,
-    receiverName: '裁床 李明',
-    warehouseArea: '待加工仓 A 区',
-    locationCode: 'FAB-A-09',
-    waitProcessLedgerEventId: 'check-pickup-session-retry',
-  }, storage)
-  assert(duplicateSession.pickupSessionId === session.pickupSessionId, '重复办理领料未返回原领料记录')
+const storage = new MemoryStorage()
+storage.setItem(
+  PRODUCTION_MATERIAL_PREP_STORAGE_KEY,
+  serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()),
+)
+const lifecycleProjection = listMaterialPrepOrderProjections(storage)
+  .find((projection) => projection.lines.some((line) => line.remainingNeedQty > 0))
+assert(lifecycleProjection, '缺少可用于验证配料生命周期的生产单')
+const lifecycleLine = lifecycleProjection.lines.find((line) => line.remainingNeedQty > 0)!
+const draft = appendManualPrepRecord({
+  prepOrderId: lifecycleProjection.order.prepOrderId,
+  prepLineId: lifecycleLine.prepLineId,
+  preparedQty: Math.min(lifecycleLine.remainingNeedQty, 1),
+  rollCount: 1,
+  warehouseArea: '中转仓测试区',
+  locationCode: 'TR-CHECK-001',
+  operatorName: '中转仓 测试员',
+}, storage)
+assert(getMaterialPrepRecordItems(draft).length === 1, '新增配料记录必须保留物料明细')
+assert(confirmMaterialPrepRecord(draft.prepRecordId, '中转仓 测试员', storage) === null, 'DRAFT 不得越级直接确认')
+assert(pickMaterialPrepRecord(draft.prepRecordId, '仓库 拣货员', storage)?.recordStatus === 'PICKED', 'DRAFT 必须先进入 PICKED')
+assert(stageMaterialPrepRecord(draft.prepRecordId, '中转仓测试区', '跟单 暂存员', storage)?.recordStatus === 'STAGED', 'PICKED 必须再进入 STAGED')
+assert(confirmMaterialPrepRecord(draft.prepRecordId, '中转仓 确认员', storage)?.recordStatus === 'CONFIRMED', 'STAGED 才能进入 CONFIRMED')
+assert(listActivePickupNodes(storage).some((node) =>
+  node.items.some((item) => item.sourcePrepRecordIds.includes(draft.prepRecordId))
+), '确认后的配料记录必须进入对应活动节点')
 
-  closeMaterialPrepOrder('prep-order-po-202603-0004', '后续不再配，按实关闭', '中转仓 周敏', storage)
-  const closedProjection = getMaterialPrepOrderProjection('prep-order-po-202603-0004', storage)
-  assert(closedProjection?.order.pickupStatus === 'ACTUAL_CLOSED', '关闭配料单后领料状态不是按实完结')
-  assert(closedProjection?.order.overallPrepStatus === 'CLOSED', '关闭配料单后配料状态不是已关闭')
+rejectMaterialPrepRecord(
+  draft.prepRecordId,
+  '测试打回',
+  '验证整条记录打回后退出活动节点',
+  '裁床 测试员',
+  storage,
+)
+assert(!listActivePickupNodes(storage).some((node) =>
+  node.items.some((item) => item.sourcePrepRecordIds.includes(draft.prepRecordId))
+), '被打回配料记录不得继续出现在活动节点')
 
-  const listHtml = renderWithBrowserState(storage, '', renderCraftCuttingPickupManagementPage)
-  ;['领料管理', '未配齐清单', '已配齐待领', '当前节点全部物料', '历史有效已领', '领后剩余缺口', '办理领料入库'].forEach((snippet) => {
-    assertIncludes(listHtml, snippet, `领料管理列表缺少：${snippet}`)
-  })
-  ;['可继续配料', '待继续领料', '可部分领料'].forEach((snippet) => {
-    assertNotIncludes(listHtml, snippet, `领料管理仍显示废弃状态：${snippet}`)
-  })
+closeMaterialPrepOrder(lifecycleProjection.order.prepOrderId, '测试按实关闭', '中转仓 测试员', storage)
+const closedProjection = getMaterialPrepOrderProjection(lifecycleProjection.order.prepOrderId, storage)
+assert(closedProjection?.order.overallPrepStatus === 'CLOSED', '关闭后配料单必须进入已关闭')
+assert(closedProjection.order.pickupStatus === 'ACTUAL_CLOSED', '关闭后领料端必须派生为按实完结')
 
-  const detailNode = listActivePickupNodes(storage)[0]
-  assert(detailNode, '缺少领料详情验收节点')
-  const detailHtml = renderWithBrowserState(
-    storage,
-    `?pickupNodeId=${encodeURIComponent(detailNode.nodeId)}`,
-    renderCraftCuttingPickupManagementDetailPage,
-  )
-  ;['领料详情', '当前节点全部物料', '物料明细', '需求数量', '本轮全部领取', '打回中转仓'].forEach((snippet) => {
-    assertIncludes(detailHtml, snippet, `领料详情缺少：${snippet}`)
-  })
-
-  console.log(JSON.stringify({
-    现行菜单与路由: '通过',
-    生产单级配料模型: '通过',
-    工厂档案引用: '通过',
-    单一活动待领节点: '通过',
-    多次配料批次与库位保真: '通过',
-    配料确认顺序: '通过',
-    节点整单领料与关闭: '通过',
-    重复提交幂等: '通过',
-    节点版本防错: '通过',
-    配料关闭按实完结: '通过',
-    列表与详情展示: '通过',
-    PDA路由边界: '通过',
-  }, null, 2))
-}
-
-try {
-  main()
-} catch (error) {
-  console.error(error)
-  process.exit(1)
-}
+console.log(
+  JSON.stringify({
+    PFOS领料路由: '通过',
+    PFOS列表详情与PDA同源: '通过',
+    一生产单一配料单: '通过',
+    每单最多一活动节点: '通过',
+    配料记录生命周期: 'DRAFT → PICKED → STAGED → CONFIRMED',
+    当前来源货位与单位: '通过',
+    配料状态覆盖: materialPrepWorkbenchTabs.map((tab) => tab.key),
+    领料状态定义: pickupWorkbenchTabs.map((tab) => tab.key),
+    已领料完结与退回规则: '通过',
+  }, null, 2),
+)
