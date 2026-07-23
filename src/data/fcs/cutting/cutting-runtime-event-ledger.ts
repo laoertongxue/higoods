@@ -9,7 +9,7 @@ export type CuttingRuntimeEventSource = 'PDA' | 'WEB' | 'MOCK' | 'WMS'
 export type CuttingRuntimeEventStatus = '已记录' | '已同步' | '同步失败' | '已取消'
 export type CuttingRuntimeInventoryScope = '裁床待加工仓' | '裁床待交出仓'
 export type CuttingRuntimeInventoryDirection = 'IN' | 'OUT' | 'ADJUST'
-export type CuttingRuntimeQtyUnit = 'yard' | '片' | '件'
+export type CuttingRuntimeQtyUnit = 'yard' | '片' | '件' | '粒' | '条' | '套' | '公斤'
 
 export type CuttingRuntimeEventType =
   | '中转仓配料完成通知'
@@ -43,6 +43,7 @@ export interface CuttingRuntimeRefs {
   handoverOrderId?: string
   handoverRecordId?: string
   specialCraftId?: string
+  pickupRecordId?: string
 }
 
 export interface RuntimeMaterialSnapshot {
@@ -431,6 +432,7 @@ function normalizeRefs(raw: unknown): CuttingRuntimeRefs {
     handoverOrderId: toString(value.handoverOrderId),
     handoverRecordId: toString(value.handoverRecordId),
     specialCraftId: toString(value.specialCraftId),
+    pickupRecordId: toString(value.pickupRecordId),
   }
 }
 
@@ -465,7 +467,9 @@ function normalizePattern(raw: unknown): RuntimePatternSnapshot | undefined {
 function normalizeUnit(value: unknown, fallback: CuttingRuntimeQtyUnit): CuttingRuntimeQtyUnit {
   const text = toString(value)
   if (text === '米') return 'yard'
-  return text === 'yard' || text === '片' || text === '件' ? text : fallback
+  return text === 'yard' || text === '片' || text === '件' || text === '粒' || text === '条' || text === '套' || text === '公斤'
+    ? text
+    : fallback
 }
 
 function normalizeInventoryEffect(raw: unknown): RuntimeInventoryEffect | undefined {
@@ -630,6 +634,7 @@ export function buildCuttingRuntimeEventId(eventType: CuttingRuntimeEventType, r
     refs.cutOrderNo,
     refs.handoverRecordId,
     refs.transferBagCode,
+    refs.pickupRecordId,
     refs.feiTicketIds?.join('-'),
   ].filter(Boolean).join('-') || 'runtime'
   return `cutting-event:${eventTypeCode(eventType)}:${businessKey}:${compactDate(occurredAt)}`
