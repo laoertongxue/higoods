@@ -25,6 +25,18 @@ import {
   buildSupplementPartShortages,
   type SupplementPartShortage,
 } from '../../../data/fcs/cut-piece-release-domain.ts'
+import {
+  completeSupplementOrder,
+  getSupplementOrder,
+  listSupplementOrdersByCutOrder,
+  registerSupplementOrder,
+  type SupplementOrderLifecycle,
+  type SupplementOrderStatus,
+} from '../../../data/fcs/cutting/supplement-order-registry.ts'
+import {
+  fixedSupplementOrderFixtures,
+  ensureFixedSupplementOrderFixturesRegistered,
+} from '../../../data/fcs/cutting/cut-order-supplement-fixture.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderSecondaryButton } from '../../../components/ui/button.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
@@ -47,23 +59,22 @@ import {
 } from '../../../components/ui/list-table.ts'
 
 type SupplementManualSourceType = 'production-order' | 'cut-order'
+type SupplementCandidateSourceType = 'cut-order'
 type SupplementSourceType = SupplementManualSourceType | 'release-snapshot'
-type SupplementFilterSourceType = 'ALL' | SupplementSourceType
-type SupplementRecordStatus = '已确认'
 type SupplementProcessKind = '印花' | '染色'
 type SupplementMaterialRole = '面料A' | '面料B' | '面料C' | '里布' | '衬' | '罗纹' | '辅料' | '包材' | '未识别'
 type SupplementRoleSource = '物料-纸样关联别名' | '物料行继承别名' | '纸样辅助识别' | '顺序推断' | '未识别'
 type SupplementRoleConfirmStatus = '已确认' | '待确认'
 
 interface SupplementFilters {
-  sourceType: SupplementFilterSourceType
   keyword: string
 }
 
 interface SupplementSourcePickerState {
-  sourceType: SupplementManualSourceType
   keyword: string
   selectedCandidateId: string
+  currentPage: number
+  pageSize: number
 }
 
 interface SupplementFeedback {
@@ -156,7 +167,7 @@ interface SupplementLine extends SupplementSizeColorRow {
 
 interface SupplementCandidate {
   id: string
-  sourceType: SupplementManualSourceType
+  sourceType: SupplementCandidateSourceType
   record: CuttingOrderProgressRecord
   sourceNo: string
   sourceTitle: string
@@ -189,7 +200,6 @@ interface SupplementDraft {
 interface SupplementRecord {
   id: string
   recordNo: string
-  status: SupplementRecordStatus
   createdAt: string
   createdBy: string
   draft: SupplementDraft
@@ -219,7 +229,9 @@ interface SupplementManagementState {
   sourcePicker: SupplementSourcePickerState
   activeCandidateId: string
   activeRecordId: string
+  pendingCompleteRecordId: string
   pendingConfirmDraft: SupplementDraft | null
+  releaseSnapshotContext: CutPieceReleaseTargetSnapshot | null
   releaseSnapshotDraft: SupplementDraft | null
   releaseSnapshotError: string
   creationSourceKey: string
@@ -254,17 +266,19 @@ const defaultSupplementListColumnPreferences: StandardListColumnPreferences = {
 
 const state: SupplementManagementState = {
   filters: {
-    sourceType: 'ALL',
     keyword: '',
   },
   sourcePicker: {
-    sourceType: 'production-order',
     keyword: '',
     selectedCandidateId: '',
+    currentPage: 1,
+    pageSize: 12,
   },
   activeCandidateId: '',
   activeRecordId: '',
+  pendingCompleteRecordId: '',
   pendingConfirmDraft: null,
+  releaseSnapshotContext: null,
   releaseSnapshotDraft: null,
   releaseSnapshotError: '',
   creationSourceKey: '',
@@ -283,6 +297,12 @@ const state: SupplementManagementState = {
 
 let mockSupplementOrdersSeeded = false
 let supplementListPreferencesLoaded = false
+let supplementListKeyboardEventsBound = false
+let detailReturnFocus: HTMLElement | null = null
+let detailReturnRecordId = ''
+let confirmationReturnFocus: HTMLElement | null = null
+let columnSettingsReturnFocus: HTMLElement | null = null
+let restoreCreateDraftFocus = false
 
 const sourceTypeLabels: Record<SupplementSourceType, string> = {
   'production-order': '生产单',
@@ -292,6 +312,7 @@ const sourceTypeLabels: Record<SupplementSourceType, string> = {
 
 const supplementManagementPath = '/fcs/craft/cutting/supplement-management'
 const supplementCreatePath = `${supplementManagementPath}?mode=create`
+const sourcePickerPageSizes = [12, 24] as const
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 
@@ -349,7 +370,7 @@ function makeSizeColorKey(row: Pick<CuttingSkuRequirementLine, 'skuCode' | 'colo
   return [row.skuCode, row.color, row.size].map((item) => normalizeText(item)).join('::')
 }
 
-function makeCandidateId(sourceType: SupplementManualSourceType, record: CuttingOrderProgressRecord, cutOrderNo = ''): string {
+function makeCandidateId(sourceType: SupplementCandidateSourceType, record: CuttingOrderProgressRecord, cutOrderNo = ''): string {
   return `${sourceType}:${record.id}:${cutOrderNo}`
 }
 
@@ -642,7 +663,7 @@ function getMaterialRefActualGarmentQty(ref: SupplementMaterialPatternRef, row: 
 
 function getExistingSupplementQtyForBasis(record: CuttingOrderProgressRecord, row: Pick<SupplementAbAnalysisRow, 'skuCode' | 'color' | 'size' | 'shortageMaterial'>): number {
   return state.records
-    .filter((item) => item.status === '已确认')
+    .filter((item) => Boolean(getSupplementRecordLifecycle(item)))
     .filter((item) => item.draft.productionOrderId === record.productionOrderId)
     .flatMap((item) => item.draft.lines)
     .filter((line) =>
@@ -656,7 +677,7 @@ function getExistingSupplementQtyForBasis(record: CuttingOrderProgressRecord, ro
 
 function getExistingSupplementQty(record: CuttingOrderProgressRecord, row: Pick<SupplementSizeColorRow, 'skuCode' | 'color' | 'size'>): number {
   return state.records
-    .filter((item) => item.status === '已确认')
+    .filter((item) => Boolean(getSupplementRecordLifecycle(item)))
     .filter((item) => item.draft.productionOrderId === record.productionOrderId)
     .flatMap((item) => item.draft.lines)
     .filter((line) => line.skuCode === row.skuCode && line.color === row.color && line.size === row.size)
@@ -722,13 +743,8 @@ function buildAbAnalysisRows(
 
 function buildBaseSkuRows(
   record: CuttingOrderProgressRecord,
-  sourceType: SupplementManualSourceType,
   materialLines: CuttingMaterialLine[],
 ): CuttingSkuRequirementLine[] {
-  if (sourceType === 'production-order') {
-    return (record.skuRequirementLines || []).map((line) => ({ ...line }))
-  }
-
   const grouped = new Map<string, CuttingSkuRequirementLine>()
   materialLines.flatMap((line) => line.skuScopeLines || []).forEach((line) => {
     const key = makeSizeColorKey(line)
@@ -745,13 +761,12 @@ function buildBaseSkuRows(
 
 function buildSizeColorRows(
   record: CuttingOrderProgressRecord,
-  sourceType: SupplementManualSourceType,
   materialLines: CuttingMaterialLine[],
 ): SupplementSizeColorRow[] {
   const cutOrderNos = new Set(materialLines.map(getCutOrderNo).filter(Boolean))
   const truth = buildProductionPieceTruth(record)
-  const truthRows = truth.gapRows.filter((row) => sourceType === 'production-order' || cutOrderNos.has(row.cutOrderNo))
-  return buildBaseSkuRows(record, sourceType, materialLines).map((line) => {
+  const truthRows = truth.gapRows.filter((row) => cutOrderNos.has(row.cutOrderNo))
+  return buildBaseSkuRows(record, materialLines).map((line) => {
     const relatedTruthRows = truthRows.filter(
       (row) => row.skuCode === line.skuCode && row.color === line.color && row.size === line.size,
     )
@@ -785,27 +800,6 @@ function buildSizeColorRows(
   })
 }
 
-function buildProductionCandidate(record: CuttingOrderProgressRecord): SupplementCandidate {
-  const materialLines = record.materialLines
-  const sizeColorRows = buildSizeColorRows(record, 'production-order', materialLines)
-  const materialPatternRefs = buildMaterialPatternRefs(record, materialLines)
-  const canInitiate = !isClosedRecord(record)
-  return {
-    id: makeCandidateId('production-order', record),
-    sourceType: 'production-order',
-    record,
-    sourceNo: record.productionOrderNo,
-    sourceTitle: `生产单 ${record.productionOrderNo}`,
-    sourceSubtitle: `关联裁片单 ${new Set(record.materialLines.map(getCutOrderNo).filter(Boolean)).size} 张`,
-    materialLines,
-    materialPatternRefs,
-    sizeColorRows,
-    abAnalysisRows: buildAbAnalysisRows(record, materialPatternRefs, sizeColorRows),
-    canInitiate,
-    blockedReason: canInitiate ? '' : '生产单下裁片链路已关闭，不能新增补料。',
-  }
-}
-
 function buildCutOrderCandidates(record: CuttingOrderProgressRecord): SupplementCandidate[] {
   const grouped = new Map<string, CuttingMaterialLine[]>()
   record.materialLines.forEach((line) => {
@@ -818,7 +812,7 @@ function buildCutOrderCandidates(record: CuttingOrderProgressRecord): Supplement
 
   return Array.from(grouped.entries()).map(([cutOrderNo, materialLines]) => {
     const canInitiate = !isClosedRecord(record)
-    const sizeColorRows = buildSizeColorRows(record, 'cut-order', materialLines)
+    const sizeColorRows = buildSizeColorRows(record, materialLines)
     const materialPatternRefs = buildMaterialPatternRefs(record, materialLines)
     return {
       id: makeCandidateId('cut-order', record, cutOrderNo),
@@ -838,10 +832,7 @@ function buildCutOrderCandidates(record: CuttingOrderProgressRecord): Supplement
 }
 
 function buildCandidates(): SupplementCandidate[] {
-  return cuttingOrderProgressRecords.flatMap((record) => [
-    buildProductionCandidate(record),
-    ...buildCutOrderCandidates(record),
-  ])
+  return cuttingOrderProgressRecords.flatMap((record) => buildCutOrderCandidates(record))
 }
 
 interface ReleaseSnapshotPointIdentity {
@@ -874,7 +865,7 @@ function displayReleaseMaterialName(materialId: string, materialName: string): s
   return seededNames[materialId] || materialName
 }
 
-function buildReleaseSnapshotMaterialRef(shortage: SupplementPartShortage): SupplementMaterialPatternRef {
+function buildReleaseSnapshotMaterialRef(shortage: SupplementPartShortage, cutOrderNo: string): SupplementMaterialPatternRef {
   const materialName = displayReleaseMaterialName(shortage.materialId, shortage.materialName)
   const materialRole: SupplementMaterialRole = ['A', 'B', 'C'].includes(shortage.materialId)
     ? (`面料${shortage.materialId}` as SupplementMaterialRole)
@@ -911,16 +902,18 @@ function buildReleaseSnapshotMaterialRef(shortage: SupplementPartShortage): Supp
     roleConfirmStatus: '已确认',
     patternId: shortage.partId,
     patternName: shortage.partName,
-    cutOrderNo: '',
+    cutOrderNo,
     line: materialLine,
   }
 }
 
-function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): SupplementDraft {
-  const releaseRecord = listCutPieceReleaseRecords().find((record) => record.productionOrderId === snapshot.productionOrderId)
+function buildReleaseSnapshotDraft(
+  snapshot: CutPieceReleaseTargetSnapshot,
+  candidate: SupplementCandidate,
+): SupplementDraft {
   const shortages = buildSupplementPartShortages(snapshot.matrixSnapshot, snapshot.targetPreview)
   const lines: SupplementLine[] = shortages.map((shortage) => {
-    const materialRef = buildReleaseSnapshotMaterialRef(shortage)
+    const materialRef = buildReleaseSnapshotMaterialRef(shortage, candidate.sourceNo)
     const key = makeReleaseSnapshotPointKey(shortage)
     const availableGarmentQty = Math.max(shortage.targetQty - shortage.supplementGarmentQty, 0)
     const basis: SupplementAbAnalysisRow = {
@@ -983,13 +976,13 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
     processNote: '按裁片放行目标快照中的实际缺片数量预填',
   }))
   return structuredClone({
-    candidateId: `release-snapshot:${snapshot.snapshotId}`,
-    sourceType: 'release-snapshot',
-    sourceNo: snapshot.matrixSnapshot.productionOrderNo,
-    productionOrderId: snapshot.productionOrderId,
-    productionOrderNo: snapshot.matrixSnapshot.productionOrderNo,
-    styleName: releaseRecord?.spuName || snapshot.matrixSnapshot.spuCode,
-    spuCode: snapshot.matrixSnapshot.spuCode,
+    candidateId: candidate.id,
+    sourceType: candidate.sourceType,
+    sourceNo: candidate.sourceNo,
+    productionOrderId: candidate.record.productionOrderId,
+    productionOrderNo: candidate.record.productionOrderNo,
+    styleName: candidate.record.styleName,
+    spuCode: candidate.record.spuCode,
     reason: '',
     reasonDetail: '',
     lines,
@@ -1003,10 +996,23 @@ function buildReleaseSnapshotDraft(snapshot: CutPieceReleaseTargetSnapshot): Sup
 function getCurrentReleaseSnapshotOrInvalidate(snapshotId: string): CutPieceReleaseTargetSnapshot | null {
   const snapshot = getCurrentCutPieceReleaseTargetSnapshot(snapshotId)
   if (snapshot) return snapshot
+  state.releaseSnapshotContext = null
   if (state.releaseSnapshotDraft?.releaseSnapshotId === snapshotId) state.releaseSnapshotDraft = null
   if (state.pendingConfirmDraft?.releaseSnapshotId === snapshotId) state.pendingConfirmDraft = null
+  state.activeCandidateId = ''
+  state.sourcePicker.selectedCandidateId = ''
   state.releaseSnapshotError = '目标依据已过期，请回裁片放行重新确认。'
   return null
+}
+
+function getReleaseSnapshotCandidates(snapshot: CutPieceReleaseTargetSnapshot): SupplementCandidate[] {
+  const releaseRecord = listCutPieceReleaseRecords().find((record) => record.productionOrderId === snapshot.productionOrderId)
+  const sourceCutOrderNos = new Set(releaseRecord?.sourceCutOrderNos || [])
+  if (!sourceCutOrderNos.size) return []
+  return buildCandidates().filter((candidate) =>
+    candidate.record.productionOrderId === snapshot.productionOrderId
+    && sourceCutOrderNos.has(candidate.sourceNo),
+  )
 }
 
 function prepareReleaseSnapshotCreateState(): void {
@@ -1019,24 +1025,28 @@ function prepareReleaseSnapshotCreateState(): void {
     state.creationSourceKey = nextCreationSourceKey
   }
   if (!snapshotId) {
+    state.releaseSnapshotContext = null
     state.releaseSnapshotDraft = null
     state.releaseSnapshotError = ''
     return
   }
   const snapshot = getCurrentReleaseSnapshotOrInvalidate(snapshotId)
   if (!snapshot) return
-  if (state.releaseSnapshotDraft?.releaseSnapshotId === snapshotId) {
+  if (state.releaseSnapshotContext?.snapshotId === snapshotId) {
     state.releaseSnapshotError = ''
     return
   }
-  state.releaseSnapshotDraft = buildReleaseSnapshotDraft(snapshot)
+  state.releaseSnapshotContext = snapshot
+  state.releaseSnapshotDraft = null
+  state.sourcePicker.keyword = ''
+  state.sourcePicker.selectedCandidateId = ''
+  state.sourcePicker.currentPage = 1
   state.releaseSnapshotError = ''
 }
 
 function getFilteredRecords(): SupplementRecord[] {
   const keyword = state.filters.keyword.trim().toLowerCase()
   return state.records
-    .filter((record) => state.filters.sourceType === 'ALL' || record.draft.sourceType === state.filters.sourceType)
     .filter((record) => {
       if (!keyword) return true
       return [
@@ -1054,23 +1064,51 @@ function getFilteredRecords(): SupplementRecord[] {
 
 function getSourcePickerCandidates(): SupplementCandidate[] {
   const keyword = state.sourcePicker.keyword.trim().toLowerCase()
-  return buildCandidates()
-    .filter((item) => item.canInitiate)
-    .filter((item) => item.sourceType === state.sourcePicker.sourceType)
+  const snapshotId = getReleaseSnapshotIdFromLocation()
+  const candidates = state.releaseSnapshotContext
+    ? getReleaseSnapshotCandidates(state.releaseSnapshotContext)
+    : snapshotId && state.releaseSnapshotError
+      ? []
+      : buildCandidates()
+  return candidates
     .filter((item) => {
       if (!keyword) return true
       return [
         item.sourceNo,
-        item.sourceTitle,
-        item.sourceSubtitle,
         item.record.productionOrderNo,
-        item.record.spuCode,
         item.record.styleName,
-        item.materialLines.map((line) => [getCutOrderNo(line), line.materialSku, getMaterialName(line)].join(' ')).join(' '),
+        item.record.spuCode,
       ].join(' ').toLowerCase().includes(keyword)
     })
     .sort((left, right) => right.abAnalysisRows.length - left.abAnalysisRows.length)
-    .slice(0, 12)
+}
+
+function getSourcePickerPaging(): StandardListPageSlice<SupplementCandidate> {
+  const paging = paginateStandardListRows(
+    getSourcePickerCandidates(),
+    state.sourcePicker.currentPage,
+    state.sourcePicker.pageSize,
+  )
+  state.sourcePicker.currentPage = paging.currentPage
+  return paging
+}
+
+function renderSourcePickerPagination(paging: StandardListPageSlice<SupplementCandidate>): string {
+  const html = renderTablePagination({
+    total: paging.total,
+    from: paging.from,
+    to: paging.to,
+    currentPage: paging.currentPage,
+    totalPages: paging.totalPages,
+    pageSize: paging.pageSize,
+    actionPrefix: 'cutting-supplement-source-picker',
+    fieldPrefix: 'cutting-supplement-source-picker',
+    pageSizeOptions: sourcePickerPageSizes,
+  })
+    .replaceAll('data-cutting-supplement-source-picker-action="prev-page"', 'data-cutting-supplement-action="source-picker-prev-page"')
+    .replaceAll('data-cutting-supplement-source-picker-action="next-page"', 'data-cutting-supplement-action="source-picker-next-page"')
+    .replaceAll('data-cutting-supplement-source-picker-field="pageSize"', 'data-cutting-supplement-field="sourcePickerPageSize"')
+  return withSkipPageRerender(html)
 }
 
 function summarizeCandidate(candidate: SupplementCandidate): {
@@ -1161,16 +1199,7 @@ function renderStatChip(label: string, value: number): string {
 function renderFilterControls(): string {
   return `
     <section class="rounded-lg border bg-card p-4">
-      <div class="grid gap-3 md:grid-cols-[180px_minmax(240px,1fr)_auto_auto] md:items-end">
-        <label class="space-y-1 text-sm">
-          <span class="text-muted-foreground">补料对象</span>
-          <select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-supplement-field="sourceType">
-            <option value="ALL"${state.filters.sourceType === 'ALL' ? ' selected' : ''}>全部</option>
-            <option value="production-order"${state.filters.sourceType === 'production-order' ? ' selected' : ''}>生产单</option>
-            <option value="cut-order"${state.filters.sourceType === 'cut-order' ? ' selected' : ''}>裁片单</option>
-            <option value="release-snapshot"${state.filters.sourceType === 'release-snapshot' ? ' selected' : ''}>裁片放行目标快照</option>
-          </select>
-        </label>
+      <div class="grid gap-3 md:grid-cols-[minmax(240px,1fr)_auto_auto] md:items-end">
         <label class="space-y-1 text-sm">
           <span class="text-muted-foreground">关键词</span>
           <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-supplement-field="keyword" value="${escapeHtml(state.filters.keyword)}" placeholder="补料单、生产单、裁片单、SPU、物料SKU" />
@@ -1186,19 +1215,12 @@ function renderFilters(): string {
   return `<div data-cutting-supplement-region="filters">${renderFilterControls()}</div>`
 }
 
-function renderSourcePickerPage(): string {
-  const allCandidates = buildCandidates().filter((item) => item.canInitiate)
-  const productionOrderCount = allCandidates.filter((item) => item.sourceType === 'production-order').length
-  const cutOrderCount = allCandidates.filter((item) => item.sourceType === 'cut-order').length
-  const candidates = getSourcePickerCandidates()
-  const selectedCandidate = candidates.find((candidate) => candidate.id === state.sourcePicker.selectedCandidateId)
-  const selectedSourceType = state.sourcePicker.sourceType
-  const sourceLabel = sourceTypeLabels[selectedSourceType]
-  const sourceColumnLabel = selectedSourceType === 'production-order' ? '生产单' : '裁片单'
-  const relatedColumnLabel = selectedSourceType === 'production-order' ? '关联裁片单' : '所属生产单'
-  const keywordPlaceholder = selectedSourceType === 'production-order'
-    ? '搜索生产单号、款式、SPU、关联裁片单'
-    : '搜索裁片单号、生产单号、款式、SPU'
+function renderSourcePickerResults(): string {
+  const paging = getSourcePickerPaging()
+  const candidates = paging.rows
+  const selectedCandidate = getSourcePickerCandidates().find(
+    (candidate) => candidate.id === state.sourcePicker.selectedCandidateId && candidate.canInitiate,
+  )
   const rows = candidates.map((candidate) => {
     const summary = summarizeCandidate(candidate)
     const spuImageUrl = getSpuImageUrl(candidate.record)
@@ -1208,17 +1230,17 @@ function renderSourcePickerPage(): string {
     const materialImages = candidate.materialLines.slice(0, 4).map((line) => `
       <img class="h-8 w-8 rounded border object-cover" src="${escapeHtml(getMaterialImageUrl(line))}" alt="${escapeHtml(line.materialSku)}" />
     `).join('')
-    const relatedText = selectedSourceType === 'production-order'
-      ? Array.from(new Set(candidate.materialLines.map(getCutOrderNo).filter(Boolean))).slice(0, 4).join('、') || '未关联'
-      : candidate.record.productionOrderNo
     return `
       <tr class="border-t align-top ${isSelected ? 'bg-blue-50/40' : ''}">
         <td class="w-12 px-4 py-4">
           <input
             class="h-4 w-4 rounded border"
-            type="checkbox"
+            type="radio"
+            name="supplement-cut-order-candidate"
             aria-label="选择${escapeHtml(candidate.sourceTitle)}"
             ${isSelected ? 'checked' : ''}
+            ${candidate.canInitiate ? '' : 'disabled'}
+            data-skip-page-rerender="true"
             data-cutting-supplement-action="toggle-source-candidate"
             data-candidate-id="${escapeHtml(candidate.id)}"
           />
@@ -1226,6 +1248,7 @@ function renderSourcePickerPage(): string {
         <td class="px-4 py-4">
           <div class="font-semibold">${escapeHtml(candidate.sourceTitle)}</div>
           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(candidate.sourceSubtitle)}</div>
+          ${candidate.blockedReason ? `<div class="mt-2 text-xs font-medium text-red-600">${escapeHtml(candidate.blockedReason)}</div>` : ''}
         </td>
         <td class="px-4 py-4">
           <div class="flex items-start gap-3">
@@ -1244,7 +1267,7 @@ function renderSourcePickerPage(): string {
           <div>建议补料：<span class="font-medium tabular-nums">${formatInteger(suggestedSupplementQty)}</span> 件</div>
         </td>
         <td class="px-4 py-4 text-sm">
-          <div>${escapeHtml(relatedText)}</div>
+          <div>${escapeHtml(candidate.record.productionOrderNo)}</div>
           <div class="mt-1 text-xs text-muted-foreground">物料 ${formatInteger(candidate.materialLines.length)} 行</div>
         </td>
       </tr>
@@ -1252,52 +1275,24 @@ function renderSourcePickerPage(): string {
   }).join('')
 
   return `
-    <section class="rounded-lg border bg-card">
-      <div class="border-b px-5 py-4">
-        <h2 class="text-lg font-semibold">选择补料对象</h2>
-        <p class="mt-1 text-sm text-muted-foreground">先选择生产单或裁片单，搜索并勾选一条记录后进入下一步填写补料明细。</p>
-      </div>
-      <div class="space-y-4 border-b px-5 py-4">
-        <div class="inline-flex rounded-lg border bg-muted/30 p-1 text-sm">
-          <button
-            type="button"
-            class="rounded-md px-4 py-2 font-medium ${selectedSourceType === 'production-order' ? 'bg-background text-blue-700 shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
-            data-cutting-supplement-action="set-source-picker-type"
-            data-source-type="production-order"
-          >按生产单选择 ${formatInteger(productionOrderCount)}</button>
-          <button
-            type="button"
-            class="rounded-md px-4 py-2 font-medium ${selectedSourceType === 'cut-order' ? 'bg-background text-blue-700 shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
-            data-cutting-supplement-action="set-source-picker-type"
-            data-source-type="cut-order"
-          >按裁片单选择 ${formatInteger(cutOrderCount)}</button>
-        </div>
-        <div class="grid gap-3 md:grid-cols-[minmax(260px,1fr)_auto_auto] md:items-end">
-          <label class="space-y-1 text-sm">
-            <span class="text-muted-foreground">${sourceLabel}搜索</span>
-            <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-supplement-field="sourcePickerKeyword" value="${escapeHtml(state.sourcePicker.keyword)}" placeholder="${escapeHtml(keywordPlaceholder)}" />
-          </label>
-          <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-cutting-supplement-action="apply-source-picker-search">搜索</button>
-          <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-cutting-supplement-action="reset-source-picker-search">重置</button>
-        </div>
-      </div>
       <div class="overflow-x-auto">
         <table class="min-w-full text-left text-sm">
           <thead class="bg-muted/50 text-xs text-muted-foreground">
             <tr>
               <th class="w-12 px-4 py-3 font-medium">选择</th>
-              <th class="px-4 py-3 font-medium">${sourceColumnLabel}</th>
+              <th class="px-4 py-3 font-medium">裁片单</th>
               <th class="px-4 py-3 font-medium">款式/SPU</th>
               <th class="px-4 py-3 font-medium">补料参考数据</th>
-              <th class="px-4 py-3 font-medium">${relatedColumnLabel}</th>
+              <th class="px-4 py-3 font-medium">所属生产单</th>
             </tr>
           </thead>
-          <tbody>${rows || `<tr><td class="px-4 py-8 text-center text-muted-foreground" colspan="5">暂无可新增补料的${sourceLabel}。</td></tr>`}</tbody>
+          <tbody>${rows || '<tr><td class="px-4 py-8 text-center text-muted-foreground" colspan="5">暂无裁片单。</td></tr>'}</tbody>
         </table>
       </div>
+      ${renderSourcePickerPagination(paging)}
       <div class="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4">
         <div class="text-sm text-muted-foreground">
-          ${selectedCandidate ? `已选择：${escapeHtml(selectedCandidate.sourceTitle)} / ${escapeHtml(selectedCandidate.record.styleName)}` : `请选择一条${sourceLabel}后进入下一步。`}
+          ${selectedCandidate ? `已选择：${escapeHtml(selectedCandidate.sourceTitle)} / ${escapeHtml(selectedCandidate.record.styleName)}` : '请选择一张可新增补料的裁片单后进入下一步。'}
         </div>
         <button
           type="button"
@@ -1306,6 +1301,51 @@ function renderSourcePickerPage(): string {
           data-cutting-supplement-action="source-picker-next"
         >下一步</button>
       </div>
+  `
+}
+
+function renderSourcePickerPage(): string {
+  return `
+    ${renderReleaseSnapshotPickerContext()}
+    <section class="rounded-lg border bg-card" data-cutting-supplement-source-picker>
+      <div class="border-b px-5 py-4">
+        <h2 class="text-lg font-semibold">选择裁片单</h2>
+      </div>
+      <div class="space-y-4 border-b px-5 py-4">
+        <div class="grid gap-3 md:grid-cols-[minmax(260px,1fr)_auto_auto] md:items-end">
+          <label class="space-y-1 text-sm">
+            <span class="text-muted-foreground">裁片单搜索</span>
+            <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-skip-page-rerender="true" data-cutting-supplement-field="sourcePickerKeyword" value="${escapeHtml(state.sourcePicker.keyword)}" placeholder="搜索裁片单号、生产单号、款式、SPU" />
+          </label>
+          <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-cutting-supplement-action="apply-source-picker-search">搜索</button>
+          <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-supplement-action="reset-source-picker-search">重置</button>
+        </div>
+      </div>
+      <div data-cutting-supplement-region="source-picker-results">${renderSourcePickerResults()}</div>
+    </section>
+  `
+}
+
+function renderReleaseSnapshotPickerContext(): string {
+  if (state.releaseSnapshotError) return renderReleaseSnapshotError()
+  const snapshot = state.releaseSnapshotContext
+  if (!snapshot) return ''
+  const candidates = getReleaseSnapshotCandidates(snapshot)
+  const availableCount = candidates.filter((candidate) => candidate.canInitiate).length
+  const guidance = candidates.length === 0
+    ? '未匹配到真实裁片单，不能新增补料。请回裁片放行核对来源裁片单。'
+    : availableCount === 0
+      ? '关联裁片单均已关闭或不可用，不能新增补料。请回裁片放行核对。'
+      : `已匹配 ${formatInteger(candidates.length)} 张裁片单，请选择一张可新增补料的裁片单。`
+  return `
+    <section class="rounded-lg border border-blue-200 bg-blue-50 p-4" data-release-snapshot-picker-context>
+      <div class="font-semibold text-blue-900">来源：裁片放行目标快照</div>
+      <div class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-blue-900">
+        <span>生产单 ${escapeHtml(snapshot.matrixSnapshot.productionOrderNo)}</span>
+        <span>快照编号 ${escapeHtml(snapshot.snapshotId)}</span>
+        <span>目标依据矩阵版本 V${formatInteger(snapshot.matrixVersion)}</span>
+      </div>
+      <p class="mt-2 text-sm text-blue-900">${escapeHtml(guidance)}</p>
     </section>
   `
 }
@@ -1341,8 +1381,8 @@ function renderReleaseSnapshotCreatePage(draft: SupplementDraft): string {
       ${renderReleaseSnapshotTrace(draft)}
       <section class="rounded-lg border bg-card">
         <div class="border-b px-5 py-4">
-          <h2 class="text-lg font-semibold">按放行目标快照新增补料</h2>
-          <p class="mt-1 text-sm text-muted-foreground">生产单 ${escapeHtml(draft.productionOrderNo)} · ${escapeHtml(draft.spuCode)} · ${escapeHtml(draft.styleName)}</p>
+          <h2 class="text-lg font-semibold">填写补料信息</h2>
+          <p class="mt-1 text-sm text-muted-foreground">裁片单 ${escapeHtml(draft.sourceNo)} / ${escapeHtml(draft.productionOrderNo)} / ${escapeHtml(draft.styleName)}</p>
         </div>
         <div class="space-y-4 p-5">
           ${draft.lines.length ? `
@@ -1385,6 +1425,7 @@ function renderReleaseSnapshotError(): string {
     <section class="rounded-lg border border-amber-200 bg-amber-50 p-5" data-release-snapshot-error>
       <h2 class="font-semibold text-amber-900">无法读取放行目标快照</h2>
       <p class="mt-2 text-sm text-amber-800">${escapeHtml(state.releaseSnapshotError)}</p>
+      <p class="mt-1 text-sm text-amber-800">当前不能新增补料，请重新确认目标，或返回独立创建后选择真实裁片单。</p>
       <button type="button" class="mt-4 rounded-md border border-amber-300 bg-white px-4 py-2 text-sm" data-cutting-supplement-action="return-independent-create">返回独立创建</button>
     </section>
   `
@@ -1621,10 +1662,10 @@ function renderSupplementBasisTable(lines: SupplementLine[]): string {
 function renderConfirmDialog(draft: SupplementDraft | null): string {
   if (!draft) return ''
   return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6">
-      <div class="w-full max-w-5xl rounded-xl bg-background shadow-xl">
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6" data-cutting-supplement-create-confirm>
+      <div class="w-full max-w-5xl rounded-xl bg-background shadow-xl" role="dialog" aria-modal="true" aria-labelledby="cutting-supplement-create-confirm-title">
         <div class="border-b px-5 py-4">
-          <h2 class="text-lg font-semibold">二次确认补料</h2>
+          <h2 id="cutting-supplement-create-confirm-title" class="text-lg font-semibold">二次确认补料</h2>
           <p class="mt-1 text-sm text-muted-foreground">确认后才会生成补料单；需要印花或染色的物料会挂到生产单 ${escapeHtml(draft.productionOrderNo)} 下。</p>
         </div>
         <div class="max-h-[72vh] space-y-4 overflow-y-auto p-5">
@@ -1665,6 +1706,28 @@ function formatMaterialDemandSummary(demands: SupplementMaterialDemand[]): strin
 
 function getSupplementTotalQty(record: SupplementRecord): number {
   return record.draft.lines.reduce((sum, line) => sum + Number(line.supplementQty || 0), 0)
+}
+
+function getSupplementRecordLifecycle(record: SupplementRecord): SupplementOrderLifecycle | undefined {
+  return getSupplementOrder(record.id)
+}
+
+function renderSupplementStatusBadge(status: SupplementOrderStatus): string {
+  const className = status === '已完成'
+    ? 'bg-emerald-50 text-emerald-700'
+    : 'bg-amber-50 text-amber-700'
+  return `<span class="rounded-full ${className} px-2.5 py-1 text-xs font-medium">${escapeHtml(status)}</span>`
+}
+
+function renderSupplementRecordStatus(record: SupplementRecord): string {
+  const lifecycle = getSupplementRecordLifecycle(record)
+  if (lifecycle) return renderSupplementStatusBadge(lifecycle.status)
+  return `
+    <div class="space-y-1 text-left">
+      <span data-supplement-lifecycle-status="missing">—</span>
+      <div class="text-xs text-amber-700">生命周期数据异常</div>
+    </div>
+  `
 }
 
 const supplementListColumns: StandardListColumn<SupplementRecord>[] = [
@@ -1739,7 +1802,7 @@ const supplementListColumns: StandardListColumn<SupplementRecord>[] = [
     title: '状态',
     width: 110,
     freezeable: true,
-    render: (record) => `<span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">${escapeHtml(record.status)}</span>`,
+    render: renderSupplementRecordStatus,
   },
   {
     key: 'created',
@@ -1829,10 +1892,12 @@ function ensureSupplementListPreferences(): void {
 }
 
 export function enterCraftCuttingSupplementManagementRoute(): void {
+  ensureSupplementManagementFixedRecords()
   state.page = 1
   state.sort = null
   clearSupplementCreateState()
   state.activeRecordId = ''
+  state.pendingCompleteRecordId = ''
   state.columnSettingsOpen = false
   state.creationSourceKey = ''
 }
@@ -1861,8 +1926,8 @@ function withSkipPageRerender(html: string): string {
 function renderListStats(records: SupplementRecord[]): string {
   return renderStandardListStats([
     { label: '补料单', value: records.length },
-    { label: '已确认', value: records.filter((record) => record.status === '已确认').length },
-    { label: '涉及生产单', value: new Set(records.map((record) => record.draft.productionOrderNo)).size },
+    { label: '未完成', value: records.filter((record) => getSupplementRecordLifecycle(record)?.status === '未完成').length },
+    { label: '已完成', value: records.filter((record) => getSupplementRecordLifecycle(record)?.status === '已完成').length },
   ])
 }
 
@@ -1892,7 +1957,9 @@ function renderListPagination(paging: StandardListPageSlice<SupplementRecord>): 
 }
 
 function renderListOverlay(): string {
+  const pendingRecord = state.pendingCompleteRecordId ? getRecordById(state.pendingCompleteRecordId) : undefined
   const activeRecord = state.activeRecordId ? getRecordById(state.activeRecordId) : undefined
+  if (pendingRecord) return `${activeRecord ? renderSupplementDetailDialog(activeRecord) : ''}${renderCompleteSupplementDialog(pendingRecord)}`
   if (activeRecord) return renderSupplementDetailDialog(activeRecord)
   if (!state.columnSettingsOpen) return ''
   return withSkipPageRerender(renderStandardListColumnSettings({
@@ -1937,6 +2004,140 @@ function refreshSupplementTable(): void {
 
 function refreshSupplementOverlay(): void {
   setSupplementRegion('overlay', renderListOverlay())
+}
+
+function getTopSupplementListOverlay(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('[data-cutting-supplement-complete-confirm]')
+    || document.querySelector<HTMLElement>('[data-cutting-supplement-detail]')
+    || (state.columnSettingsOpen
+      ? document.querySelector<HTMLElement>('[data-cutting-supplement-region="overlay"] > .fixed')
+      : null)
+}
+
+function scheduleSupplementFocus(callback: () => void): void {
+  if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') return
+  window.requestAnimationFrame(callback)
+}
+
+function focusTopSupplementListOverlay(): void {
+  scheduleSupplementFocus(() => {
+    getTopSupplementListOverlay()
+      ?.querySelector<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')
+      ?.focus()
+  })
+}
+
+function restoreDetailTriggerFocus(): void {
+  const originalTarget = detailReturnFocus
+  const recordId = detailReturnRecordId
+  detailReturnFocus = null
+  detailReturnRecordId = ''
+  scheduleSupplementFocus(() => {
+    const fallback = recordId
+      ? document.querySelector<HTMLElement>(`[data-cutting-supplement-action="open-detail"][data-record-id="${CSS.escape(recordId)}"]`)
+      : null
+    ;(originalTarget?.isConnected ? originalTarget : fallback)?.focus()
+  })
+}
+
+function restoreConfirmationTriggerFocus(): void {
+  const originalTarget = confirmationReturnFocus
+  confirmationReturnFocus = null
+  scheduleSupplementFocus(() => {
+    const fallback = document.querySelector<HTMLElement>('[data-cutting-supplement-detail] [data-cutting-supplement-action="request-complete-record"]')
+    ;(originalTarget?.isConnected ? originalTarget : fallback)?.focus()
+  })
+}
+
+function focusUpdatedDetailFallback(): void {
+  confirmationReturnFocus = null
+  scheduleSupplementFocus(() => {
+    const detail = document.querySelector<HTMLElement>('[data-cutting-supplement-detail]')
+    ;(detail?.querySelector<HTMLElement>('[data-cutting-supplement-action="close-detail"]') || detail)?.focus()
+  })
+}
+
+function restoreColumnSettingsTriggerFocus(): void {
+  const originalTarget = columnSettingsReturnFocus
+  columnSettingsReturnFocus = null
+  scheduleSupplementFocus(() => {
+    const fallback = document.querySelector<HTMLElement>('[data-cutting-supplement-action="open-column-settings"]')
+    ;(originalTarget?.isConnected ? originalTarget : fallback)?.focus()
+  })
+}
+
+function ensureSupplementListKeyboardEvents(): void {
+  if (
+    supplementListKeyboardEventsBound
+    || typeof document === 'undefined'
+    || typeof document.addEventListener !== 'function'
+  ) return
+  supplementListKeyboardEventsBound = true
+  document.addEventListener('keydown', (event) => {
+    const createConfirmation = document.querySelector<HTMLElement>('[data-cutting-supplement-create-confirm]')
+    if (!createConfirmation && !document.querySelector('[data-cutting-supplement-region="overlay"]')) return
+    const topOverlay = createConfirmation || getTopSupplementListOverlay()
+    if (event.key === 'Tab' && topOverlay) {
+      const focusable = [...topOverlay.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+      if (!focusable.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        last.focus()
+        event.preventDefault()
+        event.stopImmediatePropagation()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        first.focus()
+        event.preventDefault()
+        event.stopImmediatePropagation()
+      }
+      return
+    }
+    if (event.key !== 'Escape' || !topOverlay) return
+    if (createConfirmation) {
+      state.pendingConfirmDraft = null
+      createConfirmation.remove()
+      restoreCreateDraftFocus = false
+      focusCreateDraftSubmit()
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      return
+    }
+    if (state.pendingCompleteRecordId) {
+      state.pendingCompleteRecordId = ''
+      refreshSupplementOverlay()
+      restoreConfirmationTriggerFocus()
+    } else if (state.activeRecordId) {
+      state.activeRecordId = ''
+      refreshSupplementOverlay()
+      restoreDetailTriggerFocus()
+    } else if (state.columnSettingsOpen) {
+      state.columnSettingsOpen = false
+      refreshSupplementOverlay()
+      restoreColumnSettingsTriggerFocus()
+    } else return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+  }, true)
+}
+
+function focusCreateConfirmation(): void {
+  scheduleSupplementFocus(() => {
+    document.querySelector<HTMLElement>('[data-cutting-supplement-create-confirm] [data-cutting-supplement-action="return-draft"]')?.focus()
+  })
+}
+
+function focusCreateDraftSubmit(): void {
+  scheduleSupplementFocus(() => {
+    document.querySelector<HTMLElement>([
+      '[data-cutting-supplement-action="submit-release-snapshot-draft"]',
+      '[data-cutting-supplement-action="submit-draft"]',
+    ].join(', '))?.focus()
+  })
+}
+
+function refreshSourcePickerResults(): void {
+  setSupplementRegion('source-picker-results', renderSourcePickerResults())
 }
 
 function buildSupplementProcessLinks(record: SupplementRecord): SupplementProcessLink[] {
@@ -2055,21 +2256,27 @@ function renderProcessLinksTable(record: SupplementRecord): string {
 function renderSupplementDetailDialog(record: SupplementRecord | undefined): string {
   if (!record) return ''
   const totalQty = record.draft.lines.reduce((sum, line) => sum + line.supplementQty, 0)
+  const lifecycle = getSupplementRecordLifecycle(record)
   const processLinks = buildSupplementProcessLinks(record)
   const sourceRecord = getCandidateById(record.draft.candidateId)?.record
   const spuImageUrl = sourceRecord ? getSpuImageUrl(sourceRecord) : '/pants-sample.jpg'
 
   return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6">
-      <div class="flex max-h-[92vh] w-full max-w-6xl flex-col rounded-xl bg-background shadow-xl">
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6" data-cutting-supplement-detail>
+      <div class="flex max-h-[92vh] w-full max-w-6xl flex-col rounded-xl bg-background shadow-xl" role="dialog" aria-modal="true" aria-labelledby="cutting-supplement-detail-title">
         <div class="flex items-start justify-between gap-4 border-b px-5 py-4">
           <div>
-            <h2 class="text-lg font-semibold">补料单详情</h2>
+            <h2 id="cutting-supplement-detail-title" class="text-lg font-semibold">补料单详情</h2>
             <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)} / ${escapeHtml(record.draft.productionOrderNo)} / ${escapeHtml(record.draft.styleName)}</p>
           </div>
           <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-supplement-action="close-detail">关闭</button>
         </div>
         <div class="flex-1 space-y-4 overflow-y-auto p-5">
+          ${lifecycle ? '' : `
+            <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              补料生命周期数据异常，请刷新后重试。
+            </div>
+          `}
           ${renderReleaseSnapshotTrace(record.draft)}
           <section class="rounded-lg border p-4">
             <div class="flex flex-col gap-4 md:flex-row">
@@ -2079,7 +2286,8 @@ function renderSupplementDetailDialog(record: SupplementRecord | undefined): str
               </div>
               <div class="grid flex-1 gap-4 md:grid-cols-4">
                 <div><div class="text-xs text-muted-foreground">补料单号</div><div class="mt-1 font-semibold">${escapeHtml(record.recordNo)}</div></div>
-                <div><div class="text-xs text-muted-foreground">状态</div><div class="mt-1"><span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">${escapeHtml(record.status)}</span></div></div>
+                <div><div class="text-xs text-muted-foreground">状态</div><div class="mt-1">${renderSupplementRecordStatus(record)}</div></div>
+                <div><div class="text-xs text-muted-foreground">补料次数</div><div class="mt-1 font-semibold">${lifecycle ? `第 ${formatInteger(lifecycle.sequenceNo)} 次补料` : '—'}</div></div>
                 <div><div class="text-xs text-muted-foreground">补料对象</div><div class="mt-1 font-semibold">${escapeHtml(sourceTypeLabels[record.draft.sourceType])} ${escapeHtml(record.draft.sourceNo)}</div></div>
                 <div><div class="text-xs text-muted-foreground">补料数量</div><div class="mt-1 font-semibold tabular-nums">${formatInteger(totalQty)} 件</div></div>
                 <div><div class="text-xs text-muted-foreground">生产单</div><div class="mt-1 font-semibold">${escapeHtml(record.draft.productionOrderNo)}</div></div>
@@ -2087,6 +2295,14 @@ function renderSupplementDetailDialog(record: SupplementRecord | undefined): str
                 <div><div class="text-xs text-muted-foreground">款式</div><div class="mt-1 font-semibold">${escapeHtml(record.draft.styleName)}</div></div>
                 <div><div class="text-xs text-muted-foreground">发起人</div><div class="mt-1 font-semibold">${escapeHtml(record.createdBy)}</div></div>
                 <div><div class="text-xs text-muted-foreground">创建时间</div><div class="mt-1 font-semibold">${escapeHtml(record.createdAt)}</div></div>
+                <div data-supplement-completion-trace>
+                  <div class="text-xs text-muted-foreground">完成情况</div>
+                  ${lifecycle?.status === '已完成'
+                    ? `<div class="mt-1 font-semibold">${escapeHtml(lifecycle.completedBy)}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(lifecycle.completedAt)}</div>`
+                    : lifecycle
+                      ? '<div class="mt-1 font-semibold">尚未完成</div>'
+                      : '<div class="mt-1 font-semibold">—</div>'}
+                </div>
               </div>
             </div>
             <div class="mt-4 rounded-md bg-muted/40 px-3 py-2 text-sm">
@@ -2112,6 +2328,39 @@ function renderSupplementDetailDialog(record: SupplementRecord | undefined): str
             </div>
             ${renderProcessLinksTable(record)}
           </section>
+        </div>
+        ${lifecycle?.status === '未完成' ? `
+          <div class="flex justify-end border-t px-5 py-4">
+            <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-cutting-supplement-action="request-complete-record" data-record-id="${escapeHtml(record.id)}">完成该补料单</button>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `
+}
+
+function renderCompleteSupplementDialog(record: SupplementRecord): string {
+  const registered = getSupplementRecordLifecycle(record)
+  const lifecycle = registered
+    ? listSupplementOrdersByCutOrder(registered.cutOrderId).find((order) => order.id === record.id) || registered
+    : undefined
+  if (!lifecycle || lifecycle.status === '已完成') return renderSupplementDetailDialog(record)
+  return `
+    <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-6" data-cutting-supplement-complete-confirm>
+      <div class="w-full max-w-lg rounded-xl bg-background shadow-xl" role="alertdialog" aria-modal="true" aria-labelledby="cutting-supplement-confirm-title">
+        <div class="border-b px-5 py-4">
+          <h2 id="cutting-supplement-confirm-title" class="text-lg font-semibold">确认完成补料</h2>
+          <p class="mt-1 text-sm text-muted-foreground">本次只完成当前这一张补料单，不影响同裁片单的其他补料单。</p>
+        </div>
+        <div class="grid gap-3 p-5 sm:grid-cols-2">
+          <div><div class="text-xs text-muted-foreground">补料单号</div><div class="mt-1 font-semibold">${escapeHtml(lifecycle.recordNo)}</div></div>
+          <div><div class="text-xs text-muted-foreground">补料次数</div><div class="mt-1 font-semibold">第 ${formatInteger(lifecycle.sequenceNo)} 次</div></div>
+          <div><div class="text-xs text-muted-foreground">裁片单号</div><div class="mt-1 font-semibold">${escapeHtml(lifecycle.cutOrderNo)}</div></div>
+          <div><div class="text-xs text-muted-foreground">总补料数量</div><div class="mt-1 font-semibold tabular-nums">${formatInteger(lifecycle.totalQty)} 件</div></div>
+        </div>
+        <div class="flex justify-end gap-2 border-t px-5 py-4">
+          <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-supplement-action="cancel-complete-record">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-cutting-supplement-action="confirm-complete-record" data-record-id="${escapeHtml(record.id)}">确认完成</button>
         </div>
       </div>
     </div>
@@ -2222,9 +2471,11 @@ function buildSupplementRecordFromDraft(
   draft: SupplementDraft,
   options: {
     sequence: number
-    status: SupplementRecordStatus
     createdAt: string
     createdBy: string
+    id?: string
+    recordNo?: string
+    initialStatus?: SupplementOrderStatus
   },
 ): SupplementRecord {
   const serial = String(options.sequence).padStart(3, '0')
@@ -2236,22 +2487,62 @@ function buildSupplementRecordFromDraft(
     .filter((item) => item.dyeRequired)
     .map((_, index) => `DY-SUP-${processSeed}-${String(index + 1).padStart(2, '0')}`)
 
-  return {
-    id: `supplement-${processSeed}-${serial}`,
-    recordNo: `SUP-${processSeed}-${serial}`,
-    status: options.status,
+  const record: SupplementRecord = {
+    id: options.id || `supplement-${processSeed}-${serial}`,
+    recordNo: options.recordNo || `SUP-${processSeed}-${serial}`,
     createdAt: options.createdAt,
     createdBy: options.createdBy,
     draft: structuredClone(draft),
     printDemandNos,
     dyeDemandNos,
   }
+  registerSupplementRecordLifecycle(record)
+  if (options.initialStatus === '已完成' && getSupplementRecordLifecycle(record)?.status === '未完成') {
+    completeSupplementOrder({
+      id: record.id,
+      completedAt: options.createdAt,
+      completedBy: options.createdBy,
+    })
+  }
+  return record
+}
+
+function registerSupplementRecordLifecycle(record: SupplementRecord): void {
+  const candidate = getCandidateById(record.draft.candidateId)
+  const cutOrderId = candidate?.materialLines.find((line) => Boolean(line.cutOrderId))?.cutOrderId || candidate?.id || record.draft.candidateId
+  const cutOrderNo = candidate?.sourceNo || record.draft.sourceNo
+  registerSupplementOrder({
+    id: record.id,
+    recordNo: record.recordNo,
+    cutOrderId,
+    cutOrderNo,
+    productionOrderNo: record.draft.productionOrderNo,
+    reason: record.draft.reason,
+    reasonDetail: record.draft.reasonDetail,
+    totalQty: getSupplementTotalQty(record),
+    lineSummary: record.draft.lines
+      .slice(0, 2)
+      .map((line) => `${line.color}/${line.size}/${formatInteger(line.supplementQty)}件`)
+      .join('；'),
+    lines: record.draft.lines.map((line) => ({
+      color: line.color,
+      size: line.size,
+      supplementQty: line.supplementQty,
+    })),
+    materialDemands: record.draft.materialDemands.map((demand) => ({
+      materialSku: demand.materialSku,
+      materialName: demand.materialName,
+      requiredQty: demand.requiredQty,
+      unit: demand.unit,
+    })),
+    createdAt: record.createdAt,
+    createdBy: record.createdBy,
+  })
 }
 
 function buildSupplementRecord(draft: SupplementDraft): SupplementRecord {
   return buildSupplementRecordFromDraft(draft, {
     sequence: state.records.length + 1,
-    status: '已确认',
     createdAt: nowText(),
     createdBy: '裁床主管 周敏',
   })
@@ -2318,38 +2609,45 @@ function buildMockDraft(
   }
 }
 
-function ensureMockSupplementOrders(): void {
+export function ensureSupplementManagementFixedRecords(): void {
+  ensureFixedSupplementOrderFixturesRegistered()
   if (mockSupplementOrdersSeeded) return
   mockSupplementOrdersSeeded = true
   if (state.records.length) return
 
   const candidates = buildCandidates().filter((candidate) => candidate.canInitiate && candidate.abAnalysisRows.length > 0)
   if (!candidates.length) return
-  const reasons = ['裁片损耗', '尺码齐套不足', '验片破损', '裁剪差异']
-  const details = [
-    '验片后发现左前片有破损，需要按裁片单新增补料。',
-    '生产单部分尺码齐套不足，需要补齐后续车缝用料。',
-    '现场复核发现裁片损坏，按实际缺口补齐。',
-    '裁剪数量与计划存在差异，主管确认后发起补料。',
-  ]
-  const creators = ['裁床主管 周敏', '裁床组长 林洁', '验片主管 陈玲', '裁床主管 王海']
   const records: SupplementRecord[] = []
 
-  for (let index = 0; index < 12; index += 1) {
-    const candidate = candidates[index % candidates.length]
-    const draft = buildMockDraft(
-      candidate,
-      reasons[index % reasons.length],
-      details[index % details.length],
-      index % 3 === 1 ? 'print-dye' : 'none',
-    )
-    if (!draft) continue
-    const lines = draft.lines.map((line, lineIndex) => ({
-      ...line,
-      supplementQty: line.supplementQty + (index % 4) + lineIndex,
+  const stableSnapshot = getCurrentCutPieceReleaseTargetSnapshot('cpr-target-po-14671-v9')
+  fixedSupplementOrderFixtures.forEach((fixture) => {
+    const candidate = buildCandidates().find((item) => item.sourceNo === fixture.cutOrderNo)
+    if (!candidate) return
+    const stableSnapshotDraft = fixture.cutOrderNo === 'CUT14671-B' && stableSnapshot
+      ? buildReleaseSnapshotDraft(stableSnapshot, candidate)
+      : null
+    const baseDraft = stableSnapshotDraft
+      ? stableSnapshotDraft
+      : buildMockDraft(candidate, fixture.reason, fixture.reasonDetail)
+    if (!baseDraft?.lines.length) return
+    const lines = fixture.lines.map((fact, lineIndex) => ({
+      ...baseDraft.lines[lineIndex % baseDraft.lines.length],
+      key: `${baseDraft.lines[lineIndex % baseDraft.lines.length].key}:fixed:${lineIndex}`,
+      color: fact.color,
+      size: fact.size,
+      supplementQty: fact.supplementQty,
     }))
-    const materialDemands = buildMaterialDemands(candidate, lines)
-    if (index % 3 === 1 && materialDemands[0]) {
+    const calculatedDemands = buildMaterialDemands(candidate, lines)
+    if (!calculatedDemands.length) return
+    const materialDemands = fixture.materialDemands.map((fact, demandIndex) => ({
+      ...calculatedDemands[demandIndex % calculatedDemands.length],
+      materialSku: fact.materialSku,
+      materialName: fact.materialName,
+      requiredQty: fact.requiredQty,
+      unit: fact.unit,
+    }))
+    const fixedIndex = Number(fixture.recordNo.match(/-(\d{3})$/)?.[1] || 0) - 1
+    if (!fixture.recordNo.startsWith('SUP-CUT14671-B') && fixedIndex % 3 === 1 && materialDemands[0]) {
       materialDemands[0] = {
         ...materialDemands[0],
         printRequired: true,
@@ -2357,27 +2655,38 @@ function ensureMockSupplementOrders(): void {
         processNote: '补料面料需先补印花，再按生产单颜色要求补染色。',
       }
     }
-    const variedDraft: SupplementDraft = {
-      ...draft,
+    records.push(buildSupplementRecordFromDraft({
+      ...baseDraft,
+      candidateId: candidate.id,
+      sourceType: 'cut-order',
+      sourceNo: fixture.cutOrderNo,
+      productionOrderId: candidate.record.productionOrderId,
+      productionOrderNo: fixture.productionOrderNo,
+      styleName: candidate.record.styleName,
+      spuCode: candidate.record.spuCode,
+      reason: fixture.reason,
+      reasonDetail: fixture.reasonDetail,
       lines,
       materialDemands,
-    }
-    records.push(buildSupplementRecordFromDraft(variedDraft, {
-      sequence: index + 1,
-      status: '已确认',
-      createdAt: `2026-03-${String(25 - Math.floor(index / 4)).padStart(2, '0')} ${String(16 - (index % 4)).padStart(2, '0')}:${String((index * 7) % 60).padStart(2, '0')}`,
-      createdBy: creators[index % creators.length],
+      releaseSnapshotId: undefined,
+      releaseMatrixVersion: undefined,
+      releaseTargetConfirmedAt: undefined,
+    }, {
+      sequence: fixture.sequenceNo,
+      id: fixture.id,
+      recordNo: fixture.recordNo,
+      createdAt: fixture.createdAt,
+      createdBy: fixture.createdBy,
+      initialStatus: fixture.initialStatus,
     }))
-  }
+  })
 
   state.records = records
 }
 
 function setFiltersFromDom(): void {
-  const sourceType = document.querySelector<HTMLSelectElement>('[data-cutting-supplement-field="sourceType"]')?.value
   const keyword = document.querySelector<HTMLInputElement>('[data-cutting-supplement-field="keyword"]')?.value
   state.filters = {
-    sourceType: sourceType === 'production-order' || sourceType === 'cut-order' || sourceType === 'release-snapshot' ? sourceType : 'ALL',
     keyword: normalizeText(keyword),
   }
 }
@@ -2386,22 +2695,26 @@ function setSourcePickerKeywordFromDom(): void {
   const keyword = document.querySelector<HTMLInputElement>('[data-cutting-supplement-field="sourcePickerKeyword"]')?.value
   state.sourcePicker.keyword = normalizeText(keyword)
   state.sourcePicker.selectedCandidateId = ''
+  state.sourcePicker.currentPage = 1
 }
 
 function clearSupplementCreateState(): void {
   state.activeCandidateId = ''
   state.sourcePicker = {
-    sourceType: 'production-order',
     keyword: '',
     selectedCandidateId: '',
+    currentPage: 1,
+    pageSize: 12,
   }
   state.pendingConfirmDraft = null
+  state.releaseSnapshotContext = null
   state.releaseSnapshotDraft = null
   state.releaseSnapshotError = ''
+  restoreCreateDraftFocus = false
 }
 
 export function isCraftCuttingSupplementManagementDialogOpen(): boolean {
-  return Boolean(state.activeRecordId || state.pendingConfirmDraft)
+  return Boolean(state.activeRecordId || state.pendingCompleteRecordId || state.columnSettingsOpen || state.pendingConfirmDraft)
 }
 
 export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement, event?: Event): boolean {
@@ -2489,6 +2802,17 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     return true
   }
 
+  if (field === 'sourcePickerPageSize') {
+    if (event?.type !== 'change') return false
+    const pageSize = Number(fieldNode!.value)
+    if (sourcePickerPageSizes.includes(pageSize as (typeof sourcePickerPageSizes)[number])) {
+      state.sourcePicker.pageSize = pageSize
+      state.sourcePicker.currentPage = 1
+      refreshSourcePickerResults()
+    }
+    return true
+  }
+
   const actionNode = target.closest<HTMLElement>('[data-cutting-supplement-action]')
   const action = actionNode?.dataset.cuttingSupplementAction
   if (!actionNode || !action) return false
@@ -2509,7 +2833,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   }
 
   if (action === 'reset-filters') {
-    state.filters = { sourceType: 'ALL', keyword: '' }
+    state.filters = { keyword: '' }
     state.page = 1
     state.feedback = null
     refreshSupplementFeedback()
@@ -2539,15 +2863,19 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   }
 
   if (action === 'open-column-settings') {
+    columnSettingsReturnFocus = actionNode
     state.columnSettingsOpen = true
     state.activeRecordId = ''
+    state.pendingCompleteRecordId = ''
     refreshSupplementOverlay()
+    focusTopSupplementListOverlay()
     return true
   }
 
   if (action === 'close-column-settings') {
     state.columnSettingsOpen = false
     refreshSupplementOverlay()
+    restoreColumnSettingsTriggerFocus()
     return true
   }
 
@@ -2628,39 +2956,50 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     return true
   }
 
-  if (action === 'set-source-picker-type') {
-    const sourceType = actionNode.dataset.sourceType
-    if (sourceType === 'production-order' || sourceType === 'cut-order') {
-      state.sourcePicker.sourceType = sourceType
-      state.sourcePicker.selectedCandidateId = ''
-      state.feedback = null
-    }
-    return true
-  }
-
   if (action === 'apply-source-picker-search') {
+    if (event?.type !== 'click') return false
     setSourcePickerKeywordFromDom()
     state.feedback = null
+    refreshSupplementFeedback()
+    refreshSourcePickerResults()
     return true
   }
 
   if (action === 'reset-source-picker-search') {
+    if (event?.type !== 'click') return false
     state.sourcePicker.keyword = ''
     state.sourcePicker.selectedCandidateId = ''
+    state.sourcePicker.currentPage = 1
     state.feedback = null
+    const keywordInput = document.querySelector<HTMLInputElement>('[data-cutting-supplement-field="sourcePickerKeyword"]')
+    if (keywordInput) keywordInput.value = ''
+    refreshSupplementFeedback()
+    refreshSourcePickerResults()
+    return true
+  }
+
+  if (action === 'source-picker-prev-page' || action === 'source-picker-next-page') {
+    if (event?.type !== 'click') return false
+    state.sourcePicker.currentPage += action === 'source-picker-prev-page' ? -1 : 1
+    refreshSourcePickerResults()
     return true
   }
 
   if (action === 'toggle-source-candidate') {
+    if (event?.type !== 'change') return false
     const candidateId = actionNode.dataset.candidateId || ''
     const candidate = getCandidateById(candidateId)
-    if (!candidate || !candidate.canInitiate || candidate.sourceType !== state.sourcePicker.sourceType) {
+    if (!candidate || !candidate.canInitiate) {
       state.sourcePicker.selectedCandidateId = ''
       state.feedback = { tone: 'warning', message: candidate?.blockedReason || '当前对象不能新增补料。' }
+      refreshSupplementFeedback()
+      refreshSourcePickerResults()
       return true
     }
-    state.sourcePicker.selectedCandidateId = state.sourcePicker.selectedCandidateId === candidateId ? '' : candidateId
+    state.sourcePicker.selectedCandidateId = candidateId
     state.feedback = null
+    refreshSupplementFeedback()
+    refreshSourcePickerResults()
     return true
   }
 
@@ -2697,6 +3036,11 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     state.activeCandidateId = candidateId
     state.activeRecordId = ''
     state.pendingConfirmDraft = null
+    if (state.releaseSnapshotContext) {
+      const snapshot = getCurrentReleaseSnapshotOrInvalidate(state.releaseSnapshotContext.snapshotId)
+      if (!snapshot) return true
+      state.releaseSnapshotDraft = buildReleaseSnapshotDraft(snapshot, candidate)
+    }
     state.feedback = null
     return true
   }
@@ -2709,24 +3053,106 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
       return true
     }
     state.activeRecordId = recordId
+    detailReturnFocus = actionNode
+    detailReturnRecordId = recordId
+    state.pendingCompleteRecordId = ''
     state.columnSettingsOpen = false
     clearSupplementCreateState()
     state.feedback = null
     refreshSupplementFeedback()
     refreshSupplementOverlay()
+    focusTopSupplementListOverlay()
     return true
   }
 
   if (action === 'close-detail') {
     state.activeRecordId = ''
+    state.pendingCompleteRecordId = ''
     state.feedback = null
     refreshSupplementFeedback()
     refreshSupplementOverlay()
+    restoreDetailTriggerFocus()
     return true
+  }
+
+  if (action === 'request-complete-record') {
+    const recordId = actionNode.dataset.recordId || state.activeRecordId
+    const record = getRecordById(recordId)
+    if (!record) {
+      state.feedback = { tone: 'warning', message: '未找到对应的补料单，请刷新后重试。' }
+      refreshSupplementFeedback()
+      return true
+    }
+    const lifecycle = getSupplementRecordLifecycle(record)
+    if (!lifecycle) {
+      state.feedback = { tone: 'warning', message: '补料生命周期数据异常，请刷新后重试。' }
+      refreshSupplementFeedback()
+      refreshSupplementOverlay()
+      return true
+    }
+    if (lifecycle.status === '已完成') {
+      state.feedback = { tone: 'warning', message: '该补料单已完成。' }
+      refreshSupplementFeedback()
+      refreshSupplementOverlay()
+      return true
+    }
+    state.activeRecordId = record.id
+    state.pendingCompleteRecordId = record.id
+    confirmationReturnFocus = actionNode
+    refreshSupplementOverlay()
+    focusTopSupplementListOverlay()
+    return true
+  }
+
+  if (action === 'cancel-complete-record') {
+    state.pendingCompleteRecordId = ''
+    refreshSupplementOverlay()
+    restoreConfirmationTriggerFocus()
+    return true
+  }
+
+  if (action === 'confirm-complete-record') {
+    const recordId = state.pendingCompleteRecordId || actionNode.dataset.recordId || ''
+    const record = getRecordById(recordId)
+    try {
+      if (!record) {
+        state.feedback = { tone: 'warning', message: '未找到对应的补料单，请刷新后重试。' }
+        return true
+      }
+      const lifecycle = getSupplementRecordLifecycle(record)
+      if (!lifecycle) {
+        state.feedback = { tone: 'warning', message: '补料生命周期数据异常，请刷新后重试。' }
+        return true
+      }
+      if (lifecycle.status === '已完成') {
+        state.feedback = { tone: 'warning', message: '该补料单已完成。' }
+        return true
+      }
+      completeSupplementOrder({
+        id: record.id,
+        completedAt: '2026-07-22 14:30',
+        completedBy: '裁床主管 王敏',
+      })
+      state.feedback = { tone: 'success', message: `补料单 ${record.recordNo} 已完成。` }
+      return true
+    } catch (error) {
+      const currentLifecycle = record ? getSupplementRecordLifecycle(record) : undefined
+      state.feedback = currentLifecycle?.status === '已完成'
+        ? { tone: 'warning', message: '该补料单已完成。' }
+        : { tone: 'warning', message: `完成补料失败：${error instanceof Error ? error.message : '请刷新后重试。'}` }
+      return true
+    } finally {
+      state.pendingCompleteRecordId = ''
+      refreshSupplementFeedback()
+      refreshSupplementList()
+      refreshSupplementOverlay()
+      focusUpdatedDetailFallback()
+    }
   }
 
   if (action === 'back-to-source-picker') {
     state.activeCandidateId = ''
+    state.releaseSnapshotDraft = null
     state.feedback = null
     return true
   }
@@ -2780,8 +3206,11 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   }
 
   if (action === 'return-draft') {
-    state.activeCandidateId = state.pendingConfirmDraft?.candidateId || state.activeCandidateId
+    const pendingDraft = state.pendingConfirmDraft
+    state.activeCandidateId = pendingDraft?.candidateId || state.activeCandidateId
+    if (pendingDraft?.releaseSnapshotId) state.releaseSnapshotDraft = structuredClone(pendingDraft)
     state.pendingConfirmDraft = null
+    restoreCreateDraftFocus = true
     return true
   }
 
@@ -2803,9 +3232,13 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   }
 
   if (action === 'close-overlay') {
-    state.activeRecordId = ''
-    state.columnSettingsOpen = false
-    state.pendingConfirmDraft = null
+    if (state.pendingCompleteRecordId) state.pendingCompleteRecordId = ''
+    else if (state.activeRecordId) state.activeRecordId = ''
+    else if (state.columnSettingsOpen) state.columnSettingsOpen = false
+    else if (state.pendingConfirmDraft) {
+      state.pendingConfirmDraft = null
+      restoreCreateDraftFocus = true
+    }
     refreshSupplementOverlay()
     return true
   }
@@ -2814,7 +3247,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
 }
 
 export function renderCraftCuttingSupplementManagementPage(): string {
-  ensureMockSupplementOrders()
+  ensureSupplementListKeyboardEvents()
   ensureSupplementListPreferences()
   if (isSupplementCreateMode()) {
     return renderCraftCuttingSupplementCreatePage()
@@ -2846,7 +3279,6 @@ export function renderCraftCuttingSupplementManagementPage(): string {
 }
 
 export function renderCraftCuttingSupplementCreatePage(): string {
-  ensureMockSupplementOrders()
   prepareReleaseSnapshotCreateState()
   let activeCandidate = state.activeCandidateId ? getCandidateById(state.activeCandidateId) : undefined
   if (state.activeCandidateId && !activeCandidate) {
@@ -2855,23 +3287,28 @@ export function renderCraftCuttingSupplementCreatePage(): string {
     state.feedback = { tone: 'warning', message: '未找到对应的补料对象，请重新选择。' }
   }
 
+  if (state.pendingConfirmDraft) focusCreateConfirmation()
+  else if (restoreCreateDraftFocus) {
+    restoreCreateDraftFocus = false
+    focusCreateDraftSubmit()
+  }
+
   return `
     <div class="space-y-5 p-6">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div class="text-sm text-muted-foreground">工艺工厂运营系统 / 裁床厂管理 / 裁后处理 / 补料管理 / 新增补料</div>
           <h1 class="mt-2 text-2xl font-semibold tracking-tight">新增补料</h1>
-          <p class="mt-1 text-sm text-muted-foreground">按生产单或裁片单发起补料，并按成衣颜色、尺码、面料别名、物料信息和纸样信息填写本次补料件数。</p>
         </div>
         <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-cutting-supplement-action="cancel-create">返回补料列表</button>
       </div>
       ${renderFeedback()}
-      ${state.releaseSnapshotError
-        ? renderReleaseSnapshotError()
-        : state.releaseSnapshotDraft
-          ? renderReleaseSnapshotCreatePage(state.releaseSnapshotDraft)
-          : activeCandidate ? renderDraftPage(activeCandidate) : renderSourcePickerPage()}
+      ${state.releaseSnapshotDraft
+        ? renderReleaseSnapshotCreatePage(state.releaseSnapshotDraft)
+        : activeCandidate ? renderDraftPage(activeCandidate) : renderSourcePickerPage()}
       ${renderConfirmDialog(state.pendingConfirmDraft)}
     </div>
   `
 }
+
+ensureSupplementManagementFixedRecords()
