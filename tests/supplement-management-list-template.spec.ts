@@ -165,29 +165,40 @@ test('补料详情可完成当前补料单', async ({ page }) => {
   await detail.getByRole('button', { name: '完成该补料单' }).click()
   await expect(page.getByRole('heading', { name: '确认完成补料' })).toBeVisible()
 
-  const responseMs = await page.evaluate(() => new Promise<number>((resolve, reject) => {
+  const completionResponse = await page.evaluate(() => new Promise<{ responseMs: number; firstChangedRegion: string }>((resolve, reject) => {
+    const pageRoot = document.querySelector('[data-standard-list-page]')
     const overlay = document.querySelector('[data-cutting-supplement-region="overlay"]')
     const button = document.querySelector<HTMLButtonElement>('[data-cutting-supplement-action="confirm-complete-record"]')
-    if (!overlay || !button) {
+    if (!pageRoot || !overlay || !button) {
       reject(new Error('缺少完成补料确认交互验收元素'))
       return
     }
     requestAnimationFrame(() => {
       const startedAt = performance.now()
-      const observer = new MutationObserver(() => {
+      const changedRegions: string[] = []
+      const observer = new MutationObserver((records) => {
+        records.forEach((record) => {
+          const target = record.target instanceof Element ? record.target : record.target.parentElement
+          const region = target?.closest<HTMLElement>('[data-cutting-supplement-region]')?.dataset.cuttingSupplementRegion
+          if ((region === 'table' || region === 'overlay') && !changedRegions.includes(region)) changedRegions.push(region)
+        })
         if (!overlay.textContent?.includes('已完成')) return
         observer.disconnect()
-        resolve(performance.now() - startedAt)
+        resolve({
+          responseMs: performance.now() - startedAt,
+          firstChangedRegion: changedRegions[0] || '',
+        })
       })
-      observer.observe(overlay, { childList: true, subtree: true })
+      observer.observe(pageRoot, { childList: true, subtree: true })
       void import('/src/pages/process-factory/cutting/supplement-management.ts').then((pageModule) => {
         pageModule.handleCraftCuttingSupplementManagementEvent(button)
         pageModule.handleCraftCuttingSupplementManagementEvent(button)
       })
     })
   }))
-  expect(responseMs).toBeLessThan(350)
-  console.log(`确认完成单张补料单实际 DOM 响应：${responseMs.toFixed(1)}ms`)
+  expect(completionResponse.firstChangedRegion).toBe('overlay')
+  expect(completionResponse.responseMs).toBeLessThan(200)
+  console.log(`确认完成单张补料单实际 DOM 响应：${completionResponse.responseMs.toFixed(1)}ms`)
 
   await expect(detail.getByText('已完成', { exact: true })).toBeVisible()
   const completionTrace = detail.locator('[data-supplement-completion-trace]')
