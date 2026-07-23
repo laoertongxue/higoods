@@ -8,6 +8,8 @@ import {
   type PickupCoverageLine,
   type PickupNodeProjection,
   type PickupNodeItem,
+  type PickupNodeSnapshotState,
+  type PickupNodeSourceLocation,
   type PickupSession,
 } from './pickup-node-domain.ts'
 import type { Factory, FactoryPostCapacityNodeCode, FactoryType } from '../factory-types.ts'
@@ -317,6 +319,7 @@ export interface ProductionMaterialPrepWorkflowStore {
   prepRecords: MaterialPrepRecord[]
   pickupRecords: PickupRecord[]
   pickupSessions: PickupSession[]
+  pickupNodeSnapshots: PickupNodeSnapshotState[]
   pickupReturnRecords: MaterialPickupReturnRecord[]
   rejectRecords: PrepRejectRecord[]
   stagingRecords: MaterialPrepStagingRecord[]
@@ -2443,6 +2446,7 @@ export function createProductionMaterialPrepSeedStore(): ProductionMaterialPrepW
     prepRecords: cloneRecord(seedPrepRecords),
     pickupRecords: cloneRecord(seedPickupRecords),
     pickupSessions: [],
+    pickupNodeSnapshots: [],
     pickupReturnRecords: cloneRecord(seedPickupReturnRecords),
     rejectRecords: cloneRecord(seedRejectRecords),
     stagingRecords: [],
@@ -2479,6 +2483,9 @@ export function deserializeProductionMaterialPrepStore(raw: string | null): Prod
         : cloneRecord(seedClosedOrders),
       pickupSessions: Array.isArray(parsed.pickupSessions)
         ? cloneRecord(parsed.pickupSessions)
+        : [],
+      pickupNodeSnapshots: Array.isArray(parsed.pickupNodeSnapshots)
+        ? cloneRecord(parsed.pickupNodeSnapshots)
         : [],
     }
   } catch {
@@ -2834,7 +2841,7 @@ function deriveOrderPrepStatus(
   return 'NEED_PREP_NO_STOCK'
 }
 
-function derivePickupStatus(
+export function derivePickupStatus(
   lines: MaterialPrepLine[],
   prepRecords: MaterialPrepRecord[],
   pickupRecords: PickupRecord[],
@@ -2842,12 +2849,24 @@ function derivePickupStatus(
 ): PickupOrderStatus {
   if (closed) return 'ACTUAL_CLOSED'
   if (prepRecords.some((record) => record.recordStatus === 'REJECTED')) return 'REJECTED_WAIT_WLS'
-  const confirmedQty = lines.reduce((sum, line) => sum + line.confirmedPrepQty, 0)
-  const pickedQty = pickupRecords.reduce((sum, record) => sum + Number(record.pickedQty || 0), 0)
-  const requiredQty = lines.reduce((sum, line) => sum + line.requiredQty, 0)
-  const availableToPickup = Math.max(confirmedQty - pickedQty, 0)
-  if (requiredQty > 0 && confirmedQty >= requiredQty && pickedQty >= confirmedQty) return 'PICKUP_DONE'
-  if (availableToPickup > 0) return 'WAIT_PICKUP'
+  const linePickupQty = new Map<string, number>()
+  for (const record of pickupRecords) {
+    linePickupQty.set(
+      record.prepLineId,
+      roundQty((linePickupQty.get(record.prepLineId) || 0) + Number(record.pickedQty || 0)),
+    )
+  }
+  const hasDemand = lines.some((line) => line.requiredQty > 0)
+  const allRequiredPreparedAndPicked = hasDemand && lines.every((line) => {
+    const pickedQty = linePickupQty.get(line.prepLineId) || 0
+    return line.confirmedPrepQty >= line.requiredQty && pickedQty >= line.confirmedPrepQty
+  })
+  if (allRequiredPreparedAndPicked) return 'PICKUP_DONE'
+  const hasAvailableToPickup = lines.some((line) => {
+    const pickedQty = linePickupQty.get(line.prepLineId) || 0
+    return line.confirmedPrepQty > pickedQty
+  })
+  if (hasAvailableToPickup) return 'WAIT_PICKUP'
   return 'NOT_PICKABLE'
 }
 
@@ -3617,86 +3636,141 @@ function buildPickupNodeItems(
   projection: MaterialPrepOrderProjection,
   confirmedRecords: MaterialPrepRecord[],
 ): PickupNodeItem[] {
-  const lineMap = new Map<string, {
-    prepLineId: string
-    sourcePrepRecordIds: string[]
-    materialSku: string
-    materialName: string
-    materialType: string
-    materialImageUrl: string
-    color: string
-    spec: string
-    unit: string
-    requiredQty: number
+  type ConfirmedBatch = {
+    prepRecordId: string
+    preparedAt: string
     preparedQty: number
     rollCount: number
-    stockWarehouseName: string
-    stockWarehouseArea: string
-    stockLocationCode: string
-    lastUpdatedAt: string
-  }>()
+    sourceWarehouseName: string
+    sourceWarehouseArea: string
+    sourceLocationCode: string
+  }
+  const batchesByLine = new Map<string, ConfirmedBatch[]>()
 
   for (const record of confirmedRecords) {
     for (const recordItem of getMaterialPrepRecordItems(record)) {
       const line = projection.lines.find((l) => l.prepLineId === recordItem.prepLineId)
       if (!line) continue
-      const existing = lineMap.get(recordItem.prepLineId)
-      if (existing) {
-        existing.preparedQty += recordItem.preparedQty
-        existing.rollCount += recordItem.rollCount
-        existing.sourcePrepRecordIds.push(record.prepRecordId)
-      } else {
-        lineMap.set(recordItem.prepLineId, {
-          prepLineId: recordItem.prepLineId,
-          sourcePrepRecordIds: [record.prepRecordId],
-          materialSku: line.materialSku,
-          materialName: line.materialName,
-          materialType: line.materialType,
-          materialImageUrl: line.materialImageUrl,
-          color: line.color,
-          spec: line.spec,
-          unit: line.unit,
-          requiredQty: line.requiredQty,
-          preparedQty: recordItem.preparedQty,
-          rollCount: recordItem.rollCount,
-          stockWarehouseName: recordItem.stockWarehouseName || line.stockWarehouseName,
-          stockWarehouseArea: recordItem.stockWarehouseArea || line.stockWarehouseArea,
-          stockLocationCode: recordItem.stockLocationCode || line.stockLocationCode,
-          lastUpdatedAt: record.preparedAt,
-        })
-      }
+      const batches = batchesByLine.get(recordItem.prepLineId) ?? []
+      batches.push({
+        prepRecordId: record.prepRecordId,
+        preparedAt: record.confirmedAt || record.preparedAt,
+        preparedQty: roundQty(Number(recordItem.preparedQty || 0)),
+        rollCount: Math.max(Math.round(Number(recordItem.rollCount || 0)), 0),
+        sourceWarehouseName: recordItem.stockWarehouseName || line.stockWarehouseName,
+        sourceWarehouseArea: recordItem.warehouseArea || record.stagingArea || record.warehouseArea ||
+          recordItem.stockWarehouseArea || line.stockWarehouseArea,
+        sourceLocationCode: recordItem.locationCode || record.locationCode ||
+          recordItem.stockLocationCode || line.stockLocationCode,
+      })
+      batchesByLine.set(recordItem.prepLineId, batches)
     }
   }
 
-  if (!lineMap.size) return []
+  if (!batchesByLine.size) return []
 
   return projection.lines
-    .filter((line) => lineMap.has(line.prepLineId))
-    .map((line, index) => {
-      const merged = lineMap.get(line.prepLineId)!
+    .filter((line) => batchesByLine.has(line.prepLineId))
+    .map((line) => {
+      const batches = [...(batchesByLine.get(line.prepLineId) ?? [])]
+        .sort((left, right) =>
+          left.preparedAt.localeCompare(right.preparedAt) ||
+          left.prepRecordId.localeCompare(right.prepRecordId)
+        )
       const effectivePickedQty = roundQty(Math.max(line.pickedQty - line.returnedQty, 0))
-      const currentAvailableQty = roundQty(Math.max(merged.preparedQty - effectivePickedQty, 0))
+      let pickedQtyToAllocate = effectivePickedQty
+      const sourceLocationsByKey = new Map<string, PickupNodeSourceLocation>()
+
+      for (const batch of batches) {
+        const allocatedPickedQty = Math.min(pickedQtyToAllocate, batch.preparedQty)
+        pickedQtyToAllocate = roundQty(Math.max(pickedQtyToAllocate - allocatedPickedQty, 0))
+        const currentAvailableQty = roundQty(Math.max(batch.preparedQty - allocatedPickedQty, 0))
+        if (currentAvailableQty <= 0) continue
+        const rollCount = allocatedPickedQty <= 0
+          ? batch.rollCount
+          : Math.min(
+              batch.rollCount,
+              Math.max(Math.ceil(batch.rollCount * currentAvailableQty / Math.max(batch.preparedQty, 1)), 1),
+            )
+        const locationKey = [
+          batch.sourceWarehouseName,
+          batch.sourceWarehouseArea,
+          batch.sourceLocationCode,
+          line.unit,
+        ].join('|')
+        const existingLocation = sourceLocationsByKey.get(locationKey)
+        if (existingLocation) {
+          existingLocation.currentAvailableQty = roundQty(existingLocation.currentAvailableQty + currentAvailableQty)
+          existingLocation.rollCount += rollCount
+          if (!existingLocation.sourcePrepRecordIds.includes(batch.prepRecordId)) {
+            existingLocation.sourcePrepRecordIds.push(batch.prepRecordId)
+          }
+        } else {
+          sourceLocationsByKey.set(locationKey, {
+            sourceWarehouseName: batch.sourceWarehouseName,
+            sourceWarehouseArea: batch.sourceWarehouseArea,
+            sourceLocationCode: batch.sourceLocationCode,
+            currentAvailableQty,
+            rollCount,
+            unit: line.unit,
+            sourcePrepRecordIds: [batch.prepRecordId],
+          })
+        }
+      }
+
+      const sourceLocations = Array.from(sourceLocationsByKey.values())
+      const currentAvailableQty = roundQty(
+        sourceLocations.reduce((sum, location) => sum + location.currentAvailableQty, 0),
+      )
+      const rollCount = sourceLocations.reduce((sum, location) => sum + location.rollCount, 0)
+      const sourcePrepRecordIds = Array.from(new Set(
+        sourceLocations.flatMap((location) => location.sourcePrepRecordIds),
+      ))
+      const primaryLocation = sourceLocations[0]
       return {
         nodeItemId: `node-item:${projection.order.prepOrderId}:${line.prepLineId}`,
         prepLineId: line.prepLineId,
-        sourcePrepRecordIds: merged.sourcePrepRecordIds,
-        materialSku: merged.materialSku,
-        materialName: merged.materialName,
-        materialType: merged.materialType,
-        materialImageUrl: merged.materialImageUrl,
-        color: merged.color,
-        spec: merged.spec,
-        unit: merged.unit,
-        requiredQty: merged.requiredQty,
+        sourcePrepRecordIds,
+        materialSku: line.materialSku,
+        materialName: line.materialName,
+        materialType: line.materialType,
+        materialImageUrl: line.materialImageUrl,
+        color: line.color,
+        spec: line.spec,
+        unit: line.unit,
+        requiredQty: line.requiredQty,
         effectivePickedQty,
         currentAvailableQty,
-        rollCount: merged.rollCount,
-        sourceWarehouseName: merged.stockWarehouseName,
-        sourceWarehouseArea: merged.stockWarehouseArea,
-        sourceLocationCode: merged.stockLocationCode,
+        rollCount,
+        sourceWarehouseName: primaryLocation?.sourceWarehouseName || line.stockWarehouseName,
+        sourceWarehouseArea: primaryLocation?.sourceWarehouseArea || line.stockWarehouseArea,
+        sourceLocationCode: primaryLocation?.sourceLocationCode || line.stockLocationCode,
+        sourceLocations,
       }
     })
     .filter((item) => item.currentAvailableQty > 0)
+}
+
+function buildPickupNodeFingerprint(nodeType: PickupNodeProjection['nodeType'], items: PickupNodeItem[]): string {
+  return JSON.stringify({
+    nodeType,
+    items: items.map((item) => ({
+      prepLineId: item.prepLineId,
+      unit: item.unit,
+      requiredQty: item.requiredQty,
+      effectivePickedQty: item.effectivePickedQty,
+      currentAvailableQty: item.currentAvailableQty,
+      rollCount: item.rollCount,
+      sourcePrepRecordIds: [...item.sourcePrepRecordIds].sort(),
+      sourceLocations: item.sourceLocations.map((location) => ({
+        ...location,
+        sourcePrepRecordIds: [...location.sourcePrepRecordIds].sort(),
+      })).sort((left, right) =>
+        `${left.sourceWarehouseName}|${left.sourceWarehouseArea}|${left.sourceLocationCode}`
+          .localeCompare(`${right.sourceWarehouseName}|${right.sourceWarehouseArea}|${right.sourceLocationCode}`)
+      ),
+    })),
+  })
 }
 
 export function listActivePickupNodes(
@@ -3711,7 +3785,8 @@ export function listActivePickupNodes(
     else sessionsByPrepOrder.set(session.prepOrderId, [session])
   }
 
-  return projections.flatMap((projection) => {
+  let snapshotChanged = false
+  const nodes = projections.flatMap((projection) => {
     if (projection.order.isClosed) return []
     const pickupSessions = sessionsByPrepOrder.get(projection.order.prepOrderId) ?? []
     const completedCount = pickupSessions.length
@@ -3736,23 +3811,65 @@ export function listActivePickupNodes(
     })
 
     const nodeType = derivePickupNodeType(coverageLines)
+    const nodeId = `pickup-node:${projection.order.prepOrderId}:${sequence}`
+    const fingerprint = buildPickupNodeFingerprint(nodeType, items)
+    const sourcePrepRecordIds = new Set(items.flatMap((item) => item.sourcePrepRecordIds))
+    const latestMaterialAt = projection.prepRecords
+      .filter((record) =>
+        sourcePrepRecordIds.has(record.prepRecordId) ||
+        Boolean(record.rejectedAt)
+      )
+      .map((record) => record.confirmedAt || record.rejectedAt || record.preparedAt)
+      .filter(Boolean)
+      .sort()
+      .at(-1) || ''
+    const latestReturnAt = projection.pickupReturnRecords
+      .map((record) => record.returnedAt)
+      .filter(Boolean)
+      .sort()
+      .at(-1) || ''
+    const businessUpdatedAt = [latestMaterialAt, latestReturnAt].filter(Boolean).sort().at(-1) || ''
+    let snapshot = store.pickupNodeSnapshots.find((item) => item.nodeId === nodeId)
+    if (!snapshot) {
+      snapshot = {
+        nodeId,
+        prepOrderId: projection.order.prepOrderId,
+        sequence,
+        version: 1,
+        fingerprint,
+        updatedAt: businessUpdatedAt,
+      }
+      store.pickupNodeSnapshots.push(snapshot)
+      snapshotChanged = true
+    } else if (snapshot.fingerprint !== fingerprint) {
+      snapshot.version += 1
+      snapshot.fingerprint = fingerprint
+      snapshot.updatedAt = businessUpdatedAt
+      snapshotChanged = true
+    }
 
     return [{
-      nodeId: `pickup-node:${projection.order.prepOrderId}:${sequence}`,
-      version: 1,
+      nodeId,
+      version: snapshot.version,
       nodeType,
       status: 'OPEN',
-      locationPolicy: nodeType === 'READY_TO_PICKUP' ? 'DIRECT_READY_AREA' : 'ASSIGN_INCOMPLETE_LOCATION',
+      locationPolicy: snapshot.version > 1
+        ? 'KEEP_CURRENT_LOCATION'
+        : nodeType === 'READY_TO_PICKUP'
+          ? 'DIRECT_READY_AREA'
+          : 'ASSIGN_INCOMPLETE_LOCATION',
       prepOrderId: projection.order.prepOrderId,
       prepOrderNo: projection.order.prepOrderNo,
       productionOrderId: projection.order.productionOrderId,
       productionOrderNo: projection.order.productionOrderNo,
       sequence,
-      updatedAt: nowText(),
+      updatedAt: snapshot.updatedAt,
       itemCount: items.length,
       items,
     }]
   })
+  if (snapshotChanged) persistProductionMaterialPrepStore(store, storage)
+  return nodes
 }
 
 export function appendPickupSessionFromNode(
@@ -3763,10 +3880,15 @@ export function appendPickupSessionFromNode(
     warehouseArea: string
     locationCode: string
     waitProcessLedgerEventId: string
+    idempotencyKey?: string
   },
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): PickupSession {
-  const store = hydrateProductionMaterialPrepStore(storage)
+  let store = hydrateProductionMaterialPrepStore(storage)
+  const idempotentSession = input.idempotencyKey
+    ? store.pickupSessions.find((session) => session.idempotencyKey === input.idempotencyKey)
+    : null
+  if (idempotentSession) return cloneRecord(idempotentSession)
   const existing = store.pickupSessions.find((s) => s.pickupNodeId === input.pickupNodeId)
   if (existing) return cloneRecord(existing)
 
@@ -3777,6 +3899,9 @@ export function appendPickupSessionFromNode(
   if (node.version !== input.pickupNodeVersion) {
     throw new Error('当前待领物料已更新，请重新核对全部物料后再确认领料。')
   }
+  // listActivePickupNodes 会在物料事实变化时持久化节点快照；提交前重新读取，
+  // 避免随后保存领料事实时用旧 Store 覆盖刚刚递增的节点版本。
+  store = hydrateProductionMaterialPrepStore(storage)
 
   const occurredAt = nowText()
   const pickupSessionId = `pickup-session:${node.nodeId}`
@@ -3826,6 +3951,7 @@ export function appendPickupSessionFromNode(
     toLocationCode: input.locationCode,
     status: '本轮已领完',
     warehouseSyncStatus: '已回写',
+    idempotencyKey: input.idempotencyKey,
   }
 
   store.pickupSessions = [session, ...store.pickupSessions]
