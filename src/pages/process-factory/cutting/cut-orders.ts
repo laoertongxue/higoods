@@ -302,15 +302,16 @@ function resetPagination(): void {
 
 function getProjection() {
   const projection = buildCutOrdersProjection()
-  const supplementLinkedCutOrderIds = new Set(
-    listSupplementOrders().flatMap((order) => [order.cutOrderId, order.cutOrderNo]),
-  )
+  const supplementLinkedCutOrderIdentities = listSupplementOrders().map((order) => ({
+    cutOrderId: order.cutOrderId,
+    cutOrderNo: order.cutOrderNo,
+  }))
   const viewModel = buildCutOrderViewModel(
     projection.snapshot.progressRecords,
     projection.sources.markerPlanSources,
     {
       progressRows: projection.sources.productionRows,
-      supplementLinkedCutOrderIds,
+      supplementLinkedCutOrderIdentities,
     },
   )
   return { ...projection, viewModel }

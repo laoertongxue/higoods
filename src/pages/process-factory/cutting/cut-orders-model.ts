@@ -89,6 +89,17 @@ export interface CutOrderNavigationPayload {
   sameProductionOrders: Record<string, string | undefined>
 }
 
+export interface CutOrderSupplementIdentity {
+  readonly cutOrderId: string
+  readonly cutOrderNo: string
+}
+
+function buildCutOrderSupplementIdentityKey(identity: CutOrderSupplementIdentity): string | null {
+  const cutOrderId = identity.cutOrderId.trim().toLowerCase()
+  const cutOrderNo = identity.cutOrderNo.trim().toLowerCase()
+  return cutOrderId && cutOrderNo ? `${cutOrderId}\u0000${cutOrderNo}` : null
+}
+
 export type CutOrderMaterialQuantityLedger = MaterialLedgerProjection
 
 export interface CutOrderRow {
@@ -655,7 +666,7 @@ export function buildCutOrderViewModel(
   options: {
     progressRows?: ProductionProgressRow[]
     markerPlanOccupancy?: MarkerPlanOccupancyLookup
-    supplementLinkedCutOrderIds?: ReadonlySet<string>
+    supplementLinkedCutOrderIdentities?: ReadonlyArray<CutOrderSupplementIdentity>
   } = {},
 ): CutOrderViewModel {
   const startStateLookup = buildCutOrderStartStateLookup()
@@ -681,14 +692,20 @@ export function buildCutOrderViewModel(
 
   const generatedSources = listGeneratedCutOrderSourceRecords()
   const generatedKeys = new Set(generatedSources.flatMap((source) => [source.cutOrderId, source.cutOrderNo]))
-  const supplementLinkedCutOrderIds = options.supplementLinkedCutOrderIds ?? new Set<string>()
+  const supplementLinkedCutOrderIdentityKeys = new Set(
+    (options.supplementLinkedCutOrderIdentities ?? [])
+      .map(buildCutOrderSupplementIdentityKey)
+      .filter((key): key is string => key !== null),
+  )
   const legacySources = records.flatMap((record) => record.materialLines.flatMap((line): GeneratedCutOrderSourceRecord[] => {
     const cutOrderId = line.cutOrderId || ''
     const cutOrderNo = line.cutOrderNo || line.cutPieceOrderNo
+    const supplementIdentityKey = buildCutOrderSupplementIdentityKey({ cutOrderId, cutOrderNo })
     if (
       !cutOrderId
       || !cutOrderNo
-      || (!supplementLinkedCutOrderIds.has(cutOrderId) && !supplementLinkedCutOrderIds.has(cutOrderNo))
+      || !supplementIdentityKey
+      || !supplementLinkedCutOrderIdentityKeys.has(supplementIdentityKey)
       || generatedKeys.has(cutOrderId)
       || generatedKeys.has(cutOrderNo)
     ) return []
