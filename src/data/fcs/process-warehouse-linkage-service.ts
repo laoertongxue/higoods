@@ -16,8 +16,7 @@ import {
   listSpreadingResultGeneratedFeiTicketsByCutOrderId,
 } from './cutting/generated-fei-tickets.ts'
 import {
-  getSpecialCraftTaskWorkOrderLinesByWorkOrderId,
-  getSpecialCraftTaskWorkOrderById,
+  getSpecialCraftTaskOrderById,
 } from './special-craft-task-orders.ts'
 import { resolveAuxiliaryWarehouseFlow } from './special-craft-operations.ts'
 import {
@@ -123,7 +122,7 @@ export function validateWarehouseLinkageBeforeAction(
   if (!actionResult.skuQtyBySkuCode) return { success: false, message: '成衣完工必须逐 SKU 确认完工件数' }
   try {
     validateGarmentReadyToHandoverAtAuxiliaryFactory({
-      sourceWorkOrderId: context.sourceWorkOrderId,
+      sourceTaskOrderId: context.sourceTaskOrderId,
       targetFactoryId: context.currentFactoryId,
       targetFactoryName: context.currentFactoryName,
       totalCompletedQty: Number(actionResult.objectQty || 0),
@@ -138,7 +137,7 @@ export function validateWarehouseLinkageBeforeAction(
 interface WarehouseBaseContext {
   craftType: ProcessWarehouseCraftType
   craftName: string
-  sourceWorkOrderId: string
+  sourceTaskOrderId: string
   sourceWorkOrderNo: string
   sourceTaskId: string
   sourceTaskNo: string
@@ -236,7 +235,7 @@ function resolvePrintContext(actionResult: ProcessWarehouseLinkageActionResult):
   return {
     craftType: 'PRINT',
     craftName: '印花',
-    sourceWorkOrderId: order.printOrderId,
+    sourceTaskOrderId: order.printOrderId,
     sourceWorkOrderNo: order.printOrderNo,
     sourceTaskId: binding.actualTaskId || order.taskId,
     sourceTaskNo: binding.actualTaskNo || order.taskNo,
@@ -272,7 +271,7 @@ function resolveDyeContext(actionResult: ProcessWarehouseLinkageActionResult): W
   return {
     craftType: 'DYE',
     craftName: '染色',
-    sourceWorkOrderId: order.dyeOrderId,
+    sourceTaskOrderId: order.dyeOrderId,
     sourceWorkOrderNo: order.dyeOrderNo,
     sourceTaskId: binding.actualTaskId || order.taskId,
     sourceTaskNo: binding.actualTaskNo || order.taskNo,
@@ -339,7 +338,7 @@ function resolveCuttingContextFromGeneratedOrder(
   return {
     craftType: 'CUTTING',
     craftName: '裁片',
-    sourceWorkOrderId: actionResult.sourceId,
+    sourceTaskOrderId: actionResult.sourceId,
     sourceWorkOrderNo: order.cutOrderNo,
     sourceTaskId: binding.actualTaskId,
     sourceTaskNo: binding.actualTaskNo,
@@ -378,7 +377,7 @@ function resolveCuttingContext(actionResult: ProcessWarehouseLinkageActionResult
   return {
     craftType: 'CUTTING',
     craftName: '裁片',
-    sourceWorkOrderId: actionResult.sourceId,
+    sourceTaskOrderId: actionResult.sourceId,
     sourceWorkOrderNo: order.cutOrderNo || order.cutPieceOrderNo,
     sourceTaskId: binding.actualTaskId,
     sourceTaskNo: binding.actualTaskNo,
@@ -405,9 +404,9 @@ function resolveCuttingContext(actionResult: ProcessWarehouseLinkageActionResult
 }
 
 function resolveSpecialCraftContext(actionResult: ProcessWarehouseLinkageActionResult): SpecialCraftWarehouseContext | null {
-  const workOrder = getSpecialCraftTaskWorkOrderById(actionResult.sourceId)
+  const workOrder = getSpecialCraftTaskOrderById(actionResult.sourceId)
   if (!workOrder) return null
-  const binding = validateSpecialCraftMobileTaskBinding(workOrder.workOrderId)
+  const binding = validateSpecialCraftMobileTaskBinding(workOrder.taskOrderId)
   const objectQty = roundQty(actionResult.objectQty ?? workOrder.currentQty ?? workOrder.receivedQty)
   const transferBagNos = [...(workOrder.transferBagNos || [])]
   const feiTicketNos = [...(workOrder.feiTicketNos || [])]
@@ -415,8 +414,8 @@ function resolveSpecialCraftContext(actionResult: ProcessWarehouseLinkageActionR
   return {
     craftType: 'SPECIAL_CRAFT',
     craftName: workOrder.operationName,
-    sourceWorkOrderId: workOrder.workOrderId,
-    sourceWorkOrderNo: workOrder.workOrderNo,
+    sourceTaskOrderId: workOrder.taskOrderId,
+    sourceWorkOrderNo: workOrder.taskOrderNo,
     sourceTaskId: binding.actualTaskId || workOrder.taskOrderId,
     sourceTaskNo: binding.actualTaskNo || workOrder.taskOrderNo,
     sourceProductionOrderId: workOrder.productionOrderId,
@@ -465,7 +464,7 @@ function resolvePostFinishingContext(actionResult: ProcessWarehouseLinkageAction
   return {
     craftType: 'POST_FINISHING',
     craftName: '后道',
-    sourceWorkOrderId: order.postOrderId,
+    sourceTaskOrderId: order.postOrderId,
     sourceWorkOrderNo: order.postOrderNo,
     sourceTaskId: binding.actualTaskId || order.sourceTaskId,
     sourceTaskNo: binding.actualTaskNo || order.postOrderNo,
@@ -543,13 +542,13 @@ function ensureHandoverRecord(
     listWaitHandoverWarehouseRecords({
       craftType: context.craftType,
       craftName: context.craftName,
-      sourceWorkOrderId: context.sourceWorkOrderId,
+      sourceTaskOrderId: context.sourceTaskOrderId,
     })[0]?.warehouseRecordId
   return createProcessHandoverRecord({
     warehouseRecordId: fallbackWarehouse,
     craftType: context.craftType,
     craftName: context.craftName,
-    sourceWorkOrderId: context.sourceWorkOrderId,
+    sourceTaskOrderId: context.sourceTaskOrderId,
     sourceWorkOrderNo: context.sourceWorkOrderNo,
     sourceTaskId: context.sourceTaskId,
     sourceTaskNo: context.sourceTaskNo,
@@ -592,7 +591,7 @@ function ensureSpecialCraftDifference(
     : listProcessHandoverRecords({
         craftType: 'SPECIAL_CRAFT',
         craftName: context.craftName,
-        sourceWorkOrderId: context.sourceWorkOrderId,
+        sourceTaskOrderId: context.sourceTaskOrderId,
       })[0]
   const warehouse =
     getProcessWarehouseRecordById(handover?.warehouseRecordId || '') ||
@@ -601,7 +600,7 @@ function ensureSpecialCraftDifference(
   const difference = existed || createProcessHandoverDifferenceRecord({
     handoverRecordId: handover?.handoverRecordId || '',
     warehouseRecordId: warehouse.warehouseRecordId,
-    sourceWorkOrderId: context.sourceWorkOrderId,
+    sourceTaskOrderId: context.sourceTaskOrderId,
     sourceWorkOrderNo: context.sourceWorkOrderNo,
     sourceProductionOrderId: context.sourceProductionOrderId,
     sourceProductionOrderNo: context.sourceProductionOrderNo,
@@ -710,8 +709,8 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
     if (context.objectType !== '成衣') {
       return mergeResult(base, { success: false, message: '仅成衣作用对象可从成衣仓出库' })
     }
-    const workOrder = getSpecialCraftTaskWorkOrderById(context.sourceWorkOrderId)
-    const skuLines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(context.sourceWorkOrderId)
+    const workOrder = getSpecialCraftTaskOrderById(context.sourceTaskOrderId)
+    const skuLines = workOrder?.demandLines || []
     if (!workOrder || !skuLines.length || !actionResult.skuQtyBySkuCode) {
       return mergeResult(base, { success: false, message: '请逐 SKU 确认成衣仓实出件数' })
     }
@@ -735,8 +734,8 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
     skuLines.forEach((line, index) => {
       const outboundQty = Number(actionResult.skuQtyBySkuCode?.[line.skuCode] || 0)
       upsertFactoryWarehouseOutboundRecord({
-        outboundRecordId: `GARMENT-OUT-${workOrder.workOrderId}-${line.skuCode}`,
-        outboundRecordNo: `CK-${workOrder.workOrderNo}-${String(index + 1).padStart(2, '0')}`,
+        outboundRecordId: `GARMENT-OUT-${workOrder.taskOrderId}-${line.skuCode}`,
+        outboundRecordNo: `CK-${workOrder.taskOrderNo}-${String(index + 1).padStart(2, '0')}`,
         warehouseId: `${GARMENT_WAREHOUSE_FACTORY_ID}-WH-GARMENT`,
         warehouseName: '成衣仓',
         factoryId: GARMENT_WAREHOUSE_FACTORY_ID,
@@ -746,8 +745,8 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
         processName: workOrder.processName,
         craftCode: workOrder.craftCode,
         craftName: workOrder.craftName,
-        sourceTaskId: workOrder.workOrderId,
-        sourceTaskNo: workOrder.workOrderNo,
+        sourceTaskId: workOrder.taskOrderId,
+        sourceTaskNo: workOrder.taskOrderNo,
         sourceType: 'PRODUCTION_ORDER',
         productionOrderId: workOrder.productionOrderId,
         productionOrderNo: workOrder.productionOrderNo,
@@ -777,7 +776,7 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
     if (
       context.objectType === '成衣'
       && !listFactoryWarehouseOutboundRecords().some((record) =>
-        record.sourceTaskId === context.sourceWorkOrderId
+        record.sourceTaskId === context.sourceTaskOrderId
         && record.warehouseName === '成衣仓'
         && record.status !== '已作废',
       )
@@ -786,7 +785,7 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
     }
     if (context.objectType === '成衣') {
       const outboundRecords = listFactoryWarehouseOutboundRecords().filter((record) =>
-        record.sourceTaskId === context.sourceWorkOrderId
+        record.sourceTaskId === context.sourceTaskOrderId
         && record.warehouseName === '成衣仓'
         && record.status !== '已作废',
       )
@@ -813,13 +812,13 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
           outboundRecord: record,
           targetFactoryId: context.currentFactoryId,
           targetFactoryName: context.currentFactoryName,
-          sourceTaskId: context.sourceWorkOrderId,
+          sourceTaskId: context.sourceTaskOrderId,
           sourceTaskNo: context.sourceWorkOrderNo,
           productionOrderId: context.sourceProductionOrderId!,
           productionOrderNo: context.sourceProductionOrderNo!,
-          processCode: getSpecialCraftTaskWorkOrderById(context.sourceWorkOrderId)?.processCode || 'SPECIAL_CRAFT',
-          processName: getSpecialCraftTaskWorkOrderById(context.sourceWorkOrderId)?.processName || context.craftName,
-          craftCode: getSpecialCraftTaskWorkOrderById(context.sourceWorkOrderId)?.craftCode || context.craftName,
+          processCode: getSpecialCraftTaskOrderById(context.sourceTaskOrderId)?.processCode || 'SPECIAL_CRAFT',
+          processName: getSpecialCraftTaskOrderById(context.sourceTaskOrderId)?.processName || context.craftName,
+          craftCode: getSpecialCraftTaskOrderById(context.sourceTaskOrderId)?.craftCode || context.craftName,
           craftName: context.craftName,
           receivedQty: Number(actionResult.skuQtyBySkuCode?.[record.materialSku || ''] || 0),
           receiverName: actionResult.operatorName || '辅助工艺仓管员',
@@ -875,7 +874,7 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
       return mergeResult(base, { success: false, message: '成衣完工必须逐 SKU 确认完工件数' })
     }
     recordGarmentReadyToHandoverAtAuxiliaryFactory({
-      sourceWorkOrderId: context.sourceWorkOrderId,
+      sourceTaskOrderId: context.sourceTaskOrderId,
       sourceWorkOrderNo: context.sourceWorkOrderNo,
       targetFactoryId: context.currentFactoryId,
       targetFactoryName: context.currentFactoryName,
@@ -936,7 +935,7 @@ export function applyPostFinishingWarehouseLinkageAfterAction(actionResult: Proc
   }
 
   if (actionResult.actionCode === 'POST_REPORT_DIFFERENCE') {
-    const handover = listProcessHandoverRecords({ craftType: 'POST_FINISHING', sourceWorkOrderId: context.sourceWorkOrderId })[0]
+    const handover = listProcessHandoverRecords({ craftType: 'POST_FINISHING', sourceTaskOrderId: context.sourceTaskOrderId })[0]
     const warehouse =
       getProcessWarehouseRecordById(handover?.warehouseRecordId || '') ||
       ensureWaitProcessWarehouseRecord({ ...context, targetWarehouseName: '后道待加工仓' }, actionResult, '后道差异待处理')
@@ -944,7 +943,7 @@ export function applyPostFinishingWarehouseLinkageAfterAction(actionResult: Proc
     const difference = createProcessHandoverDifferenceRecord({
       handoverRecordId: handover?.handoverRecordId || '',
       warehouseRecordId: warehouse.warehouseRecordId,
-      sourceWorkOrderId: context.sourceWorkOrderId,
+      sourceTaskOrderId: context.sourceTaskOrderId,
       sourceWorkOrderNo: context.sourceWorkOrderNo,
       sourceProductionOrderId: context.sourceProductionOrderId,
       sourceProductionOrderNo: context.sourceProductionOrderNo,

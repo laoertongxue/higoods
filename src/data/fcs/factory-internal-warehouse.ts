@@ -745,7 +745,7 @@ export function recordGarmentReceiptAtAuxiliaryFactory(input: {
 }
 
 export function recordGarmentReadyToHandoverAtAuxiliaryFactory(input: {
-  sourceWorkOrderId: string
+  sourceTaskOrderId: string
   sourceWorkOrderNo: string
   targetFactoryId: string
   targetFactoryName: string
@@ -764,13 +764,13 @@ export function recordGarmentReadyToHandoverAtAuxiliaryFactory(input: {
   const factory = mockFactories.find((item) => item.id === input.targetFactoryId)!
   const warehouse = findWarehouseByFactoryAndKindInternal(factory.id, 'WAIT_HANDOVER')!
   const sourceStocks = listFactoryWaitProcessStockItems()
-    .filter((item) => item.taskId === input.sourceWorkOrderId && item.itemKind === '成衣')
+    .filter((item) => item.taskId === input.sourceTaskOrderId && item.itemKind === '成衣')
     .sort((left, right) => (left.materialSku || '').localeCompare(right.materialSku || ''))
   return sourceStocks.map((source, index) => {
     const waitHandoverQty = Number(input.completedQtyBySkuCode[source.materialSku || ''])
-    const position = pickWarehouseLocation(warehouse, `${input.sourceWorkOrderId}-${source.materialSku}`, '已入库')
+    const position = pickWarehouseLocation(warehouse, `${input.sourceTaskOrderId}-${source.materialSku}`, '已入库')
     return upsertFactoryWaitHandoverStockItem({
-      stockItemId: `AUX-WHS-${input.sourceWorkOrderId}-${source.materialSku}`,
+      stockItemId: `AUX-WHS-${input.sourceTaskOrderId}-${source.materialSku}`,
       warehouseId: warehouse.warehouseId,
       factoryId: factory.id,
       factoryName: factory.name,
@@ -780,7 +780,7 @@ export function recordGarmentReadyToHandoverAtAuxiliaryFactory(input: {
       processName: source.processName,
       craftCode: source.craftCode,
       craftName: source.craftName,
-      taskId: input.sourceWorkOrderId,
+      taskId: input.sourceTaskOrderId,
       taskNo: input.sourceWorkOrderNo,
       sourceType: 'PRODUCTION_ORDER',
       productionOrderId: input.productionOrderId,
@@ -796,7 +796,7 @@ export function recordGarmentReadyToHandoverAtAuxiliaryFactory(input: {
       unit: '件',
       receiverKind: input.receiverKind,
       receiverName: input.receiverName,
-      handoverOrderId: `AUX-HO-${input.sourceWorkOrderId}`,
+      handoverOrderId: `AUX-HO-${input.sourceTaskOrderId}`,
       handoverOrderNo: `JCD-${input.sourceWorkOrderNo}`,
       areaName: position.areaName,
       shelfNo: position.shelfNo,
@@ -814,7 +814,7 @@ export function recordGarmentReadyToHandoverAtAuxiliaryFactory(input: {
 }
 
 export function validateGarmentReadyToHandoverAtAuxiliaryFactory(input: {
-  sourceWorkOrderId: string
+  sourceTaskOrderId: string
   targetFactoryId: string
   targetFactoryName: string
   totalCompletedQty: number
@@ -828,7 +828,7 @@ export function validateGarmentReadyToHandoverAtAuxiliaryFactory(input: {
   const warehouse = findWarehouseByFactoryAndKindInternal(factory.id, 'WAIT_HANDOVER')
   if (!warehouse) throw new Error(`未找到${input.targetFactoryName}待交出仓`)
   const sourceStocks = listFactoryWaitProcessStockItems()
-    .filter((item) => item.taskId === input.sourceWorkOrderId && item.itemKind === '成衣')
+    .filter((item) => item.taskId === input.sourceTaskOrderId && item.itemKind === '成衣')
     .sort((left, right) => (left.materialSku || '').localeCompare(right.materialSku || ''))
   const receivedQtyTotal = sourceStocks.reduce((sum, item) => sum + Math.trunc(item.receivedQty), 0)
   if (input.totalCompletedQty > receivedQtyTotal) {

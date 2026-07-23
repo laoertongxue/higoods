@@ -20,7 +20,7 @@ import {
   validateSpecialCraftMobileTaskBinding,
 } from '../src/data/fcs/process-mobile-task-binding.ts'
 import { listPrintWorkOrders } from '../src/data/fcs/printing-task-domain.ts'
-import { listSpecialCraftTaskWorkOrders } from '../src/data/fcs/special-craft-task-orders.ts'
+import { listSpecialCraftTaskOrders } from '../src/data/fcs/special-craft-task-orders.ts'
 
 const root = process.cwd()
 
@@ -63,7 +63,7 @@ assert(typeof isTaskInBiddingOrAwarding === 'function', '缺少 isTaskInBiddingO
 const printOrders = listPrintWorkOrders()
 const dyeOrders = listDyeWorkOrders()
 const cuttingSnapshot = buildFcsCuttingDomainSnapshot()
-const specialCraftWorkOrders = listSpecialCraftTaskWorkOrders()
+const specialCraftWorkOrders = listSpecialCraftTaskOrders()
 
 const phOrder = printOrders.find((order) => order.printOrderNo === 'PH-20260328-001')
 assert(phOrder, '缺少 PH-20260328-001')
@@ -101,8 +101,8 @@ const cuttingValidCount = cuttingSnapshot.cutOrders
 assert(cuttingValidCount >= 3, `裁片单有效移动端绑定不足 3 条，当前 ${cuttingValidCount}`)
 
 const specialCraftValidCount = specialCraftWorkOrders
-  .filter((workOrder) => ['打揽', '打条', '捆条'].includes(workOrder.operationName))
-  .map((workOrder) => validateSpecialCraftMobileTaskBinding(workOrder.workOrderId))
+  .filter((taskOrder) => ['打揽', '打条', '捆条'].includes(taskOrder.operationName))
+  .map((taskOrder) => validateSpecialCraftMobileTaskBinding(taskOrder.taskOrderId))
   .filter((result) => result.reasonCode === 'OK')
   .length
 assert(specialCraftValidCount >= 3, `特殊工艺工艺单有效移动端绑定不足 3 条，当前 ${specialCraftValidCount}`)
@@ -130,8 +130,8 @@ for (const result of [...validPrintBindings, ...validDyeBindings]) {
 }
 
 specialCraftWorkOrders
-  .filter((workOrder) => ['打揽', '打条', '捆条'].includes(workOrder.operationName))
-  .map((workOrder) => validateSpecialCraftMobileTaskBinding(workOrder.workOrderId))
+  .filter((taskOrder) => ['打揽', '打条', '捆条'].includes(taskOrder.operationName))
+  .map((taskOrder) => validateSpecialCraftMobileTaskBinding(taskOrder.taskOrderId))
   .filter((result) => result.reasonCode === 'OK')
   .forEach((result) => {
     const task = getPdaMobileExecutionTaskById(result.actualTaskId)
@@ -156,7 +156,7 @@ assertIncludes('src/pages/process-factory/cutting/cut-orders.ts', [
   '绑定状态',
   '打开移动端执行页',
 ])
-assertIncludes('src/pages/process-factory/special-craft/work-order-detail.ts', [
+assertIncludes('src/pages/process-factory/special-craft/task-detail.ts', [
   'validateSpecialCraftMobileTaskBinding',
   '绑定状态',
   '打开移动端执行页',

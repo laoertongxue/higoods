@@ -1,9 +1,7 @@
 import { canFactorySeeSpecialCraftOperation, getSpecialCraftOperationByCraftCode, getSpecialCraftOperationById, listSpecialCraftOperationDefinitions, type SpecialCraftOperationDefinition } from './special-craft-operations.ts'
 import {
   getSpecialCraftTaskOrderById,
-  getSpecialCraftTaskWorkOrderById,
   listSpecialCraftTaskOrders,
-  listSpecialCraftTaskWorkOrders,
 } from './special-craft-task-orders.ts'
 import type { ProcessTask } from './process-tasks.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
@@ -51,9 +49,6 @@ function findTaskOrderOperation(task: SpecialCraftPdaTaskLike): SpecialCraftOper
   for (const ref of getTaskRefs(task)) {
     const directOrder = getSpecialCraftTaskOrderById(ref)
     if (directOrder) return getSpecialCraftOperationById(directOrder.operationId) ?? null
-
-    const workOrder = getSpecialCraftTaskWorkOrderById(ref)
-    if (workOrder) return getSpecialCraftOperationById(workOrder.operationId) ?? null
   }
 
   const refs = new Set(getTaskRefs(task))
@@ -66,13 +61,11 @@ function findTaskOrderOperation(task: SpecialCraftPdaTaskLike): SpecialCraftOper
   )
   if (taskOrder) return getSpecialCraftOperationById(taskOrder.operationId) ?? null
 
-  const workOrder = listSpecialCraftTaskWorkOrders().find((item) =>
-    refs.has(item.workOrderId)
-    || refs.has(item.workOrderNo)
-    || refs.has(item.taskOrderId)
+  const matchedOrder = listSpecialCraftTaskOrders().find((item) =>
+    refs.has(item.taskOrderId)
     || refs.has(item.taskOrderNo),
   )
-  if (workOrder) return getSpecialCraftOperationById(workOrder.operationId) ?? null
+  if (matchedOrder) return getSpecialCraftOperationById(matchedOrder.operationId) ?? null
 
   return null
 }
@@ -80,13 +73,11 @@ function findTaskOrderOperation(task: SpecialCraftPdaTaskLike): SpecialCraftOper
 function findTaskWorkOrder(task: SpecialCraftPdaTaskLike) {
   const refs = new Set(getTaskRefs(task))
   for (const ref of refs) {
-    const workOrder = getSpecialCraftTaskWorkOrderById(ref)
-    if (workOrder) return workOrder
+    const order = getSpecialCraftTaskOrderById(ref)
+    if (order) return order
   }
-  return listSpecialCraftTaskWorkOrders().find((item) =>
-    refs.has(item.workOrderId)
-    || refs.has(item.workOrderNo)
-    || refs.has(item.taskOrderId)
+  return listSpecialCraftTaskOrders().find((item) =>
+    refs.has(item.taskOrderId)
     || refs.has(item.taskOrderNo),
   )
 }

@@ -66,7 +66,7 @@ includes('src/pages/process-factory/post-finishing/warehouse.ts', ['listWaitProc
 
 includes('src/pages/process-factory/printing/work-order-detail.ts', ['getHandoverRecordsByWorkOrderId', 'getReviewRecordsByWorkOrderId', '交出面料米数'])
 includes('src/pages/process-factory/dyeing/work-order-detail.ts', ['getHandoverRecordsByWorkOrderId', 'getReviewRecordsByWorkOrderId', '染色统计'])
-includes('src/pages/process-factory/special-craft/work-order-detail.ts', ['getWarehouseRecordsByWorkOrderId', 'getHandoverRecordsByWorkOrderId', '统一仓记录'])
+includes('src/pages/process-factory/special-craft/task-detail.ts', ['getWarehouseRecordsByWorkOrderId', 'getHandoverRecordsByWorkOrderId', '统一仓记录'])
 
 includes('src/data/fcs/process-execution-writeback.ts', [
   'createWaitProcessWarehouseRecord',

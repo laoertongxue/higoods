@@ -22,8 +22,6 @@ import {
 } from '../factory-warehouse-linkage.ts'
 import type { SpecialCraftTaskDemandLine, SpecialCraftTaskOrder } from '../special-craft-task-orders.ts'
 import {
-  getSpecialCraftTaskWorkOrderLineByDemandLineId,
-  getSpecialCraftTaskWorkOrdersByTaskOrderId,
   getSpecialCraftTaskOrderById,
   listSpecialCraftTaskOrders,
 } from '../special-craft-task-orders.ts'
@@ -342,22 +340,11 @@ function getDifferenceDisplayStatus(status?: string): string {
 }
 
 function getWorkOrderTarget(taskOrder: SpecialCraftTaskOrder, demandLineId: string, partName: string) {
-  const line = getSpecialCraftTaskWorkOrderLineByDemandLineId(taskOrder.taskOrderId, demandLineId)
-  if (line) {
-    const workOrder = getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrder.taskOrderId).find((item) => item.workOrderId === line.workOrderId)
-    if (workOrder) {
-      return {
-        workOrderId: workOrder.workOrderId,
-        workOrderNo: workOrder.workOrderNo,
-        workOrderLineId: line.lineId,
-      }
-    }
-  }
-  const workOrder = getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrder.taskOrderId).find((item) => item.partName === partName)
+  const line = (taskOrder.demandLines || []).find((dl) => dl.demandLineId === demandLineId)
   return {
-    workOrderId: workOrder?.workOrderId || `${taskOrder.taskOrderId}-WO-001`,
-    workOrderNo: workOrder?.workOrderNo || `${taskOrder.taskOrderNo}-部位01`,
-    workOrderLineId: line?.lineId,
+    workOrderId: taskOrder.taskOrderId,
+    workOrderNo: taskOrder.taskOrderNo,
+    workOrderLineId: line?.demandLineId,
   }
 }
 

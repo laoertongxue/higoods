@@ -34,11 +34,9 @@ import {
 } from './printing-task-domain.ts'
 import {
   getSpecialCraftTaskOrderById,
-  getSpecialCraftTaskWorkOrderById,
+  getSpecialCraftTaskOrders,
   listSpecialCraftTaskOrders,
-  listSpecialCraftTaskWorkOrders,
   type SpecialCraftTaskOrder,
-  type SpecialCraftTaskWorkOrder,
 } from './special-craft-task-orders.ts'
 import { applyPendingDispatchAutoAcceptance } from './runtime-process-tasks.ts'
 import {
@@ -886,21 +884,20 @@ export function validateSpecialCraftTaskOrderMobileTaskBinding(taskOrderId: stri
   })
 }
 
-export function validateSpecialCraftMobileTaskBinding(workOrderId: string): ProcessMobileTaskBindingResult {
-  const workOrder = getSpecialCraftTaskWorkOrderById(workOrderId)
-  const taskOrder = workOrder ? getSpecialCraftTaskOrderByTaskOrderId(workOrder.taskOrderId) : null
+export function validateSpecialCraftMobileTaskBinding(taskOrderId: string): ProcessMobileTaskBindingResult {
+  const taskOrder = getSpecialCraftTaskOrderById(taskOrderId)
   const expectedTaskId = taskOrder?.sourceTaskId || taskOrder?.taskOrderId
   return validateBinding({
-    workOrderId: workOrder?.workOrderId || workOrderId,
-    workOrderNo: workOrder?.workOrderNo || workOrderId,
+    workOrderId: taskOrder?.taskOrderId || taskOrderId,
+    workOrderNo: taskOrder?.taskOrderNo || taskOrderId,
     processType: 'SPECIAL_CRAFT',
-    sourceType: 'SPECIAL_CRAFT_WORK_ORDER',
-    sourceId: workOrderId,
+    sourceType: 'SPECIAL_CRAFT',
+    sourceId: taskOrderId,
     expectedTaskId,
     expectedTaskNo: taskOrder?.sourceTaskNo || taskOrder?.taskOrderNo,
-    expectedFactoryId: workOrder?.factoryId || TEST_FACTORY_ID,
-    expectedOperationName: workOrder?.operationName,
-    sourceExists: Boolean(workOrder && taskOrder),
+    expectedFactoryId: taskOrder?.factoryId || TEST_FACTORY_ID,
+    expectedOperationName: taskOrder?.operationName,
+    sourceExists: Boolean(taskOrder),
     actualTask: expectedTaskId ? getPdaMobileExecutionTaskById(expectedTaskId) : null,
     currentFactoryId: TEST_FACTORY_ID,
   })
@@ -980,7 +977,7 @@ export function listInvalidProcessMobileTaskBindings(filter: { processType?: Mob
     results.push(...listKnownCuttingOrderIds().map((orderId) => validateCuttingOrderMobileTaskBinding(orderId)))
   }
   if (!filter.processType || filter.processType === 'SPECIAL_CRAFT') {
-    results.push(...listSpecialCraftTaskWorkOrders().map((workOrder) => validateSpecialCraftMobileTaskBinding(workOrder.workOrderId)))
+    results.push(...listSpecialCraftTaskOrders().map((taskOrder) => validateSpecialCraftMobileTaskBinding(taskOrder.taskOrderId)))
   }
   if (!filter.processType || filter.processType === 'POST_FINISHING') {
     results.push(...listPostFinishingTasks().map((task) => validatePostFinishingMobileTaskBinding(task.postTaskId)))

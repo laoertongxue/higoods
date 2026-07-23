@@ -115,69 +115,6 @@ export interface SpecialCraftTaskDemandLine {
   remark?: string
 }
 
-export interface SpecialCraftTaskWorkOrderLine {
-  lineId: string
-  workOrderId: string
-  taskOrderId: string
-  demandLineId: string
-  skuCode: string
-  partName: string
-  colorName: string
-  colorCode: string
-  sizeCode: string
-  pieceCountPerGarment: number
-  orderQty: number
-  planPieceQty: number
-  receivedQty: number
-  completedQty: number
-  scrapQty: number
-  damageQty: number
-  currentQty: number
-  feiTicketNos: string[]
-  sourceBomItemId?: string
-  bundleWidthCm?: number
-  bundleLengthCm?: number
-  stripCount?: number
-  remark?: string
-}
-
-export type SpecialCraftWorkOrderBusinessType = 'HEAT_TRANSFER' | 'DIRECT_PRINT' | 'OTHER_SPECIAL_CRAFT'
-
-export interface SpecialCraftTaskWorkOrder {
-  businessType: SpecialCraftWorkOrderBusinessType
-  workOrderId: string
-  workOrderNo: string
-  taskOrderId: string
-  taskOrderNo: string
-  productionOrderId: string
-  productionOrderNo: string
-  operationId: string
-  operationName: string
-  processCode: string
-  processName: string
-  craftCode: string
-  craftName: string
-  factoryId: string
-  factoryName: string
-  targetObject: string
-  partName: string
-  planQty: number
-  receivedQty: number
-  scrapQty: number
-  damageQty: number
-  currentQty: number
-  returnedQty: number
-  waitReturnQty: number
-  status: string
-  openDifferenceReportCount: number
-  openObjectionCount: number
-  feiTicketNos: string[]
-  lineIds: string[]
-  createdAt: string
-  updatedAt: string
-  remark?: string
-}
-
 export interface SpecialCraftTaskGenerationError {
   errorId: string
   productionOrderId: string
@@ -270,6 +207,7 @@ export interface SpecialCraftTaskOrder {
   taskOrderNo: string
   operationId: string
   operationName: string
+  businessType?: string
   managementDomain: SpecialCraftOperationDefinition['managementDomain']
   managementDomainName: SpecialCraftOperationDefinition['managementDomainName']
   processCode: string
@@ -437,8 +375,6 @@ interface WarehouseArtifacts {
 
 interface SpecialCraftTaskStore {
   taskOrders: SpecialCraftTaskOrder[]
-  workOrders: SpecialCraftTaskWorkOrder[]
-  workOrderLines: SpecialCraftTaskWorkOrderLine[]
   generationBatches: SpecialCraftTaskGenerationBatch[]
   generationErrors: SpecialCraftTaskGenerationError[]
 }
@@ -1327,6 +1263,7 @@ function buildTaskOrder(seed: TaskSeedContext, artifacts: WarehouseArtifacts): S
     taskOrderNo: seed.taskOrderNo,
     operationId: seed.operation.operationId,
     operationName: seed.operation.operationName,
+    businessType: getSpecialCraftWorkOrderBusinessType(seed.operation.operationId),
     managementDomain: seed.operation.managementDomain,
     managementDomainName: seed.operation.managementDomainName,
     processCode: seed.operation.processCode,
@@ -1429,7 +1366,7 @@ function buildLinkedSupplementTaskOrders(
 
   const supplements: SpecialCraftTaskOrder[] = []
   operations.forEach((operation, operationIndex) => {
-    if (operation.operationName === '直喷' || operation.operationName === '烫画') return
+    if (operation.operationName === '直喷') return
     const existingForOperation = existingTaskOrders
       .filter((taskOrder) => taskOrder.operationId === operation.operationId)
     const existingKeys = new Set(existingForOperation.map((taskOrder) => `${taskOrder.productionOrderId}::${taskOrder.operationId}`))
@@ -1753,183 +1690,12 @@ function normalizeGeneratedTaskOrderForMobile(taskOrder: SpecialCraftTaskOrder):
   }
 }
 
-function normalizeWorkOrderPartName(line: SpecialCraftTaskDemandLine, taskOrder: SpecialCraftTaskOrder): string {
-  return line.partName || taskOrder.partName || '未命名部位'
-}
-
-function buildWorkOrderKey(taskOrder: SpecialCraftTaskOrder, line: SpecialCraftTaskDemandLine): string {
-  return [
-    taskOrder.taskOrderId,
-    taskOrder.factoryId || 'WAIT_ASSIGN',
-    normalizeWorkOrderPartName(line, taskOrder),
-  ].join('::')
-}
-
-function buildWorkOrderId(taskOrder: SpecialCraftTaskOrder, partName: string, index: number): string {
-  return `${taskOrder.taskOrderId}-WO-${String(index + 1).padStart(3, '0')}-${partName}`.replace(/[^A-Za-z0-9-]/g, '')
-}
-
 export function getSpecialCraftWorkOrderBusinessType(
   operationId: string,
-): SpecialCraftWorkOrderBusinessType {
+): string {
   if (operationId === 'AUX-OP-HEAT-TRANSFER') return 'HEAT_TRANSFER'
   if (operationId === 'AUX-OP-DIRECT-PRINT') return 'DIRECT_PRINT'
   return 'OTHER_SPECIAL_CRAFT'
-}
-
-function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
-  workOrders: SpecialCraftTaskWorkOrder[]
-  workOrderLines: SpecialCraftTaskWorkOrderLine[]
-  syncedTaskOrders: SpecialCraftTaskOrder[]
-} {
-  const workOrders: SpecialCraftTaskWorkOrder[] = []
-  const workOrderLines: SpecialCraftTaskWorkOrderLine[] = []
-  const taskWorkOrderIds = new Map<string, string[]>()
-
-  taskOrders.forEach((taskOrder) => {
-    const grouped = new Map<string, SpecialCraftTaskDemandLine[]>()
-    const lines = taskOrder.demandLines?.length
-      ? taskOrder.demandLines
-      : [
-          {
-            demandLineId: `${taskOrder.taskOrderId}-LINE-01`,
-            skuCode: taskOrder.materialSku || `${taskOrder.productionOrderNo}-${taskOrder.sizeCode || '均码'}`,
-            taskOrderId: taskOrder.taskOrderId,
-            productionOrderId: taskOrder.productionOrderId,
-            productionOrderNo: taskOrder.productionOrderNo,
-            patternFileId: taskOrder.sourcePatternFileIds?.[0] || `PF-${taskOrder.taskOrderId}`,
-            patternFileName: `${taskOrder.operationName}纸样`,
-            pieceRowId: taskOrder.sourcePieceRowIds?.[0] || `PR-${taskOrder.taskOrderId}`,
-            partName: taskOrder.partName || '未命名部位',
-            colorName: taskOrder.fabricColor || '默认色',
-            colorCode: taskOrder.fabricColor || 'DEFAULT',
-            sizeCode: taskOrder.sizeCode || '均码',
-            pieceCountPerGarment: 1,
-            orderQty: taskOrder.planQty,
-            planPieceQty: taskOrder.planQty,
-            specialCraftKey: `${taskOrder.processCode}:${taskOrder.craftCode}`,
-            operationId: taskOrder.operationId,
-            operationName: taskOrder.operationName,
-            processCode: taskOrder.processCode,
-            processName: taskOrder.processName,
-            craftCode: taskOrder.craftCode,
-            craftName: taskOrder.craftName,
-            targetObject: taskOrder.targetObject,
-            unit: taskOrder.unit,
-            feiTicketNos: [...taskOrder.feiTicketNos],
-          },
-        ]
-
-    lines.forEach((line) => {
-      const key = buildWorkOrderKey(taskOrder, line)
-      const list = grouped.get(key) || []
-      list.push(line)
-      grouped.set(key, list)
-    })
-
-    Array.from(grouped.entries()).forEach(([, groupLines], groupIndex) => {
-      const firstLine = groupLines[0]
-      const partName = normalizeWorkOrderPartName(firstLine, taskOrder)
-      const workOrderId = buildWorkOrderId(taskOrder, partName, groupIndex)
-      const planQty = roundQty(groupLines.reduce((total, line) => total + line.planPieceQty, 0))
-      const lineIds = groupLines.map((line, lineIndex) => `${workOrderId}-LINE-${String(lineIndex + 1).padStart(3, '0')}`)
-      const feiTicketNos = [...new Set(groupLines.flatMap((line) => line.feiTicketNos))]
-      const receivedQty = groupIndex === 0 ? taskOrder.receivedQty : 0
-      const scrapQty = groupIndex === 0 ? taskOrder.lossQty || 0 : 0
-      const damageQty = groupIndex === 0 ? taskOrder.damageQty || 0 : 0
-      const returnedQty = groupIndex === 0 ? taskOrder.returnedQty || (taskOrder.status === '已回写' ? taskOrder.waitHandoverQty : 0) : 0
-      const currentQty = groupIndex === 0
-        ? taskOrder.currentQty ?? Math.max(taskOrder.completedQty || taskOrder.receivedQty || 0, 0)
-        : 0
-
-      const workOrder: SpecialCraftTaskWorkOrder = {
-        businessType: getSpecialCraftWorkOrderBusinessType(taskOrder.operationId),
-        workOrderId,
-        workOrderNo: `${taskOrder.taskOrderNo}-部位${String(groupIndex + 1).padStart(2, '0')}`,
-        taskOrderId: taskOrder.taskOrderId,
-        taskOrderNo: taskOrder.taskOrderNo,
-        productionOrderId: taskOrder.productionOrderId,
-        productionOrderNo: taskOrder.productionOrderNo,
-        operationId: taskOrder.operationId,
-        operationName: taskOrder.operationName,
-        processCode: taskOrder.processCode,
-        processName: taskOrder.processName,
-        craftCode: taskOrder.craftCode,
-        craftName: taskOrder.craftName,
-        factoryId: taskOrder.factoryId || 'WAIT_ASSIGN',
-        factoryName: taskOrder.factoryName || '待分配',
-        targetObject: taskOrder.targetObject,
-        partName,
-        planQty,
-        receivedQty,
-        scrapQty,
-        damageQty,
-        currentQty,
-        returnedQty,
-        waitReturnQty: groupIndex === 0 ? taskOrder.waitHandoverQty || 0 : 0,
-        status: taskOrder.status,
-        openDifferenceReportCount: taskOrder.abnormalStatus === '数量差异' || taskOrder.status === '差异' ? 1 : 0,
-        openObjectionCount: taskOrder.status === '异议中' ? 1 : 0,
-        feiTicketNos,
-        lineIds,
-        createdAt: taskOrder.createdAt,
-        updatedAt: taskOrder.updatedAt || taskOrder.createdAt,
-        remark: taskOrder.targetObject === '成衣'
-          ? '按成衣 BOM 适用 SKU 汇总的工艺加工单'
-          : '按裁片部位拆分的工艺加工单',
-      }
-      workOrders.push(workOrder)
-      taskWorkOrderIds.set(taskOrder.taskOrderId, [...(taskWorkOrderIds.get(taskOrder.taskOrderId) || []), workOrderId])
-
-      groupLines.forEach((line, lineIndex) => {
-        workOrderLines.push({
-          lineId: lineIds[lineIndex],
-          workOrderId,
-          taskOrderId: taskOrder.taskOrderId,
-          demandLineId: line.demandLineId,
-          skuCode: line.skuCode,
-          partName: line.partName,
-          colorName: line.colorName,
-          colorCode: line.colorCode,
-          sizeCode: line.sizeCode,
-          pieceCountPerGarment: line.pieceCountPerGarment,
-          orderQty: line.orderQty,
-          planPieceQty: line.planPieceQty,
-          receivedQty: 0,
-          completedQty: 0,
-          scrapQty: 0,
-          damageQty: 0,
-          currentQty: 0,
-          feiTicketNos: [...line.feiTicketNos],
-          sourceBomItemId: line.sourceBomItemId,
-          bundleWidthCm: line.bundleWidthCm,
-          bundleLengthCm: line.bundleLengthCm,
-          stripCount: line.stripCount,
-          remark: line.remark,
-        })
-      })
-    })
-  })
-
-  const syncedTaskOrders = taskOrders.map((taskOrder) => {
-    const matchedWorkOrders = workOrders.filter((workOrder) => workOrder.taskOrderId === taskOrder.taskOrderId)
-    return {
-      ...taskOrder,
-      workOrderIds: taskWorkOrderIds.get(taskOrder.taskOrderId) || [],
-      damageQty: roundQty(matchedWorkOrders.reduce((total, workOrder) => total + workOrder.damageQty, 0)),
-      currentQty: roundQty(matchedWorkOrders.reduce((total, workOrder) => total + workOrder.currentQty, 0)),
-      returnedQty: roundQty(matchedWorkOrders.reduce((total, workOrder) => total + workOrder.returnedQty, 0)),
-      openDifferenceReportCount: matchedWorkOrders.reduce((total, workOrder) => total + workOrder.openDifferenceReportCount, 0),
-      openObjectionCount: matchedWorkOrders.reduce((total, workOrder) => total + workOrder.openObjectionCount, 0),
-      feiTicketNos: [...new Set([...taskOrder.feiTicketNos, ...matchedWorkOrders.flatMap((workOrder) => workOrder.feiTicketNos)])],
-    }
-  })
-
-  return {
-    workOrders,
-    workOrderLines,
-    syncedTaskOrders,
-  }
 }
 
 function ensureStore(): SpecialCraftTaskStore {
@@ -1943,12 +1709,8 @@ function ensureStore(): SpecialCraftTaskStore {
     const supplementalTaskOrders = buildLinkedSupplementTaskOrders(generatedTaskOrders)
     const taskOrders = [...generatedTaskOrders, ...supplementalTaskOrders]
     ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders)
-
-    const workOrderBuild = buildWorkOrdersFromTaskOrders(taskOrders)
     specialCraftTaskStore = {
-      taskOrders: workOrderBuild.syncedTaskOrders,
-      workOrders: workOrderBuild.workOrders,
-      workOrderLines: workOrderBuild.workOrderLines,
+      taskOrders,
       generationBatches,
       generationErrors,
     }
@@ -2025,72 +1787,42 @@ export function getSpecialCraftTaskOrderById(taskOrderId: string): SpecialCraftT
   return ensureStore().taskOrders.find((taskOrder) => taskOrder.taskOrderId === taskOrderId)
 }
 
-export function buildSpecialCraftTaskWorkOrders(taskOrders: SpecialCraftTaskOrder[] = listSpecialCraftTaskOrders()): {
-  workOrders: SpecialCraftTaskWorkOrder[]
-  workOrderLines: SpecialCraftTaskWorkOrderLine[]
-} {
-  const result = buildWorkOrdersFromTaskOrders(taskOrders)
-  return {
-    workOrders: result.workOrders,
-    workOrderLines: result.workOrderLines,
-  }
-}
-
-export function listSpecialCraftTaskWorkOrders(): SpecialCraftTaskWorkOrder[] {
-  return [...ensureStore().workOrders]
-}
-
-export function listSpecialCraftTaskWorkOrderLines(): SpecialCraftTaskWorkOrderLine[] {
-  return [...ensureStore().workOrderLines]
-}
-
-export function getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrderId: string): SpecialCraftTaskWorkOrder[] {
-  return ensureStore().workOrders.filter((workOrder) => workOrder.taskOrderId === taskOrderId)
-}
-
-export function getSpecialCraftTaskWorkOrderLinesByWorkOrderId(workOrderId: string): SpecialCraftTaskWorkOrderLine[] {
-  return ensureStore().workOrderLines.filter((line) => line.workOrderId === workOrderId)
-}
-
-export function confirmSpecialCraftWorkOrderReceiptBySku(input: {
-  workOrderId: string
+export function confirmSpecialCraftTaskOrderReceiptBySku(input: {
+  taskOrderId: string
   receivedQtyBySkuCode: Record<string, number>
   receiverName: string
   receivedAt: string
-}): SpecialCraftTaskWorkOrder | undefined {
-  const lines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(input.workOrderId)
-  if (!lines.length) return undefined
+}): SpecialCraftTaskOrder | undefined {
+  const taskOrder = getSpecialCraftTaskOrderById(input.taskOrderId)
+  if (!taskOrder || !taskOrder.demandLines?.length) return undefined
+  const lines = taskOrder.demandLines
   const invalidLine = lines.find((line) => {
     const receivedQty = input.receivedQtyBySkuCode[line.skuCode]
     return !Number.isInteger(receivedQty) || receivedQty < 0 || receivedQty > line.planPieceQty
   })
   if (invalidLine) throw new Error(`SKU ${invalidLine.skuCode} 实收件数无效。`)
-  lines.forEach((line) => {
-    const receivedQty = input.receivedQtyBySkuCode[line.skuCode]
-    line.receivedQty = receivedQty
-    line.currentQty = receivedQty
-  })
-  const totalReceivedQty = lines.reduce((sum, line) => sum + line.currentQty, 0)
-  return updateSpecialCraftTaskWorkOrderWebStatus(input.workOrderId, {
+  const totalReceivedQty = lines.reduce((sum, line) => sum + (input.receivedQtyBySkuCode[line.skuCode] || 0), 0)
+  return updateSpecialCraftTaskOrderWebStatus(input.taskOrderId, {
     status: '已入待加工仓',
     operatorName: input.receiverName,
     operatedAt: input.receivedAt,
     receivedQty: totalReceivedQty,
-    currentQty: totalReceivedQty,
+    completedQty: 0,
     remark: `按 ${lines.length} 个 SKU 确认实收 ${totalReceivedQty} 件`,
   })
 }
 
-export function confirmSpecialCraftWorkOrderCompletionBySku(input: {
-  workOrderId: string
+export function confirmSpecialCraftTaskOrderCompletionBySku(input: {
+  taskOrderId: string
   completedQtyBySkuCode: Record<string, number>
   scrapQtyBySkuCode: Record<string, number>
   damageQtyBySkuCode: Record<string, number>
   operatorName: string
   operatedAt: string
-}): SpecialCraftTaskWorkOrder | undefined {
-  const lines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(input.workOrderId)
-  if (!lines.length) return undefined
+}): SpecialCraftTaskOrder | undefined {
+  const taskOrder = getSpecialCraftTaskOrderById(input.taskOrderId)
+  if (!taskOrder || !taskOrder.demandLines?.length) return undefined
+  const lines = taskOrder.demandLines
   const expectedSkuCodes = lines.map((line) => line.skuCode).sort()
   const hasExactSkuSet = (qtyBySkuCode: Record<string, number>) => {
     const actualSkuCodes = Object.keys(qtyBySkuCode).sort()
@@ -2111,134 +1843,82 @@ export function confirmSpecialCraftWorkOrderCompletionBySku(input: {
     return !Number.isInteger(completedQty) || completedQty < 0
       || !Number.isInteger(scrapQty) || scrapQty < 0
       || !Number.isInteger(damageQty) || damageQty < 0
-      || completedQty + scrapQty + damageQty !== line.receivedQty
+      || completedQty + scrapQty + damageQty !== taskOrder.receivedQty
   })
   if (invalidLine) throw new Error(`SKU ${invalidLine.skuCode} 的完工、报废和货损件数必须为整数，且合计等于已收件数。`)
-  lines.forEach((line) => {
-    line.completedQty = input.completedQtyBySkuCode[line.skuCode]
-    line.scrapQty = input.scrapQtyBySkuCode[line.skuCode]
-    line.damageQty = input.damageQtyBySkuCode[line.skuCode]
-    line.currentQty = line.completedQty
-  })
-  const completedQty = lines.reduce((sum, line) => sum + line.completedQty, 0)
-  const scrapQty = lines.reduce((sum, line) => sum + line.scrapQty, 0)
-  const damageQty = lines.reduce((sum, line) => sum + line.damageQty, 0)
-  return updateSpecialCraftTaskWorkOrderWebStatus(input.workOrderId, {
+  const completedQty = lines.reduce((sum, line) => sum + (input.completedQtyBySkuCode[line.skuCode] || 0), 0)
+  const scrapQty = lines.reduce((sum, line) => sum + (input.scrapQtyBySkuCode[line.skuCode] || 0), 0)
+  const damageQty = lines.reduce((sum, line) => sum + (input.damageQtyBySkuCode[line.skuCode] || 0), 0)
+  return updateSpecialCraftTaskOrderWebStatus(input.taskOrderId, {
     status: '待交出',
     operatorName: input.operatorName,
     operatedAt: input.operatedAt,
-    currentQty: completedQty,
-    waitReturnQty: completedQty,
-    scrapQty,
+    completedQty,
+    lossQty: scrapQty,
     damageQty,
+    waitHandoverQty: completedQty,
     remark: `按 ${lines.length} 个 SKU 确认完工 ${completedQty} 件，报废 ${scrapQty} 件，货损 ${damageQty} 件`,
   })
 }
 
-export function getSpecialCraftTaskWorkOrderById(workOrderId: string): SpecialCraftTaskWorkOrder | undefined {
-  return ensureStore().workOrders.find((workOrder) => workOrder.workOrderId === workOrderId)
-}
-
-export function getSpecialCraftTaskWorkOrderLineByDemandLineId(
+export function updateSpecialCraftTaskOrderWebStatus(
   taskOrderId: string,
-  demandLineId: string,
-): SpecialCraftTaskWorkOrderLine | undefined {
-  return ensureStore().workOrderLines.find((line) => line.taskOrderId === taskOrderId && line.demandLineId === demandLineId)
-}
-
-export function syncSpecialCraftTaskOrderAggregatesFromWorkOrders(taskOrderId: string): SpecialCraftTaskOrder | undefined {
-  const store = ensureStore()
-  const taskOrderIndex = store.taskOrders.findIndex((taskOrder) => taskOrder.taskOrderId === taskOrderId)
-  if (taskOrderIndex < 0) return undefined
-  const workOrders = store.workOrders.filter((workOrder) => workOrder.taskOrderId === taskOrderId)
-  const taskOrder = store.taskOrders[taskOrderIndex]
-  const nextTaskOrder: SpecialCraftTaskOrder = {
-    ...taskOrder,
-    receivedQty: roundQty(workOrders.reduce((total, workOrder) => total + workOrder.receivedQty, 0)) || taskOrder.receivedQty,
-    lossQty: roundQty(workOrders.reduce((total, workOrder) => total + workOrder.scrapQty, 0)),
-    damageQty: roundQty(workOrders.reduce((total, workOrder) => total + workOrder.damageQty, 0)),
-    currentQty: roundQty(workOrders.reduce((total, workOrder) => total + workOrder.currentQty, 0)),
-    returnedQty: roundQty(workOrders.reduce((total, workOrder) => total + workOrder.returnedQty, 0)),
-    waitHandoverQty: roundQty(workOrders.reduce((total, workOrder) => total + workOrder.waitReturnQty, 0)) || taskOrder.waitHandoverQty,
-    openDifferenceReportCount: workOrders.reduce((total, workOrder) => total + workOrder.openDifferenceReportCount, 0),
-    openObjectionCount: workOrders.reduce((total, workOrder) => total + workOrder.openObjectionCount, 0),
-    feiTicketNos: [...new Set(workOrders.flatMap((workOrder) => workOrder.feiTicketNos))],
-    workOrderIds: workOrders.map((workOrder) => workOrder.workOrderId),
-    updatedAt: formatDay(0),
-  }
-  store.taskOrders[taskOrderIndex] = nextTaskOrder
-  return nextTaskOrder
-}
-
-export function updateSpecialCraftTaskWorkOrderWebStatus(
-  workOrderId: string,
   payload: {
     status: SpecialCraftTaskStatus
     operatorName?: string
     operatedAt?: string
-    currentQty?: number
     receivedQty?: number
-    returnedQty?: number
-    waitReturnQty?: number
-    scrapQty?: number
+    completedQty?: number
+    lossQty?: number
     damageQty?: number
+    waitHandoverQty?: number
     remark?: string
   },
-): SpecialCraftTaskWorkOrder | undefined {
+): SpecialCraftTaskOrder | undefined {
   const store = ensureStore()
-  const workOrderIndex = store.workOrders.findIndex((workOrder) => workOrder.workOrderId === workOrderId)
-  if (workOrderIndex < 0) return undefined
-  const current = store.workOrders[workOrderIndex]
-  const next: SpecialCraftTaskWorkOrder = {
+  const taskOrderIndex = store.taskOrders.findIndex((taskOrder) => taskOrder.taskOrderId === taskOrderId)
+  if (taskOrderIndex < 0) return undefined
+  const current = store.taskOrders[taskOrderIndex]
+  const next: SpecialCraftTaskOrder = {
     ...current,
     status: payload.status,
-    currentQty: Number.isFinite(payload.currentQty) ? Number(payload.currentQty) : current.currentQty,
     receivedQty: Number.isFinite(payload.receivedQty) ? Number(payload.receivedQty) : current.receivedQty,
-    returnedQty: Number.isFinite(payload.returnedQty) ? Number(payload.returnedQty) : current.returnedQty,
-    waitReturnQty: Number.isFinite(payload.waitReturnQty) ? Number(payload.waitReturnQty) : current.waitReturnQty,
-    scrapQty: Number.isFinite(payload.scrapQty) ? Number(payload.scrapQty) : current.scrapQty,
+    completedQty: Number.isFinite(payload.completedQty) ? Number(payload.completedQty) : current.completedQty,
+    lossQty: Number.isFinite(payload.lossQty) ? Number(payload.lossQty) : current.lossQty,
     damageQty: Number.isFinite(payload.damageQty) ? Number(payload.damageQty) : current.damageQty,
+    waitHandoverQty: Number.isFinite(payload.waitHandoverQty) ? Number(payload.waitHandoverQty) : current.waitHandoverQty,
+    currentQty: Number.isFinite(payload.completedQty) ? Number(payload.completedQty) : current.currentQty,
+    executionStatus:
+      payload.status === '已入待加工仓'
+        ? 'IN_WAIT_PROCESS_WAREHOUSE'
+        : payload.status === '加工中'
+          ? 'PROCESSING'
+          : payload.status === '已完成'
+            ? 'COMPLETED'
+            : payload.status === '待交出'
+              ? 'WAIT_HANDOVER'
+              : payload.status === '已交出'
+                ? 'HANDED_OVER'
+                : payload.status === '已回写'
+                  ? 'WRITTEN_BACK'
+                : payload.status === '差异'
+                  ? 'DIFFERENCE'
+                  : payload.status === '异议中'
+                    ? 'OBJECTION'
+                    : payload.status === '异常'
+                      ? 'ABNORMAL'
+                      : 'WAIT_PICKUP',
+    executionStatusLabel: payload.status,
+    abnormalStatus: payload.status === '差异' ? '数量差异' : current.abnormalStatus,
     openDifferenceReportCount:
       payload.status === '差异' || payload.status === '异常'
-        ? Math.max(current.openDifferenceReportCount, 1)
+        ? Math.max(current.openDifferenceReportCount || 0, 1)
         : current.openDifferenceReportCount,
     updatedAt: payload.operatedAt || formatDay(0),
     remark: payload.remark?.trim() || current.remark,
   }
-  store.workOrders[workOrderIndex] = next
-  const taskOrderIndex = store.taskOrders.findIndex((taskOrder) => taskOrder.taskOrderId === next.taskOrderId)
-  if (taskOrderIndex >= 0) {
-    const taskOrder = store.taskOrders[taskOrderIndex]
-    store.taskOrders[taskOrderIndex] = {
-      ...taskOrder,
-      status: payload.status,
-      executionStatus:
-        payload.status === '已入待加工仓'
-          ? 'IN_WAIT_PROCESS_WAREHOUSE'
-          : payload.status === '加工中'
-            ? 'PROCESSING'
-            : payload.status === '已完成'
-              ? 'COMPLETED'
-              : payload.status === '待交出'
-                ? 'WAIT_HANDOVER'
-                : payload.status === '已交出'
-                  ? 'HANDED_OVER'
-                  : payload.status === '已回写'
-                    ? 'WRITTEN_BACK'
-                    : payload.status === '差异'
-                      ? 'DIFFERENCE'
-                      : payload.status === '异议中'
-                        ? 'OBJECTION'
-                        : payload.status === '异常'
-                          ? 'ABNORMAL'
-                          : 'WAIT_PICKUP',
-      executionStatusLabel: payload.status,
-      abnormalStatus: payload.status === '差异' ? '数量差异' : taskOrder.abnormalStatus,
-      updatedAt: payload.operatedAt || formatDay(0),
-    }
-  }
-  syncSpecialCraftTaskOrderAggregatesFromWorkOrders(next.taskOrderId)
-  return store.workOrders[workOrderIndex]
+  store.taskOrders[taskOrderIndex] = next
+  return next
 }
 
 export function getSpecialCraftWarehouseView(

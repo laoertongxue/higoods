@@ -8,7 +8,7 @@ import {
   getWarehouseRecordsByWorkOrderId,
 } from '../src/data/fcs/process-warehouse-domain.ts'
 import { validateSpecialCraftMobileTaskBinding } from '../src/data/fcs/process-mobile-task-binding.ts'
-import { listSpecialCraftTaskWorkOrders } from '../src/data/fcs/special-craft-task-orders.ts'
+import { listSpecialCraftTaskOrders } from '../src/data/fcs/special-craft-task-orders.ts'
 import { listPlatformSpecialCraftResultViews } from '../src/data/fcs/platform-process-result-view.ts'
 
 const root = process.cwd()
@@ -28,7 +28,8 @@ function includesAll(content: string, values: string[], label: string): void {
   values.forEach((value) => assert(content.includes(value), `${label} 缺少 ${value}`))
 }
 
-const detailSource = read('src/pages/process-factory/special-craft/work-order-detail.ts')
+const detailSource = read('src/pages/process-factory/special-craft/task-detail.ts')
+const workOrderDetailRedirectSource = read('src/pages/process-factory/special-craft/work-order-detail.ts')
 const taskDetailSource = read('src/pages/process-factory/special-craft/task-detail.ts')
 const taskOrdersSource = read('src/pages/process-factory/special-craft/task-orders.ts')
 const warehouseSource = read('src/pages/process-factory/special-craft/warehouse.ts')
@@ -39,19 +40,16 @@ const linkageSource = read('src/data/fcs/process-warehouse-linkage-service.ts')
 const mobileSource = read('src/pages/pda-exec-detail.ts')
 const platformSource = read('src/data/fcs/platform-process-result-view.ts')
 
-assert(!/data-nav="[^"]*webAction/.test(detailSource), '特殊工艺详情仍存在 data-nav + webAction 直写')
-assert(!detailSource.includes('applyWebActionFromUrl'), '特殊工艺详情仍保留 applyWebActionFromUrl 主操作入口')
-assert(!detailSource.includes('getProcessWebOperationRecordsBySource'), '特殊工艺详情仍只读取 Web 端操作记录')
+assert(workOrderDetailRedirectSource.includes('window.location.replace'), '加工单详情页已改为重定向到任务详情')
+assert(workOrderDetailRedirectSource.includes('/tasks/'), '加工单详情页重定向目标必须是任务详情页')
+assert(!/data-nav="[^"]*webAction/.test(workOrderDetailRedirectSource + detailSource), '特殊工艺页面仍存在 data-nav + webAction 直写')
+assert(!detailSource.includes('applyWebActionFromUrl'), '特殊工艺页面仍保留 applyWebActionFromUrl 主操作入口')
 includesAll(detailSource, [
   'openProcessWebStatusActionDialog',
   'handleProcessWebStatusActionDialogEvent',
-  'data-special-craft-web-action="open-web-status-action-dialog"',
-  'data-testid="web-status-action-area"',
-  'data-testid="web-status-action-button"',
-  'getUnifiedOperationRecordsForProcessWorkOrder',
-  'sourceChannel',
-], '特殊工艺详情')
-includesAll(detailSource, ['基本信息', '接收记录', '加工记录', '菲票记录', '差异记录', '交出记录', '操作记录'], '特殊工艺详情 Tab')
+  'data-special-craft-web-action',
+], '特殊工艺任务详情')
+includesAll(detailSource, ['基本信息', '菲票流转', '交出记录', '差异', '加工明细'], '特殊工艺任务详情内容')
 includesAll(sharedDialogSource, [
   'process-web-status-action-dialog',
   'process-web-status-action-title',
@@ -115,21 +113,21 @@ includesAll(platformSource, [
 ], '平台特殊工艺结果视图')
 assert(!`${detailSource}\n${taskDetailSource}\n${taskOrdersSource}\n${warehouseSource}`.match(/开扣眼|装扣子|熨烫|包装/), '特殊工艺页面出现后道或染色包装动作文案')
 
-const workOrders = listSpecialCraftTaskWorkOrders()
-const waitReceive = workOrders.find((item) => item.status === '待领料')
-const waitProcess = workOrders.find((item) => item.status === '已入待加工仓')
-const processing = workOrders.find((item) => item.status === '加工中')
-const waitHandover = workOrders.find((item) => item.status === '待交出')
+const taskOrders = listSpecialCraftTaskOrders()
+const waitReceive = taskOrders.find((item) => item.status === '待领料')
+const waitProcess = taskOrders.find((item) => item.status === '已入待加工仓')
+const processing = taskOrders.find((item) => item.status === '加工中')
+const waitHandover = taskOrders.find((item) => item.status === '待交出')
 assert(waitReceive, '缺少待领料特殊工艺演示工艺单')
 assert(waitProcess, '缺少已入待加工仓特殊工艺演示工艺单')
 assert(processing, '缺少加工中特殊工艺演示工艺单')
 assert(waitHandover, '缺少待交出特殊工艺演示工艺单')
 
-const receiveBinding = validateSpecialCraftMobileTaskBinding(waitReceive!.workOrderId)
+const receiveBinding = validateSpecialCraftMobileTaskBinding(waitReceive!.taskOrderId)
 assert(receiveBinding.canOpenMobileExecution, '待领料特殊工艺工艺单未绑定可执行移动端任务')
 const receiveResult = executeProcessWebAction({
-  sourceType: 'SPECIAL_CRAFT_WORK_ORDER',
-  sourceId: waitReceive!.workOrderId,
+  sourceType: 'SPECIAL_CRAFT',
+  sourceId: waitReceive!.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
   operatorName: 'Web 端验收员',
   operatedAt: '2026-04-28 10:00',
@@ -145,13 +143,13 @@ const receiveResult = executeProcessWebAction({
   remark: '检查脚本确认接收裁片',
 })
 assert(receiveResult.success, 'Web 确认接收裁片未成功')
-assert(getWarehouseRecordsByWorkOrderId(waitReceive!.workOrderId).some((record) => record.recordType === 'WAIT_PROCESS'), '确认接收后未生成待加工仓记录')
+assert(getWarehouseRecordsByWorkOrderId(waitReceive!.taskOrderId).some((record) => record.recordType === 'WAIT_PROCESS'), '确认接收后未生成待加工仓记录')
 
-const processBinding = validateSpecialCraftMobileTaskBinding(waitProcess!.workOrderId)
+const processBinding = validateSpecialCraftMobileTaskBinding(waitProcess!.taskOrderId)
 assert(processBinding.canOpenMobileExecution, '已入待加工仓特殊工艺工艺单未绑定可执行移动端任务')
 const mobileStart = executeMobileProcessAction({
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: waitProcess!.workOrderId,
+  sourceId: waitProcess!.taskOrderId,
   taskId: processBinding.actualTaskId,
   actionCode: 'SPECIAL_CRAFT_START_PROCESS',
   operatorName: '移动端验收员',
@@ -164,16 +162,16 @@ const mobileStart = executeMobileProcessAction({
 assert(mobileStart.success, '移动端开始加工未成功')
 
 const processMobileRecords = getUnifiedOperationRecordsForProcessWorkOrder(
-  'SPECIAL_CRAFT_WORK_ORDER',
-  waitProcess!.workOrderId,
+  'SPECIAL_CRAFT',
+  waitProcess!.taskOrderId,
   processBinding.actualTaskId,
 )
 assert(processMobileRecords.some((record) => record.sourceChannel === '移动端'), '特殊工艺操作记录未合并移动端记录')
 
-const processingBinding = validateSpecialCraftMobileTaskBinding(processing!.workOrderId)
+const processingBinding = validateSpecialCraftMobileTaskBinding(processing!.taskOrderId)
 const finishResult = executeMobileProcessAction({
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: processing!.workOrderId,
+  sourceId: processing!.taskOrderId,
   taskId: processingBinding.actualTaskId,
   actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
   operatorName: '移动端验收员',
@@ -184,12 +182,12 @@ const finishResult = executeMobileProcessAction({
   remark: '检查脚本移动端完成加工',
 })
 assert(finishResult.success, '移动端完成加工未成功')
-assert(getWarehouseRecordsByWorkOrderId(processing!.workOrderId).some((record) => record.recordType === 'WAIT_HANDOVER'), '完成加工后未生成待交出仓记录')
+assert(getWarehouseRecordsByWorkOrderId(processing!.taskOrderId).some((record) => record.recordType === 'WAIT_HANDOVER'), '完成加工后未生成待交出仓记录')
 
-const handoverBinding = validateSpecialCraftMobileTaskBinding(waitHandover!.workOrderId)
+const handoverBinding = validateSpecialCraftMobileTaskBinding(waitHandover!.taskOrderId)
 const handoverResult = executeProcessWebAction({
-  sourceType: 'SPECIAL_CRAFT_WORK_ORDER',
-  sourceId: waitHandover!.workOrderId,
+  sourceType: 'SPECIAL_CRAFT',
+  sourceId: waitHandover!.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
   operatorName: 'Web 端验收员',
   operatedAt: '2026-04-28 10:30',
@@ -205,11 +203,11 @@ const handoverResult = executeProcessWebAction({
   remark: '检查脚本发起交出',
 })
 assert(handoverResult.success, 'Web 发起交出未成功')
-assert(getHandoverRecordsByWorkOrderId(waitHandover!.workOrderId).length > 0, '发起交出后未生成交出记录')
+assert(getHandoverRecordsByWorkOrderId(waitHandover!.taskOrderId).length > 0, '发起交出后未生成交出记录')
 
 const differenceResult = executeMobileProcessAction({
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: processing!.workOrderId,
+  sourceId: processing!.taskOrderId,
   taskId: processingBinding.actualTaskId,
   actionCode: 'SPECIAL_CRAFT_REPORT_DIFFERENCE',
   operatorName: '移动端验收员',
@@ -220,7 +218,7 @@ const differenceResult = executeMobileProcessAction({
   remark: '检查脚本上报特殊工艺差异',
 })
 assert(differenceResult.success, '移动端上报差异未成功')
-const differenceRecords = getDifferenceRecordsByWorkOrderId(processing!.workOrderId)
+const differenceRecords = getDifferenceRecordsByWorkOrderId(processing!.taskOrderId)
 assert(differenceRecords.some((record) => record.relatedFeiTicketIds.length > 0), '特殊工艺差异记录未关联菲票')
 
 const platformViews = listPlatformSpecialCraftResultViews()

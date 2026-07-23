@@ -32,7 +32,7 @@ const dyeingList = read('src/pages/process-factory/dyeing/work-orders.ts')
 const specialCraftShared = read('src/pages/process-factory/special-craft/shared.ts')
 const printingDetail = read('src/pages/process-factory/printing/work-order-detail.ts')
 const dyeingDetail = read('src/pages/process-factory/dyeing/work-order-detail.ts')
-const specialCraftDetail = read('src/pages/process-factory/special-craft/work-order-detail.ts')
+const specialCraftDetail = read('src/pages/process-factory/special-craft/task-detail.ts')
 const appShell = read('src/data/app-shell-config.ts')
 const routes = read('src/router/routes-fcs.ts')
 const renderers = read('src/router/route-renderers-fcs.ts')
@@ -53,8 +53,8 @@ assertNotIncludes(specialCraftShared, 'subNavItems', '特殊工艺页面布局�
 ;['base', 'sample', 'execution', 'formula', 'handover', 'review', 'statistics', 'exception'].forEach((tab) => {
   assertIncludes(dyeingDetail, `'${tab}'`, `染色详情页缺少 tab=${tab}`)
 })
-;['base', 'lines', 'fei', 'quantity', 'difference', 'events'].forEach((tab) => {
-  assertIncludes(specialCraftDetail, `'${tab}'`, `特殊工艺详情页缺少 tab=${tab}`)
+;['overview', 'demand', 'warehouse', 'exceptions', 'events'].forEach((tab) => {
+  assertIncludes(specialCraftDetail, `'${tab}'`, `特殊工艺任务详情页缺少 tab=${tab}`)
 })
 
 assertNotIncludes(appShell, '染色配方', '染厂菜单不应出现染色配方')

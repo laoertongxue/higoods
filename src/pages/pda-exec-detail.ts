@@ -24,8 +24,7 @@ import {
   listCuttingSpecialCraftFeiTicketBindings,
 } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import {
-  getSpecialCraftTaskWorkOrderById,
-  getSpecialCraftTaskWorkOrderLinesByWorkOrderId,
+  getSpecialCraftTaskOrderById,
 } from '../data/fcs/special-craft-task-orders.ts'
 import {
   getDifferenceRecordsByWorkOrderId,
@@ -2368,23 +2367,23 @@ function getSpecialCraftWorkOrderForPdaTask(task: ProcessTask, bindings = getSpe
   const params = getExecDetailSearchParams()
   const querySourceType = params.get('sourceType') || ''
   const querySourceId = params.get('sourceId') || ''
-  if (querySourceId && ['SPECIAL_CRAFT', 'SPECIAL_CRAFT_WORK_ORDER'].includes(querySourceType)) {
-    const queryWorkOrder = getSpecialCraftTaskWorkOrderById(querySourceId)
+  if (querySourceId && ['SPECIAL_CRAFT', 'SPECIAL_CRAFT'].includes(querySourceType)) {
+    const queryWorkOrder = getSpecialCraftTaskOrderById(querySourceId)
     if (queryWorkOrder) return queryWorkOrder
   }
 
   const sourceInfo = getMobileExecutionTaskSourceInfo(task)
   if (sourceInfo.sourceId) {
-    const sourceWorkOrder = getSpecialCraftTaskWorkOrderById(sourceInfo.sourceId)
+    const sourceWorkOrder = getSpecialCraftTaskOrderById(sourceInfo.sourceId)
     if (sourceWorkOrder) return sourceWorkOrder
   }
-  if (sourceInfo.sourceWorkOrderId) {
-    const sourceWorkOrder = getSpecialCraftTaskWorkOrderById(sourceInfo.sourceWorkOrderId)
+  if (sourceInfo.sourceTaskOrderId) {
+    const sourceWorkOrder = getSpecialCraftTaskOrderById(sourceInfo.sourceTaskOrderId)
     if (sourceWorkOrder) return sourceWorkOrder
   }
 
   const bindingWorkOrderId = bindings[0]?.workOrderId
-  return bindingWorkOrderId ? getSpecialCraftTaskWorkOrderById(bindingWorkOrderId) : undefined
+  return bindingWorkOrderId ? getSpecialCraftTaskOrderById(bindingWorkOrderId) : undefined
 }
 
 function getSpecialCraftPdaBaseQty(
@@ -2482,7 +2481,8 @@ function buildSpecialCraftGarmentSkuDraftKey(workOrderId: string, status: string
 }
 
 function getSpecialCraftGarmentSkuDrafts(workOrderId: string, status: string) {
-  const lines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(workOrderId)
+  const taskOrder = getSpecialCraftTaskOrderById(workOrderId)
+  const lines = taskOrder?.demandLines || []
   const outboundBySkuCode = new Map(
     listFactoryWarehouseOutboundRecords()
       .filter((record) => record.sourceTaskId === workOrderId && record.warehouseName === '成衣仓' && record.status !== '已作废')

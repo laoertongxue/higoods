@@ -8,7 +8,7 @@ import {
 } from './dyeing-task-domain.ts'
 import { cutPieceOrderRecords } from './cutting/cut-piece-orders.ts'
 import {
-  getSpecialCraftTaskWorkOrderById,
+  getSpecialCraftTaskOrderById,
 } from './special-craft-task-orders.ts'
 import {
   getPostFinishingWorkOrderById,
@@ -34,7 +34,7 @@ export type ProcessWebSourceType =
   | 'PRINT_WORK_ORDER'
   | 'DYE_WORK_ORDER'
   | 'CUTTING_ORDER'
-  | 'SPECIAL_CRAFT_WORK_ORDER'
+  | 'SPECIAL_CRAFT'
   | 'POST_FINISHING_WORK_ORDER'
 
 export type ProcessWebActionType =
@@ -736,7 +736,7 @@ function getCuttingStatus(cuttingOrderId: string): { status: string; label: stri
 }
 
 function getSpecialCraftStatus(workOrderId: string): { status: string; label: string; qty: number; unit: string; taskId: string } | null {
-  const workOrder = getSpecialCraftTaskWorkOrderById(workOrderId)
+  const workOrder = getSpecialCraftTaskOrderById(workOrderId)
   if (!workOrder) return null
   const binding = validateSpecialCraftMobileTaskBinding(workOrderId)
   return {
@@ -770,7 +770,7 @@ function isMobileBindingValid(sourceType: ProcessWebSourceType, sourceId: string
         ? validateDyeWorkOrderMobileTaskBinding(sourceId)
         : sourceType === 'CUTTING_ORDER'
           ? validateCuttingOrderMobileTaskBinding(sourceId)
-          : sourceType === 'SPECIAL_CRAFT_WORK_ORDER'
+          : sourceType === 'SPECIAL_CRAFT'
             ? validateSpecialCraftMobileTaskBinding(sourceId)
             : validatePostFinishingMobileTaskBinding(sourceId)
   return {
@@ -804,7 +804,7 @@ export function getAvailableCuttingWebActions(cuttingOrderId: string): ProcessWe
 }
 
 export function getAvailableSpecialCraftWebActions(workOrderId: string): ProcessWebAction[] {
-  const binding = isMobileBindingValid('SPECIAL_CRAFT_WORK_ORDER', workOrderId)
+  const binding = isMobileBindingValid('SPECIAL_CRAFT', workOrderId)
   const status = getSpecialCraftStatus(workOrderId)
   if (!status) return []
   if (!binding.ok) return [toAction(SPECIAL_CRAFT_ACTIONS[0], status.label, binding.reason)]
@@ -826,7 +826,7 @@ export function listAvailableWebActions(sourceType: ProcessWebSourceType, source
   if (sourceType === 'PRINT_WORK_ORDER') return getAvailablePrintWebActions(sourceId)
   if (sourceType === 'DYE_WORK_ORDER') return getAvailableDyeWebActions(sourceId)
   if (sourceType === 'CUTTING_ORDER') return getAvailableCuttingWebActions(sourceId)
-  if (sourceType === 'SPECIAL_CRAFT_WORK_ORDER') return getAvailableSpecialCraftWebActions(sourceId)
+  if (sourceType === 'SPECIAL_CRAFT') return getAvailableSpecialCraftWebActions(sourceId)
   return getAvailablePostFinishingWebActions(sourceId)
 }
 
@@ -851,7 +851,7 @@ function getStatusSnapshot(sourceType: ProcessWebSourceType, sourceId: string): 
         ? getDyeStatus(sourceId)
         : sourceType === 'CUTTING_ORDER'
           ? getCuttingStatus(sourceId)
-          : sourceType === 'SPECIAL_CRAFT_WORK_ORDER'
+          : sourceType === 'SPECIAL_CRAFT'
             ? getSpecialCraftStatus(sourceId)
             : getPostFinishingStatus(sourceId)
   if (!snapshot) throw new Error('来源对象不存在，不能执行状态操作')
@@ -862,7 +862,7 @@ function toProcessActionSourceType(sourceType: ProcessWebSourceType): ProcessAct
   if (sourceType === 'PRINT_WORK_ORDER') return 'PRINT'
   if (sourceType === 'DYE_WORK_ORDER') return 'DYE'
   if (sourceType === 'CUTTING_ORDER') return 'CUTTING'
-  if (sourceType === 'SPECIAL_CRAFT_WORK_ORDER') return 'SPECIAL_CRAFT'
+  if (sourceType === 'SPECIAL_CRAFT') return 'SPECIAL_CRAFT'
   return 'POST_FINISHING'
 }
 
@@ -870,7 +870,7 @@ function toProcessWebSourceType(sourceType: ProcessActionSourceType): ProcessWeb
   if (sourceType === 'PRINT') return 'PRINT_WORK_ORDER'
   if (sourceType === 'DYE') return 'DYE_WORK_ORDER'
   if (sourceType === 'CUTTING') return 'CUTTING_ORDER'
-  if (sourceType === 'SPECIAL_CRAFT') return 'SPECIAL_CRAFT_WORK_ORDER'
+  if (sourceType === 'SPECIAL_CRAFT') return 'SPECIAL_CRAFT'
   return 'POST_FINISHING_WORK_ORDER'
 }
 

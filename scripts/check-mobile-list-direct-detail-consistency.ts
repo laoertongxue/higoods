@@ -26,7 +26,7 @@ import {
   validateSpecialCraftMobileTaskBinding,
 } from '../src/data/fcs/process-mobile-task-binding.ts'
 import { listPrintWorkOrders } from '../src/data/fcs/printing-task-domain.ts'
-import { listSpecialCraftTaskWorkOrders } from '../src/data/fcs/special-craft-task-orders.ts'
+import { listSpecialCraftTaskOrders } from '../src/data/fcs/special-craft-task-orders.ts'
 
 const root = process.cwd()
 
@@ -112,11 +112,11 @@ assert(cuttingBinding.reasonCode === 'OK', `CUT-260314-087-02 绑定异常：${c
 assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: 'CUT-260314-087-02' }).some((task) => task.taskId === cuttingBinding.actualTaskId), '搜索裁片单号无法返回对应任务')
 assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: cuttingBinding.actualTaskNo }).some((task) => task.taskId === cuttingBinding.actualTaskId), '搜索裁片任务号无法返回对应任务')
 
-const specialWorkOrder = listSpecialCraftTaskWorkOrders().find((workOrder) => workOrder.operationName === '打揽')
-assert(specialWorkOrder, '缺少打揽工艺单')
-const specialBinding = validateSpecialCraftMobileTaskBinding(specialWorkOrder.workOrderId)
+const specialTaskOrder = listSpecialCraftTaskOrders().find((taskOrder) => taskOrder.operationName === '打揽')
+assert(specialTaskOrder, '缺少打揽任务单')
+const specialBinding = validateSpecialCraftMobileTaskBinding(specialTaskOrder.taskOrderId)
 assert(specialBinding.reasonCode === 'OK', `特殊工艺绑定异常：${specialBinding.reasonLabel}`)
-assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: specialWorkOrder.workOrderNo }).some((task) => task.taskId === specialBinding.actualTaskId), '搜索特殊工艺加工单号无法返回对应任务')
+assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: specialTaskOrder.taskOrderNo }).some((task) => task.taskId === specialBinding.actualTaskId), '搜索特殊工艺任务单号无法返回对应任务')
 assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: specialBinding.actualTaskNo }).some((task) => task.taskId === specialBinding.actualTaskId), '搜索特殊工艺任务号无法返回对应任务')
 const specialTask = getMobileExecutionTaskById(specialBinding.actualTaskId)
 assert(specialTask, '特殊工艺移动端任务不存在')

@@ -52,8 +52,8 @@ import {
   getSpecialCraftOperationById,
 } from './special-craft-operations.ts'
 import {
-  listSpecialCraftTaskWorkOrders,
-  type SpecialCraftTaskWorkOrder,
+  getSpecialCraftTaskOrders,
+  type SpecialCraftTaskOrder,
 } from './special-craft-task-orders.ts'
 import {
   getPostFinishingFlowText,
@@ -658,7 +658,7 @@ function buildCuttingWarehouseResultView(sourceId: string): PlatformProcessResul
   return view
 }
 
-function buildSpecialCraftView(workOrder: SpecialCraftTaskWorkOrder): PlatformProcessResultView {
+function buildSpecialCraftView(workOrder: SpecialCraftTaskOrder): PlatformProcessResultView {
   const operation = getSpecialCraftOperationById(workOrder.operationId)
   const slug = operation ? buildSpecialCraftOperationSlug(operation) : buildSpecialCraftOperationSlug(workOrder.operationId)
   const facts = resolveFacts('SPECIAL_CRAFT', workOrder.workOrderId, workOrder.workOrderNo)
@@ -816,10 +816,10 @@ export function listPlatformCuttingResultViews(filter: PlatformProcessResultView
   const baseViews = cloneCutPieceOrderRecords().map(buildCuttingView)
   const baseSourceIds = new Set(baseViews.map((view) => view.sourceId))
   const supplementalSourceIds = uniqueStrings([
-    ...listProcessWarehouseRecords({ craftType: 'CUTTING' }).map((record) => record.sourceWorkOrderId),
-    ...listProcessHandoverRecords({ craftType: 'CUTTING' }).map((record) => record.sourceWorkOrderId),
-    ...listProcessWarehouseReviewRecords({ craftType: 'CUTTING' }).map((record) => record.sourceWorkOrderId),
-    ...listProcessHandoverDifferenceRecords({ craftType: 'CUTTING' }).map((record) => record.sourceWorkOrderId),
+    ...listProcessWarehouseRecords({ craftType: 'CUTTING' }).map((record) => record.sourceTaskOrderId),
+    ...listProcessHandoverRecords({ craftType: 'CUTTING' }).map((record) => record.sourceTaskOrderId),
+    ...listProcessWarehouseReviewRecords({ craftType: 'CUTTING' }).map((record) => record.sourceTaskOrderId),
+    ...listProcessHandoverDifferenceRecords({ craftType: 'CUTTING' }).map((record) => record.sourceTaskOrderId),
   ]).filter((sourceId) => !baseSourceIds.has(sourceId))
   return [
     ...baseViews,
@@ -830,7 +830,7 @@ export function listPlatformCuttingResultViews(filter: PlatformProcessResultView
 }
 
 export function listPlatformSpecialCraftResultViews(filter: PlatformProcessResultViewFilter = {}): PlatformProcessResultView[] {
-  return listSpecialCraftTaskWorkOrders()
+  return getSpecialCraftTaskOrders()
     .map(buildSpecialCraftView)
     .filter((view) => matchesFilter(view, { ...filter, sourceType: 'SPECIAL_CRAFT' }))
     .map(cloneView)

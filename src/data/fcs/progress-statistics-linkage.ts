@@ -19,9 +19,9 @@ import {
 } from './pda-handover-events.ts'
 import {
   getSpecialCraftTasksByProductionOrder,
-  listSpecialCraftTaskWorkOrderLines,
-  listSpecialCraftTaskWorkOrders,
+  getSpecialCraftTaskOrders,
   listSpecialCraftTaskOrders,
+  type SpecialCraftTaskDemandLine,
   type SpecialCraftTaskStatus,
 } from './special-craft-task-orders.ts'
 import { getSpecialCraftFlowRule, getSpecialCraftOperationById } from './special-craft-operations.ts'
@@ -370,7 +370,7 @@ function buildCuttingSpecialCraftProjectionBindings(): CuttingSpecialCraftProjec
     taskOrdersByProductionOrderId.set(taskOrder.productionOrderId, list)
   })
   const workOrderLineByDemandLineId = new Map(
-    listSpecialCraftTaskWorkOrderLines().map((line) => [line.demandLineId, line] as const),
+    taskOrders.flatMap((to) => (to.demandLines || []).map((line) => [line.demandLineId, line] as const)),
   )
   const operationById = new Map<string, NonNullable<ReturnType<typeof getSpecialCraftOperationById>>>()
   const getOperation = (operationId: string) => {
@@ -416,7 +416,7 @@ function buildCuttingSpecialCraftProjectionBindings(): CuttingSpecialCraftProjec
           taskOrderId: taskOrder.taskOrderId,
           taskOrderNo: taskOrder.taskOrderNo,
           demandLineId: line.demandLineId,
-          workOrderId: workOrderLine?.workOrderId || taskOrder.workOrderIds?.[0] || '',
+          workOrderId: workOrderLine?.taskOrderId || taskOrder.workOrderIds?.[0] || '',
           operationId: operation.operationId,
           operationName: operation.operationName,
           targetFactoryId: taskOrder.assignedFactoryId || taskOrder.suggestedFactoryId || taskOrder.factoryId,
@@ -452,7 +452,7 @@ function buildCuttingSpecialCraftProjectionBindings(): CuttingSpecialCraftProjec
           taskOrderId: taskOrder.taskOrderId,
           taskOrderNo: taskOrder.taskOrderNo,
           demandLineId: line.demandLineId,
-          workOrderId: workOrderLine?.workOrderId || taskOrder.workOrderIds?.[0] || '',
+          workOrderId: workOrderLine?.taskOrderId || taskOrder.workOrderIds?.[0] || '',
           operationId: operation.operationId,
           operationName: operation.operationName,
           targetFactoryId: taskOrder.assignedFactoryId || taskOrder.suggestedFactoryId || taskOrder.factoryId,
@@ -527,7 +527,7 @@ function listCuttingSpecialCraftFeiTicketBindingsForProjection(): CuttingSpecial
 }
 
 let cuttingSpecialCraftProjectionBindingsByProductionOrderCache: Map<string, CuttingSpecialCraftProjectionBinding[]> | null = null
-let specialCraftTaskWorkOrderLinesCache: ReturnType<typeof listSpecialCraftTaskWorkOrderLines> | null = null
+let specialCraftTaskWorkOrderLinesCache: SpecialCraftTaskDemandLine[] | null = null
 
 function getCuttingSpecialCraftProjectionBindingsByProductionOrder(productionOrderId: string): CuttingSpecialCraftProjectionBinding[] {
   if (!cuttingSpecialCraftProjectionBindingsByProductionOrderCache) {
@@ -541,9 +541,9 @@ function getCuttingSpecialCraftProjectionBindingsByProductionOrder(productionOrd
   return cuttingSpecialCraftProjectionBindingsByProductionOrderCache!.get(productionOrderId) || []
 }
 
-function getSpecialCraftTaskWorkOrderLinesCached(): ReturnType<typeof listSpecialCraftTaskWorkOrderLines> {
+function getSpecialCraftTaskDemandLinesCached(): SpecialCraftTaskDemandLine[] {
   if (!specialCraftTaskWorkOrderLinesCache) {
-    specialCraftTaskWorkOrderLinesCache = listSpecialCraftTaskWorkOrderLines()
+    specialCraftTaskWorkOrderLinesCache = listSpecialCraftTaskOrders().flatMap((to) => to.demandLines || [])
   }
   return specialCraftTaskWorkOrderLinesCache
 }
@@ -1093,7 +1093,7 @@ export function buildProductionProgressSnapshot(order: ProductionOrder): Product
   const blockingReasons = buildProgressBlockingReasons(order)
   const specialCraftTasks = getSpecialCraftTasksByProductionOrder(order.productionOrderId)
   const specialCraftBindings = getCuttingSpecialCraftProjectionBindingsByProductionOrder(order.productionOrderId)
-  const specialCraftWorkOrders = listSpecialCraftTaskWorkOrders().filter((workOrder) => workOrder.productionOrderId === order.productionOrderId)
+  const specialCraftWorkOrders = getSpecialCraftTaskOrders().filter((workOrder) => workOrder.productionOrderId === order.productionOrderId)
   const techPackSpecialCraftSource = getTechPackSpecialCraftSourceSummary(order)
   const transferBagCombinedWritebackStatus = (() => {
     const recordStatuses = listPdaHandoverHeads()
@@ -1184,9 +1184,9 @@ export function buildCuttingProgressSnapshot(order: ProductionOrder): CuttingPro
   const handover = buildHandoverProgressSnapshot(order)
   const blockingReasons = buildProgressBlockingReasons(order)
   const specialCraftBindings = getCuttingSpecialCraftProjectionBindingsByProductionOrder(order.productionOrderId)
-  const relatedWorkOrderIds = new Set(specialCraftBindings.map((binding) => binding.workOrderId))
-  const bundleLines = getSpecialCraftTaskWorkOrderLinesCached().filter((line) =>
-    relatedWorkOrderIds.has(line.workOrderId),
+  const relatedWorkOrderIds = new Set(specialCraftBindings.map((binding) => binding.taskOrderId))
+  const bundleLines = getSpecialCraftTaskDemandLinesCached().filter((line) =>
+    relatedWorkOrderIds.has(line.taskOrderId),
   )
   const techPackSpecialCraftSource = getTechPackSpecialCraftSourceSummary(order)
   const cuttingOrderNos = unique(prepRows.map((line) => line.cutPieceOrderNo).concat(tickets.map((ticket) => ticket.cutOrderNo)))
@@ -1269,8 +1269,8 @@ const emptyStatusDistribution = (): Record<SpecialCraftTaskStatus, number> => ({
 export function buildSpecialCraftProgressSnapshots(options: ProgressStatisticsBuildOptions = {}): SpecialCraftProgressSnapshot[] {
   const tasks = listSpecialCraftTaskOrders()
   const bindings = listCuttingSpecialCraftFeiTicketBindingsForProjection()
-  const workOrders = listSpecialCraftTaskWorkOrders()
-  const workOrderLines = listSpecialCraftTaskWorkOrderLines()
+  const workOrders = tasks
+  const workOrderLines = tasks.flatMap((to) => to.demandLines || [])
   const productionOrderMap = new Map(productionOrders.map((order) => [order.productionOrderId, order] as const))
   const groups = new Map<string, SpecialCraftProgressSnapshot>()
 
@@ -1347,7 +1347,7 @@ export function buildSpecialCraftProgressSnapshots(options: ProgressStatisticsBu
   })
 
   workOrderLines.forEach((line) => {
-    const workOrder = workOrders.find((item) => item.workOrderId === line.workOrderId)
+    const workOrder = workOrders.find((item) => item.taskOrderId === line.taskOrderId)
     if (!workOrder) return
     const key = [workOrder.operationId, workOrder.factoryId, workOrder.productionOrderId].join('::')
     const existing = groups.get(key)

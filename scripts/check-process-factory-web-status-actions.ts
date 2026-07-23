@@ -12,6 +12,7 @@ import {
 } from '../src/data/fcs/process-web-status-actions.ts'
 import { validatePrintWorkOrderMobileTaskBinding } from '../src/data/fcs/process-mobile-task-binding.ts'
 import { getPlatformStatusForProcessWorkOrder } from '../src/data/fcs/process-platform-status-adapter.ts'
+import { listSpecialCraftTaskOrders } from '../src/data/fcs/special-craft-task-orders.ts'
 import { getProcessWorkOrderById } from '../src/data/fcs/process-work-order-domain.ts'
 
 const root = process.cwd()
@@ -56,18 +57,18 @@ assertIncludes(modulePath, 'Web 端', 'Web 操作记录来源必须为 Web 端')
 assertIncludes('src/pages/process-factory/printing/work-order-detail.ts', '可执行动作', '印花详情页缺少可执行动作区域')
 assertIncludes('src/pages/process-factory/dyeing/work-order-detail.ts', '可执行动作', '染色详情页缺少可执行动作区域')
 assertIncludes('src/pages/process-factory/cutting/cut-orders.ts', '可执行动作', '裁片详情缺少可执行动作区域')
-assertIncludes('src/pages/process-factory/special-craft/work-order-detail.ts', '可执行动作', '特殊工艺详情页缺少可执行动作区域')
+assertIncludes('src/pages/process-factory/special-craft/work-order-detail.ts', 'window.location.replace', '特殊工艺加工单详情页已改为重定向')
 assertIncludes('src/pages/process-factory/printing/events.ts', 'executeProcessWebAction', '印花页面未接入 Web 操作执行')
 assertIncludes('src/pages/process-factory/dyeing/events.ts', 'executeProcessWebAction', '染色页面未接入 Web 操作执行')
 assertIncludes('src/pages/process-factory/cutting/cut-orders.ts', 'executeProcessWebAction', '裁片页面未接入 Web 操作执行')
-assertIncludes('src/pages/process-factory/special-craft/work-order-detail.ts', 'openProcessWebStatusActionDialog', '特殊工艺页面未接入 Web 操作弹窗')
-assertIncludes('src/pages/process-factory/special-craft/work-order-detail.ts', 'handleProcessWebStatusActionDialogEvent', '特殊工艺页面未接入 Web 操作弹窗确认事件')
+assertIncludes('src/pages/process-factory/special-craft/task-detail.ts', 'openProcessWebStatusActionDialog', '特殊工艺任务页面未接入 Web 操作弹窗')
+assertIncludes('src/pages/process-factory/special-craft/task-detail.ts', 'handleProcessWebStatusActionDialogEvent', '特殊工艺任务页面未接入 Web 操作弹窗确认事件')
 assertIncludes('src/pages/process-factory/shared/web-status-action-dialog.ts', 'executeProcessWebAction', '特殊工艺弹窗确认后应通过统一 Web 操作执行')
 
 assertNotIncludes(modulePath, '任意状态', '不得提供自由状态跳转')
 assertNotIncludes('src/pages/process-factory/printing/work-order-detail.ts', '<select name="status"', '印花详情不得提供自由状态下拉')
 assertNotIncludes('src/pages/process-factory/dyeing/work-order-detail.ts', '<select name="status"', '染色详情不得提供自由状态下拉')
-assertNotIncludes('src/pages/process-factory/special-craft/work-order-detail.ts', '<select name="status"', '特殊工艺详情不得提供自由状态下拉')
+assertNotIncludes('src/pages/process-factory/special-craft/task-detail.ts', '<select name="status"', '特殊工艺任务详情不得提供自由状态下拉')
 assertNotIncludes(modulePath, '开扣眼', '特殊工艺动作不得出现开扣眼')
 assertNotIncludes(modulePath, '装扣子', '特殊工艺动作不得出现装扣子')
 assertNotIncludes(modulePath, '熨烫', '特殊工艺动作不得出现熨烫')
@@ -84,7 +85,9 @@ const dyeActions = getAvailableDyeWebActions('DWO-012')
 assert(dyeActions.some((action) => action.actionLabel === '开始染色' || action.actionLabel === '排染缸'), '染色待排缸状态应可排染缸或开始染色')
 const cuttingActions = listAvailableWebActions('CUTTING_ORDER', 'ORIG-CUT-202603-001')
 assert(Array.isArray(cuttingActions), '裁片动作查询应返回动作数组')
-const specialActions = getAvailableSpecialCraftWebActions('SC-TASK-SC-OP-064-01-WO-001-')
+const specialSampleTask = listSpecialCraftTaskOrders().find((t) => t.status === '加工中')
+assert(specialSampleTask, '缺少加工中特殊工艺任务')
+const specialActions = getAvailableSpecialCraftWebActions(specialSampleTask.taskOrderId)
 assert(specialActions.some((action) => action.actionLabel === '完成加工' || action.actionLabel === '上报差异'), '特殊工艺加工中应可完成加工或上报差异')
 
 const invalidValidation = validateProcessWebAction({

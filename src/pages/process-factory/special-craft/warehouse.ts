@@ -1,5 +1,5 @@
 import {
-  buildSpecialCraftWorkOrderDetailPath,
+  buildSpecialCraftTaskDetailPath,
   getSpecialCraftManagementDomainBySlug,
   listOperationDefinitionsByManagementDomain,
   type SpecialCraftOperationDefinition,
@@ -362,11 +362,11 @@ function renderWarehouseStateBar(domainSlug: string, mode: SpecialCraftWarehouse
 
 function renderDomainWorkOrderAction(
   operations: SpecialCraftOperationDefinition[],
-  record: { craftName: string; sourceWorkOrderId: string },
+  record: { craftName: string; sourceTaskOrderId: string },
 ): string {
   const operation = findOperationByCraftName(operations, record.craftName)
   if (!operation) return `<span class="text-sm text-slate-400">未匹配工艺</span>`
-  return `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildSpecialCraftWorkOrderDetailPath(operation, record.sourceWorkOrderId))}">查看加工单</button>`
+  return `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildSpecialCraftTaskDetailPath(operation, record.sourceTaskOrderId))}">查看加工单</button>`
 }
 
 function buildSpecialWarehouseFlowLines(record: ProcessWarehouseRecord): FactoryWarehouseFlowLine[] {
@@ -863,7 +863,7 @@ function renderWaitProcessStockRows(items: FactoryWaitProcessStockItem[], operat
       <td class="px-3 py-3">${renderStatusBadge(item.status)}</td>
       <td class="px-3 py-3">
         <div class="flex flex-wrap gap-2">
-          ${renderDomainWorkOrderAction(operations, { craftName: item.craftName || '', sourceWorkOrderId: item.taskId || item.sourceRecordId })}
+          ${renderDomainWorkOrderAction(operations, { craftName: item.craftName || '', sourceTaskOrderId: item.taskId || item.sourceRecordId })}
           ${renderWarehouseFlowButton(`${item.sourceRecordNo} 库存流水`, buildUnifiedWaitProcessFlowLines(item))}
         </div>
       </td>
@@ -949,7 +949,7 @@ function renderWaitHandoverStockRows(
       <td class="px-3 py-3">${renderStatusBadge(item.status)}</td>
       <td class="px-3 py-3">
         <div class="flex flex-wrap gap-2">
-          ${renderDomainWorkOrderAction(operations, { craftName: item.craftName || '', sourceWorkOrderId: item.taskId || item.stockItemId })}
+          ${renderDomainWorkOrderAction(operations, { craftName: item.craftName || '', sourceTaskOrderId: item.taskId || item.stockItemId })}
           ${item.status === '待交出' ? `<button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildAuxiliaryWarehouseHref(domainSlug, 'wait-handover', { action: 'handover-confirm' }))}">交出确认</button>` : ''}
           ${renderWarehouseFlowButton(`${item.stockItemId} 库存流水`, buildUnifiedWaitHandoverFlowLines(item))}
         </div>
