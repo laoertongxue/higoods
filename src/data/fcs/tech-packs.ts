@@ -327,9 +327,11 @@ export interface TechPackSizeRow {
   tolerance: number
 }
 
+export type TechPackBomItemType = '面料' | '辅料' | '包装材料' | '成衣' | '其他'
+
 export interface TechPackBomItem {
   id: string
-  type: string
+  type: TechPackBomItemType
   name: string
   spec: string
   materialCode?: string
@@ -354,6 +356,7 @@ export interface TechPackBomItem {
   linkedPatternIds?: string[]
   // 当前 BOM 行用于哪些工序
   usageProcessCodes?: string[]
+  remark?: string
 }
 
 export type TechPackColorMappingStatus =
@@ -741,6 +744,26 @@ export function validateTechPackForPublish(techPack: TechPack): string[] {
   const pieceSpecialCraftKeys = new Set<string>()
   const errors: string[] = []
 
+  techPack.bomItems
+    .filter((item) => item.type === '成衣')
+    .forEach((item) => {
+      if ((item.applicableSkuCodes ?? []).length === 0) {
+        errors.push(`成衣 BOM「${item.name || item.id}」必须选择至少一个适用 SKU`)
+      }
+    })
+
+  const garmentBomIds = new Set(
+    techPack.bomItems.filter((item) => item.type === '成衣').map((item) => item.id),
+  )
+  ;(techPack.processEntries ?? [])
+    .filter((entry) => entry.isSpecialCraft && normalizeSpecialCraftTargetObjectLabel(entry.selectedTargetObject) === '成衣')
+    .forEach((entry) => {
+      const linkedBomItemIds = entry.linkedBomItemIds ?? []
+      if (linkedBomItemIds.length === 0 || linkedBomItemIds.some((id) => !garmentBomIds.has(id))) {
+        errors.push(`成衣辅助工艺「${entry.craftName || entry.processName}」必须关联成衣 BOM`)
+      }
+    })
+
   techPack.patternFiles.forEach((patternFile) => {
     ;(patternFile.pieceRows ?? []).forEach((pieceRow) => {
       const partName = String(pieceRow.name || '').trim() || '未命名部位'
@@ -899,7 +922,9 @@ export function resolveTechPackProcessEntryRule(entry: TechPackProcessEntry): Te
     : undefined
   const supportedTargetObjectLabels = craftDef?.isSpecialCraft
     ? (entry.supportedTargetObjectLabels?.length
-        ? [...entry.supportedTargetObjectLabels]
+        ? entry.supportedTargetObjectLabels
+            .map((label) => normalizeSpecialCraftTargetObjectLabel(label))
+            .filter((label): label is TechPackSpecialCraftTargetObject => Boolean(label))
         : getSpecialCraftSupportedTargetObjectLabels(supportedTargetObjects ?? []))
     : undefined
   const selectedTargetObject = craftDef?.isSpecialCraft

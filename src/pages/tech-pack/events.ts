@@ -11,6 +11,8 @@ import {
 import { normalizeBomRequirement } from './bom-process-linkage.ts'
 import { buildPatternSignature, checkDuplicatePattern } from './pattern-duplicate-check.ts'
 import { renderPieceInstanceSpecialCraftDialog } from './pattern-domain.ts'
+import { renderBomFormDialog } from './bom-domain.ts'
+import { renderAddTechniqueDialog } from './process-domain.ts'
 import {
   publishTechnicalDataVersion,
   saveTechnicalDataVersionRecordMeta,
@@ -75,6 +77,7 @@ import {
   getSkuOptionsForCurrentSpu,
   normalizePatternPieceRows,
   normalizePatternBindingStrips,
+  normalizeGarmentBomItem,
   normalizeTechniqueRoutes,
   generatePieceInstancesFromColorQuantities,
   summarizePieceInstances,
@@ -99,6 +102,10 @@ import {
   syncMaterialCostRows,
   syncProcessCostRows,
   syncTechPackToStore,
+  partitionBomItemsByType,
+  removeGarmentBomReverseReferences,
+  validateGarmentTechniqueBomLinks,
+  validateGarmentBomItem,
   toTimestamp,
   touchMappingAsManual,
   updateColorMapping,
@@ -115,6 +122,20 @@ import type {
 } from './context.ts'
 
 const PATTERN_IMAGE_PREVIEW_MODAL_ID = 'tech-pack-pattern-image-preview-modal'
+
+function refreshBomFormDialogDom(): void {
+  if (typeof document === 'undefined') return
+  const dialog = document.querySelector<HTMLElement>('[data-testid="tech-pack-bom-form-dialog"]')
+  const html = renderBomFormDialog()
+  if (dialog && html) dialog.outerHTML = html
+}
+
+function refreshTechniqueFormDialogDom(): void {
+  if (typeof document === 'undefined') return
+  const dialog = document.querySelector<HTMLElement>('[data-testid="tech-pack-technique-form-dialog"]')
+  const html = renderAddTechniqueDialog()
+  if (dialog && html) dialog.outerHTML = html
+}
 
 function openProductionChangeEvaluationFromPublishedVersion(
   record: ReturnType<typeof publishTechnicalDataVersion>,
@@ -434,7 +455,13 @@ function saveProcessRouteDraft(nextDraft: ProcessRouteDraftState): void {
 
 function applyProcessRouteActionToState(action: ProcessRouteDraftAction): void {
   const currentDraft = getProcessRouteDraftFromState()
-  const nextDraft = applyProcessRouteDraftAction(currentDraft, action)
+  const nextDraft = applyProcessRouteDraftAction(
+    currentDraft,
+    action,
+    currentUser.name,
+    toTimestamp(),
+    (message) => window.alert(message),
+  )
   if (getProcessRouteDraftSignature(nextDraft) === getProcessRouteDraftSignature(currentDraft)) return
   saveProcessRouteDraft(nextDraft)
 }
@@ -444,6 +471,7 @@ function buildUnconfirmedRouteDraft(
   groups: TechniqueRouteGroup[],
   operatorName: string,
   updatedAt: string,
+  onInvalidDyePrintOrder: (message: string) => void,
 ): ProcessRouteDraftState {
   const techniques = normalizeTechniqueRoutes(flattenTechniqueRouteGroups(groups, operatorName, updatedAt))
   const waterSoluble = techniques.find((item) => item.processCode === 'WATER_SOLUBLE')
@@ -451,6 +479,10 @@ function buildUnconfirmedRouteDraft(
   const dyeBomItemIds = new Set(dye?.linkedBomItemIds ?? [])
   const sharesBomItem = (waterSoluble?.linkedBomItemIds ?? []).some((id) => dyeBomItemIds.has(id))
   if (waterSoluble && dye && sharesBomItem && waterSoluble.routeStepNo >= dye.routeStepNo) {
+    return normalizeRouteDraft(input)
+  }
+  if (hasInvalidDyePrintOrder(techniques)) {
+    onInvalidDyePrintOrder(INVALID_DYE_PRINT_ORDER_MESSAGE)
     return normalizeRouteDraft(input)
   }
   return {
@@ -471,14 +503,33 @@ function normalizeRouteDraft(input: ProcessRouteDraftState): ProcessRouteDraftSt
   }
 }
 
+const INVALID_DYE_PRINT_ORDER_MESSAGE = '同一物料必须先染色、后印花，请调整工艺顺序'
+
+export function hasInvalidDyePrintOrder(techniques: TechniqueItem[]): boolean {
+  const dyeEntries = techniques.filter((item) => item.processCode === 'DYE')
+  const printEntries = techniques.filter((item) => item.processCode === 'PRINT')
+  return dyeEntries.some((dye) => {
+    const dyeBomIds = new Set(dye.linkedBomItemIds ?? [])
+    return printEntries.some((print) =>
+      (print.linkedBomItemIds ?? []).some((id) => dyeBomIds.has(id))
+      && print.routeStepNo <= dye.routeStepNo,
+    )
+  })
+}
+
 export function applyProcessRouteDraftAction(
   input: ProcessRouteDraftState,
   action: ProcessRouteDraftAction,
   operatorName = currentUser.name,
   operatedAt = toTimestamp(),
+  onInvalidDyePrintOrder: (message: string) => void = () => undefined,
 ): ProcessRouteDraftState {
   if (action.type === 'confirm') {
     if (input.techniques.length === 0) return normalizeRouteDraft(input)
+    if (hasInvalidDyePrintOrder(input.techniques)) {
+      onInvalidDyePrintOrder(INVALID_DYE_PRINT_ORDER_MESSAGE)
+      return normalizeRouteDraft(input)
+    }
     return {
       ...input,
       techniques: normalizeTechniqueRoutes(input.techniques).map((item) => ({
@@ -503,21 +554,21 @@ export function applyProcessRouteDraftAction(
     if (targetIndex < 0 || targetIndex >= groups.length) return normalizeRouteDraft(input)
     const nextGroups = [...groups]
     ;[nextGroups[index], nextGroups[targetIndex]] = [nextGroups[targetIndex], nextGroups[index]]
-    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt)
+    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt, onInvalidDyePrintOrder)
   }
 
   if (action.type === 'make-parallel-previous') {
     if (index === 0) return normalizeRouteDraft(input)
     const nextGroups = [...groups]
     nextGroups.splice(index - 1, 2, { items: [...groups[index - 1].items, ...groups[index].items] })
-    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt)
+    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt, onInvalidDyePrintOrder)
   }
 
   if (action.type === 'make-parallel-next') {
     if (index >= groups.length - 1) return normalizeRouteDraft(input)
     const nextGroups = [...groups]
     nextGroups.splice(index, 2, { items: [...groups[index].items, ...groups[index + 1].items] })
-    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt)
+    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt, onInvalidDyePrintOrder)
   }
 
   if (action.type === 'remove-from-parallel') {
@@ -532,7 +583,7 @@ export function applyProcessRouteDraftAction(
       { items: group.items.filter((item) => item.id !== action.techniqueId) },
       { items: [removed] },
     )
-    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt)
+    return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt, onInvalidDyePrintOrder)
   }
 
   const group = groups[index]
@@ -550,7 +601,7 @@ export function applyProcessRouteDraftAction(
       routeUpdatedAt: operatedAt,
     })),
   }
-  return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt)
+  return buildUnconfirmedRouteDraft(input, nextGroups, operatorName, operatedAt, onInvalidDyePrintOrder)
 }
 
 function moveTechniqueRoute(techId: string, direction: 'up' | 'down'): void {
@@ -2183,7 +2234,38 @@ function handleTechPackField(
   }
 
   if (field === 'new-bom-type') {
-    state.newBomItem.type = value
+    state.newBomItem.type = value as BomItemRow['type']
+    if (state.newBomItem.type === '成衣') {
+      const normalized = normalizeGarmentBomItem({
+        ...state.newBomItem,
+        id: state.editBomItemId || 'bom-garment-draft',
+        usage: Number.parseFloat(state.newBomItem.usage) || 0,
+        lossRate: Number.parseFloat(state.newBomItem.lossRate) || 0,
+      })
+      state.newBomItem = {
+        ...state.newBomItem,
+        type: normalized.type,
+        materialCode: normalized.materialCode,
+        materialName: normalized.materialName,
+        spec: normalized.spec,
+        unit: normalized.unit,
+        patternPieces: normalized.patternPieces,
+        linkedPatternIds: normalized.linkedPatternIds,
+        usage: String(normalized.usage),
+        lossRate: String(normalized.lossRate),
+        printRequirement: normalized.printRequirement,
+        waterSolubleRequirement: normalized.waterSolubleRequirement,
+        dyeRequirement: normalized.dyeRequirement,
+        shrinkRequirement: normalized.shrinkRequirement,
+        washRequirement: normalized.washRequirement,
+        printSideMode: normalized.printSideMode,
+        frontPatternDesignId: normalized.frontPatternDesignId,
+        frontPatternDesignIds: normalized.frontPatternDesignIds,
+        insidePatternDesignId: normalized.insidePatternDesignId,
+        insidePatternDesignIds: normalized.insidePatternDesignIds,
+      }
+    }
+    refreshBomFormDialogDom()
     return true
   }
   if (field === 'new-bom-color-label') {
@@ -2196,6 +2278,10 @@ function handleTechPackField(
   }
   if (field === 'new-bom-material-name') {
     state.newBomItem.materialName = value
+    return true
+  }
+  if (field === 'new-bom-remark') {
+    state.newBomItem.remark = value
     return true
   }
   if (field === 'new-bom-spec') {
@@ -2262,8 +2348,15 @@ function handleTechPackField(
   }
   if (field === 'new-bom-apply-all-sku') {
     if (checked) {
-      state.newBomItem.applicableSkuCodes = []
+      const skuOptions = getSkuOptionsForCurrentSpu()
+      state.newBomItem.applicableSkuCodes = state.newBomItem.type === '成衣'
+        ? skuOptions.map((item) => item.skuCode)
+        : []
       state.newBomItem.colorLabel = '全部SKU（当前未区分颜色）'
+    } else if (state.newBomItem.type === '成衣') {
+      const skuOptions = getSkuOptionsForCurrentSpu()
+      state.newBomItem.applicableSkuCodes = skuOptions.length > 0 ? [skuOptions[0].skuCode] : []
+      state.newBomItem.colorLabel = skuOptions[0]?.color || ''
     } else if (state.newBomItem.applicableSkuCodes.length === 0) {
       const skuOptions = getSkuOptionsForCurrentSpu()
       if (skuOptions.length > 0) {
@@ -2273,6 +2366,7 @@ function handleTechPackField(
         }
       }
     }
+    refreshBomFormDialogDom()
     return true
   }
   if (field === 'new-bom-sku') {
@@ -2287,6 +2381,7 @@ function handleTechPackField(
         (code) => code !== skuCode,
       )
     }
+    refreshBomFormDialogDom()
     return true
   }
   if (field === 'new-bom-usage-process') {
@@ -2360,10 +2455,12 @@ function handleTechPackField(
       ...state.newTechnique,
       craftCode: value,
       selectedTargetObject,
+      linkedBomItemIds: [],
       packagingRequired: craft?.craftName === '整件毛织' ? state.newTechnique.packagingRequired : false,
       outputValue: craft ? String(craft.referenceOutputValueValue) : state.newTechnique.outputValue,
       outputValueUnit: craft ? craft.referenceOutputValueUnitLabel : state.newTechnique.outputValueUnit,
     }
+    refreshTechniqueFormDialogDom()
     return true
   }
   if (field === 'new-technique-packaging-required') {
@@ -2372,6 +2469,19 @@ function handleTechPackField(
   }
   if (field === 'new-technique-target-object') {
     state.newTechnique.selectedTargetObject = value as TechPackSpecialCraftTargetObject
+    if (state.newTechnique.selectedTargetObject !== '成衣') state.newTechnique.linkedBomItemIds = []
+    refreshTechniqueFormDialogDom()
+    return true
+  }
+  if (field === 'new-technique-garment-bom') {
+    const bomId = node.dataset.bomId
+    if (!bomId) return true
+    const garmentBomIds = new Set(state.bomItems.filter((item) => item.type === '成衣').map((item) => item.id))
+    if (!garmentBomIds.has(bomId)) return true
+    const nextIds = new Set(state.newTechnique.linkedBomItemIds)
+    if (checked) nextIds.add(bomId)
+    else nextIds.delete(bomId)
+    state.newTechnique.linkedBomItemIds = Array.from(nextIds)
     return true
   }
   if (field === 'new-technique-rule-source') {
@@ -2418,6 +2528,7 @@ function handleTechPackField(
   if (field === 'bom-print') {
     const bomId = node.dataset.bomId
     if (!bomId) return true
+    if (state.bomItems.some((item) => item.id === bomId && item.type === '成衣')) return true
     state.bomItems = state.bomItems.map((item) =>
       item.id === bomId
         ? {
@@ -2441,6 +2552,7 @@ function handleTechPackField(
   if (field === 'bom-dye') {
     const bomId = node.dataset.bomId
     if (!bomId) return true
+    if (state.bomItems.some((item) => item.id === bomId && item.type === '成衣')) return true
     state.bomItems = state.bomItems.map((item) =>
       item.id === bomId ? { ...item, dyeRequirement: value } : item,
     )
@@ -2451,6 +2563,7 @@ function handleTechPackField(
     const bomId = node.dataset.bomId
     if (!bomId) return true
     const current = state.bomItems.find((item) => item.id === bomId)
+    if (current?.type === '成衣') return true
     const nextRequirement = normalizeBomRequirement(value)
     if (current && findBomItemMissingUnitForWaterSoluble([{ ...current, waterSolubleRequirement: nextRequirement }])) {
       window.alert('该物料缺少单位，不能勾选水溶。请先补充物料单位。')
@@ -2466,6 +2579,7 @@ function handleTechPackField(
   if (field === 'bom-shrink') {
     const bomId = node.dataset.bomId
     if (!bomId) return true
+    if (state.bomItems.some((item) => item.id === bomId && item.type === '成衣')) return true
     state.bomItems = state.bomItems.map((item) =>
       item.id === bomId ? { ...item, shrinkRequirement: normalizeBomRequirement(value) } : item,
     )
@@ -2475,6 +2589,7 @@ function handleTechPackField(
   if (field === 'bom-wash') {
     const bomId = node.dataset.bomId
     if (!bomId) return true
+    if (state.bomItems.some((item) => item.id === bomId && item.type === '成衣')) return true
     state.bomItems = state.bomItems.map((item) =>
       item.id === bomId ? { ...item, washRequirement: normalizeBomRequirement(value) } : item,
     )
@@ -2821,6 +2936,12 @@ function handleTechPackField(
 function performRelease(): void {
   if (!state.techPack) return
   syncTechPackToStore()
+  const validation = validateTechPackForPublish(state.techPack)
+  if (validation.length > 0) {
+    state.compatibilityMessage = validation[0] || '请检查技术包'
+    state.releaseDialogOpen = false
+    return
+  }
   if (state.currentTechnicalVersionId) {
     try {
       const record = publishTechnicalDataVersion(state.currentTechnicalVersionId, currentUser.name)
@@ -2835,12 +2956,6 @@ function performRelease(): void {
     } catch (error) {
       state.compatibilityMessage = error instanceof Error ? error.message : '发布技术包版本失败'
     }
-    state.releaseDialogOpen = false
-    return
-  }
-  const validation = validateTechPackForPublish(state.techPack)
-  if (validation.length > 0) {
-    state.compatibilityMessage = validation[0] || '请检查技术包'
     state.releaseDialogOpen = false
     return
   }
@@ -3781,6 +3896,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       frontPatternDesignIds: getBomPatternDesignIds(bom, 'FRONT'),
       insidePatternDesignId: getPrimaryBomPatternDesignId(bom, 'INSIDE'),
       insidePatternDesignIds: getBomPatternDesignIds(bom, 'INSIDE'),
+      remark: bom.remark || '',
     }
     state.addBomDialogOpen = true
     return true
@@ -3823,7 +3939,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       : null
     const linkedPatternIds = editingBom ? [...editingBom.linkedPatternIds] : []
     const patternPieces = editingBom ? [...editingBom.patternPieces] : []
-    const nextBom: BomItemRow = {
+    const nextBom = normalizeGarmentBomItem({
       id: state.editBomItemId || `bom-${Date.now()}`,
       type: state.newBomItem.type,
       colorLabel: (() => {
@@ -3878,10 +3994,31 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         state.newBomItem.printRequirement === '无'
           ? []
           : insidePatternDesignIds,
+      remark: state.newBomItem.remark,
+    } satisfies BomItemRow)
+
+    const garmentValidationMessage = validateGarmentBomItem(nextBom)
+    if (garmentValidationMessage) {
+      window.alert(garmentValidationMessage)
+      return true
     }
 
     if (state.editBomItemId) {
+      const previousBomItems = state.bomItems
       state.bomItems = state.bomItems.map((item) => (item.id === state.editBomItemId ? nextBom : item))
+      if (nextBom.type === '成衣') {
+        const cleanedReferences = removeGarmentBomReverseReferences(
+          state.editBomItemId,
+          state.colorMaterialMappings,
+          state.patternItems,
+          previousBomItems,
+        )
+        state.colorMaterialMappings = cleanedReferences.colorMaterialMappings
+        state.patternItems = cleanedReferences.patternItems
+        if (cleanedReferences.conflicts.length > 0) {
+          state.compatibilityMessage = `有 ${cleanedReferences.conflicts.length} 条纸样物料身份冲突，系统已保留原关联，请人工确认`
+        }
+      }
     } else {
       state.bomItems = [...state.bomItems, nextBom]
     }
@@ -4052,6 +4189,11 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     if (!target) return true
     if (!canEditTechnique(target)) return true
     state.editTechniqueId = target.id
+    const garmentBomIds = new Set(partitionBomItemsByType(state.bomItems).garmentBomItems.map((item) => item.id))
+    const validGarmentBomLinks = (target.linkedBomItemIds ?? []).filter((id) => garmentBomIds.has(id))
+    if (target.selectedTargetObject === '成衣' && validGarmentBomLinks.length !== (target.linkedBomItemIds ?? []).length) {
+      state.compatibilityMessage = '已移除该成衣工艺中失效或非成衣 BOM 的历史关联，请重新确认后保存'
+    }
     state.newTechnique = {
       stageCode: target.stageCode,
       processCode: target.processCode,
@@ -4059,6 +4201,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       baselineProcessCode: target.entryType === 'PROCESS_BASELINE' ? target.processCode : '',
       craftCode: target.entryType === 'CRAFT' ? target.craftCode : '',
       selectedTargetObject: target.selectedTargetObject || '',
+      linkedBomItemIds: target.selectedTargetObject === '成衣' ? validGarmentBomLinks : [],
       packagingRequired: Boolean(target.packagingRequired),
       ruleSource: target.ruleSource,
       assignmentGranularity: target.assignmentGranularity,
@@ -4150,6 +4293,15 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const effectiveMeta = immutablePrepMeta ?? selectedMeta
 
     if (effectiveMeta.isSpecialCraft) {
+      const garmentLinkError = validateGarmentTechniqueBomLinks(
+        effectiveMeta.selectedTargetObject,
+        state.newTechnique.linkedBomItemIds,
+        state.bomItems,
+      )
+      if (garmentLinkError) {
+        window.alert(garmentLinkError)
+        return true
+      }
       const duplicate = state.techniques.some((item) =>
         item.id !== state.editTechniqueId
         && item.entryType === 'CRAFT'
@@ -4210,7 +4362,9 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       requiresFeiTicket: effectiveMeta.requiresFeiTicket,
       packagingRequired: effectiveMeta.packagingRequired,
       materialIssueMode: effectiveMeta.materialIssueMode,
-      linkedBomItemIds: effectiveMeta.linkedBomItemIds ? [...effectiveMeta.linkedBomItemIds] : undefined,
+      linkedBomItemIds: effectiveMeta.selectedTargetObject === '成衣'
+        ? [...state.newTechnique.linkedBomItemIds]
+        : effectiveMeta.linkedBomItemIds ? [...effectiveMeta.linkedBomItemIds] : undefined,
       linkedPatternIds: effectiveMeta.linkedPatternIds ? [...effectiveMeta.linkedPatternIds] : undefined,
       supportedTargetObjects: effectiveMeta.supportedTargetObjects ? [...effectiveMeta.supportedTargetObjects] : undefined,
       supportedTargetObjectLabels: effectiveMeta.supportedTargetObjectLabels ? [...effectiveMeta.supportedTargetObjectLabels] : undefined,
@@ -4223,13 +4377,16 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       ...routeFields,
     }
 
-    if (state.editTechniqueId) {
-      state.techniques = state.techniques.map((item) =>
-        item.id === state.editTechniqueId ? nextItem : item,
-      )
-    } else {
-      state.techniques = [...state.techniques, nextItem]
+    const nextTechniques = state.editTechniqueId
+      ? state.techniques.map((item) =>
+          item.id === state.editTechniqueId ? nextItem : item,
+        )
+      : [...state.techniques, nextItem]
+    if (hasInvalidDyePrintOrder(nextTechniques)) {
+      window.alert(INVALID_DYE_PRINT_ORDER_MESSAGE)
+      return true
     }
+    state.techniques = nextTechniques
 
     syncProcessCostRows()
     markProcessRouteUnconfirmed()

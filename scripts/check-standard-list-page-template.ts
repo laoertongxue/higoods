@@ -1211,7 +1211,7 @@ assert.match(
 assert.equal(countRecordRows(supplementHtml), 10, '默认当前页必须只渲染 10 条补料记录')
 const supplementTotal = Number(supplementHtml.match(/共 (\d+) 条/)?.[1] ?? 0)
 assert(supplementTotal >= 12, '补料管理必须提供至少 12 条确定性记录')
-assert(supplementHtml.includes('PR-SUP-') && supplementHtml.includes('DY-SUP-'), '补料列表必须保留印花与染色需求演示记录')
+assert(/PH-\d/.test(supplementHtml) && /DY-\d/.test(supplementHtml), '补料列表必须展示真实印花、染色加工单号')
 assert(supplementHtml.includes('1 / 2'), '默认 10 条/页时必须可进入第 2 页')
 assertDefaultPageSize(supplementHtml, '补料管理默认必须为 10 条/页')
 assert(supplementHtml.includes('data-skip-page-rerender="true"'), '局部交互控件必须跳过整页重渲染')

@@ -120,7 +120,6 @@ export interface TaskBreakdownSummary {
   generatedTaskUnitCount?: number
   singleProcessTaskCount?: number
   independentWorkOrderTaskCount?: number
-  independentRequirementCount?: number
   independentWorkOrderCount?: number
   combinedProcessTaskCount?: number
   wholeOrderTaskCount?: number
@@ -799,7 +798,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 2,
       singleProcessTaskCount: 1,
       independentWorkOrderTaskCount: 0,
-      independentRequirementCount: 1,
       independentWorkOrderCount: 0,
       combinedProcessTaskCount: 0,
       wholeOrderTaskCount: 1,
@@ -1069,7 +1067,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 1,
       singleProcessTaskCount: 0,
       independentWorkOrderTaskCount: 0,
-      independentRequirementCount: 0,
       independentWorkOrderCount: 0,
       combinedProcessTaskCount: 0,
       wholeOrderTaskCount: 1,
@@ -1131,7 +1128,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 6,
       singleProcessTaskCount: 6,
       independentWorkOrderTaskCount: 0,
-      independentRequirementCount: 6,
       independentWorkOrderCount: 0,
       combinedProcessTaskCount: 0,
       wholeOrderTaskCount: 0,
@@ -1164,7 +1160,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 1,
       singleProcessTaskCount: 0,
       independentWorkOrderTaskCount: 0,
-      independentRequirementCount: 0,
       independentWorkOrderCount: 0,
       combinedProcessTaskCount: 1,
       wholeOrderTaskCount: 0,
@@ -1197,7 +1192,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 1,
       singleProcessTaskCount: 0,
       independentWorkOrderTaskCount: 0,
-      independentRequirementCount: 1,
       independentWorkOrderCount: 0,
       combinedProcessTaskCount: 0,
       wholeOrderTaskCount: 1,
@@ -1265,7 +1259,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 6,
       singleProcessTaskCount: 6,
       independentWorkOrderTaskCount: 0,
-      independentRequirementCount: 6,
       independentWorkOrderCount: 0,
       combinedProcessTaskCount: 0,
       wholeOrderTaskCount: 0,
@@ -1301,7 +1294,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 2,
       singleProcessTaskCount: 1,
       independentWorkOrderTaskCount: 0,
-      independentRequirementCount: 1,
       independentWorkOrderCount: 0,
       combinedProcessTaskCount: 0,
       wholeOrderTaskCount: 1,
@@ -1437,7 +1429,6 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
       generatedTaskUnitCount: 1,
       singleProcessTaskCount: 0,
       independentWorkOrderTaskCount: 0,
-      independentRequirementCount: 0,
       independentWorkOrderCount: 0,
       combinedProcessTaskCount: 0,
       wholeOrderTaskCount: 1,
@@ -1451,7 +1442,204 @@ const productionOrderSeeds: ProductionOrderSeed[] = [
   },
 ]
 
-export const productionOrders: ProductionOrder[] = productionOrderSeeds.map((seed) => buildProductionOrderFromSeed(seed))
+function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): ProductionOrder {
+  const baseSnapshot = cloneProductionOrderTechPackSnapshot(base.techPackSnapshot)
+  if (!baseSnapshot) throw new Error('PO14671 补料检查生产单缺少技术包模板')
+  const colors = ['Black', 'White', 'Navy', 'Red']
+  const sizes = ['M', 'L', 'XL']
+  const qtyByColorSize: Record<string, Record<string, number>> = {
+    Black: { M: 215, L: 344, XL: 482 },
+    White: { M: 190, L: 280, XL: 340 },
+    Navy: { M: 180, L: 270, XL: 350 },
+    Red: { M: 170, L: 250, XL: 320 },
+  }
+  const skuLines = colors.flatMap((color) => sizes.map((size) => ({
+    skuCode: `ASYSA26060310-${color.toUpperCase()}-${size}`,
+    color,
+    size,
+    qty: qtyByColorSize[color][size],
+  })))
+  const skuCodes = skuLines.map((line) => line.skuCode)
+  const demandSnapshot: DemandSnapshot = {
+    demandId: 'DEM-PO14671-SUPPLEMENT',
+    spuCode: 'ASYSA26060310',
+    spuName: '女式基础圆领短袖',
+    buyerName: '宋雨',
+    merchandiserName: '林晓',
+    saleType: base.demandSnapshot.saleType,
+    priority: 'NORMAL',
+    requiredDeliveryDate: '2026-06-30',
+    constraintsNote: '裁片放行与补料链路专用冻结生产需求。',
+    skuLines,
+  }
+  const versionId = 'tdv-po-14671-v1'
+  const patternId = `${versionId}-pattern-main`
+  const bomDefinitions = [
+    ['A', '面料 A · 净色', '面料', 'front-a', '前片 A'],
+    ['B', '面料 B · 白色条', '面料', 'front-b', '前片 B'],
+    ['C', '面料 C · 兰色条', '面料', 'collar', '领片'],
+    ['D', '面料 D · 灰色条', '辅料', 'cuff', '袖口'],
+  ] as const
+  const bomItems = bomDefinitions.map(([materialCode, name, type]) => ({
+    id: `${versionId}-bom-${materialCode}`,
+    type,
+    name,
+    materialCode: `RELEASE-${materialCode}`,
+    spec: `${name} / 放行目标补料`,
+    colorLabel: colors.join(' / '),
+    unit: '件',
+    unitConsumption: 1,
+    lossRate: 0,
+    supplier: '生产单冻结技术包',
+    applicableSkuCodes: [...skuCodes],
+    linkedPatternIds: [patternId],
+    usageProcessCodes: ['CUT_PANEL'],
+  }))
+  const templatePattern = baseSnapshot.patternFiles[0]
+  if (!templatePattern) throw new Error('PO14671 补料检查生产单缺少纸样结构模板')
+  const pieceRows = bomDefinitions.map(([materialCode, , , pieceId, pieceName]) => ({
+    id: `${patternId}-${pieceId}`,
+    name: pieceName,
+    count: materialCode === 'B' ? 2 : 1,
+    specialCrafts: [],
+    applicableSkuCodes: [...skuCodes],
+    colorAllocations: colors.map((color) => ({
+      id: `${patternId}-${pieceId}-${color.toLowerCase()}`,
+      colorName: color,
+      skuCodes: skuLines.filter((line) => line.color === color).map((line) => line.skuCode),
+      pieceCount: materialCode === 'B' ? 2 : 1,
+    })),
+    sourceType: 'PARSED_PATTERN' as const,
+    candidatePartNames: [],
+    rawTextLabels: [],
+  }))
+  const patternFiles = [{
+    ...templatePattern,
+    id: patternId,
+    patternFileId: patternId,
+    patternName: 'ASYSA26060310 正式纸样',
+    patternFileName: 'ASYSA26060310-正式纸样.dxf',
+    fileName: 'ASYSA26060310-正式纸样.dxf',
+    fileUrl: 'local://production-order/PO14671/pattern',
+    dxfFileName: 'ASYSA26060310-正式纸样.dxf',
+    rulFileName: 'ASYSA26060310-正式纸样.rul',
+    singlePatternFileName: 'ASYSA26060310-正式纸样.dxf',
+    selectedSizeCodes: [...sizes],
+    sizeRange: sizes.join(' / '),
+    rulSizeList: [...sizes],
+    bindingStrips: [],
+    totalPieceCount: pieceRows.reduce((sum, row) => sum + row.count, 0),
+    pieceRows,
+    pieceInstances: [],
+  }]
+  const colorMaterialMappings = colors.map((color, colorIndex) => ({
+    id: `${versionId}-mapping-${colorIndex + 1}`,
+    spuCode: 'ASYSA26060310',
+    colorCode: color,
+    colorName: color,
+    status: 'CONFIRMED' as const,
+    generatedMode: 'AUTO' as const,
+    lines: bomDefinitions.map(([materialCode, name, type, pieceId, pieceName]) => ({
+      id: `${versionId}-mapping-${colorIndex + 1}-${materialCode}`,
+      bomItemId: `${versionId}-bom-${materialCode}`,
+      materialCode: `RELEASE-${materialCode}`,
+      materialName: name,
+      materialType: type,
+      patternId,
+      patternName: 'ASYSA26060310 正式纸样',
+      pieceId: `${patternId}-${pieceId}`,
+      pieceName,
+      pieceCountPerUnit: materialCode === 'B' ? 2 : 1,
+      unit: '件',
+      applicableSkuCodes: skuLines.filter((line) => line.color === color).map((line) => line.skuCode),
+      sourceMode: 'AUTO' as const,
+    })),
+  }))
+  const cutTemplate = baseSnapshot.processEntries.find((entry) => entry.processCode === 'CUT_PANEL')
+  if (!cutTemplate) throw new Error('PO14671 补料检查生产单缺少裁片工艺模板')
+  const processEntries = [{
+    ...cutTemplate,
+    id: `${versionId}-process-cut`,
+    linkedBomItemIds: bomItems.map((item) => item.id),
+    linkedPatternIds: [patternId],
+    routeStepNo: 1,
+    routeLaneNo: 1,
+  }]
+  const techPackSnapshot: ProductionOrderTechPackSnapshot = {
+    snapshotId: 'snapshot-po-14671-v1',
+    productionOrderId: 'po-14671',
+    productionOrderNo: 'PO14671',
+    styleId: 'STYLE-ASYSA26060310',
+    styleCode: 'ASYSA26060310',
+    styleName: '女式基础圆领短袖',
+    status: 'RELEASED',
+    versionLabel: 'V1.0',
+    sourceTechPackVersionId: versionId,
+    sourceTechPackVersionCode: 'TDV-PO14671-V1',
+    sourceTechPackVersionLabel: 'V1.0',
+    garmentDifficultyGrade: 'B',
+    sourcePublishedAt: '2026-06-03 07:20:00',
+    snapshotAt: '2026-06-03 07:30:00',
+    snapshotBy: '系统',
+    patternDesc: 'PO14671 裁片放行与补料专用冻结纸样。',
+    internalStyleCode: 'ASYSA26060310',
+    bomItems,
+    patternFiles,
+    processEntries,
+    sizeTable: [{ id: `${versionId}-size-1`, part: '胸围', S: 48, M: 50, L: 52, XL: 54, tolerance: 1 }],
+    sizeMeasurements: sizes.map((size, index) => ({
+      sizeCode: size,
+      measurementPart: '胸围',
+      measurementValue: 50 + index * 2,
+      measurementUnit: 'cm',
+      tolerance: 1,
+    })),
+    colorMaterialMappings,
+    cutPieceParts: bomDefinitions.map(([materialCode, name, , pieceId, pieceName]) => ({
+      partCode: `${patternId}-${pieceId}`,
+      partNameCn: pieceName,
+      pieceCountPerGarment: materialCode === 'B' ? 2 : 1,
+      materialSku: `RELEASE-${materialCode}`,
+      materialName: name,
+      applicableColorList: [...colors],
+      applicableSizeList: [...sizes],
+      specialCrafts: [],
+      manualConfirmRequired: false,
+    })),
+    imageSnapshot: {
+      productImages: [], styleImages: [], sampleImages: [], materialImages: [],
+      accessoryImages: [], patternImages: [], markerImages: [], artworkImages: [],
+    },
+    patternDesigns: [],
+    linkedRevisionTaskIds: [],
+    linkedPatternTaskIds: [],
+    linkedArtworkTaskIds: [],
+    completenessScore: 100,
+  }
+  return {
+    ...structuredClone(base),
+    productionOrderId: 'po-14671',
+    productionOrderNo: 'PO14671',
+    demandId: demandSnapshot.demandId,
+    sourceDemandIds: [demandSnapshot.demandId],
+    legacyOrderNo: 'PO14671',
+    selectedTechPackVersionId: 'tdv-po-14671-v1',
+    demandSnapshot,
+    sourceDemandSnapshots: [structuredClone(demandSnapshot)],
+    techPackSnapshot,
+    auditLogs: [
+      createAuditLog('LOG-PO14671-SUPPLEMENT', 'CREATE', '裁片放行与补料演示生产单已生成并冻结技术包 V1.0', '2026-06-03 07:30:00', '系统'),
+    ],
+    createdAt: '2026-06-03 07:30:00',
+    updatedAt: '2026-06-03 07:30:00',
+  }
+}
+
+const seededProductionOrders = productionOrderSeeds.map((seed) => buildProductionOrderFromSeed(seed))
+export const productionOrders: ProductionOrder[] = [
+  ...seededProductionOrders,
+  buildReleaseTargetSupplementProductionOrder(seededProductionOrders[1]),
+]
 
 export const productionOrderStatusConfig: Record<ProductionOrderStatus, { label: string; color: string }> = {
   DRAFT: { label: '草稿', color: 'bg-gray-100 text-gray-700' },

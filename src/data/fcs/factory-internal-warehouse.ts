@@ -1,6 +1,10 @@
 import type { Factory, FactoryType } from './factory-types.ts'
 import { factoryTypeConfig } from './factory-types.ts'
-import { mockFactories } from './factory-mock-data.ts'
+import {
+  DEDICATED_POST_FACTORY_ID,
+  DEDICATED_POST_FACTORY_NAME,
+  mockFactories,
+} from './factory-mock-data.ts'
 import { getProcessDefinitionByCode } from './process-craft-dict.ts'
 import type { WarehouseIssueLine, WarehouseIssueOrder } from './warehouse-material-execution.ts'
 import { listWarehouseIssueOrders } from './warehouse-material-execution.ts'
@@ -10,12 +14,17 @@ import {
   getPdaHandoverRecordsByHead,
   listPdaHandoverHeads,
 } from './pda-handover-events.ts'
+import type {
+  ProcessWorkOrderSourceSnapshot,
+  ProcessWorkOrderSourceType,
+} from './process-work-order-domain.ts'
 
 export type FactoryInternalWarehouseKind = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
 export type FactoryWarehouseLocationStatus = 'AVAILABLE' | 'STOPPED'
 export type FactoryWarehouseSourceRecordType = 'MATERIAL_PICKUP' | 'HANDOVER_RECEIVE' | 'TRANSFER_RECEIVE' | 'STOCKTAKE_ADJUSTMENT'
 export type FactoryWarehouseSourceObjectKind =
   | '面辅料仓'
+  | '成衣仓'
   | '中转仓'
   | '裁床厂'
   | '印花厂'
@@ -23,8 +32,8 @@ export type FactoryWarehouseSourceObjectKind =
   | '特殊工艺厂'
   | '后道工厂'
   | '上游工厂仓'
-export type FactoryWarehouseItemKind = '面料' | '辅料' | '裁片' | '成衣半成品' | '其他半成品'
-export type FactoryWaitProcessStockStatus = '待领料' | '已入待加工仓' | '差异待处理'
+export type FactoryWarehouseItemKind = '面料' | '辅料' | '裁片' | '成衣' | '其他半成品'
+export type FactoryWaitProcessStockStatus = '待领料' | '已入待加工仓' | '差异待处理' | '已领用'
 export type FactoryWaitHandoverStockStatus = '待交出' | '已交出' | '已回写' | '差异' | '异议中'
 export type FactoryInboundRecordStatus = '待确认' | '已入库' | '差异待处理' | '已作废'
 export type FactoryOutboundRecordStatus = '已出库' | '已回写' | '差异' | '异议中' | '已作废'
@@ -109,6 +118,10 @@ interface FactoryWarehouseBaseItem {
   locationText: string
   abnormalReason?: string
   photoList: string[]
+  operatorUserId?: string
+  operatorFactoryId?: string
+  operatorRoleId?: string
+  operatorRoleName?: string
   remark?: string
 }
 
@@ -120,12 +133,22 @@ export interface FactoryWaitProcessStockItem extends FactoryWarehouseBaseItem {
   sourceObjectName: string
   taskId?: string
   taskNo?: string
+  sourceType?: ProcessWorkOrderSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
   productionOrderId?: string
   productionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   expectedQty: number
   receivedQty: number
+  availableQty?: number
+  issuedQty?: number
   differenceQty: number
   receiverName: string
+  operatorUserId?: string
+  operatorFactoryId?: string
+  operatorRoleId?: string
+  operatorRoleName?: string
   receivedAt: string
   status: FactoryWaitProcessStockStatus
 }
@@ -133,7 +156,8 @@ export interface FactoryWaitProcessStockItem extends FactoryWarehouseBaseItem {
 export interface FactoryWaitHandoverStockItem extends FactoryWarehouseBaseItem {
   taskId?: string
   taskNo?: string
-  sourceType?: 'PRODUCTION_ORDER' | 'STOCK'
+  sourceType?: ProcessWorkOrderSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
   productionOrderId?: string
   productionOrderNo?: string
   stockMaterialId?: string
@@ -172,6 +196,12 @@ export interface FactoryWarehouseInboundRecord {
   sourceObjectName: string
   taskId?: string
   taskNo?: string
+  sourceType?: ProcessWorkOrderSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
+  productionOrderId?: string
+  productionOrderNo?: string
+  stockMaterialId?: string
+  stockMaterialName?: string
   itemKind: FactoryWarehouseItemKind
   itemName: string
   materialSku?: string
@@ -211,7 +241,8 @@ export interface FactoryWarehouseOutboundRecord {
   craftName?: string
   sourceTaskId?: string
   sourceTaskNo?: string
-  sourceType?: 'PRODUCTION_ORDER' | 'STOCK'
+  sourceType?: ProcessWorkOrderSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
   productionOrderId?: string
   productionOrderNo?: string
   stockMaterialId?: string
@@ -237,6 +268,10 @@ export interface FactoryWarehouseOutboundRecord {
   differenceQty?: number
   unit: string
   operatorName: string
+  operatorUserId?: string
+  operatorFactoryId?: string
+  operatorRoleId?: string
+  operatorRoleName?: string
   outboundAt: string
   status: FactoryOutboundRecordStatus
   abnormalReason?: string
@@ -392,6 +427,11 @@ interface FactoryInternalWarehouseStore {
   adjustmentOrders: FactoryWarehouseAdjustmentOrder[]
 }
 
+export interface FactoryInternalWarehouseMutationSnapshot {
+  waitProcessStockItems: FactoryWaitProcessStockItem[]
+  inboundRecords: FactoryWarehouseInboundRecord[]
+}
+
 const DEFAULT_AREA_NAMES = ['A区', 'B区', 'C区', 'D区', 'E区', 'F区', '异常区', '待确认区'] as const
 const NORMAL_AREA_NAMES = ['A区', 'B区', 'C区', 'D区', 'E区', 'F区'] as const
 const SEWING_FACTORY_TYPES = new Set<FactoryType>(['CENTRAL_GARMENT', 'SATELLITE_SEWING', 'THIRD_SEWING'])
@@ -540,6 +580,275 @@ export function buildDefaultFactoryInternalWarehouses(factories: Factory[] = moc
     })
 }
 
+export function recordAuxiliaryGarmentReceiptToPostFactory(input: {
+  handoverRecordId: string
+  handoverRecordNo: string
+  sourceFactoryId: string
+  sourceFactoryName: string
+  sourceTaskId: string
+  sourceTaskNo: string
+  productionOrderId?: string
+  productionOrderNo?: string
+  itemName: string
+  materialSku?: string
+  expectedQty: number
+  receivedQty: number
+  differenceQty: number
+  unit: '件'
+  receiverName: string
+  receivedAt: string
+  remark?: string
+}): { inboundRecord: FactoryWarehouseInboundRecord; waitProcessStockItem: FactoryWaitProcessStockItem } {
+  const factory = mockFactories.find((item) => item.id === DEDICATED_POST_FACTORY_ID)
+  if (!factory) throw new Error('未找到我方后道工厂，不能保存成衣收货。')
+  const warehouse = findWarehouseByFactoryAndKindInternal(factory.id, 'WAIT_PROCESS')
+  if (!warehouse) throw new Error('未找到我方后道工厂待加工仓，不能保存成衣收货。')
+  const areaName = input.differenceQty === 0 ? 'A区' : '异常区'
+  const area = warehouse.areaList.find((item) => item.areaName === areaName) || warehouse.areaList[0]
+  const shelf = area?.shelfList[0]
+  const location = shelf?.locationList[0]
+  const inboundRecord: FactoryWarehouseInboundRecord = {
+    inboundRecordId: `POST-INB-${input.handoverRecordId}`,
+    inboundRecordNo: `RK-${input.handoverRecordNo}`,
+    warehouseId: warehouse.warehouseId,
+    warehouseName: warehouse.warehouseName,
+    factoryId: factory.id,
+    factoryName: DEDICATED_POST_FACTORY_NAME,
+    factoryKind: factory.factoryType,
+    processCode: 'POST_FINISHING',
+    processName: '后道',
+    sourceRecordId: input.handoverRecordId,
+    sourceRecordNo: input.handoverRecordNo,
+    sourceRecordType: 'HANDOVER_RECEIVE',
+    sourceObjectName: input.sourceFactoryName,
+    taskId: input.sourceTaskId,
+    taskNo: input.sourceTaskNo,
+    itemKind: '成衣',
+    itemName: input.itemName,
+    materialSku: input.materialSku,
+    expectedQty: input.expectedQty,
+    receivedQty: input.receivedQty,
+    differenceQty: input.differenceQty,
+    unit: input.unit,
+    receiverName: input.receiverName,
+    receivedAt: input.receivedAt,
+    areaName: area?.areaName || areaName,
+    shelfNo: shelf?.shelfNo || '',
+    locationNo: location?.locationNo || '',
+    status: input.differenceQty === 0 ? '已入库' : '差异待处理',
+    abnormalReason: input.differenceQty === 0 ? undefined : '数量不符',
+    photoList: [],
+    generatedStockItemId: `POST-WPS-${input.handoverRecordId}`,
+    remark: input.remark || '辅助工艺成衣交出后由我方后道工厂确认收货',
+  }
+  upsertFactoryWarehouseInboundRecord(inboundRecord)
+  const waitProcessStockItem = upsertFactoryWaitProcessStockItem({
+    ...buildFactoryWaitProcessStockItemFromInboundRecord(inboundRecord),
+    stockItemId: `POST-WPS-${input.handoverRecordId}`,
+    productionOrderId: input.productionOrderId,
+    productionOrderNo: input.productionOrderNo,
+    taskId: input.sourceTaskId,
+    taskNo: input.sourceTaskNo,
+    status: input.differenceQty === 0 ? '已入待加工仓' : '差异待处理',
+    remark: input.remark || '进入既有后道待加工仓',
+  })
+  return {
+    inboundRecord: cloneValue(inboundRecord),
+    waitProcessStockItem,
+  }
+}
+
+export function recordGarmentReceiptAtAuxiliaryFactory(input: {
+  outboundRecord: FactoryWarehouseOutboundRecord
+  targetFactoryId: string
+  targetFactoryName: string
+  sourceTaskId: string
+  sourceTaskNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  processCode: string
+  processName: string
+  craftCode: string
+  craftName: string
+  receivedQty: number
+  receiverName: string
+  receivedAt: string
+  operatorUserId?: string
+  operatorFactoryId?: string
+  operatorRoleId?: string
+  operatorRoleName?: string
+}): { inboundRecord: FactoryWarehouseInboundRecord; waitProcessStockItem: FactoryWaitProcessStockItem } {
+  const factory = mockFactories.find((item) => item.id === input.targetFactoryId)
+  if (!factory) throw new Error(`未找到辅助工艺工厂：${input.targetFactoryName}`)
+  const warehouse = findWarehouseByFactoryAndKindInternal(factory.id, 'WAIT_PROCESS')
+  if (!warehouse) throw new Error(`未找到${input.targetFactoryName}待加工仓`)
+  const differenceQty = input.receivedQty - input.outboundRecord.outboundQty
+  const areaName = differenceQty === 0 ? 'A区' : '异常区'
+  const area = warehouse.areaList.find((item) => item.areaName === areaName) || warehouse.areaList[0]
+  const shelf = area?.shelfList[0]
+  const location = shelf?.locationList[0]
+  const inboundRecord: FactoryWarehouseInboundRecord = {
+    inboundRecordId: `AUX-INB-${input.outboundRecord.outboundRecordId}`,
+    inboundRecordNo: `RK-${input.outboundRecord.outboundRecordNo}`,
+    warehouseId: warehouse.warehouseId,
+    warehouseName: warehouse.warehouseName,
+    factoryId: factory.id,
+    factoryName: factory.name,
+    factoryKind: factory.factoryType,
+    processCode: input.processCode,
+    processName: input.processName,
+    craftCode: input.craftCode,
+    craftName: input.craftName,
+    sourceRecordId: input.outboundRecord.outboundRecordId,
+    sourceRecordNo: input.outboundRecord.outboundRecordNo,
+    sourceRecordType: 'HANDOVER_RECEIVE',
+    sourceObjectName: '成衣仓',
+    taskId: input.sourceTaskId,
+    taskNo: input.sourceTaskNo,
+    itemKind: '成衣',
+    itemName: input.outboundRecord.itemName,
+    materialSku: input.outboundRecord.materialSku,
+    fabricColor: input.outboundRecord.fabricColor,
+    sizeCode: input.outboundRecord.sizeCode,
+    expectedQty: input.outboundRecord.outboundQty,
+    receivedQty: input.receivedQty,
+    differenceQty,
+    unit: '件',
+    receiverName: input.receiverName,
+    operatorUserId: input.operatorUserId,
+    operatorFactoryId: input.operatorFactoryId,
+    operatorRoleId: input.operatorRoleId,
+    operatorRoleName: input.operatorRoleName,
+    receivedAt: input.receivedAt,
+    areaName: area?.areaName || areaName,
+    shelfNo: shelf?.shelfNo || '',
+    locationNo: location?.locationNo || '',
+    status: differenceQty === 0 ? '已入库' : '差异待处理',
+    abnormalReason: differenceQty === 0 ? undefined : '数量不符',
+    photoList: [],
+    generatedStockItemId: `AUX-WPS-${input.outboundRecord.outboundRecordId}`,
+    remark: '成衣仓逐 SKU 出库后由辅助工艺确认收货',
+  }
+  upsertFactoryWarehouseInboundRecord(inboundRecord)
+  const waitProcessStockItem = upsertFactoryWaitProcessStockItem({
+    ...buildFactoryWaitProcessStockItemFromInboundRecord(inboundRecord),
+    stockItemId: `AUX-WPS-${input.outboundRecord.outboundRecordId}`,
+    sourceObjectKind: '成衣仓',
+    taskId: input.sourceTaskId,
+    taskNo: input.sourceTaskNo,
+    productionOrderId: input.productionOrderId,
+    productionOrderNo: input.productionOrderNo,
+    status: differenceQty === 0 ? '已入待加工仓' : '差异待处理',
+    remark: '辅助工艺按 SKU 实收进入待加工仓',
+  })
+  return { inboundRecord: cloneValue(inboundRecord), waitProcessStockItem }
+}
+
+export function recordGarmentReadyToHandoverAtAuxiliaryFactory(input: {
+  sourceWorkOrderId: string
+  sourceWorkOrderNo: string
+  targetFactoryId: string
+  targetFactoryName: string
+  productionOrderId: string
+  productionOrderNo: string
+  totalCompletedQty: number
+  completedQtyBySkuCode: Record<string, number>
+  receiverKind: FactoryWarehouseReceiverKind
+  receiverName: string
+  operatorUserId?: string
+  operatorFactoryId?: string
+  operatorRoleId?: string
+  operatorRoleName?: string
+}): FactoryWaitHandoverStockItem[] {
+  validateGarmentReadyToHandoverAtAuxiliaryFactory(input)
+  const factory = mockFactories.find((item) => item.id === input.targetFactoryId)!
+  const warehouse = findWarehouseByFactoryAndKindInternal(factory.id, 'WAIT_HANDOVER')!
+  const sourceStocks = listFactoryWaitProcessStockItems()
+    .filter((item) => item.taskId === input.sourceWorkOrderId && item.itemKind === '成衣')
+    .sort((left, right) => (left.materialSku || '').localeCompare(right.materialSku || ''))
+  return sourceStocks.map((source, index) => {
+    const waitHandoverQty = Number(input.completedQtyBySkuCode[source.materialSku || ''])
+    const position = pickWarehouseLocation(warehouse, `${input.sourceWorkOrderId}-${source.materialSku}`, '已入库')
+    return upsertFactoryWaitHandoverStockItem({
+      stockItemId: `AUX-WHS-${input.sourceWorkOrderId}-${source.materialSku}`,
+      warehouseId: warehouse.warehouseId,
+      factoryId: factory.id,
+      factoryName: factory.name,
+      factoryKind: factory.factoryType,
+      warehouseName: warehouse.warehouseName,
+      processCode: source.processCode,
+      processName: source.processName,
+      craftCode: source.craftCode,
+      craftName: source.craftName,
+      taskId: input.sourceWorkOrderId,
+      taskNo: input.sourceWorkOrderNo,
+      sourceType: 'PRODUCTION_ORDER',
+      productionOrderId: input.productionOrderId,
+      productionOrderNo: input.productionOrderNo,
+      itemKind: '成衣',
+      itemName: source.itemName,
+      materialSku: source.materialSku,
+      fabricColor: source.fabricColor,
+      sizeCode: source.sizeCode,
+      completedQty: waitHandoverQty,
+      lossQty: 0,
+      waitHandoverQty,
+      unit: '件',
+      receiverKind: input.receiverKind,
+      receiverName: input.receiverName,
+      handoverOrderId: `AUX-HO-${input.sourceWorkOrderId}`,
+      handoverOrderNo: `JCD-${input.sourceWorkOrderNo}`,
+      areaName: position.areaName,
+      shelfNo: position.shelfNo,
+      locationNo: position.locationNo,
+      locationText: position.locationText,
+      status: '待交出',
+      photoList: [],
+      operatorUserId: input.operatorUserId,
+      operatorFactoryId: input.operatorFactoryId,
+      operatorRoleId: input.operatorRoleId,
+      operatorRoleName: input.operatorRoleName,
+      remark: `第 ${index + 1} 个 SKU 完工进入待交出仓`,
+    })
+  })
+}
+
+export function validateGarmentReadyToHandoverAtAuxiliaryFactory(input: {
+  sourceWorkOrderId: string
+  targetFactoryId: string
+  targetFactoryName: string
+  totalCompletedQty: number
+  completedQtyBySkuCode: Record<string, number>
+}): void {
+  if (!Number.isInteger(input.totalCompletedQty) || input.totalCompletedQty <= 0) {
+    throw new Error('成衣完工件数必须为大于 0 的整数。')
+  }
+  const factory = mockFactories.find((item) => item.id === input.targetFactoryId)
+  if (!factory) throw new Error(`未找到辅助工艺工厂：${input.targetFactoryName}`)
+  const warehouse = findWarehouseByFactoryAndKindInternal(factory.id, 'WAIT_HANDOVER')
+  if (!warehouse) throw new Error(`未找到${input.targetFactoryName}待交出仓`)
+  const sourceStocks = listFactoryWaitProcessStockItems()
+    .filter((item) => item.taskId === input.sourceWorkOrderId && item.itemKind === '成衣')
+    .sort((left, right) => (left.materialSku || '').localeCompare(right.materialSku || ''))
+  const receivedQtyTotal = sourceStocks.reduce((sum, item) => sum + Math.trunc(item.receivedQty), 0)
+  if (input.totalCompletedQty > receivedQtyTotal) {
+    throw new Error('成衣完工件数不能超过辅助工艺实际收货件数。')
+  }
+  const skuCodes = sourceStocks.map((item) => item.materialSku || '').sort()
+  const actualSkuCodes = Object.keys(input.completedQtyBySkuCode).sort()
+  if (skuCodes.length !== actualSkuCodes.length || skuCodes.some((skuCode, index) => skuCode !== actualSkuCodes[index])) {
+    throw new Error('成衣完工数量必须覆盖待加工仓全部 SKU。')
+  }
+  const invalidStock = sourceStocks.find((source) => {
+    const qty = input.completedQtyBySkuCode[source.materialSku || '']
+    return !Number.isInteger(qty) || Number(qty) < 0 || Number(qty) > source.receivedQty
+  })
+  if (invalidStock) throw new Error(`SKU ${invalidStock.materialSku || '未知'} 完工件数无效。`)
+  if (Object.values(input.completedQtyBySkuCode).reduce((sum, qty) => sum + qty, 0) !== input.totalCompletedQty) {
+    throw new Error('逐 SKU 完工合计与本次完工总件数不一致。')
+  }
+}
+
 const ONBOARDING_CUTTING_FACTORIES = [
   { factoryId: 'FACTORY-ONBOARD-0034', factoryName: '定向裁演示工厂34', seedNo: '034' },
   { factoryId: 'FACTORY-ONBOARD-0035', factoryName: '定位裁演示工厂35', seedNo: '035' },
@@ -632,18 +941,12 @@ function resolveWaitHandoverStatus(record: FactoryWarehouseOutboundRecord): Fact
   return '已交出'
 }
 
-function resolveFactoryByName(factoryName: string | undefined, fallbackType?: FactoryType): Factory | undefined {
-  if (factoryName) {
-    const exact = mockFactories.find((factory) => factory.name === factoryName)
-    if (exact) return exact
+function resolveFactoryByName(factoryName: string | undefined): Factory | undefined {
+  if (!factoryName) return undefined
+  if (factoryName === '我方后道工厂' || factoryName === DEDICATED_POST_FACTORY_NAME) {
+    return mockFactories.find((factory) => factory.id === DEDICATED_POST_FACTORY_ID)
   }
-  if (factoryName?.includes('后道')) {
-    return mockFactories.find((factory) => factory.factoryType === 'SATELLITE_FINISHING')
-  }
-  if (fallbackType) {
-    return mockFactories.find((factory) => factory.factoryType === fallbackType)
-  }
-  return undefined
+  return mockFactories.find((factory) => factory.name === factoryName)
 }
 
 function normalizeWarehouseReceiverKind(head: PdaHandoverHead): FactoryWarehouseReceiverKind {
@@ -666,16 +969,21 @@ function resolveSourceObjectKindFromHead(head: PdaHandoverHead): FactoryWarehous
   return '上游工厂仓'
 }
 
-function deriveFactoryItemKind(input: {
+export function deriveFactoryItemKind(input: {
   lineMaterialName?: string
   partName?: string
   processCode?: string
   handoutObjectType?: string
 }): FactoryWarehouseItemKind {
-  if (input.handoutObjectType === 'CUT_PIECE' || input.partName) return '裁片'
-  if (input.handoutObjectType === 'SEMI_FINISHED_GARMENT') return '成衣半成品'
+  if (
+    input.handoutObjectType === 'GARMENT'
+    || input.handoutObjectType === 'SEMI_FINISHED_GARMENT'
+    || input.handoutObjectType === 'FINISHED_GARMENT'
+  ) return '成衣'
+  if (input.handoutObjectType === 'CUT_PIECE') return '裁片'
   if (input.handoutObjectType === 'FABRIC') return '面料'
-  if (input.processCode === 'POST_FINISHING') return '成衣半成品'
+  if (input.partName) return '裁片'
+  if (input.processCode === 'POST_FINISHING') return '成衣'
   const materialName = input.lineMaterialName || ''
   if (materialName.includes('面料') || materialName.includes('布')) return '面料'
   if (materialName.includes('辅')) return '辅料'
@@ -792,6 +1100,12 @@ function buildInboundRecordFromPickupRecordInput(input: {
     sourceObjectName: head.sourceFactoryName || '上游仓库',
     taskId: head.taskId,
     taskNo: head.taskNo,
+    sourceType: head.sourceType,
+    sourceSnapshot: head.sourceSnapshot ? structuredClone(head.sourceSnapshot) : undefined,
+    productionOrderId: head.productionOrderId,
+    productionOrderNo: head.productionOrderNo,
+    stockMaterialId: head.stockMaterialId,
+    stockMaterialName: head.stockMaterialName,
     itemKind: deriveFactoryItemKind({
       lineMaterialName: record.materialName,
       partName: record.pieceName,
@@ -877,6 +1191,16 @@ function buildInboundRecordFromHandoverReceiveInput(input: {
     sourceObjectName: head.sourceFactoryName,
     taskId: head.taskId,
     taskNo: head.taskNo,
+    sourceType: head.sourceType || record.sourceType,
+    sourceSnapshot: head.sourceSnapshot
+      ? structuredClone(head.sourceSnapshot)
+      : record.sourceSnapshot
+        ? structuredClone(record.sourceSnapshot)
+        : undefined,
+    productionOrderId: head.productionOrderId || record.productionOrderId,
+    productionOrderNo: head.productionOrderNo || record.productionOrderNo,
+    stockMaterialId: head.stockMaterialId || record.stockMaterialId,
+    stockMaterialName: head.stockMaterialName || record.stockMaterialName,
     itemKind: deriveFactoryItemKind({
       partName: derivePartNameFromRecord(record),
       handoutObjectType: record.objectType,
@@ -963,8 +1287,12 @@ function buildWaitProcessStockItemFromInbound(
     sourceObjectName: record.sourceObjectName,
     taskId: record.taskId,
     taskNo: record.taskNo,
-    productionOrderId: record.taskId,
-    productionOrderNo: record.taskNo,
+    sourceType: record.sourceType,
+    sourceSnapshot: record.sourceSnapshot ? structuredClone(record.sourceSnapshot) : undefined,
+    productionOrderId: record.productionOrderId,
+    productionOrderNo: record.productionOrderNo,
+    stockMaterialId: record.stockMaterialId,
+    stockMaterialName: record.stockMaterialName,
     itemKind: record.itemKind,
     itemName: record.itemName,
     materialSku: record.materialSku,
@@ -1009,15 +1337,17 @@ function buildOutboundRecordFromHandoverRecordInput(input: {
   const sourceFields = sourceType === 'STOCK'
     ? {
         sourceType: 'STOCK' as const,
+        sourceSnapshot: head.sourceSnapshot ? structuredClone(head.sourceSnapshot) : record.sourceSnapshot ? structuredClone(record.sourceSnapshot) : undefined,
         stockMaterialId: head.stockMaterialId || record.stockMaterialId,
         stockMaterialName: head.stockMaterialName || record.stockMaterialName,
         productionOrderId: undefined,
         productionOrderNo: undefined,
       }
     : {
-        sourceType: 'PRODUCTION_ORDER' as const,
-        productionOrderId: head.productionOrderId,
-        productionOrderNo: head.productionOrderNo,
+        sourceType: sourceType || 'PRODUCTION_ORDER' as const,
+        sourceSnapshot: head.sourceSnapshot ? structuredClone(head.sourceSnapshot) : record.sourceSnapshot ? structuredClone(record.sourceSnapshot) : undefined,
+        productionOrderId: head.productionOrderId || record.productionOrderId,
+        productionOrderNo: head.productionOrderNo || record.productionOrderNo,
         stockMaterialId: undefined,
         stockMaterialName: undefined,
       }
@@ -1093,6 +1423,7 @@ function buildWaitHandoverStockItemFromOutbound(
     taskId: record.sourceTaskId,
     taskNo: record.sourceTaskNo,
     sourceType: record.sourceType,
+    sourceSnapshot: record.sourceSnapshot ? structuredClone(record.sourceSnapshot) : undefined,
     productionOrderId: record.productionOrderId,
     productionOrderNo: record.productionOrderNo,
     stockMaterialId: record.stockMaterialId,
@@ -1130,6 +1461,12 @@ function buildWaitHandoverStockItemFromOutbound(
   }
 }
 
+export function buildFactoryWaitHandoverStockItemFromOutbound(
+  record: FactoryWarehouseOutboundRecord,
+): FactoryWaitHandoverStockItem {
+  return buildWaitHandoverStockItemFromOutbound(record)
+}
+
 function buildPendingWaitHandoverStockItem(input: {
   warehouse: FactoryInternalWarehouse
   factory: Factory
@@ -1143,13 +1480,15 @@ function buildPendingWaitHandoverStockItem(input: {
   const sourceFields = head.sourceType === 'STOCK'
     ? {
         sourceType: 'STOCK' as const,
+        sourceSnapshot: head.sourceSnapshot ? structuredClone(head.sourceSnapshot) : undefined,
         stockMaterialId: head.stockMaterialId,
         stockMaterialName: head.stockMaterialName,
         productionOrderId: undefined,
         productionOrderNo: undefined,
       }
     : {
-        sourceType: 'PRODUCTION_ORDER' as const,
+        sourceType: head.sourceType || 'PRODUCTION_ORDER' as const,
+        sourceSnapshot: head.sourceSnapshot ? structuredClone(head.sourceSnapshot) : undefined,
         productionOrderId: head.productionOrderId,
         productionOrderNo: head.productionOrderNo,
         stockMaterialId: undefined,
@@ -1408,11 +1747,8 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
   })
 
   const inboundRecords: FactoryWarehouseInboundRecord[] = []
-  const pickupFallbackFactories = mockFactories.filter((factory) => isNonSewingFactory(factory))
-  listWarehouseIssueOrders().forEach((doc, docIndex) => {
-    const targetFactory =
-      (doc.targetFactoryId ? factoryMap.get(doc.targetFactoryId) : undefined)
-      || pickupFallbackFactories[docIndex % pickupFallbackFactories.length]
+  listWarehouseIssueOrders().forEach((doc) => {
+    const targetFactory = doc.targetFactoryId ? factoryMap.get(doc.targetFactoryId) : undefined
     if (!targetFactory || !isNonSewingFactory(targetFactory)) return
     const warehouse = waitProcessWarehouseMap.get(targetFactory.id)
     if (!warehouse) return
@@ -1438,7 +1774,7 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
   listPdaHandoverHeads()
     .filter((head) => head.headType === 'HANDOUT')
     .forEach((head) => {
-      const receivingFactory = resolveFactoryByName(head.receiverName || head.targetName, head.targetName.includes('后道') ? 'SATELLITE_FINISHING' : undefined)
+      const receivingFactory = resolveFactoryByName(head.receiverName || head.targetName)
       if (!receivingFactory || !isNonSewingFactory(receivingFactory)) return
       const warehouse = waitProcessWarehouseMap.get(receivingFactory.id)
       if (!warehouse) return
@@ -1617,10 +1953,7 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
   listPdaHandoverHeads()
     .filter((head) => head.headType === 'HANDOUT')
     .forEach((head) => {
-      const sourceFactory = resolveFactoryByName(
-        head.sourceFactoryName,
-        head.processBusinessCode === 'POST_FINISHING' ? 'SATELLITE_FINISHING' : undefined,
-      )
+      const sourceFactory = resolveFactoryByName(head.sourceFactoryName)
       if (!sourceFactory || !isNonSewingFactory(sourceFactory)) return
       const warehouse = waitHandoverWarehouseMap.get(sourceFactory.id)
       if (!warehouse) return
@@ -2346,6 +2679,20 @@ export function listFactoryWarehouseOutboundRecords(): FactoryWarehouseOutboundR
   return cloneValue(ensureFactoryInternalWarehouseStore().outboundRecords)
 }
 
+export function createFactoryInternalWarehouseMutationSnapshot(): FactoryInternalWarehouseMutationSnapshot {
+  const store = ensureFactoryInternalWarehouseStore()
+  return {
+    waitProcessStockItems: cloneValue(store.waitProcessStockItems),
+    inboundRecords: cloneValue(store.inboundRecords),
+  }
+}
+
+export function restoreFactoryInternalWarehouseMutationSnapshot(snapshot: FactoryInternalWarehouseMutationSnapshot): void {
+  const store = ensureFactoryInternalWarehouseStore()
+  store.waitProcessStockItems.splice(0, store.waitProcessStockItems.length, ...cloneValue(snapshot.waitProcessStockItems))
+  store.inboundRecords.splice(0, store.inboundRecords.length, ...cloneValue(snapshot.inboundRecords))
+}
+
 export function listFactoryWarehouseStocktakeOrders(): FactoryWarehouseStocktakeOrder[] {
   return cloneValue(ensureFactoryInternalWarehouseStore().stocktakeOrders)
 }
@@ -2482,10 +2829,7 @@ export function syncFactoryWarehouseHandoverSourceByTaskId(taskId: string): void
   listPdaHandoverHeads()
     .filter((head) => head.headType === 'HANDOUT' && head.taskId === taskId)
     .forEach((head) => {
-      const sourceFactory = resolveFactoryByName(
-        head.sourceFactoryName,
-        head.processBusinessCode === 'POST_FINISHING' ? 'SATELLITE_FINISHING' : undefined,
-      )
+      const sourceFactory = resolveFactoryByName(head.sourceFactoryName)
       if (!sourceFactory || !isNonSewingFactory(sourceFactory)) return
       const warehouse = store.warehouses.find(
         (item) => item.factoryId === sourceFactory.id && item.warehouseKind === 'WAIT_HANDOVER',
@@ -2559,11 +2903,13 @@ export function upsertFactoryWaitHandoverStockItem(
   item: FactoryWaitHandoverStockItem,
 ): FactoryWaitHandoverStockItem {
   const store = ensureFactoryInternalWarehouseStore()
-  const index = store.waitHandoverStockItems.findIndex(
-    (stockItem) =>
-      stockItem.stockItemId === item.stockItemId
-      || (!!item.handoverRecordId && stockItem.handoverRecordId === item.handoverRecordId),
-  )
+  let index = store.waitHandoverStockItems.findIndex((stockItem) => stockItem.stockItemId === item.stockItemId)
+  if (index < 0 && item.handoverRecordId) {
+    index = store.waitHandoverStockItems.findIndex((stockItem) => (
+      stockItem.handoverRecordId === item.handoverRecordId
+      && (stockItem.materialSku || '') === (item.materialSku || '')
+    ))
+  }
   const nextItem = cloneValue(item)
   if (index >= 0) {
     store.waitHandoverStockItems[index] = nextItem

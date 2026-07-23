@@ -35,6 +35,7 @@ import type {
   ProductionOrderTechPackSnapshot,
   TechPackBomItemSnapshot,
 } from './production-tech-pack-snapshot-types.ts'
+import { selectProductionMaterialBomItems } from './production-material-bom.ts'
 
 type TechPackProcessEntry = TechnicalProcessEntry
 type TechPackProcessEntryType = TechnicalProcessEntry['entryType']
@@ -168,11 +169,6 @@ const DOC_TYPE_LABEL: Record<ProcessDocType, string> = {
   TASK: '任务单',
 }
 
-const DEMAND_TYPE_LABEL_BY_PROCESS_CODE: Record<string, string> = {
-  PRINT: '印花需求单',
-  DYE: '染色需求单',
-}
-
 export const DICTIONARY_CRAFT_MOCKS_PER_DEFINITION = 3
 const DICTIONARY_COVERAGE_BLOCKED_ORDER_STATUSES = new Set(['DRAFT', 'READY_FOR_BREAKDOWN'])
 
@@ -201,39 +197,6 @@ export function buildDictionaryCraftMockDocumentNo(
   mockIndex: number,
 ): string {
   return `${prefix}${toMockToken(craftCode, 7)}${toMockToken(orderId, 8)}${String(mockIndex + 1).padStart(2, '0')}`
-}
-
-const STABLE_DEMAND_SEQUENCE_BY_ARTIFACT_ID: Readonly<Record<string, string>> = {
-  'DEMART-13_PO-202603-081-17_TPS-PO-202603-081-25_tdv_demand_SPU_TSHIRT_081-37_tdv_demand_SPU_TSHIRT_081-process-dye-47_tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye': '01',
-  'DEMART-13_PO-202603-087-17_TPS-PO-202603-087-25_tdv_demand_SPU_TSHIRT_081-37_tdv_demand_SPU_TSHIRT_081-process-dye-47_tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye': '07',
-  'DEMART-13_PO-202603-088-17_TPS-PO-202603-088-25_tdv_demand_SPU_TSHIRT_081-37_tdv_demand_SPU_TSHIRT_081-process-dye-47_tdv_demand_SPU_TSHIRT_081-bom-water-soluble-dye': '08',
-}
-
-function buildStableDemandIdentityToken(artifact: ProductionDemandArtifact): string {
-  const preservedSequence = STABLE_DEMAND_SEQUENCE_BY_ARTIFACT_ID[artifact.artifactId]
-  if (preservedSequence) return preservedSequence
-  let hash = 14695981039346656037n
-  for (const character of artifact.artifactId) {
-    hash ^= BigInt(character.charCodeAt(0))
-    hash = BigInt.asUintN(64, hash * 1099511628211n)
-  }
-  return hash.toString(10).padStart(20, '0')
-}
-
-export function buildProductionDemandBusinessId(
-  prefix: string,
-  artifact: ProductionDemandArtifact,
-): string {
-  if (artifact.craftCode) {
-    const matched = artifact.sourceEntryId.match(/DICT-MOCK-[A-Z_0-9]+-(\d{2})-/)
-    if (matched) {
-      const mockSequence = Number.parseInt(matched[1], 10)
-      if (Number.isFinite(mockSequence) && mockSequence > 0) {
-        return buildDictionaryCraftMockDocumentNo(prefix, artifact.craftCode, artifact.orderId, mockSequence - 1)
-      }
-    }
-  }
-  return `${prefix}${toMockToken(artifact.orderId, 8)}${buildStableDemandIdentityToken(artifact)}`
 }
 
 function listTechPackSourceOrders() {
@@ -295,9 +258,10 @@ function buildDictionaryCoverageBase(
   if (!source) return null
   const processDefinition = getProcessDefinitionByCode(definition.processCode)
   const stageDefinition = getProcessStageByCode(definition.stageCode)
+  const materialBomItems = selectProductionMaterialBomItems(source.snapshot.bomItems)
   const linkedBomItem = definition.processCode === 'WATER_SOLUBLE'
-    ? source.snapshot.bomItems[mockIndex % source.snapshot.bomItems.length]
-    : source.snapshot.bomItems[0]
+    ? materialBomItems[mockIndex % materialBomItems.length] || source.snapshot.bomItems[0]
+    : materialBomItems[0] || source.snapshot.bomItems[0]
   if (definition.processCode === 'WATER_SOLUBLE') {
     if (
       !linkedBomItem?.id
@@ -405,7 +369,9 @@ function buildDictionaryCoverageTaskArtifact(
 function listDictionaryCoverageDemandArtifacts(): GeneratedDemandArtifact[] {
   return listActiveProcessCraftDefinitions()
     .flatMap((definition, craftIndex) => {
-      if (definition.defaultDocType !== 'DEMAND') return []
+      if (
+        definition.defaultDocType !== 'DEMAND'
+      ) return []
       return Array.from({ length: DICTIONARY_CRAFT_MOCKS_PER_DEFINITION }, (_, mockIndex) =>
         buildDictionaryCoverageDemandArtifact(definition, craftIndex, mockIndex),
       )
@@ -558,7 +524,7 @@ function buildSortKey(context: ResolvedEntryContext): string {
 }
 
 function toDemandArtifact(context: ResolvedEntryContext): GeneratedDemandArtifact {
-  const demandTypeLabel = DEMAND_TYPE_LABEL_BY_PROCESS_CODE[context.processCode] ?? `${context.processName}需求单`
+  const demandTypeLabel = `${context.processName}需求单`
   return {
     artifactId: `DEMART-${context.orderId}-${toArtifactKeySegment(context.sourceEntryId)}`,
     artifactType: 'DEMAND',
@@ -708,10 +674,12 @@ function generateBomDrivenPrepArtifactsForEntry(
   input: GenerateBomDrivenPrepArtifactsForEntryInput,
 ): GeneratedProductionArtifact[] {
   const { order, snapshot, entry, entryIndex } = input
-  if (entry.processCode !== 'WATER_SOLUBLE' && entry.processCode !== 'DYE') return []
+  if (entry.processCode !== 'WATER_SOLUBLE') return []
 
   const linkedBomItemIds = [...new Set(entry.linkedBomItemIds ?? [])]
-  const bomItemById = new Map(snapshot.bomItems.map((item) => [item.id, item]))
+  const bomItemById = new Map(
+    selectProductionMaterialBomItems(snapshot.bomItems).map((item) => [item.id, item]),
+  )
   const context = resolveEntryContext(order.productionOrderId, entry, entryIndex)
   context.orderQty = order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
   context.techPackId = snapshot.sourceTechPackVersionId
@@ -721,10 +689,10 @@ function generateBomDrivenPrepArtifactsForEntry(
     if (!bomItem) return []
 
     const requiresWaterSoluble = bomItem.waterSolubleRequirement === '是'
-    const dyeRequirement = bomItem.dyeRequirement?.trim()
-    const requiresDye = Boolean(dyeRequirement && dyeRequirement !== '无')
-    if (entry.processCode === 'WATER_SOLUBLE' && (!requiresWaterSoluble || requiresDye)) return []
-    if (entry.processCode === 'DYE' && !requiresDye) return []
+    const requiresDye = bomItem.dyeRequirement && bomItem.dyeRequirement !== '无'
+    // 同一面料同时需要水溶和染色时，由一张染色加工单在同一染厂连续执行；
+    // 这里只保留仅水溶场景的独立现场任务。
+    if (!requiresWaterSoluble || requiresDye) return []
     if (!bomItem.unit?.trim()) {
       throw new Error(`BOM ${bomItem.id}（${bomItem.materialCode || bomItem.name || bomItem.id}）产物生成失败：BOM 数量单位不能为空`)
     }
@@ -749,40 +717,19 @@ function generateBomDrivenPrepArtifactsForEntry(
     ].map(toUnambiguousArtifactIdentitySegment).join('-')
     const bomSortSuffix = toArtifactKeySegment(bomItem.id)
 
-    if (entry.processCode === 'WATER_SOLUBLE') {
-      return [{
-        ...toTaskArtifact(context),
-        ...materialFields,
-        artifactId: `TASKART-${artifactKey}`,
-        defaultDocType: 'TASK',
-        docTypeLabel: DOC_TYPE_LABEL.TASK,
-        taskTypeCode: 'WATER_SOLUBLE',
-        taskTypeLabel: '水溶',
-        taskScope: 'EXTERNAL_TASK',
-        generationSortKey: `${buildGenerationSortKey(context)}-${bomSortSuffix}`,
-        sortKey: `${buildSortKey(context)}-${bomSortSuffix}`,
-      }]
-    }
-
     return [{
-      ...toDemandArtifact(context),
+      ...toTaskArtifact(context),
       ...materialFields,
-      artifactId: `DEMART-${artifactKey}`,
-      requiresWaterSoluble,
-      processRoute: requiresWaterSoluble ? ['WATER_SOLUBLE', 'DYE'] : ['DYE'],
+      artifactId: `TASKART-${artifactKey}`,
+      defaultDocType: 'TASK',
+      docTypeLabel: DOC_TYPE_LABEL.TASK,
+      taskTypeCode: 'WATER_SOLUBLE',
+      taskTypeLabel: '水溶',
+      taskScope: 'EXTERNAL_TASK',
       generationSortKey: `${buildGenerationSortKey(context)}-${bomSortSuffix}`,
       sortKey: `${buildSortKey(context)}-${bomSortSuffix}`,
     }]
   })
-}
-
-function shouldGenerateDemand(entry: TechPackProcessEntry, context: ResolvedEntryContext): boolean {
-  return (
-    entry.entryType === 'PROCESS_BASELINE' &&
-    context.stageCode === 'PREP' &&
-    context.defaultDocType === 'DEMAND' &&
-    (context.processCode === 'PRINT' || context.processCode === 'DYE')
-  )
 }
 
 function shouldGenerateWaterSolubleTask(
@@ -962,18 +909,6 @@ export function generateProductionArtifactsForOrder(orderId: string): GeneratedP
       if (shouldGenerateWaterSolubleTask(entry, context)) {
         artifacts.push(...generateBomDrivenPrepArtifactsForEntry({ order, snapshot, entry, entryIndex: index }))
       }
-      return
-    }
-
-    if (entry.processCode === 'DYE' && entry.linkedBomItemIds?.length) {
-      if (shouldGenerateDemand(entry, context) && context.isActive) {
-        artifacts.push(...generateBomDrivenPrepArtifactsForEntry({ order, snapshot, entry, entryIndex: index }))
-      }
-      return
-    }
-
-    if (shouldGenerateDemand(entry, context)) {
-      artifacts.push(toDemandArtifact(context))
       return
     }
 

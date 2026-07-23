@@ -6,6 +6,7 @@ import {
   listSpecialCraftTaskWorkOrders,
 } from './special-craft-task-orders.ts'
 import type { ProcessTask } from './process-tasks.ts'
+import { getFactoryMasterRecordById } from './factory-master-store.ts'
 
 type SpecialCraftPdaTaskLike = Partial<ProcessTask> & {
   operationId?: string
@@ -76,6 +77,20 @@ function findTaskOrderOperation(task: SpecialCraftPdaTaskLike): SpecialCraftOper
   return null
 }
 
+function findTaskWorkOrder(task: SpecialCraftPdaTaskLike) {
+  const refs = new Set(getTaskRefs(task))
+  for (const ref of refs) {
+    const workOrder = getSpecialCraftTaskWorkOrderById(ref)
+    if (workOrder) return workOrder
+  }
+  return listSpecialCraftTaskWorkOrders().find((item) =>
+    refs.has(item.workOrderId)
+    || refs.has(item.workOrderNo)
+    || refs.has(item.taskOrderId)
+    || refs.has(item.taskOrderNo),
+  )
+}
+
 function findTextMatchedOperation(task: SpecialCraftPdaTaskLike): SpecialCraftOperationDefinition | null {
   if (task.operationId) {
     const byId = getSpecialCraftOperationById(task.operationId)
@@ -128,12 +143,25 @@ export function isSpecialCraftPdaTask(task: SpecialCraftPdaTaskLike | null | und
   return SPECIAL_CRAFT_TEXT_KEYWORDS.some((keyword) => text.includes(keyword))
 }
 
+export function isGarmentWarehouseOutboundPdaTaskForFactory(
+  factoryId: string,
+  task: SpecialCraftPdaTaskLike | null | undefined,
+): boolean {
+  if (!task) return false
+  const factory = getFactoryMasterRecordById(factoryId)
+  const workOrder = findTaskWorkOrder(task)
+  return factory?.factoryType === 'CENTRAL_GARMENT'
+    && workOrder?.targetObject === '成衣'
+    && workOrder.status === '待领料'
+}
+
 export function canFactoryAccessSpecialCraftPdaTask(
   factoryId: string,
   task: SpecialCraftPdaTaskLike | null | undefined,
 ): boolean {
   if (!task) return false
   if (!isSpecialCraftPdaTask(task)) return true
+  if (isGarmentWarehouseOutboundPdaTaskForFactory(factoryId, task)) return true
   const operation = resolveSpecialCraftOperationForPdaTask(task)
   if (!operation) return false
   return canFactorySeeSpecialCraftOperation(factoryId, operation.operationId)

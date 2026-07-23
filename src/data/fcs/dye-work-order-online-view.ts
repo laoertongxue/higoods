@@ -8,6 +8,10 @@ import {
   getDyeWorkOrderOnlineRecord,
   type DyeWorkOrderOnlineStatus,
 } from './dye-work-order-online-domain.ts'
+import {
+  PROCESS_WORK_ORDER_SOURCE_LABEL,
+  type ProcessWorkOrderSourceType,
+} from './process-work-order-domain.ts'
 
 export type DyeWorkOrderKeywordField =
   | 'all'
@@ -25,6 +29,7 @@ export interface DyeWorkOrderOnlineFilters {
   factoryName: string
   processName: string
   receiverName: string
+  sourceType: '' | ProcessWorkOrderSourceType
   yarn: '全部' | '是' | '否'
   replenishment: '全部' | '是' | '否'
   gtgInStock: '全部' | '是' | '否'
@@ -89,7 +94,8 @@ export interface DyeWorkOrderOnlineRow {
   headVatOrRedye: string
   handoverOrderNo: string
   batchNo: string
-  sourceType: 'PRODUCTION_ORDER' | 'STOCK'
+  sourceType: ProcessWorkOrderSourceType
+  sourceLabel: string
   remark: string
 }
 
@@ -152,6 +158,7 @@ export const DEFAULT_DYE_WORK_ORDER_ONLINE_FILTERS: DyeWorkOrderOnlineFilters = 
   factoryName: '',
   processName: '',
   receiverName: '',
+  sourceType: '',
   yarn: '全部',
   replenishment: '全部',
   gtgInStock: '全部',
@@ -197,8 +204,16 @@ function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
     productionOrderNo: order.sourceProductionOrderNo || '',
     productCode,
     productImageUrl: presentation.productImageUrl || '',
-    purchaseOrderNo: presentation.purchaseOrderNo || (order.sourceType === 'STOCK' ? '备货创建' : '—'),
-    purchaseType: presentation.purchaseType || (order.sourceType === 'STOCK' ? '备货' : '—'),
+    purchaseOrderNo: presentation.purchaseOrderNo || (order.sourceType === 'STOCK'
+      ? '备货创建'
+      : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
+        ? (order.sourceSnapshot?.supplementRecordNo || '补料创建')
+        : '—'),
+    purchaseType: presentation.purchaseType || (order.sourceType === 'STOCK'
+      ? '备货'
+      : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
+        ? '补料'
+        : '—'),
     salesType: presentation.salesType || '—',
     receiverInventoryQty: 0,
     gtgInventoryQty: 0,
@@ -241,6 +256,7 @@ function makeRow(order: DyeWorkOrder): DyeWorkOrderOnlineRow {
     handoverOrderNo: order.handoverOrderNo || order.handoverOrderId || '',
     batchNo: order.sourceArtifactIds?.[1] || '—',
     sourceType: order.sourceType,
+    sourceLabel: PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType],
     remark: online.remark,
   }
 }
@@ -280,6 +296,7 @@ export function filterDyeWorkOrderOnlineRows(
       && (!filters.factoryName || row.factoryName === filters.factoryName)
       && (!filters.processName || row.processName === filters.processName)
       && (!filters.receiverName || row.receiverName === filters.receiverName)
+      && (!filters.sourceType || row.sourceType === filters.sourceType)
       && matchesBooleanFilter(row.isYarn, filters.yarn)
       && matchesBooleanFilter(row.isReplenishment, filters.replenishment)
       && matchesBooleanFilter(row.gtgInventoryQty > 0, filters.gtgInStock)

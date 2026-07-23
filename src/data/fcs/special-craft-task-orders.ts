@@ -31,9 +31,11 @@ import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-sna
 import type { SpecialCraftOperationDefinition, SpecialCraftTargetObject } from './special-craft-operations.ts'
 import {
   buildSpecialCraftOperationSlug,
+  getSpecialCraftFlowRule,
   getSpecialCraftOperationById,
   getSpecialCraftOperationBySlug as getOperationBySlug,
   listEnabledSpecialCraftOperationDefinitions,
+  resolveAuxiliaryWarehouseFlow,
 } from './special-craft-operations.ts'
 import {
   generateSpecialCraftTaskOrdersForAllProductionOrders,
@@ -43,6 +45,7 @@ import { shouldGenerateInternalCraftOrderForProductionOrder } from './task-gener
 
 export type SpecialCraftTaskStatus =
   | '待领料'
+  | '成衣仓已出库待收货'
   | '已入待加工仓'
   | '加工中'
   | '已完成'
@@ -79,6 +82,7 @@ export type SpecialCraftTaskExecutionStatus =
 
 export interface SpecialCraftTaskDemandLine {
   demandLineId: string
+  skuCode: string
   taskOrderId: string
   productionOrderId: string
   productionOrderNo: string
@@ -104,6 +108,7 @@ export interface SpecialCraftTaskDemandLine {
   targetObject: SpecialCraftTargetObject
   unit: string
   feiTicketNos: string[]
+  sourceBomItemId?: string
   bundleWidthCm?: number
   bundleLengthCm?: number
   stripCount?: number
@@ -115,6 +120,7 @@ export interface SpecialCraftTaskWorkOrderLine {
   workOrderId: string
   taskOrderId: string
   demandLineId: string
+  skuCode: string
   partName: string
   colorName: string
   colorCode: string
@@ -122,15 +128,23 @@ export interface SpecialCraftTaskWorkOrderLine {
   pieceCountPerGarment: number
   orderQty: number
   planPieceQty: number
+  receivedQty: number
+  completedQty: number
+  scrapQty: number
+  damageQty: number
   currentQty: number
   feiTicketNos: string[]
+  sourceBomItemId?: string
   bundleWidthCm?: number
   bundleLengthCm?: number
   stripCount?: number
   remark?: string
 }
 
+export type SpecialCraftWorkOrderBusinessType = 'HEAT_TRANSFER' | 'DIRECT_PRINT' | 'OTHER_SPECIAL_CRAFT'
+
 export interface SpecialCraftTaskWorkOrder {
+  businessType: SpecialCraftWorkOrderBusinessType
   workOrderId: string
   workOrderNo: string
   taskOrderId: string
@@ -181,6 +195,10 @@ export interface SpecialCraftTaskGenerationError {
     | '特殊工艺未启用'
     | '特殊工艺字典缺失'
     | '作用对象缺失'
+    | '成衣BOM缺失'
+    | '生产SKU重复'
+    | '成衣BOM适用SKU缺失'
+    | '成衣BOM适用SKU无生产数量'
   errorMessage: string
   blocking: boolean
 }
@@ -380,7 +398,7 @@ interface TaskSeedContext {
   materialSku?: string
   unit: string
   itemName: string
-  itemKind: '裁片' | '面料' | '成衣半成品'
+  itemKind: '裁片' | '面料' | '成衣'
   planQty: number
   receivedQty: number
   completedQty: number
@@ -517,34 +535,29 @@ function pickWarehousePosition(
 }
 
 function getTaskUnit(targetObject: SpecialCraftTargetObject): string {
-  if (targetObject === '成衣半成品') return '件'
-  return '片'
+  return getSpecialCraftFlowRule(targetObject).unit
 }
 
-function getTaskItemKind(targetObject: SpecialCraftTargetObject): '裁片' | '面料' | '成衣半成品' {
-  if (targetObject === '成衣半成品') return '成衣半成品'
-  return '裁片'
+function getTaskItemKind(targetObject: SpecialCraftTargetObject): '裁片' | '面料' | '成衣' {
+  return resolveAuxiliaryWarehouseFlow(targetObject).itemKind
 }
 
 function getTaskItemName(operation: SpecialCraftOperationDefinition, targetObject: SpecialCraftTargetObject, partName?: string): string {
   if (targetObject === '完整面料' || targetObject === '面料') {
     return `${operation.operationName}面料批次`
   }
-  if (targetObject === '成衣半成品') {
-    return `${operation.operationName}半成品工单`
+  if (targetObject === '成衣') {
+    return `${operation.operationName}成衣工单`
   }
   return `${partName || '裁片'}${operation.operationName}任务`
 }
 
-function getReceiverKind(operation: SpecialCraftOperationDefinition): FactoryWaitHandoverStockItem['receiverKind'] {
-  return operation.mustReturnToCuttingFactory ? '裁床厂' : '中转仓'
+function getReceiverKind(targetObject: SpecialCraftTargetObject): FactoryWaitHandoverStockItem['receiverKind'] {
+  return resolveAuxiliaryWarehouseFlow(targetObject).receiverKind
 }
 
-function getReceiverName(operation: SpecialCraftOperationDefinition): string {
-  if (operation.mustReturnToCuttingFactory) {
-    return TEST_FACTORY_NAME
-  }
-  return '公司中转仓'
+function getReceiverName(targetObject: SpecialCraftTargetObject): string {
+  return resolveAuxiliaryWarehouseFlow(targetObject).receiverName
 }
 
 function resolveProductionOrderVersion(order: ProductionOrder): string {
@@ -635,7 +648,8 @@ function buildLinkedDemoTaskSeed(input: {
   const sourceTaskNo = `TASK-${taskOrderNo}`
   const status = LINKED_DEMO_STATUSES[variantIndex % LINKED_DEMO_STATUSES.length]
   const abnormalStatus = LINKED_DEMO_ABNORMALS[variantIndex % LINKED_DEMO_ABNORMALS.length]
-  const pieceCountPerGarment = operation.targetObject === '成衣半成品' ? 1 : patternContext.pieceCountPerGarment
+  const targetObject = operation.targetObject
+  const pieceCountPerGarment = targetObject === '成衣' ? 1 : patternContext.pieceCountPerGarment
   const planQty = roundQty(orderLine.qty * pieceCountPerGarment)
   const receivedQty = status === '待领料' ? 0 : roundQty(planQty - (abnormalStatus === '无异常' ? 0 : Math.max(1, Math.round(planQty * 0.01))))
   const completedQty = ['已完成', '待交出', '已交出', '已回写', '差异', '异议中'].includes(status)
@@ -645,16 +659,15 @@ function buildLinkedDemoTaskSeed(input: {
       : 0
   const lossQty = roundQty(Math.max(receivedQty - completedQty, 0))
   const waitHandoverQty = ['待交出', '已交出', '已回写', '差异', '异议中'].includes(status) ? completedQty : 0
-  const targetObject = operation.targetObject
   const demandLine: SpecialCraftTaskDemandLine = {
     demandLineId: `${taskOrderId}-LINE-01`,
     taskOrderId,
     productionOrderId: order.productionOrderId,
     productionOrderNo: order.productionOrderNo,
-    patternFileId: targetObject === '成衣半成品' ? `GARMENT-${operation.operationId}` : patternContext.patternFileId,
-    patternFileName: targetObject === '成衣半成品' ? '成衣半成品' : patternContext.patternFileName,
-    pieceRowId: targetObject === '成衣半成品' ? `GARMENT-${operation.operationId}` : patternContext.pieceRowId,
-    partName: targetObject === '成衣半成品' ? '成衣半成品' : patternContext.partName,
+    patternFileId: targetObject === '成衣' ? '' : patternContext.patternFileId,
+    patternFileName: targetObject === '成衣' ? '' : patternContext.patternFileName,
+    pieceRowId: targetObject === '成衣' ? '' : patternContext.pieceRowId,
+    partName: targetObject === '成衣' ? '成衣' : patternContext.partName,
     colorName: orderLine.color,
     colorCode: orderLine.color,
     sizeCode: orderLine.size,
@@ -672,7 +685,7 @@ function buildLinkedDemoTaskSeed(input: {
     craftName: operation.craftName,
     targetObject,
     unit: getTaskUnit(targetObject),
-    feiTicketNos: targetObject === '成衣半成品' ? [] : [`FT-${order.productionOrderNo.replace(/^PO-/, '')}-${String(variantIndex + 1).padStart(2, '0')}`],
+    feiTicketNos: targetObject === '成衣' ? [] : [`FT-${order.productionOrderNo.replace(/^PO-/, '')}-${String(variantIndex + 1).padStart(2, '0')}`],
     bundleWidthCm: patternContext.bundleWidthCm,
     bundleLengthCm: patternContext.bundleLengthCm,
     remark: `来源生产单 ${order.productionOrderNo} / 技术包 ${snapshot.sourceTechPackVersionLabel || snapshot.versionLabel}`,
@@ -699,8 +712,8 @@ function buildLinkedDemoTaskSeed(input: {
     executionStatus: mapTaskStatusToExecutionStatus(status),
     executionStatusLabel: status,
     demandLines: [demandLine],
-    sourcePieceRowIds: [demandLine.pieceRowId],
-    sourcePatternFileIds: [demandLine.patternFileId],
+    sourcePieceRowIds: demandLine.pieceRowId ? [demandLine.pieceRowId] : [],
+    sourcePatternFileIds: demandLine.patternFileId ? [demandLine.patternFileId] : [],
     sourceSpecialCraftKeys: [demandLine.specialCraftKey],
     factory,
     targetObject,
@@ -708,7 +721,7 @@ function buildLinkedDemoTaskSeed(input: {
     fabricColor: orderLine.color,
     sizeCode: orderLine.size,
     feiTicketNos: [...demandLine.feiTicketNos],
-    transferBagNos: targetObject === '成衣半成品' ? [] : [`TB-${order.productionOrderNo.replace(/^PO-/, '')}-${String(variantIndex + 1).padStart(2, '0')}`],
+    transferBagNos: targetObject === '成衣' ? [] : [`TB-${order.productionOrderNo.replace(/^PO-/, '')}-${String(variantIndex + 1).padStart(2, '0')}`],
     fabricRollNos: [],
     materialSku: orderLine.skuCode,
     unit: getTaskUnit(targetObject),
@@ -723,12 +736,12 @@ function buildLinkedDemoTaskSeed(input: {
     abnormalStatus,
     createdAt: order.updatedAt || order.createdAt,
     dueAt: order.demandSnapshot.requiredDeliveryDate || order.updatedAt,
-    receiverName: getReceiverName(operation),
-    receiverKind: getReceiverKind(operation),
-    sourceAction: targetObject === '成衣半成品' ? '交出接收' : '领料确认',
-    sourceRecordType: targetObject === '成衣半成品' ? 'HANDOVER_RECEIVE' : 'MATERIAL_PICKUP',
-    sourceRecordNo: `${targetObject === '成衣半成品' ? 'JS' : 'LL'}-${taskOrderNo}`,
-    sourceObjectName: targetObject === '成衣半成品' ? '上游工厂交出' : '裁床待交出仓',
+    receiverName: getReceiverName(targetObject),
+    receiverKind: getReceiverKind(targetObject),
+    sourceAction: targetObject === '成衣' ? '交出接收' : '领料确认',
+    sourceRecordType: targetObject === '成衣' ? 'HANDOVER_RECEIVE' : 'MATERIAL_PICKUP',
+    sourceRecordNo: `${targetObject === '成衣' ? 'JS' : 'LL'}-${taskOrderNo}`,
+    sourceObjectName: resolveAuxiliaryWarehouseFlow(targetObject).sourceObjectName,
     handoverOrderId: `SC-HO-${seedKey}`,
     handoverOrderNo: `SC-HDO-${taskOrderNo}`,
     handoverRecordId: `SC-HR-${seedKey}`,
@@ -1093,7 +1106,7 @@ function buildNodeRecords(seed: TaskSeedContext, artifacts: WarehouseArtifacts):
         actionName: '开工',
         beforeStatus: '已入待加工仓',
         afterStatus: '加工中',
-        qty: seed.receivedQty || seed.planQty,
+        qty: seed.receivedQty,
         unit: seed.unit,
         operatorName: `${seed.factory.contact}组长`,
         operatedAt: formatDay(0),
@@ -1416,11 +1429,11 @@ function buildLinkedSupplementTaskOrders(
 
   const supplements: SpecialCraftTaskOrder[] = []
   operations.forEach((operation, operationIndex) => {
+    if (operation.operationName === '直喷' || operation.operationName === '烫画') return
     const existingForOperation = existingTaskOrders
       .filter((taskOrder) => taskOrder.operationId === operation.operationId)
     const existingKeys = new Set(existingForOperation.map((taskOrder) => `${taskOrder.productionOrderId}::${taskOrder.operationId}`))
     let candidateCursor = operationIndex * MIN_TASK_ORDER_COUNT_PER_OPERATION
-
     while (existingForOperation.length + supplements.filter((taskOrder) => taskOrder.operationId === operation.operationId).length < MIN_TASK_ORDER_COUNT_PER_OPERATION) {
       const context = candidateContexts[candidateCursor % candidateContexts.length]
       candidateCursor += 1
@@ -1457,7 +1470,6 @@ function getSpecialTypeWarehouseProfile(taskOrder: SpecialCraftTaskOrder): {
   receiverName: string
   sourceObjectName: string
 } {
-  const operation = getSpecialCraftOperationById(taskOrder.operationId)
   const isElastic = taskOrder.craftName.includes('橡筋')
   if (isElastic) {
     return {
@@ -1470,25 +1482,27 @@ function getSpecialTypeWarehouseProfile(taskOrder: SpecialCraftTaskOrder): {
       sourceObjectName: '辅料仓',
     }
   }
-  if (taskOrder.targetObject === '成衣半成品') {
+  if (taskOrder.targetObject === '成衣') {
+    const flow = resolveAuxiliaryWarehouseFlow('成衣')
     return {
-      itemKind: '成衣半成品',
-      itemName: `${taskOrder.craftName}半成品`,
-      unit: taskOrder.unit || '件',
+      itemKind: flow.itemKind,
+      itemName: `${taskOrder.craftName}成衣`,
+      unit: taskOrder.unit || flow.qtyUnit,
       materialSku: taskOrder.materialSku,
-      receiverKind: operation?.mustReturnToCuttingFactory ? '裁床厂' : '中转仓',
-      receiverName: operation?.mustReturnToCuttingFactory ? '裁床待交出仓' : '中转仓',
-      sourceObjectName: '上游工厂交出',
+      receiverKind: flow.receiverKind,
+      receiverName: flow.receiverName,
+      sourceObjectName: flow.sourceObjectName,
     }
   }
+  const flow = resolveAuxiliaryWarehouseFlow('已裁部位')
   return {
-    itemKind: '裁片',
+    itemKind: flow.itemKind,
     itemName: `${taskOrder.partName || '裁片'}${taskOrder.craftName}`,
-    unit: taskOrder.unit || '片',
+    unit: taskOrder.unit || flow.qtyUnit,
     materialSku: taskOrder.materialSku,
-    receiverKind: operation?.mustReturnToCuttingFactory ? '裁床厂' : '中转仓',
-    receiverName: operation?.mustReturnToCuttingFactory ? '裁床待交出仓' : '中转仓',
-    sourceObjectName: '裁床待交出仓',
+    receiverKind: flow.receiverKind,
+    receiverName: flow.receiverName,
+    sourceObjectName: flow.sourceObjectName,
   }
 }
 
@@ -1508,7 +1522,7 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         taskOrder.status === '差异' || taskOrder.abnormalStatus === '数量差异' ? '异常区' : 'A区',
         index + 1,
       )
-      const receivedQty = roundQty(taskOrder.receivedQty || taskOrder.planQty)
+      const receivedQty = roundQty(taskOrder.receivedQty)
       const differenceQty = roundQty(receivedQty - taskOrder.planQty)
       const inboundRecord = upsertFactoryWarehouseInboundRecord({
         inboundRecordId: `SC-INB-${taskOrder.taskOrderId}`,
@@ -1524,7 +1538,7 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         craftName: taskOrder.craftName,
         sourceRecordId: `SPC-SRC-${taskOrder.taskOrderId}`,
         sourceRecordNo: `LL-${taskOrder.taskOrderNo}`,
-        sourceRecordType: profile.itemKind === '成衣半成品' ? 'HANDOVER_RECEIVE' : 'MATERIAL_PICKUP',
+        sourceRecordType: profile.itemKind === '成衣' ? 'HANDOVER_RECEIVE' : 'MATERIAL_PICKUP',
         sourceObjectName: profile.sourceObjectName,
         taskId: taskOrder.sourceTaskId,
         taskNo: taskOrder.sourceTaskNo,
@@ -1593,9 +1607,9 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         feiTicketNo: taskOrder.feiTicketNos[0],
         transferBagNo: taskOrder.transferBagNos[0],
         fabricRollNo: taskOrder.fabricRollNos[0],
-        completedQty: roundQty(taskOrder.completedQty || taskOrder.planQty),
+        completedQty: roundQty(taskOrder.completedQty),
         lossQty: roundQty(taskOrder.lossQty),
-        waitHandoverQty: roundQty(taskOrder.waitHandoverQty || taskOrder.completedQty || taskOrder.planQty),
+        waitHandoverQty: roundQty(taskOrder.waitHandoverQty || taskOrder.completedQty),
         unit: profile.unit,
         receiverKind: profile.receiverKind,
         receiverName: profile.receiverName,
@@ -1618,7 +1632,7 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         taskOrder.status === '差异' || taskOrder.status === '异议中' ? '异常区' : '待确认区',
         index + 5,
       )
-      const outboundQty = roundQty(taskOrder.waitHandoverQty || taskOrder.completedQty || taskOrder.planQty)
+      const outboundQty = roundQty(taskOrder.waitHandoverQty || taskOrder.completedQty)
       const receiverWrittenQty =
         taskOrder.status === '已回写'
           ? outboundQty
@@ -1755,6 +1769,14 @@ function buildWorkOrderId(taskOrder: SpecialCraftTaskOrder, partName: string, in
   return `${taskOrder.taskOrderId}-WO-${String(index + 1).padStart(3, '0')}-${partName}`.replace(/[^A-Za-z0-9-]/g, '')
 }
 
+export function getSpecialCraftWorkOrderBusinessType(
+  operationId: string,
+): SpecialCraftWorkOrderBusinessType {
+  if (operationId === 'AUX-OP-HEAT-TRANSFER') return 'HEAT_TRANSFER'
+  if (operationId === 'AUX-OP-DIRECT-PRINT') return 'DIRECT_PRINT'
+  return 'OTHER_SPECIAL_CRAFT'
+}
+
 function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
   workOrders: SpecialCraftTaskWorkOrder[]
   workOrderLines: SpecialCraftTaskWorkOrderLine[]
@@ -1771,6 +1793,7 @@ function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
       : [
           {
             demandLineId: `${taskOrder.taskOrderId}-LINE-01`,
+            skuCode: taskOrder.materialSku || `${taskOrder.productionOrderNo}-${taskOrder.sizeCode || '均码'}`,
             taskOrderId: taskOrder.taskOrderId,
             productionOrderId: taskOrder.productionOrderId,
             productionOrderNo: taskOrder.productionOrderNo,
@@ -1820,6 +1843,7 @@ function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
         : 0
 
       const workOrder: SpecialCraftTaskWorkOrder = {
+        businessType: getSpecialCraftWorkOrderBusinessType(taskOrder.operationId),
         workOrderId,
         workOrderNo: `${taskOrder.taskOrderNo}-部位${String(groupIndex + 1).padStart(2, '0')}`,
         taskOrderId: taskOrder.taskOrderId,
@@ -1850,7 +1874,9 @@ function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
         lineIds,
         createdAt: taskOrder.createdAt,
         updatedAt: taskOrder.updatedAt || taskOrder.createdAt,
-        remark: '按裁片部位拆分的工艺加工单',
+        remark: taskOrder.targetObject === '成衣'
+          ? '按成衣 BOM 适用 SKU 汇总的工艺加工单'
+          : '按裁片部位拆分的工艺加工单',
       }
       workOrders.push(workOrder)
       taskWorkOrderIds.set(taskOrder.taskOrderId, [...(taskWorkOrderIds.get(taskOrder.taskOrderId) || []), workOrderId])
@@ -1861,6 +1887,7 @@ function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
           workOrderId,
           taskOrderId: taskOrder.taskOrderId,
           demandLineId: line.demandLineId,
+          skuCode: line.skuCode,
           partName: line.partName,
           colorName: line.colorName,
           colorCode: line.colorCode,
@@ -1868,8 +1895,13 @@ function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
           pieceCountPerGarment: line.pieceCountPerGarment,
           orderQty: line.orderQty,
           planPieceQty: line.planPieceQty,
+          receivedQty: 0,
+          completedQty: 0,
+          scrapQty: 0,
+          damageQty: 0,
           currentQty: 0,
           feiTicketNos: [...line.feiTicketNos],
+          sourceBomItemId: line.sourceBomItemId,
           bundleWidthCm: line.bundleWidthCm,
           bundleLengthCm: line.bundleLengthCm,
           stripCount: line.stripCount,
@@ -2018,6 +2050,89 @@ export function getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrderId: string):
 
 export function getSpecialCraftTaskWorkOrderLinesByWorkOrderId(workOrderId: string): SpecialCraftTaskWorkOrderLine[] {
   return ensureStore().workOrderLines.filter((line) => line.workOrderId === workOrderId)
+}
+
+export function confirmSpecialCraftWorkOrderReceiptBySku(input: {
+  workOrderId: string
+  receivedQtyBySkuCode: Record<string, number>
+  receiverName: string
+  receivedAt: string
+}): SpecialCraftTaskWorkOrder | undefined {
+  const lines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(input.workOrderId)
+  if (!lines.length) return undefined
+  const invalidLine = lines.find((line) => {
+    const receivedQty = input.receivedQtyBySkuCode[line.skuCode]
+    return !Number.isInteger(receivedQty) || receivedQty < 0 || receivedQty > line.planPieceQty
+  })
+  if (invalidLine) throw new Error(`SKU ${invalidLine.skuCode} 实收件数无效。`)
+  lines.forEach((line) => {
+    const receivedQty = input.receivedQtyBySkuCode[line.skuCode]
+    line.receivedQty = receivedQty
+    line.currentQty = receivedQty
+  })
+  const totalReceivedQty = lines.reduce((sum, line) => sum + line.currentQty, 0)
+  return updateSpecialCraftTaskWorkOrderWebStatus(input.workOrderId, {
+    status: '已入待加工仓',
+    operatorName: input.receiverName,
+    operatedAt: input.receivedAt,
+    receivedQty: totalReceivedQty,
+    currentQty: totalReceivedQty,
+    remark: `按 ${lines.length} 个 SKU 确认实收 ${totalReceivedQty} 件`,
+  })
+}
+
+export function confirmSpecialCraftWorkOrderCompletionBySku(input: {
+  workOrderId: string
+  completedQtyBySkuCode: Record<string, number>
+  scrapQtyBySkuCode: Record<string, number>
+  damageQtyBySkuCode: Record<string, number>
+  operatorName: string
+  operatedAt: string
+}): SpecialCraftTaskWorkOrder | undefined {
+  const lines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(input.workOrderId)
+  if (!lines.length) return undefined
+  const expectedSkuCodes = lines.map((line) => line.skuCode).sort()
+  const hasExactSkuSet = (qtyBySkuCode: Record<string, number>) => {
+    const actualSkuCodes = Object.keys(qtyBySkuCode).sort()
+    return actualSkuCodes.length === expectedSkuCodes.length
+      && actualSkuCodes.every((skuCode, index) => skuCode === expectedSkuCodes[index])
+  }
+  if (
+    !hasExactSkuSet(input.completedQtyBySkuCode)
+    || !hasExactSkuSet(input.scrapQtyBySkuCode)
+    || !hasExactSkuSet(input.damageQtyBySkuCode)
+  ) {
+    throw new Error('逐 SKU 完工必须覆盖全部 SKU，且不得包含其他 SKU。')
+  }
+  const invalidLine = lines.find((line) => {
+    const completedQty = input.completedQtyBySkuCode[line.skuCode]
+    const scrapQty = input.scrapQtyBySkuCode[line.skuCode]
+    const damageQty = input.damageQtyBySkuCode[line.skuCode]
+    return !Number.isInteger(completedQty) || completedQty < 0
+      || !Number.isInteger(scrapQty) || scrapQty < 0
+      || !Number.isInteger(damageQty) || damageQty < 0
+      || completedQty + scrapQty + damageQty !== line.receivedQty
+  })
+  if (invalidLine) throw new Error(`SKU ${invalidLine.skuCode} 的完工、报废和货损件数必须为整数，且合计等于已收件数。`)
+  lines.forEach((line) => {
+    line.completedQty = input.completedQtyBySkuCode[line.skuCode]
+    line.scrapQty = input.scrapQtyBySkuCode[line.skuCode]
+    line.damageQty = input.damageQtyBySkuCode[line.skuCode]
+    line.currentQty = line.completedQty
+  })
+  const completedQty = lines.reduce((sum, line) => sum + line.completedQty, 0)
+  const scrapQty = lines.reduce((sum, line) => sum + line.scrapQty, 0)
+  const damageQty = lines.reduce((sum, line) => sum + line.damageQty, 0)
+  return updateSpecialCraftTaskWorkOrderWebStatus(input.workOrderId, {
+    status: '待交出',
+    operatorName: input.operatorName,
+    operatedAt: input.operatedAt,
+    currentQty: completedQty,
+    waitReturnQty: completedQty,
+    scrapQty,
+    damageQty,
+    remark: `按 ${lines.length} 个 SKU 确认完工 ${completedQty} 件，报废 ${scrapQty} 件，货损 ${damageQty} 件`,
+  })
 }
 
 export function getSpecialCraftTaskWorkOrderById(workOrderId: string): SpecialCraftTaskWorkOrder | undefined {

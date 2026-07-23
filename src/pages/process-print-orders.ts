@@ -1,3 +1,5 @@
+// @page-pattern: list
+
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { listPrepProcessOrders, type PrepProcessOrderFact } from '../data/fcs/page-adapters/process-prep-pages-adapter'
@@ -9,9 +11,28 @@ import {
   listPlatformStatusOptions,
   type PlatformProcessStatus,
 } from '../data/fcs/process-platform-status-adapter.ts'
+import {
+  PROCESS_WORK_ORDER_SOURCE_LABEL,
+  type ProcessWorkOrderSourceType,
+} from '../data/fcs/process-work-order-domain.ts'
+import { renderStandardListPage } from '../components/ui/list-page.ts'
+import { type StandardListColumn } from '../components/ui/list-table.ts'
+import {
+  resetStandardListEntryTransientStateOnRouteEntry,
+  type StandardListColumnPreferences,
+  type StandardListSortState,
+} from '../components/ui/list-table-model.ts'
+import { renderSecondaryButton } from '../components/ui/button.ts'
+import { createProcessOrderListController } from '../components/ui/process-order-list-controller.ts'
+import { getProcessWorkOrderSourceDetailRows } from './process-work-orders/process-work-order-source-view.ts'
 
-type PageSize = 10 | 20 | 50
-type ModeFilter = '全部' | '生产单自动生成' | '按备货创建'
+// 标准列表契约的 renderStandardListTable、renderTablePagination 由共享控制器统一调用。
+
+type SourceFilter = '' | ProcessWorkOrderSourceType
+
+const LIST_EVENT_PREFIX = 'print-order-list'
+const LIST_PREFERENCE_KEY = '/fcs/process/print-orders:list-columns'
+const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 interface PrintCreateForm {
   stockMaterialId: string
@@ -46,9 +67,12 @@ const defaultForm = (): PrintCreateForm => ({
 const state = {
   keyword: '',
   statusFilter: '全部' as '全部' | PlatformProcessStatus,
-  modeFilter: '全部' as ModeFilter,
-  page: 1,
-  pageSize: 10 as PageSize,
+  sourceFilter: '' as SourceFilter,
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: { order: [], visibleKeys: [], frozenKeys: ['orderNo'], pageSize: 10 } as StandardListColumnPreferences,
+  preferencesLoaded: false,
+  showColumnSettings: false,
   selectedWorkOrderId: null as string | null,
   createOpen: false,
   notice: null as string | null,
@@ -68,11 +92,12 @@ function getOrders(): PrepProcessOrderFact[] {
   return listPrepProcessOrders('PRINT')
 }
 
-function getFilteredOrders(): PrepProcessOrderFact[] {
+function getFilteredOrders(sourceOverride?: SourceFilter): PrepProcessOrderFact[] {
   const keyword = state.keyword.trim().toLowerCase()
+  const sourceFilter = sourceOverride ?? state.sourceFilter
   return getOrders().filter((order) => {
     if (state.statusFilter !== '全部' && order.platformStatusLabel !== state.statusFilter) return false
-    if (state.modeFilter !== '全部' && order.createMode !== state.modeFilter) return false
+    if (sourceFilter && order.sourceType !== sourceFilter) return false
     if (!keyword) return true
     return [
       order.orderNo,
@@ -93,9 +118,12 @@ function renderStatus(order: PrepProcessOrderFact): string {
 
 function renderSource(order: PrepProcessOrderFact): string {
   if (order.sourceType === 'STOCK') {
-    return `<div class="font-medium">按备货创建</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.stockMaterial?.materialName || '-')}</div>`
+    return `<div class="font-medium">${escapeHtml(PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType])}</div><div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.stockMaterial?.materialName || '-')}</div>`
   }
-  return `<div class="font-medium">生产单自动生成</div><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(order.sourceProductionOrderNo || order.sourceProductionOrderId || '-')}</div>`
+  if (order.sourceType === 'CUT_PIECE_SUPPLEMENT') {
+    return `<div class="font-medium">${escapeHtml(PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType])}</div><div class="mt-1 font-mono text-xs text-muted-foreground">补料单 ${escapeHtml(order.sourceSnapshot?.supplementRecordNo || '-')}</div>`
+  }
+  return `<div class="font-medium">${escapeHtml(PROCESS_WORK_ORDER_SOURCE_LABEL[order.sourceType])}</div><div class="mt-1 font-mono text-xs text-muted-foreground">${escapeHtml(order.sourceProductionOrderNo || order.sourceProductionOrderId || '-')}</div>`
 }
 
 function renderPlatformSyncSection(order: PrepProcessOrderFact): string {
@@ -114,9 +142,15 @@ function renderPlatformSyncSection(order: PrepProcessOrderFact): string {
   `
 }
 
-function renderDetail(): string {
-  if (!state.selectedWorkOrderId) return ''
-  const order = getOrders().find((item) => item.workOrderId === state.selectedWorkOrderId)
+function renderSourceDetail(order: PrepProcessOrderFact): string {
+  return getProcessWorkOrderSourceDetailRows(order)
+    .map((row) => `<div><span class="text-muted-foreground">${escapeHtml(row.label)}：</span>${escapeHtml(row.value)}</div>`)
+    .join('')
+}
+
+function renderDetail(selectedWorkOrderId = state.selectedWorkOrderId): string {
+  if (!selectedWorkOrderId) return ''
+  const order = getOrders().find((item) => item.workOrderId === selectedWorkOrderId)
   if (!order) return ''
   const plannedQtyLabel = order.plannedQtyLabel || '计划加工数量'
   return `
@@ -127,8 +161,7 @@ function renderDetail(): string {
         <button class="rounded-md border px-3 py-2 text-sm" data-print-order-action="close-detail">关闭</button>
       </div>
       <div class="mt-6 grid gap-4 rounded-lg border p-4 text-sm sm:grid-cols-2">
-        <div><span class="text-muted-foreground">来源：</span>${escapeHtml(order.createMode)}</div>
-        <div><span class="text-muted-foreground">来源对象：</span>${escapeHtml(order.sourceSummary)}</div>
+        ${renderSourceDetail(order)}
         <div><span class="text-muted-foreground">工厂：</span>${escapeHtml(order.factoryName)}</div>
         <div><span class="text-muted-foreground">${escapeHtml(plannedQtyLabel)}：</span>${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</div>
         <div><span class="text-muted-foreground">计划完成：</span>${escapeHtml(order.plannedFinishAt)}</div>
@@ -176,38 +209,84 @@ function renderCreate(): string {
   `
 }
 
-function renderPagination(total: number, totalPages: number): string {
-  return `<div class="flex items-center justify-between border-t px-4 py-3 text-sm"><span>共 ${total} 条，第 ${state.page} / ${totalPages} 页</span><div class="flex gap-2"><button class="rounded border px-3 py-1.5" data-print-order-action="page-prev" ${state.page <= 1 ? 'disabled' : ''}>上一页</button><button class="rounded border px-3 py-1.5" data-print-order-action="page-next" ${state.page >= totalPages ? 'disabled' : ''}>下一页</button></div></div>`
+const listColumns: StandardListColumn<PrepProcessOrderFact>[] = [
+  { key: 'orderNo', title: '平台加工单号', width: 180, required: true, freezeable: true, sortable: true, sortValue: (order) => order.workOrderNo || order.orderNo, render: (order) => `<span class="font-mono text-xs">${escapeHtml(order.workOrderNo || order.orderNo)}</span>` },
+  { key: 'source', title: '来源', width: 210, required: true, freezeable: true, sortable: true, sortValue: (order) => order.sourceLabel, render: renderSource },
+  { key: 'factory', title: '工厂', width: 180, sortable: true, sortValue: (order) => order.factoryName, render: (order) => escapeHtml(order.factoryName) },
+  { key: 'qty', title: '计划数量', width: 145, sortable: true, align: 'right', sortValue: (order) => order.plannedFeedQty, render: (order) => escapeHtml(formatQty(order.plannedFeedQty, order.unit)) },
+  { key: 'finishAt', title: '计划完成', width: 165, sortable: true, sortValue: (order) => order.plannedFinishAt, render: (order) => escapeHtml(order.plannedFinishAt) },
+  { key: 'status', title: '平台状态', width: 135, sortable: true, sortValue: (order) => order.platformStatusLabel, render: renderStatus },
+  { key: 'risk', title: '风险提示', width: 180, render: (order) => escapeHtml(order.platformRiskLabel || '-') },
+  { key: 'next', title: '下一步动作', width: 170, render: (order) => escapeHtml(order.followUpActionLabel || '查看详情') },
+  { key: 'actions', title: '操作', width: 100, required: true, actionColumn: true, render: (order) => `<button class="text-primary hover:underline" data-print-order-action="open-detail" data-work-order-id="${escapeHtml(order.workOrderId || order.orderNo)}">查看</button>` },
+]
+const listController = createProcessOrderListController({
+  state,
+  columns: listColumns,
+  preferenceKey: LIST_PREFERENCE_KEY,
+  pageSizeOptions: PAGE_SIZE_OPTIONS,
+  eventPrefix: LIST_EVENT_PREFIX,
+  rootSelector: '[data-process-print-orders-root]',
+  tableSurfaceSelector: '[data-process-print-orders-table-surface]',
+  paginationSurfaceSelector: '[data-process-print-orders-pagination-surface]',
+  overlaysSurfaceSelector: '[data-process-print-orders-overlays]',
+  defaultFrozenKeys: ['orderNo'],
+  columnSettingsTitle: '印花加工单列设置',
+  emptyText: '暂无加工单',
+  getRows: getFilteredOrders,
+})
+
+function hydrateInsertedIcons(root: ParentNode): void {
+  void import('../components/shell.ts').then(({ hydrateIcons }) => hydrateIcons(root)).catch(() => undefined)
 }
 
-export function renderProcessPrintOrdersPage(): string {
-  const filtered = getFilteredOrders()
-  const totalPages = Math.max(1, Math.ceil(filtered.length / state.pageSize))
-  state.page = Math.min(state.page, totalPages)
-  const rows = filtered.slice((state.page - 1) * state.pageSize, state.page * state.pageSize)
+function refreshDetailLocally(): void {
+  if (typeof document === 'undefined') return
+  const node = document.querySelector<HTMLElement>('[data-process-print-orders-detail]')
+  if (!node) return
+  node.innerHTML = renderDetail()
+  hydrateInsertedIcons(node)
+}
+
+function refreshCreateLocally(): void {
+  if (typeof document === 'undefined') return
+  const node = document.querySelector<HTMLElement>('[data-process-print-orders-create]')
+  if (!node) return
+  node.innerHTML = renderCreate()
+  hydrateInsertedIcons(node)
+}
+
+function refreshFeedbackLocally(): void {
+  if (typeof document === 'undefined') return
+  const node = document.querySelector<HTMLElement>('[data-process-print-orders-feedback]')
+  if (node) node.innerHTML = state.notice ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">${escapeHtml(state.notice)}</div>` : ''
+}
+
+export function renderProcessPrintOrdersPage(options: { sourceType?: SourceFilter; selectedWorkOrderId?: string | null } = {}): string {
+  resetStandardListEntryTransientStateOnRouteEntry(state, typeof document !== 'undefined' && Boolean(document.querySelector('[data-process-print-orders-root]')))
+  listController.installColumnDragEvents()
+  listController.ensurePreferencesLoaded()
+  const view = listController.getView(options.sourceType === undefined ? undefined : getFilteredOrders(options.sourceType))
   const statusOptions = listPlatformStatusOptions()
-  return `
-    <main class="space-y-5 p-6">
-      <header class="flex flex-wrap items-start justify-between gap-4">
-        <div><h1 class="text-2xl font-semibold">印花加工单</h1><p class="mt-1 text-sm text-muted-foreground">生产单自动生成，或由业务人员按备货创建。</p></div>
-        <button class="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" data-print-order-action="create-new">按备货创建</button>
-      </header>
-      ${state.notice ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">${escapeHtml(state.notice)}</div>` : ''}
-      <section class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-4">
+  const sourceFilter = options.sourceType ?? state.sourceFilter
+  return `<div data-process-print-orders-root data-skip-page-rerender="true">${renderStandardListPage({
+    title: '印花加工单',
+    primaryActionsHtml: '<button class="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" data-print-order-action="create-new">按备货创建</button>',
+    feedbackHtml: `<div data-process-print-orders-feedback>${state.notice ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">${escapeHtml(state.notice)}</div>` : ''}</div>`,
+    filtersHtml: `<section class="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-4">
         <input class="h-10 rounded-md border bg-background px-3 text-sm md:col-span-2" placeholder="加工单号 / 生产单号 / 备货物料 / 工厂" value="${escapeHtml(state.keyword)}" data-print-order-field="keyword" />
         <select class="h-10 rounded-md border bg-background px-3 text-sm" data-print-order-field="statusFilter"><option>全部</option>${statusOptions.map((status) => `<option ${state.statusFilter === status ? 'selected' : ''}>${status}</option>`).join('')}</select>
-        <select class="h-10 rounded-md border bg-background px-3 text-sm" data-print-order-field="modeFilter">${(['全部', '生产单自动生成', '按备货创建'] as ModeFilter[]).map((mode) => `<option ${state.modeFilter === mode ? 'selected' : ''}>${mode}</option>`).join('')}</select>
-      </section>
-      <section class="overflow-hidden rounded-lg border bg-card">
-        <div class="overflow-x-auto"><table class="w-full min-w-[1080px] text-sm"><thead class="bg-muted/50 text-left"><tr><th class="px-4 py-3">平台加工单号</th><th class="px-4 py-3">来源</th><th class="px-4 py-3">工厂</th><th class="px-4 py-3">计划数量</th><th class="px-4 py-3">计划完成</th><th class="px-4 py-3">平台状态</th><th class="px-4 py-3">风险提示</th><th class="px-4 py-3">下一步动作</th><th class="px-4 py-3">操作</th></tr></thead><tbody>
-          ${rows.map((order) => `<tr class="border-t"><td class="px-4 py-3 font-mono text-xs">${escapeHtml(order.workOrderNo || order.orderNo)}</td><td class="px-4 py-3">${renderSource(order)}</td><td class="px-4 py-3">${escapeHtml(order.factoryName)}</td><td class="px-4 py-3">${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</td><td class="px-4 py-3">${escapeHtml(order.plannedFinishAt)}</td><td class="px-4 py-3">${renderStatus(order)}</td><td class="px-4 py-3">${escapeHtml(order.platformRiskLabel || '-')}</td><td class="px-4 py-3">${escapeHtml(order.followUpActionLabel || '查看详情')}</td><td class="px-4 py-3"><button class="text-primary hover:underline" data-print-order-action="open-detail" data-work-order-id="${escapeHtml(order.workOrderId || order.orderNo)}">查看</button></td></tr>`).join('') || '<tr><td colspan="9" class="px-4 py-10 text-center text-muted-foreground">暂无加工单</td></tr>'}
-        </tbody></table></div>
-        ${renderPagination(filtered.length, totalPages)}
-      </section>
-    </main>
-    ${renderDetail()}
-    ${renderCreate()}
-  `
+        <select class="h-10 rounded-md border bg-background px-3 text-sm" data-print-order-field="sourceFilter"><option value="">全部来源</option>${Object.entries(PROCESS_WORK_ORDER_SOURCE_LABEL).map(([value, label]) => `<option value="${value}" ${sourceFilter === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select>
+      </section>`,
+    listTitle: '印花加工单',
+    listActionsHtml: renderSecondaryButton('列设置', { prefix: LIST_EVENT_PREFIX, action: 'open-column-settings' }, 'settings-2'),
+    tableHtml: `<div data-process-print-orders-table-surface>${view.tableHtml}</div>`,
+    paginationHtml: `<div data-process-print-orders-pagination-surface>${view.paginationHtml}</div>`,
+    overlaysHtml: `<div data-process-print-orders-overlays>${listController.renderColumnSettings()}</div>`,
+  })}
+    <div data-process-print-orders-detail>${renderDetail(options.selectedWorkOrderId === undefined ? state.selectedWorkOrderId : options.selectedWorkOrderId)}</div>
+    <div data-process-print-orders-create>${renderCreate()}</div>
+  </div>`
 }
 
 function submitCreate(): void {
@@ -230,7 +309,7 @@ function submitCreate(): void {
   state.createOpen = false
   state.form = defaultForm()
   state.formError = null
-  state.page = Math.max(1, Math.ceil(getOrders().length / state.pageSize))
+  state.currentPage = Math.max(1, Math.ceil(getFilteredOrders().length / state.preferences.pageSize))
 }
 
 export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
@@ -270,26 +349,59 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
   if (field) {
     if (field.dataset.printOrderField === 'keyword') state.keyword = field.value
     if (field.dataset.printOrderField === 'statusFilter') state.statusFilter = field.value as typeof state.statusFilter
-    if (field.dataset.printOrderField === 'modeFilter') state.modeFilter = field.value as ModeFilter
-    state.page = 1
+    if (field.dataset.printOrderField === 'sourceFilter') state.sourceFilter = field.value as SourceFilter
+    state.currentPage = 1
+    listController.refresh()
     return true
   }
   const actionNode = target.closest<HTMLElement>('[data-print-order-action]')
-  if (!actionNode) return false
+  const listField = target.closest<HTMLSelectElement>('[data-print-order-list-field]')
+  if (listField?.dataset.printOrderListField === 'pageSize') {
+    const pageSize = Number(listField.value)
+    listController.setPageSize(pageSize)
+    listController.refresh()
+    return true
+  }
+  const listAction = target.closest<HTMLElement>('[data-print-order-list-action]')
+  if (listAction) {
+    const action = listAction.dataset.printOrderListAction || ''
+    if (action === 'prev-page' || action === 'next-page') listController.stepPage(action === 'next-page' ? 1 : -1)
+    if (action === 'sort-column') listController.cycleSort(listAction.dataset.columnKey || '')
+    if (action === 'open-column-settings') {
+      state.showColumnSettings = true
+      listController.refresh({ table: false, pagination: false, overlays: true })
+      return true
+    }
+    if (action === 'close-column-settings') {
+      state.showColumnSettings = false
+      listController.refresh({ table: false, pagination: false, overlays: true })
+      return true
+    }
+    if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+      const key = listAction.dataset.printOrderListColumnKey || listAction.closest<HTMLElement>('[data-print-order-list-column-key]')?.dataset.printOrderListColumnKey || ''
+      listController.updateColumnPreference(action, key, target instanceof HTMLInputElement ? target.checked : undefined)
+      listController.refresh()
+      return true
+    }
+    if (action === 'restore-column-settings') listController.restorePreferences()
+    listController.refresh({ overlays: state.showColumnSettings })
+    return true
+  }
+  if (!actionNode) return Boolean(listField)
   const action = actionNode.dataset.printOrderAction
   if (action === 'navigate-detail') {
     const workOrderId = actionNode.dataset.workOrderId
     if (workOrderId) appStore.navigate(`/fcs/craft/printing/work-orders/${encodeURIComponent(workOrderId)}`)
     return true
   }
-  if (action === 'open-detail') state.selectedWorkOrderId = actionNode.dataset.workOrderId || null
-  if (action === 'close-detail') state.selectedWorkOrderId = null
-  if (action === 'create-new') { state.createOpen = true; state.notice = null; state.formError = null }
-  if (action === 'close-create') { state.createOpen = false; state.form = defaultForm(); state.formError = null }
-  if (action === 'submit-create') submitCreate()
-  if (action === 'page-prev') state.page = Math.max(1, state.page - 1)
-  if (action === 'page-next') state.page += 1
-  if (action === 'close-all') { state.selectedWorkOrderId = null; state.createOpen = false; state.formError = null }
+  if (action === 'open-detail') { state.selectedWorkOrderId = actionNode.dataset.workOrderId || null; refreshDetailLocally() }
+  if (action === 'close-detail') { state.selectedWorkOrderId = null; refreshDetailLocally() }
+  if (action === 'create-new') { state.createOpen = true; state.notice = null; state.formError = null; refreshCreateLocally(); refreshFeedbackLocally() }
+  if (action === 'close-create') { state.createOpen = false; state.form = defaultForm(); state.formError = null; refreshCreateLocally() }
+  if (action === 'submit-create') { submitCreate(); refreshCreateLocally(); refreshFeedbackLocally(); listController.refresh() }
+  if (action === 'page-prev') { listController.stepPage(-1); listController.refresh() }
+  if (action === 'page-next') { listController.stepPage(1); listController.refresh() }
+  if (action === 'close-all') { state.selectedWorkOrderId = null; state.createOpen = false; state.formError = null; refreshDetailLocally(); refreshCreateLocally() }
   return true
 }
 

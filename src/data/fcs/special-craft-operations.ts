@@ -18,7 +18,69 @@ export type SpecialCraftTargetObject =
   | SpecialCraftTargetObjectLabel
   | '裁片'
   | '面料'
-  | '成衣半成品'
+
+export interface SpecialCraftFlowRule {
+  unit: '片' | '米' | '件'
+  requiresFeiTicketScan: boolean
+  mustReturnToCuttingFactory: boolean
+}
+
+export interface AuxiliaryWarehouseFlowContext {
+  objectType: '裁片' | '面料' | '成衣'
+  itemKind: '裁片' | '面料' | '成衣'
+  qtyUnit: '片' | '米' | '件'
+  sourceObjectName: '裁床待交出仓' | '面辅料仓' | '成衣仓'
+  receiverKind: '裁床厂' | '中转仓' | '后道工厂'
+  receiverName: '裁床工厂' | '公司中转仓' | '我方后道工厂'
+  receiverWarehouseName: '裁床待交出仓' | '公司中转仓' | '后道待加工仓'
+}
+
+export function resolveAuxiliaryWarehouseFlow(
+  targetObject: SpecialCraftTargetObject,
+): AuxiliaryWarehouseFlowContext {
+  if (targetObject === '成衣') {
+    return {
+      objectType: '成衣',
+      itemKind: '成衣',
+      qtyUnit: '件',
+      sourceObjectName: '成衣仓',
+      receiverKind: '后道工厂',
+      receiverName: '我方后道工厂',
+      receiverWarehouseName: '后道待加工仓',
+    }
+  }
+  if (targetObject === '完整面料' || targetObject === '面料') {
+    return {
+      objectType: '面料',
+      itemKind: '面料',
+      qtyUnit: '米',
+      sourceObjectName: '面辅料仓',
+      receiverKind: '中转仓',
+      receiverName: '公司中转仓',
+      receiverWarehouseName: '公司中转仓',
+    }
+  }
+  return {
+    objectType: '裁片',
+    itemKind: '裁片',
+    qtyUnit: '片',
+    sourceObjectName: '裁床待交出仓',
+    receiverKind: '裁床厂',
+    receiverName: '裁床工厂',
+    receiverWarehouseName: '裁床待交出仓',
+  }
+}
+
+export function getSpecialCraftFlowRule(
+  targetObject: SpecialCraftTargetObject,
+): SpecialCraftFlowRule {
+  const flow = resolveAuxiliaryWarehouseFlow(targetObject)
+  return {
+    unit: flow.qtyUnit,
+    requiresFeiTicketScan: flow.objectType === '裁片',
+    mustReturnToCuttingFactory: flow.receiverKind === '裁床厂',
+  }
+}
 
 export interface SpecialCraftOperationDefinition {
   operationId: string
@@ -90,7 +152,7 @@ const auxiliaryCraftOperationSeedByName: Record<string, SpecialCraftOperationSee
     defaultTargetObject: 'SEMI_FINISHED_GARMENT',
     requiresFeiTicketScan: false,
     mustReturnToCuttingFactory: false,
-    remark: '按成衣半成品烫画辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
+    remark: '按成衣烫画辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
   },
   直喷: {
     operationId: 'AUX-OP-DIRECT-PRINT',
@@ -343,7 +405,7 @@ export function listVisibleSpecialCraftOperationsForFactoryType(factoryType: Fac
 export function getDefaultSpecialCraftTargetObject(
   operation: Pick<SpecialCraftOperationDefinition, 'defaultTargetObject' | 'targetObject'>,
 ): SpecialCraftTargetObjectLabel {
-  if (operation.defaultTargetObject === '已裁部位' || operation.defaultTargetObject === '完整面料') {
+  if (operation.defaultTargetObject === '已裁部位' || operation.defaultTargetObject === '完整面料' || operation.defaultTargetObject === '成衣') {
     return operation.defaultTargetObject
   }
   return operation.targetObject === '面料' || operation.targetObject === '完整面料'
@@ -355,7 +417,7 @@ export function isSpecialCraftTargetObjectSupported(
   operation: Pick<SpecialCraftOperationDefinition, 'supportedTargetObjectLabels'>,
   selectedTargetObject: string | undefined,
 ): selectedTargetObject is SpecialCraftTargetObjectLabel {
-  return selectedTargetObject === '已裁部位' || selectedTargetObject === '完整面料' || selectedTargetObject === '成衣半成品'
+  return selectedTargetObject === '已裁部位' || selectedTargetObject === '完整面料' || selectedTargetObject === '成衣'
     ? operation.supportedTargetObjectLabels.includes(selectedTargetObject)
     : false
 }

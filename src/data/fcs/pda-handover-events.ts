@@ -31,6 +31,11 @@ import {
   handoutRecordVersionHistory,
   installCompleteHandoutReaders,
 } from './pda-handover-handout-registry.ts'
+import {
+  PROCESS_WORK_ORDER_SOURCE_LABEL,
+  type ProcessWorkOrderSourceSnapshot,
+  type ProcessWorkOrderSourceType,
+} from './process-work-order-domain.ts'
 
 const getRuntimeTaskById = (taskId: string): RuntimeProcessTask | null =>
   readRuntimeTaskById<RuntimeProcessTask>(taskId)
@@ -89,7 +94,7 @@ export type HandoverAction = 'PICKUP' | 'HANDOUT'
 export type HandoverStatus = 'PENDING' | 'CONFIRMED'
 export type HandoverPartyKind = 'WAREHOUSE' | 'FACTORY'
 export type HandoverReceiverKind = 'WAREHOUSE' | 'MANAGED_POST_FACTORY'
-export type PdaHandoverSourceType = 'PRODUCTION_ORDER' | 'STOCK'
+export type PdaHandoverSourceType = ProcessWorkOrderSourceType
 export type HandoverOrderStatus =
   | 'AUTO_CREATED'
   | 'OPEN'
@@ -357,6 +362,7 @@ export interface PdaHandoverHead {
   splitFromTaskNo?: string
   isSplitResult?: boolean
   sourceType?: PdaHandoverSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
   productionOrderId?: string
   productionOrderNo?: string
   stockMaterialId?: string
@@ -426,6 +432,7 @@ export interface PdaHandoverRecord {
   taskId: string
   sourceTaskId?: string
   sourceType?: PdaHandoverSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
   productionOrderId?: string
   productionOrderNo?: string
   stockMaterialId?: string
@@ -491,18 +498,30 @@ export interface PdaHandoverRecord {
 }
 
 export function getPdaHandoverSourceDisplay(
-  head: Pick<PdaHandoverHead, 'sourceType' | 'productionOrderId' | 'productionOrderNo' | 'stockMaterialId' | 'stockMaterialName'>,
-): { label: '生产单号' | '备货物料'; value: string } {
+  head: Pick<PdaHandoverHead, 'sourceType' | 'sourceSnapshot' | 'productionOrderId' | 'productionOrderNo' | 'stockMaterialId' | 'stockMaterialName'>,
+): { label: '生产单号' | '备货物料' | '补料单'; value: string } {
   if (head.sourceType === 'STOCK') {
     return {
       label: '备货物料',
       value: [head.stockMaterialName, head.stockMaterialId].filter(Boolean).join(' / ') || '—',
     }
   }
+  if (head.sourceType === 'CUT_PIECE_SUPPLEMENT') {
+    return {
+      label: '补料单',
+      value: head.sourceSnapshot?.supplementRecordNo || '—',
+    }
+  }
   return {
     label: '生产单号',
     value: head.productionOrderNo || head.productionOrderId || '—',
   }
+}
+
+export function getPdaHandoverSourceTypeLabel(
+  head: Pick<PdaHandoverHead, 'sourceType'>,
+): string {
+  return PROCESS_WORK_ORDER_SOURCE_LABEL[head.sourceType || 'PRODUCTION_ORDER']
 }
 
 export interface TransferBagWritebackLine {
@@ -764,7 +783,7 @@ function createRecordLines(record: Pick<
 function hydrateHandoverRecordDomain(
   record: PdaHandoverRecord,
   head: Pick<PdaHandoverHead,
-    'handoverId' | 'handoverOrderId' | 'sourceType' | 'productionOrderId' | 'productionOrderNo' | 'stockMaterialId' | 'stockMaterialName'
+    'handoverId' | 'handoverOrderId' | 'sourceType' | 'sourceSnapshot' | 'productionOrderId' | 'productionOrderNo' | 'stockMaterialId' | 'stockMaterialName'
   >,
 ): PdaHandoverRecord {
   const handoverOrderId = head.handoverOrderId || head.handoverId
@@ -781,14 +800,16 @@ function hydrateHandoverRecordDomain(
     ...(head.sourceType === 'STOCK'
       ? {
           sourceType: 'STOCK' as const,
+          sourceSnapshot: head.sourceSnapshot ? structuredClone(head.sourceSnapshot) : undefined,
           stockMaterialId: head.stockMaterialId,
           stockMaterialName: head.stockMaterialName,
           productionOrderId: undefined,
           productionOrderNo: undefined,
         }
-      : head.sourceType === 'PRODUCTION_ORDER'
+      : head.sourceType === 'PRODUCTION_ORDER' || head.sourceType === 'CUT_PIECE_SUPPLEMENT'
         ? {
-            sourceType: 'PRODUCTION_ORDER' as const,
+            sourceType: head.sourceType,
+            sourceSnapshot: head.sourceSnapshot ? structuredClone(head.sourceSnapshot) : undefined,
             productionOrderId: head.productionOrderId,
             productionOrderNo: head.productionOrderNo,
             stockMaterialId: undefined,
@@ -2656,37 +2677,16 @@ function cloneCutPieceLines(lines: PdaCutPieceHandoutLine[] | undefined): PdaCut
   return lines?.map((line) => ({ ...line }))
 }
 
-function cloneCuttingHandoverSummary(
-  summary: PdaCuttingHandoverRecordSummary | undefined,
-): PdaCuttingHandoverRecordSummary | undefined {
-  if (!summary) return undefined
-  return {
-    ...summary,
-    gapLines: summary.gapLines.map((line) => ({ ...line })),
-  }
-}
-
 function cloneHead(head: PdaHandoverHead): PdaHandoverHead {
-  return { ...head }
+  return structuredClone(head)
 }
 
 function clonePickupRecord(record: PdaPickupRecord): PdaPickupRecord {
-  return {
-    ...record,
-    objectionProofFiles: cloneProofFiles(record.objectionProofFiles ?? []),
-  }
+  return structuredClone(record)
 }
 
 function cloneRecord(record: PdaHandoverRecord): PdaHandoverRecord {
-  return {
-    ...record,
-    cutPieceLines: cloneCutPieceLines(record.cutPieceLines),
-    cuttingHandoverSummary: cloneCuttingHandoverSummary(record.cuttingHandoverSummary),
-    recordLines: record.recordLines?.map((line) => ({ ...line })),
-    factoryProofFiles: cloneProofFiles(record.factoryProofFiles),
-    receiverProofFiles: cloneProofFiles(record.receiverProofFiles ?? []),
-    objectionProofFiles: cloneProofFiles(record.objectionProofFiles ?? []),
-  }
+  return structuredClone(record)
 }
 
 export function capturePdaHandoverState(): PdaHandoverStateSnapshot {
@@ -3500,7 +3500,12 @@ function getHandoutRecordsForHeadInternal(head: PdaHandoverHead): PdaHandoverRec
         : []
 
   const appended = handoutRecordAdditions.get(head.handoverId) ?? []
-  const merged = [...baseRecords, ...appended].map((record) => ({ ...record, ...(handoutRecordOverrides.get(record.recordId) ?? {}) }))
+  const recordsById = new Map<string, PdaHandoverRecord>()
+  ;[...baseRecords, ...appended].forEach((record) => recordsById.set(record.recordId, record))
+  const merged = Array.from(recordsById.values()).map((record) => ({
+    ...record,
+    ...(handoutRecordOverrides.get(record.recordId) ?? {}),
+  }))
 
   return merged
     .sort((a, b) => b.sequenceNo - a.sequenceNo)
@@ -3664,7 +3669,7 @@ function recomputeHeadsInternal(): PdaHandoverHead[] {
       : refreshHandoutHeadSummary(cloneHead(head)),
   )
 
-  return [
+  const heads = [
     ...pickupHeads,
     ...handoutHeads,
     ...postFinishingPickupHeads,
@@ -3673,6 +3678,9 @@ function recomputeHeadsInternal(): PdaHandoverHead[] {
     ...mockHeads,
     ...addedHeads,
   ]
+  const headsById = new Map<string, PdaHandoverHead>()
+  heads.forEach((head) => headsById.set(head.handoverId, head))
+  return Array.from(headsById.values())
 }
 
 function buildHeadsInternal(): PdaHandoverHead[] {
@@ -4325,15 +4333,17 @@ export function ensureHandoverOrderForStartedTask(taskId: string): {
 
   const receiver = resolveTaskReceiver(task)
   const handoverOrderId = `HO-${taskId.replace(/[^A-Za-z0-9]/g, '')}`
-  const sourceType: PdaHandoverSourceType = task.sourceType === 'STOCK' ? 'STOCK' : 'PRODUCTION_ORDER'
+  const sourceType: PdaHandoverSourceType = task.sourceType || 'PRODUCTION_ORDER'
   const sourceFields = sourceType === 'STOCK'
     ? {
         sourceType,
+        sourceSnapshot: task.sourceSnapshot ? structuredClone(task.sourceSnapshot) : undefined,
         stockMaterialId: task.stockMaterialId,
         stockMaterialName: task.stockMaterialName,
       }
     : {
         sourceType,
+        sourceSnapshot: task.sourceSnapshot ? structuredClone(task.sourceSnapshot) : undefined,
         productionOrderId: task.productionOrderId,
         productionOrderNo: task.productionOrderNo || task.productionOrderId,
       }

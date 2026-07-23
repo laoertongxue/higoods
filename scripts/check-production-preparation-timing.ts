@@ -823,7 +823,7 @@ const runtimeLatestUploadAt = runtimeReadyUploads
   .sort((left, right) => right.localeCompare(left))[0]
 assert.equal(runtimeReadyRecord.outputPublishedAt, runtimeLatestUploadAt, 'runtime ready 产出时间必须取最晚完成证据')
 assert.ok((runtimeReadyRecord.outputs?.length ?? 0) > 0, 'runtime 证据齐全后必须生成产出对象')
-for (const outputType of ['正式版本技术包', '生产需求单', '生产单', '染色需求单', '染色加工单', '辅料采购单'] as const) {
+for (const outputType of ['正式版本技术包', '生产需求单', '生产单', '染色加工单', '辅料采购单'] as const) {
   assert.ok(
     runtimeReadyRecord.outputs?.some((output) => output.outputType === outputType),
     `runtime 证据齐全后产出缺少「${outputType}」`,
@@ -1005,7 +1005,7 @@ assert.equal(reconfirmedReadyRecord?.outputReady, true, 'runtime 重新选择选
 assert.ok((reconfirmedReadyRecord?.outputs?.length ?? 0) > 0, 'runtime 重新选择选填项且补齐上传证据后必须恢复产出对象')
 assert.equal(reconfirmedReadyRecord?.status, '已完成', '已确认且全部已选准备项有有效证据时记录必须派生为已完成')
 assert.equal(reconfirmedReadyRecord?.currentBlockerText, '全部已选准备项完成', '已完成记录必须明确全部已选准备项完成')
-for (const outputType of ['印花需求单', '印花加工单'] as const) {
+for (const outputType of ['印花加工单'] as const) {
   assert.ok(
     reconfirmedReadyRecord?.outputs?.some((output) => output.outputType === outputType),
     `runtime 重新选择花型且补齐上传证据后产出缺少「${outputType}」`,
@@ -1112,7 +1112,7 @@ assert.deepEqual(
   ['数码印/DTF/DTG花型'],
   'runtime selectedItemTypes 必须按 itemType 选择准备项，不能继续强制保留旧必做项',
 )
-for (const outputType of ['印花需求单', '印花加工单'] as const) {
+for (const outputType of ['印花加工单'] as const) {
   assert.ok(
     typeSwitchedReadyRecord?.outputs?.some((output) => output.outputType === outputType),
     `runtime selectedItemTypes 选择花型后产出缺少「${outputType}」`,
@@ -1297,13 +1297,13 @@ function mergeOutputRemovalFixture(selectedItemIds: string[]): Set<string> {
   return new Set((record.outputs ?? []).map((output) => output.outputType).filter(Boolean))
 }
 const outputTypesWithAllItems = mergeOutputRemovalFixture(outputRemovalAllItemIds)
-for (const outputType of ['印花需求单', '印花加工单', '染色需求单', '染色加工单', '辅料采购单'] as const) {
+for (const outputType of ['印花加工单', '染色加工单', '辅料采购单'] as const) {
   assert.ok(outputTypesWithAllItems.has(outputType), `runtime 三类准备项产出 fixture 缺少「${outputType}」`)
 }
 const outputTypesWithoutPattern = mergeOutputRemovalFixture(
   outputRemovalAllItemIds.filter((itemId) => itemId !== outputRemovalPatternItem.itemId),
 )
-for (const outputType of ['印花需求单', '印花加工单'] as const) {
+for (const outputType of ['印花加工单'] as const) {
   assert.ok(!outputTypesWithoutPattern.has(outputType), `runtime 取消花型项后不得保留「${outputType}」`)
 }
 const outputTypesWithoutDye = mergeOutputRemovalFixture(
@@ -1312,7 +1312,7 @@ const outputTypesWithoutDye = mergeOutputRemovalFixture(
     return !(item?.itemType === '染色调色（纱线）' || item?.itemType === '染色调色（面料）')
   }),
 )
-for (const outputType of ['染色需求单', '染色加工单'] as const) {
+for (const outputType of ['染色加工单'] as const) {
   assert.ok(!outputTypesWithoutDye.has(outputType), `runtime 取消染色项后不得保留「${outputType}」`)
 }
 const outputTypesWithoutAccessory = mergeOutputRemovalFixture(
@@ -2126,11 +2126,10 @@ const printOnlyRecord = productionPreparationRecords.find(
 assert.ok(printOnlyRecord, '缺少 prep-202603-003 烫画&直喷记录')
 assert.ok(
   !printOnlyRecord.outputs?.some((output) =>
-    output.outputType === '染色需求单' ||
     output.outputType === '染色加工单' ||
     output.outputType === '辅料采购单',
   ),
-  '烫画&直喷单花型记录不应生成染色需求单、染色加工单或辅料采购单',
+  '烫画&直喷单花型记录不应生成染色加工单或辅料采购单',
 )
 
 const pageModule = await import('../src/pages/production/preparation-timing.ts')
@@ -2483,7 +2482,7 @@ assert.ok(
   (combinedLedgerPagesHtml.match(/待跟单确认/g) ?? []).length >= 2,
   '准备台账跨分页必须至少展示 2 条跟单尚未确认类型记录',
 )
-for (const text of ['产出', '正式版本技术包', '生产需求单', '印花需求单', '染色需求单', '辅料采购单'] as const) {
+for (const text of ['产出', '正式版本技术包', '生产需求单', '印花加工单', '染色加工单', '辅料采购单'] as const) {
   assertHtmlIncludes(combinedLedgerPagesHtml, text, `调整后准备台账 HTML 缺少「${text}」`)
 }
 for (const text of ['产出状态', '操作当前卡点', '准备项确认：', '系统推导：', '人工修正原因：', '预计产出', '最早超时', '暂无超时'] as const) {
@@ -2503,9 +2502,7 @@ const expectedOutputTypes = [
   '正式版本技术包',
   '生产需求单',
   '生产单',
-  '印花需求单',
   '印花加工单',
-  '染色需求单',
   '染色加工单',
   '辅料采购单',
 ] as const
@@ -2520,6 +2517,10 @@ assert.ok(generatedOutputTypes.size > 0, '必须存在已生成产出对象')
 for (const outputType of expectedOutputTypes) {
   assert.ok(generatedOutputTypes.has(outputType), `已生成产出对象缺少「${outputType}」`)
 }
+assert.ok(
+  [...generatedOutputTypes].every((outputType) => !outputType.endsWith('需求单') || outputType === '生产需求单'),
+  '已生成产出对象不得保留已取消的工艺需求对象',
+)
 
 const pendingOutputHtml = await renderAt('/fcs/production/preparation-timing?tab=ledger&month=2026-03&recordId=prep-202603-001')
 const pendingOutputDrawerHtml = detailDrawerHtml(pendingOutputHtml, 'PREP-202603-001')

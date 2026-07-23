@@ -1,4 +1,36 @@
 import { expect, test, type Page } from '@playwright/test'
+import { executeMobileProcessAction } from '../src/data/fcs/process-action-writeback-service.ts'
+import {
+  listProcessHandoverRecords,
+  writeBackProcessHandoverRecord,
+} from '../src/data/fcs/process-warehouse-domain.ts'
+import {
+  getSpecialCraftTaskWorkOrderById,
+  getSpecialCraftTaskWorkOrderLinesByWorkOrderId,
+  listSpecialCraftTaskWorkOrders,
+} from '../src/data/fcs/special-craft-task-orders.ts'
+import { buildSpecialCraftOperationSlug } from '../src/data/fcs/special-craft-operations.ts'
+import {
+  listFactoryWaitHandoverStockItems,
+  listFactoryWaitProcessStockItems,
+  listFactoryWarehouseOutboundRecords,
+} from '../src/data/fcs/factory-internal-warehouse.ts'
+import { listProcessWorkOrders, type ProcessWorkOrder } from '../src/data/fcs/process-work-order-domain.ts'
+import { getAvailableDyeWebActions, getAvailablePrintWebActions } from '../src/data/fcs/process-web-status-actions.ts'
+
+const HEAT_TRANSFER_GARMENT_WORK_ORDER = listSpecialCraftTaskWorkOrders().find((workOrder) =>
+  workOrder.businessType === 'HEAT_TRANSFER' && workOrder.targetObject === '成衣',
+)?.workOrderId
+
+if (!HEAT_TRANSFER_GARMENT_WORK_ORDER) {
+  throw new Error('未找到可用于烫画成衣验收的真实加工单')
+}
+
+function findSpecialCraftWorkOrder(businessType: 'HEAT_TRANSFER' | 'DIRECT_PRINT') {
+  const workOrder = listSpecialCraftTaskWorkOrders().find((item) => item.businessType === businessType)
+  if (!workOrder) throw new Error(`未找到${businessType === 'HEAT_TRANSFER' ? '烫画' : '直喷'}真实加工单`)
+  return workOrder
+}
 
 async function navigateInApp(page: Page, path: string) {
   await page.evaluate((nextPath) => {
@@ -8,16 +40,126 @@ async function navigateInApp(page: Page, path: string) {
 }
 
 async function confirmActionDialog(page: Page, actionName: string) {
-  await expect(page.getByRole('heading', { name: actionName })).toBeVisible({ timeout: 30_000 })
-  await page.getByRole('button', { name: '确认执行' }).click()
+  const dialog = page.getByTestId('process-web-status-action-dialog')
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByTestId('process-web-status-action-title')).toHaveText(actionName)
+  await dialog.getByTestId('process-web-status-action-confirm').click()
 }
 
+async function openWebActionDialogWithinBudget(page: Page, actionName: string): Promise<number> {
+  return page.evaluate(async (label) => {
+    const actionButton = [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.trim() === label)
+    if (!actionButton) throw new Error(`未找到“${label}”按钮`)
+
+    const startedAt = performance.now()
+    const elapsed = await new Promise<number>((resolve, reject) => {
+      const timeoutId = window.setTimeout(() => {
+        observer.disconnect()
+        reject(new Error(`“${label}”未在性能验收窗口内打开确认弹窗`))
+      }, 1_000)
+      const observer = new MutationObserver(() => {
+        const dialog = document.querySelector('[data-testid="process-web-status-action-dialog"]')
+        if (!dialog) return
+        window.clearTimeout(timeoutId)
+        observer.disconnect()
+        resolve(performance.now() - startedAt)
+      })
+      observer.observe(document.body, { childList: true, subtree: true })
+      actionButton.click()
+    })
+    return elapsed
+  }, actionName)
+}
+
+function findWorkOrderForWebActions(
+  processType: 'PRINT' | 'DYE',
+  actionLabels: string[],
+): ProcessWorkOrder {
+  const getActions = processType === 'PRINT' ? getAvailablePrintWebActions : getAvailableDyeWebActions
+  const workOrder = listProcessWorkOrders().find((order) =>
+    order.processType === processType
+    && actionLabels.includes(getActions(order.workOrderId).find((action) => !action.disabledReason)?.actionLabel || ''),
+  )
+  if (!workOrder) throw new Error(`未找到可执行 ${actionLabels.join(' / ')} 的真实${processType === 'PRINT' ? '印花' : '染色'}加工单`)
+  return workOrder
+}
+
+test('烫画和直喷均使用当前辅助工艺入口与真实加工单', async ({ page }) => {
+  const heatTransferWorkOrder = findSpecialCraftWorkOrder('HEAT_TRANSFER')
+  await page.goto(`/fcs/process-factory/special-craft/${buildSpecialCraftOperationSlug(heatTransferWorkOrder.operationId)}/work-orders/${heatTransferWorkOrder.workOrderId}`)
+  await expect(page.getByRole('heading', { name: '加工单详情' })).toBeVisible()
+  await expect(page.locator('body')).toContainText('烫画')
+
+  const directPrintWorkOrder = findSpecialCraftWorkOrder('DIRECT_PRINT')
+  await page.goto(`/fcs/process-factory/special-craft/${buildSpecialCraftOperationSlug(directPrintWorkOrder.operationId)}/work-orders/${directPrintWorkOrder.workOrderId}`)
+  await expect(page.getByRole('heading', { name: '加工单详情' })).toBeVisible()
+  await expect(page.locator('body')).toContainText('直喷')
+})
+
+test('烫画成衣从成衣仓出库，经辅助待交出仓交我方后道', () => {
+  const workOrder = getSpecialCraftTaskWorkOrderById(HEAT_TRANSFER_GARMENT_WORK_ORDER)
+  expect(workOrder?.targetObject).toBe('成衣')
+  const skuQtyBySkuCode = Object.fromEntries(
+    getSpecialCraftTaskWorkOrderLinesByWorkOrderId(HEAT_TRANSFER_GARMENT_WORK_ORDER)
+      .map((line) => [line.skuCode, line.planPieceQty]),
+  )
+  const totalQty = Object.values(skuQtyBySkuCode).reduce((sum, qty) => sum + qty, 0)
+  expect(Object.keys(skuQtyBySkuCode)).toHaveLength(4)
+  expect(totalQty).toBe(2500)
+  const action = (actionCode: string, extra: Record<string, unknown> = {}) => executeMobileProcessAction({
+    sourceType: 'SPECIAL_CRAFT',
+    sourceId: HEAT_TRANSFER_GARMENT_WORK_ORDER,
+    taskId: workOrder?.taskOrderId,
+    actionCode,
+    operatorName: '成衣仓与烫画联调员',
+    operatorUserId: 'E2E-AUX-OPERATOR',
+    operatorFactoryId: actionCode === 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND' ? 'ID-F001' : 'FAC-AUX-HEAT-TRANSFER',
+    operatorRoleId: 'ROLE_OPERATOR',
+    operatorRoleName: '操作员',
+    operatedAt: '2026-07-23 10:00:00',
+    objectType: '成衣',
+    objectQty: totalQty,
+    qtyUnit: '件',
+    skuQtyBySkuCode,
+    ...extra,
+  })
+
+  action('SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND')
+  expect(listFactoryWarehouseOutboundRecords().filter((record) => record.sourceTaskId === HEAT_TRANSFER_GARMENT_WORK_ORDER && record.itemKind === '成衣')
+    .reduce((sum, record) => sum + record.outboundQty, 0)).toBe(totalQty)
+  action('SPECIAL_CRAFT_RECEIVE_CUT_PIECES')
+  expect(listFactoryWaitProcessStockItems().filter((item) => item.taskId === HEAT_TRANSFER_GARMENT_WORK_ORDER && item.itemKind === '成衣')
+    .reduce((sum, item) => sum + item.receivedQty, 0)).toBe(totalQty)
+  action('SPECIAL_CRAFT_START_PROCESS')
+  action('SPECIAL_CRAFT_FINISH_PROCESS', {
+    skuScrapQtyBySkuCode: Object.fromEntries(Object.keys(skuQtyBySkuCode).map((skuCode) => [skuCode, 0])),
+    skuDamageQtyBySkuCode: Object.fromEntries(Object.keys(skuQtyBySkuCode).map((skuCode) => [skuCode, 0])),
+  })
+  expect(listFactoryWaitHandoverStockItems().filter((item) => item.taskId === HEAT_TRANSFER_GARMENT_WORK_ORDER && item.itemKind === '成衣')
+    .reduce((sum, item) => sum + item.waitHandoverQty, 0)).toBe(totalQty)
+  const handoverResult = action('SPECIAL_CRAFT_SUBMIT_HANDOVER')
+  const handover = listProcessHandoverRecords().find((record) => record.handoverRecordId === handoverResult.affectedHandoverRecordId)
+  expect(handover?.receiveFactoryName).toBe('HiGood 后道工厂')
+  expect(handover?.handoverObjectQty).toBe(totalQty)
+  const received = writeBackProcessHandoverRecord(handoverResult.affectedHandoverRecordId, {
+    receiveObjectQty: totalQty,
+    receivedQtyBySkuCode: skuQtyBySkuCode,
+    receivePerson: '我方后道收货员',
+    receiveAt: '2026-07-23 11:00:00',
+  })
+  expect(received?.receiveObjectQty).toBe(totalQty)
+  expect(received?.status).toBe('全部交出')
+})
+
 test('印花 Web 完成转印后进入待交出仓', async ({ page }) => {
-  await page.goto('/fcs/craft/printing/work-orders/PWO-PRINT-004')
+  const workOrder = findWorkOrderForWebActions('PRINT', ['完成打印'])
+  await page.goto(`/fcs/craft/printing/work-orders/${workOrder.workOrderId}`)
   await expect(page.getByRole('heading', { name: '印花加工单详情' })).toBeVisible()
   await expect(page.getByRole('button', { name: '完成打印' })).toBeVisible()
 
-  await page.getByRole('button', { name: '完成打印' }).click()
+  const firstActionElapsed = await openWebActionDialogWithinBudget(page, '完成打印')
+  expect(firstActionElapsed, `进入 FCS 后首个“完成打印”确认弹窗耗时 ${firstActionElapsed.toFixed(1)}ms`).toBeLessThan(200)
   await confirmActionDialog(page, '完成打印')
   await expect(page.locator('body')).toContainText('待转印')
 
@@ -28,7 +170,7 @@ test('印花 Web 完成转印后进入待交出仓', async ({ page }) => {
 
   await expect(page.getByRole('button', { name: '完成转印' })).toBeVisible()
   await page.getByRole('button', { name: '完成转印' }).click()
-  await expect(page.getByRole('heading', { name: '完成转印' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('heading', { name: '完成转印' })).toBeVisible()
   await expect(page.locator('body')).toContainText('确认执行“完成转印”')
   await page.getByRole('button', { name: '确认执行' }).click()
   await expect(page.locator('body')).toContainText('待交出')
@@ -37,14 +179,19 @@ test('印花 Web 完成转印后进入待交出仓', async ({ page }) => {
 
   await navigateInApp(page, '/fcs/craft/printing/wait-handover-warehouse')
   await expect(page.getByRole('heading', { name: '印花待交出仓' })).toBeVisible()
-  await expect(page.locator('body')).toContainText('TASK-PRINT-000717')
+  const handoverStock = listFactoryWaitHandoverStockItems().find((item) =>
+    item.taskId === workOrder.workOrderId && item.processCode === 'PRINT',
+  )
+  expect(handoverStock).toBeDefined()
+  await expect(page.locator('body')).toContainText(handoverStock!.taskNo || workOrder.workOrderNo)
   await expect(page.locator('body')).toContainText('加工完成数量')
-  await expect(page.locator('body')).toContainText('3,000 片')
+  await expect(page.locator('body')).toContainText(`${handoverStock!.waitHandoverQty.toLocaleString('zh-CN')} ${handoverStock!.unit}`)
 })
 
 test('染色 Web 完成包装后进入待交出仓', async ({ page }) => {
-  await page.goto('/fcs/craft/dyeing/work-orders/DWO-005')
-  await expect(page.getByRole('heading', { name: '染色加工单详情' })).toBeVisible()
+  const workOrder = findWorkOrderForWebActions('DYE', ['完成烘干'])
+  await page.goto(`/fcs/craft/dyeing/work-orders/${workOrder.workOrderId}`)
+  await expect(page.getByRole('heading', { name: '染色加工单详情' })).toBeVisible({ timeout: 30_000 })
 
   for (const actionName of ['完成烘干', '完成定型', '完成打卷']) {
     await expect(page.getByRole('button', { name: actionName })).toBeVisible()
@@ -55,7 +202,7 @@ test('染色 Web 完成包装后进入待交出仓', async ({ page }) => {
   await expect(page.getByRole('button', { name: '完成包装' })).toBeVisible()
 
   await page.getByRole('button', { name: '完成包装' }).click()
-  await expect(page.getByTestId('process-web-status-action-dialog')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('process-web-status-action-dialog')).toBeVisible()
   await expect(page.getByRole('heading', { name: '完成包装' })).toBeVisible()
   await page.getByRole('button', { name: '确认执行' }).click()
   await expect(page.locator('body')).toContainText('待交出')
@@ -63,107 +210,31 @@ test('染色 Web 完成包装后进入待交出仓', async ({ page }) => {
 
   await navigateInApp(page, '/fcs/craft/dyeing/wait-handover-warehouse')
   await expect(page.getByRole('heading', { name: '染色待交出仓' })).toBeVisible()
-  await expect(page.locator('body')).toContainText('TASK-DYE-000725')
+  const handoverStock = listFactoryWaitHandoverStockItems().find((item) =>
+    item.taskId === workOrder.workOrderId && item.processCode === 'DYE',
+  )
+  expect(handoverStock).toBeDefined()
+  await expect(page.locator('body')).toContainText(handoverStock!.taskNo || workOrder.workOrderNo)
   await expect(page.locator('body')).toContainText('加工完成数量')
-  await expect(page.locator('body')).toContainText('米')
-  await expect(page.locator('body')).toContainText('卷')
-})
-
-test('特殊工艺确认接收和完成加工分别进入待加工仓与待交出仓', async ({ page }) => {
-  const workOrderPath = '/fcs/process-factory/special-craft/sc-op-8192/work-orders/SC-TASK-PO2026030001-8192-124e7c-01-WO-001-'
-  await page.goto(workOrderPath)
-  await expect(page.locator('body')).toContainText('可执行动作')
-  await expect(page.getByRole('button', { name: '确认接收成衣' })).toBeVisible()
-
-  await page.getByRole('button', { name: '确认接收成衣' }).click()
-  await confirmActionDialog(page, '确认接收成衣')
-  await expect(page.locator('body')).toContainText('已入待加工仓')
-
-  await navigateInApp(page, '/fcs/process-factory/special-craft/sc-op-8192/wait-process-warehouse')
-  await expect(page.getByRole('heading', { name: '烫画待加工仓' })).toBeVisible()
-  await expect(page.locator('body')).toContainText('SC-202603-0001-8192-01-部位01')
-  await expect(page.locator('body')).toContainText('当前库存')
-  await expect(page.locator('body')).toContainText('5,000 件')
-
-  await navigateInApp(page, workOrderPath)
-  await expect(page.getByRole('button', { name: '开始加工' })).toBeVisible()
-  await page.getByRole('button', { name: '开始加工' }).click()
-  await confirmActionDialog(page, '开始加工')
-  await expect(page.locator('body')).toContainText('加工中')
-  await expect(page.getByRole('button', { name: '完成加工' })).toBeVisible()
-  await page.getByRole('button', { name: '完成加工' }).click()
-  await confirmActionDialog(page, '完成加工')
-  await expect(page.locator('body')).toContainText('待交出')
-
-  await navigateInApp(page, '/fcs/process-factory/special-craft/sc-op-8192/wait-handover-warehouse')
-  await expect(page.getByRole('heading', { name: '烫画待交出仓' })).toBeVisible()
-  await expect(page.locator('body')).toContainText('SC-202603-0001-8192-01-部位01')
-  await expect(page.locator('body')).toContainText('当前库存')
-  await expect(page.locator('body')).toContainText('件')
-})
-
-test('特殊工艺差异记录保留目标对象数量口径', async ({ page }) => {
-  const workOrderPath = '/fcs/process-factory/special-craft/sc-op-8192/work-orders/SC-TASK-PO2026030001-8192-124e7c-01-WO-001-'
-  await page.goto(workOrderPath)
-  await expect(page.locator('body')).toContainText('可执行动作')
-  await expect(page.getByRole('button', { name: '确认接收成衣' })).toBeVisible()
-  await page.getByRole('button', { name: '确认接收成衣' }).click()
-  await confirmActionDialog(page, '确认接收成衣')
-  await expect(page.locator('body')).toContainText('已入待加工仓')
-  await expect(page.getByRole('button', { name: '上报差异' })).toBeVisible()
-
-  await page.getByRole('button', { name: '上报差异' }).click()
-  await confirmActionDialog(page, '上报差异')
-  await expect(page.locator('body')).toContainText('差异')
-  await navigateInApp(page, `${workOrderPath}?tab=difference`)
-  await expect(page.locator('body')).toContainText('差异记录')
-  await expect(page.locator('body')).toContainText('差异成衣数量')
-  await expect(page.locator('body')).toContainText('件')
-  await expect(page.locator('body')).not.toContainText('开扣眼')
-  await expect(page.locator('body')).not.toContainText('装扣子')
-  await expect(page.locator('body')).not.toContainText('熨烫')
-})
-
-test('特殊工艺 PDA 按目标对象显示成衣执行口径', async ({ page }) => {
-  const workOrderPath = '/fcs/process-factory/special-craft/sc-op-8192/work-orders/SC-TASK-PO2026030001-8192-124e7c-01-WO-001-'
-  await page.addInitScript(() => {
-    window.localStorage.setItem('fcs_pda_session', JSON.stringify({
-      userId: 'F090_operator',
-      loginId: 'F090_operator',
-      userName: '全能力测试工厂_操作工',
-      roleId: 'ROLE_OPERATOR',
-      factoryId: 'F090',
-      factoryName: '全能力测试工厂',
-      loggedAt: '2026-05-16 00:00:00',
-    }))
-  })
-  await page.goto(workOrderPath)
-  await expect(page.getByRole('button', { name: '打开移动端执行页' }).first()).toBeVisible()
-  await page.getByRole('button', { name: '打开移动端执行页' }).first().click()
-  await expect(page).toHaveURL(/\/fcs\/pda\/exec\//)
-  if (await page.getByTestId('pda-auth-login-page').isVisible({ timeout: 1000 }).catch(() => false)) {
-    await page.locator('[data-pda-login-field="loginId"]').fill('F090_operator')
-    await page.locator('[data-pda-login-field="password"]').fill('123456')
-    await page.locator('[data-pda-login-action="submit"]').click()
-    await expect(page.getByTestId('pda-auth-login-page')).not.toBeVisible()
+  await expect(page.locator('body')).toContainText(`${handoverStock!.waitHandoverQty.toLocaleString('zh-CN')} ${handoverStock!.unit}`)
+  if (handoverStock!.fabricRollNo) {
+    await expect(page.locator('body')).toContainText(handoverStock!.fabricRollNo)
   }
-  await expect(page.locator('body')).toContainText('特殊工艺执行')
-  await expect(page.locator('body')).toContainText('确认接收成衣')
-  await expect(page.locator('body')).toContainText('当前成衣数量')
-  await expect(page.locator('body')).toContainText('无需绑定菲票')
-  await expect(page.locator('body')).not.toContainText('确认接收裁片')
-  await expect(page.locator('body')).not.toContainText('暂无绑定菲票')
 })
 
 test('平台侧仍通过聚合状态展示联动后的风险', async ({ page }) => {
   await page.goto('/fcs/process/print-orders')
-  await expect(page.getByRole('heading', { name: '印花加工单' })).toBeVisible()
-  await expect(page.locator('body')).toContainText('平台状态')
-  await expect(page.locator('body')).toContainText(/待交出|交出待收货|收货确认中|异常|加工中/)
-  await expect(page.locator('body')).not.toContainText('转印中：')
+  const printRoot = page.locator('[data-process-print-orders-root]')
+  await expect(printRoot).toBeVisible({ timeout: 30_000 })
+  await expect(printRoot.locator('h1')).toHaveText('印花加工单')
+  await expect(printRoot).toContainText('平台状态')
+  await expect(printRoot).toContainText(/待交出|交出待收货|收货确认中|异常|加工中/)
+  await expect(printRoot).not.toContainText('转印中：')
 
   await page.goto('/fcs/process/dye-orders')
-  await expect(page.getByRole('heading', { name: '染色加工单' })).toBeVisible()
-  await expect(page.locator('body')).toContainText('平台状态')
-  await expect(page.locator('body')).toContainText(/待交出|交出待收货|收货确认中|异常|加工中/)
+  const dyeRoot = page.locator('[data-process-dye-orders-root]')
+  await expect(dyeRoot).toBeVisible({ timeout: 30_000 })
+  await expect(dyeRoot.locator('h1')).toHaveText('染色加工单')
+  await expect(dyeRoot).toContainText('平台状态')
+  await expect(dyeRoot).toContainText(/待交出|交出待收货|收货确认中|异常|加工中/)
 })

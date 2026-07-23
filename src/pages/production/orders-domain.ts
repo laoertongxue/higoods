@@ -654,14 +654,14 @@ function renderTaskGenerationPreviewDialog(): string {
                   </thead>
                   <tbody>
                     ${[
-                      ...preview.independentDemandObjects.map((item) => `
+                      ...preview.independentWorkOrders.map((item) => `
                         <tr class="border-b">
-                          <td class="px-3 py-2 font-medium">${escapeHtml(item.objectName)}</td>
-                          <td class="px-3 py-2">独立需求</td>
+                          <td class="px-3 py-2 font-medium">${escapeHtml(item.workOrderNo)}</td>
+                          <td class="px-3 py-2">独立加工单</td>
                           <td class="px-3 py-2">${escapeHtml(item.processCode === 'PRINT' ? '印花' : '染色')}</td>
-                          <td class="px-3 py-2">后续创建加工单</td>
-                          <td class="px-3 py-2">进入独立任务分配</td>
-                          <td class="px-3 py-2">按加工单流程</td>
+                          <td class="px-3 py-2">${escapeHtml(item.factoryName || '待分配工厂')}</td>
+                          <td class="px-3 py-2">已生成</td>
+                          <td class="px-3 py-2">${escapeHtml(item.statusLabel)}</td>
                         </tr>
                       `),
                       ...preview.generatedUnits.map((unit) => `
@@ -675,7 +675,7 @@ function renderTaskGenerationPreviewDialog(): string {
                         </tr>
                       `),
                     ].join('')}
-                    ${preview.generatedUnits.length === 0 && preview.independentDemandObjects.length === 0
+                    ${preview.generatedUnits.length === 0 && preview.independentWorkOrders.length === 0
                       ? `<tr><td colspan="6" class="px-3 py-6 text-center text-sm text-muted-foreground">${escapeHtml(preview.blockedReasons.join('、') || '暂无可生成对象')}</td></tr>`
                       : ''}
                   </tbody>

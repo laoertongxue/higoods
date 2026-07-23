@@ -1,11 +1,10 @@
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import type { ProductionSaleType } from './production-demands.ts'
 import {
-  listGeneratedProductionDemandArtifacts,
   listGeneratedProductionTaskArtifacts,
-  type GeneratedProductionArtifact,
   type GeneratedTaskArtifact,
 } from './production-artifact-generation.ts'
+import type { ProcessWorkOrder } from './process-work-order-domain.ts'
 import { KOL_GOTO_FACTORY_ID } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-master-store.ts'
 
@@ -110,11 +109,12 @@ export interface ProductionTaskGenerationPreview {
   status: TaskGenerationPreviewStatus
   statusReason: string
   generatedUnits: GeneratedTaskUnitPreview[]
-  independentDemandObjects: Array<{
-    objectType: 'PRINT_REQUIREMENT' | 'DYE_REQUIREMENT'
-    objectName: string
+  independentWorkOrders: Array<{
+    workOrderId: string
+    workOrderNo: string
     processCode: 'PRINT' | 'DYE'
-    sourceArtifactIds: string[]
+    factoryName: string
+    statusLabel: string
   }>
   blockedReasons: string[]
   warnings: string[]
@@ -284,15 +284,29 @@ export function matchProductionTaskGenerationRule(orderId: string): ProductionTa
     .find((rule) => isRuleCandidate(rule, order))
 }
 
-function toIndependentDemandObjects(artifacts: GeneratedProductionArtifact[]): ProductionTaskGenerationPreview['independentDemandObjects'] {
-  return artifacts
-    .filter((artifact) => artifact.artifactType === 'DEMAND' && (artifact.processCode === 'PRINT' || artifact.processCode === 'DYE'))
-    .map((artifact) => ({
-      objectType: artifact.processCode === 'PRINT' ? 'PRINT_REQUIREMENT' as const : 'DYE_REQUIREMENT' as const,
-      objectName: artifact.processCode === 'PRINT' ? '印花需求单' : '染色需求单',
-      processCode: artifact.processCode as 'PRINT' | 'DYE',
-      sourceArtifactIds: [artifact.artifactId],
+function toIndependentWorkOrders(
+  orderId: string,
+  workOrders: ProcessWorkOrder[],
+): ProductionTaskGenerationPreview['independentWorkOrders'] {
+  return workOrders
+    .filter((workOrder) =>
+      (workOrder.processType === 'PRINT' || workOrder.processType === 'DYE')
+      && (workOrder.sourceProductionOrderId === orderId || workOrder.productionOrderIds.includes(orderId)),
+    )
+    .map((workOrder) => ({
+      workOrderId: workOrder.workOrderId,
+      workOrderNo: workOrder.workOrderNo,
+      processCode: workOrder.processType as 'PRINT' | 'DYE',
+      factoryName: workOrder.factoryName,
+      statusLabel: workOrder.statusLabel,
     }))
+}
+
+function requireProcessWorkOrders(workOrders: ProcessWorkOrder[] | undefined): ProcessWorkOrder[] {
+  if (!Array.isArray(workOrders)) {
+    throw new Error('任务生成预览必须传入真实加工单集合')
+  }
+  return workOrders
 }
 
 function buildUnitFromArtifacts(input: {
@@ -368,7 +382,39 @@ function resolveMergeProcessCodes(rule: ProductionTaskGenerationRule, order: Pro
   return new Set(continuousRule.coveredProcessCodes)
 }
 
-export function buildTaskGenerationPreview(orderId: string): ProductionTaskGenerationPreview {
+// 任务兼容层只需要由 TASK 产物生成的任务单元，不读取或展示独立加工单事实。
+// 独立加工单必须通过 buildTaskGenerationPreview 的显式输入提供给上层页面。
+export function buildTaskGenerationUnits(orderId: string): GeneratedTaskUnitPreview[] {
+  const order = productionOrders.find((item) => item.productionOrderId === orderId)
+  if (!order) return []
+
+  const matchedRule = matchProductionTaskGenerationRule(orderId)
+  if (!matchedRule) return []
+
+  const taskArtifacts = listGeneratedProductionTaskArtifacts().filter((artifact) => artifact.orderId === orderId)
+  const independentSet = new Set(matchedRule.independentProcessCodes)
+  const mergeProcessSet = resolveMergeProcessCodes(matchedRule, order)
+  const standaloneTaskArtifacts = taskArtifacts.filter(isStandaloneWaterSolubleTaskArtifact)
+  const mergeCandidates = taskArtifacts.filter((artifact) =>
+    !isStandaloneWaterSolubleTaskArtifact(artifact)
+    && !independentSet.has(artifact.processCode)
+    && (!mergeProcessSet || mergeProcessSet.has(artifact.processCode)),
+  )
+
+  return matchedRule.remainingProcessStrategy === 'GENERATE_BY_PROCESS'
+    ? buildDefaultUnits(order, taskArtifacts, matchedRule)
+    : [
+        ...(mergeCandidates.length > 0
+          ? [buildUnitFromArtifacts({ order, rule: matchedRule, taskArtifacts: mergeCandidates, index: 1 })]
+          : []),
+        ...buildDefaultUnits(order, standaloneTaskArtifacts, matchedRule, mergeCandidates.length > 0 ? 1 : 0),
+      ]
+}
+
+export function buildTaskGenerationPreview(
+  orderId: string,
+  processWorkOrders: ProcessWorkOrder[],
+): ProductionTaskGenerationPreview {
   const order = productionOrders.find((item) => item.productionOrderId === orderId)
   if (!order) {
     return {
@@ -379,18 +425,13 @@ export function buildTaskGenerationPreview(orderId: string): ProductionTaskGener
       status: 'BLOCKED',
       statusReason: '未找到生产单',
       generatedUnits: [],
-      independentDemandObjects: [],
+      independentWorkOrders: [],
       blockedReasons: ['未找到生产单'],
       warnings: [],
     }
   }
 
-  const taskArtifacts = listGeneratedProductionTaskArtifacts().filter((artifact) => artifact.orderId === orderId)
-  const artifacts: GeneratedProductionArtifact[] = [
-    ...listGeneratedProductionDemandArtifacts().filter((artifact) => artifact.orderId === orderId),
-    ...taskArtifacts,
-  ]
-  const independentDemandObjects = toIndependentDemandObjects(artifacts)
+  const independentWorkOrders = toIndependentWorkOrders(orderId, requireProcessWorkOrders(processWorkOrders))
   const matchedRule = matchProductionTaskGenerationRule(orderId)
   if (!matchedRule) {
     return {
@@ -401,30 +442,14 @@ export function buildTaskGenerationPreview(orderId: string): ProductionTaskGener
       status: 'BLOCKED',
       statusReason: '未命中当前规则',
       generatedUnits: [],
-      independentDemandObjects,
+      independentWorkOrders,
       blockedReasons: ['当前只配置 KOL样衣、KOL样品小单整单规则'],
       warnings: [],
     }
   }
-  const independentSet = new Set(matchedRule.independentProcessCodes)
-  const mergeProcessSet = resolveMergeProcessCodes(matchedRule, order)
-  const standaloneTaskArtifacts = taskArtifacts.filter(isStandaloneWaterSolubleTaskArtifact)
-  const mergeCandidates = taskArtifacts.filter((artifact) =>
-    !isStandaloneWaterSolubleTaskArtifact(artifact)
-    && !independentSet.has(artifact.processCode)
-    && (!mergeProcessSet || mergeProcessSet.has(artifact.processCode)),
-  )
-  const generatedUnits =
-    matchedRule.remainingProcessStrategy === 'GENERATE_BY_PROCESS'
-      ? buildDefaultUnits(order, taskArtifacts, matchedRule)
-      : [
-          ...(mergeCandidates.length > 0
-            ? [buildUnitFromArtifacts({ order, rule: matchedRule, taskArtifacts: mergeCandidates, index: 1 })]
-            : []),
-          ...buildDefaultUnits(order, standaloneTaskArtifacts, matchedRule, mergeCandidates.length > 0 ? 1 : 0),
-        ]
+  const generatedUnits = buildTaskGenerationUnits(orderId)
   const status: TaskGenerationPreviewStatus =
-    generatedUnits.length > 0 || independentDemandObjects.length > 0
+    generatedUnits.length > 0 || independentWorkOrders.length > 0
       ? 'READY'
       : 'BLOCKED'
 
@@ -438,18 +463,25 @@ export function buildTaskGenerationPreview(orderId: string): ProductionTaskGener
     status,
     statusReason: status === 'BLOCKED' ? '没有可生成的任务单元' : '可生成',
     generatedUnits,
-    independentDemandObjects,
+    independentWorkOrders,
     blockedReasons: status === 'BLOCKED' ? ['没有可合并或独立生成的任务对象'] : [],
-    warnings: independentDemandObjects.length === 0 ? ['当前生产单没有独立印花/染色需求'] : [],
+    warnings: independentWorkOrders.length === 0 ? ['当前生产单没有独立印花/染色加工单'] : [],
   }
 }
 
-export function buildBatchTaskGenerationPreview(orderIds: string[]): ProductionTaskGenerationPreview[] {
-  return orderIds.map((orderId) => buildTaskGenerationPreview(orderId))
+export function buildBatchTaskGenerationPreview(
+  orderIds: string[],
+  processWorkOrders: ProcessWorkOrder[],
+): ProductionTaskGenerationPreview[] {
+  const resolvedWorkOrders = requireProcessWorkOrders(processWorkOrders)
+  return orderIds.map((orderId) => buildTaskGenerationPreview(orderId, resolvedWorkOrders))
 }
 
-export function findDemoWholeOrderTaskGenerationPreview(): ProductionTaskGenerationPreview | null {
+export function findDemoWholeOrderTaskGenerationPreview(
+  processWorkOrders: ProcessWorkOrder[],
+): ProductionTaskGenerationPreview | null {
+  const resolvedWorkOrders = requireProcessWorkOrders(processWorkOrders)
   return productionOrders
-    .map((order) => buildTaskGenerationPreview(order.productionOrderId))
+    .map((order) => buildTaskGenerationPreview(order.productionOrderId, resolvedWorkOrders))
     .find((preview) => preview.generatedUnits.some((unit) => unit.taskUnitType === 'WHOLE_ORDER_TASK')) ?? null
 }

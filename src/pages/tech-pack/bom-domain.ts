@@ -269,8 +269,8 @@ export function renderBomTab(): string {
                                 <td class="px-3 py-2 text-right">${item.lossRate}%</td>
                                 <td class="px-3 py-2">
                                   ${
-                                    readonly
-                                      ? renderTextValue(item.printRequirement)
+                                    readonly || item.type === '成衣'
+                                      ? renderTextValue(item.type === '成衣' ? '' : item.printRequirement)
                                       : `<select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-print" data-bom-id="${item.id}">
                                           ${printOptions
                                             .map((option) => `<option value="${option}" ${item.printRequirement === option ? 'selected' : ''}>${option}</option>`)
@@ -283,8 +283,8 @@ export function renderBomTab(): string {
                                 <td class="px-3 py-2" data-tech-preview-cell="inside" data-bom-id="${item.id}">${renderBomPrintBindingCell(item, 'INSIDE')}</td>
                                 <td class="px-3 py-2">
                                   ${
-                                    readonly
-                                      ? renderTextValue(item.waterSolubleRequirement)
+                                    readonly || item.type === '成衣'
+                                      ? renderTextValue(item.type === '成衣' ? '' : item.waterSolubleRequirement)
                                       : `<select class="h-8 w-20 rounded-md border px-2 text-sm" data-tech-field="bom-water-soluble" data-bom-id="${item.id}" data-testid="bom-water-soluble-requirement-select">
                                           ${bomRequirementOptions
                                             .map((option) => `<option value="${option}" ${item.waterSolubleRequirement === option ? 'selected' : ''}>${option}</option>`)
@@ -295,8 +295,8 @@ export function renderBomTab(): string {
                                 </td>
                                 <td class="px-3 py-2">
                                   ${
-                                    readonly
-                                      ? renderTextValue(item.dyeRequirement)
+                                    readonly || item.type === '成衣'
+                                      ? renderTextValue(item.type === '成衣' ? '' : item.dyeRequirement)
                                       : `<select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-dye" data-bom-id="${item.id}">
                                           ${dyeOptions
                                             .map((option) => `<option value="${option}" ${item.dyeRequirement === option ? 'selected' : ''}>${option}</option>`)
@@ -306,8 +306,8 @@ export function renderBomTab(): string {
                                 </td>
                                 <td class="px-3 py-2">
                                   ${
-                                    readonly
-                                      ? renderTextValue(item.shrinkRequirement)
+                                    readonly || item.type === '成衣'
+                                      ? renderTextValue(item.type === '成衣' ? '' : item.shrinkRequirement)
                                       : `<select class="h-8 w-20 rounded-md border px-2 text-sm" data-tech-field="bom-shrink" data-bom-id="${item.id}" data-testid="bom-shrink-requirement-select">
                                           ${bomRequirementOptions
                                             .map((option) => `<option value="${option}" ${item.shrinkRequirement === option ? 'selected' : ''}>${option}</option>`)
@@ -317,8 +317,8 @@ export function renderBomTab(): string {
                                 </td>
                                 <td class="px-3 py-2">
                                   ${
-                                    readonly
-                                      ? renderTextValue(item.washRequirement)
+                                    readonly || item.type === '成衣'
+                                      ? renderTextValue(item.type === '成衣' ? '' : item.washRequirement)
                                       : `<select class="h-8 w-20 rounded-md border px-2 text-sm" data-tech-field="bom-wash" data-bom-id="${item.id}" data-testid="bom-wash-requirement-select">
                                           ${bomRequirementOptions
                                             .map((option) => `<option value="${option}" ${item.washRequirement === option ? 'selected' : ''}>${option}</option>`)
@@ -418,7 +418,10 @@ export function renderBomFormDialog(): string {
   if (isTechPackModuleReadOnly('BOM')) return ''
   const skuOptions = getSkuOptionsForCurrentSpu()
   const colorOptions = dedupeStrings(skuOptions.map((item) => item.color))
-  const applyAllSku = state.newBomItem.applicableSkuCodes.length === 0
+  const isGarment = state.newBomItem.type === '成衣'
+  const applyAllSku = isGarment
+    ? skuOptions.length > 0 && state.newBomItem.applicableSkuCodes.length === skuOptions.length
+    : state.newBomItem.applicableSkuCodes.length === 0
   const frontDesignOptions = getPatternDesignOptionsBySide('FRONT')
   const insideDesignOptions = getPatternDesignOptionsBySide('INSIDE')
   const hasPrintDemand = state.newBomItem.printRequirement !== '无'
@@ -427,7 +430,7 @@ export function renderBomFormDialog(): string {
   const selectedInsideDesignIds = getBomPatternDesignIds(state.newBomItem, 'INSIDE')
 
   return `
-    <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
+    <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true" data-testid="tech-pack-bom-form-dialog">
       <section class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">${state.editBomItemId ? '编辑物料' : '添加物料'}</h3>
@@ -438,7 +441,7 @@ export function renderBomFormDialog(): string {
             <label class="space-y-1">
               <span class="text-sm">物料类型</span>
               <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-type">
-                ${['面料', '辅料', '包装材料', '其他']
+                ${['面料', '辅料', '包装材料', '成衣', '其他']
                   .map((option) => `<option value="${option}" ${state.newBomItem.type === option ? 'selected' : ''}>${option}</option>`)
                   .join('')}
               </select>
@@ -456,14 +459,16 @@ export function renderBomFormDialog(): string {
                   .join('')}
               </select>
             </label>
-            <label class="space-y-1">
-              <span class="text-sm">物料编码</span>
-              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-material-code" value="${escapeHtml(state.newBomItem.materialCode)}" placeholder="物料编码" />
-            </label>
-            <label class="space-y-1">
-              <span class="text-sm">规格</span>
-              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-spec" value="${escapeHtml(state.newBomItem.spec)}" placeholder="规格" />
-            </label>
+            ${isGarment ? '' : `
+              <label class="space-y-1">
+                <span class="text-sm">物料编码</span>
+                <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-material-code" value="${escapeHtml(state.newBomItem.materialCode)}" placeholder="物料编码" />
+              </label>
+              <label class="space-y-1">
+                <span class="text-sm">规格</span>
+                <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-spec" value="${escapeHtml(state.newBomItem.spec)}" placeholder="规格" />
+              </label>
+            `}
             <div class="space-y-1">
               <span class="text-sm">适用 SKU</span>
               <div class="space-y-2 rounded-md border p-2 text-xs">
@@ -521,21 +526,40 @@ export function renderBomFormDialog(): string {
                   .join('')}
               </div>
             </div>
-            <label class="space-y-1">
-              <span class="text-sm">单位用量</span>
-              <input type="number" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-usage" value="${escapeHtml(state.newBomItem.usage)}" placeholder="0" />
-            </label>
-            <label class="space-y-1">
-              <span class="text-sm">单位</span>
-              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-unit" value="${escapeHtml(state.newBomItem.unit)}" placeholder="请输入物料单位" />
-            </label>
+            ${isGarment ? `
+              <div class="grid grid-cols-2 gap-3">
+                <label class="space-y-1">
+                  <span class="text-sm">单件用量</span>
+                  <input class="w-full rounded-md border bg-muted/20 px-3 py-2 text-sm" value="1" disabled />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-sm">单位</span>
+                  <input class="w-full rounded-md border bg-muted/20 px-3 py-2 text-sm" value="件" disabled />
+                </label>
+              </div>
+            ` : `
+              <label class="space-y-1">
+                <span class="text-sm">单位用量</span>
+                <input type="number" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-usage" value="${escapeHtml(state.newBomItem.usage)}" placeholder="0" />
+              </label>
+              <label class="space-y-1">
+                <span class="text-sm">单位</span>
+                <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-unit" value="${escapeHtml(state.newBomItem.unit)}" placeholder="请输入物料单位" />
+              </label>
+            `}
           </div>
 
           <div class="space-y-4">
             <label class="space-y-1">
               <span class="text-sm">物料名称 <span class="text-red-500">*</span></span>
-              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-material-name" value="${escapeHtml(state.newBomItem.materialName)}" placeholder="物料名称" />
+              <input class="w-full rounded-md border px-3 py-2 text-sm ${isGarment ? 'bg-muted/20' : ''}" data-tech-field="new-bom-material-name" value="${escapeHtml(state.newBomItem.materialName)}" placeholder="物料名称" ${isGarment ? 'disabled' : ''} />
             </label>
+            ${isGarment ? `
+              <label class="space-y-1">
+                <span class="text-sm">备注</span>
+                <textarea rows="3" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-remark" placeholder="补充成衣辅助工艺说明（可选）">${escapeHtml(state.newBomItem.remark)}</textarea>
+              </label>
+            ` : `
             <label class="space-y-1">
               <span class="text-sm">损耗率(%)</span>
               <input type="number" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-loss-rate" value="${escapeHtml(state.newBomItem.lossRate)}" placeholder="0" />
@@ -599,6 +623,7 @@ export function renderBomFormDialog(): string {
                 </select>
               </label>
             </div>
+            `}
           </div>
         </div>
         </div>
@@ -606,7 +631,9 @@ export function renderBomFormDialog(): string {
         <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
           <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-add-bom">取消</button>
           <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
-            state.newBomItem.materialName.trim() ? '' : 'pointer-events-none opacity-50'
+            state.newBomItem.materialName.trim() && (!isGarment || state.newBomItem.applicableSkuCodes.length > 0)
+              ? ''
+              : 'pointer-events-none opacity-50'
           }" data-tech-action="save-bom">确认</button>
         </footer>
       </section>

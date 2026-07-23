@@ -11,7 +11,7 @@ type MaterialSnapshotFields = Pick<
 export function cloneFormalProductionOrderMaterialItems(
   items: FormalProductionOrderMaterialItem[],
 ): FormalProductionOrderMaterialItem[] {
-  return items.map((item) => ({ ...item }))
+  return structuredClone(items)
 }
 
 export function normalizeFormalProductionOrderMaterialItems(

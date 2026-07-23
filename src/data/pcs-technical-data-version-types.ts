@@ -149,9 +149,9 @@ export interface TechnicalPatternPieceSpecialCraft {
   craftCode: string
   craftName: string
   displayName: string
-  selectedTargetObject?: '已裁部位' | '完整面料' | '成衣半成品'
+  selectedTargetObject?: '已裁部位' | '完整面料' | '成衣'
   supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT'>
-  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣半成品'>
+  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣'>
 }
 
 export type TechnicalPatternPieceCraftPosition = 'LEFT' | 'RIGHT' | 'BOTTOM' | 'FACE'
@@ -328,11 +328,11 @@ export interface TechnicalProcessEntry {
   defaultDocType: 'DEMAND' | 'TASK'
   taskTypeMode: 'PROCESS' | 'CRAFT'
   isSpecialCraft: boolean
-  selectedTargetObject?: '已裁部位' | '完整面料' | '成衣半成品'
+  selectedTargetObject?: '已裁部位' | '完整面料' | '成衣'
   targetObject?: 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY' | 'GARMENT_SEMI' | 'BOM_MATERIAL'
-  targetObjectName?: '裁片部位' | '面料' | '辅料' | '成衣半成品' | 'BOM物料'
+  targetObjectName?: '裁片部位' | '面料' | '辅料' | '成衣' | 'BOM物料'
   supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT'>
-  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣半成品'>
+  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣'>
   woolTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
   downstreamTarget?: '后道工厂' | '裁床待交出仓'
   requiresFeiTicket?: boolean
@@ -379,9 +379,11 @@ export interface TechnicalSizeRow {
   tolerance: number
 }
 
+export type TechnicalBomItemType = '面料' | '辅料' | '包装材料' | '成衣' | '其他'
+
 export interface TechnicalBomItem {
   id: string
-  type: string
+  type: TechnicalBomItemType
   name: string
   spec: string
   materialCode?: string
@@ -403,6 +405,7 @@ export interface TechnicalBomItem {
   applicableSkuCodes?: string[]
   linkedPatternIds?: string[]
   usageProcessCodes?: string[]
+  remark?: string
 }
 
 export interface TechnicalColorMaterialMappingLine {

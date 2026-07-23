@@ -514,7 +514,7 @@ function bootstrapRepository(): void {
   }, '女式基础圆领短袖', ['CUT14671-A', 'CUT14671-B', ...spreadingEvents.slice(1).map((event) => event.cutOrderNo)], toMatrixEvent(firstEvent))
   const item = releaseRepository.get(productionOrderId)!
   item.sourceStates = [
-    ...spreadingEvents.map((event) => ({ cutOrderId: event.cutOrderId, cutOrderNo: event.cutOrderNo, status: '持续更新' as const, changedAt: event.occurredAt, operator: event.operator, reason: event.reason, materialIds: ['A', 'C', 'D'] })),
+    ...spreadingEvents.map((event, index) => ({ cutOrderId: event.cutOrderId, cutOrderNo: event.cutOrderNo, status: '持续更新' as const, changedAt: event.occurredAt, operator: event.operator, reason: event.reason, materialIds: index === 0 ? ['A', 'C', 'D'] : [] })),
     { cutOrderId: 'cut-14671-b', cutOrderNo: 'CUT14671-B', status: '持续更新', changedAt: firstEvent.occurredAt, operator: firstEvent.operator, reason: '物料 B 按四颜色首次铺布事实持续累计。', materialIds: ['B'] },
   ]
   spreadingEvents.slice(1, 7).forEach((event) => appendRepositoryEvent(item, toMatrixEvent(event), () => item.input.facts.push(...createFacts(event))))

@@ -8,6 +8,7 @@ import {
   upsertFactoryWaitProcessStockItem,
 } from '../src/data/fcs/factory-internal-warehouse.ts'
 import { listProcessWorkOrderStockMaterials } from '../src/data/fcs/process-work-order-stock.ts'
+import { getProcessWorkOrderById } from '../src/data/fcs/process-work-order-domain.ts'
 import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 import { createDyeWorkOrderFromStock, listDyeWorkOrders } from '../src/data/fcs/dyeing-task-domain.ts'
 import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
@@ -123,7 +124,14 @@ for (const [label, create, factoryId, stock] of [
   assert.equal(created.order.plannedQty, stock.receivedQty, `${label}等于可用库存时必须保留计划数量`)
   assert.equal(created.order.qtyUnit, stock.unit, `${label}加工单必须保留库存单位`)
   assert.equal(created.order.plannedFinishAt, finishAt, `${label}加工单必须保留计划完成时间`)
-  const fact = listPrepProcessOrders(label === '染色' ? 'DYE' : 'PRINT').find((item) => item.workOrderId === ('dyeOrderId' in created.order! ? created.order.dyeOrderId : created.order.printOrderId))
+  const createdWorkOrderId = 'dyeOrderId' in created.order! ? created.order.dyeOrderId : created.order.printOrderId
+  const unifiedOrder = getProcessWorkOrderById(createdWorkOrderId)
+  assert.deepEqual(unifiedOrder?.sourceSnapshot, {
+    sourceType: 'STOCK',
+    stockMaterialId: stock.stockItemId,
+    stockMaterialName: stock.itemName,
+  }, `${label}备货入口必须通过统一服务保存备货来源快照`)
+  const fact = listPrepProcessOrders(label === '染色' ? 'DYE' : 'PRINT').find((item) => item.workOrderId === createdWorkOrderId)
   assert.equal(fact?.unit, stock.unit, `${label}列表适配器必须保留库存单位`)
   assert.equal(fact?.plannedFinishAt, finishAt, `${label}列表适配器必须读取计划完成时间而非更新时间`)
 }
@@ -208,7 +216,8 @@ function exerciseDrawer(scope: 'dye' | 'print'): void {
 }
 
 const mainSource = readFileSync('src/main.ts', 'utf8')
-assert.match(mainSource, /dispatchPageEvent\(target, event\)[\s\S]*?target\.closest<HTMLElement>\('\[data-skip-page-rerender="true"\]'\)[\s\S]*?return/, '全局事件分发必须在输入标记存在时跳过页面重渲染')
+assert.match(mainSource, /const skipPageRerender = Boolean\(target\.closest<HTMLElement>\('\[data-skip-page-rerender="true"\]'\)\)/, '全局事件分发必须识别跳过页面重渲染的输入标记')
+assert.match(mainSource, /if \(skipPageRerender\) \{\s*return/, '全局事件分发处理输入后必须跳过页面重渲染')
 
 exerciseDrawer('dye')
 exerciseDrawer('print')

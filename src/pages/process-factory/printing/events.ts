@@ -9,6 +9,7 @@ import {
   handleProcessWebStatusActionDialogEvent,
   openProcessWebStatusActionDialog,
 } from '../shared/web-status-action-dialog.ts'
+import { handlePrintingWorkOrderListEvent } from './work-orders.ts'
 
 function showPrintingToast(message: string): void {
   if (typeof document === 'undefined' || typeof window === 'undefined') return
@@ -56,6 +57,8 @@ function refreshCurrentPrintingPage(): void {
 }
 
 export function handleCraftPrintingEvent(target: HTMLElement): boolean {
+  if (handlePrintingWorkOrderListEvent(target)) return true
+
   const dialogHandled = handleProcessWebStatusActionDialogEvent(target, {
     toast: showPrintingToast,
     refresh: refreshCurrentPrintingPage,

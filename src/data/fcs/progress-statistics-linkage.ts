@@ -24,7 +24,7 @@ import {
   listSpecialCraftTaskOrders,
   type SpecialCraftTaskStatus,
 } from './special-craft-task-orders.ts'
-import { getSpecialCraftOperationById } from './special-craft-operations.ts'
+import { getSpecialCraftFlowRule, getSpecialCraftOperationById } from './special-craft-operations.ts'
 
 // 统计结果只作为只读投影，不作为状态源头。
 const DEMO_TODAY = '2026-04-23'
@@ -373,10 +373,10 @@ function buildCuttingSpecialCraftProjectionBindings(): CuttingSpecialCraftProjec
     listSpecialCraftTaskWorkOrderLines().map((line) => [line.demandLineId, line] as const),
   )
   const operationById = new Map<string, NonNullable<ReturnType<typeof getSpecialCraftOperationById>>>()
-  const getScanOperation = (operationId: string) => {
+  const getOperation = (operationId: string) => {
     if (!operationById.has(operationId)) {
       const operation = getSpecialCraftOperationById(operationId)
-      if (operation?.requiresFeiTicketScan) operationById.set(operationId, operation)
+      if (operation) operationById.set(operationId, operation)
     }
     return operationById.get(operationId)
   }
@@ -400,8 +400,8 @@ function buildCuttingSpecialCraftProjectionBindings(): CuttingSpecialCraftProjec
 
       ;(taskOrder.demandLines || []).forEach((line) => {
         if (normalizeText(line.sizeCode) !== normalizeText(ticket.skuSize)) return
-        const operation = getScanOperation(line.operationId)
-        if (!operation) return
+        const operation = getOperation(line.operationId)
+        if (!operation || !getSpecialCraftFlowRule(line.targetObject).requiresFeiTicketScan) return
         if (!secondaryCraftSet.has(normalizeText(operation.operationName))) return
 
         const occupiedKey = `${ticket.feiTicketNo}__${operation.operationId}`
@@ -435,8 +435,8 @@ function buildCuttingSpecialCraftProjectionBindings(): CuttingSpecialCraftProjec
 
   taskOrders.forEach((taskOrder) => {
     ;(taskOrder.demandLines || []).forEach((line) => {
-      const operation = getScanOperation(line.operationId)
-      if (!operation) return
+      const operation = getOperation(line.operationId)
+      if (!operation || !getSpecialCraftFlowRule(line.targetObject).requiresFeiTicketScan) return
       ;(line.feiTicketNos || []).forEach((feiTicketNo) => {
         const occupiedKey = `${feiTicketNo}__${operation.operationId}`
         if (occupiedKeys.has(occupiedKey)) return
@@ -1254,6 +1254,7 @@ export function buildCuttingProgressSnapshot(order: ProductionOrder): CuttingPro
 
 const emptyStatusDistribution = (): Record<SpecialCraftTaskStatus, number> => ({
   待领料: 0,
+  成衣仓已出库待收货: 0,
   已入待加工仓: 0,
   加工中: 0,
   已完成: 0,

@@ -282,7 +282,11 @@ async function main(): Promise<void> {
   assertIncludes(ruleDomainSource, 'DEFAULT_PROCESS_STEPS', '规则预览必须区分默认工序步骤与简化 5 步')
   assertIncludes(ruleDomainSource, 'resolveRuleFactoryIds', '规则必须从工厂档案承接配置解析候选工厂')
   assertIncludes(productionContextSource, 'recordTaskGenerationPreview', '确认拆解必须写入任务生成运行时事实')
-  assertIncludes(productionContextSource, 'independentRequirementCount', '生产单摘要必须区分独立需求对象数量')
+  assertIncludes(productionContextSource, 'independentWorkOrderCount', '生产单摘要必须记录独立加工单数量')
+  assertIncludes(processTasksSource, 'buildTaskGenerationUnits', '任务生成兼容层必须只读取任务单元规划')
+  assertNotIncludes(processTasksSource, 'buildTaskGenerationPreview(orderId, [])', '任务生成兼容层不得以空加工单集合占位')
+  assertIncludes(rulesPageSource, 'preview.independentWorkOrders', '规则模拟页必须展示真实独立加工单')
+  assertIncludes(rulesPageSource, '独立加工单', '规则模拟页不得使用旧需求对象语义')
   assertIncludes(pdaTodoSource, 'pdaStepTemplateCode === \'SIMPLE_FIVE_STEP\'', 'PDA 待办必须识别简化 5 步任务')
   assertIncludes(pdaReceiveSource, 'pdaStepTemplateCode === \'SIMPLE_FIVE_STEP\'', 'PDA 接单必须识别简化 5 步任务')
   assertIncludes(pdaExecSource, 'pdaStepTemplateCode === \'SIMPLE_FIVE_STEP\'', 'PDA 执行列表必须识别简化 5 步任务')
@@ -307,10 +311,60 @@ async function main(): Promise<void> {
   const pdaHandoverDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/pda-handover-events.ts')).href)
   const pdaStoreDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/store-domain-pda.ts')).href)
   const productionOrdersDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/production-orders.ts')).href)
+  const processWorkOrderDomain = await import(pathToFileURL(path.join(ROOT, 'src/data/fcs/process-work-order-domain.ts')).href)
   assert.equal(typeof ruleDomain.buildTaskGenerationPreview, 'function', '缺少 buildTaskGenerationPreview')
   assert.equal(typeof ruleDomain.buildBatchTaskGenerationPreview, 'function', '缺少 buildBatchTaskGenerationPreview')
   assert.equal(typeof ruleDomain.listProductionTaskGenerationRules, 'function', '缺少 listProductionTaskGenerationRules')
   assert.equal(typeof ruleDomain.listProductionTaskGenerationRuleLogs, 'function', '缺少 listProductionTaskGenerationRuleLogs')
+
+  const previewProductionOrderId = 'PO-202603-0005'
+  const expectedPreviewWorkOrderNos = ['PH-20260328-001']
+  const previewProcessWorkOrders = processWorkOrderDomain.listProcessWorkOrders().filter((order: {
+    processType: string
+    sourceProductionOrderId?: string
+    productionOrderIds: string[]
+  }) => (
+    (order.processType === 'PRINT' || order.processType === 'DYE')
+    && (order.sourceProductionOrderId === previewProductionOrderId || order.productionOrderIds.includes(previewProductionOrderId))
+  ))
+  assert.deepEqual(
+    previewProcessWorkOrders.map((order: { workOrderNo: string }) => order.workOrderNo),
+    expectedPreviewWorkOrderNos,
+    '规则模拟页样例生产单必须只关联一张明确的真实加工单，不能使用重复 Mock',
+  )
+  const rulesPageHtml = renderPageExportWithTsx(
+    'src/pages/production/task-generation-rules.ts',
+    'renderProductionTaskGenerationRulesPage',
+  )
+  assertIncludes(rulesPageHtml, '<option selected>PO-202603-0005</option>', '规则模拟页下拉必须选中单加工单样例生产单')
+  assert.deepEqual(
+    [...rulesPageHtml.matchAll(/PH-20260328-001/g)].map((match) => match[0]),
+    expectedPreviewWorkOrderNos,
+    '规则模拟页 HTML 必须只展示预期的一张真实独立加工单',
+  )
+  assert.throws(
+    () => ruleDomain.buildTaskGenerationPreview(previewProductionOrderId),
+    /真实加工单集合/,
+    '任务生成预览不得在未传入加工单事实时静默返回空集合',
+  )
+  const independentPreview = ruleDomain.buildTaskGenerationPreview(
+    previewProductionOrderId,
+    processWorkOrderDomain.listProcessWorkOrders(),
+  )
+  assert(
+    Array.isArray(independentPreview.independentWorkOrders),
+    '任务生成预览必须公开独立加工单集合',
+  )
+  assert.deepEqual(
+    independentPreview.independentWorkOrders.map((workOrder: { workOrderNo: string }) => workOrder.workOrderNo),
+    expectedPreviewWorkOrderNos,
+    '任务生成预览必须精确读取单加工单样例的真实加工单集合',
+  )
+  assert.equal(independentPreview.independentWorkOrders.length, 1, '单加工单样例不得渲染额外加工单')
+  assert.ok(
+    independentPreview.independentWorkOrders.every((workOrder: { sourceArtifactIds?: string[] }) => workOrder.sourceArtifactIds === undefined),
+    '独立加工单不得把 workOrderId 冒充来源产物 ID',
+  )
 
   const rules = ruleDomain.listProductionTaskGenerationRules()
   assert.equal(rules.length, 1, '生产单任务生成规则当前只允许保留 1 条')
@@ -381,10 +435,10 @@ async function main(): Promise<void> {
     assert(Array.isArray(logs) && logs.length > 0, `规则 ${rule.ruleId} 必须有日志`)
   }
 
-  const previews = ruleDomain.buildBatchTaskGenerationPreview([])
+  const previews = ruleDomain.buildBatchTaskGenerationPreview([], processWorkOrderDomain.listProcessWorkOrders())
   assert(Array.isArray(previews), 'buildBatchTaskGenerationPreview 必须返回数组')
 
-  const kolPreview = ruleDomain.findDemoWholeOrderTaskGenerationPreview?.() ?? null
+  const kolPreview = ruleDomain.findDemoWholeOrderTaskGenerationPreview?.(processWorkOrderDomain.listProcessWorkOrders()) ?? null
   assert(kolPreview, '缺少可验收的 KOL 整单预览样例')
   assert(
     kolPreview.generatedUnits.some((unit: { taskUnitType: string; allowAutoDispatch: boolean }) =>
@@ -401,6 +455,7 @@ async function main(): Promise<void> {
 
   const allPreviews = ruleDomain.buildBatchTaskGenerationPreview(
     productionOrdersDomain.productionOrders.map((order: { productionOrderId: string }) => order.productionOrderId),
+    processWorkOrderDomain.listProcessWorkOrders(),
   )
   assert(
     allPreviews.every((preview: { generatedUnits: Array<{ taskUnitType: string }> }) =>
@@ -829,7 +884,7 @@ async function main(): Promise<void> {
     status: string
     taskBreakdownSummary?: {
       isBrokenDown?: boolean
-      independentRequirementCount?: number
+      independentWorkOrderCount?: number
       coveredProcessNames?: string[]
     }
   }>) {
@@ -837,7 +892,7 @@ async function main(): Promise<void> {
       task.productionOrderId === order.productionOrderId
     )
     if (!order.taskBreakdownSummary?.isBrokenDown) continue
-    if (orderTasks.length === 0 && (order.taskBreakdownSummary.independentRequirementCount ?? 0) === 0) {
+    if (orderTasks.length === 0 && (order.taskBreakdownSummary.independentWorkOrderCount ?? 0) === 0) {
       taskSummaryCoverageIssues.push(`${order.productionOrderId}:已拆解但缺少任务事实`)
       continue
     }

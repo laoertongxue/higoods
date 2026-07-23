@@ -35,6 +35,13 @@ import {
   syncProcessWorkOrdersAfterProductionOrderChange,
   type FormalProductionOrderProcessSnapshot,
 } from '../src/data/fcs/production-process-work-order-service.ts'
+import {
+  buildProcessWorkOrderSourceKey,
+  ensureProcessWorkOrders,
+  setProcessWorkOrderGenerationCommitFailureForTest,
+  type ProcessWorkOrderGenerationInput,
+} from '../src/data/fcs/process-work-order-generation-service.ts'
+import { deriveFormalProductionOrderProcessSnapshots } from '../src/data/fcs/production-process-snapshot-derivation.ts'
 
 const baseSnapshot = {
   orderedAt: '2026-07-15 18:30:00',
@@ -56,8 +63,8 @@ const dyeOnly: FormalProductionOrderProcessSnapshot = {
   productionOrderNo: 'PO-AUTO-DYE-001',
   processCodes: ['DYE'],
   dyeProcessName: '成衣染色',
-  factoryId: 'FACTORY-DYE-001',
-  factoryName: '雅加达染色一厂',
+  factoryId: 'F090',
+  factoryName: '全能力测试工厂',
 }
 const printOnly: FormalProductionOrderProcessSnapshot = {
   ...baseSnapshot,
@@ -66,8 +73,8 @@ const printOnly: FormalProductionOrderProcessSnapshot = {
   targetColor: '米白底蓝花',
   processCodes: ['PRINT'],
   printProcessName: '数码印花',
-  factoryId: 'FACTORY-PRINT-001',
-  factoryName: '万隆印花一厂',
+  factoryId: 'F090',
+  factoryName: '全能力测试工厂',
 }
 const dyeAndPrint: FormalProductionOrderProcessSnapshot = {
   ...baseSnapshot,
@@ -88,6 +95,7 @@ const bomTemplate = sourceOrder.techPackSnapshot.bomItems[0]
 const processTemplate = sourceOrder.techPackSnapshot.processEntries[0]
 const dyeBom = {
   ...bomTemplate,
+  type: '面料' as const,
   id: 'BOM-DYE-001',
   materialCode: 'MAT-DYE-001',
   name: '染色针织布',
@@ -99,6 +107,7 @@ const dyeBom = {
 }
 const printBom = {
   ...bomTemplate,
+  type: '面料' as const,
   id: 'BOM-PRINT-001',
   materialCode: 'MAT-PRINT-001',
   name: '印花裁片',
@@ -190,6 +199,25 @@ const waterSolubleDyeOrder: ProductionOrder = {
 }
 const waterSolubleDyeSnapshot = buildFormalProductionOrderProcessSnapshots(waterSolubleDyeOrder)[0]
 assert.equal(waterSolubleDyeSnapshot?.requiresWaterSoluble, true, '正式生产单染色快照必须从工艺绑定 BOM 的水溶语义推导联合水溶')
+assert.deepEqual(
+  deriveFormalProductionOrderProcessSnapshots(waterSolubleDyeOrder).map((snapshot) => ({
+    materialItems: snapshot.materialItems,
+    plannedQty: snapshot.plannedQty,
+    qtyUnit: snapshot.qtyUnit,
+    techPackVersionId: snapshot.techPackVersionId,
+    processCodes: snapshot.processCodes,
+    requiresWaterSoluble: snapshot.requiresWaterSoluble,
+  })),
+  [{
+    materialItems: [{ sourceBomItemId: dyeBom.id, materialId: dyeBom.materialCode, materialName: '染色针织布 / 180g' }],
+    plannedQty: 55,
+    qtyUnit: '米',
+    techPackVersionId: 'TPV-ROUTE-001',
+    processCodes: ['DYE'],
+    requiresWaterSoluble: true,
+  }],
+  '联合水溶 seed 与正式生成必须共享 BOM 物料、数量、版本、工艺和水溶快照派生',
+)
 const waterSolubleDyeResult = ensureProcessWorkOrdersForFormalProductionOrder(waterSolubleDyeSnapshot!)
 const waterSolubleDyeWorkOrder = getDyeWorkOrderById(waterSolubleDyeResult.dyeWorkOrderId!)
 assert.equal(waterSolubleDyeWorkOrder?.requiresWaterSoluble, true, '正式生产单统一确保入口必须把水溶语义传给染色加工单')
@@ -244,6 +272,25 @@ assert.deepEqual(aggregatedDyeSnapshots[0]?.materialItems, [
   { sourceBomItemId: secondDyeBom.id, materialId: secondDyeBom.materialCode, materialName: '染色罗纹布 / 2x2 罗纹' },
 ], '同一 DYE 聚合多个 BOM 时必须保留 constituent，禁止只留下拼接字符串')
 assert.equal(aggregatedDyeSnapshots[0]?.requiresWaterSoluble, false, '全部染色 BOM 均不需水溶时必须生成普通染色快照')
+assert.throws(
+  () => deriveFormalProductionOrderProcessSnapshots({
+    ...routeOrder,
+    productionOrderId: 'PO-AUTO-SHARED-INVALID-BOM',
+    productionOrderNo: 'PO-AUTO-SHARED-INVALID-BOM',
+    techPackSnapshot: {
+      ...routeOrder.techPackSnapshot,
+      processEntries: [{
+        ...processTemplate,
+        id: 'PROCESS-SHARED-INVALID-BOM',
+        processCode: 'DYE',
+        processName: '无效 BOM 染色',
+        linkedBomItemIds: ['BOM-SHARED-NOT-FOUND'],
+      }],
+    },
+  }),
+  /绑定了不存在的 BOM：BOM-SHARED-NOT-FOUND/,
+  '共享快照派生遇到无效 BOM 必须明确失败，不能静默丢弃',
+)
 
 const sameActualMaterialOrders = ['A', 'B'].map((suffix) => ({
   ...routeOrder,
@@ -263,8 +310,8 @@ const sameActualMaterialOrders = ['A', 'B'].map((suffix) => ({
 }))
 const sameActualMaterialSnapshots = sameActualMaterialOrders.map((order) => ({
   ...buildFormalProductionOrderProcessSnapshots(order)[0]!,
-  factoryId: 'FACTORY-DYE-SAME-001',
-  factoryName: '同一染厂',
+  factoryId: 'F090',
+  factoryName: '全能力测试工厂',
   targetColor: '同一蓝',
 }))
 assert.deepEqual(
@@ -298,8 +345,8 @@ const differentActualMaterialSnapshot = {
       }],
     },
   })[0]!,
-  factoryId: 'FACTORY-DYE-SAME-001',
-  factoryName: '同一染厂',
+  factoryId: 'F090',
+  factoryName: '全能力测试工厂',
   targetColor: '同一蓝',
 }
 const differentActualMaterialWorkOrder = ensureProcessWorkOrdersForFormalProductionOrder(differentActualMaterialSnapshot).dyeWorkOrderId!
@@ -997,6 +1044,7 @@ function assertGeneratedOrder(
     qtyUnit: source.qtyUnit,
     processCodes: source.processCodes,
     processName: processType === 'DYE' ? source.dyeProcessName : source.printProcessName,
+    ...(processType === 'DYE' ? { requiresWaterSoluble: source.requiresWaterSoluble === true } : {}),
     spuCode: source.spuCode,
     spuName: source.spuName,
     requiredDeliveryDate: source.requiredDeliveryDate,
@@ -1056,6 +1104,7 @@ for (const orderId of [printOnlyFirst.printWorkOrderId!, combinedFirst.printWork
 }
 
 const demandDomainSource = readFileSync(new URL('../src/pages/production/demand-domain.ts', import.meta.url), 'utf8')
+const dyeingTaskDomainSource = readFileSync(new URL('../src/data/fcs/dyeing-task-domain.ts', import.meta.url), 'utf8')
 assert(
   demandDomainSource.includes("from '../../data/fcs/production-process-work-order-service.ts'"),
   '生产需求领域必须接入正式生产单自动生成加工单服务',
@@ -1070,5 +1119,312 @@ assert(
   applyCreatedSource.includes('buildFormalProductionOrderProcessSnapshots(item.order)'),
   '生产单写入后必须通过已验证的纯转换函数生成各工艺快照',
 )
+assert(
+  dyeingTaskDomainSource.includes('deriveFormalProductionOrderProcessSnapshots'),
+  '固定联合水溶染色 seed 必须复用正式 BOM/工艺快照派生函数',
+)
+
+const supplementSource: ProcessWorkOrderGenerationInput = {
+  source: {
+    sourceType: 'CUT_PIECE_SUPPLEMENT',
+    productionOrderId: 'PO-SUP-001',
+    productionOrderNo: 'PO-SUP-001',
+    techPackVersionId: 'TPV-SUP-001',
+    techPackVersionLabel: '正式版 V1',
+    bomItemId: 'BOM-SUP-001',
+    bomItemIds: ['BOM-SUP-001'],
+    supplementRecordId: 'SUP-RECORD-001',
+    supplementRecordNo: 'BL-20260722-001',
+    originalCutOrderId: 'CUT-ORDER-001',
+    originalCutOrderNo: 'CP-20260722-001',
+  },
+  processCodes: ['DYE', 'PRINT'],
+  orderedAt: '2026-07-22 10:00:00',
+  materialId: 'MAT-SUP-001',
+  materialName: '补料针织布',
+  materialItems: [{
+    sourceBomItemId: 'BOM-SUP-001',
+    materialId: 'MAT-SUP-001',
+    materialName: '补料针织布',
+  }],
+  targetColor: '黑色',
+  plannedQty: 12,
+  qtyUnit: '米',
+  dyeProcessName: '匹染',
+  printProcessName: '数码印花',
+  spuCode: 'SPU-SUP-001',
+  spuName: '补料测试款',
+  requiredDeliveryDate: '2026-07-30',
+}
+
+const stockCollisionSource: ProcessWorkOrderGenerationInput = {
+  ...supplementSource,
+  source: {
+    sourceType: 'STOCK',
+    stockMaterialId: 'A',
+    stockMaterialName: '碰撞测试备货物料',
+  },
+  processCodes: ['DYE'],
+  orderedAt: 'B|C|D',
+}
+const productionCollisionSource: ProcessWorkOrderGenerationInput = {
+  ...supplementSource,
+  source: {
+    sourceType: 'PRODUCTION_ORDER',
+    productionOrderId: 'A',
+    productionOrderNo: 'PO-COLLISION-001',
+    techPackVersionId: 'B',
+    techPackVersionLabel: '碰撞测试版',
+    bomItemId: 'C|D',
+  },
+  processCodes: ['DYE'],
+}
+const supplementCollisionSource: ProcessWorkOrderGenerationInput = {
+  ...supplementSource,
+  source: {
+    sourceType: 'CUT_PIECE_SUPPLEMENT',
+    productionOrderId: 'PO-COLLISION-SUP',
+    productionOrderNo: 'PO-COLLISION-SUP',
+    techPackVersionId: 'C',
+    techPackVersionLabel: '碰撞测试版',
+    bomItemId: 'D',
+    supplementRecordId: 'A',
+    supplementRecordNo: 'SUP-COLLISION-001',
+    originalCutOrderId: 'B',
+    originalCutOrderNo: 'CUT-COLLISION-001',
+  },
+  processCodes: ['DYE'],
+}
+const crossSourceKeys = [stockCollisionSource, productionCollisionSource, supplementCollisionSource]
+  .map((input) => buildProcessWorkOrderSourceKey(input, 'DYE'))
+const legacyCollisionKeys = [
+  [stockCollisionSource.source.stockMaterialId, stockCollisionSource.orderedAt, 'DYE'].join('|'),
+  [productionCollisionSource.source.productionOrderId, productionCollisionSource.source.techPackVersionId, productionCollisionSource.source.bomItemId, 'DYE'].join('|'),
+  [supplementCollisionSource.source.supplementRecordId, supplementCollisionSource.source.originalCutOrderId, supplementCollisionSource.source.techPackVersionId, supplementCollisionSource.source.bomItemId, 'DYE'].join('|'),
+]
+assert.equal(new Set(legacyCollisionKeys).size, 1, '测试夹具必须复现旧分隔符键在三种来源间的真实碰撞')
+assert.equal(
+  new Set(crossSourceKeys).size,
+  3,
+  '生产单、备货、补料三种来源即使身份值重合，也必须产生相互隔离的幂等键',
+)
+assert(crossSourceKeys.every((key) => key && !key.includes('undefined')), '有效来源不得生成空键或包含 undefined 的键')
+
+const productionPipeLeft: ProcessWorkOrderGenerationInput = {
+  ...productionCollisionSource,
+  source: {
+    ...productionCollisionSource.source,
+    productionOrderId: 'AA|BB',
+    techPackVersionId: 'CC',
+    bomItemId: 'DD',
+  },
+}
+const productionPipeRight: ProcessWorkOrderGenerationInput = {
+  ...productionCollisionSource,
+  source: {
+    ...productionCollisionSource.source,
+    productionOrderId: 'AA',
+    techPackVersionId: 'BB|CC',
+    bomItemId: 'DD',
+  },
+}
+assert.notEqual(
+  buildProcessWorkOrderSourceKey(productionPipeLeft, 'DYE'),
+  buildProcessWorkOrderSourceKey(productionPipeRight, 'DYE'),
+  '身份字段含分隔符时，不同字段组合不得碰撞',
+)
+assert.notEqual(
+  buildProcessWorkOrderSourceKey(productionCollisionSource, 'DYE'),
+  buildProcessWorkOrderSourceKey({
+    ...supplementSource,
+    source: {
+      ...supplementSource.source,
+      productionOrderId: productionCollisionSource.source.productionOrderId,
+      techPackVersionId: productionCollisionSource.source.techPackVersionId,
+      bomItemId: productionCollisionSource.source.bomItemId,
+    },
+  }, 'DYE'),
+  '生产单与补料来源共享部分生产身份字段时，幂等键仍必须按来源隔离',
+)
+assert.notEqual(
+  buildProcessWorkOrderSourceKey(productionCollisionSource, 'DYE'),
+  buildProcessWorkOrderSourceKey(productionCollisionSource, 'PRINT'),
+  '染色与印花加工单必须使用相互隔离的幂等键',
+)
+
+const whitespaceProductionSource: ProcessWorkOrderGenerationInput = {
+  ...productionCollisionSource,
+  source: {
+    sourceType: 'PRODUCTION_ORDER',
+    productionOrderId: '  A  ',
+    productionOrderNo: '  PO-COLLISION-001  ',
+    techPackVersionId: '  B  ',
+    techPackVersionLabel: '  碰撞测试版  ',
+    bomItemId: '  C|D  ',
+  },
+}
+assert.equal(
+  buildProcessWorkOrderSourceKey(whitespaceProductionSource, 'DYE'),
+  buildProcessWorkOrderSourceKey(productionCollisionSource, 'DYE'),
+  '来源身份字段首尾空白必须归一化后参与幂等',
+)
+assert.equal(
+  buildProcessWorkOrderSourceKey({
+    ...stockCollisionSource,
+    source: {
+      sourceType: 'STOCK',
+      stockMaterialId: '  A  ',
+      stockMaterialName: '  碰撞测试备货物料  ',
+    },
+    orderedAt: '  B|C|D  ',
+  }, 'DYE'),
+  buildProcessWorkOrderSourceKey(stockCollisionSource, 'DYE'),
+  '备货身份与创建时间首尾空白必须归一化后参与幂等',
+)
+
+const requiredIdentityFields = [
+  {
+    name: '生产单来源',
+    input: productionCollisionSource,
+    fields: ['productionOrderId', 'productionOrderNo', 'techPackVersionId', 'techPackVersionLabel', 'bomItemId'],
+  },
+  {
+    name: '备货来源',
+    input: stockCollisionSource,
+    fields: ['stockMaterialId', 'stockMaterialName'],
+  },
+  {
+    name: '补料来源',
+    input: supplementSource,
+    fields: [
+      'productionOrderId',
+      'productionOrderNo',
+      'techPackVersionId',
+      'techPackVersionLabel',
+      'bomItemId',
+      'supplementRecordId',
+      'supplementRecordNo',
+      'originalCutOrderId',
+      'originalCutOrderNo',
+    ],
+  },
+] as const
+const orderCountBeforeInvalidSources = listProcessWorkOrders().length
+for (const requiredGroup of requiredIdentityFields) {
+  for (const field of requiredGroup.fields) {
+    for (const invalidValue of [undefined, '   '] as const) {
+      const invalidInput = structuredClone(requiredGroup.input) as ProcessWorkOrderGenerationInput
+      if (invalidValue === undefined) {
+        delete (invalidInput.source as unknown as Record<string, unknown>)[field]
+      } else {
+        ;(invalidInput.source as unknown as Record<string, unknown>)[field] = invalidValue
+      }
+      if (field === 'bomItemId') delete (invalidInput.source as unknown as Record<string, unknown>).bomItemIds
+      assert.throws(
+        () => buildProcessWorkOrderSourceKey(invalidInput, 'DYE'),
+        undefined,
+        `${requiredGroup.name}缺少或留空 ${field} 时不得生成幂等键`,
+      )
+      assert.throws(
+        () => ensureProcessWorkOrders(invalidInput),
+        undefined,
+        `${requiredGroup.name}缺少或留空 ${field} 时必须拒绝生成加工单`,
+      )
+    }
+  }
+}
+for (const invalidBomItemIds of [[], ['   ']] as const) {
+  const invalidInput = structuredClone(productionCollisionSource) as ProcessWorkOrderGenerationInput
+  invalidInput.source.bomItemId = undefined
+  invalidInput.source.bomItemIds = [...invalidBomItemIds]
+  assert.throws(() => buildProcessWorkOrderSourceKey(invalidInput, 'DYE'), /BOM 行 ID/, '多 BOM 身份为空时不得生成幂等键')
+  assert.throws(() => ensureProcessWorkOrders(invalidInput), /BOM 行 ID/, '多 BOM 身份为空时不得生成加工单')
+}
+for (const invalidOrderedAt of [undefined, '   '] as const) {
+  const blankOrderedAtInput = { ...stockCollisionSource, orderedAt: invalidOrderedAt } as unknown as ProcessWorkOrderGenerationInput
+  assert.throws(() => buildProcessWorkOrderSourceKey(blankOrderedAtInput, 'DYE'), undefined, '备货来源缺少创建时间时不得生成幂等键')
+  assert.throws(() => ensureProcessWorkOrders(blankOrderedAtInput), undefined, '备货来源缺少创建时间时必须拒绝生成加工单')
+}
+assert.equal(listProcessWorkOrders().length, orderCountBeforeInvalidSources, '非法来源不得产生任何加工单')
+
+const firstCollisionStockResult = ensureProcessWorkOrders(stockCollisionSource)
+const secondCollisionStockResult = ensureProcessWorkOrders(stockCollisionSource)
+const firstCollisionProductionResult = ensureProcessWorkOrders(productionCollisionSource)
+assert.equal(secondCollisionStockResult.dyeWorkOrderId, firstCollisionStockResult.dyeWorkOrderId, '同一备货来源重复调用必须幂等')
+assert.notEqual(firstCollisionProductionResult.dyeWorkOrderId, firstCollisionStockResult.dyeWorkOrderId, '跨来源旧键碰撞场景必须生成各自独立的加工单')
+
+const firstSupplementResult = ensureProcessWorkOrders(supplementSource)
+const secondSupplementResult = ensureProcessWorkOrders(supplementSource)
+assert(firstSupplementResult.dyeWorkOrderId, '补料来源必须生成染色加工单')
+assert(firstSupplementResult.printWorkOrderId, '补料来源必须生成印花加工单')
+assert.equal(secondSupplementResult.dyeWorkOrderId, firstSupplementResult.dyeWorkOrderId, '重复确认补料不得重复生成染色加工单')
+assert.equal(secondSupplementResult.printWorkOrderId, firstSupplementResult.printWorkOrderId, '重复确认补料不得重复生成印花加工单')
+const supplementDyeOrder = getProcessWorkOrderById(firstSupplementResult.dyeWorkOrderId)
+const supplementPrintOrder = getProcessWorkOrderById(firstSupplementResult.printWorkOrderId)
+for (const order of [supplementDyeOrder, supplementPrintOrder]) {
+  assert.equal(order?.sourceType, 'CUT_PIECE_SUPPLEMENT')
+  assert.deepEqual(order?.sourceSnapshot, supplementSource.source, '统一加工单必须完整保留补料来源快照')
+  assert(!('prerequisiteWorkOrderId' in (order || {})), '加工单不得保存前置加工单字段')
+  assert(!('locked' in (order || {})), '加工单不得保存运行时锁定字段')
+  assert(!('unlockStatus' in (order || {})), '加工单不得保存解锁字段')
+}
+const dyeFirstRead = getDyeWorkOrderById(firstSupplementResult.dyeWorkOrderId)!
+const printFirstRead = getPrintWorkOrderById(firstSupplementResult.printWorkOrderId)!
+dyeFirstRead.sourceSnapshot!.bomItemIds!.push('BOM-MUTATED-OUTSIDE')
+dyeFirstRead.formalProductionOrderSnapshot!.materialItems![0]!.materialName = '外部篡改染色物料'
+printFirstRead.sourceSnapshot!.bomItemIds!.push('BOM-MUTATED-OUTSIDE')
+printFirstRead.formalProductionOrderSnapshot!.materialItems![0]!.materialName = '外部篡改印花物料'
+const dyeSecondRead = getDyeWorkOrderById(firstSupplementResult.dyeWorkOrderId)!
+const printSecondRead = getPrintWorkOrderById(firstSupplementResult.printWorkOrderId)!
+assert(!dyeSecondRead.sourceSnapshot?.bomItemIds?.includes('BOM-MUTATED-OUTSIDE'), '染色加工单读取出口不得泄漏 BOM 数组引用')
+assert.notEqual(dyeSecondRead.formalProductionOrderSnapshot?.materialItems?.[0]?.materialName, '外部篡改染色物料', '染色加工单读取出口不得泄漏物料快照引用')
+assert(!printSecondRead.sourceSnapshot?.bomItemIds?.includes('BOM-MUTATED-OUTSIDE'), '印花加工单读取出口不得泄漏 BOM 数组引用')
+assert.notEqual(printSecondRead.formalProductionOrderSnapshot?.materialItems?.[0]?.materialName, '外部篡改印花物料', '印花加工单读取出口不得泄漏物料快照引用')
+assert.deepEqual(ensureProcessWorkOrders(supplementSource), firstSupplementResult, '外部修改首次读取结果后内部幂等身份不得变化')
+assert(
+  listProcessWorkOrders().every((order) => Boolean(order.sourceSnapshot?.sourceType)),
+  '印花、染色、水溶统一映射必须全部携带非空来源快照',
+)
+
+const multiBomLeft: ProcessWorkOrderGenerationInput = {
+  ...productionCollisionSource,
+  source: {
+    ...productionCollisionSource.source,
+    productionOrderId: 'PO-MULTI-BOM-LEFT',
+    productionOrderNo: 'PO-MULTI-BOM-LEFT',
+    bomItemId: undefined,
+    bomItemIds: ['A+B', 'C'],
+  },
+}
+const multiBomRight: ProcessWorkOrderGenerationInput = {
+  ...multiBomLeft,
+  source: { ...multiBomLeft.source, bomItemIds: ['A', 'B+C'] },
+}
+const multiBomReordered: ProcessWorkOrderGenerationInput = {
+  ...multiBomLeft,
+  source: { ...multiBomLeft.source, bomItemIds: ['C', 'A+B', 'C'] },
+}
+assert.notEqual(buildProcessWorkOrderSourceKey(multiBomLeft, 'DYE'), buildProcessWorkOrderSourceKey(multiBomRight, 'DYE'), '多 BOM 字段组合不得因 + 字符碰撞')
+assert.equal(buildProcessWorkOrderSourceKey(multiBomLeft, 'DYE'), buildProcessWorkOrderSourceKey(multiBomReordered, 'DYE'), '多 BOM 身份重排或重复不得改变幂等键')
+
+const atomicInput: ProcessWorkOrderGenerationInput = {
+  ...supplementSource,
+  source: {
+    ...supplementSource.source,
+    supplementRecordId: 'SUP-ATOMIC-001',
+    supplementRecordNo: 'SUP-ATOMIC-001',
+  },
+}
+const atomicCountBefore = listProcessWorkOrders().length
+setProcessWorkOrderGenerationCommitFailureForTest('PRINT')
+assert.throws(() => ensureProcessWorkOrders(atomicInput), /模拟印花加工单提交失败/, '印花提交故障必须向调用方失败')
+setProcessWorkOrderGenerationCommitFailureForTest(null)
+assert.equal(listProcessWorkOrders().length, atomicCountBefore, '印花提交失败后不得残留染色或印花加工单')
+assert(
+  !listPdaGenericProcessTasks().some((task) => task.sourceSnapshot?.supplementRecordId === 'SUP-ATOMIC-001'),
+  '印花提交失败后不得残留染色或印花 PDA 任务',
+)
+const atomicRetry = ensureProcessWorkOrders(atomicInput)
+assert(atomicRetry.dyeWorkOrderId && atomicRetry.printWorkOrderId, '原子回滚后必须可重试同时生成两张加工单')
 
 console.log('生产单自动生成加工单检查通过')

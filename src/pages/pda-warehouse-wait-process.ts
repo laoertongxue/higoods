@@ -79,6 +79,7 @@ import {
   resolveWarehouseInboundRecordRoute,
 } from './pda-warehouse-shared'
 import { getSpecialCraftFeiTicketSummary } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
+import { executeSpecialCraftWaitProcessIssue } from '../data/fcs/special-craft-pda-warehouse-actions.ts'
 
 type WaitProcessFilter = '全部' | '待领料' | '已入待加工仓' | '差异待处理'
 
@@ -246,11 +247,39 @@ function getAuxiliaryWaitProcessRows(ignoreStatus = false): FactoryWaitProcessSt
   ensureCraftWarehouseMockData()
   return listFactoryWaitProcessStockItems()
     .filter((item) => item.factoryId === runtime.factoryId && Boolean(item.craftName))
+    .filter((item) => item.status !== '已领用')
     .filter((item) => (ignoreStatus || state.status === '全部' ? true : item.status === state.status))
 }
 
 function getAuxiliaryWaitProcessAction(value?: string | null): AuxiliaryWaitProcessAction | null {
   return value === 'receive' || value === 'issue' || value === 'return' ? value : null
+}
+
+function renderGarmentWaitProcessCard(row: FactoryWaitProcessStockItem): string {
+  const taskRows = listFactoryWaitProcessStockItems().filter((item) => item.taskId === row.taskId && item.itemKind === '成衣')
+  const issuedSkuCount = taskRows.filter((item) => item.status === '已领用').length
+  return `
+    <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm" data-garment-sku-card="wait-process">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-semibold text-foreground">${escapeHtml(row.productionOrderNo || '-')}</div>
+          <div class="mt-1 text-xs text-muted-foreground">SKU：${escapeHtml(row.materialSku || '-')} · ${escapeHtml(row.fabricColor || '-')} / ${escapeHtml(row.sizeCode || '-')}</div>
+        </div>
+        ${renderStatusPill(row.status)}
+      </div>
+      <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
+        <div>来源仓：${escapeHtml(row.sourceObjectName || '成衣仓')}</div>
+        <div>应收 / 实收件数：${row.expectedQty} / ${row.receivedQty} 件</div>
+        <div>当前仓：${escapeHtml(row.warehouseName)} · ${escapeHtml(row.locationText)}</div>
+        <div>本单领用进度：${issuedSkuCount} / ${taskRows.length} SKU</div>
+        <div>下一动作：加工领料</div>
+      </div>
+      <div class="mt-4 flex gap-2">
+        <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-fast-page-render data-pda-warehouse-action="open-wait-process-detail" data-stock-item-id="${escapeAttr(row.stockItemId)}">查看</button>
+        <button type="button" class="rounded-full bg-primary px-3 py-1.5 text-xs text-primary-foreground" data-pda-warehouse-action="special-craft-wait-process-issue" data-stock-item-id="${escapeAttr(row.stockItemId)}" data-work-order-id="${escapeAttr(row.taskId || '')}" data-sku-code="${escapeAttr(row.materialSku || '')}">加工领料</button>
+      </div>
+    </article>
+  `
 }
 
 function getAuxiliaryWaitProcessSample(): FactoryWaitProcessStockItem | undefined {
@@ -455,7 +484,10 @@ function renderAuxiliaryWaitProcessPage(): string {
       <section class="space-y-3">
         ${
           rows.length > 0
-            ? rows.map((row) => `
+            ? rows.map((row) => {
+              const isGarment = row.itemKind === '成衣'
+              if (isGarment) return renderGarmentWaitProcessCard(row)
+              return `
               <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0 flex-1">
@@ -467,20 +499,24 @@ function renderAuxiliaryWaitProcessPage(): string {
                 <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
                   <div>库存对象：${escapeHtml(row.itemName)} / ${escapeHtml(row.materialSku || row.partName || '-')}</div>
                   <div>生产单：${escapeHtml(row.productionOrderNo || '-')}</div>
-                  <div>菲票 / 中转袋：${escapeHtml(row.feiTicketNo || '-')} / ${escapeHtml(row.transferBagNo || '-')}</div>
+                  ${isGarment
+                    ? `<div>来源仓：${escapeHtml(row.sourceObjectName || '成衣仓')}</div>`
+                    : `<div>菲票 / 中转袋：${escapeHtml(row.feiTicketNo || '-')} / ${escapeHtml(row.transferBagNo || '-')}</div>`}
                   <div>应收 / 实收：${row.expectedQty} / ${row.receivedQty} ${escapeHtml(row.unit)}</div>
                   <div>差异：${escapeHtml(buildWarehouseDifferenceText(row.differenceQty))}</div>
                   <div>库区 / 货架 / 库位：${escapeHtml(row.areaName)} / ${escapeHtml(row.shelfNo)} / ${escapeHtml(row.locationNo)}</div>
-                  <div>接收时间：${escapeHtml(formatWarehouseDateTime(row.receivedAt))}</div>
+                  ${isGarment ? '' : `<div>接收时间：${escapeHtml(formatWarehouseDateTime(row.receivedAt))}</div>`}
                 </div>
                 <div class="mt-4 flex flex-wrap gap-2">
                   <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-wait-process-detail" data-stock-item-id="${escapeAttr(row.stockItemId)}">查看</button>
-                  <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="/fcs/pda/warehouse/wait-process?action=issue">加工领料</button>
-                  <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="/fcs/pda/warehouse/wait-process?action=return">回收入仓</button>
-                  <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-wait-process-location" data-stock-item-id="${escapeAttr(row.stockItemId)}">调整位置</button>
+                  <button type="button" class="rounded-full ${isGarment ? 'bg-primary text-primary-foreground' : 'border'} px-3 py-1.5 text-xs" data-nav="/fcs/pda/warehouse/wait-process?action=issue">加工领料</button>
+                  ${isGarment ? '' : `
+                    <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="/fcs/pda/warehouse/wait-process?action=return">回收入仓</button>
+                    <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-wait-process-location" data-stock-item-id="${escapeAttr(row.stockItemId)}">调整位置</button>
+                  `}
                 </div>
               </article>
-            `).join('')
+            `}).join('')
             : renderMobilePageEmptyState(`暂无${runtimeLabel}待加工仓记录`, '接收入仓后会形成待加工仓库存。')
         }
       </section>
@@ -1492,6 +1528,30 @@ function openLocationEditor(stockItemId: string): void {
 function renderDetailDrawer(): string {
   const row = getRows().find((item) => item.stockItemId === state.detailId)
   if (!row) return ''
+  if (row.itemKind === '成衣') {
+    return `
+      <div class="fixed inset-0 z-[120]">
+        <button type="button" class="absolute inset-0 bg-black/40" data-fast-page-render data-pda-warehouse-action="close-wait-process-detail"></button>
+        <section class="absolute inset-x-0 bottom-[72px] rounded-t-3xl border bg-background px-4 py-4 shadow-2xl">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="text-base font-semibold text-foreground">成衣 SKU 待加工详情</h2>
+            <button type="button" class="rounded-full border px-3 py-1 text-xs" data-fast-page-render data-pda-warehouse-action="close-wait-process-detail">关闭</button>
+          </div>
+          <div class="mt-4 rounded-2xl border bg-card px-4 py-4 shadow-sm">
+            ${renderCompactFieldList([
+              { label: '生产单', value: row.productionOrderNo || '-' },
+              { label: 'SKU', value: row.materialSku || '-' },
+              { label: '颜色 / 尺码', value: `${row.fabricColor || '-'} / ${row.sizeCode || '-'}` },
+              { label: '来源仓', value: row.sourceObjectName || '成衣仓' },
+              { label: '应收 / 实收', value: `${row.expectedQty} / ${row.receivedQty} 件` },
+              { label: '当前仓', value: `${row.warehouseName} · ${row.locationText}` },
+              { label: '下一动作', value: '加工领料' },
+            ])}
+          </div>
+        </section>
+      </div>
+    `
+  }
   const specialCraftSummary = row.feiTicketNo ? getSpecialCraftFeiTicketSummary(row.feiTicketNo) : null
   const inboundRoute = resolveWarehouseInboundRecordRoute(row.sourceRecordId)
   return `
@@ -2210,6 +2270,14 @@ export function renderPdaWarehouseWaitProcessPage(): string {
 export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
   const action = actionNode?.dataset.pdaWarehouseAction
+  if (action === 'special-craft-wait-process-issue') {
+    executeSpecialCraftWaitProcessIssue({
+      stockItemId: actionNode.dataset.stockItemId || '',
+      workOrderId: actionNode.dataset.workOrderId || '',
+      skuCode: actionNode.dataset.skuCode || '',
+    })
+    return true
+  }
   if (action === 'cutting-wp-pickup') {
     const pickupNodeId = actionNode?.dataset.pickupNodeId
     const pickupNodeVersion = actionNode?.dataset.pickupNodeVersion

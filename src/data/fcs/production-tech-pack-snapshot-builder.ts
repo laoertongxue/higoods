@@ -25,6 +25,7 @@ import type {
   TechnicalProcessEntry,
   TechnicalSizeRow,
 } from '../pcs-technical-data-version-types.ts'
+import { selectPrimaryProductionMaterialBomItem } from './production-material-bom.ts'
 
 export interface DemandCurrentTechPackInfo {
   styleId: string
@@ -495,7 +496,9 @@ function buildCutPieceParts(input: {
   const partMap = new Map<string, TechPackCutPiecePartSnapshot>()
   input.patternFiles.forEach((patternFile) => {
     if (patternFile.patternMaterialType === 'WOOL') return
-    const linkedBom = input.bomItems.find((bom) => bom.id === patternFile.linkedBomItemId) || input.bomItems[0] || null
+    const linkedBom = input.bomItems.find((bom) => bom.type !== '成衣' && bom.id === patternFile.linkedBomItemId)
+      || selectPrimaryProductionMaterialBomItem(input.bomItems)
+      || null
     const patternSizeCodes = uniqueStrings([
       ...(patternFile.selectedSizeCodes ?? []),
       ...parseSizeRangeText(patternFile.sizeRange),
@@ -739,7 +742,7 @@ function alignSnapshotWithDemandSkuLines(
   const sizes = uniqueStrings(skuLines.map((line) => line.size))
   const allSkuCodes = uniqueStrings(skuLines.map((line) => line.skuCode))
   const fallbackMapping = snapshot.colorMaterialMappings[0]
-  const fallbackBomItem = snapshot.bomItems[0] ?? null
+  const fallbackBomItem = selectPrimaryProductionMaterialBomItem(snapshot.bomItems) ?? null
   const fallbackMaterialName = normalizeText(fallbackBomItem?.name) || normalizeText(fallbackMapping?.lines?.[0]?.materialName) || '主面料'
   const fallbackBomItemId = normalizeText(fallbackBomItem?.id) || normalizeText(fallbackMapping?.lines?.[0]?.bomItemId)
 
@@ -773,8 +776,12 @@ function alignSnapshotWithDemandSkuLines(
         lines: template.lines.map((line, lineIndex) => ({
           ...line,
           id: `${snapshot.snapshotId}-mapping-${colorIndex + 1}-${normalizeText(line.pieceId) || lineIndex + 1}`,
-          materialCode: materialInfo.code,
-          materialName: materialInfo.name,
+          materialCode: normalizeText(line.bomItemId) === fallbackBomItemId
+            ? materialInfo.code
+            : line.materialCode,
+          materialName: normalizeText(line.bomItemId) === fallbackBomItemId
+            ? materialInfo.name
+            : line.materialName,
           applicableSkuCodes: skuCodesForColor,
         })),
       } satisfies TechnicalColorMaterialMapping

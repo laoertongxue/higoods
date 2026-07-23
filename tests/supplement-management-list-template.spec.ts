@@ -20,11 +20,15 @@ test.beforeEach(async ({ page }) => {
 })
 
 test.afterEach(async ({ page }) => {
+  await page.evaluate(async () => {
+    const pageModule = await import('/src/pages/process-factory/cutting/supplement-management.ts')
+    pageModule.setReleaseSnapshotDraftFixtureForTest(null)
+  }).catch(() => undefined)
   expect(browserErrors.get(page) ?? []).toEqual([])
 })
 
 async function waitForList(page: Page): Promise<void> {
-  await expect(page.locator('[data-standard-list-page]')).toBeVisible({ timeout: 30_000 })
+  await expect(page.locator('[data-standard-list-page]')).toBeVisible()
   await page.evaluate(() => new Promise<void>((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
   }))
@@ -35,252 +39,6 @@ async function openList(page: Page): Promise<void> {
   await waitForList(page)
 }
 
-test('补料详情与嵌套确认按最上层圈定焦点并逐层恢复触发点', async ({ page }) => {
-  await openList(page)
-  await page.evaluate(() => {
-    ;(window as typeof window & { __supplementKeyboardMain?: Element | null }).__supplementKeyboardMain = document.querySelector('main')
-  })
-
-  const row = page.locator('[data-standard-list-table-section] tbody tr').filter({ hasText: 'SUP-CUT14671-B-002' })
-  const detailTrigger = row.getByRole('button', { name: '查看详情' })
-  await detailTrigger.focus()
-  await detailTrigger.click()
-
-  const detail = page.locator('[data-cutting-supplement-detail]')
-  await expect(detail).toBeVisible()
-  const detailClose = detail.getByRole('button', { name: '关闭' })
-  const completeTrigger = detail.getByRole('button', { name: '完成该补料单' })
-  await expect(detailClose).toBeFocused()
-  await page.keyboard.press('Shift+Tab')
-  await expect(completeTrigger).toBeFocused()
-  await page.keyboard.press('Tab')
-  await expect(detailClose).toBeFocused()
-
-  await completeTrigger.click()
-  const confirmation = page.locator('[data-cutting-supplement-complete-confirm]')
-  const cancel = confirmation.getByRole('button', { name: '取消' })
-  const confirm = confirmation.getByRole('button', { name: '确认完成' })
-  await expect(confirmation).toBeVisible()
-  await expect(cancel).toBeFocused()
-  await page.keyboard.press('Shift+Tab')
-  await expect(confirm).toBeFocused()
-  await page.keyboard.press('Escape')
-  await expect(confirmation).toHaveCount(0)
-  await expect(detail).toBeVisible()
-  await expect(completeTrigger).toBeFocused()
-
-  await completeTrigger.click()
-  await cancel.click()
-  await expect(confirmation).toHaveCount(0)
-  await expect(completeTrigger).toBeFocused()
-
-  await completeTrigger.click()
-  await confirm.click()
-  await expect(confirmation).toHaveCount(0)
-  await expect(detail.getByText('已完成', { exact: true })).toBeVisible()
-  await expect(detailClose).toBeFocused()
-  expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true)
-  expect(await page.evaluate(() => document.querySelector('main') === (
-    window as typeof window & { __supplementKeyboardMain?: Element | null }
-  ).__supplementKeyboardMain)).toBe(true)
-
-  await page.keyboard.press('Escape')
-  await expect(detail).toHaveCount(0)
-  await expect(detailTrigger).toBeFocused()
-})
-
-test('列设置 Escape 仅关闭最上层并恢复入口焦点', async ({ page }) => {
-  await openList(page)
-  await page.evaluate(() => {
-    ;(window as typeof window & { __supplementColumnMain?: Element | null }).__supplementColumnMain = document.querySelector('main')
-  })
-  const trigger = page.getByRole('button', { name: '列设置' })
-  await trigger.focus()
-  await trigger.click()
-  await expect(page.getByRole('heading', { name: '列设置' })).toBeVisible()
-  await page.keyboard.press('Escape')
-  await expect(page.getByRole('heading', { name: '列设置' })).toHaveCount(0)
-  await expect(trigger).toBeFocused()
-  expect(await page.evaluate(() => document.querySelector('main') === (
-    window as typeof window & { __supplementColumnMain?: Element | null }
-  ).__supplementColumnMain)).toBe(true)
-})
-
-test('列表删除恒空补料对象筛选且关键词仍可按生产单搜索', async ({ page }) => {
-  await openList(page)
-  const filters = page.locator('[data-cutting-supplement-region="filters"]')
-  await expect(filters.getByText('补料对象', { exact: true })).toHaveCount(0)
-  await expect(filters.locator('[data-cutting-supplement-field="sourceType"]')).toHaveCount(0)
-  await expect(filters.locator('option', { hasText: '生产单' })).toHaveCount(0)
-  await expect(filters.locator('option', { hasText: '裁片放行目标快照' })).toHaveCount(0)
-
-  await filters.locator('[data-cutting-supplement-field="keyword"]').fill('PO14671')
-  await filters.getByRole('button', { name: '筛选', exact: true }).click()
-  const rows = page.locator('[data-standard-list-table-section] tbody tr')
-  await expect(rows).not.toHaveCount(0)
-  await expect(rows.first()).toContainText('PO14671')
-})
-
-test('补料详情可完成当前补料单', async ({ page }) => {
-  await openList(page)
-  await page.evaluate(() => {
-    ;(window as typeof window & { __supplementCompletionMain?: Element | null }).__supplementCompletionMain = document.querySelector('main')
-  })
-
-  const targetRecordNo = 'SUP-CUT14671-B-002'
-  const siblingRecordNo = 'SUP-CUT14671-B-003'
-  const completedRecordNo = 'SUP-CUT14671-B-001'
-  const tableRows = page.locator('[data-standard-list-table-section] tbody tr')
-  const targetRow = tableRows.filter({ hasText: targetRecordNo })
-  const siblingRow = tableRows.filter({ hasText: siblingRecordNo })
-  await expect(targetRow).toHaveCount(1)
-  await expect(targetRow).toContainText('未完成')
-  await expect(siblingRow).toContainText('未完成')
-
-  await targetRow.getByRole('button', { name: '查看详情' }).click()
-  const detail = page.getByRole('heading', { name: '补料单详情' }).locator('xpath=ancestor::div[contains(@class,"fixed")]')
-  await expect(detail.getByText('未完成', { exact: true })).toBeVisible()
-  await expect(detail.getByText('第 2 次补料', { exact: true })).toBeVisible()
-  await expect(detail).toContainText('CUT14671-B 第 2 次补料演示记录。')
-  await expect(detail).toContainText('Black')
-  await expect(detail).toContainText('M')
-  await expect(detail).toContainText('10 件')
-  await expect(detail).toContainText('RELEASE-B')
-  await expect(detail).toContainText('面料 B · 白色条')
-  await expect(detail).toContainText('4.2 yard')
-  await expect(detail.getByText('尚未完成', { exact: true })).toBeVisible()
-  await expect(detail.getByRole('button', { name: '完成该补料单' })).toBeVisible()
-  await expect(detail.getByRole('button', { name: /撤销|重新打开|部分完成/ })).toHaveCount(0)
-
-  await detail.getByRole('button', { name: '完成该补料单' }).click()
-  const confirm = page.getByRole('heading', { name: '确认完成补料' }).locator('xpath=ancestor::div[contains(@class,"fixed")]')
-  await expect(confirm).toContainText(targetRecordNo)
-  await expect(confirm).toContainText('第 2 次')
-  await expect(confirm).toContainText('CUT14671-B')
-  await expect(confirm.getByText(/总补料数量\s*\d+\s*件/)).toBeVisible()
-  await confirm.getByRole('button', { name: '取消' }).click()
-  await expect(detail.getByText('未完成', { exact: true })).toBeVisible()
-  await expect(detail.getByText('尚未完成', { exact: true })).toBeVisible()
-
-  await detail.getByRole('button', { name: '完成该补料单' }).click()
-  await expect(page.getByRole('heading', { name: '确认完成补料' })).toBeVisible()
-
-  const completionResponse = await page.evaluate(() => new Promise<{ responseMs: number; firstChangedRegion: string }>((resolve, reject) => {
-    const pageRoot = document.querySelector('[data-standard-list-page]')
-    const overlay = document.querySelector('[data-cutting-supplement-region="overlay"]')
-    const button = document.querySelector<HTMLButtonElement>('[data-cutting-supplement-action="confirm-complete-record"]')
-    if (!pageRoot || !overlay || !button) {
-      reject(new Error('缺少完成补料确认交互验收元素'))
-      return
-    }
-    requestAnimationFrame(() => {
-      const startedAt = performance.now()
-      const changedRegions: string[] = []
-      const observer = new MutationObserver((records) => {
-        records.forEach((record) => {
-          const target = record.target instanceof Element ? record.target : record.target.parentElement
-          const region = target?.closest<HTMLElement>('[data-cutting-supplement-region]')?.dataset.cuttingSupplementRegion
-          if ((region === 'table' || region === 'overlay') && !changedRegions.includes(region)) changedRegions.push(region)
-        })
-        if (!overlay.textContent?.includes('已完成')) return
-        observer.disconnect()
-        resolve({
-          responseMs: performance.now() - startedAt,
-          firstChangedRegion: changedRegions[0] || '',
-        })
-      })
-      observer.observe(pageRoot, { childList: true, subtree: true })
-      void import('/src/pages/process-factory/cutting/supplement-management.ts').then((pageModule) => {
-        pageModule.handleCraftCuttingSupplementManagementEvent(button)
-        pageModule.handleCraftCuttingSupplementManagementEvent(button)
-      })
-    })
-  }))
-  expect(completionResponse.firstChangedRegion).toBe('overlay')
-  expect(completionResponse.responseMs).toBeLessThan(200)
-  console.log(`确认完成单张补料单实际 DOM 响应：${completionResponse.responseMs.toFixed(1)}ms`)
-
-  await expect(detail.getByText('已完成', { exact: true })).toBeVisible()
-  const completionTrace = detail.locator('[data-supplement-completion-trace]')
-  await expect(completionTrace.getByText('裁床主管 王敏', { exact: true })).toBeVisible()
-  await expect(completionTrace.getByText('2026-07-22 14:30', { exact: true })).toBeVisible()
-  await expect(detail.getByRole('button', { name: '完成该补料单' })).toHaveCount(0)
-  await expect(targetRow).toContainText('已完成')
-  await expect(siblingRow).toContainText('未完成')
-  await expect(page.getByText('该补料单已完成。', { exact: true })).toBeVisible()
-  expect(await page.evaluate(() => document.querySelector('main') === (
-    window as typeof window & { __supplementCompletionMain?: Element | null }
-  ).__supplementCompletionMain)).toBe(true)
-
-  await detail.getByRole('button', { name: '关闭' }).click()
-  const completedRow = tableRows.filter({ hasText: completedRecordNo })
-  await expect(completedRow).toContainText('已完成')
-  await completedRow.getByRole('button', { name: '查看详情' }).click()
-  const completedDetail = page.getByRole('heading', { name: '补料单详情' }).locator('xpath=ancestor::div[contains(@class,"fixed")]')
-  await expect(completedDetail.getByText('已完成', { exact: true })).toBeVisible()
-  await expect(completedDetail.getByRole('button', { name: '完成该补料单' })).toHaveCount(0)
-  await expect(completedDetail.getByRole('button', { name: /撤销|重新打开|部分完成/ })).toHaveCount(0)
-})
-
-test('已生成补料无论未完成或已完成都计入候选已发起数量', async ({ page }) => {
-  await openList(page)
-  const initialLifecycle = await page.evaluate(async () => {
-    const registry = await import('/src/data/fcs/cutting/supplement-order-registry.ts')
-    return [
-      registry.getSupplementOrder('supplement-030004-001'),
-      registry.getSupplementOrder('supplement-030004-002'),
-    ].map((item) => item?.status)
-  })
-  expect(initialLifecycle).toEqual(['已完成', '未完成'])
-
-  const openCandidate = async () => {
-    await page.goto(`${route}?mode=create`)
-    await page.locator('[data-cutting-supplement-field="sourcePickerKeyword"]').fill('CUT-260302-004-01')
-    await page.getByRole('button', { name: '搜索', exact: true }).click()
-    await page.getByRole('radio', { name: '选择裁片单 CUT-260302-004-01' }).check()
-    await page.getByRole('button', { name: '下一步' }).click()
-    await expect(page.getByRole('heading', { name: '填写补料信息' })).toBeVisible()
-  }
-  const readAccounting = () => page.evaluate(() => {
-    const chip = [...document.querySelectorAll('span')].find((item) => item.textContent?.trim() === '已发起：')?.parentElement
-    const rows = [...document.querySelectorAll<HTMLInputElement>('[data-supplement-basis-qty-input]')]
-    return {
-      initiatedQty: Number(chip?.querySelector('.font-semibold')?.textContent?.replaceAll(',', '') || 0),
-      suggestedRows: rows.map((input) => ({ value: Number(input.value), max: Number(input.max) })),
-    }
-  })
-
-  await openCandidate()
-  const beforeCompletion = await readAccounting()
-  expect(beforeCompletion.initiatedQty).toBeGreaterThan(0)
-  expect(beforeCompletion.suggestedRows.some((row) => row.value < row.max)).toBe(true)
-
-  await page.evaluate(async () => {
-    const registry = await import('/src/data/fcs/cutting/supplement-order-registry.ts')
-    registry.completeSupplementOrder({
-      id: 'supplement-030004-002',
-      completedAt: '2026-07-22 14:35',
-      completedBy: '裁床主管 王敏',
-    })
-  })
-  await openCandidate()
-  expect(await readAccounting()).toEqual(beforeCompletion)
-})
-
-test('生命周期登记缺失时显示数据异常且禁止完成', async ({ page }) => {
-  await openList(page)
-  await page.evaluate(async () => {
-    const registry = await import('/src/data/fcs/cutting/supplement-order-registry.ts')
-    registry.resetSupplementOrderRegistryForTesting()
-  })
-  const targetRow = page.locator('[data-standard-list-table-section] tbody tr').filter({ hasText: 'SUP-CUT14671-B-002' })
-  await targetRow.getByRole('button', { name: '查看详情' }).click()
-  const detail = page.getByRole('heading', { name: '补料单详情' }).locator('xpath=ancestor::div[contains(@class,"fixed")]')
-  await expect(detail.getByText('补料生命周期数据异常，请刷新后重试。', { exact: true })).toBeVisible()
-  await expect(detail.locator('[data-supplement-lifecycle-status="missing"]')).toHaveText('—')
-  await expect(detail.getByRole('button', { name: '完成该补料单' })).toHaveCount(0)
-})
-
 async function openReleaseSnapshotCreate(page: Page): Promise<string> {
   await page.goto(`${route}?mode=create&releaseSnapshotId=cpr-target-po-14671-v9`)
   const url = new URL(page.url())
@@ -289,124 +47,264 @@ async function openReleaseSnapshotCreate(page: Page): Promise<string> {
   return snapshotId
 }
 
-async function chooseAvailableReleaseSnapshotCutOrder(page: Page): Promise<void> {
-  const candidate = page.getByRole('radio', { name: '选择裁片单 CUT14671-A' })
-  await expect(candidate).toBeEnabled()
-  await candidate.check()
-  await page.getByRole('button', { name: '下一步' }).click()
-  await expect(page.getByRole('heading', { name: '填写补料信息' })).toBeVisible()
+type ReleaseSnapshotFixtureKind =
+  | 'source-empty'
+  | 'source-history'
+  | 'source-ambiguous'
+  | 'source-ambiguous-earlier'
+  | 'source-ambiguous-later'
+  | 'source-id-bridge'
+  | 'source-no-bridge'
+  | 'source-transitive-bridge'
+  | 'source-empty-identity'
+  | 'source-whitespace-identity'
+  | 'source-id-conflict'
+  | 'source-no-conflict'
+  | 'bom-empty'
+  | 'bom-ambiguous'
+
+async function openReleaseSnapshotCandidateFixture(page: Page, kind: ReleaseSnapshotFixtureKind): Promise<{
+  before: { records: number; workOrders: number; pdaTasks: number }
+  selectedCutOrderNo: string
+  selectedSourceChangedAt: string
+}> {
+  await page.goto(`${route}?mode=create`)
+  return page.evaluate(async ({ fixtureKind, routePath }) => {
+    const pageModule = await import('/src/pages/process-factory/cutting/supplement-management.ts')
+    const releaseRepository = await import('/src/data/fcs/cut-piece-release.ts')
+    const techPackRuntime = await import('/src/data/fcs/production-order-tech-pack-runtime.ts')
+    const workOrderDomain = await import('/src/data/fcs/process-work-order-domain.ts')
+    const pdaTasks = await import('/src/data/fcs/pda-task-mock-factory.ts')
+    const { appStore } = await import('/src/state/store.ts')
+    const snapshot = releaseRepository.getCurrentCutPieceReleaseTargetSnapshot('cpr-target-po-14671-v9')
+    const frozenTechPack = techPackRuntime.getProductionOrderTechPackSnapshot('po-14671')
+    if (!snapshot || !frozenTechPack) throw new Error('缺少放行快照候选测试基线')
+    const releaseRecords = releaseRepository.listCutPieceReleaseRecords()
+      .filter((record) => record.productionOrderId === 'po-14671')
+    const baseSource = releaseRecords.flatMap((record) => record.sourceStates)
+      .find((source) => source.materialIds.includes('B'))
+    const baseBom = frozenTechPack.bomItems.find((item) => item.materialCode === 'RELEASE-B')
+    if (!baseSource || !baseBom) throw new Error('缺少物料 B 候选测试基线')
+
+    if (fixtureKind === 'source-empty') {
+      for (const record of releaseRecords) {
+        record.sourceStates = record.sourceStates.map((source) => ({
+          ...source,
+          materialIds: source.materialIds.filter((materialId) => materialId !== 'B'),
+        }))
+      }
+    } else if (fixtureKind === 'source-history') {
+      releaseRecords[0].sourceStates.push({
+        ...baseSource,
+        status: '持续更新',
+        changedAt: '2026-06-03 14:00:00',
+        reason: '同一裁片来源的更早历史状态',
+      })
+    } else if (fixtureKind === 'source-ambiguous' || fixtureKind === 'source-ambiguous-earlier' || fixtureKind === 'source-ambiguous-later') {
+      releaseRecords[0].sourceStates.push({
+        ...baseSource,
+        cutOrderId: 'cut-14671-b-other',
+        cutOrderNo: 'CUT14671-B-OTHER',
+        changedAt: fixtureKind === 'source-ambiguous-earlier'
+          ? '2026-06-03 14:00:00'
+          : fixtureKind === 'source-ambiguous-later' ? '2026-06-03 16:00:00' : baseSource.changedAt,
+        reason: '另一条原裁片来源',
+      })
+    } else if (fixtureKind === 'source-id-bridge') {
+      releaseRecords[0].sourceStates.push({ ...baseSource, cutOrderId: ` ${baseSource.cutOrderId} `, cutOrderNo: '', changedAt: '2026-06-03 14:00:00', reason: '仅 ID 历史状态' })
+    } else if (fixtureKind === 'source-no-bridge') {
+      releaseRecords[0].sourceStates.push({ ...baseSource, cutOrderId: '', cutOrderNo: ` ${baseSource.cutOrderNo} `, changedAt: '2026-06-03 14:00:00', reason: '仅编号历史状态' })
+    } else if (fixtureKind === 'source-transitive-bridge') {
+      releaseRecords[0].sourceStates.push(
+        { ...baseSource, cutOrderNo: '', changedAt: '2026-06-03 14:00:00', reason: '传递归并仅 ID 状态' },
+        { ...baseSource, cutOrderId: '', changedAt: '2026-06-03 14:30:00', reason: '传递归并仅编号状态' },
+      )
+    } else if (fixtureKind === 'source-empty-identity' || fixtureKind === 'source-whitespace-identity') {
+      releaseRecords[0].sourceStates.push({
+        ...baseSource,
+        cutOrderId: fixtureKind === 'source-whitespace-identity' ? '  ' : '',
+        cutOrderNo: fixtureKind === 'source-whitespace-identity' ? '\t' : '',
+        changedAt: '2026-06-03 14:00:00',
+        reason: '缺少裁片来源身份',
+      })
+    } else if (fixtureKind === 'source-id-conflict') {
+      releaseRecords[0].sourceStates.push({
+        ...baseSource,
+        cutOrderNo: 'CUT14671-B-CONFLICT',
+        changedAt: '2026-06-03 14:00:00',
+        reason: '同一 ID 对应多个编号',
+      })
+    } else if (fixtureKind === 'source-no-conflict') {
+      releaseRecords[0].sourceStates.push({
+        ...baseSource,
+        cutOrderId: 'cut-14671-b-conflict',
+        changedAt: '2026-06-03 14:00:00',
+        reason: '同一编号对应多个 ID',
+      })
+    } else if (fixtureKind === 'bom-empty') {
+      frozenTechPack.bomItems = frozenTechPack.bomItems.filter((item) => item.materialCode !== 'RELEASE-B')
+    } else {
+      frozenTechPack.bomItems.push({ ...baseBom, id: `${baseBom.id}-duplicate` })
+    }
+
+    pageModule.setReleaseSnapshotDraftFixtureForTest({ releaseRecords, frozenTechPack })
+    const before = {
+      records: pageModule.listSupplementRecords().length,
+      workOrders: workOrderDomain.listProcessWorkOrders().length,
+      pdaTasks: pdaTasks.listPdaGenericProcessTasks().length,
+    }
+    const successfulSourceFixture = ['source-history', 'source-id-bridge', 'source-no-bridge', 'source-transitive-bridge'].includes(fixtureKind)
+    const draft = successfulSourceFixture
+      ? pageModule.buildReleaseSnapshotDraftForTest(snapshot)
+      : null
+    appStore.navigate(`${routePath}?mode=create&releaseSnapshotId=cpr-target-po-14671-v9&candidateFixture=${fixtureKind}`)
+    return {
+      before,
+      selectedCutOrderNo: draft?.materialDemands.find((item) => item.materialSku === 'RELEASE-B')?.originalCutOrderNo || '',
+      selectedSourceChangedAt: successfulSourceFixture
+        ? pageModule.resolveReleaseSnapshotSourceStateForTest(
+          'B',
+          releaseRecords.flatMap((record) => record.sourceStates).filter((source) => source.materialIds.includes('B')),
+        ).changedAt
+        : '',
+    }
+  }, { fixtureKind: kind, routePath: route })
 }
 
-test('创建流程二次确认 Escape 只关闭最上层并返回提交入口', async ({ page }) => {
-  await openReleaseSnapshotCreate(page)
-  await chooseAvailableReleaseSnapshotCutOrder(page)
-  await page.locator('[data-supplement-reason]').selectOption('尺码齐套不足')
-  await page.locator('[data-supplement-reason-detail]').fill('验证创建确认层键盘返回。')
-  const submit = page.getByRole('button', { name: '提交补料' })
-  await submit.click()
+async function expectCandidateFixtureBlocked(
+  page: Page,
+  expectedMessage: string,
+  before: { records: number; workOrders: number; pdaTasks: number },
+): Promise<void> {
+  await expect(page.getByText(expectedMessage)).toBeVisible()
+  await expect(page.locator('[data-release-snapshot-create]')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '提交补料' })).toHaveCount(0)
+  const after = await page.evaluate(async () => {
+    const pageModule = await import('/src/pages/process-factory/cutting/supplement-management.ts')
+    const workOrderDomain = await import('/src/data/fcs/process-work-order-domain.ts')
+    const pdaTasks = await import('/src/data/fcs/pda-task-mock-factory.ts')
+    const counts = {
+      records: pageModule.listSupplementRecords().length,
+      workOrders: workOrderDomain.listProcessWorkOrders().length,
+      pdaTasks: pdaTasks.listPdaGenericProcessTasks().length,
+    }
+    pageModule.setReleaseSnapshotDraftFixtureForTest(null)
+    return counts
+  })
+  expect(after).toEqual(before)
+}
 
-  const confirmation = page.locator('[data-cutting-supplement-create-confirm]')
-  await expect(confirmation).toBeVisible()
-  await expect(confirmation.getByRole('button', { name: '返回修改' })).toBeFocused()
-  await page.keyboard.press('Escape')
-  await expect(confirmation).toHaveCount(0)
-  await expect(page.getByRole('heading', { name: '填写补料信息' })).toBeVisible()
-  await expect(submit).toBeFocused()
+test('放行快照候选：物料没有原裁片来源时阻断预填且不产生下游数据', async ({ page }) => {
+  const { before } = await openReleaseSnapshotCandidateFixture(page, 'source-empty')
+  await expectCandidateFixtureBlocked(page, '放行快照物料 B 必须唯一对应一条原裁片单来源，当前匹配 0 条，不能确认补料。', before)
 })
 
-test('放行目标快照只带入真实裁片单候选且明确选择后才可创建', async ({ page }) => {
-  const snapshotId = await openReleaseSnapshotCreate(page)
+test('放行快照候选：同一原裁片来源的多条乱序历史状态按最早状态稳定解析', async ({ page }) => {
+  const { before, selectedCutOrderNo, selectedSourceChangedAt } = await openReleaseSnapshotCandidateFixture(page, 'source-history')
+  expect(selectedCutOrderNo).toBe('CUT14671-B')
+  expect(selectedSourceChangedAt).toBe('2026-06-03 14:00:00')
+  await expect(page.locator('[data-release-snapshot-shortage-row]')).toHaveCount(19)
+  await expect(page.getByRole('button', { name: '提交补料' })).toBeVisible()
+  const after = await page.evaluate(async () => {
+    const pageModule = await import('/src/pages/process-factory/cutting/supplement-management.ts')
+    const workOrderDomain = await import('/src/data/fcs/process-work-order-domain.ts')
+    const pdaTasks = await import('/src/data/fcs/pda-task-mock-factory.ts')
+    const counts = {
+      records: pageModule.listSupplementRecords().length,
+      workOrders: workOrderDomain.listProcessWorkOrders().length,
+      pdaTasks: pdaTasks.listPdaGenericProcessTasks().length,
+    }
+    pageModule.setReleaseSnapshotDraftFixtureForTest(null)
+    return counts
+  })
+  expect(after).toEqual(before)
+})
 
-  await expect(page.getByRole('heading', { name: '选择裁片单' })).toBeVisible()
-  await expect(page.getByText('裁片单搜索')).toBeVisible()
-  const snapshotContext = page.locator('[data-release-snapshot-picker-context]')
-  await expect(snapshotContext.getByText('来源：裁片放行目标快照')).toBeVisible()
-  await expect(snapshotContext.getByText('生产单 PO14671', { exact: true })).toBeVisible()
-  await expect(snapshotContext.getByText('已匹配 2 张裁片单，请选择一张可新增补料的裁片单。', { exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: /按生产单选择|按裁片单选择/ })).toHaveCount(0)
+test('放行快照候选：两个不同原裁片来源时歧义阻断且不产生下游数据', async ({ page }) => {
+  const { before } = await openReleaseSnapshotCandidateFixture(page, 'source-ambiguous')
+  await expectCandidateFixtureBlocked(page, '放行快照物料 B 必须唯一对应一条原裁片单来源，当前匹配 2 条，不能确认补料。', before)
+})
 
-  const availableCandidate = page.getByRole('radio', { name: '选择裁片单 CUT14671-A' })
-  const closedCandidate = page.getByRole('radio', { name: '选择裁片单 CUT14671-B' })
-  await expect(availableCandidate).toBeEnabled()
-  await expect(closedCandidate).toBeDisabled()
-  await expect(closedCandidate.locator('xpath=ancestor::tr')).toContainText('裁片单已关闭，不能新增补料。')
-  await expect(page.getByRole('button', { name: '下一步' })).toBeDisabled()
+test('放行快照候选：更早的第二原裁片来源仍须歧义阻断且不产生下游数据', async ({ page }) => {
+  const { before } = await openReleaseSnapshotCandidateFixture(page, 'source-ambiguous-earlier')
+  await expectCandidateFixtureBlocked(page, '放行快照物料 B 必须唯一对应一条原裁片单来源，当前匹配 2 条，不能确认补料。', before)
+})
 
-  await availableCandidate.check()
-  await page.getByRole('button', { name: '下一步' }).click()
-  await expect(page.getByRole('heading', { name: '填写补料信息' })).toBeVisible()
-  await expect(page.getByText('裁片单 CUT14671-A / PO14671 / 女式基础圆领短袖')).toBeVisible()
-  await expect(page.getByText(`快照编号 ${snapshotId}`)).toBeVisible()
+test('放行快照候选：更晚的第二原裁片来源仍须歧义阻断且不产生下游数据', async ({ page }) => {
+  const { before } = await openReleaseSnapshotCandidateFixture(page, 'source-ambiguous-later')
+  await expectCandidateFixtureBlocked(page, '放行快照物料 B 必须唯一对应一条原裁片单来源，当前匹配 2 条，不能确认补料。', before)
+})
+
+for (const fixture of [
+  ['source-id-bridge', '仅 ID 状态可与相同 ID 的完整身份归并'],
+  ['source-no-bridge', '仅编号状态可与相同编号的完整身份归并'],
+  ['source-transitive-bridge', '仅 ID 与仅编号状态可经完整身份传递归并'],
+] as const) {
+  test(`放行快照身份：${fixture[1]}并选取最早状态`, async ({ page }) => {
+    const { before, selectedCutOrderNo, selectedSourceChangedAt } = await openReleaseSnapshotCandidateFixture(page, fixture[0])
+    expect(selectedCutOrderNo).toBe('CUT14671-B')
+    expect(selectedSourceChangedAt).toBe('2026-06-03 14:00:00')
+    await expect(page.locator('[data-release-snapshot-shortage-row]')).toHaveCount(19)
+    const after = await page.evaluate(async () => {
+      const pageModule = await import('/src/pages/process-factory/cutting/supplement-management.ts')
+      const workOrderDomain = await import('/src/data/fcs/process-work-order-domain.ts')
+      const pdaTasks = await import('/src/data/fcs/pda-task-mock-factory.ts')
+      return {
+        records: pageModule.listSupplementRecords().length,
+        workOrders: workOrderDomain.listProcessWorkOrders().length,
+        pdaTasks: pdaTasks.listPdaGenericProcessTasks().length,
+      }
+    })
+    expect(after).toEqual(before)
+  })
+}
+
+for (const fixture of [
+  ['source-empty-identity', '放行快照物料 B 存在无法识别的原裁片单来源，裁片单 ID 和编号均为空，不能确认补料。'],
+  ['source-whitespace-identity', '放行快照物料 B 存在无法识别的原裁片单来源，裁片单 ID 和编号均为空，不能确认补料。'],
+  ['source-id-conflict', '放行快照物料 B 的原裁片单来源身份冲突：同一裁片单 ID 对应多个编号，不能确认补料。'],
+  ['source-no-conflict', '放行快照物料 B 的原裁片单来源身份冲突：同一裁片单编号对应多个 ID，不能确认补料。'],
+] as const) {
+  test(`放行快照身份：${fixture[0]} 阻断且不产生下游数据`, async ({ page }) => {
+    const { before } = await openReleaseSnapshotCandidateFixture(page, fixture[0])
+    await expectCandidateFixtureBlocked(page, fixture[1], before)
+  })
+}
+
+test('放行快照候选：物料没有冻结 BOM 时阻断预填且不产生下游数据', async ({ page }) => {
+  const { before } = await openReleaseSnapshotCandidateFixture(page, 'bom-empty')
+  await expectCandidateFixtureBlocked(page, '放行快照物料 B 必须唯一对应一条冻结 BOM，当前匹配 0 条，不能确认补料。', before)
+})
+
+test('放行快照候选：同物料存在两条冻结 BOM 时歧义阻断且不产生下游数据', async ({ page }) => {
+  const { before } = await openReleaseSnapshotCandidateFixture(page, 'bom-ambiguous')
+  await expectCandidateFixtureBlocked(page, '放行快照物料 B 必须唯一对应一条冻结 BOM，当前匹配 2 条，不能确认补料。', before)
+})
+
+test('放行目标快照直接预填多物料多部位缺口且不进入A/B分析', async ({ page }) => {
+  await openReleaseSnapshotCreate(page)
+
+  await expect(page.getByText('来源：裁片放行目标快照')).toBeVisible()
+  await expect(page.getByText('生产单 PO14671')).toBeVisible()
+  await expect(page.getByText('目标依据矩阵版本 V9')).toBeVisible()
+  await expect(page.getByText('2026-06-03 17:00:00')).toBeVisible()
   const rows = page.locator('[data-release-snapshot-shortage-row]')
   await expect(rows).toHaveCount(19)
   const bm = rows.filter({ hasText: 'Black' }).filter({ hasText: 'M' }).filter({ hasText: '面料 B · 白色条' })
   await expect(bm).toContainText('前片')
   await expect(bm).toContainText('实际缺片 16 片')
   await expect(bm).toContainText('建议补料 8 件')
+  const dxl = rows.filter({ hasText: 'Black' }).filter({ hasText: 'XL' }).filter({ hasText: '面料 D · 灰色条' })
+  await expect(dxl).toContainText('袖口')
+  await expect(dxl).toContainText('实际缺片 20 片')
+  await expect(dxl).toContainText('建议补料 20 件')
   const bPointKeys = await rows.filter({ hasText: 'Black' }).filter({ hasText: '面料 B · 白色条' }).evaluateAll((items) =>
     items.map((item) => item.getAttribute('data-release-snapshot-point-key')),
   )
   expect(bPointKeys).toHaveLength(2)
   expect(bPointKeys[0]).not.toBe(bPointKeys[1])
-
-  await page.locator('[data-supplement-reason]').selectOption('尺码齐套不足')
-  await page.locator('[data-supplement-reason-detail]').fill('快照只带入缺口，补料必须登记到真实裁片单。')
-  await page.getByRole('button', { name: '提交补料' }).click()
-  await page.getByRole('button', { name: '确认生成补料单' }).click()
-  await expect(page.getByRole('heading', { name: '补料单详情' })).toBeVisible()
-
-  const created = await page.evaluate(async () => {
-    const registry = await import('/src/data/fcs/cutting/supplement-order-registry.ts')
-    return registry.listSupplementOrders().find((item) => item.reasonDetail === '快照只带入缺口，补料必须登记到真实裁片单。')
-  })
-  expect(created).toMatchObject({
-    cutOrderId: 'cut-14671-a',
-    cutOrderNo: 'CUT14671-A',
-    productionOrderNo: 'PO14671',
-  })
-  expect(created?.cutOrderId).not.toContain('release-snapshot:')
-  expect(created?.cutOrderNo).not.toMatch(/^PO/)
-})
-
-test('放行快照关联裁片单全部关闭或映射为零时停留选择页并阻断下一步', async ({ page }) => {
-  await page.goto(route)
-  await waitForList(page)
-  const snapshots = await page.evaluate(async () => {
-    const progress = await import('/src/data/fcs/cutting/order-progress.ts')
-    return {
-      available: progress.removeCuttingOrderProgressProjectionForTesting('cut-14671-a'),
-    }
-  })
-  try {
-    await page.evaluate(async () => {
-      const { appStore } = await import('/src/state/store.ts')
-      appStore.navigate('/fcs/craft/cutting/supplement-management?mode=create&releaseSnapshotId=cpr-target-po-14671-v9')
-    })
-    await expect(page.getByRole('heading', { name: '选择裁片单' })).toBeVisible()
-    await expect(page.getByText('关联裁片单均已关闭或不可用，不能新增补料。请回裁片放行核对。', { exact: true })).toBeVisible()
-    await expect(page.getByRole('radio', { name: '选择裁片单 CUT14671-B' })).toBeDisabled()
-    await expect(page.getByRole('button', { name: '下一步' })).toBeDisabled()
-
-    const closedSnapshot = await page.evaluate(async () => {
-      const progress = await import('/src/data/fcs/cutting/order-progress.ts')
-      return progress.removeCuttingOrderProgressProjectionForTesting('cut-14671-b')
-    })
-    ;(snapshots as typeof snapshots & { closed?: unknown }).closed = closedSnapshot
-    await page.evaluate(async () => {
-      const { appStore } = await import('/src/state/store.ts')
-      appStore.navigate('/fcs/craft/cutting/supplement-management?mode=create&releaseSnapshotId=cpr-target-po-14671-v9&scenario=zero')
-    })
-    await expect(page.getByRole('heading', { name: '选择裁片单' })).toBeVisible()
-    await expect(page.getByText('未匹配到真实裁片单，不能新增补料。请回裁片放行核对来源裁片单。', { exact: true })).toBeVisible()
-    await expect(page.locator('[data-cutting-supplement-action="toggle-source-candidate"]')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: '下一步' })).toBeDisabled()
-  } finally {
-    await page.evaluate(async (stored) => {
-      const progress = await import('/src/data/fcs/cutting/order-progress.ts')
-      progress.restoreCuttingOrderProgressSnapshotForTesting((stored as { closed?: unknown }).closed)
-      progress.restoreCuttingOrderProgressSnapshotForTesting(stored.available)
-    }, snapshots)
-  }
+  await expect(page.getByText('A/B 基准分析')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /生产单 \d+/ })).toHaveCount(0)
 })
 
 test('同一快照URL重新初始化时会复查实时有效性且仍可独立创建', async ({ page }) => {
@@ -432,13 +330,12 @@ test('同一快照URL重新初始化时会复查实时有效性且仍可独立�
   await expect(page.getByText('来源：裁片放行目标快照')).toHaveCount(0)
   await expect(page.getByText('目标依据已过期，请回裁片放行重新确认。')).toBeVisible()
   await page.getByRole('button', { name: '返回独立创建' }).click()
-  await expect(page.getByRole('heading', { name: '选择裁片单' })).toBeVisible()
-  await expect(page.getByText('裁片单搜索')).toBeVisible()
+  await expect(page.getByRole('button', { name: /按生产单选择/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /按裁片单选择/ })).toBeVisible()
 })
 
 test('快照草稿填写期间过期时直接提交会被即时阻断', async ({ page }) => {
   await openReleaseSnapshotCreate(page)
-  await chooseAvailableReleaseSnapshotCutOrder(page)
   await page.locator('[data-supplement-reason]').selectOption('尺码齐套不足')
   await page.locator('[data-supplement-reason-detail]').fill('提交前制造目标过期。')
 
@@ -486,7 +383,6 @@ test('快照草稿二次确认期间过期时最终确认不生成补料单', as
     appStore.navigate('/fcs/craft/cutting/supplement-management?mode=create&releaseSnapshotId=cpr-target-po-14671-v9')
   })
   await expect(page.getByText('来源：裁片放行目标快照')).toBeVisible()
-  await chooseAvailableReleaseSnapshotCutOrder(page)
   await page.locator('[data-supplement-reason]').selectOption('尺码齐套不足')
   await page.locator('[data-supplement-reason-detail]').fill('二次确认前制造目标过期。')
   await page.getByRole('button', { name: '提交补料' }).click()
@@ -518,156 +414,28 @@ test('快照草稿二次确认期间过期时最终确认不生成补料单', as
   })
 })
 
-test('独立新增补料直接选择裁片单且不再提供双入口', async ({ page }) => {
+test('独立新增补料仍只提供按生产单和按裁片单两种人工入口', async ({ page }) => {
   await page.goto(`${route}?mode=create`)
-  await expect(page.getByRole('heading', { name: '选择裁片单' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /按生产单选择/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /按裁片单选择/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /裁片放行目标快照/ })).toHaveCount(0)
+
+  await page.getByRole('button', { name: /按裁片单选择/ }).click()
   await expect(page.getByText('裁片单搜索')).toBeVisible()
-  await expect(page.getByRole('button', { name: /按生产单选择|按裁片单选择/ })).toHaveCount(0)
-  await expect(page.getByText('按生产单或裁片单发起补料')).toHaveCount(0)
-
-  await page.evaluate(() => {
-    const main = document.querySelector('main')
-    const keywordInput = document.querySelector('[data-cutting-supplement-field="sourcePickerKeyword"]')
-    const sourcePicker = keywordInput?.closest('section')
-    if (!main || !keywordInput || !sourcePicker) throw new Error('缺少裁片单选择器局部刷新验收区域')
-    window.scrollTo(0, 180)
-    ;(window as typeof window & {
-      __supplementSourcePickerAcceptance?: {
-        main: Element
-        sourcePicker: Element
-        keywordInput: Element
-        scrollY: number
-      }
-    }).__supplementSourcePickerAcceptance = {
-      main,
-      sourcePicker,
-      keywordInput,
-      scrollY: window.scrollY,
-    }
-  })
-  const sourcePickerStability = () => page.evaluate(() => {
-    const state = (window as typeof window & {
-      __supplementSourcePickerAcceptance?: {
-        main: Element
-        sourcePicker: Element
-        keywordInput: Element
-        scrollY: number
-      }
-    }).__supplementSourcePickerAcceptance
-    if (!state) throw new Error('缺少裁片单选择器局部刷新验收状态')
-    const keywordInput = document.querySelector('[data-cutting-supplement-field="sourcePickerKeyword"]')
-    return {
-      mainSame: document.querySelector('main') === state.main,
-      sourcePickerSame: keywordInput?.closest('section') === state.sourcePicker,
-      keywordInputSame: keywordInput === state.keywordInput,
-      scrollSame: window.scrollY === state.scrollY,
-    }
-  })
-  const stableSourcePickerResult = {
-    mainSame: true,
-    sourcePickerSame: true,
-    keywordInputSame: true,
-    scrollSame: true,
-  }
-
-  const candidateRadios = page.locator('[data-cutting-supplement-action="toggle-source-candidate"]')
-  await expect(candidateRadios).toHaveCount(12)
-  await expect(page.getByText('共 23 条，当前 1-12', { exact: true })).toBeVisible()
-  await expect(page.locator('[data-cutting-supplement-field="sourcePickerPageSize"]')).toHaveValue('12')
-  await expect(page.getByText('1 / 2', { exact: true })).toBeVisible()
-  const firstPageCandidateIds = await candidateRadios.evaluateAll((radios) =>
-    radios.map((radio) => radio.getAttribute('data-candidate-id')),
-  )
-  const nextPageResponseMs = await page.evaluate(() => {
-    const nextPageButton = document.querySelector<HTMLButtonElement>('[data-cutting-supplement-action="source-picker-next-page"]')
-    if (!nextPageButton) throw new Error('缺少裁片单候选下一页按钮')
-    const startedAt = performance.now()
-    nextPageButton.click()
-    return performance.now() - startedAt
-  })
-  expect(nextPageResponseMs).toBeLessThan(350)
-  await expect(candidateRadios).toHaveCount(11)
-  await expect(page.getByText('共 23 条，当前 13-23', { exact: true })).toBeVisible()
-  await expect(page.getByText('2 / 2', { exact: true })).toBeVisible()
-  expect(await sourcePickerStability()).toEqual(stableSourcePickerResult)
-  const secondPageCandidateIds = await candidateRadios.evaluateAll((radios) =>
-    radios.map((radio) => radio.getAttribute('data-candidate-id')),
-  )
-  expect(new Set([...firstPageCandidateIds, ...secondPageCandidateIds]).size).toBe(23)
-  await page.getByRole('button', { name: '上一页' }).click()
-  await expect(page.getByText('1 / 2', { exact: true })).toBeVisible()
-  expect(await sourcePickerStability()).toEqual(stableSourcePickerResult)
-
-  const keywordInput = page.locator('[data-cutting-supplement-field="sourcePickerKeyword"]')
-  const searchButton = page.getByRole('button', { name: '搜索', exact: true })
-  const availableCandidate = page.getByRole('radio', { name: '选择裁片单 CUT14671-A' })
-  const searchCases = [
-    { field: '裁片单号', keyword: 'CUT14671-A' },
-    { field: '生产单号', keyword: 'PO14671' },
-    { field: '款式名称', keyword: '女式基础圆领短袖' },
-    { field: 'SPU', keyword: 'ASYSA26060310' },
-  ]
-
-  for (const searchCase of searchCases) {
-    await test.step(`按${searchCase.field}搜索裁片单候选`, async () => {
-      await keywordInput.fill(searchCase.keyword)
-      expect(await sourcePickerStability()).toEqual(stableSourcePickerResult)
-      await searchButton.click()
-      await expect(availableCandidate).toBeVisible()
-      await expect(availableCandidate.locator('xpath=ancestor::tr')).toContainText(searchCase.keyword)
-      expect(await sourcePickerStability()).toEqual(stableSourcePickerResult)
-    })
-  }
-
-  const availableRow = availableCandidate.locator('xpath=ancestor::tr')
-  await expect(page.getByRole('columnheader', { name: '裁片单' })).toBeVisible()
-  await expect(page.getByRole('columnheader', { name: '所属生产单' })).toBeVisible()
-  await expect(availableRow.locator('td').nth(4).getByText('PO14671', { exact: true })).toBeVisible()
-  await expect(availableRow.locator('td').nth(4).locator('input, select, button')).toHaveCount(0)
-  await expect(page.getByRole('radio', { name: /选择生产单/ })).toHaveCount(0)
-
-  await page.getByRole('button', { name: '重置', exact: true }).click()
-  await expect(keywordInput).toHaveValue('')
-  await expect(page.getByText('共 23 条，当前 1-12', { exact: true })).toBeVisible()
-  expect(await sourcePickerStability()).toEqual(stableSourcePickerResult)
-
-  await keywordInput.fill('CUT14671-B')
-  await searchButton.click()
-  const closedCandidate = page.getByRole('radio', { name: '选择裁片单 CUT14671-B' })
-  const closedRow = closedCandidate.locator('xpath=ancestor::tr')
-  await expect(closedCandidate).toBeDisabled()
-  await expect(closedRow).toContainText('裁片单已关闭，不能新增补料。')
-  await expect(page.getByRole('button', { name: '下一步' })).toBeDisabled()
-
-  await keywordInput.fill('CUT14671-A')
-  await searchButton.click()
-  await availableCandidate.check()
-  await expect(availableCandidate).toBeChecked()
-  expect(await sourcePickerStability()).toEqual(stableSourcePickerResult)
-  await availableCandidate.click()
-  await expect(availableCandidate).toBeChecked()
-  expect(await sourcePickerStability()).toEqual(stableSourcePickerResult)
-  await page.getByRole('button', { name: '下一步' }).click()
-  await expect(page.getByRole('heading', { name: '填写补料信息' })).toBeVisible()
-  await expect(page.getByText('裁片单 CUT14671-A / PO14671 / 女式基础圆领短袖')).toBeVisible()
-  await expect(page.getByText('补料明细与本次补料件数')).toBeVisible()
+  await page.getByRole('button', { name: /按生产单选择/ }).click()
+  await expect(page.getByText('生产单搜索')).toBeVisible()
 })
 
 test('无效放行快照给出中文错误并可返回独立创建', async ({ page }) => {
   await page.goto(`${route}?mode=create&releaseSnapshotId=${encodeURIComponent('missing/snapshot')}`)
-  await expect(page.getByRole('heading', { name: '选择裁片单' })).toBeVisible()
-  await expect(page.locator('[data-cutting-supplement-action="toggle-source-candidate"]')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '下一步' })).toBeDisabled()
   await expect(page.getByText('目标依据已过期，请回裁片放行重新确认。')).toBeVisible()
   await page.getByRole('button', { name: '返回独立创建' }).click()
   await expect(page).toHaveURL(/\/fcs\/craft\/cutting\/supplement-management\?mode=create$/)
-  await expect(page.getByRole('heading', { name: '选择裁片单' })).toBeVisible()
-  await expect(page.getByText('裁片单搜索')).toBeVisible()
+  await expect(page.getByRole('button', { name: /按生产单选择/ })).toBeVisible()
 })
 
 test('快照补料确认后冻结来源与数量且创建补料不改变放行矩阵', async ({ page }) => {
   const snapshotId = await openReleaseSnapshotCreate(page)
-  await chooseAvailableReleaseSnapshotCutOrder(page)
   const before = await page.evaluate(async () => {
     const repository = await import('/src/data/fcs/cut-piece-release.ts')
     return {
@@ -714,7 +482,6 @@ test('快照补料确认后冻结来源与数量且创建补料不改变放行�
 
 test('创建来源切换会清理旧快照确认草稿与覆盖层', async ({ page }) => {
   await openReleaseSnapshotCreate(page)
-  await chooseAvailableReleaseSnapshotCutOrder(page)
   await page.locator('[data-supplement-reason]').selectOption('尺码齐套不足')
   await page.locator('[data-supplement-reason-detail]').fill('待切换来源的旧快照草稿。')
   await page.getByRole('button', { name: '提交补料' }).click()
@@ -726,14 +493,12 @@ test('创建来源切换会清理旧快照确认草稿与覆盖层', async ({ pa
   })
   await expect(page).toHaveURL(/supplement-management\?mode=create$/)
   await expect(page.getByRole('heading', { name: '二次确认补料' })).toHaveCount(0)
-  await expect(page.getByRole('heading', { name: '选择裁片单' })).toBeVisible()
-  await expect(page.getByText('裁片单搜索')).toBeVisible()
+  await expect(page.getByRole('button', { name: /按生产单选择/ })).toBeVisible()
   await expect(page.getByRole('button', { name: '确认生成补料单' })).toHaveCount(0)
 })
 
 test('快照A切到快照B会清理A草稿并只显示B的结果', async ({ page }) => {
   await openReleaseSnapshotCreate(page)
-  await chooseAvailableReleaseSnapshotCutOrder(page)
   await page.locator('[data-supplement-reason]').selectOption('尺码齐套不足')
   await page.locator('[data-supplement-reason-detail]').fill('快照A旧草稿。')
   await page.getByRole('button', { name: '提交补料' }).click()
@@ -750,7 +515,6 @@ test('快照A切到快照B会清理A草稿并只显示B的结果', async ({ page
 
 test('同一创建来源保留确认态，离开页面再返回则清理旧草稿', async ({ page }) => {
   const snapshotId = await openReleaseSnapshotCreate(page)
-  await chooseAvailableReleaseSnapshotCutOrder(page)
   await page.locator('[data-supplement-reason]').selectOption('尺码齐套不足')
   await page.locator('[data-supplement-reason-detail]').fill('同一来源应保留，离开后应清理。')
   await page.getByRole('button', { name: '提交补料' }).click()
@@ -772,9 +536,9 @@ test('同一创建来源保留确认态，离开页面再返回则清理旧草�
     const { appStore } = await import('/src/state/store.ts')
     appStore.navigate(`/fcs/craft/cutting/supplement-management?mode=create&releaseSnapshotId=${encodeURIComponent(id)}`)
   }, snapshotId)
-  await expect(page.getByRole('heading', { name: '选择裁片单' })).toBeVisible()
-  await expect(page.locator('[data-release-snapshot-picker-context]')).toHaveCount(1)
-  await expect(page.locator('[data-release-snapshot-picker-context]').getByText('来源：裁片放行目标快照')).toBeVisible()
+  await expect(page.locator('[data-release-snapshot-create]')).toBeVisible()
+  await expect(page.locator('[data-release-snapshot-trace]')).toHaveCount(1)
+  await expect(page.locator('[data-release-snapshot-trace]').getByText('来源：裁片放行目标快照')).toBeVisible()
   await expect(page.getByRole('heading', { name: '二次确认补料' })).toHaveCount(0)
   await expect(page.getByText('同一来源应保留，离开后应清理。')).toHaveCount(0)
 })
@@ -1000,8 +764,25 @@ test('默认分页、三态排序及临时状态刷新后回到默认', async ({
   await expect(rows).toHaveCount(10)
   await expect(page.getByText('1 / 2', { exact: true })).toBeVisible()
   const defaultFirstRecord = (await rows.first().locator('td').first().innerText()).trim()
+  await rows.first().getByRole('button', { name: '查看详情' }).click()
+  const detail = page.locator('[data-cutting-supplement-region="overlay"]')
+  await expect(detail.getByRole('heading', { name: '补料单详情' })).toBeVisible()
+  await expect(detail.getByText('来源：裁片补料生成').first()).toBeVisible()
+  await expect(detail.getByText(/补料单 SUP-.*原裁片单 CUT-/).first()).toBeVisible()
+  await expect(detail.getByText(/生产单 PO-.*技术包版本 v/i).first()).toBeVisible()
+  const processLinks = detail.locator('a[data-nav]')
+  await expect(processLinks).toHaveCount(2)
+  const processRoutes = await processLinks.evaluateAll((links) => links.map((link) => link.getAttribute('data-nav') || ''))
+  expect(processRoutes.some((route) => /^\/fcs\/craft\/printing\/work-orders\//.test(route))).toBe(true)
+  expect(processRoutes.some((route) => /^\/fcs\/craft\/dyeing\/work-orders\?dyeOrderId=/.test(route))).toBe(true)
+  await detail.getByRole('button', { name: '关闭' }).click()
+  const secondPageFirstRecord = await page.evaluate(async () => {
+    const supplement = await import('/src/pages/process-factory/cutting/supplement-management.ts')
+    return supplement.listSupplementRecords()[10]?.recordNo || ''
+  })
+  expect(secondPageFirstRecord).not.toBe('')
 
-  const firstClickDuration = await page.evaluate((currentFirstRecordNo) => new Promise<number>((resolve, reject) => {
+  const firstClickDuration = await page.evaluate((targetRecordNo) => new Promise<number>((resolve, reject) => {
     const table = document.querySelector('[data-cutting-supplement-region="table"]')
     const next = document.querySelector<HTMLButtonElement>('[data-cutting-supplement-action="next-page"]')
     if (!table || !next) {
@@ -1011,17 +792,17 @@ test('默认分页、三态排序及临时状态刷新后回到默认', async ({
     requestAnimationFrame(() => {
       const startedAt = performance.now()
       const observer = new MutationObserver(() => {
-        if (table.textContent?.includes(currentFirstRecordNo)) return
+        if (!table.textContent?.includes(targetRecordNo)) return
         observer.disconnect()
         resolve(performance.now() - startedAt)
       })
       observer.observe(table, { childList: true, subtree: true })
       next.click()
     })
-  }), defaultFirstRecord)
-  expect(firstClickDuration).toBeLessThan(350)
+  }), secondPageFirstRecord)
+  expect(firstClickDuration).toBeLessThan(200)
   console.log(`首次下一页实际 DOM 响应：${firstClickDuration.toFixed(1)}ms`)
-  await expect(rows).toHaveCount(5)
+  await expect(rows).toHaveCount(2)
   await expect(page.getByText('2 / 2', { exact: true })).toBeVisible()
   let stability = await stableRegionResult(page)
   expect(stability.mainSame).toBe(true)
@@ -1075,8 +856,12 @@ test('筛选与重置改变结果并回到第 1 页，且不刷新无关覆盖�
   await page.getByRole('button', { name: '下一页' }).click()
   await expect(page.getByText('2 / 2', { exact: true })).toBeVisible()
   const targetRecordNo = (await rows.first().locator('td').first().innerText()).trim()
+  const targetSourceType = (await rows.first().locator('td').nth(1).innerText()).includes('裁片单')
+    ? 'cut-order'
+    : 'production-order'
 
   await rememberFilterRefreshBoundary(page)
+  await page.locator('[data-cutting-supplement-field="sourceType"]').selectOption(targetSourceType)
   await page.locator('[data-cutting-supplement-field="keyword"]').fill(targetRecordNo)
   await page.getByRole('button', { name: '筛选', exact: true }).click()
   await expect(rows).toHaveCount(1)
@@ -1094,6 +879,7 @@ test('筛选与重置改变结果并回到第 1 页，且不刷新无关覆盖�
   await page.getByRole('button', { name: '重置', exact: true }).click()
   await expect(rows).toHaveCount(10)
   await expect(page.getByText('1 / 2', { exact: true })).toBeVisible()
+  await expect(page.locator('[data-cutting-supplement-field="sourceType"]')).toHaveValue('ALL')
   await expect(page.locator('[data-cutting-supplement-field="keyword"]')).toHaveValue('')
   boundary = await filterRefreshBoundaryResult(page)
   expect(boundary.mainSame).toBe(true)
@@ -1133,7 +919,7 @@ test('列显示、顺序、冻结和每页条数持久化，且列操作只刷�
   await settingRow(page, 'recordNo').getByLabel('冻结').check()
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   await page.locator('[data-cutting-supplement-field="pageSize"]').selectOption('20')
-  await expect(page.locator('[data-standard-list-table-section] tbody tr')).toHaveCount(15)
+  await expect(page.locator('[data-standard-list-table-section] tbody tr')).toHaveCount(12)
   stability = await stableRegionResult(page)
   expect(stability.mainSame).toBe(true)
   expect(stability.statsSame).toBe(true)
@@ -1222,7 +1008,7 @@ test('列设置与每页条数一次用户操作只写入并刷新一次', async
     resolve()
   })))
   await page.locator('[data-cutting-supplement-field="pageSize"]').selectOption('20')
-  await expect(page.locator('[data-standard-list-table-section] tbody tr')).toHaveCount(15)
+  await expect(page.locator('[data-standard-list-table-section] tbody tr')).toHaveCount(12)
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
   expect(await page.evaluate(() => {
     const state = (window as typeof window & { __supplementSingleDispatch?: Record<string, number> })

@@ -117,9 +117,9 @@ function shouldGenerateDyeProcess(bomRows: BomProcessLinkageBomRow[]): boolean {
 
 function getRequiredPrepProcessCodes(bomRows: BomProcessLinkageBomRow[]): BomDrivenPrepProcessCode[] {
   const codes: BomDrivenPrepProcessCode[] = []
-  if (shouldGeneratePrintProcess(bomRows)) codes.push('PRINT')
   if (shouldGenerateWaterSolubleProcess(bomRows)) codes.push('WATER_SOLUBLE')
   if (shouldGenerateDyeProcess(bomRows)) codes.push('DYE')
+  if (shouldGeneratePrintProcess(bomRows)) codes.push('PRINT')
   if (shouldGenerateShrinkProcess(bomRows)) codes.push('PREP_SHRINKING')
   if (shouldGenerateWashProcess(bomRows)) codes.push('PREP_WASHING')
   return codes
@@ -150,7 +150,7 @@ function getBomDrivenProcessMeta(processCode: BomDrivenPrepProcessCode): {
       targetObject: 'FABRIC',
       targetObjectName: '面料',
       triggerField: 'printRequirement',
-      defaultDocument: 'DEMAND',
+      defaultDocument: 'TASK',
       taskTypeMode: 'PROCESS',
       assignmentGranularity: 'COLOR',
       detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
@@ -188,7 +188,7 @@ function getBomDrivenProcessMeta(processCode: BomDrivenPrepProcessCode): {
       targetObject: 'FABRIC',
       targetObjectName: '面料',
       triggerField: 'dyeRequirement',
-      defaultDocument: 'DEMAND',
+      defaultDocument: 'TASK',
       taskTypeMode: 'PROCESS',
       assignmentGranularity: 'COLOR',
       detailSplitDimensions: ['MATERIAL_SKU'],

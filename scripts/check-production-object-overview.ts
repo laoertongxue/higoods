@@ -448,9 +448,13 @@ for (const page of [
 for (const group of ['生产', '面辅料', '裁片', '印花', '染色', '仓库']) {
   assert.ok(overview.relatedDocuments.some((doc) => doc.docGroup === group), `P1 关联单据必须包含 ${group} 分组`)
 }
-for (const docType of ['技术包版本', '中转袋', '印花需求单', '印花工单', '印花回货批次', '染色需求单', '染色工单', '染色回货批次']) {
+for (const docType of ['技术包版本', '中转袋', '印花工单', '印花回货批次', '染色工单', '染色回货批次']) {
   assert.ok(overview.relatedDocuments.some((doc) => doc.docType === docType), `P1 关联单据缺少 ${docType}`)
 }
+assert.ok(
+  !overview.relatedDocuments.some((doc) => doc.docType.endsWith('需求单') && doc.docType !== '生产需求单'),
+  'P1 关联单据不得保留已取消的工艺需求对象',
+)
 for (const page of [
   'src/pages/production/orders-domain.ts',
   'src/pages/production/demand-domain.ts',

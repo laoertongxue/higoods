@@ -431,6 +431,7 @@ function buildBomCandidates(
   }
 
   return techPack.bomItems
+    .filter((item) => item.type !== '成衣')
     .map((item) => {
       if (targetProcessCode) {
         const usageProcessCodes = item.usageProcessCodes ?? []

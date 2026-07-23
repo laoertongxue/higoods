@@ -65,6 +65,7 @@ export type ProcessWebActionType =
   | '完成裁剪'
   | '生成菲票'
   | '确认入裁片仓'
+  | '成衣仓出库'
   | '确认接收裁片'
   | '开始加工'
   | '完成加工'
@@ -109,6 +110,7 @@ export interface ProcessWebActionPayload {
   remark?: string
   evidenceUrls?: string[]
   fields?: Record<string, string | number | undefined>
+  skuQtyBySkuCode?: Record<string, number>
 }
 
 export interface ProcessWebActionResult {
@@ -449,10 +451,21 @@ const CUTTING_ACTIONS: ActionDefinition[] = [
 
 const SPECIAL_CRAFT_ACTIONS: ActionDefinition[] = [
   {
+    actionCode: 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
+    actionLabel: '成衣仓出库',
+    processType: 'SPECIAL_CRAFT',
+    fromStatuses: ['待领料'],
+    toStatus: '成衣仓已出库待收货',
+    requiredFields: ['出库人', '出库时间', '逐 SKU 实出件数'],
+    optionalFields: ['备注'],
+    writebackHandler: 'confirmGarmentWarehouseOutbound',
+    affectsWarehouse: true,
+  },
+  {
     actionCode: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
     actionLabel: '确认接收裁片',
     processType: 'SPECIAL_CRAFT',
-    fromStatuses: ['待接收', '待领料', '已入待加工仓'],
+    fromStatuses: ['待接收', '待领料', '成衣仓已出库待收货'],
     toStatus: '已入待加工仓',
     requiredFields: ['接收人', '接收时间', '接收裁片数量', '关联菲票'],
     optionalFields: ['备注'],
@@ -917,6 +930,7 @@ export function executeProcessWebAction(payload: ProcessWebActionPayload): Proce
     formData: hydratedPayload.fields,
     remark: hydratedPayload.remark,
     evidenceUrls: hydratedPayload.evidenceUrls,
+    skuQtyBySkuCode: hydratedPayload.skuQtyBySkuCode,
   })
   return {
     success: true,

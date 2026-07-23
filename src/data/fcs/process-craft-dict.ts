@@ -16,9 +16,9 @@ export type DetailSplitMode = 'COMPOSITE'
 export type DetailSplitDimension = 'PATTERN' | 'MATERIAL_SKU' | 'GARMENT_COLOR' | 'GARMENT_SKU'
 export type RuleSource = 'INHERIT_PROCESS' | 'OVERRIDE_CRAFT'
 export type SpecialCraftSupportedTargetObject = 'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT'
-export type SpecialCraftTargetObjectLabel = '已裁部位' | '完整面料' | '成衣半成品'
+export type SpecialCraftTargetObjectLabel = '已裁部位' | '完整面料' | '成衣'
 export type ProcessTargetObject = 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY' | 'GARMENT_SEMI' | 'BOM_MATERIAL'
-export type ProcessTargetObjectName = '裁片部位' | '面料' | '辅料' | '成衣半成品' | 'BOM物料'
+export type ProcessTargetObjectName = '裁片部位' | '面料' | '辅料' | '成衣' | 'BOM物料'
 export type SpecialCraftCategory = 'AUXILIARY' | 'SPECIAL'
 export type SpecialCraftCategoryName = '辅助工艺' | '特种工艺'
 export type SpecialCraftVisibleFactoryType =
@@ -317,14 +317,14 @@ export const PROCESS_ASSIGNMENT_GRANULARITY_LABEL: Record<ProcessAssignmentGranu
 export const SPECIAL_CRAFT_TARGET_OBJECT_LABEL: Record<SpecialCraftSupportedTargetObject, SpecialCraftTargetObjectLabel> = {
   CUT_PIECE: '已裁部位',
   FULL_FABRIC: '完整面料',
-  SEMI_FINISHED_GARMENT: '成衣半成品',
+  SEMI_FINISHED_GARMENT: '成衣',
 }
 
 export const PROCESS_TARGET_OBJECT_NAME: Record<ProcessTargetObject, ProcessTargetObjectName> = {
   CUT_PIECE_PART: '裁片部位',
   FABRIC: '面料',
   ACCESSORY: '辅料',
-  GARMENT_SEMI: '成衣半成品',
+  GARMENT_SEMI: '成衣',
   BOM_MATERIAL: 'BOM物料',
 }
 
@@ -368,8 +368,8 @@ const SPECIAL_CRAFT_SUPPORTED_TARGET_OBJECTS_BY_LEGACY_VALUE: Record<number, Spe
   32: ['CUT_PIECE'],
   64: ['CUT_PIECE'],
   128: ['FULL_FABRIC'],
-  8192: ['SEMI_FINISHED_GARMENT'],
-  16384: ['CUT_PIECE', 'FULL_FABRIC'],
+  8192: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'],
+  16384: ['CUT_PIECE', 'SEMI_FINISHED_GARMENT'],
   131072: ['CUT_PIECE'],
 }
 
@@ -489,12 +489,12 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     managementDomain: 'AUXILIARY_CRAFT_FACTORY',
     managementDomainName: '辅助工艺工厂管理',
     targetObject: 'GARMENT_SEMI',
-    targetObjectName: '成衣半成品',
+    targetObjectName: '成衣',
     canSelectInPatternPiece: false,
     canSelectInBindingArea: false,
     canTriggerFromMaterial: false,
     canGenerateSpecialCraftTask: true,
-    description: '纯色 T-shirt 成衣半成品烫画，按 SKU 件数执行。',
+    description: '纯色 T-shirt 成衣烫画，按 SKU 件数执行。',
   },
   {
     craftCode: 'AUX_DIRECT_PRINT',
@@ -714,7 +714,7 @@ export function getSpecialCraftSupportedTargetObjectLabels(
 }
 
 export function isSpecialCraftTargetObjectLabel(value: string | undefined): value is SpecialCraftTargetObjectLabel {
-  return value === '已裁部位' || value === '完整面料' || value === '成衣半成品'
+  return value === '已裁部位' || value === '完整面料' || value === '成衣'
 }
 
 export function normalizeSpecialCraftTargetObjectLabel(
@@ -722,7 +722,7 @@ export function normalizeSpecialCraftTargetObjectLabel(
 ): SpecialCraftTargetObjectLabel | '' {
   if (value === '裁片') return '已裁部位'
   if (value === '面料') return '完整面料'
-  if (value === '半成品' || value === '成衣' || value === '整件成衣') return '成衣半成品'
+  if (value === '半成品' || value === '成衣半成品' || value === '整件成衣') return '成衣'
   return isSpecialCraftTargetObjectLabel(value) ? value : ''
 }
 
@@ -1471,7 +1471,7 @@ const processDefinitionSeeds: Array<
     processCode: 'PRINT',
     processName: '印花',
     stageCode: 'PREP',
-    sort: 10,
+    sort: 25,
     processRole: 'EXTERNAL_TASK',
     generatesExternalTask: true,
     requiresTaskQr: true,
@@ -1480,7 +1480,7 @@ const processDefinitionSeeds: Array<
     capacityRollupMode: 'SELF',
     factoryMobileExecutionMode: 'FULL_TASK',
     isActive: true,
-    defaultDocument: '需求单',
+    defaultDocument: '任务单',
     description: '由BOM上的印花要求触发',
     triggerSource: 'BOM上存在印花要求',
   },
@@ -1488,7 +1488,7 @@ const processDefinitionSeeds: Array<
     processCode: 'WATER_SOLUBLE',
     processName: '水溶',
     stageCode: 'PREP',
-    sort: 15,
+    sort: 10,
     processRole: 'EXTERNAL_TASK',
     generatesExternalTask: true,
     requiresTaskQr: true,
@@ -1514,7 +1514,7 @@ const processDefinitionSeeds: Array<
     capacityRollupMode: 'SELF',
     factoryMobileExecutionMode: 'FULL_TASK',
     isActive: true,
-    defaultDocument: '需求单',
+    defaultDocument: '任务单',
     description: '由BOM上的染色要求触发',
     triggerSource: 'BOM上存在染色要求',
   },
@@ -1864,10 +1864,10 @@ export const legacyProcessCraftMappings: LegacyCraftMappingDefinition[] = [
 ]
 
 const supplementalProcessCraftMappings: LegacyCraftMappingDefinition[] = [
-  { legacyValue: 2000001, legacyCraftName: '丝网印', craftName: '丝网印', processCode: 'PRINT', isSpecialCraft: false, defaultDocument: '需求单' },
-  { legacyValue: 2000002, legacyCraftName: '数码印', craftName: '数码印', processCode: 'PRINT', isSpecialCraft: false, defaultDocument: '需求单' },
-  { legacyValue: 2000003, legacyCraftName: '匹染', craftName: '匹染', processCode: 'DYE', isSpecialCraft: false, defaultDocument: '需求单' },
-  { legacyValue: 2000004, legacyCraftName: '色织', craftName: '色织', processCode: 'DYE', isSpecialCraft: false, defaultDocument: '需求单' },
+  { legacyValue: 2000001, legacyCraftName: '丝网印', craftName: '丝网印', processCode: 'PRINT', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 2000002, legacyCraftName: '数码印', craftName: '数码印', processCode: 'PRINT', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 2000003, legacyCraftName: '匹染', craftName: '匹染', processCode: 'DYE', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 2000004, legacyCraftName: '色织', craftName: '色织', processCode: 'DYE', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 2000005, legacyCraftName: '熨烫', craftName: '熨烫', processCode: 'IRONING', isSpecialCraft: false, isActive: true, defaultDocument: '任务单' },
   { legacyValue: 2000006, legacyCraftName: '包装', craftName: '包装', processCode: 'PACKAGING', isSpecialCraft: false, isActive: true, defaultDocument: '任务单' },
   {
@@ -2006,7 +2006,7 @@ function resolveProcessCraftTargetObject(
   if (item.processCode === 'WOOL') {
     return item.craftName === '部位毛织'
       ? { targetObject: 'CUT_PIECE_PART', targetObjectName: '裁片部位' }
-      : { targetObject: 'GARMENT_SEMI', targetObjectName: '成衣半成品' }
+      : { targetObject: 'GARMENT_SEMI', targetObjectName: '成衣' }
   }
   return { targetObject: 'CUT_PIECE_PART', targetObjectName: '裁片部位' }
 }

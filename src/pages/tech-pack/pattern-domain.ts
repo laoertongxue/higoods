@@ -689,7 +689,7 @@ function renderPatternDetailPieceTable(): string {
 
 export function renderPatternTab(): string {
   const bomById = new Map(
-    state.bomItems.map((item) => [
+    state.bomItems.filter((item) => item.type !== '成衣').map((item) => [
       item.id,
       {
         materialCode: item.materialCode,
@@ -1323,7 +1323,7 @@ function renderPatternPieceEditorTable(isWoven: boolean): string {
 function renderPatternFormDialogLegacy(): string {
   if (!state.addPatternDialogOpen) return ''
 
-  const bomOptions = state.bomItems
+  const bomOptions = state.bomItems.filter((item) => item.type !== '成衣')
   const isWoven = state.newPattern.patternMaterialType === 'WOVEN'
   const isWool = state.newPattern.patternMaterialType === 'WOOL'
   const sizeOptions = getSizeCodeOptionsFromSizeRules()
@@ -1516,7 +1516,7 @@ export function renderPatternFormDialog(): string {
   const purposeModuleKey = state.patternFormPurpose === 'PACKAGE' ? 'PATTERN' : 'MATERIAL_PATTERN_LINK'
   if (isTechPackModuleReadOnly(purposeModuleKey)) return ''
 
-  const bomOptions = state.bomItems
+  const bomOptions = state.bomItems.filter((item) => item.type !== '成衣')
   const isWoven = state.newPattern.patternMaterialType !== 'WOOL'
   const parseButtonLabel =
     state.newPattern.patternParsing

@@ -112,16 +112,39 @@ function toMaterialCategory(materialType: CuttingMaterialType): string {
   return '主料'
 }
 
-function findBomItem(techPack: ProductionOrderTechPackSnapshot, line: TechnicalColorMaterialMappingLine): TechPackBomItemSnapshot | null {
+export function resolveCuttingMappingBomItem(
+  techPack: Pick<ProductionOrderTechPackSnapshot, 'bomItems'>,
+  line: Pick<TechnicalColorMaterialMappingLine, 'bomItemId' | 'materialCode' | 'materialName'>,
+): TechPackBomItemSnapshot | null {
   if (line.bomItemId) {
     const byId = techPack.bomItems.find((item) => item.id === line.bomItemId)
-    if (byId) return byId
+    return byId?.type === '成衣' ? null : byId ?? null
   }
-  if (line.materialName) {
-    const byName = techPack.bomItems.find((item) => normalizeText(item.name) === normalizeText(line.materialName))
-    if (byName) return byName
-  }
-  return null
+
+  const materialCode = normalizeText(line.materialCode).toLowerCase()
+  const materialName = normalizeText(line.materialName).toLowerCase()
+  const codeMatches = materialCode
+    ? techPack.bomItems.filter((item) => [item.id, item.materialCode]
+      .some((value) => normalizeText(value).toLowerCase() === materialCode))
+    : []
+  const candidates = codeMatches.length > 0
+    ? codeMatches
+    : materialName
+      ? techPack.bomItems.filter((item) => normalizeText(item.name).toLowerCase() === materialName)
+      : []
+  if (candidates.length !== 1 || candidates[0]?.type === '成衣') return null
+  return candidates[0] ?? null
+}
+
+function findBomItem(techPack: ProductionOrderTechPackSnapshot, line: TechnicalColorMaterialMappingLine): TechPackBomItemSnapshot | null {
+  return resolveCuttingMappingBomItem(techPack, line)
+}
+
+export function isCuttingMappingLineEligible(
+  techPack: Pick<ProductionOrderTechPackSnapshot, 'bomItems'>,
+  line: Pick<TechnicalColorMaterialMappingLine, 'bomItemId' | 'materialCode' | 'materialName'>,
+): boolean {
+  return resolveCuttingMappingBomItem(techPack, line) !== null
 }
 
 function resolveMaterialSku(techPack: ProductionOrderTechPackSnapshot, line: TechnicalColorMaterialMappingLine, bomItem: TechnicalBomItem | null): string {
@@ -396,6 +419,7 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedCutOrderSourceRe
 
     for (const colorMapping of colorMappings) {
       for (const mappingLine of colorMapping.lines) {
+        if (!isCuttingMappingLineEligible(techPack, mappingLine)) continue
         const applicableSkuCodes = mappingLine.applicableSkuCodes || []
         if (applicableSkuCodes.length > 0 && !applicableSkuCodes.includes(skuLine.skuCode)) continue
 

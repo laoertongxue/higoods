@@ -6,7 +6,7 @@ import {
 
 export type PostFinishingRouteMode = '需要后道加工' | '无需后道加工'
 export type PostFinishingActionType = '扫码收货' | '质检' | '后道' | '复检'
-export type PostFinishingSourceFactoryType = '车缝厂' | '毛织厂' | '未关联任务'
+export type PostFinishingSourceFactoryType = '车缝厂' | '毛织厂' | '特殊工艺厂' | '未关联任务'
 export type PostFinishingQcResult = '全数合规' | '部分不合格' | '全数不合格'
 export type PostFinishingNeedFlag = '开扣眼' | '装扣子' | '熨烫' | '包装'
 export type PostFinishingButtonAttachMode = '人工装扣' | '机器装扣'
@@ -360,6 +360,11 @@ export interface PostFinishingReceiptRecord {
   receiverName: string
   receiptStatus: '待扫码收货' | '已入库'
   skuLines: PostFinishingSkuLine[]
+}
+
+export interface PostFinishingReceiptMutationSnapshot {
+  sourceContexts: PostFinishingSourceContext[]
+  receiptRecords: PostFinishingReceiptRecord[]
 }
 
 export interface PostFinishingWaitQcSkuItem {
@@ -2761,9 +2766,25 @@ export function listPostFinishingReceiptRecords(): PostFinishingReceiptRecord[] 
   return receiptRecords.map(cloneReceipt)
 }
 
+export function createPostFinishingReceiptMutationSnapshot(): PostFinishingReceiptMutationSnapshot {
+  return {
+    sourceContexts: SOURCE_CONTEXTS.map(cloneSourceContext),
+    receiptRecords: receiptRecords.map(cloneReceipt),
+  }
+}
+
+export function restorePostFinishingReceiptMutationSnapshot(snapshot: PostFinishingReceiptMutationSnapshot): void {
+  SOURCE_CONTEXTS.splice(0, SOURCE_CONTEXTS.length, ...snapshot.sourceContexts.map(cloneSourceContext))
+  receiptRecords = snapshot.receiptRecords.map(cloneReceipt)
+  refreshPostFinishingDerivedRecords()
+}
+
 export function listPostFinishingTasks(): PostFinishingTaskView[] {
   return productionOrders
-    .filter((order) => POST_FINISHING_TASK_MOCK_ORDER_NOS.has(order.productionOrderNo))
+    .filter((order) =>
+      POST_FINISHING_TASK_MOCK_ORDER_NOS.has(order.productionOrderNo)
+      || receiptRecords.some((receipt) => receipt.productionOrderNo === order.productionOrderNo),
+    )
     .map(buildPostFinishingTaskView)
 }
 
@@ -2879,6 +2900,81 @@ export function confirmPostFinishingReceipt(input: {
   receiptRecords.push(receipt)
   refreshPostFinishingDerivedRecords()
   return cloneReceipt(receipt)
+}
+
+export function receiveAuxiliaryCraftGarmentsAtPostFinishing(input: {
+  handoverRecordId: string
+  productionOrderId: string
+  productionOrderNo: string
+  sourceTaskId: string
+  sourceTaskNo: string
+  sourceFactoryId: string
+  sourceFactoryName: string
+  receiverName: string
+  receivedAt: string
+  skuLines: Array<{
+    skuId: string
+    skuCode: string
+    colorName: string
+    sizeName: string
+    plannedQty: number
+    receivedQty: number
+  }>
+}): PostFinishingReceiptRecord {
+  if (!input.skuLines.length) throw new Error('后道成衣收货必须包含逐 SKU 实收明细。')
+  const skuCodes = input.skuLines.map((line) => line.skuCode)
+  if (new Set(skuCodes).size !== skuCodes.length) throw new Error('后道成衣收货 SKU 不得重复。')
+  const invalidLine = input.skuLines.find((line) => (
+    !line.skuCode
+    || !Number.isInteger(line.plannedQty)
+    || line.plannedQty < 0
+    || !Number.isInteger(line.receivedQty)
+    || line.receivedQty < 0
+    || line.receivedQty > line.plannedQty
+  ))
+  if (invalidLine) throw new Error(`SKU ${invalidLine.skuCode || '未知'} 的应收和实收件数必须为整数，且实收不能超过应收。`)
+  const contextId = `POST-SRC-AUX-${input.handoverRecordId}`
+  const existed = receiptRecords.find((record) => record.sourceContextId === contextId)
+  if (existed) return cloneReceipt(existed)
+  const styleCode = input.productionOrderNo || input.productionOrderId
+  SOURCE_CONTEXTS.push({
+    contextId,
+    styleId: styleCode,
+    styleNo: styleCode,
+    styleName: '辅助工艺完成成衣',
+    spuId: styleCode,
+    spuCode: styleCode,
+    spuName: '辅助工艺完成成衣',
+    productionOrderId: input.productionOrderId,
+    productionOrderNo: input.productionOrderNo,
+    sourceTaskId: input.sourceTaskId,
+    sourceTaskNo: input.sourceTaskNo,
+    sourceFactoryId: input.sourceFactoryId,
+    sourceFactoryName: input.sourceFactoryName,
+    sourceFactoryType: '特殊工艺厂',
+    canCreateWithoutTask: false,
+    skuLines: input.skuLines.map((line, index) => ({
+      skuLineId: `${contextId}-SKU-${index + 1}`,
+      spuId: styleCode,
+      spuCode: styleCode,
+      spuName: '辅助工艺完成成衣',
+      skuId: line.skuId,
+      skuCode: line.skuCode,
+      colorName: line.colorName,
+      sizeName: line.sizeName,
+      plannedQty: line.plannedQty,
+      receivedQty: 0,
+      availableQty: 0,
+      handedOverQty: 0,
+      qtyUnit: '件',
+    })),
+  })
+  return confirmPostFinishingReceipt({
+    sourceContextId: contextId,
+    receiverName: input.receiverName,
+    receivedAt: input.receivedAt,
+    receivedQtyBySkuId: Object.fromEntries(input.skuLines.map((line) => [line.skuId, line.receivedQty])),
+  })
 }
 
 export function createPostFinishingQcOrder(input: {

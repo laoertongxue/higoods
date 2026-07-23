@@ -29,7 +29,11 @@ import { getPlatformStatusForProcessWorkOrder } from '../../../data/fcs/process-
 import { getStartPrerequisiteByTaskId } from '../../../data/fcs/pda-start-link.ts'
 import { getPdaSession } from '../../../data/fcs/store-domain-pda.ts'
 import { validateWaterSolublePdaActor, type WaterSolublePdaRoleAction } from '../../../data/fcs/water-soluble-pda-actor.ts'
-import { getProcessWorkOrderById, getProcessWorkOrderByNo } from '../../../data/fcs/process-work-order-domain.ts'
+import {
+  getProcessWorkOrderById,
+  getProcessWorkOrderByNo,
+  type ProcessWorkOrder,
+} from '../../../data/fcs/process-work-order-domain.ts'
 import {
   getDifferenceRecordsByWorkOrderId,
   getHandoverRecordsByWorkOrderId,
@@ -47,6 +51,11 @@ import {
   listDyeExecutionNodeRecords,
   type DyeWorkOrder,
 } from '../../../data/fcs/dyeing-task-domain.ts'
+import { getProcessWorkOrderSourceDetailRows } from '../../process-work-orders/process-work-order-source-view.ts'
+
+function renderSourceFields(order: ProcessWorkOrder): string {
+  return getProcessWorkOrderSourceDetailRows(order).map((row) => renderField(row.label, row.value)).join('')
+}
 
 type DyeDetailTab =
   | 'base'
@@ -612,10 +621,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
       `
         <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-3">
           ${renderField('加工单号', order.workOrderNo)}
-          ${renderField('来源类型', order.sourceType === 'STOCK' ? '按备货创建' : '生产单自动生成')}
-          ${renderField('来源对象', order.sourceType === 'STOCK'
-            ? (order.stockMaterialName || order.stockMaterialId || '-')
-            : (order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'))}
+          ${renderSourceFields(order)}
           ${renderField('工厂', formatFactoryDisplayName(order.factoryName, order.factoryId))}
           ${renderField('分配方式', order.assignmentMode || '派单')}
           ${renderField('派单价格', order.dispatchPriceDisplay || '1500 IDR/Yard')}

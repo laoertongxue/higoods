@@ -215,7 +215,7 @@ type CraftOption = {
 
 type BomItemRow = {
   id: string
-  type: string
+  type: '面料' | '辅料' | '包装材料' | '成衣' | '其他'
   colorLabel: string
   materialCode: string
   materialName: string
@@ -237,6 +237,123 @@ type BomItemRow = {
   frontPatternDesignIds: string[]
   insidePatternDesignId: string
   insidePatternDesignIds: string[]
+  remark?: string
+}
+
+export function normalizeGarmentBomItem(item: BomItemRow): BomItemRow {
+  if (item.type !== '成衣') return item
+  return {
+    ...item,
+    materialName: '成衣',
+    materialCode: '',
+    spec: '',
+    unit: '件',
+    patternPieces: [],
+    linkedPatternIds: [],
+    usage: 1,
+    lossRate: 0,
+    printRequirement: '无',
+    waterSolubleRequirement: '否',
+    dyeRequirement: '无',
+    shrinkRequirement: '否',
+    washRequirement: '否',
+    printSideMode: '',
+    frontPatternDesignId: '',
+    frontPatternDesignIds: [],
+    insidePatternDesignId: '',
+    insidePatternDesignIds: [],
+    remark: item.remark || '',
+  }
+}
+
+export function validateGarmentBomItem(item: BomItemRow): string {
+  if (item.type !== '成衣') return ''
+  return item.applicableSkuCodes.length > 0 ? '' : '成衣 BOM 必须选择至少一个适用 SKU'
+}
+
+export function partitionBomItemsByType<T extends Pick<BomItemRow, 'type'>>(bomItems: T[]): {
+  materialBomItems: T[]
+  garmentBomItems: T[]
+} {
+  return {
+    materialBomItems: bomItems.filter((item) => item.type !== '成衣'),
+    garmentBomItems: bomItems.filter((item) => item.type === '成衣'),
+  }
+}
+
+export function validateGarmentTechniqueBomLinks(
+  selectedTargetObject: string,
+  linkedBomItemIds: string[],
+  bomItems: Array<Pick<BomItemRow, 'id' | 'type'>>,
+): string {
+  if (selectedTargetObject !== '成衣') return ''
+  const garmentBomIds = new Set(bomItems.filter((item) => item.type === '成衣').map((item) => item.id))
+  return linkedBomItemIds.length > 0 && linkedBomItemIds.every((id) => garmentBomIds.has(id))
+    ? ''
+    : '成衣辅助工艺必须关联至少一条成衣 BOM，且不能保留非成衣 BOM 关联'
+}
+
+export function removeGarmentBomReverseReferences<
+  M extends { lines: Array<{ bomItemId?: string }> },
+  P extends {
+    linkedBomItemId?: string
+    linkedMaterialId?: string
+    linkedMaterialName?: string
+    linkedMaterialSku?: string
+    linkedMaterialAlias?: string
+  },
+>(
+  bomItemId: string,
+  colorMaterialMappings: M[],
+  patternItems: P[],
+  previousBomItems: Array<{ id: string; materialName?: string; materialCode?: string }>,
+): {
+  colorMaterialMappings: M[]
+  patternItems: P[]
+  conflicts: string[]
+} {
+  const conflicts: string[] = []
+  const targetMaterial = previousBomItems.find((item) => item.id === bomItemId)
+  const normalizeIdentity = (value?: string) => String(value || '').trim().toLowerCase()
+  return {
+    colorMaterialMappings: colorMaterialMappings.map((mapping) => ({
+      ...mapping,
+      lines: mapping.lines.filter((line) => line.bomItemId !== bomItemId),
+    })),
+    patternItems: patternItems.map((pattern) => {
+      const explicitIds = [pattern.linkedBomItemId, pattern.linkedMaterialId].filter(Boolean) as string[]
+      let isTargetMaterial = explicitIds.length > 0 && explicitIds.every((id) => id === bomItemId)
+      if (explicitIds.some((id) => id === bomItemId) && !isTargetMaterial) {
+        conflicts.push(String((pattern as { id?: string }).id || '未命名纸样'))
+      }
+      if (explicitIds.length === 0) {
+        const materialSku = normalizeIdentity(pattern.linkedMaterialSku)
+        const materialName = normalizeIdentity(pattern.linkedMaterialName)
+        const codeMatches = materialSku
+          ? previousBomItems.filter((item) => normalizeIdentity(item.materialCode) === materialSku)
+          : []
+        const candidates = codeMatches.length > 0
+          ? codeMatches
+          : materialName
+            ? previousBomItems.filter((item) => normalizeIdentity(item.materialName) === materialName)
+            : []
+        isTargetMaterial = candidates.length === 1 && candidates[0]?.id === bomItemId
+        if (candidates.length > 1 && candidates.some((item) => item.id === bomItemId)) {
+          conflicts.push(String((pattern as { id?: string }).id || '未命名纸样'))
+        }
+      }
+      if (!isTargetMaterial) return pattern
+      return {
+        ...pattern,
+        linkedBomItemId: undefined,
+        linkedMaterialId: undefined,
+        linkedMaterialName: undefined,
+        linkedMaterialSku: undefined,
+        linkedMaterialAlias: undefined,
+      }
+    }),
+    conflicts,
+  }
 }
 
 type BomPatternDesignReferenceInput = {
@@ -719,6 +836,7 @@ function createEmptyBomFormState(): TechPackPageState['newBomItem'] {
     frontPatternDesignIds: [],
     insidePatternDesignId: '',
     insidePatternDesignIds: [],
+    remark: '',
   }
 }
 
@@ -1490,7 +1608,7 @@ function createMaterialPatternDemoAssociation(
   }
 }
 
-function ensurePatternPoolDemoPackages(
+export function ensurePatternPoolDemoPackages(
   items: PatternItem[],
   bomItems: Array<{ id: string; name?: string; materialName?: string; materialCode?: string; spec?: string; type?: string }>,
 ): PatternItem[] {
@@ -1540,12 +1658,12 @@ function ensurePatternPoolDemoPackages(
     }),
   ]
 
-  const fabricBomItems = bomItems.filter((item) => String(item.type || '').includes('面料'))
-  const associationItems = [
-    createMaterialPatternDemoAssociation(packageItems[0], fabricBomItems[0] ?? bomItems[0], 0),
-    createMaterialPatternDemoAssociation(packageItems[1], fabricBomItems[0] ?? bomItems[0], 1),
-    createMaterialPatternDemoAssociation(packageItems[2], fabricBomItems[1] ?? bomItems[1] ?? bomItems[0], 2),
-    createMaterialPatternDemoAssociation(packageItems[3], fabricBomItems[1] ?? bomItems[1] ?? bomItems[0], 3),
+  const fabricBomItems = bomItems.filter((item) => item.type !== '成衣')
+  const associationItems = fabricBomItems.length === 0 ? [] : [
+    createMaterialPatternDemoAssociation(packageItems[0], fabricBomItems[0], 0),
+    createMaterialPatternDemoAssociation(packageItems[1], fabricBomItems[0], 1),
+    createMaterialPatternDemoAssociation(packageItems[2], fabricBomItems[1] ?? fabricBomItems[0], 2),
+    createMaterialPatternDemoAssociation(packageItems[3], fabricBomItems[1] ?? fabricBomItems[0], 3),
   ]
 
   return [...packageItems, ...associationItems]
@@ -1643,7 +1761,7 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     ruleSource: 'INHERIT_PROCESS',
     detailSplitMode: 'COMPOSITE',
     detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
-    defaultDocType: 'DEMAND',
+    defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
     triggerSource: 'BOM上存在印花要求',
@@ -1825,7 +1943,7 @@ interface TechPackPageState {
   patternTemplateSearchKeyword: string
   newPattern: PatternFormState
   newBomItem: {
-    type: string
+    type: BomItemRow['type']
     colorLabel: string
     materialCode: string
     materialName: string
@@ -1847,6 +1965,7 @@ interface TechPackPageState {
     frontPatternDesignIds: string[]
     insidePatternDesignId: string
     insidePatternDesignIds: string[]
+    remark: string
   }
   newTechnique: {
     stageCode: '' | 'PREP' | 'PROD' | 'POST'
@@ -1855,6 +1974,7 @@ interface TechPackPageState {
     baselineProcessCode: string
     craftCode: string
     selectedTargetObject: TechPackSpecialCraftTargetObject | ''
+    linkedBomItemIds: string[]
     packagingRequired: boolean
     ruleSource: TechPackRuleSource
     assignmentGranularity: TechPackAssignmentGranularity
@@ -1965,6 +2085,7 @@ const state: TechPackPageState = {
     baselineProcessCode: '',
     craftCode: '',
     selectedTargetObject: '',
+    linkedBomItemIds: [],
     packagingRequired: false,
     ruleSource: 'INHERIT_PROCESS',
     assignmentGranularity: 'ORDER',
@@ -2308,11 +2429,13 @@ function isBomDrivenPrepTechnique(
 }
 
 function hasPrintDemand(bomItems: BomItemRow[]): boolean {
-  return bomItems.some((item) => (item.printRequirement || '无') !== '无')
+  return partitionBomItemsByType(bomItems).materialBomItems
+    .some((item) => (item.printRequirement || '无') !== '无')
 }
 
 function hasDyeDemand(bomItems: BomItemRow[]): boolean {
-  return bomItems.some((item) => (item.dyeRequirement || '无') !== '无')
+  return partitionBomItemsByType(bomItems).materialBomItems
+    .some((item) => (item.dyeRequirement || '无') !== '无')
 }
 
 function syncBomDrivenPrepTechniques(
@@ -2529,7 +2652,7 @@ function getSelectedDraftMeta():
     isSpecialCraft: craft.isSpecialCraft,
     selectedTargetObject,
     targetObject: craft.isSpecialCraft ? undefined : craft.processCode === 'WOOL' && craft.craftName === '整件毛织' ? 'GARMENT_SEMI' : craft.processCode === 'WOOL' ? 'CUT_PIECE_PART' : undefined,
-    targetObjectName: craft.isSpecialCraft ? undefined : craft.processCode === 'WOOL' && craft.craftName === '整件毛织' ? '成衣半成品' : craft.processCode === 'WOOL' ? '裁片部位' : undefined,
+    targetObjectName: craft.isSpecialCraft ? undefined : craft.processCode === 'WOOL' && craft.craftName === '整件毛织' ? '成衣' : craft.processCode === 'WOOL' ? '裁片部位' : undefined,
     ...getWoolEntryMeta(craft.craftName),
     supportedTargetObjects: craft.supportedTargetObjects ? [...craft.supportedTargetObjects] : undefined,
     supportedTargetObjectLabels: craft.supportedTargetObjectLabels ? [...craft.supportedTargetObjectLabels] : undefined,
@@ -2787,7 +2910,7 @@ function buildBomColorOptions(
     })
   }
 
-  bomItems.forEach((item) => {
+  partitionBomItemsByType(bomItems).materialBomItems.forEach((item) => {
     const explicitColorName = String(item.colorLabel || '').trim()
     const applicableSkuCodes =
       item.applicableSkuCodes.length > 0 ? item.applicableSkuCodes : skuOptions.map((sku) => sku.skuCode)
@@ -3480,7 +3603,8 @@ function isComplexColorMappingScenario(colorCount: number): boolean {
   const hasPieceSkuRestriction = state.patternItems.some((pattern) =>
     pattern.pieceRows.some((piece) => piece.applicableSkuCodes.length > 0),
   )
-  const hasBomSkuRestriction = state.bomItems.some((item) => item.applicableSkuCodes.length > 0)
+  const hasBomSkuRestriction = partitionBomItemsByType(state.bomItems).materialBomItems
+    .some((item) => item.applicableSkuCodes.length > 0)
   return hasPieceSkuRestriction || hasBomSkuRestriction
 }
 
@@ -3492,7 +3616,7 @@ function buildAutoMappingLinesForColor(
   const skuCodesOfColor = getSkuCodesByColor(colorName)
   const skuCodeSet = new Set(skuCodesOfColor)
 
-  return state.bomItems.flatMap((bomItem) => {
+  return partitionBomItemsByType(state.bomItems).materialBomItems.flatMap((bomItem) => {
     const matchedSkuCodes =
       bomItem.applicableSkuCodes.length === 0
         ? skuCodesOfColor
@@ -3992,6 +4116,7 @@ function inheritPatternPackageTechnicalFields(items: PatternItem[]): PatternItem
 }
 
 function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
+  const materialBomItems = techPack.bomItems.filter((item) => item.type !== '成衣')
   if (techPack.patternFiles.length === 0) {
     return inheritPatternPackageTechnicalFields(ensurePatternPoolDemoPackages(
       ensurePatternStatusDemoCoverage(DEFAULT_PATTERN_ITEMS.map((item) => ({
@@ -4024,16 +4149,16 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
           candidatePartNames: [...(row.candidatePartNames ?? [])],
           rawTextLabels: [...(row.rawTextLabels ?? [])],
         })),
-      })), techPack.bomItems),
-      techPack.bomItems,
+      })), materialBomItems),
+      materialBomItems,
     ))
   }
 
   return inheritPatternPackageTechnicalFields(ensurePatternPoolDemoPackages(ensurePatternStatusDemoCoverage(techPack.patternFiles.map((item, index) => {
     const patternId = item.id || `PAT-${index + 1}`
     const linkedBom =
-      techPack.bomItems.find((bom) => bom.id === item.linkedBomItemId)
-      || techPack.bomItems[index % Math.max(techPack.bomItems.length, 1)]
+      materialBomItems.find((bom) => bom.id === item.linkedBomItemId)
+      || materialBomItems[index % Math.max(materialBomItems.length, 1)]
       || null
     const normalizedRows = normalizePatternPieceRows(
       (item.pieceRows ?? []).map((row) => ({
@@ -4252,7 +4377,7 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
       sourcePatternPackageId: item.sourcePatternPackageId,
       sourcePatternPackageName: item.sourcePatternPackageName,
     }
-  }), techPack.bomItems), techPack.bomItems))
+  }), materialBomItems), materialBomItems))
 }
 
 function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
@@ -4285,9 +4410,9 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
     const namesFromLinkedBom = patternNamesByLinkedBom.get(item.id) ?? []
     const patternPieces = dedupeStrings([...namesFromLinkedIds, ...namesFromLinkedBom])
 
-    return {
+    return normalizeGarmentBomItem({
       id: item.id || `bom-${index + 1}`,
-      type: item.type,
+      type: item.type as BomItemRow['type'],
       colorLabel: item.colorLabel || '',
       materialCode: item.materialCode || item.id || `MAT-${index + 1}`,
       materialName: item.name,
@@ -4309,7 +4434,8 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       frontPatternDesignIds: getBomPatternDesignIds(item, 'FRONT'),
       insidePatternDesignId: getPrimaryBomPatternDesignId(item, 'INSIDE'),
       insidePatternDesignIds: getBomPatternDesignIds(item, 'INSIDE'),
-    }
+      remark: item.remark || '',
+    })
   })
 }
 
@@ -4332,7 +4458,9 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
     ruleSource: normalizedEntry.ruleSource ?? 'INHERIT_PROCESS',
     detailSplitMode: normalizedEntry.detailSplitMode ?? 'COMPOSITE',
     detailSplitDimensions: [...(normalizedEntry.detailSplitDimensions ?? [])],
-    defaultDocType: normalizedEntry.defaultDocType,
+    defaultDocType: normalizedEntry.processCode === 'PRINT' || normalizedEntry.processCode === 'DYE'
+      ? 'TASK'
+      : normalizedEntry.defaultDocType,
     taskTypeMode: normalizedEntry.taskTypeMode,
     isSpecialCraft: normalizedEntry.isSpecialCraft,
     selectedTargetObject: normalizeSpecialCraftTargetObjectLabel(normalizedEntry.selectedTargetObject) || undefined,
@@ -4340,10 +4468,14 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
       ? [...normalizedEntry.supportedTargetObjects]
       : undefined,
     supportedTargetObjectLabels: normalizedEntry.supportedTargetObjectLabels
-      ? [...normalizedEntry.supportedTargetObjectLabels]
+      ? normalizedEntry.supportedTargetObjectLabels
+          .map((label) => normalizeSpecialCraftTargetObjectLabel(label))
+          .filter((label): label is TechPackSpecialCraftTargetObject => Boolean(label))
       : undefined,
     targetObject: normalizedEntry.targetObject,
-    targetObjectName: normalizedEntry.targetObjectName,
+    targetObjectName: normalizedEntry.targetObjectName === '成衣半成品'
+      ? '成衣'
+      : normalizedEntry.targetObjectName,
     woolTaskType: normalizedEntry.woolTaskType,
     downstreamTarget: normalizedEntry.downstreamTarget,
     requiresFeiTicket: normalizedEntry.requiresFeiTicket,
@@ -4550,7 +4682,7 @@ function buildTechniquesFromTechPack(
 function buildMaterialCostRows(bomItems: BomItemRow[], techPack: TechPack): MaterialCostRow[] {
   const costByBomItemId = new Map((techPack.materialCostItems ?? []).map((item) => [item.bomItemId, item]))
 
-  return bomItems.map((item) => ({
+  return partitionBomItemsByType(bomItems).materialBomItems.map((item) => ({
     id: item.id,
     materialName: item.materialName,
     spec: item.spec,
@@ -4595,7 +4727,7 @@ function buildCustomCostRows(techPack: TechPack): CustomCostRow[] {
 function syncMaterialCostRows(): void {
   const currentById = new Map(state.materialCostRows.map((row) => [row.id, row]))
 
-  state.materialCostRows = state.bomItems.map((item) => {
+  state.materialCostRows = partitionBomItemsByType(state.bomItems).materialBomItems.map((item) => {
     const current = currentById.get(item.id)
     if (!current) {
       return {
@@ -4981,15 +5113,18 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
           item.usageProcessCodes.length > 0
             ? dedupeStrings([...item.usageProcessCodes])
             : undefined,
+        remark: item.remark || undefined,
       }
     }),
-    materialCostItems: state.materialCostRows.map((row) => ({
-      id: `MC-${row.id}`,
-      bomItemId: row.id,
-      price: Number.parseFloat(row.price) || 0,
-      currency: row.currency,
-      unit: row.unit,
-    })),
+    materialCostItems: state.materialCostRows
+      .filter((row) => state.bomItems.some((item) => item.id === row.id && item.type !== '成衣'))
+      .map((row) => ({
+        id: `MC-${row.id}`,
+        bomItemId: row.id,
+        price: Number.parseFloat(row.price) || 0,
+        currency: row.currency,
+        unit: row.unit,
+      })),
     processCostItems: state.processCostRows.map((row) => ({
       id: `PC-${row.id}`,
       processId: row.id,
@@ -5215,6 +5350,8 @@ function resetTechniqueForm(): void {
     baselineProcessCode: '',
     craftCode: '',
     selectedTargetObject: '',
+    linkedBomItemIds: [],
+    packagingRequired: false,
     ruleSource: 'INHERIT_PROCESS',
     assignmentGranularity: 'ORDER',
     detailSplitMode: 'COMPOSITE',

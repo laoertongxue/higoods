@@ -24,36 +24,42 @@ import { handlePdaCuttingExecutionUnitEvent } from '../pages/pda-cutting-executi
 import { handlePdaCuttingSpreadingEvent } from '../pages/pda-cutting-spreading'
 import { handlePdaCuttingInboundEvent } from '../pages/pda-cutting-inbound'
 import { handlePdaCuttingHandoverEvent } from '../pages/pda-cutting-handover'
+import { showPdaWarehouseActionToast } from '../pages/pda-warehouse-shared'
 
 export async function dispatchPdaPageEvent(target: HTMLElement): Promise<boolean> {
-  return (
-    await handlePdaShellEvent(target) ||
-    await handlePdaLoginEvent(target) ||
-    await handlePdaOnboardingEvent(target) ||
-    await handlePdaNotifyEvent(target) ||
-    await handlePdaNotifyDueSoonEvent(target) ||
-    await handlePdaNotifyDetailEvent(target) ||
-    await handlePdaQualityEvent(target) ||
-    await handlePdaTaskReceiveEvent(target) ||
-    await handlePdaTaskReceiveDetailEvent(target) ||
-    await handlePdaExecEvent(target) ||
-    await handlePdaExecDetailEvent(target) ||
-    await handlePdaWarehouseEvent(target) ||
-    await handlePdaWarehouseWaitProcessEvent(target) ||
-    await handlePdaWarehouseWaitHandoverEvent(target) ||
-    await handlePdaWarehouseInboundRecordsEvent(target) ||
-    await handlePdaWarehouseOutboundRecordsEvent(target) ||
-    await handlePdaWarehouseStocktakeEvent(target) ||
-    await handlePdaCuttingTaskDetailEvent(target) ||
-    await handlePdaCuttingExecutionUnitEvent(target) ||
-    await handlePdaCuttingSpreadingEvent(target) ||
-    await handlePdaCuttingInboundEvent(target) ||
-    await handlePdaCuttingHandoverEvent(target) ||
-    await handlePdaSewingSelfReturnEvent(target) ||
-    await handlePdaHandoverEvent(target) ||
-    await handlePdaHandoverDetailEvent(target) ||
-    await handlePdaSettlementEvent(target)
-  )
+  try {
+    return (
+      await handlePdaShellEvent(target) ||
+      await handlePdaLoginEvent(target) ||
+      await handlePdaOnboardingEvent(target) ||
+      await handlePdaNotifyEvent(target) ||
+      await handlePdaNotifyDueSoonEvent(target) ||
+      await handlePdaNotifyDetailEvent(target) ||
+      await handlePdaQualityEvent(target) ||
+      await handlePdaTaskReceiveEvent(target) ||
+      await handlePdaTaskReceiveDetailEvent(target) ||
+      await handlePdaExecEvent(target) ||
+      await handlePdaExecDetailEvent(target) ||
+      await handlePdaWarehouseEvent(target) ||
+      await handlePdaWarehouseWaitProcessEvent(target) ||
+      await handlePdaWarehouseWaitHandoverEvent(target) ||
+      await handlePdaWarehouseInboundRecordsEvent(target) ||
+      await handlePdaWarehouseOutboundRecordsEvent(target) ||
+      await handlePdaWarehouseStocktakeEvent(target) ||
+      await handlePdaCuttingTaskDetailEvent(target) ||
+      await handlePdaCuttingExecutionUnitEvent(target) ||
+      await handlePdaCuttingSpreadingEvent(target) ||
+      await handlePdaCuttingInboundEvent(target) ||
+      await handlePdaCuttingHandoverEvent(target) ||
+      await handlePdaSewingSelfReturnEvent(target) ||
+      await handlePdaHandoverEvent(target) ||
+      await handlePdaHandoverDetailEvent(target) ||
+      await handlePdaSettlementEvent(target)
+    )
+  } catch (error) {
+    showPdaWarehouseActionToast(error instanceof Error ? error.message : 'PDA 操作失败，请按最新页面重试。')
+    return true
+  }
 }
 
 export function closePdaDialogsOnEscape(): boolean {

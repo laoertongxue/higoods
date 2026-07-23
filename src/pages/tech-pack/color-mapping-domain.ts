@@ -64,7 +64,7 @@ export function renderColorMappingTab(): string {
   const readonlyAttr = readonly ? 'disabled aria-disabled="true"' : ''
 
   const mappings = state.colorMaterialMappings
-  const bomOptions = state.bomItems
+  const bomOptions = state.bomItems.filter((item) => item.type !== '成衣')
   const patternOptions = state.patternItems.filter((item) => item.recordKind !== 'PACKAGE')
   const skuOptions = getSkuOptionsForCurrentSpu()
   const skuLabelByCode = new Map(

@@ -20,6 +20,7 @@ import {
   getPdaHeadRuntimeTask,
   getPdaHeadSourceExecutionDoc,
   getPdaHandoverSourceDisplay,
+  getPdaHandoverSourceTypeLabel,
   findPdaPickupRecord,
   getPdaPickupRecordsByHead,
   getPdaHandoverRecordsByHead,
@@ -509,18 +510,28 @@ function renderPdaHandoverObjectCode({
 
 function getPdaHandoverProductionRelation(head: PdaHandoverHead): { relatedProductionOrderNo: string } | Record<string, never> {
   if (head.sourceType === 'STOCK') return {}
+  if (head.sourceType === 'CUT_PIECE_SUPPLEMENT') {
+    const productionOrderNo = head.sourceSnapshot?.productionOrderNo
+    return productionOrderNo ? { relatedProductionOrderNo: productionOrderNo } : {}
+  }
   const source = getPdaHandoverSourceDisplay(head)
   return source.value === '—' ? {} : { relatedProductionOrderNo: source.value }
 }
 
 function renderPdaHandoverSourceIdentity(head: PdaHandoverHead): string {
   const source = getPdaHandoverSourceDisplay(head)
-  if (head.sourceType === 'STOCK') return renderFieldRow(source.label, source.value)
-  return renderFieldHtmlRow(source.label, renderPdaHandoverObjectCode({
+  const typeRow = renderFieldRow('加工单来源', getPdaHandoverSourceTypeLabel(head))
+  if (head.sourceType === 'CUT_PIECE_SUPPLEMENT') {
+    return `${typeRow}${renderFieldRow(source.label, source.value)}${renderFieldRow('原始裁片单', head.sourceSnapshot?.originalCutOrderNo || '—')}`
+  }
+  if (head.sourceType === 'STOCK') {
+    return `${typeRow}${renderFieldRow(source.label, source.value)}`
+  }
+  return `${typeRow}${renderFieldHtmlRow(source.label, renderPdaHandoverObjectCode({
     objectType: 'PRODUCTION_ORDER',
     objectId: source.value,
     ...getPdaHandoverProductionRelation(head),
-  }))
+  }))}`
 }
 
 function renderCuttingHandoverSummaryPanel(record: PdaHandoverRecord): string {
@@ -2642,7 +2653,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
                 : detailState.newRecordObjectType === 'CUT_PIECE'
                   ? '裁片'
                   : detailState.newRecordObjectType === 'SEMI_FINISHED_GARMENT'
-                    ? '成衣半成品'
+                    ? '成衣'
                     : '其他半成品',
             itemName: created.handoutItemLabel || created.materialName || head.processName,
             materialSku: created.materialCode || created.skuCode,
@@ -2829,7 +2840,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
                     : updated.handoutObjectType === 'CUT_PIECE'
                       ? '裁片'
                       : updated.handoutObjectType === 'SEMI_FINISHED_GARMENT'
-                        ? '成衣半成品'
+                        ? '成衣'
                         : '其他半成品',
                 itemName: updated.handoutItemLabel || updated.materialName || linkedHead.processName,
                 materialSku: updated.materialCode || updated.skuCode,

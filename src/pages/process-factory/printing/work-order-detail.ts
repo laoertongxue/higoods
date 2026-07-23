@@ -19,7 +19,11 @@ import {
 } from '../../../data/fcs/process-web-status-actions.ts'
 import { getPlatformStatusForProcessWorkOrder } from '../../../data/fcs/process-platform-status-adapter.ts'
 import { getStartPrerequisiteByTaskId } from '../../../data/fcs/pda-start-link.ts'
-import { getProcessWorkOrderById, getProcessWorkOrderByNo } from '../../../data/fcs/process-work-order-domain.ts'
+import {
+  getProcessWorkOrderById,
+  getProcessWorkOrderByNo,
+  type ProcessWorkOrder,
+} from '../../../data/fcs/process-work-order-domain.ts'
 import {
   getDifferenceRecordsByWorkOrderId,
   getHandoverRecordsByWorkOrderId,
@@ -38,6 +42,7 @@ import {
   renderPageHeader,
   renderSection,
 } from './shared'
+import { getProcessWorkOrderSourceDetailRows } from '../../process-work-orders/process-work-order-source-view.ts'
 
 type PrintDetailTab = 'base' | 'pattern' | 'execution' | 'handover' | 'review' | 'progress' | 'exception'
 
@@ -50,6 +55,10 @@ const printDetailTabs: Array<{ key: PrintDetailTab; label: string }> = [
   { key: 'progress', label: '执行进度' },
   { key: 'exception', label: '异常与结算' },
 ]
+
+function renderSourceFields(order: ProcessWorkOrder): string {
+  return getProcessWorkOrderSourceDetailRows(order).map((row) => renderField(row.label, row.value)).join('')
+}
 
 const consumedWebActionKeys = new Set<string>()
 
@@ -338,7 +347,7 @@ export function renderCraftPrintingWorkOrderDetailPage(printOrderId: string): st
     isPiecePrinting: order.isPiecePrinting,
     isFabricPrinting: order.isFabricPrinting,
   }
-  const plannedQtyLabel = '需求单印花数量'
+  const plannedQtyLabel = `加工计划数量（${getPrintQuantityLabel(printQuantitySource, '计划')}）`
   const transferDoneQtyLabel = getPrintQuantityLabel(printQuantitySource, '已完成', 'PRINT_FINISH_TRANSFER')
   const handoverQtyLabel = getPrintQuantityLabel(printQuantitySource, '已交出', 'PRINT_SUBMIT_HANDOVER')
   const receivedQtyLabel = getPrintQuantityLabel(printQuantitySource, '实收')
@@ -407,10 +416,7 @@ export function renderCraftPrintingWorkOrderDetailPage(printOrderId: string): st
       `
         <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-3">
           ${renderField('加工单号', order.workOrderNo)}
-          ${renderField('来源类型', order.sourceType === 'STOCK' ? '按备货创建' : '生产单自动生成')}
-          ${renderField('来源对象', order.sourceType === 'STOCK'
-            ? (order.stockMaterialName || order.stockMaterialId || '-')
-            : (order.sourceProductionOrderNo || order.sourceProductionOrderId || '-'))}
+          ${renderSourceFields(order)}
           ${renderField('工厂', formatFactoryDisplayName(order.factoryName, order.factoryId))}
           ${renderField('分配方式', order.assignmentMode || '派单')}
           ${renderField('派单价格', order.dispatchPriceDisplay || '1200 IDR/Yard')}

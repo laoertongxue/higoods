@@ -1,11 +1,27 @@
+// @page-pattern: list
+
 import { appStore } from '../state/store'
 import { hydrateIcons } from '../components/shell'
 import { escapeHtml } from '../utils'
+import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
+import { renderStandardListColumnSettings, renderStandardListTable, type StandardListColumn } from '../components/ui/list-table.ts'
+import {
+  clearListColumnPreferences,
+  loadListColumnPreferences,
+  normalizeListColumnPreferences,
+  paginateStandardListRows,
+  saveListColumnPreferences,
+  sortStandardListRows,
+  type StandardListColumnPreferences,
+  type StandardListSortState,
+} from '../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../components/ui/pagination.ts'
 import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
   renderProductionObjectCodeButton,
   renderProductionOrderIdentityCell,
 } from '../data/fcs/production-order-identity'
+import { listProcessWorkOrders, type ProcessWorkOrder } from '../data/fcs/process-work-order-domain'
 
 type TrackingTab = 'overview' | 'timeline' | 'quantity' | 'workorders' | 'handover' | 'settlement'
 type RiskLevel = '高风险' | '中风险' | '低风险' | '无'
@@ -21,6 +37,7 @@ interface ProgressSet {
 
 interface ProductionOrderTrackingRecord {
   no: string
+  productionOrderId: string
   demandNo: string
   scheduleNo: string
   materialRequestNo: string
@@ -51,14 +68,6 @@ interface ProductionOrderTrackingRecord {
   craft: string
   progress: ProgressSet
   alerts: Array<{ label: string; time: string; tone: 'red' | 'orange' | 'blue' }>
-}
-
-interface MetricCard {
-  label: string
-  value: string
-  hint: string
-  icon: string
-  accent: string
 }
 
 interface StageNode {
@@ -100,6 +109,10 @@ interface WorkOrderNode {
   label: string
   subLabel: string
   status: NodeStatus
+  sourceObject?: string
+  factoryName?: string
+  plannedQty?: number
+  plannedUnit?: string
 }
 
 interface HandoverEvent {
@@ -115,6 +128,9 @@ interface HandoverEvent {
 
 const BASE_PATH = '/fcs/progress/production-orders'
 const DETAIL_PATH = `${BASE_PATH}/detail`
+const LIST_EVENT_PREFIX = 'production-order-progress-list'
+const LIST_PREFERENCE_KEY = '/fcs/progress/production-orders:list-columns'
+const LIST_PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const TAB_ITEMS: Array<{ key: TrackingTab; label: string }> = [
   { key: 'overview', label: '概览' },
@@ -127,7 +143,8 @@ const TAB_ITEMS: Array<{ key: TrackingTab; label: string }> = [
 
 const orders: ProductionOrderTrackingRecord[] = [
   {
-    no: 'SO-PRD-202606-0018',
+    no: 'PO-202603-0004',
+    productionOrderId: 'PO-202603-0004',
     demandNo: 'SO-REQ-202606-0012',
     scheduleNo: 'SO-SCH-202606-0018',
     materialRequestNo: 'PM-240618-08',
@@ -165,6 +182,7 @@ const orders: ProductionOrderTrackingRecord[] = [
   },
   {
     no: 'SO-PRD-202606-0017',
+    productionOrderId: 'SO-PRD-202606-0017',
     demandNo: 'SO-REQ-202606-0011',
     scheduleNo: 'SO-SCH-202606-0017',
     materialRequestNo: 'PM-240617-03',
@@ -201,6 +219,7 @@ const orders: ProductionOrderTrackingRecord[] = [
   },
   {
     no: 'SO-PRD-202606-0016',
+    productionOrderId: 'SO-PRD-202606-0016',
     demandNo: 'SO-REQ-202606-0010',
     scheduleNo: 'SO-SCH-202606-0016',
     materialRequestNo: 'PM-240616-09',
@@ -234,6 +253,7 @@ const orders: ProductionOrderTrackingRecord[] = [
   },
   {
     no: 'SO-PRD-202606-0015',
+    productionOrderId: 'SO-PRD-202606-0015',
     demandNo: 'SO-REQ-202606-0009',
     scheduleNo: 'SO-SCH-202606-0015',
     materialRequestNo: 'PM-240615-02',
@@ -271,8 +291,8 @@ const overviewNodes: StageNode[] = [
   { id: 'PR-202606-01', label: '生产需求', date: '06-05', qty: '8,600件', status: '已完成', lane: '主线', col: 1, detail: '生产需求已确认，尺码结构已确认。' },
   { id: 'TB-240618-V2', label: '技术包 V2', date: '06-06', status: '已完成', lane: '主线', col: 2, detail: '技术包完成，补货版型与工艺要求已下发。' },
   { id: 'SO-PRD-0018', label: '生产单创建', date: '06-06', qty: '8,600件', status: '已完成', lane: '主线', col: 3, span: 2, detail: '生产单已生成，进入多泳道任务拆分。' },
-  { id: 'PF-240618-01', label: '印花需求', date: '06-07', qty: '8,600件', status: '进行中', lane: '印花链路', col: 4, detail: '印花需求已拆分，存在回仓延迟。' },
-  { id: 'DY-240618-01', label: '染色需求', date: '06-10', qty: '4,200件', status: '进行中', lane: '染色链路', col: 4, detail: '染色首批已完成，二批待同步。' },
+  { id: 'PWO-PRINT-004', label: '印花加工单', date: '06-07', qty: '2,200片', status: '进行中', lane: '印花链路', col: 4, detail: '真实印花加工单存在回仓延迟。' },
+  { id: 'DWO-005', label: '染色加工单', date: '06-10', qty: '4,032米', status: '进行中', lane: '染色链路', col: 4, detail: '真实染色加工单首批已完成，二批待同步。' },
   { id: 'M-240618-01', label: '配料批次 1', date: '06-07', qty: '5,000件', status: '已完成', lane: '物料链路', col: 6, detail: '主料、辅料首批已齐套。' },
   { id: 'L-240618-02', label: '领料批次 2', date: '06-11', qty: '3,800件', status: '已完成', lane: '物料链路', col: 7, detail: '第二批领料完成，等待车缝接收。' },
   { id: 'CT-240618-03', label: '裁片单', date: '06-11', qty: '3,800件', status: '进行中', lane: '裁床链路', col: 8, detail: '当前主卡点：裁床完成但交出滞后，需催办 2 个批次。' },
@@ -303,7 +323,7 @@ const timelineItems: TimelineItem[] = [
 
 const quantityFlow: FlowNode[] = [
   { id: 'demand', label: '生产需求', plan: 8600, actual: 8600, diff: 0, rate: '100.00%', status: '合格' },
-  { id: 'print-dye', label: '印花 / 染色需求', plan: 8600, actual: 8600, diff: 0, rate: '100.00%', status: '合格' },
+  { id: 'print-dye', label: '印花 / 染色加工单', plan: 8600, actual: 8600, diff: 0, rate: '100.00%', status: '合格' },
   { id: 'material', label: '印染配料批次', plan: 8600, actual: 8500, diff: -100, rate: '98.84%', status: '风险' },
   { id: 'cutting', label: '裁片单', plan: 8600, actual: 8420, diff: -180, rate: '97.91%', status: '风险' },
   { id: 'spreading-a', label: '铺布批次 A', plan: 4300, actual: 4230, diff: -70, rate: '97.96%', status: '风险' },
@@ -312,14 +332,9 @@ const quantityFlow: FlowNode[] = [
   { id: 'recheck', label: '后道复检交出', plan: 8360, actual: 8160, diff: -200, rate: '94.88%', status: '风险' },
 ]
 
-const workOrderNodes: WorkOrderNode[] = [
-  { id: 'PF-240618-01', lane: '印花需求', label: 'PF-240618-01', subLabel: '1,800 件', status: '已完成' },
-  { id: 'PF-240618-02', lane: '印花需求', label: 'PF-240618-02', subLabel: '1,400 件', status: '进行中' },
-  { id: 'PF-240618-03', lane: '印花需求', label: 'PF-240618-03', subLabel: '1,600 件', status: '待审核' },
-  { id: 'DY-240618-01', lane: '染色需求', label: 'DY-240618-01', subLabel: '4,200 米', status: '进行中' },
-  { id: 'DY-240618-02', lane: '染色需求', label: 'DY-240618-02', subLabel: '4,000 米', status: '相回仓' },
-  { id: 'BP-240618-01', lane: '印染配料', label: 'BP-240618-01', subLabel: '批次 1', status: '已完成' },
-  { id: 'BP-240618-02', lane: '印染配料', label: 'BP-240618-02', subLabel: '批次 2', status: '进行中' },
+const staticWorkOrderNodes: WorkOrderNode[] = [
+  { id: 'BP-240618-01', lane: '物料配料', label: 'BP-240618-01', subLabel: '批次 1', status: '已完成' },
+  { id: 'BP-240618-02', lane: '物料配料', label: 'BP-240618-02', subLabel: '批次 2', status: '进行中' },
   { id: 'MK-240618-B', lane: '裁片单', label: 'MK-240618-B', subLabel: '唛架方案 B', status: '进行中' },
   { id: 'MS-240618-B1', lane: '裁片单', label: 'MS-240618-B1', subLabel: '铺布 第1次', status: '待审核' },
   { id: 'CC-240618-C', lane: '裁片单', label: 'CC-240618-C', subLabel: '裁剪 第1次', status: '进行中' },
@@ -354,6 +369,42 @@ const statusClassMap: Record<NodeStatus, string> = {
   部分接收: 'border-orange-200 bg-orange-50 text-orange-700',
   差异异议: 'border-red-200 bg-red-50 text-red-700',
   合格: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+}
+
+function toTrackingStatus(order: ProcessWorkOrder): NodeStatus {
+  if (order.statusLabel === '已完成') return '已完成'
+  if (order.statusLabel.includes('待审核')) return '待审核'
+  if (order.statusLabel.includes('驳回') || order.statusLabel.includes('异常')) return '异常'
+  if (order.statusLabel.includes('交出') || order.statusLabel.includes('回仓')) return '相回仓'
+  if (order.statusLabel.includes('待')) return '待处理'
+  return '进行中'
+}
+
+function getProcessWorkOrderNodes(order: ProductionOrderTrackingRecord): WorkOrderNode[] {
+  return listProcessWorkOrders()
+    .filter((item) => {
+      const sourceType = item.sourceSnapshot?.sourceType || item.sourceType
+      const sourceProductionOrderNo = item.sourceSnapshot?.productionOrderNo || item.sourceProductionOrderNo
+      const sourceProductionOrderId = item.sourceSnapshot?.productionOrderId || item.sourceProductionOrderId
+      return (item.processType === 'PRINT' || item.processType === 'DYE')
+        && sourceType === 'PRODUCTION_ORDER'
+        && (sourceProductionOrderNo === order.no || sourceProductionOrderId === order.productionOrderId)
+    })
+    .map((item) => ({
+      id: item.workOrderId,
+      lane: item.processType === 'PRINT' ? '印花加工单' : '染色加工单',
+      label: item.workOrderNo,
+      subLabel: `${formatNumber(item.plannedQty)} ${item.plannedUnit}`,
+      status: toTrackingStatus(item),
+      sourceObject: item.sourceSnapshot?.productionOrderNo || item.sourceSnapshot?.productionOrderId || item.sourceProductionOrderNo || item.sourceProductionOrderId || order.no,
+      factoryName: item.factoryName,
+      plannedQty: item.plannedQty,
+      plannedUnit: item.plannedUnit,
+    }))
+}
+
+function getWorkOrderNodes(order: ProductionOrderTrackingRecord): WorkOrderNode[] {
+  return [...getProcessWorkOrderNodes(order), ...staticWorkOrderNodes]
 }
 
 function formatNumber(value: number): string {
@@ -425,46 +476,6 @@ function renderProgressBar(value: number, tone: 'green' | 'blue' | 'orange' | 'p
       </div>
       <div class="text-xs font-medium text-slate-700">${value}%</div>
     </div>
-  `
-}
-
-function renderMetricCard(card: MetricCard): string {
-  return `
-    <article class="rounded-lg border bg-card p-4">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <p class="text-sm text-muted-foreground">${escapeHtml(card.label)}</p>
-          <p class="mt-1 text-2xl font-bold tracking-normal ${card.accent}">${escapeHtml(card.value)}</p>
-          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(card.hint)}</p>
-        </div>
-        ${renderIcon(card.icon, 'h-4 w-4 text-muted-foreground')}
-      </div>
-    </article>
-  `
-}
-
-function renderListHeader(): string {
-  const metrics: MetricCard[] = [
-    { label: '进行中生产单', value: '268', hint: '环比上周 ↑ 12.8%', icon: 'ClipboardList', accent: 'text-blue-600' },
-    { label: '临期生产单', value: '32', hint: '近7天交付　占12%', icon: 'PieChart', accent: 'text-orange-600' },
-    { label: '延误生产单', value: '18', hint: '环比上周 ↑ 5', icon: 'TriangleAlert', accent: 'text-red-600' },
-    { label: '今日新增', value: '15', hint: '昨日新增 18', icon: 'FilePlus2', accent: 'text-emerald-600' },
-    { label: '待处理异常', value: '27', hint: '较昨日 ↑ 3', icon: 'ShieldZap', accent: 'text-violet-600' },
-    { label: '本周交付数量', value: '36,580', hint: '计划 42,000　完成 87%', icon: 'Package', accent: 'text-blue-600' },
-  ]
-  return `
-    <header class="flex items-center justify-between gap-4">
-      <div>
-        <h1 class="flex items-center gap-2 text-xl font-semibold">
-          ${renderIcon('GitBranch', 'h-5 w-5')}
-          生产单进度跟踪
-        </h1>
-        <p class="text-sm text-muted-foreground">按生产单追踪时间、数量、工单分支、交接质检与结算风险</p>
-      </div>
-    </header>
-    <section class="grid grid-cols-6 gap-4">
-      ${metrics.map(renderMetricCard).join('')}
-    </section>
   `
 }
 
@@ -620,137 +631,72 @@ function renderExpandedRow(order: ProductionOrderTrackingRecord): string {
   `
 }
 
-function renderOrderRow(order: ProductionOrderTrackingRecord, expandedNo: string): string {
-  const expanded = expandedNo === order.no
-  const row = `
-    <tr class="border-b align-top hover:bg-muted/30" data-production-order-row="${escapeHtml(order.no)}">
-      <td class="px-3 py-3"><input type="checkbox" class="h-4 w-4 rounded border-slate-300" /></td>
-      <td class="px-3 py-3"><img src="${escapeHtml(order.imageUrl)}" class="h-14 w-11 rounded-md object-cover" alt="${escapeHtml(order.title)}" /></td>
-      <td class="px-3 py-3">
-        <div class="cursor-pointer hover:underline" data-nav="${escapeHtml(buildDetailHref(order.no))}">
-          ${renderProductionOrderIdentityCell({ productionOrderNo: order.no, demandNo: order.demandNo })}
-        </div>
-        <p class="mt-1 text-xs text-slate-500">创建：2025-06-25</p>
-        <p class="text-xs text-slate-500">更新：2025-06-25</p>
-      </td>
-      <td class="px-3 py-3">
-        <p class="font-medium text-slate-800">${renderProductionObjectCodeButton({
-          objectType: 'PRODUCTION_ORDER',
-          objectId: order.no,
-          label: order.spu,
-          className: 'font-mono text-blue-600 hover:underline',
-        })}</p>
-        <p class="text-xs text-slate-500">${escapeHtml(order.styleName)}</p>
-        <div class="mt-2 flex flex-wrap gap-1">
-          <span class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">难度：${escapeHtml(order.difficulty)}</span>
-          <span class="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-xs text-blue-700">风格：${escapeHtml(order.styleLabel)}</span>
-          <span class="rounded-full border border-violet-100 bg-violet-50 px-2 py-0.5 text-xs text-violet-700">品牌：${escapeHtml(order.brand)}</span>
-        </div>
-      </td>
-      <td class="px-3 py-3 font-semibold tabular-nums text-slate-900">${formatNumber(order.quantity)} 件</td>
-      <td class="px-3 py-3">${renderStatusBadge(order.status)}</td>
-      <td class="px-3 py-3">
-        <p class="font-medium text-slate-900">${escapeHtml(order.currentNode)}</p>
-        <p class="text-xs text-slate-500">${escapeHtml(order.nodeIndexText)}</p>
-      </td>
-      <td class="px-3 py-3"><div class="flex flex-col gap-1">${renderRiskTags(order)}</div></td>
-      <td class="px-3 py-3">
-        <p class="font-medium text-slate-800">${escapeHtml(order.factories[0])}</p>
-        <p class="text-xs text-blue-600">+${Math.max(0, order.factories.length - 1)}</p>
-      </td>
-      <td class="px-3 py-3">
-        <p class="font-medium text-slate-900">${escapeHtml(order.plannedDelivery)}</p>
-        <p class="${order.dueText.includes('0') ? 'text-red-500' : 'text-slate-500'} text-xs">${escapeHtml(order.dueText)}</p>
-      </td>
-      <td class="px-3 py-3">${renderProgressBar(order.progress.actual, 'green')}</td>
-      <td class="px-3 py-3">${renderProgressBar(order.progress.material, 'green')}</td>
-      <td class="px-3 py-3">${renderProgressBar(order.progress.cutting, 'green')}</td>
-      <td class="px-3 py-3">${renderProgressBar(order.progress.sewing, 'blue')}</td>
-      <td class="px-3 py-3">${renderProgressBar(order.progress.qc, 'orange')}</td>
-      <td class="px-3 py-3 font-medium text-slate-700">${escapeHtml(order.merchandiser)}</td>
-      <td class="px-3 py-3">
-        <div class="flex items-center gap-3">
-          <button class="text-sm font-medium text-blue-600" data-nav="${escapeHtml(buildDetailHref(order.no))}">详情</button>
-          <button
-            class="text-sm font-medium text-blue-600"
-            data-production-order-progress-action="toggle-row"
-            data-order-no="${escapeHtml(order.no)}"
-            data-expanded="${expanded ? 'true' : 'false'}"
-            data-skip-page-rerender="true"
-          >${expanded ? '收起' : '展开'}</button>
-        </div>
-      </td>
-    </tr>
-  `
-  return row + (expanded ? renderExpandedRow(order) : '')
+const listColumns: StandardListColumn<ProductionOrderTrackingRecord>[] = [
+  { key: 'image', title: '款式图', width: 86, required: true, render: (order) => `<img src="${escapeHtml(order.imageUrl)}" class="h-12 w-10 rounded-md object-cover" alt="${escapeHtml(order.title)}" />` },
+  { key: 'identity', title: PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE, width: 190, required: true, freezeable: true, sortable: true, sortValue: (order) => order.no, render: (order) => `<div data-nav="${escapeHtml(buildDetailHref(order.no))}" class="cursor-pointer hover:underline">${renderProductionOrderIdentityCell({ productionOrderNo: order.no, demandNo: order.demandNo })}</div>` },
+  { key: 'style', title: '款式/SPU', width: 190, sortable: true, sortValue: (order) => order.spu, render: (order) => `<p class="font-medium">${renderProductionObjectCodeButton({ objectType: 'PRODUCTION_ORDER', objectId: order.no, label: order.spu, className: 'font-mono text-blue-600 hover:underline' })}</p><p class="text-xs text-muted-foreground">${escapeHtml(order.styleName)}</p>` },
+  { key: 'quantity', title: '生产数量', width: 120, align: 'right', sortable: true, sortValue: (order) => order.quantity, render: (order) => `${formatNumber(order.quantity)} 件` },
+  { key: 'status', title: '当前状态', width: 118, sortable: true, sortValue: (order) => order.status, render: (order) => renderStatusBadge(order.status) },
+  { key: 'node', title: '当前节点', width: 120, sortable: true, sortValue: (order) => order.currentNode, render: (order) => `<p class="font-medium">${escapeHtml(order.currentNode)}</p><p class="text-xs text-muted-foreground">${escapeHtml(order.nodeIndexText)}</p>` },
+  { key: 'risk', title: '风险等级', width: 190, sortable: true, sortValue: (order) => order.riskLevel, render: (order) => `<div class="flex flex-col gap-1">${renderRiskTags(order)}</div>` },
+  { key: 'factory', title: '涉及工厂', width: 180, sortable: true, sortValue: (order) => order.factories[0], render: (order) => `<p class="font-medium">${escapeHtml(order.factories[0])}</p><p class="text-xs text-blue-600">+${Math.max(0, order.factories.length - 1)}</p>` },
+  { key: 'delivery', title: '计划交付', width: 145, sortable: true, sortValue: (order) => order.plannedDelivery, render: (order) => `<p class="font-medium">${escapeHtml(order.plannedDelivery)}</p><p class="text-xs ${order.dueText.includes('0') ? 'text-red-500' : 'text-muted-foreground'}">${escapeHtml(order.dueText)}</p>` },
+  { key: 'actual', title: '实际进度', width: 110, sortable: true, sortValue: (order) => order.progress.actual, render: (order) => renderProgressBar(order.progress.actual) },
+  { key: 'material', title: '配料进度', width: 110, sortable: true, sortValue: (order) => order.progress.material, render: (order) => renderProgressBar(order.progress.material) },
+  { key: 'cutting', title: '裁床进度', width: 110, sortable: true, sortValue: (order) => order.progress.cutting, render: (order) => renderProgressBar(order.progress.cutting) },
+  { key: 'sewing', title: '车缝进度', width: 110, sortable: true, sortValue: (order) => order.progress.sewing, render: (order) => renderProgressBar(order.progress.sewing, 'blue') },
+  { key: 'qc', title: '质检/交出进度', width: 130, sortable: true, sortValue: (order) => order.progress.qc, render: (order) => renderProgressBar(order.progress.qc, 'orange') },
+  { key: 'owner', title: '跟单员', width: 110, sortable: true, sortValue: (order) => order.merchandiser, render: (order) => escapeHtml(order.merchandiser) },
+  { key: 'actions', title: '操作', width: 132, required: true, actionColumn: true, render: (order) => `<div class="flex gap-3"><button class="text-primary hover:underline" data-nav="${escapeHtml(buildDetailHref(order.no))}">详情</button><button class="text-primary hover:underline" data-production-order-progress-action="toggle-row" data-order-no="${escapeHtml(order.no)}" data-expanded="false" data-skip-page-rerender="true">展开</button></div>` },
+]
+
+const listRules = listColumns.map(({ key, required, freezeable, actionColumn }) => ({ key, required, freezeable, actionColumn }))
+const listState = {
+  currentPage: 1,
+  sort: null as StandardListSortState | null,
+  preferences: normalizeListColumnPreferences(listRules, {
+    order: listColumns.map((column) => column.key),
+    visibleKeys: listColumns.map((column) => column.key),
+    frozenKeys: ['identity'],
+    pageSize: LIST_PAGE_SIZE_OPTIONS[0],
+  }, LIST_PAGE_SIZE_OPTIONS),
+  preferencesLoaded: false,
+  showColumnSettings: false,
 }
 
-function renderOrderTable(): string {
-  const expandedNo = getQueryParams().get('expanded') || orders[0].no
-  return `
-    <section class="overflow-hidden rounded-lg border bg-card">
-      <div class="flex items-center justify-between border-b px-4 py-3 text-sm">
-        <label class="flex items-center gap-2 text-slate-600"><input type="checkbox" class="h-4 w-4 rounded border-slate-300" />已选择 0 项</label>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="min-w-[1500px] w-full text-left text-sm">
-          <thead class="border-b bg-muted/40 text-xs text-muted-foreground">
-            <tr>
-              <th class="w-10 px-3 py-2 font-medium"></th>
-              <th class="px-3 py-2 font-medium">款式图</th>
-              <th class="px-3 py-2 font-medium">${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE}</th>
-              <th class="px-3 py-2 font-medium">款式/SPU</th>
-              <th class="px-3 py-2 font-medium">生产数量</th>
-              <th class="px-3 py-2 font-medium">当前状态</th>
-              <th class="px-3 py-2 font-medium">当前节点</th>
-              <th class="px-3 py-2 font-medium">风险等级</th>
-              <th class="px-3 py-2 font-medium">涉及工厂</th>
-              <th class="px-3 py-2 font-medium">计划交付</th>
-              <th class="px-3 py-2 font-medium">实际进度</th>
-              <th class="px-3 py-2 font-medium">配料进度</th>
-              <th class="px-3 py-2 font-medium">裁床进度</th>
-              <th class="px-3 py-2 font-medium">车缝进度</th>
-              <th class="px-3 py-2 font-medium">质检/交出进度</th>
-              <th class="px-3 py-2 font-medium">跟单员</th>
-              <th class="px-3 py-2 font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${orders.map((order) => renderOrderRow(order, expandedNo)).join('')}
-          </tbody>
-        </table>
-      </div>
-      <footer class="flex items-center justify-between border-t px-4 py-3 text-sm text-muted-foreground">
-        <span>共 268 条</span>
-        <div class="flex items-center gap-2">
-          <button class="h-8 w-8 rounded-md border border-slate-200 text-slate-500" data-production-order-progress-action="open-modal" data-modal-title="上一页" data-modal-body="当前已经是第一页。" data-skip-page-rerender="true">${renderIcon('ChevronLeft', 'mx-auto h-4 w-4')}</button>
-          <button class="h-8 w-8 rounded-md bg-blue-600 text-white" data-production-order-progress-action="open-modal" data-modal-title="第 1 页" data-modal-body="当前停留在第 1 页。" data-skip-page-rerender="true">1</button>
-          <button class="h-8 w-8 rounded-md text-slate-700" data-production-order-progress-action="open-modal" data-modal-title="切换第 2 页" data-modal-body="已模拟切换到第 2 页。" data-skip-page-rerender="true">2</button>
-          <button class="h-8 w-8 rounded-md text-slate-700" data-production-order-progress-action="open-modal" data-modal-title="切换第 3 页" data-modal-body="已模拟切换到第 3 页。" data-skip-page-rerender="true">3</button>
-          <span class="px-2">...</span>
-          <button class="h-8 w-8 rounded-md text-slate-700" data-production-order-progress-action="open-modal" data-modal-title="切换第 14 页" data-modal-body="已模拟切换到第 14 页。" data-skip-page-rerender="true">14</button>
-          <button class="h-8 w-8 rounded-md border border-slate-200 text-slate-500" data-production-order-progress-action="open-modal" data-modal-title="下一页" data-modal-body="已模拟进入下一页。" data-skip-page-rerender="true">${renderIcon('ChevronRight', 'mx-auto h-4 w-4')}</button>
-          <button class="ml-3 h-8 rounded-md border border-slate-200 px-3" data-production-order-progress-action="open-modal" data-modal-title="分页条数" data-modal-body="当前每页展示 20 条，可切换 50 条或 100 条。" data-skip-page-rerender="true">20 条/页</button>
-          <span>跳至</span>
-          <input class="h-8 w-12 rounded-md border border-slate-200 text-center" value="1" data-skip-page-rerender="true" />
-          <span>页</span>
-        </div>
-      </footer>
-    </section>
-  `
+function ensureListPreferences(): void {
+  if (listState.preferencesLoaded) return
+  listState.preferencesLoaded = true
+  if (typeof window === 'undefined') return
+  listState.preferences = loadListColumnPreferences(window.localStorage, LIST_PREFERENCE_KEY, listRules, listState.preferences, LIST_PAGE_SIZE_OPTIONS)
+}
+
+function persistListPreferences(): void {
+  if (typeof window !== 'undefined') saveListColumnPreferences(window.localStorage, LIST_PREFERENCE_KEY, listState.preferences)
+}
+
+function getListView() {
+  ensureListPreferences()
+  const sorted = sortStandardListRows(orders, listState.sort, (order, key) => listColumns.find((column) => column.key === key)?.sortValue?.(order))
+  const page = paginateStandardListRows(sorted, listState.currentPage, listState.preferences.pageSize)
+  listState.currentPage = page.currentPage
+  return {
+    tableHtml: renderStandardListTable({ columns: listColumns, rows: page.rows, preferences: listState.preferences, sort: listState.sort, eventPrefix: LIST_EVENT_PREFIX, emptyText: '暂无生产单' }),
+    paginationHtml: renderTablePagination({ total: page.total, from: page.from, to: page.to, currentPage: page.currentPage, totalPages: page.totalPages, pageSize: page.pageSize, actionPrefix: LIST_EVENT_PREFIX, fieldPrefix: LIST_EVENT_PREFIX, pageSizeOptions: LIST_PAGE_SIZE_OPTIONS }),
+  }
 }
 
 function renderListPage(): string {
-  return `
-    <div class="space-y-4" data-production-order-progress-root data-page-mode="list">
-      <div class="space-y-4">
-        ${renderListHeader()}
-        ${renderFilters()}
-        ${renderOrderTable()}
-      </div>
-      <div data-production-order-progress-modal-host></div>
-    </div>
-  `
+  const view = getListView()
+  return `<div data-production-order-progress-root data-page-mode="list" data-skip-page-rerender="true">${renderStandardListPage({
+    title: '生产单进度跟踪',
+    filtersHtml: `${renderFilters()}${renderStandardListStats([{ label: '进行中生产单', value: '268' }, { label: '临期生产单', value: '32' }, { label: '延误生产单', value: '18' }, { label: '今日新增', value: '15' }, { label: '待处理异常', value: '27' }, { label: '本周交付数量', value: '36,580' }])}`,
+    listTitle: '生产单列表',
+    listActionsHtml: '<button class="rounded-md border px-3 py-2 text-sm" data-production-order-progress-list-action="open-column-settings">列设置</button>',
+    tableHtml: `<div data-production-order-progress-table>${view.tableHtml}</div>`,
+    paginationHtml: `<div data-production-order-progress-pagination>${view.paginationHtml}</div>`,
+    overlaysHtml: `<div data-production-order-progress-list-overlays>${listState.showColumnSettings ? renderStandardListColumnSettings({ title: '生产单列表列设置', columns: listColumns, preferences: listState.preferences, eventPrefix: LIST_EVENT_PREFIX, maxFrozenWidth: 520 }) : ''}</div><div class="rounded-b-lg border-x border-b bg-white" data-production-order-progress-default-expanded><table class="w-full"><tbody>${renderExpandedRow(orders[0])}</tbody></table></div><div data-production-order-progress-modal-host></div>`,
+  })}</div>`
 }
 
 function renderCountdownCard(order: ProductionOrderTrackingRecord): string {
@@ -881,7 +827,7 @@ function renderSmallStat(label: string, value: string, hint: string, tone = 'tex
 function renderOverviewMatrix(order: ProductionOrderTrackingRecord, selectedNode?: string): string {
   const selectedId = selectedNode ?? getSelectedNode('CT-240618-03')
   const selected = overviewNodes.find((node) => node.id === selectedId) ?? overviewNodes[7]
-  const stages = ['生产需求', '技术包', '生产单创建', '印花需求', '染色需求', '印染配料', '裁片单', '唛架方案', '铺布', '裁剪/菲票', '特殊工艺', '车缝', '后道复检交出']
+  const stages = ['生产需求', '技术包', '生产单创建', '印花加工单', '染色加工单', '物料配料', '裁片单', '唛架方案', '铺布', '裁剪/菲票', '特殊工艺', '车缝', '后道复检交出']
   const lanes = ['主线', '印花链路', '染色链路', '物料链路', '裁床链路', '车缝链路', '后道链路']
   return `
     <section class="grid grid-cols-[minmax(0,1fr)_300px] gap-4">
@@ -1211,9 +1157,10 @@ function renderQuantityTab(order: ProductionOrderTrackingRecord, selectedNode?: 
 }
 
 function renderWorkordersTab(order: ProductionOrderTrackingRecord, selectedNode?: string): string {
-  const selectedId = selectedNode ?? getSelectedNode('PF-240618-02')
-  const selected = workOrderNodes.find((node) => node.id === selectedId) ?? workOrderNodes[1]
-  const lanes = ['印花需求', '染色需求', '印染配料', '裁片单', '特殊工艺', '车缝', '后道复检交出']
+  const workOrderNodes = getWorkOrderNodes(order)
+  const selectedId = selectedNode ?? getSelectedNode('PWO-PRINT-004')
+  const selected = workOrderNodes.find((node) => node.id === selectedId) ?? workOrderNodes[0]
+  const lanes = ['印花加工单', '染色加工单', '物料配料', '裁片单', '特殊工艺', '车缝', '后道复检交出']
   return `
     <div class="space-y-4">
       <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
@@ -1287,17 +1234,17 @@ function renderWorkordersTab(order: ProductionOrderTrackingRecord, selectedNode?
               ${renderStatusBadge(selected.status)}
             </div>
             <dl class="space-y-2 text-slate-600">
-              <div class="flex justify-between"><dt>来源对象</dt><dd class="font-medium text-slate-900">${escapeHtml(selected.lane)}需求</dd></div>
-              <div class="flex justify-between"><dt>上游节点</dt><dd class="font-medium text-slate-900">印花需求 PF-240618-02</dd></div>
-              <div class="flex justify-between"><dt>下游节点</dt><dd class="font-medium text-slate-900">印染配料 BP-240618-02</dd></div>
-              <div class="flex justify-between"><dt>数量 / 单位</dt><dd class="font-medium text-slate-900">1,400 件</dd></div>
+              <div class="flex justify-between"><dt>来源对象</dt><dd class="font-medium text-slate-900">${escapeHtml(selected.sourceObject || '生产单关联工单')}</dd></div>
+              <div class="flex justify-between"><dt>上游节点</dt><dd class="font-medium text-slate-900">生产单 / 补料单 / 备货物料</dd></div>
+              <div class="flex justify-between"><dt>下游节点</dt><dd class="font-medium text-slate-900">${escapeHtml(selected.lane)}执行</dd></div>
+              <div class="flex justify-between"><dt>数量 / 单位</dt><dd class="font-medium text-slate-900">${escapeHtml(selected.subLabel)}</dd></div>
               <div class="flex justify-between"><dt>计划时间</dt><dd class="font-medium text-slate-900">06-16 08:00 ~ 06-18 18:00</dd></div>
               <div class="flex justify-between"><dt>实际时间</dt><dd class="font-medium text-slate-900">06-16 09:12 ~ 进行中</dd></div>
-              <div class="flex justify-between"><dt>当前责任方</dt><dd class="font-medium text-slate-900">苏州印花厂（王建国）</dd></div>
+              <div class="flex justify-between"><dt>当前责任方</dt><dd class="font-medium text-slate-900">${escapeHtml(selected.factoryName || '当前执行工厂')}</dd></div>
             </dl>
             <div>
               <p class="font-semibold text-slate-900">相关附件</p>
-              <div class="mt-2 rounded-lg border border-slate-200 px-3 py-2 text-blue-600">PF-240618-02_生产派工单.pdf</div>
+              <div class="mt-2 rounded-lg border border-slate-200 px-3 py-2 text-blue-600">${escapeHtml(selected.label)}_加工单.pdf</div>
             </div>
             <div>
               <p class="font-semibold text-slate-900">相关记录</p>
@@ -1313,13 +1260,18 @@ function renderWorkordersTab(order: ProductionOrderTrackingRecord, selectedNode?
         </aside>
       </section>
       <section class="rounded-lg border bg-card p-4">
-        <h2 class="text-base font-semibold">工单对象列表（共 78 条）</h2>
-        ${renderLedgerTable(['工单类型', '工单编号', '来源对象', '当前节点', '计划 / 实际时间', '数量', '状态', '当前责任方', '操作'], [
-          ['印花工单', 'PF-240618-02', '印花需求 PF-240618-02', '印花生产', '06-16 08:00 ~ 06-18 18:00 / 06-16 09:12 ~ 进行中', '1,400 件', '生产中', '苏州印花厂（王建国）', '查看 | 转派 | 更多'],
-          ['染色工单', 'DY-240618-02', '染色需求 DY-240618-02', '染色生产', '06-15 08:00 ~ 06-18 18:00 / 06-15 09:20 ~ 进行中', '4,000 米', '相回仓', '苏州染仓（李小涵）', '查看 | 转派 | 更多'],
-          ['印染配料', 'BP-240618-02', '印染需求 BP-240618-02', '配料生产', '06-14 08:30 ~ 06-16 18:30 / 06-14 09:05 ~ 进行中', '1 批次', '生产中', '苏州印染配料厂（陈勇）', '查看 | 转派 | 更多'],
-          ['铺布工单', 'MS-240618-B1', '唛架方案 MK-240618-B', '铺布 第1次', '06-13 08:00 ~ 06-13 18:00 / 06-13 08:22 ~ 进行中', '1,100 件', '待审核', '苏州铺布车间（周丽）', '查看 | 转派 | 更多'],
-        ])}
+        <h2 class="text-base font-semibold">工单对象列表（真实印花 / 染色加工单）</h2>
+        ${renderLedgerTable(['工单类型', '工单编号', '来源对象', '当前节点', '计划 / 实际时间', '数量', '状态', '当前责任方', '操作'], getProcessWorkOrderNodes(order).map((node) => [
+          node.lane,
+          node.label,
+          node.sourceObject || '—',
+          node.lane.replace('加工单', '执行'),
+          '以加工单实际节点为准',
+          node.subLabel,
+          node.status,
+          node.factoryName || '—',
+          '查看',
+        ]))}
       </section>
     </div>
   `
@@ -1754,13 +1706,108 @@ function toggleOrderRow(actionNode: HTMLElement): void {
 
   if (wasExpanded) return
 
-  const row = root.querySelector<HTMLTableRowElement>(`[data-production-order-row="${CSS.escape(order.no)}"]`)
+  const row = actionNode.closest<HTMLTableRowElement>('tr')
   row?.insertAdjacentHTML('afterend', renderExpandedRow(order))
   actionNode.dataset.expanded = 'true'
   actionNode.textContent = '收起'
 }
 
+function refreshListSurface(root: HTMLElement, options: { table?: boolean; pagination?: boolean; overlays?: boolean } = {}): void {
+  const view = getListView()
+  if (options.table !== false) {
+    const table = root.querySelector<HTMLElement>('[data-production-order-progress-table]')
+    if (table) table.innerHTML = view.tableHtml
+  }
+  if (options.pagination !== false) {
+    const pagination = root.querySelector<HTMLElement>('[data-production-order-progress-pagination]')
+    if (pagination) pagination.innerHTML = view.paginationHtml
+  }
+  if (options.overlays) {
+    const overlays = root.querySelector<HTMLElement>('[data-production-order-progress-list-overlays]')
+    if (overlays) overlays.innerHTML = listState.showColumnSettings
+      ? renderStandardListColumnSettings({ title: '生产单列表列设置', columns: listColumns, preferences: listState.preferences, eventPrefix: LIST_EVENT_PREFIX, maxFrozenWidth: 520 })
+      : ''
+  }
+  hydrateLocalIcons(root)
+}
+
+function handleProgressListEvent(eventTarget: HTMLElement): boolean {
+  const pageSizeField = eventTarget.closest<HTMLSelectElement>('[data-production-order-progress-list-field="pageSize"]')
+  if (pageSizeField) {
+    const root = pageSizeField.closest<HTMLElement>('[data-production-order-progress-root]')
+    const pageSize = Number(pageSizeField.value)
+    if (!root || !LIST_PAGE_SIZE_OPTIONS.includes(pageSize)) return true
+    listState.preferences = { ...listState.preferences, pageSize }
+    listState.currentPage = 1
+    persistListPreferences()
+    refreshListSurface(root)
+    return true
+  }
+  const node = eventTarget.closest<HTMLElement>('[data-production-order-progress-list-action]')
+  const action = node?.dataset.productionOrderProgressListAction
+  if (!node || !action) return false
+  const root = node.closest<HTMLElement>('[data-production-order-progress-root]')
+  if (!root) return true
+  const columnKey = node.dataset.productionOrderProgressListColumnKey || ''
+
+  if (action === 'open-column-settings') {
+    listState.showColumnSettings = true
+    refreshListSurface(root, { table: false, pagination: false, overlays: true })
+    return true
+  }
+  if (action === 'close-column-settings') {
+    listState.showColumnSettings = false
+    refreshListSurface(root, { table: false, pagination: false, overlays: true })
+    return true
+  }
+  if (action === 'restore-column-settings') {
+    if (typeof window !== 'undefined') clearListColumnPreferences(window.localStorage, LIST_PREFERENCE_KEY)
+    listState.preferences = normalizeListColumnPreferences(listRules, {
+      order: listColumns.map((column) => column.key),
+      visibleKeys: listColumns.map((column) => column.key),
+      frozenKeys: ['identity'],
+      pageSize: LIST_PAGE_SIZE_OPTIONS[0],
+    }, LIST_PAGE_SIZE_OPTIONS)
+    listState.currentPage = 1
+    listState.sort = null
+    refreshListSurface(root, { overlays: true })
+    return true
+  }
+  if (action === 'sort-column') {
+    listState.sort = listState.sort?.key !== columnKey
+      ? { key: columnKey, direction: 'asc' }
+      : listState.sort.direction === 'asc'
+        ? { key: columnKey, direction: 'desc' }
+        : null
+    listState.currentPage = 1
+    refreshListSurface(root)
+    return true
+  }
+  if (action === 'prev-page' || action === 'next-page') {
+    listState.currentPage = Math.max(1, listState.currentPage + (action === 'next-page' ? 1 : -1))
+    refreshListSurface(root)
+    return true
+  }
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    const column = listColumns.find((item) => item.key === columnKey)
+    if (!column || column.required || column.actionColumn) return true
+    const checked = node instanceof HTMLInputElement ? node.checked : false
+    const visibleKeys = action === 'toggle-column-visibility'
+      ? (checked ? [...new Set([...listState.preferences.visibleKeys, columnKey])] : listState.preferences.visibleKeys.filter((key) => key !== columnKey))
+      : listState.preferences.visibleKeys
+    const frozenKeys = action === 'toggle-column-freeze' && column.freezeable
+      ? (checked ? [...new Set([...listState.preferences.frozenKeys, columnKey])] : listState.preferences.frozenKeys.filter((key) => key !== columnKey))
+      : listState.preferences.frozenKeys
+    listState.preferences = normalizeListColumnPreferences(listRules, { ...listState.preferences, visibleKeys, frozenKeys }, LIST_PAGE_SIZE_OPTIONS)
+    persistListPreferences()
+    refreshListSurface(root, { overlays: true })
+    return true
+  }
+  return false
+}
+
 export function handleProductionOrderProgressEvent(eventTarget: HTMLElement): boolean {
+  if (handleProgressListEvent(eventTarget)) return true
   const actionNode = eventTarget.closest<HTMLElement>('[data-production-order-progress-action]')
   const action = actionNode?.dataset.productionOrderProgressAction
   if (!action) return false

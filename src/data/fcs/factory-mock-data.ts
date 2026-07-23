@@ -25,6 +25,8 @@ export const TEST_FACTORY_CODE = 'F090'
 export const TEST_FACTORY_NAME = '全能力测试工厂'
 export const TEST_FACTORY_DISPLAY_NAME = `${TEST_FACTORY_NAME}（${TEST_FACTORY_CODE}）`
 export const TEST_FACTORY_SCOPE = 'ALL_PROCESS_CRAFT' as const
+export const GARMENT_WAREHOUSE_FACTORY_ID = 'ID-F001'
+export const GARMENT_WAREHOUSE_FACTORY_NAME = 'PT Sinar Garment Indonesia'
 export const OWN_WOOL_FACTORY_ID = 'OWN_WOOL_FACTORY'
 export const OWN_WOOL_FACTORY_CODE = 'WOOL-OWN-001'
 export const OWN_WOOL_FACTORY_NAME = '周哥毛织厂'
@@ -449,7 +451,7 @@ const kolGotoFactory: Factory = {
       handoverReceiverKind: 'WAREHOUSE',
       handoverReceiverName: '仓库',
       pdaStepTemplateCode: 'SIMPLE_FIVE_STEP',
-      remark: 'KOL 样衣和样品小单整单承接；印花、染色保持独立需求链路。',
+      remark: 'KOL 样衣和样品小单整单承接；印花、染色保持独立加工单链路。',
     },
   },
 }

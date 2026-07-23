@@ -564,6 +564,15 @@ function buildFeiTicketSpecialCrafts(
   const scenarioIndex = (sequenceNo - 1) % 8
   const seedCrafts: Array<Omit<Parameters<typeof createFeiTicketSpecialCraft>[1], 'index'>> = []
 
+  if (scenarioIndex === 0) {
+    seedCrafts.push({
+      craftCategory: '辅助工艺',
+      craftType: '烫画',
+      operationId: 'AUX-OP-HEAT-TRANSFER',
+      requirementSource: '技术包',
+    })
+  }
+
   if (scenarioIndex === 1) {
     seedCrafts.push({
       craftCategory: '辅助工艺',

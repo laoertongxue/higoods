@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import {
+  deriveFactoryItemKind,
   listFactoryWaitHandoverStockItems,
   listFactoryWaitProcessStockItems,
   listFactoryWarehouseInboundRecords,
@@ -27,25 +28,77 @@ assert.ok(specialTypeTasks.some((task) => task.craftName === '模板工序'), '�
 
 const specialFactoryIds = new Set(specialTypeTasks.map((task) => task.factoryId))
 const specialCraftNames = new Set(specialTypeTasks.map((task) => task.craftName))
-const waitProcessItems = listFactoryWaitProcessStockItems().filter(
+const allWaitProcessItems = listFactoryWaitProcessStockItems()
+const allWaitHandoverItems = listFactoryWaitHandoverStockItems()
+const allInboundRecords = listFactoryWarehouseInboundRecords()
+const allOutboundRecords = listFactoryWarehouseOutboundRecords()
+const waitProcessItems = allWaitProcessItems.filter(
   (item) => specialFactoryIds.has(item.factoryId) && Boolean(item.craftName && specialCraftNames.has(item.craftName)),
 )
-const waitHandoverItems = listFactoryWaitHandoverStockItems().filter(
+const waitHandoverItems = allWaitHandoverItems.filter(
   (item) => specialFactoryIds.has(item.factoryId) && Boolean(item.craftName && specialCraftNames.has(item.craftName)),
 )
-const inboundRecords = listFactoryWarehouseInboundRecords().filter(
+const inboundRecords = allInboundRecords.filter(
   (item) => specialFactoryIds.has(item.factoryId) && Boolean(item.craftName && specialCraftNames.has(item.craftName)),
 )
-const outboundRecords = listFactoryWarehouseOutboundRecords().filter(
+const outboundRecords = allOutboundRecords.filter(
   (item) => specialFactoryIds.has(item.factoryId) && Boolean(item.craftName && specialCraftNames.has(item.craftName)),
 )
 const nodeRows = [...specialFactoryIds].flatMap((factoryId) => listFactoryWarehouseNodeRows(factoryId))
+const currentWarehouseOutputs = [
+  ...waitProcessItems,
+  ...waitHandoverItems,
+  ...inboundRecords,
+  ...outboundRecords,
+  ...nodeRows,
+]
 
 assert.ok(waitProcessItems.length > 0, '特种工艺待加工仓库存缺失')
 assert.ok(waitHandoverItems.length > 0, '特种工艺待交出仓库存缺失')
 assert.ok(inboundRecords.length > 0, '特种工艺接收入仓记录缺失')
 assert.ok(outboundRecords.length > 0, '特种工艺交出记录缺失')
 assert.ok(nodeRows.length > 0, '特种工艺库区库位 mock 数据缺失')
+assert.equal(
+  deriveFactoryItemKind({ handoutObjectType: 'GARMENT', partName: '成衣包' }),
+  '成衣',
+  '正式成衣对象必须优先于部位名称归类为成衣',
+)
+assert.equal(
+  deriveFactoryItemKind({ handoutObjectType: 'SEMI_FINISHED_GARMENT', partName: '成衣包' }),
+  '成衣',
+  '兼容成衣对象必须归一为成衣',
+)
+const garmentInboundRecords = allInboundRecords.filter((item) => item.partName === '成衣包')
+assert.ok(garmentInboundRecords.length > 0, '缺少成衣交出接收入库投影')
+assert.ok(
+  garmentInboundRecords.every((item) => item.itemKind === '成衣' && item.unit === '件'),
+  '成衣交出接收入库投影必须按成衣、件记录',
+)
+const garmentInboundSourceIds = new Set(garmentInboundRecords.map((item) => item.sourceRecordId))
+const garmentWaitProcessItems = allWaitProcessItems.filter((item) => garmentInboundSourceIds.has(item.sourceRecordId))
+assert.equal(garmentWaitProcessItems.length, garmentInboundRecords.length, '成衣接收入库必须形成对应待加工库存')
+assert.ok(
+  garmentWaitProcessItems.every((item) => item.itemKind === '成衣' && item.unit === '件'),
+  '成衣待加工库存必须按成衣、件记录',
+)
+const garmentWaitHandoverItems = allWaitHandoverItems.filter((item) => item.partName === '毛织整件')
+assert.ok(garmentWaitHandoverItems.length > 0, '缺少成衣交出待交出库存投影')
+assert.ok(
+  garmentWaitHandoverItems.every((item) => item.itemKind === '成衣' && item.unit === '件'),
+  '成衣待交出库存必须按成衣、件记录',
+)
+assert.ok(
+  !JSON.stringify(currentWarehouseOutputs).includes('成衣半成品'),
+  '当前仓储投影不得输出旧标签“成衣半成品”',
+)
+assert.ok(
+  !src('src/data/fcs/factory-internal-warehouse.ts').includes("| '成衣半成品'"),
+  '仓储正式物料类型不得继续暴露旧标签“成衣半成品”',
+)
+assert.ok(
+  !src('src/pages/pda-handover-detail.ts').includes("? '成衣半成品'"),
+  'PDA 交接当前写入不得继续输出旧标签“成衣半成品”',
+)
 
 assert.ok(
   [...waitProcessItems, ...waitHandoverItems].some((item) => item.itemName === '定长橡筋' && item.itemKind === '辅料' && item.unit === '条'),

@@ -24,6 +24,26 @@ export function escapeAttr(value: string | number | undefined | null): string {
   return escapeHtml(value ?? '')
 }
 
+export function showPdaWarehouseActionToast(message: string): void {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return
+  const rootId = 'pda-warehouse-action-toast-root'
+  let root = document.getElementById(rootId)
+  if (!root) {
+    root = document.createElement('div')
+    root.id = rootId
+    root.className = 'pointer-events-none fixed right-4 top-20 z-[140] flex max-w-sm flex-col gap-2'
+    document.body.appendChild(root)
+  }
+  const toast = document.createElement('div')
+  toast.className = 'pointer-events-auto rounded-md border border-destructive/30 bg-background px-4 py-3 text-sm text-destructive shadow-md'
+  toast.textContent = message
+  root.appendChild(toast)
+  window.setTimeout(() => {
+    toast.remove()
+    if (root?.childElementCount === 0) root.remove()
+  }, 3000)
+}
+
 export interface MobileWarehouseRuntimeContext {
   factoryId: string
   factoryName: string

@@ -11,7 +11,8 @@ import {
   type GeneratedTaskArtifact,
 } from './production-artifact-generation.ts'
 import {
-  buildTaskGenerationPreview,
+  buildTaskGenerationUnits,
+  matchProductionTaskGenerationRule,
   type CoveredProcessScope,
   type FactoryAcceptanceMode,
   type GeneratedTaskUnitPreview,
@@ -35,6 +36,10 @@ import {
 } from './factory-mock-data.ts'
 import type { DispatchAcceptanceSlaRuleSource } from './dispatch-acceptance-sla.ts'
 import { productionOrders, type ProductionOrderStatus } from './production-orders.ts'
+import type {
+  ProcessWorkOrderSourceSnapshot,
+  ProcessWorkOrderSourceType,
+} from './process-work-order-domain.ts'
 
 export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BIDDING' | 'AWARDED'
 export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'CANCELLED'
@@ -64,7 +69,7 @@ export type TaskHandoverStatus =
   | 'OBJECTION_PROCESSING'
   | 'CLOSED'
 
-export type ProcessTaskSourceType = 'PRODUCTION_ORDER' | 'STOCK'
+export type ProcessTaskSourceType = ProcessWorkOrderSourceType
 
 export interface TaskOutputValueSnapshot {
   outputValuePerUnit?: number
@@ -98,6 +103,7 @@ export interface ProcessTask {
   taskId: string
   taskNo?: string
   sourceType?: ProcessTaskSourceType
+  sourceSnapshot?: ProcessWorkOrderSourceSnapshot
   productionOrderId?: string
   productionOrderNo?: string
   stockMaterialId?: string
@@ -378,7 +384,6 @@ export interface TaskGenerationRuntimeRecord {
   productionOrderId: string
   preview: ProductionTaskGenerationPreview
   taskIds: string[]
-  independentRequirementCount: number
   independentWorkOrderCount: number
   recordedAt: string
 }
@@ -896,8 +901,10 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
   }
 
   for (const [orderId, orderArtifacts] of artifactsByOrder.entries()) {
-    const preview = buildTaskGenerationPreview(orderId)
-    const emissionPlans = buildGeneratedTaskEmissionPlans(orderId, orderArtifacts, preview.generatedUnits)
+    const generatedUnits = buildTaskGenerationUnits(orderId)
+    const matchedRule = matchProductionTaskGenerationRule(orderId)
+    const productionOrder = productionOrders.find((order) => order.productionOrderId === orderId)
+    const emissionPlans = buildGeneratedTaskEmissionPlans(orderId, orderArtifacts, generatedUnits)
     const currentOrderTasks: ProcessTask[] = []
 
     emissionPlans.forEach(({ artifact, unit, unitSourceArtifacts, taskId, seq }) => {
@@ -1022,15 +1029,15 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         taskCategoryZh: unit?.taskName || artifact.taskTypeLabel,
         taskUnitType,
         acceptanceMode: resolveTaskUnitAcceptanceMode(taskUnitType),
-        generationRuleId: preview.matchedRuleId,
-        generationRuleName: preview.matchedRuleName,
+        generationRuleId: matchedRule?.ruleId,
+        generationRuleName: matchedRule?.ruleName,
         coveredProcesses,
         isMergedTaskUnit: isMerged,
         allowAutoDispatch: unit?.allowAutoDispatch ?? true,
         pdaStepTemplateCode: isMerged ? 'SIMPLE_FIVE_STEP' : 'DEFAULT_PROCESS_TASK',
         handoverReceiverKind: unit?.handoverReceiverKind,
         handoverReceiverName: unit?.handoverReceiverName,
-        saleTypeSnapshot: preview.saleType,
+        saleTypeSnapshot: productionOrder?.demandSnapshot.saleType || '',
         sourceEntryId: artifact.sourceEntryId,
         sourceEntryType: artifact.sourceEntryType,
         stageCode: artifact.stageCode,
@@ -1085,7 +1092,7 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
           {
             id: `GAL-${taskId}-001`,
             action: 'GENERATE',
-            detail: `按${preview.matchedRuleName || '默认按工序生成规则'}生成${processName}，覆盖工序：${coveredProcesses.map((item) => item.processName).join('、')}`,
+            detail: `按${matchedRule?.ruleName || '默认按工序生成规则'}生成${processName}，覆盖工序：${coveredProcesses.map((item) => item.processName).join('、')}`,
             at: GENERATED_TASK_CREATED_AT,
             by: '系统',
           },
@@ -1264,8 +1271,7 @@ export function recordTaskGenerationPreview(preview: ProductionTaskGenerationPre
       productionOrderId: preview.productionOrderId,
       preview,
       taskIds: existingTasks.map((task) => task.taskId),
-      independentRequirementCount: preview.independentDemandObjects.length,
-      independentWorkOrderCount: 0,
+      independentWorkOrderCount: preview.independentWorkOrders.length,
       recordedAt: GENERATED_TASK_CREATED_AT,
     }
     taskGenerationRuntimeRecords.set(preview.productionOrderId, record)
@@ -1278,8 +1284,7 @@ export function recordTaskGenerationPreview(preview: ProductionTaskGenerationPre
     productionOrderId: preview.productionOrderId,
     preview,
     taskIds: tasks.map((task) => task.taskId),
-    independentRequirementCount: preview.independentDemandObjects.length,
-    independentWorkOrderCount: 0,
+    independentWorkOrderCount: preview.independentWorkOrders.length,
     recordedAt: GENERATED_TASK_CREATED_AT,
   }
   taskGenerationRuntimeRecords.set(preview.productionOrderId, record)
@@ -1299,7 +1304,7 @@ export function listTaskGenerationRuntimeRecords(): TaskGenerationRuntimeRecord[
         independentProcessCodes: [...unit.independentProcessCodes],
         pdaSteps: [...unit.pdaSteps],
       })),
-      independentDemandObjects: record.preview.independentDemandObjects.map((item) => ({
+      independentWorkOrders: record.preview.independentWorkOrders.map((item) => ({
         ...item,
         sourceArtifactIds: [...item.sourceArtifactIds],
       })),

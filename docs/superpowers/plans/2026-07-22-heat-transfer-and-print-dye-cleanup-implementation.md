@@ -718,7 +718,7 @@ function resolveAuxiliaryWarehouseFlow(targetObject: string) {
   if (targetObject === '成衣') {
     return {
       objectType: '成衣',
-      itemKind: '成衣半成品',
+      itemKind: '成衣',
       qtyUnit: '件',
       sourceObjectName: '成衣仓',
       receiverKind: '后道工厂' as const,

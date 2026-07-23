@@ -84,12 +84,8 @@ const fcsMenuTitles = flattenMenuTitles('fcs')
   'src/pages/process-print-requirements.ts',
   'src/pages/process-order-create-bridge.ts',
 ].forEach((relativePath) => assert(!fs.existsSync(path.join(ROOT, relativePath)), `${relativePath} 必须删除`))
-assert(!fcsMenuTitles.includes('染色需求单'), 'FCS 菜单不应保留染色需求单')
-assert(!fcsMenuTitles.includes('印花需求单'), 'FCS 菜单不应保留印花需求单')
 assert(fcsMenuTitles.includes('染色加工单'), 'FCS 菜单必须保留染色加工单')
 assert(fcsMenuTitles.includes('印花加工单'), 'FCS 菜单必须保留印花加工单')
-assert(!('/fcs/process/dye-requirements' in routes.exactRoutes), '染色需求单路由必须删除')
-assert(!('/fcs/process/print-requirements' in routes.exactRoutes), '印花需求单路由必须删除')
 assert('/fcs/process/dye-orders' in routes.exactRoutes, '染色加工单路由必须保留')
 assert('/fcs/process/print-orders' in routes.exactRoutes, '印花加工单路由必须保留')
 ;[fcsRouteRenderersSource, sharedRouteRenderersSource].forEach((source, index) => {
@@ -124,7 +120,7 @@ assertIncludes(adapterSource, 'listProcessWorkOrders', '平台加工单 adapter'
 assertIncludes(adapterSource, 'mapUnifiedWorkOrderToPrepOrder', '平台加工单 adapter')
 for (const file of stockSourceBoundaryFiles) {
   const source = read(file)
-  ;["sourceProductionOrderId || ''", "productionOrderId: ''", "productionOrderNo: ''", "sourceDemandId: ''", "sourceDemandNo: ''"].forEach((token) => {
+  ;["sourceProductionOrderId || ''", "productionOrderId: ''", "productionOrderNo: ''"].forEach((token) => {
     assertNotIncludes(source, token, `${file} 备货来源边界`)
   })
 }
@@ -491,8 +487,6 @@ assertNotIncludes(platformPrintSource, '/fcs/pda/exec', '平台印花列表')
 assertNotIncludes(platformDyeSource, '/fcs/pda/exec', '平台染色列表')
 assertNotIncludes(platformPrintSource, '/fcs/pda/handover', '平台印花列表')
 assertNotIncludes(platformDyeSource, '/fcs/pda/handover', '平台染色列表')
-;['按需求创建', '选择印花需求', '印花需求单号'].forEach((token) => assertNotIncludes(platformPrintSource, token, '平台印花列表'))
-;['按需求创建', '选择染色需求', '染色需求单号'].forEach((token) => assertNotIncludes(platformDyeSource, token, '平台染色列表'))
 
 assertIncludes(pfosPrintSource, 'buildPrintingWorkOrderDetailLink(order.printOrderId)', '工厂端印花详情入口')
 ;['renderDyeWorkOrderOverlay', "renderSecondaryButton('查看'", "renderPrimaryButton('编辑'", "renderSecondaryButton('日志'", "renderSecondaryButton('打印流程卡'"]

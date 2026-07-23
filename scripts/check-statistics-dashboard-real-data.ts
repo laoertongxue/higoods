@@ -59,7 +59,8 @@ assertIncludes(domainPath, [
 assertIncludes('src/pages/process-factory/printing/statistics.ts', [
   'getPrintingExecutionStatistics',
   '印花统计',
-  '计划印花面料米数',
+  'plannedQuantityGroups',
+  '加工计划数量（${group.objectType}）',
   '打印完成面料米数',
   '转印完成面料米数',
   '差异面料米数',
@@ -99,6 +100,8 @@ const printStats = getPrintingExecutionStatistics()
 const dyeStats = getDyeingExecutionStatistics()
 const postStats = getPostFinishingExecutionStatistics()
 assert(printStats.workOrderCount >= 12, '印花加工单统计样本少于 12 条')
+assert(printStats.plannedQuantityGroups.length >= 2, '印花加工计划数量必须保留至少两组对象/单位口径')
+assert(printStats.plannedQuantityGroups.every((group) => group.objectType && group.plannedUnit), '印花加工计划数量分组缺少对象或单位')
 assert(printStats.printCompletedFabricMeters > 0 && printStats.transferCompletedFabricMeters > 0, '印花执行节点未纳入统计')
 assert(printStats.waitHandoverRecordCount >= 3 && printStats.differenceRecordCount >= 3, '印花仓记录或差异记录样本不足')
 assert(getPrintingDashboardMetrics().statusRows.length > 0, '印花大屏状态分布为空')

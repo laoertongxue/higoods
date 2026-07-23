@@ -72,6 +72,7 @@ type StoreRenderMode = 'full' | 'sidebar'
 let nextStoreRenderMode: StoreRenderMode = 'full'
 let pdaMainTabPreloadStarted = false
 let productionListPreloadStarted = false
+let fcsHandlersPreloadStarted = false
 
 function getFcsHandlersModule(): Promise<FcsHandlersModule> {
   if (!fcsHandlersModulePromise) {
@@ -81,6 +82,15 @@ function getFcsHandlersModule(): Promise<FcsHandlersModule> {
     })
   }
   return fcsHandlersModulePromise
+}
+
+function preloadFcsHandlers(): void {
+  if (fcsHandlersPreloadStarted) return
+  fcsHandlersPreloadStarted = true
+  void getFcsHandlersModule().catch((error) => {
+    fcsHandlersPreloadStarted = false
+    console.warn('FCS 页面事件处理器预加载失败，将在首次操作时重试', error)
+  })
 }
 
 function getProcessWaterSolubleOrdersPageModule(): Promise<ProcessWaterSolubleOrdersPageModule> {
@@ -970,6 +980,9 @@ async function render(): Promise<void> {
   const currentSerial = ++renderSerial
   const state = appStore.getState()
 
+  if (state.pathname.startsWith('/fcs/') && !isPdaPath(state.pathname)) {
+    preloadFcsHandlers()
+  }
   ensureInitialPdaLoadingShell(state)
   const pageContent = await renderCurrentPageContent(state.pathname)
   if (currentSerial !== renderSerial) {

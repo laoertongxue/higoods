@@ -6,6 +6,7 @@ import {
   listProductionTaskGenerationRules,
   type ProductionTaskGenerationRule,
 } from '../../data/fcs/production-task-generation-rules.ts'
+import { listProcessWorkOrders } from '../../data/fcs/process-work-order-domain.ts'
 import { productionOrders } from '../../data/fcs/production-orders.ts'
 import { productionDemands } from '../../data/fcs/production-demands.ts'
 import { listFactoryMasterRecords } from '../../data/fcs/factory-master-store.ts'
@@ -252,9 +253,20 @@ function renderRuleLogDialog(rule: ProductionTaskGenerationRule): string {
 }
 
 function renderPreviewSample(): string {
-  const sampleOrder = productionOrders.find((order) => order.demandSnapshot.saleType.includes('KOL'))
+  const processWorkOrders = listProcessWorkOrders()
+  const sampleOrder = productionOrders.find((order) => {
+    if (!order.demandSnapshot.saleType.includes('KOL')) return false
+    return processWorkOrders.filter((workOrder) => (
+      (workOrder.processType === 'PRINT' || workOrder.processType === 'DYE')
+      && (workOrder.sourceProductionOrderId === order.productionOrderId || workOrder.productionOrderIds.includes(order.productionOrderId))
+    )).length === 1
+  })
   if (!sampleOrder) return ''
-  const preview = buildTaskGenerationPreview(sampleOrder.productionOrderId)
+  const preview = buildTaskGenerationPreview(sampleOrder.productionOrderId, processWorkOrders)
+  const visibleOrders = [
+    sampleOrder,
+    ...productionOrders.filter((order) => order.productionOrderId !== sampleOrder.productionOrderId),
+  ].slice(0, 8)
   return `
     <dialog id="task-generation-rule-preview" class="m-0 ml-auto h-screen max-h-none w-[min(860px,100vw)] border-l bg-background p-0 shadow-2xl backdrop:bg-black/35">
       <div class="flex h-full flex-col">
@@ -273,7 +285,7 @@ function renderPreviewSample(): string {
             <label class="space-y-1">
               <span class="text-xs text-muted-foreground">选择生产单</span>
               <select class="h-9 w-full rounded-md border bg-background px-3 text-sm">
-                ${productionOrders.slice(0, 8).map((order) => `<option ${order.productionOrderId === sampleOrder.productionOrderId ? 'selected' : ''}>${escapeHtml(order.productionOrderNo || order.productionOrderId)}</option>`).join('')}
+          ${visibleOrders.map((order) => `<option ${order.productionOrderId === sampleOrder.productionOrderId ? 'selected' : ''}>${escapeHtml(order.productionOrderNo || order.productionOrderId)}</option>`).join('')}
               </select>
             </label>
             <div class="rounded-md border bg-muted/10 px-3 py-2">
@@ -302,6 +314,16 @@ function renderPreviewSample(): string {
                 </tr>
               </thead>
               <tbody>
+                ${preview.independentWorkOrders.map((workOrder) => `
+                  <tr class="border-b last:border-b-0">
+                    <td class="px-3 py-2 font-medium">${escapeHtml(workOrder.workOrderNo)}</td>
+                    <td class="px-3 py-2">独立加工单</td>
+                    <td class="px-3 py-2">${escapeHtml(workOrder.processCode === 'PRINT' ? '印花' : '染色')}</td>
+                    <td class="px-3 py-2">${escapeHtml(workOrder.factoryName || '待分配工厂')}</td>
+                    <td class="px-3 py-2">已生成</td>
+                    <td class="px-3 py-2">${escapeHtml(workOrder.statusLabel)}</td>
+                  </tr>
+                `).join('')}
                 ${preview.generatedUnits.map((unit) => `
                   <tr class="border-b last:border-b-0">
                     <td class="px-3 py-2 font-medium">${escapeHtml(unit.taskName)}</td>
