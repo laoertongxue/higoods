@@ -206,7 +206,6 @@ export function renderDateTime(value: string | undefined): string {
 
 export function getFastSpecialCraftWebActions(taskOrder: SpecialCraftTaskOrder): ProcessWebAction[] {
   const status = taskOrder.status
-  const objectType = taskOrder.targetObject
   const actionDefs: Array<{
     actionCode: string
     actionLabel: string
@@ -216,34 +215,20 @@ export function getFastSpecialCraftWebActions(taskOrder: SpecialCraftTaskOrder):
     optionalFields?: string[]
   }> = [
     {
-      actionCode: 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
-      actionLabel: '成衣仓出库',
+      actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE',
+      actionLabel: '确认接收',
       fromStatuses: ['待领料'],
-      toStatus: '成衣仓已出库待收货',
-      requiredFields: ['出库人', '出库时间', '逐 SKU 实出件数'],
-      optionalFields: ['备注'],
-    },
-    {
-      actionCode: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
-      actionLabel: '确认接收裁片',
-      fromStatuses: ['待接收', '待领料', '成衣仓已出库待收货'],
-      toStatus: '已入待加工仓',
-      requiredFields: ['接收人', '接收时间', '接收裁片数量', '关联菲票'],
-      optionalFields: ['备注'],
-    },
-    {
-      actionCode: 'SPECIAL_CRAFT_START_PROCESS',
-      actionLabel: '开始加工',
-      fromStatuses: ['已接收', '待加工', '已入待加工仓'],
       toStatus: '加工中',
-      requiredFields: ['操作人', '开始时间'],
+      requiredFields: ['接收人', '接收时间'],
+      optionalFields: ['备注'],
     },
     {
       actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
       actionLabel: '完成加工',
       fromStatuses: ['加工中'],
       toStatus: '待交出',
-      requiredFields: ['操作人', '完成时间', '加工完成裁片数量'],
+      requiredFields: ['操作人', '完成时间'],
+      optionalFields: ['备注'],
     },
     {
       actionCode: 'SPECIAL_CRAFT_REPORT_DIFFERENCE',
@@ -256,9 +241,9 @@ export function getFastSpecialCraftWebActions(taskOrder: SpecialCraftTaskOrder):
     {
       actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
       actionLabel: '发起交出',
-      fromStatuses: ['加工完成', '待交出'],
-      toStatus: '交出待收货',
-      requiredFields: ['交出人', '交出时间', '交出裁片数量', '关联菲票'],
+      fromStatuses: ['待交出'],
+      toStatus: '已交出',
+      requiredFields: ['交出人', '交出时间'],
       optionalFields: ['备注'],
     },
     {
@@ -272,8 +257,6 @@ export function getFastSpecialCraftWebActions(taskOrder: SpecialCraftTaskOrder):
 
   const matched = actionDefs.filter((def) => {
     if (!def.fromStatuses.includes(status)) return false
-    if (def.actionCode === 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND') return objectType === '成衣'
-    if (objectType === '成衣' && status === '待领料' && def.actionCode === 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES') return false
     return true
   })
 
@@ -330,12 +313,6 @@ export function renderWebActionPanel(
               const requiredFields = action.requiredFields.map(localizedText)
               const optionalFields = action.optionalFields.map(localizedText)
               const confirmText = localizedText(action.confirmText)
-              if (action.actionCode === 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND') {
-                return `<button type="button" class="w-full rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
-                  data-special-craft-web-action="confirm-garment-warehouse-outbound"
-                  data-source-id="${escapeHtml(taskOrderId)}">成衣仓逐 SKU 出库确认</button>
-                  <p class="text-xs text-muted-foreground">逐 SKU 实出件数必须完整确认，提交后等待辅助工艺收货。</p>`
-              }
               return `<button type="button" class="w-full rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
                 data-special-craft-web-action="open-web-status-action-dialog"
                 data-source-id="${escapeHtml(taskOrderId)}"
