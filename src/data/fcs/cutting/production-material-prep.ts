@@ -272,6 +272,27 @@ export interface PickupRecordSourceAllocation {
   sourceLocationCode: string
 }
 
+export interface EffectivePickupRecordSourceAllocation extends PickupRecordSourceAllocation {
+  returnedQty: number
+  effectivePickedQty: number
+}
+
+export function allocatePickupReturnAcrossSources(
+  allocations: PickupRecordSourceAllocation[],
+  returnQty: number,
+): EffectivePickupRecordSourceAllocation[] {
+  let remainingReturnQty = roundQty(Math.max(Number(returnQty || 0), 0))
+  return allocations.map((allocation) => {
+    const allocatedReturnQty = roundQty(Math.min(remainingReturnQty, Math.max(allocation.pickedQty, 0)))
+    remainingReturnQty = roundQty(Math.max(remainingReturnQty - allocatedReturnQty, 0))
+    return {
+      ...allocation,
+      returnedQty: allocatedReturnQty,
+      effectivePickedQty: roundQty(Math.max(allocation.pickedQty - allocatedReturnQty, 0)),
+    }
+  })
+}
+
 export type MaterialPickupReturnReason =
   | '色差 / 缸差'
   | '布面瑕疵'
@@ -402,12 +423,13 @@ export interface MaterialPrepOrderProjection {
   pickupReturnRecords: MaterialPickupReturnRecord[]
   rejectRecords: PrepRejectRecord[]
   stagingRecords: MaterialPrepStagingRecord[]
-  totalRequiredQty: number
-  totalConfirmedPrepQty: number
-  totalPickedQty: number
-  totalReturnedQty: number
-  totalAvailableToPickupQty: number
-  totalShortageQty: number
+  unitSummaries: MaterialPrepUnitSummary[]
+  totalRequiredQty: number | null
+  totalConfirmedPrepQty: number | null
+  totalPickedQty: number | null
+  totalReturnedQty: number | null
+  totalAvailableToPickupQty: number | null
+  totalShortageQty: number | null
   lineCount: number
   returnedLineCount: number
   readyLineCount: number
@@ -420,6 +442,17 @@ export interface MaterialPrepOrderProjection {
   earliestExpectedAvailableAt: string
   latestOperatorName: string
   latestOperatedAt: string
+}
+
+export interface MaterialPrepUnitSummary {
+  unit: string
+  requiredQty: number
+  confirmedPrepQty: number
+  grossPickedQty: number
+  returnedQty: number
+  effectivePickedQty: number
+  availableToPickupQty: number
+  shortageQty: number
 }
 
 export interface MaterialPrepTaskMaterialPrepRecord {
@@ -2378,20 +2411,20 @@ const seedPickupReturnRecords: MaterialPickupReturnRecord[] = [
     returnStatus: '已退回待中转仓处理',
   },
   {
-    returnRecordId: 'pickup-return-seed-po-0001-main-001',
-    pickupRecordId: 'pickup-rec-po-0001-main-001',
-    prepRecordId: 'prep-rec-po-0001-main-001',
-    prepOrderId: 'prep-order-po-202603-0001',
-    prepLineId: 'prep-line-po-0001-main',
-    productionOrderId: 'PO-202603-0001',
-    returnQty: 180,
+    returnRecordId: 'pickup-return-seed-po-0006-main-001',
+    pickupRecordId: 'pickup-rec-po-0006-main-001',
+    prepRecordId: 'prep-rec-po-0006-main-001',
+    prepOrderId: 'prep-order-po-202603-0006',
+    prepLineId: 'prep-line-po-0006-main',
+    productionOrderId: 'PO-202603-0006',
+    returnQty: 50,
     rollCount: 1,
     unit: 'yard',
     reason: '规格 / 克重不符',
-    remark: '首卷克重复核不符，退回后待加工仓仍有可用余量。',
+    remark: '按实关闭前复核发现一卷规格不符，退回中转仓后按有效已领数量关闭。',
     imageNames: [],
     returnedBy: '裁床 王强',
-    returnedAt: '2026-03-15 17:05',
+    returnedAt: '2026-03-16 12:20',
     returnStatus: '已退回待中转仓处理',
   },
 ]
@@ -2699,13 +2732,13 @@ function getRecordPickupQty(pickupRecords: PickupRecord[], prepRecordId: string)
     pickupRecords
       .reduce((sum, record) => {
         if (record.sourceAllocations?.length) {
-          const allocatedQty = record.sourceAllocations
+          const effectiveAllocations = allocatePickupReturnAcrossSources(
+            record.sourceAllocations,
+            Number(record.returnQty || 0),
+          )
+          return sum + effectiveAllocations
             .filter((allocation) => allocation.prepRecordId === prepRecordId)
-            .reduce((allocationSum, allocation) => allocationSum + allocation.pickedQty, 0)
-          const returnedQty = record.prepRecordId === prepRecordId
-            ? Math.min(Number(record.returnQty || 0), allocatedQty)
-            : 0
-          return sum + Math.max(allocatedQty - returnedQty, 0)
+            .reduce((allocationSum, allocation) => allocationSum + allocation.effectivePickedQty, 0)
         }
         return sum + (
           record.prepRecordId === prepRecordId
@@ -2729,16 +2762,16 @@ function getRecordItemPickupQty(pickupRecords: PickupRecord[], prepRecordId: str
     pickupRecords
       .reduce((sum, record) => {
         if (record.sourceAllocations?.length) {
-          const allocatedQty = record.sourceAllocations
+          const effectiveAllocations = allocatePickupReturnAcrossSources(
+            record.sourceAllocations,
+            Number(record.returnQty || 0),
+          )
+          return sum + effectiveAllocations
             .filter((allocation) =>
               allocation.prepRecordId === prepRecordId &&
               allocation.prepLineId === prepLineId
             )
-            .reduce((allocationSum, allocation) => allocationSum + allocation.pickedQty, 0)
-          const returnedQty = record.prepRecordId === prepRecordId
-            ? Math.min(Number(record.returnQty || 0), allocatedQty)
-            : 0
-          return sum + Math.max(allocatedQty - returnedQty, 0)
+            .reduce((allocationSum, allocation) => allocationSum + allocation.effectivePickedQty, 0)
         }
         return sum + (
           record.prepRecordId === prepRecordId && record.prepLineId === prepLineId
@@ -3025,12 +3058,38 @@ function buildOrderProjection(
   const overallPrepStatus = deriveOrderPrepStatus(lines, prepRecords, Boolean(closed))
   const pickupStatus = derivePickupStatus(lines, prepRecords, pickupRecords, Boolean(closed))
   const { demandQty } = seedOrder
-  const totalRequiredQty = roundQty(lines.reduce((sum, line) => sum + line.requiredQty, 0))
-  const totalConfirmedPrepQty = roundQty(lines.reduce((sum, line) => sum + line.confirmedPrepQty, 0))
-  const totalPickedQty = roundQty(lines.reduce((sum, line) => sum + line.pickedQty, 0))
-  const totalReturnedQty = roundQty(pickupRecords.reduce((sum, record) => sum + Number(record.returnQty || 0), 0))
-  const totalAvailableToPickupQty = roundQty(Math.max(totalConfirmedPrepQty - totalPickedQty, 0))
-  const totalShortageQty = roundQty(lines.reduce((sum, line) => sum + line.shortageQty, 0))
+  const unitSummaryMap = new Map<string, MaterialPrepUnitSummary>()
+  for (const line of lines) {
+    const summary = unitSummaryMap.get(line.unit) ?? {
+      unit: line.unit,
+      requiredQty: 0,
+      confirmedPrepQty: 0,
+      grossPickedQty: 0,
+      returnedQty: 0,
+      effectivePickedQty: 0,
+      availableToPickupQty: 0,
+      shortageQty: 0,
+    }
+    summary.requiredQty = roundQty(summary.requiredQty + line.requiredQty)
+    summary.confirmedPrepQty = roundQty(summary.confirmedPrepQty + line.confirmedPrepQty)
+    summary.grossPickedQty = roundQty(summary.grossPickedQty + line.pickedQty)
+    summary.returnedQty = roundQty(summary.returnedQty + line.returnedQty)
+    summary.effectivePickedQty = roundQty(summary.effectivePickedQty + Math.max(line.pickedQty - line.returnedQty, 0))
+    summary.availableToPickupQty = roundQty(
+      summary.availableToPickupQty +
+      Math.max(line.confirmedPrepQty - Math.max(line.pickedQty - line.returnedQty, 0), 0),
+    )
+    summary.shortageQty = roundQty(summary.shortageQty + line.shortageQty)
+    unitSummaryMap.set(line.unit, summary)
+  }
+  const unitSummaries = Array.from(unitSummaryMap.values())
+  const singleUnitSummary = unitSummaries.length === 1 ? unitSummaries[0] : null
+  const totalRequiredQty = singleUnitSummary?.requiredQty ?? null
+  const totalConfirmedPrepQty = singleUnitSummary?.confirmedPrepQty ?? null
+  const totalPickedQty = singleUnitSummary?.grossPickedQty ?? null
+  const totalReturnedQty = singleUnitSummary?.returnedQty ?? null
+  const totalAvailableToPickupQty = singleUnitSummary?.availableToPickupQty ?? null
+  const totalShortageQty = singleUnitSummary?.shortageQty ?? null
   const latestOperatedAt = latestText([
     ...prepRecords.map((record) => record.rejectedAt || record.confirmedAt || record.preparedAt),
     ...pickupRecords.map((record) => record.pickedAt),
@@ -3079,6 +3138,7 @@ function buildOrderProjection(
     pickupReturnRecords,
     rejectRecords,
     stagingRecords,
+    unitSummaries,
     totalRequiredQty,
     totalConfirmedPrepQty,
     totalPickedQty,
@@ -3354,7 +3414,8 @@ export function getMaterialPrepRecordContext(
   ledgerRow: MaterialLedgerProjection | null
   pickedQty: number
   availableToPickupQty: number
-  totalAvailableToPickupQty: number
+  availableToPickupUnitSummaries: Array<{ unit: string; availableToPickupQty: number }>
+  totalAvailableToPickupQty: number | null
   warehouseNames: MaterialStockWarehouseName[]
 } | null {
   const prepLineId = typeof prepLineIdOrStorage === 'string' ? prepLineIdOrStorage : ''
@@ -3372,7 +3433,20 @@ export function getMaterialPrepRecordContext(
     const line = projection.lines.find((item) => item.prepLineId === recordItem.prepLineId)
     if (!line) return null
     const pickedQty = getRecordItemPickupQty(projection.pickupRecords, record.prepRecordId, recordItem.prepLineId)
-    const totalAvailableToPickupQty = roundQty(candidateItems.reduce((sum, item) => sum + item.availableToPickupQty, 0))
+    const availableToPickupByUnit = new Map<string, number>()
+    candidateItems.forEach((item) => {
+      availableToPickupByUnit.set(
+        item.unit,
+        roundQty((availableToPickupByUnit.get(item.unit) || 0) + item.availableToPickupQty),
+      )
+    })
+    const availableToPickupUnitSummaries = Array.from(availableToPickupByUnit, ([unit, availableToPickupQty]) => ({
+      unit,
+      availableToPickupQty,
+    }))
+    const totalAvailableToPickupQty = availableToPickupUnitSummaries.length === 1
+      ? availableToPickupUnitSummaries[0].availableToPickupQty
+      : null
     return {
       projection,
       record,
@@ -3382,6 +3456,7 @@ export function getMaterialPrepRecordContext(
       ledgerRow: getMaterialLedgerProjectionByCutOrder(line.cutOrderId),
       pickedQty,
       availableToPickupQty: roundQty(Math.max(record.recordStatus === 'CONFIRMED' ? recordItem.preparedQty - pickedQty : 0, 0)),
+      availableToPickupUnitSummaries,
       totalAvailableToPickupQty,
       warehouseNames: Array.from(new Set(candidateItems.map((item) => item.stockWarehouseName))),
     }

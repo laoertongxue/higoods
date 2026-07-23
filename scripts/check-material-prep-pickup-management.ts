@@ -6,11 +6,13 @@ import process from 'node:process'
 
 import {
   appendManualPrepRecord,
+  allocatePickupReturnAcrossSources,
   closeMaterialPrepOrder,
   confirmMaterialPrepRecord,
   createProductionMaterialPrepSeedStore,
   derivePickupStatus,
   getMaterialPrepOrderProjection,
+  getMaterialPrepRecordContext,
   getMaterialPrepRecordItems,
   listActivePickupNodes,
   listMaterialPrepOrderProjections,
@@ -105,6 +107,16 @@ const completedPickupStatus = derivePickupStatus(
   false,
 )
 assert(completedPickupStatus === 'PICKUP_DONE', '无退回且逐行全部领完时必须派生为已领料完结')
+const allocatedReturn = allocatePickupReturnAcrossSources([
+  { prepRecordId: 'source-a', prepLineId: 'line-a', pickedQty: 65, rollCount: 1, unit: 'yard', sourceWarehouseName: '中转仓', sourceWarehouseArea: 'A', sourceLocationCode: 'A-01' },
+  { prepRecordId: 'source-b', prepLineId: 'line-a', pickedQty: 100, rollCount: 1, unit: 'yard', sourceWarehouseName: '中转仓', sourceWarehouseArea: 'A', sourceLocationCode: 'A-02' },
+], 100)
+assert(allocatedReturn[0].effectivePickedQty === 0, '退回必须先冲减第一来源的 65')
+assert(allocatedReturn[1].effectivePickedQty === 65, '第一来源冲完后必须继续冲减第二来源 35')
+assert(
+  allocatedReturn.reduce((sum, allocation) => sum + allocation.effectivePickedQty, 0) === 65,
+  '来源有效已领之和必须等于行级 picked - returned',
+)
 
 const projections = listMaterialPrepOrderProjections(null)
 assert(projections.length >= 8, '生产单级裁床配料单样例不足')
@@ -129,9 +141,42 @@ for (const status of materialPrepWorkbenchTabs.map((tab) => tab.key)) {
   assert(projections.some((projection) => projection.order.overallPrepStatus === status), `配料工作台缺少状态样例：${status}`)
 }
 for (const status of pickupWorkbenchTabs.map((tab) => tab.key)) {
-  if (status === 'PICKUP_DONE') continue
   assert(projections.some((projection) => projection.order.pickupStatus === status), `领料工作台缺少状态样例：${status}`)
 }
+for (const projection of projections) {
+  const unitSummaries = (projection as typeof projection & {
+    unitSummaries?: Array<{
+      unit: string
+      confirmedPrepQty: number
+      effectivePickedQty: number
+      returnedQty: number
+      availableToPickupQty: number
+    }>
+  }).unitSummaries
+  assert(unitSummaries?.length, `${projection.order.productionOrderNo} 必须按单位输出数量汇总`)
+  assert(new Set(unitSummaries.map((summary) => summary.unit)).size === unitSummaries.length, '单位汇总不得重复单位')
+  if (unitSummaries.length > 1) {
+    assert(projection.totalAvailableToPickupQty === null, '多单位配料单不得继续输出无量纲可领总数')
+  }
+}
+const returnedProjection = projections.find((projection) => projection.pickupReturnRecords.length > 0)
+assert(returnedProjection, '必须存在退回场景')
+assert(
+  returnedProjection.unitSummaries.some((summary) => summary.returnedQty > 0 && summary.availableToPickupQty > 0),
+  '退回数量必须回到对应单位的当前可领事实',
+)
+const multiUnitRecord = projections.flatMap((projection) =>
+  projection.prepRecords.map((record) => ({ projection, record }))
+).find(({ projection, record }) => {
+  const units = getMaterialPrepRecordItems(record).map((item) =>
+    projection.lines.find((line) => line.prepLineId === item.prepLineId)?.unit || ''
+  )
+  return new Set(units.filter(Boolean)).size > 1
+})
+assert(multiUnitRecord, '必须存在多单位配料记录以验证记录级汇总')
+const multiUnitContext = getMaterialPrepRecordContext(multiUnitRecord.record.prepRecordId, null)
+assert(multiUnitContext?.availableToPickupUnitSummaries.length! > 1, '多单位配料记录必须按单位输出可领汇总')
+assert(multiUnitContext?.totalAvailableToPickupQty === null, '多单位配料记录不得输出无量纲可领总数')
 
 const activeNodes = listActivePickupNodes(null)
 assert(activeNodes.length > 0, '已确认且尚未领取的物料必须形成活动待领节点')
