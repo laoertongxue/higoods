@@ -61,14 +61,12 @@ import {
 type SupplementManualSourceType = 'production-order' | 'cut-order'
 type SupplementCandidateSourceType = 'cut-order'
 type SupplementSourceType = SupplementManualSourceType | 'release-snapshot'
-type SupplementFilterSourceType = 'ALL' | SupplementSourceType
 type SupplementProcessKind = '印花' | '染色'
 type SupplementMaterialRole = '面料A' | '面料B' | '面料C' | '里布' | '衬' | '罗纹' | '辅料' | '包材' | '未识别'
 type SupplementRoleSource = '物料-纸样关联别名' | '物料行继承别名' | '纸样辅助识别' | '顺序推断' | '未识别'
 type SupplementRoleConfirmStatus = '已确认' | '待确认'
 
 interface SupplementFilters {
-  sourceType: SupplementFilterSourceType
   keyword: string
 }
 
@@ -268,7 +266,6 @@ const defaultSupplementListColumnPreferences: StandardListColumnPreferences = {
 
 const state: SupplementManagementState = {
   filters: {
-    sourceType: 'ALL',
     keyword: '',
   },
   sourcePicker: {
@@ -300,6 +297,12 @@ const state: SupplementManagementState = {
 
 let mockSupplementOrdersSeeded = false
 let supplementListPreferencesLoaded = false
+let supplementListKeyboardEventsBound = false
+let detailReturnFocus: HTMLElement | null = null
+let detailReturnRecordId = ''
+let confirmationReturnFocus: HTMLElement | null = null
+let columnSettingsReturnFocus: HTMLElement | null = null
+let restoreCreateDraftFocus = false
 
 const sourceTypeLabels: Record<SupplementSourceType, string> = {
   'production-order': '生产单',
@@ -1044,7 +1047,6 @@ function prepareReleaseSnapshotCreateState(): void {
 function getFilteredRecords(): SupplementRecord[] {
   const keyword = state.filters.keyword.trim().toLowerCase()
   return state.records
-    .filter((record) => state.filters.sourceType === 'ALL' || record.draft.sourceType === state.filters.sourceType)
     .filter((record) => {
       if (!keyword) return true
       return [
@@ -1197,16 +1199,7 @@ function renderStatChip(label: string, value: number): string {
 function renderFilterControls(): string {
   return `
     <section class="rounded-lg border bg-card p-4">
-      <div class="grid gap-3 md:grid-cols-[180px_minmax(240px,1fr)_auto_auto] md:items-end">
-        <label class="space-y-1 text-sm">
-          <span class="text-muted-foreground">补料对象</span>
-          <select class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-supplement-field="sourceType">
-            <option value="ALL"${state.filters.sourceType === 'ALL' ? ' selected' : ''}>全部</option>
-            <option value="production-order"${state.filters.sourceType === 'production-order' ? ' selected' : ''}>生产单</option>
-            <option value="cut-order"${state.filters.sourceType === 'cut-order' ? ' selected' : ''}>裁片单</option>
-            <option value="release-snapshot"${state.filters.sourceType === 'release-snapshot' ? ' selected' : ''}>裁片放行目标快照</option>
-          </select>
-        </label>
+      <div class="grid gap-3 md:grid-cols-[minmax(240px,1fr)_auto_auto] md:items-end">
         <label class="space-y-1 text-sm">
           <span class="text-muted-foreground">关键词</span>
           <input class="h-10 w-full rounded-md border bg-background px-3 text-sm" data-cutting-supplement-field="keyword" value="${escapeHtml(state.filters.keyword)}" placeholder="补料单、生产单、裁片单、SPU、物料SKU" />
@@ -1669,10 +1662,10 @@ function renderSupplementBasisTable(lines: SupplementLine[]): string {
 function renderConfirmDialog(draft: SupplementDraft | null): string {
   if (!draft) return ''
   return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6">
-      <div class="w-full max-w-5xl rounded-xl bg-background shadow-xl">
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6" data-cutting-supplement-create-confirm>
+      <div class="w-full max-w-5xl rounded-xl bg-background shadow-xl" role="dialog" aria-modal="true" aria-labelledby="cutting-supplement-create-confirm-title">
         <div class="border-b px-5 py-4">
-          <h2 class="text-lg font-semibold">二次确认补料</h2>
+          <h2 id="cutting-supplement-create-confirm-title" class="text-lg font-semibold">二次确认补料</h2>
           <p class="mt-1 text-sm text-muted-foreground">确认后才会生成补料单；需要印花或染色的物料会挂到生产单 ${escapeHtml(draft.productionOrderNo)} 下。</p>
         </div>
         <div class="max-h-[72vh] space-y-4 overflow-y-auto p-5">
@@ -1965,8 +1958,8 @@ function renderListPagination(paging: StandardListPageSlice<SupplementRecord>): 
 
 function renderListOverlay(): string {
   const pendingRecord = state.pendingCompleteRecordId ? getRecordById(state.pendingCompleteRecordId) : undefined
-  if (pendingRecord) return renderCompleteSupplementDialog(pendingRecord)
   const activeRecord = state.activeRecordId ? getRecordById(state.activeRecordId) : undefined
+  if (pendingRecord) return `${activeRecord ? renderSupplementDetailDialog(activeRecord) : ''}${renderCompleteSupplementDialog(pendingRecord)}`
   if (activeRecord) return renderSupplementDetailDialog(activeRecord)
   if (!state.columnSettingsOpen) return ''
   return withSkipPageRerender(renderStandardListColumnSettings({
@@ -2011,6 +2004,136 @@ function refreshSupplementTable(): void {
 
 function refreshSupplementOverlay(): void {
   setSupplementRegion('overlay', renderListOverlay())
+}
+
+function getTopSupplementListOverlay(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('[data-cutting-supplement-complete-confirm]')
+    || document.querySelector<HTMLElement>('[data-cutting-supplement-detail]')
+    || (state.columnSettingsOpen
+      ? document.querySelector<HTMLElement>('[data-cutting-supplement-region="overlay"] > .fixed')
+      : null)
+}
+
+function scheduleSupplementFocus(callback: () => void): void {
+  if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') return
+  window.requestAnimationFrame(callback)
+}
+
+function focusTopSupplementListOverlay(): void {
+  scheduleSupplementFocus(() => {
+    getTopSupplementListOverlay()
+      ?.querySelector<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')
+      ?.focus()
+  })
+}
+
+function restoreDetailTriggerFocus(): void {
+  const originalTarget = detailReturnFocus
+  const recordId = detailReturnRecordId
+  detailReturnFocus = null
+  detailReturnRecordId = ''
+  scheduleSupplementFocus(() => {
+    const fallback = recordId
+      ? document.querySelector<HTMLElement>(`[data-cutting-supplement-action="open-detail"][data-record-id="${CSS.escape(recordId)}"]`)
+      : null
+    ;(originalTarget?.isConnected ? originalTarget : fallback)?.focus()
+  })
+}
+
+function restoreConfirmationTriggerFocus(): void {
+  const originalTarget = confirmationReturnFocus
+  confirmationReturnFocus = null
+  scheduleSupplementFocus(() => {
+    const fallback = document.querySelector<HTMLElement>('[data-cutting-supplement-detail] [data-cutting-supplement-action="request-complete-record"]')
+    ;(originalTarget?.isConnected ? originalTarget : fallback)?.focus()
+  })
+}
+
+function focusUpdatedDetailFallback(): void {
+  confirmationReturnFocus = null
+  scheduleSupplementFocus(() => {
+    const detail = document.querySelector<HTMLElement>('[data-cutting-supplement-detail]')
+    ;(detail?.querySelector<HTMLElement>('[data-cutting-supplement-action="close-detail"]') || detail)?.focus()
+  })
+}
+
+function restoreColumnSettingsTriggerFocus(): void {
+  const originalTarget = columnSettingsReturnFocus
+  columnSettingsReturnFocus = null
+  scheduleSupplementFocus(() => {
+    const fallback = document.querySelector<HTMLElement>('[data-cutting-supplement-action="open-column-settings"]')
+    ;(originalTarget?.isConnected ? originalTarget : fallback)?.focus()
+  })
+}
+
+function ensureSupplementListKeyboardEvents(): void {
+  if (
+    supplementListKeyboardEventsBound
+    || typeof document === 'undefined'
+    || typeof document.addEventListener !== 'function'
+  ) return
+  supplementListKeyboardEventsBound = true
+  document.addEventListener('keydown', (event) => {
+    const createConfirmation = document.querySelector<HTMLElement>('[data-cutting-supplement-create-confirm]')
+    if (!createConfirmation && !document.querySelector('[data-cutting-supplement-region="overlay"]')) return
+    const topOverlay = createConfirmation || getTopSupplementListOverlay()
+    if (event.key === 'Tab' && topOverlay) {
+      const focusable = [...topOverlay.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+      if (!focusable.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        last.focus()
+        event.preventDefault()
+        event.stopImmediatePropagation()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        first.focus()
+        event.preventDefault()
+        event.stopImmediatePropagation()
+      }
+      return
+    }
+    if (event.key !== 'Escape' || !topOverlay) return
+    if (createConfirmation) {
+      state.pendingConfirmDraft = null
+      createConfirmation.remove()
+      restoreCreateDraftFocus = false
+      focusCreateDraftSubmit()
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      return
+    }
+    if (state.pendingCompleteRecordId) {
+      state.pendingCompleteRecordId = ''
+      refreshSupplementOverlay()
+      restoreConfirmationTriggerFocus()
+    } else if (state.activeRecordId) {
+      state.activeRecordId = ''
+      refreshSupplementOverlay()
+      restoreDetailTriggerFocus()
+    } else if (state.columnSettingsOpen) {
+      state.columnSettingsOpen = false
+      refreshSupplementOverlay()
+      restoreColumnSettingsTriggerFocus()
+    } else return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+  }, true)
+}
+
+function focusCreateConfirmation(): void {
+  scheduleSupplementFocus(() => {
+    document.querySelector<HTMLElement>('[data-cutting-supplement-create-confirm] [data-cutting-supplement-action="return-draft"]')?.focus()
+  })
+}
+
+function focusCreateDraftSubmit(): void {
+  scheduleSupplementFocus(() => {
+    document.querySelector<HTMLElement>([
+      '[data-cutting-supplement-action="submit-release-snapshot-draft"]',
+      '[data-cutting-supplement-action="submit-draft"]',
+    ].join(', '))?.focus()
+  })
 }
 
 function refreshSourcePickerResults(): void {
@@ -2139,11 +2262,11 @@ function renderSupplementDetailDialog(record: SupplementRecord | undefined): str
   const spuImageUrl = sourceRecord ? getSpuImageUrl(sourceRecord) : '/pants-sample.jpg'
 
   return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6">
-      <div class="flex max-h-[92vh] w-full max-w-6xl flex-col rounded-xl bg-background shadow-xl">
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6" data-cutting-supplement-detail>
+      <div class="flex max-h-[92vh] w-full max-w-6xl flex-col rounded-xl bg-background shadow-xl" role="dialog" aria-modal="true" aria-labelledby="cutting-supplement-detail-title">
         <div class="flex items-start justify-between gap-4 border-b px-5 py-4">
           <div>
-            <h2 class="text-lg font-semibold">补料单详情</h2>
+            <h2 id="cutting-supplement-detail-title" class="text-lg font-semibold">补料单详情</h2>
             <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(record.recordNo)} / ${escapeHtml(record.draft.productionOrderNo)} / ${escapeHtml(record.draft.styleName)}</p>
           </div>
           <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cutting-supplement-action="close-detail">关闭</button>
@@ -2223,10 +2346,10 @@ function renderCompleteSupplementDialog(record: SupplementRecord): string {
     : undefined
   if (!lifecycle || lifecycle.status === '已完成') return renderSupplementDetailDialog(record)
   return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6">
-      <div class="w-full max-w-lg rounded-xl bg-background shadow-xl">
+    <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-6" data-cutting-supplement-complete-confirm>
+      <div class="w-full max-w-lg rounded-xl bg-background shadow-xl" role="alertdialog" aria-modal="true" aria-labelledby="cutting-supplement-confirm-title">
         <div class="border-b px-5 py-4">
-          <h2 class="text-lg font-semibold">确认完成补料</h2>
+          <h2 id="cutting-supplement-confirm-title" class="text-lg font-semibold">确认完成补料</h2>
           <p class="mt-1 text-sm text-muted-foreground">本次只完成当前这一张补料单，不影响同裁片单的其他补料单。</p>
         </div>
         <div class="grid gap-3 p-5 sm:grid-cols-2">
@@ -2562,10 +2685,8 @@ export function ensureSupplementManagementFixedRecords(): void {
 }
 
 function setFiltersFromDom(): void {
-  const sourceType = document.querySelector<HTMLSelectElement>('[data-cutting-supplement-field="sourceType"]')?.value
   const keyword = document.querySelector<HTMLInputElement>('[data-cutting-supplement-field="keyword"]')?.value
   state.filters = {
-    sourceType: sourceType === 'production-order' || sourceType === 'cut-order' || sourceType === 'release-snapshot' ? sourceType : 'ALL',
     keyword: normalizeText(keyword),
   }
 }
@@ -2589,10 +2710,11 @@ function clearSupplementCreateState(): void {
   state.releaseSnapshotContext = null
   state.releaseSnapshotDraft = null
   state.releaseSnapshotError = ''
+  restoreCreateDraftFocus = false
 }
 
 export function isCraftCuttingSupplementManagementDialogOpen(): boolean {
-  return Boolean(state.activeRecordId || state.pendingConfirmDraft)
+  return Boolean(state.activeRecordId || state.pendingCompleteRecordId || state.columnSettingsOpen || state.pendingConfirmDraft)
 }
 
 export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement, event?: Event): boolean {
@@ -2711,7 +2833,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   }
 
   if (action === 'reset-filters') {
-    state.filters = { sourceType: 'ALL', keyword: '' }
+    state.filters = { keyword: '' }
     state.page = 1
     state.feedback = null
     refreshSupplementFeedback()
@@ -2741,16 +2863,19 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   }
 
   if (action === 'open-column-settings') {
+    columnSettingsReturnFocus = actionNode
     state.columnSettingsOpen = true
     state.activeRecordId = ''
     state.pendingCompleteRecordId = ''
     refreshSupplementOverlay()
+    focusTopSupplementListOverlay()
     return true
   }
 
   if (action === 'close-column-settings') {
     state.columnSettingsOpen = false
     refreshSupplementOverlay()
+    restoreColumnSettingsTriggerFocus()
     return true
   }
 
@@ -2928,12 +3053,15 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
       return true
     }
     state.activeRecordId = recordId
+    detailReturnFocus = actionNode
+    detailReturnRecordId = recordId
     state.pendingCompleteRecordId = ''
     state.columnSettingsOpen = false
     clearSupplementCreateState()
     state.feedback = null
     refreshSupplementFeedback()
     refreshSupplementOverlay()
+    focusTopSupplementListOverlay()
     return true
   }
 
@@ -2943,6 +3071,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     state.feedback = null
     refreshSupplementFeedback()
     refreshSupplementOverlay()
+    restoreDetailTriggerFocus()
     return true
   }
 
@@ -2969,13 +3098,16 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     }
     state.activeRecordId = record.id
     state.pendingCompleteRecordId = record.id
+    confirmationReturnFocus = actionNode
     refreshSupplementOverlay()
+    focusTopSupplementListOverlay()
     return true
   }
 
   if (action === 'cancel-complete-record') {
     state.pendingCompleteRecordId = ''
     refreshSupplementOverlay()
+    restoreConfirmationTriggerFocus()
     return true
   }
 
@@ -3014,6 +3146,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
       refreshSupplementFeedback()
       refreshSupplementList()
       refreshSupplementOverlay()
+      focusUpdatedDetailFallback()
     }
   }
 
@@ -3077,6 +3210,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     state.activeCandidateId = pendingDraft?.candidateId || state.activeCandidateId
     if (pendingDraft?.releaseSnapshotId) state.releaseSnapshotDraft = structuredClone(pendingDraft)
     state.pendingConfirmDraft = null
+    restoreCreateDraftFocus = true
     return true
   }
 
@@ -3098,10 +3232,13 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
   }
 
   if (action === 'close-overlay') {
-    state.activeRecordId = ''
-    state.pendingCompleteRecordId = ''
-    state.columnSettingsOpen = false
-    state.pendingConfirmDraft = null
+    if (state.pendingCompleteRecordId) state.pendingCompleteRecordId = ''
+    else if (state.activeRecordId) state.activeRecordId = ''
+    else if (state.columnSettingsOpen) state.columnSettingsOpen = false
+    else if (state.pendingConfirmDraft) {
+      state.pendingConfirmDraft = null
+      restoreCreateDraftFocus = true
+    }
     refreshSupplementOverlay()
     return true
   }
@@ -3110,6 +3247,7 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
 }
 
 export function renderCraftCuttingSupplementManagementPage(): string {
+  ensureSupplementListKeyboardEvents()
   ensureSupplementListPreferences()
   if (isSupplementCreateMode()) {
     return renderCraftCuttingSupplementCreatePage()
@@ -3147,6 +3285,12 @@ export function renderCraftCuttingSupplementCreatePage(): string {
     state.activeCandidateId = ''
     activeCandidate = undefined
     state.feedback = { tone: 'warning', message: '未找到对应的补料对象，请重新选择。' }
+  }
+
+  if (state.pendingConfirmDraft) focusCreateConfirmation()
+  else if (restoreCreateDraftFocus) {
+    restoreCreateDraftFocus = false
+    focusCreateDraftSubmit()
   }
 
   return `
