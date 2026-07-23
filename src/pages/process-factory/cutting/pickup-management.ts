@@ -50,8 +50,9 @@ function renderNodeTypeCell(node: PickupNodeProjection): string {
 }
 
 function renderNodeOrderCell(node: PickupNodeProjection): string {
+  const detailHref = `/fcs/craft/cutting/pickup-management-detail?pickupNodeId=${encodeURIComponent(node.nodeId)}`
   return `<div class="space-y-1">
-    <div class="cursor-pointer hover:underline" data-pickup-nav="detail" data-pickup-node-id="${escapeHtml(node.nodeId)}">${renderProductionOrderIdentityCell(node.productionOrderNo)}</div>
+    <div class="cursor-pointer hover:underline" data-nav="${escapeHtml(detailHref)}" data-pickup-node-id="${escapeHtml(node.nodeId)}">${renderProductionOrderIdentityCell(node.productionOrderNo)}</div>
     <div class="text-xs text-muted-foreground">配料单：${escapeHtml(node.prepOrderNo)}</div>
     <div class="text-xs text-muted-foreground">第 ${node.sequence} 轮领料</div>
   </div>`
@@ -104,7 +105,7 @@ function renderNodeSourceLocationCell(node: PickupNodeProjection): string {
 function renderNodeActions(node: PickupNodeProjection): string {
   const detailHref = `/fcs/craft/cutting/pickup-management-detail?pickupNodeId=${encodeURIComponent(node.nodeId)}`
   return `<div class="flex flex-wrap gap-1.5">
-    <button type="button" data-pickup-nav="detail" data-pickup-node-id="${escapeHtml(node.nodeId)}" class="rounded-md border px-2 py-1.5 text-xs hover:bg-muted">查看当前节点</button>
+    <button type="button" data-nav="${escapeHtml(detailHref)}" data-pickup-node-id="${escapeHtml(node.nodeId)}" class="rounded-md border px-2 py-1.5 text-xs hover:bg-muted">查看当前节点</button>
     <button type="button" data-pickup-action="confirm-pickup" data-pickup-node-id="${escapeHtml(node.nodeId)}" data-pickup-node-version="${node.version}" class="rounded-md bg-blue-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-blue-700">办理领料入库</button>
     <a href="${escapeHtml(detailHref)}" class="rounded-md border px-2 py-1.5 text-xs hover:bg-muted inline-block" data-pickup-nav="detail" data-pickup-node-id="${escapeHtml(node.nodeId)}">查看历史</a>
   </div>`
@@ -315,9 +316,9 @@ export function renderCraftCuttingPickupManagementPage(): string {
     <div data-pickup-region="pagination">
       ${renderTablePagination({
         total: paging.total,
-        from: (paging.page - 1) * paging.pageSize + 1,
-        to: Math.min(paging.page * paging.pageSize, paging.total),
-        currentPage: paging.page,
+        from: paging.from,
+        to: paging.to,
+        currentPage: paging.currentPage,
         totalPages: paging.totalPages,
         pageSize: paging.pageSize,
         actionPrefix: 'pickup',
@@ -625,11 +626,14 @@ function refreshPickupRegions(): void {
   const paging = paginateStandardListRows(sortedNodes, state.page, state.pageSize)
 
   const statsEl = document.querySelector('[data-pickup-region="stats"]')
-  if (statsEl) statsEl.outerHTML = renderNodeStats(filteredNodes)
+  if (statsEl) statsEl.innerHTML = renderNodeStats(filteredNodes)
+
+  const listTitleEl = document.querySelector('[data-standard-list-table-section] > header h2')
+  if (listTitleEl) listTitleEl.textContent = `待领节点（${filteredNodes.length}）`
 
   const tableEl = document.querySelector('[data-pickup-region="table"]')
   if (tableEl) {
-    tableEl.outerHTML = renderStandardListTable({
+    tableEl.innerHTML = renderStandardListTable({
       columns: PICKUP_NODE_COLUMNS,
       rows: paging.rows,
       preferences: state.columnPreferences,
@@ -641,11 +645,11 @@ function refreshPickupRegions(): void {
 
   const paginationEl = document.querySelector('[data-pickup-region="pagination"]')
   if (paginationEl) {
-    paginationEl.outerHTML = renderTablePagination({
+    paginationEl.innerHTML = renderTablePagination({
       total: paging.total,
-      from: (paging.page - 1) * paging.pageSize + 1,
-      to: Math.min(paging.page * paging.pageSize, paging.total),
-      currentPage: paging.page,
+      from: paging.from,
+      to: paging.to,
+      currentPage: paging.currentPage,
       totalPages: paging.totalPages,
       pageSize: paging.pageSize,
       actionPrefix: 'pickup',

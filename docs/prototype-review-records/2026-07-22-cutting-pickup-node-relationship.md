@@ -58,7 +58,8 @@
 
 ### 2.3 分辨率
 
-- 以 1366×768 为标准验收分辨率
+- ✅ 1366×768 标准分辨率无页面主体横向溢出
+- ✅ 1280×720 最低可用分辨率无页面主体横向溢出
 - 宽表在表格容器内部滚动，操作列右侧固定
 
 ## 3. Mock 数据覆盖
@@ -70,9 +71,9 @@
 
 ## 4. 例外说明
 
-- 中转仓配料页面（WLS transfer-material-prep.ts）不在本次范围
+- 已删除的旧中转仓配料页面不属于现行产品入口；验收脚本已移除对该失效页面的依赖，改为核查现行裁片准备领料链路
 - PDA 交接流程（非裁床领料部分）保持原样
-- E2E Playwright 测试（`tests/cutting-pickup-node-flow.spec.ts`）因需浏览器环境，后续补充
+- 无产品设计规范例外
 
 ## 5. 自查结论
 
@@ -91,3 +92,9 @@
 
 - `npm run check:cutting-pickup-node-domain` → 通过
 - `npm run check:cutting-material-return` → 通过
+- `npm run check:cutting-prep-pickup-return-linkage` → 通过
+- `npm run check:material-prep-pickup-management` → 通过
+- `npm run check:cutting-pickup-node-e2e` → 通过，覆盖列表、详情、办理领料后节点关闭、分页、PDA、1366×768 与 1280×720
+- `npm run check:list-page-governance` → 通过
+- `npm run check:prototype-design-governance -- --all` → 通过
+- `npm run build` → 通过

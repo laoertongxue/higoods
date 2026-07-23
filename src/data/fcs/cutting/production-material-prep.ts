@@ -1355,7 +1355,7 @@ function buildCategoryDemoSeedOrder(input: {
         materialSku: `${input.spu}-bom-${categoryCode}-main`,
         materialName: `${input.color} ${categoryName}主面料`,
         materialType: '面料',
-        materialImageUrl: input.category === '染色配料' ? '/materials/fabric-dye.jpg' : '/materials/fabric-print.jpg',
+        materialImageUrl: input.category === '染色配料' ? '/materials/fabric-main.jpg' : '/materials/fabric-contrast.jpg',
         color: input.color,
         spec: '150cm / 主面料',
         unit: 'yard',
