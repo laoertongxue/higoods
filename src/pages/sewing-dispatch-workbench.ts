@@ -15,7 +15,11 @@ import {
   getCutPieceReleaseSummaryForProductionOrder,
   type CutPieceReleaseSummary,
 } from '../data/fcs/cut-piece-release.ts'
-import { classifySewingDeliverySla, createSewingDeliverySlaSnapshot, formatOperationLocalWallClock, operationWallClockToDateTimeLocal, dateTimeLocalToOperationWallClock } from '../data/fcs/sewing-delivery-sla.ts'
+import { formatOperationLocalWallClock, operationWallClockToDateTimeLocal, dateTimeLocalToOperationWallClock } from '../data/fcs/sewing-delivery-sla.ts'
+import {
+  buildSewingDeliverySlaPreviewModel,
+  renderSewingDeliverySlaPreview,
+} from '../components/sewing-delivery-sla-preview.ts'
 import { sumSewingDeliveryConfirmedReceiptQty } from '../data/fcs/sewing-delivery-receipt-facts.ts'
 import { reassignRuntimeSewingTask } from '../data/fcs/runtime-sewing-reassignment.ts'
 import { getRuntimeTaskById, listRuntimeProcessTasks } from '../data/fcs/runtime-process-tasks.ts'
@@ -38,13 +42,7 @@ import {
   renderProductionOrderIdentityCell,
 } from '../data/fcs/production-order-identity.ts'
 import {
-  listFactoryMasterRecords,
-} from '../data/fcs/factory-master-store.ts'
-import {
-  evaluateThirdPartyFactoryDispatchPolicy,
   getThirdPartyFactoryRatingSnapshot,
-  type DispatchPolicyDecision,
-  type FactoryRatingDocumentTypeLabel,
 } from '../data/fcs/third-party-factory-rating.ts'
 
 type KitFilter = '全部' | SewingDispatchKitStatus
@@ -64,8 +62,6 @@ export interface SewingDispatchWorkbenchState {
   dispatchActionType: '直接派单' | '发起竞价'
   dispatchBatchFactoryId: string
   dispatchFactoryIdByRowId: Record<string, string>
-  dispatchRiskConfirmedByFactoryId: Record<string, boolean>
-  dispatchSupervisorAssignedByFactoryId: Record<string, boolean>
   dispatchSelectedRowIds: Set<string>
   dispatchMainFactoryIdByProductionOrderId: Record<string, string>
   dispatchBusinessAssignedAt: string
@@ -95,8 +91,6 @@ const state: SewingDispatchWorkbenchState = {
   dispatchActionType: '直接派单',
   dispatchBatchFactoryId: '',
   dispatchFactoryIdByRowId: {},
-  dispatchRiskConfirmedByFactoryId: {},
-  dispatchSupervisorAssignedByFactoryId: {},
   dispatchSelectedRowIds: new Set<string>(),
   dispatchMainFactoryIdByProductionOrderId: {},
   dispatchBusinessAssignedAt: '',
@@ -135,87 +129,48 @@ function renderReassignmentDialog(): string {
   const remainingQty = Math.max(task.scopeQty - confirmed, 0)
   const selectedFactory = factories.find((factory) => factory.id === state.reassignFactoryId)
   const mainFactoryOptions = [...listProductionOrderSewingFactories(task.productionOrderId).filter((factory) => factory.id !== task.assignedFactoryId), ...(selectedFactory ? [{ id: selectedFactory.id, name: selectedFactory.name }] : [])].filter((factory, index, list) => list.findIndex((item) => item.id === factory.id) === index)
-  const policyFeedback = selectedFactory
-    ? renderReassignPolicyFeedback(task, selectedFactory.id, remainingQty)
-    : ''
+  const previewModel = buildSewingDeliverySlaPreviewModel({
+    task,
+    businessAssignedAt: state.reassignBusinessAssignedAt,
+    assignedQty: remainingQty,
+    currentOperationAt: sewingDispatchNowProvider(),
+  })
+  const confirmDisabled = !state.reassignFactoryId || !previewModel.valid
   return `
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <button class="absolute inset-0 bg-slate-900/40" data-sewing-dispatch-action="close-reassign" aria-label="关闭改派弹窗"></button>
-      <section class="relative z-10 w-full max-w-xl rounded-lg border bg-background shadow-xl">
-        <header class="border-b px-5 py-4">
-          <h2 class="text-lg font-semibold">改派独立车缝任务</h2>
-          <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</p>
-        </header>
-        <div class="space-y-3 px-5 py-4">
-          ${state.reassignError ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(state.reassignError)}</div>` : ''}
+      <section class="relative z-10 max-h-[88vh] w-full max-w-xl overflow-hidden rounded-lg border bg-background shadow-xl">
+        <header class="border-b px-5 py-4"><h2 class="text-lg font-semibold">改派独立车缝任务</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(task.taskNo || task.taskId)}</p></header>
+        <div class="max-h-[calc(88vh-142px)] space-y-3 overflow-auto px-5 py-4">
+          <div data-sewing-reassign-error>${state.reassignError ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(state.reassignError)}</div>` : ''}</div>
           <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm">原工厂：${escapeHtml(task.assignedFactoryName || '未记录')}｜已确认实收 ${formatQty(confirmed)} 件｜剩余 ${formatQty(remainingQty)} 件</div>
-          <label class="block text-sm">目标工厂
-            <select class="mt-1 h-9 w-full rounded-md border px-3" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignFactoryId">
-              <option value="">请选择目标工厂</option>
-              ${factories.map((factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === state.reassignFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}
-            </select>
-          </label>
-          ${policyFeedback}
-          <label class="block text-sm">业务分配时间<input type="datetime-local" class="mt-1 h-9 w-full rounded-md border px-3" value="${escapeHtml(state.reassignBusinessAssignedAt)}" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignBusinessAssignedAt" /></label>
+          <label class="block text-sm">目标工厂<select class="mt-1 h-9 w-full rounded-md border px-3" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignFactoryId"><option value="">请选择目标工厂</option>${factories.map((factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === state.reassignFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label>
+          <label class="block text-sm">业务分配时间<input type="datetime-local" class="mt-1 h-9 w-full rounded-md border px-3" value="${escapeHtml(state.reassignBusinessAssignedAt)}" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignBusinessAssignedAt" /><span class="mt-1 block text-xs text-muted-foreground">可回填，但不能晚于提交时的当前时间；改派后目标工厂自动接单。</span></label>
+          <div data-sewing-reassign-sla-preview-slot>${renderSewingDeliverySlaPreview({ task, businessAssignedAt: state.reassignBusinessAssignedAt, assignedQty: remainingQty, currentOperationAt: sewingDispatchNowProvider() })}</div>
           <label class="block text-sm">改派原因<input class="mt-1 h-9 w-full rounded-md border px-3" value="${escapeHtml(state.reassignReason)}" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignReason" /></label>
           <label class="block text-sm">改派后主工厂<select class="mt-1 h-9 w-full rounded-md border px-3" data-skip-page-rerender="true" data-sewing-dispatch-field="reassignMainFactoryId"><option value="">候选超过一家时请选择</option>${mainFactoryOptions.map((factory) => `<option value="${escapeHtml(factory.id)}" ${factory.id === state.reassignMainFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`).join('')}</select></label>
         </div>
-        <footer class="flex justify-end gap-2 border-t px-5 py-4">
-          <button class="h-9 rounded-md border px-4 text-sm" data-sewing-dispatch-action="close-reassign">取消</button>
-          <button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white" data-sewing-dispatch-action="confirm-reassign">确认改派</button>
-        </footer>
+        <footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="h-9 rounded-md border px-4 text-sm" data-sewing-dispatch-action="close-reassign">取消</button><button class="h-9 rounded-md bg-blue-600 px-4 text-sm text-white ${confirmDisabled ? 'cursor-not-allowed opacity-50' : ''}" data-sewing-reassign-confirm data-sewing-dispatch-action="confirm-reassign" ${confirmDisabled ? 'disabled' : ''}>确认改派</button></footer>
       </section>
     </div>
   `
 }
 
-function getReassignPolicyDecision(
-  task: RuntimeProcessTask,
-  factoryId: string,
-  dispatchQty: number,
-): DispatchPolicyDecision {
-  if (!isPageDispatchRatingGovernanceTarget(factoryId)) {
-    return createPageAllowDispatchDecision('普通车缝工厂按改派规则处理。', ['可改派'])
+function refreshSewingReassignmentSlaPreview(): void {
+  if (typeof document === 'undefined') return
+  const task = state.reassignTaskId ? getRuntimeTaskById(state.reassignTaskId) : null
+  if (!task) return
+  const remainingQty = Math.max(task.scopeQty - sumSewingDeliveryConfirmedReceiptQty(task.taskId), 0)
+  const input = { task, businessAssignedAt: state.reassignBusinessAssignedAt, assignedQty: remainingQty, currentOperationAt: sewingDispatchNowProvider() }
+  const slot = document.querySelector<HTMLElement>('[data-sewing-reassign-sla-preview-slot]')
+  if (slot) slot.innerHTML = renderSewingDeliverySlaPreview(input)
+  const button = document.querySelector<HTMLButtonElement>('[data-sewing-reassign-confirm]')
+  if (button) {
+    const disabled = !state.reassignFactoryId || !buildSewingDeliverySlaPreviewModel(input).valid
+    button.disabled = disabled
+    button.classList.toggle('cursor-not-allowed', disabled)
+    button.classList.toggle('opacity-50', disabled)
   }
-  if (!getThirdPartyFactoryRatingSnapshot(factoryId)) {
-    return {
-      allowed: false,
-      severity: 'BLOCK',
-      reason: '该三方车缝工厂缺少三方评级快照，不能改派。请先完成评级。',
-      displayBadges: ['未评级', '禁止改派'],
-      requiresConfirm: false,
-      sortPriority: 0,
-    }
-  }
-  const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
-  const saleType = order?.demandSnapshot.saleType ?? ''
-  const documentTypeLabel: FactoryRatingDocumentTypeLabel =
-    saleType.includes('样衣') || saleType.includes('样品') || saleType.includes('小单') ? '试产单' : '常规单'
-  return evaluateThirdPartyFactoryDispatchPolicy({
-    factoryId,
-    actionType: '直接派单',
-    documentTypeLabel,
-    dispatchQty,
-    isUrgentOrder: order?.demandSnapshot.priority === 'URGENT',
-    riskConfirmed: state.dispatchRiskConfirmedByFactoryId[factoryId] === true,
-    isSupervisorAssigned: state.dispatchSupervisorAssignedByFactoryId[factoryId] === true,
-  })
-}
-
-function renderReassignPolicyFeedback(task: RuntimeProcessTask, factoryId: string, dispatchQty: number): string {
-  const decision = getReassignPolicyDecision(task, factoryId, dispatchQty)
-  const tone = decision.severity === 'BLOCK'
-    ? 'border-red-200 bg-red-50 text-red-700'
-    : decision.severity === 'WARN'
-      ? 'border-amber-200 bg-amber-50 text-amber-800'
-      : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-  const riskConfirm = decision.requiresConfirm && decision.reason.includes('黄牌')
-    ? `<label class="mt-2 flex items-center gap-2 text-xs"><input type="checkbox" ${state.dispatchRiskConfirmedByFactoryId[factoryId] ? 'checked' : ''} data-sewing-dispatch-field="dispatchRiskConfirmed" data-factory-id="${escapeHtml(factoryId)}" data-skip-page-rerender="true" />已确认黄牌风险</label>`
-    : ''
-  const supervisorConfirm = decision.requiresConfirm && decision.reason.includes('主管指定')
-    ? `<label class="mt-2 flex items-center gap-2 text-xs"><input type="checkbox" ${state.dispatchSupervisorAssignedByFactoryId[factoryId] ? 'checked' : ''} data-sewing-dispatch-field="dispatchSupervisorAssigned" data-factory-id="${escapeHtml(factoryId)}" data-skip-page-rerender="true" />主管已指定改派</label>`
-    : ''
-  return `<div class="rounded-md border px-3 py-2 text-xs ${tone}">${escapeHtml(decision.reason)}${riskConfirm}${supervisorConfirm}</div>`
 }
 
 function refreshSewingReassignmentDialog(): void {
@@ -237,87 +192,31 @@ function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
 }
 
-function derivePageDispatchDocumentType(row: SewingDispatchWorkbenchRow): FactoryRatingDocumentTypeLabel {
-  const order = productionOrders.find((item) => item.productionOrderId === row.productionOrderId)
-  const saleType = order?.demandSnapshot.saleType ?? ''
-  return saleType.includes('样衣') || saleType.includes('样品') || saleType.includes('小单') ? '试产单' : '常规单'
-}
-
-function isPageDispatchUrgent(row: SewingDispatchWorkbenchRow): boolean {
-  return productionOrders.find((item) => item.productionOrderId === row.productionOrderId)?.demandSnapshot.priority === 'URGENT'
-}
-
-function isPageDispatchRatingGovernanceTarget(factoryId: string): boolean {
+function getDispatchFactoryBlockMessage(factoryId: string): string {
   const rating = getThirdPartyFactoryRatingSnapshot(factoryId)
-  if (rating) return true
-  const factory = listFactoryMasterRecords().find((item) => item.id === factoryId)
-  if (!factory) return false
-  return factory.factoryTier === 'THIRD_PARTY' &&
-    (
-      factory.factoryType === 'THIRD_SEWING' ||
-      factory.processAbilities.some((ability) => ability.processCode === 'SEW')
-    )
+  if (!rating) return ''
+  if (rating.cooperationStatusLabel === '黑名单') return '该工厂已拉黑，不能派单。请更换工厂。'
+  if (rating.cooperationStatusLabel === '考核中') return '该工厂还在试用期，只能接试产单。'
+  return ''
 }
 
-function createPageAllowDispatchDecision(reason: string, displayBadges: string[], sortPriority = 60): DispatchPolicyDecision {
-  return {
-    allowed: true,
-    severity: 'ALLOW',
-    reason,
-    displayBadges,
-    requiresConfirm: false,
-    sortPriority,
-  }
+function renderDispatchFactoryRisk(factoryId: string): string {
+  const message = getDispatchFactoryBlockMessage(factoryId)
+  return message ? `<div class="mt-1 text-xs text-red-600">${escapeHtml(message)}</div>` : ''
 }
 
-function getPageDispatchPolicyDecision(row: SewingDispatchWorkbenchRow, factoryId: string): DispatchPolicyDecision {
-  if (!isPageDispatchRatingGovernanceTarget(factoryId)) {
-    return createPageAllowDispatchDecision('普通车缝工厂按派单齐套规则处理。', ['可派单'])
-  }
-  if (!getThirdPartyFactoryRatingSnapshot(factoryId)) {
-    return {
-      allowed: false,
-      severity: 'BLOCK',
-      reason: '该三方车缝工厂缺少三方评级快照，不能派单。请先完成评级。',
-      displayBadges: ['未评级', '禁止派单'],
-      requiresConfirm: false,
-      sortPriority: 0,
-    }
-  }
-  return evaluateThirdPartyFactoryDispatchPolicy({
-    factoryId,
-    actionType: state.dispatchActionType,
-    documentTypeLabel: derivePageDispatchDocumentType(row),
-    dispatchQty: row.remainingQty,
-    isUrgentOrder: isPageDispatchUrgent(row),
-    riskConfirmed: state.dispatchRiskConfirmedByFactoryId[factoryId] === true,
-    isSupervisorAssigned: state.dispatchSupervisorAssignedByFactoryId[factoryId] === true,
-  })
-}
-
-function renderDispatchFactoryOption(factory: { id: string; name: string }, row?: SewingDispatchWorkbenchRow, selectedFactoryId = ''): string {
+function renderDispatchFactoryOption(factory: { id: string; name: string }, selectedFactoryId = ''): string {
   const rating = getThirdPartyFactoryRatingSnapshot(factory.id)
-  const decision = row ? getPageDispatchPolicyDecision(row, factory.id) : null
-  const disabled = decision?.severity === 'BLOCK'
-  const badges = decision?.displayBadges.join(' · ') || (rating ? `${rating.currentGrade}级 · ${rating.cooperationStatusLabel}` : '')
-  return `<option value="${escapeHtml(factory.id)}" ${selectedFactoryId === factory.id ? 'selected' : ''} ${disabled ? 'disabled' : ''}>${escapeHtml(`${factory.name}${badges ? ` · ${badges}` : ''}`)}</option>`
+  const disabled = rating?.cooperationStatusLabel === '黑名单' || rating?.cooperationStatusLabel === '考核中'
+  const ratingLabel = rating ? ` · ${rating.currentGrade}级 · ${rating.dispatchPolicyLabel}` : ''
+  return `<option value="${escapeHtml(factory.id)}" ${selectedFactoryId === factory.id ? 'selected' : ''} ${disabled ? 'disabled' : ''}>${escapeHtml(`${factory.name}${ratingLabel}`)}</option>`
 }
 
-function renderDispatchPolicyFeedback(row: SewingDispatchWorkbenchRow, factoryId: string): string {
-  if (!factoryId) return ''
-  const decision = getPageDispatchPolicyDecision(row, factoryId)
-  const tone = decision.severity === 'BLOCK'
-    ? 'border-red-200 bg-red-50 text-red-700'
-    : decision.severity === 'WARN'
-      ? 'border-amber-200 bg-amber-50 text-amber-800'
-      : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-  const riskConfirm = decision.requiresConfirm && decision.reason.includes('黄牌')
-    ? `<label class="mt-2 flex items-center gap-2 text-xs"><input type="checkbox" ${state.dispatchRiskConfirmedByFactoryId[factoryId] ? 'checked' : ''} data-sewing-dispatch-field="dispatchRiskConfirmed" data-factory-id="${escapeHtml(factoryId)}" data-skip-page-rerender="true" />已确认黄牌风险</label>`
-    : ''
-  const supervisorConfirm = decision.requiresConfirm && decision.reason.includes('主管指定')
-    ? `<label class="mt-2 flex items-center gap-2 text-xs"><input type="checkbox" ${state.dispatchSupervisorAssignedByFactoryId[factoryId] ? 'checked' : ''} data-sewing-dispatch-field="dispatchSupervisorAssigned" data-factory-id="${escapeHtml(factoryId)}" data-skip-page-rerender="true" />主管已指定派单</label>`
-    : ''
-  return `<div class="mt-1 rounded-md border px-2 py-1 text-xs ${tone}">${escapeHtml(decision.reason)}${riskConfirm}${supervisorConfirm}</div>`
+function getCutPieceReleaseBadgeClass(decision: CutPieceReleaseSummary['decision']): string {
+  if (decision === '可以做') return 'border-green-200 bg-green-50 text-green-700'
+  if (decision === '部分可以做') return 'border-blue-200 bg-blue-50 text-blue-700'
+  if (decision === '暂时不能做') return 'border-rose-200 bg-rose-50 text-rose-700'
+  return 'border-amber-200 bg-amber-50 text-amber-700'
 }
 
 function getTaskCutPieceReleaseSummary(task: SewingDispatchWorkbenchTask): CutPieceReleaseSummary | null {
@@ -499,38 +398,20 @@ function renderDispatchAcceptanceSlaPreview(rows: SewingDispatchWorkbenchRow[], 
   `
 }
 
-function renderDirectDispatchDeadlines(rows: SewingDispatchWorkbenchRow[]): string {
-  if (!state.dispatchBusinessAssignedAt) return ''
-  try {
-    const acceptedAt = dateTimeLocalToOperationWallClock(state.dispatchBusinessAssignedAt)
-    const task = getRuntimeTaskById(rows[0]?.taskId ?? '')
-    const slaKind = task ? classifySewingDeliverySla(task) : null
-    if (!task || !slaKind) return ''
-    const snapshot = createSewingDeliverySlaSnapshot({
-      assignmentId: 'SEWING-DISPATCH-PREVIEW',
-      runtimeTaskId: task.taskId,
-      productionOrderId: task.productionOrderId,
-      factoryId: 'PREVIEW',
-      factoryName: '预览',
-      assignedQty: rows.reduce((sum, row) => sum + row.remainingQty, 0),
-      acceptedAt,
-      slaKind,
-    })
-    const [thirty, seventy, hundred] = snapshot.milestones
-    const deadlines: Array<[string, string, string]> = [
-      ['交付完成', hundred.deadlineAt, '前完成 100%'],
-      ['30% 回货', thirty.deadlineAt, '前确认实收达到 30%'],
-      ['70% 回货', seventy.deadlineAt, '前确认实收达到 70%'],
-      ['100% 回货', hundred.deadlineAt, '前确认实收达到 100%'],
-    ]
-    return `<section data-sewing-dispatch-deadline-region class="space-y-2 rounded-md border p-3">
-      <div class="text-sm font-medium">交付时效与按比例回货要求</div>
-      ${deadlines.map(([label, deadlineAt, requirement]) => `<div class="grid gap-1 text-sm sm:grid-cols-[110px_1fr]"><span class="text-muted-foreground">${label}</span><span class="font-medium">${escapeHtml(deadlineAt.slice(0, 16))} ${requirement}</span></div>`).join('')}
-      <div class="text-xs text-muted-foreground">以业务分配时间作为自动接单时间，按满 24 小时滚动；仅接收方确认实收计入回货比例。</div>
-    </section>`
-  } catch {
-    return '<section data-sewing-dispatch-deadline-region class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">请填写有效的业务分配时间。</section>'
+function getDirectDispatchSlaPreviewInput(rows = getDispatchCandidateRows()) {
+  const task = getRuntimeTaskById(rows[0]?.taskId ?? '')
+  if (!task) return null
+  return {
+    task,
+    businessAssignedAt: state.dispatchBusinessAssignedAt,
+    assignedQty: rows.reduce((sum, row) => sum + row.remainingQty, 0),
+    currentOperationAt: sewingDispatchNowProvider(),
   }
+}
+
+function renderDirectDispatchSlaPreview(rows: SewingDispatchWorkbenchRow[]): string {
+  const input = getDirectDispatchSlaPreviewInput(rows)
+  return input ? renderSewingDeliverySlaPreview(input) : ''
 }
 
 function getSelectedFactoryCandidatesByProductionOrder(rows: SewingDispatchWorkbenchRow[]): Map<string, Array<{ id: string; name: string }>> {
@@ -691,17 +572,12 @@ function renderCutPieceReleaseSummary(task: SewingDispatchWorkbenchTask): string
   }
   return `
     <div class="space-y-1 text-xs">
-      ${renderBadge('当前齐套', summary.matrixStatus === '可计算' ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700')}
-      <div class="font-medium">当前齐套 ${formatQty(sumCurrentCompleteKit(summary))} 件</div>
-      <div class="max-w-[240px] leading-5 text-muted-foreground">按当前裁片矩阵计算；目标数量仅作业务确认，不代表最低回货承诺。</div>
-      <div class="text-muted-foreground">矩阵 V${summary.latestMatrixVersion} · ${escapeHtml(summary.latestUpdatedAt.slice(0, 16))}</div>
-      ${summary.targetStatus === '目标后数据已变化' ? '<div class="text-amber-700">目标后数据已变化，请重新确认。</div>' : ''}
+      ${renderBadge(summary.decision, getCutPieceReleaseBadgeClass(summary.decision))}
+      <div class="font-medium">可做 ${formatQty(summary.releaseQty)} 件</div>
+      <div class="max-w-[220px] leading-5 text-muted-foreground">${escapeHtml(summary.reason)}</div>
+      <div class="text-muted-foreground">${escapeHtml(summary.judgedBy || '待确认')} ${summary.judgedAt ? `· ${escapeHtml(summary.judgedAt.slice(0, 16))}` : ''}</div>
     </div>
   `
-}
-
-function sumCurrentCompleteKit(summary: CutPieceReleaseSummary): number {
-  return Object.values(summary.currentCompleteKitQtyByColorSize).reduce<number>((sum, qty) => sum + (typeof qty === 'number' ? qty : 0), 0)
 }
 
 function renderCutOrderClosure(task: SewingDispatchWorkbenchTask): string {
@@ -830,7 +706,7 @@ function renderTaskRow(task: SewingDispatchWorkbenchTask): string {
           </div>
         </div>
       </td>
-      <td class="px-3 py-4 align-top"><div class="font-medium">${task.skuRows.length} 个 SKU</div><div class="mt-1 text-xs text-muted-foreground">任务 ${formatQty(task.remainingQty)} 件</div><div class="mt-2">${renderCutPieceReleaseSummary(task)}</div></td>
+      <td class="px-3 py-4 align-top"><div class="font-medium">${task.skuRows.length} 个 SKU</div><div class="mt-1 text-xs text-muted-foreground">任务 ${formatQty(task.remainingQty)} 件</div></td>
       <td class="px-3 py-4 align-top"><div class="font-medium ${allocatableRows.length ? 'text-green-700' : 'text-amber-700'}">${allocatableRows.length ? `${allocatableRows.length} 个 SKU 可分配` : '暂无可整量分配 SKU'}</div><div class="mt-1 text-xs text-muted-foreground">${formatQty(allocatableQty)} 件</div></td>
       <td class="max-w-[260px] px-3 py-4 align-top"><div class="text-xs leading-5 ${allocatableRows.length === task.skuRows.length ? 'text-green-700' : 'text-amber-700'}">${escapeHtml(blockingReason)}</div></td>
       <td class="px-3 py-4 align-top"><div>${renderBadge(task.assignmentStatusLabel, 'border-slate-200 bg-slate-50 text-slate-700')}</div><div class="mt-2 text-xs text-muted-foreground">尚未确定承接工厂</div></td>
@@ -877,7 +753,7 @@ function renderDetailDrawer(task: SewingDispatchWorkbenchTask | undefined): stri
         <div class="min-h-0 flex-1 overflow-auto p-5">
           <div class="grid gap-3 sm:grid-cols-5">
             ${renderMetricCard('完整齐套数量', `${formatQty(task.completeKitQty)} 件`, `${task.completeSkuCount}/${task.skuCount} 个 SKU 已齐套`, task.kitStatus === '已齐套' ? 'text-green-700' : 'text-amber-700')}
-            ${releaseSummary ? renderMetricCard('裁床判断', '当前齐套', `当前齐套 ${formatQty(sumCurrentCompleteKit(releaseSummary))} 件 · 矩阵 V${releaseSummary.latestMatrixVersion}`, releaseSummary.matrixStatus === '可计算' ? 'text-green-700' : 'text-amber-700') : renderMetricCard('裁床判断', '待判断', '尚未形成裁片放行判断', 'text-amber-700')}
+            ${renderMetricCard('裁床判断', releaseSummary?.decision || '待判断', releaseSummary ? `可做 ${formatQty(releaseSummary.releaseQty)} 件` : '尚未形成裁片放行判断', releaseSummary?.decision === '暂时不能做' ? 'text-rose-700' : releaseSummary?.decision === '待判断' ? 'text-amber-700' : 'text-blue-700')}
             ${renderMetricCard('待分配数量', `${formatQty(task.remainingQty)} 件`, task.mainFactoryStatusLabel)}
             ${renderMetricCard('裁片单闭环', `${task.cutOrderClosure.closedCount}/${task.cutOrderClosure.totalCount}`, task.cutOrderClosure.statusLabel)}
             ${renderMetricCard('缺口类型', task.gapTypes.length ? task.gapTypes.join('、') : '无', '仅展示事实，由跟单判断分配节奏')}
@@ -1244,12 +1120,12 @@ function renderDispatchCutPieceReleaseNotice(rows: SewingDispatchWorkbenchRow[],
             <div class="rounded-md border bg-background px-3 py-2 text-xs">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="font-medium">${escapeHtml(task.productionOrderNo)} · ${escapeHtml(task.taskNo)}</span>
-                ${renderBadge('当前齐套', summary.matrixStatus === '可计算' ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700')}
-                <span class="text-blue-700">当前齐套 ${formatQty(sumCurrentCompleteKit(summary))} 件</span>
+                ${renderBadge(summary.decision, getCutPieceReleaseBadgeClass(summary.decision))}
+                <span class="text-blue-700">可做 ${formatQty(summary.releaseQty)} 件</span>
               </div>
-              <div class="mt-1 leading-5 text-muted-foreground">当前齐套来自裁片放行矩阵，目标数量不代表最低回货承诺。</div>
-              ${summary.targetStatus === '目标后数据已变化' ? '<div class="mt-1 text-amber-700">目标后数据已变化，请重新确认。</div>' : ''}
-              <div class="mt-1 text-muted-foreground">矩阵 V${summary.latestMatrixVersion} · ${escapeHtml(summary.latestUpdatedAt.slice(0, 16))}</div>
+              <div class="mt-1 leading-5 text-muted-foreground">${escapeHtml(summary.reason)}</div>
+              ${summary.riskNote ? `<div class="mt-1 text-amber-700">${escapeHtml(summary.riskNote)}</div>` : ''}
+              <div class="mt-1 text-muted-foreground">确认：${escapeHtml(summary.judgedBy || '待确认')} ${summary.judgedAt ? `· ${escapeHtml(summary.judgedAt.slice(0, 16))}` : ''}</div>
             </div>
           `
         }).join('')}
@@ -1272,7 +1148,7 @@ function renderDirectDispatchFactoryRows(rows: SewingDispatchWorkbenchRow[]): st
       <td class="px-3 py-3 font-medium">${escapeHtml(row.skuCode)}</td>
       <td class="px-3 py-3">${escapeHtml(row.colorName)} / ${escapeHtml(row.sizeCode)}</td>
       <td class="px-3 py-3 tabular-nums">${formatQty(row.remainingQty)} 件</td>
-      <td class="px-3 py-3"><select class="h-9 min-w-[240px] rounded-md border bg-background px-3 text-sm" data-sewing-dispatch-field="dispatchFactoryForRow" data-row-id="${escapeHtml(row.rowId)}" data-skip-page-rerender="true"><option value="">请选择承接工厂</option>${factories.map((factory) => renderDispatchFactoryOption(factory, row, selectedFactoryId)).join('')}</select>${renderDispatchPolicyFeedback(row, selectedFactoryId)}</td>
+      <td class="px-3 py-3"><select class="h-9 min-w-[240px] rounded-md border bg-background px-3 text-sm" data-sewing-dispatch-field="dispatchFactoryForRow" data-row-id="${escapeHtml(row.rowId)}" data-skip-page-rerender="true"><option value="">请选择承接工厂</option>${factories.map((factory) => renderDispatchFactoryOption(factory, selectedFactoryId)).join('')}</select>${renderDispatchFactoryRisk(selectedFactoryId)}</td>
     </tr>`
   }).join('')
 }
@@ -1281,20 +1157,23 @@ function renderDirectDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): strin
   const rows = getDispatchCandidateRows(tasks)
   const factories = listSewingFactoryOptions()
   const missingFactory = rows.some((row) => !state.dispatchFactoryIdByRowId[row.rowId])
+  const previewInput = getDirectDispatchSlaPreviewInput(rows)
+  const previewInvalid = !previewInput || !buildSewingDeliverySlaPreviewModel(previewInput).valid
+  const confirmDisabled = rows.length === 0 || missingFactory || previewInvalid
   return `<div class="fixed inset-0 z-50" role="dialog" aria-modal="true">
     <button class="absolute inset-0 bg-black/40" data-sewing-dispatch-action="close-dispatch" data-skip-page-rerender="true" aria-label="关闭"></button>
     <section class="absolute left-1/2 top-1/2 max-h-[88vh] w-[min(900px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border bg-background shadow-xl">
       <header class="flex items-start justify-between border-b px-5 py-4"><div><h3 class="text-lg font-semibold">直接派单</h3><p class="mt-1 text-sm text-muted-foreground">为每个完整 SKU 选择一家承接工厂；同一个 SKU 不拆数量。</p></div><button class="rounded-md px-2 py-1 text-lg hover:bg-muted" data-sewing-dispatch-action="close-dispatch" data-skip-page-rerender="true">×</button></header>
       <div class="max-h-[calc(88vh-142px)] space-y-4 overflow-auto p-5">
         <label class="block max-w-sm space-y-1"><span class="text-sm font-medium">业务分配时间</span><input type="datetime-local" class="h-10 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.dispatchBusinessAssignedAt)}" data-sewing-dispatch-field="dispatchBusinessAssignedAt" data-skip-page-rerender="true" /><span class="block text-xs text-muted-foreground">可回填，但不能晚于提交时的当前时间；派单后工厂自动接单。</span></label>
-        <section class="space-y-3"><div class="flex flex-wrap items-end justify-between gap-3"><div><div class="text-sm font-medium">SKU 与承接工厂</div><div class="mt-1 text-xs text-muted-foreground">勾选仅用于批量设置工厂，所有下列 SKU 均参与本次派单。</div></div><div class="flex items-end gap-2"><label class="space-y-1"><span class="block text-xs text-muted-foreground">批量承接工厂</span><select class="h-9 min-w-[220px] rounded-md border bg-background px-3 text-sm" data-sewing-dispatch-field="dispatchBatchFactoryId" data-skip-page-rerender="true"><option value="">请选择工厂</option>${factories.map((factory) => renderDispatchFactoryOption(factory, undefined, state.dispatchBatchFactoryId)).join('')}</select></label><button class="h-9 rounded-md border px-3 text-sm hover:bg-muted" data-sewing-dispatch-action="apply-batch-factory" data-skip-page-rerender="true">应用到已勾选 SKU</button></div></div>
+        <section class="space-y-3"><div class="flex flex-wrap items-end justify-between gap-3"><div><div class="text-sm font-medium">SKU 与承接工厂</div><div class="mt-1 text-xs text-muted-foreground">勾选仅用于批量设置工厂，所有下列 SKU 均参与本次派单。</div></div><div class="flex items-end gap-2"><label class="space-y-1"><span class="block text-xs text-muted-foreground">批量承接工厂</span><select class="h-9 min-w-[220px] rounded-md border bg-background px-3 text-sm" data-sewing-dispatch-field="dispatchBatchFactoryId" data-skip-page-rerender="true"><option value="">请选择工厂</option>${factories.map((factory) => renderDispatchFactoryOption(factory, state.dispatchBatchFactoryId)).join('')}</select></label><button class="h-9 rounded-md border px-3 text-sm hover:bg-muted" data-sewing-dispatch-action="apply-batch-factory" data-skip-page-rerender="true">应用到已勾选 SKU</button></div></div>
           <div class="overflow-x-auto rounded-lg border"><table class="w-full min-w-[760px] text-sm"><thead><tr class="border-b bg-muted/40 text-xs text-muted-foreground"><th class="w-14 px-3 py-2">选择</th><th class="px-3 py-2 text-left">SKU</th><th class="px-3 py-2 text-left">颜色 / 尺码</th><th class="px-3 py-2 text-left">任务数量</th><th class="px-3 py-2 text-left">承接工厂</th></tr></thead><tbody data-sewing-dispatch-factory-rows>${renderDirectDispatchFactoryRows(rows)}</tbody></table></div>
         </section>
         ${renderDispatchMainFactoryChoices(rows)}
-        ${renderDirectDispatchDeadlines(rows)}
+        <div data-sewing-direct-sla-preview-slot>${renderDirectDispatchSlaPreview(rows)}</div>
         ${renderDispatchErrorRegion()}
       </div>
-      <footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="rounded-md border px-4 py-2 text-sm" data-sewing-dispatch-action="close-dispatch" data-skip-page-rerender="true">取消</button><button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white ${rows.length === 0 || missingFactory ? 'cursor-not-allowed opacity-50' : ''}" data-sewing-dispatch-action="confirm-dispatch" data-skip-page-rerender="true" ${rows.length === 0 || missingFactory ? 'disabled' : ''}>确认派单</button></footer>
+      <footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="rounded-md border px-4 py-2 text-sm" data-sewing-dispatch-action="close-dispatch" data-skip-page-rerender="true">取消</button><button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white ${confirmDisabled ? 'cursor-not-allowed opacity-50' : ''}" data-sewing-direct-confirm data-sewing-dispatch-action="confirm-dispatch" data-skip-page-rerender="true" ${confirmDisabled ? 'disabled' : ''}>确认派单</button></footer>
     </section>
   </div>`
 }
@@ -1320,6 +1199,7 @@ function refreshSewingDispatchFactoryRows(): void {
   const region = document.querySelector<HTMLElement>('[data-sewing-dispatch-factory-rows]')
   if (region) region.innerHTML = renderDirectDispatchFactoryRows(getDispatchCandidateRows())
   refreshSewingDispatchMainFactoryRegion()
+  refreshSewingDispatchSlaPreview()
   refreshSewingDispatchErrorRegion()
 }
 
@@ -1329,10 +1209,20 @@ function refreshSewingDispatchMainFactoryRegion(): void {
   if (region) region.outerHTML = renderDispatchMainFactoryChoices(getDispatchCandidateRows())
 }
 
-function refreshSewingDispatchDeadlineRegion(): void {
+function refreshSewingDispatchSlaPreview(): void {
   if (typeof document === 'undefined') return
-  const region = document.querySelector<HTMLElement>('[data-sewing-dispatch-deadline-region]')
-  if (region) region.outerHTML = renderDirectDispatchDeadlines(getDispatchCandidateRows())
+  const rows = getDispatchCandidateRows()
+  const input = getDirectDispatchSlaPreviewInput(rows)
+  const slot = document.querySelector<HTMLElement>('[data-sewing-direct-sla-preview-slot]')
+  if (slot) slot.innerHTML = input ? renderSewingDeliverySlaPreview(input) : ''
+  const button = document.querySelector<HTMLButtonElement>('[data-sewing-direct-confirm]')
+  if (button) {
+    const missingFactory = rows.some((row) => !state.dispatchFactoryIdByRowId[row.rowId])
+    const disabled = rows.length === 0 || missingFactory || !input || !buildSewingDeliverySlaPreviewModel(input).valid
+    button.disabled = disabled
+    button.classList.toggle('cursor-not-allowed', disabled)
+    button.classList.toggle('opacity-50', disabled)
+  }
 }
 
 function refreshSewingDispatchErrorRegion(): void {
@@ -1437,8 +1327,16 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
     state.page = 1
     return
   }
-  if (field === 'reassignFactoryId') state.reassignFactoryId = node.value
-  if (field === 'reassignBusinessAssignedAt') state.reassignBusinessAssignedAt = node.value
+  if (field === 'reassignFactoryId') {
+    state.reassignFactoryId = node.value
+    state.reassignError = ''
+    refreshSewingReassignmentSlaPreview()
+  }
+  if (field === 'reassignBusinessAssignedAt') {
+    state.reassignBusinessAssignedAt = node.value
+    state.reassignError = ''
+    refreshSewingReassignmentSlaPreview()
+  }
   if (field === 'reassignReason') state.reassignReason = node.value
   if (field === 'reassignMainFactoryId') state.reassignMainFactoryId = node.value
   if (field === 'selectTask' && node instanceof HTMLInputElement) {
@@ -1464,21 +1362,9 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
     const rowId = node.dataset.rowId
     if (rowId) state.dispatchFactoryIdByRowId[rowId] = node.value
     state.dispatchError = ''
-    refreshSewingDispatchFactoryRows()
-    return
-  }
-  if (field === 'dispatchRiskConfirmed' && node instanceof HTMLInputElement) {
-    const factoryId = node.dataset.factoryId
-    if (factoryId) state.dispatchRiskConfirmedByFactoryId[factoryId] = node.checked
-    state.dispatchError = ''
-    refreshSewingDispatchFactoryRows()
-    return
-  }
-  if (field === 'dispatchSupervisorAssigned' && node instanceof HTMLInputElement) {
-    const factoryId = node.dataset.factoryId
-    if (factoryId) state.dispatchSupervisorAssignedByFactoryId[factoryId] = node.checked
-    state.dispatchError = ''
-    refreshSewingDispatchFactoryRows()
+    refreshSewingDispatchMainFactoryRegion()
+    refreshSewingDispatchSlaPreview()
+    refreshSewingDispatchErrorRegion()
     return
   }
   if (field === 'dispatchMainFactory') {
@@ -1500,7 +1386,7 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
   if (field === 'dispatchBusinessAssignedAt') {
     state.dispatchBusinessAssignedAt = node.value
     state.dispatchError = ''
-    refreshSewingDispatchDeadlineRegion()
+    refreshSewingDispatchSlaPreview()
     refreshSewingDispatchErrorRegion()
   }
 }
@@ -1512,8 +1398,6 @@ function openDispatch(taskId: string | undefined, type: string | undefined): voi
   state.dispatchOpen = selectedRows.length > 0
   state.dispatchBatchFactoryId = ''
   state.dispatchFactoryIdByRowId = Object.fromEntries(selectedRows.map((row) => [row.rowId, '']))
-  state.dispatchRiskConfirmedByFactoryId = {}
-  state.dispatchSupervisorAssignedByFactoryId = {}
   state.dispatchSelectedRowIds = new Set(selectedRows.map((row) => row.rowId))
   state.dispatchMainFactoryIdByProductionOrderId = Object.fromEntries(Array.from(new Set(selectedRows.map((row) => row.productionOrderId))).map((productionOrderId) => {
     const order = productionOrders.find((item) => item.productionOrderId === productionOrderId)
@@ -1604,18 +1488,7 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement, event?: 
     if (!task || !factory) { state.reassignError = '请选择目标工厂'; return true }
     try {
       const operatedAt = sewingDispatchNowProvider()
-      const result = reassignRuntimeSewingTask({
-        sourceTaskId: task.taskId,
-        targetFactoryId: factory.id,
-        targetFactoryName: factory.name,
-        businessAssignedAt: dateTimeLocalToOperationWallClock(state.reassignBusinessAssignedAt),
-        operatedAt,
-        reason: state.reassignReason,
-        by: '跟单A',
-        mainFactoryId: state.reassignMainFactoryId || undefined,
-        riskConfirmed: state.dispatchRiskConfirmedByFactoryId[factory.id] === true,
-        supervisorAssigned: state.dispatchSupervisorAssignedByFactoryId[factory.id] === true,
-      })
+      const result = reassignRuntimeSewingTask({ sourceTaskId: task.taskId, targetFactoryId: factory.id, targetFactoryName: factory.name, businessAssignedAt: dateTimeLocalToOperationWallClock(state.reassignBusinessAssignedAt), operatedAt, reason: state.reassignReason, by: '跟单A', mainFactoryId: state.reassignMainFactoryId || undefined })
       if (!result.ok) throw new Error(result.message)
       state.feedbackMessage = `已改派给 ${factory.name}，剩余分配数量 ${formatQty(result.assignedQty || 0)} 件。`
       state.reassignTaskId = null
@@ -1646,29 +1519,20 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement, event?: 
         refreshSewingDispatchErrorRegion()
         return true
       }
+      const blockedFactoryId = selectedRows.map((row) => state.dispatchFactoryIdByRowId[row.rowId]).find((factoryId) => getDispatchFactoryBlockMessage(factoryId))
+      if (blockedFactoryId) {
+        state.dispatchError = getDispatchFactoryBlockMessage(blockedFactoryId)
+        refreshSewingDispatchErrorRegion()
+        return true
+      }
     }
     let result: ReturnType<typeof createSewingDispatchWorkbenchDraft>
     try {
       const businessAssignedAt = dateTimeLocalToOperationWallClock(state.dispatchBusinessAssignedAt)
-      const directDispatchFactoryIds = [...new Set(
-        selectedRows
-          .map((row) => state.dispatchFactoryIdByRowId[row.rowId])
-          .filter((factoryId): factoryId is string => Boolean(factoryId)),
-      )]
       result = createSewingDispatchWorkbenchDraft({
         actionType: state.dispatchActionType,
         rowIds: selectedRows.map((row) => row.rowId),
         factoryIdByRowId: state.dispatchActionType === '直接派单' ? Object.fromEntries(selectedRows.map((row) => [row.rowId, state.dispatchFactoryIdByRowId[row.rowId] ?? ''])) : undefined,
-        policyContextByFactoryId: state.dispatchActionType === '直接派单'
-          ? Object.fromEntries(directDispatchFactoryIds.map((factoryId) => [factoryId, {
-              riskConfirmed: state.dispatchRiskConfirmedByFactoryId[factoryId] === true,
-              supervisorAssigned: state.dispatchSupervisorAssignedByFactoryId[factoryId] === true,
-            }]))
-          : undefined,
-        policyOverrideByRowId: Object.fromEntries(selectedRows.map((row) => [row.rowId, {
-          documentTypeLabel: derivePageDispatchDocumentType(row),
-          isUrgentOrder: isPageDispatchUrgent(row),
-        }])),
         businessAssignedAt,
         operatedAt,
         mainFactoryIdByProductionOrderId: state.dispatchMainFactoryIdByProductionOrderId,

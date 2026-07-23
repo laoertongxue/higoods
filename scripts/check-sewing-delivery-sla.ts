@@ -1704,9 +1704,10 @@ const continuousFieldTarget = (field: string, value: string) => ({
   },
 }) as unknown as HTMLElement
 
-const continuousTask = getRuntimeTaskById('TASKGEN-202603-082-002__ORDER')
+const continuousTask = getRuntimeTaskById('CONT-SEW-POST-UNASSIGNED')
 assert.ok(continuousTask, '连续工序分配真实 handler 测试任务必须存在')
 assert.equal(continuousTask.taskUnitType, 'COMBINED_PROCESS_TASK')
+assert.equal(classifySewingDeliverySla(continuousTask), 'SEWING_TO_PACKAGING', '连续工序分配测试必须使用车缝到后道任务')
 const continuousFactory = listBusinessFactoryMasterRecords({ includeTestFactories: false }).find((factory) =>
   factory.processAbilities.some((ability) => ability.processCode === 'SEW'),
 )
@@ -1715,16 +1716,29 @@ assert.ok(continuousFactory, '连续工序分配真实 handler 测试必须有�
 const continuousInputPageState = captureContinuousDispatchPageState()
 const originalDocument = globalThis.document
 let continuousDialogHostWrites = 0
+let continuousPreviewSlotWrites = 0
 const continuousDialogHost = {
   set innerHTML(_value: string) {
     continuousDialogHostWrites += 1
   },
 }
+const continuousPreviewSlot = {
+  set innerHTML(_value: string) {
+    continuousPreviewSlotWrites += 1
+  },
+}
+const continuousConfirmButton = {
+  disabled: false,
+  classList: { toggle() {} },
+}
 Object.defineProperty(globalThis, 'document', {
   configurable: true,
   value: {
     querySelector(selector: string) {
-      return selector === '[data-continuous-dispatch-dialog-host]' ? continuousDialogHost : null
+      if (selector === '[data-continuous-dispatch-dialog-host]') return continuousDialogHost
+      if (selector === '[data-continuous-sla-preview-slot]') return continuousPreviewSlot
+      if (selector === '[data-continuous-dispatch-confirm]') return continuousConfirmButton
+      return null
     },
   },
 })
@@ -1757,7 +1771,8 @@ try {
     continuousFieldTarget('businessAssignedAt', '2026-07-09T08:30'),
     { type: 'change' } as Event,
   )
-  assert.equal(continuousDialogHostWrites, writesAfterOpen + 1, 'datetime-local change 应局部更新弹窗预览')
+  assert.equal(continuousDialogHostWrites, writesAfterOpen, 'datetime-local change 不得替换弹窗 host')
+  assert.equal(continuousPreviewSlotWrites, 1, 'datetime-local change 应只更新时效预览槽')
   assert.equal(
     captureContinuousDispatchPageState().dialog?.businessAssignedAt,
     '2026-07-09T08:30',
@@ -1781,8 +1796,8 @@ try {
   assert.equal(isContinuousDispatchDialogOpen(), true, '直接派单必须真实打开轻量弹窗')
   let html = renderContinuousDispatchPage()
   assert.match(html, /业务分配时间/, '直接派单弹窗必须展示业务分配时间')
-  assert.match(html, /分配数量/, '直接派单弹窗必须展示整任务数量')
-  assert.match(html, /30% 节点[\s\S]*70% 节点[\s\S]*100% 节点/, '直接派单弹窗必须展示三个节点预览')
+  assert.doesNotMatch(html, />分配数量</, '直接派单弹窗不应重复列表中已有的整任务数量卡片')
+  assert.match(html, /交付完成[\s\S]*30% 回货[\s\S]*70% 回货[\s\S]*100% 回货/, '直接派单弹窗必须展示交付与三个回货节点')
   assert.match(html, /当前主工厂/, '含车缝连续任务必须展示当前主工厂')
   assert.doesNotMatch(html, /工厂确认接单后启动时效/, '直接派单弹窗不得混入竞价提示')
 
