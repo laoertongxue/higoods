@@ -89,12 +89,8 @@ interface WaitProcessState {
   cuttingPickupSourceNo: string
   cuttingPickupNodeId: string
   cuttingPickupNodeVersion: string
-  cuttingPickupPrepRecordId: string
-  cuttingPickupPrepLineId: string
   cuttingPickupWarehouseArea: string
   cuttingPickupLocationCode: string
-  cuttingPickupQty: string
-  cuttingPickupRollCount: string
   cuttingIssueSourceNo: string
   cuttingIssueWarehouseArea: string
   cuttingIssueLocationCode: string
@@ -147,12 +143,8 @@ const state: WaitProcessState = {
   cuttingPickupSourceNo: '',
   cuttingPickupNodeId: '',
   cuttingPickupNodeVersion: '',
-  cuttingPickupPrepRecordId: '',
-  cuttingPickupPrepLineId: '',
   cuttingPickupWarehouseArea: '',
   cuttingPickupLocationCode: '',
-  cuttingPickupQty: '',
-  cuttingPickupRollCount: '',
   cuttingIssueSourceNo: '',
   cuttingIssueWarehouseArea: '',
   cuttingIssueLocationCode: '',
@@ -836,12 +828,8 @@ function clearCuttingPickupDraft(): void {
   state.cuttingPickupSourceNo = ''
   state.cuttingPickupNodeId = ''
   state.cuttingPickupNodeVersion = ''
-  state.cuttingPickupPrepRecordId = ''
-  state.cuttingPickupPrepLineId = ''
   state.cuttingPickupWarehouseArea = ''
   state.cuttingPickupLocationCode = ''
-  state.cuttingPickupQty = ''
-  state.cuttingPickupRollCount = ''
 }
 
 function getCuttingPickupLocationOptions() {
@@ -2555,14 +2543,6 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
   }
   if (field === 'cutting-pickup-location') {
     state.cuttingPickupLocationCode = value
-    return true
-  }
-  if (field === 'cutting-pickup-qty') {
-    state.cuttingPickupQty = value
-    return true
-  }
-  if (field === 'cutting-pickup-roll-count') {
-    state.cuttingPickupRollCount = value
     return true
   }
   if (field === 'cutting-issue-area') {

@@ -164,6 +164,7 @@
     "check:material-prep-detail-summary-cleanup": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-material-prep-detail-summary-cleanup.ts",
     "check:cutting-material-return": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-material-return.ts",
     "check:cutting-pickup-node-domain": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-pickup-node-domain.ts",
+    "check:cutting-pickup-node-e2e": "playwright test tests/cutting-pickup-node-flow.spec.ts",
     "check:cutting-prep-pickup-return-linkage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-prep-pickup-return-linkage.ts",
     "check:cutting-ab-material-statistics": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-ab-material-statistics.ts",
     "check:cutting-marker-plan-formulas": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-marker-plan-formulas.ts",
