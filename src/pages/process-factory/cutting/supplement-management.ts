@@ -242,7 +242,7 @@ interface SupplementProcessLink {
   createdAt: string
   linkedProductionOrderNo: string
   processNote: string
-  sourceLabel: PROCESS_WORK_ORDER_SOURCE_LABEL.CUT_PIECE_SUPPLEMENT
+  sourceLabel: (typeof PROCESS_WORK_ORDER_SOURCE_LABEL)['CUT_PIECE_SUPPLEMENT']
   supplementRecordNo: string
   originalCutOrderNo: string
   techPackVersionLabel: string
