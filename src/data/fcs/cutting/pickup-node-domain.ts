@@ -6,6 +6,7 @@ export interface PickupCoverageLine {
   key: string
   unit: string
   requiredQty: number
+  lineEffectivePickedQty: number
   effectivePickedQty: number
   currentAvailableQty: number
 }

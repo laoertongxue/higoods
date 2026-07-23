@@ -6,6 +6,7 @@ import process from 'node:process'
 
 import {
   appendManualPrepRecord,
+  appendPickupReturnRecord,
   appendPickupSessionFromNode,
   closeMaterialPrepOrder,
   confirmMaterialPrepRecord,
@@ -25,6 +26,7 @@ import { listBusinessFactoryMasterRecords } from '../src/data/fcs/factory-master
 import {
   renderCraftCuttingPickupManagementDetailPage,
   renderCraftCuttingPickupManagementPage,
+  summarizePickupNodeLines,
 } from '../src/pages/process-factory/cutting/pickup-management.ts'
 
 const repoRoot = process.cwd()
@@ -153,16 +155,61 @@ function main(): void {
   assert(activeNodes.every((node) => node.items.length > 0), '活动待领节点必须包含可领物料')
   assert(activeNodes.some((node) => node.nodeType === 'INCOMPLETE_PICKABLE'), '缺少未配齐清单样例')
   assert(activeNodes.some((node) => node.nodeType === 'READY_TO_PICKUP'), '缺少已配齐待领样例')
-  assert(
-    activeNodes.some((node) => node.items.some((item) => item.sourcePrepRecordIds.length >= 2)),
-    '同一物料的多次配料记录未归并到一个待领节点',
-  )
+  assert(activeNodes.every((node) => node.items.every((item) => item.sourcePrepRecordIds.length === 1)), '每个待领物料批次必须保留唯一来源配料记录')
+  const po0101Node = activeNodes.find((node) => node.productionOrderNo === 'PO-202603-0101')
+  assert(po0101Node, '缺少同物料多批次验收节点 PO-202603-0101')
+  const po0101BlackLine = summarizePickupNodeLines(po0101Node).find((line) => line.prepLineId === 'prep-line-po-0101-black')
+  assert(po0101BlackLine, 'PO-202603-0101 缺少黑色主面料需求行')
+  assert(po0101BlackLine.batches.length === 2, 'PO-202603-0101 黑色主面料必须保留两个来源批次')
+  assert(po0101BlackLine.requiredQty === 1386, '同物料多批次不得重复累计需求数量')
+  assert(po0101BlackLine.effectivePickedQty === 835, '同物料多批次历史有效已领汇总错误')
+  assert(po0101BlackLine.currentAvailableQty === 165, '同物料多批次当前可领汇总错误')
+  assert(po0101BlackLine.remainingShortageQty === 386, '同物料多批次领后剩余缺口必须按需求行计算一次')
+
+  const returnStorage = new MemoryStorage()
+  returnStorage.setItem('productionMaterialPrepWorkflow', serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()))
+  const returnSourceNode = listActivePickupNodes(returnStorage).find((node) => node.productionOrderNo === 'PO-202603-0101')
+  assert(returnSourceNode, '缺少领完退回组合场景验收节点')
+  const returnSourceBatch = returnSourceNode.items.find((item) => item.prepLineId === 'prep-line-po-0101-black')
+  assert(returnSourceBatch, '领完退回组合场景缺少黑色主面料批次')
+  const returnSession = appendPickupSessionFromNode({
+    pickupNodeId: returnSourceNode.nodeId,
+    pickupNodeVersion: returnSourceNode.version,
+    receiverName: '裁床 李明',
+    warehouseArea: '待加工仓 A 区',
+    locationCode: 'FAB-A-09',
+    waitProcessLedgerEventId: 'check-pickup-return-next-node',
+  }, returnStorage)
+  const returnPickupRecordId = returnSession.pickupRecordIds[returnSourceNode.items.indexOf(returnSourceBatch)]
+  appendPickupReturnRecord({
+    pickupRecordId: returnPickupRecordId,
+    prepRecordId: returnSourceBatch.sourcePrepRecordIds[0],
+    prepLineId: returnSourceBatch.prepLineId,
+    returnQty: 10,
+    rollCount: 1,
+    reason: '裁床退料',
+    remark: '组合场景回归',
+    imageNames: [],
+    returnedBy: '裁床 李明',
+  }, returnStorage)
+  const returnedNode = listActivePickupNodes(returnStorage).find((node) => node.productionOrderNo === 'PO-202603-0101')
+  assert(returnedNode, '领完退回后未形成下一待领节点')
+  const returnedBlackLine = summarizePickupNodeLines(returnedNode).find((line) => line.prepLineId === 'prep-line-po-0101-black')
+  assert(returnedBlackLine, '领完退回后的节点缺少黑色主面料')
+  assert(returnedBlackLine.effectivePickedQty === 990, '领完退回后的下一节点丢失已完全领取批次历史数量')
+  assert(returnedBlackLine.currentAvailableQty === 10, '领完退回后的当前可领数量错误')
+  assert(returnedBlackLine.remainingShortageQty === 386, '领完退回后的缺口必须继续按完整需求行计算')
 
   const storage = new MemoryStorage()
   storage.setItem('productionMaterialPrepWorkflow', serializeProductionMaterialPrepStore(createProductionMaterialPrepSeedStore()))
+  const initialNode = listActivePickupNodes(storage)[0]
+  assert(initialNode, '缺少真实节点版本变更验收节点')
+  const initialBatch = initialNode.items[0]
+  assert(initialBatch, '真实节点缺少可追加配料的物料行')
+  const initialLineBatchCount = initialNode.items.filter((item) => item.prepLineId === initialBatch.prepLineId).length
   const addedRecord = appendManualPrepRecord({
-    prepOrderId: 'prep-order-po-202603-0004',
-    prepLineId: 'prep-line-po-0004-main',
+    prepOrderId: initialNode.prepOrderId,
+    prepLineId: initialBatch.prepLineId,
     preparedQty: 12,
     rollCount: 1,
     warehouseArea: '中转仓 A 区',
@@ -174,10 +221,30 @@ function main(): void {
   assert(pickMaterialPrepRecord(addedRecord.prepRecordId, '中转仓 张三', storage)?.recordStatus === 'PICKED', '配料记录拣货失败')
   assert(stageMaterialPrepRecord(addedRecord.prepRecordId, '中转仓暂存区 A', '中转仓 李明', storage)?.recordStatus === 'STAGED', '配料记录暂存失败')
   assert(confirmMaterialPrepRecord(addedRecord.prepRecordId, '中转仓 周敏', storage)?.recordStatus === 'CONFIRMED', '暂存记录确认失败')
+  const updatedNode = listActivePickupNodes(storage).find((node) => node.nodeId === initialNode.nodeId)
+  assert(updatedNode, '追加配料后原活动待领节点丢失')
+  assert(updatedNode.version !== initialNode.version, '追加确认配料后待领节点版本未更新')
+  const addedBatch = updatedNode.items.find((item) => item.sourcePrepRecordIds.includes(addedRecord.prepRecordId))
+  assert(addedBatch, '确认后的配料记录未进入活动待领节点')
+  assert(addedBatch.sourceLocationCode === 'TR-A-099', '追加配料批次未保留实际库位')
   assert(
-    listActivePickupNodes(storage).some((node) => node.items.some((item) => item.sourcePrepRecordIds.includes(addedRecord.prepRecordId))),
-    '确认后的配料记录未进入活动待领节点',
+    updatedNode.items.filter((item) => item.prepLineId === initialBatch.prepLineId).length === initialLineBatchCount + 1,
+    '同一物料的不同配料批次未按来源库位分开保留',
   )
+  let realVersionConflictBlocked = false
+  try {
+    appendPickupSessionFromNode({
+      pickupNodeId: initialNode.nodeId,
+      pickupNodeVersion: initialNode.version,
+      receiverName: '裁床 李明',
+      warehouseArea: '待加工仓 A 区',
+      locationCode: 'FAB-A-09',
+      waitProcessLedgerEventId: 'check-real-version-conflict',
+    }, storage)
+  } catch (error) {
+    realVersionConflictBlocked = (error as Error).message.includes('当前待领物料已更新')
+  }
+  assert(realVersionConflictBlocked, '真实追加配料后使用旧节点版本办理领料时未阻断')
   assert(rejectMaterialPrepRecord(
     addedRecord.prepRecordId,
     '整条配料记录需重配',
@@ -213,23 +280,6 @@ function main(): void {
   }, storage)
   assert(duplicateSession.pickupSessionId === session.pickupSessionId, '重复办理领料未返回原领料记录')
 
-  let versionConflictBlocked = false
-  const anotherNode = listActivePickupNodes(storage)[0]
-  assert(anotherNode, '缺少版本冲突验收节点')
-  try {
-    appendPickupSessionFromNode({
-      pickupNodeId: anotherNode.nodeId,
-      pickupNodeVersion: anotherNode.version + 1,
-      receiverName: '裁床 李明',
-      warehouseArea: '待加工仓 A 区',
-      locationCode: 'FAB-A-09',
-      waitProcessLedgerEventId: 'check-version-conflict',
-    }, storage)
-  } catch (error) {
-    versionConflictBlocked = (error as Error).message.includes('当前待领物料已更新')
-  }
-  assert(versionConflictBlocked, '使用旧节点版本办理领料时未阻断')
-
   closeMaterialPrepOrder('prep-order-po-202603-0004', '后续不再配，按实关闭', '中转仓 周敏', storage)
   const closedProjection = getMaterialPrepOrderProjection('prep-order-po-202603-0004', storage)
   assert(closedProjection?.order.pickupStatus === 'ACTUAL_CLOSED', '关闭配料单后领料状态不是按实完结')
@@ -259,7 +309,7 @@ function main(): void {
     生产单级配料模型: '通过',
     工厂档案引用: '通过',
     单一活动待领节点: '通过',
-    多次配料归并: '通过',
+    多次配料批次与库位保真: '通过',
     配料确认顺序: '通过',
     节点整单领料与关闭: '通过',
     重复提交幂等: '通过',

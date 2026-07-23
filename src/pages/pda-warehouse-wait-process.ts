@@ -491,7 +491,9 @@ function formatCuttingWaitProcessQty(qty: number, unit = 'yard'): string {
 }
 
 function normalizeCuttingRuntimeQtyUnit(unit: string | undefined): CuttingRuntimeQtyUnit {
-  return unit === '片' || unit === '件' ? unit : 'yard'
+  return unit === '片' || unit === '件' || unit === '粒' || unit === '条' || unit === '套' || unit === '公斤'
+    ? unit
+    : 'yard'
 }
 
 function getCuttingRuntimeNowText(): string {
@@ -2123,6 +2125,8 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
     const warehouseArea = state.cuttingPickupWarehouseArea || '面料 A 区'
     const locationCode = state.cuttingPickupLocationCode || 'FAB-A-01'
     try {
+      const node = listActivePickupNodes().find((item) => item.nodeId === pickupNodeId)
+      if (!node) throw new Error('当前待领节点已变化，请返回列表重新核对。')
       const session = appendPickupSessionFromNode({
         pickupNodeId,
         pickupNodeVersion,
@@ -2132,40 +2136,51 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
         waitProcessLedgerEventId: `pda-pickup:${pickupNodeId}:${Date.now()}`,
       })
       const occurredAt = getCuttingRuntimeNowText()
-      const nodes = listActivePickupNodes()
-      const node = nodes.find((n) => n.nodeId === pickupNodeId)
-      const totalQty = node ? node.items.reduce((sum, item) => sum + item.currentAvailableQty, 0) : 0
-      const totalRoll = node ? node.items.reduce((sum, item) => sum + item.rollCount, 0) : 1
-      const firstItem = node?.items[0]
-      appendCuttingRuntimeEvent({
-        eventType: '中转仓领料',
-        operatorName: '裁床仓管',
-        operatorRole: 'PDA 仓管',
-        occurredAt,
-        refs: { cutOrderNo: node?.productionOrderNo || pickupNodeId, productionOrderNo: node?.productionOrderNo || '', materialType: firstItem?.materialType || '面料' },
-        material: { materialSku: firstItem?.materialSku || '', materialName: firstItem?.materialName || '', materialColor: firstItem?.color || '', unit: 'yard' },
-        pattern: {},
-        inventoryEffect: {
-          inventoryScope: '裁床待加工仓',
-          direction: 'IN',
-          qty: totalQty,
-          unit: 'yard',
-          rollCount: totalRoll,
-          toWarehouseArea: warehouseArea,
-          toLocationCode: locationCode,
-        },
-        payload: {
-          pickupSessionId: session.pickupSessionId,
-          pickupSessionNo: session.pickupSessionNo,
-          pickupNodeId,
-          pickupNodeVersion,
-          pickupRecordIds: session.pickupRecordIds,
-          warehouseArea,
-          locationCode,
-          pickupBy: '裁床仓管',
-          pickupAt: occurredAt,
-          warehouseSyncStatus: session.warehouseSyncStatus,
-        },
+      node.items.forEach((item, index) => {
+        const pickupRecordId = session.pickupRecordIds[index]
+        appendCuttingRuntimeEvent({
+          eventType: '中转仓领料',
+          operatorName: '裁床仓管',
+          operatorRole: 'PDA 仓管',
+          occurredAt,
+          refs: {
+            cutOrderNo: node.productionOrderNo,
+            productionOrderNo: node.productionOrderNo,
+            pickupRecordId,
+          },
+          material: {
+            materialSku: item.materialSku,
+            materialName: item.materialName,
+            materialColor: item.color,
+            materialAlias: item.spec,
+            unit: normalizeCuttingRuntimeQtyUnit(item.unit),
+          },
+          pattern: {},
+          inventoryEffect: {
+            inventoryScope: '裁床待加工仓',
+            direction: 'IN',
+            qty: item.currentAvailableQty,
+            unit: normalizeCuttingRuntimeQtyUnit(item.unit),
+            rollCount: item.rollCount,
+            toWarehouseArea: warehouseArea,
+            toLocationCode: locationCode,
+          },
+          payload: {
+            pickupRecordId,
+            pickupSessionId: session.pickupSessionId,
+            pickupSessionNo: session.pickupSessionNo,
+            pickupNodeId,
+            pickupNodeVersion,
+            prepLineId: item.prepLineId,
+            sourcePrepRecordIds: item.sourcePrepRecordIds,
+            originalUnit: item.unit,
+            warehouseArea,
+            locationCode,
+            pickupBy: '裁床仓管',
+            pickupAt: occurredAt,
+            warehouseSyncStatus: session.warehouseSyncStatus,
+          },
+        })
       })
     } catch (e) {
       window.alert(e instanceof Error ? e.message : '领料失败')

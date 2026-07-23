@@ -256,7 +256,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     return handleCraftCombinedDyeingEvent(target, event)
   }
   if (pathname.startsWith('/fcs/craft/cutting/pickup-management')) {
-    return handleCraftCuttingPickupManagementEvent(target)
+    return handleCraftCuttingPickupManagementEvent(target, event)
   }
   if (pathname.startsWith('/fcs/dispatch/acceptance-sla')) {
     return handleDispatchAcceptanceSlaEvent(target)

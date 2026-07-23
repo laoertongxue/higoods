@@ -3617,86 +3617,69 @@ function buildPickupNodeItems(
   projection: MaterialPrepOrderProjection,
   confirmedRecords: MaterialPrepRecord[],
 ): PickupNodeItem[] {
-  const lineMap = new Map<string, {
-    prepLineId: string
-    sourcePrepRecordIds: string[]
-    materialSku: string
-    materialName: string
-    materialType: string
-    materialImageUrl: string
-    color: string
-    spec: string
-    unit: string
-    requiredQty: number
-    preparedQty: number
-    rollCount: number
-    stockWarehouseName: string
-    stockWarehouseArea: string
-    stockLocationCode: string
-    lastUpdatedAt: string
-  }>()
-
+  const items: PickupNodeItem[] = []
   for (const record of confirmedRecords) {
-    for (const recordItem of getMaterialPrepRecordItems(record)) {
+    for (const [itemIndex, recordItem] of getMaterialPrepRecordItems(record).entries()) {
       const line = projection.lines.find((l) => l.prepLineId === recordItem.prepLineId)
       if (!line) continue
-      const existing = lineMap.get(recordItem.prepLineId)
-      if (existing) {
-        existing.preparedQty += recordItem.preparedQty
-        existing.rollCount += recordItem.rollCount
-        existing.sourcePrepRecordIds.push(record.prepRecordId)
-      } else {
-        lineMap.set(recordItem.prepLineId, {
-          prepLineId: recordItem.prepLineId,
-          sourcePrepRecordIds: [record.prepRecordId],
-          materialSku: line.materialSku,
-          materialName: line.materialName,
-          materialType: line.materialType,
-          materialImageUrl: line.materialImageUrl,
-          color: line.color,
-          spec: line.spec,
-          unit: line.unit,
-          requiredQty: line.requiredQty,
-          preparedQty: recordItem.preparedQty,
-          rollCount: recordItem.rollCount,
-          stockWarehouseName: recordItem.stockWarehouseName || line.stockWarehouseName,
-          stockWarehouseArea: recordItem.stockWarehouseArea || line.stockWarehouseArea,
-          stockLocationCode: recordItem.stockLocationCode || line.stockLocationCode,
-          lastUpdatedAt: record.preparedAt,
-        })
-      }
-    }
-  }
-
-  if (!lineMap.size) return []
-
-  return projection.lines
-    .filter((line) => lineMap.has(line.prepLineId))
-    .map((line, index) => {
-      const merged = lineMap.get(line.prepLineId)!
-      const effectivePickedQty = roundQty(Math.max(line.pickedQty - line.returnedQty, 0))
-      const currentAvailableQty = roundQty(Math.max(merged.preparedQty - effectivePickedQty, 0))
-      return {
-        nodeItemId: `node-item:${projection.order.prepOrderId}:${line.prepLineId}`,
-        prepLineId: line.prepLineId,
-        sourcePrepRecordIds: merged.sourcePrepRecordIds,
-        materialSku: merged.materialSku,
-        materialName: merged.materialName,
-        materialType: merged.materialType,
-        materialImageUrl: merged.materialImageUrl,
-        color: merged.color,
-        spec: merged.spec,
-        unit: merged.unit,
-        requiredQty: merged.requiredQty,
+      const relatedPickupRecords = projection.pickupRecords.filter((pickup) =>
+        pickup.prepRecordId === record.prepRecordId && pickup.prepLineId === recordItem.prepLineId
+      )
+      const effectivePickedQty = roundQty(relatedPickupRecords.reduce(
+        (sum, pickup) => sum + Math.max(Number(pickup.pickedQty || 0) - Number(pickup.returnQty || 0), 0),
+        0,
+      ))
+      const lineEffectivePickedQty = roundQty(Math.max(line.pickedQty - line.returnedQty, 0))
+      const pickedRollCount = relatedPickupRecords.reduce((sum, pickup) => sum + Number(pickup.rollCount || 0), 0)
+      const returnedRollCount = projection.pickupReturnRecords
+        .filter((returned) => returned.prepRecordId === record.prepRecordId && returned.prepLineId === recordItem.prepLineId)
+        .reduce((sum, returned) => sum + Number(returned.rollCount || 0), 0)
+      const currentAvailableQty = roundQty(Math.max(recordItem.preparedQty - effectivePickedQty, 0))
+      if (currentAvailableQty <= 0) continue
+      items.push({
+        nodeItemId: `node-item:${projection.order.prepOrderId}:${record.prepRecordId}:${recordItem.prepLineId}:${itemIndex + 1}`,
+        prepLineId: recordItem.prepLineId,
+        sourcePrepRecordIds: [record.prepRecordId],
+        materialSku: line.materialSku,
+        materialName: line.materialName,
+        materialType: line.materialType,
+        materialImageUrl: line.materialImageUrl,
+        color: line.color,
+        spec: line.spec,
+        unit: line.unit,
+        requiredQty: line.requiredQty,
+        lineEffectivePickedQty,
         effectivePickedQty,
         currentAvailableQty,
-        rollCount: merged.rollCount,
-        sourceWarehouseName: merged.stockWarehouseName,
-        sourceWarehouseArea: merged.stockWarehouseArea,
-        sourceLocationCode: merged.stockLocationCode,
-      }
-    })
-    .filter((item) => item.currentAvailableQty > 0)
+        rollCount: Math.max(recordItem.rollCount - pickedRollCount + returnedRollCount, 1),
+        sourceWarehouseName: '中转仓',
+        sourceWarehouseArea: recordItem.warehouseArea || record.warehouseArea,
+        sourceLocationCode: recordItem.locationCode || record.locationCode,
+      })
+    }
+  }
+  return items
+}
+
+function derivePickupNodeVersion(items: PickupNodeItem[]): number {
+  const signature = items
+    .map((item) => [
+      item.nodeItemId,
+      item.sourcePrepRecordIds.join(','),
+      item.currentAvailableQty,
+      item.rollCount,
+      item.sourceWarehouseName,
+      item.sourceWarehouseArea,
+      item.sourceLocationCode,
+    ].join('|'))
+    .sort()
+    .join('||')
+  let hash = 2166136261
+  for (let index = 0; index < signature.length; index += 1) {
+    hash ^= signature.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0) || 1
 }
 
 export function listActivePickupNodes(
@@ -3721,16 +3704,14 @@ export function listActivePickupNodes(
     if (!items.length) return []
 
     const coverageLines: PickupCoverageLine[] = projection.lines.map((line) => {
-      const nodeItem = items.find((i) => i.prepLineId === line.prepLineId)
-      const currentAvailableQty = nodeItem?.currentAvailableQty ?? 0
-      const nodeEffectivePicked = nodeItem?.effectivePickedQty ?? 0
+      const lineItems = items.filter((i) => i.prepLineId === line.prepLineId)
+      const currentAvailableQty = roundQty(lineItems.reduce((sum, item) => sum + item.currentAvailableQty, 0))
       const lineEffectivePicked = roundQty(Math.max(line.pickedQty - line.returnedQty, 0))
-      const effectivePickedQty = nodeEffectivePicked || lineEffectivePicked
       return {
         key: `${line.materialSku}:${line.color}:${line.spec}:${line.unit}`,
         unit: line.unit,
         requiredQty: line.requiredQty,
-        effectivePickedQty,
+        effectivePickedQty: lineEffectivePicked,
         currentAvailableQty,
       }
     })
@@ -3739,7 +3720,7 @@ export function listActivePickupNodes(
 
     return [{
       nodeId: `pickup-node:${projection.order.prepOrderId}:${sequence}`,
-      version: 1,
+      version: derivePickupNodeVersion(items),
       nodeType,
       status: 'OPEN',
       locationPolicy: nodeType === 'READY_TO_PICKUP' ? 'DIRECT_READY_AREA' : 'ASSIGN_INCOMPLETE_LOCATION',

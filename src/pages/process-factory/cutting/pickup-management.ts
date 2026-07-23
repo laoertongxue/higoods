@@ -30,16 +30,68 @@ import {
   paginateStandardListRows,
   saveListColumnPreferences,
   sortStandardListRows,
-  type StandardListColumn,
   type StandardListColumnPreferences,
-  type StandardListSort,
+  type StandardListSortState,
 } from '../../../components/ui/list-table-model.ts'
-import { renderStandardListTable } from '../../../components/ui/list-table.ts'
+import {
+  renderStandardListColumnSettings,
+  renderStandardListTable,
+  type StandardListColumn,
+} from '../../../components/ui/list-table.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
 
 const PREFERENCE_KEY = 'standard-list:/fcs/craft/cutting/pickup-management'
 const PAGE_SIZES = [10, 20, 50]
+
+export interface PickupNodeLineSummary {
+  prepLineId: string
+  materialSku: string
+  materialName: string
+  materialType: string
+  color: string
+  spec: string
+  unit: string
+  requiredQty: number
+  effectivePickedQty: number
+  currentAvailableQty: number
+  remainingShortageQty: number
+  batches: PickupNodeItem[]
+}
+
+export function summarizePickupNodeLines(node: PickupNodeProjection): PickupNodeLineSummary[] {
+  const summaries = new Map<string, PickupNodeLineSummary>()
+  node.items.forEach((item) => {
+    const existing = summaries.get(item.prepLineId)
+    if (existing) {
+      existing.effectivePickedQty = item.lineEffectivePickedQty
+      existing.currentAvailableQty += item.currentAvailableQty
+      existing.batches.push(item)
+      return
+    }
+    summaries.set(item.prepLineId, {
+      prepLineId: item.prepLineId,
+      materialSku: item.materialSku,
+      materialName: item.materialName,
+      materialType: item.materialType,
+      color: item.color,
+      spec: item.spec,
+      unit: item.unit,
+      requiredQty: item.requiredQty,
+      effectivePickedQty: item.lineEffectivePickedQty,
+      currentAvailableQty: item.currentAvailableQty,
+      remainingShortageQty: 0,
+      batches: [item],
+    })
+  })
+  return Array.from(summaries.values()).map((summary) => ({
+    ...summary,
+    remainingShortageQty: Math.max(
+      summary.requiredQty - summary.effectivePickedQty - summary.currentAvailableQty,
+      0,
+    ),
+  }))
+}
 
 function renderNodeTypeCell(node: PickupNodeProjection): string {
   const isReady = node.nodeType === 'READY_TO_PICKUP'
@@ -73,24 +125,25 @@ function renderNodeMaterialsCell(node: PickupNodeProjection): string {
 }
 
 function renderEffectivePickedCell(node: PickupNodeProjection): string {
-  const total = node.items.reduce((sum, item) => sum + item.effectivePickedQty, 0)
-  const lines = node.items.filter((item) => item.effectivePickedQty > 0).length
+  const pickedLines = summarizePickupNodeLines(node).filter((line) => line.effectivePickedQty > 0)
   return `<div class="text-sm">
-    <div class="font-medium tabular-nums">${formatQty(total)}</div>
-    <div class="text-xs text-muted-foreground">${lines} 行有已领记录</div>
+    ${pickedLines.slice(0, 2).map((line) => `
+      <div class="font-medium tabular-nums">${escapeHtml(line.materialName)}：${formatQty(line.effectivePickedQty, line.unit)}</div>
+    `).join('')}
+    <div class="text-xs text-muted-foreground">${pickedLines.length} 行有已领记录</div>
   </div>`
 }
 
 function renderRemainingShortageCell(node: PickupNodeProjection): string {
-  const shortageItems = node.items.map((item) => Math.max(item.requiredQty - item.effectivePickedQty - item.currentAvailableQty, 0))
-  const totalShortage = shortageItems.reduce((sum, val) => sum + val, 0)
-  const shortageCount = shortageItems.filter((val) => val > 0).length
-  if (totalShortage <= 0) {
+  const shortageLines = summarizePickupNodeLines(node).filter((line) => line.remainingShortageQty > 0)
+  if (!shortageLines.length) {
     return `<span class="text-sm text-emerald-600 font-medium">本轮收尾，无缺口</span>`
   }
   return `<div class="text-sm">
-    <div class="font-medium tabular-nums text-amber-600">${formatQty(totalShortage)}</div>
-    <div class="text-xs text-muted-foreground">仍缺 ${shortageCount} 行物料</div>
+    ${shortageLines.slice(0, 2).map((line) => `
+      <div class="font-medium tabular-nums text-amber-600">${escapeHtml(line.materialName)}：${formatQty(line.remainingShortageQty, line.unit)}</div>
+    `).join('')}
+    <div class="text-xs text-muted-foreground">仍缺 ${shortageLines.length} 行物料</div>
   </div>`
 }
 
@@ -112,14 +165,14 @@ function renderNodeActions(node: PickupNodeProjection): string {
 }
 
 const PICKUP_NODE_COLUMNS: StandardListColumn<PickupNodeProjection>[] = [
-  { key: 'nodeType', title: '当前领料节点', width: 130, required: true, sortable: true, render: renderNodeTypeCell },
-  { key: 'productionOrder', title: PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE, width: 220, required: true, sortable: true, render: renderNodeOrderCell },
-  { key: 'materials', title: '当前节点全部物料', width: 400, required: true, render: renderNodeMaterialsCell },
-  { key: 'picked', title: '历史有效已领', width: 160, required: true, sortable: true, render: renderEffectivePickedCell },
-  { key: 'shortage', title: '领后剩余缺口', width: 170, required: true, sortable: true, render: renderRemainingShortageCell },
-  { key: 'sourceLocation', title: '中转仓承载位置', width: 200, required: true, render: renderNodeSourceLocationCell },
-  { key: 'updatedAt', title: '节点更新时间', width: 160, required: true, sortable: true, render: (node) => `<span class="text-sm">${escapeHtml(node.updatedAt)}</span>` },
-  { key: 'actions', title: '操作', width: 200, required: true, sticky: 'right', render: renderNodeActions },
+  { key: 'nodeType', title: '当前领料节点', width: 130, required: true, freezeable: true, sortable: true, sortValue: (node) => node.nodeType, render: renderNodeTypeCell },
+  { key: 'productionOrder', title: PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE, width: 220, required: true, freezeable: true, sortable: true, sortValue: (node) => node.productionOrderNo, render: renderNodeOrderCell },
+  { key: 'materials', title: '当前节点全部物料', width: 400, required: true, freezeable: true, render: renderNodeMaterialsCell },
+  { key: 'picked', title: '历史有效已领', width: 200, required: true, freezeable: true, sortable: true, sortValue: (node) => summarizePickupNodeLines(node).filter((line) => line.effectivePickedQty > 0).length, render: renderEffectivePickedCell },
+  { key: 'shortage', title: '领后剩余缺口', width: 240, required: true, freezeable: true, sortable: true, sortValue: (node) => summarizePickupNodeLines(node).filter((line) => line.remainingShortageQty > 0).length, render: renderRemainingShortageCell },
+  { key: 'sourceLocation', title: '中转仓承载位置', width: 200, required: true, freezeable: true, render: renderNodeSourceLocationCell },
+  { key: 'updatedAt', title: '节点更新时间', width: 160, required: true, freezeable: true, sortable: true, sortValue: (node) => node.updatedAt, render: (node) => `<span class="text-sm">${escapeHtml(node.updatedAt)}</span>` },
+  { key: 'actions', title: '操作', width: 200, required: true, actionColumn: true, render: renderNodeActions },
 ]
 
 interface PickupListFilters {
@@ -133,35 +186,38 @@ interface PickupListState {
   filters: PickupListFilters
   page: number
   pageSize: number
-  sort: StandardListSort | null
+  sort: StandardListSortState | null
   columnPreferences: StandardListColumnPreferences
   columnSettingsOpen: boolean
+  draggedColumnKey: string
   selectedPickupNodeId: string
 }
 
 const state: PickupListState = (() => {
   const params = getSearchParams()
   const storage = typeof localStorage !== 'undefined' ? localStorage : null
+  const columnPreferences = storage
+    ? loadListColumnPreferences(
+        storage,
+        PREFERENCE_KEY,
+        PICKUP_NODE_COLUMNS,
+        { order: [], visibleKeys: [], frozenKeys: [], pageSize: PAGE_SIZES[0] },
+        PAGE_SIZES,
+      )
+    : normalizeListColumnPreferences(
+        PICKUP_NODE_COLUMNS,
+        { order: [], visibleKeys: [], frozenKeys: [], pageSize: PAGE_SIZES[0] },
+        PAGE_SIZES,
+      )
   return {
     activeTab: normalizePickupWorkbenchTab(params.get('tab')),
     filters: getPickupListFilters(params),
-    page: Math.max(Number(params.get('page') || '1'), 1),
-    pageSize: Number(params.get('pageSize') || String(PAGE_SIZES[0])),
-    sort: parseSort(params.get('sort')),
-    columnPreferences: storage
-      ? loadListColumnPreferences(
-          storage,
-          PREFERENCE_KEY,
-          PICKUP_NODE_COLUMNS,
-          { order: [], visibleKeys: [], frozenKeys: [], pageSize: PAGE_SIZES[0] },
-          PAGE_SIZES,
-        )
-      : normalizeListColumnPreferences(
-          PICKUP_NODE_COLUMNS,
-          { order: [], visibleKeys: [], frozenKeys: [], pageSize: PAGE_SIZES[0] },
-          PAGE_SIZES,
-        ),
+    page: 1,
+    pageSize: columnPreferences.pageSize,
+    sort: null,
+    columnPreferences,
     columnSettingsOpen: false,
+    draggedColumnKey: '',
     selectedPickupNodeId: params.get('pickupNodeId') || '',
   }
 })()
@@ -172,13 +228,11 @@ function syncStateToUrl(): void {
   if (state.filters.keyword) params.set('q', state.filters.keyword)
   if (state.filters.materialKeyword) params.set('material', state.filters.materialKeyword)
   if (state.filters.nodeType !== '全部') params.set('nodeType', state.filters.nodeType)
-  if (state.page > 1) params.set('page', String(state.page))
-  if (state.pageSize !== PAGE_SIZES[0]) params.set('pageSize', String(state.pageSize))
-  if (state.sort) params.set('sort', `${state.sort.column}:${state.sort.direction}`)
   const path = window.location.pathname
   const query = params.toString()
   const href = query ? `${path}?${query}` : path
-  if (window.location.search !== `?${query}`) {
+  const expectedSearch = query ? `?${query}` : ''
+  if (window.location.search !== expectedSearch) {
     window.history.replaceState({}, '', href)
   }
 }
@@ -186,13 +240,6 @@ function syncStateToUrl(): void {
 function getSearchParams(): URLSearchParams {
   if (typeof window === 'undefined') return new URLSearchParams()
   return new URLSearchParams(window.location.search)
-}
-
-function parseSort(raw: string | null): StandardListSort | null {
-  if (!raw) return null
-  const [column, direction] = raw.split(':')
-  if (direction === 'asc' || direction === 'desc') return { column, direction }
-  return null
 }
 
 function normalizePickupWorkbenchTab(value: string | null): PickupOrderStatus {
@@ -296,7 +343,8 @@ export function renderCraftCuttingPickupManagementPage(): string {
   const allRows = listMaterialPrepOrderProjections()
   const filteredNodes = allNodes.filter((n) => matchesPickupNode(n, state.filters))
   const sortedNodes = state.sort
-    ? sortStandardListRows(filteredNodes, state.sort, PICKUP_NODE_COLUMNS)
+    ? sortStandardListRows(filteredNodes, state.sort, (node, key) =>
+        PICKUP_NODE_COLUMNS.find((column) => column.key === key)?.sortValue?.(node))
     : filteredNodes
   const paging = paginateStandardListRows(sortedNodes, state.page, state.pageSize)
 
@@ -321,12 +369,13 @@ export function renderCraftCuttingPickupManagementPage(): string {
         currentPage: paging.currentPage,
         totalPages: paging.totalPages,
         pageSize: paging.pageSize,
-        actionPrefix: 'pickup',
+        actionPrefix: 'pickup-list',
+        fieldPrefix: 'pickup-list',
         pageSizeOptions: PAGE_SIZES,
       })}
     </div>`
 
-  return renderStandardListPage({
+  const pageHtml = renderStandardListPage({
     title: '领料管理',
     filtersHtml: `
       ${renderTabs(allRows)}
@@ -334,13 +383,28 @@ export function renderCraftCuttingPickupManagementPage(): string {
       <div class="mt-3">${renderPickupFilters(state.filters)}</div>
     `,
     listTitle: `待领节点（${filteredNodes.length}）`,
+    listActionsHtml: '<button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-pickup-list-action="open-column-settings">列设置</button>',
     tableHtml,
     paginationHtml,
+    overlaysHtml: `<div data-pickup-region="overlay">${state.columnSettingsOpen
+      ? renderStandardListColumnSettings({
+          title: '列设置',
+          columns: PICKUP_NODE_COLUMNS,
+          preferences: state.columnPreferences,
+          eventPrefix: 'pickup-list',
+          maxFrozenWidth: 620,
+        })
+      : ''}</div>`,
   })
+  return pageHtml
+    .replaceAll('data-pickup-action=', 'data-skip-page-rerender="true" data-pickup-action=')
+    .replaceAll('data-pickup-list-action=', 'data-skip-page-rerender="true" data-pickup-list-action=')
+    .replaceAll('data-pickup-list-field=', 'data-skip-page-rerender="true" data-pickup-list-field=')
 }
 
 function renderNodeDetailContent(node: PickupNodeProjection): string {
   const isReady = node.nodeType === 'READY_TO_PICKUP'
+  const lineSummaries = summarizePickupNodeLines(node)
   return `
     <section class="space-y-4">
       <div class="rounded-lg border bg-card p-4">
@@ -369,19 +433,21 @@ function renderNodeDetailContent(node: PickupNodeProjection): string {
               </tr>
             </thead>
             <tbody>
-              ${node.items.map((item) => `
+              ${lineSummaries.map((line) => `
                 <tr class="border-t">
                   <td class="px-3 py-3">
-                    <div class="font-medium">${escapeHtml(item.materialName)}</div>
-                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.materialSku)} / ${escapeHtml(item.color)} / ${escapeHtml(item.spec)}</div>
-                    <span class="mt-1 inline-block rounded px-1.5 py-0.5 text-xs bg-muted">${escapeHtml(item.materialType)}</span>
+                    <div class="font-medium">${escapeHtml(line.materialName)}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.materialSku)} / ${escapeHtml(line.color)} / ${escapeHtml(line.spec)}</div>
+                    <span class="mt-1 inline-block rounded px-1.5 py-0.5 text-xs bg-muted">${escapeHtml(line.materialType)}</span>
                   </td>
-                  <td class="px-3 py-3">${formatQty(item.requiredQty, item.unit)}</td>
-                  <td class="px-3 py-3">${formatQty(item.effectivePickedQty, item.unit)}</td>
-                  <td class="px-3 py-3 font-medium">${formatQty(item.currentAvailableQty, item.unit)}</td>
-                  <td class="px-3 py-3">${formatQty(Math.max(item.requiredQty - item.effectivePickedQty - item.currentAvailableQty, 0), item.unit)}</td>
-                  <td class="px-3 py-3 text-xs text-muted-foreground">
-                    ${escapeHtml(item.sourceWarehouseName)} / ${escapeHtml(item.sourceWarehouseArea)} / ${escapeHtml(item.sourceLocationCode)}
+                  <td class="px-3 py-3">${formatQty(line.requiredQty, line.unit)}</td>
+                  <td class="px-3 py-3">${formatQty(line.effectivePickedQty, line.unit)}</td>
+                  <td class="px-3 py-3 font-medium">${formatQty(line.currentAvailableQty, line.unit)}</td>
+                  <td class="px-3 py-3">${formatQty(line.remainingShortageQty, line.unit)}</td>
+                  <td class="px-3 py-3 text-xs text-muted-foreground space-y-1">
+                    ${line.batches.map((batch) => `
+                      <div>${escapeHtml(batch.sourceWarehouseName)} / ${escapeHtml(batch.sourceWarehouseArea)} / ${escapeHtml(batch.sourceLocationCode)} · 本批 ${formatQty(batch.currentAvailableQty, batch.unit)}</div>
+                    `).join('')}
                   </td>
                 </tr>
               `).join('')}
@@ -508,10 +574,160 @@ export function renderCraftCuttingPickupManagementDetailPage(): string {
   `
 }
 
-export function handleCraftCuttingPickupManagementEvent(target: HTMLElement): boolean {
-  const actionNode = target.closest<HTMLElement>('[data-pickup-action]')
-  const action = actionNode?.dataset.pickupAction
+export function handleCraftCuttingPickupManagementEvent(target: HTMLElement, event?: Event): boolean {
+  const dragEvent = event as (DragEvent & {
+    higoodStandardListColumnDrag?: true
+    higoodStandardListColumnKey?: string
+  }) | undefined
+  if (event?.type === 'dragend') {
+    if (!dragEvent?.higoodStandardListColumnDrag) return false
+    state.draggedColumnKey = ''
+    return true
+  }
+
+  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
+  if (
+    dragNode
+    && event
+    && dragEvent?.higoodStandardListColumnDrag
+    && ['dragstart', 'dragover', 'drop'].includes(event.type)
+  ) {
+    const columnKey = dragNode.dataset.dragSource || dragNode.dataset.dropTarget || ''
+    const column = PICKUP_NODE_COLUMNS.find((item) => item.key === columnKey && !item.actionColumn)
+    if (event.type === 'dragstart') {
+      state.draggedColumnKey = column?.key || ''
+      if (!column) return false
+      dragEvent.dataTransfer?.setData('application/x-higood-list-column-key', column.key)
+      if (dragEvent.dataTransfer) dragEvent.dataTransfer.effectAllowed = 'move'
+      return true
+    }
+
+    const sourceKey = dragEvent.higoodStandardListColumnKey || ''
+    const sourceColumn = PICKUP_NODE_COLUMNS.find((item) => item.key === sourceKey && !item.actionColumn)
+    const targetColumn = PICKUP_NODE_COLUMNS.find((item) => item.key === columnKey && !item.actionColumn)
+    if (!sourceColumn || !targetColumn || state.draggedColumnKey !== sourceColumn.key || sourceColumn.key === targetColumn.key) {
+      if (event.type === 'drop') state.draggedColumnKey = ''
+      return false
+    }
+    if (event.type === 'dragover') {
+      event.preventDefault()
+      if (dragEvent.dataTransfer) dragEvent.dataTransfer.dropEffect = 'move'
+      return true
+    }
+
+    event.preventDefault()
+    state.draggedColumnKey = ''
+    const order = state.columnPreferences.order.filter((key) => key !== sourceColumn.key)
+    const targetIndex = order.indexOf(targetColumn.key)
+    if (targetIndex < 0) return false
+    order.splice(targetIndex, 0, sourceColumn.key)
+    state.columnPreferences = normalizeListColumnPreferences(
+      PICKUP_NODE_COLUMNS,
+      { ...state.columnPreferences, order },
+      PAGE_SIZES,
+    )
+    if (typeof localStorage !== 'undefined') {
+      saveListColumnPreferences(localStorage, PREFERENCE_KEY, state.columnPreferences)
+    }
+    refreshPickupRegions()
+    refreshPickupOverlay()
+    return true
+  }
+
+  const pageSizeField = target.closest<HTMLSelectElement>('[data-pickup-list-field="pageSize"]')
+  if (pageSizeField) {
+    const pageSize = Number(pageSizeField.value)
+    if (PAGE_SIZES.includes(pageSize)) {
+      state.pageSize = pageSize
+      state.page = 1
+      state.columnPreferences = normalizeListColumnPreferences(
+        PICKUP_NODE_COLUMNS,
+        { ...state.columnPreferences, pageSize },
+        PAGE_SIZES,
+      )
+      if (typeof localStorage !== 'undefined') {
+        saveListColumnPreferences(localStorage, PREFERENCE_KEY, state.columnPreferences)
+      }
+      syncStateToUrl()
+      refreshPickupRegions()
+    }
+    return true
+  }
+
+  const actionNode = target.closest<HTMLElement>('[data-pickup-action], [data-pickup-list-action]')
+  const action = actionNode?.dataset.pickupAction || actionNode?.dataset.pickupListAction
   if (!actionNode || !action) return false
+
+  if (action === 'sort-column') {
+    const key = actionNode.dataset.columnKey || actionNode.dataset.pickupListColumnKey || ''
+    const column = PICKUP_NODE_COLUMNS.find((item) => item.key === key && item.sortable)
+    if (!column) return true
+    state.sort = state.sort?.key !== key
+      ? { key, direction: 'asc' }
+      : state.sort.direction === 'asc'
+        ? { key, direction: 'desc' }
+        : null
+    state.page = 1
+    syncStateToUrl()
+    refreshPickupRegions()
+    return true
+  }
+
+  if (action === 'open-column-settings' || action === 'close-column-settings') {
+    state.columnSettingsOpen = action === 'open-column-settings'
+    refreshPickupOverlay()
+    return true
+  }
+
+  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+    if (event?.type !== 'change') return false
+    const key = actionNode.dataset.pickupListColumnKey || actionNode.dataset.columnKey || ''
+    const column = PICKUP_NODE_COLUMNS.find((item) => item.key === key)
+    if (!column || column.actionColumn) return true
+    const visibleKeys = new Set(state.columnPreferences.visibleKeys)
+    const frozenKeys = new Set(state.columnPreferences.frozenKeys)
+    if (action === 'toggle-column-visibility' && !column.required) {
+      if (visibleKeys.has(key)) {
+        visibleKeys.delete(key)
+        frozenKeys.delete(key)
+      } else {
+        visibleKeys.add(key)
+      }
+    }
+    if (action === 'toggle-column-freeze' && column.freezeable) {
+      if (frozenKeys.has(key)) frozenKeys.delete(key)
+      else frozenKeys.add(key)
+    }
+    state.columnPreferences = normalizeListColumnPreferences(
+      PICKUP_NODE_COLUMNS,
+      { ...state.columnPreferences, visibleKeys: [...visibleKeys], frozenKeys: [...frozenKeys] },
+      PAGE_SIZES,
+    )
+    if (typeof localStorage !== 'undefined') {
+      saveListColumnPreferences(localStorage, PREFERENCE_KEY, state.columnPreferences)
+    }
+    refreshPickupRegions()
+    refreshPickupOverlay()
+    return true
+  }
+
+  if (action === 'restore-column-settings') {
+    state.columnPreferences = normalizeListColumnPreferences(
+      PICKUP_NODE_COLUMNS,
+      { order: [], visibleKeys: [], frozenKeys: [], pageSize: PAGE_SIZES[0] },
+      PAGE_SIZES,
+    )
+    state.pageSize = state.columnPreferences.pageSize
+    state.page = 1
+    state.sort = null
+    if (typeof localStorage !== 'undefined') {
+      saveListColumnPreferences(localStorage, PREFERENCE_KEY, state.columnPreferences)
+    }
+    syncStateToUrl()
+    refreshPickupRegions()
+    refreshPickupOverlay()
+    return true
+  }
 
   if (action === 'apply-filters') {
     const keyword = document.querySelector<HTMLInputElement>('[data-pickup-filter="keyword"]')?.value.trim() || ''
@@ -618,10 +834,10 @@ export function handleCraftCuttingPickupManagementEvent(target: HTMLElement): bo
 
 function refreshPickupRegions(): void {
   const allNodes = listActivePickupNodes()
-  const allRows = listMaterialPrepOrderProjections()
   const filteredNodes = allNodes.filter((n) => matchesPickupNode(n, state.filters))
   const sortedNodes = state.sort
-    ? sortStandardListRows(filteredNodes, state.sort, PICKUP_NODE_COLUMNS)
+    ? sortStandardListRows(filteredNodes, state.sort, (node, key) =>
+        PICKUP_NODE_COLUMNS.find((column) => column.key === key)?.sortValue?.(node))
     : filteredNodes
   const paging = paginateStandardListRows(sortedNodes, state.page, state.pageSize)
 
@@ -640,7 +856,7 @@ function refreshPickupRegions(): void {
       sort: state.sort,
       eventPrefix: 'pickup-list',
       emptyText: state.activeTab === 'WAIT_PICKUP' ? '当前暂无待领节点，等待中转仓确认配料后会自动出现。' : '当前状态下暂无领料记录。',
-    })
+    }).replaceAll('data-pickup-list-action=', 'data-skip-page-rerender="true" data-pickup-list-action=')
   }
 
   const paginationEl = document.querySelector('[data-pickup-region="pagination"]')
@@ -652,8 +868,25 @@ function refreshPickupRegions(): void {
       currentPage: paging.currentPage,
       totalPages: paging.totalPages,
       pageSize: paging.pageSize,
-      actionPrefix: 'pickup',
+      actionPrefix: 'pickup-list',
+      fieldPrefix: 'pickup-list',
       pageSizeOptions: PAGE_SIZES,
     })
+      .replaceAll('data-pickup-list-action=', 'data-skip-page-rerender="true" data-pickup-list-action=')
+      .replaceAll('data-pickup-list-field=', 'data-skip-page-rerender="true" data-pickup-list-field=')
   }
+}
+
+function refreshPickupOverlay(): void {
+  const overlay = document.querySelector<HTMLElement>('[data-pickup-region="overlay"]')
+  if (!overlay) return
+  overlay.innerHTML = state.columnSettingsOpen
+    ? renderStandardListColumnSettings({
+        title: '列设置',
+        columns: PICKUP_NODE_COLUMNS,
+        preferences: state.columnPreferences,
+        eventPrefix: 'pickup-list',
+        maxFrozenWidth: 620,
+      }).replaceAll('data-pickup-list-action=', 'data-skip-page-rerender="true" data-pickup-list-action=')
+    : ''
 }

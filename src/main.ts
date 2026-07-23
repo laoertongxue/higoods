@@ -618,7 +618,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   }
   if (pathname.startsWith('/fcs/craft/cutting/pickup-management')) {
     const pickupManagementPage = await import('./pages/process-factory/cutting/pickup-management')
-    return pickupManagementPage.handleCraftCuttingPickupManagementEvent(eventTarget)
+    return pickupManagementPage.handleCraftCuttingPickupManagementEvent(eventTarget, event)
   }
   if (pathname.startsWith('/wls/fabric-demand-board')) {
     try {
