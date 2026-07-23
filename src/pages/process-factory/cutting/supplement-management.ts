@@ -303,6 +303,7 @@ let detailReturnRecordId = ''
 let confirmationReturnFocus: HTMLElement | null = null
 let columnSettingsReturnFocus: HTMLElement | null = null
 let restoreCreateDraftFocus = false
+let supplementListRefreshScheduled = false
 
 const sourceTypeLabels: Record<SupplementSourceType, string> = {
   'production-order': '生产单',
@@ -2006,6 +2007,19 @@ function refreshSupplementOverlay(): void {
   setSupplementRegion('overlay', renderListOverlay())
 }
 
+function scheduleSupplementListRefresh(): void {
+  if (supplementListRefreshScheduled) return
+  if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+    refreshSupplementList()
+    return
+  }
+  supplementListRefreshScheduled = true
+  window.requestAnimationFrame(() => {
+    supplementListRefreshScheduled = false
+    refreshSupplementList()
+  })
+}
+
 function getTopSupplementListOverlay(): HTMLElement | null {
   return document.querySelector<HTMLElement>('[data-cutting-supplement-complete-confirm]')
     || document.querySelector<HTMLElement>('[data-cutting-supplement-detail]')
@@ -3144,9 +3158,9 @@ export function handleCraftCuttingSupplementManagementEvent(target: HTMLElement,
     } finally {
       state.pendingCompleteRecordId = ''
       refreshSupplementFeedback()
-      refreshSupplementList()
       refreshSupplementOverlay()
       focusUpdatedDetailFallback()
+      scheduleSupplementListRefresh()
     }
   }
 
