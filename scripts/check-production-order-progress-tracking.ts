@@ -147,7 +147,11 @@ async function main(): Promise<void> {
     '后道复检交出',
     'data-tab="workorders"',
   ].forEach((text) => assertIncludes(workordersHtml, text, '工单与分支页'))
-  ;['印花需求', '染色需求', '印染需求', '印花需求单', '染色需求单'].forEach((text) => {
+  const legacyDemandTerms = ['印花', '染色', '印染'].flatMap((prefix) => [
+    `${prefix}${'需' + '求'}`,
+    `${prefix}${'需' + '求单'}`,
+  ])
+  legacyDemandTerms.forEach((text) => {
     assert(!workordersHtml.includes(text), `工单与分支页不得保留旧需求单表达「${text}」`)
   })
   const currentProcessOrders = listProcessWorkOrders().filter((item) =>

@@ -117,6 +117,7 @@ const renderersSource = read('src/router/route-renderers-fcs.ts')
 const taskOrdersSource = read('src/pages/process-factory/special-craft/task-orders.ts')
 const warehouseSource = read('src/pages/process-factory/special-craft/warehouse.ts')
 const cuttingBindingSource = read('src/pages/process-factory/cutting/special-processes.ts')
+const bindingOrderSource = read('src/pages/process-factory/cutting/binding-strip-orders.ts')
 const pdaExecSource = read('src/pages/pda-exec.ts')
 const pdaReceiveSource = read('src/pages/pda-task-receive-detail.ts')
 
@@ -182,7 +183,8 @@ assertNotIncludes(warehouseSource, '特殊工艺待加工仓', '仓库页面不�
 assertNotIncludes(warehouseSource, '特殊工艺待交出仓', '仓库页面不得保留旧统一特殊工艺待交出仓文案')
 
 assertIncludes(cuttingBindingSource, '捆条加工单', '裁床捆条加工单页面必须存在')
-assertIncludes(cuttingBindingSource, 'getProductionOrderTechPackSnapshot', '捆条加工单必须来自生产单技术包快照')
+assertIncludes(bindingOrderSource, 'getProductionOrderTechPackSnapshot', '捆条加工单必须来自生产单技术包快照')
+assertIncludes(bindingOrderSource, 'source.productionOrderId', '捆条技术包快照必须按来源生产单读取')
 assertNotIncludes(cuttingBindingSource, 'listEnabledSpecialCraftOperationDefinitions', '捆条加工单不得复用特殊工艺 operation')
 assertNotIncludes(cuttingBindingSource, '打揽', '裁床捆条页面不得展示辅助工艺 operation')
 assertNotIncludes(cuttingBindingSource, '烫画', '裁床捆条页面不得展示辅助工艺 operation')

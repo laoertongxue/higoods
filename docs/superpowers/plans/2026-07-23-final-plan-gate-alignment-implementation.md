@@ -72,6 +72,8 @@ assert.equal(washing?.defaultDocType, 'TASK', '洗水默认产物必须是任务
 assert(!selectableSpecialCrafts.some((craft) => craft.craftName === '洗水'), '洗水不得作为可选特殊工艺')
 ```
 
+将捆条检查从已经移除的 DOM 事件名校准为 `bundleLengthCm`、`bundleWidthCm` 数据字段及“必须大于 0”的发布校验，保留冻结技术包中的捆条规格事实。
+
 - [ ] **步骤 3：验证技术包专项**
 
 运行：
