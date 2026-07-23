@@ -1627,6 +1627,10 @@ function buildRuntimeRelatedDocuments(order: ProductionOrder): RelatedDocument[]
 
   for (const projection of listMaterialPrepOrderProjections().filter((item) => matchesProductionOrder(order, [item.order.productionOrderNo, item.order.productionOrderId]))) {
     const routePath = `${getProjectionCategoryPath(projection)}?prepOrderId=${encodeURIComponent(projection.order.prepOrderId)}`
+    const confirmedPrepText = projection.unitSummaries
+      .filter((summary) => summary.confirmedPrepQty > 0)
+      .map((summary) => formatQty(summary.confirmedPrepQty, summary.unit))
+      .join('；') || '0'
     documents.push({
       docGroup: '面辅料',
       docType: '配料单',
@@ -1637,7 +1641,7 @@ function buildRuntimeRelatedDocuments(order: ProductionOrder): RelatedDocument[]
       ownerRole: '仓库',
       routePath,
       updatedAt: projection.latestOperatedAt || projection.order.createdAt,
-      quantityText: `${projection.lineCount} 行 / 已配 ${formatQty(projection.totalConfirmedPrepQty, projection.lines[0]?.unit || '件')}`,
+      quantityText: `${projection.lineCount} 行 / 已配 ${confirmedPrepText}`,
     })
 
     for (const record of projection.prepRecords.slice(0, 4)) {

@@ -65,6 +65,43 @@ export function formatQty(value: number): string {
   return value.toLocaleString('zh-CN')
 }
 
+function formatUnitQty(value: number, unit: string): string {
+  return `${Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${unit}`
+}
+
+export function formatMaterialPrepUnitMetric(
+  projection: MaterialPrepOrderProjection,
+  metric: 'requiredQty' | 'confirmedPrepQty' | 'grossPickedQty' | 'returnedQty' | 'effectivePickedQty' | 'availableToPickupQty' | 'shortageQty',
+): string {
+  const positive = projection.unitSummaries.filter((summary) => summary[metric] > 0)
+  const summaries = positive.length ? positive : projection.unitSummaries.slice(0, 1)
+  return summaries.length
+    ? summaries.map((summary) => formatUnitQty(summary[metric], summary.unit)).join('；')
+    : '0'
+}
+
+export function formatMaterialPrepProgressByUnit(projection: MaterialPrepOrderProjection): string {
+  return projection.unitSummaries
+    .filter((summary) => summary.requiredQty > 0)
+    .map((summary) =>
+      `${summary.unit}：已配 ${formatUnitQty(summary.confirmedPrepQty, summary.unit)} / 需求 ${formatUnitQty(summary.requiredQty, summary.unit)}`
+    )
+    .join('；') || '暂无需求'
+}
+
+export function formatMaterialPrepPickupByUnit(projection: MaterialPrepOrderProjection): string {
+  return projection.unitSummaries
+    .filter((summary) =>
+      summary.grossPickedQty > 0 ||
+      summary.returnedQty > 0 ||
+      summary.availableToPickupQty > 0
+    )
+    .map((summary) =>
+      `${summary.unit}：已领 ${formatUnitQty(summary.grossPickedQty, summary.unit)}，已退 ${formatUnitQty(summary.returnedQty, summary.unit)}，可领 ${formatUnitQty(summary.availableToPickupQty, summary.unit)}`
+    )
+    .join('；') || '暂无可领'
+}
+
 interface MaterialObjectCodeButtonOptions {
   label?: string
   className?: string

@@ -38,8 +38,8 @@ interface OverviewProductionOrderSource {
 
 interface MaterialPrepOverviewSource {
   productionOrderId: string
-  totalRequiredQty: number
-  totalConfirmedPrepQty: number
+  hasConfirmedPrep: boolean
+  isPrepComplete: boolean
 }
 
 interface CuttingProgressOverviewSource {
@@ -274,8 +274,9 @@ export function buildDefaultProductionOrderOverviewSources(): ProductionOrderOve
     ],
     materialPrepRows: listMaterialPrepOrderProjections().map((projection) => ({
       productionOrderId: projection.order.productionOrderId,
-      totalRequiredQty: projection.totalRequiredQty,
-      totalConfirmedPrepQty: projection.totalConfirmedPrepQty,
+      hasConfirmedPrep: projection.lines.some((line) => line.confirmedPrepQty > 0),
+      isPrepComplete: projection.lines.length > 0
+        && projection.lines.every((line) => line.confirmedPrepQty >= line.requiredQty),
     })),
     cuttingProgressRows: progressRows.map((row) => ({
       productionOrderId: row.productionOrderId,
@@ -305,8 +306,8 @@ function hasCuttingRequirement(order: OverviewProductionOrderSource, sources: Pr
 }
 
 function summarizeMaterialPrep(row: MaterialPrepOverviewSource | undefined): string {
-  if (!row || row.totalConfirmedPrepQty <= 0) return '未配料'
-  if (row.totalConfirmedPrepQty >= row.totalRequiredQty) return '配料完成'
+  if (!row || !row.hasConfirmedPrep) return '未配料'
+  if (row.isPrepComplete) return '配料完成'
   return '部分配料'
 }
 

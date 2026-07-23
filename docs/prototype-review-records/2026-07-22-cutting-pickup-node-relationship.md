@@ -2,7 +2,7 @@
 
 - 日期：2026-07-23
 - 审查对象：裁床领料管理待领节点实现
-- 涉及页面：`src/pages/process-factory/cutting/pickup-management.ts`、`src/pages/pda-warehouse-wait-process.ts`
+- 涉及页面：`src/pages/process-factory/cutting/pickup-management.ts`、`src/pages/pda-warehouse-wait-process.ts`、配料管理列表及五个分类页、生产单总览、裁床待加工仓
 - 涉及数据：`src/data/fcs/cutting/pickup-node-domain.ts`、`src/data/fcs/cutting/production-material-prep.ts`
 - 设计参考：`docs/superpowers/specs/2026-07-22-cutting-pickup-complete-relationship-design.md`
 
@@ -86,8 +86,15 @@
 7. 版本冲突阻断 → ✅
 8. 重复确认幂等 → ✅
 9. 数量不可编辑 → ✅
+10. 不同计量单位不跨单位求和 → ✅（需求、已配、已领、已退、可领、缺口均按 `yard`、`条` 等单位分组展示）
+11. 生产单配料状态不依赖无量纲合计 → ✅（逐物料行判断是否全部配齐）
 
 ## 6. 检查命令结果
 
 - `npm run check:cutting-pickup-node-domain` → 通过
 - `npm run check:cutting-material-return` → 通过
+- `npm run check:material-prep-unit-summary-consumers` → 通过
+- `npm run check:material-prep-pickup-management` → 通过
+- `npm run check:cutting-pickup-data-closure` → 通过
+- `npm run check:cutting-prep-pickup-return-linkage` → 通过
+- `npm run build` → 通过

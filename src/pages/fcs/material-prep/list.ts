@@ -5,6 +5,8 @@ import {
   escapeHtml,
   renderBadge,
   formatQty,
+  formatMaterialPrepProgressByUnit,
+  formatMaterialPrepUnitMetric,
   renderMaterialPrepOrderCodeButton,
   type MaterialPrepOrderProjection,
   type MaterialPrepOrderStatus,
@@ -91,22 +93,28 @@ function renderStatusBadge(status: MaterialPrepOrderStatus): string {
 }
 
 function renderPrepProgress(row: MaterialPrepOrderProjection): string {
-  const total = row.totalRequiredQty
-  const confirmed = row.totalConfirmedPrepQty
-  if (total <= 0) {
+  const summaries = row.unitSummaries.filter((summary) => summary.requiredQty > 0)
+  if (!summaries.length) {
     return `<div class="text-xs text-muted-foreground">暂无需求</div>`
   }
-  const pct = Math.min(Math.round((confirmed / total) * 100), 100)
-  const barColor = pct >= 100 ? 'bg-emerald-500' : pct > 0 ? 'bg-blue-500' : 'bg-slate-200'
   return `
-    <div class="space-y-1">
-      <div class="flex items-center justify-between text-xs">
-        <span>已配 ${formatQty(confirmed)} / ${formatQty(total)}</span>
-        <span class="font-medium">${pct}%</span>
-      </div>
-      <div class="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-        <div class="h-full rounded-full ${barColor}" style="width:${pct}%"></div>
-      </div>
+    <div class="space-y-2">
+      ${summaries.map((summary) => {
+        const pct = Math.min(Math.round((summary.confirmedPrepQty / summary.requiredQty) * 100), 100)
+        const barColor = pct >= 100 ? 'bg-emerald-500' : pct > 0 ? 'bg-blue-500' : 'bg-slate-200'
+        return `
+          <div class="space-y-1">
+            <div class="flex items-center justify-between gap-3 text-xs">
+              <span>${escapeHtml(summary.unit)}：${formatQty(summary.confirmedPrepQty)} / ${formatQty(summary.requiredQty)}</span>
+              <span class="font-medium">${pct}%</span>
+            </div>
+            <div class="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+              <div class="h-full rounded-full ${barColor}" style="width:${pct}%"></div>
+            </div>
+          </div>
+        `
+      }).join('')}
+      <div class="sr-only">${escapeHtml(formatMaterialPrepProgressByUnit(row))}</div>
     </div>
   `
 }
@@ -162,7 +170,7 @@ function renderTable(rows: MaterialPrepOrderProjection[]): string {
                 </td>
                 <td class="px-3 py-3">${renderCategoryBadge(row)}</td>
                 <td class="px-3 py-3">
-                  <div class="font-medium">${formatQty(row.totalRequiredQty)}</div>
+                  <div class="font-medium">${escapeHtml(formatMaterialPrepUnitMetric(row, 'requiredQty'))}</div>
                   <div class="mt-1 text-xs text-muted-foreground">${row.lineCount} 行物料</div>
                 </td>
                 <td class="px-3 py-3 min-w-[200px]">${renderPrepProgress(row)}</td>

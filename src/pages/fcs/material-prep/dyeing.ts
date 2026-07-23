@@ -26,6 +26,9 @@ import {
   renderProductionObjectCodeButton,
 } from '../../../data/fcs/production-order-identity.ts'
 import {
+  formatMaterialPrepPickupByUnit,
+  formatMaterialPrepProgressByUnit,
+  formatMaterialPrepUnitMetric,
   renderMaterialPrepOrderCodeButton,
   renderMaterialPrepRecordCodeButton,
   renderMaterialPickupRecordCodeButton,
@@ -443,11 +446,11 @@ function renderOrderTable(rows: MaterialPrepOrderProjection[], activeTab: Materi
                 </td>
                 <td class="px-3 py-3 align-top">
                   ${renderBadgeForStatus(row.order.overallPrepStatus, materialPrepStatusLabelMap[row.order.overallPrepStatus])}
-                  <div class="mt-2 text-xs text-muted-foreground">已确认 ${formatQty(row.totalConfirmedPrepQty)} / 需求 ${formatQty(row.totalRequiredQty)}</div>
+                  <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(formatMaterialPrepProgressByUnit(row))}</div>
                 </td>
                 <td class="px-3 py-3 align-top">
                   ${renderBadgeForStatus(row.order.pickupStatus, pickupStatusLabelMap[row.order.pickupStatus])}
-                  <div class="mt-2 text-xs text-muted-foreground">已领 ${formatQty(row.totalPickedQty)}，可领 ${formatQty(row.totalAvailableToPickupQty)}</div>
+                  <div class="mt-2 text-xs text-muted-foreground">${escapeHtml(formatMaterialPrepPickupByUnit(row))}</div>
                 </td>
                 <td class="px-3 py-3 align-top text-xs">
                   <div>物料行：${row.lineCount}</div>
@@ -554,7 +557,7 @@ function renderInventoryProgress(projection: MaterialPrepOrderProjection): strin
         </div>
         <div class="rounded-md border bg-muted/20 px-3 py-2">
           <div class="text-xs text-muted-foreground">缺料缺口</div>
-          <div class="mt-1 font-medium">${formatQty(projection.totalShortageQty)}</div>
+          <div class="mt-1 font-medium">${escapeHtml(formatMaterialPrepUnitMetric(projection, 'shortageQty'))}</div>
           <div class="mt-1 text-xs text-muted-foreground">最早可配 ${escapeHtml(projection.earliestExpectedAvailableAt || '暂无')}</div>
         </div>
       </div>
@@ -908,7 +911,7 @@ function renderPickupRecords(projection: MaterialPrepOrderProjection): string {
         <div class="rounded-md border bg-muted/20 px-3 py-2">
           <div class="text-xs text-muted-foreground">领料状态</div>
           <div class="mt-1 font-medium">${escapeHtml(pickupStatusLabelMap[projection.order.pickupStatus])}</div>
-          <div class="mt-1 text-xs text-muted-foreground">已领 ${formatQty(projection.totalPickedQty)} / 可领 ${formatQty(projection.totalAvailableToPickupQty)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatMaterialPrepPickupByUnit(projection))}</div>
         </div>
         <div class="rounded-md border bg-muted/20 px-3 py-2">
           <div class="text-xs text-muted-foreground">仓库拣货进度</div>
