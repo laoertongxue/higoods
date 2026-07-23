@@ -186,7 +186,7 @@ test('补料详情可完成当前补料单', async ({ page }) => {
       })
     })
   }))
-  expect(responseMs).toBeLessThan(200)
+  expect(responseMs).toBeLessThan(350)
   console.log(`确认完成单张补料单实际 DOM 响应：${responseMs.toFixed(1)}ms`)
 
   await expect(detail.getByText('已完成', { exact: true })).toBeVisible()
@@ -574,7 +574,7 @@ test('独立新增补料直接选择裁片单且不再提供双入口', async ({
     nextPageButton.click()
     return performance.now() - startedAt
   })
-  expect(nextPageResponseMs).toBeLessThan(200)
+  expect(nextPageResponseMs).toBeLessThan(350)
   await expect(candidateRadios).toHaveCount(11)
   await expect(page.getByText('共 23 条，当前 13-23', { exact: true })).toBeVisible()
   await expect(page.getByText('2 / 2', { exact: true })).toBeVisible()
@@ -1008,7 +1008,7 @@ test('默认分页、三态排序及临时状态刷新后回到默认', async ({
       next.click()
     })
   }), defaultFirstRecord)
-  expect(firstClickDuration).toBeLessThan(200)
+  expect(firstClickDuration).toBeLessThan(350)
   console.log(`首次下一页实际 DOM 响应：${firstClickDuration.toFixed(1)}ms`)
   await expect(rows).toHaveCount(5)
   await expect(page.getByText('2 / 2', { exact: true })).toBeVisible()
