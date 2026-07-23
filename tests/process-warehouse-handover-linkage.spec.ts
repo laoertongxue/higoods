@@ -41,7 +41,7 @@ async function navigateInApp(page: Page, path: string) {
 
 async function confirmActionDialog(page: Page, actionName: string) {
   const dialog = page.getByTestId('process-web-status-action-dialog')
-  await expect(dialog).toBeVisible({ timeout: 30_000 })
+  await expect(dialog).toBeVisible()
   await expect(dialog.getByTestId('process-web-status-action-title')).toHaveText(actionName)
   await dialog.getByTestId('process-web-status-action-confirm').click()
 }
@@ -170,7 +170,7 @@ test('印花 Web 完成转印后进入待交出仓', async ({ page }) => {
 
   await expect(page.getByRole('button', { name: '完成转印' })).toBeVisible()
   await page.getByRole('button', { name: '完成转印' }).click()
-  await expect(page.getByRole('heading', { name: '完成转印' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('heading', { name: '完成转印' })).toBeVisible()
   await expect(page.locator('body')).toContainText('确认执行“完成转印”')
   await page.getByRole('button', { name: '确认执行' }).click()
   await expect(page.locator('body')).toContainText('待交出')
@@ -202,7 +202,7 @@ test('染色 Web 完成包装后进入待交出仓', async ({ page }) => {
   await expect(page.getByRole('button', { name: '完成包装' })).toBeVisible()
 
   await page.getByRole('button', { name: '完成包装' }).click()
-  await expect(page.getByTestId('process-web-status-action-dialog')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('process-web-status-action-dialog')).toBeVisible()
   await expect(page.getByRole('heading', { name: '完成包装' })).toBeVisible()
   await page.getByRole('button', { name: '确认执行' }).click()
   await expect(page.locator('body')).toContainText('待交出')
@@ -210,10 +210,16 @@ test('染色 Web 完成包装后进入待交出仓', async ({ page }) => {
 
   await navigateInApp(page, '/fcs/craft/dyeing/wait-handover-warehouse')
   await expect(page.getByRole('heading', { name: '染色待交出仓' })).toBeVisible()
-  await expect(page.locator('body')).toContainText('TASK-DYE-000725')
+  const handoverStock = listFactoryWaitHandoverStockItems().find((item) =>
+    item.taskId === workOrder.workOrderId && item.processCode === 'DYE',
+  )
+  expect(handoverStock).toBeDefined()
+  await expect(page.locator('body')).toContainText(handoverStock!.taskNo || workOrder.workOrderNo)
   await expect(page.locator('body')).toContainText('加工完成数量')
-  await expect(page.locator('body')).toContainText('米')
-  await expect(page.locator('body')).toContainText('卷')
+  await expect(page.locator('body')).toContainText(`${handoverStock!.waitHandoverQty.toLocaleString('zh-CN')} ${handoverStock!.unit}`)
+  if (handoverStock!.fabricRollNo) {
+    await expect(page.locator('body')).toContainText(handoverStock!.fabricRollNo)
+  }
 })
 
 test('平台侧仍通过聚合状态展示联动后的风险', async ({ page }) => {
