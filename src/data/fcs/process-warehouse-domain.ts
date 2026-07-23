@@ -7,13 +7,17 @@ import {
 import { resolveAuxiliaryWarehouseFlow } from './special-craft-operations.ts'
 import { applySpecialCraftHandoverDifferenceToFeiTickets } from './cutting/special-craft-fei-ticket-flow.ts'
 import {
+  createPostFinishingReceiptMutationSnapshot,
   listPostFinishingWorkOrders,
   receiveAuxiliaryCraftGarmentsAtPostFinishing,
+  restorePostFinishingReceiptMutationSnapshot,
   type PostFinishingWorkOrder,
 } from './post-finishing-domain.ts'
 import {
+  createFactoryInternalWarehouseMutationSnapshot,
   listFactoryWaitHandoverStockItems,
   recordAuxiliaryGarmentReceiptToPostFactory,
+  restoreFactoryInternalWarehouseMutationSnapshot,
 } from './factory-internal-warehouse.ts'
 import type { ProcessWorkOrderSourceType } from './process-work-order-domain.ts'
 import { DEDICATED_POST_FACTORY_ID, DEDICATED_POST_FACTORY_NAME } from './factory-mock-data.ts'
@@ -1387,6 +1391,16 @@ export function createProcessHandoverDifferenceRecord(payload: DifferenceRecordP
   return cloneDifferenceRecord(next)
 }
 
+export interface ProcessHandoverPostReceiptDependencies {
+  recordPostFactoryInbound: typeof recordAuxiliaryGarmentReceiptToPostFactory
+  receiveAtPostFinishing: typeof receiveAuxiliaryCraftGarmentsAtPostFinishing
+}
+
+const defaultProcessHandoverPostReceiptDependencies: ProcessHandoverPostReceiptDependencies = {
+  recordPostFactoryInbound: recordAuxiliaryGarmentReceiptToPostFactory,
+  receiveAtPostFinishing: receiveAuxiliaryCraftGarmentsAtPostFinishing,
+}
+
 export function writeBackProcessHandoverRecord(
   handoverRecordId: string,
   payload: {
@@ -1397,12 +1411,14 @@ export function writeBackProcessHandoverRecord(
     evidenceUrls?: string[]
     remark?: string
   },
+  dependencyOverrides: Partial<ProcessHandoverPostReceiptDependencies> = {},
 ): ProcessHandoverRecord | undefined {
   const handover = processHandoverRecords.find((record) => record.handoverRecordId === handoverRecordId)
   if (!handover) return undefined
   const isAuxiliaryGarmentToPost = handover.craftType === 'SPECIAL_CRAFT'
     && handover.objectType === '成衣'
     && handover.receiveFactoryId === DEDICATED_POST_FACTORY_ID
+  const dependencies = { ...defaultProcessHandoverPostReceiptDependencies, ...dependencyOverrides }
   const postSourceSkuStocks = isAuxiliaryGarmentToPost
     ? listFactoryWaitHandoverStockItems().filter((stock) => stock.taskId === handover.sourceWorkOrderId && stock.itemKind === '成衣')
     : []
@@ -1421,7 +1437,23 @@ export function writeBackProcessHandoverRecord(
     if (invalidStock) throw new Error(`SKU ${invalidStock.materialSku || '未知'} 实收件数必须为 0 到 ${invalidStock.waitHandoverQty} 的整数。`)
     const skuReceivedTotal = Object.values(payload.receivedQtyBySkuCode).reduce((sum, qty) => sum + qty, 0)
     if (skuReceivedTotal !== payload.receiveObjectQty) throw new Error('后道逐 SKU 实收合计与本次实收总件数不一致。')
+    if (skuReceivedTotal <= 0) throw new Error('后道收货至少一个 SKU 实收件数必须大于 0。')
   }
+  const processWarehouseSnapshot = structuredClone(processWarehouseRecords)
+  const processHandoverSnapshot = structuredClone(processHandoverRecords)
+  const differenceSnapshot = structuredClone(processHandoverDifferenceRecords)
+  const reviewSnapshot = structuredClone(processWarehouseReviewRecords)
+  const factoryWarehouseSnapshot = createFactoryInternalWarehouseMutationSnapshot()
+  const postFinishingSnapshot = createPostFinishingReceiptMutationSnapshot()
+  const rollback = () => {
+    processWarehouseRecords.splice(0, processWarehouseRecords.length, ...processWarehouseSnapshot)
+    processHandoverRecords.splice(0, processHandoverRecords.length, ...processHandoverSnapshot)
+    processHandoverDifferenceRecords.splice(0, processHandoverDifferenceRecords.length, ...differenceSnapshot)
+    processWarehouseReviewRecords.splice(0, processWarehouseReviewRecords.length, ...reviewSnapshot)
+    restoreFactoryInternalWarehouseMutationSnapshot(factoryWarehouseSnapshot)
+    restorePostFinishingReceiptMutationSnapshot(postFinishingSnapshot)
+  }
+  try {
   const receiveAt = payload.receiveAt || nowText()
   handover.receiveObjectQty = roundQty(payload.receiveObjectQty)
   handover.diffObjectQty = roundQty(handover.receiveObjectQty - handover.handoverObjectQty)
@@ -1506,7 +1538,7 @@ export function writeBackProcessHandoverRecord(
       }
     })
     postSkuLines.forEach((line) => {
-      recordAuxiliaryGarmentReceiptToPostFactory({
+      dependencies.recordPostFactoryInbound({
         handoverRecordId: `${handover.handoverRecordId}-${line.skuCode}`,
         handoverRecordNo: handover.handoverRecordNo,
         sourceFactoryId: handover.handoverFactoryId,
@@ -1526,7 +1558,7 @@ export function writeBackProcessHandoverRecord(
         remark: handover.remark,
       })
     })
-    receiveAuxiliaryCraftGarmentsAtPostFinishing({
+    dependencies.receiveAtPostFinishing({
       handoverRecordId: handover.handoverRecordId,
       productionOrderId: handover.sourceProductionOrderId || handover.sourceProductionOrderNo || '',
       productionOrderNo: handover.sourceProductionOrderNo || handover.sourceProductionOrderId || '',
@@ -1540,6 +1572,10 @@ export function writeBackProcessHandoverRecord(
     })
   }
   return cloneHandoverRecord(handover)
+  } catch (error) {
+    rollback()
+    throw error
+  }
 }
 
 export function createProcessWarehouseReviewRecord(payload: ReviewRecordPayload): ProcessWarehouseReviewRecord {

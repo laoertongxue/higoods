@@ -427,6 +427,11 @@ interface FactoryInternalWarehouseStore {
   adjustmentOrders: FactoryWarehouseAdjustmentOrder[]
 }
 
+export interface FactoryInternalWarehouseMutationSnapshot {
+  waitProcessStockItems: FactoryWaitProcessStockItem[]
+  inboundRecords: FactoryWarehouseInboundRecord[]
+}
+
 const DEFAULT_AREA_NAMES = ['A区', 'B区', 'C区', 'D区', 'E区', 'F区', '异常区', '待确认区'] as const
 const NORMAL_AREA_NAMES = ['A区', 'B区', 'C区', 'D区', 'E区', 'F区'] as const
 const SEWING_FACTORY_TYPES = new Set<FactoryType>(['CENTRAL_GARMENT', 'SATELLITE_SEWING', 'THIRD_SEWING'])
@@ -815,8 +820,8 @@ export function validateGarmentReadyToHandoverAtAuxiliaryFactory(input: {
   totalCompletedQty: number
   completedQtyBySkuCode: Record<string, number>
 }): void {
-  if (!Number.isInteger(input.totalCompletedQty) || input.totalCompletedQty < 0) {
-    throw new Error('成衣完工件数必须为非负整数。')
+  if (!Number.isInteger(input.totalCompletedQty) || input.totalCompletedQty <= 0) {
+    throw new Error('成衣完工件数必须为大于 0 的整数。')
   }
   const factory = mockFactories.find((item) => item.id === input.targetFactoryId)
   if (!factory) throw new Error(`未找到辅助工艺工厂：${input.targetFactoryName}`)
@@ -2672,6 +2677,20 @@ export function listFactoryWarehouseInboundRecords(): FactoryWarehouseInboundRec
 
 export function listFactoryWarehouseOutboundRecords(): FactoryWarehouseOutboundRecord[] {
   return cloneValue(ensureFactoryInternalWarehouseStore().outboundRecords)
+}
+
+export function createFactoryInternalWarehouseMutationSnapshot(): FactoryInternalWarehouseMutationSnapshot {
+  const store = ensureFactoryInternalWarehouseStore()
+  return {
+    waitProcessStockItems: cloneValue(store.waitProcessStockItems),
+    inboundRecords: cloneValue(store.inboundRecords),
+  }
+}
+
+export function restoreFactoryInternalWarehouseMutationSnapshot(snapshot: FactoryInternalWarehouseMutationSnapshot): void {
+  const store = ensureFactoryInternalWarehouseStore()
+  store.waitProcessStockItems.splice(0, store.waitProcessStockItems.length, ...cloneValue(snapshot.waitProcessStockItems))
+  store.inboundRecords.splice(0, store.inboundRecords.length, ...cloneValue(snapshot.inboundRecords))
 }
 
 export function listFactoryWarehouseStocktakeOrders(): FactoryWarehouseStocktakeOrder[] {

@@ -935,6 +935,18 @@ export function validateProcessAction(payload: ProcessActionPayload): { ok: bool
     && definition.actionCode === 'DYE_FINISH_DYEING'
     && getDyeWorkOrderById(payload.sourceId)?.requiresWaterSoluble === true
   try {
+    if (payload.sourceType === 'SPECIAL_CRAFT') {
+      const workOrder = getSpecialCraftTaskWorkOrderById(payload.sourceId)
+      const isGarment = resolveSpecialCraftObjectMeta(workOrder?.targetObject).objectType === '成衣'
+      const requiresPositiveSkuQty = [
+        'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
+        'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
+        'SPECIAL_CRAFT_FINISH_PROCESS',
+      ].includes(definition.actionCode)
+      if (isGarment && requiresPositiveSkuQty && payload.skuQtyBySkuCode && !Object.values(payload.skuQtyBySkuCode).some((value) => Number(value) > 0)) {
+        throw new Error('成衣操作至少一个 SKU 件数必须大于 0')
+      }
+    }
     assertRequiredFields(payload, definition, qty, allowZeroQty)
     assertActionSpecificFields(payload, definition)
   } catch (error) {

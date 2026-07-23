@@ -362,6 +362,11 @@ export interface PostFinishingReceiptRecord {
   skuLines: PostFinishingSkuLine[]
 }
 
+export interface PostFinishingReceiptMutationSnapshot {
+  sourceContexts: PostFinishingSourceContext[]
+  receiptRecords: PostFinishingReceiptRecord[]
+}
+
 export interface PostFinishingWaitQcSkuItem {
   waitQcSkuKey: string
   postTaskId: string
@@ -2759,6 +2764,19 @@ export function listPostFinishingSkuOptions(styleId: string): PostFinishingSkuLi
 
 export function listPostFinishingReceiptRecords(): PostFinishingReceiptRecord[] {
   return receiptRecords.map(cloneReceipt)
+}
+
+export function createPostFinishingReceiptMutationSnapshot(): PostFinishingReceiptMutationSnapshot {
+  return {
+    sourceContexts: SOURCE_CONTEXTS.map(cloneSourceContext),
+    receiptRecords: receiptRecords.map(cloneReceipt),
+  }
+}
+
+export function restorePostFinishingReceiptMutationSnapshot(snapshot: PostFinishingReceiptMutationSnapshot): void {
+  SOURCE_CONTEXTS.splice(0, SOURCE_CONTEXTS.length, ...snapshot.sourceContexts.map(cloneSourceContext))
+  receiptRecords = snapshot.receiptRecords.map(cloneReceipt)
+  refreshPostFinishingDerivedRecords()
 }
 
 export function listPostFinishingTasks(): PostFinishingTaskView[] {

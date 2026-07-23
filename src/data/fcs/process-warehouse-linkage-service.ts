@@ -726,6 +726,9 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
       (sum, line) => sum + Number(actionResult.skuQtyBySkuCode?.[line.skuCode] || 0),
       0,
     )
+    if (totalOutboundQty <= 0) {
+      return mergeResult(base, { success: false, message: '成衣仓出库至少一个 SKU 实出件数必须大于 0' })
+    }
     if (totalOutboundQty !== actionResult.objectQty) {
       return mergeResult(base, { success: false, message: '逐 SKU 实出合计必须等于本次出库总件数' })
     }
@@ -799,6 +802,9 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
         return mergeResult(base, { success: false, message: `SKU ${invalidRecord.materialSku || '未知'} 实收件数无效` })
       }
       const receivedQty = outboundRecords.reduce((sum, record) => sum + Number(actionResult.skuQtyBySkuCode?.[record.materialSku || ''] || 0), 0)
+      if (receivedQty <= 0) {
+        return mergeResult(base, { success: false, message: '辅助工艺收货至少一个 SKU 实收件数必须大于 0' })
+      }
       if (receivedQty !== actionResult.objectQty) {
         return mergeResult(base, { success: false, message: '逐 SKU 实收合计与本次实收件数不一致' })
       }
