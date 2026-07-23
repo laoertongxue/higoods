@@ -13,6 +13,8 @@ import {
   listFactoryWaitProcessStockItems,
   listFactoryWarehouseOutboundRecords,
 } from '../src/data/fcs/factory-internal-warehouse.ts'
+import { listProcessWorkOrders, type ProcessWorkOrder } from '../src/data/fcs/process-work-order-domain.ts'
+import { getAvailableDyeWebActions, getAvailablePrintWebActions } from '../src/data/fcs/process-web-status-actions.ts'
 
 const HEAT_TRANSFER_GARMENT_WORK_ORDER = 'AUX-TASK-PO2026030002-SFER-2ab9e9-03-WO-001-'
 
@@ -24,8 +26,23 @@ async function navigateInApp(page: Page, path: string) {
 }
 
 async function confirmActionDialog(page: Page, actionName: string) {
-  await expect(page.getByRole('heading', { name: actionName })).toBeVisible({ timeout: 30_000 })
-  await page.getByRole('button', { name: '确认执行' }).click()
+  const dialog = page.getByTestId('process-web-status-action-dialog')
+  await expect(dialog).toBeVisible({ timeout: 30_000 })
+  await expect(dialog.getByTestId('process-web-status-action-title')).toHaveText(actionName)
+  await dialog.getByTestId('process-web-status-action-confirm').click()
+}
+
+function findWorkOrderForWebActions(
+  processType: 'PRINT' | 'DYE',
+  actionLabels: string[],
+): ProcessWorkOrder {
+  const getActions = processType === 'PRINT' ? getAvailablePrintWebActions : getAvailableDyeWebActions
+  const workOrder = listProcessWorkOrders().find((order) =>
+    order.processType === processType
+    && actionLabels.includes(getActions(order.workOrderId).find((action) => !action.disabledReason)?.actionLabel || ''),
+  )
+  if (!workOrder) throw new Error(`未找到可执行 ${actionLabels.join(' / ')} 的真实${processType === 'PRINT' ? '印花' : '染色'}加工单`)
+  return workOrder
 }
 
 test('烫画和直喷均使用当前辅助工艺入口与真实加工单', async ({ page }) => {
@@ -94,7 +111,8 @@ test('烫画成衣从成衣仓出库，经辅助待交出仓交我方后道', ()
 })
 
 test('印花 Web 完成转印后进入待交出仓', async ({ page }) => {
-  await page.goto('/fcs/craft/printing/work-orders/PWO-PRINT-004')
+  const workOrder = findWorkOrderForWebActions('PRINT', ['完成打印'])
+  await page.goto(`/fcs/craft/printing/work-orders/${workOrder.workOrderId}`)
   await expect(page.getByRole('heading', { name: '印花加工单详情' })).toBeVisible()
   await expect(page.getByRole('button', { name: '完成打印' })).toBeVisible()
 
@@ -124,7 +142,8 @@ test('印花 Web 完成转印后进入待交出仓', async ({ page }) => {
 })
 
 test('染色 Web 完成包装后进入待交出仓', async ({ page }) => {
-  await page.goto('/fcs/craft/dyeing/work-orders/DWO-005')
+  const workOrder = findWorkOrderForWebActions('DYE', ['完成烘干'])
+  await page.goto(`/fcs/craft/dyeing/work-orders/${workOrder.workOrderId}`)
   await expect(page.getByRole('heading', { name: '染色加工单详情' })).toBeVisible()
 
   for (const actionName of ['完成烘干', '完成定型', '完成打卷']) {
@@ -152,13 +171,17 @@ test('染色 Web 完成包装后进入待交出仓', async ({ page }) => {
 
 test('平台侧仍通过聚合状态展示联动后的风险', async ({ page }) => {
   await page.goto('/fcs/process/print-orders')
-  await expect(page.getByRole('heading', { name: '印花加工单' })).toBeVisible()
-  await expect(page.locator('body')).toContainText('平台状态')
-  await expect(page.locator('body')).toContainText(/待交出|交出待收货|收货确认中|异常|加工中/)
-  await expect(page.locator('body')).not.toContainText('转印中：')
+  const printRoot = page.locator('[data-process-print-orders-root]')
+  await expect(printRoot).toBeVisible()
+  await expect(printRoot.locator('h1')).toHaveText('印花加工单')
+  await expect(printRoot).toContainText('平台状态')
+  await expect(printRoot).toContainText(/待交出|交出待收货|收货确认中|异常|加工中/)
+  await expect(printRoot).not.toContainText('转印中：')
 
   await page.goto('/fcs/process/dye-orders')
-  await expect(page.getByRole('heading', { name: '染色加工单' })).toBeVisible()
-  await expect(page.locator('body')).toContainText('平台状态')
-  await expect(page.locator('body')).toContainText(/待交出|交出待收货|收货确认中|异常|加工中/)
+  const dyeRoot = page.locator('[data-process-dye-orders-root]')
+  await expect(dyeRoot).toBeVisible()
+  await expect(dyeRoot.locator('h1')).toHaveText('染色加工单')
+  await expect(dyeRoot).toContainText('平台状态')
+  await expect(dyeRoot).toContainText(/待交出|交出待收货|收货确认中|异常|加工中/)
 })

@@ -22,7 +22,6 @@
   "src/pages/process-factory/post-finishing/qc-orders.ts": "f56bf34a57518e1402de4f84fd01bc3daa312cb6f81354fe742f8d12b78a14cc",
   "src/pages/process-factory/wool/work-orders.ts": "c94a2d8c60df48c28890ecb2920f5a83ffc762605e802a1316fc703f51597cb3",
   "src/pages/process-water-soluble-orders.ts": "d19be0e6ed119cb15a117ae94d7e87dc7b8d5abb77e531484a1aae280feaecb4",
-  "src/pages/production-order-progress-tracking.ts": "785928055d8c36588ab40530d25af2d569a7460e8c3f12d13d117b4f43e8333e",
   "src/pages/progress-board/task-domain.ts": "500ed7cc1daba01fce4c794f57a60a183ef4ebe94eb37d6ded08a842e4df6905",
   "src/pages/statements.ts": "3637d3febf07e3c138bb902680424ca0b0fc95ec7c8876e6336a4dba46c392b3",
   "src/pages/wls-fabric-demand-board.ts": "2ccf9bcb16c16732fe57d8cabca60a55b5a959f01b94fbe364c20b686e8f6ab7"
