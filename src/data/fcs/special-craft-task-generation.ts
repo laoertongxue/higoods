@@ -23,7 +23,6 @@ import {
   type SpecialCraftTargetObject,
 } from './special-craft-operations.ts'
 import type {
-  SpecialCraftTaskAbnormalRecord,
   SpecialCraftTaskDemandLine,
   SpecialCraftTaskGenerationBatch,
   SpecialCraftTaskGenerationError,
@@ -843,9 +842,7 @@ function mergeDemandLinesIntoTaskOrder(input: {
   if (taskOrder.warehouseLinks.length === 0) {
     taskOrder.warehouseLinks = [] as SpecialCraftTaskWarehouseLink[]
   }
-  if (taskOrder.abnormalRecords.length === 0) {
-    taskOrder.abnormalRecords = [] as SpecialCraftTaskAbnormalRecord[]
-  }
+
 
   return taskOrder
 }
