@@ -112,7 +112,7 @@ export function validateWarehouseLinkageBeforeAction(
 ): { success: boolean; message: string } {
   if (
     actionResult.sourceType !== 'SPECIAL_CRAFT'
-    || actionResult.actionCode !== 'SPECIAL_CRAFT_FINISH_PROCESS'
+    || actionResult.actionCode !== 'SPECIAL_CRAFT_PROCESS_REPORT'
     || actionResult.objectType !== '成衣'
   ) {
     return { success: true, message: '无需仓事实预校验' }
@@ -849,16 +849,7 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
         : `${context.currentFactoryName}待加工仓已联动并关联菲票`,
     })
   }
-  if (actionResult.actionCode === 'SPECIAL_CRAFT_REPORT_DIFFERENCE') {
-    const difference = ensureSpecialCraftDifference(context, actionResult)
-    return mergeResult(base, {
-      createdDifferenceRecordId: difference.differenceId,
-      updatedDifferenceRecordId: difference.differenceId,
-      updatedFeiTicketIds: difference.updatedFeiTicketIds,
-      message: '特殊工艺差异记录已联动菲票数量变化',
-    })
-  }
-  if (!['SPECIAL_CRAFT_FINISH_PROCESS', 'SPECIAL_CRAFT_SUBMIT_HANDOVER'].includes(actionResult.actionCode)) return base
+  if (!['SPECIAL_CRAFT_PROCESS_REPORT', 'SPECIAL_CRAFT_SUBMIT_HANDOVER'].includes(actionResult.actionCode)) return base
   const waitHandoverContext: WarehouseBaseContext = {
     ...context,
     sourceFactoryId: context.currentFactoryId,
@@ -869,7 +860,7 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
     targetWarehouseName: `${context.craftName}待交出仓`,
     warehouseLocation: `${context.craftName}待交出仓-B01`,
   }
-  if (context.objectType === '成衣' && actionResult.actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS') {
+  if (context.objectType === '成衣' && actionResult.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT') {
     if (!actionResult.skuQtyBySkuCode) {
       return mergeResult(base, { success: false, message: '成衣完工必须逐 SKU 确认完工件数' })
     }

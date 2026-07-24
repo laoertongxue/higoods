@@ -93,176 +93,50 @@ import {
   type TransferBagReturnReceipt,
 } from './transfer-bag-return-model.ts'
 import { renderMaterialIdentityBlock } from './material-identity.ts'
-
-type MasterStatusFilter = 'ALL' | TransferBagCarrierCurrentStatus
-type MasterUseStageFilter = 'ALL' | TransferBagCarrierUseStage
-
-type UsageStatusFilter = 'ALL' | TransferBagUsageStatusKey
-type ReturnStatusFilter = 'ALL' | 'WAITING_RETURN' | 'RETURN_INSPECTING' | 'CLOSED' | 'SCRAP_CLOSED'
-type TransferBagDetailTab = 'basic' | 'current' | 'history' | 'items' | 'logs'
-type TransferBagBaggingStepId = 'scan' | 'review' | 'handover'
-type TransferBagBaggingStepState = 'pending' | 'active' | 'done' | 'locked'
-type TransferBagDialog =
-  | 'new-master'
-  | 'inbound-pack'
-  | 'handover-pack'
-  | 'return'
-type TransferBagsProjection = ReturnType<typeof buildTransferBagsProjection>
-type TransferBagCarrierManagementProjection = ReturnType<typeof buildTransferBagCarrierManagementProjection>
-type TransferBagCarrierMasterRecord = TransferBagCarrierManagementProjection['masterRecords'][number]
-
-type FeedbackTone = 'success' | 'warning'
-
-type MasterFilterField = 'keyword' | 'status' | 'useStage' | 'location' | 'boundObject'
-type UsageFilterField = 'keyword' | 'status' | 'sewingTask'
-type WorkbenchField = 'bagId' | 'bagCodeInput' | 'sewingTaskId' | 'ticketInput' | 'note'
-type ReturnFilterField = 'keyword' | 'status'
-type ReturnDraftField =
-  | 'returnWarehouseName'
-  | 'returnAt'
-  | 'returnedBy'
-  | 'receivedBy'
-  | 'returnedFinishedQty'
-  | 'returnedTicketCountSummary'
-  | 'discrepancyType'
-  | 'discrepancyNote'
-  | 'note'
-type ConditionDraftField = 'conditionStatus' | 'cleanlinessStatus' | 'damageType' | 'reusableDecision' | 'note'
-type MasterDraftField = 'bagCode' | 'carrierType' | 'capacity' | 'bagSpec' | 'bagMaterial' | 'ownershipFactoryId' | 'currentLocation' | 'note'
-type PackDraftField =
-  | 'bagId'
-  | 'bagCodeInput'
-  | 'ticketInput'
-  | 'warehouseArea'
-  | 'locationCode'
-  | 'operator'
-  | 'boundObjectType'
-  | 'boundObjectNo'
-  | 'receiverType'
-  | 'receiverName'
-  | 'note'
-
-type FeedbackState = {
-  tone: FeedbackTone
-  message: string
-} | null
-
-interface TransferBagLandingResolution {
-  page: 'list' | 'detail'
-  bagId?: string
-  bagCode?: string
-  usageId?: string
-  usageNo?: string
-  reason: string
-  matchedCount?: number
-}
-
-interface TransferBagLandingBanner {
-  summary: string
-  chips: string[]
-}
-
-interface TransferBagBaggingStepView {
-  id: TransferBagBaggingStepId
-  index: number
-  label: string
-  state: TransferBagBaggingStepState
-  summary: string
-  helperText: string
-  open: boolean
-}
-
-interface TransferBagsPageState {
-  store: TransferBagStore
-  masterKeyword: string
-  masterStatus: MasterStatusFilter
-  masterUseStage: MasterUseStageFilter
-  masterLocationKeyword: string
-  masterBoundObjectKeyword: string
-  masterPage: number
-  masterPageSize: number
-  usageKeyword: string
-  usageStatus: UsageStatusFilter
-  usageSewingTaskId: string
-  returnKeyword: string
-  returnStatus: ReturnStatusFilter
-  bindingKeyword: string
-  activeMasterId: string | null
-  activeUsageId: string | null
-  prefilter: TransferBagPrefilter | null
-  drillContext: CuttingDrillContext | null
-  landingBanner: TransferBagLandingBanner | null
-  querySignature: string
-  preselectedTicketRecordIds: string[]
-  activeDialog: TransferBagDialog | null
-  masterDraft: {
-    bagCode: string
-    carrierType: 'bag' | 'box'
-    capacity: string
-    bagSpec: string
-    bagMaterial: string
-    ownershipFactoryId: string
-    currentLocation: string
-    note: string
-  }
-  packDraft: {
-    bagId: string
-    bagCodeInput: string
-    ticketInput: string
-    warehouseArea: string
-    locationCode: string
-    operator: string
-    boundObjectType: string
-    boundObjectNo: string
-    receiverType: string
-    receiverName: string
-    note: string
-  }
-  draft: {
-    bagId: string
-    bagCodeInput: string
-    sewingTaskId: string
-    ticketInput: string
-    note: string
-  }
-  returnDraft: {
-    returnWarehouseName: string
-    returnAt: string
-    returnedBy: string
-    receivedBy: string
-    returnedFinishedQty: string
-    returnedTicketCountSummary: string
-    discrepancyType: TransferBagDiscrepancyType
-    discrepancyNote: string
-    note: string
-  }
-  conditionDraft: {
-    conditionStatus: TransferBagConditionStatus
-    cleanlinessStatus: 'CLEAN' | 'DIRTY'
-    damageType: string
-    repairNeeded: boolean
-    reusableDecision: TransferBagReusableDecision
-    note: string
-  }
-  feedback: FeedbackState
-}
-
-function nowText(date = new Date()): string {
-  const year = date.getFullYear()
-  const month = `${date.getMonth() + 1}`.padStart(2, '0')
-  const day = `${date.getDate()}`.padStart(2, '0')
-  const hours = `${date.getHours()}`.padStart(2, '0')
-  const minutes = `${date.getMinutes()}`.padStart(2, '0')
-  return `${year}-${month}-${day} ${hours}:${minutes}`
-}
-
-function uniqueStrings(values: Array<string | undefined>): string[] {
-  return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
-}
-
-function serializeTransferBagTicketRecordsStorage(records: TransferBagsProjection['ticketRecords']): string {
-  return JSON.stringify(records)
-}
+import {
+  state,
+  nowText,
+  uniqueStrings,
+  serializeTransferBagTicketRecordsStorage,
+  sanitizeIdFragment,
+  invalidateTransferBagProjectionCache,
+  getProjection,
+  hydrateStore,
+  getViewModel,
+  getReturnViewModel,
+  getCarrierManagementProjection,
+  persistStore,
+  persistSelectedTicketIds,
+  setFeedback,
+  closeActiveDialog,
+  getFactoryOptions,
+  getFactoryNameById,
+  type MasterStatusFilter,
+  type MasterUseStageFilter,
+  type UsageStatusFilter,
+  type ReturnStatusFilter,
+  type TransferBagDetailTab,
+  type TransferBagBaggingStepId,
+  type TransferBagBaggingStepState,
+  type TransferBagDialog,
+  type TransferBagsProjection,
+  type TransferBagCarrierManagementProjection,
+  type TransferBagCarrierMasterRecord,
+  type FeedbackTone,
+  type FeedbackState,
+  type TransferBagLandingResolution,
+  type TransferBagLandingBanner,
+  type TransferBagBaggingStepView,
+  type TransferBagsPageState,
+  type MasterFilterField,
+  type UsageFilterField,
+  type WorkbenchField,
+  type ReturnFilterField,
+  type ReturnDraftField,
+  type ConditionDraftField,
+  type MasterDraftField,
+  type PackDraftField,
+} from './transfer-bags/state.ts'
 
 function resolveCarrierScanInput(input: string, store: TransferBagStore): TransferBagMaster | null {
   const normalized = input.trim()
@@ -363,170 +237,6 @@ function hasResolverLookupContext(prefilter: TransferBagPrefilter | null): boole
       prefilter?.sourceWritebackId ||
       prefilter?.styleCode,
   )
-}
-
-let projectionVersion = 0
-let projectionCache: { version: number; projection: TransferBagsProjection } | null = null
-let carrierManagementProjectionCache:
-  | {
-      version: number
-      projection: TransferBagCarrierManagementProjection
-      masterRecordMap: Record<string, TransferBagCarrierMasterRecord>
-    }
-  | null = null
-
-function invalidateTransferBagProjectionCache(): void {
-  projectionVersion += 1
-  projectionCache = null
-  carrierManagementProjectionCache = null
-}
-
-function getProjection() {
-  if (projectionCache?.version === projectionVersion) return projectionCache.projection
-  const projection = buildTransferBagsProjection(undefined, state.store)
-  projectionCache = { version: projectionVersion, projection }
-  return projection
-}
-
-function hydrateStore(): TransferBagStore {
-  return buildTransferBagsProjection().store
-}
-
-const state: TransferBagsPageState = {
-  store: hydrateStore(),
-  masterKeyword: '',
-  masterStatus: 'ALL',
-  masterUseStage: 'ALL',
-  masterLocationKeyword: '',
-  masterBoundObjectKeyword: '',
-  masterPage: 1,
-  masterPageSize: 10,
-  usageKeyword: '',
-  usageStatus: 'ALL',
-  usageSewingTaskId: 'ALL',
-  returnKeyword: '',
-  returnStatus: 'ALL',
-  bindingKeyword: '',
-  activeMasterId: null,
-  activeUsageId: null,
-  prefilter: null,
-  drillContext: null,
-  landingBanner: null,
-  querySignature: '',
-  preselectedTicketRecordIds: deserializeTransferBagSelectedTicketIds(
-    sessionStorage.getItem(CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY),
-  ),
-  activeDialog: null,
-  masterDraft: {
-    bagCode: '',
-    carrierType: 'bag',
-    capacity: '80',
-    bagSpec: '中号 / 80 张菲票',
-    bagMaterial: '循环软袋',
-    ownershipFactoryId: '',
-    currentLocation: '裁片仓空袋区',
-    note: '',
-  },
-  packDraft: {
-    bagId: '',
-    bagCodeInput: '',
-    ticketInput: '',
-    warehouseArea: '裁片暂存区',
-    locationCode: 'A-01-01',
-    operator: '裁床仓管',
-    boundObjectType: '车缝任务',
-    boundObjectNo: '',
-    receiverType: '工厂',
-    receiverName: '',
-    note: '',
-  },
-  draft: {
-    bagId: '',
-    bagCodeInput: '',
-    sewingTaskId: '',
-    ticketInput: '',
-    note: '',
-  },
-  returnDraft: {
-    returnWarehouseName: '',
-    returnAt: '',
-    returnedBy: '',
-    receivedBy: '',
-    returnedFinishedQty: '',
-    returnedTicketCountSummary: '',
-    discrepancyType: 'NONE',
-    discrepancyNote: '',
-    note: '',
-  },
-  conditionDraft: {
-    conditionStatus: 'GOOD',
-    cleanlinessStatus: 'CLEAN',
-    damageType: '',
-    repairNeeded: false,
-    reusableDecision: 'REUSABLE',
-    note: '',
-  },
-  feedback: null,
-}
-
-function getViewModel() {
-  return getProjection().viewModel
-}
-
-function getReturnViewModel() {
-  return getProjection().returnViewModel
-}
-
-function getCarrierManagementProjection() {
-  if (carrierManagementProjectionCache?.version === projectionVersion) return carrierManagementProjectionCache.projection
-  const projection = buildTransferBagCarrierManagementProjection(state.store, getViewModel())
-  carrierManagementProjectionCache = {
-    version: projectionVersion,
-    projection,
-    masterRecordMap: Object.fromEntries(projection.masterRecords.map((item) => [item.bagCode, item])),
-  }
-  return projection
-}
-
-function persistStore(): void {
-  invalidateTransferBagProjectionCache()
-  localStorage.setItem(CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY, serializeTransferBagStorage(state.store))
-  const nextTicketRecords = getProjection().ticketRecords
-  localStorage.setItem(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY, serializeTransferBagTicketRecordsStorage(nextTicketRecords))
-}
-
-function persistSelectedTicketIds(): void {
-  if (state.preselectedTicketRecordIds.length) {
-    sessionStorage.setItem(
-      CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY,
-      serializeTransferBagSelectedTicketIds(state.preselectedTicketRecordIds),
-    )
-  } else {
-    sessionStorage.removeItem(CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY)
-  }
-}
-
-function setFeedback(tone: FeedbackTone, message: string): void {
-  state.feedback = { tone, message }
-}
-
-function closeActiveDialog(): boolean {
-  state.activeDialog = null
-  return true
-}
-
-function getFactoryOptions() {
-  const factories = listBusinessFactoryMasterRecords({ includeTestFactories: true })
-  return factories.length ? factories : [{ id: 'F090', code: 'F090', name: '全能力测试工厂' }]
-}
-
-function getFactoryNameById(factoryId: string): string {
-  const factory = getFactoryOptions().find((item) => item.id === factoryId || item.code === factoryId)
-  return factory ? formatFactoryDisplayName(factory.name, factory.code || factory.id) : ''
-}
-
-function sanitizeIdFragment(value: string): string {
-  return value.trim().replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'na'
 }
 
 function resetMasterDraft(): void {
