@@ -212,8 +212,8 @@ import { handleCraftPrintingEvent } from '../pages/process-factory/printing/even
 import { handleCraftWoolEvent } from '../pages/process-factory/wool/work-orders'
 import { handleCraftWoolMachineScheduleEvent } from '../pages/process-factory/wool/machine-schedule'
 import { handleCraftWoolMachinesEvent } from '../pages/process-factory/wool/machines'
-import { handleSpecialCraftWorkOrderDetailEvent } from '../pages/process-factory/special-craft/work-order-detail'
 import { handleSpecialCraftTaskOrdersEvent } from '../pages/process-factory/special-craft/task-orders'
+import { handleSpecialCraftTaskDetailEvent } from '../pages/process-factory/special-craft/task-detail'
 import { handleSpecialCraftWarehouseEvent } from '../pages/process-factory/special-craft/warehouse'
 import {
   handleFcsMaterialPrepListEvent,
@@ -372,8 +372,8 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   ) {
     return (
       handleSpecialCraftTaskOrdersEvent(target) ||
-      handleSpecialCraftWarehouseEvent(target) ||
-      handleSpecialCraftWorkOrderDetailEvent(target)
+      handleSpecialCraftTaskDetailEvent(target) ||
+      handleSpecialCraftWarehouseEvent(target)
     )
   }
 
@@ -394,7 +394,6 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handlePostFinishingEvent(target) ||
     handleSpecialCraftTaskOrdersEvent(target) ||
     handleSpecialCraftWarehouseEvent(target) ||
-    await handleSpecialCraftWorkOrderDetailEvent(target) ||
     await handleCutOrderReleaseIntegrationEvent(target) ||
     await handleCraftCuttingCutOrdersEvent(target) ||
     await handleFactoryOnboardingEvent(target) ||

@@ -1,6 +1,4 @@
 import {
-  getSpecialCraftTaskWorkOrderLinesByWorkOrderId,
-  getSpecialCraftTaskWorkOrdersByTaskOrderId,
   listSpecialCraftTaskOrders,
   type SpecialCraftTaskOrder,
 } from './special-craft-task-orders.ts'
@@ -38,7 +36,7 @@ export interface ProcessWarehouseRecord {
   recordType: ProcessWarehouseRecordType
   craftType: ProcessWarehouseCraftType
   craftName: string
-  sourceWorkOrderId: string
+  sourceTaskOrderId: string
   sourceWorkOrderNo: string
   sourceTaskId: string
   sourceTaskNo: string
@@ -84,7 +82,7 @@ export interface ProcessHandoverRecord {
   warehouseRecordId: string
   craftType: ProcessWarehouseCraftType
   craftName: string
-  sourceWorkOrderId: string
+  sourceTaskOrderId: string
   sourceWorkOrderNo: string
   sourceTaskId: string
   sourceTaskNo: string
@@ -126,7 +124,7 @@ export interface ProcessHandoverDifferenceRecord {
   differenceRecordNo: string
   handoverRecordId: string
   warehouseRecordId: string
-  sourceWorkOrderId: string
+  sourceTaskOrderId: string
   sourceWorkOrderNo: string
   sourceType?: ProcessWorkOrderSourceType
   sourceProductionOrderId?: string
@@ -159,7 +157,7 @@ export interface ProcessWarehouseReviewRecord {
   reviewRecordNo: string
   handoverRecordId: string
   warehouseRecordId: string
-  sourceWorkOrderId: string
+  sourceTaskOrderId: string
   sourceWorkOrderNo: string
   craftType: ProcessWarehouseCraftType
   craftName: string
@@ -181,7 +179,7 @@ export interface ProcessWarehouseRecordFilter {
   recordType?: ProcessWarehouseRecordType
   craftType?: ProcessWarehouseCraftType
   craftName?: string
-  sourceWorkOrderId?: string
+  sourceTaskOrderId?: string
   sourceTaskId?: string
   targetFactoryId?: string
   status?: string
@@ -190,7 +188,7 @@ export interface ProcessWarehouseRecordFilter {
 export interface ProcessHandoverRecordFilter {
   craftType?: ProcessWarehouseCraftType
   craftName?: string
-  sourceWorkOrderId?: string
+  sourceTaskOrderId?: string
   warehouseRecordId?: string
   status?: ProcessWarehouseHandoverStatus
 }
@@ -198,7 +196,7 @@ export interface ProcessHandoverRecordFilter {
 export interface ProcessWarehouseReviewRecordFilter {
   craftType?: ProcessWarehouseCraftType
   craftName?: string
-  sourceWorkOrderId?: string
+  sourceTaskOrderId?: string
   handoverRecordId?: string
   reviewStatus?: ProcessWarehouseReviewStatus
 }
@@ -206,7 +204,7 @@ export interface ProcessWarehouseReviewRecordFilter {
 export interface ProcessHandoverDifferenceRecordFilter {
   craftType?: ProcessWarehouseCraftType
   craftName?: string
-  sourceWorkOrderId?: string
+  sourceTaskOrderId?: string
   handoverRecordId?: string
   warehouseRecordId?: string
   status?: ProcessWarehouseDifferenceStatus
@@ -215,7 +213,7 @@ export interface ProcessHandoverDifferenceRecordFilter {
 type WarehouseRecordPayload = Partial<ProcessWarehouseRecord> & {
   craftType: ProcessWarehouseCraftType
   craftName: string
-  sourceWorkOrderId: string
+  sourceTaskOrderId: string
   sourceWorkOrderNo: string
   sourceTaskId?: string
   sourceTaskNo?: string
@@ -235,7 +233,7 @@ type ProcessHandoverRecordPayload = Partial<ProcessHandoverRecord> & {
   warehouseRecordId?: string
   craftType: ProcessWarehouseCraftType
   craftName: string
-  sourceWorkOrderId: string
+  sourceTaskOrderId: string
   sourceWorkOrderNo: string
   sourceTaskId?: string
   sourceTaskNo?: string
@@ -253,7 +251,7 @@ type ProcessHandoverRecordPayload = Partial<ProcessHandoverRecord> & {
 
 type ReviewRecordPayload = Partial<ProcessWarehouseReviewRecord> & {
   handoverRecordId: string
-  sourceWorkOrderId: string
+  sourceTaskOrderId: string
   sourceWorkOrderNo: string
   craftType: ProcessWarehouseCraftType
   craftName: string
@@ -265,7 +263,7 @@ type ReviewRecordPayload = Partial<ProcessWarehouseReviewRecord> & {
 type DifferenceRecordPayload = Partial<ProcessHandoverDifferenceRecord> & {
   handoverRecordId: string
   warehouseRecordId: string
-  sourceWorkOrderId: string
+  sourceTaskOrderId: string
   sourceWorkOrderNo: string
   sourceProductionOrderId?: string
   sourceProductionOrderNo?: string
@@ -328,7 +326,7 @@ function buildWarehouseRecord(
     recordType,
     craftType: payload.craftType,
     craftName: payload.craftName,
-    sourceWorkOrderId: payload.sourceWorkOrderId,
+    sourceTaskOrderId: payload.sourceTaskOrderId,
     sourceWorkOrderNo: payload.sourceWorkOrderNo,
     sourceTaskId: payload.sourceTaskId || '',
     sourceTaskNo: payload.sourceTaskNo || '',
@@ -396,7 +394,7 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       warehouseRecordId: 'PWH-WAIT_PROCESS-PRINT-1',
       craftType: 'PRINT',
       craftName: '印花',
-      sourceWorkOrderId: 'PWO-PRINT-003',
+      sourceTaskOrderId: 'PWO-PRINT-003',
       sourceWorkOrderNo: 'PH-20260328-003',
       sourceTaskId: 'TASK-PRINT-000715',
       sourceTaskNo: 'TASK-PRINT-000715',
@@ -428,7 +426,7 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       warehouseRecordId: 'PWH-WAIT_PROCESS-PRINT-2',
       craftType: 'PRINT',
       craftName: '印花',
-      sourceWorkOrderId: 'PWO-PRINT-004',
+      sourceTaskOrderId: 'PWO-PRINT-004',
       sourceWorkOrderNo: 'PH-20260328-004',
       sourceTaskId: 'TASK-PRINT-000717',
       sourceTaskNo: 'TASK-PRINT-000717',
@@ -460,7 +458,7 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       warehouseRecordId: 'PWH-WAIT_PROCESS-DYE-1',
       craftType: 'DYE',
       craftName: '染色',
-      sourceWorkOrderId: 'DWO-005',
+      sourceTaskOrderId: 'DWO-005',
       sourceWorkOrderNo: 'DY-20260328-005',
       sourceTaskId: 'TASK-DYE-000725',
       sourceTaskNo: 'TASK-DYE-000725',
@@ -491,7 +489,7 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       warehouseRecordId: 'PWH-WAIT_PROCESS-DYE-2',
       craftType: 'DYE',
       craftName: '染色',
-      sourceWorkOrderId: 'DWO-006',
+      sourceTaskOrderId: 'DWO-006',
       sourceWorkOrderNo: 'DY-20260328-006',
       sourceTaskId: 'TASK-DYE-000726',
       sourceTaskNo: 'TASK-DYE-000726',
@@ -522,7 +520,7 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       warehouseRecordId: 'PWH-WAIT_HANDOVER-PRINT-10',
       craftType: 'PRINT',
       craftName: '印花',
-      sourceWorkOrderId: 'PWO-PRINT-005',
+      sourceTaskOrderId: 'PWO-PRINT-005',
       sourceWorkOrderNo: 'PH-20260328-005',
       sourceTaskId: 'TASK-PRINT-000718',
       sourceTaskNo: 'TASK-PRINT-000718',
@@ -554,7 +552,7 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       warehouseRecordId: 'PWH-WAIT_HANDOVER-PRINT-11',
       craftType: 'PRINT',
       craftName: '印花',
-      sourceWorkOrderId: 'PWO-PRINT-006',
+      sourceTaskOrderId: 'PWO-PRINT-006',
       sourceWorkOrderNo: 'PH-20260328-006',
       sourceTaskId: 'TASK-PRINT-000719',
       sourceTaskNo: 'TASK-PRINT-000719',
@@ -586,7 +584,7 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       warehouseRecordId: 'PWH-WAIT_HANDOVER-DYE-1',
       craftType: 'DYE',
       craftName: '染色',
-      sourceWorkOrderId: 'DWO-007',
+      sourceTaskOrderId: 'DWO-007',
       sourceWorkOrderNo: 'DY-20260328-007',
       sourceTaskId: 'TASK-DYE-000727',
       sourceTaskNo: 'TASK-DYE-000727',
@@ -617,7 +615,7 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
       warehouseRecordId: 'PWH-WAIT_HANDOVER-DYE-2',
       craftType: 'DYE',
       craftName: '染色',
-      sourceWorkOrderId: 'DWO-008',
+      sourceTaskOrderId: 'DWO-008',
       sourceWorkOrderNo: 'DY-20260328-008',
       sourceTaskId: 'TASK-DYE-000728',
       sourceTaskNo: 'TASK-DYE-000728',
@@ -673,13 +671,12 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
   }
   taskOrders.forEach((taskOrder) => {
     const flow = resolveAuxiliaryWarehouseFlow(taskOrder.targetObject)
-    const workOrder = getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrder.taskOrderId)[0]
-    const sourceWorkOrderId = workOrder?.workOrderId || taskOrder.taskOrderId
-    const sourceWorkOrderNo = workOrder?.workOrderNo || taskOrder.taskOrderNo
+    const sourceTaskOrderId = taskOrder.taskOrderId
+    const sourceWorkOrderNo = taskOrder.taskOrderNo
     const common: Omit<WarehouseRecordPayload, 'currentActionName' | 'recordType'> = {
       craftType: 'SPECIAL_CRAFT',
       craftName: taskOrder.operationName,
-      sourceWorkOrderId,
+      sourceTaskOrderId,
       sourceWorkOrderNo,
       sourceTaskId: taskOrder.taskOrderId,
       sourceTaskNo: taskOrder.taskOrderNo,
@@ -769,7 +766,7 @@ function buildPostFinishingWarehouseRecords(orders: PostFinishingWorkOrder[]): P
           warehouseRecordId: order.waitProcessWarehouseRecordId,
           craftType: 'POST_FINISHING',
           craftName: '后道',
-          sourceWorkOrderId: order.postOrderId,
+          sourceTaskOrderId: order.postOrderId,
           sourceWorkOrderNo: order.postOrderNo,
           sourceTaskId: order.sourceTaskId,
           sourceTaskNo: order.sourceSewingTaskNo,
@@ -806,7 +803,7 @@ function buildPostFinishingWarehouseRecords(orders: PostFinishingWorkOrder[]): P
             warehouseRecordId: order.waitHandoverWarehouseRecordId,
             craftType: 'POST_FINISHING',
             craftName: '后道',
-            sourceWorkOrderId: order.postOrderId,
+            sourceTaskOrderId: order.postOrderId,
             sourceWorkOrderNo: order.postOrderNo,
             sourceTaskId: order.sourceTaskId,
             sourceTaskNo: order.sourceSewingTaskNo,
@@ -867,7 +864,7 @@ function buildInitialHandoverRecords(warehouseRecords: ProcessWarehouseRecord[])
         warehouseRecordId: record.warehouseRecordId,
         craftType: record.craftType,
         craftName: record.craftName,
-        sourceWorkOrderId: record.sourceWorkOrderId,
+        sourceTaskOrderId: record.sourceTaskOrderId,
         sourceWorkOrderNo: record.sourceWorkOrderNo,
         sourceTaskId: record.sourceTaskId,
         sourceTaskNo: record.sourceTaskNo,
@@ -926,7 +923,7 @@ function buildInitialHandoverRecords(warehouseRecords: ProcessWarehouseRecord[])
           warehouseRecordId: warehouse.warehouseRecordId,
           craftType: warehouse.craftType,
           craftName: warehouse.craftName,
-          sourceWorkOrderId: warehouse.sourceWorkOrderId,
+          sourceTaskOrderId: warehouse.sourceTaskOrderId,
           sourceWorkOrderNo: warehouse.sourceWorkOrderNo,
           sourceTaskId: warehouse.sourceTaskId,
           sourceTaskNo: warehouse.sourceTaskNo,
@@ -980,7 +977,7 @@ function buildInitialReviewRecords(handoverRecords: ProcessHandoverRecord[]): Pr
     reviewRecordNo: `SH-${String(index + 1).padStart(4, '0')}`,
     handoverRecordId: record.handoverRecordId,
     warehouseRecordId: record.warehouseRecordId,
-    sourceWorkOrderId: record.sourceWorkOrderId,
+    sourceTaskOrderId: record.sourceTaskOrderId,
     sourceWorkOrderNo: record.sourceWorkOrderNo,
     craftType: record.craftType,
     craftName: record.craftName,
@@ -1021,7 +1018,7 @@ function buildDifferenceRecordFromHandover(record: ProcessHandoverRecord, index:
     differenceRecordNo: `CY-${String(index + 1).padStart(4, '0')}`,
     handoverRecordId: record.handoverRecordId,
     warehouseRecordId: record.warehouseRecordId,
-    sourceWorkOrderId: record.sourceWorkOrderId,
+    sourceTaskOrderId: record.sourceTaskOrderId,
     sourceWorkOrderNo: record.sourceWorkOrderNo,
     sourceProductionOrderId: record.sourceProductionOrderId,
     sourceProductionOrderNo: record.sourceProductionOrderNo,
@@ -1080,7 +1077,7 @@ function matchesWarehouseFilter(record: ProcessWarehouseRecord, filter: ProcessW
   if (filter.recordType && record.recordType !== filter.recordType) return false
   if (filter.craftType && record.craftType !== filter.craftType) return false
   if (filter.craftName && record.craftName !== filter.craftName) return false
-  if (filter.sourceWorkOrderId && record.sourceWorkOrderId !== filter.sourceWorkOrderId) return false
+  if (filter.sourceTaskOrderId && record.sourceTaskOrderId !== filter.sourceTaskOrderId) return false
   if (filter.sourceTaskId && record.sourceTaskId !== filter.sourceTaskId) return false
   if (filter.targetFactoryId && record.targetFactoryId !== filter.targetFactoryId) return false
   if (filter.status && record.status !== filter.status) return false
@@ -1090,7 +1087,7 @@ function matchesWarehouseFilter(record: ProcessWarehouseRecord, filter: ProcessW
 function matchesHandoverFilter(record: ProcessHandoverRecord, filter: ProcessHandoverRecordFilter = {}): boolean {
   if (filter.craftType && record.craftType !== filter.craftType) return false
   if (filter.craftName && record.craftName !== filter.craftName) return false
-  if (filter.sourceWorkOrderId && record.sourceWorkOrderId !== filter.sourceWorkOrderId) return false
+  if (filter.sourceTaskOrderId && record.sourceTaskOrderId !== filter.sourceTaskOrderId) return false
   if (filter.warehouseRecordId && record.warehouseRecordId !== filter.warehouseRecordId) return false
   if (filter.status && record.status !== filter.status) return false
   return true
@@ -1099,7 +1096,7 @@ function matchesHandoverFilter(record: ProcessHandoverRecord, filter: ProcessHan
 function matchesReviewFilter(record: ProcessWarehouseReviewRecord, filter: ProcessWarehouseReviewRecordFilter = {}): boolean {
   if (filter.craftType && record.craftType !== filter.craftType) return false
   if (filter.craftName && record.craftName !== filter.craftName) return false
-  if (filter.sourceWorkOrderId && record.sourceWorkOrderId !== filter.sourceWorkOrderId) return false
+  if (filter.sourceTaskOrderId && record.sourceTaskOrderId !== filter.sourceTaskOrderId) return false
   if (filter.handoverRecordId && record.handoverRecordId !== filter.handoverRecordId) return false
   if (filter.reviewStatus && record.reviewStatus !== filter.reviewStatus) return false
   return true
@@ -1108,7 +1105,7 @@ function matchesReviewFilter(record: ProcessWarehouseReviewRecord, filter: Proce
 function matchesDifferenceFilter(record: ProcessHandoverDifferenceRecord, filter: ProcessHandoverDifferenceRecordFilter = {}): boolean {
   if (filter.craftType && record.craftType !== filter.craftType) return false
   if (filter.craftName && record.craftName !== filter.craftName) return false
-  if (filter.sourceWorkOrderId && record.sourceWorkOrderId !== filter.sourceWorkOrderId) return false
+  if (filter.sourceTaskOrderId && record.sourceTaskOrderId !== filter.sourceTaskOrderId) return false
   if (filter.handoverRecordId && record.handoverRecordId !== filter.handoverRecordId) return false
   if (filter.warehouseRecordId && record.warehouseRecordId !== filter.warehouseRecordId) return false
   if (filter.status && record.status !== filter.status) return false
@@ -1172,19 +1169,19 @@ export function getProcessWarehouseReviewRecordById(reviewRecordId: string): Pro
 }
 
 export function getWarehouseRecordsByWorkOrderId(workOrderId: string): ProcessWarehouseRecord[] {
-  return listProcessWarehouseRecords({ sourceWorkOrderId: workOrderId })
+  return listProcessWarehouseRecords({ sourceTaskOrderId: workOrderId })
 }
 
 export function getHandoverRecordsByWorkOrderId(workOrderId: string): ProcessHandoverRecord[] {
-  return listProcessHandoverRecords({ sourceWorkOrderId: workOrderId })
+  return listProcessHandoverRecords({ sourceTaskOrderId: workOrderId })
 }
 
 export function getReviewRecordsByWorkOrderId(workOrderId: string): ProcessWarehouseReviewRecord[] {
-  return listProcessWarehouseReviewRecords({ sourceWorkOrderId: workOrderId })
+  return listProcessWarehouseReviewRecords({ sourceTaskOrderId: workOrderId })
 }
 
 export function getDifferenceRecordsByWorkOrderId(workOrderId: string): ProcessHandoverDifferenceRecord[] {
-  return listProcessHandoverDifferenceRecords({ sourceWorkOrderId: workOrderId })
+  return listProcessHandoverDifferenceRecords({ sourceTaskOrderId: workOrderId })
 }
 
 export function getHandoverRecordsByWarehouseRecordId(warehouseRecordId: string): ProcessHandoverRecord[] {
@@ -1203,7 +1200,7 @@ function upsertWarehouseRecord(payload: WarehouseRecordPayload, recordType: Proc
   const existed = processWarehouseRecords.find((record) =>
     record.recordType === recordType
     && record.craftType === payload.craftType
-    && record.sourceWorkOrderId === payload.sourceWorkOrderId
+    && record.sourceTaskOrderId === payload.sourceTaskOrderId
     && record.currentActionName === payload.currentActionName,
   )
   const next = buildWarehouseRecord(payload, recordType, processWarehouseRecords.length + 1)
@@ -1283,7 +1280,7 @@ export function createProcessHandoverRecord(payload: ProcessHandoverRecordPayloa
     : processWarehouseRecords.find((record) =>
         record.recordType === 'WAIT_HANDOVER'
         && record.craftType === payload.craftType
-        && record.sourceWorkOrderId === payload.sourceWorkOrderId,
+        && record.sourceTaskOrderId === payload.sourceTaskOrderId,
       )
   const id = payload.handoverRecordId || `PHR-${String(processHandoverRecords.length + 1).padStart(4, '0')}`
   const handoverAt = payload.handoverAt || nowText()
@@ -1293,7 +1290,7 @@ export function createProcessHandoverRecord(payload: ProcessHandoverRecordPayloa
     warehouseRecordId: warehouse?.warehouseRecordId || payload.warehouseRecordId || '',
     craftType: payload.craftType,
     craftName: payload.craftName,
-    sourceWorkOrderId: payload.sourceWorkOrderId,
+    sourceTaskOrderId: payload.sourceTaskOrderId,
     sourceWorkOrderNo: payload.sourceWorkOrderNo,
     sourceTaskId: payload.sourceTaskId || warehouse?.sourceTaskId || '',
     sourceTaskNo: payload.sourceTaskNo || warehouse?.sourceTaskNo || '',
@@ -1351,7 +1348,7 @@ export function createProcessHandoverDifferenceRecord(payload: DifferenceRecordP
     differenceRecordNo: payload.differenceRecordNo || existed?.differenceRecordNo || `CY-${String(processHandoverDifferenceRecords.length + 1).padStart(4, '0')}`,
     handoverRecordId: payload.handoverRecordId,
     warehouseRecordId: payload.warehouseRecordId,
-    sourceWorkOrderId: payload.sourceWorkOrderId,
+    sourceTaskOrderId: payload.sourceTaskOrderId,
     sourceWorkOrderNo: payload.sourceWorkOrderNo,
     ...(payload.sourceType ? { sourceType: payload.sourceType } : {}),
     ...(payload.sourceProductionOrderId ? { sourceProductionOrderId: payload.sourceProductionOrderId } : {}),
@@ -1420,7 +1417,7 @@ export function writeBackProcessHandoverRecord(
     && handover.receiveFactoryId === DEDICATED_POST_FACTORY_ID
   const dependencies = { ...defaultProcessHandoverPostReceiptDependencies, ...dependencyOverrides }
   const postSourceSkuStocks = isAuxiliaryGarmentToPost
-    ? listFactoryWaitHandoverStockItems().filter((stock) => stock.taskId === handover.sourceWorkOrderId && stock.itemKind === '成衣')
+    ? listFactoryWaitHandoverStockItems().filter((stock) => stock.taskId === handover.sourceTaskOrderId && stock.itemKind === '成衣')
     : []
   if (isAuxiliaryGarmentToPost) {
     if (handover.receiveAt) throw new Error('该成衣交出记录已完成后道收货，不能重复收货。')
@@ -1475,7 +1472,7 @@ export function writeBackProcessHandoverRecord(
     ? createProcessHandoverDifferenceRecord({
         handoverRecordId: handover.handoverRecordId,
         warehouseRecordId: handover.warehouseRecordId,
-        sourceWorkOrderId: handover.sourceWorkOrderId,
+        sourceTaskOrderId: handover.sourceTaskOrderId,
         sourceWorkOrderNo: handover.sourceWorkOrderNo,
         sourceProductionOrderId: handover.sourceProductionOrderId,
         sourceProductionOrderNo: handover.sourceProductionOrderNo,
@@ -1497,7 +1494,7 @@ export function writeBackProcessHandoverRecord(
   const review = createProcessWarehouseReviewRecord({
     handoverRecordId: handover.handoverRecordId,
     warehouseRecordId: handover.warehouseRecordId,
-    sourceWorkOrderId: handover.sourceWorkOrderId,
+    sourceTaskOrderId: handover.sourceTaskOrderId,
     sourceWorkOrderNo: handover.sourceWorkOrderNo,
     craftType: handover.craftType,
     craftName: handover.craftName,
@@ -1523,7 +1520,8 @@ export function writeBackProcessHandoverRecord(
     }
   }
   if (isAuxiliaryGarmentToPost) {
-    const workOrderLines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(handover.sourceWorkOrderId)
+    const sourceTaskOrder = listSpecialCraftTaskOrders().find((to) => to.taskOrderId === handover.sourceTaskOrderId)
+    const workOrderLines = sourceTaskOrder?.demandLines || []
     const postSkuLines = workOrderLines.map((line) => {
       const sourceStock = postSourceSkuStocks.find((stock) => stock.materialSku === line.skuCode)
       const plannedQty = sourceStock?.waitHandoverQty || 0
@@ -1543,7 +1541,7 @@ export function writeBackProcessHandoverRecord(
         handoverRecordNo: handover.handoverRecordNo,
         sourceFactoryId: handover.handoverFactoryId,
         sourceFactoryName: handover.handoverFactoryName,
-        sourceTaskId: handover.sourceWorkOrderId,
+        sourceTaskId: handover.sourceTaskOrderId,
         sourceTaskNo: handover.sourceWorkOrderNo,
         productionOrderId: handover.sourceProductionOrderId,
         productionOrderNo: handover.sourceProductionOrderNo,
@@ -1562,7 +1560,7 @@ export function writeBackProcessHandoverRecord(
       handoverRecordId: handover.handoverRecordId,
       productionOrderId: handover.sourceProductionOrderId || handover.sourceProductionOrderNo || '',
       productionOrderNo: handover.sourceProductionOrderNo || handover.sourceProductionOrderId || '',
-      sourceTaskId: handover.sourceWorkOrderId,
+      sourceTaskId: handover.sourceTaskOrderId,
       sourceTaskNo: handover.sourceWorkOrderNo,
       sourceFactoryId: handover.handoverFactoryId,
       sourceFactoryName: handover.handoverFactoryName,
@@ -1586,7 +1584,7 @@ export function createProcessWarehouseReviewRecord(payload: ReviewRecordPayload)
     reviewRecordNo: payload.reviewRecordNo || existed?.reviewRecordNo || `SH-${String(processWarehouseReviewRecords.length + 1).padStart(4, '0')}`,
     handoverRecordId: payload.handoverRecordId,
     warehouseRecordId: payload.warehouseRecordId || '',
-    sourceWorkOrderId: payload.sourceWorkOrderId,
+    sourceTaskOrderId: payload.sourceTaskOrderId,
     sourceWorkOrderNo: payload.sourceWorkOrderNo,
     craftType: payload.craftType,
     craftName: payload.craftName,
@@ -1721,7 +1719,7 @@ export function applySpecialCraftDifferenceToFeiTickets(
   const difference = processHandoverDifferenceRecords.find((record) => record.differenceRecordId === differenceRecordId)
   if (!difference || difference.craftType !== 'SPECIAL_CRAFT') return difference ? cloneDifferenceRecord(difference) : undefined
   applySpecialCraftHandoverDifferenceToFeiTickets({
-    workOrderId: difference.sourceWorkOrderId,
+    workOrderId: difference.sourceTaskOrderId,
     feiTicketNos: difference.relatedFeiTicketIds,
     differenceType: difference.differenceType,
     expectedQty: difference.expectedObjectQty,
@@ -1748,17 +1746,17 @@ export function getProcessWarehouseSummary(filter: ProcessWarehouseRecordFilter 
   const handovers = listProcessHandoverRecords({
     craftType: filter.craftType,
     craftName: filter.craftName,
-    sourceWorkOrderId: filter.sourceWorkOrderId,
+    sourceTaskOrderId: filter.sourceTaskOrderId,
   })
   const reviews = listProcessWarehouseReviewRecords({
     craftType: filter.craftType,
     craftName: filter.craftName,
-    sourceWorkOrderId: filter.sourceWorkOrderId,
+    sourceTaskOrderId: filter.sourceTaskOrderId,
   })
   const differences = listProcessHandoverDifferenceRecords({
     craftType: filter.craftType,
     craftName: filter.craftName,
-    sourceWorkOrderId: filter.sourceWorkOrderId,
+    sourceTaskOrderId: filter.sourceTaskOrderId,
   })
   return {
     waitProcessQty: roundQty(waitProcess.reduce((sum, record) => sum + record.availableObjectQty, 0)),

@@ -1,28 +1,15 @@
+// @page-pattern: list
+
 import {
-  buildSpecialCraftOperationSlug,
   buildSpecialCraftTaskDetailPath,
-  buildSpecialCraftPreferredWarehousePath,
   getSpecialCraftOperationBySlug,
 } from '../../../data/fcs/special-craft-operations.ts'
-import { buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
   getSpecialCraftTaskOrders,
   type SpecialCraftTaskOrder,
 } from '../../../data/fcs/special-craft-task-orders.ts'
-import {
-  PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
-  renderProductionOrderIdentityCell,
-} from '../../../data/fcs/production-order-identity.ts'
+import { renderProductionOrderIdentityCell } from '../../../data/fcs/production-order-identity.ts'
 import { escapeHtml } from '../../../utils.ts'
-import {
-  paginateItems,
-  renderCompactKpiCard,
-  renderStickyFilterShell,
-  renderStickyTableScroller,
-  renderWorkbenchFilterChip,
-  renderWorkbenchPagination,
-  renderWorkbenchStateBar,
-} from '../cutting/layout.helpers.ts'
 import {
   formatQty,
   formatSpecialCraftFactoryLabel,
@@ -31,49 +18,222 @@ import {
   renderSpecialCraftPageLayout,
   resolveSpecialCraftFactoryContextGuard,
   renderStatusBadge,
+  getFastSpecialCraftWebActions,
+  resolveSpuImageUrl,
 } from './shared.ts'
+import { appStore } from '../../../state/store.ts'
 
-type TaskTimeRange = 'TODAY' | '7D' | '30D' | 'ALL'
-type TaskFilterField = 'keyword' | 'factoryId' | 'status' | 'abnormalStatus' | 'timeRange'
+import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { renderSecondaryButton } from '../../../components/ui/button.ts'
+import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
+import {
+  clearListColumnPreferences,
+  loadListColumnPreferences,
+  normalizeListColumnPreferences,
+  paginateStandardListRows,
+  saveListColumnPreferences,
+  sortStandardListRows,
+  type StandardListColumnPreferences,
+  type StandardListColumnRule,
+  type StandardListPageSlice,
+  type StandardListSortState,
+} from '../../../components/ui/list-table-model.ts'
+import {
+  renderStandardListColumnSettings,
+  renderStandardListTable,
+  type StandardListColumn,
+} from '../../../components/ui/list-table.ts'
 
-export interface SpecialCraftTaskListState {
-  keyword: string
-  factoryId: string
-  status: string
-  abnormalStatus: string
-  timeRange: TaskTimeRange
+const PREF_STORAGE_KEY = 'higood:list-page:/fcs/craft/special-craft/task-orders'
+const PAGE_SIZES = [10, 20, 50]
+const MAX_FROZEN_WIDTH = 360
+
+interface ExpandedTaskOrderRow {
+  taskOrder: SpecialCraftTaskOrder
+  rowType: 'garment-sku' | 'cut-piece-fei'
+  // garment
+  garmentColor: string
+  garmentSize: string
+  garmentPlanQty: number
+  // cut piece
+  feiTicketNo: string
+  feiPartName: string
+  feiColor: string
+  feiSize: string
+  feiPlanQty: number
+}
+
+const TASK_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: '全部', label: '全部任务' },
+  { value: '待领料', label: '待领料' },
+  { value: '已入待加工仓', label: '待加工' },
+  { value: '加工中', label: '加工中' },
+  { value: '待交出', label: '待交出' },
+  { value: '已完成', label: '已完成' },
+  { value: '差异', label: '差异' },
+]
+
+const TASK_TIME_RANGE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'TODAY', label: '今日' },
+  { value: '7D', label: '近 7 天' },
+  { value: '30D', label: '近 30 天' },
+  { value: 'ALL', label: '全部时间' },
+]
+
+const columnRules: StandardListColumnRule[] = [
+  { key: 'thumbnail', required: true, freezeable: true },
+  { key: 'taskOrderNo', required: true, freezeable: true },
+  { key: 'productionOrder', freezeable: true },
+  { key: 'targetObject', freezeable: true },
+  { key: 'factory' },
+  { key: 'qtyProgress' },
+  { key: 'status', freezeable: true },
+  { key: 'actions', required: true, actionColumn: true },
+]
+
+const defaultPreferences: StandardListColumnPreferences = {
+  order: columnRules.map((c) => c.key),
+  visibleKeys: columnRules.map((c) => c.key),
+  frozenKeys: [],
+  pageSize: 10,
+}
+
+const COLUMNS: StandardListColumn<ExpandedTaskOrderRow>[] = [
+  {
+    key: 'thumbnail', title: '', width: 56, freezeable: true, required: true,
+    render(row) {
+      const src = resolveSpuImageUrl(row.taskOrder)
+      return `<img src="${escapeHtml(src)}" class="h-10 w-10 cursor-pointer rounded object-cover"
+        data-special-craft-task-list-action="view-image"
+        data-image-src="${escapeHtml(src)}"
+        alt="商品图" loading="lazy" />`
+    },
+  },
+  {
+    key: 'taskOrderNo', title: '加工单号', width: 180, sortable: true, required: true, freezeable: true,
+    render(row) {
+      return `<div class="text-sm font-medium">${escapeHtml(row.taskOrder.taskOrderNo)}</div>
+        <div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(row.taskOrder.sourceTriggerLabel || '生产单生成')}</div>`
+    },
+    sortValue: (row) => row.taskOrder.taskOrderNo,
+  },
+  {
+    key: 'productionOrder', title: '生产单', width: 140, sortable: true, freezeable: true,
+    render(row) { return renderProductionOrderIdentityCell(row.taskOrder.productionOrderNo) },
+    sortValue: (row) => row.taskOrder.productionOrderNo,
+  },
+  {
+    key: 'targetObject', title: '加工对象', width: 160, freezeable: true,
+    render(row) {
+      if (row.rowType === 'garment-sku') {
+        return `<div class="text-sm">${escapeHtml(`${row.garmentColor} / ${row.garmentSize}`)}</div>
+          <div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(row.taskOrder.targetObject)}</div>`
+      }
+      if (row.feiTicketNo) {
+        return `<button type="button" class="text-sm text-blue-700 hover:underline font-mono text-xs"
+          data-special-craft-task-list-action="view-fei-ticket"
+          data-fei-ticket-no="${escapeHtml(row.feiTicketNo)}">${escapeHtml(row.feiTicketNo)}</button>
+          <div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(`${row.feiPartName} / ${row.feiColor} / ${row.feiSize}`)}</div>`
+      }
+      return `<div class="text-sm">${escapeHtml(`${row.feiPartName} / ${row.feiColor} / ${row.feiSize}`)}</div>`
+    },
+  },
+  {
+    key: 'factory', title: '承接工厂', width: 120, sortable: true,
+    render(row) { return escapeHtml(formatSpecialCraftFactoryLabel(row.taskOrder.factoryName, row.taskOrder.factoryId)) },
+    sortValue: (row) => row.taskOrder.factoryName,
+  },
+  {
+    key: 'qtyProgress', title: '数量进度', width: 160, align: 'right',
+    render(row) {
+      return `<div class="text-sm tabular-nums">计划 ${formatQty(row.taskOrder.planQty)}${escapeHtml(row.taskOrder.unit)}</div>
+        <div class="mt-0.5 text-xs text-muted-foreground tabular-nums">接收 ${formatQty(row.taskOrder.receivedQty)} / 完成 ${formatQty(row.taskOrder.completedQty)} / 待交出 ${formatQty(row.taskOrder.waitHandoverQty)}</div>`
+    },
+  },
+  {
+    key: 'status', title: '状态', width: 100, freezeable: true,
+    render(row) {
+      const badges = [renderStatusBadge(row.taskOrder.status)]
+      if (row.taskOrder.abnormalStatus && row.taskOrder.abnormalStatus !== '无异常') {
+        badges.push(renderStatusBadge(row.taskOrder.abnormalStatus))
+      }
+      return `<div class="flex flex-wrap gap-1">${badges.join('')}</div>`
+    },
+  },
+  {
+    key: 'actions', title: '操作', width: 160, actionColumn: true, required: true,
+    render(row) {
+      const detailHref = buildSpecialCraftTaskDetailPath(
+        { operationId: row.taskOrder.operationId },
+        row.taskOrder.taskOrderId,
+      )
+      const webActions = getFastSpecialCraftWebActions(row.taskOrder)
+      const actionable = webActions.filter((a) => !a.disabledReason).slice(0, 2)
+      const objectType = row.taskOrder.targetObject === '成衣' ? '成衣' : '裁片'
+      const objectQty = row.taskOrder.currentQty || row.taskOrder.planQty || 1
+      const qtyUnit = row.taskOrder.unit || '件'
+      const quickButtons = actionable
+        .map((a) => {
+          const requiredFields = a.requiredFields
+            .map((f) => objectType === '裁片' ? f : f.replaceAll('裁片', '成衣'))
+          const optionalFields = a.optionalFields
+            .map((f) => objectType === '裁片' ? f : f.replaceAll('裁片', '成衣'))
+          const actionLabel = objectType === '裁片' ? a.actionLabel : a.actionLabel.replaceAll('裁片', '成衣')
+          const confirmText = objectType === '裁片' ? a.confirmText : a.confirmText.replaceAll('裁片', '成衣')
+          return `<button type="button" class="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[11px] text-blue-700 hover:bg-blue-100"
+            data-special-craft-web-action="open-web-status-action-dialog"
+            data-source-id="${escapeHtml(row.taskOrder.taskOrderId)}"
+            data-action-code="${escapeHtml(a.actionCode)}"
+            data-action-label="${escapeHtml(actionLabel)}"
+            data-from-status="${escapeHtml(a.fromStatus)}"
+            data-to-status="${escapeHtml(a.toStatus)}"
+            data-required-fields="${escapeHtml(requiredFields.join('|'))}"
+            data-optional-fields="${escapeHtml(optionalFields.join('|'))}"
+            data-confirm-text="${escapeHtml(confirmText)}"
+            data-object-type="${escapeHtml(objectType)}"
+            data-object-qty="${escapeHtml(String(objectQty))}"
+            data-qty-unit="${escapeHtml(qtyUnit)}">${escapeHtml(actionLabel)}</button>`
+        })
+        .join('')
+      return `<div class="flex items-center gap-1">
+        ${quickButtons}
+        <button type="button" class="rounded border px-1.5 py-0.5 text-[11px] hover:bg-slate-50" data-nav="${escapeHtml(detailHref)}">详情</button>
+      </div>`
+    },
+  },
+]
+
+interface TaskListState {
   page: number
-  pageSize: number
+  sort: StandardListSortState | null
+  prefs: StandardListColumnPreferences
+  keyword: string
+  statusFilter: string
+  timeRange: string
+  columnSettingsOpen: boolean
+  draggedColumnKey: string
 }
 
-const initialTaskListState: SpecialCraftTaskListState = {
-  keyword: '',
-  factoryId: '全部',
-  status: '全部',
-  abnormalStatus: '全部',
-  timeRange: 'ALL',
-  page: 1,
-  pageSize: 20,
+const stateByOperation = new Map<string, TaskListState>()
+
+function getState(operationId: string): TaskListState {
+  const existing = stateByOperation.get(operationId)
+  if (existing) return existing
+  const fresh: TaskListState = {
+    page: 1,
+    sort: null,
+    prefs: normalizeListColumnPreferences(columnRules, defaultPreferences, PAGE_SIZES),
+    keyword: '',
+    statusFilter: '全部',
+    timeRange: 'ALL',
+    columnSettingsOpen: false,
+    draggedColumnKey: '',
+  }
+  stateByOperation.set(operationId, fresh)
+  return fresh
 }
 
-const taskListStateByOperation = new Map<string, SpecialCraftTaskListState>()
-
-type PersistedSpecialCraftTaskListState = Omit<SpecialCraftTaskListState, 'page'>
-
-export interface SpecialCraftTaskListPreferenceStorage {
-  getItem(key: string): string | null
-  setItem(key: string, value: string): void
-}
-
-export function buildSpecialCraftTaskListStorageKey(operationSlug: string): string {
-  return `fcs:special-craft:task-orders:${operationSlug}:filters`
-}
-
-function getTaskListStorageKey(operationId: string): string {
-  return buildSpecialCraftTaskListStorageKey(buildSpecialCraftOperationSlug(operationId))
-}
-
-function getBrowserStorage(): SpecialCraftTaskListPreferenceStorage | null {
+function getStorage(): Storage | null {
   try {
     return typeof window === 'undefined' ? null : window.localStorage
   } catch {
@@ -81,129 +241,37 @@ function getBrowserStorage(): SpecialCraftTaskListPreferenceStorage | null {
   }
 }
 
-export function writeSpecialCraftTaskListPreference(
-  storage: SpecialCraftTaskListPreferenceStorage | null,
-  operationSlug: string,
-  state: SpecialCraftTaskListState,
-): void {
+function storageKey(operationId: string): string {
+  return `${PREF_STORAGE_KEY}:${operationId}`
+}
+
+function loadPrefs(operationId: string): void {
+  const state = getState(operationId)
+  const storage = getStorage()
   if (!storage) return
-  const persisted: PersistedSpecialCraftTaskListState = {
-    keyword: state.keyword,
-    factoryId: state.factoryId,
-    status: state.status,
-    abnormalStatus: state.abnormalStatus,
-    timeRange: state.timeRange,
-    pageSize: state.pageSize,
-  }
-  try {
-    storage.setItem(buildSpecialCraftTaskListStorageKey(operationSlug), JSON.stringify(persisted))
-  } catch {
-    // 原型在无 localStorage 的脚本检查环境中仍可使用内存状态。
-  }
-}
-
-const TASK_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: '全部', label: '全部' },
-  { value: '待领料', label: '待领料' },
-  { value: '已入待加工仓', label: '已入待加工仓' },
-  { value: '加工中', label: '加工中' },
-  { value: '已完成', label: '已完成' },
-  { value: '待交出', label: '待交出' },
-  { value: '已交出', label: '已交出' },
-  { value: '已回写', label: '已回写' },
-  { value: '差异', label: '差异' },
-  { value: '异议中', label: '异议中' },
-  { value: '异常', label: '异常' },
-]
-
-const TASK_ABNORMAL_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: '全部', label: '全部' },
-  { value: '无异常', label: '无异常' },
-  { value: '数量差异', label: '数量差异' },
-  { value: '破损', label: '破损' },
-  { value: '错片', label: '错片' },
-  { value: '延期', label: '延期' },
-  { value: '设备异常', label: '设备异常' },
-  { value: '其他异常', label: '其他异常' },
-]
-
-const TASK_TIME_RANGE_OPTIONS: Array<{ value: TaskTimeRange; label: string }> = [
-  { value: 'TODAY', label: '今日' },
-  { value: '7D', label: '近 7 天' },
-  { value: '30D', label: '近 30 天' },
-  { value: 'ALL', label: '全部时间' },
-]
-
-function normalizeAllSelection(value: unknown): string | null {
-  if (value === '' || value === 'ALL' || value === '全部') return '全部'
-  return typeof value === 'string' ? value : null
-}
-
-export function readSpecialCraftTaskListPreference(
-  storage: SpecialCraftTaskListPreferenceStorage | null,
-  operationSlug: string,
-  availableFactoryIds: readonly string[],
-): SpecialCraftTaskListState {
-  let parsed: Partial<PersistedSpecialCraftTaskListState> = {}
-  try {
-    const source = storage?.getItem(buildSpecialCraftTaskListStorageKey(operationSlug))
-    const value = source ? JSON.parse(source) as unknown : null
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      parsed = value as Partial<PersistedSpecialCraftTaskListState>
-    }
-  } catch {
-    parsed = {}
-  }
-
-  const normalizedFactoryId = normalizeAllSelection(parsed.factoryId)
-  const normalizedStatus = normalizeAllSelection(parsed.status)
-  const normalizedAbnormalStatus = normalizeAllSelection(parsed.abnormalStatus)
-  return {
-    keyword: typeof parsed.keyword === 'string' ? parsed.keyword : initialTaskListState.keyword,
-    factoryId: normalizedFactoryId === '全部' || (normalizedFactoryId && availableFactoryIds.includes(normalizedFactoryId))
-      ? normalizedFactoryId
-      : initialTaskListState.factoryId,
-    status: normalizedStatus && TASK_STATUS_OPTIONS.some((item) => item.value === normalizedStatus)
-      ? normalizedStatus
-      : initialTaskListState.status,
-    abnormalStatus: normalizedAbnormalStatus && TASK_ABNORMAL_OPTIONS.some((item) => item.value === normalizedAbnormalStatus)
-      ? normalizedAbnormalStatus
-      : initialTaskListState.abnormalStatus,
-    timeRange: TASK_TIME_RANGE_OPTIONS.some((item) => item.value === parsed.timeRange)
-      ? parsed.timeRange as TaskTimeRange
-      : initialTaskListState.timeRange,
-    page: 1,
-    pageSize: [10, 20, 50].includes(Number(parsed.pageSize)) ? Number(parsed.pageSize) : initialTaskListState.pageSize,
-  }
-}
-
-function listAvailableFactoryIds(operationId: string): string[] {
-  return [...new Set(
-    getSpecialCraftTaskOrders(operationId, { timeRange: 'ALL' })
-      .map((item) => item.factoryId)
-      .filter(Boolean),
-  )]
-}
-
-function getTaskListState(operationId: string): SpecialCraftTaskListState {
-  const storageKey = getTaskListStorageKey(operationId)
-  const current = taskListStateByOperation.get(storageKey)
-  if (current) return current
-  const next = readSpecialCraftTaskListPreference(
-    getBrowserStorage(),
-    buildSpecialCraftOperationSlug(operationId),
-    listAvailableFactoryIds(operationId),
+  state.prefs = loadListColumnPreferences(
+    storage,
+    storageKey(operationId),
+    columnRules,
+    defaultPreferences,
+    PAGE_SIZES,
   )
-  taskListStateByOperation.set(storageKey, next)
-  return next
 }
 
-function setTaskListState(operationId: string, patch: Partial<SpecialCraftTaskListState>): void {
-  const storageKey = getTaskListStorageKey(operationId)
-  const current = getTaskListState(operationId)
-  const next = { ...current, ...patch }
-  taskListStateByOperation.set(storageKey, next)
-  writeSpecialCraftTaskListPreference(getBrowserStorage(), buildSpecialCraftOperationSlug(operationId), next)
+function savePrefs(operationId: string): void {
+  const storage = getStorage()
+  if (!storage) return
+  saveListColumnPreferences(storage, storageKey(operationId), getState(operationId).prefs)
+}
+
+function getActiveOperationId(): string | null {
+  const pathname = typeof window !== 'undefined'
+    ? window.location.pathname
+    : (appStore.getState().pathname || '')
+  const match = pathname.match(/\/fcs\/process-factory\/special-craft\/([^/]+)\/tasks/)
+  if (!match) return null
+  const operation = getSpecialCraftOperationBySlug(decodeURIComponent(match[1]))
+  return operation?.operationId || null
 }
 
 function renderMissingOperation(): string {
@@ -237,280 +305,130 @@ function renderMissingOperation(): string {
   })
 }
 
-function buildTaskOrderLightweightSummary(taskOrder: SpecialCraftTaskOrder) {
-  const linkedFeiTicketCount = taskOrder.feiTicketNos.length
-  const completedFeiTicketCount = taskOrder.completedQty > 0 ? linkedFeiTicketCount : 0
-  const receivedFeiTicketCount = taskOrder.receivedQty > 0 ? linkedFeiTicketCount : 0
-  const returnedFeiTicketCount = (taskOrder.returnedQty || 0) > 0 || taskOrder.status === '已交出' || taskOrder.status === '已回写'
-    ? linkedFeiTicketCount
-    : 0
-  const hasDifference = taskOrder.status === '差异' || taskOrder.abnormalStatus === '数量差异'
-
-  return {
-    linkedFeiTicketCount,
-    currentQty: taskOrder.currentQty ?? taskOrder.receivedQty,
-    returnedFeiTicketCount,
-    returnStatus:
-      taskOrder.waitHandoverQty > 0
-        ? '待回仓'
-        : returnedFeiTicketCount > 0
-          ? '已回仓'
-          : linkedFeiTicketCount > 0
-            ? '待绑定'
-            : '无菲票',
-    hasDifference,
-    demandLineCount: taskOrder.demandLines?.length || 0,
-  }
-}
-
-function buildFactoryOptions(taskOrders: SpecialCraftTaskOrder[]): Array<{ value: string; label: string }> {
-  const seen = new Set<string>()
-  const options = taskOrders
-    .map((taskOrder) => ({
-      value: taskOrder.factoryId,
-      label: formatSpecialCraftFactoryLabel(taskOrder.factoryName, taskOrder.factoryId),
-    }))
-    .filter((option) => {
-      if (!option.value || seen.has(option.value)) return false
-      seen.add(option.value)
-      return true
-    })
-  return [{ value: '全部', label: '全部' }, ...options]
-}
-
-function buildTaskFilters(state: SpecialCraftTaskListState) {
-  return {
-    factoryId: state.factoryId === '全部' ? undefined : state.factoryId,
-    status: state.status === '全部' ? undefined : state.status,
-    abnormalStatus: state.abnormalStatus === '全部' ? undefined : state.abnormalStatus,
-    keyword: state.keyword,
-    timeRange: state.timeRange,
-  }
-}
-
-function renderTaskFilterSelect(
-  label: string,
-  field: TaskFilterField,
-  value: string,
-  options: Array<{ value: string; label: string }>,
-  operationId: string,
-): string {
+function renderFilters(state: TaskListState): string {
   return `
-    <label class="space-y-2">
-      <span class="text-sm font-medium text-foreground">${escapeHtml(label)}</span>
-      <select
-        class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-        data-special-craft-task-field="${field}"
-        data-operation-id="${escapeHtml(operationId)}"
-      >
-        ${options
-          .map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
-          .join('')}
-      </select>
-    </label>
-  `
-}
-
-function renderTaskQuickFilterRow(operationId: string, state: SpecialCraftTaskListState): string {
-  const options: Array<{ value: string; label: string; tone: 'blue' | 'amber' | 'emerald' | 'rose' }> = [
-    { value: '全部', label: '全部任务', tone: 'blue' },
-    { value: '待领料', label: '待领料', tone: 'amber' },
-    { value: '已入待加工仓', label: '待加工', tone: 'blue' },
-    { value: '加工中', label: '加工中', tone: 'blue' },
-    { value: '待交出', label: '待交出', tone: 'amber' },
-    { value: '已完成', label: '已完成', tone: 'emerald' },
-    { value: '差异', label: '差异', tone: 'rose' },
-  ]
-  return `
-    <div class="flex flex-wrap items-center gap-2">
-      <span class="text-xs font-medium text-muted-foreground">快捷筛选</span>
-      ${options
-        .map((option) =>
-          renderWorkbenchFilterChip(
-            option.label,
-            `data-special-craft-task-action="set-status" data-status="${option.value}" data-operation-id="${operationId}"`,
-            state.status === option.value ? option.tone : 'blue',
-          ),
-        )
-        .join('')}
-    </div>
-  `
-}
-
-function renderTaskFilters(
-  operationId: string,
-  state: SpecialCraftTaskListState,
-  allTaskOrders: SpecialCraftTaskOrder[],
-): string {
-  return renderStickyFilterShell(`
-    <div class="space-y-3">
-      ${renderTaskQuickFilterRow(operationId, state)}
-      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-        <label class="space-y-2 md:col-span-2 xl:col-span-2">
-          <span class="text-sm font-medium text-foreground">关键词</span>
-          <input
-            type="text"
-            value="${escapeHtml(state.keyword)}"
-            placeholder="加工单号 / 生产单 / 工厂 / 菲票 / 中转袋"
+    <section class="rounded-lg border bg-card p-4 mx-4">
+      <div class="flex flex-wrap items-end gap-2">
+        <div class="flex-1 min-w-[160px]">
+          <input type="text" value="${escapeHtml(state.keyword)}" placeholder="关键词（加工单号 / 生产单 / 工厂）"
             class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-            data-special-craft-task-field="keyword"
-            data-operation-id="${escapeHtml(operationId)}"
-          />
-        </label>
-        ${renderTaskFilterSelect('工厂', 'factoryId', state.factoryId, buildFactoryOptions(allTaskOrders), operationId)}
-        ${renderTaskFilterSelect('当前状态', 'status', state.status, TASK_STATUS_OPTIONS, operationId)}
-        ${renderTaskFilterSelect('异常状态', 'abnormalStatus', state.abnormalStatus, TASK_ABNORMAL_OPTIONS, operationId)}
-        ${renderTaskFilterSelect('时间范围', 'timeRange', state.timeRange, TASK_TIME_RANGE_OPTIONS, operationId)}
+            data-special-craft-task-list-field="keyword" />
+        </div>
+        <select class="h-10 w-[140px] rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          data-special-craft-task-list-field="statusFilter">
+          ${TASK_STATUS_OPTIONS
+            .map((option) => `<option value="${escapeHtml(option.value)}" ${state.statusFilter === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
+            .join('')}
+        </select>
+        <select class="h-10 w-[120px] rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          data-special-craft-task-list-field="timeRange">
+          ${TASK_TIME_RANGE_OPTIONS
+            .map((option) => `<option value="${escapeHtml(option.value)}" ${state.timeRange === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
+            .join('')}
+        </select>
+        <button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
+          data-special-craft-task-list-action="apply-filters">筛选</button>
+        <button type="button" class="h-10 rounded-md border px-4 text-sm hover:bg-muted"
+          data-special-craft-task-list-action="reset-filters">重置</button>
       </div>
-    </div>
-  `)
+    </section>
+  `
 }
 
-function renderTaskStateBar(operationId: string, state: SpecialCraftTaskListState): string {
-  const chips = [
-    state.keyword ? `关键词：${state.keyword}` : '',
-    state.factoryId !== '全部' ? `工厂：${state.factoryId}` : '',
-    state.status !== '全部' ? `状态：${state.status}` : '',
-    state.abnormalStatus !== '全部' ? `异常：${state.abnormalStatus}` : '',
-    state.timeRange !== 'ALL' ? `时间：${TASK_TIME_RANGE_OPTIONS.find((item) => item.value === state.timeRange)?.label || state.timeRange}` : '',
-  ].filter(Boolean)
-  return renderWorkbenchStateBar({
-    summary: '当前筛选条件',
-    chips: chips.map((label) => renderWorkbenchFilterChip(label, `data-special-craft-task-action="clear-filters" data-operation-id="${operationId}"`, 'blue')),
-    clearAttrs: `data-special-craft-task-action="clear-filters" data-operation-id="${operationId}"`,
+function renderStats(taskOrders: SpecialCraftTaskOrder[]): string {
+  return renderStandardListStats([
+    { label: '加工单数', value: String(taskOrders.length) },
+    { label: '待领料', value: String(taskOrders.filter((t) => t.status === '待领料').length) },
+    { label: '加工中', value: String(taskOrders.filter((t) => t.status === '加工中').length) },
+    { label: '待交出', value: String(taskOrders.filter((t) => t.status === '待交出').length) },
+    { label: '差异/异常', value: String(taskOrders.filter((t) => t.status === '差异' || t.status === '异常' || t.status === '异议中').length) },
+  ])
+}
+
+function renderColumnSettings(state: TaskListState): string {
+  if (!state.columnSettingsOpen) return ''
+  return renderStandardListColumnSettings({
+    title: '列显示设置',
+    columns: COLUMNS,
+    preferences: state.prefs,
+    eventPrefix: 'special-craft-task-list',
+    maxFrozenWidth: MAX_FROZEN_WIDTH,
   })
 }
 
-function renderStatsCards(taskOrders: SpecialCraftTaskOrder[]): string {
-  const taskCount = taskOrders.length
-  const waitPickupCount = taskOrders.filter((item) => item.status === '待领料').length
-  const waitProcessCount = taskOrders.filter((item) => item.status === '已入待加工仓').length
-  const processingCount = taskOrders.filter((item) => item.status === '加工中').length
-  const waitHandoverCount = taskOrders.filter((item) => item.status === '待交出').length
-  const differenceCount = taskOrders.filter((item) => item.status === '差异' || item.abnormalStatus === '数量差异').length
-  const totalPlanQty = taskOrders.reduce((sum, item) => sum + item.planQty, 0)
-
-  return `
-    <section class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-      ${renderCompactKpiCard('加工单', taskCount, '当前筛选结果', 'text-blue-600')}
-      ${renderCompactKpiCard('待领料', waitPickupCount, '待进入待加工仓', 'text-amber-600')}
-      ${renderCompactKpiCard('待加工', waitProcessCount, '已在待加工仓', 'text-slate-900')}
-      ${renderCompactKpiCard('加工中', processingCount, '现场执行中', 'text-blue-600')}
-      ${renderCompactKpiCard('待交出', waitHandoverCount, '待进入待交出仓', 'text-amber-600')}
-      ${renderCompactKpiCard('计划数量', formatQty(totalPlanQty), `差异 ${differenceCount} 单`, differenceCount ? 'text-rose-600' : 'text-emerald-600')}
-    </section>
-  `
+function buildFilters(state: TaskListState) {
+  return {
+    keyword: state.keyword || undefined,
+    status: state.statusFilter === '全部' ? undefined : state.statusFilter,
+    timeRange: state.timeRange as 'TODAY' | '7D' | '30D' | 'ALL',
+  }
 }
 
-function renderTaskOrdersTable(
-  operationId: string,
-  taskOrders: SpecialCraftTaskOrder[],
-  state: SpecialCraftTaskListState,
-): string {
-  const pagination = paginateItems(taskOrders, state.page, state.pageSize)
-  const rows = pagination.items
-    .map((taskOrder) => {
-      const detailHref = buildSpecialCraftTaskDetailPath(
-        {
-          operationId: taskOrder.operationId,
-          operationName: taskOrder.operationName,
-          managementDomain: taskOrder.managementDomain,
-        },
-        taskOrder.taskOrderId,
-      )
-      const warehouseHref = buildSpecialCraftPreferredWarehousePath(taskOrder)
-      const summary = buildTaskOrderLightweightSummary(taskOrder)
-      const objectText = [taskOrder.targetObject, taskOrder.partName, taskOrder.fabricColor, taskOrder.sizeCode]
-        .filter(Boolean)
-        .join(' / ')
-      const sourceText = [
-        `来源纸样 ${taskOrder.sourcePatternFileIds?.length || 0} 个`,
-        `来源裁片明细 ${taskOrder.sourcePieceRowIds?.length || 0} 条`,
-        `明细数 ${summary.demandLineCount} 条`,
-      ].join(' / ')
-      return `
-        <tr class="align-top hover:bg-muted/20">
-          <td class="px-3 py-3">
-            <button type="button" class="text-left hover:underline" data-nav="${escapeHtml(detailHref)}">${escapeHtml(taskOrder.taskOrderNo)}</button>
-            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(taskOrder.sourceTriggerLabel || '生产单生成')}</div>
-            <div class="mt-1 text-xs text-muted-foreground">截止 ${escapeHtml(taskOrder.dueAt.slice(0, 10))}</div>
-          </td>
-          <td class="px-3 py-3">
-            ${renderProductionOrderIdentityCell(taskOrder.productionOrderNo)}
-            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(taskOrder.techPackVersion || '正式版')}</div>
-            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(taskOrder.operationName)}</div>
-          </td>
-          <td class="px-3 py-3">
-            <div class="font-medium">${escapeHtml(objectText || '—')}</div>
-            <div class="mt-1 text-xs text-muted-foreground">菲票 ${summary.linkedFeiTicketCount} 张 / ${escapeHtml(summary.returnStatus)}</div>
-          </td>
-          <td class="px-3 py-3">${escapeHtml(formatSpecialCraftFactoryLabel(taskOrder.factoryName, taskOrder.factoryId))}</td>
-          <td class="px-3 py-3">
-            <div class="font-medium tabular-nums">计划 ${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}</div>
-            <div class="mt-1 text-xs leading-5 text-muted-foreground">接收 ${formatQty(taskOrder.receivedQty)} / 完成 ${formatQty(taskOrder.completedQty)} / 待交出 ${formatQty(taskOrder.waitHandoverQty)}</div>
-          </td>
-          <td class="px-3 py-3">
-            <div class="flex flex-wrap gap-1">${renderStatusBadge(taskOrder.status)}${renderStatusBadge(taskOrder.abnormalStatus)}</div>
-            <div class="mt-2 text-xs leading-5 text-muted-foreground">分配状态：${escapeHtml(taskOrder.assignmentStatusLabel || '待分配')}</div>
-            <div class="text-xs leading-5 text-muted-foreground">执行状态：${escapeHtml(taskOrder.executionStatusLabel || taskOrder.status)}</div>
-          </td>
-          <td class="px-3 py-3 text-xs leading-5 text-muted-foreground">${escapeHtml(sourceText)}</td>
-          <td class="px-3 py-3">
-            <div class="flex flex-wrap gap-2">
-              <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">查看详情</button>
-              <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildTaskRouteCardPrintLink('SPECIAL_CRAFT_TASK_ORDER', taskOrder.taskOrderId))}">打印流转卡</button>
-              <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(warehouseHref)}">查看仓库</button>
-            </div>
-          </td>
-        </tr>
-      `
-    })
-    .join('')
+function expandRows(taskOrders: SpecialCraftTaskOrder[]): ExpandedTaskOrderRow[] {
+  const rows: ExpandedTaskOrderRow[] = []
+  taskOrders.forEach((taskOrder) => {
+    const lines = taskOrder.demandLines || []
+    const isGarment = taskOrder.targetObject === '成衣'
 
-  const table = `
-    <table class="w-full min-w-[1280px] table-auto border-collapse text-sm">
-      <thead class="sticky top-0 z-10 bg-slate-50 text-left text-slate-600">
-        <tr>
-          ${[
-            '加工单号',
-            `${PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE} / 技术包`,
-            '加工对象',
-            '承接工厂',
-            '数量进度',
-            '状态',
-            '来源链路',
-            '操作',
-          ].map((header) => `<th class="px-3 py-3 font-medium">${escapeHtml(header)}</th>`).join('')}
-        </tr>
-      </thead>
-      <tbody class="divide-y bg-card">${rows || `<tr><td colspan="8" class="py-10 text-center text-muted-foreground">当前筛选条件下暂无加工单。</td></tr>`}</tbody>
-    </table>
-  `
-
-  return `
-    <section class="rounded-lg border bg-card shadow-sm">
-      <div class="flex items-center justify-between border-b px-3 py-2.5">
-        <h2 class="text-sm font-semibold text-foreground">加工单列表</h2>
-        <span class="text-xs text-muted-foreground">共 ${taskOrders.length} 条</span>
-      </div>
-      ${renderStickyTableScroller(table)}
-      ${renderWorkbenchPagination({
-        page: pagination.page,
-        pageSize: pagination.pageSize,
-        total: pagination.total,
-        actionAttr: 'data-special-craft-task-action',
-        pageAction: 'set-page',
-        pageSizeAttr: 'data-special-craft-task-page-size',
-        extraAttrs: `data-operation-id="${escapeHtml(operationId)}"`,
-        pageSizeOptions: [10, 20, 50],
-      })}
-    </section>
-  `
+    if (isGarment) {
+      const skuGroups = new Map<string, { colorName: string; sizeCode: string; planQty: number }>()
+      lines.forEach((line) => {
+        const key = `${line.colorName}::${line.sizeCode}`
+        const existing = skuGroups.get(key)
+        if (existing) {
+          existing.planQty += line.planPieceQty
+        } else {
+          skuGroups.set(key, { colorName: line.colorName, sizeCode: line.sizeCode, planQty: line.planPieceQty })
+        }
+      })
+      skuGroups.forEach((group) => {
+        const [color, size] = group.colorName && group.sizeCode
+          ? [group.colorName, group.sizeCode]
+          : group.colorName.includes('::')
+            ? group.colorName.split('::')
+            : [group.colorName, '-']
+        rows.push({
+          taskOrder,
+          rowType: 'garment-sku',
+          garmentColor: color, garmentSize: size, garmentPlanQty: group.planQty,
+          feiTicketNo: '', feiPartName: '', feiColor: '', feiSize: '', feiPlanQty: 0,
+        })
+      })
+    } else {
+      const feiGroups = new Map<string, { partName: string; colorName: string; sizeCode: string; planQty: number }>()
+      lines.forEach((line) => {
+        (line.feiTicketNos?.length ? line.feiTicketNos : ['—']).forEach((ticketNo) => {
+          if (feiGroups.has(ticketNo)) {
+            feiGroups.get(ticketNo)!.planQty += line.planPieceQty
+          } else {
+            feiGroups.set(ticketNo, { partName: line.partName, colorName: line.colorName, sizeCode: line.sizeCode, planQty: line.planPieceQty })
+          }
+        })
+      })
+      if (feiGroups.size === 0) {
+        rows.push({
+          taskOrder, rowType: 'cut-piece-fei',
+          garmentColor: '', garmentSize: '', garmentPlanQty: 0,
+          feiTicketNo: '', feiPartName: taskOrder.partName || '', feiColor: taskOrder.fabricColor || '', feiSize: taskOrder.sizeCode || '', feiPlanQty: taskOrder.planQty,
+        })
+      } else {
+        feiGroups.forEach((group, ticketNo) => {
+          rows.push({
+            taskOrder, rowType: 'cut-piece-fei',
+            garmentColor: '', garmentSize: '', garmentPlanQty: 0,
+            feiTicketNo: ticketNo, feiPartName: group.partName, feiColor: group.colorName, feiSize: group.sizeCode, feiPlanQty: group.planQty,
+          })
+        })
+      }
+    }
+  })
+  return rows
 }
 
 export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string {
   const operation = getSpecialCraftOperationBySlug(operationSlug)
   if (!operation) return renderMissingOperation()
+
   const factoryGuard = resolveSpecialCraftFactoryContextGuard(operation)
   if (factoryGuard.blocked) {
     return renderSpecialCraftFactoryContextBlockedLayout({
@@ -522,65 +440,281 @@ export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string 
     })
   }
 
-  const state = getTaskListState(operation.operationId)
-  const allTaskOrders = getSpecialCraftTaskOrders(operation.operationId, { timeRange: 'ALL' })
-  const taskOrders = getSpecialCraftTaskOrders(operation.operationId, buildTaskFilters(state))
-  if (state.page > Math.max(1, Math.ceil(taskOrders.length / state.pageSize))) {
-    state.page = 1
-  }
+  const state = getState(operation.operationId)
+  loadPrefs(operation.operationId)
 
-  const content = `
-    <div class="space-y-3">
-      ${renderStatsCards(taskOrders)}
-      ${renderTaskFilters(operation.operationId, state, allTaskOrders)}
-      ${renderTaskStateBar(operation.operationId, state)}
-      ${renderTaskOrdersTable(operation.operationId, taskOrders, state)}
-    </div>
-  `
+  const taskOrders = getSpecialCraftTaskOrders(operation.operationId, buildFilters(state))
+  const expandedRows = expandRows(taskOrders)
+
+  const sorted = state.sort
+    ? sortStandardListRows(expandedRows, state.sort, (row, key) =>
+        COLUMNS.find((c) => c.key === key)?.sortValue?.(row),
+      )
+    : expandedRows
+  const slice = paginateStandardListRows(sorted, state.page, state.prefs.pageSize)
+  state.page = slice.currentPage
+
+  const uniqueTaskOrders = [...new Set(expandedRows.map((r) => r.taskOrder.taskOrderId))]
+    .map((id) => expandedRows.find((r) => r.taskOrder.taskOrderId === id)!.taskOrder)
+
+  const content = renderStandardListPage({
+    title: `${operation.operationName}加工单`,
+    filtersHtml: renderFilters(state),
+    statsHtml: renderStats(uniqueTaskOrders),
+    listTitle: '加工单列表',
+    listActionsHtml: renderSecondaryButton(
+      '列设置',
+      { prefix: 'special-craft-task-list', action: 'open-column-settings' },
+      'columns-3',
+    ),
+    tableHtml: renderStandardListTable({
+      columns: COLUMNS,
+      rows: slice.rows,
+      preferences: state.prefs,
+      sort: state.sort,
+      eventPrefix: 'special-craft-task-list',
+      emptyText: '暂无加工单',
+    }),
+    paginationHtml: renderTablePagination({
+      total: slice.total,
+      from: slice.from,
+      to: slice.to,
+      currentPage: slice.currentPage,
+      totalPages: slice.totalPages,
+      pageSize: slice.pageSize,
+      actionPrefix: 'special-craft-task-list',
+      fieldPrefix: 'special-craft-task-list',
+      pageSizeOptions: PAGE_SIZES,
+    }),
+    overlaysHtml: renderColumnSettings(state),
+    className: '!py-0 space-y-3',
+  })
 
   return renderSpecialCraftPageLayout({
     operation,
-    title: `${operation.operationName}加工单`,
+    title: '',
     description: '',
     activeSubNav: 'tasks',
     content,
   })
 }
 
-export function handleSpecialCraftTaskOrdersEvent(target: Element): boolean {
-  const pageSizeNode = target.closest<HTMLElement>('[data-special-craft-task-page-size]')
-  if (pageSizeNode) {
-    const operationId = pageSizeNode.dataset.operationId
-    if (!operationId) return false
-    setTaskListState(operationId, { pageSize: Number((pageSizeNode as HTMLSelectElement).value) || 20, page: 1 })
-    return true
-  }
-
-  const fieldNode = target.closest<HTMLElement>('[data-special-craft-task-field]')
-  if (fieldNode) {
-    const operationId = fieldNode.dataset.operationId
-    const field = fieldNode.dataset.specialCraftTaskField as TaskFilterField | undefined
-    if (!operationId || !field) return false
-    setTaskListState(operationId, { [field]: (fieldNode as HTMLInputElement | HTMLSelectElement).value, page: 1 })
-    return true
-  }
-
-  const actionNode = target.closest<HTMLElement>('[data-special-craft-task-action]')
-  const action = actionNode?.dataset.specialCraftTaskAction
-  if (!actionNode || !action) return false
-  const operationId = actionNode.dataset.operationId
+export function handleSpecialCraftTaskOrdersEvent(target: Element, event?: Event): boolean {
+  const operationId = getActiveOperationId()
   if (!operationId) return false
 
-  if (action === 'set-status') {
-    setTaskListState(operationId, { status: actionNode.dataset.status || '全部', page: 1 })
+  const state = getState(operationId)
+
+  const internalDragEvent = event as (DragEvent & {
+    higoodStandardListColumnDrag?: true
+    higoodStandardListColumnKey?: string
+  }) | undefined
+
+  if (event?.type === 'dragend') {
+    if (!internalDragEvent?.higoodStandardListColumnDrag) return false
+    state.draggedColumnKey = ''
     return true
   }
-  if (action === 'clear-filters') {
-    setTaskListState(operationId, { ...initialTaskListState })
+
+  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
+  if (
+    dragNode
+    && event
+    && internalDragEvent?.higoodStandardListColumnDrag
+    && ['dragstart', 'dragover', 'drop'].includes(event.type)
+  ) {
+    const columnKey = dragNode.dataset.specialCraftTaskListColumnKey
+      || dragNode.dataset.dragSource
+      || dragNode.dataset.dropTarget
+      || ''
+    const column = COLUMNS.find((item) => item.key === columnKey && !item.actionColumn)
+
+    if (event.type === 'dragstart') {
+      state.draggedColumnKey = column?.key || ''
+      if (!column) return false
+      internalDragEvent.dataTransfer?.setData('application/x-higood-list-column-key', column.key)
+      if (internalDragEvent.dataTransfer) internalDragEvent.dataTransfer.effectAllowed = 'move'
+      return true
+    }
+
+    const sourceKey = internalDragEvent.higoodStandardListColumnKey || ''
+    const sourceColumn = COLUMNS.find((item) => item.key === sourceKey && !item.actionColumn)
+    const targetColumn = COLUMNS.find((item) => item.key === columnKey && !item.actionColumn)
+    if (
+      !sourceColumn
+      || !targetColumn
+      || state.draggedColumnKey !== sourceColumn.key
+      || sourceColumn.key === targetColumn.key
+    ) {
+      if (event.type === 'drop') state.draggedColumnKey = ''
+      return false
+    }
+
+    if (event.type === 'dragover') {
+      event.preventDefault()
+      if (internalDragEvent.dataTransfer) internalDragEvent.dataTransfer.dropEffect = 'move'
+      return true
+    }
+
+    state.draggedColumnKey = ''
+    event.preventDefault()
+    const order = state.prefs.order.filter((key) => key !== sourceColumn.key)
+    const targetIndex = order.indexOf(targetColumn.key)
+    if (targetIndex < 0) return false
+    order.splice(targetIndex, 0, sourceColumn.key)
+    state.prefs = normalizeListColumnPreferences(columnRules, {
+      ...state.prefs,
+      order,
+    }, PAGE_SIZES)
+    savePrefs(operationId)
     return true
   }
-  if (action === 'set-page') {
-    setTaskListState(operationId, { page: Number(actionNode.dataset.page) || 1 })
+
+  const fieldNode = target.closest<HTMLInputElement | HTMLSelectElement>('[data-special-craft-task-list-field]')
+  const field = fieldNode?.dataset.specialCraftTaskListField
+  if (field === 'pageSize') {
+    if (event?.type !== 'change') return false
+    const pageSize = Number(fieldNode!.value)
+    if (PAGE_SIZES.includes(pageSize)) {
+      state.prefs = normalizeListColumnPreferences(columnRules, {
+        ...state.prefs,
+        pageSize,
+      }, PAGE_SIZES)
+      state.page = 1
+      savePrefs(operationId)
+      return true
+    }
+    return true
+  }
+
+  if (field === 'keyword') {
+    if (event?.type !== 'input' && event?.type !== 'change') return false
+    state.keyword = (fieldNode as HTMLInputElement).value
+    return true
+  }
+
+  if (field === 'statusFilter') {
+    if (event?.type !== 'change') return false
+    state.statusFilter = (fieldNode as HTMLSelectElement).value
+    return true
+  }
+
+  if (field === 'timeRange') {
+    if (event?.type !== 'change') return false
+    state.timeRange = (fieldNode as HTMLSelectElement).value
+    return true
+  }
+
+  const actionNode = target.closest<HTMLElement>('[data-special-craft-task-list-action]')
+  const action = actionNode?.dataset.specialCraftTaskListAction
+  if (!actionNode || !action) return false
+
+  if (action === 'prev-page' || action === 'next-page') {
+    state.page += action === 'prev-page' ? -1 : 1
+    return true
+  }
+
+  if (action === 'sort-column') {
+    const columnKey = actionNode.dataset.columnKey || ''
+    const column = COLUMNS.find((item) => item.key === columnKey && item.sortable)
+    if (!column) return true
+    state.sort = state.sort?.key !== columnKey
+      ? { key: columnKey, direction: 'asc' }
+      : state.sort.direction === 'asc'
+        ? { key: columnKey, direction: 'desc' }
+        : null
+    state.page = 1
+    return true
+  }
+
+  if (action === 'open-column-settings') {
+    state.columnSettingsOpen = true
+    return true
+  }
+
+  if (action === 'close-column-settings') {
+    state.columnSettingsOpen = false
+    return true
+  }
+
+  if (action === 'toggle-column-visibility') {
+    if (event?.type !== 'change') return false
+    const columnKey = actionNode.dataset.specialCraftTaskListColumnKey || actionNode.dataset.columnKey || ''
+    const rule = columnRules.find((item) => item.key === columnKey)
+    if (!rule || rule.required || rule.actionColumn) return true
+    const visibleKeys = new Set(state.prefs.visibleKeys)
+    const frozenKeys = new Set(state.prefs.frozenKeys)
+    if (visibleKeys.has(columnKey)) {
+      visibleKeys.delete(columnKey)
+      frozenKeys.delete(columnKey)
+    } else {
+      visibleKeys.add(columnKey)
+    }
+    state.prefs = normalizeListColumnPreferences(columnRules, {
+      ...state.prefs,
+      visibleKeys: [...visibleKeys],
+      frozenKeys: [...frozenKeys],
+    }, PAGE_SIZES)
+    if (!visibleKeys.has(columnKey) && state.sort?.key === columnKey) state.sort = null
+    savePrefs(operationId)
+    return true
+  }
+
+  if (action === 'toggle-column-freeze') {
+    if (event?.type !== 'change') return false
+    const columnKey = actionNode.dataset.specialCraftTaskListColumnKey || actionNode.dataset.columnKey || ''
+    const column = COLUMNS.find((item) => item.key === columnKey)
+    if (!column?.freezeable || column.actionColumn) return true
+    const frozenKeys = new Set(state.prefs.frozenKeys)
+    if (frozenKeys.has(columnKey)) {
+      frozenKeys.delete(columnKey)
+    } else {
+      frozenKeys.add(columnKey)
+    }
+    const nextPrefs = normalizeListColumnPreferences(columnRules, {
+      ...state.prefs,
+      frozenKeys: [...frozenKeys],
+    }, PAGE_SIZES)
+    state.prefs = nextPrefs
+    savePrefs(operationId)
+    return true
+  }
+
+  if (action === 'restore-column-settings') {
+    state.prefs = normalizeListColumnPreferences(columnRules, defaultPreferences, PAGE_SIZES)
+    state.page = 1
+    state.sort = null
+    const storage = getStorage()
+    if (storage) clearListColumnPreferences(storage, storageKey(operationId))
+    return true
+  }
+
+  if (action === 'apply-filters') {
+    const keywordInput = document.querySelector<HTMLInputElement>('[data-special-craft-task-list-field="keyword"]')
+    const timeRangeSelect = document.querySelector<HTMLSelectElement>('[data-special-craft-task-list-field="timeRange"]')
+    const statusSelect = document.querySelector<HTMLSelectElement>('[data-special-craft-task-list-field="statusFilter"]')
+    state.keyword = keywordInput?.value || ''
+    state.timeRange = timeRangeSelect?.value || 'ALL'
+    state.statusFilter = statusSelect?.value || '全部'
+    state.page = 1
+    return true
+  }
+
+  if (action === 'reset-filters') {
+    state.keyword = ''
+    state.statusFilter = '全部'
+    state.timeRange = 'ALL'
+    state.page = 1
+    return true
+  }
+
+  if (action === 'view-image') {
+    const src = actionNode.dataset.imageSrc || ''
+    const overlay = document.createElement('div')
+    overlay.className = 'fixed inset-0 z-[160] flex items-center justify-center bg-black/60 cursor-pointer'
+    overlay.innerHTML = `<img src="${escapeHtml(src)}" class="max-h-[80vh] max-w-[80vw] rounded-lg shadow-2xl" alt="大图" />`
+    overlay.addEventListener('click', () => overlay.remove())
+    document.body.appendChild(overlay)
     return true
   }
 

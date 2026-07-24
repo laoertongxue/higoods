@@ -276,7 +276,7 @@ function renderGarmentWaitProcessCard(row: FactoryWaitProcessStockItem): string 
       </div>
       <div class="mt-4 flex gap-2">
         <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-fast-page-render data-pda-warehouse-action="open-wait-process-detail" data-stock-item-id="${escapeAttr(row.stockItemId)}">查看</button>
-        <button type="button" class="rounded-full bg-primary px-3 py-1.5 text-xs text-primary-foreground" data-pda-warehouse-action="special-craft-wait-process-issue" data-stock-item-id="${escapeAttr(row.stockItemId)}" data-work-order-id="${escapeAttr(row.taskId || '')}" data-sku-code="${escapeAttr(row.materialSku || '')}">加工领料</button>
+        <button type="button" class="rounded-full bg-primary px-3 py-1.5 text-xs text-primary-foreground" data-pda-warehouse-action="special-craft-wait-process-issue" data-stock-item-id="${escapeAttr(row.stockItemId)}" data-task-order-id="${escapeAttr(row.taskId || '')}" data-sku-code="${escapeAttr(row.materialSku || '')}">加工领料</button>
       </div>
     </article>
   `
@@ -2273,7 +2273,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
   if (action === 'special-craft-wait-process-issue') {
     executeSpecialCraftWaitProcessIssue({
       stockItemId: actionNode.dataset.stockItemId || '',
-      workOrderId: actionNode.dataset.workOrderId || '',
+      taskOrderId: actionNode.dataset.taskOrderId || '',
       skuCode: actionNode.dataset.skuCode || '',
     })
     return true

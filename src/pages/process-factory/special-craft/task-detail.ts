@@ -1,34 +1,41 @@
 import {
-  buildSpecialCraftPreferredWarehousePath,
   buildSpecialCraftTaskDetailPath,
   buildSpecialCraftTaskOrdersPath,
-  buildSpecialCraftWorkOrderDetailPath,
   getSpecialCraftOperationBySlug,
 } from '../../../data/fcs/special-craft-operations.ts'
-import { buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
   getSpecialCraftTaskOrderById,
-  getSpecialCraftTaskWorkOrdersByTaskOrderId,
 } from '../../../data/fcs/special-craft-task-orders.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { executeProcessWebAction } from '../../../data/fcs/process-web-status-actions.ts'
+import {
+  renderGarmentSkuConfirmDialog,
+  renderCutPieceFeiTicketConfirmDialog,
+} from './shared.ts'
+
+import {
+  openProcessWebStatusActionDialog,
+  handleProcessWebStatusActionDialogEvent,
+} from '../shared/web-status-action-dialog.ts'
 import {
   formatQty,
   formatSpecialCraftFactoryLabel,
+  getFastSpecialCraftWebActions,
   renderEmptyState,
   renderSpecialCraftFactoryContextBlockedLayout,
   renderSpecialCraftPageLayout,
-  resolveSpecialCraftFactoryContextGuard,
   renderStatusBadge,
   renderTable,
+  renderWebActionPanel,
+  resolveSpecialCraftFactoryContextGuard,
 } from './shared.ts'
 
-type SpecialCraftTaskDetailTab = 'overview' | 'demand' | 'work-orders' | 'warehouse' | 'exceptions' | 'events'
+type SpecialCraftTaskDetailTab = 'overview' | 'demand' | 'warehouse' | 'exceptions' | 'events'
 
 const specialCraftTaskDetailTabs: Array<{ key: SpecialCraftTaskDetailTab; label: string }> = [
   { key: 'overview', label: '概览' },
   { key: 'demand', label: '任务明细' },
-  { key: 'work-orders', label: '子加工单' },
   { key: 'warehouse', label: '仓库流转' },
   { key: 'exceptions', label: '差异异常' },
   { key: 'events', label: '节点记录' },
@@ -112,6 +119,15 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
       factoryName: factoryGuard.factoryName,
     })
   }
+
+  const objectMeta = {
+    objectType: taskOrder.targetObject === '成衣' ? '成衣' : '裁片',
+    objectLabel: taskOrder.targetObject === '成衣' ? '成衣' : '裁片',
+    qtyUnit: taskOrder.unit || '件',
+    qtyRule: taskOrder.targetObject === '成衣' ? '按 SKU 件数汇总' : '按裁片数量统计',
+  }
+  const webActions = getFastSpecialCraftWebActions(taskOrder)
+  const taskOrderQty = taskOrder.currentQty || taskOrder.planQty || 1
 
   const basicInfo = renderInfoGrid([
     { label: '任务号', value: escapeHtml(taskOrder.taskOrderNo) },
@@ -245,28 +261,6 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     )
     .join('')
 
-  const workOrderRows = getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrder.taskOrderId)
-    .map((workOrder) => {
-      const workOrderHref = buildSpecialCraftWorkOrderDetailPath(operation, workOrder.workOrderId)
-      return `
-        <tr class="align-top">
-          <td class="px-3 py-3 font-medium text-blue-700"><button type="button" class="hover:underline" data-nav="${workOrderHref}">${escapeHtml(workOrder.workOrderNo)}</button></td>
-          <td class="px-3 py-3">${escapeHtml(workOrder.partName)}</td>
-          <td class="px-3 py-3">${formatQty(workOrder.planQty)}</td>
-          <td class="px-3 py-3">${formatQty(workOrder.currentQty)}</td>
-          <td class="px-3 py-3">${formatQty(workOrder.scrapQty)}</td>
-          <td class="px-3 py-3">${formatQty(workOrder.damageQty)}</td>
-          <td class="px-3 py-3">${String(workOrder.feiTicketNos.length)}</td>
-          <td class="px-3 py-3">${workOrder.returnedQty > 0 ? String(workOrder.feiTicketNos.length) : '0'}</td>
-          <td class="px-3 py-3">${String(workOrder.openDifferenceReportCount)}</td>
-          <td class="px-3 py-3">${String(workOrder.openObjectionCount)}</td>
-          <td class="px-3 py-3">${renderStatusBadge(workOrder.status)}</td>
-          <td class="px-3 py-3"><button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${workOrderHref}">查看加工单</button></td>
-        </tr>
-      `
-    })
-    .join('')
-
   const differenceRows = taskOrder.abnormalRecords
     .map(
       (report) => `
@@ -314,16 +308,6 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
             'min-w-[1120px]',
           )
         : renderEmptyState('暂无加工明细'),
-    ),
-    'work-orders': renderSection(
-      '子加工单',
-      workOrderRows
-        ? renderTable(
-            ['加工单号', '裁片部位', '计划裁片数量', '当前裁片数量', '累计报废裁片数量', '累计货损裁片数量', '绑定菲票数量', '已回仓菲票数量', '接收差异裁片数量', '回仓差异裁片数量', '状态', '操作'],
-            workOrderRows,
-            'min-w-[1320px]',
-          )
-        : renderEmptyState('暂无子加工单'),
     ),
     warehouse: `
       <div class="space-y-5">
@@ -407,22 +391,18 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
         ${sections[activeTab]}
       </main>
       <aside class="space-y-4 xl:sticky xl:top-4 xl:self-start">
-        <section class="space-y-3 border-l pl-4">
-          <h2 class="text-base font-semibold text-foreground">当前处理</h2>
-          <div class="grid gap-2 text-sm">
-            <div class="flex justify-between gap-3"><span class="text-muted-foreground">作用对象</span><span class="font-medium text-foreground">${escapeHtml(taskOrder.targetObject)}</span></div>
-            <div class="flex justify-between gap-3"><span class="text-muted-foreground">计划数量</span><span class="font-medium text-foreground">${formatQty(taskOrder.planQty)} ${escapeHtml(taskOrder.unit)}</span></div>
-            <div class="flex justify-between gap-3"><span class="text-muted-foreground">已接收</span><span class="font-medium text-foreground">${formatQty(taskOrder.receivedQty)} ${escapeHtml(taskOrder.unit)}</span></div>
-            <div class="flex justify-between gap-3"><span class="text-muted-foreground">已完成</span><span class="font-medium text-foreground">${formatQty(taskOrder.completedQty)} ${escapeHtml(taskOrder.unit)}</span></div>
-            <div class="flex justify-between gap-3"><span class="text-muted-foreground">待交出</span><span class="font-medium text-foreground">${formatQty(taskOrder.waitHandoverQty)} ${escapeHtml(taskOrder.unit)}</span></div>
-            <div class="flex justify-between gap-3"><span class="text-muted-foreground">交期</span><span class="font-medium text-foreground">${escapeHtml(taskOrder.dueAt.slice(0, 10))}</span></div>
+        <section class="space-y-4 border-l pl-4">
+          <div class="space-y-1">
+            <h2 class="text-base font-semibold text-foreground">当前处理</h2>
+            <p class="text-xs text-muted-foreground">${escapeHtml(objectMeta.qtyRule)}</p>
           </div>
-          <div class="grid gap-2 pt-2">
-            <button type="button" class="inline-flex items-center justify-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${escapeHtml(buildSpecialCraftTaskOrdersPath(operation))}">返回列表</button>
-            <button type="button" class="inline-flex items-center justify-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${escapeHtml(buildTaskRouteCardPrintLink('SPECIAL_CRAFT_TASK_ORDER', taskOrder.taskOrderId))}">打印任务流转卡</button>
-            <button type="button" class="inline-flex items-center justify-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${escapeHtml(buildSpecialCraftPreferredWarehousePath(taskOrder))}">查看仓库记录</button>
-            <button type="button" class="inline-flex items-center justify-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="/fcs/pda/handover">查看交出记录</button>
+          ${renderWebActionPanel(taskOrder.taskOrderId, taskOrder.status, webActions, taskOrderQty, objectMeta)}
+          <div class="grid gap-2 border-t pt-3 text-sm">
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">计划数量</span><span class="font-medium">${formatQty(taskOrder.planQty)} ${escapeHtml(taskOrder.unit)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">已完成</span><span class="font-medium">${formatQty(taskOrder.completedQty)} ${escapeHtml(taskOrder.unit)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">已交出</span><span class="font-medium">${formatQty(taskOrder.waitHandoverQty)} ${escapeHtml(taskOrder.unit)}</span></div>
           </div>
+          <button type="button" class="w-full rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-special-craft-task-action="go-back">返回列表</button>
         </section>
       </aside>
     </div>
@@ -435,4 +415,183 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     activeSubNav: 'tasks',
     content,
   })
+}
+
+function showToast(message: string): void {
+  if (typeof document === 'undefined') return
+  const root = document.getElementById('special-craft-page-toast-root') || document.body
+  const toast = document.createElement('div')
+  toast.className = 'fixed right-4 top-4 z-[180] rounded-md border bg-background px-3 py-2 text-sm shadow-lg'
+  toast.textContent = message
+  root.appendChild(toast)
+  window.setTimeout(() => toast.remove(), 2400)
+}
+
+export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean {
+  const dialogHandled = handleProcessWebStatusActionDialogEvent(target, {
+    toast: showToast,
+    refresh: () => {
+      const current = appStore.getState().pathname || '/'
+      const [path, queryString = ''] = current.split('?')
+      const params = new URLSearchParams(queryString)
+      params.set('actionResultAt', String(Date.now()))
+      appStore.navigate(`${path}?${params.toString()}`, { historyMode: 'replace' })
+    },
+  })
+  if (dialogHandled !== null) return dialogHandled
+
+  const taskActionNode = target.closest<HTMLElement>('[data-special-craft-task-action]')
+  if (taskActionNode) {
+    const action = taskActionNode.dataset.specialCraftTaskAction
+    if (action === 'go-back') {
+      const pathname = appStore.getState().pathname || ''
+      const match = pathname.match(/\/fcs\/process-factory\/special-craft\/([^/]+)\/tasks\//)
+      if (match) {
+        appStore.navigate(`/fcs/process-factory/special-craft/${encodeURIComponent(match[1])}/tasks`)
+        return true
+      }
+      window.history.back()
+      return true
+    }
+    return false
+  }
+
+  const actionNode = target.closest<HTMLElement>('[data-special-craft-web-action]')
+  if (!actionNode) return false
+
+  if (actionNode.dataset.specialCraftWebAction === 'open-web-status-action-dialog') {
+    const actionCode = actionNode.dataset.actionCode || ''
+    const sourceId = actionNode.dataset.sourceId || ''
+    const taskOrder = getSpecialCraftTaskOrderById(sourceId)
+    if (!taskOrder) return true
+
+    const isCustomDialog = actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+      || actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS'
+      || actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER'
+
+    if (isCustomDialog) {
+      const isGarment = taskOrder.targetObject === '成衣'
+      const lines = taskOrder.demandLines || []
+
+      if (isGarment) {
+        const title = actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+          ? '确认接收 - 逐 SKU 确认实收件数'
+          : actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS'
+            ? '完成加工 - 逐 SKU 确认完工件数'
+            : '发起交出 - 逐 SKU 确认交出件数'
+        const dialogHtml = renderGarmentSkuConfirmDialog(sourceId, actionCode, title, lines, 'planPieceQty')
+        document.body.insertAdjacentHTML('beforeend', dialogHtml)
+      } else {
+        const feiGroups = new Map<string, { feiTicketNo: string; partName: string; colorName: string; sizeCode: string; planQty: number }>()
+        lines.forEach((line) => {
+          (line.feiTicketNos?.length ? line.feiTicketNos : ['无菲票']).forEach((ticketNo) => {
+            if (feiGroups.has(ticketNo)) {
+              feiGroups.get(ticketNo)!.planQty += line.planPieceQty
+            } else {
+              feiGroups.set(ticketNo, { feiTicketNo: ticketNo, partName: line.partName, colorName: line.colorName, sizeCode: line.sizeCode, planQty: line.planPieceQty })
+            }
+          })
+        })
+        const groups = [...feiGroups.values()].map((g) => ({ ...g, defaultQty: g.planQty }))
+        const title = actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+          ? '确认接收 - 逐菲票确认实收数量'
+          : actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS'
+            ? '完成加工 - 逐菲票确认完工数量'
+            : '发起交出 - 逐菲票确认交出数量'
+        const dialogHtml = renderCutPieceFeiTicketConfirmDialog(sourceId, actionCode, title, groups)
+        document.body.insertAdjacentHTML('beforeend', dialogHtml)
+      }
+      return true
+    }
+
+    // 其他动作（上报差异、差异后重交）：使用通用对话框
+    openProcessWebStatusActionDialog({ actionNode, sourceType: 'SPECIAL_CRAFT' })
+    return true
+  }
+
+  // SKU 确认对话框提交
+  const skuConfirmNode = target.closest<HTMLElement>('[data-special-craft-sku-confirm]')
+  if (skuConfirmNode) {
+    const taskId = skuConfirmNode.dataset.taskId || ''
+    const actionCode = skuConfirmNode.dataset.actionCode || ''
+    const dialog = document.getElementById('special-craft-garment-sku-dialog')
+    if (!dialog) return true
+
+    const taskOrder = getSpecialCraftTaskOrderById(taskId)
+    const skuQtyBySkuCode: Record<string, number> = {}
+    if (taskOrder?.demandLines) {
+      taskOrder.demandLines.forEach((line) => {
+        const safeKey = `${line.colorName}-${line.sizeCode}`.replace(/[^A-Za-z0-9]/g, '-')
+        const input = dialog.querySelector<HTMLInputElement>(`input[name="sku-qty-${safeKey}"]`)
+        if (input) {
+          const qty = Number(input.value) || 0
+          if (qty >= 0) {
+            skuQtyBySkuCode[line.skuCode] = (skuQtyBySkuCode[line.skuCode] || 0) + qty
+          }
+        }
+      })
+    }
+    dialog.remove()
+
+    try {
+      const result = executeProcessWebAction({
+        sourceType: 'SPECIAL_CRAFT',
+        sourceId: taskId,
+        actionCode,
+        operatorName: 'Web 端操作员',
+        operatedAt: '2026-07-23 10:00',
+        objectType: taskOrder?.targetObject ?? '裁片',
+        objectQty: Object.values(skuQtyBySkuCode).reduce((s, q) => s + q, 0),
+        qtyUnit: taskOrder?.unit ?? '件',
+        skuQtyBySkuCode,
+      })
+      showToast(result.message)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '操作失败')
+    }
+    const current = appStore.getState().pathname || '/'
+    appStore.navigate(current, { historyMode: 'replace' })
+    return true
+  }
+
+  // 菲票确认对话框提交
+  const feiConfirmNode = target.closest<HTMLElement>('[data-special-craft-fei-confirm]')
+  if (feiConfirmNode) {
+    const taskId = feiConfirmNode.dataset.taskId || ''
+    const actionCode = feiConfirmNode.dataset.actionCode || ''
+    const dialog = document.getElementById('special-craft-fei-ticket-dialog')
+    if (!dialog) return true
+
+    const feiQtyByTicketNo: Record<string, number> = {}
+    const inputs = dialog.querySelectorAll<HTMLInputElement>('input[type="number"]')
+    inputs.forEach((input) => {
+      const name = input.name || ''
+      const ticketNo = name.replace('fei-qty-', '')
+      feiQtyByTicketNo[ticketNo] = Number(input.value) || 0
+    })
+
+    dialog.remove()
+
+    const totalQty = Object.values(feiQtyByTicketNo).reduce((s, q) => s + q, 0)
+    try {
+      const result = executeProcessWebAction({
+        sourceType: 'SPECIAL_CRAFT',
+        sourceId: taskId,
+        actionCode,
+        operatorName: 'Web 端操作员',
+        operatedAt: '2026-07-23 10:00',
+        objectQty: totalQty,
+        qtyUnit: '片',
+        remark: `逐菲票确认，合计 ${totalQty} 片`,
+      })
+      showToast(result.message)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '操作失败')
+    }
+    const current = appStore.getState().pathname || '/'
+    appStore.navigate(current, { historyMode: 'replace' })
+    return true
+  }
+
+  return false
 }

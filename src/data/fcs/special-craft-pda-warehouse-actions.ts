@@ -9,14 +9,14 @@ import {
   type ProcessActionWritebackResult,
 } from './process-action-writeback-service.ts'
 import {
-  getSpecialCraftTaskWorkOrderById,
+  getSpecialCraftTaskOrderById,
 } from './special-craft-task-orders.ts'
 import { getProcessHandoverRecordById } from './process-warehouse-domain.ts'
 import { findFactoryPdaRoleById, getPdaSession } from './store-domain-pda.ts'
 
 export interface SpecialCraftPdaWarehouseActionTarget {
   stockItemId: string
-  workOrderId: string
+  taskOrderId: string
   skuCode: string
 }
 
@@ -54,7 +54,7 @@ function assertTargetMatches(
 ): void {
   if (
     actual.stockItemId !== target.stockItemId
-    || actual.taskId !== target.workOrderId
+    || actual.taskId !== target.taskOrderId
     || (actual.materialSku || '') !== target.skuCode
   ) {
     throw new Error('仓动作对象与库存、加工单或 SKU 不一致。')
@@ -70,13 +70,13 @@ export function executeSpecialCraftWaitProcessIssue(
   if (selected.status === '已领用' || Number(selected.availableQty ?? selected.receivedQty) <= 0) {
     throw new Error('该成衣库存已领用，不能重复操作。')
   }
-  const workOrder = getSpecialCraftTaskWorkOrderById(target.workOrderId)
+  const workOrder = getSpecialCraftTaskOrderById(target.taskOrderId)
   if (!workOrder || workOrder.factoryId !== selected.factoryId || workOrder.status !== '已入待加工仓') {
     throw new Error('加工单当前状态不能执行加工领用。')
   }
   const actor = getAuthorizedActor('TASK_START', selected.factoryId)
   const taskStocks = listFactoryWaitProcessStockItems()
-    .filter((item) => item.taskId === target.workOrderId && item.itemKind === '成衣')
+    .filter((item) => item.taskId === target.taskOrderId && item.itemKind === '成衣')
   const pendingStocks = taskStocks.filter((item) => item.status !== '已领用')
   if (!taskStocks.length || !pendingStocks.some((item) => item.stockItemId === selected.stockItemId)) {
     throw new Error('该成衣库存已领用，不能重复操作。')
@@ -85,7 +85,7 @@ export function executeSpecialCraftWaitProcessIssue(
   const writebackResult = completedAllSku
     ? executeMobileProcessAction({
         sourceType: 'SPECIAL_CRAFT',
-        sourceId: workOrder.workOrderId,
+        sourceId: workOrder.taskOrderId,
         taskId: workOrder.taskOrderId,
         actionCode: 'SPECIAL_CRAFT_START_PROCESS',
         ...actor,
@@ -124,13 +124,13 @@ export function executeSpecialCraftWaitHandoverSubmit(
   if (!selected || selected.itemKind !== '成衣') throw new Error('未找到可交出的成衣库存。')
   assertTargetMatches(target, selected)
   if (selected.status === '已交出' || selected.waitHandoverQty <= 0) throw new Error('该成衣库存已交出，不能重复操作。')
-  const workOrder = getSpecialCraftTaskWorkOrderById(target.workOrderId)
+  const workOrder = getSpecialCraftTaskOrderById(target.taskOrderId)
   if (!workOrder || workOrder.factoryId !== selected.factoryId || workOrder.status !== '待交出') {
     throw new Error('加工单当前状态不能执行交出。')
   }
   const actor = getAuthorizedActor('HANDOUT_CREATE', selected.factoryId)
   const taskStocks = listFactoryWaitHandoverStockItems()
-    .filter((item) => item.taskId === target.workOrderId && item.itemKind === '成衣')
+    .filter((item) => item.taskId === target.taskOrderId && item.itemKind === '成衣')
   const pendingStocks = taskStocks.filter((item) => item.status !== '已交出')
   if (!taskStocks.length || !pendingStocks.some((item) => item.stockItemId === selected.stockItemId)) {
     throw new Error('该成衣库存已交出，不能重复操作。')
@@ -139,7 +139,7 @@ export function executeSpecialCraftWaitHandoverSubmit(
   const writebackResult = completedAllSku
     ? executeMobileProcessAction({
         sourceType: 'SPECIAL_CRAFT',
-        sourceId: workOrder.workOrderId,
+        sourceId: workOrder.taskOrderId,
         taskId: workOrder.taskOrderId,
         actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
         ...actor,

@@ -1,9 +1,12 @@
 import { getFactoryMasterRecordById } from '../../../data/fcs/factory-master-store.ts'
 import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
+import type { ProcessWebAction } from '../../../data/fcs/process-web-status-actions.ts'
 import {
   canFactorySeeSpecialCraftOperation,
   type SpecialCraftOperationDefinition,
 } from '../../../data/fcs/special-craft-operations.ts'
+import type { SpecialCraftTaskOrder } from '../../../data/fcs/special-craft-task-orders.ts'
+import { productionOrders } from '../../../data/fcs/production-orders.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml, formatDateTime } from '../../../utils.ts'
 
@@ -85,8 +88,23 @@ export function renderFilterGrid(items: Array<{ label: string; value: string }>)
           )
           .join('')}
       </div>
-    </section>
+    </div>
   `
+}
+
+const spuImageByCode: Record<string, string> = {
+  tdv_demand_SPU_2024_004: '/tshirt-sample.jpg',
+  tdv_demand_SPU_2024_005: '/jacket-sample.jpg',
+  tdv_demand_SPU_2024_010: '/pants-sample.jpg',
+  tdv_demand_SPU_2024_012: '/cardigan-sample.jpg',
+  tdv_demand_SPU_2024_013: '/dress-sample-1.jpg',
+}
+
+export function resolveSpuImageUrl(taskOrder: SpecialCraftTaskOrder): string {
+  const po = productionOrders.find((p) => p.productionOrderId === taskOrder.productionOrderId)
+  const spuCode = po?.demandSnapshot?.spuCode
+  if (spuCode && spuImageByCode[spuCode]) return spuImageByCode[spuCode]
+  return '/tshirt-sample.jpg'
 }
 
 export function renderTable(headers: string[], rows: string, minWidthClass = 'min-w-[1520px]'): string {
@@ -200,4 +218,228 @@ export function renderLinkedRecord(recordNo: string | undefined, href: string | 
 export function renderDateTime(value: string | undefined): string {
   if (!value) return '—'
   return escapeHtml(formatDateTime(value))
+}
+
+export function getFastSpecialCraftWebActions(taskOrder: SpecialCraftTaskOrder): ProcessWebAction[] {
+  const status = taskOrder.status
+  const actionDefs: Array<{
+    actionCode: string
+    actionLabel: string
+    fromStatuses: string[]
+    toStatus: string
+    requiredFields: string[]
+    optionalFields?: string[]
+  }> = [
+    {
+      actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE',
+      actionLabel: '确认接收',
+      fromStatuses: ['待领料'],
+      toStatus: '加工中',
+      requiredFields: ['接收人', '接收时间'],
+      optionalFields: ['备注'],
+    },
+    {
+      actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
+      actionLabel: '完成加工',
+      fromStatuses: ['加工中'],
+      toStatus: '待交出',
+      requiredFields: ['操作人', '完成时间'],
+      optionalFields: ['备注'],
+    },
+    {
+      actionCode: 'SPECIAL_CRAFT_REPORT_DIFFERENCE',
+      actionLabel: '上报差异',
+      fromStatuses: ['已接收', '已入待加工仓', '加工中', '加工完成', '待交出'],
+      toStatus: '差异',
+      requiredFields: ['上报人', '差异类型', '应收裁片数量', '实收裁片数量', '差异裁片数量', '关联菲票', '原因'],
+      optionalFields: ['证据'],
+    },
+    {
+      actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
+      actionLabel: '发起交出',
+      fromStatuses: ['待交出'],
+      toStatus: '已交出',
+      requiredFields: ['交出人', '交出时间'],
+      optionalFields: ['备注'],
+    },
+    {
+      actionCode: 'SPECIAL_CRAFT_REWORK_AFTER_REJECT',
+      actionLabel: '差异后重交',
+      fromStatuses: ['差异', '异议中', '异常', '交出待收货', '收货差异'],
+      toStatus: '待交出',
+      requiredFields: ['操作人', '重交裁片数量', '备注'],
+    },
+  ]
+
+  const matched = actionDefs.filter((def) => {
+    if (!def.fromStatuses.includes(status)) return false
+    return true
+  })
+
+  return matched.map((def) => ({
+    actionCode: def.actionCode,
+    actionLabel: def.actionLabel as ProcessWebAction['actionLabel'],
+    processType: 'SPECIAL_CRAFT' as const,
+    fromStatus: status,
+    toStatus: def.toStatus,
+    requiredFields: def.requiredFields,
+    optionalFields: def.optionalFields || [],
+    confirmText: `确认${def.actionLabel}`,
+    disabledReason: matched.length ? undefined : '当前状态暂无可执行动作',
+    writebackHandler: '',
+    affectsWarehouse: false,
+    affectsHandover: false,
+    affectsReview: false,
+    affectsDifference: false,
+    affectsPlatformStatus: false,
+  }))
+}
+
+export function renderWebActionPanel(
+  taskOrderId: string,
+  currentStatus: string,
+  actions: ProcessWebAction[],
+  objectQty: number,
+  objectMeta: { objectType: string; objectLabel: string; qtyUnit: string; qtyRule: string },
+): string {
+  const actionable = actions.filter((a) => !a.disabledReason)
+  const disabledReason = actions.find((a) => a.disabledReason)?.disabledReason
+
+  const localizedText = (text: string) => {
+    if (objectMeta.objectType === '裁片') return text
+    return text.replaceAll('裁片', objectMeta.objectLabel)
+  }
+
+  return `
+    <div class="space-y-3" data-testid="web-status-action-area">
+      <div class="grid gap-2 text-sm">
+        <div class="flex justify-between gap-3">
+          <span class="text-muted-foreground">当前状态</span>
+          <span class="font-medium text-foreground">${escapeHtml(currentStatus)}</span>
+        </div>
+        <div class="flex justify-between gap-3">
+          <span class="text-muted-foreground">数量口径</span>
+          <span class="font-medium text-foreground">${escapeHtml(objectMeta.objectLabel)} / ${escapeHtml(objectMeta.qtyUnit)}</span>
+        </div>
+      </div>
+      ${actionable.length
+        ? `<div class="grid gap-2">
+            ${actionable.map((action) => {
+              const actionLabel = localizedText(action.actionLabel)
+              const requiredFields = action.requiredFields.map(localizedText)
+              const optionalFields = action.optionalFields.map(localizedText)
+              const confirmText = localizedText(action.confirmText)
+              return `<button type="button" class="w-full rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+                data-special-craft-web-action="open-web-status-action-dialog"
+                data-source-id="${escapeHtml(taskOrderId)}"
+                data-action-code="${escapeHtml(action.actionCode)}"
+                data-action-label="${escapeHtml(actionLabel)}"
+                data-from-status="${escapeHtml(action.fromStatus)}"
+                data-to-status="${escapeHtml(action.toStatus)}"
+                data-required-fields="${escapeHtml(requiredFields.join('|'))}"
+                data-optional-fields="${escapeHtml(optionalFields.join('|'))}"
+                data-confirm-text="${escapeHtml(confirmText)}"
+                data-object-type="${escapeHtml(objectMeta.objectType)}"
+                data-object-qty="${escapeHtml(String(objectQty || 1))}"
+                data-qty-unit="${escapeHtml(objectMeta.qtyUnit)}">${escapeHtml(actionLabel)}</button>`
+            }).join('')}
+          </div>`
+        : `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">${escapeHtml(disabledReason || '当前状态暂无可执行动作')}</div>`
+      }
+    </div>
+  `
+}
+
+export function renderGarmentSkuConfirmDialog(
+  taskOrderId: string,
+  actionCode: string,
+  title: string,
+  demandLines: Array<{ colorName: string; sizeCode: string; planPieceQty: number; skuCode: string }>,
+  defaultQtyField: 'planPieceQty',
+): string {
+  const skuRows = new Map<string, { colorName: string; sizeCode: string; planQty: number; defaultQty: number }>()
+  demandLines.forEach((line) => {
+    const key = `${line.colorName}::${line.sizeCode}`
+    const existing = skuRows.get(key)
+    if (existing) {
+      existing.planQty += line.planPieceQty
+      existing.defaultQty += Number(line[defaultQtyField]) || 0
+    } else {
+      skuRows.set(key, {
+        colorName: line.colorName,
+        sizeCode: line.sizeCode,
+        planQty: line.planPieceQty,
+        defaultQty: Number(line[defaultQtyField]) || 0,
+      })
+    }
+  })
+
+  const tbody = [...skuRows.entries()].map(([key, row]) => {
+    const safeKey = key.replace(/[^A-Za-z0-9]/g, '-')
+    return `<tr>
+      <td class="px-3 py-2 text-sm">${escapeHtml(row.colorName)}</td>
+      <td class="px-3 py-2 text-sm">${escapeHtml(row.sizeCode)}</td>
+      <td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(row.planQty)}</td>
+      <td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="sku-qty-${safeKey}" value="${row.defaultQty}" min="0" max="${row.planQty}" /></td>
+    </tr>`
+  }).join('')
+
+  return `
+    <div id="special-craft-garment-sku-dialog" class="fixed inset-0 z-[150] flex items-center justify-center bg-black/40">
+      <div class="w-full max-w-lg rounded-lg border bg-card p-6 shadow-xl">
+        <h3 class="mb-4 text-base font-semibold">${escapeHtml(title)}</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-muted text-muted-foreground">
+              <tr><th class="px-3 py-2 text-left text-xs font-medium">颜色</th><th class="px-3 py-2 text-left text-xs font-medium">尺码</th><th class="px-3 py-2 text-right text-xs font-medium">计划件数</th><th class="px-3 py-2 text-right text-xs font-medium">实收件数</th></tr>
+            </thead>
+            <tbody>${tbody}</tbody>
+          </table>
+        </div>
+        <div class="mt-4 flex justify-end gap-2">
+          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" onclick="document.getElementById('special-craft-garment-sku-dialog')?.remove()">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700" data-special-craft-sku-confirm="submit" data-task-id="${escapeHtml(taskOrderId)}" data-action-code="${escapeHtml(actionCode)}">确认接收</button>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+export function renderCutPieceFeiTicketConfirmDialog(
+  taskOrderId: string,
+  actionCode: string,
+  title: string,
+  feiTicketGroups: Array<{ feiTicketNo: string; partName: string; colorName: string; sizeCode: string; planQty: number; defaultQty: number }>,
+): string {
+  const tbody = feiTicketGroups.map((group) => {
+    const safeKey = group.feiTicketNo.replace(/[^A-Za-z0-9]/g, '-')
+    return `<tr>
+      <td class="px-3 py-2 font-mono text-xs">${escapeHtml(group.feiTicketNo)}</td>
+      <td class="px-3 py-2 text-sm">${escapeHtml(group.partName)}</td>
+      <td class="px-3 py-2 text-sm">${escapeHtml(group.colorName)}</td>
+      <td class="px-3 py-2 text-sm">${escapeHtml(group.sizeCode)}</td>
+      <td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(group.planQty)}</td>
+      <td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="fei-qty-${safeKey}" value="${group.defaultQty}" min="0" max="${group.planQty}" /></td>
+    </tr>`
+  }).join('')
+
+  return `
+    <div id="special-craft-fei-ticket-dialog" class="fixed inset-0 z-[150] flex items-center justify-center bg-black/40">
+      <div class="w-full max-w-2xl rounded-lg border bg-card p-6 shadow-xl">
+        <h3 class="mb-4 text-base font-semibold">${escapeHtml(title)}</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-muted text-muted-foreground">
+              <tr><th class="px-3 py-2 text-left text-xs font-medium">菲票号</th><th class="px-3 py-2 text-left text-xs font-medium">部位</th><th class="px-3 py-2 text-left text-xs font-medium">颜色</th><th class="px-3 py-2 text-left text-xs font-medium">尺码</th><th class="px-3 py-2 text-right text-xs font-medium">计划数量</th><th class="px-3 py-2 text-right text-xs font-medium">实收数量</th></tr>
+            </thead>
+            <tbody>${tbody}</tbody>
+          </table>
+        </div>
+        <div class="mt-4 flex justify-end gap-2">
+          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" onclick="document.getElementById('special-craft-fei-ticket-dialog')?.remove()">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700" data-special-craft-fei-confirm="submit" data-task-id="${escapeHtml(taskOrderId)}" data-action-code="${escapeHtml(actionCode)}">确认接收</button>
+        </div>
+      </div>
+    </div>
+  `
 }

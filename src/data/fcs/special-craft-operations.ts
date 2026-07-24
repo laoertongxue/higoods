@@ -451,13 +451,6 @@ export function buildSpecialCraftTaskDetailPath(
   return `${buildSpecialCraftTaskOrdersPath(slug)}/${encodeURIComponent(taskOrderId)}`
 }
 
-export function buildSpecialCraftWorkOrderDetailPath(
-  input: Pick<SpecialCraftOperationDefinition, 'operationId'> | string,
-  workOrderId: string,
-): string {
-  const slug = typeof input === 'string' ? normalizeOperationSlug(input) : buildSpecialCraftOperationSlug(input)
-  return `/fcs/process-factory/special-craft/${slug}/work-orders/${encodeURIComponent(workOrderId)}`
-}
 
 export function buildSpecialCraftManagementDomainSlug(
   managementDomain: ProcessCraftManagementDomain,

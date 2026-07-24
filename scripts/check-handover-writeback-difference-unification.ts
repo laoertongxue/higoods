@@ -77,7 +77,7 @@ includes('src/pages/process-factory/dyeing/work-order-detail.ts', [
   '差异面料米数',
 ])
 
-includes('src/pages/process-factory/special-craft/work-order-detail.ts', [
+includes('src/pages/process-factory/special-craft/task-detail.ts', [
   'getDifferenceRecordsByWorkOrderId',
   'applySpecialCraftDifferenceToFeiTickets',
   '同步菲票数量',
@@ -192,7 +192,7 @@ assert(!visibleDyeSource.includes(dyeReportWord), '用户可见文案不得出�
 const modifiedPages = [
   'src/pages/process-factory/printing/work-order-detail.ts',
   'src/pages/process-factory/dyeing/work-order-detail.ts',
-  'src/pages/process-factory/special-craft/work-order-detail.ts',
+  'src/pages/process-factory/special-craft/task-detail.ts',
   'src/pages/process-factory/post-finishing/warehouse.ts',
 ].map(read).join('\n')
 assert(!/>\s*数量：/.test(modifiedPages), '页面不得只显示“数量：”，必须带对象和单位')

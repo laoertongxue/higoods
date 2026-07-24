@@ -22,8 +22,6 @@ import {
 } from '../factory-warehouse-linkage.ts'
 import type { SpecialCraftTaskDemandLine, SpecialCraftTaskOrder } from '../special-craft-task-orders.ts'
 import {
-  getSpecialCraftTaskWorkOrderLineByDemandLineId,
-  getSpecialCraftTaskWorkOrdersByTaskOrderId,
   getSpecialCraftTaskOrderById,
   listSpecialCraftTaskOrders,
 } from '../special-craft-task-orders.ts'
@@ -342,22 +340,11 @@ function getDifferenceDisplayStatus(status?: string): string {
 }
 
 function getWorkOrderTarget(taskOrder: SpecialCraftTaskOrder, demandLineId: string, partName: string) {
-  const line = getSpecialCraftTaskWorkOrderLineByDemandLineId(taskOrder.taskOrderId, demandLineId)
-  if (line) {
-    const workOrder = getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrder.taskOrderId).find((item) => item.workOrderId === line.workOrderId)
-    if (workOrder) {
-      return {
-        workOrderId: workOrder.workOrderId,
-        workOrderNo: workOrder.workOrderNo,
-        workOrderLineId: line.lineId,
-      }
-    }
-  }
-  const workOrder = getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrder.taskOrderId).find((item) => item.partName === partName)
+  const line = (taskOrder.demandLines || []).find((dl) => dl.demandLineId === demandLineId)
   return {
-    workOrderId: workOrder?.workOrderId || `${taskOrder.taskOrderId}-WO-001`,
-    workOrderNo: workOrder?.workOrderNo || `${taskOrder.taskOrderNo}-部位01`,
-    workOrderLineId: line?.lineId,
+    workOrderId: taskOrder.taskOrderId,
+    workOrderNo: taskOrder.taskOrderNo,
+    workOrderLineId: line?.demandLineId,
   }
 }
 
@@ -3031,4 +3018,39 @@ function ensureFlowStore(): FlowStore {
 
 export function ensureSpecialCraftFeiTicketFlowSeeded(): void {
   ensureFlowStore()
+}
+
+export function markSpecialCraftFeiTicketBindingCompleted(input: {
+  taskOrderId: string
+  operationId: string
+  operationName: string
+  completedBy: string
+  completedAt: string
+}): void {
+  ensureSpecialCraftFeiTicketFlowSeeded()
+  const bindings = (flowStore?.bindings || []).filter(
+    (binding) => binding.taskOrderId === input.taskOrderId && binding.operationId === input.operationId,
+  )
+  bindings.forEach((binding) => {
+    updateBinding(flowStore!, binding.bindingId, (current) => ({
+      ...current,
+      specialCraftFlowStatus: '已完成',
+      completedOperationNames: [...current.completedOperationNames, input.operationName],
+      updatedAt: input.completedAt,
+    }))
+    appendFlowEvent(
+      flowStore!,
+      binding,
+      makeFlowEvent(binding, {
+        eventType: '完工',
+        beforeQty: binding.currentQty,
+        changedQty: 0,
+        afterQty: binding.currentQty,
+        operatorName: input.completedBy,
+        occurredAt: input.completedAt,
+        remark: `已完成${input.operationName}`,
+      }),
+    )
+    recomputeSequenceGate(flowStore!, binding.productionOrderId, binding.feiTicketNo)
+  })
 }

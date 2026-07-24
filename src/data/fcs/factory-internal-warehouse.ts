@@ -555,11 +555,22 @@ function buildDefaultAreaList(): FactoryWarehouseArea[] {
 }
 
 export function buildDefaultFactoryInternalWarehouses(factories: Factory[] = mockFactories): FactoryInternalWarehouse[] {
+  const seenIds = new Set<string>()
   return factories
     .filter((factory) => isNonSewingFactory(factory))
+    .filter((factory) => {
+      if (seenIds.has(factory.id)) return false
+      seenIds.add(factory.id)
+      return true
+    })
     .flatMap((factory) => {
       const createdAt = factory.createdAt || '2026-04-01 08:00:00'
       const updatedAt = factory.updatedAt || createdAt
+      const areaList = factory.id === 'FAC-AUX-CRAFT'
+        ? buildCraftWarehouseAreas().filter((area) => area.areaId.startsWith('AUX-'))
+        : factory.id === 'FAC-SPC-CRAFT'
+          ? buildCraftWarehouseAreas().filter((area) => area.areaId.startsWith('SPC-'))
+          : buildDefaultAreaList()
       return (['WAIT_PROCESS', 'WAIT_HANDOVER'] as const).map((warehouseKind) => {
         const warehouseShortName = getWarehouseShortName(warehouseKind)
         return {
@@ -572,7 +583,7 @@ export function buildDefaultFactoryInternalWarehouses(factories: Factory[] = moc
           warehouseShortName,
           isDefault: true,
           isEnabled: true,
-          areaList: buildDefaultAreaList(),
+          areaList,
           createdAt,
           updatedAt,
         } satisfies FactoryInternalWarehouse
@@ -745,7 +756,7 @@ export function recordGarmentReceiptAtAuxiliaryFactory(input: {
 }
 
 export function recordGarmentReadyToHandoverAtAuxiliaryFactory(input: {
-  sourceWorkOrderId: string
+  sourceTaskOrderId: string
   sourceWorkOrderNo: string
   targetFactoryId: string
   targetFactoryName: string
@@ -764,13 +775,13 @@ export function recordGarmentReadyToHandoverAtAuxiliaryFactory(input: {
   const factory = mockFactories.find((item) => item.id === input.targetFactoryId)!
   const warehouse = findWarehouseByFactoryAndKindInternal(factory.id, 'WAIT_HANDOVER')!
   const sourceStocks = listFactoryWaitProcessStockItems()
-    .filter((item) => item.taskId === input.sourceWorkOrderId && item.itemKind === '成衣')
+    .filter((item) => item.taskId === input.sourceTaskOrderId && item.itemKind === '成衣')
     .sort((left, right) => (left.materialSku || '').localeCompare(right.materialSku || ''))
   return sourceStocks.map((source, index) => {
     const waitHandoverQty = Number(input.completedQtyBySkuCode[source.materialSku || ''])
-    const position = pickWarehouseLocation(warehouse, `${input.sourceWorkOrderId}-${source.materialSku}`, '已入库')
+    const position = pickWarehouseLocation(warehouse, `${input.sourceTaskOrderId}-${source.materialSku}`, '已入库')
     return upsertFactoryWaitHandoverStockItem({
-      stockItemId: `AUX-WHS-${input.sourceWorkOrderId}-${source.materialSku}`,
+      stockItemId: `AUX-WHS-${input.sourceTaskOrderId}-${source.materialSku}`,
       warehouseId: warehouse.warehouseId,
       factoryId: factory.id,
       factoryName: factory.name,
@@ -780,7 +791,7 @@ export function recordGarmentReadyToHandoverAtAuxiliaryFactory(input: {
       processName: source.processName,
       craftCode: source.craftCode,
       craftName: source.craftName,
-      taskId: input.sourceWorkOrderId,
+      taskId: input.sourceTaskOrderId,
       taskNo: input.sourceWorkOrderNo,
       sourceType: 'PRODUCTION_ORDER',
       productionOrderId: input.productionOrderId,
@@ -796,7 +807,7 @@ export function recordGarmentReadyToHandoverAtAuxiliaryFactory(input: {
       unit: '件',
       receiverKind: input.receiverKind,
       receiverName: input.receiverName,
-      handoverOrderId: `AUX-HO-${input.sourceWorkOrderId}`,
+      handoverOrderId: `AUX-HO-${input.sourceTaskOrderId}`,
       handoverOrderNo: `JCD-${input.sourceWorkOrderNo}`,
       areaName: position.areaName,
       shelfNo: position.shelfNo,
@@ -814,7 +825,7 @@ export function recordGarmentReadyToHandoverAtAuxiliaryFactory(input: {
 }
 
 export function validateGarmentReadyToHandoverAtAuxiliaryFactory(input: {
-  sourceWorkOrderId: string
+  sourceTaskOrderId: string
   targetFactoryId: string
   targetFactoryName: string
   totalCompletedQty: number
@@ -828,7 +839,7 @@ export function validateGarmentReadyToHandoverAtAuxiliaryFactory(input: {
   const warehouse = findWarehouseByFactoryAndKindInternal(factory.id, 'WAIT_HANDOVER')
   if (!warehouse) throw new Error(`未找到${input.targetFactoryName}待交出仓`)
   const sourceStocks = listFactoryWaitProcessStockItems()
-    .filter((item) => item.taskId === input.sourceWorkOrderId && item.itemKind === '成衣')
+    .filter((item) => item.taskId === input.sourceTaskOrderId && item.itemKind === '成衣')
     .sort((left, right) => (left.materialSku || '').localeCompare(right.materialSku || ''))
   const receivedQtyTotal = sourceStocks.reduce((sum, item) => sum + Math.trunc(item.receivedQty), 0)
   if (input.totalCompletedQty > receivedQtyTotal) {
@@ -3714,4 +3725,23 @@ export function getFactoryWarehouseKindLabel(warehouseKind: FactoryInternalWareh
 
 export function getFactoryWarehousePositionLabel(status: FactoryWarehouseLocationStatus): string {
   return getWarehouseLocationStatusLabel(status)
+}
+
+export function buildCraftWarehouseAreas(): FactoryWarehouseArea[] {
+  return [
+    { areaId: 'AUX-WP-AREA-01', areaName: '绣花-成衣库区', shelfList: buildDefaultShelf('AUX-WP-01'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-02', areaName: '绣花-裁片库区', shelfList: buildDefaultShelf('AUX-WP-02'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-03', areaName: '烫画-成衣库区', shelfList: buildDefaultShelf('AUX-WP-03'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-04', areaName: '直喷-成衣库区', shelfList: buildDefaultShelf('AUX-WP-04'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-05', areaName: '抽条-裁片库区', shelfList: buildDefaultShelf('AUX-WP-05'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-06', areaName: '压褶-裁片库区', shelfList: buildDefaultShelf('AUX-WP-06'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-07', areaName: '打缆-裁片库区', shelfList: buildDefaultShelf('AUX-WP-07'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-08', areaName: '贝壳绣-裁片库区', shelfList: buildDefaultShelf('AUX-WP-08'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-09', areaName: '曲牙绣-裁片库区', shelfList: buildDefaultShelf('AUX-WP-09'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-10', areaName: '直牙绣-裁片库区', shelfList: buildDefaultShelf('AUX-WP-10'), status: 'AVAILABLE' },
+    { areaId: 'SPC-WP-AREA-01', areaName: '模板工艺-裁片库区', shelfList: buildDefaultShelf('SPC-WP-01'), status: 'AVAILABLE' },
+    { areaId: 'SPC-WP-AREA-02', areaName: '激光袋-裁片库区', shelfList: buildDefaultShelf('SPC-WP-02'), status: 'AVAILABLE' },
+    { areaId: 'SPC-WP-AREA-03', areaName: '花样机-裁片库区', shelfList: buildDefaultShelf('SPC-WP-03'), status: 'AVAILABLE' },
+    { areaId: 'SPC-WP-AREA-04', areaName: '橡筋定长-辅料库区', shelfList: buildDefaultShelf('SPC-WP-04'), status: 'AVAILABLE' },
+  ]
 }

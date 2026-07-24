@@ -24,7 +24,7 @@ import { validatePrintWorkOrderMobileTaskBinding } from '../src/data/fcs/process
 import { listMobileExecutionTasks } from '../src/data/fcs/mobile-execution-task-index.ts'
 import { mapCraftStatusToPlatformStatus } from '../src/data/fcs/process-platform-status-adapter.ts'
 import { getQuantityLabel } from '../src/data/fcs/process-quantity-labels.ts'
-import { listSpecialCraftTaskWorkOrders } from '../src/data/fcs/special-craft-task-orders.ts'
+import { listSpecialCraftTaskOrders } from '../src/data/fcs/special-craft-task-orders.ts'
 
 const root = process.cwd()
 
@@ -292,12 +292,12 @@ assert(listProcessHandoverDifferenceRecords({ craftType: 'CUTTING', sourceWorkOr
   record.relatedFeiTicketIds.length > 0,
 ), '裁片差异必须可追溯菲票')
 
-const specialWorkOrder = listSpecialCraftTaskWorkOrders()[0]
-assert(Boolean(specialWorkOrder), '必须存在由生产单和技术包生成的特殊工艺工艺单')
-const specialWorkOrderId = specialWorkOrder.workOrderId
-const specialObjectType = String(specialWorkOrder.targetObject || '').includes('成衣')
+const specialTaskOrder = listSpecialCraftTaskOrders()[0]
+assert(Boolean(specialTaskOrder), '必须存在由生产单和技术包生成的特殊工艺任务单')
+const specialTaskOrderId = specialTaskOrder.taskOrderId
+const specialObjectType = String(specialTaskOrder.targetObject || '').includes('成衣')
   ? '成衣'
-  : String(specialWorkOrder.targetObject || '').includes('面料')
+  : String(specialTaskOrder.targetObject || '').includes('面料')
     ? '面料'
     : '裁片'
 const specialQtyUnit = specialObjectType === '成衣' ? '件' : specialObjectType === '面料' ? '米' : '片'
@@ -305,16 +305,17 @@ const specialQtyUnit = specialObjectType === '成衣' ? '件' : specialObjectTyp
 const specialReceiveResult = executeProcessAction({
   sourceChannel: 'Web 端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: specialWorkOrderId,
+  sourceId: specialTaskOrderId,
+  taskId: specialTaskOrder.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
   operatorName: '检查脚本',
   operatedAt: '2026-04-28 13:00',
   objectType: specialObjectType,
-  objectQty: Math.min(specialWorkOrder.planQty, 180),
+  objectQty: Math.min(specialTaskOrder.planQty, 180),
   qtyUnit: specialQtyUnit,
 })
 assert(Boolean(specialReceiveResult.affectedWarehouseRecordId), '特殊工艺确认接收后必须生成待加工仓记录')
-const specialWaitProcessRecord = listWaitProcessWarehouseRecords({ craftType: 'SPECIAL_CRAFT', sourceWorkOrderId: specialWorkOrderId }).find((record) =>
+const specialWaitProcessRecord = listWaitProcessWarehouseRecords({ craftType: 'SPECIAL_CRAFT', sourceWorkOrderId: specialTaskOrderId }).find((record) =>
   record.warehouseRecordId === specialReceiveResult.affectedWarehouseRecordId,
 )
 assert(
@@ -322,41 +323,44 @@ assert(
   '特殊工艺待加工仓必须按目标对象记录数量口径',
 )
 assert(
-  specialWaitProcessRecord?.relatedFeiTicketIds.length === specialWorkOrder.feiTicketNos.length,
-  '特殊工艺待加工仓关联菲票必须来自生产单和技术包生成的工艺单',
+  specialWaitProcessRecord?.relatedFeiTicketIds.length === specialTaskOrder.feiTicketNos.length,
+  '特殊工艺待加工仓关联菲票必须来自生产单和技术包生成的任务单',
 )
 executeProcessAction({
   sourceChannel: 'Web 端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: specialWorkOrderId,
+  sourceId: specialTaskOrderId,
+  taskId: specialTaskOrder.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_START_PROCESS',
   operatorName: '检查脚本',
   operatedAt: '2026-04-28 13:05',
   objectType: specialObjectType,
-  objectQty: Math.min(specialWorkOrder.planQty, 180),
+  objectQty: Math.min(specialTaskOrder.planQty, 180),
   qtyUnit: specialQtyUnit,
 })
 const specialFinishResult = executeProcessAction({
   sourceChannel: '移动端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: specialWorkOrderId,
+  sourceId: specialTaskOrderId,
+  taskId: specialTaskOrder.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
   operatorName: '检查脚本',
   operatedAt: '2026-04-28 13:20',
   objectType: specialObjectType,
-  objectQty: Math.min(specialWorkOrder.planQty, 178),
+  objectQty: Math.min(specialTaskOrder.planQty, 178),
   qtyUnit: specialQtyUnit,
 })
 assert(Boolean(specialFinishResult.affectedWarehouseRecordId), '特殊工艺完成加工后必须生成待交出仓记录')
 const specialSubmitResult = executeProcessAction({
   sourceChannel: 'Web 端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: specialWorkOrderId,
+  sourceId: specialTaskOrderId,
+  taskId: specialTaskOrder.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
   operatorName: '检查脚本',
   operatedAt: '2026-04-28 13:30',
   objectType: specialObjectType,
-  objectQty: Math.min(specialWorkOrder.planQty, 178),
+  objectQty: Math.min(specialTaskOrder.planQty, 178),
   qtyUnit: specialQtyUnit,
 })
 assert(Boolean(specialSubmitResult.affectedHandoverRecordId), '特殊工艺发起交出后必须生成交出记录')
@@ -364,8 +368,8 @@ const specialDifferenceResult = applySpecialCraftWarehouseLinkageAfterAction({
   success: true,
   sourceChannel: '移动端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: specialWorkOrderId,
-  taskId: specialWorkOrder.taskOrderId,
+  sourceId: specialTaskOrderId,
+  taskId: specialTaskOrder.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_REPORT_DIFFERENCE',
   previousStatus: '交出待收货',
   nextStatus: '收货差异',
@@ -375,12 +379,12 @@ const specialDifferenceResult = applySpecialCraftWarehouseLinkageAfterAction({
   affectedHandoverRecordId: specialSubmitResult.affectedHandoverRecordId,
 })
 assert(Boolean(specialDifferenceResult.createdDifferenceRecordId), '特殊工艺上报差异后必须生成差异记录')
-assert(listProcessHandoverDifferenceRecords({ craftType: 'SPECIAL_CRAFT', sourceWorkOrderId: specialWorkOrderId }).some((record) =>
+assert(listProcessHandoverDifferenceRecords({ craftType: 'SPECIAL_CRAFT', sourceWorkOrderId: specialTaskOrderId }).some((record) =>
   record.objectType === specialObjectType
     && record.qtyUnit === specialQtyUnit
-    && record.relatedFeiTicketIds.length === specialWorkOrder.feiTicketNos.length
+    && record.relatedFeiTicketIds.length === specialTaskOrder.feiTicketNos.length
     && record.diffObjectQty === 5,
-), '特殊工艺差异必须按目标对象记录数量变化，并沿用工艺单菲票追溯关系')
+), '特殊工艺差异必须按目标对象记录数量变化，并沿用任务单菲票追溯关系')
 
 assert(listProcessWarehouseReviewRecords().some((record) => record.handoverRecordId === dyeHandoverResult.affectedHandoverRecordId), '接收方回写后必须生成收货确认记录')
 assert(validatePrintWorkOrderMobileTaskBinding('PWO-PRINT-004').reasonCode === 'OK', '第 2 步绑定校验回退')

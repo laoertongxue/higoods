@@ -12,13 +12,10 @@ import {
   buildSpecialCraftTaskOrdersPath,
 } from '../src/data/fcs/special-craft-operations.ts'
 import {
-  buildSpecialCraftTaskWorkOrders,
-  getSpecialCraftTaskWorkOrderLinesByWorkOrderId,
-  getSpecialCraftTaskWorkOrderById,
   getSpecialCraftTaskOrderById,
   getEnabledSpecialCraftOperations,
+  getSpecialCraftWorkOrderBusinessType,
   listSpecialCraftTaskOrders,
-  listSpecialCraftTaskWorkOrders,
 } from '../src/data/fcs/special-craft-task-orders.ts'
 import { listPdaMobileExecutionTasks } from '../src/data/fcs/process-mobile-task-binding.ts'
 import {
@@ -75,10 +72,10 @@ const direct = operations.find((item) => item.operationId === 'AUX-OP-DIRECT-PRI
 assert(heat, '缺少烫画工艺操作')
 assert(direct, '缺少直喷工艺操作')
 
-const workOrders = listSpecialCraftTaskWorkOrders()
-assert.equal(new Set(workOrders.map((item) => item.workOrderNo)).size, workOrders.length, '所有辅助或特种工艺加工单号必须全局唯一')
-const heatOrders = workOrders.filter((item) => item.operationId === heat.operationId)
-const directOrders = workOrders.filter((item) => item.operationId === direct.operationId)
+const taskOrders = listSpecialCraftTaskOrders()
+assert.equal(new Set(taskOrders.map((item) => item.taskOrderNo)).size, taskOrders.length, '所有辅助或特种工艺任务单号必须全局唯一')
+const heatOrders = taskOrders.filter((item) => item.operationId === heat.operationId)
+const directOrders = taskOrders.filter((item) => item.operationId === direct.operationId)
 assert(heatOrders.length > 0, '必须存在独立烫画加工单')
 assert(directOrders.length > 0, '必须保留直喷加工单')
 assert(heatOrders.every((item) => item.craftName === '烫画'))
@@ -92,7 +89,7 @@ assert(
   '其他辅助或特种工艺加工单必须使用 OTHER_SPECIAL_CRAFT 兜底业务类型',
 )
 assert.equal(
-  new Set([...heatOrders, ...directOrders].map((item) => item.workOrderNo)).size,
+  new Set([...heatOrders, ...directOrders].map((item) => item.taskOrderNo)).size,
   heatOrders.length + directOrders.length,
   '烫画与直喷加工单号不得重复',
 )
@@ -110,27 +107,20 @@ const directIdentityBaseline = [
 ]
 assert.deepEqual(
   directOrders
-    .map(({ workOrderId, workOrderNo }) => ({ workOrderId, workOrderNo }))
+    .map(({ taskOrderId, taskOrderNo }) => ({ workOrderId: taskOrderId, workOrderNo: taskOrderNo }))
     .sort((left, right) => left.workOrderId.localeCompare(right.workOrderId)),
   directIdentityBaseline.sort((left, right) => left.workOrderId.localeCompare(right.workOrderId)),
   '直喷既有加工单 ID 与加工单号不得因新增烫画而变化',
 )
 
 for (const [operationId, renamedCraftName, expectedBusinessType] of [
-  ['AUX-OP-HEAT-TRANSFER', '热转印展示名', 'HEAT_TRANSFER'],
-  ['AUX-OP-DIRECT-PRINT', '数码直喷展示名', 'DIRECT_PRINT'],
-  ['AUX-OP-UNKNOWN', '未知工艺展示名', 'OTHER_SPECIAL_CRAFT'],
-] as const) {
-  const sourceTask = listSpecialCraftTaskOrders().find((item) => item.operationId === operationId)
-    || listSpecialCraftTaskOrders()[0]
-  assert(sourceTask, '缺少业务类型映射测试任务')
-  const [renamedWorkOrder] = buildSpecialCraftTaskWorkOrders([{
-    ...sourceTask,
-    operationId,
-    craftName: renamedCraftName,
-  }]).workOrders
-  assert.equal(renamedWorkOrder.businessType, expectedBusinessType, `${operationId} 业务类型不得依赖中文展示名`)
-}
+    ['AUX-OP-HEAT-TRANSFER', '热转印展示名', 'HEAT_TRANSFER'],
+    ['AUX-OP-DIRECT-PRINT', '数码直喷展示名', 'DIRECT_PRINT'],
+    ['AUX-OP-UNKNOWN', '未知工艺展示名', 'OTHER_SPECIAL_CRAFT'],
+  ] as const) {
+    const businessType = getSpecialCraftWorkOrderBusinessType(operationId)
+    assert.equal(businessType, expectedBusinessType, `${operationId} 业务类型不得依赖中文展示名`)
+  }
 
 for (const [craftName, orders] of [['烫画', heatOrders], ['直喷', directOrders]] as const) {
   assert(orders.some((item) => item.targetObject === '已裁部位'), `${craftName}必须包含裁片部位加工单`)
@@ -141,11 +131,11 @@ const garmentHeat = heatOrders.find((item) => item.targetObject === '成衣')
 assert(garmentHeat, '缺少成衣烫画加工单')
 assert(garmentHeat.planQty > 0, '成衣烫画加工单计划件数必须大于 0')
 assert.deepEqual(garmentHeat.feiTicketNos, [], '成衣烫画加工单不得生成菲票')
-const garmentWaitProcess = getWarehouseRecordsByWorkOrderId(garmentHeat.workOrderId)
+const garmentWaitProcess = getWarehouseRecordsByWorkOrderId(garmentHeat.taskOrderId)
   .find((item) => item.recordType === 'WAIT_PROCESS')
 assert.equal(garmentHeat.status, '待领料', '契约样例必须从尚未出库的成衣加工单开始')
 assert.equal(garmentWaitProcess, undefined, '成衣仓尚未出库且辅助工艺尚未收货时不得投影待加工仓')
-const garmentSkuLines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(garmentHeat.workOrderId)
+const garmentSkuLines = (getSpecialCraftTaskOrderById(garmentHeat.taskOrderId)?.demandLines ?? [])
 assert(garmentSkuLines.length > 1, '成衣加工单必须包含真实 SKU 明细')
 assert(garmentSkuLines.every((line) => line.skuCode && line.skuCode !== line.demandLineId), '成衣加工单必须携带真实 SKU 编码')
 const garmentTaskOrder = getSpecialCraftTaskOrderById(garmentHeat.taskOrderId)
@@ -156,20 +146,20 @@ assert.equal(garmentMobileTask.qtyUnit, 'PIECE', 'PDA 内部计数单位必须�
 assert.equal(garmentMobileTask.qtyDisplayUnit, '件', 'PDA 成衣数量显示单位必须来自加工单事实')
 const garmentDirect = directOrders.find((item) => item.targetObject === '成衣')
 assert(garmentDirect, '缺少成衣直喷加工单用于统一动作入口回归')
-const garmentDirectSkuLines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(garmentDirect.workOrderId)
+const garmentDirectSkuLines = (getSpecialCraftTaskOrderById(garmentDirect.taskOrderId)?.demandLines ?? [])
 const garmentDirectTaskOrder = getSpecialCraftTaskOrderById(garmentDirect.taskOrderId)
 assert(garmentDirectTaskOrder, '成衣直喷加工单必须回溯到辅助工艺任务单')
 const garmentDirectMobileTask = listPdaMobileExecutionTasks().find((item) => item.taskId === garmentDirectTaskOrder.sourceTaskId)
 assert(garmentDirectMobileTask, '成衣直喷任务必须进入 PDA 执行任务')
 
 const zeroSkuQtyBySkuCode = Object.fromEntries(garmentDirectSkuLines.map((line) => [line.skuCode, 0]))
-const directStatusBeforeZeroOutbound = getSpecialCraftTaskWorkOrderById(garmentDirect.workOrderId)?.status
+const directStatusBeforeZeroOutbound = getSpecialCraftTaskOrderById(garmentDirect.taskOrderId)?.status
 const directOutboundCountBeforeZeroOutbound = listFactoryWarehouseOutboundRecords()
-  .filter((record) => record.sourceTaskId === garmentDirect.workOrderId).length
+  .filter((record) => record.sourceTaskId === garmentDirect.taskOrderId).length
 assert.throws(() => executeProcessAction({
   sourceChannel: 'Web 端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: garmentDirect.workOrderId,
+  sourceId: garmentDirect.taskOrderId,
   taskId: garmentDirect.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
   objectType: '成衣',
@@ -177,9 +167,9 @@ assert.throws(() => executeProcessAction({
   qtyUnit: '件',
   skuQtyBySkuCode: zeroSkuQtyBySkuCode,
 }), /成衣操作至少一个 SKU 件数必须大于 0/, '全 SKU 为 0 的成衣仓出库必须拒绝')
-assert.equal(getSpecialCraftTaskWorkOrderById(garmentDirect.workOrderId)?.status, directStatusBeforeZeroOutbound, '全零出库不得推进加工单状态')
+assert.equal(getSpecialCraftTaskOrderById(garmentDirect.taskOrderId)?.status, directStatusBeforeZeroOutbound, '全零出库不得推进加工单状态')
 assert.equal(
-  listFactoryWarehouseOutboundRecords().filter((record) => record.sourceTaskId === garmentDirect.workOrderId).length,
+  listFactoryWarehouseOutboundRecords().filter((record) => record.sourceTaskId === garmentDirect.taskOrderId).length,
   directOutboundCountBeforeZeroOutbound,
   '全零出库不得新增成衣仓库存事实',
 )
@@ -191,7 +181,7 @@ assert.throws(
   () => executeProcessAction({
     sourceChannel: '移动端',
     sourceType: 'SPECIAL_CRAFT',
-    sourceId: garmentDirect.workOrderId,
+    sourceId: garmentDirect.taskOrderId,
     actionCode: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
     operatorName: '辅助工艺仓管员',
     operatedAt: '2026-07-22 09:00:00',
@@ -209,7 +199,7 @@ const incompleteOutboundQtyBySkuCode = Object.fromEntries(
 assert.throws(() => executeProcessAction({
   sourceChannel: 'Web 端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: garmentDirect.workOrderId,
+  sourceId: garmentDirect.taskOrderId,
   taskId: garmentDirect.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
   objectType: '成衣',
@@ -220,19 +210,19 @@ assert.throws(() => executeProcessAction({
   skuQtyBySkuCode: incompleteOutboundQtyBySkuCode,
 }), /逐 SKU 实出合计/, '成衣仓逐 SKU 实出合计必须等于本次出库总件数')
 assert.equal(
-  listFactoryWarehouseOutboundRecords().filter((record) => record.sourceTaskId === garmentDirect.workOrderId).length,
+  listFactoryWarehouseOutboundRecords().filter((record) => record.sourceTaskId === garmentDirect.taskOrderId).length,
   0,
   '逐 SKU 合计不一致时不得写入部分出库记录',
 )
 
-const statusBeforeInvalidReceipt = getSpecialCraftTaskWorkOrderById(garmentDirect.workOrderId)?.status
+const statusBeforeInvalidReceipt = getSpecialCraftTaskOrderById(garmentDirect.taskOrderId)?.status
 const lineQtyBeforeInvalidReceipt = garmentDirectSkuLines.map((line) => line.currentQty)
 const inboundCountBeforeInvalidReceipt = listFactoryWarehouseInboundRecords().length
 const waitProcessCountBeforeInvalidReceipt = listFactoryWaitProcessStockItems().length
 assert.throws(() => executeProcessAction({
   sourceChannel: '移动端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: garmentDirect.workOrderId,
+  sourceId: garmentDirect.taskOrderId,
   taskId: garmentDirect.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
   objectType: '成衣',
@@ -240,8 +230,8 @@ assert.throws(() => executeProcessAction({
   qtyUnit: '件',
   skuQtyBySkuCode: Object.fromEntries(garmentDirectSkuLines.map((line) => [line.skuCode, line.planPieceQty])),
 }), /成衣仓尚未出库/, '成衣仓未出库时统一动作必须拒绝辅助工艺收货')
-assert.equal(getSpecialCraftTaskWorkOrderById(garmentDirect.workOrderId)?.status, statusBeforeInvalidReceipt, '收货联动失败不得污染加工单状态')
-assert.deepEqual(getSpecialCraftTaskWorkOrderLinesByWorkOrderId(garmentDirect.workOrderId).map((line) => line.currentQty), lineQtyBeforeInvalidReceipt, '收货联动失败不得污染 SKU 数量')
+assert.equal(getSpecialCraftTaskOrderById(garmentDirect.taskOrderId)?.status, statusBeforeInvalidReceipt, '收货联动失败不得污染加工单状态')
+assert.deepEqual((getSpecialCraftTaskOrderById(garmentDirect.taskOrderId)?.demandLines ?? []).map((line) => line.currentQty), lineQtyBeforeInvalidReceipt, '收货联动失败不得污染 SKU 数量')
 assert.equal(listFactoryWarehouseInboundRecords().length, inboundCountBeforeInvalidReceipt, '收货联动失败不得新增入库记录')
 assert.equal(listFactoryWaitProcessStockItems().length, waitProcessCountBeforeInvalidReceipt, '收货联动失败不得新增待加工库存')
 
@@ -267,17 +257,17 @@ clearPdaSession()
 const directPdaWithoutSession = renderPdaExecDetailPage(garmentDirectMobileTask.taskId)
 assert(!directPdaWithoutSession.includes('data-pda-execd-action="special-garment-warehouse-outbound"'), '无登录会话不得看到成衣仓出库按钮')
 const outboundCountBeforeDeniedActions = listFactoryWarehouseOutboundRecords()
-  .filter((record) => record.sourceTaskId === garmentDirect.workOrderId).length
+  .filter((record) => record.sourceTaskId === garmentDirect.taskOrderId).length
 handlePdaExecDetailEvent(buildPdaActionTarget('special-garment-warehouse-outbound', garmentDirectMobileTask.taskId))
-assert.equal(getSpecialCraftTaskWorkOrderById(garmentDirect.workOrderId)?.status, '待领料', '无登录会话直接触发 handler 不得推进加工单')
+assert.equal(getSpecialCraftTaskOrderById(garmentDirect.taskOrderId)?.status, '待领料', '无登录会话直接触发 handler 不得推进加工单')
 
 setPdaSession(createPdaSessionFromUser(directAuxiliaryPdaUser))
 const directPdaAsAuxiliaryFactory = renderPdaExecDetailPage(garmentDirectMobileTask.taskId)
 assert(!directPdaAsAuxiliaryFactory.includes('data-pda-execd-action="special-garment-warehouse-outbound"'), '辅助工艺厂账号不得看到成衣仓出库按钮')
 handlePdaExecDetailEvent(buildPdaActionTarget('special-garment-warehouse-outbound', garmentDirectMobileTask.taskId))
-assert.equal(getSpecialCraftTaskWorkOrderById(garmentDirect.workOrderId)?.status, '待领料', '辅助工艺厂账号不得执行成衣仓出库')
+assert.equal(getSpecialCraftTaskOrderById(garmentDirect.taskOrderId)?.status, '待领料', '辅助工艺厂账号不得执行成衣仓出库')
 assert.equal(
-  listFactoryWarehouseOutboundRecords().filter((record) => record.sourceTaskId === garmentDirect.workOrderId).length,
+  listFactoryWarehouseOutboundRecords().filter((record) => record.sourceTaskId === garmentDirect.taskOrderId).length,
   outboundCountBeforeDeniedActions,
   '无会话或错厂账号不得写入当前加工单成衣仓出库记录',
 )
@@ -298,25 +288,25 @@ assert.equal(
   true,
   'PDA 成衣仓出库按钮必须由真实 handler 处理',
 )
-assert.equal(getSpecialCraftTaskWorkOrderById(garmentDirect.workOrderId)?.status, '成衣仓已出库待收货', 'PDA 成衣仓出库必须走统一动作推进状态')
+assert.equal(getSpecialCraftTaskOrderById(garmentDirect.taskOrderId)?.status, '成衣仓已出库待收货', 'PDA 成衣仓出库必须走统一动作推进状态')
 assert.equal(
-  getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentDirect.workOrderId).at(0)?.actionCode,
+  getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentDirect.taskOrderId).at(0)?.actionCode,
   'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
   'PDA 成衣仓出库必须写入统一公开动作记录',
 )
-const garmentWarehouseAudit = getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentDirect.workOrderId).at(0)
+const garmentWarehouseAudit = getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentDirect.taskOrderId).at(0)
 assert.equal(garmentWarehouseAudit?.operatorName, garmentWarehousePdaUser.name, 'PDA 动作审计姓名必须来自登录会话')
 assert.equal(garmentWarehouseAudit?.operatorUserId, garmentWarehousePdaUser.userId, 'PDA 动作审计账号必须来自登录会话')
 assert.equal(garmentWarehouseAudit?.operatorFactoryId, garmentWarehousePdaUser.factoryId, 'PDA 动作审计工厂必须来自登录会话')
 assert.equal(garmentWarehouseAudit?.operatorRoleId, garmentWarehousePdaUser.roleId, 'PDA 动作审计角色必须来自登录会话')
 assert.equal(
-  listFactoryWarehouseOutboundRecords().filter((record) => record.sourceTaskId === garmentDirect.workOrderId).length,
+  listFactoryWarehouseOutboundRecords().filter((record) => record.sourceTaskId === garmentDirect.taskOrderId).length,
   garmentDirectSkuLines.length,
   'PDA 成衣仓出库必须逐 SKU 写入真实出库记录',
 )
 assert(
   listFactoryWarehouseOutboundRecords()
-    .filter((record) => record.sourceTaskId === garmentDirect.workOrderId)
+    .filter((record) => record.sourceTaskId === garmentDirect.taskOrderId)
     .every((record) => (
       record.factoryId === 'ID-F001'
       && record.operatorUserId === garmentWarehousePdaUser.userId
@@ -330,7 +320,7 @@ handlePdaExecDetailEvent(buildPdaActionTarget('special-garment-warehouse-outboun
 assert.equal(listFactoryWarehouseOutboundRecords().length, directOutboundCount, 'PDA 重复出库必须由统一动作状态校验拒绝')
 setPdaSession(createPdaSessionFromUser(directAuxiliaryPdaUser))
 renderPdaExecDetailPage(garmentDirectMobileTask.taskId)
-const directSameSkuDraftKey = `${garmentDirect.workOrderId}::成衣仓已出库待收货::${garmentDirectSkuLines[0].skuCode}`
+const directSameSkuDraftKey = `${garmentDirect.taskOrderId}::成衣仓已出库待收货::${garmentDirectSkuLines[0].skuCode}`
 for (const [field, value] of [['receivedQty', '499'], ['completedQty', '497'], ['scrapQty', '1'], ['damageQty', '1']] as const) {
   assert.equal(
     handlePdaExecDetailEvent(new ContractHtmlInputElement(directSameSkuDraftKey, field, value) as unknown as HTMLElement),
@@ -347,7 +337,7 @@ const garmentOutboundQty = Object.values(garmentOutboundQtyBySkuCode).reduce((su
 const garmentOutboundResult = executeProcessAction({
   sourceChannel: 'Web 端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: garmentHeat.workOrderId,
+  sourceId: garmentHeat.taskOrderId,
   taskId: garmentHeat.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
   objectType: '成衣',
@@ -358,27 +348,27 @@ const garmentOutboundResult = executeProcessAction({
   skuQtyBySkuCode: garmentOutboundQtyBySkuCode,
 })
 assert.equal(garmentOutboundResult.success, true)
-assert.equal(getSpecialCraftTaskWorkOrderById(garmentHeat.workOrderId)?.status, '成衣仓已出库待收货')
-assert.equal(getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentHeat.workOrderId).at(0)?.actionCode, 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND')
+assert.equal(getSpecialCraftTaskOrderById(garmentHeat.taskOrderId)?.status, '成衣仓已出库待收货')
+assert.equal(getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentHeat.taskOrderId).at(0)?.actionCode, 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND')
 const garmentOutboundRecords = listFactoryWarehouseOutboundRecords()
-  .filter((record) => record.sourceTaskId === garmentHeat.workOrderId && record.warehouseName === '成衣仓')
+  .filter((record) => record.sourceTaskId === garmentHeat.taskOrderId && record.warehouseName === '成衣仓')
 assert.equal(garmentOutboundRecords.length, garmentSkuLines.length, '成衣仓必须按真实 SKU 逐行记录出库')
 assert.equal(garmentOutboundRecords.reduce((sum, record) => sum + record.outboundQty, 0), garmentOutboundQty)
 assert(garmentOutboundRecords.every((record) => Number.isInteger(record.outboundQty)), '成衣仓逐 SKU 实出必须为整数件')
 assert(garmentOutboundRecords.every((record) => record.operatorName === '成衣仓管员' && record.outboundAt === garmentOutboundAt))
 assert(garmentOutboundRecords.every((record) => record.receiverName === garmentHeat.factoryName), '成衣仓出库接收目标必须为当前辅助工艺工厂')
 assert.equal(
-  getWarehouseRecordsByWorkOrderId(garmentHeat.workOrderId).find((item) => item.recordType === 'WAIT_PROCESS'),
+  getWarehouseRecordsByWorkOrderId(garmentHeat.taskOrderId).find((item) => item.recordType === 'WAIT_PROCESS'),
   undefined,
   '成衣仓出库后仍应处于辅助工艺待收货，不得提前进入待加工仓',
 )
-const heatStatusBeforeZeroReceipt = getSpecialCraftTaskWorkOrderById(garmentHeat.workOrderId)?.status
+const heatStatusBeforeZeroReceipt = getSpecialCraftTaskOrderById(garmentHeat.taskOrderId)?.status
 const heatInboundCountBeforeZeroReceipt = listFactoryWarehouseInboundRecords()
-  .filter((record) => record.taskId === garmentHeat.workOrderId).length
+  .filter((record) => record.taskId === garmentHeat.taskOrderId).length
 assert.throws(() => executeProcessAction({
   sourceChannel: 'Web 端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: garmentHeat.workOrderId,
+  sourceId: garmentHeat.taskOrderId,
   taskId: garmentHeat.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
   objectType: '成衣',
@@ -386,9 +376,9 @@ assert.throws(() => executeProcessAction({
   qtyUnit: '件',
   skuQtyBySkuCode: Object.fromEntries(garmentSkuLines.map((line) => [line.skuCode, 0])),
 }), /成衣操作至少一个 SKU 件数必须大于 0/, '全 SKU 为 0 的辅助工艺收货必须拒绝')
-assert.equal(getSpecialCraftTaskWorkOrderById(garmentHeat.workOrderId)?.status, heatStatusBeforeZeroReceipt, '全零收货不得推进加工单状态')
+assert.equal(getSpecialCraftTaskOrderById(garmentHeat.taskOrderId)?.status, heatStatusBeforeZeroReceipt, '全零收货不得推进加工单状态')
 assert.equal(
-  listFactoryWarehouseInboundRecords().filter((record) => record.taskId === garmentHeat.workOrderId).length,
+  listFactoryWarehouseInboundRecords().filter((record) => record.taskId === garmentHeat.taskOrderId).length,
   heatInboundCountBeforeZeroReceipt,
   '全零收货不得新增辅助工艺入库事实',
 )
@@ -420,7 +410,7 @@ const auxReceivedQtyBySkuCode = Object.fromEntries(
   garmentSkuLines.map((line, index) => [line.skuCode, garmentOutboundQtyBySkuCode[line.skuCode] - (index === 0 ? 2 : 0)]),
 )
 const receivedGarmentQty = Object.values(auxReceivedQtyBySkuCode).reduce((sum, qty) => sum + qty, 0)
-const heatPartialReceiptDraftKey = `${garmentHeat.workOrderId}::成衣仓已出库待收货::${partialSkuCode}`
+const heatPartialReceiptDraftKey = `${garmentHeat.taskOrderId}::成衣仓已出库待收货::${partialSkuCode}`
 handlePdaExecDetailEvent(new ContractHtmlInputElement(heatPartialReceiptDraftKey, 'receivedQty', '496') as unknown as HTMLElement)
 setPdaSession(createPdaSessionFromUser(heatAuxiliaryPdaUser))
 assert.equal(
@@ -428,7 +418,7 @@ assert.equal(
   true,
   '部分出库后 PDA 默认逐 SKU 实收必须可直接提交成功',
 )
-assert.equal(getSpecialCraftTaskWorkOrderById(garmentHeat.workOrderId)?.status, '已入待加工仓', 'PDA 实收必须走统一动作推进状态')
+assert.equal(getSpecialCraftTaskOrderById(garmentHeat.taskOrderId)?.status, '已入待加工仓', 'PDA 实收必须走统一动作推进状态')
 const garmentPdaAfterReceipt = renderPdaExecDetailPage(garmentMobileTask.taskId)
 const receivedPartialSkuCard = garmentPdaAfterReceipt.match(new RegExp(`data-special-craft-garment-sku="${partialSkuCode}"[\\s\\S]*?</section>`))?.[0] || ''
 assert(receivedPartialSkuCard.includes('应收：498 件'), '收货后应收仍必须来自成衣仓实出 498')
@@ -436,7 +426,7 @@ assert(receivedPartialSkuCard.includes('已收：496 件'), '收货后已收必�
 assert(receivedPartialSkuCard.includes('差异：2 件'), '收货后必须按实出与实收显示差异 2')
 assert(receivedPartialSkuCard.includes('可加工：496 件'), '可加工必须来自辅助工艺待加工库存 496')
 assert(!receivedPartialSkuCard.includes('data-pda-execd-sku-field="receivedQty"'), '已收货后不得继续展示可提交的实收输入')
-const receivedWaitProcess = getWarehouseRecordsByWorkOrderId(garmentHeat.workOrderId)
+const receivedWaitProcess = getWarehouseRecordsByWorkOrderId(garmentHeat.taskOrderId)
   .find((item) => item.recordType === 'WAIT_PROCESS')
 assert(receivedWaitProcess, '辅助工艺确认收货后必须生成待加工仓')
 assert.equal(receivedWaitProcess.sourceFactoryName, '成衣仓')
@@ -461,28 +451,28 @@ assert(auxiliaryInboundRecords.every((record) => (
   && record.operatorFactoryId === heatAuxiliaryPdaUser.factoryId
   && record.operatorRoleId === heatAuxiliaryPdaUser.roleId
 )), '辅助工艺 PDA 收货记录必须使用登录会话审计主体')
-const receivedWorkOrder = listSpecialCraftTaskWorkOrders().find((item) => item.workOrderId === garmentHeat.workOrderId)
+const receivedWorkOrder = listSpecialCraftTaskOrders().find((item) => item.taskOrderId === garmentHeat.taskOrderId)
 assert(receivedWorkOrder)
 assert.equal(receivedWorkOrder.receivedQty, receivedGarmentQty)
 assert.equal(receivedWorkOrder.currentQty, receivedGarmentQty)
 assert.equal(receivedWorkOrder.status, '已入待加工仓')
 assert(
-  getSpecialCraftTaskWorkOrderLinesByWorkOrderId(garmentHeat.workOrderId)
+  (getSpecialCraftTaskOrderById(garmentHeat.taskOrderId)?.demandLines ?? [])
     .every((line) => line.currentQty === auxReceivedQtyBySkuCode[line.skuCode]),
   '加工单 SKU 当前件数必须来自辅助工艺逐 SKU 实收',
 )
 assert(
-  getSpecialCraftTaskWorkOrderLinesByWorkOrderId(garmentHeat.workOrderId)
+  (getSpecialCraftTaskOrderById(garmentHeat.taskOrderId)?.demandLines ?? [])
     .every((line) => line.receivedQty === auxReceivedQtyBySkuCode[line.skuCode]),
   '加工单 SKU 必须独立保存已收件数事实',
 )
 const inboundCountAfterReceipt = listFactoryWarehouseInboundRecords().length
 const waitProcessCountAfterReceipt = listFactoryWaitProcessStockItems().length
-const operationCountAfterReceipt = getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentHeat.workOrderId).length
+const operationCountAfterReceipt = getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentHeat.taskOrderId).length
 assert.throws(() => executeProcessAction({
   sourceChannel: '移动端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: garmentHeat.workOrderId,
+  sourceId: garmentHeat.taskOrderId,
   taskId: garmentHeat.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
   objectType: '成衣',
@@ -492,12 +482,12 @@ assert.throws(() => executeProcessAction({
 }), /不能执行|已收货/, '成衣辅助工艺重复收货必须明确拒绝')
 assert.equal(listFactoryWarehouseInboundRecords().length, inboundCountAfterReceipt, '重复收货不得覆盖或新增入库记录')
 assert.equal(listFactoryWaitProcessStockItems().length, waitProcessCountAfterReceipt, '重复收货不得覆盖或新增待加工库存')
-assert.equal(getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentHeat.workOrderId).length, operationCountAfterReceipt, '重复收货不得新增操作记录')
+assert.equal(getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentHeat.taskOrderId).length, operationCountAfterReceipt, '重复收货不得新增操作记录')
 
 executeProcessAction({
   sourceChannel: '移动端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: garmentHeat.workOrderId,
+  sourceId: garmentHeat.taskOrderId,
   taskId: garmentHeat.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_START_PROCESS',
   objectType: '成衣',
@@ -510,12 +500,12 @@ const skuCompletedQtyBySkuCode = Object.fromEntries(
 const skuScrapQtyBySkuCode = Object.fromEntries(garmentSkuLines.map((line, index) => [line.skuCode, index === 0 ? 1 : 0]))
 const skuDamageQtyBySkuCode = Object.fromEntries(garmentSkuLines.map((line) => [line.skuCode, 0]))
 const completedGarmentQty = Object.values(skuCompletedQtyBySkuCode).reduce((sum, qty) => sum + qty, 0)
-const heatStatusBeforeZeroCompletion = getSpecialCraftTaskWorkOrderById(garmentHeat.workOrderId)?.status
-const heatWaitHandoverBeforeZeroCompletion = structuredClone(getWarehouseRecordsByWorkOrderId(garmentHeat.workOrderId))
+const heatStatusBeforeZeroCompletion = getSpecialCraftTaskOrderById(garmentHeat.taskOrderId)?.status
+const heatWaitHandoverBeforeZeroCompletion = structuredClone(getWarehouseRecordsByWorkOrderId(garmentHeat.taskOrderId))
 assert.throws(() => executeProcessAction({
   sourceChannel: '移动端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: garmentHeat.workOrderId,
+  sourceId: garmentHeat.taskOrderId,
   taskId: garmentHeat.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
   objectType: '成衣',
@@ -525,12 +515,12 @@ assert.throws(() => executeProcessAction({
   skuScrapQtyBySkuCode: Object.fromEntries(garmentSkuLines.map((line) => [line.skuCode, 0])),
   skuDamageQtyBySkuCode: Object.fromEntries(garmentSkuLines.map((line) => [line.skuCode, 0])),
 }), /成衣操作至少一个 SKU 件数必须大于 0/, '全 SKU 为 0 的成衣完工必须拒绝')
-assert.equal(getSpecialCraftTaskWorkOrderById(garmentHeat.workOrderId)?.status, heatStatusBeforeZeroCompletion, '全零完工不得推进加工单状态')
-assert.deepEqual(getWarehouseRecordsByWorkOrderId(garmentHeat.workOrderId), heatWaitHandoverBeforeZeroCompletion, '全零完工不得写入待交出仓事实')
+assert.equal(getSpecialCraftTaskOrderById(garmentHeat.taskOrderId)?.status, heatStatusBeforeZeroCompletion, '全零完工不得推进加工单状态')
+assert.deepEqual(getWarehouseRecordsByWorkOrderId(garmentHeat.taskOrderId), heatWaitHandoverBeforeZeroCompletion, '全零完工不得写入待交出仓事实')
 assert.throws(() => executeProcessAction({
   sourceChannel: '移动端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: garmentHeat.workOrderId,
+  sourceId: garmentHeat.taskOrderId,
   taskId: garmentHeat.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
   objectType: '成衣',
@@ -540,17 +530,17 @@ assert.throws(() => executeProcessAction({
   skuScrapQtyBySkuCode: { ...skuScrapQtyBySkuCode, 'EXTRA-SKU': 0 },
   skuDamageQtyBySkuCode: { ...skuDamageQtyBySkuCode, 'EXTRA-SKU': 0 },
 }), /全部 SKU|其他 SKU/, '成衣逐 SKU 完工不得包含加工单之外的 SKU')
-assert.equal(getSpecialCraftTaskWorkOrderById(garmentHeat.workOrderId)?.status, '加工中', '逐 SKU 完工校验失败不得污染加工单状态')
-assert(getSpecialCraftTaskWorkOrderLinesByWorkOrderId(garmentHeat.workOrderId).every((line) => line.completedQty === 0), '逐 SKU 完工校验失败不得污染行完工事实')
-assert.equal(getWarehouseRecordsByWorkOrderId(garmentHeat.workOrderId).find((item) => item.recordType === 'WAIT_HANDOVER'), undefined, '逐 SKU 完工校验失败不得生成待交出仓')
+assert.equal(getSpecialCraftTaskOrderById(garmentHeat.taskOrderId)?.status, '加工中', '逐 SKU 完工校验失败不得污染加工单状态')
+assert((getSpecialCraftTaskOrderById(garmentHeat.taskOrderId)?.demandLines ?? []).every((line) => line.completedQty === 0), '逐 SKU 完工校验失败不得污染行完工事实')
+assert.equal(getWarehouseRecordsByWorkOrderId(garmentHeat.taskOrderId).find((item) => item.recordType === 'WAIT_HANDOVER'), undefined, '逐 SKU 完工校验失败不得生成待交出仓')
 
 const atomicitySourceStock = listFactoryWaitProcessStockItems()
-  .find((stock) => stock.taskId === garmentHeat.workOrderId && stock.itemKind === '成衣')
+  .find((stock) => stock.taskId === garmentHeat.taskOrderId && stock.itemKind === '成衣')
 assert(atomicitySourceStock, '缺少用于完工原子性测试的成衣待加工库存')
-const workOrderBeforeWarehouseFailure = structuredClone(getSpecialCraftTaskWorkOrderById(garmentHeat.workOrderId))
-const skuLinesBeforeWarehouseFailure = structuredClone(getSpecialCraftTaskWorkOrderLinesByWorkOrderId(garmentHeat.workOrderId))
-const warehouseFactsBeforeWarehouseFailure = structuredClone(getWarehouseRecordsByWorkOrderId(garmentHeat.workOrderId))
-const operationLogsBeforeWarehouseFailure = structuredClone(getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentHeat.workOrderId))
+const workOrderBeforeWarehouseFailure = structuredClone(getSpecialCraftTaskOrderById(garmentHeat.taskOrderId))
+const skuLinesBeforeWarehouseFailure = structuredClone((getSpecialCraftTaskOrderById(garmentHeat.taskOrderId)?.demandLines ?? []))
+const warehouseFactsBeforeWarehouseFailure = structuredClone(getWarehouseRecordsByWorkOrderId(garmentHeat.taskOrderId))
+const operationLogsBeforeWarehouseFailure = structuredClone(getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentHeat.taskOrderId))
 upsertFactoryWaitProcessStockItem({
   ...atomicitySourceStock,
   receivedQty: Math.max(atomicitySourceStock.receivedQty - 2, 0),
@@ -558,7 +548,7 @@ upsertFactoryWaitProcessStockItem({
 assert.throws(() => executeProcessAction({
   sourceChannel: '移动端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: garmentHeat.workOrderId,
+  sourceId: garmentHeat.taskOrderId,
   taskId: garmentHeat.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
   objectType: '成衣',
@@ -568,16 +558,16 @@ assert.throws(() => executeProcessAction({
   skuScrapQtyBySkuCode,
   skuDamageQtyBySkuCode,
 }), /超过辅助工艺实际收货|完工件数无效/, '仓事实不足时必须拒绝超实收完工')
-assert.deepEqual(getSpecialCraftTaskWorkOrderById(garmentHeat.workOrderId), workOrderBeforeWarehouseFailure, '仓联动失败不得污染加工单')
-assert.deepEqual(getSpecialCraftTaskWorkOrderLinesByWorkOrderId(garmentHeat.workOrderId), skuLinesBeforeWarehouseFailure, '仓联动失败不得污染 SKU 行')
-assert.deepEqual(getWarehouseRecordsByWorkOrderId(garmentHeat.workOrderId), warehouseFactsBeforeWarehouseFailure, '仓联动失败不得污染统一仓事实')
-assert.deepEqual(getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentHeat.workOrderId), operationLogsBeforeWarehouseFailure, '仓联动失败不得污染操作日志')
+assert.deepEqual(getSpecialCraftTaskOrderById(garmentHeat.taskOrderId), workOrderBeforeWarehouseFailure, '仓联动失败不得污染加工单')
+assert.deepEqual((getSpecialCraftTaskOrderById(garmentHeat.taskOrderId)?.demandLines ?? []), skuLinesBeforeWarehouseFailure, '仓联动失败不得污染 SKU 行')
+assert.deepEqual(getWarehouseRecordsByWorkOrderId(garmentHeat.taskOrderId), warehouseFactsBeforeWarehouseFailure, '仓联动失败不得污染统一仓事实')
+assert.deepEqual(getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', garmentHeat.taskOrderId), operationLogsBeforeWarehouseFailure, '仓联动失败不得污染操作日志')
 upsertFactoryWaitProcessStockItem(atomicitySourceStock)
 
 const finishResult = executeProcessAction({
   sourceChannel: '移动端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: garmentHeat.workOrderId,
+  sourceId: garmentHeat.taskOrderId,
   taskId: garmentHeat.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
   objectType: '成衣',
@@ -588,12 +578,12 @@ const finishResult = executeProcessAction({
   skuDamageQtyBySkuCode,
 })
 assert(finishResult.affectedWarehouseRecordId, '成衣加工合格后必须进入辅助工艺待交出仓')
-assert(getSpecialCraftTaskWorkOrderLinesByWorkOrderId(garmentHeat.workOrderId).every((line) => (
+assert((getSpecialCraftTaskOrderById(garmentHeat.taskOrderId)?.demandLines ?? []).every((line) => (
   line.completedQty === skuCompletedQtyBySkuCode[line.skuCode]
   && line.scrapQty === skuScrapQtyBySkuCode[line.skuCode]
   && line.damageQty === skuDamageQtyBySkuCode[line.skuCode]
 )), '成衣完工、报废和货损必须逐 SKU 保存')
-const garmentWaitHandover = getWarehouseRecordsByWorkOrderId(garmentHeat.workOrderId)
+const garmentWaitHandover = getWarehouseRecordsByWorkOrderId(garmentHeat.taskOrderId)
   .find((item) => item.recordType === 'WAIT_HANDOVER')
 assert(garmentWaitHandover, '成衣加工完成后缺少辅助工艺待交出仓记录')
 assert.equal(garmentWaitHandover.objectType, '成衣')
@@ -601,7 +591,7 @@ assert.equal(garmentWaitHandover.targetFactoryId, DEDICATED_POST_FACTORY_ID, '�
 assert.equal(garmentWaitHandover.targetFactoryName, DEDICATED_POST_FACTORY_NAME, '成衣待交出仓接收方必须使用真实后道主体名称')
 assert.equal(garmentWaitHandover.relatedFeiTicketIds.length, 0, '成衣待交出仓不得关联菲票')
 const garmentWaitHandoverStock = listFactoryWaitHandoverStockItems()
-  .filter((stock) => stock.taskId === garmentHeat.workOrderId && stock.itemKind === '成衣')
+  .filter((stock) => stock.taskId === garmentHeat.taskOrderId && stock.itemKind === '成衣')
 assert.equal(garmentWaitHandoverStock.length, garmentSkuLines.length, '成衣加工完成后必须按 SKU 进入现有待交出库存')
 assert.equal(garmentWaitHandoverStock.reduce((sum, stock) => sum + stock.waitHandoverQty, 0), completedGarmentQty)
 assert(garmentWaitHandoverStock.every((stock) => Number.isInteger(stock.waitHandoverQty)))
@@ -611,7 +601,7 @@ const submitResult = applySpecialCraftWarehouseLinkageAfterAction({
   success: true,
   sourceChannel: '移动端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: garmentHeat.workOrderId,
+  sourceId: garmentHeat.taskOrderId,
   taskId: garmentHeat.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
   previousStatus: '待交出',
@@ -621,7 +611,7 @@ const submitResult = applySpecialCraftWarehouseLinkageAfterAction({
   qtyUnit: '件',
 })
 assert(submitResult.createdHandoverRecordId, '成衣必须从辅助工艺待交出仓发起交出')
-const garmentHandover = getHandoverRecordsByWorkOrderId(garmentHeat.workOrderId)
+const garmentHandover = getHandoverRecordsByWorkOrderId(garmentHeat.taskOrderId)
   .find((item) => item.handoverRecordId === submitResult.createdHandoverRecordId)
 assert(garmentHandover, '缺少成衣交往我方后道工厂的交出记录')
 assert.equal(garmentHandover.receiveFactoryId, DEDICATED_POST_FACTORY_ID)
@@ -636,8 +626,8 @@ assert.throws(() => receiveAuxiliaryCraftGarmentsAtPostFinishing({
   handoverRecordId: 'INVALID-FRACTIONAL-POST-RECEIPT',
   productionOrderId: garmentHeat.productionOrderId,
   productionOrderNo: garmentHeat.productionOrderNo,
-  sourceTaskId: garmentHeat.workOrderId,
-  sourceTaskNo: garmentHeat.workOrderNo,
+  sourceTaskId: garmentHeat.taskOrderId,
+  sourceTaskNo: garmentHeat.taskOrderNo,
   sourceFactoryId: garmentHeat.factoryId,
   sourceFactoryName: garmentHeat.factoryName,
   receiverName: '后道收货员',
@@ -663,11 +653,11 @@ assert.throws(() => writeBackProcessHandoverRecord(garmentHandover.handoverRecor
   receivePerson: '后道收货员',
   receiveAt: '2026-07-22 15:20:00',
 }), /逐 SKU|SKU/, '后道成衣收货缺少逐 SKU 实收映射时必须拒绝')
-assert.deepEqual(getHandoverRecordsByWorkOrderId(garmentHeat.workOrderId).find((item) => item.handoverRecordId === garmentHandover.handoverRecordId), handoverBeforeInvalidPostReceipt, '后道逐 SKU 校验失败不得污染交出记录')
+assert.deepEqual(getHandoverRecordsByWorkOrderId(garmentHeat.taskOrderId).find((item) => item.handoverRecordId === garmentHandover.handoverRecordId), handoverBeforeInvalidPostReceipt, '后道逐 SKU 校验失败不得污染交出记录')
 assert.equal(listFactoryWarehouseInboundRecords().length, downstreamInboundCountBeforeInvalidPostReceipt, '后道逐 SKU 校验失败不得新增入库记录')
 assert.equal(listPostFinishingReceiptRecords().length, beforePostReceiptCount, '后道逐 SKU 校验失败不得新增后道收货记录')
-const postRollbackHandoverSnapshot = structuredClone(getHandoverRecordsByWorkOrderId(garmentHeat.workOrderId))
-const postRollbackWarehouseSnapshot = structuredClone(getWarehouseRecordsByWorkOrderId(garmentHeat.workOrderId))
+const postRollbackHandoverSnapshot = structuredClone(getHandoverRecordsByWorkOrderId(garmentHeat.taskOrderId))
+const postRollbackWarehouseSnapshot = structuredClone(getWarehouseRecordsByWorkOrderId(garmentHeat.taskOrderId))
 const postRollbackInboundSnapshot = structuredClone(listFactoryWarehouseInboundRecords())
 const postRollbackReceiptSnapshot = structuredClone(listPostFinishingReceiptRecords())
 const postRollbackTaskSnapshot = structuredClone(listPostFinishingTasks())
@@ -679,8 +669,8 @@ assert.throws(() => writeBackProcessHandoverRecord(garmentHandover.handoverRecor
 }, {
   recordPostFactoryInbound: () => { throw new Error('模拟后道入库失败') },
 }), /模拟后道入库失败/, '后道入库失败必须中止整笔交接写入')
-assert.deepEqual(getHandoverRecordsByWorkOrderId(garmentHeat.workOrderId), postRollbackHandoverSnapshot, '后道入库失败必须回滚交出记录')
-assert.deepEqual(getWarehouseRecordsByWorkOrderId(garmentHeat.workOrderId), postRollbackWarehouseSnapshot, '后道入库失败必须回滚待交出仓')
+assert.deepEqual(getHandoverRecordsByWorkOrderId(garmentHeat.taskOrderId), postRollbackHandoverSnapshot, '后道入库失败必须回滚交出记录')
+assert.deepEqual(getWarehouseRecordsByWorkOrderId(garmentHeat.taskOrderId), postRollbackWarehouseSnapshot, '后道入库失败必须回滚待交出仓')
 assert.deepEqual(listFactoryWarehouseInboundRecords(), postRollbackInboundSnapshot, '后道入库失败不得残留后道入库事实')
 assert.deepEqual(listPostFinishingReceiptRecords(), postRollbackReceiptSnapshot, '后道入库失败不得残留后道收货事实')
 assert.deepEqual(listPostFinishingTasks(), postRollbackTaskSnapshot, '后道入库失败不得残留后道任务')
@@ -692,8 +682,8 @@ assert.throws(() => writeBackProcessHandoverRecord(garmentHandover.handoverRecor
 }, {
   receiveAtPostFinishing: () => { throw new Error('模拟后道任务创建失败') },
 }), /模拟后道任务创建失败/, '后道任务创建失败必须中止整笔交接写入')
-assert.deepEqual(getHandoverRecordsByWorkOrderId(garmentHeat.workOrderId), postRollbackHandoverSnapshot, '后道任务创建失败必须回滚交出记录')
-assert.deepEqual(getWarehouseRecordsByWorkOrderId(garmentHeat.workOrderId), postRollbackWarehouseSnapshot, '后道任务创建失败必须回滚待交出仓')
+assert.deepEqual(getHandoverRecordsByWorkOrderId(garmentHeat.taskOrderId), postRollbackHandoverSnapshot, '后道任务创建失败必须回滚交出记录')
+assert.deepEqual(getWarehouseRecordsByWorkOrderId(garmentHeat.taskOrderId), postRollbackWarehouseSnapshot, '后道任务创建失败必须回滚待交出仓')
 assert.deepEqual(listFactoryWarehouseInboundRecords(), postRollbackInboundSnapshot, '后道任务创建失败不得残留后道入库事实')
 assert.deepEqual(listPostFinishingReceiptRecords(), postRollbackReceiptSnapshot, '后道任务创建失败不得残留后道收货事实')
 assert.deepEqual(listPostFinishingTasks(), postRollbackTaskSnapshot, '后道任务创建失败不得残留后道任务')
@@ -728,7 +718,7 @@ assert(
   '后道全量收货必须进入成衣待加工库存',
 )
 assert.equal(listPostFinishingReceiptRecords().length, beforePostReceiptCount + 1, '后道收货必须进入既有后道收货记录')
-const newPostReceipt = listPostFinishingReceiptRecords().find((record) => record.sourceTaskNo === garmentHeat.workOrderNo)
+const newPostReceipt = listPostFinishingReceiptRecords().find((record) => record.sourceTaskNo === garmentHeat.taskOrderNo)
 assert(newPostReceipt, '后道收货记录必须关联成衣烫画加工单')
 assert.equal(newPostReceipt.skuLines.reduce((sum, line) => sum + line.receivedQty, 0), postReceivedGarmentQty, '后道收货必须保留逐 SKU 实收合计')
 assert(newPostReceipt.skuLines.every((line) => line.receivedQty === postReceivedQtyBySkuCode[line.skuCode]), '后道收货记录必须保留用户指定的逐 SKU 实收')
@@ -737,7 +727,7 @@ assert(newPostReceipt.skuLines.every((line) => Number.isInteger(line.receivedQty
 const newPostTasks = listPostFinishingTasks().filter((task) => !beforePostTaskIds.has(task.postTaskId))
 assert.equal(newPostTasks.length, 1, '后道收货后必须精确新增一条既有后道任务')
 assert.equal(newPostTasks[0].productionOrderNo, garmentHeat.productionOrderNo)
-assert(newPostTasks[0].sourceTaskNos.includes(garmentHeat.workOrderNo), '后道任务必须关联成衣烫画加工单')
+assert(newPostTasks[0].sourceTaskNos.includes(garmentHeat.taskOrderNo), '后道任务必须关联成衣烫画加工单')
 assert.equal(newPostTasks[0].currentStatus, '待质检', '后道收货后必须推进既有后道任务状态')
 const postReceiptCountAfterSuccess = listPostFinishingReceiptRecords().length
 const downstreamInboundCountAfterSuccess = listFactoryWarehouseInboundRecords().length
@@ -764,7 +754,7 @@ const cutPieceReceive = applySpecialCraftWarehouseLinkageAfterAction({
   success: true,
   sourceChannel: '移动端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: cutPieceHeat.workOrderId,
+  sourceId: cutPieceHeat.taskOrderId,
   taskId: cutPieceHeat.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
   previousStatus: '待领料',
@@ -774,7 +764,7 @@ const cutPieceReceive = applySpecialCraftWarehouseLinkageAfterAction({
   qtyUnit: '片',
 })
 assert.equal(cutPieceReceive.success, true, '裁片旧链必须继续支持确认收货')
-const cutPieceWaitProcess = getWarehouseRecordsByWorkOrderId(cutPieceHeat.workOrderId)
+const cutPieceWaitProcess = getWarehouseRecordsByWorkOrderId(cutPieceHeat.taskOrderId)
   .find((item) => item.recordType === 'WAIT_PROCESS')
 assert(cutPieceWaitProcess)
 assert.equal(cutPieceWaitProcess.sourceFactoryName, '裁床待交出仓')
@@ -784,7 +774,7 @@ applySpecialCraftWarehouseLinkageAfterAction({
   success: true,
   sourceChannel: '移动端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: cutPieceHeat.workOrderId,
+  sourceId: cutPieceHeat.taskOrderId,
   taskId: cutPieceHeat.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
   previousStatus: '加工中',
@@ -797,7 +787,7 @@ const cutPieceSubmit = applySpecialCraftWarehouseLinkageAfterAction({
   success: true,
   sourceChannel: '移动端',
   sourceType: 'SPECIAL_CRAFT',
-  sourceId: cutPieceHeat.workOrderId,
+  sourceId: cutPieceHeat.taskOrderId,
   taskId: cutPieceHeat.taskOrderId,
   actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
   previousStatus: '待交出',
@@ -806,7 +796,7 @@ const cutPieceSubmit = applySpecialCraftWarehouseLinkageAfterAction({
   objectQty: cutPieceHeat.planQty,
   qtyUnit: '片',
 })
-const cutPieceHandover = getHandoverRecordsByWorkOrderId(cutPieceHeat.workOrderId)
+const cutPieceHandover = getHandoverRecordsByWorkOrderId(cutPieceHeat.taskOrderId)
   .find((item) => item.handoverRecordId === cutPieceSubmit.createdHandoverRecordId)
 assert(cutPieceHandover)
 assert.equal(cutPieceHandover.handoverFactoryId, cutPieceHeat.factoryId)
@@ -823,13 +813,8 @@ assert(menuItems.some((item) => item.title === '直喷加工单' && item.href ==
 
 const heatSlug = buildSpecialCraftOperationSlug(heat)
 const directSlug = buildSpecialCraftOperationSlug(direct)
-const garmentDetailHtml = renderSpecialCraftWorkOrderDetailPage(heatSlug, garmentHeat.workOrderId)
-assert(garmentDetailHtml.includes('成衣仓'), '成衣加工单详情必须展示上游成衣仓')
-assert(garmentDetailHtml.includes('我方后道工厂'), '成衣加工单详情必须展示下游我方后道工厂')
-assert(!garmentDetailHtml.includes('菲票记录'), '成衣加工单详情不得展示菲票页签或菲票区块')
-assert(!garmentDetailHtml.includes('回裁床'), '成衣加工单详情不得出现回裁床动作')
-assert(!garmentDetailHtml.includes('确认接收成衣'), '成衣加工单已收货后不得继续显示重复收货动作')
-assert(!garmentDetailHtml.includes('确认接收裁片') && !garmentDetailHtml.includes('接收裁片数量'), '成衣加工单不得残留裁片接收文案')
+const garmentDetailHtml = renderSpecialCraftWorkOrderDetailPage(heatSlug, garmentHeat.taskOrderId)
+assert(garmentDetailHtml.includes('window.location.replace'), '成衣加工单详情已改为重定向到任务详情')
 const heatStorageKey = buildSpecialCraftTaskListStorageKey(heatSlug)
 const directStorageKey = buildSpecialCraftTaskListStorageKey(directSlug)
 assert.notEqual(heatStorageKey, directStorageKey, '烫画与直喷筛选持久化键不得共用')
@@ -931,17 +916,17 @@ assert(heatListHtml.includes('aria-label="面包屑"') && heatListHtml.includes(
 assert(directListHtml.includes('aria-label="面包屑"') && directListHtml.includes('直喷'), '直喷列表必须展示当前工艺面包屑')
 
 for (const [operation, order, slug] of [[heat, heatOrders[0], heatSlug], [direct, directOrders[0], directSlug]] as const) {
-  const detailHtml = renderSpecialCraftWorkOrderDetailPage(slug, order.workOrderId)
+  const detailHtml = renderSpecialCraftWorkOrderDetailPage(slug, order.taskOrderId)
   const returnPath = buildSpecialCraftTaskDetailPath(operation, order.taskOrderId)
-  assert(detailHtml.includes(returnPath), `${operation.craftName}加工单详情返回路径必须保留当前 operation slug`)
+  assert(detailHtml.includes('window.location.replace'), `${operation.craftName}加工单详情已改为重定向到任务详情`)
 }
 
 const invalidListHtml = renderSpecialCraftTaskOrdersPage('invalid-operation')
 assert(invalidListHtml.includes('未找到对应特殊工艺'), '无效 operation slug 的列表必须展示明确缺失态')
 assert(!invalidListHtml.includes('烫画加工单') && !invalidListHtml.includes('直喷加工单'), '无效列表不得串到烫画或直喷')
-const invalidDetailHtml = renderSpecialCraftWorkOrderDetailPage('invalid-operation', directOrders[0].workOrderId)
-assert(invalidDetailHtml.includes('未找到对应加工单'), '无效 operation slug 的详情必须安全展示空态')
-assert(!invalidDetailHtml.includes(directOrders[0].workOrderNo), '无效详情不得泄漏其他工艺加工单')
+const invalidDetailHtml = renderSpecialCraftWorkOrderDetailPage('invalid-operation', directOrders[0].taskOrderId)
+assert(invalidDetailHtml.includes('window.location.replace'), '无效详情页也应为重定向')
+assert(!invalidDetailHtml.includes(directOrders[0].taskOrderNo), '无效详情不得泄漏其他工艺任务单')
 
 const routeSource = read('src/router/routes-fcs.ts')
 const rendererSource = read('src/router/route-renderers-fcs.ts')

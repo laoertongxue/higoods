@@ -22,9 +22,9 @@ import {
   getPostFinishingWorkOrderBySourceTaskId,
 } from './post-finishing-domain.ts'
 import {
-  getSpecialCraftTaskWorkOrderById,
+  getSpecialCraftTaskOrderById,
   listSpecialCraftTaskOrders,
-  listSpecialCraftTaskWorkOrders,
+  getSpecialCraftTaskOrders,
 } from './special-craft-task-orders.ts'
 import { canFactoryAccessSpecialCraftPdaTask, isGarmentWarehouseOutboundPdaTaskForFactory } from './special-craft-pda-scope.ts'
 import { getWaterSolubleWorkOrderByTaskId } from './water-soluble-task-domain.ts'
@@ -281,12 +281,12 @@ function getSpecialCraftSourceInfo(task: ProcessTask): Partial<MobileExecutionTa
     )
     || null
 
-  const directWorkOrder = taskLike.workOrderId ? getSpecialCraftTaskWorkOrderById(taskLike.workOrderId) : null
+  const directWorkOrder = taskLike.workOrderId ? getSpecialCraftTaskOrderById(taskLike.workOrderId) : null
   const relatedWorkOrders =
     directWorkOrder
       ? [directWorkOrder]
       : matchedTaskOrder
-        ? listSpecialCraftTaskWorkOrders().filter((workOrder) => workOrder.taskOrderId === matchedTaskOrder.taskOrderId)
+        ? getSpecialCraftTaskOrders().filter((workOrder) => workOrder.taskOrderId === matchedTaskOrder.taskOrderId)
         : []
 
   const firstWorkOrder = relatedWorkOrders[0] ?? null
@@ -301,7 +301,7 @@ function getSpecialCraftSourceInfo(task: ProcessTask): Partial<MobileExecutionTa
   ])
 
   return {
-    sourceType: firstWorkOrder ? 'SPECIAL_CRAFT_WORK_ORDER' : 'SPECIAL_CRAFT_TASK_ORDER',
+    sourceType: firstWorkOrder ? 'SPECIAL_CRAFT' : 'SPECIAL_CRAFT_TASK_ORDER',
     sourceId: normalizeString(firstWorkOrder?.workOrderId || matchedTaskOrder?.taskOrderId || taskLike.sourceTaskId || task.taskId),
     sourceWorkOrderId: normalizeString(firstWorkOrder?.workOrderId || matchedTaskOrder?.taskOrderId),
     sourceWorkOrderNo: normalizeString(firstWorkOrder?.workOrderNo || matchedTaskOrder?.taskOrderNo || task.taskNo || task.taskId),
@@ -483,7 +483,7 @@ function matchSourceType(task: ProcessTask, sourceType: string | undefined, sour
   if (['CUTTING_ORDER', 'CUTTING_ORDER', 'CUT_ORDER', 'CUT_PIECE_ORDER'].includes(normalizedSourceType)) {
     return info.processType === 'CUTTING'
   }
-  if (['SPECIAL_CRAFT_WORK_ORDER', 'SPECIAL_CRAFT_TASK_ORDER', 'SPECIAL_CRAFT_ORDER'].includes(normalizedSourceType)) {
+  if (['SPECIAL_CRAFT', 'SPECIAL_CRAFT_TASK_ORDER', 'SPECIAL_CRAFT_ORDER'].includes(normalizedSourceType)) {
     return info.processType === 'SPECIAL_CRAFT'
   }
   if (['POST_FINISHING_TASK', 'POST_TASK', 'POST_FINISHING_WORK_ORDER', 'POST_FINISHING_ORDER', 'POST_ORDER'].includes(normalizedSourceType)) {

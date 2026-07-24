@@ -51,7 +51,7 @@ import {
 } from './cutting/special-craft-fei-ticket-flow.ts'
 import {
   getSpecialCraftTaskOrderById,
-  getSpecialCraftTaskWorkOrdersByTaskOrderId,
+  getSpecialCraftTaskOrderById,
   listSpecialCraftTaskOrders,
   type SpecialCraftTaskOrder,
 } from './special-craft-task-orders.ts'
@@ -184,7 +184,7 @@ function createDyeWaitHandoverRecord(order: DyeWorkOrder, qty: number, operatedA
 }
 
 function resolveSpecialCraftWorkOrderId(taskOrder: SpecialCraftTaskOrder): string {
-  return getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrder.taskOrderId)[0]?.workOrderId || taskOrder.taskOrderId
+  return getSpecialCraftTaskOrderById(taskOrder.taskOrderId)[0]?.workOrderId || taskOrder.taskOrderId
 }
 
 export function startPrintNode(taskId: string, nodeCode: PrintExecutionNodeCode, payload: ExecutionWritebackPayload = {}) {
