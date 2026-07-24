@@ -243,6 +243,7 @@ export function listPostFinishingMobileExecutionTasks(): ProcessTask[] {
 }
 
 function mapSpecialCraftExecutionStatus(status: string): ProcessTask['status'] {
+  if (status === 'WAIT_PICKUP') return 'IN_PROGRESS'
   if (status === 'PROCESSING') return 'IN_PROGRESS'
   if (status === 'DIFFERENCE' || status === 'OBJECTION' || status === 'ABNORMAL') return 'BLOCKED'
   if (status === 'COMPLETED' || status === 'WAIT_HANDOVER' || status === 'HANDED_OVER' || status === 'WRITTEN_BACK') return 'DONE'
@@ -781,7 +782,7 @@ export function validatePrintWorkOrderMobileTaskBinding(printOrderId: string): P
     expectedFactoryId: order?.printFactoryId || TEST_FACTORY_ID,
     sourceExists: Boolean(order),
     actualTask: order ? getPrintTask(order) : null,
-    currentFactoryId: TEST_FACTORY_ID,
+    currentFactoryId: order?.printFactoryId || TEST_FACTORY_ID,
   })
 }
 
@@ -798,7 +799,7 @@ export function validateDyeWorkOrderMobileTaskBinding(dyeOrderId: string): Proce
     expectedFactoryId: order?.dyeFactoryId || TEST_FACTORY_ID,
     sourceExists: Boolean(order),
     actualTask: order ? getDyeTask(order) : null,
-    currentFactoryId: TEST_FACTORY_ID,
+    currentFactoryId: order?.dyeFactoryId || TEST_FACTORY_ID,
   })
 }
 
@@ -880,7 +881,7 @@ export function validateSpecialCraftTaskOrderMobileTaskBinding(taskOrderId: stri
     expectedOperationName: taskOrder?.operationName,
     sourceExists: Boolean(taskOrder),
     actualTask: expectedTaskId ? getPdaMobileExecutionTaskById(expectedTaskId) : null,
-    currentFactoryId: TEST_FACTORY_ID,
+    currentFactoryId: taskOrder?.factoryId || TEST_FACTORY_ID,
   })
 }
 
@@ -899,7 +900,7 @@ export function validateSpecialCraftMobileTaskBinding(taskOrderId: string): Proc
     expectedOperationName: taskOrder?.operationName,
     sourceExists: Boolean(taskOrder),
     actualTask: expectedTaskId ? getPdaMobileExecutionTaskById(expectedTaskId) : null,
-    currentFactoryId: TEST_FACTORY_ID,
+    currentFactoryId: taskOrder?.factoryId || TEST_FACTORY_ID,
   })
 }
 

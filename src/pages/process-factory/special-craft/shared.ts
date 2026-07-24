@@ -347,32 +347,53 @@ export function renderGarmentSkuConfirmDialog(
   title: string,
   demandLines: Array<{ colorName: string; sizeCode: string; planPieceQty: number; skuCode: string }>,
   defaultQtyField: 'planPieceQty',
+  options: {
+    showReceived?: boolean
+    showCompleted?: boolean
+    showHandover?: boolean
+    readonly?: boolean
+    receivedQty?: number
+    completedQty?: number
+    returnedQty?: number
+  } = { showReceived: true },
 ): string {
-  const skuRows = new Map<string, { colorName: string; sizeCode: string; planQty: number; defaultQty: number }>()
+  const skuRows = new Map<string, { skuCode: string; colorName: string; sizeCode: string; planQty: number; receivedQty: number; completedQty: number; handedOverQty: number }>()
   demandLines.forEach((line) => {
-    const key = `${line.colorName}::${line.sizeCode}`
+    const key = line.skuCode
     const existing = skuRows.get(key)
     if (existing) {
       existing.planQty += line.planPieceQty
-      existing.defaultQty += Number(line[defaultQtyField]) || 0
+      existing.receivedQty += Number(line[defaultQtyField]) || 0
+      existing.completedQty += Number(line[defaultQtyField]) || 0
+      existing.handedOverQty += Number(line[defaultQtyField]) || 0
     } else {
       skuRows.set(key, {
+        skuCode: line.skuCode,
         colorName: line.colorName,
         sizeCode: line.sizeCode,
         planQty: line.planPieceQty,
-        defaultQty: Number(line[defaultQtyField]) || 0,
+        receivedQty: Math.max(0, Number(line[defaultQtyField]) || 0),
+        completedQty: Math.max(0, Number(line[defaultQtyField]) || 0),
+        handedOverQty: Math.max(0, Number(line[defaultQtyField]) || 0),
       })
     }
   })
+  const readonlyAttr = options.readonly ? 'disabled' : ''
+  const headerCells = ['颜色', '尺码', '计划件数']
+  if (options.showReceived) headerCells.push('实收件数')
+  if (options.showCompleted) headerCells.push('完工件数')
+  if (options.showHandover) headerCells.push('交出件数')
 
-  const tbody = [...skuRows.entries()].map(([key, row]) => {
-    const safeKey = key.replace(/[^A-Za-z0-9]/g, '-')
-    return `<tr>
+  const tbody = [...skuRows.values()].map((row) => {
+    const safeKey = row.skuCode.replace(/[^A-Za-z0-9]/g, '-')
+    let cells = `
       <td class="px-3 py-2 text-sm">${escapeHtml(row.colorName)}</td>
       <td class="px-3 py-2 text-sm">${escapeHtml(row.sizeCode)}</td>
-      <td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(row.planQty)}</td>
-      <td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="sku-qty-${safeKey}" value="${row.defaultQty}" min="0" max="${row.planQty}" /></td>
-    </tr>`
+      <td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(row.planQty)}</td>`
+    if (options.showReceived) cells += `<td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="sku-qty-${safeKey}" data-sku-code="${escapeHtml(row.skuCode)}" value="${row.receivedQty}" min="0" max="${row.planQty}" ${readonlyAttr} /></td>`
+    if (options.showCompleted) cells += `<td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="sku-completed-${safeKey}" data-sku-code="${escapeHtml(row.skuCode)}" value="${row.completedQty}" min="0" max="${row.receivedQty || row.planQty}" ${readonlyAttr} /></td>`
+    if (options.showHandover) cells += `<td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="sku-handover-${safeKey}" data-sku-code="${escapeHtml(row.skuCode)}" value="${row.handedOverQty}" min="0" max="${row.completedQty || row.planQty}" ${readonlyAttr} /></td>`
+    return `<tr>${cells}</tr>`
   }).join('')
 
   return `
@@ -382,14 +403,14 @@ export function renderGarmentSkuConfirmDialog(
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead class="bg-muted text-muted-foreground">
-              <tr><th class="px-3 py-2 text-left text-xs font-medium">颜色</th><th class="px-3 py-2 text-left text-xs font-medium">尺码</th><th class="px-3 py-2 text-right text-xs font-medium">计划件数</th><th class="px-3 py-2 text-right text-xs font-medium">实收件数</th></tr>
+              <tr>${headerCells.map((header, index) => `<th class="px-3 py-2 text-${index < 2 ? 'left' : 'right'} text-xs font-medium">${escapeHtml(header)}</th>`).join('')}</tr>
             </thead>
             <tbody>${tbody}</tbody>
           </table>
         </div>
         <div class="mt-4 flex justify-end gap-2">
           <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" onclick="document.getElementById('special-craft-garment-sku-dialog')?.remove()">取消</button>
-          <button type="button" class="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700" data-special-craft-sku-confirm="submit" data-task-id="${escapeHtml(taskOrderId)}" data-action-code="${escapeHtml(actionCode)}">确认接收</button>
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700" data-special-craft-sku-confirm="submit" data-task-id="${escapeHtml(taskOrderId)}" data-action-code="${escapeHtml(actionCode)}">${actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER' ? '完成加工单' : '确认'}</button>
         </div>
       </div>
     </div>
@@ -401,17 +422,27 @@ export function renderCutPieceFeiTicketConfirmDialog(
   actionCode: string,
   title: string,
   feiTicketGroups: Array<{ feiTicketNo: string; partName: string; colorName: string; sizeCode: string; planQty: number; defaultQty: number }>,
+  options: { showReceived?: boolean; showCompleted?: boolean; showHandover?: boolean; showWriteback?: boolean; readonly?: boolean; writebackQty?: number } = { showReceived: true },
 ): string {
+  const readonlyAttr = options.readonly ? 'disabled' : ''
+  const headerCells = ['菲票号', '部位', '颜色', '尺码', '计划数量']
+  if (options.showReceived) headerCells.push('实收数量')
+  if (options.showCompleted) headerCells.push('完工数量')
+  if (options.showHandover) headerCells.push('交出数量')
+  if (options.showWriteback) headerCells.push('回写数量')
   const tbody = feiTicketGroups.map((group) => {
     const safeKey = group.feiTicketNo.replace(/[^A-Za-z0-9]/g, '-')
-    return `<tr>
+    let cells = `
       <td class="px-3 py-2 font-mono text-xs">${escapeHtml(group.feiTicketNo)}</td>
       <td class="px-3 py-2 text-sm">${escapeHtml(group.partName)}</td>
       <td class="px-3 py-2 text-sm">${escapeHtml(group.colorName)}</td>
       <td class="px-3 py-2 text-sm">${escapeHtml(group.sizeCode)}</td>
-      <td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(group.planQty)}</td>
-      <td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="fei-qty-${safeKey}" value="${group.defaultQty}" min="0" max="${group.planQty}" /></td>
-    </tr>`
+      <td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(group.planQty)}</td>`
+    if (options.showReceived) cells += `<td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="fei-qty-${safeKey}" data-fei-ticket-no="${escapeHtml(group.feiTicketNo)}" value="${group.defaultQty}" min="0" max="${group.planQty}" ${readonlyAttr} /></td>`
+    if (options.showCompleted) cells += `<td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="fei-completed-${safeKey}" data-fei-ticket-no="${escapeHtml(group.feiTicketNo)}" value="${group.defaultQty}" min="0" max="${group.planQty}" ${readonlyAttr} /></td>`
+    if (options.showHandover) cells += `<td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="fei-handover-${safeKey}" data-fei-ticket-no="${escapeHtml(group.feiTicketNo)}" value="${group.defaultQty}" min="0" max="${group.planQty}" ${readonlyAttr} /></td>`
+    if (options.showWriteback) cells += `<td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(options.writebackQty || 0)}</td>`
+    return `<tr>${cells}</tr>`
   }).join('')
 
   return `
@@ -421,14 +452,14 @@ export function renderCutPieceFeiTicketConfirmDialog(
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead class="bg-muted text-muted-foreground">
-              <tr><th class="px-3 py-2 text-left text-xs font-medium">菲票号</th><th class="px-3 py-2 text-left text-xs font-medium">部位</th><th class="px-3 py-2 text-left text-xs font-medium">颜色</th><th class="px-3 py-2 text-left text-xs font-medium">尺码</th><th class="px-3 py-2 text-right text-xs font-medium">计划数量</th><th class="px-3 py-2 text-right text-xs font-medium">实收数量</th></tr>
+              <tr>${headerCells.map((header, index) => `<th class="px-3 py-2 text-${index < 4 ? 'left' : 'right'} text-xs font-medium">${escapeHtml(header)}</th>`).join('')}</tr>
             </thead>
             <tbody>${tbody}</tbody>
           </table>
         </div>
         <div class="mt-4 flex justify-end gap-2">
           <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" onclick="document.getElementById('special-craft-fei-ticket-dialog')?.remove()">取消</button>
-          <button type="button" class="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700" data-special-craft-fei-confirm="submit" data-task-id="${escapeHtml(taskOrderId)}" data-action-code="${escapeHtml(actionCode)}">确认接收</button>
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700" data-special-craft-fei-confirm="submit" data-task-id="${escapeHtml(taskOrderId)}" data-action-code="${escapeHtml(actionCode)}">${actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER' ? '完成加工单' : '确认'}</button>
         </div>
       </div>
     </div>

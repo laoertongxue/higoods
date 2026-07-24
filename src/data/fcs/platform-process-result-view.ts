@@ -52,7 +52,7 @@ import {
   getSpecialCraftOperationById,
 } from './special-craft-operations.ts'
 import {
-  getSpecialCraftTaskOrders,
+  listSpecialCraftTaskOrders,
   type SpecialCraftTaskOrder,
 } from './special-craft-task-orders.ts'
 import {
@@ -190,15 +190,19 @@ function resolveFacts(sourceType: PlatformResultSourceType, sourceId: string, ta
     reviews: getReviewRecordsByWorkOrderId(sourceId),
     differences: getDifferenceRecordsByWorkOrderId(sourceId),
   }
+  const taskHandovers = taskId
+    ? listProcessHandoverRecords({ craftType: sourceType as ProcessWarehouseCraftType }).filter((item) => item.sourceTaskId === taskId)
+    : []
+  const linkedHandovers = [...byWorkOrder.handovers, ...taskHandovers]
   const byTask = taskId
     ? {
         warehouses: listProcessWarehouseRecords({ craftType: sourceType as ProcessWarehouseCraftType, sourceTaskId: taskId }),
-        handovers: listProcessHandoverRecords({ craftType: sourceType as ProcessWarehouseCraftType }).filter((item) => item.sourceTaskId === taskId),
+        handovers: taskHandovers,
         reviews: listProcessWarehouseReviewRecords({ craftType: sourceType as ProcessWarehouseCraftType }).filter((item) =>
-          byWorkOrder.handovers.some((handover) => handover.handoverRecordId === item.handoverRecordId),
+          linkedHandovers.some((handover) => handover.handoverRecordId === item.handoverRecordId),
         ),
         differences: listProcessHandoverDifferenceRecords({ craftType: sourceType as ProcessWarehouseCraftType }).filter((item) =>
-          byWorkOrder.handovers.some((handover) => handover.handoverRecordId === item.handoverRecordId),
+          linkedHandovers.some((handover) => handover.handoverRecordId === item.handoverRecordId),
         ),
       }
     : { warehouses: [], handovers: [], reviews: [], differences: [] }
@@ -661,19 +665,19 @@ function buildCuttingWarehouseResultView(sourceId: string): PlatformProcessResul
 function buildSpecialCraftView(workOrder: SpecialCraftTaskOrder): PlatformProcessResultView {
   const operation = getSpecialCraftOperationById(workOrder.operationId)
   const slug = operation ? buildSpecialCraftOperationSlug(operation) : buildSpecialCraftOperationSlug(workOrder.operationId)
-  const facts = resolveFacts('SPECIAL_CRAFT', workOrder.workOrderId, workOrder.workOrderNo)
+  const facts = resolveFacts('SPECIAL_CRAFT', workOrder.taskOrderId, workOrder.sourceTaskId || workOrder.taskOrderId)
   const mapped = mapCraftStatusToPlatformStatus({
     sourceType: 'SPECIAL_CRAFT',
-    sourceId: workOrder.workOrderId,
+    sourceId: workOrder.taskOrderId,
     processType: 'SPECIAL_CRAFT',
     craftStatusLabel: workOrder.status,
     status: workOrder.status,
   })
   const view = buildCommonResult({
     sourceType: 'SPECIAL_CRAFT',
-    sourceId: workOrder.workOrderId,
+    sourceId: workOrder.taskOrderId,
     processName: workOrder.operationName || workOrder.craftName || '特殊工艺',
-    workOrderNo: workOrder.workOrderNo,
+    workOrderNo: workOrder.taskOrderNo,
     productionOrderNo: workOrder.productionOrderNo,
     factoryId: workOrder.factoryId || TEST_FACTORY_ID,
     factoryName: workOrder.factoryName || TEST_FACTORY_NAME,
@@ -683,16 +687,16 @@ function buildSpecialCraftView(workOrder: SpecialCraftTaskOrder): PlatformProces
     qtyUnit: '片',
     plannedObjectQty: workOrder.planQty,
     completedObjectQty: workOrder.returnedQty || workOrder.currentQty,
-    detailLink: `/fcs/progress/board?sourceId=${encodeURIComponent(workOrder.workOrderId)}`,
-    craftDetailLink: `/fcs/process-factory/special-craft/${slug}/work-orders/${encodeURIComponent(workOrder.workOrderId)}`,
-    mobileTaskLink: buildTaskDetailLink(workOrder.workOrderNo, {
+    detailLink: `/fcs/progress/board?sourceId=${encodeURIComponent(workOrder.taskOrderId)}`,
+    craftDetailLink: `/fcs/process-factory/special-craft/${slug}/tasks/${encodeURIComponent(workOrder.taskOrderId)}`,
+    mobileTaskLink: buildTaskDetailLink(workOrder.sourceTaskId || workOrder.taskOrderId, {
       currentFactoryId: TEST_FACTORY_ID,
       sourceType: 'SPECIAL_CRAFT',
-      sourceId: workOrder.workOrderId,
-      keyword: workOrder.workOrderNo,
+      sourceId: workOrder.taskOrderId,
+      keyword: workOrder.taskOrderNo,
     }),
-    taskId: workOrder.workOrderNo,
-    taskNo: workOrder.workOrderNo,
+    taskId: workOrder.sourceTaskId || workOrder.taskOrderId,
+    taskNo: workOrder.sourceTaskNo || workOrder.taskOrderNo,
     facts,
   })
   view.quantityDisplayFields.unshift({
@@ -830,7 +834,7 @@ export function listPlatformCuttingResultViews(filter: PlatformProcessResultView
 }
 
 export function listPlatformSpecialCraftResultViews(filter: PlatformProcessResultViewFilter = {}): PlatformProcessResultView[] {
-  return getSpecialCraftTaskOrders()
+  return listSpecialCraftTaskOrders()
     .map(buildSpecialCraftView)
     .filter((view) => matchesFilter(view, { ...filter, sourceType: 'SPECIAL_CRAFT' }))
     .map(cloneView)

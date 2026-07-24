@@ -45,12 +45,9 @@ import {
   getSpecialCraftBindingsByTaskOrderId,
   linkSpecialCraftCompletionToReturnWaitHandoverStock,
   listCuttingSpecialCraftFeiTicketBindings,
-  recordSpecialCraftFeiTicketLossAndDamage,
   type CuttingSpecialCraftFeiTicketBinding,
-  type SpecialCraftQtyDifferenceReport,
 } from './cutting/special-craft-fei-ticket-flow.ts'
 import {
-  getSpecialCraftTaskOrderById,
   getSpecialCraftTaskOrderById,
   listSpecialCraftTaskOrders,
   type SpecialCraftTaskOrder,
@@ -564,31 +561,6 @@ export function bindSpecialCraftFeiTicket(taskId: string, payload: ExecutionWrit
   const binding = payload.feiTicketNo ? bindings.find((item) => item.feiTicketNo === payload.feiTicketNo) : bindings[0]
   if (!binding) throw new Error('未找到可绑定菲票')
   return { binding }
-}
-
-export function reportSpecialCraftDifference(taskId: string, payload: ExecutionWritebackPayload & {
-  bindingId?: string
-  feiTicketNo?: string
-  scrapQty?: number
-  damageQty?: number
-  reason?: string
-}): { binding: CuttingSpecialCraftFeiTicketBinding; report?: SpecialCraftQtyDifferenceReport } {
-  const bindings = getSpecialCraftBindings(taskId)
-  const binding = payload.bindingId
-    ? bindings.find((item) => item.bindingId === payload.bindingId)
-    : payload.feiTicketNo
-      ? bindings.find((item) => item.feiTicketNo === payload.feiTicketNo)
-      : bindings[0]
-  if (!binding) throw new Error('未找到可上报差异的特殊工艺菲票')
-  const updated = recordSpecialCraftFeiTicketLossAndDamage({
-    bindingId: binding.bindingId,
-    scrapQty: payload.scrapQty ?? 0,
-    damageQty: payload.damageQty ?? 0,
-    reason: payload.reason || payload.remark || '移动端上报差异',
-    operatorName: payload.operatorName || '现场操作员',
-    operatedAt: payload.operatedAt || nowTimestamp(),
-  })
-  return { binding: updated }
 }
 
 export function finishSpecialCraftTask(taskId: string, payload: ExecutionWritebackPayload & {

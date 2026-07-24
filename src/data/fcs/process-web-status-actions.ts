@@ -65,11 +65,9 @@ export type ProcessWebActionType =
   | '完成裁剪'
   | '生成菲票'
   | '确认入裁片仓'
-  | '成衣仓出库'
-  | '确认接收裁片'
-  | '开始加工'
-  | '完成加工'
-  | '上报差异'
+  | '确认接收'
+  | '加工填报'
+  | '完成加工单'
   | '开始扫码收货'
   | '确认收货入库'
   | '开始质检'
@@ -78,7 +76,6 @@ export type ProcessWebActionType =
   | '完成后道'
   | '开始复检'
   | '完成复检'
-  | '差异后重交'
 
 export interface ProcessWebAction {
   actionCode: string
@@ -111,6 +108,8 @@ export interface ProcessWebActionPayload {
   evidenceUrls?: string[]
   fields?: Record<string, string | number | undefined>
   skuQtyBySkuCode?: Record<string, number>
+  skuScrapQtyBySkuCode?: Record<string, number>
+  skuDamageQtyBySkuCode?: Record<string, number>
 }
 
 export interface ProcessWebActionResult {
@@ -451,25 +450,15 @@ const CUTTING_ACTIONS: ActionDefinition[] = [
 
 const SPECIAL_CRAFT_ACTIONS: ActionDefinition[] = [
   {
-    actionCode: 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
-    actionLabel: '成衣仓出库',
-    processType: 'SPECIAL_CRAFT',
-    fromStatuses: ['待领料'],
-    toStatus: '加工中',
-    requiredFields: ['出库人', '出库时间', '逐 SKU 实出件数'],
-    optionalFields: ['备注'],
-    writebackHandler: 'updateSpecialCraftTaskOrderWebStatus',
-    affectsWarehouse: true,
-  },
-  {
-    actionCode: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
-    actionLabel: '确认接收裁片',
+    actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE',
+    actionLabel: '确认接收',
     processType: 'SPECIAL_CRAFT',
     fromStatuses: ['待领料', '加工中'],
     toStatus: '加工中',
-    requiredFields: ['接收人', '接收时间', '接收裁片数量', '关联菲票'],
+    requiredFields: ['接收人', '接收时间'],
     optionalFields: ['备注'],
     writebackHandler: 'updateSpecialCraftTaskOrderWebStatus',
+    affectsWarehouse: true,
   },
   {
     actionCode: 'SPECIAL_CRAFT_PROCESS_REPORT',
@@ -477,7 +466,7 @@ const SPECIAL_CRAFT_ACTIONS: ActionDefinition[] = [
     processType: 'SPECIAL_CRAFT',
     fromStatuses: ['加工中'],
     toStatus: '加工中',
-    requiredFields: ['操作人', '填报时间', '完工数量'],
+    requiredFields: ['操作人', '填报时间'],
     writebackHandler: 'updateSpecialCraftTaskOrderWebStatus',
   },
   {
@@ -720,8 +709,8 @@ function getSpecialCraftStatus(workOrderId: string): { status: string; label: st
   return {
     status: workOrder.status,
     label: workOrder.status,
-    qty: workOrder.currentQty || workOrder.planQty,
-    unit: '片',
+    qty: workOrder.currentQty || workOrder.receivedQty || workOrder.planQty,
+    unit: workOrder.targetObject === '成衣' ? '件' : workOrder.targetObject === '面料' ? '米' : '片',
     taskId: binding.actualTaskId,
   }
 }
@@ -909,6 +898,8 @@ export function executeProcessWebAction(payload: ProcessWebActionPayload): Proce
     remark: hydratedPayload.remark,
     evidenceUrls: hydratedPayload.evidenceUrls,
     skuQtyBySkuCode: hydratedPayload.skuQtyBySkuCode,
+    skuScrapQtyBySkuCode: hydratedPayload.skuScrapQtyBySkuCode,
+    skuDamageQtyBySkuCode: hydratedPayload.skuDamageQtyBySkuCode,
   })
   return {
     success: true,

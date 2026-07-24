@@ -71,12 +71,13 @@ export function executeSpecialCraftWaitProcessIssue(
     throw new Error('该成衣库存已领用，不能重复操作。')
   }
   const workOrder = getSpecialCraftTaskOrderById(target.taskOrderId)
-  if (!workOrder || workOrder.factoryId !== selected.factoryId || workOrder.status !== '已入待加工仓') {
+  if (!workOrder || workOrder.factoryId !== selected.factoryId || workOrder.status !== '加工中') {
     throw new Error('加工单当前状态不能执行加工领用。')
   }
   const actor = getAuthorizedActor('TASK_START', selected.factoryId)
   const taskStocks = listFactoryWaitProcessStockItems()
     .filter((item) => item.taskId === target.taskOrderId && item.itemKind === '成衣')
+  const skuQtyBySkuCode = Object.fromEntries(taskStocks.map((item) => [item.materialSku || '', Number(item.receivedQty || 0)]))
   const pendingStocks = taskStocks.filter((item) => item.status !== '已领用')
   if (!taskStocks.length || !pendingStocks.some((item) => item.stockItemId === selected.stockItemId)) {
     throw new Error('该成衣库存已领用，不能重复操作。')
@@ -87,11 +88,13 @@ export function executeSpecialCraftWaitProcessIssue(
         sourceType: 'SPECIAL_CRAFT',
         sourceId: workOrder.taskOrderId,
         taskId: workOrder.taskOrderId,
+        actionCode: 'SPECIAL_CRAFT_PROCESS_REPORT',
         ...actor,
         operatedAt: nowText(),
         objectType: '成衣',
         objectQty: taskStocks.reduce((sum, item) => sum + item.receivedQty, 0),
         qtyUnit: '件',
+        skuQtyBySkuCode,
         remark: `PDA 待加工仓已逐 SKU 完成 ${taskStocks.length} 行加工领用`,
       })
     : undefined
@@ -124,12 +127,13 @@ export function executeSpecialCraftWaitHandoverSubmit(
   assertTargetMatches(target, selected)
   if (selected.status === '已交出' || selected.waitHandoverQty <= 0) throw new Error('该成衣库存已交出，不能重复操作。')
   const workOrder = getSpecialCraftTaskOrderById(target.taskOrderId)
-  if (!workOrder || workOrder.factoryId !== selected.factoryId || workOrder.status !== '待交出') {
+  if (!workOrder || workOrder.factoryId !== selected.factoryId || workOrder.status !== '加工中') {
     throw new Error('加工单当前状态不能执行交出。')
   }
   const actor = getAuthorizedActor('HANDOUT_CREATE', selected.factoryId)
   const taskStocks = listFactoryWaitHandoverStockItems()
     .filter((item) => item.taskId === target.taskOrderId && item.itemKind === '成衣')
+  const skuQtyBySkuCode = Object.fromEntries(taskStocks.map((item) => [item.materialSku || '', Number(item.waitHandoverQty || item.completedQty || 0)]))
   const pendingStocks = taskStocks.filter((item) => item.status !== '已交出')
   if (!taskStocks.length || !pendingStocks.some((item) => item.stockItemId === selected.stockItemId)) {
     throw new Error('该成衣库存已交出，不能重复操作。')
@@ -146,6 +150,7 @@ export function executeSpecialCraftWaitHandoverSubmit(
         objectType: '成衣',
         objectQty: taskStocks.reduce((sum, item) => sum + item.completedQty, 0),
         qtyUnit: '件',
+        skuQtyBySkuCode,
         remark: `PDA 待交出仓已逐 SKU 完成 ${taskStocks.length} 行交出确认`,
       })
     : undefined

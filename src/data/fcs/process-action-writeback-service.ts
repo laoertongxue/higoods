@@ -211,9 +211,6 @@ const ACTION_CODE_ALIASES: Record<string, string> = {
   GENERATE_FEI_TICKET: 'CUTTING_GENERATE_FEI_TICKETS',
   CONFIRM_CUTTING_INBOUND: 'CUTTING_CONFIRM_INBOUND',
   SUBMIT_CUTTING_HANDOVER: 'CUTTING_SUBMIT_HANDOVER',
-  CONFIRM_SPECIAL_RECEIVE: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
-  FINISH_SPECIAL_PROCESS: 'SPECIAL_CRAFT_PROCESS_REPORT',
-  SUBMIT_SPECIAL_HANDOVER: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
 }
 
 export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
@@ -495,25 +492,15 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     writebackHandler: 'executeCuttingAction.updateCutPieceOrderWebStage',
   },
   {
-    actionCode: 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
-    actionLabel: '成衣仓出库',
-    sourceType: 'SPECIAL_CRAFT',
-    fromStatuses: ['待领料'],
-    toStatus: '加工中',
-    requiredFields: ['出库人', '出库时间', '逐 SKU 实出件数'],
-    optionalFields: ['备注'],
-    writebackHandler: 'executeSpecialCraftAction.updateSpecialCraftTaskOrderWebStatus',
-    affectsWarehouse: true,
-  },
-  {
-    actionCode: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
-    actionLabel: '确认接收裁片',
+    actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE',
+    actionLabel: '确认接收',
     sourceType: 'SPECIAL_CRAFT',
     fromStatuses: ['待领料', '加工中'],
     toStatus: '加工中',
-    requiredFields: ['接收人', '接收时间', '接收裁片数量', '关联菲票'],
+    requiredFields: ['接收人', '接收时间'],
     optionalFields: ['备注'],
     writebackHandler: 'executeSpecialCraftAction.updateSpecialCraftTaskOrderWebStatus',
+    affectsWarehouse: true,
   },
   {
     actionCode: 'SPECIAL_CRAFT_PROCESS_REPORT',
@@ -521,7 +508,7 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     sourceType: 'SPECIAL_CRAFT',
     fromStatuses: ['加工中'],
     toStatus: '加工中',
-    requiredFields: ['操作人', '填报时间', '完工数量'],
+    requiredFields: ['操作人', '填报时间'],
     writebackHandler: 'executeSpecialCraftAction.updateSpecialCraftTaskOrderWebStatus',
   },
   {
@@ -751,7 +738,7 @@ export function getProcessActionStatusSnapshot(sourceType: ProcessActionSourceTy
     qty: workOrder.currentQty ?? workOrder.receivedQty ?? 0,
     unit: objectMeta.qtyUnit,
     taskId: binding.actualTaskId,
-    workOrderNo: workOrder.workOrderNo,
+    workOrderNo: workOrder.taskOrderNo,
   }
 }
 
@@ -917,9 +904,9 @@ export function validateProcessAction(payload: ProcessActionPayload): { ok: bool
       const workOrder = getSpecialCraftTaskOrderById(payload.sourceId)
       const isGarment = resolveSpecialCraftObjectMeta(workOrder?.targetObject).objectType === '成衣'
       const requiresPositiveSkuQty = [
-        'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
-        'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
+        'SPECIAL_CRAFT_CONFIRM_RECEIVE',
         'SPECIAL_CRAFT_PROCESS_REPORT',
+        'SPECIAL_CRAFT_SUBMIT_HANDOVER',
       ].includes(definition.actionCode)
       if (isGarment && requiresPositiveSkuQty && payload.skuQtyBySkuCode && !Object.values(payload.skuQtyBySkuCode).some((value) => Number(value) > 0)) {
         throw new Error('成衣操作至少一个 SKU 件数必须大于 0')
@@ -1112,13 +1099,11 @@ export function executeCuttingAction(payload: ProcessActionPayload): Partial<Pro
 function assertGarmentSkuQtyPayload(payload: ProcessActionPayload, actionCode: string): void {
   const workOrder = getSpecialCraftTaskOrderById(payload.sourceId)
   if (!workOrder || resolveSpecialCraftObjectMeta(workOrder.targetObject).objectType !== '成衣') return
-  if (!['SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND', 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES'].includes(actionCode)) return
+  if (!['SPECIAL_CRAFT_CONFIRM_RECEIVE', 'SPECIAL_CRAFT_PROCESS_REPORT', 'SPECIAL_CRAFT_SUBMIT_HANDOVER'].includes(actionCode)) return
   if (!payload.skuQtyBySkuCode) {
-    throw new Error(actionCode === 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND'
-      ? '成衣仓出库必须逐 SKU 确认实出件数。'
-      : '成衣收货必须逐 SKU 确认实收件数。')
+    throw new Error('成衣操作必须逐 SKU 确认数量。')
   }
-  const expectedSkuCodes = (workOrder.workOrderId)
+  const expectedSkuCodes = (workOrder.demandLines || [])
     .map((line) => line.skuCode)
     .sort()
   const actualSkuCodes = Object.keys(payload.skuQtyBySkuCode).sort()
@@ -1140,48 +1125,50 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
     ? Object.values(payload.skuQtyBySkuCode).reduce((sum, value) => sum + Number(value || 0), 0)
     : undefined
   if (skuReceivedQty !== undefined && payload.objectQty !== undefined && skuReceivedQty !== payload.objectQty) {
-    throw new Error('逐 SKU 实收合计与本次实收件数不一致。')
+    throw new Error('逐 SKU 数量合计与本次数量不一致。')
   }
   const qty = Number(skuReceivedQty ?? payload.objectQty ?? workOrder.currentQty ?? workOrder.receivedQty ?? 0)
-  if (definition.actionCode === 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND') {
-    const updated = updateSpecialCraftTaskOrderWebStatus(payload.sourceId, {
-      status: nextStatus,
-      operatorName: payload.operatorName,
-      operatedAt: payload.operatedAt,
-      remark: payload.remark || '成衣仓按 SKU 确认出库',
-    })
-    return { updatedWorkOrderId: updated?.workOrderId || workOrder.workOrderId }
+  if (!Number.isFinite(qty) || qty < 0) throw new Error('本次数量必须为有效非负数。')
+  if (definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' && workOrder.receivedQty + qty > workOrder.planQty) {
+    throw new Error('本次接收后会超过计划数量，请检查数量。')
   }
-  if (definition.actionCode === 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES' && objectMeta.objectType === '成衣') {
+  if (definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && qty > workOrder.receivedQty) {
+    throw new Error('加工填报数量不能超过已接收数量。')
+  }
+  if (definition.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' && qty > Math.max(workOrder.completedQty - (workOrder.returnedQty || 0), 0)) {
+    throw new Error('交出数量不能超过已完工未交出数量。')
+  }
+  if (definition.actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER') {
+    if (workOrder.completedQty <= 0) throw new Error('未完成加工填报，不能完成加工单。')
+    if ((workOrder.returnedQty || 0) < workOrder.completedQty) throw new Error('仍有已完工数量未发起交出，不能完成加工单。')
+  }
+  if (definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' && objectMeta.objectType === '成衣') {
     const updated = confirmSpecialCraftTaskOrderReceiptBySku({
-      workOrderId: workOrder.workOrderId,
-      receivedQtyBySkuCode: payload.skuQtyBySkuCode || {},
+      taskOrderId: workOrder.taskOrderId,
+      receivedQtyBySkuCode: payload.skuQtyBySkuCode,
       receiverName: payload.operatorName || '辅助工艺仓管员',
       receivedAt: payload.operatedAt || nowText(),
     })
-    return { updatedWorkOrderId: updated?.workOrderId || workOrder.workOrderId }
+    return { updatedWorkOrderId: updated?.taskOrderId || workOrder.taskOrderId }
   }
   if (definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && objectMeta.objectType === '成衣') {
-    if (!payload.skuQtyBySkuCode || !payload.skuScrapQtyBySkuCode || !payload.skuDamageQtyBySkuCode) {
-      throw new Error('成衣完工必须逐 SKU 确认完工、报废和货损件数。')
-    }
     const updated = confirmSpecialCraftTaskOrderCompletionBySku({
-      workOrderId: workOrder.workOrderId,
+      taskOrderId: workOrder.taskOrderId,
       completedQtyBySkuCode: payload.skuQtyBySkuCode,
-      scrapQtyBySkuCode: payload.skuScrapQtyBySkuCode,
-      damageQtyBySkuCode: payload.skuDamageQtyBySkuCode,
+      scrapQtyBySkuCode: payload.skuScrapQtyBySkuCode || {},
+      damageQtyBySkuCode: payload.skuDamageQtyBySkuCode || {},
       operatorName: payload.operatorName || '现场操作员',
       operatedAt: payload.operatedAt || nowText(),
     })
-    return { updatedWorkOrderId: updated?.workOrderId || workOrder.workOrderId }
+    return { updatedWorkOrderId: updated?.taskOrderId || workOrder.taskOrderId }
   }
   const updated = updateSpecialCraftTaskOrderWebStatus(payload.sourceId, {
     status: nextStatus,
     operatorName: payload.operatorName,
     operatedAt: payload.operatedAt,
-    receivedQty: definition.actionCode === 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES' ? qty : undefined,
+    receivedQty: definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' ? workOrder.receivedQty + qty : undefined,
     completedQty: definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' ? qty : undefined,
-    returnedQty: definition.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? qty : undefined,
+    returnedQty: definition.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? (workOrder.returnedQty || 0) + qty : undefined,
     remark: payload.remark,
   })
 
@@ -1196,7 +1183,7 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
     })
   }
 
-  return { updatedWorkOrderId: updated?.workOrderId || workOrder.workOrderId }
+  return { updatedWorkOrderId: updated?.taskOrderId || workOrder.taskOrderId }
 }
 
 function getPostFinishingActionType(actionCode: string, currentStatus?: string): PostFinishingActionType {
@@ -1398,11 +1385,8 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
     ? getSpecialCraftTaskOrderById(hydratedPayload.sourceId)
     : undefined
   const warehouseFirstAction = hydratedPayload.sourceType === 'SPECIAL_CRAFT' && (
-    definition.actionCode === 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND'
-    || (
-      definition.actionCode === 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES'
-      && resolveSpecialCraftObjectMeta(specialCraftWorkOrder?.targetObject).objectType === '成衣'
-    )
+    definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+    && resolveSpecialCraftObjectMeta(specialCraftWorkOrder?.targetObject).objectType === '成衣'
   )
   const runAction = (): Partial<ProcessActionWritebackResult> => (
     hydratedPayload.sourceType === 'PRINT'
@@ -1476,6 +1460,8 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
     operatorRoleName: hydratedPayload.operatorRoleName,
     operatedAt: hydratedPayload.operatedAt,
     skuQtyBySkuCode: hydratedPayload.skuQtyBySkuCode,
+    skuScrapQtyBySkuCode: hydratedPayload.skuScrapQtyBySkuCode,
+    skuDamageQtyBySkuCode: hydratedPayload.skuDamageQtyBySkuCode,
   }) : undefined
   if (linkage && !linkage.success) throw new Error(linkage.message)
   if (warehouseFirstAction) partial = runAction()
@@ -1493,6 +1479,8 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
       operatorRoleName: hydratedPayload.operatorRoleName,
       operatedAt: hydratedPayload.operatedAt,
       skuQtyBySkuCode: hydratedPayload.skuQtyBySkuCode,
+      skuScrapQtyBySkuCode: hydratedPayload.skuScrapQtyBySkuCode,
+      skuDamageQtyBySkuCode: hydratedPayload.skuDamageQtyBySkuCode,
     })
   }
   const linkedPartial: Partial<ProcessActionWritebackResult> = {

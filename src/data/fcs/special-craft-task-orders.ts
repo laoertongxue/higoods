@@ -1554,17 +1554,25 @@ export function confirmSpecialCraftTaskOrderReceiptBySku(input: {
   const taskOrder = getSpecialCraftTaskOrderById(input.taskOrderId)
   if (!taskOrder || !taskOrder.demandLines?.length) return undefined
   const lines = taskOrder.demandLines
+  const expectedSkuCodes = lines.map((line) => line.skuCode).sort()
+  const actualSkuCodes = Object.keys(input.receivedQtyBySkuCode).sort()
+  if (expectedSkuCodes.length !== actualSkuCodes.length || actualSkuCodes.some((skuCode, index) => skuCode !== expectedSkuCodes[index])) {
+    throw new Error('逐 SKU 收货必须覆盖全部 SKU，且不得包含其他 SKU。')
+  }
   const invalidLine = lines.find((line) => {
     const receivedQty = input.receivedQtyBySkuCode[line.skuCode]
     return !Number.isInteger(receivedQty) || receivedQty < 0 || receivedQty > line.planPieceQty
   })
   if (invalidLine) throw new Error(`SKU ${invalidLine.skuCode} 实收件数无效。`)
   const totalReceivedQty = lines.reduce((sum, line) => sum + (input.receivedQtyBySkuCode[line.skuCode] || 0), 0)
+  if (taskOrder.receivedQty + totalReceivedQty > taskOrder.planQty) {
+    throw new Error('本次接收后会超过计划数量，请检查 SKU 实收件数。')
+  }
   return updateSpecialCraftTaskOrderWebStatus(input.taskOrderId, {
     status: '加工中',
     operatorName: input.receiverName,
     operatedAt: input.receivedAt,
-    receivedQty: totalReceivedQty,
+    receivedQty: taskOrder.receivedQty + totalReceivedQty,
     completedQty: 0,
     remark: `按 ${lines.length} 个 SKU 确认实收 ${totalReceivedQty} 件`,
   })
@@ -1587,28 +1595,24 @@ export function confirmSpecialCraftTaskOrderCompletionBySku(input: {
     return actualSkuCodes.length === expectedSkuCodes.length
       && actualSkuCodes.every((skuCode, index) => skuCode === expectedSkuCodes[index])
   }
-  if (
-    !hasExactSkuSet(input.completedQtyBySkuCode)
-    || !hasExactSkuSet(input.scrapQtyBySkuCode)
-    || !hasExactSkuSet(input.damageQtyBySkuCode)
-  ) {
+  if (!hasExactSkuSet(input.completedQtyBySkuCode)) {
     throw new Error('逐 SKU 完工必须覆盖全部 SKU，且不得包含其他 SKU。')
   }
   const invalidLine = lines.find((line) => {
     const completedQty = input.completedQtyBySkuCode[line.skuCode]
-    const scrapQty = input.scrapQtyBySkuCode[line.skuCode]
-    const damageQty = input.damageQtyBySkuCode[line.skuCode]
+    const scrapQty = input.scrapQtyBySkuCode[line.skuCode] || 0
+    const damageQty = input.damageQtyBySkuCode[line.skuCode] || 0
     return !Number.isInteger(completedQty) || completedQty < 0
       || !Number.isInteger(scrapQty) || scrapQty < 0
       || !Number.isInteger(damageQty) || damageQty < 0
-      || completedQty + scrapQty + damageQty !== taskOrder.receivedQty
+      || completedQty + scrapQty + damageQty > line.planPieceQty
   })
-  if (invalidLine) throw new Error(`SKU ${invalidLine.skuCode} 的完工、报废和货损件数必须为整数，且合计等于已收件数。`)
+  if (invalidLine) throw new Error(`SKU ${invalidLine.skuCode} 的完工、报废和货损件数必须为整数，且合计不能超过该 SKU 计划件数。`)
   const completedQty = lines.reduce((sum, line) => sum + (input.completedQtyBySkuCode[line.skuCode] || 0), 0)
   const scrapQty = lines.reduce((sum, line) => sum + (input.scrapQtyBySkuCode[line.skuCode] || 0), 0)
   const damageQty = lines.reduce((sum, line) => sum + (input.damageQtyBySkuCode[line.skuCode] || 0), 0)
   return updateSpecialCraftTaskOrderWebStatus(input.taskOrderId, {
-    status: '已完结',
+    status: '加工中',
     operatorName: input.operatorName,
     operatedAt: input.operatedAt,
     completedQty,
@@ -1629,6 +1633,7 @@ export function updateSpecialCraftTaskOrderWebStatus(
     completedQty?: number
     lossQty?: number
     damageQty?: number
+    returnedQty?: number
     waitHandoverQty?: number
     remark?: string
   },
@@ -1644,6 +1649,7 @@ export function updateSpecialCraftTaskOrderWebStatus(
     completedQty: Number.isFinite(payload.completedQty) ? Number(payload.completedQty) : current.completedQty,
     lossQty: Number.isFinite(payload.lossQty) ? Number(payload.lossQty) : current.lossQty,
     damageQty: Number.isFinite(payload.damageQty) ? Number(payload.damageQty) : current.damageQty,
+    returnedQty: Number.isFinite(payload.returnedQty) ? Number(payload.returnedQty) : current.returnedQty,
     waitHandoverQty: Number.isFinite(payload.waitHandoverQty) ? Number(payload.waitHandoverQty) : current.waitHandoverQty,
     currentQty: Number.isFinite(payload.completedQty) ? Number(payload.completedQty) : current.currentQty,
     executionStatus:

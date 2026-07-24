@@ -1066,9 +1066,17 @@ function buildRouteCardFromDyeWorkOrder(sourceId: string): TaskRouteCardBuildRes
 }
 
 function mapSpecialCraftNodeRecord(record: SpecialCraftTaskNodeRecord): TaskRouteCardRecordRow {
+  const nodeText = `${record.nodeName} ${record.actionName} ${record.afterStatus}`
+  const node = nodeText.includes('领料') || nodeText.includes('接收') || nodeText.includes('绑定菲票')
+    ? '确认接收'
+    : nodeText.includes('交出')
+      ? '发起交出'
+      : nodeText.includes('完结') || nodeText.includes('已完结')
+        ? '完成加工单'
+        : '加工填报'
   return {
     rowId: record.nodeRecordId,
-    node: record.nodeName,
+    node,
     startedAt: record.operatedAt || '—',
     finishedAt: record.afterStatus === '已完成' || record.afterStatus === '已交出' ? record.operatedAt : '—',
     completedQty: `${record.qty} ${record.unit}`,
@@ -1077,6 +1085,18 @@ function mapSpecialCraftNodeRecord(record: SpecialCraftTaskNodeRecord): TaskRout
     operator: record.operatorName,
     remark: [record.actionName, record.relatedRecordNo, record.remark].filter(Boolean).join(' / ') || '—',
   }
+}
+
+function buildSpecialCraftRouteRows(order: SpecialCraftTaskOrder): TaskRouteCardRecordRow[] {
+  const actionNodes = ['确认接收', '加工填报', '发起交出', '完成加工单']
+  const rowsByNode = new Map<string, TaskRouteCardRecordRow>()
+  order.nodeRecords
+    .filter((record) => !`${record.nodeName} ${record.actionName} ${record.afterStatus}`.match(/差异|异议|异常|重交/))
+    .map(mapSpecialCraftNodeRecord)
+    .forEach((row) => {
+      if (actionNodes.includes(row.node)) rowsByNode.set(row.node, row)
+    })
+  return actionNodes.map((node) => rowsByNode.get(node) || buildPendingRouteRow(node))
 }
 
 function buildRouteCardFromSpecialCraftTaskOrder(sourceId: string): TaskRouteCardBuildResult {
@@ -1115,9 +1135,9 @@ function buildRouteCardFromSpecialCraftTaskOrder(sourceId: string): TaskRouteCar
         { label: '颜色', value: order.fabricColor || '—' },
         { label: '尺码', value: order.sizeCode || '—' },
         { label: '计划裁片数量', value: formatQtyText(order.planQty, order.unit) },
-        { label: '已接收裁片数量', value: formatQtyText(order.receivedQty, order.unit) },
-        { label: '加工完成裁片数量', value: formatQtyText(order.completedQty, order.unit) },
-        { label: '待交出裁片数量', value: formatQtyText(order.waitHandoverQty, order.unit) },
+        { label: '已接收数量', value: formatQtyText(order.receivedQty, order.unit) },
+        { label: '加工填报数量', value: formatQtyText(order.completedQty, order.unit) },
+        { label: '待交出数量', value: formatQtyText(order.waitHandoverQty, order.unit) },
         { label: '状态', value: order.status },
         { label: '异常状态', value: order.abnormalStatus },
         { label: '交期', value: order.dueAt },
@@ -1128,7 +1148,7 @@ function buildRouteCardFromSpecialCraftTaskOrder(sourceId: string): TaskRouteCar
         { label: '菲票号', value: order.feiTicketNos.join('、') || '—' },
         { label: '中转袋号', value: order.transferBagNos.join('、') || '—' },
       ],
-      routeRecords: ensureRouteRecordNodes(order.nodeRecords.map(mapSpecialCraftNodeRecord), ['接收裁片', '绑定菲票', '开始加工', '完成加工', '差异上报', '交出']),
+      routeRecords: buildSpecialCraftRouteRows(order),
     },
   }
 }

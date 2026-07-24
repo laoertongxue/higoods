@@ -361,8 +361,12 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     isSpecialCraftRoute
     && target.closest([
       '[data-special-craft-web-action]',
+      '[data-special-craft-sku-confirm]',
+      '[data-special-craft-fei-confirm]',
       '[data-process-web-status-action]',
       '[data-special-craft-task-field]',
+      '[data-special-craft-task-list-field]',
+      '[data-special-craft-task-list-action]',
       '[data-special-craft-task-action]',
       '[data-special-craft-task-page-size]',
       '[data-special-craft-warehouse-field]',
@@ -371,7 +375,7 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     ].join(', '))
   ) {
     return (
-      handleSpecialCraftTaskOrdersEvent(target) ||
+      handleSpecialCraftTaskOrdersEvent(target, event) ||
       handleSpecialCraftTaskDetailEvent(target) ||
       handleSpecialCraftWarehouseEvent(target)
     )
@@ -392,7 +396,8 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
     await handleCraftWoolEvent(target) ||
     await handleCraftWoolMachinesEvent(target) ||
     await handlePostFinishingEvent(target) ||
-    handleSpecialCraftTaskOrdersEvent(target) ||
+    handleSpecialCraftTaskOrdersEvent(target, event) ||
+    handleSpecialCraftTaskDetailEvent(target) ||
     handleSpecialCraftWarehouseEvent(target) ||
     await handleCutOrderReleaseIntegrationEvent(target) ||
     await handleCraftCuttingCutOrdersEvent(target) ||

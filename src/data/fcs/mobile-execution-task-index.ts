@@ -290,8 +290,8 @@ function getSpecialCraftSourceInfo(task: ProcessTask): Partial<MobileExecutionTa
         : []
 
   const firstWorkOrder = relatedWorkOrders[0] ?? null
-  const workOrderIds = uniqueStrings(relatedWorkOrders.map((workOrder) => workOrder.workOrderId))
-  const workOrderNos = uniqueStrings(relatedWorkOrders.map((workOrder) => workOrder.workOrderNo))
+  const workOrderIds = uniqueStrings(relatedWorkOrders.map((workOrder) => workOrder.taskOrderId))
+  const workOrderNos = uniqueStrings(relatedWorkOrders.map((workOrder) => workOrder.taskOrderNo))
   const feiTicketNos = uniqueStrings([
     ...(firstWorkOrder?.feiTicketNos || []),
     ...(matchedTaskOrder?.feiTicketNos || []),
@@ -302,25 +302,25 @@ function getSpecialCraftSourceInfo(task: ProcessTask): Partial<MobileExecutionTa
 
   return {
     sourceType: firstWorkOrder ? 'SPECIAL_CRAFT' : 'SPECIAL_CRAFT_TASK_ORDER',
-    sourceId: normalizeString(firstWorkOrder?.workOrderId || matchedTaskOrder?.taskOrderId || taskLike.sourceTaskId || task.taskId),
-    sourceWorkOrderId: normalizeString(firstWorkOrder?.workOrderId || matchedTaskOrder?.taskOrderId),
-    sourceWorkOrderNo: normalizeString(firstWorkOrder?.workOrderNo || matchedTaskOrder?.taskOrderNo || task.taskNo || task.taskId),
-    workOrderNo: normalizeString(firstWorkOrder?.workOrderNo || matchedTaskOrder?.taskOrderNo),
-    specialCraftOrderNo: normalizeString(firstWorkOrder?.workOrderNo || matchedTaskOrder?.taskOrderNo),
+    sourceId: normalizeString(firstWorkOrder?.taskOrderId || matchedTaskOrder?.taskOrderId || taskLike.sourceTaskId || task.taskId),
+    sourceWorkOrderId: normalizeString(firstWorkOrder?.taskOrderId || matchedTaskOrder?.taskOrderId),
+    sourceWorkOrderNo: normalizeString(firstWorkOrder?.taskOrderNo || matchedTaskOrder?.taskOrderNo || task.taskNo || task.taskId),
+    workOrderNo: normalizeString(firstWorkOrder?.taskOrderNo || matchedTaskOrder?.taskOrderNo),
+    specialCraftOrderNo: normalizeString(firstWorkOrder?.taskOrderNo || matchedTaskOrder?.taskOrderNo),
     taskOrderId: normalizeString(matchedTaskOrder?.taskOrderId),
     taskOrderNo: normalizeString(matchedTaskOrder?.taskOrderNo),
     workOrderIds,
     workOrderNos,
     sourceIds: uniqueStrings([
       matchedTaskOrder?.taskOrderId,
-      firstWorkOrder?.workOrderId,
+      firstWorkOrder?.taskOrderId,
       ...workOrderIds,
       taskLike.sourceTaskId,
     ]),
     sourceNos: uniqueStrings([
       matchedTaskOrder?.taskOrderNo,
       matchedTaskOrder?.sourceTaskNo,
-      firstWorkOrder?.workOrderNo,
+      firstWorkOrder?.taskOrderNo,
       ...workOrderNos,
       task.rootTaskNo,
     ]),

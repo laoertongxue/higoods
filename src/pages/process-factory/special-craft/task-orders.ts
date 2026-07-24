@@ -161,7 +161,7 @@ const COLUMNS: StandardListColumn<ExpandedTaskOrderRow>[] = [
         row.taskOrder.taskOrderId,
       )
       const webActions = getFastSpecialCraftWebActions(row.taskOrder)
-      const actionable = webActions.filter((a) => !a.disabledReason).slice(0, 2)
+      const actionable = webActions.filter((a) => !a.disabledReason && a.actionCode !== 'SPECIAL_CRAFT_COMPLETE_ORDER').slice(0, 3)
       const objectType = row.taskOrder.targetObject === '成衣' ? '成衣' : '裁片'
       const objectQty = row.taskOrder.currentQty || row.taskOrder.planQty || 1
       const qtyUnit = row.taskOrder.unit || '件'
@@ -707,6 +707,12 @@ export function handleSpecialCraftTaskOrdersEvent(target: Element, event?: Event
     overlay.innerHTML = `<img src="${escapeHtml(src)}" class="max-h-[80vh] max-w-[80vw] rounded-lg shadow-2xl" alt="大图" />`
     overlay.addEventListener('click', () => overlay.remove())
     document.body.appendChild(overlay)
+    return true
+  }
+
+  if (action === 'view-fei-ticket') {
+    const ticketNo = actionNode.dataset.feiTicketNo || ''
+    window.alert(ticketNo ? `菲票 ${ticketNo} 已关联当前特殊工艺加工单。` : '当前菲票已关联特殊工艺加工单。')
     return true
   }
 
