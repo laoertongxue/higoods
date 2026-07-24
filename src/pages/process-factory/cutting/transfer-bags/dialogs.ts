@@ -1,5 +1,5 @@
-import { escapeHtml } from '../../../utils.ts'
-import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
+import { escapeHtml } from '../../../../utils.ts'
+import { formatFactoryDisplayName } from '../../../../data/fcs/factory-mock-data.ts'
 import { deriveTransferBagMasterStatus } from '../transfer-bags-model.ts'
 import {
   state,
