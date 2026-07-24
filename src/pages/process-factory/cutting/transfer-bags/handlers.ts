@@ -136,7 +136,9 @@ import {
   type ConditionDraftField,
   type MasterDraftField,
   type PackDraftField,
-function resolveCarrierScanInput(input: string, store: TransferBagStore): TransferBagMaster | null {
+} from './state'
+
+export function resolveCarrierScanInput(input: string, store: TransferBagStore): TransferBagMaster | null {
   const normalized = input.trim()
   if (!normalized) return null
   const parsed = parseCarrierQrValue(normalized)
@@ -150,7 +152,7 @@ function resolveCarrierScanInput(input: string, store: TransferBagStore): Transf
   return store.masters.find((item) => item.carrierCode === normalized) || null
 }
 
-function resolveFeiTicketScanInput(input: string, ticketRecords: TransferBagsProjection['ticketRecords']) {
+export function resolveFeiTicketScanInput(input: string, ticketRecords: TransferBagsProjection['ticketRecords']) {
   const normalized = input.trim()
   if (!normalized) return null
   const parsed = parseCuttingTraceQr(normalized)
@@ -169,15 +171,15 @@ function resolveFeiTicketScanInput(input: string, ticketRecords: TransferBagsPro
   )
 }
 
-function hasExplicitUsageContext(prefilter: TransferBagPrefilter | null): boolean {
+export function hasExplicitUsageContext(prefilter: TransferBagPrefilter | null): boolean {
   return Boolean(prefilter?.usageId || prefilter?.usageNo)
 }
 
-function hasExplicitBagContext(prefilter: TransferBagPrefilter | null): boolean {
+export function hasExplicitBagContext(prefilter: TransferBagPrefilter | null): boolean {
   return Boolean(prefilter?.bagId || prefilter?.bagCode)
 }
 
-function hasSourceContext(prefilter: TransferBagPrefilter | null): boolean {
+export function hasSourceContext(prefilter: TransferBagPrefilter | null): boolean {
   return Boolean(
     prefilter?.cutOrderId ||
       prefilter?.cutOrderNo ||
@@ -195,7 +197,7 @@ function hasSourceContext(prefilter: TransferBagPrefilter | null): boolean {
   )
 }
 
-function buildSourceOnlyPrefilter(prefilter: TransferBagPrefilter | null): TransferBagPrefilter | null {
+export function buildSourceOnlyPrefilter(prefilter: TransferBagPrefilter | null): TransferBagPrefilter | null {
   if (!prefilter) return null
   return {
     cutOrderId: prefilter.cutOrderId,
@@ -214,7 +216,7 @@ function buildSourceOnlyPrefilter(prefilter: TransferBagPrefilter | null): Trans
   }
 }
 
-function hasResolverLookupContext(prefilter: TransferBagPrefilter | null): boolean {
+export function hasResolverLookupContext(prefilter: TransferBagPrefilter | null): boolean {
   return Boolean(
     prefilter?.usageId ||
       prefilter?.usageNo ||
@@ -237,7 +239,7 @@ function hasResolverLookupContext(prefilter: TransferBagPrefilter | null): boole
   )
 }
 
-function resetMasterDraft(): void {
+export function resetMasterDraft(): void {
   const factory = getFactoryOptions()[0]
   state.masterDraft = {
     bagCode: '',
@@ -251,7 +253,7 @@ function resetMasterDraft(): void {
   }
 }
 
-function resetPackDraft(stage: 'INBOUND_TEMP' | 'HANDOVER_PACKING', bagId?: string): void {
+export function resetPackDraft(stage: 'INBOUND_TEMP' | 'HANDOVER_PACKING', bagId?: string): void {
   const bag = bagId ? getSourceMaster(bagId) : getActiveMaster()
   const firstTask = getViewModel().sewingTasks[0]
   state.packDraft = {
@@ -269,7 +271,7 @@ function resetPackDraft(stage: 'INBOUND_TEMP' | 'HANDOVER_PACKING', bagId?: stri
   }
 }
 
-function getDialogTitle(): string {
+export function getDialogTitle(): string {
   if (state.activeDialog === 'new-master') return '新增中转袋'
   if (state.activeDialog === 'inbound-pack') return '入仓暂存装袋'
   if (state.activeDialog === 'handover-pack') return '交出装袋'
@@ -277,7 +279,7 @@ function getDialogTitle(): string {
   return '中转袋流转'
 }
 
-function syncReusableDecisionSuggestion(): void {
+export function syncReusableDecisionSuggestion(): void {
   const suggested = deriveBagConditionDecision({
     conditionStatus: state.conditionDraft.conditionStatus,
     cleanlinessStatus: state.conditionDraft.cleanlinessStatus,
@@ -290,12 +292,12 @@ function syncReusableDecisionSuggestion(): void {
   }
 }
 
-function matchPrefilter(itemValues: Array<string | undefined>, search?: string): boolean {
+export function matchPrefilter(itemValues: Array<string | undefined>, search?: string): boolean {
   if (!search) return true
   return itemValues.some((value) => value?.includes(search))
 }
 
-function matchesUsagePrefilter(item: TransferBagUsageItem, prefilter: TransferBagPrefilter | null = state.prefilter): boolean {
+export function matchesUsagePrefilter(item: TransferBagUsageItem, prefilter: TransferBagPrefilter | null = state.prefilter): boolean {
   if (!prefilter) return true
   const bindingItems = item.bindingItems || []
   const cutOrderIds = uniqueStrings([
@@ -334,7 +336,7 @@ function matchesUsagePrefilter(item: TransferBagUsageItem, prefilter: TransferBa
   )
 }
 
-function matchesBindingPrefilter(item: TransferBagBindingItem, prefilter: TransferBagPrefilter | null = state.prefilter): boolean {
+export function matchesBindingPrefilter(item: TransferBagBindingItem, prefilter: TransferBagPrefilter | null = state.prefilter): boolean {
   if (!prefilter) return true
   return (
     matchPrefilter([item.ticket?.feiTicketId || item.ticketRecordId], prefilter.ticketId) &&
@@ -357,17 +359,17 @@ function matchesBindingPrefilter(item: TransferBagBindingItem, prefilter: Transf
   )
 }
 
-function findMatchingUsages(prefilter: TransferBagPrefilter | null, viewModel = getViewModel()): TransferBagUsageItem[] {
+export function findMatchingUsages(prefilter: TransferBagPrefilter | null, viewModel = getViewModel()): TransferBagUsageItem[] {
   if (!prefilter || !hasResolverLookupContext(prefilter)) return []
   return viewModel.usages.filter((item) => matchesUsagePrefilter(item, prefilter))
 }
 
-function findMatchingBindings(prefilter: TransferBagPrefilter | null, viewModel = getViewModel()): TransferBagBindingItem[] {
+export function findMatchingBindings(prefilter: TransferBagPrefilter | null, viewModel = getViewModel()): TransferBagBindingItem[] {
   if (!prefilter || !hasResolverLookupContext(prefilter)) return []
   return viewModel.bindings.filter((item) => matchesBindingPrefilter(item, prefilter))
 }
 
-function findMatchingMasters(prefilter: TransferBagPrefilter | null, viewModel = getViewModel()): TransferBagMasterItem[] {
+export function findMatchingMasters(prefilter: TransferBagPrefilter | null, viewModel = getViewModel()): TransferBagMasterItem[] {
   if (!prefilter) return []
   const matchedBagIds = new Set<string>()
 
@@ -383,12 +385,12 @@ function findMatchingMasters(prefilter: TransferBagPrefilter | null, viewModel =
   return matchedBagIds.size ? viewModel.masters.filter((item) => matchedBagIds.has(item.bagId)) : []
 }
 
-function getCarrierMasterRecordMap(): Record<string, TransferBagCarrierMasterRecord> {
+export function getCarrierMasterRecordMap(): Record<string, TransferBagCarrierMasterRecord> {
   if (carrierManagementProjectionCache?.version !== projectionVersion) getCarrierManagementProjection()
   return carrierManagementProjectionCache?.masterRecordMap || {}
 }
 
-function matchesMasterStatusFilter(
+export function matchesMasterStatusFilter(
   item: TransferBagMasterItem,
   filter: MasterStatusFilter,
   carrierRecordsByBagCode = getCarrierMasterRecordMap(),
@@ -397,7 +399,7 @@ function matchesMasterStatusFilter(
   return carrierRecordsByBagCode[item.bagCode]?.currentStatus === filter
 }
 
-function getMasterBaseItems(carrierRecordsByBagCode = getCarrierMasterRecordMap()) {
+export function getMasterBaseItems(carrierRecordsByBagCode = getCarrierMasterRecordMap()) {
   const keyword = state.masterKeyword.trim().toLowerCase()
   const locationKeyword = state.masterLocationKeyword.trim().toLowerCase()
   const matchedMasterIds = state.prefilter ? new Set(findMatchingMasters(state.prefilter).map((item) => item.bagId)) : null
@@ -424,15 +426,15 @@ function getMasterBaseItems(carrierRecordsByBagCode = getCarrierMasterRecordMap(
   })
 }
 
-function getFilteredMasters(baseItems = getMasterBaseItems(), carrierRecordsByBagCode = getCarrierMasterRecordMap()) {
+export function getFilteredMasters(baseItems = getMasterBaseItems(), carrierRecordsByBagCode = getCarrierMasterRecordMap()) {
   return baseItems.filter((item) => matchesMasterStatusFilter(item, state.masterStatus, carrierRecordsByBagCode))
 }
 
-function resetMasterPagination(): void {
+export function resetMasterPagination(): void {
   state.masterPage = 1
 }
 
-function getPagedMasters() {
+export function getPagedMasters() {
   const carrierRecordsByBagCode = getCarrierMasterRecordMap()
   const baseItems = getMasterBaseItems(carrierRecordsByBagCode)
   const filteredItems = getFilteredMasters(baseItems, carrierRecordsByBagCode)
@@ -446,7 +448,7 @@ function getPagedMasters() {
   }
 }
 
-function getFilteredUsages() {
+export function getFilteredUsages() {
   const keyword = state.usageKeyword.trim().toLowerCase()
   return getViewModel().usages.filter((item) => {
     if (state.usageStatus !== 'ALL' && item.usageStatus !== state.usageStatus) return false
@@ -472,7 +474,7 @@ function getFilteredUsages() {
   })
 }
 
-function getFilteredBindings() {
+export function getFilteredBindings() {
   const keyword = state.bindingKeyword.trim().toLowerCase()
   return getViewModel().bindings.filter((item) => {
     if (!matchesBindingPrefilter(item)) return false
@@ -493,7 +495,7 @@ function getFilteredBindings() {
   })
 }
 
-function getPrefilterFromQuery(): TransferBagPrefilter | null {
+export function getPrefilterFromQuery(): TransferBagPrefilter | null {
   const params = getWarehouseSearchParams()
   const drillContext = readCuttingDrillContextFromLocation(params)
   const prefilter: TransferBagPrefilter = {
@@ -523,37 +525,37 @@ function getPrefilterFromQuery(): TransferBagPrefilter | null {
   return Object.values(prefilter).some(Boolean) ? prefilter : null
 }
 
-function getActiveMaster(): TransferBagMasterItem | null {
+export function getActiveMaster(): TransferBagMasterItem | null {
   if (!state.activeMasterId) return null
   return getViewModel().mastersById[state.activeMasterId] ?? null
 }
 
-function getActiveUsage(): TransferBagUsageItem | null {
+export function getActiveUsage(): TransferBagUsageItem | null {
   if (!state.activeUsageId) return null
   return getViewModel().usagesById[state.activeUsageId] ?? null
 }
 
-function getSourceMaster(bagId: string | null): TransferBagMaster | null {
+export function getSourceMaster(bagId: string | null): TransferBagMaster | null {
   if (!bagId) return null
   return state.store.masters.find((item) => item.bagId === bagId) ?? null
 }
 
-function getSourceUsage(usageId: string | null): TransferBagUsage | null {
+export function getSourceUsage(usageId: string | null): TransferBagUsage | null {
   if (!usageId) return null
   return state.store.usages.find((item) => item.usageId === usageId) ?? null
 }
 
-function getSelectedBag(): TransferBagMaster | null {
+export function getSelectedBag(): TransferBagMaster | null {
   const bagId = state.draft.bagId || getActiveUsage()?.bagId || getActiveMaster()?.bagId || ''
   if (bagId) return getSourceMaster(bagId)
   return resolveCarrierScanInput(state.draft.bagCodeInput, state.store)
 }
 
-function getSelectedSewingTask() {
+export function getSelectedSewingTask() {
   return state.draft.sewingTaskId ? getViewModel().sewingTasksById[state.draft.sewingTaskId] || null : null
 }
 
-function getCandidateTickets(): TransferBagTicketCandidate[] {
+export function getCandidateTickets(): TransferBagTicketCandidate[] {
   const viewModel = getViewModel()
   if (state.preselectedTicketRecordIds.length) {
     return state.preselectedTicketRecordIds
@@ -579,13 +581,13 @@ function getCandidateTickets(): TransferBagTicketCandidate[] {
   })
 }
 
-function getSelectedTicketRecord(): TransferBagTicketCandidate | null {
+export function getSelectedTicketRecord(): TransferBagTicketCandidate | null {
   const record = resolveFeiTicketScanInput(state.draft.ticketInput, getProjection().ticketRecords)
   if (!record) return null
   return getViewModel().ticketCandidatesById[record.ticketRecordId] ?? null
 }
 
-function resolveLockedUsageContext(
+export function resolveLockedUsageContext(
   usage: TransferBagUsage | null,
   ticket: TransferBagTicketCandidate | null,
 ): TransferBagCycleContextResolution {
@@ -597,7 +599,7 @@ function resolveLockedUsageContext(
   })
 }
 
-function ensureUsageAutoCreatedForTicket(ticket: TransferBagTicketCandidate): TransferBagUsage | null {
+export function ensureUsageAutoCreatedForTicket(ticket: TransferBagTicketCandidate): TransferBagUsage | null {
   const existingUsage = getSourceUsage(state.activeUsageId)
   if (existingUsage) return existingUsage
 
@@ -642,7 +644,7 @@ function ensureUsageAutoCreatedForTicket(ticket: TransferBagTicketCandidate): Tr
   return getSourceUsage(usage.usageId)
 }
 
-function resolveTransferBagLandingFromPrefilter(
+export function resolveTransferBagLandingFromPrefilter(
   prefilter: TransferBagPrefilter | null,
   viewModel = getViewModel(),
 ): TransferBagLandingResolution | null {
@@ -765,7 +767,7 @@ function resolveTransferBagLandingFromPrefilter(
   }
 }
 
-function buildTransferBagLandingBanner(
+export function buildTransferBagLandingBanner(
   prefilter: TransferBagPrefilter | null,
   drillContext: CuttingDrillContext | null,
   resolution: TransferBagLandingResolution | null,
@@ -821,7 +823,7 @@ function buildTransferBagLandingBanner(
   }
 }
 
-function refreshDerivedState(): void {
+export function refreshDerivedState(): void {
   const usageMap = new Map<string, TransferBagItemBinding[]>()
   const closureMap = new Map<string, typeof state.store.closureResults>()
   state.store.bindings.forEach((binding) => {
@@ -908,7 +910,7 @@ function refreshDerivedState(): void {
   )
 }
 
-function buildNextUsageNo(now = nowText()): string {
+export function buildNextUsageNo(now = nowText()): string {
   const dateKey = now.slice(0, 10).replaceAll('-', '')
   const sameDay = state.store.usages
     .map((item) => item.usageNo)
@@ -918,16 +920,16 @@ function buildNextUsageNo(now = nowText()): string {
   return `TBU-${dateKey}-${String(Math.max(0, ...sameDay) + 1).padStart(3, '0')}`
 }
 
-function resolvePackBag(): TransferBagMaster | null {
+export function resolvePackBag(): TransferBagMaster | null {
   if (state.packDraft.bagId) return getSourceMaster(state.packDraft.bagId)
   return resolveCarrierScanInput(state.packDraft.bagCodeInput, state.store)
 }
 
-function parseTicketInputs(value: string): string[] {
+export function parseTicketInputs(value: string): string[] {
   return uniqueStrings(value.split(/[\s,，;；、]+/).map((item) => item.trim()).filter(Boolean))
 }
 
-function resolvePackTickets(): { tickets: TransferBagTicketCandidate[]; missing: string[] } {
+export function resolvePackTickets(): { tickets: TransferBagTicketCandidate[]; missing: string[] } {
   const ticketRecords = getProjection().ticketRecords
   const tickets: TransferBagTicketCandidate[] = []
   const missing: string[] = []
@@ -943,11 +945,11 @@ function resolvePackTickets(): { tickets: TransferBagTicketCandidate[]; missing:
   return { tickets, missing }
 }
 
-function getSelectedSewingTaskByNo(taskNo: string) {
+export function getSelectedSewingTaskByNo(taskNo: string) {
   return getViewModel().sewingTasks.find((item) => item.sewingTaskNo === taskNo || item.sewingTaskId === taskNo) || null
 }
 
-function buildManualUsage(options: {
+export function buildManualUsage(options: {
   stage: 'INBOUND_TEMP' | 'HANDOVER_PACKING'
   bag: TransferBagMaster
   tickets: TransferBagTicketCandidate[]
@@ -1009,7 +1011,7 @@ function buildManualUsage(options: {
   }
 }
 
-function pushTicketBindings(usage: TransferBagUsage, tickets: TransferBagTicketCandidate[], now: string, note: string): void {
+export function pushTicketBindings(usage: TransferBagUsage, tickets: TransferBagTicketCandidate[], now: string, note: string): void {
   tickets.forEach((ticket, index) => {
     state.store.bindings.push({
       bindingId: buildCuttingTraceabilityId('carrier-bind', now, usage.usageId, ticket.ticketRecordId, String(index + 1)),
@@ -1047,7 +1049,7 @@ function pushTicketBindings(usage: TransferBagUsage, tickets: TransferBagTicketC
   })
 }
 
-function saveMasterDraft(): boolean {
+export function saveMasterDraft(): boolean {
   const bagCode = state.masterDraft.bagCode.trim()
   if (!bagCode) {
     setFeedback('warning', '请填写中转袋编号。')
@@ -1108,7 +1110,7 @@ function saveMasterDraft(): boolean {
   return true
 }
 
-function savePackDraft(stage: 'INBOUND_TEMP' | 'HANDOVER_PACKING'): boolean {
+export function savePackDraft(stage: 'INBOUND_TEMP' | 'HANDOVER_PACKING'): boolean {
   const bag = resolvePackBag()
   if (!bag) {
     setFeedback('warning', '请先扫描中转袋二维码。')
@@ -1177,7 +1179,7 @@ function savePackDraft(stage: 'INBOUND_TEMP' | 'HANDOVER_PACKING'): boolean {
   return true
 }
 
-function confirmHandoverPacking(targetUsageId?: string): boolean {
+export function confirmHandoverPacking(targetUsageId?: string): boolean {
   const usage = getSourceUsage(targetUsageId || state.activeUsageId)
   if (!usage || usage.usageStage !== 'HANDOVER_PACKING') {
     setFeedback('warning', '请先选择交出装袋记录。')
@@ -1220,7 +1222,7 @@ function confirmHandoverPacking(targetUsageId?: string): boolean {
   return true
 }
 
-function completeInboundStorage(targetUsageId?: string): boolean {
+export function completeInboundStorage(targetUsageId?: string): boolean {
   const usage = getSourceUsage(targetUsageId || state.activeUsageId)
   if (!usage || usage.usageStage !== 'INBOUND_TEMP') {
     setFeedback('warning', '请先选择入仓暂存装袋记录。')
@@ -1254,7 +1256,7 @@ function completeInboundStorage(targetUsageId?: string): boolean {
   return true
 }
 
-function releaseInboundBag(targetUsageId?: string): boolean {
+export function releaseInboundBag(targetUsageId?: string): boolean {
   const usage = getSourceUsage(targetUsageId || state.activeUsageId)
   if (!usage || usage.usageStage !== 'INBOUND_TEMP') {
     setFeedback('warning', '请先选择入仓暂存使用记录。')
@@ -1291,7 +1293,7 @@ function releaseInboundBag(targetUsageId?: string): boolean {
   return true
 }
 
-function saveReturnDraft(): boolean {
+export function saveReturnDraft(): boolean {
   const usage = getSourceUsage(state.activeUsageId)
   if (!usage) {
     setFeedback('warning', '请先选择待回收的使用记录。')
@@ -1300,7 +1302,7 @@ function saveReturnDraft(): boolean {
   return completeReturnInspection(usage.usageId)
 }
 
-function syncPrefilterFromQuery(): void {
+export function syncPrefilterFromQuery(): void {
   const pathname = appStore.getState().pathname
   if (pathname === state.querySignature) return
   state.querySignature = pathname
@@ -1368,7 +1370,7 @@ function syncPrefilterFromQuery(): void {
   }
 }
 
-function resetReturnDraft(usageId?: string | null): void {
+export function resetReturnDraft(usageId?: string | null): void {
   const usage = usageId ? getViewModel().usagesById[usageId] ?? null : null
   const latestReceipt = usage ? (getReturnViewModel().returnReceiptsByUsageId[usage.usageId] || []).slice().sort((left, right) => right.returnAt.localeCompare(left.returnAt, 'zh-CN'))[0] || null : null
   const latestCondition = usage ? (getReturnViewModel().conditionRecordsByUsageId[usage.usageId] || []).slice().sort((left, right) => right.inspectedAt.localeCompare(left.inspectedAt, 'zh-CN'))[0] || null : null
