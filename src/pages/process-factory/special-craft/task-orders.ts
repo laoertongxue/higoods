@@ -66,11 +66,8 @@ interface ExpandedTaskOrderRow {
 const TASK_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: '全部', label: '全部任务' },
   { value: '待领料', label: '待领料' },
-  { value: '已入待加工仓', label: '待加工' },
   { value: '加工中', label: '加工中' },
-  { value: '待交出', label: '待交出' },
-  { value: '已完成', label: '已完成' },
-  { value: '差异', label: '差异' },
+  { value: '已完结', label: '已完结' },
 ]
 
 const TASK_TIME_RANGE_OPTIONS: Array<{ value: string; label: string }> = [
@@ -153,11 +150,7 @@ const COLUMNS: StandardListColumn<ExpandedTaskOrderRow>[] = [
   {
     key: 'status', title: '状态', width: 100, freezeable: true,
     render(row) {
-      const badges = [renderStatusBadge(row.taskOrder.status)]
-      if (row.taskOrder.abnormalStatus && row.taskOrder.abnormalStatus !== '无异常') {
-        badges.push(renderStatusBadge(row.taskOrder.abnormalStatus))
-      }
-      return `<div class="flex flex-wrap gap-1">${badges.join('')}</div>`
+      return renderStatusBadge(row.taskOrder.status)
     },
   },
   {
@@ -340,8 +333,7 @@ function renderStats(taskOrders: SpecialCraftTaskOrder[]): string {
     { label: '加工单数', value: String(taskOrders.length) },
     { label: '待领料', value: String(taskOrders.filter((t) => t.status === '待领料').length) },
     { label: '加工中', value: String(taskOrders.filter((t) => t.status === '加工中').length) },
-    { label: '待交出', value: String(taskOrders.filter((t) => t.status === '待交出').length) },
-    { label: '差异/异常', value: String(taskOrders.filter((t) => t.status === '差异' || t.status === '异常' || t.status === '异议中').length) },
+    { label: '已完结', value: String(taskOrders.filter((t) => t.status === '已完结').length) },
   ])
 }
 
