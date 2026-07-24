@@ -212,9 +212,7 @@ const ACTION_CODE_ALIASES: Record<string, string> = {
   CONFIRM_CUTTING_INBOUND: 'CUTTING_CONFIRM_INBOUND',
   SUBMIT_CUTTING_HANDOVER: 'CUTTING_SUBMIT_HANDOVER',
   CONFIRM_SPECIAL_RECEIVE: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
-  START_SPECIAL_PROCESS: 'SPECIAL_CRAFT_START_PROCESS',
-  FINISH_SPECIAL_PROCESS: 'SPECIAL_CRAFT_FINISH_PROCESS',
-  REPORT_SPECIAL_DIFFERENCE: 'SPECIAL_CRAFT_REPORT_DIFFERENCE',
+  FINISH_SPECIAL_PROCESS: 'SPECIAL_CRAFT_PROCESS_REPORT',
   SUBMIT_SPECIAL_HANDOVER: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
 }
 
@@ -501,69 +499,49 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     actionLabel: '成衣仓出库',
     sourceType: 'SPECIAL_CRAFT',
     fromStatuses: ['待领料'],
-    toStatus: '成衣仓已出库待收货',
+    toStatus: '加工中',
     requiredFields: ['出库人', '出库时间', '逐 SKU 实出件数'],
     optionalFields: ['备注'],
-    writebackHandler: 'executeSpecialCraftAction.confirmGarmentWarehouseOutbound',
+    writebackHandler: 'executeSpecialCraftAction.updateSpecialCraftTaskOrderWebStatus',
     affectsWarehouse: true,
   },
   {
     actionCode: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
     actionLabel: '确认接收裁片',
     sourceType: 'SPECIAL_CRAFT',
-    fromStatuses: ['待接收', '待领料', '成衣仓已出库待收货'],
-    toStatus: '已入待加工仓',
+    fromStatuses: ['待领料', '加工中'],
+    toStatus: '加工中',
     requiredFields: ['接收人', '接收时间', '接收裁片数量', '关联菲票'],
     optionalFields: ['备注'],
     writebackHandler: 'executeSpecialCraftAction.updateSpecialCraftTaskOrderWebStatus',
   },
   {
-    actionCode: 'SPECIAL_CRAFT_START_PROCESS',
-    actionLabel: '开始加工',
-    sourceType: 'SPECIAL_CRAFT',
-    fromStatuses: ['已接收', '待加工', '已入待加工仓'],
-    toStatus: '加工中',
-    requiredFields: ['操作人', '开始时间'],
-    writebackHandler: 'executeSpecialCraftAction.updateSpecialCraftTaskOrderWebStatus',
-  },
-  {
-    actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
-    actionLabel: '完成加工',
+    actionCode: 'SPECIAL_CRAFT_PROCESS_REPORT',
+    actionLabel: '加工填报',
     sourceType: 'SPECIAL_CRAFT',
     fromStatuses: ['加工中'],
-    toStatus: '待交出',
-    requiredFields: ['操作人', '完成时间', '加工完成裁片数量'],
+    toStatus: '加工中',
+    requiredFields: ['操作人', '填报时间', '完工数量'],
     writebackHandler: 'executeSpecialCraftAction.updateSpecialCraftTaskOrderWebStatus',
-  },
-  {
-    actionCode: 'SPECIAL_CRAFT_REPORT_DIFFERENCE',
-    actionLabel: '上报差异',
-    sourceType: 'SPECIAL_CRAFT',
-    fromStatuses: ['已接收', '已入待加工仓', '加工中', '加工完成', '待交出'],
-    toStatus: '差异',
-    requiredFields: ['上报人', '差异类型', '应收裁片数量', '实收裁片数量', '差异裁片数量', '关联菲票', '原因'],
-    optionalFields: ['证据'],
-    writebackHandler: 'executeSpecialCraftAction.createProcessHandoverDifferenceRecord',
-    affectsDifference: true,
   },
   {
     actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
     actionLabel: '发起交出',
     sourceType: 'SPECIAL_CRAFT',
-    fromStatuses: ['加工完成', '待交出'],
-    toStatus: '交出待收货',
-    requiredFields: ['交出人', '交出时间', '交出裁片数量', '关联菲票'],
+    fromStatuses: ['加工中'],
+    toStatus: '加工中',
+    requiredFields: ['交出人', '交出时间'],
     optionalFields: ['备注'],
     writebackHandler: 'executeSpecialCraftAction.createProcessHandoverRecord',
     affectsHandover: true,
   },
   {
-    actionCode: 'SPECIAL_CRAFT_REWORK_AFTER_REJECT',
-    actionLabel: '差异后重交',
+    actionCode: 'SPECIAL_CRAFT_COMPLETE_ORDER',
+    actionLabel: '完成加工单',
     sourceType: 'SPECIAL_CRAFT',
-    fromStatuses: ['差异', '异议中', '异常', '交出待收货', '收货差异'],
-    toStatus: '待交出',
-    requiredFields: ['操作人', '重交裁片数量', '备注'],
+    fromStatuses: ['加工中'],
+    toStatus: '已完结',
+    requiredFields: ['操作人', '完成时间'],
     writebackHandler: 'executeSpecialCraftAction.updateSpecialCraftTaskOrderWebStatus',
   },
   {
@@ -941,7 +919,7 @@ export function validateProcessAction(payload: ProcessActionPayload): { ok: bool
       const requiresPositiveSkuQty = [
         'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
         'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
-        'SPECIAL_CRAFT_FINISH_PROCESS',
+        'SPECIAL_CRAFT_PROCESS_REPORT',
       ].includes(definition.actionCode)
       if (isGarment && requiresPositiveSkuQty && payload.skuQtyBySkuCode && !Object.values(payload.skuQtyBySkuCode).some((value) => Number(value) > 0)) {
         throw new Error('成衣操作至少一个 SKU 件数必须大于 0')
@@ -1183,7 +1161,7 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
     })
     return { updatedWorkOrderId: updated?.workOrderId || workOrder.workOrderId }
   }
-  if (definition.actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS' && objectMeta.objectType === '成衣') {
+  if (definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && objectMeta.objectType === '成衣') {
     if (!payload.skuQtyBySkuCode || !payload.skuScrapQtyBySkuCode || !payload.skuDamageQtyBySkuCode) {
       throw new Error('成衣完工必须逐 SKU 确认完工、报废和货损件数。')
     }
@@ -1201,15 +1179,14 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
     status: nextStatus,
     operatorName: payload.operatorName,
     operatedAt: payload.operatedAt,
-    currentQty: definition.actionCode === 'SPECIAL_CRAFT_REPORT_DIFFERENCE' ? Math.max((workOrder.currentQty ?? workOrder.receivedQty ?? 0) - qty, 0) : undefined,
     receivedQty: definition.actionCode === 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES' ? qty : undefined,
-    waitReturnQty: definition.actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS' ? qty : undefined,
+    completedQty: definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' ? qty : undefined,
     returnedQty: definition.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? qty : undefined,
     remark: payload.remark,
   })
 
   // 裁片完工：标记菲票已完成对应工艺
-  if (definition.actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS' && objectMeta.objectType === '裁片') {
+  if (definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && objectMeta.objectType === '裁片') {
     markSpecialCraftFeiTicketBindingCompleted({
       taskOrderId: workOrder.taskOrderId,
       operationId: workOrder.operationId,
@@ -1217,56 +1194,6 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
       completedBy: payload.operatorName || '现场操作员',
       completedAt: payload.operatedAt || nowText(),
     })
-  }
-
-  if (definition.actionCode === 'SPECIAL_CRAFT_REPORT_DIFFERENCE') {
-    const handover = createProcessHandoverRecord({
-      craftType: 'SPECIAL_CRAFT',
-      craftName: workOrder.operationName,
-      sourceTaskOrderId: workOrder.workOrderId,
-      sourceWorkOrderNo: workOrder.workOrderNo,
-      sourceTaskId: binding.actualTaskId,
-      sourceTaskNo: binding.actualTaskNo,
-      sourceProductionOrderId: workOrder.productionOrderId,
-      sourceProductionOrderNo: workOrder.productionOrderNo,
-      handoverFactoryId: workOrder.factoryId,
-      handoverFactoryName: workOrder.factoryName,
-      receiveFactoryId: workOrder.factoryId,
-      receiveFactoryName: workOrder.factoryName,
-      receiveWarehouseName: '特殊工艺待处理区',
-      objectType: objectMeta.objectType,
-      handoverObjectQty: workOrder.planQty,
-      receiveObjectQty: Math.max(workOrder.planQty - qty, 0),
-      diffObjectQty: qty,
-      qtyUnit: objectMeta.qtyUnit,
-      handoverPerson: payload.operatorName || '操作员',
-      handoverAt: payload.operatedAt,
-      relatedFeiTicketIds: [...workOrder.feiTicketNos],
-      remark: payload.remark || `${payload.sourceChannel}上报特殊工艺差异`,
-    })
-    const difference = createProcessHandoverDifferenceRecord({
-      handoverRecordId: handover.handoverRecordId,
-      warehouseRecordId: handover.warehouseRecordId,
-      sourceTaskOrderId: workOrder.workOrderId,
-      sourceWorkOrderNo: workOrder.workOrderNo,
-      sourceProductionOrderId: workOrder.productionOrderId,
-      sourceProductionOrderNo: workOrder.productionOrderNo,
-      craftType: 'SPECIAL_CRAFT',
-      craftName: workOrder.operationName,
-      objectType: objectMeta.objectType,
-      expectedObjectQty: workOrder.planQty,
-      actualObjectQty: Math.max(workOrder.planQty - qty, 0),
-      diffObjectQty: qty,
-      qtyUnit: objectMeta.qtyUnit,
-      reportedBy: payload.operatorName || '操作员',
-      relatedFeiTicketIds: [...workOrder.feiTicketNos],
-      remark: payload.remark || `${payload.sourceChannel}差异上报`,
-    })
-    return {
-      affectedHandoverRecordId: handover.handoverRecordId,
-      affectedDifferenceRecordId: difference.differenceRecordId,
-      updatedWorkOrderId: updated?.workOrderId || workOrder.workOrderId,
-    }
   }
 
   return { updatedWorkOrderId: updated?.workOrderId || workOrder.workOrderId }

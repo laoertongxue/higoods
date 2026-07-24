@@ -87,7 +87,6 @@ export function executeSpecialCraftWaitProcessIssue(
         sourceType: 'SPECIAL_CRAFT',
         sourceId: workOrder.taskOrderId,
         taskId: workOrder.taskOrderId,
-        actionCode: 'SPECIAL_CRAFT_START_PROCESS',
         ...actor,
         operatedAt: nowText(),
         objectType: '成衣',

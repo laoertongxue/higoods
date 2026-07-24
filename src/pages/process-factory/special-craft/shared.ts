@@ -44,15 +44,13 @@ export function formatSpecialCraftFactoryLabel(factoryName?: string, factoryId?:
 
 export function renderStatusBadge(label: string): string {
   const tone =
-    label.includes('差异') || label.includes('异议') || label.includes('异常')
-      ? 'red'
-      : label.includes('待领料') || label.includes('待交出')
-        ? 'amber'
-        : label.includes('加工中')
-          ? 'blue'
-          : label.includes('已完成') || label.includes('已回写') || label.includes('已入')
-            ? 'green'
-            : 'slate'
+    label.includes('待领料')
+      ? 'amber'
+      : label.includes('加工中')
+        ? 'blue'
+        : label.includes('已完结')
+          ? 'green'
+          : 'slate'
   return `<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${toneClass(tone)}">${escapeHtml(label)}</span>`
 }
 
@@ -233,41 +231,34 @@ export function getFastSpecialCraftWebActions(taskOrder: SpecialCraftTaskOrder):
     {
       actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE',
       actionLabel: '确认接收',
-      fromStatuses: ['待领料'],
+      fromStatuses: ['待领料', '加工中'],
       toStatus: '加工中',
       requiredFields: ['接收人', '接收时间'],
       optionalFields: ['备注'],
     },
     {
-      actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
-      actionLabel: '完成加工',
+      actionCode: 'SPECIAL_CRAFT_PROCESS_REPORT',
+      actionLabel: '加工填报',
       fromStatuses: ['加工中'],
-      toStatus: '待交出',
-      requiredFields: ['操作人', '完成时间'],
+      toStatus: '加工中',
+      requiredFields: ['操作人', '填报时间'],
       optionalFields: ['备注'],
-    },
-    {
-      actionCode: 'SPECIAL_CRAFT_REPORT_DIFFERENCE',
-      actionLabel: '上报差异',
-      fromStatuses: ['已接收', '已入待加工仓', '加工中', '加工完成', '待交出'],
-      toStatus: '差异',
-      requiredFields: ['上报人', '差异类型', '应收裁片数量', '实收裁片数量', '差异裁片数量', '关联菲票', '原因'],
-      optionalFields: ['证据'],
     },
     {
       actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
       actionLabel: '发起交出',
-      fromStatuses: ['待交出'],
-      toStatus: '已交出',
+      fromStatuses: ['加工中'],
+      toStatus: '加工中',
       requiredFields: ['交出人', '交出时间'],
       optionalFields: ['备注'],
     },
     {
-      actionCode: 'SPECIAL_CRAFT_REWORK_AFTER_REJECT',
-      actionLabel: '差异后重交',
-      fromStatuses: ['差异', '异议中', '异常', '交出待收货', '收货差异'],
-      toStatus: '待交出',
-      requiredFields: ['操作人', '重交裁片数量', '备注'],
+      actionCode: 'SPECIAL_CRAFT_COMPLETE_ORDER',
+      actionLabel: '完成加工单',
+      fromStatuses: ['加工中'],
+      toStatus: '已完结',
+      requiredFields: ['操作人', '完成时间'],
+      optionalFields: ['备注'],
     },
   ]
 

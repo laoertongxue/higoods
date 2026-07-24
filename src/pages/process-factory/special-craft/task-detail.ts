@@ -15,7 +15,6 @@ import {
 } from './shared.ts'
 
 import {
-  openProcessWebStatusActionDialog,
   handleProcessWebStatusActionDialogEvent,
 } from '../shared/web-status-action-dialog.ts'
 import {
@@ -31,13 +30,12 @@ import {
   resolveSpecialCraftFactoryContextGuard,
 } from './shared.ts'
 
-type SpecialCraftTaskDetailTab = 'overview' | 'demand' | 'warehouse' | 'exceptions' | 'events'
+type SpecialCraftTaskDetailTab = 'overview' | 'demand' | 'warehouse' | 'events'
 
 const specialCraftTaskDetailTabs: Array<{ key: SpecialCraftTaskDetailTab; label: string }> = [
   { key: 'overview', label: '概览' },
   { key: 'demand', label: '任务明细' },
   { key: 'warehouse', label: '仓库流转' },
-  { key: 'exceptions', label: '差异异常' },
   { key: 'events', label: '节点记录' },
 ]
 
@@ -145,7 +143,6 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     { label: '已完成裁片数量', value: `${formatQty(taskOrder.completedQty)}${escapeHtml(taskOrder.unit)}` },
     { label: '待交出裁片数量', value: `${formatQty(taskOrder.waitHandoverQty)}${escapeHtml(taskOrder.unit)}` },
     { label: '当前状态', value: renderStatusBadge(taskOrder.status) },
-    { label: '异常状态', value: renderStatusBadge(taskOrder.abnormalStatus) },
     { label: '交期', value: escapeHtml(taskOrder.dueAt.slice(0, 10)) },
   ])
 
@@ -202,27 +199,6 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
           <td class="px-3 py-3">${
             warehouseLink.status === '已回写' ? renderStatusBadge('已回写') : '未回写'
           }</td>
-          <td class="px-3 py-3">${
-            warehouseLink.status === '差异' || warehouseLink.status === '异议中'
-              ? renderStatusBadge(warehouseLink.status)
-              : '—'
-          }</td>
-        </tr>
-      `,
-    )
-    .join('')
-
-  const abnormalRows = taskOrder.abnormalRecords
-    .map(
-      (abnormalRecord) => `
-        <tr class="align-top">
-          <td class="px-3 py-3">${renderStatusBadge(abnormalRecord.abnormalType)}</td>
-          <td class="px-3 py-3">${formatQty(abnormalRecord.qty)}${escapeHtml(abnormalRecord.unit)}</td>
-          <td class="px-3 py-3">${escapeHtml(abnormalRecord.description)}</td>
-          <td class="px-3 py-3">${String(abnormalRecord.photoCount)}</td>
-          <td class="px-3 py-3">${escapeHtml(abnormalRecord.reportedBy)}</td>
-          <td class="px-3 py-3">${escapeHtml(abnormalRecord.reportedAt)}</td>
-          <td class="px-3 py-3">${renderStatusBadge(abnormalRecord.status)}</td>
         </tr>
       `,
     )
@@ -256,21 +232,6 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
           <td class="px-3 py-3">${escapeHtml(taskOrder.sizeCode || '多尺码')}</td>
           <td class="px-3 py-3">${formatQty(taskOrder.planQty)} ${escapeHtml(taskOrder.unit)}</td>
           <td class="px-3 py-3">${renderStatusBadge(taskOrder.status)}</td>
-        </tr>
-      `,
-    )
-    .join('')
-
-  const differenceRows = taskOrder.abnormalRecords
-    .map(
-      (report) => `
-        <tr class="align-top">
-          <td class="px-3 py-3">${escapeHtml(report.abnormalType)}</td>
-          <td class="px-3 py-3">${formatQty(report.qty)}${escapeHtml(report.unit)}</td>
-          <td class="px-3 py-3">${escapeHtml(report.description)}</td>
-          <td class="px-3 py-3">${escapeHtml(report.reportedBy)}</td>
-          <td class="px-3 py-3">${escapeHtml(report.reportedAt)}</td>
-          <td class="px-3 py-3">${renderStatusBadge(report.status)}</td>
         </tr>
       `,
     )
@@ -334,27 +295,10 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
               '交出记录',
               '交出二维码',
               '回写状态',
-              '差异 / 异议',
             ],
-            warehouseRows || `<tr><td colspan="10" class="px-3 py-6 text-center text-muted-foreground">暂无数据</td></tr>`,
-            'min-w-[1420px]',
+            warehouseRows || `<tr><td colspan="9" class="px-3 py-6 text-center text-muted-foreground">暂无数据</td></tr>`,
+            'min-w-[1280px]',
           ),
-        )}
-      </div>
-    `,
-    exceptions: `
-      <div class="space-y-5">
-        ${renderSection(
-          '接收差异上报 / 回仓差异上报',
-          differenceRows
-            ? renderTable(['差异类型', '差异数量', '原因', '上报人', '上报时间', '状态'], differenceRows, 'min-w-[860px]')
-            : renderEmptyState('暂无差异上报'),
-        )}
-        ${renderSection(
-          '异常记录',
-          abnormalRows
-            ? renderTable(['异常类型', '异常裁片数量', '描述', '照片数量', '上报人', '上报时间', '状态'], abnormalRows, 'min-w-[980px]')
-            : renderEmptyState('暂无异常记录'),
         )}
       </div>
     `,
@@ -466,21 +410,29 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
     if (!taskOrder) return true
 
     const isCustomDialog = actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
-      || actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS'
+      || actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT'
       || actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER'
+      || actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER'
 
     if (isCustomDialog) {
       const isGarment = taskOrder.targetObject === '成衣'
       const lines = taskOrder.demandLines || []
+      const readonly = actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER'
 
       if (isGarment) {
-        const title = actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
-          ? '确认接收 - 逐 SKU 确认实收件数'
-          : actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS'
-            ? '完成加工 - 逐 SKU 确认完工件数'
-            : '发起交出 - 逐 SKU 确认交出件数'
+        const title =
+          actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' ? '确认接收 - 逐 SKU 确认实收件数'
+          : actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' ? '加工填报 - 逐 SKU 确认加工件数'
+          : actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? '发起交出 - 逐 SKU 确认交出件数'
+          : '完成加工单 - 逐 SKU 查看完工件数（只读）'
         const dialogHtml = renderGarmentSkuConfirmDialog(sourceId, actionCode, title, lines, 'planPieceQty')
         document.body.insertAdjacentHTML('beforeend', dialogHtml)
+        if (readonly) {
+          const dialog = document.getElementById('special-craft-garment-sku-dialog')
+          if (dialog) {
+            dialog.querySelectorAll('input').forEach((input) => { input.readOnly = true })
+          }
+        }
       } else {
         const feiGroups = new Map<string, { feiTicketNo: string; partName: string; colorName: string; sizeCode: string; planQty: number }>()
         lines.forEach((line) => {
@@ -493,19 +445,23 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
           })
         })
         const groups = [...feiGroups.values()].map((g) => ({ ...g, defaultQty: g.planQty }))
-        const title = actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
-          ? '确认接收 - 逐菲票确认实收数量'
-          : actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS'
-            ? '完成加工 - 逐菲票确认完工数量'
-            : '发起交出 - 逐菲票确认交出数量'
+        const title =
+          actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' ? '确认接收 - 逐菲票确认实收数量'
+          : actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' ? '加工填报 - 逐菲票确认加工数量'
+          : actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? '发起交出 - 逐菲票确认交出数量'
+          : '完成加工单 - 逐菲票查看完工数量（只读）'
         const dialogHtml = renderCutPieceFeiTicketConfirmDialog(sourceId, actionCode, title, groups)
         document.body.insertAdjacentHTML('beforeend', dialogHtml)
+        if (readonly) {
+          const dialog = document.getElementById('special-craft-fei-ticket-dialog')
+          if (dialog) {
+            dialog.querySelectorAll('input').forEach((input) => { input.readOnly = true })
+          }
+        }
       }
       return true
     }
 
-    // 其他动作（上报差异、差异后重交）：使用通用对话框
-    openProcessWebStatusActionDialog({ actionNode, sourceType: 'SPECIAL_CRAFT' })
     return true
   }
 
