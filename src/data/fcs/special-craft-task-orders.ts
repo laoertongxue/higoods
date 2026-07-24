@@ -45,40 +45,18 @@ import { shouldGenerateInternalCraftOrderForProductionOrder } from './task-gener
 
 export type SpecialCraftTaskStatus =
   | '待领料'
-  | '成衣仓已出库待收货'
-  | '已入待加工仓'
   | '加工中'
-  | '已完成'
-  | '待交出'
-  | '已交出'
-  | '已回写'
-  | '差异'
-  | '异议中'
-  | '异常'
+  | '已完结'
 
-export type SpecialCraftTaskAbnormalStatus =
-  | '无异常'
-  | '数量差异'
-  | '破损'
-  | '错片'
-  | '延期'
-  | '设备异常'
-  | '其他异常'
+export type SpecialCraftTaskAbnormalStatus = '无异常'
 
 export type SpecialCraftTaskGenerationSource = 'PRODUCTION_ORDER'
 export type SpecialCraftTaskSourceTrigger = 'PRODUCTION_ORDER_CREATED'
 export type SpecialCraftTaskAssignmentStatus = 'WAIT_ASSIGN' | 'ASSIGNED'
 export type SpecialCraftTaskExecutionStatus =
   | 'WAIT_PICKUP'
-  | 'IN_WAIT_PROCESS_WAREHOUSE'
   | 'PROCESSING'
   | 'COMPLETED'
-  | 'WAIT_HANDOVER'
-  | 'HANDED_OVER'
-  | 'WRITTEN_BACK'
-  | 'DIFFERENCE'
-  | 'OBJECTION'
-  | 'ABNORMAL'
 
 export interface SpecialCraftTaskDemandLine {
   demandLineId: string
@@ -186,20 +164,7 @@ export interface SpecialCraftTaskWarehouseLink {
   waitHandoverStockItemId?: string
   handoverRecordId?: string
   handoverRecordNo?: string
-  status: '已入库' | '待交出' | '已出库' | '已回写' | '差异' | '异议中'
-}
-
-export interface SpecialCraftTaskAbnormalRecord {
-  abnormalId: string
-  taskOrderId: string
-  abnormalType: '数量差异' | '破损' | '错片' | '延期' | '设备异常' | '其他异常'
-  qty: number
-  unit: string
-  description: string
-  photoCount: number
-  reportedBy: string
-  reportedAt: string
-  status: '待处理' | '处理中' | '已关闭'
+  status: '已入库' | '待交出' | '已出库' | '已回写'
 }
 
 export interface SpecialCraftTaskOrder {
@@ -251,6 +216,7 @@ export interface SpecialCraftTaskOrder {
   damageQty?: number
   currentQty?: number
   returnedQty?: number
+  writebackQty?: number
   waitHandoverQty: number
   unit: string
   status: SpecialCraftTaskStatus
@@ -264,8 +230,6 @@ export interface SpecialCraftTaskOrder {
   outboundRecordIds?: string[]
   validationWarnings?: string[]
   workOrderIds?: string[]
-  openDifferenceReportCount?: number
-  openObjectionCount?: number
   isGenerated?: boolean
   isManualCreated?: boolean
   generationKey?: string
@@ -276,7 +240,6 @@ export interface SpecialCraftTaskOrder {
   assignmentMode?: string
   nodeRecords: SpecialCraftTaskNodeRecord[]
   warehouseLinks: SpecialCraftTaskWarehouseLink[]
-  abnormalRecords: SpecialCraftTaskAbnormalRecord[]
   remark?: string
 }
 
@@ -383,25 +346,25 @@ const PART_NAMES = ['前片', '后片', '袖片', '领片', '门襟', '裤身片
 const MIN_TASK_ORDER_COUNT_PER_OPERATION = 9
 const LINKED_DEMO_STATUSES: SpecialCraftTaskStatus[] = [
   '待领料',
-  '已入待加工仓',
   '加工中',
-  '已完成',
-  '待交出',
-  '已交出',
-  '已回写',
-  '差异',
-  '异议中',
+  '加工中',
+  '已完结',
+  '加工中',
+  '已完结',
+  '已完结',
+  '加工中',
+  '加工中',
 ]
 const LINKED_DEMO_ABNORMALS: SpecialCraftTaskAbnormalStatus[] = [
   '无异常',
   '无异常',
-  '设备异常',
   '无异常',
   '无异常',
   '无异常',
   '无异常',
-  '数量差异',
-  '数量差异',
+  '无异常',
+  '无异常',
+  '无异常',
 ]
 let specialCraftTaskStore: SpecialCraftTaskStore | null = null
 
@@ -522,16 +485,9 @@ function stableDemoHash(input: string): string {
 }
 
 function mapTaskStatusToExecutionStatus(status: SpecialCraftTaskStatus): SpecialCraftTaskExecutionStatus {
-  if (status === '已入待加工仓') return 'IN_WAIT_PROCESS_WAREHOUSE'
+  if (status === '待领料') return 'WAIT_PICKUP'
   if (status === '加工中') return 'PROCESSING'
-  if (status === '已完成') return 'COMPLETED'
-  if (status === '待交出') return 'WAIT_HANDOVER'
-  if (status === '已交出') return 'HANDED_OVER'
-  if (status === '已回写') return 'WRITTEN_BACK'
-  if (status === '差异') return 'DIFFERENCE'
-  if (status === '异议中') return 'OBJECTION'
-  if (status === '异常') return 'ABNORMAL'
-  return 'WAIT_PICKUP'
+  return 'COMPLETED'
 }
 
 function resolveSnapshotPatternContext(
@@ -587,14 +543,14 @@ function buildLinkedDemoTaskSeed(input: {
   const targetObject = operation.targetObject
   const pieceCountPerGarment = targetObject === '成衣' ? 1 : patternContext.pieceCountPerGarment
   const planQty = roundQty(orderLine.qty * pieceCountPerGarment)
-  const receivedQty = status === '待领料' ? 0 : roundQty(planQty - (abnormalStatus === '无异常' ? 0 : Math.max(1, Math.round(planQty * 0.01))))
-  const completedQty = ['已完成', '待交出', '已交出', '已回写', '差异', '异议中'].includes(status)
+  const receivedQty = status === '待领料' ? 0 : roundQty(planQty)
+  const completedQty = status === '已完结'
     ? receivedQty
     : status === '加工中'
       ? roundQty(Math.max(receivedQty * 0.45, 0))
       : 0
   const lossQty = roundQty(Math.max(receivedQty - completedQty, 0))
-  const waitHandoverQty = ['待交出', '已交出', '已回写', '差异', '异议中'].includes(status) ? completedQty : 0
+  const waitHandoverQty = status === '已完结' ? completedQty : 0
   const demandLine: SpecialCraftTaskDemandLine = {
     demandLineId: `${taskOrderId}-LINE-01`,
     taskOrderId,
@@ -698,15 +654,15 @@ function shouldCreateInboundRecord(status: SpecialCraftTaskStatus): boolean {
 }
 
 function shouldCreateWaitProcessRecord(status: SpecialCraftTaskStatus): boolean {
-  return ['已入待加工仓', '加工中', '差异', '异常'].includes(status)
+  return status === '加工中'
 }
 
 function shouldCreatePendingWaitHandoverRecord(status: SpecialCraftTaskStatus): boolean {
-  return ['已完成', '待交出'].includes(status)
+  return status === '已完结'
 }
 
 function shouldCreateOutboundRecord(status: SpecialCraftTaskStatus): boolean {
-  return ['已交出', '已回写', '差异', '异议中'].includes(status)
+  return status === '已完结'
 }
 
 function buildInboundArtifacts(seed: TaskSeedContext, positionIndex: number): WarehouseArtifacts {
@@ -715,7 +671,7 @@ function buildInboundArtifacts(seed: TaskSeedContext, positionIndex: number): Wa
   const warehouse = getWarehouse(seed.factory.id, 'WAIT_PROCESS')
   const inboundPosition = pickWarehousePosition(
     warehouse,
-    seed.status === '差异' || seed.abnormalStatus === '数量差异' ? '异常区' : 'A区',
+    'A区',
     positionIndex,
   )
   const differenceQty = roundQty(seed.receivedQty - seed.planQty)
@@ -841,27 +797,17 @@ function buildOutboundArtifacts(seed: TaskSeedContext, positionIndex: number): W
   const warehouse = getWarehouse(seed.factory.id, 'WAIT_HANDOVER')
   const outboundPosition = pickWarehousePosition(
     warehouse,
-    seed.status === '差异' || seed.status === '异议中' ? '异常区' : '待确认区',
+    '待确认区',
     positionIndex,
   )
   const outboundQty = roundQty(seed.completedQty - seed.lossQty)
-  const receiverWrittenQty =
-    seed.status === '已回写'
-      ? outboundQty
-      : seed.status === '差异'
-        ? roundQty(outboundQty - 6)
-        : seed.status === '异议中'
-          ? roundQty(outboundQty - 4)
-          : undefined
-  const differenceQty = typeof receiverWrittenQty === 'number' ? roundQty(receiverWrittenQty - outboundQty) : undefined
+  const receiverWrittenQty = seed.status === '已完结'
+    ? outboundQty
+    : undefined
   const outboundStatus: FactoryWarehouseOutboundRecord['status'] =
-    seed.status === '已交出'
-      ? '已出库'
-      : seed.status === '已回写'
-        ? '已回写'
-        : seed.status === '差异'
-          ? '差异'
-          : '异议中'
+    seed.status === '已完结'
+      ? '已回写'
+      : '待交出'
   const outboundRecord = upsertFactoryWarehouseOutboundRecord({
     outboundRecordId: `SC-OUT-${seed.taskOrderId}`,
     outboundRecordNo: `CK-${seed.taskOrderNo}`,
@@ -894,18 +840,11 @@ function buildOutboundArtifacts(seed: TaskSeedContext, positionIndex: number): W
     fabricRollNo: seed.fabricRollNos[0],
     outboundQty,
     receiverWrittenQty,
-    differenceQty,
     unit: seed.unit,
     operatorName: seed.factory.contact,
     outboundAt: seed.createdAt,
     status: outboundStatus,
-    abnormalReason:
-      seed.status === '差异'
-        ? '回写对象数量不符'
-        : seed.status === '异议中'
-          ? '已发起数量异议'
-          : undefined,
-    photoList: seed.status === '差异' || seed.status === '异议中' ? ['handover-proof-1.jpg'] : [],
+    photoList: [],
     remark: '由交接自动转单',
   })
   const waitHandoverStockItem = upsertFactoryWaitHandoverStockItem({
@@ -923,15 +862,11 @@ function buildOutboundArtifacts(seed: TaskSeedContext, positionIndex: number): W
     locationNo: outboundPosition.locationNo,
     locationText: outboundPosition.locationText,
     status:
-      seed.status === '已交出'
-        ? '已交出'
-        : seed.status === '已回写'
-          ? '已回写'
-          : seed.status === '差异'
-            ? '差异'
-            : '异议中',
-    differenceQty,
-    objectionStatus: seed.status === '异议中' ? '异议中' : undefined,
+      seed.status === '已完结'
+        ? '已回写'
+        : '待交出',
+    differenceQty: undefined,
+    objectionStatus: undefined,
     relatedWaitHandoverStockItemId: undefined,
     remark: '由交接自动转单',
   } as FactoryWaitHandoverStockItem)
@@ -957,7 +892,7 @@ function buildWarehouseLinks(seed: TaskSeedContext, artifacts: WarehouseArtifact
       inboundRecordId: artifacts.inboundRecord.inboundRecordId,
       inboundRecordNo: artifacts.inboundRecord.inboundRecordNo,
       waitProcessStockItemId: artifacts.waitProcessStockItem?.stockItemId,
-      status: artifacts.inboundRecord.status === '差异待处理' ? '差异' : '已入库',
+      status: '已入库',
     })
   }
 
@@ -975,9 +910,7 @@ function buildWarehouseLinks(seed: TaskSeedContext, artifacts: WarehouseArtifact
       status:
         artifacts.waitHandoverStockItem.status === '待交出'
           ? '待交出'
-          : artifacts.waitHandoverStockItem.status === '已交出'
-            ? '已出库'
-            : artifacts.waitHandoverStockItem.status,
+          : '已回写',
     })
   }
 
@@ -1019,10 +952,10 @@ function buildNodeRecords(seed: TaskSeedContext, artifacts: WarehouseArtifacts):
   if (artifacts.inboundRecord) {
     rows.push(
       createNodeRecord(seed, rows.length, {
-        nodeName: '已入待加工仓',
+        nodeName: '加工中',
         actionName: seed.sourceAction,
         beforeStatus: '待领料',
-        afterStatus: '已入待加工仓',
+        afterStatus: '加工中',
         qty: seed.receivedQty,
         unit: seed.unit,
         operatorName: seed.factory.contact,
@@ -1035,12 +968,12 @@ function buildNodeRecords(seed: TaskSeedContext, artifacts: WarehouseArtifacts):
     )
   }
 
-  if (['加工中', '已完成', '待交出', '已交出', '已回写', '差异', '异议中', '异常'].includes(seed.status)) {
+  if (status !== '待领料') {
     rows.push(
       createNodeRecord(seed, rows.length, {
-        nodeName: seed.status === '异常' ? '加工中' : '加工中',
+        nodeName: '加工中',
         actionName: '开工',
-        beforeStatus: '已入待加工仓',
+        beforeStatus: '待领料',
         afterStatus: '加工中',
         qty: seed.receivedQty,
         unit: seed.unit,
@@ -1054,13 +987,13 @@ function buildNodeRecords(seed: TaskSeedContext, artifacts: WarehouseArtifacts):
     )
   }
 
-  if (['已完成', '待交出', '已交出', '已回写', '差异', '异议中'].includes(seed.status)) {
+  if (status === '已完结') {
     rows.push(
       createNodeRecord(seed, rows.length, {
-        nodeName: '已完成',
-        actionName: '完工',
+        nodeName: '已完结',
+        actionName: '完结',
         beforeStatus: '加工中',
-        afterStatus: '已完成',
+        afterStatus: '已完结',
         qty: seed.completedQty,
         unit: seed.unit,
         operatorName: `${seed.factory.contact}组长`,
@@ -1068,155 +1001,12 @@ function buildNodeRecords(seed: TaskSeedContext, artifacts: WarehouseArtifacts):
         relatedRecordNo: seed.taskOrderNo,
         relatedRecordType: '任务记录',
         photoCount: 1,
-        remark: '已沉淀完工数量',
-      }),
-    )
-  }
-
-  if (artifacts.waitHandoverStockItem && ['已完成', '待交出'].includes(seed.status)) {
-    rows.push(
-      createNodeRecord(seed, rows.length, {
-        nodeName: '待交出',
-        actionName: '入待交出仓',
-        beforeStatus: '已完成',
-        afterStatus: '待交出',
-        qty: seed.waitHandoverQty,
-        unit: seed.unit,
-        operatorName: '系统',
-        operatedAt: formatDay(1),
-        relatedRecordNo: artifacts.waitHandoverStockItem.handoverOrderNo || seed.handoverOrderNo,
-        relatedRecordType: '任务记录',
-        photoCount: 0,
-        remark: '完工后沉淀到待交出仓',
-      }),
-    )
-  }
-
-  if (artifacts.outboundRecord) {
-    rows.push(
-      createNodeRecord(seed, rows.length, {
-        nodeName: '已交出',
-        actionName: '交出',
-        beforeStatus: '待交出',
-        afterStatus: '已交出',
-        qty: artifacts.outboundRecord.outboundQty,
-        unit: seed.unit,
-        operatorName: seed.factory.contact,
-        operatedAt: formatDay(2),
-        relatedRecordNo: artifacts.outboundRecord.handoverRecordNo,
-        relatedRecordType: '交出记录',
-        photoCount: artifacts.outboundRecord.photoList.length,
-        remark: '交接提交后自动生成出库记录',
-      }),
-    )
-  }
-
-  if (seed.status === '已回写') {
-    rows.push(
-      createNodeRecord(seed, rows.length, {
-        nodeName: '已回写',
-        actionName: '回写',
-        beforeStatus: '已交出',
-        afterStatus: '已回写',
-        qty: seed.waitHandoverQty || seed.completedQty,
-        unit: seed.unit,
-        operatorName: seed.receiverName,
-        operatedAt: formatDay(3),
-        relatedRecordNo: artifacts.outboundRecord?.outboundRecordNo,
-        relatedRecordType: '出库记录',
-        photoCount: 0,
-        remark: '接收方已完成回写',
-      }),
-    )
-  }
-
-  if (seed.status === '差异') {
-    rows.push(
-      createNodeRecord(seed, rows.length, {
-        nodeName: '差异',
-        actionName: '回写',
-        beforeStatus: '已交出',
-        afterStatus: '差异',
-        qty: Math.abs(artifacts.outboundRecord?.differenceQty || 0),
-        unit: seed.unit,
-        operatorName: seed.receiverName,
-        operatedAt: formatDay(3),
-        relatedRecordNo: artifacts.outboundRecord?.outboundRecordNo,
-        relatedRecordType: '出库记录',
-        photoCount: 1,
-        remark: '接收方回写对象数量与交出对象数量不符',
-      }),
-    )
-  }
-
-  if (seed.status === '异议中') {
-    rows.push(
-      createNodeRecord(seed, rows.length, {
-        nodeName: '异议中',
-        actionName: '发起异议',
-        beforeStatus: '差异',
-        afterStatus: '异议中',
-        qty: Math.abs(artifacts.outboundRecord?.differenceQty || 0),
-        unit: seed.unit,
-        operatorName: seed.factory.contact,
-        operatedAt: formatDay(4),
-        relatedRecordNo: artifacts.outboundRecord?.handoverRecordNo,
-        relatedRecordType: '交出记录',
-        photoCount: 1,
-        remark: '已发起数量异议，等待平台处理',
-      }),
-    )
-  }
-
-  if (seed.abnormalStatus !== '无异常') {
-    rows.push(
-      createNodeRecord(seed, rows.length, {
-        nodeName: '异常',
-        actionName: '记录异常',
-        beforeStatus: seed.status,
-        afterStatus: seed.status,
-        qty: seed.status === '待领料' ? seed.planQty : seed.receivedQty || seed.completedQty,
-        unit: seed.unit,
-        operatorName: `${seed.factory.contact}组长`,
-        operatedAt: formatDay(2),
-        relatedRecordNo: `${seed.taskOrderNo}-ABN`,
-        relatedRecordType: '异常记录',
-        photoCount: 1,
-        remark: `已登记${seed.abnormalStatus}`,
+        remark: '已完结',
       }),
     )
   }
 
   return rows
-}
-
-function buildAbnormalRecords(seed: TaskSeedContext): SpecialCraftTaskAbnormalRecord[] {
-  if (seed.abnormalStatus === '无异常') return []
-  return [
-    {
-      abnormalId: `${seed.taskOrderId}-ABN-01`,
-      taskOrderId: seed.taskOrderId,
-      abnormalType: seed.abnormalStatus === '其他异常' ? '其他异常' : seed.abnormalStatus,
-      qty: seed.status === '待领料' ? seed.planQty : Math.max(seed.receivedQty, seed.completedQty, 1),
-      unit: seed.unit,
-      description:
-        seed.abnormalStatus === '数量差异'
-          ? '接收或回写对象数量不一致，需复核差异来源。'
-          : seed.abnormalStatus === '设备异常'
-            ? '关键设备停机，已改排临时机台。'
-            : seed.abnormalStatus === '延期'
-              ? '上游交接延后，交期需重新确认。'
-              : seed.abnormalStatus === '破损'
-                ? '来料局部破损，已转异常区待处理。'
-                : seed.abnormalStatus === '错片'
-                  ? '裁片部位错配，待复核来源菲票。'
-                  : '已登记现场异常，等待处理。',
-      photoCount: 1,
-      reportedBy: `${seed.factory.contact}组长`,
-      reportedAt: formatDay(2),
-      status: seed.status === '异议中' ? '处理中' : '待处理',
-    },
-  ]
 }
 
 function buildTaskOrder(seed: TaskSeedContext, artifacts: WarehouseArtifacts): SpecialCraftTaskOrder {
@@ -1288,23 +1078,9 @@ function buildTaskOrder(seed: TaskSeedContext, artifacts: WarehouseArtifacts): S
     assignmentStatusLabel: seed.assignmentStatusLabel || '已分配',
     executionStatus: seed.executionStatus || (seed.status === '待领料'
         ? 'WAIT_PICKUP'
-        : seed.status === '已入待加工仓'
-          ? 'IN_WAIT_PROCESS_WAREHOUSE'
-          : seed.status === '加工中'
-            ? 'PROCESSING'
-            : seed.status === '已完成'
-              ? 'COMPLETED'
-              : seed.status === '待交出'
-                ? 'WAIT_HANDOVER'
-                : seed.status === '已交出'
-                  ? 'HANDED_OVER'
-                  : seed.status === '已回写'
-                    ? 'WRITTEN_BACK'
-                    : seed.status === '差异'
-                      ? 'DIFFERENCE'
-                      : seed.status === '异议中'
-                        ? 'OBJECTION'
-                        : 'ABNORMAL'),
+        : seed.status === '加工中'
+          ? 'PROCESSING'
+          : 'COMPLETED'),
     executionStatusLabel: seed.executionStatusLabel || seed.status,
     demandLines,
     sourcePieceRowIds,
@@ -1344,12 +1120,10 @@ function buildTaskOrder(seed: TaskSeedContext, artifacts: WarehouseArtifacts): S
     assignmentMode: seed.assignmentMode || '演示分配',
     nodeRecords: [],
     warehouseLinks: [],
-    abnormalRecords: [],
     remark: seed.remark || '展示已由生产单沉淀后的工艺加工结果。',
   }
   taskOrder.nodeRecords = buildNodeRecords(seed, artifacts)
   taskOrder.warehouseLinks = buildWarehouseLinks(seed, artifacts)
-  taskOrder.abnormalRecords = buildAbnormalRecords(seed)
   assertSpecialCraftTaskOrderValid(taskOrder)
   return taskOrder
 }
@@ -1456,7 +1230,7 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
       const warehouse = getWarehouse(taskOrder.factoryId, 'WAIT_PROCESS')
       const position = pickWarehousePosition(
         warehouse,
-        taskOrder.status === '差异' || taskOrder.abnormalStatus === '数量差异' ? '异常区' : 'A区',
+        'A区',
         index + 1,
       )
       const receivedQty = roundQty(taskOrder.receivedQty)
@@ -1511,7 +1285,7 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
           productionOrderNo: taskOrder.productionOrderNo,
           taskId: taskOrder.sourceTaskId,
           taskNo: taskOrder.sourceTaskNo,
-          status: differenceQty !== 0 || taskOrder.status === '异常' ? '差异待处理' : '已入待加工仓',
+          status: differenceQty !== 0 ? '差异待处理' : '已入待加工仓',
           remark: taskOrder.status === '加工中' ? '加工领料中' : '特种工艺待加工库存',
         })
       }
@@ -1566,18 +1340,13 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
       const warehouse = getWarehouse(taskOrder.factoryId, 'WAIT_HANDOVER')
       const position = pickWarehousePosition(
         warehouse,
-        taskOrder.status === '差异' || taskOrder.status === '异议中' ? '异常区' : '待确认区',
+        '待确认区',
         index + 5,
       )
       const outboundQty = roundQty(taskOrder.waitHandoverQty || taskOrder.completedQty)
-      const receiverWrittenQty =
-        taskOrder.status === '已回写'
-          ? outboundQty
-          : taskOrder.status === '差异'
-            ? roundQty(Math.max(outboundQty - Math.min(5, outboundQty), 0))
-            : taskOrder.status === '异议中'
-              ? roundQty(Math.max(outboundQty - Math.min(3, outboundQty), 0))
-              : undefined
+      const receiverWrittenQty = taskOrder.status === '已完结'
+        ? outboundQty
+        : undefined
       const differenceQty = typeof receiverWrittenQty === 'number' ? roundQty(receiverWrittenQty - outboundQty) : undefined
       const outboundRecord = upsertFactoryWarehouseOutboundRecord({
         outboundRecordId: `SC-OUT-${taskOrder.taskOrderId}`,
@@ -1616,15 +1385,9 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         operatorName: factory.contact || '特种工艺仓管',
         outboundAt: taskOrder.updatedAt || taskOrder.createdAt,
         status:
-          taskOrder.status === '已交出'
-            ? '已出库'
-            : taskOrder.status === '已回写'
-              ? '已回写'
-              : taskOrder.status === '差异'
-                ? '差异'
-                : '异议中',
-        abnormalReason: taskOrder.status === '差异' ? '接收数量差异' : taskOrder.status === '异议中' ? '接收方发起异议' : undefined,
-        photoList: taskOrder.status === '差异' || taskOrder.status === '异议中' ? ['special-craft-handover-proof.jpg'] : [],
+          taskOrder.status === '已完结'
+            ? '已回写'
+            : '待交出',
         remark: '特种工艺交出确认 mock',
       })
       upsertFactoryWaitHandoverStockItem({
@@ -1637,15 +1400,10 @@ function ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders: SpecialCraftTask
         locationNo: position.locationNo,
         locationText: position.locationText,
         status:
-          taskOrder.status === '已交出'
-            ? '已交出'
-            : taskOrder.status === '已回写'
-              ? '已回写'
-              : taskOrder.status === '差异'
-                ? '差异'
-                : '异议中',
+          taskOrder.status === '已完结'
+            ? '已回写'
+            : '待交出',
         differenceQty,
-        objectionStatus: taskOrder.status === '异议中' ? '异议中' : undefined,
         remark: '特种工艺交出记录 mock',
       })
     }
@@ -1803,7 +1561,7 @@ export function confirmSpecialCraftTaskOrderReceiptBySku(input: {
   if (invalidLine) throw new Error(`SKU ${invalidLine.skuCode} 实收件数无效。`)
   const totalReceivedQty = lines.reduce((sum, line) => sum + (input.receivedQtyBySkuCode[line.skuCode] || 0), 0)
   return updateSpecialCraftTaskOrderWebStatus(input.taskOrderId, {
-    status: '已入待加工仓',
+    status: '加工中',
     operatorName: input.receiverName,
     operatedAt: input.receivedAt,
     receivedQty: totalReceivedQty,
@@ -1850,7 +1608,7 @@ export function confirmSpecialCraftTaskOrderCompletionBySku(input: {
   const scrapQty = lines.reduce((sum, line) => sum + (input.scrapQtyBySkuCode[line.skuCode] || 0), 0)
   const damageQty = lines.reduce((sum, line) => sum + (input.damageQtyBySkuCode[line.skuCode] || 0), 0)
   return updateSpecialCraftTaskOrderWebStatus(input.taskOrderId, {
-    status: '待交出',
+    status: '已完结',
     operatorName: input.operatorName,
     operatedAt: input.operatedAt,
     completedQty,
@@ -1889,31 +1647,12 @@ export function updateSpecialCraftTaskOrderWebStatus(
     waitHandoverQty: Number.isFinite(payload.waitHandoverQty) ? Number(payload.waitHandoverQty) : current.waitHandoverQty,
     currentQty: Number.isFinite(payload.completedQty) ? Number(payload.completedQty) : current.currentQty,
     executionStatus:
-      payload.status === '已入待加工仓'
-        ? 'IN_WAIT_PROCESS_WAREHOUSE'
+      payload.status === '待领料'
+        ? 'WAIT_PICKUP'
         : payload.status === '加工中'
           ? 'PROCESSING'
-          : payload.status === '已完成'
-            ? 'COMPLETED'
-            : payload.status === '待交出'
-              ? 'WAIT_HANDOVER'
-              : payload.status === '已交出'
-                ? 'HANDED_OVER'
-                : payload.status === '已回写'
-                  ? 'WRITTEN_BACK'
-                : payload.status === '差异'
-                  ? 'DIFFERENCE'
-                  : payload.status === '异议中'
-                    ? 'OBJECTION'
-                    : payload.status === '异常'
-                      ? 'ABNORMAL'
-                      : 'WAIT_PICKUP',
+          : 'COMPLETED',
     executionStatusLabel: payload.status,
-    abnormalStatus: payload.status === '差异' ? '数量差异' : current.abnormalStatus,
-    openDifferenceReportCount:
-      payload.status === '差异' || payload.status === '异常'
-        ? Math.max(current.openDifferenceReportCount || 0, 1)
-        : current.openDifferenceReportCount,
     updatedAt: payload.operatedAt || formatDay(0),
     remark: payload.remark?.trim() || current.remark,
   }
