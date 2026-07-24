@@ -513,7 +513,7 @@ export function buildTransferBagLabelPrintDocument(input: PrintDocumentBuildInpu
     },
   })
   const item: PrintLabelItem = {
-    labelTitle: businessNo,
+    labelTitle: '',
     labelSubtitle: '',
     labelFields: fields([
       { label: '中转袋编号', value: businessNo, emphasis: true },
@@ -522,6 +522,7 @@ export function buildTransferBagLabelPrintDocument(input: PrintDocumentBuildInpu
     ]),
     labelWarnings: [],
     qrCode: { title: '', value: qrValue, description: '', sizeMm: 32 },
+    barcode: { title: '中转袋档案条码', value: buildPrintBarcodePayload({ documentType: 'TRANSFER_BAG_LABEL', sourceType: 'TRANSFER_BAG_RECORD', sourceId, businessNo }), description: businessNo },
     printMode: '',
   }
   return buildBaseLabelDocument(input, {
@@ -754,13 +755,12 @@ function renderLabelItem(item: PrintLabelItem, paperType: PrintPaperType): strin
   if (item.labelBusinessLayout === 'FEI_TICKET_BUSINESS') return renderFeiTicketBusinessLabelItem(item, paperType)
 
   const qr = item.qrCode
+  const headerBarcode = !item.labelTitle && item.barcode ? item.barcode : null
   return `
     <section class="print-label-card ${item.isVoid ? 'print-label-card-void' : ''} ${item.isReprint ? 'print-label-card-reprint' : ''} label-paper-${paperType.toLowerCase().replace(/_/g, '-')}">
       <div class="print-label-header">
-        <div>
-          <div class="print-label-title">${escapeHtml(item.labelTitle)}</div>
-          ${item.labelSubtitle ? `<div class="print-label-subtitle">${escapeHtml(item.labelSubtitle)}</div>` : ''}
-        </div>
+        ${headerBarcode ? `<div class="print-label-barcode-header">${renderBarcode(headerBarcode)}</div>` : ''}
+        ${item.labelTitle ? `<div><div class="print-label-title">${escapeHtml(item.labelTitle)}</div>${item.labelSubtitle ? `<div class="print-label-subtitle">${escapeHtml(item.labelSubtitle)}</div>` : ''}</div>` : ''}
         ${item.printMode ? `<div class="print-label-mode">${escapeHtml(item.printMode)}</div>` : ''}
       </div>
       <div class="print-label-body">
@@ -772,7 +772,7 @@ function renderLabelItem(item: PrintLabelItem, paperType: PrintPaperType): strin
             ${qr ? renderRealQrPlaceholder({ value: qr.value, size: 104, title: qr.title, label: qr.title }) : ''}
           </div>
           ${qr?.description ? `<div class="print-label-qr-desc">${escapeHtml(qr.description)}</div>` : ''}
-          ${renderBarcode(item.barcode)}
+          ${headerBarcode ? '' : renderBarcode(item.barcode)}
         </aside>
       </div>
       ${item.labelWarnings?.length ? `<div class="print-label-warnings">${item.labelWarnings.map((warning) => `<span>${escapeHtml(warning)}</span>`).join('')}</div>` : ''}
