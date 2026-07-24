@@ -832,7 +832,6 @@ function mergeDemandLinesIntoTaskOrder(input: {
     assignmentMode: existingTask?.assignmentMode,
     nodeRecords: existingTask?.nodeRecords?.length ? existingTask.nodeRecords : [],
     warehouseLinks: existingTask?.warehouseLinks?.length ? existingTask.warehouseLinks : [],
-    abnormalRecords: existingTask?.abnormalRecords?.length ? existingTask.abnormalRecords : [],
     remark: existingTask?.remark || '由生产单生成时根据技术包快照自动生成。',
   }
 
