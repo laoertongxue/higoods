@@ -321,6 +321,7 @@ export function renderWebActionPanel(
               const optionalFields = action.optionalFields.map(localizedText)
               const confirmText = localizedText(action.confirmText)
               return `<button type="button" class="w-full rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+                data-skip-page-rerender="true"
                 data-special-craft-web-action="open-web-status-action-dialog"
                 data-source-id="${escapeHtml(taskOrderId)}"
                 data-action-code="${escapeHtml(action.actionCode)}"
