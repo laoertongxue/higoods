@@ -401,9 +401,10 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
   }
 
   const actionNode = target.closest<HTMLElement>('[data-special-craft-web-action]')
-  if (!actionNode) return false
+  const customConfirmNode = target.closest<HTMLElement>('[data-special-craft-sku-confirm], [data-special-craft-fei-confirm]')
+  if (!actionNode && !customConfirmNode) return false
 
-  if (actionNode.dataset.specialCraftWebAction === 'open-web-status-action-dialog') {
+  if (actionNode?.dataset.specialCraftWebAction === 'open-web-status-action-dialog') {
     const actionCode = actionNode.dataset.actionCode || ''
     const sourceId = actionNode.dataset.sourceId || ''
     const taskOrder = getSpecialCraftTaskOrderById(sourceId)
@@ -469,6 +470,8 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
 
     return true
   }
+
+  if (actionNode) return true
 
   // SKU 确认对话框提交
   const skuConfirmNode = target.closest<HTMLElement>('[data-special-craft-sku-confirm]')

@@ -57,9 +57,15 @@ includesAll(mainHandlersSource, [
 includesAll(detailSource, [
   'handleProcessWebStatusActionDialogEvent',
   'data-special-craft-web-action',
+  'customConfirmNode',
   'renderGarmentSkuConfirmDialog',
   'renderCutPieceFeiTicketConfirmDialog',
 ], '特殊工艺任务详情')
+assert(
+  detailSource.indexOf('const customConfirmNode') < detailSource.indexOf('if (!actionNode && !customConfirmNode) return false')
+    && detailSource.indexOf('if (actionNode) return true') < detailSource.indexOf('const skuConfirmNode'),
+  '特殊工艺自定义确认按钮必须绕过 web action 提前返回，并进入 SKU/菲票提交处理',
+)
 includesAll(detailSource, ['基本信息', '菲票流转', '交出记录', '任务明细'], '特殊工艺任务详情内容')
 assert(!detailSource.includes('差异异常'), '特殊工艺任务详情仍包含差异异常 Tab')
 includesAll(specialCraftSharedSource, [
