@@ -167,6 +167,20 @@ export interface SpecialCraftTaskWarehouseLink {
   status: '已入库' | '待交出' | '已出库' | '已回写'
 }
 
+export interface SpecialCraftTaskLineProgress {
+  lineProgressKey: string
+  lineType: 'sku' | 'fei-ticket'
+  skuCode?: string
+  feiTicketNo?: string
+  partName: string
+  colorName: string
+  sizeCode: string
+  planQty: number
+  receivedQty: number
+  completedQty: number
+  returnedQty: number
+}
+
 export interface SpecialCraftTaskOrder {
   taskOrderId: string
   taskOrderNo: string
@@ -240,6 +254,7 @@ export interface SpecialCraftTaskOrder {
   assignmentMode?: string
   nodeRecords: SpecialCraftTaskNodeRecord[]
   warehouseLinks: SpecialCraftTaskWarehouseLink[]
+  lineProgress?: SpecialCraftTaskLineProgress[]
   remark?: string
 }
 
@@ -375,6 +390,125 @@ function formatDay(offsetDays = 0): string {
 
 function roundQty(value: number): number {
   return Math.round(value * 100) / 100
+}
+
+function clampQty(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min
+  return roundQty(Math.min(Math.max(value, min), max))
+}
+
+function allocateProgress(rows: SpecialCraftTaskLineProgress[], total: number, field: 'receivedQty' | 'completedQty' | 'returnedQty'): void {
+  let remaining = Math.max(total || 0, 0)
+  rows.forEach((row) => {
+    const fieldMax = field === 'receivedQty'
+      ? row.planQty
+      : field === 'completedQty'
+        ? row.receivedQty
+        : row.completedQty
+    const qty = clampQty(Math.min(remaining, fieldMax), 0, fieldMax)
+    row[field] = qty
+    remaining = roundQty(remaining - qty)
+  })
+}
+
+function buildSpecialCraftTaskLineProgress(taskOrder: SpecialCraftTaskOrder): SpecialCraftTaskLineProgress[] {
+  const lines = taskOrder.demandLines || []
+  const rows = new Map<string, SpecialCraftTaskLineProgress>()
+  const isGarment = taskOrder.targetObject === '成衣'
+
+  if (isGarment) {
+    lines.forEach((line) => {
+      const skuCode = line.skuCode || `${line.colorName || '成衣'}-${line.sizeCode || '均码'}`
+      const key = `sku:${skuCode}`
+      const existing = rows.get(key)
+      if (existing) {
+        existing.planQty = roundQty(existing.planQty + line.planPieceQty)
+      } else {
+        rows.set(key, {
+          lineProgressKey: key,
+          lineType: 'sku',
+          skuCode,
+          partName: line.partName || taskOrder.partName || '成衣',
+          colorName: line.colorName || taskOrder.fabricColor || '—',
+          sizeCode: line.sizeCode || taskOrder.sizeCode || '—',
+          planQty: roundQty(line.planPieceQty),
+          receivedQty: 0,
+          completedQty: 0,
+          returnedQty: 0,
+        })
+      }
+    })
+  } else {
+    lines.forEach((line) => {
+      const ticketNos = line.feiTicketNos?.length ? line.feiTicketNos : ['无菲票']
+      const ticketQty = line.planPieceQty / ticketNos.length
+      ticketNos.forEach((ticketNo) => {
+        const key = `fei:${ticketNo}`
+        const existing = rows.get(key)
+        if (existing) {
+          existing.planQty = roundQty(existing.planQty + ticketQty)
+        } else {
+          rows.set(key, {
+            lineProgressKey: key,
+            lineType: 'fei-ticket',
+            feiTicketNo: ticketNo,
+            partName: line.partName || taskOrder.partName || '裁片',
+            colorName: line.colorName || taskOrder.fabricColor || '—',
+            sizeCode: line.sizeCode || taskOrder.sizeCode || '—',
+            planQty: roundQty(ticketQty),
+            receivedQty: 0,
+            completedQty: 0,
+            returnedQty: 0,
+          })
+        }
+      })
+    })
+  }
+
+  if (rows.size === 0) {
+    rows.set(isGarment ? 'sku:DEFAULT' : 'fei:DEFAULT', {
+      lineProgressKey: isGarment ? 'sku:DEFAULT' : 'fei:DEFAULT',
+      lineType: isGarment ? 'sku' : 'fei-ticket',
+      skuCode: isGarment ? taskOrder.materialSku || 'DEFAULT' : undefined,
+      feiTicketNo: isGarment ? undefined : taskOrder.feiTicketNos[0] || '无菲票',
+      partName: taskOrder.partName || (isGarment ? '成衣' : '裁片'),
+      colorName: taskOrder.fabricColor || '—',
+      sizeCode: taskOrder.sizeCode || '—',
+      planQty: taskOrder.planQty,
+      receivedQty: 0,
+      completedQty: 0,
+      returnedQty: 0,
+    })
+  }
+
+  const progressRows = [...rows.values()]
+  allocateProgress(progressRows, taskOrder.receivedQty, 'receivedQty')
+  allocateProgress(progressRows, taskOrder.completedQty, 'completedQty')
+  allocateProgress(progressRows, taskOrder.returnedQty || 0, 'returnedQty')
+  return progressRows
+}
+
+function normalizeSpecialCraftLineProgress(taskOrder: SpecialCraftTaskOrder): SpecialCraftTaskLineProgress[] {
+  return (taskOrder.lineProgress?.length ? taskOrder.lineProgress : buildSpecialCraftTaskLineProgress(taskOrder)).map((row) => ({
+    ...row,
+    planQty: roundQty(row.planQty),
+    receivedQty: clampQty(row.receivedQty, 0, row.planQty),
+    completedQty: clampQty(row.completedQty, 0, row.receivedQty),
+    returnedQty: clampQty(row.returnedQty, 0, row.completedQty),
+  }))
+}
+
+function summarizeLineProgress(lineProgress: SpecialCraftTaskLineProgress[]): Pick<SpecialCraftTaskOrder, 'receivedQty' | 'completedQty' | 'returnedQty' | 'waitHandoverQty' | 'currentQty'> {
+  const receivedQty = roundQty(lineProgress.reduce((sum, row) => sum + row.receivedQty, 0))
+  const completedQty = roundQty(lineProgress.reduce((sum, row) => sum + row.completedQty, 0))
+  const returnedQty = roundQty(lineProgress.reduce((sum, row) => sum + row.returnedQty, 0))
+  return {
+    receivedQty,
+    completedQty,
+    returnedQty,
+    waitHandoverQty: roundQty(Math.max(completedQty - returnedQty, 0)),
+    currentQty: completedQty,
+  }
 }
 
 function resolveOperationFactories(operation: SpecialCraftOperationDefinition): Factory[] {
@@ -1465,7 +1599,10 @@ function ensureStore(): SpecialCraftTaskStore {
     const generationBatches = generatedResults.map((item) => item.generationBatch)
     const generationErrors = generatedResults.flatMap((item) => item.errors)
     const supplementalTaskOrders = buildLinkedSupplementTaskOrders(generatedTaskOrders)
-    const taskOrders = [...generatedTaskOrders, ...supplementalTaskOrders]
+    const taskOrders = [...generatedTaskOrders, ...supplementalTaskOrders].map((taskOrder) => ({
+      ...taskOrder,
+      lineProgress: normalizeSpecialCraftLineProgress(taskOrder),
+    }))
     ensureSpecialTypeUnifiedWarehouseArtifacts(taskOrders)
     specialCraftTaskStore = {
       taskOrders,
@@ -1554,17 +1691,18 @@ export function confirmSpecialCraftTaskOrderReceiptBySku(input: {
   const taskOrder = getSpecialCraftTaskOrderById(input.taskOrderId)
   if (!taskOrder || !taskOrder.demandLines?.length) return undefined
   const lines = taskOrder.demandLines
-  const expectedSkuCodes = lines.map((line) => line.skuCode).sort()
+  const resolveSkuCode = (line: SpecialCraftTaskDemandLine) => line.skuCode || `${line.colorName || '成衣'}-${line.sizeCode || '均码'}`
+  const expectedSkuCodes = lines.map(resolveSkuCode).sort()
   const actualSkuCodes = Object.keys(input.receivedQtyBySkuCode).sort()
   if (expectedSkuCodes.length !== actualSkuCodes.length || actualSkuCodes.some((skuCode, index) => skuCode !== expectedSkuCodes[index])) {
     throw new Error('逐 SKU 收货必须覆盖全部 SKU，且不得包含其他 SKU。')
   }
   const invalidLine = lines.find((line) => {
-    const receivedQty = input.receivedQtyBySkuCode[line.skuCode]
+    const receivedQty = input.receivedQtyBySkuCode[resolveSkuCode(line)]
     return !Number.isInteger(receivedQty) || receivedQty < 0 || receivedQty > line.planPieceQty
   })
   if (invalidLine) throw new Error(`SKU ${invalidLine.skuCode} 实收件数无效。`)
-  const totalReceivedQty = lines.reduce((sum, line) => sum + (input.receivedQtyBySkuCode[line.skuCode] || 0), 0)
+  const totalReceivedQty = lines.reduce((sum, line) => sum + (input.receivedQtyBySkuCode[resolveSkuCode(line)] || 0), 0)
   if (taskOrder.receivedQty + totalReceivedQty > taskOrder.planQty) {
     throw new Error('本次接收后会超过计划数量，请检查 SKU 实收件数。')
   }
@@ -1589,7 +1727,8 @@ export function confirmSpecialCraftTaskOrderCompletionBySku(input: {
   const taskOrder = getSpecialCraftTaskOrderById(input.taskOrderId)
   if (!taskOrder || !taskOrder.demandLines?.length) return undefined
   const lines = taskOrder.demandLines
-  const expectedSkuCodes = lines.map((line) => line.skuCode).sort()
+  const resolveSkuCode = (line: SpecialCraftTaskDemandLine) => line.skuCode || `${line.colorName || '成衣'}-${line.sizeCode || '均码'}`
+  const expectedSkuCodes = lines.map(resolveSkuCode).sort()
   const hasExactSkuSet = (qtyBySkuCode: Record<string, number>) => {
     const actualSkuCodes = Object.keys(qtyBySkuCode).sort()
     return actualSkuCodes.length === expectedSkuCodes.length
@@ -1599,18 +1738,19 @@ export function confirmSpecialCraftTaskOrderCompletionBySku(input: {
     throw new Error('逐 SKU 完工必须覆盖全部 SKU，且不得包含其他 SKU。')
   }
   const invalidLine = lines.find((line) => {
-    const completedQty = input.completedQtyBySkuCode[line.skuCode]
-    const scrapQty = input.scrapQtyBySkuCode[line.skuCode] || 0
-    const damageQty = input.damageQtyBySkuCode[line.skuCode] || 0
+    const skuCode = resolveSkuCode(line)
+    const completedQty = input.completedQtyBySkuCode[skuCode]
+    const scrapQty = input.scrapQtyBySkuCode[skuCode] || 0
+    const damageQty = input.damageQtyBySkuCode[skuCode] || 0
     return !Number.isInteger(completedQty) || completedQty < 0
       || !Number.isInteger(scrapQty) || scrapQty < 0
       || !Number.isInteger(damageQty) || damageQty < 0
       || completedQty + scrapQty + damageQty > line.planPieceQty
   })
   if (invalidLine) throw new Error(`SKU ${invalidLine.skuCode} 的完工、报废和货损件数必须为整数，且合计不能超过该 SKU 计划件数。`)
-  const completedQty = lines.reduce((sum, line) => sum + (input.completedQtyBySkuCode[line.skuCode] || 0), 0)
-  const scrapQty = lines.reduce((sum, line) => sum + (input.scrapQtyBySkuCode[line.skuCode] || 0), 0)
-  const damageQty = lines.reduce((sum, line) => sum + (input.damageQtyBySkuCode[line.skuCode] || 0), 0)
+  const completedQty = lines.reduce((sum, line) => sum + (input.completedQtyBySkuCode[resolveSkuCode(line)] || 0), 0)
+  const scrapQty = lines.reduce((sum, line) => sum + (input.scrapQtyBySkuCode[resolveSkuCode(line)] || 0), 0)
+  const damageQty = lines.reduce((sum, line) => sum + (input.damageQtyBySkuCode[resolveSkuCode(line)] || 0), 0)
   return updateSpecialCraftTaskOrderWebStatus(input.taskOrderId, {
     status: '加工中',
     operatorName: input.operatorName,
@@ -1635,6 +1775,7 @@ export function updateSpecialCraftTaskOrderWebStatus(
     damageQty?: number
     returnedQty?: number
     waitHandoverQty?: number
+    lineProgress?: SpecialCraftTaskLineProgress[]
     remark?: string
   },
 ): SpecialCraftTaskOrder | undefined {
@@ -1642,16 +1783,19 @@ export function updateSpecialCraftTaskOrderWebStatus(
   const taskOrderIndex = store.taskOrders.findIndex((taskOrder) => taskOrder.taskOrderId === taskOrderId)
   if (taskOrderIndex < 0) return undefined
   const current = store.taskOrders[taskOrderIndex]
+  const lineProgress = payload.lineProgress ? normalizeSpecialCraftLineProgress({ ...current, lineProgress: payload.lineProgress }) : current.lineProgress
+  const progressSummary = payload.lineProgress ? summarizeLineProgress(lineProgress || []) : null
   const next: SpecialCraftTaskOrder = {
     ...current,
     status: payload.status,
-    receivedQty: Number.isFinite(payload.receivedQty) ? Number(payload.receivedQty) : current.receivedQty,
-    completedQty: Number.isFinite(payload.completedQty) ? Number(payload.completedQty) : current.completedQty,
+    receivedQty: progressSummary ? progressSummary.receivedQty : Number.isFinite(payload.receivedQty) ? Number(payload.receivedQty) : current.receivedQty,
+    completedQty: progressSummary ? progressSummary.completedQty : Number.isFinite(payload.completedQty) ? Number(payload.completedQty) : current.completedQty,
     lossQty: Number.isFinite(payload.lossQty) ? Number(payload.lossQty) : current.lossQty,
     damageQty: Number.isFinite(payload.damageQty) ? Number(payload.damageQty) : current.damageQty,
-    returnedQty: Number.isFinite(payload.returnedQty) ? Number(payload.returnedQty) : current.returnedQty,
-    waitHandoverQty: Number.isFinite(payload.waitHandoverQty) ? Number(payload.waitHandoverQty) : current.waitHandoverQty,
-    currentQty: Number.isFinite(payload.completedQty) ? Number(payload.completedQty) : current.currentQty,
+    returnedQty: progressSummary ? progressSummary.returnedQty : Number.isFinite(payload.returnedQty) ? Number(payload.returnedQty) : current.returnedQty,
+    waitHandoverQty: progressSummary ? progressSummary.waitHandoverQty : Number.isFinite(payload.waitHandoverQty) ? Number(payload.waitHandoverQty) : current.waitHandoverQty,
+    currentQty: progressSummary ? progressSummary.currentQty : Number.isFinite(payload.completedQty) ? Number(payload.completedQty) : current.currentQty,
+    lineProgress,
     executionStatus:
       payload.status === '待领料'
         ? 'WAIT_PICKUP'
@@ -1664,6 +1808,40 @@ export function updateSpecialCraftTaskOrderWebStatus(
   }
   store.taskOrders[taskOrderIndex] = next
   return next
+}
+
+export function applySpecialCraftLineProgressAction(input: {
+  taskOrderId: string
+  actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE' | 'SPECIAL_CRAFT_PROCESS_REPORT' | 'SPECIAL_CRAFT_SUBMIT_HANDOVER'
+  qtyByLineKey?: Record<string, number>
+  skuQtyBySkuCode?: Record<string, number>
+  feiQtyByTicketNo?: Record<string, number>
+}): SpecialCraftTaskLineProgress[] {
+  const taskOrder = getSpecialCraftTaskOrderById(input.taskOrderId)
+  if (!taskOrder) throw new Error('特殊工艺加工单不存在')
+  const currentRows = normalizeSpecialCraftLineProgress(taskOrder)
+  return currentRows.map((row) => {
+    const qty = Number(
+      input.qtyByLineKey?.[row.lineProgressKey]
+        ?? (row.skuCode ? input.skuQtyBySkuCode?.[row.skuCode] : undefined)
+        ?? (row.feiTicketNo ? input.feiQtyByTicketNo?.[row.feiTicketNo] : undefined)
+        ?? 0,
+    )
+    if (!Number.isFinite(qty) || qty < 0) throw new Error('本次数量必须为有效非负数。')
+    if (input.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE') {
+      const remaining = roundQty(row.planQty - row.receivedQty)
+      if (qty > remaining) throw new Error('实收数量不能超过计划未接收数量。')
+      return { ...row, receivedQty: roundQty(row.receivedQty + qty) }
+    }
+    if (input.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT') {
+      const remaining = roundQty(row.receivedQty - row.completedQty)
+      if (qty > remaining) throw new Error('完工数量不能超过累计实收未完工数量。')
+      return { ...row, completedQty: roundQty(row.completedQty + qty) }
+    }
+    const remaining = roundQty(row.completedQty - row.returnedQty)
+    if (qty > remaining) throw new Error('交出数量不能超过累计完工未交出数量。')
+    return { ...row, returnedQty: roundQty(row.returnedQty + qty) }
+  })
 }
 
 export function getSpecialCraftWarehouseView(

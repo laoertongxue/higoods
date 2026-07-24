@@ -28,6 +28,7 @@ import { cutPieceOrderRecords, updateCutPieceOrderWebStage } from './cutting/cut
 import { updateCuttingOrderProgressWebStage } from './cutting/order-progress.ts'
 import { listSpreadingResultGeneratedFeiTicketsByCutOrderId } from './cutting/generated-fei-tickets.ts'
 import {
+  applySpecialCraftLineProgressAction,
   confirmSpecialCraftTaskOrderCompletionBySku,
   confirmSpecialCraftTaskOrderReceiptBySku,
   getSpecialCraftTaskOrderById,
@@ -97,6 +98,7 @@ export interface ProcessActionPayload {
   skuQtyBySkuCode?: Record<string, number>
   skuScrapQtyBySkuCode?: Record<string, number>
   skuDamageQtyBySkuCode?: Record<string, number>
+  feiQtyByTicketNo?: Record<string, number>
   formData?: Record<string, string | number | boolean | undefined>
   remark?: string
   evidenceUrls?: string[]
@@ -1104,7 +1106,7 @@ function assertGarmentSkuQtyPayload(payload: ProcessActionPayload, actionCode: s
     throw new Error('成衣操作必须逐 SKU 确认数量。')
   }
   const expectedSkuCodes = (workOrder.demandLines || [])
-    .map((line) => line.skuCode)
+    .map((line) => line.skuCode || `${line.colorName || '成衣'}-${line.sizeCode || '均码'}`)
     .sort()
   const actualSkuCodes = Object.keys(payload.skuQtyBySkuCode).sort()
   if (expectedSkuCodes.length !== actualSkuCodes.length || expectedSkuCodes.some((skuCode, index) => skuCode !== actualSkuCodes[index])) {
@@ -1132,8 +1134,8 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
   if (definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' && workOrder.receivedQty + qty > workOrder.planQty) {
     throw new Error('本次接收后会超过计划数量，请检查数量。')
   }
-  if (definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && qty > workOrder.receivedQty) {
-    throw new Error('加工填报数量不能超过已接收数量。')
+  if (definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && qty > Math.max(workOrder.receivedQty - workOrder.completedQty, 0)) {
+    throw new Error('完工数量不能超过累计实收未完工数量。')
   }
   if (definition.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' && qty > Math.max(workOrder.completedQty - (workOrder.returnedQty || 0), 0)) {
     throw new Error('交出数量不能超过已完工未交出数量。')
@@ -1142,6 +1144,44 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
     if (workOrder.completedQty <= 0) throw new Error('未完成加工填报，不能完成加工单。')
     if ((workOrder.returnedQty || 0) < workOrder.completedQty) throw new Error('仍有已完工数量未发起交出，不能完成加工单。')
   }
+  const lineActionCode = definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+    || definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT'
+    || definition.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER'
+      ? definition.actionCode
+      : null
+
+  if (lineActionCode && (payload.skuQtyBySkuCode || payload.feiQtyByTicketNo)) {
+    const lineProgress = applySpecialCraftLineProgressAction({
+      taskOrderId: workOrder.taskOrderId,
+      actionCode: lineActionCode,
+      skuQtyBySkuCode: payload.skuQtyBySkuCode,
+      feiQtyByTicketNo: payload.feiQtyByTicketNo,
+    })
+    const updated = updateSpecialCraftTaskOrderWebStatus(payload.sourceId, {
+      status: nextStatus,
+      operatorName: payload.operatorName,
+      operatedAt: payload.operatedAt,
+      lineProgress,
+      lossQty: definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && payload.skuScrapQtyBySkuCode
+        ? Object.values(payload.skuScrapQtyBySkuCode).reduce((sum, value) => sum + Number(value || 0), 0)
+        : undefined,
+      damageQty: definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && payload.skuDamageQtyBySkuCode
+        ? Object.values(payload.skuDamageQtyBySkuCode).reduce((sum, value) => sum + Number(value || 0), 0)
+        : undefined,
+      remark: payload.remark,
+    })
+    if (definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && objectMeta.objectType === '裁片') {
+      markSpecialCraftFeiTicketBindingCompleted({
+        taskOrderId: workOrder.taskOrderId,
+        operationId: workOrder.operationId,
+        operationName: workOrder.operationName,
+        completedBy: payload.operatorName || '现场操作员',
+        completedAt: payload.operatedAt || nowText(),
+      })
+    }
+    return { updatedWorkOrderId: updated?.taskOrderId || workOrder.taskOrderId }
+  }
+
   if (definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' && objectMeta.objectType === '成衣') {
     const updated = confirmSpecialCraftTaskOrderReceiptBySku({
       taskOrderId: workOrder.taskOrderId,
@@ -1167,7 +1207,7 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
     operatorName: payload.operatorName,
     operatedAt: payload.operatedAt,
     receivedQty: definition.actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' ? workOrder.receivedQty + qty : undefined,
-    completedQty: definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' ? qty : undefined,
+    completedQty: definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' ? workOrder.completedQty + qty : undefined,
     returnedQty: definition.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? (workOrder.returnedQty || 0) + qty : undefined,
     remark: payload.remark,
   })

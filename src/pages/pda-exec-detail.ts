@@ -211,7 +211,7 @@ interface PdaExecDetailState {
   fromPauseAction: boolean
   specialCraftScrapQty: string
   specialCraftDamageQty: string
-  specialCraftSkuDrafts: Record<string, { outboundQty: string; receivedQty: string; completedQty: string; scrapQty: string; damageQty: string }>
+  specialCraftSkuDrafts: Record<string, { outboundQty: string; receivedQty: string; completedQty: string; handoverQty: string; scrapQty: string; damageQty: string }>
   waterCompletionDraft: { taskId: string; orderId: string; completedQty: string; reason: string }
   waterOverlay: null | {
     type: 'completion' | 'completion-overage' | 'supervisor'
@@ -2473,6 +2473,9 @@ function buildSpecialCraftGarmentSkuDraftKey(workOrderId: string, status: string
 function getSpecialCraftGarmentSkuDrafts(workOrderId: string, status: string) {
   const taskOrder = getSpecialCraftTaskOrderById(workOrderId)
   const lines = taskOrder?.demandLines || []
+  const progressBySkuCode = new Map((taskOrder?.lineProgress || [])
+    .filter((row) => row.lineType === 'sku' && row.skuCode)
+    .map((row) => [row.skuCode!, row]))
   const inboundBySkuCode = new Map(
     listFactoryWarehouseInboundRecords()
       .filter((record) => record.taskId === workOrderId && record.itemKind === '成衣' && record.sourceObjectName === '成衣仓')
@@ -2484,14 +2487,17 @@ function getSpecialCraftGarmentSkuDrafts(workOrderId: string, status: string) {
       .map((item) => [item.materialSku || '', item.receivedQty]),
   )
   lines.forEach((line) => {
-    const draftKey = buildSpecialCraftGarmentSkuDraftKey(workOrderId, status, line.skuCode)
-    const receivedQty = inboundBySkuCode.get(line.skuCode) ?? 0
-    const availableQty = availableBySkuCode.get(line.skuCode) ?? receivedQty
+    const skuCode = line.skuCode || `${line.colorName || '成衣'}-${line.sizeCode || '均码'}`
+    const draftKey = buildSpecialCraftGarmentSkuDraftKey(workOrderId, status, skuCode)
+    const progress = progressBySkuCode.get(skuCode)
+    const receivedQty = inboundBySkuCode.get(skuCode) ?? 0
+    const availableQty = availableBySkuCode.get(skuCode) ?? receivedQty
     if (!detailState.specialCraftSkuDrafts[draftKey]) {
       detailState.specialCraftSkuDrafts[draftKey] = {
         outboundQty: String(line.planPieceQty),
-        receivedQty: String(Math.max(line.planPieceQty - receivedQty, 0)),
-        completedQty: String(availableQty),
+        receivedQty: String(Math.max(line.planPieceQty - (progress?.receivedQty ?? receivedQty), 0)),
+        completedQty: String(Math.max((progress?.receivedQty ?? availableQty) - (progress?.completedQty ?? 0), 0)),
+        handoverQty: String(Math.max((progress?.completedQty ?? 0) - (progress?.returnedQty ?? 0), 0)),
         scrapQty: String(line.scrapQty || 0),
         damageQty: String(line.damageQty || 0),
       }
@@ -2499,13 +2505,19 @@ function getSpecialCraftGarmentSkuDrafts(workOrderId: string, status: string) {
   })
   return {
     lines: lines.map((line) => {
-      const receivedQty = inboundBySkuCode.get(line.skuCode) ?? 0
+      const skuCode = line.skuCode || `${line.colorName || '成衣'}-${line.sizeCode || '均码'}`
+      const receivedQty = inboundBySkuCode.get(skuCode) ?? 0
+      const progress = progressBySkuCode.get(skuCode)
       return {
         ...line,
-        draftKey: buildSpecialCraftGarmentSkuDraftKey(workOrderId, status, line.skuCode),
+        skuCode,
+        draftKey: buildSpecialCraftGarmentSkuDraftKey(workOrderId, status, skuCode),
         expectedQty: line.planPieceQty,
         warehouseReceivedQty: receivedQty,
         warehouseAvailableQty: availableBySkuCode.get(line.skuCode) ?? receivedQty,
+        progressReceivedQty: progress?.receivedQty ?? receivedQty,
+        progressCompletedQty: progress?.completedQty ?? 0,
+        progressReturnedQty: progress?.returnedQty ?? 0,
         hasWarehouseReceipt: inboundBySkuCode.has(line.skuCode),
         receiptDifferenceQty: line.planPieceQty - receivedQty,
       }
@@ -2531,19 +2543,47 @@ function renderSpecialCraftGarmentSkuExecution(workOrderId: string, status: stri
             <div class="mt-2 grid grid-cols-3 gap-2">
               <span>计划：${line.planPieceQty} 件</span>
               <span>应收：${line.expectedQty} 件</span>
-              <span>已收：${line.warehouseReceivedQty} 件</span>
+              <span>累计实收：${line.progressReceivedQty} 件</span>
+              <span>累计完工：${line.progressCompletedQty} 件</span>
+              <span>累计交出：${line.progressReturnedQty} 件</span>
+              <span>剩余可完工：${Math.max(line.progressReceivedQty - line.progressCompletedQty, 0)} 件</span>
+              <span>剩余可交出：${Math.max(line.progressCompletedQty - line.progressReturnedQty, 0)} 件</span>
               ${line.hasWarehouseReceipt ? `<span>差异：${line.receiptDifferenceQty} 件</span>` : ''}
               <span>可加工：${line.warehouseAvailableQty} 件</span>
               ${canOutbound ? `<label>实出：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${line.planPieceQty}" step="1" data-pda-execd-sku-field="outboundQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.outboundQty)}" /></label>` : ''}
               ${canReceive ? `<label>本次实收：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${line.expectedQty}" step="1" data-pda-execd-sku-field="receivedQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.receivedQty)}" /></label>` : ''}
-              <label>完工：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${line.warehouseAvailableQty}" step="1" ${canFinish ? '' : 'disabled'} data-pda-execd-sku-field="completedQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.completedQty)}" /></label>
-              <label>报废：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${line.warehouseReceivedQty}" step="1" ${canFinish ? '' : 'disabled'} data-pda-execd-sku-field="scrapQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.scrapQty)}" /></label>
-              <label>货损：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${line.warehouseReceivedQty}" step="1" ${canFinish ? '' : 'disabled'} data-pda-execd-sku-field="damageQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.damageQty)}" /></label>
+              <label>本次完工：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${Math.max(line.progressReceivedQty - line.progressCompletedQty, 0)}" step="1" ${canFinish ? '' : 'disabled'} data-pda-execd-sku-field="completedQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.completedQty)}" /></label>
+              <label>本次交出：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${Math.max(line.progressCompletedQty - line.progressReturnedQty, 0)}" step="1" ${canFinish ? '' : 'disabled'} data-pda-execd-sku-field="handoverQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.handoverQty)}" /></label>
+              <label>报废数量：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${line.warehouseReceivedQty}" step="1" ${canFinish ? '' : 'disabled'} data-pda-execd-sku-field="scrapQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.scrapQty)}" /></label>
+              <label>货损数量：<input class="w-16 rounded border px-1 py-0.5" type="number" min="0" max="${line.warehouseReceivedQty}" step="1" ${canFinish ? '' : 'disabled'} data-pda-execd-sku-field="damageQty" data-draft-key="${escapeHtml(line.draftKey)}" value="${escapeHtml(draft.damageQty)}" /></label>
             </div>
             <div class="mt-1 text-muted-foreground">应收来自成衣仓实出；已收和可加工来自辅助工艺仓记录；汇总不允许单独填写。</div>
           </section>
         `
       }).join('')}
+    </div>
+  `
+}
+
+function renderSpecialCraftLineProgressSummary(workOrder: ReturnType<typeof getSpecialCraftWorkOrderForPdaTask>, unit: string): string {
+  const rows = workOrder?.lineProgress || []
+  if (!rows.length) return ''
+  return `
+    <div class="space-y-2" data-special-craft-line-progress-summary>
+      ${rows.map((row) => `
+        <section class="rounded-md border bg-muted/20 px-3 py-2 text-xs" data-line-progress-key="${escapeHtml(row.lineProgressKey)}">
+          <div class="font-medium">${escapeHtml(row.lineType === 'sku' ? row.skuCode || 'SKU' : row.feiTicketNo || '菲票')} · ${escapeHtml(row.colorName)} / ${escapeHtml(row.sizeCode)}</div>
+          <div class="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
+            <span>计划：${row.planQty} ${escapeHtml(unit)}</span>
+            <span>累计实收：${row.receivedQty} ${escapeHtml(unit)}</span>
+            <span>累计完工：${row.completedQty} ${escapeHtml(unit)}</span>
+            <span>累计交出：${row.returnedQty} ${escapeHtml(unit)}</span>
+            <span>完工后数量：${row.completedQty} ${escapeHtml(unit)}</span>
+            <span>剩余可完工：${Math.max(row.receivedQty - row.completedQty, 0)} ${escapeHtml(unit)}</span>
+            <span>剩余可交出：${Math.max(row.completedQty - row.returnedQty, 0)} ${escapeHtml(unit)}</span>
+          </div>
+        </section>
+      `).join('')}
     </div>
   `
 }
@@ -2626,6 +2666,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
   const garmentSkuExecution = objectMeta.objectType === '成衣' && workOrderId
     ? renderSpecialCraftGarmentSkuExecution(workOrderId, workOrder?.status || status, canGarmentWarehouseOutbound)
     : ''
+  const lineProgressSummary = renderSpecialCraftLineProgressSummary(workOrder, objectMeta.qtyUnit)
 
   return `
     <article class="rounded-lg border bg-card">
@@ -2637,6 +2678,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
       </header>
       <div class="space-y-3 p-4 text-sm" data-writeback-link="linkSpecialCraftCompletionToReturnWaitHandoverStock">
         ${garmentSkuExecution}
+        ${lineProgressSummary}
         <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
           <span>加工单号：${renderPdaObjectCode({
             objectType: 'PROCESS_DOC',
@@ -4467,7 +4509,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     const draftKey = skuFieldNode.dataset.draftKey || ''
     const field = skuFieldNode.dataset.pdaExecdSkuField as keyof PdaExecDetailState['specialCraftSkuDrafts'][string] | undefined
     if (draftKey && field) {
-      const draft = detailState.specialCraftSkuDrafts[draftKey] || { outboundQty: '0', receivedQty: '0', completedQty: '0', scrapQty: '0', damageQty: '0' }
+      const draft = detailState.specialCraftSkuDrafts[draftKey] || { outboundQty: '0', receivedQty: '0', completedQty: '0', handoverQty: '0', scrapQty: '0', damageQty: '0' }
       draft[field] = skuFieldNode.value
       detailState.specialCraftSkuDrafts[draftKey] = draft
     }
@@ -5696,11 +5738,25 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         : undefined
       const skuQtyField = action === 'special-confirm-receive'
         ? 'receivedQty'
-        : action === 'special-process-report' || action === 'special-submit-handover'
+        : action === 'special-process-report'
           ? 'completedQty'
+          : action === 'special-submit-handover'
+            ? 'handoverQty'
           : ''
       const skuQtyBySkuCode = garmentSkuDraft && skuQtyField
-        ? Object.fromEntries(garmentSkuDraft.lines.map((line) => [line.skuCode, Number(garmentSkuDraft.drafts[line.draftKey][skuQtyField as 'receivedQty' | 'completedQty'])]))
+        ? Object.fromEntries(garmentSkuDraft.lines.map((line) => [line.skuCode, Number(garmentSkuDraft.drafts[line.draftKey][skuQtyField as 'receivedQty' | 'completedQty' | 'handoverQty'])]))
+        : undefined
+      const feiQtyByTicketNo = objectMeta.objectType !== '成衣' && action !== 'special-complete-order'
+        ? Object.fromEntries((workOrder.lineProgress || [])
+            .filter((row) => row.lineType === 'fei-ticket' && row.feiTicketNo)
+            .map((row) => [
+              row.feiTicketNo!,
+              action === 'special-confirm-receive'
+                ? Math.max(row.planQty - row.receivedQty, 0)
+                : action === 'special-process-report'
+                  ? Math.max(row.receivedQty - row.completedQty, 0)
+                  : Math.max(row.completedQty - row.returnedQty, 0),
+            ]))
         : undefined
       const skuScrapQtyBySkuCode = garmentSkuDraft && action === 'special-process-report'
         ? Object.fromEntries(garmentSkuDraft.lines.map((line) => [line.skuCode, Number(garmentSkuDraft.drafts[line.draftKey].scrapQty)]))
@@ -5709,6 +5765,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         ? Object.fromEntries(garmentSkuDraft.lines.map((line) => [line.skuCode, Number(garmentSkuDraft.drafts[line.draftKey].damageQty)]))
         : undefined
       const skuActionQty = skuQtyBySkuCode ? Object.values(skuQtyBySkuCode).reduce((sum, qty) => sum + qty, 0) : undefined
+      const feiActionQty = feiQtyByTicketNo ? Object.values(feiQtyByTicketNo).reduce((sum, qty) => sum + qty, 0) : undefined
       const finishQty = skuActionQty ?? Math.max(
           baseQty - Number(detailState.specialCraftScrapQty || 0) - Number(detailState.specialCraftDamageQty || 0),
           0,
@@ -5721,9 +5778,10 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         ...actionAudit,
         operatedAt: nowTimestamp(),
         objectType: objectMeta.objectType,
-        objectQty: skuActionQty ?? (action === 'special-process-report' ? finishQty || baseQty : baseQty),
+        objectQty: skuActionQty ?? feiActionQty ?? (action === 'special-process-report' ? finishQty || baseQty : baseQty),
         qtyUnit: objectMeta.qtyUnit,
         skuQtyBySkuCode,
+        feiQtyByTicketNo,
         skuScrapQtyBySkuCode,
         skuDamageQtyBySkuCode,
         remark: `移动端${actionLabelMap[action]}`,

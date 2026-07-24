@@ -88,6 +88,8 @@
     "check:process-craft-final-taxonomy": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-process-craft-final-taxonomy.ts",
     "check:special-craft-business-taxonomy": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-special-craft-business-taxonomy.ts",
     "check:special-craft-operation-menus": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-special-craft-operation-menus.ts",
+    "check:special-craft-web-action-dialog-rerender": "tsx scripts/check-special-craft-web-action-dialog-rerender.ts",
+    "check:special-craft-line-progress-quantity-dialogs": "tsx scripts/check-special-craft-line-progress-quantity-dialogs.ts",
     "check:heat-transfer-and-print-dye-contract": "tsx scripts/check-heat-transfer-and-print-dye-contract.ts && tsx scripts/check-special-craft-pda-warehouse-actions.ts",
     "check:special-craft-pda-warehouse-actions": "tsx scripts/check-special-craft-pda-warehouse-actions.ts",
     "check:process-factory-special-craft-split": "tsx scripts/check-process-factory-special-craft-split.ts",

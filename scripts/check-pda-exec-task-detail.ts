@@ -68,7 +68,7 @@ function checkSourceCopy(): void {
   assertIncludes('当前数量', '任务详情页缺少特殊工艺当前数量')
   assertIncludes('linkSpecialCraftCompletionToReturnWaitHandoverStock', '特殊工艺完工未接入待交出仓 helper')
   assertIncludes('resolveSpecialCraftPdaObjectMeta', 'PDA 特殊工艺未按目标对象解析数量口径')
-  assertIncludes('确认接收${escapeHtml(objectMeta.objectLabel)}', 'PDA 特殊工艺确认接收按钮未按目标对象展示')
+  assertIncludes('确认接收${input.objectLabel}', 'PDA 特殊工艺确认接收按钮未按目标对象展示')
   assertIncludes('objectType: objectMeta.objectType', 'PDA 特殊工艺写回未使用目标对象类型')
   assertIncludes('qtyUnit: objectMeta.qtyUnit', 'PDA 特殊工艺写回未使用目标对象单位')
   assertIncludes('无需绑定菲票', 'PDA 特殊工艺成衣/面料对象未展示无需菲票口径')

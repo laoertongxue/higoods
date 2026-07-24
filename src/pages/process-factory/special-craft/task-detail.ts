@@ -421,12 +421,26 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
       const readonly = actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER'
 
       if (isGarment) {
+        const progressBySkuCode = new Map((taskOrder.lineProgress || [])
+          .filter((row) => row.lineType === 'sku' && row.skuCode)
+          .map((row) => [row.skuCode!, row]))
+        const linesWithProgress = lines.map((line) => {
+          const skuCode = line.skuCode || `${line.colorName || '成衣'}-${line.sizeCode || '均码'}`
+          const progress = progressBySkuCode.get(skuCode)
+          return {
+            ...line,
+            skuCode,
+            receivedQty: progress?.receivedQty ?? 0,
+            completedQty: progress?.completedQty ?? 0,
+            returnedQty: progress?.returnedQty ?? 0,
+          }
+        })
         const title =
           actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' ? '确认接收 - 逐 SKU 确认实收件数'
           : actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' ? '加工填报 - 逐 SKU 确认完工件数'
           : actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? '发起交出 - 逐 SKU 确认交出件数'
           : '完成加工单 - 核对汇总后完结'
-        const dialogHtml = renderGarmentSkuConfirmDialog(sourceId, actionCode, title, lines, 'planPieceQty', {
+        const dialogHtml = renderGarmentSkuConfirmDialog(sourceId, actionCode, title, linesWithProgress, 'planPieceQty', {
           showReceived: actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' || readonly,
           showCompleted: actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' || readonly,
           showHandover: actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' || readonly,
@@ -437,6 +451,9 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
         })
         ;(document.getElementById('app') || document.body).insertAdjacentHTML('beforeend', dialogHtml)
       } else {
+        const progressByFeiTicketNo = new Map((taskOrder.lineProgress || [])
+          .filter((row) => row.lineType === 'fei-ticket' && row.feiTicketNo)
+          .map((row) => [row.feiTicketNo!, row]))
         const feiGroups = new Map<string, { feiTicketNo: string; partName: string; colorName: string; sizeCode: string; planQty: number }>()
         lines.forEach((line) => {
           const ticketNos = line.feiTicketNos?.length ? line.feiTicketNos : ['无菲票']
@@ -449,7 +466,16 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
             }
           })
         })
-        const groups = [...feiGroups.values()].map((g) => ({ ...g, defaultQty: g.planQty }))
+        const groups = [...feiGroups.values()].map((g) => {
+          const progress = progressByFeiTicketNo.get(g.feiTicketNo)
+          return {
+            ...g,
+            defaultQty: g.planQty,
+            receivedQty: progress?.receivedQty ?? 0,
+            completedQty: progress?.completedQty ?? 0,
+            returnedQty: progress?.returnedQty ?? 0,
+          }
+        })
         const title =
           actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE' ? '确认接收 - 逐菲票确认实收数量'
           : actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' ? '加工填报 - 逐菲票确认完工数量'
@@ -556,6 +582,7 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
         operatedAt: '2026-07-23 10:00',
         objectQty: actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER' ? undefined : totalQty,
         qtyUnit: '片',
+        feiQtyByTicketNo: actionCode === 'SPECIAL_CRAFT_COMPLETE_ORDER' ? undefined : feiQtyByTicketNo,
         remark: `逐菲票确认，合计 ${totalQty} 片`,
       })
       showToast(result.message)

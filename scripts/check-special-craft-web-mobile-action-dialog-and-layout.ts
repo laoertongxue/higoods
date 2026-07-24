@@ -7,7 +7,7 @@ import {
   getWarehouseRecordsByWorkOrderId,
 } from '../src/data/fcs/process-warehouse-domain.ts'
 import { validateSpecialCraftMobileTaskBinding } from '../src/data/fcs/process-mobile-task-binding.ts'
-import { listSpecialCraftTaskOrders } from '../src/data/fcs/special-craft-task-orders.ts'
+import { getSpecialCraftTaskOrderById, listSpecialCraftTaskOrders } from '../src/data/fcs/special-craft-task-orders.ts'
 import { listPlatformSpecialCraftResultViews } from '../src/data/fcs/platform-process-result-view.ts'
 import { buildTaskRouteCardBySource } from '../src/data/fcs/task-print-cards.ts'
 
@@ -73,9 +73,11 @@ includesAll(specialCraftSharedSource, [
   'SPECIAL_CRAFT_PROCESS_REPORT',
   'SPECIAL_CRAFT_SUBMIT_HANDOVER',
   'SPECIAL_CRAFT_COMPLETE_ORDER',
-  '实收件数',
-  '完工件数',
-  '交出件数',
+  '累计实收数量',
+  '累计完工数量',
+  '本次完工数量',
+  '累计交出数量',
+  '本次交出数量',
   '回写数量',
 ], '特殊工艺自定义弹窗')
 includesAll(webActionsSource, [
@@ -194,7 +196,7 @@ assertThrows(() => executeMobileProcessAction({
   objectType: '裁片',
   objectQty: processing!.receivedQty + 1,
   qtyUnit: '片',
-}), '加工填报超已接收数量没有被拦截')
+}), '加工填报超累计实收未完工数量没有被拦截')
 const mobileReport = executeMobileProcessAction({
   sourceType: 'SPECIAL_CRAFT',
   sourceId: processing!.taskOrderId,
@@ -203,7 +205,7 @@ const mobileReport = executeMobileProcessAction({
   operatorName: '移动端验收员',
   operatedAt: '2026-04-28 10:10',
   objectType: '裁片',
-  objectQty: processing!.currentQty || processing!.planQty,
+  objectQty: Math.max(processing!.receivedQty - processing!.completedQty, 0),
   qtyUnit: '片',
   remark: '检查脚本移动端加工填报',
 })
@@ -238,6 +240,7 @@ assertThrows(() => executeMobileProcessAction({
   qtyUnit: '片',
 }), '未发起交出前完成加工单没有被拦截')
 
+const processingAfterReport = getSpecialCraftTaskOrderById(processing!.taskOrderId) || processing!
 const handoverResult = executeProcessWebAction({
   sourceType: 'SPECIAL_CRAFT',
   sourceId: processing!.taskOrderId,
@@ -245,7 +248,7 @@ const handoverResult = executeProcessWebAction({
   operatorName: 'Web 端验收员',
   operatedAt: '2026-04-28 10:30',
   objectType: '裁片',
-  objectQty: processing!.currentQty || processing!.planQty,
+  objectQty: Math.max(processingAfterReport.receivedQty - (processingAfterReport.returnedQty || 0), 0),
   qtyUnit: '片',
   fields: {
     交出人: 'Web 端验收员',

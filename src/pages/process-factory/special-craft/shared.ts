@@ -346,7 +346,7 @@ export function renderGarmentSkuConfirmDialog(
   taskOrderId: string,
   actionCode: string,
   title: string,
-  demandLines: Array<{ colorName: string; sizeCode: string; planPieceQty: number; skuCode: string }>,
+  demandLines: Array<{ colorName: string; sizeCode: string; planPieceQty: number; skuCode: string; receivedQty?: number; completedQty?: number; returnedQty?: number }>,
   defaultQtyField: 'planPieceQty',
   options: {
     showReceived?: boolean
@@ -360,30 +360,32 @@ export function renderGarmentSkuConfirmDialog(
 ): string {
   const skuRows = new Map<string, { skuCode: string; colorName: string; sizeCode: string; planQty: number; receivedQty: number; completedQty: number; handedOverQty: number }>()
   demandLines.forEach((line) => {
-    const key = line.skuCode
+    const skuCode = line.skuCode || `${line.colorName || '成衣'}-${line.sizeCode || '均码'}`
+    const key = skuCode
     const existing = skuRows.get(key)
     if (existing) {
       existing.planQty += line.planPieceQty
-      existing.receivedQty += Number(line[defaultQtyField]) || 0
-      existing.completedQty += Number(line[defaultQtyField]) || 0
-      existing.handedOverQty += Number(line[defaultQtyField]) || 0
+      existing.receivedQty += Number(line.receivedQty ?? line[defaultQtyField]) || 0
+      existing.completedQty += Number(line.completedQty ?? line[defaultQtyField]) || 0
+      existing.handedOverQty += Number(line.returnedQty ?? line[defaultQtyField]) || 0
     } else {
       skuRows.set(key, {
-        skuCode: line.skuCode,
+          skuCode,
         colorName: line.colorName,
         sizeCode: line.sizeCode,
         planQty: line.planPieceQty,
-        receivedQty: Math.max(0, Number(line[defaultQtyField]) || 0),
-        completedQty: Math.max(0, Number(line[defaultQtyField]) || 0),
-        handedOverQty: Math.max(0, Number(line[defaultQtyField]) || 0),
+        receivedQty: Math.max(0, Number(line.receivedQty ?? line[defaultQtyField]) || 0),
+        completedQty: Math.max(0, Number(line.completedQty ?? line[defaultQtyField]) || 0),
+        handedOverQty: Math.max(0, Number(line.returnedQty ?? line[defaultQtyField]) || 0),
       })
     }
   })
   const readonlyAttr = options.readonly ? 'disabled' : ''
   const headerCells = ['颜色', '尺码', '计划件数']
-  if (options.showReceived) headerCells.push('实收件数')
-  if (options.showCompleted) headerCells.push('完工件数')
-  if (options.showHandover) headerCells.push('交出件数')
+  if (actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE') headerCells.push('本次实收数量')
+  if (actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT') headerCells.push('累计实收数量', '累计完工数量', '本次完工数量')
+  if (actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER') headerCells.push('累计实收数量', '累计完工数量', '累计交出数量', '本次交出数量')
+  if (options.readonly) headerCells.push('累计实收数量', '累计完工数量', '累计交出数量')
 
   const tbody = [...skuRows.values()].map((row) => {
     const safeKey = row.skuCode.replace(/[^A-Za-z0-9]/g, '-')
@@ -391,9 +393,10 @@ export function renderGarmentSkuConfirmDialog(
       <td class="px-3 py-2 text-sm">${escapeHtml(row.colorName)}</td>
       <td class="px-3 py-2 text-sm">${escapeHtml(row.sizeCode)}</td>
       <td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(row.planQty)}</td>`
-    if (options.showReceived) cells += `<td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="sku-qty-${safeKey}" data-sku-code="${escapeHtml(row.skuCode)}" value="${row.receivedQty}" min="0" max="${row.planQty}" ${readonlyAttr} /></td>`
-    if (options.showCompleted) cells += `<td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="sku-completed-${safeKey}" data-sku-code="${escapeHtml(row.skuCode)}" value="${row.completedQty}" min="0" max="${row.receivedQty || row.planQty}" ${readonlyAttr} /></td>`
-    if (options.showHandover) cells += `<td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="sku-handover-${safeKey}" data-sku-code="${escapeHtml(row.skuCode)}" value="${row.handedOverQty}" min="0" max="${row.completedQty || row.planQty}" ${readonlyAttr} /></td>`
+    if (actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE') cells += `<td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="sku-qty-${safeKey}" data-line-progress-key="sku:${escapeHtml(row.skuCode)}" data-sku-code="${escapeHtml(row.skuCode)}" value="${Math.max(row.planQty - row.receivedQty, 0)}" min="0" max="${Math.max(row.planQty - row.receivedQty, 0)}" ${readonlyAttr} /></td>`
+    if (actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT') cells += `<td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(row.receivedQty)}</td><td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(row.completedQty)}</td><td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="sku-completed-${safeKey}" data-line-progress-key="sku:${escapeHtml(row.skuCode)}" data-sku-code="${escapeHtml(row.skuCode)}" value="${Math.max(row.receivedQty - row.completedQty, 0)}" min="0" max="${Math.max(row.receivedQty - row.completedQty, 0)}" ${readonlyAttr} /></td>`
+    if (actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER') cells += `<td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(row.receivedQty)}</td><td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(row.completedQty)}</td><td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(row.handedOverQty)}</td><td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="sku-handover-${safeKey}" data-line-progress-key="sku:${escapeHtml(row.skuCode)}" data-sku-code="${escapeHtml(row.skuCode)}" value="${Math.max(row.completedQty - row.handedOverQty, 0)}" min="0" max="${Math.max(row.completedQty - row.handedOverQty, 0)}" ${readonlyAttr} /></td>`
+    if (options.readonly) cells += `<td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(row.receivedQty)}</td><td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(row.completedQty)}</td><td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(row.handedOverQty)}</td>`
     return `<tr>${cells}</tr>`
   }).join('')
 
@@ -422,14 +425,14 @@ export function renderCutPieceFeiTicketConfirmDialog(
   taskOrderId: string,
   actionCode: string,
   title: string,
-  feiTicketGroups: Array<{ feiTicketNo: string; partName: string; colorName: string; sizeCode: string; planQty: number; defaultQty: number }>,
+  feiTicketGroups: Array<{ feiTicketNo: string; partName: string; colorName: string; sizeCode: string; planQty: number; defaultQty: number; receivedQty?: number; completedQty?: number; returnedQty?: number }>,
   options: { showReceived?: boolean; showCompleted?: boolean; showHandover?: boolean; showWriteback?: boolean; readonly?: boolean; writebackQty?: number } = { showReceived: true },
 ): string {
   const readonlyAttr = options.readonly ? 'disabled' : ''
   const headerCells = ['菲票号', '部位', '颜色', '尺码', '计划数量']
-  if (options.showReceived) headerCells.push('实收数量')
-  if (options.showCompleted) headerCells.push('完工数量')
-  if (options.showHandover) headerCells.push('交出数量')
+  if (actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE') headerCells.push('本次实收数量')
+  if (actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT') headerCells.push('累计实收数量', '累计完工数量', '本次完工数量')
+  if (actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER') headerCells.push('累计实收数量', '累计完工数量', '累计交出数量', '本次交出数量')
   if (options.showWriteback) headerCells.push('回写数量')
   const tbody = feiTicketGroups.map((group) => {
     const safeKey = group.feiTicketNo.replace(/[^A-Za-z0-9]/g, '-')
@@ -439,9 +442,12 @@ export function renderCutPieceFeiTicketConfirmDialog(
       <td class="px-3 py-2 text-sm">${escapeHtml(group.colorName)}</td>
       <td class="px-3 py-2 text-sm">${escapeHtml(group.sizeCode)}</td>
       <td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(group.planQty)}</td>`
-    if (options.showReceived) cells += `<td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="fei-qty-${safeKey}" data-fei-ticket-no="${escapeHtml(group.feiTicketNo)}" value="${group.defaultQty}" min="0" max="${group.planQty}" ${readonlyAttr} /></td>`
-    if (options.showCompleted) cells += `<td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="fei-completed-${safeKey}" data-fei-ticket-no="${escapeHtml(group.feiTicketNo)}" value="${group.defaultQty}" min="0" max="${group.planQty}" ${readonlyAttr} /></td>`
-    if (options.showHandover) cells += `<td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="fei-handover-${safeKey}" data-fei-ticket-no="${escapeHtml(group.feiTicketNo)}" value="${group.defaultQty}" min="0" max="${group.planQty}" ${readonlyAttr} /></td>`
+    const receivedQty = group.receivedQty ?? group.defaultQty
+    const completedQty = group.completedQty ?? group.defaultQty
+    const returnedQty = group.returnedQty ?? 0
+    if (actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE') cells += `<td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="fei-qty-${safeKey}" data-line-progress-key="fei:${escapeHtml(group.feiTicketNo)}" data-fei-ticket-no="${escapeHtml(group.feiTicketNo)}" value="${Math.max(group.planQty - receivedQty, 0)}" min="0" max="${Math.max(group.planQty - receivedQty, 0)}" ${readonlyAttr} /></td>`
+    if (actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT') cells += `<td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(receivedQty)}</td><td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(completedQty)}</td><td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="fei-completed-${safeKey}" data-line-progress-key="fei:${escapeHtml(group.feiTicketNo)}" data-fei-ticket-no="${escapeHtml(group.feiTicketNo)}" value="${Math.max(receivedQty - completedQty, 0)}" min="0" max="${Math.max(receivedQty - completedQty, 0)}" ${readonlyAttr} /></td>`
+    if (actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER') cells += `<td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(receivedQty)}</td><td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(completedQty)}</td><td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(returnedQty)}</td><td class="px-3 py-2"><input type="number" class="w-24 rounded border px-2 py-1 text-sm text-right tabular-nums" name="fei-handover-${safeKey}" data-line-progress-key="fei:${escapeHtml(group.feiTicketNo)}" data-fei-ticket-no="${escapeHtml(group.feiTicketNo)}" value="${Math.max(completedQty - returnedQty, 0)}" min="0" max="${Math.max(completedQty - returnedQty, 0)}" ${readonlyAttr} /></td>`
     if (options.showWriteback) cells += `<td class="px-3 py-2 text-right text-sm tabular-nums">${formatQty(options.writebackQty || 0)}</td>`
     return `<tr>${cells}</tr>`
   }).join('')

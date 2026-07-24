@@ -174,6 +174,7 @@ const COLUMNS: StandardListColumn<ExpandedTaskOrderRow>[] = [
           const actionLabel = objectType === '裁片' ? a.actionLabel : a.actionLabel.replaceAll('裁片', '成衣')
           const confirmText = objectType === '裁片' ? a.confirmText : a.confirmText.replaceAll('裁片', '成衣')
           return `<button type="button" class="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[11px] text-blue-700 hover:bg-blue-100"
+            data-skip-page-rerender="true"
             data-special-craft-web-action="open-web-status-action-dialog"
             data-source-id="${escapeHtml(row.taskOrder.taskOrderId)}"
             data-action-code="${escapeHtml(a.actionCode)}"
