@@ -808,5 +808,6 @@ export const FeiTicketLabelTemplate = renderLabelPrintTemplate
 export const FeiTicketReprintLabelTemplate = renderLabelPrintTemplate
 export const FeiTicketVoidLabelTemplate = renderLabelPrintTemplate
 export const TransferBagLabelTemplate = renderLabelPrintTemplate
+// 中转袋二维码打印标签字段：中转袋编号、所属工厂、本码只代表中转袋档案
 export const CuttingOrderQrLabelTemplate = renderLabelPrintTemplate
 export const HandoverQrLabelTemplate = renderLabelPrintTemplate

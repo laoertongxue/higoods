@@ -564,6 +564,7 @@ export function renderPdaHandoverPage(): string {
     done: doneHeads.length,
   }
 
+// 裁床中转袋交接状态：待装袋 / 待收中转袋
   const content = `
     <div class="flex min-h-[760px] flex-col bg-background">
       <div class="sticky top-[auto] z-20 flex border-b bg-background" data-testid="pda-handover-tabs">

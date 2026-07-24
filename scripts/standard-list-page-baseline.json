@@ -17,7 +17,6 @@
   "src/pages/process-factory/cutting/marker-plan.ts": "9b9d66dd815b14662a5975f7bba9cb9c5cc5e1b84b7d76e6db3294f864a1e87a",
   "src/pages/process-factory/cutting/marker-spreading.ts": "85711daa6058058d286e49ad03163cff2455f8213246e76c539f2fa11637f4c2",
   "src/pages/process-factory/cutting/special-processes.ts": "3217ecc3103dc6c45f12190ad9a0b1fc660fe08e981bc4dda1d64e6bc4bea68f",
-  "src/pages/process-factory/cutting/transfer-bags.ts": "c974181365b9c1e7be934aa40ad4e345482eb3de73f9519a8fe6ca0bdde1a532",
   "src/pages/process-factory/dyeing/water-soluble-orders.ts": "6f125fcfc7a72924773dc32f7ff12946bc672c59c591a633e4d99e62fee5ddca",
   "src/pages/process-factory/post-finishing/qc-orders.ts": "f56bf34a57518e1402de4f84fd01bc3daa312cb6f81354fe742f8d12b78a14cc",
   "src/pages/process-factory/wool/work-orders.ts": "c94a2d8c60df48c28890ecb2920f5a83ffc762605e802a1316fc703f51597cb3",

@@ -1333,7 +1333,7 @@ export function buildSpecialCraftProgressSnapshots(options: ProgressStatisticsBu
     existing.receivedQty += task.receivedQty
     existing.completedQty += task.completedQty
     existing.waitHandoverQty += task.waitHandoverQty
-    existing.abnormalCount += task.abnormalRecords.length + (task.abnormalStatus === '无异常' ? 0 : 1)
+    existing.abnormalCount += (task.abnormalRecords || []).length + (task.abnormalStatus === '无异常' ? 0 : 1)
     existing.targetObjectSummary = unique([...existing.targetObjectSummary, task.targetObject])
     existing.statusDistribution[task.status] += 1
     groups.set(key, existing)

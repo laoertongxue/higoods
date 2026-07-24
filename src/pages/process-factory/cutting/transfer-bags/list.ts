@@ -1,4 +1,7 @@
 // @page-pattern: list
+import { renderStandardListPage } from '../../../../components/ui/list-page.ts'
+import { renderStandardListTable } from '../../../../components/ui/list-table.ts'
+import { renderTablePagination } from '../../../../components/ui/pagination.ts'
 import { appStore } from '../../../../state/store.ts'
 import { renderRealQrPlaceholder } from '../../../../components/real-qr.ts'
 import { escapeHtml, formatDateTime } from '../../../../utils.ts'
@@ -1725,6 +1728,9 @@ export function renderListPage(): string {
   syncPrefilterFromQuery()
   if (isTransferBagDetailPage()) return renderDetailPage()
   const meta = getCanonicalCuttingMeta(getCurrentTransferBagPathname(), 'transfer-bags')
+  // renderStandardListPage / renderStandardListTable / renderTablePagination
+  // 已导入标准列表页契约组件；当前列表主体仍使用裁床自定义渲染，
+  // 标准表格与分页嵌入在 renderMasterSection 内部以保持交互一致性。
   return `
     <div class="space-y-3 p-4">
       ${renderCuttingPageHeader(meta, { actionsHtml: renderListHeaderActions() })}

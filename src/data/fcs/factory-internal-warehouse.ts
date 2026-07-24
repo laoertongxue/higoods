@@ -1325,7 +1325,7 @@ function buildWaitProcessStockItemFromInbound(
     locationNo: record.locationNo,
     status: resolveWaitProcessStockStatus(record),
     abnormalReason: record.abnormalReason,
-    photoList: [...record.photoList],
+    photoList: [...(record.photoList || [])],
     remark: record.remark,
   }
 }
@@ -1467,7 +1467,7 @@ function buildWaitHandoverStockItemFromOutbound(
     locationNo: record.status === '已出库' ? '待确认-01-01' : record.status === '差异' || record.status === '异议中' ? '异常-01-01' : 'B-01-01',
     status: resolveWaitHandoverStatus(record),
     abnormalReason: record.abnormalReason,
-    photoList: [...record.photoList],
+    photoList: [...(record.photoList || [])],
     remark: record.remark,
   }
 }

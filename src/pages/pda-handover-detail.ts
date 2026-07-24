@@ -1697,6 +1697,7 @@ function renderReceiverWritebackForm(record: PdaHandoverRecord): string {
 
   return `
     <div class="space-y-3 rounded-md border bg-muted/20 p-3" data-testid="handout-writeback-form">
+      <div class="text-xs text-muted-foreground">回写模式：按袋回写 / 按菲票回写</div>
       <div class="grid gap-3 md:grid-cols-2">
         <label class="space-y-1">
           <span class="text-xs font-medium">实收对象数量</span>
