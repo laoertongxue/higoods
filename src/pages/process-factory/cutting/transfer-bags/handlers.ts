@@ -137,6 +137,10 @@ import {
   type MasterDraftField,
   type PackDraftField,
 } from './state'
+import {
+  buildTransferBagDetailRoute,
+  isTransferBagDetailPage,
+} from './route.ts'
 
 export function resolveCarrierScanInput(input: string, store: TransferBagStore): TransferBagMaster | null {
   const normalized = input.trim()
@@ -386,8 +390,7 @@ export function findMatchingMasters(prefilter: TransferBagPrefilter | null, view
 }
 
 export function getCarrierMasterRecordMap(): Record<string, TransferBagCarrierMasterRecord> {
-  if (carrierManagementProjectionCache?.version !== projectionVersion) getCarrierManagementProjection()
-  return carrierManagementProjectionCache?.masterRecordMap || {}
+  return Object.fromEntries(getCarrierManagementProjection().masterRecords.map((item) => [item.bagCode, item]))
 }
 
 export function matchesMasterStatusFilter(

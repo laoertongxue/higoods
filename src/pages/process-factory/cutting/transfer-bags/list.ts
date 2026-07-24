@@ -80,6 +80,14 @@ import {
 import {
   renderActiveDialog,
 } from './dialogs.ts'
+import {
+  buildTransferBagDetailRoute,
+  getCurrentTransferBagPathname,
+  isTransferBagDetailPage,
+} from './route.ts'
+import {
+  renderDetailPage,
+} from './detail.ts'
 
 export function renderListHeaderActions(): string {
   return `

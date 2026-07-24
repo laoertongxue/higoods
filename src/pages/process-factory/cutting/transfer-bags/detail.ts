@@ -88,6 +88,11 @@ import {
 import {
   renderActiveDialog,
 } from './dialogs.ts'
+import {
+  buildTransferBagDetailRoute,
+  buildTransferBagListRoute,
+  getCurrentTransferBagPathname,
+} from './route.ts'
 
 export function isTransferBagDetailTab(value: string | null | undefined): value is TransferBagDetailTab {
   return value === 'basic' || value === 'current' || value === 'history' || value === 'items' || value === 'logs'

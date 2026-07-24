@@ -186,11 +186,6 @@ import {
   renderTransferBagDetailTabPanel,
   renderDetailPage,
 } from './transfer-bags/detail.ts'
-import {
-  renderListPage,
-} from './transfer-bags/list.ts'
-
-
 function renderTag(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
 }
