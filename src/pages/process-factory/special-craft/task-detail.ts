@@ -10,6 +10,11 @@ import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { executeProcessWebAction } from '../../../data/fcs/process-web-status-actions.ts'
 import {
+  renderGarmentSkuConfirmDialog,
+  renderCutPieceFeiTicketConfirmDialog,
+} from './shared.ts'
+
+import {
   openProcessWebStatusActionDialog,
   handleProcessWebStatusActionDialogEvent,
 } from '../shared/web-status-action-dialog.ts'
@@ -454,55 +459,138 @@ export function handleSpecialCraftTaskDetailEvent(target: HTMLElement): boolean 
   const actionNode = target.closest<HTMLElement>('[data-special-craft-web-action]')
   if (!actionNode) return false
 
-  if (actionNode.dataset.specialCraftWebAction === 'confirm-garment-warehouse-outbound') {
+  if (actionNode.dataset.specialCraftWebAction === 'open-web-status-action-dialog') {
+    const actionCode = actionNode.dataset.actionCode || ''
     const sourceId = actionNode.dataset.sourceId || ''
     const taskOrder = getSpecialCraftTaskOrderById(sourceId)
-    if (!taskOrder || !taskOrder.demandLines?.length) {
-      showToast('未找到任务单')
+    if (!taskOrder) return true
+
+    const isCustomDialog = actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+      || actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS'
+      || actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER'
+
+    if (isCustomDialog) {
+      const isGarment = taskOrder.targetObject === '成衣'
+      const lines = taskOrder.demandLines || []
+
+      if (isGarment) {
+        const title = actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+          ? '确认接收 - 逐 SKU 确认实收件数'
+          : actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS'
+            ? '完成加工 - 逐 SKU 确认完工件数'
+            : '发起交出 - 逐 SKU 确认交出件数'
+        const dialogHtml = renderGarmentSkuConfirmDialog(sourceId, actionCode, title, lines, 'planPieceQty')
+        document.body.insertAdjacentHTML('beforeend', dialogHtml)
+      } else {
+        const feiGroups = new Map<string, { feiTicketNo: string; partName: string; colorName: string; sizeCode: string; planQty: number }>()
+        lines.forEach((line) => {
+          (line.feiTicketNos?.length ? line.feiTicketNos : ['无菲票']).forEach((ticketNo) => {
+            if (feiGroups.has(ticketNo)) {
+              feiGroups.get(ticketNo)!.planQty += line.planPieceQty
+            } else {
+              feiGroups.set(ticketNo, { feiTicketNo: ticketNo, partName: line.partName, colorName: line.colorName, sizeCode: line.sizeCode, planQty: line.planPieceQty })
+            }
+          })
+        })
+        const groups = [...feiGroups.values()].map((g) => ({ ...g, defaultQty: g.planQty }))
+        const title = actionCode === 'SPECIAL_CRAFT_CONFIRM_RECEIVE'
+          ? '确认接收 - 逐菲票确认实收数量'
+          : actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS'
+            ? '完成加工 - 逐菲票确认完工数量'
+            : '发起交出 - 逐菲票确认交出数量'
+        const dialogHtml = renderCutPieceFeiTicketConfirmDialog(sourceId, actionCode, title, groups)
+        document.body.insertAdjacentHTML('beforeend', dialogHtml)
+      }
       return true
     }
-    const skuQtyBySkuCode: Record<string, number> = {}
-    for (const line of taskOrder.demandLines) {
-      const key = line.pieceRowId || line.partName
-      const expected = line.planPieceQty
-      const value = window.prompt(`${key} 应收 ${expected} 件，请确认实出`, String(expected))
-      if (value === null) return true
-      const qty = Number(value)
-      if (!Number.isInteger(qty) || qty < 0 || qty > expected) {
-        showToast(`${key} 实出必须为 0 到 ${expected} 的整数`)
-        return true
-      }
-      skuQtyBySkuCode[key] = qty
-    }
-    try {
-      const objectQty = Object.values(skuQtyBySkuCode).reduce((sum, qty) => sum + qty, 0)
-      const result = executeProcessWebAction({
-        sourceType: 'SPECIAL_CRAFT',
-        sourceId,
-        actionCode: 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
-        operatorName: '成衣仓管员',
-        operatedAt: '2026-07-22 09:30:00',
-        objectType: '成衣',
-        objectQty,
-        qtyUnit: '件',
-        skuQtyBySkuCode,
-        remark: '成衣仓 Web 端逐 SKU 出库确认',
-      })
-      showToast(result.message)
-      const current = appStore.getState().pathname || '/'
-      appStore.navigate(current, { historyMode: 'replace' })
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : '成衣仓出库失败')
-    }
+
+    // 其他动作（上报差异、差异后重交）：使用通用对话框
+    openProcessWebStatusActionDialog({ actionNode, sourceType: 'SPECIAL_CRAFT' })
     return true
   }
 
-  if (actionNode.dataset.specialCraftWebAction === 'open-web-status-action-dialog') {
-    openProcessWebStatusActionDialog({
-      actionNode,
-      sourceType: 'SPECIAL_CRAFT',
+  // SKU 确认对话框提交
+  const skuConfirmNode = target.closest<HTMLElement>('[data-special-craft-sku-confirm]')
+  if (skuConfirmNode) {
+    const taskId = skuConfirmNode.dataset.taskId || ''
+    const actionCode = skuConfirmNode.dataset.actionCode || ''
+    const dialog = document.getElementById('special-craft-garment-sku-dialog')
+    if (!dialog) return true
+
+    const taskOrder = getSpecialCraftTaskOrderById(taskId)
+    const skuQtyBySkuCode: Record<string, number> = {}
+    if (taskOrder?.demandLines) {
+      taskOrder.demandLines.forEach((line) => {
+        const safeKey = `${line.colorName}-${line.sizeCode}`.replace(/[^A-Za-z0-9]/g, '-')
+        const input = dialog.querySelector<HTMLInputElement>(`input[name="sku-qty-${safeKey}"]`)
+        if (input) {
+          const qty = Number(input.value) || 0
+          if (qty >= 0) {
+            skuQtyBySkuCode[line.skuCode] = (skuQtyBySkuCode[line.skuCode] || 0) + qty
+          }
+        }
+      })
+    }
+    dialog.remove()
+
+    try {
+      const result = executeProcessWebAction({
+        sourceType: 'SPECIAL_CRAFT',
+        sourceId: taskId,
+        actionCode,
+        operatorName: 'Web 端操作员',
+        operatedAt: '2026-07-23 10:00',
+        objectType: taskOrder?.targetObject ?? '裁片',
+        objectQty: Object.values(skuQtyBySkuCode).reduce((s, q) => s + q, 0),
+        qtyUnit: taskOrder?.unit ?? '件',
+        skuQtyBySkuCode,
+      })
+      showToast(result.message)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '操作失败')
+    }
+    const current = appStore.getState().pathname || '/'
+    appStore.navigate(current, { historyMode: 'replace' })
+    return true
+  }
+
+  // 菲票确认对话框提交
+  const feiConfirmNode = target.closest<HTMLElement>('[data-special-craft-fei-confirm]')
+  if (feiConfirmNode) {
+    const taskId = feiConfirmNode.dataset.taskId || ''
+    const actionCode = feiConfirmNode.dataset.actionCode || ''
+    const dialog = document.getElementById('special-craft-fei-ticket-dialog')
+    if (!dialog) return true
+
+    const feiQtyByTicketNo: Record<string, number> = {}
+    const inputs = dialog.querySelectorAll<HTMLInputElement>('input[type="number"]')
+    inputs.forEach((input) => {
+      const name = input.name || ''
+      const ticketNo = name.replace('fei-qty-', '')
+      feiQtyByTicketNo[ticketNo] = Number(input.value) || 0
     })
-    return false
+
+    dialog.remove()
+
+    const totalQty = Object.values(feiQtyByTicketNo).reduce((s, q) => s + q, 0)
+    try {
+      const result = executeProcessWebAction({
+        sourceType: 'SPECIAL_CRAFT',
+        sourceId: taskId,
+        actionCode,
+        operatorName: 'Web 端操作员',
+        operatedAt: '2026-07-23 10:00',
+        objectQty: totalQty,
+        qtyUnit: '片',
+        remark: `逐菲票确认，合计 ${totalQty} 片`,
+      })
+      showToast(result.message)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '操作失败')
+    }
+    const current = appStore.getState().pathname || '/'
+    appStore.navigate(current, { historyMode: 'replace' })
+    return true
   }
 
   return false

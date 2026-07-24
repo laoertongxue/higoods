@@ -555,11 +555,22 @@ function buildDefaultAreaList(): FactoryWarehouseArea[] {
 }
 
 export function buildDefaultFactoryInternalWarehouses(factories: Factory[] = mockFactories): FactoryInternalWarehouse[] {
+  const seenIds = new Set<string>()
   return factories
     .filter((factory) => isNonSewingFactory(factory))
+    .filter((factory) => {
+      if (seenIds.has(factory.id)) return false
+      seenIds.add(factory.id)
+      return true
+    })
     .flatMap((factory) => {
       const createdAt = factory.createdAt || '2026-04-01 08:00:00'
       const updatedAt = factory.updatedAt || createdAt
+      const areaList = factory.id === 'FAC-AUX-CRAFT'
+        ? buildCraftWarehouseAreas().filter((area) => area.areaId.startsWith('AUX-'))
+        : factory.id === 'FAC-SPC-CRAFT'
+          ? buildCraftWarehouseAreas().filter((area) => area.areaId.startsWith('SPC-'))
+          : buildDefaultAreaList()
       return (['WAIT_PROCESS', 'WAIT_HANDOVER'] as const).map((warehouseKind) => {
         const warehouseShortName = getWarehouseShortName(warehouseKind)
         return {
@@ -572,7 +583,7 @@ export function buildDefaultFactoryInternalWarehouses(factories: Factory[] = moc
           warehouseShortName,
           isDefault: true,
           isEnabled: true,
-          areaList: buildDefaultAreaList(),
+          areaList,
           createdAt,
           updatedAt,
         } satisfies FactoryInternalWarehouse
@@ -3714,4 +3725,23 @@ export function getFactoryWarehouseKindLabel(warehouseKind: FactoryInternalWareh
 
 export function getFactoryWarehousePositionLabel(status: FactoryWarehouseLocationStatus): string {
   return getWarehouseLocationStatusLabel(status)
+}
+
+export function buildCraftWarehouseAreas(): FactoryWarehouseArea[] {
+  return [
+    { areaId: 'AUX-WP-AREA-01', areaName: '绣花-成衣库区', shelfList: buildDefaultShelf('AUX-WP-01'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-02', areaName: '绣花-裁片库区', shelfList: buildDefaultShelf('AUX-WP-02'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-03', areaName: '烫画-成衣库区', shelfList: buildDefaultShelf('AUX-WP-03'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-04', areaName: '直喷-成衣库区', shelfList: buildDefaultShelf('AUX-WP-04'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-05', areaName: '抽条-裁片库区', shelfList: buildDefaultShelf('AUX-WP-05'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-06', areaName: '压褶-裁片库区', shelfList: buildDefaultShelf('AUX-WP-06'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-07', areaName: '打缆-裁片库区', shelfList: buildDefaultShelf('AUX-WP-07'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-08', areaName: '贝壳绣-裁片库区', shelfList: buildDefaultShelf('AUX-WP-08'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-09', areaName: '曲牙绣-裁片库区', shelfList: buildDefaultShelf('AUX-WP-09'), status: 'AVAILABLE' },
+    { areaId: 'AUX-WP-AREA-10', areaName: '直牙绣-裁片库区', shelfList: buildDefaultShelf('AUX-WP-10'), status: 'AVAILABLE' },
+    { areaId: 'SPC-WP-AREA-01', areaName: '模板工艺-裁片库区', shelfList: buildDefaultShelf('SPC-WP-01'), status: 'AVAILABLE' },
+    { areaId: 'SPC-WP-AREA-02', areaName: '激光袋-裁片库区', shelfList: buildDefaultShelf('SPC-WP-02'), status: 'AVAILABLE' },
+    { areaId: 'SPC-WP-AREA-03', areaName: '花样机-裁片库区', shelfList: buildDefaultShelf('SPC-WP-03'), status: 'AVAILABLE' },
+    { areaId: 'SPC-WP-AREA-04', areaName: '橡筋定长-辅料库区', shelfList: buildDefaultShelf('SPC-WP-04'), status: 'AVAILABLE' },
+  ]
 }

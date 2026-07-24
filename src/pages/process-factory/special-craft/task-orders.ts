@@ -19,6 +19,7 @@ import {
   resolveSpecialCraftFactoryContextGuard,
   renderStatusBadge,
   getFastSpecialCraftWebActions,
+  resolveSpuImageUrl,
 } from './shared.ts'
 import { appStore } from '../../../state/store.ts'
 
@@ -47,6 +48,21 @@ const PREF_STORAGE_KEY = 'higood:list-page:/fcs/craft/special-craft/task-orders'
 const PAGE_SIZES = [10, 20, 50]
 const MAX_FROZEN_WIDTH = 360
 
+interface ExpandedTaskOrderRow {
+  taskOrder: SpecialCraftTaskOrder
+  rowType: 'garment-sku' | 'cut-piece-fei'
+  // garment
+  garmentColor: string
+  garmentSize: string
+  garmentPlanQty: number
+  // cut piece
+  feiTicketNo: string
+  feiPartName: string
+  feiColor: string
+  feiSize: string
+  feiPlanQty: number
+}
+
 const TASK_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: '全部', label: '全部任务' },
   { value: '待领料', label: '待领料' },
@@ -65,6 +81,7 @@ const TASK_TIME_RANGE_OPTIONS: Array<{ value: string; label: string }> = [
 ]
 
 const columnRules: StandardListColumnRule[] = [
+  { key: 'thumbnail', required: true, freezeable: true },
   { key: 'taskOrderNo', required: true, freezeable: true },
   { key: 'productionOrder', freezeable: true },
   { key: 'targetObject', freezeable: true },
@@ -81,46 +98,64 @@ const defaultPreferences: StandardListColumnPreferences = {
   pageSize: 10,
 }
 
-const COLUMNS: StandardListColumn<SpecialCraftTaskOrder>[] = [
+const COLUMNS: StandardListColumn<ExpandedTaskOrderRow>[] = [
+  {
+    key: 'thumbnail', title: '', width: 56, freezeable: true, required: true,
+    render(row) {
+      const src = resolveSpuImageUrl(row.taskOrder)
+      return `<img src="${escapeHtml(src)}" class="h-10 w-10 cursor-pointer rounded object-cover"
+        data-special-craft-task-list-action="view-image"
+        data-image-src="${escapeHtml(src)}"
+        alt="商品图" loading="lazy" />`
+    },
+  },
   {
     key: 'taskOrderNo', title: '加工单号', width: 180, sortable: true, required: true, freezeable: true,
     render(row) {
-      return `<div class="text-sm font-medium">${escapeHtml(row.taskOrderNo)}</div>
-        <div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(row.sourceTriggerLabel || '生产单生成')}</div>`
+      return `<div class="text-sm font-medium">${escapeHtml(row.taskOrder.taskOrderNo)}</div>
+        <div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(row.taskOrder.sourceTriggerLabel || '生产单生成')}</div>`
     },
-    sortValue: (row) => row.taskOrderNo,
+    sortValue: (row) => row.taskOrder.taskOrderNo,
   },
   {
     key: 'productionOrder', title: '生产单', width: 140, sortable: true, freezeable: true,
-    render(row) { return renderProductionOrderIdentityCell(row.productionOrderNo) },
-    sortValue: (row) => row.productionOrderNo,
+    render(row) { return renderProductionOrderIdentityCell(row.taskOrder.productionOrderNo) },
+    sortValue: (row) => row.taskOrder.productionOrderNo,
   },
   {
-    key: 'targetObject', title: '加工对象', width: 140, freezeable: true,
+    key: 'targetObject', title: '加工对象', width: 160, freezeable: true,
     render(row) {
-      const parts = [row.targetObject, row.partName, row.fabricColor, row.sizeCode].filter(Boolean)
-      return `<div class="text-sm">${escapeHtml(parts.join(' / ') || '—')}</div>
-        <div class="mt-0.5 text-xs text-muted-foreground">菲票 ${row.feiTicketNos?.length || 0} 张</div>`
+      if (row.rowType === 'garment-sku') {
+        return `<div class="text-sm">${escapeHtml(`${row.garmentColor} / ${row.garmentSize}`)}</div>
+          <div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(row.taskOrder.targetObject)}</div>`
+      }
+      if (row.feiTicketNo) {
+        return `<button type="button" class="text-sm text-blue-700 hover:underline font-mono text-xs"
+          data-special-craft-task-list-action="view-fei-ticket"
+          data-fei-ticket-no="${escapeHtml(row.feiTicketNo)}">${escapeHtml(row.feiTicketNo)}</button>
+          <div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(`${row.feiPartName} / ${row.feiColor} / ${row.feiSize}`)}</div>`
+      }
+      return `<div class="text-sm">${escapeHtml(`${row.feiPartName} / ${row.feiColor} / ${row.feiSize}`)}</div>`
     },
   },
   {
     key: 'factory', title: '承接工厂', width: 120, sortable: true,
-    render(row) { return escapeHtml(formatSpecialCraftFactoryLabel(row.factoryName, row.factoryId)) },
-    sortValue: (row) => row.factoryName,
+    render(row) { return escapeHtml(formatSpecialCraftFactoryLabel(row.taskOrder.factoryName, row.taskOrder.factoryId)) },
+    sortValue: (row) => row.taskOrder.factoryName,
   },
   {
     key: 'qtyProgress', title: '数量进度', width: 160, align: 'right',
     render(row) {
-      return `<div class="text-sm tabular-nums">计划 ${formatQty(row.planQty)}${escapeHtml(row.unit)}</div>
-        <div class="mt-0.5 text-xs text-muted-foreground tabular-nums">接收 ${formatQty(row.receivedQty)} / 完成 ${formatQty(row.completedQty)} / 待交出 ${formatQty(row.waitHandoverQty)}</div>`
+      return `<div class="text-sm tabular-nums">计划 ${formatQty(row.taskOrder.planQty)}${escapeHtml(row.taskOrder.unit)}</div>
+        <div class="mt-0.5 text-xs text-muted-foreground tabular-nums">接收 ${formatQty(row.taskOrder.receivedQty)} / 完成 ${formatQty(row.taskOrder.completedQty)} / 待交出 ${formatQty(row.taskOrder.waitHandoverQty)}</div>`
     },
   },
   {
     key: 'status', title: '状态', width: 100, freezeable: true,
     render(row) {
-      const badges = [renderStatusBadge(row.status)]
-      if (row.abnormalStatus && row.abnormalStatus !== '无异常') {
-        badges.push(renderStatusBadge(row.abnormalStatus))
+      const badges = [renderStatusBadge(row.taskOrder.status)]
+      if (row.taskOrder.abnormalStatus && row.taskOrder.abnormalStatus !== '无异常') {
+        badges.push(renderStatusBadge(row.taskOrder.abnormalStatus))
       }
       return `<div class="flex flex-wrap gap-1">${badges.join('')}</div>`
     },
@@ -129,14 +164,14 @@ const COLUMNS: StandardListColumn<SpecialCraftTaskOrder>[] = [
     key: 'actions', title: '操作', width: 160, actionColumn: true, required: true,
     render(row) {
       const detailHref = buildSpecialCraftTaskDetailPath(
-        { operationId: row.operationId },
-        row.taskOrderId,
+        { operationId: row.taskOrder.operationId },
+        row.taskOrder.taskOrderId,
       )
-      const webActions = getFastSpecialCraftWebActions(row)
+      const webActions = getFastSpecialCraftWebActions(row.taskOrder)
       const actionable = webActions.filter((a) => !a.disabledReason).slice(0, 2)
-      const objectType = row.targetObject === '成衣' ? '成衣' : '裁片'
-      const objectQty = row.currentQty || row.planQty || 1
-      const qtyUnit = row.unit || '件'
+      const objectType = row.taskOrder.targetObject === '成衣' ? '成衣' : '裁片'
+      const objectQty = row.taskOrder.currentQty || row.taskOrder.planQty || 1
+      const qtyUnit = row.taskOrder.unit || '件'
       const quickButtons = actionable
         .map((a) => {
           const requiredFields = a.requiredFields
@@ -147,7 +182,7 @@ const COLUMNS: StandardListColumn<SpecialCraftTaskOrder>[] = [
           const confirmText = objectType === '裁片' ? a.confirmText : a.confirmText.replaceAll('裁片', '成衣')
           return `<button type="button" class="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[11px] text-blue-700 hover:bg-blue-100"
             data-special-craft-web-action="open-web-status-action-dialog"
-            data-source-id="${escapeHtml(row.taskOrderId)}"
+            data-source-id="${escapeHtml(row.taskOrder.taskOrderId)}"
             data-action-code="${escapeHtml(a.actionCode)}"
             data-action-label="${escapeHtml(actionLabel)}"
             data-from-status="${escapeHtml(a.fromStatus)}"
@@ -329,6 +364,67 @@ function buildFilters(state: TaskListState) {
   }
 }
 
+function expandRows(taskOrders: SpecialCraftTaskOrder[]): ExpandedTaskOrderRow[] {
+  const rows: ExpandedTaskOrderRow[] = []
+  taskOrders.forEach((taskOrder) => {
+    const lines = taskOrder.demandLines || []
+    const isGarment = taskOrder.targetObject === '成衣'
+
+    if (isGarment) {
+      const skuGroups = new Map<string, { colorName: string; sizeCode: string; planQty: number }>()
+      lines.forEach((line) => {
+        const key = `${line.colorName}::${line.sizeCode}`
+        const existing = skuGroups.get(key)
+        if (existing) {
+          existing.planQty += line.planPieceQty
+        } else {
+          skuGroups.set(key, { colorName: line.colorName, sizeCode: line.sizeCode, planQty: line.planPieceQty })
+        }
+      })
+      skuGroups.forEach((group) => {
+        const [color, size] = group.colorName && group.sizeCode
+          ? [group.colorName, group.sizeCode]
+          : group.colorName.includes('::')
+            ? group.colorName.split('::')
+            : [group.colorName, '-']
+        rows.push({
+          taskOrder,
+          rowType: 'garment-sku',
+          garmentColor: color, garmentSize: size, garmentPlanQty: group.planQty,
+          feiTicketNo: '', feiPartName: '', feiColor: '', feiSize: '', feiPlanQty: 0,
+        })
+      })
+    } else {
+      const feiGroups = new Map<string, { partName: string; colorName: string; sizeCode: string; planQty: number }>()
+      lines.forEach((line) => {
+        (line.feiTicketNos?.length ? line.feiTicketNos : ['—']).forEach((ticketNo) => {
+          if (feiGroups.has(ticketNo)) {
+            feiGroups.get(ticketNo)!.planQty += line.planPieceQty
+          } else {
+            feiGroups.set(ticketNo, { partName: line.partName, colorName: line.colorName, sizeCode: line.sizeCode, planQty: line.planPieceQty })
+          }
+        })
+      })
+      if (feiGroups.size === 0) {
+        rows.push({
+          taskOrder, rowType: 'cut-piece-fei',
+          garmentColor: '', garmentSize: '', garmentPlanQty: 0,
+          feiTicketNo: '', feiPartName: taskOrder.partName || '', feiColor: taskOrder.fabricColor || '', feiSize: taskOrder.sizeCode || '', feiPlanQty: taskOrder.planQty,
+        })
+      } else {
+        feiGroups.forEach((group, ticketNo) => {
+          rows.push({
+            taskOrder, rowType: 'cut-piece-fei',
+            garmentColor: '', garmentSize: '', garmentPlanQty: 0,
+            feiTicketNo: ticketNo, feiPartName: group.partName, feiColor: group.colorName, feiSize: group.sizeCode, feiPlanQty: group.planQty,
+          })
+        })
+      }
+    }
+  })
+  return rows
+}
+
 export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string {
   const operation = getSpecialCraftOperationBySlug(operationSlug)
   if (!operation) return renderMissingOperation()
@@ -348,19 +444,23 @@ export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string 
   loadPrefs(operation.operationId)
 
   const taskOrders = getSpecialCraftTaskOrders(operation.operationId, buildFilters(state))
+  const expandedRows = expandRows(taskOrders)
 
   const sorted = state.sort
-    ? sortStandardListRows(taskOrders, state.sort, (row, key) =>
+    ? sortStandardListRows(expandedRows, state.sort, (row, key) =>
         COLUMNS.find((c) => c.key === key)?.sortValue?.(row),
       )
-    : taskOrders
+    : expandedRows
   const slice = paginateStandardListRows(sorted, state.page, state.prefs.pageSize)
   state.page = slice.currentPage
+
+  const uniqueTaskOrders = [...new Set(expandedRows.map((r) => r.taskOrder.taskOrderId))]
+    .map((id) => expandedRows.find((r) => r.taskOrder.taskOrderId === id)!.taskOrder)
 
   const content = renderStandardListPage({
     title: `${operation.operationName}加工单`,
     filtersHtml: renderFilters(state),
-    statsHtml: renderStats(taskOrders),
+    statsHtml: renderStats(uniqueTaskOrders),
     listTitle: '加工单列表',
     listActionsHtml: renderSecondaryButton(
       '列设置',
@@ -605,6 +705,16 @@ export function handleSpecialCraftTaskOrdersEvent(target: Element, event?: Event
     state.statusFilter = '全部'
     state.timeRange = 'ALL'
     state.page = 1
+    return true
+  }
+
+  if (action === 'view-image') {
+    const src = actionNode.dataset.imageSrc || ''
+    const overlay = document.createElement('div')
+    overlay.className = 'fixed inset-0 z-[160] flex items-center justify-center bg-black/60 cursor-pointer'
+    overlay.innerHTML = `<img src="${escapeHtml(src)}" class="max-h-[80vh] max-w-[80vw] rounded-lg shadow-2xl" alt="大图" />`
+    overlay.addEventListener('click', () => overlay.remove())
+    document.body.appendChild(overlay)
     return true
   }
 

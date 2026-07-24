@@ -513,27 +513,20 @@ export function buildTransferBagLabelPrintDocument(input: PrintDocumentBuildInpu
     },
   })
   const item: PrintLabelItem = {
-    labelTitle: `${carrierTypeLabel}二维码`,
-    labelSubtitle: '扫码查看中转袋档案',
+    labelTitle: businessNo,
+    labelSubtitle: '',
     labelFields: fields([
-      { label: '载具类型', value: carrierTypeLabel, emphasis: true },
       { label: '中转袋编号', value: businessNo, emphasis: true },
-      { label: '所属工厂', value: ownershipFactoryName, emphasis: true },
-      { label: '容量', value: master?.capacity ? `${master.capacity} 张菲票` : '' },
-      { label: '规格', value: master?.bagSpec },
-      { label: '材质', value: master?.bagMaterial },
-      { label: '是否启用', value: master?.enabled === false ? '停用' : '启用' },
-      { label: '是否可复用', value: master?.reusable === false ? '不可复用' : '可复用' },
+      { label: '所属裁床工厂', value: ownershipFactoryName, emphasis: true },
       { label: '建档时间', value: master?.createdAt },
     ]),
-    labelWarnings: ['本码只代表中转袋档案，不代表当前流转记录。'],
-    qrCode: { title: '中转袋档案二维码', value: qrValue, description: '扫码查看中转袋档案', sizeMm: 32 },
-    barcode: { title: '中转袋档案条码', value: buildPrintBarcodePayload({ documentType: 'TRANSFER_BAG_LABEL', sourceType: 'TRANSFER_BAG_RECORD', sourceId, businessNo }), description: businessNo },
-    printMode: '普通打印',
+    labelWarnings: [],
+    qrCode: { title: '', value: qrValue, description: '', sizeMm: 32 },
+    printMode: '',
   }
   return buildBaseLabelDocument(input, {
-    title: `${carrierTypeLabel}二维码`,
-    subtitle: '中转袋档案标签用于识别载具主档。',
+    title: `${businessNo} 标签`,
+    subtitle: '',
     templateCode: 'TRANSFER_BAG_LABEL',
     sourceType: 'TRANSFER_BAG_RECORD',
     paperType: 'LABEL_100_60',
@@ -778,7 +771,7 @@ function renderLabelItem(item: PrintLabelItem, paperType: PrintPaperType): strin
           <div class="print-label-qr">
             ${qr ? renderRealQrPlaceholder({ value: qr.value, size: 104, title: qr.title, label: qr.title }) : ''}
           </div>
-          <div class="print-label-qr-desc">${escapeHtml(qr?.description || '扫码查看记录')}</div>
+          ${qr?.description ? `<div class="print-label-qr-desc">${escapeHtml(qr.description)}</div>` : ''}
           ${renderBarcode(item.barcode)}
         </aside>
       </div>

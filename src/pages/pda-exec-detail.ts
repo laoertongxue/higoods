@@ -2409,25 +2409,25 @@ function getSpecialCraftPdaAllowedActions(input: {
   const currentStatus = input.workOrderStatus || input.status
   const actions: Array<{ action: string; label: string; primary?: boolean }> = []
   if (input.requiresFeiTicket && input.bindingCount === 0) {
-    actions.push({ action: 'special-bind-fei-ticket', label: '绑定菲票', primary: true })
+    actions.push({ action: 'special-confirm-receive', label: '绑定菲票', primary: true })
     return actions
   }
   if (['WAITING', 'TODO', '待接收', '待领料'].includes(currentStatus)) {
     if (input.objectLabel === '成衣' && currentStatus === '待领料') {
       if (input.canGarmentWarehouseOutbound) {
-        actions.push({ action: 'special-garment-warehouse-outbound', label: '成衣仓逐 SKU 出库', primary: true })
+        actions.push({ action: 'special-confirm-receive', label: '成衣仓逐 SKU 出库', primary: true })
       }
       return actions
     }
-    actions.push({ action: 'special-receive-cut-pieces', label: `确认接收${input.objectLabel}`, primary: true })
+    actions.push({ action: 'special-confirm-receive', label: `确认接收${input.objectLabel}`, primary: true })
     return actions
   }
   if (currentStatus === '成衣仓已出库待收货') {
-    actions.push({ action: 'special-receive-cut-pieces', label: '逐 SKU 确认接收成衣', primary: true })
+    actions.push({ action: 'special-confirm-receive', label: '逐 SKU 确认接收成衣', primary: true })
     return actions
   }
   if (['已接收', '待加工', '已入待加工仓'].includes(currentStatus)) {
-    actions.push({ action: 'special-start-process', label: '开始加工', primary: true })
+    actions.push({ action: 'special-confirm-receive', label: '开始加工', primary: true })
     actions.push({ action: 'special-report-difference', label: '上报差异' })
     return actions
   }
@@ -2696,7 +2696,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
           ${
             allowedActions.length
               ? allowedActions.map((action) => `
-                <button type="button" class="inline-flex h-9 items-center justify-center rounded-md ${action.primary ? 'bg-primary text-primary-foreground' : 'border'} text-sm hover:bg-muted" data-pda-execd-action="${action.action}" data-task-id="${escapeHtml(task.taskId)}">${action.action === 'special-receive-cut-pieces' ? `确认接收${escapeHtml(objectMeta.objectLabel)}` : escapeHtml(action.label)}</button>
+                <button type="button" class="inline-flex h-9 items-center justify-center rounded-md ${action.primary ? 'bg-primary text-primary-foreground' : 'border'} text-sm hover:bg-muted" data-pda-execd-action="${action.action}" data-task-id="${escapeHtml(task.taskId)}">${escapeHtml(action.label)}</button>
               `).join('')
               : '<div class="col-span-2 rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">当前状态暂无可执行动作</div>'
           }
@@ -5680,10 +5680,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
   }
 
   if (
-    action === 'special-bind-fei-ticket' ||
-    action === 'special-garment-warehouse-outbound' ||
-    action === 'special-receive-cut-pieces' ||
-    action === 'special-start-process' ||
+    action === 'special-confirm-receive' ||
     action === 'special-finish-process' ||
     action === 'special-report-difference' ||
     action === 'special-submit-handover' ||
@@ -5696,9 +5693,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       const actionSession = getPdaSession()
       const actionFactoryId = actionSession?.factoryId || ''
       const actionAccess = actionTask && actionFactoryId ? getMobileTaskAccessResult(actionTask, actionFactoryId) : null
-      const canExecuteCurrentAction = action === 'special-garment-warehouse-outbound'
-        ? Boolean(actionTask && canCurrentPdaSessionExecuteGarmentWarehouseOutbound(actionTask))
-        : Boolean(
+      const canExecuteCurrentAction = Boolean(
             actionSession
             && actionTask
             && canFactoryAccessSpecialCraftPdaTask(actionFactoryId, actionTask)
@@ -5708,16 +5703,6 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         throw new Error('当前账号无权执行该特殊工艺加工单。')
       }
       const actionAudit = getCurrentPdaProcessActionAudit()
-      if (action === 'special-bind-fei-ticket') {
-        const feiTicketNo = window.prompt('请输入绑定菲票号')?.trim() || ''
-        if (!feiTicketNo) {
-          showPdaExecDetailToast('请填写菲票号')
-          return true
-        }
-        bindSpecialCraftFeiTicket(taskId, { feiTicketNo, operatorName: actionAudit.operatorName, operatedAt: nowTimestamp() })
-        showPdaExecDetailToast('菲票已绑定，Web 端绑定菲票已同步')
-        return true
-      }
 
       if (action === 'special-report-difference') {
         const task = getTaskFactById(taskId)
@@ -5765,32 +5750,23 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         showPdaExecDetailToast('特殊工艺加工单未关联')
         return true
       }
-      const sourceBinding = objectMeta.requiresFeiTicket ? bindings[0] : undefined
       const actionCodeMap: Record<string, string> = {
-        'special-garment-warehouse-outbound': 'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
-        'special-receive-cut-pieces': 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
-        'special-start-process': 'SPECIAL_CRAFT_START_PROCESS',
+        'special-confirm-receive': 'SPECIAL_CRAFT_CONFIRM_RECEIVE',
         'special-finish-process': 'SPECIAL_CRAFT_FINISH_PROCESS',
         'special-submit-handover': 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
         'special-rework-after-reject': 'SPECIAL_CRAFT_REWORK_AFTER_REJECT',
       }
       const actionLabelMap: Record<string, string> = {
-        'special-garment-warehouse-outbound': '成衣仓出库',
-        'special-receive-cut-pieces': `确认接收${objectMeta.objectLabel}`,
-        'special-start-process': '开始加工',
+        'special-confirm-receive': '确认接收',
         'special-finish-process': '完成加工',
         'special-submit-handover': '发起交出',
         'special-rework-after-reject': '驳回后重交',
       }
-      const baseQty = getSpecialCraftPdaBaseQty(task as ProcessTask, workOrder, sourceBinding, objectMeta) || 1
+      const baseQty = getSpecialCraftPdaBaseQty(task as ProcessTask, workOrder, undefined, objectMeta) || 1
       const garmentSkuDraft = objectMeta.objectType === '成衣' && workOrder
         ? getSpecialCraftGarmentSkuDrafts(workOrder.workOrderId, workOrder.status)
         : undefined
-      const skuQtyBySkuCode = garmentSkuDraft && action === 'special-garment-warehouse-outbound'
-        ? Object.fromEntries(garmentSkuDraft.lines.map((line) => [line.skuCode, Number(garmentSkuDraft.drafts[line.draftKey].outboundQty)]))
-        : garmentSkuDraft && action === 'special-receive-cut-pieces'
-        ? Object.fromEntries(garmentSkuDraft.lines.map((line) => [line.skuCode, Number(garmentSkuDraft.drafts[line.draftKey].receivedQty)]))
-        : garmentSkuDraft && action === 'special-finish-process'
+      const skuQtyBySkuCode = garmentSkuDraft && action === 'special-finish-process'
           ? Object.fromEntries(garmentSkuDraft.lines.map((line) => [line.skuCode, Number(garmentSkuDraft.drafts[line.draftKey].completedQty)]))
           : undefined
       const skuScrapQtyBySkuCode = garmentSkuDraft && action === 'special-finish-process'

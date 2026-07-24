@@ -3019,3 +3019,38 @@ function ensureFlowStore(): FlowStore {
 export function ensureSpecialCraftFeiTicketFlowSeeded(): void {
   ensureFlowStore()
 }
+
+export function markSpecialCraftFeiTicketBindingCompleted(input: {
+  taskOrderId: string
+  operationId: string
+  operationName: string
+  completedBy: string
+  completedAt: string
+}): void {
+  ensureSpecialCraftFeiTicketFlowSeeded()
+  const bindings = (flowStore?.bindings || []).filter(
+    (binding) => binding.taskOrderId === input.taskOrderId && binding.operationId === input.operationId,
+  )
+  bindings.forEach((binding) => {
+    updateBinding(flowStore!, binding.bindingId, (current) => ({
+      ...current,
+      specialCraftFlowStatus: '已完成',
+      completedOperationNames: [...current.completedOperationNames, input.operationName],
+      updatedAt: input.completedAt,
+    }))
+    appendFlowEvent(
+      flowStore!,
+      binding,
+      makeFlowEvent(binding, {
+        eventType: '完工',
+        beforeQty: binding.currentQty,
+        changedQty: 0,
+        afterQty: binding.currentQty,
+        operatorName: input.completedBy,
+        occurredAt: input.completedAt,
+        remark: `已完成${input.operationName}`,
+      }),
+    )
+    recomputeSequenceGate(flowStore!, binding.productionOrderId, binding.feiTicketNo)
+  })
+}

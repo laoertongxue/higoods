@@ -6,6 +6,7 @@ import {
   type SpecialCraftOperationDefinition,
 } from '../../../data/fcs/special-craft-operations.ts'
 import type { SpecialCraftTaskOrder } from '../../../data/fcs/special-craft-task-orders.ts'
+import { productionOrders } from '../../../data/fcs/production-orders.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml, formatDateTime } from '../../../utils.ts'
 
@@ -87,8 +88,23 @@ export function renderFilterGrid(items: Array<{ label: string; value: string }>)
           )
           .join('')}
       </div>
-    </section>
+    </div>
   `
+}
+
+const spuImageByCode: Record<string, string> = {
+  tdv_demand_SPU_2024_004: '/tshirt-sample.jpg',
+  tdv_demand_SPU_2024_005: '/jacket-sample.jpg',
+  tdv_demand_SPU_2024_010: '/pants-sample.jpg',
+  tdv_demand_SPU_2024_012: '/cardigan-sample.jpg',
+  tdv_demand_SPU_2024_013: '/dress-sample-1.jpg',
+}
+
+export function resolveSpuImageUrl(taskOrder: SpecialCraftTaskOrder): string {
+  const po = productionOrders.find((p) => p.productionOrderId === taskOrder.productionOrderId)
+  const spuCode = po?.demandSnapshot?.spuCode
+  if (spuCode && spuImageByCode[spuCode]) return spuImageByCode[spuCode]
+  return '/tshirt-sample.jpg'
 }
 
 export function renderTable(headers: string[], rows: string, minWidthClass = 'min-w-[1520px]'): string {

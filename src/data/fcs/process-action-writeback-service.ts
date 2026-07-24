@@ -72,6 +72,7 @@ import {
   assertDyeWorkOrderOnlineActionAllowed,
   getDyeWorkOrderOnlineRecord,
 } from './dye-work-order-online-domain.ts'
+import { markSpecialCraftFeiTicketBindingCompleted } from './cutting/special-craft-fei-ticket-flow.ts'
 
 export type ProcessActionSourceChannel = 'Web 端' | '移动端'
 export type ProcessActionSourceType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
@@ -1206,6 +1207,17 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
     returnedQty: definition.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? qty : undefined,
     remark: payload.remark,
   })
+
+  // 裁片完工：标记菲票已完成对应工艺
+  if (definition.actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS' && objectMeta.objectType === '裁片') {
+    markSpecialCraftFeiTicketBindingCompleted({
+      taskOrderId: workOrder.taskOrderId,
+      operationId: workOrder.operationId,
+      operationName: workOrder.operationName,
+      completedBy: payload.operatorName || '现场操作员',
+      completedAt: payload.operatedAt || nowText(),
+    })
+  }
 
   if (definition.actionCode === 'SPECIAL_CRAFT_REPORT_DIFFERENCE') {
     const handover = createProcessHandoverRecord({

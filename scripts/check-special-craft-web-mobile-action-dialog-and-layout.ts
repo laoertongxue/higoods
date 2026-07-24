@@ -90,8 +90,7 @@ includesAll(linkageSource, [
   'applySpecialCraftDifferenceToFeiTickets',
 ], '特殊工艺仓交出联动')
 includesAll(mobileSource, [
-  'special-receive-cut-pieces',
-  'special-start-process',
+  'special-confirm-receive',
   'special-finish-process',
   'special-report-difference',
   'special-submit-handover',
