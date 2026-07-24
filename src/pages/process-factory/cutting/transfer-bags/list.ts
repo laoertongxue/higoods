@@ -1,3 +1,4 @@
+// @page-pattern: list
 import { appStore } from '../../../../state/store.ts'
 import { renderRealQrPlaceholder } from '../../../../components/real-qr.ts'
 import { escapeHtml, formatDateTime } from '../../../../utils.ts'

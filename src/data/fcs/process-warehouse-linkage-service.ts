@@ -579,48 +579,6 @@ function ensureHandoverRecord(
   })
 }
 
-function ensureSpecialCraftDifference(
-  context: WarehouseBaseContext,
-  actionResult: ProcessWarehouseLinkageActionResult,
-): { differenceId: string; updatedFeiTicketIds: string[] } {
-  const existed = actionResult.affectedDifferenceRecordId
-    ? getProcessHandoverDifferenceRecordById(actionResult.affectedDifferenceRecordId)
-    : undefined
-  const handover = actionResult.affectedHandoverRecordId
-    ? getProcessHandoverRecordById(actionResult.affectedHandoverRecordId)
-    : listProcessHandoverRecords({
-        craftType: 'SPECIAL_CRAFT',
-        craftName: context.craftName,
-        sourceTaskOrderId: context.sourceTaskOrderId,
-      })[0]
-  const warehouse =
-    getProcessWarehouseRecordById(handover?.warehouseRecordId || '') ||
-    ensureWaitProcessWarehouseRecord(context, actionResult, `待${context.craftName}`)
-  const diffQty = roundQty(actionResult.objectQty || context.objectQty)
-  const difference = existed || createProcessHandoverDifferenceRecord({
-    handoverRecordId: handover?.handoverRecordId || '',
-    warehouseRecordId: warehouse.warehouseRecordId,
-    sourceTaskOrderId: context.sourceTaskOrderId,
-    sourceWorkOrderNo: context.sourceWorkOrderNo,
-    sourceProductionOrderId: context.sourceProductionOrderId,
-    sourceProductionOrderNo: context.sourceProductionOrderNo,
-    craftType: 'SPECIAL_CRAFT',
-    craftName: context.craftName,
-    objectType: context.objectType,
-    expectedObjectQty: context.plannedObjectQty,
-    actualObjectQty: Math.max(context.plannedObjectQty - diffQty, 0),
-    diffObjectQty: diffQty,
-    qtyUnit: context.qtyUnit,
-    reportedBy: actionResult.sourceChannel === '移动端' ? '移动端操作员' : 'Web 端操作员',
-    relatedFeiTicketIds: context.relatedFeiTicketIds,
-    remark: `${actionResult.sourceChannel || '统一写回'}上报特殊工艺差异，关联菲票数量 ${context.relatedFeiTicketIds.length}`,
-  })
-  applySpecialCraftDifferenceToFeiTickets(difference.differenceRecordId, {
-    operatorName: actionResult.sourceChannel === '移动端' ? '移动端操作员' : 'Web 端操作员',
-    reason: '特殊工艺差异联动菲票数量变化',
-  })
-  return { differenceId: difference.differenceRecordId, updatedFeiTicketIds: [...context.relatedFeiTicketIds] }
-}
 
 export function applyPrintWarehouseLinkageAfterAction(actionResult: ProcessWarehouseLinkageActionResult): ProcessWarehouseLinkageResult {
   const context = resolvePrintContext(actionResult)
