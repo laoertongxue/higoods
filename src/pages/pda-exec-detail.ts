@@ -5729,7 +5729,6 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           sourceType: 'SPECIAL_CRAFT',
           sourceId,
           taskId,
-          actionCode: 'SPECIAL_CRAFT_REPORT_DIFFERENCE',
           ...actionAudit,
           operatedAt: nowTimestamp(),
           objectType: objectMeta.objectType,
@@ -5752,9 +5751,8 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       }
       const actionCodeMap: Record<string, string> = {
         'special-confirm-receive': 'SPECIAL_CRAFT_CONFIRM_RECEIVE',
-        'special-finish-process': 'SPECIAL_CRAFT_FINISH_PROCESS',
+        'special-finish-process': 'SPECIAL_CRAFT_PROCESS_REPORT',
         'special-submit-handover': 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
-        'special-rework-after-reject': 'SPECIAL_CRAFT_REWORK_AFTER_REJECT',
       }
       const actionLabelMap: Record<string, string> = {
         'special-confirm-receive': '确认接收',
@@ -6245,7 +6243,6 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
             sourceType: 'SPECIAL_CRAFT',
             sourceId,
             taskId,
-            actionCode: 'SPECIAL_CRAFT_START_PROCESS',
             ...actionAudit,
             operatedAt: startTime,
             objectType: objectMeta.objectType,
@@ -6428,7 +6425,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         sourceType: 'SPECIAL_CRAFT',
         sourceId: specialCraftWorkOrder.workOrderId,
         taskId,
-        actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
+        actionCode: 'SPECIAL_CRAFT_PROCESS_REPORT',
         ...actionAudit,
         operatedAt: nowTimestamp(),
         objectType: objectMeta.objectType,

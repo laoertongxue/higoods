@@ -219,7 +219,7 @@ function specialCraftPurposeLabel(context: ProcessQuantityContext, objectType: P
   }
   const objectLabel = objectType === '成衣' ? '成衣' : objectType === '面料' ? '面料' : '裁片'
   switch (context.operationCode) {
-    case 'SPECIAL_CRAFT_FINISH_PROCESS':
+    case 'SPECIAL_CRAFT_PROCESS_REPORT':
       return `加工完成${objectLabel}数量`
     default:
       break

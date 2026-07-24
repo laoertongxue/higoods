@@ -919,7 +919,7 @@ export function validateProcessAction(payload: ProcessActionPayload): { ok: bool
       const requiresPositiveSkuQty = [
         'SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND',
         'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
-        'SPECIAL_CRAFT_FINISH_PROCESS',
+        'SPECIAL_CRAFT_PROCESS_REPORT',
       ].includes(definition.actionCode)
       if (isGarment && requiresPositiveSkuQty && payload.skuQtyBySkuCode && !Object.values(payload.skuQtyBySkuCode).some((value) => Number(value) > 0)) {
         throw new Error('成衣操作至少一个 SKU 件数必须大于 0')
@@ -1161,7 +1161,7 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
     })
     return { updatedWorkOrderId: updated?.workOrderId || workOrder.workOrderId }
   }
-  if (definition.actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS' && objectMeta.objectType === '成衣') {
+  if (definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && objectMeta.objectType === '成衣') {
     if (!payload.skuQtyBySkuCode || !payload.skuScrapQtyBySkuCode || !payload.skuDamageQtyBySkuCode) {
       throw new Error('成衣完工必须逐 SKU 确认完工、报废和货损件数。')
     }
@@ -1179,15 +1179,14 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
     status: nextStatus,
     operatorName: payload.operatorName,
     operatedAt: payload.operatedAt,
-    currentQty: definition.actionCode === 'SPECIAL_CRAFT_REPORT_DIFFERENCE' ? Math.max((workOrder.currentQty ?? workOrder.receivedQty ?? 0) - qty, 0) : undefined,
     receivedQty: definition.actionCode === 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES' ? qty : undefined,
-    waitReturnQty: definition.actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS' ? qty : undefined,
+    completedQty: definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' ? qty : undefined,
     returnedQty: definition.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER' ? qty : undefined,
     remark: payload.remark,
   })
 
   // 裁片完工：标记菲票已完成对应工艺
-  if (definition.actionCode === 'SPECIAL_CRAFT_FINISH_PROCESS' && objectMeta.objectType === '裁片') {
+  if (definition.actionCode === 'SPECIAL_CRAFT_PROCESS_REPORT' && objectMeta.objectType === '裁片') {
     markSpecialCraftFeiTicketBindingCompleted({
       taskOrderId: workOrder.taskOrderId,
       operationId: workOrder.operationId,
@@ -1195,56 +1194,6 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
       completedBy: payload.operatorName || '现场操作员',
       completedAt: payload.operatedAt || nowText(),
     })
-  }
-
-  if (definition.actionCode === 'SPECIAL_CRAFT_REPORT_DIFFERENCE') {
-    const handover = createProcessHandoverRecord({
-      craftType: 'SPECIAL_CRAFT',
-      craftName: workOrder.operationName,
-      sourceTaskOrderId: workOrder.workOrderId,
-      sourceWorkOrderNo: workOrder.workOrderNo,
-      sourceTaskId: binding.actualTaskId,
-      sourceTaskNo: binding.actualTaskNo,
-      sourceProductionOrderId: workOrder.productionOrderId,
-      sourceProductionOrderNo: workOrder.productionOrderNo,
-      handoverFactoryId: workOrder.factoryId,
-      handoverFactoryName: workOrder.factoryName,
-      receiveFactoryId: workOrder.factoryId,
-      receiveFactoryName: workOrder.factoryName,
-      receiveWarehouseName: '特殊工艺待处理区',
-      objectType: objectMeta.objectType,
-      handoverObjectQty: workOrder.planQty,
-      receiveObjectQty: Math.max(workOrder.planQty - qty, 0),
-      diffObjectQty: qty,
-      qtyUnit: objectMeta.qtyUnit,
-      handoverPerson: payload.operatorName || '操作员',
-      handoverAt: payload.operatedAt,
-      relatedFeiTicketIds: [...workOrder.feiTicketNos],
-      remark: payload.remark || `${payload.sourceChannel}上报特殊工艺差异`,
-    })
-    const difference = createProcessHandoverDifferenceRecord({
-      handoverRecordId: handover.handoverRecordId,
-      warehouseRecordId: handover.warehouseRecordId,
-      sourceTaskOrderId: workOrder.workOrderId,
-      sourceWorkOrderNo: workOrder.workOrderNo,
-      sourceProductionOrderId: workOrder.productionOrderId,
-      sourceProductionOrderNo: workOrder.productionOrderNo,
-      craftType: 'SPECIAL_CRAFT',
-      craftName: workOrder.operationName,
-      objectType: objectMeta.objectType,
-      expectedObjectQty: workOrder.planQty,
-      actualObjectQty: Math.max(workOrder.planQty - qty, 0),
-      diffObjectQty: qty,
-      qtyUnit: objectMeta.qtyUnit,
-      reportedBy: payload.operatorName || '操作员',
-      relatedFeiTicketIds: [...workOrder.feiTicketNos],
-      remark: payload.remark || `${payload.sourceChannel}差异上报`,
-    })
-    return {
-      affectedHandoverRecordId: handover.handoverRecordId,
-      affectedDifferenceRecordId: difference.differenceRecordId,
-      updatedWorkOrderId: updated?.workOrderId || workOrder.workOrderId,
-    }
   }
 
   return { updatedWorkOrderId: updated?.workOrderId || workOrder.workOrderId }

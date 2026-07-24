@@ -472,7 +472,6 @@ const SPECIAL_CRAFT_ACTIONS: ActionDefinition[] = [
     writebackHandler: 'startSpecialCraftTask',
   },
   {
-    actionCode: 'SPECIAL_CRAFT_START_PROCESS',
     actionLabel: '开始加工',
     processType: 'SPECIAL_CRAFT',
     fromStatuses: ['已接收', '待加工', '已入待加工仓'],
