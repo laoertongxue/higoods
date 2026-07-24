@@ -18,11 +18,11 @@ import {
   renderWorkbenchPagination,
   renderWorkbenchSecondaryPanel,
   renderWorkbenchStateBar,
-} from '../../layout.helpers.ts'
-import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from '../../meta.ts'
+} from '../layout.helpers.ts'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from '../meta.ts'
 import {
   getWarehouseSearchParams,
-} from '../../warehouse-shared.ts'
+} from '../warehouse-shared.ts'
 import {
   buildCuttingTraceabilityId,
   encodeCarrierQr,
@@ -43,10 +43,10 @@ import {
   readCuttingDrillContextFromLocation,
   type CuttingDrillContext,
   type CuttingNavigationTarget,
-} from '../../navigation-context.ts'
+} from '../navigation-context.ts'
 import {
   buildTransferBagsProjection,
-} from '../../transfer-bags-projection.ts'
+} from '../transfer-bags-projection.ts'
 import {
   buildBagUsageAuditTrail,
   buildTransferBagCarrierManagementProjection,
@@ -75,7 +75,7 @@ import {
   type TransferBagUsageItem,
   type TransferBagUsageStatusKey,
   type TransferBagVisibleStatusKey,
-} from '../../transfer-bags-model.ts'
+} from '../transfer-bags-model.ts'
 import {
   buildBagReturnAuditTrail,
   buildReuseCycleSummary,
@@ -91,8 +91,8 @@ import {
   type TransferBagDiscrepancyType,
   type TransferBagReusableDecision,
   type TransferBagReturnReceipt,
-} from '../../transfer-bag-return-model.ts'
-import { renderMaterialIdentityBlock } from '../../material-identity.ts'
+} from '../transfer-bag-return-model.ts'
+import { renderMaterialIdentityBlock } from '../material-identity.ts'
 import {
   state,
   nowText,
