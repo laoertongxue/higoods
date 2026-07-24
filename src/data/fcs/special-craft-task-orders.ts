@@ -968,7 +968,7 @@ function buildNodeRecords(seed: TaskSeedContext, artifacts: WarehouseArtifacts):
     )
   }
 
-  if (status !== '待领料') {
+  if (seed.status !== '待领料') {
     rows.push(
       createNodeRecord(seed, rows.length, {
         nodeName: '加工中',
@@ -987,7 +987,7 @@ function buildNodeRecords(seed: TaskSeedContext, artifacts: WarehouseArtifacts):
     )
   }
 
-  if (status === '已完结') {
+  if (seed.status === '已完结') {
     rows.push(
       createNodeRecord(seed, rows.length, {
         nodeName: '已完结',
