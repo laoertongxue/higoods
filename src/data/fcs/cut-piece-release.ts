@@ -11,6 +11,7 @@ import {
   type MatrixEventType,
   type MatrixTargetStatus,
   type ReleaseTargetPreview,
+  type SupplementPartShortage,
 } from './cut-piece-release-domain.ts'
 
 export type CutPieceReleaseDecision = '待判断' | '可以做' | '部分可以做' | '暂时不能做'
@@ -26,6 +27,8 @@ export interface CutPieceReleaseSkuLine {
   completeKitQty: number
   accessoryReadyQty: number
   releaseQty: number
+  releaseConfirmQty: number
+  riskReleaseQty: number
   reason: string
 }
 
@@ -47,6 +50,7 @@ export interface CutPieceReleaseRecord {
   checkerRole: string
   decision: CutPieceReleaseDecision
   releaseQty: number
+  releaseConfirmQty: number
   reason: string
   riskNote: string
   judgedBy: string
@@ -60,6 +64,10 @@ export interface CutPieceReleaseRecord {
   lateEventCount: number
   sourceStates: CutPieceReleaseSourceState[]
   matrix: CutPieceReleaseMatrix
+  releaseAvailableStatus: CutPieceReleaseAvailableStatus
+  latestReleaseVersion: number
+  riskReleaseQty: number
+  totalTargetQty: number
 }
 
 export interface CutPieceReleaseSourceState {
@@ -124,6 +132,65 @@ export interface CutPieceReleaseSummary {
   shortageCellCount: number
   latestMatrixVersion: number
   latestUpdatedAt: string
+  ppicAvailableDispatchQty: number
+  totalReleaseConfirmQty: number
+  totalRiskReleaseQty: number
+  riskReason: string
+  releaseAvailableStatus: CutPieceReleaseAvailableStatus | null
+  totalTargetQty: number
+  latestReleaseVersion: number | null
+}
+
+export type CutPieceReleaseAvailableStatus =
+  | '待维护目标'
+  | '待裁床确认'
+  | '按齐套放行'
+  | '风险放行'
+  | '暂不放行'
+  | '确认后需复核'
+
+export interface CutPieceReleaseAvailableQtyVersion {
+  releaseVersionId: string
+  releaseVersionNo: number
+  productionOrderId: string
+  basisMatrixVersion: number
+  basisTargetVersion: number
+  releaseQtyByColorSize: Record<string, number>
+  riskReleaseQtyByColorSize: Record<string, number>
+  targetGapQtyByColorSize: Record<string, number>
+  releaseGapToTargetQtyByColorSize: Record<string, number>
+  surplusKitQtyByColorSize: Record<string, number>
+  totalTargetQty: number
+  totalCompleteKitQty: number
+  totalReleaseConfirmQty: number
+  totalRiskReleaseQty: number
+  totalReleaseGapToTargetQty: number
+  riskReason: string
+  confirmedBy: string
+  confirmedAt: string
+  isLatestEffective: boolean
+  releaseStatus: CutPieceReleaseAvailableStatus
+  beforeTotalReleaseConfirmQty: number
+  afterTotalReleaseConfirmQty: number
+  beforeTotalRiskReleaseQty: number
+  afterTotalRiskReleaseQty: number
+  changedColorSizeLines: string[]
+}
+
+export interface ConfirmCutPieceReleaseAvailableQtyInput {
+  productionOrderId: string
+  basisMatrixVersion: number
+  basisTargetVersion: number
+  releaseQtyByColorSize: Record<string, number>
+  riskReason: string
+  confirmedBy: string
+  confirmedAt: string
+}
+
+export interface ConfirmCutPieceReleaseAvailableQtyResult {
+  ok: boolean
+  message: string
+  version: CutPieceReleaseAvailableQtyVersion | null
 }
 
 export interface SaveCutPieceReleaseDecisionInput {
@@ -248,6 +315,7 @@ const deterministicConfirmedAt = '2026-06-03 17:00:00'
 const targetSnapshots = new Map<string, CutPieceReleaseTargetSnapshot>()
 const releaseRepository = new Map<string, ReleaseRepositoryItem>()
 const lateEvents = new Map<string, LateCutPieceReleaseEvent>()
+const releaseVersionRepository = new Map<string, CutPieceReleaseAvailableQtyVersion[]>()
 
 function clone<T>(value: T): T {
   return structuredClone(value)
@@ -255,6 +323,10 @@ function clone<T>(value: T): T {
 
 function safeQuantity(value: number | null | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0
+}
+
+function safeInteger(value: number): number {
+  return Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0
 }
 
 function targetKey(garmentColor: string, size: string): string {
@@ -302,6 +374,12 @@ function appendRepositoryEvent(item: ReleaseRepositoryItem, event: MatrixEvent, 
   if (!appendMatrixEvent(item.eventState, event)) return false
   change()
   if (item.latestSnapshotId && event.eventType !== '目标确认') item.targetStatus = '目标后数据已变化'
+  const versions = releaseVersionRepository.get(item.input.productionOrderId)
+  versions?.forEach((v) => {
+    if (v.isLatestEffective && v.releaseStatus !== '确认后需复核') {
+      v.releaseStatus = '确认后需复核'
+    }
+  })
   addVersion(item, event)
   return true
 }
@@ -320,9 +398,21 @@ function targetPreviewForCurrentMatrix(item: ReleaseRepositoryItem): ReleaseTarg
   }
 }
 
+function deriveReleaseAvailableStatus(item: ReleaseRepositoryItem): CutPieceReleaseAvailableStatus {
+  const snapshot = getTargetSnapshot(item)
+  if (!snapshot) return '待维护目标'
+  return '待裁床确认'
+}
+
+function getLatestEffectiveVersion(productionOrderId: string): CutPieceReleaseAvailableQtyVersion | null {
+  const versions = releaseVersionRepository.get(productionOrderId)
+  return versions?.find((v) => v.isLatestEffective) ?? null
+}
+
 function buildSkuLines(item: ReleaseRepositoryItem): CutPieceReleaseSkuLine[] {
   const snapshot = getTargetSnapshot(item)
   const targetValues = item.targetStatus === '已确认' ? snapshot?.targetPreview.colorSizeTargets ?? {} : {}
+  const latestVersion = getLatestEffectiveVersion(item.input.productionOrderId)
   return item.currentMatrix.colorGroups.flatMap((group) => group.sizes.map((size) => {
     const completeKitQty = safeQuantity(group.completeKitBySize[size])
     const demandQty = safeQuantity(group.planQtyBySize[size])
@@ -338,6 +428,8 @@ function buildSkuLines(item: ReleaseRepositoryItem): CutPieceReleaseSkuLine[] {
       completeKitQty,
       accessoryReadyQty: completeKitQty,
       releaseQty,
+      releaseConfirmQty: safeInteger(latestVersion?.releaseQtyByColorSize[targetKey(group.garmentColor, size)] ?? 0),
+      riskReleaseQty: safeInteger(latestVersion?.riskReleaseQtyByColorSize[targetKey(group.garmentColor, size)] ?? 0),
       reason: releaseQty > 0 ? '已按当前矩阵确认目标数量' : '等待基于矩阵确认目标数量',
     }
   }))
@@ -347,12 +439,14 @@ function buildReleaseRecord(item: ReleaseRepositoryItem): CutPieceReleaseRecord 
   const snapshot = getTargetSnapshot(item)
   const skuLines = buildSkuLines(item)
   const preview = targetPreviewForCurrentMatrix(item)
+  const latestVersion = getLatestEffectiveVersion(item.input.productionOrderId)
   const frozenCutOrderCount = new Set(item.input.facts
     .filter((fact) => fact.sourceStatus === '已冻结')
     .map((fact) => fact.cutOrderId || fact.cutOrderNo)
     .filter(Boolean)).size
   const targetConfirmed = item.targetStatus === '已确认' && Boolean(snapshot)
   const releaseQty = skuLines.reduce((sum, line) => sum + line.releaseQty, 0)
+  const releaseStatus = latestVersion?.releaseStatus ?? deriveReleaseAvailableStatus(item)
   return {
     recordId: `cpr-${item.input.productionOrderId}`,
     recordNo: `CPR-${item.input.productionOrderNo.replace(/^PO/, '')}`,
@@ -368,8 +462,12 @@ function buildReleaseRecord(item: ReleaseRepositoryItem): CutPieceReleaseRecord 
     triggerAt: item.latestUpdateAt,
     triggerOperator: '裁床系统',
     checkerRole: '裁床主管',
-    decision: targetConfirmed ? '可以做' : '待判断',
+    decision: releaseStatus === '按齐套放行' ? '可以做'
+      : releaseStatus === '风险放行' ? '部分可以做'
+      : releaseStatus === '暂不放行' ? '暂时不能做'
+      : '待判断',
     releaseQty,
+    releaseConfirmQty: safeInteger(latestVersion?.totalReleaseConfirmQty ?? 0),
     reason: targetConfirmed ? '已按生产单裁片矩阵确认目标数量。' : '等待裁床主管按当前裁片矩阵确认目标数量。',
     riskNote: item.targetStatus === '目标后数据已变化' ? '目标确认后已有新的裁片事实，请重新核对。' : '',
     judgedBy: targetConfirmed ? snapshot!.confirmedBy : '',
@@ -383,6 +481,10 @@ function buildReleaseRecord(item: ReleaseRepositoryItem): CutPieceReleaseRecord 
     lateEventCount: listLateCutPieceReleaseEvents(item.input.productionOrderId).filter((event) => event.status === '待处理').length,
     sourceStates: clone(item.sourceStates),
     matrix: clone(item.currentMatrix),
+    releaseAvailableStatus: releaseStatus,
+    latestReleaseVersion: latestVersion?.releaseVersionNo ?? 0,
+    riskReleaseQty: safeInteger(latestVersion?.totalRiskReleaseQty ?? 0),
+    totalTargetQty: safeInteger(latestVersion?.totalTargetQty ?? 0),
   }
 }
 
@@ -542,6 +644,191 @@ function bootstrapRepository(): void {
     confirmedBy: '裁床文员 Siti',
   })
   if (!confirmed.ok) throw new Error(`初始化 PO14671 目标快照失败：${confirmed.message}`)
+
+  const simpleRequirements: CutPieceRequirement[] = [
+    { materialId: 'FAB', materialName: '主面料', partId: 'front', partName: '前片', piecesPerGarment: 1 },
+    { materialId: 'LIN', materialName: '里料', partId: 'body', partName: '衣身里', piecesPerGarment: 1 },
+    { materialId: 'CUF', materialName: '袖口辅料', partId: 'cuff', partName: '袖口', piecesPerGarment: 2 },
+  ]
+  const incompleteRequirements: CutPieceRequirement[] = [
+    { materialId: 'FAB', materialName: '主面料', partId: 'front', partName: '前片', piecesPerGarment: 1 },
+    { materialId: 'LIN', materialName: '里料', partId: 'body', partName: '衣身里' },
+  ]
+  const createSeedFacts = (input: {
+    productionOrderId: string
+    eventId: string
+    cutOrderId: string
+    cutOrderNo: string
+    spreadingOrderNo: string
+    occurredAt: string
+    quantities: Record<string, Record<string, Record<string, number>>>
+    requirements: CutPieceRequirement[]
+    sourceStatus?: ReleaseSourceStatus
+  }): CutPieceFact[] => Object.entries(input.quantities).flatMap(([garmentColor, materialQtyBySize]) => Object.entries(materialQtyBySize).flatMap(([materialId, qtyBySize]) => {
+    const requirement = input.requirements.find((item) => item.materialId === materialId)
+    return Object.entries(qtyBySize).map(([size, garmentQty]) => ({
+      factId: `${input.eventId}-${garmentColor}-${materialId}-${size}`,
+      sourceEventId: input.eventId,
+      productionOrderId: input.productionOrderId,
+      cutOrderId: input.cutOrderId,
+      cutOrderNo: input.cutOrderNo,
+      spreadingOrderNo: input.spreadingOrderNo,
+      garmentColor,
+      size,
+      materialId,
+      partId: requirement?.partId || materialId,
+      actualPieceQty: garmentQty * (requirement?.piecesPerGarment || 1),
+      direction: '正向' as const,
+      sourceStatus: input.sourceStatus || '持续更新',
+      occurredAt: input.occurredAt,
+    }))
+  }))
+  const simpleMatrixEvent = (input: {
+    eventId: string
+    productionOrderId: string
+    occurredAt: string
+    operator: string
+    reason: string
+    cutOrderId: string
+    cutOrderNo: string
+    spreadingOrderNo: string
+  }): MatrixEvent => ({
+    eventId: input.eventId,
+    eventType: '铺布完成',
+    productionOrderId: input.productionOrderId,
+    occurredAt: input.occurredAt,
+    operator: input.operator,
+    reason: input.reason,
+    cutOrderId: input.cutOrderId,
+    cutOrderNo: input.cutOrderNo,
+    spreadingOrderNo: input.spreadingOrderNo,
+  })
+  const addSourceState = (seedProductionOrderId: string, input: {
+    cutOrderId: string
+    cutOrderNo: string
+    changedAt: string
+    operator: string
+    reason: string
+    materialIds: string[]
+    status?: ReleaseSourceStatus
+  }) => {
+    const seedItem = releaseRepository.get(seedProductionOrderId)
+    if (!seedItem) return
+    seedItem.sourceStates.push({
+      cutOrderId: input.cutOrderId,
+      cutOrderNo: input.cutOrderNo,
+      status: input.status === '已冻结' ? '已冻结' : '持续更新',
+      changedAt: input.changedAt,
+      operator: input.operator,
+      reason: input.reason,
+      materialIds: input.materialIds,
+    })
+  }
+
+  addRepositoryItem({
+    productionOrderId: 'po-14672',
+    productionOrderNo: 'PO14672',
+    spuCode: 'ASYSA26060311',
+    planQtyByColorSize: {
+      '雾蓝': { S: 180, M: 260, L: 220 },
+      '浅灰': { S: 120, M: 200, L: 160 },
+    },
+    requirements: simpleRequirements,
+    facts: createSeedFacts({
+      productionOrderId: 'po-14672', eventId: 'spread-14672-01', cutOrderId: 'cut-14672-a', cutOrderNo: 'CUT14672-A', spreadingOrderNo: 'PB-14672-01', occurredAt: '2026-06-04 09:20:00', requirements: simpleRequirements,
+      quantities: {
+        '雾蓝': { FAB: { S: 170, M: 250, L: 210 }, LIN: { S: 168, M: 248, L: 205 }, CUF: { S: 165, M: 245, L: 200 } },
+        '浅灰': { FAB: { S: 118, M: 190, L: 150 }, LIN: { S: 115, M: 188, L: 148 }, CUF: { S: 112, M: 185, L: 145 } },
+      },
+    }),
+  }, '男式轻薄防晒衬衫', ['CUT14672-A'], simpleMatrixEvent({
+    eventId: 'spread-14672-01', productionOrderId: 'po-14672', occurredAt: '2026-06-04 09:20:00', operator: '铺布操作员 Rudi', reason: '首批主面料、里料与袖口裁片已完成，等待裁床主管确认放行目标。', cutOrderId: 'cut-14672-a', cutOrderNo: 'CUT14672-A', spreadingOrderNo: 'PB-14672-01',
+  }))
+  addSourceState('po-14672', { cutOrderId: 'cut-14672-a', cutOrderNo: 'CUT14672-A', changedAt: '2026-06-04 09:20:00', operator: '铺布操作员 Rudi', reason: '首批裁片持续更新中。', materialIds: ['FAB', 'LIN', 'CUF'] })
+
+  addRepositoryItem({
+    productionOrderId: 'po-14673',
+    productionOrderNo: 'PO14673',
+    spuCode: 'ASYSA26060312',
+    planQtyByColorSize: {
+      '奶油白': { S: 150, M: 230, L: 180 },
+      '焦糖棕': { S: 100, M: 160, L: 140 },
+    },
+    requirements: simpleRequirements,
+    facts: createSeedFacts({
+      productionOrderId: 'po-14673', eventId: 'spread-14673-01', cutOrderId: 'cut-14673-a', cutOrderNo: 'CUT14673-A', spreadingOrderNo: 'PB-14673-01', occurredAt: '2026-06-04 10:10:00', requirements: simpleRequirements, sourceStatus: '已冻结',
+      quantities: {
+        '奶油白': { FAB: { S: 145, M: 220, L: 170 }, LIN: { S: 140, M: 215, L: 168 }, CUF: { S: 138, M: 210, L: 165 } },
+        '焦糖棕': { FAB: { S: 95, M: 150, L: 132 }, LIN: { S: 92, M: 148, L: 130 }, CUF: { S: 90, M: 145, L: 128 } },
+      },
+    }),
+  }, '女式罗纹针织开衫', ['CUT14673-A', 'CUT14673-B'], simpleMatrixEvent({
+    eventId: 'spread-14673-01', productionOrderId: 'po-14673', occurredAt: '2026-06-04 10:10:00', operator: '铺布操作员 Eka', reason: '首批裁片完成并冻结，裁床主管可先确认一版目标。', cutOrderId: 'cut-14673-a', cutOrderNo: 'CUT14673-A', spreadingOrderNo: 'PB-14673-01',
+  }))
+  addSourceState('po-14673', { cutOrderId: 'cut-14673-a', cutOrderNo: 'CUT14673-A', changedAt: '2026-06-04 10:10:00', operator: '裁床主管 王敏', reason: '首批裁片单已冻结。', materialIds: ['FAB', 'LIN', 'CUF'], status: '已冻结' })
+  const changedTarget = confirmCutPieceReleaseTarget({
+    productionOrderId: 'po-14673',
+    matrixVersion: 1,
+    colorSizeTargets: {
+      '奶油白::S': 138, '奶油白::M': 210, '奶油白::L': 165,
+      '焦糖棕::S': 90, '焦糖棕::M': 145, '焦糖棕::L': 128,
+    },
+    confirmedBy: '裁床文员 Siti',
+  })
+  if (!changedTarget.ok) throw new Error(`初始化 PO14673 目标快照失败：${changedTarget.message}`)
+  const po14673 = releaseRepository.get('po-14673')!
+  const laterEvent = simpleMatrixEvent({
+    eventId: 'spread-14673-02', productionOrderId: 'po-14673', occurredAt: '2026-06-04 14:30:00', operator: '铺布操作员 Agus', reason: '追加焦糖棕 L 码袖口裁片，目标确认后数据发生变化。', cutOrderId: 'cut-14673-b', cutOrderNo: 'CUT14673-B', spreadingOrderNo: 'PB-14673-02',
+  })
+  appendRepositoryEvent(po14673, laterEvent, () => po14673.input.facts.push(...createSeedFacts({
+    productionOrderId: 'po-14673', eventId: 'spread-14673-02', cutOrderId: 'cut-14673-b', cutOrderNo: 'CUT14673-B', spreadingOrderNo: 'PB-14673-02', occurredAt: '2026-06-04 14:30:00', requirements: simpleRequirements,
+    quantities: { '焦糖棕': { CUF: { L: 10 } } },
+  })))
+  addSourceState('po-14673', { cutOrderId: 'cut-14673-b', cutOrderNo: 'CUT14673-B', changedAt: '2026-06-04 14:30:00', operator: '铺布操作员 Agus', reason: '目标确认后追加裁片，需主管复核。', materialIds: ['CUF'] })
+
+  addRepositoryItem({
+    productionOrderId: 'po-14674',
+    productionOrderNo: 'PO14674',
+    spuCode: 'ASYSA26060313',
+    planQtyByColorSize: { '深绿': { M: 180, L: 220 }, '黑色': { M: 160, L: 200 } },
+    requirements: incompleteRequirements,
+    facts: createSeedFacts({
+      productionOrderId: 'po-14674', eventId: 'spread-14674-01', cutOrderId: 'cut-14674-a', cutOrderNo: 'CUT14674-A', spreadingOrderNo: 'PB-14674-01', occurredAt: '2026-06-05 08:40:00', requirements: incompleteRequirements,
+      quantities: {
+        '深绿': { FAB: { M: 170, L: 210 }, LIN: { M: 168, L: 205 } },
+        '黑色': { FAB: { M: 150, L: 190 }, LIN: { M: 148, L: 188 } },
+      },
+    }),
+  }, '户外束脚工装裤', ['CUT14674-A'], simpleMatrixEvent({
+    eventId: 'spread-14674-01', productionOrderId: 'po-14674', occurredAt: '2026-06-05 08:40:00', operator: '铺布操作员 Nanda', reason: '里料用量配置缺失，矩阵应提示数据不完整。', cutOrderId: 'cut-14674-a', cutOrderNo: 'CUT14674-A', spreadingOrderNo: 'PB-14674-01',
+  }))
+  addSourceState('po-14674', { cutOrderId: 'cut-14674-a', cutOrderNo: 'CUT14674-A', changedAt: '2026-06-05 08:40:00', operator: '铺布操作员 Nanda', reason: '裁片事实已到，但 BOM 用量配置待补。', materialIds: ['FAB', 'LIN'] })
+
+  addRepositoryItem({
+    productionOrderId: 'po-14675',
+    productionOrderNo: 'PO14675',
+    spuCode: 'ASYSA26060314',
+    planQtyByColorSize: { '樱粉': { S: 120, M: 180 }, '月白': { S: 100, M: 160 } },
+    requirements: simpleRequirements,
+    facts: [],
+  }, '女童荷叶边连衣裙', ['CUT14675-A'], simpleMatrixEvent({
+    eventId: 'spread-14675-pending', productionOrderId: 'po-14675', occurredAt: '2026-06-05 11:00:00', operator: '裁床文员 Siti', reason: '生产单已进入放行观察，但铺布裁片事实暂未回传。', cutOrderId: 'cut-14675-a', cutOrderNo: 'CUT14675-A', spreadingOrderNo: 'PB-14675-待回传',
+  }))
+  // 为 PO14671 初始化 V1 放行版本（按齐套放行）
+  confirmCutPieceReleaseAvailableQty({
+    productionOrderId: 'po-14671',
+    basisMatrixVersion: 9,
+    basisTargetVersion: 9,
+    releaseQtyByColorSize: {
+      'Black::M': 200, 'Black::L': 350, 'Black::XL': 500,
+      'White::M': 180, 'White::L': 270, 'White::XL': 330,
+      'Navy::M': 170, 'Navy::L': 260, 'Navy::XL': 340,
+      'Red::M': 150, 'Red::L': 235, 'Red::XL': 300,
+    },
+    riskReason: '',
+    confirmedBy: '裁床主管 王敏',
+    confirmedAt: '2026-07-25 10:20:00',
+  })
 }
 
 bootstrapRepository()
@@ -550,6 +837,7 @@ export function resetCutPieceReleasePrototypeStoreForTesting(): void {
   releaseRepository.clear()
   targetSnapshots.clear()
   lateEvents.clear()
+  releaseVersionRepository.clear()
   bootstrapRepository()
 }
 
@@ -767,6 +1055,12 @@ export function confirmCutPieceReleaseTarget(input: ConfirmReleaseTargetInput): 
     }
     if (!appendMatrixEvent(item.eventState, event)) return { ok: false, message: '该矩阵版本的目标已确认。', snapshot: null }
     item.targetStatus = '已确认'
+    const existingVersions = releaseVersionRepository.get(input.productionOrderId)
+    existingVersions?.forEach((v) => {
+      if (v.isLatestEffective && v.basisTargetVersion !== item.versions.at(-1)?.version) {
+        v.releaseStatus = '确认后需复核'
+      }
+    })
     addVersion(item, event)
     const snapshot: CutPieceReleaseTargetSnapshot = {
       snapshotId: `cpr-target-${input.productionOrderId}-v${input.matrixVersion}`,
@@ -959,6 +1253,7 @@ export function getCutPieceReleaseSummaryForProductionOrder(productionOrderId: s
   const currentCompleteKitQtyByColorSize = Object.fromEntries(item.currentMatrix.colorGroups.flatMap((group) => group.sizes.map((size) => [targetKey(group.garmentColor, size), group.completeKitBySize[size] === null ? null : safeQuantity(group.completeKitBySize[size])])))
   const targetSnapshot = getTargetSnapshot(item)
   const targetQtyByColorSize = targetSnapshot?.targetPreview.colorSizeTargets ? { ...targetSnapshot.targetPreview.colorSizeTargets } : {}
+  const latestVersion = getLatestEffectiveVersion(sourceId)
   return {
     recordId: record.recordId,
     recordNo: record.recordNo,
@@ -977,7 +1272,166 @@ export function getCutPieceReleaseSummaryForProductionOrder(productionOrderId: s
     shortageCellCount: targetPreviewForCurrentMatrix(item)?.differences.filter((difference) => difference.status === '需补').length ?? 0,
     latestMatrixVersion: item.versions[item.versions.length - 1]?.version ?? 0,
     latestUpdatedAt: item.latestUpdateAt,
+    ppicAvailableDispatchQty: latestVersion?.totalReleaseConfirmQty ?? 0,
+    totalReleaseConfirmQty: latestVersion?.totalReleaseConfirmQty ?? 0,
+    totalRiskReleaseQty: latestVersion?.totalRiskReleaseQty ?? 0,
+    riskReason: latestVersion?.riskReason ?? '',
+    releaseAvailableStatus: latestVersion?.releaseStatus ?? deriveReleaseAvailableStatus(item),
+    totalTargetQty: latestVersion?.totalTargetQty ?? 0,
+    latestReleaseVersion: latestVersion?.releaseVersionNo ?? null,
   }
+}
+
+export function confirmCutPieceReleaseAvailableQty(
+  input: ConfirmCutPieceReleaseAvailableQtyInput,
+): ConfirmCutPieceReleaseAvailableQtyResult {
+  const item = releaseRepository.get(input.productionOrderId)
+  if (!item) return { ok: false, message: '未找到生产单裁片矩阵。', version: null }
+
+  const targetSnapshot = getTargetSnapshot(item)
+  if (!targetSnapshot) return { ok: false, message: '请先维护目标数量。', version: null }
+
+  const matrix = item.currentMatrix
+  const expectedKeys = matrix.colorGroups.flatMap((group) =>
+    group.sizes.map((size) => targetKey(group.garmentColor, size))
+  )
+
+  const inputKeys = Object.keys(input.releaseQtyByColorSize)
+  const expectedSet = new Set(expectedKeys)
+  const inputSet = new Set(inputKeys)
+  if (expectedSet.size !== inputSet.size || ![...inputSet].every((k) => expectedSet.has(k))) {
+    return { ok: false, message: '可做放行数量必须严格覆盖当前矩阵的全部颜色尺码，不得包含多余项。', version: null }
+  }
+
+  const targetValues = targetSnapshot.targetPreview.colorSizeTargets
+  let totalRiskReleaseQty = 0
+  let totalReleaseQty = 0
+  const riskReleaseQtyByColorSize: Record<string, number> = {}
+  const targetGapQtyByColorSize: Record<string, number> = {}
+  const releaseGapToTargetQtyByColorSize: Record<string, number> = {}
+  const surplusKitQtyByColorSize: Record<string, number> = {}
+
+  for (const key of expectedKeys) {
+    const [garmentColor, size] = key.split('::')
+    const qty = safeInteger(input.releaseQtyByColorSize[key])
+    if (qty < 0) return { ok: false, message: `${key} 可做数量不能为负数。`, version: null }
+    const targetQty = targetValues[key] ?? 0
+    if (qty > targetQty) return { ok: false, message: `${key} 可做数量 ${qty} 不能超过目标数量 ${targetQty}。`, version: null }
+
+    const group = matrix.colorGroups.find((g) => g.garmentColor === garmentColor)
+    const completeKitQtyVal = group?.completeKitBySize[size]
+    const completeKitQty = completeKitQtyVal === null ? 0 : safeInteger(completeKitQtyVal ?? 0)
+    const riskQtyForLine = Math.max(qty - completeKitQty, 0)
+    riskReleaseQtyByColorSize[key] = riskQtyForLine
+    totalRiskReleaseQty += riskQtyForLine
+    totalReleaseQty += qty
+
+    targetGapQtyByColorSize[key] = Math.max(targetQty - completeKitQty, 0)
+    releaseGapToTargetQtyByColorSize[key] = Math.max(targetQty - qty, 0)
+    surplusKitQtyByColorSize[key] = Math.max(completeKitQty - targetQty, 0)
+  }
+
+  if (totalRiskReleaseQty > 0 && !input.riskReason.trim()) {
+    return { ok: false, message: '本次存在风险放行数量，必须填写风险原因。', version: null }
+  }
+
+  const versions = releaseVersionRepository.get(input.productionOrderId) || []
+  const prevVersion = versions.filter((v) => v.isLatestEffective).at(-1) ?? null
+
+  versions.forEach((v) => { v.isLatestEffective = false })
+
+  const versionNo = versions.length + 1
+  const totalTargetQty = Object.values(targetValues).reduce((sum, v) => sum + safeInteger(v), 0)
+  const totalCompleteKitQty = matrix.colorGroups.reduce(
+    (sum, group) => sum + group.sizes.reduce((s, size) => {
+      const qty = group.completeKitBySize[size]
+      return s + (qty === null ? 0 : safeInteger(qty))
+    }, 0), 0
+  )
+  const changedLines = prevVersion
+    ? expectedKeys.filter((k) => (prevVersion.releaseQtyByColorSize[k] ?? 0) !== (input.releaseQtyByColorSize[k] ?? 0))
+    : [...expectedKeys]
+
+  const releaseStatus: CutPieceReleaseAvailableStatus =
+    totalReleaseQty === 0 ? '暂不放行'
+    : totalRiskReleaseQty > 0 ? '风险放行'
+    : '按齐套放行'
+
+  const version: CutPieceReleaseAvailableQtyVersion = {
+    releaseVersionId: `cr-avail-${input.productionOrderId}-v${versionNo}`,
+    releaseVersionNo: versionNo,
+    productionOrderId: input.productionOrderId,
+    basisMatrixVersion: input.basisMatrixVersion,
+    basisTargetVersion: input.basisTargetVersion,
+    releaseQtyByColorSize: { ...input.releaseQtyByColorSize },
+    riskReleaseQtyByColorSize,
+    targetGapQtyByColorSize,
+    releaseGapToTargetQtyByColorSize,
+    surplusKitQtyByColorSize,
+    totalTargetQty,
+    totalCompleteKitQty,
+    totalReleaseConfirmQty: totalReleaseQty,
+    totalRiskReleaseQty,
+    totalReleaseGapToTargetQty: Math.max(totalTargetQty - totalReleaseQty, 0),
+    riskReason: input.riskReason,
+    confirmedBy: input.confirmedBy,
+    confirmedAt: input.confirmedAt,
+    isLatestEffective: true,
+    releaseStatus,
+    beforeTotalReleaseConfirmQty: prevVersion?.totalReleaseConfirmQty ?? 0,
+    afterTotalReleaseConfirmQty: totalReleaseQty,
+    beforeTotalRiskReleaseQty: prevVersion?.totalRiskReleaseQty ?? 0,
+    afterTotalRiskReleaseQty: totalRiskReleaseQty,
+    changedColorSizeLines: changedLines,
+  }
+
+  versions.push(version)
+  releaseVersionRepository.set(input.productionOrderId, versions)
+
+  return { ok: true, message: '放行确认已生成。', version: clone(version) }
+}
+
+export function listCutPieceReleaseAvailableQtyVersions(
+  productionOrderId: string,
+): CutPieceReleaseAvailableQtyVersion[] {
+  return clone(releaseVersionRepository.get(productionOrderId) || [])
+}
+
+export function calculateMissingPieceQty(productionOrderId: string): SupplementPartShortage[] {
+  const item = releaseRepository.get(productionOrderId)
+  if (!item) return []
+  const snapshot = getTargetSnapshot(item)
+  if (!snapshot) return []
+  const targetValues = snapshot.targetPreview.colorSizeTargets
+  return item.input.requirements.flatMap((requirement) => {
+    const piecesPerGarment = requirement.piecesPerGarment ?? 0
+    if (!piecesPerGarment) return []
+    return Object.entries(targetValues).flatMap(([key, targetQty]) => {
+      const [garmentColor, size] = key.split('::')
+      if (requirement.garmentColor && requirement.garmentColor !== garmentColor) return []
+      if (requirement.size && requirement.size !== size) return []
+      const facts = item.input.facts.filter((fact) =>
+        fact.garmentColor === garmentColor && fact.size === size
+        && fact.materialId === requirement.materialId && fact.partId === requirement.partId
+        && fact.direction === '正向' && fact.sourceStatus !== '已冲销'
+      )
+      const actualPieceQty = facts.reduce((sum, fact) => sum + fact.actualPieceQty, 0)
+      const missingPieceQty = Math.max(targetQty * piecesPerGarment - actualPieceQty, 0)
+      if (missingPieceQty <= 0) return []
+      return [{
+        garmentColor, size,
+        materialId: requirement.materialId,
+        materialName: requirement.materialName,
+        partId: requirement.partId,
+        partName: requirement.partName,
+        targetQty,
+        actualPieceQty,
+        piecesPerGarment,
+        actualMissingPieceQty: missingPieceQty,
+        supplementGarmentQty: targetQty,
+      }]
+    })
+  })
 }
 
 export function saveCutPieceReleaseDecision(input: SaveCutPieceReleaseDecisionInput): { ok: boolean; message: string } {
