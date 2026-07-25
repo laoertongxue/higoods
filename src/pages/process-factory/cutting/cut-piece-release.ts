@@ -903,18 +903,12 @@ function renderReleaseConfirmPanel(): string {
   const totalReleaseQty = colorSizeLines.reduce((sum, line) => sum + line.releaseQty, 0)
   const totalCompleteKitQty = colorSizeLines.reduce((sum, line) => sum + line.completeKitQty, 0)
   const totalTargetQty = colorSizeLines.reduce((sum, line) => sum + line.targetQty, 0)
-  const riskReleaseQty = Math.max(totalReleaseQty - totalCompleteKitQty, 0)
+  const totalRiskReleaseQty = colorSizeLines.reduce((sum, line) => sum + Math.max(line.releaseQty - line.completeKitQty, 0), 0)
   const releaseGapToTarget = Math.max(totalTargetQty - totalReleaseQty, 0)
 
-  let riskReleaseInputHtml = ''
-  if (riskReleaseQty > 0) {
-    riskReleaseInputHtml = `
-      <label class="space-y-1">
-        <span class="text-sm font-medium">风险原因（必填）</span>
-        <input type="text" class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="请输入风险放行原因" data-cut-piece-release-field="riskReason">
-      </label>
-    `
-  }
+  const releaseRiskReasonHtml = renderReleaseRiskReasonInput(totalRiskReleaseQty)
+
+  const releaseConfirmSummaryHtml = renderReleaseConfirmSummary(totalCompleteKitQty, totalRiskReleaseQty, releaseGapToTarget)
 
   const savedReleaseVersionHtml = latestVersion ? `
     <div class="rounded-md bg-emerald-50 border border-emerald-200 p-3 text-sm">
@@ -944,12 +938,12 @@ function renderReleaseConfirmPanel(): string {
           </label>
         `).join('')}
       </div>
-      <div class="mt-3 flex flex-wrap gap-4 text-sm">
-        <span class="font-medium">系统齐套：${formatQuantity(totalCompleteKitQty)} 件</span>
-        <span class="font-medium ${riskReleaseQty > 0 ? 'text-amber-700' : 'text-muted-foreground'}">风险放行：${formatQuantity(riskReleaseQty)} 件</span>
-        <span class="font-medium ${releaseGapToTarget > 0 ? 'text-rose-700' : 'text-emerald-700'}">放行距目标缺口：${formatQuantity(releaseGapToTarget)} 件</span>
+      <div data-cut-piece-release-confirm-summary-region>
+        ${releaseConfirmSummaryHtml}
       </div>
-      ${riskReleaseInputHtml}
+      <div data-cut-piece-release-risk-reason-region>
+        ${releaseRiskReasonHtml}
+      </div>
       <div class="mt-4 flex flex-wrap gap-2">
         <button type="button" class="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700" data-skip-page-rerender="true" data-cut-piece-release-action="confirm-release">确认放行</button>
         <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cut-piece-release-action="open-release-version-log">
@@ -960,6 +954,67 @@ function renderReleaseConfirmPanel(): string {
       </div>
     </section>
   `
+}
+
+function renderReleaseRiskReasonInput(riskReleaseQty: number): string {
+  if (riskReleaseQty <= 0) return ''
+  const existingValue = typeof document !== 'undefined'
+    ? document.querySelector<HTMLInputElement>('[data-cut-piece-release-field="riskReason"]')?.value ?? ''
+    : ''
+  return `
+      <label class="space-y-1">
+        <span class="text-sm font-medium">风险原因（必填）</span>
+        <input type="text" class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="请输入风险放行原因" value="${escapeHtml(existingValue)}" data-cut-piece-release-field="riskReason">
+      </label>
+    `
+}
+
+function renderReleaseConfirmSummary(totalCompleteKitQty: number, riskReleaseQty: number, releaseGapToTarget: number): string {
+  return `
+      <div class="mt-3 flex flex-wrap gap-4 text-sm">
+        <span class="font-medium">系统齐套：${formatQuantity(totalCompleteKitQty)} 件</span>
+        <span class="font-medium ${riskReleaseQty > 0 ? 'text-amber-700' : 'text-muted-foreground'}">风险放行：${formatQuantity(riskReleaseQty)} 件</span>
+        <span class="font-medium ${releaseGapToTarget > 0 ? 'text-rose-700' : 'text-emerald-700'}">放行距目标缺口：${formatQuantity(releaseGapToTarget)} 件</span>
+      </div>
+  `
+}
+
+function calculateReleaseConfirmDraftTotals(): { totalCompleteKitQty: number; totalTargetQty: number; totalReleaseQty: number; totalRiskReleaseQty: number; releaseGapToTarget: number } | null {
+  const record = getActiveRecord()
+  if (!record) return null
+  const inputNodes = document.querySelectorAll<HTMLInputElement>('[data-cut-piece-release-field="releaseQtyInput"]')
+  let totalCompleteKitQty = 0
+  let totalTargetQty = 0
+  let totalReleaseQty = 0
+  let totalRiskReleaseQty = 0
+  inputNodes.forEach((node) => {
+    const color = node.dataset.releaseColor || ''
+    const size = node.dataset.releaseSize || ''
+    const targetQty = Number(node.dataset.max || 0)
+    const completeKitQty = record.matrix.colorGroups.find((g) => g.garmentColor === color)?.completeKitBySize[size] ?? 0
+    const releaseQty = Math.max(0, Math.round(Number(node.value) || 0))
+    totalTargetQty += targetQty
+    totalCompleteKitQty += completeKitQty
+    totalReleaseQty += releaseQty
+    totalRiskReleaseQty += Math.max(releaseQty - completeKitQty, 0)
+  })
+  return {
+    totalCompleteKitQty,
+    totalTargetQty,
+    totalReleaseQty,
+    totalRiskReleaseQty,
+    releaseGapToTarget: Math.max(totalTargetQty - totalReleaseQty, 0),
+  }
+}
+
+function refreshReleaseRiskReasonInput(): void {
+  if (typeof document === 'undefined') return
+  const totals = calculateReleaseConfirmDraftTotals()
+  if (!totals) return
+  const summaryRegion = document.querySelector<HTMLElement>('[data-cut-piece-release-confirm-summary-region]')
+  if (summaryRegion) summaryRegion.innerHTML = renderReleaseConfirmSummary(totals.totalCompleteKitQty, totals.totalRiskReleaseQty, totals.releaseGapToTarget)
+  const riskRegion = document.querySelector<HTMLElement>('[data-cut-piece-release-risk-reason-region]')
+  if (riskRegion) riskRegion.innerHTML = renderReleaseRiskReasonInput(totals.totalRiskReleaseQty)
 }
 
 function renderReleaseVersionLogPanel(): string {
@@ -1402,6 +1457,16 @@ function handleFieldChange(node: HTMLInputElement | HTMLSelectElement): boolean 
     state.releaseStatusFilter = node.value
     state.page = 1
     refreshList()
+    return true
+  }
+  if (field === 'releaseQtyInput') {
+    const max = Number(node.dataset.max || 0)
+    const qty = Math.min(Math.max(0, Math.round(Number(node.value) || 0)), max)
+    node.value = String(qty)
+    refreshReleaseRiskReasonInput()
+    return true
+  }
+  if (field === 'riskReason') {
     return true
   }
   if (field === 'pageSize') {

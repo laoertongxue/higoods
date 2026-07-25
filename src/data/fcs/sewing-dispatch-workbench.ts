@@ -41,6 +41,7 @@ import {
   type CuttingSpecialCraftFeiTicketBinding,
 } from './cutting/special-craft-fei-ticket-flow.ts'
 import { listMarkerPlanCutOrderSourceRecords } from './cutting/marker-plan-source.ts'
+import { getCutPieceReleaseSummaryForProductionOrder } from './cut-piece-release.ts'
 
 export type SewingDispatchKitStatus = '已齐套' | '有缺口'
 export type SewingDispatchGapType = '普通裁片' | '毛织片' | '辅助工艺裁片' | '特种工艺裁片' | '辅料'
@@ -195,6 +196,16 @@ export interface SewingDispatchDraft {
   statusLabel: string
   runtimeTaskIds: string[]
   tenderIds: string[]
+  cutPieceReleaseVersionSnapshots: SewingDispatchCutPieceReleaseVersionSnapshot[]
+}
+
+export interface SewingDispatchCutPieceReleaseVersionSnapshot {
+  productionOrderId: string
+  productionOrderNo: string
+  releaseAvailableStatus: string
+  ppicAvailableDispatchQty: number
+  latestReleaseVersion: number | null
+  capturedAt: string
 }
 
 export interface SewingDispatchFactorySummary {
@@ -1092,6 +1103,23 @@ function getTotalPolicyDispatchQty(rows: SewingDispatchWorkbenchRow[]): number {
   return rows.reduce((total, row) => total + getPolicyDispatchQtyForRow(row), 0)
 }
 
+function buildCutPieceReleaseVersionSnapshots(
+  rows: SewingDispatchWorkbenchRow[],
+  capturedAt: string,
+): SewingDispatchCutPieceReleaseVersionSnapshot[] {
+  return [...new Map(rows.map((row) => [row.productionOrderId, row])).values()].map((row) => {
+    const summary = getCutPieceReleaseSummaryForProductionOrder(row.productionOrderId)
+    return {
+      productionOrderId: row.productionOrderId,
+      productionOrderNo: row.productionOrderNo,
+      releaseAvailableStatus: summary?.releaseAvailableStatus || '待判断',
+      ppicAvailableDispatchQty: summary?.ppicAvailableDispatchQty ?? 0,
+      latestReleaseVersion: summary?.latestReleaseVersion ?? null,
+      capturedAt,
+    }
+  })
+}
+
 function getDirectDispatchQtyByFactoryId(
   rows: SewingDispatchWorkbenchRow[],
   factoryByRowId: Map<string, { id: string; name: string }>,
@@ -1313,6 +1341,7 @@ export function createSewingDispatchWorkbenchDraft(input: {
         statusLabel: input.actionType === '直接派单' ? '直接派单已生效并自动接单' : '竞价已发起，待定标后工厂确认接单',
         runtimeTaskIds,
         tenderIds,
+        cutPieceReleaseVersionSnapshots: buildCutPieceReleaseVersionSnapshots(rows, operatedAt),
       }
       sewingDispatchDrafts.unshift(draft)
       return { ok: true, message: draft.statusLabel, draft, runtimeTaskIds }
@@ -1333,5 +1362,6 @@ export function listSewingDispatchWorkbenchDrafts(): SewingDispatchDraft[] {
     rowIds: [...draft.rowIds],
     runtimeTaskIds: [...draft.runtimeTaskIds],
     tenderIds: [...draft.tenderIds],
+    cutPieceReleaseVersionSnapshots: draft.cutPieceReleaseVersionSnapshots.map((snapshot) => ({ ...snapshot })),
   }))
 }

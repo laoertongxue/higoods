@@ -279,9 +279,7 @@ function getDispatchCandidateRows(tasks: SewingDispatchWorkbenchTask[] = listSew
     .flatMap((task) => task.skuRows)
     .filter((row) => {
       if (row.remainingQty <= 0) return false
-      const summary = getTaskCutPieceReleaseSummary(tasks.find((t) => t.taskId === row.taskId)!)
-      const maxAvail = summary?.ppicAvailableDispatchQty
-      return maxAvail !== undefined ? row.remainingQty <= maxAvail : row.completeKitQty >= row.remainingQty
+      return row.completeKitQty >= row.remainingQty
     })
 }
 
@@ -1616,21 +1614,31 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement, event?: 
     }
     if (!state.overDispatchConfirmed) {
       const tasks = listSewingDispatchWorkbenchTasks()
-      let totalDispatchQty = 0
-      let totalAvailQty = 0
+      const dispatchQtyByProductionOrderId = new Map<string, number>()
+      const availQtyByProductionOrderId = new Map<string, number>()
       for (const row of selectedRows) {
-        totalDispatchQty += row.remainingQty
+        dispatchQtyByProductionOrderId.set(
+          row.productionOrderId,
+          (dispatchQtyByProductionOrderId.get(row.productionOrderId) ?? 0) + row.remainingQty,
+        )
         const task = tasks.find((t) => t.taskId === row.taskId)
-        if (task) {
+        if (task && !availQtyByProductionOrderId.has(row.productionOrderId)) {
           const summary = getTaskCutPieceReleaseSummary(task)
           if (summary && summary.ppicAvailableDispatchQty !== undefined) {
-            totalAvailQty += summary.ppicAvailableDispatchQty
+            availQtyByProductionOrderId.set(row.productionOrderId, summary.ppicAvailableDispatchQty)
           }
         }
       }
-      if (totalAvailQty > 0 && totalDispatchQty > totalAvailQty) {
+      const overDispatchEntries = [...dispatchQtyByProductionOrderId.entries()]
+        .map(([productionOrderId, dispatchQty]) => {
+          const availQty = availQtyByProductionOrderId.get(productionOrderId)
+          return availQty === undefined ? 0 : Math.max(dispatchQty - availQty, 0)
+        })
+        .filter((qty) => qty > 0)
+      if (overDispatchEntries.length > 0) {
+        const totalDispatchQty = [...dispatchQtyByProductionOrderId.values()].reduce((sum, qty) => sum + qty, 0)
         state.ppicDispatchQty = totalDispatchQty
-        state.overDispatchQty = Math.max(0, totalDispatchQty - totalAvailQty)
+        state.overDispatchQty = overDispatchEntries.reduce((sum, qty) => sum + qty, 0)
         state.dispatchError = ''
         refreshSewingDispatchDialog()
         return true

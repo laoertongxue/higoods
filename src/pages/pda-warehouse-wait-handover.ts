@@ -376,6 +376,7 @@ function getCuttingWaitHandoverAction(value?: string | null): typeof CUTTING_WAI
 function getCuttingWaitHandoverActionRoute(actionKey: CuttingWaitHandoverActionKey, firstTaskId: string): string {
   if (actionKey === 'numbering') return '/fcs/pda/cutting/fei-ticket-numbering'
   if (actionKey === 'inbound') return `/fcs/pda/cutting/inbound/${firstTaskId}`
+  if (actionKey === 'inbound-location') return `/fcs/pda/cutting/inbound/${firstTaskId}?action=inbound-location`
   if (actionKey === 'special-craft-return') return `/fcs/pda/cutting/handover/${firstTaskId}?action=special-craft-return`
   return `/fcs/pda/cutting/handover/${firstTaskId}?action=handover-bagging-confirm`
 }

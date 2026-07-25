@@ -442,7 +442,7 @@ function buildProductionOrderFromResolvedUpstream(
   const ledgerDetails = seed.ledgerDetails ?? buildDefaultProductionLedgerDetails(seed, demand, (factorySnapshot ?? createPendingMainFactorySnapshot()).name)
   return {
     ...seed,
-    productionOrderNo: seed.productionOrderId,
+    productionOrderNo: cutPieceReleaseDemoOrderNoById[seed.productionOrderId] || seed.productionOrderId,
     sourceDemandIds: seed.sourceDemandIds ?? [seed.demandId],
     lockedLegacy:
       seed.lockedLegacy ?? ['EXECUTING', 'COMPLETED', 'CANCELLED'].includes(seed.status),
@@ -458,6 +458,13 @@ function buildProductionOrderFromResolvedUpstream(
     techPackSnapshot: cloneProductionOrderTechPackSnapshot(techPackSnapshot),
     ledgerDetails: cloneProductionLedgerDetails(ledgerDetails),
   }
+}
+
+const cutPieceReleaseDemoOrderNoById: Record<string, string> = {
+  'PO-202603-0014': 'PO14677',
+  'PO-202603-0015': 'PO14673',
+  'PO-202603-083': 'PO14672',
+  'PO-202603-084': 'PO14671',
 }
 
 export function buildProductionOrderFromSeed(seed: ProductionOrderSeed): ProductionOrder {

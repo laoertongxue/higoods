@@ -446,6 +446,7 @@ function buildReleaseRecord(item: ReleaseRepositoryItem): CutPieceReleaseRecord 
     .filter(Boolean)).size
   const targetConfirmed = item.targetStatus === '已确认' && Boolean(snapshot)
   const releaseQty = skuLines.reduce((sum, line) => sum + line.releaseQty, 0)
+  const totalTargetQty = Object.values(snapshot?.targetPreview.colorSizeTargets ?? {}).reduce((sum, value) => sum + safeInteger(value), 0)
   const releaseStatus = latestVersion?.releaseStatus ?? deriveReleaseAvailableStatus(item)
   return {
     recordId: `cpr-${item.input.productionOrderId}`,
@@ -484,7 +485,7 @@ function buildReleaseRecord(item: ReleaseRepositoryItem): CutPieceReleaseRecord 
     releaseAvailableStatus: releaseStatus,
     latestReleaseVersion: latestVersion?.releaseVersionNo ?? 0,
     riskReleaseQty: safeInteger(latestVersion?.totalRiskReleaseQty ?? 0),
-    totalTargetQty: safeInteger(latestVersion?.totalTargetQty ?? 0),
+    totalTargetQty: safeInteger(latestVersion?.totalTargetQty ?? totalTargetQty),
   }
 }
 
@@ -745,6 +746,34 @@ function bootstrapRepository(): void {
     eventId: 'spread-14672-01', productionOrderId: 'po-14672', occurredAt: '2026-06-04 09:20:00', operator: '铺布操作员 Rudi', reason: '首批主面料、里料与袖口裁片已完成，等待裁床主管确认放行目标。', cutOrderId: 'cut-14672-a', cutOrderNo: 'CUT14672-A', spreadingOrderNo: 'PB-14672-01',
   }))
   addSourceState('po-14672', { cutOrderId: 'cut-14672-a', cutOrderNo: 'CUT14672-A', changedAt: '2026-06-04 09:20:00', operator: '铺布操作员 Rudi', reason: '首批裁片持续更新中。', materialIds: ['FAB', 'LIN', 'CUF'] })
+  const riskTarget = confirmCutPieceReleaseTarget({
+    productionOrderId: 'po-14672',
+    matrixVersion: 1,
+    colorSizeTargets: {
+      '雾蓝::S': 170, '雾蓝::M': 250, '雾蓝::L': 210,
+      '浅灰::S': 118, '浅灰::M': 190, '浅灰::L': 150,
+    },
+    confirmedBy: '裁床文员 Siti',
+  })
+  if (!riskTarget.ok) throw new Error(`初始化 PO14672 目标快照失败：${riskTarget.message}`)
+  confirmCutPieceReleaseAvailableQty({
+    productionOrderId: 'po-14672', basisMatrixVersion: 1, basisTargetVersion: 1,
+    releaseQtyByColorSize: {
+      '雾蓝::S': 165, '雾蓝::M': 245, '雾蓝::L': 200,
+      '浅灰::S': 112, '浅灰::M': 185, '浅灰::L': 145,
+    },
+    riskReason: '', confirmedBy: '裁床主管 王敏', confirmedAt: '2026-07-25 09:30:00',
+  })
+  confirmCutPieceReleaseAvailableQty({
+    productionOrderId: 'po-14672', basisMatrixVersion: 1, basisTargetVersion: 1,
+    releaseQtyByColorSize: {
+      '雾蓝::S': 170, '雾蓝::M': 250, '雾蓝::L': 210,
+      '浅灰::S': 115, '浅灰::M': 190, '浅灰::L': 150,
+    },
+    riskReason: '裁床主管确认部分袖口裁片已裁好但暂未点收入仓，允许 PPIC 先安排车缝。',
+    confirmedBy: '裁床主管 王敏',
+    confirmedAt: '2026-07-25 11:15:00',
+  })
 
   addRepositoryItem({
     productionOrderId: 'po-14673',
@@ -776,6 +805,14 @@ function bootstrapRepository(): void {
     confirmedBy: '裁床文员 Siti',
   })
   if (!changedTarget.ok) throw new Error(`初始化 PO14673 目标快照失败：${changedTarget.message}`)
+  confirmCutPieceReleaseAvailableQty({
+    productionOrderId: 'po-14673', basisMatrixVersion: 1, basisTargetVersion: 1,
+    releaseQtyByColorSize: {
+      '奶油白::S': 138, '奶油白::M': 210, '奶油白::L': 165,
+      '焦糖棕::S': 90, '焦糖棕::M': 145, '焦糖棕::L': 128,
+    },
+    riskReason: '', confirmedBy: '裁床主管 王敏', confirmedAt: '2026-07-25 12:20:00',
+  })
   const po14673 = releaseRepository.get('po-14673')!
   const laterEvent = simpleMatrixEvent({
     eventId: 'spread-14673-02', productionOrderId: 'po-14673', occurredAt: '2026-06-04 14:30:00', operator: '铺布操作员 Agus', reason: '追加焦糖棕 L 码袖口裁片，目标确认后数据发生变化。', cutOrderId: 'cut-14673-b', cutOrderNo: 'CUT14673-B', spreadingOrderNo: 'PB-14673-02',
@@ -814,6 +851,77 @@ function bootstrapRepository(): void {
   }, '女童荷叶边连衣裙', ['CUT14675-A'], simpleMatrixEvent({
     eventId: 'spread-14675-pending', productionOrderId: 'po-14675', occurredAt: '2026-06-05 11:00:00', operator: '裁床文员 Siti', reason: '生产单已进入放行观察，但铺布裁片事实暂未回传。', cutOrderId: 'cut-14675-a', cutOrderNo: 'CUT14675-A', spreadingOrderNo: 'PB-14675-待回传',
   }))
+
+  addRepositoryItem({
+    productionOrderId: 'po-14676',
+    productionOrderNo: 'PO14676',
+    spuCode: 'ASYSA26060315',
+    planQtyByColorSize: { '杏色': { S: 90, M: 140 }, '墨蓝': { S: 80, M: 130 } },
+    requirements: simpleRequirements,
+    facts: createSeedFacts({
+      productionOrderId: 'po-14676', eventId: 'spread-14676-01', cutOrderId: 'cut-14676-a', cutOrderNo: 'CUT14676-A', spreadingOrderNo: 'PB-14676-01', occurredAt: '2026-06-05 13:20:00', requirements: simpleRequirements,
+      quantities: {
+        '杏色': { FAB: { S: 88, M: 135 }, LIN: { S: 86, M: 132 }, CUF: { S: 84, M: 130 } },
+        '墨蓝': { FAB: { S: 76, M: 126 }, LIN: { S: 74, M: 124 }, CUF: { S: 72, M: 120 } },
+      },
+    }),
+  }, '女式通勤短款外套', ['CUT14676-A'], simpleMatrixEvent({
+    eventId: 'spread-14676-01', productionOrderId: 'po-14676', occurredAt: '2026-06-05 13:20:00', operator: '铺布操作员 Putri', reason: '目标已维护，等待裁床主管确认当前可做放行数量。', cutOrderId: 'cut-14676-a', cutOrderNo: 'CUT14676-A', spreadingOrderNo: 'PB-14676-01',
+  }))
+  addSourceState('po-14676', { cutOrderId: 'cut-14676-a', cutOrderNo: 'CUT14676-A', changedAt: '2026-06-05 13:20:00', operator: '铺布操作员 Putri', reason: '目标已维护，等待放行确认。', materialIds: ['FAB', 'LIN', 'CUF'] })
+  const waitingTarget = confirmCutPieceReleaseTarget({
+    productionOrderId: 'po-14676', matrixVersion: 1,
+    colorSizeTargets: { '杏色::S': 84, '杏色::M': 130, '墨蓝::S': 72, '墨蓝::M': 120 },
+    confirmedBy: '裁床文员 Siti',
+  })
+  if (!waitingTarget.ok) throw new Error(`初始化 PO14676 目标快照失败：${waitingTarget.message}`)
+
+  addRepositoryItem({
+    productionOrderId: 'po-14677',
+    productionOrderNo: 'PO14677',
+    spuCode: 'ASYSA26060316',
+    planQtyByColorSize: { '松石绿': { M: 110, L: 150 }, '米白': { M: 100, L: 140 } },
+    requirements: simpleRequirements,
+    facts: createSeedFacts({
+      productionOrderId: 'po-14677', eventId: 'spread-14677-01', cutOrderId: 'cut-14677-a', cutOrderNo: 'CUT14677-A', spreadingOrderNo: 'PB-14677-01', occurredAt: '2026-06-05 15:10:00', requirements: simpleRequirements,
+      quantities: {
+        '松石绿': { FAB: { M: 70, L: 90 }, LIN: { M: 68, L: 88 }, CUF: { M: 66, L: 85 } },
+        '米白': { FAB: { M: 60, L: 80 }, LIN: { M: 58, L: 78 }, CUF: { M: 55, L: 75 } },
+      },
+    }),
+  }, '男式运动连帽卫衣', ['CUT14677-A'], simpleMatrixEvent({
+    eventId: 'spread-14677-01', productionOrderId: 'po-14677', occurredAt: '2026-06-05 15:10:00', operator: '铺布操作员 Hendra', reason: '主料色差待裁床主管复核，先维护目标但暂不放行。', cutOrderId: 'cut-14677-a', cutOrderNo: 'CUT14677-A', spreadingOrderNo: 'PB-14677-01',
+  }))
+  addSourceState('po-14677', { cutOrderId: 'cut-14677-a', cutOrderNo: 'CUT14677-A', changedAt: '2026-06-05 15:10:00', operator: '铺布操作员 Hendra', reason: '主料色差待复核，主管确认暂不放行。', materialIds: ['FAB', 'LIN', 'CUF'] })
+  const blockedTarget = confirmCutPieceReleaseTarget({
+    productionOrderId: 'po-14677', matrixVersion: 1,
+    colorSizeTargets: { '松石绿::M': 66, '松石绿::L': 85, '米白::M': 55, '米白::L': 75 },
+    confirmedBy: '裁床文员 Siti',
+  })
+  if (!blockedTarget.ok) throw new Error(`初始化 PO14677 目标快照失败：${blockedTarget.message}`)
+  confirmCutPieceReleaseAvailableQty({
+    productionOrderId: 'po-14677', basisMatrixVersion: 1, basisTargetVersion: 1,
+    releaseQtyByColorSize: { '松石绿::M': 0, '松石绿::L': 0, '米白::M': 0, '米白::L': 0 },
+    riskReason: '', confirmedBy: '裁床主管 王敏', confirmedAt: '2026-07-25 15:40:00',
+  })
+
+  addRepositoryItem({
+    productionOrderId: 'po-14678',
+    productionOrderNo: 'PO14678',
+    spuCode: 'ASYSA26060317',
+    planQtyByColorSize: { '浅咖': { S: 100, M: 150 }, '炭灰': { S: 90, M: 140 } },
+    requirements: simpleRequirements,
+    facts: createSeedFacts({
+      productionOrderId: 'po-14678', eventId: 'spread-14678-01', cutOrderId: 'cut-14678-a', cutOrderNo: 'CUT14678-A', spreadingOrderNo: 'PB-14678-01', occurredAt: '2026-06-05 16:30:00', requirements: simpleRequirements,
+      quantities: {
+        '浅咖': { FAB: { S: 96, M: 146 }, LIN: { S: 94, M: 144 }, CUF: { S: 92, M: 140 } },
+        '炭灰': { FAB: { S: 86, M: 136 }, LIN: { S: 84, M: 134 }, CUF: { S: 82, M: 130 } },
+      },
+    }),
+  }, '女式休闲束腰衬衫裙', ['CUT14678-A'], simpleMatrixEvent({
+    eventId: 'spread-14678-01', productionOrderId: 'po-14678', occurredAt: '2026-06-05 16:30:00', operator: '铺布操作员 Fitri', reason: '裁片事实已形成可计算矩阵，但裁床主管尚未维护目标数量。', cutOrderId: 'cut-14678-a', cutOrderNo: 'CUT14678-A', spreadingOrderNo: 'PB-14678-01',
+  }))
+  addSourceState('po-14678', { cutOrderId: 'cut-14678-a', cutOrderNo: 'CUT14678-A', changedAt: '2026-06-05 16:30:00', operator: '铺布操作员 Fitri', reason: '可计算矩阵已生成，待主管维护目标。', materialIds: ['FAB', 'LIN', 'CUF'] })
   // 为 PO14671 初始化 V1 放行版本（按齐套放行）
   confirmCutPieceReleaseAvailableQty({
     productionOrderId: 'po-14671',
@@ -1244,6 +1352,9 @@ export function recordSpreadingReleaseAdjustment(input: SpreadingReleaseAdjustme
 
 export function getCutPieceReleaseSummaryForProductionOrder(productionOrderId: string): CutPieceReleaseSummary | null {
   const sourceId = releaseRepository.has(productionOrderId) ? productionOrderId : ({
+    'PO-202603-0014': 'po-14677',
+    'PO-202603-0015': 'po-14673',
+    'PO-202603-083': 'po-14672',
     'PO-202603-084': 'po-14671',
     'PO-202603-086': 'po-14671',
   } as Record<string, string>)[productionOrderId] ?? productionOrderId
@@ -1253,6 +1364,7 @@ export function getCutPieceReleaseSummaryForProductionOrder(productionOrderId: s
   const currentCompleteKitQtyByColorSize = Object.fromEntries(item.currentMatrix.colorGroups.flatMap((group) => group.sizes.map((size) => [targetKey(group.garmentColor, size), group.completeKitBySize[size] === null ? null : safeQuantity(group.completeKitBySize[size])])))
   const targetSnapshot = getTargetSnapshot(item)
   const targetQtyByColorSize = targetSnapshot?.targetPreview.colorSizeTargets ? { ...targetSnapshot.targetPreview.colorSizeTargets } : {}
+  const totalTargetQty = Object.values(targetQtyByColorSize).reduce((sum, value) => sum + safeInteger(value), 0)
   const latestVersion = getLatestEffectiveVersion(sourceId)
   return {
     recordId: record.recordId,
@@ -1277,7 +1389,7 @@ export function getCutPieceReleaseSummaryForProductionOrder(productionOrderId: s
     totalRiskReleaseQty: latestVersion?.totalRiskReleaseQty ?? 0,
     riskReason: latestVersion?.riskReason ?? '',
     releaseAvailableStatus: latestVersion?.releaseStatus ?? deriveReleaseAvailableStatus(item),
-    totalTargetQty: latestVersion?.totalTargetQty ?? 0,
+    totalTargetQty: latestVersion?.totalTargetQty ?? totalTargetQty,
     latestReleaseVersion: latestVersion?.releaseVersionNo ?? null,
   }
 }

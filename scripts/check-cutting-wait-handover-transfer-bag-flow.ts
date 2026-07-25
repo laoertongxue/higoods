@@ -32,6 +32,10 @@ function assertNotContains(source: string, needle: string, message: string): voi
   if (!source.includes(needle)) { passed++ } else { failures.push(`STALE: ${message}`) }
 }
 
+function assertMatch(source: string, pattern: RegExp, message: string): void {
+  if (pattern.test(source)) { passed++ } else { failures.push(`MISSING: ${message}`) }
+}
+
 // ─── 辅助读取函数 ───
 
 const EVENT_LEDGER = 'src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
@@ -232,6 +236,11 @@ for (const [name, path] of [
 assertContains(hub, "'bagging'", 'WAREHOUSE_HUB 必须有菲票装袋 tab key')
 assertContains(hub, "'inbound'", 'WAREHOUSE_HUB 必须有中转袋入仓 tab key')
 assertNotContains(hub, "'inbound-bagging'", 'WAREHOUSE_HUB tab key 不得继续使用 inbound-bagging')
+assertContains(hub, "type WaitHandoverWebAction = 'bagging'", 'WAREHOUSE_HUB Web action 必须包含独立菲票装袋')
+assertContains(hub, 'submitWaitHandoverBagging', 'WAREHOUSE_HUB 必须有独立菲票装袋提交函数')
+assertContains(hub, 'appendWaitHandoverBaggingEvent', 'WAREHOUSE_HUB 菲票装袋必须写入菲票装袋事件')
+assertMatch(hub, /function submitWaitHandoverBagging[\s\S]*appendWaitHandoverBaggingEvent/, 'WAREHOUSE_HUB 菲票装袋提交函数必须调用 appendWaitHandoverBaggingEvent')
+assertMatch(hub, /function submitWaitHandoverInbound[\s\S]*appendWaitHandoverInboundEvent/, 'WAREHOUSE_HUB 中转袋入仓提交函数必须调用 appendWaitHandoverInboundEvent')
 
 // 2.4 中转袋弹窗标题
 const tHandlers = read(T_BAGS_HANDLERS)
@@ -295,6 +304,7 @@ const pdaInbound = read(PDA_INBOUND)
 assertContains(pdaInbound, '菲票装袋', 'PDA_INBOUND 必须有菲票装袋')
 assertContains(pdaInbound, '中转袋入仓', 'PDA_INBOUND 必须有中转袋入仓')
 assertContains(pdaInbound, 'appendWaitHandoverBaggingEvent', 'PDA_INBOUND 必须调用装袋写入')
+assertMatch(pdaInbound, /appendWaitHandoverBaggingEvent\(/, 'PDA_INBOUND 确认菲票装袋必须真实调用 appendWaitHandoverBaggingEvent')
 assertNotContains(pdaInbound, OLD_MERGED, 'PDA_INBOUND 不得保留旧合并标题')
 
 // 3.3 PDA 交出页双阶段

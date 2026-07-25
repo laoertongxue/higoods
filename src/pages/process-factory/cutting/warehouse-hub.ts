@@ -64,6 +64,7 @@ import {
 } from '../shared/warehouse-standard.ts'
 import {
   appendWaitHandoverHandoverRecordEvent,
+  appendWaitHandoverBaggingEvent,
   appendWaitHandoverInboundEvent,
   appendWaitHandoverBaggingConfirmEvent,
   appendWaitHandoverSpecialCraftReturnEvent,
@@ -2212,7 +2213,8 @@ function renderWaitHandoverTabs(activeTab: WaitHandoverTabKey): string {
 function renderWaitHandoverHeaderActions(firstTaskId: string): string {
   return `
     <div class="flex flex-nowrap items-center gap-2 overflow-x-auto">
-      <button type="button" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-wait-handover-action="open-inbound">菲票装袋</button>
+      <button type="button" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-wait-handover-action="open-bagging">菲票装袋</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-inbound">中转袋入仓</button>
       <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-handover-bagging-confirm">交出装袋确认</button>
       <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-special-craft-return">特殊工艺回仓</button>
       <button type="button" class="h-10 shrink-0 rounded-md border border-blue-200 bg-blue-50 px-3 text-sm text-blue-700 hover:bg-blue-100" data-nav="/fcs/pda/cutting/handover/${escapeHtml(firstTaskId)}?action=special-craft-return">PDA 现场扫码</button>
@@ -2220,7 +2222,7 @@ function renderWaitHandoverHeaderActions(firstTaskId: string): string {
   `
 }
 
-type WaitHandoverWebAction = 'inbound' | 'handover-bagging-confirm' | 'handover' | 'special-craft-return'
+type WaitHandoverWebAction = 'bagging' | 'inbound' | 'handover-bagging-confirm' | 'handover' | 'special-craft-return'
 
 const WAIT_HANDOVER_WEB_MODAL_ID = 'cutting-wait-handover-web-action-modal'
 
@@ -2567,7 +2569,8 @@ function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction, select
     'special-craft-return': '特殊工艺回仓',
   }
   const submitMap: Record<WaitHandoverWebAction, string> = {
-    inbound: '确认入仓暂存',
+    bagging: '确认菲票装袋',
+    inbound: '确认中转袋入仓',
     'handover-bagging-confirm': '交出装袋确认',
     handover: '确认交出',
     'special-craft-return': '确认回仓入库',
@@ -2577,7 +2580,49 @@ function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction, select
   const selectedConfirm = selectedValue ? findWaitHandoverConfirmSelection(selectedValue) : null
   const specialCraftReturnOptions = getWaitHandoverSpecialCraftReturnOptions()
   const selectedSpecialCraftReturn = selectedValue ? findWaitHandoverSpecialCraftReturnSelection(selectedValue) : buildWaitHandoverSpecialCraftReturnSelections()[0] || null
-  const actionContent = action === 'inbound'
+  const actionContent = action === 'bagging'
+    ? `
+      <div class="space-y-3">
+        ${renderWaitHandoverWebStep(1, '扫码中转袋二维码', false, true, `
+          <div class="grid gap-3 md:grid-cols-[1fr,1fr]">
+            <label class="space-y-2">
+              <span class="text-sm font-medium text-foreground">中转袋二维码 / 袋码</span>
+              <input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="bagCode" value="${escapeHtml(selectedValue || 'WEB-TEMP-BAG-001')}" placeholder="扫描中转袋二维码，或输入 BAG-A-001" />
+            </label>
+            <div class="rounded-lg border bg-background px-3 py-2 text-sm">
+              <div><span class="text-muted-foreground">已选中转袋：</span><span class="font-medium text-foreground">${escapeHtml(selectedValue || '待扫描')}</span></div>
+              <div class="mt-1 text-xs text-muted-foreground">当前动作：先确认菲票装袋，不绑定库位</div>
+              <div class="mt-1 text-xs text-muted-foreground">下一动作：中转袋入仓</div>
+            </div>
+          </div>
+        `)}
+        ${renderWaitHandoverWebStep(2, '扫码菲票', false, false, `
+          <label class="space-y-2">
+            <span class="text-sm font-medium text-foreground">待装袋菲票</span>
+            <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="feiTicketId">
+              ${buildWaitHandoverActionSelectOptions(inboundTicketOptions, '暂无待装袋菲票')}
+            </select>
+          </label>
+          <label class="mt-3 block space-y-2">
+            <span class="text-sm font-medium text-foreground">菲票码</span>
+            <textarea class="min-h-[104px] w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="ticketScanInput" placeholder="连续扫描多张菲票，或粘贴票号，使用空格 / 换行 / 顿号分隔"></textarea>
+          </label>
+          <div class="mt-2 grid gap-2 text-xs text-muted-foreground md:grid-cols-3">
+            <div>已扫描：<span class="font-medium text-foreground">待提交识别</span></div>
+            <div>已识别：<span class="font-medium text-foreground">${escapeHtml(String(inboundTicketOptions.length ? 1 : 0))}</span> 张</div>
+            <div>未匹配：<span class="font-medium text-foreground">提交时校验</span></div>
+          </div>
+        `)}
+        ${renderWaitHandoverWebStep(3, '确认装袋人', false, false, `
+          <div class="grid gap-3 md:grid-cols-2">
+            <label class="space-y-2"><span class="text-sm font-medium text-foreground">操作人</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="operatorName" value="裁床装袋员" /></label>
+            <label class="space-y-2"><span class="text-sm font-medium text-foreground">备注</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="remark" /></label>
+          </div>
+        `)}
+        <div class="rounded-lg border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">菲票装袋只形成袋内事实；库区库位必须在“中转袋入仓”动作中确认。</div>
+      </div>
+    `
+    : action === 'inbound'
     ? `
       <div class="space-y-3">
         ${renderWaitHandoverWebStep(1, '扫码中转袋二维码', false, true, `
@@ -2618,7 +2663,7 @@ function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction, select
             <label class="space-y-2"><span class="text-sm font-medium text-foreground">备注</span><input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-wait-handover-field="remark" /></label>
           </div>
         `)}
-        <div class="rounded-lg border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">入仓暂存支持一个中转袋混装；确认后完成入仓暂存，中转袋进入所选库区库位。</div>
+        <div class="rounded-lg border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">中转袋入仓只绑定库区库位；菲票必须已先完成装袋。</div>
       </div>
     `
     : action === 'handover'
@@ -2764,14 +2809,14 @@ function findWaitHandoverPickingSelection(value: string): {
   }
 }
 
-function submitWaitHandoverInbound(dialog: HTMLElement): boolean {
+function submitWaitHandoverBagging(dialog: HTMLElement): boolean {
   const feiTicketId = readWaitHandoverWebField(dialog, 'feiTicketId')
   const { tickets, missingScanCodes } = resolveWaitHandoverInboundTickets(
     feiTicketId,
     readWaitHandoverWebField(dialog, 'ticketScanInput'),
   )
   if (!tickets.length) {
-    window.alert('请选择或扫描可入仓菲票。')
+    window.alert('请选择或扫描可装袋菲票。')
     return true
   }
   if (missingScanCodes.length) {
@@ -2781,12 +2826,48 @@ function submitWaitHandoverInbound(dialog: HTMLElement): boolean {
   const duplicatedTicket = tickets.find((ticket) => runtimeEventHasWaitHandoverTicket('菲票装袋', ticket.feiTicketId))
   if (duplicatedTicket) {
     const record = duplicatedTicket as unknown as Record<string, unknown>
-    window.alert(`${String(record.feiTicketNo || record.ticketNo || duplicatedTicket.feiTicketId)} 已入仓，不能重复入仓。`)
+    window.alert(`${String(record.feiTicketNo || record.ticketNo || duplicatedTicket.feiTicketId)} 已装袋，不能重复装袋。`)
     return true
   }
   const unnumberedTicket = tickets.find((ticket) => !validateFeiTicketNumberingBeforeBagging(ticket).ok)
   if (unnumberedTicket) {
     window.alert(validateFeiTicketNumberingBeforeBagging(unnumberedTicket).reason)
+    return true
+  }
+  const bagCode = readWaitHandoverWebField(dialog, 'bagCode') || 'WEB-TEMP-BAG-001'
+  appendWaitHandoverBaggingEvent({
+    source: 'WEB',
+    operator: getWaitHandoverWebOperator(dialog),
+    bagCode,
+    tickets: tickets.map((ticket) => buildWaitHandoverRuntimeTicketFromGeneratedTicket(ticket)),
+  })
+  return false
+}
+
+function submitWaitHandoverInbound(dialog: HTMLElement): boolean {
+  const feiTicketId = readWaitHandoverWebField(dialog, 'feiTicketId')
+  const { tickets, missingScanCodes } = resolveWaitHandoverInboundTickets(
+    feiTicketId,
+    readWaitHandoverWebField(dialog, 'ticketScanInput'),
+  )
+  if (!tickets.length) {
+    window.alert('请选择或扫描已装袋菲票。')
+    return true
+  }
+  if (missingScanCodes.length) {
+    window.alert(`以下菲票未匹配：${missingScanCodes.join('、')}`)
+    return true
+  }
+  const unbaggedTicket = tickets.find((ticket) => !runtimeEventHasWaitHandoverTicket('菲票装袋', ticket.feiTicketId))
+  if (unbaggedTicket) {
+    const record = unbaggedTicket as unknown as Record<string, unknown>
+    window.alert(`${String(record.feiTicketNo || record.ticketNo || unbaggedTicket.feiTicketId)} 尚未菲票装袋，不能直接中转袋入仓。`)
+    return true
+  }
+  const duplicatedTicket = tickets.find((ticket) => runtimeEventHasWaitHandoverTicket('中转袋入仓', ticket.feiTicketId))
+  if (duplicatedTicket) {
+    const record = duplicatedTicket as unknown as Record<string, unknown>
+    window.alert(`${String(record.feiTicketNo || record.ticketNo || duplicatedTicket.feiTicketId)} 已中转袋入仓，不能重复入仓。`)
     return true
   }
   const bagCode = readWaitHandoverWebField(dialog, 'bagCode') || 'WEB-TEMP-BAG-001'
@@ -2994,13 +3075,14 @@ export function handleCraftCuttingWaitHandoverEvent(target: HTMLElement): boolea
     removeWaitHandoverWebActionDialog()
     return true
   }
-  if (action === 'open-inbound' || action === 'open-handover-bagging-confirm' || action === 'open-handover' || action === 'open-special-craft-return') {
+  if (action === 'open-bagging' || action === 'open-inbound' || action === 'open-handover-bagging-confirm' || action === 'open-handover' || action === 'open-special-craft-return') {
     openWaitHandoverWebActionDialog(action.replace('open-', '') as WaitHandoverWebAction, actionNode?.dataset.waitHandoverSelection || '')
     return true
   }
   const dialog = actionNode?.closest<HTMLElement>('[data-wait-handover-modal]')
   if (!dialog) return false
   const blocked =
+    action === 'submit-bagging' ? submitWaitHandoverBagging(dialog) :
     action === 'submit-inbound' ? submitWaitHandoverInbound(dialog) :
     action === 'submit-handover-bagging-confirm' ? submitWaitHandoverBaggingConfirm(dialog) :
     action === 'submit-handover' ? submitWaitHandoverRecord(dialog) :
