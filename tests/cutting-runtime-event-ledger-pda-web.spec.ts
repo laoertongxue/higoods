@@ -461,7 +461,7 @@ test('PDA 完成裁剪写入实际裁剪产出，Web 铺布单和菲票页面可
   await expectNoPageErrors(errors)
 })
 
-test('PDA 入仓暂存袋结构化写入袋码、菲票和数量，Web 待交出仓可回查', async ({ page }) => {
+test('PDA 菲票装袋结构化写入袋码、菲票和数量，Web 待交出仓可回查', async ({ page }) => {
   const errors = collectPageErrors(page)
   await seedCuttingPdaSession(page)
 
@@ -478,7 +478,7 @@ test('PDA 入仓暂存袋结构化写入袋码、菲票和数量，Web 待交出
   await page.locator('[data-pda-cut-inbound-action="confirm"]').click()
   await expectRuntimeEvent(
     page,
-    '菲票入仓暂存',
+    '菲票装袋',
     (event) => {
       const payload = event.payload as any
       return payload?.bagCode === 'BAG-PDA-E2E-001' && Array.isArray(payload?.feiTicketItems) && payload.feiTicketItems.length > 0
@@ -489,7 +489,7 @@ test('PDA 入仓暂存袋结构化写入袋码、菲票和数量，Web 待交出
     page,
     '/fcs/craft/cutting/warehouse-management/wait-handover',
     '裁床待交出仓',
-    '菲票入仓暂存',
+    '菲票装袋',
     (event) => {
       const payload = event.payload as any
       return payload?.bagCode === 'BAG-PDA-E2E-001' && Array.isArray(payload?.feiTicketItems) && payload.feiTicketItems.length > 0

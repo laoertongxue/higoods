@@ -46,8 +46,8 @@ function getWaitHandoverInboundShortcut(runtime: NonNullable<ReturnType<typeof g
   const factory = getFactoryMasterRecordById(runtime.factoryId)
   if (isCuttingWarehouseRuntime(runtime)) {
     return {
-      title: '入仓暂存装袋',
-      subtitle: '扫中转袋和菲票，确认库区库位。',
+      title: '菲票装袋 / 中转袋入仓',
+      subtitle: '扫中转袋和菲票装袋，再确认库区库位入仓。',
     }
   }
   if (isWoolWarehouseRuntime(runtime)) {

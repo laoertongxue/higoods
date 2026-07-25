@@ -713,8 +713,8 @@ export function buildSystemSeedTransferBagRuntime(options: {
       carrierType: 'bag',
       capacity: 30,
       currentStatus: 'IDLE',
-      currentLocation: '裁床待交出仓入仓暂存位',
-      note: '入仓暂存袋样例，允许不同生产单、SKU、部位菲票临时混装。',
+      currentLocation: '裁床待交出仓暂存区',
+      note: '中转袋样品：先菲票装袋（已装袋待入仓），再入库位（已入待交出仓），允许不同生产单、SKU、部位菲票临时混装。',
     }),
   ]
 
@@ -905,7 +905,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       cycle.colorSummary = unique(selectedTickets.map((ticket) => ticket.fabricColor || ticket.color)).join(' / ') || '多色'
       cycle.sizeSummary = unique(selectedTickets.map((ticket) => ticket.size || '')).join(' / ') || '多尺码'
       cycleBindings.forEach((binding) => {
-        binding.note = '入仓暂存袋绑定：允许不同生产单、SKU、部位菲票临时混装。'
+        binding.note = '中转袋绑定：允许不同生产单、SKU、部位菲票临时混装。'
       })
     }
     cycle.packedTicketCount = cycleBindings.length
@@ -1523,11 +1523,11 @@ export function buildSystemSeedTransferBagRuntime(options: {
     operator: '裁片仓入仓员-林洁',
     cycleStatus: 'PACKING',
     masterStatus: 'IN_USE',
-    currentLocation: '裁床待交出仓入仓暂存位',
+    currentLocation: '裁床待交出仓暂存区',
     ticketCount: inboundTempTickets.length,
     tickets: inboundTempTickets,
     usageStage: 'INBOUND_TEMP',
-    note: '入仓暂存袋：允许不同生产单、SKU、部位菲票临时混装，车缝任务分配后再分拣装袋。',
+    note: '中转袋：允许不同生产单、SKU、部位菲票临时混装，车缝任务分配后再分拣装袋。',
   })
 
   // ---------- BAG-A-002：补充历史 + 活跃周期 ----------

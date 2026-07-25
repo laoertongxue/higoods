@@ -421,7 +421,7 @@ function ensureTraceabilityBagFirstSeed(options: {
       signoffStatus: 'PENDING',
       usageStage: 'INBOUND_TEMP',
       usageStageLabel: '入仓暂存',
-      note: `由 ${sessionNo} 完成后自动补齐入仓暂存袋链路。`,
+      note: `由 ${sessionNo} 完成后自动补齐中转袋链路。`,
     }
 
     const bindings: TransferBagItemBinding[] = tickets.map((ticket, ticketIndex) => ({
@@ -454,14 +454,14 @@ function ensureTraceabilityBagFirstSeed(options: {
       boundBy: operatorName,
       operator: operatorName,
       status: 'BOUND',
-      note: `由 ${sessionNo} 形成入仓暂存袋绑定。`,
+      note: `由 ${sessionNo} 形成中转袋绑定。`,
     }))
     const audit = buildBagUsageAuditTrail({
       usageId: usage.usageId,
       action: 'TRACEABILITY_AUTOLINK',
       actionAt: nowText,
       actionBy: operatorName,
-      note: '自动补齐入仓暂存袋映射，裁片交出前仍需按车缝任务分拣装袋。',
+      note: '自动补齐中转袋映射，裁片交出前仍需按车缝任务分拣装袋。',
     })
 
     const nextUsages = nextStore.usages.filter((item) => item.usageId !== usage.usageId)

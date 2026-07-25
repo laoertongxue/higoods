@@ -520,7 +520,7 @@ export interface HandoverPickingTask {
 export interface HandoverPickingScanCheck {
   checkId: string
   pickingTaskNo: string
-  scanObject: '配料任务码' | '来源入仓暂存袋' | '菲票' | '目标中转袋'
+  scanObject: '配料任务码' | '来源中转袋' | '菲票' | '目标中转袋'
   scannedValue: string
   checkResult: '通过' | '拒绝' | '提示'
   reason: string
@@ -1788,7 +1788,7 @@ function buildPickingScanChecks(tasks: HandoverPickingTask[], projection: Sewing
       {
         checkId: 'PICK-CHECK-SOURCE-BAG-OK',
         pickingTaskNo: firstTask.pickingTaskNo,
-        scanObject: '来源入仓暂存袋',
+        scanObject: '来源中转袋',
         scannedValue: firstTask.tempBagSources[0]?.tempBagCode || 'BAG-B-003',
         checkResult: '通过',
         reason: '来源袋内存在当前任务已分配菲票',
@@ -1963,7 +1963,7 @@ export function buildHandoverPickingTaskProjectionFromAllocationProjection(
     ruleNotes: [
       '待交出仓分拣装袋只从车缝任务分配后的菲票 / 裁片库存拣选。',
       '这里是裁片分拣装袋，不是前段中转仓给裁床准备面料。',
-      '入仓暂存袋可混装；分拣装袋开始按车缝任务组织裁片。',
+      '中转袋可混装；分拣装袋开始按车缝任务组织裁片。',
       '分拣装袋阶段一个中转袋只对应一个车缝任务，一个车缝任务可对应多个中转袋。',
       '允许部分分拣提交，缺口作为分拣结果展示。',
     ],
@@ -3323,7 +3323,7 @@ function seedStore(): void {
     bag.status = bag.scannedFeiTicketNos.length ? '装袋中' : '待装袋'
     bag.currentLocation = '裁床厂待交出'
     bag.contentItems.forEach((item) => {
-      item.remark = item.remark || '分拣装袋样例：从入仓暂存袋按车缝任务拣出后装入本交出记录。'
+      item.remark = item.remark || '分拣装袋样例：从中转袋按车缝任务拣出后装入本交出记录。'
     })
     bag.updatedAt = operatedAt
   }

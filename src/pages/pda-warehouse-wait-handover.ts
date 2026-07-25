@@ -161,9 +161,15 @@ const CUTTING_WAIT_HANDOVER_ACTIONS: Array<{
   },
   {
     key: 'inbound',
-    title: '入仓暂存装袋',
-    desc: '扫中转袋和菲票，确认库区库位、菲票数量和裁片数量。',
-    primaryLabel: '开始入仓暂存装袋',
+    title: '菲票装袋',
+    desc: '扫中转袋和菲票，确认装袋明细和裁片数量。',
+    primaryLabel: '开始菲票装袋',
+  },
+  {
+    key: 'inbound-location',
+    title: '中转袋入仓',
+    desc: '已装袋的中转袋确认库区库位，完成入仓绑定。',
+    primaryLabel: '确认中转袋入仓',
   },
   {
     key: 'handover-bagging-confirm',
@@ -173,9 +179,9 @@ const CUTTING_WAIT_HANDOVER_ACTIONS: Array<{
   },
   {
     key: 'special-craft-return',
-    title: '特殊工艺回仓',
-    desc: '有中转袋先扫中转袋，再扫菲票获取裁片部位，确认库区库位入仓。',
-    primaryLabel: '开始特殊工艺回仓',
+    title: '特种工艺回收入仓',
+    desc: '有中转袋先扫中转袋，再扫菲票获取裁片部位，确认库区库位入仓。支持整袋回仓或逐菲票回仓。',
+    primaryLabel: '开始特种工艺回收入仓',
   },
 ]
 
@@ -722,7 +728,7 @@ function renderCuttingInboundBagItem(bag: InboundTempBag, action?: CuttingWaitHa
         </div>
         <div class="flex items-center gap-2 py-0.5 text-xs">
           <span class="shrink-0 text-muted-foreground">流向：</span>
-          <span class="inline-flex items-center rounded border bg-background px-1.5 py-0 text-[10px]">入仓暂存装袋</span>
+           <span class="inline-flex items-center rounded border bg-background px-1.5 py-0 text-[10px]">菲票装袋</span>
           <i data-lucide="arrow-right" class="h-3 w-3 shrink-0 text-muted-foreground"></i>
           <span class="inline-flex items-center rounded border bg-background px-1.5 py-0 text-[10px]">交出装袋确认</span>
         </div>
@@ -841,8 +847,8 @@ function renderCuttingWaitHandoverActionPreview(
         ${runtimeProjection.ticketCandidates.slice(0, 4).map((ticket) => renderCuttingTicketCandidate(ticket, cardAction)).join('') || renderMobilePageEmptyState('暂无待入仓菲票', '裁剪完成并确认菲票后，会出现在这里。')}
       </section>
       <section class="space-y-3">
-        <div class="px-1 text-base font-semibold text-foreground">最近入仓暂存装袋结果</div>
-        ${inboundTempBags.slice(0, 2).map(renderCuttingInboundBagItem).join('') || renderMobilePageEmptyState('暂无入仓暂存装袋结果', '完成入仓暂存装袋后，会形成入仓暂存袋。')}
+        <div class="px-1 text-base font-semibold text-foreground">最近菲票装袋结果</div>
+        ${inboundTempBags.slice(0, 2).map(renderCuttingInboundBagItem).join('') || renderMobilePageEmptyState('暂无菲票装袋结果', '完成菲票装袋后，会形成装袋记录。')}
       </section>
     `
   }
@@ -943,7 +949,7 @@ function renderCuttingWaitHandoverPage(): string {
       ${renderCuttingWarehouseSwitch('wait-handover')}
       ${renderCuttingWaitHandoverActionCards(activeAction)}
       <section class="space-y-3">
-        ${inboundTempBags.slice(0, 5).map(renderCuttingInboundBagItem).join('') || renderMobilePageEmptyState('暂无入仓暂存袋', '完成入仓暂存装袋后，会进入裁床待交出仓。')}
+        ${inboundTempBags.slice(0, 5).map(renderCuttingInboundBagItem).join('') || renderMobilePageEmptyState('暂无中转袋入仓记录', '完成中转袋入仓后，会进入裁床待交出仓。')}
       </section>
     </div>
   `, 'warehouse', { headerTitle: '裁床待交出仓', disableTodoAutoOpen: true })

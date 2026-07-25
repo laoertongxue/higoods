@@ -8,7 +8,7 @@ export type HandoverType = '车缝交出' | '特殊工艺交出' | '仓库交出
 export type HandoverReceiverType = '车缝厂' | '辅助工艺厂' | '特种工艺厂' | '仓库' | '其他对象'
 export type HandoverOrderStatus = '草稿' | '待交出' | '部分交出' | '已交出待接收' | '部分接收' | '已接收' | '差异处理中' | '已关闭' | '已取消'
 export type HandoverRecordStatus = '待提交' | '已提交' | '待接收回写' | '已接收' | '差异处理中' | '已关闭' | '已取消'
-export type ReceiverWritebackStatus = '待回写' | '已回写' | '差异回写' | '异议中' | '已关闭'
+export type ReceiverWritebackStatus = '待回写' | '已回写' | '差异回写' | '异议中' | '需重新交出' | '已关闭'
 
 export interface HandoverQuantitySummaryItem {
   productionOrderNo: string
@@ -503,6 +503,7 @@ export interface SpecialCraftReturnRecord {
   craftCategory: '辅助工艺' | '特种工艺'
   craftType: string
   craftName: string
+  returnMode: '整袋回仓' | '逐菲票回仓'
   returnedFeiTicketItems: SpecialCraftReturnedFeiTicketItem[]
   expectedReturnSummary: HandoverQuantitySummaryItem[]
   actualReturnSummary: HandoverQuantitySummaryItem[]
@@ -1558,6 +1559,7 @@ function buildSpecialCraftReturnRecord(input: {
   returnedBy: string
   status?: SpecialCraftReturnStatus
   locationCode: string
+  returnMode?: '整袋回仓' | '逐菲票回仓'
   allRequiredCraftsReturned?: boolean
   remainingSpecialCrafts?: string[]
   discrepancyType?: SpecialCraftReturnDiscrepancyItem['discrepancyType']
@@ -1638,6 +1640,7 @@ function buildSpecialCraftReturnRecord(input: {
     craftCategory: craft.craftCategory,
     craftType: craft.craftType,
     craftName: craft.craftName,
+    returnMode: input.returnMode || '整袋回仓',
     returnedFeiTicketItems: [returnedItem],
     expectedReturnSummary: [
       q({

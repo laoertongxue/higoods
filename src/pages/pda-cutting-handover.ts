@@ -224,12 +224,12 @@ function validatePickingScans(
   }
 
   const sourceBag = task.tempBagSources.find((item) => matchesScannedValue(form.sourceBagScan, [item.tempBagCode]))
-  if (!sourceBag) return { ok: false, message: '来源入仓暂存袋不属于当前交出装袋确认任务。' }
+  if (!sourceBag) return { ok: false, message: '来源中转袋不属于当前交出装袋确认任务。' }
 
   const item = task.allocatedInventoryItems.find((ticket) => matchesScannedValue(form.pickingFeiTicketScan, [ticket.feiTicketNo, ticket.feiTicketId]))
   if (!item) return { ok: false, message: '该菲票不属于当前交出装袋确认任务。' }
   if (item.tempBagCode && item.tempBagCode !== sourceBag.tempBagCode) {
-    return { ok: false, message: '该菲票不在已扫描的来源入仓暂存袋中。' }
+    return { ok: false, message: '该菲票不在已扫描的来源中转袋中。' }
   }
   const numberingValidation = validateFeiTicketNumberingBeforeBagging({
     feiTicketId: item.feiTicketId,
@@ -289,13 +289,13 @@ function renderPdaPickingFlow(projection: HandoverPickingTaskProjection, taskId:
         <div class="font-medium text-foreground">扫码顺序</div>
         <div class="mt-2 grid grid-cols-2 gap-2 text-muted-foreground">
           <div>1. 扫交出装袋确认任务码</div>
-          <div>2. 扫来源入仓暂存袋</div>
+          <div>2. 扫来源中转袋</div>
           <div>3. 扫菲票</div>
           <div>4. 扫目标中转袋</div>
         </div>
         <div class="mt-3 grid gap-2">
           ${renderPdaScanInput('交出装袋确认任务码', 'pickingTaskScan', form.pickingTaskScan, task.pickingTaskNo)}
-          ${renderPdaScanInput('来源入仓暂存袋', 'sourceBagScan', form.sourceBagScan, task.tempBagSources[0]?.tempBagCode || '扫来源袋码')}
+          ${renderPdaScanInput('来源中转袋', 'sourceBagScan', form.sourceBagScan, task.tempBagSources[0]?.tempBagCode || '扫来源袋码')}
           ${renderPdaScanInput('菲票码', 'pickingFeiTicketScan', form.pickingFeiTicketScan, task.allocatedInventoryItems[0]?.feiTicketNo || '扫菲票码')}
           ${renderPdaScanInput('目标中转袋', 'targetBagScan', form.targetBagScan, task.targetTransferBags[0]?.bagCode || '扫目标袋码')}
         </div>
@@ -708,7 +708,8 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
   const routeAction = readPdaCuttingHandoverActionFromLocation()
   const isBaggingConfirmAction = routeAction === 'handover-bagging-confirm'
   const isSpecialCraftReturnAction = routeAction === 'special-craft-return'
-  const pageTitle = isSpecialCraftReturnAction ? '特殊工艺回仓扫码' : isBaggingConfirmAction ? '交出装袋确认扫码' : '交出记录扫码'
+  // 双阶段交出：交出装袋确认 + 交出确认；特种工艺回收入仓支持整袋回仓、逐菲票回仓
+  const pageTitle = isSpecialCraftReturnAction ? '特种工艺回收入仓' : isBaggingConfirmAction ? '交出装袋确认' : '交出确认'
   const pageActiveTab = isBaggingConfirmAction || isSpecialCraftReturnAction ? 'warehouse' : 'handover'
   const baggingConfirmBackHref = '/fcs/pda/warehouse/wait-handover?scope=cutting&action=handover-bagging-confirm'
   const specialCraftReturnBackHref = '/fcs/pda/warehouse/wait-handover?scope=cutting&action=special-craft-return'

@@ -759,7 +759,7 @@ function renderInboundTempUseSection(): string {
         <div>
           <h2 class="text-sm font-semibold text-foreground">入仓暂存使用</h2>
         </div>
-        <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="open-inbound-pack">开始入仓暂存装袋</button>
+        <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="open-inbound-pack">        开始菲票装袋</button>
       </div>
       ${items.length
         ? renderStickyTableScroller(`

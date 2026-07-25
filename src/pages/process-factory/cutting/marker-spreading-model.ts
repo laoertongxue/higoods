@@ -988,7 +988,7 @@ const spreadingSupervisorStageMeta: Record<
   WAITING_BAGGING: {
     label: '待入仓暂存',
     className: 'bg-violet-100 text-violet-700 border border-violet-200',
-    detailText: '当前菲票已具备，但尚未形成入仓暂存袋记录。',
+    detailText: '当前菲票已具备，但尚未形成中转袋记录。',
   },
   WAITING_WAREHOUSE: {
     label: '待入仓',

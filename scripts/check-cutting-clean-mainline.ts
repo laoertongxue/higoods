@@ -298,9 +298,9 @@ function buildEffectiveInventoryRecords(): SewingTaskAllocationInventoryRecord[]
 function assertWaitHandoverInventoryAndDispatch(): void {
   const transferBagViewModel = buildTransferBagsProjection().viewModel
   const inboundTempBags = buildInboundTempBagsFromTransferBagViewModel(transferBagViewModel)
-  assert(inboundTempBags.some((bag) => bag.mixedFlag && !('sewingTaskId' in bag)), '入仓暂存袋必须允许混装且不绑定车缝任务')
-  assert(inboundTempBags.every((bag) => bag.useStage === '入仓暂存'), '入仓暂存袋使用阶段错误')
+  assert(inboundTempBags.some((bag) => bag.mixedFlag && !('sewingTaskId' in bag)), '中转袋必须允许混装且不绑定车缝任务')
 
+  assert(inboundTempBags.every((bag) => bag.useStage === '入仓暂存'), '中转袋使用阶段错误')
   const allocationProjection = buildSewingTaskAllocationProjectionFromInventory(buildEffectiveInventoryRecords())
   assert(allocationProjection.allocations.length > 0, '车缝任务分配必须基于待交出仓库存生成候选')
   assertEvery(allocationProjection.allocations, (allocation) => allocation.allocationBasis === '基于裁床待交出仓已有菲票 / 裁片库存', '车缝任务分配口径必须基于库存')

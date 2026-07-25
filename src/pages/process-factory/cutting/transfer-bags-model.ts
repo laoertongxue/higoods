@@ -50,7 +50,7 @@ export type { TransferBagUsageStage }
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 const TRANSFER_QR_FIELD = ['qr', 'Payload'].join('') as const
-const INBOUND_TEMP_BAG_RULE_LABEL = '入仓暂存袋可混装不同生产单、SKU、部位的菲票；车缝任务分配后再分拣装袋。'
+const INBOUND_TEMP_BAG_RULE_LABEL = '中转袋可混装不同生产单、SKU、部位的菲票；车缝任务分配后再分拣装袋。'
 const HANDOVER_PACKING_BAG_RULE_LABEL = '交出装袋需先扫中转袋，再扫菲票子码；本阶段才按交出单关系核对。'
 
 function normalizeTransferBagUsageStage(stage: string | undefined): TransferBagUsageStage {
@@ -765,7 +765,7 @@ export interface TransferBagViewModel {
   sortingTasks: CutPieceSortingTask[]
 }
 
-export type TransferBagCarrierCurrentStatus = '可用' | '入仓装袋中' | '入仓暂存中' | '交出装袋中' | '待交出' | '已交出待回收' | '报废'
+export type TransferBagCarrierCurrentStatus = '可用' | '已装袋待入仓' | '入仓装袋中' | '已入待交出仓' | '入仓暂存中' | '交出装袋中' | '待交出' | '已交出待回收' | '报废'
 export type TransferBagCarrierUseStage = '无' | '入仓暂存' | '交出装袋' | '已交出待回收'
 
 export interface TransferBagMasterArchiveRecord {
@@ -1866,7 +1866,7 @@ export function validateTicketBindingEligibility(options: {
     return { ok: false, reason: `${options.ticket.ticketNo} 已作废，禁止继续装袋。` }
   }
   if (options.ticket.printStatus === 'WAIT_PRINT' && options.ticket.ticketStatus !== 'PRINTED') {
-    return { ok: false, reason: `${options.ticket.ticketNo} 未打印，不能进入入仓暂存袋。` }
+    return { ok: false, reason: `${options.ticket.ticketNo} 未打印，不能进入中转袋。` }
   }
   if (options.ticket.printStatus === 'VOIDED') {
     return { ok: false, reason: `${options.ticket.ticketNo} 已作废，禁止继续装袋。` }

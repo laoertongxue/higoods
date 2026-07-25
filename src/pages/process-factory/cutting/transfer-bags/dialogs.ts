@@ -237,7 +237,7 @@ export function renderPackDialog(stage: 'INBOUND_TEMP' | 'HANDOVER_PACKING'): st
       </div>
       <div class="rounded-lg border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">${isInbound ? '入仓暂存支持一个中转袋混装；确认后完成入仓暂存，中转袋进入所选库区库位。' : '交出确认后，中转袋直接进入“已交出待回收”。'}</div>
     `,
-    `<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-transfer-bags-action="${isInbound ? 'save-inbound-pack' : 'save-handover-pack'}">${isInbound ? '确认入仓暂存' : '交出确认'}</button>`,
+    `<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-transfer-bags-action="${isInbound ? 'save-inbound-pack' : 'save-handover-pack'}">${isInbound ? '确认菲票装袋' : '交出确认'}</button>`,
   )
 }
 

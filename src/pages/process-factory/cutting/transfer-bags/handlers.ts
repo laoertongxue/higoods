@@ -277,7 +277,8 @@ export function resetPackDraft(stage: 'INBOUND_TEMP' | 'HANDOVER_PACKING', bagId
 
 export function getDialogTitle(): string {
   if (state.activeDialog === 'new-master') return '新增中转袋'
-  if (state.activeDialog === 'inbound-pack') return '入仓暂存装袋'
+  if (state.activeDialog === 'inbound-pack') return '中转袋入仓'
+  if (state.activeDialog === 'bagging-pack') return '菲票装袋'
   if (state.activeDialog === 'handover-pack') return '交出装袋'
   if (state.activeDialog === 'return') return '回收确认'
   return '中转袋流转'
@@ -1010,7 +1011,7 @@ export function buildManualUsage(options: {
     status: 'loaded',
     usageStage: options.stage,
     usageStageLabel: options.stage === 'INBOUND_TEMP' ? '入仓暂存' : '交出装袋',
-    note: state.packDraft.note.trim() || (options.stage === 'INBOUND_TEMP' ? '入仓暂存装袋已记录。' : '交出装袋已记录，等待完成装袋。'),
+    note: state.packDraft.note.trim() || (options.stage === 'INBOUND_TEMP' ? '菲票装袋已记录。' : '交出装袋已记录，等待完成装袋。'),
   }
 }
 
@@ -1163,12 +1164,12 @@ export function savePackDraft(stage: 'INBOUND_TEMP' | 'HANDOVER_PACKING'): boole
     usage,
     tickets,
     now,
-    stage === 'INBOUND_TEMP' ? '入仓暂存装袋建立父子映射。' : '交出装袋建立父子映射。',
+    stage === 'INBOUND_TEMP' ? '菲票装袋建立映射。' : '交出装袋建立映射。',
   )
   state.store.auditTrail.push(
     buildBagUsageAuditTrail({
       usageId: usage.usageId,
-      action: stage === 'INBOUND_TEMP' ? '确认入仓暂存' : '交出确认',
+      action: stage === 'INBOUND_TEMP' ? '确认菲票装袋' : '交出确认',
       actionAt: now,
       actionBy: state.packDraft.operator.trim() || '中转袋工作台',
       note: `${usage.bagCode} 已装入 ${tickets.length} 张菲票。`,
@@ -1228,7 +1229,7 @@ export function confirmHandoverPacking(targetUsageId?: string): boolean {
 export function completeInboundStorage(targetUsageId?: string): boolean {
   const usage = getSourceUsage(targetUsageId || state.activeUsageId)
   if (!usage || usage.usageStage !== 'INBOUND_TEMP') {
-    setFeedback('warning', '请先选择入仓暂存装袋记录。')
+    setFeedback('warning', '请先选择装袋记录。')
     return true
   }
   if (!usage.packedTicketCount) {
@@ -1247,7 +1248,7 @@ export function completeInboundStorage(targetUsageId?: string): boolean {
   state.store.auditTrail.push(
     buildBagUsageAuditTrail({
       usageId: usage.usageId,
-      action: '确认入仓暂存',
+      action: '确认菲票装袋',
       actionAt: now,
       actionBy: '中转袋工作台',
       note: `${usage.usageNo} 已进入入仓暂存中。`,
@@ -1255,7 +1256,7 @@ export function completeInboundStorage(targetUsageId?: string): boolean {
   )
   refreshDerivedState()
   persistStore()
-  setFeedback('success', `${usage.usageNo} 已确认入仓暂存。`)
+  setFeedback('success', `${usage.usageNo} 已确认菲票装袋。`)
   return true
 }
 
@@ -1284,7 +1285,7 @@ export function releaseInboundBag(targetUsageId?: string): boolean {
   state.store.auditTrail.push(
     buildBagUsageAuditTrail({
       usageId: usage.usageId,
-      action: '清空入仓暂存袋',
+      action: '清空中转袋',
       actionAt: now,
       actionBy: '中转袋工作台',
       note: `${usage.bagCode} 已清空，恢复可用。`,

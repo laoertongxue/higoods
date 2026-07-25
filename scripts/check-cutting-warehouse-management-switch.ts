@@ -99,9 +99,10 @@ appStore.syncFromBrowser('/fcs/craft/cutting/warehouse-management/wait-handover'
 const waitHandoverHtml = renderCraftCuttingWarehouseManagementWaitHandoverPage()
 ;[
   '库存明细',
-  '入仓暂存装袋',
+  '菲票装袋',
+  '中转袋入仓',
   '交出装袋确认',
-  '特殊工艺回仓',
+  '特种工艺回收入仓',
   '库区库位',
   '菲票 / 来源',
   '数量账',
@@ -174,7 +175,7 @@ const hubSource = read('src/pages/process-factory/cutting/warehouse-hub.ts')
 )
 
 const pdaWarehouseSource = read('src/pages/pda-warehouse.ts')
-;["title: '中转仓领料'", "title: '入仓暂存装袋'", "title: '交出装袋确认'", "title: '特殊工艺回仓'"].forEach((item) =>
+;["title: '中转仓领料'", "title: '菲票装袋'", "title: '交出装袋确认'", "title: '特种工艺回收入仓'"].forEach((item) =>
   assertIncludes(pdaWarehouseSource, item, `PDA 仓管首页缺少统一仓管入口：${item}`),
 )
 ;["title: '待领料'", "title: '扫码入仓'", "title: '菲票入仓'", "title: '交出'", "title: '接收回写'"].forEach((item) =>
@@ -188,7 +189,7 @@ const pdaWaitProcessSource = read('src/pages/pda-warehouse-wait-process.ts')
 assertNotIncludes(pdaWaitProcessSource, "title: '扫码入仓'", 'PDA 裁床待加工仓不得继续展示“扫码入仓”入口')
 
 const pdaWaitHandoverSource = read('src/pages/pda-warehouse-wait-handover.ts')
-;['裁床待交出仓', "title: '入仓暂存装袋'", "title: '交出装袋确认'", "title: '特殊工艺回仓'", '去交出装袋确认', 'special-craft-return'].forEach((item) =>
+;['裁床待交出仓', "title: '菲票装袋'", "title: '交出装袋确认'", "title: '特种工艺回收入仓'", '去交出装袋确认', 'special-craft-return'].forEach((item) =>
   assertIncludes(pdaWaitHandoverSource, item, `PDA 裁床待交出仓缺少动作：${item}`),
 )
 assertIncludes(pdaWaitHandoverSource, 'buildWaitHandoverRuntimeProjection', 'PDA 裁床待交出仓必须读取同一事实账投影')

@@ -5,7 +5,9 @@ import {
   listCuttingRuntimeEventsByType,
   type CuttingRuntimeEvent,
   type CuttingRuntimeEventSource,
+  type FeiTicketBaggingPayload,
   type FeiTicketInboundPayload,
+  type TransferBagInboundPayload,
   type HandoverRecordSubmitPayload,
   type HandoverBaggingConfirmPayload,
   type SpecialCraftHandoverPayload,
@@ -188,6 +190,8 @@ export function buildWaitHandoverRuntimeTicketFromTransferCandidate(ticket: Tran
 export function listWaitHandoverRuntimeEvents(): CuttingRuntimeEvent[] {
   const events = [
     ...listCuttingRuntimeEventsByInventoryScope('裁床待交出仓'),
+    ...listCuttingRuntimeEventsByType('菲票装袋'),
+    ...listCuttingRuntimeEventsByType('中转袋入仓'),
     ...listCuttingRuntimeEventsByType('交出装袋确认'),
     ...listCuttingRuntimeEventsByType('新增交出记录'),
     ...listCuttingRuntimeEventsByType('特殊工艺交出'),
@@ -208,7 +212,7 @@ export function buildRuntimeInboundTempBagsFromWaitHandoverEvents(
   generatedTickets: GeneratedFeiTicketSourceRecord[],
 ): InboundTempBag[] {
   return runtimeEvents
-    .filter((event) => event.eventType === '菲票入仓暂存')
+    .filter((event) => event.eventType === '菲票装袋')
     .map((event) => {
       const payload = runtimeRecord(event.payload)
       const rawItems = Array.isArray(payload.feiTicketItems) ? payload.feiTicketItems : []
@@ -295,6 +299,61 @@ export function runtimeEventHasWaitHandoverTicket(eventType: string, feiTicketId
   })
 }
 
+export function appendWaitHandoverBaggingEvent(input: {
+  source: CuttingRuntimeEventSource
+  operator: WaitHandoverRuntimeOperator
+  bagCode: string
+  tickets: WaitHandoverRuntimeTicketInput[]
+  occurredAt?: string
+}) {
+  const occurredAt = input.occurredAt || new Date().toISOString().slice(0, 16).replace('T', ' ')
+  const tickets = input.tickets
+  const totalPieceQty = tickets.reduce((sum, ticket) => sum + Number(ticket.pieceQty || 0), 0)
+  const first = tickets[0]
+  const payload: FeiTicketBaggingPayload = {
+    baggingRecordId: `bagging:${input.bagCode}:${compactDate(occurredAt)}`,
+    bagCode: input.bagCode,
+    feiTicketItems: tickets.map((ticket) => ({
+      feiTicketId: ticket.feiTicketId,
+      feiTicketNo: ticket.feiTicketNo,
+      spreadingOrderId: ticket.spreadingOrderId,
+      spreadingOrderNo: ticket.spreadingOrderNo,
+      cutOrderId: ticket.cutOrderId,
+      cutOrderNo: ticket.cutOrderNo,
+      pieceQty: ticket.pieceQty,
+      unit: '片',
+      pieceSequenceLabel: ticket.pieceSequenceLabel,
+      hasSpecialCraft: ticket.hasSpecialCraft,
+      specialCraftCategory: ticket.hasSpecialCraft ? ticket.specialCraftDisplay : '无',
+    })),
+    totalPieceQty,
+    mixedFlag: buildMixedFlag(tickets),
+    baggingBy: input.operator.operatorName,
+    baggingAt: occurredAt,
+  }
+  return appendCuttingRuntimeEvent({
+    eventType: '菲票装袋',
+    eventSource: input.source,
+    eventStatus: '已同步',
+    occurredAt,
+    operatorId: input.operator.operatorId,
+    operatorName: input.operator.operatorName,
+    operatorRole: input.operator.operatorRole || '裁片仓装袋员',
+    refs: {
+      productionOrderId: first?.productionOrderId || '',
+      productionOrderNo: first?.productionOrderNo || '',
+      cutOrderId: first?.cutOrderId || '',
+      cutOrderNo: first?.cutOrderNo || '',
+      spreadingOrderId: first?.spreadingOrderId || '',
+      spreadingOrderNo: first?.spreadingOrderNo || '',
+      feiTicketIds: tickets.map((ticket) => ticket.feiTicketId).filter(Boolean),
+      feiTicketNos: tickets.map((ticket) => ticket.feiTicketNo).filter(Boolean),
+      transferBagCode: input.bagCode,
+    },
+    payload,
+  })
+}
+
 export function appendWaitHandoverInboundEvent(input: {
   source: CuttingRuntimeEventSource
   operator: WaitHandoverRuntimeOperator
@@ -331,7 +390,7 @@ export function appendWaitHandoverInboundEvent(input: {
     mixedFlag: buildMixedFlag(tickets),
   }
   return appendCuttingRuntimeEvent({
-    eventType: '菲票入仓暂存',
+    eventType: '中转袋入仓',
     eventSource: input.source,
     eventStatus: '已同步',
     occurredAt,

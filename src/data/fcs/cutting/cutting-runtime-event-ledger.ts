@@ -22,7 +22,8 @@ export type CuttingRuntimeEventType =
   | '完成铺布'
   | '开始裁剪'
   | '完成裁剪'
-  | '菲票入仓暂存'
+  | '菲票装袋'
+  | '中转袋入仓'
   | '交出装袋确认'
   | '新增交出记录'
   | '特殊工艺交出'
@@ -220,6 +221,38 @@ export interface FinishCuttingPayload {
   differenceTypes: Array<'实裁小于计划' | '实际用量异常' | '其他异常'>
 }
 
+export interface FeiTicketBaggingPayload {
+  baggingRecordId: string
+  bagCode: string
+  feiTicketItems: Array<{
+    feiTicketId: string
+    feiTicketNo: string
+    spreadingOrderId: string
+    spreadingOrderNo: string
+    cutOrderId: string
+    cutOrderNo: string
+    pieceQty: number
+    unit: '片'
+    pieceSequenceLabel: string
+    hasSpecialCraft: boolean
+    specialCraftCategory: string
+  }>
+  totalPieceQty: number
+  mixedFlag: boolean
+  baggingBy: string
+  baggingAt: string
+}
+
+export interface TransferBagInboundPayload {
+  tempBagUseId: string
+  bagCode: string
+  warehouseArea: string
+  locationCode: string
+  inboundBy: string
+  inboundAt: string
+  totalPieceQty: number
+}
+
 export interface FeiTicketInboundPayload {
   tempBagUseId: string
   bagCode: string
@@ -351,6 +384,8 @@ export type CuttingRuntimeEventPayload =
   | StartWorkPayload
   | FinishSpreadingPayload
   | FinishCuttingPayload
+  | FeiTicketBaggingPayload
+  | TransferBagInboundPayload
   | FeiTicketInboundPayload
   | HandoverBaggingConfirmPayload
   | HandoverRecordSubmitPayload
@@ -502,7 +537,8 @@ function isRuntimeEventType(value: string): value is CuttingRuntimeEventType {
     '完成铺布',
     '开始裁剪',
     '完成裁剪',
-    '菲票入仓暂存',
+    '菲票装袋',
+    '中转袋入仓',
     '交出装袋确认',
     '新增交出记录',
     '特殊工艺交出',
@@ -575,7 +611,8 @@ function eventTypeCode(eventType: CuttingRuntimeEventType): string {
     完成铺布: 'SPREAD-FINISH',
     开始裁剪: 'CUT-START',
     完成裁剪: 'CUT-FINISH',
-    菲票入仓暂存: 'TICKET-IN',
+     菲票装袋: 'BAGGING',
+     中转袋入仓: 'TICKET-IN',
     交出装袋确认: 'BAG-CONFIRM',
     新增交出记录: 'HANDOVER',
     特殊工艺交出: 'CRAFT-OUT',
@@ -929,7 +966,7 @@ export function listPdaInboundEvents(
 ): PdaCutPieceInboundEventRecord[] {
   return sortRuntimeEventRecords(
     uniqueRuntimeEventRecords(
-      listCuttingRuntimeEventsByType('菲票入仓暂存', storage)
+      listCuttingRuntimeEventsByType('中转袋入仓', storage)
         .map((event) => inboundEventRecordFromEvent(event))
         .filter((record): record is PdaCutPieceInboundEventRecord => Boolean(record)),
     ),

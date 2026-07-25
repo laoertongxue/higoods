@@ -182,7 +182,7 @@ assertContains(routeSource, '/fcs/pda/settlement', '缺少结算路由')
 })
 
 assertContains(warehouseSource, '仓管', '缺少仓管首页')
-;['待加工仓', '待交出仓', '中转仓领料', '加工领料', '回收入仓', '入仓暂存装袋', '交出装袋确认', '查库存', '扫码查询', '库存盘点'].forEach((token) => {
+;['待加工仓', '待交出仓', '中转仓领料', '加工领料', '回收入仓', '菲票装袋', '交出装袋确认', '查库存', '扫码查询', '库存盘点'].forEach((token) => {
   assertContains(warehouseSource + sharedWarehouseSource, token, `仓管首页缺少统一仓管入口：${token}`)
 })
 ;["title: '待领料'", "title: '扫码入仓'", "title: '领料入仓'", "title: '菲票入仓'", "title: '分拣装袋'", "title: '交出'", "title: '接收回写'"].forEach((token) => {
