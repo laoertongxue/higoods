@@ -76,6 +76,10 @@ export interface SewingDispatchWorkbenchState {
   reassignError: string
   reassignQueryHandled: boolean
   reassignMainFactoryId: string
+  ppicDispatchQty: number
+  overDispatchQty: number
+  overDispatchConfirmed: boolean
+  overDispatchReason: string
 }
 
 const state: SewingDispatchWorkbenchState = {
@@ -105,6 +109,10 @@ const state: SewingDispatchWorkbenchState = {
   reassignError: '',
   reassignQueryHandled: false,
   reassignMainFactoryId: '',
+  ppicDispatchQty: 0,
+  overDispatchQty: 0,
+  overDispatchConfirmed: false,
+  overDispatchReason: '',
 }
 
 let sewingDispatchNowProvider = (): string => formatOperationLocalWallClock()
@@ -269,7 +277,12 @@ function getDispatchCandidateRows(tasks: SewingDispatchWorkbenchTask[] = listSew
   return tasks
     .filter((task) => state.selectedTaskIds.has(task.taskId))
     .flatMap((task) => task.skuRows)
-    .filter((row) => row.remainingQty > 0 && row.completeKitQty >= row.remainingQty)
+    .filter((row) => {
+      if (row.remainingQty <= 0) return false
+      const summary = getTaskCutPieceReleaseSummary(tasks.find((t) => t.taskId === row.taskId)!)
+      const maxAvail = summary?.ppicAvailableDispatchQty
+      return maxAvail !== undefined ? row.remainingQty <= maxAvail : row.completeKitQty >= row.remainingQty
+    })
 }
 
 function getSelectedDispatchRows(tasks: SewingDispatchWorkbenchTask[] = listSewingDispatchWorkbenchTasks()): SewingDispatchWorkbenchRow[] {
@@ -562,20 +575,51 @@ function renderCompleteKitSummary(task: SewingDispatchWorkbenchTask): string {
 
 function renderCutPieceReleaseSummary(task: SewingDispatchWorkbenchTask): string {
   const summary = getTaskCutPieceReleaseSummary(task)
-  if (!summary) {
+  
+  if (!summary || !summary.releaseAvailableStatus) {
     return `
       <div class="space-y-1 text-xs">
-        ${renderBadge('待判断', 'border-amber-200 bg-amber-50 text-amber-700')}
-        <div class="text-muted-foreground">尚未形成裁片放行判断。</div>
+        ${renderBadge('未取得放行版本', 'border-amber-200 bg-amber-50 text-amber-700')}
+        <div class="text-muted-foreground">裁床尚未确认可做放行数量，派工需二次确认。</div>
       </div>
     `
   }
+
+  const availQty = summary.ppicAvailableDispatchQty || summary.totalReleaseConfirmQty || 0
+  const riskQty = summary.totalRiskReleaseQty || 0
+  const targetQty = summary.totalTargetQty || 0
+  const gapToTarget = Math.max(targetQty - availQty, 0)
+  const completeKitQty = Object.values(summary.currentCompleteKitQtyByColorSize || {})
+    .reduce((s: number, v) => s + (typeof v === 'number' ? v : 0), 0)
+
+  const statusLabel = summary.releaseAvailableStatus
+  const isBlocked = statusLabel === '暂不放行' || statusLabel === '待维护目标' || statusLabel === '待裁床确认'
+  const needsReview = statusLabel === '确认后需复核'
+  
+  const toneClass = statusLabel === '按齐套放行'
+    ? 'border-green-200 bg-green-50 text-green-700'
+    : statusLabel === '风险放行'
+      ? 'border-amber-200 bg-amber-50 text-amber-700'
+      : statusLabel === '暂不放行'
+        ? 'border-rose-200 bg-rose-50 text-rose-700'
+        : 'border-slate-200 bg-slate-50 text-slate-700'
+
   return `
     <div class="space-y-1 text-xs">
-      ${renderBadge(summary.decision, getCutPieceReleaseBadgeClass(summary.decision))}
-      <div class="font-medium">可做 ${formatQty(summary.releaseQty)} 件</div>
-      <div class="max-w-[220px] leading-5 text-muted-foreground">${escapeHtml(summary.reason)}</div>
-      <div class="text-muted-foreground">${escapeHtml(summary.judgedBy || '待确认')} ${summary.judgedAt ? `· ${escapeHtml(summary.judgedAt.slice(0, 16))}` : ''}</div>
+      <div class="flex items-center gap-2">
+        ${renderBadge(statusLabel, toneClass)}
+      </div>
+      <div class="font-semibold text-base">当前可派车缝：${formatQty(availQty)} 件</div>
+      <div class="mt-1 space-y-1">
+        <div>系统齐套：${formatQty(completeKitQty)} 件</div>
+        ${riskQty > 0 ? `<div class="text-amber-700">风险放行：${formatQty(riskQty)} 件</div>` : ''}
+        <div>裁床目标：${formatQty(targetQty)} 件</div>
+        ${gapToTarget > 0 ? `<div class="text-muted-foreground">距目标还差：${formatQty(gapToTarget)} 件</div>` : ''}
+        ${summary.riskReason ? `<div class="text-amber-700">风险说明：${escapeHtml(summary.riskReason)}</div>` : ''}
+        ${isBlocked ? `<div class="text-rose-700">不建议派工，派工需二次确认。</div>` : ''}
+        ${needsReview ? `<div class="text-purple-700">裁片事实/目标已变化，需关注。</div>` : ''}
+        ${summary.judgedBy ? `<div class="text-muted-foreground">裁床确认：${escapeHtml(summary.judgedBy)} · ${escapeHtml((summary.judgedAt || '').slice(0, 16))}</div>` : ''}
+      </div>
     </div>
   `
 }
@@ -688,7 +732,7 @@ function renderTaskRow(task: SewingDispatchWorkbenchTask): string {
   const allocatableQty = allocatableRows.reduce((sum, row) => sum + row.remainingQty, 0)
   const blockingReason = allocatableRows.length === task.skuRows.length
     ? '无阻断，可按完整 SKU 分配'
-    : task.gapSummary || task.decisionHint || '部分 SKU 尚未完整齐套'
+    : task.gapSummary || task.decisionHint || '部分 SKU 尚未取得放行版本或裁床未确认可做数量'
   return `
     <tr class="border-b last:border-b-0">
       <td class="px-3 py-4 align-top"><input type="checkbox" data-sewing-dispatch-field="selectTask" data-task-id="${escapeHtml(task.taskId)}" ${state.selectedTaskIds.has(task.taskId) ? 'checked' : ''} /></td>
@@ -753,7 +797,10 @@ function renderDetailDrawer(task: SewingDispatchWorkbenchTask | undefined): stri
         <div class="min-h-0 flex-1 overflow-auto p-5">
           <div class="grid gap-3 sm:grid-cols-5">
             ${renderMetricCard('完整齐套数量', `${formatQty(task.completeKitQty)} 件`, `${task.completeSkuCount}/${task.skuCount} 个 SKU 已齐套`, task.kitStatus === '已齐套' ? 'text-green-700' : 'text-amber-700')}
-            ${renderMetricCard('裁床判断', releaseSummary?.decision || '待判断', releaseSummary ? `可做 ${formatQty(releaseSummary.releaseQty)} 件` : '尚未形成裁片放行判断', releaseSummary?.decision === '暂时不能做' ? 'text-rose-700' : releaseSummary?.decision === '待判断' ? 'text-amber-700' : 'text-blue-700')}
+            ${renderMetricCard('裁床判断', 
+              releaseSummary?.releaseAvailableStatus || '待判断', 
+              releaseSummary?.ppicAvailableDispatchQty ? `当前可派车缝 ${formatQty(releaseSummary.ppicAvailableDispatchQty)} 件` : '裁床尚未确认可做放行数量', 
+              releaseSummary?.releaseAvailableStatus === '按齐套放行' ? 'text-green-700' : releaseSummary?.releaseAvailableStatus === '风险放行' ? 'text-amber-700' : 'text-blue-700')}
             ${renderMetricCard('待分配数量', `${formatQty(task.remainingQty)} 件`, task.mainFactoryStatusLabel)}
             ${renderMetricCard('裁片单闭环', `${task.cutOrderClosure.closedCount}/${task.cutOrderClosure.totalCount}`, task.cutOrderClosure.statusLabel)}
             ${renderMetricCard('缺口类型', task.gapTypes.length ? task.gapTypes.join('、') : '无', '仅展示事实，由跟单判断分配节奏')}
@@ -1108,23 +1155,31 @@ function renderDispatchCutPieceReleaseNotice(rows: SewingDispatchWorkbenchRow[],
       <div class="mt-3 grid gap-2">
         ${selectedTasks.map((task) => {
           const summary = getTaskCutPieceReleaseSummary(task)
-          if (!summary) {
+          if (!summary || !summary.releaseAvailableStatus) {
             return `
               <div class="rounded-md border bg-background px-3 py-2 text-xs">
                 <div class="font-medium">${escapeHtml(task.productionOrderNo)} · ${escapeHtml(task.taskNo)}</div>
-                <div class="mt-1 text-amber-700">裁床判断：待判断</div>
+                <div class="mt-1 text-amber-700">裁床判断：未取得放行版本</div>
               </div>
             `
           }
+          const availQty = summary.ppicAvailableDispatchQty || summary.totalReleaseConfirmQty || 0
+          const statusLabel = summary.releaseAvailableStatus
+          const toneClass = statusLabel === '按齐套放行'
+            ? 'border-green-200 bg-green-50 text-green-700'
+            : statusLabel === '风险放行'
+              ? 'border-amber-200 bg-amber-50 text-amber-700'
+              : statusLabel === '暂不放行'
+                ? 'border-rose-200 bg-rose-50 text-rose-700'
+                : 'border-slate-200 bg-slate-50 text-slate-700'
           return `
             <div class="rounded-md border bg-background px-3 py-2 text-xs">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="font-medium">${escapeHtml(task.productionOrderNo)} · ${escapeHtml(task.taskNo)}</span>
-                ${renderBadge(summary.decision, getCutPieceReleaseBadgeClass(summary.decision))}
-                <span class="text-blue-700">可做 ${formatQty(summary.releaseQty)} 件</span>
+                ${renderBadge(statusLabel, toneClass)}
+                <span class="text-blue-700">当前可派车缝 ${formatQty(availQty)} 件</span>
               </div>
-              <div class="mt-1 leading-5 text-muted-foreground">${escapeHtml(summary.reason)}</div>
-              ${summary.riskNote ? `<div class="mt-1 text-amber-700">${escapeHtml(summary.riskNote)}</div>` : ''}
+              ${summary.riskReason ? `<div class="mt-1 text-amber-700">${escapeHtml(summary.riskReason)}</div>` : ''}
               <div class="mt-1 text-muted-foreground">确认：${escapeHtml(summary.judgedBy || '待确认')} ${summary.judgedAt ? `· ${escapeHtml(summary.judgedAt.slice(0, 16))}` : ''}</div>
             </div>
           `
@@ -1136,6 +1191,28 @@ function renderDispatchCutPieceReleaseNotice(rows: SewingDispatchWorkbenchRow[],
 
 function renderDispatchErrorRegion(): string {
   return `<div data-sewing-dispatch-error-region>${state.dispatchError ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">${escapeHtml(state.dispatchError)}</div>` : ''}</div>`
+}
+
+function renderPpicOverDispatchSection(): string {
+  if (state.ppicDispatchQty <= 0) return ''
+  const overQty = state.overDispatchQty > 0 ? state.overDispatchQty : Math.max(0, state.ppicDispatchQty)
+  return `
+    <div class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm" data-sewing-ppic-over-section>
+      <div class="font-semibold text-rose-700">超可派派工</div>
+      <div class="mt-1 text-rose-700">当前派工数量超过裁床确认可做放行数量，可能导致车缝缺裁片开工，请确认是否继续。</div>
+      <div class="mt-2 flex flex-wrap items-center gap-2">
+        <span class="text-xs text-muted-foreground">派工 ${formatQty(state.ppicDispatchQty)} 件 / 超可派 ${formatQty(overQty)} 件</span>
+      </div>
+      <div class="mt-2">
+        <label class="block text-xs text-muted-foreground">原因（非必填）</label>
+        <input class="mt-1 h-9 w-full rounded-md border px-3 text-sm" value="${escapeHtml(state.overDispatchReason)}" data-skip-page-rerender="true" data-sewing-dispatch-field="overDispatchReason" placeholder="可选：说明超派原因" />
+      </div>
+      <div class="mt-3 flex gap-2">
+        <button class="h-9 rounded-md bg-rose-600 px-4 text-sm text-white hover:bg-rose-700" data-sewing-dispatch-action="confirm-ppic-over" data-skip-page-rerender="true">确认超可派，继续派工</button>
+        <button class="h-9 rounded-md border px-4 text-sm hover:bg-muted" data-sewing-dispatch-action="cancel-ppic-over" data-skip-page-rerender="true">取消</button>
+      </div>
+    </div>
+  `
 }
 
 function renderDirectDispatchFactoryRows(rows: SewingDispatchWorkbenchRow[]): string {
@@ -1172,6 +1249,7 @@ function renderDirectDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): strin
         ${renderDispatchMainFactoryChoices(rows)}
         <div data-sewing-direct-sla-preview-slot>${renderDirectDispatchSlaPreview(rows)}</div>
         ${renderDispatchErrorRegion()}
+        ${renderPpicOverDispatchSection()}
       </div>
       <footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="rounded-md border px-4 py-2 text-sm" data-sewing-dispatch-action="close-dispatch" data-skip-page-rerender="true">取消</button><button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white ${confirmDisabled ? 'cursor-not-allowed opacity-50' : ''}" data-sewing-direct-confirm data-sewing-dispatch-action="confirm-dispatch" data-skip-page-rerender="true" ${confirmDisabled ? 'disabled' : ''}>确认派单</button></footer>
     </section>
@@ -1180,7 +1258,7 @@ function renderDirectDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): strin
 
 function renderBiddingDialog(tasks: SewingDispatchWorkbenchTask[]): string {
   const rows = getDispatchCandidateRows(tasks)
-  return `<div class="fixed inset-0 z-50" role="dialog" aria-modal="true"><button class="absolute inset-0 bg-black/40" data-sewing-dispatch-action="close-dispatch" data-skip-page-rerender="true" aria-label="关闭"></button><section class="absolute left-1/2 top-1/2 max-h-[82vh] w-[min(680px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border bg-background shadow-xl"><header class="flex items-start justify-between border-b px-5 py-4"><div><h3 class="text-lg font-semibold">发起竞价</h3><p class="mt-1 text-sm text-muted-foreground">所选完整 SKU 将进入竞价，定标后由工厂确认接单。</p></div><button class="rounded-md px-2 py-1 text-lg hover:bg-muted" data-sewing-dispatch-action="close-dispatch" data-skip-page-rerender="true">×</button></header><div class="max-h-[calc(82vh-142px)] space-y-4 overflow-auto p-5"><label class="block max-w-sm space-y-1"><span class="text-sm font-medium">业务分配时间</span><input type="datetime-local" class="h-10 w-full rounded-md border px-3 text-sm" value="${escapeHtml(state.dispatchBusinessAssignedAt)}" data-sewing-dispatch-field="dispatchBusinessAssignedAt" data-skip-page-rerender="true" /></label><div class="rounded-md border"><div class="border-b bg-muted/40 px-3 py-2 text-xs text-muted-foreground">参与竞价的 SKU</div>${rows.map((row) => `<div class="flex items-center justify-between gap-3 border-b px-3 py-2 text-sm last:border-b-0"><span>${escapeHtml(row.skuCode)} · ${escapeHtml(row.colorName)}/${escapeHtml(row.sizeCode)}</span><span class="font-medium">${formatQty(row.remainingQty)} 件</span></div>`).join('') || '<div class="px-3 py-8 text-center text-sm text-muted-foreground">暂无可竞价 SKU</div>'}</div>${renderDispatchErrorRegion()}</div><footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="rounded-md border px-4 py-2 text-sm" data-sewing-dispatch-action="close-dispatch" data-skip-page-rerender="true">取消</button><button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white ${rows.length === 0 ? 'cursor-not-allowed opacity-50' : ''}" data-sewing-dispatch-action="confirm-dispatch" data-skip-page-rerender="true" ${rows.length === 0 ? 'disabled' : ''}>确认发起竞价</button></footer></section></div>`
+  return `<div class="fixed inset-0 z-50" role="dialog" aria-modal="true"><button class="absolute inset-0 bg-black/40" data-sewing-dispatch-action="close-dispatch" data-skip-page-rerender="true" aria-label="关闭"></button><section class="absolute left-1/2 top-1/2 max-h-[82vh] w-[min(680px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border bg-background shadow-xl"><header class="flex items-start justify-between border-b px-5 py-4"><div><h3 class="text-lg font-semibold">发起竞价</h3><p class="mt-1 text-sm text-muted-foreground">所选完整 SKU 将进入竞价，定标后由工厂确认接单。</p></div><button class="rounded-md px-2 py-1 text-lg hover:bg-muted" data-sewing-dispatch-action="close-dispatch" data-skip-page-rerender="true">×</button></header><div class="max-h-[calc(82vh-142px)] space-y-4 overflow-auto p-5"><label class="block max-w-sm space-y-1"><span class="text-sm font-medium">业务分配时间</span><input type="datetime-local" class="h-10 w-full rounded-md border px-3 text-sm" value="${escapeHtml(state.dispatchBusinessAssignedAt)}" data-sewing-dispatch-field="dispatchBusinessAssignedAt" data-skip-page-rerender="true" /></label><div class="rounded-md border"><div class="border-b bg-muted/40 px-3 py-2 text-xs text-muted-foreground">参与竞价的 SKU</div>${rows.map((row) => `<div class="flex items-center justify-between gap-3 border-b px-3 py-2 text-sm last:border-b-0"><span>${escapeHtml(row.skuCode)} · ${escapeHtml(row.colorName)}/${escapeHtml(row.sizeCode)}</span><span class="font-medium">${formatQty(row.remainingQty)} 件</span></div>`).join('') || '<div class="px-3 py-8 text-center text-sm text-muted-foreground">暂无可竞价 SKU</div>'}</div>${renderDispatchErrorRegion()}${renderPpicOverDispatchSection()}</div><footer class="flex justify-end gap-2 border-t px-5 py-4"><button class="rounded-md border px-4 py-2 text-sm" data-sewing-dispatch-action="close-dispatch" data-skip-page-rerender="true">取消</button><button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white ${rows.length === 0 ? 'cursor-not-allowed opacity-50' : ''}" data-sewing-dispatch-action="confirm-dispatch" data-skip-page-rerender="true" ${rows.length === 0 ? 'disabled' : ''}>确认发起竞价</button></footer></section></div>`
 }
 
 function renderDispatchDialog(tasks: SewingDispatchWorkbenchTask[]): string {
@@ -1389,6 +1467,10 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement):
     refreshSewingDispatchSlaPreview()
     refreshSewingDispatchErrorRegion()
   }
+  if (field === 'overDispatchReason') {
+    state.overDispatchReason = node.value
+    return
+  }
 }
 
 function openDispatch(taskId: string | undefined, type: string | undefined): void {
@@ -1407,6 +1489,10 @@ function openDispatch(taskId: string | undefined, type: string | undefined): voi
   state.dispatchBusinessAssignedAt = operationWallClockToDateTimeLocal(state.dispatchOperatedAt)
   state.dispatchError = ''
   state.feedbackMessage = ''
+  state.ppicDispatchQty = 0
+  state.overDispatchQty = 0
+  state.overDispatchConfirmed = false
+  state.overDispatchReason = ''
 }
 
 export function handleSewingDispatchWorkbenchEvent(target: HTMLElement, event?: Event): boolean {
@@ -1526,6 +1612,28 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement, event?: 
         return true
       }
     }
+    if (!state.overDispatchConfirmed) {
+      const tasks = listSewingDispatchWorkbenchTasks()
+      let totalDispatchQty = 0
+      let totalAvailQty = 0
+      for (const row of selectedRows) {
+        totalDispatchQty += row.remainingQty
+        const task = tasks.find((t) => t.taskId === row.taskId)
+        if (task) {
+          const summary = getTaskCutPieceReleaseSummary(task)
+          if (summary && summary.ppicAvailableDispatchQty !== undefined) {
+            totalAvailQty += summary.ppicAvailableDispatchQty
+          }
+        }
+      }
+      if (totalAvailQty > 0 && totalDispatchQty > totalAvailQty) {
+        state.ppicDispatchQty = totalDispatchQty
+        state.overDispatchQty = Math.max(0, totalDispatchQty - totalAvailQty)
+        state.dispatchError = ''
+        refreshSewingDispatchDialog()
+        return true
+      }
+    }
     let result: ReturnType<typeof createSewingDispatchWorkbenchDraft>
     try {
       const businessAssignedAt = dateTimeLocalToOperationWallClock(state.dispatchBusinessAssignedAt)
@@ -1552,8 +1660,28 @@ export function handleSewingDispatchWorkbenchEvent(target: HTMLElement, event?: 
     if (result.ok) {
       state.dispatchOpen = false
       state.selectedTaskIds = new Set<string>()
+      state.ppicDispatchQty = 0
+      state.overDispatchQty = 0
+      state.overDispatchConfirmed = false
+      state.overDispatchReason = ''
       refreshSewingDispatchDialog()
     }
+    return true
+  }
+
+  if (action === 'confirm-ppic-over') {
+    state.overDispatchConfirmed = true
+    refreshSewingDispatchDialog()
+    const btn = document.querySelector<HTMLButtonElement>('[data-sewing-direct-confirm]')
+    if (btn) btn.click()
+    return true
+  }
+  if (action === 'cancel-ppic-over') {
+    state.ppicDispatchQty = 0
+    state.overDispatchQty = 0
+    state.overDispatchConfirmed = false
+    state.overDispatchReason = ''
+    refreshSewingDispatchDialog()
     return true
   }
 

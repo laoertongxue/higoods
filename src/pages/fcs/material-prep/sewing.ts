@@ -353,24 +353,26 @@ function renderPrepRecordActions(record: MaterialPrepRecord): string {
 
 function renderCutPieceReleaseCard(projection: MaterialPrepOrderProjection): string {
   const summary = getCutPieceReleaseSummaryForProductionOrder(projection.order.productionOrderId)
-  if (!summary) {
+  if (!summary || !summary.releaseAvailableStatus) {
     return `
       <div class="rounded-md border bg-amber-50 px-3 py-2 text-sm text-amber-700">
-        尚未形成裁片放行判断，车缝配料数量暂以 BOM 需求为准。
+        尚未取得裁片放行版本，车缝配料数量暂以 BOM 需求为准。
       </div>
     `
   }
+  const statusLabel = summary.releaseAvailableStatus
   const decisionBadge: BadgeVariant =
-    summary.decision === '可以做' ? 'success' :
-    summary.decision === '部分可以做' ? 'warning' : 'danger'
+    statusLabel === '按齐套放行' ? 'success' :
+    statusLabel === '风险放行' ? 'warning' : 'danger'
+  const availQty = summary.ppicAvailableDispatchQty || summary.totalReleaseConfirmQty || 0
   return `
     <div class="rounded-md border bg-blue-50 px-3 py-2 text-sm">
       <div class="font-medium">裁片放行约束</div>
       <div class="mt-1">
-        判断结果：${renderBadge(summary.decision, decisionBadge)}
-        可做数量：<strong>${formatQty(summary.releaseQty)}</strong> 件
+        判断结果：${renderBadge(statusLabel, decisionBadge)}
+        当前可派车缝：<strong>${formatQty(availQty)}</strong> 件
       </div>
-      <div class="mt-0.5 text-muted-foreground">${escapeHtml(summary.reason)}</div>
+      ${summary.riskReason ? `<div class="mt-0.5 text-amber-700">${escapeHtml(summary.riskReason)}</div>` : ''}
       <div class="mt-1 text-xs text-muted-foreground">
         车缝配料最大数量 = min(BOM需求, 放行件数×单品用量, 库存)
       </div>
