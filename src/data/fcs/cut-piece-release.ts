@@ -1397,6 +1397,19 @@ export function listCutPieceReleaseAvailableQtyVersions(
   return clone(releaseVersionRepository.get(productionOrderId) || [])
 }
 
+/** 
+ * 标记指定生产单的所有有效放行版本为「确认后需复核」。
+ * 供外部模块（如菲票数量变化、铺布事件等）在裁片事实变更时调用。
+ */
+export function markCutPieceReleaseVersionsNeedReview(productionOrderId: string): void {
+  const versions = releaseVersionRepository.get(productionOrderId)
+  versions?.forEach((v) => {
+    if (v.isLatestEffective && v.releaseStatus !== '确认后需复核') {
+      v.releaseStatus = '确认后需复核'
+    }
+  })
+}
+
 export function calculateMissingPieceQty(productionOrderId: string): SupplementPartShortage[] {
   const item = releaseRepository.get(productionOrderId)
   if (!item) return []

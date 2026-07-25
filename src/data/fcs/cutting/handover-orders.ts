@@ -1878,8 +1878,20 @@ export function buildHandoverAfterRecordResult(record: HandoverRecord): Handover
   }
 }
 
+/** 
+ * 按车缝厂 + 生产单累计已交出中转袋菲票计算最低应回数量。
+ * 
+ * @param receiverFactoryId 车缝厂 ID
+ * @param piecesPerGarmentByPart 可选，BOM 部位用量映射（partCode → 单件成衣所需该部位片数）。未提供时默认 1:1。
+ * 
+ * 计算公式：
+ *   factoryProductionPartGarmentQty = floor(累计裁片数 / piecesPerGarment[part])
+ *   minimumReturnQty(color,size) = min(所有必需部位 factoryProductionPartGarmentQty)
+ *   totalMinimumReturnQty = sum(minimumReturnQty)
+ */
 export function calculateMinimumReturnQtyByBags(
   receiverFactoryId: string,
+  piecesPerGarmentByPart?: Record<string, number>,
 ): MinimumReturnByProductionOrder[] {
   const allRecords = handoverOrders
     .filter((order) => order.receiverId === receiverFactoryId && order.receiverType === '车缝厂')
@@ -1929,7 +1941,13 @@ export function calculateMinimumReturnQtyByBags(
     const minimumByColorSize: Record<string, number> = {}
     let totalMinimum = 0
     partQtyByColorSize.forEach((parts, key) => {
-      const qty = Math.min(...Object.values(parts))
+      const garmentQtys = Object.entries(parts).map(([partCode, pieceQty]) => {
+        const ppg = piecesPerGarmentByPart?.[partCode]
+          ? piecesPerGarmentByPart[partCode]
+          : 1
+        return ppg > 0 ? Math.floor(pieceQty / ppg) : 0
+      })
+      const qty = Math.min(...garmentQtys)
       minimumByColorSize[key] = qty
       totalMinimum += qty
     })

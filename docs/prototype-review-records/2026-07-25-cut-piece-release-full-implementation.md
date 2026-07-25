@@ -59,4 +59,6 @@
 - 日报 `fulfillment` tab 的裁片放行指标和明细从 old decision/releaseQty 全面切换为 releaseAvailableStatus/releaseConfirmQty
 - 日报 helperText 同步更新为「来自裁片放行确认版本的当前可放行数量」
 - PPIC 页面接入可做数量优先，全链路口径一致
+- `calculateMinimumReturnQtyByBags` 已支持 `piecesPerGarmentByPart` 参数进行 BOM 部位用量折算，未提供时默认 1:1
+- 已导出 `markCutPieceReleaseVersionsNeedReview(productionOrderId)` 供外部模块（菲票数量变化、铺布事件等）调用，原型阶段手动调用即可
 - 所有验证脚本通过，构建成功
