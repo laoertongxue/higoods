@@ -611,7 +611,7 @@ function renderCutPieceReleaseSummary(task: SewingDispatchWorkbenchTask): string
       </div>
       <div class="font-semibold text-base">当前可派车缝：${formatQty(availQty)} 件</div>
       <div class="mt-1 space-y-1">
-        <div>系统齐套：${formatQty(completeKitQty)} 件</div>
+        <div>当前齐套：${formatQty(completeKitQty)} 件</div>
         ${riskQty > 0 ? `<div class="text-amber-700">风险放行：${formatQty(riskQty)} 件</div>` : ''}
         <div>裁床目标：${formatQty(targetQty)} 件</div>
         ${gapToTarget > 0 ? `<div class="text-muted-foreground">距目标还差：${formatQty(gapToTarget)} 件</div>` : ''}
@@ -710,6 +710,7 @@ function renderTaskTable(tasks: SewingDispatchWorkbenchTask[]): string {
               <th class="w-10 px-3 py-3 text-left"><input type="checkbox" data-sewing-dispatch-field="selectAll" ${pageAllSelected ? 'checked' : ''} /></th>
               <th class="px-3 py-3 text-left font-medium">车缝任务 / 生产单</th>
               <th class="px-3 py-3 text-left font-medium">SPU / 款式</th>
+              <th class="px-3 py-3 text-left font-medium">裁片放行摘要</th>
               <th class="px-3 py-3 text-left font-medium">SKU 数 / 任务数量</th>
               <th class="px-3 py-3 text-left font-medium">可分配状态</th>
               <th class="px-3 py-3 text-left font-medium">主要阻断原因</th>
@@ -718,7 +719,7 @@ function renderTaskTable(tasks: SewingDispatchWorkbenchTask[]): string {
             </tr>
           </thead>
           <tbody>
-            ${pageTasks.length === 0 ? '<tr><td colspan="8" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选范围暂无车缝任务。</td></tr>' : pageTasks.map((task) => renderTaskRow(task)).join('')}
+            ${pageTasks.length === 0 ? '<tr><td colspan="9" class="px-3 py-10 text-center text-sm text-muted-foreground">当前筛选范围暂无车缝任务。</td></tr>' : pageTasks.map((task) => renderTaskRow(task)).join('')}
           </tbody>
         </table>
       </div>
@@ -750,6 +751,7 @@ function renderTaskRow(task: SewingDispatchWorkbenchTask): string {
           </div>
         </div>
       </td>
+      <td class="max-w-[260px] px-3 py-4 align-top">${renderCutPieceReleaseSummary(task)}</td>
       <td class="px-3 py-4 align-top"><div class="font-medium">${task.skuRows.length} 个 SKU</div><div class="mt-1 text-xs text-muted-foreground">任务 ${formatQty(task.remainingQty)} 件</div></td>
       <td class="px-3 py-4 align-top"><div class="font-medium ${allocatableRows.length ? 'text-green-700' : 'text-amber-700'}">${allocatableRows.length ? `${allocatableRows.length} 个 SKU 可分配` : '暂无可整量分配 SKU'}</div><div class="mt-1 text-xs text-muted-foreground">${formatQty(allocatableQty)} 件</div></td>
       <td class="max-w-[260px] px-3 py-4 align-top"><div class="text-xs leading-5 ${allocatableRows.length === task.skuRows.length ? 'text-green-700' : 'text-amber-700'}">${escapeHtml(blockingReason)}</div></td>

@@ -106,6 +106,7 @@
     "check:wool-warehouse-unified-model": "tsx scripts/check-wool-warehouse-unified-model.ts",
     "check:mobile-execution-writeback": "tsx scripts/check-mobile-execution-writeback.ts",
     "check:process-warehouse-unification": "tsx scripts/check-process-warehouse-unification.ts",
+    "check:minimum-return-by-bags": "tsx scripts/check-minimum-return-by-bags.ts",
     "check:handover-writeback-difference-unification": "tsx scripts/check-handover-writeback-difference-unification.ts",
     "check:statistics-dashboard-real-data": "tsx scripts/check-statistics-dashboard-real-data.ts",
     "check:post-finishing-factory-detail-actions": "tsx scripts/check-post-finishing-factory-detail-actions.ts",

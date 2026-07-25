@@ -358,6 +358,17 @@ export function getCutPieceReleaseHandoverSnapshot(snapshotId: string): CutPiece
   return snapshot ? structuredClone(snapshot) : null
 }
 
+export interface MinimumReturnByProductionOrder {
+  productionOrderId: string
+  productionOrderNo: string
+  totalHandedOverPieceQty: number
+  minimumReturnQty: number
+  minimumReturnQtyByColorSize: Record<string, number>
+  transferBagCount: number
+  feiTicketCount: number
+  latestHandoverAt: string
+}
+
 export interface HandoverOrderProjection {
   orders: HandoverOrder[]
   records: HandoverRecord[]
@@ -1865,6 +1876,77 @@ export function buildHandoverAfterRecordResult(record: HandoverRecord): Handover
     riskTips,
     canSubmitNextRecord,
   }
+}
+
+export function calculateMinimumReturnQtyByBags(
+  receiverFactoryId: string,
+): MinimumReturnByProductionOrder[] {
+  const allRecords = handoverOrders
+    .filter((order) => order.receiverId === receiverFactoryId && order.receiverType === '车缝厂')
+    .flatMap((order) => {
+      const records = handoverRecords.filter((r) => r.handoverOrderId === order.handoverOrderId)
+      return records
+    })
+
+  const byProductionOrder = new Map<string, {
+    productionOrderNo: string
+    feiTickets: HandoverFeiTicketItem[]
+    transferBags: Set<string>
+    handoverAt: string
+  }>()
+
+  allRecords.forEach((record) => {
+    const poIds = new Set<string>()
+    record.feiTicketItems.forEach((ticket) => poIds.add(ticket.productionOrderNo))
+    poIds.forEach((poId) => {
+      const existing = byProductionOrder.get(poId) || {
+        productionOrderNo: poId,
+        feiTickets: [] as HandoverFeiTicketItem[],
+        transferBags: new Set<string>(),
+        handoverAt: record.handedOverAt,
+      }
+      record.feiTicketItems.forEach((ticket) => {
+        if (ticket.productionOrderNo === poId) {
+          existing.feiTickets.push(ticket)
+        }
+      })
+      record.transferBagUses.forEach((bag) => existing.transferBags.add(bag.bagCode))
+      if (record.handedOverAt > existing.handoverAt) existing.handoverAt = record.handedOverAt
+      byProductionOrder.set(poId, existing)
+    })
+  })
+
+  return [...byProductionOrder.entries()].map(([poId, data]) => {
+    const partQtyByColorSize = new Map<string, Record<string, number>>()
+
+    data.feiTickets.forEach((ticket) => {
+      const key = `${ticket.color}::${ticket.size}`
+      const parts = partQtyByColorSize.get(key) || {}
+      parts[ticket.partCode] = (parts[ticket.partCode] || 0) + ticket.pieceQty
+      partQtyByColorSize.set(key, parts)
+    })
+
+    const minimumByColorSize: Record<string, number> = {}
+    let totalMinimum = 0
+    partQtyByColorSize.forEach((parts, key) => {
+      const qty = Math.min(...Object.values(parts))
+      minimumByColorSize[key] = qty
+      totalMinimum += qty
+    })
+
+    const totalPieceQty = data.feiTickets.reduce((sum, t) => sum + t.pieceQty, 0)
+
+    return {
+      productionOrderId: poId,
+      productionOrderNo: data.productionOrderNo,
+      totalHandedOverPieceQty: totalPieceQty,
+      minimumReturnQty: totalMinimum,
+      minimumReturnQtyByColorSize: minimumByColorSize,
+      transferBagCount: data.transferBags.size,
+      feiTicketCount: data.feiTickets.length,
+      latestHandoverAt: data.handoverAt,
+    }
+  })
 }
 
 export function listHandoverOrders(): HandoverOrder[] {

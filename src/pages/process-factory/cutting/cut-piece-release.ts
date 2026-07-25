@@ -26,13 +26,17 @@ import {
 } from '../../../data/fcs/production-order-identity.ts'
 import {
   calculateCutPieceReleaseHistoryDifference,
+  confirmCutPieceReleaseAvailableQty,
   confirmCutPieceReleaseTarget,
   getCutPieceReleaseFactSourceSummary,
   getCutPieceReleaseRecord,
   listLateCutPieceReleaseEvents,
+  listCutPieceReleaseAvailableQtyVersions,
   listCutPieceReleaseMatrixVersions,
   listCutPieceReleaseRecords,
   listCutPieceReleaseTargetSnapshots,
+  type CutPieceReleaseAvailableStatus,
+  type CutPieceReleaseAvailableQtyVersion,
   type CutPieceReleaseRecord,
   type CutPieceReleaseHistoryDifference,
   type CutPieceReleaseHistoryQuantityValue,
@@ -76,6 +80,7 @@ interface CutPieceReleasePageState {
   keyword: string
   matrixStatus: MatrixStatusFilter
   targetStatus: TargetStatusFilter
+  releaseStatusFilter: string
   page: number
   sort: StandardListSortState | null
   columnPreferences: StandardListColumnPreferences
@@ -94,6 +99,8 @@ interface CutPieceReleasePageState {
   expandedHistoryVersion: number | null
   overlayReturnTestId: string | null
   feedback: CutPieceReleaseFeedback | null
+  releaseVersionLogOpen: boolean
+  releaseVersionLogPage: number
 }
 
 const listPageSizes = [10, 20, 50]
@@ -105,14 +112,17 @@ const listColumnRules: StandardListColumnRule[] = [
   { key: 'colorSize' },
   { key: 'matrixStatus', required: true, freezeable: true },
   { key: 'targetStatus', freezeable: true },
+  { key: 'releaseStatus', required: true, freezeable: true },
+  { key: 'releaseQty' },
+  { key: 'riskQty' },
   { key: 'shortage' },
   { key: 'frozenCutOrders' },
   { key: 'latestUpdate', freezeable: true },
   { key: 'actions', required: true, actionColumn: true },
 ]
 const defaultListColumnPreferences: StandardListColumnPreferences = {
-  order: listColumnRules.map((column) => column.key),
-  visibleKeys: listColumnRules.map((column) => column.key),
+  order: ['productionOrder', 'spu', 'colorSize', 'matrixStatus', 'targetStatus', 'releaseStatus', 'releaseQty', 'riskQty', 'shortage', 'frozenCutOrders', 'latestUpdate', 'actions'],
+  visibleKeys: ['productionOrder', 'spu', 'colorSize', 'matrixStatus', 'targetStatus', 'releaseStatus', 'releaseQty', 'riskQty', 'shortage', 'frozenCutOrders', 'latestUpdate', 'actions'],
   frozenKeys: [],
   pageSize: 10,
 }
@@ -122,6 +132,7 @@ const state: CutPieceReleasePageState = {
   keyword: '',
   matrixStatus: '全部',
   targetStatus: '全部',
+  releaseStatusFilter: '全部',
   page: 1,
   sort: null,
   columnPreferences: normalizeListColumnPreferences(
@@ -144,6 +155,8 @@ const state: CutPieceReleasePageState = {
   expandedHistoryVersion: null,
   overlayReturnTestId: null,
   feedback: null,
+  releaseVersionLogOpen: false,
+  releaseVersionLogPage: 1,
 }
 
 let listPreferencesLoaded = false
@@ -155,6 +168,7 @@ function resetTransientPageState(): void {
   state.keyword = ''
   state.matrixStatus = '全部'
   state.targetStatus = '全部'
+  state.releaseStatusFilter = '全部'
   state.page = 1
   state.sort = null
   state.columnSettingsOpen = false
@@ -172,6 +186,8 @@ function resetTransientPageState(): void {
   state.expandedHistoryVersion = null
   state.overlayReturnTestId = null
   state.feedback = null
+  state.releaseVersionLogOpen = false
+  state.releaseVersionLogPage = 1
 }
 
 function getMatrixDetailQuery(): { productionOrderId: string; productionOrderNo: string } | null {
@@ -355,12 +371,28 @@ function renderTargetStatusBadge(status: MatrixTargetStatus): string {
   return `<span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${className}">${escapeHtml(status)}</span>`
 }
 
+function renderReleaseStatusBadge(status: CutPieceReleaseAvailableStatus): string {
+  const mapping: Record<CutPieceReleaseAvailableStatus, string> = {
+    '待维护目标': 'bg-slate-100 text-slate-600',
+    '待裁床确认': 'bg-blue-50 text-blue-700',
+    '按齐套放行': 'bg-emerald-50 text-emerald-700',
+    '风险放行': 'bg-amber-50 text-amber-700',
+    '暂不放行': 'bg-rose-50 text-rose-700',
+    '确认后需复核': 'bg-purple-50 text-purple-700',
+  }
+  return `<span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${mapping[status]}">${escapeHtml(status)}</span>`
+}
+
 function renderColorSizeSummary(record: CutPieceReleaseRecord): string {
+  const versions = listCutPieceReleaseAvailableQtyVersions(record.productionOrderId)
+  const latestVersion = versions.find((v) => v.isLatestEffective) ?? null
   return record.matrix.colorGroups.map((group) => {
     const sizes = group.sizes.map((size) => {
       const completeKitQty = group.completeKitBySize[size]
       const quantity = completeKitQty === null ? '待计算' : `${formatQuantity(completeKitQty)} 件`
-      return `${size} ${quantity}`
+      const releaseQty = latestVersion?.releaseQtyByColorSize[`${group.garmentColor}::${size}`]
+      const releaseQtyText = releaseQty !== undefined ? ` · 可做 ${formatQuantity(releaseQty)} 件` : ''
+      return `${size} ${quantity}${releaseQtyText}`
     }).join(' / ')
     return `<div><span class="font-medium">${escapeHtml(group.garmentColor)}</span><div class="mt-0.5 text-xs text-muted-foreground">${escapeHtml(sizes)}</div></div>`
   }).join('') || '<span class="text-muted-foreground">暂无颜色尺码</span>'
@@ -416,6 +448,36 @@ const listColumns: readonly StandardListColumn<CutPieceReleaseRecord>[] = [
     sortable: true,
     render: (record) => renderTargetStatusBadge(record.targetStatus),
     sortValue: (record) => record.targetStatus,
+  },
+  {
+    key: 'releaseStatus',
+    title: '放行状态',
+    width: 120,
+    required: true,
+    freezeable: true,
+    sortable: true,
+    render: (record) => renderReleaseStatusBadge(record.releaseAvailableStatus),
+    sortValue: (record) => record.releaseAvailableStatus,
+  },
+  {
+    key: 'releaseQty',
+    title: '可做放行数量',
+    width: 130,
+    align: 'right' as const,
+    sortable: true,
+    render: (record) => `<span class="font-semibold tabular-nums text-blue-700">${formatQuantity(record.releaseConfirmQty || record.releaseQty)} 件</span>`,
+    sortValue: (record) => record.releaseConfirmQty || record.releaseQty,
+  },
+  {
+    key: 'riskQty',
+    title: '风险放行数量',
+    width: 130,
+    align: 'right' as const,
+    sortable: true,
+    render: (record) => record.riskReleaseQty > 0
+      ? `<span class="font-semibold tabular-nums text-amber-700">${formatQuantity(record.riskReleaseQty)} 件</span>`
+      : '<span class="tabular-nums text-muted-foreground">—</span>',
+    sortValue: (record) => record.riskReleaseQty,
   },
   {
     key: 'shortage',
@@ -476,6 +538,7 @@ function getFilteredRecords(): CutPieceReleaseRecord[] {
   return listCutPieceReleaseRecords().filter((record) => {
     if (state.matrixStatus !== '全部' && record.matrixStatus !== state.matrixStatus) return false
     if (state.targetStatus !== '全部' && record.targetStatus !== state.targetStatus) return false
+    if (state.releaseStatusFilter !== '全部' && record.releaseAvailableStatus !== state.releaseStatusFilter) return false
     if (!keyword) return true
     const searchable = [
       record.productionOrderNo,
@@ -510,7 +573,7 @@ function renderFilters(): string {
   const targetStatuses: TargetStatusFilter[] = ['全部', '待确认', '已确认', '目标后数据已变化']
   return `
     <section class="rounded-lg border bg-card p-3">
-      <div class="grid gap-3 md:grid-cols-[minmax(260px,1fr)_180px_190px_auto_auto] md:items-end">
+      <div class="grid gap-3 md:grid-cols-[minmax(260px,1fr)_180px_190px_160px_auto_auto] md:items-end">
         <label class="space-y-1">
           <span class="text-xs font-medium">生产单 / SPU / 颜色尺码 / 裁片单</span>
           <input
@@ -536,6 +599,18 @@ function renderFilters(): string {
             ${targetStatuses.map((item) => `<option value="${escapeHtml(item)}" ${state.targetStatus === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
           </select>
         </label>
+        <label class="space-y-1">
+          <span class="text-xs font-medium">放行状态</span>
+          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-skip-page-rerender="true" data-cut-piece-release-field="releaseStatusFilter" data-cut-piece-release-action="field-change">
+            <option value="全部" ${state.releaseStatusFilter === '全部' ? 'selected' : ''}>全部放行状态</option>
+            <option value="待维护目标" ${state.releaseStatusFilter === '待维护目标' ? 'selected' : ''}>待维护目标</option>
+            <option value="待裁床确认" ${state.releaseStatusFilter === '待裁床确认' ? 'selected' : ''}>待裁床确认</option>
+            <option value="按齐套放行" ${state.releaseStatusFilter === '按齐套放行' ? 'selected' : ''}>按齐套放行</option>
+            <option value="风险放行" ${state.releaseStatusFilter === '风险放行' ? 'selected' : ''}>风险放行</option>
+            <option value="暂不放行" ${state.releaseStatusFilter === '暂不放行' ? 'selected' : ''}>暂不放行</option>
+            <option value="确认后需复核" ${state.releaseStatusFilter === '确认后需复核' ? 'selected' : ''}>确认后需复核</option>
+          </select>
+        </label>
         <button type="button" class="h-9 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-cut-piece-release-action="query">查询</button>
         <button type="button" class="h-9 rounded-md border px-4 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cut-piece-release-action="reset">重置</button>
       </div>
@@ -557,6 +632,8 @@ function renderListStats(records: CutPieceReleaseRecord[]): string {
     { label: '矩阵可计算', value: `${records.filter((record) => record.matrixStatus === '可计算').length} 张` },
     { label: '目标待确认', value: `${records.filter((record) => record.targetStatus !== '已确认').length} 张` },
     { label: '存在补料缺口', value: `${records.filter((record) => record.shortageCellCount > 0).length} 张` },
+    { label: '可放行', value: `${records.filter((r) => r.releaseAvailableStatus === '按齐套放行' || r.releaseAvailableStatus === '风险放行').length} 张` },
+    { label: '风险放行', value: `${records.filter((r) => r.releaseAvailableStatus === '风险放行').length} 张` },
   ])
 }
 
@@ -806,6 +883,147 @@ function renderTargetSummary(record: CutPieceReleaseRecord): string {
   `
 }
 
+function renderReleaseConfirmPanel(): string {
+  const record = getActiveRecord()
+  if (!record) return ''
+  const versions = listCutPieceReleaseAvailableQtyVersions(record.productionOrderId)
+  const latestVersion = versions.find((v) => v.isLatestEffective) ?? null
+  const targetValues = state.savedTargetSnapshot?.colorSizeTargets ?? null
+
+  const colorSizeLines = record.matrix.colorGroups.flatMap((group) =>
+    group.sizes.map((size) => {
+      const key = `${group.garmentColor}::${size}`
+      const targetQty = targetValues?.[key] ?? 0
+      const completeKitQty = group.completeKitBySize[size] ?? 0
+      const releaseQty = latestVersion?.releaseQtyByColorSize[key] ?? Math.min(targetQty, completeKitQty)
+      return { garmentColor: group.garmentColor, size, key, targetQty, completeKitQty, releaseQty }
+    })
+  )
+
+  const totalReleaseQty = colorSizeLines.reduce((sum, line) => sum + line.releaseQty, 0)
+  const totalCompleteKitQty = colorSizeLines.reduce((sum, line) => sum + line.completeKitQty, 0)
+  const totalTargetQty = colorSizeLines.reduce((sum, line) => sum + line.targetQty, 0)
+  const riskReleaseQty = Math.max(totalReleaseQty - totalCompleteKitQty, 0)
+  const releaseGapToTarget = Math.max(totalTargetQty - totalReleaseQty, 0)
+
+  let riskReleaseInputHtml = ''
+  if (riskReleaseQty > 0) {
+    riskReleaseInputHtml = `
+      <label class="space-y-1">
+        <span class="text-sm font-medium">风险原因（必填）</span>
+        <input type="text" class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="请输入风险放行原因" data-cut-piece-release-field="riskReason">
+      </label>
+    `
+  }
+
+  const savedReleaseVersionHtml = latestVersion ? `
+    <div class="rounded-md bg-emerald-50 border border-emerald-200 p-3 text-sm">
+      <span class="font-medium">当前生效版本 V${latestVersion.releaseVersionNo}</span>
+      <span class="ml-2 text-emerald-700">${escapeHtml(latestVersion.releaseStatus)} · ${escapeHtml(formatDateTime(latestVersion.confirmedAt))}</span>
+      <span class="ml-2 text-muted-foreground">确认人：${escapeHtml(latestVersion.confirmedBy)}</span>
+    </div>
+  ` : ''
+
+  return `
+    <section class="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4" data-cut-piece-release-release-confirm-panel>
+      <h3 class="font-semibold">裁片放行确认</h3>
+      ${savedReleaseVersionHtml}
+      <div class="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+        ${colorSizeLines.map((line) => `
+          <label class="flex items-center gap-2 rounded bg-white px-3 py-2">
+            <span class="flex-1 text-sm">${escapeHtml(line.garmentColor)} / ${escapeHtml(line.size)}</span>
+            <input type="text" inputmode="numeric" pattern="[0-9]*" class="h-8 w-20 rounded border px-2 text-right text-sm tabular-nums"
+              data-min="0" data-max="${line.targetQty}"
+              value="${line.releaseQty}"
+              data-cut-piece-release-field="releaseQtyInput"
+              data-release-color="${escapeHtml(line.garmentColor)}"
+              data-release-size="${escapeHtml(line.size)}"
+              data-step="1"
+            >
+            <span class="text-xs text-muted-foreground">件</span>
+          </label>
+        `).join('')}
+      </div>
+      <div class="mt-3 flex flex-wrap gap-4 text-sm">
+        <span class="font-medium">系统齐套：${formatQuantity(totalCompleteKitQty)} 件</span>
+        <span class="font-medium ${riskReleaseQty > 0 ? 'text-amber-700' : 'text-muted-foreground'}">风险放行：${formatQuantity(riskReleaseQty)} 件</span>
+        <span class="font-medium ${releaseGapToTarget > 0 ? 'text-rose-700' : 'text-emerald-700'}">放行距目标缺口：${formatQuantity(releaseGapToTarget)} 件</span>
+      </div>
+      ${riskReleaseInputHtml}
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button type="button" class="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700" data-skip-page-rerender="true" data-cut-piece-release-action="confirm-release">确认放行</button>
+        <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-skip-page-rerender="true" data-cut-piece-release-action="open-release-version-log">
+          ${state.releaseVersionLogOpen ? '收起版本日志' : '查看版本日志'}
+          ${versions.length > 0 ? `（${versions.length}）` : ''}
+        </button>
+        <a href="/fcs/craft/cutting/supplement-management?productionOrderId=${encodeURIComponent(record.productionOrderId)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center rounded-md border px-4 py-2 text-sm hover:bg-muted">查看补料依据</a>
+      </div>
+    </section>
+  `
+}
+
+function renderReleaseVersionLogPanel(): string {
+  if (!state.releaseVersionLogOpen) return ''
+  const record = getActiveRecord()
+  if (!record) return ''
+  const versions = listCutPieceReleaseAvailableQtyVersions(record.productionOrderId)
+  if (versions.length === 0) {
+    return `
+      <section class="rounded-lg border bg-card p-4" data-cut-piece-release-version-log-panel>
+        <h3 class="font-semibold">放行确认版本日志</h3>
+        <p class="mt-2 text-sm text-muted-foreground">暂无放行确认版本。</p>
+      </section>
+    `
+  }
+  const pageSize = 5
+  const totalPages = Math.max(1, Math.ceil(versions.length / pageSize))
+  state.releaseVersionLogPage = Math.min(Math.max(1, state.releaseVersionLogPage), totalPages)
+  const rows = versions.slice().reverse().slice(
+    (state.releaseVersionLogPage - 1) * pageSize,
+    state.releaseVersionLogPage * pageSize,
+  )
+
+  return `
+    <section class="rounded-lg border bg-card p-4" data-cut-piece-release-version-log-panel>
+      <h3 class="font-semibold">放行确认版本日志</h3>
+      <div class="mt-3 space-y-3">
+        ${rows.map((v) => {
+          const changedLinesHtml = v.changedColorSizeLines.length > 0
+            ? `<div class="mt-1 text-xs text-muted-foreground">变化颜色尺码：${escapeHtml(v.changedColorSizeLines.join('、'))}</div>`
+            : ''
+          return `
+            <article class="rounded-lg border p-3 ${v.isLatestEffective ? 'border-emerald-300 bg-emerald-50/50' : ''}">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="font-semibold">V${v.releaseVersionNo} · ${escapeHtml(v.releaseStatus)}</span>
+                <span class="text-xs text-muted-foreground">${escapeHtml(formatDateTime(v.confirmedAt))}</span>
+                ${v.isLatestEffective ? '<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">当前生效</span>' : ''}
+              </div>
+              <div class="mt-2 grid gap-1 text-sm sm:grid-cols-2">
+                <span>系统齐套：<strong>${formatQuantity(v.totalCompleteKitQty)} 件</strong></span>
+                <span>可做放行：<strong>${formatQuantity(v.totalReleaseConfirmQty)} 件</strong>（前 ${v.beforeTotalReleaseConfirmQty} → 后 ${v.afterTotalReleaseConfirmQty}）</span>
+                <span>风险放行：<strong class="${v.totalRiskReleaseQty > 0 ? 'text-amber-700' : ''}">${formatQuantity(v.totalRiskReleaseQty)} 件</strong>（前 ${v.beforeTotalRiskReleaseQty} → 后 ${v.afterTotalRiskReleaseQty}）</span>
+                <span>放行距目标缺口：<strong class="${v.totalReleaseGapToTargetQty > 0 ? 'text-rose-700' : ''}">${formatQuantity(v.totalReleaseGapToTargetQty)} 件</strong></span>
+                <span>目标总数：<strong>${formatQuantity(v.totalTargetQty)} 件</strong></span>
+                <span>依据矩阵版本：V${v.basisMatrixVersion}</span>
+              </div>
+              ${v.riskReason ? `<div class="mt-2 rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">风险原因：${escapeHtml(v.riskReason)}</div>` : ''}
+              <div class="mt-1 text-xs text-muted-foreground">确认人：${escapeHtml(v.confirmedBy)}</div>
+              ${changedLinesHtml}
+            </article>
+          `
+        }).join('')}
+      </div>
+      <footer class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm">
+        <span>第 ${state.releaseVersionLogPage} / ${totalPages} 页 · 共 ${versions.length} 条</span>
+        <div class="flex gap-2">
+          <button type="button" class="rounded border px-3 py-1.5 disabled:opacity-40" ${state.releaseVersionLogPage <= 1 ? 'disabled' : ''} data-skip-page-rerender="true" data-cut-piece-release-action="release-version-log-prev">上一页</button>
+          <button type="button" class="rounded border px-3 py-1.5 disabled:opacity-40" ${state.releaseVersionLogPage >= totalPages ? 'disabled' : ''} data-skip-page-rerender="true" data-cut-piece-release-action="release-version-log-next">下一页</button>
+        </div>
+      </footer>
+    </section>
+  `
+}
+
 function renderMatrixPanel(): string {
   const record = getActiveRecord()
   if (!record) return ''
@@ -828,6 +1046,8 @@ function renderMatrixPanel(): string {
       ${record.lateEventCount > 0 ? `<button type="button" class="w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-left text-sm font-medium text-amber-800 hover:bg-amber-100" data-skip-page-rerender="true" data-cut-piece-release-action="open-history" data-testid="cut-piece-release-late-events-alert">关闭后收到 ${record.lateEventCount} 条待处理铺布数据</button>` : ''}
       ${record.matrix.colorGroups.map((group) => renderColorMatrix(record, group)).join('')}
       ${renderTargetSummary(record)}
+      ${renderReleaseConfirmPanel()}
+      ${renderReleaseVersionLogPanel()}
     </section>
   `
 }
@@ -1178,6 +1398,12 @@ function handleFieldChange(node: HTMLInputElement | HTMLSelectElement): boolean 
     refreshList()
     return true
   }
+  if (field === 'releaseStatusFilter') {
+    state.releaseStatusFilter = node.value
+    state.page = 1
+    refreshList()
+    return true
+  }
   if (field === 'pageSize') {
     const pageSize = Number(node.value)
     if (listPageSizes.includes(pageSize)) {
@@ -1244,6 +1470,7 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     state.keyword = ''
     state.matrixStatus = '全部'
     state.targetStatus = '全部'
+    state.releaseStatusFilter = '全部'
     state.page = 1
     state.feedback = null
     refreshFeedback()
@@ -1505,6 +1732,60 @@ export function handleCraftCuttingCutPieceReleaseEvent(target: HTMLElement, even
     refreshFeedback()
     refreshTableAndPagination()
     refreshOverlay()
+    return true
+  }
+  if (action === 'confirm-release') {
+    const record = getActiveRecord()
+    if (!record) return true
+    const versions = listCutPieceReleaseMatrixVersions(record.productionOrderId)
+    const currentMatrixVersion = versions.at(-1)?.version ?? 0
+    const targetValues = state.savedTargetSnapshot?.colorSizeTargets ?? {}
+    const releaseQtyByColorSize: Record<string, number> = {}
+    const inputNodes = document.querySelectorAll<HTMLInputElement>('[data-cut-piece-release-field="releaseQtyInput"]')
+    let totalRiskReleaseQty = 0
+    inputNodes.forEach((node) => {
+      const color = node.dataset.releaseColor || ''
+      const size = node.dataset.releaseSize || ''
+      const key = `${color}::${size}`
+      const qty = Math.max(0, Math.round(Number(node.value) || 0))
+      releaseQtyByColorSize[key] = qty
+      const completeKitQty = record.matrix.colorGroups
+        .find((g) => g.garmentColor === color)?.completeKitBySize[size] ?? 0
+      totalRiskReleaseQty += Math.max(qty - completeKitQty, 0)
+    })
+    const riskReasonNode = document.querySelector<HTMLInputElement>('[data-cut-piece-release-field="riskReason"]')
+    const riskReason = riskReasonNode?.value ?? ''
+    if (totalRiskReleaseQty > 0 && !riskReason.trim()) {
+      state.feedback = { tone: 'warning', message: '本次存在风险放行数量，必须填写风险原因。' }
+      refreshFeedback()
+      return true
+    }
+    const result = confirmCutPieceReleaseAvailableQty({
+      productionOrderId: record.productionOrderId,
+      basisMatrixVersion: currentMatrixVersion,
+      basisTargetVersion: state.targetBasisVersion ?? currentMatrixVersion,
+      releaseQtyByColorSize,
+      riskReason: riskReason.trim(),
+      confirmedBy: '裁床主管 王敏',
+      confirmedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
+    })
+    state.feedback = result.ok
+      ? { tone: 'success', message: result.message }
+      : { tone: 'warning', message: result.message }
+    refreshFeedback()
+    refreshMatrix()
+    refreshList()
+    return true
+  }
+  if (action === 'open-release-version-log') {
+    state.releaseVersionLogOpen = !state.releaseVersionLogOpen
+    state.releaseVersionLogPage = 1
+    refreshMatrix()
+    return true
+  }
+  if (action === 'release-version-log-prev' || action === 'release-version-log-next') {
+    state.releaseVersionLogPage += action === 'release-version-log-prev' ? -1 : 1
+    refreshMatrix()
     return true
   }
   return false

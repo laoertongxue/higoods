@@ -1,6 +1,7 @@
 import {
   buildHandoverAfterRecordResult,
   buildUniversalHandoverProjection,
+  calculateMinimumReturnQtyByBags,
   getUniversalHandoverOrderById,
   getUniversalHandoverRecordById,
   type HandoverOrder,
@@ -279,7 +280,7 @@ function renderOrderDetail(order: HandoverOrder, records: HandoverRecord[], reco
                 ${renderCompactKpiCard('最新缺口', `${formatNumber(order.shortageAfterLatestRecord)} 片`, '交出后计算结果', order.shortageAfterLatestRecord ? 'text-amber-600' : 'text-slate-700')}
               </div>
             </section>
-            ${order.cutPieceReleaseSnapshot ? renderCutPieceReleaseHandoverSnapshot(order.cutPieceReleaseSnapshot) : ''}
+            ${order.cutPieceReleaseSnapshot ? renderCutPieceReleaseHandoverSnapshot(order.cutPieceReleaseSnapshot, order) : ''}
           `
       }
       <section class="rounded-lg border bg-card p-4">
@@ -295,7 +296,7 @@ function renderOrderDetail(order: HandoverOrder, records: HandoverRecord[], reco
   `
 }
 
-function renderCutPieceReleaseHandoverSnapshot(snapshot: NonNullable<HandoverOrder['cutPieceReleaseSnapshot']>): string {
+function renderCutPieceReleaseHandoverSnapshot(snapshot: NonNullable<HandoverOrder['cutPieceReleaseSnapshot']>, order: HandoverOrder): string {
   const rows = Object.entries(snapshot.minimumReturnQtyByColorSize)
   const surplus = snapshot.surplusPieces
   return `
@@ -314,6 +315,16 @@ function renderCutPieceReleaseHandoverSnapshot(snapshot: NonNullable<HandoverOrd
             ${rows.map(([key, qty]) => `<div class="flex items-center justify-between"><span>${escapeHtml(key.replace('::', ' / '))}</span><strong class="tabular-nums">${formatNumber(qty)} 件</strong></div>`).join('')}
           </div>
           <div class="mt-2 text-xs text-amber-700">车缝厂至少应回以上齐套数量；目标数量和余片不计入最低应回。</div>
+          <div class="mt-3 border-t pt-2 text-xs text-muted-foreground">
+            按已交出中转袋菲票累计最低应回：${(() => {
+              const bagMin = calculateMinimumReturnQtyByBags(order.receiverId)
+              const poMin = bagMin.filter((r) => order.relatedProductionOrderIds.includes(r.productionOrderId))
+              const totalMin = poMin.reduce((s, r) => s + r.minimumReturnQty, 0)
+              const totalBags = poMin.reduce((s, r) => s + r.transferBagCount, 0)
+              const totalTickets = poMin.reduce((s, r) => s + r.feiTicketCount, 0)
+              return poMin.length ? `${formatNumber(totalMin)} 件（共 ${totalBags} 个中转袋，${totalTickets} 张菲票）` : '待计算'
+            })()}
+          </div>
         </article>
         <article class="rounded-md border border-amber-200 bg-amber-50 px-3 py-3">
           <div class="text-xs text-muted-foreground">多余裁片（仅记录，不纳入承诺）</div>

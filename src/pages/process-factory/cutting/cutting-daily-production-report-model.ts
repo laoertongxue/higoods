@@ -777,7 +777,7 @@ function buildFulfillmentRows(sources: CuttingSummaryBuildOptions, query: Cuttin
         row.productionOrderNo,
         row.spuCode,
         row.spuName,
-        row.decision,
+        row.releaseAvailableStatus,
         row.reason,
       ], query.keyword),
     )
@@ -789,11 +789,11 @@ function buildFulfillmentRows(sources: CuttingSummaryBuildOptions, query: Cuttin
       objectNo: row.recordNo,
       productionOrderNo: row.productionOrderNo,
       spuCode: row.spuCode,
-      summary: `${row.spuName} / ${row.decision} / ${row.reason}`,
-      quantityText: formatQty(row.releaseQty, '件'),
+      summary: `${row.spuName} / ${row.releaseAvailableStatus} / ${row.releaseConfirmQty || row.releaseQty}件`,
+      quantityText: formatQty(row.releaseConfirmQty || row.releaseQty, '件'),
       occurredAt: row.judgedAt || row.triggerAt,
       operator: row.judgedBy || row.triggerOperator || '裁床主管',
-      status: row.decision,
+      status: row.releaseAvailableStatus,
       sourceName: 'cut-piece-release',
       href: `/fcs/craft/cutting/cut-piece-release?productionOrderNo=${encodeURIComponent(row.productionOrderNo)}`,
     }))
@@ -1283,7 +1283,7 @@ function buildReportFromSources(
         metric({ key: 'fulfillment.cutCompleteKit', label: '当前累计已裁齐套数量', value: sum(productionContributions.map((row) => row.completeKitQty)), unit: '件', tab: 'fulfillment', recordCount: productionContributions.length, helperText: '当前累计齐套结果，不写作今日齐套。' }),
         metric({ key: 'fulfillment.inboundCompleteKit', label: '当前累计已入仓齐套数量', value: sum(productionContributions.map((row) => row.inboundQty)), unit: '件', tab: 'fulfillment', recordCount: productionContributions.length, helperText: '来自入仓裁片投影，当前累计参考。' }),
         metric({ key: 'fulfillment.incompleteQty', label: '当前未齐套数量', value: sum(productionContributions.map((row) => row.incompleteQty)), unit: '件', tab: 'fulfillment', recordCount: productionContributions.length, helperText: '生产单剩余需求减当前已裁齐套，结果不小于零。' }),
-        metric({ key: 'fulfillment.releaseQty', label: '当前可放行数量', value: sum(listCutPieceReleaseRecords().map((row) => row.releaseQty)), unit: '件', tab: 'fulfillment', recordCount: listCutPieceReleaseRecords().length, helperText: '来自裁片放行记录的当前可放行数量。' }),
+        metric({ key: 'fulfillment.releaseQty', label: '当前可放行数量', value: sum(listCutPieceReleaseRecords().map((row) => row.releaseConfirmQty || row.releaseQty)), unit: '件', tab: 'fulfillment', recordCount: listCutPieceReleaseRecords().length, helperText: '来自裁片放行确认版本的当前可放行数量。' }),
       ],
     },
     {
