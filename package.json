@@ -64,6 +64,8 @@
     "check:wool-internal-style-code": "tsx scripts/check-wool-internal-style-code.ts",
     "check:process-factory-warehouse-menu-consolidation": "tsx scripts/check-process-factory-warehouse-menu-consolidation.ts",
     "check:cutting-warehouse-management-switch": "tsx scripts/check-cutting-warehouse-management-switch.ts",
+    "check:cut-piece-release-mock-records": "tsx scripts/check-cut-piece-release-mock-records.ts",
+    "check:cut-piece-release-available-qty": "tsx scripts/check-cut-piece-release-available-qty.ts",
     "check:task-card-entry-and-route-closure": "tsx scripts/check-task-card-entry-and-route-closure.ts",
     "check:process-work-order-unification": "tsx scripts/check-process-work-order-unification.ts",
     "check:production-process-work-order-generation": "tsx scripts/check-production-process-work-order-generation.ts",
