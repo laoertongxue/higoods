@@ -37,3 +37,22 @@ export function getPdaCuttingWaitHandoverActions(): PdaCuttingWaitHandoverAction
     },
   ]
 }
+
+export function resolvePdaCuttingWaitHandoverLegacyActionRoute(action?: string | null): string | null {
+  const actions = getPdaCuttingWaitHandoverActions()
+
+  switch (action) {
+    case 'inbound':
+      return actions.find((item) => item.key === 'fei-ticket-bagging')?.route || null
+    case 'inbound-location':
+      return actions.find((item) => item.key === 'transfer-bag-inbound')?.route || null
+    case 'handover-bagging-confirm':
+      return actions.find((item) => item.key === 'transfer-bag-handover')?.route || null
+    case 'special-craft-return':
+      return actions.find((item) => item.key === 'special-craft-return')?.route || null
+    case 'numbering':
+      return actions.find((item) => item.key === 'fei-ticket-numbering')?.route || null
+    default:
+      return null
+  }
+}

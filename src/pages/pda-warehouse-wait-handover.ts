@@ -70,8 +70,10 @@ import { escapeHtml } from '../utils'
 import { getSpecialCraftFeiTicketSummary } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import {
   getPdaCuttingWaitHandoverActions,
+  resolvePdaCuttingWaitHandoverLegacyActionRoute,
   type PdaCuttingWaitHandoverAction,
 } from './pda-cutting-wait-handover-actions.ts'
+import { renderRouteRedirect } from '../router/route-utils.ts'
 
 type WaitHandoverFilter = '全部' | '待交出' | '已交出' | '已回写' | '差异' | '异议中'
 type CuttingWaitHandoverActionKey = 'numbering' | 'inbound' | 'inbound-location' | 'handover-bagging-confirm' | 'special-craft-return'
@@ -933,6 +935,9 @@ function renderCuttingWarehouseSwitch(active: 'wait-process' | 'wait-handover'):
 
 function renderCuttingWaitHandoverPage(): string {
   const activeAction = getMobileWarehouseSearchParams().get('action')
+  const legacyActionRoute = resolvePdaCuttingWaitHandoverLegacyActionRoute(activeAction)
+  if (legacyActionRoute) return renderRouteRedirect(legacyActionRoute, '正在进入裁床操作')
+
   const runtimeProjection = buildWaitHandoverRuntimeProjection()
   const transferBagViewModel = buildTransferBagsProjection().viewModel
   const fallbackInboundTempBags = buildInboundTempBagsFromTransferBagViewModel(transferBagViewModel)

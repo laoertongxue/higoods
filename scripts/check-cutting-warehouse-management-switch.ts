@@ -42,6 +42,7 @@ function token(...parts: string[]): string {
 const pdaCuttingWaitHandoverActionsPath = 'src/pages/pda-cutting-wait-handover-actions.ts'
 assert(fs.existsSync(repoPath(pdaCuttingWaitHandoverActionsPath)), '缺少 PDA 裁床待交出仓统一动作配置')
 const pdaCuttingWaitHandoverActionsSource = read(pdaCuttingWaitHandoverActionsPath)
+const pdaWaitHandoverRedirectSource = read('src/pages/pda-warehouse-wait-handover.ts')
 assert.deepEqual(
   [...pdaCuttingWaitHandoverActionsSource.matchAll(/title:\s*'([^']+)'/g)].map((match) => match[1]),
   ['菲票装袋', '中转袋入仓', '中转袋交出', '特殊工艺回仓', '菲票打编号'],
@@ -56,6 +57,25 @@ assert.deepEqual(
   '`/fcs/pda/cutting/handover/${firstTaskId}?action=transfer-bag-handover`',
 ].forEach((item) =>
   assertIncludes(pdaCuttingWaitHandoverActionsSource, item, `PDA 裁床待交出仓前三个动作未直达操作页：${item}`),
+)
+;[
+  'resolvePdaCuttingWaitHandoverLegacyActionRoute',
+  "case 'inbound':",
+  "case 'inbound-location':",
+  "case 'handover-bagging-confirm':",
+  "case 'special-craft-return':",
+  "case 'numbering':",
+].forEach((item) =>
+  assertIncludes(pdaCuttingWaitHandoverActionsSource, item, `PDA 裁床待交出仓缺少历史 action 直达映射：${item}`),
+)
+;['renderRouteRedirect', 'resolvePdaCuttingWaitHandoverLegacyActionRoute(activeAction)'].forEach((item) =>
+  assertIncludes(pdaWaitHandoverRedirectSource, item, `PDA 裁床待交出仓未使用历史 action 直达跳转：${item}`),
+)
+assertOrdered(
+  pdaWaitHandoverRedirectSource,
+  'const legacyActionRoute = resolvePdaCuttingWaitHandoverLegacyActionRoute(activeAction)',
+  'const action = getCuttingWaitHandoverAction(activeAction)',
+  '历史 action 必须在旧候选或任务中间页解析前直接跳转',
 )
 
 const cuttingGroup = menusBySystem.pfos.find((group) => group.title === '裁床厂管理')
