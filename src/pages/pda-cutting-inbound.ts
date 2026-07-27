@@ -1,50 +1,39 @@
 import { escapeHtml } from '../utils'
-import { buildPdaCuttingInboundProjection } from './pda-cutting-inbound-projection'
-import { buildTransferBagsProjection } from './process-factory/cutting/transfer-bags-projection.ts'
-import {
-  getTransferBagTicketPrintStatusLabel,
-  type TransferBagTicketCandidate,
-} from './process-factory/cutting/transfer-bags-model.ts'
-import {
-  resolvePdaCuttingRuntimeIdentity,
-  resolvePdaCuttingRuntimeOperator,
-} from '../data/fcs/pda-cutting-runtime-action-inputs.ts'
 import { validateFeiTicketNumberingBeforeBagging } from '../data/fcs/cutting/fei-ticket-numbering.ts'
 import {
-  appendWaitHandoverBaggingEvent, // 菲票装袋：先装袋，再通过中转袋入仓确认库位
-  appendWaitHandoverInboundEvent,
-  buildWaitHandoverRuntimeTicketFromTransferCandidate,
-  runtimeEventHasWaitHandoverTicket,
-} from './process-factory/cutting/wait-handover-runtime.ts'
-import {
   buildPdaCuttingExecutionStateKey,
-  renderPdaCuttingEmptyState,
-  renderPdaCuttingExecutionHero,
   renderPdaCuttingFeedbackNotice,
-  renderPdaCuttingOrderSelectionPrompt,
   renderPdaCuttingPageLayout,
-  renderPdaCuttingSection,
-  renderPdaCuttingSummaryGrid,
 } from './pda-cutting-shared'
 import {
   buildPdaCuttingExecutionContext,
   readSelectedExecutionOrderIdFromLocation,
   readSelectedExecutionOrderNoFromLocation,
 } from './pda-cutting-context'
-import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
+import { buildTransferBagsProjection } from './process-factory/cutting/transfer-bags-projection.ts'
+import type { TransferBagTicketCandidate } from './process-factory/cutting/transfer-bags-model.ts'
 
-interface InboundFormState {
+export type PdaCuttingInboundMode = 'bagging' | 'inbound-location'
+
+export interface InboundFormState {
   operatorName: string
-  zoneCode: 'A' | 'B' | 'C'
-  locationLabel: string
   carrierCode: string
   scanCode: string
+  locationLabel: string
   inboundQty: string
   scannedTicketNos: string[]
-  note: string
-  feedbackMessage: string
-  syncStatus: '' | '待同步' | '已同步' | '同步失败'
-  backHrefOverride: string
+  scanFeedbackMessage: string
+  resultMessage: string
+}
+
+interface ScannedTicketInput {
+  ticketNo: string
+  pieceQty: number
+}
+
+interface InboundRoundResult {
+  ok: boolean
+  message?: string
 }
 
 declare global {
@@ -55,6 +44,75 @@ declare global {
 
 const fallbackInboundState = new Map<string, InboundFormState>()
 
+export function createPdaCuttingInboundFormState(): InboundFormState {
+  return {
+    operatorName: '仓务操作员',
+    carrierCode: '',
+    scanCode: '',
+    locationLabel: '',
+    inboundQty: '',
+    scannedTicketNos: [],
+    scanFeedbackMessage: '',
+    resultMessage: '',
+  }
+}
+
+export function applyPdaCuttingInboundTicketScan(
+  state: InboundFormState,
+  ticket: ScannedTicketInput,
+): { ok: boolean; state: InboundFormState } {
+  if (!state.carrierCode.trim()) {
+    return {
+      ok: false,
+      state: {
+        ...state,
+        scanFeedbackMessage: '请先扫描中转袋。',
+      },
+    }
+  }
+  if (state.scannedTicketNos.includes(ticket.ticketNo)) {
+    return {
+      ok: false,
+      state: {
+        ...state,
+        scanFeedbackMessage: `${ticket.ticketNo} 已扫过，请扫下一张。`,
+      },
+    }
+  }
+
+  const nextQty = Number(state.inboundQty || 0) + Number(ticket.pieceQty || 0)
+  return {
+    ok: true,
+    state: {
+      ...state,
+      scanCode: '',
+      inboundQty: String(nextQty),
+      scannedTicketNos: [...state.scannedTicketNos, ticket.ticketNo],
+      scanFeedbackMessage: `${ticket.ticketNo} 已加入`,
+      resultMessage: '',
+    },
+  }
+}
+
+export function completePdaCuttingInboundRound(
+  state: InboundFormState,
+  mode: PdaCuttingInboundMode,
+  result: InboundRoundResult,
+): InboundFormState {
+  if (!result.ok) {
+    return {
+      ...state,
+      resultMessage: result.message || (mode === 'bagging' ? '装袋失败，请检查后重试。' : '入仓失败，请检查后重试。'),
+    }
+  }
+
+  return {
+    ...createPdaCuttingInboundFormState(),
+    operatorName: state.operatorName,
+    resultMessage: mode === 'bagging' ? '装袋成功' : '入仓成功',
+  }
+}
+
 function getInboundStateStore(): Map<string, InboundFormState> {
   if (typeof window === 'undefined') return fallbackInboundState
   if (!window.__higoodPdaCuttingInboundState) {
@@ -63,33 +121,41 @@ function getInboundStateStore(): Map<string, InboundFormState> {
   return window.__higoodPdaCuttingInboundState
 }
 
-function getInboundDetail(taskId: string, executionKey?: string | null) {
-  return buildPdaCuttingInboundProjection(taskId, executionKey ?? undefined)
-}
-
-function getState(taskId: string, executionOrderId?: string | null, executionOrderNo?: string | null): InboundFormState {
-  const stateKey = buildPdaCuttingExecutionStateKey(taskId, executionOrderId, executionOrderNo)
-  const inboundState = getInboundStateStore()
-  const existing = inboundState.get(stateKey)
+function getState(
+  taskId: string,
+  mode: PdaCuttingInboundMode,
+  executionOrderId?: string | null,
+  executionOrderNo?: string | null,
+): InboundFormState {
+  const executionKey = buildPdaCuttingExecutionStateKey(taskId, executionOrderId, executionOrderNo)
+  const stateKey = `${executionKey}::${mode}`
+  const store = getInboundStateStore()
+  const existing = store.get(stateKey)
   if (existing) return existing
-  const initial: InboundFormState = {
-    operatorName: '仓务操作员',
-    zoneCode: 'B',
-    locationLabel: 'B-02 临时位',
-    carrierCode: '',
-    scanCode: '',
-    inboundQty: '',
-    scannedTicketNos: [],
-    note: '',
-    feedbackMessage: '',
-    syncStatus: '',
-    backHrefOverride: '',
-  }
-  inboundState.set(stateKey, initial)
+  const initial = createPdaCuttingInboundFormState()
+  store.set(stateKey, initial)
   return initial
 }
 
-function resolveInboundEventState(taskId: string): {
+function replaceState(
+  taskId: string,
+  mode: PdaCuttingInboundMode,
+  state: InboundFormState,
+  executionOrderId?: string | null,
+  executionOrderNo?: string | null,
+): void {
+  const executionKey = buildPdaCuttingExecutionStateKey(taskId, executionOrderId, executionOrderNo)
+  getInboundStateStore().set(`${executionKey}::${mode}`, state)
+}
+
+function getInboundMode(): PdaCuttingInboundMode {
+  if (typeof window === 'undefined') return 'bagging'
+  return new URLSearchParams(window.location.search).get('action') === 'inbound-location'
+    ? 'inbound-location'
+    : 'bagging'
+}
+
+function resolveInboundEventState(taskId: string, mode = getInboundMode()): {
   form: InboundFormState
   selectedExecutionOrderId: string | null
   selectedExecutionOrderNo: string | null
@@ -98,35 +164,17 @@ function resolveInboundEventState(taskId: string): {
   const locationExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
   if (locationExecutionOrderId || locationExecutionOrderNo) {
     return {
-      form: getState(taskId, locationExecutionOrderId, locationExecutionOrderNo),
+      form: getState(taskId, mode, locationExecutionOrderId, locationExecutionOrderNo),
       selectedExecutionOrderId: locationExecutionOrderId,
       selectedExecutionOrderNo: locationExecutionOrderNo,
     }
   }
   const context = buildPdaCuttingExecutionContext(taskId, 'inbound')
   return {
-    form: getState(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo),
+    form: getState(taskId, mode, context.selectedExecutionOrderId, context.selectedExecutionOrderNo),
     selectedExecutionOrderId: context.selectedExecutionOrderId,
     selectedExecutionOrderNo: context.selectedExecutionOrderNo,
   }
-}
-
-function syncInboundFormFromControls(form: InboundFormState, container: HTMLElement | null): void {
-  if (!container) return
-  const carrierCodeNode = container.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="carrierCode"]')
-  const scanCodeNode = container.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="scanCode"]')
-  const zoneCodeNode = container.querySelector<HTMLSelectElement>('[data-pda-cut-inbound-field="zoneCode"]')
-  const locationLabelNode = container.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="locationLabel"]')
-  if (carrierCodeNode) form.carrierCode = carrierCodeNode.value
-  if (scanCodeNode) form.scanCode = scanCodeNode.value
-  if (zoneCodeNode) form.zoneCode = zoneCodeNode.value as 'A' | 'B' | 'C'
-  if (locationLabelNode) form.locationLabel = locationLabelNode.value
-}
-
-function resolveInboundFormContainer(actionNode: HTMLElement): HTMLElement | null {
-  const currentScope = actionNode.closest<HTMLElement>('[data-task-id]')
-  if (currentScope && currentScope !== actionNode) return currentScope
-  return actionNode.parentElement?.closest<HTMLElement>('[data-task-id]') || currentScope
 }
 
 function listInboundTicketCandidates(): TransferBagTicketCandidate[] {
@@ -138,20 +186,33 @@ function resolveInboundScanTicket(scanCode: string): TransferBagTicketCandidate 
   if (!normalized) return null
   return (
     listInboundTicketCandidates().find((ticket) =>
-      [ticket.ticketNo, ticket.feiTicketId, ticket.ticketRecordId].some((value) => String(value || '').toUpperCase() === normalized),
+      [ticket.ticketNo, ticket.feiTicketId, ticket.ticketRecordId].some(
+        (value) => String(value || '').toUpperCase() === normalized,
+      ),
     ) || null
   )
 }
 
-function validateInboundScan(form: InboundFormState, scanCode: string): { ok: boolean; reason: string; ticket: TransferBagTicketCandidate | null } {
+function validateInboundScan(
+  form: InboundFormState,
+  scanCode: string,
+): { ok: boolean; reason: string; ticket: TransferBagTicketCandidate | null } {
   const normalized = scanCode.trim().toUpperCase()
-  if (!normalized) return { ok: false, reason: '请先扫描菲票二维码。', ticket: null }
-  if (normalized.includes('WAIT') || normalized.includes('未打印')) return { ok: false, reason: '菲票未打印，不能入仓。', ticket: null }
-  if (normalized.includes('VOID') || normalized.includes('作废')) return { ok: false, reason: '菲票已作废，不能入仓。', ticket: null }
+  if (!normalized) return { ok: false, reason: '请扫描菲票。', ticket: null }
+  if (normalized.includes('WAIT') || normalized.includes('未打印')) {
+    return { ok: false, reason: '这张菲票未打印，请换一张。', ticket: null }
+  }
+  if (normalized.includes('VOID') || normalized.includes('作废')) {
+    return { ok: false, reason: '这张菲票已作废，请换一张。', ticket: null }
+  }
   const ticket = resolveInboundScanTicket(scanCode)
-  if (!ticket) return { ok: false, reason: '菲票不存在，不能入仓。', ticket: null }
-  if (ticket.ticketStatus === 'VOIDED' || ticket.printStatus === 'VOIDED') return { ok: false, reason: '菲票已作废，不能入仓。', ticket }
-  if (ticket.printStatus === 'WAIT_PRINT' && ticket.ticketStatus !== 'PRINTED') return { ok: false, reason: '菲票未打印，不能入仓。', ticket }
+  if (!ticket) return { ok: false, reason: '没有找到这张菲票，请重新扫描。', ticket: null }
+  if (ticket.ticketStatus === 'VOIDED' || ticket.printStatus === 'VOIDED') {
+    return { ok: false, reason: '这张菲票已作废，请换一张。', ticket }
+  }
+  if (ticket.printStatus === 'WAIT_PRINT' && ticket.ticketStatus !== 'PRINTED') {
+    return { ok: false, reason: '这张菲票未打印，请换一张。', ticket }
+  }
   const numberingValidation = validateFeiTicketNumberingBeforeBagging({
     feiTicketId: ticket.feiTicketId || ticket.ticketRecordId,
     feiTicketNo: ticket.ticketNo,
@@ -159,173 +220,149 @@ function validateInboundScan(form: InboundFormState, scanCode: string): { ok: bo
     pieceSequenceLabel: ticket.pieceSequenceLabel,
   })
   if (!numberingValidation.ok) return { ok: false, reason: numberingValidation.reason, ticket }
-  if (form.scannedTicketNos.includes(ticket.ticketNo)) return { ok: false, reason: `${ticket.ticketNo} 已扫描，本次入仓不能重复。`, ticket }
+  if (form.scannedTicketNos.includes(ticket.ticketNo)) {
+    return { ok: false, reason: `${ticket.ticketNo} 已扫过，请扫下一张。`, ticket }
+  }
   return { ok: true, reason: '', ticket }
 }
 
-function renderScannedTickets(form: InboundFormState): string {
-  const candidatesByNo = Object.fromEntries(listInboundTicketCandidates().map((ticket) => [ticket.ticketNo, ticket]))
-  const scannedTickets = form.scannedTicketNos.map((ticketNo) => candidatesByNo[ticketNo]).filter((ticket): ticket is TransferBagTicketCandidate => Boolean(ticket))
-  const totalQty = scannedTickets.reduce((sum, ticket) => sum + Number(ticket.actualCutPieceQty || ticket.qty || 0), 0)
-  const productionOrderCount = new Set(scannedTickets.map((ticket) => ticket.productionOrderNo).filter(Boolean)).size
-  const partCount = new Set(scannedTickets.map((ticket) => ticket.partName).filter(Boolean)).size
-  const hasSpecialCraft = scannedTickets.some((ticket) => ticket.hasSpecialCraft)
+function ticketPieceQty(ticket: TransferBagTicketCandidate): number {
+  return Number(ticket.actualCutPieceQty || ticket.qty || 0)
+}
+
+function renderResultMessage(form: InboundFormState): string {
+  if (!form.resultMessage) return ''
+  const success = form.resultMessage === '装袋成功' || form.resultMessage === '入仓成功'
+  return renderPdaCuttingFeedbackNotice(form.resultMessage, success ? 'success' : 'warning')
+}
+
+function renderBaggingLiveState(form: InboundFormState): string {
   return `
-    <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs" data-pda-cut-inbound-scanned-summary>
-      <div class="text-muted-foreground">已扫菲票</div>
-      <div class="mt-1 text-sm font-semibold text-foreground">${scannedTickets.length} 张 / ${totalQty} 片</div>
-      <div class="mt-1 text-muted-foreground">涉及 ${productionOrderCount} 个生产单 / ${partCount} 个部位 / ${hasSpecialCraft ? '包含特殊工艺裁片' : '无特殊工艺'}</div>
-      <div class="mt-2 space-y-1">
-        ${
-          scannedTickets.length
-            ? scannedTickets.map((ticket) => `
-                <div class="rounded-lg border bg-background px-2 py-2">
-                  <div class="font-medium text-foreground">${escapeHtml(ticket.ticketNo)}</div>
-                  <div class="mt-1 text-muted-foreground">${escapeHtml(ticket.productionOrderNo)} / ${escapeHtml(ticket.spuCode)} / ${escapeHtml(ticket.color)} / ${escapeHtml(ticket.size)} / ${escapeHtml(ticket.partName)} / ${ticket.actualCutPieceQty || ticket.qty} 片</div>
-                </div>
-              `).join('')
-            : '<div class="text-muted-foreground">暂无已扫菲票。</div>'
-        }
+    <div class="rounded-xl border bg-muted/20 px-3 py-2.5">
+      <div class="flex items-center justify-between gap-3">
+        <span class="font-medium text-foreground">已扫菲票 ${form.scannedTicketNos.length} 张</span>
+        <span class="text-muted-foreground">${escapeHtml(form.inboundQty || '0')} 片</span>
       </div>
+      ${
+        form.scannedTicketNos.length
+          ? `<div class="mt-2 flex flex-wrap gap-1.5">${form.scannedTicketNos
+              .map(
+                (ticketNo) =>
+                  `<span class="rounded-lg border bg-background px-2 py-1 text-[11px] text-foreground">${escapeHtml(ticketNo)}</span>`,
+              )
+              .join('')}</div>`
+          : ''
+      }
     </div>
+    ${form.scanFeedbackMessage ? renderPdaCuttingFeedbackNotice(form.scanFeedbackMessage, 'default') : ''}
   `
 }
 
-function renderInboundHistory(detail: NonNullable<ReturnType<typeof getInboundDetail>>): string {
-  if (!detail || !detail.inboundRecords.length) {
-    return renderPdaCuttingEmptyState('当前裁片单暂无入仓记录', '')
-  }
+function renderStepTitle(step: number, label: string): string {
+  return `<div class="text-sm font-semibold text-foreground">${step} ${escapeHtml(label)}</div>`
+}
 
+export function renderPdaCuttingInboundWorkflow(
+  mode: PdaCuttingInboundMode,
+  form: InboundFormState,
+  taskId = '',
+): string {
+  const isInboundLocation = mode === 'inbound-location'
   return `
-    <div class="space-y-2">
-      ${detail.inboundRecords
-        .map(
-          (record) => `
-            <article class="rounded-xl border px-3 py-3 text-xs">
-              <div class="flex items-center justify-between gap-2">
-                <div class="font-medium text-foreground">${escapeHtml(record.id)} / ${escapeHtml(record.zoneCode)} 区 / ${escapeHtml(record.locationLabel)}</div>
-                <div class="text-muted-foreground">${escapeHtml(record.scannedAt)}</div>
-              </div>
-              <div class="mt-2 grid grid-cols-2 gap-1 text-muted-foreground">
-                <div>操作人：${escapeHtml(record.operatorName)}</div>
-                <div>暂存方式：可混装</div>
-              </div>
-              <div class="mt-1 text-muted-foreground">记录：${escapeHtml(record.note || '无')}</div>
-            </article>
-          `,
-        )
-        .join('')}
-    </div>
+    <section class="space-y-4 rounded-2xl border bg-card px-3 py-3 shadow-sm" data-task-id="${escapeHtml(taskId)}">
+      ${renderResultMessage(form)}
+      <div class="space-y-2">
+        ${renderStepTitle(1, '扫中转袋')}
+        <input
+          class="h-12 w-full rounded-xl border bg-background px-3 text-base"
+          data-pda-cut-inbound-field="carrierCode"
+          data-skip-page-rerender="true"
+          value="${escapeHtml(form.carrierCode)}"
+          placeholder="扫描中转袋"
+        />
+      </div>
+      ${
+        isInboundLocation
+          ? `
+            <div class="space-y-2">
+              ${renderStepTitle(2, '扫库区库位')}
+              <input
+                class="h-12 w-full rounded-xl border bg-background px-3 text-base"
+                data-pda-cut-inbound-field="locationLabel"
+                data-skip-page-rerender="true"
+                value="${escapeHtml(form.locationLabel)}"
+                placeholder="扫描库区库位"
+              />
+            </div>
+          `
+          : `
+            <div class="space-y-2">
+              ${renderStepTitle(2, '扫菲票')}
+              <input
+                class="h-12 w-full rounded-xl border bg-background px-3 text-base"
+                data-pda-cut-inbound-field="scanCode"
+                data-skip-page-rerender="true"
+                value="${escapeHtml(form.scanCode)}"
+                placeholder="连续扫描菲票"
+              />
+              <div class="space-y-2" data-pda-cut-inbound-live>${renderBaggingLiveState(form)}</div>
+            </div>
+          `
+      }
+      <div class="space-y-2">
+        ${renderStepTitle(3, isInboundLocation ? '确认入仓' : '确认装袋')}
+        <button
+          class="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground hover:opacity-90"
+          data-pda-cut-inbound-action="confirm"
+          data-task-id="${escapeHtml(taskId)}"
+        >
+          ${isInboundLocation ? '确认入仓' : '确认装袋'}
+        </button>
+      </div>
+    </section>
   `
-}
-
-function renderInboundStatus(detail: NonNullable<ReturnType<typeof getInboundDetail>>): string {
-  return renderPdaCuttingSummaryGrid([
-    { label: '当前入仓状态', value: detail.currentInboundStatus },
-    { label: '当前阶段', value: '先菲票装袋，再中转袋入仓' },
-    { label: '当前库位', value: detail.inboundLocationLabel },
-    { label: '最近入仓记录', value: detail.latestInboundRecordNo || '暂无记录', hint: detail.latestInboundAt },
-  ])
-}
-
-function isPdaCuttingInboundLocationAction(): boolean {
-  if (typeof window === 'undefined') return false
-  return new URLSearchParams(window.location.search).get('action') === 'inbound-location'
 }
 
 export function renderPdaCuttingInboundPage(taskId: string): string {
+  const mode = getInboundMode()
   const context = buildPdaCuttingExecutionContext(taskId, 'inbound')
-  const detail = context.detail
-  const isInboundLocationAction = isPdaCuttingInboundLocationAction()
-  const pageTitle = isInboundLocationAction ? '中转袋入仓' : '菲票装袋'
-
-  if (!detail) {
-    return renderPdaCuttingPageLayout({
-      taskId,
-      title: pageTitle,
-      subtitle: '',
-      activeTab: 'exec',
-      body: '',
-      backHref: context.backHref,
-    })
-  }
-
-  if (context.requiresCutPieceOrderSelection) {
-    return renderPdaCuttingPageLayout({
-      taskId,
-      title: pageTitle,
-      subtitle: '',
-      activeTab: 'exec',
-      body: renderPdaCuttingOrderSelectionPrompt(detail, context.backHref, context.selectionNotice || undefined),
-      backHref: context.backHref,
-    })
-  }
-
-  const form = getState(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
-  const pageBackHref = form.backHrefOverride || context.backHref
-
-  const confirmSection = `
-    <div class="space-y-3 text-xs" data-task-id="${escapeHtml(taskId)}">
-      <label class="block space-y-1">
-        <span class="text-muted-foreground">中转袋二维码 / 袋码</span>
-        <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-inbound-field="carrierCode" value="${escapeHtml(form.carrierCode)}" placeholder="扫描中转袋二维码，或输入袋码" />
-      </label>
-      <label class="block space-y-1">
-        <span class="text-muted-foreground">菲票 / 裁片码</span>
-        <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-inbound-field="scanCode" value="${escapeHtml(form.scanCode)}" placeholder="扫描菲票或裁片码" />
-      </label>
-      <button class="inline-flex min-h-10 w-full items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-pda-cut-inbound-action="add-ticket" data-task-id="${escapeHtml(taskId)}">
-        加入菲票
-      </button>
-      ${isInboundLocationAction ? `
-        <label class="block space-y-1">
-          <span class="text-muted-foreground">库区</span>
-          <select class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-inbound-field="zoneCode">
-            ${['A', 'B', 'C'].map((item) => `<option value="${item}" ${form.zoneCode === item ? 'selected' : ''}>${item} 区</option>`).join('')}
-          </select>
-        </label>
-        <label class="block space-y-1">
-          <span class="text-muted-foreground">库位</span>
-          <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-inbound-field="locationLabel" value="${escapeHtml(form.locationLabel)}" placeholder="例如：A-01 临时位" />
-        </label>
-      ` : ''}
-      ${renderScannedTickets(form)}
-      <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs">
-        <div class="text-muted-foreground">本次${isInboundLocationAction ? '入仓' : '装袋'}预览</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(form.carrierCode || '待扫袋码')} / ${form.scannedTicketNos.length} 张菲票</div>
-         <div class="mt-1 text-muted-foreground">${isInboundLocationAction ? `${escapeHtml(form.zoneCode)} 区 / ${escapeHtml(form.locationLabel || '待填写位置')} / 已装袋后入仓` : '只确认袋内菲票，不绑定库位'}</div>
-      </div>
-      <div class="rounded-xl border bg-background px-3 py-2 text-xs">同步状态：<span class="font-medium text-foreground">${escapeHtml(form.syncStatus || '待提交')}</span></div>
-      ${form.feedbackMessage ? renderPdaCuttingFeedbackNotice(form.feedbackMessage, 'success') : ''}
-      <div class="grid grid-cols-2 gap-2">
-        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(pageBackHref)}">
-          返回裁片任务
-        </button>
-        <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90" data-pda-cut-inbound-action="confirm" data-task-id="${escapeHtml(taskId)}">
-           ${isInboundLocationAction ? '确认中转袋入仓' : '确认菲票装袋'}
-        </button>
-      </div>
-    </div>
-  `
-
-  const body = `
-    ${renderPdaCuttingExecutionHero(pageTitle, detail)}
-    ${renderPdaCuttingSection('当前情况', '', renderInboundStatus(detail))}
-    ${renderPdaCuttingSection(pageTitle, '', confirmSection)}
-    ${renderPdaCuttingSection('最近入仓记录', '', renderInboundHistory(detail))}
-  `
+  const form = getState(taskId, mode, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
+  const pageTitle = mode === 'inbound-location' ? '中转袋入仓' : '菲票装袋'
 
   return renderPdaCuttingPageLayout({
     taskId,
     title: pageTitle,
     subtitle: '',
     activeTab: 'exec',
-    body,
-    backHref: pageBackHref,
+    body: renderPdaCuttingInboundWorkflow(mode, form, taskId),
+    backHref: context.backHref,
   })
 }
 
+function resolveInboundFormContainer(node: HTMLElement): HTMLElement | null {
+  return node.closest<HTMLElement>('[data-task-id]')
+}
+
+function updateBaggingLiveRegion(container: HTMLElement | null, form: InboundFormState): void {
+  if (!container) return
+  const input = container.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="scanCode"]')
+  if (input) input.value = form.scanCode
+  const liveRegion = container.querySelector<HTMLElement>('[data-pda-cut-inbound-live]')
+  if (liveRegion) liveRegion.innerHTML = renderBaggingLiveState(form)
+}
+
+function syncFormFromControls(form: InboundFormState, container: HTMLElement | null): void {
+  if (!container) return
+  const carrierCode = container.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="carrierCode"]')
+  const scanCode = container.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="scanCode"]')
+  const locationLabel = container.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="locationLabel"]')
+  if (carrierCode) form.carrierCode = carrierCode.value
+  if (scanCode) form.scanCode = scanCode.value
+  if (locationLabel) form.locationLabel = locationLabel.value
+}
+
 export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
+  const mode = getInboundMode()
   const fieldNode = target.closest<HTMLElement>('[data-pda-cut-inbound-field]')
   if (
     fieldNode instanceof HTMLInputElement ||
@@ -334,145 +371,68 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
   ) {
     const taskId = fieldNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
     if (!taskId) return true
-    const { form } = resolveInboundEventState(taskId)
+    const eventState = resolveInboundEventState(taskId, mode)
     const field = fieldNode.dataset.pdaCutInboundField
     if (!field) return true
 
-    if (field === 'operatorName') form.operatorName = fieldNode.value
-    if (field === 'zoneCode' && fieldNode instanceof HTMLSelectElement) form.zoneCode = fieldNode.value as 'A' | 'B' | 'C'
-    if (field === 'locationLabel') form.locationLabel = fieldNode.value
-    if (field === 'carrierCode') form.carrierCode = fieldNode.value
-    if (field === 'scanCode') form.scanCode = fieldNode.value
-    if (field === 'inboundQty') form.inboundQty = fieldNode.value
-    if (field === 'note') form.note = fieldNode.value
-    return true
-  }
-
-  const actionNode = target.closest<HTMLElement>('[data-pda-cut-inbound-action]')
-  if (!actionNode) return false
-  const action = actionNode.dataset.pdaCutInboundAction
-  const taskId = actionNode.dataset.taskId
-  if (!action || !taskId) return false
-  const {
-    form,
-    selectedExecutionOrderId,
-    selectedExecutionOrderNo,
-  } = resolveInboundEventState(taskId)
-  syncInboundFormFromControls(form, resolveInboundFormContainer(actionNode))
-
-  if (action === 'add-ticket') {
-    const validation = validateInboundScan(form, form.scanCode)
-    if (!validation.ok || !validation.ticket) {
-      form.feedbackMessage = validation.reason
-      form.syncStatus = ''
-      return true
-    }
-    form.scannedTicketNos.push(validation.ticket.ticketNo)
-    form.scanCode = ''
-    form.inboundQty = String(
-      form.scannedTicketNos
-        .map((ticketNo) => resolveInboundScanTicket(ticketNo))
-        .filter((ticket): ticket is TransferBagTicketCandidate => Boolean(ticket))
-        .reduce((sum, ticket) => sum + Number(ticket.actualCutPieceQty || ticket.qty || 0), 0),
-    )
-    form.feedbackMessage = `${validation.ticket.ticketNo} 已加入；${getTransferBagTicketPrintStatusLabel(validation.ticket)}，允许与不同生产单、SKU、部位菲票混装。`
-    form.syncStatus = ''
-    return true
-  }
-
-  if (action === 'confirm') {
-    const isInboundLocationAction = isPdaCuttingInboundLocationAction()
-    const context = buildPdaCuttingExecutionContext(taskId, 'inbound')
-    const identity = resolvePdaCuttingRuntimeIdentity(taskId, {
-      executionOrderId: context.selectedExecutionOrderId || undefined,
-      executionOrderNo: context.selectedExecutionOrderNo || undefined,
-      cutOrderId: context.selectedExecutionOrder?.cutOrderId || undefined,
-      cutOrderNo: context.selectedExecutionOrder?.cutOrderNo || undefined,
-      markerPlanId: context.selectedExecutionOrder?.markerPlanId || undefined,
-      markerPlanNo: context.selectedExecutionOrder?.markerPlanNo || undefined,
-      materialSku: context.selectedExecutionOrder?.materialSku || undefined,
-    })
-    const operator = resolvePdaCuttingRuntimeOperator(taskId, form.operatorName.trim() || '仓务操作员')
-    if (!identity || !operator) {
-      form.feedbackMessage = '当前铺布单或操作人无法识别，不能确认入仓。'
-      return true
-    }
-    if (!form.carrierCode.trim()) {
-      form.feedbackMessage = '请先扫描中转袋二维码或袋码。'
-      return true
-    }
-    if (!form.scannedTicketNos.length) {
-      form.feedbackMessage = '请先扫描并加入至少一张菲票。'
-      return true
-    }
-    const inboundTickets = form.scannedTicketNos
-      .map((ticketNo) => resolveInboundScanTicket(ticketNo))
-      .filter((ticket): ticket is TransferBagTicketCandidate => Boolean(ticket))
-    const inboundQty = inboundTickets.reduce((sum, ticket) => sum + Number(ticket.actualCutPieceQty || ticket.qty || 0), 0)
-    const inboundAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
-    const bagCode = form.carrierCode.trim()
-    const duplicatedBaggingTicket = inboundTickets.find((ticket) => runtimeEventHasWaitHandoverTicket('菲票装袋', ticket.feiTicketId))
-    if (!isInboundLocationAction && duplicatedBaggingTicket) {
-      form.feedbackMessage = `${duplicatedBaggingTicket.ticketNo} 已菲票装袋，不能重复装袋。`
-      return true
-    }
-    const duplicatedInboundTicket = inboundTickets.find((ticket) => runtimeEventHasWaitHandoverTicket('中转袋入仓', ticket.feiTicketId))
-    if (isInboundLocationAction && duplicatedInboundTicket) {
-      form.feedbackMessage = `${duplicatedInboundTicket.ticketNo} 已中转袋入仓，不能重复入仓。`
-      return true
-    }
-    if (isInboundLocationAction) {
-      const unbaggedTicket = inboundTickets.find((ticket) => !runtimeEventHasWaitHandoverTicket('菲票装袋', ticket.feiTicketId))
-      if (unbaggedTicket) {
-        form.feedbackMessage = `${unbaggedTicket.ticketNo} 尚未菲票装袋，不能直接中转袋入仓。`
-        return true
+    if (field === 'carrierCode') eventState.form.carrierCode = fieldNode.value
+    if (field === 'locationLabel') eventState.form.locationLabel = fieldNode.value
+    if (field === 'scanCode' && mode === 'bagging') {
+      eventState.form.scanCode = fieldNode.value
+      const ticket = resolveInboundScanTicket(fieldNode.value)
+      if (ticket) {
+        const validation = validateInboundScan(eventState.form, fieldNode.value)
+        const nextState =
+          validation.ok && validation.ticket
+            ? applyPdaCuttingInboundTicketScan(eventState.form, {
+                ticketNo: validation.ticket.ticketNo,
+                pieceQty: ticketPieceQty(validation.ticket),
+              }).state
+            : {
+                ...eventState.form,
+                scanFeedbackMessage: validation.reason,
+                resultMessage: '',
+              }
+        replaceState(
+          taskId,
+          mode,
+          nextState,
+          eventState.selectedExecutionOrderId,
+          eventState.selectedExecutionOrderNo,
+        )
+        updateBaggingLiveRegion(resolveInboundFormContainer(fieldNode), nextState)
       }
-      const warehouseArea = `${form.zoneCode} 区`
-      const locationCode = form.locationLabel.trim() || `${form.zoneCode}-01 临时位`
-      appendWaitHandoverInboundEvent({
-        source: 'PDA',
-        operator: {
-          operatorId: operator.operatorAccountId,
-          operatorName: operator.operatorName,
-          operatorRole: operator.operatorRole || '仓务操作员',
-        },
-        bagCode,
-        warehouseArea,
-        locationCode,
-        tickets: inboundTickets.map((ticket) => buildWaitHandoverRuntimeTicketFromTransferCandidate(ticket)),
-        occurredAt: inboundAt,
-      })
-    } else {
-      appendWaitHandoverBaggingEvent({
-        source: 'PDA',
-        operator: {
-          operatorId: operator.operatorAccountId,
-          operatorName: operator.operatorName,
-          operatorRole: operator.operatorRole || '裁片仓装袋员',
-        },
-        bagCode,
-        tickets: inboundTickets.map((ticket) => buildWaitHandoverRuntimeTicketFromTransferCandidate(ticket)),
-        occurredAt: inboundAt,
-      })
     }
-    form.scanCode = ''
-    form.inboundQty = ''
-    form.scannedTicketNos = []
-    form.feedbackMessage = isInboundLocationAction
-      ? `中转袋入仓已确认，已绑定库位：${form.zoneCode} 区 / ${form.locationLabel.trim() || `${form.zoneCode}-01 临时位`}。`
-      : `菲票装袋已确认，已形成袋内事实：${inboundQty} 片。`
-    form.syncStatus = '已同步'
-    form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
-      taskId,
-      context.selectedExecutionOrderId,
-      context.selectedExecutionOrderNo,
-      context.navContext,
-      'inbound',
-    )
     return true
   }
 
-  return false
+  const actionNode = target.closest<HTMLElement>('[data-pda-cut-inbound-action="confirm"]')
+  if (!actionNode) return false
+  const taskId = actionNode.dataset.taskId
+  if (!taskId) return false
+  const eventState = resolveInboundEventState(taskId, mode)
+  syncFormFromControls(eventState.form, resolveInboundFormContainer(actionNode))
+
+  let result: InboundRoundResult = { ok: true }
+  if (!eventState.form.carrierCode.trim()) {
+    result = { ok: false, message: '请扫描中转袋。' }
+  } else if (mode === 'inbound-location' && !eventState.form.locationLabel.trim()) {
+    result = { ok: false, message: '请扫描库区库位。' }
+  } else if (mode === 'bagging' && eventState.form.scanCode.trim()) {
+    const validation = validateInboundScan(eventState.form, eventState.form.scanCode)
+    result = { ok: false, message: validation.reason }
+  } else if (mode === 'bagging' && !eventState.form.scannedTicketNos.length) {
+    result = { ok: false, message: '请扫描菲票。' }
+  }
+
+  replaceState(
+    taskId,
+    mode,
+    completePdaCuttingInboundRound(eventState.form, mode, result),
+    eventState.selectedExecutionOrderId,
+    eventState.selectedExecutionOrderNo,
+  )
+  return true
 }
 
 function appTaskIdFromPath(): string {
