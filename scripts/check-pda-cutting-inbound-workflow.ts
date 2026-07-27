@@ -26,10 +26,23 @@ assert.equal(
   'function',
   'PDA 裁片入仓页必须导出两种模式的工作区渲染函数',
 )
+assert.equal(
+  typeof pageModule.resolvePdaCuttingInboundScanTrigger,
+  'function',
+  'PDA 裁片入仓页必须导出扫码完成触发判定函数',
+)
+assert.equal(
+  typeof pageModule.completePdaCuttingInboundTicketScan,
+  'function',
+  'PDA 裁片入仓页必须导出统一扫码校验与状态转换函数',
+)
 
 type WorkflowModule = {
   createPdaCuttingInboundFormState: () => any
-  applyPdaCuttingInboundTicketScan: (state: any, ticket: { ticketNo: string; pieceQty: number }) => {
+  applyPdaCuttingInboundTicketScan: (
+    state: any,
+    ticket: { ticketNo: string; pieceQty: number; productionOrderNo: string },
+  ) => {
     ok: boolean
     state: any
   }
@@ -39,13 +52,38 @@ type WorkflowModule = {
     result: { ok: boolean; message?: string },
   ) => any
   renderPdaCuttingInboundWorkflow: (mode: 'bagging' | 'inbound-location', state: any) => string
+  resolvePdaCuttingInboundScanTrigger: (event: { type: string; key?: string }) => 'immediate' | 'debounced' | 'none'
+  completePdaCuttingInboundTicketScan: (
+    state: any,
+    scanCode: string,
+    candidates: Array<Record<string, any>>,
+  ) => { ok: boolean; state: any }
+  PDA_CUTTING_INBOUND_SCAN_DEBOUNCE_MS: number
 }
 
 const workflow = pageModule as unknown as WorkflowModule
+assert.equal(workflow.PDA_CUTTING_INBOUND_SCAN_DEBOUNCE_MS, 150, '扫码枪输入 debounce 必须为约 150ms')
+assert.equal(
+  workflow.resolvePdaCuttingInboundScanTrigger({ type: 'keydown', key: 'Enter' }),
+  'immediate',
+  'Enter 必须优先立即完成扫描',
+)
+assert.equal(
+  workflow.resolvePdaCuttingInboundScanTrigger({ type: 'input' }),
+  'debounced',
+  '普通扫码枪输入必须走 debounce',
+)
+assert.equal(
+  workflow.resolvePdaCuttingInboundScanTrigger({ type: 'keydown', key: 'A' }),
+  'none',
+  '非 Enter 按键不得触发扫描校验',
+)
+
 const initial = workflow.createPdaCuttingInboundFormState()
 const outOfOrderScan = workflow.applyPdaCuttingInboundTicketScan(initial, {
   ticketNo: 'FT-000',
   pieceQty: 5,
+  productionOrderNo: 'PO-001',
 })
 assert.equal(outOfOrderScan.ok, false, '未扫中转袋时不得提前加入菲票')
 assert.deepEqual(outOfOrderScan.state.scannedTicketNos, [], '顺序错误时不得改变已扫菲票')
@@ -56,18 +94,58 @@ initial.scanCode = 'FT-001'
 const firstScan = workflow.applyPdaCuttingInboundTicketScan(initial, {
   ticketNo: 'FT-001',
   pieceQty: 12,
+  productionOrderNo: 'PO-001',
 })
 assert.equal(firstScan.ok, true, '有效菲票扫码后必须直接加入当前袋')
 assert.deepEqual(firstScan.state.scannedTicketNos, ['FT-001'], '扫码后已扫菲票应立即增加')
 assert.equal(firstScan.state.inboundQty, '12', '扫码后数量必须自动累计')
 assert.equal(firstScan.state.scanCode, '', '扫码加入成功后必须清空扫码框，允许连续扫描')
+assert.equal(firstScan.state.bagProductionOrderNo, 'PO-001', '首张菲票必须确定当前袋生产单')
 
 const secondScan = workflow.applyPdaCuttingInboundTicketScan(firstScan.state, {
   ticketNo: 'FT-002',
   pieceQty: 8,
+  productionOrderNo: 'PO-001',
 })
 assert.deepEqual(secondScan.state.scannedTicketNos, ['FT-001', 'FT-002'], '必须支持连续扫描多张菲票')
 assert.equal(secondScan.state.inboundQty, '20', '连续扫码数量累计错误')
+
+const mixedOrderScan = workflow.applyPdaCuttingInboundTicketScan(secondScan.state, {
+  ticketNo: 'FT-003',
+  pieceQty: 7,
+  productionOrderNo: 'PO-002',
+})
+assert.equal(mixedOrderScan.ok, false, '同一袋不得加入不同生产单菲票')
+assert.deepEqual(mixedOrderScan.state.scannedTicketNos, ['FT-001', 'FT-002'], '跨生产单失败必须保留已扫菲票')
+assert(
+  mixedOrderScan.state.scanFeedbackMessage.includes('不属于当前袋生产单'),
+  '跨生产单失败必须给出短错误提示',
+)
+
+const unknownState = { ...secondScan.state, scanCode: 'UNKNOWN-001' }
+const unknownScan = workflow.completePdaCuttingInboundTicketScan(unknownState, 'UNKNOWN-001', [])
+assert.equal(unknownScan.ok, false, '未知菲票必须在扫描完成时失败')
+assert.equal(unknownScan.state.scanCode, '', '未知菲票失败后应清空输入，便于重扫')
+assert.deepEqual(unknownScan.state.scannedTicketNos, ['FT-001', 'FT-002'], '未知菲票失败必须保留已扫数据')
+assert.equal(unknownScan.state.scanFeedbackMessage, '没有找到这张菲票，请重新扫描。', '未知菲票短错误不正确')
+
+const waitScan = workflow.completePdaCuttingInboundTicketScan(
+  { ...secondScan.state, scanCode: 'WAIT-001' },
+  'WAIT-001',
+  [],
+)
+assert.equal(waitScan.ok, false, 'WAIT 菲票必须在扫描完成时失败')
+assert.equal(waitScan.state.scanCode, '', 'WAIT 菲票失败后应清空输入')
+assert.equal(waitScan.state.scanFeedbackMessage, '这张菲票未打印，请换一张。', 'WAIT 菲票短错误不正确')
+
+const voidScan = workflow.completePdaCuttingInboundTicketScan(
+  { ...secondScan.state, scanCode: 'VOID-001' },
+  'VOID-001',
+  [],
+)
+assert.equal(voidScan.ok, false, 'VOID 菲票必须在扫描完成时失败')
+assert.equal(voidScan.state.scanCode, '', 'VOID 菲票失败后应清空输入')
+assert.equal(voidScan.state.scanFeedbackMessage, '这张菲票已作废，请换一张。', 'VOID 菲票短错误不正确')
 
 const failedBagging = workflow.completePdaCuttingInboundRound(secondScan.state, 'bagging', {
   ok: false,

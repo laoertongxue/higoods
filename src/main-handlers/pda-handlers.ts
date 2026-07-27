@@ -26,7 +26,7 @@ import { handlePdaCuttingInboundEvent } from '../pages/pda-cutting-inbound'
 import { handlePdaCuttingHandoverEvent } from '../pages/pda-cutting-handover'
 import { showPdaWarehouseActionToast } from '../pages/pda-warehouse-shared'
 
-export async function dispatchPdaPageEvent(target: HTMLElement): Promise<boolean> {
+export async function dispatchPdaPageEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   try {
     return (
       await handlePdaShellEvent(target) ||
@@ -49,7 +49,7 @@ export async function dispatchPdaPageEvent(target: HTMLElement): Promise<boolean
       await handlePdaCuttingTaskDetailEvent(target) ||
       await handlePdaCuttingExecutionUnitEvent(target) ||
       await handlePdaCuttingSpreadingEvent(target) ||
-      await handlePdaCuttingInboundEvent(target) ||
+      await handlePdaCuttingInboundEvent(target, event) ||
       await handlePdaCuttingHandoverEvent(target) ||
       await handlePdaSewingSelfReturnEvent(target) ||
       await handlePdaHandoverEvent(target) ||

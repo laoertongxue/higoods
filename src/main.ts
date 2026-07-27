@@ -652,7 +652,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     }
     if (handlerSystem === 'pda') {
       const pdaHandlers = await getPdaHandlersModule()
-      return pdaHandlers.dispatchPdaPageEvent(eventTarget)
+      return pdaHandlers.dispatchPdaPageEvent(eventTarget, event)
     }
 
     const [fcsHandlers, pcsHandlers, pdaHandlers] = await Promise.all([
@@ -669,7 +669,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
       return true
     }
 
-    return pdaHandlers.dispatchPdaPageEvent(eventTarget)
+    return pdaHandlers.dispatchPdaPageEvent(eventTarget, event)
   } catch (error) {
     if (reloadForDynamicModuleLoadError(error, '页面事件处理器')) return false
     console.error('页面事件处理器加载失败，已降级为不处理', error)
@@ -1984,6 +1984,12 @@ root.addEventListener('submit', async (event) => {
 })
 
 document.addEventListener('keydown', async (event) => {
+  const target = resolveEventElementTarget(event.target)
+  const cuttingInboundScan = target?.closest<HTMLElement>('[data-pda-cut-inbound-field="scanCode"]')
+  if (event.key === 'Enter' && cuttingInboundScan) {
+    if (await dispatchPageEvent(cuttingInboundScan, event)) event.preventDefault()
+    return
+  }
   if (event.key !== 'Escape') return
 
   const shouldUseScopedRender = isTechPackPageMounted()

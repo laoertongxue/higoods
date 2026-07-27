@@ -14,10 +14,12 @@ import { buildTransferBagsProjection } from './process-factory/cutting/transfer-
 import type { TransferBagTicketCandidate } from './process-factory/cutting/transfer-bags-model.ts'
 
 export type PdaCuttingInboundMode = 'bagging' | 'inbound-location'
+export const PDA_CUTTING_INBOUND_SCAN_DEBOUNCE_MS = 150
 
 export interface InboundFormState {
   operatorName: string
   carrierCode: string
+  bagProductionOrderNo: string
   scanCode: string
   locationLabel: string
   inboundQty: string
@@ -29,6 +31,7 @@ export interface InboundFormState {
 interface ScannedTicketInput {
   ticketNo: string
   pieceQty: number
+  productionOrderNo: string
 }
 
 interface InboundRoundResult {
@@ -43,11 +46,13 @@ declare global {
 }
 
 const fallbackInboundState = new Map<string, InboundFormState>()
+const ticketScanTimers = new WeakMap<HTMLInputElement, ReturnType<typeof setTimeout>>()
 
 export function createPdaCuttingInboundFormState(): InboundFormState {
   return {
     operatorName: '仓务操作员',
     carrierCode: '',
+    bagProductionOrderNo: '',
     scanCode: '',
     locationLabel: '',
     inboundQty: '',
@@ -79,6 +84,19 @@ export function applyPdaCuttingInboundTicketScan(
       },
     }
   }
+  if (
+    state.bagProductionOrderNo &&
+    ticket.productionOrderNo &&
+    state.bagProductionOrderNo !== ticket.productionOrderNo
+  ) {
+    return {
+      ok: false,
+      state: {
+        ...state,
+        scanFeedbackMessage: `${ticket.ticketNo} 不属于当前袋生产单，请换一张。`,
+      },
+    }
+  }
 
   const nextQty = Number(state.inboundQty || 0) + Number(ticket.pieceQty || 0)
   return {
@@ -86,6 +104,7 @@ export function applyPdaCuttingInboundTicketScan(
     state: {
       ...state,
       scanCode: '',
+      bagProductionOrderNo: state.bagProductionOrderNo || ticket.productionOrderNo,
       inboundQty: String(nextQty),
       scannedTicketNos: [...state.scannedTicketNos, ticket.ticketNo],
       scanFeedbackMessage: `${ticket.ticketNo} 已加入`,
@@ -181,11 +200,22 @@ function listInboundTicketCandidates(): TransferBagTicketCandidate[] {
   return buildTransferBagsProjection().viewModel.ticketCandidates
 }
 
-function resolveInboundScanTicket(scanCode: string): TransferBagTicketCandidate | null {
+export function resolvePdaCuttingInboundScanTrigger(
+  event: { type: string; key?: string },
+): 'immediate' | 'debounced' | 'none' {
+  if (event.type === 'keydown') return event.key === 'Enter' ? 'immediate' : 'none'
+  if (event.type === 'input' || event.type === 'compositionend') return 'debounced'
+  return 'none'
+}
+
+function resolveInboundScanTicketFromCandidates(
+  scanCode: string,
+  candidates: TransferBagTicketCandidate[],
+): TransferBagTicketCandidate | null {
   const normalized = scanCode.trim().toUpperCase()
   if (!normalized) return null
   return (
-    listInboundTicketCandidates().find((ticket) =>
+    candidates.find((ticket) =>
       [ticket.ticketNo, ticket.feiTicketId, ticket.ticketRecordId].some(
         (value) => String(value || '').toUpperCase() === normalized,
       ),
@@ -196,6 +226,7 @@ function resolveInboundScanTicket(scanCode: string): TransferBagTicketCandidate 
 function validateInboundScan(
   form: InboundFormState,
   scanCode: string,
+  candidates: TransferBagTicketCandidate[],
 ): { ok: boolean; reason: string; ticket: TransferBagTicketCandidate | null } {
   const normalized = scanCode.trim().toUpperCase()
   if (!normalized) return { ok: false, reason: '请扫描菲票。', ticket: null }
@@ -205,13 +236,20 @@ function validateInboundScan(
   if (normalized.includes('VOID') || normalized.includes('作废')) {
     return { ok: false, reason: '这张菲票已作废，请换一张。', ticket: null }
   }
-  const ticket = resolveInboundScanTicket(scanCode)
+  const ticket = resolveInboundScanTicketFromCandidates(scanCode, candidates)
   if (!ticket) return { ok: false, reason: '没有找到这张菲票，请重新扫描。', ticket: null }
   if (ticket.ticketStatus === 'VOIDED' || ticket.printStatus === 'VOIDED') {
     return { ok: false, reason: '这张菲票已作废，请换一张。', ticket }
   }
   if (ticket.printStatus === 'WAIT_PRINT' && ticket.ticketStatus !== 'PRINTED') {
     return { ok: false, reason: '这张菲票未打印，请换一张。', ticket }
+  }
+  if (
+    form.bagProductionOrderNo &&
+    ticket.productionOrderNo &&
+    form.bagProductionOrderNo !== ticket.productionOrderNo
+  ) {
+    return { ok: false, reason: `${ticket.ticketNo} 不属于当前袋生产单，请换一张。`, ticket }
   }
   const numberingValidation = validateFeiTicketNumberingBeforeBagging({
     feiTicketId: ticket.feiTicketId || ticket.ticketRecordId,
@@ -224,6 +262,30 @@ function validateInboundScan(
     return { ok: false, reason: `${ticket.ticketNo} 已扫过，请扫下一张。`, ticket }
   }
   return { ok: true, reason: '', ticket }
+}
+
+export function completePdaCuttingInboundTicketScan(
+  form: InboundFormState,
+  scanCode: string,
+  candidates: TransferBagTicketCandidate[],
+): { ok: boolean; state: InboundFormState } {
+  const validation = validateInboundScan(form, scanCode, candidates)
+  if (!validation.ok || !validation.ticket) {
+    return {
+      ok: false,
+      state: {
+        ...form,
+        scanCode: '',
+        scanFeedbackMessage: validation.reason,
+        resultMessage: '',
+      },
+    }
+  }
+  return applyPdaCuttingInboundTicketScan(form, {
+    ticketNo: validation.ticket.ticketNo,
+    pieceQty: ticketPieceQty(validation.ticket),
+    productionOrderNo: validation.ticket.productionOrderNo,
+  })
 }
 
 function ticketPieceQty(ticket: TransferBagTicketCandidate): number {
@@ -351,6 +413,27 @@ function updateBaggingLiveRegion(container: HTMLElement | null, form: InboundFor
   if (liveRegion) liveRegion.innerHTML = renderBaggingLiveState(form)
 }
 
+function completeInboundTicketScan(
+  fieldNode: HTMLInputElement,
+  taskId: string,
+  mode: PdaCuttingInboundMode,
+  eventState: ReturnType<typeof resolveInboundEventState>,
+): void {
+  const next = completePdaCuttingInboundTicketScan(
+    eventState.form,
+    fieldNode.value,
+    listInboundTicketCandidates(),
+  )
+  replaceState(
+    taskId,
+    mode,
+    next.state,
+    eventState.selectedExecutionOrderId,
+    eventState.selectedExecutionOrderNo,
+  )
+  updateBaggingLiveRegion(resolveInboundFormContainer(fieldNode), next.state)
+}
+
 function syncFormFromControls(form: InboundFormState, container: HTMLElement | null): void {
   if (!container) return
   const carrierCode = container.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="carrierCode"]')
@@ -361,7 +444,7 @@ function syncFormFromControls(form: InboundFormState, container: HTMLElement | n
   if (locationLabel) form.locationLabel = locationLabel.value
 }
 
-export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
+export function handlePdaCuttingInboundEvent(target: HTMLElement, event?: Event): boolean {
   const mode = getInboundMode()
   const fieldNode = target.closest<HTMLElement>('[data-pda-cut-inbound-field]')
   if (
@@ -377,30 +460,25 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
 
     if (field === 'carrierCode') eventState.form.carrierCode = fieldNode.value
     if (field === 'locationLabel') eventState.form.locationLabel = fieldNode.value
-    if (field === 'scanCode' && mode === 'bagging') {
+    if (field === 'scanCode' && mode === 'bagging' && fieldNode instanceof HTMLInputElement) {
       eventState.form.scanCode = fieldNode.value
-      const ticket = resolveInboundScanTicket(fieldNode.value)
-      if (ticket) {
-        const validation = validateInboundScan(eventState.form, fieldNode.value)
-        const nextState =
-          validation.ok && validation.ticket
-            ? applyPdaCuttingInboundTicketScan(eventState.form, {
-                ticketNo: validation.ticket.ticketNo,
-                pieceQty: ticketPieceQty(validation.ticket),
-              }).state
-            : {
-                ...eventState.form,
-                scanFeedbackMessage: validation.reason,
-                resultMessage: '',
-              }
-        replaceState(
-          taskId,
-          mode,
-          nextState,
-          eventState.selectedExecutionOrderId,
-          eventState.selectedExecutionOrderNo,
+      const trigger = resolvePdaCuttingInboundScanTrigger({
+        type: event?.type || 'input',
+        key: event && 'key' in event ? String(event.key || '') : undefined,
+      })
+      const pendingTimer = ticketScanTimers.get(fieldNode)
+      if (pendingTimer) clearTimeout(pendingTimer)
+      if (!fieldNode.value.trim() || trigger === 'none') return true
+      if (trigger === 'immediate') {
+        completeInboundTicketScan(fieldNode, taskId, mode, eventState)
+      } else {
+        ticketScanTimers.set(
+          fieldNode,
+          setTimeout(
+            () => completeInboundTicketScan(fieldNode, taskId, mode, eventState),
+            PDA_CUTTING_INBOUND_SCAN_DEBOUNCE_MS,
+          ),
         )
-        updateBaggingLiveRegion(resolveInboundFormContainer(fieldNode), nextState)
       }
     }
     return true
@@ -419,7 +497,11 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement): boolean {
   } else if (mode === 'inbound-location' && !eventState.form.locationLabel.trim()) {
     result = { ok: false, message: '请扫描库区库位。' }
   } else if (mode === 'bagging' && eventState.form.scanCode.trim()) {
-    const validation = validateInboundScan(eventState.form, eventState.form.scanCode)
+    const validation = validateInboundScan(
+      eventState.form,
+      eventState.form.scanCode,
+      listInboundTicketCandidates(),
+    )
     result = { ok: false, message: validation.reason }
   } else if (mode === 'bagging' && !eventState.form.scannedTicketNos.length) {
     result = { ok: false, message: '请扫描菲票。' }
