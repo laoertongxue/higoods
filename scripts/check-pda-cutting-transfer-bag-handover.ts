@@ -357,6 +357,15 @@ const originalHtmlInputElement = (
 const originalHtmlTextAreaElement = (
   globalThis as typeof globalThis & { HTMLTextAreaElement?: typeof HTMLTextAreaElement }
 ).HTMLTextAreaElement
+class FakeHandoverInputElement {
+  value = ''
+  dataset = {} as DOMStringMap
+  closestHandler: (selector: string) => unknown = () => null
+
+  closest(selector: string): unknown {
+    return this.closestHandler(selector)
+  }
+}
 const legacyRouteWindow = new EventTarget() as EventTarget & {
   location: { pathname: string; search: string }
 }
@@ -366,7 +375,7 @@ legacyRouteWindow.location = {
 }
 ;(globalThis as typeof globalThis & { window: Window }).window = legacyRouteWindow as unknown as Window
 ;(globalThis as typeof globalThis & { HTMLInputElement: typeof HTMLInputElement }).HTMLInputElement =
-  class {} as typeof HTMLInputElement
+  FakeHandoverInputElement as unknown as typeof HTMLInputElement
 ;(globalThis as typeof globalThis & { HTMLTextAreaElement: typeof HTMLTextAreaElement }).HTMLTextAreaElement =
   class {} as typeof HTMLTextAreaElement
 const legacyRouteHtml = (
@@ -400,6 +409,137 @@ assert.equal(
   false,
   '历史深链即使收到旧确认命令也不得触发旧事件写入',
 )
+
+legacyRouteWindow.location.search = '?action=transfer-bag-handover'
+const eventTaskId = 'TASK-CUT-PDA-CUT-DONE-0307'
+const liveRegion = { innerHTML: '' }
+const eventContainer = {
+  dataset: { taskId: eventTaskId },
+  querySelector(selector: string) {
+    if (selector === '[data-pda-cut-handover-field="bagCode"]') return bagInput
+    if (selector === '[data-pda-cut-handover-field="sewingTaskCode"]') return taskInput
+    if (selector === '[data-pda-transfer-bag-handover-live]') return liveRegion
+    return null
+  },
+}
+const buildEventInput = (field: 'bagCode' | 'sewingTaskCode') => {
+  const input = new FakeHandoverInputElement()
+  input.dataset.pdaCutHandoverField = field
+  input.closestHandler = (selector) => {
+    if (selector === '[data-pda-cut-handover-field]') return input
+    if (selector === '[data-task-id]') return eventContainer
+    return null
+  }
+  return input
+}
+const bagInput = buildEventInput('bagCode')
+const taskInput = buildEventInput('sewingTaskCode')
+const handleTransferEvent = pageModule.handlePdaCuttingHandoverEvent as (
+  target: HTMLElement,
+  event?: Event,
+) => boolean
+const dispatchTransferInput = (
+  input: FakeHandoverInputElement,
+  type: 'input' | 'keydown',
+  key?: string,
+) => handleTransferEvent(input as unknown as HTMLElement, { type, key } as unknown as Event)
+
+bagInput.value = 'TB-CUT-260727-001'
+assert.equal(dispatchTransferInput(bagInput, 'keydown', 'Enter'), true, '事件级袋扫码必须被处理')
+taskInput.value = 'SEW-PO-202603-0102-01'
+assert.equal(dispatchTransferInput(taskInput, 'keydown', 'Enter'), true, '事件级任务扫码必须被处理')
+taskInput.value = 'SEW-PO-202603-0102-02'
+assert.equal(dispatchTransferInput(taskInput, 'keydown', 'Enter'), true, '事件级同生产单任务换扫必须被处理')
+assert.equal(taskInput.value, 'SEW-PO-202603-0102-02', '成功替换必须同步任务输入框')
+assert(liveRegion.innerHTML.includes('SEW-PO-202603-0102-02'), '成功替换必须同步 live 区任务号')
+assert(liveRegion.innerHTML.includes('PO-202603-0102'), '成功替换必须同步 live 区生产单')
+assert(liveRegion.innerHTML.includes('HiGood 印尼二厂'), '成功替换必须同步 live 区接收工厂')
+
+taskInput.value = 'UNKNOWN-TASK'
+assert.equal(dispatchTransferInput(taskInput, 'keydown', 'Enter'), true, '失败换扫事件必须被处理')
+assert.equal(taskInput.value, 'SEW-PO-202603-0102-02', '失败换扫必须恢复原有效任务输入')
+assert(liveRegion.innerHTML.includes('SEW-PO-202603-0102-02'), '失败换扫必须保留原任务号')
+assert(liveRegion.innerHTML.includes('PO-202603-0102'), '失败换扫必须保留原生产单')
+assert(liveRegion.innerHTML.includes('HiGood 印尼二厂'), '失败换扫必须保留原接收工厂')
+assert(liveRegion.innerHTML.includes('没有找到这个车缝任务'), '失败换扫必须在 live 区反馈原因')
+
+taskInput.value = 'UNKNOWN-PENDING-TASK'
+dispatchTransferInput(taskInput, 'input')
+taskInput.value = ''
+dispatchTransferInput(taskInput, 'input')
+await new Promise((resolve) =>
+  setTimeout(resolve, workflow.PDA_CUTTING_TRANSFER_BAG_SCAN_DEBOUNCE_MS + 25),
+)
+assert.equal(taskInput.value, '', '清空任务必须保持输入框为空')
+assert(liveRegion.innerHTML.includes('TB-CUT-260727-001'), '清空任务必须保留已识别袋')
+assert(liveRegion.innerHTML.includes('12 张'), '清空任务必须保留袋内菲票数量')
+assert(!liveRegion.innerHTML.includes('SEW-PO-202603-0102-02'), '清空任务必须清除 live 区任务号')
+assert(!liveRegion.innerHTML.includes('PO-202603-0102'), '清空任务必须清除 live 区生产单')
+assert(!liveRegion.innerHTML.includes('HiGood 印尼二厂'), '清空任务必须清除 live 区接收工厂')
+assert(!liveRegion.innerHTML.includes('没有找到这个车缝任务'), '清空任务必须清除旧扫码反馈')
+const taskClearStateHtml = (
+  pageModule.renderPdaCuttingHandoverPage as (taskId: string) => string
+)(eventTaskId)
+assert(!taskClearStateHtml.includes('SEW-PO-202603-0102-02'), '清空任务必须同步清除状态中的任务草稿')
+
+const confirmTransferTarget = {
+  closest(selector: string) {
+    if (selector === '[data-pda-cut-handover-field]') return null
+    if (selector === '[data-pda-cut-handover-action]') {
+      return {
+        dataset: {
+          pdaCutHandoverAction: 'confirm-transfer-bag-handover',
+          taskId: eventTaskId,
+        },
+      }
+    }
+    return null
+  },
+}
+assert.equal(
+  handleTransferEvent(confirmTransferTarget as unknown as HTMLElement),
+  true,
+  '清空任务后的确认事件必须被处理',
+)
+const taskClearConfirmHtml = (
+  pageModule.renderPdaCuttingHandoverPage as (taskId: string) => string
+)(eventTaskId)
+assert(taskClearConfirmHtml.includes('请扫描车缝任务。'), '清空任务后确认必须阻断并提示扫描任务')
+
+taskInput.value = 'SEW-PO-202603-0102-01'
+dispatchTransferInput(taskInput, 'keydown', 'Enter')
+assert(liveRegion.innerHTML.includes('HiGood 印尼一厂'), '袋清空场景前必须恢复完整有效任务草稿')
+bagInput.value = 'UNKNOWN-PENDING-BAG'
+dispatchTransferInput(bagInput, 'input')
+bagInput.value = ''
+dispatchTransferInput(bagInput, 'input')
+await new Promise((resolve) =>
+  setTimeout(resolve, workflow.PDA_CUTTING_TRANSFER_BAG_SCAN_DEBOUNCE_MS + 25),
+)
+assert.equal(bagInput.value, '', '清空袋必须保持袋输入框为空')
+assert.equal(taskInput.value, '', '清空袋必须同步清除下游任务输入框')
+assert.equal(liveRegion.innerHTML.trim(), '', '清空袋必须清除袋、任务派生信息与反馈')
+const bagClearStateHtml = (
+  pageModule.renderPdaCuttingHandoverPage as (taskId: string) => string
+)(eventTaskId)
+for (const staleValue of [
+  'TB-CUT-260727-001',
+  'SEW-PO-202603-0102-01',
+  'PO-202603-0102',
+  'HiGood 印尼一厂',
+]) {
+  assert(!bagClearStateHtml.includes(staleValue), `清空袋后状态不得残留“${staleValue}”`)
+}
+assert.equal(
+  handleTransferEvent(confirmTransferTarget as unknown as HTMLElement),
+  true,
+  '清空袋后的确认事件必须被处理',
+)
+const bagClearConfirmHtml = (
+  pageModule.renderPdaCuttingHandoverPage as (taskId: string) => string
+)(eventTaskId)
+assert(bagClearConfirmHtml.includes('请扫描中转袋。'), '清空袋后确认必须阻断并提示扫描中转袋')
+
 if (originalWindow) {
   ;(globalThis as typeof globalThis & { window: Window }).window = originalWindow
 } else {

@@ -174,6 +174,22 @@ export function createPdaTransferBagHandoverFormState(): PdaTransferBagHandoverF
   }
 }
 
+function clearPdaTransferBagHandoverScanDraft(
+  state: PdaTransferBagHandoverFormState,
+  field: 'bagCode' | 'sewingTaskCode',
+): PdaTransferBagHandoverFormState {
+  if (field === 'bagCode') return createPdaTransferBagHandoverFormState()
+  return {
+    ...state,
+    sewingTaskCode: '',
+    sewingTaskNo: '',
+    productionOrderNo: '',
+    receiverFactoryName: '',
+    scanFeedbackMessage: '',
+    resultMessage: '',
+  }
+}
+
 export function resolvePdaTransferBagHandoverScanTrigger(
   event: { type: string; key?: string },
 ): 'immediate' | 'debounced' | 'none' {
@@ -1442,8 +1458,29 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement, event?: Event
         key: event && 'key' in event ? String(event.key || '') : undefined,
       })
       transferBagScanTimerController.cancel(stateKey)
-      if (!fieldNode.value.trim() || trigger === 'none') return true
       const stateField = field === 'bagCode' ? 'bagCode' : 'sewingTaskCode'
+      if (!fieldNode.value.trim()) {
+        const nextState = clearPdaTransferBagHandoverScanDraft(
+          getTransferBagHandoverState(
+            taskId,
+            transferExecutionOrderId,
+            transferExecutionOrderNo,
+          ),
+          stateField,
+        )
+        replaceTransferBagHandoverState(
+          taskId,
+          nextState,
+          transferExecutionOrderId,
+          transferExecutionOrderNo,
+        )
+        updateTransferBagHandoverLiveRegion(
+          resolveTransferBagHandoverContainer(fieldNode),
+          nextState,
+        )
+        return true
+      }
+      if (trigger === 'none') return true
       if (trigger === 'immediate') {
         completeTransferBagHandoverFieldScan(
           fieldNode,
