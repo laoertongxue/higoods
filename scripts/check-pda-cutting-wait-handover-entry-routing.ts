@@ -15,11 +15,11 @@ function assertNotContains(token: string, message: string): void {
 }
 
 assertContains(
-  "routeAction === 'handover-bagging-confirm' || routeAction === 'transfer-bag-handover'",
-  '中转袋交出 action 必须明确复用现有交出装袋确认模式',
+  "const isTransferBagHandoverAction = routeAction === 'transfer-bag-handover'",
+  '中转袋交出 action 必须使用独立模式',
 )
 assertContains(
-  "routeAction === 'transfer-bag-handover' ? '中转袋交出'",
+  "isTransferBagHandoverAction ? '中转袋交出'",
   '中转袋交出 action 必须显示“中转袋交出”标题',
 )
 assertContains(

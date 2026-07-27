@@ -75,6 +75,269 @@ interface HandoverFormState {
 
 const handoverState = new Map<string, HandoverFormState>()
 
+export const PDA_CUTTING_TRANSFER_BAG_SCAN_DEBOUNCE_MS = 150
+
+export interface PdaTransferBagHandoverFormState {
+  bagCode: string
+  sewingTaskCode: string
+  sewingTaskNo: string
+  productionOrderNo: string
+  receiverFactoryName: string
+  ticketCount: number | null
+  scanFeedbackMessage: string
+  resultMessage: string
+}
+
+interface PdaTransferBagHandoverBagCandidate {
+  bagCode: string
+  ticketCount: number
+  boundSewingTaskNo?: string
+}
+
+interface PdaTransferBagHandoverSewingTaskCandidate {
+  sewingTaskNo: string
+  productionOrderNo: string
+  receiverFactoryName: string
+}
+
+interface PdaTransferBagHandoverCandidates {
+  bags: PdaTransferBagHandoverBagCandidate[]
+  sewingTasks: PdaTransferBagHandoverSewingTaskCandidate[]
+}
+
+const transferBagHandoverCandidates: PdaTransferBagHandoverCandidates = {
+  bags: [
+    { bagCode: 'TB-CUT-260727-001', ticketCount: 12 },
+    { bagCode: 'TB-CUT-260727-002', ticketCount: 8, boundSewingTaskNo: 'SEW-PO-202603-0102-02' },
+  ],
+  sewingTasks: [
+    {
+      sewingTaskNo: 'SEW-PO-202603-0102-01',
+      productionOrderNo: 'PO-202603-0102',
+      receiverFactoryName: 'HiGood 印尼一厂',
+    },
+    {
+      sewingTaskNo: 'SEW-PO-202603-0102-02',
+      productionOrderNo: 'PO-202603-0102',
+      receiverFactoryName: 'HiGood 印尼二厂',
+    },
+  ],
+}
+
+const transferBagHandoverState = new Map<string, PdaTransferBagHandoverFormState>()
+
+export function createPdaTransferBagHandoverFormState(): PdaTransferBagHandoverFormState {
+  return {
+    bagCode: '',
+    sewingTaskCode: '',
+    sewingTaskNo: '',
+    productionOrderNo: '',
+    receiverFactoryName: '',
+    ticketCount: null,
+    scanFeedbackMessage: '',
+    resultMessage: '',
+  }
+}
+
+export function resolvePdaTransferBagHandoverScanTrigger(
+  event: { type: string; key?: string },
+): 'immediate' | 'debounced' | 'none' {
+  if (event.type === 'keydown') return event.key === 'Enter' ? 'immediate' : 'none'
+  if (event.type === 'input' || event.type === 'compositionend') return 'debounced'
+  return 'none'
+}
+
+export function completePdaTransferBagHandoverScan(
+  state: PdaTransferBagHandoverFormState,
+  field: 'bagCode' | 'sewingTaskCode',
+  scanCode: string,
+  candidates: PdaTransferBagHandoverCandidates,
+): { ok: boolean; state: PdaTransferBagHandoverFormState } {
+  const normalized = normalizeScanValue(scanCode).toUpperCase()
+  if (!normalized) {
+    return {
+      ok: false,
+      state: {
+        ...state,
+        scanFeedbackMessage: field === 'bagCode' ? '请扫描中转袋。' : '请扫描车缝任务。',
+        resultMessage: '',
+      },
+    }
+  }
+
+  if (field === 'bagCode') {
+    const bag = candidates.bags.find((item) => item.bagCode.toUpperCase() === normalized)
+    if (!bag) {
+      return {
+        ok: false,
+        state: {
+          ...state,
+          scanFeedbackMessage: '没有找到这个中转袋，请重新扫描。',
+          resultMessage: '',
+        },
+      }
+    }
+    if (state.sewingTaskNo && bag.boundSewingTaskNo && bag.boundSewingTaskNo !== state.sewingTaskNo) {
+      return {
+        ok: false,
+        state: {
+          ...state,
+          scanFeedbackMessage: '这个中转袋已绑定其他车缝任务，请换一个袋。',
+          resultMessage: '',
+        },
+      }
+    }
+    return {
+      ok: true,
+      state: {
+        ...state,
+        bagCode: bag.bagCode,
+        ticketCount: bag.ticketCount,
+        scanFeedbackMessage: `${bag.bagCode} 已识别`,
+        resultMessage: '',
+      },
+    }
+  }
+
+  if (!state.bagCode) {
+    return {
+      ok: false,
+      state: {
+        ...state,
+        scanFeedbackMessage: '请先扫描中转袋。',
+        resultMessage: '',
+      },
+    }
+  }
+  const task = candidates.sewingTasks.find((item) => item.sewingTaskNo.toUpperCase() === normalized)
+  if (!task) {
+    return {
+      ok: false,
+      state: {
+        ...state,
+        scanFeedbackMessage: '没有找到这个车缝任务，请重新扫描。',
+        resultMessage: '',
+      },
+    }
+  }
+  if (state.sewingTaskNo && state.sewingTaskNo !== task.sewingTaskNo) {
+    return {
+      ok: false,
+      state: {
+        ...state,
+        scanFeedbackMessage: '这个中转袋已绑定当前车缝任务，不能再绑定其他任务。',
+        resultMessage: '',
+      },
+    }
+  }
+  const bag = candidates.bags.find((item) => item.bagCode === state.bagCode)
+  if (bag?.boundSewingTaskNo && bag.boundSewingTaskNo !== task.sewingTaskNo) {
+    return {
+      ok: false,
+      state: {
+        ...state,
+        scanFeedbackMessage: '这个中转袋已绑定其他车缝任务，请换一个袋。',
+        resultMessage: '',
+      },
+    }
+  }
+  return {
+    ok: true,
+    state: {
+      ...state,
+      sewingTaskCode: task.sewingTaskNo,
+      sewingTaskNo: task.sewingTaskNo,
+      productionOrderNo: task.productionOrderNo,
+      receiverFactoryName: task.receiverFactoryName,
+      scanFeedbackMessage: `${task.sewingTaskNo} 已识别`,
+      resultMessage: '',
+    },
+  }
+}
+
+export function completePdaTransferBagHandoverRound(
+  state: PdaTransferBagHandoverFormState,
+  result: { ok: boolean; message?: string },
+): PdaTransferBagHandoverFormState {
+  if (!result.ok) {
+    return {
+      ...state,
+      resultMessage: result.message || '交出失败，请检查后重试。',
+    }
+  }
+  return {
+    ...createPdaTransferBagHandoverFormState(),
+    resultMessage: '交出成功',
+  }
+}
+
+export interface PdaTransferBagHandoverScanTimerController {
+  schedule: (stateKey: string, callback: () => void) => void
+  flush: (stateKey: string) => boolean
+  cancel: (stateKey: string) => void
+  cancelAll: () => void
+  hasPending: (stateKey: string) => boolean
+}
+
+export function createPdaTransferBagHandoverScanTimerController(
+  scheduleTimer: (callback: () => void, delayMs: number) => unknown = (callback, delayMs) =>
+    setTimeout(callback, delayMs),
+  cancelTimer: (timer: unknown) => void = (timer) =>
+    clearTimeout(timer as ReturnType<typeof setTimeout>),
+): PdaTransferBagHandoverScanTimerController {
+  const pendingByStateKey = new Map<string, { timer: unknown; callback: () => void; round: number }>()
+  const roundByStateKey = new Map<string, number>()
+  const nextRound = (stateKey: string): number => {
+    const round = (roundByStateKey.get(stateKey) || 0) + 1
+    roundByStateKey.set(stateKey, round)
+    return round
+  }
+  const cancel = (stateKey: string): void => {
+    nextRound(stateKey)
+    const pending = pendingByStateKey.get(stateKey)
+    if (pending) cancelTimer(pending.timer)
+    pendingByStateKey.delete(stateKey)
+  }
+
+  return {
+    schedule(stateKey, callback) {
+      cancel(stateKey)
+      const round = nextRound(stateKey)
+      const pending = { timer: undefined as unknown, callback, round }
+      pending.timer = scheduleTimer(() => {
+        if (roundByStateKey.get(stateKey) !== round || pendingByStateKey.get(stateKey) !== pending) return
+        pendingByStateKey.delete(stateKey)
+        callback()
+      }, PDA_CUTTING_TRANSFER_BAG_SCAN_DEBOUNCE_MS)
+      pendingByStateKey.set(stateKey, pending)
+    },
+    flush(stateKey) {
+      const pending = pendingByStateKey.get(stateKey)
+      if (!pending) return false
+      cancel(stateKey)
+      pending.callback()
+      return true
+    },
+    cancel,
+    cancelAll() {
+      Array.from(pendingByStateKey.keys()).forEach(cancel)
+    },
+    hasPending(stateKey) {
+      return pendingByStateKey.has(stateKey)
+    },
+  }
+}
+
+const transferBagScanTimerController = createPdaTransferBagHandoverScanTimerController()
+
+export function cancelPdaTransferBagHandoverPendingScans(): void {
+  transferBagScanTimerController.cancelAll()
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('higood:pda-cutting-handover-leave', cancelPdaTransferBagHandoverPendingScans)
+}
+
 function getHandoverDetail(taskId: string, executionKey?: string | null) {
   return buildPdaCuttingHandoverProjection(taskId, executionKey ?? undefined)
 }
@@ -702,18 +965,133 @@ function renderPdaSpecialCraftReturnFlow(
   `
 }
 
+function buildTransferBagHandoverStateKey(
+  taskId: string,
+  executionOrderId?: string | null,
+  executionOrderNo?: string | null,
+): string {
+  return `${buildPdaCuttingExecutionStateKey(taskId, executionOrderId, executionOrderNo)}::transfer-bag-handover`
+}
+
+function getTransferBagHandoverState(
+  taskId: string,
+  executionOrderId?: string | null,
+  executionOrderNo?: string | null,
+): PdaTransferBagHandoverFormState {
+  const stateKey = buildTransferBagHandoverStateKey(taskId, executionOrderId, executionOrderNo)
+  const existing = transferBagHandoverState.get(stateKey)
+  if (existing) return existing
+  const initial = createPdaTransferBagHandoverFormState()
+  transferBagHandoverState.set(stateKey, initial)
+  return initial
+}
+
+function replaceTransferBagHandoverState(
+  taskId: string,
+  state: PdaTransferBagHandoverFormState,
+  executionOrderId?: string | null,
+  executionOrderNo?: string | null,
+): void {
+  transferBagHandoverState.set(
+    buildTransferBagHandoverStateKey(taskId, executionOrderId, executionOrderNo),
+    state,
+  )
+}
+
+function renderTransferBagHandoverLiveState(state: PdaTransferBagHandoverFormState): string {
+  const hasIdentifiedData = Boolean(state.bagCode || state.sewingTaskNo)
+  return `
+    ${
+      hasIdentifiedData
+        ? `
+          <div class="grid grid-cols-2 gap-2 rounded-xl border bg-muted/20 px-3 py-3 text-xs">
+            <div><span class="text-muted-foreground">袋号</span><div class="mt-1 font-medium text-foreground">${escapeHtml(state.bagCode || '待扫描')}</div></div>
+            <div><span class="text-muted-foreground">袋内菲票</span><div class="mt-1 font-medium text-foreground">${state.ticketCount === null ? '待识别' : `${state.ticketCount} 张`}</div></div>
+            <div><span class="text-muted-foreground">车缝任务号</span><div class="mt-1 font-medium text-foreground">${escapeHtml(state.sewingTaskNo || '待扫描')}</div></div>
+            <div><span class="text-muted-foreground">生产单号</span><div class="mt-1 font-medium text-foreground">${escapeHtml(state.productionOrderNo || '待识别')}</div></div>
+            <div class="col-span-2"><span class="text-muted-foreground">接收工厂</span><div class="mt-1 font-medium text-foreground">${escapeHtml(state.receiverFactoryName || '待识别')}</div></div>
+          </div>
+        `
+        : ''
+    }
+    ${state.scanFeedbackMessage ? renderPdaCuttingFeedbackNotice(state.scanFeedbackMessage, 'default') : ''}
+  `
+}
+
+export function renderPdaTransferBagHandoverWorkflow(
+  state: PdaTransferBagHandoverFormState,
+  taskId = '',
+): string {
+  const resultTone = state.resultMessage === '交出成功' ? 'success' : 'warning'
+  return `
+    <section class="space-y-4 rounded-2xl border bg-card px-3 py-3 shadow-sm" data-task-id="${escapeHtml(taskId)}">
+      ${state.resultMessage ? renderPdaCuttingFeedbackNotice(state.resultMessage, resultTone) : ''}
+      <div class="space-y-2">
+        <div class="text-sm font-semibold text-foreground">1 扫中转袋</div>
+        <input
+          class="h-12 w-full rounded-xl border bg-background px-3 text-base"
+          data-pda-cut-handover-field="transferBagCode"
+          data-skip-page-rerender="true"
+          value="${escapeHtml(state.bagCode)}"
+          placeholder="扫描中转袋"
+        />
+      </div>
+      <div class="space-y-2">
+        <div class="text-sm font-semibold text-foreground">2 扫车缝任务</div>
+        <input
+          class="h-12 w-full rounded-xl border bg-background px-3 text-base"
+          data-pda-cut-handover-field="transferBagSewingTaskCode"
+          data-skip-page-rerender="true"
+          value="${escapeHtml(state.sewingTaskCode)}"
+          placeholder="扫描车缝任务"
+        />
+      </div>
+      <div class="space-y-2" data-pda-transfer-bag-handover-live>
+        ${renderTransferBagHandoverLiveState(state)}
+      </div>
+      <div class="space-y-2">
+        <div class="text-sm font-semibold text-foreground">3 确认交出</div>
+        <button
+          class="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground hover:opacity-90"
+          data-pda-cut-handover-action="confirm-transfer-bag-handover"
+          data-task-id="${escapeHtml(taskId)}"
+        >
+          确认交出
+        </button>
+      </div>
+    </section>
+  `
+}
+
 export function renderPdaCuttingHandoverPage(taskId: string): string {
   const context = buildPdaCuttingExecutionContext(taskId, 'handover')
   const detail = context.detail
   const routeAction = readPdaCuttingHandoverActionFromLocation()
-  const isBaggingConfirmAction = routeAction === 'handover-bagging-confirm' || routeAction === 'transfer-bag-handover'
+  const isTransferBagHandoverAction = routeAction === 'transfer-bag-handover'
+  const isBaggingConfirmAction = routeAction === 'handover-bagging-confirm'
   const isSpecialCraftReturnAction = routeAction === 'special-craft-return'
   // 双阶段交出：交出装袋确认 + 交出确认；特种工艺回收入仓支持整袋回仓、逐菲票回仓
-  const pageTitle = isSpecialCraftReturnAction ? '特种工艺回收入仓' : routeAction === 'transfer-bag-handover' ? '中转袋交出' : isBaggingConfirmAction ? '交出装袋确认' : '交出确认'
-  const pageActiveTab = isBaggingConfirmAction || isSpecialCraftReturnAction ? 'warehouse' : 'handover'
+  const pageTitle = isSpecialCraftReturnAction ? '特种工艺回收入仓' : isTransferBagHandoverAction ? '中转袋交出' : isBaggingConfirmAction ? '交出装袋确认' : '交出确认'
+  const pageActiveTab = isTransferBagHandoverAction || isBaggingConfirmAction || isSpecialCraftReturnAction ? 'warehouse' : 'handover'
   const cuttingWaitHandoverBackHref = '/fcs/pda/warehouse/wait-handover?scope=cutting'
   const baggingConfirmBackHref = cuttingWaitHandoverBackHref
   const specialCraftReturnBackHref = cuttingWaitHandoverBackHref
+
+  if (isTransferBagHandoverAction) {
+    const transferState = getTransferBagHandoverState(
+      taskId,
+      context.selectedExecutionOrderId,
+      context.selectedExecutionOrderNo,
+    )
+    return renderPdaCuttingPageLayout({
+      taskId,
+      title: pageTitle,
+      subtitle: '',
+      activeTab: pageActiveTab,
+      body: renderPdaTransferBagHandoverWorkflow(transferState, taskId),
+      backHref: cuttingWaitHandoverBackHref,
+    })
+  }
 
   if (!detail) {
     return renderPdaCuttingPageLayout({
@@ -902,7 +1280,46 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
   })
 }
 
-export function handlePdaCuttingHandoverEvent(target: HTMLElement): boolean {
+function resolveTransferBagHandoverContainer(node: HTMLElement): HTMLElement | null {
+  return node.closest<HTMLElement>('[data-task-id]')
+}
+
+function updateTransferBagHandoverLiveRegion(
+  container: HTMLElement | null,
+  state: PdaTransferBagHandoverFormState,
+): void {
+  if (!container) return
+  const bagInput = container.querySelector<HTMLInputElement>(
+    '[data-pda-cut-handover-field="transferBagCode"]',
+  )
+  const taskInput = container.querySelector<HTMLInputElement>(
+    '[data-pda-cut-handover-field="transferBagSewingTaskCode"]',
+  )
+  if (bagInput) bagInput.value = state.bagCode
+  if (taskInput) taskInput.value = state.sewingTaskCode
+  const liveRegion = container.querySelector<HTMLElement>('[data-pda-transfer-bag-handover-live]')
+  if (liveRegion) liveRegion.innerHTML = renderTransferBagHandoverLiveState(state)
+}
+
+function completeTransferBagHandoverFieldScan(
+  fieldNode: HTMLInputElement,
+  field: 'bagCode' | 'sewingTaskCode',
+  taskId: string,
+  executionOrderId?: string | null,
+  executionOrderNo?: string | null,
+): void {
+  const current = getTransferBagHandoverState(taskId, executionOrderId, executionOrderNo)
+  const next = completePdaTransferBagHandoverScan(
+    current,
+    field,
+    fieldNode.value,
+    transferBagHandoverCandidates,
+  )
+  replaceTransferBagHandoverState(taskId, next.state, executionOrderId, executionOrderNo)
+  updateTransferBagHandoverLiveRegion(resolveTransferBagHandoverContainer(fieldNode), next.state)
+}
+
+export function handlePdaCuttingHandoverEvent(target: HTMLElement, event?: Event): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-pda-cut-handover-field]')
   if (
     fieldNode instanceof HTMLInputElement ||
@@ -915,6 +1332,50 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement): boolean {
     const form = getState(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
     const field = fieldNode.dataset.pdaCutHandoverField
     if (!field) return true
+
+    if (
+      fieldNode instanceof HTMLInputElement &&
+      (field === 'transferBagCode' || field === 'transferBagSewingTaskCode')
+    ) {
+      const transferContext = buildPdaCuttingExecutionContext(taskId, 'handover')
+      const transferExecutionOrderId =
+        selectedExecutionOrderId || transferContext.selectedExecutionOrderId
+      const transferExecutionOrderNo =
+        selectedExecutionOrderNo || transferContext.selectedExecutionOrderNo
+      const stateKey = buildTransferBagHandoverStateKey(
+        taskId,
+        transferExecutionOrderId,
+        transferExecutionOrderNo,
+      )
+      const trigger = resolvePdaTransferBagHandoverScanTrigger({
+        type: event?.type || 'input',
+        key: event && 'key' in event ? String(event.key || '') : undefined,
+      })
+      transferBagScanTimerController.cancel(stateKey)
+      if (!fieldNode.value.trim() || trigger === 'none') return true
+      const stateField = field === 'transferBagCode' ? 'bagCode' : 'sewingTaskCode'
+      if (trigger === 'immediate') {
+        completeTransferBagHandoverFieldScan(
+          fieldNode,
+          stateField,
+          taskId,
+          transferExecutionOrderId,
+          transferExecutionOrderNo,
+        )
+      } else {
+        transferBagScanTimerController.schedule(
+          stateKey,
+          () => completeTransferBagHandoverFieldScan(
+            fieldNode,
+            stateField,
+            taskId,
+            transferExecutionOrderId,
+            transferExecutionOrderNo,
+          ),
+        )
+      }
+      return true
+    }
 
     if (field in form) {
       ;(form as Record<string, string>)[field] = fieldNode.value
@@ -932,6 +1393,44 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement): boolean {
   const context = buildPdaCuttingExecutionContext(taskId, 'handover')
   const resolvedExecutionOrderId = selectedExecutionOrderId || context.selectedExecutionOrderId
   const resolvedExecutionOrderNo = selectedExecutionOrderNo || context.selectedExecutionOrderNo
+
+  if (action === 'confirm-transfer-bag-handover') {
+    const stateKey = buildTransferBagHandoverStateKey(
+      taskId,
+      resolvedExecutionOrderId,
+      resolvedExecutionOrderNo,
+    )
+    transferBagScanTimerController.flush(stateKey)
+    const state = getTransferBagHandoverState(
+      taskId,
+      resolvedExecutionOrderId,
+      resolvedExecutionOrderNo,
+    )
+    let result: { ok: boolean; message?: string } = { ok: true }
+    if (!state.bagCode) {
+      result = { ok: false, message: '请扫描中转袋。' }
+    } else if (!state.sewingTaskNo) {
+      result = { ok: false, message: '请扫描车缝任务。' }
+    } else if (!state.productionOrderNo || !state.receiverFactoryName) {
+      result = { ok: false, message: '车缝任务信息未识别，请重新扫描。' }
+    }
+    if (result.ok) {
+      const bag = transferBagHandoverCandidates.bags.find((item) => item.bagCode === state.bagCode)
+      if (bag?.boundSewingTaskNo && bag.boundSewingTaskNo !== state.sewingTaskNo) {
+        result = { ok: false, message: '这个中转袋已绑定其他车缝任务，请换一个袋。' }
+      } else if (bag) {
+        bag.boundSewingTaskNo = state.sewingTaskNo
+      }
+      transferBagScanTimerController.cancel(stateKey)
+    }
+    replaceTransferBagHandoverState(
+      taskId,
+      completePdaTransferBagHandoverRound(state, result),
+      resolvedExecutionOrderId,
+      resolvedExecutionOrderNo,
+    )
+    return true
+  }
 
   if (action === 'confirm') {
     const form = getState(taskId, resolvedExecutionOrderId, resolvedExecutionOrderNo)
