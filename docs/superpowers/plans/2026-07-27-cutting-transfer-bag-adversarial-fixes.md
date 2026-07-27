@@ -46,7 +46,7 @@
 npm run check:pda-cutting-inbound-workflow
 ```
 
-这是历史 TDD 证据，当前 HEAD 已为绿灯，不能通过现在重跑同一命令期待复现红灯。实现前 SHA 为 `e2eaba12c5225268a9d4f4a4f1d105601a8b9073`；当时缺少袋 / 菲票 / 库位台账迁移，自然 timeout 的失败状态、确认前 pending 扫描和跨轮次重复菲票未形成闭环。
+以下为当时捕获的失败摘要，不可由最终提交直接重放。追溯 SHA 为 `e2eaba12c5225268a9d4f4a4f1d105601a8b9073`：当时缺少袋 / 菲票 / 库位台账迁移，自然 timeout 的失败状态、确认前 pending 扫描和跨轮次重复菲票未形成闭环。
 
 - [x] **步骤 3：实现实际本地 Mock 台账与确认编排**
 
@@ -90,7 +90,7 @@ npm run check:pda-cutting-inbound-workflow
 npm run check:pda-cutting-wait-handover-entry-routing
 ```
 
-这是历史 TDD 证据，当前 HEAD 已为绿灯。入口导航修复前 SHA 为 `146fa93024cd396f33bb24af6f3dfa36cfcab61a`；当时返回地址、根页旧内容和 legacy 入口未同时满足新的生产路由契约。后续 fast / integration 分层是对覆盖边界的加强，不要求当前 fast 命令再次变红。
+以下为当时捕获的失败摘要，不可由最终提交直接重放。入口导航修复前 SHA 为 `146fa93024cd396f33bb24af6f3dfa36cfcab61a`：当时返回地址、根页旧内容和 legacy 入口未同时满足新的生产路由契约。后续 fast / integration 分层是对覆盖边界的加强。
 
 - [x] **步骤 3：实现纯五入口并补独立真实路由集成**
 
@@ -136,7 +136,7 @@ assert.equal(corrected.state.sewingTaskNo, 'SEW-PO-202603-0102-02')
 npm run check:pda-cutting-transfer-bag-handover
 ```
 
-这是历史 TDD 证据，当前 HEAD 已为绿灯。任务草稿覆盖修复前 SHA 为 `5c8ff61b700831f2c195009f400ec1dbd6e96114`，失败摘要为「未确认草稿被误判为已绑定，阻断同生产单有效纠错」；清空事件修复前 SHA 为 `a2d9e8a7cd9bffd2c18451b811bdfe861111ccc7`，失败摘要为「输入清空后 pending timer 仍可能把旧任务 / 袋写回状态和 DOM」。
+以下为当时捕获的失败摘要，不可由最终提交直接重放。任务草稿覆盖修复前 SHA 为 `5c8ff61b700831f2c195009f400ec1dbd6e96114`：「未确认草稿被误判为已绑定，阻断同生产单有效纠错」；清空事件修复前 SHA 为 `a2d9e8a7cd9bffd2c18451b811bdfe861111ccc7`：「输入清空后 pending timer 仍可能把旧任务 / 袋写回状态和 DOM」。
 
 - [x] **步骤 3：实现草稿覆盖与手动清空**
 
@@ -202,7 +202,18 @@ npm run check:cutting:release
 npm run dev -- --host 0.0.0.0 --port 4178
 ```
 
-使用账号 `F090_operator`、密码 `123456` 登录 PDA。彼此独立的场景使用新的浏览器 context 或硬刷新；下文明确要求验证跨轮重复或成功后重复的步骤必须留在同一 context 连续执行，不能在中间刷新。
+另开终端确认 CLI 与局域网地址：
+
+```bash
+command -v npx >/dev/null 2>&1
+PWCLI=/Users/laoer/.codex/skills/playwright/scripts/playwright_cli.sh
+"$PWCLI" --help
+LAN_IP=$(ipconfig getifaddr en0 || ipconfig getifaddr en1)
+test -n "$LAN_IP"
+curl -I "http://${LAN_IP}:4178/fcs/pda/warehouse/wait-handover?scope=cutting"
+```
+
+必须记录实际 `http://<LAN_IP>:4178/` 地址，并确认上述 `curl -I` 返回 HTTP 200。使用账号 `F090_operator`、密码 `123456` 登录 PDA。彼此独立的场景使用新的 Playwright CLI session 或硬刷新；下文明确要求验证跨轮重复或成功后重复的步骤必须留在同一 session 连续执行，不能在中间刷新。其他设备若无法访问，检查是否与电脑处于同一 Wi-Fi / 局域网，以及 macOS 防火墙是否允许 Node / Vite 入站连接。
 
 - [ ] **步骤 2：确认源码 Mock 与固定路由**
 
@@ -223,10 +234,18 @@ PDA 装袋 / 入仓当前源码 Mock：
 
 以下是 ledger / 纯函数边界，不作为当前浏览器候选的精确状态证据：
 
-- 预置状态袋：`BAG-IN-001`（已入仓）、`BAG-HAND-001`（已交出）、`BAG-VOID-001`（已作废），以及空袋入仓。
 - ledger 状态菲票：`FT-DEMO-BAGGED-001`（已装袋）、`FT-DEMO-VOID-001`（已作废）。它们不在 `listInboundTicketCandidates()` 返回的 UI 扫码候选中，直接在页面输入只会得到「没有找到这张菲票」，不能据此声称浏览器验证了「已装袋 / 已作废」状态。
-- 状态库位：`CUT-X-99`（停用）、`SEW-A-01`（非裁床库位）。
-- 跨生产单菲票、上述袋 / 菲票 / 库位状态及确认时二次校验，以 `check:pda-cutting-inbound-workflow` 对 `createPdaCuttingInboundMockLedger`、`completePdaCuttingInboundTicketScan` 和 `applyPdaCuttingInboundBusinessTransition` 的纯函数 / ledger 断言为证据。
+- 跨生产单菲票与上述两张 ledger-only 菲票，以 `check:pda-cutting-inbound-workflow` 对 `createPdaCuttingInboundMockLedger`、`completePdaCuttingInboundTicketScan` 和 `applyPdaCuttingInboundBusinessTransition` 的纯函数 / ledger 断言为证据。
+
+以下袋与库位虽然来自 ledger，但当前 UI 确认路径可以精确识别，必须在浏览器覆盖：
+
+- 入仓使用 `BAG-001`：提示「空袋不能入仓，请先完成装袋。」
+- 入仓使用 `BAG-IN-001`：提示「该中转袋已入仓，请勿重复入仓。」
+- 入仓使用 `BAG-HAND-001`：提示「该中转袋已交出，不能继续操作。」
+- 入仓使用 `BAG-VOID-001`：提示「该中转袋已作废，请重新扫描。」
+- `BAG-WAIT-001` + `CUT-X-99`：提示「该库位已停用，请更换库位。」
+- `BAG-WAIT-001` + `SEW-A-01`：提示「该库位不是裁床库位，请更换库位。」
+- `BAG-WAIT-001` + `CUT-NOT-FOUND`：提示「库位不存在，请重新扫描。」
 
 PDA 交出当前源码 Mock：
 
@@ -251,21 +270,67 @@ Web 当前源码 Mock：
 - Web 最低：1280×720。
 - PDA 小屏：390×844。
 
+Playwright CLI 实际入口：
+
+```bash
+PWCLI=/Users/laoer/.codex/skills/playwright/scripts/playwright_cli.sh
+export PLAYWRIGHT_CLI_SESSION=cutting-transfer-bag
+mkdir -p output/playwright
+"$PWCLI" open "http://${LAN_IP}:4178/fcs/pda/warehouse/wait-handover?scope=cutting" --headed
+"$PWCLI" snapshot
+"$PWCLI" resize 390 844
+"$PWCLI" snapshot
+# 每次使用最新 snapshot 返回的真实 ref：
+"$PWCLI" fill eX "实际编号"
+"$PWCLI" click eY
+"$PWCLI" snapshot
+"$PWCLI" screenshot --filename output/playwright/pda-390x844-root.png --full-page
+"$PWCLI" console error
+```
+
+`eX`、`eY` 只是书写占位，执行时必须换成紧邻操作前 `snapshot` 返回的真实 ref；页面导航或显著更新后重新 `snapshot`。Web 使用 `"$PWCLI" resize 1366 768` 和 `"$PWCLI" resize 1280 720`，通过 `"$PWCLI" goto "http://${LAN_IP}:4178/<path>"` 切换固定路由。每个场景用 `screenshot --filename output/playwright/<端>-<分辨率>-<动作>-<结果>.png --full-page` 保存证据，并在场景后运行 `"$PWCLI" console error`。
+
 逐项验证：
 
 - 根页恰好五个入口，仓管 Tab / 返回根页正确，不出现候选袋、混装、暂存袋或「交出装袋确认」。
 - PDA 装袋在同一 context 按顺序执行：先用 `BAG-NOT-FOUND` + `FT-CUT-260307-102-01-001` 确认并验证未知袋阻断；再用 `BAG-001` + 同一真实菲票确认，验证「装袋成功」和表单清空；随后新一轮使用 `BAG-002` 再扫同一菲票，验证跨轮重复被阻断。当前三张 UI 候选同属 `PO-202603-0004`，本步骤不得写入浏览器跨生产单结论。
-- PDA 入仓在同一 context 按顺序执行：先用 `BAG-WAIT-001` + `CUT-NOT-FOUND` 确认并验证未知库位阻断且袋仍可重试；再保持 `BAG-WAIT-001`、改为 `CUT-A-01` 确认，验证「入仓成功」和表单清空；随后重新输入 `BAG-WAIT-001` + `CUT-A-01`，验证成功迁移后的同袋重复入仓被阻断。预置空袋 / 已入仓 / 已交出 / 已作废袋、停用 / 非裁床库位仅引用专项纯函数 / ledger 检查，不冒充浏览器证据。
+- PDA 入仓在同一 session 按顺序执行：依次输入 `BAG-001`、`BAG-IN-001`、`BAG-HAND-001`、`BAG-VOID-001` + `CUT-A-01`，核对各自精确袋状态提示且 ledger 不变；再用 `BAG-WAIT-001` 依次搭配 `CUT-X-99`、`SEW-A-01`、`CUT-NOT-FOUND`，核对停用、非裁床和不存在库位提示且袋仍可重试；保持 `BAG-WAIT-001`、改为 `CUT-A-01` 确认，验证「入仓成功」和表单清空；最后重新输入 `BAG-WAIT-001` + `CUT-A-01`，验证成功迁移后的同袋重复入仓被阻断。
 - PDA 交出：确认前可从 `SEW-PO-202603-0102-01` 改扫为 `SEW-PO-202603-0102-02`；清空任务保留袋并清除任务派生信息，清空袋重置整轮；已绑定袋不能换绑；成功显示「交出成功」，重复扫描 / 确认阻断。
 - Web 在 1366×768 和 1280×720 分别覆盖「菲票装袋」「中转袋入仓」「中转袋交出」三操作的成功清空与至少一个失败保留场景。
 - 每个路由记录 `console.error` / `pageerror`，预期均为空；检查 `document.documentElement.scrollWidth <= document.documentElement.clientWidth`，页面级无横向溢出；当前操作主按钮在视口内可见。
 - 截图统一保存到 `output/playwright/`，文件名包含端、分辨率、路由动作和成功 / 失败场景。
 
-性能必须用浏览器内 `performance.now()` 或 Performance API 测量，而不是用 Node 计时。输入准备完成后，在同一次 `page.evaluate` 中记录确认按钮点击前时间，以 MutationObserver / `requestAnimationFrame` 等待结果 DOM 出现，再计算耗时：
+性能必须通过 wrapper 的 `run-code` 在浏览器内使用 `performance.now()` 测量，而不是用 Node 计时。使用未显示成功提示的全新轮次准备输入后执行以下真实语法；每项把 `selector` / `successText` 替换为下方映射值：
 
-- PDA 装袋：`[data-pda-cut-inbound-action="confirm"]` 到「装袋成功」DOM 更新。
-- PDA 入仓：`[data-pda-cut-inbound-action="confirm"]` 到「入仓成功」DOM 更新。
-- PDA 交出：`[data-pda-cut-handover-action="confirm-transfer-bag-handover"]` 到「交出成功」DOM 更新。
+```bash
+"$PWCLI" run-code 'async (page) => {
+  const selector = "[data-pda-cut-inbound-action=\"confirm\"]";
+  const successText = "装袋成功";
+  return await page.evaluate(async ({ selector, successText }) => {
+    const button = document.querySelector(selector);
+    if (!(button instanceof HTMLButtonElement)) throw new Error(`未找到确认按钮：${selector}`);
+    return await new Promise((resolve, reject) => {
+      const startedAt = performance.now();
+      const timeoutId = window.setTimeout(() => {
+        observer.disconnect();
+        reject(new Error(`等待结果超时：${successText}`));
+      }, 1000);
+      const observer = new MutationObserver(() => {
+        if (!document.body.textContent?.includes(successText)) return;
+        window.clearTimeout(timeoutId);
+        observer.disconnect();
+        resolve({ successText, elapsedMs: performance.now() - startedAt });
+      });
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+      button.click();
+    });
+  }, { selector, successText });
+}'
+```
+
+- PDA 装袋：`selector` 使用 `[data-pda-cut-inbound-action="confirm"]`，`successText` 使用 `装袋成功`。
+- PDA 入仓：同一 selector，`successText` 使用 `入仓成功`。
+- PDA 交出：`selector` 使用 `[data-pda-cut-handover-action="confirm-transfer-bag-handover"]`，`successText` 使用 `交出成功`。
 - 三项各至少测量一次，分别记录毫秒值，且都必须 `< 200 ms`；任一不满足不得把交互性能写为通过。
 
 - [ ] **步骤 4：显式复跑专项门禁，再运行聚合 / release**
