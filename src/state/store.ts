@@ -1,6 +1,6 @@
 import { menusBySystem, systems } from '../data/app-shell-config.ts'
 import type { AllSystemTabs, MenuGroup, MenuItem, Tab } from '../data/app-shell-types.ts'
-import { notifyPdaCuttingHandoverRouteLeave } from './pda-cutting-navigation-cleanup.ts'
+import { notifyPdaCuttingRouteLeave } from './pda-cutting-navigation-cleanup.ts'
 
 export interface AppState {
   pathname: string
@@ -591,7 +591,7 @@ class AppStore {
   navigate(pathname: string, options: { historyMode?: NavigationHistoryMode } = {}): void {
     if (this.state.pathname === pathname) return
 
-    notifyPdaCuttingHandoverRouteLeave(this.state.pathname, pathname)
+    notifyPdaCuttingRouteLeave(this.state.pathname, pathname)
     this.state.pathname = pathname
     this.syncTabWithPath(pathname)
     this.syncBrowserHistory(pathname, options.historyMode ?? 'push')
@@ -602,7 +602,7 @@ class AppStore {
     const nextPath = pathname || defaultPath
     if (this.state.pathname === nextPath) return
 
-    notifyPdaCuttingHandoverRouteLeave(this.state.pathname, nextPath)
+    notifyPdaCuttingRouteLeave(this.state.pathname, nextPath)
     this.state.pathname = nextPath
     this.syncTabWithPath(nextPath)
     this.patch({ pathname: nextPath })

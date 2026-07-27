@@ -64,6 +64,7 @@ type WorkflowModule = {
       sewingTasks: SewingTaskCandidate[]
     },
   ) => TransferBagState
+  normalizePdaCuttingHandoverAction: (action: string) => string
   renderPdaTransferBagHandoverWorkflow: (state: TransferBagState, taskId?: string) => string
   createPdaTransferBagHandoverScanTimerController: (
     scheduleTimer: (callback: () => void, delayMs: number) => unknown,
@@ -83,6 +84,7 @@ for (const exportName of [
   'completePdaTransferBagHandoverScan',
   'completePdaTransferBagHandoverRound',
   'submitPdaTransferBagHandoverRound',
+  'normalizePdaCuttingHandoverAction',
   'renderPdaTransferBagHandoverWorkflow',
   'createPdaTransferBagHandoverScanTimerController',
 ]) {
@@ -90,6 +92,16 @@ for (const exportName of [
 }
 
 const workflow = pageModule as unknown as WorkflowModule
+assert.equal(
+  workflow.normalizePdaCuttingHandoverAction('handover-bagging-confirm'),
+  'transfer-bag-handover',
+  '历史交出装袋深链必须规范化为中转袋整袋交出',
+)
+assert.equal(
+  workflow.normalizePdaCuttingHandoverAction('special-craft-return'),
+  'special-craft-return',
+  '非历史 action 不得被错误改写',
+)
 assert.equal(workflow.PDA_CUTTING_TRANSFER_BAG_SCAN_DEBOUNCE_MS, 150, '扫码停顿应为约 150ms')
 assert.equal(
   workflow.resolvePdaTransferBagHandoverScanTrigger({ type: 'keydown', key: 'Enter' }),
@@ -314,6 +326,73 @@ assert.deepEqual(effects, ['latest'], '成功 reset 后旧 timer 不得污染新
 
 const transferModeStart = pageSource.indexOf("if (isTransferBagHandoverAction)")
 assert(transferModeStart >= 0, '新 action 必须使用隔离的 transfer-bag-handover 渲染分支')
+const originalWindow = (globalThis as typeof globalThis & { window?: Window }).window
+const originalHtmlInputElement = (
+  globalThis as typeof globalThis & { HTMLInputElement?: typeof HTMLInputElement }
+).HTMLInputElement
+const originalHtmlTextAreaElement = (
+  globalThis as typeof globalThis & { HTMLTextAreaElement?: typeof HTMLTextAreaElement }
+).HTMLTextAreaElement
+const legacyRouteWindow = new EventTarget() as EventTarget & {
+  location: { pathname: string; search: string }
+}
+legacyRouteWindow.location = {
+  pathname: '/fcs/pda/cutting/handover/TASK-CUT-PDA-CUT-DONE-0307',
+  search: '?action=handover-bagging-confirm',
+}
+;(globalThis as typeof globalThis & { window: Window }).window = legacyRouteWindow as unknown as Window
+;(globalThis as typeof globalThis & { HTMLInputElement: typeof HTMLInputElement }).HTMLInputElement =
+  class {} as typeof HTMLInputElement
+;(globalThis as typeof globalThis & { HTMLTextAreaElement: typeof HTMLTextAreaElement }).HTMLTextAreaElement =
+  class {} as typeof HTMLTextAreaElement
+const legacyRouteHtml = (
+  pageModule.renderPdaCuttingHandoverPage as (taskId: string) => string
+)('TASK-CUT-PDA-CUT-DONE-0307')
+assert(legacyRouteHtml.includes('中转袋交出'), '历史深链必须实际渲染中转袋交出页')
+assert(
+  legacyRouteHtml.includes('data-pda-transfer-bag-handover-live'),
+  '历史深链必须进入整袋交出扫码工作区',
+)
+assert(!legacyRouteHtml.includes('交出装袋确认'), '历史深链不得再渲染逐菲票交出装袋确认')
+assert(!legacyRouteHtml.includes('data-pda-cut-handover-action="confirm-picking"'), '历史深链不得暴露旧确认写入口')
+const legacyConfirmTarget = {
+  closest(selector: string) {
+    if (selector === '[data-pda-cut-handover-field]') return null
+    if (selector === '[data-pda-cut-handover-action]') {
+      return {
+        dataset: {
+          pdaCutHandoverAction: 'confirm-picking',
+          taskId: 'TASK-CUT-PDA-CUT-DONE-0307',
+        },
+      }
+    }
+    return null
+  },
+}
+assert.equal(
+  (pageModule.handlePdaCuttingHandoverEvent as (target: HTMLElement) => boolean)(
+    legacyConfirmTarget as unknown as HTMLElement,
+  ),
+  false,
+  '历史深链即使收到旧确认命令也不得触发旧事件写入',
+)
+if (originalWindow) {
+  ;(globalThis as typeof globalThis & { window: Window }).window = originalWindow
+} else {
+  delete (globalThis as typeof globalThis & { window?: Window }).window
+}
+if (originalHtmlInputElement) {
+  ;(globalThis as typeof globalThis & { HTMLInputElement: typeof HTMLInputElement }).HTMLInputElement =
+    originalHtmlInputElement
+} else {
+  delete (globalThis as typeof globalThis & { HTMLInputElement?: typeof HTMLInputElement }).HTMLInputElement
+}
+if (originalHtmlTextAreaElement) {
+  ;(globalThis as typeof globalThis & { HTMLTextAreaElement: typeof HTMLTextAreaElement }).HTMLTextAreaElement =
+    originalHtmlTextAreaElement
+} else {
+  delete (globalThis as typeof globalThis & { HTMLTextAreaElement?: typeof HTMLTextAreaElement }).HTMLTextAreaElement
+}
 const confirmBranchStart = pageSource.indexOf("if (action === 'confirm-transfer-bag-handover')")
 const confirmFlushIndex = pageSource.indexOf('transferBagScanTimerController.flush(', confirmBranchStart)
 const confirmRoundIndex = pageSource.indexOf('submitPdaTransferBagHandoverRound(', confirmBranchStart)
@@ -377,15 +456,18 @@ assert(globalDispatchIndex > globalHandoverScanIndex, '全局 Enter 必须实际
 const handoverLeaveDispatchToken =
   "dispatchEvent(new Event('higood:pda-cutting-handover-leave'))"
 assert(routeLeaveSource.includes(handoverLeaveDispatchToken), '导航离开中转袋交出路由时必须实际 dispatch 清理事件')
+const inboundLeaveDispatchToken =
+  "dispatchEvent(new Event('higood:pda-cutting-inbound-leave'))"
+assert(routeLeaveSource.includes(inboundLeaveDispatchToken), '导航离开菲票装袋或入仓路由时必须实际 dispatch 清理事件')
 assert(
   storeSource.includes(
-    "import { notifyPdaCuttingHandoverRouteLeave } from './pda-cutting-navigation-cleanup.ts'",
+    "import { notifyPdaCuttingRouteLeave } from './pda-cutting-navigation-cleanup.ts'",
   ),
-  '统一 appStore 导航边界必须复用可执行测试的交出路由离开 helper',
+  '统一 appStore 导航边界必须复用同时覆盖入仓与交出的路由离开 helper',
 )
 assert(
-  (storeSource.match(/notifyPdaCuttingHandoverRouteLeave\(/g) || []).length >= 2,
-  'appStore.navigate 和 syncFromBrowser 都必须触发交出路由离开检查',
+  (storeSource.match(/notifyPdaCuttingRouteLeave\(/g) || []).length >= 2,
+  'appStore.navigate 和 syncFromBrowser 都必须触发统一路由离开检查',
 )
 const routeLeaveModule = await import('../src/state/pda-cutting-navigation-cleanup.ts')
 const dispatchedLeaveEvents: string[] = []
@@ -420,8 +502,46 @@ assert.equal(
   '留在同一路由不得误清理当前扫描',
 )
 assert.equal(dispatchedLeaveEvents.length, 4, '同一路由不得重复 dispatch 清理事件')
+const unifiedLeaveEvents: string[] = []
+assert.equal(
+  routeLeaveModule.notifyPdaCuttingRouteLeave(
+    '/fcs/pda/cutting/inbound/CUT-001',
+    '/fcs/pda/notify',
+    (event: Event) => unifiedLeaveEvents.push(event.type),
+  ),
+  true,
+  '统一导航边界离开入仓页必须返回已清理',
+)
+assert.equal(
+  routeLeaveModule.notifyPdaCuttingRouteLeave(
+    '/fcs/pda/cutting/handover/CUT-001?action=transfer-bag-handover',
+    '/fcs/pda/auth/login',
+    (event: Event) => unifiedLeaveEvents.push(event.type),
+  ),
+  true,
+  '统一导航边界离开交出页必须返回已清理',
+)
+assert.deepEqual(
+  unifiedLeaveEvents,
+  ['higood:pda-cutting-inbound-leave', 'higood:pda-cutting-handover-leave'],
+  '统一导航边界必须真实派发两种扫码清理事件',
+)
+assert.equal(
+  routeLeaveModule.notifyPdaCuttingRouteLeave(
+    '/fcs/pda/cutting/inbound/CUT-001',
+    '/fcs/pda/cutting/inbound/CUT-001',
+    (event: Event) => unifiedLeaveEvents.push(event.type),
+  ),
+  false,
+  '统一导航边界同 URL 不得派发清理事件',
+)
+assert.equal(unifiedLeaveEvents.length, 2, '同 URL 不得重复派发任一清理事件')
 assert(mainSource.includes('appStore.navigate(pathname)'), 'main 导航必须经过统一 appStore 边界')
 assert(mainSource.includes('appStore.syncFromBrowser(pathname)'), 'popstate 必须经过统一 appStore 边界')
+assert(
+  !mainSource.includes('notifyPdaCuttingInboundRouteLeave('),
+  'main 不得在 appStore 之外重复派发入仓清理事件',
+)
 assert(
   pdaShellSource.includes("appStore.navigate('/fcs/pda/auth/login', { historyMode: 'replace' })"),
   'PDA 退出登录必须经过统一 appStore 边界',
@@ -430,6 +550,61 @@ assert(
   pdaShellSource.includes('appStore.navigate(actionNode.dataset.href)'),
   'PDA 顶部待办跳转必须经过统一 appStore 边界',
 )
+const storeModule = await import('../src/state/store.ts')
+const shellModule = await import('../src/pages/pda-shell.ts')
+const originalNavigationWindow = (globalThis as typeof globalThis & { window?: Window }).window
+const fakeLocation = { pathname: '/', search: '' }
+const fakeNavigationWindow = new EventTarget() as EventTarget & {
+  location: typeof fakeLocation
+  history: { pushState: (_state: unknown, _title: string, href: string) => void; replaceState: (_state: unknown, _title: string, href: string) => void }
+}
+const applyFakeHref = (href: string) => {
+  const url = new URL(href, 'http://localhost')
+  fakeLocation.pathname = url.pathname
+  fakeLocation.search = url.search
+}
+fakeNavigationWindow.location = fakeLocation
+fakeNavigationWindow.history = {
+  pushState: (_state, _title, href) => applyFakeHref(href),
+  replaceState: (_state, _title, href) => applyFakeHref(href),
+}
+const capturedStoreLeaveEvents: string[] = []
+fakeNavigationWindow.addEventListener('higood:pda-cutting-inbound-leave', (event) => {
+  capturedStoreLeaveEvents.push(event.type)
+})
+fakeNavigationWindow.addEventListener('higood:pda-cutting-handover-leave', (event) => {
+  capturedStoreLeaveEvents.push(event.type)
+})
+;(globalThis as typeof globalThis & { window: Window }).window = fakeNavigationWindow as unknown as Window
+storeModule.appStore.syncFromBrowser('/fcs/pda/cutting/inbound/TASK-CUT-PDA-CUT-DONE-0307')
+const todoRouteNode = {
+  dataset: {
+    pdaShellAction: 'open-todo-route',
+    href: '/fcs/pda/notify',
+  },
+}
+assert.equal(
+  shellModule.handlePdaShellEvent({
+    closest: () => todoRouteNode,
+  } as unknown as HTMLElement),
+  true,
+  'PDA 顶部待办必须实际交给 appStore.navigate 处理',
+)
+storeModule.appStore.syncFromBrowser(
+  '/fcs/pda/cutting/handover/TASK-CUT-PDA-CUT-DONE-0307?action=transfer-bag-handover',
+)
+storeModule.appStore.syncFromBrowser('/fcs/pda/auth/login')
+storeModule.appStore.syncFromBrowser('/fcs/pda/auth/login')
+assert.deepEqual(
+  capturedStoreLeaveEvents,
+  ['higood:pda-cutting-inbound-leave', 'higood:pda-cutting-handover-leave'],
+  'PDA shell 间接 navigate 与浏览器同步必须各真实捕获一次对应清理事件',
+)
+if (originalNavigationWindow) {
+  ;(globalThis as typeof globalThis & { window: Window }).window = originalNavigationWindow
+} else {
+  delete (globalThis as typeof globalThis & { window?: Window }).window
+}
 assert(
   waitHandoverSource.includes('扫描中转袋和车缝任务，确认整袋交出'),
   '待交出仓入口说明必须使用整袋交出口径',

@@ -526,9 +526,15 @@ function readBaggingConfirmTaskIdFromLocation(): string {
   return params.get('baggingConfirmTaskId') || ''
 }
 
+export function normalizePdaCuttingHandoverAction(action: string): string {
+  return action === 'handover-bagging-confirm' ? 'transfer-bag-handover' : action
+}
+
 function readPdaCuttingHandoverActionFromLocation(): string {
   if (typeof window === 'undefined') return ''
-  return new URLSearchParams(window.location.search).get('action') || ''
+  return normalizePdaCuttingHandoverAction(
+    new URLSearchParams(window.location.search).get('action') || '',
+  )
 }
 
 function findPdaPickingTaskForCurrentRoute(projection: HandoverPickingTaskProjection): HandoverPickingTaskProjection['tasks'][number] | undefined {
@@ -1482,6 +1488,12 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement, event?: Event
   const action = actionNode.dataset.pdaCutHandoverAction
   const taskId = actionNode.dataset.taskId
   if (!action || !taskId) return false
+  if (
+    action === 'confirm-picking' &&
+    readPdaCuttingHandoverActionFromLocation() === 'transfer-bag-handover'
+  ) {
+    return false
+  }
   const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
   const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
   const context = buildPdaCuttingExecutionContext(taskId, 'handover')
