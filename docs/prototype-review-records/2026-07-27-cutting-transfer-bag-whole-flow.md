@@ -113,7 +113,7 @@
 | 组件交互 | 通过 | 高频输入使用 `data-skip-page-rerender`；PDA 专用确认仅在 handler 明确返回 `handled-locally` 时跳过整页渲染，局部容器缺失会回退整页渲染；其他旧 handover action 不受影响。 |
 | 协作关系 | 通过 | 交出页明确一个中转袋整体交给一个车缝任务，生产单与接收工厂由任务自动带出。 |
 | 异常与追溯 | 通过 | 失败可恢复且保留本轮数据；本地 Mock、不做事件账 / API / 真实持久化是本次快速原型边界，不作为审查例外。 |
-| 现场设备可用性 | 通过 | 1280×720 真实 Chromium 在非零页面和工作区滚动位置完成装袋、入仓、交出成功 / 失败复测；结果反馈均小于 200 ms，替换后的真实输入框焦点正确，应用外壳、工作区容器和两级滚动位置未变化，页面脚本无错误。 |
+| 现场设备可用性 | 通过 | 390×844 PDA、1366×768 与 1280×720 Web 均完成真实 Chromium 复测且无页面横向溢出；PDA 七个确认场景还在非零页面和工作区滚动位置重复 3 轮，4× CPU 压力下结果反馈仍小于 200 ms，焦点正确且页面脚本无错误。 |
 
 ## 5. 性能与可恢复性自查
 
@@ -123,6 +123,7 @@
 - 菲票命中后只清空扫码输入并刷新已扫结果区域，不重新扫描整页图标。
 - 「确认装袋」「确认入仓」只重绘带 `data-pda-cutting-inbound-workflow` 的当前工作区；成功清空、失败保留均不重绘应用根节点。
 - 中转袋交出复用状态键、轮次令牌和确认前 `flush` 模式；成功后取消等待并重置当前轮。字段扫描只同步当前字段与 live 区，确认 / 主动清空仍可重建整个专用工作区，避免迟到袋扫码清除操作员已输入的任务码。
+- 装袋 / 入仓与整袋交出工作区都缓存页面渲染时已解析的执行单编号；扫码与确认热路径直接复用工作区上下文，不再同步重建裁床执行上下文。裁床扫码输入、Enter 与三个确认动作均由已加载 handler 同步接收，避免冷启动动态模块加载或低性能设备下的重复计算。
 - 聚焦检查执行统一路由离开 helper，并通过 PDA 顶部待办间接调用真实 `appStore.navigate`、浏览器同步调用 `syncFromBrowser`，实际捕获 `higood:pda-cutting-inbound-leave` 与 `higood:pda-cutting-handover-leave` 各一次；同 URL 不重复派发。全局 Enter 也通过可执行 helper 验证两个交出扫码框会派发、非 Enter 与特殊工艺字段不派发。
 - 聚焦检查以真实历史深链渲染整袋交出工作区，并执行旧确认命令回归，确认旧逐菲票事件写入口不可达。
 - 快速检查 `check:pda-cutting-wait-handover-entry-routing` 只验证 `routes-pda` 根路由 / 动态路由注册、五入口固定深链、不可达旧链清理和五个 legacy 解析目标，不执行页面渲染；冷启动约 0.58 秒，保留在 `check:cutting:all`。
@@ -136,7 +137,8 @@
 - Web 三操作交互仅修改独立页工作区内的输入、紧凑明细、只读派生结果和反馈节点，不触发应用根节点整页重绘，滚动位置不丢失。
 - `tests/cutting-transfer-bag-confirm-local-refresh.spec.ts` 在 1280×720 真实 Chromium 中以 `performance.now()` 与 `MutationObserver` 从 click 计到结果反馈 DOM 出现，覆盖装袋成功、袋码失败、菲票失败、入仓库位失败、快速连续扫码交出成功、交出袋码失败和任务失败。
 - 快速连续扫码场景在同一事件循环中先派发袋码 Enter，再立即输入并派发车缝任务 Enter，不等待袋 live 结果；随后必须识别任务并成功确认交出。
-- 使用 `--repeat-each=3 --workers=1` 完整复跑七场景共 21 项，21 项全部通过，实测 97.1–139.8 ms，全部低于 200 ms。
+- 装袋缺袋、入仓错库位，以及交出成功 / 缺袋 / 缺任务五条关键确认路径均加入 4× CPU 限速和点击后 220 ms 同线程竞争；竞争发生在确认事件让出线程之后，可直接暴露异步热路径，未放宽 `< 200 ms` 断言。
+- 使用 `--repeat-each=3 --workers=1` 完整复跑七场景共 21 项，21 项全部通过；最终实测 0.9–13.0 ms，全部低于 200 ms。
 - 七个真实浏览器场景均在非零 `window.scrollY` 与非零工作区 `scrollTop` 下执行，断言替换后的 `document.activeElement` 精确落到袋码、菲票、库位或车缝任务输入框；同时验证 `#app` 首层外壳和 workflow 容器对象未替换、两级滚动位置不变。
 - fake DOM 检查仅用于状态迁移、helper 返回值、聚焦目标选择和 main 回退契约，不作为真实 DOM 焦点或浏览器滚动的证明；真实焦点与滚动结论只来自上述 Playwright 用例。
 - PDA 聚合分发把页面 handler 的 truthy 联合结果归一化为 boolean，保持原 `dispatchPdaPageEvent` 对输入、旧 action 与特殊工艺调用方的布尔契约。
@@ -148,7 +150,7 @@
 - `npm run check:pda-cutting-wait-handover-entry-routing`：通过，快速契约不执行页面渲染。
 - `npm run check:pda-cutting-transfer-bag-handover`：通过。
 - `npm run check:web-cutting-transfer-bag-actions`：通过。
-- `npx playwright test tests/cutting-transfer-bag-confirm-local-refresh.spec.ts --repeat-each=3 --workers=1`：21 / 21 通过，包含不等待 live 结果的袋码与任务快速连续 Enter 场景。
+- `npx playwright test tests/cutting-transfer-bag-confirm-local-refresh.spec.ts --repeat-each=3 --workers=1`：21 / 21 通过，包含不等待 live 结果的袋码与任务快速连续 Enter 场景，以及装袋、入仓、交出成功 / 失败的 4× CPU 压力。
 - `npm run check:special-craft-pda-warehouse-actions`：未通过；在进入 PDA 分发断言前即因既有动作 `SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND` 未注册而报错。本轮未修改特殊工艺交出 / 回仓或 process action 注册，不扩大范围修复该既有门禁。
 - `npm run check:pda-cutting-wait-handover-route-integration`：通过，实测 20.05 秒。
 - `npm run check:list-page-governance`、`npm run check:prototype-design-governance -- --all`、`npm run build`：通过。
@@ -185,7 +187,7 @@
 - 任务 1 至任务 5 已通过角色、任务、Web / PDA 差异、信息负荷、文案、UI、防错、失败恢复、局部更新路径和真实浏览器交互性能复核。
 - 袋 / 菲票 / 库位状态防错、仓管导航、纯五入口、确认前车缝任务改扫、手动清空任务 / 袋以及确认成功后清空，均有聚焦自动检查覆盖；真实路由集成约 19–20 秒，留在 release 门禁而不进入日常 `check:cutting:all`。
 - `check:cutting:all` 仍被未改动的 `production-order-overview-view.ts: min-w >= 1600px` 既有基线阻断，不得写成全绿。
-- 任务 5 第二轮对抗发现的 346.7 ms 阻塞及快速连续扫码输入竞态均已修复；七个成功 / 失败与焦点恢复场景重复 3 轮共 21 项，最终为 97.1–139.8 ms，均满足 `< 200 ms`。
+- 任务 5 第二轮对抗先后发现 346.7 ms 整页重绘、确认前动态加载、交出同步重建上下文及快速连续扫码输入竞态，均已修复；七个成功 / 失败与焦点恢复场景重复 3 轮共 21 项，最终为 0.9–13.0 ms，均满足 `< 200 ms`。
 - 当前按快速原型范围仅使用本地 Mock，不实现事件账、真实持久化、API 或跨模块一致性；这是明确实施边界，不构成产品设计例外。
 - 本轮代码质量清理不改变页面结构、文案、动作入口、扫码步骤或 Mock 业务结果，无新增设计例外。
 - 特殊工艺交出 / 回仓不是本轮焦点与局部刷新修复范围；保留原渲染路径。既有 `check:special-craft-pda-warehouse-actions` 当前被未注册的 `SPECIAL_CRAFT_GARMENT_WAREHOUSE_OUTBOUND` 阻断，失败早于本轮涉及的 PDA 聚合分发断言，因此不把它写成已通过或由本轮修复。
