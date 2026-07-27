@@ -46,7 +46,73 @@ declare global {
 }
 
 const fallbackInboundState = new Map<string, InboundFormState>()
-const ticketScanTimers = new WeakMap<HTMLInputElement, ReturnType<typeof setTimeout>>()
+
+export interface PdaCuttingInboundScanTimerController {
+  schedule: (stateKey: string, callback: () => void) => void
+  flush: (stateKey: string) => boolean
+  cancel: (stateKey: string) => void
+  cancelAll: () => void
+  hasPending: (stateKey: string) => boolean
+}
+
+export function createPdaCuttingInboundScanTimerController(
+  scheduleTimer: (callback: () => void, delayMs: number) => unknown = (callback, delayMs) =>
+    setTimeout(callback, delayMs),
+  cancelTimer: (timer: unknown) => void = (timer) =>
+    clearTimeout(timer as ReturnType<typeof setTimeout>),
+): PdaCuttingInboundScanTimerController {
+  const pendingByStateKey = new Map<string, { timer: unknown; callback: () => void; round: number }>()
+  const roundByStateKey = new Map<string, number>()
+  const nextRound = (stateKey: string): number => {
+    const round = (roundByStateKey.get(stateKey) || 0) + 1
+    roundByStateKey.set(stateKey, round)
+    return round
+  }
+  const cancel = (stateKey: string): void => {
+    nextRound(stateKey)
+    const pending = pendingByStateKey.get(stateKey)
+    if (pending) cancelTimer(pending.timer)
+    pendingByStateKey.delete(stateKey)
+  }
+
+  return {
+    schedule(stateKey, callback) {
+      cancel(stateKey)
+      const round = nextRound(stateKey)
+      const pending = { timer: undefined as unknown, callback, round }
+      pending.timer = scheduleTimer(() => {
+        if (roundByStateKey.get(stateKey) !== round || pendingByStateKey.get(stateKey) !== pending) return
+        pendingByStateKey.delete(stateKey)
+        callback()
+      }, PDA_CUTTING_INBOUND_SCAN_DEBOUNCE_MS)
+      pendingByStateKey.set(stateKey, pending)
+    },
+    flush(stateKey) {
+      const pending = pendingByStateKey.get(stateKey)
+      if (!pending) return false
+      cancel(stateKey)
+      pending.callback()
+      return true
+    },
+    cancel,
+    cancelAll() {
+      Array.from(pendingByStateKey.keys()).forEach(cancel)
+    },
+    hasPending(stateKey) {
+      return pendingByStateKey.has(stateKey)
+    },
+  }
+}
+
+const ticketScanTimerController = createPdaCuttingInboundScanTimerController()
+
+export function cancelPdaCuttingInboundPendingScans(): void {
+  ticketScanTimerController.cancelAll()
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('higood:pda-cutting-inbound-leave', cancelPdaCuttingInboundPendingScans)
+}
 
 export function createPdaCuttingInboundFormState(): InboundFormState {
   return {
@@ -146,8 +212,7 @@ function getState(
   executionOrderId?: string | null,
   executionOrderNo?: string | null,
 ): InboundFormState {
-  const executionKey = buildPdaCuttingExecutionStateKey(taskId, executionOrderId, executionOrderNo)
-  const stateKey = `${executionKey}::${mode}`
+  const stateKey = buildInboundStateKey(taskId, mode, executionOrderId, executionOrderNo)
   const store = getInboundStateStore()
   const existing = store.get(stateKey)
   if (existing) return existing
@@ -163,8 +228,17 @@ function replaceState(
   executionOrderId?: string | null,
   executionOrderNo?: string | null,
 ): void {
+  getInboundStateStore().set(buildInboundStateKey(taskId, mode, executionOrderId, executionOrderNo), state)
+}
+
+function buildInboundStateKey(
+  taskId: string,
+  mode: PdaCuttingInboundMode,
+  executionOrderId?: string | null,
+  executionOrderNo?: string | null,
+): string {
   const executionKey = buildPdaCuttingExecutionStateKey(taskId, executionOrderId, executionOrderNo)
-  getInboundStateStore().set(`${executionKey}::${mode}`, state)
+  return `${executionKey}::${mode}`
 }
 
 function getInboundMode(): PdaCuttingInboundMode {
@@ -462,22 +536,24 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement, event?: Event)
     if (field === 'locationLabel') eventState.form.locationLabel = fieldNode.value
     if (field === 'scanCode' && mode === 'bagging' && fieldNode instanceof HTMLInputElement) {
       eventState.form.scanCode = fieldNode.value
+      const stateKey = buildInboundStateKey(
+        taskId,
+        mode,
+        eventState.selectedExecutionOrderId,
+        eventState.selectedExecutionOrderNo,
+      )
       const trigger = resolvePdaCuttingInboundScanTrigger({
         type: event?.type || 'input',
         key: event && 'key' in event ? String(event.key || '') : undefined,
       })
-      const pendingTimer = ticketScanTimers.get(fieldNode)
-      if (pendingTimer) clearTimeout(pendingTimer)
+      ticketScanTimerController.cancel(stateKey)
       if (!fieldNode.value.trim() || trigger === 'none') return true
       if (trigger === 'immediate') {
         completeInboundTicketScan(fieldNode, taskId, mode, eventState)
       } else {
-        ticketScanTimers.set(
-          fieldNode,
-          setTimeout(
-            () => completeInboundTicketScan(fieldNode, taskId, mode, eventState),
-            PDA_CUTTING_INBOUND_SCAN_DEBOUNCE_MS,
-          ),
+        ticketScanTimerController.schedule(
+          stateKey,
+          () => completeInboundTicketScan(fieldNode, taskId, mode, eventState),
         )
       }
     }
@@ -488,8 +564,17 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement, event?: Event)
   if (!actionNode) return false
   const taskId = actionNode.dataset.taskId
   if (!taskId) return false
-  const eventState = resolveInboundEventState(taskId, mode)
+  let eventState = resolveInboundEventState(taskId, mode)
+  const stateKey = buildInboundStateKey(
+    taskId,
+    mode,
+    eventState.selectedExecutionOrderId,
+    eventState.selectedExecutionOrderNo,
+  )
   syncFormFromControls(eventState.form, resolveInboundFormContainer(actionNode))
+  if (mode === 'bagging' && ticketScanTimerController.flush(stateKey)) {
+    eventState = resolveInboundEventState(taskId, mode)
+  }
 
   let result: InboundRoundResult = { ok: true }
   if (!eventState.form.carrierCode.trim()) {
@@ -507,6 +592,7 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement, event?: Event)
     result = { ok: false, message: '请扫描菲票。' }
   }
 
+  if (result.ok) ticketScanTimerController.cancel(stateKey)
   replaceState(
     taskId,
     mode,

@@ -36,6 +36,11 @@ assert.equal(
   'function',
   'PDA 裁片入仓页必须导出统一扫码校验与状态转换函数',
 )
+assert.equal(
+  typeof pageModule.createPdaCuttingInboundScanTimerController,
+  'function',
+  'PDA 裁片入仓页必须导出按状态键和轮次管理扫码 timer 的控制器',
+)
 
 type WorkflowModule = {
   createPdaCuttingInboundFormState: () => any
@@ -58,6 +63,16 @@ type WorkflowModule = {
     scanCode: string,
     candidates: Array<Record<string, any>>,
   ) => { ok: boolean; state: any }
+  createPdaCuttingInboundScanTimerController: (
+    scheduleTimer: (callback: () => void, delayMs: number) => unknown,
+    cancelTimer: (timer: unknown) => void,
+  ) => {
+    schedule: (stateKey: string, callback: () => void) => void
+    flush: (stateKey: string) => boolean
+    cancel: (stateKey: string) => void
+    cancelAll: () => void
+    hasPending: (stateKey: string) => boolean
+  }
   PDA_CUTTING_INBOUND_SCAN_DEBOUNCE_MS: number
 }
 
@@ -77,6 +92,53 @@ assert.equal(
   workflow.resolvePdaCuttingInboundScanTrigger({ type: 'keydown', key: 'A' }),
   'none',
   '非 Enter 按键不得触发扫描校验',
+)
+
+type FakeTimer = { callback: () => void; cancelled: boolean }
+const fakeTimers: FakeTimer[] = []
+const timerController = workflow.createPdaCuttingInboundScanTimerController(
+  (callback) => {
+    const timer = { callback, cancelled: false }
+    fakeTimers.push(timer)
+    return timer
+  },
+  (timer) => {
+    ;(timer as FakeTimer).cancelled = true
+  },
+)
+const timerEffects: string[] = []
+timerController.schedule('TASK-1::bagging', () => timerEffects.push('old-round'))
+const oldRoundTimer = fakeTimers.at(-1)!
+timerController.schedule('TASK-1::bagging', () => timerEffects.push('latest-round'))
+assert.equal(oldRoundTimer.cancelled, true, '同一状态键新扫码必须取消旧 timer')
+oldRoundTimer.callback()
+assert.deepEqual(timerEffects, [], '即使旧 timer 已进入队列，旧轮次回调也不得写入状态')
+assert.equal(timerController.flush('TASK-1::bagging'), true, '确认前必须能同步冲刷 pending scan')
+assert.deepEqual(timerEffects, ['latest-round'], '确认前必须同步完成最新一轮扫描')
+fakeTimers.at(-1)!.callback()
+assert.deepEqual(timerEffects, ['latest-round'], '同步冲刷后旧异步回调不得重复写入')
+assert.equal(timerController.hasPending('TASK-1::bagging'), false, '同步冲刷后必须删除 pending timer')
+
+timerController.schedule('TASK-1::bagging', () => timerEffects.push('after-reset'))
+const resetTimer = fakeTimers.at(-1)!
+timerController.cancel('TASK-1::bagging')
+resetTimer.callback()
+assert.deepEqual(timerEffects, ['latest-round'], '成功 reset 后的旧 timer 不得写回新一轮状态')
+
+timerController.schedule('TASK-1::bagging', () => timerEffects.push('after-route-leave'))
+const routeLeaveTimer = fakeTimers.at(-1)!
+timerController.cancelAll()
+routeLeaveTimer.callback()
+assert.deepEqual(timerEffects, ['latest-round'], '模式或路由离开后的旧 timer 不得写回状态')
+
+const confirmBranchStart = source.indexOf('const actionNode = target.closest')
+const confirmFlushIndex = source.indexOf('.flush(', confirmBranchStart)
+const confirmRoundIndex = source.indexOf('completePdaCuttingInboundRound(', confirmBranchStart)
+assert(confirmFlushIndex > confirmBranchStart, '确认装袋 handler 开始时必须先同步冲刷 pending scan')
+assert(confirmFlushIndex < confirmRoundIndex, 'pending scan 必须在确认结果计算前同步完成')
+assert(
+  source.includes("window.addEventListener('higood:pda-cutting-inbound-leave'"),
+  '模式或路由离开时必须同步取消全部扫码 timer',
 )
 
 const initial = workflow.createPdaCuttingInboundFormState()

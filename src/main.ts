@@ -1337,6 +1337,7 @@ function closeMobileSidebar(): void {
 
 function navigateWithImmediateSidebar(pathname: string): void {
   const currentPathname = appStore.getState().pathname
+  notifyPdaCuttingInboundRouteLeave(currentPathname, pathname)
   if (isPdaPath(currentPathname) || isPdaPath(pathname)) {
     preloadPdaMainTabModule(pathname)
     appStore.navigate(pathname)
@@ -1352,6 +1353,15 @@ function navigateWithImmediateSidebar(pathname: string): void {
   appStore.navigate(pathname)
   closeMobileSidebar()
   void renderPageContentOnly()
+}
+
+function notifyPdaCuttingInboundRouteLeave(previousPathname: string, nextPathname: string): void {
+  if (
+    previousPathname.startsWith('/fcs/pda/cutting/inbound/') &&
+    previousPathname !== nextPathname
+  ) {
+    window.dispatchEvent(new Event('higood:pda-cutting-inbound-leave'))
+  }
 }
 
 function buildNavigationFromFields(node: HTMLElement): string | null {
@@ -2009,6 +2019,7 @@ document.addEventListener('keydown', async (event) => {
 
 window.addEventListener('popstate', () => {
   const pathname = `${window.location.pathname}${window.location.search}` || '/'
+  notifyPdaCuttingInboundRouteLeave(appStore.getState().pathname, pathname)
   appStore.syncFromBrowser(pathname)
 })
 
