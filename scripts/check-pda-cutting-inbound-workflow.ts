@@ -1,5 +1,8 @@
+// @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
 import assert from 'node:assert/strict'
+// @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
 import { readFileSync } from 'node:fs'
+// @ts-expect-error 本脚本由 Node + tsx 运行，仓库未安装 @types/node。
 import { fileURLToPath } from 'node:url'
 import * as workflow from '../src/pages/pda-cutting-inbound.ts'
 import { buildTransferBagsProjection } from '../src/pages/process-factory/cutting/transfer-bags-projection.ts'
@@ -73,20 +76,20 @@ const latestControlValues: Record<string, string> = {
   locationLabel: 'CUT-A-01',
   scanCode: 'FT-CUT-LATEST-001',
 }
-const fakeWorkflowContainer = {
+const fakeWorkflowContainer: HTMLElement = Object.assign(Object.create(null), {
   querySelector(selector: string) {
     const field = Object.keys(latestControlValues).find((key) => selector.includes(`="${key}"`))
     return field ? { value: latestControlValues[field] } : null
   },
-}
-const fakeConfirmButton = {
+})
+const fakeConfirmButton: HTMLElement = Object.assign(Object.create(null), {
   dataset: { taskId: 'TASK-1' },
   closest(selector: string) {
     if (selector === '[data-pda-cutting-inbound-workflow]') return fakeWorkflowContainer
     if (selector === '[data-task-id]') return this
     return null
   },
-}
+})
 const resolvedWorkflowContainer = workflow.resolvePdaCuttingInboundFormContainer(fakeConfirmButton)
 assert.equal(
   resolvedWorkflowContainer,
@@ -167,12 +170,14 @@ assert(
 )
 
 const initial = workflow.createPdaCuttingInboundFormState()
+assert.equal(initial.lastTicketScanStatus, 'idle', '新一轮装袋必须从无扫码结果状态开始')
 const outOfOrderScan = workflow.applyPdaCuttingInboundTicketScan(initial, {
   ticketNo: 'FT-000',
   pieceQty: 5,
   productionOrderNo: 'PO-001',
 })
 assert.equal(outOfOrderScan.ok, false, '未扫中转袋时不得提前加入菲票')
+assert.equal(outOfOrderScan.state.lastTicketScanStatus, 'invalid', '扫码失败必须写入表单失败状态')
 assert.deepEqual(outOfOrderScan.state.scannedTicketNos, [], '顺序错误时不得改变已扫菲票')
 
 initial.carrierCode = 'BAG-001'
@@ -184,6 +189,7 @@ const firstScan = workflow.applyPdaCuttingInboundTicketScan(initial, {
   productionOrderNo: 'PO-001',
 })
 assert.equal(firstScan.ok, true, '有效菲票扫码后必须直接加入当前袋')
+assert.equal(firstScan.state.lastTicketScanStatus, 'valid', '扫码成功必须覆盖表单中的旧失败状态')
 assert.deepEqual(firstScan.state.scannedTicketNos, ['FT-001'], '扫码后已扫菲票应立即增加')
 assert.equal(firstScan.state.inboundQty, '12', '扫码后数量必须自动累计')
 assert.equal(firstScan.state.scanCode, '', '扫码加入成功后必须清空扫码框，允许连续扫描')
@@ -219,6 +225,7 @@ assert.equal(
 )
 const unknownScan = workflow.completePdaCuttingInboundTicketScan(unknownState, 'UNKNOWN-001', [], mockLedger)
 assert.equal(unknownScan.ok, false, '未知菲票必须在扫描完成时失败')
+assert.equal(unknownScan.state.lastTicketScanStatus, 'invalid', '未知菲票失败必须写入表单失败状态')
 assert.equal(unknownScan.state.scanCode, '', '未知菲票失败后应清空输入，便于重扫')
 assert.deepEqual(unknownScan.state.scannedTicketNos, ['FT-001', 'FT-002'], '未知菲票失败必须保留已扫数据')
 assert.equal(unknownScan.state.scanFeedbackMessage, '没有找到这张菲票，请重新扫描。', '未知菲票短错误不正确')
@@ -258,6 +265,7 @@ assert.equal(successfulBagging.scanCode, '', '装袋成功后必须清空菲票�
 assert.deepEqual(successfulBagging.scannedTicketNos, [], '装袋成功后必须清空已扫菲票')
 assert.equal(successfulBagging.inboundQty, '', '装袋成功后必须清空数量')
 assert.equal(successfulBagging.scanFeedbackMessage, '', '装袋成功后必须清空上次扫描结果')
+assert.equal(successfulBagging.lastTicketScanStatus, 'idle', '装袋成功进入新一轮后必须清空扫码结果状态')
 const freshBaggingHtml = workflow.renderPdaCuttingInboundWorkflow('bagging', successfulBagging)
 assert(freshBaggingHtml.includes('装袋成功'), '装袋成功后同一路由的新界面必须保留明确成功提示')
 assert(freshBaggingHtml.includes('已扫菲票 0 张'), '装袋成功后必须立即呈现全新空白装袋界面')
@@ -289,7 +297,7 @@ assert.equal(mockLedger.bags['BAG-001']?.status, 'EMPTY_READY', '演示台账必
 assert.equal(mockLedger.bags['BAG-002']?.status, 'EMPTY_READY', '演示台账必须提供第二个空袋支持连续装袋')
 
 const knownTicketCandidate = buildTransferBagsProjection().viewModel.ticketCandidates
-  .find((ticket) => ticket.ticketNo === demoTicketNos[0])
+  .find((ticket) => ticket.ticketNo === demoTicketNos[0])!
 assert(knownTicketCandidate, '测试前提：当前页面候选必须包含演示有效菲票')
 const existingValidTicketForm = {
   ...workflow.createPdaCuttingInboundFormState(),
@@ -306,19 +314,64 @@ const failedPendingScan = workflow.completePdaCuttingInboundTicketScan(
   mockLedger,
 )
 assert.equal(failedPendingScan.ok, false, '测试前提：最后一张 pending 未知菲票必须扫码失败')
+assert.equal(failedPendingScan.state.lastTicketScanStatus, 'invalid', 'Enter 完成失败扫码后必须写入表单失败状态')
+const naturalTimers: FakeTimer[] = []
+const naturalTimerController = workflow.createPdaCuttingInboundScanTimerController(
+  (callback) => {
+    const timer = { callback, cancelled: false }
+    naturalTimers.push(timer)
+    return timer
+  },
+  (timer) => {
+    ;(timer as FakeTimer).cancelled = true
+  },
+)
+const naturalStateKey = 'TASK-1::natural-timeout'
+let naturalTimeoutForm = existingValidTicketForm
+naturalTimerController.schedule(naturalStateKey, () => {
+  naturalTimeoutForm = workflow.completePdaCuttingInboundTicketScan(
+    naturalTimeoutForm,
+    naturalTimeoutForm.scanCode,
+    [],
+    mockLedger,
+  ).state
+})
+naturalTimers.at(-1)!.callback()
+assert.equal(naturalTimerController.hasPending(naturalStateKey), false, '自然 timeout 后 pending timer 必须删除')
+assert.equal(naturalTimeoutForm.lastTicketScanStatus, 'invalid', '自然 timeout 失败必须写回同一个表单状态')
+const blockedNaturalConfirmation = workflow.confirmPdaCuttingInboundRound(
+  naturalTimeoutForm,
+  'bagging',
+  mockLedger,
+)
+assert.equal(blockedNaturalConfirmation.result.ok, false, '自然 timeout 扫码失败后确认必须失败')
+assert.equal(blockedNaturalConfirmation.nextForm.carrierCode, 'BAG-001', '自然 timeout 失败确认必须保留袋码')
+assert.deepEqual(
+  blockedNaturalConfirmation.nextForm.scannedTicketNos,
+  [demoTicketNos[1]],
+  '自然 timeout 失败确认必须保留已有有效票',
+)
+assert.deepEqual(blockedNaturalConfirmation.ledger, mockLedger, '自然 timeout 失败确认不得修改台账')
+
 const confirmationTimer = workflow.createPdaCuttingInboundScanTimerController(
   (callback) => ({ callback }),
   () => undefined,
 )
-confirmationTimer.schedule('TASK-1::confirm-pending', () => failedPendingScan)
-const failedPendingFlush = confirmationTimer.flushWithResult('TASK-1::confirm-pending')
-assert.equal(failedPendingFlush.flushed, true, '确认编排测试必须真实冲刷 pending 扫码')
-assert.equal(failedPendingFlush.scanResult, failedPendingScan, 'flush 必须保留最后一次扫码结果')
+let flushedForm = existingValidTicketForm
+confirmationTimer.schedule('TASK-1::confirm-pending', () => {
+  flushedForm = workflow.completePdaCuttingInboundTicketScan(
+    flushedForm,
+    flushedForm.scanCode,
+    [],
+    mockLedger,
+  ).state
+})
+assert.equal(confirmationTimer.flush('TASK-1::confirm-pending'), true, '确认编排测试必须真实冲刷 pending 扫码')
+assert.equal(flushedForm.lastTicketScanStatus, 'invalid', '确认 flush 失败必须写回表单失败状态')
 const blockedPendingConfirmation = workflow.confirmPdaCuttingInboundRound(
-  failedPendingScan.state,
+  flushedForm,
   'bagging',
   mockLedger,
-  failedPendingFlush.scanResult,
 )
 assert.equal(blockedPendingConfirmation.result.ok, false, '最后一张 pending 菲票失败时本次确认必须失败')
 assert.equal(blockedPendingConfirmation.nextForm.carrierCode, 'BAG-001', 'pending 扫码失败确认必须保留袋码')
@@ -330,17 +383,17 @@ assert.deepEqual(
 assert.deepEqual(blockedPendingConfirmation.ledger, mockLedger, 'pending 扫码失败确认不得修改台账')
 
 const successfulPendingScan = workflow.completePdaCuttingInboundTicketScan(
-  { ...existingValidTicketForm, scanCode: demoTicketNos[0] },
+  { ...failedPendingScan.state, scanCode: demoTicketNos[0] },
   demoTicketNos[0],
   [knownTicketCandidate],
   mockLedger,
 )
 assert.equal(successfulPendingScan.ok, true, '测试前提：最后一张有效 pending 菲票必须扫码成功')
+assert.equal(successfulPendingScan.state.lastTicketScanStatus, 'valid', '下一张有效菲票必须覆盖之前的失败状态')
 const successfulPendingConfirmation = workflow.confirmPdaCuttingInboundRound(
   successfulPendingScan.state,
   'bagging',
   mockLedger,
-  successfulPendingScan,
 )
 assert.equal(successfulPendingConfirmation.result.ok, true, '最后一张 pending 菲票成功后必须允许确认装袋')
 assert.deepEqual(

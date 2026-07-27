@@ -14,6 +14,7 @@ import { buildTransferBagsProjection } from './process-factory/cutting/transfer-
 import type { TransferBagTicketCandidate } from './process-factory/cutting/transfer-bags-model.ts'
 
 export type PdaCuttingInboundMode = 'bagging' | 'inbound-location'
+export type PdaCuttingInboundTicketScanStatus = 'idle' | 'valid' | 'invalid'
 export const PDA_CUTTING_INBOUND_SCAN_DEBOUNCE_MS = 150
 
 export interface InboundFormState {
@@ -25,6 +26,7 @@ export interface InboundFormState {
   inboundQty: string
   scannedTicketNos: string[]
   scanFeedbackMessage: string
+  lastTicketScanStatus: PdaCuttingInboundTicketScanStatus
   resultMessage: string
 }
 
@@ -319,15 +321,8 @@ export function applyPdaCuttingInboundBusinessTransition(
 }
 
 export interface PdaCuttingInboundScanTimerController {
-  schedule: (
-    stateKey: string,
-    callback: () => PdaCuttingInboundTicketScanResult | void,
-  ) => void
+  schedule: (stateKey: string, callback: () => void) => void
   flush: (stateKey: string) => boolean
-  flushWithResult: (stateKey: string) => {
-    flushed: boolean
-    scanResult: PdaCuttingInboundTicketScanResult | null
-  }
   cancel: (stateKey: string) => void
   cancelAll: () => void
   hasPending: (stateKey: string) => boolean
@@ -341,7 +336,7 @@ export function createPdaCuttingInboundScanTimerController(
 ): PdaCuttingInboundScanTimerController {
   const pendingByStateKey = new Map<string, {
     timer: unknown
-    callback: () => PdaCuttingInboundTicketScanResult | void
+    callback: () => void
     round: number
   }>()
   const roundByStateKey = new Map<string, number>()
@@ -355,18 +350,6 @@ export function createPdaCuttingInboundScanTimerController(
     const pending = pendingByStateKey.get(stateKey)
     if (pending) cancelTimer(pending.timer)
     pendingByStateKey.delete(stateKey)
-  }
-  const flushWithResult = (stateKey: string): {
-    flushed: boolean
-    scanResult: PdaCuttingInboundTicketScanResult | null
-  } => {
-    const pending = pendingByStateKey.get(stateKey)
-    if (!pending) return { flushed: false, scanResult: null }
-    cancel(stateKey)
-    return {
-      flushed: true,
-      scanResult: pending.callback() || null,
-    }
   }
 
   return {
@@ -382,9 +365,12 @@ export function createPdaCuttingInboundScanTimerController(
       pendingByStateKey.set(stateKey, pending)
     },
     flush(stateKey) {
-      return flushWithResult(stateKey).flushed
+      const pending = pendingByStateKey.get(stateKey)
+      if (!pending) return false
+      cancel(stateKey)
+      pending.callback()
+      return true
     },
-    flushWithResult,
     cancel,
     cancelAll() {
       Array.from(pendingByStateKey.keys()).forEach(cancel)
@@ -399,6 +385,9 @@ const ticketScanTimerController = createPdaCuttingInboundScanTimerController()
 
 export function cancelPdaCuttingInboundPendingScans(): void {
   ticketScanTimerController.cancelAll()
+  getInboundStateStore().forEach((state, stateKey) => {
+    getInboundStateStore().set(stateKey, { ...state, lastTicketScanStatus: 'idle' })
+  })
 }
 
 if (typeof window !== 'undefined') {
@@ -415,6 +404,7 @@ export function createPdaCuttingInboundFormState(): InboundFormState {
     inboundQty: '',
     scannedTicketNos: [],
     scanFeedbackMessage: '',
+    lastTicketScanStatus: 'idle',
     resultMessage: '',
   }
 }
@@ -429,6 +419,7 @@ export function applyPdaCuttingInboundTicketScan(
       state: {
         ...state,
         scanFeedbackMessage: '请先扫描中转袋。',
+        lastTicketScanStatus: 'invalid',
       },
     }
   }
@@ -438,6 +429,7 @@ export function applyPdaCuttingInboundTicketScan(
       state: {
         ...state,
         scanFeedbackMessage: `${ticket.ticketNo} 已扫过，请扫下一张。`,
+        lastTicketScanStatus: 'invalid',
       },
     }
   }
@@ -451,6 +443,7 @@ export function applyPdaCuttingInboundTicketScan(
       state: {
         ...state,
         scanFeedbackMessage: `${ticket.ticketNo} 不属于当前袋生产单，请换一张。`,
+        lastTicketScanStatus: 'invalid',
       },
     }
   }
@@ -465,6 +458,7 @@ export function applyPdaCuttingInboundTicketScan(
       inboundQty: String(nextQty),
       scannedTicketNos: [...state.scannedTicketNos, ticket.ticketNo],
       scanFeedbackMessage: `${ticket.ticketNo} 已加入`,
+      lastTicketScanStatus: 'valid',
       resultMessage: '',
     },
   }
@@ -493,28 +487,26 @@ export function confirmPdaCuttingInboundRound(
   state: InboundFormState,
   mode: PdaCuttingInboundMode,
   ledger: PdaCuttingInboundMockLedger,
-  pendingScanResult: PdaCuttingInboundTicketScanResult | null = null,
 ): PdaCuttingInboundConfirmOutcome {
-  const effectiveState = pendingScanResult?.state || state
   let result: InboundRoundResult
   let nextLedger = ledger
 
-  if (pendingScanResult && !pendingScanResult.ok) {
+  if (mode === 'bagging' && state.lastTicketScanStatus === 'invalid') {
     result = {
       ok: false,
-      message: effectiveState.scanFeedbackMessage || '菲票扫码失败，请检查后重试。',
+      message: state.scanFeedbackMessage || '菲票扫码失败，请检查后重试。',
     }
-  } else if (mode === 'bagging' && effectiveState.scanCode.trim()) {
+  } else if (mode === 'bagging' && state.scanCode.trim()) {
     result = { ok: false, message: '请先完成当前菲票扫描。' }
   } else {
-    const transition = applyPdaCuttingInboundBusinessTransition(effectiveState, mode, ledger)
+    const transition = applyPdaCuttingInboundBusinessTransition(state, mode, ledger)
     result = transition
     if (transition.ok) nextLedger = transition.ledger
   }
 
   return {
     result,
-    nextForm: completePdaCuttingInboundRound(effectiveState, mode, result),
+    nextForm: completePdaCuttingInboundRound(state, mode, result),
     ledger: nextLedger,
   }
 }
@@ -684,6 +676,7 @@ export function completePdaCuttingInboundTicketScan(
         ...form,
         scanCode: '',
         scanFeedbackMessage: validation.reason,
+        lastTicketScanStatus: 'invalid',
         resultMessage: '',
       },
     }
@@ -829,7 +822,7 @@ function completeInboundTicketScan(
   taskId: string,
   mode: PdaCuttingInboundMode,
   eventState: ReturnType<typeof resolveInboundEventState>,
-): PdaCuttingInboundTicketScanResult {
+): void {
   const next = completePdaCuttingInboundTicketScan(
     eventState.form,
     fieldNode.value,
@@ -844,7 +837,6 @@ function completeInboundTicketScan(
     eventState.selectedExecutionOrderNo,
   )
   updateBaggingLiveRegion(resolvePdaCuttingInboundFormContainer(fieldNode), next.state)
-  return next
 }
 
 export function syncPdaCuttingInboundFormFromControls(
@@ -878,6 +870,7 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement, event?: Event)
     if (field === 'locationLabel') eventState.form.locationLabel = fieldNode.value
     if (field === 'scanCode' && mode === 'bagging' && fieldNode instanceof HTMLInputElement) {
       eventState.form.scanCode = fieldNode.value
+      if (fieldNode.value.trim()) eventState.form.lastTicketScanStatus = 'idle'
       const stateKey = buildInboundStateKey(
         taskId,
         mode,
@@ -917,29 +910,12 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement, event?: Event)
     eventState.form,
     resolvePdaCuttingInboundFormContainer(actionNode),
   )
-  const flushOutcome = mode === 'bagging'
-    ? ticketScanTimerController.flushWithResult(stateKey)
-    : { flushed: false, scanResult: null }
-  if (flushOutcome.flushed) {
+  if (mode === 'bagging' && ticketScanTimerController.flush(stateKey)) {
     eventState = resolveInboundEventState(taskId, mode)
   }
 
   const currentLedger = getPdaCuttingInboundMockLedger()
-  const pendingScanResult = flushOutcome.flushed
-    ? flushOutcome.scanResult || {
-        ok: false,
-        state: {
-          ...eventState.form,
-          scanFeedbackMessage: '菲票扫码未完成，请检查后重试。',
-        },
-      }
-    : null
-  const confirmation = confirmPdaCuttingInboundRound(
-    eventState.form,
-    mode,
-    currentLedger,
-    pendingScanResult,
-  )
+  const confirmation = confirmPdaCuttingInboundRound(eventState.form, mode, currentLedger)
   if (confirmation.result.ok) {
     ticketScanTimerController.cancel(stateKey)
     replacePdaCuttingInboundMockLedger(confirmation.ledger)
