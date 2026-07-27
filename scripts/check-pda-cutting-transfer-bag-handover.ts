@@ -6,7 +6,9 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const pageSource = readFileSync(`${ROOT}/src/pages/pda-cutting-handover.ts`, 'utf8')
 const handlerSource = readFileSync(`${ROOT}/src/main-handlers/pda-handlers.ts`, 'utf8')
 const mainSource = readFileSync(`${ROOT}/src/main.ts`, 'utf8')
-const routeLeaveSource = readFileSync(`${ROOT}/src/main-handlers/pda-cutting-route-leave.ts`, 'utf8')
+const routeLeaveSource = readFileSync(`${ROOT}/src/state/pda-cutting-navigation-cleanup.ts`, 'utf8')
+const storeSource = readFileSync(`${ROOT}/src/state/store.ts`, 'utf8')
+const pdaShellSource = readFileSync(`${ROOT}/src/pages/pda-shell.ts`, 'utf8')
 const waitHandoverSource = readFileSync(`${ROOT}/src/pages/pda-warehouse-wait-handover.ts`, 'utf8')
 const pageModule = await import('../src/pages/pda-cutting-handover.ts') as Record<string, unknown>
 
@@ -248,13 +250,48 @@ assert(
 )
 assert(
   mainSource.includes(
-    `target?.closest<HTMLElement>('[data-pda-cut-handover-field="bagCode"], [data-pda-cut-handover-field="sewingTaskCode"]')`,
+    "import { resolvePdaCuttingScanKeydownTarget } from './main-handlers/pda-cutting-keydown-routing'",
   ),
-  '全局 keydown 必须精确识别中转袋和车缝任务扫码框',
+  'main 必须复用可执行测试的扫码 keydown 路由 helper',
+)
+const keydownRoutingModule = await import('../src/main-handlers/pda-cutting-keydown-routing.ts')
+const buildFakeKeydownTarget = (field: string) => {
+  const matchedTarget = { field }
+  return {
+    matchedTarget,
+    target: {
+      closest(selector: string) {
+        return selector.includes(`="${field}"`) ? matchedTarget : null
+      },
+    },
+  }
+}
+const bagKeydown = buildFakeKeydownTarget('bagCode')
+assert.equal(
+  keydownRoutingModule.resolvePdaCuttingScanKeydownTarget(bagKeydown.target, 'Enter'),
+  bagKeydown.matchedTarget,
+  '袋码 Enter 必须实际解析为待派发 target',
+)
+const taskKeydown = buildFakeKeydownTarget('sewingTaskCode')
+assert.equal(
+  keydownRoutingModule.resolvePdaCuttingScanKeydownTarget(taskKeydown.target, 'Enter'),
+  taskKeydown.matchedTarget,
+  '车缝任务 Enter 必须实际解析为待派发 target',
+)
+assert.equal(
+  keydownRoutingModule.resolvePdaCuttingScanKeydownTarget(bagKeydown.target, 'A'),
+  null,
+  '非 Enter 不得派发交出扫码',
+)
+const specialCraftKeydown = buildFakeKeydownTarget('specialCraftBagScan')
+assert.equal(
+  keydownRoutingModule.resolvePdaCuttingScanKeydownTarget(specialCraftKeydown.target, 'Enter'),
+  null,
+  '特殊工艺字段不得进入整袋交出 Enter 派发',
 )
 const globalKeydownStart = mainSource.indexOf("document.addEventListener('keydown'")
-const globalHandoverScanIndex = mainSource.indexOf('cuttingHandoverScan', globalKeydownStart)
-const globalDispatchIndex = mainSource.indexOf('dispatchPageEvent(cuttingHandoverScan, event)', globalHandoverScanIndex)
+const globalHandoverScanIndex = mainSource.indexOf('resolvePdaCuttingScanKeydownTarget<HTMLElement>(', globalKeydownStart)
+const globalDispatchIndex = mainSource.indexOf('dispatchPageEvent(cuttingScanTarget, event)', globalHandoverScanIndex)
 assert(globalHandoverScanIndex > globalKeydownStart, '全局 Enter 必须接入中转袋交出扫码框')
 assert(globalDispatchIndex > globalHandoverScanIndex, '全局 Enter 必须实际调用交出 handler')
 
@@ -262,30 +299,37 @@ const handoverLeaveDispatchToken =
   "dispatchEvent(new Event('higood:pda-cutting-handover-leave'))"
 assert(routeLeaveSource.includes(handoverLeaveDispatchToken), '导航离开中转袋交出路由时必须实际 dispatch 清理事件')
 assert(
-  mainSource.includes(
-    "import { notifyPdaCuttingHandoverRouteLeave } from './main-handlers/pda-cutting-route-leave'",
+  storeSource.includes(
+    "import { notifyPdaCuttingHandoverRouteLeave } from './pda-cutting-navigation-cleanup'",
   ),
-  'main 导航必须复用可执行测试的交出路由离开 helper',
+  '统一 appStore 导航边界必须复用可执行测试的交出路由离开 helper',
 )
 assert(
-  (mainSource.match(/notifyPdaCuttingHandoverRouteLeave\(/g) || []).length >= 2,
-  '普通导航和浏览器前进后退都必须触发交出路由离开检查',
+  (storeSource.match(/notifyPdaCuttingHandoverRouteLeave\(/g) || []).length >= 2,
+  'appStore.navigate 和 syncFromBrowser 都必须触发交出路由离开检查',
 )
-const routeLeaveModule = await import('../src/main-handlers/pda-cutting-route-leave.ts')
+const routeLeaveModule = await import('../src/state/pda-cutting-navigation-cleanup.ts')
 const dispatchedLeaveEvents: string[] = []
-assert.equal(
-  routeLeaveModule.notifyPdaCuttingHandoverRouteLeave(
-    '/fcs/pda/cutting/handover/CUT-001?action=transfer-bag-handover',
-    '/fcs/pda/warehouse/wait-handover?scope=cutting',
-    (event: Event) => dispatchedLeaveEvents.push(event.type),
-  ),
-  true,
-  '真实离开交出路由时必须返回已清理',
-)
+for (const [entryName, nextPathname] of [
+  ['main 导航', '/fcs/pda/warehouse/wait-handover?scope=cutting'],
+  ['PDA 顶部待办', '/fcs/pda/notify'],
+  ['PDA 退出登录', '/fcs/pda/auth/login'],
+  ['浏览器前进后退', '/fcs/pda/cutting/inbound/CUT-001'],
+] as const) {
+  assert.equal(
+    routeLeaveModule.notifyPdaCuttingHandoverRouteLeave(
+      '/fcs/pda/cutting/handover/CUT-001?action=transfer-bag-handover',
+      nextPathname,
+      (event: Event) => dispatchedLeaveEvents.push(event.type),
+    ),
+    true,
+    `${entryName} 离开交出路由时必须返回已清理`,
+  )
+}
 assert.deepEqual(
   dispatchedLeaveEvents,
-  ['higood:pda-cutting-handover-leave'],
-  '真实离开交出路由时必须 dispatch timer 清理事件',
+  Array.from({ length: 4 }, () => 'higood:pda-cutting-handover-leave'),
+  'main、PDA 待办、退出和 popstate 离开时都必须 dispatch timer 清理事件',
 )
 assert.equal(
   routeLeaveModule.notifyPdaCuttingHandoverRouteLeave(
@@ -296,7 +340,17 @@ assert.equal(
   false,
   '留在同一路由不得误清理当前扫描',
 )
-assert.equal(dispatchedLeaveEvents.length, 1, '同一路由不得重复 dispatch 清理事件')
+assert.equal(dispatchedLeaveEvents.length, 4, '同一路由不得重复 dispatch 清理事件')
+assert(mainSource.includes('appStore.navigate(pathname)'), 'main 导航必须经过统一 appStore 边界')
+assert(mainSource.includes('appStore.syncFromBrowser(pathname)'), 'popstate 必须经过统一 appStore 边界')
+assert(
+  pdaShellSource.includes("appStore.navigate('/fcs/pda/auth/login', { historyMode: 'replace' })"),
+  'PDA 退出登录必须经过统一 appStore 边界',
+)
+assert(
+  pdaShellSource.includes('appStore.navigate(actionNode.dataset.href)'),
+  'PDA 顶部待办跳转必须经过统一 appStore 边界',
+)
 assert(
   waitHandoverSource.includes('扫描中转袋和车缝任务，确认整袋交出'),
   '待交出仓入口说明必须使用整袋交出口径',

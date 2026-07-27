@@ -3,7 +3,7 @@ import { hydrateRealQRCodes } from './components/real-qr'
 import { hydrateIcons, isStandalonePrintPath, renderAppShell, renderSidebar } from './components/shell'
 import { handleProductionObjectOverviewEvent } from './components/production-object-overview'
 import { appStore } from './state/store'
-import { notifyPdaCuttingHandoverRouteLeave } from './main-handlers/pda-cutting-route-leave'
+import { resolvePdaCuttingScanKeydownTarget } from './main-handlers/pda-cutting-keydown-routing'
 
 type FcsHandlersModule = typeof import('./main-handlers/fcs-handlers')
 type PcsHandlersModule = typeof import('./main-handlers/pcs-handlers')
@@ -1339,7 +1339,6 @@ function closeMobileSidebar(): void {
 function navigateWithImmediateSidebar(pathname: string): void {
   const currentPathname = appStore.getState().pathname
   notifyPdaCuttingInboundRouteLeave(currentPathname, pathname)
-  notifyPdaCuttingHandoverRouteLeave(currentPathname, pathname)
   if (isPdaPath(currentPathname) || isPdaPath(pathname)) {
     preloadPdaMainTabModule(pathname)
     appStore.navigate(pathname)
@@ -1997,14 +1996,9 @@ root.addEventListener('submit', async (event) => {
 
 document.addEventListener('keydown', async (event) => {
   const target = resolveEventElementTarget(event.target)
-  const cuttingInboundScan = target?.closest<HTMLElement>('[data-pda-cut-inbound-field="scanCode"]')
-  const cuttingHandoverScan = target?.closest<HTMLElement>('[data-pda-cut-handover-field="bagCode"], [data-pda-cut-handover-field="sewingTaskCode"]')
-  if (event.key === 'Enter' && cuttingInboundScan) {
-    if (await dispatchPageEvent(cuttingInboundScan, event)) event.preventDefault()
-    return
-  }
-  if (event.key === 'Enter' && cuttingHandoverScan) {
-    if (await dispatchPageEvent(cuttingHandoverScan, event)) event.preventDefault()
+  const cuttingScanTarget = resolvePdaCuttingScanKeydownTarget<HTMLElement>(target, event.key)
+  if (cuttingScanTarget) {
+    if (await dispatchPageEvent(cuttingScanTarget, event)) event.preventDefault()
     return
   }
   if (event.key !== 'Escape') return
@@ -2027,7 +2021,6 @@ document.addEventListener('keydown', async (event) => {
 window.addEventListener('popstate', () => {
   const pathname = `${window.location.pathname}${window.location.search}` || '/'
   notifyPdaCuttingInboundRouteLeave(appStore.getState().pathname, pathname)
-  notifyPdaCuttingHandoverRouteLeave(appStore.getState().pathname, pathname)
   appStore.syncFromBrowser(pathname)
 })
 
