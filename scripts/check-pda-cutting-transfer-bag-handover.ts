@@ -10,6 +10,7 @@ const routeLeaveSource = readFileSync(`${ROOT}/src/state/pda-cutting-navigation-
 const storeSource = readFileSync(`${ROOT}/src/state/store.ts`, 'utf8')
 const pdaShellSource = readFileSync(`${ROOT}/src/pages/pda-shell.ts`, 'utf8')
 const waitHandoverSource = readFileSync(`${ROOT}/src/pages/pda-warehouse-wait-handover.ts`, 'utf8')
+const waitHandoverActionSource = readFileSync(`${ROOT}/src/pages/pda-cutting-wait-handover-actions.ts`, 'utf8')
 const pageModule = await import('../src/pages/pda-cutting-handover.ts') as Record<string, unknown>
 
 type TransferBagState = {
@@ -606,8 +607,9 @@ if (originalNavigationWindow) {
   delete (globalThis as typeof globalThis & { window?: Window }).window
 }
 assert(
-  waitHandoverSource.includes('扫描中转袋和车缝任务，确认整袋交出'),
-  '待交出仓入口说明必须使用整袋交出口径',
+  waitHandoverActionSource.includes("title: '中转袋交出'")
+    && waitHandoverActionSource.includes("action=transfer-bag-handover"),
+  '待交出仓入口必须使用中转袋整袋交出深链',
 )
 assert(
   !waitHandoverSource.includes('按车缝任务扫描中转袋和菲票，确认装袋并形成交出记录。'),
