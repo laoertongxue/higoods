@@ -180,7 +180,7 @@ const CUTTING_WAIT_HANDOVER_ACTIONS: Array<{
   {
     key: 'handover-bagging-confirm',
     title: '中转袋交出',
-    desc: '按车缝任务扫描中转袋和菲票，确认装袋并形成交出记录。',
+    desc: '扫描中转袋和车缝任务，确认整袋交出。',
     primaryLabel: '进入中转袋交出',
   },
   {

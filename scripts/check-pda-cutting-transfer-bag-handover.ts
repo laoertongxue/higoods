@@ -5,6 +5,9 @@ import { fileURLToPath } from 'node:url'
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const pageSource = readFileSync(`${ROOT}/src/pages/pda-cutting-handover.ts`, 'utf8')
 const handlerSource = readFileSync(`${ROOT}/src/main-handlers/pda-handlers.ts`, 'utf8')
+const mainSource = readFileSync(`${ROOT}/src/main.ts`, 'utf8')
+const routeLeaveSource = readFileSync(`${ROOT}/src/main-handlers/pda-cutting-route-leave.ts`, 'utf8')
+const waitHandoverSource = readFileSync(`${ROOT}/src/pages/pda-warehouse-wait-handover.ts`, 'utf8')
 const pageModule = await import('../src/pages/pda-cutting-handover.ts') as Record<string, unknown>
 
 type TransferBagState = {
@@ -189,8 +192,8 @@ assert.equal((html.match(/<button\b/g) || []).length, 1, '页面只能有一个�
 assert(html.includes('1 扫中转袋'), '第一步必须是扫中转袋')
 assert(html.includes('2 扫车缝任务'), '第二步必须是扫车缝任务')
 assert(html.includes('3 确认交出'), '第三步必须是确认交出')
-assert(html.includes('data-pda-cut-handover-field="transferBagCode"'), '必须提供袋码扫码输入')
-assert(html.includes('data-pda-cut-handover-field="transferBagSewingTaskCode"'), '必须提供车缝任务扫码输入')
+assert(html.includes('data-pda-cut-handover-field="bagCode"'), '必须提供袋码扫码输入')
+assert(html.includes('data-pda-cut-handover-field="sewingTaskCode"'), '必须提供车缝任务扫码输入')
 assert(html.includes('生产单号'), '必须显示车缝任务派生的生产单号')
 assert(html.includes('接收工厂'), '必须显示车缝任务派生的接收工厂')
 assert(!html.includes('<select'), '不得让员工选择工厂')
@@ -242,6 +245,65 @@ assert(
 assert(
   handlerSource.includes('handlePdaCuttingHandoverEvent(target, event)'),
   'PDA 事件分发必须把 Enter/input 事件传给中转袋交出 handler',
+)
+assert(
+  mainSource.includes(
+    `target?.closest<HTMLElement>('[data-pda-cut-handover-field="bagCode"], [data-pda-cut-handover-field="sewingTaskCode"]')`,
+  ),
+  '全局 keydown 必须精确识别中转袋和车缝任务扫码框',
+)
+const globalKeydownStart = mainSource.indexOf("document.addEventListener('keydown'")
+const globalHandoverScanIndex = mainSource.indexOf('cuttingHandoverScan', globalKeydownStart)
+const globalDispatchIndex = mainSource.indexOf('dispatchPageEvent(cuttingHandoverScan, event)', globalHandoverScanIndex)
+assert(globalHandoverScanIndex > globalKeydownStart, '全局 Enter 必须接入中转袋交出扫码框')
+assert(globalDispatchIndex > globalHandoverScanIndex, '全局 Enter 必须实际调用交出 handler')
+
+const handoverLeaveDispatchToken =
+  "dispatchEvent(new Event('higood:pda-cutting-handover-leave'))"
+assert(routeLeaveSource.includes(handoverLeaveDispatchToken), '导航离开中转袋交出路由时必须实际 dispatch 清理事件')
+assert(
+  mainSource.includes(
+    "import { notifyPdaCuttingHandoverRouteLeave } from './main-handlers/pda-cutting-route-leave'",
+  ),
+  'main 导航必须复用可执行测试的交出路由离开 helper',
+)
+assert(
+  (mainSource.match(/notifyPdaCuttingHandoverRouteLeave\(/g) || []).length >= 2,
+  '普通导航和浏览器前进后退都必须触发交出路由离开检查',
+)
+const routeLeaveModule = await import('../src/main-handlers/pda-cutting-route-leave.ts')
+const dispatchedLeaveEvents: string[] = []
+assert.equal(
+  routeLeaveModule.notifyPdaCuttingHandoverRouteLeave(
+    '/fcs/pda/cutting/handover/CUT-001?action=transfer-bag-handover',
+    '/fcs/pda/warehouse/wait-handover?scope=cutting',
+    (event: Event) => dispatchedLeaveEvents.push(event.type),
+  ),
+  true,
+  '真实离开交出路由时必须返回已清理',
+)
+assert.deepEqual(
+  dispatchedLeaveEvents,
+  ['higood:pda-cutting-handover-leave'],
+  '真实离开交出路由时必须 dispatch timer 清理事件',
+)
+assert.equal(
+  routeLeaveModule.notifyPdaCuttingHandoverRouteLeave(
+    '/fcs/pda/cutting/handover/CUT-001?action=transfer-bag-handover',
+    '/fcs/pda/cutting/handover/CUT-001?action=transfer-bag-handover',
+    (event: Event) => dispatchedLeaveEvents.push(event.type),
+  ),
+  false,
+  '留在同一路由不得误清理当前扫描',
+)
+assert.equal(dispatchedLeaveEvents.length, 1, '同一路由不得重复 dispatch 清理事件')
+assert(
+  waitHandoverSource.includes('扫描中转袋和车缝任务，确认整袋交出'),
+  '待交出仓入口说明必须使用整袋交出口径',
+)
+assert(
+  !waitHandoverSource.includes('按车缝任务扫描中转袋和菲票，确认装袋并形成交出记录。'),
+  '待交出仓入口不得保留逐菲票装袋旧说明',
 )
 
 console.log('[check-pda-cutting-transfer-bag-handover] 中转袋整袋交出工作流检查通过')

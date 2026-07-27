@@ -1030,7 +1030,7 @@ export function renderPdaTransferBagHandoverWorkflow(
         <div class="text-sm font-semibold text-foreground">1 扫中转袋</div>
         <input
           class="h-12 w-full rounded-xl border bg-background px-3 text-base"
-          data-pda-cut-handover-field="transferBagCode"
+          data-pda-cut-handover-field="bagCode"
           data-skip-page-rerender="true"
           value="${escapeHtml(state.bagCode)}"
           placeholder="扫描中转袋"
@@ -1040,7 +1040,7 @@ export function renderPdaTransferBagHandoverWorkflow(
         <div class="text-sm font-semibold text-foreground">2 扫车缝任务</div>
         <input
           class="h-12 w-full rounded-xl border bg-background px-3 text-base"
-          data-pda-cut-handover-field="transferBagSewingTaskCode"
+          data-pda-cut-handover-field="sewingTaskCode"
           data-skip-page-rerender="true"
           value="${escapeHtml(state.sewingTaskCode)}"
           placeholder="扫描车缝任务"
@@ -1290,10 +1290,10 @@ function updateTransferBagHandoverLiveRegion(
 ): void {
   if (!container) return
   const bagInput = container.querySelector<HTMLInputElement>(
-    '[data-pda-cut-handover-field="transferBagCode"]',
+    '[data-pda-cut-handover-field="bagCode"]',
   )
   const taskInput = container.querySelector<HTMLInputElement>(
-    '[data-pda-cut-handover-field="transferBagSewingTaskCode"]',
+    '[data-pda-cut-handover-field="sewingTaskCode"]',
   )
   if (bagInput) bagInput.value = state.bagCode
   if (taskInput) taskInput.value = state.sewingTaskCode
@@ -1335,7 +1335,7 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement, event?: Event
 
     if (
       fieldNode instanceof HTMLInputElement &&
-      (field === 'transferBagCode' || field === 'transferBagSewingTaskCode')
+      (field === 'bagCode' || field === 'sewingTaskCode')
     ) {
       const transferContext = buildPdaCuttingExecutionContext(taskId, 'handover')
       const transferExecutionOrderId =
@@ -1353,7 +1353,7 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement, event?: Event
       })
       transferBagScanTimerController.cancel(stateKey)
       if (!fieldNode.value.trim() || trigger === 'none') return true
-      const stateField = field === 'transferBagCode' ? 'bagCode' : 'sewingTaskCode'
+      const stateField = field === 'bagCode' ? 'bagCode' : 'sewingTaskCode'
       if (trigger === 'immediate') {
         completeTransferBagHandoverFieldScan(
           fieldNode,
