@@ -1,111 +1,72 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import * as workflow from '../src/pages/pda-cutting-inbound.ts'
+import { buildTransferBagsProjection } from '../src/pages/process-factory/cutting/transfer-bags-projection.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const source = readFileSync(`${ROOT}/src/pages/pda-cutting-inbound.ts`, 'utf8')
-const pageModule = await import('../src/pages/pda-cutting-inbound.ts') as Record<string, unknown>
 
 assert.equal(
-  typeof pageModule.createPdaCuttingInboundFormState,
+  typeof workflow.createPdaCuttingInboundFormState,
   'function',
   'PDA 裁片入仓页必须导出可测试的新一轮状态创建函数',
 )
 assert.equal(
-  typeof pageModule.applyPdaCuttingInboundTicketScan,
+  typeof workflow.applyPdaCuttingInboundTicketScan,
   'function',
   'PDA 裁片入仓页必须导出扫码即加入菲票的纯函数',
 )
 assert.equal(
-  typeof pageModule.completePdaCuttingInboundRound,
+  typeof workflow.completePdaCuttingInboundRound,
   'function',
   'PDA 裁片入仓页必须导出成功清空、失败保留的纯函数',
 )
 assert.equal(
-  typeof pageModule.renderPdaCuttingInboundWorkflow,
+  typeof workflow.renderPdaCuttingInboundWorkflow,
   'function',
   'PDA 裁片入仓页必须导出两种模式的工作区渲染函数',
 )
 assert.equal(
-  typeof pageModule.resolvePdaCuttingInboundScanTrigger,
+  typeof workflow.resolvePdaCuttingInboundScanTrigger,
   'function',
   'PDA 裁片入仓页必须导出扫码完成触发判定函数',
 )
 assert.equal(
-  typeof pageModule.completePdaCuttingInboundTicketScan,
+  typeof workflow.completePdaCuttingInboundTicketScan,
   'function',
   'PDA 裁片入仓页必须导出统一扫码校验与状态转换函数',
 )
 assert.equal(
-  typeof pageModule.createPdaCuttingInboundScanTimerController,
+  typeof workflow.createPdaCuttingInboundScanTimerController,
   'function',
   'PDA 裁片入仓页必须导出按状态键和轮次管理扫码 timer 的控制器',
 )
 assert.equal(
-  typeof pageModule.createPdaCuttingInboundMockLedger,
+  typeof workflow.createPdaCuttingInboundMockLedger,
   'function',
   'PDA 裁片入仓页必须导出最小本地袋、菲票、库位台账创建函数',
 )
 assert.equal(
-  typeof pageModule.applyPdaCuttingInboundBusinessTransition,
+  typeof workflow.applyPdaCuttingInboundBusinessTransition,
   'function',
   'PDA 裁片入仓页必须导出确认装袋、确认入仓的纯状态迁移函数',
 )
 assert.equal(
-  typeof pageModule.resolvePdaCuttingInboundFormContainer,
+  typeof workflow.resolvePdaCuttingInboundFormContainer,
   'function',
   'PDA 裁片入仓页必须导出可执行测试的工作区容器解析函数',
 )
 assert.equal(
-  typeof pageModule.syncPdaCuttingInboundFormFromControls,
+  typeof workflow.syncPdaCuttingInboundFormFromControls,
   'function',
   'PDA 裁片入仓页必须导出确认前同步最新输入值的函数',
 )
-
-type WorkflowModule = {
-  createPdaCuttingInboundFormState: () => any
-  applyPdaCuttingInboundTicketScan: (
-    state: any,
-    ticket: { ticketNo: string; pieceQty: number; productionOrderNo: string },
-  ) => {
-    ok: boolean
-    state: any
-  }
-  completePdaCuttingInboundRound: (
-    state: any,
-    mode: 'bagging' | 'inbound-location',
-    result: { ok: boolean; message?: string },
-  ) => any
-  renderPdaCuttingInboundWorkflow: (mode: 'bagging' | 'inbound-location', state: any) => string
-  resolvePdaCuttingInboundScanTrigger: (event: { type: string; key?: string }) => 'immediate' | 'debounced' | 'none'
-  completePdaCuttingInboundTicketScan: (
-    state: any,
-    scanCode: string,
-    candidates: Array<Record<string, any>>,
-    ledger: any,
-  ) => { ok: boolean; state: any }
-  createPdaCuttingInboundMockLedger: () => any
-  applyPdaCuttingInboundBusinessTransition: (
-    state: any,
-    mode: 'bagging' | 'inbound-location',
-    ledger: any,
-  ) => { ok: boolean; message?: string; ledger: any }
-  resolvePdaCuttingInboundFormContainer: (node: any) => any
-  syncPdaCuttingInboundFormFromControls: (state: any, container: any) => void
-  createPdaCuttingInboundScanTimerController: (
-    scheduleTimer: (callback: () => void, delayMs: number) => unknown,
-    cancelTimer: (timer: unknown) => void,
-  ) => {
-    schedule: (stateKey: string, callback: () => void) => void
-    flush: (stateKey: string) => boolean
-    cancel: (stateKey: string) => void
-    cancelAll: () => void
-    hasPending: (stateKey: string) => boolean
-  }
-  PDA_CUTTING_INBOUND_SCAN_DEBOUNCE_MS: number
-}
-
-const workflow = pageModule as unknown as WorkflowModule
+assert.equal(
+  typeof workflow.confirmPdaCuttingInboundRound,
+  'function',
+  'PDA 裁片入仓页必须导出保留 pending 扫码结果的可执行确认编排',
+)
 
 const latestControlValues: Record<string, string> = {
   carrierCode: 'BAG-002',
@@ -168,9 +129,13 @@ const timerController = workflow.createPdaCuttingInboundScanTimerController(
   },
 )
 const timerEffects: string[] = []
-timerController.schedule('TASK-1::bagging', () => timerEffects.push('old-round'))
+timerController.schedule('TASK-1::bagging', () => {
+  timerEffects.push('old-round')
+})
 const oldRoundTimer = fakeTimers.at(-1)!
-timerController.schedule('TASK-1::bagging', () => timerEffects.push('latest-round'))
+timerController.schedule('TASK-1::bagging', () => {
+  timerEffects.push('latest-round')
+})
 assert.equal(oldRoundTimer.cancelled, true, '同一状态键新扫码必须取消旧 timer')
 oldRoundTimer.callback()
 assert.deepEqual(timerEffects, [], '即使旧 timer 已进入队列，旧轮次回调也不得写入状态')
@@ -180,26 +145,22 @@ fakeTimers.at(-1)!.callback()
 assert.deepEqual(timerEffects, ['latest-round'], '同步冲刷后旧异步回调不得重复写入')
 assert.equal(timerController.hasPending('TASK-1::bagging'), false, '同步冲刷后必须删除 pending timer')
 
-timerController.schedule('TASK-1::bagging', () => timerEffects.push('after-reset'))
+timerController.schedule('TASK-1::bagging', () => {
+  timerEffects.push('after-reset')
+})
 const resetTimer = fakeTimers.at(-1)!
 timerController.cancel('TASK-1::bagging')
 resetTimer.callback()
 assert.deepEqual(timerEffects, ['latest-round'], '成功 reset 后的旧 timer 不得写回新一轮状态')
 
-timerController.schedule('TASK-1::bagging', () => timerEffects.push('after-route-leave'))
+timerController.schedule('TASK-1::bagging', () => {
+  timerEffects.push('after-route-leave')
+})
 const routeLeaveTimer = fakeTimers.at(-1)!
 timerController.cancelAll()
 routeLeaveTimer.callback()
 assert.deepEqual(timerEffects, ['latest-round'], '模式或路由离开后的旧 timer 不得写回状态')
 
-const confirmBranchStart = source.indexOf('const actionNode = target.closest')
-const confirmFlushIndex = source.indexOf('.flush(', confirmBranchStart)
-const confirmRoundIndex = source.indexOf('completePdaCuttingInboundRound(', confirmBranchStart)
-const confirmBusinessIndex = source.indexOf('applyPdaCuttingInboundBusinessTransition(', confirmBranchStart)
-assert(confirmFlushIndex > confirmBranchStart, '确认装袋 handler 开始时必须先同步冲刷 pending scan')
-assert(confirmFlushIndex < confirmRoundIndex, 'pending scan 必须在确认结果计算前同步完成')
-assert(confirmBusinessIndex > confirmBranchStart, '确认 handler 必须调用本地业务台账状态迁移')
-assert(confirmBusinessIndex < confirmRoundIndex, '业务台账校验与迁移必须发生在表单成功清空之前')
 assert(
   source.includes("window.addEventListener('higood:pda-cutting-inbound-leave'"),
   '模式或路由离开时必须同步取消全部扫码 timer',
@@ -250,6 +211,12 @@ assert(
 
 const unknownState = { ...secondScan.state, scanCode: 'UNKNOWN-001' }
 const mockLedger = workflow.createPdaCuttingInboundMockLedger()
+const lowercaseTicketLedger = workflow.createPdaCuttingInboundMockLedger(['ft-custom-001'])
+assert.equal(
+  lowercaseTicketLedger.tickets['FT-CUSTOM-001']?.ticketNo,
+  'FT-CUSTOM-001',
+  '自定义小写菲票必须按统一大写键和值进入台账',
+)
 const unknownScan = workflow.completePdaCuttingInboundTicketScan(unknownState, 'UNKNOWN-001', [], mockLedger)
 assert.equal(unknownScan.ok, false, '未知菲票必须在扫描完成时失败')
 assert.equal(unknownScan.state.scanCode, '', '未知菲票失败后应清空输入，便于重扫')
@@ -321,14 +288,74 @@ for (const ticketNo of demoTicketNos) {
 assert.equal(mockLedger.bags['BAG-001']?.status, 'EMPTY_READY', '演示台账必须提供第一个空袋')
 assert.equal(mockLedger.bags['BAG-002']?.status, 'EMPTY_READY', '演示台账必须提供第二个空袋支持连续装袋')
 
-const knownTicketCandidate = {
-  ticketRecordId: demoTicketNos[0],
-  feiTicketId: demoTicketNos[0],
-  ticketNo: demoTicketNos[0],
-  ticketStatus: 'PRINTED',
-  printStatus: 'PRINTED',
-  productionOrderNo: 'PO-202603-0004',
+const knownTicketCandidate = buildTransferBagsProjection().viewModel.ticketCandidates
+  .find((ticket) => ticket.ticketNo === demoTicketNos[0])
+assert(knownTicketCandidate, '测试前提：当前页面候选必须包含演示有效菲票')
+const existingValidTicketForm = {
+  ...workflow.createPdaCuttingInboundFormState(),
+  carrierCode: 'BAG-001',
+  bagProductionOrderNo: 'PO-202603-0004',
+  scannedTicketNos: [demoTicketNos[1]],
+  inboundQty: '195',
+  scanCode: 'UNKNOWN-PENDING-001',
 }
+const failedPendingScan = workflow.completePdaCuttingInboundTicketScan(
+  existingValidTicketForm,
+  existingValidTicketForm.scanCode,
+  [],
+  mockLedger,
+)
+assert.equal(failedPendingScan.ok, false, '测试前提：最后一张 pending 未知菲票必须扫码失败')
+const confirmationTimer = workflow.createPdaCuttingInboundScanTimerController(
+  (callback) => ({ callback }),
+  () => undefined,
+)
+confirmationTimer.schedule('TASK-1::confirm-pending', () => failedPendingScan)
+const failedPendingFlush = confirmationTimer.flushWithResult('TASK-1::confirm-pending')
+assert.equal(failedPendingFlush.flushed, true, '确认编排测试必须真实冲刷 pending 扫码')
+assert.equal(failedPendingFlush.scanResult, failedPendingScan, 'flush 必须保留最后一次扫码结果')
+const blockedPendingConfirmation = workflow.confirmPdaCuttingInboundRound(
+  failedPendingScan.state,
+  'bagging',
+  mockLedger,
+  failedPendingFlush.scanResult,
+)
+assert.equal(blockedPendingConfirmation.result.ok, false, '最后一张 pending 菲票失败时本次确认必须失败')
+assert.equal(blockedPendingConfirmation.nextForm.carrierCode, 'BAG-001', 'pending 扫码失败确认必须保留袋码')
+assert.deepEqual(
+  blockedPendingConfirmation.nextForm.scannedTicketNos,
+  [demoTicketNos[1]],
+  'pending 扫码失败确认必须保留此前已扫有效票',
+)
+assert.deepEqual(blockedPendingConfirmation.ledger, mockLedger, 'pending 扫码失败确认不得修改台账')
+
+const successfulPendingScan = workflow.completePdaCuttingInboundTicketScan(
+  { ...existingValidTicketForm, scanCode: demoTicketNos[0] },
+  demoTicketNos[0],
+  [knownTicketCandidate],
+  mockLedger,
+)
+assert.equal(successfulPendingScan.ok, true, '测试前提：最后一张有效 pending 菲票必须扫码成功')
+const successfulPendingConfirmation = workflow.confirmPdaCuttingInboundRound(
+  successfulPendingScan.state,
+  'bagging',
+  mockLedger,
+  successfulPendingScan,
+)
+assert.equal(successfulPendingConfirmation.result.ok, true, '最后一张 pending 菲票成功后必须允许确认装袋')
+assert.deepEqual(
+  successfulPendingConfirmation.ledger.bags['BAG-001'].ticketNos,
+  [demoTicketNos[1], demoTicketNos[0]],
+  'pending 成功后确认必须包含最后加入的菲票',
+)
+
+const noPendingConfirmation = workflow.confirmPdaCuttingInboundRound(
+  { ...existingValidTicketForm, scanCode: '' },
+  'bagging',
+  mockLedger,
+)
+assert.equal(noPendingConfirmation.result.ok, true, '无 pending 且已有有效票时必须允许确认装袋')
+
 const unknownLedgerTicket = workflow.completePdaCuttingInboundTicketScan(
   { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-001', scanCode: 'FT-BT-UNKNOWN-001' },
   'FT-BT-UNKNOWN-001',

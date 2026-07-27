@@ -28,15 +28,26 @@ export interface InboundFormState {
   resultMessage: string
 }
 
-interface ScannedTicketInput {
+export interface ScannedTicketInput {
   ticketNo: string
   pieceQty: number
   productionOrderNo: string
 }
 
-interface InboundRoundResult {
+export interface InboundRoundResult {
   ok: boolean
   message?: string
+}
+
+export interface PdaCuttingInboundTicketScanResult {
+  ok: boolean
+  state: InboundFormState
+}
+
+export interface PdaCuttingInboundConfirmOutcome {
+  result: InboundRoundResult
+  nextForm: InboundFormState
+  ledger: PdaCuttingInboundMockLedger
 }
 
 export type PdaCuttingInboundBagStatus =
@@ -88,10 +99,11 @@ export function createPdaCuttingInboundMockLedger(
   ticketNos: string[] = DEFAULT_INBOUND_TICKET_NOS,
 ): PdaCuttingInboundMockLedger {
   const readyTickets = Object.fromEntries(
-    Array.from(new Set([...DEFAULT_INBOUND_TICKET_NOS, ...ticketNos])).map((ticketNo) => [
-      ticketNo,
-      { ticketNo, status: 'READY_FOR_BAGGING' as const, bagCode: '' },
-    ]),
+    Array.from(new Set([...DEFAULT_INBOUND_TICKET_NOS, ...ticketNos].map(normalizeInboundCode)))
+      .map((ticketNo) => [
+        ticketNo,
+        { ticketNo, status: 'READY_FOR_BAGGING' as const, bagCode: '' },
+      ]),
   )
   return {
     bags: {
@@ -307,8 +319,15 @@ export function applyPdaCuttingInboundBusinessTransition(
 }
 
 export interface PdaCuttingInboundScanTimerController {
-  schedule: (stateKey: string, callback: () => void) => void
+  schedule: (
+    stateKey: string,
+    callback: () => PdaCuttingInboundTicketScanResult | void,
+  ) => void
   flush: (stateKey: string) => boolean
+  flushWithResult: (stateKey: string) => {
+    flushed: boolean
+    scanResult: PdaCuttingInboundTicketScanResult | null
+  }
   cancel: (stateKey: string) => void
   cancelAll: () => void
   hasPending: (stateKey: string) => boolean
@@ -320,7 +339,11 @@ export function createPdaCuttingInboundScanTimerController(
   cancelTimer: (timer: unknown) => void = (timer) =>
     clearTimeout(timer as ReturnType<typeof setTimeout>),
 ): PdaCuttingInboundScanTimerController {
-  const pendingByStateKey = new Map<string, { timer: unknown; callback: () => void; round: number }>()
+  const pendingByStateKey = new Map<string, {
+    timer: unknown
+    callback: () => PdaCuttingInboundTicketScanResult | void
+    round: number
+  }>()
   const roundByStateKey = new Map<string, number>()
   const nextRound = (stateKey: string): number => {
     const round = (roundByStateKey.get(stateKey) || 0) + 1
@@ -332,6 +355,18 @@ export function createPdaCuttingInboundScanTimerController(
     const pending = pendingByStateKey.get(stateKey)
     if (pending) cancelTimer(pending.timer)
     pendingByStateKey.delete(stateKey)
+  }
+  const flushWithResult = (stateKey: string): {
+    flushed: boolean
+    scanResult: PdaCuttingInboundTicketScanResult | null
+  } => {
+    const pending = pendingByStateKey.get(stateKey)
+    if (!pending) return { flushed: false, scanResult: null }
+    cancel(stateKey)
+    return {
+      flushed: true,
+      scanResult: pending.callback() || null,
+    }
   }
 
   return {
@@ -347,12 +382,9 @@ export function createPdaCuttingInboundScanTimerController(
       pendingByStateKey.set(stateKey, pending)
     },
     flush(stateKey) {
-      const pending = pendingByStateKey.get(stateKey)
-      if (!pending) return false
-      cancel(stateKey)
-      pending.callback()
-      return true
+      return flushWithResult(stateKey).flushed
     },
+    flushWithResult,
     cancel,
     cancelAll() {
       Array.from(pendingByStateKey.keys()).forEach(cancel)
@@ -390,7 +422,7 @@ export function createPdaCuttingInboundFormState(): InboundFormState {
 export function applyPdaCuttingInboundTicketScan(
   state: InboundFormState,
   ticket: ScannedTicketInput,
-): { ok: boolean; state: InboundFormState } {
+): PdaCuttingInboundTicketScanResult {
   if (!state.carrierCode.trim()) {
     return {
       ok: false,
@@ -454,6 +486,36 @@ export function completePdaCuttingInboundRound(
     ...createPdaCuttingInboundFormState(),
     operatorName: state.operatorName,
     resultMessage: mode === 'bagging' ? '装袋成功' : '入仓成功',
+  }
+}
+
+export function confirmPdaCuttingInboundRound(
+  state: InboundFormState,
+  mode: PdaCuttingInboundMode,
+  ledger: PdaCuttingInboundMockLedger,
+  pendingScanResult: PdaCuttingInboundTicketScanResult | null = null,
+): PdaCuttingInboundConfirmOutcome {
+  const effectiveState = pendingScanResult?.state || state
+  let result: InboundRoundResult
+  let nextLedger = ledger
+
+  if (pendingScanResult && !pendingScanResult.ok) {
+    result = {
+      ok: false,
+      message: effectiveState.scanFeedbackMessage || '菲票扫码失败，请检查后重试。',
+    }
+  } else if (mode === 'bagging' && effectiveState.scanCode.trim()) {
+    result = { ok: false, message: '请先完成当前菲票扫描。' }
+  } else {
+    const transition = applyPdaCuttingInboundBusinessTransition(effectiveState, mode, ledger)
+    result = transition
+    if (transition.ok) nextLedger = transition.ledger
+  }
+
+  return {
+    result,
+    nextForm: completePdaCuttingInboundRound(effectiveState, mode, result),
+    ledger: nextLedger,
   }
 }
 
@@ -613,7 +675,7 @@ export function completePdaCuttingInboundTicketScan(
   scanCode: string,
   candidates: TransferBagTicketCandidate[],
   ledger: PdaCuttingInboundMockLedger,
-): { ok: boolean; state: InboundFormState } {
+): PdaCuttingInboundTicketScanResult {
   const validation = validateInboundScan(form, scanCode, candidates, ledger)
   if (!validation.ok || !validation.ticket) {
     return {
@@ -767,7 +829,7 @@ function completeInboundTicketScan(
   taskId: string,
   mode: PdaCuttingInboundMode,
   eventState: ReturnType<typeof resolveInboundEventState>,
-): void {
+): PdaCuttingInboundTicketScanResult {
   const next = completePdaCuttingInboundTicketScan(
     eventState.form,
     fieldNode.value,
@@ -782,6 +844,7 @@ function completeInboundTicketScan(
     eventState.selectedExecutionOrderNo,
   )
   updateBaggingLiveRegion(resolvePdaCuttingInboundFormContainer(fieldNode), next.state)
+  return next
 }
 
 export function syncPdaCuttingInboundFormFromControls(
@@ -854,31 +917,37 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement, event?: Event)
     eventState.form,
     resolvePdaCuttingInboundFormContainer(actionNode),
   )
-  if (mode === 'bagging' && ticketScanTimerController.flush(stateKey)) {
+  const flushOutcome = mode === 'bagging'
+    ? ticketScanTimerController.flushWithResult(stateKey)
+    : { flushed: false, scanResult: null }
+  if (flushOutcome.flushed) {
     eventState = resolveInboundEventState(taskId, mode)
   }
 
   const currentLedger = getPdaCuttingInboundMockLedger()
-  let result: InboundRoundResult
-  if (mode === 'bagging' && eventState.form.scanCode.trim()) {
-    const validation = validateInboundScan(
-      eventState.form,
-      eventState.form.scanCode,
-      listInboundTicketCandidates(),
-      currentLedger,
-    )
-    result = { ok: false, message: validation.reason }
-  } else {
-    const transition = applyPdaCuttingInboundBusinessTransition(eventState.form, mode, currentLedger)
-    result = transition
-    if (transition.ok) replacePdaCuttingInboundMockLedger(transition.ledger)
+  const pendingScanResult = flushOutcome.flushed
+    ? flushOutcome.scanResult || {
+        ok: false,
+        state: {
+          ...eventState.form,
+          scanFeedbackMessage: '菲票扫码未完成，请检查后重试。',
+        },
+      }
+    : null
+  const confirmation = confirmPdaCuttingInboundRound(
+    eventState.form,
+    mode,
+    currentLedger,
+    pendingScanResult,
+  )
+  if (confirmation.result.ok) {
+    ticketScanTimerController.cancel(stateKey)
+    replacePdaCuttingInboundMockLedger(confirmation.ledger)
   }
-
-  if (result.ok) ticketScanTimerController.cancel(stateKey)
   replaceState(
     taskId,
     mode,
-    completePdaCuttingInboundRound(eventState.form, mode, result),
+    confirmation.nextForm,
     eventState.selectedExecutionOrderId,
     eventState.selectedExecutionOrderNo,
   )
