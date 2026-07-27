@@ -51,6 +51,16 @@ assert.equal(
   'function',
   'PDA 裁片入仓页必须导出确认装袋、确认入仓的纯状态迁移函数',
 )
+assert.equal(
+  typeof pageModule.resolvePdaCuttingInboundFormContainer,
+  'function',
+  'PDA 裁片入仓页必须导出可执行测试的工作区容器解析函数',
+)
+assert.equal(
+  typeof pageModule.syncPdaCuttingInboundFormFromControls,
+  'function',
+  'PDA 裁片入仓页必须导出确认前同步最新输入值的函数',
+)
 
 type WorkflowModule = {
   createPdaCuttingInboundFormState: () => any
@@ -80,6 +90,8 @@ type WorkflowModule = {
     mode: 'bagging' | 'inbound-location',
     ledger: any,
   ) => { ok: boolean; message?: string; ledger: any }
+  resolvePdaCuttingInboundFormContainer: (node: any) => any
+  syncPdaCuttingInboundFormFromControls: (state: any, container: any) => void
   createPdaCuttingInboundScanTimerController: (
     scheduleTimer: (callback: () => void, delayMs: number) => unknown,
     cancelTimer: (timer: unknown) => void,
@@ -94,6 +106,38 @@ type WorkflowModule = {
 }
 
 const workflow = pageModule as unknown as WorkflowModule
+
+const latestControlValues: Record<string, string> = {
+  carrierCode: 'BAG-002',
+  locationLabel: 'CUT-A-01',
+  scanCode: 'FT-CUT-LATEST-001',
+}
+const fakeWorkflowContainer = {
+  querySelector(selector: string) {
+    const field = Object.keys(latestControlValues).find((key) => selector.includes(`="${key}"`))
+    return field ? { value: latestControlValues[field] } : null
+  },
+}
+const fakeConfirmButton = {
+  dataset: { taskId: 'TASK-1' },
+  closest(selector: string) {
+    if (selector === '[data-pda-cutting-inbound-workflow]') return fakeWorkflowContainer
+    if (selector === '[data-task-id]') return this
+    return null
+  },
+}
+const resolvedWorkflowContainer = workflow.resolvePdaCuttingInboundFormContainer(fakeConfirmButton)
+assert.equal(
+  resolvedWorkflowContainer,
+  fakeWorkflowContainer,
+  '确认按钮自身带 data-task-id 时，仍必须解析到包含输入的外层工作区',
+)
+const latestFormState = workflow.createPdaCuttingInboundFormState()
+workflow.syncPdaCuttingInboundFormFromControls(latestFormState, resolvedWorkflowContainer)
+assert.equal(latestFormState.carrierCode, latestControlValues.carrierCode, '确认前必须同步输入框中的最新袋码')
+assert.equal(latestFormState.locationLabel, latestControlValues.locationLabel, '确认前必须同步输入框中的最新库位')
+assert.equal(latestFormState.scanCode, latestControlValues.scanCode, '确认前必须同步输入框中的最新菲票扫码值')
+
 assert.equal(workflow.PDA_CUTTING_INBOUND_SCAN_DEBOUNCE_MS, 150, '扫码枪输入 debounce 必须为约 150ms')
 assert.equal(
   workflow.resolvePdaCuttingInboundScanTrigger({ type: 'keydown', key: 'Enter' }),
@@ -330,6 +374,17 @@ assert.deepEqual(validBagging.ledger.bags['BAG-001'].ticketNos, [demoTicketNos[0
 assert.equal(validBagging.ledger.tickets[demoTicketNos[0]].status, 'BAGGED', '装袋后菲票状态必须变为已装袋')
 assert.equal(validBagging.ledger.tickets[demoTicketNos[0]].bagCode, 'BAG-001', '装袋后菲票必须记录所属袋')
 assert.equal(mockLedger.bags['BAG-001'].status, 'EMPTY_READY', '纯状态迁移不得修改传入台账')
+
+const duplicateTicketBagging = workflow.applyPdaCuttingInboundBusinessTransition(
+  {
+    ...validBaggingState,
+    scannedTicketNos: [demoTicketNos[0], demoTicketNos[0]],
+  },
+  'bagging',
+  mockLedger,
+)
+assert.equal(duplicateTicketBagging.ok, false, '同一轮 scannedTicketNos 内重复菲票必须阻断装袋')
+assert.deepEqual(duplicateTicketBagging.ledger, mockLedger, '同轮重复菲票失败不得修改台账')
 
 const missingBag = workflow.applyPdaCuttingInboundBusinessTransition(
   { ...validBaggingState, carrierCode: 'BAG-NOT-FOUND' },

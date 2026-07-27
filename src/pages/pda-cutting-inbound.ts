@@ -258,24 +258,27 @@ export function applyPdaCuttingInboundBusinessTransition(
     if (!state.scannedTicketNos.length) {
       return { ok: false, message: '请扫描菲票。', ledger }
     }
-    for (const rawTicketNo of state.scannedTicketNos) {
-      const ticketNo = normalizeInboundCode(rawTicketNo)
+    const normalizedTicketNos = state.scannedTicketNos.map(normalizeInboundCode)
+    if (new Set(normalizedTicketNos).size !== normalizedTicketNos.length) {
+      return { ok: false, message: '同一张菲票不能重复装袋，请检查后重试。', ledger }
+    }
+    for (const ticketNo of normalizedTicketNos) {
       const ticket = ledger.tickets[ticketNo]
       if (!ticket) {
-        return { ok: false, message: `${rawTicketNo} 不存在，请重新扫描。`, ledger }
+        return { ok: false, message: `${ticketNo} 不存在，请重新扫描。`, ledger }
       }
       if (ticket.status === 'VOIDED') {
-        return { ok: false, message: `${rawTicketNo} 已作废，请换一张。`, ledger }
+        return { ok: false, message: `${ticketNo} 已作废，请换一张。`, ledger }
       }
       if (ticket.status === 'BAGGED') {
-        return { ok: false, message: `${rawTicketNo} 已装袋，请换一张。`, ledger }
+        return { ok: false, message: `${ticketNo} 已装袋，请换一张。`, ledger }
       }
     }
 
     const nextLedger = clonePdaCuttingInboundMockLedger(ledger)
     const nextBag = nextLedger.bags[bagCode]
     nextBag.status = 'BAGGED_WAIT_INBOUND'
-    nextBag.ticketNos = state.scannedTicketNos.map(normalizeInboundCode)
+    nextBag.ticketNos = normalizedTicketNos
     nextBag.productionOrderNo = state.bagProductionOrderNo
     nextBag.locationLabel = ''
     nextBag.ticketNos.forEach((ticketNo) => {
@@ -673,7 +676,11 @@ export function renderPdaCuttingInboundWorkflow(
 ): string {
   const isInboundLocation = mode === 'inbound-location'
   return `
-    <section class="space-y-4 rounded-2xl border bg-card px-3 py-3 shadow-sm" data-task-id="${escapeHtml(taskId)}">
+    <section
+      class="space-y-4 rounded-2xl border bg-card px-3 py-3 shadow-sm"
+      data-pda-cutting-inbound-workflow
+      data-task-id="${escapeHtml(taskId)}"
+    >
       ${renderResultMessage(form)}
       <div class="space-y-2">
         ${renderStepTitle(1, '扫中转袋')}
@@ -743,8 +750,8 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
   })
 }
 
-function resolveInboundFormContainer(node: HTMLElement): HTMLElement | null {
-  return node.closest<HTMLElement>('[data-task-id]')
+export function resolvePdaCuttingInboundFormContainer(node: HTMLElement): HTMLElement | null {
+  return node.closest<HTMLElement>('[data-pda-cutting-inbound-workflow]')
 }
 
 function updateBaggingLiveRegion(container: HTMLElement | null, form: InboundFormState): void {
@@ -774,10 +781,13 @@ function completeInboundTicketScan(
     eventState.selectedExecutionOrderId,
     eventState.selectedExecutionOrderNo,
   )
-  updateBaggingLiveRegion(resolveInboundFormContainer(fieldNode), next.state)
+  updateBaggingLiveRegion(resolvePdaCuttingInboundFormContainer(fieldNode), next.state)
 }
 
-function syncFormFromControls(form: InboundFormState, container: HTMLElement | null): void {
+export function syncPdaCuttingInboundFormFromControls(
+  form: InboundFormState,
+  container: HTMLElement | null,
+): void {
   if (!container) return
   const carrierCode = container.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="carrierCode"]')
   const scanCode = container.querySelector<HTMLInputElement>('[data-pda-cut-inbound-field="scanCode"]')
@@ -840,7 +850,10 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement, event?: Event)
     eventState.selectedExecutionOrderId,
     eventState.selectedExecutionOrderNo,
   )
-  syncFormFromControls(eventState.form, resolveInboundFormContainer(actionNode))
+  syncPdaCuttingInboundFormFromControls(
+    eventState.form,
+    resolvePdaCuttingInboundFormContainer(actionNode),
+  )
   if (mode === 'bagging' && ticketScanTimerController.flush(stateKey)) {
     eventState = resolveInboundEventState(taskId, mode)
   }
