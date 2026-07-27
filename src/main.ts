@@ -5,6 +5,8 @@ import { handleProductionObjectOverviewEvent } from './components/production-obj
 import { appStore } from './state/store'
 import { resolvePdaCuttingScanKeydownTarget } from './main-handlers/pda-cutting-keydown-routing'
 import { isPdaPageHandledLocally } from './main-handlers/pda-local-action-result'
+import { handlePdaCuttingInboundEvent } from './pages/pda-cutting-inbound'
+import { handlePdaCuttingHandoverEvent } from './pages/pda-cutting-handover'
 
 type FcsHandlersModule = typeof import('./main-handlers/fcs-handlers')
 type PcsHandlersModule = typeof import('./main-handlers/pcs-handlers')
@@ -1768,8 +1770,7 @@ root.addEventListener('click', async (event) => {
   const pdaCutInboundActionNode = target.closest<HTMLElement>('[data-pda-cut-inbound-action]')
   if (pdaCutInboundActionNode) {
     event.preventDefault()
-    const pdaCuttingInboundPage = await import('./pages/pda-cutting-inbound')
-    const inboundResult = pdaCuttingInboundPage.handlePdaCuttingInboundEvent(pdaCutInboundActionNode)
+    const inboundResult = handlePdaCuttingInboundEvent(pdaCutInboundActionNode)
     if (inboundResult) {
       if (isPdaPageHandledLocally(inboundResult)) return
       await renderWithFocusRestore(focusSnapshot)
@@ -1780,8 +1781,7 @@ root.addEventListener('click', async (event) => {
   const pdaCutHandoverActionNode = target.closest<HTMLElement>('[data-pda-cut-handover-action]')
   if (pdaCutHandoverActionNode) {
     event.preventDefault()
-    const pdaCuttingHandoverPage = await import('./pages/pda-cutting-handover')
-    const handoverResult = pdaCuttingHandoverPage.handlePdaCuttingHandoverEvent(
+    const handoverResult = handlePdaCuttingHandoverEvent(
       pdaCutHandoverActionNode,
     )
     if (handoverResult) {
@@ -1873,6 +1873,11 @@ root.addEventListener('input', async (event) => {
   if (productionObjectActionNode && handleProductionObjectOverviewEvent(productionObjectActionNode)) {
     return
   }
+
+  const pdaCuttingInputResult =
+    handlePdaCuttingInboundEvent(target, event) ||
+    handlePdaCuttingHandoverEvent(target, event)
+  if (pdaCuttingInputResult) return
 
   if (await dispatchPcsInputEvent(target)) {
     if (shouldSkipInputRerender(target)) return
@@ -1995,7 +2000,10 @@ document.addEventListener('keydown', async (event) => {
   const target = resolveEventElementTarget(event.target)
   const cuttingScanTarget = resolvePdaCuttingScanKeydownTarget<HTMLElement>(target, event.key)
   if (cuttingScanTarget) {
-    if (await dispatchPageEvent(cuttingScanTarget, event)) event.preventDefault()
+    const scanResult =
+      handlePdaCuttingInboundEvent(cuttingScanTarget, event) ||
+      handlePdaCuttingHandoverEvent(cuttingScanTarget, event)
+    if (scanResult) event.preventDefault()
     return
   }
   if (event.key !== 'Escape') return

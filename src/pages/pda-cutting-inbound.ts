@@ -565,11 +565,29 @@ function getInboundMode(): PdaCuttingInboundMode {
     : 'bagging'
 }
 
-function resolveInboundEventState(taskId: string, mode = getInboundMode()): {
+function resolveInboundEventState(
+  taskId: string,
+  mode: PdaCuttingInboundMode = getInboundMode(),
+  sourceNode?: HTMLElement,
+): {
   form: InboundFormState
   selectedExecutionOrderId: string | null
   selectedExecutionOrderNo: string | null
 } {
+  const workflowContainer = sourceNode
+    ? resolvePdaCuttingInboundFormContainer(sourceNode)
+    : null
+  if (workflowContainer?.dataset?.pdaCuttingContextReady === 'true') {
+    const selectedExecutionOrderId =
+      workflowContainer.dataset.executionOrderId?.trim() || null
+    const selectedExecutionOrderNo =
+      workflowContainer.dataset.executionOrderNo?.trim() || null
+    return {
+      form: getState(taskId, mode, selectedExecutionOrderId, selectedExecutionOrderNo),
+      selectedExecutionOrderId,
+      selectedExecutionOrderNo,
+    }
+  }
   const locationExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
   const locationExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
   if (locationExecutionOrderId || locationExecutionOrderNo) {
@@ -791,12 +809,17 @@ export function renderPdaCuttingInboundWorkflow(
   mode: PdaCuttingInboundMode,
   form: InboundFormState,
   taskId = '',
+  executionOrderId = '',
+  executionOrderNo = '',
 ): string {
   return `
     <section
       class="space-y-4 rounded-2xl border bg-card px-3 py-3 shadow-sm"
       data-pda-cutting-inbound-workflow
+      data-pda-cutting-context-ready="true"
       data-task-id="${escapeHtml(taskId)}"
+      data-execution-order-id="${escapeHtml(executionOrderId)}"
+      data-execution-order-no="${escapeHtml(executionOrderNo)}"
     >
       ${renderPdaCuttingInboundWorkflowContent(mode, form, taskId)}
     </section>
@@ -836,6 +859,7 @@ export function resolvePdaCuttingInboundConfirmFocus(
 export function renderPdaCuttingInboundPage(taskId: string): string {
   const mode = getInboundMode()
   const context = buildPdaCuttingExecutionContext(taskId, 'inbound')
+  getPdaCuttingInboundMockLedger()
   const form = getState(taskId, mode, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
   const pageTitle = mode === 'inbound-location' ? '中转袋入仓' : '菲票装袋'
 
@@ -844,7 +868,13 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
     title: pageTitle,
     subtitle: '',
     activeTab: 'warehouse',
-    body: renderPdaCuttingInboundWorkflow(mode, form, taskId),
+    body: renderPdaCuttingInboundWorkflow(
+      mode,
+      form,
+      taskId,
+      context.selectedExecutionOrderId || '',
+      context.selectedExecutionOrderNo || '',
+    ),
     backHref: '/fcs/pda/warehouse/wait-handover?scope=cutting',
   })
 }
@@ -909,7 +939,7 @@ export function handlePdaCuttingInboundEvent(
   ) {
     const taskId = fieldNode.closest<HTMLElement>('[data-task-id]')?.dataset.taskId || appTaskIdFromPath()
     if (!taskId) return true
-    const eventState = resolveInboundEventState(taskId, mode)
+    const eventState = resolveInboundEventState(taskId, mode, fieldNode)
     const field = fieldNode.dataset.pdaCutInboundField
     if (!field) return true
 
@@ -946,8 +976,8 @@ export function handlePdaCuttingInboundEvent(
   if (!actionNode) return false
   const taskId = actionNode.dataset.taskId
   if (!taskId) return false
-  let eventState = resolveInboundEventState(taskId, mode)
   const workflowContainer = resolvePdaCuttingInboundFormContainer(actionNode)
+  let eventState = resolveInboundEventState(taskId, mode, actionNode)
   const stateKey = buildInboundStateKey(
     taskId,
     mode,
@@ -959,7 +989,7 @@ export function handlePdaCuttingInboundEvent(
     workflowContainer,
   )
   if (mode === 'bagging' && ticketScanTimerController.flush(stateKey)) {
-    eventState = resolveInboundEventState(taskId, mode)
+    eventState = resolveInboundEventState(taskId, mode, actionNode)
   }
 
   const currentLedger = getPdaCuttingInboundMockLedger()

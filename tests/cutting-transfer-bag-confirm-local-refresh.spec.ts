@@ -30,6 +30,7 @@ async function openPdaWorkflow(page: Page, path: string, workflowSelector: strin
   await seedLocalStorage(page, { fcs_pda_session: PDA_SESSION })
   await page.goto(path, { waitUntil: 'domcontentloaded' })
   await expect(page.locator(workflowSelector)).toBeVisible({ timeout: 15_000 })
+  await page.waitForLoadState('networkidle')
 }
 
 async function setInputValueWithoutInputDispatch(
@@ -49,59 +50,85 @@ async function confirmWithoutBrowserAutoScroll(
     buttonSelector: string
     feedbackText: string
     activeFieldAttribute: string
+    postClickContentionMs?: number
+    cpuThrottlingRate?: number
+    inputValues?: Array<{ selector: string; value: string }>
   },
 ): Promise<ConfirmResult> {
-  return page.evaluate(async (settings) => {
-    const root = document.querySelector<HTMLElement>('#app')
-    const workflow = document.querySelector<HTMLElement>(settings.workflowSelector)
-    const button = document.querySelector<HTMLButtonElement>(settings.buttonSelector)
-    if (!root?.firstElementChild || !workflow || !button) {
-      throw new Error('确认前未找到根节点、工作区或按钮')
-    }
-
-    workflow.style.height = '180px'
-    workflow.style.overflowY = 'auto'
-    workflow.scrollTop = 80
-    const spacer = document.createElement('div')
-    spacer.dataset.testScrollSpacer = 'true'
-    spacer.style.height = '1200px'
-    document.body.append(spacer)
-    window.scrollTo(0, 360)
-
-    const rootChildBefore = root.firstElementChild
-    const workflowBefore = workflow
-    const scrollBefore = window.scrollY
-    const workflowScrollBefore = workflow.scrollTop
-    const startedAt = performance.now()
-    button.click()
-
-    await new Promise<void>((resolve, reject) => {
-      const deadline = window.setTimeout(() => {
-        observer.disconnect()
-        reject(new Error(`确认后未出现反馈：${settings.feedbackText}`))
-      }, 3_000)
-      const finishIfReady = () => {
-        if (!workflow.textContent?.includes(settings.feedbackText)) return
-        window.clearTimeout(deadline)
-        observer.disconnect()
-        resolve()
-      }
-      const observer = new MutationObserver(finishIfReady)
-      observer.observe(workflow, { childList: true, subtree: true, characterData: true })
-      finishIfReady()
+  const cpuSession = options.cpuThrottlingRate
+    ? await page.context().newCDPSession(page)
+    : null
+  if (cpuSession) {
+    await cpuSession.send('Emulation.setCPUThrottlingRate', {
+      rate: options.cpuThrottlingRate,
     })
+  }
+  try {
+    return await page.evaluate(async (settings) => {
+      const root = document.querySelector<HTMLElement>('#app')
+      const workflow = document.querySelector<HTMLElement>(settings.workflowSelector)
+      const button = document.querySelector<HTMLButtonElement>(settings.buttonSelector)
+      if (!root?.firstElementChild || !workflow || !button) {
+        throw new Error('确认前未找到根节点、工作区或按钮')
+      }
+      settings.inputValues?.forEach(({ selector, value }) => {
+        const input = workflow.querySelector<HTMLInputElement>(selector)
+        if (!input) throw new Error(`确认前未找到输入框：${selector}`)
+        input.value = value
+      })
 
-    return {
-      durationMs: performance.now() - startedAt,
-      activeField: document.activeElement?.getAttribute(settings.activeFieldAttribute) ?? null,
-      rootStable: root.firstElementChild === rootChildBefore,
-      workflowStable: document.querySelector(settings.workflowSelector) === workflowBefore,
-      scrollBefore,
-      scrollAfter: window.scrollY,
-      workflowScrollBefore,
-      workflowScrollAfter: workflow.scrollTop,
+      workflow.style.height = '180px'
+      workflow.style.overflowY = 'auto'
+      workflow.scrollTop = 80
+      const spacer = document.createElement('div')
+      spacer.dataset.testScrollSpacer = 'true'
+      spacer.style.height = '1200px'
+      document.body.append(spacer)
+      window.scrollTo(0, 360)
+
+      const rootChildBefore = root.firstElementChild
+      const workflowBefore = workflow
+      const scrollBefore = window.scrollY
+      const workflowScrollBefore = workflow.scrollTop
+      const startedAt = performance.now()
+      const feedbackAt = await new Promise<number>((resolve, reject) => {
+        const deadline = window.setTimeout(() => {
+          observer.disconnect()
+          reject(new Error(`确认后未出现反馈：${settings.feedbackText}`))
+        }, 3_000)
+        const finishIfReady = () => {
+          if (!workflow.textContent?.includes(settings.feedbackText)) return
+          window.clearTimeout(deadline)
+          observer.disconnect()
+          resolve(performance.now())
+        }
+        const observer = new MutationObserver(finishIfReady)
+        observer.observe(workflow, { childList: true, subtree: true, characterData: true })
+        button.click()
+        finishIfReady()
+        const contentionUntil = performance.now() + (settings.postClickContentionMs || 0)
+        while (performance.now() < contentionUntil) {
+          // 模拟点击处理让出事件循环后，同线程被其他页面检查或浏览器任务占用。
+        }
+      })
+
+      return {
+        durationMs: feedbackAt - startedAt,
+        activeField: document.activeElement?.getAttribute(settings.activeFieldAttribute) ?? null,
+        rootStable: root.firstElementChild === rootChildBefore,
+        workflowStable: document.querySelector(settings.workflowSelector) === workflowBefore,
+        scrollBefore,
+        scrollAfter: window.scrollY,
+        workflowScrollBefore,
+        workflowScrollAfter: workflow.scrollTop,
+      }
+    }, options)
+  } finally {
+    if (cpuSession) {
+      await cpuSession.send('Emulation.setCPUThrottlingRate', { rate: 1 })
+      await cpuSession.detach()
     }
-  }, options)
+  }
 }
 
 function expectLocalConfirmation(
@@ -182,6 +209,8 @@ test('缺少中转袋时局部刷新并聚焦袋码', async ({ page }) => {
     buttonSelector: '[data-pda-cut-inbound-action="confirm"]',
     feedbackText: '请扫描中转袋。',
     activeFieldAttribute: 'data-pda-cut-inbound-field',
+    postClickContentionMs: 220,
+    cpuThrottlingRate: 4,
   })
   console.log(`[PDA confirm] 装袋袋码失败 ${result.durationMs.toFixed(1)}ms`)
   expectLocalConfirmation(result, 'carrierCode', '装袋袋码失败')
@@ -195,22 +224,23 @@ test('入仓库位错误时局部刷新并聚焦库位', async ({ page }) => {
     '/fcs/pda/cutting/inbound/TASK-CUT-PDA-CUT-DONE-0307?action=inbound-location',
     '[data-pda-cutting-inbound-workflow]',
   )
-  await setInputValueWithoutInputDispatch(
-    page,
-    '[data-pda-cut-inbound-field="carrierCode"]',
-    'BAG-WAIT-001',
-  )
-  await setInputValueWithoutInputDispatch(
-    page,
-    '[data-pda-cut-inbound-field="locationLabel"]',
-    'CUT-NOT-FOUND',
-  )
-
   const result = await confirmWithoutBrowserAutoScroll(page, {
     workflowSelector: '[data-pda-cutting-inbound-workflow]',
     buttonSelector: '[data-pda-cut-inbound-action="confirm"]',
     feedbackText: '库位不存在，请重新扫描。',
     activeFieldAttribute: 'data-pda-cut-inbound-field',
+    postClickContentionMs: 220,
+    cpuThrottlingRate: 4,
+    inputValues: [
+      {
+        selector: '[data-pda-cut-inbound-field="carrierCode"]',
+        value: 'BAG-WAIT-001',
+      },
+      {
+        selector: '[data-pda-cut-inbound-field="locationLabel"]',
+        value: 'CUT-NOT-FOUND',
+      },
+    ],
   })
   console.log(`[PDA confirm] 入仓库位失败 ${result.durationMs.toFixed(1)}ms`)
   expectLocalConfirmation(result, 'locationLabel', '入仓库位失败')
