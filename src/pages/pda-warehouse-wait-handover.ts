@@ -520,6 +520,7 @@ function renderCuttingWaitHandoverActionCards(actions: PdaCuttingWaitHandoverAct
           type="button"
           class="rounded-2xl border bg-card px-4 py-4 text-left shadow-sm"
           data-nav="${escapeAttr(item.route)}"
+          data-pda-cutting-wait-handover-entry="${escapeAttr(item.key)}"
         >
           <div class="text-sm font-semibold text-foreground">${escapeHtml(item.title)}</div>
         </button>
@@ -933,20 +934,28 @@ function renderCuttingWarehouseSwitch(active: 'wait-process' | 'wait-handover'):
   `
 }
 
+export function renderPdaCuttingWaitHandoverRootContent(): string {
+  return `
+    <div class="space-y-4 px-4 pb-5 pt-4">
+      ${renderCuttingWarehouseSwitch('wait-handover')}
+      ${renderCuttingWaitHandoverActionCards(getPdaCuttingWaitHandoverActions())}
+    </div>
+  `
+}
+
 function renderCuttingWaitHandoverPage(): string {
   const activeAction = getMobileWarehouseSearchParams().get('action')
   const legacyActionRoute = resolvePdaCuttingWaitHandoverLegacyActionRoute(activeAction)
   if (legacyActionRoute) return renderRouteRedirect(legacyActionRoute, '正在进入裁床操作')
 
-  const runtimeProjection = buildWaitHandoverRuntimeProjection()
-  const transferBagViewModel = buildTransferBagsProjection().viewModel
-  const fallbackInboundTempBags = buildInboundTempBagsFromTransferBagViewModel(transferBagViewModel)
-  const inboundTempBags = runtimeProjection.inboundTempBags.length ? runtimeProjection.inboundTempBags : fallbackInboundTempBags
-  const firstTaskId = getFirstCuttingTaskId()
-  const actions = getPdaCuttingWaitHandoverActions()
   const action = getCuttingWaitHandoverAction(activeAction)
 
   if (action) {
+    const runtimeProjection = buildWaitHandoverRuntimeProjection()
+    const transferBagViewModel = buildTransferBagsProjection().viewModel
+    const fallbackInboundTempBags = buildInboundTempBagsFromTransferBagViewModel(transferBagViewModel)
+    const inboundTempBags = runtimeProjection.inboundTempBags.length ? runtimeProjection.inboundTempBags : fallbackInboundTempBags
+    const firstTaskId = getFirstCuttingTaskId()
     return renderPdaFrame(
       renderCuttingWaitHandoverActionPage(action, firstTaskId, runtimeProjection, inboundTempBags),
       'warehouse',
@@ -954,15 +963,11 @@ function renderCuttingWaitHandoverPage(): string {
     )
   }
 
-  return renderPdaFrame(`
-    <div class="space-y-4 px-4 pb-5 pt-4">
-      ${renderCuttingWarehouseSwitch('wait-handover')}
-      ${renderCuttingWaitHandoverActionCards(actions)}
-      <section class="space-y-3">
-        ${inboundTempBags.slice(0, 5).map(renderCuttingInboundBagItem).join('') || renderMobilePageEmptyState('暂无中转袋入仓记录', '完成中转袋入仓后，会进入裁床待交出仓。')}
-      </section>
-    </div>
-  `, 'warehouse', { headerTitle: '裁床待交出仓', disableTodoAutoOpen: true })
+  return renderPdaFrame(
+    renderPdaCuttingWaitHandoverRootContent(),
+    'warehouse',
+    { headerTitle: '裁床待交出仓', disableTodoAutoOpen: true },
+  )
 }
 
 function normalizePostFinishingIdSegment(value: string): string {

@@ -799,9 +799,9 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
     taskId,
     title: pageTitle,
     subtitle: '',
-    activeTab: 'exec',
+    activeTab: 'warehouse',
     body: renderPdaCuttingInboundWorkflow(mode, form, taskId),
-    backHref: context.backHref,
+    backHref: '/fcs/pda/warehouse/wait-handover?scope=cutting',
   })
 }
 
