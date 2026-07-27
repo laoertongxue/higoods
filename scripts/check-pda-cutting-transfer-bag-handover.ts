@@ -26,6 +26,8 @@ type TransferBagState = {
 type TransferBagCandidate = {
   bagCode: string
   ticketCount: number
+  productionOrderNo: string
+  status: '待交出' | '已交出' | '已作废' | '空袋'
   boundSewingTaskNo?: string
 }
 
@@ -33,6 +35,7 @@ type SewingTaskCandidate = {
   sewingTaskNo: string
   productionOrderNo: string
   receiverFactoryName: string
+  receivableStatus: '可接收' | '不可接收'
 }
 
 type WorkflowModule = {
@@ -54,6 +57,13 @@ type WorkflowModule = {
     state: TransferBagState,
     result: { ok: boolean; message?: string },
   ) => TransferBagState
+  submitPdaTransferBagHandoverRound: (
+    state: TransferBagState,
+    candidates: {
+      bags: TransferBagCandidate[]
+      sewingTasks: SewingTaskCandidate[]
+    },
+  ) => TransferBagState
   renderPdaTransferBagHandoverWorkflow: (state: TransferBagState, taskId?: string) => string
   createPdaTransferBagHandoverScanTimerController: (
     scheduleTimer: (callback: () => void, delayMs: number) => unknown,
@@ -72,6 +82,7 @@ for (const exportName of [
   'resolvePdaTransferBagHandoverScanTrigger',
   'completePdaTransferBagHandoverScan',
   'completePdaTransferBagHandoverRound',
+  'submitPdaTransferBagHandoverRound',
   'renderPdaTransferBagHandoverWorkflow',
   'createPdaTransferBagHandoverScanTimerController',
 ]) {
@@ -98,12 +109,16 @@ assert.equal(
 
 const candidates = {
   bags: [
-    { bagCode: 'TB-CUT-001', ticketCount: 12 },
-    { bagCode: 'TB-CUT-BOUND', ticketCount: 8, boundSewingTaskNo: 'SEW-002' },
+    { bagCode: 'TB-CUT-001', ticketCount: 12, productionOrderNo: 'PO-001', status: '待交出' as const },
+    { bagCode: 'TB-CUT-CROSS', ticketCount: 9, productionOrderNo: 'PO-002', status: '待交出' as const },
+    { bagCode: 'TB-CUT-DONE', ticketCount: 10, productionOrderNo: 'PO-001', status: '已交出' as const, boundSewingTaskNo: 'SEW-001' },
+    { bagCode: 'TB-CUT-VOID', ticketCount: 7, productionOrderNo: 'PO-001', status: '已作废' as const },
+    { bagCode: 'TB-CUT-BOUND', ticketCount: 8, productionOrderNo: 'PO-002', status: '待交出' as const, boundSewingTaskNo: 'SEW-002' },
   ],
   sewingTasks: [
-    { sewingTaskNo: 'SEW-001', productionOrderNo: 'PO-001', receiverFactoryName: '印尼一厂' },
-    { sewingTaskNo: 'SEW-002', productionOrderNo: 'PO-002', receiverFactoryName: '印尼二厂' },
+    { sewingTaskNo: 'SEW-001', productionOrderNo: 'PO-001', receiverFactoryName: '印尼一厂', receivableStatus: '可接收' as const },
+    { sewingTaskNo: 'SEW-002', productionOrderNo: 'PO-002', receiverFactoryName: '印尼二厂', receivableStatus: '可接收' as const },
+    { sewingTaskNo: 'SEW-CLOSED', productionOrderNo: 'PO-001', receiverFactoryName: '印尼一厂', receivableStatus: '不可接收' as const },
   ],
 }
 
@@ -126,6 +141,51 @@ const bagScan = workflow.completePdaTransferBagHandoverScan(
 assert.equal(bagScan.ok, true, '有效中转袋必须扫码成功')
 assert.equal(bagScan.state.bagCode, 'TB-CUT-001', '袋码必须保留')
 assert.equal(bagScan.state.ticketCount, 12, '袋内菲票数量必须只读带出')
+
+const invalidStatusBag = workflow.completePdaTransferBagHandoverScan(
+  initial,
+  'bagCode',
+  'TB-CUT-DONE',
+  candidates,
+)
+assert.equal(invalidStatusBag.ok, false, '已交出袋不得再次进入交出轮次')
+assert.equal(invalidStatusBag.state.bagCode, '', '无效袋状态不得写入有效扫码数据')
+assert(invalidStatusBag.state.scanFeedbackMessage.includes('已交出'), '袋状态失败必须即时说明原因')
+
+const voidBag = workflow.completePdaTransferBagHandoverScan(
+  initial,
+  'bagCode',
+  'TB-CUT-VOID',
+  candidates,
+)
+assert.equal(voidBag.ok, false, '已作废袋不得交出')
+
+const closedTask = workflow.completePdaTransferBagHandoverScan(
+  bagScan.state,
+  'sewingTaskCode',
+  'SEW-CLOSED',
+  candidates,
+)
+assert.equal(closedTask.ok, false, '不可接收车缝任务必须即时阻断')
+assert.equal(closedTask.state.bagCode, 'TB-CUT-001', '任务状态失败必须保留有效袋码')
+assert.equal(closedTask.state.sewingTaskNo, '', '不可接收任务不得生成派生信息')
+
+const crossPoBag = workflow.completePdaTransferBagHandoverScan(
+  initial,
+  'bagCode',
+  'TB-CUT-CROSS',
+  candidates,
+)
+const crossPoTask = workflow.completePdaTransferBagHandoverScan(
+  crossPoBag.state,
+  'sewingTaskCode',
+  'SEW-001',
+  candidates,
+)
+assert.equal(crossPoTask.ok, false, '袋与车缝任务生产单不一致必须阻断')
+assert.equal(crossPoTask.state.bagCode, 'TB-CUT-CROSS', '跨生产单失败必须保留有效袋码')
+assert.equal(crossPoTask.state.sewingTaskNo, '', '跨生产单失败不得写入任务')
+assert(crossPoTask.state.scanFeedbackMessage.includes('生产单不一致'), '跨生产单必须即时说明原因')
 
 const taskScan = workflow.completePdaTransferBagHandoverScan(
   bagScan.state,
@@ -189,6 +249,25 @@ assert.equal(successfulRound.sewingTaskCode, '', '交出成功必须清空任务
 assert.equal(successfulRound.productionOrderNo, '', '交出成功必须清空派生信息')
 assert.equal(successfulRound.receiverFactoryName, '', '交出成功必须清空接收工厂')
 
+const submissionCandidates = structuredClone(candidates)
+const submittedRound = workflow.submitPdaTransferBagHandoverRound(taskScan.state, submissionCandidates)
+assert.equal(submittedRound.resultMessage, '交出成功', '本地 Mock 提交成功提示不正确')
+const submittedBag = submissionCandidates.bags.find((item) => item.bagCode === 'TB-CUT-001')!
+assert.equal(submittedBag.status, '已交出', '成功后必须把本页袋状态置为已交出')
+assert.equal(submittedBag.boundSewingTaskNo, 'SEW-001', '成功后必须记录整袋唯一车缝任务')
+const duplicateBagScan = workflow.completePdaTransferBagHandoverScan(
+  workflow.createPdaTransferBagHandoverFormState(),
+  'bagCode',
+  'TB-CUT-001',
+  submissionCandidates,
+)
+assert.equal(duplicateBagScan.ok, false, '成功后再次扫描同袋必须阻断重复交出')
+assert(duplicateBagScan.state.scanFeedbackMessage.includes('已交出'), '重复交出必须即时提示袋已交出')
+const duplicateConfirm = workflow.submitPdaTransferBagHandoverRound(taskScan.state, submissionCandidates)
+assert.equal(duplicateConfirm.bagCode, 'TB-CUT-001', '重复确认失败必须保留原袋码')
+assert.equal(duplicateConfirm.sewingTaskNo, 'SEW-001', '重复确认失败必须保留原任务')
+assert(duplicateConfirm.resultMessage.includes('已交出'), '重复确认必须明确提示已交出')
+
 const html = workflow.renderPdaTransferBagHandoverWorkflow(taskScan.state, 'CUT-001')
 assert.equal((html.match(/<button\b/g) || []).length, 1, '页面只能有一个主要按钮')
 assert(html.includes('1 扫中转袋'), '第一步必须是扫中转袋')
@@ -237,7 +316,7 @@ const transferModeStart = pageSource.indexOf("if (isTransferBagHandoverAction)")
 assert(transferModeStart >= 0, '新 action 必须使用隔离的 transfer-bag-handover 渲染分支')
 const confirmBranchStart = pageSource.indexOf("if (action === 'confirm-transfer-bag-handover')")
 const confirmFlushIndex = pageSource.indexOf('transferBagScanTimerController.flush(', confirmBranchStart)
-const confirmRoundIndex = pageSource.indexOf('completePdaTransferBagHandoverRound(', confirmBranchStart)
+const confirmRoundIndex = pageSource.indexOf('submitPdaTransferBagHandoverRound(', confirmBranchStart)
 assert(confirmFlushIndex > confirmBranchStart, '确认交出前必须同步冲刷 pending scan')
 assert(confirmFlushIndex < confirmRoundIndex, '最新扫描必须先于确认结果计算')
 assert(

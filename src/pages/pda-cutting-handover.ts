@@ -91,6 +91,8 @@ export interface PdaTransferBagHandoverFormState {
 interface PdaTransferBagHandoverBagCandidate {
   bagCode: string
   ticketCount: number
+  productionOrderNo: string
+  status: '待交出' | '已交出' | '已作废' | '空袋'
   boundSewingTaskNo?: string
 }
 
@@ -98,6 +100,7 @@ interface PdaTransferBagHandoverSewingTaskCandidate {
   sewingTaskNo: string
   productionOrderNo: string
   receiverFactoryName: string
+  receivableStatus: '可接收' | '不可接收'
 }
 
 interface PdaTransferBagHandoverCandidates {
@@ -107,19 +110,51 @@ interface PdaTransferBagHandoverCandidates {
 
 const transferBagHandoverCandidates: PdaTransferBagHandoverCandidates = {
   bags: [
-    { bagCode: 'TB-CUT-260727-001', ticketCount: 12 },
-    { bagCode: 'TB-CUT-260727-002', ticketCount: 8, boundSewingTaskNo: 'SEW-PO-202603-0102-02' },
+    {
+      bagCode: 'TB-CUT-260727-001',
+      ticketCount: 12,
+      productionOrderNo: 'PO-202603-0102',
+      status: '待交出',
+    },
+    {
+      bagCode: 'TB-CUT-260727-002',
+      ticketCount: 8,
+      productionOrderNo: 'PO-202603-0102',
+      status: '待交出',
+      boundSewingTaskNo: 'SEW-PO-202603-0102-02',
+    },
+    {
+      bagCode: 'TB-CUT-260727-003',
+      ticketCount: 10,
+      productionOrderNo: 'PO-202603-0103',
+      status: '已交出',
+      boundSewingTaskNo: 'SEW-PO-202603-0103-01',
+    },
+    {
+      bagCode: 'TB-CUT-260727-VOID',
+      ticketCount: 6,
+      productionOrderNo: 'PO-202603-0102',
+      status: '已作废',
+    },
   ],
   sewingTasks: [
     {
       sewingTaskNo: 'SEW-PO-202603-0102-01',
       productionOrderNo: 'PO-202603-0102',
       receiverFactoryName: 'HiGood 印尼一厂',
+      receivableStatus: '可接收',
     },
     {
       sewingTaskNo: 'SEW-PO-202603-0102-02',
       productionOrderNo: 'PO-202603-0102',
       receiverFactoryName: 'HiGood 印尼二厂',
+      receivableStatus: '可接收',
+    },
+    {
+      sewingTaskNo: 'SEW-PO-202603-0103-01',
+      productionOrderNo: 'PO-202603-0103',
+      receiverFactoryName: 'HiGood 印尼三厂',
+      receivableStatus: '不可接收',
     },
   ],
 }
@@ -177,6 +212,16 @@ export function completePdaTransferBagHandoverScan(
         },
       }
     }
+    if (bag.status !== '待交出') {
+      return {
+        ok: false,
+        state: {
+          ...state,
+          scanFeedbackMessage: `这个中转袋${bag.status}，不能交出。`,
+          resultMessage: '',
+        },
+      }
+    }
     if (state.sewingTaskNo && bag.boundSewingTaskNo && bag.boundSewingTaskNo !== state.sewingTaskNo) {
       return {
         ok: false,
@@ -220,6 +265,16 @@ export function completePdaTransferBagHandoverScan(
       },
     }
   }
+  if (task.receivableStatus !== '可接收') {
+    return {
+      ok: false,
+      state: {
+        ...state,
+        scanFeedbackMessage: '这个车缝任务当前不可接收，请换一个任务。',
+        resultMessage: '',
+      },
+    }
+  }
   if (state.sewingTaskNo && state.sewingTaskNo !== task.sewingTaskNo) {
     return {
       ok: false,
@@ -231,6 +286,16 @@ export function completePdaTransferBagHandoverScan(
     }
   }
   const bag = candidates.bags.find((item) => item.bagCode === state.bagCode)
+  if (bag && bag.productionOrderNo !== task.productionOrderNo) {
+    return {
+      ok: false,
+      state: {
+        ...state,
+        scanFeedbackMessage: '中转袋与车缝任务生产单不一致，请重新扫描。',
+        resultMessage: '',
+      },
+    }
+  }
   if (bag?.boundSewingTaskNo && bag.boundSewingTaskNo !== task.sewingTaskNo) {
     return {
       ok: false,
@@ -269,6 +334,35 @@ export function completePdaTransferBagHandoverRound(
     ...createPdaTransferBagHandoverFormState(),
     resultMessage: '交出成功',
   }
+}
+
+export function submitPdaTransferBagHandoverRound(
+  state: PdaTransferBagHandoverFormState,
+  candidates: PdaTransferBagHandoverCandidates,
+): PdaTransferBagHandoverFormState {
+  const bag = candidates.bags.find((item) => item.bagCode === state.bagCode)
+  const task = candidates.sewingTasks.find((item) => item.sewingTaskNo === state.sewingTaskNo)
+  let message = ''
+
+  if (!bag) {
+    message = '请扫描中转袋。'
+  } else if (bag.status !== '待交出') {
+    message = `这个中转袋${bag.status}，不能重复交出。`
+  } else if (!task) {
+    message = '请扫描车缝任务。'
+  } else if (task.receivableStatus !== '可接收') {
+    message = '这个车缝任务当前不可接收，请换一个任务。'
+  } else if (bag.productionOrderNo !== task.productionOrderNo) {
+    message = '中转袋与车缝任务生产单不一致，请重新扫描。'
+  } else if (bag.boundSewingTaskNo && bag.boundSewingTaskNo !== task.sewingTaskNo) {
+    message = '这个中转袋已绑定其他车缝任务，请换一个袋。'
+  }
+
+  if (message) return completePdaTransferBagHandoverRound(state, { ok: false, message })
+
+  bag.status = '已交出'
+  bag.boundSewingTaskNo = task.sewingTaskNo
+  return completePdaTransferBagHandoverRound(state, { ok: true })
 }
 
 export interface PdaTransferBagHandoverScanTimerController {
@@ -1406,26 +1500,16 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement, event?: Event
       resolvedExecutionOrderId,
       resolvedExecutionOrderNo,
     )
-    let result: { ok: boolean; message?: string } = { ok: true }
-    if (!state.bagCode) {
-      result = { ok: false, message: '请扫描中转袋。' }
-    } else if (!state.sewingTaskNo) {
-      result = { ok: false, message: '请扫描车缝任务。' }
-    } else if (!state.productionOrderNo || !state.receiverFactoryName) {
-      result = { ok: false, message: '车缝任务信息未识别，请重新扫描。' }
-    }
-    if (result.ok) {
-      const bag = transferBagHandoverCandidates.bags.find((item) => item.bagCode === state.bagCode)
-      if (bag?.boundSewingTaskNo && bag.boundSewingTaskNo !== state.sewingTaskNo) {
-        result = { ok: false, message: '这个中转袋已绑定其他车缝任务，请换一个袋。' }
-      } else if (bag) {
-        bag.boundSewingTaskNo = state.sewingTaskNo
-      }
+    const nextState = submitPdaTransferBagHandoverRound(
+      state,
+      transferBagHandoverCandidates,
+    )
+    if (nextState.resultMessage === '交出成功') {
       transferBagScanTimerController.cancel(stateKey)
     }
     replaceTransferBagHandoverState(
       taskId,
-      completePdaTransferBagHandoverRound(state, result),
+      nextState,
       resolvedExecutionOrderId,
       resolvedExecutionOrderNo,
     )
