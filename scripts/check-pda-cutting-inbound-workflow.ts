@@ -9,6 +9,7 @@ import { buildTransferBagsProjection } from '../src/pages/process-factory/cuttin
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const source = readFileSync(`${ROOT}/src/pages/pda-cutting-inbound.ts`, 'utf8')
+const mainSource = readFileSync(`${ROOT}/src/main.ts`, 'utf8')
 
 assert.equal(
   typeof workflow.createPdaCuttingInboundFormState,
@@ -69,6 +70,11 @@ assert.equal(
   typeof workflow.confirmPdaCuttingInboundRound,
   'function',
   'PDA 裁片入仓页必须导出保留 pending 扫码结果的可执行确认编排',
+)
+assert.equal(
+  typeof workflow.updatePdaCuttingInboundWorkflow,
+  'function',
+  'PDA 裁片入仓页必须导出确认后的局部工作区刷新函数',
 )
 
 const latestControlValues: Record<string, string> = {
@@ -299,6 +305,142 @@ assert.equal(mockLedger.bags['BAG-002']?.status, 'EMPTY_READY', '演示台账必
 const knownTicketCandidate = buildTransferBagsProjection().viewModel.ticketCandidates
   .find((ticket) => ticket.ticketNo === demoTicketNos[0])!
 assert(knownTicketCandidate, '测试前提：当前页面候选必须包含演示有效菲票')
+
+const originalHtmlInputElement = (
+  globalThis as typeof globalThis & { HTMLInputElement?: typeof HTMLInputElement }
+).HTMLInputElement
+const originalHtmlSelectElement = (
+  globalThis as typeof globalThis & { HTMLSelectElement?: typeof HTMLSelectElement }
+).HTMLSelectElement
+const originalHtmlTextAreaElement = (
+  globalThis as typeof globalThis & { HTMLTextAreaElement?: typeof HTMLTextAreaElement }
+).HTMLTextAreaElement
+class FakeInboundInputElement {
+  value = ''
+  dataset = {} as DOMStringMap
+  closestHandler: (selector: string) => unknown = () => null
+
+  closest(selector: string): unknown {
+    return this.closestHandler(selector)
+  }
+}
+;(globalThis as typeof globalThis & { HTMLInputElement: typeof HTMLInputElement }).HTMLInputElement =
+  FakeInboundInputElement as unknown as typeof HTMLInputElement
+;(globalThis as typeof globalThis & { HTMLSelectElement: typeof HTMLSelectElement }).HTMLSelectElement =
+  class {} as typeof HTMLSelectElement
+;(globalThis as typeof globalThis & { HTMLTextAreaElement: typeof HTMLTextAreaElement }).HTMLTextAreaElement =
+  class {} as typeof HTMLTextAreaElement
+
+const handleInboundEvent = workflow.handlePdaCuttingInboundEvent
+const buildInboundConfirmHarness = (taskId: string, carrierCode: string) => {
+  const liveRegion = { innerHTML: '' }
+  const carrierInput = new FakeInboundInputElement()
+  carrierInput.value = carrierCode
+  carrierInput.dataset.pdaCutInboundField = 'carrierCode'
+  const ticketInput = new FakeInboundInputElement()
+  ticketInput.dataset.pdaCutInboundField = 'scanCode'
+  const workflowContainer = {
+    innerHTML: '',
+    scrollTop: 287,
+    querySelector(selector: string) {
+      if (selector === '[data-pda-cut-inbound-field="carrierCode"]') return carrierInput
+      if (selector === '[data-pda-cut-inbound-field="scanCode"]') return ticketInput
+      if (selector === '[data-pda-cut-inbound-field="locationLabel"]') return null
+      if (selector === '[data-pda-cut-inbound-live]') return liveRegion
+      return null
+    },
+  }
+  for (const input of [carrierInput, ticketInput]) {
+    input.closestHandler = (selector) => {
+      if (selector === '[data-pda-cut-inbound-field]') return input
+      if (selector === '[data-pda-cutting-inbound-workflow]') return workflowContainer
+      if (selector === '[data-task-id]') return { dataset: { taskId } }
+      return null
+    }
+  }
+  const actionNode = {
+    dataset: { taskId, pdaCutInboundAction: 'confirm' },
+    closest(selector: string) {
+      if (selector === '[data-pda-cutting-inbound-workflow]') return workflowContainer
+      return null
+    },
+  }
+  const confirmTarget = {
+    closest(selector: string) {
+      if (selector === '[data-pda-cut-inbound-field]') return null
+      if (selector === '[data-pda-cut-inbound-action="confirm"]') return actionNode
+      return null
+    },
+  }
+  return { workflowContainer, carrierInput, ticketInput, confirmTarget }
+}
+
+const successHarness = buildInboundConfirmHarness('TASK-CUT-PDA-CUT-DONE-0307', 'BAG-001')
+assert.equal(
+  handleInboundEvent(successHarness.carrierInput as unknown as HTMLElement, { type: 'input' } as Event),
+  true,
+  '局部刷新测试前必须写入袋码',
+)
+successHarness.ticketInput.value = demoTicketNos[0]
+assert.equal(
+  handleInboundEvent(
+    successHarness.ticketInput as unknown as HTMLElement,
+    { type: 'keydown', key: 'Enter' } as unknown as Event,
+  ),
+  true,
+  '局部刷新测试前必须完成有效菲票扫描',
+)
+assert.equal(
+  handleInboundEvent(successHarness.confirmTarget as unknown as HTMLElement),
+  true,
+  '确认装袋事件必须被处理',
+)
+assert(
+  successHarness.workflowContainer.innerHTML.includes('装袋成功'),
+  '确认装袋成功后必须立即在当前工作区显示结果',
+)
+assert.match(
+  successHarness.workflowContainer.innerHTML,
+  /data-pda-cut-inbound-field="carrierCode"[\s\S]*?value=""/,
+  '确认装袋成功后局部工作区必须显示已清空的新一轮袋码',
+)
+assert.equal(successHarness.workflowContainer.scrollTop, 287, '局部刷新不得改变页面工作区滚动位置')
+
+const failedHarness = buildInboundConfirmHarness('TASK-INBOUND-LOCAL-FAIL', 'BAG-002')
+assert.equal(
+  handleInboundEvent(failedHarness.confirmTarget as unknown as HTMLElement),
+  true,
+  '确认装袋失败事件必须被处理',
+)
+assert(
+  failedHarness.workflowContainer.innerHTML.includes('请扫描菲票。'),
+  '确认装袋失败后必须立即在当前工作区显示具体原因',
+)
+assert.match(
+  failedHarness.workflowContainer.innerHTML,
+  /data-pda-cut-inbound-field="carrierCode"[\s\S]*?value="BAG-002"/,
+  '确认装袋失败后局部工作区必须保留袋码',
+)
+assert.equal(failedHarness.workflowContainer.scrollTop, 287, '失败反馈的局部刷新不得改变滚动位置')
+
+if (originalHtmlInputElement) {
+  ;(globalThis as typeof globalThis & { HTMLInputElement: typeof HTMLInputElement }).HTMLInputElement =
+    originalHtmlInputElement
+} else {
+  delete (globalThis as typeof globalThis & { HTMLInputElement?: typeof HTMLInputElement }).HTMLInputElement
+}
+if (originalHtmlSelectElement) {
+  ;(globalThis as typeof globalThis & { HTMLSelectElement: typeof HTMLSelectElement }).HTMLSelectElement =
+    originalHtmlSelectElement
+} else {
+  delete (globalThis as typeof globalThis & { HTMLSelectElement?: typeof HTMLSelectElement }).HTMLSelectElement
+}
+if (originalHtmlTextAreaElement) {
+  ;(globalThis as typeof globalThis & { HTMLTextAreaElement: typeof HTMLTextAreaElement }).HTMLTextAreaElement =
+    originalHtmlTextAreaElement
+} else {
+  delete (globalThis as typeof globalThis & { HTMLTextAreaElement?: typeof HTMLTextAreaElement }).HTMLTextAreaElement
+}
 const existingValidTicketForm = {
   ...workflow.createPdaCuttingInboundFormState(),
   carrierCode: 'BAG-001',
@@ -591,5 +733,23 @@ for (const forbidden of ['菲票', '加入菲票', '待入仓', '生产单', '�
 assert(!source.includes('appendWaitHandoverBaggingEvent'), '快速原型不得写入菲票装袋事件账')
 assert(!source.includes('appendWaitHandoverInboundEvent'), '快速原型不得写入中转袋入仓事件账')
 assert(!source.includes('renderPdaCuttingOrderSelectionPrompt'), '不得保留待入仓菲票或裁片单中间选择页')
+
+const inboundMainBranchStart = mainSource.indexOf(
+  "const pdaCutInboundActionNode = target.closest<HTMLElement>('[data-pda-cut-inbound-action]')",
+)
+const inboundMainBranchEnd = mainSource.indexOf(
+  "const pdaCutHandoverActionNode = target.closest<HTMLElement>('[data-pda-cut-handover-action]')",
+  inboundMainBranchStart,
+)
+const inboundMainBranch = mainSource.slice(inboundMainBranchStart, inboundMainBranchEnd)
+const inboundLocalReturnIndex = inboundMainBranch.indexOf(
+  "pdaCutInboundActionNode.dataset.pdaCutInboundAction === 'confirm'",
+)
+const inboundFullRenderIndex = inboundMainBranch.indexOf('await renderWithFocusRestore(focusSnapshot)')
+assert(inboundLocalReturnIndex >= 0, 'main 必须识别确认装袋/入仓专用 action 的局部刷新路径')
+assert(
+  inboundFullRenderIndex === -1 || inboundLocalReturnIndex < inboundFullRenderIndex,
+  '确认装袋/入仓专用 action 必须在整页渲染前直接返回',
+)
 
 console.log('[check-pda-cutting-inbound-workflow] 两种 PDA 扫码工作流检查通过')

@@ -1124,49 +1124,71 @@ function renderTransferBagHandoverLiveState(state: PdaTransferBagHandoverFormSta
   `
 }
 
-export function renderPdaTransferBagHandoverWorkflow(
+function renderPdaTransferBagHandoverWorkflowContent(
   state: PdaTransferBagHandoverFormState,
   taskId = '',
 ): string {
   const resultTone = state.resultMessage === '交出成功' ? 'success' : 'warning'
   return `
-    <section class="space-y-4 rounded-2xl border bg-card px-3 py-3 shadow-sm" data-task-id="${escapeHtml(taskId)}">
-      ${state.resultMessage ? renderPdaCuttingFeedbackNotice(state.resultMessage, resultTone) : ''}
-      <div class="space-y-2">
-        <div class="text-sm font-semibold text-foreground">1 扫中转袋</div>
-        <input
-          class="h-12 w-full rounded-xl border bg-background px-3 text-base"
-          data-pda-cut-handover-field="bagCode"
-          data-skip-page-rerender="true"
-          value="${escapeHtml(state.bagCode)}"
-          placeholder="扫描中转袋"
-        />
-      </div>
-      <div class="space-y-2">
-        <div class="text-sm font-semibold text-foreground">2 扫车缝任务</div>
-        <input
-          class="h-12 w-full rounded-xl border bg-background px-3 text-base"
-          data-pda-cut-handover-field="sewingTaskCode"
-          data-skip-page-rerender="true"
-          value="${escapeHtml(state.sewingTaskCode)}"
-          placeholder="扫描车缝任务"
-        />
-      </div>
-      <div class="space-y-2" data-pda-transfer-bag-handover-live>
-        ${renderTransferBagHandoverLiveState(state)}
-      </div>
-      <div class="space-y-2">
-        <div class="text-sm font-semibold text-foreground">3 确认交出</div>
-        <button
-          class="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground hover:opacity-90"
-          data-pda-cut-handover-action="confirm-transfer-bag-handover"
-          data-task-id="${escapeHtml(taskId)}"
-        >
-          确认交出
-        </button>
-      </div>
+    ${state.resultMessage ? renderPdaCuttingFeedbackNotice(state.resultMessage, resultTone) : ''}
+    <div class="space-y-2">
+      <div class="text-sm font-semibold text-foreground">1 扫中转袋</div>
+      <input
+        class="h-12 w-full rounded-xl border bg-background px-3 text-base"
+        data-pda-cut-handover-field="bagCode"
+        data-skip-page-rerender="true"
+        value="${escapeHtml(state.bagCode)}"
+        placeholder="扫描中转袋"
+      />
+    </div>
+    <div class="space-y-2">
+      <div class="text-sm font-semibold text-foreground">2 扫车缝任务</div>
+      <input
+        class="h-12 w-full rounded-xl border bg-background px-3 text-base"
+        data-pda-cut-handover-field="sewingTaskCode"
+        data-skip-page-rerender="true"
+        value="${escapeHtml(state.sewingTaskCode)}"
+        placeholder="扫描车缝任务"
+      />
+    </div>
+    <div class="space-y-2" data-pda-transfer-bag-handover-live>
+      ${renderTransferBagHandoverLiveState(state)}
+    </div>
+    <div class="space-y-2">
+      <div class="text-sm font-semibold text-foreground">3 确认交出</div>
+      <button
+        class="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground hover:opacity-90"
+        data-pda-cut-handover-action="confirm-transfer-bag-handover"
+        data-task-id="${escapeHtml(taskId)}"
+      >
+        确认交出
+      </button>
+    </div>
+  `
+}
+
+export function renderPdaTransferBagHandoverWorkflow(
+  state: PdaTransferBagHandoverFormState,
+  taskId = '',
+): string {
+  return `
+    <section
+      class="space-y-4 rounded-2xl border bg-card px-3 py-3 shadow-sm"
+      data-pda-transfer-bag-handover-workflow
+      data-task-id="${escapeHtml(taskId)}"
+    >
+      ${renderPdaTransferBagHandoverWorkflowContent(state, taskId)}
     </section>
   `
+}
+
+export function updatePdaTransferBagHandoverWorkflow(
+  container: HTMLElement | null,
+  state: PdaTransferBagHandoverFormState,
+  taskId = '',
+): void {
+  if (!container) return
+  container.innerHTML = renderPdaTransferBagHandoverWorkflowContent(state, taskId)
 }
 
 export function renderPdaCuttingHandoverPage(taskId: string): string {
@@ -1387,7 +1409,7 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
 }
 
 function resolveTransferBagHandoverContainer(node: HTMLElement): HTMLElement | null {
-  return node.closest<HTMLElement>('[data-task-id]')
+  return node.closest<HTMLElement>('[data-pda-transfer-bag-handover-workflow]')
 }
 
 function updateTransferBagHandoverLiveRegion(
@@ -1551,6 +1573,11 @@ export function handlePdaCuttingHandoverEvent(target: HTMLElement, event?: Event
       nextState,
       resolvedExecutionOrderId,
       resolvedExecutionOrderNo,
+    )
+    updatePdaTransferBagHandoverWorkflow(
+      resolveTransferBagHandoverContainer(actionNode),
+      nextState,
+      taskId,
     )
     return true
   }

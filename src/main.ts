@@ -1769,6 +1769,9 @@ root.addEventListener('click', async (event) => {
     event.preventDefault()
     const pdaCuttingInboundPage = await import('./pages/pda-cutting-inbound')
     if (pdaCuttingInboundPage.handlePdaCuttingInboundEvent(pdaCutInboundActionNode)) {
+      if (pdaCutInboundActionNode.dataset.pdaCutInboundAction === 'confirm') {
+        return
+      }
       await renderWithFocusRestore(focusSnapshot)
       return
     }
@@ -1779,6 +1782,12 @@ root.addEventListener('click', async (event) => {
     event.preventDefault()
     const pdaCuttingHandoverPage = await import('./pages/pda-cutting-handover')
     if (pdaCuttingHandoverPage.handlePdaCuttingHandoverEvent(pdaCutHandoverActionNode)) {
+      if (
+        pdaCutHandoverActionNode.dataset.pdaCutHandoverAction
+        === 'confirm-transfer-bag-handover'
+      ) {
+        return
+      }
       await renderWithFocusRestore(focusSnapshot)
       return
     }

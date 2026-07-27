@@ -724,69 +724,89 @@ function renderStepTitle(step: number, label: string): string {
   return `<div class="text-sm font-semibold text-foreground">${step} ${escapeHtml(label)}</div>`
 }
 
-export function renderPdaCuttingInboundWorkflow(
+function renderPdaCuttingInboundWorkflowContent(
   mode: PdaCuttingInboundMode,
   form: InboundFormState,
   taskId = '',
 ): string {
   const isInboundLocation = mode === 'inbound-location'
   return `
+    ${renderResultMessage(form)}
+    <div class="space-y-2">
+      ${renderStepTitle(1, '扫中转袋')}
+      <input
+        class="h-12 w-full rounded-xl border bg-background px-3 text-base"
+        data-pda-cut-inbound-field="carrierCode"
+        data-skip-page-rerender="true"
+        value="${escapeHtml(form.carrierCode)}"
+        placeholder="扫描中转袋"
+      />
+    </div>
+    ${
+      isInboundLocation
+        ? `
+          <div class="space-y-2">
+            ${renderStepTitle(2, '扫库区库位')}
+            <input
+              class="h-12 w-full rounded-xl border bg-background px-3 text-base"
+              data-pda-cut-inbound-field="locationLabel"
+              data-skip-page-rerender="true"
+              value="${escapeHtml(form.locationLabel)}"
+              placeholder="扫描库区库位"
+            />
+          </div>
+        `
+        : `
+          <div class="space-y-2">
+            ${renderStepTitle(2, '扫菲票')}
+            <input
+              class="h-12 w-full rounded-xl border bg-background px-3 text-base"
+              data-pda-cut-inbound-field="scanCode"
+              data-skip-page-rerender="true"
+              value="${escapeHtml(form.scanCode)}"
+              placeholder="连续扫描菲票"
+            />
+            <div class="space-y-2" data-pda-cut-inbound-live>${renderBaggingLiveState(form)}</div>
+          </div>
+        `
+    }
+    <div class="space-y-2">
+      ${renderStepTitle(3, isInboundLocation ? '确认入仓' : '确认装袋')}
+      <button
+        class="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground hover:opacity-90"
+        data-pda-cut-inbound-action="confirm"
+        data-task-id="${escapeHtml(taskId)}"
+      >
+        ${isInboundLocation ? '确认入仓' : '确认装袋'}
+      </button>
+    </div>
+  `
+}
+
+export function renderPdaCuttingInboundWorkflow(
+  mode: PdaCuttingInboundMode,
+  form: InboundFormState,
+  taskId = '',
+): string {
+  return `
     <section
       class="space-y-4 rounded-2xl border bg-card px-3 py-3 shadow-sm"
       data-pda-cutting-inbound-workflow
       data-task-id="${escapeHtml(taskId)}"
     >
-      ${renderResultMessage(form)}
-      <div class="space-y-2">
-        ${renderStepTitle(1, '扫中转袋')}
-        <input
-          class="h-12 w-full rounded-xl border bg-background px-3 text-base"
-          data-pda-cut-inbound-field="carrierCode"
-          data-skip-page-rerender="true"
-          value="${escapeHtml(form.carrierCode)}"
-          placeholder="扫描中转袋"
-        />
-      </div>
-      ${
-        isInboundLocation
-          ? `
-            <div class="space-y-2">
-              ${renderStepTitle(2, '扫库区库位')}
-              <input
-                class="h-12 w-full rounded-xl border bg-background px-3 text-base"
-                data-pda-cut-inbound-field="locationLabel"
-                data-skip-page-rerender="true"
-                value="${escapeHtml(form.locationLabel)}"
-                placeholder="扫描库区库位"
-              />
-            </div>
-          `
-          : `
-            <div class="space-y-2">
-              ${renderStepTitle(2, '扫菲票')}
-              <input
-                class="h-12 w-full rounded-xl border bg-background px-3 text-base"
-                data-pda-cut-inbound-field="scanCode"
-                data-skip-page-rerender="true"
-                value="${escapeHtml(form.scanCode)}"
-                placeholder="连续扫描菲票"
-              />
-              <div class="space-y-2" data-pda-cut-inbound-live>${renderBaggingLiveState(form)}</div>
-            </div>
-          `
-      }
-      <div class="space-y-2">
-        ${renderStepTitle(3, isInboundLocation ? '确认入仓' : '确认装袋')}
-        <button
-          class="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-base font-semibold text-primary-foreground hover:opacity-90"
-          data-pda-cut-inbound-action="confirm"
-          data-task-id="${escapeHtml(taskId)}"
-        >
-          ${isInboundLocation ? '确认入仓' : '确认装袋'}
-        </button>
-      </div>
+      ${renderPdaCuttingInboundWorkflowContent(mode, form, taskId)}
     </section>
   `
+}
+
+export function updatePdaCuttingInboundWorkflow(
+  container: HTMLElement | null,
+  mode: PdaCuttingInboundMode,
+  form: InboundFormState,
+  taskId = '',
+): void {
+  if (!container) return
+  container.innerHTML = renderPdaCuttingInboundWorkflowContent(mode, form, taskId)
 }
 
 export function renderPdaCuttingInboundPage(taskId: string): string {
@@ -900,6 +920,7 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement, event?: Event)
   const taskId = actionNode.dataset.taskId
   if (!taskId) return false
   let eventState = resolveInboundEventState(taskId, mode)
+  const workflowContainer = resolvePdaCuttingInboundFormContainer(actionNode)
   const stateKey = buildInboundStateKey(
     taskId,
     mode,
@@ -908,7 +929,7 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement, event?: Event)
   )
   syncPdaCuttingInboundFormFromControls(
     eventState.form,
-    resolvePdaCuttingInboundFormContainer(actionNode),
+    workflowContainer,
   )
   if (mode === 'bagging' && ticketScanTimerController.flush(stateKey)) {
     eventState = resolveInboundEventState(taskId, mode)
@@ -927,6 +948,7 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement, event?: Event)
     eventState.selectedExecutionOrderId,
     eventState.selectedExecutionOrderNo,
   )
+  updatePdaCuttingInboundWorkflow(workflowContainer, mode, confirmation.nextForm, taskId)
   return true
 }
 

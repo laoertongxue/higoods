@@ -87,6 +87,7 @@ for (const exportName of [
   'submitPdaTransferBagHandoverRound',
   'normalizePdaCuttingHandoverAction',
   'renderPdaTransferBagHandoverWorkflow',
+  'updatePdaTransferBagHandoverWorkflow',
   'createPdaTransferBagHandoverScanTimerController',
 ]) {
   assert.equal(typeof pageModule[exportName], 'function', `中转袋交出页必须导出 ${exportName}`)
@@ -415,6 +416,8 @@ const eventTaskId = 'TASK-CUT-PDA-CUT-DONE-0307'
 const liveRegion = { innerHTML: '' }
 const eventContainer = {
   dataset: { taskId: eventTaskId },
+  innerHTML: '',
+  scrollTop: 319,
   querySelector(selector: string) {
     if (selector === '[data-pda-cut-handover-field="bagCode"]') return bagInput
     if (selector === '[data-pda-cut-handover-field="sewingTaskCode"]') return taskInput
@@ -427,6 +430,7 @@ const buildEventInput = (field: 'bagCode' | 'sewingTaskCode') => {
   input.dataset.pdaCutHandoverField = field
   input.closestHandler = (selector) => {
     if (selector === '[data-pda-cut-handover-field]') return input
+    if (selector === '[data-pda-transfer-bag-handover-workflow]') return eventContainer
     if (selector === '[data-task-id]') return eventContainer
     return null
   }
@@ -482,17 +486,21 @@ const taskClearStateHtml = (
 )(eventTaskId)
 assert(!taskClearStateHtml.includes('SEW-PO-202603-0102-02'), '清空任务必须同步清除状态中的任务草稿')
 
+const confirmTransferAction = {
+  dataset: {
+    pdaCutHandoverAction: 'confirm-transfer-bag-handover',
+    taskId: eventTaskId,
+  },
+  closest(selector: string) {
+    if (selector === '[data-pda-transfer-bag-handover-workflow]') return eventContainer
+    if (selector === '[data-task-id]') return eventContainer
+    return null
+  },
+}
 const confirmTransferTarget = {
   closest(selector: string) {
     if (selector === '[data-pda-cut-handover-field]') return null
-    if (selector === '[data-pda-cut-handover-action]') {
-      return {
-        dataset: {
-          pdaCutHandoverAction: 'confirm-transfer-bag-handover',
-          taskId: eventTaskId,
-        },
-      }
-    }
+    if (selector === '[data-pda-cut-handover-action]') return confirmTransferAction
     return null
   },
 }
@@ -505,6 +513,8 @@ const taskClearConfirmHtml = (
   pageModule.renderPdaCuttingHandoverPage as (taskId: string) => string
 )(eventTaskId)
 assert(taskClearConfirmHtml.includes('请扫描车缝任务。'), '清空任务后确认必须阻断并提示扫描任务')
+assert(eventContainer.innerHTML.includes('请扫描车缝任务。'), '确认失败必须立即局部显示具体原因')
+assert.equal(eventContainer.scrollTop, 319, '确认失败的局部刷新不得改变工作区滚动位置')
 
 taskInput.value = 'SEW-PO-202603-0102-01'
 dispatchTransferInput(taskInput, 'keydown', 'Enter')
@@ -539,6 +549,24 @@ const bagClearConfirmHtml = (
   pageModule.renderPdaCuttingHandoverPage as (taskId: string) => string
 )(eventTaskId)
 assert(bagClearConfirmHtml.includes('请扫描中转袋。'), '清空袋后确认必须阻断并提示扫描中转袋')
+assert(eventContainer.innerHTML.includes('请扫描中转袋。'), '清空袋确认失败必须立即局部显示具体原因')
+
+bagInput.value = 'TB-CUT-260727-001'
+dispatchTransferInput(bagInput, 'keydown', 'Enter')
+taskInput.value = 'SEW-PO-202603-0102-01'
+dispatchTransferInput(taskInput, 'keydown', 'Enter')
+assert.equal(
+  handleTransferEvent(confirmTransferTarget as unknown as HTMLElement),
+  true,
+  '完整扫描后的确认交出事件必须被处理',
+)
+assert(eventContainer.innerHTML.includes('交出成功'), '确认交出成功后必须立即在当前工作区显示结果')
+assert.match(
+  eventContainer.innerHTML,
+  /data-pda-cut-handover-field="bagCode"[\s\S]*?value=""/,
+  '确认交出成功后局部工作区必须显示已清空的新一轮袋码',
+)
+assert.equal(eventContainer.scrollTop, 319, '确认成功的局部刷新不得改变工作区滚动位置')
 
 if (originalWindow) {
   ;(globalThis as typeof globalThis & { window: Window }).window = originalWindow
@@ -562,6 +590,30 @@ const confirmFlushIndex = pageSource.indexOf('transferBagScanTimerController.flu
 const confirmRoundIndex = pageSource.indexOf('submitPdaTransferBagHandoverRound(', confirmBranchStart)
 assert(confirmFlushIndex > confirmBranchStart, '确认交出前必须同步冲刷 pending scan')
 assert(confirmFlushIndex < confirmRoundIndex, '最新扫描必须先于确认结果计算')
+assert(
+  pageSource.includes('data-pda-transfer-bag-handover-workflow'),
+  '中转袋交出工作区必须有专用局部刷新标识',
+)
+const handoverMainBranchStart = mainSource.indexOf(
+  "const pdaCutHandoverActionNode = target.closest<HTMLElement>('[data-pda-cut-handover-action]')",
+)
+const handoverMainBranchEnd = mainSource.indexOf(
+  "const pdaTicketNumberingActionNode = target.closest<HTMLElement>('[data-pda-ticket-numbering-action]')",
+  handoverMainBranchStart,
+)
+const handoverMainBranch = mainSource.slice(handoverMainBranchStart, handoverMainBranchEnd)
+const handoverLocalReturnMatch = handoverMainBranch.match(
+  /pdaCutHandoverActionNode\.dataset\.pdaCutHandoverAction\s*===\s*'confirm-transfer-bag-handover'/,
+)
+const handoverLocalReturnIndex = handoverLocalReturnMatch?.index ?? -1
+const handoverLegacyRenderIndex = handoverMainBranch.indexOf(
+  'await renderWithFocusRestore(focusSnapshot)',
+)
+assert(handoverLocalReturnIndex >= 0, 'main 必须识别中转袋交出专用确认 action')
+assert(
+  handoverLegacyRenderIndex > handoverLocalReturnIndex,
+  '中转袋交出确认必须先局部返回，其他旧 handover action 仍走原整页渲染路径',
+)
 assert(
   pageSource.includes("window.addEventListener('higood:pda-cutting-handover-leave'"),
   '离开模式或路由时必须取消 pending timer',
