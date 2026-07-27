@@ -68,9 +68,13 @@ import {
 } from './pda-warehouse-shared'
 import { escapeHtml } from '../utils'
 import { getSpecialCraftFeiTicketSummary } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
+import {
+  getPdaCuttingWaitHandoverActions,
+  type PdaCuttingWaitHandoverAction,
+} from './pda-cutting-wait-handover-actions.ts'
 
 type WaitHandoverFilter = '全部' | '待交出' | '已交出' | '已回写' | '差异' | '异议中'
-type CuttingWaitHandoverActionKey = 'numbering' | 'inbound' | 'handover-bagging-confirm' | 'special-craft-return'
+type CuttingWaitHandoverActionKey = 'numbering' | 'inbound' | 'inbound-location' | 'handover-bagging-confirm' | 'special-craft-return'
 
 interface CuttingWaitHandoverCardAction {
   label: string
@@ -173,9 +177,9 @@ const CUTTING_WAIT_HANDOVER_ACTIONS: Array<{
   },
   {
     key: 'handover-bagging-confirm',
-    title: '交出装袋确认',
+    title: '中转袋交出',
     desc: '按车缝任务扫描中转袋和菲票，确认装袋并形成交出记录。',
-    primaryLabel: '进入交出装袋确认',
+    primaryLabel: '进入中转袋交出',
   },
   {
     key: 'special-craft-return',
@@ -378,7 +382,7 @@ function getCuttingWaitHandoverActionRoute(actionKey: CuttingWaitHandoverActionK
   if (actionKey === 'inbound') return `/fcs/pda/cutting/inbound/${firstTaskId}`
   if (actionKey === 'inbound-location') return `/fcs/pda/cutting/inbound/${firstTaskId}?action=inbound-location`
   if (actionKey === 'special-craft-return') return `/fcs/pda/cutting/handover/${firstTaskId}?action=special-craft-return`
-  return `/fcs/pda/cutting/handover/${firstTaskId}?action=handover-bagging-confirm`
+  return `/fcs/pda/cutting/handover/${firstTaskId}?action=transfer-bag-handover`
 }
 
 function buildCuttingBaggingConfirmProjection(inboundTempBags: InboundTempBag[]): HandoverPickingTaskProjection {
@@ -506,17 +510,16 @@ function renderCuttingSpecialCraftReturnCandidates(
   `
 }
 
-function renderCuttingWaitHandoverActionCards(activeAction?: string | null): string {
+function renderCuttingWaitHandoverActionCards(actions: PdaCuttingWaitHandoverAction[]): string {
   return `
     <section class="grid grid-cols-2 gap-2">
-      ${CUTTING_WAIT_HANDOVER_ACTIONS.map((item) => `
+      ${actions.map((item) => `
         <button
           type="button"
-          class="rounded-2xl border px-4 py-4 text-left shadow-sm ${activeAction === item.key ? 'border-primary bg-primary/5' : 'bg-card'}"
-          data-nav="/fcs/pda/warehouse/wait-handover?scope=cutting&action=${escapeAttr(item.key)}"
+          class="rounded-2xl border bg-card px-4 py-4 text-left shadow-sm"
+          data-nav="${escapeAttr(item.route)}"
         >
           <div class="text-sm font-semibold text-foreground">${escapeHtml(item.title)}</div>
-          <div class="mt-1 text-xs leading-5 text-muted-foreground">${escapeHtml(item.desc)}</div>
         </button>
       `).join('')}
     </section>
@@ -844,8 +847,8 @@ function renderCuttingWaitHandoverActionPreview(
   if (actionKey === 'inbound') {
     return `
       <section class="space-y-3">
-        <div class="px-1 text-base font-semibold text-foreground">待入仓菲票</div>
-        ${runtimeProjection.ticketCandidates.slice(0, 4).map((ticket) => renderCuttingTicketCandidate(ticket, cardAction)).join('') || renderMobilePageEmptyState('暂无待入仓菲票', '裁剪完成并确认菲票后，会出现在这里。')}
+        <div class="px-1 text-base font-semibold text-foreground">菲票装袋</div>
+        ${runtimeProjection.ticketCandidates.slice(0, 4).map((ticket) => renderCuttingTicketCandidate(ticket, cardAction)).join('') || renderMobilePageEmptyState('暂无可装袋菲票', '裁剪完成并确认菲票后，会出现在这里。')}
       </section>
       <section class="space-y-3">
         <div class="px-1 text-base font-semibold text-foreground">最近菲票装袋结果</div>
@@ -935,6 +938,7 @@ function renderCuttingWaitHandoverPage(): string {
   const fallbackInboundTempBags = buildInboundTempBagsFromTransferBagViewModel(transferBagViewModel)
   const inboundTempBags = runtimeProjection.inboundTempBags.length ? runtimeProjection.inboundTempBags : fallbackInboundTempBags
   const firstTaskId = getFirstCuttingTaskId()
+  const actions = getPdaCuttingWaitHandoverActions()
   const action = getCuttingWaitHandoverAction(activeAction)
 
   if (action) {
@@ -948,7 +952,7 @@ function renderCuttingWaitHandoverPage(): string {
   return renderPdaFrame(`
     <div class="space-y-4 px-4 pb-5 pt-4">
       ${renderCuttingWarehouseSwitch('wait-handover')}
-      ${renderCuttingWaitHandoverActionCards(activeAction)}
+      ${renderCuttingWaitHandoverActionCards(actions)}
       <section class="space-y-3">
         ${inboundTempBags.slice(0, 5).map(renderCuttingInboundBagItem).join('') || renderMobilePageEmptyState('暂无中转袋入仓记录', '完成中转袋入仓后，会进入裁床待交出仓。')}
       </section>
