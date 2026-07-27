@@ -126,10 +126,11 @@ const candidates = {
     { bagCode: 'TB-CUT-CROSS', ticketCount: 9, productionOrderNo: 'PO-002', status: '待交出' as const },
     { bagCode: 'TB-CUT-DONE', ticketCount: 10, productionOrderNo: 'PO-001', status: '已交出' as const, boundSewingTaskNo: 'SEW-001' },
     { bagCode: 'TB-CUT-VOID', ticketCount: 7, productionOrderNo: 'PO-001', status: '已作废' as const },
-    { bagCode: 'TB-CUT-BOUND', ticketCount: 8, productionOrderNo: 'PO-002', status: '待交出' as const, boundSewingTaskNo: 'SEW-002' },
+    { bagCode: 'TB-CUT-BOUND', ticketCount: 8, productionOrderNo: 'PO-001', status: '待交出' as const, boundSewingTaskNo: 'SEW-001-ALT' },
   ],
   sewingTasks: [
     { sewingTaskNo: 'SEW-001', productionOrderNo: 'PO-001', receiverFactoryName: '印尼一厂', receivableStatus: '可接收' as const },
+    { sewingTaskNo: 'SEW-001-ALT', productionOrderNo: 'PO-001', receiverFactoryName: '印尼四厂', receivableStatus: '可接收' as const },
     { sewingTaskNo: 'SEW-002', productionOrderNo: 'PO-002', receiverFactoryName: '印尼二厂', receivableStatus: '可接收' as const },
     { sewingTaskNo: 'SEW-CLOSED', productionOrderNo: 'PO-001', receiverFactoryName: '印尼一厂', receivableStatus: '不可接收' as const },
   ],
@@ -211,15 +212,37 @@ assert.equal(taskScan.state.sewingTaskNo, 'SEW-001', '车缝任务号必须带�
 assert.equal(taskScan.state.productionOrderNo, 'PO-001', '生产单号必须由车缝任务带出')
 assert.equal(taskScan.state.receiverFactoryName, '印尼一厂', '接收工厂必须由车缝任务带出')
 
-const otherTaskScan = workflow.completePdaTransferBagHandoverScan(
+const replacementTaskScan = workflow.completePdaTransferBagHandoverScan(
   taskScan.state,
+  'sewingTaskCode',
+  'SEW-001-ALT',
+  candidates,
+)
+assert.equal(replacementTaskScan.ok, true, '确认前同生产单可接收任务必须允许覆盖草稿')
+assert.equal(replacementTaskScan.state.sewingTaskCode, 'SEW-001-ALT', '覆盖草稿必须更新扫码任务码')
+assert.equal(replacementTaskScan.state.sewingTaskNo, 'SEW-001-ALT', '覆盖草稿必须更新车缝任务号')
+assert.equal(replacementTaskScan.state.productionOrderNo, 'PO-001', '覆盖草稿必须更新任务派生生产单')
+assert.equal(replacementTaskScan.state.receiverFactoryName, '印尼四厂', '覆盖草稿必须更新任务派生接收工厂')
+
+const crossOrderReplacement = workflow.completePdaTransferBagHandoverScan(
+  replacementTaskScan.state,
   'sewingTaskCode',
   'SEW-002',
   candidates,
 )
-assert.equal(otherTaskScan.ok, false, '一个袋不得绑定多个车缝任务')
-assert.equal(otherTaskScan.state.sewingTaskNo, 'SEW-001', '换绑失败必须保留已扫有效任务')
-assert.equal(otherTaskScan.state.receiverFactoryName, '印尼一厂', '换绑失败必须保留派生工厂')
+assert.equal(crossOrderReplacement.ok, false, '确认前仍不得用跨生产单任务覆盖草稿')
+assert.equal(crossOrderReplacement.state.sewingTaskNo, 'SEW-001-ALT', '跨生产单失败必须保留原有效草稿')
+assert.equal(crossOrderReplacement.state.receiverFactoryName, '印尼四厂', '跨生产单失败必须保留原派生工厂')
+
+const closedTaskReplacement = workflow.completePdaTransferBagHandoverScan(
+  replacementTaskScan.state,
+  'sewingTaskCode',
+  'SEW-CLOSED',
+  candidates,
+)
+assert.equal(closedTaskReplacement.ok, false, '确认前仍不得用不可接收任务覆盖草稿')
+assert.equal(closedTaskReplacement.state.sewingTaskNo, 'SEW-001-ALT', '不可接收失败必须保留原有效草稿')
+assert.equal(closedTaskReplacement.state.receiverFactoryName, '印尼四厂', '不可接收失败必须保留原派生工厂')
 
 const preBoundBag = workflow.completePdaTransferBagHandoverScan(
   initial,
@@ -263,11 +286,11 @@ assert.equal(successfulRound.productionOrderNo, '', '交出成功必须清空派
 assert.equal(successfulRound.receiverFactoryName, '', '交出成功必须清空接收工厂')
 
 const submissionCandidates = structuredClone(candidates)
-const submittedRound = workflow.submitPdaTransferBagHandoverRound(taskScan.state, submissionCandidates)
+const submittedRound = workflow.submitPdaTransferBagHandoverRound(replacementTaskScan.state, submissionCandidates)
 assert.equal(submittedRound.resultMessage, '交出成功', '本地 Mock 提交成功提示不正确')
 const submittedBag = submissionCandidates.bags.find((item) => item.bagCode === 'TB-CUT-001')!
 assert.equal(submittedBag.status, '已交出', '成功后必须把本页袋状态置为已交出')
-assert.equal(submittedBag.boundSewingTaskNo, 'SEW-001', '成功后必须记录整袋唯一车缝任务')
+assert.equal(submittedBag.boundSewingTaskNo, 'SEW-001-ALT', '成功后必须记录最终确认的车缝任务')
 const duplicateBagScan = workflow.completePdaTransferBagHandoverScan(
   workflow.createPdaTransferBagHandoverFormState(),
   'bagCode',
@@ -276,9 +299,9 @@ const duplicateBagScan = workflow.completePdaTransferBagHandoverScan(
 )
 assert.equal(duplicateBagScan.ok, false, '成功后再次扫描同袋必须阻断重复交出')
 assert(duplicateBagScan.state.scanFeedbackMessage.includes('已交出'), '重复交出必须即时提示袋已交出')
-const duplicateConfirm = workflow.submitPdaTransferBagHandoverRound(taskScan.state, submissionCandidates)
+const duplicateConfirm = workflow.submitPdaTransferBagHandoverRound(replacementTaskScan.state, submissionCandidates)
 assert.equal(duplicateConfirm.bagCode, 'TB-CUT-001', '重复确认失败必须保留原袋码')
-assert.equal(duplicateConfirm.sewingTaskNo, 'SEW-001', '重复确认失败必须保留原任务')
+assert.equal(duplicateConfirm.sewingTaskNo, 'SEW-001-ALT', '重复确认失败必须保留最终任务')
 assert(duplicateConfirm.resultMessage.includes('已交出'), '重复确认必须明确提示已交出')
 
 const html = workflow.renderPdaTransferBagHandoverWorkflow(taskScan.state, 'CUT-001')

@@ -275,16 +275,6 @@ export function completePdaTransferBagHandoverScan(
       },
     }
   }
-  if (state.sewingTaskNo && state.sewingTaskNo !== task.sewingTaskNo) {
-    return {
-      ok: false,
-      state: {
-        ...state,
-        scanFeedbackMessage: '这个中转袋已绑定当前车缝任务，不能再绑定其他任务。',
-        resultMessage: '',
-      },
-    }
-  }
   const bag = candidates.bags.find((item) => item.bagCode === state.bagCode)
   if (bag && bag.productionOrderNo !== task.productionOrderNo) {
     return {
