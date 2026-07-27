@@ -1,6 +1,6 @@
 import { menusBySystem, systems } from '../data/app-shell-config.ts'
 import type { AllSystemTabs, MenuGroup, MenuItem, Tab } from '../data/app-shell-types.ts'
-import { notifyPdaCuttingHandoverRouteLeave } from './pda-cutting-navigation-cleanup'
+import { notifyPdaCuttingHandoverRouteLeave } from './pda-cutting-navigation-cleanup.ts'
 
 export interface AppState {
   pathname: string

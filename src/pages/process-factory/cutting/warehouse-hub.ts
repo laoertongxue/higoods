@@ -1902,7 +1902,7 @@ function renderWaitHandoverBaggingTable(rows: WaitHandoverBaggingTableRow[], emp
             <td class="px-3 py-3 align-top">${escapeHtml(row.status)}</td>
             <td class="px-3 py-3 align-top">
               <div class="flex flex-wrap gap-2">
-                <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-handover">中转袋交出</button>
+                <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-handover-bagging-confirm">交出装袋确认</button>
                 ${
                   row.confirmSelection
                     ? `<button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-handover" data-wait-handover-selection="${escapeHtml(row.confirmSelection)}">交出确认</button>`
@@ -2203,7 +2203,7 @@ function renderWaitHandoverTabs(activeTab: WaitHandoverTabKey): string {
     { key: 'inventory', label: '库存明细' },
     { key: 'bagging', label: '菲票装袋' },
     { key: 'inbound', label: '中转袋入仓' },
-    { key: 'handover-bagging', label: '中转袋交出' },
+    { key: 'handover-bagging', label: '交出装袋确认' },
     { key: 'special-craft-return', label: '特种工艺回收入仓' },
     { key: 'locations', label: '库区库位' },
   ]
@@ -2215,232 +2215,14 @@ function renderWaitHandoverHeaderActions(firstTaskId: string): string {
     <div class="flex flex-nowrap items-center gap-2 overflow-x-auto">
       <button type="button" class="h-10 shrink-0 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-wait-handover-action="open-bagging">菲票装袋</button>
       <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-inbound">中转袋入仓</button>
-      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-handover">中转袋交出</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-handover-bagging-confirm">交出装袋确认</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border bg-background px-4 text-sm text-slate-700 hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="open-special-craft-return">特殊工艺回仓</button>
+      <button type="button" class="h-10 shrink-0 rounded-md border border-blue-200 bg-blue-50 px-3 text-sm text-blue-700 hover:bg-blue-100" data-nav="/fcs/pda/cutting/handover/${escapeHtml(firstTaskId)}?action=special-craft-return">PDA 现场扫码</button>
     </div>
   `
 }
 
 type WaitHandoverWebAction = 'bagging' | 'inbound' | 'handover-bagging-confirm' | 'handover' | 'special-craft-return'
-
-export interface WaitHandoverWebFormState {
-  bagCode: string
-  ticketCodes: string[]
-  locationCode: string
-  sewingTaskCode: string
-  productionOrderNo: string
-  receiverFactoryName: string
-  resultMessage: string
-  errorMessage: string
-}
-
-export interface WaitHandoverWebCandidates {
-  bags: Array<{
-    bagCode: string
-    productionOrderNo: string
-    ticketCodes: string[]
-    status: '待装袋' | '已装袋待入仓' | '已入待交出仓' | '已交出' | '已作废'
-    boundSewingTaskCode?: string
-  }>
-  tickets: Array<{
-    ticketCode: string
-    productionOrderNo: string
-    status: '可装袋' | '已装袋' | '已作废'
-  }>
-  sewingTasks: Array<{
-    sewingTaskCode: string
-    productionOrderNo: string
-    receiverFactoryName: string
-    receivable: boolean
-  }>
-}
-
-const initialWaitHandoverWebCandidates: WaitHandoverWebCandidates = {
-  bags: [
-    { bagCode: 'WEB-BAG-001', productionOrderNo: '', ticketCodes: [], status: '待装袋' },
-    { bagCode: 'WEB-BAG-002', productionOrderNo: 'PO000123', ticketCodes: ['WEB-FEI-001', 'WEB-FEI-002'], status: '已装袋待入仓' },
-    { bagCode: 'WEB-BAG-003', productionOrderNo: 'PO000123', ticketCodes: ['WEB-FEI-001', 'WEB-FEI-002'], status: '已入待交出仓' },
-    { bagCode: 'WEB-BAG-004', productionOrderNo: 'PO000124', ticketCodes: ['WEB-FEI-003'], status: '已入待交出仓' },
-    { bagCode: 'WEB-BAG-DONE', productionOrderNo: 'PO000123', ticketCodes: ['WEB-FEI-004'], status: '已交出', boundSewingTaskCode: 'SEW-TASK-001' },
-  ],
-  tickets: [
-    { ticketCode: 'WEB-FEI-001', productionOrderNo: 'PO000123', status: '可装袋' },
-    { ticketCode: 'WEB-FEI-002', productionOrderNo: 'PO000123', status: '可装袋' },
-    { ticketCode: 'WEB-FEI-003', productionOrderNo: 'PO000124', status: '可装袋' },
-    { ticketCode: 'WEB-FEI-004', productionOrderNo: 'PO000123', status: '已装袋' },
-  ],
-  sewingTasks: [
-    { sewingTaskCode: 'SEW-TASK-001', productionOrderNo: 'PO000123', receiverFactoryName: '印尼一厂', receivable: true },
-    { sewingTaskCode: 'SEW-TASK-002', productionOrderNo: 'PO000124', receiverFactoryName: '印尼二厂', receivable: true },
-    { sewingTaskCode: 'SEW-TASK-CLOSED', productionOrderNo: 'PO000123', receiverFactoryName: '印尼一厂', receivable: false },
-  ],
-}
-
-function cloneWaitHandoverWebCandidates(candidates: WaitHandoverWebCandidates): WaitHandoverWebCandidates {
-  return {
-    bags: candidates.bags.map((bag) => ({ ...bag, ticketCodes: [...bag.ticketCodes] })),
-    tickets: candidates.tickets.map((ticket) => ({ ...ticket })),
-    sewingTasks: candidates.sewingTasks.map((task) => ({ ...task })),
-  }
-}
-
-let waitHandoverWebCandidates = cloneWaitHandoverWebCandidates(initialWaitHandoverWebCandidates)
-
-export function createWaitHandoverWebFormState(): WaitHandoverWebFormState {
-  return {
-    bagCode: '',
-    ticketCodes: [],
-    locationCode: '',
-    sewingTaskCode: '',
-    productionOrderNo: '',
-    receiverFactoryName: '',
-    resultMessage: '',
-    errorMessage: '',
-  }
-}
-
-function failWaitHandoverWebState(
-  state: WaitHandoverWebFormState,
-  errorMessage: string,
-): { ok: false; state: WaitHandoverWebFormState } {
-  return {
-    ok: false,
-    state: {
-      ...state,
-      resultMessage: '',
-      errorMessage,
-    },
-  }
-}
-
-export function addWaitHandoverWebTicket(
-  state: WaitHandoverWebFormState,
-  ticketCode: string,
-  candidates: WaitHandoverWebCandidates,
-): { ok: boolean; state: WaitHandoverWebFormState } {
-  const normalizedCode = ticketCode.trim()
-  const bag = candidates.bags.find((item) => item.bagCode === state.bagCode.trim())
-  if (!bag) return failWaitHandoverWebState(state, '未找到这个中转袋，请检查中转袋编号。')
-  if (bag.status !== '待装袋') return failWaitHandoverWebState(state, `这个中转袋当前为“${bag.status}”，不能继续装袋。`)
-  const ticket = candidates.tickets.find((item) => item.ticketCode === normalizedCode)
-  if (!ticket) return failWaitHandoverWebState(state, '未找到这张菲票，请检查菲票编号。')
-  if (ticket.status !== '可装袋') return failWaitHandoverWebState(state, `这张菲票当前为“${ticket.status}”，不能重复装袋。`)
-  if (state.ticketCodes.includes(ticket.ticketCode)) return failWaitHandoverWebState(state, '这张菲票已录入当前中转袋。')
-  const firstTicket = candidates.tickets.find((item) => item.ticketCode === state.ticketCodes[0])
-  const productionOrderNo = bag.productionOrderNo || firstTicket?.productionOrderNo || ticket.productionOrderNo
-  if (productionOrderNo !== ticket.productionOrderNo) {
-    return failWaitHandoverWebState(
-      state,
-      `这张菲票属于 ${ticket.productionOrderNo}，当前袋属于 ${productionOrderNo}，不能装入同一袋。`,
-    )
-  }
-  return {
-    ok: true,
-    state: {
-      ...state,
-      ticketCodes: [...state.ticketCodes, ticket.ticketCode],
-      productionOrderNo,
-      resultMessage: '',
-      errorMessage: '',
-    },
-  }
-}
-
-export function resolveWaitHandoverWebHandoverContext(
-  state: WaitHandoverWebFormState,
-  candidates: WaitHandoverWebCandidates,
-): { ok: boolean; state: WaitHandoverWebFormState } {
-  const bag = candidates.bags.find((item) => item.bagCode === state.bagCode.trim())
-  if (!bag) return failWaitHandoverWebState(state, '未找到这个中转袋，请检查中转袋编号。')
-  if (bag.status !== '已入待交出仓') {
-    return failWaitHandoverWebState(state, `这个中转袋当前为“${bag.status}”，不能交出。`)
-  }
-  if (bag.boundSewingTaskCode) {
-    return failWaitHandoverWebState(state, `这个中转袋已交给 ${bag.boundSewingTaskCode}，不能重复交出。`)
-  }
-  const task = candidates.sewingTasks.find((item) => item.sewingTaskCode === state.sewingTaskCode.trim())
-  if (!task) return failWaitHandoverWebState(state, '未找到这个车缝任务，请检查任务号。')
-  if (!task.receivable) return failWaitHandoverWebState(state, '这个车缝任务当前不能接收，请输入其他任务号。')
-  if (bag.productionOrderNo !== task.productionOrderNo) {
-    return failWaitHandoverWebState(
-      state,
-      `这个袋属于 ${bag.productionOrderNo}，当前任务属于 ${task.productionOrderNo}，不能交出。请输入 ${bag.productionOrderNo} 下的车缝任务。`,
-    )
-  }
-  return {
-    ok: true,
-    state: {
-      ...state,
-      productionOrderNo: task.productionOrderNo,
-      receiverFactoryName: task.receiverFactoryName,
-      resultMessage: '',
-      errorMessage: '',
-    },
-  }
-}
-
-export function submitWaitHandoverWebActionState(
-  action: 'bagging' | 'inbound' | 'handover',
-  state: WaitHandoverWebFormState,
-  candidates: WaitHandoverWebCandidates,
-): { ok: boolean; state: WaitHandoverWebFormState; candidates: WaitHandoverWebCandidates } {
-  const nextCandidates = cloneWaitHandoverWebCandidates(candidates)
-  const bag = nextCandidates.bags.find((item) => item.bagCode === state.bagCode.trim())
-  if (!state.bagCode.trim()) {
-    return { ...failWaitHandoverWebState(state, '请输入中转袋编号。'), candidates }
-  }
-  if (!bag) return { ...failWaitHandoverWebState(state, '未找到这个中转袋，请检查中转袋编号。'), candidates }
-  if (action === 'bagging') {
-    if (bag.status !== '待装袋') {
-      return { ...failWaitHandoverWebState(state, `这个中转袋当前为“${bag.status}”，不能继续装袋。`), candidates }
-    }
-    if (!state.ticketCodes.length) {
-      return { ...failWaitHandoverWebState(state, '请至少录入一张菲票。'), candidates }
-    }
-    const tickets = state.ticketCodes.map((code) => nextCandidates.tickets.find((ticket) => ticket.ticketCode === code))
-    if (tickets.some((ticket) => !ticket || ticket.status !== '可装袋')) {
-      return { ...failWaitHandoverWebState(state, '已录入菲票中存在不可装袋记录，请检查后重试。'), candidates }
-    }
-    const productionOrderNos = new Set(tickets.map((ticket) => ticket?.productionOrderNo))
-    if (productionOrderNos.size !== 1 || (bag.productionOrderNo && !productionOrderNos.has(bag.productionOrderNo))) {
-      return { ...failWaitHandoverWebState(state, '已录入菲票不属于同一个生产单，不能装入同一袋。'), candidates }
-    }
-    bag.productionOrderNo = String(tickets[0]?.productionOrderNo || '')
-    bag.ticketCodes = [...state.ticketCodes]
-    bag.status = '已装袋待入仓'
-    for (const ticket of tickets) if (ticket) ticket.status = '已装袋'
-    return {
-      ok: true,
-      state: { ...createWaitHandoverWebFormState(), resultMessage: '装袋成功' },
-      candidates: nextCandidates,
-    }
-  }
-  if (action === 'inbound') {
-    if (bag.status !== '已装袋待入仓') {
-      return { ...failWaitHandoverWebState(state, `这个中转袋当前为“${bag.status}”，不能入仓。`), candidates }
-    }
-    if (!state.locationCode.trim()) {
-      return { ...failWaitHandoverWebState(state, '请输入库区库位。'), candidates }
-    }
-    bag.status = '已入待交出仓'
-    return {
-      ok: true,
-      state: { ...createWaitHandoverWebFormState(), resultMessage: '入仓成功' },
-      candidates: nextCandidates,
-    }
-  }
-  if (!state.sewingTaskCode.trim()) {
-    return { ...failWaitHandoverWebState(state, '请输入车缝任务号。'), candidates }
-  }
-  const resolved = resolveWaitHandoverWebHandoverContext(state, nextCandidates)
-  if (!resolved.ok) return { ...resolved, candidates }
-  bag.status = '已交出'
-  bag.boundSewingTaskCode = state.sewingTaskCode.trim()
-  return {
-    ok: true,
-    state: { ...createWaitHandoverWebFormState(), resultMessage: '交出成功' },
-    candidates: nextCandidates,
-  }
-}
 
 const WAIT_HANDOVER_WEB_MODAL_ID = 'cutting-wait-handover-web-action-modal'
 
@@ -2778,88 +2560,7 @@ function renderWaitHandoverWebStep(index: number, title: string, done: boolean, 
   `
 }
 
-function renderFocusedWaitHandoverWebActionDialog(
-  action: 'bagging' | 'inbound' | 'handover',
-  selectedValue = '',
-): string {
-  const title = action === 'bagging' ? '菲票装袋' : action === 'inbound' ? '中转袋入仓' : '中转袋交出'
-  const submitLabel = action === 'bagging' ? '确认装袋' : action === 'inbound' ? '确认入仓' : '确认整袋交出'
-  const actionContent = action === 'bagging'
-    ? `
-      <div class="space-y-4">
-        <label class="block space-y-2">
-          <span class="text-sm font-medium text-foreground">中转袋编号</span>
-          <input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-skip-page-rerender="true" data-wait-handover-field="bagCode" value="${escapeHtml(selectedValue)}" placeholder="例如 WEB-BAG-001" autocomplete="off" />
-        </label>
-        <div class="space-y-2">
-          <span class="text-sm font-medium text-foreground">菲票编号</span>
-          <div class="flex gap-2">
-            <input class="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-skip-page-rerender="true" data-wait-handover-field="ticketInput" placeholder="例如 WEB-FEI-001" autocomplete="off" />
-            <button type="button" class="h-10 shrink-0 rounded-md border px-4 text-sm hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="add-ticket">加入</button>
-          </div>
-          <input type="hidden" data-wait-handover-field="ticketCodes" value="" />
-          <div class="min-h-10 rounded-md border bg-muted/10 px-3 py-2 text-sm" data-wait-handover-ticket-list>
-            <span class="text-muted-foreground">暂未录入菲票</span>
-          </div>
-        </div>
-      </div>
-    `
-    : action === 'inbound'
-      ? `
-        <div class="space-y-4">
-          <label class="block space-y-2">
-            <span class="text-sm font-medium text-foreground">中转袋编号</span>
-            <input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-skip-page-rerender="true" data-wait-handover-field="bagCode" value="${escapeHtml(selectedValue)}" placeholder="例如 WEB-BAG-002" autocomplete="off" />
-          </label>
-          <label class="block space-y-2">
-            <span class="text-sm font-medium text-foreground">库区库位</span>
-            <input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-skip-page-rerender="true" data-wait-handover-field="locationCode" placeholder="例如 CUT-A-01" autocomplete="off" />
-          </label>
-        </div>
-      `
-      : `
-        <div class="space-y-4">
-          <label class="block space-y-2">
-            <span class="text-sm font-medium text-foreground">中转袋编号</span>
-            <input class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-skip-page-rerender="true" data-wait-handover-field="bagCode" value="${escapeHtml(selectedValue)}" placeholder="例如 WEB-BAG-003" autocomplete="off" />
-          </label>
-          <div class="space-y-2">
-            <span class="text-sm font-medium text-foreground">车缝任务号</span>
-            <div class="flex gap-2">
-              <input class="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-skip-page-rerender="true" data-wait-handover-field="sewingTaskCode" placeholder="例如 SEW-TASK-001" autocomplete="off" />
-              <button type="button" class="h-10 shrink-0 rounded-md border px-4 text-sm hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="resolve-handover">查询任务</button>
-            </div>
-          </div>
-          <dl class="grid gap-3 rounded-md border bg-muted/10 p-3 text-sm sm:grid-cols-2">
-            <div><dt class="text-muted-foreground">生产单号</dt><dd class="mt-1 font-medium" data-wait-handover-derived="productionOrderNo">待查询</dd></div>
-            <div><dt class="text-muted-foreground">接收工厂</dt><dd class="mt-1 font-medium" data-wait-handover-derived="receiverFactoryName">待查询</dd></div>
-          </dl>
-        </div>
-      `
-  return `
-    <div id="${WAIT_HANDOVER_WEB_MODAL_ID}" class="fixed inset-0 z-[130]" data-wait-handover-modal="${escapeHtml(action)}">
-      <button type="button" class="absolute inset-0 bg-black/45" data-skip-page-rerender="true" data-wait-handover-action="close-dialog" aria-label="关闭"></button>
-      <section class="absolute left-1/2 top-1/2 flex max-h-[88vh] w-[min(560px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-background shadow-2xl">
-        <header class="flex items-center justify-between border-b px-5 py-4">
-          <h2 class="text-base font-semibold text-foreground">${escapeHtml(title)}</h2>
-          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-skip-page-rerender="true" data-wait-handover-action="close-dialog">关闭</button>
-        </header>
-        <div class="space-y-4 overflow-y-auto px-5 py-4">
-          ${actionContent}
-          <div class="hidden rounded-md border px-3 py-2 text-sm" data-wait-handover-feedback></div>
-        </div>
-        <footer class="flex justify-end border-t px-5 py-4">
-          <button type="button" class="h-10 rounded-md bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-wait-handover-action="submit-${escapeHtml(action)}">${escapeHtml(submitLabel)}</button>
-        </footer>
-      </section>
-    </div>
-  `
-}
-
-export function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction, selectedValue = ''): string {
-  if (action === 'bagging' || action === 'inbound' || action === 'handover') {
-    return renderFocusedWaitHandoverWebActionDialog(action, selectedValue)
-  }
+function renderWaitHandoverWebActionDialog(action: WaitHandoverWebAction, selectedValue = ''): string {
   const titleMap: Record<WaitHandoverWebAction, string> = {
     bagging: '菲票装袋',
     inbound: '中转袋入仓',
@@ -3106,90 +2807,6 @@ function findWaitHandoverPickingSelection(value: string): {
     item: selectedItem,
     sourceTempBagCode: selectedItem.tempBagCode || task.tempBagSources[0]?.tempBagCode || '',
   }
-}
-
-function readFocusedWaitHandoverWebState(dialog: HTMLElement): WaitHandoverWebFormState {
-  return {
-    ...createWaitHandoverWebFormState(),
-    bagCode: readWaitHandoverWebField(dialog, 'bagCode'),
-    ticketCodes: readWaitHandoverWebField(dialog, 'ticketCodes').split(',').filter(Boolean),
-    locationCode: readWaitHandoverWebField(dialog, 'locationCode'),
-    sewingTaskCode: readWaitHandoverWebField(dialog, 'sewingTaskCode'),
-  }
-}
-
-function updateFocusedWaitHandoverWebDialog(
-  dialog: HTMLElement,
-  state: WaitHandoverWebFormState,
-): void {
-  for (const [field, value] of [
-    ['bagCode', state.bagCode],
-    ['ticketCodes', state.ticketCodes.join(',')],
-    ['locationCode', state.locationCode],
-    ['sewingTaskCode', state.sewingTaskCode],
-    ['ticketInput', ''],
-  ] as const) {
-    const input = dialog.querySelector<HTMLInputElement>(`[data-wait-handover-field="${field}"]`)
-    if (input) input.value = value
-  }
-  const ticketList = dialog.querySelector<HTMLElement>('[data-wait-handover-ticket-list]')
-  if (ticketList) {
-    ticketList.innerHTML = state.ticketCodes.length
-      ? `<div class="flex flex-wrap gap-2">${state.ticketCodes.map((code) => `<span class="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700">${escapeHtml(code)}</span>`).join('')}</div>`
-      : '<span class="text-muted-foreground">暂未录入菲票</span>'
-  }
-  const productionOrder = dialog.querySelector<HTMLElement>('[data-wait-handover-derived="productionOrderNo"]')
-  const receiverFactory = dialog.querySelector<HTMLElement>('[data-wait-handover-derived="receiverFactoryName"]')
-  if (productionOrder) productionOrder.textContent = state.productionOrderNo || '待查询'
-  if (receiverFactory) receiverFactory.textContent = state.receiverFactoryName || '待查询'
-  const feedback = dialog.querySelector<HTMLElement>('[data-wait-handover-feedback]')
-  if (!feedback) return
-  const message = state.errorMessage || state.resultMessage
-  feedback.textContent = message
-  feedback.className = message
-    ? `rounded-md border px-3 py-2 text-sm ${state.errorMessage ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`
-    : 'hidden rounded-md border px-3 py-2 text-sm'
-}
-
-function addFocusedWaitHandoverWebTicket(dialog: HTMLElement): void {
-  const state = readFocusedWaitHandoverWebState(dialog)
-  const result = addWaitHandoverWebTicket(
-    state,
-    readWaitHandoverWebField(dialog, 'ticketInput'),
-    waitHandoverWebCandidates,
-  )
-  updateFocusedWaitHandoverWebDialog(dialog, result.state)
-  if (result.ok) dialog.querySelector<HTMLInputElement>('[data-wait-handover-field="ticketInput"]')?.focus()
-}
-
-function resolveFocusedWaitHandoverWebContext(dialog: HTMLElement): void {
-  const result = resolveWaitHandoverWebHandoverContext(
-    readFocusedWaitHandoverWebState(dialog),
-    waitHandoverWebCandidates,
-  )
-  updateFocusedWaitHandoverWebDialog(dialog, result.state)
-}
-
-function submitFocusedWaitHandoverWebAction(
-  action: 'bagging' | 'inbound' | 'handover',
-  dialog: HTMLElement,
-): void {
-  let state = readFocusedWaitHandoverWebState(dialog)
-  if (action === 'bagging' && readWaitHandoverWebField(dialog, 'ticketInput')) {
-    const added = addWaitHandoverWebTicket(
-      state,
-      readWaitHandoverWebField(dialog, 'ticketInput'),
-      waitHandoverWebCandidates,
-    )
-    state = added.state
-    if (!added.ok) {
-      updateFocusedWaitHandoverWebDialog(dialog, state)
-      return
-    }
-  }
-  const result = submitWaitHandoverWebActionState(action, state, waitHandoverWebCandidates)
-  if (result.ok) waitHandoverWebCandidates = result.candidates
-  updateFocusedWaitHandoverWebDialog(dialog, result.state)
 }
 
 function submitWaitHandoverBagging(dialog: HTMLElement): boolean {
@@ -3458,26 +3075,17 @@ export function handleCraftCuttingWaitHandoverEvent(target: HTMLElement): boolea
     removeWaitHandoverWebActionDialog()
     return true
   }
-  if (action === 'open-bagging' || action === 'open-inbound' || action === 'open-handover' || action === 'open-special-craft-return') {
+  if (action === 'open-bagging' || action === 'open-inbound' || action === 'open-handover-bagging-confirm' || action === 'open-handover' || action === 'open-special-craft-return') {
     openWaitHandoverWebActionDialog(action.replace('open-', '') as WaitHandoverWebAction, actionNode?.dataset.waitHandoverSelection || '')
     return true
   }
   const dialog = actionNode?.closest<HTMLElement>('[data-wait-handover-modal]')
   if (!dialog) return false
-  if (action === 'add-ticket') {
-    addFocusedWaitHandoverWebTicket(dialog)
-    return true
-  }
-  if (action === 'resolve-handover') {
-    resolveFocusedWaitHandoverWebContext(dialog)
-    return true
-  }
-  if (action === 'submit-bagging' || action === 'submit-inbound' || action === 'submit-handover') {
-    submitFocusedWaitHandoverWebAction(action.replace('submit-', '') as 'bagging' | 'inbound' | 'handover', dialog)
-    return true
-  }
   const blocked =
+    action === 'submit-bagging' ? submitWaitHandoverBagging(dialog) :
+    action === 'submit-inbound' ? submitWaitHandoverInbound(dialog) :
     action === 'submit-handover-bagging-confirm' ? submitWaitHandoverBaggingConfirm(dialog) :
+    action === 'submit-handover' ? submitWaitHandoverRecord(dialog) :
     action === 'submit-special-craft-return' ? submitWaitHandoverSpecialCraftReturn(dialog) :
     true
   if (blocked) return true

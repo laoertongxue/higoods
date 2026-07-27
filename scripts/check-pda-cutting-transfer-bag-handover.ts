@@ -379,7 +379,7 @@ const handoverLeaveDispatchToken =
 assert(routeLeaveSource.includes(handoverLeaveDispatchToken), '导航离开中转袋交出路由时必须实际 dispatch 清理事件')
 assert(
   storeSource.includes(
-    "import { notifyPdaCuttingHandoverRouteLeave } from './pda-cutting-navigation-cleanup'",
+    "import { notifyPdaCuttingHandoverRouteLeave } from './pda-cutting-navigation-cleanup.ts'",
   ),
   '统一 appStore 导航边界必须复用可执行测试的交出路由离开 helper',
 )
