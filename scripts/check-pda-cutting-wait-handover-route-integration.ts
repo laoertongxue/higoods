@@ -8,6 +8,8 @@ const fastCheckSource = fs.readFileSync(
   path.join(ROOT, 'scripts/check-pda-cutting-wait-handover-entry-routing.ts'),
   'utf8',
 )
+const integrationCheckSource = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8')
+const deliveryCheckSource = fs.readFileSync(path.join(ROOT, 'scripts/check-cutting-p2-delivery.ts'), 'utf8')
 const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as {
   scripts: Record<string, string>
 }
@@ -24,6 +26,29 @@ assert.equal(
 assert(
   !packageJson.scripts['check:cutting:all'].includes('check:pda-cutting-wait-handover-route-integration'),
   '真实路由集成检查耗时较长，不得加入 check:cutting:all',
+)
+const releaseSequenceStart = deliveryCheckSource.indexOf('const RELEASE_READINESS_SCRIPTS = [')
+const releaseSequenceEnd = deliveryCheckSource.indexOf('] as const', releaseSequenceStart)
+assert.notEqual(releaseSequenceStart, -1, 'release 自检必须声明有序 RELEASE_READINESS_SCRIPTS')
+assert.notEqual(releaseSequenceEnd, -1, 'release 自检必须完整声明 RELEASE_READINESS_SCRIPTS')
+const releaseSequenceSource = deliveryCheckSource.slice(releaseSequenceStart, releaseSequenceEnd)
+const releaseIntegrationIndex = releaseSequenceSource.indexOf("'check:pda-cutting-wait-handover-route-integration'")
+const releaseAllIndex = releaseSequenceSource.indexOf("'check:cutting:all'")
+assert.notEqual(releaseIntegrationIndex, -1, 'release 自检必须引用真实路由集成检查')
+assert(
+  releaseAllIndex > releaseIntegrationIndex,
+  'release 自检必须先运行真实路由集成检查，再运行日常 cutting 聚合',
+)
+const releaseReadinessInvocationIndex = deliveryCheckSource.indexOf('  runReleaseReadiness()')
+const deliveryCoverageIndex = deliveryCheckSource.indexOf('  const cuttingScripts =')
+assert(
+  releaseReadinessInvocationIndex > 0 && releaseReadinessInvocationIndex < deliveryCoverageIndex,
+  'release 必须在其他交付卫生门禁前执行真实路由集成与 cutting 聚合',
+)
+const singleMicrotaskWaitToken = ['await Promise', '.resolve()'].join('')
+assert(
+  !integrationCheckSource.includes(singleMicrotaskWaitToken),
+  'legacy 重定向不得只等待一个微任务，必须使用有界条件等待',
 )
 
 const CUTTING_WAIT_HANDOVER_ROOT = '/fcs/pda/warehouse/wait-handover?scope=cutting'
@@ -57,6 +82,29 @@ function buildExpectedEntries(taskId: string) {
       markers: ['菲票打编号', '菲票号 / 二维码', '完成打编号'],
     },
   ] as const
+}
+
+const LEGACY_REDIRECT_MAX_ATTEMPTS = 8
+
+async function waitForLegacyRedirectTarget(
+  expectedRoute: string,
+  getAppRoute: () => string,
+): Promise<void> {
+  let browserRoute = `${testLocation.pathname}${testLocation.search}`
+  let appRoute = getAppRoute()
+
+  for (let attempt = 1; attempt <= LEGACY_REDIRECT_MAX_ATTEMPTS; attempt += 1) {
+    browserRoute = `${testLocation.pathname}${testLocation.search}`
+    appRoute = getAppRoute()
+    if (browserRoute === expectedRoute && appRoute === expectedRoute) return
+    if (attempt < LEGACY_REDIRECT_MAX_ATTEMPTS) {
+      await new Promise<void>((resolve) => queueMicrotask(resolve))
+    }
+  }
+
+  assert.fail(
+    `legacy 重定向等待超限：预期=${expectedRoute}；浏览器当前=${browserRoute}；应用当前=${appRoute}`,
+  )
 }
 
 const originalWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window')
@@ -204,17 +252,7 @@ try {
       redirectHtml.includes('正在进入裁床操作'),
       `旧 action “${legacy.action}”必须通过 resolvePage 渲染重定向占位页`,
     )
-    await Promise.resolve()
-    assert.equal(
-      `${testLocation.pathname}${testLocation.search}`,
-      legacy.target.route,
-      `旧 action “${legacy.action}”必须同步浏览器地址到固定目标`,
-    )
-    assert.equal(
-      appStore.getState().pathname,
-      legacy.target.route,
-      `旧 action “${legacy.action}”必须同步应用路由到固定目标`,
-    )
+    await waitForLegacyRedirectTarget(legacy.target.route, () => appStore.getState().pathname)
 
     syncRoute(legacy.target.route)
     const targetHtml = await resolvePage(legacy.target.route)

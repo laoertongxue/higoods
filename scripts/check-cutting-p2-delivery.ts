@@ -6,6 +6,10 @@ import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 
 const repoRoot = process.cwd()
+const RELEASE_READINESS_SCRIPTS = [
+  'check:pda-cutting-wait-handover-route-integration',
+  'check:cutting:all',
+] as const
 
 function abs(rel: string): string {
   return path.join(repoRoot, rel)
@@ -39,21 +43,40 @@ function listFiles(rootDir: string, matcher: (file: string) => boolean): string[
 }
 
 function runReleaseReadiness(): void {
-  const result = spawnSync(
-    'npm',
-    ['run', 'check:cutting:all'],
-    {
-      cwd: repoRoot,
-      encoding: 'utf8',
-    },
-  )
+  for (const scriptName of RELEASE_READINESS_SCRIPTS) {
+    const result = spawnSync(
+      'npm',
+      ['run', scriptName],
+      {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      },
+    )
+    const output = `${result.stdout || ''}${result.stderr || ''}`
+    assert(result.status === 0, `${scriptName} 执行失败\n${output}`.trim())
+    if (output) process.stdout.write(output.endsWith('\n') ? output : `${output}\n`)
+  }
+}
 
-  assert(result.status === 0, `check:cutting:all 执行失败\n${result.stdout || ''}${result.stderr || ''}`.trim())
+function assertReleaseReadinessCoverage(): void {
+  assert(
+    RELEASE_READINESS_SCRIPTS[0] === 'check:pda-cutting-wait-handover-route-integration',
+    'release 必须先运行裁床待交出仓真实路由集成检查',
+  )
+  assert(
+    RELEASE_READINESS_SCRIPTS[1] === 'check:cutting:all',
+    '真实路由集成通过后，release 必须继续运行日常 cutting 聚合',
+  )
+  assert(
+    fs.existsSync(abs('scripts/check-pda-cutting-wait-handover-route-integration.ts')),
+    '真实路由集成检查脚本缺失',
+  )
 }
 
 function main(): void {
   const packageJson = read('package.json')
   ;[
+    '"check:pda-cutting-wait-handover-route-integration"',
     '"check:cutting:all"',
     '"check:cutting:release"',
     '"test:cutting:bootstrap"',
@@ -62,6 +85,8 @@ function main(): void {
   ].forEach((scriptName) => {
     assert(packageJson.includes(scriptName), `package.json 缺少交付脚本：${scriptName}`)
   })
+  assertReleaseReadinessCoverage()
+  runReleaseReadiness()
 
   ;[
     'tests/cutting-marker-plan-cutover.spec.ts',
@@ -109,12 +134,11 @@ function main(): void {
     assert(helperCoverageText.includes(basename) || helperCoverageText.includes(stem), `${rel} 已无正式 consumer`)
   })
 
-  runReleaseReadiness()
-
   console.log(
     JSON.stringify(
       {
         release脚本入口存在: '通过',
+        真实路由集成进入发布链: '通过',
         Playwright自举入口存在: '通过',
         最终验收spec存在: '通过',
         文档运行顺序完整: '通过',
