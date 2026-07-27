@@ -65,6 +65,7 @@
     "check:process-factory-warehouse-menu-consolidation": "tsx scripts/check-process-factory-warehouse-menu-consolidation.ts",
     "check:cutting-warehouse-management-switch": "tsx scripts/check-cutting-warehouse-management-switch.ts",
     "check:pda-cutting-wait-handover-entry-routing": "tsx scripts/check-pda-cutting-wait-handover-entry-routing.ts",
+    "check:pda-cutting-wait-handover-route-integration": "tsx scripts/check-pda-cutting-wait-handover-route-integration.ts",
     "check:pda-cutting-inbound-workflow": "tsx scripts/check-pda-cutting-inbound-workflow.ts",
     "check:pda-cutting-transfer-bag-handover": "tsx scripts/check-pda-cutting-transfer-bag-handover.ts",
     "check:web-cutting-transfer-bag-actions": "tsx scripts/check-web-cutting-transfer-bag-actions.ts",

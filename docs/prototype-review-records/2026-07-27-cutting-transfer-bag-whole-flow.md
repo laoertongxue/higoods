@@ -114,7 +114,8 @@
 - 中转袋交出复用状态键、轮次令牌和确认前 `flush` 模式；成功后取消等待并重置当前轮，扫描完成仅局部更新识别结果。
 - 聚焦检查执行统一路由离开 helper，并通过 PDA 顶部待办间接调用真实 `appStore.navigate`、浏览器同步调用 `syncFromBrowser`，实际捕获 `higood:pda-cutting-inbound-leave` 与 `higood:pda-cutting-handover-leave` 各一次；同 URL 不重复派发。全局 Enter 也通过可执行 helper 验证两个交出扫码框会派发、非 Enter 与特殊工艺字段不派发。
 - 聚焦检查以真实历史深链渲染整袋交出工作区，并执行旧确认命令回归，确认旧逐菲票事件写入口不可达。
-- 五入口路由检查通过真实 `routes-pda` 注册表和生产路由解析器覆盖根路由、动态入仓深链及五个旧 `action` 目标，并保留一次真实 `resolvePage` 渲染；冷启动由约 19.15 秒降至约 0.58 秒。
+- 快速检查 `check:pda-cutting-wait-handover-entry-routing` 只验证 `routes-pda` 根路由 / 动态路由注册、五入口固定深链、不可达旧链清理和五个 legacy 解析目标，不执行页面渲染；冷启动约 0.58 秒，保留在 `check:cutting:all`。
+- 真实集成检查 `check:pda-cutting-wait-handover-route-integration` 在同步 `window.location` 和 PDA 登录态后，逐条通过 `resolvePage` 验证根页、五个新深链、五个 legacy 跳转及跳转目标可渲染；本轮冷启动约 18.55 秒，未加入 `check:cutting:all`，由本轮及最终审查显式运行。
 - 失败结果通过本地状态保留袋码、菲票、数量、库位或已识别车缝任务及派生信息，不要求重新进入页面。
 - 聚焦检查覆盖自动加入、连续扫码、整袋交出精确字段与唯一按钮、任务派生工厂、同袋单任务、成功清空、失败保留和 timer/确认竞态。
 - 整袋交出聚焦检查还覆盖袋状态异常、任务不可接收、袋与任务跨生产单、成功后本地状态更新及同袋重复扫描 / 重复确认。
