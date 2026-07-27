@@ -39,13 +39,269 @@ interface InboundRoundResult {
   message?: string
 }
 
+export type PdaCuttingInboundBagStatus =
+  | 'EMPTY_READY'
+  | 'BAGGED_WAIT_INBOUND'
+  | 'INBOUNDED'
+  | 'HANDED_OVER'
+  | 'VOIDED'
+
+export type PdaCuttingInboundTicketStatus = 'READY_FOR_BAGGING' | 'BAGGED' | 'VOIDED'
+
+export interface PdaCuttingInboundMockLedger {
+  bags: Record<string, {
+    bagCode: string
+    status: PdaCuttingInboundBagStatus
+    ticketNos: string[]
+    productionOrderNo: string
+    locationLabel: string
+  }>
+  tickets: Record<string, {
+    ticketNo: string
+    status: PdaCuttingInboundTicketStatus
+    bagCode: string
+  }>
+  locations: Record<string, {
+    locationLabel: string
+    enabled: boolean
+    warehouseType: 'CUTTING' | 'OTHER'
+  }>
+}
+
+const DEFAULT_INBOUND_TICKET_NOS = [
+  'FT-CUT-260307-102-01-001',
+  'FT-CUT-260307-102-01-002',
+  'FT-CUT-260307-102-02-017',
+]
+
 declare global {
   interface Window {
     __higoodPdaCuttingInboundState?: Map<string, InboundFormState>
+    __higoodPdaCuttingInboundMockLedger?: PdaCuttingInboundMockLedger
   }
 }
 
 const fallbackInboundState = new Map<string, InboundFormState>()
+let fallbackInboundMockLedger: PdaCuttingInboundMockLedger | null = null
+
+export function createPdaCuttingInboundMockLedger(
+  ticketNos: string[] = DEFAULT_INBOUND_TICKET_NOS,
+): PdaCuttingInboundMockLedger {
+  const readyTickets = Object.fromEntries(
+    Array.from(new Set([...DEFAULT_INBOUND_TICKET_NOS, ...ticketNos])).map((ticketNo) => [
+      ticketNo,
+      { ticketNo, status: 'READY_FOR_BAGGING' as const, bagCode: '' },
+    ]),
+  )
+  return {
+    bags: {
+      'BAG-001': {
+        bagCode: 'BAG-001',
+        status: 'EMPTY_READY',
+        ticketNos: [],
+        productionOrderNo: '',
+        locationLabel: '',
+      },
+      'BAG-002': {
+        bagCode: 'BAG-002',
+        status: 'EMPTY_READY',
+        ticketNos: [],
+        productionOrderNo: '',
+        locationLabel: '',
+      },
+      'BAG-WAIT-001': {
+        bagCode: 'BAG-WAIT-001',
+        status: 'BAGGED_WAIT_INBOUND',
+        ticketNos: ['FT-DEMO-BAGGED-001'],
+        productionOrderNo: 'PO-202603-0004',
+        locationLabel: '',
+      },
+      'BAG-IN-001': {
+        bagCode: 'BAG-IN-001',
+        status: 'INBOUNDED',
+        ticketNos: ['FT-DEMO-INBOUNDED-001'],
+        productionOrderNo: 'PO-202603-0004',
+        locationLabel: 'CUT-A-01',
+      },
+      'BAG-HAND-001': {
+        bagCode: 'BAG-HAND-001',
+        status: 'HANDED_OVER',
+        ticketNos: ['FT-DEMO-HANDED-001'],
+        productionOrderNo: 'PO-202603-0004',
+        locationLabel: '',
+      },
+      'BAG-VOID-001': {
+        bagCode: 'BAG-VOID-001',
+        status: 'VOIDED',
+        ticketNos: [],
+        productionOrderNo: '',
+        locationLabel: '',
+      },
+    },
+    tickets: {
+      ...readyTickets,
+      'FT-DEMO-BAGGED-001': {
+        ticketNo: 'FT-DEMO-BAGGED-001',
+        status: 'BAGGED',
+        bagCode: 'BAG-WAIT-001',
+      },
+      'FT-DEMO-INBOUNDED-001': {
+        ticketNo: 'FT-DEMO-INBOUNDED-001',
+        status: 'BAGGED',
+        bagCode: 'BAG-IN-001',
+      },
+      'FT-DEMO-HANDED-001': {
+        ticketNo: 'FT-DEMO-HANDED-001',
+        status: 'BAGGED',
+        bagCode: 'BAG-HAND-001',
+      },
+      'FT-DEMO-VOID-001': {
+        ticketNo: 'FT-DEMO-VOID-001',
+        status: 'VOIDED',
+        bagCode: '',
+      },
+    },
+    locations: {
+      'CUT-A-01': {
+        locationLabel: 'CUT-A-01',
+        enabled: true,
+        warehouseType: 'CUTTING',
+      },
+      'CUT-X-99': {
+        locationLabel: 'CUT-X-99',
+        enabled: false,
+        warehouseType: 'CUTTING',
+      },
+      'SEW-A-01': {
+        locationLabel: 'SEW-A-01',
+        enabled: true,
+        warehouseType: 'OTHER',
+      },
+    },
+  }
+}
+
+function clonePdaCuttingInboundMockLedger(
+  ledger: PdaCuttingInboundMockLedger,
+): PdaCuttingInboundMockLedger {
+  return {
+    bags: Object.fromEntries(
+      Object.entries(ledger.bags).map(([key, bag]) => [key, { ...bag, ticketNos: [...bag.ticketNos] }]),
+    ),
+    tickets: Object.fromEntries(
+      Object.entries(ledger.tickets).map(([key, ticket]) => [key, { ...ticket }]),
+    ),
+    locations: Object.fromEntries(
+      Object.entries(ledger.locations).map(([key, location]) => [key, { ...location }]),
+    ),
+  }
+}
+
+function getPdaCuttingInboundMockLedger(): PdaCuttingInboundMockLedger {
+  if (typeof window === 'undefined') {
+    if (!fallbackInboundMockLedger) {
+      fallbackInboundMockLedger = createPdaCuttingInboundMockLedger(
+        listInboundTicketCandidates().map((ticket) => ticket.ticketNo),
+      )
+    }
+    return fallbackInboundMockLedger
+  }
+  if (!window.__higoodPdaCuttingInboundMockLedger) {
+    window.__higoodPdaCuttingInboundMockLedger = createPdaCuttingInboundMockLedger(
+      listInboundTicketCandidates().map((ticket) => ticket.ticketNo),
+    )
+  }
+  return window.__higoodPdaCuttingInboundMockLedger
+}
+
+function replacePdaCuttingInboundMockLedger(ledger: PdaCuttingInboundMockLedger): void {
+  if (typeof window === 'undefined') {
+    fallbackInboundMockLedger = ledger
+    return
+  }
+  window.__higoodPdaCuttingInboundMockLedger = ledger
+}
+
+function normalizeInboundCode(value: string): string {
+  return value.trim().toUpperCase()
+}
+
+function bagStatusMessage(
+  status: PdaCuttingInboundBagStatus,
+  mode: PdaCuttingInboundMode,
+): string {
+  if (status === 'VOIDED') return '该中转袋已作废，请重新扫描。'
+  if (status === 'HANDED_OVER') return '该中转袋已交出，不能继续操作。'
+  if (status === 'INBOUNDED') {
+    return mode === 'bagging'
+      ? '该中转袋已入仓，不能再次装袋。'
+      : '该中转袋已入仓，请勿重复入仓。'
+  }
+  if (status === 'BAGGED_WAIT_INBOUND') return '该中转袋已装袋，不能重复装袋。'
+  return '空袋不能入仓，请先完成装袋。'
+}
+
+export function applyPdaCuttingInboundBusinessTransition(
+  state: InboundFormState,
+  mode: PdaCuttingInboundMode,
+  ledger: PdaCuttingInboundMockLedger,
+): InboundRoundResult & { ledger: PdaCuttingInboundMockLedger } {
+  const bagCode = normalizeInboundCode(state.carrierCode)
+  if (!bagCode) return { ok: false, message: '请扫描中转袋。', ledger }
+  const bag = ledger.bags[bagCode]
+  if (!bag) return { ok: false, message: '中转袋不存在，请重新扫描。', ledger }
+
+  if (mode === 'bagging') {
+    if (bag.status !== 'EMPTY_READY') {
+      return { ok: false, message: bagStatusMessage(bag.status, mode), ledger }
+    }
+    if (!state.scannedTicketNos.length) {
+      return { ok: false, message: '请扫描菲票。', ledger }
+    }
+    for (const rawTicketNo of state.scannedTicketNos) {
+      const ticketNo = normalizeInboundCode(rawTicketNo)
+      const ticket = ledger.tickets[ticketNo]
+      if (!ticket) {
+        return { ok: false, message: `${rawTicketNo} 不存在，请重新扫描。`, ledger }
+      }
+      if (ticket.status === 'VOIDED') {
+        return { ok: false, message: `${rawTicketNo} 已作废，请换一张。`, ledger }
+      }
+      if (ticket.status === 'BAGGED') {
+        return { ok: false, message: `${rawTicketNo} 已装袋，请换一张。`, ledger }
+      }
+    }
+
+    const nextLedger = clonePdaCuttingInboundMockLedger(ledger)
+    const nextBag = nextLedger.bags[bagCode]
+    nextBag.status = 'BAGGED_WAIT_INBOUND'
+    nextBag.ticketNos = state.scannedTicketNos.map(normalizeInboundCode)
+    nextBag.productionOrderNo = state.bagProductionOrderNo
+    nextBag.locationLabel = ''
+    nextBag.ticketNos.forEach((ticketNo) => {
+      nextLedger.tickets[ticketNo].status = 'BAGGED'
+      nextLedger.tickets[ticketNo].bagCode = bagCode
+    })
+    return { ok: true, ledger: nextLedger }
+  }
+
+  if (bag.status !== 'BAGGED_WAIT_INBOUND') {
+    return { ok: false, message: bagStatusMessage(bag.status, mode), ledger }
+  }
+  const locationLabel = normalizeInboundCode(state.locationLabel)
+  if (!locationLabel) return { ok: false, message: '请扫描库区库位。', ledger }
+  const location = ledger.locations[locationLabel]
+  if (!location) return { ok: false, message: '库位不存在，请重新扫描。', ledger }
+  if (!location.enabled) return { ok: false, message: '该库位已停用，请更换库位。', ledger }
+  if (location.warehouseType !== 'CUTTING') {
+    return { ok: false, message: '该库位不是裁床库位，请更换库位。', ledger }
+  }
+
+  const nextLedger = clonePdaCuttingInboundMockLedger(ledger)
+  nextLedger.bags[bagCode].status = 'INBOUNDED'
+  nextLedger.bags[bagCode].locationLabel = locationLabel
+  return { ok: true, ledger: nextLedger }
+}
 
 export interface PdaCuttingInboundScanTimerController {
   schedule: (stateKey: string, callback: () => void) => void
@@ -301,6 +557,7 @@ function validateInboundScan(
   form: InboundFormState,
   scanCode: string,
   candidates: TransferBagTicketCandidate[],
+  ledger: PdaCuttingInboundMockLedger,
 ): { ok: boolean; reason: string; ticket: TransferBagTicketCandidate | null } {
   const normalized = scanCode.trim().toUpperCase()
   if (!normalized) return { ok: false, reason: '请扫描菲票。', ticket: null }
@@ -317,6 +574,16 @@ function validateInboundScan(
   }
   if (ticket.printStatus === 'WAIT_PRINT' && ticket.ticketStatus !== 'PRINTED') {
     return { ok: false, reason: '这张菲票未打印，请换一张。', ticket }
+  }
+  const ledgerTicket = ledger.tickets[normalizeInboundCode(ticket.ticketNo)]
+  if (!ledgerTicket) {
+    return { ok: false, reason: '没有找到这张菲票，请重新扫描。', ticket }
+  }
+  if (ledgerTicket.status === 'VOIDED') {
+    return { ok: false, reason: '这张菲票已作废，请换一张。', ticket }
+  }
+  if (ledgerTicket.status === 'BAGGED') {
+    return { ok: false, reason: '这张菲票已装袋，请换一张。', ticket }
   }
   if (
     form.bagProductionOrderNo &&
@@ -342,8 +609,9 @@ export function completePdaCuttingInboundTicketScan(
   form: InboundFormState,
   scanCode: string,
   candidates: TransferBagTicketCandidate[],
+  ledger: PdaCuttingInboundMockLedger,
 ): { ok: boolean; state: InboundFormState } {
-  const validation = validateInboundScan(form, scanCode, candidates)
+  const validation = validateInboundScan(form, scanCode, candidates, ledger)
   if (!validation.ok || !validation.ticket) {
     return {
       ok: false,
@@ -497,6 +765,7 @@ function completeInboundTicketScan(
     eventState.form,
     fieldNode.value,
     listInboundTicketCandidates(),
+    getPdaCuttingInboundMockLedger(),
   )
   replaceState(
     taskId,
@@ -576,20 +845,20 @@ export function handlePdaCuttingInboundEvent(target: HTMLElement, event?: Event)
     eventState = resolveInboundEventState(taskId, mode)
   }
 
-  let result: InboundRoundResult = { ok: true }
-  if (!eventState.form.carrierCode.trim()) {
-    result = { ok: false, message: '请扫描中转袋。' }
-  } else if (mode === 'inbound-location' && !eventState.form.locationLabel.trim()) {
-    result = { ok: false, message: '请扫描库区库位。' }
-  } else if (mode === 'bagging' && eventState.form.scanCode.trim()) {
+  const currentLedger = getPdaCuttingInboundMockLedger()
+  let result: InboundRoundResult
+  if (mode === 'bagging' && eventState.form.scanCode.trim()) {
     const validation = validateInboundScan(
       eventState.form,
       eventState.form.scanCode,
       listInboundTicketCandidates(),
+      currentLedger,
     )
     result = { ok: false, message: validation.reason }
-  } else if (mode === 'bagging' && !eventState.form.scannedTicketNos.length) {
-    result = { ok: false, message: '请扫描菲票。' }
+  } else {
+    const transition = applyPdaCuttingInboundBusinessTransition(eventState.form, mode, currentLedger)
+    result = transition
+    if (transition.ok) replacePdaCuttingInboundMockLedger(transition.ledger)
   }
 
   if (result.ok) ticketScanTimerController.cancel(stateKey)

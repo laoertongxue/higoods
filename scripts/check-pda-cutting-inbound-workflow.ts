@@ -41,6 +41,16 @@ assert.equal(
   'function',
   'PDA 裁片入仓页必须导出按状态键和轮次管理扫码 timer 的控制器',
 )
+assert.equal(
+  typeof pageModule.createPdaCuttingInboundMockLedger,
+  'function',
+  'PDA 裁片入仓页必须导出最小本地袋、菲票、库位台账创建函数',
+)
+assert.equal(
+  typeof pageModule.applyPdaCuttingInboundBusinessTransition,
+  'function',
+  'PDA 裁片入仓页必须导出确认装袋、确认入仓的纯状态迁移函数',
+)
 
 type WorkflowModule = {
   createPdaCuttingInboundFormState: () => any
@@ -62,7 +72,14 @@ type WorkflowModule = {
     state: any,
     scanCode: string,
     candidates: Array<Record<string, any>>,
+    ledger: any,
   ) => { ok: boolean; state: any }
+  createPdaCuttingInboundMockLedger: () => any
+  applyPdaCuttingInboundBusinessTransition: (
+    state: any,
+    mode: 'bagging' | 'inbound-location',
+    ledger: any,
+  ) => { ok: boolean; message?: string; ledger: any }
   createPdaCuttingInboundScanTimerController: (
     scheduleTimer: (callback: () => void, delayMs: number) => unknown,
     cancelTimer: (timer: unknown) => void,
@@ -134,8 +151,11 @@ assert.deepEqual(timerEffects, ['latest-round'], '模式或路由离开后的旧
 const confirmBranchStart = source.indexOf('const actionNode = target.closest')
 const confirmFlushIndex = source.indexOf('.flush(', confirmBranchStart)
 const confirmRoundIndex = source.indexOf('completePdaCuttingInboundRound(', confirmBranchStart)
+const confirmBusinessIndex = source.indexOf('applyPdaCuttingInboundBusinessTransition(', confirmBranchStart)
 assert(confirmFlushIndex > confirmBranchStart, '确认装袋 handler 开始时必须先同步冲刷 pending scan')
 assert(confirmFlushIndex < confirmRoundIndex, 'pending scan 必须在确认结果计算前同步完成')
+assert(confirmBusinessIndex > confirmBranchStart, '确认 handler 必须调用本地业务台账状态迁移')
+assert(confirmBusinessIndex < confirmRoundIndex, '业务台账校验与迁移必须发生在表单成功清空之前')
 assert(
   source.includes("window.addEventListener('higood:pda-cutting-inbound-leave'"),
   '模式或路由离开时必须同步取消全部扫码 timer',
@@ -185,7 +205,8 @@ assert(
 )
 
 const unknownState = { ...secondScan.state, scanCode: 'UNKNOWN-001' }
-const unknownScan = workflow.completePdaCuttingInboundTicketScan(unknownState, 'UNKNOWN-001', [])
+const mockLedger = workflow.createPdaCuttingInboundMockLedger()
+const unknownScan = workflow.completePdaCuttingInboundTicketScan(unknownState, 'UNKNOWN-001', [], mockLedger)
 assert.equal(unknownScan.ok, false, '未知菲票必须在扫描完成时失败')
 assert.equal(unknownScan.state.scanCode, '', '未知菲票失败后应清空输入，便于重扫')
 assert.deepEqual(unknownScan.state.scannedTicketNos, ['FT-001', 'FT-002'], '未知菲票失败必须保留已扫数据')
@@ -195,6 +216,7 @@ const waitScan = workflow.completePdaCuttingInboundTicketScan(
   { ...secondScan.state, scanCode: 'WAIT-001' },
   'WAIT-001',
   [],
+  mockLedger,
 )
 assert.equal(waitScan.ok, false, 'WAIT 菲票必须在扫描完成时失败')
 assert.equal(waitScan.state.scanCode, '', 'WAIT 菲票失败后应清空输入')
@@ -204,6 +226,7 @@ const voidScan = workflow.completePdaCuttingInboundTicketScan(
   { ...secondScan.state, scanCode: 'VOID-001' },
   'VOID-001',
   [],
+  mockLedger,
 )
 assert.equal(voidScan.ok, false, 'VOID 菲票必须在扫描完成时失败')
 assert.equal(voidScan.state.scanCode, '', 'VOID 菲票失败后应清空输入')
@@ -242,6 +265,175 @@ const successfulInbound = workflow.completePdaCuttingInboundRound(inboundState, 
 assert.equal(successfulInbound.resultMessage, '入仓成功', '入仓成功提示必须精确')
 assert.equal(successfulInbound.carrierCode, '', '入仓成功后必须清空袋码')
 assert.equal(successfulInbound.locationLabel, '', '入仓成功后必须清空库位')
+
+const demoTicketNos = [
+  'FT-CUT-260307-102-01-001',
+  'FT-CUT-260307-102-01-002',
+  'FT-CUT-260307-102-02-017',
+]
+for (const ticketNo of demoTicketNos) {
+  assert.equal(mockLedger.tickets[ticketNo]?.status, 'READY_FOR_BAGGING', `当前页面候选菲票必须进入本地台账：${ticketNo}`)
+}
+assert.equal(mockLedger.bags['BAG-001']?.status, 'EMPTY_READY', '演示台账必须提供第一个空袋')
+assert.equal(mockLedger.bags['BAG-002']?.status, 'EMPTY_READY', '演示台账必须提供第二个空袋支持连续装袋')
+
+const knownTicketCandidate = {
+  ticketRecordId: demoTicketNos[0],
+  feiTicketId: demoTicketNos[0],
+  ticketNo: demoTicketNos[0],
+  ticketStatus: 'PRINTED',
+  printStatus: 'PRINTED',
+  productionOrderNo: 'PO-202603-0004',
+}
+const unknownLedgerTicket = workflow.completePdaCuttingInboundTicketScan(
+  { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-001', scanCode: 'FT-BT-UNKNOWN-001' },
+  'FT-BT-UNKNOWN-001',
+  [{ ...knownTicketCandidate, ticketRecordId: 'FT-BT-UNKNOWN-001', feiTicketId: 'FT-BT-UNKNOWN-001', ticketNo: 'FT-BT-UNKNOWN-001' }],
+  mockLedger,
+)
+assert.equal(unknownLedgerTicket.ok, false, '候选列表存在但本地台账不存在的菲票也必须阻断')
+assert(unknownLedgerTicket.state.scanFeedbackMessage.includes('没有找到'), '台账不存在菲票必须提示未找到')
+
+const voidLedger = structuredClone(mockLedger)
+voidLedger.tickets[demoTicketNos[0]].status = 'VOIDED'
+const voidLedgerTicket = workflow.completePdaCuttingInboundTicketScan(
+  { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-001', scanCode: demoTicketNos[0] },
+  demoTicketNos[0],
+  [knownTicketCandidate],
+  voidLedger,
+)
+assert.equal(voidLedgerTicket.ok, false, '本地台账已作废菲票必须阻断')
+assert(voidLedgerTicket.state.scanFeedbackMessage.includes('已作废'), '台账已作废菲票提示错误')
+
+const alreadyBaggedLedger = structuredClone(mockLedger)
+alreadyBaggedLedger.tickets[demoTicketNos[0]].status = 'BAGGED'
+const alreadyBaggedTicket = workflow.completePdaCuttingInboundTicketScan(
+  { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-002', scanCode: demoTicketNos[0] },
+  demoTicketNos[0],
+  [knownTicketCandidate],
+  alreadyBaggedLedger,
+)
+assert.equal(alreadyBaggedTicket.ok, false, '本地台账已装袋菲票必须阻断跨轮次重复')
+assert(alreadyBaggedTicket.state.scanFeedbackMessage.includes('已装袋'), '跨轮次重复菲票提示错误')
+
+const validBaggingState = {
+  ...workflow.createPdaCuttingInboundFormState(),
+  carrierCode: 'BAG-001',
+  bagProductionOrderNo: 'PO-202603-0004',
+  scannedTicketNos: [demoTicketNos[0]],
+  inboundQty: '195',
+}
+const validBagging = workflow.applyPdaCuttingInboundBusinessTransition(validBaggingState, 'bagging', mockLedger)
+assert.equal(validBagging.ok, true, '空袋和可装袋菲票必须允许确认装袋')
+assert.equal(validBagging.ledger.bags['BAG-001'].status, 'BAGGED_WAIT_INBOUND', '装袋后袋状态必须变为已装袋待入仓')
+assert.deepEqual(validBagging.ledger.bags['BAG-001'].ticketNos, [demoTicketNos[0]], '装袋后袋必须记录菲票')
+assert.equal(validBagging.ledger.tickets[demoTicketNos[0]].status, 'BAGGED', '装袋后菲票状态必须变为已装袋')
+assert.equal(validBagging.ledger.tickets[demoTicketNos[0]].bagCode, 'BAG-001', '装袋后菲票必须记录所属袋')
+assert.equal(mockLedger.bags['BAG-001'].status, 'EMPTY_READY', '纯状态迁移不得修改传入台账')
+
+const missingBag = workflow.applyPdaCuttingInboundBusinessTransition(
+  { ...validBaggingState, carrierCode: 'BAG-NOT-FOUND' },
+  'bagging',
+  mockLedger,
+)
+assert.equal(missingBag.ok, false, '不存在的中转袋不得装袋')
+assert(missingBag.message?.includes('不存在'), '不存在袋码提示错误')
+
+for (const bagCode of ['BAG-WAIT-001', 'BAG-IN-001', 'BAG-HAND-001', 'BAG-VOID-001']) {
+  const invalidBagStatus = workflow.applyPdaCuttingInboundBusinessTransition(
+    { ...validBaggingState, carrierCode: bagCode },
+    'bagging',
+    mockLedger,
+  )
+  assert.equal(invalidBagStatus.ok, false, `${bagCode} 非空袋可装袋状态，不得再次装袋`)
+}
+
+const voidTicketConfirmLedger = structuredClone(mockLedger)
+voidTicketConfirmLedger.tickets[demoTicketNos[0]].status = 'VOIDED'
+assert.equal(
+  workflow.applyPdaCuttingInboundBusinessTransition(validBaggingState, 'bagging', voidTicketConfirmLedger).ok,
+  false,
+  '确认装袋时必须再次阻断已作废菲票',
+)
+assert.equal(
+  workflow.applyPdaCuttingInboundBusinessTransition(validBaggingState, 'bagging', alreadyBaggedLedger).ok,
+  false,
+  '确认装袋时必须再次阻断已装袋菲票',
+)
+
+const secondRoundState = {
+  ...workflow.createPdaCuttingInboundFormState(),
+  carrierCode: 'BAG-002',
+  bagProductionOrderNo: 'PO-202603-0004',
+  scannedTicketNos: [demoTicketNos[1]],
+  inboundQty: '195',
+}
+const secondBagging = workflow.applyPdaCuttingInboundBusinessTransition(
+  secondRoundState,
+  'bagging',
+  validBagging.ledger,
+)
+assert.equal(secondBagging.ok, true, '首轮成功后必须允许用第二个空袋继续装另一张票')
+assert.equal(secondBagging.ledger.bags['BAG-002'].status, 'BAGGED_WAIT_INBOUND', '第二轮有效装袋状态迁移错误')
+
+const crossRoundRepeat = workflow.completePdaCuttingInboundTicketScan(
+  { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-002', scanCode: demoTicketNos[0] },
+  demoTicketNos[0],
+  [knownTicketCandidate],
+  validBagging.ledger,
+)
+assert.equal(crossRoundRepeat.ok, false, '首轮已装袋菲票不得在新一轮再次加入')
+
+const emptyBagInbound = workflow.applyPdaCuttingInboundBusinessTransition(
+  { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-002', locationLabel: 'CUT-A-01' },
+  'inbound-location',
+  mockLedger,
+)
+assert.equal(emptyBagInbound.ok, false, '空袋不得入仓')
+
+for (const [locationLabel, message] of [
+  ['CUT-NOT-FOUND', '不存在库位'],
+  ['CUT-X-99', '停用库位'],
+  ['SEW-A-01', '非裁床库位'],
+] as const) {
+  const invalidLocation = workflow.applyPdaCuttingInboundBusinessTransition(
+    { ...workflow.createPdaCuttingInboundFormState(), carrierCode: 'BAG-WAIT-001', locationLabel },
+    'inbound-location',
+    mockLedger,
+  )
+  assert.equal(invalidLocation.ok, false, `${message}必须阻断入仓`)
+}
+
+const validInboundState = {
+  ...workflow.createPdaCuttingInboundFormState(),
+  carrierCode: 'BAG-WAIT-001',
+  locationLabel: 'CUT-A-01',
+}
+const validInbound = workflow.applyPdaCuttingInboundBusinessTransition(
+  validInboundState,
+  'inbound-location',
+  mockLedger,
+)
+assert.equal(validInbound.ok, true, '已装袋待入仓中转袋和有效裁床库位必须允许入仓')
+assert.equal(validInbound.ledger.bags['BAG-WAIT-001'].status, 'INBOUNDED', '入仓后袋状态必须变为已入仓')
+assert.equal(validInbound.ledger.bags['BAG-WAIT-001'].locationLabel, 'CUT-A-01', '入仓后袋必须记录库位')
+
+const repeatedInbound = workflow.applyPdaCuttingInboundBusinessTransition(
+  validInboundState,
+  'inbound-location',
+  validInbound.ledger,
+)
+assert.equal(repeatedInbound.ok, false, '同一中转袋不得重复入仓')
+assert(repeatedInbound.message?.includes('已入仓'), '重复入仓提示错误')
+
+for (const bagCode of ['BAG-IN-001', 'BAG-HAND-001', 'BAG-VOID-001']) {
+  const invalidInboundBag = workflow.applyPdaCuttingInboundBusinessTransition(
+    { ...validInboundState, carrierCode: bagCode },
+    'inbound-location',
+    mockLedger,
+  )
+  assert.equal(invalidInboundBag.ok, false, `${bagCode} 不得入仓`)
+}
 
 const baggingHtml = workflow.renderPdaCuttingInboundWorkflow('bagging', secondScan.state)
 for (const text of ['1 扫中转袋', '2 扫菲票', '3 确认装袋', '确认装袋', '已扫菲票 2 张']) {
