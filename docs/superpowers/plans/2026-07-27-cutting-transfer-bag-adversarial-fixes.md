@@ -194,9 +194,9 @@ npm run check:cutting:release
 **文件：**
 - 不预设生产代码修改；发现问题则返回对应任务修复并重新审查。
 
-**当前状态：未执行。以下步骤全部保持未勾选；任务 4 的自动化 / 治理通过不能替代本任务的真实浏览器证据。**
+**当前状态：已完成。任务 4 的自动化 / 治理通过未替代本任务的真实浏览器与独立对抗审查。**
 
-- [ ] **步骤 1：启动局域网可访问的 Vite**
+- [x] **步骤 1：启动局域网可访问的 Vite**
 
 ```bash
 npm run dev -- --host 0.0.0.0 --port 4178
@@ -215,7 +215,7 @@ curl -I "http://${LAN_IP}:4178/fcs/pda/warehouse/wait-handover?scope=cutting"
 
 必须记录实际 `http://<LAN_IP>:4178/` 地址，并确认上述 `curl -I` 返回 HTTP 200。使用账号 `F090_operator`、密码 `123456` 登录 PDA。彼此独立的场景使用新的 Playwright CLI session 或硬刷新；下文明确要求验证跨轮重复或成功后重复的步骤必须留在同一 session 连续执行，不能在中间刷新。其他设备若无法访问，检查是否与电脑处于同一 Wi-Fi / 局域网，以及 macOS 防火墙是否允许 Node / Vite 入站连接。
 
-- [ ] **步骤 2：确认源码 Mock 与固定路由**
+- [x] **步骤 2：确认源码 Mock 与固定路由**
 
 固定路由：
 
@@ -262,7 +262,7 @@ Web 当前源码 Mock：
 - 交出：`WEB-BAG-003` + `SEW-TASK-001`；`WEB-BAG-004` + `SEW-TASK-001` 用于跨生产单阻断。
 - 其他无效场景：`WEB-BAG-DONE`（已交出）、`SEW-TASK-CLOSED`（不可接收）。
 
-- [ ] **步骤 3：使用 Playwright CLI 做三分辨率攻击性操作**
+- [x] **步骤 3：使用 Playwright CLI 做三分辨率攻击性操作**
 
 视口必须覆盖：
 
@@ -333,7 +333,7 @@ mkdir -p output/playwright
 - PDA 交出：`selector` 使用 `[data-pda-cut-handover-action="confirm-transfer-bag-handover"]`，`successText` 使用 `交出成功`。
 - 三项各至少测量一次，分别记录毫秒值，且都必须 `< 200 ms`；任一不满足不得把交互性能写为通过。
 
-- [ ] **步骤 4：显式复跑专项门禁，再运行聚合 / release**
+- [x] **步骤 4：显式复跑专项门禁，再运行聚合 / release**
 
 先逐条运行并保存每条命令的退出码和关键输出，不能只依赖 `check:cutting:all`：
 
@@ -361,3 +361,10 @@ npm run check:cutting:all
 - 装袋 / 入仓 / 交出三项点击到结果 DOM 更新的毫秒值。
 
 只有上述专项自动检查、release / all 基线记录、三分辨率真实浏览器复验、三项 `< 200 ms` 性能证据、规格审查和代码质量审查均无未关闭的 Critical / Important 问题，才能声明修复完成。
+
+完成证据：
+
+- PDA 390×844 与 Web 1366×768、1280×720 均由最终独立审查使用全新 Chromium context 复验；五入口、三项 PDA 操作和 Web 三操作的成功 / 失败均有覆盖，主按钮可见、页面无横向溢出，console error 与 pageerror 均为空。
+- dev 三轮共 21 项为 21 / 21；production preview 七项为 7 / 7。独立 production 冷首击与 4× CPU 压力复验均低于 200 ms。
+- 五项专项、真实路由集成、治理、列表页门禁和构建通过；`check:cutting:release` 与 `check:cutting:all` 均只被未改动的 `production-order-overview-view.ts: min-w >= 1600px` 既有仓库门禁阻断。
+- 最终独立对抗审查逐项结论为功能范围 `APPROVED`，无 Critical、Important 或 Minor 本功能问题。
