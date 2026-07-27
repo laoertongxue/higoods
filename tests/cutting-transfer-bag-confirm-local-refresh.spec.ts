@@ -279,6 +279,8 @@ test('袋码 Enter 后不等待即可立即扫描任务并确认交出', async (
     buttonSelector: '[data-pda-cut-handover-action="confirm-transfer-bag-handover"]',
     feedbackText: '交出成功',
     activeFieldAttribute: 'data-pda-cut-handover-field',
+    postClickContentionMs: 220,
+    cpuThrottlingRate: 4,
   })
   console.log(`[PDA confirm] 交出成功 ${result.durationMs.toFixed(1)}ms`)
   expectLocalConfirmation(result, 'bagCode', '交出成功')
@@ -298,6 +300,8 @@ test('确认交出缺少袋码时局部刷新并聚焦袋码', async ({ page }) 
     buttonSelector: '[data-pda-cut-handover-action="confirm-transfer-bag-handover"]',
     feedbackText: '请扫描中转袋。',
     activeFieldAttribute: 'data-pda-cut-handover-field',
+    postClickContentionMs: 220,
+    cpuThrottlingRate: 4,
   })
   console.log(`[PDA confirm] 交出袋码失败 ${result.durationMs.toFixed(1)}ms`)
   expectLocalConfirmation(result, 'bagCode', '交出袋码失败')
@@ -320,6 +324,8 @@ test('确认交出失败后局部刷新并聚焦车缝任务', async ({ page }) 
     buttonSelector: '[data-pda-cut-handover-action="confirm-transfer-bag-handover"]',
     feedbackText: '请扫描车缝任务。',
     activeFieldAttribute: 'data-pda-cut-handover-field',
+    postClickContentionMs: 220,
+    cpuThrottlingRate: 4,
   })
   console.log(`[PDA confirm] 交出失败 ${result.durationMs.toFixed(1)}ms`)
   expectLocalConfirmation(result, 'sewingTaskCode', '交出失败')

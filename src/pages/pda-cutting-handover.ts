@@ -1188,12 +1188,17 @@ function renderPdaTransferBagHandoverWorkflowContent(
 export function renderPdaTransferBagHandoverWorkflow(
   state: PdaTransferBagHandoverFormState,
   taskId = '',
+  executionOrderId = '',
+  executionOrderNo = '',
 ): string {
   return `
     <section
       class="space-y-4 rounded-2xl border bg-card px-3 py-3 shadow-sm"
       data-pda-transfer-bag-handover-workflow
+      data-pda-cutting-context-ready="true"
       data-task-id="${escapeHtml(taskId)}"
+      data-execution-order-id="${escapeHtml(executionOrderId)}"
+      data-execution-order-no="${escapeHtml(executionOrderNo)}"
     >
       ${renderPdaTransferBagHandoverWorkflowContent(state, taskId)}
     </section>
@@ -1248,7 +1253,12 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
       title: pageTitle,
       subtitle: '',
       activeTab: pageActiveTab,
-      body: renderPdaTransferBagHandoverWorkflow(transferState, taskId),
+      body: renderPdaTransferBagHandoverWorkflow(
+        transferState,
+        taskId,
+        context.selectedExecutionOrderId || '',
+        context.selectedExecutionOrderNo || '',
+      ),
       backHref: cuttingWaitHandoverBackHref,
     })
   }
@@ -1444,6 +1454,32 @@ function resolveTransferBagHandoverContainer(node: HTMLElement): HTMLElement | n
   return node.closest<HTMLElement>('[data-pda-transfer-bag-handover-workflow]')
 }
 
+function resolveTransferBagHandoverExecutionContext(
+  taskId: string,
+  sourceNode: HTMLElement,
+): {
+  executionOrderId: string | null
+  executionOrderNo: string | null
+} {
+  const container = resolveTransferBagHandoverContainer(sourceNode)
+  if (container?.dataset?.pdaCuttingContextReady === 'true') {
+    return {
+      executionOrderId: container.dataset.executionOrderId?.trim() || null,
+      executionOrderNo: container.dataset.executionOrderNo?.trim() || null,
+    }
+  }
+  const executionOrderId = readSelectedExecutionOrderIdFromLocation()
+  const executionOrderNo = readSelectedExecutionOrderNoFromLocation()
+  if (executionOrderId || executionOrderNo) {
+    return { executionOrderId, executionOrderNo }
+  }
+  const context = buildPdaCuttingExecutionContext(taskId, 'handover')
+  return {
+    executionOrderId: context.selectedExecutionOrderId,
+    executionOrderNo: context.selectedExecutionOrderNo,
+  }
+}
+
 function updateTransferBagHandoverLiveRegion(
   container: HTMLElement | null,
   state: PdaTransferBagHandoverFormState,
@@ -1509,11 +1545,9 @@ export function handlePdaCuttingHandoverEvent(
       fieldNode instanceof HTMLInputElement &&
       (field === 'bagCode' || field === 'sewingTaskCode')
     ) {
-      const transferContext = buildPdaCuttingExecutionContext(taskId, 'handover')
-      const transferExecutionOrderId =
-        selectedExecutionOrderId || transferContext.selectedExecutionOrderId
-      const transferExecutionOrderNo =
-        selectedExecutionOrderNo || transferContext.selectedExecutionOrderNo
+      const transferContext = resolveTransferBagHandoverExecutionContext(taskId, fieldNode)
+      const transferExecutionOrderId = transferContext.executionOrderId
+      const transferExecutionOrderNo = transferContext.executionOrderNo
       const stateKey = buildTransferBagHandoverStateKey(
         taskId,
         transferExecutionOrderId,
@@ -1587,23 +1621,19 @@ export function handlePdaCuttingHandoverEvent(
   ) {
     return false
   }
-  const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
-  const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
-  const context = buildPdaCuttingExecutionContext(taskId, 'handover')
-  const resolvedExecutionOrderId = selectedExecutionOrderId || context.selectedExecutionOrderId
-  const resolvedExecutionOrderNo = selectedExecutionOrderNo || context.selectedExecutionOrderNo
 
   if (action === 'confirm-transfer-bag-handover') {
+    const transferContext = resolveTransferBagHandoverExecutionContext(taskId, actionNode)
     const stateKey = buildTransferBagHandoverStateKey(
       taskId,
-      resolvedExecutionOrderId,
-      resolvedExecutionOrderNo,
+      transferContext.executionOrderId,
+      transferContext.executionOrderNo,
     )
     transferBagScanTimerController.flush(stateKey)
     const state = getTransferBagHandoverState(
       taskId,
-      resolvedExecutionOrderId,
-      resolvedExecutionOrderNo,
+      transferContext.executionOrderId,
+      transferContext.executionOrderNo,
     )
     const nextState = submitPdaTransferBagHandoverRound(
       state,
@@ -1615,8 +1645,8 @@ export function handlePdaCuttingHandoverEvent(
     replaceTransferBagHandoverState(
       taskId,
       nextState,
-      resolvedExecutionOrderId,
-      resolvedExecutionOrderNo,
+      transferContext.executionOrderId,
+      transferContext.executionOrderNo,
     )
     const updatedLocally = updatePdaTransferBagHandoverWorkflow(
       resolveTransferBagHandoverContainer(actionNode),
@@ -1629,6 +1659,12 @@ export function handlePdaCuttingHandoverEvent(
     )
     return updatedLocally ? PDA_PAGE_HANDLED_LOCALLY : true
   }
+
+  const selectedExecutionOrderId = readSelectedExecutionOrderIdFromLocation()
+  const selectedExecutionOrderNo = readSelectedExecutionOrderNoFromLocation()
+  const context = buildPdaCuttingExecutionContext(taskId, 'handover')
+  const resolvedExecutionOrderId = selectedExecutionOrderId || context.selectedExecutionOrderId
+  const resolvedExecutionOrderNo = selectedExecutionOrderNo || context.selectedExecutionOrderNo
 
   if (action === 'confirm') {
     const form = getState(taskId, resolvedExecutionOrderId, resolvedExecutionOrderNo)

@@ -747,7 +747,10 @@ assert.equal(
 )
 const globalKeydownStart = mainSource.indexOf("document.addEventListener('keydown'")
 const globalHandoverScanIndex = mainSource.indexOf('resolvePdaCuttingScanKeydownTarget<HTMLElement>(', globalKeydownStart)
-const globalDispatchIndex = mainSource.indexOf('dispatchPageEvent(cuttingScanTarget, event)', globalHandoverScanIndex)
+const globalDispatchIndex = mainSource.indexOf(
+  'handlePdaCuttingHandoverEvent(cuttingScanTarget, event)',
+  globalHandoverScanIndex,
+)
 assert(globalHandoverScanIndex > globalKeydownStart, '全局 Enter 必须接入中转袋交出扫码框')
 assert(globalDispatchIndex > globalHandoverScanIndex, '全局 Enter 必须实际调用交出 handler')
 
