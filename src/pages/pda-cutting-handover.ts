@@ -706,13 +706,14 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
   const context = buildPdaCuttingExecutionContext(taskId, 'handover')
   const detail = context.detail
   const routeAction = readPdaCuttingHandoverActionFromLocation()
-  const isBaggingConfirmAction = routeAction === 'handover-bagging-confirm'
+  const isBaggingConfirmAction = routeAction === 'handover-bagging-confirm' || routeAction === 'transfer-bag-handover'
   const isSpecialCraftReturnAction = routeAction === 'special-craft-return'
   // 双阶段交出：交出装袋确认 + 交出确认；特种工艺回收入仓支持整袋回仓、逐菲票回仓
-  const pageTitle = isSpecialCraftReturnAction ? '特种工艺回收入仓' : isBaggingConfirmAction ? '交出装袋确认' : '交出确认'
+  const pageTitle = isSpecialCraftReturnAction ? '特种工艺回收入仓' : routeAction === 'transfer-bag-handover' ? '中转袋交出' : isBaggingConfirmAction ? '交出装袋确认' : '交出确认'
   const pageActiveTab = isBaggingConfirmAction || isSpecialCraftReturnAction ? 'warehouse' : 'handover'
-  const baggingConfirmBackHref = '/fcs/pda/warehouse/wait-handover?scope=cutting&action=handover-bagging-confirm'
-  const specialCraftReturnBackHref = '/fcs/pda/warehouse/wait-handover?scope=cutting&action=special-craft-return'
+  const cuttingWaitHandoverBackHref = '/fcs/pda/warehouse/wait-handover?scope=cutting'
+  const baggingConfirmBackHref = cuttingWaitHandoverBackHref
+  const specialCraftReturnBackHref = cuttingWaitHandoverBackHref
 
   if (!detail) {
     return renderPdaCuttingPageLayout({
